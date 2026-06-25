@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 CAORS contributors
+
+#ifndef CAORS_VERSION_H_
+#define CAORS_VERSION_H_
+
+#include "caors/export.h"
+
+#include <string_view>
+
+namespace caors {
+
+struct version {
+  int major = @PROJECT_VERSION_MAJOR@;
+  int minor = @PROJECT_VERSION_MINOR@;
+  int patch = @PROJECT_VERSION_PATCH@;
+
+  friend constexpr bool operator==(const version& lhs, const version& rhs) {
+    return lhs.major == rhs.major && lhs.minor == rhs.minor &&
+           lhs.patch == rhs.patch;
+  }
+};
+
+constexpr version k_version{@PROJECT_VERSION_MAJOR@, @PROJECT_VERSION_MINOR@,
+                            @PROJECT_VERSION_PATCH@};
+constexpr std::string_view k_version_string = "@PROJECT_VERSION@";
+
+CAORS_API version get_version() noexcept;
+CAORS_API std::string_view get_version_string() noexcept;
+
+}
+
+#endif
