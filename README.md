@@ -15,12 +15,13 @@ CAORS 是一个 C++20 基础设施库模板，面向游戏引擎、实时应用�
 - 导出宏 API：`caors/export.h`，提供 `CAORS_API` / `CAORS_LOCAL`。
 - 基础版本 API：`caors/version.h`，由 `include/caors/version.h.in` 在配置阶段生成。
 - 基础内存资源 API：`caors/memory.h`，包含后端资源、策略资源、包装资源、`allocator<T>` 和对象构造入口。
+- 基础对象系统 API：`caors/object.h`，包含对象标识、类型描述、类型注册表和默认构造工厂。
 - `examples/` 可运行示例。
 - Catch2 测试骨架，见tests目录。
 - 目标级编译警告工具函数：`target_compile_warnings()`。
 - CMake install/export 基础配置。
 
-内存系统的设计说明见 [docs/memory.md](docs/memory.md)。
+内存系统的设计说明见 [docs/memory.md](docs/memory.md)。对象系统的设计说明见 [docs/object.md](docs/object.md)。
 
 规划方向包括自定义内存分配器、对象系统、运行时类型反射和跨平台序列化。具体可用 API 以源码为准，README 不声明尚未实现的接口。
 
@@ -43,9 +44,12 @@ CAORS 后续按四个核心方向推进。每个方向应先补最小可用 API�
 
 ### 2. 对象系统
 
-- [ ] 定义基础对象类型、对象标识和生命周期模型。
-- [ ] 设计对象创建、销毁、引用和所有权约束。
-- [ ] 提供轻量级类型层级和运行时查询能力。
+- [x] 定义基础对象类型、对象标识和类型描述。
+- [x] 提供轻量级类型层级和运行时查询能力。
+- [x] 提供类型注册表和默认构造工厂。
+- [x] 接入 `memory_resource` 完成对象创建和销毁。
+- [ ] 设计对象 handle、weak handle 和所有权约束。
+- [ ] 增加对象生命周期管理器。
 - [ ] 明确线程安全边界，避免隐式全局状态。
 - [ ] 增加对象生命周期、继承关系和错误路径测试。
 
@@ -187,6 +191,7 @@ cmake --preset windows-clang-debug -DCAORS_ENABLE_PEDANTIC_WARNINGS=ON
 - `examples/memory/callback_backend.cpp`：接入 callback 后端。
 - `examples/memory/resource_layers.cpp`：组合使用 tracking、pool、allocator 和 make/destroy。
 - `examples/memory/debug_tracking.cpp`：记录存活分配和调试统计。
+- `examples/object/basic_object.cpp`：注册对象类型并通过注册表创建对象。
 
 示例目标默认在 CAORS 作为顶层项目时构建，也可以显式开关：
 
