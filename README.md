@@ -35,8 +35,9 @@ CAORS 后续按四个核心方向推进。每个方向应先补最小可用 API�
 - [x] 提供 `try_allocate()` 不抛异常入口，并保留 `allocate()` 包装语义。
 - [x] 提供 `allocator<T>`、`make<T>()` 和 `destroy<T>()` 基础入口。
 - [x] 实现 `tracking_resource`、`monotonic_resource` 和 `fixed_block_pool`。
+- [x] 实现 `debug_tracking_resource`，支持存活分配、调用点标签和错误释放统计。
 - [ ] 扩展栈式分配器、分级 size class 池等上层策略。
-- [ ] 补充调用点追踪、泄漏检测和调试标记能力。
+- [ ] 扩展越界检测、填充值和 guard block 等调试能力。
 - [ ] 评估与 `std::pmr` 的适配方式。
 - [ ] 增加跨平台压力测试和边界用例测试。
 
@@ -141,6 +142,8 @@ ctest --preset windows-clang-debug
 ctest --preset linux-gcc-debug
 ```
 
+`tests/` 会按主题目录自动收集测试源码；新增同一主题下的测试文件时，只需要把 `*.cpp` 放入对应目录。
+
 关闭测试目标：
 
 ```sh
@@ -183,6 +186,7 @@ cmake --preset windows-clang-debug -DCAORS_ENABLE_PEDANTIC_WARNINGS=ON
 - `examples/memory/system_backend.cpp`：使用 system 内存后端。
 - `examples/memory/callback_backend.cpp`：接入 callback 后端。
 - `examples/memory/resource_layers.cpp`：组合使用 tracking、pool、allocator 和 make/destroy。
+- `examples/memory/debug_tracking.cpp`：记录存活分配和调试统计。
 
 示例目标默认在 CAORS 作为顶层项目时构建，也可以显式开关：
 

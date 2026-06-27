@@ -9,11 +9,14 @@
 
 #include <atomic>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <limits>
 #include <new>
+#include <source_location>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace caors {
 
@@ -76,6 +79,31 @@ struct memory_statistics {
   std::size_t peak_bytes_in_use = 0;
 };
 
+/**
+ * @brief 单个存活分配的调试记录。
+ *
+ * `label` 由调用方管理生命周期；通过 `allocate_debug()` 捕获时，文件名、函数名、
+ * 行号和列号来自 `std::source_location`。
+ */
+struct memory_debug_record {
+  void* ptr = nullptr;
+  std::size_t size = 0;
+  std::size_t alignment = 0;
+  const char* label = nullptr;
+  const char* file_name = nullptr;
+  const char* function_name = nullptr;
+  std::uint_least32_t line = 0;
+  std::uint_least32_t column = 0;
+};
+
+/** @brief 调试分配器的统计快照。 */
+struct memory_debug_statistics {
+  memory_statistics memory;
+  std::size_t live_allocation_count = 0;
+  std::size_t invalid_deallocation_count = 0;
+  std::size_t mismatched_deallocation_count = 0;
+};
+
 class CAORS_API tracking_resource final : public memory_resource {
 public:
   explicit tracking_resource(memory_resource* upstream = nullptr) noexcept;
@@ -96,6 +124,60 @@ private:
   std::atomic<std::size_t> bytes_deallocated_{0};
   std::atomic<std::size_t> bytes_in_use_{0};
   std::atomic<std::size_t> peak_bytes_in_use_{0};
+};
+
+struct debug_tracking_state;
+
+/**
+ * @brief 记录存活分配和释放错误的调试包装资源。
+ *
+ * 该资源维护存活分配表，适合开发期、测试期和泄漏排查；不建议默认放入性能敏感热路径。
+ */
+class CAORS_API debug_tracking_resource final : public memory_resource {
+public:
+  explicit debug_tracking_resource(memory_resource* upstream = nullptr);
+  ~debug_tracking_resource() override;
+
+  debug_tracking_resource(const debug_tracking_resource&) = delete;
+  debug_tracking_resource& operator=(const debug_tracking_resource&) = delete;
+
+  [[nodiscard]] memory_resource* upstream_resource() const noexcept;
+  [[nodiscard]] memory_debug_statistics debug_statistics() const noexcept;
+  [[nodiscard]] std::size_t live_allocation_count() const noexcept;
+  [[nodiscard]] std::size_t live_bytes() const noexcept;
+  [[nodiscard]] bool has_leaks() const noexcept;
+  [[nodiscard]] std::vector<memory_debug_record> live_allocations() const;
+
+  /** @brief 分配内存并记录标签和调用位置，失败返回 `nullptr`。 */
+  [[nodiscard]] void*
+  try_allocate_debug(std::size_t size, std::size_t alignment = default_memory_alignment,
+                     const char* label = nullptr,
+                     std::source_location location = std::source_location::current()) noexcept;
+  /** @brief 使用默认对齐分配内存并记录标签和调用位置，失败返回 `nullptr`。 */
+  [[nodiscard]] void*
+  try_allocate_debug(std::size_t size, const char* label,
+                     std::source_location location = std::source_location::current()) noexcept;
+
+  /** @brief 分配内存并记录标签和调用位置，失败时按 `allocate()` 语义处理。 */
+  [[nodiscard]] void*
+  allocate_debug(std::size_t size, std::size_t alignment = default_memory_alignment,
+                 const char* label = nullptr,
+                 std::source_location location = std::source_location::current());
+  /** @brief 使用默认对齐分配内存并记录标签和调用位置，失败时按 `allocate()` 语义处理。 */
+  [[nodiscard]] void*
+  allocate_debug(std::size_t size, const char* label,
+                 std::source_location location = std::source_location::current());
+
+private:
+  void* do_try_allocate(std::size_t size, std::size_t alignment) noexcept override;
+  void do_deallocate(void* ptr, std::size_t size, std::size_t alignment) noexcept override;
+  bool do_is_equal(const memory_resource& other) const noexcept override;
+
+  [[nodiscard]] void* try_allocate_recorded(std::size_t size, std::size_t alignment,
+                                            const char* label,
+                                            std::source_location location) noexcept;
+
+  debug_tracking_state* state_ = nullptr;
 };
 
 class CAORS_API monotonic_resource final : public memory_resource {

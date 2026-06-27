@@ -133,6 +133,7 @@ caors::set_default_memory_resource(&resource);
 当前已实现：
 
 - `tracking_resource`：记录分配次数、释放次数、累计字节数、当前使用字节数和峰值使用字节数。
+- `debug_tracking_resource`：记录存活分配、标签、调用位置、非法释放和释放参数不匹配。
 
 暂不默认提供同步包装器。`system_memory_resource`、jemalloc、mimalloc 这类后端应由后端自身负责线程安全和线程局部优化；对 strategy resource 强行套锁容易变成负优化。
 
@@ -145,6 +146,28 @@ caors::allocate()
   -> fixed_block_pool
   -> system_memory_resource
 ```
+
+### debug_tracking_resource
+
+`debug_tracking_resource` 是调试用包装资源。它比 `tracking_resource` 更重，会维护一张存活分配表，因此更适合开发期、测试期和问题排查，不建议默认放进热路径。
+
+推荐通过 `allocate_debug()` 捕获调用点和标签：
+
+```cpp
+caors::debug_tracking_resource debug(&caors::get_system_memory_resource());
+
+void* ptr = debug.allocate_debug(128, 64, "temporary-buffer");
+
+for (const caors::memory_debug_record& record : debug.live_allocations()) {
+  // record 中包含 ptr、size、alignment、label、file_name、function_name、line 和 column。
+}
+
+debug.deallocate(ptr, 128, 64);
+```
+
+如果通过普通 `allocate()` 入口使用 `debug_tracking_resource`，资源仍会记录存活分配、大小和对齐，但不会有调用点标签。
+
+释放时如果找不到对应记录，资源会把它计入 `invalid_deallocation_count`，并且不会继续转发到底层后端，避免重复释放或野指针释放继续破坏堆。释放传入的 size 或 alignment 与原始记录不一致时，会计入 `mismatched_deallocation_count`，并使用原始记录释放上游内存。
 
 ## 线程安全
 
@@ -179,6 +202,7 @@ backend / strategy resource
 - 系统后端：`system_memory_resource`
 - 回调后端：`callback_memory_resource`
 - 统计包装：`tracking_resource`
+- 调试包装：`debug_tracking_resource`
 - 线性策略：`monotonic_resource`
 - 固定块策略：`fixed_block_pool`
 - 默认资源入口：`get_default_memory_resource()` / `set_default_memory_resource()`
@@ -191,9 +215,11 @@ backend / strategy resource
 - [x] `allocator<T>`：适配 STL 容器。
 - [x] `make<T>` / `destroy<T>`：统一对象构造和析构入口。
 - [x] `tracking_resource`：统计分配和释放，辅助泄漏检测。
+- [x] `debug_tracking_resource`：记录存活分配、调用点标签和错误释放。
 - [x] `monotonic_resource`：面向临时内存和批量释放。
 - [x] `fixed_block_pool`：面向固定大小对象池。
 - [x] `try_allocate`：提供不抛异常的失败返回路径。
+- [ ] 扩展越界检测、填充值和 guard block 等调试能力。
 - [ ] 评估是否需要同步包装器；默认优先让 backend 自己处理线程安全。
 - [ ] 可选第三方后端：jemalloc、mimalloc、rpmalloc。
 
@@ -204,6 +230,7 @@ backend / strategy resource
 - `examples/memory/system_backend.cpp`
 - `examples/memory/callback_backend.cpp`
 - `examples/memory/resource_layers.cpp`
+- `examples/memory/debug_tracking.cpp`
 
 行为测试位于：
 
