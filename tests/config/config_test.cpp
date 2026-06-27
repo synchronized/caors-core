@@ -19,3 +19,7 @@ TEST_CASE("config - default new alignment", "[config]") {
   CHECK(caors::config::default_new_alignment >= alignof(std::max_align_t));
   CHECK(is_power_of_two(caors::config::default_new_alignment));
 }
+
+TEST_CASE("config - exception detection matches macro", "[config]") {
+  CHECK(caors::config::has_exceptions == (CAORS_HAS_EXCEPTIONS != 0));
+}

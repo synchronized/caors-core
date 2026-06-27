@@ -11,12 +11,16 @@ CAORS 是一个 C++20 基础设施库模板，面向游戏引擎、实时应用�
 
 - `caors` 静态库目标，别名目标为 `caors::caors`。
 - 公共头文件目录 `include/caors/`。
-- 基础配置 API：`caors/config.h`，集中放置编译期探测结果和默认值。
+- 基础配置 API：`caors/config.h`，集中放置编译期探测结果、异常开关和默认值。
 - 导出宏 API：`caors/export.h`，提供 `CAORS_API` / `CAORS_LOCAL`。
 - 基础版本 API：`caors/version.h`，由 `include/caors/version.h.in` 在配置阶段生成。
+- 基础内存资源 API：`caors/memory.h`，包含后端资源、策略资源、包装资源、`allocator<T>` 和对象构造入口。
+- `examples/` 可运行示例。
 - Catch2 测试骨架，见tests目录。
 - 目标级编译警告工具函数：`target_compile_warnings()`。
 - CMake install/export 基础配置。
+
+内存系统的设计说明见 [docs/memory.md](docs/memory.md)。
 
 规划方向包括自定义内存分配器、对象系统、运行时类型反射和跨平台序列化。具体可用 API 以源码为准，README 不声明尚未实现的接口。
 
@@ -26,10 +30,14 @@ CAORS 后续按四个核心方向推进。每个方向应先补最小可用 API�
 
 ### 1. 定制化分配器
 
-- [ ] 定义统一的分配器接口，明确分配、释放、对齐和错误处理语义。
-- [ ] 实现基础分配器封装，例如系统分配器、线性分配器和栈式分配器。
-- [ ] 补充分配统计、泄漏检测和调试标记能力。
-- [ ] 评估与 STL allocator / `std::pmr` 的适配方式。
+- [x] 定义统一的内存资源接口，明确分配、释放、对齐和错误处理语义。
+- [x] 实现基础后端封装：system 后端和 callback 后端。
+- [x] 提供 `try_allocate()` 不抛异常入口，并保留 `allocate()` 包装语义。
+- [x] 提供 `allocator<T>`、`make<T>()` 和 `destroy<T>()` 基础入口。
+- [x] 实现 `tracking_resource`、`monotonic_resource` 和 `fixed_block_pool`。
+- [ ] 扩展栈式分配器、分级 size class 池等上层策略。
+- [ ] 补充调用点追踪、泄漏检测和调试标记能力。
+- [ ] 评估与 `std::pmr` 的适配方式。
 - [ ] 增加跨平台压力测试和边界用例测试。
 
 ### 2. 对象系统
@@ -172,6 +180,9 @@ cmake --preset windows-clang-debug -DCAORS_ENABLE_PEDANTIC_WARNINGS=ON
 可运行示例位于 `examples/`，按主题组织：
 
 - `examples/version/version_basic.cpp`：读取版本信息。
+- `examples/memory/system_backend.cpp`：使用 system 内存后端。
+- `examples/memory/callback_backend.cpp`：接入 callback 后端。
+- `examples/memory/resource_layers.cpp`：组合使用 tracking、pool、allocator 和 make/destroy。
 
 示例目标默认在 CAORS 作为顶层项目时构建，也可以显式开关：
 
