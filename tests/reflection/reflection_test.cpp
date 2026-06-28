@@ -19,6 +19,14 @@ struct player {
   int level = 0;
 };
 
+struct inventory {
+  int count = 0;
+};
+
+struct inventory_holder {
+  inventory items{};
+};
+
 constexpr caors::type_guid actor_guid{caors::guid::from_bytes(
     caors::guid::byte_array{0x54, 0x20, 0x08, 0xa6, 0x08, 0x5e, 0x48, 0xb7, 0x9c, 0x2f, 0x88, 0x68,
                             0xb2, 0x42, 0x18, 0xf3})};
@@ -135,4 +143,63 @@ TEST_CASE("reflection - registry reports inconsistent existing type", "[reflecti
   inconsistent.info.size += 1;
   CHECK(registry.register_type(inconsistent) ==
         caors::reflection_register_result::inconsistent_type);
+}
+
+TEST_CASE("reflection - class builder infers built-in field types", "[reflection]") {
+  caors::reflection_registry registry;
+
+  const caors::reflection_register_result result =
+      caors::reflection::class_<actor>(registry, "caors.test.reflection.builder_actor")
+          .field("id", &actor::id)
+          .field("health", &actor::health)
+          .commit();
+
+  REQUIRE(result == caors::reflection_register_result::success);
+
+  auto reflected = registry.find_type("caors.test.reflection.builder_actor");
+  REQUIRE(reflected.has_value());
+
+  auto id = reflected->find_field("id");
+  REQUIRE(id.has_value());
+  CHECK(id->type_name == "int");
+  CHECK(id->type == caors::make_type_id("int"));
+
+  auto health = reflected->find_field("health");
+  REQUIRE(health.has_value());
+  CHECK(health->type_name == "float");
+  CHECK(health->type == caors::make_type_id("float"));
+}
+
+TEST_CASE("reflection - class builder resolves registered C++ field types", "[reflection]") {
+  caors::reflection_registry registry;
+
+  REQUIRE(caors::reflection::class_<inventory>(registry, "caors.test.reflection.inventory")
+              .field("count", &inventory::count)
+              .commit() == caors::reflection_register_result::success);
+
+  REQUIRE(caors::reflection::class_<inventory_holder>(registry,
+                                                      "caors.test.reflection.inventory_holder")
+              .field("items", &inventory_holder::items)
+              .commit() == caors::reflection_register_result::success);
+
+  auto reflected = registry.find_type("caors.test.reflection.inventory_holder");
+  REQUIRE(reflected.has_value());
+
+  auto items = reflected->find_field("items");
+  REQUIRE(items.has_value());
+  CHECK(items->type_name == "caors.test.reflection.inventory");
+  CHECK(items->type == caors::make_type_id("caors.test.reflection.inventory"));
+}
+
+TEST_CASE("reflection - class builder reports missing field type mapping", "[reflection]") {
+  struct unregistered_field {};
+  struct owner {
+    unregistered_field field{};
+  };
+
+  caors::reflection_registry registry;
+
+  CHECK(caors::reflection::class_<owner>(registry, "caors.test.reflection.owner")
+            .field("field", &owner::field)
+            .commit() == caors::reflection_register_result::invalid_field);
 }

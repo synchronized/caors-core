@@ -120,6 +120,11 @@ reflection_registry::reflection_registry() : state_(new reflection_registry_stat
 reflection_registry::~reflection_registry() { delete state_; }
 
 reflection_register_result reflection_registry::register_type(const reflection_type& type) {
+  return register_type(nullptr, type);
+}
+
+reflection_register_result reflection_registry::register_type(detail::cpp_type_key key,
+                                                              const reflection_type& type) {
   if (!type.info.valid()) {
     return reflection_register_result::invalid_type;
   }
@@ -134,8 +139,18 @@ reflection_register_result reflection_registry::register_type(const reflection_t
     if (!same_type_info(*existing, type.info)) {
       return reflection_register_result::inconsistent_type;
     }
+
+    if (key != nullptr) {
+      const type_register_result type_result = state_->meta.register_cpp_type(key, type.info);
+      if (type_result != type_register_result::success &&
+          type_result != type_register_result::duplicate_id) {
+        return to_reflection_register_result(type_result);
+      }
+    }
   } else {
-    const type_register_result type_result = state_->meta.register_type(type.info);
+    const type_register_result type_result = key != nullptr
+                                                 ? state_->meta.register_cpp_type(key, type.info)
+                                                 : state_->meta.register_type(type.info);
     if (!type_register_succeeded(type_result)) {
       return to_reflection_register_result(type_result);
     }
@@ -159,6 +174,10 @@ bool reflection_registry::contains(type_id id) const {
 
 std::optional<reflection_type> reflection_registry::find_type(type_id id) const {
   return state_->meta.find<reflection_type>(id);
+}
+
+std::optional<type_info> reflection_registry::find_registered_type(detail::cpp_type_key key) const {
+  return state_->meta.find_cpp_type(key);
 }
 
 std::optional<reflection_type> reflection_registry::find_type(type_guid guid) const {

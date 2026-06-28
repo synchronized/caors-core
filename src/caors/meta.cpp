@@ -16,6 +16,11 @@ struct type_info_entry {
 
 meta_registry default_meta_registry;
 
+[[nodiscard]] bool same_type_info(const type_info& lhs, const type_info& rhs) noexcept {
+  return lhs.id == rhs.id && lhs.name == rhs.name && lhs.guid == rhs.guid && lhs.size == rhs.size &&
+         lhs.alignment == rhs.alignment && lhs.parent_id == rhs.parent_id;
+}
+
 } // namespace
 
 class meta_registry_state {
@@ -24,6 +29,7 @@ public:
   std::unordered_map<std::uint64_t, type_info_entry> types;
   std::unordered_map<std::uint64_t, type_id> names;
   std::unordered_map<guid, type_id, guid_hash> guids;
+  std::unordered_map<detail::cpp_type_key, type_id> cpp_types;
   std::unordered_map<detail::meta_component_key,
                      std::unique_ptr<detail::meta_component_storage_base>>
       components;
@@ -78,9 +84,56 @@ type_register_result meta_registry::register_type(const type_info& type) {
   return type_register_result::success;
 }
 
+type_register_result meta_registry::register_cpp_type(detail::cpp_type_key key,
+                                                      const type_info& type) {
+  if (key == nullptr) {
+    return register_type(type);
+  }
+
+  {
+    std::lock_guard lock(state_->mutex);
+    const auto key_position = state_->cpp_types.find(key);
+    if (key_position != state_->cpp_types.end() && key_position->second != type.id) {
+      return type_register_result::invalid_type;
+    }
+  }
+
+  const type_register_result result = register_type(type);
+  if (result != type_register_result::success && result != type_register_result::duplicate_id) {
+    return result;
+  }
+
+  std::lock_guard lock(state_->mutex);
+  const auto type_position = state_->types.find(type.id.value());
+  if (type_position != state_->types.end() && same_type_info(type_position->second.info, type)) {
+    state_->cpp_types.try_emplace(key, type.id);
+  }
+
+  return result;
+}
+
 bool meta_registry::contains(type_id id) const {
   std::lock_guard lock(state_->mutex);
   return state_->types.contains(id.value());
+}
+
+std::optional<type_info> meta_registry::find_cpp_type(detail::cpp_type_key key) const {
+  if (key == nullptr) {
+    return std::nullopt;
+  }
+
+  std::lock_guard lock(state_->mutex);
+  const auto key_position = state_->cpp_types.find(key);
+  if (key_position == state_->cpp_types.end()) {
+    return std::nullopt;
+  }
+
+  const auto type_position = state_->types.find(key_position->second.value());
+  if (type_position == state_->types.end()) {
+    return std::nullopt;
+  }
+
+  return type_position->second.info;
 }
 
 std::optional<type_info> meta_registry::find_type(type_id id) const {
@@ -169,6 +222,7 @@ void meta_registry::clear() noexcept {
   state_->types.clear();
   state_->names.clear();
   state_->guids.clear();
+  state_->cpp_types.clear();
   for (auto& [key, storage] : state_->components) {
     (void)key;
     storage->clear();

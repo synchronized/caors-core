@@ -19,6 +19,12 @@ struct child_type : parent_type {};
 
 }
 
+TEST_CASE("type info - built-in C++ types have default names", "[meta]") {
+  CHECK(caors::type_name<int>::value == "int");
+  CHECK(caors::type_name<float>::value == "float");
+  CHECK(caors::type_name<bool>::value == "bool");
+}
+
 TEST_CASE("type info - type id is generated from stable names", "[meta]") {
   const caors::type_id first = caors::make_type_id("caors.test.sample");
   const caors::type_id second = caors::make_type_id("caors.test.sample");
@@ -73,6 +79,18 @@ TEST_CASE("type info - registry registers and finds types", "[meta]") {
   auto by_name = registry.find_type("caors.test.type.parent");
   REQUIRE(by_name.has_value());
   CHECK(by_name->id == type->id);
+}
+
+TEST_CASE("type info - registry finds types by C++ type", "[meta]") {
+  caors::meta_registry registry;
+
+  REQUIRE(caors::register_type<sample_type>(registry, "caors.test.type.cpp_sample") ==
+          caors::type_register_result::success);
+
+  auto type = registry.find_type<sample_type>();
+  REQUIRE(type.has_value());
+  CHECK(type->name == "caors.test.type.cpp_sample");
+  CHECK(type->id == caors::make_type_id("caors.test.type.cpp_sample"));
 }
 
 TEST_CASE("type info - registry finds types by stable guid", "[meta]") {

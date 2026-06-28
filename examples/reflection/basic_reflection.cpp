@@ -15,12 +15,11 @@ struct actor {
 int main() {
   caors::reflection_registry registry;
 
-  const caors::reflection_register_result result = caors::register_reflection<actor>(
-      registry, "example.actor",
-      {
-          caors::make_field_info<int>("id", "int", offsetof(actor, id)),
-          caors::make_field_info<float>("health", "float", offsetof(actor, health)),
-      });
+  const caors::reflection_register_result result =
+      caors::reflection::class_<actor>(registry, "example.actor")
+          .field("id", &actor::id)
+          .field("health", &actor::health)
+          .commit();
 
   if (!caors::reflection_register_succeeded(result)) {
     return 1;

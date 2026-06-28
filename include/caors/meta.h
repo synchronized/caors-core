@@ -13,6 +13,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <type_traits>
 #include <unordered_map>
@@ -44,6 +45,82 @@ public:
 
 private:
   std::uint64_t value_ = 0;
+};
+
+/**
+ * @brief C++ 类型到 CAORS 类型名的默认映射。
+ *
+ * 用户类型可以通过特化 `type_name<T>` 提供默认名称。没有默认名称的类型需要先显式注册到
+ * `meta_registry`，或者在反射注册时手动传入字段类型名。
+ */
+template <typename T> struct type_name;
+
+template <> struct type_name<bool> {
+  inline static constexpr std::string_view value = "bool";
+};
+
+template <> struct type_name<char> {
+  inline static constexpr std::string_view value = "char";
+};
+
+template <> struct type_name<signed char> {
+  inline static constexpr std::string_view value = "signed_char";
+};
+
+template <> struct type_name<unsigned char> {
+  inline static constexpr std::string_view value = "unsigned_char";
+};
+
+template <> struct type_name<short> {
+  inline static constexpr std::string_view value = "short";
+};
+
+template <> struct type_name<unsigned short> {
+  inline static constexpr std::string_view value = "unsigned_short";
+};
+
+template <> struct type_name<int> {
+  inline static constexpr std::string_view value = "int";
+};
+
+template <> struct type_name<unsigned int> {
+  inline static constexpr std::string_view value = "unsigned_int";
+};
+
+template <> struct type_name<long> {
+  inline static constexpr std::string_view value = "long";
+};
+
+template <> struct type_name<unsigned long> {
+  inline static constexpr std::string_view value = "unsigned_long";
+};
+
+template <> struct type_name<long long> {
+  inline static constexpr std::string_view value = "long_long";
+};
+
+template <> struct type_name<unsigned long long> {
+  inline static constexpr std::string_view value = "unsigned_long_long";
+};
+
+template <> struct type_name<float> {
+  inline static constexpr std::string_view value = "float";
+};
+
+template <> struct type_name<double> {
+  inline static constexpr std::string_view value = "double";
+};
+
+template <> struct type_name<long double> {
+  inline static constexpr std::string_view value = "long_double";
+};
+
+template <> struct type_name<std::string> {
+  inline static constexpr std::string_view value = "std.string";
+};
+
+template <> struct type_name<std::string_view> {
+  inline static constexpr std::string_view value = "std.string_view";
 };
 
 /**
@@ -164,6 +241,25 @@ enum class meta_component_result {
 namespace detail {
 
 using meta_component_key = const void*;
+using cpp_type_key = const void*;
+
+template <typename T> struct cpp_type_key_storage {
+  inline static const int key = 0;
+};
+
+template <typename T> [[nodiscard]] cpp_type_key cpp_type_key_of() noexcept {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  return &cpp_type_key_storage<type>::key;
+}
+
+template <typename T, typename = void> struct has_type_name : std::false_type {};
+
+template <typename T>
+struct has_type_name<
+    T, std::void_t<decltype(type_name<std::remove_cv_t<std::remove_reference_t<T>>>::value)>>
+    : std::true_type {};
+
+template <typename T> inline constexpr bool has_type_name_v = has_type_name<T>::value;
 
 template <typename Component> [[nodiscard]] meta_component_key meta_component_key_of() noexcept {
   static const int key = 0;
@@ -259,7 +355,19 @@ public:
   meta_registry& operator=(const meta_registry&) = delete;
 
   [[nodiscard]] type_register_result register_type(const type_info& type);
+  [[nodiscard]] type_register_result register_cpp_type(detail::cpp_type_key key,
+                                                       const type_info& type);
+  template <typename T>
+  [[nodiscard]] type_register_result register_type_for(const type_info& type) {
+    return register_cpp_type(detail::cpp_type_key_of<T>(), type);
+  }
+
   [[nodiscard]] bool contains(type_id id) const;
+  [[nodiscard]] std::optional<type_info> find_cpp_type(detail::cpp_type_key key) const;
+  template <typename T> [[nodiscard]] std::optional<type_info> find_type() const {
+    return find_cpp_type(detail::cpp_type_key_of<T>());
+  }
+
   [[nodiscard]] std::optional<type_info> find_type(type_id id) const;
   [[nodiscard]] std::optional<type_info> find_type(type_guid guid) const;
   [[nodiscard]] std::optional<type_info> find_type(std::string_view name) const;
@@ -371,7 +479,7 @@ private:
 template <typename T>
 [[nodiscard]] type_register_result register_type(meta_registry& registry, string_name name,
                                                  type_id parent_id = type_id::invalid()) {
-  return registry.register_type(make_type_info<T>(name, parent_id));
+  return registry.register_type_for<T>(make_type_info<T>(name, parent_id));
 }
 
 /** @brief 向指定元数据注册表注册带稳定 GUID 的基础类型。 */
@@ -379,7 +487,7 @@ template <typename T>
 [[nodiscard]] type_register_result register_type(meta_registry& registry, string_name name,
                                                  type_guid guid,
                                                  type_id parent_id = type_id::invalid()) {
-  return registry.register_type(make_type_info<T>(name, guid, parent_id));
+  return registry.register_type_for<T>(make_type_info<T>(name, guid, parent_id));
 }
 
 /** @brief 向指定元数据注册表注册基础类型。 */

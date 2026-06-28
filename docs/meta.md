@@ -82,6 +82,24 @@ caors::type_info info =
 caors::type_info info = caors::make_type_info<player>("game.player", actor_id);
 ```
 
+### type_name<T>
+
+`type_name<T>` 是 C++ 类型到 CAORS 类型名的默认映射。内置基础类型已经提供默认名称，例如：
+
+```cpp
+caors::type_name<int>::value;   // "int"
+caors::type_name<float>::value; // "float"
+```
+
+用户类型可以通过特化 `type_name<T>` 提供默认名称，也可以直接通过 `register_type<T>()` 显式注册。模板注册函数会把 C++ 类型和注册后的 `type_info` 绑定起来，后续可以用 C++ 类型查询：
+
+```cpp
+caors::meta_registry registry;
+caors::register_type<actor>(registry, "game.actor");
+
+auto info = registry.find_type<actor>();
+```
+
 ### meta_registry
 
 `meta_registry` 是类型元数据注册表。它直接管理基础类型信息，并允许在同一个 `type_id` 上挂载对象、反射、序列化等元数据组件：
@@ -148,8 +166,9 @@ registry.emplace<object_factory_meta>(actor_id, true);
 - `type_guid`：稳定类型标识。
 - `string_name`：运行期 interned 名称，定义在 `caors/core/string_name.h`。
 - `make_type_id()`：根据类型名生成类型标识。
+- `type_name<T>`：基础 C++ 类型到 CAORS 类型名的默认映射。
 - `type_info` / `make_type_info<T>()`：基础类型描述。
-- `meta_registry`：基础类型注册、按 id/name/guid 查询、继承关系判断、清理和组件式元数据挂载。
+- `meta_registry`：基础类型注册、按 id/name/guid/C++ 类型查询、继承关系判断、清理和组件式元数据挂载。
 - `meta_view<T...>`：按组件集合查询类型。
 - `get_meta_registry()`：进程内默认元数据注册表。
 
