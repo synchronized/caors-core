@@ -6,8 +6,8 @@
 
 #include "caors/export.h"
 #include "caors/memory.h"
+#include "caors/type_info.h"
 
-#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string_view>
@@ -43,41 +43,11 @@ private:
 /** @brief 生成新的运行期对象实例标识。 */
 [[nodiscard]] CAORS_API object_id generate_object_id() noexcept;
 
-/**
- * @brief 对象类型标识。
- *
- * 类型标识由类型名哈希得到，适合运行期查询和注册表索引；跨版本兼容仍应由上层序列化策略约束。
- */
-class object_type_id {
-public:
-  constexpr object_type_id() noexcept = default;
-  explicit constexpr object_type_id(std::uint64_t value) noexcept : value_(value) {}
-
-  [[nodiscard]] static constexpr object_type_id invalid() noexcept { return object_type_id{}; }
-  [[nodiscard]] constexpr std::uint64_t value() const noexcept { return value_; }
-  [[nodiscard]] explicit constexpr operator bool() const noexcept { return value_ != 0; }
-
-  friend constexpr bool operator==(object_type_id lhs, object_type_id rhs) noexcept {
-    return lhs.value_ == rhs.value_;
-  }
-
-  friend constexpr bool operator!=(object_type_id lhs, object_type_id rhs) noexcept {
-    return !(lhs == rhs);
-  }
-
-private:
-  std::uint64_t value_ = 0;
-};
+using object_type_id = type_id;
 
 /** @brief 根据类型名生成对象类型标识。 */
 [[nodiscard]] constexpr object_type_id make_object_type_id(std::string_view name) noexcept {
-  std::uint64_t hash = 14695981039346656037ull;
-  for (const char character : name) {
-    hash ^= static_cast<unsigned char>(character);
-    hash *= 1099511628211ull;
-  }
-
-  return object_type_id{hash};
+  return make_type_id(name);
 }
 
 class object;
@@ -88,20 +58,31 @@ using object_destroy_fn = void (*)(object* instance, memory_resource* resource) 
 
 /** @brief 注册表中保存的对象类型描述。 */
 struct object_type {
-  object_type_id id{};
-  std::string_view name{};
-  std::size_t size = 0;
-  std::size_t alignment = 0;
-  object_type_id parent_id{};
+  type_info info{};
   object_try_create_fn try_create = nullptr;
   object_create_fn create = nullptr;
   object_destroy_fn destroy = nullptr;
 
-  [[nodiscard]] constexpr bool valid() const noexcept { return static_cast<bool>(id); }
+  [[nodiscard]] constexpr bool valid() const noexcept { return info.valid(); }
   [[nodiscard]] constexpr bool constructible() const noexcept {
     return try_create != nullptr && create != nullptr;
   }
 };
+
+/** @brief 对象类型注册结果。 */
+enum class object_register_result {
+  success,
+  invalid_type,
+  duplicate_id,
+  duplicate_name,
+  hash_collision,
+  missing_parent,
+};
+
+/** @brief 判断对象类型注册是否成功。 */
+[[nodiscard]] constexpr bool object_register_succeeded(object_register_result result) noexcept {
+  return result == object_register_result::success;
+}
 
 /**
  * @brief CAORS 对象基类。
@@ -198,7 +179,9 @@ make_object_type(std::string_view name,
   static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
 
   object_type type{
-      make_object_type_id(name),   name, sizeof(T), alignof(T), parent_id, nullptr, nullptr,
+      make_type_info<T>(name, parent_id),
+      nullptr,
+      nullptr,
       &destroy_object_instance<T>,
   };
 
@@ -215,7 +198,8 @@ class object_registry_state;
 /**
  * @brief 对象类型注册表和默认构造工厂。
  *
- * 注册表拥有类型名存储。`find_type()` 返回的 `object_type::name` 在注册表生命周期内有效。
+ * 注册表复用 `type_registry` 管理基础类型信息。`find_type()` 返回的 `object_type::info.name`
+ * 在注册表生命周期内有效。
  */
 class CAORS_API object_registry final {
 public:
@@ -225,7 +209,7 @@ public:
   object_registry(const object_registry&) = delete;
   object_registry& operator=(const object_registry&) = delete;
 
-  [[nodiscard]] bool register_type(const object_type& type);
+  [[nodiscard]] object_register_result register_type(const object_type& type);
   [[nodiscard]] bool contains(object_type_id id) const;
   [[nodiscard]] std::optional<object_type> find_type(object_type_id id) const;
   [[nodiscard]] std::optional<object_type> find_type(std::string_view name) const;
@@ -247,15 +231,16 @@ private:
 
 /** @brief 向指定注册表注册对象类型。 */
 template <typename T>
-[[nodiscard]] bool register_object_type(object_registry& registry, std::string_view name,
-                                        object_type_id parent_id = object::static_type_id()) {
+[[nodiscard]] object_register_result
+register_object_type(object_registry& registry, std::string_view name,
+                     object_type_id parent_id = object::static_type_id()) {
   return registry.register_type(make_object_type<T>(name, parent_id));
 }
 
 /** @brief 向默认注册表注册对象类型。 */
 template <typename T>
-[[nodiscard]] bool register_object_type(std::string_view name,
-                                        object_type_id parent_id = object::static_type_id()) {
+[[nodiscard]] object_register_result
+register_object_type(std::string_view name, object_type_id parent_id = object::static_type_id()) {
   return register_object_type<T>(get_object_registry(), name, parent_id);
 }
 

@@ -51,28 +51,55 @@ TEST_CASE("object - typed base exposes runtime type information", "[object]") {
 TEST_CASE("object - registry registers and finds types", "[object]") {
   caors::object_registry registry;
 
-  CHECK(caors::register_object_type<actor>(registry, actor::object_type_name));
-  CHECK(!caors::register_object_type<actor>(registry, actor::object_type_name));
+  CHECK(caors::register_object_type<actor>(registry, actor::object_type_name) ==
+        caors::object_register_result::success);
+  CHECK(caors::register_object_type<actor>(registry, actor::object_type_name) ==
+        caors::object_register_result::duplicate_id);
 
   auto type = registry.find_type(actor::static_type_id());
   REQUIRE(type.has_value());
-  CHECK(type->id == actor::static_type_id());
-  CHECK(type->name == actor::object_type_name);
-  CHECK(type->size == sizeof(actor));
-  CHECK(type->alignment == alignof(actor));
+  CHECK(type->info.id == actor::static_type_id());
+  CHECK(type->info.name == actor::object_type_name);
+  CHECK(type->info.size == sizeof(actor));
+  CHECK(type->info.alignment == alignof(actor));
   CHECK(type->constructible());
 
   auto by_name = registry.find_type(actor::object_type_name);
   REQUIRE(by_name.has_value());
-  CHECK(by_name->id == actor::static_type_id());
+  CHECK(by_name->info.id == actor::static_type_id());
+}
+
+TEST_CASE("object - registry reports registration errors", "[object]") {
+  caors::object_registry registry;
+
+  CHECK(registry.register_type(caors::object_type{}) ==
+        caors::object_register_result::invalid_type);
+
+  caors::object_type missing_parent = caors::make_object_type<actor>(
+      "caors.test.missing_parent_child", caors::make_object_type_id("caors.test.missing_parent"));
+  CHECK(registry.register_type(missing_parent) == caors::object_register_result::missing_parent);
+
+  REQUIRE(caors::register_object_type<actor>(registry, actor::object_type_name) ==
+          caors::object_register_result::success);
+
+  caors::object_type colliding = caors::make_object_type<player>(player::object_type_name);
+  colliding.info.id = actor::static_type_id();
+  CHECK(registry.register_type(colliding) == caors::object_register_result::hash_collision);
+
+  caors::object_type duplicate_name =
+      caors::make_object_type<player>("caors.test.unique_duplicate_name");
+  duplicate_name.info.name = actor::object_type_name;
+  CHECK(registry.register_type(duplicate_name) == caors::object_register_result::duplicate_name);
 }
 
 TEST_CASE("object - registry checks parent relationship", "[object]") {
   caors::object_registry registry;
 
-  REQUIRE(caors::register_object_type<actor>(registry, actor::object_type_name));
+  REQUIRE(caors::register_object_type<actor>(registry, actor::object_type_name) ==
+          caors::object_register_result::success);
   REQUIRE(caors::register_object_type<player>(registry, player::object_type_name,
-                                              actor::static_type_id()));
+                                              actor::static_type_id()) ==
+          caors::object_register_result::success);
 
   CHECK(registry.is_a(player::static_type_id(), player::static_type_id()));
   CHECK(registry.is_a(player::static_type_id(), actor::static_type_id()));
@@ -84,7 +111,8 @@ TEST_CASE("object - registry creates and destroys registered objects", "[object]
   caors::object_registry registry;
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
 
-  REQUIRE(caors::register_object_type<actor>(registry, actor::object_type_name));
+  REQUIRE(caors::register_object_type<actor>(registry, actor::object_type_name) ==
+          caors::object_register_result::success);
 
   caors::object* instance = registry.create(actor::static_type_id(), &tracking);
 
@@ -102,7 +130,8 @@ TEST_CASE("object - non default constructible types can be described but not fac
   caors::object_registry registry;
 
   REQUIRE(caors::register_object_type<non_default_object>(registry,
-                                                          non_default_object::object_type_name));
+                                                          non_default_object::object_type_name) ==
+          caors::object_register_result::success);
 
   auto type = registry.find_type(non_default_object::static_type_id());
   REQUIRE(type.has_value());

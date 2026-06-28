@@ -14,6 +14,7 @@ CAORS 是一个 C++20 基础设施库模板，面向游戏引擎、实时应用�
 - 基础配置 API：`caors/config.h`，集中放置编译期探测结果、异常开关和默认值。
 - 导出宏 API：`caors/export.h`，提供 `CAORS_API` / `CAORS_LOCAL`。
 - 基础版本 API：`caors/version.h`，由 `include/caors/version.h.in` 在配置阶段生成。
+- 基础类型信息 API：`caors/type_info.h`，提供运行期类型标识、共享类型描述和基础类型注册表。
 - 基础内存资源 API：`caors/memory.h`，包含后端资源、策略资源、包装资源、`allocator<T>` 和对象构造入口。
 - 基础对象系统 API：`caors/object.h`，包含对象标识、类型描述、类型注册表和默认构造工厂。
 - `examples/` 可运行示例。
@@ -21,7 +22,7 @@ CAORS 是一个 C++20 基础设施库模板，面向游戏引擎、实时应用�
 - 目标级编译警告工具函数：`target_compile_warnings()`。
 - CMake install/export 基础配置。
 
-内存系统的设计说明见 [docs/memory.md](docs/memory.md)。对象系统的设计说明见 [docs/object.md](docs/object.md)。
+内存系统的设计说明见 [docs/memory.md](docs/memory.md)。类型信息设计说明见 [docs/type_info.md](docs/type_info.md)。对象系统的设计说明见 [docs/object.md](docs/object.md)。
 
 规划方向包括自定义内存分配器、对象系统、运行时类型反射和跨平台序列化。具体可用 API 以源码为准，README 不声明尚未实现的接口。
 
@@ -46,7 +47,9 @@ CAORS 后续按四个核心方向推进。每个方向应先补最小可用 API�
 
 - [x] 定义基础对象类型、对象标识和类型描述。
 - [x] 提供轻量级类型层级和运行时查询能力。
-- [x] 提供类型注册表和默认构造工厂。
+- [x] 抽象共享 `type_registry`，避免对象系统和反射系统重复维护基础类型索引。
+- [x] 提供对象注册表和默认构造工厂。
+- [x] 提供注册结果枚举，区分重复注册、重名、hash 碰撞和父类型缺失。
 - [x] 接入 `memory_resource` 完成对象创建和销毁。
 - [ ] 设计对象 handle、weak handle 和所有权约束。
 - [ ] 增加对象生命周期管理器。

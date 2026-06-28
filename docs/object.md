@@ -10,8 +10,8 @@
 CAORS 对象系统第一阶段只解决几件事：
 
 - 对象实例有运行期唯一标识。
-- 对象类型有稳定的运行期类型标识和名称。
-- 对象可以注册到类型注册表。
+- 对象类型复用基础 `type_info`，包含类型标识、名称、大小、对齐和父类型。
+- 对象可以注册到基于 `type_registry` 的对象注册表。
 - 注册表可以按类型创建和销毁默认构造对象。
 - 对象创建和销毁可以接入 `memory_resource`。
 
@@ -38,9 +38,17 @@ caors::object_id id = instance.id();
 
 它只表示当前进程运行期间的对象身份，不承诺跨进程、跨版本或跨存档稳定。
 
-### object_type_id
+### type_info
 
-`object_type_id` 是对象类型标识，由类型名哈希得到：
+`type_info` 是对象系统和后续反射系统共享的基础类型描述，包含：
+
+- `id`
+- `name`
+- `size`
+- `alignment`
+- `parent_id`
+
+`object_type_id` 是 `type_id` 在对象系统里的别名。类型标识由类型名哈希得到：
 
 ```cpp
 caors::object_type_id id = caors::make_object_type_id("game.player");
@@ -83,14 +91,19 @@ object.type_name(); // "game.player"
 
 ### object_registry
 
-`object_registry` 是类型注册表和默认构造工厂。
+`object_registry` 是基于 `type_registry` 的对象注册表和默认构造工厂。它复用 `type_registry` 管理类型 id、名称和父类型关系，自己只额外保存对象创建和销毁函数。
 
 ```cpp
 caors::object_registry registry;
 
-caors::register_object_type<actor>(registry, actor::object_type_name);
-caors::register_object_type<player>(registry, player::object_type_name,
-                                    actor::static_type_id());
+if (!caors::object_register_succeeded(
+      caors::register_object_type<actor>(registry, actor::object_type_name))) {
+  // 处理注册失败。
+}
+
+caors::object_register_result result =
+    caors::register_object_type<player>(registry, player::object_type_name,
+                                        actor::static_type_id());
 ```
 
 注册后可以查询类型：
@@ -104,6 +117,15 @@ auto type = registry.find_type(player::static_type_id());
 ```cpp
 registry.is_a(player::static_type_id(), actor::static_type_id());
 ```
+
+注册失败会返回明确的 `object_register_result`：
+
+- `success`：注册成功。
+- `invalid_type`：类型描述无效。
+- `duplicate_id`：同一个 id 已注册。
+- `duplicate_name`：同一个名称已注册。
+- `hash_collision`：id 已存在，但名称不同，说明发生 hash 碰撞或手写 id 错误。
+- `missing_parent`：父类型未注册。
 
 ## 创建和销毁
 
@@ -140,7 +162,9 @@ caors::destroy_object(instance, &resource);
 - `object_type_id`：运行期对象类型标识。
 - `object`：基础对象身份和类型查询入口。
 - `object_base<Derived, Base>`：CRTP 类型查询辅助。
-- `object_type`：类型描述。
+- `type_info` / `type_registry`：对象系统和反射系统共享的基础类型描述和注册表。
+- `object_type`：基于 `type_info` 扩展对象创建和销毁能力。
+- `object_register_result`：明确对象类型注册失败原因。
 - `object_registry`：类型注册、查询、继承关系判断、默认构造工厂。
 - `get_object_registry()`：进程内默认对象注册表。
 - `create_object<T>()` / `destroy_object<T>()`：接入 `memory_resource` 的直接对象创建和销毁入口。
@@ -149,7 +173,8 @@ caors::destroy_object(instance, &resource);
 
 - [x] 对象实例 id。
 - [x] 对象类型 id、名称、大小、对齐和父类型。
-- [x] 类型注册表。
+- [x] 复用共享 `type_registry`。
+- [x] 注册结果枚举和 hash 碰撞检测。
 - [x] 默认构造工厂。
 - [x] 接入 `memory_resource`。
 - [ ] 明确对象 handle / weak handle 设计。
