@@ -50,12 +50,12 @@ caors::type_id id = caors::make_type_id("game.player");
 caors::type_info info = caors::make_type_info<player>("game.player", actor_id);
 ```
 
-### type_registry
+### meta_registry
 
-`type_registry` 负责注册和查询基础类型：
+`meta_registry` 负责注册和查询基础类型：
 
 ```cpp
-caors::type_registry registry;
+caors::meta_registry registry;
 
 caors::type_register_result result =
     caors::register_type<actor>(registry, "game.actor");
@@ -74,9 +74,9 @@ caors::type_register_result result =
 
 ## 与 meta 系统的关系
 
-`type_registry` 是 `meta_registry` 的基础层：
+`type_info` 是 `meta_registry` 的基础类型组件：
 
-- `meta_registry` 复用 `type_registry` 管理 id、名称和父类型。
+- `meta_registry` 直接管理 id、名称和父类型。
 - `object_registry` 通过 `meta_registry` 挂载 `object_type` 组件。
 - 后续 `reflection_registry` 应通过 `meta_registry` 挂载 `reflection_type` 组件。
 
@@ -89,9 +89,7 @@ caors::type_register_result result =
 - `type_info`：基础类型描述。
 - `make_type_info<T>()`：根据 C++ 类型创建基础类型描述。
 - `type_register_result`：明确基础类型注册失败原因。
-- `type_registry`：基础类型注册、查询、继承关系判断和清理。
-- `get_type_registry()`：进程内默认基础类型注册表。
-- `meta_registry`：组件式类型元数据注册表，见 [meta.md](meta.md)。
+- `meta_registry`：基础类型注册、查询、继承关系判断、清理和组件式类型元数据注册表，见 [meta.md](meta.md)。
 
 行为测试位于：
 

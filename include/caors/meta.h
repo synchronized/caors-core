@@ -95,50 +95,6 @@ enum class type_register_result {
   return result == type_register_result::success;
 }
 
-class type_registry_state;
-
-/**
- * @brief 对象系统和反射系统共享的基础类型注册表。
- *
- * 注册表拥有类型名存储。`find_type()` 返回的 `type_info::name` 在注册表生命周期内有效。
- */
-class CAORS_API type_registry final {
-public:
-  type_registry();
-  ~type_registry();
-
-  type_registry(const type_registry&) = delete;
-  type_registry& operator=(const type_registry&) = delete;
-
-  [[nodiscard]] type_register_result register_type(const type_info& type);
-  [[nodiscard]] bool contains(type_id id) const;
-  [[nodiscard]] std::optional<type_info> find_type(type_id id) const;
-  [[nodiscard]] std::optional<type_info> find_type(std::string_view name) const;
-  [[nodiscard]] bool is_a(type_id id, type_id base_id) const;
-  [[nodiscard]] std::size_t size() const noexcept;
-  void clear() noexcept;
-
-private:
-  type_registry_state* state_ = nullptr;
-};
-
-/** @brief 获取进程内默认基础类型注册表。 */
-[[nodiscard]] CAORS_API type_registry& get_type_registry() noexcept;
-
-/** @brief 向指定注册表注册基础类型。 */
-template <typename T>
-[[nodiscard]] type_register_result register_type(type_registry& registry, std::string_view name,
-                                                 type_id parent_id = type_id::invalid()) {
-  return registry.register_type(make_type_info<T>(name, parent_id));
-}
-
-/** @brief 向默认基础类型注册表注册基础类型。 */
-template <typename T>
-[[nodiscard]] type_register_result register_type(std::string_view name,
-                                                 type_id parent_id = type_id::invalid()) {
-  return register_type<T>(get_type_registry(), name, parent_id);
-}
-
 /** @brief 元数据组件注册结果。 */
 enum class meta_component_result {
   success,
@@ -358,17 +314,16 @@ private:
 
 /** @brief 向指定元数据注册表注册基础类型。 */
 template <typename T>
-[[nodiscard]] type_register_result register_meta_type(meta_registry& registry,
-                                                      std::string_view name,
-                                                      type_id parent_id = type_id::invalid()) {
+[[nodiscard]] type_register_result register_type(meta_registry& registry, std::string_view name,
+                                                 type_id parent_id = type_id::invalid()) {
   return registry.register_type(make_type_info<T>(name, parent_id));
 }
 
 /** @brief 向默认元数据注册表注册基础类型。 */
 template <typename T>
-[[nodiscard]] type_register_result register_meta_type(std::string_view name,
-                                                      type_id parent_id = type_id::invalid()) {
-  return register_meta_type<T>(get_meta_registry(), name, parent_id);
+[[nodiscard]] type_register_result register_type(std::string_view name,
+                                                 type_id parent_id = type_id::invalid()) {
+  return register_type<T>(get_meta_registry(), name, parent_id);
 }
 
 /**

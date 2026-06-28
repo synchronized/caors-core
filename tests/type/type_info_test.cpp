@@ -43,7 +43,7 @@ TEST_CASE("type info - describes layout and parent type", "[type]") {
 }
 
 TEST_CASE("type info - registry registers and finds types", "[type]") {
-  caors::type_registry registry;
+  caors::meta_registry registry;
 
   CHECK(caors::register_type<parent_type>(registry, "caors.test.type.parent") ==
         caors::type_register_result::success);
@@ -63,7 +63,7 @@ TEST_CASE("type info - registry registers and finds types", "[type]") {
 }
 
 TEST_CASE("type info - registry reports registration errors", "[type]") {
-  caors::type_registry registry;
+  caors::meta_registry registry;
 
   CHECK(registry.register_type(caors::type_info{}) == caors::type_register_result::invalid_type);
 
@@ -86,7 +86,7 @@ TEST_CASE("type info - registry reports registration errors", "[type]") {
 }
 
 TEST_CASE("type info - registry checks parent relationship", "[type]") {
-  caors::type_registry registry;
+  caors::meta_registry registry;
   const caors::type_id parent_id = caors::make_type_id("caors.test.type.parent");
   const caors::type_id child_id = caors::make_type_id("caors.test.type.child");
 

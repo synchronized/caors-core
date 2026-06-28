@@ -4,10 +4,16 @@
 #include "caors/meta.h"
 
 #include <mutex>
+#include <string>
 #include <unordered_map>
 
 namespace caors {
 namespace {
+
+struct type_info_entry {
+  std::string name;
+  type_info info;
+};
 
 meta_registry default_meta_registry;
 
@@ -16,7 +22,8 @@ meta_registry default_meta_registry;
 class meta_registry_state {
 public:
   mutable std::mutex mutex;
-  type_registry types;
+  std::unordered_map<std::uint64_t, type_info_entry> types;
+  std::unordered_map<std::string, type_id> names;
   std::unordered_map<detail::meta_component_key,
                      std::unique_ptr<detail::meta_component_storage_base>>
       components;
@@ -27,29 +34,104 @@ meta_registry::meta_registry() : state_(new meta_registry_state) {}
 meta_registry::~meta_registry() { delete state_; }
 
 type_register_result meta_registry::register_type(const type_info& type) {
-  return state_->types.register_type(type);
+  if (!type.valid()) {
+    return type_register_result::invalid_type;
+  }
+
+  std::lock_guard lock(state_->mutex);
+  const auto id_position = state_->types.find(type.id.value());
+  if (id_position != state_->types.end()) {
+    if (id_position->second.info.name == type.name) {
+      return type_register_result::duplicate_id;
+    }
+
+    return type_register_result::hash_collision;
+  }
+
+  if (state_->names.contains(std::string(type.name))) {
+    return type_register_result::duplicate_name;
+  }
+
+  if (type.parent_id && !state_->types.contains(type.parent_id.value())) {
+    return type_register_result::missing_parent;
+  }
+
+  auto [position, inserted] = state_->types.try_emplace(type.id.value());
+  if (!inserted) {
+    return type_register_result::duplicate_id;
+  }
+
+  type_info_entry& entry = position->second;
+  entry.name = std::string(type.name);
+  entry.info = type;
+  entry.info.name = entry.name;
+  state_->names.emplace(entry.name, type.id);
+
+  return type_register_result::success;
 }
 
-bool meta_registry::contains(type_id id) const { return state_->types.contains(id); }
+bool meta_registry::contains(type_id id) const {
+  std::lock_guard lock(state_->mutex);
+  return state_->types.contains(id.value());
+}
 
 std::optional<type_info> meta_registry::find_type(type_id id) const {
-  return state_->types.find_type(id);
+  std::lock_guard lock(state_->mutex);
+  const auto position = state_->types.find(id.value());
+  if (position == state_->types.end()) {
+    return std::nullopt;
+  }
+
+  return position->second.info;
 }
 
 std::optional<type_info> meta_registry::find_type(std::string_view name) const {
-  return state_->types.find_type(name);
+  std::lock_guard lock(state_->mutex);
+  const auto name_position = state_->names.find(std::string(name));
+  if (name_position == state_->names.end()) {
+    return std::nullopt;
+  }
+
+  const auto type_position = state_->types.find(name_position->second.value());
+  if (type_position == state_->types.end()) {
+    return std::nullopt;
+  }
+
+  return type_position->second.info;
 }
 
 bool meta_registry::is_a(type_id id, type_id base_id) const {
-  return state_->types.is_a(id, base_id);
-}
-
-std::size_t meta_registry::size() const noexcept { return state_->types.size(); }
-
-void meta_registry::clear() noexcept {
-  state_->types.clear();
+  if (!id || !base_id) {
+    return false;
+  }
 
   std::lock_guard lock(state_->mutex);
+  type_id current_id = id;
+  while (current_id) {
+    if (current_id == base_id) {
+      return true;
+    }
+
+    const auto position = state_->types.find(current_id.value());
+    if (position == state_->types.end()) {
+      return false;
+    }
+
+    current_id = position->second.info.parent_id;
+  }
+
+  return false;
+}
+
+std::size_t meta_registry::size() const noexcept {
+  std::lock_guard lock(state_->mutex);
+  return state_->types.size();
+}
+
+void meta_registry::clear() noexcept {
+  std::lock_guard lock(state_->mutex);
+  state_->types.clear();
+  state_->names.clear();
   for (auto& [key, storage] : state_->components) {
     (void)key;
     storage->clear();

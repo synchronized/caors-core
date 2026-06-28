@@ -11,7 +11,7 @@
 
 - 用 `type_id` 表示稳定的运行期类型 key。
 - 用 `type_info` 保存类型名、大小、对齐和父类型。
-- 用 `type_registry` 集中处理基础类型注册、查找和继承关系判断。
+- 用 `meta_registry` 集中处理基础类型注册、查找和继承关系判断。
 - 用 `meta_registry` 在同一个 `type_id` 上挂载不同主题的元数据组件。
 - 避免对象系统、反射系统和序列化系统各自重复实现类型注册逻辑。
 
@@ -50,12 +50,12 @@ caors::type_id id = caors::make_type_id("game.player");
 caors::type_info info = caors::make_type_info<player>("game.player", actor_id);
 ```
 
-### type_registry
+### meta_registry
 
-`type_registry` 只管理基础类型信息：
+`meta_registry` 是类型元数据注册表。它直接管理基础类型信息，并允许在同一个 `type_id` 上挂载对象、反射、序列化等元数据组件：
 
 ```cpp
-caors::type_registry registry;
+caors::meta_registry registry;
 
 caors::type_register_result result =
     caors::register_type<actor>(registry, "game.actor");
@@ -70,9 +70,7 @@ caors::type_register_result result =
 - `hash_collision`：id 已存在，但名称不同，说明发生 hash 碰撞或手写 id 错误。
 - `missing_parent`：父类型未注册。
 
-### meta_registry
-
-`meta_registry` 在 `type_registry` 之上增加组件式元数据存储。使用方式是先注册基础类型，再给该类型挂载组件：
+使用方式是先注册基础类型，再给该类型挂载组件：
 
 ```cpp
 struct object_factory_meta {
@@ -80,7 +78,7 @@ struct object_factory_meta {
 };
 
 caors::meta_registry registry;
-caors::register_meta_type<actor>(registry, "game.actor");
+caors::register_type<actor>(registry, "game.actor");
 
 caors::type_id actor_id = caors::make_type_id("game.actor");
 registry.emplace<object_factory_meta>(actor_id, true);
@@ -116,8 +114,7 @@ registry.emplace<object_factory_meta>(actor_id, true);
 - `type_id`：运行期类型标识。
 - `make_type_id()`：根据类型名生成类型标识。
 - `type_info` / `make_type_info<T>()`：基础类型描述。
-- `type_registry`：基础类型注册、查询、继承关系判断和清理。
-- `meta_registry`：基础类型注册和组件式元数据挂载。
+- `meta_registry`：基础类型注册、查询、继承关系判断、清理和组件式元数据挂载。
 - `meta_view<T...>`：按组件集合查询类型。
 - `get_meta_registry()`：进程内默认元数据注册表。
 

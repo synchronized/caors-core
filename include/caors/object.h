@@ -198,7 +198,7 @@ class object_registry_state;
 /**
  * @brief 对象类型注册表和默认构造工厂。
  *
- * 注册表复用 `type_registry` 管理基础类型信息。`find_type()` 返回的 `object_type::info.name`
+ * 注册表复用 `meta_registry` 管理基础类型信息。`find_type()` 返回的 `object_type::info.name`
  * 在注册表生命周期内有效。
  */
 class CAORS_API object_registry final {
