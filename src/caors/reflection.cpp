@@ -1,0 +1,207 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 CAORS contributors
+
+#include "caors/reflection.h"
+
+#include <cstdint>
+#include <unordered_set>
+
+namespace caors {
+namespace {
+
+reflection_registry default_reflection_registry;
+
+[[nodiscard]] bool same_type_info(const type_info& lhs, const type_info& rhs) noexcept {
+  return lhs.id == rhs.id && lhs.name == rhs.name && lhs.guid == rhs.guid && lhs.size == rhs.size &&
+         lhs.alignment == rhs.alignment && lhs.parent_id == rhs.parent_id;
+}
+
+[[nodiscard]] reflection_register_result
+to_reflection_register_result(type_register_result result) noexcept {
+  switch (result) {
+  case type_register_result::success:
+    return reflection_register_result::success;
+  case type_register_result::invalid_type:
+    return reflection_register_result::invalid_type;
+  case type_register_result::duplicate_id:
+    return reflection_register_result::duplicate_id;
+  case type_register_result::duplicate_name:
+    return reflection_register_result::duplicate_name;
+  case type_register_result::duplicate_guid:
+    return reflection_register_result::duplicate_guid;
+  case type_register_result::hash_collision:
+    return reflection_register_result::hash_collision;
+  case type_register_result::missing_parent:
+    return reflection_register_result::missing_parent;
+  }
+
+  return reflection_register_result::invalid_type;
+}
+
+[[nodiscard]] reflection_register_result
+to_reflection_register_result(meta_component_result result) noexcept {
+  switch (result) {
+  case meta_component_result::success:
+    return reflection_register_result::success;
+  case meta_component_result::invalid_type:
+    return reflection_register_result::invalid_type;
+  case meta_component_result::missing_type:
+    return reflection_register_result::invalid_type;
+  case meta_component_result::duplicate_component:
+    return reflection_register_result::duplicate_reflection;
+  }
+
+  return reflection_register_result::invalid_type;
+}
+
+[[nodiscard]] reflection_register_result validate_fields(const reflection_type& type) {
+  std::unordered_set<std::uint64_t> names;
+  names.reserve(type.fields.size());
+
+  for (const field_info& field : type.fields) {
+    if (!field.valid()) {
+      return reflection_register_result::invalid_field;
+    }
+
+    if (!names.insert(field.name.id()).second) {
+      return reflection_register_result::duplicate_field;
+    }
+  }
+
+  return reflection_register_result::success;
+}
+
+} // namespace
+
+bool reflection_type::valid() const noexcept {
+  if (!info.valid()) {
+    return false;
+  }
+
+  for (const field_info& field : fields) {
+    if (!field.valid()) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+std::optional<field_info> reflection_type::find_field(string_name name) const {
+  if (!name) {
+    return std::nullopt;
+  }
+
+  for (const field_info& field : fields) {
+    if (field.name == name) {
+      return field;
+    }
+  }
+
+  return std::nullopt;
+}
+
+std::optional<field_info> reflection_type::find_field(std::string_view name) const {
+  const std::optional<string_name> interned_name = string_name::find(name);
+  if (!interned_name.has_value()) {
+    return std::nullopt;
+  }
+
+  return find_field(*interned_name);
+}
+
+class reflection_registry_state {
+public:
+  meta_registry meta;
+};
+
+reflection_registry::reflection_registry() : state_(new reflection_registry_state) {}
+
+reflection_registry::~reflection_registry() { delete state_; }
+
+reflection_register_result reflection_registry::register_type(const reflection_type& type) {
+  if (!type.info.valid()) {
+    return reflection_register_result::invalid_type;
+  }
+
+  const reflection_register_result field_result = validate_fields(type);
+  if (!reflection_register_succeeded(field_result)) {
+    return field_result;
+  }
+
+  const std::optional<type_info> existing = state_->meta.find_type(type.info.id);
+  if (existing.has_value()) {
+    if (!same_type_info(*existing, type.info)) {
+      return reflection_register_result::inconsistent_type;
+    }
+  } else {
+    const type_register_result type_result = state_->meta.register_type(type.info);
+    if (!type_register_succeeded(type_result)) {
+      return to_reflection_register_result(type_result);
+    }
+  }
+
+  const std::optional<type_info> stored_info = state_->meta.find_type(type.info.id);
+  if (!stored_info.has_value()) {
+    return reflection_register_result::invalid_type;
+  }
+
+  reflection_type stored_type = type;
+  stored_type.info = *stored_info;
+
+  return to_reflection_register_result(
+      state_->meta.emplace<reflection_type>(stored_type.info.id, stored_type));
+}
+
+bool reflection_registry::contains(type_id id) const {
+  return state_->meta.has<reflection_type>(id);
+}
+
+std::optional<reflection_type> reflection_registry::find_type(type_id id) const {
+  return state_->meta.find<reflection_type>(id);
+}
+
+std::optional<reflection_type> reflection_registry::find_type(type_guid guid) const {
+  const std::optional<type_info> info = state_->meta.find_type(guid);
+  if (!info.has_value()) {
+    return std::nullopt;
+  }
+
+  return find_type(info->id);
+}
+
+std::optional<reflection_type> reflection_registry::find_type(std::string_view name) const {
+  const std::optional<type_info> info = state_->meta.find_type(name);
+  if (!info.has_value()) {
+    return std::nullopt;
+  }
+
+  return find_type(info->id);
+}
+
+std::optional<reflection_type> reflection_registry::find_type(string_name name) const {
+  const std::optional<type_info> info = state_->meta.find_type(name);
+  if (!info.has_value()) {
+    return std::nullopt;
+  }
+
+  return find_type(info->id);
+}
+
+std::size_t reflection_registry::size() const noexcept {
+  return state_->meta.count<reflection_type>();
+}
+
+void reflection_registry::clear() noexcept { state_->meta.clear(); }
+
+reflection_registry& get_reflection_registry() noexcept { return default_reflection_registry; }
+
+std::optional<reflection_type> find_reflection(type_id id) {
+  return get_reflection_registry().find_type(id);
+}
+
+std::optional<reflection_type> find_reflection(std::string_view name) {
+  return get_reflection_registry().find_type(name);
+}
+
+}

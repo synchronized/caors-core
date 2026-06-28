@@ -26,6 +26,7 @@ CAORS 目前更偏底层库和实验性基础设施，而不是完整引擎或�
 - 类型元数据 API：`caors/meta.h`，包含运行期 `type_id` 和稳定 `type_guid`。
 - 基础内存资源 API：`caors/memory.h`。
 - 基础对象系统 API：`caors/object.h`。
+- 基础反射 API：`caors/reflection.h`。
 - `examples/` 可运行示例。
 - Catch2 测试骨架，测试目录按主题自动收集。
 - CMake install/export 基础配置。
