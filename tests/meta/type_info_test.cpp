@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "caors/type_info.h"
+#include "caors/meta.h"
 
 #include <catch2/catch_all.hpp>
 
@@ -19,7 +19,7 @@ struct child_type : parent_type {};
 
 }
 
-TEST_CASE("type info - type id is generated from stable names", "[type]") {
+TEST_CASE("type info - type id is generated from stable names", "[meta]") {
   const caors::type_id first = caors::make_type_id("caors.test.sample");
   const caors::type_id second = caors::make_type_id("caors.test.sample");
   const caors::type_id other = caors::make_type_id("caors.test.other");
@@ -29,25 +29,7 @@ TEST_CASE("type info - type id is generated from stable names", "[type]") {
   CHECK(first != other);
 }
 
-TEST_CASE("type info - string names are interned", "[type]") {
-  const caors::string_name first{"caors.test.sample"};
-  const caors::string_name second{"caors.test.sample"};
-  const caors::string_name other{"caors.test.other"};
-
-  CHECK(first);
-  CHECK(first == second);
-  CHECK(first != other);
-  CHECK(first.id() == second.id());
-  CHECK(first.view() == "caors.test.sample");
-  CHECK(first.string() == "caors.test.sample");
-
-  auto found = caors::string_name::find("caors.test.sample");
-  REQUIRE(found.has_value());
-  CHECK(*found == first);
-  CHECK_FALSE(caors::string_name::find("caors.test.not_interned").has_value());
-}
-
-TEST_CASE("type info - describes layout and parent type", "[type]") {
+TEST_CASE("type info - describes layout and parent type", "[meta]") {
   constexpr std::string_view name = "caors.test.sample";
   const caors::type_id parent_id = caors::make_type_id("caors.test.parent");
   const caors::type_info info = caors::make_type_info<sample_type>(name, parent_id);
@@ -60,7 +42,7 @@ TEST_CASE("type info - describes layout and parent type", "[type]") {
   CHECK(info.parent_id == parent_id);
 }
 
-TEST_CASE("type info - registry registers and finds types", "[type]") {
+TEST_CASE("type info - registry registers and finds types", "[meta]") {
   caors::meta_registry registry;
 
   CHECK(caors::register_type<parent_type>(registry, "caors.test.type.parent") ==
@@ -80,7 +62,7 @@ TEST_CASE("type info - registry registers and finds types", "[type]") {
   CHECK(by_name->id == type->id);
 }
 
-TEST_CASE("type info - registry reports registration errors", "[type]") {
+TEST_CASE("type info - registry reports registration errors", "[meta]") {
   caors::meta_registry registry;
 
   CHECK(registry.register_type(caors::type_info{}) == caors::type_register_result::invalid_type);
@@ -103,7 +85,7 @@ TEST_CASE("type info - registry reports registration errors", "[type]") {
   CHECK(registry.register_type(duplicate_name) == caors::type_register_result::duplicate_name);
 }
 
-TEST_CASE("type info - registry checks parent relationship", "[type]") {
+TEST_CASE("type info - registry checks parent relationship", "[meta]") {
   caors::meta_registry registry;
   const caors::type_id parent_id = caors::make_type_id("caors.test.type.parent");
   const caors::type_id child_id = caors::make_type_id("caors.test.type.child");

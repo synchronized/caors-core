@@ -3,7 +3,7 @@
 
 # Meta
 
-本文档说明 CAORS 类型元数据层的当前设计。`meta` 不是运行期游戏 ECS，而是围绕 `string_name` 和 `type_id` 组织类型、对象、反射和序列化元信息的共享底座。
+本文档说明 CAORS 类型元数据层的当前设计。`meta` 不是运行期游戏 ECS，而是围绕 `string_name` 和 `type_id` 组织类型、对象、反射和序列化元信息的共享底座。`string_name` 定义在 `caors/core/string_name.h`，完整说明见 [core.md](core.md)。
 
 ## 设计目标
 
@@ -24,6 +24,8 @@
 - 具体字段、方法或序列化格式。
 
 这些能力应由对象、反射和序列化模块基于 `meta` 扩展。
+
+新代码应直接包含 `caors/meta.h` 使用类型元数据 API。
 
 ## 核心概念
 
@@ -124,7 +126,7 @@ registry.emplace<object_factory_meta>(actor_id, true);
 ## 当前已实现能力
 
 - `type_id`：运行期类型标识。
-- `string_name`：运行期 interned 名称。
+- `string_name`：运行期 interned 名称，定义在 `caors/core/string_name.h`。
 - `make_type_id()`：根据类型名生成类型标识。
 - `type_info` / `make_type_info<T>()`：基础类型描述。
 - `meta_registry`：基础类型注册、查询、继承关系判断、清理和组件式元数据挂载。
@@ -133,5 +135,6 @@ registry.emplace<object_factory_meta>(actor_id, true);
 
 行为测试位于：
 
-- `tests/type/type_info_test.cpp`
+- `tests/meta/type_info_test.cpp`
+- `tests/core/string_name_test.cpp`
 - `tests/meta/meta_test.cpp`

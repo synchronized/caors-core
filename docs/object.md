@@ -48,7 +48,7 @@ caors::object_id id = instance.id();
 - `alignment`
 - `parent_id`
 
-`object_type_id` 是 `type_id` 在对象系统里的别名。类型标识由运行期 `string_name` 派生：
+`object_type_id` 是 `type_id` 在对象系统里的别名。类型标识由运行期 `string_name` 派生，`string_name` 定义在 `caors/core/string_name.h`：
 
 ```cpp
 caors::object_type_id id = caors::make_object_type_id("game.player");
