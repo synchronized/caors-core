@@ -26,7 +26,14 @@
 
 这些能力应由对象、反射和序列化模块基于 `meta` 扩展。
 
-新代码应直接包含 `caors/meta.h` 使用类型元数据 API。
+新代码可以直接包含 `caors/meta.h` 使用完整类型元数据 API；如果只需要局部能力，也可以包含对应子头文件：
+
+- `caors/meta/type_id.h`：`type_id`、`type_guid` 和 `make_type_id()`。
+- `caors/meta/type_name.h`：`type_name<T>` 默认类型名映射。
+- `caors/meta/type_key.h`：内部 C++ 类型 key。
+- `caors/meta/type_info.h`：`type_info` 和 `make_type_info<T>()`。
+- `caors/meta/view.h`：`meta_view<T...>` 查询视图。
+- `caors/meta/registry.h`：`meta_registry`、注册结果和注册 helper。
 
 ## 核心概念
 
