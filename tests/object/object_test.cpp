@@ -88,7 +88,7 @@ TEST_CASE("object - registry reports registration errors", "[object]") {
 
   caors::object_type duplicate_name =
       caors::make_object_type<player>("caors.test.unique_duplicate_name");
-  duplicate_name.info.name = actor::object_type_name;
+  duplicate_name.info.name = caors::string_name{actor::object_type_name};
   CHECK(registry.register_type(duplicate_name) == caors::object_register_result::duplicate_name);
 }
 

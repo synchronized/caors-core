@@ -14,7 +14,7 @@ CAORS 是一个 C++20 基础设施库模板，面向游戏引擎、实时应用�
 - 基础配置 API：`caors/config.h`，集中放置编译期探测结果、异常开关和默认值。
 - 导出宏 API：`caors/export.h`，提供 `CAORS_API` / `CAORS_LOCAL`。
 - 基础版本 API：`caors/version.h`，由 `include/caors/version.h.in` 在配置阶段生成。
-- 类型元数据 API：`caors/meta.h`，提供运行期类型标识、共享类型描述、基础类型注册表和组件式元数据注册表。
+- 类型元数据 API：`caors/meta.h`，提供 `string_name`、运行期类型标识、共享类型描述和组件式元数据注册表。
 - 基础类型兼容头：`caors/type_info.h`，转发到 `caors/meta.h`。
 - 基础内存资源 API：`caors/memory.h`，包含后端资源、策略资源、包装资源、`allocator<T>` 和对象构造入口。
 - 基础对象系统 API：`caors/object.h`，包含对象标识、类型描述、类型注册表和默认构造工厂。
@@ -33,8 +33,8 @@ CAORS 后续按四个核心方向推进。每个方向应先补最小可用 API�
 
 ### 0. 类型元数据底座
 
-- [x] 定义 `type_id`、`type_info` 和基础类型注册结果。
-- [x] 在 `meta_registry` 中集中处理重名、重复 id、hash 碰撞和父类型缺失。
+- [x] 定义 `string_name`、`type_id`、`type_info` 和基础类型注册结果。
+- [x] 在 `meta_registry` 中集中处理重名、重复 id、不一致类型描述和父类型缺失。
 - [x] 提供 `meta_registry`，允许围绕同一个 `type_id` 挂载对象、反射、序列化等元数据组件。
 - [x] 提供 `meta_view<T...>()`，查询同时拥有指定元数据组件的类型。
 - [ ] 评估组件替换、批量注册和错误诊断 API。
@@ -60,7 +60,7 @@ CAORS 后续按四个核心方向推进。每个方向应先补最小可用 API�
 - [x] 抽象共享 `meta_registry`，避免对象系统和反射系统重复维护基础类型索引。
 - [x] 对象注册表改为基于 `meta_registry` 挂载 `object_type` 组件。
 - [x] 提供对象注册表和默认构造工厂。
-- [x] 提供注册结果枚举，区分重复注册、重名、hash 碰撞和父类型缺失。
+- [x] 提供注册结果枚举，区分重复注册、重名、不一致类型描述和父类型缺失。
 - [x] 接入 `memory_resource` 完成对象创建和销毁。
 - [ ] 设计对象 handle、weak handle 和所有权约束。
 - [ ] 增加对象生命周期管理器。

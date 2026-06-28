@@ -11,6 +11,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <type_traits>
 #include <unordered_map>
@@ -20,9 +21,51 @@
 namespace caors {
 
 /**
+ * @brief 运行期字符串名。
+ *
+ * `string_name` 会把文本加入进程内字符串表，相同文本共享同一个运行期 id。该 id 只用于本次
+ * 进程运行期的快速比较和查找，不承诺跨进程或跨版本稳定。
+ */
+class CAORS_API string_name {
+public:
+  constexpr string_name() noexcept = default;
+  explicit string_name(const char* name);
+  explicit string_name(std::string_view name);
+  explicit string_name(const std::string& name);
+
+  [[nodiscard]] static constexpr string_name invalid() noexcept { return string_name{}; }
+  [[nodiscard]] static std::optional<string_name> find(std::string_view name);
+
+  [[nodiscard]] constexpr std::uint64_t id() const noexcept { return id_; }
+  [[nodiscard]] constexpr bool empty() const noexcept { return id_ == 0; }
+  [[nodiscard]] constexpr explicit operator bool() const noexcept { return id_ != 0; }
+  [[nodiscard]] std::string_view view() const noexcept;
+  [[nodiscard]] std::string string() const;
+
+  friend constexpr bool operator==(string_name lhs, string_name rhs) noexcept {
+    return lhs.id_ == rhs.id_;
+  }
+
+  friend constexpr bool operator!=(string_name lhs, string_name rhs) noexcept {
+    return !(lhs == rhs);
+  }
+
+private:
+  explicit constexpr string_name(std::uint64_t id) noexcept : id_(id) {}
+
+  std::uint64_t id_ = 0;
+};
+
+[[nodiscard]] CAORS_API bool operator==(string_name lhs, std::string_view rhs);
+[[nodiscard]] CAORS_API bool operator==(std::string_view lhs, string_name rhs);
+[[nodiscard]] CAORS_API bool operator!=(string_name lhs, std::string_view rhs);
+[[nodiscard]] CAORS_API bool operator!=(std::string_view lhs, string_name rhs);
+
+/**
  * @brief 运行期类型标识。
  *
- * 类型标识由稳定类型名哈希得到，适合运行期查找和注册表索引。它不是跨版本序列化 ID。
+ * 类型标识由 `string_name` 的运行期 id 派生，适合运行期查找和注册表索引。它不是跨版本序列化
+ * ID。
  */
 class type_id {
 public:
@@ -44,14 +87,13 @@ private:
 };
 
 /** @brief 根据类型名生成运行期类型标识。 */
-[[nodiscard]] constexpr type_id make_type_id(std::string_view name) noexcept {
-  std::uint64_t hash = 14695981039346656037ull;
-  for (const char character : name) {
-    hash ^= static_cast<unsigned char>(character);
-    hash *= 1099511628211ull;
-  }
+[[nodiscard]] constexpr type_id make_type_id(string_name name) noexcept {
+  return type_id{name.id()};
+}
 
-  return type_id{hash};
+/** @brief 根据类型名生成运行期类型标识。 */
+[[nodiscard]] inline type_id make_type_id(std::string_view name) {
+  return make_type_id(string_name{name});
 }
 
 /**
@@ -61,7 +103,7 @@ private:
  */
 struct type_info {
   type_id id{};
-  std::string_view name{};
+  string_name name{};
   std::size_t size = 0;
   std::size_t alignment = 0;
   type_id parent_id{};
@@ -73,11 +115,18 @@ struct type_info {
 
 /** @brief 创建基础类型描述。 */
 template <typename T>
-[[nodiscard]] constexpr type_info make_type_info(std::string_view name,
+[[nodiscard]] constexpr type_info make_type_info(string_name name,
                                                  type_id parent_id = type_id::invalid()) noexcept {
   return type_info{
       make_type_id(name), name, sizeof(T), alignof(T), parent_id,
   };
+}
+
+/** @brief 创建基础类型描述。 */
+template <typename T>
+[[nodiscard]] type_info make_type_info(std::string_view name,
+                                       type_id parent_id = type_id::invalid()) {
+  return make_type_info<T>(string_name{name}, parent_id);
 }
 
 /** @brief 基础类型注册结果。 */
@@ -209,6 +258,7 @@ public:
   [[nodiscard]] bool contains(type_id id) const;
   [[nodiscard]] std::optional<type_info> find_type(type_id id) const;
   [[nodiscard]] std::optional<type_info> find_type(std::string_view name) const;
+  [[nodiscard]] std::optional<type_info> find_type(string_name name) const;
   [[nodiscard]] bool is_a(type_id id, type_id base_id) const;
   [[nodiscard]] std::size_t size() const noexcept;
   void clear() noexcept;
@@ -314,16 +364,30 @@ private:
 
 /** @brief 向指定元数据注册表注册基础类型。 */
 template <typename T>
-[[nodiscard]] type_register_result register_type(meta_registry& registry, std::string_view name,
+[[nodiscard]] type_register_result register_type(meta_registry& registry, string_name name,
                                                  type_id parent_id = type_id::invalid()) {
   return registry.register_type(make_type_info<T>(name, parent_id));
+}
+
+/** @brief 向指定元数据注册表注册基础类型。 */
+template <typename T>
+[[nodiscard]] type_register_result register_type(meta_registry& registry, std::string_view name,
+                                                 type_id parent_id = type_id::invalid()) {
+  return register_type<T>(registry, string_name{name}, parent_id);
+}
+
+/** @brief 向默认元数据注册表注册基础类型。 */
+template <typename T>
+[[nodiscard]] type_register_result register_type(string_name name,
+                                                 type_id parent_id = type_id::invalid()) {
+  return register_type<T>(get_meta_registry(), name, parent_id);
 }
 
 /** @brief 向默认元数据注册表注册基础类型。 */
 template <typename T>
 [[nodiscard]] type_register_result register_type(std::string_view name,
                                                  type_id parent_id = type_id::invalid()) {
-  return register_type<T>(get_meta_registry(), name, parent_id);
+  return register_type<T>(get_meta_registry(), string_name{name}, parent_id);
 }
 
 /**

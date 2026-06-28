@@ -48,13 +48,13 @@ caors::object_id id = instance.id();
 - `alignment`
 - `parent_id`
 
-`object_type_id` 是 `type_id` 在对象系统里的别名。类型标识由类型名哈希得到：
+`object_type_id` 是 `type_id` 在对象系统里的别名。类型标识由运行期 `string_name` 派生：
 
 ```cpp
 caors::object_type_id id = caors::make_object_type_id("game.player");
 ```
 
-类型名应由使用方保持稳定。后续序列化版本兼容仍应由上层格式和迁移策略处理。
+类型名应由使用方保持清晰可读。后续序列化版本兼容仍应由显式 `type_guid`、上层格式和迁移策略处理。
 
 ### object
 
@@ -124,7 +124,7 @@ registry.is_a(player::static_type_id(), actor::static_type_id());
 - `invalid_type`：类型描述无效。
 - `duplicate_id`：同一个 id 已注册。
 - `duplicate_name`：同一个名称已注册。
-- `hash_collision`：id 已存在，但名称不同，说明发生 hash 碰撞或手写 id 错误。
+- `hash_collision`：id 已存在，但名称不同，说明发生手写 id 错误或外部构造了不一致的类型描述。
 - `missing_parent`：父类型未注册。
 
 ## 创建和销毁
@@ -175,7 +175,7 @@ caors::destroy_object(instance, &resource);
 - [x] 对象类型 id、名称、大小、对齐和父类型。
 - [x] 复用共享 `meta_registry`。
 - [x] 将 `object_type` 作为类型元数据组件挂载。
-- [x] 注册结果枚举和 hash 碰撞检测。
+- [x] 注册结果枚举和不一致类型描述检测。
 - [x] 默认构造工厂。
 - [x] 接入 `memory_resource`。
 - [ ] 明确对象 handle / weak handle 设计。

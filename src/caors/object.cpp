@@ -12,15 +12,9 @@ std::atomic<std::uint64_t> next_object_id{1};
 
 object_registry default_object_registry;
 
-[[nodiscard]] object_type make_root_object_type() noexcept {
+[[nodiscard]] object_type make_root_object_type() {
   return object_type{
-      type_info{
-          object::static_type_id(),
-          object::static_type_name(),
-          sizeof(object),
-          alignof(object),
-          object_type_id::invalid(),
-      },
+      make_type_info<object>(object::static_type_name(), object_type_id::invalid()),
       nullptr,
       nullptr,
       nullptr,

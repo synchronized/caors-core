@@ -20,19 +20,37 @@ struct child_type : parent_type {};
 }
 
 TEST_CASE("type info - type id is generated from stable names", "[type]") {
-  constexpr caors::type_id first = caors::make_type_id("caors.test.sample");
-  constexpr caors::type_id second = caors::make_type_id("caors.test.sample");
-  constexpr caors::type_id other = caors::make_type_id("caors.test.other");
+  const caors::type_id first = caors::make_type_id("caors.test.sample");
+  const caors::type_id second = caors::make_type_id("caors.test.sample");
+  const caors::type_id other = caors::make_type_id("caors.test.other");
 
   CHECK(first);
   CHECK(first == second);
   CHECK(first != other);
 }
 
+TEST_CASE("type info - string names are interned", "[type]") {
+  const caors::string_name first{"caors.test.sample"};
+  const caors::string_name second{"caors.test.sample"};
+  const caors::string_name other{"caors.test.other"};
+
+  CHECK(first);
+  CHECK(first == second);
+  CHECK(first != other);
+  CHECK(first.id() == second.id());
+  CHECK(first.view() == "caors.test.sample");
+  CHECK(first.string() == "caors.test.sample");
+
+  auto found = caors::string_name::find("caors.test.sample");
+  REQUIRE(found.has_value());
+  CHECK(*found == first);
+  CHECK_FALSE(caors::string_name::find("caors.test.not_interned").has_value());
+}
+
 TEST_CASE("type info - describes layout and parent type", "[type]") {
   constexpr std::string_view name = "caors.test.sample";
-  constexpr caors::type_id parent_id = caors::make_type_id("caors.test.parent");
-  constexpr caors::type_info info = caors::make_type_info<sample_type>(name, parent_id);
+  const caors::type_id parent_id = caors::make_type_id("caors.test.parent");
+  const caors::type_info info = caors::make_type_info<sample_type>(name, parent_id);
 
   CHECK(info.valid());
   CHECK(info.id == caors::make_type_id(name));
@@ -81,7 +99,7 @@ TEST_CASE("type info - registry reports registration errors", "[type]") {
 
   caors::type_info duplicate_name =
       caors::make_type_info<child_type>("caors.test.type.unique_duplicate_name");
-  duplicate_name.name = "caors.test.type.parent";
+  duplicate_name.name = caors::string_name{"caors.test.type.parent"};
   CHECK(registry.register_type(duplicate_name) == caors::type_register_result::duplicate_name);
 }
 
