@@ -30,10 +30,15 @@ int main() {
     return 1;
   }
 
-  std::cout << "type: " << reflected->info.name.view() << '\n';
-  for (const caors::field_info& field : reflected->fields) {
-    std::cout << "field: " << field.name.view() << ", type: " << field.type_name.view()
-              << ", offset: " << field.offset << '\n';
+  std::cout << "type: " << reflected->name().view() << '\n';
+  for (std::size_t index = 0; index < reflected->field_count(); ++index) {
+    const auto field = reflected->field_at(index);
+    if (!field.has_value()) {
+      continue;
+    }
+
+    std::cout << "field: " << field->name().view() << ", type: " << field->type_name().view()
+              << ", offset: " << field->offset() << '\n';
   }
 
   actor instance{};

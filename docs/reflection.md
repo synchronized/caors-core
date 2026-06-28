@@ -13,7 +13,7 @@
 - 基于 `meta_registry` 把 `reflection_type` 挂载为类型元数据组件。
 - 通过 RTTR 风格 builder 或底层字段列表描述字段。
 - 提供按类型 id、类型名和稳定 GUID 查询反射类型。
-- 提供按字段名查询字段元信息。
+- 提供绑定注册表生命周期的类型视图和字段视图。
 - 提供字段基础读写入口和运行期值拷贝。
 
 当前不会包含：
@@ -25,7 +25,10 @@
 
 ## 核心概念
 
-### field_info
+### 底层 field_info
+
+`field_info` 是字段的底层存储描述，主要用于注册表内部保存字段数据，以及 `make_field_info<Field>()`
+这类底层注册入口。外部查询和字段访问更推荐使用 `field_view`，避免长期持有注册表内部数据。
 
 `field_info` 描述一个字段：
 
@@ -35,8 +38,6 @@
 - `kind`：字段形态，例如值、枚举、裸指针或 wrapper。
 - `wrapper_semantics`：wrapper 或裸指针的序列化语义，例如内联值、对象引用或不支持。
 - `value_type`：去掉一层指针或 wrapper 后的值类型。
-- `pointed_type`：裸指针指向的类型，仅 `T*` 字段有效。
-- `wrapped_type`：wrapper 包装的类型，例如 `std::unique_ptr<T>`、`std::optional<T>` 中的 `T`。
 - `pointer_depth`：当前支持的指针层级，合法值为 0 或 1。
 - `nullable`：字段值是否可能为空。
 - `offset`：字段在类型中的偏移。
@@ -79,18 +80,18 @@ caors::reflection::class_<actor>(registry, "game.actor")
 
 - `T`：`field_kind::value`，`value_type` 为 `T`。
 - `enum`：`field_kind::enumeration`，`value_type` 为枚举类型。
-- `T*`：`field_kind::raw_pointer`，`pointed_type` 和 `value_type` 为 `T`，`nullable`
-  为 `true`，`wrapper_semantics` 为 `inline_value`。
-- `std::unique_ptr<T>`：`field_kind::wrapper`，`wrapped_type` 和 `value_type` 为 `T`，
-  `nullable` 为 `true`，`wrapper_semantics` 为 `inline_value`。
-- `std::shared_ptr<T>`：`field_kind::wrapper`，`wrapped_type` 和 `value_type` 为 `T`，
-  `nullable` 为 `true`，`wrapper_semantics` 为 `inline_value`。
-- `std::weak_ptr<T>`：`field_kind::wrapper`，`wrapped_type` 和 `value_type` 为 `T`，
-  `nullable` 为 `true`，`wrapper_semantics` 为 `inline_value`。
-- `std::optional<T>`：`field_kind::wrapper`，`wrapped_type` 和 `value_type` 为 `T`，
-  `nullable` 为 `true`，`wrapper_semantics` 为 `inline_value`。
-- `std::reference_wrapper<T>`：`field_kind::wrapper`，`wrapped_type` 和 `value_type` 为
-  `T`，不表示空值，`wrapper_semantics` 为 `inline_value`。
+- `T*`：`field_kind::raw_pointer`，`value_type` 为 `T`，`nullable` 为 `true`，
+  `wrapper_semantics` 为 `inline_value`。
+- `std::unique_ptr<T>`：`field_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
+  `wrapper_semantics` 为 `inline_value`。
+- `std::shared_ptr<T>`：`field_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
+  `wrapper_semantics` 为 `inline_value`。
+- `std::weak_ptr<T>`：`field_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
+  `wrapper_semantics` 为 `inline_value`。
+- `std::optional<T>`：`field_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
+  `wrapper_semantics` 为 `inline_value`。
+- `std::reference_wrapper<T>`：`field_kind::wrapper`，`value_type` 为 `T`，不表示空值，
+  `wrapper_semantics` 为 `inline_value`。
 
 STL 智能指针和裸指针只作为外部字段类型被反射系统描述。CAORS 不根据这些字段接管对象生命周期；
 用户如果直接使用这些类型，需要自行保证释放、引用有效性和线程安全。后续 CAORS 自身的对象句柄、
@@ -121,11 +122,12 @@ struct wrapper_traits<my_box<T>> {
   `object_ref<T>` 这类类型。
 - `unsupported`：明确识别为 wrapper，但当前序列化层不支持。
 
-字段读写入口：
+推荐通过 `field_view` 读写字段：
 
 ```cpp
 actor instance{};
 
+auto reflected = registry.find_type("game.actor");
 auto id = reflected->find_field("id");
 id->try_set<int>(&instance, 42);
 
@@ -176,7 +178,7 @@ id->try_set_value(&instance, caors::value::from(source));
 
 ### reflection_type
 
-`reflection_type` 是类型反射描述，包含基础 `type_info` 和字段列表：
+`reflection_type` 是底层类型反射描述，包含基础 `type_info` 和字段列表：
 
 ```cpp
 caors::reflection_type type = caors::make_reflection_type<actor>(
@@ -193,6 +195,37 @@ caors::reflection_type type = caors::make_reflection_type<actor>(
 auto field = type.find_field("health");
 ```
 
+### reflection_type_view 和 field_view
+
+`reflection_type_view` 和 `field_view` 是外部查询反射信息的推荐入口：
+
+```cpp
+auto reflected = registry.find_type("game.actor");
+auto field = reflected->find_field("health");
+
+actor instance{};
+field->try_set<float>(&instance, 75.0F);
+```
+
+view 持有类型描述快照，并绑定产生它的 `reflection_registry`。当注册表销毁或调用 `clear()` 后，
+已有 view 会失效，`valid()` 返回 `false`，字段读写也会失败。
+
+`reflection_type_view` 当前提供：
+
+- `valid()`：判断视图是否仍有效。
+- `info()` / `id()` / `name()` / `guid()`：查询类型身份。
+- `field_count()` / `field_at()`：按索引遍历字段。
+- `find_field()`：按字段名查询字段视图。
+
+`field_view` 当前提供：
+
+- `valid()`：判断视图是否仍有效。
+- `name()` / `type()` / `type_name()` / `value_type()`：查询字段类型信息。
+- `kind()` / `wrapper_semantics()` / `pointer_depth()` / `nullable()`：查询字段形态语义。
+- `offset()` / `size()` / `alignment()` / `writable()`：查询字段布局和可写性。
+- `try_get<T>()` / `try_set<T>()`：按静态类型读写字段。
+- `get_value()` / `try_set_value()`：按运行期 `value` 读写字段。
+
 ### reflection_registry
 
 `reflection_registry` 复用 `meta_registry` 保存基础类型信息，并把 `reflection_type` 作为组件挂载到同一个 `type_id` 上：
@@ -204,6 +237,8 @@ caors::reflection_register_result result =
     caors::reflection::class_<actor>(registry, "game.actor")
         .field("id", &actor::id)
         .commit();
+
+auto reflected = registry.find_type("game.actor");
 ```
 
 注册失败会返回明确的 `reflection_register_result`：
@@ -225,10 +260,11 @@ caors::reflection_register_result result =
 - `field_info`：字段名、字段类型名、字段形态、wrapper 语义、解包类型、offset、size、alignment、
   基础 get/set 和运行期值访问。
 - `reflection_type`：基础类型描述和字段列表。
+- `field_view` / `reflection_type_view`：绑定注册表生命周期的推荐查询入口。
 - `reflection_registry`：反射类型注册、查询、清理和统计。
 - `reflection::class_<T>()`：RTTR 风格链式注册入口。
 - `register_reflection<T>()`：底层字段列表注册入口。
-- `find_reflection()`：在默认反射注册表中查询类型。
+- `find_reflection()`：在默认反射注册表中查询类型视图。
 
 ## 相关入口
 
@@ -237,6 +273,7 @@ caors::reflection_register_result result =
   - `wrapper.h`：wrapper traits 和 wrapper 语义。
   - `field.h`：字段元信息和字段访问。
   - `type.h`：类型反射描述。
+  - `view.h`：类型和字段的外部查询视图。
   - `registry.h`：反射注册表和底层注册函数。
   - `builder.h`：RTTR 风格链式注册入口。
 - `include/caors/reflection.h` 是 umbrella 头，继续提供完整反射 API。

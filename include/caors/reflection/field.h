@@ -46,11 +46,6 @@ struct field_traits_info {
   field_kind kind = field_kind::value;
   field_wrapper_semantics wrapper_semantics = field_wrapper_semantics::none;
   type_id value_type{};
-  type_id pointed_type{};
-  type_id wrapped_type{};
-  cpp_type_key value_cpp_type = nullptr;
-  cpp_type_key pointed_cpp_type = nullptr;
-  cpp_type_key wrapped_cpp_type = nullptr;
   std::uint8_t pointer_depth = 0;
   bool nullable = false;
 };
@@ -70,26 +65,21 @@ template <typename Field> struct field_traits {
       info.kind = field_kind::wrapper;
       info.wrapper_semantics = wrapper_traits<field_type>::semantics;
       info.value_type = known_type_id<value_type>();
-      info.wrapped_type = known_type_id<value_type>();
-      info.value_cpp_type = cpp_type_key_of<value_type>();
-      info.wrapped_cpp_type = cpp_type_key_of<value_type>();
       info.nullable = wrapper_traits<field_type>::nullable;
       return info;
     } else {
       using value_type = field_type;
       info.kind = std::is_enum_v<value_type> ? field_kind::enumeration : field_kind::value;
       info.value_type = known_type_id<value_type>();
-      info.value_cpp_type = cpp_type_key_of<value_type>();
       return info;
     }
   }
 };
 
 template <typename T> struct field_traits<T*> {
-  using pointed_type = std::remove_cv_t<T>;
-  using value_type = pointed_type;
+  using value_type = std::remove_cv_t<T>;
 
-  static_assert(!is_nested_field_indirection_v<pointed_type>,
+  static_assert(!is_nested_field_indirection_v<value_type>,
                 "CAORS reflection supports at most one pointer or wrapper level");
 
   [[nodiscard]] static field_traits_info get() {
@@ -97,9 +87,6 @@ template <typename T> struct field_traits<T*> {
     info.kind = field_kind::raw_pointer;
     info.wrapper_semantics = field_wrapper_semantics::inline_value;
     info.value_type = known_type_id<value_type>();
-    info.pointed_type = known_type_id<pointed_type>();
-    info.value_cpp_type = cpp_type_key_of<value_type>();
-    info.pointed_cpp_type = cpp_type_key_of<pointed_type>();
     info.pointer_depth = 1;
     info.nullable = true;
     return info;
@@ -114,10 +101,11 @@ template <typename Field> [[nodiscard]] field_traits_info make_field_traits_info
 } // namespace detail
 
 /**
- * @brief 字段反射元信息。
+ * @brief 底层字段反射元信息。
  *
  * 字段访问基于注册时记录的 offset 和 C++ 类型 key。调用方需要传入该字段所属对象的地址；
- * 类型不匹配、对象为空或字段不可写时会返回失败，不抛出异常。
+ * 类型不匹配、对象为空或字段不可写时会返回失败，不抛出异常。常规查询优先使用
+ * `field_view`，该结构主要作为注册表内部存储和底层注册入口。
  */
 struct field_info {
   string_name name{};
@@ -125,11 +113,6 @@ struct field_info {
   string_name type_name{};
   detail::cpp_type_key cpp_type = nullptr;
   type_id value_type{};
-  type_id pointed_type{};
-  type_id wrapped_type{};
-  detail::cpp_type_key value_cpp_type = nullptr;
-  detail::cpp_type_key pointed_cpp_type = nullptr;
-  detail::cpp_type_key wrapped_cpp_type = nullptr;
   detail::value_clone_fn clone_value = nullptr;
   detail::value_destroy_fn destroy_value = nullptr;
   detail::value_assign_fn assign_value = nullptr;
@@ -254,11 +237,6 @@ template <typename Field>
       string_name{type_name},
       detail::cpp_type_key_of<field_type>(),
       traits.value_type,
-      traits.pointed_type,
-      traits.wrapped_type,
-      traits.value_cpp_type,
-      traits.pointed_cpp_type,
-      traits.wrapped_cpp_type,
       detail::value_clone_fn_of<Field>(),
       detail::value_destroy_fn_of<Field>(),
       detail::value_assign_fn_of<Field>(),

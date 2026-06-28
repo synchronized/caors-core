@@ -5,9 +5,10 @@
 #define CAORS_REFLECTION_REGISTRY_H_
 
 #include "caors/export.h"
-#include "caors/reflection/type.h"
+#include "caors/reflection/view.h"
 
 #include <initializer_list>
+#include <memory>
 #include <optional>
 #include <string_view>
 
@@ -60,10 +61,10 @@ public:
     return find_registered_type(detail::cpp_type_key_of<T>());
   }
 
-  [[nodiscard]] std::optional<reflection_type> find_type(type_id id) const;
-  [[nodiscard]] std::optional<reflection_type> find_type(type_guid guid) const;
-  [[nodiscard]] std::optional<reflection_type> find_type(std::string_view name) const;
-  [[nodiscard]] std::optional<reflection_type> find_type(string_name name) const;
+  [[nodiscard]] std::optional<reflection_type_view> find_type(type_id id) const;
+  [[nodiscard]] std::optional<reflection_type_view> find_type(type_guid guid) const;
+  [[nodiscard]] std::optional<reflection_type_view> find_type(std::string_view name) const;
+  [[nodiscard]] std::optional<reflection_type_view> find_type(string_name name) const;
   [[nodiscard]] std::size_t size() const noexcept;
   void clear() noexcept;
 
@@ -71,8 +72,9 @@ private:
   [[nodiscard]] reflection_register_result register_type(detail::cpp_type_key key,
                                                          const reflection_type& type);
   [[nodiscard]] std::optional<type_info> find_registered_type(detail::cpp_type_key key) const;
+  [[nodiscard]] std::optional<reflection_type> find_reflection_type(type_id id) const;
 
-  reflection_registry_state* state_ = nullptr;
+  std::shared_ptr<reflection_registry_state> state_{};
 };
 
 /** @brief 获取进程内默认反射注册表。 */
@@ -113,10 +115,10 @@ register_reflection(std::string_view name, type_guid guid, std::initializer_list
 }
 
 /** @brief 在默认注册表中查找反射类型。 */
-[[nodiscard]] CAORS_API std::optional<reflection_type> find_reflection(type_id id);
+[[nodiscard]] CAORS_API std::optional<reflection_type_view> find_reflection(type_id id);
 
 /** @brief 在默认注册表中按类型名查找反射类型。 */
-[[nodiscard]] CAORS_API std::optional<reflection_type> find_reflection(std::string_view name);
+[[nodiscard]] CAORS_API std::optional<reflection_type_view> find_reflection(std::string_view name);
 
 } // namespace caors
 

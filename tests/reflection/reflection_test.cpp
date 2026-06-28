@@ -106,8 +106,6 @@ TEST_CASE("reflection - field info describes field type traits", "[reflection]")
   CHECK(value.kind == caors::field_kind::value);
   CHECK(value.wrapper_semantics == caors::field_wrapper_semantics::none);
   CHECK(value.value_type == caors::make_type_id("int"));
-  CHECK_FALSE(value.pointed_type);
-  CHECK_FALSE(value.wrapped_type);
   CHECK(value.pointer_depth == 0);
   CHECK_FALSE(value.nullable);
 
@@ -122,8 +120,6 @@ TEST_CASE("reflection - field info describes field type traits", "[reflection]")
   CHECK(raw.kind == caors::field_kind::raw_pointer);
   CHECK(raw.wrapper_semantics == caors::field_wrapper_semantics::inline_value);
   CHECK(raw.value_type == caors::make_type_id("int"));
-  CHECK(raw.pointed_type == caors::make_type_id("int"));
-  CHECK_FALSE(raw.wrapped_type);
   CHECK(raw.pointer_depth == 1);
   CHECK(raw.nullable);
 
@@ -132,8 +128,6 @@ TEST_CASE("reflection - field info describes field type traits", "[reflection]")
   CHECK(unique.kind == caors::field_kind::wrapper);
   CHECK(unique.wrapper_semantics == caors::field_wrapper_semantics::inline_value);
   CHECK(unique.value_type == caors::make_type_id("int"));
-  CHECK_FALSE(unique.pointed_type);
-  CHECK(unique.wrapped_type == caors::make_type_id("int"));
   CHECK(unique.nullable);
 
   const caors::field_info shared =
@@ -141,7 +135,6 @@ TEST_CASE("reflection - field info describes field type traits", "[reflection]")
   CHECK(shared.kind == caors::field_kind::wrapper);
   CHECK(shared.wrapper_semantics == caors::field_wrapper_semantics::inline_value);
   CHECK(shared.value_type == caors::make_type_id("int"));
-  CHECK(shared.wrapped_type == caors::make_type_id("int"));
   CHECK(shared.nullable);
 
   const caors::field_info weak =
@@ -149,7 +142,6 @@ TEST_CASE("reflection - field info describes field type traits", "[reflection]")
   CHECK(weak.kind == caors::field_kind::wrapper);
   CHECK(weak.wrapper_semantics == caors::field_wrapper_semantics::inline_value);
   CHECK(weak.value_type == caors::make_type_id("int"));
-  CHECK(weak.wrapped_type == caors::make_type_id("int"));
   CHECK(weak.nullable);
 
   const caors::field_info optional =
@@ -157,7 +149,6 @@ TEST_CASE("reflection - field info describes field type traits", "[reflection]")
   CHECK(optional.kind == caors::field_kind::wrapper);
   CHECK(optional.wrapper_semantics == caors::field_wrapper_semantics::inline_value);
   CHECK(optional.value_type == caors::make_type_id("int"));
-  CHECK(optional.wrapped_type == caors::make_type_id("int"));
   CHECK(optional.nullable);
 
   const caors::field_info wrapper = caors::make_field_info<std::reference_wrapper<int>>(
@@ -165,7 +156,6 @@ TEST_CASE("reflection - field info describes field type traits", "[reflection]")
   CHECK(wrapper.kind == caors::field_kind::wrapper);
   CHECK(wrapper.wrapper_semantics == caors::field_wrapper_semantics::inline_value);
   CHECK(wrapper.value_type == caors::make_type_id("int"));
-  CHECK(wrapper.wrapped_type == caors::make_type_id("int"));
   CHECK_FALSE(wrapper.nullable);
 
   const caors::field_info custom_inline =
@@ -173,7 +163,6 @@ TEST_CASE("reflection - field info describes field type traits", "[reflection]")
   CHECK(custom_inline.kind == caors::field_kind::wrapper);
   CHECK(custom_inline.wrapper_semantics == caors::field_wrapper_semantics::inline_value);
   CHECK(custom_inline.value_type == caors::make_type_id("int"));
-  CHECK(custom_inline.wrapped_type == caors::make_type_id("int"));
   CHECK_FALSE(custom_inline.nullable);
 
   const caors::field_info custom_ref =
@@ -181,7 +170,6 @@ TEST_CASE("reflection - field info describes field type traits", "[reflection]")
   CHECK(custom_ref.kind == caors::field_kind::wrapper);
   CHECK(custom_ref.wrapper_semantics == caors::field_wrapper_semantics::object_ref);
   CHECK(custom_ref.value_type == caors::make_type_id("int"));
-  CHECK(custom_ref.wrapped_type == caors::make_type_id("int"));
   CHECK(custom_ref.nullable);
 }
 
@@ -248,12 +236,91 @@ TEST_CASE("reflection - registry registers and finds types", "[reflection]") {
 
   auto by_name = registry.find_type("caors.test.reflection.actor");
   REQUIRE(by_name.has_value());
-  CHECK(registry.contains(by_name->info.id));
-  CHECK(by_name->fields.size() == 2);
+  CHECK(registry.contains(by_name->id()));
+  CHECK(by_name->field_count() == 2);
 
   auto by_guid = registry.find_type(actor_guid);
   REQUIRE(by_guid.has_value());
-  CHECK(by_guid->info.id == by_name->info.id);
+  CHECK(by_guid->id() == by_name->id());
+}
+
+TEST_CASE("reflection - registry returns type and field views", "[reflection]") {
+  caors::reflection_registry registry;
+
+  REQUIRE(registry.register_type(make_actor_reflection()) ==
+          caors::reflection_register_result::success);
+
+  auto reflected = registry.find_type("caors.test.reflection.actor");
+  REQUIRE(reflected.has_value());
+  CHECK(reflected->valid());
+  CHECK(reflected->id() == caors::make_type_id("caors.test.reflection.actor"));
+  CHECK(reflected->name() == "caors.test.reflection.actor");
+  CHECK(reflected->guid() == actor_guid);
+  CHECK(reflected->field_count() == 2);
+
+  auto id = reflected->field_at(0);
+  REQUIRE(id.has_value());
+  CHECK(id->valid());
+  CHECK(id->name() == "id");
+  CHECK(id->type_name() == "int");
+  CHECK(id->value_type() == caors::make_type_id("int"));
+  CHECK_FALSE(reflected->field_at(99).has_value());
+
+  auto health = reflected->find_field("health");
+  REQUIRE(health.has_value());
+  CHECK(health->name() == "health");
+  CHECK(health->kind() == caors::field_kind::value);
+  CHECK(health->wrapper_semantics() == caors::field_wrapper_semantics::none);
+  CHECK(health->pointer_depth() == 0);
+  CHECK_FALSE(health->nullable());
+  CHECK(health->writable());
+  CHECK(health->offset() == offsetof(actor, health));
+  CHECK(health->size() == sizeof(float));
+  CHECK(health->alignment() == alignof(float));
+
+  actor instance{1, 25.0F};
+  CHECK(health->try_set<float>(&instance, 90.0F));
+  CHECK(instance.health == 90.0F);
+
+  caors::value health_value = health->get_value(&instance);
+  REQUIRE(health_value.valid());
+  const float* copied_health = health_value.try_get<float>();
+  REQUIRE(copied_health != nullptr);
+  CHECK(*copied_health == 90.0F);
+
+  const int next_id = 7;
+  CHECK(id->try_set_value(&instance, caors::value::from(next_id)));
+  CHECK(instance.id == 7);
+
+  registry.clear();
+  CHECK_FALSE(reflected->valid());
+  CHECK_FALSE(id->valid());
+  CHECK_FALSE(health->valid());
+  CHECK_FALSE(health->try_set<float>(&instance, 10.0F));
+  CHECK_FALSE(health->get_value(&instance).valid());
+}
+
+TEST_CASE("reflection - views expire with registry lifetime", "[reflection]") {
+  std::optional<caors::reflection_type_view> reflected;
+  std::optional<caors::field_view> field;
+
+  {
+    caors::reflection_registry registry;
+    REQUIRE(registry.register_type(make_actor_reflection()) ==
+            caors::reflection_register_result::success);
+
+    reflected = registry.find_type("caors.test.reflection.actor");
+    REQUIRE(reflected.has_value());
+    field = reflected->find_field("id");
+    REQUIRE(field.has_value());
+    CHECK(reflected->valid());
+    CHECK(field->valid());
+  }
+
+  REQUIRE(reflected.has_value());
+  REQUIRE(field.has_value());
+  CHECK_FALSE(reflected->valid());
+  CHECK_FALSE(field->valid());
 }
 
 TEST_CASE("reflection - registry registers child type with parent", "[reflection]") {
@@ -269,11 +336,11 @@ TEST_CASE("reflection - registry registers child type with parent", "[reflection
               {
                   caors::make_field_info<int>("level", "int", offsetof(player, level)),
               },
-              reflected_actor->info.id) == caors::reflection_register_result::success);
+              reflected_actor->id()) == caors::reflection_register_result::success);
 
   auto reflected_player = registry.find_type("caors.test.reflection.player");
   REQUIRE(reflected_player.has_value());
-  CHECK(reflected_player->info.parent_id == reflected_actor->info.id);
+  CHECK(reflected_player->info().parent_id == reflected_actor->id());
 }
 
 TEST_CASE("reflection - registry reports duplicate reflection", "[reflection]") {
@@ -332,13 +399,13 @@ TEST_CASE("reflection - class builder infers built-in field types", "[reflection
 
   auto id = reflected->find_field("id");
   REQUIRE(id.has_value());
-  CHECK(id->type_name == "int");
-  CHECK(id->type == caors::make_type_id("int"));
+  CHECK(id->type_name() == "int");
+  CHECK(id->type() == caors::make_type_id("int"));
 
   auto health = reflected->find_field("health");
   REQUIRE(health.has_value());
-  CHECK(health->type_name == "float");
-  CHECK(health->type == caors::make_type_id("float"));
+  CHECK(health->type_name() == "float");
+  CHECK(health->type() == caors::make_type_id("float"));
 
   actor instance{3, 80.0F};
   CHECK(id->try_set<int>(&instance, 10));
@@ -364,8 +431,8 @@ TEST_CASE("reflection - class builder resolves registered C++ field types", "[re
 
   auto items = reflected->find_field("items");
   REQUIRE(items.has_value());
-  CHECK(items->type_name == "caors.test.reflection.inventory");
-  CHECK(items->type == caors::make_type_id("caors.test.reflection.inventory"));
+  CHECK(items->type_name() == "caors.test.reflection.inventory");
+  CHECK(items->type() == caors::make_type_id("caors.test.reflection.inventory"));
 }
 
 TEST_CASE("reflection - class builder reports missing field type mapping", "[reflection]") {
