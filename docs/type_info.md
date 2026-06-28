@@ -3,7 +3,7 @@
 
 # Type Info
 
-本文档说明 CAORS 基础类型信息层的当前设计。该层只负责类型身份、名称、布局和父类型关系，供对象系统、反射系统和后续序列化系统复用。
+本文档说明 CAORS 基础类型信息层的当前设计。完整的类型元数据设计见 [meta.md](meta.md)。`caors/type_info.h` 当前作为兼容头转发到 `caors/meta.h`。
 
 ## 设计目标
 
@@ -20,7 +20,7 @@
 - 字段、方法、属性或枚举项元信息。
 - 序列化版本迁移策略。
 
-这些能力应由对象系统、反射系统和序列化系统在 `type_info` 之上扩展。
+这些能力应由对象系统、反射系统和序列化系统通过 `meta_registry` 扩展。
 
 ## 核心概念
 
@@ -72,12 +72,13 @@ caors::type_register_result result =
 - `hash_collision`：id 已存在，但名称不同，说明发生 hash 碰撞或手写 id 错误。
 - `missing_parent`：父类型未注册。
 
-## 与对象系统和反射系统的关系
+## 与 meta 系统的关系
 
-`type_registry` 是共享基础层：
+`type_registry` 是 `meta_registry` 的基础层：
 
-- `object_registry` 复用 `type_registry` 管理 id、名称和父类型，同时额外保存对象创建和销毁函数。
-- 后续 `reflection_registry` 应复用 `type_registry` 管理基础类型身份，同时额外保存字段、方法、属性和枚举元信息。
+- `meta_registry` 复用 `type_registry` 管理 id、名称和父类型。
+- `object_registry` 通过 `meta_registry` 挂载 `object_type` 组件。
+- 后续 `reflection_registry` 应通过 `meta_registry` 挂载 `reflection_type` 组件。
 
 这样对象注册和反射注册不会重复实现哈希碰撞检查、重名检查和父类型检查。
 
@@ -90,6 +91,7 @@ caors::type_register_result result =
 - `type_register_result`：明确基础类型注册失败原因。
 - `type_registry`：基础类型注册、查询、继承关系判断和清理。
 - `get_type_registry()`：进程内默认基础类型注册表。
+- `meta_registry`：组件式类型元数据注册表，见 [meta.md](meta.md)。
 
 行为测试位于：
 

@@ -4,8 +4,6 @@
 #include "caors/object.h"
 
 #include <atomic>
-#include <mutex>
-#include <unordered_map>
 
 namespace caors {
 namespace {
@@ -49,13 +47,27 @@ to_object_register_result(type_register_result result) noexcept {
   return object_register_result::invalid_type;
 }
 
+[[nodiscard]] object_register_result
+to_object_register_result(meta_component_result result) noexcept {
+  switch (result) {
+  case meta_component_result::success:
+    return object_register_result::success;
+  case meta_component_result::invalid_type:
+    return object_register_result::invalid_type;
+  case meta_component_result::missing_type:
+    return object_register_result::invalid_type;
+  case meta_component_result::duplicate_component:
+    return object_register_result::duplicate_id;
+  }
+
+  return object_register_result::invalid_type;
+}
+
 } // namespace
 
 class object_registry_state {
 public:
-  mutable std::mutex mutex;
-  type_registry types;
-  std::unordered_map<std::uint64_t, object_type> objects;
+  meta_registry meta;
 };
 
 object_id generate_object_id() noexcept {
@@ -88,12 +100,12 @@ object_registry::object_registry() : state_(new object_registry_state) {
 object_registry::~object_registry() { delete state_; }
 
 object_register_result object_registry::register_type(const object_type& type) {
-  const type_register_result type_result = state_->types.register_type(type.info);
+  const type_register_result type_result = state_->meta.register_type(type.info);
   if (!type_register_succeeded(type_result)) {
     return to_object_register_result(type_result);
   }
 
-  std::optional<type_info> stored_info = state_->types.find_type(type.info.id);
+  std::optional<type_info> stored_info = state_->meta.find_type(type.info.id);
   if (!stored_info.has_value()) {
     return object_register_result::invalid_type;
   }
@@ -101,32 +113,20 @@ object_register_result object_registry::register_type(const object_type& type) {
   object_type stored_type = type;
   stored_type.info = *stored_info;
 
-  std::lock_guard lock(state_->mutex);
-  const bool inserted = state_->objects.emplace(stored_type.info.id.value(), stored_type).second;
-  if (!inserted) {
-    return object_register_result::duplicate_id;
-  }
-
-  return object_register_result::success;
+  return to_object_register_result(
+      state_->meta.emplace<object_type>(stored_type.info.id, stored_type));
 }
 
 bool object_registry::contains(object_type_id id) const {
-  std::lock_guard lock(state_->mutex);
-  return state_->objects.contains(id.value());
+  return state_->meta.has<object_type>(id);
 }
 
 std::optional<object_type> object_registry::find_type(object_type_id id) const {
-  std::lock_guard lock(state_->mutex);
-  const auto position = state_->objects.find(id.value());
-  if (position == state_->objects.end()) {
-    return std::nullopt;
-  }
-
-  return position->second;
+  return state_->meta.find<object_type>(id);
 }
 
 std::optional<object_type> object_registry::find_type(std::string_view name) const {
-  std::optional<type_info> info = state_->types.find_type(name);
+  std::optional<type_info> info = state_->meta.find_type(name);
   if (!info.has_value()) {
     return std::nullopt;
   }
@@ -135,52 +135,35 @@ std::optional<object_type> object_registry::find_type(std::string_view name) con
 }
 
 bool object_registry::is_a(object_type_id type_id, object_type_id base_type_id) const {
-  return state_->types.is_a(type_id, base_type_id);
+  return state_->meta.is_a(type_id, base_type_id);
 }
 
-std::size_t object_registry::size() const noexcept {
-  std::lock_guard lock(state_->mutex);
-  return state_->objects.size();
-}
+std::size_t object_registry::size() const noexcept { return state_->meta.count<object_type>(); }
 
 object* object_registry::try_create(object_type_id id, memory_resource* resource) const noexcept {
-  object_try_create_fn try_create = nullptr;
-
-  {
-    std::lock_guard lock(state_->mutex);
-    const auto position = state_->objects.find(id.value());
-    if (position == state_->objects.end()) {
-      return nullptr;
-    }
-
-    try_create = position->second.try_create;
-  }
-
-  if (try_create == nullptr) {
+  std::optional<object_type> type = state_->meta.find<object_type>(id);
+  if (!type.has_value()) {
     return nullptr;
   }
 
-  return try_create(resource);
+  if (type->try_create == nullptr) {
+    return nullptr;
+  }
+
+  return type->try_create(resource);
 }
 
 object* object_registry::create(object_type_id id, memory_resource* resource) const {
-  object_create_fn create_instance = nullptr;
-
-  {
-    std::lock_guard lock(state_->mutex);
-    const auto position = state_->objects.find(id.value());
-    if (position == state_->objects.end()) {
-      return nullptr;
-    }
-
-    create_instance = position->second.create;
-  }
-
-  if (create_instance == nullptr) {
+  std::optional<object_type> type = state_->meta.find<object_type>(id);
+  if (!type.has_value()) {
     return nullptr;
   }
 
-  return create_instance(resource);
+  if (type->create == nullptr) {
+    return nullptr;
+  }
+
+  return type->create(resource);
 }
 
 bool object_registry::destroy(object* instance, memory_resource* resource) const noexcept {
@@ -188,32 +171,20 @@ bool object_registry::destroy(object* instance, memory_resource* resource) const
     return false;
   }
 
-  object_destroy_fn destroy_instance = nullptr;
-
-  {
-    std::lock_guard lock(state_->mutex);
-    const auto position = state_->objects.find(instance->type_id().value());
-    if (position == state_->objects.end()) {
-      return false;
-    }
-
-    destroy_instance = position->second.destroy;
-  }
-
-  if (destroy_instance == nullptr) {
+  std::optional<object_type> type = state_->meta.find<object_type>(instance->type_id());
+  if (!type.has_value()) {
     return false;
   }
 
-  destroy_instance(instance, resource);
+  if (type->destroy == nullptr) {
+    return false;
+  }
+
+  type->destroy(instance, resource);
   return true;
 }
 
-void object_registry::clear() noexcept {
-  state_->types.clear();
-
-  std::lock_guard lock(state_->mutex);
-  state_->objects.clear();
-}
+void object_registry::clear() noexcept { state_->meta.clear(); }
 
 object_registry& get_object_registry() noexcept { return default_object_registry; }
 

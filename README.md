@@ -14,7 +14,8 @@ CAORS 是一个 C++20 基础设施库模板，面向游戏引擎、实时应用�
 - 基础配置 API：`caors/config.h`，集中放置编译期探测结果、异常开关和默认值。
 - 导出宏 API：`caors/export.h`，提供 `CAORS_API` / `CAORS_LOCAL`。
 - 基础版本 API：`caors/version.h`，由 `include/caors/version.h.in` 在配置阶段生成。
-- 基础类型信息 API：`caors/type_info.h`，提供运行期类型标识、共享类型描述和基础类型注册表。
+- 类型元数据 API：`caors/meta.h`，提供运行期类型标识、共享类型描述、基础类型注册表和组件式元数据注册表。
+- 基础类型兼容头：`caors/type_info.h`，转发到 `caors/meta.h`。
 - 基础内存资源 API：`caors/memory.h`，包含后端资源、策略资源、包装资源、`allocator<T>` 和对象构造入口。
 - 基础对象系统 API：`caors/object.h`，包含对象标识、类型描述、类型注册表和默认构造工厂。
 - `examples/` 可运行示例。
@@ -22,13 +23,22 @@ CAORS 是一个 C++20 基础设施库模板，面向游戏引擎、实时应用�
 - 目标级编译警告工具函数：`target_compile_warnings()`。
 - CMake install/export 基础配置。
 
-内存系统的设计说明见 [docs/memory.md](docs/memory.md)。类型信息设计说明见 [docs/type_info.md](docs/type_info.md)。对象系统的设计说明见 [docs/object.md](docs/object.md)。
+内存系统的设计说明见 [docs/memory.md](docs/memory.md)。类型元数据设计说明见 [docs/meta.md](docs/meta.md)。对象系统的设计说明见 [docs/object.md](docs/object.md)。
 
 规划方向包括自定义内存分配器、对象系统、运行时类型反射和跨平台序列化。具体可用 API 以源码为准，README 不声明尚未实现的接口。
 
 ## TODO / 路线图
 
 CAORS 后续按四个核心方向推进。每个方向应先补最小可用 API、测试和文档，再逐步扩展性能优化与工具链集成。
+
+### 0. 类型元数据底座
+
+- [x] 定义 `type_id`、`type_info` 和基础类型注册结果。
+- [x] 提供 `type_registry`，集中处理重名、重复 id、hash 碰撞和父类型缺失。
+- [x] 提供 `meta_registry`，允许围绕同一个 `type_id` 挂载对象、反射、序列化等元数据组件。
+- [x] 提供 `meta_view<T...>()`，查询同时拥有指定元数据组件的类型。
+- [ ] 评估组件替换、批量注册和错误诊断 API。
+- [ ] 在反射和序列化模块落地后补充跨模块查询测试。
 
 ### 1. 定制化分配器
 
@@ -48,6 +58,7 @@ CAORS 后续按四个核心方向推进。每个方向应先补最小可用 API�
 - [x] 定义基础对象类型、对象标识和类型描述。
 - [x] 提供轻量级类型层级和运行时查询能力。
 - [x] 抽象共享 `type_registry`，避免对象系统和反射系统重复维护基础类型索引。
+- [x] 对象注册表改为基于 `meta_registry` 挂载 `object_type` 组件。
 - [x] 提供对象注册表和默认构造工厂。
 - [x] 提供注册结果枚举，区分重复注册、重名、hash 碰撞和父类型缺失。
 - [x] 接入 `memory_resource` 完成对象创建和销毁。
@@ -59,6 +70,7 @@ CAORS 后续按四个核心方向推进。每个方向应先补最小可用 API�
 ### 3. 反射
 
 - [ ] 定义类型、字段、函数和属性的元信息模型。
+- [ ] 基于 `meta_registry` 挂载 `reflection_type` 组件。
 - [ ] 设计注册 API，支持手写注册和后续代码生成扩展。
 - [ ] 提供运行时类型查询、字段访问和函数调用入口。
 - [ ] 支持基础类型、枚举、类类型和容器类型的反射描述。
@@ -67,6 +79,7 @@ CAORS 后续按四个核心方向推进。每个方向应先补最小可用 API�
 ### 4. 序列化
 
 - [ ] 定义统一的序列化接口和错误模型。
+- [ ] 基于 `meta_registry` 挂载序列化元信息组件。
 - [ ] 支持基础类型、字符串、数组、对象和嵌套结构。
 - [ ] 设计文本格式与二进制格式的扩展点。
 - [ ] 与反射系统打通，实现基于元信息的对象序列化。
