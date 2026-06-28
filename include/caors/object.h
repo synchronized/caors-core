@@ -228,13 +228,11 @@ make_object_type(std::string_view name,
   return type;
 }
 
-class object_registry_state;
-
 /**
  * @brief 对象类型注册表和默认构造工厂。
  *
- * 注册表复用 `meta_registry` 管理基础类型信息。`find_type()` 返回的 `object_type::info.name`
- * 在注册表生命周期内有效。
+ * 注册表复用全局 `meta_registry` 管理基础类型信息，并把 `object_type` 作为组件挂载到同一个
+ * `type_id` 上。
  */
 class CAORS_API object_registry final {
 public:
@@ -291,14 +289,11 @@ public:
   }
 
   bool destroy(object* instance, memory_resource* resource = nullptr) const noexcept;
-  void clear() noexcept;
 
 private:
   [[nodiscard]] object_register_result register_type(detail::cpp_type_key key,
                                                      const object_type& type);
   [[nodiscard]] std::optional<type_info> find_registered_type(detail::cpp_type_key key) const;
-
-  object_registry_state* state_ = nullptr;
 };
 
 /** @brief 获取进程内默认对象类型注册表。 */

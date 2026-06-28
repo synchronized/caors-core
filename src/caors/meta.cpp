@@ -14,8 +14,6 @@ struct type_info_entry {
   type_info info;
 };
 
-meta_registry default_meta_registry;
-
 [[nodiscard]] bool same_type_info(const type_info& lhs, const type_info& rhs) noexcept {
   return lhs.name == rhs.name && lhs.guid == rhs.guid && lhs.size == rhs.size &&
          lhs.alignment == rhs.alignment && lhs.parent_id == rhs.parent_id;
@@ -38,6 +36,11 @@ public:
 meta_registry::meta_registry() : state_(new meta_registry_state) {}
 
 meta_registry::~meta_registry() { delete state_; }
+
+meta_registry& meta_registry::instance() noexcept {
+  static meta_registry registry;
+  return registry;
+}
 
 type_register_result meta_registry::register_type(const type_info& type) {
   if (!type.valid()) {
@@ -221,18 +224,6 @@ std::size_t meta_registry::size() const noexcept {
   return state_->types.size();
 }
 
-void meta_registry::clear() noexcept {
-  std::lock_guard lock(state_->mutex);
-  state_->types.clear();
-  state_->names.clear();
-  state_->guids.clear();
-  state_->cpp_types.clear();
-  for (auto& [key, storage] : state_->components) {
-    (void)key;
-    storage->clear();
-  }
-}
-
 detail::meta_component_storage_base*
 meta_registry::find_component_storage(detail::meta_component_key key) {
   std::lock_guard lock(state_->mutex);
@@ -300,6 +291,18 @@ std::vector<type_id> meta_registry::view_component_ids(const detail::meta_compon
   return result;
 }
 
-meta_registry& get_meta_registry() noexcept { return default_meta_registry; }
+meta_registry& get_meta_registry() noexcept { return meta_registry::instance(); }
+
+std::optional<type_info> find_type(type_id id) { return get_meta_registry().find_type(id); }
+
+std::optional<type_info> find_type(type_guid guid) { return get_meta_registry().find_type(guid); }
+
+std::optional<type_info> find_type(std::string_view name) {
+  return get_meta_registry().find_type(name);
+}
+
+std::optional<type_info> find_type(string_name name) { return get_meta_registry().find_type(name); }
+
+bool is_a(type_id id, type_id base_id) { return get_meta_registry().is_a(id, base_id); }
 
 }

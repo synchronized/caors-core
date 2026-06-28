@@ -8,7 +8,6 @@
 #include "caors/reflection/view.h"
 
 #include <initializer_list>
-#include <memory>
 #include <optional>
 #include <string_view>
 
@@ -33,8 +32,6 @@ enum class reflection_register_result {
 reflection_register_succeeded(reflection_register_result result) noexcept {
   return result == reflection_register_result::success;
 }
-
-class reflection_registry_state;
 
 /**
  * @brief 底层全局反射注册表。
@@ -75,8 +72,6 @@ private:
                                                          const reflection_type& type);
   [[nodiscard]] std::optional<type_info> find_registered_type(detail::cpp_type_key key) const;
   [[nodiscard]] std::optional<reflection_type> find_reflection_type(type_id id) const;
-
-  std::shared_ptr<reflection_registry_state> state_{};
 };
 
 /** @brief 获取进程内全局反射注册表。 */

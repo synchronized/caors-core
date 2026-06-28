@@ -98,7 +98,7 @@ object.type_name(); // "game.player"
 
 ### object_registry
 
-`object_registry` 是基于 `meta_registry` 的对象注册表和默认构造工厂。它通过 `meta_registry` 管理类型 id、名称和父类型关系，并将 `object_type` 作为对象元数据组件挂载到同一个 `type_id` 上。
+`object_registry` 是基于全局 `meta_registry` 的对象注册表和默认构造工厂。它通过全局 `meta_registry` 管理类型 id、名称和父类型关系，并将 `object_type` 作为对象元数据组件挂载到同一个 `type_id` 上。
 
 ```cpp
 caors::object_registry registry;
@@ -175,7 +175,7 @@ caors::destroy_object(instance, &resource);
 - `object_type_id`：运行期对象类型标识。
 - `object`：基础对象身份和类型查询入口。
 - `object_base<Derived, Base>`：CRTP 类型查询辅助。
-- `type_info` / `meta_registry`：对象系统和反射系统共享的基础类型描述和元数据注册表。
+- `type_info` / `meta_registry`：对象系统和反射系统共享的全局基础类型描述和元数据注册表。
 - `object_type`：基于 `type_info` 扩展对象创建和销毁能力。
 - `object_register_result`：明确对象类型注册失败原因。
 - `object_registry`：类型注册、查询、继承关系判断、默认构造工厂。
@@ -186,7 +186,7 @@ caors::destroy_object(instance, &resource);
 
 - [x] 对象实例 id。
 - [x] 对象类型 id、名称、大小、对齐和父类型。
-- [x] 复用共享 `meta_registry`。
+- [x] 复用全局 `meta_registry`。
 - [x] 将 `object_type` 作为类型元数据组件挂载。
 - [x] 注册结果枚举和不一致类型描述检测。
 - [x] 默认构造工厂。

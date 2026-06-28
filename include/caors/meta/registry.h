@@ -64,10 +64,8 @@ public:
   virtual ~meta_component_storage_base() = default;
 
   [[nodiscard]] virtual bool contains(type_id id) const = 0;
-  virtual bool erase(type_id id) = 0;
   [[nodiscard]] virtual std::size_t size() const noexcept = 0;
   [[nodiscard]] virtual std::vector<type_id> ids() const = 0;
-  virtual void clear() noexcept = 0;
 };
 
 template <typename Component>
@@ -96,11 +94,6 @@ public:
     return components_.contains(id.value());
   }
 
-  bool erase(type_id id) override {
-    std::lock_guard lock(mutex_);
-    return components_.erase(id.value()) != 0;
-  }
-
   [[nodiscard]] std::size_t size() const noexcept override {
     std::lock_guard lock(mutex_);
     return components_.size();
@@ -118,11 +111,6 @@ public:
     return result;
   }
 
-  void clear() noexcept override {
-    std::lock_guard lock(mutex_);
-    components_.clear();
-  }
-
 private:
   mutable std::mutex mutex_;
   std::unordered_map<std::uint64_t, Component> components_;
@@ -133,15 +121,15 @@ private:
 class meta_registry_state;
 
 /**
- * @brief 类型元数据注册表。
+ * @brief 底层全局类型元数据注册表。
  *
  * `meta_registry` 以 `type_id` 为 key，先注册基础 `type_info`，再按类型挂载对象工厂、
- * 反射描述、序列化描述等元数据组件。它不是运行期游戏 ECS。
+ * 反射描述、序列化描述等元数据组件。普通代码应使用全局 `register_type()` 和
+ * `find_type()` 入口，不要创建或管理注册表实例。
  */
 class CAORS_API meta_registry final {
 public:
-  meta_registry();
-  ~meta_registry();
+  [[nodiscard]] static meta_registry& instance() noexcept;
 
   meta_registry(const meta_registry&) = delete;
   meta_registry& operator=(const meta_registry&) = delete;
@@ -166,7 +154,6 @@ public:
   [[nodiscard]] std::optional<type_info> find_type(string_name name) const;
   [[nodiscard]] bool is_a(type_id id, type_id base_id) const;
   [[nodiscard]] std::size_t size() const noexcept;
-  void clear() noexcept;
 
   /** @brief 给已注册类型挂载一个元数据组件。 */
   template <typename Component, typename... Args>
@@ -223,18 +210,6 @@ public:
     return storage.find(id);
   }
 
-  /** @brief 移除指定类型上的元数据组件。 */
-  template <typename Component> bool remove(type_id id) {
-    using component_type = std::decay_t<Component>;
-    detail::meta_component_storage_base* storage_base =
-        find_component_storage(detail::meta_component_key_of<component_type>());
-    if (storage_base == nullptr) {
-      return false;
-    }
-
-    return storage_base->erase(id);
-  }
-
   /** @brief 统计挂载了指定组件的类型数量。 */
   template <typename Component> [[nodiscard]] std::size_t count() const noexcept {
     using component_type = std::decay_t<Component>;
@@ -251,6 +226,9 @@ public:
   template <typename... Components> [[nodiscard]] meta_view<Components...> view() const;
 
 private:
+  meta_registry();
+  ~meta_registry();
+
   [[nodiscard]] detail::meta_component_storage_base*
   find_component_storage(detail::meta_component_key key);
   [[nodiscard]] const detail::meta_component_storage_base*
@@ -264,66 +242,56 @@ private:
   meta_registry_state* state_ = nullptr;
 };
 
-/** @brief 获取进程内默认类型元数据注册表。 */
+/** @brief 获取进程内全局类型元数据注册表。 */
 [[nodiscard]] CAORS_API meta_registry& get_meta_registry() noexcept;
 
-/** @brief 向指定元数据注册表注册基础类型。 */
-template <typename T>
-[[nodiscard]] type_register_result register_type(meta_registry& registry, string_name name,
-                                                 type_id parent_id = type_id::invalid()) {
-  return registry.register_type_for<T>(make_type_info<T>(name, parent_id));
-}
-
-/** @brief 向指定元数据注册表注册带稳定 GUID 的基础类型。 */
-template <typename T>
-[[nodiscard]] type_register_result register_type(meta_registry& registry, string_name name,
-                                                 type_guid guid,
-                                                 type_id parent_id = type_id::invalid()) {
-  return registry.register_type_for<T>(make_type_info<T>(name, guid, parent_id));
-}
-
-/** @brief 向指定元数据注册表注册基础类型。 */
-template <typename T>
-[[nodiscard]] type_register_result register_type(meta_registry& registry, std::string_view name,
-                                                 type_id parent_id = type_id::invalid()) {
-  return register_type<T>(registry, string_name{name}, parent_id);
-}
-
-/** @brief 向指定元数据注册表注册带稳定 GUID 的基础类型。 */
-template <typename T>
-[[nodiscard]] type_register_result register_type(meta_registry& registry, std::string_view name,
-                                                 type_guid guid,
-                                                 type_id parent_id = type_id::invalid()) {
-  return register_type<T>(registry, string_name{name}, guid, parent_id);
-}
-
-/** @brief 向默认元数据注册表注册基础类型。 */
+/** @brief 向全局元数据注册表注册基础类型。 */
 template <typename T>
 [[nodiscard]] type_register_result register_type(string_name name,
                                                  type_id parent_id = type_id::invalid()) {
-  return register_type<T>(get_meta_registry(), name, parent_id);
+  return get_meta_registry().register_type_for<T>(make_type_info<T>(name, parent_id));
 }
 
-/** @brief 向默认元数据注册表注册带稳定 GUID 的基础类型。 */
+/** @brief 向全局元数据注册表注册带稳定 GUID 的基础类型。 */
 template <typename T>
 [[nodiscard]] type_register_result register_type(string_name name, type_guid guid,
                                                  type_id parent_id = type_id::invalid()) {
-  return register_type<T>(get_meta_registry(), name, guid, parent_id);
+  return get_meta_registry().register_type_for<T>(make_type_info<T>(name, guid, parent_id));
 }
 
-/** @brief 向默认元数据注册表注册基础类型。 */
+/** @brief 向全局元数据注册表注册基础类型。 */
 template <typename T>
 [[nodiscard]] type_register_result register_type(std::string_view name,
                                                  type_id parent_id = type_id::invalid()) {
-  return register_type<T>(get_meta_registry(), string_name{name}, parent_id);
+  return register_type<T>(string_name{name}, parent_id);
 }
 
-/** @brief 向默认元数据注册表注册带稳定 GUID 的基础类型。 */
+/** @brief 向全局元数据注册表注册带稳定 GUID 的基础类型。 */
 template <typename T>
 [[nodiscard]] type_register_result register_type(std::string_view name, type_guid guid,
                                                  type_id parent_id = type_id::invalid()) {
-  return register_type<T>(get_meta_registry(), string_name{name}, guid, parent_id);
+  return register_type<T>(string_name{name}, guid, parent_id);
 }
+
+/** @brief 在全局元数据注册表中按 C++ 类型查找基础类型。 */
+template <typename T> [[nodiscard]] std::optional<type_info> find_type() {
+  return get_meta_registry().find_type<T>();
+}
+
+/** @brief 在全局元数据注册表中按类型 id 查找基础类型。 */
+[[nodiscard]] CAORS_API std::optional<type_info> find_type(type_id id);
+
+/** @brief 在全局元数据注册表中按稳定 GUID 查找基础类型。 */
+[[nodiscard]] CAORS_API std::optional<type_info> find_type(type_guid guid);
+
+/** @brief 在全局元数据注册表中按类型名查找基础类型。 */
+[[nodiscard]] CAORS_API std::optional<type_info> find_type(std::string_view name);
+
+/** @brief 在全局元数据注册表中按类型名查找基础类型。 */
+[[nodiscard]] CAORS_API std::optional<type_info> find_type(string_name name);
+
+/** @brief 在全局元数据注册表中判断类型继承关系。 */
+[[nodiscard]] CAORS_API bool is_a(type_id id, type_id base_id);
 
 template <typename... Components>
 template <typename Component>
