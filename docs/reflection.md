@@ -13,7 +13,7 @@
 - 基于 `meta_registry` 把 `reflection_type` 挂载为类型元数据组件。
 - 通过 RTTR 风格 builder 或底层字段列表描述字段。
 - 提供按类型 id、类型名和稳定 GUID 查询反射类型。
-- 提供绑定注册表生命周期的类型视图和字段视图。
+- 提供全局 append-only 注册表，以及稳定的类型视图和字段视图。
 - 提供字段基础读写入口和运行期值拷贝。
 
 当前不会包含：
@@ -28,7 +28,7 @@
 ### 底层 field_info
 
 `field_info` 是字段的底层存储描述，主要用于注册表内部保存字段数据，以及 `make_field_info<Field>()`
-这类底层注册入口。外部查询和字段访问更推荐使用 `field_view`，避免长期持有注册表内部数据。
+这类底层注册入口。外部查询和字段访问更推荐使用 `field_view`，避免直接依赖底层存储结构。
 
 `field_info` 描述一个字段：
 
@@ -62,7 +62,7 @@ caors::field_info field =
 更推荐使用 `reflection::class_<T>()` builder，它可以通过成员指针推导字段大小、对齐、偏移和字段类型：
 
 ```cpp
-caors::reflection::class_<actor>(registry, "game.actor")
+caors::reflection::class_<actor>("game.actor")
     .field("id", &actor::id)
     .field("health", &actor::health)
     .commit();
@@ -70,7 +70,7 @@ caors::reflection::class_<actor>(registry, "game.actor")
 
 字段类型推导规则：
 
-- 如果字段类型已经通过模板注册函数注册到同一个反射注册表，优先复用该类型的 `type_info`。
+- 如果字段类型已经通过模板注册函数注册到全局反射注册表，优先复用该类型的 `type_info`。
 - 如果字段类型没有注册，但存在 `type_name<T>` 默认映射，则使用默认类型名生成 `type_id`，并自动注册为基础类型。
 - 如果两者都没有，`.commit()` 返回 `invalid_field`。
 - 字段类型语义最多支持一层裸指针或 wrapper；`T**`、`std::unique_ptr<T*>`、
@@ -127,7 +127,7 @@ struct wrapper_traits<my_box<T>> {
 ```cpp
 actor instance{};
 
-auto reflected = registry.find_type("game.actor");
+auto reflected = caors::find_reflection("game.actor");
 auto id = reflected->find_field("id");
 id->try_set<int>(&instance, 42);
 
@@ -200,15 +200,15 @@ auto field = type.find_field("health");
 `reflection_type_view` 和 `field_view` 是外部查询反射信息的推荐入口：
 
 ```cpp
-auto reflected = registry.find_type("game.actor");
+auto reflected = caors::find_reflection("game.actor");
 auto field = reflected->find_field("health");
 
 actor instance{};
 field->try_set<float>(&instance, 75.0F);
 ```
 
-view 持有类型描述快照，并绑定产生它的 `reflection_registry`。当注册表销毁或调用 `clear()` 后，
-已有 view 会失效，`valid()` 返回 `false`，字段读写也会失败。
+view 持有类型描述快照。反射注册表是进程级 append-only 注册表，类型注册后不可撤销，因此有效
+view 可以在进程生命周期内稳定使用。
 
 `reflection_type_view` 当前提供：
 
@@ -226,20 +226,23 @@ view 持有类型描述快照，并绑定产生它的 `reflection_registry`。�
 - `try_get<T>()` / `try_set<T>()`：按静态类型读写字段。
 - `get_value()` / `try_set_value()`：按运行期 `value` 读写字段。
 
-### reflection_registry
+### 全局注册表
 
-`reflection_registry` 复用 `meta_registry` 保存基础类型信息，并把 `reflection_type` 作为组件挂载到同一个 `type_id` 上：
+反射系统使用进程级全局注册表。普通代码通过 `reflection::class_<T>()`、`register_reflection<T>()`
+和 `find_reflection()` 访问它，不需要创建 registry 对象：
 
 ```cpp
-caors::reflection_registry registry;
-
 caors::reflection_register_result result =
-    caors::reflection::class_<actor>(registry, "game.actor")
+    caors::reflection::class_<actor>("game.actor")
         .field("id", &actor::id)
         .commit();
 
-auto reflected = registry.find_type("game.actor");
+auto reflected = caors::find_reflection("game.actor");
 ```
+
+底层 `reflection_registry` 仍作为实现类型存在，并复用 `meta_registry` 保存基础类型信息，再把
+`reflection_type` 作为组件挂载到同一个 `type_id` 上。注册表构造由库内部管理；注册后不提供
+清理和撤销入口。
 
 注册失败会返回明确的 `reflection_register_result`：
 
@@ -254,17 +257,21 @@ auto reflected = registry.find_type("game.actor");
 - `inconsistent_type`：目标类型已存在，但基础 `type_info` 不一致。
 - `missing_parent`：父类型未注册。
 
+重复注册同一个类型时，如果基础类型信息一致且已经挂载反射组件，会返回 `duplicate_reflection`；
+如果同名、同 GUID 或同 C++ 类型对应的基础 `type_info` 不一致，会返回 `inconsistent_type` 或
+对应的重复错误。
+
 ## 当前已实现能力
 
 - `value`：运行期值拷贝。
 - `field_info`：字段名、字段类型名、字段形态、wrapper 语义、解包类型、offset、size、alignment、
   基础 get/set 和运行期值访问。
 - `reflection_type`：基础类型描述和字段列表。
-- `field_view` / `reflection_type_view`：绑定注册表生命周期的推荐查询入口。
-- `reflection_registry`：反射类型注册、查询、清理和统计。
+- `field_view` / `reflection_type_view`：全局反射数据的推荐查询入口。
+- `reflection_registry`：底层全局注册表实现。
 - `reflection::class_<T>()`：RTTR 风格链式注册入口。
 - `register_reflection<T>()`：底层字段列表注册入口。
-- `find_reflection()`：在默认反射注册表中查询类型视图。
+- `find_reflection()`：在全局反射注册表中查询类型视图。
 
 ## 相关入口
 
@@ -274,7 +281,7 @@ auto reflected = registry.find_type("game.actor");
   - `field.h`：字段元信息和字段访问。
   - `type.h`：类型反射描述。
   - `view.h`：类型和字段的外部查询视图。
-  - `registry.h`：反射注册表和底层注册函数。
+  - `registry.h`：全局反射注册表和注册查询函数。
   - `builder.h`：RTTR 风格链式注册入口。
 - `include/caors/reflection.h` 是 umbrella 头，继续提供完整反射 API。
 - 可运行示例位于 `examples/reflection/`，示例组织规则见 [examples/README.md](../examples/README.md)。

@@ -17,13 +17,12 @@
 namespace caors {
 
 class reflection_registry;
-class reflection_registry_state;
 
 /**
  * @brief 字段反射只读视图。
  *
- * `field_view` 绑定到产生它的 `reflection_registry`。当注册表销毁或清理后，视图会失效；
- * 外部代码应优先通过该类型读取字段描述和访问字段值，而不是直接持有 `field_info`。
+ * `field_view` 是全局反射注册表返回的字段只读句柄。反射数据注册后不可撤销，因此有效 view
+ * 可以在进程生命周期内稳定使用。
  */
 class CAORS_API field_view final {
 public:
@@ -76,12 +75,9 @@ public:
 private:
   friend class reflection_type_view;
 
-  field_view(std::weak_ptr<const reflection_registry_state> state, std::uint64_t generation,
-             std::shared_ptr<const reflection_type> type, std::size_t field_index) noexcept;
+  field_view(std::shared_ptr<const reflection_type> type, std::size_t field_index) noexcept;
   [[nodiscard]] const field_info* info() const noexcept;
 
-  std::weak_ptr<const reflection_registry_state> state_{};
-  std::uint64_t generation_ = 0;
   std::shared_ptr<const reflection_type> type_{};
   std::size_t field_index_ = 0;
 };
@@ -89,8 +85,8 @@ private:
 /**
  * @brief 类型反射只读视图。
  *
- * 视图持有类型描述快照，并通过注册表 generation 判断有效性。注册表销毁或 `clear()` 后，
- * 已有视图会失效，避免外部长期持有内部存储。
+ * 视图持有类型描述快照。CAORS 反射注册表是进程级 append-only 注册表，注册后的类型数据不会被
+ * 清理或覆盖。
  */
 class CAORS_API reflection_type_view final {
 public:
@@ -111,13 +107,9 @@ public:
 private:
   friend class reflection_registry;
 
-  reflection_type_view(std::weak_ptr<const reflection_registry_state> state,
-                       std::uint64_t generation,
-                       std::shared_ptr<const reflection_type> type) noexcept;
+  explicit reflection_type_view(std::shared_ptr<const reflection_type> type) noexcept;
   [[nodiscard]] const reflection_type* type() const noexcept;
 
-  std::weak_ptr<const reflection_registry_state> state_{};
-  std::uint64_t generation_ = 0;
   std::shared_ptr<const reflection_type> type_{};
 };
 

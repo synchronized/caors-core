@@ -51,8 +51,44 @@ struct actor {
   float health = 0.0F;
 };
 
-struct player {
+struct registry_actor {
+  int id = 0;
+  float health = 0.0F;
+};
+
+struct view_actor {
+  int id = 0;
+  float health = 0.0F;
+};
+
+struct parent_actor {
+  int id = 0;
+};
+
+struct child_player {
   int level = 0;
+};
+
+struct duplicate_actor {
+  int id = 0;
+};
+
+struct invalid_field_owner {
+  int id = 0;
+};
+
+struct duplicate_field_owner {
+  int id = 0;
+  float health = 0.0F;
+};
+
+struct inconsistent_actor {
+  int id = 0;
+};
+
+struct builder_actor {
+  int id = 0;
+  float health = 0.0F;
 };
 
 struct inventory {
@@ -75,6 +111,14 @@ enum class reflected_color {
 constexpr caors::type_guid actor_guid{caors::guid::from_bytes(
     caors::guid::byte_array{0x54, 0x20, 0x08, 0xa6, 0x08, 0x5e, 0x48, 0xb7, 0x9c, 0x2f, 0x88, 0x68,
                             0xb2, 0x42, 0x18, 0xf3})};
+
+constexpr caors::type_guid registry_actor_guid{caors::guid::from_bytes(
+    caors::guid::byte_array{0x49, 0xd0, 0x23, 0x6f, 0x74, 0xb5, 0x41, 0x3f, 0x99, 0x37, 0xfa, 0x9f,
+                            0xf8, 0xa6, 0x36, 0x01})};
+
+constexpr caors::type_guid view_actor_guid{caors::guid::from_bytes(
+    caors::guid::byte_array{0x49, 0xd0, 0x23, 0x6f, 0x74, 0xb5, 0x41, 0x3f, 0x99, 0x37, 0xfa, 0x9f,
+                            0xf8, 0xa6, 0x36, 0x02})};
 
 [[nodiscard]] caors::reflection_type make_actor_reflection() {
   return caors::make_reflection_type<actor>(
@@ -227,35 +271,42 @@ TEST_CASE("reflection - type stores and finds fields", "[reflection]") {
 }
 
 TEST_CASE("reflection - registry registers and finds types", "[reflection]") {
-  caors::reflection_registry registry;
+  REQUIRE(
+      caors::register_reflection<registry_actor>(
+          "caors.test.reflection.registry_actor", registry_actor_guid,
+          {
+              caors::make_field_info<int>("id", "int", offsetof(registry_actor, id)),
+              caors::make_field_info<float>("health", "float", offsetof(registry_actor, health)),
+          }) == caors::reflection_register_result::success);
 
-  REQUIRE(registry.register_type(make_actor_reflection()) ==
-          caors::reflection_register_result::success);
+  CHECK(caors::get_reflection_registry().size() >= 1);
 
-  CHECK(registry.size() == 1);
-
-  auto by_name = registry.find_type("caors.test.reflection.actor");
+  auto by_name = caors::find_reflection("caors.test.reflection.registry_actor");
   REQUIRE(by_name.has_value());
-  CHECK(registry.contains(by_name->id()));
+  CHECK(caors::get_reflection_registry().contains(by_name->id()));
   CHECK(by_name->field_count() == 2);
 
-  auto by_guid = registry.find_type(actor_guid);
+  auto by_guid = caors::find_reflection(registry_actor_guid);
   REQUIRE(by_guid.has_value());
   CHECK(by_guid->id() == by_name->id());
 }
 
 TEST_CASE("reflection - registry returns type and field views", "[reflection]") {
-  caors::reflection_registry registry;
+  const caors::reflection_register_result register_result = caors::register_reflection<view_actor>(
+      "caors.test.reflection.view_actor", view_actor_guid,
+      {
+          caors::make_field_info<int>("id", "int", offsetof(view_actor, id)),
+          caors::make_field_info<float>("health", "float", offsetof(view_actor, health)),
+      });
+  REQUIRE((register_result == caors::reflection_register_result::success ||
+           register_result == caors::reflection_register_result::duplicate_reflection));
 
-  REQUIRE(registry.register_type(make_actor_reflection()) ==
-          caors::reflection_register_result::success);
-
-  auto reflected = registry.find_type("caors.test.reflection.actor");
+  auto reflected = caors::find_reflection("caors.test.reflection.view_actor");
   REQUIRE(reflected.has_value());
   CHECK(reflected->valid());
-  CHECK(reflected->id() == caors::make_type_id("caors.test.reflection.actor"));
-  CHECK(reflected->name() == "caors.test.reflection.actor");
-  CHECK(reflected->guid() == actor_guid);
+  CHECK(reflected->id() == caors::make_type_id("caors.test.reflection.view_actor"));
+  CHECK(reflected->name() == "caors.test.reflection.view_actor");
+  CHECK(reflected->guid() == view_actor_guid);
   CHECK(reflected->field_count() == 2);
 
   auto id = reflected->field_at(0);
@@ -274,11 +325,11 @@ TEST_CASE("reflection - registry returns type and field views", "[reflection]") 
   CHECK(health->pointer_depth() == 0);
   CHECK_FALSE(health->nullable());
   CHECK(health->writable());
-  CHECK(health->offset() == offsetof(actor, health));
+  CHECK(health->offset() == offsetof(view_actor, health));
   CHECK(health->size() == sizeof(float));
   CHECK(health->alignment() == alignof(float));
 
-  actor instance{1, 25.0F};
+  view_actor instance{1, 25.0F};
   CHECK(health->try_set<float>(&instance, 90.0F));
   CHECK(instance.health == 90.0F);
 
@@ -291,110 +342,114 @@ TEST_CASE("reflection - registry returns type and field views", "[reflection]") 
   const int next_id = 7;
   CHECK(id->try_set_value(&instance, caors::value::from(next_id)));
   CHECK(instance.id == 7);
-
-  registry.clear();
-  CHECK_FALSE(reflected->valid());
-  CHECK_FALSE(id->valid());
-  CHECK_FALSE(health->valid());
-  CHECK_FALSE(health->try_set<float>(&instance, 10.0F));
-  CHECK_FALSE(health->get_value(&instance).valid());
 }
 
-TEST_CASE("reflection - views expire with registry lifetime", "[reflection]") {
-  std::optional<caors::reflection_type_view> reflected;
-  std::optional<caors::field_view> field;
+TEST_CASE("reflection - views remain valid for append-only registry", "[reflection]") {
+  const caors::reflection_register_result register_result = caors::register_reflection<view_actor>(
+      "caors.test.reflection.view_actor", view_actor_guid,
+      {
+          caors::make_field_info<int>("id", "int", offsetof(view_actor, id)),
+          caors::make_field_info<float>("health", "float", offsetof(view_actor, health)),
+      });
+  REQUIRE((register_result == caors::reflection_register_result::success ||
+           register_result == caors::reflection_register_result::duplicate_reflection));
 
-  {
-    caors::reflection_registry registry;
-    REQUIRE(registry.register_type(make_actor_reflection()) ==
-            caors::reflection_register_result::success);
-
-    reflected = registry.find_type("caors.test.reflection.actor");
-    REQUIRE(reflected.has_value());
-    field = reflected->find_field("id");
-    REQUIRE(field.has_value());
-    CHECK(reflected->valid());
-    CHECK(field->valid());
-  }
-
+  auto reflected = caors::find_reflection("caors.test.reflection.view_actor");
   REQUIRE(reflected.has_value());
+
+  auto field = reflected->find_field("id");
   REQUIRE(field.has_value());
-  CHECK_FALSE(reflected->valid());
-  CHECK_FALSE(field->valid());
+  CHECK(reflected->valid());
+  CHECK(field->valid());
+
+  CHECK(caors::register_reflection<view_actor>(
+            "caors.test.reflection.view_actor", view_actor_guid,
+            {
+                caors::make_field_info<int>("id", "int", offsetof(view_actor, id)),
+                caors::make_field_info<float>("health", "float", offsetof(view_actor, health)),
+            }) == caors::reflection_register_result::duplicate_reflection);
+
+  CHECK(reflected->valid());
+  CHECK(field->valid());
 }
 
 TEST_CASE("reflection - registry registers child type with parent", "[reflection]") {
-  caors::reflection_registry registry;
-
-  REQUIRE(registry.register_type(make_actor_reflection()) ==
-          caors::reflection_register_result::success);
-  const auto reflected_actor = registry.find_type("caors.test.reflection.actor");
+  REQUIRE(caors::register_reflection<parent_actor>(
+              "caors.test.reflection.parent_actor",
+              {
+                  caors::make_field_info<int>("id", "int", offsetof(parent_actor, id)),
+              }) == caors::reflection_register_result::success);
+  const auto reflected_actor = caors::find_reflection("caors.test.reflection.parent_actor");
   REQUIRE(reflected_actor.has_value());
 
-  REQUIRE(caors::register_reflection<player>(
-              registry, "caors.test.reflection.player",
+  REQUIRE(caors::register_reflection<child_player>(
+              "caors.test.reflection.child_player",
               {
-                  caors::make_field_info<int>("level", "int", offsetof(player, level)),
+                  caors::make_field_info<int>("level", "int", offsetof(child_player, level)),
               },
               reflected_actor->id()) == caors::reflection_register_result::success);
 
-  auto reflected_player = registry.find_type("caors.test.reflection.player");
+  auto reflected_player = caors::find_reflection("caors.test.reflection.child_player");
   REQUIRE(reflected_player.has_value());
   CHECK(reflected_player->info().parent_id == reflected_actor->id());
 }
 
 TEST_CASE("reflection - registry reports duplicate reflection", "[reflection]") {
-  caors::reflection_registry registry;
-
-  REQUIRE(registry.register_type(make_actor_reflection()) ==
-          caors::reflection_register_result::success);
-  CHECK(registry.register_type(make_actor_reflection()) ==
-        caors::reflection_register_result::duplicate_reflection);
+  REQUIRE(caors::register_reflection<duplicate_actor>(
+              "caors.test.reflection.duplicate_actor",
+              {
+                  caors::make_field_info<int>("id", "int", offsetof(duplicate_actor, id)),
+              }) == caors::reflection_register_result::success);
+  CHECK(caors::register_reflection<duplicate_actor>(
+            "caors.test.reflection.duplicate_actor",
+            {
+                caors::make_field_info<int>("id", "int", offsetof(duplicate_actor, id)),
+            }) == caors::reflection_register_result::duplicate_reflection);
 }
 
 TEST_CASE("reflection - registry validates fields", "[reflection]") {
-  caors::reflection_registry registry;
+  CHECK(caors::register_reflection<invalid_field_owner>("caors.test.reflection.invalid_field",
+                                                        {
+                                                            caors::field_info{},
+                                                        }) ==
+        caors::reflection_register_result::invalid_field);
 
-  caors::reflection_type invalid_field = caors::make_reflection_type<actor>(
-      "caors.test.reflection.invalid_field", {
-                                                 caors::field_info{},
-                                             });
-  CHECK(registry.register_type(invalid_field) == caors::reflection_register_result::invalid_field);
-
-  caors::reflection_type duplicate_field = caors::make_reflection_type<actor>(
-      "caors.test.reflection.duplicate_field",
-      {
-          caors::make_field_info<int>("id", "int", offsetof(actor, id)),
-          caors::make_field_info<float>("id", "float", offsetof(actor, health)),
-      });
-  CHECK(registry.register_type(duplicate_field) ==
-        caors::reflection_register_result::duplicate_field);
+  CHECK(
+      caors::register_reflection<duplicate_field_owner>(
+          "caors.test.reflection.duplicate_field",
+          {
+              caors::make_field_info<int>("id", "int", offsetof(duplicate_field_owner, id)),
+              caors::make_field_info<float>("id", "float", offsetof(duplicate_field_owner, health)),
+          }) == caors::reflection_register_result::duplicate_field);
 }
 
 TEST_CASE("reflection - registry reports inconsistent existing type", "[reflection]") {
-  caors::reflection_registry registry;
+  REQUIRE(caors::register_reflection<inconsistent_actor>(
+              "caors.test.reflection.inconsistent_actor",
+              {
+                  caors::make_field_info<int>("id", "int", offsetof(inconsistent_actor, id)),
+              }) == caors::reflection_register_result::success);
 
-  REQUIRE(registry.register_type(make_actor_reflection()) ==
-          caors::reflection_register_result::success);
-
-  caors::reflection_type inconsistent = make_actor_reflection();
+  caors::reflection_type inconsistent = caors::make_reflection_type<inconsistent_actor>(
+      "caors.test.reflection.inconsistent_actor",
+      {
+          caors::make_field_info<int>("id", "int", offsetof(inconsistent_actor, id)),
+      });
   inconsistent.info.size += 1;
-  CHECK(registry.register_type(inconsistent) ==
+  CHECK(caors::get_reflection_registry().register_type_for<inconsistent_actor>(inconsistent) ==
         caors::reflection_register_result::inconsistent_type);
 }
 
 TEST_CASE("reflection - class builder infers built-in field types", "[reflection]") {
-  caors::reflection_registry registry;
-
   const caors::reflection_register_result result =
-      caors::reflection::class_<actor>(registry, "caors.test.reflection.builder_actor")
-          .field("id", &actor::id)
-          .field("health", &actor::health)
+      caors::reflection::class_<builder_actor>("caors.test.reflection.builder_actor")
+          .field("id", &builder_actor::id)
+          .field("health", &builder_actor::health)
           .commit();
 
   REQUIRE(result == caors::reflection_register_result::success);
 
-  auto reflected = registry.find_type("caors.test.reflection.builder_actor");
+  auto reflected = caors::find_reflection("caors.test.reflection.builder_actor");
   REQUIRE(reflected.has_value());
 
   auto id = reflected->find_field("id");
@@ -407,7 +462,7 @@ TEST_CASE("reflection - class builder infers built-in field types", "[reflection
   CHECK(health->type_name() == "float");
   CHECK(health->type() == caors::make_type_id("float"));
 
-  actor instance{3, 80.0F};
+  builder_actor instance{3, 80.0F};
   CHECK(id->try_set<int>(&instance, 10));
   CHECK(health->try_set<float>(&instance, 20.0F));
   CHECK(instance.id == 10);
@@ -415,18 +470,15 @@ TEST_CASE("reflection - class builder infers built-in field types", "[reflection
 }
 
 TEST_CASE("reflection - class builder resolves registered C++ field types", "[reflection]") {
-  caors::reflection_registry registry;
-
-  REQUIRE(caors::reflection::class_<inventory>(registry, "caors.test.reflection.inventory")
+  REQUIRE(caors::reflection::class_<inventory>("caors.test.reflection.inventory")
               .field("count", &inventory::count)
               .commit() == caors::reflection_register_result::success);
 
-  REQUIRE(caors::reflection::class_<inventory_holder>(registry,
-                                                      "caors.test.reflection.inventory_holder")
+  REQUIRE(caors::reflection::class_<inventory_holder>("caors.test.reflection.inventory_holder")
               .field("items", &inventory_holder::items)
               .commit() == caors::reflection_register_result::success);
 
-  auto reflected = registry.find_type("caors.test.reflection.inventory_holder");
+  auto reflected = caors::find_reflection("caors.test.reflection.inventory_holder");
   REQUIRE(reflected.has_value());
 
   auto items = reflected->find_field("items");
@@ -441,9 +493,7 @@ TEST_CASE("reflection - class builder reports missing field type mapping", "[ref
     unregistered_field field{};
   };
 
-  caors::reflection_registry registry;
-
-  CHECK(caors::reflection::class_<owner>(registry, "caors.test.reflection.owner")
+  CHECK(caors::reflection::class_<owner>("caors.test.reflection.owner")
             .field("field", &owner::field)
             .commit() == caors::reflection_register_result::invalid_field);
 }

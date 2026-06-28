@@ -20,13 +20,11 @@ namespace caors::reflection {
  */
 template <typename Class> class class_builder {
 public:
-  class_builder(reflection_registry& registry, std::string_view name,
-                type_id parent_id = type_id::invalid())
-      : registry_(&registry), type_(make_reflection_type<Class>(name, {}, parent_id)) {}
+  explicit class_builder(std::string_view name, type_id parent_id = type_id::invalid())
+      : type_(make_reflection_type<Class>(name, {}, parent_id)) {}
 
-  class_builder(reflection_registry& registry, std::string_view name, type_guid guid,
-                type_id parent_id = type_id::invalid())
-      : registry_(&registry), type_(make_reflection_type<Class>(name, guid, {}, parent_id)) {}
+  class_builder(std::string_view name, type_guid guid, type_id parent_id = type_id::invalid())
+      : type_(make_reflection_type<Class>(name, guid, {}, parent_id)) {}
 
   template <typename Field> class_builder& field(std::string_view name, Field Class::* member) {
     using field_type = std::remove_cv_t<Field>;
@@ -37,7 +35,7 @@ public:
     }
 
     const std::optional<type_info> resolved_type =
-        registry_->template find_registered_type<field_type>();
+        get_reflection_registry().template find_registered_type<field_type>();
     if (resolved_type.has_value()) {
       field_info field =
           make_field_info<Field>(name, resolved_type->name.view(), detail::member_offset(member));
@@ -78,29 +76,28 @@ public:
       return pending_result_;
     }
 
-    return registry_->template register_type_for<Class>(type_);
+    return get_reflection_registry().template register_type_for<Class>(type_);
   }
 
   [[nodiscard]] const reflection_type& type() const noexcept { return type_; }
 
 private:
-  reflection_registry* registry_ = nullptr;
   reflection_type type_{};
   reflection_register_result pending_result_ = reflection_register_result::success;
 };
 
 /** @brief 创建反射注册构建器。 */
 template <typename Class>
-[[nodiscard]] class_builder<Class> class_(reflection_registry& registry, std::string_view name,
+[[nodiscard]] class_builder<Class> class_(std::string_view name,
                                           type_id parent_id = type_id::invalid()) {
-  return class_builder<Class>{registry, name, parent_id};
+  return class_builder<Class>{name, parent_id};
 }
 
 /** @brief 创建带稳定 GUID 的反射注册构建器。 */
 template <typename Class>
-[[nodiscard]] class_builder<Class> class_(reflection_registry& registry, std::string_view name,
-                                          type_guid guid, type_id parent_id = type_id::invalid()) {
-  return class_builder<Class>{registry, name, guid, parent_id};
+[[nodiscard]] class_builder<Class> class_(std::string_view name, type_guid guid,
+                                          type_id parent_id = type_id::invalid()) {
+  return class_builder<Class>{name, guid, parent_id};
 }
 
 } // namespace caors::reflection

@@ -163,7 +163,7 @@ registry.emplace<object_factory_meta>(actor_id, true);
 `meta_registry` 是共享元数据层：
 
 - `object_registry` 先注册 `type_info`，再给同一个 `type_id` 挂载 `object_type` 组件。
-- 后续 `reflection_registry` 应先复用基础类型信息，再挂载 `reflection_type` 组件。
+- 全局反射注册表复用基础类型信息，再挂载 `reflection_type` 组件。
 - 后续 `serialization_registry` 可以挂载序列化相关组件。
 
 这样 `object_register`、`reflection_register` 和 `serialization_register` 不需要重复处理重名、重复 GUID、不一致类型描述和父类型缺失。

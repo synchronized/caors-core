@@ -13,19 +13,16 @@ struct actor {
 };
 
 int main() {
-  caors::reflection_registry registry;
-
-  const caors::reflection_register_result result =
-      caors::reflection::class_<actor>(registry, "example.actor")
-          .field("id", &actor::id)
-          .field("health", &actor::health)
-          .commit();
+  const caors::reflection_register_result result = caors::reflection::class_<actor>("example.actor")
+                                                       .field("id", &actor::id)
+                                                       .field("health", &actor::health)
+                                                       .commit();
 
   if (!caors::reflection_register_succeeded(result)) {
     return 1;
   }
 
-  const auto reflected = registry.find_type("example.actor");
+  const auto reflected = caors::find_reflection("example.actor");
   if (!reflected.has_value()) {
     return 1;
   }

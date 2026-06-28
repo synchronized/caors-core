@@ -3,15 +3,12 @@
 
 #include "caors/reflection.h"
 
-#include <cstdint>
 #include <memory>
 #include <unordered_set>
 #include <utility>
 
 namespace caors {
 namespace {
-
-reflection_registry default_reflection_registry;
 
 [[nodiscard]] bool same_type_info(const type_info& lhs, const type_info& rhs) noexcept {
   return lhs.name == rhs.name && lhs.guid == rhs.guid && lhs.size == rhs.size &&
@@ -159,19 +156,14 @@ std::optional<field_info> reflection_type::find_field(std::string_view name) con
 class reflection_registry_state {
 public:
   meta_registry meta;
-  std::uint64_t generation = 1;
 };
 
-field_view::field_view(std::weak_ptr<const reflection_registry_state> state,
-                       std::uint64_t generation, std::shared_ptr<const reflection_type> type,
+field_view::field_view(std::shared_ptr<const reflection_type> type,
                        std::size_t field_index) noexcept
-    : state_(std::move(state)), generation_(generation), type_(std::move(type)),
-      field_index_(field_index) {}
+    : type_(std::move(type)), field_index_(field_index) {}
 
 bool field_view::valid() const noexcept {
-  const std::shared_ptr<const reflection_registry_state> state = state_.lock();
-  return state != nullptr && state->generation == generation_ && type_ != nullptr &&
-         field_index_ < type_->fields.size();
+  return type_ != nullptr && type_->valid() && field_index_ < type_->fields.size();
 }
 
 string_name field_view::name() const noexcept {
@@ -260,15 +252,10 @@ bool field_view::try_set_value(void* object, const value& source) const {
   return field->try_set_value(object, source);
 }
 
-reflection_type_view::reflection_type_view(std::weak_ptr<const reflection_registry_state> state,
-                                           std::uint64_t generation,
-                                           std::shared_ptr<const reflection_type> type) noexcept
-    : state_(std::move(state)), generation_(generation), type_(std::move(type)) {}
+reflection_type_view::reflection_type_view(std::shared_ptr<const reflection_type> type) noexcept
+    : type_(std::move(type)) {}
 
-bool reflection_type_view::valid() const noexcept {
-  const std::shared_ptr<const reflection_registry_state> state = state_.lock();
-  return state != nullptr && state->generation == generation_ && type_ != nullptr && type_->valid();
-}
+bool reflection_type_view::valid() const noexcept { return type_ != nullptr && type_->valid(); }
 
 type_info reflection_type_view::info() const noexcept {
   const reflection_type* reflected = type();
@@ -301,7 +288,7 @@ std::optional<field_view> reflection_type_view::field_at(std::size_t index) cons
     return std::nullopt;
   }
 
-  return field_view{state_, generation_, type_, index};
+  return field_view{type_, index};
 }
 
 std::optional<field_view> reflection_type_view::find_field(string_name name) const {
@@ -340,6 +327,11 @@ reflection_registry::reflection_registry()
     : state_(std::make_shared<reflection_registry_state>()) {}
 
 reflection_registry::~reflection_registry() = default;
+
+reflection_registry& reflection_registry::instance() noexcept {
+  static reflection_registry registry;
+  return registry;
+}
 
 reflection_register_result reflection_registry::register_type(const reflection_type& type) {
   return register_type(nullptr, type);
@@ -417,8 +409,6 @@ std::optional<reflection_type_view> reflection_registry::find_type(type_id id) c
   }
 
   return reflection_type_view{
-      std::weak_ptr<const reflection_registry_state>{state_},
-      state_->generation,
       std::make_shared<reflection_type>(*type),
   };
 }
@@ -454,15 +444,14 @@ std::size_t reflection_registry::size() const noexcept {
   return state_->meta.count<reflection_type>();
 }
 
-void reflection_registry::clear() noexcept {
-  state_->meta.clear();
-  ++state_->generation;
-}
-
-reflection_registry& get_reflection_registry() noexcept { return default_reflection_registry; }
+reflection_registry& get_reflection_registry() noexcept { return reflection_registry::instance(); }
 
 std::optional<reflection_type_view> find_reflection(type_id id) {
   return get_reflection_registry().find_type(id);
+}
+
+std::optional<reflection_type_view> find_reflection(type_guid guid) {
+  return get_reflection_registry().find_type(guid);
 }
 
 std::optional<reflection_type_view> find_reflection(std::string_view name) {
