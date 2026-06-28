@@ -27,6 +27,10 @@ struct inventory_holder {
   inventory items{};
 };
 
+struct readonly_actor {
+  const int id = 7;
+};
+
 constexpr caors::type_guid actor_guid{caors::guid::from_bytes(
     caors::guid::byte_array{0x54, 0x20, 0x08, 0xa6, 0x08, 0x5e, 0x48, 0xb7, 0x9c, 0x2f, 0x88, 0x68,
                             0xb2, 0x42, 0x18, 0xf3})};
@@ -53,6 +57,46 @@ TEST_CASE("reflection - field info describes field layout", "[reflection]") {
   CHECK(field.offset == offsetof(actor, health));
   CHECK(field.size == sizeof(float));
   CHECK(field.alignment == alignof(float));
+  CHECK(field.writable);
+}
+
+TEST_CASE("reflection - field info reads and writes field values", "[reflection]") {
+  actor instance{1, 25.0F};
+  const caors::field_info id = caors::make_field_info<int>("id", "int", offsetof(actor, id));
+  const caors::field_info health =
+      caors::make_field_info<float>("health", "float", offsetof(actor, health));
+
+  auto id_value = id.try_get<int>(&instance);
+  REQUIRE(id_value.has_value());
+  CHECK(*id_value == 1);
+
+  CHECK(id.try_set<int>(&instance, 42));
+  CHECK(instance.id == 42);
+
+  auto health_value = health.try_get<float>(&instance);
+  REQUIRE(health_value.has_value());
+  CHECK(*health_value == 25.0F);
+
+  CHECK(health.try_set<float>(&instance, 75.0F));
+  CHECK(instance.health == 75.0F);
+
+  CHECK_FALSE(id.try_get<float>(&instance).has_value());
+  CHECK_FALSE(id.try_get<int>(nullptr).has_value());
+  CHECK_FALSE(id.try_set<float>(&instance, 1.0F));
+  CHECK_FALSE(id.try_set<int>(nullptr, 1));
+}
+
+TEST_CASE("reflection - field info rejects writes to readonly fields", "[reflection]") {
+  readonly_actor instance{};
+  const caors::field_info id =
+      caors::make_field_info<const int>("id", "int", offsetof(readonly_actor, id));
+
+  CHECK_FALSE(id.writable);
+
+  auto id_value = id.try_get<int>(&instance);
+  REQUIRE(id_value.has_value());
+  CHECK(*id_value == 7);
+  CHECK_FALSE(id.try_set<int>(&instance, 8));
 }
 
 TEST_CASE("reflection - type stores and finds fields", "[reflection]") {
@@ -170,6 +214,12 @@ TEST_CASE("reflection - class builder infers built-in field types", "[reflection
   REQUIRE(health.has_value());
   CHECK(health->type_name == "float");
   CHECK(health->type == caors::make_type_id("float"));
+
+  actor instance{3, 80.0F};
+  CHECK(id->try_set<int>(&instance, 10));
+  CHECK(health->try_set<float>(&instance, 20.0F));
+  CHECK(instance.id == 10);
+  CHECK(instance.health == 20.0F);
 }
 
 TEST_CASE("reflection - class builder resolves registered C++ field types", "[reflection]") {

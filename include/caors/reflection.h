@@ -20,7 +20,8 @@ namespace caors {
 /**
  * @brief 字段反射元信息。
  *
- * 第一版字段反射只描述字段身份、字段类型名、布局位置和大小，不负责动态 get/set。
+ * 字段访问基于注册时记录的 offset 和 C++ 类型 key。调用方需要传入该字段所属对象的地址；
+ * 类型不匹配、对象为空或字段不可写时会返回失败，不抛出异常。
  */
 struct field_info {
   string_name name{};
@@ -30,10 +31,79 @@ struct field_info {
   std::size_t offset = 0;
   std::size_t size = 0;
   std::size_t alignment = 0;
+  bool writable = true;
 
   [[nodiscard]] constexpr bool valid() const noexcept {
     return !name.empty() && static_cast<bool>(type) && !type_name.empty() && size > 0 &&
            alignment > 0;
+  }
+
+  /** @brief 判断字段是否匹配指定 C++ 类型。 */
+  template <typename Field> [[nodiscard]] bool matches_type() const noexcept {
+    using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
+    return cpp_type == detail::cpp_type_key_of<field_type>() && size == sizeof(field_type) &&
+           alignment == alignof(field_type);
+  }
+
+  /** @brief 获取字段在对象内的只读地址。 */
+  [[nodiscard]] const void* data(const void* object) const noexcept {
+    if (object == nullptr || !valid()) {
+      return nullptr;
+    }
+
+    const auto* bytes = static_cast<const unsigned char*>(object);
+    return bytes + offset;
+  }
+
+  /** @brief 获取字段在对象内的可写地址。 */
+  [[nodiscard]] void* mutable_data(void* object) const noexcept {
+    if (object == nullptr || !valid() || !writable) {
+      return nullptr;
+    }
+
+    auto* bytes = static_cast<unsigned char*>(object);
+    return bytes + offset;
+  }
+
+  /** @brief 按指定类型读取字段值。 */
+  template <typename Field>
+  [[nodiscard]] std::optional<std::remove_cv_t<std::remove_reference_t<Field>>>
+  try_get(const void* object) const {
+    using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
+    static_assert(std::is_copy_constructible_v<field_type>,
+                  "Reflected field values must be copy constructible");
+
+    if (!matches_type<field_type>()) {
+      return std::nullopt;
+    }
+
+    const void* value = data(object);
+    if (value == nullptr) {
+      return std::nullopt;
+    }
+
+    return *static_cast<const field_type*>(value);
+  }
+
+  /** @brief 按指定类型写入字段值。 */
+  template <typename Field> bool try_set(void* object, const Field& value) const {
+    using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
+    if (!matches_type<field_type>()) {
+      return false;
+    }
+
+    void* storage = mutable_data(object);
+    if (storage == nullptr) {
+      return false;
+    }
+
+    auto* target = static_cast<field_type*>(storage);
+    if constexpr (std::is_assignable_v<field_type&, const Field&>) {
+      *target = value;
+      return true;
+    } else {
+      return false;
+    }
   }
 };
 
@@ -50,6 +120,7 @@ template <typename Field>
       offset,
       sizeof(field_type),
       alignof(field_type),
+      !std::is_const_v<Field>,
   };
 }
 
@@ -205,6 +276,7 @@ public:
           detail::member_offset(member),
           sizeof(field_type),
           alignof(field_type),
+          !std::is_const_v<Field>,
       });
     } else {
       if constexpr (detail::has_type_name_v<field_type>) {
@@ -216,6 +288,7 @@ public:
             detail::member_offset(member),
             sizeof(field_type),
             alignof(field_type),
+            !std::is_const_v<Field>,
         });
       } else {
         pending_result_ = reflection_register_result::invalid_field;
@@ -241,6 +314,7 @@ public:
         detail::member_offset(member),
         sizeof(field_type),
         alignof(field_type),
+        !std::is_const_v<Field>,
     });
     return *this;
   }

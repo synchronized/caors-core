@@ -3,7 +3,7 @@
 
 # Reflection
 
-本文档说明 CAORS 反射系统的当前设计边界。第一版反射只提供类型和字段元信息注册、查询，不提供动态 get/set、方法调用、属性系统或代码生成。
+本文档说明 CAORS 反射系统的当前设计边界。当前反射提供类型和字段元信息注册、查询，以及基础字段读写；暂不提供方法调用、属性系统或代码生成。
 
 ## 设计目标
 
@@ -14,10 +14,10 @@
 - 通过 RTTR 风格 builder 或底层字段列表描述字段。
 - 提供按类型 id、类型名和稳定 GUID 查询反射类型。
 - 提供按字段名查询字段元信息。
+- 提供字段基础读写入口。
 
 当前不会包含：
 
-- 动态字段读写。
 - 方法调用。
 - 属性元数据。
 - 自动代码扫描或代码生成。
@@ -35,6 +35,7 @@
 - `offset`：字段在类型中的偏移。
 - `size`：字段大小。
 - `alignment`：字段对齐。
+- `writable`：字段是否允许写入。
 
 字段描述可以通过 `make_field_info<Field>()` 创建：
 
@@ -64,6 +65,20 @@ caors::reflection::class_<actor>(registry, "game.actor")
 - 如果字段类型已经通过模板注册函数注册到同一个反射注册表，优先复用该类型的 `type_info`。
 - 如果字段类型没有注册，但存在 `type_name<T>` 默认映射，则使用默认类型名生成 `type_id`，并自动注册为基础类型。
 - 如果两者都没有，`.commit()` 返回 `invalid_field`。
+
+字段读写入口：
+
+```cpp
+actor instance{};
+
+auto id = reflected->find_field("id");
+id->try_set<int>(&instance, 42);
+
+auto value = id->try_get<int>(&instance);
+```
+
+`try_get<T>()` 在对象为空或类型不匹配时返回 `std::nullopt`。`try_set<T>()`
+在对象为空、类型不匹配或字段不可写时返回 `false`。
 
 ### reflection_type
 
@@ -112,7 +127,7 @@ caors::reflection_register_result result =
 
 ## 当前已实现能力
 
-- `field_info`：字段名、字段类型名、offset、size 和 alignment。
+- `field_info`：字段名、字段类型名、offset、size、alignment 和基础 get/set。
 - `reflection_type`：基础类型描述和字段列表。
 - `reflection_registry`：反射类型注册、查询、清理和统计。
 - `reflection::class_<T>()`：RTTR 风格链式注册入口。

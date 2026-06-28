@@ -36,5 +36,14 @@ int main() {
               << ", offset: " << field.offset << '\n';
   }
 
+  actor instance{};
+  const auto health = reflected->find_field("health");
+  if (health.has_value() && health->try_set<float>(&instance, 75.0F)) {
+    const auto value = health->try_get<float>(&instance);
+    if (value.has_value()) {
+      std::cout << "health: " << *value << '\n';
+    }
+  }
+
   return 0;
 }
