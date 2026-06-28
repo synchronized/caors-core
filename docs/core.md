@@ -36,6 +36,4 @@ first == second; // true
 - `string_name` 不承诺跨进程、跨版本或跨动态库边界稳定。
 - 序列化和资源引用应使用后续显式 `type_guid` / `uuid`。
 
-行为测试位于：
-
-- `tests/core/string_name_test.cpp`
+相关测试位于 `tests/core/`，测试组织规则见 [tests/README.md](../tests/README.md)。

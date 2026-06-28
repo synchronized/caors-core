@@ -223,15 +223,7 @@ backend / strategy resource
 - [ ] 评估是否需要同步包装器；默认优先让 backend 自己处理线程安全。
 - [ ] 可选第三方后端：jemalloc、mimalloc、rpmalloc。
 
-## 示例索引
+## 相关入口
 
-可运行示例位于：
-
-- `examples/memory/system_backend.cpp`
-- `examples/memory/callback_backend.cpp`
-- `examples/memory/resource_layers.cpp`
-- `examples/memory/debug_tracking.cpp`
-
-行为测试位于：
-
-- `tests/memory/memory_test.cpp`
+- 可运行示例位于 `examples/memory/`，示例组织规则见 [examples/README.md](../examples/README.md)。
+- 行为测试位于 `tests/memory/`，测试组织规则见 [tests/README.md](../tests/README.md)。

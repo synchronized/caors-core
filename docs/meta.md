@@ -133,8 +133,4 @@ registry.emplace<object_factory_meta>(actor_id, true);
 - `meta_view<T...>`：按组件集合查询类型。
 - `get_meta_registry()`：进程内默认元数据注册表。
 
-行为测试位于：
-
-- `tests/meta/type_info_test.cpp`
-- `tests/core/string_name_test.cpp`
-- `tests/meta/meta_test.cpp`
+相关测试位于 `tests/meta/` 和 `tests/core/`，测试组织规则见 [tests/README.md](../tests/README.md)。

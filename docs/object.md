@@ -184,12 +184,7 @@ caors::destroy_object(instance, &resource);
 - [ ] 与序列化系统打通类型名、版本和构造流程。
 - [ ] 评估是否需要线程安全对象容器或对象数据库。
 
-## 示例索引
+## 相关入口
 
-可运行示例位于：
-
-- `examples/object/basic_object.cpp`
-
-行为测试位于：
-
-- `tests/object/object_test.cpp`
+- 可运行示例位于 `examples/object/`，示例组织规则见 [examples/README.md](../examples/README.md)。
+- 行为测试位于 `tests/object/`，测试组织规则见 [tests/README.md](../tests/README.md)。

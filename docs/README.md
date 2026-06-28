@@ -1,0 +1,209 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright (c) 2026 CAORS contributors -->
+
+# CAORS 文档
+
+CAORS 是一个 C++20 基础设施库，当前处于早期建设阶段，目标能力包括 core 基础设施、自定义内存分配器、类型元数据、对象系统、运行时反射和跨平台序列化。
+
+## 文档索引
+
+- [core.md](core.md)：core 主题，包含 `string_name` 和后续基础容器规划。
+- [memory.md](memory.md)：内存资源、分配器、策略资源和调试跟踪。
+- [meta.md](meta.md)：类型元数据、`type_info`、`meta_registry` 和元数据组件。
+- [object.md](object.md)：对象基类、对象注册表和对象创建销毁入口。
+- [roadmap.md](roadmap.md)：项目路线图。
+- [../examples/README.md](../examples/README.md)：示例构建、运行和新增规则。
+- [../tests/README.md](../tests/README.md)：测试组织、运行和新增规则。
+
+## 当前状态
+
+当前仓库已实现：
+
+- `caors` 静态库目标，别名目标为 `caors::caors`。
+- 公共头文件目录 `include/caors/`。
+- 基础配置 API：`caors/config.h`。
+- 导出宏 API：`caors/export.h`。
+- 基础版本 API：`caors/version.h`，由 `include/caors/version.h.in` 在配置阶段生成。
+- Core API：`caors/core/string_name.h`。
+- 类型元数据 API：`caors/meta.h`。
+- 基础内存资源 API：`caors/memory.h`。
+- 基础对象系统 API：`caors/object.h`。
+- `examples/` 可运行示例。
+- Catch2 测试骨架，测试目录按主题自动收集。
+- 目标级编译警告工具函数：`target_compile_warnings()`。
+- CMake install/export 基础配置。
+
+具体可用 API 以源码为准，文档不声明尚未实现的具体接口。
+
+## 目录结构
+
+```text
+.
+├── 3rd/                    # 第三方依赖，当前包含 Catch2
+├── cmake/                  # 项目 CMake 工具函数
+├── docs/                   # 专题设计文档
+├── examples/               # 可运行示例
+├── include/caors/          # 公共头文件和版本头模板
+├── src/                    # 库目标和实现
+│   └── caors/
+├── tests/                  # 测试入口
+├── CMakeLists.txt
+├── CMakePresets.json
+└── README.md
+```
+
+## 环境要求
+
+- CMake 3.23 或更新版本。
+- Ninja。
+- 支持 C++20 的编译器，任选其一：
+  - MSVC `cl`
+  - `clang-cl`
+  - Clang
+  - GCC
+
+在 Windows 使用 MSVC preset 时，需要从 Visual Studio Developer PowerShell 或已配置 `cl` 的终端运行命令。
+
+## 快速开始
+
+查看可用 preset：
+
+```sh
+cmake --list-presets
+```
+
+配置、构建并测试：
+
+```sh
+cmake --preset windows-clang-debug
+cmake --build --preset windows-clang-debug
+ctest --preset windows-clang-debug
+```
+
+使用 GCC preset：
+
+```sh
+cmake --preset linux-gcc-debug
+cmake --build --preset linux-gcc-debug
+ctest --preset linux-gcc-debug
+```
+
+preset 名称表示预期工具链组合，实际是否可用取决于当前系统和 PATH 中的编译器。
+
+## 常用 Preset
+
+| Preset | 用途 |
+| --- | --- |
+| `windows-msvc-debug` | Windows MSVC Debug 构建 |
+| `windows-msvc-release` | Windows MSVC Release 构建 |
+| `windows-clang-cl-debug` | Windows clang-cl Debug 构建 |
+| `windows-clang-debug` | Clang Debug 构建 |
+| `linux-clang-debug` | Clang Debug 构建 |
+| `linux-gcc-debug` | GCC Debug 构建 |
+
+当前所有 preset 共用默认构建目录 `build/`。在不同编译器 preset 之间切换时，如果 CMake 提示编译器缓存变化，建议重新配置或清理 `build/` 后再构建。
+
+## 测试
+
+测试说明见 [tests/README.md](../tests/README.md)。这里仅保留常用入口：
+
+```sh
+ctest --preset windows-clang-debug
+ctest --preset linux-gcc-debug
+```
+
+## CMake 选项
+
+| 选项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `BUILD_SHARED_LIBS` | `OFF` | 是否将 `caors` 构建为共享库 |
+| `CAORS_BUILD_TESTING` | `ON` | 是否构建测试目标 |
+| `CAORS_BUILD_EXAMPLES` | 顶层项目为 `ON` | 是否构建示例目标 |
+| `CAORS_ENABLE_WARNINGS` | `ON` | 是否为 CAORS 自有目标开启编译警告 |
+| `CAORS_ENABLE_PEDANTIC_WARNINGS` | `OFF` | 是否启用严格标准扩展警告，例如 `-Wpedantic` |
+| `CAORS_WARNINGS_AS_ERRORS` | `OFF` | 是否将 CAORS 自有目标的编译警告视为错误 |
+| `USE_DEBUG_OUTPUT` | Debug preset 为 `ON` | 是否启用调试输出宏 |
+| `USE_LOG` | Debug preset 为 `ON` | 是否启用日志宏 |
+| `USE_LOG_SEVERITY` | `0` | 日志最低级别宏 |
+
+开启警告即错误：
+
+```sh
+cmake --preset windows-clang-debug -DCAORS_WARNINGS_AS_ERRORS=ON
+```
+
+开启严格标准扩展警告：
+
+```sh
+cmake --preset windows-clang-debug -DCAORS_ENABLE_PEDANTIC_WARNINGS=ON
+```
+
+## 示例
+
+示例说明见 [examples/README.md](../examples/README.md)。
+
+在本项目 CMake 内部链接库目标：
+
+```cmake
+target_link_libraries(your_target PRIVATE caors::caors)
+```
+
+## 安装
+
+构建后可安装到指定目录：
+
+```sh
+cmake --install build --prefix <install-prefix>
+```
+
+当前安装内容包括：
+
+- 静态库文件。
+- `include/caors/` 公共头文件，其中 `version.h` 由 `version.h.in` 生成。
+- `lib/cmake/caors/caorsConfig.cmake` 包配置文件。
+- `lib/cmake/caors/caorsConfigVersion.cmake` 版本匹配文件。
+- `lib/cmake/caors/caorsTargets.cmake` 导出目标文件。
+- `share/doc/caors/LICENSE` 许可证文件。
+
+安装后，外部项目可通过 Config 模式查找并链接：
+
+```cmake
+find_package(caors CONFIG REQUIRED)
+target_link_libraries(your_target PRIVATE caors::caors)
+```
+
+## 代码格式与静态检查
+
+项目提供以下配置文件：
+
+- `.clang-format`：基于 LLVM 风格微调，整体偏 STL/RTTR 这类库代码排版。
+- `.clang-tidy`：启用 bugprone、performance、portability、modernize 和 readability 相关检查，并排除部分噪声较大的规则。
+
+格式化单个文件：
+
+```sh
+clang-format -i src/caors/version.cpp
+```
+
+检查单个源文件：
+
+```sh
+clang-tidy src/caors/version.cpp -p build
+```
+
+`clang-tidy` 依赖 `compile_commands.json`，当前 preset 已开启 `CMAKE_EXPORT_COMPILE_COMMANDS`。第三方目录 `3rd/` 不作为项目代码检查目标。
+
+`include/caors/version.h.in` 包含 CMake 占位符，不直接使用 `clang-format` 格式化；需要检查时以生成后的 `version.h` 为准。
+
+## 开发规范
+
+- 使用 C++20，不引入低于项目标准的兼容写法。
+- 采用偏 STL/RTTR 的库风格：公共 API 使用小写下划线命名，例如 `get_version()`。
+- 仅在单个 `.cpp` 文件内部使用的自由函数、变量和辅助类型应放入匿名 namespace，避免暴露翻译单元外符号。
+- CMake 使用 target-based 写法，优先使用 `target_sources`、`target_include_directories`、`target_link_libraries` 和 `target_compile_features`。
+- 公共头文件模板放在 `include/caors/`，生成头文件放在构建目录下。
+- 跨库边界的公共类和非内联函数使用 `CAORS_API` 标记。
+- 库实现放在 `src/caors/`。
+- 版本号以根 `project(... VERSION ...)` 为唯一来源，不手写重复版本常量。
+- 新增模块时同步补充测试目录。
+- 第三方源码不默认启用项目级 `-Werror`，避免外部警告影响本项目构建。
