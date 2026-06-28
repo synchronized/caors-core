@@ -29,7 +29,7 @@ TEST_CASE("meta - registry stores base type information", "[meta]") {
   CHECK(caors::register_type<actor_type>(registry, "caors.test.meta.actor") ==
         caors::type_register_result::success);
 
-  auto type = registry.find_type(caors::make_type_id("caors.test.meta.actor"));
+  auto type = registry.find_type("caors.test.meta.actor");
   REQUIRE(type.has_value());
   CHECK(type->name == "caors.test.meta.actor");
   CHECK(type->size == sizeof(actor_type));
@@ -38,10 +38,12 @@ TEST_CASE("meta - registry stores base type information", "[meta]") {
 
 TEST_CASE("meta - registry stores components by type id", "[meta]") {
   caors::meta_registry registry;
-  const caors::type_id actor_id = caors::make_type_id("caors.test.meta.actor");
 
   REQUIRE(caors::register_type<actor_type>(registry, "caors.test.meta.actor") ==
           caors::type_register_result::success);
+  const auto actor = registry.find_type<actor_type>();
+  REQUIRE(actor.has_value());
+  const caors::type_id actor_id = actor->id;
 
   CHECK(registry.emplace<object_factory_meta>(actor_id, true) ==
         caors::meta_component_result::success);
@@ -61,21 +63,26 @@ TEST_CASE("meta - registry stores components by type id", "[meta]") {
 TEST_CASE("meta - registry rejects components for missing types", "[meta]") {
   caors::meta_registry registry;
 
-  CHECK(registry.emplace<object_factory_meta>(caors::make_type_id("caors.test.meta.missing"),
-                                              true) == caors::meta_component_result::missing_type);
+  CHECK(registry.emplace<object_factory_meta>(caors::type_id{999}, true) ==
+        caors::meta_component_result::missing_type);
   CHECK(registry.emplace<object_factory_meta>(caors::type_id::invalid(), true) ==
         caors::meta_component_result::invalid_type);
 }
 
 TEST_CASE("meta - view finds types with all requested components", "[meta]") {
   caors::meta_registry registry;
-  const caors::type_id actor_id = caors::make_type_id("caors.test.meta.actor");
-  const caors::type_id player_id = caors::make_type_id("caors.test.meta.player");
 
   REQUIRE(caors::register_type<actor_type>(registry, "caors.test.meta.actor") ==
           caors::type_register_result::success);
+  const auto actor = registry.find_type<actor_type>();
+  REQUIRE(actor.has_value());
+  const caors::type_id actor_id = actor->id;
+
   REQUIRE(caors::register_type<player_type>(registry, "caors.test.meta.player", actor_id) ==
           caors::type_register_result::success);
+  const auto player = registry.find_type<player_type>();
+  REQUIRE(player.has_value());
+  const caors::type_id player_id = player->id;
 
   REQUIRE(registry.emplace<object_factory_meta>(actor_id, true) ==
           caors::meta_component_result::success);

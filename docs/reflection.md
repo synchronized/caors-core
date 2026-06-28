@@ -62,7 +62,7 @@ caors::reflection::class_<actor>(registry, "game.actor")
 字段类型推导规则：
 
 - 如果字段类型已经通过模板注册函数注册到同一个反射注册表，优先复用该类型的 `type_info`。
-- 如果字段类型没有注册，但存在 `type_name<T>` 默认映射，则使用默认类型名生成字段类型 id。
+- 如果字段类型没有注册，但存在 `type_name<T>` 默认映射，则使用默认类型名生成 `type_id`，并自动注册为基础类型。
 - 如果两者都没有，`.commit()` 返回 `invalid_field`。
 
 ### reflection_type
@@ -102,13 +102,12 @@ caors::reflection_register_result result =
 - `success`：注册成功。
 - `invalid_type`：类型描述无效。
 - `invalid_field`：字段描述无效。
-- `duplicate_id`：同一个 id 已注册。
+- `duplicate_id`：同一个运行期 id、C++ 类型或等价类型描述已注册。
 - `duplicate_name`：同一个名称已注册。
 - `duplicate_guid`：同一个非 nil 稳定 GUID 已注册。
 - `duplicate_field`：同一个类型内存在重复字段名。
 - `duplicate_reflection`：目标类型已经挂载反射组件。
 - `inconsistent_type`：目标类型已存在，但基础 `type_info` 不一致。
-- `hash_collision`：id 已存在但名称不同。
 - `missing_parent`：父类型未注册。
 
 ## 当前已实现能力

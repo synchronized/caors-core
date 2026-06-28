@@ -43,13 +43,13 @@ std::string_view view = name.view();
 
 ### type_id
 
-`type_id` 是运行期类型标识。`0` 保留为无效值。
+`type_id` 是运行期类型标识。`0` 保留为无效值。它由类型名对应的 `string_name::id()` 派生：
 
 ```cpp
 caors::type_id id = caors::make_type_id("game.player");
 ```
 
-当前 `make_type_id()` 会先把类型名转为 `string_name`，再用 `string_name::id()` 派生 `type_id`。它适合运行期查找，不适合作为序列化长期稳定 ID。
+`type_id` 适合当前进程内的运行期查找，不适合作为序列化长期稳定 ID。需要长期稳定身份时使用 `type_guid`。
 
 ### type_guid
 
@@ -58,7 +58,7 @@ caors::type_id id = caors::make_type_id("game.player");
 ```cpp
 auto guid = caors::guid::parse("5ed39a97-7b20-4d87-86ac-e62a4a615b10");
 caors::type_info info =
-    caors::make_type_info<player>("game.player", caors::type_guid{*guid}, actor_id);
+    caors::make_type_info<player>("game.player", caors::type_guid{*guid});
 ```
 
 需要注意：
@@ -79,8 +79,10 @@ caors::type_info info =
 - `parent_id`
 
 ```cpp
-caors::type_info info = caors::make_type_info<player>("game.player", actor_id);
+caors::type_info info = caors::make_type_info<player>("game.player");
 ```
+
+`make_type_info<T>()` 会根据类型名填充 `id`，注册表负责校验 `id` 与 `name` 是否一致。
 
 ### type_name<T>
 
@@ -115,10 +117,9 @@ caors::type_register_result result =
 
 - `success`：注册成功。
 - `invalid_type`：类型描述无效。
-- `duplicate_id`：同一个 id 已注册。
+- `duplicate_id`：同一个运行期 id、C++ 类型或等价类型描述已注册。
 - `duplicate_name`：同一个名称已注册。
 - `duplicate_guid`：同一个非 nil 稳定 GUID 已注册。
-- `hash_collision`：id 已存在，但名称不同，说明手写 id 错误或外部构造了不一致的类型描述。
 - `missing_parent`：父类型未注册。
 
 使用方式是先注册基础类型，再给该类型挂载组件：
@@ -158,14 +159,14 @@ registry.emplace<object_factory_meta>(actor_id, true);
 - 后续 `reflection_registry` 应先复用基础类型信息，再挂载 `reflection_type` 组件。
 - 后续 `serialization_registry` 可以挂载序列化相关组件。
 
-这样 `object_register`、`reflection_register` 和 `serialization_register` 不需要重复处理重名、重复 id、不一致类型描述和父类型缺失。
+这样 `object_register`、`reflection_register` 和 `serialization_register` 不需要重复处理重名、重复 GUID、不一致类型描述和父类型缺失。
 
 ## 当前已实现能力
 
 - `type_id`：运行期类型标识。
 - `type_guid`：稳定类型标识。
 - `string_name`：运行期 interned 名称，定义在 `caors/core/string_name.h`。
-- `make_type_id()`：根据类型名生成类型标识。
+- `make_type_id()`：根据类型名生成运行期类型标识。
 - `type_name<T>`：基础 C++ 类型到 CAORS 类型名的默认映射。
 - `type_info` / `make_type_info<T>()`：基础类型描述。
 - `meta_registry`：基础类型注册、按 id/name/guid/C++ 类型查询、继承关系判断、清理和组件式元数据挂载。

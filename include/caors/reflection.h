@@ -26,6 +26,7 @@ struct field_info {
   string_name name{};
   type_id type{};
   string_name type_name{};
+  detail::cpp_type_key cpp_type = nullptr;
   std::size_t offset = 0;
   std::size_t size = 0;
   std::size_t alignment = 0;
@@ -42,8 +43,13 @@ template <typename Field>
                                          std::size_t offset) {
   using field_type = std::remove_cv_t<Field>;
   return field_info{
-      string_name{name},  make_type_id(type_name), string_name{type_name}, offset,
-      sizeof(field_type), alignof(field_type),
+      string_name{name},
+      make_type_id(type_name),
+      string_name{type_name},
+      detail::cpp_type_key_of<field_type>(),
+      offset,
+      sizeof(field_type),
+      alignof(field_type),
   };
 }
 
@@ -112,7 +118,6 @@ enum class reflection_register_result {
   duplicate_field,
   duplicate_reflection,
   inconsistent_type,
-  hash_collision,
   missing_parent,
 };
 
@@ -189,24 +194,34 @@ public:
       return *this;
     }
 
-    std::optional<type_info> resolved_type = registry_->template find_registered_type<field_type>();
-    if (!resolved_type.has_value()) {
+    const std::optional<type_info> resolved_type =
+        registry_->template find_registered_type<field_type>();
+    if (resolved_type.has_value()) {
+      type_.fields.push_back(field_info{
+          string_name{name},
+          resolved_type->id,
+          resolved_type->name,
+          detail::cpp_type_key_of<field_type>(),
+          detail::member_offset(member),
+          sizeof(field_type),
+          alignof(field_type),
+      });
+    } else {
       if constexpr (detail::has_type_name_v<field_type>) {
-        resolved_type = make_type_info<field_type>(type_name<field_type>::value);
+        type_.fields.push_back(field_info{
+            string_name{name},
+            make_type_id(type_name<field_type>::value),
+            string_name{type_name<field_type>::value},
+            detail::cpp_type_key_of<field_type>(),
+            detail::member_offset(member),
+            sizeof(field_type),
+            alignof(field_type),
+        });
       } else {
         pending_result_ = reflection_register_result::invalid_field;
-        return *this;
       }
     }
 
-    type_.fields.push_back(field_info{
-        string_name{name},
-        resolved_type->id,
-        resolved_type->name,
-        detail::member_offset(member),
-        sizeof(field_type),
-        alignof(field_type),
-    });
     return *this;
   }
 
@@ -222,6 +237,7 @@ public:
         string_name{name},
         make_type_id(type_name),
         string_name{type_name},
+        detail::cpp_type_key_of<field_type>(),
         detail::member_offset(member),
         sizeof(field_type),
         alignof(field_type),

@@ -24,19 +24,24 @@ int main() {
     return 1;
   }
 
-  if (!caors::object_register_succeeded(caors::register_object_type<player>(
-          registry, player::object_type_name, actor::static_type_id()))) {
+  if (!caors::object_register_succeeded(
+          caors::register_object_type<player>(registry, player::object_type_name))) {
     return 1;
   }
 
-  caors::object* instance = registry.create(player::static_type_id());
+  const auto actor_type = registry.find_type<actor>();
+  if (!actor_type.has_value()) {
+    return 1;
+  }
+
+  caors::object* instance = registry.create<player>();
   if (instance == nullptr) {
     return 1;
   }
 
   std::cout << "object id: " << instance->id().value() << '\n';
   std::cout << "type name: " << instance->type_name() << '\n';
-  std::cout << "is actor: " << registry.is_a(instance->type_id(), actor::static_type_id()) << '\n';
+  std::cout << "is actor: " << registry.is_a(instance->type_id(), actor_type->info.id) << '\n';
 
   registry.destroy(instance);
   return 0;

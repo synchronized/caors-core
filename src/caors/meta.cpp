@@ -17,7 +17,7 @@ struct type_info_entry {
 meta_registry default_meta_registry;
 
 [[nodiscard]] bool same_type_info(const type_info& lhs, const type_info& rhs) noexcept {
-  return lhs.id == rhs.id && lhs.name == rhs.name && lhs.guid == rhs.guid && lhs.size == rhs.size &&
+  return lhs.name == rhs.name && lhs.guid == rhs.guid && lhs.size == rhs.size &&
          lhs.alignment == rhs.alignment && lhs.parent_id == rhs.parent_id;
 }
 
@@ -45,21 +45,17 @@ type_register_result meta_registry::register_type(const type_info& type) {
   }
 
   std::lock_guard lock(state_->mutex);
+  if (type.id != make_type_id(type.name)) {
+    return type_register_result::invalid_type;
+  }
+
   const auto id_position = state_->types.find(type.id.value());
   if (id_position != state_->types.end()) {
-    if (id_position->second.info.name == type.name) {
+    if (same_type_info(id_position->second.info, type)) {
       return type_register_result::duplicate_id;
     }
 
-    return type_register_result::hash_collision;
-  }
-
-  if (state_->names.contains(type.name.id())) {
     return type_register_result::duplicate_name;
-  }
-
-  if (type.id != make_type_id(type.name)) {
-    return type_register_result::invalid_type;
   }
 
   if (type.guid && state_->guids.contains(type.guid.value)) {
@@ -93,7 +89,13 @@ type_register_result meta_registry::register_cpp_type(detail::cpp_type_key key,
   {
     std::lock_guard lock(state_->mutex);
     const auto key_position = state_->cpp_types.find(key);
-    if (key_position != state_->cpp_types.end() && key_position->second != type.id) {
+    if (key_position != state_->cpp_types.end()) {
+      const auto type_position = state_->types.find(key_position->second.value());
+      if (type_position != state_->types.end() &&
+          same_type_info(type_position->second.info, type)) {
+        return type_register_result::duplicate_id;
+      }
+
       return type_register_result::invalid_type;
     }
   }
@@ -103,11 +105,13 @@ type_register_result meta_registry::register_cpp_type(detail::cpp_type_key key,
     return result;
   }
 
-  std::lock_guard lock(state_->mutex);
-  const auto type_position = state_->types.find(type.id.value());
-  if (type_position != state_->types.end() && same_type_info(type_position->second.info, type)) {
-    state_->cpp_types.try_emplace(key, type.id);
+  const std::optional<type_info> stored_type = find_type(type.name);
+  if (!stored_type.has_value() || !same_type_info(*stored_type, type)) {
+    return type_register_result::invalid_type;
   }
+
+  std::lock_guard lock(state_->mutex);
+  state_->cpp_types.try_emplace(key, stored_type->id);
 
   return result;
 }

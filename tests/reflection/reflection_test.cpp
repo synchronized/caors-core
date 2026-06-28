@@ -76,10 +76,10 @@ TEST_CASE("reflection - registry registers and finds types", "[reflection]") {
           caors::reflection_register_result::success);
 
   CHECK(registry.size() == 1);
-  CHECK(registry.contains(caors::make_type_id("caors.test.reflection.actor")));
 
   auto by_name = registry.find_type("caors.test.reflection.actor");
   REQUIRE(by_name.has_value());
+  CHECK(registry.contains(by_name->info.id));
   CHECK(by_name->fields.size() == 2);
 
   auto by_guid = registry.find_type(actor_guid);
@@ -89,20 +89,22 @@ TEST_CASE("reflection - registry registers and finds types", "[reflection]") {
 
 TEST_CASE("reflection - registry registers child type with parent", "[reflection]") {
   caors::reflection_registry registry;
-  const caors::type_id actor_id = caors::make_type_id("caors.test.reflection.actor");
 
   REQUIRE(registry.register_type(make_actor_reflection()) ==
           caors::reflection_register_result::success);
+  const auto reflected_actor = registry.find_type("caors.test.reflection.actor");
+  REQUIRE(reflected_actor.has_value());
+
   REQUIRE(caors::register_reflection<player>(
               registry, "caors.test.reflection.player",
               {
                   caors::make_field_info<int>("level", "int", offsetof(player, level)),
               },
-              actor_id) == caors::reflection_register_result::success);
+              reflected_actor->info.id) == caors::reflection_register_result::success);
 
   auto reflected_player = registry.find_type("caors.test.reflection.player");
   REQUIRE(reflected_player.has_value());
-  CHECK(reflected_player->info.parent_id == actor_id);
+  CHECK(reflected_player->info.parent_id == reflected_actor->info.id);
 }
 
 TEST_CASE("reflection - registry reports duplicate reflection", "[reflection]") {

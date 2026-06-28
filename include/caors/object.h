@@ -46,7 +46,7 @@ private:
 using object_type_id = type_id;
 
 /** @brief 根据类型名生成对象类型标识。 */
-[[nodiscard]] constexpr object_type_id make_object_type_id(std::string_view name) noexcept {
+[[nodiscard]] inline object_type_id make_object_type_id(std::string_view name) {
   return make_type_id(name);
 }
 
@@ -76,7 +76,6 @@ enum class object_register_result {
   duplicate_id,
   duplicate_name,
   duplicate_guid,
-  hash_collision,
   missing_parent,
 };
 
@@ -131,10 +130,18 @@ template <typename T> [[nodiscard]] constexpr type_guid object_type_guid_of() no
   return object_type_guid_traits<T>::get();
 }
 
+template <typename T, typename = void> struct object_base_type_traits {
+  using type = object;
+};
+
+template <typename T> struct object_base_type_traits<T, std::void_t<typename T::base_type>> {
+  using type = typename T::base_type;
+};
+
 } // namespace detail
 
 /**
- * @brief 为派生对象提供默认运行期类型实现。
+ * @brief 为派生对象提供默认运行期类型名实现。
  *
  * `Derived` 需要提供 `static constexpr std::string_view object_type_name`。可序列化、可反射或跨插件
  * 暴露的类型建议额外提供 `static constexpr caors::type_guid object_type_guid`。
@@ -238,19 +245,59 @@ public:
   object_registry& operator=(const object_registry&) = delete;
 
   [[nodiscard]] object_register_result register_type(const object_type& type);
+  template <typename T>
+  [[nodiscard]] object_register_result register_type_for(const object_type& type) {
+    return register_type(detail::cpp_type_key_of<T>(), type);
+  }
+
   [[nodiscard]] bool contains(object_type_id id) const;
   [[nodiscard]] std::optional<object_type> find_type(object_type_id id) const;
   [[nodiscard]] std::optional<object_type> find_type(std::string_view name) const;
+  template <typename T> [[nodiscard]] std::optional<object_type> find_type() const {
+    const std::optional<type_info> info = find_registered_type(detail::cpp_type_key_of<T>());
+    if (!info.has_value()) {
+      return std::nullopt;
+    }
+
+    return find_type(info->id);
+  }
+
   [[nodiscard]] bool is_a(object_type_id type_id, object_type_id base_type_id) const;
   [[nodiscard]] std::size_t size() const noexcept;
 
   [[nodiscard]] object* try_create(object_type_id id,
                                    memory_resource* resource = nullptr) const noexcept;
+  [[nodiscard]] object* try_create(std::string_view name,
+                                   memory_resource* resource = nullptr) const noexcept;
+  template <typename T>
+  [[nodiscard]] T* try_create(memory_resource* resource = nullptr) const noexcept {
+    const std::optional<object_type> type = find_type<T>();
+    if (!type.has_value()) {
+      return nullptr;
+    }
+
+    return static_cast<T*>(try_create(type->info.id, resource));
+  }
+
   [[nodiscard]] object* create(object_type_id id, memory_resource* resource = nullptr) const;
+  [[nodiscard]] object* create(std::string_view name, memory_resource* resource = nullptr) const;
+  template <typename T> [[nodiscard]] T* create(memory_resource* resource = nullptr) const {
+    const std::optional<object_type> type = find_type<T>();
+    if (!type.has_value()) {
+      return nullptr;
+    }
+
+    return static_cast<T*>(create(type->info.id, resource));
+  }
+
   bool destroy(object* instance, memory_resource* resource = nullptr) const noexcept;
   void clear() noexcept;
 
 private:
+  [[nodiscard]] object_register_result register_type(detail::cpp_type_key key,
+                                                     const object_type& type);
+  [[nodiscard]] std::optional<type_info> find_registered_type(detail::cpp_type_key key) const;
+
   object_registry_state* state_ = nullptr;
 };
 
@@ -261,14 +308,22 @@ private:
 template <typename T>
 [[nodiscard]] object_register_result
 register_object_type(object_registry& registry, std::string_view name,
-                     object_type_id parent_id = object::static_type_id()) {
-  return registry.register_type(make_object_type<T>(name, parent_id));
+                     object_type_id parent_id = object_type_id::invalid()) {
+  if (!parent_id) {
+    using base_type = typename detail::object_base_type_traits<T>::type;
+    const std::optional<object_type> base = registry.find_type<base_type>();
+    if (base.has_value()) {
+      parent_id = base->info.id;
+    }
+  }
+
+  return registry.register_type_for<T>(make_object_type<T>(name, parent_id));
 }
 
 /** @brief 向默认注册表注册对象类型。 */
 template <typename T>
 [[nodiscard]] object_register_result
-register_object_type(std::string_view name, object_type_id parent_id = object::static_type_id()) {
+register_object_type(std::string_view name, object_type_id parent_id = object_type_id::invalid()) {
   return register_object_type<T>(get_object_registry(), name, parent_id);
 }
 

@@ -49,10 +49,10 @@ caors::object_id id = instance.id();
 - `alignment`
 - `parent_id`
 
-`object_type_id` 是 `type_id` 在对象系统里的别名。类型标识由运行期 `string_name` 派生，`string_name` 定义在 `caors/core/string_name.h`：
+`object_type_id` 是 `type_id` 在对象系统里的别名。类型标识由对象类型名生成：
 
 ```cpp
-caors::object_type_id id = caors::make_object_type_id("game.player");
+caors::object_type_id id = player::static_type_id();
 ```
 
 类型名应由使用方保持清晰可读。后续序列化版本兼容仍应由显式 `type_guid`、上层格式和迁移策略处理。
@@ -69,7 +69,7 @@ caors::object_type_id id = caors::make_object_type_id("game.player");
 
 ### object_base
 
-`object_base<Derived, Base>` 帮助派生类实现运行期类型查询。派生类需要提供 `object_type_name`：
+`object_base<Derived, Base>` 帮助派生类提供运行期类型查询。派生类需要提供 `object_type_name`：
 
 ```cpp
 class actor : public caors::object_base<actor> {
@@ -92,6 +92,7 @@ public:
 
 ```cpp
 caors::object& object = player_instance;
+object.type_id();   // player::static_type_id()
 object.type_name(); // "game.player"
 ```
 
@@ -108,14 +109,13 @@ if (!caors::object_register_succeeded(
 }
 
 caors::object_register_result result =
-    caors::register_object_type<player>(registry, player::object_type_name,
-                                        actor::static_type_id());
+    caors::register_object_type<player>(registry, player::object_type_name);
 ```
 
 注册后可以查询类型：
 
 ```cpp
-auto type = registry.find_type(player::static_type_id());
+auto type = registry.find_type<player>();
 ```
 
 也可以检查继承关系：
@@ -128,9 +128,9 @@ registry.is_a(player::static_type_id(), actor::static_type_id());
 
 - `success`：注册成功。
 - `invalid_type`：类型描述无效。
-- `duplicate_id`：同一个 id 已注册。
+- `duplicate_id`：同一个运行期 id、C++ 类型或对象元数据组件已注册。
 - `duplicate_name`：同一个名称已注册。
-- `hash_collision`：id 已存在，但名称不同，说明发生手写 id 错误或外部构造了不一致的类型描述。
+- `duplicate_guid`：同一个非 nil 稳定 GUID 已注册。
 - `missing_parent`：父类型未注册。
 
 ## 创建和销毁
@@ -142,12 +142,19 @@ caors::object* instance = registry.create(player::static_type_id());
 registry.destroy(instance);
 ```
 
+也可以直接使用 C++ 类型创建已注册对象：
+
+```cpp
+player* instance = registry.create<player>();
+registry.destroy(instance);
+```
+
 也可以显式传入内存资源：
 
 ```cpp
 caors::tracking_resource tracking(&caors::get_system_memory_resource());
 
-caors::object* instance = registry.create(player::static_type_id(), &tracking);
+player* instance = registry.create<player>(&tracking);
 registry.destroy(instance, &tracking);
 ```
 

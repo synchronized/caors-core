@@ -173,7 +173,7 @@ struct type_info {
   type_id parent_id{};
 
   [[nodiscard]] constexpr bool valid() const noexcept {
-    return static_cast<bool>(id) && !name.empty();
+    return static_cast<bool>(id) && !name.empty() && size > 0 && alignment > 0;
   }
 };
 
@@ -216,7 +216,6 @@ enum class type_register_result {
   duplicate_id,
   duplicate_name,
   duplicate_guid,
-  hash_collision,
   missing_parent,
 };
 

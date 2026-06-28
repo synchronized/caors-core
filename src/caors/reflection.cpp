@@ -12,7 +12,7 @@ namespace {
 reflection_registry default_reflection_registry;
 
 [[nodiscard]] bool same_type_info(const type_info& lhs, const type_info& rhs) noexcept {
-  return lhs.id == rhs.id && lhs.name == rhs.name && lhs.guid == rhs.guid && lhs.size == rhs.size &&
+  return lhs.name == rhs.name && lhs.guid == rhs.guid && lhs.size == rhs.size &&
          lhs.alignment == rhs.alignment && lhs.parent_id == rhs.parent_id;
 }
 
@@ -29,8 +29,6 @@ to_reflection_register_result(type_register_result result) noexcept {
     return reflection_register_result::duplicate_name;
   case type_register_result::duplicate_guid:
     return reflection_register_result::duplicate_guid;
-  case type_register_result::hash_collision:
-    return reflection_register_result::hash_collision;
   case type_register_result::missing_parent:
     return reflection_register_result::missing_parent;
   }
@@ -54,12 +52,58 @@ to_reflection_register_result(meta_component_result result) noexcept {
   return reflection_register_result::invalid_type;
 }
 
-[[nodiscard]] reflection_register_result validate_fields(const reflection_type& type) {
+[[nodiscard]] bool resolve_field_type(meta_registry& meta, field_info& field) {
+  if (!field.valid()) {
+    return false;
+  }
+
+  if (field.type && meta.contains(field.type)) {
+    return true;
+  }
+
+  std::optional<type_info> resolved_type = meta.find_type(field.type_name);
+  if (!resolved_type.has_value() && field.cpp_type != nullptr) {
+    const type_info field_type{
+        make_type_id(field.type_name),
+        field.type_name,
+        type_guid::nil(),
+        field.size,
+        field.alignment,
+        type_id::invalid(),
+    };
+
+    const type_register_result result = meta.register_cpp_type(field.cpp_type, field_type);
+    if (type_register_succeeded(result) || result == type_register_result::duplicate_id) {
+      resolved_type = meta.find_cpp_type(field.cpp_type);
+    }
+  }
+
+  if (!resolved_type.has_value()) {
+    return false;
+  }
+
+  field.type = resolved_type->id;
+  field.type_name = resolved_type->name;
+  return true;
+}
+
+[[nodiscard]] reflection_register_result resolve_fields(meta_registry& meta,
+                                                        reflection_type& type) {
+  for (field_info& field : type.fields) {
+    if (!resolve_field_type(meta, field)) {
+      return reflection_register_result::invalid_field;
+    }
+  }
+
+  return reflection_register_result::success;
+}
+
+[[nodiscard]] reflection_register_result validate_registered_fields(const reflection_type& type) {
   std::unordered_set<std::uint64_t> names;
   names.reserve(type.fields.size());
 
   for (const field_info& field : type.fields) {
-    if (!field.valid()) {
+    if (!field.valid() || !field.type) {
       return reflection_register_result::invalid_field;
     }
 
@@ -129,40 +173,48 @@ reflection_register_result reflection_registry::register_type(detail::cpp_type_k
     return reflection_register_result::invalid_type;
   }
 
-  const reflection_register_result field_result = validate_fields(type);
-  if (!reflection_register_succeeded(field_result)) {
-    return field_result;
+  std::optional<type_info> existing;
+  if (type.info.id) {
+    existing = state_->meta.find_type(type.info.id);
+  }
+  if (!existing.has_value()) {
+    existing = state_->meta.find_type(type.info.name);
+  }
+  if (!existing.has_value() && type.info.guid) {
+    existing = state_->meta.find_type(type.info.guid);
   }
 
-  const std::optional<type_info> existing = state_->meta.find_type(type.info.id);
   if (existing.has_value()) {
     if (!same_type_info(*existing, type.info)) {
       return reflection_register_result::inconsistent_type;
     }
-
-    if (key != nullptr) {
-      const type_register_result type_result = state_->meta.register_cpp_type(key, type.info);
-      if (type_result != type_register_result::success &&
-          type_result != type_register_result::duplicate_id) {
-        return to_reflection_register_result(type_result);
-      }
-    }
-  } else {
-    const type_register_result type_result = key != nullptr
-                                                 ? state_->meta.register_cpp_type(key, type.info)
-                                                 : state_->meta.register_type(type.info);
-    if (!type_register_succeeded(type_result)) {
-      return to_reflection_register_result(type_result);
-    }
   }
 
-  const std::optional<type_info> stored_info = state_->meta.find_type(type.info.id);
+  const type_register_result type_result = key != nullptr
+                                               ? state_->meta.register_cpp_type(key, type.info)
+                                               : state_->meta.register_type(type.info);
+  if (!type_register_succeeded(type_result) && type_result != type_register_result::duplicate_id) {
+    return to_reflection_register_result(type_result);
+  }
+
+  const std::optional<type_info> stored_info =
+      key != nullptr ? state_->meta.find_cpp_type(key) : state_->meta.find_type(type.info.name);
   if (!stored_info.has_value()) {
     return reflection_register_result::invalid_type;
   }
 
   reflection_type stored_type = type;
   stored_type.info = *stored_info;
+
+  const reflection_register_result field_result = resolve_fields(state_->meta, stored_type);
+  if (!reflection_register_succeeded(field_result)) {
+    return field_result;
+  }
+
+  const reflection_register_result validation_result = validate_registered_fields(stored_type);
+  if (!reflection_register_succeeded(validation_result)) {
+    return validation_result;
+  }
 
   return to_reflection_register_result(
       state_->meta.emplace<reflection_type>(stored_type.info.id, stored_type));
