@@ -14,7 +14,7 @@
 - 通过 RTTR 风格 builder 或底层字段列表描述字段。
 - 提供按类型 id、类型名和稳定 GUID 查询反射类型。
 - 提供按字段名查询字段元信息。
-- 提供字段基础读写入口。
+- 提供字段基础读写入口和运行期值拷贝。
 
 当前不会包含：
 
@@ -33,6 +33,7 @@
 - `type`：字段声明类型的运行期 `type_id`。
 - `type_name`：字段声明类型名。
 - `kind`：字段形态，例如值、枚举、裸指针或 wrapper。
+- `wrapper_semantics`：wrapper 或裸指针的序列化语义，例如内联值、对象引用或不支持。
 - `value_type`：去掉一层指针或 wrapper 后的值类型。
 - `pointed_type`：裸指针指向的类型，仅 `T*` 字段有效。
 - `wrapped_type`：wrapper 包装的类型，例如 `std::unique_ptr<T>`、`std::optional<T>` 中的 `T`。
@@ -79,21 +80,46 @@ caors::reflection::class_<actor>(registry, "game.actor")
 - `T`：`field_kind::value`，`value_type` 为 `T`。
 - `enum`：`field_kind::enumeration`，`value_type` 为枚举类型。
 - `T*`：`field_kind::raw_pointer`，`pointed_type` 和 `value_type` 为 `T`，`nullable`
-  为 `true`。
+  为 `true`，`wrapper_semantics` 为 `inline_value`。
 - `std::unique_ptr<T>`：`field_kind::wrapper`，`wrapped_type` 和 `value_type` 为 `T`，
-  `nullable` 为 `true`。
+  `nullable` 为 `true`，`wrapper_semantics` 为 `inline_value`。
 - `std::shared_ptr<T>`：`field_kind::wrapper`，`wrapped_type` 和 `value_type` 为 `T`，
-  `nullable` 为 `true`。
+  `nullable` 为 `true`，`wrapper_semantics` 为 `inline_value`。
 - `std::weak_ptr<T>`：`field_kind::wrapper`，`wrapped_type` 和 `value_type` 为 `T`，
-  `nullable` 为 `true`。
+  `nullable` 为 `true`，`wrapper_semantics` 为 `inline_value`。
 - `std::optional<T>`：`field_kind::wrapper`，`wrapped_type` 和 `value_type` 为 `T`，
-  `nullable` 为 `true`。
+  `nullable` 为 `true`，`wrapper_semantics` 为 `inline_value`。
 - `std::reference_wrapper<T>`：`field_kind::wrapper`，`wrapped_type` 和 `value_type` 为
-  `T`，不表示空值。
+  `T`，不表示空值，`wrapper_semantics` 为 `inline_value`。
 
 STL 智能指针和裸指针只作为外部字段类型被反射系统描述。CAORS 不根据这些字段接管对象生命周期；
 用户如果直接使用这些类型，需要自行保证释放、引用有效性和线程安全。后续 CAORS 自身的对象句柄、
 引用计数或分配器类型会作为独立 wrapper 接入反射规则。
+
+wrapper 识别通过 `wrapper_traits<T>` 扩展，而不是固定写死所有 wrapper 类型：
+
+```cpp
+namespace caors {
+
+template <typename T>
+struct wrapper_traits<my_box<T>> {
+  static constexpr bool is_wrapper = true;
+  static constexpr bool nullable = false;
+  static constexpr field_wrapper_semantics semantics = field_wrapper_semantics::inline_value;
+  using wrapped_type = T;
+};
+
+}
+```
+
+`field_wrapper_semantics` 当前含义：
+
+- `none`：不是 wrapper，也不是需要特殊处理的指针。
+- `inline_value`：序列化时按包装的 `T` 本体处理。`T*`、标准智能指针和 `optional<T>`
+  默认都属于该语义。
+- `object_ref`：序列化时按对象引用 id 处理，预留给后续 `caors::ref<T>` /
+  `object_ref<T>` 这类类型。
+- `unsupported`：明确识别为 wrapper，但当前序列化层不支持。
 
 字段读写入口：
 
@@ -108,6 +134,45 @@ auto value = id->try_get<int>(&instance);
 
 `try_get<T>()` 在对象为空或类型不匹配时返回 `std::nullopt`。`try_set<T>()`
 在对象为空、类型不匹配或字段不可写时返回 `false`。
+
+也可以通过 `get_value()` 获取运行期值拷贝：
+
+```cpp
+caors::value value = id->get_value(&instance);
+
+if (const int* current = value.try_get<int>()) {
+  // 使用 current 读取字段值。
+}
+
+value.try_set(7);
+```
+
+`get_value()` 返回的是字段值拷贝，修改该 `value` 不会自动修改原对象。`try_set_value()`
+可以从同类型 `value` 显式写回字段：
+
+```cpp
+int source = 42;
+id->try_set_value(&instance, caors::value::from(source));
+```
+
+### value
+
+`value` 是运行期值拷贝，保存类型 id、类型名、C++ 类型 key、对象拷贝、大小和对齐信息。
+它不引用原对象，因此可以安全地脱离字段所属对象生命周期使用。
+
+`value` 当前提供：
+
+- `valid()`：判断值是否有效。
+- `type()` / `type_name()`：查询运行期类型身份。
+- `matches_type<T>()`：判断是否匹配指定 C++ 类型。
+- `try_get<T>()`：获取只读指针。
+- `try_get_mutable<T>()`：获取可写指针。
+- `try_set<T>()`：从同类型 C++ 值写入当前 `value`。
+- `try_set(value)`：从同类型运行期值写入当前 `value`。
+
+这是 CAORS value/variant 层的第一步。第一版只支持可拷贝类型；不可拷贝字段调用 `get_value()`
+会返回无效 `value`。后续如果需要零拷贝访问，会单独增加语义更明确的 view 类型，并在文档中明确
+生命周期限制。
 
 ### reflection_type
 
@@ -156,7 +221,9 @@ caors::reflection_register_result result =
 
 ## 当前已实现能力
 
-- `field_info`：字段名、字段类型名、字段形态、解包类型、offset、size、alignment 和基础 get/set。
+- `value`：运行期值拷贝。
+- `field_info`：字段名、字段类型名、字段形态、wrapper 语义、解包类型、offset、size、alignment、
+  基础 get/set 和运行期值访问。
 - `reflection_type`：基础类型描述和字段列表。
 - `reflection_registry`：反射类型注册、查询、清理和统计。
 - `reflection::class_<T>()`：RTTR 风格链式注册入口。
@@ -165,5 +232,13 @@ caors::reflection_register_result result =
 
 ## 相关入口
 
+- 公共头文件按职责拆分在 `include/caors/reflection/`：
+  - `value.h`：运行期值拷贝。
+  - `wrapper.h`：wrapper traits 和 wrapper 语义。
+  - `field.h`：字段元信息和字段访问。
+  - `type.h`：类型反射描述。
+  - `registry.h`：反射注册表和底层注册函数。
+  - `builder.h`：RTTR 风格链式注册入口。
+- `include/caors/reflection.h` 是 umbrella 头，继续提供完整反射 API。
 - 可运行示例位于 `examples/reflection/`，示例组织规则见 [examples/README.md](../examples/README.md)。
 - 行为测试位于 `tests/reflection/`，测试组织规则见 [tests/README.md](../tests/README.md)。
