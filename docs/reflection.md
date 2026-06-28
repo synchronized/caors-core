@@ -30,8 +30,15 @@
 `field_info` 描述一个字段：
 
 - `name`：字段名。
-- `type`：字段类型的运行期 `type_id`。
-- `type_name`：字段类型名。
+- `type`：字段声明类型的运行期 `type_id`。
+- `type_name`：字段声明类型名。
+- `kind`：字段形态，例如值、枚举、裸指针、智能指针、optional 或 wrapper。
+- `ownership`：字段包装层的所有权语义，例如独占、共享、弱引用或无所有权。
+- `value_type`：去掉一层指针或 wrapper 后的值类型。
+- `pointed_type`：裸指针指向的类型，仅 `T*` 字段有效。
+- `wrapped_type`：wrapper 包装的类型，例如 `std::unique_ptr<T>`、`std::optional<T>` 中的 `T`。
+- `pointer_depth`：当前支持的指针层级，合法值为 0 或 1。
+- `nullable`：字段值是否可能为空。
 - `offset`：字段在类型中的偏移。
 - `size`：字段大小。
 - `alignment`：字段对齐。
@@ -65,6 +72,23 @@ caors::reflection::class_<actor>(registry, "game.actor")
 - 如果字段类型已经通过模板注册函数注册到同一个反射注册表，优先复用该类型的 `type_info`。
 - 如果字段类型没有注册，但存在 `type_name<T>` 默认映射，则使用默认类型名生成 `type_id`，并自动注册为基础类型。
 - 如果两者都没有，`.commit()` 返回 `invalid_field`。
+- 字段类型语义最多支持一层裸指针或 wrapper；`T**`、`std::unique_ptr<T*>`、
+  `std::optional<std::shared_ptr<T>>` 这类嵌套组合会触发静态断言。
+
+字段形态规则：
+
+- `T`：`field_kind::value`，`value_type` 为 `T`。
+- `enum`：`field_kind::enumeration`，`value_type` 为枚举类型。
+- `T*`：`field_kind::raw_pointer`，`pointed_type` 和 `value_type` 为 `T`，`nullable`
+  为 `true`。
+- `std::unique_ptr<T>`：`field_kind::smart_pointer`，`ownership` 为 `owning`，
+  `wrapped_type` 和 `value_type` 为 `T`，`nullable` 为 `true`。
+- `std::shared_ptr<T>`：`field_kind::smart_pointer`，`ownership` 为 `shared`。
+- `std::weak_ptr<T>`：`field_kind::smart_pointer`，`ownership` 为 `weak`。
+- `std::optional<T>`：`field_kind::optional`，`wrapped_type` 和 `value_type` 为 `T`，
+  `nullable` 为 `true`。
+- `std::reference_wrapper<T>`：`field_kind::wrapper`，`wrapped_type` 和 `value_type` 为
+  `T`，不表示空值。
 
 字段读写入口：
 
@@ -127,7 +151,7 @@ caors::reflection_register_result result =
 
 ## 当前已实现能力
 
-- `field_info`：字段名、字段类型名、offset、size、alignment 和基础 get/set。
+- `field_info`：字段名、字段类型名、字段形态、解包类型、offset、size、alignment 和基础 get/set。
 - `reflection_type`：基础类型描述和字段列表。
 - `reflection_registry`：反射类型注册、查询、清理和统计。
 - `reflection::class_<T>()`：RTTR 风格链式注册入口。

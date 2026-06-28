@@ -6,6 +6,9 @@
 #include <catch2/catch_all.hpp>
 
 #include <cstddef>
+#include <functional>
+#include <memory>
+#include <optional>
 #include <string_view>
 
 namespace {
@@ -29,6 +32,11 @@ struct inventory_holder {
 
 struct readonly_actor {
   const int id = 7;
+};
+
+enum class reflected_color {
+  red,
+  blue,
 };
 
 constexpr caors::type_guid actor_guid{caors::guid::from_bytes(
@@ -58,6 +66,74 @@ TEST_CASE("reflection - field info describes field layout", "[reflection]") {
   CHECK(field.size == sizeof(float));
   CHECK(field.alignment == alignof(float));
   CHECK(field.writable);
+}
+
+TEST_CASE("reflection - field info describes field type traits", "[reflection]") {
+  const caors::field_info value = caors::make_field_info<int>("value", "int", 0);
+  CHECK(value.kind == caors::field_kind::value);
+  CHECK(value.ownership == caors::field_ownership::none);
+  CHECK(value.value_type == caors::make_type_id("int"));
+  CHECK_FALSE(value.pointed_type);
+  CHECK_FALSE(value.wrapped_type);
+  CHECK(value.pointer_depth == 0);
+  CHECK_FALSE(value.nullable);
+
+  const caors::field_info enumeration =
+      caors::make_field_info<reflected_color>("color", "caors.test.reflection.color", 0);
+  CHECK(enumeration.kind == caors::field_kind::enumeration);
+  CHECK(enumeration.ownership == caors::field_ownership::none);
+  CHECK(enumeration.value_type == caors::make_type_id("caors.test.reflection.color"));
+  CHECK_FALSE(enumeration.nullable);
+
+  const caors::field_info raw = caors::make_field_info<int*>("raw", "int*", 0);
+  CHECK(raw.kind == caors::field_kind::raw_pointer);
+  CHECK(raw.ownership == caors::field_ownership::none);
+  CHECK(raw.value_type == caors::make_type_id("int"));
+  CHECK(raw.pointed_type == caors::make_type_id("int"));
+  CHECK_FALSE(raw.wrapped_type);
+  CHECK(raw.pointer_depth == 1);
+  CHECK(raw.nullable);
+
+  const caors::field_info unique =
+      caors::make_field_info<std::unique_ptr<int>>("unique", "std.unique_ptr<int>", 0);
+  CHECK(unique.kind == caors::field_kind::smart_pointer);
+  CHECK(unique.ownership == caors::field_ownership::owning);
+  CHECK(unique.value_type == caors::make_type_id("int"));
+  CHECK_FALSE(unique.pointed_type);
+  CHECK(unique.wrapped_type == caors::make_type_id("int"));
+  CHECK(unique.nullable);
+
+  const caors::field_info shared =
+      caors::make_field_info<std::shared_ptr<int>>("shared", "std.shared_ptr<int>", 0);
+  CHECK(shared.kind == caors::field_kind::smart_pointer);
+  CHECK(shared.ownership == caors::field_ownership::shared);
+  CHECK(shared.value_type == caors::make_type_id("int"));
+  CHECK(shared.wrapped_type == caors::make_type_id("int"));
+  CHECK(shared.nullable);
+
+  const caors::field_info weak =
+      caors::make_field_info<std::weak_ptr<int>>("weak", "std.weak_ptr<int>", 0);
+  CHECK(weak.kind == caors::field_kind::smart_pointer);
+  CHECK(weak.ownership == caors::field_ownership::weak);
+  CHECK(weak.value_type == caors::make_type_id("int"));
+  CHECK(weak.wrapped_type == caors::make_type_id("int"));
+  CHECK(weak.nullable);
+
+  const caors::field_info optional =
+      caors::make_field_info<std::optional<int>>("optional", "std.optional<int>", 0);
+  CHECK(optional.kind == caors::field_kind::optional);
+  CHECK(optional.ownership == caors::field_ownership::none);
+  CHECK(optional.value_type == caors::make_type_id("int"));
+  CHECK(optional.wrapped_type == caors::make_type_id("int"));
+  CHECK(optional.nullable);
+
+  const caors::field_info wrapper = caors::make_field_info<std::reference_wrapper<int>>(
+      "wrapper", "std.reference_wrapper<int>", 0);
+  CHECK(wrapper.kind == caors::field_kind::wrapper);
+  CHECK(wrapper.ownership == caors::field_ownership::none);
+  CHECK(wrapper.value_type == caors::make_type_id("int"));
+  CHECK(wrapper.wrapped_type == caors::make_type_id("int"));
+  CHECK_FALSE(wrapper.nullable);
 }
 
 TEST_CASE("reflection - field info reads and writes field values", "[reflection]") {

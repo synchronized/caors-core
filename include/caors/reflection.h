@@ -9,13 +9,255 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <initializer_list>
+#include <memory>
 #include <optional>
 #include <string_view>
 #include <type_traits>
 #include <vector>
 
 namespace caors {
+
+/** @brief 字段类型形态。 */
+enum class field_kind {
+  value,
+  enumeration,
+  raw_pointer,
+  smart_pointer,
+  optional,
+  wrapper,
+};
+
+/** @brief 字段包装或指针的所有权语义。 */
+enum class field_ownership {
+  none,
+  owning,
+  shared,
+  weak,
+};
+
+namespace detail {
+
+template <typename T> struct is_unique_ptr : std::false_type {};
+
+template <typename T, typename Deleter>
+struct is_unique_ptr<std::unique_ptr<T, Deleter>> : std::true_type {};
+
+template <typename T> struct is_shared_ptr : std::false_type {};
+
+template <typename T> struct is_shared_ptr<std::shared_ptr<T>> : std::true_type {};
+
+template <typename T> struct is_weak_ptr : std::false_type {};
+
+template <typename T> struct is_weak_ptr<std::weak_ptr<T>> : std::true_type {};
+
+template <typename T> struct is_optional : std::false_type {};
+
+template <typename T> struct is_optional<std::optional<T>> : std::true_type {};
+
+template <typename T> struct is_reference_wrapper : std::false_type {};
+
+template <typename T> struct is_reference_wrapper<std::reference_wrapper<T>> : std::true_type {};
+
+template <typename T>
+inline constexpr bool is_supported_wrapper_v =
+    is_unique_ptr<std::remove_cv_t<T>>::value || is_shared_ptr<std::remove_cv_t<T>>::value ||
+    is_weak_ptr<std::remove_cv_t<T>>::value || is_optional<std::remove_cv_t<T>>::value ||
+    is_reference_wrapper<std::remove_cv_t<T>>::value;
+
+template <typename T>
+inline constexpr bool is_nested_field_indirection_v =
+    std::is_pointer_v<std::remove_cv_t<T>> || is_supported_wrapper_v<T>;
+
+template <typename T> struct dependent_false : std::false_type {};
+
+template <typename T> [[nodiscard]] type_id known_type_id() {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (has_type_name_v<type>) {
+    return make_type_id(type_name<type>::value);
+  } else {
+    return type_id::invalid();
+  }
+}
+
+struct field_traits_info {
+  field_kind kind = field_kind::value;
+  field_ownership ownership = field_ownership::none;
+  type_id value_type{};
+  type_id pointed_type{};
+  type_id wrapped_type{};
+  cpp_type_key value_cpp_type = nullptr;
+  cpp_type_key pointed_cpp_type = nullptr;
+  cpp_type_key wrapped_cpp_type = nullptr;
+  std::uint8_t pointer_depth = 0;
+  bool nullable = false;
+};
+
+template <typename Field> struct field_traits {
+  using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
+  using value_type = field_type;
+
+  [[nodiscard]] static field_traits_info get() {
+    return field_traits_info{
+        std::is_enum_v<value_type> ? field_kind::enumeration : field_kind::value,
+        field_ownership::none,
+        known_type_id<value_type>(),
+        type_id::invalid(),
+        type_id::invalid(),
+        cpp_type_key_of<value_type>(),
+        nullptr,
+        nullptr,
+        0,
+        false,
+    };
+  }
+};
+
+template <typename T> struct field_traits<T*> {
+  using pointed_type = std::remove_cv_t<T>;
+  using value_type = pointed_type;
+
+  static_assert(!is_nested_field_indirection_v<pointed_type>,
+                "CAORS reflection supports at most one pointer or wrapper level");
+
+  [[nodiscard]] static field_traits_info get() {
+    return field_traits_info{
+        field_kind::raw_pointer,
+        field_ownership::none,
+        known_type_id<value_type>(),
+        known_type_id<pointed_type>(),
+        type_id::invalid(),
+        cpp_type_key_of<value_type>(),
+        cpp_type_key_of<pointed_type>(),
+        nullptr,
+        1,
+        true,
+    };
+  }
+};
+
+template <typename T, typename Deleter> struct field_traits<std::unique_ptr<T, Deleter>> {
+  using wrapped_type = std::remove_cv_t<T>;
+  using value_type = wrapped_type;
+
+  static_assert(!is_nested_field_indirection_v<wrapped_type>,
+                "CAORS reflection supports at most one pointer or wrapper level");
+
+  [[nodiscard]] static field_traits_info get() {
+    return field_traits_info{
+        field_kind::smart_pointer,
+        field_ownership::owning,
+        known_type_id<value_type>(),
+        type_id::invalid(),
+        known_type_id<wrapped_type>(),
+        cpp_type_key_of<value_type>(),
+        nullptr,
+        cpp_type_key_of<wrapped_type>(),
+        0,
+        true,
+    };
+  }
+};
+
+template <typename T> struct field_traits<std::shared_ptr<T>> {
+  using wrapped_type = std::remove_cv_t<T>;
+  using value_type = wrapped_type;
+
+  static_assert(!is_nested_field_indirection_v<wrapped_type>,
+                "CAORS reflection supports at most one pointer or wrapper level");
+
+  [[nodiscard]] static field_traits_info get() {
+    return field_traits_info{
+        field_kind::smart_pointer,
+        field_ownership::shared,
+        known_type_id<value_type>(),
+        type_id::invalid(),
+        known_type_id<wrapped_type>(),
+        cpp_type_key_of<value_type>(),
+        nullptr,
+        cpp_type_key_of<wrapped_type>(),
+        0,
+        true,
+    };
+  }
+};
+
+template <typename T> struct field_traits<std::weak_ptr<T>> {
+  using wrapped_type = std::remove_cv_t<T>;
+  using value_type = wrapped_type;
+
+  static_assert(!is_nested_field_indirection_v<wrapped_type>,
+                "CAORS reflection supports at most one pointer or wrapper level");
+
+  [[nodiscard]] static field_traits_info get() {
+    return field_traits_info{
+        field_kind::smart_pointer,
+        field_ownership::weak,
+        known_type_id<value_type>(),
+        type_id::invalid(),
+        known_type_id<wrapped_type>(),
+        cpp_type_key_of<value_type>(),
+        nullptr,
+        cpp_type_key_of<wrapped_type>(),
+        0,
+        true,
+    };
+  }
+};
+
+template <typename T> struct field_traits<std::optional<T>> {
+  using wrapped_type = std::remove_cv_t<T>;
+  using value_type = wrapped_type;
+
+  static_assert(!is_nested_field_indirection_v<wrapped_type>,
+                "CAORS reflection supports at most one pointer or wrapper level");
+
+  [[nodiscard]] static field_traits_info get() {
+    return field_traits_info{
+        field_kind::optional,
+        field_ownership::none,
+        known_type_id<value_type>(),
+        type_id::invalid(),
+        known_type_id<wrapped_type>(),
+        cpp_type_key_of<value_type>(),
+        nullptr,
+        cpp_type_key_of<wrapped_type>(),
+        0,
+        true,
+    };
+  }
+};
+
+template <typename T> struct field_traits<std::reference_wrapper<T>> {
+  using wrapped_type = std::remove_cv_t<T>;
+  using value_type = wrapped_type;
+
+  static_assert(!is_nested_field_indirection_v<wrapped_type>,
+                "CAORS reflection supports at most one pointer or wrapper level");
+
+  [[nodiscard]] static field_traits_info get() {
+    return field_traits_info{
+        field_kind::wrapper,
+        field_ownership::none,
+        known_type_id<value_type>(),
+        type_id::invalid(),
+        known_type_id<wrapped_type>(),
+        cpp_type_key_of<value_type>(),
+        nullptr,
+        cpp_type_key_of<wrapped_type>(),
+        0,
+        false,
+    };
+  }
+};
+
+template <typename Field> [[nodiscard]] field_traits_info make_field_traits_info() {
+  using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
+  return field_traits<field_type>::get();
+}
+
+} // namespace detail
 
 /**
  * @brief 字段反射元信息。
@@ -28,6 +270,16 @@ struct field_info {
   type_id type{};
   string_name type_name{};
   detail::cpp_type_key cpp_type = nullptr;
+  type_id value_type{};
+  type_id pointed_type{};
+  type_id wrapped_type{};
+  detail::cpp_type_key value_cpp_type = nullptr;
+  detail::cpp_type_key pointed_cpp_type = nullptr;
+  detail::cpp_type_key wrapped_cpp_type = nullptr;
+  field_kind kind = field_kind::value;
+  field_ownership ownership = field_ownership::none;
+  std::uint8_t pointer_depth = 0;
+  bool nullable = false;
   std::size_t offset = 0;
   std::size_t size = 0;
   std::size_t alignment = 0;
@@ -112,16 +364,34 @@ template <typename Field>
 [[nodiscard]] field_info make_field_info(std::string_view name, std::string_view type_name,
                                          std::size_t offset) {
   using field_type = std::remove_cv_t<Field>;
-  return field_info{
+  const detail::field_traits_info traits = detail::make_field_traits_info<field_type>();
+  field_info field{
       string_name{name},
       make_type_id(type_name),
       string_name{type_name},
       detail::cpp_type_key_of<field_type>(),
+      traits.value_type,
+      traits.pointed_type,
+      traits.wrapped_type,
+      traits.value_cpp_type,
+      traits.pointed_cpp_type,
+      traits.wrapped_cpp_type,
+      traits.kind,
+      traits.ownership,
+      traits.pointer_depth,
+      traits.nullable,
       offset,
       sizeof(field_type),
       alignof(field_type),
       !std::is_const_v<Field>,
   };
+
+  if ((field.kind == field_kind::value || field.kind == field_kind::enumeration) &&
+      !field.value_type) {
+    field.value_type = field.type;
+  }
+
+  return field;
 }
 
 namespace detail {
@@ -260,6 +530,7 @@ public:
 
   template <typename Field> class_builder& field(std::string_view name, Field Class::* member) {
     using field_type = std::remove_cv_t<Field>;
+    (void)detail::make_field_traits_info<field_type>();
 
     if (pending_result_ != reflection_register_result::success) {
       return *this;
@@ -268,28 +539,18 @@ public:
     const std::optional<type_info> resolved_type =
         registry_->template find_registered_type<field_type>();
     if (resolved_type.has_value()) {
-      type_.fields.push_back(field_info{
-          string_name{name},
-          resolved_type->id,
-          resolved_type->name,
-          detail::cpp_type_key_of<field_type>(),
-          detail::member_offset(member),
-          sizeof(field_type),
-          alignof(field_type),
-          !std::is_const_v<Field>,
-      });
+      field_info field =
+          make_field_info<Field>(name, resolved_type->name.view(), detail::member_offset(member));
+      field.type = resolved_type->id;
+      field.type_name = resolved_type->name;
+      if (field.kind == field_kind::value || field.kind == field_kind::enumeration) {
+        field.value_type = resolved_type->id;
+      }
+      type_.fields.push_back(field);
     } else {
       if constexpr (detail::has_type_name_v<field_type>) {
-        type_.fields.push_back(field_info{
-            string_name{name},
-            make_type_id(type_name<field_type>::value),
-            string_name{type_name<field_type>::value},
-            detail::cpp_type_key_of<field_type>(),
-            detail::member_offset(member),
-            sizeof(field_type),
-            alignof(field_type),
-            !std::is_const_v<Field>,
-        });
+        type_.fields.push_back(make_field_info<Field>(name, type_name<field_type>::value,
+                                                      detail::member_offset(member)));
       } else {
         pending_result_ = reflection_register_result::invalid_field;
       }
@@ -300,22 +561,15 @@ public:
 
   template <typename Field>
   class_builder& field(std::string_view name, Field Class::* member, std::string_view type_name) {
-    using field_type = std::remove_cv_t<Field>;
-
     if (pending_result_ != reflection_register_result::success) {
       return *this;
     }
 
-    type_.fields.push_back(field_info{
-        string_name{name},
-        make_type_id(type_name),
-        string_name{type_name},
-        detail::cpp_type_key_of<field_type>(),
-        detail::member_offset(member),
-        sizeof(field_type),
-        alignof(field_type),
-        !std::is_const_v<Field>,
-    });
+    field_info field = make_field_info<Field>(name, type_name, detail::member_offset(member));
+    if (field.kind == field_kind::value || field.kind == field_kind::enumeration) {
+      field.value_type = field.type;
+    }
+    type_.fields.push_back(field);
     return *this;
   }
 
