@@ -24,17 +24,7 @@ enum class field_kind {
   value,
   enumeration,
   raw_pointer,
-  smart_pointer,
-  optional,
   wrapper,
-};
-
-/** @brief 字段包装或指针的所有权语义。 */
-enum class field_ownership {
-  none,
-  owning,
-  shared,
-  weak,
 };
 
 namespace detail {
@@ -70,8 +60,6 @@ template <typename T>
 inline constexpr bool is_nested_field_indirection_v =
     std::is_pointer_v<std::remove_cv_t<T>> || is_supported_wrapper_v<T>;
 
-template <typename T> struct dependent_false : std::false_type {};
-
 template <typename T> [[nodiscard]] type_id known_type_id() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (has_type_name_v<type>) {
@@ -83,7 +71,6 @@ template <typename T> [[nodiscard]] type_id known_type_id() {
 
 struct field_traits_info {
   field_kind kind = field_kind::value;
-  field_ownership ownership = field_ownership::none;
   type_id value_type{};
   type_id pointed_type{};
   type_id wrapped_type{};
@@ -101,7 +88,6 @@ template <typename Field> struct field_traits {
   [[nodiscard]] static field_traits_info get() {
     return field_traits_info{
         std::is_enum_v<value_type> ? field_kind::enumeration : field_kind::value,
-        field_ownership::none,
         known_type_id<value_type>(),
         type_id::invalid(),
         type_id::invalid(),
@@ -124,7 +110,6 @@ template <typename T> struct field_traits<T*> {
   [[nodiscard]] static field_traits_info get() {
     return field_traits_info{
         field_kind::raw_pointer,
-        field_ownership::none,
         known_type_id<value_type>(),
         known_type_id<pointed_type>(),
         type_id::invalid(),
@@ -146,8 +131,7 @@ template <typename T, typename Deleter> struct field_traits<std::unique_ptr<T, D
 
   [[nodiscard]] static field_traits_info get() {
     return field_traits_info{
-        field_kind::smart_pointer,
-        field_ownership::owning,
+        field_kind::wrapper,
         known_type_id<value_type>(),
         type_id::invalid(),
         known_type_id<wrapped_type>(),
@@ -169,8 +153,7 @@ template <typename T> struct field_traits<std::shared_ptr<T>> {
 
   [[nodiscard]] static field_traits_info get() {
     return field_traits_info{
-        field_kind::smart_pointer,
-        field_ownership::shared,
+        field_kind::wrapper,
         known_type_id<value_type>(),
         type_id::invalid(),
         known_type_id<wrapped_type>(),
@@ -192,8 +175,7 @@ template <typename T> struct field_traits<std::weak_ptr<T>> {
 
   [[nodiscard]] static field_traits_info get() {
     return field_traits_info{
-        field_kind::smart_pointer,
-        field_ownership::weak,
+        field_kind::wrapper,
         known_type_id<value_type>(),
         type_id::invalid(),
         known_type_id<wrapped_type>(),
@@ -215,8 +197,7 @@ template <typename T> struct field_traits<std::optional<T>> {
 
   [[nodiscard]] static field_traits_info get() {
     return field_traits_info{
-        field_kind::optional,
-        field_ownership::none,
+        field_kind::wrapper,
         known_type_id<value_type>(),
         type_id::invalid(),
         known_type_id<wrapped_type>(),
@@ -239,7 +220,6 @@ template <typename T> struct field_traits<std::reference_wrapper<T>> {
   [[nodiscard]] static field_traits_info get() {
     return field_traits_info{
         field_kind::wrapper,
-        field_ownership::none,
         known_type_id<value_type>(),
         type_id::invalid(),
         known_type_id<wrapped_type>(),
@@ -277,7 +257,6 @@ struct field_info {
   detail::cpp_type_key pointed_cpp_type = nullptr;
   detail::cpp_type_key wrapped_cpp_type = nullptr;
   field_kind kind = field_kind::value;
-  field_ownership ownership = field_ownership::none;
   std::uint8_t pointer_depth = 0;
   bool nullable = false;
   std::size_t offset = 0;
@@ -377,7 +356,6 @@ template <typename Field>
       traits.pointed_cpp_type,
       traits.wrapped_cpp_type,
       traits.kind,
-      traits.ownership,
       traits.pointer_depth,
       traits.nullable,
       offset,

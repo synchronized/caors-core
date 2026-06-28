@@ -32,8 +32,7 @@
 - `name`：字段名。
 - `type`：字段声明类型的运行期 `type_id`。
 - `type_name`：字段声明类型名。
-- `kind`：字段形态，例如值、枚举、裸指针、智能指针、optional 或 wrapper。
-- `ownership`：字段包装层的所有权语义，例如独占、共享、弱引用或无所有权。
+- `kind`：字段形态，例如值、枚举、裸指针或 wrapper。
 - `value_type`：去掉一层指针或 wrapper 后的值类型。
 - `pointed_type`：裸指针指向的类型，仅 `T*` 字段有效。
 - `wrapped_type`：wrapper 包装的类型，例如 `std::unique_ptr<T>`、`std::optional<T>` 中的 `T`。
@@ -81,14 +80,20 @@ caors::reflection::class_<actor>(registry, "game.actor")
 - `enum`：`field_kind::enumeration`，`value_type` 为枚举类型。
 - `T*`：`field_kind::raw_pointer`，`pointed_type` 和 `value_type` 为 `T`，`nullable`
   为 `true`。
-- `std::unique_ptr<T>`：`field_kind::smart_pointer`，`ownership` 为 `owning`，
-  `wrapped_type` 和 `value_type` 为 `T`，`nullable` 为 `true`。
-- `std::shared_ptr<T>`：`field_kind::smart_pointer`，`ownership` 为 `shared`。
-- `std::weak_ptr<T>`：`field_kind::smart_pointer`，`ownership` 为 `weak`。
-- `std::optional<T>`：`field_kind::optional`，`wrapped_type` 和 `value_type` 为 `T`，
+- `std::unique_ptr<T>`：`field_kind::wrapper`，`wrapped_type` 和 `value_type` 为 `T`，
+  `nullable` 为 `true`。
+- `std::shared_ptr<T>`：`field_kind::wrapper`，`wrapped_type` 和 `value_type` 为 `T`，
+  `nullable` 为 `true`。
+- `std::weak_ptr<T>`：`field_kind::wrapper`，`wrapped_type` 和 `value_type` 为 `T`，
+  `nullable` 为 `true`。
+- `std::optional<T>`：`field_kind::wrapper`，`wrapped_type` 和 `value_type` 为 `T`，
   `nullable` 为 `true`。
 - `std::reference_wrapper<T>`：`field_kind::wrapper`，`wrapped_type` 和 `value_type` 为
   `T`，不表示空值。
+
+STL 智能指针和裸指针只作为外部字段类型被反射系统描述。CAORS 不根据这些字段接管对象生命周期；
+用户如果直接使用这些类型，需要自行保证释放、引用有效性和线程安全。后续 CAORS 自身的对象句柄、
+引用计数或分配器类型会作为独立 wrapper 接入反射规则。
 
 字段读写入口：
 
