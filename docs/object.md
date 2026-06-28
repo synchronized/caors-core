@@ -10,7 +10,7 @@
 CAORS 对象系统第一阶段只解决几件事：
 
 - 对象实例有运行期唯一标识。
-- 对象类型复用基础 `type_info`，包含类型标识、名称、大小、对齐和父类型。
+- 对象类型复用基础 `type_info`，包含类型标识、名称、稳定 GUID、大小、对齐和父类型。
 - 对象可以注册到基于 `meta_registry` 的对象注册表。
 - 注册表可以按类型创建和销毁默认构造对象。
 - 对象创建和销毁可以接入 `memory_resource`。
@@ -44,6 +44,7 @@ caors::object_id id = instance.id();
 
 - `id`
 - `name`
+- 可选 `type_guid`
 - `size`
 - `alignment`
 - `parent_id`
@@ -79,8 +80,13 @@ public:
 class player : public caors::object_base<player, actor> {
 public:
   static constexpr std::string_view object_type_name = "game.player";
+  static constexpr caors::type_guid object_type_guid{caors::guid::from_bytes(
+      caors::guid::byte_array{0x92, 0x8d, 0x35, 0x70, 0x54, 0x68, 0x46, 0x5c,
+                              0x9d, 0xc4, 0x30, 0x7f, 0xb7, 0x45, 0xf2, 0x2c})};
 };
 ```
+
+`object_type_guid` 是可选静态成员。运行期临时对象可以不声明，`type_info::guid` 会保持 nil；可序列化、可反射或跨插件暴露的对象类型建议显式声明稳定 GUID。
 
 这样通过基类引用也能查询真实类型：
 

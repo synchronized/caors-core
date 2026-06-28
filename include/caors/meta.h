@@ -4,6 +4,7 @@
 #ifndef CAORS_META_H_
 #define CAORS_META_H_
 
+#include "caors/core/guid.h"
 #include "caors/core/string_name.h"
 #include "caors/export.h"
 
@@ -45,6 +46,31 @@ private:
   std::uint64_t value_ = 0;
 };
 
+/**
+ * @brief 稳定类型标识。
+ *
+ * `type_guid` 用于序列化、存档、资源引用和插件边界等需要跨进程、跨版本稳定识别类型的场景。
+ * 它和运行期 `type_id` 不同，不应由 `string_name::id()` 派生。
+ */
+struct type_guid {
+  guid value{};
+
+  constexpr type_guid() noexcept = default;
+  explicit constexpr type_guid(guid guid_value) noexcept : value(guid_value) {}
+
+  [[nodiscard]] static constexpr type_guid nil() noexcept { return type_guid{}; }
+  [[nodiscard]] bool is_nil() const noexcept { return value.is_nil(); }
+  [[nodiscard]] explicit operator bool() const noexcept { return !is_nil(); }
+
+  friend constexpr bool operator==(const type_guid& lhs, const type_guid& rhs) noexcept {
+    return lhs.value == rhs.value;
+  }
+
+  friend constexpr bool operator!=(const type_guid& lhs, const type_guid& rhs) noexcept {
+    return !(lhs == rhs);
+  }
+};
+
 /** @brief 根据类型名生成运行期类型标识。 */
 [[nodiscard]] constexpr type_id make_type_id(string_name name) noexcept {
   return type_id{name.id()};
@@ -58,11 +84,13 @@ private:
 /**
  * @brief 对象系统和反射系统共享的基础类型描述。
  *
- * 该结构只保存类型身份、名称、布局和父类型关系，不包含对象生命周期或字段/方法反射信息。
+ * 该结构只保存类型身份、名称、稳定 GUID、布局和父类型关系，不包含对象生命周期或字段/方法反射
+ * 信息。
  */
 struct type_info {
   type_id id{};
   string_name name{};
+  type_guid guid{};
   std::size_t size = 0;
   std::size_t alignment = 0;
   type_id parent_id{};
@@ -77,7 +105,16 @@ template <typename T>
 [[nodiscard]] constexpr type_info make_type_info(string_name name,
                                                  type_id parent_id = type_id::invalid()) noexcept {
   return type_info{
-      make_type_id(name), name, sizeof(T), alignof(T), parent_id,
+      make_type_id(name), name, type_guid::nil(), sizeof(T), alignof(T), parent_id,
+  };
+}
+
+/** @brief 创建带稳定 GUID 的基础类型描述。 */
+template <typename T>
+[[nodiscard]] constexpr type_info make_type_info(string_name name, type_guid guid,
+                                                 type_id parent_id = type_id::invalid()) noexcept {
+  return type_info{
+      make_type_id(name), name, guid, sizeof(T), alignof(T), parent_id,
   };
 }
 
@@ -88,12 +125,20 @@ template <typename T>
   return make_type_info<T>(string_name{name}, parent_id);
 }
 
+/** @brief 创建带稳定 GUID 的基础类型描述。 */
+template <typename T>
+[[nodiscard]] type_info make_type_info(std::string_view name, type_guid guid,
+                                       type_id parent_id = type_id::invalid()) {
+  return make_type_info<T>(string_name{name}, guid, parent_id);
+}
+
 /** @brief 基础类型注册结果。 */
 enum class type_register_result {
   success,
   invalid_type,
   duplicate_id,
   duplicate_name,
+  duplicate_guid,
   hash_collision,
   missing_parent,
 };
@@ -216,6 +261,7 @@ public:
   [[nodiscard]] type_register_result register_type(const type_info& type);
   [[nodiscard]] bool contains(type_id id) const;
   [[nodiscard]] std::optional<type_info> find_type(type_id id) const;
+  [[nodiscard]] std::optional<type_info> find_type(type_guid guid) const;
   [[nodiscard]] std::optional<type_info> find_type(std::string_view name) const;
   [[nodiscard]] std::optional<type_info> find_type(string_name name) const;
   [[nodiscard]] bool is_a(type_id id, type_id base_id) const;
@@ -328,11 +374,27 @@ template <typename T>
   return registry.register_type(make_type_info<T>(name, parent_id));
 }
 
+/** @brief 向指定元数据注册表注册带稳定 GUID 的基础类型。 */
+template <typename T>
+[[nodiscard]] type_register_result register_type(meta_registry& registry, string_name name,
+                                                 type_guid guid,
+                                                 type_id parent_id = type_id::invalid()) {
+  return registry.register_type(make_type_info<T>(name, guid, parent_id));
+}
+
 /** @brief 向指定元数据注册表注册基础类型。 */
 template <typename T>
 [[nodiscard]] type_register_result register_type(meta_registry& registry, std::string_view name,
                                                  type_id parent_id = type_id::invalid()) {
   return register_type<T>(registry, string_name{name}, parent_id);
+}
+
+/** @brief 向指定元数据注册表注册带稳定 GUID 的基础类型。 */
+template <typename T>
+[[nodiscard]] type_register_result register_type(meta_registry& registry, std::string_view name,
+                                                 type_guid guid,
+                                                 type_id parent_id = type_id::invalid()) {
+  return register_type<T>(registry, string_name{name}, guid, parent_id);
 }
 
 /** @brief 向默认元数据注册表注册基础类型。 */
@@ -342,11 +404,25 @@ template <typename T>
   return register_type<T>(get_meta_registry(), name, parent_id);
 }
 
+/** @brief 向默认元数据注册表注册带稳定 GUID 的基础类型。 */
+template <typename T>
+[[nodiscard]] type_register_result register_type(string_name name, type_guid guid,
+                                                 type_id parent_id = type_id::invalid()) {
+  return register_type<T>(get_meta_registry(), name, guid, parent_id);
+}
+
 /** @brief 向默认元数据注册表注册基础类型。 */
 template <typename T>
 [[nodiscard]] type_register_result register_type(std::string_view name,
                                                  type_id parent_id = type_id::invalid()) {
   return register_type<T>(get_meta_registry(), string_name{name}, parent_id);
+}
+
+/** @brief 向默认元数据注册表注册带稳定 GUID 的基础类型。 */
+template <typename T>
+[[nodiscard]] type_register_result register_type(std::string_view name, type_guid guid,
+                                                 type_id parent_id = type_id::invalid()) {
+  return register_type<T>(get_meta_registry(), string_name{name}, guid, parent_id);
 }
 
 /**

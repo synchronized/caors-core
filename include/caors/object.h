@@ -75,6 +75,7 @@ enum class object_register_result {
   invalid_type,
   duplicate_id,
   duplicate_name,
+  duplicate_guid,
   hash_collision,
   missing_parent,
 };
@@ -110,10 +111,33 @@ private:
   object_id id_;
 };
 
+namespace detail {
+
+template <typename T, typename = void> struct object_type_guid_traits {
+  [[nodiscard]] static constexpr type_guid get() noexcept { return type_guid::nil(); }
+};
+
+template <typename T>
+struct object_type_guid_traits<T, std::void_t<decltype(T::object_type_guid)>> {
+  static_assert(
+      std::is_same_v<std::remove_cv_t<std::remove_reference_t<decltype(T::object_type_guid)>>,
+                     type_guid>,
+      "object_type_guid must be caors::type_guid");
+
+  [[nodiscard]] static constexpr type_guid get() noexcept { return T::object_type_guid; }
+};
+
+template <typename T> [[nodiscard]] constexpr type_guid object_type_guid_of() noexcept {
+  return object_type_guid_traits<T>::get();
+}
+
+} // namespace detail
+
 /**
  * @brief 为派生对象提供默认运行期类型实现。
  *
- * `Derived` 需要提供 `static constexpr std::string_view object_type_name`。
+ * `Derived` 需要提供 `static constexpr std::string_view object_type_name`。可序列化、可反射或跨插件
+ * 暴露的类型建议额外提供 `static constexpr caors::type_guid object_type_guid`。
  */
 template <typename Derived, typename Base = object> class object_base : public Base {
   static_assert(std::is_base_of_v<object, Base>, "Base must derive from caors::object");
@@ -127,6 +151,10 @@ public:
 
   [[nodiscard]] static std::string_view static_type_name() noexcept {
     return Derived::object_type_name;
+  }
+
+  [[nodiscard]] static constexpr type_guid static_type_guid() noexcept {
+    return detail::object_type_guid_of<Derived>();
   }
 
   [[nodiscard]] object_type_id type_id() const noexcept override { return static_type_id(); }
@@ -179,7 +207,7 @@ make_object_type(std::string_view name,
   static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
 
   object_type type{
-      make_type_info<T>(name, parent_id),
+      make_type_info<T>(name, detail::object_type_guid_of<T>(), parent_id),
       nullptr,
       nullptr,
       &destroy_object_instance<T>,

@@ -23,6 +23,7 @@ public:
   mutable std::mutex mutex;
   std::unordered_map<std::uint64_t, type_info_entry> types;
   std::unordered_map<std::uint64_t, type_id> names;
+  std::unordered_map<guid, type_id, guid_hash> guids;
   std::unordered_map<detail::meta_component_key,
                      std::unique_ptr<detail::meta_component_storage_base>>
       components;
@@ -55,6 +56,10 @@ type_register_result meta_registry::register_type(const type_info& type) {
     return type_register_result::invalid_type;
   }
 
+  if (type.guid && state_->guids.contains(type.guid.value)) {
+    return type_register_result::duplicate_guid;
+  }
+
   if (type.parent_id && !state_->types.contains(type.parent_id.value())) {
     return type_register_result::missing_parent;
   }
@@ -66,6 +71,9 @@ type_register_result meta_registry::register_type(const type_info& type) {
 
   position->second.info = type;
   state_->names.emplace(type.name.id(), type.id);
+  if (type.guid) {
+    state_->guids.emplace(type.guid.value, type.id);
+  }
 
   return type_register_result::success;
 }
@@ -83,6 +91,25 @@ std::optional<type_info> meta_registry::find_type(type_id id) const {
   }
 
   return position->second.info;
+}
+
+std::optional<type_info> meta_registry::find_type(type_guid guid) const {
+  if (!guid) {
+    return std::nullopt;
+  }
+
+  std::lock_guard lock(state_->mutex);
+  const auto guid_position = state_->guids.find(guid.value);
+  if (guid_position == state_->guids.end()) {
+    return std::nullopt;
+  }
+
+  const auto type_position = state_->types.find(guid_position->second.value());
+  if (type_position == state_->types.end()) {
+    return std::nullopt;
+  }
+
+  return type_position->second.info;
 }
 
 std::optional<type_info> meta_registry::find_type(std::string_view name) const {
@@ -141,6 +168,7 @@ void meta_registry::clear() noexcept {
   std::lock_guard lock(state_->mutex);
   state_->types.clear();
   state_->names.clear();
+  state_->guids.clear();
   for (auto& [key, storage] : state_->components) {
     (void)key;
     storage->clear();

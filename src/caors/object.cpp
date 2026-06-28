@@ -32,6 +32,8 @@ to_object_register_result(type_register_result result) noexcept {
     return object_register_result::duplicate_id;
   case type_register_result::duplicate_name:
     return object_register_result::duplicate_name;
+  case type_register_result::duplicate_guid:
+    return object_register_result::duplicate_guid;
   case type_register_result::hash_collision:
     return object_register_result::hash_collision;
   case type_register_result::missing_parent:

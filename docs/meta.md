@@ -11,7 +11,8 @@
 
 - 用 `string_name` 保存运行期去重后的类型名。
 - 用 `type_id` 表示由 `string_name` 派生的运行期类型 key。
-- 用 `type_info` 保存类型名、大小、对齐和父类型。
+- 用 `type_guid` 保存可选的稳定类型标识。
+- 用 `type_info` 保存类型名、稳定 GUID、大小、对齐和父类型。
 - 用 `meta_registry` 集中处理基础类型注册、查找和继承关系判断。
 - 用 `meta_registry` 在同一个 `type_id` 上挂载不同主题的元数据组件。
 - 避免对象系统、反射系统和序列化系统各自重复实现类型注册逻辑。
@@ -48,7 +49,23 @@ std::string_view view = name.view();
 caors::type_id id = caors::make_type_id("game.player");
 ```
 
-当前 `make_type_id()` 会先把类型名转为 `string_name`，再用 `string_name::id()` 派生 `type_id`。它适合运行期查找，不适合作为序列化长期稳定 ID；后续序列化应增加显式 `type_guid`。
+当前 `make_type_id()` 会先把类型名转为 `string_name`，再用 `string_name::id()` 派生 `type_id`。它适合运行期查找，不适合作为序列化长期稳定 ID。
+
+### type_guid
+
+`type_guid` 是稳定类型标识，基于 `guid` 包装。它用于序列化、存档、资源引用和插件边界等需要长期稳定识别类型的场景。
+
+```cpp
+auto guid = caors::guid::parse("5ed39a97-7b20-4d87-86ac-e62a4a615b10");
+caors::type_info info =
+    caors::make_type_info<player>("game.player", caors::type_guid{*guid}, actor_id);
+```
+
+需要注意：
+
+- 未显式传入时，`type_info::guid` 为 nil。
+- `type_guid` 不应由 `type_id` 或 `string_name::id()` 派生。
+- 修改类型名不应自动修改 `type_guid`，否则旧数据无法稳定识别类型。
 
 ### type_info
 
@@ -56,6 +73,7 @@ caors::type_id id = caors::make_type_id("game.player");
 
 - `id`
 - `name`
+- `guid`
 - `size`
 - `alignment`
 - `parent_id`
@@ -81,6 +99,7 @@ caors::type_register_result result =
 - `invalid_type`：类型描述无效。
 - `duplicate_id`：同一个 id 已注册。
 - `duplicate_name`：同一个名称已注册。
+- `duplicate_guid`：同一个非 nil 稳定 GUID 已注册。
 - `hash_collision`：id 已存在，但名称不同，说明手写 id 错误或外部构造了不一致的类型描述。
 - `missing_parent`：父类型未注册。
 
@@ -126,10 +145,11 @@ registry.emplace<object_factory_meta>(actor_id, true);
 ## 当前已实现能力
 
 - `type_id`：运行期类型标识。
+- `type_guid`：稳定类型标识。
 - `string_name`：运行期 interned 名称，定义在 `caors/core/string_name.h`。
 - `make_type_id()`：根据类型名生成类型标识。
 - `type_info` / `make_type_info<T>()`：基础类型描述。
-- `meta_registry`：基础类型注册、查询、继承关系判断、清理和组件式元数据挂载。
+- `meta_registry`：基础类型注册、按 id/name/guid 查询、继承关系判断、清理和组件式元数据挂载。
 - `meta_view<T...>`：按组件集合查询类型。
 - `get_meta_registry()`：进程内默认元数据注册表。
 

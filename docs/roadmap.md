@@ -8,7 +8,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 ## 0. Core 基础设施
 
 - [x] 提供 `string_name`，用于运行期名称去重、快速比较和查找。
-- [ ] 增加 `type_guid` / `uuid`，用于序列化和资源引用的稳定标识。
+- [x] 增加 `guid` / `type_guid`，用于序列化和资源引用的稳定标识。
 - [ ] 在 core 主题下逐步补充与 CAORS 内存系统适配的 string、list、hash_map 等基础容器。
 
 ## 1. 类型元数据底座

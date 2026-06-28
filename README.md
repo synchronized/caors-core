@@ -22,8 +22,8 @@ CAORS 目前更偏底层库和实验性基础设施，而不是完整引擎或�
 - 基础配置 API：`caors/config.h`。
 - 导出宏 API：`caors/export.h`。
 - 基础版本 API：`caors/version.h`，由 `include/caors/version.h.in` 在配置阶段生成。
-- Core API：`caors/core/string_name.h`。
-- 类型元数据 API：`caors/meta.h`。
+- Core API：`caors/core/string_name.h` 和 `caors/core/guid.h`。
+- 类型元数据 API：`caors/meta.h`，包含运行期 `type_id` 和稳定 `type_guid`。
 - 基础内存资源 API：`caors/memory.h`。
 - 基础对象系统 API：`caors/object.h`。
 - `examples/` 可运行示例。
