@@ -3,7 +3,9 @@
 
 #include "caors/serialization.h"
 
+#include <limits>
 #include <sstream>
+#include <string>
 #include <string_view>
 #include <utility>
 
@@ -195,6 +197,20 @@ template <typename T>
   return {};
 }
 
+[[nodiscard]] error validate_field_for_reader(const serialization_field_data& field,
+                                              serialization_format_features features) {
+  const bool can_use_name = has_feature(features, serialization_format_features::named_fields) &&
+                            !serialized_field_name(field).empty();
+  const bool can_use_id =
+      has_feature(features, serialization_format_features::numeric_fields) && field.field_id != 0;
+
+  if (!can_use_name && !can_use_id) {
+    return {error_domain::serialization, errc::invalid_field};
+  }
+
+  return {};
+}
+
 [[nodiscard]] error write_field(serialization_writer& writer, const reflection_field& field,
                                 const void* object, const serialization_field_data& field_data) {
   if (!field.valid()) {
@@ -227,9 +243,141 @@ template <typename T>
   return writer.end_field();
 }
 
+template <typename T>
+[[nodiscard]] bool try_read_signed_field(serialization_reader& reader,
+                                         const reflection_field& field, void* object) {
+  std::int64_t value = 0;
+  if (reader.read_i64(value).succeeded()) {
+    if (value < static_cast<std::int64_t>(std::numeric_limits<T>::min()) ||
+        value > static_cast<std::int64_t>(std::numeric_limits<T>::max())) {
+      return false;
+    }
+
+    return field.try_set<T>(object, static_cast<T>(value));
+  }
+
+  std::uint64_t unsigned_value = 0;
+  if (reader.read_u64(unsigned_value).failed() ||
+      unsigned_value > static_cast<std::uint64_t>(std::numeric_limits<T>::max())) {
+    return false;
+  }
+
+  return field.try_set<T>(object, static_cast<T>(unsigned_value));
+}
+
+template <typename T>
+[[nodiscard]] bool try_read_unsigned_field(serialization_reader& reader,
+                                           const reflection_field& field, void* object) {
+  std::uint64_t value = 0;
+  if (reader.read_u64(value).succeeded()) {
+    if (value > static_cast<std::uint64_t>(std::numeric_limits<T>::max())) {
+      return false;
+    }
+
+    return field.try_set<T>(object, static_cast<T>(value));
+  }
+
+  std::int64_t signed_value = 0;
+  if (reader.read_i64(signed_value).failed() || signed_value < 0 ||
+      static_cast<std::uint64_t>(signed_value) >
+          static_cast<std::uint64_t>(std::numeric_limits<T>::max())) {
+    return false;
+  }
+
+  return field.try_set<T>(object, static_cast<T>(signed_value));
+}
+
+template <typename T>
+[[nodiscard]] bool try_read_float_field(serialization_reader& reader, const reflection_field& field,
+                                        void* object) {
+  double value = 0.0;
+  if (reader.read_f64(value).succeeded()) {
+    return field.try_set<T>(object, static_cast<T>(value));
+  }
+
+  std::int64_t signed_value = 0;
+  if (reader.read_i64(signed_value).succeeded()) {
+    return field.try_set<T>(object, static_cast<T>(signed_value));
+  }
+
+  std::uint64_t unsigned_value = 0;
+  if (reader.read_u64(unsigned_value).succeeded()) {
+    return field.try_set<T>(object, static_cast<T>(unsigned_value));
+  }
+
+  return false;
+}
+
+[[nodiscard]] error read_field(serialization_reader& reader, const reflection_field& field,
+                               void* object, const serialization_field_data& field_data) {
+  if (!field.valid()) {
+    return {error_domain::serialization, errc::invalid_field};
+  }
+
+  if (!field.writable()) {
+    return {error_domain::serialization, errc::invalid_field};
+  }
+
+  if (field.kind() != field_kind::value) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  error status = validate_field_for_reader(field_data, reader.features());
+  if (status.failed()) {
+    return status;
+  }
+
+  status = reader.begin_field(field_data);
+  if (status.failed()) {
+    return status;
+  }
+
+  bool bool_value = false;
+  bool written =
+      reader.read_bool(bool_value).succeeded() && field.try_set<bool>(object, bool_value);
+
+  if (!written) {
+    written = try_read_signed_field<signed char>(reader, field, object) ||
+              try_read_signed_field<short>(reader, field, object) ||
+              try_read_signed_field<int>(reader, field, object) ||
+              try_read_signed_field<long>(reader, field, object) ||
+              try_read_signed_field<long long>(reader, field, object);
+  }
+
+  if (!written) {
+    written = try_read_unsigned_field<unsigned char>(reader, field, object) ||
+              try_read_unsigned_field<unsigned short>(reader, field, object) ||
+              try_read_unsigned_field<unsigned int>(reader, field, object) ||
+              try_read_unsigned_field<unsigned long>(reader, field, object) ||
+              try_read_unsigned_field<unsigned long long>(reader, field, object);
+  }
+
+  if (!written) {
+    written = try_read_float_field<float>(reader, field, object) ||
+              try_read_float_field<double>(reader, field, object) ||
+              try_read_float_field<long double>(reader, field, object);
+  }
+
+  if (!written) {
+    string string_value;
+    if (reader.read_string(string_value).succeeded()) {
+      const std::string standard_string{string_value.data(), string_value.size()};
+      written = field.try_set<std::string>(object, standard_string);
+    }
+  }
+
+  if (!written) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  return reader.end_field();
+}
+
 } // namespace
 
 serialization_writer::~serialization_writer() = default;
+
+serialization_reader::~serialization_reader() = default;
 
 serialization_format_features text_serialization_writer::features() const noexcept {
   return serialization_format_features::named_fields |
@@ -486,6 +634,130 @@ serialization_value serialization_value::object(object_type members) {
   return result;
 }
 
+value_serialization_reader::value_serialization_reader(const serialization_value& value) noexcept
+    : root_(&value) {}
+
+serialization_format_features value_serialization_reader::features() const noexcept {
+  return serialization_format_features::named_fields |
+         serialization_format_features::numeric_fields |
+         serialization_format_features::self_describing;
+}
+
+error value_serialization_reader::begin_object(const serialization_type_data&) {
+  if (root_ == nullptr || root_->kind() != serialization_value_kind::object || object_open_) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  object_open_ = true;
+  current_member_ = nullptr;
+  return {};
+}
+
+const serialization_member*
+value_serialization_reader::find_member(const serialization_field_data& field) const {
+  if (root_ == nullptr || root_->kind() != serialization_value_kind::object) {
+    return nullptr;
+  }
+
+  const string_name name = serialized_field_name(field);
+  for (const serialization_member& member : root_->as_object()) {
+    if (field.field_id != 0 && member.field_id == field.field_id) {
+      return &member;
+    }
+
+    if (!name.empty() && member.name == name) {
+      return &member;
+    }
+  }
+
+  return nullptr;
+}
+
+const serialization_value* value_serialization_reader::current_value() const noexcept {
+  return current_member_ != nullptr ? &current_member_->value : nullptr;
+}
+
+error value_serialization_reader::begin_field(const serialization_field_data& field) {
+  if (!object_open_ || current_member_ != nullptr) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  current_member_ = find_member(field);
+  if (current_member_ == nullptr) {
+    return {error_domain::serialization, errc::not_found};
+  }
+
+  return {};
+}
+
+error value_serialization_reader::read_bool(bool& value) {
+  const serialization_value* current = current_value();
+  if (current == nullptr || current->kind() != serialization_value_kind::boolean) {
+    return {error_domain::serialization, errc::invalid_type};
+  }
+
+  value = current->as_bool();
+  return {};
+}
+
+error value_serialization_reader::read_i64(std::int64_t& value) {
+  const serialization_value* current = current_value();
+  if (current == nullptr || current->kind() != serialization_value_kind::signed_integer) {
+    return {error_domain::serialization, errc::invalid_type};
+  }
+
+  value = current->as_i64();
+  return {};
+}
+
+error value_serialization_reader::read_u64(std::uint64_t& value) {
+  const serialization_value* current = current_value();
+  if (current == nullptr || current->kind() != serialization_value_kind::unsigned_integer) {
+    return {error_domain::serialization, errc::invalid_type};
+  }
+
+  value = current->as_u64();
+  return {};
+}
+
+error value_serialization_reader::read_f64(double& value) {
+  const serialization_value* current = current_value();
+  if (current == nullptr || current->kind() != serialization_value_kind::floating) {
+    return {error_domain::serialization, errc::invalid_type};
+  }
+
+  value = current->as_f64();
+  return {};
+}
+
+error value_serialization_reader::read_string(string& value) {
+  const serialization_value* current = current_value();
+  if (current == nullptr || current->kind() != serialization_value_kind::string) {
+    return {error_domain::serialization, errc::invalid_type};
+  }
+
+  value = current->as_string();
+  return {};
+}
+
+error value_serialization_reader::end_field() {
+  if (current_member_ == nullptr) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  current_member_ = nullptr;
+  return {};
+}
+
+error value_serialization_reader::end_object() {
+  if (!object_open_ || current_member_ != nullptr) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  object_open_ = false;
+  return {};
+}
+
 serialization_registry& serialization_registry::instance() noexcept {
   static serialization_registry registry;
   return registry;
@@ -673,6 +945,64 @@ error serialize(const reflection_type& type, const void* object, serialization_w
   return writer.end_object();
 }
 
+error deserialize(const reflection_type& type, void* object, serialization_reader& reader) {
+  if (!type.valid()) {
+    return {error_domain::serialization, errc::invalid_type};
+  }
+
+  if (object == nullptr) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  if (!get_serialization_registry().contains(type.id())) {
+    return {error_domain::serialization, errc::missing_type};
+  }
+
+  const std::optional<serialization_type_data> serialization =
+      get_serialization_registry().find_type(type.id());
+  if (!serialization.has_value() || !serialization->valid()) {
+    return {error_domain::serialization, errc::invalid_type};
+  }
+
+  error status = reader.begin_object(*serialization);
+  if (status.failed()) {
+    return status;
+  }
+
+  if (!serialization->fields.empty()) {
+    for (const serialization_field_data& field_data : serialization->fields) {
+      if (field_data.skipped) {
+        continue;
+      }
+
+      const std::optional<reflection_field> field = type.find_field(field_data.field_name);
+      if (!field.has_value()) {
+        return {error_domain::serialization, errc::not_found};
+      }
+
+      status = read_field(reader, *field, object, field_data);
+      if (status.failed()) {
+        return status;
+      }
+    }
+  } else {
+    for (std::size_t index = 0; index < type.field_count(); ++index) {
+      const std::optional<reflection_field> field = type.field_at(index);
+      if (!field.has_value()) {
+        return {error_domain::serialization, errc::invalid_field};
+      }
+
+      serialization_field_data field_data = make_serialization_field(field->name().view());
+      status = read_field(reader, *field, object, field_data);
+      if (status.failed()) {
+        return status;
+      }
+    }
+  }
+
+  return reader.end_object();
+}
+
 serialization_value_result to_serialization_value(const reflection_type& type, const void* object) {
   if (!type.valid()) {
     return {{error_domain::serialization, errc::invalid_type}, {}};
@@ -766,6 +1096,23 @@ error serialize(type_id id, const void* object, serialization_writer& writer) {
   }
 
   return serialize(*type, object, writer);
+}
+
+error deserialize(type_id id, void* object, serialization_reader& reader) {
+  if (!id) {
+    return {error_domain::serialization, errc::invalid_type};
+  }
+
+  if (!get_serialization_registry().contains(id)) {
+    return {error_domain::serialization, errc::missing_type};
+  }
+
+  const std::optional<reflection_type> type = find_reflection(id);
+  if (!type.has_value()) {
+    return {error_domain::serialization, errc::not_found};
+  }
+
+  return deserialize(*type, object, reader);
 }
 
 serialization_value_result to_serialization_value(type_id id, const void* object) {

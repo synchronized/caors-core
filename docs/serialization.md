@@ -3,8 +3,8 @@
 
 # Serialization
 
-本文档说明 CAORS 序列化层的当前 MVP。当前实现只提供基于反射字段的简单文本序列化，用于验证
-`meta_registry`、反射字段访问和统一错误模型之间的协作边界。
+本文档说明 CAORS 序列化层的当前 MVP。当前实现提供基于反射字段的简单文本序列化、DOM 中间对象和
+基础 DOM 反序列化，用于验证 `meta_registry`、反射字段访问和统一错误模型之间的协作边界。
 
 ## 设计目标
 
@@ -15,13 +15,14 @@
 - 基于全局 `meta_registry` 挂载序列化组件，避免单独维护类型索引。
 - 提供 `serialization_registry` 和 `register_serialization<T>()` 注册入口。
 - 提供 `serialization_writer` 后端接口，让不同格式复用同一套字段遍历逻辑。
+- 提供 `serialization_reader` 后端接口，让不同格式复用同一套字段读入逻辑。
 - 提供 `serialization_value` 中间对象树，方便工具、调试和多格式转换。
 - 提供 `text_serialization_writer` 和 `serialize_text()`，通过反射字段读取对象并输出简单文本结构。
+- 提供 `value_serialization_reader` 和 `deserialize()`，通过 DOM 中间对象写回基础反射字段。
 - 用 `caors::error` 和 `serialization_text_result` 表达失败状态。
 
 当前不会包含：
 
-- 反序列化。
 - 内置二进制格式。
 - 版本迁移和缺失字段恢复。
 - 对象引用、指针和 wrapper 字段序列化。
@@ -84,6 +85,27 @@ writer 通过 `serialization_format_features` 声明能力：
 当前内置后端：
 
 - `text_serialization_writer`：声明 `named_fields | ordered_fields | self_describing`。
+
+### serialization_reader
+
+`serialization_reader` 是格式读入后端接口。反序列化调度层负责查找 `meta_registry`、匹配反射字段和
+写入对象；reader 只负责按字段配置提供当前字段值。
+
+当前内置 reader：
+
+- `value_serialization_reader`：从 `serialization_value` 对象树读取字段，声明
+  `named_fields | numeric_fields | self_describing`。
+
+可以直接从 DOM 中间对象反序列化到已注册反射和序列化元信息的对象：
+
+```cpp
+actor instance{};
+caors::error status = caors::deserialize(instance, value.value);
+```
+
+字段查找优先使用非 0 的 `field_id`，再回退到 `serialized_name` 或 `field_name`。当前只支持写入
+`bool`、整数、浮点和 `std::string` 字段；缺失字段会返回 `errc::not_found`。`required`、默认值、
+未知字段保留和版本迁移策略后续再补。
 
 ### serialization_value
 
@@ -176,12 +198,15 @@ caors::serialization_text_result result = caors::serialize_text(instance);
 - `serialization_type_data`：序列化组件数据。
 - `serialization_field_data`：字段级序列化配置。
 - `serialization_writer`：格式后端接口。
+- `serialization_reader`：格式读入后端接口。
 - `text_serialization_writer`：简单文本格式后端。
 - `serialization_value`：序列化 DOM 中间对象。
+- `value_serialization_reader`：从 DOM 中间对象读入字段的后端。
 - `serialization_member`：对象成员，保存字段名、字段 id 和字段值。
 - `serialization_registry`：全局序列化注册表。
 - `register_serialization()`：注册序列化组件。
 - `serialize()`：通过指定 writer 后端序列化对象。
+- `deserialize()`：通过指定 reader 后端反序列化对象。
 - `to_serialization_value()`：通过反射和序列化元信息构造中间对象树。
 - `write()`：把中间对象树写入指定 writer。
 - `serialization_text_result`：文本序列化结果。

@@ -69,6 +69,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 设计 writer 后端接口，为文本、二进制和 msgpack 等格式预留扩展点。
 - [x] 与反射系统打通，实现基于元信息的基础字段文本序列化。
 - [x] 增加 `serialization_value` 中间对象树，支持对象、数组、标量和字段 id/name，并保留 streaming writer 快路径。
+- [x] 增加 `serialization_reader` 后端接口和 DOM reader，支持基础字段反序列化。
 - [ ] 支持数组、对象引用和嵌套结构。
 - [ ] 增加紧凑二进制和 msgpack 等非文本后端。
 - [ ] 增加版本兼容、缺失字段、未知字段和跨平台字节序测试。

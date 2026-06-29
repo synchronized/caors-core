@@ -219,6 +219,29 @@ private:
   bool root_written_ = false;
 };
 
+/** @brief 序列化读入后端接口。 */
+class CAORS_API serialization_reader {
+public:
+  serialization_reader() = default;
+  virtual ~serialization_reader();
+
+  serialization_reader(const serialization_reader&) = delete;
+  serialization_reader& operator=(const serialization_reader&) = delete;
+  serialization_reader(serialization_reader&&) = delete;
+  serialization_reader& operator=(serialization_reader&&) = delete;
+
+  [[nodiscard]] virtual serialization_format_features features() const noexcept = 0;
+  [[nodiscard]] virtual error begin_object(const serialization_type_data& type) = 0;
+  [[nodiscard]] virtual error begin_field(const serialization_field_data& field) = 0;
+  [[nodiscard]] virtual error read_bool(bool& value) = 0;
+  [[nodiscard]] virtual error read_i64(std::int64_t& value) = 0;
+  [[nodiscard]] virtual error read_u64(std::uint64_t& value) = 0;
+  [[nodiscard]] virtual error read_f64(double& value) = 0;
+  [[nodiscard]] virtual error read_string(string& value) = 0;
+  [[nodiscard]] virtual error end_field() = 0;
+  [[nodiscard]] virtual error end_object() = 0;
+};
+
 /** @brief 序列化中间值类型。 */
 enum class serialization_value_kind {
   null,
@@ -298,6 +321,32 @@ struct serialization_value_result {
   [[nodiscard]] explicit operator bool() const noexcept { return succeeded(); }
 };
 
+/** @brief 从序列化 DOM 中间对象读取数据的后端。 */
+class CAORS_API value_serialization_reader final : public serialization_reader {
+public:
+  explicit value_serialization_reader(const serialization_value& value) noexcept;
+
+  [[nodiscard]] serialization_format_features features() const noexcept override;
+  [[nodiscard]] error begin_object(const serialization_type_data& type) override;
+  [[nodiscard]] error begin_field(const serialization_field_data& field) override;
+  [[nodiscard]] error read_bool(bool& value) override;
+  [[nodiscard]] error read_i64(std::int64_t& value) override;
+  [[nodiscard]] error read_u64(std::uint64_t& value) override;
+  [[nodiscard]] error read_f64(double& value) override;
+  [[nodiscard]] error read_string(string& value) override;
+  [[nodiscard]] error end_field() override;
+  [[nodiscard]] error end_object() override;
+
+private:
+  [[nodiscard]] const serialization_member*
+  find_member(const serialization_field_data& field) const;
+  [[nodiscard]] const serialization_value* current_value() const noexcept;
+
+  const serialization_value* root_ = nullptr;
+  const serialization_member* current_member_ = nullptr;
+  bool object_open_ = false;
+};
+
 /** @brief 获取进程内全局序列化注册表。 */
 [[nodiscard]] CAORS_API serialization_registry& get_serialization_registry() noexcept;
 
@@ -338,6 +387,29 @@ template <typename T> [[nodiscard]] error serialize(const T& object, serializati
 
 /** @brief 将序列化中间值写入指定后端。 */
 [[nodiscard]] CAORS_API error write(serialization_writer& writer, const serialization_value& value);
+
+/** @brief 通过反射类型视图和指定后端反序列化到对象。 */
+[[nodiscard]] CAORS_API error deserialize(const reflection_type& type, void* object,
+                                          serialization_reader& reader);
+
+/** @brief 通过类型 id 查找反射信息并使用指定后端反序列化到对象。 */
+[[nodiscard]] CAORS_API error deserialize(type_id id, void* object, serialization_reader& reader);
+
+/** @brief 把已注册序列化和反射信息的 C++ 对象从指定后端读入。 */
+template <typename T> [[nodiscard]] error deserialize(T& object, serialization_reader& reader) {
+  const std::optional<meta_type> type = caors::find_type<T>();
+  if (!type.has_value()) {
+    return {error_domain::serialization, errc::missing_type};
+  }
+
+  return deserialize(type->id(), &object, reader);
+}
+
+/** @brief 从序列化 DOM 中间对象反序列化到对象。 */
+template <typename T> [[nodiscard]] error deserialize(T& object, const serialization_value& value) {
+  value_serialization_reader reader{value};
+  return deserialize(object, reader);
+}
 
 /** @brief 通过反射类型视图构造序列化中间值。 */
 [[nodiscard]] CAORS_API serialization_value_result

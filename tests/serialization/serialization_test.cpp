@@ -37,6 +37,21 @@ struct numeric_writer_actor {
   int id = 0;
 };
 
+struct reader_actor {
+  int id = 0;
+  float health = 0.0F;
+  bool active = false;
+  std::string name{};
+};
+
+struct reader_field_id_actor {
+  int id = 0;
+};
+
+struct reader_missing_field_actor {
+  int id = 0;
+};
+
 struct serialization_first_actor {
   int id = 0;
 };
@@ -244,6 +259,88 @@ TEST_CASE("serialization - writes intermediate arrays and objects through text w
 
   REQUIRE(result.succeeded());
   CHECK(writer.text() == R"({"items":[1,2]})");
+}
+
+TEST_CASE("serialization - value reader deserializes reflected struct fields", "[serialization]") {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<reader_actor>("caors.test.serialization.reader_actor")
+          .field("id", &reader_actor::id)
+          .field("health", &reader_actor::health)
+          .field("active", &reader_actor::active)
+          .field("name", &reader_actor::name)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<reader_actor>()));
+
+  caors::serialization_value::object_type members;
+  members.push_back(caors::serialization_member{
+      caors::string_name{"id"},
+      0,
+      caors::serialization_value::from(std::int64_t{7}),
+  });
+  members.push_back(caors::serialization_member{
+      caors::string_name{"health"},
+      0,
+      caors::serialization_value::from(95.5),
+  });
+  members.push_back(caors::serialization_member{
+      caors::string_name{"active"},
+      0,
+      caors::serialization_value::from(true),
+  });
+  members.push_back(caors::serialization_member{
+      caors::string_name{"name"},
+      0,
+      caors::serialization_value::from(std::string_view{"Ada"}),
+  });
+
+  reader_actor actor{};
+  const caors::error result =
+      caors::deserialize(actor, caors::serialization_value::object(std::move(members)));
+
+  REQUIRE(result.succeeded());
+  CHECK(actor.id == 7);
+  CHECK(actor.health == Catch::Approx(95.5));
+  CHECK(actor.active);
+  CHECK(actor.name == "Ada");
+}
+
+TEST_CASE("serialization - value reader matches fields by stable field id", "[serialization]") {
+  REQUIRE(reflection_result_ok(caors::reflection::class_<reader_field_id_actor>(
+                                   "caors.test.serialization.reader_field_id_actor")
+                                   .field("id", &reader_field_id_actor::id)
+                                   .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<reader_field_id_actor>({
+      caors::make_serialization_field("id", "actor_id", false, 7),
+  })));
+
+  caors::serialization_value::object_type members;
+  members.push_back(caors::serialization_member{
+      caors::string_name{"legacy_id"},
+      7,
+      caors::serialization_value::from(std::int64_t{42}),
+  });
+
+  reader_field_id_actor actor{};
+  const caors::error result =
+      caors::deserialize(actor, caors::serialization_value::object(std::move(members)));
+
+  REQUIRE(result.succeeded());
+  CHECK(actor.id == 42);
+}
+
+TEST_CASE("serialization - value reader reports missing fields", "[serialization]") {
+  REQUIRE(reflection_result_ok(caors::reflection::class_<reader_missing_field_actor>(
+                                   "caors.test.serialization.reader_missing_field_actor")
+                                   .field("id", &reader_missing_field_actor::id)
+                                   .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<reader_missing_field_actor>()));
+
+  reader_missing_field_actor actor{};
+  const caors::error result = caors::deserialize(actor, caors::serialization_value::object({}));
+
+  CHECK(result.failed());
+  CHECK(result.domain() == caors::error_domain::serialization);
+  CHECK(result.value() == caors::errc::not_found);
 }
 
 TEST_CASE("serialization - writer features validate required field identifiers",
