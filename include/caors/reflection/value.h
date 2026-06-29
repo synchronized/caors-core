@@ -131,13 +131,13 @@ public:
       return {};
     }
 
-    const std::optional<type_info> registered = caors::find_type<type>();
-    if (!registered.has_value() || registered->name.empty()) {
+    const std::optional<meta_type> registered = caors::find_type<type>();
+    if (!registered.has_value() || registered->name().empty()) {
       return {};
     }
 
-    return copy_from_raw(registered->id, registered->name, detail::cpp_type_key_of<type>(), &source,
-                         sizeof(type), alignof(type), detail::value_clone_fn_of<type>(),
+    return copy_from_raw(registered->id(), registered->name(), detail::cpp_type_key_of<type>(),
+                         &source, sizeof(type), alignof(type), detail::value_clone_fn_of<type>(),
                          detail::value_destroy_fn_of<type>(), detail::value_assign_fn_of<type>());
   }
 

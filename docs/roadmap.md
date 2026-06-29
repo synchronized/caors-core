@@ -13,7 +13,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 
 ## 1. 类型元数据底座
 
-- [x] 定义 `type_id`、`type_info` 和基础类型注册结果。
+- [x] 定义 `type_id`、`meta_type_data`、`meta_type` 和基础类型注册结果。
 - [x] 在 `meta_registry` 中集中处理运行期 id 分配、重名、重复 GUID、不一致类型描述和父类型缺失。
 - [x] 提供 `meta_registry`，允许围绕同一个 `type_id` 挂载对象、反射、序列化等元数据组件。
 - [x] 提供 `meta_view<T...>()`，查询同时拥有指定元数据组件的类型。
@@ -50,7 +50,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 ## 4. 反射
 
 - [x] 定义类型和字段的基础元信息模型。
-- [x] 基于 `meta_registry` 挂载 `reflection_type` 组件。
+- [x] 基于 `meta_registry` 挂载 `reflection_type_data` 组件。
 - [x] 设计手写注册 API，并为后续代码生成保留扩展空间。
 - [x] 提供运行时类型查询和字段元信息查询入口。
 - [ ] 定义函数和属性的元信息模型。

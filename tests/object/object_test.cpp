@@ -121,16 +121,16 @@ TEST_CASE("object - registry registers and finds types", "[object]") {
 
   auto type = registry.find_type<registry_actor>();
   REQUIRE(type.has_value());
-  CHECK(type->info.id == registry_actor::static_type_id());
-  CHECK(type->info.name == registry_actor::object_type_name);
-  CHECK_FALSE(type->info.guid);
-  CHECK(type->info.size == sizeof(registry_actor));
-  CHECK(type->info.alignment == alignof(registry_actor));
+  CHECK(type->data.id() == registry_actor::static_type_id());
+  CHECK(type->data.name() == registry_actor::object_type_name);
+  CHECK_FALSE(type->data.guid());
+  CHECK(type->data.size() == sizeof(registry_actor));
+  CHECK(type->data.alignment() == alignof(registry_actor));
   CHECK(type->constructible());
 
   auto by_name = registry.find_type(registry_actor::object_type_name);
   REQUIRE(by_name.has_value());
-  CHECK(by_name->info.id == registry_actor::static_type_id());
+  CHECK(by_name->data.id() == registry_actor::static_type_id());
 }
 
 TEST_CASE("object - type guid can be provided by object subclass", "[object]") {
@@ -140,7 +140,7 @@ TEST_CASE("object - type guid can be provided by object subclass", "[object]") {
 
   caors::object_type type =
       caors::make_object_type<persistent_actor>(persistent_actor::object_type_name);
-  CHECK(type.info.guid == persistent_actor::object_type_guid);
+  CHECK(type.data.guid() == persistent_actor::object_type_guid);
 
   REQUIRE(
       caors::register_object_type<persistent_actor>(registry, persistent_actor::object_type_name) ==
@@ -148,7 +148,7 @@ TEST_CASE("object - type guid can be provided by object subclass", "[object]") {
 
   auto stored = registry.find_type<persistent_actor>();
   REQUIRE(stored.has_value());
-  CHECK(stored->info.guid == persistent_actor::object_type_guid);
+  CHECK(stored->data.guid() == persistent_actor::object_type_guid);
 }
 
 TEST_CASE("object - registry reports registration errors", "[object]") {
@@ -168,14 +168,13 @@ TEST_CASE("object - registry reports registration errors", "[object]") {
   REQUIRE(actor_type.has_value());
 
   caors::object_type colliding =
-      caors::make_object_type<error_player>(error_player::object_type_name, actor_type->info.id);
-  colliding.info.id = actor_type->info.id;
+      caors::make_object_type<error_player>(error_player::object_type_name, actor_type->data.id());
+  colliding.data.set_id(actor_type->data.id());
   CHECK(registry.register_type(colliding) == caors::object_register_result::invalid_type);
 
   caors::object_type duplicate_name =
       caors::make_object_type<error_player>("caors.test.object.unique_duplicate_name");
-  duplicate_name.info.name = caors::string_name{error_actor::object_type_name};
-  duplicate_name.info.size += 1;
+  duplicate_name.data.set_name(caors::string_name{error_actor::object_type_name});
   CHECK(registry.register_type(duplicate_name) == caors::object_register_result::duplicate_name);
 }
 
@@ -188,7 +187,7 @@ TEST_CASE("object - registry reports duplicate type guid", "[object]") {
 
   caors::object_type duplicate_guid =
       caors::make_object_type<duplicate_guid_player>(duplicate_guid_player::object_type_name);
-  duplicate_guid.info.guid = guid_owner_actor::object_type_guid;
+  duplicate_guid.data.set_guid(guid_owner_actor::object_type_guid);
   CHECK(registry.register_type(duplicate_guid) == caors::object_register_result::duplicate_guid);
 }
 
@@ -203,15 +202,15 @@ TEST_CASE("object - registry checks parent relationship", "[object]") {
   REQUIRE(actor_type.has_value());
 
   REQUIRE(caors::register_object_type<relation_player>(registry, relation_player::object_type_name,
-                                                       actor_type->info.id) ==
+                                                       actor_type->data.id()) ==
           caors::object_register_result::success);
   const auto player_type = registry.find_type<relation_player>();
   REQUIRE(player_type.has_value());
 
-  CHECK(registry.is_a(player_type->info.id, player_type->info.id));
-  CHECK(registry.is_a(player_type->info.id, actor_type->info.id));
-  CHECK(registry.is_a(player_type->info.id, object_type->info.id));
-  CHECK_FALSE(registry.is_a(actor_type->info.id, player_type->info.id));
+  CHECK(registry.is_a(player_type->data.id(), player_type->data.id()));
+  CHECK(registry.is_a(player_type->data.id(), actor_type->data.id()));
+  CHECK(registry.is_a(player_type->data.id(), object_type->data.id()));
+  CHECK_FALSE(registry.is_a(actor_type->data.id(), player_type->data.id()));
 }
 
 TEST_CASE("object - registry creates and destroys registered objects", "[object]") {
@@ -224,10 +223,10 @@ TEST_CASE("object - registry creates and destroys registered objects", "[object]
   const auto actor_type = registry.find_type<factory_actor>();
   REQUIRE(actor_type.has_value());
 
-  caors::object* instance = registry.create(actor_type->info.id, &tracking);
+  caors::object* instance = registry.create(actor_type->data.id(), &tracking);
 
   REQUIRE(instance != nullptr);
-  CHECK(instance->type_id() == actor_type->info.id);
+  CHECK(instance->type_id() == actor_type->data.id());
   CHECK(tracking.statistics().allocation_count == 1);
 
   CHECK(registry.destroy(instance, &tracking));

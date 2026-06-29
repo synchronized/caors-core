@@ -21,10 +21,10 @@ namespace caors::reflection {
 template <typename Class> class class_builder {
 public:
   explicit class_builder(std::string_view name, type_id parent_id = type_id::invalid())
-      : type_(make_reflection_type<Class>(name, {}, parent_id)) {}
+      : type_(make_meta_type_data<Class>(name, parent_id)) {}
 
   class_builder(std::string_view name, type_guid guid, type_id parent_id = type_id::invalid())
-      : type_(make_reflection_type<Class>(name, guid, {}, parent_id)) {}
+      : type_(make_meta_type_data<Class>(name, guid, parent_id)) {}
 
   template <typename Field> class_builder& field(std::string_view name, Field Class::* member) {
     using field_type = std::remove_cv_t<Field>;
@@ -34,21 +34,21 @@ public:
       return *this;
     }
 
-    const std::optional<type_info> resolved_type =
+    const std::optional<meta_type> resolved_type =
         get_reflection_registry().template find_registered_type<field_type>();
-    if (resolved_type.has_value() && !resolved_type->name.empty()) {
+    if (resolved_type.has_value() && !resolved_type->name().empty()) {
       field_info field =
-          make_field_info<Field>(name, resolved_type->name.view(), detail::member_offset(member));
-      field.type = resolved_type->id;
-      field.type_name = resolved_type->name;
+          make_field_info<Field>(name, resolved_type->name().view(), detail::member_offset(member));
+      field.type = resolved_type->id();
+      field.type_name = resolved_type->name();
       if (field.kind == field_kind::value || field.kind == field_kind::enumeration) {
-        field.value_type = resolved_type->id;
+        field.value_type = resolved_type->id();
       }
-      type_.fields.push_back(field);
+      reflection_.fields.push_back(field);
     } else {
       if constexpr (detail::has_type_name_v<field_type>) {
-        type_.fields.push_back(make_field_info<Field>(name, type_name<field_type>::value,
-                                                      detail::member_offset(member)));
+        reflection_.fields.push_back(make_field_info<Field>(name, type_name<field_type>::value,
+                                                            detail::member_offset(member)));
       } else {
         pending_result_ = reflection_register_result::invalid_field;
       }
@@ -67,7 +67,7 @@ public:
     if (field.kind == field_kind::value || field.kind == field_kind::enumeration) {
       field.value_type = field.type;
     }
-    type_.fields.push_back(field);
+    reflection_.fields.push_back(field);
     return *this;
   }
 
@@ -76,13 +76,15 @@ public:
       return pending_result_;
     }
 
-    return get_reflection_registry().template register_type_for<Class>(type_);
+    return get_reflection_registry().template register_type_for<Class>(type_, reflection_);
   }
 
-  [[nodiscard]] const reflection_type& type() const noexcept { return type_; }
+  [[nodiscard]] const meta_type_data& type_data() const noexcept { return type_; }
+  [[nodiscard]] const reflection_type_data& reflection_data() const noexcept { return reflection_; }
 
 private:
-  reflection_type type_{};
+  meta_type_data type_{};
+  reflection_type_data reflection_{};
   reflection_register_result pending_result_ = reflection_register_result::success;
 };
 

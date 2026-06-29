@@ -58,12 +58,12 @@ using object_destroy_fn = void (*)(object* instance, memory_resource* resource) 
 
 /** @brief 注册表中保存的对象类型描述。 */
 struct object_type {
-  type_info info{};
+  meta_type_data data{};
   object_try_create_fn try_create = nullptr;
   object_create_fn create = nullptr;
   object_destroy_fn destroy = nullptr;
 
-  [[nodiscard]] constexpr bool valid() const noexcept { return info.valid(); }
+  [[nodiscard]] constexpr bool valid() const noexcept { return data.valid(); }
   [[nodiscard]] constexpr bool constructible() const noexcept {
     return try_create != nullptr && create != nullptr;
   }
@@ -222,7 +222,7 @@ make_object_type(std::string_view name,
   static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
 
   object_type type{
-      make_type_info<T>(name, detail::object_type_guid_of<T>(), parent_id),
+      make_meta_type_data<T>(name, detail::object_type_guid_of<T>(), parent_id),
       nullptr,
       nullptr,
       &destroy_object_instance<T>,
@@ -260,12 +260,12 @@ public:
   [[nodiscard]] std::optional<object_type> find_type(object_type_id id) const;
   [[nodiscard]] std::optional<object_type> find_type(std::string_view name) const;
   template <typename T> [[nodiscard]] std::optional<object_type> find_type() const {
-    const std::optional<type_info> info = find_registered_type(detail::cpp_type_key_of<T>());
-    if (!info.has_value()) {
+    const std::optional<meta_type> type = find_registered_type(detail::cpp_type_key_of<T>());
+    if (!type.has_value()) {
       return std::nullopt;
     }
 
-    return find_type(info->id);
+    return find_type(type->id());
   }
 
   [[nodiscard]] bool is_a(object_type_id type_id, object_type_id base_type_id) const;
@@ -282,7 +282,7 @@ public:
       return nullptr;
     }
 
-    return static_cast<T*>(try_create(type->info.id, resource));
+    return static_cast<T*>(try_create(type->data.id(), resource));
   }
 
   [[nodiscard]] object* create(object_type_id id, memory_resource* resource = nullptr) const;
@@ -293,7 +293,7 @@ public:
       return nullptr;
     }
 
-    return static_cast<T*>(create(type->info.id, resource));
+    return static_cast<T*>(create(type->data.id(), resource));
   }
 
   bool destroy(object* instance, memory_resource* resource = nullptr) const noexcept;
@@ -301,7 +301,7 @@ public:
 private:
   [[nodiscard]] object_register_result register_type(detail::cpp_type_key key,
                                                      const object_type& type);
-  [[nodiscard]] std::optional<type_info> find_registered_type(detail::cpp_type_key key) const;
+  [[nodiscard]] std::optional<meta_type> find_registered_type(detail::cpp_type_key key) const;
 };
 
 /** @brief 获取进程内默认对象类型注册表。 */
@@ -316,7 +316,7 @@ register_object_type(object_registry& registry, std::string_view name,
     using base_type = typename detail::object_base_type_traits<T>::type;
     const std::optional<object_type> base = registry.find_type<base_type>();
     if (base.has_value()) {
-      parent_id = base->info.id;
+      parent_id = base->data.id();
     }
   }
 

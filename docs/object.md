@@ -10,7 +10,7 @@
 CAORS 对象系统第一阶段只解决几件事：
 
 - 对象实例有运行期唯一标识。
-- 对象类型复用基础 `type_info`，包含类型标识、名称、稳定 GUID、大小、对齐和父类型。
+- 对象类型复用基础 `meta_type_data`，包含类型标识、名称、稳定 GUID、大小、对齐和父类型。
 - 对象可以注册到基于 `meta_registry` 的对象注册表。
 - 注册表可以按类型创建和销毁默认构造对象。
 - 对象创建和销毁可以接入 `memory_resource`。
@@ -38,9 +38,9 @@ caors::object_id id = instance.id();
 
 它只表示当前进程运行期间的对象身份，不承诺跨进程、跨版本或跨存档稳定。
 
-### type_info
+### meta_type_data
 
-`type_info` 是对象系统和后续反射系统共享的基础类型描述，包含：
+`meta_type_data` 是对象系统和后续反射系统共享的基础类型描述，包含：
 
 - `id`
 - `name`
@@ -88,7 +88,7 @@ public:
 };
 ```
 
-`object_type_guid` 是可选静态成员。运行期临时对象可以不声明，`type_info::guid` 会保持 nil；可序列化、可反射或跨插件暴露的对象类型建议显式声明稳定 GUID。
+`object_type_guid` 是可选静态成员。运行期临时对象可以不声明，`meta_type_data::guid()` 会保持 nil；可序列化、可反射或跨插件暴露的对象类型建议显式声明稳定 GUID。
 
 `static_type_id()` 会确保 C++ 类型在全局元数据注册表中拥有一个运行期 id。对象类型尚未正式注册
 时，该记录可以是匿名的；调用 `register_object_type<T>()` 后会补充类型名、GUID 和父类型关系。
@@ -180,8 +180,8 @@ caors::destroy_object(instance, &resource);
 - `object_type_id`：运行期对象类型标识。
 - `object`：基础对象身份和类型查询入口。
 - `object_base<Derived, Base>`：CRTP 类型查询辅助。
-- `type_info` / `meta_registry`：对象系统和反射系统共享的全局基础类型描述和元数据注册表。
-- `object_type`：基于 `type_info` 扩展对象创建和销毁能力。
+- `meta_type_data` / `meta_registry`：对象系统和反射系统共享的全局基础类型描述和元数据注册表。
+- `object_type`：基于 `meta_type_data` 扩展对象创建和销毁能力。
 - `object_register_result`：明确对象类型注册失败原因。
 - `object_registry`：类型注册、查询、继承关系判断、默认构造工厂。
 - `get_object_registry()`：进程内默认对象注册表。

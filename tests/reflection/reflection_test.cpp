@@ -120,10 +120,6 @@ enum class reflected_color {
   blue,
 };
 
-constexpr caors::type_guid actor_guid{caors::guid::from_bytes(
-    caors::guid::byte_array{0x54, 0x20, 0x08, 0xa6, 0x08, 0x5e, 0x48, 0xb7, 0x9c, 0x2f, 0x88, 0x68,
-                            0xb2, 0x42, 0x18, 0xf3})};
-
 constexpr caors::type_guid registry_actor_guid{caors::guid::from_bytes(
     caors::guid::byte_array{0x49, 0xd0, 0x23, 0x6f, 0x74, 0xb5, 0x41, 0x3f, 0x99, 0x37, 0xfa, 0x9f,
                             0xf8, 0xa6, 0x36, 0x01})};
@@ -132,19 +128,17 @@ constexpr caors::type_guid view_actor_guid{caors::guid::from_bytes(
     caors::guid::byte_array{0x49, 0xd0, 0x23, 0x6f, 0x74, 0xb5, 0x41, 0x3f, 0x99, 0x37, 0xfa, 0x9f,
                             0xf8, 0xa6, 0x36, 0x02})};
 
-[[nodiscard]] caors::reflection_type make_actor_reflection() {
-  return caors::make_reflection_type<actor>(
-      "caors.test.reflection.actor", actor_guid,
-      {
-          caors::make_field_info<int>("id", "int", offsetof(actor, id)),
-          caors::make_field_info<float>("health", "float", offsetof(actor, health)),
-      });
+[[nodiscard]] caors::reflection_type_data make_actor_reflection_data() {
+  return caors::make_reflection_type_data({
+      caors::make_field_info<int>("id", "int", offsetof(actor, id)),
+      caors::make_field_info<float>("health", "float", offsetof(actor, health)),
+  });
 }
 
 [[nodiscard]] caors::type_id registered_type_id(std::string_view name) {
   const auto type = caors::find_type(name);
   REQUIRE(type.has_value());
-  return type->id;
+  return type->id();
 }
 
 } // namespace
@@ -274,12 +268,10 @@ TEST_CASE("reflection - field info rejects writes to readonly fields", "[reflect
   CHECK_FALSE(id.try_set<int>(&instance, 8));
 }
 
-TEST_CASE("reflection - type stores and finds fields", "[reflection]") {
-  const caors::reflection_type type = make_actor_reflection();
+TEST_CASE("reflection - type data stores and finds fields", "[reflection]") {
+  const caors::reflection_type_data type = make_actor_reflection_data();
 
   CHECK(type.valid());
-  CHECK(type.info.name == "caors.test.reflection.actor");
-  CHECK(type.info.guid == actor_guid);
   CHECK(type.fields.size() == 2);
 
   auto health = type.find_field("health");
@@ -409,7 +401,7 @@ TEST_CASE("reflection - registry registers child type with parent", "[reflection
 
   auto reflected_player = caors::find_reflection("caors.test.reflection.child_player");
   REQUIRE(reflected_player.has_value());
-  CHECK(reflected_player->info().parent_id == reflected_actor->id());
+  CHECK(reflected_player->info().parent_id() == reflected_actor->id());
 }
 
 TEST_CASE("reflection - registry reports duplicate reflection", "[reflection]") {
@@ -448,13 +440,16 @@ TEST_CASE("reflection - registry reports inconsistent existing type", "[reflecti
                   caors::make_field_info<int>("id", "int", offsetof(inconsistent_actor, id)),
               }) == caors::reflection_register_result::success);
 
-  caors::reflection_type inconsistent = caors::make_reflection_type<inconsistent_actor>(
-      "caors.test.reflection.inconsistent_actor",
-      {
-          caors::make_field_info<int>("id", "int", offsetof(inconsistent_actor, id)),
-      });
-  inconsistent.info.size += 1;
-  CHECK(caors::get_reflection_registry().register_type_for<inconsistent_actor>(inconsistent) ==
+  const caors::meta_type_data inconsistent_type{
+      caors::type_id::invalid(),   caors::string_name{"caors.test.reflection.inconsistent_actor"},
+      caors::type_guid::nil(),     sizeof(inconsistent_actor) + 1,
+      alignof(inconsistent_actor), caors::type_id::invalid(),
+  };
+  const caors::reflection_type_data inconsistent_reflection = caors::make_reflection_type_data({
+      caors::make_field_info<int>("id", "int", offsetof(inconsistent_actor, id)),
+  });
+  CHECK(caors::get_reflection_registry().register_type_for<inconsistent_actor>(
+            inconsistent_type, inconsistent_reflection) ==
         caors::reflection_register_result::inconsistent_type);
 }
 
@@ -509,8 +504,8 @@ TEST_CASE("reflection - class builder names anonymous C++ field types", "[reflec
   const caors::type_id anonymous_id = caors::type_id_of<test_reflection::named_field_value>();
   auto anonymous = caors::find_type<test_reflection::named_field_value>();
   REQUIRE(anonymous.has_value());
-  CHECK(anonymous->id == anonymous_id);
-  CHECK(anonymous->name.empty());
+  CHECK(anonymous->id() == anonymous_id);
+  CHECK(anonymous->name().empty());
 
   REQUIRE(caors::reflection::class_<test_reflection::named_field_owner>(
               "caors.test.reflection.named_field_owner")
@@ -519,7 +514,7 @@ TEST_CASE("reflection - class builder names anonymous C++ field types", "[reflec
 
   auto value_type = caors::find_type("caors.test.reflection.named_field_value");
   REQUIRE(value_type.has_value());
-  CHECK(value_type->id == anonymous_id);
+  CHECK(value_type->id() == anonymous_id);
 
   auto reflected = caors::find_reflection("caors.test.reflection.named_field_owner");
   REQUIRE(reflected.has_value());

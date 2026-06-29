@@ -38,8 +38,8 @@ template <typename T> [[nodiscard]] type_id known_type_id() {
   if constexpr (has_type_name_v<type>) {
     const type_register_result result = caors::register_type<type>(type_name<type>::value);
     if (type_register_succeeded(result) || result == type_register_result::duplicate_id) {
-      const std::optional<type_info> registered = caors::find_type<type>();
-      return registered.has_value() ? registered->id : type_id::invalid();
+      const std::optional<meta_type> registered = caors::find_type<type>();
+      return registered.has_value() ? registered->id() : type_id::invalid();
     }
   } else {
     return type_id::invalid();
@@ -52,8 +52,8 @@ template <typename T> [[nodiscard]] type_id register_field_type_id(std::string_v
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   const type_register_result result = caors::register_type<type>(name);
   if (type_register_succeeded(result) || result == type_register_result::duplicate_id) {
-    const std::optional<type_info> registered = caors::find_type<type>();
-    return registered.has_value() ? registered->id : type_id::invalid();
+    const std::optional<meta_type> registered = caors::find_type<type>();
+    return registered.has_value() ? registered->id() : type_id::invalid();
   }
 
   return type_id::invalid();

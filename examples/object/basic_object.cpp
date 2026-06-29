@@ -41,7 +41,7 @@ int main() {
 
   std::cout << "object id: " << instance->id().value() << '\n';
   std::cout << "type name: " << instance->type_name() << '\n';
-  std::cout << "is actor: " << registry.is_a(instance->type_id(), actor_type->info.id) << '\n';
+  std::cout << "is actor: " << registry.is_a(instance->type_id(), actor_type->data.id()) << '\n';
 
   registry.destroy(instance);
   return 0;

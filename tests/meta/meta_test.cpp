@@ -43,9 +43,9 @@ TEST_CASE("meta - global registry stores base type information", "[meta]") {
 
   auto type = caors::find_type("caors.test.meta.base_actor");
   REQUIRE(type.has_value());
-  CHECK(type->name == "caors.test.meta.base_actor");
-  CHECK(type->size == sizeof(base_actor_type));
-  CHECK(type->alignment == alignof(base_actor_type));
+  CHECK(type->name() == "caors.test.meta.base_actor");
+  CHECK(type->size() == sizeof(base_actor_type));
+  CHECK(type->alignment() == alignof(base_actor_type));
 }
 
 TEST_CASE("meta - global registry stores components by type id", "[meta]") {
@@ -53,7 +53,7 @@ TEST_CASE("meta - global registry stores components by type id", "[meta]") {
           caors::type_register_result::success);
   const auto actor = caors::find_type<component_actor_type>();
   REQUIRE(actor.has_value());
-  const caors::type_id actor_id = actor->id;
+  const caors::type_id actor_id = actor->id();
 
   CHECK(caors::get_meta_registry().emplace<factory_meta>(actor_id, true) ==
         caors::meta_component_result::success);
@@ -63,6 +63,10 @@ TEST_CASE("meta - global registry stores components by type id", "[meta]") {
   auto factory = caors::get_meta_registry().find<factory_meta>(actor_id);
   REQUIRE(factory.has_value());
   CHECK(factory->constructible);
+
+  const factory_meta* factory_ptr = caors::get_meta_registry().find_ptr<factory_meta>(actor_id);
+  REQUIRE(factory_ptr != nullptr);
+  CHECK(factory_ptr->constructible);
 
   CHECK(caors::get_meta_registry().emplace<factory_meta>(actor_id, false) ==
         caors::meta_component_result::duplicate_component);
@@ -82,13 +86,13 @@ TEST_CASE("meta - global view finds types with all requested components", "[meta
           caors::type_register_result::success);
   const auto actor = caors::find_type<view_actor_type>();
   REQUIRE(actor.has_value());
-  const caors::type_id actor_id = actor->id;
+  const caors::type_id actor_id = actor->id();
 
   REQUIRE(caors::register_type<view_player_type>("caors.test.meta.view_player", actor_id) ==
           caors::type_register_result::success);
   const auto player = caors::find_type<view_player_type>();
   REQUIRE(player.has_value());
-  const caors::type_id player_id = player->id;
+  const caors::type_id player_id = player->id();
 
   REQUIRE(caors::get_meta_registry().emplace<view_factory_meta>(actor_id, true) ==
           caors::meta_component_result::success);

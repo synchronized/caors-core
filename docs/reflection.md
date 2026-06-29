@@ -9,8 +9,8 @@
 
 反射第一阶段解决几件事：
 
-- 复用 `type_info`、`type_id` 和 `type_guid` 表达类型身份。
-- 基于 `meta_registry` 把 `reflection_type` 挂载为类型元数据组件。
+- 复用 `meta_type_data`、`meta_type`、`type_id` 和 `type_guid` 表达类型身份。
+- 基于 `meta_registry` 把 `reflection_type_data` 挂载为类型元数据组件。
 - 通过 RTTR 风格 builder 或底层字段列表描述字段。
 - 提供按类型 id、类型名和稳定 GUID 查询反射类型。
 - 提供全局 append-only 注册表，以及稳定的类型视图和字段视图。
@@ -70,7 +70,7 @@ caors::reflection::class_<actor>("game.actor")
 
 字段类型推导规则：
 
-- 如果字段类型已经通过模板注册函数注册到全局反射注册表，优先复用该类型的 `type_info`。
+- 如果字段类型已经通过模板注册函数注册到全局反射注册表，优先复用该类型的 `meta_type`。
 - 如果字段类型没有注册，但存在 `type_name<T>` 默认映射，则使用默认类型名注册为基础类型，并使用注册表分配的 `type_id`。
 - 如果两者都没有，`.commit()` 返回 `invalid_field`。
 - 字段类型语义最多支持一层裸指针或 wrapper；`T**`、`std::unique_ptr<T*>`、
@@ -176,13 +176,13 @@ id->try_set_value(&instance, caors::value::from(source));
 会返回无效 `value`。后续如果需要零拷贝访问，会单独增加语义更明确的 view 类型，并在文档中明确
 生命周期限制。
 
-### reflection_type
+### reflection_type_data
 
-`reflection_type` 是底层类型反射描述，包含基础 `type_info` 和字段列表：
+`reflection_type_data` 是底层类型反射数据，只保存反射系统自己的内容，例如字段列表。类型身份由
+`meta_type_data` / `meta_type` 统一管理。
 
 ```cpp
-caors::reflection_type type = caors::make_reflection_type<actor>(
-    "game.actor",
+caors::reflection_type_data data = caors::make_reflection_type_data(
     {
         caors::make_field_info<int>("id", "int", offsetof(actor, id)),
         caors::make_field_info<float>("health", "float", offsetof(actor, health)),
@@ -192,12 +192,12 @@ caors::reflection_type type = caors::make_reflection_type<actor>(
 可以通过 `find_field()` 按字段名查询字段：
 
 ```cpp
-auto field = type.find_field("health");
+auto field = data.find_field("health");
 ```
 
-### reflection_type_view 和 field_view
+### reflection_type 和 field_view
 
-`reflection_type_view` 和 `field_view` 是外部查询反射信息的推荐入口：
+`reflection_type` 和 `field_view` 是外部查询反射信息的推荐入口：
 
 ```cpp
 auto reflected = caors::find_reflection("game.actor");
@@ -207,10 +207,10 @@ actor instance{};
 field->try_set<float>(&instance, 75.0F);
 ```
 
-view 持有类型描述快照。反射注册表是进程级 append-only 注册表，类型注册后不可撤销，因此有效
-view 可以在进程生命周期内稳定使用。
+`reflection_type` 内部持有 `meta_type` 和 `reflection_type_data` 的只读指针。反射注册表是
+进程级 append-only 注册表，类型注册后不可撤销，因此有效 view 可以在进程生命周期内稳定使用。
 
-`reflection_type_view` 当前提供：
+`reflection_type` 当前提供：
 
 - `valid()`：判断视图是否仍有效。
 - `info()` / `id()` / `name()` / `guid()`：查询类型身份。
@@ -241,7 +241,7 @@ auto reflected = caors::find_reflection("game.actor");
 ```
 
 底层 `reflection_registry` 仍作为实现类型存在，并复用 `meta_registry` 保存基础类型信息，再把
-`reflection_type` 作为组件挂载到同一个 `type_id` 上。注册表构造由库内部管理；注册后不提供
+`reflection_type_data` 作为组件挂载到同一个 `type_id` 上。注册表构造由库内部管理；注册后不提供
 清理和撤销入口。
 
 注册失败会返回明确的 `reflection_register_result`：
@@ -254,11 +254,11 @@ auto reflected = caors::find_reflection("game.actor");
 - `duplicate_guid`：同一个非 nil 稳定 GUID 已注册。
 - `duplicate_field`：同一个类型内存在重复字段名。
 - `duplicate_reflection`：目标类型已经挂载反射组件。
-- `inconsistent_type`：目标类型已存在，但基础 `type_info` 不一致。
+- `inconsistent_type`：目标类型已存在，但基础 `meta_type_data` 不一致。
 - `missing_parent`：父类型未注册。
 
 重复注册同一个类型时，如果基础类型信息一致且已经挂载反射组件，会返回 `duplicate_reflection`；
-如果同名、同 GUID 或同 C++ 类型对应的基础 `type_info` 不一致，会返回 `inconsistent_type` 或
+如果同名、同 GUID 或同 C++ 类型对应的基础 `meta_type_data` 不一致，会返回 `inconsistent_type` 或
 对应的重复错误。
 
 ## 当前已实现能力
@@ -266,8 +266,8 @@ auto reflected = caors::find_reflection("game.actor");
 - `value`：运行期值拷贝。
 - `field_info`：字段名、字段类型名、字段形态、wrapper 语义、解包类型、offset、size、alignment、
   基础 get/set 和运行期值访问。
-- `reflection_type`：基础类型描述和字段列表。
-- `field_view` / `reflection_type_view`：全局反射数据的推荐查询入口。
+- `reflection_type_data`：字段列表等反射组件数据。
+- `reflection_type` / `field_view`：全局反射数据的推荐查询入口。
 - `reflection_registry`：底层全局注册表实现。
 - `reflection::class_<T>()`：RTTR 风格链式注册入口。
 - `register_reflection<T>()`：底层字段列表注册入口。

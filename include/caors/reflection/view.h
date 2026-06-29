@@ -9,7 +9,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <memory>
 #include <optional>
 #include <string_view>
 #include <type_traits>
@@ -73,29 +72,29 @@ public:
   }
 
 private:
-  friend class reflection_type_view;
+  friend class reflection_type;
 
-  field_view(std::shared_ptr<const reflection_type> type, std::size_t field_index) noexcept;
+  field_view(meta_type owner, const field_info* field) noexcept;
   [[nodiscard]] const field_info* info() const noexcept;
 
-  std::shared_ptr<const reflection_type> type_{};
-  std::size_t field_index_ = 0;
+  meta_type owner_{};
+  const field_info* field_ = nullptr;
 };
 
 /**
  * @brief 类型反射只读视图。
  *
- * 视图持有类型描述快照。CAORS 反射注册表是进程级 append-only 注册表，注册后的类型数据不会被
- * 清理或覆盖。
+ * `reflection_type` 不拥有反射数据，只引用全局注册表中 append-only 保存的 `meta_type` 和
+ * `reflection_type_data`。有效视图可以在进程生命周期内稳定使用。
  */
-class CAORS_API reflection_type_view final {
+class CAORS_API reflection_type final {
 public:
-  reflection_type_view() noexcept = default;
+  reflection_type() noexcept = default;
 
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
 
-  [[nodiscard]] type_info info() const noexcept;
+  [[nodiscard]] meta_type info() const noexcept;
   [[nodiscard]] type_id id() const noexcept;
   [[nodiscard]] string_name name() const noexcept;
   [[nodiscard]] type_guid guid() const noexcept;
@@ -107,10 +106,11 @@ public:
 private:
   friend class reflection_registry;
 
-  explicit reflection_type_view(std::shared_ptr<const reflection_type> type) noexcept;
-  [[nodiscard]] const reflection_type* type() const noexcept;
+  reflection_type(meta_type type, const reflection_type_data* data) noexcept;
+  [[nodiscard]] const reflection_type_data* data() const noexcept;
 
-  std::shared_ptr<const reflection_type> type_{};
+  meta_type type_{};
+  const reflection_type_data* data_ = nullptr;
 };
 
 } // namespace caors

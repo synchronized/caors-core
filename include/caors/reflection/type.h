@@ -14,12 +14,12 @@
 namespace caors {
 
 /**
- * @brief 类型反射元信息。
+ * @brief 类型反射底层数据。
  *
- * `reflection_type` 复用基础 `type_info` 表示类型身份，并保存该类型的字段列表。
+ * 该类型只保存反射组件自己的数据，例如字段列表；类型身份由 `meta_type_data` 和 `meta_type`
+ * 统一表达。外部查询优先使用 `reflection_type` 只读视图。
  */
-struct reflection_type {
-  type_info info{};
+struct reflection_type_data {
   std::vector<field_info> fields{};
 
   [[nodiscard]] bool valid() const noexcept;
@@ -27,26 +27,10 @@ struct reflection_type {
   [[nodiscard]] std::optional<field_info> find_field(std::string_view name) const;
 };
 
-/** @brief 创建类型反射描述。 */
-template <typename T>
-[[nodiscard]] reflection_type make_reflection_type(std::string_view name,
-                                                   std::initializer_list<field_info> fields,
-                                                   type_id parent_id = type_id::invalid()) {
-  return reflection_type{
-      make_type_info<T>(name, parent_id),
-      std::vector<field_info>{fields},
-  };
-}
-
-/** @brief 创建带稳定 GUID 的类型反射描述。 */
-template <typename T>
-[[nodiscard]] reflection_type make_reflection_type(std::string_view name, type_guid guid,
-                                                   std::initializer_list<field_info> fields,
-                                                   type_id parent_id = type_id::invalid()) {
-  return reflection_type{
-      make_type_info<T>(name, guid, parent_id),
-      std::vector<field_info>{fields},
-  };
+/** @brief 创建类型反射底层数据。 */
+[[nodiscard]] inline reflection_type_data
+make_reflection_type_data(std::initializer_list<field_info> fields) {
+  return reflection_type_data{std::vector<field_info>{fields}};
 }
 
 } // namespace caors
