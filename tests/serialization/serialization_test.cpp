@@ -52,6 +52,33 @@ struct reader_missing_field_actor {
   int id = 0;
 };
 
+struct reader_field_policy_actor {
+  int id = 10;
+  int optional = 20;
+  int required = 30;
+  int skipped = 40;
+};
+
+struct reader_unknown_field_actor {
+  int id = 0;
+};
+
+struct versioned_actor {
+  int id = 0;
+  int legacy = 0;
+  int current = 0;
+  int future = 0;
+};
+
+struct codec_guid_actor {
+  caors::guid id{};
+  caors::type_guid type{};
+};
+
+struct codec_string_view_actor {
+  std::string_view name{};
+};
+
 struct serialization_first_actor {
   int id = 0;
 };
@@ -341,6 +368,274 @@ TEST_CASE("serialization - value reader reports missing fields", "[serialization
   CHECK(result.failed());
   CHECK(result.domain() == caors::error_domain::serialization);
   CHECK(result.value() == caors::errc::not_found);
+}
+
+TEST_CASE("serialization - value reader applies required optional and skipped policies",
+          "[serialization]") {
+  REQUIRE(reflection_result_ok(caors::reflection::class_<reader_field_policy_actor>(
+                                   "caors.test.serialization.reader_field_policy_actor")
+                                   .field("id", &reader_field_policy_actor::id)
+                                   .field("optional", &reader_field_policy_actor::optional)
+                                   .field("required", &reader_field_policy_actor::required)
+                                   .field("skipped", &reader_field_policy_actor::skipped)
+                                   .commit()));
+
+  caors::serialization_field_data id = caors::make_serialization_field("id");
+  caors::serialization_field_data optional = caors::make_serialization_field("optional");
+  caors::serialization_field_data required = caors::make_serialization_field("required");
+  required.required = true;
+  caors::serialization_field_data skipped = caors::make_serialization_field("skipped");
+  skipped.skipped = true;
+
+  REQUIRE(serialization_result_ok(caors::register_serialization<reader_field_policy_actor>({
+      id,
+      optional,
+      required,
+      skipped,
+  })));
+
+  caors::serialization_value::object_type members;
+  members.push_back(caors::serialization_member{
+      caors::string_name{"id"},
+      0,
+      caors::serialization_value::from(std::int64_t{1}),
+  });
+  members.push_back(caors::serialization_member{
+      caors::string_name{"required"},
+      0,
+      caors::serialization_value::from(std::int64_t{3}),
+  });
+  members.push_back(caors::serialization_member{
+      caors::string_name{"skipped"},
+      0,
+      caors::serialization_value::from(std::int64_t{4}),
+  });
+
+  reader_field_policy_actor actor{};
+  const caors::error result =
+      caors::deserialize(actor, caors::serialization_value::object(std::move(members)));
+
+  REQUIRE(result.succeeded());
+  CHECK(actor.id == 1);
+  CHECK(actor.optional == 20);
+  CHECK(actor.required == 3);
+  CHECK(actor.skipped == 40);
+}
+
+TEST_CASE("serialization - value reader reports missing required fields", "[serialization]") {
+  REQUIRE(reflection_result_ok(caors::reflection::class_<reader_field_policy_actor>(
+                                   "caors.test.serialization.reader_field_policy_actor")
+                                   .field("id", &reader_field_policy_actor::id)
+                                   .field("optional", &reader_field_policy_actor::optional)
+                                   .field("required", &reader_field_policy_actor::required)
+                                   .field("skipped", &reader_field_policy_actor::skipped)
+                                   .commit()));
+
+  caors::serialization_field_data id = caors::make_serialization_field("id");
+  caors::serialization_field_data optional = caors::make_serialization_field("optional");
+  caors::serialization_field_data required = caors::make_serialization_field("required");
+  required.required = true;
+  caors::serialization_field_data skipped = caors::make_serialization_field("skipped");
+  skipped.skipped = true;
+
+  REQUIRE(serialization_result_ok(caors::register_serialization<reader_field_policy_actor>({
+      id,
+      optional,
+      required,
+      skipped,
+  })));
+
+  reader_field_policy_actor actor{};
+  const caors::error result = caors::deserialize(actor, caors::serialization_value::object({}));
+
+  CHECK(result.failed());
+  CHECK(result.domain() == caors::error_domain::serialization);
+  CHECK(result.value() == caors::errc::not_found);
+}
+
+TEST_CASE("serialization - value reader ignores unknown object members", "[serialization]") {
+  REQUIRE(reflection_result_ok(caors::reflection::class_<reader_unknown_field_actor>(
+                                   "caors.test.serialization.reader_unknown_field_actor")
+                                   .field("id", &reader_unknown_field_actor::id)
+                                   .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<reader_unknown_field_actor>({
+      caors::make_serialization_field("id"),
+  })));
+
+  caors::serialization_value::object_type members;
+  members.push_back(caors::serialization_member{
+      caors::string_name{"id"},
+      0,
+      caors::serialization_value::from(std::int64_t{7}),
+  });
+  members.push_back(caors::serialization_member{
+      caors::string_name{"extra"},
+      0,
+      caors::serialization_value::from(std::int64_t{99}),
+  });
+
+  reader_unknown_field_actor actor{};
+  const caors::error result =
+      caors::deserialize(actor, caors::serialization_value::object(std::move(members)));
+
+  REQUIRE(result.succeeded());
+  CHECK(actor.id == 7);
+}
+
+TEST_CASE("serialization - context filters fields by schema version", "[serialization]") {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<versioned_actor>("caors.test.serialization.versioned_actor")
+          .field("id", &versioned_actor::id)
+          .field("legacy", &versioned_actor::legacy)
+          .field("current", &versioned_actor::current)
+          .field("future", &versioned_actor::future)
+          .commit()));
+
+  caors::serialization_field_data id = caors::make_serialization_field("id");
+  caors::serialization_field_data legacy = caors::make_serialization_field("legacy");
+  legacy.version_added = 1;
+  legacy.version_removed = 2;
+  caors::serialization_field_data current = caors::make_serialization_field("current");
+  current.version_added = 2;
+  caors::serialization_field_data future = caors::make_serialization_field("future");
+  future.version_added = 3;
+
+  REQUIRE(serialization_result_ok(caors::register_serialization<versioned_actor>({
+      id,
+      legacy,
+      current,
+      future,
+  })));
+
+  const versioned_actor actor{1, 10, 20, 30};
+  const caors::serialization_text_result text =
+      caors::serialize_text(actor, caors::serialization_context{2});
+
+  REQUIRE(text.succeeded());
+  CHECK(text.text == R"({"id":1,"current":20})");
+
+  caors::serialization_value::object_type members;
+  members.push_back(caors::serialization_member{
+      caors::string_name{"id"},
+      0,
+      caors::serialization_value::from(std::int64_t{2}),
+  });
+  members.push_back(caors::serialization_member{
+      caors::string_name{"current"},
+      0,
+      caors::serialization_value::from(std::int64_t{22}),
+  });
+
+  versioned_actor deserialized{};
+  const caors::error result =
+      caors::deserialize(deserialized, caors::serialization_value::object(std::move(members)),
+                         caors::serialization_context{2});
+
+  REQUIRE(result.succeeded());
+  CHECK(deserialized.id == 2);
+  CHECK(deserialized.legacy == 0);
+  CHECK(deserialized.current == 22);
+  CHECK(deserialized.future == 0);
+}
+
+TEST_CASE("serialization - built in codecs serialize guid and type guid as scalar strings",
+          "[serialization]") {
+  const std::optional<caors::guid> id = caors::guid::parse("2f6d1f64-7a3a-4db2-9a2d-123456789abc");
+  const std::optional<caors::guid> type =
+      caors::guid::parse("5ed39a97-7b20-4d87-86ac-e62a4a615b10");
+  REQUIRE(id.has_value());
+  REQUIRE(type.has_value());
+
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<codec_guid_actor>("caors.test.serialization.codec_guid_actor")
+          .field("id", &codec_guid_actor::id)
+          .field("type", &codec_guid_actor::type)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<codec_guid_actor>()));
+
+  const codec_guid_actor actor{*id, caors::type_guid{*type}};
+  const caors::serialization_text_result text = caors::serialize_text(actor);
+
+  REQUIRE(text.succeeded());
+  CHECK(
+      text.text ==
+      R"({"id":"2f6d1f64-7a3a-4db2-9a2d-123456789abc","type":"5ed39a97-7b20-4d87-86ac-e62a4a615b10"})");
+
+  const caors::serialization_value_result value = caors::to_serialization_value(actor);
+  REQUIRE(value.succeeded());
+  REQUIRE(value.value.as_object().size() == 2);
+  CHECK(value.value.as_object()[0].value.kind() == caors::serialization_value_kind::string);
+  CHECK(value.value.as_object()[0].value.as_string() == "2f6d1f64-7a3a-4db2-9a2d-123456789abc");
+  CHECK(value.value.as_object()[1].value.kind() == caors::serialization_value_kind::string);
+  CHECK(value.value.as_object()[1].value.as_string() == "5ed39a97-7b20-4d87-86ac-e62a4a615b10");
+}
+
+TEST_CASE("serialization - built in codecs deserialize guid and type guid from strings",
+          "[serialization]") {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<codec_guid_actor>("caors.test.serialization.codec_guid_actor")
+          .field("id", &codec_guid_actor::id)
+          .field("type", &codec_guid_actor::type)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<codec_guid_actor>()));
+
+  caors::serialization_value::object_type members;
+  members.push_back(caors::serialization_member{
+      caors::string_name{"id"},
+      0,
+      caors::serialization_value::from(std::string_view{"2f6d1f64-7a3a-4db2-9a2d-123456789abc"}),
+  });
+  members.push_back(caors::serialization_member{
+      caors::string_name{"type"},
+      0,
+      caors::serialization_value::from(std::string_view{"5ed39a97-7b20-4d87-86ac-e62a4a615b10"}),
+  });
+
+  codec_guid_actor actor{};
+  const caors::error result =
+      caors::deserialize(actor, caors::serialization_value::object(std::move(members)));
+
+  REQUIRE(result.succeeded());
+  CHECK(actor.id.string() == "2f6d1f64-7a3a-4db2-9a2d-123456789abc");
+  CHECK(actor.type.value.string() == "5ed39a97-7b20-4d87-86ac-e62a4a615b10");
+}
+
+TEST_CASE("serialization - built in codecs reject invalid guid text", "[serialization]") {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<codec_guid_actor>("caors.test.serialization.codec_guid_actor")
+          .field("id", &codec_guid_actor::id)
+          .field("type", &codec_guid_actor::type)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<codec_guid_actor>()));
+
+  caors::serialization_value::object_type members;
+  members.push_back(caors::serialization_member{
+      caors::string_name{"id"},
+      0,
+      caors::serialization_value::from(std::string_view{"invalid-guid"}),
+  });
+
+  codec_guid_actor actor{};
+  const caors::error result =
+      caors::deserialize(actor, caors::serialization_value::object(std::move(members)));
+
+  CHECK(result.failed());
+  CHECK(result.domain() == caors::error_domain::serialization);
+  CHECK(result.value() == caors::errc::invalid_argument);
+}
+
+TEST_CASE("serialization - built in codecs serialize string view fields", "[serialization]") {
+  REQUIRE(reflection_result_ok(caors::reflection::class_<codec_string_view_actor>(
+                                   "caors.test.serialization.codec_string_view_actor")
+                                   .field("name", &codec_string_view_actor::name)
+                                   .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<codec_string_view_actor>()));
+
+  const codec_string_view_actor actor{std::string_view{"Ada"}};
+  const caors::serialization_text_result text = caors::serialize_text(actor);
+
+  REQUIRE(text.succeeded());
+  CHECK(text.text == R"({"name":"Ada"})");
 }
 
 TEST_CASE("serialization - writer features validate required field identifiers",

@@ -19,12 +19,14 @@
 - 提供 `serialization_value` 中间对象树，方便工具、调试和多格式转换。
 - 提供 `text_serialization_writer` 和 `serialize_text()`，通过反射字段读取对象并输出简单文本结构。
 - 提供 `value_serialization_reader` 和 `deserialize()`，通过 DOM 中间对象写回基础反射字段。
+- 提供 `serialization_context`，支持按 schema version 过滤字段。
+- 提供 `serialization_codec_registry`，允许把特定 C++ 类型作为原子序列化值读写。
 - 用 `caors::error` 和 `serialization_text_result` 表达失败状态。
 
 当前不会包含：
 
 - 内置二进制格式。
-- 版本迁移和缺失字段恢复。
+- 版本迁移和默认值恢复。
 - 对象引用、指针和 wrapper 字段序列化。
 - 容器和嵌套结构递归序列化。
 
@@ -57,9 +59,14 @@ caors::register_serialization<actor>({
 - `field_name`：反射字段名。
 - `serialized_name`：输出字段名；为空时使用 `field_name`。
 - `field_id`：稳定字段编号，供紧凑二进制、数字键 msgpack 等不写字段名的格式使用。
-- `version_added` / `version_removed`：预留给版本迁移。
-- `required`：预留给反序列化缺失字段检查。
-- `skipped`：序列化时跳过该字段。
+- `version_added` / `version_removed`：配合 `serialization_context::schema_version` 做字段版本过滤。
+- `required`：反序列化时缺失该字段会返回 `errc::not_found`。
+- `skipped`：序列化和反序列化时跳过该字段。
+
+`serialization_context::schema_version == 0` 表示不启用版本过滤，保持兼容默认行为。传入非 0 版本时：
+
+- `version_added != 0 && schema_version < version_added` 的字段会被跳过。
+- `version_removed != 0 && schema_version >= version_removed` 的字段会被跳过。
 
 序列化字段配置属于 serialization 组件，不直接写入 `reflection_field_data`，也不持有
 `reflection_field_data` 指针。反射负责描述字段是什么，序列化负责描述字段如何存储；真正序列化时
@@ -104,8 +111,34 @@ caors::error status = caors::deserialize(instance, value.value);
 ```
 
 字段查找优先使用非 0 的 `field_id`，再回退到 `serialized_name` 或 `field_name`。当前只支持写入
-`bool`、整数、浮点和 `std::string` 字段；缺失字段会返回 `errc::not_found`。`required`、默认值、
-未知字段保留和版本迁移策略后续再补。
+`bool`、整数、浮点和 `std::string` 字段。
+
+反序列化缺失字段策略：
+
+- 显式配置字段且 `required == false` 时，缺失字段会被跳过，目标对象保留已有值。
+- 显式配置字段且 `required == true` 时，缺失字段返回 `errc::not_found`。
+- 未显式配置字段时，反序列化按全部反射字段读入，缺失字段返回 `errc::not_found`。
+- DOM 中存在但未被目标类型声明的未知字段默认忽略。
+
+默认值恢复、未知字段保留、严格模式和完整版本迁移策略后续再补。
+
+### serialization codec
+
+`serialization_codec_registry` 是类型级扩展点。调度层读写字段时会先按字段类型查询 codec；命中后
+由 codec 直接处理该字段，未命中时再回退到内置标量探测。这样 `guid`、`type_guid` 这类语义上是
+原子值的类型，不需要暴露内部字段结构。
+
+内置 codec：
+
+- `std::string`：按字符串读写。
+- `std::string_view`：按字符串写出和构造 DOM；反序列化暂不支持直接写回 view。
+- `caors::string`：按字符串读写。
+- `caors::guid`：按标准 UUID/GUID 字符串读写。
+- `caors::type_guid`：按内部 `guid` 的标准字符串读写。
+
+外部类型可以通过特化 `serialization_codec<T>` 并调用 `register_serialization_codec<T>()` 注册，也可以
+直接按 `type_id` 注册 `serialization_codec_data`。codec 可以分别提供 writer、reader 和 DOM
+构造函数；没有提供的方向会继续走默认逻辑或返回不支持。
 
 ### serialization_value
 
@@ -199,6 +232,8 @@ caors::serialization_text_result result = caors::serialize_text(instance);
 - `serialization_field_data`：字段级序列化配置。
 - `serialization_writer`：格式后端接口。
 - `serialization_reader`：格式读入后端接口。
+- `serialization_context`：单次序列化/反序列化上下文，支持 schema version 字段过滤。
+- `serialization_codec_registry`：类型级 codec 注册表。
 - `text_serialization_writer`：简单文本格式后端。
 - `serialization_value`：序列化 DOM 中间对象。
 - `value_serialization_reader`：从 DOM 中间对象读入字段的后端。
@@ -213,6 +248,10 @@ caors::serialization_text_result result = caors::serialize_text(instance);
 - `serialize_text()`：基于反射字段的简单文本序列化。
 - 基础标量和字符串字段输出。
 - 字段别名和跳过配置。
+- 反序列化 required/optional 缺失字段策略。
+- DOM 反序列化默认忽略未知字段。
+- 基础 schema version 字段过滤。
+- 内置 string、string_view、guid 和 type_guid codec。
 - 序列化注册早于反射字段注册。
 
 ## 相关入口

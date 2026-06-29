@@ -72,6 +72,12 @@ template <typename T>
 }
 
 [[nodiscard]] serialization_value_result make_serialized_value(const value& data) {
+  const std::optional<serialization_codec_data> codec =
+      get_serialization_codec_registry().find_codec(data.type());
+  if (codec.has_value() && codec->make_value != nullptr) {
+    return codec->make_value(data);
+  }
+
   if (const bool* stored = data.try_get<bool>()) {
     return {{}, serialization_value::from(*stored)};
   }
@@ -136,6 +142,23 @@ template <typename T>
   return data.serialized_name.empty() ? data.field_name : data.serialized_name;
 }
 
+[[nodiscard]] bool field_visible_in_context(const serialization_field_data& field,
+                                            const serialization_context& context) noexcept {
+  if (context.schema_version == 0) {
+    return true;
+  }
+
+  if (field.version_added != 0 && context.schema_version < field.version_added) {
+    return false;
+  }
+
+  if (field.version_removed != 0 && context.schema_version >= field.version_removed) {
+    return false;
+  }
+
+  return true;
+}
+
 [[nodiscard]] error validate_field_for_writer(const serialization_field_data& field,
                                               serialization_format_features features) {
   if (has_feature(features, serialization_format_features::named_fields) &&
@@ -187,6 +210,17 @@ template <typename T>
   status = writer.begin_field(field_data);
   if (status.failed()) {
     return status;
+  }
+
+  const std::optional<serialization_codec_data> codec =
+      get_serialization_codec_registry().find_codec(field_value.type());
+  if (codec.has_value() && codec->write != nullptr) {
+    status = codec->write(writer, field_value);
+    if (status.failed()) {
+      return status;
+    }
+
+    return writer.end_field();
   }
 
   if (!try_write_serialized_value(writer, field_value)) {
@@ -285,6 +319,17 @@ template <typename T>
     return status;
   }
 
+  const std::optional<serialization_codec_data> codec =
+      get_serialization_codec_registry().find_codec(field.type());
+  if (codec.has_value() && codec->read != nullptr) {
+    status = codec->read(reader, field, object);
+    if (status.failed()) {
+      return status;
+    }
+
+    return reader.end_field();
+  }
+
   bool bool_value = false;
   bool written =
       reader.read_bool(bool_value).succeeded() && field.try_set<bool>(object, bool_value);
@@ -324,6 +369,17 @@ template <typename T>
   }
 
   return reader.end_field();
+}
+
+[[nodiscard]] error read_configured_field(serialization_reader& reader,
+                                          const reflection_field& field, void* object,
+                                          const serialization_field_data& field_data) {
+  const error status = read_field(reader, field, object, field_data);
+  if (status.value() == errc::not_found && !field_data.required) {
+    return {};
+  }
+
+  return status;
 }
 
 } // namespace
@@ -425,6 +481,11 @@ error write(serialization_writer& writer, const serialization_value& value) {
 }
 
 error serialize(const reflection_type& type, const void* object, serialization_writer& writer) {
+  return serialize(type, object, writer, serialization_context{});
+}
+
+error serialize(const reflection_type& type, const void* object, serialization_writer& writer,
+                const serialization_context& context) {
   if (!type.valid()) {
     return {error_domain::serialization, errc::invalid_type};
   }
@@ -450,7 +511,7 @@ error serialize(const reflection_type& type, const void* object, serialization_w
 
   if (!serialization->fields.empty()) {
     for (const serialization_field_data& field_data : serialization->fields) {
-      if (field_data.skipped) {
+      if (field_data.skipped || !field_visible_in_context(field_data, context)) {
         continue;
       }
 
@@ -483,6 +544,11 @@ error serialize(const reflection_type& type, const void* object, serialization_w
 }
 
 error deserialize(const reflection_type& type, void* object, serialization_reader& reader) {
+  return deserialize(type, object, reader, serialization_context{});
+}
+
+error deserialize(const reflection_type& type, void* object, serialization_reader& reader,
+                  const serialization_context& context) {
   if (!type.valid()) {
     return {error_domain::serialization, errc::invalid_type};
   }
@@ -508,7 +574,7 @@ error deserialize(const reflection_type& type, void* object, serialization_reade
 
   if (!serialization->fields.empty()) {
     for (const serialization_field_data& field_data : serialization->fields) {
-      if (field_data.skipped) {
+      if (field_data.skipped || !field_visible_in_context(field_data, context)) {
         continue;
       }
 
@@ -517,7 +583,7 @@ error deserialize(const reflection_type& type, void* object, serialization_reade
         return {error_domain::serialization, errc::not_found};
       }
 
-      status = read_field(reader, *field, object, field_data);
+      status = read_configured_field(reader, *field, object, field_data);
       if (status.failed()) {
         return status;
       }
@@ -541,6 +607,11 @@ error deserialize(const reflection_type& type, void* object, serialization_reade
 }
 
 serialization_value_result to_serialization_value(const reflection_type& type, const void* object) {
+  return to_serialization_value(type, object, serialization_context{});
+}
+
+serialization_value_result to_serialization_value(const reflection_type& type, const void* object,
+                                                  const serialization_context& context) {
   if (!type.valid()) {
     return {{error_domain::serialization, errc::invalid_type}, {}};
   }
@@ -564,7 +635,7 @@ serialization_value_result to_serialization_value(const reflection_type& type, c
   if (!serialization->fields.empty()) {
     members.reserve(serialization->fields.size());
     for (const serialization_field_data& field_data : serialization->fields) {
-      if (field_data.skipped) {
+      if (field_data.skipped || !field_visible_in_context(field_data, context)) {
         continue;
       }
 
@@ -619,6 +690,11 @@ serialization_value_result to_serialization_value(const reflection_type& type, c
 }
 
 error serialize(type_id id, const void* object, serialization_writer& writer) {
+  return serialize(id, object, writer, serialization_context{});
+}
+
+error serialize(type_id id, const void* object, serialization_writer& writer,
+                const serialization_context& context) {
   if (!id) {
     return {error_domain::serialization, errc::invalid_type};
   }
@@ -632,10 +708,15 @@ error serialize(type_id id, const void* object, serialization_writer& writer) {
     return {error_domain::serialization, errc::not_found};
   }
 
-  return serialize(*type, object, writer);
+  return serialize(*type, object, writer, context);
 }
 
 error deserialize(type_id id, void* object, serialization_reader& reader) {
+  return deserialize(id, object, reader, serialization_context{});
+}
+
+error deserialize(type_id id, void* object, serialization_reader& reader,
+                  const serialization_context& context) {
   if (!id) {
     return {error_domain::serialization, errc::invalid_type};
   }
@@ -649,10 +730,15 @@ error deserialize(type_id id, void* object, serialization_reader& reader) {
     return {error_domain::serialization, errc::not_found};
   }
 
-  return deserialize(*type, object, reader);
+  return deserialize(*type, object, reader, context);
 }
 
 serialization_value_result to_serialization_value(type_id id, const void* object) {
+  return to_serialization_value(id, object, serialization_context{});
+}
+
+serialization_value_result to_serialization_value(type_id id, const void* object,
+                                                  const serialization_context& context) {
   if (!id) {
     return {{error_domain::serialization, errc::invalid_type}, {}};
   }
@@ -666,12 +752,17 @@ serialization_value_result to_serialization_value(type_id id, const void* object
     return {{error_domain::serialization, errc::not_found}, {}};
   }
 
-  return to_serialization_value(*type, object);
+  return to_serialization_value(*type, object, context);
 }
 
 serialization_text_result serialize_text(const reflection_type& type, const void* object) {
+  return serialize_text(type, object, serialization_context{});
+}
+
+serialization_text_result serialize_text(const reflection_type& type, const void* object,
+                                         const serialization_context& context) {
   text_serialization_writer writer;
-  const error status = serialize(type, object, writer);
+  const error status = serialize(type, object, writer, context);
   if (status.failed()) {
     return {status, {}};
   }
@@ -680,8 +771,13 @@ serialization_text_result serialize_text(const reflection_type& type, const void
 }
 
 serialization_text_result serialize_text(type_id id, const void* object) {
+  return serialize_text(id, object, serialization_context{});
+}
+
+serialization_text_result serialize_text(type_id id, const void* object,
+                                         const serialization_context& context) {
   text_serialization_writer writer;
-  const error status = serialize(id, object, writer);
+  const error status = serialize(id, object, writer, context);
   if (status.failed()) {
     return {status, {}};
   }

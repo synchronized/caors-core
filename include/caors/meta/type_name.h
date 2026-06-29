@@ -4,6 +4,8 @@
 #ifndef CAORS_META_TYPE_NAME_H_
 #define CAORS_META_TYPE_NAME_H_
 
+#include "caors/meta/type_id.h"
+
 #include <string>
 #include <string_view>
 
@@ -83,6 +85,14 @@ template <> struct type_name<std::string> {
 
 template <> struct type_name<std::string_view> {
   inline static constexpr std::string_view value = "std.string_view";
+};
+
+template <> struct type_name<guid> {
+  inline static constexpr std::string_view value = "caors.guid";
+};
+
+template <> struct type_name<type_guid> {
+  inline static constexpr std::string_view value = "caors.type_guid";
 };
 
 } // namespace caors
