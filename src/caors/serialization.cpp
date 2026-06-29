@@ -101,7 +101,8 @@ template <typename T> [[nodiscard]] bool try_write_value(std::ostream& output, c
   return data.serialized_name.empty() ? data.field_name : data.serialized_name;
 }
 
-[[nodiscard]] serialization_text_result write_field(std::ostream& output, const field_view& field,
+[[nodiscard]] serialization_text_result write_field(std::ostream& output,
+                                                    const reflection_field& field,
                                                     const void* object, string_name output_name,
                                                     bool write_separator) {
   if (!field.valid()) {
@@ -200,7 +201,7 @@ serialization_text_result serialize_text(const reflection_type& type, const void
         continue;
       }
 
-      const std::optional<field_view> field = type.find_field(field_data.field_name);
+      const std::optional<reflection_field> field = type.find_field(field_data.field_name);
       if (!field.has_value()) {
         return {{error_domain::serialization, errc::not_found}, {}};
       }
@@ -215,7 +216,7 @@ serialization_text_result serialize_text(const reflection_type& type, const void
     }
   } else {
     for (std::size_t index = 0; index < type.field_count(); ++index) {
-      const std::optional<field_view> field = type.field_at(index);
+      const std::optional<reflection_field> field = type.field_at(index);
       if (!field.has_value()) {
         return {{error_domain::serialization, errc::invalid_field}, {}};
       }

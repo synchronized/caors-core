@@ -113,7 +113,7 @@ private:
 /** @brief 向全局反射注册表注册反射类型。 */
 template <typename T>
 [[nodiscard]] reflection_register_result
-register_reflection(std::string_view name, std::initializer_list<field_info> fields,
+register_reflection(std::string_view name, std::initializer_list<reflection_field_data> fields,
                     type_id parent_id = type_id::invalid()) {
   return get_reflection_registry().register_type_for<T>(make_meta_type_data<T>(name, parent_id),
                                                         make_reflection_type_data(fields));
@@ -122,7 +122,8 @@ register_reflection(std::string_view name, std::initializer_list<field_info> fie
 /** @brief 向全局反射注册表注册带稳定 GUID 的反射类型。 */
 template <typename T>
 [[nodiscard]] reflection_register_result
-register_reflection(std::string_view name, type_guid guid, std::initializer_list<field_info> fields,
+register_reflection(std::string_view name, type_guid guid,
+                    std::initializer_list<reflection_field_data> fields,
                     type_id parent_id = type_id::invalid()) {
   return get_reflection_registry().register_type_for<T>(
       make_meta_type_data<T>(name, guid, parent_id), make_reflection_type_data(fields));

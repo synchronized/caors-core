@@ -20,17 +20,17 @@ namespace caors {
  * 统一表达。外部查询优先使用 `reflection_type` 只读视图。
  */
 struct reflection_type_data {
-  std::vector<field_info> fields{};
+  std::vector<reflection_field_data> fields{};
 
   [[nodiscard]] bool valid() const noexcept;
-  [[nodiscard]] std::optional<field_info> find_field(string_name name) const;
-  [[nodiscard]] std::optional<field_info> find_field(std::string_view name) const;
+  [[nodiscard]] std::optional<reflection_field_data> find_field(string_name name) const;
+  [[nodiscard]] std::optional<reflection_field_data> find_field(std::string_view name) const;
 };
 
 /** @brief 创建类型反射底层数据。 */
 [[nodiscard]] inline reflection_type_data
-make_reflection_type_data(std::initializer_list<field_info> fields) {
-  return reflection_type_data{std::vector<field_info>{fields}};
+make_reflection_type_data(std::initializer_list<reflection_field_data> fields) {
+  return reflection_type_data{std::vector<reflection_field_data>{fields}};
 }
 
 } // namespace caors

@@ -243,7 +243,7 @@ public:
   }
 
 private:
-  friend struct field_info;
+  friend struct reflection_field_data;
 
   [[nodiscard]] static value copy_from_raw(type_id type, string_name type_name,
                                            detail::cpp_type_key cpp_type, const void* source,

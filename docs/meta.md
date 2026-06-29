@@ -152,6 +152,8 @@ caors::type_register_result result =
 ```
 
 注册表是 append-only：基础类型注册后不可清理或撤销，重复注册相同类型会返回重复结果。
+当前组件同样按 append-only 方式挂载：同一类型的同类组件注册后不可替换。反射和序列化这类组件
+内部字段数据也按“注册后冻结”处理，外部视图只在该约束下承诺进程生命周期内稳定。
 
 注册表维护几类索引：
 
@@ -207,6 +209,9 @@ caors::get_meta_registry().emplace<object_factory_meta>(actor_id, true);
 - 后续 `serialization_registry` 可以挂载序列化相关组件。
 
 这样 `object_register`、`reflection_register` 和 `serialization_register` 不需要重复处理重名、重复 GUID、不一致类型描述和父类型缺失。
+跨模块查询可以通过 `meta_view<T...>()` 完成，例如查询同时拥有 `reflection_type_data` 和
+`serialization_type_data` 的类型。该视图保存查询时匹配的 `type_id` 列表，不持有组件引用；需要
+读取组件内容时再通过 `find<T>()` 获取组件副本，或者由对应模块 API 返回稳定只读视图。
 
 ## 当前已实现能力
 

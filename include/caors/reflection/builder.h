@@ -37,8 +37,8 @@ public:
     const std::optional<meta_type> resolved_type =
         get_reflection_registry().template find_registered_type<field_type>();
     if (resolved_type.has_value() && !resolved_type->name().empty()) {
-      field_info field =
-          make_field_info<Field>(name, resolved_type->name().view(), detail::member_offset(member));
+      reflection_field_data field = make_reflection_field_data<Field>(
+          name, resolved_type->name().view(), detail::member_offset(member));
       field.type = resolved_type->id();
       field.type_name = resolved_type->name();
       if (field.kind == field_kind::value || field.kind == field_kind::enumeration) {
@@ -47,8 +47,8 @@ public:
       reflection_.fields.push_back(field);
     } else {
       if constexpr (detail::has_type_name_v<field_type>) {
-        reflection_.fields.push_back(make_field_info<Field>(name, type_name<field_type>::value,
-                                                            detail::member_offset(member)));
+        reflection_.fields.push_back(make_reflection_field_data<Field>(
+            name, type_name<field_type>::value, detail::member_offset(member)));
       } else {
         pending_result_ = reflection_register_result::invalid_field;
       }
@@ -63,7 +63,8 @@ public:
       return *this;
     }
 
-    field_info field = make_field_info<Field>(name, type_name, detail::member_offset(member));
+    reflection_field_data field =
+        make_reflection_field_data<Field>(name, type_name, detail::member_offset(member));
     if (field.kind == field_kind::value || field.kind == field_kind::enumeration) {
       field.value_type = field.type;
     }

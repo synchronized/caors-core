@@ -49,7 +49,7 @@ to_reflection_register_result(meta_component_result result) noexcept {
   return reflection_register_result::invalid_type;
 }
 
-[[nodiscard]] bool resolve_field_type(meta_registry& meta, field_info& field) {
+[[nodiscard]] bool resolve_field_type(meta_registry& meta, reflection_field_data& field) {
   if (!field.valid()) {
     return false;
   }
@@ -82,7 +82,7 @@ to_reflection_register_result(meta_component_result result) noexcept {
 
 [[nodiscard]] reflection_register_result resolve_fields(meta_registry& meta,
                                                         reflection_type_data& reflection) {
-  for (field_info& field : reflection.fields) {
+  for (reflection_field_data& field : reflection.fields) {
     if (!resolve_field_type(meta, field)) {
       return reflection_register_result::invalid_field;
     }
@@ -96,7 +96,7 @@ validate_registered_fields(const reflection_type_data& reflection) {
   std::unordered_set<std::uint64_t> names;
   names.reserve(reflection.fields.size());
 
-  for (const field_info& field : reflection.fields) {
+  for (const reflection_field_data& field : reflection.fields) {
     if (!field.valid() || !field.type) {
       return reflection_register_result::invalid_field;
     }
@@ -112,7 +112,7 @@ validate_registered_fields(const reflection_type_data& reflection) {
 } // namespace
 
 bool reflection_type_data::valid() const noexcept {
-  for (const field_info& field : fields) {
+  for (const reflection_field_data& field : fields) {
     if (!field.valid()) {
       return false;
     }
@@ -121,12 +121,12 @@ bool reflection_type_data::valid() const noexcept {
   return true;
 }
 
-std::optional<field_info> reflection_type_data::find_field(string_name name) const {
+std::optional<reflection_field_data> reflection_type_data::find_field(string_name name) const {
   if (!name) {
     return std::nullopt;
   }
 
-  for (const field_info& field : fields) {
+  for (const reflection_field_data& field : fields) {
     if (field.name == name) {
       return field;
     }
@@ -135,7 +135,7 @@ std::optional<field_info> reflection_type_data::find_field(string_name name) con
   return std::nullopt;
 }
 
-std::optional<field_info> reflection_type_data::find_field(std::string_view name) const {
+std::optional<reflection_field_data> reflection_type_data::find_field(std::string_view name) const {
   const std::optional<string_name> interned_name = string_name::find(name);
   if (!interned_name.has_value()) {
     return std::nullopt;
@@ -144,74 +144,74 @@ std::optional<field_info> reflection_type_data::find_field(std::string_view name
   return find_field(*interned_name);
 }
 
-field_view::field_view(meta_type owner, const field_info* field) noexcept
+reflection_field::reflection_field(meta_type owner, const reflection_field_data* field) noexcept
     : owner_(owner), field_(field) {}
 
-bool field_view::valid() const noexcept {
+bool reflection_field::valid() const noexcept {
   return owner_.valid() && field_ != nullptr && field_->valid();
 }
 
-string_name field_view::name() const noexcept {
-  const field_info* field = info();
+string_name reflection_field::name() const noexcept {
+  const reflection_field_data* field = info();
   return field != nullptr ? field->name : string_name{};
 }
 
-type_id field_view::type() const noexcept {
-  const field_info* field = info();
+type_id reflection_field::type() const noexcept {
+  const reflection_field_data* field = info();
   return field != nullptr ? field->type : type_id{};
 }
 
-string_name field_view::type_name() const noexcept {
-  const field_info* field = info();
+string_name reflection_field::type_name() const noexcept {
+  const reflection_field_data* field = info();
   return field != nullptr ? field->type_name : string_name{};
 }
 
-type_id field_view::value_type() const noexcept {
-  const field_info* field = info();
+type_id reflection_field::value_type() const noexcept {
+  const reflection_field_data* field = info();
   return field != nullptr ? field->value_type : type_id{};
 }
 
-field_kind field_view::kind() const noexcept {
-  const field_info* field = info();
+field_kind reflection_field::kind() const noexcept {
+  const reflection_field_data* field = info();
   return field != nullptr ? field->kind : field_kind::value;
 }
 
-field_wrapper_semantics field_view::wrapper_semantics() const noexcept {
-  const field_info* field = info();
+field_wrapper_semantics reflection_field::wrapper_semantics() const noexcept {
+  const reflection_field_data* field = info();
   return field != nullptr ? field->wrapper_semantics : field_wrapper_semantics::none;
 }
 
-std::uint8_t field_view::pointer_depth() const noexcept {
-  const field_info* field = info();
+std::uint8_t reflection_field::pointer_depth() const noexcept {
+  const reflection_field_data* field = info();
   return field != nullptr ? field->pointer_depth : 0;
 }
 
-bool field_view::nullable() const noexcept {
-  const field_info* field = info();
+bool reflection_field::nullable() const noexcept {
+  const reflection_field_data* field = info();
   return field != nullptr && field->nullable;
 }
 
-bool field_view::writable() const noexcept {
-  const field_info* field = info();
+bool reflection_field::writable() const noexcept {
+  const reflection_field_data* field = info();
   return field != nullptr && field->writable;
 }
 
-std::size_t field_view::offset() const noexcept {
-  const field_info* field = info();
+std::size_t reflection_field::offset() const noexcept {
+  const reflection_field_data* field = info();
   return field != nullptr ? field->offset : 0;
 }
 
-std::size_t field_view::size() const noexcept {
-  const field_info* field = info();
+std::size_t reflection_field::size() const noexcept {
+  const reflection_field_data* field = info();
   return field != nullptr ? field->size : 0;
 }
 
-std::size_t field_view::alignment() const noexcept {
-  const field_info* field = info();
+std::size_t reflection_field::alignment() const noexcept {
+  const reflection_field_data* field = info();
   return field != nullptr ? field->alignment : 0;
 }
 
-const field_info* field_view::info() const noexcept {
+const reflection_field_data* reflection_field::info() const noexcept {
   if (!valid()) {
     return nullptr;
   }
@@ -219,8 +219,8 @@ const field_info* field_view::info() const noexcept {
   return field_;
 }
 
-value field_view::get_value(const void* object) const {
-  const field_info* field = info();
+value reflection_field::get_value(const void* object) const {
+  const reflection_field_data* field = info();
   if (field == nullptr) {
     return {};
   }
@@ -228,8 +228,8 @@ value field_view::get_value(const void* object) const {
   return field->get_value(object);
 }
 
-bool field_view::try_set_value(void* object, const value& source) const {
-  const field_info* field = info();
+bool reflection_field::try_set_value(void* object, const value& source) const {
+  const reflection_field_data* field = info();
   if (field == nullptr) {
     return false;
   }
@@ -257,16 +257,16 @@ std::size_t reflection_type::field_count() const noexcept {
   return reflected != nullptr ? reflected->fields.size() : 0;
 }
 
-std::optional<field_view> reflection_type::field_at(std::size_t index) const {
+std::optional<reflection_field> reflection_type::field_at(std::size_t index) const {
   const reflection_type_data* reflected = data();
   if (reflected == nullptr || index >= reflected->fields.size()) {
     return std::nullopt;
   }
 
-  return field_view{type_, &reflected->fields[index]};
+  return reflection_field{type_, &reflected->fields[index]};
 }
 
-std::optional<field_view> reflection_type::find_field(string_name name) const {
+std::optional<reflection_field> reflection_type::find_field(string_name name) const {
   const reflection_type_data* reflected = data();
   if (reflected == nullptr || !name) {
     return std::nullopt;
@@ -281,7 +281,7 @@ std::optional<field_view> reflection_type::find_field(string_name name) const {
   return std::nullopt;
 }
 
-std::optional<field_view> reflection_type::find_field(std::string_view name) const {
+std::optional<reflection_field> reflection_type::find_field(std::string_view name) const {
   const std::optional<string_name> interned_name = string_name::find(name);
   if (!interned_name.has_value()) {
     return std::nullopt;

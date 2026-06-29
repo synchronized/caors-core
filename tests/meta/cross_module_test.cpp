@@ -1,0 +1,118 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 CAORS contributors
+
+#include "caors/serialization.h"
+
+#include <catch2/catch_all.hpp>
+
+namespace {
+
+struct cross_module_actor {
+  int id = 0;
+  float health = 0.0F;
+};
+
+struct cross_module_serialization_first {
+  int id = 0;
+};
+
+struct cross_module_late_registered {
+  int value = 0;
+};
+
+[[nodiscard]] bool reflection_result_ok(caors::reflection_register_result result) noexcept {
+  return result == caors::reflection_register_result::success ||
+         result == caors::reflection_register_result::duplicate_reflection;
+}
+
+[[nodiscard]] bool serialization_result_ok(caors::error result) noexcept {
+  return result.succeeded() || result.value() == caors::errc::duplicate_component;
+}
+
+template <typename View> [[nodiscard]] bool view_contains(const View& view, caors::type_id id) {
+  for (const caors::type_id candidate : view.ids()) {
+    if (candidate == id) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+} // namespace
+
+TEST_CASE("meta - view finds types with reflection and serialization components", "[meta]") {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<cross_module_actor>("caors.test.meta.cross_module_actor")
+          .field("id", &cross_module_actor::id)
+          .field("health", &cross_module_actor::health)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<cross_module_actor>({
+      caors::make_serialization_field("id"),
+      caors::make_serialization_field("health"),
+  })));
+
+  const auto type = caors::find_type<cross_module_actor>();
+  REQUIRE(type.has_value());
+
+  auto view = caors::get_meta_registry()
+                  .view<caors::reflection_type_data, caors::serialization_type_data>();
+  CHECK(view_contains(view, type->id()));
+
+  auto reflection = view.find<caors::reflection_type_data>(type->id());
+  REQUIRE(reflection.has_value());
+  CHECK(reflection->fields.size() == 2);
+
+  auto serialization = view.find<caors::serialization_type_data>(type->id());
+  REQUIRE(serialization.has_value());
+  CHECK(serialization->fields.size() == 2);
+}
+
+TEST_CASE("meta - cross module view supports serialization registered before reflection",
+          "[meta]") {
+  REQUIRE(serialization_result_ok(caors::register_serialization<cross_module_serialization_first>({
+      caors::make_serialization_field("id", "actor_id"),
+  })));
+  REQUIRE(reflection_result_ok(caors::reflection::class_<cross_module_serialization_first>(
+                                   "caors.test.meta.cross_module_serialization_first")
+                                   .field("id", &cross_module_serialization_first::id)
+                                   .commit()));
+
+  const auto type = caors::find_type<cross_module_serialization_first>();
+  REQUIRE(type.has_value());
+
+  auto view = caors::get_meta_registry()
+                  .view<caors::reflection_type_data, caors::serialization_type_data>();
+  CHECK(view_contains(view, type->id()));
+
+  const cross_module_serialization_first instance{42};
+  const caors::serialization_text_result result = caors::serialize_text(instance);
+  REQUIRE(result.succeeded());
+  CHECK(result.text == R"({"actor_id":42})");
+}
+
+TEST_CASE("reflection - field handles remain valid after later registrations", "[reflection]") {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<cross_module_actor>("caors.test.meta.cross_module_actor")
+          .field("id", &cross_module_actor::id)
+          .field("health", &cross_module_actor::health)
+          .commit()));
+
+  auto reflected = caors::find_reflection("caors.test.meta.cross_module_actor");
+  REQUIRE(reflected.has_value());
+
+  auto id = reflected->find_field("id");
+  REQUIRE(id.has_value());
+  REQUIRE(id->valid());
+
+  REQUIRE(reflection_result_ok(caors::reflection::class_<cross_module_late_registered>(
+                                   "caors.test.meta.cross_module_late_registered")
+                                   .field("value", &cross_module_late_registered::value)
+                                   .commit()));
+
+  const cross_module_actor instance{7, 12.0F};
+  const auto value = id->try_get<int>(&instance);
+  REQUIRE(value.has_value());
+  CHECK(*value == 7);
+  CHECK(id->valid());
+}

@@ -122,9 +122,9 @@ template <typename Field> [[nodiscard]] field_traits_info make_field_traits_info
  *
  * 字段访问基于注册时记录的 offset 和 C++ 类型 key。调用方需要传入该字段所属对象的地址；
  * 类型不匹配、对象为空或字段不可写时会返回失败，不抛出异常。常规查询优先使用
- * `field_view`，该结构主要作为注册表内部存储和底层注册入口。
+ * `reflection_field`，该结构主要作为注册表内部存储和底层注册入口。
  */
-struct field_info {
+struct reflection_field_data {
   string_name name{};
   type_id type{};
   string_name type_name{};
@@ -243,11 +243,11 @@ struct field_info {
 
 /** @brief 创建字段反射元信息。 */
 template <typename Field>
-[[nodiscard]] field_info make_field_info(std::string_view name, std::string_view type_name,
-                                         std::size_t offset) {
+[[nodiscard]] reflection_field_data
+make_reflection_field_data(std::string_view name, std::string_view type_name, std::size_t offset) {
   using field_type = std::remove_cv_t<Field>;
   const detail::field_traits_info traits = detail::make_field_traits_info<field_type>();
-  field_info field{
+  reflection_field_data field{
       string_name{name},
       detail::register_field_type_id<field_type>(type_name),
       string_name{type_name},

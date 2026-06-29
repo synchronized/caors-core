@@ -20,12 +20,12 @@ class reflection_registry;
 /**
  * @brief 字段反射只读视图。
  *
- * `field_view` 是全局反射注册表返回的字段只读句柄。反射数据注册后不可撤销，因此有效 view
+ * `reflection_field` 是全局反射注册表返回的字段只读句柄。反射数据注册后不可撤销，因此有效视图
  * 可以在进程生命周期内稳定使用。
  */
-class CAORS_API field_view final {
+class CAORS_API reflection_field final {
 public:
-  field_view() noexcept = default;
+  reflection_field() noexcept = default;
 
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
@@ -53,7 +53,7 @@ public:
   template <typename Field>
   [[nodiscard]] std::optional<std::remove_cv_t<std::remove_reference_t<Field>>>
   try_get(const void* object) const {
-    const field_info* field = info();
+    const reflection_field_data* field = info();
     if (field == nullptr) {
       return std::nullopt;
     }
@@ -63,7 +63,7 @@ public:
 
   /** @brief 按指定类型写入字段值。 */
   template <typename Field> bool try_set(void* object, const Field& value) const {
-    const field_info* field = info();
+    const reflection_field_data* field = info();
     if (field == nullptr) {
       return false;
     }
@@ -74,11 +74,11 @@ public:
 private:
   friend class reflection_type;
 
-  field_view(meta_type owner, const field_info* field) noexcept;
-  [[nodiscard]] const field_info* info() const noexcept;
+  reflection_field(meta_type owner, const reflection_field_data* field) noexcept;
+  [[nodiscard]] const reflection_field_data* info() const noexcept;
 
   meta_type owner_{};
-  const field_info* field_ = nullptr;
+  const reflection_field_data* field_ = nullptr;
 };
 
 /**
@@ -99,9 +99,9 @@ public:
   [[nodiscard]] string_name name() const noexcept;
   [[nodiscard]] type_guid guid() const noexcept;
   [[nodiscard]] std::size_t field_count() const noexcept;
-  [[nodiscard]] std::optional<field_view> field_at(std::size_t index) const;
-  [[nodiscard]] std::optional<field_view> find_field(string_name name) const;
-  [[nodiscard]] std::optional<field_view> find_field(std::string_view name) const;
+  [[nodiscard]] std::optional<reflection_field> field_at(std::size_t index) const;
+  [[nodiscard]] std::optional<reflection_field> find_field(string_name name) const;
+  [[nodiscard]] std::optional<reflection_field> find_field(std::string_view name) const;
 
 private:
   friend class reflection_registry;

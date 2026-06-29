@@ -72,9 +72,9 @@ TEST_CASE("reflection value - copies deeply and rejects mismatched writes", "[re
 
 TEST_CASE("reflection value - fields expose copied runtime values", "[reflection]") {
   reflected_value_holder holder{1, 7};
-  const caors::field_info value =
-      caors::make_field_info<int>("value", "int", offsetof(reflected_value_holder, value));
-  const caors::field_info readonly = caors::make_field_info<const int>(
+  const caors::reflection_field_data value = caors::make_reflection_field_data<int>(
+      "value", "int", offsetof(reflected_value_holder, value));
+  const caors::reflection_field_data readonly = caors::make_reflection_field_data<const int>(
       "readonly", "int", offsetof(reflected_value_holder, readonly));
 
   caors::value copied = value.get_value(&holder);
@@ -106,8 +106,9 @@ TEST_CASE("reflection value - fields expose copied runtime values", "[reflection
 
 TEST_CASE("reflection value - noncopyable fields return invalid values", "[reflection]") {
   move_only_value holder{std::make_unique<int>(7)};
-  const caors::field_info field = caors::make_field_info<std::unique_ptr<int>>(
-      "value", "std.unique_ptr<int>", offsetof(move_only_value, value));
+  const caors::reflection_field_data field =
+      caors::make_reflection_field_data<std::unique_ptr<int>>("value", "std.unique_ptr<int>",
+                                                              offsetof(move_only_value, value));
 
   caors::value copied = field.get_value(&holder);
   CHECK_FALSE(copied.valid());

@@ -25,12 +25,12 @@
 
 ## 核心概念
 
-### 底层 field_info
+### 底层 reflection_field_data
 
-`field_info` 是字段的底层存储描述，主要用于注册表内部保存字段数据，以及 `make_field_info<Field>()`
-这类底层注册入口。外部查询和字段访问更推荐使用 `field_view`，避免直接依赖底层存储结构。
+`reflection_field_data` 是字段的底层存储描述，主要用于注册表内部保存字段数据，以及 `make_reflection_field_data<Field>()`
+这类底层注册入口。外部查询和字段访问更推荐使用 `reflection_field`，避免直接依赖底层存储结构。
 
-`field_info` 描述一个字段：
+`reflection_field_data` 描述一个字段：
 
 - `name`：字段名。
 - `type`：字段声明类型的运行期 `type_id`。
@@ -45,7 +45,7 @@
 - `alignment`：字段对齐。
 - `writable`：字段是否允许写入。
 
-字段描述可以通过 `make_field_info<Field>()` 创建：
+字段描述可以通过 `make_reflection_field_data<Field>()` 创建：
 
 ```cpp
 struct actor {
@@ -53,8 +53,8 @@ struct actor {
   float health = 100.0F;
 };
 
-caors::field_info field =
-    caors::make_field_info<float>("health", "float", offsetof(actor, health));
+caors::reflection_field_data field =
+    caors::make_reflection_field_data<float>("health", "float", offsetof(actor, health));
 ```
 
 第一版要求调用方显式传入 offset，通常配合 `offsetof()` 使用。后续如果引入代码生成工具，可以由工具生成字段描述。
@@ -122,7 +122,7 @@ struct wrapper_traits<my_box<T>> {
   `object_ref<T>` 这类类型。
 - `unsupported`：明确识别为 wrapper，但当前序列化层不支持。
 
-推荐通过 `field_view` 读写字段：
+推荐通过 `reflection_field` 读写字段：
 
 ```cpp
 actor instance{};
@@ -184,8 +184,8 @@ id->try_set_value(&instance, caors::value::from(source));
 ```cpp
 caors::reflection_type_data data = caors::make_reflection_type_data(
     {
-        caors::make_field_info<int>("id", "int", offsetof(actor, id)),
-        caors::make_field_info<float>("health", "float", offsetof(actor, health)),
+        caors::make_reflection_field_data<int>("id", "int", offsetof(actor, id)),
+        caors::make_reflection_field_data<float>("health", "float", offsetof(actor, health)),
     });
 ```
 
@@ -195,9 +195,9 @@ caors::reflection_type_data data = caors::make_reflection_type_data(
 auto field = data.find_field("health");
 ```
 
-### reflection_type 和 field_view
+### reflection_type 和 reflection_field
 
-`reflection_type` 和 `field_view` 是外部查询反射信息的推荐入口：
+`reflection_type` 和 `reflection_field` 是外部查询反射信息的推荐入口：
 
 ```cpp
 auto reflected = caors::find_reflection("game.actor");
@@ -207,8 +207,13 @@ actor instance{};
 field->try_set<float>(&instance, 75.0F);
 ```
 
-`reflection_type` 内部持有 `meta_type` 和 `reflection_type_data` 的只读指针。反射注册表是
-进程级 append-only 注册表，类型注册后不可撤销，因此有效 view 可以在进程生命周期内稳定使用。
+`reflection_type` 内部持有 `meta_type` 和 `reflection_type_data` 的只读指针。`reflection_field`
+内部持有 `reflection_field_data` 的只读指针。反射注册表是进程级 append-only 注册表，
+类型和字段注册后不可撤销、不可替换，因此有效视图可以在进程生命周期内稳定使用。
+
+当前字段数据以 `std::vector<reflection_field_data>` 保存在 `reflection_type_data` 内。字段视图的
+稳定性依赖“注册后冻结”约束：注册完成后不会再向该类型追加、删除或替换字段。如果后续支持热重载、
+字段增量注册或组件替换，需要先重新设计字段存储和视图失效规则。
 
 `reflection_type` 当前提供：
 
@@ -217,7 +222,7 @@ field->try_set<float>(&instance, 75.0F);
 - `field_count()` / `field_at()`：按索引遍历字段。
 - `find_field()`：按字段名查询字段视图。
 
-`field_view` 当前提供：
+`reflection_field` 当前提供：
 
 - `valid()`：判断视图是否仍有效。
 - `name()` / `type()` / `type_name()` / `value_type()`：查询字段类型信息。
@@ -264,10 +269,10 @@ auto reflected = caors::find_reflection("game.actor");
 ## 当前已实现能力
 
 - `value`：运行期值拷贝。
-- `field_info`：字段名、字段类型名、字段形态、wrapper 语义、解包类型、offset、size、alignment、
+- `reflection_field_data`：字段名、字段类型名、字段形态、wrapper 语义、解包类型、offset、size、alignment、
   基础 get/set 和运行期值访问。
 - `reflection_type_data`：字段列表等反射组件数据。
-- `reflection_type` / `field_view`：全局反射数据的推荐查询入口。
+- `reflection_type` / `reflection_field`：全局反射数据的推荐查询入口。
 - `reflection_registry`：底层全局注册表实现。
 - `reflection::class_<T>()`：RTTR 风格链式注册入口。
 - `register_reflection<T>()`：底层字段列表注册入口。

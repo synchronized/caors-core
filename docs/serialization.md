@@ -57,8 +57,9 @@ caors::register_serialization<actor>({
 - `required`：预留给反序列化缺失字段检查。
 - `skipped`：序列化时跳过该字段。
 
-序列化字段配置属于 serialization 组件，不直接写入 `reflection::field_info`。反射负责描述字段
-是什么，序列化负责描述字段如何存储。
+序列化字段配置属于 serialization 组件，不直接写入 `reflection_field_data`，也不持有
+`reflection_field_data` 指针。反射负责描述字段是什么，序列化负责描述字段如何存储；真正序列化时
+再按字段名解析反射字段，因此序列化注册和反射注册没有固定顺序要求。
 
 ### serialization_registry
 
