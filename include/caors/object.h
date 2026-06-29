@@ -4,6 +4,7 @@
 #ifndef CAORS_OBJECT_H_
 #define CAORS_OBJECT_H_
 
+#include "caors/error.h"
 #include "caors/export.h"
 #include "caors/memory.h"
 #include "caors/meta.h"
@@ -82,6 +83,26 @@ enum class object_register_result {
 /** @brief 判断对象类型注册是否成功。 */
 [[nodiscard]] constexpr bool object_register_succeeded(object_register_result result) noexcept {
   return result == object_register_result::success;
+}
+
+/** @brief 将对象类型注册结果转换为统一错误状态。 */
+[[nodiscard]] constexpr error to_error(object_register_result result) noexcept {
+  switch (result) {
+  case object_register_result::success:
+    return {};
+  case object_register_result::invalid_type:
+    return {error_domain::object, errc::invalid_type};
+  case object_register_result::duplicate_id:
+    return {error_domain::object, errc::duplicate_id};
+  case object_register_result::duplicate_name:
+    return {error_domain::object, errc::duplicate_name};
+  case object_register_result::duplicate_guid:
+    return {error_domain::object, errc::duplicate_guid};
+  case object_register_result::missing_parent:
+    return {error_domain::object, errc::missing_parent};
+  }
+
+  return {error_domain::object, errc::invalid_argument};
 }
 
 /**

@@ -4,6 +4,7 @@
 #ifndef CAORS_META_REGISTRY_H_
 #define CAORS_META_REGISTRY_H_
 
+#include "caors/error.h"
 #include "caors/export.h"
 #include "caors/meta/type.h"
 #include "caors/meta/type_key.h"
@@ -37,6 +38,26 @@ enum class type_register_result {
   return result == type_register_result::success;
 }
 
+/** @brief 将基础类型注册结果转换为统一错误状态。 */
+[[nodiscard]] constexpr error to_error(type_register_result result) noexcept {
+  switch (result) {
+  case type_register_result::success:
+    return {};
+  case type_register_result::invalid_type:
+    return {error_domain::meta, errc::invalid_type};
+  case type_register_result::duplicate_id:
+    return {error_domain::meta, errc::duplicate_id};
+  case type_register_result::duplicate_name:
+    return {error_domain::meta, errc::duplicate_name};
+  case type_register_result::duplicate_guid:
+    return {error_domain::meta, errc::duplicate_guid};
+  case type_register_result::missing_parent:
+    return {error_domain::meta, errc::missing_parent};
+  }
+
+  return {error_domain::meta, errc::invalid_argument};
+}
+
 /** @brief 元数据组件注册结果。 */
 enum class meta_component_result {
   success,
@@ -48,6 +69,22 @@ enum class meta_component_result {
 /** @brief 判断元数据组件注册是否成功。 */
 [[nodiscard]] constexpr bool meta_component_succeeded(meta_component_result result) noexcept {
   return result == meta_component_result::success;
+}
+
+/** @brief 将元数据组件注册结果转换为统一错误状态。 */
+[[nodiscard]] constexpr error to_error(meta_component_result result) noexcept {
+  switch (result) {
+  case meta_component_result::success:
+    return {};
+  case meta_component_result::invalid_type:
+    return {error_domain::meta, errc::invalid_type};
+  case meta_component_result::missing_type:
+    return {error_domain::meta, errc::missing_type};
+  case meta_component_result::duplicate_component:
+    return {error_domain::meta, errc::duplicate_component};
+  }
+
+  return {error_domain::meta, errc::invalid_argument};
 }
 
 namespace detail {

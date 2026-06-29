@@ -4,6 +4,7 @@
 #ifndef CAORS_REFLECTION_REGISTRY_H_
 #define CAORS_REFLECTION_REGISTRY_H_
 
+#include "caors/error.h"
 #include "caors/export.h"
 #include "caors/reflection/view.h"
 
@@ -31,6 +32,34 @@ enum class reflection_register_result {
 [[nodiscard]] constexpr bool
 reflection_register_succeeded(reflection_register_result result) noexcept {
   return result == reflection_register_result::success;
+}
+
+/** @brief 将反射类型注册结果转换为统一错误状态。 */
+[[nodiscard]] constexpr error to_error(reflection_register_result result) noexcept {
+  switch (result) {
+  case reflection_register_result::success:
+    return {};
+  case reflection_register_result::invalid_type:
+    return {error_domain::reflection, errc::invalid_type};
+  case reflection_register_result::invalid_field:
+    return {error_domain::reflection, errc::invalid_field};
+  case reflection_register_result::duplicate_id:
+    return {error_domain::reflection, errc::duplicate_id};
+  case reflection_register_result::duplicate_name:
+    return {error_domain::reflection, errc::duplicate_name};
+  case reflection_register_result::duplicate_guid:
+    return {error_domain::reflection, errc::duplicate_guid};
+  case reflection_register_result::duplicate_field:
+    return {error_domain::reflection, errc::duplicate_field};
+  case reflection_register_result::duplicate_reflection:
+    return {error_domain::reflection, errc::duplicate_reflection};
+  case reflection_register_result::inconsistent_type:
+    return {error_domain::reflection, errc::inconsistent_type};
+  case reflection_register_result::missing_parent:
+    return {error_domain::reflection, errc::missing_parent};
+  }
+
+  return {error_domain::reflection, errc::invalid_argument};
 }
 
 /**
