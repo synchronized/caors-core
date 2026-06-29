@@ -11,11 +11,12 @@
 
 - `caors/core/string_name.h`：运行期字符串名。
 - `caors/core/guid.h`：128-bit 稳定标识值类型。
+- `caors/core/containers.h`：基于 `caors::allocator<T>` 的 `caors::string` 和 `caors::vector<T>`。
 
 后续可以按需要扩展：
 
 - 基础 hash 工具。
-- 与 CAORS 内存系统适配的基础容器，例如 string、list、hash_map。
+- 与 CAORS 内存系统适配的更多基础容器，例如 list、hash_map、small_vector、stable_vector。
 
 ## string_name
 
@@ -60,3 +61,23 @@ constexpr caors::guid stable = caors::guid::from_bytes(caors::guid::byte_array{
 - `guid::string()` 输出小写标准格式。
 
 相关测试位于 `tests/core/`，测试组织规则见 [tests/README.md](../tests/README.md)。
+
+## 基础容器
+
+`caors/core/containers.h` 当前提供轻量别名，而不是完整自研容器：
+
+```cpp
+caors::vector<int> values;
+caors::string text;
+```
+
+这些别名使用 `caors::allocator<T>`，因此会通过当前默认 `memory_resource` 分配内存。需要显式资源时
+可以直接传入 allocator：
+
+```cpp
+caors::tracking_resource tracking(&caors::get_system_memory_resource());
+caors::vector<int> values{caors::allocator<int>{&tracking}};
+```
+
+当前只覆盖序列化 DOM 等近期需求。后续如果需要稳定地址、短数组优化或哈希查询，再分别评估
+`stable_vector`、`small_vector` 和 `hash_map` 等容器。
