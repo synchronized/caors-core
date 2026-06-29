@@ -5,6 +5,8 @@
 
 #include <catch2/catch_all.hpp>
 
+#include <cstdint>
+#include <limits>
 #include <string_view>
 
 namespace {
@@ -12,6 +14,8 @@ namespace {
 struct sample_type {
   int value = 0;
 };
+
+struct anonymous_cpp_type {};
 
 struct registry_parent_type {};
 
@@ -39,14 +43,27 @@ TEST_CASE("type info - built-in C++ types have default names", "[meta]") {
   CHECK(caors::type_name<bool>::value == "bool");
 }
 
-TEST_CASE("type info - type id is generated from names", "[meta]") {
-  const caors::type_id first = caors::make_type_id("caors.test.sample");
-  const caors::type_id second = caors::make_type_id("caors.test.sample");
-  const caors::type_id other = caors::make_type_id("caors.test.other");
+TEST_CASE("type info - type id is allocated by global registry", "[meta]") {
+  CHECK_FALSE(caors::make_type_id("caors.test.type.unregistered_name"));
+
+  const caors::type_id first = caors::type_id_of<anonymous_cpp_type>();
+  const caors::type_id second = caors::type_id_of<anonymous_cpp_type>();
 
   CHECK(first);
   CHECK(first == second);
-  CHECK(first != other);
+
+  auto anonymous = caors::find_type<anonymous_cpp_type>();
+  REQUIRE(anonymous.has_value());
+  CHECK(anonymous->id == first);
+  CHECK(anonymous->name.empty());
+
+  REQUIRE(caors::register_type<anonymous_cpp_type>("caors.test.type.anonymous_cpp") ==
+          caors::type_register_result::success);
+
+  auto named = caors::find_type("caors.test.type.anonymous_cpp");
+  REQUIRE(named.has_value());
+  CHECK(named->id == first);
+  CHECK(caors::make_type_id("caors.test.type.anonymous_cpp") == first);
 }
 
 TEST_CASE("type info - describes layout", "[meta]") {
@@ -54,7 +71,8 @@ TEST_CASE("type info - describes layout", "[meta]") {
   const caors::type_info info = caors::make_type_info<sample_type>(name);
 
   CHECK(info.valid());
-  CHECK(info.id == caors::make_type_id(name));
+  CHECK_FALSE(info.registered());
+  CHECK_FALSE(info.id);
   CHECK(info.name == name);
   CHECK_FALSE(info.guid);
   CHECK(info.size == sizeof(sample_type));
@@ -70,7 +88,8 @@ TEST_CASE("type info - describes stable type guid", "[meta]") {
       caors::make_type_info<sample_type>("caors.test.guid.sample", caors::type_guid{*guid});
 
   CHECK(info.valid());
-  CHECK(info.id == caors::make_type_id("caors.test.guid.sample"));
+  CHECK_FALSE(info.registered());
+  CHECK_FALSE(info.id);
   CHECK(info.guid == caors::type_guid{*guid});
   CHECK(info.guid.value.string() == "5ed39a97-7b20-4d87-86ac-e62a4a615b10");
 }
@@ -100,7 +119,7 @@ TEST_CASE("type info - global registry finds types by C++ type", "[meta]") {
   auto type = caors::find_type<cpp_sample_type>();
   REQUIRE(type.has_value());
   CHECK(type->name == "caors.test.type.cpp_sample");
-  CHECK(type->id == caors::make_type_id("caors.test.type.cpp_sample"));
+  CHECK(caors::make_type_id("caors.test.type.cpp_sample") == type->id);
 }
 
 TEST_CASE("type info - global registry finds types by stable guid", "[meta]") {
@@ -123,7 +142,7 @@ TEST_CASE("type info - global registry reports registration errors", "[meta]") {
 
   caors::type_info missing_parent = caors::make_type_info<error_child_type>(
       "caors.test.type.missing_parent_child",
-      caors::make_type_id("caors.test.type.missing_parent"));
+      caors::type_id{std::numeric_limits<std::uint64_t>::max()});
   CHECK(caors::get_meta_registry().register_type(missing_parent) ==
         caors::type_register_result::missing_parent);
 
@@ -141,7 +160,6 @@ TEST_CASE("type info - global registry reports registration errors", "[meta]") {
   caors::type_info duplicate_name =
       caors::make_type_info<sample_type>("caors.test.type.unique_duplicate_name");
   duplicate_name.name = caors::string_name{"caors.test.type.error_parent"};
-  duplicate_name.id = caors::make_type_id(duplicate_name.name);
   CHECK(caors::get_meta_registry().register_type(duplicate_name) ==
         caors::type_register_result::duplicate_name);
 

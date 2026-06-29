@@ -63,12 +63,8 @@ to_reflection_register_result(meta_component_result result) noexcept {
   std::optional<type_info> resolved_type = meta.find_type(field.type_name);
   if (!resolved_type.has_value() && field.cpp_type != nullptr) {
     const type_info field_type{
-        make_type_id(field.type_name),
-        field.type_name,
-        type_guid::nil(),
-        field.size,
-        field.alignment,
-        type_id::invalid(),
+        type_id::invalid(), field.type_name, type_guid::nil(),
+        field.size,         field.alignment, type_id::invalid(),
     };
 
     const type_register_result result = meta.register_cpp_type(field.cpp_type, field_type);

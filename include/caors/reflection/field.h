@@ -36,10 +36,27 @@ inline constexpr bool is_nested_field_indirection_v =
 template <typename T> [[nodiscard]] type_id known_type_id() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (has_type_name_v<type>) {
-    return make_type_id(type_name<type>::value);
+    const type_register_result result = caors::register_type<type>(type_name<type>::value);
+    if (type_register_succeeded(result) || result == type_register_result::duplicate_id) {
+      const std::optional<type_info> registered = caors::find_type<type>();
+      return registered.has_value() ? registered->id : type_id::invalid();
+    }
   } else {
     return type_id::invalid();
   }
+
+  return type_id::invalid();
+}
+
+template <typename T> [[nodiscard]] type_id register_field_type_id(std::string_view name) {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  const type_register_result result = caors::register_type<type>(name);
+  if (type_register_succeeded(result) || result == type_register_result::duplicate_id) {
+    const std::optional<type_info> registered = caors::find_type<type>();
+    return registered.has_value() ? registered->id : type_id::invalid();
+  }
+
+  return type_id::invalid();
 }
 
 struct field_traits_info {
@@ -126,8 +143,7 @@ struct field_info {
   bool writable = true;
 
   [[nodiscard]] constexpr bool valid() const noexcept {
-    return !name.empty() && static_cast<bool>(type) && !type_name.empty() && size > 0 &&
-           alignment > 0;
+    return !name.empty() && !type_name.empty() && size > 0 && alignment > 0;
   }
 
   /** @brief 判断字段是否匹配指定 C++ 类型。 */
@@ -233,7 +249,7 @@ template <typename Field>
   const detail::field_traits_info traits = detail::make_field_traits_info<field_type>();
   field_info field{
       string_name{name},
-      make_type_id(type_name),
+      detail::register_field_type_id<field_type>(type_name),
       string_name{type_name},
       detail::cpp_type_key_of<field_type>(),
       traits.value_type,

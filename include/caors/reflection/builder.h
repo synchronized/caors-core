@@ -36,7 +36,7 @@ public:
 
     const std::optional<type_info> resolved_type =
         get_reflection_registry().template find_registered_type<field_type>();
-    if (resolved_type.has_value()) {
+    if (resolved_type.has_value() && !resolved_type->name.empty()) {
       field_info field =
           make_field_info<Field>(name, resolved_type->name.view(), detail::member_offset(member));
       field.type = resolved_type->id;

@@ -137,9 +137,16 @@ public:
   [[nodiscard]] type_register_result register_type(const type_info& type);
   [[nodiscard]] type_register_result register_cpp_type(detail::cpp_type_key key,
                                                        const type_info& type);
+  [[nodiscard]] type_info ensure_cpp_type(detail::cpp_type_key key, std::size_t size,
+                                          std::size_t alignment);
   template <typename T>
   [[nodiscard]] type_register_result register_type_for(const type_info& type) {
     return register_cpp_type(detail::cpp_type_key_of<T>(), type);
+  }
+
+  template <typename T> [[nodiscard]] type_info ensure_type_for() {
+    using type = std::remove_cv_t<std::remove_reference_t<T>>;
+    return ensure_cpp_type(detail::cpp_type_key_of<type>(), sizeof(type), alignof(type));
   }
 
   [[nodiscard]] bool contains(type_id id) const;
@@ -244,6 +251,11 @@ private:
 
 /** @brief 获取进程内全局类型元数据注册表。 */
 [[nodiscard]] CAORS_API meta_registry& get_meta_registry() noexcept;
+
+/** @brief 获取指定 C++ 类型的运行期类型 id，必要时先创建匿名类型记录。 */
+template <typename T> [[nodiscard]] type_id type_id_of() {
+  return get_meta_registry().ensure_type_for<T>().id;
+}
 
 /** @brief 向全局元数据注册表注册基础类型。 */
 template <typename T>

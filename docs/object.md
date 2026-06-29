@@ -49,13 +49,15 @@ caors::object_id id = instance.id();
 - `alignment`
 - `parent_id`
 
-`object_type_id` 是 `type_id` 在对象系统里的别名。类型标识由对象类型名生成：
+`object_type_id` 是 `type_id` 在对象系统里的别名。它由全局 `meta_registry` 分配，不由对象
+类型名派生：
 
 ```cpp
 caors::object_type_id id = player::static_type_id();
 ```
 
-类型名应由使用方保持清晰可读。后续序列化版本兼容仍应由显式 `type_guid`、上层格式和迁移策略处理。
+对象类型名用于查找、调试和工具展示；稳定序列化身份应由显式 `type_guid`、上层格式和迁移策略
+处理。
 
 ### object
 
@@ -87,6 +89,9 @@ public:
 ```
 
 `object_type_guid` 是可选静态成员。运行期临时对象可以不声明，`type_info::guid` 会保持 nil；可序列化、可反射或跨插件暴露的对象类型建议显式声明稳定 GUID。
+
+`static_type_id()` 会确保 C++ 类型在全局元数据注册表中拥有一个运行期 id。对象类型尚未正式注册
+时，该记录可以是匿名的；调用 `register_object_type<T>()` 后会补充类型名、GUID 和父类型关系。
 
 这样通过基类引用也能查询真实类型：
 

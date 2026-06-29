@@ -10,10 +10,10 @@
 `meta` 第一阶段解决几件事：
 
 - 用 `string_name` 保存运行期去重后的类型名。
-- 用 `type_id` 表示由 `string_name` 派生的运行期类型 key。
+- 用 `type_id` 表示全局注册表分配的运行期类型句柄。
 - 用 `type_guid` 保存可选的稳定类型标识。
 - 用 `type_info` 保存类型名、稳定 GUID、大小、对齐和父类型。
-- 用全局 `meta_registry` 集中处理基础类型注册、查找和继承关系判断。
+- 用全局 `meta_registry` 集中处理基础类型注册、id 分配、查找和继承关系判断。
 - 用全局 `meta_registry` 在同一个 `type_id` 上挂载不同主题的元数据组件。
 - 避免对象系统、反射系统和序列化系统各自重复实现类型注册逻辑。
 
@@ -28,7 +28,7 @@
 
 新代码可以直接包含 `caors/meta.h` 使用完整类型元数据 API；如果只需要局部能力，也可以包含对应子头文件：
 
-- `caors/meta/type_id.h`：`type_id`、`type_guid` 和 `make_type_id()`。
+- `caors/meta/type_id.h`：`type_id`、`type_guid` 和按名称查询 id 的 `make_type_id()`。
 - `caors/meta/type_name.h`：`type_name<T>` 默认类型名映射。
 - `caors/meta/type_key.h`：内部 C++ 类型 key。
 - `caors/meta/type_info.h`：`type_info` 和 `make_type_info<T>()`。
@@ -50,13 +50,22 @@ std::string_view view = name.view();
 
 ### type_id
 
-`type_id` 是运行期类型标识。`0` 保留为无效值。它由类型名对应的 `string_name::id()` 派生：
+`type_id` 是运行期类型标识。`0` 保留为无效值。它由全局 `meta_registry` 分配，类似 ECS
+entity，只保证当前进程内唯一，不承诺跨进程或跨版本稳定。
 
 ```cpp
+caors::type_id id = caors::type_id_of<player>();
+```
+
+类型注册后，也可以通过名称查询当前进程内的运行期 id：
+
+```cpp
+caors::register_type<player>("game.player");
 caors::type_id id = caors::make_type_id("game.player");
 ```
 
-`type_id` 适合当前进程内的运行期查找，不适合作为序列化长期稳定 ID。需要长期稳定身份时使用 `type_guid`。
+`type_id` 适合当前进程内的运行期查找，不适合作为序列化长期稳定 ID。需要长期稳定身份时使用
+`type_guid`。
 
 ### type_guid
 
@@ -89,7 +98,9 @@ caors::type_info info =
 caors::type_info info = caors::make_type_info<player>("game.player");
 ```
 
-`make_type_info<T>()` 会根据类型名填充 `id`，注册表负责校验 `id` 与 `name` 是否一致。
+`make_type_info<T>()` 只创建待注册描述，`id` 保持无效。真正的 `type_id` 在写入全局
+`meta_registry` 时分配。C++ 类型可以先通过 `type_id_of<T>()` 创建匿名记录，后续注册名称或
+GUID 时会补充到同一个类型记录上。
 
 ### type_name<T>
 
@@ -119,11 +130,18 @@ caors::type_register_result result =
 
 注册表是 append-only：基础类型注册后不可清理或撤销，重复注册相同类型会返回重复结果。
 
+注册表维护几类索引：
+
+- `type_id -> type_info`：运行期主索引。
+- `cpp_type_key -> type_id`：C++ 类型查询索引，允许匿名类型提前获得 id。
+- `type_name -> type_id`：名称查询索引，可选。
+- `type_guid -> type_id`：稳定身份查询索引，可选。
+
 注册失败会返回明确的 `type_register_result`：
 
 - `success`：注册成功。
 - `invalid_type`：类型描述无效。
-- `duplicate_id`：同一个运行期 id、C++ 类型或等价类型描述已注册。
+- `duplicate_id`：同一个运行期类型记录、C++ 类型或等价类型描述已注册。
 - `duplicate_name`：同一个名称已注册。
 - `duplicate_guid`：同一个非 nil 稳定 GUID 已注册。
 - `missing_parent`：父类型未注册。
@@ -137,7 +155,7 @@ struct object_factory_meta {
 
 caors::register_type<actor>("game.actor");
 
-caors::type_id actor_id = caors::make_type_id("game.actor");
+caors::type_id actor_id = caors::find_type<actor>()->id;
 caors::get_meta_registry().emplace<object_factory_meta>(actor_id, true);
 ```
 
@@ -170,7 +188,8 @@ caors::get_meta_registry().emplace<object_factory_meta>(actor_id, true);
 - `type_id`：运行期类型标识。
 - `type_guid`：稳定类型标识。
 - `string_name`：运行期 interned 名称，定义在 `caors/core/string_name.h`。
-- `make_type_id()`：根据类型名生成运行期类型标识。
+- `type_id_of<T>()`：获取指定 C++ 类型的运行期类型 id，必要时先创建匿名记录。
+- `make_type_id()`：根据已注册类型名查询运行期类型标识。
 - `type_name<T>`：基础 C++ 类型到 CAORS 类型名的默认映射。
 - `type_info` / `make_type_info<T>()`：基础类型描述。
 - `meta_registry`：全局基础类型注册、按 id/name/guid/C++ 类型查询、继承关系判断和组件式元数据挂载。

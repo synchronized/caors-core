@@ -71,7 +71,7 @@ caors::reflection::class_<actor>("game.actor")
 字段类型推导规则：
 
 - 如果字段类型已经通过模板注册函数注册到全局反射注册表，优先复用该类型的 `type_info`。
-- 如果字段类型没有注册，但存在 `type_name<T>` 默认映射，则使用默认类型名生成 `type_id`，并自动注册为基础类型。
+- 如果字段类型没有注册，但存在 `type_name<T>` 默认映射，则使用默认类型名注册为基础类型，并使用注册表分配的 `type_id`。
 - 如果两者都没有，`.commit()` 返回 `invalid_field`。
 - 字段类型语义最多支持一层裸指针或 wrapper；`T**`、`std::unique_ptr<T*>`、
   `std::optional<std::shared_ptr<T>>` 这类嵌套组合会触发静态断言。
@@ -159,7 +159,7 @@ id->try_set_value(&instance, caors::value::from(source));
 
 ### value
 
-`value` 是运行期值拷贝，保存类型 id、类型名、C++ 类型 key、对象拷贝、大小和对齐信息。
+`value` 是运行期值拷贝，保存注册表分配的类型 id、类型名、C++ 类型 key、对象拷贝、大小和对齐信息。
 它不引用原对象，因此可以安全地脱离字段所属对象生命周期使用。
 
 `value` 当前提供：

@@ -25,8 +25,10 @@ struct type_info {
   std::size_t alignment = 0;
   type_id parent_id{};
 
-  [[nodiscard]] constexpr bool valid() const noexcept {
-    return static_cast<bool>(id) && !name.empty() && size > 0 && alignment > 0;
+  [[nodiscard]] constexpr bool valid() const noexcept { return size > 0 && alignment > 0; }
+
+  [[nodiscard]] constexpr bool registered() const noexcept {
+    return static_cast<bool>(id) && valid();
   }
 };
 
@@ -35,7 +37,7 @@ template <typename T>
 [[nodiscard]] constexpr type_info make_type_info(string_name name,
                                                  type_id parent_id = type_id::invalid()) noexcept {
   return type_info{
-      make_type_id(name), name, type_guid::nil(), sizeof(T), alignof(T), parent_id,
+      type_id::invalid(), name, type_guid::nil(), sizeof(T), alignof(T), parent_id,
   };
 }
 
@@ -44,7 +46,7 @@ template <typename T>
 [[nodiscard]] constexpr type_info make_type_info(string_name name, type_guid guid,
                                                  type_id parent_id = type_id::invalid()) noexcept {
   return type_info{
-      make_type_id(name), name, guid, sizeof(T), alignof(T), parent_id,
+      type_id::invalid(), name, guid, sizeof(T), alignof(T), parent_id,
   };
 }
 

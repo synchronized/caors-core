@@ -78,7 +78,17 @@ object_type_id object::type_id() const noexcept { return static_type_id(); }
 
 std::string_view object::type_name() const noexcept { return static_type_name(); }
 
-object_type_id object::static_type_id() noexcept { return make_object_type_id(static_type_name()); }
+object_type_id object::static_type_id() noexcept {
+#if CAORS_HAS_EXCEPTIONS
+  try {
+    return type_id_of<object>();
+  } catch (...) {
+    return object_type_id::invalid();
+  }
+#else
+  return type_id_of<object>();
+#endif
+}
 
 std::string_view object::static_type_name() noexcept { return "caors.object"; }
 

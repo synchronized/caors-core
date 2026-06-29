@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <new>
+#include <optional>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -125,8 +126,18 @@ public:
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
     static_assert(std::is_copy_constructible_v<type>, "value requires copy constructible types");
 
-    return copy_from_raw(make_type_id(name), string_name{name}, detail::cpp_type_key_of<type>(),
-                         &source, sizeof(type), alignof(type), detail::value_clone_fn_of<type>(),
+    const type_register_result result = caors::register_type<type>(name);
+    if (!type_register_succeeded(result) && result != type_register_result::duplicate_id) {
+      return {};
+    }
+
+    const std::optional<type_info> registered = caors::find_type<type>();
+    if (!registered.has_value() || registered->name.empty()) {
+      return {};
+    }
+
+    return copy_from_raw(registered->id, registered->name, detail::cpp_type_key_of<type>(), &source,
+                         sizeof(type), alignof(type), detail::value_clone_fn_of<type>(),
                          detail::value_destroy_fn_of<type>(), detail::value_assign_fn_of<type>());
   }
 

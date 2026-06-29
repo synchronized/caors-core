@@ -5,6 +5,8 @@
 
 #include <catch2/catch_all.hpp>
 
+#include <cstdint>
+#include <limits>
 #include <string_view>
 
 namespace {
@@ -68,7 +70,8 @@ TEST_CASE("meta - global registry stores components by type id", "[meta]") {
 }
 
 TEST_CASE("meta - global registry rejects components for missing types", "[meta]") {
-  CHECK(caors::get_meta_registry().emplace<missing_component_meta>(caors::type_id{999}, true) ==
+  CHECK(caors::get_meta_registry().emplace<missing_component_meta>(
+            caors::type_id{std::numeric_limits<std::uint64_t>::max()}, true) ==
         caors::meta_component_result::missing_type);
   CHECK(caors::get_meta_registry().emplace<missing_component_meta>(
             caors::type_id::invalid(), true) == caors::meta_component_result::invalid_type);

@@ -15,8 +15,8 @@ namespace caors {
 /**
  * @brief 运行期类型标识。
  *
- * 类型标识由 `string_name` 的运行期 id 派生，适合运行期查找和注册表索引。它不是跨版本序列化
- * ID。
+ * 类型标识由全局 `meta_registry` 分配，适合当前进程内的注册表索引。它不是类型名 hash，也不是
+ * 跨版本序列化 ID。
  */
 class type_id {
 public:
@@ -62,15 +62,11 @@ struct type_guid {
   }
 };
 
-/** @brief 根据类型名生成运行期类型标识。 */
-[[nodiscard]] constexpr type_id make_type_id(string_name name) noexcept {
-  return type_id{name.id()};
-}
+/** @brief 根据已注册类型名查询运行期类型标识；未注册时返回无效 id。 */
+[[nodiscard]] CAORS_API type_id make_type_id(string_name name) noexcept;
 
-/** @brief 根据类型名生成运行期类型标识。 */
-[[nodiscard]] inline type_id make_type_id(std::string_view name) {
-  return make_type_id(string_name{name});
-}
+/** @brief 根据已注册类型名查询运行期类型标识；未注册时返回无效 id。 */
+[[nodiscard]] CAORS_API type_id make_type_id(std::string_view name);
 
 } // namespace caors
 

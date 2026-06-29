@@ -5,6 +5,8 @@
 
 #include <catch2/catch_all.hpp>
 
+#include <cstdint>
+#include <limits>
 #include <string_view>
 
 namespace {
@@ -103,8 +105,8 @@ TEST_CASE("object - typed base exposes runtime type information", "[object]") {
   runtime_player instance;
   caors::object& base = instance;
 
-  CHECK(runtime_player::static_type_id() ==
-        caors::make_object_type_id(runtime_player::object_type_name));
+  CHECK(runtime_player::static_type_id());
+  CHECK(runtime_player::static_type_id() == caors::type_id_of<runtime_player>());
   CHECK(base.type_id() == runtime_player::static_type_id());
   CHECK(base.type_name() == runtime_player::object_type_name);
 }
@@ -157,7 +159,7 @@ TEST_CASE("object - registry reports registration errors", "[object]") {
 
   caors::object_type missing_parent = caors::make_object_type<error_actor>(
       "caors.test.object.missing_parent_child",
-      caors::make_object_type_id("caors.test.object.missing_parent"));
+      caors::type_id{std::numeric_limits<std::uint64_t>::max()});
   CHECK(registry.register_type(missing_parent) == caors::object_register_result::missing_parent);
 
   REQUIRE(caors::register_object_type<error_actor>(registry, error_actor::object_type_name) ==
@@ -173,7 +175,6 @@ TEST_CASE("object - registry reports registration errors", "[object]") {
   caors::object_type duplicate_name =
       caors::make_object_type<error_player>("caors.test.object.unique_duplicate_name");
   duplicate_name.info.name = caors::string_name{error_actor::object_type_name};
-  duplicate_name.info.id = caors::make_object_type_id(duplicate_name.info.name.view());
   duplicate_name.info.size += 1;
   CHECK(registry.register_type(duplicate_name) == caors::object_register_result::duplicate_name);
 }

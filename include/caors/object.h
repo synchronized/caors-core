@@ -45,7 +45,7 @@ private:
 
 using object_type_id = type_id;
 
-/** @brief 根据类型名生成对象类型标识。 */
+/** @brief 根据已注册对象类型名查询对象类型标识。 */
 [[nodiscard]] inline object_type_id make_object_type_id(std::string_view name) {
   return make_type_id(name);
 }
@@ -153,7 +153,15 @@ public:
   using base_type = Base;
 
   [[nodiscard]] static object_type_id static_type_id() noexcept {
-    return make_object_type_id(static_type_name());
+#if CAORS_HAS_EXCEPTIONS
+    try {
+      return type_id_of<Derived>();
+    } catch (...) {
+      return object_type_id::invalid();
+    }
+#else
+    return type_id_of<Derived>();
+#endif
   }
 
   [[nodiscard]] static std::string_view static_type_name() noexcept {
