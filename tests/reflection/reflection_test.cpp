@@ -173,6 +173,10 @@ struct hash_map_holder {
   caors::hash_map<int, int> values{};
 };
 
+struct hash_set_holder {
+  caors::hash_set<int> values{};
+};
+
 struct readonly_actor {
   const int id = 7;
 };
@@ -542,6 +546,24 @@ TEST_CASE("reflection - associative field view exposes key and value metadata", 
   CHECK(values->key_type_name() == "int");
   CHECK(values->mapped_type() == registered_type_id("int"));
   CHECK(values->mapped_type_name() == "int");
+}
+
+TEST_CASE("reflection - set field view exposes element metadata", "[reflection]") {
+  REQUIRE(caors::reflection::class_<hash_set_holder>("caors.test.reflection.hash_set_holder")
+              .field("values", &hash_set_holder::values)
+              .commit()
+              .succeeded());
+
+  auto reflected = caors::find_reflection("caors.test.reflection.hash_set_holder");
+  REQUIRE(reflected.has_value());
+
+  auto values = reflected->find_field("values");
+  REQUIRE(values.has_value());
+  CHECK(values->kind() == caors::field_kind::set);
+  CHECK(values->is_set());
+  CHECK(values->type_name() == "caors.hash_set<int>");
+  CHECK(values->element_type() == registered_type_id("int"));
+  CHECK(values->element_type_name() == "int");
 }
 
 TEST_CASE("reflection - views remain valid for append-only registry", "[reflection]") {

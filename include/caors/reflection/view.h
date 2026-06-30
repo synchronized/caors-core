@@ -70,6 +70,9 @@ public:
   /** @brief 判断字段是否是顺序容器。 */
   [[nodiscard]] bool is_sequence() const noexcept;
 
+  /** @brief 判断字段是否是集合容器。 */
+  [[nodiscard]] bool is_set() const noexcept;
+
   /** @brief 判断字段是否是关联容器。 */
   [[nodiscard]] bool is_associative() const noexcept;
 

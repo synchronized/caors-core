@@ -16,6 +16,16 @@ template <typename T> struct sequence_traits {
 };
 
 /**
+ * @brief 集合容器反射 traits。
+ *
+ * 自定义 set 或 hash_set 容器可以特化该模板接入反射和序列化系统。traits 负责提供元素类型、
+ * 类型名前缀、遍历和插入入口。
+ */
+template <typename T> struct set_traits {
+  static constexpr bool is_set = false;
+};
+
+/**
  * @brief 关联容器反射 traits。
  *
  * 自定义字典或 map 容器可以特化该模板接入反射和序列化系统。traits 负责提供 key/value

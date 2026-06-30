@@ -52,6 +52,7 @@
 - `caors/serialization/dom_reader.h`：从 `variant` DOM 读入的 reader 后端。
 - `caors/serialization/operations.h`：`serialize()`、`deserialize()`、`to_serialization_value()`、`serialize_text()` 等调度入口。
 - `caors/serialization/vector_codec.h`：基于 `sequence_traits<T>` 的通用数组 codec，以及 vector 默认适配。
+- `caors/serialization/set_codec.h`：基于 `set_traits<T>` 的通用集合 codec，以及 hash set 默认适配。
 - `caors/serialization/map_codec.h`：基于 `associative_traits<T>` 的通用字典 codec，以及 hash map 默认适配。
 - `caors/serialization/stl_codecs.h`：STL/CAORS 容器 codec 聚合入口。
 - `caors/serialization.h`：兼容用聚合头，包含以上所有入口。
@@ -141,7 +142,8 @@ caors::error status = caors::deserialize(instance, value.value);
 
 字段查找优先使用非 0 的 `field_id`，再回退到 `serialized_name` 或 `field_name`。当前支持写入
 `bool`、整数、浮点、`caors::string`、`std::string`、已注册反射/序列化元信息的值类型结构体字段、
-已注册 codec 的 `caors::vector<T>` 字段，以及通过 resolver 解析的 `caors::object_ref<T>` 字段。
+已注册 codec 的 `caors::vector<T>` / `caors::hash_set<T>` / `caors::hash_map<K, V>` 字段，以及通过
+resolver 解析的 `caors::object_ref<T>` 字段。
 
 反序列化缺失字段策略：
 
@@ -209,15 +211,17 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `object_ref<T>` 
 - `caors::guid`：按标准 UUID/GUID 字符串读写。
 - `caors::type_guid`：按内部 `guid` 的标准字符串读写。
 - `caors::vector<T>`：通过 `sequence_serialization_codec<T>` 输出为数组。
+- `caors::hash_set<T>`：通过 `set_serialization_codec<T>` 输出为数组，读入时拒绝重复元素。
 - `caors::hash_map<K, V>`：通过 `associative_serialization_codec<T>` 输出为字典 pair 数组。
 
 `caors/serialization/stl_codecs.h` 聚合了当前内置容器 codec。`caors/serialization.h` 会继续包含它，
 因此既有代码不需要额外 include；如果只想显式引入 STL/CAORS 容器适配，也可以包含
 `caors/adapters/stl.h`。
 
-容器 codec 需要显式调用 `register_serialization_codec<T>()`。反射 builder 通过 `sequence_traits<T>` 或
-`associative_traits<T>` 生成容器类型名并记录元素或 key/value 类型，因此不需要再手动注册容器类型名。
-序列化层通过 `sequence_serialization_codec<T>` 和 `associative_serialization_codec<T>` 复用 traits
+容器 codec 需要显式调用 `register_serialization_codec<T>()`。反射 builder 通过 `sequence_traits<T>`、
+`set_traits<T>` 或 `associative_traits<T>` 生成容器类型名并记录元素或 key/value 类型，因此不需要再手动注册容器类型名。
+序列化层通过 `sequence_serialization_codec<T>`、`set_serialization_codec<T>` 和
+`associative_serialization_codec<T>` 复用 traits
 描述的容器结构。自定义容器通常只需要特化 traits，再让自己的 `serialization_codec<T>` 继承通用 codec：
 
 ```cpp
@@ -225,6 +229,9 @@ namespace caors {
 
 template <typename T>
 struct serialization_codec<my_sequence<T>> : sequence_serialization_codec<my_sequence<T>> {};
+
+template <typename T>
+struct serialization_codec<my_set<T>> : set_serialization_codec<my_set<T>> {};
 
 template <typename K, typename V>
 struct serialization_codec<my_map<K, V>> : associative_serialization_codec<my_map<K, V>> {};

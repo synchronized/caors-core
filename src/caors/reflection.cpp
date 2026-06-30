@@ -268,6 +268,11 @@ bool reflection_field::is_sequence() const noexcept {
   return field != nullptr && field->kind == field_kind::sequence;
 }
 
+bool reflection_field::is_set() const noexcept {
+  const reflection_field_data* field = info();
+  return field != nullptr && field->kind == field_kind::set;
+}
+
 bool reflection_field::is_associative() const noexcept {
   const reflection_field_data* field = info();
   return field != nullptr && field->kind == field_kind::associative;

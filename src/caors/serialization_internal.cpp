@@ -340,7 +340,7 @@ error write_field(serialization_writer& writer, const reflection_field& field, c
   }
 
   if (field.kind() != field_kind::value && field.kind() != field_kind::sequence &&
-      field.kind() != field_kind::associative) {
+      field.kind() != field_kind::set && field.kind() != field_kind::associative) {
     return {error_domain::serialization, errc::unsupported};
   }
 
@@ -402,7 +402,7 @@ error read_field(serialization_reader& reader, const reflection_field& field, vo
   }
 
   if (field.kind() != field_kind::value && field.kind() != field_kind::sequence &&
-      field.kind() != field_kind::associative) {
+      field.kind() != field_kind::set && field.kind() != field_kind::associative) {
     return {error_domain::serialization, errc::unsupported};
   }
 

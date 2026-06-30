@@ -24,6 +24,7 @@ enum class field_kind {
   raw_pointer,
   wrapper,
   sequence,
+  set,
   associative,
 };
 
@@ -91,6 +92,13 @@ template <typename Field> struct field_traits {
       using element_type = typename sequence_traits<field_type>::element_type;
 
       info.kind = field_kind::sequence;
+      info.value_type = known_type_id<field_type>();
+      info.element_type = known_type_id<element_type>();
+      return info;
+    } else if constexpr (set_traits<field_type>::is_set) {
+      using element_type = typename set_traits<field_type>::element_type;
+
+      info.kind = field_kind::set;
       info.value_type = known_type_id<field_type>();
       info.element_type = known_type_id<element_type>();
       return info;
@@ -561,6 +569,14 @@ make_reflection_field_data(std::string_view name, std::string_view type_name, st
 
   if constexpr (sequence_traits<field_type>::is_sequence) {
     using element_type = typename sequence_traits<field_type>::element_type;
+    field.element_cpp_type = detail::cpp_type_key_of<element_type>();
+    field.element_size = sizeof(element_type);
+    field.element_alignment = alignof(element_type);
+    field.clone_element = detail::value_clone_fn_of<element_type>();
+    field.destroy_element = detail::value_destroy_fn_of<element_type>();
+    field.assign_element = detail::value_assign_fn_of<element_type>();
+  } else if constexpr (set_traits<field_type>::is_set) {
+    using element_type = typename set_traits<field_type>::element_type;
     field.element_cpp_type = detail::cpp_type_key_of<element_type>();
     field.element_size = sizeof(element_type);
     field.element_alignment = alignof(element_type);

@@ -74,6 +74,8 @@ caors::reflection::class_<actor>("game.actor")
 - 如果字段类型没有注册，但存在 `type_name<T>` 默认映射，则使用默认类型名注册为基础类型，并使用注册表分配的 `type_id`。
 - 如果字段类型满足 `sequence_traits<T>::is_sequence`，反射 builder 会根据 traits 的类型名前缀和元素类型名生成
   容器类型名，并记录元素类型信息。内置特化支持 `caors::vector<T>` 和 `std::vector<T, Allocator>`。
+- 如果字段类型满足 `set_traits<T>::is_set`，反射 builder 会根据 traits 的类型名前缀和元素类型名生成
+  容器类型名，并记录元素类型信息。内置特化支持 `caors::hash_set<T>` 和 `std::unordered_set<T, ...>`。
 - 如果字段类型满足 `associative_traits<T>::is_associative`，反射 builder 会根据 traits 的类型名前缀、
   key 类型名和 value 类型名生成容器类型名，并记录 key/value 类型信息。内置特化支持
   `caors::hash_map<K, V>` 和 `std::unordered_map<K, V, ...>`。
@@ -100,6 +102,8 @@ caors::reflection::class_<actor>("game.actor")
 - `sequence_traits<T>` 顺序容器：`field_kind::sequence`，`element_type` 为元素类型，可以通过字段视图查询元素数量、
   访问元素引用，并在 traits 支持时执行清空、调整大小和追加元素。内置 `caors::vector<T>` 会生成
   `caors.vector<T>` 类型名。
+- `set_traits<T>` 集合容器：`field_kind::set`，`element_type` 为元素类型。内置
+  `caors::hash_set<T>` 会生成 `caors.hash_set<T>` 类型名。
 - `associative_traits<T>` 关联容器：`field_kind::associative`，`key_type` 为 key 类型，`mapped_type` 为 value
   类型。内置 `caors::hash_map<K, V>` 会生成 `caors.hash_map<K,V>` 类型名。
 
@@ -147,6 +151,30 @@ struct sequence_traits<my_sequence<T>> {
 
 `resize()` 适合只在元素可默认构造时返回成功，`append()` 适合只在元素可拷贝时返回成功。调用方通过
 `reflection_field` 操作 sequence 字段时，类型不匹配、对象为空或 traits 不支持对应操作都会返回失败。
+
+集合容器识别通过 `set_traits<T>` 扩展。集合只有元素，没有 mapped value；序列化层会按数组读写，
+反序列化时遇到重复元素会返回失败：
+
+```cpp
+namespace caors {
+
+template <typename T>
+struct set_traits<my_set<T>> {
+  static constexpr bool is_set = true;
+  using element_type = T;
+
+  static constexpr std::string_view type_name_prefix() noexcept { return "my.set"; }
+  static std::size_t size(const my_set<T>& value) noexcept;
+
+  template <typename Visitor>
+  static void for_each(const my_set<T>& value, Visitor&& visitor);
+
+  static void clear(my_set<T>& value);
+  static bool insert(my_set<T>& value, element_type element);
+};
+
+}
+```
 
 关联容器识别通过 `associative_traits<T>` 扩展。traits 用于描述 key/value 类型、生成容器类型名，
 并为通用 serialization codec 提供遍历和插入入口：
@@ -314,7 +342,7 @@ field->try_set<float>(&instance, 75.0F);
 
 - `valid()`：判断视图是否仍有效。
 - `name()` / `type()` / `type_name()` / `value_type()`：查询字段类型信息。
-- `element_type()` / `element_type_name()`：查询 sequence 字段的元素类型信息。
+- `element_type()` / `element_type_name()`：查询 sequence/set 字段的元素类型信息。
 - `key_type()` / `key_type_name()` / `mapped_type()` / `mapped_type_name()`：查询 associative 字段的 key/value
   类型信息。
 - `kind()` / `wrapper_semantics()` / `pointer_depth()` / `nullable()`：查询字段形态语义。
@@ -324,6 +352,7 @@ field->try_set<float>(&instance, 75.0F);
 - `get_ref()` / `get_mutable_ref()`：按运行期 `any_ref` 引用字段。
 - `is_sequence()` / `sequence_size()` / `sequence_element_ref()` /
   `sequence_element_mutable_ref()`：查询和访问顺序容器字段。
+- `is_set()`：判断字段是否是集合容器字段。
 - `is_associative()`：判断字段是否是关联容器字段。
 - `sequence_clear()` / `sequence_resize()` / `sequence_append_value()`：通过 `sequence_traits` 修改顺序容器字段。
 

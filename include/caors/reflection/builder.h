@@ -46,6 +46,7 @@ public:
         field.value_type = resolved_type->id();
       }
       enrich_sequence_field<field_type>(field);
+      enrich_set_field<field_type>(field);
       enrich_associative_field<field_type>(field);
       reflection_.fields.push_back(field);
     } else {
@@ -59,6 +60,16 @@ public:
         reflection_.fields.push_back(
             make_reflection_field_data<Field>(name, *sequence_name, detail::member_offset(member)));
         enrich_sequence_field<field_type>(reflection_.fields.back());
+      } else if constexpr (set_traits<field_type>::is_set) {
+        const std::optional<string> set_name = set_type_name<field_type>();
+        if (!set_name.has_value()) {
+          pending_status_ = {error_domain::reflection, errc::invalid_field};
+          return *this;
+        }
+
+        reflection_.fields.push_back(
+            make_reflection_field_data<Field>(name, *set_name, detail::member_offset(member)));
+        enrich_set_field<field_type>(reflection_.fields.back());
       } else if constexpr (associative_traits<field_type>::is_associative) {
         const std::optional<string> associative_name = associative_type_name<field_type>();
         if (!associative_name.has_value()) {
@@ -92,6 +103,7 @@ public:
       field.value_type = field.type;
     }
     enrich_sequence_field<std::remove_cv_t<Field>>(field);
+    enrich_set_field<std::remove_cv_t<Field>>(field);
     enrich_associative_field<std::remove_cv_t<Field>>(field);
     reflection_.fields.push_back(field);
     return *this;
@@ -144,6 +156,38 @@ private:
   template <typename Field> void enrich_sequence_field(reflection_field_data& field) const {
     if constexpr (sequence_traits<Field>::is_sequence) {
       using element_type = typename sequence_traits<Field>::element_type;
+
+      const std::optional<meta_type> element = caors::find_type<element_type>();
+      if (element.has_value()) {
+        field.element_type = element->id();
+        field.element_type_name = element->name();
+      }
+    }
+  }
+
+  template <typename Field> [[nodiscard]] std::optional<string> set_type_name() const {
+    if constexpr (set_traits<Field>::is_set) {
+      using element_type = typename set_traits<Field>::element_type;
+
+      const std::optional<meta_type> element = ensure_registered_type<element_type>();
+      if (!element.has_value()) {
+        return std::nullopt;
+      }
+
+      string name;
+      name += set_traits<Field>::type_name_prefix();
+      name += "<";
+      name += element->name().view();
+      name += ">";
+      return name;
+    } else {
+      return std::nullopt;
+    }
+  }
+
+  template <typename Field> void enrich_set_field(reflection_field_data& field) const {
+    if constexpr (set_traits<Field>::is_set) {
+      using element_type = typename set_traits<Field>::element_type;
 
       const std::optional<meta_type> element = caors::find_type<element_type>();
       if (element.has_value()) {

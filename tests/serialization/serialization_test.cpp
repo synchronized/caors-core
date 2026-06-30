@@ -118,6 +118,10 @@ struct map_actor {
   caors::hash_map<int, caors::string> labels{};
 };
 
+struct set_actor {
+  caors::hash_set<int> ids{};
+};
+
 template <typename T> struct custom_codec_sequence {
   caors::vector<T> values{};
 };
@@ -828,6 +832,88 @@ TEST_CASE("serialization - deserializes hash map fields from pair arrays", "[ser
   REQUIRE(result.succeeded());
   REQUIRE(actor.labels.size() == 1);
   CHECK(actor.labels.at(3) == "three");
+}
+
+TEST_CASE("serialization - serializes hash set fields as arrays", "[serialization]") {
+  using ids_type = caors::hash_set<int>;
+  REQUIRE(serialization_result_ok(caors::register_serialization_codec<ids_type>()));
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<set_actor>("caors.test.serialization.set_actor")
+          .field("ids", &set_actor::ids)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<set_actor>()));
+
+  set_actor actor{};
+  actor.ids.emplace(7);
+
+  const caors::serialization_text_result text = caors::serialize_text(actor);
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"ids":[7]})");
+
+  const caors::variant_result value = caors::to_serialization_value(actor);
+  REQUIRE(value.succeeded());
+  const caors::variant_member* ids = value.value.find_member(caors::string_name{"ids"});
+  REQUIRE(ids != nullptr);
+  REQUIRE(ids->value.is_array());
+  REQUIRE(ids->value.as_array().size() == 1);
+  CHECK(ids->value.as_array()[0].as_i64() == 7);
+}
+
+TEST_CASE("serialization - deserializes hash set fields from arrays", "[serialization]") {
+  using ids_type = caors::hash_set<int>;
+  REQUIRE(serialization_result_ok(caors::register_serialization_codec<ids_type>()));
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<set_actor>("caors.test.serialization.set_actor")
+          .field("ids", &set_actor::ids)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<set_actor>()));
+
+  caors::variant::array_type ids;
+  ids.push_back(caors::variant::from(std::int64_t{1}));
+  ids.push_back(caors::variant::from(std::int64_t{2}));
+
+  caors::variant::object_type members;
+  members.push_back(caors::variant_member{
+      caors::string_name{"ids"},
+      0,
+      caors::variant::array(std::move(ids)),
+  });
+
+  set_actor actor{};
+  const caors::error result = caors::deserialize(actor, caors::variant::object(std::move(members)));
+
+  REQUIRE(result.succeeded());
+  REQUIRE(actor.ids.size() == 2);
+  CHECK(actor.ids.contains(1));
+  CHECK(actor.ids.contains(2));
+}
+
+TEST_CASE("serialization - hash set reader rejects duplicate elements", "[serialization]") {
+  using ids_type = caors::hash_set<int>;
+  REQUIRE(serialization_result_ok(caors::register_serialization_codec<ids_type>()));
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<set_actor>("caors.test.serialization.set_actor")
+          .field("ids", &set_actor::ids)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<set_actor>()));
+
+  caors::variant::array_type ids;
+  ids.push_back(caors::variant::from(std::int64_t{1}));
+  ids.push_back(caors::variant::from(std::int64_t{1}));
+
+  caors::variant::object_type members;
+  members.push_back(caors::variant_member{
+      caors::string_name{"ids"},
+      0,
+      caors::variant::array(std::move(ids)),
+  });
+
+  set_actor actor{};
+  const caors::error result = caors::deserialize(actor, caors::variant::object(std::move(members)));
+
+  CHECK(result.failed());
+  CHECK(result.domain() == caors::error_domain::serialization);
+  CHECK(result.value() == caors::errc::already_exists);
 }
 
 TEST_CASE("serialization - generic sequence codec uses sequence traits", "[serialization]") {

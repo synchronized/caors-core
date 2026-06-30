@@ -59,10 +59,11 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 提供运行时类型查询和字段元信息查询入口。
 - [x] 提供字段动态 get/set 入口。
 - [x] 支持基于 `sequence_traits<T>` 的顺序容器字段描述、元素类型查询和基础修改入口。
+- [x] 支持基于 `set_traits<T>` 的集合容器字段描述和元素类型查询。
 - [x] 支持基于 `associative_traits<T>` 的 hash map 字段描述和 key/value 类型查询。
 - [ ] 定义函数和属性的元信息模型。
 - [ ] 提供函数调用入口。
-- [ ] 支持 set/list 等非字典容器和非连续容器类型反射描述。
+- [ ] 支持 list 等非连续顺序容器类型反射描述。
 - [ ] 增加反射注册、查询、访问控制和类型转换测试。
 
 ## 5. 序列化
@@ -86,6 +87,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 增加 JSON writer、JSON DOM parser 和 `serialize_json()` / `deserialize_json()`。
 - [x] 增加 `variant::dictionary` 和 `caors::hash_map<K, V>` 字典 codec。
 - [x] 抽出基于 `sequence_traits<T>` 和 `associative_traits<T>` 的通用容器 codec。
-- [ ] 支持 set/list、裸指针和一般 wrapper 字段。
+- [x] 支持基于 `set_traits<T>` 的 `caors::hash_set<T>` 集合 codec。
+- [ ] 支持 list、裸指针和一般 wrapper 字段。
 - [ ] 增加紧凑二进制和 msgpack 等二进制后端。
 - [ ] 增加版本兼容、缺失字段、未知字段和跨平台字节序测试。
