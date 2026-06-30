@@ -49,6 +49,59 @@ error write(serialization_writer& writer, const variant& value) {
 
     return writer.end_array();
   }
+  case variant_kind::dictionary: {
+    error status = writer.begin_dictionary(value.as_dictionary().size());
+    if (status) {
+      return status;
+    }
+
+    std::size_t index = 0;
+    for (const variant_entry& entry : value.as_dictionary()) {
+      status = writer.begin_entry(index);
+      if (status) {
+        return status;
+      }
+
+      status = writer.begin_key();
+      if (status) {
+        return status;
+      }
+
+      status = write(writer, entry.key);
+      if (status) {
+        return status;
+      }
+
+      status = writer.end_key();
+      if (status) {
+        return status;
+      }
+
+      status = writer.begin_value();
+      if (status) {
+        return status;
+      }
+
+      status = write(writer, entry.value);
+      if (status) {
+        return status;
+      }
+
+      status = writer.end_value();
+      if (status) {
+        return status;
+      }
+
+      status = writer.end_entry();
+      if (status) {
+        return status;
+      }
+
+      ++index;
+    }
+
+    return writer.end_dictionary();
+  }
   case variant_kind::object: {
     serialization_type_data type_data;
     type_data.fields.reserve(value.as_object().size());

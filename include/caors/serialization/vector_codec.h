@@ -51,7 +51,18 @@ template <typename T>
     std::int64_t decoded = 0;
     error status = reader.read_i64(decoded);
     if (status) {
-      return status;
+      std::uint64_t unsigned_decoded = 0;
+      status = reader.read_u64(unsigned_decoded);
+      if (status) {
+        return status;
+      }
+
+      if (unsigned_decoded > static_cast<std::uint64_t>(std::numeric_limits<type>::max())) {
+        return {error_domain::serialization, errc::invalid_argument};
+      }
+
+      value = static_cast<type>(unsigned_decoded);
+      return {};
     }
 
     if (decoded < static_cast<std::int64_t>(std::numeric_limits<type>::min()) ||

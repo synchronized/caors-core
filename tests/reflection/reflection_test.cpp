@@ -169,6 +169,10 @@ struct custom_sequence_holder {
   test_reflection::custom_sequence<int> values{};
 };
 
+struct hash_map_holder {
+  caors::hash_map<int, int> values{};
+};
+
 struct readonly_actor {
   const int id = 7;
 };
@@ -518,6 +522,26 @@ TEST_CASE("reflection - custom sequence traits expose field view", "[reflection]
   CHECK(instance.values.values.size() == 1);
   CHECK(values->sequence_clear(&instance));
   CHECK(instance.values.values.empty());
+}
+
+TEST_CASE("reflection - associative field view exposes key and value metadata", "[reflection]") {
+  REQUIRE(caors::reflection::class_<hash_map_holder>("caors.test.reflection.hash_map_holder")
+              .field("values", &hash_map_holder::values)
+              .commit()
+              .succeeded());
+
+  auto reflected = caors::find_reflection("caors.test.reflection.hash_map_holder");
+  REQUIRE(reflected.has_value());
+
+  auto values = reflected->find_field("values");
+  REQUIRE(values.has_value());
+  CHECK(values->kind() == caors::field_kind::associative);
+  CHECK(values->is_associative());
+  CHECK(values->type_name() == "caors.hash_map<int,int>");
+  CHECK(values->key_type() == registered_type_id("int"));
+  CHECK(values->key_type_name() == "int");
+  CHECK(values->mapped_type() == registered_type_id("int"));
+  CHECK(values->mapped_type_name() == "int");
 }
 
 TEST_CASE("reflection - views remain valid for append-only registry", "[reflection]") {

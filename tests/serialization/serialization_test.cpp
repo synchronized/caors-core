@@ -113,6 +113,10 @@ struct vector_actor {
   caors::vector<int> scores{};
 };
 
+struct map_actor {
+  caors::hash_map<int, caors::string> labels{};
+};
+
 struct nested_vector_actor {
   caors::vector<nested_stats> stats{};
 };
@@ -656,6 +660,87 @@ TEST_CASE("serialization - deserializes vector fields from arrays", "[serializat
   REQUIRE(actor.scores.size() == 2);
   CHECK(actor.scores[0] == 5);
   CHECK(actor.scores[1] == 6);
+}
+
+TEST_CASE("serialization - serializes hash map fields as dictionaries", "[serialization]") {
+  using labels_type = caors::hash_map<int, caors::string>;
+  REQUIRE(serialization_result_ok(caors::register_serialization_codec<labels_type>()));
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<map_actor>("caors.test.serialization.map_actor")
+          .field("labels", &map_actor::labels)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<map_actor>()));
+
+  map_actor actor{};
+  actor.labels.emplace(7, caors::string{"seven"});
+
+  const caors::serialization_text_result text = caors::serialize_text(actor);
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"labels":[[7,"seven"]]})");
+
+  const caors::variant_result value = caors::to_serialization_value(actor);
+  REQUIRE(value.succeeded());
+  const caors::variant_member* labels = value.value.find_member(caors::string_name{"labels"});
+  REQUIRE(labels != nullptr);
+  REQUIRE(labels->value.is_dictionary());
+  REQUIRE(labels->value.as_dictionary().size() == 1);
+  CHECK(labels->value.as_dictionary()[0].key.as_i64() == 7);
+  CHECK(labels->value.as_dictionary()[0].value.as_string() == "seven");
+}
+
+TEST_CASE("serialization - deserializes hash map fields from dictionaries", "[serialization]") {
+  using labels_type = caors::hash_map<int, caors::string>;
+  REQUIRE(serialization_result_ok(caors::register_serialization_codec<labels_type>()));
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<map_actor>("caors.test.serialization.map_actor")
+          .field("labels", &map_actor::labels)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<map_actor>()));
+
+  caors::variant::dictionary_type entries;
+  entries.push_back(caors::variant_entry{
+      caors::variant::from(std::int64_t{1}),
+      caors::variant::from(std::string_view{"one"}),
+  });
+  entries.push_back(caors::variant_entry{
+      caors::variant::from(std::int64_t{2}),
+      caors::variant::from(std::string_view{"two"}),
+  });
+
+  caors::variant::object_type members;
+  members.push_back(caors::variant_member{
+      caors::string_name{"labels"},
+      0,
+      caors::variant::dictionary(std::move(entries)),
+  });
+
+  map_actor actor{};
+  const caors::error result = caors::deserialize(actor, caors::variant::object(std::move(members)));
+
+  REQUIRE(result.succeeded());
+  REQUIRE(actor.labels.size() == 2);
+  CHECK(actor.labels.at(1) == "one");
+  CHECK(actor.labels.at(2) == "two");
+}
+
+TEST_CASE("serialization - deserializes hash map fields from pair arrays", "[serialization]") {
+  using labels_type = caors::hash_map<int, caors::string>;
+  REQUIRE(serialization_result_ok(caors::register_serialization_codec<labels_type>()));
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<map_actor>("caors.test.serialization.map_actor")
+          .field("labels", &map_actor::labels)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<map_actor>()));
+
+  const caors::variant_result parsed = caors::parse_json(R"({"labels":[[3,"three"]]})");
+  REQUIRE(parsed.succeeded());
+
+  map_actor actor{};
+  const caors::error result = caors::deserialize(actor, parsed.value);
+
+  REQUIRE(result.succeeded());
+  REQUIRE(actor.labels.size() == 1);
+  CHECK(actor.labels.at(3) == "three");
 }
 
 TEST_CASE("serialization - recursively serializes vector struct elements", "[serialization]") {

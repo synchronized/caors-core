@@ -141,6 +141,26 @@ string_name reflection_field::element_type_name() const noexcept {
   return field != nullptr ? field->element_type_name : string_name{};
 }
 
+type_id reflection_field::key_type() const noexcept {
+  const reflection_field_data* field = info();
+  return field != nullptr ? field->key_type : type_id{};
+}
+
+string_name reflection_field::key_type_name() const noexcept {
+  const reflection_field_data* field = info();
+  return field != nullptr ? field->key_type_name : string_name{};
+}
+
+type_id reflection_field::mapped_type() const noexcept {
+  const reflection_field_data* field = info();
+  return field != nullptr ? field->mapped_type : type_id{};
+}
+
+string_name reflection_field::mapped_type_name() const noexcept {
+  const reflection_field_data* field = info();
+  return field != nullptr ? field->mapped_type_name : string_name{};
+}
+
 field_kind reflection_field::kind() const noexcept {
   const reflection_field_data* field = info();
   return field != nullptr ? field->kind : field_kind::value;
@@ -246,6 +266,11 @@ bool reflection_field::try_set_object_ref(void* object, caors::object* instance)
 bool reflection_field::is_sequence() const noexcept {
   const reflection_field_data* field = info();
   return field != nullptr && field->kind == field_kind::sequence;
+}
+
+bool reflection_field::is_associative() const noexcept {
+  const reflection_field_data* field = info();
+  return field != nullptr && field->kind == field_kind::associative;
 }
 
 std::optional<std::size_t> reflection_field::sequence_size(const void* object) const {

@@ -471,6 +471,36 @@ error json_serialization_writer::begin_element(std::size_t) {
   return {};
 }
 
+error json_serialization_writer::begin_dictionary(std::size_t size) { return begin_array(size); }
+
+error json_serialization_writer::begin_entry(std::size_t index) {
+  error status = begin_element(index);
+  if (status) {
+    return status;
+  }
+
+  return begin_array(2);
+}
+
+error json_serialization_writer::begin_key() { return begin_element(0); }
+
+error json_serialization_writer::end_key() { return end_element(); }
+
+error json_serialization_writer::begin_value() { return begin_element(1); }
+
+error json_serialization_writer::end_value() { return end_element(); }
+
+error json_serialization_writer::end_entry() {
+  error status = end_array();
+  if (status) {
+    return status;
+  }
+
+  return end_element();
+}
+
+error json_serialization_writer::end_dictionary() { return end_array(); }
+
 error json_serialization_writer::write_bool(bool value) {
   error status = prepare_value();
   if (status) {

@@ -71,6 +71,13 @@ variant variant::array(array_type values) {
   return result;
 }
 
+variant variant::dictionary(dictionary_type entries) {
+  variant result;
+  result.kind_ = variant_kind::dictionary;
+  result.dictionary_value_ = std::move(entries);
+  return result;
+}
+
 variant variant::object(object_type members) {
   variant result;
   result.kind_ = variant_kind::object;
@@ -84,6 +91,15 @@ bool variant::push_back(variant value) {
   }
 
   array_value_.push_back(std::move(value));
+  return true;
+}
+
+bool variant::add_entry(variant key, variant value) {
+  if (!is_dictionary()) {
+    return false;
+  }
+
+  dictionary_value_.push_back(variant_entry{std::move(key), std::move(value)});
   return true;
 }
 
@@ -178,6 +194,10 @@ variant_serialization_reader::find_member(const serialization_field_data& field)
 }
 
 const variant* variant_serialization_reader::current_value() const noexcept {
+  if (!dictionary_stack_.empty() && dictionary_stack_.back().current != nullptr) {
+    return dictionary_stack_.back().current;
+  }
+
   if (!current_members_.empty() && current_members_.back() != nullptr &&
       object_stack_.size() > array_stack_.size()) {
     return &current_members_.back()->value;
@@ -231,6 +251,126 @@ error variant_serialization_reader::begin_element(std::size_t index) {
   }
 
   current_elements_.back() = &array->as_array()[index];
+  return {};
+}
+
+error variant_serialization_reader::begin_dictionary(std::size_t& size) {
+  const variant* dictionary = current_value();
+  if (dictionary == nullptr || (dictionary->kind() != variant_kind::dictionary &&
+                                dictionary->kind() != variant_kind::array)) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  size = dictionary->kind() == variant_kind::dictionary ? dictionary->as_dictionary().size()
+                                                        : dictionary->as_array().size();
+  dictionary_stack_.push_back(dictionary_context{dictionary, nullptr, nullptr, nullptr});
+  return {};
+}
+
+error variant_serialization_reader::begin_entry(std::size_t index) {
+  if (dictionary_stack_.empty()) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  dictionary_context& context = dictionary_stack_.back();
+  if (context.entry != nullptr || context.pair != nullptr || context.current != nullptr) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  if (context.source->kind() == variant_kind::dictionary) {
+    if (index >= context.source->as_dictionary().size()) {
+      return {error_domain::serialization, errc::invalid_argument};
+    }
+
+    context.entry = &context.source->as_dictionary()[index];
+    return {};
+  }
+
+  if (index >= context.source->as_array().size()) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  const variant& pair = context.source->as_array()[index];
+  if (pair.kind() != variant_kind::array || pair.as_array().size() != 2) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  context.pair = &pair;
+  return {};
+}
+
+error variant_serialization_reader::begin_key() {
+  if (dictionary_stack_.empty()) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  dictionary_context& context = dictionary_stack_.back();
+  if (context.current != nullptr || (context.entry == nullptr && context.pair == nullptr)) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  context.current = context.entry != nullptr ? &context.entry->key : &context.pair->as_array()[0];
+  return {};
+}
+
+error variant_serialization_reader::end_key() {
+  if (dictionary_stack_.empty() || dictionary_stack_.back().current == nullptr) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  dictionary_stack_.back().current = nullptr;
+  return {};
+}
+
+error variant_serialization_reader::begin_value() {
+  if (dictionary_stack_.empty()) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  dictionary_context& context = dictionary_stack_.back();
+  if (context.current != nullptr || (context.entry == nullptr && context.pair == nullptr)) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  context.current = context.entry != nullptr ? &context.entry->value : &context.pair->as_array()[1];
+  return {};
+}
+
+error variant_serialization_reader::end_value() {
+  if (dictionary_stack_.empty() || dictionary_stack_.back().current == nullptr) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  dictionary_stack_.back().current = nullptr;
+  return {};
+}
+
+error variant_serialization_reader::end_entry() {
+  if (dictionary_stack_.empty()) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  dictionary_context& context = dictionary_stack_.back();
+  if (context.current != nullptr || (context.entry == nullptr && context.pair == nullptr)) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  context.entry = nullptr;
+  context.pair = nullptr;
+  return {};
+}
+
+error variant_serialization_reader::end_dictionary() {
+  if (dictionary_stack_.empty()) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  const dictionary_context& context = dictionary_stack_.back();
+  if (context.current != nullptr || context.entry != nullptr || context.pair != nullptr) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  dictionary_stack_.pop_back();
   return {};
 }
 

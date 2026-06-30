@@ -74,6 +74,9 @@ caors::reflection::class_<actor>("game.actor")
 - 如果字段类型没有注册，但存在 `type_name<T>` 默认映射，则使用默认类型名注册为基础类型，并使用注册表分配的 `type_id`。
 - 如果字段类型满足 `sequence_traits<T>::is_sequence`，反射 builder 会根据 traits 的类型名前缀和元素类型名生成
   容器类型名，并记录元素类型信息。内置特化支持 `caors::vector<T>` 和 `std::vector<T, Allocator>`。
+- 如果字段类型满足 `associative_traits<T>::is_associative`，反射 builder 会根据 traits 的类型名前缀、
+  key 类型名和 value 类型名生成容器类型名，并记录 key/value 类型信息。内置特化支持
+  `caors::hash_map<K, V>` 和 `std::unordered_map<K, V, ...>`。
 - 如果两者都没有，`.commit()` 返回 `invalid_field`。
 - 字段类型语义最多支持一层裸指针或 wrapper；`T**`、`std::unique_ptr<T*>`、
   `std::optional<std::shared_ptr<T>>` 这类嵌套组合会触发静态断言。
@@ -97,6 +100,8 @@ caors::reflection::class_<actor>("game.actor")
 - `sequence_traits<T>` 顺序容器：`field_kind::sequence`，`element_type` 为元素类型，可以通过字段视图查询元素数量、
   访问元素引用，并在 traits 支持时执行清空、调整大小和追加元素。内置 `caors::vector<T>` 会生成
   `caors.vector<T>` 类型名。
+- `associative_traits<T>` 关联容器：`field_kind::associative`，`key_type` 为 key 类型，`mapped_type` 为 value
+  类型。内置 `caors::hash_map<K, V>` 会生成 `caors.hash_map<K,V>` 类型名。
 
 STL 智能指针和裸指针只作为外部字段类型被反射系统描述。CAORS 不根据这些字段接管对象生命周期；
 用户如果直接使用这些类型，需要自行保证释放、引用有效性和线程安全。后续 CAORS 自身的对象句柄、
@@ -142,6 +147,24 @@ struct sequence_traits<my_sequence<T>> {
 
 `resize()` 适合只在元素可默认构造时返回成功，`append()` 适合只在元素可拷贝时返回成功。调用方通过
 `reflection_field` 操作 sequence 字段时，类型不匹配、对象为空或 traits 不支持对应操作都会返回失败。
+
+关联容器识别通过 `associative_traits<T>` 扩展。当前 traits 先用于描述 key/value 类型和生成容器类型名，
+具体序列化读写由对应 serialization codec 负责：
+
+```cpp
+namespace caors {
+
+template <typename K, typename V>
+struct associative_traits<my_map<K, V>> {
+  static constexpr bool is_associative = true;
+  using key_type = K;
+  using mapped_type = V;
+
+  static constexpr std::string_view type_name_prefix() noexcept { return "my.map"; }
+};
+
+}
+```
 
 `field_wrapper_semantics` 当前含义：
 
@@ -285,6 +308,8 @@ field->try_set<float>(&instance, 75.0F);
 - `valid()`：判断视图是否仍有效。
 - `name()` / `type()` / `type_name()` / `value_type()`：查询字段类型信息。
 - `element_type()` / `element_type_name()`：查询 sequence 字段的元素类型信息。
+- `key_type()` / `key_type_name()` / `mapped_type()` / `mapped_type_name()`：查询 associative 字段的 key/value
+  类型信息。
 - `kind()` / `wrapper_semantics()` / `pointer_depth()` / `nullable()`：查询字段形态语义。
 - `offset()` / `size()` / `alignment()` / `writable()`：查询字段布局和可写性。
 - `try_get<T>()` / `try_set<T>()`：按静态类型读写字段。
@@ -292,6 +317,7 @@ field->try_set<float>(&instance, 75.0F);
 - `get_ref()` / `get_mutable_ref()`：按运行期 `any_ref` 引用字段。
 - `is_sequence()` / `sequence_size()` / `sequence_element_ref()` /
   `sequence_element_mutable_ref()`：查询和访问顺序容器字段。
+- `is_associative()`：判断字段是否是关联容器字段。
 - `sequence_clear()` / `sequence_resize()` / `sequence_append_value()`：通过 `sequence_traits` 修改顺序容器字段。
 
 ### 全局注册表

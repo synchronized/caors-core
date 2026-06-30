@@ -36,6 +36,10 @@ public:
   [[nodiscard]] type_id value_type() const noexcept;
   [[nodiscard]] type_id element_type() const noexcept;
   [[nodiscard]] string_name element_type_name() const noexcept;
+  [[nodiscard]] type_id key_type() const noexcept;
+  [[nodiscard]] string_name key_type_name() const noexcept;
+  [[nodiscard]] type_id mapped_type() const noexcept;
+  [[nodiscard]] string_name mapped_type_name() const noexcept;
   [[nodiscard]] field_kind kind() const noexcept;
   [[nodiscard]] field_wrapper_semantics wrapper_semantics() const noexcept;
   [[nodiscard]] std::uint8_t pointer_depth() const noexcept;
@@ -65,6 +69,9 @@ public:
 
   /** @brief 判断字段是否是顺序容器。 */
   [[nodiscard]] bool is_sequence() const noexcept;
+
+  /** @brief 判断字段是否是关联容器。 */
+  [[nodiscard]] bool is_associative() const noexcept;
 
   /** @brief 获取顺序容器字段元素数量。 */
   [[nodiscard]] std::optional<std::size_t> sequence_size(const void* object) const;

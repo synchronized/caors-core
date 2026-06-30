@@ -18,6 +18,14 @@ public:
   [[nodiscard]] error begin_field(const serialization_field_data& field) override;
   [[nodiscard]] error begin_array(std::size_t& size) override;
   [[nodiscard]] error begin_element(std::size_t index) override;
+  [[nodiscard]] error begin_dictionary(std::size_t& size) override;
+  [[nodiscard]] error begin_entry(std::size_t index) override;
+  [[nodiscard]] error begin_key() override;
+  [[nodiscard]] error end_key() override;
+  [[nodiscard]] error begin_value() override;
+  [[nodiscard]] error end_value() override;
+  [[nodiscard]] error end_entry() override;
+  [[nodiscard]] error end_dictionary() override;
   [[nodiscard]] error read_bool(bool& value) override;
   [[nodiscard]] error read_i64(std::int64_t& value) override;
   [[nodiscard]] error read_u64(std::uint64_t& value) override;
@@ -32,11 +40,19 @@ private:
   [[nodiscard]] const variant_member* find_member(const serialization_field_data& field) const;
   [[nodiscard]] const variant* current_value() const noexcept;
 
+  struct dictionary_context {
+    const variant* source = nullptr;
+    const variant_entry* entry = nullptr;
+    const variant* pair = nullptr;
+    const variant* current = nullptr;
+  };
+
   const variant* root_ = nullptr;
   vector<const variant*> object_stack_{};
   vector<const variant_member*> current_members_{};
   vector<const variant*> array_stack_{};
   vector<const variant*> current_elements_{};
+  vector<dictionary_context> dictionary_stack_{};
 };
 
 } // namespace caors

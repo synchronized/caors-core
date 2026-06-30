@@ -13,6 +13,7 @@
 #include <optional>
 #include <string_view>
 #include <type_traits>
+#include <unordered_map>
 #include <vector>
 
 namespace caors {
@@ -24,6 +25,7 @@ enum class field_kind {
   raw_pointer,
   wrapper,
   sequence,
+  associative,
 };
 
 /**
@@ -82,6 +84,30 @@ template <typename T, typename Allocator> struct sequence_traits<std::vector<T, 
   }
 };
 
+/**
+ * @brief 关联容器反射 traits。
+ *
+ * 自定义字典或 map 容器可以特化该模板接入反射系统。第一版只提供 key/value 类型元信息。
+ */
+template <typename T> struct associative_traits {
+  static constexpr bool is_associative = false;
+};
+
+template <typename K, typename V, typename Hash, typename Equal, typename Allocator>
+struct associative_traits<std::unordered_map<K, V, Hash, Equal, Allocator>> {
+  static constexpr bool is_associative = true;
+  using key_type = std::remove_cv_t<K>;
+  using mapped_type = std::remove_cv_t<V>;
+
+  [[nodiscard]] static constexpr std::string_view type_name_prefix() noexcept {
+    if constexpr (std::is_same_v<Allocator, allocator<std::pair<const K, V>>>) {
+      return "caors.hash_map";
+    } else {
+      return "std.unordered_map";
+    }
+  }
+};
+
 namespace detail {
 
 using object_ref_get_fn = object* (*)(const void*) noexcept;
@@ -131,6 +157,8 @@ struct field_traits_info {
   field_wrapper_semantics wrapper_semantics = field_wrapper_semantics::none;
   type_id value_type{};
   type_id element_type{};
+  type_id key_type{};
+  type_id mapped_type{};
   std::uint8_t pointer_depth = 0;
   bool nullable = false;
 };
@@ -146,6 +174,15 @@ template <typename Field> struct field_traits {
       info.kind = field_kind::sequence;
       info.value_type = known_type_id<field_type>();
       info.element_type = known_type_id<element_type>();
+      return info;
+    } else if constexpr (associative_traits<field_type>::is_associative) {
+      using key_type = typename associative_traits<field_type>::key_type;
+      using mapped_type = typename associative_traits<field_type>::mapped_type;
+
+      info.kind = field_kind::associative;
+      info.value_type = known_type_id<field_type>();
+      info.key_type = known_type_id<key_type>();
+      info.mapped_type = known_type_id<mapped_type>();
       return info;
     } else if constexpr (wrapper_traits<field_type>::is_wrapper) {
       using wrapped_type = typename wrapper_traits<field_type>::wrapped_type;
@@ -341,13 +378,29 @@ struct reflection_field_data {
   detail::cpp_type_key cpp_type = nullptr;
   type_id value_type{};
   type_id element_type{};
+  type_id key_type{};
+  type_id mapped_type{};
   string_name element_type_name{};
+  string_name key_type_name{};
+  string_name mapped_type_name{};
   detail::cpp_type_key element_cpp_type = nullptr;
+  detail::cpp_type_key key_cpp_type = nullptr;
+  detail::cpp_type_key mapped_cpp_type = nullptr;
   std::size_t element_size = 0;
   std::size_t element_alignment = 0;
+  std::size_t key_size = 0;
+  std::size_t key_alignment = 0;
+  std::size_t mapped_size = 0;
+  std::size_t mapped_alignment = 0;
   detail::value_clone_fn clone_element = nullptr;
   detail::value_destroy_fn destroy_element = nullptr;
   detail::value_assign_fn assign_element = nullptr;
+  detail::value_clone_fn clone_key = nullptr;
+  detail::value_destroy_fn destroy_key = nullptr;
+  detail::value_assign_fn assign_key = nullptr;
+  detail::value_clone_fn clone_mapped = nullptr;
+  detail::value_destroy_fn destroy_mapped = nullptr;
+  detail::value_assign_fn assign_mapped = nullptr;
   detail::value_clone_fn clone_value = nullptr;
   detail::value_destroy_fn destroy_value = nullptr;
   detail::value_assign_fn assign_value = nullptr;
@@ -538,10 +591,26 @@ make_reflection_field_data(std::string_view name, std::string_view type_name, st
       detail::cpp_type_key_of<field_type>(),
       traits.value_type,
       traits.element_type,
+      traits.key_type,
+      traits.mapped_type,
       {},
+      {},
+      {},
+      nullptr,
+      nullptr,
       nullptr,
       0,
       0,
+      0,
+      0,
+      0,
+      0,
+      nullptr,
+      nullptr,
+      nullptr,
+      nullptr,
+      nullptr,
+      nullptr,
       nullptr,
       nullptr,
       nullptr,
@@ -579,6 +648,21 @@ make_reflection_field_data(std::string_view name, std::string_view type_name, st
     field.clone_element = detail::value_clone_fn_of<element_type>();
     field.destroy_element = detail::value_destroy_fn_of<element_type>();
     field.assign_element = detail::value_assign_fn_of<element_type>();
+  } else if constexpr (associative_traits<field_type>::is_associative) {
+    using key_type = typename associative_traits<field_type>::key_type;
+    using mapped_type = typename associative_traits<field_type>::mapped_type;
+    field.key_cpp_type = detail::cpp_type_key_of<key_type>();
+    field.key_size = sizeof(key_type);
+    field.key_alignment = alignof(key_type);
+    field.clone_key = detail::value_clone_fn_of<key_type>();
+    field.destroy_key = detail::value_destroy_fn_of<key_type>();
+    field.assign_key = detail::value_assign_fn_of<key_type>();
+    field.mapped_cpp_type = detail::cpp_type_key_of<mapped_type>();
+    field.mapped_size = sizeof(mapped_type);
+    field.mapped_alignment = alignof(mapped_type);
+    field.clone_mapped = detail::value_clone_fn_of<mapped_type>();
+    field.destroy_mapped = detail::value_destroy_fn_of<mapped_type>();
+    field.assign_mapped = detail::value_assign_fn_of<mapped_type>();
   }
 
   return field;

@@ -206,12 +206,18 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `object_ref<T>` 
 - `caors::guid`：按标准 UUID/GUID 字符串读写。
 - `caors::type_guid`：按内部 `guid` 的标准字符串读写。
 - `caors::vector<T>`：通过 `caors/serialization/vector_codec.h` 提供模板 codec，输出为数组。
+- `caors::hash_map<K, V>`：通过 `caors/serialization/map_codec.h` 提供模板 codec，输出为字典 pair 数组。
 
 `caors::vector<T>` codec 需要显式调用 `register_serialization_codec<caors::vector<T>>()`。反射 builder
 通过 `sequence_traits<T>` 为顺序容器字段生成容器类型名并记录元素类型，因此不需要再手动
 `register_type<caors::vector<T>>()`。当前 codec 仍负责具体数组读写，反射元信息负责说明字段是
 sequence 以及元素类型是什么。自定义顺序容器可以先特化 `sequence_traits<T>` 接入反射，再单独注册对应的
 serialization codec 接入序列化。
+
+`caors::hash_map<K, V>` codec 需要显式调用 `register_serialization_codec<caors::hash_map<K, V>>()`。
+反射 builder 通过 `associative_traits<T>` 为关联容器字段生成容器类型名并记录 key/value 类型。当前
+text/json writer 使用 `[[key, value], ...]` 的 pair 数组表示字典，因此可以支持非字符串 key。DOM reader
+同时接受 `variant::dictionary` 和 pair 数组形态。
 
 外部类型可以通过特化 `serialization_codec<T>` 并调用 `register_serialization_codec<T>()` 注册，也可以
 直接按 `type_id` 注册 `serialization_codec_data`。codec 可以分别提供 writer、reader 和 DOM
@@ -228,7 +234,17 @@ serialization codec 接入序列化。
 - 浮点数
 - 字符串
 - 数组
+- 字典
 - 对象
+
+字典条目由 `variant_entry` 表示，key 和 value 都是 `variant`：
+
+```cpp
+struct variant_entry {
+  caors::variant key;
+  caors::variant value;
+};
+```
 
 对象成员由 `variant_member` 表示，保留输出字段名、稳定字段 id 和字段值：
 
@@ -257,8 +273,8 @@ DOM 是可选路径，适合工具、编辑器、测试对比和格式转换。�
 `serialize(instance, writer)`，避免构造整棵中间树。
 
 `variant` 提供 `is_*()` 和 `try_as_*()` 安全访问器，避免在类型不匹配时误读默认存储字段。
-数组和对象可以通过 `push_back()`、`add_member()`、`find_member(name)` 和 `find_member(field_id)`
-做基础修改和查询。
+数组、字典和对象可以通过 `push_back()`、`add_entry()`、`add_member()`、`find_member(name)`
+和 `find_member(field_id)` 做基础修改和查询。
 
 运行期 C++ 值可以显式转换为 `variant`：
 
@@ -331,6 +347,7 @@ caors::string text = result.value;
 - `to_variant()`：把运行期 `any` / `any_ref` 转换为 `variant`。
 - `variant_serialization_reader`：从 DOM 中间对象读入字段的后端。
 - `variant_member`：对象成员，保存字段名、字段 id 和字段值。
+- `variant_entry`：字典条目，保存 key 和 value。
 - `serialization_registry`：全局序列化注册表。
 - `register_serialization()`：注册序列化组件。
 - `serialize()`：通过指定 writer 后端序列化对象。
@@ -346,7 +363,7 @@ caors::string text = result.value;
 - DOM 反序列化默认忽略未知字段。
 - 基础 schema version 字段过滤。
 - 内置 string、string_view、guid 和 type_guid codec。
-- `variant` 安全访问器、数组/对象辅助修改和成员查询。
+- `variant` 安全访问器、数组/字典/对象辅助修改和成员查询。
 - 序列化注册早于反射字段注册。
 
 ## 相关入口

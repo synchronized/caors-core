@@ -23,10 +23,12 @@ enum class variant_kind {
   floating,
   string,
   array,
+  dictionary,
   object,
 };
 
 class variant;
+struct variant_entry;
 struct variant_member;
 
 /**
@@ -38,6 +40,7 @@ struct variant_member;
 class CAORS_API variant final {
 public:
   using array_type = vector<variant>;
+  using dictionary_type = vector<variant_entry>;
   using object_type = vector<variant_member>;
 
   variant();
@@ -55,6 +58,7 @@ public:
   [[nodiscard]] static variant from(double value);
   [[nodiscard]] static variant from(std::string_view value);
   [[nodiscard]] static variant array(array_type values);
+  [[nodiscard]] static variant dictionary(dictionary_type entries);
   [[nodiscard]] static variant object(object_type members);
 
   [[nodiscard]] variant_kind kind() const noexcept { return kind_; }
@@ -65,6 +69,7 @@ public:
   [[nodiscard]] bool is_f64() const noexcept { return kind_ == variant_kind::floating; }
   [[nodiscard]] bool is_string() const noexcept { return kind_ == variant_kind::string; }
   [[nodiscard]] bool is_array() const noexcept { return kind_ == variant_kind::array; }
+  [[nodiscard]] bool is_dictionary() const noexcept { return kind_ == variant_kind::dictionary; }
   [[nodiscard]] bool is_object() const noexcept { return kind_ == variant_kind::object; }
 
   [[nodiscard]] bool as_bool() const noexcept { return bool_value_; }
@@ -73,6 +78,7 @@ public:
   [[nodiscard]] double as_f64() const noexcept { return f64_value_; }
   [[nodiscard]] const string& as_string() const noexcept { return string_value_; }
   [[nodiscard]] const array_type& as_array() const noexcept { return array_value_; }
+  [[nodiscard]] const dictionary_type& as_dictionary() const noexcept { return dictionary_value_; }
   [[nodiscard]] const object_type& as_object() const noexcept { return object_value_; }
 
   [[nodiscard]] const bool* try_as_bool() const noexcept {
@@ -93,20 +99,28 @@ public:
   [[nodiscard]] const array_type* try_as_array() const noexcept {
     return is_array() ? &array_value_ : nullptr;
   }
+  [[nodiscard]] const dictionary_type* try_as_dictionary() const noexcept {
+    return is_dictionary() ? &dictionary_value_ : nullptr;
+  }
   [[nodiscard]] const object_type* try_as_object() const noexcept {
     return is_object() ? &object_value_ : nullptr;
   }
 
   [[nodiscard]] array_type& mutable_array() noexcept { return array_value_; }
+  [[nodiscard]] dictionary_type& mutable_dictionary() noexcept { return dictionary_value_; }
   [[nodiscard]] object_type& mutable_object() noexcept { return object_value_; }
   [[nodiscard]] array_type* try_mutable_array() noexcept {
     return is_array() ? &array_value_ : nullptr;
+  }
+  [[nodiscard]] dictionary_type* try_mutable_dictionary() noexcept {
+    return is_dictionary() ? &dictionary_value_ : nullptr;
   }
   [[nodiscard]] object_type* try_mutable_object() noexcept {
     return is_object() ? &object_value_ : nullptr;
   }
 
   bool push_back(variant value);
+  bool add_entry(variant key, variant value);
   bool add_member(string_name name, std::uint32_t field_id, variant value);
   [[nodiscard]] const variant_member* find_member(string_name name) const noexcept;
   [[nodiscard]] const variant_member* find_member(std::uint32_t field_id) const noexcept;
@@ -121,7 +135,14 @@ private:
   double f64_value_ = 0.0;
   string string_value_{};
   array_type array_value_{};
+  dictionary_type dictionary_value_{};
   object_type object_value_{};
+};
+
+/** @brief 字典条目，key 和 value 都保存为 DOM 值。 */
+struct variant_entry {
+  variant key{};
+  variant value{};
 };
 
 /** @brief 对象成员，保留字段名、字段 id 和字段值。 */

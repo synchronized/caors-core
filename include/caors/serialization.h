@@ -6,6 +6,7 @@
 
 #include "caors/serialization/codec.h"
 #include "caors/serialization/dom_reader.h"
+#include "caors/serialization/map_codec.h"
 #include "caors/serialization/operations.h"
 #include "caors/serialization/reader.h"
 #include "caors/serialization/registry.h"
