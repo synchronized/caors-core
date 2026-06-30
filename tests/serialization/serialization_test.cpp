@@ -99,9 +99,8 @@ struct unsupported_field_actor {
   unsupported_field_value value{};
 };
 
-[[nodiscard]] bool reflection_result_ok(caors::reflection_register_result result) noexcept {
-  return result == caors::reflection_register_result::success ||
-         result == caors::reflection_register_result::duplicate_reflection;
+[[nodiscard]] bool reflection_result_ok(caors::error result) noexcept {
+  return result.succeeded() || result.value() == caors::errc::duplicate_reflection;
 }
 
 [[nodiscard]] bool serialization_result_ok(caors::error result) noexcept {
@@ -192,14 +191,14 @@ TEST_CASE("serialization - serializes reflected struct fields to text", "[serial
           .field("name", &serializable_actor::name)
           .commit()));
 
-  const caors::error register_result = caors::register_serialization<serializable_actor>();
-  REQUIRE(serialization_result_ok(register_result));
+  const caors::error register_status = caors::register_serialization<serializable_actor>();
+  REQUIRE(serialization_result_ok(register_status));
 
   const serializable_actor actor{7, 95.5F, true, "Ada"};
   const caors::serialization_text_result result = caors::serialize_text(actor);
 
   REQUIRE(result.succeeded());
-  CHECK(result.text == R"({"id":7,"health":95.5,"active":true,"name":"Ada"})");
+  CHECK(result.value == R"({"id":7,"health":95.5,"active":true,"name":"Ada"})");
 }
 
 TEST_CASE("serialization - field metadata renames and skips fields", "[serialization]") {
@@ -222,7 +221,7 @@ TEST_CASE("serialization - field metadata renames and skips fields", "[serializa
   const caors::serialization_text_result result = caors::serialize_text(actor);
 
   REQUIRE(result.succeeded());
-  CHECK(result.text == R"({"hp":42.5,"id":7})");
+  CHECK(result.value == R"({"hp":42.5,"id":7})");
 }
 
 TEST_CASE("serialization - generic writer backend serializes fields", "[serialization]") {
@@ -512,7 +511,7 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
       caors::serialize_text(actor, caors::serialization_context{2});
 
   REQUIRE(text.succeeded());
-  CHECK(text.text == R"({"id":1,"current":20})");
+  CHECK(text.value == R"({"id":1,"current":20})");
 
   caors::serialization_value::object_type members;
   members.push_back(caors::serialization_member{
@@ -558,7 +557,7 @@ TEST_CASE("serialization - built in codecs serialize guid and type guid as scala
 
   REQUIRE(text.succeeded());
   CHECK(
-      text.text ==
+      text.value ==
       R"({"id":"2f6d1f64-7a3a-4db2-9a2d-123456789abc","type":"5ed39a97-7b20-4d87-86ac-e62a4a615b10"})");
 
   const caors::serialization_value_result value = caors::to_serialization_value(actor);
@@ -635,7 +634,7 @@ TEST_CASE("serialization - built in codecs serialize string view fields", "[seri
   const caors::serialization_text_result text = caors::serialize_text(actor);
 
   REQUIRE(text.succeeded());
-  CHECK(text.text == R"({"name":"Ada"})");
+  CHECK(text.value == R"({"name":"Ada"})");
 }
 
 TEST_CASE("serialization - writer features validate required field identifiers",
@@ -675,7 +674,7 @@ TEST_CASE("serialization - registration can happen before reflection fields", "[
   const caors::serialization_text_result result = caors::serialize_text(actor);
 
   REQUIRE(result.succeeded());
-  CHECK(result.text == R"({"actor_id":9})");
+  CHECK(result.value == R"({"actor_id":9})");
 }
 
 TEST_CASE("serialization - reports missing serialization metadata", "[serialization]") {
@@ -690,7 +689,7 @@ TEST_CASE("serialization - reports missing serialization metadata", "[serializat
   CHECK(result.failed());
   CHECK(result.status.domain() == caors::error_domain::serialization);
   CHECK(result.status.value() == caors::errc::missing_type);
-  CHECK(result.text.empty());
+  CHECK(result.value.empty());
 }
 
 TEST_CASE("serialization - reports missing configured reflection field", "[serialization]") {

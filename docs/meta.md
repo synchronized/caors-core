@@ -34,7 +34,7 @@
 - `caors/meta/type_key.h`：内部 C++ 类型 key。
 - `caors/meta/type.h`：`meta_type_data`、`meta_type` 和 `make_meta_type_data<T>()`。
 - `caors/meta/view.h`：`meta_view<T...>` 查询视图。
-- `caors/meta/registry.h`：全局 `meta_registry`、注册结果和注册 helper。
+- `caors/meta/registry.h`：全局 `meta_registry`、注册错误状态和注册 helper。
 
 ## 核心概念
 
@@ -147,8 +147,7 @@ caors::meta<actor>()
 `meta_registry` 是进程级全局类型元数据注册表。它直接管理基础类型信息，并允许在同一个 `type_id` 上挂载对象、反射、序列化等元数据组件。普通代码不需要创建 registry 对象：
 
 ```cpp
-caors::type_register_result result =
-    caors::register_type<actor>("game.actor");
+caors::error result = caors::register_type<actor>("game.actor");
 ```
 
 注册表是 append-only：基础类型注册后不可清理或撤销，重复注册相同类型会返回重复结果。
@@ -162,14 +161,13 @@ caors::type_register_result result =
 - `type_name -> type_id`：名称查询索引，可选。
 - `type_guid -> type_id`：稳定身份查询索引，可选。
 
-注册失败会返回明确的 `type_register_result`：
+注册失败会返回 `caors::error`，`domain()` 为 `error_domain::meta`，`value()` 为明确的通用错误码：
 
-- `success`：注册成功。
-- `invalid_type`：类型描述无效。
-- `duplicate_id`：同一个运行期类型记录、C++ 类型或等价类型描述已注册。
-- `duplicate_name`：同一个名称已注册。
-- `duplicate_guid`：同一个非 nil 稳定 GUID 已注册。
-- `missing_parent`：父类型未注册。
+- `errc::invalid_type`：类型描述无效。
+- `errc::duplicate_id`：同一个运行期类型记录、C++ 类型或等价类型描述已注册。
+- `errc::duplicate_name`：同一个名称已注册。
+- `errc::duplicate_guid`：同一个非 nil 稳定 GUID 已注册。
+- `errc::missing_parent`：父类型未注册。
 
 使用方式是先注册基础类型，再给该类型挂载组件：
 
@@ -193,12 +191,11 @@ caors::get_meta_registry().emplace<object_factory_meta>(actor_id, true);
   注册表生命周期内保持稳定。
 - `view<T...>()`：查询同时拥有指定组件集合的类型。
 
-`meta_component_result` 用于描述组件挂载失败原因：
+组件挂载同样返回 `caors::error`，`domain()` 为 `error_domain::meta`：
 
-- `success`：挂载成功。
-- `invalid_type`：传入无效 `type_id`。
-- `missing_type`：目标类型尚未注册。
-- `duplicate_component`：目标类型已经挂载同类组件。
+- `errc::invalid_type`：传入无效 `type_id`。
+- `errc::missing_type`：目标类型尚未注册。
+- `errc::duplicate_component`：目标类型已经挂载同类组件。
 
 ## 与对象和反射的关系
 

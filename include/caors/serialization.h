@@ -9,6 +9,7 @@
 #include "caors/export.h"
 #include "caors/meta.h"
 #include "caors/reflection.h"
+#include "caors/result.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -151,14 +152,7 @@ private:
 };
 
 /** @brief 文本序列化结果。 */
-struct serialization_text_result {
-  error status{};
-  string text{};
-
-  [[nodiscard]] bool succeeded() const noexcept { return status.succeeded(); }
-  [[nodiscard]] bool failed() const noexcept { return status.failed(); }
-  [[nodiscard]] explicit operator bool() const noexcept { return succeeded(); }
-};
+using serialization_text_result = result<string>;
 
 /** @brief 序列化写出后端接口。 */
 class CAORS_API serialization_writer {
@@ -323,14 +317,7 @@ struct serialization_member {
 };
 
 /** @brief 序列化中间值构造结果。 */
-struct serialization_value_result {
-  error status{};
-  serialization_value value{};
-
-  [[nodiscard]] bool succeeded() const noexcept { return status.succeeded(); }
-  [[nodiscard]] bool failed() const noexcept { return status.failed(); }
-  [[nodiscard]] explicit operator bool() const noexcept { return succeeded(); }
-};
+using serialization_value_result = result<serialization_value>;
 
 using serialization_codec_write_fn = error (*)(serialization_writer& writer, const value& data);
 using serialization_codec_read_fn = error (*)(serialization_reader& reader,
@@ -401,7 +388,7 @@ template <typename T> [[nodiscard]] error register_serialization_codec() {
                     void* object) -> error {
       type decoded{};
       error status = serialization_codec<type>::read(reader, decoded);
-      if (status.failed()) {
+      if (status) {
         return status;
       }
 
@@ -429,8 +416,8 @@ template <typename T> [[nodiscard]] error register_serialization_codec() {
   }
 
   if constexpr (detail::has_type_name_v<type>) {
-    const type_register_result result = caors::register_type<type>(type_name<type>::value);
-    if (!type_register_succeeded(result) && result != type_register_result::duplicate_id) {
+    const error result = caors::register_type<type>(type_name<type>::value);
+    if (result && result.value() != errc::duplicate_id) {
       return {error_domain::serialization, errc::invalid_type};
     }
   }

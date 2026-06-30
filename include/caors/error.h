@@ -48,7 +48,7 @@ enum class error_domain {
  * @brief 轻量错误状态。
  *
  * `error` 不拥有动态消息，也不分配内存。需要和标准库互操作时可以通过 `code()` 转为
- * `std::error_code`。
+ * `std::error_code`。布尔上下文中 `true` 表示失败，`false` 表示成功。
  */
 class error {
 public:
@@ -61,6 +61,7 @@ public:
   [[nodiscard]] constexpr errc value() const noexcept { return code_; }
   [[nodiscard]] constexpr bool succeeded() const noexcept { return code_ == errc::success; }
   [[nodiscard]] constexpr bool failed() const noexcept { return !succeeded(); }
+  [[nodiscard]] explicit constexpr operator bool() const noexcept { return failed(); }
   [[nodiscard]] std::error_code code() const noexcept;
 
   friend constexpr bool operator==(error lhs, error rhs) noexcept {
@@ -81,6 +82,30 @@ private:
 [[nodiscard]] CAORS_API std::error_code make_error_code(errc code) noexcept;
 
 inline std::error_code error::code() const noexcept { return make_error_code(code_); }
+
+/** @brief 将错误状态作为另一个模块的错误重新返回，仅替换错误来源域。 */
+[[nodiscard]] constexpr error rethrow_as(error status, error_domain domain) noexcept {
+  if (!status) {
+    return {};
+  }
+
+  return {domain, status.value()};
+}
+
+/**
+ * @brief 将错误状态作为另一个模块的错误重新返回，并覆盖一个模块边界上的语义差异。
+ *
+ * 当底层错误码在当前模块有更准确的对外语义时使用。例如 meta 的
+ * `duplicate_component` 可以在 reflection 边界转换为 `duplicate_reflection`。
+ */
+[[nodiscard]] constexpr error rethrow_as(error status, error_domain domain, errc from,
+                                         errc to) noexcept {
+  if (!status) {
+    return {};
+  }
+
+  return {domain, status.value() == from ? to : status.value()};
+}
 
 } // namespace caors
 

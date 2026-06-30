@@ -35,11 +35,14 @@ struct view_reflection_meta {
   std::string_view display_name{};
 };
 
+[[nodiscard]] constexpr caors::error meta_error(caors::errc code) noexcept {
+  return {caors::error_domain::meta, code};
+}
+
 }
 
 TEST_CASE("meta - global registry stores base type information", "[meta]") {
-  CHECK(caors::register_type<base_actor_type>("caors.test.meta.base_actor") ==
-        caors::type_register_result::success);
+  CHECK(caors::register_type<base_actor_type>("caors.test.meta.base_actor") == caors::error{});
 
   auto type = caors::find_type("caors.test.meta.base_actor");
   REQUIRE(type.has_value());
@@ -50,13 +53,12 @@ TEST_CASE("meta - global registry stores base type information", "[meta]") {
 
 TEST_CASE("meta - global registry stores components by type id", "[meta]") {
   REQUIRE(caors::register_type<component_actor_type>("caors.test.meta.component_actor") ==
-          caors::type_register_result::success);
+          caors::error{});
   const auto actor = caors::find_type<component_actor_type>();
   REQUIRE(actor.has_value());
   const caors::type_id actor_id = actor->id();
 
-  CHECK(caors::get_meta_registry().emplace<factory_meta>(actor_id, true) ==
-        caors::meta_component_result::success);
+  CHECK(caors::get_meta_registry().emplace<factory_meta>(actor_id, true) == caors::error{});
   CHECK(caors::get_meta_registry().has<factory_meta>(actor_id));
   CHECK(caors::get_meta_registry().count<factory_meta>() == 1);
 
@@ -69,37 +71,34 @@ TEST_CASE("meta - global registry stores components by type id", "[meta]") {
   CHECK(factory_ptr->constructible);
 
   CHECK(caors::get_meta_registry().emplace<factory_meta>(actor_id, false) ==
-        caors::meta_component_result::duplicate_component);
+        meta_error(caors::errc::duplicate_component));
   CHECK(caors::get_meta_registry().has<factory_meta>(actor_id));
 }
 
 TEST_CASE("meta - global registry rejects components for missing types", "[meta]") {
   CHECK(caors::get_meta_registry().emplace<missing_component_meta>(
             caors::type_id{std::numeric_limits<std::uint64_t>::max()}, true) ==
-        caors::meta_component_result::missing_type);
+        meta_error(caors::errc::missing_type));
   CHECK(caors::get_meta_registry().emplace<missing_component_meta>(
-            caors::type_id::invalid(), true) == caors::meta_component_result::invalid_type);
+            caors::type_id::invalid(), true) == meta_error(caors::errc::invalid_type));
 }
 
 TEST_CASE("meta - global view finds types with all requested components", "[meta]") {
-  REQUIRE(caors::register_type<view_actor_type>("caors.test.meta.view_actor") ==
-          caors::type_register_result::success);
+  REQUIRE(caors::register_type<view_actor_type>("caors.test.meta.view_actor") == caors::error{});
   const auto actor = caors::find_type<view_actor_type>();
   REQUIRE(actor.has_value());
   const caors::type_id actor_id = actor->id();
 
   REQUIRE(caors::register_type<view_player_type>("caors.test.meta.view_player", actor_id) ==
-          caors::type_register_result::success);
+          caors::error{});
   const auto player = caors::find_type<view_player_type>();
   REQUIRE(player.has_value());
   const caors::type_id player_id = player->id();
 
-  REQUIRE(caors::get_meta_registry().emplace<view_factory_meta>(actor_id, true) ==
-          caors::meta_component_result::success);
-  REQUIRE(caors::get_meta_registry().emplace<view_factory_meta>(player_id, true) ==
-          caors::meta_component_result::success);
+  REQUIRE(caors::get_meta_registry().emplace<view_factory_meta>(actor_id, true) == caors::error{});
+  REQUIRE(caors::get_meta_registry().emplace<view_factory_meta>(player_id, true) == caors::error{});
   REQUIRE(caors::get_meta_registry().emplace<view_reflection_meta>(player_id, "Player") ==
-          caors::meta_component_result::success);
+          caors::error{});
 
   auto object_view = caors::get_meta_registry().view<view_factory_meta>();
   CHECK(object_view.size() == 2);

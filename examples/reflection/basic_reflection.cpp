@@ -13,12 +13,12 @@ struct actor {
 };
 
 int main() {
-  const caors::reflection_register_result result = caors::reflection::class_<actor>("example.actor")
-                                                       .field("id", &actor::id)
-                                                       .field("health", &actor::health)
-                                                       .commit();
+  const caors::error result = caors::reflection::class_<actor>("example.actor")
+                                  .field("id", &actor::id)
+                                  .field("health", &actor::health)
+                                  .commit();
 
-  if (!caors::reflection_register_succeeded(result)) {
+  if (result) {
     return 1;
   }
 

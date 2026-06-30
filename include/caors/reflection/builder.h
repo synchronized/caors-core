@@ -30,7 +30,7 @@ public:
     using field_type = std::remove_cv_t<Field>;
     (void)detail::make_field_traits_info<field_type>();
 
-    if (pending_result_ != reflection_register_result::success) {
+    if (pending_status_) {
       return *this;
     }
 
@@ -50,7 +50,7 @@ public:
         reflection_.fields.push_back(make_reflection_field_data<Field>(
             name, type_name<field_type>::value, detail::member_offset(member)));
       } else {
-        pending_result_ = reflection_register_result::invalid_field;
+        pending_status_ = {error_domain::reflection, errc::invalid_field};
       }
     }
 
@@ -59,7 +59,7 @@ public:
 
   template <typename Field>
   class_builder& field(std::string_view name, Field Class::* member, std::string_view type_name) {
-    if (pending_result_ != reflection_register_result::success) {
+    if (pending_status_) {
       return *this;
     }
 
@@ -72,9 +72,9 @@ public:
     return *this;
   }
 
-  [[nodiscard]] reflection_register_result commit() {
-    if (pending_result_ != reflection_register_result::success) {
-      return pending_result_;
+  [[nodiscard]] error commit() {
+    if (pending_status_) {
+      return pending_status_;
     }
 
     return get_reflection_registry().template register_type_for<Class>(type_, reflection_);
@@ -86,7 +86,7 @@ public:
 private:
   meta_type_data type_{};
   reflection_type_data reflection_{};
-  reflection_register_result pending_result_ = reflection_register_result::success;
+  error pending_status_{};
 };
 
 /** @brief 创建反射注册构建器。 */

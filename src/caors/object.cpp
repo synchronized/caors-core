@@ -27,42 +27,6 @@ object_registry default_object_registry;
   };
 }
 
-[[nodiscard]] object_register_result
-to_object_register_result(type_register_result result) noexcept {
-  switch (result) {
-  case type_register_result::success:
-    return object_register_result::success;
-  case type_register_result::invalid_type:
-    return object_register_result::invalid_type;
-  case type_register_result::duplicate_id:
-    return object_register_result::duplicate_id;
-  case type_register_result::duplicate_name:
-    return object_register_result::duplicate_name;
-  case type_register_result::duplicate_guid:
-    return object_register_result::duplicate_guid;
-  case type_register_result::missing_parent:
-    return object_register_result::missing_parent;
-  }
-
-  return object_register_result::invalid_type;
-}
-
-[[nodiscard]] object_register_result
-to_object_register_result(meta_component_result result) noexcept {
-  switch (result) {
-  case meta_component_result::success:
-    return object_register_result::success;
-  case meta_component_result::invalid_type:
-    return object_register_result::invalid_type;
-  case meta_component_result::missing_type:
-    return object_register_result::invalid_type;
-  case meta_component_result::duplicate_component:
-    return object_register_result::duplicate_id;
-  }
-
-  return object_register_result::invalid_type;
-}
-
 } // namespace
 
 object_id generate_object_id() noexcept {
@@ -102,31 +66,29 @@ object_registry::object_registry() { (void)register_type_for<object>(make_root_o
 
 object_registry::~object_registry() = default;
 
-object_register_result object_registry::register_type(const object_type& type) {
+error object_registry::register_type(const object_type& type) {
   return register_type(nullptr, type);
 }
 
-object_register_result object_registry::register_type(detail::cpp_type_key key,
-                                                      const object_type& type) {
-  const type_register_result type_result =
-      key != nullptr ? get_meta_registry().register_cpp_type(key, type.data)
-                     : get_meta_registry().register_type(type.data);
-  if (!type_register_succeeded(type_result) && type_result != type_register_result::duplicate_id) {
-    return to_object_register_result(type_result);
+error object_registry::register_type(detail::cpp_type_key key, const object_type& type) {
+  const error type_status = key != nullptr ? get_meta_registry().register_cpp_type(key, type.data)
+                                           : get_meta_registry().register_type(type.data);
+  if (type_status && type_status.value() != errc::duplicate_id) {
+    return rethrow_as(type_status, error_domain::object);
   }
 
   std::optional<meta_type> stored_meta = key != nullptr
                                              ? get_meta_registry().find_cpp_type(key)
                                              : get_meta_registry().find_type(type.data.name());
   if (!stored_meta.has_value()) {
-    return object_register_result::invalid_type;
+    return {error_domain::object, errc::invalid_type};
   }
 
   object_type stored_type = type;
   stored_type.data = to_meta_type_data(*stored_meta);
 
-  return to_object_register_result(
-      get_meta_registry().emplace<object_type>(stored_type.data.id(), stored_type));
+  return rethrow_as(get_meta_registry().emplace<object_type>(stored_type.data.id(), stored_type),
+                    error_domain::object, errc::duplicate_component, errc::duplicate_id);
 }
 
 bool object_registry::contains(object_type_id id) const {

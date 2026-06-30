@@ -108,12 +108,11 @@ object.type_name(); // "game.player"
 ```cpp
 caors::object_registry registry;
 
-if (!caors::object_register_succeeded(
-      caors::register_object_type<actor>(registry, actor::object_type_name))) {
+if (caors::register_object_type<actor>(registry, actor::object_type_name)) {
   // 处理注册失败。
 }
 
-caors::object_register_result result =
+caors::error result =
     caors::register_object_type<player>(registry, player::object_type_name);
 ```
 
@@ -129,14 +128,13 @@ auto type = registry.find_type<player>();
 registry.is_a(player::static_type_id(), actor::static_type_id());
 ```
 
-注册失败会返回明确的 `object_register_result`：
+注册失败会返回 `caors::error`，`domain()` 为 `error_domain::object`，`value()` 为明确的通用错误码：
 
-- `success`：注册成功。
-- `invalid_type`：类型描述无效。
-- `duplicate_id`：同一个运行期 id、C++ 类型或对象元数据组件已注册。
-- `duplicate_name`：同一个名称已注册。
-- `duplicate_guid`：同一个非 nil 稳定 GUID 已注册。
-- `missing_parent`：父类型未注册。
+- `errc::invalid_type`：类型描述无效。
+- `errc::duplicate_id`：同一个运行期 id、C++ 类型或对象元数据组件已注册。
+- `errc::duplicate_name`：同一个名称已注册。
+- `errc::duplicate_guid`：同一个非 nil 稳定 GUID 已注册。
+- `errc::missing_parent`：父类型未注册。
 
 ## 创建和销毁
 
@@ -182,7 +180,7 @@ caors::destroy_object(instance, &resource);
 - `object_base<Derived, Base>`：CRTP 类型查询辅助。
 - `meta_type_data` / `meta_registry`：对象系统和反射系统共享的全局基础类型描述和元数据注册表。
 - `object_type`：基于 `meta_type_data` 扩展对象创建和销毁能力。
-- `object_register_result`：明确对象类型注册失败原因。
+- `caors::error`：明确对象类型注册失败原因和错误来源域。
 - `object_registry`：类型注册、查询、继承关系判断、默认构造工厂。
 - `get_object_registry()`：进程内默认对象注册表。
 - `create_object<T>()` / `destroy_object<T>()`：接入 `memory_resource` 的直接对象创建和销毁入口。
@@ -193,7 +191,7 @@ caors::destroy_object(instance, &resource);
 - [x] 对象类型 id、名称、大小、对齐和父类型。
 - [x] 复用全局 `meta_registry`。
 - [x] 将 `object_type` 作为类型元数据组件挂载。
-- [x] 注册结果枚举和不一致类型描述检测。
+- [x] 注册错误状态和不一致类型描述检测。
 - [x] 默认构造工厂。
 - [x] 接入 `memory_resource`。
 - [ ] 明确对象 handle / weak handle 设计。

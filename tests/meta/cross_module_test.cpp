@@ -20,9 +20,8 @@ struct cross_module_late_registered {
   int value = 0;
 };
 
-[[nodiscard]] bool reflection_result_ok(caors::reflection_register_result result) noexcept {
-  return result == caors::reflection_register_result::success ||
-         result == caors::reflection_register_result::duplicate_reflection;
+[[nodiscard]] bool reflection_result_ok(caors::error result) noexcept {
+  return result.succeeded() || result.value() == caors::errc::duplicate_reflection;
 }
 
 [[nodiscard]] bool serialization_result_ok(caors::error result) noexcept {
@@ -88,7 +87,7 @@ TEST_CASE("meta - cross module view supports serialization registered before ref
   const cross_module_serialization_first instance{42};
   const caors::serialization_text_result result = caors::serialize_text(instance);
   REQUIRE(result.succeeded());
-  CHECK(result.text == R"({"actor_id":42})");
+  CHECK(result.value == R"({"actor_id":42})");
 }
 
 TEST_CASE("reflection - field handles remain valid after later registrations", "[reflection]") {

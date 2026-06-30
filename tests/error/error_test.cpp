@@ -5,6 +5,7 @@
 #include "caors/meta.h"
 #include "caors/object.h"
 #include "caors/reflection.h"
+#include "caors/result.h"
 
 #include <catch2/catch_all.hpp>
 
@@ -23,37 +24,52 @@ TEST_CASE("error - lightweight status keeps domain and code", "[error]") {
   constexpr caors::error ok = caors::error::ok();
   CHECK(ok.succeeded());
   CHECK_FALSE(ok.failed());
+  CHECK_FALSE(ok);
   CHECK(ok.domain() == caors::error_domain::none);
   CHECK(ok.value() == caors::errc::success);
 
   constexpr caors::error failed{caors::error_domain::serialization, caors::errc::unsupported};
   CHECK(failed.failed());
   CHECK_FALSE(failed.succeeded());
+  CHECK(failed);
   CHECK(failed.domain() == caors::error_domain::serialization);
   CHECK(failed.value() == caors::errc::unsupported);
   CHECK(failed.code().message() == "unsupported");
 }
 
-TEST_CASE("error - meta results map to common errors", "[error]") {
-  CHECK(caors::to_error(caors::type_register_result::success).succeeded());
+TEST_CASE("error - rethrow_as replaces domain and optional code", "[error]") {
+  constexpr caors::error ok = caors::rethrow_as(caors::error{}, caors::error_domain::reflection);
+  CHECK(ok.succeeded());
+  CHECK_FALSE(ok);
+  CHECK(ok.domain() == caors::error_domain::none);
 
-  const caors::error duplicate_name = caors::to_error(caors::type_register_result::duplicate_name);
-  CHECK(duplicate_name.domain() == caors::error_domain::meta);
-  CHECK(duplicate_name.value() == caors::errc::duplicate_name);
+  constexpr caors::error duplicate_component{caors::error_domain::meta,
+                                             caors::errc::duplicate_component};
+  constexpr caors::error rethrown =
+      caors::rethrow_as(duplicate_component, caors::error_domain::serialization);
+  CHECK(rethrown.domain() == caors::error_domain::serialization);
+  CHECK(rethrown.value() == caors::errc::duplicate_component);
 
-  const caors::error duplicate_component =
-      caors::to_error(caors::meta_component_result::duplicate_component);
-  CHECK(duplicate_component.domain() == caors::error_domain::meta);
-  CHECK(duplicate_component.value() == caors::errc::duplicate_component);
+  constexpr caors::error remapped =
+      caors::rethrow_as(duplicate_component, caors::error_domain::reflection,
+                        caors::errc::duplicate_component, caors::errc::duplicate_reflection);
+  CHECK(remapped.domain() == caors::error_domain::reflection);
+  CHECK(remapped.value() == caors::errc::duplicate_reflection);
 }
 
-TEST_CASE("error - object and reflection results map to their domains", "[error]") {
-  const caors::error object_error = caors::to_error(caors::object_register_result::missing_parent);
-  CHECK(object_error.domain() == caors::error_domain::object);
-  CHECK(object_error.value() == caors::errc::missing_parent);
+TEST_CASE("result - carries value or error status", "[error]") {
+  caors::result<int> ok{{}, 42};
+  CHECK(ok);
+  CHECK(ok.succeeded());
+  CHECK_FALSE(ok.failed());
+  CHECK_FALSE(ok.status);
+  CHECK(ok.value == 42);
 
-  const caors::error reflection_error =
-      caors::to_error(caors::reflection_register_result::invalid_field);
-  CHECK(reflection_error.domain() == caors::error_domain::reflection);
-  CHECK(reflection_error.value() == caors::errc::invalid_field);
+  caors::result<int> failed{{caors::error_domain::core, caors::errc::invalid_argument}, {}};
+  CHECK_FALSE(failed);
+  CHECK_FALSE(failed.succeeded());
+  CHECK(failed.failed());
+  CHECK(failed.status);
+  CHECK(failed.status.domain() == caors::error_domain::core);
+  CHECK(failed.status.value() == caors::errc::invalid_argument);
 }

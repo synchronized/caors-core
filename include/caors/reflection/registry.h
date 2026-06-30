@@ -14,54 +14,6 @@
 
 namespace caors {
 
-/** @brief 反射类型注册结果。 */
-enum class reflection_register_result {
-  success,
-  invalid_type,
-  invalid_field,
-  duplicate_id,
-  duplicate_name,
-  duplicate_guid,
-  duplicate_field,
-  duplicate_reflection,
-  inconsistent_type,
-  missing_parent,
-};
-
-/** @brief 判断反射类型注册是否成功。 */
-[[nodiscard]] constexpr bool
-reflection_register_succeeded(reflection_register_result result) noexcept {
-  return result == reflection_register_result::success;
-}
-
-/** @brief 将反射类型注册结果转换为统一错误状态。 */
-[[nodiscard]] constexpr error to_error(reflection_register_result result) noexcept {
-  switch (result) {
-  case reflection_register_result::success:
-    return {};
-  case reflection_register_result::invalid_type:
-    return {error_domain::reflection, errc::invalid_type};
-  case reflection_register_result::invalid_field:
-    return {error_domain::reflection, errc::invalid_field};
-  case reflection_register_result::duplicate_id:
-    return {error_domain::reflection, errc::duplicate_id};
-  case reflection_register_result::duplicate_name:
-    return {error_domain::reflection, errc::duplicate_name};
-  case reflection_register_result::duplicate_guid:
-    return {error_domain::reflection, errc::duplicate_guid};
-  case reflection_register_result::duplicate_field:
-    return {error_domain::reflection, errc::duplicate_field};
-  case reflection_register_result::duplicate_reflection:
-    return {error_domain::reflection, errc::duplicate_reflection};
-  case reflection_register_result::inconsistent_type:
-    return {error_domain::reflection, errc::inconsistent_type};
-  case reflection_register_result::missing_parent:
-    return {error_domain::reflection, errc::missing_parent};
-  }
-
-  return {error_domain::reflection, errc::invalid_argument};
-}
-
 /**
  * @brief 底层全局反射注册表。
  *
@@ -77,11 +29,11 @@ public:
   reflection_registry(const reflection_registry&) = delete;
   reflection_registry& operator=(const reflection_registry&) = delete;
 
-  [[nodiscard]] reflection_register_result register_type(const meta_type_data& type,
-                                                         const reflection_type_data& reflection);
+  [[nodiscard]] error register_type(const meta_type_data& type,
+                                    const reflection_type_data& reflection);
   template <typename T>
-  [[nodiscard]] reflection_register_result
-  register_type_for(const meta_type_data& type, const reflection_type_data& reflection) {
+  [[nodiscard]] error register_type_for(const meta_type_data& type,
+                                        const reflection_type_data& reflection) {
     return register_type(detail::cpp_type_key_of<T>(), type, reflection);
   }
 
@@ -100,9 +52,8 @@ private:
   reflection_registry();
   ~reflection_registry();
 
-  [[nodiscard]] reflection_register_result register_type(detail::cpp_type_key key,
-                                                         const meta_type_data& type,
-                                                         const reflection_type_data& reflection);
+  [[nodiscard]] error register_type(detail::cpp_type_key key, const meta_type_data& type,
+                                    const reflection_type_data& reflection);
   [[nodiscard]] std::optional<meta_type> find_registered_type(detail::cpp_type_key key) const;
   [[nodiscard]] const reflection_type_data* find_reflection_data(type_id id) const;
 };
@@ -112,19 +63,18 @@ private:
 
 /** @brief 向全局反射注册表注册反射类型。 */
 template <typename T>
-[[nodiscard]] reflection_register_result
-register_reflection(std::string_view name, std::initializer_list<reflection_field_data> fields,
-                    type_id parent_id = type_id::invalid()) {
+[[nodiscard]] error register_reflection(std::string_view name,
+                                        std::initializer_list<reflection_field_data> fields,
+                                        type_id parent_id = type_id::invalid()) {
   return get_reflection_registry().register_type_for<T>(make_meta_type_data<T>(name, parent_id),
                                                         make_reflection_type_data(fields));
 }
 
 /** @brief 向全局反射注册表注册带稳定 GUID 的反射类型。 */
 template <typename T>
-[[nodiscard]] reflection_register_result
-register_reflection(std::string_view name, type_guid guid,
-                    std::initializer_list<reflection_field_data> fields,
-                    type_id parent_id = type_id::invalid()) {
+[[nodiscard]] error register_reflection(std::string_view name, type_guid guid,
+                                        std::initializer_list<reflection_field_data> fields,
+                                        type_id parent_id = type_id::invalid()) {
   return get_reflection_registry().register_type_for<T>(
       make_meta_type_data<T>(name, guid, parent_id), make_reflection_type_data(fields));
 }

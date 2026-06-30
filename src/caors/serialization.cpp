@@ -203,12 +203,12 @@ template <typename T>
   }
 
   error status = validate_field_for_writer(field_data, writer.features());
-  if (status.failed()) {
+  if (status) {
     return status;
   }
 
   status = writer.begin_field(field_data);
-  if (status.failed()) {
+  if (status) {
     return status;
   }
 
@@ -216,7 +216,7 @@ template <typename T>
       get_serialization_codec_registry().find_codec(field_value.type());
   if (codec.has_value() && codec->write != nullptr) {
     status = codec->write(writer, field_value);
-    if (status.failed()) {
+    if (status) {
       return status;
     }
 
@@ -310,12 +310,12 @@ template <typename T>
   }
 
   error status = validate_field_for_reader(field_data, reader.features());
-  if (status.failed()) {
+  if (status) {
     return status;
   }
 
   status = reader.begin_field(field_data);
-  if (status.failed()) {
+  if (status) {
     return status;
   }
 
@@ -323,7 +323,7 @@ template <typename T>
       get_serialization_codec_registry().find_codec(field.type());
   if (codec.has_value() && codec->read != nullptr) {
     status = codec->read(reader, field, object);
-    if (status.failed()) {
+    if (status) {
       return status;
     }
 
@@ -404,24 +404,24 @@ error write(serialization_writer& writer, const serialization_value& value) {
     return writer.write_string(value.as_string());
   case serialization_value_kind::array: {
     error status = writer.begin_array(value.as_array().size());
-    if (status.failed()) {
+    if (status) {
       return status;
     }
 
     std::size_t index = 0;
     for (const serialization_value& element : value.as_array()) {
       status = writer.begin_element(index);
-      if (status.failed()) {
+      if (status) {
         return status;
       }
 
       status = write(writer, element);
-      if (status.failed()) {
+      if (status) {
         return status;
       }
 
       status = writer.end_element();
-      if (status.failed()) {
+      if (status) {
         return status;
       }
 
@@ -446,29 +446,29 @@ error write(serialization_writer& writer, const serialization_value& value) {
     }
 
     error status = writer.begin_object(type_data);
-    if (status.failed()) {
+    if (status) {
       return status;
     }
 
     for (std::size_t index = 0; index < value.as_object().size(); ++index) {
       const serialization_member& member = value.as_object()[index];
       status = validate_field_for_writer(type_data.fields[index], writer.features());
-      if (status.failed()) {
+      if (status) {
         return status;
       }
 
       status = writer.begin_field(type_data.fields[index]);
-      if (status.failed()) {
+      if (status) {
         return status;
       }
 
       status = write(writer, member.value);
-      if (status.failed()) {
+      if (status) {
         return status;
       }
 
       status = writer.end_field();
-      if (status.failed()) {
+      if (status) {
         return status;
       }
     }
@@ -505,7 +505,7 @@ error serialize(const reflection_type& type, const void* object, serialization_w
   }
 
   error status = writer.begin_object(*serialization);
-  if (status.failed()) {
+  if (status) {
     return status;
   }
 
@@ -521,7 +521,7 @@ error serialize(const reflection_type& type, const void* object, serialization_w
       }
 
       status = write_field(writer, *field, object, field_data);
-      if (status.failed()) {
+      if (status) {
         return status;
       }
     }
@@ -534,7 +534,7 @@ error serialize(const reflection_type& type, const void* object, serialization_w
 
       serialization_field_data field_data = make_serialization_field(field->name().view());
       status = write_field(writer, *field, object, field_data);
-      if (status.failed()) {
+      if (status) {
         return status;
       }
     }
@@ -568,7 +568,7 @@ error deserialize(const reflection_type& type, void* object, serialization_reade
   }
 
   error status = reader.begin_object(*serialization);
-  if (status.failed()) {
+  if (status) {
     return status;
   }
 
@@ -584,7 +584,7 @@ error deserialize(const reflection_type& type, void* object, serialization_reade
       }
 
       status = read_configured_field(reader, *field, object, field_data);
-      if (status.failed()) {
+      if (status) {
         return status;
       }
     }
@@ -597,7 +597,7 @@ error deserialize(const reflection_type& type, void* object, serialization_reade
 
       serialization_field_data field_data = make_serialization_field(field->name().view());
       status = read_field(reader, *field, object, field_data);
-      if (status.failed()) {
+      if (status) {
         return status;
       }
     }
@@ -763,7 +763,7 @@ serialization_text_result serialize_text(const reflection_type& type, const void
                                          const serialization_context& context) {
   text_serialization_writer writer;
   const error status = serialize(type, object, writer, context);
-  if (status.failed()) {
+  if (status) {
     return {status, {}};
   }
 
@@ -778,7 +778,7 @@ serialization_text_result serialize_text(type_id id, const void* object,
                                          const serialization_context& context) {
   text_serialization_writer writer;
   const error status = serialize(id, object, writer, context);
-  if (status.failed()) {
+  if (status) {
     return {status, {}};
   }
 

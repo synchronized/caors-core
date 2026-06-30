@@ -23,70 +23,6 @@
 
 namespace caors {
 
-/** @brief 基础类型注册结果。 */
-enum class type_register_result {
-  success,
-  invalid_type,
-  duplicate_id,
-  duplicate_name,
-  duplicate_guid,
-  missing_parent,
-};
-
-/** @brief 判断基础类型注册是否成功。 */
-[[nodiscard]] constexpr bool type_register_succeeded(type_register_result result) noexcept {
-  return result == type_register_result::success;
-}
-
-/** @brief 将基础类型注册结果转换为统一错误状态。 */
-[[nodiscard]] constexpr error to_error(type_register_result result) noexcept {
-  switch (result) {
-  case type_register_result::success:
-    return {};
-  case type_register_result::invalid_type:
-    return {error_domain::meta, errc::invalid_type};
-  case type_register_result::duplicate_id:
-    return {error_domain::meta, errc::duplicate_id};
-  case type_register_result::duplicate_name:
-    return {error_domain::meta, errc::duplicate_name};
-  case type_register_result::duplicate_guid:
-    return {error_domain::meta, errc::duplicate_guid};
-  case type_register_result::missing_parent:
-    return {error_domain::meta, errc::missing_parent};
-  }
-
-  return {error_domain::meta, errc::invalid_argument};
-}
-
-/** @brief 元数据组件注册结果。 */
-enum class meta_component_result {
-  success,
-  invalid_type,
-  missing_type,
-  duplicate_component,
-};
-
-/** @brief 判断元数据组件注册是否成功。 */
-[[nodiscard]] constexpr bool meta_component_succeeded(meta_component_result result) noexcept {
-  return result == meta_component_result::success;
-}
-
-/** @brief 将元数据组件注册结果转换为统一错误状态。 */
-[[nodiscard]] constexpr error to_error(meta_component_result result) noexcept {
-  switch (result) {
-  case meta_component_result::success:
-    return {};
-  case meta_component_result::invalid_type:
-    return {error_domain::meta, errc::invalid_type};
-  case meta_component_result::missing_type:
-    return {error_domain::meta, errc::missing_type};
-  case meta_component_result::duplicate_component:
-    return {error_domain::meta, errc::duplicate_component};
-  }
-
-  return {error_domain::meta, errc::invalid_argument};
-}
-
 namespace detail {
 
 using meta_component_key = const void*;
@@ -182,13 +118,11 @@ public:
   meta_registry(const meta_registry&) = delete;
   meta_registry& operator=(const meta_registry&) = delete;
 
-  [[nodiscard]] type_register_result register_type(const meta_type_data& type);
-  [[nodiscard]] type_register_result register_cpp_type(detail::cpp_type_key key,
-                                                       const meta_type_data& type);
+  [[nodiscard]] error register_type(const meta_type_data& type);
+  [[nodiscard]] error register_cpp_type(detail::cpp_type_key key, const meta_type_data& type);
   [[nodiscard]] meta_type ensure_cpp_type(detail::cpp_type_key key, std::size_t size,
                                           std::size_t alignment);
-  template <typename T>
-  [[nodiscard]] type_register_result register_type_for(const meta_type_data& type) {
+  template <typename T> [[nodiscard]] error register_type_for(const meta_type_data& type) {
     return register_cpp_type(detail::cpp_type_key_of<T>(), type);
   }
 
@@ -212,15 +146,15 @@ public:
 
   /** @brief 给已注册类型挂载一个元数据组件。 */
   template <typename Component, typename... Args>
-  [[nodiscard]] meta_component_result emplace(type_id id, Args&&... args) {
+  [[nodiscard]] error emplace(type_id id, Args&&... args) {
     using component_type = std::decay_t<Component>;
 
     if (!id) {
-      return meta_component_result::invalid_type;
+      return {error_domain::meta, errc::invalid_type};
     }
 
     if (!contains(id)) {
-      return meta_component_result::missing_type;
+      return {error_domain::meta, errc::missing_type};
     }
 
     detail::meta_component_storage_base* storage_base =
@@ -233,10 +167,10 @@ public:
 
     auto& storage = static_cast<detail::meta_component_storage<component_type>&>(*storage_base);
     if (!storage.emplace(id, std::forward<Args>(args)...)) {
-      return meta_component_result::duplicate_component;
+      return {error_domain::meta, errc::duplicate_component};
     }
 
-    return meta_component_result::success;
+    return {};
   }
 
   /** @brief 判断指定类型是否挂载了某个元数据组件。 */
@@ -330,21 +264,21 @@ public:
   meta_builder() : type_(get_meta_registry().ensure_type_for<T>()) {}
 
   meta_builder& type(std::string_view name) {
-    result_ = get_meta_registry().register_type_for<T>(make_meta_type_data<T>(name));
+    status_ = get_meta_registry().register_type_for<T>(make_meta_type_data<T>(name));
     refresh();
     return *this;
   }
 
   meta_builder& guid(type_guid guid_value) {
     if (!type_) {
-      result_ = type_register_result::invalid_type;
+      status_ = {error_domain::meta, errc::invalid_type};
       return *this;
     }
 
     meta_type_data data{
         type_.id(), type_.name(), guid_value, type_.size(), type_.alignment(), type_.parent_id(),
     };
-    result_ = get_meta_registry().register_type_for<T>(data);
+    status_ = get_meta_registry().register_type_for<T>(data);
     refresh();
     return *this;
   }
@@ -353,22 +287,22 @@ public:
 
   meta_builder& parent(type_id parent_id) {
     if (!type_) {
-      result_ = type_register_result::invalid_type;
+      status_ = {error_domain::meta, errc::invalid_type};
       return *this;
     }
 
     meta_type_data data{
         type_.id(), type_.name(), type_.guid(), type_.size(), type_.alignment(), parent_id,
     };
-    result_ = get_meta_registry().register_type_for<T>(data);
+    status_ = get_meta_registry().register_type_for<T>(data);
     refresh();
     return *this;
   }
 
   [[nodiscard]] meta_type get() const noexcept { return type_; }
-  [[nodiscard]] type_register_result result() const noexcept { return result_; }
+  [[nodiscard]] error result() const noexcept { return status_; }
   [[nodiscard]] bool succeeded() const noexcept {
-    return type_register_succeeded(result_) || result_ == type_register_result::duplicate_id;
+    return status_.succeeded() || status_.value() == errc::duplicate_id;
   }
 
   [[nodiscard]] operator meta_type() const noexcept { return type_; }
@@ -382,7 +316,7 @@ private:
   }
 
   meta_type type_{};
-  type_register_result result_ = type_register_result::success;
+  error status_{};
 };
 
 /** @brief 获取或创建指定 C++ 类型的元类型注册构建器。 */
@@ -390,29 +324,27 @@ template <typename T> [[nodiscard]] meta_builder<T> meta() { return meta_builder
 
 /** @brief 向全局元数据注册表注册基础类型。 */
 template <typename T>
-[[nodiscard]] type_register_result register_type(string_name name,
-                                                 type_id parent_id = type_id::invalid()) {
+[[nodiscard]] error register_type(string_name name, type_id parent_id = type_id::invalid()) {
   return get_meta_registry().register_type_for<T>(make_meta_type_data<T>(name, parent_id));
 }
 
 /** @brief 向全局元数据注册表注册带稳定 GUID 的基础类型。 */
 template <typename T>
-[[nodiscard]] type_register_result register_type(string_name name, type_guid guid,
-                                                 type_id parent_id = type_id::invalid()) {
+[[nodiscard]] error register_type(string_name name, type_guid guid,
+                                  type_id parent_id = type_id::invalid()) {
   return get_meta_registry().register_type_for<T>(make_meta_type_data<T>(name, guid, parent_id));
 }
 
 /** @brief 向全局元数据注册表注册基础类型。 */
 template <typename T>
-[[nodiscard]] type_register_result register_type(std::string_view name,
-                                                 type_id parent_id = type_id::invalid()) {
+[[nodiscard]] error register_type(std::string_view name, type_id parent_id = type_id::invalid()) {
   return register_type<T>(string_name{name}, parent_id);
 }
 
 /** @brief 向全局元数据注册表注册带稳定 GUID 的基础类型。 */
 template <typename T>
-[[nodiscard]] type_register_result register_type(std::string_view name, type_guid guid,
-                                                 type_id parent_id = type_id::invalid()) {
+[[nodiscard]] error register_type(std::string_view name, type_guid guid,
+                                  type_id parent_id = type_id::invalid()) {
   return register_type<T>(string_name{name}, guid, parent_id);
 }
 

@@ -126,8 +126,8 @@ public:
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
     static_assert(std::is_copy_constructible_v<type>, "value requires copy constructible types");
 
-    const type_register_result result = caors::register_type<type>(name);
-    if (!type_register_succeeded(result) && result != type_register_result::duplicate_id) {
+    const error result = caors::register_type<type>(name);
+    if (result && result.value() != errc::duplicate_id) {
       return {};
     }
 

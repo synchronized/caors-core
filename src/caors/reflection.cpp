@@ -13,42 +13,6 @@ namespace {
          lhs.alignment() == rhs.alignment() && lhs.parent_id() == rhs.parent_id();
 }
 
-[[nodiscard]] reflection_register_result
-to_reflection_register_result(type_register_result result) noexcept {
-  switch (result) {
-  case type_register_result::success:
-    return reflection_register_result::success;
-  case type_register_result::invalid_type:
-    return reflection_register_result::invalid_type;
-  case type_register_result::duplicate_id:
-    return reflection_register_result::duplicate_id;
-  case type_register_result::duplicate_name:
-    return reflection_register_result::duplicate_name;
-  case type_register_result::duplicate_guid:
-    return reflection_register_result::duplicate_guid;
-  case type_register_result::missing_parent:
-    return reflection_register_result::missing_parent;
-  }
-
-  return reflection_register_result::invalid_type;
-}
-
-[[nodiscard]] reflection_register_result
-to_reflection_register_result(meta_component_result result) noexcept {
-  switch (result) {
-  case meta_component_result::success:
-    return reflection_register_result::success;
-  case meta_component_result::invalid_type:
-    return reflection_register_result::invalid_type;
-  case meta_component_result::missing_type:
-    return reflection_register_result::invalid_type;
-  case meta_component_result::duplicate_component:
-    return reflection_register_result::duplicate_reflection;
-  }
-
-  return reflection_register_result::invalid_type;
-}
-
 [[nodiscard]] bool resolve_field_type(meta_registry& meta, reflection_field_data& field) {
   if (!field.valid()) {
     return false;
@@ -65,8 +29,8 @@ to_reflection_register_result(meta_component_result result) noexcept {
         field.size,         field.alignment, type_id::invalid(),
     };
 
-    const type_register_result result = meta.register_cpp_type(field.cpp_type, field_type);
-    if (type_register_succeeded(result) || result == type_register_result::duplicate_id) {
+    const error result = meta.register_cpp_type(field.cpp_type, field_type);
+    if (result.succeeded() || result.value() == errc::duplicate_id) {
       resolved_type = meta.find_cpp_type(field.cpp_type);
     }
   }
@@ -80,33 +44,31 @@ to_reflection_register_result(meta_component_result result) noexcept {
   return true;
 }
 
-[[nodiscard]] reflection_register_result resolve_fields(meta_registry& meta,
-                                                        reflection_type_data& reflection) {
+[[nodiscard]] error resolve_fields(meta_registry& meta, reflection_type_data& reflection) {
   for (reflection_field_data& field : reflection.fields) {
     if (!resolve_field_type(meta, field)) {
-      return reflection_register_result::invalid_field;
+      return {error_domain::reflection, errc::invalid_field};
     }
   }
 
-  return reflection_register_result::success;
+  return {};
 }
 
-[[nodiscard]] reflection_register_result
-validate_registered_fields(const reflection_type_data& reflection) {
+[[nodiscard]] error validate_registered_fields(const reflection_type_data& reflection) {
   std::unordered_set<std::uint64_t> names;
   names.reserve(reflection.fields.size());
 
   for (const reflection_field_data& field : reflection.fields) {
     if (!field.valid() || !field.type) {
-      return reflection_register_result::invalid_field;
+      return {error_domain::reflection, errc::invalid_field};
     }
 
     if (!names.insert(field.name.id()).second) {
-      return reflection_register_result::duplicate_field;
+      return {error_domain::reflection, errc::duplicate_field};
     }
   }
 
-  return reflection_register_result::success;
+  return {};
 }
 
 } // namespace
@@ -307,21 +269,19 @@ reflection_registry& reflection_registry::instance() noexcept {
   return registry;
 }
 
-reflection_register_result
-reflection_registry::register_type(const meta_type_data& type,
-                                   const reflection_type_data& reflection) {
+error reflection_registry::register_type(const meta_type_data& type,
+                                         const reflection_type_data& reflection) {
   return register_type(nullptr, type, reflection);
 }
 
-reflection_register_result
-reflection_registry::register_type(detail::cpp_type_key key, const meta_type_data& type,
-                                   const reflection_type_data& reflection) {
+error reflection_registry::register_type(detail::cpp_type_key key, const meta_type_data& type,
+                                         const reflection_type_data& reflection) {
   if (!type.valid()) {
-    return reflection_register_result::invalid_type;
+    return {error_domain::reflection, errc::invalid_type};
   }
 
   if (!reflection.valid()) {
-    return reflection_register_result::invalid_field;
+    return {error_domain::reflection, errc::invalid_field};
   }
 
   std::optional<meta_type> existing;
@@ -337,40 +297,38 @@ reflection_registry::register_type(detail::cpp_type_key key, const meta_type_dat
 
   if (existing.has_value()) {
     if (!same_type_data(*existing, type)) {
-      return reflection_register_result::inconsistent_type;
+      return {error_domain::reflection, errc::inconsistent_type};
     }
   }
 
-  const type_register_result type_result = key != nullptr
-                                               ? get_meta_registry().register_cpp_type(key, type)
-                                               : get_meta_registry().register_type(type);
-  if (!type_register_succeeded(type_result) && type_result != type_register_result::duplicate_id) {
-    return to_reflection_register_result(type_result);
+  const error type_status = key != nullptr ? get_meta_registry().register_cpp_type(key, type)
+                                           : get_meta_registry().register_type(type);
+  if (type_status && type_status.value() != errc::duplicate_id) {
+    return rethrow_as(type_status, error_domain::reflection);
   }
 
   const std::optional<meta_type> stored_meta = key != nullptr
                                                    ? get_meta_registry().find_cpp_type(key)
                                                    : get_meta_registry().find_type(type.name());
   if (!stored_meta.has_value()) {
-    return reflection_register_result::invalid_type;
+    return {error_domain::reflection, errc::invalid_type};
   }
 
   reflection_type_data stored_reflection = reflection;
 
-  const reflection_register_result field_result =
-      resolve_fields(get_meta_registry(), stored_reflection);
-  if (!reflection_register_succeeded(field_result)) {
-    return field_result;
+  const error field_status = resolve_fields(get_meta_registry(), stored_reflection);
+  if (field_status) {
+    return field_status;
   }
 
-  const reflection_register_result validation_result =
-      validate_registered_fields(stored_reflection);
-  if (!reflection_register_succeeded(validation_result)) {
-    return validation_result;
+  const error validation_status = validate_registered_fields(stored_reflection);
+  if (validation_status) {
+    return validation_status;
   }
 
-  return to_reflection_register_result(
-      get_meta_registry().emplace<reflection_type_data>(stored_meta->id(), stored_reflection));
+  return rethrow_as(
+      get_meta_registry().emplace<reflection_type_data>(stored_meta->id(), stored_reflection),
+      error_domain::reflection, errc::duplicate_component, errc::duplicate_reflection);
 }
 
 bool reflection_registry::contains(type_id id) const {

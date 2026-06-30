@@ -36,8 +36,8 @@ inline constexpr bool is_nested_field_indirection_v =
 template <typename T> [[nodiscard]] type_id known_type_id() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (has_type_name_v<type>) {
-    const type_register_result result = caors::register_type<type>(type_name<type>::value);
-    if (type_register_succeeded(result) || result == type_register_result::duplicate_id) {
+    const error result = caors::register_type<type>(type_name<type>::value);
+    if (result.succeeded() || result.value() == errc::duplicate_id) {
       const std::optional<meta_type> registered = caors::find_type<type>();
       return registered.has_value() ? registered->id() : type_id::invalid();
     }
@@ -50,8 +50,8 @@ template <typename T> [[nodiscard]] type_id known_type_id() {
 
 template <typename T> [[nodiscard]] type_id register_field_type_id(std::string_view name) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  const type_register_result result = caors::register_type<type>(name);
-  if (type_register_succeeded(result) || result == type_register_result::duplicate_id) {
+  const error result = caors::register_type<type>(name);
+  if (result.succeeded() || result.value() == errc::duplicate_id) {
     const std::optional<meta_type> registered = caors::find_type<type>();
     return registered.has_value() ? registered->id() : type_id::invalid();
   }

@@ -26,8 +26,8 @@ struct serialization_codec_registry_state {
 template <typename T> [[nodiscard]] type_id ensure_codec_type() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (detail::has_type_name_v<type>) {
-    const type_register_result result = caors::register_type<type>(type_name<type>::value);
-    if (!type_register_succeeded(result) && result != type_register_result::duplicate_id) {
+    const error result = caors::register_type<type>(type_name<type>::value);
+    if (result && result.value() != errc::duplicate_id) {
       return type_id::invalid();
     }
   }
@@ -43,7 +43,7 @@ template <typename T> [[nodiscard]] type_id ensure_codec_type() {
 [[nodiscard]] error read_std_string(serialization_reader& reader, std::string& value) {
   string text;
   const error status = reader.read_string(text);
-  if (status.failed()) {
+  if (status) {
     return status;
   }
 
@@ -54,7 +54,7 @@ template <typename T> [[nodiscard]] type_id ensure_codec_type() {
 [[nodiscard]] error read_guid(serialization_reader& reader, guid& value) {
   string text;
   const error status = reader.read_string(text);
-  if (status.failed()) {
+  if (status) {
     return status;
   }
 
@@ -70,7 +70,7 @@ template <typename T> [[nodiscard]] type_id ensure_codec_type() {
 [[nodiscard]] error read_type_guid(serialization_reader& reader, type_guid& value) {
   guid parsed;
   const error status = read_guid(reader, parsed);
-  if (status.failed()) {
+  if (status) {
     return status;
   }
 
@@ -96,7 +96,7 @@ template <typename T>
     }
   }();
 
-  if (status.failed()) {
+  if (status) {
     return status;
   }
 

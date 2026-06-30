@@ -10,12 +10,14 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 提供 `string_name`，用于运行期名称去重、快速比较和查找。
 - [x] 增加 `guid` / `type_guid`，用于序列化和资源引用的稳定标识。
 - [x] 增加统一错误码、错误来源域和 `std::error_code` 适配。
+- [x] 统一 meta、object、reflection 注册 API 返回 `caors::error`，移除旧注册结果枚举兼容层。
+- [x] 增加轻量 `result<T>`，统一携带值的错误返回结构。
 - [x] 提供与 CAORS 内存系统适配的 `string` / `vector` 基础容器别名。
 - [ ] 在 core 主题下逐步补充 list、hash_map、small_vector、stable_vector 等基础容器。
 
 ## 1. 类型元数据底座
 
-- [x] 定义 `type_id`、`meta_type_data`、`meta_type` 和基础类型注册结果。
+- [x] 定义 `type_id`、`meta_type_data`、`meta_type` 和基础类型注册错误状态。
 - [x] 在 `meta_registry` 中集中处理运行期 id 分配、重名、重复 GUID、不一致类型描述和父类型缺失。
 - [x] 提供 `meta_registry`，允许围绕同一个 `type_id` 挂载对象、反射、序列化等元数据组件。
 - [x] 提供 `meta_view<T...>()`，查询同时拥有指定元数据组件的类型。
@@ -42,7 +44,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 抽象共享 `meta_registry`，避免对象系统和反射系统重复维护基础类型索引。
 - [x] 对象注册表改为基于 `meta_registry` 挂载 `object_type` 组件。
 - [x] 提供对象注册表和默认构造工厂。
-- [x] 提供注册结果枚举，区分重复注册、重名、不一致类型描述和父类型缺失。
+- [x] 提供注册错误状态，区分重复注册、重名、不一致类型描述和父类型缺失。
 - [x] 接入 `memory_resource` 完成对象创建和销毁。
 - [ ] 设计对象 handle、weak handle 和所有权约束。
 - [ ] 增加对象生命周期管理器。

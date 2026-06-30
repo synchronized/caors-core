@@ -21,7 +21,7 @@
 - 提供 `value_serialization_reader` 和 `deserialize()`，通过 DOM 中间对象写回基础反射字段。
 - 提供 `serialization_context`，支持按 schema version 过滤字段。
 - 提供 `serialization_codec_registry`，允许把特定 C++ 类型作为原子序列化值读写。
-- 用 `caors::error` 和 `serialization_text_result` 表达失败状态。
+- 用 `caors::error` 和 `caors::result<T>` 表达失败状态和携带值的返回结果。
 
 当前不会包含：
 
@@ -186,7 +186,7 @@ DOM 是可选路径，适合工具、编辑器、测试对比和格式转换。�
 ```cpp
 caors::error status = caors::register_serialization<actor>();
 
-if (status.failed()) {
+if (status) {
   // 处理重复注册、缺失类型等错误。
 }
 ```
@@ -208,6 +208,7 @@ caors::register_serialization<actor>();
 
 actor instance{7, 95.5F};
 caors::serialization_text_result result = caors::serialize_text(instance);
+caors::string text = result.value;
 ```
 
 输出格式是 MVP 内部简单文本格式，例如：
@@ -244,7 +245,8 @@ caors::serialization_text_result result = caors::serialize_text(instance);
 - `deserialize()`：通过指定 reader 后端反序列化对象。
 - `to_serialization_value()`：通过反射和序列化元信息构造中间对象树。
 - `write()`：把中间对象树写入指定 writer。
-- `serialization_text_result`：文本序列化结果。
+- `serialization_text_result`：`caors::result<caors::string>` 文本序列化结果。
+- `serialization_value_result`：`caors::result<serialization_value>` 中间值构造结果。
 - `serialize_text()`：基于反射字段的简单文本序列化。
 - 基础标量和字符串字段输出。
 - 字段别名和跳过配置。

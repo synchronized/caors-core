@@ -19,13 +19,11 @@ public:
 int main() {
   caors::object_registry registry;
 
-  if (!caors::object_register_succeeded(
-          caors::register_object_type<actor>(registry, actor::object_type_name))) {
+  if (caors::register_object_type<actor>(registry, actor::object_type_name)) {
     return 1;
   }
 
-  if (!caors::object_register_succeeded(
-          caors::register_object_type<player>(registry, player::object_type_name))) {
+  if (caors::register_object_type<player>(registry, player::object_type_name)) {
     return 1;
   }
 

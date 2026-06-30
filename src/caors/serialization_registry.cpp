@@ -4,24 +4,6 @@
 #include "caors/serialization.h"
 
 namespace caors {
-namespace {
-
-[[nodiscard]] error to_serialization_error(meta_component_result result) noexcept {
-  switch (result) {
-  case meta_component_result::success:
-    return {};
-  case meta_component_result::invalid_type:
-    return {error_domain::serialization, errc::invalid_type};
-  case meta_component_result::missing_type:
-    return {error_domain::serialization, errc::missing_type};
-  case meta_component_result::duplicate_component:
-    return {error_domain::serialization, errc::duplicate_component};
-  }
-
-  return {error_domain::serialization, errc::invalid_argument};
-}
-
-} // namespace
 
 serialization_registry& serialization_registry::instance() noexcept {
   static serialization_registry registry;
@@ -37,7 +19,8 @@ error serialization_registry::register_type(type_id id, serialization_type_data 
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  return to_serialization_error(get_meta_registry().emplace<serialization_type_data>(id, data));
+  return rethrow_as(get_meta_registry().emplace<serialization_type_data>(id, data),
+                    error_domain::serialization);
 }
 
 bool serialization_registry::contains(type_id id) const {

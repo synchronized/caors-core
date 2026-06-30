@@ -237,7 +237,7 @@ field->try_set<float>(&instance, 75.0F);
 和 `find_reflection()` 访问它，不需要创建 registry 对象：
 
 ```cpp
-caors::reflection_register_result result =
+caors::error result =
     caors::reflection::class_<actor>("game.actor")
         .field("id", &actor::id)
         .commit();
@@ -249,18 +249,17 @@ auto reflected = caors::find_reflection("game.actor");
 `reflection_type_data` 作为组件挂载到同一个 `type_id` 上。注册表构造由库内部管理；注册后不提供
 清理和撤销入口。
 
-注册失败会返回明确的 `reflection_register_result`：
+注册失败会返回 `caors::error`，`domain()` 为 `error_domain::reflection`，`value()` 为明确的通用错误码：
 
-- `success`：注册成功。
-- `invalid_type`：类型描述无效。
-- `invalid_field`：字段描述无效。
-- `duplicate_id`：同一个运行期 id、C++ 类型或等价类型描述已注册。
-- `duplicate_name`：同一个名称已注册。
-- `duplicate_guid`：同一个非 nil 稳定 GUID 已注册。
-- `duplicate_field`：同一个类型内存在重复字段名。
-- `duplicate_reflection`：目标类型已经挂载反射组件。
-- `inconsistent_type`：目标类型已存在，但基础 `meta_type_data` 不一致。
-- `missing_parent`：父类型未注册。
+- `errc::invalid_type`：类型描述无效。
+- `errc::invalid_field`：字段描述无效。
+- `errc::duplicate_id`：同一个运行期 id、C++ 类型或等价类型描述已注册。
+- `errc::duplicate_name`：同一个名称已注册。
+- `errc::duplicate_guid`：同一个非 nil 稳定 GUID 已注册。
+- `errc::duplicate_field`：同一个类型内存在重复字段名。
+- `errc::duplicate_reflection`：目标类型已经挂载反射组件。
+- `errc::inconsistent_type`：目标类型已存在，但基础 `meta_type_data` 不一致。
+- `errc::missing_parent`：父类型未注册。
 
 重复注册同一个类型时，如果基础类型信息一致且已经挂载反射组件，会返回 `duplicate_reflection`；
 如果同名、同 GUID 或同 C++ 类型对应的基础 `meta_type_data` 不一致，会返回 `inconsistent_type` 或

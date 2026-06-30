@@ -70,41 +70,6 @@ struct object_type {
   }
 };
 
-/** @brief 对象类型注册结果。 */
-enum class object_register_result {
-  success,
-  invalid_type,
-  duplicate_id,
-  duplicate_name,
-  duplicate_guid,
-  missing_parent,
-};
-
-/** @brief 判断对象类型注册是否成功。 */
-[[nodiscard]] constexpr bool object_register_succeeded(object_register_result result) noexcept {
-  return result == object_register_result::success;
-}
-
-/** @brief 将对象类型注册结果转换为统一错误状态。 */
-[[nodiscard]] constexpr error to_error(object_register_result result) noexcept {
-  switch (result) {
-  case object_register_result::success:
-    return {};
-  case object_register_result::invalid_type:
-    return {error_domain::object, errc::invalid_type};
-  case object_register_result::duplicate_id:
-    return {error_domain::object, errc::duplicate_id};
-  case object_register_result::duplicate_name:
-    return {error_domain::object, errc::duplicate_name};
-  case object_register_result::duplicate_guid:
-    return {error_domain::object, errc::duplicate_guid};
-  case object_register_result::missing_parent:
-    return {error_domain::object, errc::missing_parent};
-  }
-
-  return {error_domain::object, errc::invalid_argument};
-}
-
 /**
  * @brief CAORS 对象基类。
  *
@@ -271,9 +236,8 @@ public:
   object_registry(const object_registry&) = delete;
   object_registry& operator=(const object_registry&) = delete;
 
-  [[nodiscard]] object_register_result register_type(const object_type& type);
-  template <typename T>
-  [[nodiscard]] object_register_result register_type_for(const object_type& type) {
+  [[nodiscard]] error register_type(const object_type& type);
+  template <typename T> [[nodiscard]] error register_type_for(const object_type& type) {
     return register_type(detail::cpp_type_key_of<T>(), type);
   }
 
@@ -320,8 +284,7 @@ public:
   bool destroy(object* instance, memory_resource* resource = nullptr) const noexcept;
 
 private:
-  [[nodiscard]] object_register_result register_type(detail::cpp_type_key key,
-                                                     const object_type& type);
+  [[nodiscard]] error register_type(detail::cpp_type_key key, const object_type& type);
   [[nodiscard]] std::optional<meta_type> find_registered_type(detail::cpp_type_key key) const;
 };
 
@@ -330,9 +293,8 @@ private:
 
 /** @brief 向指定注册表注册对象类型。 */
 template <typename T>
-[[nodiscard]] object_register_result
-register_object_type(object_registry& registry, std::string_view name,
-                     object_type_id parent_id = object_type_id::invalid()) {
+[[nodiscard]] error register_object_type(object_registry& registry, std::string_view name,
+                                         object_type_id parent_id = object_type_id::invalid()) {
   if (!parent_id) {
     using base_type = typename detail::object_base_type_traits<T>::type;
     const std::optional<object_type> base = registry.find_type<base_type>();
@@ -346,8 +308,8 @@ register_object_type(object_registry& registry, std::string_view name,
 
 /** @brief 向默认注册表注册对象类型。 */
 template <typename T>
-[[nodiscard]] object_register_result
-register_object_type(std::string_view name, object_type_id parent_id = object_type_id::invalid()) {
+[[nodiscard]] error register_object_type(std::string_view name,
+                                         object_type_id parent_id = object_type_id::invalid()) {
   return register_object_type<T>(get_object_registry(), name, parent_id);
 }
 

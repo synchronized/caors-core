@@ -55,7 +55,7 @@ serialization_format_features text_serialization_writer::features() const noexce
 
 error text_serialization_writer::begin_object(const serialization_type_data&) {
   error status = prepare_value();
-  if (status.failed()) {
+  if (status) {
     return status;
   }
 
@@ -89,7 +89,7 @@ error text_serialization_writer::begin_field(const serialization_field_data& fie
 
 error text_serialization_writer::begin_array(std::size_t) {
   error status = prepare_value();
-  if (status.failed()) {
+  if (status) {
     return status;
   }
 
@@ -116,7 +116,7 @@ error text_serialization_writer::begin_element(std::size_t) {
 
 error text_serialization_writer::write_bool(bool value) {
   error status = prepare_value();
-  if (status.failed()) {
+  if (status) {
     return status;
   }
 
@@ -127,7 +127,7 @@ error text_serialization_writer::write_bool(bool value) {
 
 error text_serialization_writer::write_i64(std::int64_t value) {
   error status = prepare_value();
-  if (status.failed()) {
+  if (status) {
     return status;
   }
 
@@ -138,7 +138,7 @@ error text_serialization_writer::write_i64(std::int64_t value) {
 
 error text_serialization_writer::write_u64(std::uint64_t value) {
   error status = prepare_value();
-  if (status.failed()) {
+  if (status) {
     return status;
   }
 
@@ -149,7 +149,7 @@ error text_serialization_writer::write_u64(std::uint64_t value) {
 
 error text_serialization_writer::write_f64(double value) {
   error status = prepare_value();
-  if (status.failed()) {
+  if (status) {
     return status;
   }
 
@@ -162,7 +162,7 @@ error text_serialization_writer::write_f64(double value) {
 
 error text_serialization_writer::write_string(std::string_view value) {
   error status = prepare_value();
-  if (status.failed()) {
+  if (status) {
     return status;
   }
 

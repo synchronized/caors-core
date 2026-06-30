@@ -47,10 +47,10 @@ namespace {
 
 [[nodiscard]] std::optional<type_id> find_existing_type_id(const meta_registry_state& state,
                                                            const meta_type_data& type,
-                                                           type_register_result& conflict) {
+                                                           error& conflict) {
   std::optional<type_id> existing_id;
 
-  const auto merge_candidate = [&](type_id candidate, type_register_result result) {
+  const auto merge_candidate = [&](type_id candidate, error result) {
     if (existing_id.has_value() && *existing_id != candidate) {
       conflict = result;
       return false;
@@ -62,11 +62,11 @@ namespace {
 
   if (type.id()) {
     if (!state.types.contains(type.id().value())) {
-      conflict = type_register_result::invalid_type;
+      conflict = {error_domain::meta, errc::invalid_type};
       return std::nullopt;
     }
 
-    if (!merge_candidate(type.id(), type_register_result::duplicate_id)) {
+    if (!merge_candidate(type.id(), {error_domain::meta, errc::duplicate_id})) {
       return std::nullopt;
     }
   }
@@ -74,7 +74,7 @@ namespace {
   if (type.name()) {
     const auto name_position = state.names.find(type.name().id());
     if (name_position != state.names.end() &&
-        !merge_candidate(name_position->second, type_register_result::duplicate_name)) {
+        !merge_candidate(name_position->second, {error_domain::meta, errc::duplicate_name})) {
       return std::nullopt;
     }
   }
@@ -82,7 +82,7 @@ namespace {
   if (type.guid()) {
     const auto guid_position = state.guids.find(type.guid().value);
     if (guid_position != state.guids.end() &&
-        !merge_candidate(guid_position->second, type_register_result::duplicate_guid)) {
+        !merge_candidate(guid_position->second, {error_domain::meta, errc::duplicate_guid})) {
       return std::nullopt;
     }
   }
@@ -90,24 +90,23 @@ namespace {
   return existing_id;
 }
 
-[[nodiscard]] type_register_result duplicate_identity_result(const meta_registry_state& state,
-                                                             const meta_type_data& type,
-                                                             type_id existing_id) {
+[[nodiscard]] error duplicate_identity_error(const meta_registry_state& state,
+                                             const meta_type_data& type, type_id existing_id) {
   if (type.name()) {
     const auto name_position = state.names.find(type.name().id());
     if (name_position != state.names.end() && name_position->second == existing_id) {
-      return type_register_result::duplicate_name;
+      return {error_domain::meta, errc::duplicate_name};
     }
   }
 
   if (type.guid()) {
     const auto guid_position = state.guids.find(type.guid().value);
     if (guid_position != state.guids.end() && guid_position->second == existing_id) {
-      return type_register_result::duplicate_guid;
+      return {error_domain::meta, errc::duplicate_guid};
     }
   }
 
-  return type_register_result::invalid_type;
+  return {error_domain::meta, errc::invalid_type};
 }
 
 [[nodiscard]] bool has_cpp_type(const meta_registry_state& state, type_id id) {
@@ -121,31 +120,30 @@ namespace {
   return false;
 }
 
-[[nodiscard]] type_register_result merge_type_data(meta_registry_state& state,
-                                                   meta_type_data& stored,
-                                                   const meta_type_data& incoming) {
+[[nodiscard]] error merge_type_data(meta_registry_state& state, meta_type_data& stored,
+                                    const meta_type_data& incoming) {
   if (!incoming.valid()) {
-    return type_register_result::invalid_type;
+    return {error_domain::meta, errc::invalid_type};
   }
 
   if (incoming.id() && incoming.id() != stored.id()) {
-    return type_register_result::invalid_type;
+    return {error_domain::meta, errc::invalid_type};
   }
   const bool explicit_id = incoming.id() == stored.id();
 
   if (stored.size() != incoming.size() || stored.alignment() != incoming.alignment()) {
-    return type_register_result::invalid_type;
+    return {error_domain::meta, errc::invalid_type};
   }
 
   bool changed = false;
 
   if (incoming.parent_id()) {
     if (!state.types.contains(incoming.parent_id().value())) {
-      return type_register_result::missing_parent;
+      return {error_domain::meta, errc::missing_parent};
     }
 
     if (stored.parent_id() && stored.parent_id() != incoming.parent_id()) {
-      return type_register_result::invalid_type;
+      return {error_domain::meta, errc::invalid_type};
     }
 
     if (!stored.parent_id()) {
@@ -157,12 +155,12 @@ namespace {
   if (incoming.name()) {
     const auto name_position = state.names.find(incoming.name().id());
     if (name_position != state.names.end() && name_position->second != stored.id()) {
-      return type_register_result::duplicate_name;
+      return {error_domain::meta, errc::duplicate_name};
     }
 
     if (stored.name() && stored.name() != incoming.name()) {
-      return explicit_id ? type_register_result::invalid_type
-                         : type_register_result::duplicate_name;
+      return explicit_id ? error{error_domain::meta, errc::invalid_type}
+                         : error{error_domain::meta, errc::duplicate_name};
     }
 
     if (!stored.name()) {
@@ -175,12 +173,12 @@ namespace {
   if (incoming.guid()) {
     const auto guid_position = state.guids.find(incoming.guid().value);
     if (guid_position != state.guids.end() && guid_position->second != stored.id()) {
-      return type_register_result::duplicate_guid;
+      return {error_domain::meta, errc::duplicate_guid};
     }
 
     if (stored.guid() && stored.guid() != incoming.guid()) {
-      return explicit_id ? type_register_result::invalid_type
-                         : type_register_result::duplicate_guid;
+      return explicit_id ? error{error_domain::meta, errc::invalid_type}
+                         : error{error_domain::meta, errc::duplicate_guid};
     }
 
     if (!stored.guid()) {
@@ -190,26 +188,25 @@ namespace {
     }
   }
 
-  return changed ? type_register_result::success : type_register_result::duplicate_id;
+  return changed ? error{} : error{error_domain::meta, errc::duplicate_id};
 }
 
-[[nodiscard]] type_register_result store_new_type(meta_registry_state& state,
-                                                  const meta_type_data& incoming,
-                                                  type_id* stored_id = nullptr) {
+[[nodiscard]] error store_new_type(meta_registry_state& state, const meta_type_data& incoming,
+                                   type_id* stored_id = nullptr) {
   if (!incoming.valid() || incoming.id()) {
-    return type_register_result::invalid_type;
+    return {error_domain::meta, errc::invalid_type};
   }
 
   if (incoming.parent_id() && !state.types.contains(incoming.parent_id().value())) {
-    return type_register_result::missing_parent;
+    return {error_domain::meta, errc::missing_parent};
   }
 
   if (incoming.name() && state.names.contains(incoming.name().id())) {
-    return type_register_result::duplicate_name;
+    return {error_domain::meta, errc::duplicate_name};
   }
 
   if (incoming.guid() && state.guids.contains(incoming.guid().value)) {
-    return type_register_result::duplicate_guid;
+    return {error_domain::meta, errc::duplicate_guid};
   }
 
   meta_type_data stored = incoming;
@@ -219,7 +216,7 @@ namespace {
   auto [position, inserted] =
       state.types.try_emplace(id.value(), std::make_unique<meta_type_data>(stored));
   if (!inserted) {
-    return type_register_result::duplicate_id;
+    return {error_domain::meta, errc::duplicate_id};
   }
 
   if (stored.name()) {
@@ -234,7 +231,7 @@ namespace {
     *stored_id = position->second->id();
   }
 
-  return type_register_result::success;
+  return {};
 }
 
 } // namespace
@@ -281,48 +278,47 @@ meta_registry& meta_registry::instance() noexcept {
   return registry;
 }
 
-type_register_result meta_registry::register_type(const meta_type_data& type) {
+error meta_registry::register_type(const meta_type_data& type) {
   if (!type.valid()) {
-    return type_register_result::invalid_type;
+    return {error_domain::meta, errc::invalid_type};
   }
 
   std::lock_guard lock(state_->mutex);
 
-  type_register_result conflict = type_register_result::success;
+  error conflict{};
   const std::optional<type_id> existing_id = find_existing_type_id(*state_, type, conflict);
-  if (conflict != type_register_result::success) {
+  if (conflict) {
     return conflict;
   }
 
   if (existing_id.has_value()) {
     meta_type_data* existing = find_type_data(*state_, *existing_id);
     if (existing == nullptr) {
-      return type_register_result::invalid_type;
+      return {error_domain::meta, errc::invalid_type};
     }
 
     if (has_cpp_type(*state_, *existing_id)) {
-      return duplicate_identity_result(*state_, type, *existing_id);
+      return duplicate_identity_error(*state_, type, *existing_id);
     }
 
-    const type_register_result result = merge_type_data(*state_, *existing, type);
-    if (result == type_register_result::invalid_type) {
-      return duplicate_identity_result(*state_, type, *existing_id);
+    const error status = merge_type_data(*state_, *existing, type);
+    if (status.value() == errc::invalid_type) {
+      return duplicate_identity_error(*state_, type, *existing_id);
     }
 
-    return result;
+    return status;
   }
 
   return store_new_type(*state_, type);
 }
 
-type_register_result meta_registry::register_cpp_type(detail::cpp_type_key key,
-                                                      const meta_type_data& type) {
+error meta_registry::register_cpp_type(detail::cpp_type_key key, const meta_type_data& type) {
   if (key == nullptr) {
     return register_type(type);
   }
 
   if (!type.valid()) {
-    return type_register_result::invalid_type;
+    return {error_domain::meta, errc::invalid_type};
   }
 
   std::lock_guard lock(state_->mutex);
@@ -331,49 +327,49 @@ type_register_result meta_registry::register_cpp_type(detail::cpp_type_key key,
   if (key_position != state_->cpp_types.end()) {
     meta_type_data* existing = find_type_data(*state_, key_position->second);
     if (existing == nullptr) {
-      return type_register_result::invalid_type;
+      return {error_domain::meta, errc::invalid_type};
     }
 
-    const type_register_result result = merge_type_data(*state_, *existing, type);
-    if (result == type_register_result::invalid_type) {
-      return type_register_result::invalid_type;
+    const error status = merge_type_data(*state_, *existing, type);
+    if (status.value() == errc::invalid_type) {
+      return {error_domain::meta, errc::invalid_type};
     }
 
-    return result;
+    return status;
   }
 
-  type_register_result conflict = type_register_result::success;
+  error conflict{};
   const std::optional<type_id> existing_id = find_existing_type_id(*state_, type, conflict);
-  if (conflict != type_register_result::success) {
+  if (conflict) {
     return conflict;
   }
 
   if (existing_id.has_value()) {
     meta_type_data* existing = find_type_data(*state_, *existing_id);
     if (existing == nullptr) {
-      return type_register_result::invalid_type;
+      return {error_domain::meta, errc::invalid_type};
     }
 
     if (has_cpp_type(*state_, *existing_id)) {
-      return duplicate_identity_result(*state_, type, *existing_id);
+      return duplicate_identity_error(*state_, type, *existing_id);
     }
 
-    const type_register_result result = merge_type_data(*state_, *existing, type);
-    if (result == type_register_result::invalid_type) {
-      return duplicate_identity_result(*state_, type, *existing_id);
+    const error status = merge_type_data(*state_, *existing, type);
+    if (status.value() == errc::invalid_type) {
+      return duplicate_identity_error(*state_, type, *existing_id);
     }
 
     state_->cpp_types.emplace(key, *existing_id);
-    return result == type_register_result::duplicate_id ? type_register_result::success : result;
+    return status.value() == errc::duplicate_id ? error{} : status;
   }
 
   type_id stored_id{};
-  const type_register_result result = store_new_type(*state_, type, &stored_id);
-  if (result == type_register_result::success) {
+  const error status = store_new_type(*state_, type, &stored_id);
+  if (status.succeeded()) {
     state_->cpp_types.emplace(key, stored_id);
   }
 
-  return result;
+  return status;
 }
 
 meta_type meta_registry::ensure_cpp_type(detail::cpp_type_key key, std::size_t size,
