@@ -47,7 +47,9 @@
 - `caors/serialization/operations.h`：`serialize()`、`deserialize()`、`to_serialization_value()`、`serialize_text()` 等调度入口。
 - `caors/serialization.h`：兼容用聚合头，包含以上所有入口。
 
-实现文件按 registry、codec、text writer、DOM/value 和核心调度拆分在 `src/caors/serialization_*.cpp`。
+实现文件按 registry、codec、text writer、DOM/value、writer 接口、DOM 写出、对象序列化、对象反序列化、
+中间值构造和文本便捷入口拆分在 `src/caors/serialization_*.cpp`。共享的字段校验、schema version
+过滤和标量读写 helper 保留在私有 `src/caors/serialization_internal.*`。
 
 ### serialization_type_data
 
