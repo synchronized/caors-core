@@ -350,7 +350,8 @@ public:
     }
 
     return from_raw(registered->id(), registered->name(), detail::cpp_type_key_of<type>(), &source,
-                    sizeof(type), alignof(type), !std::is_const_v<T>);
+                    sizeof(type), alignof(type), detail::value_assign_fn_of<type>(),
+                    !std::is_const_v<T>);
   }
 
   /** @brief 从只读 C++ 对象创建引用。 */
@@ -376,7 +377,7 @@ public:
     }
 
     return from_raw(registered->id(), registered->name(), detail::cpp_type_key_of<type>(), &source,
-                    sizeof(type), alignof(type), false);
+                    sizeof(type), alignof(type), detail::value_assign_fn_of<type>(), false);
   }
 
   [[nodiscard]] bool valid() const noexcept {
@@ -405,6 +406,12 @@ public:
   }
 
   /** @brief 判断两个运行期值是否具有相同 C++ 类型。 */
+  [[nodiscard]] bool matches_type(const any& other) const noexcept {
+    return valid() && other.valid() && cpp_type_ == other.cpp_type() && size_ == other.size() &&
+           alignment_ == other.alignment();
+  }
+
+  /** @brief 判断两个运行期引用是否具有相同 C++ 类型。 */
   [[nodiscard]] bool matches_type(const any_ref& other) const noexcept {
     return valid() && other.valid() && cpp_type_ == other.cpp_type_ && size_ == other.size_ &&
            alignment_ == other.alignment_;
@@ -432,13 +439,41 @@ public:
     return static_cast<type*>(const_cast<void*>(data_));
   }
 
+  /** @brief 从同类型 C++ 值写入当前引用指向的对象。 */
+  template <typename T> bool try_set(const T& source) const {
+    using type = std::remove_cv_t<std::remove_reference_t<T>>;
+    if (!matches_type<type>() || !writable_ || assign_ == nullptr) {
+      return false;
+    }
+
+    return assign_(const_cast<void*>(data_), &source);
+  }
+
+  /** @brief 从同类型运行期值写入当前引用指向的对象。 */
+  bool try_set(const any& source) const {
+    if (!matches_type(source) || !writable_ || assign_ == nullptr) {
+      return false;
+    }
+
+    return assign_(const_cast<void*>(data_), source.data());
+  }
+
+  /** @brief 从同类型运行期引用写入当前引用指向的对象。 */
+  bool try_set(const any_ref& source) const {
+    if (!matches_type(source) || !writable_ || assign_ == nullptr) {
+      return false;
+    }
+
+    return assign_(const_cast<void*>(data_), source.data_);
+  }
+
 private:
   friend struct reflection_field_data;
 
   [[nodiscard]] static any_ref from_raw(type_id type, string_name type_name,
                                         detail::cpp_type_key cpp_type, const void* data,
                                         std::size_t size, std::size_t alignment,
-                                        bool writable) noexcept {
+                                        detail::value_assign_fn assign, bool writable) noexcept {
     if (!type || type_name.empty() || cpp_type == nullptr || data == nullptr || size == 0 ||
         alignment == 0) {
       return {};
@@ -451,6 +486,7 @@ private:
     result.data_ = data;
     result.size_ = size;
     result.alignment_ = alignment;
+    result.assign_ = assign;
     result.writable_ = writable;
     return result;
   }
@@ -461,6 +497,7 @@ private:
   const void* data_ = nullptr;
   std::size_t size_ = 0;
   std::size_t alignment_ = 0;
+  detail::value_assign_fn assign_ = nullptr;
   bool writable_ = false;
 };
 

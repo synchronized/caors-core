@@ -166,6 +166,8 @@ caors::any_ref ref = id->get_mutable_ref(&instance);
 if (int* current = ref.try_get_mutable<int>()) {
   *current = 7;
 }
+
+ref.try_set(9);
 ```
 
 `any_ref` 不拥有对象，也不会延长字段所属对象生命周期。调用方必须保证原对象在引用使用期间仍然存活。
@@ -202,6 +204,7 @@ if (int* current = ref.try_get_mutable<int>()) {
 - `matches_type<T>()`：判断是否匹配指定 C++ 类型。
 - `try_get<T>()`：获取只读指针。
 - `try_get_mutable<T>()`：获取可写指针；只读引用会返回 `nullptr`。
+- `try_set<T>()` / `try_set(any)` / `try_set(any_ref)`：从同类型值或引用写入当前引用指向的对象。
 
 ### reflection_type_data
 

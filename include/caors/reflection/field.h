@@ -191,7 +191,8 @@ struct reflection_field_data {
       return {};
     }
 
-    return any_ref::from_raw(type, type_name, cpp_type, field_value, size, alignment, false);
+    return any_ref::from_raw(type, type_name, cpp_type, field_value, size, alignment, assign_value,
+                             false);
   }
 
   /** @brief 获取字段值的可写运行期引用。 */
@@ -201,7 +202,8 @@ struct reflection_field_data {
       return {};
     }
 
-    return any_ref::from_raw(type, type_name, cpp_type, field_value, size, alignment, true);
+    return any_ref::from_raw(type, type_name, cpp_type, field_value, size, alignment, assign_value,
+                             true);
   }
 
   /** @brief 从运行期值写入字段。 */

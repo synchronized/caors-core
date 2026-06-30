@@ -84,14 +84,26 @@ TEST_CASE("reflection any_ref - references external typed values", "[reflection]
   REQUIRE(writable != nullptr);
   *writable = 11;
   CHECK(source == 11);
+  CHECK(reference.try_set(13));
+  CHECK(source == 13);
+
+  caors::any copied = caors::any::from(17);
+  CHECK(reference.try_set(copied));
+  CHECK(source == 17);
 
   const int readonly = 3;
   caors::any_ref readonly_reference = caors::any_ref::from_const(readonly);
   CHECK(readonly_reference.valid());
   CHECK_FALSE(readonly_reference.writable());
   CHECK(readonly_reference.try_get_mutable<int>() == nullptr);
+  CHECK_FALSE(readonly_reference.try_set(4));
   REQUIRE(readonly_reference.try_get<int>() != nullptr);
   CHECK(*readonly_reference.try_get<int>() == 3);
+
+  int target = 0;
+  caors::any_ref target_reference = caors::any_ref::from(target);
+  CHECK(target_reference.try_set(readonly_reference));
+  CHECK(target == 3);
 }
 
 TEST_CASE("reflection any - fields expose copied runtime values", "[reflection]") {
@@ -153,4 +165,14 @@ TEST_CASE("reflection any - noncopyable fields return invalid values", "[reflect
   *writable_stored = std::make_unique<int>(9);
   REQUIRE(holder.value);
   CHECK(*holder.value == 9);
+
+  std::unique_ptr<int> replacement = std::make_unique<int>(13);
+  CHECK_FALSE(writable.try_set(replacement));
+
+  int numeric = 15;
+  const caors::reflection_field_data numeric_field =
+      caors::make_reflection_field_data<int>("numeric", "int", 0);
+  caors::any_ref numeric_ref = numeric_field.get_mutable_ref(&numeric);
+  CHECK(numeric_ref.try_set(21));
+  CHECK(numeric == 21);
 }
