@@ -10,6 +10,7 @@
 #include "caors/meta.h"
 #include "caors/reflection.h"
 #include "caors/result.h"
+#include "caors/value/variant.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -247,82 +248,14 @@ public:
   [[nodiscard]] virtual error end_object() = 0;
 };
 
-/** @brief 序列化中间值类型。 */
-enum class serialization_value_kind {
-  null,
-  boolean,
-  signed_integer,
-  unsigned_integer,
-  floating,
-  string,
-  array,
-  object,
-};
-
-class serialization_value;
-struct serialization_member;
-
-/** @brief 序列化 DOM 中间对象。 */
-class CAORS_API serialization_value final {
-public:
-  using array_type = vector<serialization_value>;
-  using object_type = vector<serialization_member>;
-
-  serialization_value();
-  ~serialization_value();
-
-  serialization_value(const serialization_value& other);
-  serialization_value(serialization_value&& other) noexcept;
-  serialization_value& operator=(const serialization_value& other);
-  serialization_value& operator=(serialization_value&& other) noexcept;
-
-  [[nodiscard]] static serialization_value null();
-  [[nodiscard]] static serialization_value from(bool value);
-  [[nodiscard]] static serialization_value from(std::int64_t value);
-  [[nodiscard]] static serialization_value from(std::uint64_t value);
-  [[nodiscard]] static serialization_value from(double value);
-  [[nodiscard]] static serialization_value from(std::string_view value);
-  [[nodiscard]] static serialization_value array(array_type values);
-  [[nodiscard]] static serialization_value object(object_type members);
-
-  [[nodiscard]] serialization_value_kind kind() const noexcept { return kind_; }
-  [[nodiscard]] bool is_null() const noexcept { return kind_ == serialization_value_kind::null; }
-  [[nodiscard]] bool as_bool() const noexcept { return bool_value_; }
-  [[nodiscard]] std::int64_t as_i64() const noexcept { return i64_value_; }
-  [[nodiscard]] std::uint64_t as_u64() const noexcept { return u64_value_; }
-  [[nodiscard]] double as_f64() const noexcept { return f64_value_; }
-  [[nodiscard]] const string& as_string() const noexcept { return string_value_; }
-  [[nodiscard]] const array_type& as_array() const noexcept { return array_value_; }
-  [[nodiscard]] const object_type& as_object() const noexcept { return object_value_; }
-
-  [[nodiscard]] array_type& mutable_array() noexcept { return array_value_; }
-  [[nodiscard]] object_type& mutable_object() noexcept { return object_value_; }
-
-private:
-  serialization_value_kind kind_ = serialization_value_kind::null;
-  bool bool_value_ = false;
-  std::int64_t i64_value_ = 0;
-  std::uint64_t u64_value_ = 0;
-  double f64_value_ = 0.0;
-  string string_value_{};
-  array_type array_value_{};
-  object_type object_value_{};
-};
-
-/** @brief 序列化对象成员，保留字段名、字段 id 和字段值。 */
-struct serialization_member {
-  string_name name{};
-  std::uint32_t field_id = 0;
-  serialization_value value{};
-};
-
 /** @brief 序列化中间值构造结果。 */
-using serialization_value_result = result<serialization_value>;
+using variant_result = result<variant>;
+using serialization_value_result = variant_result;
 
-using serialization_codec_write_fn = error (*)(serialization_writer& writer, const value& data);
+using serialization_codec_write_fn = error (*)(serialization_writer& writer, const any& data);
 using serialization_codec_read_fn = error (*)(serialization_reader& reader,
                                               const reflection_field& field, void* object);
-using serialization_codec_value_fn = serialization_value_result (*)(const value& data);
+using serialization_codec_value_fn = serialization_value_result (*)(const any& data);
 
 /** @brief 单个类型的序列化 codec 函数集合。 */
 struct serialization_codec_data {
@@ -373,7 +306,7 @@ template <typename T> [[nodiscard]] error register_serialization_codec() {
   serialization_codec_data codec{};
 
   if constexpr (serialization_codec<type>::can_write) {
-    codec.write = [](serialization_writer& writer, const value& data) -> error {
+    codec.write = [](serialization_writer& writer, const any& data) -> error {
       const type* stored = data.try_get<type>();
       if (stored == nullptr) {
         return {error_domain::serialization, errc::invalid_type};
@@ -401,7 +334,7 @@ template <typename T> [[nodiscard]] error register_serialization_codec() {
   }
 
   if constexpr (serialization_codec<type>::can_make_value) {
-    codec.make_value = [](const value& data) -> serialization_value_result {
+    codec.make_value = [](const any& data) -> serialization_value_result {
       const type* stored = data.try_get<type>();
       if (stored == nullptr) {
         return {{error_domain::serialization, errc::invalid_type}, {}};
@@ -431,9 +364,9 @@ template <typename T> [[nodiscard]] error register_serialization_codec() {
 }
 
 /** @brief 从序列化 DOM 中间对象读取数据的后端。 */
-class CAORS_API value_serialization_reader final : public serialization_reader {
+class CAORS_API variant_serialization_reader final : public serialization_reader {
 public:
-  explicit value_serialization_reader(const serialization_value& value) noexcept;
+  explicit variant_serialization_reader(const variant& value) noexcept;
 
   [[nodiscard]] serialization_format_features features() const noexcept override;
   [[nodiscard]] error begin_object(const serialization_type_data& type) override;
@@ -447,14 +380,16 @@ public:
   [[nodiscard]] error end_object() override;
 
 private:
-  [[nodiscard]] const serialization_member*
-  find_member(const serialization_field_data& field) const;
-  [[nodiscard]] const serialization_value* current_value() const noexcept;
+  [[nodiscard]] const variant_member* find_member(const serialization_field_data& field) const;
+  [[nodiscard]] const variant* current_value() const noexcept;
 
-  const serialization_value* root_ = nullptr;
-  const serialization_member* current_member_ = nullptr;
+  const variant* root_ = nullptr;
+  const variant_member* current_member_ = nullptr;
   bool object_open_ = false;
 };
+
+/** @brief 兼容旧 DOM reader 命名，后续新代码优先使用 `variant_serialization_reader`。 */
+using value_serialization_reader = variant_serialization_reader;
 
 /** @brief 获取进程内全局序列化注册表。 */
 [[nodiscard]] CAORS_API serialization_registry& get_serialization_registry() noexcept;
@@ -517,7 +452,7 @@ template <typename T>
 }
 
 /** @brief 将序列化中间值写入指定后端。 */
-[[nodiscard]] CAORS_API error write(serialization_writer& writer, const serialization_value& value);
+[[nodiscard]] CAORS_API error write(serialization_writer& writer, const variant& value);
 
 /** @brief 通过反射类型视图和指定后端反序列化到对象。 */
 [[nodiscard]] CAORS_API error deserialize(const reflection_type& type, void* object,
@@ -558,16 +493,16 @@ template <typename T>
 }
 
 /** @brief 从序列化 DOM 中间对象反序列化到对象。 */
-template <typename T> [[nodiscard]] error deserialize(T& object, const serialization_value& value) {
-  value_serialization_reader reader{value};
+template <typename T> [[nodiscard]] error deserialize(T& object, const variant& value) {
+  variant_serialization_reader reader{value};
   return deserialize(object, reader);
 }
 
 /** @brief 按上下文从序列化 DOM 中间对象反序列化到对象。 */
 template <typename T>
-[[nodiscard]] error deserialize(T& object, const serialization_value& value,
+[[nodiscard]] error deserialize(T& object, const variant& value,
                                 const serialization_context& context) {
-  value_serialization_reader reader{value};
+  variant_serialization_reader reader{value};
   return deserialize(object, reader, context);
 }
 

@@ -257,31 +257,29 @@ TEST_CASE("serialization - builds intermediate value from reflected object", "[s
   const caors::serialization_value_result result = caors::to_serialization_value(actor);
 
   REQUIRE(result.succeeded());
-  CHECK(result.value.kind() == caors::serialization_value_kind::object);
+  CHECK(result.value.kind() == caors::variant_kind::object);
   REQUIRE(result.value.as_object().size() == 1);
   CHECK(result.value.as_object()[0].name == "actor_id");
   CHECK(result.value.as_object()[0].field_id == 7);
-  CHECK(result.value.as_object()[0].value.kind() ==
-        caors::serialization_value_kind::signed_integer);
+  CHECK(result.value.as_object()[0].value.kind() == caors::variant_kind::signed_integer);
   CHECK(result.value.as_object()[0].value.as_i64() == 42);
 }
 
 TEST_CASE("serialization - writes intermediate arrays and objects through text writer",
           "[serialization]") {
-  caors::serialization_value::array_type items;
-  items.push_back(caors::serialization_value::from(std::int64_t{1}));
-  items.push_back(caors::serialization_value::from(std::int64_t{2}));
+  caors::variant::array_type items;
+  items.push_back(caors::variant::from(std::int64_t{1}));
+  items.push_back(caors::variant::from(std::int64_t{2}));
 
-  caors::serialization_value::object_type members;
-  members.push_back(caors::serialization_member{
+  caors::variant::object_type members;
+  members.push_back(caors::variant_member{
       caors::string_name{"items"},
       1,
-      caors::serialization_value::array(std::move(items)),
+      caors::variant::array(std::move(items)),
   });
 
   caors::text_serialization_writer writer;
-  const caors::error result =
-      caors::write(writer, caors::serialization_value::object(std::move(members)));
+  const caors::error result = caors::write(writer, caors::variant::object(std::move(members)));
 
   REQUIRE(result.succeeded());
   CHECK(writer.text() == R"({"items":[1,2]})");

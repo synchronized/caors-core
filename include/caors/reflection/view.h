@@ -44,10 +44,16 @@ public:
   [[nodiscard]] std::size_t alignment() const noexcept;
 
   /** @brief 获取字段值的运行期拷贝。 */
-  [[nodiscard]] value get_value(const void* object) const;
+  [[nodiscard]] any get_value(const void* object) const;
+
+  /** @brief 获取字段值的只读运行期引用。 */
+  [[nodiscard]] any_ref get_ref(const void* object) const;
+
+  /** @brief 获取字段值的可写运行期引用。 */
+  [[nodiscard]] any_ref get_mutable_ref(void* object) const;
 
   /** @brief 从运行期值写入字段。 */
-  bool try_set_value(void* object, const value& source) const;
+  bool try_set_value(void* object, const any& source) const;
 
   /** @brief 按指定类型读取字段值。 */
   template <typename Field>

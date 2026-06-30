@@ -107,72 +107,72 @@ template <typename T>
   return {};
 }
 
-template <typename T> [[nodiscard]] const T* codec_value(const value& data) noexcept {
+template <typename T> [[nodiscard]] const T* codec_value(const any& data) noexcept {
   return data.try_get<T>();
 }
 
-[[nodiscard]] error write_caors_string(serialization_writer& writer, const value& data) {
+[[nodiscard]] error write_caors_string(serialization_writer& writer, const any& data) {
   const string* stored = codec_value<string>(data);
   return stored != nullptr ? writer.write_string(*stored)
                            : error{error_domain::serialization, errc::invalid_type};
 }
 
-[[nodiscard]] error write_std_string(serialization_writer& writer, const value& data) {
+[[nodiscard]] error write_std_string(serialization_writer& writer, const any& data) {
   const std::string* stored = codec_value<std::string>(data);
   return stored != nullptr ? writer.write_string(*stored)
                            : error{error_domain::serialization, errc::invalid_type};
 }
 
-[[nodiscard]] error write_string_view(serialization_writer& writer, const value& data) {
+[[nodiscard]] error write_string_view(serialization_writer& writer, const any& data) {
   const std::string_view* stored = codec_value<std::string_view>(data);
   return stored != nullptr ? writer.write_string(*stored)
                            : error{error_domain::serialization, errc::invalid_type};
 }
 
-[[nodiscard]] error write_guid(serialization_writer& writer, const value& data) {
+[[nodiscard]] error write_guid(serialization_writer& writer, const any& data) {
   const guid* stored = codec_value<guid>(data);
   return stored != nullptr ? writer.write_string(stored->string())
                            : error{error_domain::serialization, errc::invalid_type};
 }
 
-[[nodiscard]] error write_type_guid(serialization_writer& writer, const value& data) {
+[[nodiscard]] error write_type_guid(serialization_writer& writer, const any& data) {
   const type_guid* stored = codec_value<type_guid>(data);
   return stored != nullptr ? writer.write_string(stored->value.string())
                            : error{error_domain::serialization, errc::invalid_type};
 }
 
-[[nodiscard]] serialization_value_result make_caors_string_value(const value& data) {
+[[nodiscard]] serialization_value_result make_caors_string_value(const any& data) {
   const string* stored = codec_value<string>(data);
   return stored != nullptr
-             ? serialization_value_result{{}, serialization_value::from(*stored)}
+             ? serialization_value_result{{}, variant::from(*stored)}
              : serialization_value_result{{error_domain::serialization, errc::invalid_type}, {}};
 }
 
-[[nodiscard]] serialization_value_result make_std_string_value(const value& data) {
+[[nodiscard]] serialization_value_result make_std_string_value(const any& data) {
   const std::string* stored = codec_value<std::string>(data);
   return stored != nullptr
-             ? serialization_value_result{{}, serialization_value::from(*stored)}
+             ? serialization_value_result{{}, variant::from(*stored)}
              : serialization_value_result{{error_domain::serialization, errc::invalid_type}, {}};
 }
 
-[[nodiscard]] serialization_value_result make_string_view_value(const value& data) {
+[[nodiscard]] serialization_value_result make_string_view_value(const any& data) {
   const std::string_view* stored = codec_value<std::string_view>(data);
   return stored != nullptr
-             ? serialization_value_result{{}, serialization_value::from(*stored)}
+             ? serialization_value_result{{}, variant::from(*stored)}
              : serialization_value_result{{error_domain::serialization, errc::invalid_type}, {}};
 }
 
-[[nodiscard]] serialization_value_result make_guid_value(const value& data) {
+[[nodiscard]] serialization_value_result make_guid_value(const any& data) {
   const guid* stored = codec_value<guid>(data);
   return stored != nullptr
-             ? serialization_value_result{{}, serialization_value::from(stored->string())}
+             ? serialization_value_result{{}, variant::from(stored->string())}
              : serialization_value_result{{error_domain::serialization, errc::invalid_type}, {}};
 }
 
-[[nodiscard]] serialization_value_result make_type_guid_value(const value& data) {
+[[nodiscard]] serialization_value_result make_type_guid_value(const any& data) {
   const type_guid* stored = codec_value<type_guid>(data);
   return stored != nullptr
-             ? serialization_value_result{{}, serialization_value::from(stored->value.string())}
+             ? serialization_value_result{{}, variant::from(stored->value.string())}
              : serialization_value_result{{error_domain::serialization, errc::invalid_type}, {}};
 }
 

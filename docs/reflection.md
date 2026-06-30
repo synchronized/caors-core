@@ -140,7 +140,7 @@ auto value = id->try_get<int>(&instance);
 也可以通过 `get_value()` 获取运行期值拷贝：
 
 ```cpp
-caors::value value = id->get_value(&instance);
+caors::any value = id->get_value(&instance);
 
 if (const int* current = value.try_get<int>()) {
   // 使用 current 读取字段值。
@@ -149,32 +149,59 @@ if (const int* current = value.try_get<int>()) {
 value.try_set(7);
 ```
 
-`get_value()` 返回的是字段值拷贝，修改该 `value` 不会自动修改原对象。`try_set_value()`
-可以从同类型 `value` 显式写回字段：
+`get_value()` 返回的是字段值拷贝，修改该 `any` 不会自动修改原对象。`try_set_value()`
+可以从同类型 `any` 显式写回字段：
 
 ```cpp
 int source = 42;
-id->try_set_value(&instance, caors::value::from(source));
+id->try_set_value(&instance, caors::any::from(source));
 ```
 
-### value
+如果只需要访问字段本体，或者字段不可拷贝，可以使用 `get_ref()` / `get_mutable_ref()` 获取
+运行期引用：
 
-`value` 是运行期值拷贝，保存注册表分配的类型 id、类型名、C++ 类型 key、对象拷贝、大小和对齐信息。
+```cpp
+caors::any_ref ref = id->get_mutable_ref(&instance);
+
+if (int* current = ref.try_get_mutable<int>()) {
+  *current = 7;
+}
+```
+
+`any_ref` 不拥有对象，也不会延长字段所属对象生命周期。调用方必须保证原对象在引用使用期间仍然存活。
+`get_ref()` 始终返回只读引用；`get_mutable_ref()` 只会在字段可写且传入对象非空时返回可写引用。
+
+### any
+
+`any` 是运行期 C++ 类型值拷贝，保存注册表分配的类型 id、类型名、C++ 类型 key、对象拷贝、大小和对齐信息。
 它不引用原对象，因此可以安全地脱离字段所属对象生命周期使用。
 
-`value` 当前提供：
+`any` 当前提供：
 
 - `valid()`：判断值是否有效。
 - `type()` / `type_name()`：查询运行期类型身份。
 - `matches_type<T>()`：判断是否匹配指定 C++ 类型。
 - `try_get<T>()`：获取只读指针。
 - `try_get_mutable<T>()`：获取可写指针。
-- `try_set<T>()`：从同类型 C++ 值写入当前 `value`。
-- `try_set(value)`：从同类型运行期值写入当前 `value`。
+- `try_set<T>()`：从同类型 C++ 值写入当前 `any`。
+- `try_set(any)`：从同类型运行期值写入当前 `any`。
 
-这是 CAORS value/variant 层的第一步。第一版只支持可拷贝类型；不可拷贝字段调用 `get_value()`
-会返回无效 `value`。后续如果需要零拷贝访问，会单独增加语义更明确的 view 类型，并在文档中明确
-生命周期限制。
+旧 `caors::value` 仍作为 `caors::any` 的兼容别名保留。第一版只支持可拷贝类型；不可拷贝字段调用 `get_value()`
+会返回无效 `any`。
+
+### any_ref
+
+`any_ref` 是运行期 C++ 类型引用，保存类型信息、对象地址、大小、对齐和可写性。它不拥有对象、
+不复制对象，也不析构对象，适合零拷贝访问字段和不可拷贝字段。
+
+`any_ref` 当前提供：
+
+- `valid()`：判断引用是否有效。
+- `writable()`：判断是否允许通过该引用写入。
+- `type()` / `type_name()`：查询运行期类型身份。
+- `matches_type<T>()`：判断是否匹配指定 C++ 类型。
+- `try_get<T>()`：获取只读指针。
+- `try_get_mutable<T>()`：获取可写指针；只读引用会返回 `nullptr`。
 
 ### reflection_type_data
 
@@ -229,7 +256,8 @@ field->try_set<float>(&instance, 75.0F);
 - `kind()` / `wrapper_semantics()` / `pointer_depth()` / `nullable()`：查询字段形态语义。
 - `offset()` / `size()` / `alignment()` / `writable()`：查询字段布局和可写性。
 - `try_get<T>()` / `try_set<T>()`：按静态类型读写字段。
-- `get_value()` / `try_set_value()`：按运行期 `value` 读写字段。
+- `get_value()` / `try_set_value()`：按运行期 `any` 读写字段。
+- `get_ref()` / `get_mutable_ref()`：按运行期 `any_ref` 引用字段。
 
 ### 全局注册表
 
@@ -267,7 +295,9 @@ auto reflected = caors::find_reflection("game.actor");
 
 ## 当前已实现能力
 
-- `value`：运行期值拷贝。
+- `any`：运行期 C++ 类型值拷贝。
+- `any_ref`：运行期 C++ 类型非拥有引用。
+- `value`：`any` 的兼容别名。
 - `reflection_field_data`：字段名、字段类型名、字段形态、wrapper 语义、解包类型、offset、size、alignment、
   基础 get/set 和运行期值访问。
 - `reflection_type_data`：字段列表等反射组件数据。
@@ -280,7 +310,7 @@ auto reflected = caors::find_reflection("game.actor");
 ## 相关入口
 
 - 公共头文件按职责拆分在 `include/caors/reflection/`：
-  - `value.h`：运行期值拷贝。
+  - `value.h`：兼容入口，转发到 `include/caors/value/any.h`。
   - `wrapper.h`：wrapper traits 和 wrapper 语义。
   - `field.h`：字段元信息和字段访问。
   - `type.h`：类型反射描述。
@@ -288,5 +318,6 @@ auto reflected = caors::find_reflection("game.actor");
   - `registry.h`：全局反射注册表和注册查询函数。
   - `builder.h`：RTTR 风格链式注册入口。
 - `include/caors/reflection.h` 是 umbrella 头，继续提供完整反射 API。
+- `include/caors/value.h` 是 value 模块 umbrella 头，提供 `any` 和 `variant`。
 - 可运行示例位于 `examples/reflection/`，示例组织规则见 [examples/README.md](../examples/README.md)。
 - 行为测试位于 `tests/reflection/`，测试组织规则见 [tests/README.md](../tests/README.md)。

@@ -181,7 +181,7 @@ const reflection_field_data* reflection_field::info() const noexcept {
   return field_;
 }
 
-value reflection_field::get_value(const void* object) const {
+any reflection_field::get_value(const void* object) const {
   const reflection_field_data* field = info();
   if (field == nullptr) {
     return {};
@@ -190,7 +190,25 @@ value reflection_field::get_value(const void* object) const {
   return field->get_value(object);
 }
 
-bool reflection_field::try_set_value(void* object, const value& source) const {
+any_ref reflection_field::get_ref(const void* object) const {
+  const reflection_field_data* field = info();
+  if (field == nullptr) {
+    return {};
+  }
+
+  return field->get_ref(object);
+}
+
+any_ref reflection_field::get_mutable_ref(void* object) const {
+  const reflection_field_data* field = info();
+  if (field == nullptr) {
+    return {};
+  }
+
+  return field->get_mutable_ref(object);
+}
+
+bool reflection_field::try_set_value(void* object, const any& source) const {
   const reflection_field_data* field = info();
   if (field == nullptr) {
     return false;

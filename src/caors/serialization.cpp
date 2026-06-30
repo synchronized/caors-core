@@ -12,7 +12,7 @@ namespace caors {
 namespace {
 
 template <typename T>
-[[nodiscard]] bool try_write_i64(serialization_writer& writer, const value& data) {
+[[nodiscard]] bool try_write_i64(serialization_writer& writer, const any& data) {
   const T* stored = data.try_get<T>();
   if (stored == nullptr) {
     return false;
@@ -22,7 +22,7 @@ template <typename T>
 }
 
 template <typename T>
-[[nodiscard]] bool try_write_u64(serialization_writer& writer, const value& data) {
+[[nodiscard]] bool try_write_u64(serialization_writer& writer, const any& data) {
   const T* stored = data.try_get<T>();
   if (stored == nullptr) {
     return false;
@@ -32,7 +32,7 @@ template <typename T>
 }
 
 template <typename T>
-[[nodiscard]] bool try_write_f64(serialization_writer& writer, const value& data) {
+[[nodiscard]] bool try_write_f64(serialization_writer& writer, const any& data) {
   const T* stored = data.try_get<T>();
   if (stored == nullptr) {
     return false;
@@ -41,7 +41,7 @@ template <typename T>
   return writer.write_f64(static_cast<double>(*stored)).succeeded();
 }
 
-[[nodiscard]] bool try_write_serialized_value(serialization_writer& writer, const value& data) {
+[[nodiscard]] bool try_write_serialized_value(serialization_writer& writer, const any& data) {
   if (const bool* stored = data.try_get<bool>()) {
     return writer.write_bool(*stored).succeeded();
   }
@@ -71,7 +71,7 @@ template <typename T>
   return false;
 }
 
-[[nodiscard]] serialization_value_result make_serialized_value(const value& data) {
+[[nodiscard]] serialization_value_result make_serialized_value(const any& data) {
   const std::optional<serialization_codec_data> codec =
       get_serialization_codec_registry().find_codec(data.type());
   if (codec.has_value() && codec->make_value != nullptr) {
@@ -79,60 +79,60 @@ template <typename T>
   }
 
   if (const bool* stored = data.try_get<bool>()) {
-    return {{}, serialization_value::from(*stored)};
+    return {{}, variant::from(*stored)};
   }
 
   if (const char* stored = data.try_get<char>()) {
-    return {{}, serialization_value::from(std::string_view{stored, 1})};
+    return {{}, variant::from(std::string_view{stored, 1})};
   }
 
   if (const signed char* stored = data.try_get<signed char>()) {
-    return {{}, serialization_value::from(static_cast<std::int64_t>(*stored))};
+    return {{}, variant::from(static_cast<std::int64_t>(*stored))};
   }
   if (const short* stored = data.try_get<short>()) {
-    return {{}, serialization_value::from(static_cast<std::int64_t>(*stored))};
+    return {{}, variant::from(static_cast<std::int64_t>(*stored))};
   }
   if (const int* stored = data.try_get<int>()) {
-    return {{}, serialization_value::from(static_cast<std::int64_t>(*stored))};
+    return {{}, variant::from(static_cast<std::int64_t>(*stored))};
   }
   if (const long* stored = data.try_get<long>()) {
-    return {{}, serialization_value::from(static_cast<std::int64_t>(*stored))};
+    return {{}, variant::from(static_cast<std::int64_t>(*stored))};
   }
   if (const long long* stored = data.try_get<long long>()) {
-    return {{}, serialization_value::from(static_cast<std::int64_t>(*stored))};
+    return {{}, variant::from(static_cast<std::int64_t>(*stored))};
   }
 
   if (const unsigned char* stored = data.try_get<unsigned char>()) {
-    return {{}, serialization_value::from(static_cast<std::uint64_t>(*stored))};
+    return {{}, variant::from(static_cast<std::uint64_t>(*stored))};
   }
   if (const unsigned short* stored = data.try_get<unsigned short>()) {
-    return {{}, serialization_value::from(static_cast<std::uint64_t>(*stored))};
+    return {{}, variant::from(static_cast<std::uint64_t>(*stored))};
   }
   if (const unsigned int* stored = data.try_get<unsigned int>()) {
-    return {{}, serialization_value::from(static_cast<std::uint64_t>(*stored))};
+    return {{}, variant::from(static_cast<std::uint64_t>(*stored))};
   }
   if (const unsigned long* stored = data.try_get<unsigned long>()) {
-    return {{}, serialization_value::from(static_cast<std::uint64_t>(*stored))};
+    return {{}, variant::from(static_cast<std::uint64_t>(*stored))};
   }
   if (const unsigned long long* stored = data.try_get<unsigned long long>()) {
-    return {{}, serialization_value::from(static_cast<std::uint64_t>(*stored))};
+    return {{}, variant::from(static_cast<std::uint64_t>(*stored))};
   }
 
   if (const float* stored = data.try_get<float>()) {
-    return {{}, serialization_value::from(static_cast<double>(*stored))};
+    return {{}, variant::from(static_cast<double>(*stored))};
   }
   if (const double* stored = data.try_get<double>()) {
-    return {{}, serialization_value::from(*stored)};
+    return {{}, variant::from(*stored)};
   }
   if (const long double* stored = data.try_get<long double>()) {
-    return {{}, serialization_value::from(static_cast<double>(*stored))};
+    return {{}, variant::from(static_cast<double>(*stored))};
   }
 
   if (const std::string* stored = data.try_get<std::string>()) {
-    return {{}, serialization_value::from(*stored)};
+    return {{}, variant::from(*stored)};
   }
   if (const std::string_view* stored = data.try_get<std::string_view>()) {
-    return {{}, serialization_value::from(*stored)};
+    return {{}, variant::from(*stored)};
   }
 
   return {{error_domain::serialization, errc::unsupported}, {}};
@@ -197,7 +197,7 @@ template <typename T>
     return {error_domain::serialization, errc::unsupported};
   }
 
-  value field_value = field.get_value(object);
+  any field_value = field.get_value(object);
   if (!field_value.valid()) {
     return {error_domain::serialization, errc::unsupported};
   }
@@ -388,28 +388,28 @@ serialization_writer::~serialization_writer() = default;
 
 serialization_reader::~serialization_reader() = default;
 
-error write(serialization_writer& writer, const serialization_value& value) {
+error write(serialization_writer& writer, const variant& value) {
   switch (value.kind()) {
-  case serialization_value_kind::null:
+  case variant_kind::null:
     return {error_domain::serialization, errc::unsupported};
-  case serialization_value_kind::boolean:
+  case variant_kind::boolean:
     return writer.write_bool(value.as_bool());
-  case serialization_value_kind::signed_integer:
+  case variant_kind::signed_integer:
     return writer.write_i64(value.as_i64());
-  case serialization_value_kind::unsigned_integer:
+  case variant_kind::unsigned_integer:
     return writer.write_u64(value.as_u64());
-  case serialization_value_kind::floating:
+  case variant_kind::floating:
     return writer.write_f64(value.as_f64());
-  case serialization_value_kind::string:
+  case variant_kind::string:
     return writer.write_string(value.as_string());
-  case serialization_value_kind::array: {
+  case variant_kind::array: {
     error status = writer.begin_array(value.as_array().size());
     if (status) {
       return status;
     }
 
     std::size_t index = 0;
-    for (const serialization_value& element : value.as_array()) {
+    for (const variant& element : value.as_array()) {
       status = writer.begin_element(index);
       if (status) {
         return status;
@@ -430,10 +430,10 @@ error write(serialization_writer& writer, const serialization_value& value) {
 
     return writer.end_array();
   }
-  case serialization_value_kind::object: {
+  case variant_kind::object: {
     serialization_type_data type_data;
     type_data.fields.reserve(value.as_object().size());
-    for (const serialization_member& member : value.as_object()) {
+    for (const variant_member& member : value.as_object()) {
       type_data.fields.push_back(serialization_field_data{
           member.name,
           member.name,
@@ -451,7 +451,7 @@ error write(serialization_writer& writer, const serialization_value& value) {
     }
 
     for (std::size_t index = 0; index < value.as_object().size(); ++index) {
-      const serialization_member& member = value.as_object()[index];
+      const variant_member& member = value.as_object()[index];
       status = validate_field_for_writer(type_data.fields[index], writer.features());
       if (status) {
         return status;
@@ -630,7 +630,7 @@ serialization_value_result to_serialization_value(const reflection_type& type, c
     return {{error_domain::serialization, errc::invalid_type}, {}};
   }
 
-  serialization_value::object_type members;
+  variant::object_type members;
 
   if (!serialization->fields.empty()) {
     members.reserve(serialization->fields.size());
@@ -644,7 +644,7 @@ serialization_value_result to_serialization_value(const reflection_type& type, c
         return {{error_domain::serialization, errc::not_found}, {}};
       }
 
-      value field_value = field->get_value(object);
+      any field_value = field->get_value(object);
       if (!field_value.valid()) {
         return {{error_domain::serialization, errc::unsupported}, {}};
       }
@@ -654,7 +654,7 @@ serialization_value_result to_serialization_value(const reflection_type& type, c
         return serialized;
       }
 
-      members.push_back(serialization_member{
+      members.push_back(variant_member{
           serialized_field_name(field_data),
           field_data.field_id,
           std::move(serialized.value),
@@ -668,7 +668,7 @@ serialization_value_result to_serialization_value(const reflection_type& type, c
         return {{error_domain::serialization, errc::invalid_field}, {}};
       }
 
-      value field_value = field->get_value(object);
+      any field_value = field->get_value(object);
       if (!field_value.valid()) {
         return {{error_domain::serialization, errc::unsupported}, {}};
       }
@@ -678,7 +678,7 @@ serialization_value_result to_serialization_value(const reflection_type& type, c
         return serialized;
       }
 
-      members.push_back(serialization_member{
+      members.push_back(variant_member{
           field->name(),
           0,
           std::move(serialized.value),
@@ -686,7 +686,7 @@ serialization_value_result to_serialization_value(const reflection_type& type, c
     }
   }
 
-  return {{}, serialization_value::object(std::move(members))};
+  return {{}, variant::object(std::move(members))};
 }
 
 error serialize(type_id id, const void* object, serialization_writer& writer) {

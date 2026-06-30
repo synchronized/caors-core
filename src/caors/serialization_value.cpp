@@ -15,80 +15,80 @@ namespace {
 
 } // namespace
 
-serialization_value::serialization_value() = default;
+variant::variant() = default;
 
-serialization_value::~serialization_value() = default;
+variant::~variant() = default;
 
-serialization_value::serialization_value(const serialization_value& other) = default;
+variant::variant(const variant& other) = default;
 
-serialization_value::serialization_value(serialization_value&& other) noexcept = default;
+variant::variant(variant&& other) noexcept = default;
 
-serialization_value& serialization_value::operator=(const serialization_value& other) = default;
+variant& variant::operator=(const variant& other) = default;
 
-serialization_value& serialization_value::operator=(serialization_value&& other) noexcept = default;
+variant& variant::operator=(variant&& other) noexcept = default;
 
-serialization_value serialization_value::null() { return {}; }
+variant variant::null() { return {}; }
 
-serialization_value serialization_value::from(bool value) {
-  serialization_value result;
-  result.kind_ = serialization_value_kind::boolean;
+variant variant::from(bool value) {
+  variant result;
+  result.kind_ = variant_kind::boolean;
   result.bool_value_ = value;
   return result;
 }
 
-serialization_value serialization_value::from(std::int64_t value) {
-  serialization_value result;
-  result.kind_ = serialization_value_kind::signed_integer;
+variant variant::from(std::int64_t value) {
+  variant result;
+  result.kind_ = variant_kind::signed_integer;
   result.i64_value_ = value;
   return result;
 }
 
-serialization_value serialization_value::from(std::uint64_t value) {
-  serialization_value result;
-  result.kind_ = serialization_value_kind::unsigned_integer;
+variant variant::from(std::uint64_t value) {
+  variant result;
+  result.kind_ = variant_kind::unsigned_integer;
   result.u64_value_ = value;
   return result;
 }
 
-serialization_value serialization_value::from(double value) {
-  serialization_value result;
-  result.kind_ = serialization_value_kind::floating;
+variant variant::from(double value) {
+  variant result;
+  result.kind_ = variant_kind::floating;
   result.f64_value_ = value;
   return result;
 }
 
-serialization_value serialization_value::from(std::string_view value) {
-  serialization_value result;
-  result.kind_ = serialization_value_kind::string;
+variant variant::from(std::string_view value) {
+  variant result;
+  result.kind_ = variant_kind::string;
   result.string_value_.assign(value.data(), value.size());
   return result;
 }
 
-serialization_value serialization_value::array(array_type values) {
-  serialization_value result;
-  result.kind_ = serialization_value_kind::array;
+variant variant::array(array_type values) {
+  variant result;
+  result.kind_ = variant_kind::array;
   result.array_value_ = std::move(values);
   return result;
 }
 
-serialization_value serialization_value::object(object_type members) {
-  serialization_value result;
-  result.kind_ = serialization_value_kind::object;
+variant variant::object(object_type members) {
+  variant result;
+  result.kind_ = variant_kind::object;
   result.object_value_ = std::move(members);
   return result;
 }
 
-value_serialization_reader::value_serialization_reader(const serialization_value& value) noexcept
+variant_serialization_reader::variant_serialization_reader(const variant& value) noexcept
     : root_(&value) {}
 
-serialization_format_features value_serialization_reader::features() const noexcept {
+serialization_format_features variant_serialization_reader::features() const noexcept {
   return serialization_format_features::named_fields |
          serialization_format_features::numeric_fields |
          serialization_format_features::self_describing;
 }
 
-error value_serialization_reader::begin_object(const serialization_type_data&) {
-  if (root_ == nullptr || root_->kind() != serialization_value_kind::object || object_open_) {
+error variant_serialization_reader::begin_object(const serialization_type_data&) {
+  if (root_ == nullptr || root_->kind() != variant_kind::object || object_open_) {
     return {error_domain::serialization, errc::invalid_argument};
   }
 
@@ -97,14 +97,14 @@ error value_serialization_reader::begin_object(const serialization_type_data&) {
   return {};
 }
 
-const serialization_member*
-value_serialization_reader::find_member(const serialization_field_data& field) const {
-  if (root_ == nullptr || root_->kind() != serialization_value_kind::object) {
+const variant_member*
+variant_serialization_reader::find_member(const serialization_field_data& field) const {
+  if (root_ == nullptr || root_->kind() != variant_kind::object) {
     return nullptr;
   }
 
   const string_name name = serialized_field_name(field);
-  for (const serialization_member& member : root_->as_object()) {
+  for (const variant_member& member : root_->as_object()) {
     if (field.field_id != 0 && member.field_id == field.field_id) {
       return &member;
     }
@@ -117,11 +117,11 @@ value_serialization_reader::find_member(const serialization_field_data& field) c
   return nullptr;
 }
 
-const serialization_value* value_serialization_reader::current_value() const noexcept {
+const variant* variant_serialization_reader::current_value() const noexcept {
   return current_member_ != nullptr ? &current_member_->value : nullptr;
 }
 
-error value_serialization_reader::begin_field(const serialization_field_data& field) {
+error variant_serialization_reader::begin_field(const serialization_field_data& field) {
   if (!object_open_ || current_member_ != nullptr) {
     return {error_domain::serialization, errc::invalid_argument};
   }
@@ -134,9 +134,9 @@ error value_serialization_reader::begin_field(const serialization_field_data& fi
   return {};
 }
 
-error value_serialization_reader::read_bool(bool& value) {
-  const serialization_value* current = current_value();
-  if (current == nullptr || current->kind() != serialization_value_kind::boolean) {
+error variant_serialization_reader::read_bool(bool& value) {
+  const variant* current = current_value();
+  if (current == nullptr || current->kind() != variant_kind::boolean) {
     return {error_domain::serialization, errc::invalid_type};
   }
 
@@ -144,9 +144,9 @@ error value_serialization_reader::read_bool(bool& value) {
   return {};
 }
 
-error value_serialization_reader::read_i64(std::int64_t& value) {
-  const serialization_value* current = current_value();
-  if (current == nullptr || current->kind() != serialization_value_kind::signed_integer) {
+error variant_serialization_reader::read_i64(std::int64_t& value) {
+  const variant* current = current_value();
+  if (current == nullptr || current->kind() != variant_kind::signed_integer) {
     return {error_domain::serialization, errc::invalid_type};
   }
 
@@ -154,9 +154,9 @@ error value_serialization_reader::read_i64(std::int64_t& value) {
   return {};
 }
 
-error value_serialization_reader::read_u64(std::uint64_t& value) {
-  const serialization_value* current = current_value();
-  if (current == nullptr || current->kind() != serialization_value_kind::unsigned_integer) {
+error variant_serialization_reader::read_u64(std::uint64_t& value) {
+  const variant* current = current_value();
+  if (current == nullptr || current->kind() != variant_kind::unsigned_integer) {
     return {error_domain::serialization, errc::invalid_type};
   }
 
@@ -164,9 +164,9 @@ error value_serialization_reader::read_u64(std::uint64_t& value) {
   return {};
 }
 
-error value_serialization_reader::read_f64(double& value) {
-  const serialization_value* current = current_value();
-  if (current == nullptr || current->kind() != serialization_value_kind::floating) {
+error variant_serialization_reader::read_f64(double& value) {
+  const variant* current = current_value();
+  if (current == nullptr || current->kind() != variant_kind::floating) {
     return {error_domain::serialization, errc::invalid_type};
   }
 
@@ -174,9 +174,9 @@ error value_serialization_reader::read_f64(double& value) {
   return {};
 }
 
-error value_serialization_reader::read_string(string& value) {
-  const serialization_value* current = current_value();
-  if (current == nullptr || current->kind() != serialization_value_kind::string) {
+error variant_serialization_reader::read_string(string& value) {
+  const variant* current = current_value();
+  if (current == nullptr || current->kind() != variant_kind::string) {
     return {error_domain::serialization, errc::invalid_type};
   }
 
@@ -184,7 +184,7 @@ error value_serialization_reader::read_string(string& value) {
   return {};
 }
 
-error value_serialization_reader::end_field() {
+error variant_serialization_reader::end_field() {
   if (current_member_ == nullptr) {
     return {error_domain::serialization, errc::invalid_argument};
   }
@@ -193,7 +193,7 @@ error value_serialization_reader::end_field() {
   return {};
 }
 
-error value_serialization_reader::end_object() {
+error variant_serialization_reader::end_object() {
   if (!object_open_ || current_member_ != nullptr) {
     return {error_domain::serialization, errc::invalid_argument};
   }

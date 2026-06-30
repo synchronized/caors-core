@@ -16,9 +16,9 @@
 - 提供 `serialization_registry` 和 `register_serialization<T>()` 注册入口。
 - 提供 `serialization_writer` 后端接口，让不同格式复用同一套字段遍历逻辑。
 - 提供 `serialization_reader` 后端接口，让不同格式复用同一套字段读入逻辑。
-- 提供 `serialization_value` 中间对象树，方便工具、调试和多格式转换。
+- 提供 `variant` 中间对象树，方便工具、调试和多格式转换。
 - 提供 `text_serialization_writer` 和 `serialize_text()`，通过反射字段读取对象并输出简单文本结构。
-- 提供 `value_serialization_reader` 和 `deserialize()`，通过 DOM 中间对象写回基础反射字段。
+- 提供 `variant_serialization_reader` 和 `deserialize()`，通过 DOM 中间对象写回基础反射字段。
 - 提供 `serialization_context`，支持按 schema version 过滤字段。
 - 提供 `serialization_codec_registry`，允许把特定 C++ 类型作为原子序列化值读写。
 - 用 `caors::error` 和 `caors::result<T>` 表达失败状态和携带值的返回结果。
@@ -100,7 +100,7 @@ writer 通过 `serialization_format_features` 声明能力：
 
 当前内置 reader：
 
-- `value_serialization_reader`：从 `serialization_value` 对象树读取字段，声明
+- `variant_serialization_reader`：从 `variant` 对象树读取字段，声明
   `named_fields | numeric_fields | self_describing`。
 
 可以直接从 DOM 中间对象反序列化到已注册反射和序列化元信息的对象：
@@ -140,9 +140,9 @@ caors::error status = caors::deserialize(instance, value.value);
 直接按 `type_id` 注册 `serialization_codec_data`。codec 可以分别提供 writer、reader 和 DOM
 构造函数；没有提供的方向会继续走默认逻辑或返回不支持。
 
-### serialization_value
+### variant
 
-`serialization_value` 是序列化 DOM 中间对象。它可以保存：
+`variant` 是序列化 DOM 中间对象。它保存的是已经脱离 C++ 精确类型的运行期数据，可以保存：
 
 - `null`
 - `bool`
@@ -153,13 +153,13 @@ caors::error status = caors::deserialize(instance, value.value);
 - 数组
 - 对象
 
-对象成员由 `serialization_member` 表示，保留输出字段名、稳定字段 id 和字段值：
+对象成员由 `variant_member` 表示，保留输出字段名、稳定字段 id 和字段值：
 
 ```cpp
-struct serialization_member {
+struct variant_member {
   caors::string_name name;
   std::uint32_t field_id;
-  caors::serialization_value value;
+  caors::variant value;
 };
 ```
 
@@ -168,6 +168,10 @@ struct serialization_member {
 ```cpp
 caors::serialization_value_result value = caors::to_serialization_value(instance);
 ```
+
+旧 `serialization_value`、`serialization_member` 和 `serialization_value_kind` 仍作为
+`variant`、`variant_member` 和 `variant_kind` 的兼容别名保留；旧 `value_serialization_reader`
+仍作为 `variant_serialization_reader` 的兼容别名保留。
 
 也可以把中间树写入任意 writer：
 
@@ -236,9 +240,9 @@ caors::string text = result.value;
 - `serialization_context`：单次序列化/反序列化上下文，支持 schema version 字段过滤。
 - `serialization_codec_registry`：类型级 codec 注册表。
 - `text_serialization_writer`：简单文本格式后端。
-- `serialization_value`：序列化 DOM 中间对象。
-- `value_serialization_reader`：从 DOM 中间对象读入字段的后端。
-- `serialization_member`：对象成员，保存字段名、字段 id 和字段值。
+- `variant`：序列化 DOM 中间对象。
+- `variant_serialization_reader`：从 DOM 中间对象读入字段的后端。
+- `variant_member`：对象成员，保存字段名、字段 id 和字段值。
 - `serialization_registry`：全局序列化注册表。
 - `register_serialization()`：注册序列化组件。
 - `serialize()`：通过指定 writer 后端序列化对象。
@@ -246,7 +250,7 @@ caors::string text = result.value;
 - `to_serialization_value()`：通过反射和序列化元信息构造中间对象树。
 - `write()`：把中间对象树写入指定 writer。
 - `serialization_text_result`：`caors::result<caors::string>` 文本序列化结果。
-- `serialization_value_result`：`caors::result<serialization_value>` 中间值构造结果。
+- `serialization_value_result`：`caors::result<variant>` 中间值构造结果。
 - `serialize_text()`：基于反射字段的简单文本序列化。
 - 基础标量和字符串字段输出。
 - 字段别名和跳过配置。
