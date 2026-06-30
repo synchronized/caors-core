@@ -178,11 +178,20 @@ variant_serialization_reader::find_member(const serialization_field_data& field)
 }
 
 const variant* variant_serialization_reader::current_value() const noexcept {
-  if (current_members_.empty() || current_members_.back() == nullptr) {
-    return nullptr;
+  if (!current_members_.empty() && current_members_.back() != nullptr &&
+      object_stack_.size() > array_stack_.size()) {
+    return &current_members_.back()->value;
   }
 
-  return &current_members_.back()->value;
+  if (!current_elements_.empty() && current_elements_.back() != nullptr) {
+    return current_elements_.back();
+  }
+
+  if (!current_members_.empty() && current_members_.back() != nullptr) {
+    return &current_members_.back()->value;
+  }
+
+  return nullptr;
 }
 
 error variant_serialization_reader::begin_field(const serialization_field_data& field) {
@@ -195,6 +204,33 @@ error variant_serialization_reader::begin_field(const serialization_field_data& 
     return {error_domain::serialization, errc::not_found};
   }
 
+  return {};
+}
+
+error variant_serialization_reader::begin_array(std::size_t& size) {
+  const variant* array = current_value();
+  if (array == nullptr || array->kind() != variant_kind::array) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  array_stack_.push_back(array);
+  current_elements_.push_back(nullptr);
+  size = array->as_array().size();
+  return {};
+}
+
+error variant_serialization_reader::begin_element(std::size_t index) {
+  if (array_stack_.empty() || current_elements_.empty() || current_elements_.back() != nullptr) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  const variant* array = array_stack_.back();
+  if (array == nullptr || array->kind() != variant_kind::array ||
+      index >= array->as_array().size()) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  current_elements_.back() = &array->as_array()[index];
   return {};
 }
 
@@ -245,6 +281,25 @@ error variant_serialization_reader::read_string(string& value) {
   }
 
   value = current->as_string();
+  return {};
+}
+
+error variant_serialization_reader::end_element() {
+  if (current_elements_.empty() || current_elements_.back() == nullptr) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  current_elements_.back() = nullptr;
+  return {};
+}
+
+error variant_serialization_reader::end_array() {
+  if (array_stack_.empty() || current_elements_.empty() || current_elements_.back() != nullptr) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  array_stack_.pop_back();
+  current_elements_.pop_back();
   return {};
 }
 

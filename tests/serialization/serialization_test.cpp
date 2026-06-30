@@ -109,12 +109,24 @@ struct nested_actor {
   nested_stats stats{};
 };
 
+struct vector_actor {
+  caors::vector<int> scores{};
+};
+
+struct nested_vector_actor {
+  caors::vector<nested_stats> stats{};
+};
+
 [[nodiscard]] bool reflection_result_ok(caors::error result) noexcept {
   return result.succeeded() || result.value() == caors::errc::duplicate_reflection;
 }
 
 [[nodiscard]] bool serialization_result_ok(caors::error result) noexcept {
   return result.succeeded() || result.value() == caors::errc::duplicate_component;
+}
+
+[[nodiscard]] bool type_result_ok(caors::error result) noexcept {
+  return result.succeeded() || result.value() == caors::errc::duplicate_id;
 }
 
 class numeric_field_writer final : public caors::serialization_writer {
@@ -476,6 +488,119 @@ TEST_CASE("serialization - recursively deserializes nested reflected structs", "
   CHECK(actor.id == 9);
   CHECK(actor.stats.level == 4);
   CHECK(actor.stats.score == Catch::Approx(15.25));
+}
+
+TEST_CASE("serialization - serializes vector fields as arrays", "[serialization]") {
+  REQUIRE(type_result_ok(caors::register_type<caors::vector<int>>("caors.vector<int>")));
+  REQUIRE(serialization_result_ok(caors::register_serialization_codec<caors::vector<int>>()));
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<vector_actor>("caors.test.serialization.vector_actor")
+          .field("scores", &vector_actor::scores)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<vector_actor>()));
+
+  vector_actor actor{};
+  actor.scores.push_back(1);
+  actor.scores.push_back(2);
+  actor.scores.push_back(3);
+
+  const caors::serialization_text_result text = caors::serialize_text(actor);
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"scores":[1,2,3]})");
+
+  const caors::variant_result value = caors::to_serialization_value(actor);
+  REQUIRE(value.succeeded());
+  const caors::variant_member* scores = value.value.find_member(caors::string_name{"scores"});
+  REQUIRE(scores != nullptr);
+  REQUIRE(scores->value.is_array());
+  REQUIRE(scores->value.as_array().size() == 3);
+  CHECK(scores->value.as_array()[2].as_i64() == 3);
+}
+
+TEST_CASE("serialization - deserializes vector fields from arrays", "[serialization]") {
+  REQUIRE(type_result_ok(caors::register_type<caors::vector<int>>("caors.vector<int>")));
+  REQUIRE(serialization_result_ok(caors::register_serialization_codec<caors::vector<int>>()));
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<vector_actor>("caors.test.serialization.vector_actor")
+          .field("scores", &vector_actor::scores)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<vector_actor>()));
+
+  caors::variant::array_type scores;
+  scores.push_back(caors::variant::from(std::int64_t{5}));
+  scores.push_back(caors::variant::from(std::int64_t{6}));
+
+  caors::variant::object_type members;
+  members.push_back(caors::variant_member{
+      caors::string_name{"scores"},
+      0,
+      caors::variant::array(std::move(scores)),
+  });
+
+  vector_actor actor{};
+  const caors::error result = caors::deserialize(actor, caors::variant::object(std::move(members)));
+
+  REQUIRE(result.succeeded());
+  REQUIRE(actor.scores.size() == 2);
+  CHECK(actor.scores[0] == 5);
+  CHECK(actor.scores[1] == 6);
+}
+
+TEST_CASE("serialization - recursively serializes vector struct elements", "[serialization]") {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<nested_stats>("caors.test.serialization.nested_stats")
+          .field("level", &nested_stats::level)
+          .field("score", &nested_stats::score)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<nested_stats>()));
+  REQUIRE(type_result_ok(caors::register_type<caors::vector<nested_stats>>(
+      "caors.vector<caors.test.serialization.nested_stats>")));
+  REQUIRE(
+      serialization_result_ok(caors::register_serialization_codec<caors::vector<nested_stats>>()));
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<nested_vector_actor>("caors.test.serialization.nested_vector_actor")
+          .field("stats", &nested_vector_actor::stats)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<nested_vector_actor>()));
+
+  nested_vector_actor actor{};
+  actor.stats.push_back(nested_stats{1, 2.5F});
+  actor.stats.push_back(nested_stats{3, 4.5F});
+
+  const caors::serialization_text_result text = caors::serialize_text(actor);
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"stats":[{"level":1,"score":2.5},{"level":3,"score":4.5}]})");
+
+  caors::variant::object_type first_stats;
+  first_stats.push_back(caors::variant_member{
+      caors::string_name{"level"},
+      0,
+      caors::variant::from(std::int64_t{7}),
+  });
+  first_stats.push_back(caors::variant_member{
+      caors::string_name{"score"},
+      0,
+      caors::variant::from(8.5),
+  });
+
+  caors::variant::array_type stats_array;
+  stats_array.push_back(caors::variant::object(std::move(first_stats)));
+
+  caors::variant::object_type members;
+  members.push_back(caors::variant_member{
+      caors::string_name{"stats"},
+      0,
+      caors::variant::array(std::move(stats_array)),
+  });
+
+  nested_vector_actor decoded{};
+  const caors::error result =
+      caors::deserialize(decoded, caors::variant::object(std::move(members)));
+
+  REQUIRE(result.succeeded());
+  REQUIRE(decoded.stats.size() == 1);
+  CHECK(decoded.stats[0].level == 7);
+  CHECK(decoded.stats[0].score == Catch::Approx(8.5));
 }
 
 TEST_CASE("serialization - variant reader matches fields by stable field id", "[serialization]") {

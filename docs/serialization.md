@@ -22,6 +22,7 @@
 - 提供 `serialization_context`，支持按 schema version 过滤字段。
 - 提供 `serialization_codec_registry`，允许把特定 C++ 类型作为原子序列化值读写。
 - 支持已注册反射和序列化元信息的值类型结构体字段递归序列化和 DOM 反序列化。
+- 提供 `caors::vector<T>` 数组 codec，支持标量元素和已注册结构体元素。
 - 用 `caors::error` 和 `caors::result<T>` 表达失败状态和携带值的返回结果。
 
 当前不会包含：
@@ -29,7 +30,7 @@
 - 内置二进制格式。
 - 版本迁移和默认值恢复。
 - 对象引用、指针和 wrapper 字段序列化。
-- 容器递归序列化。
+- 泛化容器递归序列化。
 
 这些能力后续应在对象 handle、字段策略和格式扩展点明确后逐步补充。
 
@@ -46,6 +47,7 @@
 - `caors/serialization/codec.h`：类型级 codec 扩展点和 codec 注册表。
 - `caors/serialization/dom_reader.h`：从 `variant` DOM 读入的 reader 后端。
 - `caors/serialization/operations.h`：`serialize()`、`deserialize()`、`to_serialization_value()`、`serialize_text()` 等调度入口。
+- `caors/serialization/vector_codec.h`：`caors::vector<T>` 数组 codec 模板。
 - `caors/serialization.h`：兼容用聚合头，包含以上所有入口。
 
 实现文件按 registry、codec、text writer、DOM/value、writer 接口、DOM 写出、对象序列化、对象反序列化、
@@ -129,7 +131,8 @@ caors::error status = caors::deserialize(instance, value.value);
 ```
 
 字段查找优先使用非 0 的 `field_id`，再回退到 `serialized_name` 或 `field_name`。当前支持写入
-`bool`、整数、浮点、`caors::string`、`std::string` 和已注册反射/序列化元信息的值类型结构体字段。
+`bool`、整数、浮点、`caors::string`、`std::string`、已注册反射/序列化元信息的值类型结构体字段，以及
+已注册 codec 的 `caors::vector<T>` 字段。
 
 反序列化缺失字段策略：
 
@@ -153,6 +156,11 @@ caors::error status = caors::deserialize(instance, value.value);
 - `std::string_view`：按字符串写出和构造 DOM；反序列化暂不支持直接写回 view。
 - `caors::guid`：按标准 UUID/GUID 字符串读写。
 - `caors::type_guid`：按内部 `guid` 的标准字符串读写。
+- `caors::vector<T>`：通过 `caors/serialization/vector_codec.h` 提供模板 codec，输出为数组。
+
+`caors::vector<T>` codec 需要显式调用 `register_serialization_codec<caors::vector<T>>()`。如果字段通过
+反射 builder 自动注册，建议先用 `register_type<caors::vector<T>>()` 为该 vector 类型建立 C++ 类型到
+`type_id` 的映射，让反射字段和 codec 使用同一个类型 id。
 
 外部类型可以通过特化 `serialization_codec<T>` 并调用 `register_serialization_codec<T>()` 注册，也可以
 直接按 `type_id` 注册 `serialization_codec_data`。codec 可以分别提供 writer、reader 和 DOM

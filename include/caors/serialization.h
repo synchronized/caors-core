@@ -10,6 +10,7 @@
 #include "caors/serialization/reader.h"
 #include "caors/serialization/registry.h"
 #include "caors/serialization/types.h"
+#include "caors/serialization/vector_codec.h"
 #include "caors/serialization/writer.h"
 
 #endif
