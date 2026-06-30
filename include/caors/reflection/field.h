@@ -13,6 +13,7 @@
 #include <optional>
 #include <string_view>
 #include <type_traits>
+#include <vector>
 
 namespace caors {
 
@@ -25,6 +26,62 @@ enum class field_kind {
   sequence,
 };
 
+/**
+ * @brief 顺序容器反射 traits。
+ *
+ * 自定义顺序容器可以特化该模板接入反射系统。traits 负责提供元素类型、类型名前缀和基础访问函数。
+ */
+template <typename T> struct sequence_traits {
+  static constexpr bool is_sequence = false;
+};
+
+template <typename T, typename Allocator> struct sequence_traits<std::vector<T, Allocator>> {
+  static constexpr bool is_sequence = true;
+  using element_type = std::remove_cv_t<T>;
+
+  [[nodiscard]] static constexpr std::string_view type_name_prefix() noexcept {
+    if constexpr (std::is_same_v<Allocator, allocator<T>>) {
+      return "caors.vector";
+    } else {
+      return "std.vector";
+    }
+  }
+
+  [[nodiscard]] static std::size_t size(const std::vector<T, Allocator>& values) noexcept {
+    return values.size();
+  }
+
+  [[nodiscard]] static const element_type* element(const std::vector<T, Allocator>& values,
+                                                   std::size_t index) noexcept {
+    return index < values.size() ? &values[index] : nullptr;
+  }
+
+  [[nodiscard]] static element_type* mutable_element(std::vector<T, Allocator>& values,
+                                                     std::size_t index) noexcept {
+    return index < values.size() ? &values[index] : nullptr;
+  }
+
+  static void clear(std::vector<T, Allocator>& values) { values.clear(); }
+
+  [[nodiscard]] static bool resize(std::vector<T, Allocator>& values, std::size_t size) {
+    if constexpr (std::is_default_constructible_v<T>) {
+      values.resize(size);
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  [[nodiscard]] static bool append(std::vector<T, Allocator>& values, const element_type& value) {
+    if constexpr (std::is_copy_constructible_v<T>) {
+      values.push_back(value);
+      return true;
+    } else {
+      return false;
+    }
+  }
+};
+
 namespace detail {
 
 using object_ref_get_fn = object* (*)(const void*) noexcept;
@@ -32,15 +89,9 @@ using object_ref_set_fn = bool (*)(void*, object*) noexcept;
 using sequence_size_fn = std::size_t (*)(const void*) noexcept;
 using sequence_const_element_fn = const void* (*)(const void*, std::size_t) noexcept;
 using sequence_mutable_element_fn = void* (*)(void*, std::size_t) noexcept;
-
-template <typename T> struct sequence_traits {
-  static constexpr bool is_sequence = false;
-};
-
-template <typename T> struct sequence_traits<vector<T>> {
-  static constexpr bool is_sequence = true;
-  using element_type = std::remove_cv_t<T>;
-};
+using sequence_clear_fn = void (*)(void*) noexcept;
+using sequence_resize_fn = bool (*)(void*, std::size_t);
+using sequence_append_fn = bool (*)(void*, const void*);
 
 template <typename T>
 inline constexpr bool is_supported_wrapper_v = wrapper_traits<std::remove_cv_t<T>>::is_wrapper;
@@ -189,7 +240,7 @@ template <typename Field> [[nodiscard]] sequence_size_fn sequence_size_fn_of() n
         return 0;
       }
 
-      return static_cast<const field_type*>(storage)->size();
+      return sequence_traits<field_type>::size(*static_cast<const field_type*>(storage));
     };
   } else {
     return nullptr;
@@ -205,8 +256,7 @@ template <typename Field>
         return nullptr;
       }
 
-      const auto* values = static_cast<const field_type*>(storage);
-      return index < values->size() ? &(*values)[index] : nullptr;
+      return sequence_traits<field_type>::element(*static_cast<const field_type*>(storage), index);
     };
   } else {
     return nullptr;
@@ -222,8 +272,53 @@ template <typename Field>
         return nullptr;
       }
 
-      auto* values = static_cast<field_type*>(storage);
-      return index < values->size() ? &(*values)[index] : nullptr;
+      return sequence_traits<field_type>::mutable_element(*static_cast<field_type*>(storage),
+                                                          index);
+    };
+  } else {
+    return nullptr;
+  }
+}
+
+template <typename Field> [[nodiscard]] sequence_clear_fn sequence_clear_fn_of() noexcept {
+  using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
+  if constexpr (sequence_traits<field_type>::is_sequence) {
+    return [](void* storage) noexcept {
+      if (storage != nullptr) {
+        sequence_traits<field_type>::clear(*static_cast<field_type*>(storage));
+      }
+    };
+  } else {
+    return nullptr;
+  }
+}
+
+template <typename Field> [[nodiscard]] sequence_resize_fn sequence_resize_fn_of() noexcept {
+  using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
+  if constexpr (sequence_traits<field_type>::is_sequence) {
+    return [](void* storage, std::size_t size) -> bool {
+      if (storage == nullptr) {
+        return false;
+      }
+
+      return sequence_traits<field_type>::resize(*static_cast<field_type*>(storage), size);
+    };
+  } else {
+    return nullptr;
+  }
+}
+
+template <typename Field> [[nodiscard]] sequence_append_fn sequence_append_fn_of() noexcept {
+  using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
+  if constexpr (sequence_traits<field_type>::is_sequence) {
+    using element_type = typename sequence_traits<field_type>::element_type;
+    return [](void* storage, const void* element) -> bool {
+      if (storage == nullptr || element == nullptr) {
+        return false;
+      }
+
+      return sequence_traits<field_type>::append(*static_cast<field_type*>(storage),
+                                                 *static_cast<const element_type*>(element));
     };
   } else {
     return nullptr;
@@ -261,6 +356,9 @@ struct reflection_field_data {
   detail::sequence_size_fn sequence_size = nullptr;
   detail::sequence_const_element_fn sequence_const_element = nullptr;
   detail::sequence_mutable_element_fn sequence_mutable_element = nullptr;
+  detail::sequence_clear_fn sequence_clear = nullptr;
+  detail::sequence_resize_fn sequence_resize = nullptr;
+  detail::sequence_append_fn sequence_append = nullptr;
   field_kind kind = field_kind::value;
   field_wrapper_semantics wrapper_semantics = field_wrapper_semantics::none;
   std::uint8_t pointer_depth = 0;
@@ -455,6 +553,9 @@ make_reflection_field_data(std::string_view name, std::string_view type_name, st
       detail::sequence_size_fn_of<Field>(),
       detail::sequence_const_element_fn_of<Field>(),
       detail::sequence_mutable_element_fn_of<Field>(),
+      detail::sequence_clear_fn_of<Field>(),
+      detail::sequence_resize_fn_of<Field>(),
+      detail::sequence_append_fn_of<Field>(),
       traits.kind,
       traits.wrapper_semantics,
       traits.pointer_depth,
@@ -470,8 +571,8 @@ make_reflection_field_data(std::string_view name, std::string_view type_name, st
     field.value_type = field.type;
   }
 
-  if constexpr (detail::sequence_traits<field_type>::is_sequence) {
-    using element_type = typename detail::sequence_traits<field_type>::element_type;
+  if constexpr (sequence_traits<field_type>::is_sequence) {
+    using element_type = typename sequence_traits<field_type>::element_type;
     field.element_cpp_type = detail::cpp_type_key_of<element_type>();
     field.element_size = sizeof(element_type);
     field.element_alignment = alignof(element_type);

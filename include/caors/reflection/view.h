@@ -75,6 +75,15 @@ public:
   /** @brief 获取顺序容器字段元素可写引用。 */
   [[nodiscard]] any_ref sequence_element_mutable_ref(void* object, std::size_t index) const;
 
+  /** @brief 清空顺序容器字段。 */
+  bool sequence_clear(void* object) const;
+
+  /** @brief 调整顺序容器字段大小。 */
+  bool sequence_resize(void* object, std::size_t size) const;
+
+  /** @brief 向顺序容器字段追加一个元素。 */
+  bool sequence_append_value(void* object, const any& value) const;
+
   /** @brief 按指定类型读取字段值。 */
   template <typename Field>
   [[nodiscard]] std::optional<std::remove_cv_t<std::remove_reference_t<Field>>>

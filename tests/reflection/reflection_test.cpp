@@ -10,6 +10,7 @@
 #include <memory>
 #include <optional>
 #include <string_view>
+#include <type_traits>
 
 namespace test_reflection {
 
@@ -27,6 +28,10 @@ struct named_field_value {
 
 struct named_field_owner {
   named_field_value value{};
+};
+
+template <typename T> struct custom_sequence {
+  caors::vector<T> values{};
 };
 
 } // namespace test_reflection
@@ -49,6 +54,51 @@ template <typename T> struct wrapper_traits<test_reflection::custom_object_ref<T
 
 template <> struct type_name<test_reflection::named_field_value> {
   static constexpr std::string_view value = "caors.test.reflection.named_field_value";
+};
+
+template <typename T> struct sequence_traits<test_reflection::custom_sequence<T>> {
+  static constexpr bool is_sequence = true;
+  using element_type = std::remove_cv_t<T>;
+
+  [[nodiscard]] static constexpr std::string_view type_name_prefix() noexcept {
+    return "test.custom_sequence";
+  }
+
+  [[nodiscard]] static std::size_t
+  size(const test_reflection::custom_sequence<T>& values) noexcept {
+    return values.values.size();
+  }
+
+  [[nodiscard]] static const element_type*
+  element(const test_reflection::custom_sequence<T>& values, std::size_t index) noexcept {
+    return index < values.values.size() ? &values.values[index] : nullptr;
+  }
+
+  [[nodiscard]] static element_type* mutable_element(test_reflection::custom_sequence<T>& values,
+                                                     std::size_t index) noexcept {
+    return index < values.values.size() ? &values.values[index] : nullptr;
+  }
+
+  static void clear(test_reflection::custom_sequence<T>& values) { values.values.clear(); }
+
+  [[nodiscard]] static bool resize(test_reflection::custom_sequence<T>& values, std::size_t size) {
+    if constexpr (std::is_default_constructible_v<T>) {
+      values.values.resize(size);
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  [[nodiscard]] static bool append(test_reflection::custom_sequence<T>& values,
+                                   const element_type& value) {
+    if constexpr (std::is_copy_constructible_v<T>) {
+      values.values.push_back(value);
+      return true;
+    } else {
+      return false;
+    }
+  }
 };
 
 } // namespace caors
@@ -113,6 +163,10 @@ struct inventory_holder {
 
 struct vector_holder {
   caors::vector<int> values{};
+};
+
+struct custom_sequence_holder {
+  test_reflection::custom_sequence<int> values{};
 };
 
 struct readonly_actor {
@@ -251,6 +305,9 @@ TEST_CASE("reflection - field info describes field type traits", "[reflection]")
   CHECK(sequence.sequence_size != nullptr);
   CHECK(sequence.sequence_const_element != nullptr);
   CHECK(sequence.sequence_mutable_element != nullptr);
+  CHECK(sequence.sequence_clear != nullptr);
+  CHECK(sequence.sequence_resize != nullptr);
+  CHECK(sequence.sequence_append != nullptr);
 }
 
 TEST_CASE("reflection - field info reads and writes field values", "[reflection]") {
@@ -413,6 +470,54 @@ TEST_CASE("reflection - sequence field view exposes element metadata", "[reflect
   REQUIRE(second.valid());
   CHECK(second.try_set<int>(8));
   CHECK(instance.values[1] == 8);
+
+  CHECK(values->sequence_append_value(&instance, caors::any::from(13)));
+  REQUIRE(instance.values.size() == 3);
+  CHECK(instance.values[2] == 13);
+
+  CHECK(values->sequence_resize(&instance, 4));
+  REQUIRE(instance.values.size() == 4);
+  CHECK(instance.values[3] == 0);
+
+  CHECK(values->sequence_clear(&instance));
+  CHECK(instance.values.empty());
+}
+
+TEST_CASE("reflection - custom sequence traits expose field view", "[reflection]") {
+  REQUIRE(caors::reflection::class_<custom_sequence_holder>(
+              "caors.test.reflection.custom_sequence_holder")
+              .field("values", &custom_sequence_holder::values)
+              .commit()
+              .succeeded());
+
+  auto reflected = caors::find_reflection("caors.test.reflection.custom_sequence_holder");
+  REQUIRE(reflected.has_value());
+
+  auto values = reflected->find_field("values");
+  REQUIRE(values.has_value());
+  CHECK(values->kind() == caors::field_kind::sequence);
+  CHECK(values->type_name() == "test.custom_sequence<int>");
+  CHECK(values->element_type() == registered_type_id("int"));
+  CHECK(values->element_type_name() == "int");
+
+  custom_sequence_holder instance{};
+  CHECK(values->sequence_append_value(&instance, caors::any::from(21)));
+  CHECK(values->sequence_append_value(&instance, caors::any::from(34)));
+
+  const std::optional<std::size_t> size = values->sequence_size(&instance);
+  REQUIRE(size.has_value());
+  CHECK(*size == 2);
+
+  caors::any_ref first = values->sequence_element_ref(&instance, 0);
+  REQUIRE(first.valid());
+  const int* first_value = first.try_get<int>();
+  REQUIRE(first_value != nullptr);
+  CHECK(*first_value == 21);
+
+  CHECK(values->sequence_resize(&instance, 1));
+  CHECK(instance.values.values.size() == 1);
+  CHECK(values->sequence_clear(&instance));
+  CHECK(instance.values.values.empty());
 }
 
 TEST_CASE("reflection - views remain valid for append-only registry", "[reflection]") {

@@ -208,9 +208,10 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `object_ref<T>` 
 - `caors::vector<T>`：通过 `caors/serialization/vector_codec.h` 提供模板 codec，输出为数组。
 
 `caors::vector<T>` codec 需要显式调用 `register_serialization_codec<caors::vector<T>>()`。反射 builder
-会为 `caors::vector<T>` 字段生成容器类型名并记录元素类型，因此不需要再手动
+通过 `sequence_traits<T>` 为顺序容器字段生成容器类型名并记录元素类型，因此不需要再手动
 `register_type<caors::vector<T>>()`。当前 codec 仍负责具体数组读写，反射元信息负责说明字段是
-sequence 以及元素类型是什么。
+sequence 以及元素类型是什么。自定义顺序容器可以先特化 `sequence_traits<T>` 接入反射，再单独注册对应的
+serialization codec 接入序列化。
 
 外部类型可以通过特化 `serialization_codec<T>` 并调用 `register_serialization_codec<T>()` 注册，也可以
 直接按 `type_id` 注册 `serialization_codec_data`。codec 可以分别提供 writer、reader 和 DOM

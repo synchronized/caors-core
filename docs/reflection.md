@@ -21,7 +21,7 @@
 - 方法调用。
 - 属性元数据。
 - 自动代码扫描或代码生成。
-- 容器、枚举和复杂类型转换规则。
+- 完整容器、枚举和复杂类型转换规则。
 
 ## 核心概念
 
@@ -72,8 +72,8 @@ caors::reflection::class_<actor>("game.actor")
 
 - 如果字段类型已经通过模板注册函数注册到全局反射注册表，优先复用该类型的 `meta_type`。
 - 如果字段类型没有注册，但存在 `type_name<T>` 默认映射，则使用默认类型名注册为基础类型，并使用注册表分配的 `type_id`。
-- 如果字段类型是 `caors::vector<T>`，反射 builder 会根据元素类型名生成 `caors.vector<T>` 形式的
-  容器类型名，并记录元素类型信息。
+- 如果字段类型满足 `sequence_traits<T>::is_sequence`，反射 builder 会根据 traits 的类型名前缀和元素类型名生成
+  容器类型名，并记录元素类型信息。内置特化支持 `caors::vector<T>` 和 `std::vector<T, Allocator>`。
 - 如果两者都没有，`.commit()` 返回 `invalid_field`。
 - 字段类型语义最多支持一层裸指针或 wrapper；`T**`、`std::unique_ptr<T*>`、
   `std::optional<std::shared_ptr<T>>` 这类嵌套组合会触发静态断言。
@@ -94,8 +94,9 @@ caors::reflection::class_<actor>("game.actor")
   `wrapper_semantics` 为 `inline_value`。
 - `std::reference_wrapper<T>`：`field_kind::wrapper`，`value_type` 为 `T`，不表示空值，
   `wrapper_semantics` 为 `inline_value`。
-- `caors::vector<T>`：`field_kind::sequence`，`element_type` 为 `T`，可以通过字段视图查询元素数量和
-  元素引用。
+- `sequence_traits<T>` 顺序容器：`field_kind::sequence`，`element_type` 为元素类型，可以通过字段视图查询元素数量、
+  访问元素引用，并在 traits 支持时执行清空、调整大小和追加元素。内置 `caors::vector<T>` 会生成
+  `caors.vector<T>` 类型名。
 
 STL 智能指针和裸指针只作为外部字段类型被反射系统描述。CAORS 不根据这些字段接管对象生命周期；
 用户如果直接使用这些类型，需要自行保证释放、引用有效性和线程安全。后续 CAORS 自身的对象句柄、
@@ -116,6 +117,31 @@ struct wrapper_traits<my_box<T>> {
 
 }
 ```
+
+顺序容器识别通过 `sequence_traits<T>` 扩展。traits 需要提供元素类型、类型名前缀和基础元素访问函数：
+
+```cpp
+namespace caors {
+
+template <typename T>
+struct sequence_traits<my_sequence<T>> {
+  static constexpr bool is_sequence = true;
+  using element_type = T;
+
+  static constexpr std::string_view type_name_prefix() noexcept { return "my.sequence"; }
+  static std::size_t size(const my_sequence<T>& value) noexcept;
+  static const element_type* element(const my_sequence<T>& value, std::size_t index) noexcept;
+  static element_type* mutable_element(my_sequence<T>& value, std::size_t index) noexcept;
+  static void clear(my_sequence<T>& value);
+  static bool resize(my_sequence<T>& value, std::size_t size);
+  static bool append(my_sequence<T>& value, const element_type& element);
+};
+
+}
+```
+
+`resize()` 适合只在元素可默认构造时返回成功，`append()` 适合只在元素可拷贝时返回成功。调用方通过
+`reflection_field` 操作 sequence 字段时，类型不匹配、对象为空或 traits 不支持对应操作都会返回失败。
 
 `field_wrapper_semantics` 当前含义：
 
@@ -266,6 +292,7 @@ field->try_set<float>(&instance, 75.0F);
 - `get_ref()` / `get_mutable_ref()`：按运行期 `any_ref` 引用字段。
 - `is_sequence()` / `sequence_size()` / `sequence_element_ref()` /
   `sequence_element_mutable_ref()`：查询和访问顺序容器字段。
+- `sequence_clear()` / `sequence_resize()` / `sequence_append_value()`：通过 `sequence_traits` 修改顺序容器字段。
 
 ### 全局注册表
 

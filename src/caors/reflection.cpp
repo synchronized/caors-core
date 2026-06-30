@@ -280,6 +280,53 @@ any_ref reflection_field::sequence_element_mutable_ref(void* object, std::size_t
   return field->get_sequence_element_mutable_ref(object, index);
 }
 
+bool reflection_field::sequence_clear(void* object) const {
+  const reflection_field_data* field = info();
+  if (field == nullptr || field->kind != field_kind::sequence || field->sequence_clear == nullptr) {
+    return false;
+  }
+
+  void* storage = field->mutable_data(object);
+  if (storage == nullptr) {
+    return false;
+  }
+
+  field->sequence_clear(storage);
+  return true;
+}
+
+bool reflection_field::sequence_resize(void* object, std::size_t size) const {
+  const reflection_field_data* field = info();
+  if (field == nullptr || field->kind != field_kind::sequence ||
+      field->sequence_resize == nullptr) {
+    return false;
+  }
+
+  void* storage = field->mutable_data(object);
+  if (storage == nullptr) {
+    return false;
+  }
+
+  return field->sequence_resize(storage, size);
+}
+
+bool reflection_field::sequence_append_value(void* object, const any& value) const {
+  const reflection_field_data* field = info();
+  if (field == nullptr || field->kind != field_kind::sequence ||
+      field->sequence_append == nullptr || !value.valid() ||
+      value.cpp_type() != field->element_cpp_type || value.size() != field->element_size ||
+      value.alignment() != field->element_alignment) {
+    return false;
+  }
+
+  void* storage = field->mutable_data(object);
+  if (storage == nullptr) {
+    return false;
+  }
+
+  return field->sequence_append(storage, value.data());
+}
+
 reflection_type::reflection_type(meta_type type, const reflection_type_data* data) noexcept
     : type_(type), data_(data) {}
 

@@ -48,7 +48,7 @@ public:
       enrich_sequence_field<field_type>(field);
       reflection_.fields.push_back(field);
     } else {
-      if constexpr (detail::sequence_traits<field_type>::is_sequence) {
+      if constexpr (sequence_traits<field_type>::is_sequence) {
         const std::optional<string> sequence_name = sequence_type_name<field_type>();
         if (!sequence_name.has_value()) {
           pending_status_ = {error_domain::reflection, errc::invalid_field};
@@ -98,8 +98,8 @@ public:
 
 private:
   template <typename Field> [[nodiscard]] std::optional<string> sequence_type_name() const {
-    if constexpr (detail::sequence_traits<Field>::is_sequence) {
-      using element_type = typename detail::sequence_traits<Field>::element_type;
+    if constexpr (sequence_traits<Field>::is_sequence) {
+      using element_type = typename sequence_traits<Field>::element_type;
 
       std::optional<meta_type> element =
           get_reflection_registry().template find_registered_type<element_type>();
@@ -119,7 +119,8 @@ private:
       }
 
       string name;
-      name += "caors.vector<";
+      name += sequence_traits<Field>::type_name_prefix();
+      name += "<";
       name += element->name().view();
       name += ">";
       return name;
@@ -129,8 +130,8 @@ private:
   }
 
   template <typename Field> void enrich_sequence_field(reflection_field_data& field) const {
-    if constexpr (detail::sequence_traits<Field>::is_sequence) {
-      using element_type = typename detail::sequence_traits<Field>::element_type;
+    if constexpr (sequence_traits<Field>::is_sequence) {
+      using element_type = typename sequence_traits<Field>::element_type;
 
       const std::optional<meta_type> element = caors::find_type<element_type>();
       if (element.has_value()) {
