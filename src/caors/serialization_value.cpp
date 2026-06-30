@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "caors/serialization.h"
+#include "caors/serialization/dom_reader.h"
 
 #include <string_view>
 #include <utility>

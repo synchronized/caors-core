@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "caors/serialization.h"
+#include "caors/serialization/writer.h"
 
 #include <sstream>
 #include <string>

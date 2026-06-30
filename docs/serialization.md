@@ -34,6 +34,21 @@
 
 ## 核心概念
 
+### 文件组织
+
+序列化模块按职责拆分公共头文件：
+
+- `caors/serialization/types.h`：格式枚举、后端能力、字段/类型配置、上下文和结果类型。
+- `caors/serialization/registry.h`：序列化组件注册表和 `register_serialization()`。
+- `caors/serialization/writer.h`：`serialization_writer` 和 `text_serialization_writer`。
+- `caors/serialization/reader.h`：`serialization_reader`。
+- `caors/serialization/codec.h`：类型级 codec 扩展点和 codec 注册表。
+- `caors/serialization/dom_reader.h`：从 `variant` DOM 读入的 reader 后端。
+- `caors/serialization/operations.h`：`serialize()`、`deserialize()`、`to_serialization_value()`、`serialize_text()` 等调度入口。
+- `caors/serialization.h`：兼容用聚合头，包含以上所有入口。
+
+实现文件按 registry、codec、text writer、DOM/value 和核心调度拆分在 `src/caors/serialization_*.cpp`。
+
 ### serialization_type_data
 
 `serialization_type_data` 是挂载在 `meta_registry` 上的序列化组件。它保存默认格式和字段级
@@ -133,7 +148,6 @@ caors::error status = caors::deserialize(instance, value.value);
 - `caors::string`：按字符串读写，默认走 CAORS allocator。
 - `std::string`：按字符串读写，用于兼容外部结构。
 - `std::string_view`：按字符串写出和构造 DOM；反序列化暂不支持直接写回 view。
-- `caors::string`：按字符串读写。
 - `caors::guid`：按标准 UUID/GUID 字符串读写。
 - `caors::type_guid`：按内部 `guid` 的标准字符串读写。
 
@@ -275,5 +289,6 @@ caors::string text = result.value;
 
 ## 相关入口
 
-- 公共头文件：`include/caors/serialization.h`。
+- 公共聚合头：`include/caors/serialization.h`。
+- 按职责拆分的公共头位于 `include/caors/serialization/`。
 - 行为测试：`tests/serialization/`。
