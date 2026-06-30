@@ -12,8 +12,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 增加统一错误码、错误来源域和 `std::error_code` 适配。
 - [x] 统一 meta、object、reflection 注册 API 返回 `caors::error`，移除旧注册结果枚举兼容层。
 - [x] 增加轻量 `result<T>`，统一携带值的错误返回结构。
-- [x] 提供与 CAORS 内存系统适配的 `string` / `vector` 基础容器别名。
-- [ ] 在 core 主题下逐步补充 list、hash_map、small_vector、stable_vector 等基础容器。
+- [x] 提供与 CAORS 内存系统适配的 `string` / `vector` / `hash_map` / `hash_set` 基础容器别名。
+- [ ] 在 core 主题下逐步补充 list、small_vector、stable_vector 等基础容器。
 
 ## 1. 类型元数据底座
 
@@ -34,7 +34,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 实现 `debug_tracking_resource`，支持存活分配、调用点标签和错误释放统计。
 - [ ] 扩展栈式分配器、分级 size class 池等上层策略。
 - [ ] 扩展越界检测、填充值和 guard block 等调试能力。
-- [ ] 评估与 `std::pmr` 的适配方式。
+- [ ] 评估与 `std::pmr` 的可选适配方式。
 - [ ] 增加跨平台压力测试和边界用例测试。
 
 ## 3. 对象系统

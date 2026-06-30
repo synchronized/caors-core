@@ -12,7 +12,8 @@ CAORS 内存层希望同时支持两类用法：
 - 简单场景可以直接使用默认入口，例如 `caors::allocate()` / `caors::deallocate()`。
 - 性能敏感或生命周期明确的模块可以显式传入 `memory_resource`，让不同系统使用不同分配策略。
 
-这套设计更接近 `std::pmr::memory_resource` 的方向，但保留一组全局默认入口，方便后续在引擎或应用初始化阶段统一替换默认分配器。
+这套设计接近标准库 allocator/resource 分层：资源负责分配策略，`allocator<T>` 和 CAORS 基础容器负责把资源接入对象与容器。
+同时保留一组全局默认入口，方便后续在引擎或应用初始化阶段统一替换默认分配器。
 
 ## 核心概念
 
@@ -97,6 +98,27 @@ caors::set_default_memory_resource(&resource);
 ```
 
 之后没有显式传入资源的 `caors::allocate()` 调用都会走新的默认资源。
+
+### 基础容器适配
+
+`caors::allocator<T>` 可以把 CAORS `memory_resource` 接入标准容器。`caors/core/containers.h`
+进一步提供常用容器别名：
+
+```cpp
+caors::tracking_resource tracking(&caors::get_system_memory_resource());
+
+caors::vector<int> values{caors::allocator<int>{&tracking}};
+values.push_back(42);
+
+auto names = caors::make_hash_map<int, caors::string>(&tracking);
+names.emplace(1, caors::string{"player", caors::allocator<char>{&tracking}});
+```
+
+`caors::string`、`caors::vector<T>`、`caors::hash_map<K, V>` 和 `caors::hash_set<T>` 都使用
+`caors::allocator`。默认构造时，allocator 会捕获当前 CAORS 默认 `memory_resource`；显式资源可以通过
+allocator 构造参数或 `make_string()`、`make_vector()`、`make_hash_map()`、`make_hash_set()` 工厂传入。
+
+CAORS 不会调用 `std::pmr::set_default_resource()`，避免库代码修改进程级全局状态。
 
 ## 分层模型
 
@@ -198,6 +220,7 @@ backend / strategy resource
 
 - 统一抽象：`memory_resource`
 - STL 适配：`allocator<T>`
+- 基础容器：`string` / `vector` / `hash_map` / `hash_set`
 - 对象入口：`make<T>()` / `destroy<T>()`
 - 系统后端：`system_memory_resource`
 - 回调后端：`callback_memory_resource`
@@ -213,6 +236,7 @@ backend / strategy resource
 ## 后续路线图
 
 - [x] `allocator<T>`：适配 STL 容器。
+- [x] `string` / `vector` / `hash_map` / `hash_set`：提供默认走 CAORS allocator 的基础容器别名。
 - [x] `make<T>` / `destroy<T>`：统一对象构造和析构入口。
 - [x] `tracking_resource`：统计分配和释放，辅助泄漏检测。
 - [x] `debug_tracking_resource`：记录存活分配、调用点标签和错误释放。

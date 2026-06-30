@@ -11,12 +11,12 @@
 
 - `caors/core/string_name.h`：运行期字符串名。
 - `caors/core/guid.h`：128-bit 稳定标识值类型。
-- `caors/core/containers.h`：基于 `caors::allocator<T>` 的 `caors::string` 和 `caors::vector<T>`。
+- `caors/core/containers.h`：基于 CAORS allocator 的基础容器别名。
 
 后续可以按需要扩展：
 
 - 基础 hash 工具。
-- 与 CAORS 内存系统适配的更多基础容器，例如 list、hash_map、small_vector、stable_vector。
+- 与 CAORS 内存系统适配的更多基础容器，例如 list、small_vector、stable_vector。
 
 ## string_name
 
@@ -69,15 +69,23 @@ constexpr caors::guid stable = caors::guid::from_bytes(caors::guid::byte_array{
 ```cpp
 caors::vector<int> values;
 caors::string text;
+caors::hash_map<int, caors::string> names;
 ```
 
-这些别名使用 `caors::allocator<T>`，因此会通过当前默认 `memory_resource` 分配内存。需要显式资源时
-可以直接传入 allocator：
+这些别名使用 `caors::allocator<T>`，不会修改进程级 `std::pmr` 默认资源，也不会影响宿主程序或其他库。
+直接默认构造 `caors::vector<T>` / `caors::string` / `caors::hash_map<K, V>` 时会捕获当前
+CAORS 默认 `memory_resource`。
+
+需要显式资源时，可以直接传入 `caors::allocator<T>`，或使用工厂函数传入 `memory_resource`：
 
 ```cpp
 caors::tracking_resource tracking(&caors::get_system_memory_resource());
 caors::vector<int> values{caors::allocator<int>{&tracking}};
+
+auto default_values = caors::make_vector<int>();
+auto text = caors::make_string(&tracking);
+auto map = caors::make_hash_map<int, caors::string>(&tracking);
 ```
 
-当前只覆盖序列化 DOM 等近期需求。后续如果需要稳定地址、短数组优化或哈希查询，再分别评估
-`stable_vector`、`small_vector` 和 `hash_map` 等容器。
+当前先覆盖序列化 DOM、注册表和元数据等近期需求。后续如果需要稳定地址或短数组优化，再分别评估
+`stable_vector`、`small_vector` 等容器。
