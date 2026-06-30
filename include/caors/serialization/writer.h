@@ -82,6 +82,49 @@ private:
   bool root_written_ = false;
 };
 
+/** @brief JSON 序列化写出后端。 */
+class CAORS_API json_serialization_writer final : public serialization_writer {
+public:
+  json_serialization_writer() = default;
+
+  [[nodiscard]] serialization_format_features features() const noexcept override;
+  [[nodiscard]] error begin_object(const serialization_type_data& type) override;
+  [[nodiscard]] error begin_field(const serialization_field_data& field) override;
+  [[nodiscard]] error begin_array(std::size_t size) override;
+  [[nodiscard]] error begin_element(std::size_t index) override;
+  [[nodiscard]] error write_bool(bool value) override;
+  [[nodiscard]] error write_i64(std::int64_t value) override;
+  [[nodiscard]] error write_u64(std::uint64_t value) override;
+  [[nodiscard]] error write_f64(double value) override;
+  [[nodiscard]] error write_string(std::string_view value) override;
+  [[nodiscard]] error end_element() override;
+  [[nodiscard]] error end_array() override;
+  [[nodiscard]] error end_field() override;
+  [[nodiscard]] error end_object() override;
+
+  [[nodiscard]] const string& text() const noexcept { return text_; }
+  void reset();
+
+private:
+  enum class context_kind {
+    object,
+    array,
+  };
+
+  struct context {
+    context_kind kind = context_kind::object;
+    bool first = true;
+  };
+
+  [[nodiscard]] error prepare_value();
+  void mark_value_written() noexcept;
+
+  string text_{};
+  vector<context> contexts_{};
+  bool expecting_value_ = false;
+  bool root_written_ = false;
+};
+
 } // namespace caors
 
 #endif

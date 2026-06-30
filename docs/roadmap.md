@@ -80,6 +80,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 支持值类型嵌套结构递归序列化和 DOM 反序列化。
 - [x] 支持 `caors::vector<T>` 数组字段，覆盖标量元素和已注册结构体元素。
 - [x] 支持 `caors::object_ref<T>` 对象引用字段和 resolver。
+- [x] 增加 JSON writer、JSON DOM parser 和 `serialize_json()` / `deserialize_json()`。
 - [ ] 支持泛化容器、裸指针和一般 wrapper 字段。
-- [ ] 增加紧凑二进制和 msgpack 等非文本后端。
+- [ ] 增加紧凑二进制和 msgpack 等二进制后端。
 - [ ] 增加版本兼容、缺失字段、未知字段和跨平台字节序测试。

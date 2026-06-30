@@ -18,6 +18,7 @@
 - 提供 `serialization_reader` 后端接口，让不同格式复用同一套字段读入逻辑。
 - 提供 `variant` 中间对象树，方便工具、调试和多格式转换。
 - 提供 `text_serialization_writer` 和 `serialize_text()`，通过反射字段读取对象并输出简单文本结构。
+- 提供 `json_serialization_writer`、`serialize_json()`、`parse_json()` 和 `deserialize_json()`。
 - 提供 `variant_serialization_reader` 和 `deserialize()`，通过 DOM 中间对象写回基础反射字段。
 - 提供 `serialization_context`，支持按 schema version 过滤字段。
 - 提供 `serialization_codec_registry`，允许把特定 C++ 类型作为原子序列化值读写。
@@ -30,6 +31,7 @@
 
 - 内置二进制格式。
 - 版本迁移和默认值恢复。
+- 完整 JSON 标准扩展，例如非 ASCII `\uXXXX` 解码。
 - 裸指针和一般 wrapper 字段序列化。
 - 泛化容器递归序列化。
 
@@ -43,7 +45,8 @@
 
 - `caors/serialization/types.h`：格式枚举、后端能力、字段/类型配置、上下文和结果类型。
 - `caors/serialization/registry.h`：序列化组件注册表和 `register_serialization()`。
-- `caors/serialization/writer.h`：`serialization_writer` 和 `text_serialization_writer`。
+- `caors/serialization/writer.h`：`serialization_writer`、`text_serialization_writer` 和
+  `json_serialization_writer`。
 - `caors/serialization/reader.h`：`serialization_reader`。
 - `caors/serialization/codec.h`：类型级 codec 扩展点和 codec 注册表。
 - `caors/serialization/dom_reader.h`：从 `variant` DOM 读入的 reader 后端。
@@ -51,8 +54,9 @@
 - `caors/serialization/vector_codec.h`：`caors::vector<T>` 数组 codec 模板。
 - `caors/serialization.h`：兼容用聚合头，包含以上所有入口。
 
-实现文件按 registry、codec、text writer、DOM/value、writer 接口、DOM 写出、对象序列化、对象反序列化、
-中间值构造和文本便捷入口拆分在 `src/caors/serialization_*.cpp`。共享的字段校验、schema version
+实现文件按 registry、codec、text writer、JSON writer/parser、DOM/value、writer 接口、DOM
+写出、对象序列化、对象反序列化、中间值构造和文本便捷入口拆分在
+`src/caors/serialization_*.cpp`。共享的字段校验、schema version
 过滤和标量读写 helper 保留在私有 `src/caors/serialization_internal.*`。
 
 ### serialization_type_data
@@ -113,6 +117,7 @@ writer 通过 `serialization_format_features` 声明能力：
 当前内置后端：
 
 - `text_serialization_writer`：声明 `named_fields | ordered_fields | self_describing`。
+- `json_serialization_writer`：声明 `named_fields | ordered_fields | self_describing`，输出紧凑 JSON。
 
 ### serialization_reader
 
@@ -143,6 +148,25 @@ caors::error status = caors::deserialize(instance, value.value);
 - DOM 中存在但未被目标类型声明的未知字段默认忽略。
 
 默认值恢复、未知字段保留、严格模式和完整版本迁移策略后续再补。
+
+### JSON
+
+JSON 写出入口：
+
+```cpp
+caors::serialization_text_result text = caors::serialize_json(instance);
+```
+
+JSON 读入入口先解析为 `variant` DOM，再复用 `variant_serialization_reader` 写回对象：
+
+```cpp
+caors::variant_result value = caors::parse_json(text);
+caors::error status = caors::deserialize_json(instance, text);
+```
+
+当前 JSON parser 是最小实现，支持对象、数组、字符串、整数、浮点、`true`、`false` 和 `null`。
+字符串支持常见转义和 ASCII 范围内的 `\u00XX`；非 ASCII `\uXXXX` 暂返回 `errc::unsupported`。
+字段 id 无法从 JSON 对象名表达，因此 JSON 读入主要按字段名匹配。
 
 ### object references
 

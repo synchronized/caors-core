@@ -258,6 +258,25 @@ TEST_CASE("serialization - serializes reflected struct fields to text", "[serial
   CHECK(result.value == R"({"id":7,"health":95.5,"active":true,"name":"Ada"})");
 }
 
+TEST_CASE("serialization - serializes reflected struct fields to json", "[serialization]") {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<serializable_actor>("caors.test.serialization.actor")
+          .field("id", &serializable_actor::id)
+          .field("health", &serializable_actor::health)
+          .field("active", &serializable_actor::active)
+          .field("name", &serializable_actor::name)
+          .commit()));
+
+  const caors::error register_status = caors::register_serialization<serializable_actor>();
+  REQUIRE(serialization_result_ok(register_status));
+
+  const serializable_actor actor{7, 95.5F, true, "Ada\nLovelace"};
+  const caors::serialization_text_result result = caors::serialize_json(actor);
+
+  REQUIRE(result.succeeded());
+  CHECK(result.value == R"({"id":7,"health":95.5,"active":true,"name":"Ada\nLovelace"})");
+}
+
 TEST_CASE("serialization - field metadata renames and skips fields", "[serialization]") {
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<configured_actor>("caors.test.serialization.configured_actor")
@@ -442,6 +461,45 @@ TEST_CASE("serialization - variant reader deserializes reflected struct fields",
   CHECK(actor.name == "Ada");
 }
 
+TEST_CASE("serialization - parses json and deserializes reflected struct fields",
+          "[serialization]") {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<reader_actor>("caors.test.serialization.reader_actor")
+          .field("id", &reader_actor::id)
+          .field("health", &reader_actor::health)
+          .field("active", &reader_actor::active)
+          .field("name", &reader_actor::name)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<reader_actor>()));
+
+  const caors::variant_result parsed =
+      caors::parse_json(R"({"id":7,"health":95.5,"active":true,"name":"Ada\nLovelace"})");
+  REQUIRE(parsed.succeeded());
+  REQUIRE(parsed.value.is_object());
+  const caors::variant_member* name = parsed.value.find_member(caors::string_name{"name"});
+  REQUIRE(name != nullptr);
+  REQUIRE(name->value.is_string());
+  CHECK(name->value.as_string() == "Ada\nLovelace");
+
+  reader_actor actor{};
+  const caors::error result =
+      caors::deserialize_json(actor, R"({"id":7,"health":95.5,"active":true,"name":"Ada"})");
+
+  REQUIRE(result.succeeded());
+  CHECK(actor.id == 7);
+  CHECK(actor.health == Catch::Approx(95.5));
+  CHECK(actor.active);
+  CHECK(actor.name == "Ada");
+}
+
+TEST_CASE("serialization - rejects invalid json", "[serialization]") {
+  const caors::variant_result parsed = caors::parse_json(R"({"id":1,})");
+
+  CHECK(parsed.failed());
+  CHECK(parsed.status.domain() == caors::error_domain::serialization);
+  CHECK(parsed.status.value() == caors::errc::invalid_argument);
+}
+
 TEST_CASE("serialization - recursively serializes nested reflected structs", "[serialization]") {
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<nested_stats>("caors.test.serialization.nested_stats")
@@ -471,6 +529,33 @@ TEST_CASE("serialization - recursively serializes nested reflected structs", "[s
   const caors::variant_member* level = stats->value.find_member(caors::string_name{"level"});
   REQUIRE(level != nullptr);
   CHECK(level->value.as_i64() == 3);
+}
+
+TEST_CASE("serialization - json handles nested structs arrays and schema context",
+          "[serialization]") {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<nested_stats>("caors.test.serialization.nested_stats")
+          .field("level", &nested_stats::level)
+          .field("score", &nested_stats::score)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<nested_stats>()));
+  REQUIRE(type_result_ok(caors::register_type<caors::vector<nested_stats>>(
+      "caors.vector<caors.test.serialization.nested_stats>")));
+  REQUIRE(
+      serialization_result_ok(caors::register_serialization_codec<caors::vector<nested_stats>>()));
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<nested_vector_actor>("caors.test.serialization.nested_vector_actor")
+          .field("stats", &nested_vector_actor::stats)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<nested_vector_actor>()));
+
+  nested_vector_actor actor{};
+  actor.stats.push_back(nested_stats{1, 2.5F});
+  actor.stats.push_back(nested_stats{3, 4.5F});
+
+  const caors::serialization_text_result json = caors::serialize_json(actor);
+  REQUIRE(json.succeeded());
+  CHECK(json.value == R"({"stats":[{"level":1,"score":2.5},{"level":3,"score":4.5}]})");
 }
 
 TEST_CASE("serialization - recursively deserializes nested reflected structs", "[serialization]") {
@@ -664,6 +749,10 @@ TEST_CASE("serialization - serializes object references through resolver", "[ser
   REQUIRE(target_member != nullptr);
   CHECK(target_member->value.is_u64());
   CHECK(target_member->value.as_u64() == 77);
+
+  const caors::serialization_text_result json = caors::serialize_json(actor, context);
+  REQUIRE(json.succeeded());
+  CHECK(json.value == R"({"target":77})");
 }
 
 TEST_CASE("serialization - deserializes object references through resolver", "[serialization]") {
@@ -696,6 +785,12 @@ TEST_CASE("serialization - deserializes object references through resolver", "[s
 
   REQUIRE(result.succeeded());
   CHECK(actor.target.get() == &target);
+
+  object_ref_actor from_json{};
+  const caors::error json_result = caors::deserialize_json(
+      from_json, R"({"target":88})", caors::serialization_context{0, &resolver});
+  REQUIRE(json_result.succeeded());
+  CHECK(from_json.target.get() == &target);
 }
 
 TEST_CASE("serialization - object reference resolver failures are reported", "[serialization]") {

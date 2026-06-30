@@ -20,6 +20,7 @@ namespace caors {
 /** @brief 序列化格式。当前 MVP 仅提供简单文本格式。 */
 enum class serialization_format {
   text,
+  json,
 };
 
 /** @brief 序列化后端能力。 */
@@ -73,7 +74,8 @@ struct serialization_type_data {
   vector<serialization_field_data> fields{};
 
   [[nodiscard]] bool valid() const noexcept {
-    if (default_format != serialization_format::text) {
+    if (default_format != serialization_format::text &&
+        default_format != serialization_format::json) {
       return false;
     }
 
