@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
+#include "caors/core/containers.h"
 #include "caors/memory.h"
 
 #include <catch2/catch_all.hpp>
@@ -33,7 +34,18 @@ TEST_CASE("memory debug tracking - records live allocations", "[memory]") {
   CHECK(debug.live_allocation_count() == 1);
   CHECK(debug.live_bytes() == 64);
 
-  const auto records = debug.live_allocations();
+  std::size_t visited_count = 0;
+  debug.for_each_live_allocation(
+      [](const caors::memory_debug_record& record, void* user_data) {
+        auto* count = static_cast<std::size_t*>(user_data);
+        if (record.ptr != nullptr) {
+          ++(*count);
+        }
+      },
+      &visited_count);
+  CHECK(visited_count == 1);
+
+  const auto records = caors::collect_live_allocations(debug);
   REQUIRE(records.size() == 1);
   CHECK(records[0].ptr == ptr);
   CHECK(records[0].size == 64);
@@ -57,7 +69,7 @@ TEST_CASE("memory debug tracking - records live allocations", "[memory]") {
   CHECK(stats.memory.bytes_in_use == 0);
   CHECK(stats.live_allocation_count == 0);
   CHECK(!debug.has_leaks());
-  CHECK(debug.live_allocations().empty());
+  CHECK(caors::collect_live_allocations(debug).empty());
 }
 
 TEST_CASE("memory debug tracking - detects invalid deallocation", "[memory]") {
@@ -94,7 +106,7 @@ TEST_CASE("memory debug tracking - keeps failed allocations out of live records"
 
   CHECK(debug.try_allocate_debug(48, 32, "failed") == nullptr);
   CHECK(debug.live_allocation_count() == 0);
-  CHECK(debug.live_allocations().empty());
+  CHECK(caors::collect_live_allocations(debug).empty());
   CHECK(debug.debug_statistics().memory.allocation_count == 0);
   CHECK(state.allocate_count == 1);
 }

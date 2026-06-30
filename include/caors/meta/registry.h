@@ -17,9 +17,7 @@
 #include <optional>
 #include <string_view>
 #include <type_traits>
-#include <unordered_map>
 #include <utility>
-#include <vector>
 
 namespace caors {
 
@@ -38,7 +36,7 @@ public:
 
   [[nodiscard]] virtual bool contains(type_id id) const = 0;
   [[nodiscard]] virtual std::size_t size() const noexcept = 0;
-  [[nodiscard]] virtual std::vector<type_id> ids() const = 0;
+  [[nodiscard]] virtual vector<type_id> ids() const = 0;
 };
 
 template <typename Component>
@@ -83,9 +81,9 @@ public:
     return components_.size();
   }
 
-  [[nodiscard]] std::vector<type_id> ids() const override {
+  [[nodiscard]] vector<type_id> ids() const override {
     std::lock_guard lock(mutex_);
-    std::vector<type_id> result;
+    vector<type_id> result;
     result.reserve(components_.size());
     for (const auto& [id, component] : components_) {
       (void)component;
@@ -97,7 +95,7 @@ public:
 
 private:
   mutable std::mutex mutex_;
-  std::unordered_map<std::uint64_t, std::unique_ptr<Component>> components_;
+  hash_map<std::uint64_t, std::unique_ptr<Component>> components_;
 };
 
 } // namespace detail
@@ -244,8 +242,8 @@ private:
   detail::meta_component_storage_base&
   ensure_component_storage(detail::meta_component_key key,
                            std::unique_ptr<detail::meta_component_storage_base> storage);
-  [[nodiscard]] std::vector<type_id> view_component_ids(const detail::meta_component_key* keys,
-                                                        std::size_t count) const;
+  [[nodiscard]] vector<type_id> view_component_ids(const detail::meta_component_key* keys,
+                                                   std::size_t count) const;
 
   meta_registry_state* state_ = nullptr;
 };

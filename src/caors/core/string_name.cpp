@@ -3,10 +3,10 @@
 
 #include "caors/core/string_name.h"
 
+#include "caors/core/containers.h"
+
 #include <mutex>
-#include <string>
 #include <string_view>
-#include <unordered_map>
 
 namespace caors {
 namespace {
@@ -19,7 +19,7 @@ public:
     }
 
     std::lock_guard lock(mutex_);
-    const auto existing = ids_by_text_.find(std::string(text));
+    const auto existing = ids_by_text_.find(string{text});
     if (existing != ids_by_text_.end()) {
       return existing->second;
     }
@@ -29,7 +29,7 @@ public:
       id = next_id_++;
     }
 
-    std::string owned_text{text};
+    string owned_text{text};
     ids_by_text_.emplace(owned_text, id);
     text_by_id_.emplace(id, std::move(owned_text));
     return id;
@@ -37,7 +37,7 @@ public:
 
   [[nodiscard]] std::optional<std::uint64_t> find_id(std::string_view text) const {
     std::lock_guard lock(mutex_);
-    const auto position = ids_by_text_.find(std::string(text));
+    const auto position = ids_by_text_.find(string{text});
     if (position == ids_by_text_.end()) {
       return std::nullopt;
     }
@@ -58,8 +58,8 @@ public:
 private:
   mutable std::mutex mutex_;
   std::uint64_t next_id_ = 1;
-  std::unordered_map<std::string, std::uint64_t> ids_by_text_;
-  std::unordered_map<std::uint64_t, std::string> text_by_id_;
+  hash_map<string, std::uint64_t> ids_by_text_;
+  hash_map<std::uint64_t, string> text_by_id_;
 };
 
 [[nodiscard]] string_name_table& get_string_name_table() {

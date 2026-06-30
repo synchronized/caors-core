@@ -240,7 +240,7 @@ field->try_set<float>(&instance, 75.0F);
 内部持有 `reflection_field_data` 的只读指针。反射注册表是进程级 append-only 注册表，
 类型和字段注册后不可撤销、不可替换，因此有效视图可以在进程生命周期内稳定使用。
 
-当前字段数据以 `std::vector<reflection_field_data>` 保存在 `reflection_type_data` 内。字段视图的
+当前字段数据以 `caors::vector<reflection_field_data>` 保存在 `reflection_type_data` 内。字段视图的
 稳定性依赖“注册后冻结”约束：注册完成后不会再向该类型追加、删除或替换字段。如果后续支持热重载、
 字段增量注册或组件替换，需要先重新设计字段存储和视图失效规则。
 

@@ -4,12 +4,12 @@
 #ifndef CAORS_REFLECTION_TYPE_H_
 #define CAORS_REFLECTION_TYPE_H_
 
+#include "caors/core/containers.h"
 #include "caors/reflection/field.h"
 
 #include <initializer_list>
 #include <optional>
 #include <string_view>
-#include <vector>
 
 namespace caors {
 
@@ -20,7 +20,7 @@ namespace caors {
  * 统一表达。外部查询优先使用 `reflection_type` 只读视图。
  */
 struct reflection_type_data {
-  std::vector<reflection_field_data> fields{};
+  vector<reflection_field_data> fields{};
 
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] std::optional<reflection_field_data> find_field(string_name name) const;
@@ -30,7 +30,7 @@ struct reflection_type_data {
 /** @brief 创建类型反射底层数据。 */
 [[nodiscard]] inline reflection_type_data
 make_reflection_type_data(std::initializer_list<reflection_field_data> fields) {
-  return reflection_type_data{std::vector<reflection_field_data>{fields}};
+  return reflection_type_data{vector<reflection_field_data>{fields}};
 }
 
 } // namespace caors

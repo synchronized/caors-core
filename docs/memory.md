@@ -15,6 +15,22 @@ CAORS 内存层希望同时支持两类用法：
 这套设计接近标准库 allocator/resource 分层：资源负责分配策略，`allocator<T>` 和 CAORS 基础容器负责把资源接入对象与容器。
 同时保留一组全局默认入口，方便后续在引擎或应用初始化阶段统一替换默认分配器。
 
+依赖方向固定为：
+
+```text
+memory
+  -> 不依赖 core 容器
+
+core containers
+  -> 依赖 memory_resource / allocator<T>
+
+meta / reflection / serialization / object
+  -> 默认使用 core containers
+```
+
+因此 memory 层 API 不返回 `caors::vector`、`caors::string` 这类上层容器；需要容器化结果时，由
+`caors/core/containers.h` 提供辅助函数完成收集。
+
 ## 核心概念
 
 ### memory_resource
@@ -120,6 +136,29 @@ allocator 构造参数或 `make_string()`、`make_vector()`、`make_hash_map()`�
 
 CAORS 不会调用 `std::pmr::set_default_resource()`，避免库代码修改进程级全局状态。
 
+### 容器依赖边界
+
+`memory.h` 是 `caors/core/containers.h` 的底层依赖，因此 memory 层保持无 CAORS 容器返回值。需要遍历
+memory 内部调试记录时，底层 API 使用 callback：
+
+```cpp
+debug.for_each_live_allocation(
+    [](const caors::memory_debug_record& record, void* user_data) {
+      // 直接消费 record，不要求 memory 层构造容器。
+    },
+    nullptr);
+```
+
+如果调用方需要快照容器，可以使用 core 层 helper：
+
+```cpp
+caors::vector<caors::memory_debug_record> records =
+    caors::collect_live_allocations(debug);
+```
+
+这样可以避免 `memory -> core containers -> memory` 的循环依赖，也让底层 allocator/resource
+保持更小的头文件依赖面。
+
 ## 分层模型
 
 后续内存系统可以按职责分成三层。
@@ -180,9 +219,13 @@ caors::debug_tracking_resource debug(&caors::get_system_memory_resource());
 
 void* ptr = debug.allocate_debug(128, 64, "temporary-buffer");
 
-for (const caors::memory_debug_record& record : debug.live_allocations()) {
+debug.for_each_live_allocation(
+    [](const caors::memory_debug_record& record, void*) {
   // record 中包含 ptr、size、alignment、label、file_name、function_name、line 和 column。
-}
+    },
+    nullptr);
+
+caors::vector<caors::memory_debug_record> records = caors::collect_live_allocations(debug);
 
 debug.deallocate(ptr, 128, 64);
 ```

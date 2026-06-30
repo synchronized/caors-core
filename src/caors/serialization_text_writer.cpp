@@ -41,7 +41,7 @@ void append_escaped_string(string& output, std::string_view value) {
   output.push_back('"');
 }
 
-void append_text(string& output, const std::string& value) {
+void append_text(string& output, std::string_view value) {
   output.append(value.data(), value.size());
 }
 

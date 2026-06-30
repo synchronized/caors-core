@@ -7,7 +7,6 @@
 
 #include <cstdint>
 #include <optional>
-#include <string>
 #include <string_view>
 #include <utility>
 
@@ -17,7 +16,7 @@ struct serializable_actor {
   int id = 0;
   float health = 0.0F;
   bool active = false;
-  std::string name{};
+  caors::string name{};
 };
 
 struct configured_actor {
@@ -42,7 +41,7 @@ struct reader_actor {
   int id = 0;
   float health = 0.0F;
   bool active = false;
-  std::string name{};
+  caors::string name{};
 };
 
 struct reader_field_id_actor {
@@ -322,7 +321,7 @@ TEST_CASE("serialization - converts runtime values to variant", "[serialization]
   REQUIRE(number_result.value.try_as_i64() != nullptr);
   CHECK(*number_result.value.try_as_i64() == 42);
 
-  std::string name = "Ada";
+  caors::string name = "Ada";
   caors::any_ref name_ref = caors::any_ref::from(name);
   caors::variant_result name_result = caors::to_variant(name_ref);
   REQUIRE(name_result.succeeded());

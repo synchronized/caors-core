@@ -4,6 +4,7 @@
 #ifndef CAORS_META_TYPE_NAME_H_
 #define CAORS_META_TYPE_NAME_H_
 
+#include "caors/core/containers.h"
 #include "caors/meta/type_id.h"
 
 #include <string>
@@ -81,6 +82,10 @@ template <> struct type_name<long double> {
 
 template <> struct type_name<std::string> {
   inline static constexpr std::string_view value = "std.string";
+};
+
+template <> struct type_name<string> {
+  inline static constexpr std::string_view value = "caors.string";
 };
 
 template <> struct type_name<std::string_view> {

@@ -4,12 +4,12 @@
 #ifndef CAORS_META_VIEW_H_
 #define CAORS_META_VIEW_H_
 
+#include "caors/core/containers.h"
 #include "caors/meta/type_id.h"
 
 #include <cstddef>
 #include <optional>
 #include <utility>
-#include <vector>
 
 namespace caors {
 
@@ -23,7 +23,7 @@ class meta_registry;
  */
 template <typename... Components> class meta_view final {
 public:
-  using const_iterator = typename std::vector<type_id>::const_iterator;
+  using const_iterator = typename vector<type_id>::const_iterator;
 
   meta_view() = default;
 
@@ -31,7 +31,7 @@ public:
   [[nodiscard]] const_iterator end() const noexcept { return ids_.end(); }
   [[nodiscard]] bool empty() const noexcept { return ids_.empty(); }
   [[nodiscard]] std::size_t size() const noexcept { return ids_.size(); }
-  [[nodiscard]] const std::vector<type_id>& ids() const noexcept { return ids_; }
+  [[nodiscard]] const vector<type_id>& ids() const noexcept { return ids_; }
 
   /** @brief 获取视图中某个类型上的组件副本。 */
   template <typename Component> [[nodiscard]] std::optional<Component> find(type_id id) const;
@@ -39,11 +39,11 @@ public:
 private:
   friend class meta_registry;
 
-  meta_view(const meta_registry* registry, std::vector<type_id> ids)
+  meta_view(const meta_registry* registry, vector<type_id> ids)
       : registry_(registry), ids_(std::move(ids)) {}
 
   const meta_registry* registry_ = nullptr;
-  std::vector<type_id> ids_;
+  vector<type_id> ids_;
 };
 
 } // namespace caors

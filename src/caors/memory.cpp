@@ -4,6 +4,7 @@
 #include "caors/memory.h"
 
 #include "caors/config.h"
+#include "caors/core/containers.h"
 
 #include <algorithm>
 #include <atomic>
@@ -13,8 +14,6 @@
 #include <mutex>
 #include <new>
 #include <stdexcept>
-#include <unordered_map>
-#include <vector>
 
 namespace caors {
 namespace {
@@ -163,7 +162,7 @@ struct debug_tracking_state {
 
   memory_resource* upstream = nullptr;
   mutable std::mutex mutex;
-  std::unordered_map<void*, memory_debug_record> allocations;
+  hash_map<void*, memory_debug_record> allocations;
   std::atomic<std::size_t> allocation_count{0};
   std::atomic<std::size_t> deallocation_count{0};
   std::atomic<std::size_t> bytes_allocated{0};
@@ -353,16 +352,16 @@ std::size_t debug_tracking_resource::live_bytes() const noexcept {
 
 bool debug_tracking_resource::has_leaks() const noexcept { return live_allocation_count() != 0; }
 
-std::vector<memory_debug_record> debug_tracking_resource::live_allocations() const {
-  std::vector<memory_debug_record> result;
-  std::lock_guard lock(state_->mutex);
-  result.reserve(state_->allocations.size());
-
-  for (const auto& allocation : state_->allocations) {
-    result.push_back(allocation.second);
+void debug_tracking_resource::for_each_live_allocation(memory_debug_record_fn callback,
+                                                       void* user_data) const noexcept {
+  if (callback == nullptr) {
+    return;
   }
 
-  return result;
+  std::lock_guard lock(state_->mutex);
+  for (const auto& allocation : state_->allocations) {
+    callback(allocation.second, user_data);
+  }
 }
 
 void* debug_tracking_resource::try_allocate_debug(std::size_t size, std::size_t alignment,

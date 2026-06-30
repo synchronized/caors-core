@@ -111,7 +111,7 @@ caors::error status = caors::deserialize(instance, value.value);
 ```
 
 字段查找优先使用非 0 的 `field_id`，再回退到 `serialized_name` 或 `field_name`。当前只支持写入
-`bool`、整数、浮点和 `std::string` 字段。
+`bool`、整数、浮点、`caors::string` 和 `std::string` 字段。
 
 反序列化缺失字段策略：
 
@@ -130,7 +130,8 @@ caors::error status = caors::deserialize(instance, value.value);
 
 内置 codec：
 
-- `std::string`：按字符串读写。
+- `caors::string`：按字符串读写，默认走 CAORS allocator。
+- `std::string`：按字符串读写，用于兼容外部结构。
 - `std::string_view`：按字符串写出和构造 DOM；反序列化暂不支持直接写回 view。
 - `caors::string`：按字符串读写。
 - `caors::guid`：按标准 UUID/GUID 字符串读写。
@@ -235,6 +236,7 @@ caors::string text = result.value;
 - `bool`
 - 字符和整数类型
 - 浮点类型
+- `caors::string`
 - `std::string`
 - `std::string_view`
 

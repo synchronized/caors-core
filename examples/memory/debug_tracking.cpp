@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
+#include "caors/core/containers.h"
 #include "caors/memory.h"
 
 #include <iostream>
@@ -10,7 +11,7 @@ int main() {
 
   void* buffer = debug.allocate_debug(128, 64, "temporary-buffer");
 
-  for (const caors::memory_debug_record& record : debug.live_allocations()) {
+  for (const caors::memory_debug_record& record : caors::collect_live_allocations(debug)) {
     std::cout << "live allocation: " << record.size << " bytes";
     if (record.label != nullptr) {
       std::cout << ", label: " << record.label;

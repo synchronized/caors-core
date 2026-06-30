@@ -10,7 +10,6 @@
 #include <new>
 #include <stdexcept>
 #include <string_view>
-#include <vector>
 
 namespace {
 
@@ -128,7 +127,7 @@ TEST_CASE("memory - default resource can be replaced", "[memory]") {
 
 TEST_CASE("memory - allocator adapts resources for standard containers", "[memory]") {
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
-  std::vector<int, caors::allocator<int>> values{caors::allocator<int>(&tracking)};
+  caors::vector<int> values{caors::allocator<int>(&tracking)};
 
   values.push_back(1);
   values.push_back(2);

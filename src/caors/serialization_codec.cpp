@@ -8,14 +8,13 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
-#include <unordered_map>
 
 namespace caors {
 namespace {
 
 struct serialization_codec_registry_state {
   mutable std::mutex mutex;
-  std::unordered_map<std::uint64_t, serialization_codec_data> codecs;
+  hash_map<std::uint64_t, serialization_codec_data> codecs;
 };
 
 [[nodiscard]] serialization_codec_registry_state& codec_state() {

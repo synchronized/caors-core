@@ -16,7 +16,6 @@
 #include <source_location>
 #include <type_traits>
 #include <utility>
-#include <vector>
 
 namespace caors {
 
@@ -104,6 +103,8 @@ struct memory_debug_statistics {
   std::size_t mismatched_deallocation_count = 0;
 };
 
+using memory_debug_record_fn = void (*)(const memory_debug_record& record, void* user_data);
+
 class CAORS_API tracking_resource final : public memory_resource {
 public:
   explicit tracking_resource(memory_resource* upstream = nullptr) noexcept;
@@ -146,7 +147,15 @@ public:
   [[nodiscard]] std::size_t live_allocation_count() const noexcept;
   [[nodiscard]] std::size_t live_bytes() const noexcept;
   [[nodiscard]] bool has_leaks() const noexcept;
-  [[nodiscard]] std::vector<memory_debug_record> live_allocations() const;
+
+  /**
+   * @brief 遍历当前存活分配记录。
+   *
+   * 该入口不返回容器，避免 memory 层依赖 core 容器层。回调会在内部调试记录锁保护期间被调用，
+   * 回调内不应再次调用同一个资源的会获取调试记录锁的接口。
+   */
+  void for_each_live_allocation(memory_debug_record_fn callback,
+                                void* user_data = nullptr) const noexcept;
 
   /** @brief 分配内存并记录标签和调用位置，失败返回 `nullptr`。 */
   [[nodiscard]] void*

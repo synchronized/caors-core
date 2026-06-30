@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
+#include "caors/core/containers.h"
 #include "caors/memory.h"
 
 #include <iostream>
-#include <vector>
 
 struct entity {
   explicit entity(int id) : id(id) {}
@@ -20,7 +20,7 @@ int main() {
   std::cout << "entity id: " << single->id << '\n';
   caors::destroy(single, &pool);
 
-  std::vector<int, caors::allocator<int>> values{caors::allocator<int>(&tracking)};
+  caors::vector<int> values{caors::allocator<int>(&tracking)};
   values.push_back(1);
   values.push_back(2);
   values.push_back(3);

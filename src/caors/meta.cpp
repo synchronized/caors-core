@@ -5,7 +5,6 @@
 
 #include <mutex>
 #include <string_view>
-#include <unordered_map>
 
 namespace caors {
 
@@ -13,12 +12,11 @@ class meta_registry_state {
 public:
   mutable std::mutex mutex;
   std::uint64_t next_type_id = 1;
-  std::unordered_map<std::uint64_t, std::unique_ptr<meta_type_data>> types;
-  std::unordered_map<std::uint64_t, type_id> names;
-  std::unordered_map<guid, type_id, guid_hash> guids;
-  std::unordered_map<detail::cpp_type_key, type_id> cpp_types;
-  std::unordered_map<detail::meta_component_key,
-                     std::unique_ptr<detail::meta_component_storage_base>>
+  hash_map<std::uint64_t, std::unique_ptr<meta_type_data>> types;
+  hash_map<std::uint64_t, type_id> names;
+  hash_map<guid, type_id, guid_hash> guids;
+  hash_map<detail::cpp_type_key, type_id> cpp_types;
+  hash_map<detail::meta_component_key, std::unique_ptr<detail::meta_component_storage_base>>
       components;
 };
 
@@ -539,8 +537,8 @@ detail::meta_component_storage_base& meta_registry::ensure_component_storage(
   return *position->second;
 }
 
-std::vector<type_id> meta_registry::view_component_ids(const detail::meta_component_key* keys,
-                                                       std::size_t count) const {
+vector<type_id> meta_registry::view_component_ids(const detail::meta_component_key* keys,
+                                                  std::size_t count) const {
   if (keys == nullptr || count == 0) {
     return {};
   }
@@ -551,8 +549,8 @@ std::vector<type_id> meta_registry::view_component_ids(const detail::meta_compon
     return {};
   }
 
-  std::vector<type_id> candidate_ids = first_position->second->ids();
-  std::vector<type_id> result;
+  vector<type_id> candidate_ids = first_position->second->ids();
+  vector<type_id> result;
   result.reserve(candidate_ids.size());
 
   for (const type_id id : candidate_ids) {

@@ -3,8 +3,6 @@
 
 #include "caors/reflection.h"
 
-#include <unordered_set>
-
 namespace caors {
 namespace {
 
@@ -55,7 +53,7 @@ namespace {
 }
 
 [[nodiscard]] error validate_registered_fields(const reflection_type_data& reflection) {
-  std::unordered_set<std::uint64_t> names;
+  hash_set<std::uint64_t> names;
   names.reserve(reflection.fields.size());
 
   for (const reflection_field_data& field : reflection.fields) {
