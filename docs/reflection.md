@@ -372,12 +372,15 @@ auto reflected = caors::find_reflection("game.actor");
 - 公共头文件按职责拆分在 `include/caors/reflection/`：
   - `value.h`：历史入口，转发到 `include/caors/value/any.h`。
   - `wrapper.h`：wrapper traits 和 wrapper 语义。
+  - `container_traits.h`：容器反射 traits 主模板。
+  - `stl_traits.h`：`std::vector`、`std::unordered_map` 以及 CAORS 容器别名的默认 traits 特化。
   - `field.h`：字段元信息和字段访问。
   - `type.h`：类型反射描述。
   - `view.h`：类型和字段的外部查询视图。
   - `registry.h`：全局反射注册表和注册查询函数。
   - `builder.h`：RTTR 风格链式注册入口。
 - `include/caors/reflection.h` 是 umbrella 头，继续提供完整反射 API。
+- `include/caors/adapters/stl.h` 是 STL/CAORS 容器反射和序列化适配的聚合入口。
 - `include/caors/value.h` 是 value 模块 umbrella 头，提供 `any` 和 `variant`。
 - 可运行示例位于 `examples/reflection/`，示例组织规则见 [examples/README.md](../examples/README.md)。
 - 行为测试位于 `tests/reflection/`，测试组织规则见 [tests/README.md](../tests/README.md)。

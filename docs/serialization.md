@@ -52,7 +52,10 @@
 - `caors/serialization/dom_reader.h`：从 `variant` DOM 读入的 reader 后端。
 - `caors/serialization/operations.h`：`serialize()`、`deserialize()`、`to_serialization_value()`、`serialize_text()` 等调度入口。
 - `caors/serialization/vector_codec.h`：`caors::vector<T>` 数组 codec 模板。
+- `caors/serialization/map_codec.h`：`caors::hash_map<K, V>` 字典 codec 模板。
+- `caors/serialization/stl_codecs.h`：STL/CAORS 容器 codec 聚合入口。
 - `caors/serialization.h`：兼容用聚合头，包含以上所有入口。
+- `caors/adapters/stl.h`：STL/CAORS 容器反射 traits 和序列化 codec 的一站式适配入口。
 
 实现文件按 registry、codec、text writer、JSON writer/parser、DOM/value、writer 接口、DOM
 写出、对象序列化、对象反序列化、中间值构造和文本便捷入口拆分在
@@ -207,6 +210,10 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `object_ref<T>` 
 - `caors::type_guid`：按内部 `guid` 的标准字符串读写。
 - `caors::vector<T>`：通过 `caors/serialization/vector_codec.h` 提供模板 codec，输出为数组。
 - `caors::hash_map<K, V>`：通过 `caors/serialization/map_codec.h` 提供模板 codec，输出为字典 pair 数组。
+
+`caors/serialization/stl_codecs.h` 聚合了当前内置容器 codec。`caors/serialization.h` 会继续包含它，
+因此既有代码不需要额外 include；如果只想显式引入 STL/CAORS 容器适配，也可以包含
+`caors/adapters/stl.h`。
 
 `caors::vector<T>` codec 需要显式调用 `register_serialization_codec<caors::vector<T>>()`。反射 builder
 通过 `sequence_traits<T>` 为顺序容器字段生成容器类型名并记录元素类型，因此不需要再手动

@@ -5,6 +5,7 @@
 #define CAORS_REFLECTION_FIELD_H_
 
 #include "caors/meta.h"
+#include "caors/reflection/container_traits.h"
 #include "caors/reflection/value.h"
 #include "caors/reflection/wrapper.h"
 
@@ -13,8 +14,6 @@
 #include <optional>
 #include <string_view>
 #include <type_traits>
-#include <unordered_map>
-#include <vector>
 
 namespace caors {
 
@@ -26,86 +25,6 @@ enum class field_kind {
   wrapper,
   sequence,
   associative,
-};
-
-/**
- * @brief 顺序容器反射 traits。
- *
- * 自定义顺序容器可以特化该模板接入反射系统。traits 负责提供元素类型、类型名前缀和基础访问函数。
- */
-template <typename T> struct sequence_traits {
-  static constexpr bool is_sequence = false;
-};
-
-template <typename T, typename Allocator> struct sequence_traits<std::vector<T, Allocator>> {
-  static constexpr bool is_sequence = true;
-  using element_type = std::remove_cv_t<T>;
-
-  [[nodiscard]] static constexpr std::string_view type_name_prefix() noexcept {
-    if constexpr (std::is_same_v<Allocator, allocator<T>>) {
-      return "caors.vector";
-    } else {
-      return "std.vector";
-    }
-  }
-
-  [[nodiscard]] static std::size_t size(const std::vector<T, Allocator>& values) noexcept {
-    return values.size();
-  }
-
-  [[nodiscard]] static const element_type* element(const std::vector<T, Allocator>& values,
-                                                   std::size_t index) noexcept {
-    return index < values.size() ? &values[index] : nullptr;
-  }
-
-  [[nodiscard]] static element_type* mutable_element(std::vector<T, Allocator>& values,
-                                                     std::size_t index) noexcept {
-    return index < values.size() ? &values[index] : nullptr;
-  }
-
-  static void clear(std::vector<T, Allocator>& values) { values.clear(); }
-
-  [[nodiscard]] static bool resize(std::vector<T, Allocator>& values, std::size_t size) {
-    if constexpr (std::is_default_constructible_v<T>) {
-      values.resize(size);
-      return true;
-    } else {
-      return false;
-    }
-  }
-
-  [[nodiscard]] static bool append(std::vector<T, Allocator>& values, const element_type& value) {
-    if constexpr (std::is_copy_constructible_v<T>) {
-      values.push_back(value);
-      return true;
-    } else {
-      return false;
-    }
-  }
-};
-
-/**
- * @brief 关联容器反射 traits。
- *
- * 自定义字典或 map 容器可以特化该模板接入反射系统。第一版只提供 key/value 类型元信息。
- */
-template <typename T> struct associative_traits {
-  static constexpr bool is_associative = false;
-};
-
-template <typename K, typename V, typename Hash, typename Equal, typename Allocator>
-struct associative_traits<std::unordered_map<K, V, Hash, Equal, Allocator>> {
-  static constexpr bool is_associative = true;
-  using key_type = std::remove_cv_t<K>;
-  using mapped_type = std::remove_cv_t<V>;
-
-  [[nodiscard]] static constexpr std::string_view type_name_prefix() noexcept {
-    if constexpr (std::is_same_v<Allocator, allocator<std::pair<const K, V>>>) {
-      return "caors.hash_map";
-    } else {
-      return "std.unordered_map";
-    }
-  }
 };
 
 namespace detail {

@@ -1,0 +1,84 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 CAORS contributors
+
+#ifndef CAORS_REFLECTION_STL_TRAITS_H_
+#define CAORS_REFLECTION_STL_TRAITS_H_
+
+#include "caors/core/containers.h"
+#include "caors/reflection/container_traits.h"
+
+#include <string_view>
+#include <type_traits>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+namespace caors {
+
+/** @brief `std::vector` / `caors::vector` 的顺序容器反射适配。 */
+template <typename T, typename Allocator> struct sequence_traits<std::vector<T, Allocator>> {
+  static constexpr bool is_sequence = true;
+  using element_type = std::remove_cv_t<T>;
+
+  [[nodiscard]] static constexpr std::string_view type_name_prefix() noexcept {
+    if constexpr (std::is_same_v<Allocator, allocator<T>>) {
+      return "caors.vector";
+    } else {
+      return "std.vector";
+    }
+  }
+
+  [[nodiscard]] static std::size_t size(const std::vector<T, Allocator>& values) noexcept {
+    return values.size();
+  }
+
+  [[nodiscard]] static const element_type* element(const std::vector<T, Allocator>& values,
+                                                   std::size_t index) noexcept {
+    return index < values.size() ? &values[index] : nullptr;
+  }
+
+  [[nodiscard]] static element_type* mutable_element(std::vector<T, Allocator>& values,
+                                                     std::size_t index) noexcept {
+    return index < values.size() ? &values[index] : nullptr;
+  }
+
+  static void clear(std::vector<T, Allocator>& values) { values.clear(); }
+
+  [[nodiscard]] static bool resize(std::vector<T, Allocator>& values, std::size_t size) {
+    if constexpr (std::is_default_constructible_v<T>) {
+      values.resize(size);
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  [[nodiscard]] static bool append(std::vector<T, Allocator>& values, const element_type& value) {
+    if constexpr (std::is_copy_constructible_v<T>) {
+      values.push_back(value);
+      return true;
+    } else {
+      return false;
+    }
+  }
+};
+
+/** @brief `std::unordered_map` / `caors::hash_map` 的关联容器反射适配。 */
+template <typename K, typename V, typename Hash, typename Equal, typename Allocator>
+struct associative_traits<std::unordered_map<K, V, Hash, Equal, Allocator>> {
+  static constexpr bool is_associative = true;
+  using key_type = std::remove_cv_t<K>;
+  using mapped_type = std::remove_cv_t<V>;
+
+  [[nodiscard]] static constexpr std::string_view type_name_prefix() noexcept {
+    if constexpr (std::is_same_v<Allocator, allocator<std::pair<const K, V>>>) {
+      return "caors.hash_map";
+    } else {
+      return "std.unordered_map";
+    }
+  }
+};
+
+} // namespace caors
+
+#endif
