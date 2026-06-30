@@ -71,7 +71,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 设计 writer 后端接口，为文本、二进制和 msgpack 等格式预留扩展点。
 - [x] 与反射系统打通，实现基于元信息的基础字段文本序列化。
 - [x] 增加 `variant` 中间对象树，支持对象、数组、标量和字段 id/name，并保留 streaming writer 快路径。
-- [x] 拆出 `value` 模块，提供 `any` C++ 类型值和 `variant` 数据值，并保留旧命名兼容别名。
+- [x] 补充 `variant` 安全访问器、数组/对象 helper 和 `any` / `any_ref` 到 `variant` 的转换入口。
+- [x] 拆出 `value` 模块，提供 `any` C++ 类型值和 `variant` 数据值。
 - [x] 增加 `any_ref`，支持反射字段零拷贝引用访问和不可拷贝字段读取。
 - [x] 增加 `serialization_reader` 后端接口和 DOM reader，支持基础字段反序列化。
 - [x] 增加反序列化缺失字段策略、未知字段默认忽略和基础 schema version 字段过滤。

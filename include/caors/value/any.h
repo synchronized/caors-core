@@ -243,6 +243,7 @@ public:
   }
 
 private:
+  friend class any_ref;
   friend struct reflection_field_data;
 
   [[nodiscard]] static any copy_from_raw(type_id type, string_name type_name,
@@ -350,7 +351,8 @@ public:
     }
 
     return from_raw(registered->id(), registered->name(), detail::cpp_type_key_of<type>(), &source,
-                    sizeof(type), alignof(type), detail::value_assign_fn_of<type>(),
+                    sizeof(type), alignof(type), detail::value_clone_fn_of<type>(),
+                    detail::value_destroy_fn_of<type>(), detail::value_assign_fn_of<type>(),
                     !std::is_const_v<T>);
   }
 
@@ -377,7 +379,8 @@ public:
     }
 
     return from_raw(registered->id(), registered->name(), detail::cpp_type_key_of<type>(), &source,
-                    sizeof(type), alignof(type), detail::value_assign_fn_of<type>(), false);
+                    sizeof(type), alignof(type), detail::value_clone_fn_of<type>(),
+                    detail::value_destroy_fn_of<type>(), detail::value_assign_fn_of<type>(), false);
   }
 
   [[nodiscard]] bool valid() const noexcept {
@@ -467,12 +470,20 @@ public:
     return assign_(const_cast<void*>(data_), source.data_);
   }
 
+  /** @brief 尝试复制引用指向的对象。不可拷贝对象会返回无效 `any`。 */
+  [[nodiscard]] any to_any() const {
+    return any::copy_from_raw(type_, type_name_, cpp_type_, data_, size_, alignment_, clone_,
+                              destroy_, assign_);
+  }
+
 private:
   friend struct reflection_field_data;
 
   [[nodiscard]] static any_ref from_raw(type_id type, string_name type_name,
                                         detail::cpp_type_key cpp_type, const void* data,
                                         std::size_t size, std::size_t alignment,
+                                        detail::value_clone_fn clone,
+                                        detail::value_destroy_fn destroy,
                                         detail::value_assign_fn assign, bool writable) noexcept {
     if (!type || type_name.empty() || cpp_type == nullptr || data == nullptr || size == 0 ||
         alignment == 0) {
@@ -486,6 +497,8 @@ private:
     result.data_ = data;
     result.size_ = size;
     result.alignment_ = alignment;
+    result.clone_ = clone;
+    result.destroy_ = destroy;
     result.assign_ = assign;
     result.writable_ = writable;
     return result;
@@ -497,12 +510,11 @@ private:
   const void* data_ = nullptr;
   std::size_t size_ = 0;
   std::size_t alignment_ = 0;
+  detail::value_clone_fn clone_ = nullptr;
+  detail::value_destroy_fn destroy_ = nullptr;
   detail::value_assign_fn assign_ = nullptr;
   bool writable_ = false;
 };
-
-/** @brief 兼容旧反射值命名，后续新代码优先使用 `any`。 */
-using value = any;
 
 } // namespace caors
 

@@ -71,7 +71,7 @@ template <typename T>
   return false;
 }
 
-[[nodiscard]] serialization_value_result make_serialized_value(const any& data) {
+[[nodiscard]] variant_result make_serialized_value(const any& data) {
   const std::optional<serialization_codec_data> codec =
       get_serialization_codec_registry().find_codec(data.type());
   if (codec.has_value() && codec->make_value != nullptr) {
@@ -388,6 +388,21 @@ serialization_writer::~serialization_writer() = default;
 
 serialization_reader::~serialization_reader() = default;
 
+variant_result to_variant(const any& data) { return make_serialized_value(data); }
+
+variant_result to_variant(const any_ref& data) {
+  if (!data.valid()) {
+    return {{error_domain::serialization, errc::invalid_argument}, {}};
+  }
+
+  any copied = data.to_any();
+  if (!copied.valid()) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
+  }
+
+  return to_variant(copied);
+}
+
 error write(serialization_writer& writer, const variant& value) {
   switch (value.kind()) {
   case variant_kind::null:
@@ -606,12 +621,12 @@ error deserialize(const reflection_type& type, void* object, serialization_reade
   return reader.end_object();
 }
 
-serialization_value_result to_serialization_value(const reflection_type& type, const void* object) {
+variant_result to_serialization_value(const reflection_type& type, const void* object) {
   return to_serialization_value(type, object, serialization_context{});
 }
 
-serialization_value_result to_serialization_value(const reflection_type& type, const void* object,
-                                                  const serialization_context& context) {
+variant_result to_serialization_value(const reflection_type& type, const void* object,
+                                      const serialization_context& context) {
   if (!type.valid()) {
     return {{error_domain::serialization, errc::invalid_type}, {}};
   }
@@ -649,7 +664,7 @@ serialization_value_result to_serialization_value(const reflection_type& type, c
         return {{error_domain::serialization, errc::unsupported}, {}};
       }
 
-      serialization_value_result serialized = make_serialized_value(field_value);
+      variant_result serialized = to_variant(field_value);
       if (serialized.failed()) {
         return serialized;
       }
@@ -673,7 +688,7 @@ serialization_value_result to_serialization_value(const reflection_type& type, c
         return {{error_domain::serialization, errc::unsupported}, {}};
       }
 
-      serialization_value_result serialized = make_serialized_value(field_value);
+      variant_result serialized = to_variant(field_value);
       if (serialized.failed()) {
         return serialized;
       }
@@ -733,12 +748,12 @@ error deserialize(type_id id, void* object, serialization_reader& reader,
   return deserialize(*type, object, reader, context);
 }
 
-serialization_value_result to_serialization_value(type_id id, const void* object) {
+variant_result to_serialization_value(type_id id, const void* object) {
   return to_serialization_value(id, object, serialization_context{});
 }
 
-serialization_value_result to_serialization_value(type_id id, const void* object,
-                                                  const serialization_context& context) {
+variant_result to_serialization_value(type_id id, const void* object,
+                                      const serialization_context& context) {
   if (!id) {
     return {{error_domain::serialization, errc::invalid_type}, {}};
   }

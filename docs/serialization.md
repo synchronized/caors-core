@@ -166,12 +166,8 @@ struct variant_member {
 可以从已注册反射和序列化元信息的对象构造中间树：
 
 ```cpp
-caors::serialization_value_result value = caors::to_serialization_value(instance);
+caors::variant_result value = caors::to_serialization_value(instance);
 ```
-
-旧 `serialization_value`、`serialization_member` 和 `serialization_value_kind` 仍作为
-`variant`、`variant_member` 和 `variant_kind` 的兼容别名保留；旧 `value_serialization_reader`
-仍作为 `variant_serialization_reader` 的兼容别名保留。
 
 也可以把中间树写入任意 writer：
 
@@ -182,6 +178,19 @@ caors::write(writer, value.value);
 
 DOM 是可选路径，适合工具、编辑器、测试对比和格式转换。性能敏感路径仍可直接使用
 `serialize(instance, writer)`，避免构造整棵中间树。
+
+`variant` 提供 `is_*()` 和 `try_as_*()` 安全访问器，避免在类型不匹配时误读默认存储字段。
+数组和对象可以通过 `push_back()`、`add_member()`、`find_member(name)` 和 `find_member(field_id)`
+做基础修改和查询。
+
+运行期 C++ 值可以显式转换为 `variant`：
+
+```cpp
+caors::variant_result value = caors::to_variant(caors::any::from(42));
+```
+
+`to_variant(any)` 会先查询 serialization codec，再回退到内置标量和字符串转换。`to_variant(any_ref)`
+会先尝试复制引用指向的对象；不可拷贝引用会返回 `errc::unsupported`。
 
 ### serialization_registry
 
@@ -241,6 +250,7 @@ caors::string text = result.value;
 - `serialization_codec_registry`：类型级 codec 注册表。
 - `text_serialization_writer`：简单文本格式后端。
 - `variant`：序列化 DOM 中间对象。
+- `to_variant()`：把运行期 `any` / `any_ref` 转换为 `variant`。
 - `variant_serialization_reader`：从 DOM 中间对象读入字段的后端。
 - `variant_member`：对象成员，保存字段名、字段 id 和字段值。
 - `serialization_registry`：全局序列化注册表。
@@ -250,7 +260,7 @@ caors::string text = result.value;
 - `to_serialization_value()`：通过反射和序列化元信息构造中间对象树。
 - `write()`：把中间对象树写入指定 writer。
 - `serialization_text_result`：`caors::result<caors::string>` 文本序列化结果。
-- `serialization_value_result`：`caors::result<variant>` 中间值构造结果。
+- `variant_result`：`caors::result<variant>` 中间值构造结果。
 - `serialize_text()`：基于反射字段的简单文本序列化。
 - 基础标量和字符串字段输出。
 - 字段别名和跳过配置。
@@ -258,6 +268,7 @@ caors::string text = result.value;
 - DOM 反序列化默认忽略未知字段。
 - 基础 schema version 字段过滤。
 - 内置 string、string_view、guid 和 type_guid codec。
+- `variant` 安全访问器、数组/对象辅助修改和成员查询。
 - 序列化注册早于反射字段注册。
 
 ## 相关入口

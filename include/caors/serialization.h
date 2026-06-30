@@ -250,12 +250,11 @@ public:
 
 /** @brief 序列化中间值构造结果。 */
 using variant_result = result<variant>;
-using serialization_value_result = variant_result;
 
 using serialization_codec_write_fn = error (*)(serialization_writer& writer, const any& data);
 using serialization_codec_read_fn = error (*)(serialization_reader& reader,
                                               const reflection_field& field, void* object);
-using serialization_codec_value_fn = serialization_value_result (*)(const any& data);
+using serialization_codec_value_fn = variant_result (*)(const any& data);
 
 /** @brief 单个类型的序列化 codec 函数集合。 */
 struct serialization_codec_data {
@@ -296,6 +295,12 @@ private:
 /** @brief 获取进程内全局序列化 codec 注册表。 */
 [[nodiscard]] CAORS_API serialization_codec_registry& get_serialization_codec_registry() noexcept;
 
+/** @brief 把运行期 C++ 值转换为序列化中间值。 */
+[[nodiscard]] CAORS_API variant_result to_variant(const any& data);
+
+/** @brief 把运行期 C++ 引用转换为序列化中间值。不可拷贝引用会返回不支持。 */
+[[nodiscard]] CAORS_API variant_result to_variant(const any_ref& data);
+
 /** @brief 按类型 id 注册序列化 codec。 */
 [[nodiscard]] CAORS_API error register_serialization_codec(type_id id,
                                                            serialization_codec_data codec);
@@ -334,7 +339,7 @@ template <typename T> [[nodiscard]] error register_serialization_codec() {
   }
 
   if constexpr (serialization_codec<type>::can_make_value) {
-    codec.make_value = [](const any& data) -> serialization_value_result {
+    codec.make_value = [](const any& data) -> variant_result {
       const type* stored = data.try_get<type>();
       if (stored == nullptr) {
         return {{error_domain::serialization, errc::invalid_type}, {}};
@@ -387,9 +392,6 @@ private:
   const variant_member* current_member_ = nullptr;
   bool object_open_ = false;
 };
-
-/** @brief 兼容旧 DOM reader 命名，后续新代码优先使用 `variant_serialization_reader`。 */
-using value_serialization_reader = variant_serialization_reader;
 
 /** @brief 获取进程内全局序列化注册表。 */
 [[nodiscard]] CAORS_API serialization_registry& get_serialization_registry() noexcept;
@@ -507,24 +509,23 @@ template <typename T>
 }
 
 /** @brief 通过反射类型视图构造序列化中间值。 */
-[[nodiscard]] CAORS_API serialization_value_result
-to_serialization_value(const reflection_type& type, const void* object);
+[[nodiscard]] CAORS_API variant_result to_serialization_value(const reflection_type& type,
+                                                              const void* object);
 
 /** @brief 通过反射类型视图和上下文构造序列化中间值。 */
-[[nodiscard]] CAORS_API serialization_value_result to_serialization_value(
-    const reflection_type& type, const void* object, const serialization_context& context);
+[[nodiscard]] CAORS_API variant_result to_serialization_value(const reflection_type& type,
+                                                              const void* object,
+                                                              const serialization_context& context);
 
 /** @brief 通过类型 id 查找反射信息并构造序列化中间值。 */
-[[nodiscard]] CAORS_API serialization_value_result to_serialization_value(type_id id,
-                                                                          const void* object);
+[[nodiscard]] CAORS_API variant_result to_serialization_value(type_id id, const void* object);
 
 /** @brief 通过类型 id 查找反射信息并按上下文构造序列化中间值。 */
-[[nodiscard]] CAORS_API serialization_value_result
-to_serialization_value(type_id id, const void* object, const serialization_context& context);
+[[nodiscard]] CAORS_API variant_result to_serialization_value(type_id id, const void* object,
+                                                              const serialization_context& context);
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象转换为序列化中间值。 */
-template <typename T>
-[[nodiscard]] serialization_value_result to_serialization_value(const T& object) {
+template <typename T> [[nodiscard]] variant_result to_serialization_value(const T& object) {
   const std::optional<meta_type> type = caors::find_type<T>();
   if (!type.has_value()) {
     return {{error_domain::serialization, errc::missing_type}, {}};
@@ -535,8 +536,8 @@ template <typename T>
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象按上下文转换为序列化中间值。 */
 template <typename T>
-[[nodiscard]] serialization_value_result
-to_serialization_value(const T& object, const serialization_context& context) {
+[[nodiscard]] variant_result to_serialization_value(const T& object,
+                                                    const serialization_context& context) {
   const std::optional<meta_type> type = caors::find_type<T>();
   if (!type.has_value()) {
     return {{error_domain::serialization, errc::missing_type}, {}};

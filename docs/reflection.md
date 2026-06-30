@@ -188,8 +188,7 @@ ref.try_set(9);
 - `try_set<T>()`：从同类型 C++ 值写入当前 `any`。
 - `try_set(any)`：从同类型运行期值写入当前 `any`。
 
-旧 `caors::value` 仍作为 `caors::any` 的兼容别名保留。第一版只支持可拷贝类型；不可拷贝字段调用 `get_value()`
-会返回无效 `any`。
+第一版 `any` 只支持可拷贝类型；不可拷贝字段调用 `get_value()` 会返回无效 `any`。
 
 ### any_ref
 
@@ -300,7 +299,6 @@ auto reflected = caors::find_reflection("game.actor");
 
 - `any`：运行期 C++ 类型值拷贝。
 - `any_ref`：运行期 C++ 类型非拥有引用。
-- `value`：`any` 的兼容别名。
 - `reflection_field_data`：字段名、字段类型名、字段形态、wrapper 语义、解包类型、offset、size、alignment、
   基础 get/set 和运行期值访问。
 - `reflection_type_data`：字段列表等反射组件数据。
@@ -313,7 +311,7 @@ auto reflected = caors::find_reflection("game.actor");
 ## 相关入口
 
 - 公共头文件按职责拆分在 `include/caors/reflection/`：
-  - `value.h`：兼容入口，转发到 `include/caors/value/any.h`。
+  - `value.h`：历史入口，转发到 `include/caors/value/any.h`。
   - `wrapper.h`：wrapper traits 和 wrapper 语义。
   - `field.h`：字段元信息和字段访问。
   - `type.h`：类型反射描述。

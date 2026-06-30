@@ -6,6 +6,7 @@
 #include <catch2/catch_all.hpp>
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -244,7 +245,7 @@ TEST_CASE("serialization - generic writer backend serializes fields", "[serializ
   CHECK(writer.last_i64 == 42);
 }
 
-TEST_CASE("serialization - builds intermediate value from reflected object", "[serialization]") {
+TEST_CASE("serialization - builds variant from reflected object", "[serialization]") {
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<dom_actor>("caors.test.serialization.dom_actor")
           .field("id", &dom_actor::id)
@@ -254,7 +255,7 @@ TEST_CASE("serialization - builds intermediate value from reflected object", "[s
   })));
 
   const dom_actor actor{42};
-  const caors::serialization_value_result result = caors::to_serialization_value(actor);
+  const caors::variant_result result = caors::to_serialization_value(actor);
 
   REQUIRE(result.succeeded());
   CHECK(result.value.kind() == caors::variant_kind::object);
@@ -285,7 +286,65 @@ TEST_CASE("serialization - writes intermediate arrays and objects through text w
   CHECK(writer.text() == R"({"items":[1,2]})");
 }
 
-TEST_CASE("serialization - value reader deserializes reflected struct fields", "[serialization]") {
+TEST_CASE("serialization - variant exposes checked accessors and helpers", "[serialization]") {
+  caors::variant items = caors::variant::array({});
+  CHECK(items.is_array());
+  CHECK(items.try_as_array() != nullptr);
+  CHECK(items.try_as_object() == nullptr);
+  CHECK(items.push_back(caors::variant::from(std::int64_t{1})));
+  CHECK(items.push_back(caors::variant::from(std::int64_t{2})));
+  REQUIRE(items.try_as_array() != nullptr);
+  REQUIRE(items.try_as_array()->size() == 2);
+  CHECK(items.try_as_array()->at(0).as_i64() == 1);
+
+  caors::variant text = caors::variant::from(std::string_view{"Ada"});
+  CHECK(text.is_string());
+  REQUIRE(text.try_as_string() != nullptr);
+  CHECK(*text.try_as_string() == "Ada");
+  CHECK(text.try_as_i64() == nullptr);
+  CHECK_FALSE(text.push_back(caors::variant::null()));
+
+  caors::variant object = caors::variant::object({});
+  CHECK(object.add_member(caors::string_name{"items"}, 7, std::move(items)));
+  CHECK(object.find_member(caors::string_name{"items"}) != nullptr);
+  CHECK(object.find_member(7) != nullptr);
+  CHECK(object.find_member(caors::string_name{"missing"}) == nullptr);
+  CHECK(object.find_member(99) == nullptr);
+  REQUIRE(object.find_member(7) != nullptr);
+  CHECK(object.find_member(7)->value.is_array());
+}
+
+TEST_CASE("serialization - converts runtime values to variant", "[serialization]") {
+  caors::any number = caors::any::from(42);
+  caors::variant_result number_result = caors::to_variant(number);
+  REQUIRE(number_result.succeeded());
+  CHECK(number_result.value.is_i64());
+  REQUIRE(number_result.value.try_as_i64() != nullptr);
+  CHECK(*number_result.value.try_as_i64() == 42);
+
+  std::string name = "Ada";
+  caors::any_ref name_ref = caors::any_ref::from(name);
+  caors::variant_result name_result = caors::to_variant(name_ref);
+  REQUIRE(name_result.succeeded());
+  CHECK(name_result.value.is_string());
+  REQUIRE(name_result.value.try_as_string() != nullptr);
+  CHECK(*name_result.value.try_as_string() == "Ada");
+
+  const std::optional<caors::guid> id = caors::guid::parse("2f6d1f64-7a3a-4db2-9a2d-123456789abc");
+  REQUIRE(id.has_value());
+  caors::variant_result guid_result = caors::to_variant(caors::any::from(*id));
+  REQUIRE(guid_result.succeeded());
+  CHECK(guid_result.value.is_string());
+  REQUIRE(guid_result.value.try_as_string() != nullptr);
+  CHECK(*guid_result.value.try_as_string() == "2f6d1f64-7a3a-4db2-9a2d-123456789abc");
+
+  caors::variant_result invalid_result = caors::to_variant(caors::any_ref{});
+  CHECK(invalid_result.failed());
+  CHECK(invalid_result.status.value() == caors::errc::invalid_argument);
+}
+
+TEST_CASE("serialization - variant reader deserializes reflected struct fields",
+          "[serialization]") {
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<reader_actor>("caors.test.serialization.reader_actor")
           .field("id", &reader_actor::id)
@@ -295,31 +354,30 @@ TEST_CASE("serialization - value reader deserializes reflected struct fields", "
           .commit()));
   REQUIRE(serialization_result_ok(caors::register_serialization<reader_actor>()));
 
-  caors::serialization_value::object_type members;
-  members.push_back(caors::serialization_member{
+  caors::variant::object_type members;
+  members.push_back(caors::variant_member{
       caors::string_name{"id"},
       0,
-      caors::serialization_value::from(std::int64_t{7}),
+      caors::variant::from(std::int64_t{7}),
   });
-  members.push_back(caors::serialization_member{
+  members.push_back(caors::variant_member{
       caors::string_name{"health"},
       0,
-      caors::serialization_value::from(95.5),
+      caors::variant::from(95.5),
   });
-  members.push_back(caors::serialization_member{
+  members.push_back(caors::variant_member{
       caors::string_name{"active"},
       0,
-      caors::serialization_value::from(true),
+      caors::variant::from(true),
   });
-  members.push_back(caors::serialization_member{
+  members.push_back(caors::variant_member{
       caors::string_name{"name"},
       0,
-      caors::serialization_value::from(std::string_view{"Ada"}),
+      caors::variant::from(std::string_view{"Ada"}),
   });
 
   reader_actor actor{};
-  const caors::error result =
-      caors::deserialize(actor, caors::serialization_value::object(std::move(members)));
+  const caors::error result = caors::deserialize(actor, caors::variant::object(std::move(members)));
 
   REQUIRE(result.succeeded());
   CHECK(actor.id == 7);
@@ -328,7 +386,7 @@ TEST_CASE("serialization - value reader deserializes reflected struct fields", "
   CHECK(actor.name == "Ada");
 }
 
-TEST_CASE("serialization - value reader matches fields by stable field id", "[serialization]") {
+TEST_CASE("serialization - variant reader matches fields by stable field id", "[serialization]") {
   REQUIRE(reflection_result_ok(caors::reflection::class_<reader_field_id_actor>(
                                    "caors.test.serialization.reader_field_id_actor")
                                    .field("id", &reader_field_id_actor::id)
@@ -337,22 +395,21 @@ TEST_CASE("serialization - value reader matches fields by stable field id", "[se
       caors::make_serialization_field("id", "actor_id", false, 7),
   })));
 
-  caors::serialization_value::object_type members;
-  members.push_back(caors::serialization_member{
+  caors::variant::object_type members;
+  members.push_back(caors::variant_member{
       caors::string_name{"legacy_id"},
       7,
-      caors::serialization_value::from(std::int64_t{42}),
+      caors::variant::from(std::int64_t{42}),
   });
 
   reader_field_id_actor actor{};
-  const caors::error result =
-      caors::deserialize(actor, caors::serialization_value::object(std::move(members)));
+  const caors::error result = caors::deserialize(actor, caors::variant::object(std::move(members)));
 
   REQUIRE(result.succeeded());
   CHECK(actor.id == 42);
 }
 
-TEST_CASE("serialization - value reader reports missing fields", "[serialization]") {
+TEST_CASE("serialization - variant reader reports missing fields", "[serialization]") {
   REQUIRE(reflection_result_ok(caors::reflection::class_<reader_missing_field_actor>(
                                    "caors.test.serialization.reader_missing_field_actor")
                                    .field("id", &reader_missing_field_actor::id)
@@ -360,14 +417,14 @@ TEST_CASE("serialization - value reader reports missing fields", "[serialization
   REQUIRE(serialization_result_ok(caors::register_serialization<reader_missing_field_actor>()));
 
   reader_missing_field_actor actor{};
-  const caors::error result = caors::deserialize(actor, caors::serialization_value::object({}));
+  const caors::error result = caors::deserialize(actor, caors::variant::object({}));
 
   CHECK(result.failed());
   CHECK(result.domain() == caors::error_domain::serialization);
   CHECK(result.value() == caors::errc::not_found);
 }
 
-TEST_CASE("serialization - value reader applies required optional and skipped policies",
+TEST_CASE("serialization - variant reader applies required optional and skipped policies",
           "[serialization]") {
   REQUIRE(reflection_result_ok(caors::reflection::class_<reader_field_policy_actor>(
                                    "caors.test.serialization.reader_field_policy_actor")
@@ -391,26 +448,25 @@ TEST_CASE("serialization - value reader applies required optional and skipped po
       skipped,
   })));
 
-  caors::serialization_value::object_type members;
-  members.push_back(caors::serialization_member{
+  caors::variant::object_type members;
+  members.push_back(caors::variant_member{
       caors::string_name{"id"},
       0,
-      caors::serialization_value::from(std::int64_t{1}),
+      caors::variant::from(std::int64_t{1}),
   });
-  members.push_back(caors::serialization_member{
+  members.push_back(caors::variant_member{
       caors::string_name{"required"},
       0,
-      caors::serialization_value::from(std::int64_t{3}),
+      caors::variant::from(std::int64_t{3}),
   });
-  members.push_back(caors::serialization_member{
+  members.push_back(caors::variant_member{
       caors::string_name{"skipped"},
       0,
-      caors::serialization_value::from(std::int64_t{4}),
+      caors::variant::from(std::int64_t{4}),
   });
 
   reader_field_policy_actor actor{};
-  const caors::error result =
-      caors::deserialize(actor, caors::serialization_value::object(std::move(members)));
+  const caors::error result = caors::deserialize(actor, caors::variant::object(std::move(members)));
 
   REQUIRE(result.succeeded());
   CHECK(actor.id == 1);
@@ -419,7 +475,7 @@ TEST_CASE("serialization - value reader applies required optional and skipped po
   CHECK(actor.skipped == 40);
 }
 
-TEST_CASE("serialization - value reader reports missing required fields", "[serialization]") {
+TEST_CASE("serialization - variant reader reports missing required fields", "[serialization]") {
   REQUIRE(reflection_result_ok(caors::reflection::class_<reader_field_policy_actor>(
                                    "caors.test.serialization.reader_field_policy_actor")
                                    .field("id", &reader_field_policy_actor::id)
@@ -443,14 +499,14 @@ TEST_CASE("serialization - value reader reports missing required fields", "[seri
   })));
 
   reader_field_policy_actor actor{};
-  const caors::error result = caors::deserialize(actor, caors::serialization_value::object({}));
+  const caors::error result = caors::deserialize(actor, caors::variant::object({}));
 
   CHECK(result.failed());
   CHECK(result.domain() == caors::error_domain::serialization);
   CHECK(result.value() == caors::errc::not_found);
 }
 
-TEST_CASE("serialization - value reader ignores unknown object members", "[serialization]") {
+TEST_CASE("serialization - variant reader ignores unknown object members", "[serialization]") {
   REQUIRE(reflection_result_ok(caors::reflection::class_<reader_unknown_field_actor>(
                                    "caors.test.serialization.reader_unknown_field_actor")
                                    .field("id", &reader_unknown_field_actor::id)
@@ -459,21 +515,20 @@ TEST_CASE("serialization - value reader ignores unknown object members", "[seria
       caors::make_serialization_field("id"),
   })));
 
-  caors::serialization_value::object_type members;
-  members.push_back(caors::serialization_member{
+  caors::variant::object_type members;
+  members.push_back(caors::variant_member{
       caors::string_name{"id"},
       0,
-      caors::serialization_value::from(std::int64_t{7}),
+      caors::variant::from(std::int64_t{7}),
   });
-  members.push_back(caors::serialization_member{
+  members.push_back(caors::variant_member{
       caors::string_name{"extra"},
       0,
-      caors::serialization_value::from(std::int64_t{99}),
+      caors::variant::from(std::int64_t{99}),
   });
 
   reader_unknown_field_actor actor{};
-  const caors::error result =
-      caors::deserialize(actor, caors::serialization_value::object(std::move(members)));
+  const caors::error result = caors::deserialize(actor, caors::variant::object(std::move(members)));
 
   REQUIRE(result.succeeded());
   CHECK(actor.id == 7);
@@ -511,22 +566,21 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"id":1,"current":20})");
 
-  caors::serialization_value::object_type members;
-  members.push_back(caors::serialization_member{
+  caors::variant::object_type members;
+  members.push_back(caors::variant_member{
       caors::string_name{"id"},
       0,
-      caors::serialization_value::from(std::int64_t{2}),
+      caors::variant::from(std::int64_t{2}),
   });
-  members.push_back(caors::serialization_member{
+  members.push_back(caors::variant_member{
       caors::string_name{"current"},
       0,
-      caors::serialization_value::from(std::int64_t{22}),
+      caors::variant::from(std::int64_t{22}),
   });
 
   versioned_actor deserialized{};
-  const caors::error result =
-      caors::deserialize(deserialized, caors::serialization_value::object(std::move(members)),
-                         caors::serialization_context{2});
+  const caors::error result = caors::deserialize(
+      deserialized, caors::variant::object(std::move(members)), caors::serialization_context{2});
 
   REQUIRE(result.succeeded());
   CHECK(deserialized.id == 2);
@@ -558,12 +612,12 @@ TEST_CASE("serialization - built in codecs serialize guid and type guid as scala
       text.value ==
       R"({"id":"2f6d1f64-7a3a-4db2-9a2d-123456789abc","type":"5ed39a97-7b20-4d87-86ac-e62a4a615b10"})");
 
-  const caors::serialization_value_result value = caors::to_serialization_value(actor);
+  const caors::variant_result value = caors::to_serialization_value(actor);
   REQUIRE(value.succeeded());
   REQUIRE(value.value.as_object().size() == 2);
-  CHECK(value.value.as_object()[0].value.kind() == caors::serialization_value_kind::string);
+  CHECK(value.value.as_object()[0].value.kind() == caors::variant_kind::string);
   CHECK(value.value.as_object()[0].value.as_string() == "2f6d1f64-7a3a-4db2-9a2d-123456789abc");
-  CHECK(value.value.as_object()[1].value.kind() == caors::serialization_value_kind::string);
+  CHECK(value.value.as_object()[1].value.kind() == caors::variant_kind::string);
   CHECK(value.value.as_object()[1].value.as_string() == "5ed39a97-7b20-4d87-86ac-e62a4a615b10");
 }
 
@@ -576,21 +630,20 @@ TEST_CASE("serialization - built in codecs deserialize guid and type guid from s
           .commit()));
   REQUIRE(serialization_result_ok(caors::register_serialization<codec_guid_actor>()));
 
-  caors::serialization_value::object_type members;
-  members.push_back(caors::serialization_member{
+  caors::variant::object_type members;
+  members.push_back(caors::variant_member{
       caors::string_name{"id"},
       0,
-      caors::serialization_value::from(std::string_view{"2f6d1f64-7a3a-4db2-9a2d-123456789abc"}),
+      caors::variant::from(std::string_view{"2f6d1f64-7a3a-4db2-9a2d-123456789abc"}),
   });
-  members.push_back(caors::serialization_member{
+  members.push_back(caors::variant_member{
       caors::string_name{"type"},
       0,
-      caors::serialization_value::from(std::string_view{"5ed39a97-7b20-4d87-86ac-e62a4a615b10"}),
+      caors::variant::from(std::string_view{"5ed39a97-7b20-4d87-86ac-e62a4a615b10"}),
   });
 
   codec_guid_actor actor{};
-  const caors::error result =
-      caors::deserialize(actor, caors::serialization_value::object(std::move(members)));
+  const caors::error result = caors::deserialize(actor, caors::variant::object(std::move(members)));
 
   REQUIRE(result.succeeded());
   CHECK(actor.id.string() == "2f6d1f64-7a3a-4db2-9a2d-123456789abc");
@@ -605,16 +658,15 @@ TEST_CASE("serialization - built in codecs reject invalid guid text", "[serializ
           .commit()));
   REQUIRE(serialization_result_ok(caors::register_serialization<codec_guid_actor>()));
 
-  caors::serialization_value::object_type members;
-  members.push_back(caors::serialization_member{
+  caors::variant::object_type members;
+  members.push_back(caors::variant_member{
       caors::string_name{"id"},
       0,
-      caors::serialization_value::from(std::string_view{"invalid-guid"}),
+      caors::variant::from(std::string_view{"invalid-guid"}),
   });
 
   codec_guid_actor actor{};
-  const caors::error result =
-      caors::deserialize(actor, caors::serialization_value::object(std::move(members)));
+  const caors::error result = caors::deserialize(actor, caors::variant::object(std::move(members)));
 
   CHECK(result.failed());
   CHECK(result.domain() == caors::error_domain::serialization);

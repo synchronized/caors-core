@@ -78,6 +78,60 @@ variant variant::object(object_type members) {
   return result;
 }
 
+bool variant::push_back(variant value) {
+  if (!is_array()) {
+    return false;
+  }
+
+  array_value_.push_back(std::move(value));
+  return true;
+}
+
+bool variant::add_member(string_name name, std::uint32_t field_id, variant value) {
+  if (!is_object()) {
+    return false;
+  }
+
+  object_value_.push_back(variant_member{name, field_id, std::move(value)});
+  return true;
+}
+
+const variant_member* variant::find_member(string_name name) const noexcept {
+  if (!is_object() || name.empty()) {
+    return nullptr;
+  }
+
+  for (const variant_member& member : object_value_) {
+    if (member.name == name) {
+      return &member;
+    }
+  }
+
+  return nullptr;
+}
+
+const variant_member* variant::find_member(std::uint32_t field_id) const noexcept {
+  if (!is_object() || field_id == 0) {
+    return nullptr;
+  }
+
+  for (const variant_member& member : object_value_) {
+    if (member.field_id == field_id) {
+      return &member;
+    }
+  }
+
+  return nullptr;
+}
+
+variant_member* variant::find_member(string_name name) noexcept {
+  return const_cast<variant_member*>(std::as_const(*this).find_member(name));
+}
+
+variant_member* variant::find_member(std::uint32_t field_id) noexcept {
+  return const_cast<variant_member*>(std::as_const(*this).find_member(field_id));
+}
+
 variant_serialization_reader::variant_serialization_reader(const variant& value) noexcept
     : root_(&value) {}
 

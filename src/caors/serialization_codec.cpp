@@ -141,39 +141,34 @@ template <typename T> [[nodiscard]] const T* codec_value(const any& data) noexce
                            : error{error_domain::serialization, errc::invalid_type};
 }
 
-[[nodiscard]] serialization_value_result make_caors_string_value(const any& data) {
+[[nodiscard]] variant_result make_caors_string_value(const any& data) {
   const string* stored = codec_value<string>(data);
-  return stored != nullptr
-             ? serialization_value_result{{}, variant::from(*stored)}
-             : serialization_value_result{{error_domain::serialization, errc::invalid_type}, {}};
+  return stored != nullptr ? variant_result{{}, variant::from(*stored)}
+                           : variant_result{{error_domain::serialization, errc::invalid_type}, {}};
 }
 
-[[nodiscard]] serialization_value_result make_std_string_value(const any& data) {
+[[nodiscard]] variant_result make_std_string_value(const any& data) {
   const std::string* stored = codec_value<std::string>(data);
-  return stored != nullptr
-             ? serialization_value_result{{}, variant::from(*stored)}
-             : serialization_value_result{{error_domain::serialization, errc::invalid_type}, {}};
+  return stored != nullptr ? variant_result{{}, variant::from(*stored)}
+                           : variant_result{{error_domain::serialization, errc::invalid_type}, {}};
 }
 
-[[nodiscard]] serialization_value_result make_string_view_value(const any& data) {
+[[nodiscard]] variant_result make_string_view_value(const any& data) {
   const std::string_view* stored = codec_value<std::string_view>(data);
-  return stored != nullptr
-             ? serialization_value_result{{}, variant::from(*stored)}
-             : serialization_value_result{{error_domain::serialization, errc::invalid_type}, {}};
+  return stored != nullptr ? variant_result{{}, variant::from(*stored)}
+                           : variant_result{{error_domain::serialization, errc::invalid_type}, {}};
 }
 
-[[nodiscard]] serialization_value_result make_guid_value(const any& data) {
+[[nodiscard]] variant_result make_guid_value(const any& data) {
   const guid* stored = codec_value<guid>(data);
-  return stored != nullptr
-             ? serialization_value_result{{}, variant::from(stored->string())}
-             : serialization_value_result{{error_domain::serialization, errc::invalid_type}, {}};
+  return stored != nullptr ? variant_result{{}, variant::from(stored->string())}
+                           : variant_result{{error_domain::serialization, errc::invalid_type}, {}};
 }
 
-[[nodiscard]] serialization_value_result make_type_guid_value(const any& data) {
+[[nodiscard]] variant_result make_type_guid_value(const any& data) {
   const type_guid* stored = codec_value<type_guid>(data);
-  return stored != nullptr
-             ? serialization_value_result{{}, variant::from(stored->value.string())}
-             : serialization_value_result{{error_domain::serialization, errc::invalid_type}, {}};
+  return stored != nullptr ? variant_result{{}, variant::from(stored->value.string())}
+                           : variant_result{{error_domain::serialization, errc::invalid_type}, {}};
 }
 
 template <typename T> void register_builtin_codec(serialization_codec_data codec) {

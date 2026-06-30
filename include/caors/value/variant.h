@@ -10,6 +10,7 @@
 
 #include <cstdint>
 #include <string_view>
+#include <utility>
 
 namespace caors {
 
@@ -58,6 +59,14 @@ public:
 
   [[nodiscard]] variant_kind kind() const noexcept { return kind_; }
   [[nodiscard]] bool is_null() const noexcept { return kind_ == variant_kind::null; }
+  [[nodiscard]] bool is_bool() const noexcept { return kind_ == variant_kind::boolean; }
+  [[nodiscard]] bool is_i64() const noexcept { return kind_ == variant_kind::signed_integer; }
+  [[nodiscard]] bool is_u64() const noexcept { return kind_ == variant_kind::unsigned_integer; }
+  [[nodiscard]] bool is_f64() const noexcept { return kind_ == variant_kind::floating; }
+  [[nodiscard]] bool is_string() const noexcept { return kind_ == variant_kind::string; }
+  [[nodiscard]] bool is_array() const noexcept { return kind_ == variant_kind::array; }
+  [[nodiscard]] bool is_object() const noexcept { return kind_ == variant_kind::object; }
+
   [[nodiscard]] bool as_bool() const noexcept { return bool_value_; }
   [[nodiscard]] std::int64_t as_i64() const noexcept { return i64_value_; }
   [[nodiscard]] std::uint64_t as_u64() const noexcept { return u64_value_; }
@@ -66,8 +75,43 @@ public:
   [[nodiscard]] const array_type& as_array() const noexcept { return array_value_; }
   [[nodiscard]] const object_type& as_object() const noexcept { return object_value_; }
 
+  [[nodiscard]] const bool* try_as_bool() const noexcept {
+    return is_bool() ? &bool_value_ : nullptr;
+  }
+  [[nodiscard]] const std::int64_t* try_as_i64() const noexcept {
+    return is_i64() ? &i64_value_ : nullptr;
+  }
+  [[nodiscard]] const std::uint64_t* try_as_u64() const noexcept {
+    return is_u64() ? &u64_value_ : nullptr;
+  }
+  [[nodiscard]] const double* try_as_f64() const noexcept {
+    return is_f64() ? &f64_value_ : nullptr;
+  }
+  [[nodiscard]] const string* try_as_string() const noexcept {
+    return is_string() ? &string_value_ : nullptr;
+  }
+  [[nodiscard]] const array_type* try_as_array() const noexcept {
+    return is_array() ? &array_value_ : nullptr;
+  }
+  [[nodiscard]] const object_type* try_as_object() const noexcept {
+    return is_object() ? &object_value_ : nullptr;
+  }
+
   [[nodiscard]] array_type& mutable_array() noexcept { return array_value_; }
   [[nodiscard]] object_type& mutable_object() noexcept { return object_value_; }
+  [[nodiscard]] array_type* try_mutable_array() noexcept {
+    return is_array() ? &array_value_ : nullptr;
+  }
+  [[nodiscard]] object_type* try_mutable_object() noexcept {
+    return is_object() ? &object_value_ : nullptr;
+  }
+
+  bool push_back(variant value);
+  bool add_member(string_name name, std::uint32_t field_id, variant value);
+  [[nodiscard]] const variant_member* find_member(string_name name) const noexcept;
+  [[nodiscard]] const variant_member* find_member(std::uint32_t field_id) const noexcept;
+  [[nodiscard]] variant_member* find_member(string_name name) noexcept;
+  [[nodiscard]] variant_member* find_member(std::uint32_t field_id) noexcept;
 
 private:
   variant_kind kind_ = variant_kind::null;
@@ -86,11 +130,6 @@ struct variant_member {
   std::uint32_t field_id = 0;
   variant value{};
 };
-
-/** @brief 兼容旧序列化 DOM 命名，后续新代码优先使用 `variant`。 */
-using serialization_value_kind = variant_kind;
-using serialization_value = variant;
-using serialization_member = variant_member;
 
 } // namespace caors
 
