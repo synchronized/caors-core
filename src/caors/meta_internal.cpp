@@ -1,0 +1,226 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 CAORS contributors
+
+#include "meta_internal.h"
+
+namespace caors::detail {
+
+type_id allocate_type_id(meta_registry_state& state) {
+  type_id id{};
+  do {
+    id = type_id{state.next_type_id++};
+    if (state.next_type_id == 0) {
+      ++state.next_type_id;
+    }
+  } while (!id || state.types.contains(id.value()));
+
+  return id;
+}
+
+meta_type_data* find_type_data(meta_registry_state& state, type_id id) {
+  const auto position = state.types.find(id.value());
+  if (position == state.types.end()) {
+    return nullptr;
+  }
+
+  return position->second.get();
+}
+
+const meta_type_data* find_type_data(const meta_registry_state& state, type_id id) {
+  const auto position = state.types.find(id.value());
+  if (position == state.types.end()) {
+    return nullptr;
+  }
+
+  return position->second.get();
+}
+
+std::optional<type_id> find_existing_type_id(const meta_registry_state& state,
+                                             const meta_type_data& type, error& conflict) {
+  std::optional<type_id> existing_id;
+
+  const auto merge_candidate = [&](type_id candidate, error result) {
+    if (existing_id.has_value() && *existing_id != candidate) {
+      conflict = result;
+      return false;
+    }
+
+    existing_id = candidate;
+    return true;
+  };
+
+  if (type.id()) {
+    if (!state.types.contains(type.id().value())) {
+      conflict = {error_domain::meta, errc::invalid_type};
+      return std::nullopt;
+    }
+
+    if (!merge_candidate(type.id(), {error_domain::meta, errc::duplicate_id})) {
+      return std::nullopt;
+    }
+  }
+
+  if (type.name()) {
+    const auto name_position = state.names.find(type.name().id());
+    if (name_position != state.names.end() &&
+        !merge_candidate(name_position->second, {error_domain::meta, errc::duplicate_name})) {
+      return std::nullopt;
+    }
+  }
+
+  if (type.guid()) {
+    const auto guid_position = state.guids.find(type.guid().value);
+    if (guid_position != state.guids.end() &&
+        !merge_candidate(guid_position->second, {error_domain::meta, errc::duplicate_guid})) {
+      return std::nullopt;
+    }
+  }
+
+  return existing_id;
+}
+
+error duplicate_identity_error(const meta_registry_state& state, const meta_type_data& type,
+                               type_id existing_id) {
+  if (type.name()) {
+    const auto name_position = state.names.find(type.name().id());
+    if (name_position != state.names.end() && name_position->second == existing_id) {
+      return {error_domain::meta, errc::duplicate_name};
+    }
+  }
+
+  if (type.guid()) {
+    const auto guid_position = state.guids.find(type.guid().value);
+    if (guid_position != state.guids.end() && guid_position->second == existing_id) {
+      return {error_domain::meta, errc::duplicate_guid};
+    }
+  }
+
+  return {error_domain::meta, errc::invalid_type};
+}
+
+bool has_cpp_type(const meta_registry_state& state, type_id id) {
+  for (const auto& [key, mapped_id] : state.cpp_types) {
+    (void)key;
+    if (mapped_id == id) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+error merge_type_data(meta_registry_state& state, meta_type_data& stored,
+                      const meta_type_data& incoming) {
+  if (!incoming.valid()) {
+    return {error_domain::meta, errc::invalid_type};
+  }
+
+  if (incoming.id() && incoming.id() != stored.id()) {
+    return {error_domain::meta, errc::invalid_type};
+  }
+  const bool explicit_id = incoming.id() == stored.id();
+
+  if (stored.size() != incoming.size() || stored.alignment() != incoming.alignment()) {
+    return {error_domain::meta, errc::invalid_type};
+  }
+
+  bool changed = false;
+
+  if (incoming.parent_id()) {
+    if (!state.types.contains(incoming.parent_id().value())) {
+      return {error_domain::meta, errc::missing_parent};
+    }
+
+    if (stored.parent_id() && stored.parent_id() != incoming.parent_id()) {
+      return {error_domain::meta, errc::invalid_type};
+    }
+
+    if (!stored.parent_id()) {
+      stored.set_parent_id(incoming.parent_id());
+      changed = true;
+    }
+  }
+
+  if (incoming.name()) {
+    const auto name_position = state.names.find(incoming.name().id());
+    if (name_position != state.names.end() && name_position->second != stored.id()) {
+      return {error_domain::meta, errc::duplicate_name};
+    }
+
+    if (stored.name() && stored.name() != incoming.name()) {
+      return explicit_id ? error{error_domain::meta, errc::invalid_type}
+                         : error{error_domain::meta, errc::duplicate_name};
+    }
+
+    if (!stored.name()) {
+      stored.set_name(incoming.name());
+      state.names.emplace(stored.name().id(), stored.id());
+      changed = true;
+    }
+  }
+
+  if (incoming.guid()) {
+    const auto guid_position = state.guids.find(incoming.guid().value);
+    if (guid_position != state.guids.end() && guid_position->second != stored.id()) {
+      return {error_domain::meta, errc::duplicate_guid};
+    }
+
+    if (stored.guid() && stored.guid() != incoming.guid()) {
+      return explicit_id ? error{error_domain::meta, errc::invalid_type}
+                         : error{error_domain::meta, errc::duplicate_guid};
+    }
+
+    if (!stored.guid()) {
+      stored.set_guid(incoming.guid());
+      state.guids.emplace(stored.guid().value, stored.id());
+      changed = true;
+    }
+  }
+
+  return changed ? error{} : error{error_domain::meta, errc::duplicate_id};
+}
+
+error store_new_type(meta_registry_state& state, const meta_type_data& incoming,
+                     type_id* stored_id) {
+  if (!incoming.valid() || incoming.id()) {
+    return {error_domain::meta, errc::invalid_type};
+  }
+
+  if (incoming.parent_id() && !state.types.contains(incoming.parent_id().value())) {
+    return {error_domain::meta, errc::missing_parent};
+  }
+
+  if (incoming.name() && state.names.contains(incoming.name().id())) {
+    return {error_domain::meta, errc::duplicate_name};
+  }
+
+  if (incoming.guid() && state.guids.contains(incoming.guid().value)) {
+    return {error_domain::meta, errc::duplicate_guid};
+  }
+
+  meta_type_data stored = incoming;
+  stored.set_id(allocate_type_id(state));
+  const type_id id = stored.id();
+
+  auto [position, inserted] =
+      state.types.try_emplace(id.value(), std::make_unique<meta_type_data>(stored));
+  if (!inserted) {
+    return {error_domain::meta, errc::duplicate_id};
+  }
+
+  if (stored.name()) {
+    state.names.emplace(stored.name().id(), id);
+  }
+
+  if (stored.guid()) {
+    state.guids.emplace(stored.guid().value, id);
+  }
+
+  if (stored_id != nullptr) {
+    *stored_id = position->second->id();
+  }
+
+  return {};
+}
+
+} // namespace caors::detail
