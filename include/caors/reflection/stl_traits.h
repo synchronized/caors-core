@@ -69,6 +69,7 @@ struct associative_traits<std::unordered_map<K, V, Hash, Equal, Allocator>> {
   static constexpr bool is_associative = true;
   using key_type = std::remove_cv_t<K>;
   using mapped_type = std::remove_cv_t<V>;
+  using map_type = std::unordered_map<K, V, Hash, Equal, Allocator>;
 
   [[nodiscard]] static constexpr std::string_view type_name_prefix() noexcept {
     if constexpr (std::is_same_v<Allocator, allocator<std::pair<const K, V>>>) {
@@ -76,6 +77,20 @@ struct associative_traits<std::unordered_map<K, V, Hash, Equal, Allocator>> {
     } else {
       return "std.unordered_map";
     }
+  }
+
+  [[nodiscard]] static std::size_t size(const map_type& values) noexcept { return values.size(); }
+
+  template <typename Visitor> static void for_each(const map_type& values, Visitor&& visitor) {
+    for (const auto& [key, value] : values) {
+      visitor(key, value);
+    }
+  }
+
+  static void clear(map_type& values) { values.clear(); }
+
+  [[nodiscard]] static bool insert(map_type& values, key_type key, mapped_type value) {
+    return values.emplace(std::move(key), std::move(value)).second;
   }
 };
 

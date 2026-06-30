@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <optional>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 
 namespace {
@@ -117,6 +118,22 @@ struct map_actor {
   caors::hash_map<int, caors::string> labels{};
 };
 
+template <typename T> struct custom_codec_sequence {
+  caors::vector<T> values{};
+};
+
+struct custom_codec_sequence_actor {
+  custom_codec_sequence<int> scores{};
+};
+
+template <typename K, typename V> struct custom_codec_map {
+  caors::hash_map<K, V> values{};
+};
+
+struct custom_codec_map_actor {
+  custom_codec_map<int, caors::string> labels{};
+};
+
 struct nested_vector_actor {
   caors::vector<nested_stats> stats{};
 };
@@ -219,6 +236,76 @@ template <> struct type_name<unsupported_field_value> {
 template <> struct type_name<nested_stats> {
   static constexpr std::string_view value = "caors.test.serialization.nested_stats";
 };
+
+template <typename T> struct sequence_traits<custom_codec_sequence<T>> {
+  static constexpr bool is_sequence = true;
+  using element_type = std::remove_cv_t<T>;
+
+  [[nodiscard]] static constexpr std::string_view type_name_prefix() noexcept {
+    return "caors.test.serialization.custom_sequence";
+  }
+
+  [[nodiscard]] static std::size_t size(const custom_codec_sequence<T>& values) noexcept {
+    return values.values.size();
+  }
+
+  [[nodiscard]] static const element_type* element(const custom_codec_sequence<T>& values,
+                                                   std::size_t index) noexcept {
+    return index < values.values.size() ? &values.values[index] : nullptr;
+  }
+
+  [[nodiscard]] static element_type* mutable_element(custom_codec_sequence<T>& values,
+                                                     std::size_t index) noexcept {
+    return index < values.values.size() ? &values.values[index] : nullptr;
+  }
+
+  static void clear(custom_codec_sequence<T>& values) { values.values.clear(); }
+
+  [[nodiscard]] static bool resize(custom_codec_sequence<T>& values, std::size_t size) {
+    values.values.resize(size);
+    return true;
+  }
+
+  [[nodiscard]] static bool append(custom_codec_sequence<T>& values, const element_type& value) {
+    values.values.push_back(value);
+    return true;
+  }
+};
+
+template <typename K, typename V> struct associative_traits<custom_codec_map<K, V>> {
+  static constexpr bool is_associative = true;
+  using key_type = std::remove_cv_t<K>;
+  using mapped_type = std::remove_cv_t<V>;
+  using map_type = custom_codec_map<K, V>;
+
+  [[nodiscard]] static constexpr std::string_view type_name_prefix() noexcept {
+    return "caors.test.serialization.custom_map";
+  }
+
+  [[nodiscard]] static std::size_t size(const map_type& values) noexcept {
+    return values.values.size();
+  }
+
+  template <typename Visitor> static void for_each(const map_type& values, Visitor&& visitor) {
+    for (const auto& [key, value] : values.values) {
+      visitor(key, value);
+    }
+  }
+
+  static void clear(map_type& values) { values.values.clear(); }
+
+  [[nodiscard]] static bool insert(map_type& values, key_type key, mapped_type value) {
+    return values.values.emplace(std::move(key), std::move(value)).second;
+  }
+};
+
+template <typename T>
+struct serialization_codec<custom_codec_sequence<T>>
+    : sequence_serialization_codec<custom_codec_sequence<T>> {};
+
+template <typename K, typename V>
+struct serialization_codec<custom_codec_map<K, V>>
+    : associative_serialization_codec<custom_codec_map<K, V>> {};
 
 } // namespace caors
 
@@ -741,6 +828,82 @@ TEST_CASE("serialization - deserializes hash map fields from pair arrays", "[ser
   REQUIRE(result.succeeded());
   REQUIRE(actor.labels.size() == 1);
   CHECK(actor.labels.at(3) == "three");
+}
+
+TEST_CASE("serialization - generic sequence codec uses sequence traits", "[serialization]") {
+  using scores_type = custom_codec_sequence<int>;
+  REQUIRE(serialization_result_ok(caors::register_serialization_codec<scores_type>()));
+  REQUIRE(reflection_result_ok(caors::reflection::class_<custom_codec_sequence_actor>(
+                                   "caors.test.serialization.custom_codec_sequence_actor")
+                                   .field("scores", &custom_codec_sequence_actor::scores)
+                                   .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<custom_codec_sequence_actor>()));
+
+  custom_codec_sequence_actor actor{};
+  actor.scores.values.push_back(4);
+  actor.scores.values.push_back(5);
+
+  const caors::serialization_text_result text = caors::serialize_text(actor);
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"scores":[4,5]})");
+
+  caors::variant::array_type values;
+  values.push_back(caors::variant::from(std::int64_t{8}));
+  values.push_back(caors::variant::from(std::int64_t{9}));
+
+  caors::variant::object_type members;
+  members.push_back(caors::variant_member{
+      caors::string_name{"scores"},
+      0,
+      caors::variant::array(std::move(values)),
+  });
+
+  custom_codec_sequence_actor decoded{};
+  const caors::error result =
+      caors::deserialize(decoded, caors::variant::object(std::move(members)));
+
+  REQUIRE(result.succeeded());
+  REQUIRE(decoded.scores.values.size() == 2);
+  CHECK(decoded.scores.values[0] == 8);
+  CHECK(decoded.scores.values[1] == 9);
+}
+
+TEST_CASE("serialization - generic associative codec uses associative traits", "[serialization]") {
+  using labels_type = custom_codec_map<int, caors::string>;
+  REQUIRE(serialization_result_ok(caors::register_serialization_codec<labels_type>()));
+  REQUIRE(reflection_result_ok(caors::reflection::class_<custom_codec_map_actor>(
+                                   "caors.test.serialization.custom_codec_map_actor")
+                                   .field("labels", &custom_codec_map_actor::labels)
+                                   .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<custom_codec_map_actor>()));
+
+  custom_codec_map_actor actor{};
+  actor.labels.values.emplace(6, caors::string{"six"});
+
+  const caors::serialization_text_result text = caors::serialize_text(actor);
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"labels":[[6,"six"]]})");
+
+  caors::variant::dictionary_type entries;
+  entries.push_back(caors::variant_entry{
+      caors::variant::from(std::int64_t{10}),
+      caors::variant::from(std::string_view{"ten"}),
+  });
+
+  caors::variant::object_type members;
+  members.push_back(caors::variant_member{
+      caors::string_name{"labels"},
+      0,
+      caors::variant::dictionary(std::move(entries)),
+  });
+
+  custom_codec_map_actor decoded{};
+  const caors::error result =
+      caors::deserialize(decoded, caors::variant::object(std::move(members)));
+
+  REQUIRE(result.succeeded());
+  REQUIRE(decoded.labels.values.size() == 1);
+  CHECK(decoded.labels.values.at(10) == "ten");
 }
 
 TEST_CASE("serialization - recursively serializes vector struct elements", "[serialization]") {

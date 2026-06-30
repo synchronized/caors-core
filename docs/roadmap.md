@@ -85,6 +85,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 支持 `caors::object_ref<T>` 对象引用字段和 resolver。
 - [x] 增加 JSON writer、JSON DOM parser 和 `serialize_json()` / `deserialize_json()`。
 - [x] 增加 `variant::dictionary` 和 `caors::hash_map<K, V>` 字典 codec。
+- [x] 抽出基于 `sequence_traits<T>` 和 `associative_traits<T>` 的通用容器 codec。
 - [ ] 支持 set/list、裸指针和一般 wrapper 字段。
 - [ ] 增加紧凑二进制和 msgpack 等二进制后端。
 - [ ] 增加版本兼容、缺失字段、未知字段和跨平台字节序测试。

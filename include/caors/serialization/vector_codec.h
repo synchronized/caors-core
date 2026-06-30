@@ -11,6 +11,7 @@
 #include <string_view>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace caors::detail {
 
@@ -145,25 +146,36 @@ template <typename T> [[nodiscard]] variant_result make_vector_element_value(con
 
 namespace caors {
 
-/** @brief `caors::vector<T>` 的数组序列化 codec。 */
-template <typename T> struct serialization_codec<vector<T>> {
-  static constexpr bool can_write = true;
-  static constexpr bool can_read = std::is_default_constructible_v<T>;
-  static constexpr bool can_make_value = true;
+/** @brief 基于 `sequence_traits<T>` 的通用顺序容器序列化 codec。 */
+template <typename Sequence> struct sequence_serialization_codec {
+  using traits = sequence_traits<Sequence>;
+  using element_type = typename traits::element_type;
 
-  [[nodiscard]] static error write(serialization_writer& writer, const vector<T>& values) {
-    error status = writer.begin_array(values.size());
+  static constexpr bool can_write = traits::is_sequence;
+  static constexpr bool can_read = traits::is_sequence &&
+                                   std::is_default_constructible_v<Sequence> &&
+                                   std::is_default_constructible_v<element_type>;
+  static constexpr bool can_make_value = traits::is_sequence;
+
+  [[nodiscard]] static error write(serialization_writer& writer, const Sequence& values) {
+    const std::size_t size = traits::size(values);
+    error status = writer.begin_array(size);
     if (status) {
       return status;
     }
 
-    for (std::size_t index = 0; index < values.size(); ++index) {
+    for (std::size_t index = 0; index < size; ++index) {
       status = writer.begin_element(index);
       if (status) {
         return status;
       }
 
-      status = detail::write_vector_element(writer, values[index]);
+      const element_type* element = traits::element(values, index);
+      if (element == nullptr) {
+        return {error_domain::serialization, errc::invalid_argument};
+      }
+
+      status = detail::write_vector_element(writer, *element);
       if (status) {
         return status;
       }
@@ -177,28 +189,34 @@ template <typename T> struct serialization_codec<vector<T>> {
     return writer.end_array();
   }
 
-  [[nodiscard]] static error read(serialization_reader& reader, vector<T>& values) {
+  [[nodiscard]] static error read(serialization_reader& reader, Sequence& values) {
     std::size_t size = 0;
     error status = reader.begin_array(size);
     if (status) {
       return status;
     }
 
-    vector<T> decoded;
-    decoded.reserve(size);
+    Sequence decoded{};
+    if constexpr (requires(Sequence& container, std::size_t count) { container.reserve(count); }) {
+      decoded.reserve(size);
+    }
+
     for (std::size_t index = 0; index < size; ++index) {
       status = reader.begin_element(index);
       if (status) {
         return status;
       }
 
-      T element{};
+      element_type element{};
       status = detail::read_vector_element(reader, element);
       if (status) {
         return status;
       }
 
-      decoded.push_back(std::move(element));
+      if (!traits::append(decoded, element)) {
+        return {error_domain::serialization, errc::unsupported};
+      }
+
       status = reader.end_element();
       if (status) {
         return status;
@@ -214,11 +232,17 @@ template <typename T> struct serialization_codec<vector<T>> {
     return {};
   }
 
-  [[nodiscard]] static variant_result make_value(const vector<T>& values) {
+  [[nodiscard]] static variant_result make_value(const Sequence& values) {
     variant::array_type elements;
-    elements.reserve(values.size());
-    for (const T& value : values) {
-      variant_result element = detail::make_vector_element_value(value);
+    const std::size_t size = traits::size(values);
+    elements.reserve(size);
+    for (std::size_t index = 0; index < size; ++index) {
+      const element_type* value = traits::element(values, index);
+      if (value == nullptr) {
+        return {{error_domain::serialization, errc::invalid_argument}, {}};
+      }
+
+      variant_result element = detail::make_vector_element_value(*value);
       if (element.failed()) {
         return element;
       }
@@ -229,6 +253,11 @@ template <typename T> struct serialization_codec<vector<T>> {
     return {{}, variant::array(std::move(elements))};
   }
 };
+
+/** @brief `std::vector` / `caors::vector` 的数组序列化 codec。 */
+template <typename T, typename Allocator>
+struct serialization_codec<std::vector<T, Allocator>>
+    : sequence_serialization_codec<std::vector<T, Allocator>> {};
 
 } // namespace caors
 

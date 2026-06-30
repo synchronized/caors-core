@@ -18,8 +18,8 @@ template <typename T> struct sequence_traits {
 /**
  * @brief 关联容器反射 traits。
  *
- * 自定义字典或 map 容器可以特化该模板接入反射系统。当前 traits 负责提供 key/value
- * 类型和类型名前缀。
+ * 自定义字典或 map 容器可以特化该模板接入反射和序列化系统。traits 负责提供 key/value
+ * 类型、类型名前缀、遍历和插入入口。
  */
 template <typename T> struct associative_traits {
   static constexpr bool is_associative = false;

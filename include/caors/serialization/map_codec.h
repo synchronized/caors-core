@@ -12,79 +12,99 @@
 
 namespace caors {
 
-/** @brief `std::unordered_map` / `caors::hash_map` 的字典序列化 codec。 */
-template <typename K, typename V, typename Hash, typename Equal, typename Allocator>
-struct serialization_codec<std::unordered_map<K, V, Hash, Equal, Allocator>> {
-  using map_type = std::unordered_map<K, V, Hash, Equal, Allocator>;
+/** @brief 基于 `associative_traits<T>` 的通用关联容器序列化 codec。 */
+template <typename Associative> struct associative_serialization_codec {
+  using traits = associative_traits<Associative>;
+  using key_type = typename traits::key_type;
+  using mapped_type = typename traits::mapped_type;
 
-  static constexpr bool can_write = true;
+  static constexpr bool can_write = traits::is_associative;
   static constexpr bool can_read =
-      std::is_default_constructible_v<K> && std::is_default_constructible_v<V>;
-  static constexpr bool can_make_value = true;
+      traits::is_associative && std::is_default_constructible_v<Associative> &&
+      std::is_default_constructible_v<key_type> && std::is_default_constructible_v<mapped_type>;
+  static constexpr bool can_make_value = traits::is_associative;
 
-  [[nodiscard]] static error write(serialization_writer& writer, const map_type& values) {
-    error status = writer.begin_dictionary(values.size());
+  [[nodiscard]] static error write(serialization_writer& writer, const Associative& values) {
+    error status = writer.begin_dictionary(traits::size(values));
     if (status) {
       return status;
     }
 
     std::size_t index = 0;
-    for (const auto& [key, value] : values) {
+    error visitor_status{};
+    traits::for_each(values, [&](const key_type& key, const mapped_type& value) {
+      if (visitor_status) {
+        return;
+      }
+
       status = writer.begin_entry(index);
       if (status) {
-        return status;
+        visitor_status = status;
+        return;
       }
 
       status = writer.begin_key();
       if (status) {
-        return status;
+        visitor_status = status;
+        return;
       }
 
       status = detail::write_vector_element(writer, key);
       if (status) {
-        return status;
+        visitor_status = status;
+        return;
       }
 
       status = writer.end_key();
       if (status) {
-        return status;
+        visitor_status = status;
+        return;
       }
 
       status = writer.begin_value();
       if (status) {
-        return status;
+        visitor_status = status;
+        return;
       }
 
       status = detail::write_vector_element(writer, value);
       if (status) {
-        return status;
+        visitor_status = status;
+        return;
       }
 
       status = writer.end_value();
       if (status) {
-        return status;
+        visitor_status = status;
+        return;
       }
 
       status = writer.end_entry();
       if (status) {
-        return status;
+        visitor_status = status;
+        return;
       }
 
       ++index;
-    }
+    });
 
-    return writer.end_dictionary();
+    return visitor_status ? visitor_status : writer.end_dictionary();
   }
 
-  [[nodiscard]] static error read(serialization_reader& reader, map_type& values) {
+  [[nodiscard]] static error read(serialization_reader& reader, Associative& values) {
     std::size_t size = 0;
     error status = reader.begin_dictionary(size);
     if (status) {
       return status;
     }
 
-    map_type decoded;
-    decoded.reserve(size);
+    Associative decoded{};
+    if constexpr (requires(Associative& container, std::size_t count) {
+                    container.reserve(count);
+                  }) {
+      decoded.reserve(size);
+    }
+
     for (std::size_t index = 0; index < size; ++index) {
       status = reader.begin_entry(index);
       if (status) {
@@ -96,7 +116,7 @@ struct serialization_codec<std::unordered_map<K, V, Hash, Equal, Allocator>> {
         return status;
       }
 
-      K key{};
+      key_type key{};
       status = detail::read_vector_element(reader, key);
       if (status) {
         return status;
@@ -112,7 +132,7 @@ struct serialization_codec<std::unordered_map<K, V, Hash, Equal, Allocator>> {
         return status;
       }
 
-      V value{};
+      mapped_type value{};
       status = detail::read_vector_element(reader, value);
       if (status) {
         return status;
@@ -128,7 +148,7 @@ struct serialization_codec<std::unordered_map<K, V, Hash, Equal, Allocator>> {
         return status;
       }
 
-      if (!decoded.emplace(std::move(key), std::move(value)).second) {
+      if (!traits::insert(decoded, std::move(key), std::move(value))) {
         return {error_domain::serialization, errc::already_exists};
       }
     }
@@ -142,27 +162,44 @@ struct serialization_codec<std::unordered_map<K, V, Hash, Equal, Allocator>> {
     return {};
   }
 
-  [[nodiscard]] static variant_result make_value(const map_type& values) {
+  [[nodiscard]] static variant_result make_value(const Associative& values) {
     variant::dictionary_type entries;
-    entries.reserve(values.size());
-    for (const auto& [key, value] : values) {
+    entries.reserve(traits::size(values));
+    variant_result visitor_result{};
+
+    traits::for_each(values, [&](const key_type& key, const mapped_type& value) {
+      if (visitor_result.failed()) {
+        return;
+      }
+
       variant_result encoded_key = detail::make_vector_element_value(key);
       if (encoded_key.failed()) {
-        return encoded_key;
+        visitor_result = encoded_key;
+        return;
       }
 
       variant_result encoded_value = detail::make_vector_element_value(value);
       if (encoded_value.failed()) {
-        return encoded_value;
+        visitor_result = encoded_value;
+        return;
       }
 
       entries.push_back(
           variant_entry{std::move(encoded_key.value), std::move(encoded_value.value)});
+    });
+
+    if (visitor_result.failed()) {
+      return visitor_result;
     }
 
     return {{}, variant::dictionary(std::move(entries))};
   }
 };
+
+/** @brief `std::unordered_map` / `caors::hash_map` 的字典序列化 codec。 */
+template <typename K, typename V, typename Hash, typename Equal, typename Allocator>
+struct serialization_codec<std::unordered_map<K, V, Hash, Equal, Allocator>>
+    : associative_serialization_codec<std::unordered_map<K, V, Hash, Equal, Allocator>> {};
 
 } // namespace caors
 

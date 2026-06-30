@@ -148,8 +148,8 @@ struct sequence_traits<my_sequence<T>> {
 `resize()` 适合只在元素可默认构造时返回成功，`append()` 适合只在元素可拷贝时返回成功。调用方通过
 `reflection_field` 操作 sequence 字段时，类型不匹配、对象为空或 traits 不支持对应操作都会返回失败。
 
-关联容器识别通过 `associative_traits<T>` 扩展。当前 traits 先用于描述 key/value 类型和生成容器类型名，
-具体序列化读写由对应 serialization codec 负责：
+关联容器识别通过 `associative_traits<T>` 扩展。traits 用于描述 key/value 类型、生成容器类型名，
+并为通用 serialization codec 提供遍历和插入入口：
 
 ```cpp
 namespace caors {
@@ -161,6 +161,13 @@ struct associative_traits<my_map<K, V>> {
   using mapped_type = V;
 
   static constexpr std::string_view type_name_prefix() noexcept { return "my.map"; }
+  static std::size_t size(const my_map<K, V>& value) noexcept;
+
+  template <typename Visitor>
+  static void for_each(const my_map<K, V>& value, Visitor&& visitor);
+
+  static void clear(my_map<K, V>& value);
+  static bool insert(my_map<K, V>& value, key_type key, mapped_type mapped);
 };
 
 }
