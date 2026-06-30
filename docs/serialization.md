@@ -23,13 +23,14 @@
 - 提供 `serialization_codec_registry`，允许把特定 C++ 类型作为原子序列化值读写。
 - 支持已注册反射和序列化元信息的值类型结构体字段递归序列化和 DOM 反序列化。
 - 提供 `caors::vector<T>` 数组 codec，支持标量元素和已注册结构体元素。
+- 通过 `serialization_reference_resolver` 支持 `caors::object_ref<T>` 对象引用字段。
 - 用 `caors::error` 和 `caors::result<T>` 表达失败状态和携带值的返回结果。
 
 当前不会包含：
 
 - 内置二进制格式。
 - 版本迁移和默认值恢复。
-- 对象引用、指针和 wrapper 字段序列化。
+- 裸指针和一般 wrapper 字段序列化。
 - 泛化容器递归序列化。
 
 这些能力后续应在对象 handle、字段策略和格式扩展点明确后逐步补充。
@@ -131,8 +132,8 @@ caors::error status = caors::deserialize(instance, value.value);
 ```
 
 字段查找优先使用非 0 的 `field_id`，再回退到 `serialized_name` 或 `field_name`。当前支持写入
-`bool`、整数、浮点、`caors::string`、`std::string`、已注册反射/序列化元信息的值类型结构体字段，以及
-已注册 codec 的 `caors::vector<T>` 字段。
+`bool`、整数、浮点、`caors::string`、`std::string`、已注册反射/序列化元信息的值类型结构体字段、
+已注册 codec 的 `caors::vector<T>` 字段，以及通过 resolver 解析的 `caors::object_ref<T>` 字段。
 
 反序列化缺失字段策略：
 
@@ -142,6 +143,30 @@ caors::error status = caors::deserialize(instance, value.value);
 - DOM 中存在但未被目标类型声明的未知字段默认忽略。
 
 默认值恢复、未知字段保留、严格模式和完整版本迁移策略后续再补。
+
+### object references
+
+`caors::object_ref<T>` 是非拥有对象引用。序列化层不会自行管理对象生命周期，也不会假设
+`object_id` 可以跨存档稳定使用。调用方需要在 `serialization_context` 中提供
+`serialization_reference_resolver`：
+
+```cpp
+caors::serialization_reference_resolver resolver{
+    &object_to_id,
+    &id_to_object,
+    user_data,
+};
+caors::serialization_context context{0, &resolver};
+```
+
+写出时，resolver 把 `object*` 转换为 `object_id`，输出为无符号整数；空引用输出 `0`。读入时，
+resolver 把非 0 `object_id` 转换回对象指针，再写入 `object_ref<T>` 字段。
+
+失败策略：
+
+- 未提供 resolver 或 resolver 缺少对应方向函数时返回 `errc::invalid_argument`。
+- 非空引用写出时无法映射到 id，或读入 id 找不到对象时返回 `errc::not_found`。
+- 读入对象不能转换为 `T*` 时返回 `errc::invalid_type`。
 
 ### serialization codec
 

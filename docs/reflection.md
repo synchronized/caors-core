@@ -118,8 +118,7 @@ struct wrapper_traits<my_box<T>> {
 - `none`：不是 wrapper，也不是需要特殊处理的指针。
 - `inline_value`：序列化时按包装的 `T` 本体处理。`T*`、标准智能指针和 `optional<T>`
   默认都属于该语义。
-- `object_ref`：序列化时按对象引用 id 处理，预留给后续 `caors::ref<T>` /
-  `object_ref<T>` 这类类型。
+- `object_ref`：序列化时按对象引用 id 处理。内置 `caors::object_ref<T>` 属于该语义。
 - `unsupported`：明确识别为 wrapper，但当前序列化层不支持。
 
 推荐通过 `reflection_field` 读写字段：

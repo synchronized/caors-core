@@ -26,6 +26,9 @@ enum class field_kind {
 
 namespace detail {
 
+using object_ref_get_fn = object* (*)(const void*) noexcept;
+using object_ref_set_fn = bool (*)(void*, object*) noexcept;
+
 template <typename T>
 inline constexpr bool is_supported_wrapper_v = wrapper_traits<std::remove_cv_t<T>>::is_wrapper;
 
@@ -115,6 +118,48 @@ template <typename Field> [[nodiscard]] field_traits_info make_field_traits_info
   return field_traits<field_type>::get();
 }
 
+template <typename Field> [[nodiscard]] object_ref_get_fn object_ref_get_fn_of() noexcept {
+  using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
+  if constexpr (object_ref_traits<field_type>::is_object_ref) {
+    return [](const void* storage) noexcept -> object* {
+      if (storage == nullptr) {
+        return nullptr;
+      }
+
+      return static_cast<const field_type*>(storage)->get();
+    };
+  } else {
+    return nullptr;
+  }
+}
+
+template <typename Field> [[nodiscard]] object_ref_set_fn object_ref_set_fn_of() noexcept {
+  using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
+  if constexpr (object_ref_traits<field_type>::is_object_ref) {
+    using object_type = typename object_ref_traits<field_type>::object_type;
+    return [](void* storage, object* instance) noexcept -> bool {
+      if (storage == nullptr) {
+        return false;
+      }
+
+      if (instance == nullptr) {
+        static_cast<field_type*>(storage)->reset();
+        return true;
+      }
+
+      object_type* typed = dynamic_cast<object_type*>(instance);
+      if (typed == nullptr) {
+        return false;
+      }
+
+      static_cast<field_type*>(storage)->reset(typed);
+      return true;
+    };
+  } else {
+    return nullptr;
+  }
+}
+
 } // namespace detail
 
 /**
@@ -133,6 +178,8 @@ struct reflection_field_data {
   detail::value_clone_fn clone_value = nullptr;
   detail::value_destroy_fn destroy_value = nullptr;
   detail::value_assign_fn assign_value = nullptr;
+  detail::object_ref_get_fn get_object_ref = nullptr;
+  detail::object_ref_set_fn set_object_ref = nullptr;
   field_kind kind = field_kind::value;
   field_wrapper_semantics wrapper_semantics = field_wrapper_semantics::none;
   std::uint8_t pointer_depth = 0;
@@ -278,6 +325,8 @@ make_reflection_field_data(std::string_view name, std::string_view type_name, st
       detail::value_clone_fn_of<Field>(),
       detail::value_destroy_fn_of<Field>(),
       detail::value_assign_fn_of<Field>(),
+      detail::object_ref_get_fn_of<Field>(),
+      detail::object_ref_set_fn_of<Field>(),
       traits.kind,
       traits.wrapper_semantics,
       traits.pointer_depth,

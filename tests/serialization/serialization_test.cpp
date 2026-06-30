@@ -117,6 +117,19 @@ struct nested_vector_actor {
   caors::vector<nested_stats> stats{};
 };
 
+struct object_ref_target : caors::object {};
+
+struct other_object_ref_target : caors::object {};
+
+struct object_ref_actor {
+  caors::object_ref<object_ref_target> target{};
+};
+
+struct object_ref_resolver_data {
+  caors::object_id id{};
+  caors::object* instance = nullptr;
+};
+
 [[nodiscard]] bool reflection_result_ok(caors::error result) noexcept {
   return result.succeeded() || result.value() == caors::errc::duplicate_reflection;
 }
@@ -127,6 +140,24 @@ struct nested_vector_actor {
 
 [[nodiscard]] bool type_result_ok(caors::error result) noexcept {
   return result.succeeded() || result.value() == caors::errc::duplicate_id;
+}
+
+[[nodiscard]] caors::object_id resolve_object_id(const caors::object* instance, void* user_data) {
+  const auto* data = static_cast<const object_ref_resolver_data*>(user_data);
+  if (data == nullptr || instance == nullptr || instance != data->instance) {
+    return caors::object_id::invalid();
+  }
+
+  return data->id;
+}
+
+[[nodiscard]] caors::object* resolve_object(caors::object_id id, void* user_data) {
+  const auto* data = static_cast<const object_ref_resolver_data*>(user_data);
+  if (data == nullptr || id != data->id) {
+    return nullptr;
+  }
+
+  return data->instance;
 }
 
 class numeric_field_writer final : public caors::serialization_writer {
@@ -601,6 +632,128 @@ TEST_CASE("serialization - recursively serializes vector struct elements", "[ser
   REQUIRE(decoded.stats.size() == 1);
   CHECK(decoded.stats[0].level == 7);
   CHECK(decoded.stats[0].score == Catch::Approx(8.5));
+}
+
+TEST_CASE("serialization - serializes object references through resolver", "[serialization]") {
+  REQUIRE(type_result_ok(caors::register_type<caors::object_ref<object_ref_target>>(
+      "caors.object_ref<caors.test.serialization.object_ref_target>")));
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<object_ref_actor>("caors.test.serialization.object_ref_actor")
+          .field("target", &object_ref_actor::target)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<object_ref_actor>()));
+
+  object_ref_target target;
+  object_ref_resolver_data resolver_data{caors::object_id{77}, &target};
+  const caors::serialization_reference_resolver resolver{
+      &resolve_object_id,
+      &resolve_object,
+      &resolver_data,
+  };
+  const caors::serialization_context context{0, &resolver};
+  const object_ref_actor actor{caors::object_ref<object_ref_target>{&target}};
+
+  const caors::serialization_text_result text = caors::serialize_text(actor, context);
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"target":77})");
+
+  const caors::variant_result value = caors::to_serialization_value(actor, context);
+  REQUIRE(value.succeeded());
+  const caors::variant_member* target_member =
+      value.value.find_member(caors::string_name{"target"});
+  REQUIRE(target_member != nullptr);
+  CHECK(target_member->value.is_u64());
+  CHECK(target_member->value.as_u64() == 77);
+}
+
+TEST_CASE("serialization - deserializes object references through resolver", "[serialization]") {
+  REQUIRE(type_result_ok(caors::register_type<caors::object_ref<object_ref_target>>(
+      "caors.object_ref<caors.test.serialization.object_ref_target>")));
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<object_ref_actor>("caors.test.serialization.object_ref_actor")
+          .field("target", &object_ref_actor::target)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<object_ref_actor>()));
+
+  object_ref_target target;
+  object_ref_resolver_data resolver_data{caors::object_id{88}, &target};
+  const caors::serialization_reference_resolver resolver{
+      &resolve_object_id,
+      &resolve_object,
+      &resolver_data,
+  };
+
+  caors::variant::object_type members;
+  members.push_back(caors::variant_member{
+      caors::string_name{"target"},
+      0,
+      caors::variant::from(std::uint64_t{88}),
+  });
+
+  object_ref_actor actor{};
+  const caors::error result = caors::deserialize(actor, caors::variant::object(std::move(members)),
+                                                 caors::serialization_context{0, &resolver});
+
+  REQUIRE(result.succeeded());
+  CHECK(actor.target.get() == &target);
+}
+
+TEST_CASE("serialization - object reference resolver failures are reported", "[serialization]") {
+  REQUIRE(type_result_ok(caors::register_type<caors::object_ref<object_ref_target>>(
+      "caors.object_ref<caors.test.serialization.object_ref_target>")));
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<object_ref_actor>("caors.test.serialization.object_ref_actor")
+          .field("target", &object_ref_actor::target)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<object_ref_actor>()));
+
+  object_ref_target target;
+  const object_ref_actor actor{caors::object_ref<object_ref_target>{&target}};
+  const caors::serialization_text_result missing_resolver = caors::serialize_text(actor);
+  CHECK(missing_resolver.failed());
+  CHECK(missing_resolver.status.value() == caors::errc::invalid_argument);
+
+  object_ref_resolver_data resolver_data{caors::object_id{99}, nullptr};
+  const caors::serialization_reference_resolver resolver{
+      &resolve_object_id,
+      &resolve_object,
+      &resolver_data,
+  };
+
+  caors::variant::object_type members;
+  members.push_back(caors::variant_member{
+      caors::string_name{"target"},
+      0,
+      caors::variant::from(std::uint64_t{99}),
+  });
+
+  object_ref_actor decoded{};
+  const caors::error missing_object =
+      caors::deserialize(decoded, caors::variant::object(std::move(members)),
+                         caors::serialization_context{0, &resolver});
+  CHECK(missing_object.failed());
+  CHECK(missing_object.value() == caors::errc::not_found);
+
+  other_object_ref_target other;
+  object_ref_resolver_data wrong_type_data{caors::object_id{100}, &other};
+  const caors::serialization_reference_resolver wrong_type_resolver{
+      &resolve_object_id,
+      &resolve_object,
+      &wrong_type_data,
+  };
+
+  caors::variant::object_type wrong_type_members;
+  wrong_type_members.push_back(caors::variant_member{
+      caors::string_name{"target"},
+      0,
+      caors::variant::from(std::uint64_t{100}),
+  });
+
+  const caors::error wrong_type =
+      caors::deserialize(decoded, caors::variant::object(std::move(wrong_type_members)),
+                         caors::serialization_context{0, &wrong_type_resolver});
+  CHECK(wrong_type.failed());
+  CHECK(wrong_type.value() == caors::errc::invalid_type);
 }
 
 TEST_CASE("serialization - variant reader matches fields by stable field id", "[serialization]") {

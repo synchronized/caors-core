@@ -4,6 +4,8 @@
 #ifndef CAORS_REFLECTION_WRAPPER_H_
 #define CAORS_REFLECTION_WRAPPER_H_
 
+#include "caors/object.h"
+
 #include <functional>
 #include <memory>
 #include <optional>
@@ -63,6 +65,13 @@ template <typename T> struct wrapper_traits<std::reference_wrapper<T>> {
   static constexpr bool is_wrapper = true;
   static constexpr bool nullable = false;
   static constexpr field_wrapper_semantics semantics = field_wrapper_semantics::inline_value;
+  using wrapped_type = std::remove_cv_t<T>;
+};
+
+template <typename T> struct wrapper_traits<object_ref<T>> {
+  static constexpr bool is_wrapper = true;
+  static constexpr bool nullable = true;
+  static constexpr field_wrapper_semantics semantics = field_wrapper_semantics::object_ref;
   using wrapped_type = std::remove_cv_t<T>;
 };
 

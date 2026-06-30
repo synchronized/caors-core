@@ -10,9 +10,32 @@
 namespace caors {
 namespace {
 
+[[nodiscard]] variant_result
+object_ref_to_serialization_value(const reflection_field& field, const void* object,
+                                  const serialization_context& context) {
+  if (context.reference_resolver == nullptr || !context.reference_resolver->can_write()) {
+    return {{error_domain::serialization, errc::invalid_argument}, {}};
+  }
+
+  const caors::object* referenced = field.get_object_ref(object);
+  const object_id id = referenced != nullptr
+                           ? context.reference_resolver->object_to_id(
+                                 referenced, context.reference_resolver->user_data)
+                           : object_id::invalid();
+  if (referenced != nullptr && !id) {
+    return {{error_domain::serialization, errc::not_found}, {}};
+  }
+
+  return {{}, variant::from(id.value())};
+}
+
 [[nodiscard]] variant_result field_to_serialization_value(const reflection_field& field,
                                                           const void* object,
                                                           const serialization_context& context) {
+  if (field.wrapper_semantics() == field_wrapper_semantics::object_ref) {
+    return object_ref_to_serialization_value(field, object, context);
+  }
+
   any_ref field_ref = field.get_ref(object);
   if (!field_ref.valid()) {
     return {{error_domain::serialization, errc::unsupported}, {}};

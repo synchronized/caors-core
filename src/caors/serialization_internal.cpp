@@ -105,6 +105,81 @@ template <typename T>
   return false;
 }
 
+[[nodiscard]] error write_object_ref_field(serialization_writer& writer,
+                                           const reflection_field& field, const void* object,
+                                           const serialization_field_data& field_data,
+                                           const serialization_context& context) {
+  if (context.reference_resolver == nullptr || !context.reference_resolver->can_write()) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  error status = validate_field_for_writer(field_data, writer.features());
+  if (status) {
+    return status;
+  }
+
+  status = writer.begin_field(field_data);
+  if (status) {
+    return status;
+  }
+
+  const caors::object* referenced = field.get_object_ref(object);
+  const object_id id = referenced != nullptr
+                           ? context.reference_resolver->object_to_id(
+                                 referenced, context.reference_resolver->user_data)
+                           : object_id::invalid();
+  if (referenced != nullptr && !id) {
+    return {error_domain::serialization, errc::not_found};
+  }
+
+  status = writer.write_u64(id.value());
+  if (status) {
+    return status;
+  }
+
+  return writer.end_field();
+}
+
+[[nodiscard]] error read_object_ref_field(serialization_reader& reader,
+                                          const reflection_field& field, void* object,
+                                          const serialization_field_data& field_data,
+                                          const serialization_context& context) {
+  if (context.reference_resolver == nullptr || !context.reference_resolver->can_read()) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  error status = validate_field_for_reader(field_data, reader.features());
+  if (status) {
+    return status;
+  }
+
+  status = reader.begin_field(field_data);
+  if (status) {
+    return status;
+  }
+
+  std::uint64_t encoded_id = 0;
+  status = reader.read_u64(encoded_id);
+  if (status) {
+    return status;
+  }
+
+  caors::object* referenced = nullptr;
+  if (encoded_id != 0) {
+    referenced = context.reference_resolver->id_to_object(object_id{encoded_id},
+                                                          context.reference_resolver->user_data);
+    if (referenced == nullptr) {
+      return {error_domain::serialization, errc::not_found};
+    }
+  }
+
+  if (!field.try_set_object_ref(object, referenced)) {
+    return {error_domain::serialization, errc::invalid_type};
+  }
+
+  return reader.end_field();
+}
+
 } // namespace
 
 string_name serialized_field_name(const serialization_field_data& data) noexcept {
@@ -260,6 +335,10 @@ error write_field(serialization_writer& writer, const reflection_field& field, c
     return {error_domain::serialization, errc::invalid_field};
   }
 
+  if (field.wrapper_semantics() == field_wrapper_semantics::object_ref) {
+    return write_object_ref_field(writer, field, object, field_data, context);
+  }
+
   if (field.kind() != field_kind::value) {
     return {error_domain::serialization, errc::unsupported};
   }
@@ -315,6 +394,10 @@ error read_field(serialization_reader& reader, const reflection_field& field, vo
 
   if (!field.writable()) {
     return {error_domain::serialization, errc::invalid_field};
+  }
+
+  if (field.wrapper_semantics() == field_wrapper_semantics::object_ref) {
+    return read_object_ref_field(reader, field, object, field_data, context);
   }
 
   if (field.kind() != field_kind::value) {

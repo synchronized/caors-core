@@ -55,6 +55,12 @@ public:
   /** @brief 从运行期值写入字段。 */
   bool try_set_value(void* object, const any& source) const;
 
+  /** @brief 获取对象引用字段指向的对象。 */
+  [[nodiscard]] object* get_object_ref(const void* object) const;
+
+  /** @brief 写入对象引用字段。 */
+  bool try_set_object_ref(void* object, caors::object* instance) const;
+
   /** @brief 按指定类型读取字段值。 */
   template <typename Field>
   [[nodiscard]] std::optional<std::remove_cv_t<std::remove_reference_t<Field>>>

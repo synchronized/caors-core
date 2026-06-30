@@ -69,6 +69,19 @@ caors::object_type_id id = player::static_type_id();
 
 它不负责对象所有权，也不内置引用计数或 GC。
 
+### object_ref
+
+`object_ref<T>` 是非拥有对象引用，只保存对象指针，不延长对象生命周期：
+
+```cpp
+caors::object_ref<actor> ref{&instance};
+caors::object_id id = ref.id();
+```
+
+它适合表达运行期对象关系。序列化时需要通过 `serialization_reference_resolver` 把对象指针转换为
+`object_id`，反序列化时再把 `object_id` 解析回对象指针。`object_id` 本身仍是运行期标识，跨存档稳定
+引用应由上层资源或对象数据库提供稳定 id 映射。
+
 ### object_base
 
 `object_base<Derived, Base>` 帮助派生类提供运行期类型查询。派生类需要提供 `object_type_name`：

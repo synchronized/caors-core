@@ -215,6 +215,24 @@ bool reflection_field::try_set_value(void* object, const any& source) const {
   return field->try_set_value(object, source);
 }
 
+object* reflection_field::get_object_ref(const void* object) const {
+  const reflection_field_data* field = info();
+  if (field == nullptr || field->get_object_ref == nullptr) {
+    return nullptr;
+  }
+
+  return field->get_object_ref(field->data(object));
+}
+
+bool reflection_field::try_set_object_ref(void* object, caors::object* instance) const {
+  const reflection_field_data* field = info();
+  if (field == nullptr || field->set_object_ref == nullptr) {
+    return false;
+  }
+
+  return field->set_object_ref(field->mutable_data(object), instance);
+}
+
 reflection_type::reflection_type(meta_type type, const reflection_type_data* data) noexcept
     : type_(type), data_(data) {}
 

@@ -7,6 +7,7 @@
 #include "caors/core/containers.h"
 #include "caors/error.h"
 #include "caors/meta.h"
+#include "caors/object.h"
 #include "caors/result.h"
 #include "caors/value/variant.h"
 
@@ -108,6 +109,19 @@ make_serialization_type_data(std::initializer_list<serialization_field_data> fie
                                  vector<serialization_field_data>{fields}};
 }
 
+using serialization_object_to_id_fn = object_id (*)(const object* instance, void* user_data);
+using serialization_id_to_object_fn = object* (*)(object_id id, void* user_data);
+
+/** @brief 对象引用解析器。 */
+struct serialization_reference_resolver {
+  serialization_object_to_id_fn object_to_id = nullptr;
+  serialization_id_to_object_fn id_to_object = nullptr;
+  void* user_data = nullptr;
+
+  [[nodiscard]] constexpr bool can_write() const noexcept { return object_to_id != nullptr; }
+  [[nodiscard]] constexpr bool can_read() const noexcept { return id_to_object != nullptr; }
+};
+
 /**
  * @brief 单次序列化调度上下文。
  *
@@ -116,6 +130,7 @@ make_serialization_type_data(std::initializer_list<serialization_field_data> fie
  */
 struct serialization_context {
   std::uint32_t schema_version = 0;
+  const serialization_reference_resolver* reference_resolver = nullptr;
 };
 
 /** @brief 文本序列化结果。 */

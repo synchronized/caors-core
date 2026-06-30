@@ -96,7 +96,43 @@ private:
   object_id id_;
 };
 
+/**
+ * @brief 非拥有对象引用。
+ *
+ * `object_ref<T>` 只保存对象指针，不延长对象生命周期。序列化时它通过
+ * `serialization_reference_resolver` 转换为 `object_id`，反序列化时再从 `object_id`
+ * 解析回对象指针。
+ */
+template <typename T> class object_ref {
+  static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
+
+public:
+  object_ref() noexcept = default;
+  object_ref(std::nullptr_t) noexcept {}
+  explicit object_ref(T* instance) noexcept : instance_(instance) {}
+
+  [[nodiscard]] T* get() const noexcept { return instance_; }
+  [[nodiscard]] object_id id() const noexcept {
+    return instance_ != nullptr ? instance_->id() : object_id::invalid();
+  }
+  [[nodiscard]] explicit operator bool() const noexcept { return instance_ != nullptr; }
+
+  void reset(T* instance = nullptr) noexcept { instance_ = instance; }
+
+private:
+  T* instance_ = nullptr;
+};
+
 namespace detail {
+
+template <typename T> struct object_ref_traits {
+  static constexpr bool is_object_ref = false;
+};
+
+template <typename T> struct object_ref_traits<object_ref<T>> {
+  static constexpr bool is_object_ref = true;
+  using object_type = T;
+};
 
 template <typename T, typename = void> struct object_type_guid_traits {
   [[nodiscard]] static constexpr type_guid get() noexcept { return type_guid::nil(); }
