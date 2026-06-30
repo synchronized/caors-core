@@ -3,7 +3,7 @@
 
 # Memory
 
-本文档说明 CAORS 内存层的当前设计边界、已实现能力和后续扩展方向。当前实现仍处于基础阶段，具体可用 API 以 `caors/memory.h` 为准。
+本文档说明 CAORS 内存层的当前设计边界、已实现能力和后续扩展方向。当前实现仍处于基础阶段，聚合入口为 `caors/memory.h`。
 
 ## 设计目标
 
@@ -32,6 +32,19 @@ meta / reflection / serialization / object
 `caors/core/containers.h` 提供辅助函数完成收集。
 
 ## 核心概念
+
+### 文件组织
+
+内存模块按职责拆分公共头文件：
+
+- `caors/memory/resource.h`：`memory_resource`、系统后端、回调后端、默认资源入口、`allocator<T>`、`make<T>()` / `destroy<T>()`。
+- `caors/memory/tracking.h`：`tracking_resource` 和基础统计快照。
+- `caors/memory/debug_tracking.h`：`debug_tracking_resource`、存活分配记录和调试统计。
+- `caors/memory/monotonic.h`：线性分配策略资源。
+- `caors/memory/fixed_block_pool.h`：固定块池策略资源。
+- `caors/memory.h`：兼容用聚合头，包含以上所有入口。
+
+实现文件也按相同职责拆分在 `src/caors/memory_*.cpp`；共享的内部对齐、溢出检查、默认资源解析等工具保留在私有头 `src/caors/memory_internal.h`。
 
 ### memory_resource
 
