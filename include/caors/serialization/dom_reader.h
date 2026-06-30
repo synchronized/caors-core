@@ -29,8 +29,8 @@ private:
   [[nodiscard]] const variant* current_value() const noexcept;
 
   const variant* root_ = nullptr;
-  const variant_member* current_member_ = nullptr;
-  bool object_open_ = false;
+  vector<const variant*> object_stack_{};
+  vector<const variant_member*> current_members_{};
 };
 
 } // namespace caors

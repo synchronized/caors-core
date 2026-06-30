@@ -254,7 +254,8 @@ variant_result make_serialized_value(const any& data) {
 }
 
 error write_field(serialization_writer& writer, const reflection_field& field, const void* object,
-                  const serialization_field_data& field_data) {
+                  const serialization_field_data& field_data,
+                  const serialization_context& context) {
   if (!field.valid()) {
     return {error_domain::serialization, errc::invalid_field};
   }
@@ -289,6 +290,16 @@ error write_field(serialization_writer& writer, const reflection_field& field, c
     return writer.end_field();
   }
 
+  const std::optional<reflection_type> nested_type = find_reflection(field_value.type());
+  if (nested_type.has_value() && get_serialization_registry().contains(field_value.type())) {
+    status = serialize(*nested_type, field_value.data(), writer, context);
+    if (status) {
+      return status;
+    }
+
+    return writer.end_field();
+  }
+
   if (!try_write_serialized_value(writer, field_value)) {
     return {error_domain::serialization, errc::unsupported};
   }
@@ -297,7 +308,7 @@ error write_field(serialization_writer& writer, const reflection_field& field, c
 }
 
 error read_field(serialization_reader& reader, const reflection_field& field, void* object,
-                 const serialization_field_data& field_data) {
+                 const serialization_field_data& field_data, const serialization_context& context) {
   if (!field.valid()) {
     return {error_domain::serialization, errc::invalid_field};
   }
@@ -324,6 +335,21 @@ error read_field(serialization_reader& reader, const reflection_field& field, vo
       get_serialization_codec_registry().find_codec(field.type());
   if (codec.has_value() && codec->read != nullptr) {
     status = codec->read(reader, field, object);
+    if (status) {
+      return status;
+    }
+
+    return reader.end_field();
+  }
+
+  const std::optional<reflection_type> nested_type = find_reflection(field.type());
+  if (nested_type.has_value() && get_serialization_registry().contains(field.type())) {
+    any_ref field_ref = field.get_mutable_ref(object);
+    if (!field_ref.valid() || field_ref.mutable_data() == nullptr) {
+      return {error_domain::serialization, errc::invalid_field};
+    }
+
+    status = deserialize(*nested_type, field_ref.mutable_data(), reader, context);
     if (status) {
       return status;
     }
@@ -373,8 +399,9 @@ error read_field(serialization_reader& reader, const reflection_field& field, vo
 }
 
 error read_configured_field(serialization_reader& reader, const reflection_field& field,
-                            void* object, const serialization_field_data& field_data) {
-  const error status = read_field(reader, field, object, field_data);
+                            void* object, const serialization_field_data& field_data,
+                            const serialization_context& context) {
+  const error status = read_field(reader, field, object, field_data, context);
   if (status.value() == errc::not_found && !field_data.required) {
     return {};
   }

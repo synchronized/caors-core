@@ -47,7 +47,7 @@ error deserialize(const reflection_type& type, void* object, serialization_reade
         return {error_domain::serialization, errc::not_found};
       }
 
-      status = detail::read_configured_field(reader, *field, object, field_data);
+      status = detail::read_configured_field(reader, *field, object, field_data, context);
       if (status) {
         return status;
       }
@@ -60,7 +60,7 @@ error deserialize(const reflection_type& type, void* object, serialization_reade
       }
 
       serialization_field_data field_data = make_serialization_field(field->name().view());
-      status = detail::read_field(reader, *field, object, field_data);
+      status = detail::read_field(reader, *field, object, field_data, context);
       if (status) {
         return status;
       }

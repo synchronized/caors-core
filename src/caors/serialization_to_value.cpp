@@ -8,6 +8,30 @@
 #include <utility>
 
 namespace caors {
+namespace {
+
+[[nodiscard]] variant_result field_to_serialization_value(const reflection_field& field,
+                                                          const void* object,
+                                                          const serialization_context& context) {
+  any_ref field_ref = field.get_ref(object);
+  if (!field_ref.valid()) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
+  }
+
+  const std::optional<reflection_type> nested_type = find_reflection(field_ref.type());
+  if (nested_type.has_value() && get_serialization_registry().contains(field_ref.type())) {
+    return to_serialization_value(*nested_type, field_ref.data(), context);
+  }
+
+  any field_value = field_ref.to_any();
+  if (!field_value.valid()) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
+  }
+
+  return to_variant(field_value);
+}
+
+} // namespace
 
 variant_result to_variant(const any& data) { return detail::make_serialized_value(data); }
 
@@ -62,12 +86,7 @@ variant_result to_serialization_value(const reflection_type& type, const void* o
         return {{error_domain::serialization, errc::not_found}, {}};
       }
 
-      any field_value = field->get_value(object);
-      if (!field_value.valid()) {
-        return {{error_domain::serialization, errc::unsupported}, {}};
-      }
-
-      variant_result serialized = to_variant(field_value);
+      variant_result serialized = field_to_serialization_value(*field, object, context);
       if (serialized.failed()) {
         return serialized;
       }
@@ -86,12 +105,7 @@ variant_result to_serialization_value(const reflection_type& type, const void* o
         return {{error_domain::serialization, errc::invalid_field}, {}};
       }
 
-      any field_value = field->get_value(object);
-      if (!field_value.valid()) {
-        return {{error_domain::serialization, errc::unsupported}, {}};
-      }
-
-      variant_result serialized = to_variant(field_value);
+      variant_result serialized = field_to_serialization_value(*field, object, context);
       if (serialized.failed()) {
         return serialized;
       }

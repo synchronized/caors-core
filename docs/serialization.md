@@ -21,6 +21,7 @@
 - 提供 `variant_serialization_reader` 和 `deserialize()`，通过 DOM 中间对象写回基础反射字段。
 - 提供 `serialization_context`，支持按 schema version 过滤字段。
 - 提供 `serialization_codec_registry`，允许把特定 C++ 类型作为原子序列化值读写。
+- 支持已注册反射和序列化元信息的值类型结构体字段递归序列化和 DOM 反序列化。
 - 用 `caors::error` 和 `caors::result<T>` 表达失败状态和携带值的返回结果。
 
 当前不会包含：
@@ -28,7 +29,7 @@
 - 内置二进制格式。
 - 版本迁移和默认值恢复。
 - 对象引用、指针和 wrapper 字段序列化。
-- 容器和嵌套结构递归序列化。
+- 容器递归序列化。
 
 这些能力后续应在对象 handle、字段策略和格式扩展点明确后逐步补充。
 
@@ -127,8 +128,8 @@ actor instance{};
 caors::error status = caors::deserialize(instance, value.value);
 ```
 
-字段查找优先使用非 0 的 `field_id`，再回退到 `serialized_name` 或 `field_name`。当前只支持写入
-`bool`、整数、浮点、`caors::string` 和 `std::string` 字段。
+字段查找优先使用非 0 的 `field_id`，再回退到 `serialized_name` 或 `field_name`。当前支持写入
+`bool`、整数、浮点、`caors::string`、`std::string` 和已注册反射/序列化元信息的值类型结构体字段。
 
 反序列化缺失字段策略：
 

@@ -18,12 +18,15 @@ namespace caors::detail {
 [[nodiscard]] bool try_write_serialized_value(serialization_writer& writer, const any& data);
 [[nodiscard]] variant_result make_serialized_value(const any& data);
 [[nodiscard]] error write_field(serialization_writer& writer, const reflection_field& field,
-                                const void* object, const serialization_field_data& field_data);
+                                const void* object, const serialization_field_data& field_data,
+                                const serialization_context& context);
 [[nodiscard]] error read_field(serialization_reader& reader, const reflection_field& field,
-                               void* object, const serialization_field_data& field_data);
+                               void* object, const serialization_field_data& field_data,
+                               const serialization_context& context);
 [[nodiscard]] error read_configured_field(serialization_reader& reader,
                                           const reflection_field& field, void* object,
-                                          const serialization_field_data& field_data);
+                                          const serialization_field_data& field_data,
+                                          const serialization_context& context);
 
 } // namespace caors::detail
 

@@ -142,23 +142,29 @@ serialization_format_features variant_serialization_reader::features() const noe
 }
 
 error variant_serialization_reader::begin_object(const serialization_type_data&) {
-  if (root_ == nullptr || root_->kind() != variant_kind::object || object_open_) {
+  const variant* object = object_stack_.empty() ? root_ : current_value();
+  if (object == nullptr || object->kind() != variant_kind::object) {
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  object_open_ = true;
-  current_member_ = nullptr;
+  object_stack_.push_back(object);
+  current_members_.push_back(nullptr);
   return {};
 }
 
 const variant_member*
 variant_serialization_reader::find_member(const serialization_field_data& field) const {
-  if (root_ == nullptr || root_->kind() != variant_kind::object) {
+  if (object_stack_.empty()) {
+    return nullptr;
+  }
+
+  const variant* object = object_stack_.back();
+  if (object == nullptr || object->kind() != variant_kind::object) {
     return nullptr;
   }
 
   const string_name name = serialized_field_name(field);
-  for (const variant_member& member : root_->as_object()) {
+  for (const variant_member& member : object->as_object()) {
     if (field.field_id != 0 && member.field_id == field.field_id) {
       return &member;
     }
@@ -172,16 +178,20 @@ variant_serialization_reader::find_member(const serialization_field_data& field)
 }
 
 const variant* variant_serialization_reader::current_value() const noexcept {
-  return current_member_ != nullptr ? &current_member_->value : nullptr;
+  if (current_members_.empty() || current_members_.back() == nullptr) {
+    return nullptr;
+  }
+
+  return &current_members_.back()->value;
 }
 
 error variant_serialization_reader::begin_field(const serialization_field_data& field) {
-  if (!object_open_ || current_member_ != nullptr) {
+  if (object_stack_.empty() || current_members_.empty() || current_members_.back() != nullptr) {
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  current_member_ = find_member(field);
-  if (current_member_ == nullptr) {
+  current_members_.back() = find_member(field);
+  if (current_members_.back() == nullptr) {
     return {error_domain::serialization, errc::not_found};
   }
 
@@ -239,20 +249,21 @@ error variant_serialization_reader::read_string(string& value) {
 }
 
 error variant_serialization_reader::end_field() {
-  if (current_member_ == nullptr) {
+  if (current_members_.empty() || current_members_.back() == nullptr) {
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  current_member_ = nullptr;
+  current_members_.back() = nullptr;
   return {};
 }
 
 error variant_serialization_reader::end_object() {
-  if (!object_open_ || current_member_ != nullptr) {
+  if (object_stack_.empty() || current_members_.empty() || current_members_.back() != nullptr) {
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  object_open_ = false;
+  object_stack_.pop_back();
+  current_members_.pop_back();
   return {};
 }
 

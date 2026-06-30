@@ -99,6 +99,16 @@ struct unsupported_field_actor {
   unsupported_field_value value{};
 };
 
+struct nested_stats {
+  int level = 0;
+  float score = 0.0F;
+};
+
+struct nested_actor {
+  int id = 0;
+  nested_stats stats{};
+};
+
 [[nodiscard]] bool reflection_result_ok(caors::error result) noexcept {
   return result.succeeded() || result.value() == caors::errc::duplicate_reflection;
 }
@@ -157,6 +167,10 @@ namespace caors {
 
 template <> struct type_name<unsupported_field_value> {
   static constexpr std::string_view value = "caors.test.serialization.unsupported_value";
+};
+
+template <> struct type_name<nested_stats> {
+  static constexpr std::string_view value = "caors.test.serialization.nested_stats";
 };
 
 } // namespace caors
@@ -383,6 +397,85 @@ TEST_CASE("serialization - variant reader deserializes reflected struct fields",
   CHECK(actor.health == Catch::Approx(95.5));
   CHECK(actor.active);
   CHECK(actor.name == "Ada");
+}
+
+TEST_CASE("serialization - recursively serializes nested reflected structs", "[serialization]") {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<nested_stats>("caors.test.serialization.nested_stats")
+          .field("level", &nested_stats::level)
+          .field("score", &nested_stats::score)
+          .commit()));
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<nested_actor>("caors.test.serialization.nested_actor")
+          .field("id", &nested_actor::id)
+          .field("stats", &nested_actor::stats)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<nested_stats>()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<nested_actor>()));
+
+  const nested_actor actor{7, nested_stats{3, 12.5F}};
+  const caors::serialization_text_result text = caors::serialize_text(actor);
+
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"id":7,"stats":{"level":3,"score":12.5}})");
+
+  const caors::variant_result value = caors::to_serialization_value(actor);
+  REQUIRE(value.succeeded());
+  REQUIRE(value.value.is_object());
+  const caors::variant_member* stats = value.value.find_member(caors::string_name{"stats"});
+  REQUIRE(stats != nullptr);
+  REQUIRE(stats->value.is_object());
+  const caors::variant_member* level = stats->value.find_member(caors::string_name{"level"});
+  REQUIRE(level != nullptr);
+  CHECK(level->value.as_i64() == 3);
+}
+
+TEST_CASE("serialization - recursively deserializes nested reflected structs", "[serialization]") {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<nested_stats>("caors.test.serialization.nested_stats")
+          .field("level", &nested_stats::level)
+          .field("score", &nested_stats::score)
+          .commit()));
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<nested_actor>("caors.test.serialization.nested_actor")
+          .field("id", &nested_actor::id)
+          .field("stats", &nested_actor::stats)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<nested_stats>()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<nested_actor>()));
+
+  caors::variant::object_type stats_members;
+  stats_members.push_back(caors::variant_member{
+      caors::string_name{"level"},
+      0,
+      caors::variant::from(std::int64_t{4}),
+  });
+  stats_members.push_back(caors::variant_member{
+      caors::string_name{"score"},
+      0,
+      caors::variant::from(15.25),
+  });
+
+  caors::variant::object_type actor_members;
+  actor_members.push_back(caors::variant_member{
+      caors::string_name{"id"},
+      0,
+      caors::variant::from(std::int64_t{9}),
+  });
+  actor_members.push_back(caors::variant_member{
+      caors::string_name{"stats"},
+      0,
+      caors::variant::object(std::move(stats_members)),
+  });
+
+  nested_actor actor{};
+  const caors::error result =
+      caors::deserialize(actor, caors::variant::object(std::move(actor_members)));
+
+  REQUIRE(result.succeeded());
+  CHECK(actor.id == 9);
+  CHECK(actor.stats.level == 4);
+  CHECK(actor.stats.score == Catch::Approx(15.25));
 }
 
 TEST_CASE("serialization - variant reader matches fields by stable field id", "[serialization]") {

@@ -77,6 +77,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 增加 `serialization_reader` 后端接口和 DOM reader，支持基础字段反序列化。
 - [x] 增加反序列化缺失字段策略、未知字段默认忽略和基础 schema version 字段过滤。
 - [x] 增加类型级 serialization codec 扩展点，并内置 string、string_view、guid 和 type_guid codec。
-- [ ] 支持数组、对象引用和嵌套结构。
+- [x] 支持值类型嵌套结构递归序列化和 DOM 反序列化。
+- [ ] 支持数组和对象引用。
 - [ ] 增加紧凑二进制和 msgpack 等非文本后端。
 - [ ] 增加版本兼容、缺失字段、未知字段和跨平台字节序测试。
