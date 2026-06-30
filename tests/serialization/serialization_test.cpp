@@ -539,8 +539,6 @@ TEST_CASE("serialization - json handles nested structs arrays and schema context
           .field("score", &nested_stats::score)
           .commit()));
   REQUIRE(serialization_result_ok(caors::register_serialization<nested_stats>()));
-  REQUIRE(type_result_ok(caors::register_type<caors::vector<nested_stats>>(
-      "caors.vector<caors.test.serialization.nested_stats>")));
   REQUIRE(
       serialization_result_ok(caors::register_serialization_codec<caors::vector<nested_stats>>()));
   REQUIRE(reflection_result_ok(
@@ -607,7 +605,6 @@ TEST_CASE("serialization - recursively deserializes nested reflected structs", "
 }
 
 TEST_CASE("serialization - serializes vector fields as arrays", "[serialization]") {
-  REQUIRE(type_result_ok(caors::register_type<caors::vector<int>>("caors.vector<int>")));
   REQUIRE(serialization_result_ok(caors::register_serialization_codec<caors::vector<int>>()));
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<vector_actor>("caors.test.serialization.vector_actor")
@@ -634,7 +631,6 @@ TEST_CASE("serialization - serializes vector fields as arrays", "[serialization]
 }
 
 TEST_CASE("serialization - deserializes vector fields from arrays", "[serialization]") {
-  REQUIRE(type_result_ok(caors::register_type<caors::vector<int>>("caors.vector<int>")));
   REQUIRE(serialization_result_ok(caors::register_serialization_codec<caors::vector<int>>()));
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<vector_actor>("caors.test.serialization.vector_actor")
@@ -669,8 +665,6 @@ TEST_CASE("serialization - recursively serializes vector struct elements", "[ser
           .field("score", &nested_stats::score)
           .commit()));
   REQUIRE(serialization_result_ok(caors::register_serialization<nested_stats>()));
-  REQUIRE(type_result_ok(caors::register_type<caors::vector<nested_stats>>(
-      "caors.vector<caors.test.serialization.nested_stats>")));
   REQUIRE(
       serialization_result_ok(caors::register_serialization_codec<caors::vector<nested_stats>>()));
   REQUIRE(reflection_result_ok(

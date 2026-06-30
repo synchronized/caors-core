@@ -207,9 +207,10 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `object_ref<T>` 
 - `caors::type_guid`：按内部 `guid` 的标准字符串读写。
 - `caors::vector<T>`：通过 `caors/serialization/vector_codec.h` 提供模板 codec，输出为数组。
 
-`caors::vector<T>` codec 需要显式调用 `register_serialization_codec<caors::vector<T>>()`。如果字段通过
-反射 builder 自动注册，建议先用 `register_type<caors::vector<T>>()` 为该 vector 类型建立 C++ 类型到
-`type_id` 的映射，让反射字段和 codec 使用同一个类型 id。
+`caors::vector<T>` codec 需要显式调用 `register_serialization_codec<caors::vector<T>>()`。反射 builder
+会为 `caors::vector<T>` 字段生成容器类型名并记录元素类型，因此不需要再手动
+`register_type<caors::vector<T>>()`。当前 codec 仍负责具体数组读写，反射元信息负责说明字段是
+sequence 以及元素类型是什么。
 
 外部类型可以通过特化 `serialization_codec<T>` 并调用 `register_serialization_codec<T>()` 注册，也可以
 直接按 `type_id` 注册 `serialization_codec_data`。codec 可以分别提供 writer、reader 和 DOM

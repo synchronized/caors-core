@@ -58,9 +58,10 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 设计手写注册 API，并为后续代码生成保留扩展空间。
 - [x] 提供运行时类型查询和字段元信息查询入口。
 - [x] 提供字段动态 get/set 入口。
+- [x] 支持 `caors::vector<T>` 顺序容器字段描述和元素类型查询。
 - [ ] 定义函数和属性的元信息模型。
 - [ ] 提供函数调用入口。
-- [ ] 支持基础类型、枚举、类类型和容器类型的反射描述。
+- [ ] 支持 map/set/list 等泛化容器类型反射描述。
 - [ ] 增加反射注册、查询、访问控制和类型转换测试。
 
 ## 5. 序列化
@@ -79,6 +80,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 增加类型级 serialization codec 扩展点，并内置 string、string_view、guid 和 type_guid codec。
 - [x] 支持值类型嵌套结构递归序列化和 DOM 反序列化。
 - [x] 支持 `caors::vector<T>` 数组字段，覆盖标量元素和已注册结构体元素。
+- [x] 序列化 vector 字段不再要求手动注册 vector 类型名。
 - [x] 支持 `caors::object_ref<T>` 对象引用字段和 resolver。
 - [x] 增加 JSON writer、JSON DOM parser 和 `serialize_json()` / `deserialize_json()`。
 - [ ] 支持泛化容器、裸指针和一般 wrapper 字段。

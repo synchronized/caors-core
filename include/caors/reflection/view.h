@@ -34,6 +34,8 @@ public:
   [[nodiscard]] type_id type() const noexcept;
   [[nodiscard]] string_name type_name() const noexcept;
   [[nodiscard]] type_id value_type() const noexcept;
+  [[nodiscard]] type_id element_type() const noexcept;
+  [[nodiscard]] string_name element_type_name() const noexcept;
   [[nodiscard]] field_kind kind() const noexcept;
   [[nodiscard]] field_wrapper_semantics wrapper_semantics() const noexcept;
   [[nodiscard]] std::uint8_t pointer_depth() const noexcept;
@@ -60,6 +62,18 @@ public:
 
   /** @brief 写入对象引用字段。 */
   bool try_set_object_ref(void* object, caors::object* instance) const;
+
+  /** @brief 判断字段是否是顺序容器。 */
+  [[nodiscard]] bool is_sequence() const noexcept;
+
+  /** @brief 获取顺序容器字段元素数量。 */
+  [[nodiscard]] std::optional<std::size_t> sequence_size(const void* object) const;
+
+  /** @brief 获取顺序容器字段元素只读引用。 */
+  [[nodiscard]] any_ref sequence_element_ref(const void* object, std::size_t index) const;
+
+  /** @brief 获取顺序容器字段元素可写引用。 */
+  [[nodiscard]] any_ref sequence_element_mutable_ref(void* object, std::size_t index) const;
 
   /** @brief 按指定类型读取字段值。 */
   template <typename Field>

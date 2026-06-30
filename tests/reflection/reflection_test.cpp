@@ -111,6 +111,10 @@ struct inventory_holder {
   inventory items{};
 };
 
+struct vector_holder {
+  caors::vector<int> values{};
+};
+
 struct readonly_actor {
   const int id = 7;
 };
@@ -236,6 +240,17 @@ TEST_CASE("reflection - field info describes field type traits", "[reflection]")
   CHECK(custom_ref.wrapper_semantics == caors::field_wrapper_semantics::object_ref);
   CHECK(custom_ref.value_type == registered_type_id("int"));
   CHECK(custom_ref.nullable);
+
+  const caors::reflection_field_data sequence =
+      caors::make_reflection_field_data<caors::vector<int>>("values", "caors.vector<int>", 0);
+  CHECK(sequence.kind == caors::field_kind::sequence);
+  CHECK(sequence.wrapper_semantics == caors::field_wrapper_semantics::none);
+  CHECK(sequence.element_type == registered_type_id("int"));
+  CHECK(sequence.element_size == sizeof(int));
+  CHECK(sequence.element_alignment == alignof(int));
+  CHECK(sequence.sequence_size != nullptr);
+  CHECK(sequence.sequence_const_element != nullptr);
+  CHECK(sequence.sequence_mutable_element != nullptr);
 }
 
 TEST_CASE("reflection - field info reads and writes field values", "[reflection]") {
@@ -362,6 +377,42 @@ TEST_CASE("reflection - registry returns type and field views", "[reflection]") 
   const int next_id = 7;
   CHECK(id->try_set_value(&instance, caors::any::from(next_id)));
   CHECK(instance.id == 7);
+}
+
+TEST_CASE("reflection - sequence field view exposes element metadata", "[reflection]") {
+  REQUIRE(caors::reflection::class_<vector_holder>("caors.test.reflection.vector_holder")
+              .field("values", &vector_holder::values)
+              .commit()
+              .succeeded());
+
+  auto reflected = caors::find_reflection("caors.test.reflection.vector_holder");
+  REQUIRE(reflected.has_value());
+
+  auto values = reflected->find_field("values");
+  REQUIRE(values.has_value());
+  CHECK(values->kind() == caors::field_kind::sequence);
+  CHECK(values->is_sequence());
+  CHECK(values->element_type() == registered_type_id("int"));
+  CHECK(values->element_type_name() == "int");
+
+  vector_holder instance{};
+  instance.values.push_back(3);
+  instance.values.push_back(5);
+
+  const std::optional<std::size_t> size = values->sequence_size(&instance);
+  REQUIRE(size.has_value());
+  CHECK(*size == 2);
+
+  caors::any_ref first = values->sequence_element_ref(&instance, 0);
+  REQUIRE(first.valid());
+  const int* first_value = first.try_get<int>();
+  REQUIRE(first_value != nullptr);
+  CHECK(*first_value == 3);
+
+  caors::any_ref second = values->sequence_element_mutable_ref(&instance, 1);
+  REQUIRE(second.valid());
+  CHECK(second.try_set<int>(8));
+  CHECK(instance.values[1] == 8);
 }
 
 TEST_CASE("reflection - views remain valid for append-only registry", "[reflection]") {

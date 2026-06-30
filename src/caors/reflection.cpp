@@ -131,6 +131,16 @@ type_id reflection_field::value_type() const noexcept {
   return field != nullptr ? field->value_type : type_id{};
 }
 
+type_id reflection_field::element_type() const noexcept {
+  const reflection_field_data* field = info();
+  return field != nullptr ? field->element_type : type_id{};
+}
+
+string_name reflection_field::element_type_name() const noexcept {
+  const reflection_field_data* field = info();
+  return field != nullptr ? field->element_type_name : string_name{};
+}
+
 field_kind reflection_field::kind() const noexcept {
   const reflection_field_data* field = info();
   return field != nullptr ? field->kind : field_kind::value;
@@ -231,6 +241,43 @@ bool reflection_field::try_set_object_ref(void* object, caors::object* instance)
   }
 
   return field->set_object_ref(field->mutable_data(object), instance);
+}
+
+bool reflection_field::is_sequence() const noexcept {
+  const reflection_field_data* field = info();
+  return field != nullptr && field->kind == field_kind::sequence;
+}
+
+std::optional<std::size_t> reflection_field::sequence_size(const void* object) const {
+  const reflection_field_data* field = info();
+  if (field == nullptr || field->sequence_size == nullptr || field->kind != field_kind::sequence) {
+    return std::nullopt;
+  }
+
+  const void* storage = field->data(object);
+  if (storage == nullptr) {
+    return std::nullopt;
+  }
+
+  return field->sequence_size(storage);
+}
+
+any_ref reflection_field::sequence_element_ref(const void* object, std::size_t index) const {
+  const reflection_field_data* field = info();
+  if (field == nullptr) {
+    return {};
+  }
+
+  return field->get_sequence_element_ref(object, index);
+}
+
+any_ref reflection_field::sequence_element_mutable_ref(void* object, std::size_t index) const {
+  const reflection_field_data* field = info();
+  if (field == nullptr) {
+    return {};
+  }
+
+  return field->get_sequence_element_mutable_ref(object, index);
 }
 
 reflection_type::reflection_type(meta_type type, const reflection_type_data* data) noexcept

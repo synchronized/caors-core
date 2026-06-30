@@ -22,12 +22,25 @@ enum class field_kind {
   enumeration,
   raw_pointer,
   wrapper,
+  sequence,
 };
 
 namespace detail {
 
 using object_ref_get_fn = object* (*)(const void*) noexcept;
 using object_ref_set_fn = bool (*)(void*, object*) noexcept;
+using sequence_size_fn = std::size_t (*)(const void*) noexcept;
+using sequence_const_element_fn = const void* (*)(const void*, std::size_t) noexcept;
+using sequence_mutable_element_fn = void* (*)(void*, std::size_t) noexcept;
+
+template <typename T> struct sequence_traits {
+  static constexpr bool is_sequence = false;
+};
+
+template <typename T> struct sequence_traits<vector<T>> {
+  static constexpr bool is_sequence = true;
+  using element_type = std::remove_cv_t<T>;
+};
 
 template <typename T>
 inline constexpr bool is_supported_wrapper_v = wrapper_traits<std::remove_cv_t<T>>::is_wrapper;
@@ -66,6 +79,7 @@ struct field_traits_info {
   field_kind kind = field_kind::value;
   field_wrapper_semantics wrapper_semantics = field_wrapper_semantics::none;
   type_id value_type{};
+  type_id element_type{};
   std::uint8_t pointer_depth = 0;
   bool nullable = false;
 };
@@ -75,7 +89,14 @@ template <typename Field> struct field_traits {
 
   [[nodiscard]] static field_traits_info get() {
     field_traits_info info{};
-    if constexpr (wrapper_traits<field_type>::is_wrapper) {
+    if constexpr (sequence_traits<field_type>::is_sequence) {
+      using element_type = typename sequence_traits<field_type>::element_type;
+
+      info.kind = field_kind::sequence;
+      info.value_type = known_type_id<field_type>();
+      info.element_type = known_type_id<element_type>();
+      return info;
+    } else if constexpr (wrapper_traits<field_type>::is_wrapper) {
       using wrapped_type = typename wrapper_traits<field_type>::wrapped_type;
       using value_type = std::remove_cv_t<wrapped_type>;
 
@@ -160,6 +181,55 @@ template <typename Field> [[nodiscard]] object_ref_set_fn object_ref_set_fn_of()
   }
 }
 
+template <typename Field> [[nodiscard]] sequence_size_fn sequence_size_fn_of() noexcept {
+  using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
+  if constexpr (sequence_traits<field_type>::is_sequence) {
+    return [](const void* storage) noexcept -> std::size_t {
+      if (storage == nullptr) {
+        return 0;
+      }
+
+      return static_cast<const field_type*>(storage)->size();
+    };
+  } else {
+    return nullptr;
+  }
+}
+
+template <typename Field>
+[[nodiscard]] sequence_const_element_fn sequence_const_element_fn_of() noexcept {
+  using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
+  if constexpr (sequence_traits<field_type>::is_sequence) {
+    return [](const void* storage, std::size_t index) noexcept -> const void* {
+      if (storage == nullptr) {
+        return nullptr;
+      }
+
+      const auto* values = static_cast<const field_type*>(storage);
+      return index < values->size() ? &(*values)[index] : nullptr;
+    };
+  } else {
+    return nullptr;
+  }
+}
+
+template <typename Field>
+[[nodiscard]] sequence_mutable_element_fn sequence_mutable_element_fn_of() noexcept {
+  using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
+  if constexpr (sequence_traits<field_type>::is_sequence) {
+    return [](void* storage, std::size_t index) noexcept -> void* {
+      if (storage == nullptr) {
+        return nullptr;
+      }
+
+      auto* values = static_cast<field_type*>(storage);
+      return index < values->size() ? &(*values)[index] : nullptr;
+    };
+  } else {
+    return nullptr;
+  }
+}
+
 } // namespace detail
 
 /**
@@ -175,11 +245,22 @@ struct reflection_field_data {
   string_name type_name{};
   detail::cpp_type_key cpp_type = nullptr;
   type_id value_type{};
+  type_id element_type{};
+  string_name element_type_name{};
+  detail::cpp_type_key element_cpp_type = nullptr;
+  std::size_t element_size = 0;
+  std::size_t element_alignment = 0;
+  detail::value_clone_fn clone_element = nullptr;
+  detail::value_destroy_fn destroy_element = nullptr;
+  detail::value_assign_fn assign_element = nullptr;
   detail::value_clone_fn clone_value = nullptr;
   detail::value_destroy_fn destroy_value = nullptr;
   detail::value_assign_fn assign_value = nullptr;
   detail::object_ref_get_fn get_object_ref = nullptr;
   detail::object_ref_set_fn set_object_ref = nullptr;
+  detail::sequence_size_fn sequence_size = nullptr;
+  detail::sequence_const_element_fn sequence_const_element = nullptr;
+  detail::sequence_mutable_element_fn sequence_mutable_element = nullptr;
   field_kind kind = field_kind::value;
   field_wrapper_semantics wrapper_semantics = field_wrapper_semantics::none;
   std::uint8_t pointer_depth = 0;
@@ -253,6 +334,42 @@ struct reflection_field_data {
                              destroy_value, assign_value, true);
   }
 
+  /** @brief 获取顺序容器字段元素只读运行期引用。 */
+  [[nodiscard]] any_ref get_sequence_element_ref(const void* object, std::size_t index) const {
+    if (kind != field_kind::sequence || sequence_const_element == nullptr || !element_type ||
+        element_type_name.empty() || element_cpp_type == nullptr) {
+      return {};
+    }
+
+    const void* field_value = data(object);
+    const void* element = sequence_const_element(field_value, index);
+    if (element == nullptr) {
+      return {};
+    }
+
+    return any_ref::from_raw(element_type, element_type_name, element_cpp_type, element,
+                             element_size, element_alignment, clone_element, destroy_element,
+                             assign_element, false);
+  }
+
+  /** @brief 获取顺序容器字段元素可写运行期引用。 */
+  [[nodiscard]] any_ref get_sequence_element_mutable_ref(void* object, std::size_t index) const {
+    if (kind != field_kind::sequence || sequence_mutable_element == nullptr || !element_type ||
+        element_type_name.empty() || element_cpp_type == nullptr) {
+      return {};
+    }
+
+    void* field_value = mutable_data(object);
+    void* element = sequence_mutable_element(field_value, index);
+    if (element == nullptr) {
+      return {};
+    }
+
+    return any_ref::from_raw(element_type, element_type_name, element_cpp_type, element,
+                             element_size, element_alignment, clone_element, destroy_element,
+                             assign_element, true);
+  }
+
   /** @brief 从运行期值写入字段。 */
   bool try_set_value(void* object, const any& source) const {
     if (!source.valid() || source.cpp_type() != cpp_type || source.size() != size ||
@@ -322,11 +439,22 @@ make_reflection_field_data(std::string_view name, std::string_view type_name, st
       string_name{type_name},
       detail::cpp_type_key_of<field_type>(),
       traits.value_type,
+      traits.element_type,
+      {},
+      nullptr,
+      0,
+      0,
+      nullptr,
+      nullptr,
+      nullptr,
       detail::value_clone_fn_of<Field>(),
       detail::value_destroy_fn_of<Field>(),
       detail::value_assign_fn_of<Field>(),
       detail::object_ref_get_fn_of<Field>(),
       detail::object_ref_set_fn_of<Field>(),
+      detail::sequence_size_fn_of<Field>(),
+      detail::sequence_const_element_fn_of<Field>(),
+      detail::sequence_mutable_element_fn_of<Field>(),
       traits.kind,
       traits.wrapper_semantics,
       traits.pointer_depth,
@@ -340,6 +468,16 @@ make_reflection_field_data(std::string_view name, std::string_view type_name, st
   if ((field.kind == field_kind::value || field.kind == field_kind::enumeration) &&
       !field.value_type) {
     field.value_type = field.type;
+  }
+
+  if constexpr (detail::sequence_traits<field_type>::is_sequence) {
+    using element_type = typename detail::sequence_traits<field_type>::element_type;
+    field.element_cpp_type = detail::cpp_type_key_of<element_type>();
+    field.element_size = sizeof(element_type);
+    field.element_alignment = alignof(element_type);
+    field.clone_element = detail::value_clone_fn_of<element_type>();
+    field.destroy_element = detail::value_destroy_fn_of<element_type>();
+    field.assign_element = detail::value_assign_fn_of<element_type>();
   }
 
   return field;

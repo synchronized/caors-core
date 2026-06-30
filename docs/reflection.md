@@ -72,6 +72,8 @@ caors::reflection::class_<actor>("game.actor")
 
 - 如果字段类型已经通过模板注册函数注册到全局反射注册表，优先复用该类型的 `meta_type`。
 - 如果字段类型没有注册，但存在 `type_name<T>` 默认映射，则使用默认类型名注册为基础类型，并使用注册表分配的 `type_id`。
+- 如果字段类型是 `caors::vector<T>`，反射 builder 会根据元素类型名生成 `caors.vector<T>` 形式的
+  容器类型名，并记录元素类型信息。
 - 如果两者都没有，`.commit()` 返回 `invalid_field`。
 - 字段类型语义最多支持一层裸指针或 wrapper；`T**`、`std::unique_ptr<T*>`、
   `std::optional<std::shared_ptr<T>>` 这类嵌套组合会触发静态断言。
@@ -92,6 +94,8 @@ caors::reflection::class_<actor>("game.actor")
   `wrapper_semantics` 为 `inline_value`。
 - `std::reference_wrapper<T>`：`field_kind::wrapper`，`value_type` 为 `T`，不表示空值，
   `wrapper_semantics` 为 `inline_value`。
+- `caors::vector<T>`：`field_kind::sequence`，`element_type` 为 `T`，可以通过字段视图查询元素数量和
+  元素引用。
 
 STL 智能指针和裸指针只作为外部字段类型被反射系统描述。CAORS 不根据这些字段接管对象生命周期；
 用户如果直接使用这些类型，需要自行保证释放、引用有效性和线程安全。后续 CAORS 自身的对象句柄、
@@ -254,11 +258,14 @@ field->try_set<float>(&instance, 75.0F);
 
 - `valid()`：判断视图是否仍有效。
 - `name()` / `type()` / `type_name()` / `value_type()`：查询字段类型信息。
+- `element_type()` / `element_type_name()`：查询 sequence 字段的元素类型信息。
 - `kind()` / `wrapper_semantics()` / `pointer_depth()` / `nullable()`：查询字段形态语义。
 - `offset()` / `size()` / `alignment()` / `writable()`：查询字段布局和可写性。
 - `try_get<T>()` / `try_set<T>()`：按静态类型读写字段。
 - `get_value()` / `try_set_value()`：按运行期 `any` 读写字段。
 - `get_ref()` / `get_mutable_ref()`：按运行期 `any_ref` 引用字段。
+- `is_sequence()` / `sequence_size()` / `sequence_element_ref()` /
+  `sequence_element_mutable_ref()`：查询和访问顺序容器字段。
 
 ### 全局注册表
 
