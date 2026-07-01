@@ -13,6 +13,7 @@
 #include <new>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 
 namespace caors {
 
@@ -30,6 +31,7 @@ enum class type_kind {
   associative,
   pair,
   tuple,
+  variant,
 };
 
 /** @brief wrapper 类型的序列化语义。 */
@@ -72,6 +74,12 @@ template <typename T> struct meta_copy_constructible {
     } else if constexpr (pair_traits<type>::is_pair) {
       return meta_copy_constructible<typename pair_traits<type>::first_type>::value &&
              meta_copy_constructible<typename pair_traits<type>::second_type>::value;
+    } else if constexpr (variant_traits<type>::is_variant) {
+      return []<std::size_t... Indices>(std::index_sequence<Indices...>) {
+        return (meta_copy_constructible<
+                    typename variant_traits<type>::template alternative_type<Indices>>::value &&
+                ... && true);
+      }(std::make_index_sequence<variant_traits<type>::size>{});
     } else {
       return std::is_copy_constructible_v<type>;
     }
@@ -83,7 +91,8 @@ template <typename T> struct meta_copy_assignable {
 
   static constexpr bool value = [] {
     if constexpr (sequence_traits<type>::is_sequence || set_traits<type>::is_set ||
-                  associative_traits<type>::is_associative || pair_traits<type>::is_pair) {
+                  associative_traits<type>::is_associative || pair_traits<type>::is_pair ||
+                  variant_traits<type>::is_variant) {
       if constexpr (!meta_copy_constructible<type>::value) {
         return false;
       } else {

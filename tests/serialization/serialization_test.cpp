@@ -18,6 +18,7 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <variant>
 
 namespace {
 
@@ -172,6 +173,10 @@ struct pair_actor {
 
 struct tuple_actor {
   std::tuple<int, caors::string, float> entry{};
+};
+
+struct variant_actor {
+  std::variant<int, caors::string, float> entry{};
 };
 
 struct nested_vector_values_actor {
@@ -1508,6 +1513,63 @@ TEST_CASE("serialization - rejects std tuple length mismatch", "[serialization]"
   CHECK(std::get<0>(actor.entry) == 7);
   CHECK(std::get<1>(actor.entry) == "seven");
   CHECK(std::get<2>(actor.entry) == 1.5F);
+}
+
+TEST_CASE("serialization - roundtrips std variant fields", "[serialization]") {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<variant_actor>("caors.test.serialization.variant_actor")
+          .field("entry", &variant_actor::entry)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<variant_actor>()));
+
+  variant_actor actor{};
+  actor.entry = caors::string{"seven"};
+
+  const caors::serialization_text_result text = caors::serialize_text(actor);
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"entry":[1,"seven"]})");
+
+  variant_actor decoded{};
+  const caors::error result = caors::deserialize_json(decoded, R"({"entry":[2,2.5]})");
+
+  REQUIRE(result.succeeded());
+  REQUIRE(std::holds_alternative<float>(decoded.entry));
+  CHECK(std::get<float>(decoded.entry) == 2.5F);
+
+  const caors::variant_result value = caors::to_serialization_value(actor);
+  REQUIRE(value.succeeded());
+  const caors::variant_member* entry = value.value.find_member(caors::string_name{"entry"});
+  REQUIRE(entry != nullptr);
+  REQUIRE(entry->value.is_array());
+  REQUIRE(entry->value.as_array().size() == 2);
+  CHECK(entry->value.as_array()[0].as_u64() == 1U);
+  CHECK(entry->value.as_array()[1].as_string() == "seven");
+}
+
+TEST_CASE("serialization - rejects std variant invalid data", "[serialization]") {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<variant_actor>("caors.test.serialization.variant_actor")
+          .field("entry", &variant_actor::entry)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<variant_actor>()));
+
+  variant_actor actor{};
+  actor.entry = caors::string{"seven"};
+  const caors::error invalid_index = caors::deserialize_json(actor, R"({"entry":[9,"bad"]})");
+
+  CHECK(invalid_index.failed());
+  CHECK(invalid_index.domain() == caors::error_domain::serialization);
+  CHECK(invalid_index.value() == caors::errc::unsupported);
+  REQUIRE(std::holds_alternative<caors::string>(actor.entry));
+  CHECK(std::get<caors::string>(actor.entry) == "seven");
+
+  const caors::error invalid_length = caors::deserialize_json(actor, R"({"entry":[1]})");
+
+  CHECK(invalid_length.failed());
+  CHECK(invalid_length.domain() == caors::error_domain::serialization);
+  CHECK(invalid_length.value() == caors::errc::unsupported);
+  REQUIRE(std::holds_alternative<caors::string>(actor.entry));
+  CHECK(std::get<caors::string>(actor.entry) == "seven");
 }
 
 TEST_CASE("serialization - serializes hash map fields as dictionaries", "[serialization]") {

@@ -97,9 +97,10 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 支持 `std::array<T,N>`、`std::deque<T>`、`std::set<T>` 和 `std::map<K,V>` 的默认序列化适配。
 - [x] 支持 `std::pair<T,U>` 按二元素数组序列化和反序列化。
 - [x] 支持 `std::tuple<Ts...>` 按元素数组序列化和反序列化。
+- [x] 支持 `std::variant<Ts...>` 按 `[index, value]` tagged union 序列化和反序列化。
 - [ ] 为 `std::string_view` 设计安全反序列化策略，避免悬空引用。
 - [ ] 为 `std::weak_ptr<T>`、对象 handle 和资源引用设计稳定引用语义。
-- [ ] 支持 `std::span` 和 `std::variant` 等复合类型。
+- [ ] 支持 `std::span` 等借用视图类型。
 - [ ] 支持多态对象的动态类型记录、构造和安全下转型。
 - [ ] 评估是否放宽多层指针 / 多层 wrapper 限制，或提供清晰诊断与显式适配点。
 - [ ] 增加紧凑二进制和 msgpack 等二进制后端。

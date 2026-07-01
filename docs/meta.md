@@ -151,9 +151,9 @@ caors::meta<actor>()
 
 `meta_type_semantics_data` 是挂在类型上的语义组件，用来描述该类型在反射、序列化和 value 模块中的运行期形态：
 
-- `kind`：值、枚举、裸指针、wrapper、顺序容器、集合容器、关联容器、二元组或 tuple-like 类型。
+- `kind`：值、枚举、裸指针、wrapper、顺序容器、集合容器、关联容器、二元组、tuple-like 或 variant-like 类型。
 - `wrapper_semantics`：wrapper 或裸指针的处理语义，例如内联值、对象引用或不支持。
-- `value_type`：统一 value 类型。普通值、枚举、裸指针和 wrapper 对应自身或内部值；顺序容器和集合容器对应元素类型；关联容器对应 mapped/value 类型；二元组对应 second 类型；tuple-like 类型没有单一 value 类型，应通过 `tuple_view` 按下标查询元素类型。
+- `value_type`：统一 value 类型。普通值、枚举、裸指针和 wrapper 对应自身或内部值；顺序容器和集合容器对应元素类型；关联容器对应 mapped/value 类型；二元组对应 second 类型；tuple-like 和 variant-like 类型没有单一 value 类型，应分别通过 `tuple_view` 或 `variant_view` 查询元素或候选类型。
 - `key_type`：关联容器的 key 类型；二元组内部复用它保存 first 类型。
 - `indirect_value` / `mutable_indirect_value`：指针或 wrapper 解包后的内部值访问函数。
 - `has_indirect_value` / `reset_indirect_value`：指针或 wrapper 的持值检测和重置函数。
@@ -258,7 +258,7 @@ caors::get_meta_registry().emplace<object_factory_meta>(actor_id, true);
 - `meta_type_data` / `make_meta_type_data<T>()`：底层类型注册描述。
 - `meta_type_semantics_data`：类型形态、wrapper、指针和容器语义组件。
 - `wrapper_traits<T>` / `wrapper_access<T>`：wrapper 类型语义和内部值访问扩展点。
-- `sequence_traits<T>` / `set_traits<T>` / `associative_traits<T>` / `pair_traits<T>` / `tuple_traits<T>`：容器、二元组和 tuple-like 类型语义扩展点。
+- `sequence_traits<T>` / `set_traits<T>` / `associative_traits<T>` / `pair_traits<T>` / `tuple_traits<T>` / `variant_traits<T>`：容器、二元组、tuple-like 和 variant-like 类型语义扩展点。
 - `meta_type`：全局注册表中的类型只读视图。
 - `meta<T>()`：RTTR 风格的链式元类型注册入口。
 - `meta_registry`：全局基础类型注册、按 id/name/guid/C++ 类型查询、继承关系判断和组件式元数据挂载。

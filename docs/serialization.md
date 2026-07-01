@@ -23,7 +23,7 @@
 - 提供 `serialization_context`，支持按 schema version 过滤字段。
 - 提供 `serialization_codec_registry`，允许把特定 C++ 类型作为原子序列化值读写。
 - 支持已注册反射和序列化元信息的值类型结构体字段递归序列化和 DOM 反序列化。
-- 提供基于 traits 的顺序容器、集合容器、关联容器、pair 和 tuple 访问，支持标量、wrapper、对象引用和已注册结构体元素。
+- 提供基于 traits 的顺序容器、集合容器、关联容器、pair、tuple 和 variant 访问，支持标量、wrapper、对象引用和已注册结构体元素。
 - 通过 `serialization_reference_resolver` 支持 `caors::object_ref<T>` 对象引用字段。
 - 用 `caors::error` 和 `caors::result<T>` 表达失败状态和携带值的返回结果。
 
@@ -33,7 +33,7 @@
 - 版本迁移和默认值恢复。
 - 完整 JSON 标准扩展，例如非 ASCII `\uXXXX` 解码。
 - 多层指针、多层 wrapper、动态多态类型记录和对象图身份保持。
-- `std::span`、`std::variant` 等复合类型默认适配。
+- `std::span` 等借用视图默认适配。
 
 这些能力后续应在对象 handle、字段策略和格式扩展点明确后逐步补充。
 
@@ -201,10 +201,10 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `object_ref<T>` 
 
 `serialization_codec_registry` 是类型级扩展点。调度层读写非容器普通值时会按类型查询 codec；命中后
 由 codec 直接处理该值，未命中时再回退到内置标量探测。这样 `guid`、`type_guid` 这类语义上是
-原子值的类型，不需要暴露内部字段结构。容器、pair 和 tuple 字段优先通过 meta 视图递归处理元素，因此元素也能继续
+原子值的类型，不需要暴露内部字段结构。容器、pair、tuple 和 variant 字段优先通过 meta 视图递归处理元素，因此元素也能继续
 复用 codec、反射、指针和 wrapper 规则。
 
-内置 codec：
+内置 codec 和默认 traits 处理：
 
 - `caors::string`：按字符串读写，默认走 CAORS allocator。
 - `std::string`：按字符串读写，用于兼容外部结构。
@@ -219,14 +219,15 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `object_ref<T>` 
   输出为数组，读入时拒绝重复元素。
 - `caors::hash_map<K, V>` / `std::unordered_map<K, V>` / `std::map<K, V>`：通过
   `associative_serialization_codec<T>` 输出为字典 pair 数组。
+- `std::variant<Ts...>`：通过 `variant_traits<T>` 输出为 tagged union 数组 `[index, value]`。
 
 `caors/serialization/stl_codecs.h` 聚合了当前内置容器 codec。`caors/serialization.h` 会继续包含它，
 因此既有代码不需要额外 include；如果只想显式引入 STL/CAORS 容器适配，也可以包含
 `caors/adapters/stl.h`。
 
-反射字段中的容器、pair 和 tuple 不要求显式调用 `register_serialization_codec<T>()`；只要字段类型通过
-`sequence_traits<T>`、`set_traits<T>`、`associative_traits<T>`、`pair_traits<T>` 或 `tuple_traits<T>` 注册了 meta 访问数据，
-序列化层就能按元素、key、first 和 value 递归处理。`sequence_serialization_codec<T>`、
+反射字段中的容器、pair、tuple 和 variant 不要求显式调用 `register_serialization_codec<T>()`；只要字段类型通过
+`sequence_traits<T>`、`set_traits<T>`、`associative_traits<T>`、`pair_traits<T>`、`tuple_traits<T>` 或
+`variant_traits<T>` 注册了 meta 访问数据，序列化层就能按元素、key、first、候选下标和 value 递归处理。`sequence_serialization_codec<T>`、
 `set_serialization_codec<T>` 和 `associative_serialization_codec<T>`
 仍保留给显式 codec 注册、独立值转换和外部复用。自定义容器通常只需要特化 traits；如果还需要作为 codec
 单独注册，可以让自己的 `serialization_codec<T>` 继承通用 codec：
@@ -250,6 +251,8 @@ struct serialization_codec<my_map<K, V>> : associative_serialization_codec<my_ma
 DOM reader 同时接受 `variant::dictionary` 和 pair 数组形态。普通 `std::pair<T, U>` 字段会写成
 `[first, second]`，读入时数组长度必须等于 2，长度不匹配会返回失败。
 普通 `std::tuple<Ts...>` 字段会写成 `[v0, v1, ...]`，读入时数组长度必须等于 tuple 元素数量。
+普通 `std::variant<Ts...>` 字段会写成 `[index, value]`，`index` 是当前候选下标；读入时数组长度必须等于 2，
+`index` 必须在候选范围内，切换到目标候选时该候选类型需要支持默认构造。
 
 外部类型可以通过特化 `serialization_codec<T>` 并调用 `register_serialization_codec<T>()` 注册，也可以
 直接按 `type_id` 注册 `serialization_codec_data`。codec 可以分别提供 writer、reader 和 DOM
@@ -287,14 +290,15 @@ DOM reader 同时接受 `variant::dictionary` 和 pair 数组形态。普通 `st
 - `std::array<T, N>` 已支持固定长度数组读写；反序列化时数组长度必须等于 `N`，长度不匹配会返回失败。
 - `std::pair<T, U>` 已支持按二元素数组 `[first, second]` 读写；反序列化时数组长度必须等于 2。
 - `std::tuple<...>` 已支持按元素数组 `[v0, v1, ...]` 读写；反序列化时数组长度必须等于 tuple 元素数量。
-- `std::span<T>`、`std::variant<...>` 尚未内置适配。
-  借用视图、异构字段和 tagged union 需要单独设计读写规则。
+- `std::variant<...>` 已支持按 tagged union 数组 `[index, value]` 读写；反序列化时数组长度必须等于 2，
+  `index` 必须在候选范围内，目标候选需要支持默认构造。处于无值状态的 variant 当前返回不支持。
+- `std::span<T>` 尚未内置适配，借用视图需要单独设计写回和生命周期规则。
 - 反射对象按字段声明静态类型处理，不会自动记录运行期动态类型；多态序列化需要后续引入类型标识和构造策略。
 - JSON reader 目前不完整支持非 ASCII `\uXXXX` 解码，二进制格式、版本迁移和默认值恢复也尚未实现。
 
-### variant
+### caors::variant
 
-`variant` 是序列化 DOM 中间对象。它保存的是已经脱离 C++ 精确类型的运行期数据，可以保存：
+`caors::variant` 是序列化 DOM 中间对象。它保存的是已经脱离 C++ 精确类型的运行期数据，可以保存：
 
 - `null`
 - `bool`

@@ -757,6 +757,78 @@ template <typename T> [[nodiscard]] error register_tuple_data_for(type_id id) {
   return {};
 }
 
+template <typename Variant, std::size_t Index>
+[[nodiscard]] meta_variant_alternative_data make_variant_alternative_data() {
+  using type = std::remove_cv_t<std::remove_reference_t<Variant>>;
+  using alternative_type = typename variant_traits<type>::template alternative_type<Index>;
+
+  return meta_variant_alternative_data{
+      semantic_type_id<alternative_type>(),
+      [](const void* storage) noexcept -> const void* {
+        if (storage == nullptr) {
+          return nullptr;
+        }
+
+        return variant_traits<type>::template alternative<Index>(
+            *static_cast<const type*>(storage));
+      },
+      [](void* storage) noexcept -> void* {
+        if (storage == nullptr) {
+          return nullptr;
+        }
+
+        return variant_traits<type>::template mutable_alternative<Index>(
+            *static_cast<type*>(storage));
+      },
+      [](void* storage) -> bool {
+        if (storage == nullptr) {
+          return false;
+        }
+
+        return variant_traits<type>::template emplace<Index>(*static_cast<type*>(storage));
+      },
+  };
+}
+
+template <typename Variant, std::size_t... Indices>
+[[nodiscard]] meta_variant_data make_variant_data(std::index_sequence<Indices...>) {
+  using type = std::remove_cv_t<std::remove_reference_t<Variant>>;
+
+  meta_variant_data data{};
+  data.alternatives.reserve(sizeof...(Indices));
+  (data.alternatives.push_back(make_variant_alternative_data<type, Indices>()), ...);
+  data.index = [](const void* storage) noexcept -> std::size_t {
+    if (storage == nullptr) {
+      return static_cast<std::size_t>(-1);
+    }
+
+    return variant_traits<type>::index(*static_cast<const type*>(storage));
+  };
+  return data;
+}
+
+template <typename T> [[nodiscard]] error register_variant_data_for(type_id id) {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (variant_traits<type>::is_variant) {
+    if (!id) {
+      return {};
+    }
+
+    meta_variant_data data =
+        make_variant_data<type>(std::make_index_sequence<variant_traits<type>::size>{});
+    if (!data.valid()) {
+      return {};
+    }
+
+    const error result = get_meta_registry().emplace<meta_variant_data>(id, data);
+    if (result && result.value() != errc::duplicate_component) {
+      return result;
+    }
+  }
+
+  return {};
+}
+
 template <typename T> [[nodiscard]] error register_sequence_data_for(type_id id) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (sequence_traits<type>::is_sequence) {
@@ -904,6 +976,8 @@ template <typename T> [[nodiscard]] error register_container_data_for(type_id id
     return register_pair_data_for<type>(id);
   } else if constexpr (tuple_traits<type>::is_tuple) {
     return register_tuple_data_for<type>(id);
+  } else if constexpr (variant_traits<type>::is_variant) {
+    return register_variant_data_for<type>(id);
   }
 
   return {};
@@ -944,6 +1018,9 @@ template <typename Type> struct type_semantics_traits {
       return info;
     } else if constexpr (tuple_traits<type>::is_tuple) {
       info.kind = type_kind::tuple;
+      return info;
+    } else if constexpr (variant_traits<type>::is_variant) {
+      info.kind = type_kind::variant;
       return info;
     } else if constexpr (wrapper_traits<type>::is_wrapper) {
       using wrapped_type = typename wrapper_traits<type>::wrapped_type;
@@ -1020,7 +1097,8 @@ template <typename T> [[nodiscard]] error ensure_type_semantics_for(type_id id) 
   }
 
   meta_type_semantics_data semantics = make_type_semantics_data<T>();
-  if (!semantics.value_type && semantics.kind != type_kind::tuple) {
+  if (!semantics.value_type && semantics.kind != type_kind::tuple &&
+      semantics.kind != type_kind::variant) {
     semantics.value_type = id;
   }
 

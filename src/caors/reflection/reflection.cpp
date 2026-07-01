@@ -291,6 +291,8 @@ bool reflection_field::is_pair() const noexcept { return kind() == type_kind::pa
 
 bool reflection_field::is_tuple() const noexcept { return kind() == type_kind::tuple; }
 
+bool reflection_field::is_variant() const noexcept { return kind() == type_kind::variant; }
+
 reflection_type::reflection_type(meta_type type, const reflection_type_data* data) noexcept
     : type_(type), data_(data) {}
 

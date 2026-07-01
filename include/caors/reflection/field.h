@@ -239,6 +239,8 @@ make_reflection_field_data(std::string_view name, std::string_view type_name, st
     (void)detail::register_container_data_for<field_type>(field.type);
   } else if constexpr (tuple_traits<field_type>::is_tuple) {
     (void)detail::register_container_data_for<field_type>(field.type);
+  } else if constexpr (variant_traits<field_type>::is_variant) {
+    (void)detail::register_container_data_for<field_type>(field.type);
   }
 
   return field;

@@ -21,7 +21,7 @@
 - 方法调用。
 - 属性元数据。
 - 自动代码扫描或代码生成。
-- 完整容器、枚举和复杂类型转换规则。
+- 动态多态类型记录和复杂类型转换规则。
 
 ## 核心概念
 
@@ -83,6 +83,8 @@ caors::reflection::class_<actor>("game.actor")
   second 类型名生成二元组类型名。内置特化支持 `std::pair<T, U>`。
 - 如果字段类型满足 `tuple_traits<T>::is_tuple`，反射 builder 会根据 traits 的类型名前缀和每个元素类型名
   生成 tuple-like 类型名。内置特化支持 `std::tuple<Ts...>`。
+- 如果字段类型满足 `variant_traits<T>::is_variant`，反射 builder 会根据 traits 的类型名前缀和每个候选类型名
+  生成 variant-like 类型名。内置特化支持 `std::variant<Ts...>`。
 - 如果以上规则都没有命中，`.commit()` 返回 `invalid_field`。
 - 字段类型语义最多支持一层裸指针或 wrapper；`T**`、`std::unique_ptr<T*>`、
   `std::optional<std::shared_ptr<T>>` 这类嵌套组合会触发静态断言。
@@ -113,6 +115,9 @@ caors::reflection::class_<actor>("game.actor")
   `first_type()` / `second_type()` 是对外语义别名。内置 `std::pair<T, U>` 会生成 `std.pair<T,U>` 类型名。
 - `tuple_traits<T>` tuple-like 类型：`type_kind::tuple`，元素类型由 `tuple_view::element_type(index)` 查询。
   内置 `std::tuple<Ts...>` 会生成 `std.tuple<Ts...>` 类型名。
+- `variant_traits<T>` variant-like 类型：`type_kind::variant`，候选类型由
+  `variant_view::alternative_type(index)` 查询，当前值类型由 `variant_view::value_type()` 查询。
+  内置 `std::variant<Ts...>` 会生成 `std.variant<Ts...>` 类型名。
 
 STL 智能指针和裸指针只作为外部字段类型被反射系统描述。CAORS 不根据这些字段接管对象生命周期；
 用户如果直接使用这些类型，需要自行保证释放、引用有效性和线程安全。后续 CAORS 自身的对象句柄、
@@ -278,6 +283,39 @@ struct tuple_traits<my_tuple<Ts...>> {
 ```
 
 内置适配已覆盖 `std::tuple<Ts...>`。tuple 默认按数组 `[v0, v1, ...]` 序列化；反序列化时数组长度必须等于 tuple 元素数量。
+
+variant-like 类型识别通过 `variant_traits<T>` 扩展。traits 用于描述候选类型、生成类型名，并给
+`variant_view` 和序列化层提供当前候选访问与切换入口：
+
+```cpp
+namespace caors {
+
+template <typename... Ts>
+struct variant_traits<my_variant<Ts...>> {
+  static constexpr bool is_variant = true;
+  static constexpr std::size_t size = sizeof...(Ts);
+
+  template <std::size_t Index>
+  using alternative_type = /* 第 Index 个候选类型 */;
+
+  static constexpr std::string_view type_name_prefix() noexcept { return "my.variant"; }
+  static std::size_t index(const my_variant<Ts...>& value) noexcept;
+
+  template <std::size_t Index>
+  static const alternative_type<Index>* alternative(const my_variant<Ts...>& value) noexcept;
+
+  template <std::size_t Index>
+  static alternative_type<Index>* mutable_alternative(my_variant<Ts...>& value) noexcept;
+
+  template <std::size_t Index>
+  static bool emplace(my_variant<Ts...>& value);
+};
+
+}
+```
+
+内置适配已覆盖 `std::variant<Ts...>`。variant 默认按 tagged union 数组 `[index, value]` 序列化；
+反序列化时数组长度必须等于 2，`index` 必须落在候选类型范围内。切换到某个候选类型时，候选类型需要支持默认构造。
 
 `wrapper_semantics` 当前含义：
 
@@ -446,6 +484,7 @@ field->try_set<float>(&instance, 75.0F);
 - `is_associative()`：判断字段是否是关联容器字段。
 - `is_pair()`：判断字段是否是二元组字段。
 - `is_tuple()`：判断字段是否是 tuple-like 字段。
+- `is_variant()`：判断字段是否是 variant-like 字段。
 
 `sequence_view` 当前提供：
 
@@ -492,6 +531,17 @@ field->try_set<float>(&instance, 75.0F);
 - `element_ref(index)`：获取指定元素的 `any_ref`。只读视图返回只读引用；可写视图在 traits 支持时返回可写引用。
 - `set_element(index, value)`：用同类型 `any` 写入指定元素。只有可写视图允许修改。
 
+`variant_view` 当前提供：
+
+- `valid()` / `writable()`：判断视图有效性和是否允许修改。
+- `size()`：查询候选类型数量。
+- `index()`：查询当前候选下标；如果底层 variant 处于无值状态则返回空。
+- `alternative_type(index)` / `alternative_type_name(index)`：查询指定候选类型信息。
+- `value_type()` / `value_type_name()`：查询当前候选值类型信息。
+- `value_ref()`：获取当前候选值的 `any_ref`。只读视图返回只读引用；可写视图在 traits 支持时返回可写引用。
+- `emplace(index)`：切换当前候选。只有可写视图允许修改，目标候选需要支持默认构造。
+- `set_value(value)`：用同类型 `any` 写入当前候选值。只有可写视图允许修改。
+
 `indirect_view` 当前提供：
 
 - `valid()` / `writable()`：判断视图有效性和是否允许修改。
@@ -503,11 +553,12 @@ field->try_set<float>(&instance, 75.0F);
 `indirect_view` 不拥有 wrapper 或内部值，也不延长内部对象生命周期。裸指针和智能指针解包后返回的是当前
 指向对象的引用；调用方需要保证引用使用期间对象仍然有效。
 
-`meta_sequence_data`、`meta_set_data`、`meta_associative_data`、`meta_pair_data` 和 `meta_tuple_data` 只保存 value/key 或元素的 `type_id`
+`meta_sequence_data`、`meta_set_data`、`meta_associative_data`、`meta_pair_data`、`meta_tuple_data` 和
+`meta_variant_data` 只保存 value/key、元素或候选类型的 `type_id`
 以及容器操作函数。value/key 的名称、C++ 类型 key、大小、对齐和复制/赋值函数统一从
 基础 `meta_type_data` 查询，避免容器 metadata 与基础类型 metadata 重复维护。
 
-容器、pair 和 tuple 视图不要求值一定来自反射字段。反射字段场景可以先通过 `get_ref()` 创建 `any_ref`，
+容器、pair、tuple 和 variant 视图不要求值一定来自反射字段。反射字段场景可以先通过 `get_ref()` 创建 `any_ref`，
 再调用对应的 `create_*_view()`；普通 `any` / `any_ref` 也可以直接创建视图：
 
 ```cpp
@@ -565,6 +616,7 @@ auto reflected = caors::find_reflection("game.actor");
 
 - `any`：运行期 C++ 类型值拷贝。
 - `any_ref`：运行期 C++ 类型非拥有引用。
+- `sequence_view` / `set_view` / `associative_view` / `pair_view` / `tuple_view` / `variant_view`：容器、二元组、tuple-like 和 variant-like 类型的运行期视图。
 - `reflection_field_data`：字段名、字段声明类型 id、offset、可写性、对象引用访问函数和基础字段访问。
 - `meta_type_semantics_data`：字段声明类型的形态、wrapper 语义、统一 value 类型和关联容器 key 类型。
 - `reflection_type_data`：字段列表等反射组件数据。
@@ -585,10 +637,10 @@ auto reflected = caors::find_reflection("game.actor");
   - `registry.h`：全局反射注册表和注册查询函数。
   - `builder.h`：RTTR 风格链式注册入口。
 - `include/caors/reflection.h` 是 umbrella 头，继续提供完整反射 API。
-- `include/caors/meta/wrapper.h` 和 `include/caors/meta/container_traits.h` 提供 wrapper / 容器 / pair / tuple 类型语义扩展点。
+- `include/caors/meta/wrapper.h` 和 `include/caors/meta/container_traits.h` 提供 wrapper / 容器 / pair / tuple / variant 类型语义扩展点。
 - `include/caors/adapters/stl_traits.h` 提供 `std::vector`、`std::deque`、`std::list`、`std::array`、
-  `std::pair`、`std::tuple`、`std::set`、`std::unordered_set`、`std::map`、`std::unordered_map` 以及 CAORS 容器别名的默认 traits 特化。
+  `std::pair`、`std::tuple`、`std::variant`、`std::set`、`std::unordered_set`、`std::map`、`std::unordered_map` 以及 CAORS 容器别名的默认 traits 特化。
 - `include/caors/adapters/stl.h` 是 STL/CAORS 容器反射和序列化适配的聚合入口。
-- `include/caors/value.h` 是 value 模块 umbrella 头，提供 `any` 和 `variant`。
+- `include/caors/value.h` 是 value 模块 umbrella 头，提供 `any` 和 `caors::variant` DOM 值。
 - 可运行示例位于 `examples/reflection/`，示例组织规则见 [examples/README.md](../examples/README.md)。
 - 行为测试位于 `tests/reflection/`，测试组织规则见 [tests/README.md](../tests/README.md)。

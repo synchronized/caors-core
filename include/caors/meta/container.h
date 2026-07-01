@@ -43,6 +43,10 @@ using meta_pair_const_value_fn = const void* (*)(const void*) noexcept;
 using meta_pair_mutable_value_fn = void* (*)(void*) noexcept;
 using meta_tuple_const_element_fn = const void* (*)(const void*) noexcept;
 using meta_tuple_mutable_element_fn = void* (*)(void*) noexcept;
+using meta_variant_index_fn = std::size_t (*)(const void*) noexcept;
+using meta_variant_const_alternative_fn = const void* (*)(const void*) noexcept;
+using meta_variant_mutable_alternative_fn = void* (*)(void*) noexcept;
+using meta_variant_emplace_fn = bool (*)(void*);
 
 /** @brief 顺序容器运行期访问数据。 */
 struct meta_sequence_data {
@@ -131,6 +135,36 @@ struct meta_tuple_data {
   [[nodiscard]] bool valid() const noexcept {
     for (const meta_tuple_element_data& element : elements) {
       if (!element.valid()) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+};
+
+/** @brief variant-like 单个候选类型运行期访问数据。 */
+struct meta_variant_alternative_data {
+  type_id value_type{};
+  meta_variant_const_alternative_fn alternative = nullptr;
+  meta_variant_mutable_alternative_fn mutable_alternative = nullptr;
+  meta_variant_emplace_fn emplace = nullptr;
+
+  [[nodiscard]] bool valid() const noexcept { return value_type && alternative != nullptr; }
+};
+
+/** @brief variant-like 运行期访问数据。 */
+struct meta_variant_data {
+  vector<meta_variant_alternative_data> alternatives{};
+  meta_variant_index_fn index = nullptr;
+
+  [[nodiscard]] bool valid() const noexcept {
+    if (index == nullptr || alternatives.empty()) {
+      return false;
+    }
+
+    for (const meta_variant_alternative_data& alternative : alternatives) {
+      if (!alternative.valid()) {
         return false;
       }
     }

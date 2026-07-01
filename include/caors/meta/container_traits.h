@@ -31,6 +31,11 @@ template <typename T> struct tuple_traits {
   static constexpr bool is_tuple = false;
 };
 
+/** @brief variant-like 类型语义 traits。 */
+template <typename T> struct variant_traits {
+  static constexpr bool is_variant = false;
+};
+
 } // namespace caors
 
 #endif

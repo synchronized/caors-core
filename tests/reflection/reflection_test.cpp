@@ -17,6 +17,7 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <variant>
 
 namespace test_reflection {
 
@@ -189,6 +190,10 @@ struct pair_holder {
 
 struct tuple_holder {
   std::tuple<int, caors::string, float> value{};
+};
+
+struct variant_holder {
+  std::variant<int, caors::string, float> value{};
 };
 
 struct custom_sequence_holder {
@@ -383,6 +388,15 @@ TEST_CASE("reflection - field info describes field type traits", "[reflection]")
   CHECK(tuple_traits.wrapper_semantics == caors::wrapper_semantics::none);
   CHECK_FALSE(static_cast<bool>(tuple_traits.key_type));
   CHECK_FALSE(static_cast<bool>(tuple_traits.value_type));
+
+  const caors::reflection_field_data variant =
+      caors::make_reflection_field_data<std::variant<int, caors::string, float>>(
+          "variant", "std.variant<int,caors.string,float>", 0);
+  const caors::meta_type_semantics_data& variant_traits = registered_traits(variant);
+  CHECK(variant_traits.kind == caors::type_kind::variant);
+  CHECK(variant_traits.wrapper_semantics == caors::wrapper_semantics::none);
+  CHECK_FALSE(static_cast<bool>(variant_traits.key_type));
+  CHECK_FALSE(static_cast<bool>(variant_traits.value_type));
 }
 
 TEST_CASE("reflection - field info reads and writes field values", "[reflection]") {
@@ -739,6 +753,54 @@ TEST_CASE("reflection - std tuple field view exposes indexed elements", "[reflec
   CHECK(std::get<0>(instance.value) == 9);
   CHECK(std::get<1>(instance.value) == "nine");
   CHECK(std::get<2>(instance.value) == 2.5F);
+}
+
+TEST_CASE("reflection - std variant field view exposes active alternative", "[reflection]") {
+  REQUIRE(caors::reflection::class_<variant_holder>("caors.test.reflection.variant_holder")
+              .field("value", &variant_holder::value)
+              .commit()
+              .succeeded());
+
+  auto reflected = caors::find_reflection("caors.test.reflection.variant_holder");
+  REQUIRE(reflected.has_value());
+
+  auto value = reflected->find_field("value");
+  REQUIRE(value.has_value());
+  CHECK(value->kind() == caors::type_kind::variant);
+  CHECK(value->is_variant());
+  CHECK(value->type_name() == "std.variant<int,caors.string,float>");
+
+  variant_holder instance{std::variant<int, caors::string, float>{7}};
+  caors::variant_view variant = value->get_ref(&instance).create_variant_view();
+  REQUIRE(variant.valid());
+  CHECK(variant.writable());
+  CHECK(variant.size() == 3);
+
+  REQUIRE(variant.index().has_value());
+  CHECK(*variant.index() == 0);
+  REQUIRE(variant.alternative_type(0).has_value());
+  REQUIRE(variant.alternative_type(1).has_value());
+  REQUIRE(variant.alternative_type(2).has_value());
+  CHECK(*variant.alternative_type(0) == registered_type_id("int"));
+  CHECK(*variant.alternative_type(1) == registered_type_id("caors.string"));
+  CHECK(*variant.alternative_type(2) == registered_type_id("float"));
+  CHECK(variant.alternative_type_name(1) == "caors.string");
+  CHECK(variant.value_type() == registered_type_id("int"));
+
+  caors::any_ref active = variant.value_ref();
+  REQUIRE(active.valid());
+  CHECK(active.try_set(9));
+  CHECK(std::get<int>(instance.value) == 9);
+
+  REQUIRE(variant.emplace(1));
+  REQUIRE(variant.index().has_value());
+  CHECK(*variant.index() == 1);
+  CHECK(variant.value_type_name() == "caors.string");
+
+  active = variant.value_ref();
+  REQUIRE(active.valid());
+  CHECK(active.try_set(caors::string{"nine"}));
+  CHECK(std::get<caors::string>(instance.value) == "nine");
 }
 
 TEST_CASE("reflection - list field view uses sequence traits", "[reflection]") {
