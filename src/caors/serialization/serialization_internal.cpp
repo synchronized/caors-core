@@ -758,8 +758,11 @@ object_ref_value_from_ref(const any_ref& value,
 
 [[nodiscard]] error read_sequence_value(serialization_reader& reader, const any_ref& target,
                                         const serialization_context& context) {
+  const meta_sequence_data* sequence =
+      get_meta_registry().find_ptr<meta_sequence_data>(target.type());
   const std::optional<meta_type> meta = find_type(target.type());
-  if (meta.has_value() && meta->assign_value() != nullptr) {
+  if (sequence != nullptr && !sequence->read_in_place && meta.has_value() &&
+      meta->assign_value() != nullptr) {
     any decoded = any::default_construct(target.type());
     if (decoded.valid()) {
       error status = read_sequence_into_view(reader, decoded.create_sequence_view(), context);

@@ -14,6 +14,7 @@
 #include <memory>
 #include <optional>
 #include <set>
+#include <span>
 #include <string_view>
 #include <tuple>
 #include <type_traits>
@@ -165,6 +166,10 @@ struct deque_actor {
 
 struct array_actor {
   std::array<int, 3> scores{};
+};
+
+struct span_actor {
+  std::span<int> scores{};
 };
 
 struct pair_actor {
@@ -1416,6 +1421,43 @@ TEST_CASE("serialization - rejects std array length mismatch", "[serialization]"
   CHECK(result.domain() == caors::error_domain::serialization);
   CHECK(result.value() == caors::errc::unsupported);
   CHECK(actor.scores == std::array<int, 3>{1, 2, 3});
+}
+
+TEST_CASE("serialization - roundtrips std span fields with existing storage", "[serialization]") {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<span_actor>("caors.test.serialization.span_actor")
+          .field("scores", &span_actor::scores)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<span_actor>()));
+
+  std::array<int, 3> storage{1, 2, 3};
+  span_actor actor{std::span<int>{storage}};
+
+  const caors::serialization_text_result text = caors::serialize_text(actor);
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"scores":[1,2,3]})");
+
+  const caors::error result = caors::deserialize_json(actor, R"({"scores":[5,6,7]})");
+
+  REQUIRE(result.succeeded());
+  CHECK(storage == std::array<int, 3>{5, 6, 7});
+}
+
+TEST_CASE("serialization - rejects std span length mismatch", "[serialization]") {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<span_actor>("caors.test.serialization.span_actor")
+          .field("scores", &span_actor::scores)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<span_actor>()));
+
+  std::array<int, 3> storage{1, 2, 3};
+  span_actor actor{std::span<int>{storage}};
+  const caors::error result = caors::deserialize_json(actor, R"({"scores":[5,6]})");
+
+  CHECK(result.failed());
+  CHECK(result.domain() == caors::error_domain::serialization);
+  CHECK(result.value() == caors::errc::unsupported);
+  CHECK(storage == std::array<int, 3>{1, 2, 3});
 }
 
 TEST_CASE("serialization - roundtrips std pair fields", "[serialization]") {

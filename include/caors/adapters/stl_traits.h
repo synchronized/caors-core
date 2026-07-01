@@ -13,6 +13,7 @@
 #include <list>
 #include <map>
 #include <set>
+#include <span>
 #include <string_view>
 #include <tuple>
 #include <type_traits>
@@ -103,6 +104,87 @@ template <typename T, std::size_t Size> struct sequence_traits<std::array<T, Siz
   }
 
   [[nodiscard]] static constexpr bool append(std::array<T, Size>&, const element_type&) noexcept {
+    return false;
+  }
+};
+
+/** @brief `std::span` 的借用顺序容器反射适配。 */
+template <typename T> struct sequence_traits<std::span<T, std::dynamic_extent>> {
+  static constexpr bool is_sequence = true;
+  static constexpr bool read_in_place = true;
+  using element_type = std::remove_cv_t<T>;
+
+  [[nodiscard]] static constexpr std::string_view type_name_prefix() noexcept { return "std.span"; }
+
+  [[nodiscard]] static std::size_t size(const std::span<T, std::dynamic_extent>& values) noexcept {
+    return values.size();
+  }
+
+  [[nodiscard]] static const element_type* element(const std::span<T, std::dynamic_extent>& values,
+                                                   std::size_t index) noexcept {
+    return index < values.size() ? &values[index] : nullptr;
+  }
+
+  [[nodiscard]] static element_type* mutable_element(std::span<T, std::dynamic_extent>& values,
+                                                     std::size_t index) noexcept {
+    if constexpr (std::is_const_v<T>) {
+      (void)values;
+      (void)index;
+      return nullptr;
+    } else {
+      return index < values.size() ? &values[index] : nullptr;
+    }
+  }
+
+  static void clear(std::span<T, std::dynamic_extent>&) noexcept {}
+
+  [[nodiscard]] static bool resize(std::span<T, std::dynamic_extent>& values,
+                                   std::size_t size) noexcept {
+    return values.size() == size;
+  }
+
+  [[nodiscard]] static constexpr bool append(std::span<T, std::dynamic_extent>&,
+                                             const element_type&) noexcept {
+    return false;
+  }
+};
+
+/** @brief 固定长度 `std::span` 的借用顺序容器反射适配。 */
+template <typename T, std::size_t Extent> struct sequence_traits<std::span<T, Extent>> {
+  static constexpr bool is_sequence = true;
+  static constexpr bool read_in_place = true;
+  static constexpr std::size_t fixed_size = Extent;
+  using element_type = std::remove_cv_t<T>;
+
+  [[nodiscard]] static constexpr std::string_view type_name_prefix() noexcept { return "std.span"; }
+
+  [[nodiscard]] static constexpr std::size_t size(const std::span<T, Extent>&) noexcept {
+    return Extent;
+  }
+
+  [[nodiscard]] static const element_type* element(const std::span<T, Extent>& values,
+                                                   std::size_t index) noexcept {
+    return index < Extent ? &values[index] : nullptr;
+  }
+
+  [[nodiscard]] static element_type* mutable_element(std::span<T, Extent>& values,
+                                                     std::size_t index) noexcept {
+    if constexpr (std::is_const_v<T>) {
+      (void)values;
+      (void)index;
+      return nullptr;
+    } else {
+      return index < Extent ? &values[index] : nullptr;
+    }
+  }
+
+  static void clear(std::span<T, Extent>&) noexcept {}
+
+  [[nodiscard]] static constexpr bool resize(std::span<T, Extent>&, std::size_t size) noexcept {
+    return size == Extent;
+  }
+
+  [[nodiscard]] static constexpr bool append(std::span<T, Extent>&, const element_type&) noexcept {
     return false;
   }
 };

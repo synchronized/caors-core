@@ -6,9 +6,11 @@
 
 #include <catch2/catch_all.hpp>
 
+#include <array>
 #include <cstddef>
 #include <memory>
 #include <optional>
+#include <span>
 #include <tuple>
 #include <utility>
 #include <variant>
@@ -324,6 +326,31 @@ TEST_CASE("reflection any_ref - creates tuple views for registered tuple values"
   CHECK(std::get<0>(value) == 7);
   CHECK(std::get<1>(value) == 11);
   CHECK(std::get<2>(value) == "eleven");
+}
+
+TEST_CASE("reflection any_ref - creates sequence views for registered span values",
+          "[reflection]") {
+  std::array<int, 3> storage{3, 5, 8};
+  std::span<int> value{storage};
+
+  caors::any_ref reference = caors::any_ref::from(value, "std.span<int>");
+  REQUIRE(reference.valid());
+
+  caors::sequence_view sequence = reference.create_sequence_view();
+  REQUIRE(sequence.valid());
+  CHECK(sequence.writable());
+  CHECK(sequence.value_type() == caors::make_type_id("int"));
+
+  const std::optional<std::size_t> size = sequence.size();
+  REQUIRE(size.has_value());
+  CHECK(*size == 3);
+
+  caors::any_ref second = sequence.element_ref(1);
+  REQUIRE(second.valid());
+  CHECK(second.try_set(13));
+  CHECK(storage[1] == 13);
+  CHECK(sequence.resize(3));
+  CHECK_FALSE(sequence.resize(2));
 }
 
 TEST_CASE("reflection any_ref - creates variant views for registered variant values",

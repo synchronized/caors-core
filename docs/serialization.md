@@ -33,7 +33,7 @@
 - 版本迁移和默认值恢复。
 - 完整 JSON 标准扩展，例如非 ASCII `\uXXXX` 解码。
 - 多层指针、多层 wrapper、动态多态类型记录和对象图身份保持。
-- `std::span` 等借用视图默认适配。
+- 借用视图的自动存储分配和生命周期管理。
 
 这些能力后续应在对象 handle、字段策略和格式扩展点明确后逐步补充。
 
@@ -215,6 +215,8 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `object_ref<T>` 
 - `caors::list<T>` / `std::list<T>`：通过 `sequence_serialization_codec<T>` 输出为数组。
 - `std::deque<T>`：通过 `sequence_serialization_codec<T>` 输出为数组。
 - `std::array<T, N>`：通过 `sequence_serialization_codec<T>` 输出为数组；读入长度必须等于 `N`。
+- `std::span<T>` / `std::span<T, N>`：通过 `sequence_traits<T>` 输出为数组；读入时只写入当前 span 指向的已有存储，
+  输入长度必须等于当前 span 长度。
 - `caors::hash_set<T>` / `std::unordered_set<T>` / `std::set<T>`：通过 `set_serialization_codec<T>`
   输出为数组，读入时拒绝重复元素。
 - `caors::hash_map<K, V>` / `std::unordered_map<K, V>` / `std::map<K, V>`：通过
@@ -288,11 +290,12 @@ DOM reader 同时接受 `variant::dictionary` 和 pair 数组形态。普通 `st
 - 类型语义最多支持一层间接类型；`T**`、`std::unique_ptr<T*>`、
   `std::optional<std::shared_ptr<T>>` 等多层组合当前会触发静态断言。
 - `std::array<T, N>` 已支持固定长度数组读写；反序列化时数组长度必须等于 `N`，长度不匹配会返回失败。
+- `std::span<T>` / `std::span<T, N>` 已支持按借用数组视图读写；反序列化只写入当前 span 指向的已有存储，
+  输入长度必须等于当前 span 长度，不会分配或延长 backing storage 生命周期。
 - `std::pair<T, U>` 已支持按二元素数组 `[first, second]` 读写；反序列化时数组长度必须等于 2。
 - `std::tuple<...>` 已支持按元素数组 `[v0, v1, ...]` 读写；反序列化时数组长度必须等于 tuple 元素数量。
 - `std::variant<...>` 已支持按 tagged union 数组 `[index, value]` 读写；反序列化时数组长度必须等于 2，
   `index` 必须在候选范围内，目标候选需要支持默认构造。处于无值状态的 variant 当前返回不支持。
-- `std::span<T>` 尚未内置适配，借用视图需要单独设计写回和生命周期规则。
 - 反射对象按字段声明静态类型处理，不会自动记录运行期动态类型；多态序列化需要后续引入类型标识和构造策略。
 - JSON reader 目前不完整支持非 ASCII `\uXXXX` 解码，二进制格式、版本迁移和默认值恢复也尚未实现。
 

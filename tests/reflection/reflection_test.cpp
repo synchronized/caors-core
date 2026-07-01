@@ -13,6 +13,7 @@
 #include <memory>
 #include <new>
 #include <optional>
+#include <span>
 #include <string_view>
 #include <tuple>
 #include <type_traits>
@@ -182,6 +183,14 @@ struct list_holder {
 
 struct array_holder {
   std::array<int, 3> values{};
+};
+
+struct span_holder {
+  std::span<int> values{};
+};
+
+struct fixed_span_holder {
+  std::span<int, 3> values;
 };
 
 struct pair_holder {
@@ -370,6 +379,13 @@ TEST_CASE("reflection - field info describes field type traits", "[reflection]")
   CHECK(sequence_traits.kind == caors::type_kind::sequence);
   CHECK(sequence_traits.wrapper_semantics == caors::wrapper_semantics::none);
   CHECK(sequence_traits.value_type == registered_type_id("int"));
+
+  const caors::reflection_field_data span =
+      caors::make_reflection_field_data<std::span<int>>("span", "std.span<int>", 0);
+  const caors::meta_type_semantics_data& span_traits = registered_traits(span);
+  CHECK(span_traits.kind == caors::type_kind::sequence);
+  CHECK(span_traits.wrapper_semantics == caors::wrapper_semantics::none);
+  CHECK(span_traits.value_type == registered_type_id("int"));
 
   const caors::reflection_field_data pair =
       caors::make_reflection_field_data<std::pair<int, caors::string>>(
@@ -669,6 +685,57 @@ TEST_CASE("reflection - std array field view uses fixed sequence traits", "[refl
   CHECK(sequence.resize(3));
   CHECK_FALSE(sequence.resize(2));
   CHECK_FALSE(sequence.append_value(caors::any::from(13)));
+}
+
+TEST_CASE("reflection - std span field view is borrowed sequence", "[reflection]") {
+  REQUIRE(caors::reflection::class_<span_holder>("caors.test.reflection.span_holder")
+              .field("values", &span_holder::values)
+              .commit()
+              .succeeded());
+
+  auto reflected = caors::find_reflection("caors.test.reflection.span_holder");
+  REQUIRE(reflected.has_value());
+
+  auto values = reflected->find_field("values");
+  REQUIRE(values.has_value());
+  CHECK(values->kind() == caors::type_kind::sequence);
+  CHECK(values->type_name() == "std.span<int>");
+  CHECK(values->element_type() == registered_type_id("int"));
+
+  std::array<int, 3> storage{1, 2, 3};
+  span_holder instance{std::span<int>{storage}};
+  caors::sequence_view sequence = values->get_ref(&instance).create_sequence_view();
+  REQUIRE(sequence.valid());
+  CHECK(sequence.writable());
+
+  const std::optional<std::size_t> size = sequence.size();
+  REQUIRE(size.has_value());
+  CHECK(*size == 3);
+
+  caors::any_ref second = sequence.element_ref(1);
+  REQUIRE(second.valid());
+  CHECK(second.try_set(8));
+  CHECK(storage[1] == 8);
+
+  CHECK(sequence.resize(3));
+  CHECK_FALSE(sequence.resize(2));
+  CHECK_FALSE(sequence.append_value(caors::any::from(13)));
+}
+
+TEST_CASE("reflection - fixed std span field name includes extent", "[reflection]") {
+  REQUIRE(caors::reflection::class_<fixed_span_holder>("caors.test.reflection.fixed_span_holder")
+              .field("values", &fixed_span_holder::values)
+              .commit()
+              .succeeded());
+
+  auto reflected = caors::find_reflection("caors.test.reflection.fixed_span_holder");
+  REQUIRE(reflected.has_value());
+
+  auto values = reflected->find_field("values");
+  REQUIRE(values.has_value());
+  CHECK(values->kind() == caors::type_kind::sequence);
+  CHECK(values->type_name() == "std.span<int,3>");
+  CHECK(values->element_type() == registered_type_id("int"));
 }
 
 TEST_CASE("reflection - std pair field view exposes first and second values", "[reflection]") {
@@ -1082,6 +1149,10 @@ TEST_CASE("reflection - set iterator creation failure is treated as empty range"
   auto end_type = caors::find_type<test_reflection::failing_end_set>();
   REQUIRE(begin_type.has_value());
   REQUIRE(end_type.has_value());
+
+  const caors::error int_type_status = caors::register_type<int>("int");
+  REQUIRE((int_type_status == caors::error{} ||
+           int_type_status == meta_error(caors::errc::duplicate_id)));
 
   caors::meta_set_data failing_begin{};
   failing_begin.value_type = registered_type_id("int");

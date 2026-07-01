@@ -884,6 +884,10 @@ template <typename T> [[nodiscard]] error register_sequence_data_for(type_id id)
         },
     };
 
+    if constexpr (requires { sequence_traits<type>::read_in_place; }) {
+      data.read_in_place = sequence_traits<type>::read_in_place;
+    }
+
     const error result = get_meta_registry().emplace<meta_sequence_data>(id, data);
     if (result && result.value() != errc::duplicate_component) {
       return result;
