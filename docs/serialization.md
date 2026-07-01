@@ -23,7 +23,7 @@
 - 提供 `serialization_context`，支持按 schema version 过滤字段。
 - 提供 `serialization_codec_registry`，允许把特定 C++ 类型作为原子序列化值读写。
 - 支持已注册反射和序列化元信息的值类型结构体字段递归序列化和 DOM 反序列化。
-- 提供 `caors::vector<T>` 数组 codec，支持标量元素和已注册结构体元素。
+- 提供基于 traits 的顺序容器、集合容器和关联容器 codec，支持标量、wrapper、对象引用和已注册结构体元素。
 - 通过 `serialization_reference_resolver` 支持 `caors::object_ref<T>` 对象引用字段。
 - 用 `caors::error` 和 `caors::result<T>` 表达失败状态和携带值的返回结果。
 
@@ -32,8 +32,8 @@
 - 内置二进制格式。
 - 版本迁移和默认值恢复。
 - 完整 JSON 标准扩展，例如非 ASCII `\uXXXX` 解码。
-- 裸指针和一般 wrapper 字段序列化。
-- 泛化容器递归序列化。
+- 多层指针、多层 wrapper、动态多态类型记录和对象图身份保持。
+- `std::array`、`std::span`、`std::pair`、`std::tuple`、`std::variant` 等复合类型默认适配。
 
 这些能力后续应在对象 handle、字段策略和格式扩展点明确后逐步补充。
 
@@ -51,9 +51,9 @@
 - `caors/serialization/codec.h`：类型级 codec 扩展点和 codec 注册表。
 - `caors/serialization/dom_reader.h`：从 `variant` DOM 读入的 reader 后端。
 - `caors/serialization/operations.h`：`serialize()`、`deserialize()`、`to_serialization_value()`、`serialize_text()` 等调度入口。
-- `caors/serialization/vector_codec.h`：基于 `sequence_traits<T>` 的通用数组 codec，以及 vector 默认适配。
-- `caors/serialization/set_codec.h`：基于 `set_traits<T>` 的通用集合 codec，以及 hash set 默认适配。
-- `caors/serialization/map_codec.h`：基于 `associative_traits<T>` 的通用字典 codec，以及 hash map 默认适配。
+- `caors/serialization/vector_codec.h`：基于 `sequence_traits<T>` 的通用数组 codec，以及顺序容器默认适配。
+- `caors/serialization/set_codec.h`：基于 `set_traits<T>` 的通用集合 codec，以及集合容器默认适配。
+- `caors/serialization/map_codec.h`：基于 `associative_traits<T>` 的通用字典 codec，以及关联容器默认适配。
 - `caors/serialization/stl_codecs.h`：STL/CAORS 容器 codec 聚合入口。
 - `caors/serialization.h`：兼容用聚合头，包含以上所有入口。
 - `caors/adapters/stl.h`：STL/CAORS 容器反射 traits 和序列化 codec 的一站式适配入口。
@@ -141,9 +141,9 @@ caors::error status = caors::deserialize(instance, value.value);
 ```
 
 字段查找优先使用非 0 的 `field_id`，再回退到 `serialized_name` 或 `field_name`。当前支持写入
-`bool`、整数、浮点、`caors::string`、`std::string`、已注册反射/序列化元信息的值类型结构体字段、
-已注册 codec 的 `caors::vector<T>` / `caors::hash_set<T>` / `caors::hash_map<K, V>` 字段，以及通过
-resolver 解析的 `caors::object_ref<T>` 字段。
+`bool`、`char`、整数、浮点、`caors::string`、`std::string`、`guid`、`type_guid`、枚举、
+已注册反射/序列化元信息的值类型结构体字段、已适配的顺序/集合/关联容器字段、裸指针和普通 wrapper
+字段，以及通过 resolver 解析的 `caors::object_ref<T>` 字段。
 
 反序列化缺失字段策略：
 
@@ -211,10 +211,13 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `object_ref<T>` 
 - `std::string_view`：按字符串写出和构造 DOM；反序列化暂不支持直接写回 view。
 - `caors::guid`：按标准 UUID/GUID 字符串读写。
 - `caors::type_guid`：按内部 `guid` 的标准字符串读写。
-- `caors::vector<T>`：通过 `sequence_serialization_codec<T>` 输出为数组。
-- `caors::list<T>`：通过 `sequence_serialization_codec<T>` 输出为数组。
-- `caors::hash_set<T>`：通过 `set_serialization_codec<T>` 输出为数组，读入时拒绝重复元素。
-- `caors::hash_map<K, V>`：通过 `associative_serialization_codec<T>` 输出为字典 pair 数组。
+- `caors::vector<T>` / `std::vector<T>`：通过 `sequence_serialization_codec<T>` 输出为数组。
+- `caors::list<T>` / `std::list<T>`：通过 `sequence_serialization_codec<T>` 输出为数组。
+- `std::deque<T>`：通过 `sequence_serialization_codec<T>` 输出为数组。
+- `caors::hash_set<T>` / `std::unordered_set<T>` / `std::set<T>`：通过 `set_serialization_codec<T>`
+  输出为数组，读入时拒绝重复元素。
+- `caors::hash_map<K, V>` / `std::unordered_map<K, V>` / `std::map<K, V>`：通过
+  `associative_serialization_codec<T>` 输出为字典 pair 数组。
 
 `caors/serialization/stl_codecs.h` 聚合了当前内置容器 codec。`caors/serialization.h` 会继续包含它，
 因此既有代码不需要额外 include；如果只想显式引入 STL/CAORS 容器适配，也可以包含
@@ -254,13 +257,33 @@ DOM reader 同时接受 `variant::dictionary` 和 pair 数组形态。
 
 - `T*`、`std::unique_ptr<T>`、`std::shared_ptr<T>`、`std::optional<T>` 和
   `std::reference_wrapper<T>` 会按内部 `T` 写出。
-- 写出时要求字段当前持有有效内部值；空指针、空智能指针或空 `optional` 当前返回错误，不写出 `null`。
-- 读入时只会写入已有的内部 `T`，不会为 `nullptr`、空智能指针或空 `optional` 自动分配或 emplace。
+- 空裸指针、空智能指针或空 `optional` 写出为 `null`；`std::reference_wrapper<T>` 不表示空值。
+- 读入 `null` 会重置裸指针、`std::unique_ptr<T>`、`std::shared_ptr<T>` 和 `std::optional<T>`；
+  写入 `std::reference_wrapper<T>` 时返回 `errc::invalid_field`。
+- 读入非空值时，裸指针要求目标指针已经指向有效对象，不会自动分配内存。
+- 读入非空值时，`std::unique_ptr<T>`、`std::shared_ptr<T>` 和 `std::optional<T>` 会在内部为空时尝试默认构造
+  `T`；`std::reference_wrapper<T>` 会写入已经绑定的对象。
 - `std::weak_ptr<T>` 无法稳定暴露可写内部值，当前不作为普通 value 序列化。
 - `caors::object_ref<T>` 不走内部 value 语义，仍通过 `serialization_reference_resolver` 写出和读入对象 id。
 
-这条规则避免序列化层隐式决定所有权。后续如果需要支持空值编码或自动构造，应在字段策略或专用
-wrapper trait 中显式声明。
+这条规则避免序列化层隐式决定所有权。后续如果要让某类 wrapper 采用引用语义、共享身份或自定义构造策略，
+应在字段策略或专用 wrapper trait 中显式声明。
+
+## 当前类型处理边界
+
+当前实现优先覆盖可明确表达所有权和生命周期的类型。以下限制是刻意保留的边界，后续应逐项解决：
+
+- `std::string_view` 只支持写出和构造 DOM，不支持反序列化写回，避免把临时字符串读入成悬空引用。
+- `std::weak_ptr<T>` 默认不作为 wrapper 展开；如果需要弱引用序列化，应通过对象 handle、资源 id 或
+  `object_ref<T>` 类似的显式引用语义处理。
+- 裸指针和普通智能指针按 inline value 处理，不保留对象身份、共享关系或对象图引用；需要身份保持时使用
+  `caors::object_ref<T>` 或后续对象 handle。
+- 类型语义最多支持一层间接类型；`T**`、`std::unique_ptr<T*>`、
+  `std::optional<std::shared_ptr<T>>` 等多层组合当前会触发静态断言。
+- `std::array<T, N>`、`std::span<T>`、`std::pair<T, U>`、`std::tuple<...>`、`std::variant<...>`
+  尚未内置适配。固定长度、借用视图、异构字段和 tagged union 需要单独设计读写规则。
+- 反射对象按字段声明静态类型处理，不会自动记录运行期动态类型；多态序列化需要后续引入类型标识和构造策略。
+- JSON reader 目前不完整支持非 ASCII `\uXXXX` 解码，二进制格式、版本迁移和默认值恢复也尚未实现。
 
 ### variant
 
@@ -372,9 +395,9 @@ caors::string text = result.value;
 - `std::string_view`
 - 已注册 codec 的容器类型
 - 已注册反射和序列化元信息的嵌套对象
-- 持有有效内部值的裸指针和普通 wrapper 字段
+- 裸指针、普通 wrapper 字段和 `caors::object_ref<T>`
 
-遇到空指针、空 wrapper、不可拷贝字段或未支持的字段类型时返回错误。
+遇到不可拷贝字段、未支持字段类型、无 resolver 的对象引用或超出当前类型边界的字段时返回错误。
 
 ## 当前已实现能力
 
@@ -405,6 +428,7 @@ caors::string text = result.value;
 - DOM 反序列化默认忽略未知字段。
 - 基础 schema version 字段过滤。
 - 内置 string、string_view、guid 和 type_guid codec。
+- 裸指针、普通 wrapper、`object_ref<T>` 和已适配容器字段。
 - `variant` 安全访问器、数组/字典/对象辅助修改和成员查询。
 - 序列化注册早于反射字段注册。
 

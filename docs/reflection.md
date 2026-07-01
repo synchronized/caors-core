@@ -70,14 +70,14 @@ caors::reflection::class_<actor>("game.actor")
 - 如果字段类型已经通过模板注册函数注册到全局反射注册表，优先复用该类型的 `meta_type`。
 - 如果字段类型没有注册，但存在 `type_name<T>` 默认映射，则使用默认类型名注册为基础类型，并使用注册表分配的 `type_id`。
 - 如果字段类型满足 `sequence_traits<T>::is_sequence`，反射 builder 会根据 traits 的类型名前缀和元素类型名生成
-  容器类型名。字段类型注册到 meta 时会同步挂载元素类型语义。内置特化支持 `caors::vector<T>` 和
-  `std::vector<T, Allocator>`。
+  容器类型名。字段类型注册到 meta 时会同步挂载元素类型语义。内置特化支持 `caors::vector<T>`、
+  `std::vector<T, Allocator>`、`caors::list<T>`、`std::list<T, Allocator>` 和 `std::deque<T, Allocator>`。
 - 如果字段类型满足 `set_traits<T>::is_set`，反射 builder 会根据 traits 的类型名前缀和元素类型名生成
-  容器类型名。字段类型注册到 meta 时会同步挂载元素类型语义。内置特化支持 `caors::hash_set<T>` 和
-  `std::unordered_set<T, ...>`。
+  容器类型名。字段类型注册到 meta 时会同步挂载元素类型语义。内置特化支持 `caors::hash_set<T>`、
+  `std::unordered_set<T, ...>` 和 `std::set<T, ...>`。
 - 如果字段类型满足 `associative_traits<T>::is_associative`，反射 builder 会根据 traits 的类型名前缀、
   key 类型名和 value 类型名生成容器类型名。字段类型注册到 meta 时会同步挂载 key/value 类型语义。内置特化支持
-  `caors::hash_map<K, V>` 和 `std::unordered_map<K, V, ...>`。
+  `caors::hash_map<K, V>`、`std::unordered_map<K, V, ...>` 和 `std::map<K, V, ...>`。
 - 如果两者都没有，`.commit()` 返回 `invalid_field`。
 - 字段类型语义最多支持一层裸指针或 wrapper；`T**`、`std::unique_ptr<T*>`、
   `std::optional<std::shared_ptr<T>>` 这类嵌套组合会触发静态断言。
@@ -92,8 +92,7 @@ caors::reflection::class_<actor>("game.actor")
   `wrapper_semantics` 为 `inline_value`。
 - `std::shared_ptr<T>`：`type_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
   `wrapper_semantics` 为 `inline_value`。
-- `std::weak_ptr<T>`：`type_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
-  `wrapper_semantics` 为 `inline_value`。
+- `std::weak_ptr<T>`：当前按普通 `type_kind::value` 描述，不作为默认 wrapper 展开。
 - `std::optional<T>`：`type_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
   `wrapper_semantics` 为 `inline_value`。
 - `std::reference_wrapper<T>`：`type_kind::wrapper`，`value_type` 为 `T`，不表示空值，
@@ -140,7 +139,7 @@ struct wrapper_access<my_box<T>> {
 `any_ref::create_indirect_view()` 或 `reflection_field::create_indirect_view()` 能访问内部值，则需要同时特化
 `wrapper_access<T>`。内置适配支持裸指针、`std::unique_ptr<T>`、`std::shared_ptr<T>`、
 `std::optional<T>`、`std::reference_wrapper<T>` 和 `caors::object_ref<T>` 的内部值访问；`std::weak_ptr<T>`
-只支持 `has_value()` 和 `reset()`，不会返回可能悬空的内部引用。
+当前没有默认 wrapper 适配，避免返回可能悬空的内部引用。
 
 顺序容器识别通过 `sequence_traits<T>` 扩展。traits 需要提供元素类型、类型名前缀和基础元素访问函数：
 
@@ -166,7 +165,8 @@ struct sequence_traits<my_sequence<T>> {
 
 `resize()` 适合只在元素可默认构造时返回成功，`append()` 适合只在元素可拷贝时返回成功。调用方通过
 `reflection_field` 操作 sequence 字段时，类型不匹配、对象为空或 traits 不支持对应操作都会返回失败。
-内置适配已覆盖 `std::vector<T>`、`caors::vector<T>`、`std::list<T>` 和 `caors::list<T>`。
+内置适配已覆盖 `std::vector<T>`、`caors::vector<T>`、`std::list<T>`、`caors::list<T>` 和
+`std::deque<T>`。
 
 集合容器识别通过 `set_traits<T>` 扩展。集合只有元素，没有 mapped value；序列化层会按数组读写，
 反序列化时遇到重复元素会返回失败：
@@ -503,7 +503,8 @@ auto reflected = caors::find_reflection("game.actor");
   - `builder.h`：RTTR 风格链式注册入口。
 - `include/caors/reflection.h` 是 umbrella 头，继续提供完整反射 API。
 - `include/caors/meta/wrapper.h` 和 `include/caors/meta/container_traits.h` 提供 wrapper / 容器类型语义扩展点。
-- `include/caors/adapters/stl_traits.h` 提供 `std::vector`、`std::unordered_map` 以及 CAORS 容器别名的默认 traits 特化。
+- `include/caors/adapters/stl_traits.h` 提供 `std::vector`、`std::deque`、`std::list`、`std::set`、
+  `std::unordered_set`、`std::map`、`std::unordered_map` 以及 CAORS 容器别名的默认 traits 特化。
 - `include/caors/adapters/stl.h` 是 STL/CAORS 容器反射和序列化适配的聚合入口。
 - `include/caors/value.h` 是 value 模块 umbrella 头，提供 `any` 和 `variant`。
 - 可运行示例位于 `examples/reflection/`，示例组织规则见 [examples/README.md](../examples/README.md)。

@@ -63,6 +63,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 支持 `caors::list<T>` / `std::list<T>` 等非连续顺序容器类型反射描述。
 - [x] 支持基于 `set_traits<T>` 的集合容器字段描述和元素类型查询。
 - [x] 支持基于 `associative_traits<T>` 的 hash map 字段描述和 key/value 类型查询。
+- [x] 支持 `std::deque<T>`、`std::set<T>` 和 `std::map<K,V>` 的默认 traits 适配。
 - [ ] 定义函数和属性的元信息模型。
 - [ ] 提供函数调用入口。
 - [ ] 增加反射注册、查询、访问控制和类型转换测试。
@@ -90,6 +91,12 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 抽出基于 `sequence_traits<T>` 和 `associative_traits<T>` 的通用容器 codec。
 - [x] 支持基于 `set_traits<T>` 的 `caors::hash_set<T>` 集合 codec。
 - [x] 支持基于 `sequence_traits<T>` 的 `caors::list<T>` 数组 codec。
-- [ ] 支持裸指针和一般 wrapper 字段。
+- [x] 支持裸指针、普通 wrapper、`object_ref<T>` 和 `null` 边界处理。
+- [x] 支持 `std::deque<T>`、`std::set<T>` 和 `std::map<K,V>` 的默认序列化适配。
+- [ ] 为 `std::string_view` 设计安全反序列化策略，避免悬空引用。
+- [ ] 为 `std::weak_ptr<T>`、对象 handle 和资源引用设计稳定引用语义。
+- [ ] 支持 `std::array`、`std::span`、`std::pair`、`std::tuple` 和 `std::variant` 等复合类型。
+- [ ] 支持多态对象的动态类型记录、构造和安全下转型。
+- [ ] 评估是否放宽多层指针 / 多层 wrapper 限制，或提供清晰诊断与显式适配点。
 - [ ] 增加紧凑二进制和 msgpack 等二进制后端。
 - [ ] 增加版本兼容、缺失字段、未知字段和跨平台字节序测试。
