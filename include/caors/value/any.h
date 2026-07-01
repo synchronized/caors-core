@@ -43,6 +43,21 @@ using associative_visit_fn = bool (*)(const void*, associative_raw_visitor, void
 using associative_clear_fn = void (*)(void*) noexcept;
 using associative_insert_fn = bool (*)(void*, const void*, const void*);
 
+/**
+ * @brief C++ 值类型运行期操作表。
+ *
+ * 该组件挂在 `meta_registry` 的类型记录上，集中保存 `any`、`any_ref` 和容器视图需要的 C++
+ * 类型 key 以及复制、析构、赋值函数。
+ */
+struct value_type_data {
+  cpp_type_key cpp_type = nullptr;
+  value_clone_fn clone = nullptr;
+  value_destroy_fn destroy = nullptr;
+  value_assign_fn assign = nullptr;
+
+  [[nodiscard]] bool valid() const noexcept { return cpp_type != nullptr; }
+};
+
 template <typename T> void* clone_value(const void* source) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (std::is_copy_constructible_v<type>) {
@@ -96,43 +111,19 @@ template <typename T> [[nodiscard]] value_assign_fn value_assign_fn_of() noexcep
 
 struct associative_type_data {
   type_id key_type{};
-  string_name key_type_name{};
-  cpp_type_key key_cpp_type = nullptr;
-  std::size_t key_size = 0;
-  std::size_t key_alignment = 0;
-  value_clone_fn clone_key = nullptr;
-  value_destroy_fn destroy_key = nullptr;
-  value_assign_fn assign_key = nullptr;
   type_id mapped_type{};
-  string_name mapped_type_name{};
-  cpp_type_key mapped_cpp_type = nullptr;
-  std::size_t mapped_size = 0;
-  std::size_t mapped_alignment = 0;
-  value_clone_fn clone_mapped = nullptr;
-  value_destroy_fn destroy_mapped = nullptr;
-  value_assign_fn assign_mapped = nullptr;
   associative_size_fn size = nullptr;
   associative_visit_fn visit = nullptr;
   associative_clear_fn clear = nullptr;
   associative_insert_fn insert = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
-    return key_type && !key_type_name.empty() && key_cpp_type != nullptr && key_size > 0 &&
-           key_alignment > 0 && mapped_type && !mapped_type_name.empty() &&
-           mapped_cpp_type != nullptr && mapped_size > 0 && mapped_alignment > 0 &&
-           size != nullptr && visit != nullptr;
+    return key_type && mapped_type && size != nullptr && visit != nullptr;
   }
 };
 
 struct sequence_type_data {
   type_id element_type{};
-  string_name element_type_name{};
-  cpp_type_key element_cpp_type = nullptr;
-  std::size_t element_size = 0;
-  std::size_t element_alignment = 0;
-  value_clone_fn clone_element = nullptr;
-  value_destroy_fn destroy_element = nullptr;
-  value_assign_fn assign_element = nullptr;
   sequence_size_fn size = nullptr;
   sequence_const_element_fn element = nullptr;
   sequence_mutable_element_fn mutable_element = nullptr;
@@ -141,30 +132,42 @@ struct sequence_type_data {
   sequence_append_fn append = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
-    return element_type && !element_type_name.empty() && element_cpp_type != nullptr &&
-           element_size > 0 && element_alignment > 0 && size != nullptr && element != nullptr;
+    return element_type && size != nullptr && element != nullptr;
   }
 };
 
 struct set_type_data {
   type_id element_type{};
-  string_name element_type_name{};
-  cpp_type_key element_cpp_type = nullptr;
-  std::size_t element_size = 0;
-  std::size_t element_alignment = 0;
-  value_clone_fn clone_element = nullptr;
-  value_destroy_fn destroy_element = nullptr;
-  value_assign_fn assign_element = nullptr;
   set_size_fn size = nullptr;
   set_visit_fn visit = nullptr;
   set_clear_fn clear = nullptr;
   set_insert_fn insert = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
-    return element_type && !element_type_name.empty() && element_cpp_type != nullptr &&
-           element_size > 0 && element_alignment > 0 && size != nullptr && visit != nullptr;
+    return element_type && size != nullptr && visit != nullptr;
   }
 };
+
+template <typename T> [[nodiscard]] error register_value_type_for(type_id id) {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if (!id) {
+    return {};
+  }
+
+  value_type_data data{
+      cpp_type_key_of<type>(),
+      value_clone_fn_of<type>(),
+      value_destroy_fn_of<type>(),
+      value_assign_fn_of<type>(),
+  };
+
+  const error result = get_meta_registry().emplace<value_type_data>(id, data);
+  if (result && result.value() != errc::duplicate_component) {
+    return result;
+  }
+
+  return {};
+}
 
 template <typename T> [[nodiscard]] std::optional<meta_type> ensure_value_type_registered() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
@@ -175,7 +178,12 @@ template <typename T> [[nodiscard]] std::optional<meta_type> ensure_value_type_r
     }
   }
 
-  return caors::find_type<type>();
+  std::optional<meta_type> registered = caors::find_type<type>();
+  if (registered.has_value()) {
+    (void)register_value_type_for<type>(registered->id());
+  }
+
+  return registered;
 }
 
 template <typename T> [[nodiscard]] error register_associative_type_for(type_id id) {
@@ -192,21 +200,7 @@ template <typename T> [[nodiscard]] error register_associative_type_for(type_id 
 
     associative_type_data data{
         key->id(),
-        key->name(),
-        cpp_type_key_of<key_type>(),
-        sizeof(key_type),
-        alignof(key_type),
-        value_clone_fn_of<key_type>(),
-        value_destroy_fn_of<key_type>(),
-        value_assign_fn_of<key_type>(),
         mapped->id(),
-        mapped->name(),
-        cpp_type_key_of<mapped_type>(),
-        sizeof(mapped_type),
-        alignof(mapped_type),
-        value_clone_fn_of<mapped_type>(),
-        value_destroy_fn_of<mapped_type>(),
-        value_assign_fn_of<mapped_type>(),
         [](const void* storage) noexcept -> std::size_t {
           if (storage == nullptr) {
             return 0;
@@ -268,13 +262,6 @@ template <typename T> [[nodiscard]] error register_sequence_type_for(type_id id)
 
     sequence_type_data data{
         element->id(),
-        element->name(),
-        cpp_type_key_of<element_type>(),
-        sizeof(element_type),
-        alignof(element_type),
-        value_clone_fn_of<element_type>(),
-        value_destroy_fn_of<element_type>(),
-        value_assign_fn_of<element_type>(),
         [](const void* storage) noexcept -> std::size_t {
           if (storage == nullptr) {
             return 0;
@@ -339,13 +326,6 @@ template <typename T> [[nodiscard]] error register_set_type_for(type_id id) {
 
     set_type_data data{
         element->id(),
-        element->name(),
-        cpp_type_key_of<element_type>(),
-        sizeof(element_type),
-        alignof(element_type),
-        value_clone_fn_of<element_type>(),
-        value_destroy_fn_of<element_type>(),
-        value_assign_fn_of<element_type>(),
         [](const void* storage) noexcept -> std::size_t {
           if (storage == nullptr) {
             return 0;
@@ -471,28 +451,42 @@ public:
       return {};
     }
 
+    (void)detail::register_value_type_for<type>(registered->id());
     (void)detail::register_container_types_for<type>(registered->id());
 
-    return copy_from_raw(registered->id(), registered->name(), detail::cpp_type_key_of<type>(),
-                         &source, sizeof(type), alignof(type), detail::value_clone_fn_of<type>(),
-                         detail::value_destroy_fn_of<type>(), detail::value_assign_fn_of<type>());
+    return copy_from_raw(registered->id(), &source);
   }
 
   [[nodiscard]] bool valid() const noexcept {
-    return static_cast<bool>(type_) && !type_name_.empty() && cpp_type_ != nullptr &&
-           data_ != nullptr && size_ > 0 && alignment_ > 0 && clone_ != nullptr &&
-           destroy_ != nullptr;
+    const std::optional<meta_type> meta = caors::find_type(type_);
+    const detail::value_type_data* value =
+        get_meta_registry().find_ptr<detail::value_type_data>(type_);
+    return meta.has_value() && meta->valid() && value != nullptr && value->valid() &&
+           data_ != nullptr;
   }
 
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
 
   [[nodiscard]] type_id type() const noexcept { return type_; }
-  [[nodiscard]] string_name type_name() const noexcept { return type_name_; }
-  [[nodiscard]] detail::cpp_type_key cpp_type() const noexcept { return cpp_type_; }
+  [[nodiscard]] string_name type_name() const noexcept {
+    const std::optional<meta_type> meta = caors::find_type(type_);
+    return meta.has_value() ? meta->name() : string_name{};
+  }
+  [[nodiscard]] detail::cpp_type_key cpp_type() const noexcept {
+    const detail::value_type_data* value =
+        get_meta_registry().find_ptr<detail::value_type_data>(type_);
+    return value != nullptr ? value->cpp_type : nullptr;
+  }
   [[nodiscard]] const void* data() const noexcept { return valid() ? data_ : nullptr; }
   [[nodiscard]] void* mutable_data() noexcept { return valid() ? data_ : nullptr; }
-  [[nodiscard]] std::size_t size() const noexcept { return size_; }
-  [[nodiscard]] std::size_t alignment() const noexcept { return alignment_; }
+  [[nodiscard]] std::size_t size() const noexcept {
+    const std::optional<meta_type> meta = caors::find_type(type_);
+    return meta.has_value() ? meta->size() : 0;
+  }
+  [[nodiscard]] std::size_t alignment() const noexcept {
+    const std::optional<meta_type> meta = caors::find_type(type_);
+    return meta.has_value() ? meta->alignment() : 0;
+  }
   [[nodiscard]] sequence_view create_sequence_view();
   [[nodiscard]] sequence_view create_sequence_view() const;
   [[nodiscard]] set_view create_set_view();
@@ -502,46 +496,34 @@ public:
 
   /** @brief 清空当前值。 */
   void reset() noexcept {
-    if (data_ != nullptr && destroy_ != nullptr) {
-      destroy_(data_);
+    const detail::value_type_data* value =
+        get_meta_registry().find_ptr<detail::value_type_data>(type_);
+    if (data_ != nullptr && value != nullptr && value->destroy != nullptr) {
+      value->destroy(data_);
     }
 
     type_ = {};
-    type_name_ = {};
-    cpp_type_ = nullptr;
     data_ = nullptr;
-    size_ = 0;
-    alignment_ = 0;
-    clone_ = nullptr;
-    destroy_ = nullptr;
-    assign_ = nullptr;
   }
 
   /** @brief 交换两个运行期值。 */
   void swap(any& other) noexcept {
     using std::swap;
     swap(type_, other.type_);
-    swap(type_name_, other.type_name_);
-    swap(cpp_type_, other.cpp_type_);
     swap(data_, other.data_);
-    swap(size_, other.size_);
-    swap(alignment_, other.alignment_);
-    swap(clone_, other.clone_);
-    swap(destroy_, other.destroy_);
-    swap(assign_, other.assign_);
   }
 
   /** @brief 判断当前值是否匹配指定 C++ 类型。 */
   template <typename T> [[nodiscard]] bool matches_type() const noexcept {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    return valid() && cpp_type_ == detail::cpp_type_key_of<type>() && size_ == sizeof(type) &&
-           alignment_ == alignof(type);
+    return valid() && cpp_type() == detail::cpp_type_key_of<type>() && size() == sizeof(type) &&
+           alignment() == alignof(type);
   }
 
   /** @brief 判断两个运行期值是否具有相同 C++ 类型。 */
   [[nodiscard]] bool matches_type(const any& other) const noexcept {
-    return valid() && other.valid() && cpp_type_ == other.cpp_type_ && size_ == other.size_ &&
-           alignment_ == other.alignment_;
+    return valid() && other.valid() && cpp_type() == other.cpp_type() && size() == other.size() &&
+           alignment() == other.alignment();
   }
 
   /** @brief 按指定类型获取只读指针。 */
@@ -569,52 +551,47 @@ public:
   /** @brief 从同类型 C++ 值写入当前值。 */
   template <typename T> bool try_set(const T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    if (!matches_type<type>() || assign_ == nullptr) {
+    const detail::value_type_data* value =
+        get_meta_registry().find_ptr<detail::value_type_data>(type_);
+    if (!matches_type<type>() || value == nullptr || value->assign == nullptr) {
       return false;
     }
 
-    return assign_(data_, &source);
+    return value->assign(data_, &source);
   }
 
   /** @brief 从同类型运行期值写入当前值。 */
   bool try_set(const any& source) {
-    if (!matches_type(source) || assign_ == nullptr) {
+    const detail::value_type_data* value =
+        get_meta_registry().find_ptr<detail::value_type_data>(type_);
+    if (!matches_type(source) || value == nullptr || value->assign == nullptr) {
       return false;
     }
 
-    return assign_(data_, source.data_);
+    return value->assign(data_, source.data_);
   }
 
 private:
   friend class any_ref;
   friend struct reflection_field_data;
 
-  [[nodiscard]] static any copy_from_raw(type_id type, string_name type_name,
-                                         detail::cpp_type_key cpp_type, const void* source,
-                                         std::size_t size, std::size_t alignment,
-                                         detail::value_clone_fn clone,
-                                         detail::value_destroy_fn destroy,
-                                         detail::value_assign_fn assign) {
-    if (!type || type_name.empty() || cpp_type == nullptr || source == nullptr || size == 0 ||
-        alignment == 0 || clone == nullptr || destroy == nullptr) {
+  [[nodiscard]] static any copy_from_raw(type_id type, const void* source) {
+    const std::optional<meta_type> meta = caors::find_type(type);
+    const detail::value_type_data* value =
+        get_meta_registry().find_ptr<detail::value_type_data>(type);
+    if (!meta.has_value() || !meta->valid() || value == nullptr || !value->valid() ||
+        source == nullptr || value->clone == nullptr || value->destroy == nullptr) {
       return {};
     }
 
-    void* copy = clone(source);
+    void* copy = value->clone(source);
     if (copy == nullptr) {
       return {};
     }
 
     any result;
     result.type_ = type;
-    result.type_name_ = type_name;
-    result.cpp_type_ = cpp_type;
     result.data_ = copy;
-    result.size_ = size;
-    result.alignment_ = alignment;
-    result.clone_ = clone;
-    result.destroy_ = destroy;
-    result.assign_ = assign;
     return result;
   }
 
@@ -623,41 +600,19 @@ private:
       return;
     }
 
-    *this = copy_from_raw(other.type_, other.type_name_, other.cpp_type_, other.data_, other.size_,
-                          other.alignment_, other.clone_, other.destroy_, other.assign_);
+    *this = copy_from_raw(other.type_, other.data_);
   }
 
   void move_from(any& other) noexcept {
     type_ = other.type_;
-    type_name_ = other.type_name_;
-    cpp_type_ = other.cpp_type_;
     data_ = other.data_;
-    size_ = other.size_;
-    alignment_ = other.alignment_;
-    clone_ = other.clone_;
-    destroy_ = other.destroy_;
-    assign_ = other.assign_;
 
     other.type_ = {};
-    other.type_name_ = {};
-    other.cpp_type_ = nullptr;
     other.data_ = nullptr;
-    other.size_ = 0;
-    other.alignment_ = 0;
-    other.clone_ = nullptr;
-    other.destroy_ = nullptr;
-    other.assign_ = nullptr;
   }
 
   type_id type_{};
-  string_name type_name_{};
-  detail::cpp_type_key cpp_type_ = nullptr;
   void* data_ = nullptr;
-  std::size_t size_ = 0;
-  std::size_t alignment_ = 0;
-  detail::value_clone_fn clone_ = nullptr;
-  detail::value_destroy_fn destroy_ = nullptr;
-  detail::value_assign_fn assign_ = nullptr;
 };
 
 inline void swap(any& lhs, any& rhs) noexcept { lhs.swap(rhs); }
@@ -693,12 +648,10 @@ public:
       return {};
     }
 
+    (void)detail::register_value_type_for<type>(registered->id());
     (void)detail::register_container_types_for<type>(registered->id());
 
-    return from_raw(registered->id(), registered->name(), detail::cpp_type_key_of<type>(), &source,
-                    sizeof(type), alignof(type), detail::value_clone_fn_of<type>(),
-                    detail::value_destroy_fn_of<type>(), detail::value_assign_fn_of<type>(),
-                    !std::is_const_v<T>);
+    return from_raw(registered->id(), &source, !std::is_const_v<T>);
   }
 
   /** @brief 从只读 C++ 对象创建引用。 */
@@ -723,29 +676,44 @@ public:
       return {};
     }
 
+    (void)detail::register_value_type_for<type>(registered->id());
     (void)detail::register_container_types_for<type>(registered->id());
 
-    return from_raw(registered->id(), registered->name(), detail::cpp_type_key_of<type>(), &source,
-                    sizeof(type), alignof(type), detail::value_clone_fn_of<type>(),
-                    detail::value_destroy_fn_of<type>(), detail::value_assign_fn_of<type>(), false);
+    return from_raw(registered->id(), &source, false);
   }
 
   [[nodiscard]] bool valid() const noexcept {
-    return static_cast<bool>(type_) && !type_name_.empty() && cpp_type_ != nullptr &&
-           data_ != nullptr && size_ > 0 && alignment_ > 0;
+    const std::optional<meta_type> meta = caors::find_type(type_);
+    const detail::value_type_data* value =
+        get_meta_registry().find_ptr<detail::value_type_data>(type_);
+    return meta.has_value() && meta->valid() && value != nullptr && value->valid() &&
+           data_ != nullptr;
   }
 
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
 
   [[nodiscard]] type_id type() const noexcept { return type_; }
-  [[nodiscard]] string_name type_name() const noexcept { return type_name_; }
-  [[nodiscard]] detail::cpp_type_key cpp_type() const noexcept { return cpp_type_; }
+  [[nodiscard]] string_name type_name() const noexcept {
+    const std::optional<meta_type> meta = caors::find_type(type_);
+    return meta.has_value() ? meta->name() : string_name{};
+  }
+  [[nodiscard]] detail::cpp_type_key cpp_type() const noexcept {
+    const detail::value_type_data* value =
+        get_meta_registry().find_ptr<detail::value_type_data>(type_);
+    return value != nullptr ? value->cpp_type : nullptr;
+  }
   [[nodiscard]] const void* data() const noexcept { return valid() ? data_ : nullptr; }
   [[nodiscard]] void* mutable_data() const noexcept {
     return valid() && writable_ ? const_cast<void*>(data_) : nullptr;
   }
-  [[nodiscard]] std::size_t size() const noexcept { return size_; }
-  [[nodiscard]] std::size_t alignment() const noexcept { return alignment_; }
+  [[nodiscard]] std::size_t size() const noexcept {
+    const std::optional<meta_type> meta = caors::find_type(type_);
+    return meta.has_value() ? meta->size() : 0;
+  }
+  [[nodiscard]] std::size_t alignment() const noexcept {
+    const std::optional<meta_type> meta = caors::find_type(type_);
+    return meta.has_value() ? meta->alignment() : 0;
+  }
   [[nodiscard]] bool writable() const noexcept { return valid() && writable_; }
   [[nodiscard]] sequence_view create_sequence_view() const;
   [[nodiscard]] set_view create_set_view() const;
@@ -754,20 +722,20 @@ public:
   /** @brief 判断当前引用是否匹配指定 C++ 类型。 */
   template <typename T> [[nodiscard]] bool matches_type() const noexcept {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    return valid() && cpp_type_ == detail::cpp_type_key_of<type>() && size_ == sizeof(type) &&
-           alignment_ == alignof(type);
+    return valid() && cpp_type() == detail::cpp_type_key_of<type>() && size() == sizeof(type) &&
+           alignment() == alignof(type);
   }
 
   /** @brief 判断两个运行期值是否具有相同 C++ 类型。 */
   [[nodiscard]] bool matches_type(const any& other) const noexcept {
-    return valid() && other.valid() && cpp_type_ == other.cpp_type() && size_ == other.size() &&
-           alignment_ == other.alignment();
+    return valid() && other.valid() && cpp_type() == other.cpp_type() && size() == other.size() &&
+           alignment() == other.alignment();
   }
 
   /** @brief 判断两个运行期引用是否具有相同 C++ 类型。 */
   [[nodiscard]] bool matches_type(const any_ref& other) const noexcept {
-    return valid() && other.valid() && cpp_type_ == other.cpp_type_ && size_ == other.size_ &&
-           alignment_ == other.alignment_;
+    return valid() && other.valid() && cpp_type() == other.cpp_type() && size() == other.size() &&
+           alignment() == other.alignment();
   }
 
   /** @brief 按指定类型获取只读指针。 */
@@ -795,35 +763,40 @@ public:
   /** @brief 从同类型 C++ 值写入当前引用指向的对象。 */
   template <typename T> bool try_set(const T& source) const {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    if (!matches_type<type>() || !writable_ || assign_ == nullptr) {
+    const detail::value_type_data* value =
+        get_meta_registry().find_ptr<detail::value_type_data>(type_);
+    if (!matches_type<type>() || !writable_ || value == nullptr || value->assign == nullptr) {
       return false;
     }
 
-    return assign_(const_cast<void*>(data_), &source);
+    return value->assign(const_cast<void*>(data_), &source);
   }
 
   /** @brief 从同类型运行期值写入当前引用指向的对象。 */
   bool try_set(const any& source) const {
-    if (!matches_type(source) || !writable_ || assign_ == nullptr) {
+    const detail::value_type_data* value =
+        get_meta_registry().find_ptr<detail::value_type_data>(type_);
+    if (!matches_type(source) || !writable_ || value == nullptr || value->assign == nullptr) {
       return false;
     }
 
-    return assign_(const_cast<void*>(data_), source.data());
+    return value->assign(const_cast<void*>(data_), source.data());
   }
 
   /** @brief 从同类型运行期引用写入当前引用指向的对象。 */
   bool try_set(const any_ref& source) const {
-    if (!matches_type(source) || !writable_ || assign_ == nullptr) {
+    const detail::value_type_data* value =
+        get_meta_registry().find_ptr<detail::value_type_data>(type_);
+    if (!matches_type(source) || !writable_ || value == nullptr || value->assign == nullptr) {
       return false;
     }
 
-    return assign_(const_cast<void*>(data_), source.data_);
+    return value->assign(const_cast<void*>(data_), source.data_);
   }
 
   /** @brief 尝试复制引用指向的对象。不可拷贝对象会返回无效 `any`。 */
   [[nodiscard]] any to_any() const {
-    return any::copy_from_raw(type_, type_name_, cpp_type_, data_, size_, alignment_, clone_,
-                              destroy_, assign_);
+    return any::copy_from_raw(type_, data_);
   }
 
 private:
@@ -832,40 +805,24 @@ private:
   friend class associative_view;
   friend struct reflection_field_data;
 
-  [[nodiscard]] static any_ref from_raw(type_id type, string_name type_name,
-                                        detail::cpp_type_key cpp_type, const void* data,
-                                        std::size_t size, std::size_t alignment,
-                                        detail::value_clone_fn clone,
-                                        detail::value_destroy_fn destroy,
-                                        detail::value_assign_fn assign, bool writable) noexcept {
-    if (!type || type_name.empty() || cpp_type == nullptr || data == nullptr || size == 0 ||
-        alignment == 0) {
+  [[nodiscard]] static any_ref from_raw(type_id type, const void* data, bool writable) noexcept {
+    const std::optional<meta_type> meta = caors::find_type(type);
+    const detail::value_type_data* value =
+        get_meta_registry().find_ptr<detail::value_type_data>(type);
+    if (!meta.has_value() || !meta->valid() || value == nullptr || !value->valid() ||
+        data == nullptr) {
       return {};
     }
 
     any_ref result;
     result.type_ = type;
-    result.type_name_ = type_name;
-    result.cpp_type_ = cpp_type;
     result.data_ = data;
-    result.size_ = size;
-    result.alignment_ = alignment;
-    result.clone_ = clone;
-    result.destroy_ = destroy;
-    result.assign_ = assign;
     result.writable_ = writable;
     return result;
   }
 
   type_id type_{};
-  string_name type_name_{};
-  detail::cpp_type_key cpp_type_ = nullptr;
   const void* data_ = nullptr;
-  std::size_t size_ = 0;
-  std::size_t alignment_ = 0;
-  detail::value_clone_fn clone_ = nullptr;
-  detail::value_destroy_fn destroy_ = nullptr;
-  detail::value_assign_fn assign_ = nullptr;
   bool writable_ = false;
 };
 
@@ -891,7 +848,8 @@ public:
   }
 
   [[nodiscard]] string_name element_type_name() const noexcept {
-    return valid() ? data_->element_type_name : string_name{};
+    const std::optional<meta_type> meta = valid() ? find_type(data_->element_type) : std::nullopt;
+    return meta ? meta->name() : string_name{};
   }
 
   /** @brief 获取顺序容器元素数量。 */
@@ -922,10 +880,7 @@ public:
       return {};
     }
 
-    return any_ref::from_raw(data_->element_type, data_->element_type_name, data_->element_cpp_type,
-                             element, data_->element_size, data_->element_alignment,
-                             data_->clone_element, data_->destroy_element, data_->assign_element,
-                             element_writable);
+    return any_ref::from_raw(data_->element_type, element, element_writable);
   }
 
   /** @brief 清空顺序容器。 */
@@ -950,8 +905,7 @@ public:
   /** @brief 追加一个元素。 */
   bool append_value(const any& value) const {
     if (!writable() || data_->append == nullptr || !value.valid() ||
-        value.cpp_type() != data_->element_cpp_type || value.size() != data_->element_size ||
-        value.alignment() != data_->element_alignment) {
+        value.type() != data_->element_type) {
       return false;
     }
 
@@ -992,7 +946,8 @@ public:
   }
 
   [[nodiscard]] string_name element_type_name() const noexcept {
-    return valid() ? data_->element_type_name : string_name{};
+    const std::optional<meta_type> meta = valid() ? find_type(data_->element_type) : std::nullopt;
+    return meta ? meta->name() : string_name{};
   }
 
   /** @brief 获取集合元素数量。 */
@@ -1022,10 +977,7 @@ public:
         [](const void* element, void* raw_context) -> bool {
           auto* context = static_cast<visit_context*>(raw_context);
           const detail::set_type_data* data = context->data;
-          any_ref element_ref = any_ref::from_raw(
-              data->element_type, data->element_type_name, data->element_cpp_type, element,
-              data->element_size, data->element_alignment, data->clone_element,
-              data->destroy_element, data->assign_element, false);
+          any_ref element_ref = any_ref::from_raw(data->element_type, element, false);
 
           return context->visitor(element_ref, context->user_data);
         },
@@ -1045,8 +997,7 @@ public:
   /** @brief 插入一个元素。 */
   bool insert_value(const any& value) const {
     if (!writable() || data_->insert == nullptr || !value.valid() ||
-        value.cpp_type() != data_->element_cpp_type || value.size() != data_->element_size ||
-        value.alignment() != data_->element_alignment) {
+        value.type() != data_->element_type) {
       return false;
     }
 
@@ -1085,7 +1036,8 @@ public:
   [[nodiscard]] type_id key_type() const noexcept { return valid() ? data_->key_type : type_id{}; }
 
   [[nodiscard]] string_name key_type_name() const noexcept {
-    return valid() ? data_->key_type_name : string_name{};
+    const std::optional<meta_type> meta = valid() ? find_type(data_->key_type) : std::nullopt;
+    return meta ? meta->name() : string_name{};
   }
 
   [[nodiscard]] type_id mapped_type() const noexcept {
@@ -1093,7 +1045,8 @@ public:
   }
 
   [[nodiscard]] string_name mapped_type_name() const noexcept {
-    return valid() ? data_->mapped_type_name : string_name{};
+    const std::optional<meta_type> meta = valid() ? find_type(data_->mapped_type) : std::nullopt;
+    return meta ? meta->name() : string_name{};
   }
 
   /** @brief 获取关联容器元素数量。 */
@@ -1123,13 +1076,8 @@ public:
         [](const void* key, const void* mapped, void* raw_context) -> bool {
           auto* context = static_cast<visit_context*>(raw_context);
           const detail::associative_type_data* data = context->data;
-          any_ref key_ref = any_ref::from_raw(
-              data->key_type, data->key_type_name, data->key_cpp_type, key, data->key_size,
-              data->key_alignment, data->clone_key, data->destroy_key, data->assign_key, false);
-          any_ref mapped_ref = any_ref::from_raw(data->mapped_type, data->mapped_type_name,
-                                                 data->mapped_cpp_type, mapped, data->mapped_size,
-                                                 data->mapped_alignment, data->clone_mapped,
-                                                 data->destroy_mapped, data->assign_mapped, false);
+          any_ref key_ref = any_ref::from_raw(data->key_type, key, false);
+          any_ref mapped_ref = any_ref::from_raw(data->mapped_type, mapped, false);
 
           return context->visitor(key_ref, mapped_ref, context->user_data);
         },
@@ -1149,9 +1097,7 @@ public:
   /** @brief 插入一组 key/value。 */
   bool insert_value(const any& key, const any& mapped) const {
     if (!writable() || data_->insert == nullptr || !key.valid() || !mapped.valid() ||
-        key.cpp_type() != data_->key_cpp_type || key.size() != data_->key_size ||
-        key.alignment() != data_->key_alignment || mapped.cpp_type() != data_->mapped_cpp_type ||
-        mapped.size() != data_->mapped_size || mapped.alignment() != data_->mapped_alignment) {
+        key.type() != data_->key_type || mapped.type() != data_->mapped_type) {
       return false;
     }
 

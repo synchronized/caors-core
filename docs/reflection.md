@@ -262,7 +262,8 @@ ref.try_set(9);
 
 ### any
 
-`any` 是运行期 C++ 类型值拷贝，保存注册表分配的类型 id、类型名、C++ 类型 key、对象拷贝、大小和对齐信息。
+`any` 是运行期 C++ 类型值拷贝，只保存注册表分配的类型 id 和对象拷贝。类型名、C++ 类型 key、大小、
+对齐、复制、析构和赋值函数通过挂在同一 `type_id` 上的 meta 组件查询。
 它不引用原对象，因此可以安全地脱离字段所属对象生命周期使用。
 
 `any` 当前提供：
@@ -282,8 +283,8 @@ ref.try_set(9);
 
 ### any_ref
 
-`any_ref` 是运行期 C++ 类型引用，保存类型信息、对象地址、大小、对齐和可写性。它不拥有对象、
-不复制对象，也不析构对象，适合零拷贝访问字段和不可拷贝字段。
+`any_ref` 是运行期 C++ 类型引用，只保存类型 id、对象地址和可写性。类型细节同样通过 meta 查询。
+它不拥有对象，不复制对象，也不析构对象，适合零拷贝访问字段和不可拷贝字段。
 
 `any_ref` 当前提供：
 
@@ -380,7 +381,11 @@ field->try_set<float>(&instance, 75.0F);
 - `key_type()` / `key_type_name()` / `mapped_type()` / `mapped_type_name()`：查询 key/value 类型信息。
 - `size()` / `for_each_ref()`：查询和遍历关联容器。遍历返回的 key/value 是只读 `any_ref`。
 - `clear()` / `insert_value()`：通过 `associative_traits` 修改关联容器。只有可写视图允许修改；插入时
-  key 和 value 必须与类型级关联容器 metadata 记录的 C++ 类型、大小和对齐一致。
+  key 和 value 必须与类型级关联容器 metadata 记录的 `type_id` 一致。
+
+`sequence_type_data`、`set_type_data` 和 `associative_type_data` 只保存元素/key/value 的 `type_id`
+以及容器操作函数。元素/key/value 的名称、C++ 类型 key、大小、对齐和复制/赋值函数统一从
+`value_type_data` 与基础 `meta_type` 查询，避免容器 metadata 与基础类型 metadata 重复维护。
 
 容器视图不要求值一定来自反射字段。反射字段场景可以先通过 `get_ref()` 创建 `any_ref`，
 再调用对应的 `create_*_view()`；普通 `any` / `any_ref` 也可以直接创建容器视图：

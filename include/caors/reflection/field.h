@@ -281,8 +281,7 @@ struct reflection_field_data {
       return {};
     }
 
-    return any::copy_from_raw(type, type_name, cpp_type, field_value, size, alignment, clone_value,
-                              destroy_value, assign_value);
+    return any::copy_from_raw(type, field_value);
   }
 
   /** @brief 获取字段值的只读运行期引用。 */
@@ -292,8 +291,7 @@ struct reflection_field_data {
       return {};
     }
 
-    return any_ref::from_raw(type, type_name, cpp_type, field_value, size, alignment, clone_value,
-                             destroy_value, assign_value, false);
+    return any_ref::from_raw(type, field_value, false);
   }
 
   /** @brief 获取字段值的可写运行期引用。 */
@@ -303,8 +301,7 @@ struct reflection_field_data {
       return {};
     }
 
-    return any_ref::from_raw(type, type_name, cpp_type, field_value, size, alignment, clone_value,
-                             destroy_value, assign_value, true);
+    return any_ref::from_raw(type, field_value, true);
   }
 
   /** @brief 从运行期值写入字段。 */
@@ -419,6 +416,8 @@ make_reflection_field_data(std::string_view name, std::string_view type_name, st
       !field.value_type) {
     field.value_type = field.type;
   }
+
+  (void)detail::register_value_type_for<field_type>(field.type);
 
   if constexpr (sequence_traits<field_type>::is_sequence) {
     using element_type = typename sequence_traits<field_type>::element_type;
