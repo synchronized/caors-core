@@ -60,8 +60,8 @@
 
 实现文件按 registry、codec、text writer、JSON writer/parser、DOM/value、writer 接口、DOM
 写出、对象序列化、对象反序列化、中间值构造和文本便捷入口拆分在
-`src/caors/serialization_*.cpp`。共享的字段校验、schema version
-过滤和标量读写 helper 保留在私有 `src/caors/serialization_internal.*`。
+`src/caors/serialization/`。共享的字段校验、schema version
+过滤和标量读写 helper 保留在私有 `src/caors/serialization/serialization_internal.*`。
 
 ### serialization_type_data
 

@@ -44,7 +44,7 @@ meta / reflection / serialization / object
 - `caors/memory/fixed_block_pool.h`：固定块池策略资源。
 - `caors/memory.h`：兼容用聚合头，包含以上所有入口。
 
-实现文件也按相同职责拆分在 `src/caors/memory_*.cpp`；共享的内部对齐、溢出检查、默认资源解析等工具保留在私有头 `src/caors/memory_internal.h`。
+实现文件也按相同职责拆分在 `src/caors/memory/`；共享的内部对齐、溢出检查、默认资源解析等工具保留在私有头 `src/caors/memory/memory_internal.h`。
 
 ### memory_resource
 
