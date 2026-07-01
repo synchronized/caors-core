@@ -6,6 +6,7 @@
 
 #include "caors/serialization/vector_codec.h"
 
+#include <map>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
@@ -200,6 +201,11 @@ template <typename Associative> struct associative_serialization_codec {
 template <typename K, typename V, typename Hash, typename Equal, typename Allocator>
 struct serialization_codec<std::unordered_map<K, V, Hash, Equal, Allocator>>
     : associative_serialization_codec<std::unordered_map<K, V, Hash, Equal, Allocator>> {};
+
+/** @brief `std::map` 的字典序列化 codec。 */
+template <typename K, typename V, typename Compare, typename Allocator>
+struct serialization_codec<std::map<K, V, Compare, Allocator>>
+    : associative_serialization_codec<std::map<K, V, Compare, Allocator>> {};
 
 } // namespace caors
 

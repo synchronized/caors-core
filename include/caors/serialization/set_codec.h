@@ -6,6 +6,7 @@
 
 #include "caors/serialization/vector_codec.h"
 
+#include <set>
 #include <type_traits>
 #include <unordered_set>
 #include <utility>
@@ -133,6 +134,11 @@ template <typename Set> struct set_serialization_codec {
 template <typename T, typename Hash, typename Equal, typename Allocator>
 struct serialization_codec<std::unordered_set<T, Hash, Equal, Allocator>>
     : set_serialization_codec<std::unordered_set<T, Hash, Equal, Allocator>> {};
+
+/** @brief `std::set` 的数组序列化 codec。 */
+template <typename T, typename Compare, typename Allocator>
+struct serialization_codec<std::set<T, Compare, Allocator>>
+    : set_serialization_codec<std::set<T, Compare, Allocator>> {};
 
 } // namespace caors
 

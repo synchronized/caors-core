@@ -6,6 +6,7 @@
 
 #include "caors/serialization/operations.h"
 
+#include <deque>
 #include <limits>
 #include <list>
 #include <string>
@@ -272,6 +273,11 @@ template <typename Sequence> struct sequence_serialization_codec {
 template <typename T, typename Allocator>
 struct serialization_codec<std::vector<T, Allocator>>
     : sequence_serialization_codec<std::vector<T, Allocator>> {};
+
+/** @brief `std::deque` 的数组序列化 codec。 */
+template <typename T, typename Allocator>
+struct serialization_codec<std::deque<T, Allocator>>
+    : sequence_serialization_codec<std::deque<T, Allocator>> {};
 
 /** @brief `std::list` / `caors::list` 的数组序列化 codec。 */
 template <typename T, typename Allocator>

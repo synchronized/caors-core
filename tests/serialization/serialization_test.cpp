@@ -7,9 +7,12 @@
 #include <catch2/catch_all.hpp>
 
 #include <cstdint>
+#include <deque>
 #include <functional>
+#include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -153,6 +156,10 @@ struct vector_actor {
   caors::vector<int> scores{};
 };
 
+struct deque_actor {
+  std::deque<int> scores{};
+};
+
 struct nested_vector_values_actor {
   caors::vector<caors::vector<int>> groups{};
 };
@@ -181,6 +188,14 @@ struct map_actor {
 
 struct set_actor {
   caors::hash_set<int> ids{};
+};
+
+struct ordered_set_actor {
+  std::set<int> ids{};
+};
+
+struct ordered_map_actor {
+  std::map<int, caors::string> labels{};
 };
 
 template <typename T> struct custom_codec_sequence {
@@ -1317,6 +1332,33 @@ TEST_CASE("serialization - deserializes list fields from arrays", "[serializatio
   CHECK(*iterator == 6);
 }
 
+TEST_CASE("serialization - roundtrips std deque fields", "[serialization]") {
+  using scores_type = std::deque<int>;
+  REQUIRE(serialization_result_ok(caors::register_serialization_codec<scores_type>()));
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<deque_actor>("caors.test.serialization.deque_actor")
+          .field("scores", &deque_actor::scores)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<deque_actor>()));
+
+  deque_actor actor{};
+  actor.scores.push_back(1);
+  actor.scores.push_back(2);
+  actor.scores.push_back(3);
+
+  const caors::serialization_text_result text = caors::serialize_text(actor);
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"scores":[1,2,3]})");
+
+  deque_actor decoded{};
+  const caors::error result = caors::deserialize_json(decoded, R"({"scores":[5,6]})");
+
+  REQUIRE(result.succeeded());
+  REQUIRE(decoded.scores.size() == 2);
+  CHECK(decoded.scores[0] == 5);
+  CHECK(decoded.scores[1] == 6);
+}
+
 TEST_CASE("serialization - serializes hash map fields as dictionaries", "[serialization]") {
   using labels_type = caors::hash_map<int, caors::string>;
   REQUIRE(serialization_result_ok(caors::register_serialization_codec<labels_type>()));
@@ -1396,6 +1438,33 @@ TEST_CASE("serialization - deserializes hash map fields from pair arrays", "[ser
   REQUIRE(result.succeeded());
   REQUIRE(actor.labels.size() == 1);
   CHECK(actor.labels.at(3) == "three");
+}
+
+TEST_CASE("serialization - roundtrips std map fields", "[serialization]") {
+  using labels_type = std::map<int, caors::string>;
+  REQUIRE(serialization_result_ok(caors::register_serialization_codec<labels_type>()));
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<ordered_map_actor>("caors.test.serialization.ordered_map_actor")
+          .field("labels", &ordered_map_actor::labels)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<ordered_map_actor>()));
+
+  ordered_map_actor actor{};
+  actor.labels.emplace(2, caors::string{"two"});
+  actor.labels.emplace(1, caors::string{"one"});
+
+  const caors::serialization_text_result text = caors::serialize_text(actor);
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"labels":[[1,"one"],[2,"two"]]})");
+
+  ordered_map_actor decoded{};
+  const caors::error result =
+      caors::deserialize_json(decoded, R"({"labels":[[3,"three"],[4,"four"]]})");
+
+  REQUIRE(result.succeeded());
+  REQUIRE(decoded.labels.size() == 2);
+  CHECK(decoded.labels.at(3) == "three");
+  CHECK(decoded.labels.at(4) == "four");
 }
 
 TEST_CASE("serialization - serializes hash set fields as arrays", "[serialization]") {
@@ -1478,6 +1547,32 @@ TEST_CASE("serialization - hash set reader rejects duplicate elements", "[serial
   CHECK(result.failed());
   CHECK(result.domain() == caors::error_domain::serialization);
   CHECK(result.value() == caors::errc::already_exists);
+}
+
+TEST_CASE("serialization - roundtrips std set fields", "[serialization]") {
+  using ids_type = std::set<int>;
+  REQUIRE(serialization_result_ok(caors::register_serialization_codec<ids_type>()));
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<ordered_set_actor>("caors.test.serialization.ordered_set_actor")
+          .field("ids", &ordered_set_actor::ids)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<ordered_set_actor>()));
+
+  ordered_set_actor actor{};
+  actor.ids.emplace(3);
+  actor.ids.emplace(1);
+
+  const caors::serialization_text_result text = caors::serialize_text(actor);
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"ids":[1,3]})");
+
+  ordered_set_actor decoded{};
+  const caors::error result = caors::deserialize_json(decoded, R"({"ids":[2,4]})");
+
+  REQUIRE(result.succeeded());
+  REQUIRE(decoded.ids.size() == 2);
+  CHECK(decoded.ids.contains(2));
+  CHECK(decoded.ids.contains(4));
 }
 
 TEST_CASE("serialization - generic sequence codec uses sequence traits", "[serialization]") {
