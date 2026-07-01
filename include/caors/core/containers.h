@@ -4,7 +4,7 @@
 #ifndef CAORS_CORE_CONTAINERS_H_
 #define CAORS_CORE_CONTAINERS_H_
 
-#include "caors/memory.h"
+#include "caors/memory/resource.h"
 
 #include <functional>
 #include <list>
@@ -58,21 +58,6 @@ template <typename K, typename V, typename Hash = std::hash<K>, typename Equal =
 template <typename T, typename Hash = std::hash<T>, typename Equal = std::equal_to<T>>
 [[nodiscard]] hash_set<T, Hash, Equal> make_hash_set(memory_resource* resource = nullptr) {
   return hash_set<T, Hash, Equal>{typename hash_set<T, Hash, Equal>::allocator_type{resource}};
-}
-
-/** @brief 将调试分配器的存活分配记录收集为 CAORS 动态数组。 */
-[[nodiscard]] inline vector<memory_debug_record>
-collect_live_allocations(const debug_tracking_resource& resource,
-                         memory_resource* output_resource = nullptr) {
-  vector<memory_debug_record> records{allocator<memory_debug_record>{output_resource}};
-  records.reserve(resource.live_allocation_count());
-  resource.for_each_live_allocation(
-      [](const memory_debug_record& record, void* user_data) {
-        auto* output = static_cast<vector<memory_debug_record>*>(user_data);
-        output->push_back(record);
-      },
-      &records);
-  return records;
 }
 
 } // namespace caors

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/core/containers.h"
+#include "caors/memory/tracking.h"
 
 #include <catch2/catch_all.hpp>
 

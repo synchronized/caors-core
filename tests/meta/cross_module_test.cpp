@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
+#include "caors/reflection/builder.h"
 #include "caors/serialization.h"
 
 #include <catch2/catch_all.hpp>

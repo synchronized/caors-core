@@ -3,6 +3,8 @@
 
 #include "caors/serialization/operations.h"
 
+#include "caors/reflection/registry.h"
+
 #include "serialization_internal.h"
 
 namespace caors {

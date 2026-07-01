@@ -10,7 +10,7 @@
 CAORS 对象系统第一阶段只解决几件事：
 
 - 对象实例有运行期唯一标识。
-- 对象类型复用基础 `meta_type_data`，包含类型标识、名称、稳定 GUID、大小、对齐和父类型。
+- 对象类型复用基础 `meta_type_data` / `meta_type`，包含类型标识、名称、稳定 GUID、大小、对齐和父类型。
 - 对象可以注册到基于 `meta_registry` 的对象注册表。
 - 注册表可以按类型创建和销毁默认构造对象。
 - 对象创建和销毁可以接入 `memory_resource`。
@@ -49,8 +49,7 @@ caors::object_id id = instance.id();
 - `alignment`
 - `parent_id`
 
-`object_type_id` 是 `type_id` 在对象系统里的别名。它由全局 `meta_registry` 分配，不由对象
-类型名派生：
+`object_type_id` 是 `type_id` 在对象系统里的别名。它由全局 `meta_registry` 分配，不由对象类型名派生：
 
 ```cpp
 caors::object_type_id id = player::static_type_id();
@@ -116,7 +115,9 @@ object.type_name(); // "game.player"
 
 ### object_registry
 
-`object_registry` 是基于全局 `meta_registry` 的对象注册表和默认构造工厂。它通过全局 `meta_registry` 管理类型 id、名称和父类型关系，并将 `object_type` 作为对象元数据组件挂载到同一个 `type_id` 上。
+`object_registry` 是基于全局 `meta_registry` 的对象注册表和默认构造工厂。它通过全局 `meta_registry` 管理类型 id、名称和父类型关系，并将 `object_type_data` 作为对象元数据组件挂载到同一个 `type_id` 上。
+
+对外查询返回 `object_type` 只读视图。它组合了基础 `meta_type` 和内部 `object_type_data`，因此调用方可以通过 `id()`、`name()`、`guid()`、`size()`、`alignment()`、`parent_id()` 和 `constructible()` 查询对象类型信息，但不能直接修改注册表内部数据。
 
 ```cpp
 caors::object_registry registry;
@@ -192,7 +193,8 @@ caors::destroy_object(instance, &resource);
 - `object`：基础对象身份和类型查询入口。
 - `object_base<Derived, Base>`：CRTP 类型查询辅助。
 - `meta_type_data` / `meta_registry`：对象系统和反射系统共享的全局基础类型描述和元数据注册表。
-- `object_type`：基于 `meta_type_data` 扩展对象创建和销毁能力。
+- `object_type_data`：内部对象元数据组件，保存默认构造、创建和销毁函数。
+- `object_type`：对象类型只读视图，组合 `meta_type` 和内部 `object_type_data`。
 - `caors::error`：明确对象类型注册失败原因和错误来源域。
 - `object_registry`：类型注册、查询、继承关系判断、默认构造工厂。
 - `get_object_registry()`：进程内默认对象注册表。
@@ -203,7 +205,7 @@ caors::destroy_object(instance, &resource);
 - [x] 对象实例 id。
 - [x] 对象类型 id、名称、大小、对齐和父类型。
 - [x] 复用全局 `meta_registry`。
-- [x] 将 `object_type` 作为类型元数据组件挂载。
+- [x] 将 `object_type_data` 作为类型元数据组件挂载，并通过 `object_type` 视图对外查询。
 - [x] 注册错误状态和不一致类型描述检测。
 - [x] 默认构造工厂。
 - [x] 接入 `memory_resource`。

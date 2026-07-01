@@ -4,14 +4,10 @@
 #ifndef CAORS_REFLECTION_H_
 #define CAORS_REFLECTION_H_
 
-#include "caors/meta/container_traits.h"
-#include "caors/meta/wrapper.h"
 #include "caors/reflection/builder.h"
 #include "caors/reflection/field.h"
 #include "caors/reflection/registry.h"
-#include "caors/reflection/stl_traits.h"
 #include "caors/reflection/type.h"
-#include "caors/reflection/value.h"
 #include "caors/reflection/view.h"
 #include "caors/reflection/wrapper.h"
 

@@ -413,7 +413,7 @@ field->try_set<float>(&instance, 75.0F);
 `indirect_view` 不拥有 wrapper 或内部值，也不延长内部对象生命周期。裸指针和智能指针解包后返回的是当前
 指向对象的引用；调用方需要保证引用使用期间对象仍然有效。
 
-`sequence_type_data`、`set_type_data` 和 `associative_type_data` 只保存元素/key/value 的 `type_id`
+`meta_sequence_data`、`meta_set_data` 和 `meta_associative_data` 只保存元素/key/value 的 `type_id`
 以及容器操作函数。元素/key/value 的名称、C++ 类型 key、大小、对齐和复制/赋值函数统一从
 基础 `meta_type_data` 查询，避免容器 metadata 与基础类型 metadata 重复维护。
 
@@ -484,7 +484,6 @@ auto reflected = caors::find_reflection("game.actor");
 - 公共头文件按职责拆分在 `include/caors/reflection/`：
   - `value.h`：历史入口，转发到 `include/caors/value/any.h`。
   - `wrapper.h`：`object_ref<T>` 的 wrapper 语义适配。
-  - `stl_traits.h`：`std::vector`、`std::unordered_map` 以及 CAORS 容器别名的默认 traits 特化。
   - `field.h`：字段元信息和字段访问。
   - `type.h`：类型反射描述。
   - `view.h`：类型和字段的外部查询视图。
@@ -492,6 +491,7 @@ auto reflected = caors::find_reflection("game.actor");
   - `builder.h`：RTTR 风格链式注册入口。
 - `include/caors/reflection.h` 是 umbrella 头，继续提供完整反射 API。
 - `include/caors/meta/wrapper.h` 和 `include/caors/meta/container_traits.h` 提供 wrapper / 容器类型语义扩展点。
+- `include/caors/adapters/stl_traits.h` 提供 `std::vector`、`std::unordered_map` 以及 CAORS 容器别名的默认 traits 特化。
 - `include/caors/adapters/stl.h` 是 STL/CAORS 容器反射和序列化适配的聚合入口。
 - `include/caors/value.h` 是 value 模块 umbrella 头，提供 `any` 和 `variant`。
 - 可运行示例位于 `examples/reflection/`，示例组织规则见 [examples/README.md](../examples/README.md)。

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_REFLECTION_STL_TRAITS_H_
-#define CAORS_REFLECTION_STL_TRAITS_H_
+#ifndef CAORS_ADAPTERS_STL_TRAITS_H_
+#define CAORS_ADAPTERS_STL_TRAITS_H_
 
 #include "caors/core/containers.h"
 #include "caors/meta/container_traits.h"

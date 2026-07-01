@@ -4,7 +4,7 @@
 #ifndef CAORS_ADAPTERS_STL_H_
 #define CAORS_ADAPTERS_STL_H_
 
-#include "caors/reflection/stl_traits.h"
+#include "caors/adapters/stl_traits.h"
 #include "caors/serialization/stl_codecs.h"
 
 #endif

@@ -6,8 +6,8 @@
 
 #include "caors/meta.h"
 #include "caors/meta/container_traits.h"
-#include "caors/reflection/value.h"
 #include "caors/reflection/wrapper.h"
+#include "caors/value/any.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -230,11 +230,11 @@ make_reflection_field_data(std::string_view name, std::string_view type_name, st
   };
 
   if constexpr (sequence_traits<field_type>::is_sequence) {
-    (void)detail::register_container_types_for<field_type>(field.type);
+    (void)detail::register_container_data_for<field_type>(field.type);
   } else if constexpr (set_traits<field_type>::is_set) {
-    (void)detail::register_container_types_for<field_type>(field.type);
+    (void)detail::register_container_data_for<field_type>(field.type);
   } else if constexpr (associative_traits<field_type>::is_associative) {
-    (void)detail::register_container_types_for<field_type>(field.type);
+    (void)detail::register_container_data_for<field_type>(field.type);
   }
 
   return field;

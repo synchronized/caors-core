@@ -18,7 +18,7 @@ CAORS 内存层希望同时支持两类用法：
 依赖方向固定为：
 
 ```text
-memory
+memory/resource, memory/tracking, memory/debug_tracking
   -> 不依赖 core 容器
 
 core containers
@@ -28,8 +28,8 @@ meta / reflection / serialization / object
   -> 默认使用 core containers
 ```
 
-因此 memory 层 API 不返回 `caors::vector`、`caors::string` 这类上层容器；需要容器化结果时，由
-`caors/core/containers.h` 提供辅助函数完成收集。
+因此底层 resource API 不返回 `caors::vector`、`caors::string` 这类上层容器；需要容器化调试结果时，由
+`caors/memory/debug_tools.h` 提供可选便利函数完成收集。
 
 ## 核心概念
 
@@ -40,6 +40,7 @@ meta / reflection / serialization / object
 - `caors/memory/resource.h`：`memory_resource`、系统后端、回调后端、默认资源入口、`allocator<T>`、`make<T>()` / `destroy<T>()`。
 - `caors/memory/tracking.h`：`tracking_resource` 和基础统计快照。
 - `caors/memory/debug_tracking.h`：`debug_tracking_resource`、存活分配记录和调试统计。
+- `caors/memory/debug_tools.h`：调试记录收集 helper，例如 `collect_live_allocations()`。
 - `caors/memory/monotonic.h`：线性分配策略资源。
 - `caors/memory/fixed_block_pool.h`：固定块池策略资源。
 - `caors/memory.h`：兼容用聚合头，包含以上所有入口。
@@ -151,8 +152,8 @@ CAORS 不会调用 `std::pmr::set_default_resource()`，避免库代码修改进
 
 ### 容器依赖边界
 
-`memory.h` 是 `caors/core/containers.h` 的底层依赖，因此 memory 层保持无 CAORS 容器返回值。需要遍历
-memory 内部调试记录时，底层 API 使用 callback：
+`caors/core/containers.h` 的底层只依赖 `caors/memory/resource.h`，不会反向包含完整 `memory.h`。需要遍历
+memory 内部调试记录时，底层 `debug_tracking_resource` API 使用 callback：
 
 ```cpp
 debug.for_each_live_allocation(
@@ -162,7 +163,7 @@ debug.for_each_live_allocation(
     nullptr);
 ```
 
-如果调用方需要快照容器，可以使用 core 层 helper：
+如果调用方需要快照容器，可以使用 `caors/memory/debug_tools.h` 提供的便利 helper：
 
 ```cpp
 caors::vector<caors::memory_debug_record> records =

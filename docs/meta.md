@@ -226,7 +226,7 @@ caors::get_meta_registry().emplace<object_factory_meta>(actor_id, true);
 
 全局 `meta_registry` 是共享元数据层：
 
-- `object_registry` 复用全局基础类型信息，再给同一个 `type_id` 挂载 `object_type` 组件。
+- `object_registry` 复用全局基础类型信息，再给同一个 `type_id` 挂载 `object_type_data` 组件，并对外返回 `object_type` 视图。
 - 全局反射注册表复用基础类型信息，再挂载 `reflection_type_data` 组件。
 - 后续 `serialization_registry` 可以挂载序列化相关组件。
 

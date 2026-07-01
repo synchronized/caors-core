@@ -22,276 +22,6 @@ class sequence_view;
 class set_view;
 class associative_view;
 
-namespace detail {
-
-using set_raw_visitor = bool (*)(const void*, void*);
-using sequence_size_fn = std::size_t (*)(const void*) noexcept;
-using sequence_const_element_fn = const void* (*)(const void*, std::size_t) noexcept;
-using sequence_mutable_element_fn = void* (*)(void*, std::size_t) noexcept;
-using sequence_clear_fn = void (*)(void*) noexcept;
-using sequence_resize_fn = bool (*)(void*, std::size_t);
-using sequence_append_fn = bool (*)(void*, const void*);
-using set_size_fn = std::size_t (*)(const void*) noexcept;
-using set_visit_fn = bool (*)(const void*, set_raw_visitor, void*);
-using set_clear_fn = void (*)(void*) noexcept;
-using set_insert_fn = bool (*)(void*, const void*);
-using associative_raw_visitor = bool (*)(const void*, const void*, void*);
-using associative_size_fn = std::size_t (*)(const void*) noexcept;
-using associative_visit_fn = bool (*)(const void*, associative_raw_visitor, void*);
-using associative_clear_fn = void (*)(void*) noexcept;
-using associative_insert_fn = bool (*)(void*, const void*, const void*);
-
-struct associative_type_data {
-  type_id key_type{};
-  type_id mapped_type{};
-  associative_size_fn size = nullptr;
-  associative_visit_fn visit = nullptr;
-  associative_clear_fn clear = nullptr;
-  associative_insert_fn insert = nullptr;
-
-  [[nodiscard]] bool valid() const noexcept {
-    return key_type && mapped_type && size != nullptr && visit != nullptr;
-  }
-};
-
-struct sequence_type_data {
-  type_id element_type{};
-  sequence_size_fn size = nullptr;
-  sequence_const_element_fn element = nullptr;
-  sequence_mutable_element_fn mutable_element = nullptr;
-  sequence_clear_fn clear = nullptr;
-  sequence_resize_fn resize = nullptr;
-  sequence_append_fn append = nullptr;
-
-  [[nodiscard]] bool valid() const noexcept {
-    return element_type && size != nullptr && element != nullptr;
-  }
-};
-
-struct set_type_data {
-  type_id element_type{};
-  set_size_fn size = nullptr;
-  set_visit_fn visit = nullptr;
-  set_clear_fn clear = nullptr;
-  set_insert_fn insert = nullptr;
-
-  [[nodiscard]] bool valid() const noexcept {
-    return element_type && size != nullptr && visit != nullptr;
-  }
-};
-
-template <typename T> [[nodiscard]] std::optional<meta_type> ensure_value_type_registered() {
-  using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (has_type_name_v<type>) {
-    const error result = caors::register_type<type>(type_name<type>::value);
-    if (result && result.value() != errc::duplicate_id) {
-      return std::nullopt;
-    }
-  }
-
-  return caors::find_type<type>();
-}
-
-template <typename T> [[nodiscard]] error register_associative_type_for(type_id id) {
-  using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (associative_traits<type>::is_associative) {
-    using key_type = typename associative_traits<type>::key_type;
-    using mapped_type = typename associative_traits<type>::mapped_type;
-
-    const std::optional<meta_type> key = ensure_value_type_registered<key_type>();
-    const std::optional<meta_type> mapped = ensure_value_type_registered<mapped_type>();
-    if (!id || !key.has_value() || !mapped.has_value()) {
-      return {};
-    }
-
-    associative_type_data data{
-        key->id(),
-        mapped->id(),
-        [](const void* storage) noexcept -> std::size_t {
-          if (storage == nullptr) {
-            return 0;
-          }
-
-          return associative_traits<type>::size(*static_cast<const type*>(storage));
-        },
-        [](const void* storage, associative_raw_visitor visitor, void* user_data) -> bool {
-          if (storage == nullptr || visitor == nullptr) {
-            return false;
-          }
-
-          bool keep_going = true;
-          associative_traits<type>::for_each(*static_cast<const type*>(storage),
-                                             [&](const key_type& key, const mapped_type& mapped) {
-                                               if (!keep_going) {
-                                                 return;
-                                               }
-
-                                               keep_going = visitor(&key, &mapped, user_data);
-                                             });
-
-          return keep_going;
-        },
-        [](void* storage) noexcept {
-          if (storage != nullptr) {
-            associative_traits<type>::clear(*static_cast<type*>(storage));
-          }
-        },
-        [](void* storage, const void* key, const void* mapped) -> bool {
-          if (storage == nullptr || key == nullptr || mapped == nullptr) {
-            return false;
-          }
-
-          return associative_traits<type>::insert(*static_cast<type*>(storage),
-                                                  *static_cast<const key_type*>(key),
-                                                  *static_cast<const mapped_type*>(mapped));
-        },
-    };
-
-    const error result = get_meta_registry().emplace<associative_type_data>(id, data);
-    if (result && result.value() != errc::duplicate_component) {
-      return result;
-    }
-  }
-
-  return {};
-}
-
-template <typename T> [[nodiscard]] error register_sequence_type_for(type_id id) {
-  using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (sequence_traits<type>::is_sequence) {
-    using element_type = typename sequence_traits<type>::element_type;
-
-    const std::optional<meta_type> element = ensure_value_type_registered<element_type>();
-    if (!id || !element.has_value()) {
-      return {};
-    }
-
-    sequence_type_data data{
-        element->id(),
-        [](const void* storage) noexcept -> std::size_t {
-          if (storage == nullptr) {
-            return 0;
-          }
-
-          return sequence_traits<type>::size(*static_cast<const type*>(storage));
-        },
-        [](const void* storage, std::size_t index) noexcept -> const void* {
-          if (storage == nullptr) {
-            return nullptr;
-          }
-
-          return sequence_traits<type>::element(*static_cast<const type*>(storage), index);
-        },
-        [](void* storage, std::size_t index) noexcept -> void* {
-          if (storage == nullptr) {
-            return nullptr;
-          }
-
-          return sequence_traits<type>::mutable_element(*static_cast<type*>(storage), index);
-        },
-        [](void* storage) noexcept {
-          if (storage != nullptr) {
-            sequence_traits<type>::clear(*static_cast<type*>(storage));
-          }
-        },
-        [](void* storage, std::size_t size) -> bool {
-          if (storage == nullptr) {
-            return false;
-          }
-
-          return sequence_traits<type>::resize(*static_cast<type*>(storage), size);
-        },
-        [](void* storage, const void* element) -> bool {
-          if (storage == nullptr || element == nullptr) {
-            return false;
-          }
-
-          return sequence_traits<type>::append(*static_cast<type*>(storage),
-                                               *static_cast<const element_type*>(element));
-        },
-    };
-
-    const error result = get_meta_registry().emplace<sequence_type_data>(id, data);
-    if (result && result.value() != errc::duplicate_component) {
-      return result;
-    }
-  }
-
-  return {};
-}
-
-template <typename T> [[nodiscard]] error register_set_type_for(type_id id) {
-  using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (set_traits<type>::is_set) {
-    using element_type = typename set_traits<type>::element_type;
-
-    const std::optional<meta_type> element = ensure_value_type_registered<element_type>();
-    if (!id || !element.has_value()) {
-      return {};
-    }
-
-    set_type_data data{
-        element->id(),
-        [](const void* storage) noexcept -> std::size_t {
-          if (storage == nullptr) {
-            return 0;
-          }
-
-          return set_traits<type>::size(*static_cast<const type*>(storage));
-        },
-        [](const void* storage, set_raw_visitor visitor, void* user_data) -> bool {
-          if (storage == nullptr || visitor == nullptr) {
-            return false;
-          }
-
-          bool keep_going = true;
-          set_traits<type>::for_each(*static_cast<const type*>(storage),
-                                     [&](const element_type& element) {
-                                       if (!keep_going) {
-                                         return;
-                                       }
-
-                                       keep_going = visitor(&element, user_data);
-                                     });
-
-          return keep_going;
-        },
-        [](void* storage) noexcept {
-          if (storage != nullptr) {
-            set_traits<type>::clear(*static_cast<type*>(storage));
-          }
-        },
-        [](void* storage, const void* element) -> bool {
-          if (storage == nullptr || element == nullptr) {
-            return false;
-          }
-
-          return set_traits<type>::insert(*static_cast<type*>(storage),
-                                          *static_cast<const element_type*>(element));
-        },
-    };
-
-    const error result = get_meta_registry().emplace<set_type_data>(id, data);
-    if (result && result.value() != errc::duplicate_component) {
-      return result;
-    }
-  }
-
-  return {};
-}
-
-template <typename T> [[nodiscard]] error register_container_types_for(type_id id) {
-  if (const error result = register_sequence_type_for<T>(id); result) {
-    return result;
-  }
-  if (const error result = register_set_type_for<T>(id); result) {
-    return result;
-  }
-  return register_associative_type_for<T>(id);
-}
-
-} // namespace detail
-
 using set_element_visitor = bool (*)(any_ref element, void* user_data);
 using associative_entry_visitor = bool (*)(any_ref key, any_ref mapped, void* user_data);
 
@@ -357,7 +87,7 @@ public:
       return {};
     }
 
-    (void)detail::register_container_types_for<type>(registered->id());
+    (void)detail::register_container_data_for<type>(registered->id());
 
     return copy_from_raw(registered->id(), &source);
   }
@@ -546,7 +276,7 @@ public:
       return {};
     }
 
-    (void)detail::register_container_types_for<type>(registered->id());
+    (void)detail::register_container_data_for<type>(registered->id());
 
     return from_raw(registered->id(), &source, !std::is_const_v<T>);
   }
@@ -573,7 +303,7 @@ public:
       return {};
     }
 
-    (void)detail::register_container_types_for<type>(registered->id());
+    (void)detail::register_container_data_for<type>(registered->id());
 
     return from_raw(registered->id(), &source, false);
   }
@@ -882,10 +612,10 @@ private:
   friend class any;
   friend class any_ref;
 
-  sequence_view(const detail::sequence_type_data* data, const void* storage, bool writable) noexcept
+  sequence_view(const meta_sequence_data* data, const void* storage, bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
 
-  const detail::sequence_type_data* data_ = nullptr;
+  const meta_sequence_data* data_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };
@@ -932,7 +662,7 @@ public:
     }
 
     struct visit_context {
-      const detail::set_type_data* data = nullptr;
+      const meta_set_data* data = nullptr;
       set_element_visitor visitor = nullptr;
       void* user_data = nullptr;
     };
@@ -942,7 +672,7 @@ public:
         storage_,
         [](const void* element, void* raw_context) -> bool {
           auto* context = static_cast<visit_context*>(raw_context);
-          const detail::set_type_data* data = context->data;
+          const meta_set_data* data = context->data;
           any_ref element_ref = any_ref::from_raw(data->element_type, element, false);
 
           return context->visitor(element_ref, context->user_data);
@@ -974,10 +704,10 @@ private:
   friend class any;
   friend class any_ref;
 
-  set_view(const detail::set_type_data* data, const void* storage, bool writable) noexcept
+  set_view(const meta_set_data* data, const void* storage, bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
 
-  const detail::set_type_data* data_ = nullptr;
+  const meta_set_data* data_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };
@@ -1031,7 +761,7 @@ public:
     }
 
     struct visit_context {
-      const detail::associative_type_data* data = nullptr;
+      const meta_associative_data* data = nullptr;
       associative_entry_visitor visitor = nullptr;
       void* user_data = nullptr;
     };
@@ -1041,7 +771,7 @@ public:
         storage_,
         [](const void* key, const void* mapped, void* raw_context) -> bool {
           auto* context = static_cast<visit_context*>(raw_context);
-          const detail::associative_type_data* data = context->data;
+          const meta_associative_data* data = context->data;
           any_ref key_ref = any_ref::from_raw(data->key_type, key, false);
           any_ref mapped_ref = any_ref::from_raw(data->mapped_type, mapped, false);
 
@@ -1074,11 +804,10 @@ private:
   friend class any;
   friend class any_ref;
 
-  associative_view(const detail::associative_type_data* data, const void* storage,
-                   bool writable) noexcept
+  associative_view(const meta_associative_data* data, const void* storage, bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
 
-  const detail::associative_type_data* data_ = nullptr;
+  const meta_associative_data* data_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };
@@ -1088,8 +817,7 @@ inline associative_view any::create_associative_view() {
     return {};
   }
 
-  const detail::associative_type_data* data =
-      get_meta_registry().find_ptr<detail::associative_type_data>(type_);
+  const meta_associative_data* data = get_meta_registry().find_ptr<meta_associative_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1102,8 +830,7 @@ inline associative_view any::create_associative_view() const {
     return {};
   }
 
-  const detail::associative_type_data* data =
-      get_meta_registry().find_ptr<detail::associative_type_data>(type_);
+  const meta_associative_data* data = get_meta_registry().find_ptr<meta_associative_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1116,8 +843,7 @@ inline associative_view any_ref::create_associative_view() const {
     return {};
   }
 
-  const detail::associative_type_data* data =
-      get_meta_registry().find_ptr<detail::associative_type_data>(type_);
+  const meta_associative_data* data = get_meta_registry().find_ptr<meta_associative_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1172,8 +898,7 @@ inline sequence_view any::create_sequence_view() {
     return {};
   }
 
-  const detail::sequence_type_data* data =
-      get_meta_registry().find_ptr<detail::sequence_type_data>(type_);
+  const meta_sequence_data* data = get_meta_registry().find_ptr<meta_sequence_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1186,8 +911,7 @@ inline sequence_view any::create_sequence_view() const {
     return {};
   }
 
-  const detail::sequence_type_data* data =
-      get_meta_registry().find_ptr<detail::sequence_type_data>(type_);
+  const meta_sequence_data* data = get_meta_registry().find_ptr<meta_sequence_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1200,8 +924,7 @@ inline sequence_view any_ref::create_sequence_view() const {
     return {};
   }
 
-  const detail::sequence_type_data* data =
-      get_meta_registry().find_ptr<detail::sequence_type_data>(type_);
+  const meta_sequence_data* data = get_meta_registry().find_ptr<meta_sequence_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1214,7 +937,7 @@ inline set_view any::create_set_view() {
     return {};
   }
 
-  const detail::set_type_data* data = get_meta_registry().find_ptr<detail::set_type_data>(type_);
+  const meta_set_data* data = get_meta_registry().find_ptr<meta_set_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1227,7 +950,7 @@ inline set_view any::create_set_view() const {
     return {};
   }
 
-  const detail::set_type_data* data = get_meta_registry().find_ptr<detail::set_type_data>(type_);
+  const meta_set_data* data = get_meta_registry().find_ptr<meta_set_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1240,7 +963,7 @@ inline set_view any_ref::create_set_view() const {
     return {};
   }
 
-  const detail::set_type_data* data = get_meta_registry().find_ptr<detail::set_type_data>(type_);
+  const meta_set_data* data = get_meta_registry().find_ptr<meta_set_data>(type_);
   if (data == nullptr) {
     return {};
   }

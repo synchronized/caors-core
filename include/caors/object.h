@@ -9,6 +9,7 @@
 #include "caors/memory.h"
 #include "caors/meta.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string_view>
@@ -57,17 +58,42 @@ using object_try_create_fn = object* (*)(memory_resource * resource) noexcept;
 using object_create_fn = object* (*)(memory_resource * resource);
 using object_destroy_fn = void (*)(object* instance, memory_resource* resource) noexcept;
 
-/** @brief 注册表中保存的对象类型描述。 */
-struct object_type {
-  meta_type_data data{};
+/** @brief 对象类型底层数据。 */
+struct object_type_data {
   object_try_create_fn try_create = nullptr;
   object_create_fn create = nullptr;
   object_destroy_fn destroy = nullptr;
 
-  [[nodiscard]] constexpr bool valid() const noexcept { return data.valid(); }
   [[nodiscard]] constexpr bool constructible() const noexcept {
     return try_create != nullptr && create != nullptr;
   }
+};
+
+/** @brief 对象类型只读视图。 */
+class CAORS_API object_type final {
+public:
+  object_type() noexcept = default;
+
+  [[nodiscard]] bool valid() const noexcept;
+  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
+
+  [[nodiscard]] meta_type info() const noexcept;
+  [[nodiscard]] object_type_id id() const noexcept;
+  [[nodiscard]] string_name name() const noexcept;
+  [[nodiscard]] type_guid guid() const noexcept;
+  [[nodiscard]] std::size_t size() const noexcept;
+  [[nodiscard]] std::size_t alignment() const noexcept;
+  [[nodiscard]] object_type_id parent_id() const noexcept;
+  [[nodiscard]] bool constructible() const noexcept;
+
+private:
+  friend class object_registry;
+
+  object_type(meta_type type, const object_type_data* data) noexcept;
+  [[nodiscard]] const object_type_data* data() const noexcept;
+
+  meta_type type_{};
+  const object_type_data* data_ = nullptr;
 };
 
 /**
@@ -236,32 +262,32 @@ void destroy_object_instance(object* instance, memory_resource* resource) noexce
   destroy(static_cast<T*>(instance), resource);
 }
 
-/** @brief 创建对象类型描述。 */
+/** @brief 创建对象类型基础元信息。 */
 template <typename T>
-[[nodiscard]] object_type
-make_object_type(std::string_view name,
-                 object_type_id parent_id = object::static_type_id()) noexcept {
+[[nodiscard]] meta_type_data
+make_object_meta_type_data(std::string_view name,
+                           object_type_id parent_id = object::static_type_id()) noexcept {
+  static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
+  return make_meta_type_data<T>(name, detail::object_type_guid_of<T>(), parent_id);
+}
+
+/** @brief 创建对象类型底层数据。 */
+template <typename T> [[nodiscard]] object_type_data make_object_type_data() noexcept {
   static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
 
-  object_type type{
-      make_meta_type_data<T>(name, detail::object_type_guid_of<T>(), parent_id),
-      nullptr,
-      nullptr,
-      &destroy_object_instance<T>,
-  };
-
+  object_type_data data{nullptr, nullptr, &destroy_object_instance<T>};
   if constexpr (std::is_default_constructible_v<T>) {
-    type.try_create = &try_create_object_instance<T>;
-    type.create = &create_object_instance<T>;
+    data.try_create = &try_create_object_instance<T>;
+    data.create = &create_object_instance<T>;
   }
 
-  return type;
+  return data;
 }
 
 /**
  * @brief 对象类型注册表和默认构造工厂。
  *
- * 注册表复用全局 `meta_registry` 管理基础类型信息，并把 `object_type` 作为组件挂载到同一个
+ * 注册表复用全局 `meta_registry` 管理基础类型信息，并把 `object_type_data` 作为组件挂载到同一个
  * `type_id` 上。
  */
 class CAORS_API object_registry final {
@@ -272,9 +298,11 @@ public:
   object_registry(const object_registry&) = delete;
   object_registry& operator=(const object_registry&) = delete;
 
-  [[nodiscard]] error register_type(const object_type& type);
-  template <typename T> [[nodiscard]] error register_type_for(const object_type& type) {
-    return register_type(detail::cpp_type_key_of<T>(), type);
+  [[nodiscard]] error register_type(const meta_type_data& type, const object_type_data& object);
+  template <typename T>
+  [[nodiscard]] error register_type_for(const meta_type_data& type,
+                                        const object_type_data& object) {
+    return register_type(detail::cpp_type_key_of<T>(), type, object);
   }
 
   [[nodiscard]] bool contains(object_type_id id) const;
@@ -303,7 +331,7 @@ public:
       return nullptr;
     }
 
-    return static_cast<T*>(try_create(type->data.id(), resource));
+    return static_cast<T*>(try_create(type->id(), resource));
   }
 
   [[nodiscard]] object* create(object_type_id id, memory_resource* resource = nullptr) const;
@@ -314,14 +342,16 @@ public:
       return nullptr;
     }
 
-    return static_cast<T*>(create(type->data.id(), resource));
+    return static_cast<T*>(create(type->id(), resource));
   }
 
   bool destroy(object* instance, memory_resource* resource = nullptr) const noexcept;
 
 private:
-  [[nodiscard]] error register_type(detail::cpp_type_key key, const object_type& type);
+  [[nodiscard]] error register_type(detail::cpp_type_key key, const meta_type_data& type,
+                                    const object_type_data& object);
   [[nodiscard]] std::optional<meta_type> find_registered_type(detail::cpp_type_key key) const;
+  [[nodiscard]] const object_type_data* find_type_data(object_type_id id) const;
 };
 
 /** @brief 获取进程内默认对象类型注册表。 */
@@ -335,11 +365,12 @@ template <typename T>
     using base_type = typename detail::object_base_type_traits<T>::type;
     const std::optional<object_type> base = registry.find_type<base_type>();
     if (base.has_value()) {
-      parent_id = base->data.id();
+      parent_id = base->id();
     }
   }
 
-  return registry.register_type_for<T>(make_object_type<T>(name, parent_id));
+  return registry.register_type_for<T>(make_object_meta_type_data<T>(name, parent_id),
+                                       make_object_type_data<T>());
 }
 
 /** @brief 向默认注册表注册对象类型。 */

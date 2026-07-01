@@ -4,9 +4,10 @@
 #ifndef CAORS_SERIALIZATION_CODEC_H_
 #define CAORS_SERIALIZATION_CODEC_H_
 
-#include "caors/reflection.h"
+#include "caors/reflection/view.h"
 #include "caors/serialization/reader.h"
 #include "caors/serialization/writer.h"
+#include "caors/value/any.h"
 
 #include <optional>
 #include <type_traits>

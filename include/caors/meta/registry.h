@@ -6,6 +6,7 @@
 
 #include "caors/error.h"
 #include "caors/export.h"
+#include "caors/meta/container.h"
 #include "caors/meta/container_traits.h"
 #include "caors/meta/type.h"
 #include "caors/meta/type_key.h"
@@ -28,6 +29,7 @@ namespace detail {
 using meta_component_key = const void*;
 
 template <typename T> [[nodiscard]] error ensure_type_semantics_for(type_id id);
+template <typename T> [[nodiscard]] error register_container_data_for(type_id id);
 
 template <typename Component> [[nodiscard]] meta_component_key meta_component_key_of() noexcept {
   static const int key = 0;
@@ -135,6 +137,7 @@ public:
     const std::optional<meta_type> registered = find_cpp_type(key);
     if (registered.has_value()) {
       (void)detail::ensure_type_semantics_for<value_type>(registered->id());
+      (void)detail::register_container_data_for<value_type>(registered->id());
     }
 
     return status;
@@ -146,6 +149,7 @@ public:
     std::optional<meta_type> existing = find_cpp_type(key);
     if (existing.has_value()) {
       (void)detail::ensure_type_semantics_for<type>(existing->id());
+      (void)detail::register_container_data_for<type>(existing->id());
       return *existing;
     }
 
@@ -157,6 +161,7 @@ public:
     existing = find_cpp_type(key);
     if (existing.has_value()) {
       (void)detail::ensure_type_semantics_for<type>(existing->id());
+      (void)detail::register_container_data_for<type>(existing->id());
     }
 
     return existing.value_or(meta_type{});
@@ -375,6 +380,207 @@ template <typename T> [[nodiscard]] type_id semantic_type_id() {
 
   const std::optional<meta_type> registered = get_meta_registry().find_type<type>();
   return registered.has_value() ? registered->id() : type_id::invalid();
+}
+
+template <typename T> [[nodiscard]] error register_associative_data_for(type_id id) {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (associative_traits<type>::is_associative) {
+    using key_type = typename associative_traits<type>::key_type;
+    using mapped_type = typename associative_traits<type>::mapped_type;
+
+    const type_id key = semantic_type_id<key_type>();
+    const type_id mapped = semantic_type_id<mapped_type>();
+    if (!id || !key || !mapped) {
+      return {};
+    }
+
+    meta_associative_data data{
+        key,
+        mapped,
+        [](const void* storage) noexcept -> std::size_t {
+          if (storage == nullptr) {
+            return 0;
+          }
+
+          return associative_traits<type>::size(*static_cast<const type*>(storage));
+        },
+        [](const void* storage, meta_associative_raw_visitor visitor, void* user_data) -> bool {
+          if (storage == nullptr || visitor == nullptr) {
+            return false;
+          }
+
+          bool keep_going = true;
+          associative_traits<type>::for_each(*static_cast<const type*>(storage),
+                                             [&](const key_type& key, const mapped_type& mapped) {
+                                               if (!keep_going) {
+                                                 return;
+                                               }
+
+                                               keep_going = visitor(&key, &mapped, user_data);
+                                             });
+
+          return keep_going;
+        },
+        [](void* storage) noexcept {
+          if (storage != nullptr) {
+            associative_traits<type>::clear(*static_cast<type*>(storage));
+          }
+        },
+        [](void* storage, const void* key, const void* mapped) -> bool {
+          if (storage == nullptr || key == nullptr || mapped == nullptr) {
+            return false;
+          }
+
+          return associative_traits<type>::insert(*static_cast<type*>(storage),
+                                                  *static_cast<const key_type*>(key),
+                                                  *static_cast<const mapped_type*>(mapped));
+        },
+    };
+
+    const error result = get_meta_registry().emplace<meta_associative_data>(id, data);
+    if (result && result.value() != errc::duplicate_component) {
+      return result;
+    }
+  }
+
+  return {};
+}
+
+template <typename T> [[nodiscard]] error register_sequence_data_for(type_id id) {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (sequence_traits<type>::is_sequence) {
+    using element_type = typename sequence_traits<type>::element_type;
+
+    const type_id element = semantic_type_id<element_type>();
+    if (!id || !element) {
+      return {};
+    }
+
+    meta_sequence_data data{
+        element,
+        [](const void* storage) noexcept -> std::size_t {
+          if (storage == nullptr) {
+            return 0;
+          }
+
+          return sequence_traits<type>::size(*static_cast<const type*>(storage));
+        },
+        [](const void* storage, std::size_t index) noexcept -> const void* {
+          if (storage == nullptr) {
+            return nullptr;
+          }
+
+          return sequence_traits<type>::element(*static_cast<const type*>(storage), index);
+        },
+        [](void* storage, std::size_t index) noexcept -> void* {
+          if (storage == nullptr) {
+            return nullptr;
+          }
+
+          return sequence_traits<type>::mutable_element(*static_cast<type*>(storage), index);
+        },
+        [](void* storage) noexcept {
+          if (storage != nullptr) {
+            sequence_traits<type>::clear(*static_cast<type*>(storage));
+          }
+        },
+        [](void* storage, std::size_t size) -> bool {
+          if (storage == nullptr) {
+            return false;
+          }
+
+          return sequence_traits<type>::resize(*static_cast<type*>(storage), size);
+        },
+        [](void* storage, const void* element) -> bool {
+          if (storage == nullptr || element == nullptr) {
+            return false;
+          }
+
+          return sequence_traits<type>::append(*static_cast<type*>(storage),
+                                               *static_cast<const element_type*>(element));
+        },
+    };
+
+    const error result = get_meta_registry().emplace<meta_sequence_data>(id, data);
+    if (result && result.value() != errc::duplicate_component) {
+      return result;
+    }
+  }
+
+  return {};
+}
+
+template <typename T> [[nodiscard]] error register_set_data_for(type_id id) {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (set_traits<type>::is_set) {
+    using element_type = typename set_traits<type>::element_type;
+
+    const type_id element = semantic_type_id<element_type>();
+    if (!id || !element) {
+      return {};
+    }
+
+    meta_set_data data{
+        element,
+        [](const void* storage) noexcept -> std::size_t {
+          if (storage == nullptr) {
+            return 0;
+          }
+
+          return set_traits<type>::size(*static_cast<const type*>(storage));
+        },
+        [](const void* storage, meta_set_raw_visitor visitor, void* user_data) -> bool {
+          if (storage == nullptr || visitor == nullptr) {
+            return false;
+          }
+
+          bool keep_going = true;
+          set_traits<type>::for_each(*static_cast<const type*>(storage),
+                                     [&](const element_type& value) {
+                                       if (!keep_going) {
+                                         return;
+                                       }
+
+                                       keep_going = visitor(&value, user_data);
+                                     });
+
+          return keep_going;
+        },
+        [](void* storage) noexcept {
+          if (storage != nullptr) {
+            set_traits<type>::clear(*static_cast<type*>(storage));
+          }
+        },
+        [](void* storage, const void* element) -> bool {
+          if (storage == nullptr || element == nullptr) {
+            return false;
+          }
+
+          return set_traits<type>::insert(*static_cast<type*>(storage),
+                                          *static_cast<const element_type*>(element));
+        },
+    };
+
+    const error result = get_meta_registry().emplace<meta_set_data>(id, data);
+    if (result && result.value() != errc::duplicate_component) {
+      return result;
+    }
+  }
+
+  return {};
+}
+
+template <typename T> [[nodiscard]] error register_container_data_for(type_id id) {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (sequence_traits<type>::is_sequence) {
+    return register_sequence_data_for<type>(id);
+  } else if constexpr (set_traits<type>::is_set) {
+    return register_set_data_for<type>(id);
+  } else if constexpr (associative_traits<type>::is_associative) {
+    return register_associative_data_for<type>(id);
+  }
+
+  return {};
 }
 
 template <typename Type> struct type_semantics_traits {
