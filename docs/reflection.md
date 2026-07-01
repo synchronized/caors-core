@@ -244,11 +244,11 @@ int source = 42;
 id->try_set_value(&instance, caors::any::from(source));
 ```
 
-如果只需要访问字段本体，或者字段不可拷贝，可以使用 `get_ref()` / `get_mutable_ref()` 获取
-运行期引用：
+如果只需要访问字段本体，或者字段不可拷贝，可以使用 `get_ref()` 获取运行期引用。传入
+`const void*` 时返回只读引用，传入 `void*` 时返回可写引用：
 
 ```cpp
-caors::any_ref ref = id->get_mutable_ref(&instance);
+caors::any_ref ref = id->get_ref(&instance);
 
 if (int* current = ref.try_get_mutable<int>()) {
   *current = 7;
@@ -258,7 +258,7 @@ ref.try_set(9);
 ```
 
 `any_ref` 不拥有对象，也不会延长字段所属对象生命周期。调用方必须保证原对象在引用使用期间仍然存活。
-`get_ref()` 始终返回只读引用；`get_mutable_ref()` 只会在字段可写且传入对象非空时返回可写引用。
+`get_ref(const void*)` 始终返回只读引用；`get_ref(void*)` 只会在字段可写且传入对象非空时返回可写引用。
 
 ### any
 
@@ -274,6 +274,9 @@ ref.try_set(9);
 - `try_get_mutable<T>()`：获取可写指针。
 - `try_set<T>()`：从同类型 C++ 值写入当前 `any`。
 - `try_set(any)`：从同类型运行期值写入当前 `any`。
+- `create_sequence_view()`：如果当前值的类型挂载了顺序容器 metadata，则创建顺序容器视图。
+- `create_set_view()`：如果当前值的类型挂载了集合容器 metadata，则创建集合容器视图。
+- `create_associative_view()`：如果当前值的类型挂载了关联容器 metadata，则创建可写或只读关联容器视图。
 
 第一版 `any` 只支持可拷贝类型；不可拷贝字段调用 `get_value()` 会返回无效 `any`。
 
@@ -291,6 +294,9 @@ ref.try_set(9);
 - `try_get<T>()`：获取只读指针。
 - `try_get_mutable<T>()`：获取可写指针；只读引用会返回 `nullptr`。
 - `try_set<T>()` / `try_set(any)` / `try_set(any_ref)`：从同类型值或引用写入当前引用指向的对象。
+- `create_sequence_view()`：如果当前引用的类型挂载了顺序容器 metadata，则创建顺序容器视图。
+- `create_set_view()`：如果当前引用的类型挂载了集合容器 metadata，则创建集合容器视图。
+- `create_associative_view()`：如果当前引用的类型挂载了关联容器 metadata，则创建关联容器视图。
 
 ### reflection_type_data
 
@@ -349,12 +355,47 @@ field->try_set<float>(&instance, 75.0F);
 - `offset()` / `size()` / `alignment()` / `writable()`：查询字段布局和可写性。
 - `try_get<T>()` / `try_set<T>()`：按静态类型读写字段。
 - `get_value()` / `try_set_value()`：按运行期 `any` 读写字段。
-- `get_ref()` / `get_mutable_ref()`：按运行期 `any_ref` 引用字段。
-- `is_sequence()` / `sequence_size()` / `sequence_element_ref()` /
-  `sequence_element_mutable_ref()`：查询和访问顺序容器字段。
+- `get_ref(const void*)` / `get_ref(void*)`：按运行期 `any_ref` 引用字段，权限由对象指针的 constness 决定。
+- `is_sequence()`：判断字段是否是顺序容器字段。
 - `is_set()`：判断字段是否是集合容器字段。
 - `is_associative()`：判断字段是否是关联容器字段。
-- `sequence_clear()` / `sequence_resize()` / `sequence_append_value()`：通过 `sequence_traits` 修改顺序容器字段。
+
+`sequence_view` 当前提供：
+
+- `valid()` / `writable()`：判断视图有效性和是否允许修改。
+- `element_type()` / `element_type_name()`：查询元素类型信息。
+- `size()` / `element_ref()`：查询和访问顺序容器元素。可写视图返回的元素引用也可写。
+- `clear()` / `resize()` / `append_value()`：通过 `sequence_traits` 修改顺序容器。只有可写视图允许修改。
+
+`set_view` 当前提供：
+
+- `valid()` / `writable()`：判断视图有效性和是否允许修改。
+- `element_type()` / `element_type_name()`：查询元素类型信息。
+- `size()` / `for_each_ref()`：查询和遍历集合。集合元素按 key 语义暴露为只读 `any_ref`。
+- `clear()` / `insert_value()`：通过 `set_traits` 修改集合。只有可写视图允许修改。
+
+`associative_view` 当前提供：
+
+- `valid()` / `writable()`：判断视图有效性和是否允许修改。
+- `key_type()` / `key_type_name()` / `mapped_type()` / `mapped_type_name()`：查询 key/value 类型信息。
+- `size()` / `for_each_ref()`：查询和遍历关联容器。遍历返回的 key/value 是只读 `any_ref`。
+- `clear()` / `insert_value()`：通过 `associative_traits` 修改关联容器。只有可写视图允许修改；插入时
+  key 和 value 必须与类型级关联容器 metadata 记录的 C++ 类型、大小和对齐一致。
+
+容器视图不要求值一定来自反射字段。反射字段场景可以先通过 `get_ref()` 创建 `any_ref`，
+再调用对应的 `create_*_view()`；普通 `any` / `any_ref` 也可以直接创建容器视图：
+
+```cpp
+caors::sequence_view field_sequence =
+    field->get_ref(&instance).create_sequence_view();
+caors::associative_view field_map =
+    field->get_ref(&instance).create_associative_view();
+
+caors::hash_map<int, int> values;
+caors::any_ref ref = caors::any_ref::from(values, "caors.hash_map<int,int>");
+caors::associative_view map = ref.create_associative_view();
+map.insert_value(caors::any::from(1), caors::any::from(2));
+```
 
 ### 全局注册表
 

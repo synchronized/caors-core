@@ -227,13 +227,13 @@ any_ref reflection_field::get_ref(const void* object) const {
   return field->get_ref(object);
 }
 
-any_ref reflection_field::get_mutable_ref(void* object) const {
+any_ref reflection_field::get_ref(void* object) const {
   const reflection_field_data* field = info();
   if (field == nullptr) {
     return {};
   }
 
-  return field->get_mutable_ref(object);
+  return field->get_ref(object);
 }
 
 bool reflection_field::try_set_value(void* object, const any& source) const {
@@ -276,85 +276,6 @@ bool reflection_field::is_set() const noexcept {
 bool reflection_field::is_associative() const noexcept {
   const reflection_field_data* field = info();
   return field != nullptr && field->kind == field_kind::associative;
-}
-
-std::optional<std::size_t> reflection_field::sequence_size(const void* object) const {
-  const reflection_field_data* field = info();
-  if (field == nullptr || field->sequence_size == nullptr || field->kind != field_kind::sequence) {
-    return std::nullopt;
-  }
-
-  const void* storage = field->data(object);
-  if (storage == nullptr) {
-    return std::nullopt;
-  }
-
-  return field->sequence_size(storage);
-}
-
-any_ref reflection_field::sequence_element_ref(const void* object, std::size_t index) const {
-  const reflection_field_data* field = info();
-  if (field == nullptr) {
-    return {};
-  }
-
-  return field->get_sequence_element_ref(object, index);
-}
-
-any_ref reflection_field::sequence_element_mutable_ref(void* object, std::size_t index) const {
-  const reflection_field_data* field = info();
-  if (field == nullptr) {
-    return {};
-  }
-
-  return field->get_sequence_element_mutable_ref(object, index);
-}
-
-bool reflection_field::sequence_clear(void* object) const {
-  const reflection_field_data* field = info();
-  if (field == nullptr || field->kind != field_kind::sequence || field->sequence_clear == nullptr) {
-    return false;
-  }
-
-  void* storage = field->mutable_data(object);
-  if (storage == nullptr) {
-    return false;
-  }
-
-  field->sequence_clear(storage);
-  return true;
-}
-
-bool reflection_field::sequence_resize(void* object, std::size_t size) const {
-  const reflection_field_data* field = info();
-  if (field == nullptr || field->kind != field_kind::sequence ||
-      field->sequence_resize == nullptr) {
-    return false;
-  }
-
-  void* storage = field->mutable_data(object);
-  if (storage == nullptr) {
-    return false;
-  }
-
-  return field->sequence_resize(storage, size);
-}
-
-bool reflection_field::sequence_append_value(void* object, const any& value) const {
-  const reflection_field_data* field = info();
-  if (field == nullptr || field->kind != field_kind::sequence ||
-      field->sequence_append == nullptr || !value.valid() ||
-      value.cpp_type() != field->element_cpp_type || value.size() != field->element_size ||
-      value.alignment() != field->element_alignment) {
-    return false;
-  }
-
-  void* storage = field->mutable_data(object);
-  if (storage == nullptr) {
-    return false;
-  }
-
-  return field->sequence_append(storage, value.data());
 }
 
 reflection_type::reflection_type(meta_type type, const reflection_type_data* data) noexcept

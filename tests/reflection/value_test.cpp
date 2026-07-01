@@ -149,7 +149,8 @@ TEST_CASE("reflection any - noncopyable fields return invalid values", "[reflect
   caors::any copied = field.get_value(&holder);
   CHECK_FALSE(copied.valid());
 
-  caors::any_ref referenced = field.get_ref(&holder);
+  const move_only_value& readonly_holder = holder;
+  caors::any_ref referenced = field.get_ref(&readonly_holder);
   CHECK(referenced.valid());
   CHECK_FALSE(referenced.writable());
   const std::unique_ptr<int>* stored = referenced.try_get<std::unique_ptr<int>>();
@@ -157,7 +158,7 @@ TEST_CASE("reflection any - noncopyable fields return invalid values", "[reflect
   REQUIRE(*stored);
   CHECK(**stored == 7);
 
-  caors::any_ref writable = field.get_mutable_ref(&holder);
+  caors::any_ref writable = field.get_ref(&holder);
   CHECK(writable.valid());
   CHECK(writable.writable());
   std::unique_ptr<int>* writable_stored = writable.try_get_mutable<std::unique_ptr<int>>();
@@ -172,7 +173,7 @@ TEST_CASE("reflection any - noncopyable fields return invalid values", "[reflect
   int numeric = 15;
   const caors::reflection_field_data numeric_field =
       caors::make_reflection_field_data<int>("numeric", "int", 0);
-  caors::any_ref numeric_ref = numeric_field.get_mutable_ref(&numeric);
+  caors::any_ref numeric_ref = numeric_field.get_ref(&numeric);
   CHECK(numeric_ref.try_set(21));
   CHECK(numeric == 21);
 }

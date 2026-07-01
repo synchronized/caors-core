@@ -16,6 +16,7 @@
 namespace caors {
 
 class reflection_registry;
+class reflection_field;
 
 /**
  * @brief 字段反射只读视图。
@@ -56,7 +57,7 @@ public:
   [[nodiscard]] any_ref get_ref(const void* object) const;
 
   /** @brief 获取字段值的可写运行期引用。 */
-  [[nodiscard]] any_ref get_mutable_ref(void* object) const;
+  [[nodiscard]] any_ref get_ref(void* object) const;
 
   /** @brief 从运行期值写入字段。 */
   bool try_set_value(void* object, const any& source) const;
@@ -75,24 +76,6 @@ public:
 
   /** @brief 判断字段是否是关联容器。 */
   [[nodiscard]] bool is_associative() const noexcept;
-
-  /** @brief 获取顺序容器字段元素数量。 */
-  [[nodiscard]] std::optional<std::size_t> sequence_size(const void* object) const;
-
-  /** @brief 获取顺序容器字段元素只读引用。 */
-  [[nodiscard]] any_ref sequence_element_ref(const void* object, std::size_t index) const;
-
-  /** @brief 获取顺序容器字段元素可写引用。 */
-  [[nodiscard]] any_ref sequence_element_mutable_ref(void* object, std::size_t index) const;
-
-  /** @brief 清空顺序容器字段。 */
-  bool sequence_clear(void* object) const;
-
-  /** @brief 调整顺序容器字段大小。 */
-  bool sequence_resize(void* object, std::size_t size) const;
-
-  /** @brief 向顺序容器字段追加一个元素。 */
-  bool sequence_append_value(void* object, const any& value) const;
 
   /** @brief 按指定类型读取字段值。 */
   template <typename Field>

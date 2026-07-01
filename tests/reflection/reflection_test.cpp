@@ -173,6 +173,11 @@ struct hash_map_holder {
   caors::hash_map<int, int> values{};
 };
 
+struct hash_map_ops_holder {
+  int prefix = 0;
+  caors::hash_map<int, int> values{};
+};
+
 struct hash_set_holder {
   caors::hash_set<int> values{};
 };
@@ -310,12 +315,6 @@ TEST_CASE("reflection - field info describes field type traits", "[reflection]")
   CHECK(sequence.element_type == registered_type_id("int"));
   CHECK(sequence.element_size == sizeof(int));
   CHECK(sequence.element_alignment == alignof(int));
-  CHECK(sequence.sequence_size != nullptr);
-  CHECK(sequence.sequence_const_element != nullptr);
-  CHECK(sequence.sequence_mutable_element != nullptr);
-  CHECK(sequence.sequence_clear != nullptr);
-  CHECK(sequence.sequence_resize != nullptr);
-  CHECK(sequence.sequence_append != nullptr);
 }
 
 TEST_CASE("reflection - field info reads and writes field values", "[reflection]") {
@@ -464,30 +463,44 @@ TEST_CASE("reflection - sequence field view exposes element metadata", "[reflect
   instance.values.push_back(3);
   instance.values.push_back(5);
 
-  const std::optional<std::size_t> size = values->sequence_size(&instance);
+  caors::sequence_view sequence = values->get_ref(&instance).create_sequence_view();
+  CHECK(sequence.valid());
+  CHECK(sequence.writable());
+  CHECK(sequence.element_type() == registered_type_id("int"));
+  CHECK(sequence.element_type_name() == "int");
+
+  const std::optional<std::size_t> size = sequence.size();
   REQUIRE(size.has_value());
   CHECK(*size == 2);
 
-  caors::any_ref first = values->sequence_element_ref(&instance, 0);
+  const vector_holder& readonly_instance = instance;
+  caors::sequence_view readonly_sequence =
+      values->get_ref(&readonly_instance).create_sequence_view();
+  CHECK(readonly_sequence.valid());
+  CHECK_FALSE(readonly_sequence.writable());
+
+  caors::any_ref first = readonly_sequence.element_ref(0);
   REQUIRE(first.valid());
+  CHECK_FALSE(first.writable());
   const int* first_value = first.try_get<int>();
   REQUIRE(first_value != nullptr);
   CHECK(*first_value == 3);
 
-  caors::any_ref second = values->sequence_element_mutable_ref(&instance, 1);
+  caors::any_ref second = sequence.element_ref(1);
   REQUIRE(second.valid());
+  CHECK(second.writable());
   CHECK(second.try_set<int>(8));
   CHECK(instance.values[1] == 8);
 
-  CHECK(values->sequence_append_value(&instance, caors::any::from(13)));
+  CHECK(sequence.append_value(caors::any::from(13)));
   REQUIRE(instance.values.size() == 3);
   CHECK(instance.values[2] == 13);
 
-  CHECK(values->sequence_resize(&instance, 4));
+  CHECK(sequence.resize(4));
   REQUIRE(instance.values.size() == 4);
   CHECK(instance.values[3] == 0);
 
-  CHECK(values->sequence_clear(&instance));
+  CHECK(sequence.clear());
   CHECK(instance.values.empty());
 }
 
@@ -509,22 +522,23 @@ TEST_CASE("reflection - custom sequence traits expose field view", "[reflection]
   CHECK(values->element_type_name() == "int");
 
   custom_sequence_holder instance{};
-  CHECK(values->sequence_append_value(&instance, caors::any::from(21)));
-  CHECK(values->sequence_append_value(&instance, caors::any::from(34)));
+  caors::sequence_view sequence = values->get_ref(&instance).create_sequence_view();
+  CHECK(sequence.append_value(caors::any::from(21)));
+  CHECK(sequence.append_value(caors::any::from(34)));
 
-  const std::optional<std::size_t> size = values->sequence_size(&instance);
+  const std::optional<std::size_t> size = sequence.size();
   REQUIRE(size.has_value());
   CHECK(*size == 2);
 
-  caors::any_ref first = values->sequence_element_ref(&instance, 0);
+  caors::any_ref first = sequence.element_ref(0);
   REQUIRE(first.valid());
   const int* first_value = first.try_get<int>();
   REQUIRE(first_value != nullptr);
   CHECK(*first_value == 21);
 
-  CHECK(values->sequence_resize(&instance, 1));
+  CHECK(sequence.resize(1));
   CHECK(instance.values.values.size() == 1);
-  CHECK(values->sequence_clear(&instance));
+  CHECK(sequence.clear());
   CHECK(instance.values.values.empty());
 }
 
@@ -548,6 +562,131 @@ TEST_CASE("reflection - associative field view exposes key and value metadata", 
   CHECK(values->mapped_type_name() == "int");
 }
 
+TEST_CASE("reflection - associative field view supports dynamic operations", "[reflection]") {
+  REQUIRE(
+      caors::reflection::class_<hash_map_ops_holder>("caors.test.reflection.hash_map_ops_holder")
+          .field("values", &hash_map_ops_holder::values)
+          .commit()
+          .succeeded());
+
+  auto reflected = caors::find_reflection("caors.test.reflection.hash_map_ops_holder");
+  REQUIRE(reflected.has_value());
+
+  auto values = reflected->find_field("values");
+  REQUIRE(values.has_value());
+
+  hash_map_ops_holder instance{};
+  caors::associative_view map = values->get_ref(&instance).create_associative_view();
+  CHECK(map.valid());
+  CHECK(map.writable());
+  CHECK(map.key_type() == registered_type_id("int"));
+  CHECK(map.key_type_name() == "int");
+  CHECK(map.mapped_type() == registered_type_id("int"));
+  CHECK(map.mapped_type_name() == "int");
+
+  CHECK(map.insert_value(caors::any::from(7), caors::any::from(70)));
+  CHECK_FALSE(map.insert_value(caors::any::from(7), caors::any::from(700)));
+  CHECK_FALSE(map.insert_value(caors::any::from(8.0F), caors::any::from(80)));
+
+  const std::optional<std::size_t> size = map.size();
+  REQUIRE(size.has_value());
+  CHECK(*size == 1);
+
+  const hash_map_ops_holder& readonly_instance = instance;
+  caors::associative_view readonly_map =
+      values->get_ref(&readonly_instance).create_associative_view();
+  CHECK(readonly_map.valid());
+  CHECK_FALSE(readonly_map.writable());
+  CHECK_FALSE(readonly_map.insert_value(caors::any::from(8), caors::any::from(80)));
+  CHECK_FALSE(readonly_map.clear());
+
+  struct visit_state {
+    int key = 0;
+    int mapped = 0;
+    int count = 0;
+  };
+
+  visit_state state{};
+  CHECK(readonly_map.for_each_ref(
+      [](caors::any_ref key, caors::any_ref mapped, void* user_data) {
+        auto* state = static_cast<visit_state*>(user_data);
+        const int* key_value = key.try_get<int>();
+        const int* mapped_value = mapped.try_get<int>();
+        if (key_value == nullptr || mapped_value == nullptr) {
+          return false;
+        }
+
+        state->key = *key_value;
+        state->mapped = *mapped_value;
+        ++state->count;
+        return true;
+      },
+      &state));
+
+  CHECK(state.count == 1);
+  CHECK(state.key == 7);
+  CHECK(state.mapped == 70);
+
+  CHECK(map.clear());
+  const std::optional<std::size_t> empty_size = map.size();
+  REQUIRE(empty_size.has_value());
+  CHECK(*empty_size == 0);
+  CHECK(instance.values.empty());
+}
+
+TEST_CASE("reflection - container views can be created from any_ref", "[reflection]") {
+  caors::vector<int> scores{};
+  caors::any_ref scores_ref = caors::any_ref::from(scores, "caors.vector<int>");
+  REQUIRE(scores_ref.valid());
+
+  caors::sequence_view sequence = scores_ref.create_sequence_view();
+  CHECK(sequence.valid());
+  CHECK(sequence.writable());
+  CHECK(sequence.append_value(caors::any::from(10)));
+  CHECK(sequence.append_value(caors::any::from(20)));
+  CHECK(scores.size() == 2);
+  caors::any_ref second_score = sequence.element_ref(1);
+  REQUIRE(second_score.valid());
+  CHECK(second_score.try_set(25));
+  CHECK(scores[1] == 25);
+
+  caors::hash_set<int> ids{};
+  caors::any_ref ids_ref = caors::any_ref::from(ids, "caors.hash_set<int>");
+  REQUIRE(ids_ref.valid());
+
+  caors::set_view set = ids_ref.create_set_view();
+  CHECK(set.valid());
+  CHECK(set.writable());
+  CHECK(set.insert_value(caors::any::from(3)));
+  CHECK(ids.contains(3));
+
+  caors::hash_map<int, int> values{};
+  caors::any_ref ref = caors::any_ref::from(values, "caors.hash_map<int,int>");
+  REQUIRE(ref.valid());
+
+  caors::associative_view map = ref.create_associative_view();
+  CHECK(map.valid());
+  CHECK(map.writable());
+  CHECK(map.insert_value(caors::any::from(3), caors::any::from(30)));
+  CHECK(values.at(3) == 30);
+
+  const caors::any_ref readonly_ref = caors::any_ref::from_const(values, "caors.hash_map<int,int>");
+  caors::associative_view readonly_map = readonly_ref.create_associative_view();
+  CHECK(readonly_map.valid());
+  CHECK_FALSE(readonly_map.writable());
+  CHECK_FALSE(readonly_map.insert_value(caors::any::from(4), caors::any::from(40)));
+
+  caors::any copied = caors::any::from(values, "caors.hash_map<int,int>");
+  caors::associative_view copied_map = copied.create_associative_view();
+  CHECK(copied_map.valid());
+  CHECK(copied_map.writable());
+  CHECK(copied_map.insert_value(caors::any::from(5), caors::any::from(50)));
+
+  const std::optional<std::size_t> copied_size = copied_map.size();
+  REQUIRE(copied_size.has_value());
+  CHECK(*copied_size == 2);
+}
+
 TEST_CASE("reflection - set field view exposes element metadata", "[reflection]") {
   REQUIRE(caors::reflection::class_<hash_set_holder>("caors.test.reflection.hash_set_holder")
               .field("values", &hash_set_holder::values)
@@ -564,6 +703,45 @@ TEST_CASE("reflection - set field view exposes element metadata", "[reflection]"
   CHECK(values->type_name() == "caors.hash_set<int>");
   CHECK(values->element_type() == registered_type_id("int"));
   CHECK(values->element_type_name() == "int");
+
+  hash_set_holder instance{};
+  caors::set_view set = values->get_ref(&instance).create_set_view();
+  CHECK(set.valid());
+  CHECK(set.writable());
+  CHECK(set.element_type() == registered_type_id("int"));
+  CHECK(set.element_type_name() == "int");
+  CHECK(set.insert_value(caors::any::from(11)));
+  CHECK_FALSE(set.insert_value(caors::any::from(11)));
+  CHECK_FALSE(set.insert_value(caors::any::from(2.0F)));
+
+  const std::optional<std::size_t> size = set.size();
+  REQUIRE(size.has_value());
+  CHECK(*size == 1);
+
+  const hash_set_holder& readonly_instance = instance;
+  caors::set_view readonly_set = values->get_ref(&readonly_instance).create_set_view();
+  CHECK(readonly_set.valid());
+  CHECK_FALSE(readonly_set.writable());
+  CHECK_FALSE(readonly_set.insert_value(caors::any::from(12)));
+  CHECK_FALSE(readonly_set.clear());
+
+  int visited = 0;
+  CHECK(readonly_set.for_each_ref(
+      [](caors::any_ref element, void* user_data) {
+        auto* visited = static_cast<int*>(user_data);
+        const int* value = element.try_get<int>();
+        if (value == nullptr) {
+          return false;
+        }
+
+        *visited = *value;
+        return true;
+      },
+      &visited));
+  CHECK(visited == 11);
+
+  CHECK(set.clear());
+  CHECK(instance.values.empty());
 }
 
 TEST_CASE("reflection - views remain valid for append-only registry", "[reflection]") {

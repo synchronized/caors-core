@@ -429,7 +429,7 @@ error read_field(serialization_reader& reader, const reflection_field& field, vo
 
   const std::optional<reflection_type> nested_type = find_reflection(field.type());
   if (nested_type.has_value() && get_serialization_registry().contains(field.type())) {
-    any_ref field_ref = field.get_mutable_ref(object);
+    any_ref field_ref = field.get_ref(object);
     if (!field_ref.valid() || field_ref.mutable_data() == nullptr) {
       return {error_domain::serialization, errc::invalid_field};
     }
