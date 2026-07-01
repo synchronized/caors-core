@@ -70,13 +70,13 @@ caors::reflection::class_<actor>("game.actor")
 - 如果字段类型已经通过模板注册函数注册到全局反射注册表，优先复用该类型的 `meta_type`。
 - 如果字段类型没有注册，但存在 `type_name<T>` 默认映射，则使用默认类型名注册为基础类型，并使用注册表分配的 `type_id`。
 - 如果字段类型满足 `sequence_traits<T>::is_sequence`，反射 builder 会根据 traits 的类型名前缀和元素类型名生成
-  容器类型名，并把元素类型信息挂到对应的 `meta_type_semantics_data` 上。内置特化支持 `caors::vector<T>` 和
+  容器类型名。字段类型注册到 meta 时会同步挂载元素类型语义。内置特化支持 `caors::vector<T>` 和
   `std::vector<T, Allocator>`。
 - 如果字段类型满足 `set_traits<T>::is_set`，反射 builder 会根据 traits 的类型名前缀和元素类型名生成
-  容器类型名，并把元素类型信息挂到对应的 `meta_type_semantics_data` 上。内置特化支持 `caors::hash_set<T>` 和
+  容器类型名。字段类型注册到 meta 时会同步挂载元素类型语义。内置特化支持 `caors::hash_set<T>` 和
   `std::unordered_set<T, ...>`。
 - 如果字段类型满足 `associative_traits<T>::is_associative`，反射 builder 会根据 traits 的类型名前缀、
-  key 类型名和 value 类型名生成容器类型名，并把 key/value 类型信息挂到对应的 `meta_type_semantics_data` 上。内置特化支持
+  key 类型名和 value 类型名生成容器类型名。字段类型注册到 meta 时会同步挂载 key/value 类型语义。内置特化支持
   `caors::hash_map<K, V>` 和 `std::unordered_map<K, V, ...>`。
 - 如果两者都没有，`.commit()` 返回 `invalid_field`。
 - 字段类型语义最多支持一层裸指针或 wrapper；`T**`、`std::unique_ptr<T*>`、
@@ -483,8 +483,7 @@ auto reflected = caors::find_reflection("game.actor");
 
 - 公共头文件按职责拆分在 `include/caors/reflection/`：
   - `value.h`：历史入口，转发到 `include/caors/value/any.h`。
-  - `wrapper.h`：wrapper traits 和 wrapper 语义。
-  - `container_traits.h`：容器反射 traits 主模板。
+  - `wrapper.h`：`object_ref<T>` 的 wrapper 语义适配。
   - `stl_traits.h`：`std::vector`、`std::unordered_map` 以及 CAORS 容器别名的默认 traits 特化。
   - `field.h`：字段元信息和字段访问。
   - `type.h`：类型反射描述。
@@ -492,6 +491,7 @@ auto reflected = caors::find_reflection("game.actor");
   - `registry.h`：全局反射注册表和注册查询函数。
   - `builder.h`：RTTR 风格链式注册入口。
 - `include/caors/reflection.h` 是 umbrella 头，继续提供完整反射 API。
+- `include/caors/meta/wrapper.h` 和 `include/caors/meta/container_traits.h` 提供 wrapper / 容器类型语义扩展点。
 - `include/caors/adapters/stl.h` 是 STL/CAORS 容器反射和序列化适配的聚合入口。
 - `include/caors/value.h` 是 value 模块 umbrella 头，提供 `any` 和 `variant`。
 - 可运行示例位于 `examples/reflection/`，示例组织规则见 [examples/README.md](../examples/README.md)。

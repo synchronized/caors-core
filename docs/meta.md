@@ -34,6 +34,8 @@
 - `caors/meta/type_name.h`：`type_name<T>` 默认类型名映射。
 - `caors/meta/type_key.h`：内部 C++ 类型 key。
 - `caors/meta/type.h`：`meta_type_data`、`meta_type` 和 `make_meta_type_data<T>()`。
+- `caors/meta/wrapper.h`：wrapper 类型语义 traits 和内部值访问适配。
+- `caors/meta/container_traits.h`：顺序、集合和关联容器类型语义 traits 主模板。
 - `caors/meta/view.h`：`meta_view<T...>` 查询视图。
 - `caors/meta/registry.h`：全局 `meta_registry`、注册错误状态和注册 helper。
 
@@ -161,6 +163,8 @@ caors::meta<actor>()
 
 这部分数据不放在 `reflection_field_data` 上重复保存。字段只记录声明类型的 `type_id`，需要查询字段形态、
 元素类型或 key/value 类型时，通过该 `type_id` 到 `meta_registry` 查询 `meta_type_semantics_data`。
+`meta_type_semantics_data` 由 `meta_registry::register_type_for<T>()` 和 `ensure_type_for<T>()`
+在基础类型注册或匿名类型创建时自动挂载；反射字段注册只负责确保字段声明类型已经注册。
 
 ### meta_registry
 
@@ -241,6 +245,8 @@ caors::get_meta_registry().emplace<object_factory_meta>(actor_id, true);
 - `type_name<T>`：基础 C++ 类型到 CAORS 类型名的默认映射。
 - `meta_type_data` / `make_meta_type_data<T>()`：底层类型注册描述。
 - `meta_type_semantics_data`：类型形态、wrapper、指针和容器语义组件。
+- `wrapper_traits<T>` / `wrapper_access<T>`：wrapper 类型语义和内部值访问扩展点。
+- `sequence_traits<T>` / `set_traits<T>` / `associative_traits<T>`：容器类型语义扩展点。
 - `meta_type`：全局注册表中的类型只读视图。
 - `meta<T>()`：RTTR 风格的链式元类型注册入口。
 - `meta_registry`：全局基础类型注册、按 id/name/guid/C++ 类型查询、继承关系判断和组件式元数据挂载。

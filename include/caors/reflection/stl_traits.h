@@ -5,7 +5,7 @@
 #define CAORS_REFLECTION_STL_TRAITS_H_
 
 #include "caors/core/containers.h"
-#include "caors/reflection/container_traits.h"
+#include "caors/meta/container_traits.h"
 
 #include <iterator>
 #include <list>
