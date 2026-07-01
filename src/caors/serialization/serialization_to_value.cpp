@@ -38,21 +38,7 @@ object_ref_to_serialization_value(const reflection_field& field, const void* obj
 
 [[nodiscard]] variant_result
 value_ref_to_serialization_value(const any_ref& value, const serialization_context& context) {
-  if (!value.valid()) {
-    return {{error_domain::serialization, errc::unsupported}, {}};
-  }
-
-  const std::optional<reflection_type> nested_type = find_reflection(value.type());
-  if (nested_type.has_value() && get_serialization_registry().contains(value.type())) {
-    return to_serialization_value(*nested_type, value.data(), context);
-  }
-
-  any field_value = value.to_any();
-  if (!field_value.valid()) {
-    return {{error_domain::serialization, errc::unsupported}, {}};
-  }
-
-  return to_variant(field_value);
+  return detail::make_serialized_value(value, context);
 }
 
 [[nodiscard]] variant_result field_to_serialization_value(const reflection_field& field,
@@ -90,12 +76,7 @@ variant_result to_variant(const any_ref& data) {
     return {{error_domain::serialization, errc::invalid_argument}, {}};
   }
 
-  any copied = data.to_any();
-  if (!copied.valid()) {
-    return {{error_domain::serialization, errc::unsupported}, {}};
-  }
-
-  return to_variant(copied);
+  return detail::make_serialized_value(data, serialization_context{});
 }
 
 variant_result to_serialization_value(const reflection_type& type, const void* object) {

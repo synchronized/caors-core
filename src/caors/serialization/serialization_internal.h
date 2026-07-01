@@ -17,6 +17,8 @@ namespace caors::detail {
                                               serialization_format_features features);
 [[nodiscard]] bool try_write_serialized_value(serialization_writer& writer, const any& data);
 [[nodiscard]] variant_result make_serialized_value(const any& data);
+[[nodiscard]] variant_result make_serialized_value(const any_ref& value,
+                                                   const serialization_context& context);
 [[nodiscard]] error write_serialized_value(serialization_writer& writer, const any_ref& value,
                                            const serialization_context& context);
 [[nodiscard]] error read_serialized_value(serialization_reader& reader, const any_ref& target,

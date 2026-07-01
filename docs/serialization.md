@@ -199,9 +199,10 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `object_ref<T>` 
 
 ### serialization codec
 
-`serialization_codec_registry` 是类型级扩展点。调度层读写字段时会先按字段类型查询 codec；命中后
-由 codec 直接处理该字段，未命中时再回退到内置标量探测。这样 `guid`、`type_guid` 这类语义上是
-原子值的类型，不需要暴露内部字段结构。
+`serialization_codec_registry` 是类型级扩展点。调度层读写非容器普通值时会按类型查询 codec；命中后
+由 codec 直接处理该值，未命中时再回退到内置标量探测。这样 `guid`、`type_guid` 这类语义上是
+原子值的类型，不需要暴露内部字段结构。容器字段优先通过 meta 容器视图递归处理元素，因此元素也能继续
+复用 codec、反射、指针和 wrapper 规则。
 
 内置 codec：
 
@@ -219,11 +220,11 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `object_ref<T>` 
 因此既有代码不需要额外 include；如果只想显式引入 STL/CAORS 容器适配，也可以包含
 `caors/adapters/stl.h`。
 
-容器 codec 需要显式调用 `register_serialization_codec<T>()`。反射 builder 通过 `sequence_traits<T>`、
-`set_traits<T>` 或 `associative_traits<T>` 生成容器类型名并记录元素或 key/value 类型，因此不需要再手动注册容器类型名。
-序列化层通过 `sequence_serialization_codec<T>`、`set_serialization_codec<T>` 和
-`associative_serialization_codec<T>` 复用 traits
-描述的容器结构。自定义容器通常只需要特化 traits，再让自己的 `serialization_codec<T>` 继承通用 codec：
+反射字段中的容器不要求显式调用 `register_serialization_codec<T>()`；只要字段类型通过
+`sequence_traits<T>`、`set_traits<T>` 或 `associative_traits<T>` 注册了 meta 容器数据，序列化层就能按
+元素、key 和 value 递归处理。`sequence_serialization_codec<T>`、`set_serialization_codec<T>` 和
+`associative_serialization_codec<T>` 仍保留给显式 codec 注册、独立值转换和外部复用。自定义容器通常只需要
+特化 traits；如果还需要作为 codec 单独注册，可以让自己的 `serialization_codec<T>` 继承通用 codec：
 
 ```cpp
 namespace caors {

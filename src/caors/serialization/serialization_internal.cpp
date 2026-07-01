@@ -8,6 +8,7 @@
 #include <limits>
 #include <string>
 #include <string_view>
+#include <utility>
 
 namespace caors::detail {
 namespace {
@@ -112,6 +113,504 @@ template <typename T>
 [[nodiscard]] bool field_uses_direct_value(const reflection_field& field) noexcept {
   return field.kind() == type_kind::value || field.kind() == type_kind::sequence ||
          field.kind() == type_kind::set || field.kind() == type_kind::associative;
+}
+
+[[nodiscard]] const meta_type_semantics_data* type_semantics(type_id id) noexcept {
+  return get_meta_registry().find_ptr<meta_type_semantics_data>(id);
+}
+
+[[nodiscard]] bool type_uses_inline_indirect_value(type_id id) noexcept {
+  const meta_type_semantics_data* semantics = type_semantics(id);
+  return semantics != nullptr &&
+         (semantics->kind == type_kind::raw_pointer || semantics->kind == type_kind::wrapper) &&
+         semantics->wrapper_semantics == wrapper_semantics::inline_value;
+}
+
+[[nodiscard]] error write_sequence_value(serialization_writer& writer, const sequence_view& view,
+                                         const serialization_context& context) {
+  const std::optional<std::size_t> size = view.size();
+  if (!view.valid() || !size.has_value()) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  error status = writer.begin_array(*size);
+  if (status) {
+    return status;
+  }
+
+  for (std::size_t index = 0; index < *size; ++index) {
+    status = writer.begin_element(index);
+    if (status) {
+      return status;
+    }
+
+    any_ref element = view.element_ref(index);
+    if (!element.valid()) {
+      return {error_domain::serialization, errc::unsupported};
+    }
+
+    status = write_serialized_value(writer, element, context);
+    if (status) {
+      return status;
+    }
+
+    status = writer.end_element();
+    if (status) {
+      return status;
+    }
+  }
+
+  return writer.end_array();
+}
+
+[[nodiscard]] error write_set_value(serialization_writer& writer, const set_view& view,
+                                    const serialization_context& context) {
+  const std::optional<std::size_t> size = view.size();
+  if (!view.valid() || !size.has_value()) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  error status = writer.begin_array(*size);
+  if (status) {
+    return status;
+  }
+
+  struct visitor_context {
+    serialization_writer* writer = nullptr;
+    const serialization_context* context = nullptr;
+    std::size_t index = 0;
+    error status{};
+  } visitor{&writer, &context, 0, {}};
+
+  const bool completed = view.for_each_ref(
+      [](any_ref element, void* user_data) -> bool {
+        auto* visitor = static_cast<visitor_context*>(user_data);
+        visitor->status = visitor->writer->begin_element(visitor->index);
+        if (visitor->status) {
+          return false;
+        }
+
+        visitor->status = write_serialized_value(*visitor->writer, element, *visitor->context);
+        if (visitor->status) {
+          return false;
+        }
+
+        visitor->status = visitor->writer->end_element();
+        if (visitor->status) {
+          return false;
+        }
+
+        ++visitor->index;
+        return true;
+      },
+      &visitor);
+
+  if (!completed) {
+    return visitor.status ? visitor.status : error{error_domain::serialization, errc::unsupported};
+  }
+
+  return writer.end_array();
+}
+
+[[nodiscard]] error write_associative_value(serialization_writer& writer,
+                                            const associative_view& view,
+                                            const serialization_context& context) {
+  const std::optional<std::size_t> size = view.size();
+  if (!view.valid() || !size.has_value()) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  error status = writer.begin_dictionary(*size);
+  if (status) {
+    return status;
+  }
+
+  struct visitor_context {
+    serialization_writer* writer = nullptr;
+    const serialization_context* context = nullptr;
+    std::size_t index = 0;
+    error status{};
+  } visitor{&writer, &context, 0, {}};
+
+  const bool completed = view.for_each_ref(
+      [](any_ref key, any_ref value, void* user_data) -> bool {
+        auto* visitor = static_cast<visitor_context*>(user_data);
+        visitor->status = visitor->writer->begin_entry(visitor->index);
+        if (visitor->status) {
+          return false;
+        }
+
+        visitor->status = visitor->writer->begin_key();
+        if (visitor->status) {
+          return false;
+        }
+
+        visitor->status = write_serialized_value(*visitor->writer, key, *visitor->context);
+        if (visitor->status) {
+          return false;
+        }
+
+        visitor->status = visitor->writer->end_key();
+        if (visitor->status) {
+          return false;
+        }
+
+        visitor->status = visitor->writer->begin_value();
+        if (visitor->status) {
+          return false;
+        }
+
+        visitor->status = write_serialized_value(*visitor->writer, value, *visitor->context);
+        if (visitor->status) {
+          return false;
+        }
+
+        visitor->status = visitor->writer->end_value();
+        if (visitor->status) {
+          return false;
+        }
+
+        visitor->status = visitor->writer->end_entry();
+        if (visitor->status) {
+          return false;
+        }
+
+        ++visitor->index;
+        return true;
+      },
+      &visitor);
+
+  if (!completed) {
+    return visitor.status ? visitor.status : error{error_domain::serialization, errc::unsupported};
+  }
+
+  return writer.end_dictionary();
+}
+
+[[nodiscard]] error read_sequence_into_view(serialization_reader& reader, const sequence_view& view,
+                                            const serialization_context& context) {
+  if (!view.valid() || !view.writable()) {
+    return {error_domain::serialization, errc::invalid_field};
+  }
+
+  std::size_t size = 0;
+  error status = reader.begin_array(size);
+  if (status) {
+    return status;
+  }
+
+  if (!view.clear() || !view.resize(size)) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  for (std::size_t index = 0; index < size; ++index) {
+    status = reader.begin_element(index);
+    if (status) {
+      return status;
+    }
+
+    any_ref element = view.element_ref(index);
+    if (!element.valid() || !element.writable()) {
+      return {error_domain::serialization, errc::invalid_field};
+    }
+
+    status = read_serialized_value(reader, element, context);
+    if (status) {
+      return status;
+    }
+
+    status = reader.end_element();
+    if (status) {
+      return status;
+    }
+  }
+
+  return reader.end_array();
+}
+
+[[nodiscard]] error read_sequence_value(serialization_reader& reader, const any_ref& target,
+                                        const serialization_context& context) {
+  any decoded = any::default_construct(target.type());
+  if (!decoded.valid()) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  error status = read_sequence_into_view(reader, decoded.create_sequence_view(), context);
+  if (status) {
+    return status;
+  }
+
+  if (!target.try_set(decoded)) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  return {};
+}
+
+[[nodiscard]] error read_set_into_view(serialization_reader& reader, const set_view& view,
+                                       const serialization_context& context) {
+  if (!view.valid() || !view.writable()) {
+    return {error_domain::serialization, errc::invalid_field};
+  }
+
+  std::size_t size = 0;
+  error status = reader.begin_array(size);
+  if (status) {
+    return status;
+  }
+
+  if (!view.clear()) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  for (std::size_t index = 0; index < size; ++index) {
+    status = reader.begin_element(index);
+    if (status) {
+      return status;
+    }
+
+    any element = any::default_construct(view.value_type());
+    if (!element.valid()) {
+      return {error_domain::serialization, errc::unsupported};
+    }
+
+    status = read_serialized_value(reader, element.ref(), context);
+    if (status) {
+      return status;
+    }
+
+    if (!view.insert_value(element)) {
+      return {error_domain::serialization, errc::already_exists};
+    }
+
+    status = reader.end_element();
+    if (status) {
+      return status;
+    }
+  }
+
+  return reader.end_array();
+}
+
+[[nodiscard]] error read_set_value(serialization_reader& reader, const any_ref& target,
+                                   const serialization_context& context) {
+  any decoded = any::default_construct(target.type());
+  if (!decoded.valid()) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  error status = read_set_into_view(reader, decoded.create_set_view(), context);
+  if (status) {
+    return status;
+  }
+
+  if (!target.try_set(decoded)) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  return {};
+}
+
+[[nodiscard]] error read_associative_into_view(serialization_reader& reader,
+                                               const associative_view& view,
+                                               const serialization_context& context) {
+  if (!view.valid() || !view.writable()) {
+    return {error_domain::serialization, errc::invalid_field};
+  }
+
+  std::size_t size = 0;
+  error status = reader.begin_dictionary(size);
+  if (status) {
+    return status;
+  }
+
+  if (!view.clear()) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  for (std::size_t index = 0; index < size; ++index) {
+    status = reader.begin_entry(index);
+    if (status) {
+      return status;
+    }
+
+    any key = any::default_construct(view.key_type());
+    any value = any::default_construct(view.value_type());
+    if (!key.valid() || !value.valid()) {
+      return {error_domain::serialization, errc::unsupported};
+    }
+
+    status = reader.begin_key();
+    if (status) {
+      return status;
+    }
+
+    status = read_serialized_value(reader, key.ref(), context);
+    if (status) {
+      return status;
+    }
+
+    status = reader.end_key();
+    if (status) {
+      return status;
+    }
+
+    status = reader.begin_value();
+    if (status) {
+      return status;
+    }
+
+    status = read_serialized_value(reader, value.ref(), context);
+    if (status) {
+      return status;
+    }
+
+    status = reader.end_value();
+    if (status) {
+      return status;
+    }
+
+    if (!view.insert_value(key, value)) {
+      return {error_domain::serialization, errc::already_exists};
+    }
+
+    status = reader.end_entry();
+    if (status) {
+      return status;
+    }
+  }
+
+  return reader.end_dictionary();
+}
+
+[[nodiscard]] error read_associative_value(serialization_reader& reader, const any_ref& target,
+                                           const serialization_context& context) {
+  any decoded = any::default_construct(target.type());
+  if (!decoded.valid()) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  error status = read_associative_into_view(reader, decoded.create_associative_view(), context);
+  if (status) {
+    return status;
+  }
+
+  if (!target.try_set(decoded)) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  return {};
+}
+
+[[nodiscard]] variant_result make_sequence_value(const sequence_view& view,
+                                                 const serialization_context& context) {
+  const std::optional<std::size_t> size = view.size();
+  if (!view.valid() || !size.has_value()) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
+  }
+
+  variant::array_type elements;
+  elements.reserve(*size);
+  for (std::size_t index = 0; index < *size; ++index) {
+    any_ref element = view.element_ref(index);
+    if (!element.valid()) {
+      return {{error_domain::serialization, errc::unsupported}, {}};
+    }
+
+    variant_result encoded = make_serialized_value(element, context);
+    if (encoded.failed()) {
+      return encoded;
+    }
+
+    elements.push_back(std::move(encoded.value));
+  }
+
+  return {{}, variant::array(std::move(elements))};
+}
+
+[[nodiscard]] variant_result make_set_value(const set_view& view,
+                                            const serialization_context& context) {
+  const std::optional<std::size_t> size = view.size();
+  if (!view.valid() || !size.has_value()) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
+  }
+
+  variant::array_type elements;
+  elements.reserve(*size);
+
+  struct visitor_context {
+    variant::array_type* elements = nullptr;
+    const serialization_context* context = nullptr;
+    variant_result result{};
+  } visitor{&elements, &context, {}};
+
+  const bool completed = view.for_each_ref(
+      [](any_ref element, void* user_data) -> bool {
+        auto* visitor = static_cast<visitor_context*>(user_data);
+        variant_result encoded = make_serialized_value(element, *visitor->context);
+        if (encoded.failed()) {
+          visitor->result = encoded;
+          return false;
+        }
+
+        visitor->elements->push_back(std::move(encoded.value));
+        return true;
+      },
+      &visitor);
+
+  if (!completed) {
+    return visitor.result.failed()
+               ? visitor.result
+               : variant_result{{error_domain::serialization, errc::unsupported}, {}};
+  }
+
+  return {{}, variant::array(std::move(elements))};
+}
+
+[[nodiscard]] variant_result make_associative_value(const associative_view& view,
+                                                    const serialization_context& context) {
+  const std::optional<std::size_t> size = view.size();
+  if (!view.valid() || !size.has_value()) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
+  }
+
+  variant::dictionary_type entries;
+  entries.reserve(*size);
+
+  struct visitor_context {
+    variant::dictionary_type* entries = nullptr;
+    const serialization_context* context = nullptr;
+    variant_result result{};
+  } visitor{&entries, &context, {}};
+
+  const bool completed = view.for_each_ref(
+      [](any_ref key, any_ref value, void* user_data) -> bool {
+        auto* visitor = static_cast<visitor_context*>(user_data);
+        variant_result encoded_key = make_serialized_value(key, *visitor->context);
+        if (encoded_key.failed()) {
+          visitor->result = encoded_key;
+          return false;
+        }
+
+        variant_result encoded_value = make_serialized_value(value, *visitor->context);
+        if (encoded_value.failed()) {
+          visitor->result = encoded_value;
+          return false;
+        }
+
+        visitor->entries->push_back(
+            variant_entry{std::move(encoded_key.value), std::move(encoded_value.value)});
+        return true;
+      },
+      &visitor);
+
+  if (!completed) {
+    return visitor.result.failed()
+               ? visitor.result
+               : variant_result{{error_domain::serialization, errc::unsupported}, {}};
+  }
+
+  return {{}, variant::dictionary(std::move(entries))};
 }
 
 [[nodiscard]] error write_object_ref_field(serialization_writer& writer,
@@ -271,6 +770,18 @@ bool try_write_serialized_value(serialization_writer& writer, const any& data) {
 }
 
 variant_result make_serialized_value(const any& data) {
+  if (!data.valid()) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
+  }
+
+  const meta_type_semantics_data* semantics = type_semantics(data.type());
+  if (semantics != nullptr &&
+      (semantics->kind == type_kind::raw_pointer || semantics->kind == type_kind::wrapper ||
+       semantics->kind == type_kind::sequence || semantics->kind == type_kind::set ||
+       semantics->kind == type_kind::associative)) {
+    return make_serialized_value(data.ref(), serialization_context{});
+  }
+
   const std::optional<serialization_codec_data> codec =
       get_serialization_codec_registry().find_codec(data.type());
   if (codec.has_value() && codec->make_value != nullptr) {
@@ -337,10 +848,87 @@ variant_result make_serialized_value(const any& data) {
   return {{error_domain::serialization, errc::unsupported}, {}};
 }
 
+variant_result make_serialized_value(const any_ref& value, const serialization_context& context) {
+  if (!value.valid()) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
+  }
+
+  if (type_uses_inline_indirect_value(value.type())) {
+    const indirect_view indirect = value.create_indirect_view();
+    if (!indirect.valid() || !indirect.has_value()) {
+      return {{error_domain::serialization, errc::invalid_argument}, {}};
+    }
+
+    return make_serialized_value(indirect.value_ref(), context);
+  }
+
+  sequence_view sequence = value.create_sequence_view();
+  if (sequence.valid()) {
+    return make_sequence_value(sequence, context);
+  }
+
+  set_view set = value.create_set_view();
+  if (set.valid()) {
+    return make_set_value(set, context);
+  }
+
+  associative_view associative = value.create_associative_view();
+  if (associative.valid()) {
+    return make_associative_value(associative, context);
+  }
+
+  const std::optional<serialization_codec_data> codec =
+      get_serialization_codec_registry().find_codec(value.type());
+  if (codec.has_value() && codec->make_value != nullptr) {
+    any copied = value.to_any();
+    if (!copied.valid()) {
+      return {{error_domain::serialization, errc::unsupported}, {}};
+    }
+
+    return codec->make_value(copied);
+  }
+
+  const std::optional<reflection_type> nested_type = find_reflection(value.type());
+  if (nested_type.has_value() && get_serialization_registry().contains(value.type())) {
+    return to_serialization_value(*nested_type, value.data(), context);
+  }
+
+  any copied = value.to_any();
+  if (!copied.valid()) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
+  }
+
+  return make_serialized_value(copied);
+}
+
 error write_serialized_value(serialization_writer& writer, const any_ref& value,
                              const serialization_context& context) {
   if (!value.valid()) {
     return {error_domain::serialization, errc::unsupported};
+  }
+
+  if (type_uses_inline_indirect_value(value.type())) {
+    const indirect_view indirect = value.create_indirect_view();
+    if (!indirect.valid() || !indirect.has_value()) {
+      return {error_domain::serialization, errc::invalid_argument};
+    }
+
+    return write_serialized_value(writer, indirect.value_ref(), context);
+  }
+
+  sequence_view sequence = value.create_sequence_view();
+  if (sequence.valid()) {
+    return write_sequence_value(writer, sequence, context);
+  }
+
+  set_view set = value.create_set_view();
+  if (set.valid()) {
+    return write_set_value(writer, set, context);
+  }
+
+  associative_view associative = value.create_associative_view();
+  if (associative.valid()) {
+    return write_associative_value(writer, associative, context);
   }
 
   const std::optional<serialization_codec_data> codec =
@@ -375,6 +963,27 @@ error read_serialized_value(serialization_reader& reader, const any_ref& target,
                             const serialization_context& context) {
   if (!target.valid() || !target.writable() || target.mutable_data() == nullptr) {
     return {error_domain::serialization, errc::invalid_field};
+  }
+
+  if (type_uses_inline_indirect_value(target.type())) {
+    const indirect_view indirect = target.create_indirect_view();
+    if (!indirect.valid() || !indirect.writable() || !indirect.has_value()) {
+      return {error_domain::serialization, errc::invalid_field};
+    }
+
+    return read_serialized_value(reader, indirect.value_ref(), context);
+  }
+
+  if (target.create_sequence_view().valid()) {
+    return read_sequence_value(reader, target, context);
+  }
+
+  if (target.create_set_view().valid()) {
+    return read_set_value(reader, target, context);
+  }
+
+  if (target.create_associative_view().valid()) {
+    return read_associative_value(reader, target, context);
   }
 
   const std::optional<serialization_codec_data> codec =

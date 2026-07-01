@@ -33,6 +33,10 @@ detail::cpp_type_key meta_type::cpp_type() const noexcept {
   return data_ != nullptr ? data_->cpp_type() : nullptr;
 }
 
+detail::value_default_construct_fn meta_type::default_construct_value() const noexcept {
+  return data_ != nullptr ? data_->default_construct_value() : nullptr;
+}
+
 detail::value_clone_fn meta_type::clone_value() const noexcept {
   return data_ != nullptr ? data_->clone_value() : nullptr;
 }

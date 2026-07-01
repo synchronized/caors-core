@@ -93,6 +93,25 @@ public:
     return copy_from_raw(registered->id(), &source);
   }
 
+  /** @brief 按运行期类型 id 默认构造一个值。不可默认构造类型会返回无效 `any`。 */
+  [[nodiscard]] static any default_construct(type_id type) {
+    const std::optional<meta_type> meta = caors::find_type(type);
+    if (!meta.has_value() || !meta->valid() || meta->cpp_type() == nullptr ||
+        meta->default_construct_value() == nullptr || meta->destroy_value() == nullptr) {
+      return {};
+    }
+
+    void* value = meta->default_construct_value()();
+    if (value == nullptr) {
+      return {};
+    }
+
+    any result;
+    result.type_ = type;
+    result.data_ = value;
+    return result;
+  }
+
   [[nodiscard]] bool valid() const noexcept {
     const std::optional<meta_type> meta = caors::find_type(type_);
     return meta.has_value() && meta->valid() && meta->cpp_type() != nullptr && data_ != nullptr;
@@ -111,6 +130,8 @@ public:
   }
   [[nodiscard]] const void* data() const noexcept { return valid() ? data_ : nullptr; }
   [[nodiscard]] void* mutable_data() noexcept { return valid() ? data_ : nullptr; }
+  [[nodiscard]] any_ref ref();
+  [[nodiscard]] any_ref ref() const;
   [[nodiscard]] std::size_t size() const noexcept {
     const std::optional<meta_type> meta = caors::find_type(type_);
     return meta.has_value() ? meta->size() : 0;
@@ -422,6 +443,7 @@ public:
   [[nodiscard]] any to_any() const { return any::copy_from_raw(type_, data_); }
 
 private:
+  friend class any;
   friend class indirect_view;
   friend class sequence_view;
   friend class set_view;
@@ -445,6 +467,10 @@ private:
   const void* data_ = nullptr;
   bool writable_ = false;
 };
+
+inline any_ref any::ref() { return any_ref::from_raw(type_, data_, true); }
+
+inline any_ref any::ref() const { return any_ref::from_raw(type_, data_, false); }
 
 /**
  * @brief 指针和 wrapper 的内部值视图。

@@ -124,6 +124,14 @@ struct vector_actor {
   caors::vector<int> scores{};
 };
 
+struct nested_vector_values_actor {
+  caors::vector<caors::vector<int>> groups{};
+};
+
+struct guid_vector_actor {
+  caors::vector<caors::guid> ids{};
+};
+
 struct list_actor {
   caors::list<int> scores{};
 };
@@ -905,6 +913,76 @@ TEST_CASE("serialization - deserializes vector fields from arrays", "[serializat
   REQUIRE(actor.scores.size() == 2);
   CHECK(actor.scores[0] == 5);
   CHECK(actor.scores[1] == 6);
+}
+
+TEST_CASE("serialization - recursively serializes nested vector values", "[serialization]") {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<nested_vector_values_actor>(
+          "caors.test.serialization.nested_vector_values_actor")
+          .field("groups", &nested_vector_values_actor::groups, "caors.vector<caors.vector<int>>")
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<nested_vector_values_actor>()));
+
+  nested_vector_values_actor actor{};
+  actor.groups.push_back(caors::vector<int>{1, 2});
+  actor.groups.push_back(caors::vector<int>{3});
+
+  const caors::serialization_text_result text = caors::serialize_text(actor);
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"groups":[[1,2],[3]]})");
+
+  const caors::variant_result value = caors::to_serialization_value(actor);
+  REQUIRE(value.succeeded());
+  const caors::variant_member* groups = value.value.find_member(caors::string_name{"groups"});
+  REQUIRE(groups != nullptr);
+  REQUIRE(groups->value.is_array());
+  REQUIRE(groups->value.as_array().size() == 2);
+  CHECK(groups->value.as_array()[0].as_array()[1].as_i64() == 2);
+
+  nested_vector_values_actor decoded{};
+  const caors::error result = caors::deserialize_json(decoded, R"({"groups":[[4,5],[6]]})");
+  REQUIRE(result.succeeded());
+  REQUIRE(decoded.groups.size() == 2);
+  REQUIRE(decoded.groups[0].size() == 2);
+  CHECK(decoded.groups[0][0] == 4);
+  CHECK(decoded.groups[0][1] == 5);
+  REQUIRE(decoded.groups[1].size() == 1);
+  CHECK(decoded.groups[1][0] == 6);
+}
+
+TEST_CASE("serialization - recursively serializes codec values inside vectors", "[serialization]") {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<guid_vector_actor>("caors.test.serialization.guid_vector_actor")
+          .field("ids", &guid_vector_actor::ids, "caors.vector<guid>")
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<guid_vector_actor>()));
+
+  const std::optional<caors::guid> first =
+      caors::guid::parse("2f6d1f64-7a3a-4db2-9a2d-123456789abc");
+  const std::optional<caors::guid> second =
+      caors::guid::parse("5ed39a97-7b20-4d87-86ac-e62a4a615b10");
+  REQUIRE(first.has_value());
+  REQUIRE(second.has_value());
+
+  guid_vector_actor actor{};
+  actor.ids.push_back(*first);
+  actor.ids.push_back(*second);
+
+  const caors::serialization_text_result text = caors::serialize_text(actor);
+  REQUIRE(text.succeeded());
+  CHECK(
+      text.value ==
+      R"({"ids":["2f6d1f64-7a3a-4db2-9a2d-123456789abc","5ed39a97-7b20-4d87-86ac-e62a4a615b10"]})");
+
+  guid_vector_actor decoded{};
+  const caors::error result = caors::deserialize_json(
+      decoded,
+      R"({"ids":["5ed39a97-7b20-4d87-86ac-e62a4a615b10","2f6d1f64-7a3a-4db2-9a2d-123456789abc"]})");
+
+  REQUIRE(result.succeeded());
+  REQUIRE(decoded.ids.size() == 2);
+  CHECK(decoded.ids[0] == *second);
+  CHECK(decoded.ids[1] == *first);
 }
 
 TEST_CASE("serialization - serializes list fields as arrays", "[serialization]") {

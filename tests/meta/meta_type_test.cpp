@@ -89,6 +89,7 @@ TEST_CASE("meta type data - describes layout", "[meta]") {
   CHECK(data.alignment() == alignof(sample_type));
   CHECK_FALSE(data.parent_id());
   CHECK(data.cpp_type() == caors::detail::cpp_type_key_of<sample_type>());
+  CHECK(data.default_construct_value() != nullptr);
   CHECK(data.clone_value() != nullptr);
   CHECK(data.destroy_value() != nullptr);
   CHECK(data.assign_value() != nullptr);

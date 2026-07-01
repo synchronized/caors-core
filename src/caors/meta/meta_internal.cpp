@@ -142,6 +142,12 @@ error merge_type_data(meta_registry_state& state, meta_type_data& stored,
     changed = true;
   }
 
+  if (incoming.default_construct_value() != nullptr &&
+      stored.default_construct_value() == nullptr) {
+    stored.set_default_construct_value(incoming.default_construct_value());
+    changed = true;
+  }
+
   if (incoming.destroy_value() != nullptr && stored.destroy_value() == nullptr) {
     stored.set_destroy_value(incoming.destroy_value());
     changed = true;

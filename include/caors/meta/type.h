@@ -38,6 +38,7 @@ enum class wrapper_semantics {
 
 namespace detail {
 
+using value_default_construct_fn = void* (*)();
 using value_clone_fn = void* (*)(const void*);
 using value_destroy_fn = void (*)(void*) noexcept;
 using value_assign_fn = bool (*)(void*, const void*);
@@ -45,6 +46,15 @@ using indirect_const_value_fn = const void* (*)(const void*) noexcept;
 using indirect_mutable_value_fn = void* (*)(void*) noexcept;
 using indirect_has_value_fn = bool (*)(const void*) noexcept;
 using indirect_reset_fn = bool (*)(void*) noexcept;
+
+template <typename T> void* default_construct_value() {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (std::is_default_constructible_v<type>) {
+    return new type();
+  } else {
+    return nullptr;
+  }
+}
 
 template <typename T> void* clone_value(const void* source) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
@@ -67,6 +77,15 @@ template <typename T> bool assign_value(void* target, const void* source) {
     return true;
   } else {
     return false;
+  }
+}
+
+template <typename T> [[nodiscard]] value_default_construct_fn default_construct_fn_of() noexcept {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (std::is_default_constructible_v<type>) {
+    return &default_construct_value<type>;
+  } else {
+    return nullptr;
   }
 }
 
@@ -131,11 +150,13 @@ public:
   constexpr meta_type_data(type_id id, string_name name, type_guid guid, std::size_t size,
                            std::size_t alignment, type_id parent_id,
                            detail::cpp_type_key cpp_type = nullptr,
+                           detail::value_default_construct_fn default_construct_value = nullptr,
                            detail::value_clone_fn clone_value = nullptr,
                            detail::value_destroy_fn destroy_value = nullptr,
                            detail::value_assign_fn assign_value = nullptr) noexcept
       : id_(id), name_(name), guid_(guid), size_(size), alignment_(alignment),
-        parent_id_(parent_id), cpp_type_(cpp_type), clone_value_(clone_value),
+        parent_id_(parent_id), cpp_type_(cpp_type),
+        default_construct_value_(default_construct_value), clone_value_(clone_value),
         destroy_value_(destroy_value), assign_value_(assign_value) {}
 
   [[nodiscard]] constexpr type_id id() const noexcept { return id_; }
@@ -145,6 +166,10 @@ public:
   [[nodiscard]] constexpr std::size_t alignment() const noexcept { return alignment_; }
   [[nodiscard]] constexpr type_id parent_id() const noexcept { return parent_id_; }
   [[nodiscard]] constexpr detail::cpp_type_key cpp_type() const noexcept { return cpp_type_; }
+  [[nodiscard]] constexpr detail::value_default_construct_fn
+  default_construct_value() const noexcept {
+    return default_construct_value_;
+  }
   [[nodiscard]] constexpr detail::value_clone_fn clone_value() const noexcept {
     return clone_value_;
   }
@@ -166,6 +191,10 @@ public:
   constexpr void set_guid(type_guid guid) noexcept { guid_ = guid; }
   constexpr void set_parent_id(type_id parent_id) noexcept { parent_id_ = parent_id; }
   constexpr void set_cpp_type(detail::cpp_type_key cpp_type) noexcept { cpp_type_ = cpp_type; }
+  constexpr void
+  set_default_construct_value(detail::value_default_construct_fn default_construct_value) noexcept {
+    default_construct_value_ = default_construct_value;
+  }
   constexpr void set_clone_value(detail::value_clone_fn clone_value) noexcept {
     clone_value_ = clone_value;
   }
@@ -184,6 +213,7 @@ private:
   std::size_t alignment_ = 0;
   type_id parent_id_{};
   detail::cpp_type_key cpp_type_ = nullptr;
+  detail::value_default_construct_fn default_construct_value_ = nullptr;
   detail::value_clone_fn clone_value_ = nullptr;
   detail::value_destroy_fn destroy_value_ = nullptr;
   detail::value_assign_fn assign_value_ = nullptr;
@@ -209,6 +239,7 @@ public:
   [[nodiscard]] std::size_t alignment() const noexcept;
   [[nodiscard]] type_id parent_id() const noexcept;
   [[nodiscard]] detail::cpp_type_key cpp_type() const noexcept;
+  [[nodiscard]] detail::value_default_construct_fn default_construct_value() const noexcept;
   [[nodiscard]] detail::value_clone_fn clone_value() const noexcept;
   [[nodiscard]] detail::value_destroy_fn destroy_value() const noexcept;
   [[nodiscard]] detail::value_assign_fn assign_value() const noexcept;
@@ -236,6 +267,7 @@ make_meta_type_data(string_name name, type_id parent_id = type_id::invalid()) no
       alignof(T),
       parent_id,
       detail::cpp_type_key_of<T>(),
+      detail::default_construct_fn_of<T>(),
       detail::value_clone_fn_of<T>(),
       detail::value_destroy_fn_of<T>(),
       detail::value_assign_fn_of<T>(),
@@ -255,6 +287,7 @@ make_meta_type_data(string_name name, type_guid guid,
       alignof(T),
       parent_id,
       detail::cpp_type_key_of<T>(),
+      detail::default_construct_fn_of<T>(),
       detail::value_clone_fn_of<T>(),
       detail::value_destroy_fn_of<T>(),
       detail::value_assign_fn_of<T>(),
