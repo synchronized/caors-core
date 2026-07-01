@@ -215,6 +215,10 @@ caors::get_meta_registry().emplace<object_factory_meta>(actor_id, true);
   注册表生命周期内保持稳定。
 - `view<T...>()`：查询同时拥有指定组件集合的类型。
 
+容器 metadata 会在具体容器支持 `begin()` / `end()` 时额外挂载类型擦除 iterator 函数，用于
+`set_view` 和 `associative_view` 的 range-for 遍历。只提供 traits callback 的自定义容器仍可通过
+`for_each_ref()` 遍历。
+
 组件挂载同样返回 `caors::error`，`domain()` 为 `error_domain::meta`：
 
 - `errc::invalid_type`：传入无效 `type_id`。

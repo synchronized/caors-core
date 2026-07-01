@@ -500,6 +500,14 @@ TEST_CASE("reflection - sequence field view exposes element metadata", "[reflect
   CHECK(sequence.element_type() == registered_type_id("int"));
   CHECK(sequence.element_type_name() == "int");
 
+  int sequence_sum = 0;
+  for (caors::any_ref value : sequence) {
+    const int* typed = value.try_get<int>();
+    REQUIRE(typed != nullptr);
+    sequence_sum += *typed;
+  }
+  CHECK(sequence_sum == 8);
+
   const std::optional<std::size_t> size = sequence.size();
   REQUIRE(size.has_value());
   CHECK(*size == 2);
@@ -657,6 +665,19 @@ TEST_CASE("reflection - associative field view supports dynamic operations", "[r
   CHECK_FALSE(map.insert_value(caors::any::from(7), caors::any::from(700)));
   CHECK_FALSE(map.insert_value(caors::any::from(8.0F), caors::any::from(80)));
 
+  int key_sum = 0;
+  int value_sum = 0;
+  for (caors::associative_entry_ref entry : map) {
+    const int* key = entry.key().try_get<int>();
+    const int* value = entry.value().try_get<int>();
+    REQUIRE(key != nullptr);
+    REQUIRE(value != nullptr);
+    key_sum += *key;
+    value_sum += *value;
+  }
+  CHECK(key_sum == 7);
+  CHECK(value_sum == 70);
+
   const std::optional<std::size_t> size = map.size();
   REQUIRE(size.has_value());
   CHECK(*size == 1);
@@ -785,6 +806,14 @@ TEST_CASE("reflection - set field view exposes element metadata", "[reflection]"
   CHECK(set.insert_value(caors::any::from(11)));
   CHECK_FALSE(set.insert_value(caors::any::from(11)));
   CHECK_FALSE(set.insert_value(caors::any::from(2.0F)));
+
+  int set_sum = 0;
+  for (caors::any_ref value : set) {
+    const int* typed = value.try_get<int>();
+    REQUIRE(typed != nullptr);
+    set_sum += *typed;
+  }
+  CHECK(set_sum == 11);
 
   const std::optional<std::size_t> size = set.size();
   REQUIRE(size.has_value());

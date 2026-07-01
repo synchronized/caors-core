@@ -8,6 +8,7 @@
 #include "caors/meta/container_traits.h"
 
 #include <cstddef>
+#include <iterator>
 #include <new>
 #include <optional>
 #include <string_view>
@@ -522,6 +523,21 @@ private:
   bool writable_ = false;
 };
 
+/** @brief 关联容器 key/value 引用。 */
+class associative_entry_ref final {
+public:
+  associative_entry_ref() noexcept = default;
+  associative_entry_ref(any_ref key, any_ref value) noexcept : key_(key), value_(value) {}
+
+  [[nodiscard]] any_ref key() const noexcept { return key_; }
+  [[nodiscard]] any_ref value() const noexcept { return value_; }
+  [[nodiscard]] any_ref mapped() const noexcept { return value_; }
+
+private:
+  any_ref key_{};
+  any_ref value_{};
+};
+
 /**
  * @brief 顺序容器运行期视图。
  *
@@ -530,6 +546,46 @@ private:
  */
 class sequence_view final {
 public:
+  class iterator final {
+  public:
+    using iterator_category = std::input_iterator_tag;
+    using difference_type = std::ptrdiff_t;
+    using value_type = any_ref;
+    using reference = any_ref;
+    using pointer = void;
+
+    iterator() noexcept = default;
+
+    [[nodiscard]] any_ref operator*() const {
+      return view_ != nullptr ? view_->element_ref(index_) : any_ref{};
+    }
+
+    iterator& operator++() noexcept {
+      ++index_;
+      return *this;
+    }
+
+    iterator operator++(int) noexcept {
+      iterator previous = *this;
+      ++(*this);
+      return previous;
+    }
+
+    friend bool operator==(iterator lhs, iterator rhs) noexcept {
+      return lhs.view_ == rhs.view_ && lhs.index_ == rhs.index_;
+    }
+
+    friend bool operator!=(iterator lhs, iterator rhs) noexcept { return !(lhs == rhs); }
+
+  private:
+    friend class sequence_view;
+
+    iterator(const sequence_view* view, std::size_t index) noexcept : view_(view), index_(index) {}
+
+    const sequence_view* view_ = nullptr;
+    std::size_t index_ = 0;
+  };
+
   sequence_view() noexcept = default;
 
   [[nodiscard]] bool valid() const noexcept {
@@ -563,6 +619,13 @@ public:
     }
 
     return data_->size(storage_);
+  }
+
+  [[nodiscard]] iterator begin() const { return valid() ? iterator{this, 0} : iterator{}; }
+
+  [[nodiscard]] iterator end() const {
+    const std::optional<std::size_t> count = size();
+    return count.has_value() ? iterator{this, *count} : iterator{};
   }
 
   /** @brief 获取指定元素引用。 */
@@ -636,6 +699,124 @@ private:
  */
 class set_view final {
 public:
+  class iterator final {
+  public:
+    using iterator_category = std::input_iterator_tag;
+    using difference_type = std::ptrdiff_t;
+    using value_type = any_ref;
+    using reference = any_ref;
+    using pointer = void;
+
+    iterator() noexcept = default;
+
+    iterator(const iterator& other) : view_(other.view_) {
+      if (other.iterator_ != nullptr && view_ != nullptr && view_->data_ != nullptr &&
+          view_->data_->iterator_clone != nullptr) {
+        iterator_ = view_->data_->iterator_clone(other.iterator_);
+      }
+    }
+
+    iterator(iterator&& other) noexcept : view_(other.view_), iterator_(other.iterator_) {
+      other.view_ = nullptr;
+      other.iterator_ = nullptr;
+    }
+
+    ~iterator() { reset(); }
+
+    iterator& operator=(const iterator& other) {
+      if (this == &other) {
+        return *this;
+      }
+
+      iterator copy{other};
+      swap(copy);
+      return *this;
+    }
+
+    iterator& operator=(iterator&& other) noexcept {
+      if (this == &other) {
+        return *this;
+      }
+
+      reset();
+      view_ = other.view_;
+      iterator_ = other.iterator_;
+      other.view_ = nullptr;
+      other.iterator_ = nullptr;
+      return *this;
+    }
+
+    [[nodiscard]] any_ref operator*() const {
+      if (view_ == nullptr || view_->data_ == nullptr || iterator_ == nullptr ||
+          view_->data_->iterator_value == nullptr) {
+        return {};
+      }
+
+      const void* value = view_->data_->iterator_value(iterator_);
+      return any_ref::from_raw(view_->data_->value_type, value, false);
+    }
+
+    iterator& operator++() noexcept {
+      if (view_ != nullptr && view_->data_ != nullptr && iterator_ != nullptr &&
+          view_->data_->iterator_advance != nullptr) {
+        view_->data_->iterator_advance(iterator_);
+      }
+
+      return *this;
+    }
+
+    iterator operator++(int) {
+      iterator previous = *this;
+      ++(*this);
+      return previous;
+    }
+
+    friend bool operator==(const iterator& lhs, const iterator& rhs) noexcept {
+      if (lhs.view_ != rhs.view_) {
+        return false;
+      }
+
+      if (lhs.iterator_ == nullptr || rhs.iterator_ == nullptr) {
+        return lhs.iterator_ == rhs.iterator_;
+      }
+
+      if (lhs.view_ == nullptr || lhs.view_->data_ == nullptr ||
+          lhs.view_->data_->iterator_equal == nullptr) {
+        return false;
+      }
+
+      return lhs.view_->data_->iterator_equal(lhs.iterator_, rhs.iterator_);
+    }
+
+    friend bool operator!=(const iterator& lhs, const iterator& rhs) noexcept {
+      return !(lhs == rhs);
+    }
+
+  private:
+    friend class set_view;
+
+    iterator(const set_view* view, void* iterator) noexcept : view_(view), iterator_(iterator) {}
+
+    void swap(iterator& other) noexcept {
+      using std::swap;
+      swap(view_, other.view_);
+      swap(iterator_, other.iterator_);
+    }
+
+    void reset() noexcept {
+      if (view_ != nullptr && view_->data_ != nullptr && iterator_ != nullptr &&
+          view_->data_->iterator_destroy != nullptr) {
+        view_->data_->iterator_destroy(iterator_);
+      }
+
+      view_ = nullptr;
+      iterator_ = nullptr;
+    }
+
+    const set_view* view_ = nullptr;
+    void* iterator_ = nullptr;
+  };
+
   set_view() noexcept = default;
 
   [[nodiscard]] bool valid() const noexcept {
@@ -669,6 +850,22 @@ public:
     }
 
     return data_->size(storage_);
+  }
+
+  [[nodiscard]] iterator begin() const {
+    if (!valid() || data_->begin == nullptr) {
+      return {};
+    }
+
+    return iterator{this, data_->begin(storage_)};
+  }
+
+  [[nodiscard]] iterator end() const {
+    if (!valid() || data_->end == nullptr) {
+      return {};
+    }
+
+    return iterator{this, data_->end(storage_)};
   }
 
   /** @brief 遍历集合元素只读引用。 */
@@ -736,6 +933,129 @@ private:
  */
 class associative_view final {
 public:
+  class iterator final {
+  public:
+    using iterator_category = std::input_iterator_tag;
+    using difference_type = std::ptrdiff_t;
+    using value_type = associative_entry_ref;
+    using reference = associative_entry_ref;
+    using pointer = void;
+
+    iterator() noexcept = default;
+
+    iterator(const iterator& other) : view_(other.view_) {
+      if (other.iterator_ != nullptr && view_ != nullptr && view_->data_ != nullptr &&
+          view_->data_->iterator_clone != nullptr) {
+        iterator_ = view_->data_->iterator_clone(other.iterator_);
+      }
+    }
+
+    iterator(iterator&& other) noexcept : view_(other.view_), iterator_(other.iterator_) {
+      other.view_ = nullptr;
+      other.iterator_ = nullptr;
+    }
+
+    ~iterator() { reset(); }
+
+    iterator& operator=(const iterator& other) {
+      if (this == &other) {
+        return *this;
+      }
+
+      iterator copy{other};
+      swap(copy);
+      return *this;
+    }
+
+    iterator& operator=(iterator&& other) noexcept {
+      if (this == &other) {
+        return *this;
+      }
+
+      reset();
+      view_ = other.view_;
+      iterator_ = other.iterator_;
+      other.view_ = nullptr;
+      other.iterator_ = nullptr;
+      return *this;
+    }
+
+    [[nodiscard]] associative_entry_ref operator*() const {
+      if (view_ == nullptr || view_->data_ == nullptr || iterator_ == nullptr ||
+          view_->data_->iterator_key == nullptr || view_->data_->iterator_value == nullptr) {
+        return {};
+      }
+
+      const void* key = view_->data_->iterator_key(iterator_);
+      const void* value = view_->data_->iterator_value(iterator_);
+      return associative_entry_ref{
+          any_ref::from_raw(view_->data_->key_type, key, false),
+          any_ref::from_raw(view_->data_->value_type, value, false),
+      };
+    }
+
+    iterator& operator++() noexcept {
+      if (view_ != nullptr && view_->data_ != nullptr && iterator_ != nullptr &&
+          view_->data_->iterator_advance != nullptr) {
+        view_->data_->iterator_advance(iterator_);
+      }
+
+      return *this;
+    }
+
+    iterator operator++(int) {
+      iterator previous = *this;
+      ++(*this);
+      return previous;
+    }
+
+    friend bool operator==(const iterator& lhs, const iterator& rhs) noexcept {
+      if (lhs.view_ != rhs.view_) {
+        return false;
+      }
+
+      if (lhs.iterator_ == nullptr || rhs.iterator_ == nullptr) {
+        return lhs.iterator_ == rhs.iterator_;
+      }
+
+      if (lhs.view_ == nullptr || lhs.view_->data_ == nullptr ||
+          lhs.view_->data_->iterator_equal == nullptr) {
+        return false;
+      }
+
+      return lhs.view_->data_->iterator_equal(lhs.iterator_, rhs.iterator_);
+    }
+
+    friend bool operator!=(const iterator& lhs, const iterator& rhs) noexcept {
+      return !(lhs == rhs);
+    }
+
+  private:
+    friend class associative_view;
+
+    iterator(const associative_view* view, void* iterator) noexcept
+        : view_(view), iterator_(iterator) {}
+
+    void swap(iterator& other) noexcept {
+      using std::swap;
+      swap(view_, other.view_);
+      swap(iterator_, other.iterator_);
+    }
+
+    void reset() noexcept {
+      if (view_ != nullptr && view_->data_ != nullptr && iterator_ != nullptr &&
+          view_->data_->iterator_destroy != nullptr) {
+        view_->data_->iterator_destroy(iterator_);
+      }
+
+      view_ = nullptr;
+      iterator_ = nullptr;
+    }
+
+    const associative_view* view_ = nullptr;
+    void* iterator_ = nullptr;
+  };
+
   associative_view() noexcept = default;
 
   [[nodiscard]] bool valid() const noexcept {
@@ -776,6 +1096,22 @@ public:
     }
 
     return data_->size(storage_);
+  }
+
+  [[nodiscard]] iterator begin() const {
+    if (!valid() || data_->begin == nullptr) {
+      return {};
+    }
+
+    return iterator{this, data_->begin(storage_)};
+  }
+
+  [[nodiscard]] iterator end() const {
+    if (!valid() || data_->end == nullptr) {
+      return {};
+    }
+
+    return iterator{this, data_->end(storage_)};
   }
 
   /** @brief 遍历关联容器 key/value 只读引用。 */

@@ -386,7 +386,7 @@ field->try_set<float>(&instance, 75.0F);
 - `valid()` / `writable()`：判断视图有效性和是否允许修改。
 - `value_type()` / `value_type_name()`：查询元素类型信息。
 - `element_type()` / `element_type_name()`：查询元素类型信息，是 `value_type()` 的语义别名。
-- `size()` / `element_ref()`：查询和访问顺序容器元素。可写视图返回的元素引用也可写。
+- `size()` / `element_ref()` / `begin()` / `end()`：查询和访问顺序容器元素。可写视图返回的元素引用也可写。
 - `clear()` / `resize()` / `append_value()`：通过 `sequence_traits` 修改顺序容器。只有可写视图允许修改。
 
 `set_view` 当前提供：
@@ -394,7 +394,7 @@ field->try_set<float>(&instance, 75.0F);
 - `valid()` / `writable()`：判断视图有效性和是否允许修改。
 - `value_type()` / `value_type_name()`：查询元素类型信息。
 - `element_type()` / `element_type_name()`：查询元素类型信息，是 `value_type()` 的语义别名。
-- `size()` / `for_each_ref()`：查询和遍历集合。集合元素按 key 语义暴露为只读 `any_ref`。
+- `size()` / `begin()` / `end()` / `for_each_ref()`：查询和遍历集合。集合元素按 key 语义暴露为只读 `any_ref`。
 - `clear()` / `insert_value()`：通过 `set_traits` 修改集合。只有可写视图允许修改。
 
 `associative_view` 当前提供：
@@ -402,7 +402,7 @@ field->try_set<float>(&instance, 75.0F);
 - `valid()` / `writable()`：判断视图有效性和是否允许修改。
 - `key_type()` / `key_type_name()` / `value_type()` / `value_type_name()`：查询 key/value 类型信息。
 - `mapped_type()` / `mapped_type_name()`：查询 mapped/value 类型信息，是 `value_type()` 的语义别名。
-- `size()` / `for_each_ref()`：查询和遍历关联容器。遍历返回的 key/value 是只读 `any_ref`。
+- `size()` / `begin()` / `end()` / `for_each_ref()`：查询和遍历关联容器。iterator 解引用返回 `associative_entry_ref`，其中 key/value 都是只读 `any_ref`。
 - `clear()` / `insert_value()`：通过 `associative_traits` 修改关联容器。只有可写视图允许修改；插入时
   key 和 value 必须与类型级关联容器 metadata 记录的 `type_id` 一致。
 
@@ -434,6 +434,11 @@ caors::hash_map<int, int> values;
 caors::any_ref ref = caors::any_ref::from(values, "caors.hash_map<int,int>");
 caors::associative_view map = ref.create_associative_view();
 map.insert_value(caors::any::from(1), caors::any::from(2));
+
+for (caors::associative_entry_ref entry : map) {
+  caors::any_ref key = entry.key();
+  caors::any_ref value = entry.value();
+}
 ```
 
 ### 全局注册表
