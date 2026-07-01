@@ -539,14 +539,22 @@ public:
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
   [[nodiscard]] bool writable() const noexcept { return valid() && writable_; }
 
-  [[nodiscard]] type_id element_type() const noexcept {
-    return valid() ? data_->element_type : type_id{};
+  /** @brief 查询顺序容器元素的统一 value 类型。 */
+  [[nodiscard]] type_id value_type() const noexcept {
+    return valid() ? data_->value_type : type_id{};
   }
 
-  [[nodiscard]] string_name element_type_name() const noexcept {
-    const std::optional<meta_type> meta = valid() ? find_type(data_->element_type) : std::nullopt;
+  /** @brief 查询顺序容器元素的统一 value 类型名。 */
+  [[nodiscard]] string_name value_type_name() const noexcept {
+    const std::optional<meta_type> meta = valid() ? find_type(data_->value_type) : std::nullopt;
     return meta ? meta->name() : string_name{};
   }
+
+  /** @brief 查询顺序容器元素类型，等价于 `value_type()`。 */
+  [[nodiscard]] type_id element_type() const noexcept { return value_type(); }
+
+  /** @brief 查询顺序容器元素类型名，等价于 `value_type_name()`。 */
+  [[nodiscard]] string_name element_type_name() const noexcept { return value_type_name(); }
 
   /** @brief 获取顺序容器元素数量。 */
   [[nodiscard]] std::optional<std::size_t> size() const {
@@ -576,7 +584,7 @@ public:
       return {};
     }
 
-    return any_ref::from_raw(data_->element_type, element, element_writable);
+    return any_ref::from_raw(data_->value_type, element, element_writable);
   }
 
   /** @brief 清空顺序容器。 */
@@ -601,7 +609,7 @@ public:
   /** @brief 追加一个元素。 */
   bool append_value(const any& value) const {
     if (!writable() || data_->append == nullptr || !value.valid() ||
-        value.type() != data_->element_type) {
+        value.type() != data_->value_type) {
       return false;
     }
 
@@ -637,14 +645,22 @@ public:
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
   [[nodiscard]] bool writable() const noexcept { return valid() && writable_; }
 
-  [[nodiscard]] type_id element_type() const noexcept {
-    return valid() ? data_->element_type : type_id{};
+  /** @brief 查询集合元素的统一 value 类型。 */
+  [[nodiscard]] type_id value_type() const noexcept {
+    return valid() ? data_->value_type : type_id{};
   }
 
-  [[nodiscard]] string_name element_type_name() const noexcept {
-    const std::optional<meta_type> meta = valid() ? find_type(data_->element_type) : std::nullopt;
+  /** @brief 查询集合元素的统一 value 类型名。 */
+  [[nodiscard]] string_name value_type_name() const noexcept {
+    const std::optional<meta_type> meta = valid() ? find_type(data_->value_type) : std::nullopt;
     return meta ? meta->name() : string_name{};
   }
+
+  /** @brief 查询集合元素类型，等价于 `value_type()`。 */
+  [[nodiscard]] type_id element_type() const noexcept { return value_type(); }
+
+  /** @brief 查询集合元素类型名，等价于 `value_type_name()`。 */
+  [[nodiscard]] string_name element_type_name() const noexcept { return value_type_name(); }
 
   /** @brief 获取集合元素数量。 */
   [[nodiscard]] std::optional<std::size_t> size() const {
@@ -673,7 +689,7 @@ public:
         [](const void* element, void* raw_context) -> bool {
           auto* context = static_cast<visit_context*>(raw_context);
           const meta_set_data* data = context->data;
-          any_ref element_ref = any_ref::from_raw(data->element_type, element, false);
+          any_ref element_ref = any_ref::from_raw(data->value_type, element, false);
 
           return context->visitor(element_ref, context->user_data);
         },
@@ -693,7 +709,7 @@ public:
   /** @brief 插入一个元素。 */
   bool insert_value(const any& value) const {
     if (!writable() || data_->insert == nullptr || !value.valid() ||
-        value.type() != data_->element_type) {
+        value.type() != data_->value_type) {
       return false;
     }
 
@@ -736,14 +752,22 @@ public:
     return meta ? meta->name() : string_name{};
   }
 
-  [[nodiscard]] type_id mapped_type() const noexcept {
-    return valid() ? data_->mapped_type : type_id{};
+  /** @brief 查询关联容器 value 类型。 */
+  [[nodiscard]] type_id value_type() const noexcept {
+    return valid() ? data_->value_type : type_id{};
   }
 
-  [[nodiscard]] string_name mapped_type_name() const noexcept {
-    const std::optional<meta_type> meta = valid() ? find_type(data_->mapped_type) : std::nullopt;
+  /** @brief 查询关联容器 value 类型名。 */
+  [[nodiscard]] string_name value_type_name() const noexcept {
+    const std::optional<meta_type> meta = valid() ? find_type(data_->value_type) : std::nullopt;
     return meta ? meta->name() : string_name{};
   }
+
+  /** @brief 查询关联容器 mapped 类型，等价于 `value_type()`。 */
+  [[nodiscard]] type_id mapped_type() const noexcept { return value_type(); }
+
+  /** @brief 查询关联容器 mapped 类型名，等价于 `value_type_name()`。 */
+  [[nodiscard]] string_name mapped_type_name() const noexcept { return value_type_name(); }
 
   /** @brief 获取关联容器元素数量。 */
   [[nodiscard]] std::optional<std::size_t> size() const {
@@ -773,7 +797,7 @@ public:
           auto* context = static_cast<visit_context*>(raw_context);
           const meta_associative_data* data = context->data;
           any_ref key_ref = any_ref::from_raw(data->key_type, key, false);
-          any_ref mapped_ref = any_ref::from_raw(data->mapped_type, mapped, false);
+          any_ref mapped_ref = any_ref::from_raw(data->value_type, mapped, false);
 
           return context->visitor(key_ref, mapped_ref, context->user_data);
         },
@@ -793,7 +817,7 @@ public:
   /** @brief 插入一组 key/value。 */
   bool insert_value(const any& key, const any& mapped) const {
     if (!writable() || data_->insert == nullptr || !key.valid() || !mapped.valid() ||
-        key.type() != data_->key_type || mapped.type() != data_->mapped_type) {
+        key.type() != data_->key_type || mapped.type() != data_->value_type) {
       return false;
     }
 

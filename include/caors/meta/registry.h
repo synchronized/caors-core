@@ -389,14 +389,14 @@ template <typename T> [[nodiscard]] error register_associative_data_for(type_id 
     using mapped_type = typename associative_traits<type>::mapped_type;
 
     const type_id key = semantic_type_id<key_type>();
-    const type_id mapped = semantic_type_id<mapped_type>();
-    if (!id || !key || !mapped) {
+    const type_id value = semantic_type_id<mapped_type>();
+    if (!id || !key || !value) {
       return {};
     }
 
     meta_associative_data data{
         key,
-        mapped,
+        value,
         [](const void* storage) noexcept -> std::size_t {
           if (storage == nullptr) {
             return 0;
@@ -451,13 +451,13 @@ template <typename T> [[nodiscard]] error register_sequence_data_for(type_id id)
   if constexpr (sequence_traits<type>::is_sequence) {
     using element_type = typename sequence_traits<type>::element_type;
 
-    const type_id element = semantic_type_id<element_type>();
-    if (!id || !element) {
+    const type_id value = semantic_type_id<element_type>();
+    if (!id || !value) {
       return {};
     }
 
     meta_sequence_data data{
-        element,
+        value,
         [](const void* storage) noexcept -> std::size_t {
           if (storage == nullptr) {
             return 0;
@@ -515,13 +515,13 @@ template <typename T> [[nodiscard]] error register_set_data_for(type_id id) {
   if constexpr (set_traits<type>::is_set) {
     using element_type = typename set_traits<type>::element_type;
 
-    const type_id element = semantic_type_id<element_type>();
-    if (!id || !element) {
+    const type_id value = semantic_type_id<element_type>();
+    if (!id || !value) {
       return {};
     }
 
     meta_set_data data{
-        element,
+        value,
         [](const void* storage) noexcept -> std::size_t {
           if (storage == nullptr) {
             return 0;
@@ -592,13 +592,13 @@ template <typename Type> struct type_semantics_traits {
       using element_type = typename sequence_traits<type>::element_type;
 
       info.kind = type_kind::sequence;
-      info.element_type = semantic_type_id<element_type>();
+      info.value_type = semantic_type_id<element_type>();
       return info;
     } else if constexpr (set_traits<type>::is_set) {
       using element_type = typename set_traits<type>::element_type;
 
       info.kind = type_kind::set;
-      info.element_type = semantic_type_id<element_type>();
+      info.value_type = semantic_type_id<element_type>();
       return info;
     } else if constexpr (associative_traits<type>::is_associative) {
       using key_type = typename associative_traits<type>::key_type;
@@ -606,7 +606,7 @@ template <typename Type> struct type_semantics_traits {
 
       info.kind = type_kind::associative;
       info.key_type = semantic_type_id<key_type>();
-      info.mapped_type = semantic_type_id<mapped_type>();
+      info.value_type = semantic_type_id<mapped_type>();
       return info;
     } else if constexpr (wrapper_traits<type>::is_wrapper) {
       using wrapped_type = typename wrapper_traits<type>::wrapped_type;

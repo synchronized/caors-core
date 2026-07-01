@@ -136,7 +136,7 @@ type_id reflection_field::value_type() const noexcept {
 
 type_id reflection_field::element_type() const noexcept {
   const meta_type_semantics_data* traits = field_type_semantics(info());
-  return traits != nullptr ? traits->element_type : type_id{};
+  return traits != nullptr ? traits->value_type : type_id{};
 }
 
 string_name reflection_field::element_type_name() const noexcept {
@@ -152,7 +152,7 @@ string_name reflection_field::key_type_name() const noexcept { return type_name_
 
 type_id reflection_field::mapped_type() const noexcept {
   const meta_type_semantics_data* traits = field_type_semantics(info());
-  return traits != nullptr ? traits->mapped_type : type_id{};
+  return traits != nullptr ? traits->value_type : type_id{};
 }
 
 string_name reflection_field::mapped_type_name() const noexcept {

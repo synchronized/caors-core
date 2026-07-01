@@ -340,7 +340,7 @@ TEST_CASE("reflection - field info describes field type traits", "[reflection]")
   const caors::meta_type_semantics_data& sequence_traits = registered_traits(sequence);
   CHECK(sequence_traits.kind == caors::type_kind::sequence);
   CHECK(sequence_traits.wrapper_semantics == caors::wrapper_semantics::none);
-  CHECK(sequence_traits.element_type == registered_type_id("int"));
+  CHECK(sequence_traits.value_type == registered_type_id("int"));
 }
 
 TEST_CASE("reflection - field info reads and writes field values", "[reflection]") {
@@ -484,6 +484,7 @@ TEST_CASE("reflection - sequence field view exposes element metadata", "[reflect
   REQUIRE(values.has_value());
   CHECK(values->kind() == caors::type_kind::sequence);
   CHECK(values->is_sequence());
+  CHECK(values->value_type() == registered_type_id("int"));
   CHECK(values->element_type() == registered_type_id("int"));
   CHECK(values->element_type_name() == "int");
 
@@ -494,6 +495,8 @@ TEST_CASE("reflection - sequence field view exposes element metadata", "[reflect
   caors::sequence_view sequence = values->get_ref(&instance).create_sequence_view();
   CHECK(sequence.valid());
   CHECK(sequence.writable());
+  CHECK(sequence.value_type() == registered_type_id("int"));
+  CHECK(sequence.value_type_name() == "int");
   CHECK(sequence.element_type() == registered_type_id("int"));
   CHECK(sequence.element_type_name() == "int");
 
@@ -621,6 +624,7 @@ TEST_CASE("reflection - associative field view exposes key and value metadata", 
   CHECK(values->type_name() == "caors.hash_map<int,int>");
   CHECK(values->key_type() == registered_type_id("int"));
   CHECK(values->key_type_name() == "int");
+  CHECK(values->value_type() == registered_type_id("int"));
   CHECK(values->mapped_type() == registered_type_id("int"));
   CHECK(values->mapped_type_name() == "int");
 }
@@ -644,6 +648,8 @@ TEST_CASE("reflection - associative field view supports dynamic operations", "[r
   CHECK(map.writable());
   CHECK(map.key_type() == registered_type_id("int"));
   CHECK(map.key_type_name() == "int");
+  CHECK(map.value_type() == registered_type_id("int"));
+  CHECK(map.value_type_name() == "int");
   CHECK(map.mapped_type() == registered_type_id("int"));
   CHECK(map.mapped_type_name() == "int");
 
@@ -764,6 +770,7 @@ TEST_CASE("reflection - set field view exposes element metadata", "[reflection]"
   CHECK(values->kind() == caors::type_kind::set);
   CHECK(values->is_set());
   CHECK(values->type_name() == "caors.hash_set<int>");
+  CHECK(values->value_type() == registered_type_id("int"));
   CHECK(values->element_type() == registered_type_id("int"));
   CHECK(values->element_type_name() == "int");
 
@@ -771,6 +778,8 @@ TEST_CASE("reflection - set field view exposes element metadata", "[reflection]"
   caors::set_view set = values->get_ref(&instance).create_set_view();
   CHECK(set.valid());
   CHECK(set.writable());
+  CHECK(set.value_type() == registered_type_id("int"));
+  CHECK(set.value_type_name() == "int");
   CHECK(set.element_type() == registered_type_id("int"));
   CHECK(set.element_type_name() == "int");
   CHECK(set.insert_value(caors::any::from(11)));

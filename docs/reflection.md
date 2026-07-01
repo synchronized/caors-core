@@ -98,13 +98,13 @@ caors::reflection::class_<actor>("game.actor")
   `wrapper_semantics` 为 `inline_value`。
 - `std::reference_wrapper<T>`：`type_kind::wrapper`，`value_type` 为 `T`，不表示空值，
   `wrapper_semantics` 为 `inline_value`。
-- `sequence_traits<T>` 顺序容器：`type_kind::sequence`，`element_type` 为元素类型，可以通过字段视图查询元素数量、
-  访问元素引用，并在 traits 支持时执行清空、调整大小和追加元素。内置 `caors::vector<T>` 会生成
+- `sequence_traits<T>` 顺序容器：`type_kind::sequence`，`value_type` 为元素类型；`element_type()`
+  是对外语义别名。字段视图可以查询元素数量、访问元素引用，并在 traits 支持时执行清空、调整大小和追加元素。内置 `caors::vector<T>` 会生成
   `caors.vector<T>` 类型名。
-- `set_traits<T>` 集合容器：`type_kind::set`，`element_type` 为元素类型。内置
+- `set_traits<T>` 集合容器：`type_kind::set`，`value_type` 为元素类型；`element_type()` 是对外语义别名。内置
   `caors::hash_set<T>` 会生成 `caors.hash_set<T>` 类型名。
-- `associative_traits<T>` 关联容器：`type_kind::associative`，`key_type` 为 key 类型，`mapped_type` 为 value
-  类型。内置 `caors::hash_map<K, V>` 会生成 `caors.hash_map<K,V>` 类型名。
+- `associative_traits<T>` 关联容器：`type_kind::associative`，`key_type` 为 key 类型，`value_type` 为
+  mapped/value 类型；`mapped_type()` 是对外语义别名。内置 `caors::hash_map<K, V>` 会生成 `caors.hash_map<K,V>` 类型名。
 
 STL 智能指针和裸指针只作为外部字段类型被反射系统描述。CAORS 不根据这些字段接管对象生命周期；
 用户如果直接使用这些类型，需要自行保证释放、引用有效性和线程安全。后续 CAORS 自身的对象句柄、
@@ -366,10 +366,11 @@ field->try_set<float>(&instance, 75.0F);
 `reflection_field` 当前提供：
 
 - `valid()`：判断视图是否仍有效。
-- `name()` / `type()` / `type_name()` / `value_type()`：查询字段类型信息。
-- `element_type()` / `element_type_name()`：查询 sequence/set 字段的元素类型信息。
-- `key_type()` / `key_type_name()` / `mapped_type()` / `mapped_type_name()`：查询 associative 字段的 key/value
-  类型信息。
+- `name()` / `type()` / `type_name()`：查询字段声明类型信息。
+- `value_type()`：查询统一 value 类型。对普通值是字段自身类型；对指针和 wrapper 是内部值类型；对 sequence/set 是元素类型；对 associative 是 mapped/value 类型。
+- `element_type()` / `element_type_name()`：查询 sequence/set 字段的元素类型信息，是 `value_type()` 的语义别名。
+- `key_type()` / `key_type_name()`：查询 associative 字段的 key 类型信息。
+- `mapped_type()` / `mapped_type_name()`：查询 associative 字段的 mapped/value 类型信息，是 `value_type()` 的语义别名。
 - `kind()` / `wrapper_semantics()` / `pointer_depth()` / `nullable()`：查询字段形态语义。
 - `offset()` / `size()` / `alignment()` / `writable()`：查询字段布局和可写性。
 - `try_get<T>()` / `try_set<T>()`：按静态类型读写字段。
@@ -383,21 +384,24 @@ field->try_set<float>(&instance, 75.0F);
 `sequence_view` 当前提供：
 
 - `valid()` / `writable()`：判断视图有效性和是否允许修改。
-- `element_type()` / `element_type_name()`：查询元素类型信息。
+- `value_type()` / `value_type_name()`：查询元素类型信息。
+- `element_type()` / `element_type_name()`：查询元素类型信息，是 `value_type()` 的语义别名。
 - `size()` / `element_ref()`：查询和访问顺序容器元素。可写视图返回的元素引用也可写。
 - `clear()` / `resize()` / `append_value()`：通过 `sequence_traits` 修改顺序容器。只有可写视图允许修改。
 
 `set_view` 当前提供：
 
 - `valid()` / `writable()`：判断视图有效性和是否允许修改。
-- `element_type()` / `element_type_name()`：查询元素类型信息。
+- `value_type()` / `value_type_name()`：查询元素类型信息。
+- `element_type()` / `element_type_name()`：查询元素类型信息，是 `value_type()` 的语义别名。
 - `size()` / `for_each_ref()`：查询和遍历集合。集合元素按 key 语义暴露为只读 `any_ref`。
 - `clear()` / `insert_value()`：通过 `set_traits` 修改集合。只有可写视图允许修改。
 
 `associative_view` 当前提供：
 
 - `valid()` / `writable()`：判断视图有效性和是否允许修改。
-- `key_type()` / `key_type_name()` / `mapped_type()` / `mapped_type_name()`：查询 key/value 类型信息。
+- `key_type()` / `key_type_name()` / `value_type()` / `value_type_name()`：查询 key/value 类型信息。
+- `mapped_type()` / `mapped_type_name()`：查询 mapped/value 类型信息，是 `value_type()` 的语义别名。
 - `size()` / `for_each_ref()`：查询和遍历关联容器。遍历返回的 key/value 是只读 `any_ref`。
 - `clear()` / `insert_value()`：通过 `associative_traits` 修改关联容器。只有可写视图允许修改；插入时
   key 和 value 必须与类型级关联容器 metadata 记录的 `type_id` 一致。
@@ -413,8 +417,8 @@ field->try_set<float>(&instance, 75.0F);
 `indirect_view` 不拥有 wrapper 或内部值，也不延长内部对象生命周期。裸指针和智能指针解包后返回的是当前
 指向对象的引用；调用方需要保证引用使用期间对象仍然有效。
 
-`meta_sequence_data`、`meta_set_data` 和 `meta_associative_data` 只保存元素/key/value 的 `type_id`
-以及容器操作函数。元素/key/value 的名称、C++ 类型 key、大小、对齐和复制/赋值函数统一从
+`meta_sequence_data`、`meta_set_data` 和 `meta_associative_data` 只保存 value/key 的 `type_id`
+以及容器操作函数。value/key 的名称、C++ 类型 key、大小、对齐和复制/赋值函数统一从
 基础 `meta_type_data` 查询，避免容器 metadata 与基础类型 metadata 重复维护。
 
 容器视图不要求值一定来自反射字段。反射字段场景可以先通过 `get_ref()` 创建 `any_ref`，
@@ -471,7 +475,7 @@ auto reflected = caors::find_reflection("game.actor");
 - `any`：运行期 C++ 类型值拷贝。
 - `any_ref`：运行期 C++ 类型非拥有引用。
 - `reflection_field_data`：字段名、字段声明类型 id、offset、可写性、对象引用访问函数和基础字段访问。
-- `meta_type_semantics_data`：字段声明类型的形态、wrapper 语义、解包类型、容器元素类型和 key/value 类型。
+- `meta_type_semantics_data`：字段声明类型的形态、wrapper 语义、统一 value 类型和关联容器 key 类型。
 - `reflection_type_data`：字段列表等反射组件数据。
 - `reflection_type` / `reflection_field`：全局反射数据的推荐查询入口。
 - `reflection_registry`：底层全局注册表实现。

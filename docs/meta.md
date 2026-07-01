@@ -153,16 +153,15 @@ caors::meta<actor>()
 
 - `kind`：值、枚举、裸指针、wrapper、顺序容器、集合容器或关联容器。
 - `wrapper_semantics`：wrapper 或裸指针的处理语义，例如内联值、对象引用或不支持。
-- `value_type`：普通值、枚举、裸指针或 wrapper 对应的值类型。
-- `element_type`：顺序容器或集合容器的元素类型。
-- `key_type` / `mapped_type`：关联容器的 key/value 类型。
+- `value_type`：统一 value 类型。普通值、枚举、裸指针和 wrapper 对应自身或内部值；顺序容器和集合容器对应元素类型；关联容器对应 mapped/value 类型。
+- `key_type`：关联容器的 key 类型。
 - `indirect_value` / `mutable_indirect_value`：指针或 wrapper 解包后的内部值访问函数。
 - `has_indirect_value` / `reset_indirect_value`：指针或 wrapper 的持值检测和重置函数。
 - `pointer_depth`：当前支持的指针层级。
 - `nullable`：运行期值是否可能为空。
 
 这部分数据不放在 `reflection_field_data` 上重复保存。字段只记录声明类型的 `type_id`，需要查询字段形态、
-元素类型或 key/value 类型时，通过该 `type_id` 到 `meta_registry` 查询 `meta_type_semantics_data`。
+value 类型或关联容器 key 类型时，通过该 `type_id` 到 `meta_registry` 查询 `meta_type_semantics_data`。
 `meta_type_semantics_data` 由 `meta_registry::register_type_for<T>()` 和 `ensure_type_for<T>()`
 在基础类型注册或匿名类型创建时自动挂载；反射字段注册只负责确保字段声明类型已经注册。
 

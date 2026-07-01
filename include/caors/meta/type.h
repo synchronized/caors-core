@@ -103,15 +103,13 @@ template <typename T> [[nodiscard]] value_assign_fn value_assign_fn_of() noexcep
  * @brief 类型语义元数据。
  *
  * 该组件挂在字段声明类型对应的 `type_id` 上，集中描述 wrapper、指针和容器等运行期语义。反射、
- * 序列化和 value 模块通过同一份数据查询值类型、元素类型和 key/value 类型，避免字段级重复存储。
+ * 序列化和 value 模块通过同一份数据查询 value 类型和可选 key 类型，避免字段级重复存储。
  */
 struct meta_type_semantics_data {
   type_kind kind = type_kind::value;
   wrapper_semantics wrapper_semantics = wrapper_semantics::none;
   type_id value_type{};
-  type_id element_type{};
   type_id key_type{};
-  type_id mapped_type{};
   detail::indirect_const_value_fn indirect_value = nullptr;
   detail::indirect_mutable_value_fn mutable_indirect_value = nullptr;
   detail::indirect_has_value_fn has_indirect_value = nullptr;

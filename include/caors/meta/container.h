@@ -32,7 +32,7 @@ using meta_associative_insert_fn = bool (*)(void*, const void*, const void*);
 
 /** @brief 顺序容器运行期访问数据。 */
 struct meta_sequence_data {
-  type_id element_type{};
+  type_id value_type{};
   meta_sequence_size_fn size = nullptr;
   meta_sequence_const_element_fn element = nullptr;
   meta_sequence_mutable_element_fn mutable_element = nullptr;
@@ -41,34 +41,34 @@ struct meta_sequence_data {
   meta_sequence_append_fn append = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
-    return element_type && size != nullptr && element != nullptr;
+    return value_type && size != nullptr && element != nullptr;
   }
 };
 
 /** @brief 集合容器运行期访问数据。 */
 struct meta_set_data {
-  type_id element_type{};
+  type_id value_type{};
   meta_set_size_fn size = nullptr;
   meta_set_visit_fn visit = nullptr;
   meta_set_clear_fn clear = nullptr;
   meta_set_insert_fn insert = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
-    return element_type && size != nullptr && visit != nullptr;
+    return value_type && size != nullptr && visit != nullptr;
   }
 };
 
 /** @brief 关联容器运行期访问数据。 */
 struct meta_associative_data {
   type_id key_type{};
-  type_id mapped_type{};
+  type_id value_type{};
   meta_associative_size_fn size = nullptr;
   meta_associative_visit_fn visit = nullptr;
   meta_associative_clear_fn clear = nullptr;
   meta_associative_insert_fn insert = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
-    return key_type && mapped_type && size != nullptr && visit != nullptr;
+    return key_type && value_type && size != nullptr && visit != nullptr;
   }
 };
 
