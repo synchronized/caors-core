@@ -167,8 +167,15 @@ template <typename Sequence> struct sequence_serialization_codec {
   using traits = sequence_traits<Sequence>;
   using element_type = typename traits::element_type;
 
+  static constexpr bool traits_can_read = [] {
+    if constexpr (requires { traits::can_read; }) {
+      return traits::can_read;
+    } else {
+      return true;
+    }
+  }();
   static constexpr bool can_write = traits::is_sequence;
-  static constexpr bool can_read = traits::is_sequence &&
+  static constexpr bool can_read = traits::is_sequence && traits_can_read &&
                                    std::is_default_constructible_v<Sequence> &&
                                    std::is_default_constructible_v<element_type>;
   static constexpr bool can_make_value = traits::is_sequence;

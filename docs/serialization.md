@@ -215,8 +215,7 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `object_ref<T>` 
 - `caors::list<T>` / `std::list<T>`：通过 `sequence_serialization_codec<T>` 输出为数组。
 - `std::deque<T>`：通过 `sequence_serialization_codec<T>` 输出为数组。
 - `std::array<T, N>`：通过 `sequence_serialization_codec<T>` 输出为数组；读入长度必须等于 `N`。
-- `std::span<T>` / `std::span<T, N>`：通过 `sequence_traits<T>` 输出为数组；读入时只写入当前 span 指向的已有存储，
-  输入长度必须等于当前 span 长度。
+- `std::span<T>` / `std::span<T, N>`：通过 `sequence_traits<T>` 输出为数组；它是借用视图，默认不支持反序列化读回。
 - `caors::hash_set<T>` / `std::unordered_set<T>` / `std::set<T>`：通过 `set_serialization_codec<T>`
   输出为数组，读入时拒绝重复元素。
 - `caors::hash_map<K, V>` / `std::unordered_map<K, V>` / `std::map<K, V>`：通过
@@ -272,7 +271,7 @@ DOM reader 同时接受 `variant::dictionary` 和 pair 数组形态。普通 `st
 - 读入非空值时，裸指针要求目标指针已经指向有效对象，不会自动分配内存。
 - 读入非空值时，`std::unique_ptr<T>`、`std::shared_ptr<T>` 和 `std::optional<T>` 会在内部为空时尝试默认构造
   `T`；`std::reference_wrapper<T>` 会写入已经绑定的对象。
-- `std::weak_ptr<T>` 无法稳定暴露可写内部值，当前不作为普通 value 序列化。
+- `std::weak_ptr<T>` 无法稳定暴露可写内部值，当前不作为普通 value 序列化或反序列化。
 - `caors::object_ref<T>` 不走内部 value 语义，仍通过 `serialization_reference_resolver` 写出和读入对象 id。
 
 这条规则避免序列化层隐式决定所有权。后续如果要让某类 wrapper 采用引用语义、共享身份或自定义构造策略，
@@ -290,8 +289,8 @@ DOM reader 同时接受 `variant::dictionary` 和 pair 数组形态。普通 `st
 - 类型语义最多支持一层间接类型；`T**`、`std::unique_ptr<T*>`、
   `std::optional<std::shared_ptr<T>>` 等多层组合当前会触发静态断言。
 - `std::array<T, N>` 已支持固定长度数组读写；反序列化时数组长度必须等于 `N`，长度不匹配会返回失败。
-- `std::span<T>` / `std::span<T, N>` 已支持按借用数组视图读写；反序列化只写入当前 span 指向的已有存储，
-  输入长度必须等于当前 span 长度，不会分配或延长 backing storage 生命周期。
+- `std::span<T>` / `std::span<T, N>` 已支持按借用数组视图写出和反射访问；默认不支持反序列化写回，
+  避免序列化层隐式决定 backing storage 的分配、长度调整和生命周期。
 - `std::pair<T, U>` 已支持按二元素数组 `[first, second]` 读写；反序列化时数组长度必须等于 2。
 - `std::tuple<...>` 已支持按元素数组 `[v0, v1, ...]` 读写；反序列化时数组长度必须等于 tuple 元素数量。
 - `std::variant<...>` 已支持按 tagged union 数组 `[index, value]` 读写；反序列化时数组长度必须等于 2，

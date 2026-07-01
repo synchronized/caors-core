@@ -111,6 +111,7 @@ template <typename T, std::size_t Size> struct sequence_traits<std::array<T, Siz
 /** @brief `std::span` 的借用顺序容器反射适配。 */
 template <typename T> struct sequence_traits<std::span<T, std::dynamic_extent>> {
   static constexpr bool is_sequence = true;
+  static constexpr bool can_read = false;
   static constexpr bool read_in_place = true;
   using element_type = std::remove_cv_t<T>;
 
@@ -152,6 +153,7 @@ template <typename T> struct sequence_traits<std::span<T, std::dynamic_extent>> 
 /** @brief 固定长度 `std::span` 的借用顺序容器反射适配。 */
 template <typename T, std::size_t Extent> struct sequence_traits<std::span<T, Extent>> {
   static constexpr bool is_sequence = true;
+  static constexpr bool can_read = false;
   static constexpr bool read_in_place = true;
   static constexpr std::size_t fixed_size = Extent;
   using element_type = std::remove_cv_t<T>;

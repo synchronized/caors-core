@@ -98,7 +98,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 支持 `std::pair<T,U>` 按二元素数组序列化和反序列化。
 - [x] 支持 `std::tuple<Ts...>` 按元素数组序列化和反序列化。
 - [x] 支持 `std::variant<Ts...>` 按 `[index, value]` tagged union 序列化和反序列化。
-- [x] 支持 `std::span<T>` / `std::span<T,N>` 作为借用数组视图序列化，并按已有 backing storage 原地反序列化。
+- [x] 支持 `std::span<T>` / `std::span<T,N>` 作为借用数组视图反射访问和序列化写出，默认禁止反序列化写回。
 - [ ] 为 `std::string_view` 设计安全反序列化策略，避免悬空引用。
 - [ ] 为 `std::weak_ptr<T>`、对象 handle 和资源引用设计稳定引用语义。
 - [ ] 支持多态对象的动态类型记录、构造和安全下转型。

@@ -888,6 +888,10 @@ template <typename T> [[nodiscard]] error register_sequence_data_for(type_id id)
       data.read_in_place = sequence_traits<type>::read_in_place;
     }
 
+    if constexpr (requires { sequence_traits<type>::can_read; }) {
+      data.can_read = sequence_traits<type>::can_read;
+    }
+
     const error result = get_meta_registry().emplace<meta_sequence_data>(id, data);
     if (result && result.value() != errc::duplicate_component) {
       return result;

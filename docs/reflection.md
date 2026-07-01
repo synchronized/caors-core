@@ -177,13 +177,14 @@ struct sequence_traits<my_sequence<T>> {
 }
 ```
 
-`resize()` 适合只在元素可默认构造时返回成功，`append()` 适合只在元素可拷贝时返回成功。借用视图类型可以额外提供
-`static constexpr bool read_in_place = true`，让反序列化直接写入已有 backing storage，而不是先读到临时容器。
+`resize()` 适合只在元素可默认构造时返回成功，`append()` 适合只在元素可拷贝时返回成功。借用视图类型应额外提供
+`static constexpr bool can_read = false`，避免序列化层默认读回到不受它管理的 backing storage；如果后续有明确字段策略，
+可再通过显式 opt-in 配合 `read_in_place` 做原地读入。
 调用方通过 `reflection_field` 操作 sequence 字段时，类型不匹配、对象为空或 traits 不支持对应操作都会返回失败。
 内置适配已覆盖 `std::vector<T>`、`caors::vector<T>`、`std::list<T>`、`caors::list<T>`、
 `std::deque<T>` 和 `std::array<T, N>`。`std::array<T, N>` 的类型名包含固定长度，例如
 `std.array<int,3>`；读入或调整长度时只有 `size == N` 才会成功。`std::span<T>` 是借用视图，
-类型名为 `std.span<T>`；固定长度 `std::span<T, N>` 的类型名为 `std.span<T,N>`，读入时只写入当前 span 指向的已有存储。
+类型名为 `std.span<T>`；固定长度 `std::span<T, N>` 的类型名为 `std.span<T,N>`，默认只用于反射访问和序列化写出。
 
 集合容器识别通过 `set_traits<T>` 扩展。集合只有元素，没有 mapped value；序列化层会按数组读写，
 反序列化时遇到重复元素会返回失败：

@@ -57,6 +57,7 @@ struct meta_sequence_data {
   meta_sequence_clear_fn clear = nullptr;
   meta_sequence_resize_fn resize = nullptr;
   meta_sequence_append_fn append = nullptr;
+  bool can_read = true;
   bool read_in_place = false;
 
   [[nodiscard]] bool valid() const noexcept {

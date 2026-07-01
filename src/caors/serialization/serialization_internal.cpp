@@ -760,6 +760,10 @@ object_ref_value_from_ref(const any_ref& value,
                                         const serialization_context& context) {
   const meta_sequence_data* sequence =
       get_meta_registry().find_ptr<meta_sequence_data>(target.type());
+  if (sequence != nullptr && !sequence->can_read) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
   const std::optional<meta_type> meta = find_type(target.type());
   if (sequence != nullptr && !sequence->read_in_place && meta.has_value() &&
       meta->assign_value() != nullptr) {
