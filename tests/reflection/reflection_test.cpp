@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <functional>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -163,6 +164,10 @@ struct inventory_holder {
 
 struct vector_holder {
   caors::vector<int> values{};
+};
+
+struct list_holder {
+  caors::list<int> values{};
 };
 
 struct custom_sequence_holder {
@@ -540,6 +545,41 @@ TEST_CASE("reflection - custom sequence traits expose field view", "[reflection]
   CHECK(instance.values.values.size() == 1);
   CHECK(sequence.clear());
   CHECK(instance.values.values.empty());
+}
+
+TEST_CASE("reflection - list field view uses sequence traits", "[reflection]") {
+  REQUIRE(caors::reflection::class_<list_holder>("caors.test.reflection.list_holder")
+              .field("values", &list_holder::values)
+              .commit()
+              .succeeded());
+
+  auto reflected = caors::find_reflection("caors.test.reflection.list_holder");
+  REQUIRE(reflected.has_value());
+
+  auto values = reflected->find_field("values");
+  REQUIRE(values.has_value());
+  CHECK(values->kind() == caors::field_kind::sequence);
+  CHECK(values->type_name() == "caors.list<int>");
+  CHECK(values->element_type() == registered_type_id("int"));
+
+  list_holder instance{};
+  instance.values.push_back(3);
+  instance.values.push_back(5);
+
+  caors::sequence_view sequence = values->get_ref(&instance).create_sequence_view();
+  CHECK(sequence.valid());
+  CHECK(sequence.writable());
+
+  caors::any_ref second = sequence.element_ref(1);
+  REQUIRE(second.valid());
+  CHECK(second.try_set(8));
+
+  auto iterator = instance.values.begin();
+  std::advance(iterator, 1);
+  CHECK(*iterator == 8);
+
+  CHECK(sequence.append_value(caors::any::from(13)));
+  CHECK(instance.values.back() == 13);
 }
 
 TEST_CASE("reflection - associative field view exposes key and value metadata", "[reflection]") {

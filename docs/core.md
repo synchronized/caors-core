@@ -68,12 +68,13 @@ constexpr caors::guid stable = caors::guid::from_bytes(caors::guid::byte_array{
 
 ```cpp
 caors::vector<int> values;
+caors::list<int> queue;
 caors::string text;
 caors::hash_map<int, caors::string> names;
 ```
 
 这些别名使用 `caors::allocator<T>`，不会修改进程级 `std::pmr` 默认资源，也不会影响宿主程序或其他库。
-直接默认构造 `caors::vector<T>` / `caors::string` / `caors::hash_map<K, V>` 时会捕获当前
+直接默认构造 `caors::vector<T>` / `caors::list<T>` / `caors::string` / `caors::hash_map<K, V>` 时会捕获当前
 CAORS 默认 `memory_resource`。
 
 需要显式资源时，可以直接传入 `caors::allocator<T>`，或使用工厂函数传入 `memory_resource`：
@@ -83,6 +84,7 @@ caors::tracking_resource tracking(&caors::get_system_memory_resource());
 caors::vector<int> values{caors::allocator<int>{&tracking}};
 
 auto default_values = caors::make_vector<int>();
+auto queue = caors::make_list<int>(&tracking);
 auto text = caors::make_string(&tracking);
 auto map = caors::make_hash_map<int, caors::string>(&tracking);
 ```

@@ -151,6 +151,7 @@ struct sequence_traits<my_sequence<T>> {
 
 `resize()` 适合只在元素可默认构造时返回成功，`append()` 适合只在元素可拷贝时返回成功。调用方通过
 `reflection_field` 操作 sequence 字段时，类型不匹配、对象为空或 traits 不支持对应操作都会返回失败。
+内置适配已覆盖 `std::vector<T>`、`caors::vector<T>`、`std::list<T>` 和 `caors::list<T>`。
 
 集合容器识别通过 `set_traits<T>` 扩展。集合只有元素，没有 mapped value；序列化层会按数组读写，
 反序列化时遇到重复元素会返回失败：

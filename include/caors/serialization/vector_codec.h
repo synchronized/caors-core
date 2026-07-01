@@ -7,6 +7,7 @@
 #include "caors/serialization/operations.h"
 
 #include <limits>
+#include <list>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -258,6 +259,11 @@ template <typename Sequence> struct sequence_serialization_codec {
 template <typename T, typename Allocator>
 struct serialization_codec<std::vector<T, Allocator>>
     : sequence_serialization_codec<std::vector<T, Allocator>> {};
+
+/** @brief `std::list` / `caors::list` 的数组序列化 codec。 */
+template <typename T, typename Allocator>
+struct serialization_codec<std::list<T, Allocator>>
+    : sequence_serialization_codec<std::list<T, Allocator>> {};
 
 } // namespace caors
 

@@ -114,6 +114,10 @@ struct vector_actor {
   caors::vector<int> scores{};
 };
 
+struct list_actor {
+  caors::list<int> scores{};
+};
+
 struct map_actor {
   caors::hash_map<int, caors::string> labels{};
 };
@@ -751,6 +755,62 @@ TEST_CASE("serialization - deserializes vector fields from arrays", "[serializat
   REQUIRE(actor.scores.size() == 2);
   CHECK(actor.scores[0] == 5);
   CHECK(actor.scores[1] == 6);
+}
+
+TEST_CASE("serialization - serializes list fields as arrays", "[serialization]") {
+  REQUIRE(serialization_result_ok(caors::register_serialization_codec<caors::list<int>>()));
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<list_actor>("caors.test.serialization.list_actor")
+          .field("scores", &list_actor::scores)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<list_actor>()));
+
+  list_actor actor{};
+  actor.scores.push_back(1);
+  actor.scores.push_back(2);
+  actor.scores.push_back(3);
+
+  const caors::serialization_text_result text = caors::serialize_text(actor);
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"scores":[1,2,3]})");
+
+  const caors::variant_result value = caors::to_serialization_value(actor);
+  REQUIRE(value.succeeded());
+  const caors::variant_member* scores = value.value.find_member(caors::string_name{"scores"});
+  REQUIRE(scores != nullptr);
+  REQUIRE(scores->value.is_array());
+  REQUIRE(scores->value.as_array().size() == 3);
+  CHECK(scores->value.as_array()[2].as_i64() == 3);
+}
+
+TEST_CASE("serialization - deserializes list fields from arrays", "[serialization]") {
+  REQUIRE(serialization_result_ok(caors::register_serialization_codec<caors::list<int>>()));
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<list_actor>("caors.test.serialization.list_actor")
+          .field("scores", &list_actor::scores)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<list_actor>()));
+
+  caors::variant::array_type scores;
+  scores.push_back(caors::variant::from(std::int64_t{5}));
+  scores.push_back(caors::variant::from(std::int64_t{6}));
+
+  caors::variant::object_type members;
+  members.push_back(caors::variant_member{
+      caors::string_name{"scores"},
+      0,
+      caors::variant::array(std::move(scores)),
+  });
+
+  list_actor actor{};
+  const caors::error result = caors::deserialize(actor, caors::variant::object(std::move(members)));
+
+  REQUIRE(result.succeeded());
+  REQUIRE(actor.scores.size() == 2);
+  auto iterator = actor.scores.begin();
+  CHECK(*iterator == 5);
+  ++iterator;
+  CHECK(*iterator == 6);
 }
 
 TEST_CASE("serialization - serializes hash map fields as dictionaries", "[serialization]") {

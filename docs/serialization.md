@@ -211,6 +211,7 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `object_ref<T>` 
 - `caors::guid`：按标准 UUID/GUID 字符串读写。
 - `caors::type_guid`：按内部 `guid` 的标准字符串读写。
 - `caors::vector<T>`：通过 `sequence_serialization_codec<T>` 输出为数组。
+- `caors::list<T>`：通过 `sequence_serialization_codec<T>` 输出为数组。
 - `caors::hash_set<T>`：通过 `set_serialization_codec<T>` 输出为数组，读入时拒绝重复元素。
 - `caors::hash_map<K, V>`：通过 `associative_serialization_codec<T>` 输出为字典 pair 数组。
 

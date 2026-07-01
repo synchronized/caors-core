@@ -7,6 +7,7 @@
 #include "caors/memory.h"
 
 #include <functional>
+#include <list>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -16,6 +17,9 @@ namespace caors {
 
 /** @brief 使用 CAORS allocator 的动态数组别名。 */
 template <typename T> using vector = std::vector<T, allocator<T>>;
+
+/** @brief 使用 CAORS allocator 的双向链表别名。 */
+template <typename T> using list = std::list<T, allocator<T>>;
 
 /** @brief 使用 CAORS allocator 的字符串别名。 */
 using string = std::basic_string<char, std::char_traits<char>, allocator<char>>;
@@ -36,6 +40,11 @@ using hash_set = std::unordered_set<T, Hash, Equal, allocator<T>>;
 /** @brief 使用指定 CAORS 资源创建动态数组。 */
 template <typename T> [[nodiscard]] vector<T> make_vector(memory_resource* resource = nullptr) {
   return vector<T>{allocator<T>{resource}};
+}
+
+/** @brief 使用指定 CAORS 资源创建双向链表。 */
+template <typename T> [[nodiscard]] list<T> make_list(memory_resource* resource = nullptr) {
+  return list<T>{allocator<T>{resource}};
 }
 
 /** @brief 使用指定 CAORS 资源创建哈希表。 */

@@ -17,6 +17,19 @@ TEST_CASE("core containers - vector uses caors allocator", "[core]") {
   CHECK(tracking.statistics().allocation_count > 0);
 }
 
+TEST_CASE("core containers - list uses caors allocator", "[core]") {
+  caors::tracking_resource tracking(&caors::get_system_memory_resource());
+  auto values = caors::make_list<int>(&tracking);
+
+  values.push_back(1);
+  values.push_back(2);
+
+  REQUIRE(values.size() == 2);
+  CHECK(values.front() == 1);
+  CHECK(values.back() == 2);
+  CHECK(tracking.statistics().allocation_count > 0);
+}
+
 TEST_CASE("core containers - string uses caors allocator", "[core]") {
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
   caors::string text{caors::allocator<char>{&tracking}};
