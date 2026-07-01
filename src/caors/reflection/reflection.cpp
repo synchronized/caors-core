@@ -150,6 +150,12 @@ type_id reflection_field::key_type() const noexcept {
 
 string_name reflection_field::key_type_name() const noexcept { return type_name_of(key_type()); }
 
+type_id reflection_field::first_type() const noexcept { return key_type(); }
+
+string_name reflection_field::first_type_name() const noexcept {
+  return type_name_of(first_type());
+}
+
 type_id reflection_field::mapped_type() const noexcept {
   const meta_type_semantics_data* traits = field_type_semantics(info());
   return traits != nullptr ? traits->value_type : type_id{};
@@ -157,6 +163,12 @@ type_id reflection_field::mapped_type() const noexcept {
 
 string_name reflection_field::mapped_type_name() const noexcept {
   return type_name_of(mapped_type());
+}
+
+type_id reflection_field::second_type() const noexcept { return value_type(); }
+
+string_name reflection_field::second_type_name() const noexcept {
+  return type_name_of(second_type());
 }
 
 type_kind reflection_field::kind() const noexcept {
@@ -274,6 +286,8 @@ bool reflection_field::is_sequence() const noexcept { return kind() == type_kind
 bool reflection_field::is_set() const noexcept { return kind() == type_kind::set; }
 
 bool reflection_field::is_associative() const noexcept { return kind() == type_kind::associative; }
+
+bool reflection_field::is_pair() const noexcept { return kind() == type_kind::pair; }
 
 reflection_type::reflection_type(meta_type type, const reflection_type_data* data) noexcept
     : type_(type), data_(data) {}

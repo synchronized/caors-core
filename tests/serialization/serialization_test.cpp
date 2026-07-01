@@ -165,6 +165,10 @@ struct array_actor {
   std::array<int, 3> scores{};
 };
 
+struct pair_actor {
+  std::pair<int, caors::string> entry{};
+};
+
 struct nested_vector_values_actor {
   caors::vector<caors::vector<int>> groups{};
 };
@@ -1402,6 +1406,53 @@ TEST_CASE("serialization - rejects std array length mismatch", "[serialization]"
   CHECK(result.domain() == caors::error_domain::serialization);
   CHECK(result.value() == caors::errc::unsupported);
   CHECK(actor.scores == std::array<int, 3>{1, 2, 3});
+}
+
+TEST_CASE("serialization - roundtrips std pair fields", "[serialization]") {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<pair_actor>("caors.test.serialization.pair_actor")
+          .field("entry", &pair_actor::entry)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<pair_actor>()));
+
+  pair_actor actor{{7, caors::string{"seven"}}};
+
+  const caors::serialization_text_result text = caors::serialize_text(actor);
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"entry":[7,"seven"]})");
+
+  pair_actor decoded{};
+  const caors::error result = caors::deserialize_json(decoded, R"({"entry":[9,"nine"]})");
+
+  REQUIRE(result.succeeded());
+  CHECK(decoded.entry.first == 9);
+  CHECK(decoded.entry.second == "nine");
+
+  const caors::variant_result value = caors::to_serialization_value(actor);
+  REQUIRE(value.succeeded());
+  const caors::variant_member* entry = value.value.find_member(caors::string_name{"entry"});
+  REQUIRE(entry != nullptr);
+  REQUIRE(entry->value.is_array());
+  REQUIRE(entry->value.as_array().size() == 2);
+  CHECK(entry->value.as_array()[0].as_i64() == 7);
+  CHECK(entry->value.as_array()[1].as_string() == "seven");
+}
+
+TEST_CASE("serialization - rejects std pair length mismatch", "[serialization]") {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<pair_actor>("caors.test.serialization.pair_actor")
+          .field("entry", &pair_actor::entry)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<pair_actor>()));
+
+  pair_actor actor{{7, caors::string{"seven"}}};
+  const caors::error result = caors::deserialize_json(actor, R"({"entry":[9]})");
+
+  CHECK(result.failed());
+  CHECK(result.domain() == caors::error_domain::serialization);
+  CHECK(result.value() == caors::errc::unsupported);
+  CHECK(actor.entry.first == 7);
+  CHECK(actor.entry.second == "seven");
 }
 
 TEST_CASE("serialization - serializes hash map fields as dictionaries", "[serialization]") {

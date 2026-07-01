@@ -15,6 +15,7 @@
 #include <optional>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 
 namespace test_reflection {
 
@@ -179,6 +180,10 @@ struct list_holder {
 
 struct array_holder {
   std::array<int, 3> values{};
+};
+
+struct pair_holder {
+  std::pair<int, caors::string> value{};
 };
 
 struct custom_sequence_holder {
@@ -355,6 +360,15 @@ TEST_CASE("reflection - field info describes field type traits", "[reflection]")
   CHECK(sequence_traits.kind == caors::type_kind::sequence);
   CHECK(sequence_traits.wrapper_semantics == caors::wrapper_semantics::none);
   CHECK(sequence_traits.value_type == registered_type_id("int"));
+
+  const caors::reflection_field_data pair =
+      caors::make_reflection_field_data<std::pair<int, caors::string>>(
+          "pair", "std.pair<int,caors.string>", 0);
+  const caors::meta_type_semantics_data& pair_traits = registered_traits(pair);
+  CHECK(pair_traits.kind == caors::type_kind::pair);
+  CHECK(pair_traits.wrapper_semantics == caors::wrapper_semantics::none);
+  CHECK(pair_traits.key_type == registered_type_id("int"));
+  CHECK(pair_traits.value_type == registered_type_id("caors.string"));
 }
 
 TEST_CASE("reflection - field info reads and writes field values", "[reflection]") {
@@ -627,6 +641,45 @@ TEST_CASE("reflection - std array field view uses fixed sequence traits", "[refl
   CHECK(sequence.resize(3));
   CHECK_FALSE(sequence.resize(2));
   CHECK_FALSE(sequence.append_value(caors::any::from(13)));
+}
+
+TEST_CASE("reflection - std pair field view exposes first and second values", "[reflection]") {
+  REQUIRE(caors::reflection::class_<pair_holder>("caors.test.reflection.pair_holder")
+              .field("value", &pair_holder::value)
+              .commit()
+              .succeeded());
+
+  auto reflected = caors::find_reflection("caors.test.reflection.pair_holder");
+  REQUIRE(reflected.has_value());
+
+  auto value = reflected->find_field("value");
+  REQUIRE(value.has_value());
+  CHECK(value->kind() == caors::type_kind::pair);
+  CHECK(value->is_pair());
+  CHECK(value->type_name() == "std.pair<int,caors.string>");
+  CHECK(value->first_type() == registered_type_id("int"));
+  CHECK(value->first_type_name() == "int");
+  CHECK(value->second_type() == registered_type_id("caors.string"));
+  CHECK(value->second_type_name() == "caors.string");
+  CHECK(value->value_type() == registered_type_id("caors.string"));
+
+  pair_holder instance{{7, caors::string{"seven"}}};
+  caors::pair_view pair = value->get_ref(&instance).create_pair_view();
+  REQUIRE(pair.valid());
+  CHECK(pair.writable());
+  CHECK(pair.first_type() == registered_type_id("int"));
+  CHECK(pair.second_type() == registered_type_id("caors.string"));
+
+  caors::any_ref first = pair.first_ref();
+  REQUIRE(first.valid());
+  CHECK(first.try_set(9));
+
+  caors::any_ref second = pair.second_ref();
+  REQUIRE(second.valid());
+  CHECK(second.try_set(caors::string{"nine"}));
+
+  CHECK(instance.value.first == 9);
+  CHECK(instance.value.second == "nine");
 }
 
 TEST_CASE("reflection - list field view uses sequence traits", "[reflection]") {

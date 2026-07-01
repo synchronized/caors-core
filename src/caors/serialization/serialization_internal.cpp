@@ -122,7 +122,7 @@ template <typename T>
 [[nodiscard]] bool field_uses_direct_value(const reflection_field& field) noexcept {
   return field.kind() == type_kind::value || field.kind() == type_kind::enumeration ||
          field.kind() == type_kind::sequence || field.kind() == type_kind::set ||
-         field.kind() == type_kind::associative;
+         field.kind() == type_kind::associative || field.kind() == type_kind::pair;
 }
 
 [[nodiscard]] const meta_type_semantics_data* type_semantics(type_id id) noexcept {
@@ -551,6 +551,60 @@ object_ref_value_from_ref(const any_ref& value,
   return writer.end_dictionary();
 }
 
+[[nodiscard]] error write_pair_value(serialization_writer& writer, const pair_view& view,
+                                     const serialization_context& context) {
+  if (!view.valid()) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  error status = writer.begin_array(2);
+  if (status) {
+    return status;
+  }
+
+  status = writer.begin_element(0);
+  if (status) {
+    return status;
+  }
+
+  any_ref first = view.first_ref();
+  if (!first.valid()) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  status = write_serialized_value(writer, first, context);
+  if (status) {
+    return status;
+  }
+
+  status = writer.end_element();
+  if (status) {
+    return status;
+  }
+
+  status = writer.begin_element(1);
+  if (status) {
+    return status;
+  }
+
+  any_ref second = view.second_ref();
+  if (!second.valid()) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  status = write_serialized_value(writer, second, context);
+  if (status) {
+    return status;
+  }
+
+  status = writer.end_element();
+  if (status) {
+    return status;
+  }
+
+  return writer.end_array();
+}
+
 [[nodiscard]] error read_sequence_into_view(serialization_reader& reader, const sequence_view& view,
                                             const serialization_context& context) {
   if (!view.valid() || !view.writable()) {
@@ -775,6 +829,87 @@ object_ref_value_from_ref(const any_ref& value,
   return read_associative_into_view(reader, target.create_associative_view(), context);
 }
 
+[[nodiscard]] error read_pair_into_view(serialization_reader& reader, const pair_view& view,
+                                        const serialization_context& context) {
+  if (!view.valid() || !view.writable()) {
+    return {error_domain::serialization, errc::invalid_field};
+  }
+
+  std::size_t size = 0;
+  error status = reader.begin_array(size);
+  if (status) {
+    return status;
+  }
+
+  if (size != 2) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  status = reader.begin_element(0);
+  if (status) {
+    return status;
+  }
+
+  any_ref first = view.first_ref();
+  if (!first.valid() || !first.writable()) {
+    return {error_domain::serialization, errc::invalid_field};
+  }
+
+  status = read_serialized_value(reader, first, context);
+  if (status) {
+    return status;
+  }
+
+  status = reader.end_element();
+  if (status) {
+    return status;
+  }
+
+  status = reader.begin_element(1);
+  if (status) {
+    return status;
+  }
+
+  any_ref second = view.second_ref();
+  if (!second.valid() || !second.writable()) {
+    return {error_domain::serialization, errc::invalid_field};
+  }
+
+  status = read_serialized_value(reader, second, context);
+  if (status) {
+    return status;
+  }
+
+  status = reader.end_element();
+  if (status) {
+    return status;
+  }
+
+  return reader.end_array();
+}
+
+[[nodiscard]] error read_pair_value(serialization_reader& reader, const any_ref& target,
+                                    const serialization_context& context) {
+  const std::optional<meta_type> meta = find_type(target.type());
+  if (meta.has_value() && meta->assign_value() != nullptr) {
+    any decoded = any::default_construct(target.type());
+    if (decoded.valid()) {
+      error status = read_pair_into_view(reader, decoded.create_pair_view(), context);
+      if (status) {
+        return status;
+      }
+
+      if (!target.try_set(decoded)) {
+        return {error_domain::serialization, errc::unsupported};
+      }
+
+      return {};
+    }
+  }
+
+  return read_pair_into_view(reader, target.create_pair_view(), context);
+}
+
 [[nodiscard]] variant_result make_sequence_value(const sequence_view& view,
                                                  const serialization_context& context) {
   const std::optional<std::size_t> size = view.size();
@@ -884,6 +1019,36 @@ object_ref_value_from_ref(const any_ref& value,
   }
 
   return {{}, variant::dictionary(std::move(entries))};
+}
+
+[[nodiscard]] variant_result make_pair_value(const pair_view& view,
+                                             const serialization_context& context) {
+  if (!view.valid()) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
+  }
+
+  any_ref first = view.first_ref();
+  any_ref second = view.second_ref();
+  if (!first.valid() || !second.valid()) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
+  }
+
+  variant_result encoded_first = make_serialized_value(first, context);
+  if (encoded_first.failed()) {
+    return encoded_first;
+  }
+
+  variant_result encoded_second = make_serialized_value(second, context);
+  if (encoded_second.failed()) {
+    return encoded_second;
+  }
+
+  variant::array_type elements;
+  elements.reserve(2);
+  elements.push_back(std::move(encoded_first.value));
+  elements.push_back(std::move(encoded_second.value));
+
+  return {{}, variant::array(std::move(elements))};
 }
 
 [[nodiscard]] error write_object_ref_field(serialization_writer& writer,
@@ -1051,7 +1216,8 @@ variant_result make_serialized_value(const any& data) {
   if (semantics != nullptr &&
       (semantics->kind == type_kind::raw_pointer || semantics->kind == type_kind::wrapper ||
        semantics->kind == type_kind::enumeration || semantics->kind == type_kind::sequence ||
-       semantics->kind == type_kind::set || semantics->kind == type_kind::associative)) {
+       semantics->kind == type_kind::set || semantics->kind == type_kind::associative ||
+       semantics->kind == type_kind::pair)) {
     return make_serialized_value(data.ref(), serialization_context{});
   }
 
@@ -1154,6 +1320,11 @@ variant_result make_serialized_value(const any_ref& value, const serialization_c
     return make_associative_value(associative, context);
   }
 
+  pair_view pair = value.create_pair_view();
+  if (pair.valid()) {
+    return make_pair_value(pair, context);
+  }
+
   const std::optional<serialization_codec_data> codec =
       get_serialization_codec_registry().find_codec(value.type());
   if (codec.has_value() && codec->make_value != nullptr) {
@@ -1210,6 +1381,11 @@ error write_serialized_value(serialization_writer& writer, const any_ref& value,
   associative_view associative = value.create_associative_view();
   if (associative.valid()) {
     return write_associative_value(writer, associative, context);
+  }
+
+  pair_view pair = value.create_pair_view();
+  if (pair.valid()) {
+    return write_pair_value(writer, pair, context);
   }
 
   const std::optional<serialization_codec_data> codec =
@@ -1269,6 +1445,10 @@ error read_serialized_value(serialization_reader& reader, const any_ref& target,
 
   if (target.create_associative_view().valid()) {
     return read_associative_value(reader, target, context);
+  }
+
+  if (target.create_pair_view().valid()) {
+    return read_pair_value(reader, target, context);
   }
 
   const std::optional<serialization_codec_data> codec =

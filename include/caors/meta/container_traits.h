@@ -21,6 +21,11 @@ template <typename T> struct associative_traits {
   static constexpr bool is_associative = false;
 };
 
+/** @brief 二元组类型语义 traits。 */
+template <typename T> struct pair_traits {
+  static constexpr bool is_pair = false;
+};
+
 } // namespace caors
 
 #endif

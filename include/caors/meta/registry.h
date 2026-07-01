@@ -649,6 +649,60 @@ template <typename T> [[nodiscard]] error register_associative_data_for(type_id 
   return {};
 }
 
+template <typename T> [[nodiscard]] error register_pair_data_for(type_id id) {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (pair_traits<type>::is_pair) {
+    using first_type = typename pair_traits<type>::first_type;
+    using second_type = typename pair_traits<type>::second_type;
+
+    const type_id key = semantic_type_id<first_type>();
+    const type_id value = semantic_type_id<second_type>();
+    if (!id || !key || !value) {
+      return {};
+    }
+
+    meta_pair_data data{
+        key,
+        value,
+        [](const void* storage) noexcept -> const void* {
+          if (storage == nullptr) {
+            return nullptr;
+          }
+
+          return pair_traits<type>::first(*static_cast<const type*>(storage));
+        },
+        [](void* storage) noexcept -> void* {
+          if (storage == nullptr) {
+            return nullptr;
+          }
+
+          return pair_traits<type>::mutable_first(*static_cast<type*>(storage));
+        },
+        [](const void* storage) noexcept -> const void* {
+          if (storage == nullptr) {
+            return nullptr;
+          }
+
+          return pair_traits<type>::second(*static_cast<const type*>(storage));
+        },
+        [](void* storage) noexcept -> void* {
+          if (storage == nullptr) {
+            return nullptr;
+          }
+
+          return pair_traits<type>::mutable_second(*static_cast<type*>(storage));
+        },
+    };
+
+    const error result = get_meta_registry().emplace<meta_pair_data>(id, data);
+    if (result && result.value() != errc::duplicate_component) {
+      return result;
+    }
+  }
+
+  return {};
+}
+
 template <typename T> [[nodiscard]] error register_sequence_data_for(type_id id) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (sequence_traits<type>::is_sequence) {
@@ -792,6 +846,8 @@ template <typename T> [[nodiscard]] error register_container_data_for(type_id id
     return register_set_data_for<type>(id);
   } else if constexpr (associative_traits<type>::is_associative) {
     return register_associative_data_for<type>(id);
+  } else if constexpr (pair_traits<type>::is_pair) {
+    return register_pair_data_for<type>(id);
   }
 
   return {};
@@ -821,6 +877,14 @@ template <typename Type> struct type_semantics_traits {
       info.kind = type_kind::associative;
       info.key_type = semantic_type_id<key_type>();
       info.value_type = semantic_type_id<mapped_type>();
+      return info;
+    } else if constexpr (pair_traits<type>::is_pair) {
+      using first_type = typename pair_traits<type>::first_type;
+      using second_type = typename pair_traits<type>::second_type;
+
+      info.kind = type_kind::pair;
+      info.key_type = semantic_type_id<first_type>();
+      info.value_type = semantic_type_id<second_type>();
       return info;
     } else if constexpr (wrapper_traits<type>::is_wrapper) {
       using wrapped_type = typename wrapper_traits<type>::wrapped_type;

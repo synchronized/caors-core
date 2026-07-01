@@ -318,6 +318,41 @@ struct associative_traits<std::map<K, V, Compare, Allocator>> {
   }
 };
 
+/** @brief `std::pair` 的二元组反射适配。 */
+template <typename First, typename Second> struct pair_traits<std::pair<First, Second>> {
+  static constexpr bool is_pair = true;
+  using first_type = std::remove_cv_t<First>;
+  using second_type = std::remove_cv_t<Second>;
+
+  [[nodiscard]] static constexpr std::string_view type_name_prefix() noexcept { return "std.pair"; }
+
+  [[nodiscard]] static const first_type* first(const std::pair<First, Second>& values) noexcept {
+    return &values.first;
+  }
+
+  [[nodiscard]] static first_type* mutable_first(std::pair<First, Second>& values) noexcept {
+    if constexpr (std::is_const_v<First>) {
+      (void)values;
+      return nullptr;
+    } else {
+      return &values.first;
+    }
+  }
+
+  [[nodiscard]] static const second_type* second(const std::pair<First, Second>& values) noexcept {
+    return &values.second;
+  }
+
+  [[nodiscard]] static second_type* mutable_second(std::pair<First, Second>& values) noexcept {
+    if constexpr (std::is_const_v<Second>) {
+      (void)values;
+      return nullptr;
+    } else {
+      return &values.second;
+    }
+  }
+};
+
 } // namespace caors
 
 #endif

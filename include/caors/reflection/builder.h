@@ -69,6 +69,15 @@ public:
 
         reflection_.fields.push_back(make_reflection_field_data<Field>(
             name, *associative_name, detail::member_offset(member)));
+      } else if constexpr (pair_traits<field_type>::is_pair) {
+        const std::optional<string> pair_name = pair_type_name<field_type>();
+        if (!pair_name.has_value()) {
+          pending_status_ = {error_domain::reflection, errc::invalid_field};
+          return *this;
+        }
+
+        reflection_.fields.push_back(
+            make_reflection_field_data<Field>(name, *pair_name, detail::member_offset(member)));
       } else if constexpr (detail::has_type_name_v<field_type>) {
         reflection_.fields.push_back(make_reflection_field_data<Field>(
             name, type_name<field_type>::value, detail::member_offset(member)));
@@ -198,6 +207,30 @@ private:
       name += key->name().view();
       name += ",";
       name += mapped->name().view();
+      name += ">";
+      return name;
+    } else {
+      return std::nullopt;
+    }
+  }
+
+  template <typename Field> [[nodiscard]] std::optional<string> pair_type_name() const {
+    if constexpr (pair_traits<Field>::is_pair) {
+      using first_type = typename pair_traits<Field>::first_type;
+      using second_type = typename pair_traits<Field>::second_type;
+
+      const std::optional<meta_type> first = ensure_registered_type<first_type>();
+      const std::optional<meta_type> second = ensure_registered_type<second_type>();
+      if (!first.has_value() || !second.has_value()) {
+        return std::nullopt;
+      }
+
+      string name;
+      name += pair_traits<Field>::type_name_prefix();
+      name += "<";
+      name += first->name().view();
+      name += ",";
+      name += second->name().view();
       name += ">";
       return name;
     } else {

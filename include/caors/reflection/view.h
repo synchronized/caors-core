@@ -50,11 +50,23 @@ public:
   /** @brief 查询 associative 字段的 key 类型名。 */
   [[nodiscard]] string_name key_type_name() const noexcept;
 
+  /** @brief 查询 pair 字段的 first 类型，当前等价于对应语义下的 `key_type()`。 */
+  [[nodiscard]] type_id first_type() const noexcept;
+
+  /** @brief 查询 pair 字段的 first 类型名。 */
+  [[nodiscard]] string_name first_type_name() const noexcept;
+
   /** @brief 查询 associative 字段的 mapped/value 类型，等价于 `value_type()`。 */
   [[nodiscard]] type_id mapped_type() const noexcept;
 
   /** @brief 查询 associative 字段的 mapped/value 类型名。 */
   [[nodiscard]] string_name mapped_type_name() const noexcept;
+
+  /** @brief 查询 pair 字段的 second 类型，当前等价于对应语义下的 `value_type()`。 */
+  [[nodiscard]] type_id second_type() const noexcept;
+
+  /** @brief 查询 pair 字段的 second 类型名。 */
+  [[nodiscard]] string_name second_type_name() const noexcept;
 
   [[nodiscard]] type_kind kind() const noexcept;
   [[nodiscard]] wrapper_semantics wrapper_semantics() const noexcept;
@@ -97,6 +109,9 @@ public:
 
   /** @brief 判断字段是否是关联容器。 */
   [[nodiscard]] bool is_associative() const noexcept;
+
+  /** @brief 判断字段是否是二元组。 */
+  [[nodiscard]] bool is_pair() const noexcept;
 
   /** @brief 按指定类型读取字段值。 */
   template <typename Field>

@@ -28,6 +28,7 @@ enum class type_kind {
   sequence,
   set,
   associative,
+  pair,
 };
 
 /** @brief wrapper 类型的序列化语义。 */
@@ -67,6 +68,9 @@ template <typename T> struct meta_copy_constructible {
     } else if constexpr (associative_traits<type>::is_associative) {
       return meta_copy_constructible<typename associative_traits<type>::key_type>::value &&
              meta_copy_constructible<typename associative_traits<type>::mapped_type>::value;
+    } else if constexpr (pair_traits<type>::is_pair) {
+      return meta_copy_constructible<typename pair_traits<type>::first_type>::value &&
+             meta_copy_constructible<typename pair_traits<type>::second_type>::value;
     } else {
       return std::is_copy_constructible_v<type>;
     }
@@ -78,7 +82,7 @@ template <typename T> struct meta_copy_assignable {
 
   static constexpr bool value = [] {
     if constexpr (sequence_traits<type>::is_sequence || set_traits<type>::is_set ||
-                  associative_traits<type>::is_associative) {
+                  associative_traits<type>::is_associative || pair_traits<type>::is_pair) {
       if constexpr (!meta_copy_constructible<type>::value) {
         return false;
       } else {

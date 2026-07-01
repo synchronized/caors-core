@@ -38,6 +38,9 @@ using meta_associative_insert_fn = bool (*)(void*, const void*, const void*);
 using meta_associative_iterator_key_fn = const void* (*)(const void*) noexcept;
 using meta_associative_iterator_value_fn = const void* (*)(const void*) noexcept;
 
+using meta_pair_const_value_fn = const void* (*)(const void*) noexcept;
+using meta_pair_mutable_value_fn = void* (*)(void*) noexcept;
+
 /** @brief 顺序容器运行期访问数据。 */
 struct meta_sequence_data {
   type_id value_type{};
@@ -92,6 +95,20 @@ struct meta_associative_data {
 
   [[nodiscard]] bool valid() const noexcept {
     return key_type && value_type && size != nullptr && visit != nullptr;
+  }
+};
+
+/** @brief 二元组运行期访问数据。 */
+struct meta_pair_data {
+  type_id key_type{};
+  type_id value_type{};
+  meta_pair_const_value_fn first = nullptr;
+  meta_pair_mutable_value_fn mutable_first = nullptr;
+  meta_pair_const_value_fn second = nullptr;
+  meta_pair_mutable_value_fn mutable_second = nullptr;
+
+  [[nodiscard]] bool valid() const noexcept {
+    return key_type && value_type && first != nullptr && second != nullptr;
   }
 };
 

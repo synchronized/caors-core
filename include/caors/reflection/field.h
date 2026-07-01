@@ -235,6 +235,8 @@ make_reflection_field_data(std::string_view name, std::string_view type_name, st
     (void)detail::register_container_data_for<field_type>(field.type);
   } else if constexpr (associative_traits<field_type>::is_associative) {
     (void)detail::register_container_data_for<field_type>(field.type);
+  } else if constexpr (pair_traits<field_type>::is_pair) {
+    (void)detail::register_container_data_for<field_type>(field.type);
   }
 
   return field;

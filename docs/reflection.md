@@ -79,7 +79,9 @@ caors::reflection::class_<actor>("game.actor")
 - 如果字段类型满足 `associative_traits<T>::is_associative`，反射 builder 会根据 traits 的类型名前缀、
   key 类型名和 value 类型名生成容器类型名。字段类型注册到 meta 时会同步挂载 key/value 类型语义。内置特化支持
   `caors::hash_map<K, V>`、`std::unordered_map<K, V, ...>` 和 `std::map<K, V, ...>`。
-- 如果两者都没有，`.commit()` 返回 `invalid_field`。
+- 如果字段类型满足 `pair_traits<T>::is_pair`，反射 builder 会根据 traits 的类型名前缀、first 类型名和
+  second 类型名生成二元组类型名。内置特化支持 `std::pair<T, U>`。
+- 如果以上规则都没有命中，`.commit()` 返回 `invalid_field`。
 - 字段类型语义最多支持一层裸指针或 wrapper；`T**`、`std::unique_ptr<T*>`、
   `std::optional<std::shared_ptr<T>>` 这类嵌套组合会触发静态断言。
 
@@ -105,6 +107,8 @@ caors::reflection::class_<actor>("game.actor")
   `caors::hash_set<T>` 会生成 `caors.hash_set<T>` 类型名。
 - `associative_traits<T>` 关联容器：`type_kind::associative`，`key_type` 为 key 类型，`value_type` 为
   mapped/value 类型；`mapped_type()` 是对外语义别名。内置 `caors::hash_map<K, V>` 会生成 `caors.hash_map<K,V>` 类型名。
+- `pair_traits<T>` 二元组：`type_kind::pair`，`key_type` 为 first 类型，`value_type` 为 second 类型；
+  `first_type()` / `second_type()` 是对外语义别名。内置 `std::pair<T, U>` 会生成 `std.pair<T,U>` 类型名。
 
 STL 智能指针和裸指针只作为外部字段类型被反射系统描述。CAORS 不根据这些字段接管对象生命周期；
 用户如果直接使用这些类型，需要自行保证释放、引用有效性和线程安全。后续 CAORS 自身的对象句柄、
@@ -218,6 +222,30 @@ struct associative_traits<my_map<K, V>> {
 
 }
 ```
+
+二元组识别通过 `pair_traits<T>` 扩展。traits 用于描述 first/second 类型、生成类型名，并给
+`pair_view` 和序列化层提供访问入口：
+
+```cpp
+namespace caors {
+
+template <typename A, typename B>
+struct pair_traits<my_pair<A, B>> {
+  static constexpr bool is_pair = true;
+  using first_type = A;
+  using second_type = B;
+
+  static constexpr std::string_view type_name_prefix() noexcept { return "my.pair"; }
+  static const first_type* first(const my_pair<A, B>& value) noexcept;
+  static first_type* mutable_first(my_pair<A, B>& value) noexcept;
+  static const second_type* second(const my_pair<A, B>& value) noexcept;
+  static second_type* mutable_second(my_pair<A, B>& value) noexcept;
+};
+
+}
+```
+
+内置适配已覆盖 `std::pair<T, U>`。pair 默认按二元素数组 `[first, second]` 序列化；反序列化时数组长度必须为 2。
 
 `wrapper_semantics` 当前含义：
 
@@ -369,10 +397,12 @@ field->try_set<float>(&instance, 75.0F);
 
 - `valid()`：判断视图是否仍有效。
 - `name()` / `type()` / `type_name()`：查询字段声明类型信息。
-- `value_type()`：查询统一 value 类型。对普通值是字段自身类型；对指针和 wrapper 是内部值类型；对 sequence/set 是元素类型；对 associative 是 mapped/value 类型。
+- `value_type()`：查询统一 value 类型。对普通值是字段自身类型；对指针和 wrapper 是内部值类型；对 sequence/set 是元素类型；对 associative 是 mapped/value 类型；对 pair 是 second 类型。
 - `element_type()` / `element_type_name()`：查询 sequence/set 字段的元素类型信息，是 `value_type()` 的语义别名。
-- `key_type()` / `key_type_name()`：查询 associative 字段的 key 类型信息。
+- `key_type()` / `key_type_name()`：查询 associative 字段的 key 类型信息；pair 字段内部也复用它保存 first 类型。
+- `first_type()` / `first_type_name()`：查询 pair 字段的 first 类型信息。
 - `mapped_type()` / `mapped_type_name()`：查询 associative 字段的 mapped/value 类型信息，是 `value_type()` 的语义别名。
+- `second_type()` / `second_type_name()`：查询 pair 字段的 second 类型信息，是 `value_type()` 的语义别名。
 - `kind()` / `wrapper_semantics()` / `pointer_depth()` / `nullable()`：查询字段形态语义。
 - `offset()` / `size()` / `alignment()` / `writable()`：查询字段布局和可写性。
 - `try_get<T>()` / `try_set<T>()`：按静态类型读写字段。
@@ -382,6 +412,7 @@ field->try_set<float>(&instance, 75.0F);
 - `is_sequence()`：判断字段是否是顺序容器字段。
 - `is_set()`：判断字段是否是集合容器字段。
 - `is_associative()`：判断字段是否是关联容器字段。
+- `is_pair()`：判断字段是否是二元组字段。
 
 `sequence_view` 当前提供：
 
@@ -411,6 +442,15 @@ field->try_set<float>(&instance, 75.0F);
 `set_view` 和 `associative_view` 的 iterator 不拥有底层容器，也不延长 view 或容器对象生命周期。
 保存 iterator 时，调用方需要保证对应 view 和容器仍然有效；如果类型擦除 iterator 创建失败，遍历会安全退化为空 range。
 
+`pair_view` 当前提供：
+
+- `valid()` / `writable()`：判断视图有效性和是否允许修改。
+- `first_type()` / `first_type_name()`：查询 first 类型信息。
+- `value_type()` / `value_type_name()`：查询 second 的统一 value 类型信息。
+- `second_type()` / `second_type_name()`：查询 second 类型信息，是 `value_type()` 的语义别名。
+- `first_ref()` / `second_ref()` / `value_ref()`：获取 first 或 second 的 `any_ref`。只读视图返回只读引用；可写视图在 traits 支持时返回可写引用。
+- `set_first()` / `set_second()`：用同类型 `any` 写入 first 或 second。只有可写视图允许修改。
+
 `indirect_view` 当前提供：
 
 - `valid()` / `writable()`：判断视图有效性和是否允许修改。
@@ -422,12 +462,12 @@ field->try_set<float>(&instance, 75.0F);
 `indirect_view` 不拥有 wrapper 或内部值，也不延长内部对象生命周期。裸指针和智能指针解包后返回的是当前
 指向对象的引用；调用方需要保证引用使用期间对象仍然有效。
 
-`meta_sequence_data`、`meta_set_data` 和 `meta_associative_data` 只保存 value/key 的 `type_id`
+`meta_sequence_data`、`meta_set_data`、`meta_associative_data` 和 `meta_pair_data` 只保存 value/key 的 `type_id`
 以及容器操作函数。value/key 的名称、C++ 类型 key、大小、对齐和复制/赋值函数统一从
 基础 `meta_type_data` 查询，避免容器 metadata 与基础类型 metadata 重复维护。
 
-容器视图不要求值一定来自反射字段。反射字段场景可以先通过 `get_ref()` 创建 `any_ref`，
-再调用对应的 `create_*_view()`；普通 `any` / `any_ref` 也可以直接创建容器视图：
+容器和 pair 视图不要求值一定来自反射字段。反射字段场景可以先通过 `get_ref()` 创建 `any_ref`，
+再调用对应的 `create_*_view()`；普通 `any` / `any_ref` 也可以直接创建视图：
 
 ```cpp
 caors::sequence_view field_sequence =
@@ -504,9 +544,9 @@ auto reflected = caors::find_reflection("game.actor");
   - `registry.h`：全局反射注册表和注册查询函数。
   - `builder.h`：RTTR 风格链式注册入口。
 - `include/caors/reflection.h` 是 umbrella 头，继续提供完整反射 API。
-- `include/caors/meta/wrapper.h` 和 `include/caors/meta/container_traits.h` 提供 wrapper / 容器类型语义扩展点。
+- `include/caors/meta/wrapper.h` 和 `include/caors/meta/container_traits.h` 提供 wrapper / 容器 / pair 类型语义扩展点。
 - `include/caors/adapters/stl_traits.h` 提供 `std::vector`、`std::deque`、`std::list`、`std::array`、
-  `std::set`、`std::unordered_set`、`std::map`、`std::unordered_map` 以及 CAORS 容器别名的默认 traits 特化。
+  `std::pair`、`std::set`、`std::unordered_set`、`std::map`、`std::unordered_map` 以及 CAORS 容器别名的默认 traits 特化。
 - `include/caors/adapters/stl.h` 是 STL/CAORS 容器反射和序列化适配的聚合入口。
 - `include/caors/value.h` 是 value 模块 umbrella 头，提供 `any` 和 `variant`。
 - 可运行示例位于 `examples/reflection/`，示例组织规则见 [examples/README.md](../examples/README.md)。
