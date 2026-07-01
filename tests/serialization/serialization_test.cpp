@@ -2468,6 +2468,7 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
   current.version_added = 2;
   caors::serialization_field_data future = caors::make_serialization_field("future");
   future.version_added = 3;
+  future.required = true;
 
   REQUIRE(serialization_result_ok(caors::register_serialization<versioned_actor>({
       id,
@@ -2477,11 +2478,17 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
   })));
 
   const versioned_actor actor{1, 10, 20, 30};
-  const caors::serialization_text_result text =
+  const caors::serialization_text_result text_v2 =
       caors::serialize_text(actor, caors::serialization_context{2});
 
-  REQUIRE(text.succeeded());
-  CHECK(text.value == R"({"id":1,"current":20})");
+  REQUIRE(text_v2.succeeded());
+  CHECK(text_v2.value == R"({"id":1,"current":20})");
+
+  const caors::serialization_text_result text_v3 =
+      caors::serialize_text(actor, caors::serialization_context{3});
+
+  REQUIRE(text_v3.succeeded());
+  CHECK(text_v3.value == R"({"id":1,"current":20,"future":30})");
 
   caors::variant::object_type members;
   members.push_back(caors::variant_member{
@@ -2504,6 +2511,59 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
   CHECK(deserialized.legacy == 0);
   CHECK(deserialized.current == 22);
   CHECK(deserialized.future == 0);
+
+  caors::variant::object_type extra_members;
+  extra_members.push_back(caors::variant_member{
+      caors::string_name{"id"},
+      0,
+      caors::variant::from(std::int64_t{3}),
+  });
+  extra_members.push_back(caors::variant_member{
+      caors::string_name{"legacy"},
+      0,
+      caors::variant::from(std::int64_t{33}),
+  });
+  extra_members.push_back(caors::variant_member{
+      caors::string_name{"current"},
+      0,
+      caors::variant::from(std::int64_t{44}),
+  });
+  extra_members.push_back(caors::variant_member{
+      caors::string_name{"future"},
+      0,
+      caors::variant::from(std::int64_t{55}),
+  });
+
+  versioned_actor filtered{0, 10, 0, 30};
+  const caors::error filtered_result = caors::deserialize(
+      filtered, caors::variant::object(std::move(extra_members)), caors::serialization_context{2});
+
+  REQUIRE(filtered_result.succeeded());
+  CHECK(filtered.id == 3);
+  CHECK(filtered.legacy == 10);
+  CHECK(filtered.current == 44);
+  CHECK(filtered.future == 30);
+
+  caors::variant::object_type missing_required_members;
+  missing_required_members.push_back(caors::variant_member{
+      caors::string_name{"id"},
+      0,
+      caors::variant::from(std::int64_t{4}),
+  });
+  missing_required_members.push_back(caors::variant_member{
+      caors::string_name{"current"},
+      0,
+      caors::variant::from(std::int64_t{55}),
+  });
+
+  versioned_actor missing_required{};
+  const caors::error missing_required_result = caors::deserialize(
+      missing_required, caors::variant::object(std::move(missing_required_members)),
+      caors::serialization_context{3});
+
+  CHECK(missing_required_result.failed());
+  CHECK(missing_required_result.domain() == caors::error_domain::serialization);
+  CHECK(missing_required_result.value() == caors::errc::not_found);
 }
 
 TEST_CASE("serialization - built in codecs serialize guid and type guid as scalar strings",
