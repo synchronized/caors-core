@@ -5,6 +5,7 @@
 #define CAORS_META_TYPE_H_
 
 #include "caors/export.h"
+#include "caors/meta/container_traits.h"
 #include "caors/meta/type_key.h"
 
 #include <cstddef>
@@ -55,6 +56,40 @@ using enum_from_u64_fn = bool (*)(void*, std::uint64_t) noexcept;
 using meta_object_ref_get_fn = object* (*)(const void*) noexcept;
 using meta_object_ref_set_fn = bool (*)(void*, object*) noexcept;
 
+template <typename T> struct meta_copy_constructible {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+
+  static constexpr bool value = [] {
+    if constexpr (sequence_traits<type>::is_sequence) {
+      return meta_copy_constructible<typename sequence_traits<type>::element_type>::value;
+    } else if constexpr (set_traits<type>::is_set) {
+      return meta_copy_constructible<typename set_traits<type>::element_type>::value;
+    } else if constexpr (associative_traits<type>::is_associative) {
+      return meta_copy_constructible<typename associative_traits<type>::key_type>::value &&
+             meta_copy_constructible<typename associative_traits<type>::mapped_type>::value;
+    } else {
+      return std::is_copy_constructible_v<type>;
+    }
+  }();
+};
+
+template <typename T> struct meta_copy_assignable {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+
+  static constexpr bool value = [] {
+    if constexpr (sequence_traits<type>::is_sequence || set_traits<type>::is_set ||
+                  associative_traits<type>::is_associative) {
+      if constexpr (!meta_copy_constructible<type>::value) {
+        return false;
+      } else {
+        return std::is_assignable_v<type&, const type&>;
+      }
+    } else {
+      return std::is_assignable_v<type&, const type&>;
+    }
+  }();
+};
+
 template <typename T> void* default_construct_value() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (std::is_default_constructible_v<type>) {
@@ -66,7 +101,7 @@ template <typename T> void* default_construct_value() {
 
 template <typename T> void* clone_value(const void* source) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (std::is_copy_constructible_v<type>) {
+  if constexpr (meta_copy_constructible<type>::value) {
     return new type(*static_cast<const type*>(source));
   } else {
     return nullptr;
@@ -80,7 +115,7 @@ template <typename T> void destroy_value(void* value) noexcept {
 
 template <typename T> bool assign_value(void* target, const void* source) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (std::is_assignable_v<type&, const type&>) {
+  if constexpr (meta_copy_assignable<type>::value) {
     *static_cast<type*>(target) = *static_cast<const type*>(source);
     return true;
   } else {
@@ -99,7 +134,7 @@ template <typename T> [[nodiscard]] value_default_construct_fn default_construct
 
 template <typename T> [[nodiscard]] value_clone_fn value_clone_fn_of() noexcept {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (std::is_copy_constructible_v<type>) {
+  if constexpr (meta_copy_constructible<type>::value) {
     return &clone_value<type>;
   } else {
     return nullptr;
@@ -108,7 +143,7 @@ template <typename T> [[nodiscard]] value_clone_fn value_clone_fn_of() noexcept 
 
 template <typename T> [[nodiscard]] value_destroy_fn value_destroy_fn_of() noexcept {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (std::is_copy_constructible_v<type>) {
+  if constexpr (std::is_destructible_v<type>) {
     return &destroy_value<type>;
   } else {
     return nullptr;
@@ -117,7 +152,7 @@ template <typename T> [[nodiscard]] value_destroy_fn value_destroy_fn_of() noexc
 
 template <typename T> [[nodiscard]] value_assign_fn value_assign_fn_of() noexcept {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (std::is_assignable_v<type&, const type&>) {
+  if constexpr (meta_copy_assignable<type>::value) {
     return &assign_value<type>;
   } else {
     return nullptr;

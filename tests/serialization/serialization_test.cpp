@@ -144,6 +144,16 @@ struct nested_vector_values_actor {
   caors::vector<caors::vector<int>> groups{};
 };
 
+struct unique_ptr_vector_actor {
+  unique_ptr_vector_actor() = default;
+  unique_ptr_vector_actor(const unique_ptr_vector_actor&) = delete;
+  unique_ptr_vector_actor& operator=(const unique_ptr_vector_actor&) = delete;
+  unique_ptr_vector_actor(unique_ptr_vector_actor&&) noexcept = default;
+  unique_ptr_vector_actor& operator=(unique_ptr_vector_actor&&) noexcept = default;
+
+  caors::vector<std::unique_ptr<int>> values{};
+};
+
 struct guid_vector_actor {
   caors::vector<caors::guid> ids{};
 };
@@ -225,6 +235,15 @@ void require_pointer_actor_metadata() {
           .commit()));
   REQUIRE(serialization_result_ok(caors::register_serialization<nested_stats>()));
   REQUIRE(serialization_result_ok(caors::register_serialization<pointer_actor>()));
+}
+
+void require_unique_ptr_vector_actor_metadata() {
+  REQUIRE(type_result_ok(caors::register_type<std::unique_ptr<int>>("std.unique_ptr<int>")));
+  REQUIRE(reflection_result_ok(caors::reflection::class_<unique_ptr_vector_actor>(
+                                   "caors.test.serialization.unique_ptr_vector_actor")
+                                   .field("values", &unique_ptr_vector_actor::values)
+                                   .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<unique_ptr_vector_actor>()));
 }
 
 void require_scalar_actor_metadata() {
@@ -1120,6 +1139,39 @@ TEST_CASE("serialization - recursively serializes nested vector values", "[seria
   CHECK(decoded.groups[0][1] == 5);
   REQUIRE(decoded.groups[1].size() == 1);
   CHECK(decoded.groups[1][0] == 6);
+}
+
+TEST_CASE("serialization - roundtrips unique pointer vectors", "[serialization]") {
+  require_unique_ptr_vector_actor_metadata();
+
+  unique_ptr_vector_actor actor{};
+  actor.values.push_back(std::make_unique<int>(7));
+  actor.values.push_back(std::unique_ptr<int>{});
+  actor.values.push_back(std::make_unique<int>(9));
+
+  const caors::serialization_text_result text = caors::serialize_json(actor);
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"values":[7,null,9]})");
+
+  const caors::variant_result value = caors::to_serialization_value(actor);
+  REQUIRE(value.succeeded());
+  const caors::variant_member* values = value.value.find_member(caors::string_name{"values"});
+  REQUIRE(values != nullptr);
+  REQUIRE(values->value.is_array());
+  REQUIRE(values->value.as_array().size() == 3);
+  CHECK(values->value.as_array()[0].as_i64() == 7);
+  CHECK(values->value.as_array()[1].is_null());
+  CHECK(values->value.as_array()[2].as_i64() == 9);
+
+  unique_ptr_vector_actor decoded{};
+  const caors::error result = caors::deserialize_json(decoded, R"({"values":[4,null,6]})");
+  REQUIRE(result.succeeded());
+  REQUIRE(decoded.values.size() == 3);
+  REQUIRE(decoded.values[0] != nullptr);
+  CHECK(*decoded.values[0] == 4);
+  CHECK(decoded.values[1] == nullptr);
+  REQUIRE(decoded.values[2] != nullptr);
+  CHECK(*decoded.values[2] == 6);
 }
 
 TEST_CASE("serialization - recursively serializes codec values inside vectors", "[serialization]") {

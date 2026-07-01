@@ -594,21 +594,24 @@ object_ref_value_from_ref(const any_ref& value,
 
 [[nodiscard]] error read_sequence_value(serialization_reader& reader, const any_ref& target,
                                         const serialization_context& context) {
-  any decoded = any::default_construct(target.type());
-  if (!decoded.valid()) {
-    return {error_domain::serialization, errc::unsupported};
+  const std::optional<meta_type> meta = find_type(target.type());
+  if (meta.has_value() && meta->assign_value() != nullptr) {
+    any decoded = any::default_construct(target.type());
+    if (decoded.valid()) {
+      error status = read_sequence_into_view(reader, decoded.create_sequence_view(), context);
+      if (status) {
+        return status;
+      }
+
+      if (!target.try_set(decoded)) {
+        return {error_domain::serialization, errc::unsupported};
+      }
+
+      return {};
+    }
   }
 
-  error status = read_sequence_into_view(reader, decoded.create_sequence_view(), context);
-  if (status) {
-    return status;
-  }
-
-  if (!target.try_set(decoded)) {
-    return {error_domain::serialization, errc::unsupported};
-  }
-
-  return {};
+  return read_sequence_into_view(reader, target.create_sequence_view(), context);
 }
 
 [[nodiscard]] error read_set_into_view(serialization_reader& reader, const set_view& view,
@@ -658,21 +661,24 @@ object_ref_value_from_ref(const any_ref& value,
 
 [[nodiscard]] error read_set_value(serialization_reader& reader, const any_ref& target,
                                    const serialization_context& context) {
-  any decoded = any::default_construct(target.type());
-  if (!decoded.valid()) {
-    return {error_domain::serialization, errc::unsupported};
+  const std::optional<meta_type> meta = find_type(target.type());
+  if (meta.has_value() && meta->assign_value() != nullptr) {
+    any decoded = any::default_construct(target.type());
+    if (decoded.valid()) {
+      error status = read_set_into_view(reader, decoded.create_set_view(), context);
+      if (status) {
+        return status;
+      }
+
+      if (!target.try_set(decoded)) {
+        return {error_domain::serialization, errc::unsupported};
+      }
+
+      return {};
+    }
   }
 
-  error status = read_set_into_view(reader, decoded.create_set_view(), context);
-  if (status) {
-    return status;
-  }
-
-  if (!target.try_set(decoded)) {
-    return {error_domain::serialization, errc::unsupported};
-  }
-
-  return {};
+  return read_set_into_view(reader, target.create_set_view(), context);
 }
 
 [[nodiscard]] error read_associative_into_view(serialization_reader& reader,
@@ -749,21 +755,24 @@ object_ref_value_from_ref(const any_ref& value,
 
 [[nodiscard]] error read_associative_value(serialization_reader& reader, const any_ref& target,
                                            const serialization_context& context) {
-  any decoded = any::default_construct(target.type());
-  if (!decoded.valid()) {
-    return {error_domain::serialization, errc::unsupported};
+  const std::optional<meta_type> meta = find_type(target.type());
+  if (meta.has_value() && meta->assign_value() != nullptr) {
+    any decoded = any::default_construct(target.type());
+    if (decoded.valid()) {
+      error status = read_associative_into_view(reader, decoded.create_associative_view(), context);
+      if (status) {
+        return status;
+      }
+
+      if (!target.try_set(decoded)) {
+        return {error_domain::serialization, errc::unsupported};
+      }
+
+      return {};
+    }
   }
 
-  error status = read_associative_into_view(reader, decoded.create_associative_view(), context);
-  if (status) {
-    return status;
-  }
-
-  if (!target.try_set(decoded)) {
-    return {error_domain::serialization, errc::unsupported};
-  }
-
-  return {};
+  return read_associative_into_view(reader, target.create_associative_view(), context);
 }
 
 [[nodiscard]] variant_result make_sequence_value(const sequence_view& view,
