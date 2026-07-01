@@ -140,6 +140,28 @@ struct nested_actor {
   nested_stats stats{};
 };
 
+struct non_default_value {
+  explicit non_default_value(int value) : value(value) {}
+
+  int value = 0;
+};
+
+struct non_default_field_actor {
+  non_default_value value{1};
+};
+
+struct non_default_vector_actor {
+  caors::vector<non_default_value> values{};
+};
+
+struct non_default_unique_ptr_actor {
+  std::unique_ptr<non_default_value> value{};
+};
+
+struct non_default_variant_actor {
+  std::variant<int, non_default_value> value{0};
+};
+
 struct pointer_actor {
   int* raw = nullptr;
   std::shared_ptr<int> shared{};
@@ -287,6 +309,36 @@ void require_pointer_actor_metadata() {
           .commit()));
   REQUIRE(serialization_result_ok(caors::register_serialization<nested_stats>()));
   REQUIRE(serialization_result_ok(caors::register_serialization<pointer_actor>()));
+}
+
+void require_non_default_value_metadata() {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<non_default_value>("caors.test.serialization.non_default_value")
+          .field("value", &non_default_value::value)
+          .commit()));
+  REQUIRE(reflection_result_ok(caors::reflection::class_<non_default_field_actor>(
+                                   "caors.test.serialization.non_default_field_actor")
+                                   .field("value", &non_default_field_actor::value)
+                                   .commit()));
+  REQUIRE(reflection_result_ok(caors::reflection::class_<non_default_vector_actor>(
+                                   "caors.test.serialization.non_default_vector_actor")
+                                   .field("values", &non_default_vector_actor::values)
+                                   .commit()));
+  REQUIRE(
+      reflection_result_ok(caors::reflection::class_<non_default_unique_ptr_actor>(
+                               "caors.test.serialization.non_default_unique_ptr_actor")
+                               .field("value", &non_default_unique_ptr_actor::value,
+                                      "std.unique_ptr<caors.test.serialization.non_default_value>")
+                               .commit()));
+  REQUIRE(reflection_result_ok(caors::reflection::class_<non_default_variant_actor>(
+                                   "caors.test.serialization.non_default_variant_actor")
+                                   .field("value", &non_default_variant_actor::value)
+                                   .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<non_default_value>()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<non_default_field_actor>()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<non_default_vector_actor>()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<non_default_unique_ptr_actor>()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<non_default_variant_actor>()));
 }
 
 void require_unique_ptr_vector_actor_metadata() {
@@ -902,6 +954,85 @@ TEST_CASE("serialization - recursively deserializes nested reflected structs", "
   CHECK(actor.id == 9);
   CHECK(actor.stats.level == 4);
   CHECK(actor.stats.score == Catch::Approx(15.25));
+}
+
+TEST_CASE("serialization - updates non default constructible direct fields", "[serialization]") {
+  require_non_default_value_metadata();
+
+  non_default_field_actor actor{non_default_value{1}};
+
+  const caors::serialization_text_result text = caors::serialize_text(actor);
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"value":{"value":1}})");
+
+  const caors::error result = caors::deserialize_json(actor, R"({"value":{"value":7}})");
+
+  REQUIRE(result.succeeded());
+  CHECK(actor.value.value == 7);
+}
+
+TEST_CASE("serialization - rejects non default constructible sequence elements",
+          "[serialization]") {
+  require_non_default_value_metadata();
+
+  non_default_vector_actor actor{};
+  actor.values.emplace_back(1);
+
+  const caors::serialization_text_result text = caors::serialize_text(actor);
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"values":[{"value":1}]})");
+
+  const caors::error result = caors::deserialize_json(actor, R"({"values":[{"value":7}]})");
+
+  CHECK(result.failed());
+  CHECK(result.domain() == caors::error_domain::serialization);
+  CHECK(result.value() == caors::errc::unsupported);
+  REQUIRE(actor.values.size() == 1);
+  CHECK(actor.values[0].value == 1);
+}
+
+TEST_CASE("serialization - updates existing non default constructible unique pointers",
+          "[serialization]") {
+  require_non_default_value_metadata();
+
+  non_default_unique_ptr_actor actor{};
+  actor.value = std::make_unique<non_default_value>(1);
+
+  const caors::error result = caors::deserialize_json(actor, R"({"value":{"value":7}})");
+
+  REQUIRE(result.succeeded());
+  REQUIRE(actor.value != nullptr);
+  CHECK(actor.value->value == 7);
+}
+
+TEST_CASE("serialization - rejects empty non default constructible unique pointers",
+          "[serialization]") {
+  require_non_default_value_metadata();
+
+  non_default_unique_ptr_actor actor{};
+
+  const caors::error result = caors::deserialize_json(actor, R"({"value":{"value":7}})");
+
+  CHECK(result.failed());
+  CHECK(result.domain() == caors::error_domain::serialization);
+  CHECK(result.value() == caors::errc::invalid_field);
+  CHECK(actor.value == nullptr);
+}
+
+TEST_CASE("serialization - rejects switching to non default constructible variant alternatives",
+          "[serialization]") {
+  require_non_default_value_metadata();
+
+  non_default_variant_actor actor{};
+  actor.value = 3;
+
+  const caors::error result = caors::deserialize_json(actor, R"({"value":[1,{"value":7}]})");
+
+  CHECK(result.failed());
+  CHECK(result.domain() == caors::error_domain::serialization);
+  CHECK(result.value() == caors::errc::unsupported);
+  REQUIRE(std::holds_alternative<int>(actor.value));
+  CHECK(std::get<int>(actor.value) == 3);
 }
 
 TEST_CASE("serialization - serializes pointer and wrapper fields as inline values",

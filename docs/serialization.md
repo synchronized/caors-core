@@ -271,6 +271,8 @@ DOM reader 同时接受 `variant::dictionary` 和 pair 数组形态。普通 `st
 - 读入非空值时，裸指针要求目标指针已经指向有效对象，不会自动分配内存。
 - 读入非空值时，`std::unique_ptr<T>`、`std::shared_ptr<T>` 和 `std::optional<T>` 会在内部为空时尝试默认构造
   `T`；`std::reference_wrapper<T>` 会写入已经绑定的对象。
+- 如果 `T` 不支持默认构造，已经存在的 `T` 对象仍可被字段反序列化写入；但空智能指针、空 `optional`
+  和需要新增元素的容器不会隐式构造 `T`。
 - `std::weak_ptr<T>` 无法稳定暴露可写内部值，当前不作为普通 value 序列化或反序列化。
 - `caors::object_ref<T>` 不走内部 value 语义，仍通过 `serialization_reference_resolver` 写出和读入对象 id。
 
@@ -291,6 +293,8 @@ DOM reader 同时接受 `variant::dictionary` 和 pair 数组形态。普通 `st
 - `std::array<T, N>` 已支持固定长度数组读写；反序列化时数组长度必须等于 `N`，长度不匹配会返回失败。
 - `std::span<T>` / `std::span<T, N>` 已支持按借用数组视图写出和反射访问；默认不支持反序列化写回，
   避免序列化层隐式决定 backing storage 的分配、长度调整和生命周期。
+- 不可默认构造类型可以作为已有直接字段或已持有 wrapper 内部值被写入；需要序列化层自动实例化对象的路径
+  当前会失败，例如容器新增元素、空智能指针或 `optional` 读入非空值、`variant` 切换到不可默认构造候选。
 - `std::pair<T, U>` 已支持按二元素数组 `[first, second]` 读写；反序列化时数组长度必须等于 2。
 - `std::tuple<...>` 已支持按元素数组 `[v0, v1, ...]` 读写；反序列化时数组长度必须等于 tuple 元素数量。
 - `std::variant<...>` 已支持按 tagged union 数组 `[index, value]` 读写；反序列化时数组长度必须等于 2，
