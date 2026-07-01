@@ -430,6 +430,48 @@ template <typename Enum>
   return true;
 }
 
+template <typename Wrapper>
+[[nodiscard]] object* wrapper_object_ref_value(const void* storage) noexcept {
+  if (storage == nullptr) {
+    return nullptr;
+  }
+
+  if constexpr (requires(const Wrapper& source) {
+                  wrapper_access<Wrapper>::object_value(source);
+                }) {
+    using result_type =
+        decltype(wrapper_access<Wrapper>::object_value(std::declval<const Wrapper&>()));
+    if constexpr (std::is_convertible_v<result_type, object*>) {
+      return wrapper_access<Wrapper>::object_value(*static_cast<const Wrapper*>(storage));
+    } else {
+      return nullptr;
+    }
+  } else {
+    return nullptr;
+  }
+}
+
+template <typename Wrapper>
+[[nodiscard]] bool wrapper_set_object_ref(void* storage, object* instance) noexcept {
+  if (storage == nullptr) {
+    return false;
+  }
+
+  if constexpr (requires(Wrapper& source, object* object_instance) {
+                  wrapper_access<Wrapper>::set_object(source, object_instance);
+                }) {
+    using result_type = decltype(wrapper_access<Wrapper>::set_object(std::declval<Wrapper&>(),
+                                                                     std::declval<object*>()));
+    if constexpr (std::is_convertible_v<result_type, bool>) {
+      return wrapper_access<Wrapper>::set_object(*static_cast<Wrapper*>(storage), instance);
+    } else {
+      return false;
+    }
+  } else {
+    return false;
+  }
+}
+
 template <typename T> [[nodiscard]] type_id semantic_type_id() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (has_type_name_v<type>) {
@@ -795,6 +837,10 @@ template <typename Type> struct type_semantics_traits {
       info.has_indirect_value = &wrapper_has_indirect_value<type>;
       info.reset_indirect_value = &wrapper_reset_indirect_value<type>;
       info.ensure_indirect_value = &wrapper_ensure_indirect_value<type>;
+      if constexpr (wrapper_traits<type>::semantics == wrapper_semantics::object_ref) {
+        info.get_object_ref = &wrapper_object_ref_value<type>;
+        info.set_object_ref = &wrapper_set_object_ref<type>;
+      }
       info.nullable = wrapper_traits<type>::nullable;
       return info;
     } else {

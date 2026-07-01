@@ -188,6 +188,10 @@ struct object_ref_actor {
   caors::object_ref<object_ref_target> target{};
 };
 
+struct object_ref_vector_actor {
+  caors::vector<caors::object_ref<object_ref_target>> targets{};
+};
+
 struct object_ref_resolver_data {
   caors::object_id id{};
   caors::object* instance = nullptr;
@@ -231,6 +235,16 @@ void require_scalar_actor_metadata() {
           .field("state", &scalar_actor::state, "caors.test.serialization.scalar_state")
           .commit()));
   REQUIRE(serialization_result_ok(caors::register_serialization<scalar_actor>()));
+}
+
+void require_object_ref_vector_actor_metadata() {
+  REQUIRE(type_result_ok(caors::register_type<caors::object_ref<object_ref_target>>(
+      "caors.object_ref<caors.test.serialization.object_ref_target>")));
+  REQUIRE(reflection_result_ok(caors::reflection::class_<object_ref_vector_actor>(
+                                   "caors.test.serialization.object_ref_vector_actor")
+                                   .field("targets", &object_ref_vector_actor::targets)
+                                   .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<object_ref_vector_actor>()));
 }
 
 [[nodiscard]] caors::object_id resolve_object_id(const caors::object* instance, void* user_data) {
@@ -1565,6 +1579,57 @@ TEST_CASE("serialization - deserializes object references through resolver", "[s
       from_json, R"({"target":88})", caors::serialization_context{0, &resolver});
   REQUIRE(json_result.succeeded());
   CHECK(from_json.target.get() == &target);
+}
+
+TEST_CASE("serialization - serializes object references inside vectors", "[serialization]") {
+  require_object_ref_vector_actor_metadata();
+
+  object_ref_target target;
+  object_ref_resolver_data resolver_data{caors::object_id{77}, &target};
+  const caors::serialization_reference_resolver resolver{
+      &resolve_object_id,
+      &resolve_object,
+      &resolver_data,
+  };
+  const caors::serialization_context context{0, &resolver};
+
+  object_ref_vector_actor actor{};
+  actor.targets.push_back(caors::object_ref<object_ref_target>{&target});
+  actor.targets.push_back(caors::object_ref<object_ref_target>{});
+
+  const caors::serialization_text_result text = caors::serialize_json(actor, context);
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"targets":[77,0]})");
+
+  const caors::variant_result value = caors::to_serialization_value(actor, context);
+  REQUIRE(value.succeeded());
+  const caors::variant_member* targets = value.value.find_member(caors::string_name{"targets"});
+  REQUIRE(targets != nullptr);
+  REQUIRE(targets->value.is_array());
+  REQUIRE(targets->value.as_array().size() == 2);
+  CHECK(targets->value.as_array()[0].as_u64() == 77);
+  CHECK(targets->value.as_array()[1].as_u64() == 0);
+}
+
+TEST_CASE("serialization - deserializes object references inside vectors", "[serialization]") {
+  require_object_ref_vector_actor_metadata();
+
+  object_ref_target target;
+  object_ref_resolver_data resolver_data{caors::object_id{88}, &target};
+  const caors::serialization_reference_resolver resolver{
+      &resolve_object_id,
+      &resolve_object,
+      &resolver_data,
+  };
+
+  object_ref_vector_actor actor{};
+  const caors::error result = caors::deserialize_json(actor, R"({"targets":[88,0]})",
+                                                      caors::serialization_context{0, &resolver});
+
+  REQUIRE(result.succeeded());
+  REQUIRE(actor.targets.size() == 2);
+  CHECK(actor.targets[0].get() == &target);
+  CHECK(actor.targets[1].get() == nullptr);
 }
 
 TEST_CASE("serialization - object reference resolver failures are reported", "[serialization]") {

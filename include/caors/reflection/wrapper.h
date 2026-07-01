@@ -39,6 +39,25 @@ template <typename T> struct wrapper_access<object_ref<T>> {
     source.reset();
     return true;
   }
+
+  [[nodiscard]] static object* object_value(const object_ref<T>& source) noexcept {
+    return source.get();
+  }
+
+  static bool set_object(object_ref<T>& source, object* instance) noexcept {
+    if (instance == nullptr) {
+      source.reset();
+      return true;
+    }
+
+    auto* typed = dynamic_cast<wrapped_type*>(instance);
+    if (typed == nullptr) {
+      return false;
+    }
+
+    source.reset(typed);
+    return true;
+  }
 };
 
 } // namespace caors

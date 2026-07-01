@@ -141,6 +141,104 @@ template <typename T>
   return semantics != nullptr && semantics->kind == type_kind::enumeration;
 }
 
+[[nodiscard]] bool type_uses_object_ref(type_id id) noexcept {
+  const meta_type_semantics_data* semantics = type_semantics(id);
+  return semantics != nullptr && semantics->kind == type_kind::wrapper &&
+         semantics->wrapper_semantics == wrapper_semantics::object_ref;
+}
+
+[[nodiscard]] const object*
+object_ref_value_from_ref(const any_ref& value,
+                          const meta_type_semantics_data& semantics) noexcept {
+  if (!value.valid() || value.data() == nullptr || semantics.get_object_ref == nullptr) {
+    return nullptr;
+  }
+
+  return semantics.get_object_ref(value.data());
+}
+
+[[nodiscard]] variant_result make_object_ref_value(const any_ref& value,
+                                                   const serialization_context& context) {
+  const meta_type_semantics_data* semantics = type_semantics(value.type());
+  if (semantics == nullptr || semantics->wrapper_semantics != wrapper_semantics::object_ref ||
+      semantics->get_object_ref == nullptr) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
+  }
+
+  if (context.reference_resolver == nullptr || !context.reference_resolver->can_write()) {
+    return {{error_domain::serialization, errc::invalid_argument}, {}};
+  }
+
+  const object* referenced = object_ref_value_from_ref(value, *semantics);
+  const object_id id = referenced != nullptr
+                           ? context.reference_resolver->object_to_id(
+                                 referenced, context.reference_resolver->user_data)
+                           : object_id::invalid();
+  if (referenced != nullptr && !id) {
+    return {{error_domain::serialization, errc::not_found}, {}};
+  }
+
+  return {{}, variant::from(id.value())};
+}
+
+[[nodiscard]] error write_object_ref_value(serialization_writer& writer, const any_ref& value,
+                                           const serialization_context& context) {
+  const meta_type_semantics_data* semantics = type_semantics(value.type());
+  if (semantics == nullptr || semantics->wrapper_semantics != wrapper_semantics::object_ref ||
+      semantics->get_object_ref == nullptr) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  if (context.reference_resolver == nullptr || !context.reference_resolver->can_write()) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  const object* referenced = object_ref_value_from_ref(value, *semantics);
+  const object_id id = referenced != nullptr
+                           ? context.reference_resolver->object_to_id(
+                                 referenced, context.reference_resolver->user_data)
+                           : object_id::invalid();
+  if (referenced != nullptr && !id) {
+    return {error_domain::serialization, errc::not_found};
+  }
+
+  return writer.write_u64(id.value());
+}
+
+[[nodiscard]] error read_object_ref_value(serialization_reader& reader, const any_ref& target,
+                                          const serialization_context& context) {
+  const meta_type_semantics_data* semantics = type_semantics(target.type());
+  if (semantics == nullptr || semantics->wrapper_semantics != wrapper_semantics::object_ref ||
+      semantics->set_object_ref == nullptr || target.mutable_data() == nullptr) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  if (context.reference_resolver == nullptr || !context.reference_resolver->can_read()) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  std::uint64_t encoded_id = 0;
+  error status = reader.read_u64(encoded_id);
+  if (status) {
+    return status;
+  }
+
+  object* referenced = nullptr;
+  if (encoded_id != 0) {
+    referenced = context.reference_resolver->id_to_object(object_id{encoded_id},
+                                                          context.reference_resolver->user_data);
+    if (referenced == nullptr) {
+      return {error_domain::serialization, errc::not_found};
+    }
+  }
+
+  if (!semantics->set_object_ref(target.mutable_data(), referenced)) {
+    return {error_domain::serialization, errc::invalid_type};
+  }
+
+  return {};
+}
+
 [[nodiscard]] variant_result make_enum_value(const any_ref& value) {
   const meta_type_semantics_data* semantics = type_semantics(value.type());
   if (semantics == nullptr || semantics->kind != type_kind::enumeration ||
@@ -1024,6 +1122,10 @@ variant_result make_serialized_value(const any_ref& value, const serialization_c
     return make_indirect_serialized_value(indirect, context);
   }
 
+  if (type_uses_object_ref(value.type())) {
+    return make_object_ref_value(value, context);
+  }
+
   if (type_is_enumeration(value.type())) {
     return make_enum_value(value);
   }
@@ -1076,6 +1178,10 @@ error write_serialized_value(serialization_writer& writer, const any_ref& value,
   if (type_uses_inline_indirect_value(value.type())) {
     const indirect_view indirect = value.create_indirect_view();
     return write_indirect_serialized_value(writer, indirect, context);
+  }
+
+  if (type_uses_object_ref(value.type())) {
+    return write_object_ref_value(writer, value, context);
   }
 
   if (type_is_enumeration(value.type())) {
@@ -1134,6 +1240,10 @@ error read_serialized_value(serialization_reader& reader, const any_ref& target,
   if (type_uses_inline_indirect_value(target.type())) {
     const indirect_view indirect = target.create_indirect_view();
     return read_indirect_serialized_value(reader, indirect, context);
+  }
+
+  if (type_uses_object_ref(target.type())) {
+    return read_object_ref_value(reader, target, context);
   }
 
   if (type_is_enumeration(target.type())) {

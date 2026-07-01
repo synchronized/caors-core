@@ -15,6 +15,7 @@
 
 namespace caors {
 
+class object;
 class meta_registry;
 
 /** @brief 类型运行期形态。 */
@@ -51,6 +52,8 @@ using enum_to_i64_fn = std::int64_t (*)(const void*) noexcept;
 using enum_to_u64_fn = std::uint64_t (*)(const void*) noexcept;
 using enum_from_i64_fn = bool (*)(void*, std::int64_t) noexcept;
 using enum_from_u64_fn = bool (*)(void*, std::uint64_t) noexcept;
+using meta_object_ref_get_fn = object* (*)(const void*) noexcept;
+using meta_object_ref_set_fn = bool (*)(void*, object*) noexcept;
 
 template <typename T> void* default_construct_value() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
@@ -143,6 +146,8 @@ struct meta_type_semantics_data {
   detail::enum_to_u64_fn enum_to_u64 = nullptr;
   detail::enum_from_i64_fn enum_from_i64 = nullptr;
   detail::enum_from_u64_fn enum_from_u64 = nullptr;
+  detail::meta_object_ref_get_fn get_object_ref = nullptr;
+  detail::meta_object_ref_set_fn set_object_ref = nullptr;
   std::uint8_t pointer_depth = 0;
   bool nullable = false;
   bool enum_signed = false;
