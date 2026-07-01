@@ -62,6 +62,10 @@ TEST_CASE("meta type - type id is allocated by global registry", "[meta]") {
   REQUIRE(anonymous.has_value());
   CHECK(anonymous->id() == first);
   CHECK(anonymous->name().empty());
+  CHECK(anonymous->cpp_type() == caors::detail::cpp_type_key_of<anonymous_cpp_type>());
+  CHECK(anonymous->clone_value() != nullptr);
+  CHECK(anonymous->destroy_value() != nullptr);
+  CHECK(anonymous->assign_value() != nullptr);
 
   REQUIRE(caors::register_type<anonymous_cpp_type>("caors.test.type.anonymous_cpp") ==
           caors::error{});
@@ -84,6 +88,10 @@ TEST_CASE("meta type data - describes layout", "[meta]") {
   CHECK(data.size() == sizeof(sample_type));
   CHECK(data.alignment() == alignof(sample_type));
   CHECK_FALSE(data.parent_id());
+  CHECK(data.cpp_type() == caors::detail::cpp_type_key_of<sample_type>());
+  CHECK(data.clone_value() != nullptr);
+  CHECK(data.destroy_value() != nullptr);
+  CHECK(data.assign_value() != nullptr);
 }
 
 TEST_CASE("meta type data - describes stable type guid", "[meta]") {

@@ -23,7 +23,10 @@ object_registry default_object_registry;
 
 [[nodiscard]] meta_type_data to_meta_type_data(meta_type type) noexcept {
   return meta_type_data{
-      type.id(), type.name(), type.guid(), type.size(), type.alignment(), type.parent_id(),
+      type.id(),           type.name(),        type.guid(),
+      type.size(),         type.alignment(),   type.parent_id(),
+      type.cpp_type(),     type.clone_value(), type.destroy_value(),
+      type.assign_value(),
   };
 }
 

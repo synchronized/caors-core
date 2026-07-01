@@ -23,8 +23,9 @@ namespace {
   std::optional<meta_type> resolved_type = meta.find_type(field.type_name);
   if (!resolved_type.has_value() && field.cpp_type != nullptr) {
     const meta_type_data field_type{
-        type_id::invalid(), field.type_name, type_guid::nil(),
-        field.size,         field.alignment, type_id::invalid(),
+        type_id::invalid(),  field.type_name,    type_guid::nil(), field.size,
+        field.alignment,     type_id::invalid(), field.cpp_type,   field.clone_value,
+        field.destroy_value, field.assign_value,
     };
 
     const error result = meta.register_cpp_type(field.cpp_type, field_type);

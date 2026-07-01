@@ -23,9 +23,6 @@ class associative_view;
 
 namespace detail {
 
-using value_clone_fn = void* (*)(const void*);
-using value_destroy_fn = void (*)(void*) noexcept;
-using value_assign_fn = bool (*)(void*, const void*);
 using set_raw_visitor = bool (*)(const void*, void*);
 using sequence_size_fn = std::size_t (*)(const void*) noexcept;
 using sequence_const_element_fn = const void* (*)(const void*, std::size_t) noexcept;
@@ -42,72 +39,6 @@ using associative_size_fn = std::size_t (*)(const void*) noexcept;
 using associative_visit_fn = bool (*)(const void*, associative_raw_visitor, void*);
 using associative_clear_fn = void (*)(void*) noexcept;
 using associative_insert_fn = bool (*)(void*, const void*, const void*);
-
-/**
- * @brief C++ 值类型运行期操作表。
- *
- * 该组件挂在 `meta_registry` 的类型记录上，集中保存 `any`、`any_ref` 和容器视图需要的 C++
- * 类型 key 以及复制、析构、赋值函数。
- */
-struct value_type_data {
-  cpp_type_key cpp_type = nullptr;
-  value_clone_fn clone = nullptr;
-  value_destroy_fn destroy = nullptr;
-  value_assign_fn assign = nullptr;
-
-  [[nodiscard]] bool valid() const noexcept { return cpp_type != nullptr; }
-};
-
-template <typename T> void* clone_value(const void* source) {
-  using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (std::is_copy_constructible_v<type>) {
-    return new type(*static_cast<const type*>(source));
-  } else {
-    return nullptr;
-  }
-}
-
-template <typename T> void destroy_value(void* value) noexcept {
-  using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  delete static_cast<type*>(value);
-}
-
-template <typename T> bool assign_value(void* target, const void* source) {
-  using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (std::is_assignable_v<type&, const type&>) {
-    *static_cast<type*>(target) = *static_cast<const type*>(source);
-    return true;
-  } else {
-    return false;
-  }
-}
-
-template <typename T> [[nodiscard]] value_clone_fn value_clone_fn_of() noexcept {
-  using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (std::is_copy_constructible_v<type>) {
-    return &clone_value<type>;
-  } else {
-    return nullptr;
-  }
-}
-
-template <typename T> [[nodiscard]] value_destroy_fn value_destroy_fn_of() noexcept {
-  using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (std::is_copy_constructible_v<type>) {
-    return &destroy_value<type>;
-  } else {
-    return nullptr;
-  }
-}
-
-template <typename T> [[nodiscard]] value_assign_fn value_assign_fn_of() noexcept {
-  using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (std::is_assignable_v<type&, const type&>) {
-    return &assign_value<type>;
-  } else {
-    return nullptr;
-  }
-}
 
 struct associative_type_data {
   type_id key_type{};
@@ -148,27 +79,6 @@ struct set_type_data {
   }
 };
 
-template <typename T> [[nodiscard]] error register_value_type_for(type_id id) {
-  using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if (!id) {
-    return {};
-  }
-
-  value_type_data data{
-      cpp_type_key_of<type>(),
-      value_clone_fn_of<type>(),
-      value_destroy_fn_of<type>(),
-      value_assign_fn_of<type>(),
-  };
-
-  const error result = get_meta_registry().emplace<value_type_data>(id, data);
-  if (result && result.value() != errc::duplicate_component) {
-    return result;
-  }
-
-  return {};
-}
-
 template <typename T> [[nodiscard]] std::optional<meta_type> ensure_value_type_registered() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (has_type_name_v<type>) {
@@ -178,12 +88,7 @@ template <typename T> [[nodiscard]] std::optional<meta_type> ensure_value_type_r
     }
   }
 
-  std::optional<meta_type> registered = caors::find_type<type>();
-  if (registered.has_value()) {
-    (void)register_value_type_for<type>(registered->id());
-  }
-
-  return registered;
+  return caors::find_type<type>();
 }
 
 template <typename T> [[nodiscard]] error register_associative_type_for(type_id id) {
@@ -451,7 +356,6 @@ public:
       return {};
     }
 
-    (void)detail::register_value_type_for<type>(registered->id());
     (void)detail::register_container_types_for<type>(registered->id());
 
     return copy_from_raw(registered->id(), &source);
@@ -459,10 +363,7 @@ public:
 
   [[nodiscard]] bool valid() const noexcept {
     const std::optional<meta_type> meta = caors::find_type(type_);
-    const detail::value_type_data* value =
-        get_meta_registry().find_ptr<detail::value_type_data>(type_);
-    return meta.has_value() && meta->valid() && value != nullptr && value->valid() &&
-           data_ != nullptr;
+    return meta.has_value() && meta->valid() && meta->cpp_type() != nullptr && data_ != nullptr;
   }
 
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
@@ -473,9 +374,8 @@ public:
     return meta.has_value() ? meta->name() : string_name{};
   }
   [[nodiscard]] detail::cpp_type_key cpp_type() const noexcept {
-    const detail::value_type_data* value =
-        get_meta_registry().find_ptr<detail::value_type_data>(type_);
-    return value != nullptr ? value->cpp_type : nullptr;
+    const std::optional<meta_type> meta = caors::find_type(type_);
+    return meta.has_value() ? meta->cpp_type() : nullptr;
   }
   [[nodiscard]] const void* data() const noexcept { return valid() ? data_ : nullptr; }
   [[nodiscard]] void* mutable_data() noexcept { return valid() ? data_ : nullptr; }
@@ -496,10 +396,9 @@ public:
 
   /** @brief 清空当前值。 */
   void reset() noexcept {
-    const detail::value_type_data* value =
-        get_meta_registry().find_ptr<detail::value_type_data>(type_);
-    if (data_ != nullptr && value != nullptr && value->destroy != nullptr) {
-      value->destroy(data_);
+    const std::optional<meta_type> meta = caors::find_type(type_);
+    if (data_ != nullptr && meta.has_value() && meta->destroy_value() != nullptr) {
+      meta->destroy_value()(data_);
     }
 
     type_ = {};
@@ -551,24 +450,22 @@ public:
   /** @brief 从同类型 C++ 值写入当前值。 */
   template <typename T> bool try_set(const T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const detail::value_type_data* value =
-        get_meta_registry().find_ptr<detail::value_type_data>(type_);
-    if (!matches_type<type>() || value == nullptr || value->assign == nullptr) {
+    const std::optional<meta_type> meta = caors::find_type(type_);
+    if (!matches_type<type>() || !meta.has_value() || meta->assign_value() == nullptr) {
       return false;
     }
 
-    return value->assign(data_, &source);
+    return meta->assign_value()(data_, &source);
   }
 
   /** @brief 从同类型运行期值写入当前值。 */
   bool try_set(const any& source) {
-    const detail::value_type_data* value =
-        get_meta_registry().find_ptr<detail::value_type_data>(type_);
-    if (!matches_type(source) || value == nullptr || value->assign == nullptr) {
+    const std::optional<meta_type> meta = caors::find_type(type_);
+    if (!matches_type(source) || !meta.has_value() || meta->assign_value() == nullptr) {
       return false;
     }
 
-    return value->assign(data_, source.data_);
+    return meta->assign_value()(data_, source.data_);
   }
 
 private:
@@ -577,14 +474,12 @@ private:
 
   [[nodiscard]] static any copy_from_raw(type_id type, const void* source) {
     const std::optional<meta_type> meta = caors::find_type(type);
-    const detail::value_type_data* value =
-        get_meta_registry().find_ptr<detail::value_type_data>(type);
-    if (!meta.has_value() || !meta->valid() || value == nullptr || !value->valid() ||
-        source == nullptr || value->clone == nullptr || value->destroy == nullptr) {
+    if (!meta.has_value() || !meta->valid() || meta->cpp_type() == nullptr || source == nullptr ||
+        meta->clone_value() == nullptr || meta->destroy_value() == nullptr) {
       return {};
     }
 
-    void* copy = value->clone(source);
+    void* copy = meta->clone_value()(source);
     if (copy == nullptr) {
       return {};
     }
@@ -648,7 +543,6 @@ public:
       return {};
     }
 
-    (void)detail::register_value_type_for<type>(registered->id());
     (void)detail::register_container_types_for<type>(registered->id());
 
     return from_raw(registered->id(), &source, !std::is_const_v<T>);
@@ -676,7 +570,6 @@ public:
       return {};
     }
 
-    (void)detail::register_value_type_for<type>(registered->id());
     (void)detail::register_container_types_for<type>(registered->id());
 
     return from_raw(registered->id(), &source, false);
@@ -684,10 +577,7 @@ public:
 
   [[nodiscard]] bool valid() const noexcept {
     const std::optional<meta_type> meta = caors::find_type(type_);
-    const detail::value_type_data* value =
-        get_meta_registry().find_ptr<detail::value_type_data>(type_);
-    return meta.has_value() && meta->valid() && value != nullptr && value->valid() &&
-           data_ != nullptr;
+    return meta.has_value() && meta->valid() && meta->cpp_type() != nullptr && data_ != nullptr;
   }
 
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
@@ -698,9 +588,8 @@ public:
     return meta.has_value() ? meta->name() : string_name{};
   }
   [[nodiscard]] detail::cpp_type_key cpp_type() const noexcept {
-    const detail::value_type_data* value =
-        get_meta_registry().find_ptr<detail::value_type_data>(type_);
-    return value != nullptr ? value->cpp_type : nullptr;
+    const std::optional<meta_type> meta = caors::find_type(type_);
+    return meta.has_value() ? meta->cpp_type() : nullptr;
   }
   [[nodiscard]] const void* data() const noexcept { return valid() ? data_ : nullptr; }
   [[nodiscard]] void* mutable_data() const noexcept {
@@ -763,41 +652,39 @@ public:
   /** @brief 从同类型 C++ 值写入当前引用指向的对象。 */
   template <typename T> bool try_set(const T& source) const {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const detail::value_type_data* value =
-        get_meta_registry().find_ptr<detail::value_type_data>(type_);
-    if (!matches_type<type>() || !writable_ || value == nullptr || value->assign == nullptr) {
+    const std::optional<meta_type> meta = caors::find_type(type_);
+    if (!matches_type<type>() || !writable_ || !meta.has_value() ||
+        meta->assign_value() == nullptr) {
       return false;
     }
 
-    return value->assign(const_cast<void*>(data_), &source);
+    return meta->assign_value()(const_cast<void*>(data_), &source);
   }
 
   /** @brief 从同类型运行期值写入当前引用指向的对象。 */
   bool try_set(const any& source) const {
-    const detail::value_type_data* value =
-        get_meta_registry().find_ptr<detail::value_type_data>(type_);
-    if (!matches_type(source) || !writable_ || value == nullptr || value->assign == nullptr) {
+    const std::optional<meta_type> meta = caors::find_type(type_);
+    if (!matches_type(source) || !writable_ || !meta.has_value() ||
+        meta->assign_value() == nullptr) {
       return false;
     }
 
-    return value->assign(const_cast<void*>(data_), source.data());
+    return meta->assign_value()(const_cast<void*>(data_), source.data());
   }
 
   /** @brief 从同类型运行期引用写入当前引用指向的对象。 */
   bool try_set(const any_ref& source) const {
-    const detail::value_type_data* value =
-        get_meta_registry().find_ptr<detail::value_type_data>(type_);
-    if (!matches_type(source) || !writable_ || value == nullptr || value->assign == nullptr) {
+    const std::optional<meta_type> meta = caors::find_type(type_);
+    if (!matches_type(source) || !writable_ || !meta.has_value() ||
+        meta->assign_value() == nullptr) {
       return false;
     }
 
-    return value->assign(const_cast<void*>(data_), source.data_);
+    return meta->assign_value()(const_cast<void*>(data_), source.data_);
   }
 
   /** @brief 尝试复制引用指向的对象。不可拷贝对象会返回无效 `any`。 */
-  [[nodiscard]] any to_any() const {
-    return any::copy_from_raw(type_, data_);
-  }
+  [[nodiscard]] any to_any() const { return any::copy_from_raw(type_, data_); }
 
 private:
   friend class sequence_view;
@@ -807,10 +694,7 @@ private:
 
   [[nodiscard]] static any_ref from_raw(type_id type, const void* data, bool writable) noexcept {
     const std::optional<meta_type> meta = caors::find_type(type);
-    const detail::value_type_data* value =
-        get_meta_registry().find_ptr<detail::value_type_data>(type);
-    if (!meta.has_value() || !meta->valid() || value == nullptr || !value->valid() ||
-        data == nullptr) {
+    if (!meta.has_value() || !meta->valid() || meta->cpp_type() == nullptr || data == nullptr) {
       return {};
     }
 

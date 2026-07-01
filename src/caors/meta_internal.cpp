@@ -99,14 +99,8 @@ error duplicate_identity_error(const meta_registry_state& state, const meta_type
 }
 
 bool has_cpp_type(const meta_registry_state& state, type_id id) {
-  for (const auto& [key, mapped_id] : state.cpp_types) {
-    (void)key;
-    if (mapped_id == id) {
-      return true;
-    }
-  }
-
-  return false;
+  const meta_type_data* type = find_type_data(state, id);
+  return type != nullptr && type->cpp_type() != nullptr;
 }
 
 error merge_type_data(meta_registry_state& state, meta_type_data& stored,
@@ -125,6 +119,38 @@ error merge_type_data(meta_registry_state& state, meta_type_data& stored,
   }
 
   bool changed = false;
+
+  if (incoming.cpp_type() != nullptr) {
+    const auto cpp_position = state.cpp_types.find(incoming.cpp_type());
+    if (cpp_position != state.cpp_types.end() && cpp_position->second != stored.id()) {
+      return {error_domain::meta, errc::invalid_type};
+    }
+
+    if (stored.cpp_type() != nullptr && stored.cpp_type() != incoming.cpp_type()) {
+      return {error_domain::meta, errc::invalid_type};
+    }
+
+    if (stored.cpp_type() == nullptr) {
+      stored.set_cpp_type(incoming.cpp_type());
+      state.cpp_types.emplace(stored.cpp_type(), stored.id());
+      changed = true;
+    }
+  }
+
+  if (incoming.clone_value() != nullptr && stored.clone_value() == nullptr) {
+    stored.set_clone_value(incoming.clone_value());
+    changed = true;
+  }
+
+  if (incoming.destroy_value() != nullptr && stored.destroy_value() == nullptr) {
+    stored.set_destroy_value(incoming.destroy_value());
+    changed = true;
+  }
+
+  if (incoming.assign_value() != nullptr && stored.assign_value() == nullptr) {
+    stored.set_assign_value(incoming.assign_value());
+    changed = true;
+  }
 
   if (incoming.parent_id()) {
     if (!state.types.contains(incoming.parent_id().value())) {
@@ -198,6 +224,10 @@ error store_new_type(meta_registry_state& state, const meta_type_data& incoming,
     return {error_domain::meta, errc::duplicate_guid};
   }
 
+  if (incoming.cpp_type() != nullptr && state.cpp_types.contains(incoming.cpp_type())) {
+    return {error_domain::meta, errc::invalid_type};
+  }
+
   meta_type_data stored = incoming;
   stored.set_id(allocate_type_id(state));
   const type_id id = stored.id();
@@ -214,6 +244,10 @@ error store_new_type(meta_registry_state& state, const meta_type_data& incoming,
 
   if (stored.guid()) {
     state.guids.emplace(stored.guid().value, id);
+  }
+
+  if (stored.cpp_type() != nullptr) {
+    state.cpp_types.emplace(stored.cpp_type(), id);
   }
 
   if (stored_id != nullptr) {

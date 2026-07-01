@@ -6,39 +6,87 @@
 #include <mutex>
 
 namespace caors {
+namespace {
 
-error meta_registry::register_type(const meta_type_data& type) {
+[[nodiscard]] error register_type_impl(meta_registry_state& state, meta_type_data type,
+                                       detail::cpp_type_key explicit_key = nullptr,
+                                       type_id* stored_id = nullptr) {
+  if (explicit_key != nullptr) {
+    if (type.cpp_type() != nullptr && type.cpp_type() != explicit_key) {
+      return {error_domain::meta, errc::invalid_type};
+    }
+
+    if (type.cpp_type() == nullptr) {
+      type.set_cpp_type(explicit_key);
+    }
+  }
+
   if (!type.valid()) {
     return {error_domain::meta, errc::invalid_type};
   }
 
-  std::lock_guard lock(state_->mutex);
+  std::lock_guard lock(state.mutex);
+
+  if (type.cpp_type() != nullptr) {
+    const auto key_position = state.cpp_types.find(type.cpp_type());
+    if (key_position != state.cpp_types.end()) {
+      meta_type_data* existing = detail::find_type_data(state, key_position->second);
+      if (existing == nullptr) {
+        return {error_domain::meta, errc::invalid_type};
+      }
+
+      const error status = detail::merge_type_data(state, *existing, type);
+      if (status.value() == errc::invalid_type) {
+        return {error_domain::meta, errc::invalid_type};
+      }
+
+      if (stored_id != nullptr) {
+        *stored_id = existing->id();
+      }
+
+      return status;
+    }
+  }
 
   error conflict{};
-  const std::optional<type_id> existing_id = detail::find_existing_type_id(*state_, type, conflict);
+  const std::optional<type_id> existing_id = detail::find_existing_type_id(state, type, conflict);
   if (conflict) {
     return conflict;
   }
 
   if (existing_id.has_value()) {
-    meta_type_data* existing = detail::find_type_data(*state_, *existing_id);
+    meta_type_data* existing = detail::find_type_data(state, *existing_id);
     if (existing == nullptr) {
       return {error_domain::meta, errc::invalid_type};
     }
 
-    if (detail::has_cpp_type(*state_, *existing_id)) {
-      return detail::duplicate_identity_error(*state_, type, *existing_id);
+    if (type.cpp_type() == nullptr && detail::has_cpp_type(state, *existing_id)) {
+      return detail::duplicate_identity_error(state, type, *existing_id);
     }
 
-    const error status = detail::merge_type_data(*state_, *existing, type);
+    if (type.cpp_type() != nullptr && detail::has_cpp_type(state, *existing_id)) {
+      return detail::duplicate_identity_error(state, type, *existing_id);
+    }
+
+    const error status = detail::merge_type_data(state, *existing, type);
     if (status.value() == errc::invalid_type) {
-      return detail::duplicate_identity_error(*state_, type, *existing_id);
+      return detail::duplicate_identity_error(state, type, *existing_id);
     }
 
-    return status;
+    if (stored_id != nullptr) {
+      *stored_id = existing->id();
+    }
+
+    return type.cpp_type() != nullptr && status.value() == errc::duplicate_id ? error{} : status;
   }
 
-  return detail::store_new_type(*state_, type);
+  return detail::store_new_type(state, type, stored_id);
+}
+
+} // namespace
+
+error meta_registry::register_type(const meta_type_data& type) {
+  return register_type_impl(*state_, type);
 }
 
 error meta_registry::register_cpp_type(detail::cpp_type_key key, const meta_type_data& type) {
@@ -46,59 +94,7 @@ error meta_registry::register_cpp_type(detail::cpp_type_key key, const meta_type
     return register_type(type);
   }
 
-  if (!type.valid()) {
-    return {error_domain::meta, errc::invalid_type};
-  }
-
-  std::lock_guard lock(state_->mutex);
-
-  const auto key_position = state_->cpp_types.find(key);
-  if (key_position != state_->cpp_types.end()) {
-    meta_type_data* existing = detail::find_type_data(*state_, key_position->second);
-    if (existing == nullptr) {
-      return {error_domain::meta, errc::invalid_type};
-    }
-
-    const error status = detail::merge_type_data(*state_, *existing, type);
-    if (status.value() == errc::invalid_type) {
-      return {error_domain::meta, errc::invalid_type};
-    }
-
-    return status;
-  }
-
-  error conflict{};
-  const std::optional<type_id> existing_id = detail::find_existing_type_id(*state_, type, conflict);
-  if (conflict) {
-    return conflict;
-  }
-
-  if (existing_id.has_value()) {
-    meta_type_data* existing = detail::find_type_data(*state_, *existing_id);
-    if (existing == nullptr) {
-      return {error_domain::meta, errc::invalid_type};
-    }
-
-    if (detail::has_cpp_type(*state_, *existing_id)) {
-      return detail::duplicate_identity_error(*state_, type, *existing_id);
-    }
-
-    const error status = detail::merge_type_data(*state_, *existing, type);
-    if (status.value() == errc::invalid_type) {
-      return detail::duplicate_identity_error(*state_, type, *existing_id);
-    }
-
-    state_->cpp_types.emplace(key, *existing_id);
-    return status.value() == errc::duplicate_id ? error{} : status;
-  }
-
-  type_id stored_id{};
-  const error status = detail::store_new_type(*state_, type, &stored_id);
-  if (status.succeeded()) {
-    state_->cpp_types.emplace(key, stored_id);
-  }
-
-  return status;
+  return register_type_impl(*state_, type, key);
 }
 
 meta_type meta_registry::ensure_cpp_type(detail::cpp_type_key key, std::size_t size,
@@ -107,31 +103,18 @@ meta_type meta_registry::ensure_cpp_type(detail::cpp_type_key key, std::size_t s
     return {};
   }
 
-  std::lock_guard lock(state_->mutex);
-  const auto key_position = state_->cpp_types.find(key);
-  if (key_position != state_->cpp_types.end()) {
-    const meta_type_data* existing = detail::find_type_data(*state_, key_position->second);
-    return meta_type{this, existing};
-  }
-
   meta_type_data data{
-      detail::allocate_type_id(*state_),
-      string_name{},
-      type_guid::nil(),
-      size,
-      alignment,
-      type_id::invalid(),
+      type_id::invalid(), string_name{}, type_guid::nil(), size, alignment, type_id::invalid(), key,
   };
-  const type_id id = data.id();
 
-  auto [position, inserted] =
-      state_->types.emplace(id.value(), std::make_unique<meta_type_data>(data));
-  if (!inserted) {
+  type_id stored_id{};
+  const error status = register_type_impl(*state_, data, key, &stored_id);
+  if (status && status.value() != errc::duplicate_id) {
     return {};
   }
 
-  state_->cpp_types.emplace(key, id);
-  return meta_type{this, position->second.get()};
+  const std::optional<meta_type> type = find_type(stored_id);
+  return type.value_or(meta_type{});
 }
 
 } // namespace caors

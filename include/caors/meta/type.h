@@ -5,14 +5,75 @@
 #define CAORS_META_TYPE_H_
 
 #include "caors/export.h"
-#include "caors/meta/type_id.h"
+#include "caors/meta/type_key.h"
 
 #include <cstddef>
+#include <new>
 #include <string_view>
+#include <type_traits>
 
 namespace caors {
 
 class meta_registry;
+
+namespace detail {
+
+using value_clone_fn = void* (*)(const void*);
+using value_destroy_fn = void (*)(void*) noexcept;
+using value_assign_fn = bool (*)(void*, const void*);
+
+template <typename T> void* clone_value(const void* source) {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (std::is_copy_constructible_v<type>) {
+    return new type(*static_cast<const type*>(source));
+  } else {
+    return nullptr;
+  }
+}
+
+template <typename T> void destroy_value(void* value) noexcept {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  delete static_cast<type*>(value);
+}
+
+template <typename T> bool assign_value(void* target, const void* source) {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (std::is_assignable_v<type&, const type&>) {
+    *static_cast<type*>(target) = *static_cast<const type*>(source);
+    return true;
+  } else {
+    return false;
+  }
+}
+
+template <typename T> [[nodiscard]] value_clone_fn value_clone_fn_of() noexcept {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (std::is_copy_constructible_v<type>) {
+    return &clone_value<type>;
+  } else {
+    return nullptr;
+  }
+}
+
+template <typename T> [[nodiscard]] value_destroy_fn value_destroy_fn_of() noexcept {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (std::is_copy_constructible_v<type>) {
+    return &destroy_value<type>;
+  } else {
+    return nullptr;
+  }
+}
+
+template <typename T> [[nodiscard]] value_assign_fn value_assign_fn_of() noexcept {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (std::is_assignable_v<type&, const type&>) {
+    return &assign_value<type>;
+  } else {
+    return nullptr;
+  }
+}
+
+} // namespace detail
 
 /**
  * @brief 元类型底层数据。
@@ -25,9 +86,14 @@ public:
   constexpr meta_type_data() noexcept = default;
 
   constexpr meta_type_data(type_id id, string_name name, type_guid guid, std::size_t size,
-                           std::size_t alignment, type_id parent_id) noexcept
+                           std::size_t alignment, type_id parent_id,
+                           detail::cpp_type_key cpp_type = nullptr,
+                           detail::value_clone_fn clone_value = nullptr,
+                           detail::value_destroy_fn destroy_value = nullptr,
+                           detail::value_assign_fn assign_value = nullptr) noexcept
       : id_(id), name_(name), guid_(guid), size_(size), alignment_(alignment),
-        parent_id_(parent_id) {}
+        parent_id_(parent_id), cpp_type_(cpp_type), clone_value_(clone_value),
+        destroy_value_(destroy_value), assign_value_(assign_value) {}
 
   [[nodiscard]] constexpr type_id id() const noexcept { return id_; }
   [[nodiscard]] constexpr string_name name() const noexcept { return name_; }
@@ -35,6 +101,16 @@ public:
   [[nodiscard]] constexpr std::size_t size() const noexcept { return size_; }
   [[nodiscard]] constexpr std::size_t alignment() const noexcept { return alignment_; }
   [[nodiscard]] constexpr type_id parent_id() const noexcept { return parent_id_; }
+  [[nodiscard]] constexpr detail::cpp_type_key cpp_type() const noexcept { return cpp_type_; }
+  [[nodiscard]] constexpr detail::value_clone_fn clone_value() const noexcept {
+    return clone_value_;
+  }
+  [[nodiscard]] constexpr detail::value_destroy_fn destroy_value() const noexcept {
+    return destroy_value_;
+  }
+  [[nodiscard]] constexpr detail::value_assign_fn assign_value() const noexcept {
+    return assign_value_;
+  }
 
   [[nodiscard]] constexpr bool valid() const noexcept { return size_ > 0 && alignment_ > 0; }
 
@@ -46,6 +122,16 @@ public:
   constexpr void set_name(string_name name) noexcept { name_ = name; }
   constexpr void set_guid(type_guid guid) noexcept { guid_ = guid; }
   constexpr void set_parent_id(type_id parent_id) noexcept { parent_id_ = parent_id; }
+  constexpr void set_cpp_type(detail::cpp_type_key cpp_type) noexcept { cpp_type_ = cpp_type; }
+  constexpr void set_clone_value(detail::value_clone_fn clone_value) noexcept {
+    clone_value_ = clone_value;
+  }
+  constexpr void set_destroy_value(detail::value_destroy_fn destroy_value) noexcept {
+    destroy_value_ = destroy_value;
+  }
+  constexpr void set_assign_value(detail::value_assign_fn assign_value) noexcept {
+    assign_value_ = assign_value;
+  }
 
 private:
   type_id id_{};
@@ -54,6 +140,10 @@ private:
   std::size_t size_ = 0;
   std::size_t alignment_ = 0;
   type_id parent_id_{};
+  detail::cpp_type_key cpp_type_ = nullptr;
+  detail::value_clone_fn clone_value_ = nullptr;
+  detail::value_destroy_fn destroy_value_ = nullptr;
+  detail::value_assign_fn assign_value_ = nullptr;
 };
 
 /**
@@ -75,6 +165,10 @@ public:
   [[nodiscard]] std::size_t size() const noexcept;
   [[nodiscard]] std::size_t alignment() const noexcept;
   [[nodiscard]] type_id parent_id() const noexcept;
+  [[nodiscard]] detail::cpp_type_key cpp_type() const noexcept;
+  [[nodiscard]] detail::value_clone_fn clone_value() const noexcept;
+  [[nodiscard]] detail::value_destroy_fn destroy_value() const noexcept;
+  [[nodiscard]] detail::value_assign_fn assign_value() const noexcept;
   [[nodiscard]] meta_type parent() const noexcept;
 
 private:
@@ -92,7 +186,16 @@ template <typename T>
 [[nodiscard]] constexpr meta_type_data
 make_meta_type_data(string_name name, type_id parent_id = type_id::invalid()) noexcept {
   return meta_type_data{
-      type_id::invalid(), name, type_guid::nil(), sizeof(T), alignof(T), parent_id,
+      type_id::invalid(),
+      name,
+      type_guid::nil(),
+      sizeof(T),
+      alignof(T),
+      parent_id,
+      detail::cpp_type_key_of<T>(),
+      detail::value_clone_fn_of<T>(),
+      detail::value_destroy_fn_of<T>(),
+      detail::value_assign_fn_of<T>(),
   };
 }
 
@@ -102,7 +205,16 @@ template <typename T>
 make_meta_type_data(string_name name, type_guid guid,
                     type_id parent_id = type_id::invalid()) noexcept {
   return meta_type_data{
-      type_id::invalid(), name, guid, sizeof(T), alignof(T), parent_id,
+      type_id::invalid(),
+      name,
+      guid,
+      sizeof(T),
+      alignof(T),
+      parent_id,
+      detail::cpp_type_key_of<T>(),
+      detail::value_clone_fn_of<T>(),
+      detail::value_destroy_fn_of<T>(),
+      detail::value_assign_fn_of<T>(),
   };
 }
 

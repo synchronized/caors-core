@@ -29,6 +29,22 @@ type_id meta_type::parent_id() const noexcept {
   return data_ != nullptr ? data_->parent_id() : type_id::invalid();
 }
 
+detail::cpp_type_key meta_type::cpp_type() const noexcept {
+  return data_ != nullptr ? data_->cpp_type() : nullptr;
+}
+
+detail::value_clone_fn meta_type::clone_value() const noexcept {
+  return data_ != nullptr ? data_->clone_value() : nullptr;
+}
+
+detail::value_destroy_fn meta_type::destroy_value() const noexcept {
+  return data_ != nullptr ? data_->destroy_value() : nullptr;
+}
+
+detail::value_assign_fn meta_type::assign_value() const noexcept {
+  return data_ != nullptr ? data_->assign_value() : nullptr;
+}
+
 meta_type meta_type::parent() const noexcept {
   if (registry_ == nullptr || !parent_id()) {
     return {};

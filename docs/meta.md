@@ -94,14 +94,16 @@ caors::meta_type_data data =
 - `size`
 - `alignment`
 - `parent_id`
+- `cpp_type`
+- `clone_value` / `destroy_value` / `assign_value`
 
 ```cpp
 caors::meta_type_data data = caors::make_meta_type_data<player>("game.player");
 ```
 
 `make_meta_type_data<T>()` 只创建待注册描述，`id` 保持无效。真正的 `type_id` 在写入全局
-`meta_registry` 时分配。C++ 类型可以先通过 `type_id_of<T>()` 创建匿名记录，后续注册名称或
-GUID 时会补充到同一个类型记录上。
+`meta_registry` 时分配。模板路径会同时记录 C++ 类型 key，以及可用时的复制、析构和赋值函数。
+C++ 类型可以先通过 `type_id_of<T>()` 创建匿名记录，后续注册名称或 GUID 时会补充到同一个类型记录上。
 
 `meta_type` 是对外查询返回的只读视图：
 
@@ -157,7 +159,8 @@ caors::error result = caors::register_type<actor>("game.actor");
 注册表维护几类索引：
 
 - `type_id -> meta_type_data`：运行期主索引。
-- `cpp_type_key -> type_id`：C++ 类型查询索引，允许匿名类型提前获得 id。
+- `cpp_type_key -> type_id`：C++ 类型查询索引，允许匿名类型提前获得 id；C++ 类型操作函数保存在
+  对应的 `meta_type_data` 内。
 - `type_name -> type_id`：名称查询索引，可选。
 - `type_guid -> type_id`：稳定身份查询索引，可选。
 

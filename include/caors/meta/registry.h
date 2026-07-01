@@ -126,7 +126,18 @@ public:
 
   template <typename T> [[nodiscard]] meta_type ensure_type_for() {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    return ensure_cpp_type(detail::cpp_type_key_of<type>(), sizeof(type), alignof(type));
+    const detail::cpp_type_key key = detail::cpp_type_key_of<type>();
+    std::optional<meta_type> existing = find_cpp_type(key);
+    if (existing.has_value()) {
+      return *existing;
+    }
+
+    const error status = register_cpp_type(key, make_meta_type_data<type>(string_name{}));
+    if (status && status.value() != errc::duplicate_id) {
+      return {};
+    }
+
+    return find_cpp_type(key).value_or(meta_type{});
   }
 
   [[nodiscard]] bool contains(type_id id) const;

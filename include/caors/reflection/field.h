@@ -417,8 +417,6 @@ make_reflection_field_data(std::string_view name, std::string_view type_name, st
     field.value_type = field.type;
   }
 
-  (void)detail::register_value_type_for<field_type>(field.type);
-
   if constexpr (sequence_traits<field_type>::is_sequence) {
     using element_type = typename sequence_traits<field_type>::element_type;
     field.element_cpp_type = detail::cpp_type_key_of<element_type>();
