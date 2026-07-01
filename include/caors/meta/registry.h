@@ -703,6 +703,60 @@ template <typename T> [[nodiscard]] error register_pair_data_for(type_id id) {
   return {};
 }
 
+template <typename Tuple, std::size_t Index>
+[[nodiscard]] meta_tuple_element_data make_tuple_element_data() {
+  using type = std::remove_cv_t<std::remove_reference_t<Tuple>>;
+  using element_type = typename tuple_traits<type>::template element_type<Index>;
+
+  return meta_tuple_element_data{
+      semantic_type_id<element_type>(),
+      [](const void* storage) noexcept -> const void* {
+        if (storage == nullptr) {
+          return nullptr;
+        }
+
+        return tuple_traits<type>::template element<Index>(*static_cast<const type*>(storage));
+      },
+      [](void* storage) noexcept -> void* {
+        if (storage == nullptr) {
+          return nullptr;
+        }
+
+        return tuple_traits<type>::template mutable_element<Index>(*static_cast<type*>(storage));
+      },
+  };
+}
+
+template <typename Tuple, std::size_t... Indices>
+[[nodiscard]] meta_tuple_data make_tuple_data(std::index_sequence<Indices...>) {
+  meta_tuple_data data{};
+  data.elements.reserve(sizeof...(Indices));
+  (data.elements.push_back(make_tuple_element_data<Tuple, Indices>()), ...);
+  return data;
+}
+
+template <typename T> [[nodiscard]] error register_tuple_data_for(type_id id) {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (tuple_traits<type>::is_tuple) {
+    if (!id) {
+      return {};
+    }
+
+    meta_tuple_data data =
+        make_tuple_data<type>(std::make_index_sequence<tuple_traits<type>::size>{});
+    if (!data.valid()) {
+      return {};
+    }
+
+    const error result = get_meta_registry().emplace<meta_tuple_data>(id, data);
+    if (result && result.value() != errc::duplicate_component) {
+      return result;
+    }
+  }
+
+  return {};
+}
+
 template <typename T> [[nodiscard]] error register_sequence_data_for(type_id id) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (sequence_traits<type>::is_sequence) {
@@ -848,6 +902,8 @@ template <typename T> [[nodiscard]] error register_container_data_for(type_id id
     return register_associative_data_for<type>(id);
   } else if constexpr (pair_traits<type>::is_pair) {
     return register_pair_data_for<type>(id);
+  } else if constexpr (tuple_traits<type>::is_tuple) {
+    return register_tuple_data_for<type>(id);
   }
 
   return {};
@@ -885,6 +941,9 @@ template <typename Type> struct type_semantics_traits {
       info.kind = type_kind::pair;
       info.key_type = semantic_type_id<first_type>();
       info.value_type = semantic_type_id<second_type>();
+      return info;
+    } else if constexpr (tuple_traits<type>::is_tuple) {
+      info.kind = type_kind::tuple;
       return info;
     } else if constexpr (wrapper_traits<type>::is_wrapper) {
       using wrapped_type = typename wrapper_traits<type>::wrapped_type;
@@ -961,7 +1020,7 @@ template <typename T> [[nodiscard]] error ensure_type_semantics_for(type_id id) 
   }
 
   meta_type_semantics_data semantics = make_type_semantics_data<T>();
-  if (!semantics.value_type) {
+  if (!semantics.value_type && semantics.kind != type_kind::tuple) {
     semantics.value_type = id;
   }
 

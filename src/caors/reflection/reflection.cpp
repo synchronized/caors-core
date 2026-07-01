@@ -289,6 +289,8 @@ bool reflection_field::is_associative() const noexcept { return kind() == type_k
 
 bool reflection_field::is_pair() const noexcept { return kind() == type_kind::pair; }
 
+bool reflection_field::is_tuple() const noexcept { return kind() == type_kind::tuple; }
+
 reflection_type::reflection_type(meta_type type, const reflection_type_data* data) noexcept
     : type_(type), data_(data) {}
 

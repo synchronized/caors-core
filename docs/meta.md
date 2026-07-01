@@ -151,9 +151,9 @@ caors::meta<actor>()
 
 `meta_type_semantics_data` 是挂在类型上的语义组件，用来描述该类型在反射、序列化和 value 模块中的运行期形态：
 
-- `kind`：值、枚举、裸指针、wrapper、顺序容器、集合容器、关联容器或二元组。
+- `kind`：值、枚举、裸指针、wrapper、顺序容器、集合容器、关联容器、二元组或 tuple-like 类型。
 - `wrapper_semantics`：wrapper 或裸指针的处理语义，例如内联值、对象引用或不支持。
-- `value_type`：统一 value 类型。普通值、枚举、裸指针和 wrapper 对应自身或内部值；顺序容器和集合容器对应元素类型；关联容器对应 mapped/value 类型；二元组对应 second 类型。
+- `value_type`：统一 value 类型。普通值、枚举、裸指针和 wrapper 对应自身或内部值；顺序容器和集合容器对应元素类型；关联容器对应 mapped/value 类型；二元组对应 second 类型；tuple-like 类型没有单一 value 类型，应通过 `tuple_view` 按下标查询元素类型。
 - `key_type`：关联容器的 key 类型；二元组内部复用它保存 first 类型。
 - `indirect_value` / `mutable_indirect_value`：指针或 wrapper 解包后的内部值访问函数。
 - `has_indirect_value` / `reset_indirect_value`：指针或 wrapper 的持值检测和重置函数。
@@ -161,7 +161,7 @@ caors::meta<actor>()
 - `nullable`：运行期值是否可能为空。
 
 这部分数据不放在 `reflection_field_data` 上重复保存。字段只记录声明类型的 `type_id`，需要查询字段形态、
-value 类型、关联容器 key 类型或二元组 first 类型时，通过该 `type_id` 到 `meta_registry` 查询 `meta_type_semantics_data`。
+value 类型、关联容器 key 类型、二元组 first 类型或 tuple-like 字段形态时，通过该 `type_id` 到 `meta_registry` 查询 `meta_type_semantics_data`。
 `meta_type_semantics_data` 由 `meta_registry::register_type_for<T>()` 和 `ensure_type_for<T>()`
 在基础类型注册或匿名类型创建时自动挂载；反射字段注册只负责确保字段声明类型已经注册。
 
@@ -258,7 +258,7 @@ caors::get_meta_registry().emplace<object_factory_meta>(actor_id, true);
 - `meta_type_data` / `make_meta_type_data<T>()`：底层类型注册描述。
 - `meta_type_semantics_data`：类型形态、wrapper、指针和容器语义组件。
 - `wrapper_traits<T>` / `wrapper_access<T>`：wrapper 类型语义和内部值访问扩展点。
-- `sequence_traits<T>` / `set_traits<T>` / `associative_traits<T>` / `pair_traits<T>`：容器和二元组类型语义扩展点。
+- `sequence_traits<T>` / `set_traits<T>` / `associative_traits<T>` / `pair_traits<T>` / `tuple_traits<T>`：容器、二元组和 tuple-like 类型语义扩展点。
 - `meta_type`：全局注册表中的类型只读视图。
 - `meta<T>()`：RTTR 风格的链式元类型注册入口。
 - `meta_registry`：全局基础类型注册、按 id/name/guid/C++ 类型查询、继承关系判断和组件式元数据挂载。

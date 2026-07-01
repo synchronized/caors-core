@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <memory>
 #include <optional>
+#include <tuple>
 #include <utility>
 
 namespace {
@@ -293,4 +294,33 @@ TEST_CASE("reflection any_ref - creates pair views for registered pair values", 
   CHECK(second.try_set(11));
   CHECK(value.first == 7);
   CHECK(value.second == 11);
+}
+
+TEST_CASE("reflection any_ref - creates tuple views for registered tuple values", "[reflection]") {
+  std::tuple<int, int, caors::string> value{3, 5, caors::string{"five"}};
+
+  caors::any_ref reference = caors::any_ref::from(value, "std.tuple<int,int,caors.string>");
+  REQUIRE(reference.valid());
+
+  caors::tuple_view tuple = reference.create_tuple_view();
+  REQUIRE(tuple.valid());
+  CHECK(tuple.writable());
+  CHECK(tuple.size() == 3);
+  REQUIRE(tuple.element_type(0).has_value());
+  CHECK(*tuple.element_type(0) == caors::make_type_id("int"));
+  CHECK(tuple.element_type_name(2) == "caors.string");
+
+  caors::any_ref first = tuple.element_ref(0);
+  caors::any_ref second = tuple.element_ref(1);
+  caors::any_ref third = tuple.element_ref(2);
+  REQUIRE(first.valid());
+  REQUIRE(second.valid());
+  REQUIRE(third.valid());
+
+  CHECK(first.try_set(7));
+  CHECK(second.try_set(11));
+  CHECK(third.try_set(caors::string{"eleven"}));
+  CHECK(std::get<0>(value) == 7);
+  CHECK(std::get<1>(value) == 11);
+  CHECK(std::get<2>(value) == "eleven");
 }

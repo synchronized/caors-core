@@ -29,6 +29,7 @@ enum class type_kind {
   set,
   associative,
   pair,
+  tuple,
 };
 
 /** @brief wrapper 类型的序列化语义。 */

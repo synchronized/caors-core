@@ -4,6 +4,7 @@
 #ifndef CAORS_META_CONTAINER_H_
 #define CAORS_META_CONTAINER_H_
 
+#include "caors/core/containers.h"
 #include "caors/meta/type_id.h"
 
 #include <cstddef>
@@ -40,6 +41,8 @@ using meta_associative_iterator_value_fn = const void* (*)(const void*) noexcept
 
 using meta_pair_const_value_fn = const void* (*)(const void*) noexcept;
 using meta_pair_mutable_value_fn = void* (*)(void*) noexcept;
+using meta_tuple_const_element_fn = const void* (*)(const void*) noexcept;
+using meta_tuple_mutable_element_fn = void* (*)(void*) noexcept;
 
 /** @brief 顺序容器运行期访问数据。 */
 struct meta_sequence_data {
@@ -109,6 +112,30 @@ struct meta_pair_data {
 
   [[nodiscard]] bool valid() const noexcept {
     return key_type && value_type && first != nullptr && second != nullptr;
+  }
+};
+
+/** @brief tuple-like 单个元素运行期访问数据。 */
+struct meta_tuple_element_data {
+  type_id value_type{};
+  meta_tuple_const_element_fn element = nullptr;
+  meta_tuple_mutable_element_fn mutable_element = nullptr;
+
+  [[nodiscard]] bool valid() const noexcept { return value_type && element != nullptr; }
+};
+
+/** @brief tuple-like 运行期访问数据。 */
+struct meta_tuple_data {
+  vector<meta_tuple_element_data> elements{};
+
+  [[nodiscard]] bool valid() const noexcept {
+    for (const meta_tuple_element_data& element : elements) {
+      if (!element.valid()) {
+        return false;
+      }
+    }
+
+    return true;
   }
 };
 

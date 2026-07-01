@@ -113,6 +113,9 @@ public:
   /** @brief 判断字段是否是二元组。 */
   [[nodiscard]] bool is_pair() const noexcept;
 
+  /** @brief 判断字段是否是 tuple-like 字段。 */
+  [[nodiscard]] bool is_tuple() const noexcept;
+
   /** @brief 按指定类型读取字段值。 */
   template <typename Field>
   [[nodiscard]] std::optional<std::remove_cv_t<std::remove_reference_t<Field>>>

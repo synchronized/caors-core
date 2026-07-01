@@ -10,6 +10,7 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 
 namespace caors::reflection {
 
@@ -78,6 +79,15 @@ public:
 
         reflection_.fields.push_back(
             make_reflection_field_data<Field>(name, *pair_name, detail::member_offset(member)));
+      } else if constexpr (tuple_traits<field_type>::is_tuple) {
+        const std::optional<string> tuple_name = tuple_type_name<field_type>();
+        if (!tuple_name.has_value()) {
+          pending_status_ = {error_domain::reflection, errc::invalid_field};
+          return *this;
+        }
+
+        reflection_.fields.push_back(
+            make_reflection_field_data<Field>(name, *tuple_name, detail::member_offset(member)));
       } else if constexpr (detail::has_type_name_v<field_type>) {
         reflection_.fields.push_back(make_reflection_field_data<Field>(
             name, type_name<field_type>::value, detail::member_offset(member)));
@@ -209,6 +219,49 @@ private:
       name += mapped->name().view();
       name += ">";
       return name;
+    } else {
+      return std::nullopt;
+    }
+  }
+
+  template <typename Element>
+  [[nodiscard]] bool append_registered_type_name(string& name, bool& first) const {
+    const std::optional<meta_type> type = ensure_registered_type<Element>();
+    if (!type.has_value()) {
+      return false;
+    }
+
+    if (!first) {
+      name += ",";
+    }
+
+    name += type->name().view();
+    first = false;
+    return true;
+  }
+
+  template <typename Field, std::size_t... Indices>
+  [[nodiscard]] std::optional<string> tuple_type_name_impl(std::index_sequence<Indices...>) const {
+    string name;
+    name += tuple_traits<Field>::type_name_prefix();
+    name += "<";
+
+    bool first = true;
+    const bool succeeded =
+        (append_registered_type_name<typename tuple_traits<Field>::template element_type<Indices>>(
+             name, first) &&
+         ... && true);
+    if (!succeeded) {
+      return std::nullopt;
+    }
+
+    name += ">";
+    return name;
+  }
+
+  template <typename Field> [[nodiscard]] std::optional<string> tuple_type_name() const {
+    if constexpr (tuple_traits<Field>::is_tuple) {
+      return tuple_type_name_impl<Field>(std::make_index_sequence<tuple_traits<Field>::size>{});
     } else {
       return std::nullopt;
     }

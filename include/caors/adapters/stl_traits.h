@@ -14,6 +14,7 @@
 #include <map>
 #include <set>
 #include <string_view>
+#include <tuple>
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
@@ -349,6 +350,36 @@ template <typename First, typename Second> struct pair_traits<std::pair<First, S
       return nullptr;
     } else {
       return &values.second;
+    }
+  }
+};
+
+/** @brief `std::tuple` 的 tuple-like 反射适配。 */
+template <typename... Types> struct tuple_traits<std::tuple<Types...>> {
+  static constexpr bool is_tuple = true;
+  static constexpr std::size_t size = sizeof...(Types);
+
+  template <std::size_t Index>
+  using element_type = std::remove_cv_t<std::tuple_element_t<Index, std::tuple<Types...>>>;
+
+  [[nodiscard]] static constexpr std::string_view type_name_prefix() noexcept {
+    return "std.tuple";
+  }
+
+  template <std::size_t Index>
+  [[nodiscard]] static const element_type<Index>*
+  element(const std::tuple<Types...>& values) noexcept {
+    return &std::get<Index>(values);
+  }
+
+  template <std::size_t Index>
+  [[nodiscard]] static element_type<Index>* mutable_element(std::tuple<Types...>& values) noexcept {
+    using raw_element_type = std::tuple_element_t<Index, std::tuple<Types...>>;
+    if constexpr (std::is_const_v<raw_element_type>) {
+      (void)values;
+      return nullptr;
+    } else {
+      return &std::get<Index>(values);
     }
   }
 };

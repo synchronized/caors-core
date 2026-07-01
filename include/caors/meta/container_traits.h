@@ -26,6 +26,11 @@ template <typename T> struct pair_traits {
   static constexpr bool is_pair = false;
 };
 
+/** @brief tuple-like 类型语义 traits。 */
+template <typename T> struct tuple_traits {
+  static constexpr bool is_tuple = false;
+};
+
 } // namespace caors
 
 #endif
