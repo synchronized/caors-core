@@ -844,21 +844,99 @@ TEST_CASE("serialization - deserializes pointer and wrapper fields into existing
   CHECK(stats.score == Catch::Approx(5.5));
 }
 
-TEST_CASE("serialization - rejects empty pointer fields", "[serialization]") {
+TEST_CASE("serialization - serializes empty pointer and wrapper fields as null",
+          "[serialization]") {
   require_pointer_actor_metadata();
 
+  pointer_actor actor{};
+
+  const caors::serialization_text_result text = caors::serialize_text(actor);
+
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"raw":null,"shared":null,"unique":null,"optional":null,"stats":null})");
+
+  const caors::variant_result value = caors::to_serialization_value(actor);
+  REQUIRE(value.succeeded());
+
+  const caors::variant_member* raw = value.value.find_member(caors::string_name{"raw"});
+  const caors::variant_member* shared = value.value.find_member(caors::string_name{"shared"});
+  const caors::variant_member* unique = value.value.find_member(caors::string_name{"unique"});
+  const caors::variant_member* optional = value.value.find_member(caors::string_name{"optional"});
+  const caors::variant_member* stats = value.value.find_member(caors::string_name{"stats"});
+  REQUIRE(raw != nullptr);
+  REQUIRE(shared != nullptr);
+  REQUIRE(unique != nullptr);
+  REQUIRE(optional != nullptr);
+  REQUIRE(stats != nullptr);
+  CHECK(raw->value.is_null());
+  CHECK(shared->value.is_null());
+  CHECK(unique->value.is_null());
+  CHECK(optional->value.is_null());
+  CHECK(stats->value.is_null());
+}
+
+TEST_CASE("serialization - deserializes null pointer and wrapper fields", "[serialization]") {
+  require_pointer_actor_metadata();
+
+  int raw = 1;
   nested_stats stats{1, 2.0F};
   pointer_actor actor{};
+  actor.raw = &raw;
   actor.shared = std::make_shared<int>(8);
   actor.unique = std::make_unique<int>(9);
   actor.optional = 10;
   actor.stats = &stats;
 
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::error result = caors::deserialize_json(
+      actor, R"({"raw":null,"shared":null,"unique":null,"optional":null,"stats":null})");
 
-  REQUIRE(text.failed());
-  CHECK(text.status.domain() == caors::error_domain::serialization);
-  CHECK(text.status.value() == caors::errc::invalid_argument);
+  REQUIRE(result.succeeded());
+  CHECK(actor.raw == nullptr);
+  CHECK(actor.shared == nullptr);
+  CHECK(actor.unique == nullptr);
+  CHECK_FALSE(actor.optional.has_value());
+  CHECK(actor.stats == nullptr);
+}
+
+TEST_CASE("serialization - deserializes non-null values into empty wrappers", "[serialization]") {
+  require_pointer_actor_metadata();
+
+  int raw = 0;
+  nested_stats stats{};
+  pointer_actor actor{};
+  actor.raw = &raw;
+  actor.stats = &stats;
+
+  const caors::error result = caors::deserialize_json(
+      actor,
+      R"({"raw":70,"shared":80,"unique":90,"optional":100,"stats":{"level":4,"score":5.5}})");
+
+  REQUIRE(result.succeeded());
+  CHECK(actor.raw == &raw);
+  REQUIRE(actor.shared != nullptr);
+  REQUIRE(actor.unique != nullptr);
+  REQUIRE(actor.optional.has_value());
+  CHECK(actor.stats == &stats);
+  CHECK(raw == 70);
+  CHECK(*actor.shared == 80);
+  CHECK(*actor.unique == 90);
+  CHECK(*actor.optional == 100);
+  CHECK(stats.level == 4);
+  CHECK(stats.score == Catch::Approx(5.5));
+}
+
+TEST_CASE("serialization - rejects non-null values for empty raw pointers", "[serialization]") {
+  require_pointer_actor_metadata();
+
+  pointer_actor actor{};
+
+  const caors::error result = caors::deserialize_json(
+      actor,
+      R"({"raw":70,"shared":80,"unique":90,"optional":100,"stats":{"level":4,"score":5.5}})");
+
+  REQUIRE(result.failed());
+  CHECK(result.domain() == caors::error_domain::serialization);
+  CHECK(result.value() == caors::errc::invalid_field);
 }
 
 TEST_CASE("serialization - serializes vector fields as arrays", "[serialization]") {

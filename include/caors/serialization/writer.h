@@ -41,6 +41,7 @@ public:
   [[nodiscard]] virtual error write_u64(std::uint64_t value) = 0;
   [[nodiscard]] virtual error write_f64(double value) = 0;
   [[nodiscard]] virtual error write_string(std::string_view value) = 0;
+  [[nodiscard]] virtual error write_null();
   [[nodiscard]] virtual error end_element() = 0;
   [[nodiscard]] virtual error end_array() = 0;
   [[nodiscard]] virtual error end_field() = 0;
@@ -70,6 +71,7 @@ public:
   [[nodiscard]] error write_u64(std::uint64_t value) override;
   [[nodiscard]] error write_f64(double value) override;
   [[nodiscard]] error write_string(std::string_view value) override;
+  [[nodiscard]] error write_null() override;
   [[nodiscard]] error end_element() override;
   [[nodiscard]] error end_array() override;
   [[nodiscard]] error end_field() override;
@@ -121,6 +123,7 @@ public:
   [[nodiscard]] error write_u64(std::uint64_t value) override;
   [[nodiscard]] error write_f64(double value) override;
   [[nodiscard]] error write_string(std::string_view value) override;
+  [[nodiscard]] error write_null() override;
   [[nodiscard]] error end_element() override;
   [[nodiscard]] error end_array() override;
   [[nodiscard]] error end_field() override;

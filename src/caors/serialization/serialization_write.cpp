@@ -10,7 +10,7 @@ namespace caors {
 error write(serialization_writer& writer, const variant& value) {
   switch (value.kind()) {
   case variant_kind::null:
-    return {error_domain::serialization, errc::unsupported};
+    return writer.write_null();
   case variant_kind::boolean:
     return writer.write_bool(value.as_bool());
   case variant_kind::signed_integer:

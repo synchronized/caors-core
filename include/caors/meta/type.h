@@ -46,6 +46,7 @@ using indirect_const_value_fn = const void* (*)(const void*) noexcept;
 using indirect_mutable_value_fn = void* (*)(void*) noexcept;
 using indirect_has_value_fn = bool (*)(const void*) noexcept;
 using indirect_reset_fn = bool (*)(void*) noexcept;
+using indirect_ensure_value_fn = bool (*)(void*);
 
 template <typename T> void* default_construct_value() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
@@ -133,6 +134,7 @@ struct meta_type_semantics_data {
   detail::indirect_mutable_value_fn mutable_indirect_value = nullptr;
   detail::indirect_has_value_fn has_indirect_value = nullptr;
   detail::indirect_reset_fn reset_indirect_value = nullptr;
+  detail::indirect_ensure_value_fn ensure_indirect_value = nullptr;
   std::uint8_t pointer_depth = 0;
   bool nullable = false;
 };

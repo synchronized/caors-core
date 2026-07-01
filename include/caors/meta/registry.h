@@ -333,6 +333,8 @@ template <typename T> bool raw_pointer_reset(void* storage) noexcept {
   return true;
 }
 
+template <typename T> bool raw_pointer_ensure_value(void*) { return false; }
+
 template <typename Wrapper>
 [[nodiscard]] const void* wrapper_indirect_value(const void* storage) noexcept {
   if (storage == nullptr) {
@@ -366,6 +368,18 @@ template <typename Wrapper> bool wrapper_reset_indirect_value(void* storage) noe
   }
 
   return wrapper_access<Wrapper>::reset(*static_cast<Wrapper*>(storage));
+}
+
+template <typename Wrapper> bool wrapper_ensure_indirect_value(void* storage) {
+  if (storage == nullptr) {
+    return false;
+  }
+
+  if constexpr (requires(Wrapper& source) { wrapper_access<Wrapper>::ensure_value(source); }) {
+    return wrapper_access<Wrapper>::ensure_value(*static_cast<Wrapper*>(storage));
+  } else {
+    return false;
+  }
 }
 
 template <typename T> [[nodiscard]] type_id semantic_type_id() {
@@ -732,6 +746,7 @@ template <typename Type> struct type_semantics_traits {
       info.mutable_indirect_value = &wrapper_mutable_indirect_value<type>;
       info.has_indirect_value = &wrapper_has_indirect_value<type>;
       info.reset_indirect_value = &wrapper_reset_indirect_value<type>;
+      info.ensure_indirect_value = &wrapper_ensure_indirect_value<type>;
       info.nullable = wrapper_traits<type>::nullable;
       return info;
     } else {
@@ -756,6 +771,7 @@ template <typename T> struct type_semantics_traits<T*> {
     info.mutable_indirect_value = &raw_pointer_mutable_value<T>;
     info.has_indirect_value = &raw_pointer_has_value<T>;
     info.reset_indirect_value = &raw_pointer_reset<T>;
+    info.ensure_indirect_value = &raw_pointer_ensure_value<T>;
     info.pointer_depth = 1;
     info.nullable = true;
     return info;

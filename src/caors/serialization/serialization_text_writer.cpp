@@ -201,6 +201,17 @@ error text_serialization_writer::write_string(std::string_view value) {
   return {};
 }
 
+error text_serialization_writer::write_null() {
+  error status = prepare_value();
+  if (status) {
+    return status;
+  }
+
+  text_ += "null";
+  mark_value_written();
+  return {};
+}
+
 error text_serialization_writer::end_element() {
   if (contexts_.empty() || contexts_.back().kind != context_kind::array || expecting_value_) {
     return {error_domain::serialization, errc::invalid_argument};

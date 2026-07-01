@@ -39,6 +39,7 @@ public:
   [[nodiscard]] virtual error read_u64(std::uint64_t& value) = 0;
   [[nodiscard]] virtual error read_f64(double& value) = 0;
   [[nodiscard]] virtual error read_string(string& value) = 0;
+  [[nodiscard]] virtual bool is_null() const noexcept;
   [[nodiscard]] virtual error end_element() = 0;
   [[nodiscard]] virtual error end_array() = 0;
   [[nodiscard]] virtual error end_field() = 0;

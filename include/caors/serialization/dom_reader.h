@@ -31,6 +31,7 @@ public:
   [[nodiscard]] error read_u64(std::uint64_t& value) override;
   [[nodiscard]] error read_f64(double& value) override;
   [[nodiscard]] error read_string(string& value) override;
+  [[nodiscard]] bool is_null() const noexcept override;
   [[nodiscard]] error end_element() override;
   [[nodiscard]] error end_array() override;
   [[nodiscard]] error end_field() override;

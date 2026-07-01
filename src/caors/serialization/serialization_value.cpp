@@ -424,6 +424,11 @@ error variant_serialization_reader::read_string(string& value) {
   return {};
 }
 
+bool variant_serialization_reader::is_null() const noexcept {
+  const variant* current = current_value();
+  return current != nullptr && current->is_null();
+}
+
 error variant_serialization_reader::end_element() {
   if (current_elements_.empty() || current_elements_.back() == nullptr) {
     return {error_domain::serialization, errc::invalid_argument};

@@ -4,10 +4,12 @@
 #ifndef CAORS_META_WRAPPER_H_
 #define CAORS_META_WRAPPER_H_
 
+#include "caors/config.h"
 #include "caors/meta/type.h"
 
 #include <functional>
 #include <memory>
+#include <new>
 #include <optional>
 #include <type_traits>
 
@@ -28,6 +30,7 @@ template <typename T> struct wrapper_access {
   [[nodiscard]] static void* mutable_value(T&) noexcept { return nullptr; }
   [[nodiscard]] static bool has_value(const T&) noexcept { return false; }
   static bool reset(T&) noexcept { return false; }
+  static bool ensure_value(T&) { return false; }
 };
 
 template <typename T, typename Deleter> struct wrapper_traits<std::unique_ptr<T, Deleter>> {
@@ -57,6 +60,38 @@ template <typename T, typename Deleter> struct wrapper_access<std::unique_ptr<T,
     source.reset();
     return true;
   }
+
+  static bool ensure_value(std::unique_ptr<T, Deleter>& source) {
+    using pointer_type = typename std::unique_ptr<T, Deleter>::pointer;
+
+    if (source) {
+      return true;
+    }
+
+    if constexpr (std::is_default_constructible_v<wrapped_type> &&
+                  std::is_convertible_v<wrapped_type*, pointer_type>) {
+#if CAORS_HAS_EXCEPTIONS
+      try {
+        source.reset(new wrapped_type());
+      } catch (...) {
+        return false;
+      }
+#else
+      if constexpr (!std::is_nothrow_default_constructible_v<wrapped_type>) {
+        return false;
+      } else {
+        wrapped_type* value = new (std::nothrow) wrapped_type();
+        if (value == nullptr) {
+          return false;
+        }
+        source.reset(value);
+      }
+#endif
+      return static_cast<bool>(source);
+    } else {
+      return false;
+    }
+  }
 };
 
 template <typename T> struct wrapper_traits<std::shared_ptr<T>> {
@@ -85,6 +120,27 @@ template <typename T> struct wrapper_access<std::shared_ptr<T>> {
     source.reset();
     return true;
   }
+
+  static bool ensure_value(std::shared_ptr<T>& source) {
+    if (source) {
+      return true;
+    }
+
+    if constexpr (std::is_default_constructible_v<wrapped_type>) {
+#if CAORS_HAS_EXCEPTIONS
+      try {
+        source = std::make_shared<wrapped_type>();
+      } catch (...) {
+        return false;
+      }
+#else
+      return false;
+#endif
+      return static_cast<bool>(source);
+    } else {
+      return false;
+    }
+  }
 };
 
 template <typename T> struct wrapper_traits<std::weak_ptr<T>> {
@@ -111,6 +167,8 @@ template <typename T> struct wrapper_access<std::weak_ptr<T>> {
     source.reset();
     return true;
   }
+
+  static bool ensure_value(std::weak_ptr<T>&) { return false; }
 };
 
 template <typename T> struct wrapper_traits<std::optional<T>> {
@@ -139,6 +197,31 @@ template <typename T> struct wrapper_access<std::optional<T>> {
     source.reset();
     return true;
   }
+
+  static bool ensure_value(std::optional<T>& source) {
+    if (source.has_value()) {
+      return true;
+    }
+
+    if constexpr (std::is_default_constructible_v<wrapped_type>) {
+#if CAORS_HAS_EXCEPTIONS
+      try {
+        source.emplace();
+      } catch (...) {
+        return false;
+      }
+#else
+      if constexpr (!std::is_nothrow_default_constructible_v<wrapped_type>) {
+        return false;
+      } else {
+        source.emplace();
+      }
+#endif
+      return source.has_value();
+    } else {
+      return false;
+    }
+  }
 };
 
 template <typename T> struct wrapper_traits<std::reference_wrapper<T>> {
@@ -161,6 +244,7 @@ template <typename T> struct wrapper_access<std::reference_wrapper<T>> {
 
   [[nodiscard]] static bool has_value(const std::reference_wrapper<T>&) noexcept { return true; }
   static bool reset(std::reference_wrapper<T>&) noexcept { return false; }
+  static bool ensure_value(std::reference_wrapper<T>&) { return true; }
 };
 
 } // namespace caors

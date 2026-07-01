@@ -126,6 +126,70 @@ template <typename T>
          semantics->wrapper_semantics == wrapper_semantics::inline_value;
 }
 
+[[nodiscard]] variant_result make_indirect_serialized_value(const indirect_view& indirect,
+                                                            const serialization_context& context) {
+  if (!indirect.valid()) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
+  }
+
+  if (!indirect.has_value()) {
+    return {{}, variant::null()};
+  }
+
+  const any_ref value = indirect.value_ref();
+  if (!value.valid()) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
+  }
+
+  return make_serialized_value(value, context);
+}
+
+[[nodiscard]] error write_indirect_serialized_value(serialization_writer& writer,
+                                                    const indirect_view& indirect,
+                                                    const serialization_context& context) {
+  if (!indirect.valid()) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  if (!indirect.has_value()) {
+    return writer.write_null();
+  }
+
+  const any_ref value = indirect.value_ref();
+  if (!value.valid()) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  return write_serialized_value(writer, value, context);
+}
+
+[[nodiscard]] error read_indirect_serialized_value(serialization_reader& reader,
+                                                   const indirect_view& indirect,
+                                                   const serialization_context& context) {
+  if (!indirect.valid() || !indirect.writable()) {
+    return {error_domain::serialization, errc::invalid_field};
+  }
+
+  if (reader.is_null()) {
+    if (!indirect.reset()) {
+      return {error_domain::serialization, errc::invalid_field};
+    }
+
+    return {};
+  }
+
+  if (!indirect.has_value() && !indirect.ensure_value()) {
+    return {error_domain::serialization, errc::invalid_field};
+  }
+
+  any_ref value = indirect.value_ref();
+  if (!value.valid() || !value.writable() || value.mutable_data() == nullptr) {
+    return {error_domain::serialization, errc::invalid_field};
+  }
+
+  return read_serialized_value(reader, value, context);
+}
+
 [[nodiscard]] error write_sequence_value(serialization_writer& writer, const sequence_view& view,
                                          const serialization_context& context) {
   const std::optional<std::size_t> size = view.size();
@@ -855,11 +919,7 @@ variant_result make_serialized_value(const any_ref& value, const serialization_c
 
   if (type_uses_inline_indirect_value(value.type())) {
     const indirect_view indirect = value.create_indirect_view();
-    if (!indirect.valid() || !indirect.has_value()) {
-      return {{error_domain::serialization, errc::invalid_argument}, {}};
-    }
-
-    return make_serialized_value(indirect.value_ref(), context);
+    return make_indirect_serialized_value(indirect, context);
   }
 
   sequence_view sequence = value.create_sequence_view();
@@ -909,11 +969,7 @@ error write_serialized_value(serialization_writer& writer, const any_ref& value,
 
   if (type_uses_inline_indirect_value(value.type())) {
     const indirect_view indirect = value.create_indirect_view();
-    if (!indirect.valid() || !indirect.has_value()) {
-      return {error_domain::serialization, errc::invalid_argument};
-    }
-
-    return write_serialized_value(writer, indirect.value_ref(), context);
+    return write_indirect_serialized_value(writer, indirect, context);
   }
 
   sequence_view sequence = value.create_sequence_view();
@@ -967,11 +1023,7 @@ error read_serialized_value(serialization_reader& reader, const any_ref& target,
 
   if (type_uses_inline_indirect_value(target.type())) {
     const indirect_view indirect = target.create_indirect_view();
-    if (!indirect.valid() || !indirect.writable() || !indirect.has_value()) {
-      return {error_domain::serialization, errc::invalid_field};
-    }
-
-    return read_serialized_value(reader, indirect.value_ref(), context);
+    return read_indirect_serialized_value(reader, indirect, context);
   }
 
   if (target.create_sequence_view().valid()) {
@@ -1049,21 +1101,15 @@ error write_field(serialization_writer& writer, const reflection_field& field, c
     return write_object_ref_field(writer, field, object, field_data, context);
   }
 
+  const bool uses_indirect_value = field_uses_inline_indirect_value(field);
   any_ref field_value{};
-  if (field_uses_inline_indirect_value(field)) {
-    const indirect_view indirect = field.create_indirect_view(object);
-    if (!indirect.valid() || !indirect.has_value()) {
-      return {error_domain::serialization, errc::invalid_argument};
-    }
-
-    field_value = indirect.value_ref();
-  } else if (field_uses_direct_value(field)) {
+  if (field_uses_direct_value(field)) {
     field_value = field.get_ref(object);
-  } else {
+  } else if (!uses_indirect_value) {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  if (!field_value.valid()) {
+  if (!uses_indirect_value && !field_value.valid()) {
     return {error_domain::serialization, errc::unsupported};
   }
 
@@ -1077,7 +1123,12 @@ error write_field(serialization_writer& writer, const reflection_field& field, c
     return status;
   }
 
-  status = write_serialized_value(writer, field_value, context);
+  if (uses_indirect_value) {
+    status = write_indirect_serialized_value(writer, field.create_indirect_view(object), context);
+  } else {
+    status = write_serialized_value(writer, field_value, context);
+  }
+
   if (status) {
     return status;
   }
@@ -1104,26 +1155,20 @@ error read_field(serialization_reader& reader, const reflection_field& field, vo
     return status;
   }
 
+  const bool uses_indirect_value = field_uses_inline_indirect_value(field);
   any_ref target{};
   bool use_legacy_codec_read = false;
-  if (field_uses_inline_indirect_value(field)) {
-    const indirect_view indirect = field.create_indirect_view(object);
-    if (!indirect.valid() || !indirect.writable() || !indirect.has_value()) {
-      return {error_domain::serialization, errc::invalid_field};
-    }
-
-    target = indirect.value_ref();
-  } else if (field_uses_direct_value(field)) {
+  if (field_uses_direct_value(field)) {
     const std::optional<serialization_codec_data> codec =
         get_serialization_codec_registry().find_codec(field.type());
     use_legacy_codec_read =
         codec.has_value() && codec->read != nullptr && codec->read_value == nullptr;
     target = field.get_ref(object);
-  } else {
+  } else if (!uses_indirect_value) {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  if (!use_legacy_codec_read &&
+  if (!uses_indirect_value && !use_legacy_codec_read &&
       (!target.valid() || !target.writable() || target.mutable_data() == nullptr)) {
     return {error_domain::serialization, errc::invalid_field};
   }
@@ -1131,6 +1176,15 @@ error read_field(serialization_reader& reader, const reflection_field& field, vo
   status = reader.begin_field(field_data);
   if (status) {
     return status;
+  }
+
+  if (uses_indirect_value) {
+    status = read_indirect_serialized_value(reader, field.create_indirect_view(object), context);
+    if (status) {
+      return status;
+    }
+
+    return reader.end_field();
   }
 
   if (use_legacy_codec_read) {

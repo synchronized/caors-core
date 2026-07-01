@@ -537,6 +537,15 @@ public:
     return data_->reset_indirect_value(const_cast<void*>(storage_));
   }
 
+  /** @brief 确保 wrapper 持有内部值。裸指针不会自动分配内存。 */
+  bool ensure_value() const {
+    if (!writable() || data_->ensure_indirect_value == nullptr) {
+      return false;
+    }
+
+    return data_->ensure_indirect_value(const_cast<void*>(storage_));
+  }
+
 private:
   friend class any;
   friend class any_ref;

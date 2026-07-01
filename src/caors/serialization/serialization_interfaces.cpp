@@ -32,6 +32,10 @@ error serialization_writer::end_dictionary() {
   return {error_domain::serialization, errc::unsupported};
 }
 
+error serialization_writer::write_null() {
+  return {error_domain::serialization, errc::unsupported};
+}
+
 serialization_reader::~serialization_reader() = default;
 
 error serialization_reader::begin_dictionary(std::size_t&) {
@@ -57,5 +61,7 @@ error serialization_reader::end_entry() { return {error_domain::serialization, e
 error serialization_reader::end_dictionary() {
   return {error_domain::serialization, errc::unsupported};
 }
+
+bool serialization_reader::is_null() const noexcept { return false; }
 
 } // namespace caors
