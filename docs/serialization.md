@@ -253,7 +253,7 @@ DOM reader 同时接受 `variant::dictionary` 和 pair 数组形态。普通 `st
 `[first, second]`，读入时数组长度必须等于 2，长度不匹配会返回失败。
 普通 `std::tuple<Ts...>` 字段会写成 `[v0, v1, ...]`，读入时数组长度必须等于 tuple 元素数量。
 普通 `std::variant<Ts...>` 字段会写成 `[index, value]`，`index` 是当前候选下标；读入时数组长度必须等于 2，
-`index` 必须在候选范围内，切换到目标候选时该候选类型需要支持默认构造。
+`index` 必须在候选范围内。目标对象已经处于相同候选时会更新已有值；切换到其他候选时，该候选类型需要支持默认构造。
 
 外部类型可以通过特化 `serialization_codec<T>` 并调用 `register_serialization_codec<T>()` 注册，也可以
 直接按 `type_id` 注册 `serialization_codec_data`。codec 可以分别提供 writer、reader 和 DOM
@@ -293,12 +293,14 @@ DOM reader 同时接受 `variant::dictionary` 和 pair 数组形态。普通 `st
 - `std::array<T, N>` 已支持固定长度数组读写；反序列化时数组长度必须等于 `N`，长度不匹配会返回失败。
 - `std::span<T>` / `std::span<T, N>` 已支持按借用数组视图写出和反射访问；默认不支持反序列化写回，
   避免序列化层隐式决定 backing storage 的分配、长度调整和生命周期。
-- 不可默认构造类型可以作为已有直接字段或已持有 wrapper 内部值被写入；需要序列化层自动实例化对象的路径
-  当前会失败，例如容器新增元素、空智能指针或 `optional` 读入非空值、`variant` 切换到不可默认构造候选。
+- 不可默认构造类型可以作为已有直接字段、已持有 wrapper 内部值或 `variant` 当前候选被写入；需要序列化层
+  自动实例化对象的路径当前会失败，例如容器新增元素、空智能指针或 `optional` 读入非空值、
+  `variant` 切换到不可默认构造候选。
 - `std::pair<T, U>` 已支持按二元素数组 `[first, second]` 读写；反序列化时数组长度必须等于 2。
 - `std::tuple<...>` 已支持按元素数组 `[v0, v1, ...]` 读写；反序列化时数组长度必须等于 tuple 元素数量。
 - `std::variant<...>` 已支持按 tagged union 数组 `[index, value]` 读写；反序列化时数组长度必须等于 2，
-  `index` 必须在候选范围内，目标候选需要支持默认构造。处于无值状态的 variant 当前返回不支持。
+  `index` 必须在候选范围内。相同候选会更新已有值；切换候选时目标候选需要支持默认构造。
+  处于无值状态的 variant 当前返回不支持。
 - 反射对象按字段声明静态类型处理，不会自动记录运行期动态类型；多态序列化需要后续引入类型标识和构造策略。
 - JSON reader 目前不完整支持非 ASCII `\uXXXX` 解码，二进制格式、版本迁移和默认值恢复也尚未实现。
 

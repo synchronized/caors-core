@@ -1157,7 +1157,11 @@ object_ref_value_from_ref(const any_ref& value,
                                        const serialization_context& context) {
   const std::optional<meta_type> meta = find_type(target.type());
   if (meta.has_value() && meta->assign_value() != nullptr) {
-    any decoded = any::default_construct(target.type());
+    any decoded = target.to_any();
+    if (!decoded.valid()) {
+      decoded = any::default_construct(target.type());
+    }
+
     if (decoded.valid()) {
       error status = read_variant_into_view(reader, decoded.create_variant_view(), context);
       if (status) {
