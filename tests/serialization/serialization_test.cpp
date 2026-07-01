@@ -118,6 +118,10 @@ struct unsupported_field_actor {
   unsupported_field_value value{};
 };
 
+struct weak_ptr_actor {
+  std::weak_ptr<int> value{};
+};
+
 struct nested_stats {
   int level = 0;
   float score = 0.0F;
@@ -2141,6 +2145,22 @@ TEST_CASE("serialization - reports unsupported reflected field kind", "[serializ
   REQUIRE(serialization_result_ok(caors::register_serialization<unsupported_field_actor>()));
 
   const unsupported_field_actor actor{{1}};
+  const caors::serialization_text_result result = caors::serialize_text(actor);
+
+  CHECK(result.failed());
+  CHECK(result.status.domain() == caors::error_domain::serialization);
+  CHECK(result.status.value() == caors::errc::unsupported);
+}
+
+TEST_CASE("serialization - reports unsupported weak pointer fields", "[serialization]") {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<weak_ptr_actor>("caors.test.serialization.weak_ptr_actor")
+          .field("value", &weak_ptr_actor::value, "std.weak_ptr<int>")
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<weak_ptr_actor>()));
+
+  const std::shared_ptr<int> value = std::make_shared<int>(7);
+  const weak_ptr_actor actor{value};
   const caors::serialization_text_result result = caors::serialize_text(actor);
 
   CHECK(result.failed());

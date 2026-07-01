@@ -189,8 +189,6 @@ TEST_CASE("reflection any - noncopyable fields return invalid values", "[reflect
 
 TEST_CASE("reflection any_ref - creates indirect views for pointer and wrappers", "[reflection]") {
   indirect_value_holder holder{};
-  auto shared = std::make_shared<int>(17);
-  holder.weak = shared;
 
   const caors::reflection_field_data pointer_field = caors::make_reflection_field_data<int*>(
       "pointer", "int*", offsetof(indirect_value_holder, pointer));
@@ -248,12 +246,7 @@ TEST_CASE("reflection any_ref - creates indirect views for pointer and wrappers"
   CHECK_FALSE(readonly_value.writable());
   CHECK_FALSE(readonly_unique.reset());
 
-  caors::indirect_view weak = weak_field.get_ref(&holder).create_indirect_view();
-  REQUIRE(weak.valid());
-  CHECK(weak.has_value());
-  CHECK_FALSE(weak.value_ref().valid());
-  CHECK(weak.reset());
-  CHECK_FALSE(weak.has_value());
+  CHECK_FALSE(weak_field.get_ref(&holder).create_indirect_view().valid());
 }
 
 TEST_CASE("reflection any_ref - creates indirect views for registered wrapper values",

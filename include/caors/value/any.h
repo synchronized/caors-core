@@ -483,7 +483,17 @@ public:
   indirect_view() noexcept = default;
 
   [[nodiscard]] bool valid() const noexcept {
-    return data_ != nullptr && storage_ != nullptr && data_->value_type;
+    if (data_ == nullptr || storage_ == nullptr || !data_->value_type) {
+      return false;
+    }
+
+    if (data_->kind != type_kind::raw_pointer && data_->kind != type_kind::wrapper) {
+      return false;
+    }
+
+    return data_->indirect_value != nullptr || data_->mutable_indirect_value != nullptr ||
+           data_->has_indirect_value != nullptr || data_->reset_indirect_value != nullptr ||
+           data_->ensure_indirect_value != nullptr;
   }
 
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }

@@ -304,10 +304,10 @@ TEST_CASE("reflection - field info describes field type traits", "[reflection]")
   const caors::reflection_field_data weak =
       caors::make_reflection_field_data<std::weak_ptr<int>>("weak", "std.weak_ptr<int>", 0);
   const caors::meta_type_semantics_data& weak_traits = registered_traits(weak);
-  CHECK(weak_traits.kind == caors::type_kind::wrapper);
-  CHECK(weak_traits.wrapper_semantics == caors::wrapper_semantics::inline_value);
-  CHECK(weak_traits.value_type == registered_type_id("int"));
-  CHECK(weak_traits.nullable);
+  CHECK(weak_traits.kind == caors::type_kind::value);
+  CHECK(weak_traits.wrapper_semantics == caors::wrapper_semantics::none);
+  CHECK(weak_traits.value_type == weak.type);
+  CHECK_FALSE(weak_traits.nullable);
 
   const caors::reflection_field_data optional =
       caors::make_reflection_field_data<std::optional<int>>("optional", "std.optional<int>", 0);

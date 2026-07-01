@@ -143,34 +143,6 @@ template <typename T> struct wrapper_access<std::shared_ptr<T>> {
   }
 };
 
-template <typename T> struct wrapper_traits<std::weak_ptr<T>> {
-  static constexpr bool is_wrapper = true;
-  static constexpr bool nullable = true;
-  static constexpr wrapper_semantics semantics = wrapper_semantics::inline_value;
-  using wrapped_type = std::remove_cv_t<T>;
-};
-
-template <typename T> struct wrapper_access<std::weak_ptr<T>> {
-  using wrapped_type = std::remove_cv_t<T>;
-
-  [[nodiscard]] static const wrapped_type* value(const std::weak_ptr<T>&) noexcept {
-    return nullptr;
-  }
-
-  [[nodiscard]] static wrapped_type* mutable_value(std::weak_ptr<T>&) noexcept { return nullptr; }
-
-  [[nodiscard]] static bool has_value(const std::weak_ptr<T>& source) noexcept {
-    return !source.expired();
-  }
-
-  static bool reset(std::weak_ptr<T>& source) noexcept {
-    source.reset();
-    return true;
-  }
-
-  static bool ensure_value(std::weak_ptr<T>&) { return false; }
-};
-
 template <typename T> struct wrapper_traits<std::optional<T>> {
   static constexpr bool is_wrapper = true;
   static constexpr bool nullable = true;
