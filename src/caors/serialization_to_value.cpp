@@ -32,7 +32,7 @@ object_ref_to_serialization_value(const reflection_field& field, const void* obj
 [[nodiscard]] variant_result field_to_serialization_value(const reflection_field& field,
                                                           const void* object,
                                                           const serialization_context& context) {
-  if (field.wrapper_semantics() == field_wrapper_semantics::object_ref) {
+  if (field.wrapper_semantics() == wrapper_semantics::object_ref) {
     return object_ref_to_serialization_value(field, object, context);
   }
 

@@ -40,7 +40,7 @@
 
 字段声明类型名、大小、对齐和 C++ 类型操作函数由 `type` 对应的 `meta_type_data` 查询。字段形态、
 wrapper 语义、解包值类型、容器元素类型和 key/value 类型由同一 `type` 上挂载的
-`meta_type_traits_data` 查询，避免反射、序列化和 value 模块分别重复保存类型事实。
+`meta_type_semantics_data` 查询，避免反射、序列化和 value 模块分别重复保存类型事实。
 
 字段描述可以通过 `make_reflection_field_data<Field>()` 创建：
 
@@ -70,13 +70,13 @@ caors::reflection::class_<actor>("game.actor")
 - 如果字段类型已经通过模板注册函数注册到全局反射注册表，优先复用该类型的 `meta_type`。
 - 如果字段类型没有注册，但存在 `type_name<T>` 默认映射，则使用默认类型名注册为基础类型，并使用注册表分配的 `type_id`。
 - 如果字段类型满足 `sequence_traits<T>::is_sequence`，反射 builder 会根据 traits 的类型名前缀和元素类型名生成
-  容器类型名，并把元素类型信息挂到对应的 `meta_type_traits_data` 上。内置特化支持 `caors::vector<T>` 和
+  容器类型名，并把元素类型信息挂到对应的 `meta_type_semantics_data` 上。内置特化支持 `caors::vector<T>` 和
   `std::vector<T, Allocator>`。
 - 如果字段类型满足 `set_traits<T>::is_set`，反射 builder 会根据 traits 的类型名前缀和元素类型名生成
-  容器类型名，并把元素类型信息挂到对应的 `meta_type_traits_data` 上。内置特化支持 `caors::hash_set<T>` 和
+  容器类型名，并把元素类型信息挂到对应的 `meta_type_semantics_data` 上。内置特化支持 `caors::hash_set<T>` 和
   `std::unordered_set<T, ...>`。
 - 如果字段类型满足 `associative_traits<T>::is_associative`，反射 builder 会根据 traits 的类型名前缀、
-  key 类型名和 value 类型名生成容器类型名，并把 key/value 类型信息挂到对应的 `meta_type_traits_data` 上。内置特化支持
+  key 类型名和 value 类型名生成容器类型名，并把 key/value 类型信息挂到对应的 `meta_type_semantics_data` 上。内置特化支持
   `caors::hash_map<K, V>` 和 `std::unordered_map<K, V, ...>`。
 - 如果两者都没有，`.commit()` 返回 `invalid_field`。
 - 字段类型语义最多支持一层裸指针或 wrapper；`T**`、`std::unique_ptr<T*>`、
@@ -84,26 +84,26 @@ caors::reflection::class_<actor>("game.actor")
 
 字段形态规则：
 
-- `T`：`field_kind::value`，`value_type` 为 `T`。
-- `enum`：`field_kind::enumeration`，`value_type` 为枚举类型。
-- `T*`：`field_kind::raw_pointer`，`value_type` 为 `T`，`nullable` 为 `true`，
+- `T`：`type_kind::value`，`value_type` 为 `T`。
+- `enum`：`type_kind::enumeration`，`value_type` 为枚举类型。
+- `T*`：`type_kind::raw_pointer`，`value_type` 为 `T`，`nullable` 为 `true`，
   `wrapper_semantics` 为 `inline_value`。
-- `std::unique_ptr<T>`：`field_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
+- `std::unique_ptr<T>`：`type_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
   `wrapper_semantics` 为 `inline_value`。
-- `std::shared_ptr<T>`：`field_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
+- `std::shared_ptr<T>`：`type_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
   `wrapper_semantics` 为 `inline_value`。
-- `std::weak_ptr<T>`：`field_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
+- `std::weak_ptr<T>`：`type_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
   `wrapper_semantics` 为 `inline_value`。
-- `std::optional<T>`：`field_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
+- `std::optional<T>`：`type_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
   `wrapper_semantics` 为 `inline_value`。
-- `std::reference_wrapper<T>`：`field_kind::wrapper`，`value_type` 为 `T`，不表示空值，
+- `std::reference_wrapper<T>`：`type_kind::wrapper`，`value_type` 为 `T`，不表示空值，
   `wrapper_semantics` 为 `inline_value`。
-- `sequence_traits<T>` 顺序容器：`field_kind::sequence`，`element_type` 为元素类型，可以通过字段视图查询元素数量、
+- `sequence_traits<T>` 顺序容器：`type_kind::sequence`，`element_type` 为元素类型，可以通过字段视图查询元素数量、
   访问元素引用，并在 traits 支持时执行清空、调整大小和追加元素。内置 `caors::vector<T>` 会生成
   `caors.vector<T>` 类型名。
-- `set_traits<T>` 集合容器：`field_kind::set`，`element_type` 为元素类型。内置
+- `set_traits<T>` 集合容器：`type_kind::set`，`element_type` 为元素类型。内置
   `caors::hash_set<T>` 会生成 `caors.hash_set<T>` 类型名。
-- `associative_traits<T>` 关联容器：`field_kind::associative`，`key_type` 为 key 类型，`mapped_type` 为 value
+- `associative_traits<T>` 关联容器：`type_kind::associative`，`key_type` 为 key 类型，`mapped_type` 为 value
   类型。内置 `caors::hash_map<K, V>` 会生成 `caors.hash_map<K,V>` 类型名。
 
 STL 智能指针和裸指针只作为外部字段类型被反射系统描述。CAORS 不根据这些字段接管对象生命周期；
@@ -119,7 +119,7 @@ template <typename T>
 struct wrapper_traits<my_box<T>> {
   static constexpr bool is_wrapper = true;
   static constexpr bool nullable = false;
-  static constexpr field_wrapper_semantics semantics = field_wrapper_semantics::inline_value;
+  static constexpr wrapper_semantics semantics = wrapper_semantics::inline_value;
   using wrapped_type = T;
 };
 
@@ -201,7 +201,7 @@ struct associative_traits<my_map<K, V>> {
 }
 ```
 
-`field_wrapper_semantics` 当前含义：
+`wrapper_semantics` 当前含义：
 
 - `none`：不是 wrapper，也不是需要特殊处理的指针。
 - `inline_value`：序列化时按包装的 `T` 本体处理。`T*`、标准智能指针和 `optional<T>`
@@ -441,7 +441,7 @@ auto reflected = caors::find_reflection("game.actor");
 - `any`：运行期 C++ 类型值拷贝。
 - `any_ref`：运行期 C++ 类型非拥有引用。
 - `reflection_field_data`：字段名、字段声明类型 id、offset、可写性、对象引用访问函数和基础字段访问。
-- `meta_type_traits_data`：字段声明类型的形态、wrapper 语义、解包类型、容器元素类型和 key/value 类型。
+- `meta_type_semantics_data`：字段声明类型的形态、wrapper 语义、解包类型、容器元素类型和 key/value 类型。
 - `reflection_type_data`：字段列表等反射组件数据。
 - `reflection_type` / `reflection_field`：全局反射数据的推荐查询入口。
 - `reflection_registry`：底层全局注册表实现。

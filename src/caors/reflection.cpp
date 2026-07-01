@@ -58,13 +58,13 @@ namespace {
   return caors::find_type(field->type);
 }
 
-[[nodiscard]] const meta_type_traits_data*
-field_traits(const reflection_field_data* field) noexcept {
+[[nodiscard]] const meta_type_semantics_data*
+field_type_semantics(const reflection_field_data* field) noexcept {
   if (field == nullptr || !field->type) {
     return nullptr;
   }
 
-  return get_meta_registry().find_ptr<meta_type_traits_data>(field->type);
+  return get_meta_registry().find_ptr<meta_type_semantics_data>(field->type);
 }
 
 [[nodiscard]] string_name type_name_of(type_id id) noexcept {
@@ -130,12 +130,12 @@ string_name reflection_field::type_name() const noexcept {
 }
 
 type_id reflection_field::value_type() const noexcept {
-  const meta_type_traits_data* traits = field_traits(info());
+  const meta_type_semantics_data* traits = field_type_semantics(info());
   return traits != nullptr ? traits->value_type : type_id{};
 }
 
 type_id reflection_field::element_type() const noexcept {
-  const meta_type_traits_data* traits = field_traits(info());
+  const meta_type_semantics_data* traits = field_type_semantics(info());
   return traits != nullptr ? traits->element_type : type_id{};
 }
 
@@ -144,14 +144,14 @@ string_name reflection_field::element_type_name() const noexcept {
 }
 
 type_id reflection_field::key_type() const noexcept {
-  const meta_type_traits_data* traits = field_traits(info());
+  const meta_type_semantics_data* traits = field_type_semantics(info());
   return traits != nullptr ? traits->key_type : type_id{};
 }
 
 string_name reflection_field::key_type_name() const noexcept { return type_name_of(key_type()); }
 
 type_id reflection_field::mapped_type() const noexcept {
-  const meta_type_traits_data* traits = field_traits(info());
+  const meta_type_semantics_data* traits = field_type_semantics(info());
   return traits != nullptr ? traits->mapped_type : type_id{};
 }
 
@@ -159,23 +159,23 @@ string_name reflection_field::mapped_type_name() const noexcept {
   return type_name_of(mapped_type());
 }
 
-field_kind reflection_field::kind() const noexcept {
-  const meta_type_traits_data* traits = field_traits(info());
-  return traits != nullptr ? traits->kind : field_kind::value;
+type_kind reflection_field::kind() const noexcept {
+  const meta_type_semantics_data* traits = field_type_semantics(info());
+  return traits != nullptr ? traits->kind : type_kind::value;
 }
 
-field_wrapper_semantics reflection_field::wrapper_semantics() const noexcept {
-  const meta_type_traits_data* traits = field_traits(info());
-  return traits != nullptr ? traits->wrapper_semantics : field_wrapper_semantics::none;
+wrapper_semantics reflection_field::wrapper_semantics() const noexcept {
+  const meta_type_semantics_data* traits = field_type_semantics(info());
+  return traits != nullptr ? traits->wrapper_semantics : wrapper_semantics::none;
 }
 
 std::uint8_t reflection_field::pointer_depth() const noexcept {
-  const meta_type_traits_data* traits = field_traits(info());
+  const meta_type_semantics_data* traits = field_type_semantics(info());
   return traits != nullptr ? traits->pointer_depth : 0;
 }
 
 bool reflection_field::nullable() const noexcept {
-  const meta_type_traits_data* traits = field_traits(info());
+  const meta_type_semantics_data* traits = field_type_semantics(info());
   return traits != nullptr && traits->nullable;
 }
 
@@ -261,11 +261,11 @@ bool reflection_field::try_set_object_ref(void* object, caors::object* instance)
   return field->set_object_ref(field->mutable_data(object), instance);
 }
 
-bool reflection_field::is_sequence() const noexcept { return kind() == field_kind::sequence; }
+bool reflection_field::is_sequence() const noexcept { return kind() == type_kind::sequence; }
 
-bool reflection_field::is_set() const noexcept { return kind() == field_kind::set; }
+bool reflection_field::is_set() const noexcept { return kind() == type_kind::set; }
 
-bool reflection_field::is_associative() const noexcept { return kind() == field_kind::associative; }
+bool reflection_field::is_associative() const noexcept { return kind() == type_kind::associative; }
 
 reflection_type::reflection_type(meta_type type, const reflection_type_data* data) noexcept
     : type_(type), data_(data) {}

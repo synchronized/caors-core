@@ -55,24 +55,22 @@ template <typename T> [[nodiscard]] type_id register_field_type_id(std::string_v
   return type_id::invalid();
 }
 
-using field_traits_info = meta_type_traits_data;
-
-template <typename Field> struct field_traits {
+template <typename Field> struct type_semantics_traits {
   using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
 
-  [[nodiscard]] static field_traits_info get() {
-    field_traits_info info{};
+  [[nodiscard]] static meta_type_semantics_data get() {
+    meta_type_semantics_data info{};
     if constexpr (sequence_traits<field_type>::is_sequence) {
       using element_type = typename sequence_traits<field_type>::element_type;
 
-      info.kind = field_kind::sequence;
+      info.kind = type_kind::sequence;
       info.value_type = known_type_id<field_type>();
       info.element_type = known_type_id<element_type>();
       return info;
     } else if constexpr (set_traits<field_type>::is_set) {
       using element_type = typename set_traits<field_type>::element_type;
 
-      info.kind = field_kind::set;
+      info.kind = type_kind::set;
       info.value_type = known_type_id<field_type>();
       info.element_type = known_type_id<element_type>();
       return info;
@@ -80,7 +78,7 @@ template <typename Field> struct field_traits {
       using key_type = typename associative_traits<field_type>::key_type;
       using mapped_type = typename associative_traits<field_type>::mapped_type;
 
-      info.kind = field_kind::associative;
+      info.kind = type_kind::associative;
       info.value_type = known_type_id<field_type>();
       info.key_type = known_type_id<key_type>();
       info.mapped_type = known_type_id<mapped_type>();
@@ -92,30 +90,30 @@ template <typename Field> struct field_traits {
       static_assert(!is_nested_field_indirection_v<value_type>,
                     "CAORS reflection supports at most one pointer or wrapper level");
 
-      info.kind = field_kind::wrapper;
+      info.kind = type_kind::wrapper;
       info.wrapper_semantics = wrapper_traits<field_type>::semantics;
       info.value_type = known_type_id<value_type>();
       info.nullable = wrapper_traits<field_type>::nullable;
       return info;
     } else {
       using value_type = field_type;
-      info.kind = std::is_enum_v<value_type> ? field_kind::enumeration : field_kind::value;
+      info.kind = std::is_enum_v<value_type> ? type_kind::enumeration : type_kind::value;
       info.value_type = known_type_id<value_type>();
       return info;
     }
   }
 };
 
-template <typename T> struct field_traits<T*> {
+template <typename T> struct type_semantics_traits<T*> {
   using value_type = std::remove_cv_t<T>;
 
   static_assert(!is_nested_field_indirection_v<value_type>,
                 "CAORS reflection supports at most one pointer or wrapper level");
 
-  [[nodiscard]] static field_traits_info get() {
-    field_traits_info info{};
-    info.kind = field_kind::raw_pointer;
-    info.wrapper_semantics = field_wrapper_semantics::inline_value;
+  [[nodiscard]] static meta_type_semantics_data get() {
+    meta_type_semantics_data info{};
+    info.kind = type_kind::raw_pointer;
+    info.wrapper_semantics = wrapper_semantics::inline_value;
     info.value_type = known_type_id<value_type>();
     info.pointer_depth = 1;
     info.nullable = true;
@@ -123,9 +121,9 @@ template <typename T> struct field_traits<T*> {
   }
 };
 
-template <typename Field> [[nodiscard]] field_traits_info make_field_traits_info() {
+template <typename Field> [[nodiscard]] meta_type_semantics_data make_meta_type_semantics_data() {
   using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
-  return field_traits<field_type>::get();
+  return type_semantics_traits<field_type>::get();
 }
 
 template <typename Field> [[nodiscard]] object_ref_get_fn object_ref_get_fn_of() noexcept {
@@ -313,10 +311,10 @@ template <typename Field>
 [[nodiscard]] reflection_field_data
 make_reflection_field_data(std::string_view name, std::string_view type_name, std::size_t offset) {
   using field_type = std::remove_cv_t<Field>;
-  const detail::field_traits_info traits = detail::make_field_traits_info<field_type>();
+  const meta_type_semantics_data traits = detail::make_meta_type_semantics_data<field_type>();
   const type_id field_type_id = detail::register_field_type_id<field_type>(type_name);
-  detail::field_traits_info stored_traits = traits;
-  if ((stored_traits.kind == field_kind::value || stored_traits.kind == field_kind::enumeration) &&
+  meta_type_semantics_data stored_traits = traits;
+  if ((stored_traits.kind == type_kind::value || stored_traits.kind == type_kind::enumeration) &&
       !stored_traits.value_type) {
     stored_traits.value_type = field_type_id;
   }
@@ -342,7 +340,7 @@ make_reflection_field_data(std::string_view name, std::string_view type_name, st
   }
 
   const error traits_status =
-      get_meta_registry().emplace<meta_type_traits_data>(field.type, stored_traits);
+      get_meta_registry().emplace<meta_type_semantics_data>(field.type, stored_traits);
   (void)traits_status;
 
   return field;

@@ -13,7 +13,7 @@
 - 用 `type_id` 表示全局注册表分配的运行期类型句柄。
 - 用 `type_guid` 保存可选的稳定类型标识。
 - 用 `meta_type_data` 保存类型名、稳定 GUID、大小、对齐和父类型。
-- 用 `meta_type_traits_data` 保存 wrapper、指针和容器等类型语义。
+- 用 `meta_type_semantics_data` 保存 wrapper、指针和容器等类型语义。
 - 用 `meta_type` 作为对外只读类型视图，避免直接暴露注册表内部数据。
 - 用全局 `meta_registry` 集中处理基础类型注册、id 分配、查找和继承关系判断。
 - 用全局 `meta_registry` 在同一个 `type_id` 上挂载不同主题的元数据组件。
@@ -145,9 +145,9 @@ caors::meta<actor>()
     .guid(caors::type_guid{*guid});
 ```
 
-### meta_type_traits_data
+### meta_type_semantics_data
 
-`meta_type_traits_data` 是挂在类型上的语义组件，用来描述该类型在反射、序列化和 value 模块中的运行期形态：
+`meta_type_semantics_data` 是挂在类型上的语义组件，用来描述该类型在反射、序列化和 value 模块中的运行期形态：
 
 - `kind`：值、枚举、裸指针、wrapper、顺序容器、集合容器或关联容器。
 - `wrapper_semantics`：wrapper 或裸指针的处理语义，例如内联值、对象引用或不支持。
@@ -158,7 +158,7 @@ caors::meta<actor>()
 - `nullable`：运行期值是否可能为空。
 
 这部分数据不放在 `reflection_field_data` 上重复保存。字段只记录声明类型的 `type_id`，需要查询字段形态、
-元素类型或 key/value 类型时，通过该 `type_id` 到 `meta_registry` 查询 `meta_type_traits_data`。
+元素类型或 key/value 类型时，通过该 `type_id` 到 `meta_registry` 查询 `meta_type_semantics_data`。
 
 ### meta_registry
 
@@ -238,7 +238,7 @@ caors::get_meta_registry().emplace<object_factory_meta>(actor_id, true);
 - `make_type_id()`：根据已注册类型名查询运行期类型标识。
 - `type_name<T>`：基础 C++ 类型到 CAORS 类型名的默认映射。
 - `meta_type_data` / `make_meta_type_data<T>()`：底层类型注册描述。
-- `meta_type_traits_data`：类型形态、wrapper、指针和容器语义组件。
+- `meta_type_semantics_data`：类型形态、wrapper、指针和容器语义组件。
 - `meta_type`：全局注册表中的类型只读视图。
 - `meta<T>()`：RTTR 风格的链式元类型注册入口。
 - `meta_registry`：全局基础类型注册、按 id/name/guid/C++ 类型查询、继承关系判断和组件式元数据挂载。

@@ -335,12 +335,12 @@ error write_field(serialization_writer& writer, const reflection_field& field, c
     return {error_domain::serialization, errc::invalid_field};
   }
 
-  if (field.wrapper_semantics() == field_wrapper_semantics::object_ref) {
+  if (field.wrapper_semantics() == wrapper_semantics::object_ref) {
     return write_object_ref_field(writer, field, object, field_data, context);
   }
 
-  if (field.kind() != field_kind::value && field.kind() != field_kind::sequence &&
-      field.kind() != field_kind::set && field.kind() != field_kind::associative) {
+  if (field.kind() != type_kind::value && field.kind() != type_kind::sequence &&
+      field.kind() != type_kind::set && field.kind() != type_kind::associative) {
     return {error_domain::serialization, errc::unsupported};
   }
 
@@ -397,12 +397,12 @@ error read_field(serialization_reader& reader, const reflection_field& field, vo
     return {error_domain::serialization, errc::invalid_field};
   }
 
-  if (field.wrapper_semantics() == field_wrapper_semantics::object_ref) {
+  if (field.wrapper_semantics() == wrapper_semantics::object_ref) {
     return read_object_ref_field(reader, field, object, field_data, context);
   }
 
-  if (field.kind() != field_kind::value && field.kind() != field_kind::sequence &&
-      field.kind() != field_kind::set && field.kind() != field_kind::associative) {
+  if (field.kind() != type_kind::value && field.kind() != type_kind::sequence &&
+      field.kind() != type_kind::set && field.kind() != type_kind::associative) {
     return {error_domain::serialization, errc::unsupported};
   }
 

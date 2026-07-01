@@ -41,8 +41,8 @@ public:
   [[nodiscard]] string_name key_type_name() const noexcept;
   [[nodiscard]] type_id mapped_type() const noexcept;
   [[nodiscard]] string_name mapped_type_name() const noexcept;
-  [[nodiscard]] field_kind kind() const noexcept;
-  [[nodiscard]] field_wrapper_semantics wrapper_semantics() const noexcept;
+  [[nodiscard]] type_kind kind() const noexcept;
+  [[nodiscard]] wrapper_semantics wrapper_semantics() const noexcept;
   [[nodiscard]] std::uint8_t pointer_depth() const noexcept;
   [[nodiscard]] bool nullable() const noexcept;
   [[nodiscard]] bool writable() const noexcept;

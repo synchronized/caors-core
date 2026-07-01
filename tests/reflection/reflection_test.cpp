@@ -42,14 +42,14 @@ namespace caors {
 template <typename T> struct wrapper_traits<test_reflection::custom_inline_wrapper<T>> {
   static constexpr bool is_wrapper = true;
   static constexpr bool nullable = false;
-  static constexpr field_wrapper_semantics semantics = field_wrapper_semantics::inline_value;
+  static constexpr wrapper_semantics semantics = wrapper_semantics::inline_value;
   using wrapped_type = T;
 };
 
 template <typename T> struct wrapper_traits<test_reflection::custom_object_ref<T>> {
   static constexpr bool is_wrapper = true;
   static constexpr bool nullable = true;
-  static constexpr field_wrapper_semantics semantics = field_wrapper_semantics::object_ref;
+  static constexpr wrapper_semantics semantics = wrapper_semantics::object_ref;
   using wrapped_type = T;
 };
 
@@ -221,10 +221,10 @@ constexpr caors::type_guid view_actor_guid{caors::guid::from_bytes(
   return {caors::error_domain::reflection, code};
 }
 
-[[nodiscard]] const caors::meta_type_traits_data&
+[[nodiscard]] const caors::meta_type_semantics_data&
 registered_traits(const caors::reflection_field_data& field) {
   const auto* traits =
-      caors::get_meta_registry().find_ptr<caors::meta_type_traits_data>(field.type);
+      caors::get_meta_registry().find_ptr<caors::meta_type_semantics_data>(field.type);
   REQUIRE(traits != nullptr);
   return *traits;
 }
@@ -251,94 +251,94 @@ TEST_CASE("reflection - field info describes field layout", "[reflection]") {
 TEST_CASE("reflection - field info describes field type traits", "[reflection]") {
   const caors::reflection_field_data value =
       caors::make_reflection_field_data<int>("value", "int", 0);
-  const caors::meta_type_traits_data& value_traits = registered_traits(value);
-  CHECK(value_traits.kind == caors::field_kind::value);
-  CHECK(value_traits.wrapper_semantics == caors::field_wrapper_semantics::none);
+  const caors::meta_type_semantics_data& value_traits = registered_traits(value);
+  CHECK(value_traits.kind == caors::type_kind::value);
+  CHECK(value_traits.wrapper_semantics == caors::wrapper_semantics::none);
   CHECK(value_traits.value_type == registered_type_id("int"));
   CHECK(value_traits.pointer_depth == 0);
   CHECK_FALSE(value_traits.nullable);
 
   const caors::reflection_field_data enumeration =
       caors::make_reflection_field_data<reflected_color>("color", "caors.test.reflection.color", 0);
-  const caors::meta_type_traits_data& enumeration_traits = registered_traits(enumeration);
-  CHECK(enumeration_traits.kind == caors::field_kind::enumeration);
-  CHECK(enumeration_traits.wrapper_semantics == caors::field_wrapper_semantics::none);
+  const caors::meta_type_semantics_data& enumeration_traits = registered_traits(enumeration);
+  CHECK(enumeration_traits.kind == caors::type_kind::enumeration);
+  CHECK(enumeration_traits.wrapper_semantics == caors::wrapper_semantics::none);
   CHECK(enumeration_traits.value_type == registered_type_id("caors.test.reflection.color"));
   CHECK_FALSE(enumeration_traits.nullable);
 
   const caors::reflection_field_data raw =
       caors::make_reflection_field_data<int*>("raw", "int*", 0);
-  const caors::meta_type_traits_data& raw_traits = registered_traits(raw);
-  CHECK(raw_traits.kind == caors::field_kind::raw_pointer);
-  CHECK(raw_traits.wrapper_semantics == caors::field_wrapper_semantics::inline_value);
+  const caors::meta_type_semantics_data& raw_traits = registered_traits(raw);
+  CHECK(raw_traits.kind == caors::type_kind::raw_pointer);
+  CHECK(raw_traits.wrapper_semantics == caors::wrapper_semantics::inline_value);
   CHECK(raw_traits.value_type == registered_type_id("int"));
   CHECK(raw_traits.pointer_depth == 1);
   CHECK(raw_traits.nullable);
 
   const caors::reflection_field_data unique =
       caors::make_reflection_field_data<std::unique_ptr<int>>("unique", "std.unique_ptr<int>", 0);
-  const caors::meta_type_traits_data& unique_traits = registered_traits(unique);
-  CHECK(unique_traits.kind == caors::field_kind::wrapper);
-  CHECK(unique_traits.wrapper_semantics == caors::field_wrapper_semantics::inline_value);
+  const caors::meta_type_semantics_data& unique_traits = registered_traits(unique);
+  CHECK(unique_traits.kind == caors::type_kind::wrapper);
+  CHECK(unique_traits.wrapper_semantics == caors::wrapper_semantics::inline_value);
   CHECK(unique_traits.value_type == registered_type_id("int"));
   CHECK(unique_traits.nullable);
 
   const caors::reflection_field_data shared =
       caors::make_reflection_field_data<std::shared_ptr<int>>("shared", "std.shared_ptr<int>", 0);
-  const caors::meta_type_traits_data& shared_traits = registered_traits(shared);
-  CHECK(shared_traits.kind == caors::field_kind::wrapper);
-  CHECK(shared_traits.wrapper_semantics == caors::field_wrapper_semantics::inline_value);
+  const caors::meta_type_semantics_data& shared_traits = registered_traits(shared);
+  CHECK(shared_traits.kind == caors::type_kind::wrapper);
+  CHECK(shared_traits.wrapper_semantics == caors::wrapper_semantics::inline_value);
   CHECK(shared_traits.value_type == registered_type_id("int"));
   CHECK(shared_traits.nullable);
 
   const caors::reflection_field_data weak =
       caors::make_reflection_field_data<std::weak_ptr<int>>("weak", "std.weak_ptr<int>", 0);
-  const caors::meta_type_traits_data& weak_traits = registered_traits(weak);
-  CHECK(weak_traits.kind == caors::field_kind::wrapper);
-  CHECK(weak_traits.wrapper_semantics == caors::field_wrapper_semantics::inline_value);
+  const caors::meta_type_semantics_data& weak_traits = registered_traits(weak);
+  CHECK(weak_traits.kind == caors::type_kind::wrapper);
+  CHECK(weak_traits.wrapper_semantics == caors::wrapper_semantics::inline_value);
   CHECK(weak_traits.value_type == registered_type_id("int"));
   CHECK(weak_traits.nullable);
 
   const caors::reflection_field_data optional =
       caors::make_reflection_field_data<std::optional<int>>("optional", "std.optional<int>", 0);
-  const caors::meta_type_traits_data& optional_traits = registered_traits(optional);
-  CHECK(optional_traits.kind == caors::field_kind::wrapper);
-  CHECK(optional_traits.wrapper_semantics == caors::field_wrapper_semantics::inline_value);
+  const caors::meta_type_semantics_data& optional_traits = registered_traits(optional);
+  CHECK(optional_traits.kind == caors::type_kind::wrapper);
+  CHECK(optional_traits.wrapper_semantics == caors::wrapper_semantics::inline_value);
   CHECK(optional_traits.value_type == registered_type_id("int"));
   CHECK(optional_traits.nullable);
 
   const caors::reflection_field_data wrapper =
       caors::make_reflection_field_data<std::reference_wrapper<int>>(
           "wrapper", "std.reference_wrapper<int>", 0);
-  const caors::meta_type_traits_data& wrapper_traits = registered_traits(wrapper);
-  CHECK(wrapper_traits.kind == caors::field_kind::wrapper);
-  CHECK(wrapper_traits.wrapper_semantics == caors::field_wrapper_semantics::inline_value);
+  const caors::meta_type_semantics_data& wrapper_traits = registered_traits(wrapper);
+  CHECK(wrapper_traits.kind == caors::type_kind::wrapper);
+  CHECK(wrapper_traits.wrapper_semantics == caors::wrapper_semantics::inline_value);
   CHECK(wrapper_traits.value_type == registered_type_id("int"));
   CHECK_FALSE(wrapper_traits.nullable);
 
   const caors::reflection_field_data custom_inline =
       caors::make_reflection_field_data<custom_inline_wrapper<int>>("custom_inline",
                                                                     "custom.inline<int>", 0);
-  const caors::meta_type_traits_data& custom_inline_traits = registered_traits(custom_inline);
-  CHECK(custom_inline_traits.kind == caors::field_kind::wrapper);
-  CHECK(custom_inline_traits.wrapper_semantics == caors::field_wrapper_semantics::inline_value);
+  const caors::meta_type_semantics_data& custom_inline_traits = registered_traits(custom_inline);
+  CHECK(custom_inline_traits.kind == caors::type_kind::wrapper);
+  CHECK(custom_inline_traits.wrapper_semantics == caors::wrapper_semantics::inline_value);
   CHECK(custom_inline_traits.value_type == registered_type_id("int"));
   CHECK_FALSE(custom_inline_traits.nullable);
 
   const caors::reflection_field_data custom_ref =
       caors::make_reflection_field_data<custom_object_ref<int>>("custom_ref",
                                                                 "custom.object_ref<int>", 0);
-  const caors::meta_type_traits_data& custom_ref_traits = registered_traits(custom_ref);
-  CHECK(custom_ref_traits.kind == caors::field_kind::wrapper);
-  CHECK(custom_ref_traits.wrapper_semantics == caors::field_wrapper_semantics::object_ref);
+  const caors::meta_type_semantics_data& custom_ref_traits = registered_traits(custom_ref);
+  CHECK(custom_ref_traits.kind == caors::type_kind::wrapper);
+  CHECK(custom_ref_traits.wrapper_semantics == caors::wrapper_semantics::object_ref);
   CHECK(custom_ref_traits.value_type == registered_type_id("int"));
   CHECK(custom_ref_traits.nullable);
 
   const caors::reflection_field_data sequence =
       caors::make_reflection_field_data<caors::vector<int>>("values", "caors.vector<int>", 0);
-  const caors::meta_type_traits_data& sequence_traits = registered_traits(sequence);
-  CHECK(sequence_traits.kind == caors::field_kind::sequence);
-  CHECK(sequence_traits.wrapper_semantics == caors::field_wrapper_semantics::none);
+  const caors::meta_type_semantics_data& sequence_traits = registered_traits(sequence);
+  CHECK(sequence_traits.kind == caors::type_kind::sequence);
+  CHECK(sequence_traits.wrapper_semantics == caors::wrapper_semantics::none);
   CHECK(sequence_traits.element_type == registered_type_id("int"));
 }
 
@@ -446,8 +446,8 @@ TEST_CASE("reflection - registry returns type and field views", "[reflection]") 
   auto health = reflected->find_field("health");
   REQUIRE(health.has_value());
   CHECK(health->name() == "health");
-  CHECK(health->kind() == caors::field_kind::value);
-  CHECK(health->wrapper_semantics() == caors::field_wrapper_semantics::none);
+  CHECK(health->kind() == caors::type_kind::value);
+  CHECK(health->wrapper_semantics() == caors::wrapper_semantics::none);
   CHECK(health->pointer_depth() == 0);
   CHECK_FALSE(health->nullable());
   CHECK(health->writable());
@@ -481,7 +481,7 @@ TEST_CASE("reflection - sequence field view exposes element metadata", "[reflect
 
   auto values = reflected->find_field("values");
   REQUIRE(values.has_value());
-  CHECK(values->kind() == caors::field_kind::sequence);
+  CHECK(values->kind() == caors::type_kind::sequence);
   CHECK(values->is_sequence());
   CHECK(values->element_type() == registered_type_id("int"));
   CHECK(values->element_type_name() == "int");
@@ -543,7 +543,7 @@ TEST_CASE("reflection - custom sequence traits expose field view", "[reflection]
 
   auto values = reflected->find_field("values");
   REQUIRE(values.has_value());
-  CHECK(values->kind() == caors::field_kind::sequence);
+  CHECK(values->kind() == caors::type_kind::sequence);
   CHECK(values->type_name() == "test.custom_sequence<int>");
   CHECK(values->element_type() == registered_type_id("int"));
   CHECK(values->element_type_name() == "int");
@@ -580,7 +580,7 @@ TEST_CASE("reflection - list field view uses sequence traits", "[reflection]") {
 
   auto values = reflected->find_field("values");
   REQUIRE(values.has_value());
-  CHECK(values->kind() == caors::field_kind::sequence);
+  CHECK(values->kind() == caors::type_kind::sequence);
   CHECK(values->type_name() == "caors.list<int>");
   CHECK(values->element_type() == registered_type_id("int"));
 
@@ -615,7 +615,7 @@ TEST_CASE("reflection - associative field view exposes key and value metadata", 
 
   auto values = reflected->find_field("values");
   REQUIRE(values.has_value());
-  CHECK(values->kind() == caors::field_kind::associative);
+  CHECK(values->kind() == caors::type_kind::associative);
   CHECK(values->is_associative());
   CHECK(values->type_name() == "caors.hash_map<int,int>");
   CHECK(values->key_type() == registered_type_id("int"));
@@ -760,7 +760,7 @@ TEST_CASE("reflection - set field view exposes element metadata", "[reflection]"
 
   auto values = reflected->find_field("values");
   REQUIRE(values.has_value());
-  CHECK(values->kind() == caors::field_kind::set);
+  CHECK(values->kind() == caors::type_kind::set);
   CHECK(values->is_set());
   CHECK(values->type_name() == "caors.hash_set<int>");
   CHECK(values->element_type() == registered_type_id("int"));

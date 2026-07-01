@@ -29,7 +29,7 @@ public:
 
   template <typename Field> class_builder& field(std::string_view name, Field Class::* member) {
     using field_type = std::remove_cv_t<Field>;
-    (void)detail::make_field_traits_info<field_type>();
+    (void)detail::make_meta_type_semantics_data<field_type>();
 
     if (pending_status_) {
       return *this;
