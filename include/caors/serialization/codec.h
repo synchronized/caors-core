@@ -17,16 +17,19 @@ namespace caors {
 using serialization_codec_write_fn = error (*)(serialization_writer& writer, const any& data);
 using serialization_codec_read_fn = error (*)(serialization_reader& reader,
                                               const reflection_field& field, void* object);
+using serialization_codec_read_value_fn = error (*)(serialization_reader& reader,
+                                                    const any_ref& target);
 using serialization_codec_value_fn = variant_result (*)(const any& data);
 
 /** @brief 单个类型的序列化 codec 函数集合。 */
 struct serialization_codec_data {
   serialization_codec_write_fn write = nullptr;
   serialization_codec_read_fn read = nullptr;
+  serialization_codec_read_value_fn read_value = nullptr;
   serialization_codec_value_fn make_value = nullptr;
 
   [[nodiscard]] constexpr bool valid() const noexcept {
-    return write != nullptr || read != nullptr || make_value != nullptr;
+    return write != nullptr || read != nullptr || read_value != nullptr || make_value != nullptr;
   }
 };
 
@@ -94,6 +97,20 @@ template <typename T> [[nodiscard]] error register_serialization_codec() {
       }
 
       if (!field.try_set<type>(object, decoded)) {
+        return {error_domain::serialization, errc::unsupported};
+      }
+
+      return {};
+    };
+
+    codec.read_value = [](serialization_reader& reader, const any_ref& target) -> error {
+      type decoded{};
+      error status = serialization_codec<type>::read(reader, decoded);
+      if (status) {
+        return status;
+      }
+
+      if (!target.try_set<type>(decoded)) {
         return {error_domain::serialization, errc::unsupported};
       }
 

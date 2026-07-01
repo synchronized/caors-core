@@ -31,6 +31,30 @@ object_ref_to_serialization_value(const reflection_field& field, const void* obj
   return {{}, variant::from(id.value())};
 }
 
+[[nodiscard]] bool field_uses_inline_indirect_value(const reflection_field& field) noexcept {
+  return (field.kind() == type_kind::raw_pointer || field.kind() == type_kind::wrapper) &&
+         field.wrapper_semantics() == wrapper_semantics::inline_value;
+}
+
+[[nodiscard]] variant_result
+value_ref_to_serialization_value(const any_ref& value, const serialization_context& context) {
+  if (!value.valid()) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
+  }
+
+  const std::optional<reflection_type> nested_type = find_reflection(value.type());
+  if (nested_type.has_value() && get_serialization_registry().contains(value.type())) {
+    return to_serialization_value(*nested_type, value.data(), context);
+  }
+
+  any field_value = value.to_any();
+  if (!field_value.valid()) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
+  }
+
+  return to_variant(field_value);
+}
+
 [[nodiscard]] variant_result field_to_serialization_value(const reflection_field& field,
                                                           const void* object,
                                                           const serialization_context& context) {
@@ -38,22 +62,23 @@ object_ref_to_serialization_value(const reflection_field& field, const void* obj
     return object_ref_to_serialization_value(field, object, context);
   }
 
-  any_ref field_ref = field.get_ref(object);
+  any_ref field_ref{};
+  if (field_uses_inline_indirect_value(field)) {
+    const indirect_view indirect = field.create_indirect_view(object);
+    if (!indirect.valid() || !indirect.has_value()) {
+      return {{error_domain::serialization, errc::invalid_argument}, {}};
+    }
+
+    field_ref = indirect.value_ref();
+  } else {
+    field_ref = field.get_ref(object);
+  }
+
   if (!field_ref.valid()) {
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
-  const std::optional<reflection_type> nested_type = find_reflection(field_ref.type());
-  if (nested_type.has_value() && get_serialization_registry().contains(field_ref.type())) {
-    return to_serialization_value(*nested_type, field_ref.data(), context);
-  }
-
-  any field_value = field_ref.to_any();
-  if (!field_value.valid()) {
-    return {{error_domain::serialization, errc::unsupported}, {}};
-  }
-
-  return to_variant(field_value);
+  return value_ref_to_serialization_value(field_ref, context);
 }
 
 } // namespace

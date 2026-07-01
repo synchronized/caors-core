@@ -78,28 +78,46 @@ template <typename T> [[nodiscard]] type_id ensure_codec_type() {
 }
 
 template <typename T>
+[[nodiscard]] error read_codec_payload(serialization_reader& reader, T& decoded) {
+  if constexpr (std::is_same_v<T, string>) {
+    return read_caors_string(reader, decoded);
+  } else if constexpr (std::is_same_v<T, std::string>) {
+    return read_std_string(reader, decoded);
+  } else if constexpr (std::is_same_v<T, guid>) {
+    return read_guid(reader, decoded);
+  } else if constexpr (std::is_same_v<T, type_guid>) {
+    return read_type_guid(reader, decoded);
+  } else {
+    return {error_domain::serialization, errc::unsupported};
+  }
+}
+
+template <typename T>
 [[nodiscard]] error read_codec_value(serialization_reader& reader, const reflection_field& field,
                                      void* object) {
   T decoded{};
-  const error status = [&]() -> error {
-    if constexpr (std::is_same_v<T, string>) {
-      return read_caors_string(reader, decoded);
-    } else if constexpr (std::is_same_v<T, std::string>) {
-      return read_std_string(reader, decoded);
-    } else if constexpr (std::is_same_v<T, guid>) {
-      return read_guid(reader, decoded);
-    } else if constexpr (std::is_same_v<T, type_guid>) {
-      return read_type_guid(reader, decoded);
-    } else {
-      return {error_domain::serialization, errc::unsupported};
-    }
-  }();
+  const error status = read_codec_payload<T>(reader, decoded);
 
   if (status) {
     return status;
   }
 
   if (!field.try_set<T>(object, decoded)) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  return {};
+}
+
+template <typename T>
+[[nodiscard]] error read_codec_ref(serialization_reader& reader, const any_ref& target) {
+  T decoded{};
+  const error status = read_codec_payload<T>(reader, decoded);
+  if (status) {
+    return status;
+  }
+
+  if (!target.try_set<T>(decoded)) {
     return {error_domain::serialization, errc::unsupported};
   }
 
@@ -181,26 +199,31 @@ void register_builtin_codecs() {
   register_builtin_codec<string>(serialization_codec_data{
       &write_caors_string,
       &read_codec_value<string>,
+      &read_codec_ref<string>,
       &make_caors_string_value,
   });
   register_builtin_codec<std::string>(serialization_codec_data{
       &write_std_string,
       &read_codec_value<std::string>,
+      &read_codec_ref<std::string>,
       &make_std_string_value,
   });
   register_builtin_codec<std::string_view>(serialization_codec_data{
       &write_string_view,
+      nullptr,
       nullptr,
       &make_string_view_value,
   });
   register_builtin_codec<guid>(serialization_codec_data{
       &write_guid,
       &read_codec_value<guid>,
+      &read_codec_ref<guid>,
       &make_guid_value,
   });
   register_builtin_codec<type_guid>(serialization_codec_data{
       &write_type_guid,
       &read_codec_value<type_guid>,
+      &read_codec_ref<type_guid>,
       &make_type_guid_value,
   });
 }

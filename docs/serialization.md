@@ -247,6 +247,20 @@ DOM reader 同时接受 `variant::dictionary` 和 pair 数组形态。
 直接按 `type_id` 注册 `serialization_codec_data`。codec 可以分别提供 writer、reader 和 DOM
 构造函数；没有提供的方向会继续走默认逻辑或返回不支持。
 
+### 指针和 wrapper 字段
+
+反射层把裸指针和普通 wrapper 拆成“外层持有者”和“内部 value”两层。序列化层只处理内部 value：
+
+- `T*`、`std::unique_ptr<T>`、`std::shared_ptr<T>`、`std::optional<T>` 和
+  `std::reference_wrapper<T>` 会按内部 `T` 写出。
+- 写出时要求字段当前持有有效内部值；空指针、空智能指针或空 `optional` 当前返回错误，不写出 `null`。
+- 读入时只会写入已有的内部 `T`，不会为 `nullptr`、空智能指针或空 `optional` 自动分配或 emplace。
+- `std::weak_ptr<T>` 无法稳定暴露可写内部值，当前不作为普通 value 序列化。
+- `caors::object_ref<T>` 不走内部 value 语义，仍通过 `serialization_reference_resolver` 写出和读入对象 id。
+
+这条规则避免序列化层隐式决定所有权。后续如果需要支持空值编码或自动构造，应在字段策略或专用
+wrapper trait 中显式声明。
+
 ### variant
 
 `variant` 是序列化 DOM 中间对象。它保存的是已经脱离 C++ 精确类型的运行期数据，可以保存：
@@ -355,8 +369,11 @@ caors::string text = result.value;
 - `caors::string`
 - `std::string`
 - `std::string_view`
+- 已注册 codec 的容器类型
+- 已注册反射和序列化元信息的嵌套对象
+- 持有有效内部值的裸指针和普通 wrapper 字段
 
-遇到裸指针、wrapper、不可拷贝字段或未支持的字段类型时返回 `errc::unsupported`。
+遇到空指针、空 wrapper、不可拷贝字段或未支持的字段类型时返回错误。
 
 ## 当前已实现能力
 

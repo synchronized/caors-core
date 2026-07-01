@@ -7,6 +7,7 @@
 #include <catch2/catch_all.hpp>
 
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string_view>
 #include <type_traits>
@@ -111,6 +112,14 @@ struct nested_actor {
   nested_stats stats{};
 };
 
+struct pointer_actor {
+  int* raw = nullptr;
+  std::shared_ptr<int> shared{};
+  std::unique_ptr<int> unique{};
+  std::optional<int> optional{};
+  nested_stats* stats = nullptr;
+};
+
 struct vector_actor {
   caors::vector<int> scores{};
 };
@@ -170,6 +179,24 @@ struct object_ref_resolver_data {
 
 [[nodiscard]] bool type_result_ok(caors::error result) noexcept {
   return result.succeeded() || result.value() == caors::errc::duplicate_id;
+}
+
+void require_pointer_actor_metadata() {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<nested_stats>("caors.test.serialization.nested_stats")
+          .field("level", &nested_stats::level)
+          .field("score", &nested_stats::score)
+          .commit()));
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<pointer_actor>("caors.test.serialization.pointer_actor")
+          .field("raw", &pointer_actor::raw, "int*")
+          .field("shared", &pointer_actor::shared, "std.shared_ptr<int>")
+          .field("unique", &pointer_actor::unique, "std.unique_ptr<int>")
+          .field("optional", &pointer_actor::optional, "std.optional<int>")
+          .field("stats", &pointer_actor::stats, "caors.test.serialization.nested_stats*")
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<nested_stats>()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<pointer_actor>()));
 }
 
 [[nodiscard]] caors::object_id resolve_object_id(const caors::object* instance, void* user_data) {
@@ -702,6 +729,128 @@ TEST_CASE("serialization - recursively deserializes nested reflected structs", "
   CHECK(actor.id == 9);
   CHECK(actor.stats.level == 4);
   CHECK(actor.stats.score == Catch::Approx(15.25));
+}
+
+TEST_CASE("serialization - serializes pointer and wrapper fields as inline values",
+          "[serialization]") {
+  require_pointer_actor_metadata();
+
+  int raw = 7;
+  nested_stats stats{2, 3.5F};
+  pointer_actor actor{};
+  actor.raw = &raw;
+  actor.shared = std::make_shared<int>(8);
+  actor.unique = std::make_unique<int>(9);
+  actor.optional = 10;
+  actor.stats = &stats;
+
+  const caors::serialization_text_result text = caors::serialize_text(actor);
+  REQUIRE(text.succeeded());
+  CHECK(text.value ==
+        R"({"raw":7,"shared":8,"unique":9,"optional":10,"stats":{"level":2,"score":3.5}})");
+
+  const caors::variant_result value = caors::to_serialization_value(actor);
+  REQUIRE(value.succeeded());
+  const caors::variant_member* shared = value.value.find_member(caors::string_name{"shared"});
+  REQUIRE(shared != nullptr);
+  CHECK(shared->value.as_i64() == 8);
+
+  const caors::variant_member* nested = value.value.find_member(caors::string_name{"stats"});
+  REQUIRE(nested != nullptr);
+  REQUIRE(nested->value.is_object());
+  const caors::variant_member* level = nested->value.find_member(caors::string_name{"level"});
+  REQUIRE(level != nullptr);
+  CHECK(level->value.as_i64() == 2);
+}
+
+TEST_CASE("serialization - deserializes pointer and wrapper fields into existing values",
+          "[serialization]") {
+  require_pointer_actor_metadata();
+
+  caors::variant::object_type stats_members;
+  stats_members.push_back(caors::variant_member{
+      caors::string_name{"level"},
+      0,
+      caors::variant::from(std::int64_t{4}),
+  });
+  stats_members.push_back(caors::variant_member{
+      caors::string_name{"score"},
+      0,
+      caors::variant::from(5.5),
+  });
+
+  caors::variant::object_type members;
+  members.push_back(caors::variant_member{
+      caors::string_name{"raw"},
+      0,
+      caors::variant::from(std::int64_t{70}),
+  });
+  members.push_back(caors::variant_member{
+      caors::string_name{"shared"},
+      0,
+      caors::variant::from(std::int64_t{80}),
+  });
+  members.push_back(caors::variant_member{
+      caors::string_name{"unique"},
+      0,
+      caors::variant::from(std::int64_t{90}),
+  });
+  members.push_back(caors::variant_member{
+      caors::string_name{"optional"},
+      0,
+      caors::variant::from(std::int64_t{100}),
+  });
+  members.push_back(caors::variant_member{
+      caors::string_name{"stats"},
+      0,
+      caors::variant::object(std::move(stats_members)),
+  });
+
+  int raw = 0;
+  nested_stats stats{};
+  pointer_actor actor{};
+  actor.raw = &raw;
+  actor.shared = std::make_shared<int>(0);
+  actor.unique = std::make_unique<int>(0);
+  actor.optional = 0;
+  actor.stats = &stats;
+
+  const int* raw_address = actor.raw;
+  const int* shared_address = actor.shared.get();
+  const int* unique_address = actor.unique.get();
+  nested_stats* stats_address = actor.stats;
+
+  const caors::error result = caors::deserialize(actor, caors::variant::object(std::move(members)));
+
+  REQUIRE(result.succeeded());
+  CHECK(actor.raw == raw_address);
+  CHECK(actor.shared.get() == shared_address);
+  CHECK(actor.unique.get() == unique_address);
+  CHECK(actor.stats == stats_address);
+  CHECK(raw == 70);
+  CHECK(*actor.shared == 80);
+  CHECK(*actor.unique == 90);
+  REQUIRE(actor.optional.has_value());
+  CHECK(*actor.optional == 100);
+  CHECK(stats.level == 4);
+  CHECK(stats.score == Catch::Approx(5.5));
+}
+
+TEST_CASE("serialization - rejects empty pointer fields", "[serialization]") {
+  require_pointer_actor_metadata();
+
+  nested_stats stats{1, 2.0F};
+  pointer_actor actor{};
+  actor.shared = std::make_shared<int>(8);
+  actor.unique = std::make_unique<int>(9);
+  actor.optional = 10;
+  actor.stats = &stats;
+
+  const caors::serialization_text_result text = caors::serialize_text(actor);
+
+  REQUIRE(text.failed());
+  CHECK(text.status.domain() == caors::error_domain::serialization);
+  CHECK(text.status.value() == caors::errc::invalid_argument);
 }
 
 TEST_CASE("serialization - serializes vector fields as arrays", "[serialization]") {
