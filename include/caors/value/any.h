@@ -773,11 +773,11 @@ public:
 
     friend bool operator==(const iterator& lhs, const iterator& rhs) noexcept {
       if (lhs.view_ != rhs.view_) {
-        return false;
+        return lhs.iterator_ == nullptr && rhs.iterator_ == nullptr;
       }
 
       if (lhs.iterator_ == nullptr || rhs.iterator_ == nullptr) {
-        return lhs.iterator_ == rhs.iterator_;
+        return true;
       }
 
       if (lhs.view_ == nullptr || lhs.view_->data_ == nullptr ||
@@ -853,7 +853,7 @@ public:
   }
 
   [[nodiscard]] iterator begin() const {
-    if (!valid() || data_->begin == nullptr) {
+    if (!has_iterator_support()) {
       return {};
     }
 
@@ -861,7 +861,7 @@ public:
   }
 
   [[nodiscard]] iterator end() const {
-    if (!valid() || data_->end == nullptr) {
+    if (!has_iterator_support()) {
       return {};
     }
 
@@ -919,6 +919,13 @@ private:
 
   set_view(const meta_set_data* data, const void* storage, bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
+
+  [[nodiscard]] bool has_iterator_support() const noexcept {
+    return valid() && data_->begin != nullptr && data_->end != nullptr &&
+           data_->iterator_clone != nullptr && data_->iterator_destroy != nullptr &&
+           data_->iterator_advance != nullptr && data_->iterator_equal != nullptr &&
+           data_->iterator_value != nullptr;
+  }
 
   const meta_set_data* data_ = nullptr;
   const void* storage_ = nullptr;
@@ -1011,11 +1018,11 @@ public:
 
     friend bool operator==(const iterator& lhs, const iterator& rhs) noexcept {
       if (lhs.view_ != rhs.view_) {
-        return false;
+        return lhs.iterator_ == nullptr && rhs.iterator_ == nullptr;
       }
 
       if (lhs.iterator_ == nullptr || rhs.iterator_ == nullptr) {
-        return lhs.iterator_ == rhs.iterator_;
+        return true;
       }
 
       if (lhs.view_ == nullptr || lhs.view_->data_ == nullptr ||
@@ -1099,7 +1106,7 @@ public:
   }
 
   [[nodiscard]] iterator begin() const {
-    if (!valid() || data_->begin == nullptr) {
+    if (!has_iterator_support()) {
       return {};
     }
 
@@ -1107,7 +1114,7 @@ public:
   }
 
   [[nodiscard]] iterator end() const {
-    if (!valid() || data_->end == nullptr) {
+    if (!has_iterator_support()) {
       return {};
     }
 
@@ -1166,6 +1173,13 @@ private:
 
   associative_view(const meta_associative_data* data, const void* storage, bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
+
+  [[nodiscard]] bool has_iterator_support() const noexcept {
+    return valid() && data_->begin != nullptr && data_->end != nullptr &&
+           data_->iterator_clone != nullptr && data_->iterator_destroy != nullptr &&
+           data_->iterator_advance != nullptr && data_->iterator_equal != nullptr &&
+           data_->iterator_key != nullptr && data_->iterator_value != nullptr;
+  }
 
   const meta_associative_data* data_ = nullptr;
   const void* storage_ = nullptr;

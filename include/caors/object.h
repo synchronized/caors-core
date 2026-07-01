@@ -284,17 +284,20 @@ template <typename T> [[nodiscard]] object_type_data make_object_type_data() noe
   return data;
 }
 
+class object_registry;
+
+/** @brief 获取进程内默认对象类型注册表。 */
+[[nodiscard]] CAORS_API object_registry& get_object_registry() noexcept;
+
 /**
- * @brief 对象类型注册表和默认构造工厂。
+ * @brief 全局对象类型注册表 facade 和默认构造工厂。
  *
- * 注册表复用全局 `meta_registry` 管理基础类型信息，并把 `object_type_data` 作为组件挂载到同一个
- * `type_id` 上。
+ * `object_registry` 不表示彼此隔离的注册表实例。它复用全局 `meta_registry`
+ * 管理基础类型信息，并把 `object_type_data` 作为组件挂载到同一个 `type_id`
+ * 上。普通代码应通过 `get_object_registry()` 和全局辅助函数访问它。
  */
 class CAORS_API object_registry final {
 public:
-  object_registry();
-  ~object_registry();
-
   object_registry(const object_registry&) = delete;
   object_registry& operator=(const object_registry&) = delete;
 
@@ -348,19 +351,22 @@ public:
   bool destroy(object* instance, memory_resource* resource = nullptr) const noexcept;
 
 private:
+  friend object_registry& get_object_registry() noexcept;
+
+  object_registry();
+  ~object_registry();
+
   [[nodiscard]] error register_type(detail::cpp_type_key key, const meta_type_data& type,
                                     const object_type_data& object);
   [[nodiscard]] std::optional<meta_type> find_registered_type(detail::cpp_type_key key) const;
   [[nodiscard]] const object_type_data* find_type_data(object_type_id id) const;
 };
 
-/** @brief 获取进程内默认对象类型注册表。 */
-[[nodiscard]] CAORS_API object_registry& get_object_registry() noexcept;
-
-/** @brief 向指定注册表注册对象类型。 */
+/** @brief 向全局对象注册表注册对象类型。 */
 template <typename T>
-[[nodiscard]] error register_object_type(object_registry& registry, std::string_view name,
+[[nodiscard]] error register_object_type(std::string_view name,
                                          object_type_id parent_id = object_type_id::invalid()) {
+  object_registry& registry = get_object_registry();
   if (!parent_id) {
     using base_type = typename detail::object_base_type_traits<T>::type;
     const std::optional<object_type> base = registry.find_type<base_type>();
@@ -371,13 +377,6 @@ template <typename T>
 
   return registry.register_type_for<T>(make_object_meta_type_data<T>(name, parent_id),
                                        make_object_type_data<T>());
-}
-
-/** @brief 向默认注册表注册对象类型。 */
-template <typename T>
-[[nodiscard]] error register_object_type(std::string_view name,
-                                         object_type_id parent_id = object_type_id::invalid()) {
-  return register_object_type<T>(get_object_registry(), name, parent_id);
 }
 
 /** @brief 直接创建指定 C++ 类型的对象。 */

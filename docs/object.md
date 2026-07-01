@@ -115,19 +115,19 @@ object.type_name(); // "game.player"
 
 ### object_registry
 
-`object_registry` 是基于全局 `meta_registry` 的对象注册表和默认构造工厂。它通过全局 `meta_registry` 管理类型 id、名称和父类型关系，并将 `object_type_data` 作为对象元数据组件挂载到同一个 `type_id` 上。
+`object_registry` 是基于全局 `meta_registry` 的对象注册表 facade 和默认构造工厂。它不表示彼此隔离的局部注册表实例，而是通过 `get_object_registry()` 暴露进程内唯一对象注册入口。它通过全局 `meta_registry` 管理类型 id、名称和父类型关系，并将 `object_type_data` 作为对象元数据组件挂载到同一个 `type_id` 上。
 
 对外查询返回 `object_type` 只读视图。它组合了基础 `meta_type` 和内部 `object_type_data`，因此调用方可以通过 `id()`、`name()`、`guid()`、`size()`、`alignment()`、`parent_id()` 和 `constructible()` 查询对象类型信息，但不能直接修改注册表内部数据。
 
 ```cpp
-caors::object_registry registry;
+caors::object_registry& registry = caors::get_object_registry();
 
-if (caors::register_object_type<actor>(registry, actor::object_type_name)) {
+if (caors::register_object_type<actor>(actor::object_type_name)) {
   // 处理注册失败。
 }
 
 caors::error result =
-    caors::register_object_type<player>(registry, player::object_type_name);
+    caors::register_object_type<player>(player::object_type_name);
 ```
 
 注册后可以查询类型：

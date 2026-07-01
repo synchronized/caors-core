@@ -10,8 +10,6 @@ namespace {
 
 std::atomic<std::uint64_t> next_object_id{1};
 
-object_registry default_object_registry;
-
 [[nodiscard]] meta_type_data make_root_object_meta_type_data() {
   return make_meta_type_data<object>(object::static_type_name(), object_type_id::invalid());
 }
@@ -217,6 +215,9 @@ bool object_registry::destroy(object* instance, memory_resource* resource) const
   return true;
 }
 
-object_registry& get_object_registry() noexcept { return default_object_registry; }
+object_registry& get_object_registry() noexcept {
+  static object_registry registry;
+  return registry;
+}
 
 }

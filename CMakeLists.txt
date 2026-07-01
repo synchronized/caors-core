@@ -10,12 +10,6 @@ project(
   LANGUAGES C CXX
 )
 
-# By default, MSVC uses the GBK encoding.
-# To use UTF-8 without a BOM header,
-#     you need to add the following statement.
-add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
-add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
-
 option(CAORS_BUILD_TESTING "构建 CAORS 测试" ON)
 option(CAORS_BUILD_EXAMPLES "构建 CAORS 示例" ${PROJECT_IS_TOP_LEVEL})
 option(BUILD_SHARED_LIBS "构建共享库" OFF)

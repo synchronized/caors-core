@@ -10,6 +10,7 @@
 #include <functional>
 #include <iterator>
 #include <memory>
+#include <new>
 #include <optional>
 #include <string_view>
 #include <type_traits>
@@ -35,6 +36,10 @@ struct named_field_owner {
 template <typename T> struct custom_sequence {
   caors::vector<T> values{};
 };
+
+struct failing_begin_set {};
+
+struct failing_end_set {};
 
 } // namespace test_reflection
 
@@ -220,6 +225,10 @@ constexpr caors::type_guid view_actor_guid{caors::guid::from_bytes(
 
 [[nodiscard]] constexpr caors::error reflection_error(caors::errc code) noexcept {
   return {caors::error_domain::reflection, code};
+}
+
+[[nodiscard]] constexpr caors::error meta_error(caors::errc code) noexcept {
+  return {caors::error_domain::meta, code};
 }
 
 [[nodiscard]] const caors::meta_type_semantics_data&
@@ -843,6 +852,89 @@ TEST_CASE("reflection - set field view exposes element metadata", "[reflection]"
 
   CHECK(set.clear());
   CHECK(instance.values.empty());
+}
+
+TEST_CASE("reflection - set iterator creation failure is treated as empty range", "[reflection]") {
+  const caors::error begin_type_status = caors::register_type<test_reflection::failing_begin_set>(
+      "caors.test.reflection.failing_begin_set");
+  REQUIRE((begin_type_status == caors::error{} ||
+           begin_type_status == meta_error(caors::errc::duplicate_id)));
+
+  const caors::error end_type_status = caors::register_type<test_reflection::failing_end_set>(
+      "caors.test.reflection.failing_end_set");
+  REQUIRE((end_type_status == caors::error{} ||
+           end_type_status == meta_error(caors::errc::duplicate_id)));
+
+  auto begin_type = caors::find_type<test_reflection::failing_begin_set>();
+  auto end_type = caors::find_type<test_reflection::failing_end_set>();
+  REQUIRE(begin_type.has_value());
+  REQUIRE(end_type.has_value());
+
+  caors::meta_set_data failing_begin{};
+  failing_begin.value_type = registered_type_id("int");
+  failing_begin.size = [](const void*) noexcept -> std::size_t { return 1; };
+  failing_begin.visit = [](const void*, caors::meta_set_raw_visitor, void*) -> bool {
+    return true;
+  };
+  failing_begin.begin = [](const void*) noexcept -> void* { return nullptr; };
+  failing_begin.end = [](const void*) noexcept -> void* { return new (std::nothrow) int{0}; };
+  failing_begin.iterator_clone = [](const void* iterator) noexcept -> void* {
+    if (iterator == nullptr) {
+      return nullptr;
+    }
+
+    return new (std::nothrow) int{*static_cast<const int*>(iterator)};
+  };
+  failing_begin.iterator_destroy = [](void* iterator) noexcept {
+    delete static_cast<int*>(iterator);
+  };
+  failing_begin.iterator_advance = [](void*) noexcept {};
+  failing_begin.iterator_equal = [](const void* lhs, const void* rhs) noexcept -> bool {
+    return lhs == rhs;
+  };
+  failing_begin.iterator_value = [](const void*) noexcept -> const void* {
+    static const int value = 7;
+    return &value;
+  };
+
+  caors::meta_set_data failing_end = failing_begin;
+  failing_end.begin = [](const void*) noexcept -> void* { return new (std::nothrow) int{0}; };
+  failing_end.end = [](const void*) noexcept -> void* { return nullptr; };
+
+  const caors::error begin_component_status =
+      caors::get_meta_registry().emplace<caors::meta_set_data>(begin_type->id(), failing_begin);
+  REQUIRE((begin_component_status == caors::error{} ||
+           begin_component_status == meta_error(caors::errc::duplicate_component)));
+
+  const caors::error end_component_status =
+      caors::get_meta_registry().emplace<caors::meta_set_data>(end_type->id(), failing_end);
+  REQUIRE((end_component_status == caors::error{} ||
+           end_component_status == meta_error(caors::errc::duplicate_component)));
+
+  test_reflection::failing_begin_set begin_storage{};
+  caors::set_view begin_view =
+      caors::any_ref::from(begin_storage, "caors.test.reflection.failing_begin_set")
+          .create_set_view();
+  REQUIRE(begin_view.valid());
+
+  int begin_visit_count = 0;
+  for (caors::any_ref value : begin_view) {
+    (void)value;
+    ++begin_visit_count;
+  }
+  CHECK(begin_visit_count == 0);
+
+  test_reflection::failing_end_set end_storage{};
+  caors::set_view end_view =
+      caors::any_ref::from(end_storage, "caors.test.reflection.failing_end_set").create_set_view();
+  REQUIRE(end_view.valid());
+
+  int end_visit_count = 0;
+  for (caors::any_ref value : end_view) {
+    (void)value;
+    ++end_visit_count;
+  }
+  CHECK(end_visit_count == 0);
 }
 
 TEST_CASE("reflection - views remain valid for append-only registry", "[reflection]") {

@@ -31,8 +31,8 @@ template <typename T> [[nodiscard]] type_id ensure_codec_type() {
     }
   }
 
-  const meta_type type_info = get_meta_registry().ensure_type_for<type>();
-  return type_info.valid() ? type_info.id() : type_id::invalid();
+  const meta_type meta = get_meta_registry().ensure_type_for<type>();
+  return meta.valid() ? meta.id() : type_id::invalid();
 }
 
 [[nodiscard]] error read_caors_string(serialization_reader& reader, string& value) {

@@ -43,6 +43,13 @@ target_sources(
 target_compile_features(${TARGET_NAME} PUBLIC cxx_std_20)
 target_compile_warnings(${TARGET_NAME})
 
+target_compile_options(
+  ${TARGET_NAME}
+  PUBLIC
+    "$<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:MSVC>>:/utf-8>"
+    "$<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:MSVC>>:/utf-8>"
+)
+
 target_include_directories(
   ${TARGET_NAME}
   PUBLIC

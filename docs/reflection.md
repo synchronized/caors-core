@@ -406,6 +406,9 @@ field->try_set<float>(&instance, 75.0F);
 - `clear()` / `insert_value()`：通过 `associative_traits` 修改关联容器。只有可写视图允许修改；插入时
   key 和 value 必须与类型级关联容器 metadata 记录的 `type_id` 一致。
 
+`set_view` 和 `associative_view` 的 iterator 不拥有底层容器，也不延长 view 或容器对象生命周期。
+保存 iterator 时，调用方需要保证对应 view 和容器仍然有效；如果类型擦除 iterator 创建失败，遍历会安全退化为空 range。
+
 `indirect_view` 当前提供：
 
 - `valid()` / `writable()`：判断视图有效性和是否允许修改。

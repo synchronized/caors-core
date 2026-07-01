@@ -225,6 +225,15 @@ caors::get_meta_registry().emplace<object_factory_meta>(actor_id, true);
 - `errc::missing_type`：目标类型尚未注册。
 - `errc::duplicate_component`：目标类型已经挂载同类组件。
 
+## 线程安全边界
+
+`meta_registry` 的注册、查询和组件挂载入口内部会加锁，避免注册表容器自身出现 data race。返回的
+`meta_type` 和各模块视图是指向注册表内部数据的轻量只读视图，适合在注册完成后长期保存和读取。
+
+需要注意的是，注册表允许匿名类型记录在后续注册时补充名称、GUID、父类型和复制/赋值函数等信息。
+因此推荐在启动期或模块加载期完成类型注册，再进入并发查询阶段。如果必须在运行期并发注册和读取同一类
+型视图，调用方需要在更高层保证同步。
+
 ## 与对象和反射的关系
 
 全局 `meta_registry` 是共享元数据层：
@@ -233,7 +242,7 @@ caors::get_meta_registry().emplace<object_factory_meta>(actor_id, true);
 - 全局反射注册表复用基础类型信息，再挂载 `reflection_type_data` 组件。
 - 后续 `serialization_registry` 可以挂载序列化相关组件。
 
-这样 `object_register`、`reflection_register` 和 `serialization_register` 不需要重复处理重名、重复 GUID、不一致类型描述和父类型缺失。
+这样对象、反射和序列化的全局注册入口不需要重复处理重名、重复 GUID、不一致类型描述和父类型缺失。
 跨模块查询可以通过 `meta_view<T...>()` 完成，例如查询同时拥有 `reflection_type_data` 和
 `serialization_type_data` 的类型。该视图保存查询时匹配的 `type_id` 列表，不持有组件引用；需要
 读取组件内容时再通过 `find<T>()` 获取组件副本，或者由对应模块 API 返回稳定只读视图。
