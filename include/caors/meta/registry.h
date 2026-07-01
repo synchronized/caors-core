@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <new>
@@ -380,6 +381,53 @@ template <typename Wrapper> bool wrapper_ensure_indirect_value(void* storage) {
   } else {
     return false;
   }
+}
+
+template <typename Enum> [[nodiscard]] std::int64_t enum_to_i64(const void* storage) noexcept {
+  using underlying_type = std::underlying_type_t<Enum>;
+  return static_cast<std::int64_t>(
+      static_cast<underlying_type>(*static_cast<const Enum*>(storage)));
+}
+
+template <typename Enum> [[nodiscard]] std::uint64_t enum_to_u64(const void* storage) noexcept {
+  using underlying_type = std::underlying_type_t<Enum>;
+  return static_cast<std::uint64_t>(
+      static_cast<underlying_type>(*static_cast<const Enum*>(storage)));
+}
+
+template <typename Enum>
+[[nodiscard]] bool enum_from_i64(void* storage, std::int64_t value) noexcept {
+  using underlying_type = std::underlying_type_t<Enum>;
+  if (storage == nullptr) {
+    return false;
+  }
+
+  if constexpr (std::is_signed_v<underlying_type>) {
+    if (value < static_cast<std::int64_t>(std::numeric_limits<underlying_type>::min()) ||
+        value > static_cast<std::int64_t>(std::numeric_limits<underlying_type>::max())) {
+      return false;
+    }
+  } else {
+    if (value < 0 || static_cast<std::uint64_t>(value) >
+                         static_cast<std::uint64_t>(std::numeric_limits<underlying_type>::max())) {
+      return false;
+    }
+  }
+
+  *static_cast<Enum*>(storage) = static_cast<Enum>(static_cast<underlying_type>(value));
+  return true;
+}
+
+template <typename Enum>
+[[nodiscard]] bool enum_from_u64(void* storage, std::uint64_t value) noexcept {
+  using underlying_type = std::underlying_type_t<Enum>;
+  if (storage == nullptr ||
+      value > static_cast<std::uint64_t>(std::numeric_limits<underlying_type>::max())) {
+    return false;
+  }
+
+  *static_cast<Enum*>(storage) = static_cast<Enum>(static_cast<underlying_type>(value));
+  return true;
 }
 
 template <typename T> [[nodiscard]] type_id semantic_type_id() {
@@ -750,7 +798,17 @@ template <typename Type> struct type_semantics_traits {
       info.nullable = wrapper_traits<type>::nullable;
       return info;
     } else {
-      info.kind = std::is_enum_v<type> ? type_kind::enumeration : type_kind::value;
+      if constexpr (std::is_enum_v<type>) {
+        using underlying_type = std::underlying_type_t<type>;
+        info.kind = type_kind::enumeration;
+        info.enum_to_i64 = &enum_to_i64<type>;
+        info.enum_to_u64 = &enum_to_u64<type>;
+        info.enum_from_i64 = &enum_from_i64<type>;
+        info.enum_from_u64 = &enum_from_u64<type>;
+        info.enum_signed = std::is_signed_v<underlying_type>;
+      } else {
+        info.kind = type_kind::value;
+      }
       return info;
     }
   }

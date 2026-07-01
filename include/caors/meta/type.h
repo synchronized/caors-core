@@ -47,6 +47,10 @@ using indirect_mutable_value_fn = void* (*)(void*) noexcept;
 using indirect_has_value_fn = bool (*)(const void*) noexcept;
 using indirect_reset_fn = bool (*)(void*) noexcept;
 using indirect_ensure_value_fn = bool (*)(void*);
+using enum_to_i64_fn = std::int64_t (*)(const void*) noexcept;
+using enum_to_u64_fn = std::uint64_t (*)(const void*) noexcept;
+using enum_from_i64_fn = bool (*)(void*, std::int64_t) noexcept;
+using enum_from_u64_fn = bool (*)(void*, std::uint64_t) noexcept;
 
 template <typename T> void* default_construct_value() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
@@ -135,8 +139,13 @@ struct meta_type_semantics_data {
   detail::indirect_has_value_fn has_indirect_value = nullptr;
   detail::indirect_reset_fn reset_indirect_value = nullptr;
   detail::indirect_ensure_value_fn ensure_indirect_value = nullptr;
+  detail::enum_to_i64_fn enum_to_i64 = nullptr;
+  detail::enum_to_u64_fn enum_to_u64 = nullptr;
+  detail::enum_from_i64_fn enum_from_i64 = nullptr;
+  detail::enum_from_u64_fn enum_from_u64 = nullptr;
   std::uint8_t pointer_depth = 0;
   bool nullable = false;
+  bool enum_signed = false;
 };
 
 /**

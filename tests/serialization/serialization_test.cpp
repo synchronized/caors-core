@@ -82,6 +82,22 @@ struct codec_string_view_actor {
   std::string_view name{};
 };
 
+enum class scalar_color : std::uint8_t {
+  red = 1,
+  blue = 2,
+};
+
+enum class scalar_state : int {
+  disabled = -1,
+  enabled = 2,
+};
+
+struct scalar_actor {
+  char code = '\0';
+  scalar_color color = scalar_color::red;
+  scalar_state state = scalar_state::disabled;
+};
+
 struct serialization_first_actor {
   int id = 0;
 };
@@ -205,6 +221,16 @@ void require_pointer_actor_metadata() {
           .commit()));
   REQUIRE(serialization_result_ok(caors::register_serialization<nested_stats>()));
   REQUIRE(serialization_result_ok(caors::register_serialization<pointer_actor>()));
+}
+
+void require_scalar_actor_metadata() {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<scalar_actor>("caors.test.serialization.scalar_actor")
+          .field("code", &scalar_actor::code)
+          .field("color", &scalar_actor::color, "caors.test.serialization.scalar_color")
+          .field("state", &scalar_actor::state, "caors.test.serialization.scalar_state")
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<scalar_actor>()));
 }
 
 [[nodiscard]] caors::object_id resolve_object_id(const caors::object* instance, void* user_data) {
@@ -625,6 +651,60 @@ TEST_CASE("serialization - parses json and deserializes reflected struct fields"
   CHECK(actor.health == Catch::Approx(95.5));
   CHECK(actor.active);
   CHECK(actor.name == "Ada");
+}
+
+TEST_CASE("serialization - roundtrips char and enum fields", "[serialization]") {
+  require_scalar_actor_metadata();
+
+  scalar_actor actor{};
+  actor.code = 'A';
+  actor.color = scalar_color::blue;
+  actor.state = scalar_state::enabled;
+
+  const caors::serialization_text_result text = caors::serialize_json(actor);
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"code":"A","color":2,"state":2})");
+
+  const caors::variant_result value = caors::to_serialization_value(actor);
+  REQUIRE(value.succeeded());
+
+  const caors::variant_member* code = value.value.find_member(caors::string_name{"code"});
+  const caors::variant_member* color = value.value.find_member(caors::string_name{"color"});
+  const caors::variant_member* state = value.value.find_member(caors::string_name{"state"});
+  REQUIRE(code != nullptr);
+  REQUIRE(color != nullptr);
+  REQUIRE(state != nullptr);
+  REQUIRE(code->value.try_as_string() != nullptr);
+  REQUIRE(color->value.try_as_u64() != nullptr);
+  REQUIRE(state->value.try_as_i64() != nullptr);
+  CHECK(code->value.as_string() == "A");
+  CHECK(color->value.as_u64() == 2U);
+  CHECK(state->value.as_i64() == 2);
+
+  scalar_actor decoded{};
+  const caors::error result =
+      caors::deserialize_json(decoded, R"({"code":"Z","color":1,"state":-1})");
+  REQUIRE(result.succeeded());
+  CHECK(decoded.code == 'Z');
+  CHECK(decoded.color == scalar_color::red);
+  CHECK(decoded.state == scalar_state::disabled);
+}
+
+TEST_CASE("serialization - rejects invalid char and enum values", "[serialization]") {
+  require_scalar_actor_metadata();
+
+  scalar_actor actor{};
+
+  const caors::error invalid_char =
+      caors::deserialize_json(actor, R"({"code":"AB","color":1,"state":-1})");
+  REQUIRE(invalid_char.failed());
+  CHECK(invalid_char.domain() == caors::error_domain::serialization);
+
+  const caors::error invalid_enum =
+      caors::deserialize_json(actor, R"({"code":"A","color":300,"state":-1})");
+  REQUIRE(invalid_enum.failed());
+  CHECK(invalid_enum.domain() == caors::error_domain::serialization);
+  CHECK(invalid_enum.value() == caors::errc::invalid_argument);
 }
 
 TEST_CASE("serialization - rejects invalid json", "[serialization]") {

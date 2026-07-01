@@ -49,6 +49,19 @@ template <typename T>
 
   if constexpr (std::is_same_v<type, bool>) {
     return reader.read_bool(value);
+  } else if constexpr (std::is_same_v<type, char>) {
+    string decoded;
+    error status = reader.read_string(decoded);
+    if (status) {
+      return status;
+    }
+
+    if (decoded.size() != 1) {
+      return {error_domain::serialization, errc::invalid_argument};
+    }
+
+    value = decoded[0];
+    return {};
   } else if constexpr (std::is_integral_v<type> && std::is_signed_v<type>) {
     std::int64_t decoded = 0;
     error status = reader.read_i64(decoded);

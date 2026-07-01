@@ -105,14 +105,24 @@ template <typename T>
   return false;
 }
 
+[[nodiscard]] bool try_read_char_value(serialization_reader& reader, const any_ref& target) {
+  string value;
+  if (reader.read_string(value).failed() || value.size() != 1) {
+    return false;
+  }
+
+  return target.try_set<char>(value[0]);
+}
+
 [[nodiscard]] bool field_uses_inline_indirect_value(const reflection_field& field) noexcept {
   return (field.kind() == type_kind::raw_pointer || field.kind() == type_kind::wrapper) &&
          field.wrapper_semantics() == wrapper_semantics::inline_value;
 }
 
 [[nodiscard]] bool field_uses_direct_value(const reflection_field& field) noexcept {
-  return field.kind() == type_kind::value || field.kind() == type_kind::sequence ||
-         field.kind() == type_kind::set || field.kind() == type_kind::associative;
+  return field.kind() == type_kind::value || field.kind() == type_kind::enumeration ||
+         field.kind() == type_kind::sequence || field.kind() == type_kind::set ||
+         field.kind() == type_kind::associative;
 }
 
 [[nodiscard]] const meta_type_semantics_data* type_semantics(type_id id) noexcept {
@@ -124,6 +134,98 @@ template <typename T>
   return semantics != nullptr &&
          (semantics->kind == type_kind::raw_pointer || semantics->kind == type_kind::wrapper) &&
          semantics->wrapper_semantics == wrapper_semantics::inline_value;
+}
+
+[[nodiscard]] bool type_is_enumeration(type_id id) noexcept {
+  const meta_type_semantics_data* semantics = type_semantics(id);
+  return semantics != nullptr && semantics->kind == type_kind::enumeration;
+}
+
+[[nodiscard]] variant_result make_enum_value(const any_ref& value) {
+  const meta_type_semantics_data* semantics = type_semantics(value.type());
+  if (semantics == nullptr || semantics->kind != type_kind::enumeration ||
+      value.data() == nullptr) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
+  }
+
+  if (semantics->enum_signed) {
+    if (semantics->enum_to_i64 == nullptr) {
+      return {{error_domain::serialization, errc::unsupported}, {}};
+    }
+
+    return {{}, variant::from(semantics->enum_to_i64(value.data()))};
+  }
+
+  if (semantics->enum_to_u64 == nullptr) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
+  }
+
+  return {{}, variant::from(semantics->enum_to_u64(value.data()))};
+}
+
+[[nodiscard]] error write_enum_value(serialization_writer& writer, const any_ref& value) {
+  const meta_type_semantics_data* semantics = type_semantics(value.type());
+  if (semantics == nullptr || semantics->kind != type_kind::enumeration ||
+      value.data() == nullptr) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  if (semantics->enum_signed) {
+    if (semantics->enum_to_i64 == nullptr) {
+      return {error_domain::serialization, errc::unsupported};
+    }
+
+    return writer.write_i64(semantics->enum_to_i64(value.data()));
+  }
+
+  if (semantics->enum_to_u64 == nullptr) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  return writer.write_u64(semantics->enum_to_u64(value.data()));
+}
+
+[[nodiscard]] error read_enum_value(serialization_reader& reader, const any_ref& target) {
+  const meta_type_semantics_data* semantics = type_semantics(target.type());
+  if (semantics == nullptr || semantics->kind != type_kind::enumeration ||
+      target.mutable_data() == nullptr || semantics->enum_from_i64 == nullptr ||
+      semantics->enum_from_u64 == nullptr) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  if (semantics->enum_signed) {
+    std::int64_t signed_value = 0;
+    if (reader.read_i64(signed_value).succeeded()) {
+      return semantics->enum_from_i64(target.mutable_data(), signed_value)
+                 ? error{}
+                 : error{error_domain::serialization, errc::invalid_argument};
+    }
+
+    std::uint64_t unsigned_value = 0;
+    if (reader.read_u64(unsigned_value).succeeded()) {
+      return semantics->enum_from_u64(target.mutable_data(), unsigned_value)
+                 ? error{}
+                 : error{error_domain::serialization, errc::invalid_argument};
+    }
+
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  std::uint64_t unsigned_value = 0;
+  if (reader.read_u64(unsigned_value).succeeded()) {
+    return semantics->enum_from_u64(target.mutable_data(), unsigned_value)
+               ? error{}
+               : error{error_domain::serialization, errc::invalid_argument};
+  }
+
+  std::int64_t signed_value = 0;
+  if (reader.read_i64(signed_value).succeeded()) {
+    return semantics->enum_from_i64(target.mutable_data(), signed_value)
+               ? error{}
+               : error{error_domain::serialization, errc::invalid_argument};
+  }
+
+  return {error_domain::serialization, errc::unsupported};
 }
 
 [[nodiscard]] variant_result make_indirect_serialized_value(const indirect_view& indirect,
@@ -841,8 +943,8 @@ variant_result make_serialized_value(const any& data) {
   const meta_type_semantics_data* semantics = type_semantics(data.type());
   if (semantics != nullptr &&
       (semantics->kind == type_kind::raw_pointer || semantics->kind == type_kind::wrapper ||
-       semantics->kind == type_kind::sequence || semantics->kind == type_kind::set ||
-       semantics->kind == type_kind::associative)) {
+       semantics->kind == type_kind::enumeration || semantics->kind == type_kind::sequence ||
+       semantics->kind == type_kind::set || semantics->kind == type_kind::associative)) {
     return make_serialized_value(data.ref(), serialization_context{});
   }
 
@@ -922,6 +1024,10 @@ variant_result make_serialized_value(const any_ref& value, const serialization_c
     return make_indirect_serialized_value(indirect, context);
   }
 
+  if (type_is_enumeration(value.type())) {
+    return make_enum_value(value);
+  }
+
   sequence_view sequence = value.create_sequence_view();
   if (sequence.valid()) {
     return make_sequence_value(sequence, context);
@@ -970,6 +1076,10 @@ error write_serialized_value(serialization_writer& writer, const any_ref& value,
   if (type_uses_inline_indirect_value(value.type())) {
     const indirect_view indirect = value.create_indirect_view();
     return write_indirect_serialized_value(writer, indirect, context);
+  }
+
+  if (type_is_enumeration(value.type())) {
+    return write_enum_value(writer, value);
   }
 
   sequence_view sequence = value.create_sequence_view();
@@ -1026,6 +1136,10 @@ error read_serialized_value(serialization_reader& reader, const any_ref& target,
     return read_indirect_serialized_value(reader, indirect, context);
   }
 
+  if (type_is_enumeration(target.type())) {
+    return read_enum_value(reader, target);
+  }
+
   if (target.create_sequence_view().valid()) {
     return read_sequence_value(reader, target, context);
   }
@@ -1051,6 +1165,10 @@ error read_serialized_value(serialization_reader& reader, const any_ref& target,
 
   bool bool_value = false;
   bool written = reader.read_bool(bool_value).succeeded() && target.try_set<bool>(bool_value);
+
+  if (!written) {
+    written = try_read_char_value(reader, target);
+  }
 
   if (!written) {
     written = try_read_signed_value<signed char>(reader, target) ||
