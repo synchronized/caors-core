@@ -6,6 +6,7 @@
 
 #include <catch2/catch_all.hpp>
 
+#include <array>
 #include <cstddef>
 #include <functional>
 #include <iterator>
@@ -174,6 +175,10 @@ struct vector_holder {
 
 struct list_holder {
   caors::list<int> values{};
+};
+
+struct array_holder {
+  std::array<int, 3> values{};
 };
 
 struct custom_sequence_holder {
@@ -588,6 +593,40 @@ TEST_CASE("reflection - custom sequence traits expose field view", "[reflection]
   CHECK(instance.values.values.size() == 1);
   CHECK(sequence.clear());
   CHECK(instance.values.values.empty());
+}
+
+TEST_CASE("reflection - std array field view uses fixed sequence traits", "[reflection]") {
+  REQUIRE(caors::reflection::class_<array_holder>("caors.test.reflection.array_holder")
+              .field("values", &array_holder::values)
+              .commit()
+              .succeeded());
+
+  auto reflected = caors::find_reflection("caors.test.reflection.array_holder");
+  REQUIRE(reflected.has_value());
+
+  auto values = reflected->find_field("values");
+  REQUIRE(values.has_value());
+  CHECK(values->kind() == caors::type_kind::sequence);
+  CHECK(values->type_name() == "std.array<int,3>");
+  CHECK(values->element_type() == registered_type_id("int"));
+
+  array_holder instance{{1, 2, 3}};
+  caors::sequence_view sequence = values->get_ref(&instance).create_sequence_view();
+  REQUIRE(sequence.valid());
+  CHECK(sequence.writable());
+
+  const std::optional<std::size_t> size = sequence.size();
+  REQUIRE(size.has_value());
+  CHECK(*size == 3);
+
+  caors::any_ref second = sequence.element_ref(1);
+  REQUIRE(second.valid());
+  CHECK(second.try_set(8));
+  CHECK(instance.values[1] == 8);
+
+  CHECK(sequence.resize(3));
+  CHECK_FALSE(sequence.resize(2));
+  CHECK_FALSE(sequence.append_value(caors::any::from(13)));
 }
 
 TEST_CASE("reflection - list field view uses sequence traits", "[reflection]") {

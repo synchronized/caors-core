@@ -6,6 +6,7 @@
 
 #include "caors/serialization/operations.h"
 
+#include <array>
 #include <deque>
 #include <limits>
 #include <list>
@@ -216,20 +217,25 @@ template <typename Sequence> struct sequence_serialization_codec {
       decoded.reserve(size);
     }
 
+    traits::clear(decoded);
+    if (!traits::resize(decoded, size)) {
+      return {error_domain::serialization, errc::unsupported};
+    }
+
     for (std::size_t index = 0; index < size; ++index) {
       status = reader.begin_element(index);
       if (status) {
         return status;
       }
 
-      element_type element{};
-      status = detail::read_vector_element(reader, element);
-      if (status) {
-        return status;
+      element_type* element = traits::mutable_element(decoded, index);
+      if (element == nullptr) {
+        return {error_domain::serialization, errc::invalid_argument};
       }
 
-      if (!traits::append(decoded, element)) {
-        return {error_domain::serialization, errc::unsupported};
+      status = detail::read_vector_element(reader, *element);
+      if (status) {
+        return status;
       }
 
       status = reader.end_element();
@@ -273,6 +279,11 @@ template <typename Sequence> struct sequence_serialization_codec {
 template <typename T, typename Allocator>
 struct serialization_codec<std::vector<T, Allocator>>
     : sequence_serialization_codec<std::vector<T, Allocator>> {};
+
+/** @brief `std::array` 的固定长度数组序列化 codec。 */
+template <typename T, std::size_t Size>
+struct serialization_codec<std::array<T, Size>>
+    : sequence_serialization_codec<std::array<T, Size>> {};
 
 /** @brief `std::deque` 的数组序列化 codec。 */
 template <typename T, typename Allocator>

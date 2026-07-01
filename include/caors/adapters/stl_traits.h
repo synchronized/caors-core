@@ -7,6 +7,7 @@
 #include "caors/core/containers.h"
 #include "caors/meta/container_traits.h"
 
+#include <array>
 #include <deque>
 #include <iterator>
 #include <list>
@@ -66,6 +67,41 @@ template <typename T, typename Allocator> struct sequence_traits<std::vector<T, 
     } else {
       return false;
     }
+  }
+};
+
+/** @brief `std::array` 的固定长度顺序容器反射适配。 */
+template <typename T, std::size_t Size> struct sequence_traits<std::array<T, Size>> {
+  static constexpr bool is_sequence = true;
+  static constexpr std::size_t fixed_size = Size;
+  using element_type = std::remove_cv_t<T>;
+
+  [[nodiscard]] static constexpr std::string_view type_name_prefix() noexcept {
+    return "std.array";
+  }
+
+  [[nodiscard]] static constexpr std::size_t size(const std::array<T, Size>&) noexcept {
+    return Size;
+  }
+
+  [[nodiscard]] static const element_type* element(const std::array<T, Size>& values,
+                                                   std::size_t index) noexcept {
+    return index < Size ? &values[index] : nullptr;
+  }
+
+  [[nodiscard]] static element_type* mutable_element(std::array<T, Size>& values,
+                                                     std::size_t index) noexcept {
+    return index < Size ? &values[index] : nullptr;
+  }
+
+  static void clear(std::array<T, Size>&) noexcept {}
+
+  [[nodiscard]] static constexpr bool resize(std::array<T, Size>&, std::size_t size) noexcept {
+    return size == Size;
+  }
+
+  [[nodiscard]] static constexpr bool append(std::array<T, Size>&, const element_type&) noexcept {
+    return false;
   }
 };
 

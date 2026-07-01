@@ -129,6 +129,11 @@ private:
       name += sequence_traits<Field>::type_name_prefix();
       name += "<";
       name += element->name().view();
+      if constexpr (requires { sequence_traits<Field>::fixed_size; }) {
+        name += ",";
+        const std::string fixed_size = std::to_string(sequence_traits<Field>::fixed_size);
+        name.append(fixed_size.data(), fixed_size.size());
+      }
       name += ">";
       return name;
     } else {

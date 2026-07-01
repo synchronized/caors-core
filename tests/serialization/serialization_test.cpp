@@ -6,6 +6,7 @@
 
 #include <catch2/catch_all.hpp>
 
+#include <array>
 #include <cstdint>
 #include <deque>
 #include <functional>
@@ -158,6 +159,10 @@ struct vector_actor {
 
 struct deque_actor {
   std::deque<int> scores{};
+};
+
+struct array_actor {
+  std::array<int, 3> scores{};
 };
 
 struct nested_vector_values_actor {
@@ -1357,6 +1362,46 @@ TEST_CASE("serialization - roundtrips std deque fields", "[serialization]") {
   REQUIRE(decoded.scores.size() == 2);
   CHECK(decoded.scores[0] == 5);
   CHECK(decoded.scores[1] == 6);
+}
+
+TEST_CASE("serialization - roundtrips std array fields", "[serialization]") {
+  using scores_type = std::array<int, 3>;
+  REQUIRE(serialization_result_ok(caors::register_serialization_codec<scores_type>()));
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<array_actor>("caors.test.serialization.array_actor")
+          .field("scores", &array_actor::scores)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<array_actor>()));
+
+  array_actor actor{{1, 2, 3}};
+
+  const caors::serialization_text_result text = caors::serialize_text(actor);
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"scores":[1,2,3]})");
+
+  array_actor decoded{};
+  const caors::error result = caors::deserialize_json(decoded, R"({"scores":[5,6,7]})");
+
+  REQUIRE(result.succeeded());
+  CHECK(decoded.scores == std::array<int, 3>{5, 6, 7});
+}
+
+TEST_CASE("serialization - rejects std array length mismatch", "[serialization]") {
+  using scores_type = std::array<int, 3>;
+  REQUIRE(serialization_result_ok(caors::register_serialization_codec<scores_type>()));
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<array_actor>("caors.test.serialization.array_actor")
+          .field("scores", &array_actor::scores)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<array_actor>()));
+
+  array_actor actor{{1, 2, 3}};
+  const caors::error result = caors::deserialize_json(actor, R"({"scores":[5,6]})");
+
+  CHECK(result.failed());
+  CHECK(result.domain() == caors::error_domain::serialization);
+  CHECK(result.value() == caors::errc::unsupported);
+  CHECK(actor.scores == std::array<int, 3>{1, 2, 3});
 }
 
 TEST_CASE("serialization - serializes hash map fields as dictionaries", "[serialization]") {

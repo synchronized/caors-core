@@ -33,7 +33,7 @@
 - 版本迁移和默认值恢复。
 - 完整 JSON 标准扩展，例如非 ASCII `\uXXXX` 解码。
 - 多层指针、多层 wrapper、动态多态类型记录和对象图身份保持。
-- `std::array`、`std::span`、`std::pair`、`std::tuple`、`std::variant` 等复合类型默认适配。
+- `std::span`、`std::pair`、`std::tuple`、`std::variant` 等复合类型默认适配。
 
 这些能力后续应在对象 handle、字段策略和格式扩展点明确后逐步补充。
 
@@ -214,6 +214,7 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `object_ref<T>` 
 - `caors::vector<T>` / `std::vector<T>`：通过 `sequence_serialization_codec<T>` 输出为数组。
 - `caors::list<T>` / `std::list<T>`：通过 `sequence_serialization_codec<T>` 输出为数组。
 - `std::deque<T>`：通过 `sequence_serialization_codec<T>` 输出为数组。
+- `std::array<T, N>`：通过 `sequence_serialization_codec<T>` 输出为数组；读入长度必须等于 `N`。
 - `caors::hash_set<T>` / `std::unordered_set<T>` / `std::set<T>`：通过 `set_serialization_codec<T>`
   输出为数组，读入时拒绝重复元素。
 - `caors::hash_map<K, V>` / `std::unordered_map<K, V>` / `std::map<K, V>`：通过
@@ -280,8 +281,9 @@ DOM reader 同时接受 `variant::dictionary` 和 pair 数组形态。
   `caors::object_ref<T>` 或后续对象 handle。
 - 类型语义最多支持一层间接类型；`T**`、`std::unique_ptr<T*>`、
   `std::optional<std::shared_ptr<T>>` 等多层组合当前会触发静态断言。
-- `std::array<T, N>`、`std::span<T>`、`std::pair<T, U>`、`std::tuple<...>`、`std::variant<...>`
-  尚未内置适配。固定长度、借用视图、异构字段和 tagged union 需要单独设计读写规则。
+- `std::array<T, N>` 已支持固定长度数组读写；反序列化时数组长度必须等于 `N`，长度不匹配会返回失败。
+- `std::span<T>`、`std::pair<T, U>`、`std::tuple<...>`、`std::variant<...>` 尚未内置适配。
+  借用视图、异构字段和 tagged union 需要单独设计读写规则。
 - 反射对象按字段声明静态类型处理，不会自动记录运行期动态类型；多态序列化需要后续引入类型标识和构造策略。
 - JSON reader 目前不完整支持非 ASCII `\uXXXX` 解码，二进制格式、版本迁移和默认值恢复也尚未实现。
 
