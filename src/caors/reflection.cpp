@@ -234,6 +234,14 @@ any_ref reflection_field::get_ref(void* object) const {
   return field->get_ref(object);
 }
 
+indirect_view reflection_field::create_indirect_view(const void* object) const {
+  return get_ref(object).create_indirect_view();
+}
+
+indirect_view reflection_field::create_indirect_view(void* object) const {
+  return get_ref(object).create_indirect_view();
+}
+
 bool reflection_field::try_set_value(void* object, const any& source) const {
   const reflection_field_data* field = info();
   if (field == nullptr) {

@@ -29,6 +29,74 @@ template <typename T>
 inline constexpr bool is_nested_field_indirection_v =
     std::is_pointer_v<std::remove_cv_t<T>> || is_supported_wrapper_v<T>;
 
+template <typename T> [[nodiscard]] const void* raw_pointer_value(const void* storage) noexcept {
+  if (storage == nullptr) {
+    return nullptr;
+  }
+
+  return *static_cast<T* const*>(storage);
+}
+
+template <typename T> [[nodiscard]] void* raw_pointer_mutable_value(void* storage) noexcept {
+  if (storage == nullptr) {
+    return nullptr;
+  }
+
+  if constexpr (std::is_const_v<T>) {
+    return nullptr;
+  } else {
+    return *static_cast<T**>(storage);
+  }
+}
+
+template <typename T> [[nodiscard]] bool raw_pointer_has_value(const void* storage) noexcept {
+  return raw_pointer_value<T>(storage) != nullptr;
+}
+
+template <typename T> bool raw_pointer_reset(void* storage) noexcept {
+  if (storage == nullptr) {
+    return false;
+  }
+
+  *static_cast<T**>(storage) = nullptr;
+  return true;
+}
+
+template <typename Wrapper>
+[[nodiscard]] const void* wrapper_indirect_value(const void* storage) noexcept {
+  if (storage == nullptr) {
+    return nullptr;
+  }
+
+  return wrapper_access<Wrapper>::value(*static_cast<const Wrapper*>(storage));
+}
+
+template <typename Wrapper>
+[[nodiscard]] void* wrapper_mutable_indirect_value(void* storage) noexcept {
+  if (storage == nullptr) {
+    return nullptr;
+  }
+
+  return wrapper_access<Wrapper>::mutable_value(*static_cast<Wrapper*>(storage));
+}
+
+template <typename Wrapper>
+[[nodiscard]] bool wrapper_has_indirect_value(const void* storage) noexcept {
+  if (storage == nullptr) {
+    return false;
+  }
+
+  return wrapper_access<Wrapper>::has_value(*static_cast<const Wrapper*>(storage));
+}
+
+template <typename Wrapper> bool wrapper_reset_indirect_value(void* storage) noexcept {
+  if (storage == nullptr) {
+    return false;
+  }
+
+  return wrapper_access<Wrapper>::reset(*static_cast<Wrapper*>(storage));
+}
+
 template <typename T> [[nodiscard]] type_id known_type_id() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (has_type_name_v<type>) {
@@ -93,6 +161,10 @@ template <typename Field> struct type_semantics_traits {
       info.kind = type_kind::wrapper;
       info.wrapper_semantics = wrapper_traits<field_type>::semantics;
       info.value_type = known_type_id<value_type>();
+      info.indirect_value = &wrapper_indirect_value<field_type>;
+      info.mutable_indirect_value = &wrapper_mutable_indirect_value<field_type>;
+      info.has_indirect_value = &wrapper_has_indirect_value<field_type>;
+      info.reset_indirect_value = &wrapper_reset_indirect_value<field_type>;
       info.nullable = wrapper_traits<field_type>::nullable;
       return info;
     } else {
@@ -115,6 +187,10 @@ template <typename T> struct type_semantics_traits<T*> {
     info.kind = type_kind::raw_pointer;
     info.wrapper_semantics = wrapper_semantics::inline_value;
     info.value_type = known_type_id<value_type>();
+    info.indirect_value = &raw_pointer_value<T>;
+    info.mutable_indirect_value = &raw_pointer_mutable_value<T>;
+    info.has_indirect_value = &raw_pointer_has_value<T>;
+    info.reset_indirect_value = &raw_pointer_reset<T>;
     info.pointer_depth = 1;
     info.nullable = true;
     return info;

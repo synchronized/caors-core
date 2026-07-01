@@ -154,6 +154,8 @@ caors::meta<actor>()
 - `value_type`：普通值、枚举、裸指针或 wrapper 对应的值类型。
 - `element_type`：顺序容器或集合容器的元素类型。
 - `key_type` / `mapped_type`：关联容器的 key/value 类型。
+- `indirect_value` / `mutable_indirect_value`：指针或 wrapper 解包后的内部值访问函数。
+- `has_indirect_value` / `reset_indirect_value`：指针或 wrapper 的持值检测和重置函数。
 - `pointer_depth`：当前支持的指针层级。
 - `nullable`：运行期值是否可能为空。
 

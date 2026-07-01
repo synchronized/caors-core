@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <utility>
 
 namespace {
@@ -18,6 +19,14 @@ struct reflected_value_holder {
 
 struct move_only_value {
   std::unique_ptr<int> value{};
+};
+
+struct indirect_value_holder {
+  int value = 7;
+  int* pointer = &value;
+  std::optional<int> optional = 11;
+  std::unique_ptr<int> unique = std::make_unique<int>(13);
+  std::weak_ptr<int> weak{};
 };
 
 } // namespace
@@ -176,4 +185,73 @@ TEST_CASE("reflection any - noncopyable fields return invalid values", "[reflect
   caors::any_ref numeric_ref = numeric_field.get_ref(&numeric);
   CHECK(numeric_ref.try_set(21));
   CHECK(numeric == 21);
+}
+
+TEST_CASE("reflection any_ref - creates indirect views for pointer and wrappers", "[reflection]") {
+  indirect_value_holder holder{};
+  auto shared = std::make_shared<int>(17);
+  holder.weak = shared;
+
+  const caors::reflection_field_data pointer_field = caors::make_reflection_field_data<int*>(
+      "pointer", "int*", offsetof(indirect_value_holder, pointer));
+  const caors::reflection_field_data optional_field =
+      caors::make_reflection_field_data<std::optional<int>>(
+          "optional", "std.optional<int>", offsetof(indirect_value_holder, optional));
+  const caors::reflection_field_data unique_field =
+      caors::make_reflection_field_data<std::unique_ptr<int>>(
+          "unique", "std.unique_ptr<int>", offsetof(indirect_value_holder, unique));
+  const caors::reflection_field_data weak_field =
+      caors::make_reflection_field_data<std::weak_ptr<int>>("weak", "std.weak_ptr<int>",
+                                                            offsetof(indirect_value_holder, weak));
+
+  caors::indirect_view pointer = pointer_field.get_ref(&holder).create_indirect_view();
+  REQUIRE(pointer.valid());
+  CHECK(pointer.writable());
+  CHECK(pointer.value_type() == caors::make_type_id("int"));
+  CHECK(pointer.value_type_name() == "int");
+  CHECK(pointer.has_value());
+  caors::any_ref pointer_value = pointer.value_ref();
+  REQUIRE(pointer_value.valid());
+  REQUIRE(pointer_value.try_get_mutable<int>() != nullptr);
+  *pointer_value.try_get_mutable<int>() = 23;
+  CHECK(holder.value == 23);
+  CHECK(pointer.reset());
+  CHECK(holder.pointer == nullptr);
+  CHECK_FALSE(pointer.has_value());
+  CHECK_FALSE(pointer.value_ref().valid());
+
+  caors::indirect_view optional = optional_field.get_ref(&holder).create_indirect_view();
+  REQUIRE(optional.valid());
+  REQUIRE(optional.value_ref().try_get_mutable<int>() != nullptr);
+  CHECK(*optional.value_ref().try_get_mutable<int>() == 11);
+  CHECK(optional.value_ref().try_set(31));
+  CHECK(holder.optional == 31);
+  CHECK(optional.reset());
+  CHECK_FALSE(holder.optional.has_value());
+  CHECK_FALSE(optional.has_value());
+
+  caors::indirect_view unique = unique_field.get_ref(&holder).create_indirect_view();
+  REQUIRE(unique.valid());
+  REQUIRE(unique.value_ref().try_get_mutable<int>() != nullptr);
+  CHECK(*unique.value_ref().try_get_mutable<int>() == 13);
+  CHECK(unique.value_ref().try_set(37));
+  REQUIRE(holder.unique);
+  CHECK(*holder.unique == 37);
+
+  const indirect_value_holder& readonly_holder = holder;
+  caors::indirect_view readonly_unique =
+      unique_field.get_ref(&readonly_holder).create_indirect_view();
+  REQUIRE(readonly_unique.valid());
+  CHECK_FALSE(readonly_unique.writable());
+  caors::any_ref readonly_value = readonly_unique.value_ref();
+  CHECK(readonly_value.valid());
+  CHECK_FALSE(readonly_value.writable());
+  CHECK_FALSE(readonly_unique.reset());
+
+  caors::indirect_view weak = weak_field.get_ref(&holder).create_indirect_view();
+  REQUIRE(weak.valid());
+  CHECK(weak.has_value());
+  CHECK_FALSE(weak.value_ref().valid());
+  CHECK(weak.reset());
+  CHECK_FALSE(weak.has_value());
 }

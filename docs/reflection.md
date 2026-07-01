@@ -123,8 +123,24 @@ struct wrapper_traits<my_box<T>> {
   using wrapped_type = T;
 };
 
+template <typename T>
+struct wrapper_access<my_box<T>> {
+  using wrapped_type = T;
+
+  static const wrapped_type* value(const my_box<T>& source) noexcept;
+  static wrapped_type* mutable_value(my_box<T>& source) noexcept;
+  static bool has_value(const my_box<T>& source) noexcept;
+  static bool reset(my_box<T>& source) noexcept;
+};
+
 }
 ```
+
+`wrapper_access<T>` 是可选扩展点。只需要识别 wrapper 形态时可以只特化 `wrapper_traits<T>`；如果希望
+`any_ref::create_indirect_view()` 或 `reflection_field::create_indirect_view()` 能访问内部值，则需要同时特化
+`wrapper_access<T>`。内置适配支持裸指针、`std::unique_ptr<T>`、`std::shared_ptr<T>`、
+`std::optional<T>`、`std::reference_wrapper<T>` 和 `caors::object_ref<T>` 的内部值访问；`std::weak_ptr<T>`
+只支持 `has_value()` 和 `reset()`，不会返回可能悬空的内部引用。
 
 顺序容器识别通过 `sequence_traits<T>` 扩展。traits 需要提供元素类型、类型名前缀和基础元素访问函数：
 
@@ -278,6 +294,7 @@ ref.try_set(9);
 - `create_sequence_view()`：如果当前值的类型挂载了顺序容器 metadata，则创建顺序容器视图。
 - `create_set_view()`：如果当前值的类型挂载了集合容器 metadata，则创建集合容器视图。
 - `create_associative_view()`：如果当前值的类型挂载了关联容器 metadata，则创建可写或只读关联容器视图。
+- `create_indirect_view()`：如果当前值的类型挂载了指针或 wrapper 语义 metadata，则创建内部值视图。
 
 第一版 `any` 只支持可拷贝类型；不可拷贝字段调用 `get_value()` 会返回无效 `any`。
 
@@ -298,6 +315,7 @@ ref.try_set(9);
 - `create_sequence_view()`：如果当前引用的类型挂载了顺序容器 metadata，则创建顺序容器视图。
 - `create_set_view()`：如果当前引用的类型挂载了集合容器 metadata，则创建集合容器视图。
 - `create_associative_view()`：如果当前引用的类型挂载了关联容器 metadata，则创建关联容器视图。
+- `create_indirect_view()`：如果当前引用的类型挂载了指针或 wrapper 语义 metadata，则创建内部值视图。
 
 ### reflection_type_data
 
@@ -357,6 +375,7 @@ field->try_set<float>(&instance, 75.0F);
 - `try_get<T>()` / `try_set<T>()`：按静态类型读写字段。
 - `get_value()` / `try_set_value()`：按运行期 `any` 读写字段。
 - `get_ref(const void*)` / `get_ref(void*)`：按运行期 `any_ref` 引用字段，权限由对象指针的 constness 决定。
+- `create_indirect_view(const void*)` / `create_indirect_view(void*)`：创建指针或 wrapper 字段的内部值视图。
 - `is_sequence()`：判断字段是否是顺序容器字段。
 - `is_set()`：判断字段是否是集合容器字段。
 - `is_associative()`：判断字段是否是关联容器字段。
@@ -382,6 +401,17 @@ field->try_set<float>(&instance, 75.0F);
 - `size()` / `for_each_ref()`：查询和遍历关联容器。遍历返回的 key/value 是只读 `any_ref`。
 - `clear()` / `insert_value()`：通过 `associative_traits` 修改关联容器。只有可写视图允许修改；插入时
   key 和 value 必须与类型级关联容器 metadata 记录的 `type_id` 一致。
+
+`indirect_view` 当前提供：
+
+- `valid()` / `writable()`：判断视图有效性和是否允许修改。
+- `value_type()` / `value_type_name()`：查询内部值类型。
+- `has_value()`：判断指针或 wrapper 当前是否持有内部值。
+- `value_ref()`：获取内部值 `any_ref`。只读视图返回只读引用；可写视图在 wrapper 支持时返回可写引用。
+- `reset()`：把裸指针或 nullable wrapper 置空。只有可写视图允许重置。
+
+`indirect_view` 不拥有 wrapper 或内部值，也不延长内部对象生命周期。裸指针和智能指针解包后返回的是当前
+指向对象的引用；调用方需要保证引用使用期间对象仍然有效。
 
 `sequence_type_data`、`set_type_data` 和 `associative_type_data` 只保存元素/key/value 的 `type_id`
 以及容器操作函数。元素/key/value 的名称、C++ 类型 key、大小、对齐和复制/赋值函数统一从

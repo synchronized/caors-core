@@ -41,6 +41,10 @@ namespace detail {
 using value_clone_fn = void* (*)(const void*);
 using value_destroy_fn = void (*)(void*) noexcept;
 using value_assign_fn = bool (*)(void*, const void*);
+using indirect_const_value_fn = const void* (*)(const void*) noexcept;
+using indirect_mutable_value_fn = void* (*)(void*) noexcept;
+using indirect_has_value_fn = bool (*)(const void*) noexcept;
+using indirect_reset_fn = bool (*)(void*) noexcept;
 
 template <typename T> void* clone_value(const void* source) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
@@ -108,6 +112,10 @@ struct meta_type_semantics_data {
   type_id element_type{};
   type_id key_type{};
   type_id mapped_type{};
+  detail::indirect_const_value_fn indirect_value = nullptr;
+  detail::indirect_mutable_value_fn mutable_indirect_value = nullptr;
+  detail::indirect_has_value_fn has_indirect_value = nullptr;
+  detail::indirect_reset_fn reset_indirect_value = nullptr;
   std::uint8_t pointer_depth = 0;
   bool nullable = false;
 };

@@ -17,6 +17,7 @@
 namespace caors {
 
 class any_ref;
+class indirect_view;
 class sequence_view;
 class set_view;
 class associative_view;
@@ -393,6 +394,8 @@ public:
   [[nodiscard]] set_view create_set_view() const;
   [[nodiscard]] associative_view create_associative_view();
   [[nodiscard]] associative_view create_associative_view() const;
+  [[nodiscard]] indirect_view create_indirect_view();
+  [[nodiscard]] indirect_view create_indirect_view() const;
 
   /** @brief 清空当前值。 */
   void reset() noexcept {
@@ -607,6 +610,7 @@ public:
   [[nodiscard]] sequence_view create_sequence_view() const;
   [[nodiscard]] set_view create_set_view() const;
   [[nodiscard]] associative_view create_associative_view() const;
+  [[nodiscard]] indirect_view create_indirect_view() const;
 
   /** @brief 判断当前引用是否匹配指定 C++ 类型。 */
   template <typename T> [[nodiscard]] bool matches_type() const noexcept {
@@ -687,6 +691,7 @@ public:
   [[nodiscard]] any to_any() const { return any::copy_from_raw(type_, data_); }
 
 private:
+  friend class indirect_view;
   friend class sequence_view;
   friend class set_view;
   friend class associative_view;
@@ -707,6 +712,83 @@ private:
 
   type_id type_{};
   const void* data_ = nullptr;
+  bool writable_ = false;
+};
+
+/**
+ * @brief 指针和 wrapper 的内部值视图。
+ *
+ * `indirect_view` 不拥有 wrapper 或内部值，只引用 `any` / `any_ref` 指向的 wrapper 对象。
+ * 可写视图才允许重置 wrapper 或返回可写内部值引用。
+ */
+class indirect_view final {
+public:
+  indirect_view() noexcept = default;
+
+  [[nodiscard]] bool valid() const noexcept {
+    return data_ != nullptr && storage_ != nullptr && data_->value_type;
+  }
+
+  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
+  [[nodiscard]] bool writable() const noexcept { return valid() && writable_; }
+  [[nodiscard]] type_id value_type() const noexcept {
+    return valid() ? data_->value_type : type_id{};
+  }
+
+  [[nodiscard]] string_name value_type_name() const noexcept {
+    const std::optional<meta_type> meta = valid() ? find_type(data_->value_type) : std::nullopt;
+    return meta ? meta->name() : string_name{};
+  }
+
+  /** @brief 判断 wrapper 当前是否持有内部值。 */
+  [[nodiscard]] bool has_value() const noexcept {
+    if (!valid() || data_->has_indirect_value == nullptr) {
+      return false;
+    }
+
+    return data_->has_indirect_value(storage_);
+  }
+
+  /** @brief 获取内部值引用。 */
+  [[nodiscard]] any_ref value_ref() const {
+    if (!valid() || data_->indirect_value == nullptr) {
+      return {};
+    }
+
+    const void* value = nullptr;
+    bool value_writable = false;
+    if (writable() && data_->mutable_indirect_value != nullptr) {
+      value = data_->mutable_indirect_value(const_cast<void*>(storage_));
+      value_writable = value != nullptr;
+    } else {
+      value = data_->indirect_value(storage_);
+    }
+
+    if (value == nullptr) {
+      return {};
+    }
+
+    return any_ref::from_raw(data_->value_type, value, value_writable);
+  }
+
+  /** @brief 重置 wrapper 或裸指针为空。 */
+  bool reset() const {
+    if (!writable() || data_->reset_indirect_value == nullptr) {
+      return false;
+    }
+
+    return data_->reset_indirect_value(const_cast<void*>(storage_));
+  }
+
+private:
+  friend class any;
+  friend class any_ref;
+
+  indirect_view(const meta_type_semantics_data* data, const void* storage, bool writable) noexcept
+      : data_(data), storage_(storage), writable_(writable) {}
+
+  const meta_type_semantics_data* data_ = nullptr;
+  const void* storage_ = nullptr;
   bool writable_ = false;
 };
 
@@ -1041,6 +1123,48 @@ inline associative_view any_ref::create_associative_view() const {
   }
 
   return associative_view{data, data_, writable_};
+}
+
+inline indirect_view any::create_indirect_view() {
+  if (!valid()) {
+    return {};
+  }
+
+  const meta_type_semantics_data* data =
+      get_meta_registry().find_ptr<meta_type_semantics_data>(type_);
+  if (data == nullptr) {
+    return {};
+  }
+
+  return indirect_view{data, mutable_data(), true};
+}
+
+inline indirect_view any::create_indirect_view() const {
+  if (!valid()) {
+    return {};
+  }
+
+  const meta_type_semantics_data* data =
+      get_meta_registry().find_ptr<meta_type_semantics_data>(type_);
+  if (data == nullptr) {
+    return {};
+  }
+
+  return indirect_view{data, data_, false};
+}
+
+inline indirect_view any_ref::create_indirect_view() const {
+  if (!valid()) {
+    return {};
+  }
+
+  const meta_type_semantics_data* data =
+      get_meta_registry().find_ptr<meta_type_semantics_data>(type_);
+  if (data == nullptr) {
+    return {};
+  }
+
+  return indirect_view{data, data_, writable_};
 }
 
 inline sequence_view any::create_sequence_view() {
