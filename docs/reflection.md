@@ -34,16 +34,13 @@
 
 - `name`：字段名。
 - `type`：字段声明类型的运行期 `type_id`。
-- `type_name`：字段声明类型名。
-- `kind`：字段形态，例如值、枚举、裸指针或 wrapper。
-- `wrapper_semantics`：wrapper 或裸指针的序列化语义，例如内联值、对象引用或不支持。
-- `value_type`：去掉一层指针或 wrapper 后的值类型。
-- `pointer_depth`：当前支持的指针层级，合法值为 0 或 1。
-- `nullable`：字段值是否可能为空。
+- `get_object_ref` / `set_object_ref`：对象引用 wrapper 的访问函数。
 - `offset`：字段在类型中的偏移。
-- `size`：字段大小。
-- `alignment`：字段对齐。
 - `writable`：字段是否允许写入。
+
+字段声明类型名、大小、对齐和 C++ 类型操作函数由 `type` 对应的 `meta_type_data` 查询。字段形态、
+wrapper 语义、解包值类型、容器元素类型和 key/value 类型由同一 `type` 上挂载的
+`meta_type_traits_data` 查询，避免反射、序列化和 value 模块分别重复保存类型事实。
 
 字段描述可以通过 `make_reflection_field_data<Field>()` 创建：
 
@@ -59,7 +56,7 @@ caors::reflection_field_data field =
 
 第一版要求调用方显式传入 offset，通常配合 `offsetof()` 使用。后续如果引入代码生成工具，可以由工具生成字段描述。
 
-更推荐使用 `reflection::class_<T>()` builder，它可以通过成员指针推导字段大小、对齐、偏移和字段类型：
+更推荐使用 `reflection::class_<T>()` builder，它可以通过成员指针推导偏移和字段类型：
 
 ```cpp
 caors::reflection::class_<actor>("game.actor")
@@ -73,11 +70,13 @@ caors::reflection::class_<actor>("game.actor")
 - 如果字段类型已经通过模板注册函数注册到全局反射注册表，优先复用该类型的 `meta_type`。
 - 如果字段类型没有注册，但存在 `type_name<T>` 默认映射，则使用默认类型名注册为基础类型，并使用注册表分配的 `type_id`。
 - 如果字段类型满足 `sequence_traits<T>::is_sequence`，反射 builder 会根据 traits 的类型名前缀和元素类型名生成
-  容器类型名，并记录元素类型信息。内置特化支持 `caors::vector<T>` 和 `std::vector<T, Allocator>`。
+  容器类型名，并把元素类型信息挂到对应的 `meta_type_traits_data` 上。内置特化支持 `caors::vector<T>` 和
+  `std::vector<T, Allocator>`。
 - 如果字段类型满足 `set_traits<T>::is_set`，反射 builder 会根据 traits 的类型名前缀和元素类型名生成
-  容器类型名，并记录元素类型信息。内置特化支持 `caors::hash_set<T>` 和 `std::unordered_set<T, ...>`。
+  容器类型名，并把元素类型信息挂到对应的 `meta_type_traits_data` 上。内置特化支持 `caors::hash_set<T>` 和
+  `std::unordered_set<T, ...>`。
 - 如果字段类型满足 `associative_traits<T>::is_associative`，反射 builder 会根据 traits 的类型名前缀、
-  key 类型名和 value 类型名生成容器类型名，并记录 key/value 类型信息。内置特化支持
+  key 类型名和 value 类型名生成容器类型名，并把 key/value 类型信息挂到对应的 `meta_type_traits_data` 上。内置特化支持
   `caors::hash_map<K, V>` 和 `std::unordered_map<K, V, ...>`。
 - 如果两者都没有，`.commit()` 返回 `invalid_field`。
 - 字段类型语义最多支持一层裸指针或 wrapper；`T**`、`std::unique_ptr<T*>`、
@@ -441,8 +440,8 @@ auto reflected = caors::find_reflection("game.actor");
 
 - `any`：运行期 C++ 类型值拷贝。
 - `any_ref`：运行期 C++ 类型非拥有引用。
-- `reflection_field_data`：字段名、字段类型名、字段形态、wrapper 语义、解包类型、offset、size、alignment、
-  基础 get/set 和运行期值访问。
+- `reflection_field_data`：字段名、字段声明类型 id、offset、可写性、对象引用访问函数和基础字段访问。
+- `meta_type_traits_data`：字段声明类型的形态、wrapper 语义、解包类型、容器元素类型和 key/value 类型。
 - `reflection_type_data`：字段列表等反射组件数据。
 - `reflection_type` / `reflection_field`：全局反射数据的推荐查询入口。
 - `reflection_registry`：底层全局注册表实现。

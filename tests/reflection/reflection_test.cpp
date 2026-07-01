@@ -221,6 +221,14 @@ constexpr caors::type_guid view_actor_guid{caors::guid::from_bytes(
   return {caors::error_domain::reflection, code};
 }
 
+[[nodiscard]] const caors::meta_type_traits_data&
+registered_traits(const caors::reflection_field_data& field) {
+  const auto* traits =
+      caors::get_meta_registry().find_ptr<caors::meta_type_traits_data>(field.type);
+  REQUIRE(traits != nullptr);
+  return *traits;
+}
+
 } // namespace
 
 TEST_CASE("reflection - field info describes field layout", "[reflection]") {
@@ -230,96 +238,108 @@ TEST_CASE("reflection - field info describes field layout", "[reflection]") {
   CHECK(field.valid());
   CHECK(field.name == "health");
   CHECK(field.type == registered_type_id("float"));
-  CHECK(field.type_name == "float");
   CHECK(field.offset == offsetof(actor, health));
-  CHECK(field.size == sizeof(float));
-  CHECK(field.alignment == alignof(float));
   CHECK(field.writable);
+
+  const auto type = caors::find_type(field.type);
+  REQUIRE(type.has_value());
+  CHECK(type->name() == "float");
+  CHECK(type->size() == sizeof(float));
+  CHECK(type->alignment() == alignof(float));
 }
 
 TEST_CASE("reflection - field info describes field type traits", "[reflection]") {
   const caors::reflection_field_data value =
       caors::make_reflection_field_data<int>("value", "int", 0);
-  CHECK(value.kind == caors::field_kind::value);
-  CHECK(value.wrapper_semantics == caors::field_wrapper_semantics::none);
-  CHECK(value.value_type == registered_type_id("int"));
-  CHECK(value.pointer_depth == 0);
-  CHECK_FALSE(value.nullable);
+  const caors::meta_type_traits_data& value_traits = registered_traits(value);
+  CHECK(value_traits.kind == caors::field_kind::value);
+  CHECK(value_traits.wrapper_semantics == caors::field_wrapper_semantics::none);
+  CHECK(value_traits.value_type == registered_type_id("int"));
+  CHECK(value_traits.pointer_depth == 0);
+  CHECK_FALSE(value_traits.nullable);
 
   const caors::reflection_field_data enumeration =
       caors::make_reflection_field_data<reflected_color>("color", "caors.test.reflection.color", 0);
-  CHECK(enumeration.kind == caors::field_kind::enumeration);
-  CHECK(enumeration.wrapper_semantics == caors::field_wrapper_semantics::none);
-  CHECK(enumeration.value_type == registered_type_id("caors.test.reflection.color"));
-  CHECK_FALSE(enumeration.nullable);
+  const caors::meta_type_traits_data& enumeration_traits = registered_traits(enumeration);
+  CHECK(enumeration_traits.kind == caors::field_kind::enumeration);
+  CHECK(enumeration_traits.wrapper_semantics == caors::field_wrapper_semantics::none);
+  CHECK(enumeration_traits.value_type == registered_type_id("caors.test.reflection.color"));
+  CHECK_FALSE(enumeration_traits.nullable);
 
   const caors::reflection_field_data raw =
       caors::make_reflection_field_data<int*>("raw", "int*", 0);
-  CHECK(raw.kind == caors::field_kind::raw_pointer);
-  CHECK(raw.wrapper_semantics == caors::field_wrapper_semantics::inline_value);
-  CHECK(raw.value_type == registered_type_id("int"));
-  CHECK(raw.pointer_depth == 1);
-  CHECK(raw.nullable);
+  const caors::meta_type_traits_data& raw_traits = registered_traits(raw);
+  CHECK(raw_traits.kind == caors::field_kind::raw_pointer);
+  CHECK(raw_traits.wrapper_semantics == caors::field_wrapper_semantics::inline_value);
+  CHECK(raw_traits.value_type == registered_type_id("int"));
+  CHECK(raw_traits.pointer_depth == 1);
+  CHECK(raw_traits.nullable);
 
   const caors::reflection_field_data unique =
       caors::make_reflection_field_data<std::unique_ptr<int>>("unique", "std.unique_ptr<int>", 0);
-  CHECK(unique.kind == caors::field_kind::wrapper);
-  CHECK(unique.wrapper_semantics == caors::field_wrapper_semantics::inline_value);
-  CHECK(unique.value_type == registered_type_id("int"));
-  CHECK(unique.nullable);
+  const caors::meta_type_traits_data& unique_traits = registered_traits(unique);
+  CHECK(unique_traits.kind == caors::field_kind::wrapper);
+  CHECK(unique_traits.wrapper_semantics == caors::field_wrapper_semantics::inline_value);
+  CHECK(unique_traits.value_type == registered_type_id("int"));
+  CHECK(unique_traits.nullable);
 
   const caors::reflection_field_data shared =
       caors::make_reflection_field_data<std::shared_ptr<int>>("shared", "std.shared_ptr<int>", 0);
-  CHECK(shared.kind == caors::field_kind::wrapper);
-  CHECK(shared.wrapper_semantics == caors::field_wrapper_semantics::inline_value);
-  CHECK(shared.value_type == registered_type_id("int"));
-  CHECK(shared.nullable);
+  const caors::meta_type_traits_data& shared_traits = registered_traits(shared);
+  CHECK(shared_traits.kind == caors::field_kind::wrapper);
+  CHECK(shared_traits.wrapper_semantics == caors::field_wrapper_semantics::inline_value);
+  CHECK(shared_traits.value_type == registered_type_id("int"));
+  CHECK(shared_traits.nullable);
 
   const caors::reflection_field_data weak =
       caors::make_reflection_field_data<std::weak_ptr<int>>("weak", "std.weak_ptr<int>", 0);
-  CHECK(weak.kind == caors::field_kind::wrapper);
-  CHECK(weak.wrapper_semantics == caors::field_wrapper_semantics::inline_value);
-  CHECK(weak.value_type == registered_type_id("int"));
-  CHECK(weak.nullable);
+  const caors::meta_type_traits_data& weak_traits = registered_traits(weak);
+  CHECK(weak_traits.kind == caors::field_kind::wrapper);
+  CHECK(weak_traits.wrapper_semantics == caors::field_wrapper_semantics::inline_value);
+  CHECK(weak_traits.value_type == registered_type_id("int"));
+  CHECK(weak_traits.nullable);
 
   const caors::reflection_field_data optional =
       caors::make_reflection_field_data<std::optional<int>>("optional", "std.optional<int>", 0);
-  CHECK(optional.kind == caors::field_kind::wrapper);
-  CHECK(optional.wrapper_semantics == caors::field_wrapper_semantics::inline_value);
-  CHECK(optional.value_type == registered_type_id("int"));
-  CHECK(optional.nullable);
+  const caors::meta_type_traits_data& optional_traits = registered_traits(optional);
+  CHECK(optional_traits.kind == caors::field_kind::wrapper);
+  CHECK(optional_traits.wrapper_semantics == caors::field_wrapper_semantics::inline_value);
+  CHECK(optional_traits.value_type == registered_type_id("int"));
+  CHECK(optional_traits.nullable);
 
   const caors::reflection_field_data wrapper =
       caors::make_reflection_field_data<std::reference_wrapper<int>>(
           "wrapper", "std.reference_wrapper<int>", 0);
-  CHECK(wrapper.kind == caors::field_kind::wrapper);
-  CHECK(wrapper.wrapper_semantics == caors::field_wrapper_semantics::inline_value);
-  CHECK(wrapper.value_type == registered_type_id("int"));
-  CHECK_FALSE(wrapper.nullable);
+  const caors::meta_type_traits_data& wrapper_traits = registered_traits(wrapper);
+  CHECK(wrapper_traits.kind == caors::field_kind::wrapper);
+  CHECK(wrapper_traits.wrapper_semantics == caors::field_wrapper_semantics::inline_value);
+  CHECK(wrapper_traits.value_type == registered_type_id("int"));
+  CHECK_FALSE(wrapper_traits.nullable);
 
   const caors::reflection_field_data custom_inline =
       caors::make_reflection_field_data<custom_inline_wrapper<int>>("custom_inline",
                                                                     "custom.inline<int>", 0);
-  CHECK(custom_inline.kind == caors::field_kind::wrapper);
-  CHECK(custom_inline.wrapper_semantics == caors::field_wrapper_semantics::inline_value);
-  CHECK(custom_inline.value_type == registered_type_id("int"));
-  CHECK_FALSE(custom_inline.nullable);
+  const caors::meta_type_traits_data& custom_inline_traits = registered_traits(custom_inline);
+  CHECK(custom_inline_traits.kind == caors::field_kind::wrapper);
+  CHECK(custom_inline_traits.wrapper_semantics == caors::field_wrapper_semantics::inline_value);
+  CHECK(custom_inline_traits.value_type == registered_type_id("int"));
+  CHECK_FALSE(custom_inline_traits.nullable);
 
   const caors::reflection_field_data custom_ref =
       caors::make_reflection_field_data<custom_object_ref<int>>("custom_ref",
                                                                 "custom.object_ref<int>", 0);
-  CHECK(custom_ref.kind == caors::field_kind::wrapper);
-  CHECK(custom_ref.wrapper_semantics == caors::field_wrapper_semantics::object_ref);
-  CHECK(custom_ref.value_type == registered_type_id("int"));
-  CHECK(custom_ref.nullable);
+  const caors::meta_type_traits_data& custom_ref_traits = registered_traits(custom_ref);
+  CHECK(custom_ref_traits.kind == caors::field_kind::wrapper);
+  CHECK(custom_ref_traits.wrapper_semantics == caors::field_wrapper_semantics::object_ref);
+  CHECK(custom_ref_traits.value_type == registered_type_id("int"));
+  CHECK(custom_ref_traits.nullable);
 
   const caors::reflection_field_data sequence =
       caors::make_reflection_field_data<caors::vector<int>>("values", "caors.vector<int>", 0);
-  CHECK(sequence.kind == caors::field_kind::sequence);
-  CHECK(sequence.wrapper_semantics == caors::field_wrapper_semantics::none);
-  CHECK(sequence.element_type == registered_type_id("int"));
-  CHECK(sequence.element_size == sizeof(int));
-  CHECK(sequence.element_alignment == alignof(int));
+  const caors::meta_type_traits_data& sequence_traits = registered_traits(sequence);
+  CHECK(sequence_traits.kind == caors::field_kind::sequence);
+  CHECK(sequence_traits.wrapper_semantics == caors::field_wrapper_semantics::none);
+  CHECK(sequence_traits.element_type == registered_type_id("int"));
 }
 
 TEST_CASE("reflection - field info reads and writes field values", "[reflection]") {
@@ -370,7 +390,9 @@ TEST_CASE("reflection - type data stores and finds fields", "[reflection]") {
 
   auto health = type.find_field("health");
   REQUIRE(health.has_value());
-  CHECK(health->type_name == "float");
+  const auto health_type = caors::find_type(health->type);
+  REQUIRE(health_type.has_value());
+  CHECK(health_type->name() == "float");
   CHECK_FALSE(type.find_field("missing").has_value());
 }
 

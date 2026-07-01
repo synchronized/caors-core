@@ -4,6 +4,7 @@
 #ifndef CAORS_REFLECTION_WRAPPER_H_
 #define CAORS_REFLECTION_WRAPPER_H_
 
+#include "caors/meta/type.h"
 #include "caors/object.h"
 
 #include <functional>
@@ -12,14 +13,6 @@
 #include <type_traits>
 
 namespace caors {
-
-/** @brief wrapper 字段的序列化语义。 */
-enum class field_wrapper_semantics {
-  none,
-  inline_value,
-  object_ref,
-  unsupported,
-};
 
 /**
  * @brief C++ wrapper 类型到反射字段语义的映射。

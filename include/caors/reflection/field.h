@@ -17,17 +17,6 @@
 
 namespace caors {
 
-/** @brief 字段类型形态。 */
-enum class field_kind {
-  value,
-  enumeration,
-  raw_pointer,
-  wrapper,
-  sequence,
-  set,
-  associative,
-};
-
 namespace detail {
 
 using object_ref_get_fn = object* (*)(const void*) noexcept;
@@ -66,16 +55,7 @@ template <typename T> [[nodiscard]] type_id register_field_type_id(std::string_v
   return type_id::invalid();
 }
 
-struct field_traits_info {
-  field_kind kind = field_kind::value;
-  field_wrapper_semantics wrapper_semantics = field_wrapper_semantics::none;
-  type_id value_type{};
-  type_id element_type{};
-  type_id key_type{};
-  type_id mapped_type{};
-  std::uint8_t pointer_depth = 0;
-  bool nullable = false;
-};
+using field_traits_info = meta_type_traits_data;
 
 template <typename Field> struct field_traits {
   using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
@@ -202,56 +182,21 @@ template <typename Field> [[nodiscard]] object_ref_set_fn object_ref_set_fn_of()
 struct reflection_field_data {
   string_name name{};
   type_id type{};
-  string_name type_name{};
-  detail::cpp_type_key cpp_type = nullptr;
-  type_id value_type{};
-  type_id element_type{};
-  type_id key_type{};
-  type_id mapped_type{};
-  string_name element_type_name{};
-  string_name key_type_name{};
-  string_name mapped_type_name{};
-  detail::cpp_type_key element_cpp_type = nullptr;
-  detail::cpp_type_key key_cpp_type = nullptr;
-  detail::cpp_type_key mapped_cpp_type = nullptr;
-  std::size_t element_size = 0;
-  std::size_t element_alignment = 0;
-  std::size_t key_size = 0;
-  std::size_t key_alignment = 0;
-  std::size_t mapped_size = 0;
-  std::size_t mapped_alignment = 0;
-  detail::value_clone_fn clone_element = nullptr;
-  detail::value_destroy_fn destroy_element = nullptr;
-  detail::value_assign_fn assign_element = nullptr;
-  detail::value_clone_fn clone_key = nullptr;
-  detail::value_destroy_fn destroy_key = nullptr;
-  detail::value_assign_fn assign_key = nullptr;
-  detail::value_clone_fn clone_mapped = nullptr;
-  detail::value_destroy_fn destroy_mapped = nullptr;
-  detail::value_assign_fn assign_mapped = nullptr;
-  detail::value_clone_fn clone_value = nullptr;
-  detail::value_destroy_fn destroy_value = nullptr;
-  detail::value_assign_fn assign_value = nullptr;
   detail::object_ref_get_fn get_object_ref = nullptr;
   detail::object_ref_set_fn set_object_ref = nullptr;
-  field_kind kind = field_kind::value;
-  field_wrapper_semantics wrapper_semantics = field_wrapper_semantics::none;
-  std::uint8_t pointer_depth = 0;
-  bool nullable = false;
   std::size_t offset = 0;
-  std::size_t size = 0;
-  std::size_t alignment = 0;
   bool writable = true;
 
   [[nodiscard]] constexpr bool valid() const noexcept {
-    return !name.empty() && !type_name.empty() && size > 0 && alignment > 0;
+    return !name.empty() && static_cast<bool>(type);
   }
 
   /** @brief 判断字段是否匹配指定 C++ 类型。 */
   template <typename Field> [[nodiscard]] bool matches_type() const noexcept {
     using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
-    return cpp_type == detail::cpp_type_key_of<field_type>() && size == sizeof(field_type) &&
-           alignment == alignof(field_type);
+    const std::optional<meta_type> meta = caors::find_type(type);
+    return meta.has_value() && meta->cpp_type() == detail::cpp_type_key_of<field_type>() &&
+           meta->size() == sizeof(field_type) && meta->alignment() == alignof(field_type);
   }
 
   /** @brief 获取字段在对象内的只读地址。 */
@@ -306,8 +251,10 @@ struct reflection_field_data {
 
   /** @brief 从运行期值写入字段。 */
   bool try_set_value(void* object, const any& source) const {
-    if (!source.valid() || source.cpp_type() != cpp_type || source.size() != size ||
-        source.alignment() != alignment || assign_value == nullptr) {
+    const std::optional<meta_type> meta = caors::find_type(type);
+    if (!source.valid() || !meta.has_value() || source.cpp_type() != meta->cpp_type() ||
+        source.size() != meta->size() || source.alignment() != meta->alignment() ||
+        meta->assign_value() == nullptr) {
       return false;
     }
 
@@ -316,7 +263,7 @@ struct reflection_field_data {
       return false;
     }
 
-    return assign_value(storage, source.data());
+    return meta->assign_value()(storage, source.data());
   }
 
   /** @brief 按指定类型读取字段值。 */
@@ -367,91 +314,36 @@ template <typename Field>
 make_reflection_field_data(std::string_view name, std::string_view type_name, std::size_t offset) {
   using field_type = std::remove_cv_t<Field>;
   const detail::field_traits_info traits = detail::make_field_traits_info<field_type>();
+  const type_id field_type_id = detail::register_field_type_id<field_type>(type_name);
+  detail::field_traits_info stored_traits = traits;
+  if ((stored_traits.kind == field_kind::value || stored_traits.kind == field_kind::enumeration) &&
+      !stored_traits.value_type) {
+    stored_traits.value_type = field_type_id;
+  }
+  if (!stored_traits.value_type) {
+    stored_traits.value_type = field_type_id;
+  }
+
   reflection_field_data field{
       string_name{name},
-      detail::register_field_type_id<field_type>(type_name),
-      string_name{type_name},
-      detail::cpp_type_key_of<field_type>(),
-      traits.value_type,
-      traits.element_type,
-      traits.key_type,
-      traits.mapped_type,
-      {},
-      {},
-      {},
-      nullptr,
-      nullptr,
-      nullptr,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      nullptr,
-      nullptr,
-      nullptr,
-      nullptr,
-      nullptr,
-      nullptr,
-      nullptr,
-      nullptr,
-      nullptr,
-      detail::value_clone_fn_of<Field>(),
-      detail::value_destroy_fn_of<Field>(),
-      detail::value_assign_fn_of<Field>(),
+      field_type_id,
       detail::object_ref_get_fn_of<Field>(),
       detail::object_ref_set_fn_of<Field>(),
-      traits.kind,
-      traits.wrapper_semantics,
-      traits.pointer_depth,
-      traits.nullable,
       offset,
-      sizeof(field_type),
-      alignof(field_type),
       !std::is_const_v<Field>,
   };
 
-  if ((field.kind == field_kind::value || field.kind == field_kind::enumeration) &&
-      !field.value_type) {
-    field.value_type = field.type;
-  }
-
   if constexpr (sequence_traits<field_type>::is_sequence) {
-    using element_type = typename sequence_traits<field_type>::element_type;
-    field.element_cpp_type = detail::cpp_type_key_of<element_type>();
-    field.element_size = sizeof(element_type);
-    field.element_alignment = alignof(element_type);
-    field.clone_element = detail::value_clone_fn_of<element_type>();
-    field.destroy_element = detail::value_destroy_fn_of<element_type>();
-    field.assign_element = detail::value_assign_fn_of<element_type>();
     (void)detail::register_container_types_for<field_type>(field.type);
   } else if constexpr (set_traits<field_type>::is_set) {
-    using element_type = typename set_traits<field_type>::element_type;
-    field.element_cpp_type = detail::cpp_type_key_of<element_type>();
-    field.element_size = sizeof(element_type);
-    field.element_alignment = alignof(element_type);
-    field.clone_element = detail::value_clone_fn_of<element_type>();
-    field.destroy_element = detail::value_destroy_fn_of<element_type>();
-    field.assign_element = detail::value_assign_fn_of<element_type>();
     (void)detail::register_container_types_for<field_type>(field.type);
   } else if constexpr (associative_traits<field_type>::is_associative) {
-    using key_type = typename associative_traits<field_type>::key_type;
-    using mapped_type = typename associative_traits<field_type>::mapped_type;
-    field.key_cpp_type = detail::cpp_type_key_of<key_type>();
-    field.key_size = sizeof(key_type);
-    field.key_alignment = alignof(key_type);
-    field.clone_key = detail::value_clone_fn_of<key_type>();
-    field.destroy_key = detail::value_destroy_fn_of<key_type>();
-    field.assign_key = detail::value_assign_fn_of<key_type>();
-    field.mapped_cpp_type = detail::cpp_type_key_of<mapped_type>();
-    field.mapped_size = sizeof(mapped_type);
-    field.mapped_alignment = alignof(mapped_type);
-    field.clone_mapped = detail::value_clone_fn_of<mapped_type>();
-    field.destroy_mapped = detail::value_destroy_fn_of<mapped_type>();
-    field.assign_mapped = detail::value_assign_fn_of<mapped_type>();
     (void)detail::register_container_types_for<field_type>(field.type);
   }
+
+  const error traits_status =
+      get_meta_registry().emplace<meta_type_traits_data>(field.type, stored_traits);
+  (void)traits_status;
 
   return field;
 }

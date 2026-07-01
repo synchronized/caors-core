@@ -41,13 +41,6 @@ public:
       reflection_field_data field = make_reflection_field_data<Field>(
           name, resolved_type->name().view(), detail::member_offset(member));
       field.type = resolved_type->id();
-      field.type_name = resolved_type->name();
-      if (field.kind == field_kind::value || field.kind == field_kind::enumeration) {
-        field.value_type = resolved_type->id();
-      }
-      enrich_sequence_field<field_type>(field);
-      enrich_set_field<field_type>(field);
-      enrich_associative_field<field_type>(field);
       reflection_.fields.push_back(field);
     } else {
       if constexpr (sequence_traits<field_type>::is_sequence) {
@@ -59,7 +52,6 @@ public:
 
         reflection_.fields.push_back(
             make_reflection_field_data<Field>(name, *sequence_name, detail::member_offset(member)));
-        enrich_sequence_field<field_type>(reflection_.fields.back());
       } else if constexpr (set_traits<field_type>::is_set) {
         const std::optional<string> set_name = set_type_name<field_type>();
         if (!set_name.has_value()) {
@@ -69,7 +61,6 @@ public:
 
         reflection_.fields.push_back(
             make_reflection_field_data<Field>(name, *set_name, detail::member_offset(member)));
-        enrich_set_field<field_type>(reflection_.fields.back());
       } else if constexpr (associative_traits<field_type>::is_associative) {
         const std::optional<string> associative_name = associative_type_name<field_type>();
         if (!associative_name.has_value()) {
@@ -79,7 +70,6 @@ public:
 
         reflection_.fields.push_back(make_reflection_field_data<Field>(
             name, *associative_name, detail::member_offset(member)));
-        enrich_associative_field<field_type>(reflection_.fields.back());
       } else if constexpr (detail::has_type_name_v<field_type>) {
         reflection_.fields.push_back(make_reflection_field_data<Field>(
             name, type_name<field_type>::value, detail::member_offset(member)));
@@ -99,12 +89,6 @@ public:
 
     reflection_field_data field =
         make_reflection_field_data<Field>(name, type_name, detail::member_offset(member));
-    if (field.kind == field_kind::value || field.kind == field_kind::enumeration) {
-      field.value_type = field.type;
-    }
-    enrich_sequence_field<std::remove_cv_t<Field>>(field);
-    enrich_set_field<std::remove_cv_t<Field>>(field);
-    enrich_associative_field<std::remove_cv_t<Field>>(field);
     reflection_.fields.push_back(field);
     return *this;
   }
@@ -153,18 +137,6 @@ private:
     }
   }
 
-  template <typename Field> void enrich_sequence_field(reflection_field_data& field) const {
-    if constexpr (sequence_traits<Field>::is_sequence) {
-      using element_type = typename sequence_traits<Field>::element_type;
-
-      const std::optional<meta_type> element = caors::find_type<element_type>();
-      if (element.has_value()) {
-        field.element_type = element->id();
-        field.element_type_name = element->name();
-      }
-    }
-  }
-
   template <typename Field> [[nodiscard]] std::optional<string> set_type_name() const {
     if constexpr (set_traits<Field>::is_set) {
       using element_type = typename set_traits<Field>::element_type;
@@ -182,18 +154,6 @@ private:
       return name;
     } else {
       return std::nullopt;
-    }
-  }
-
-  template <typename Field> void enrich_set_field(reflection_field_data& field) const {
-    if constexpr (set_traits<Field>::is_set) {
-      using element_type = typename set_traits<Field>::element_type;
-
-      const std::optional<meta_type> element = caors::find_type<element_type>();
-      if (element.has_value()) {
-        field.element_type = element->id();
-        field.element_type_name = element->name();
-      }
     }
   }
 
@@ -238,25 +198,6 @@ private:
       return name;
     } else {
       return std::nullopt;
-    }
-  }
-
-  template <typename Field> void enrich_associative_field(reflection_field_data& field) const {
-    if constexpr (associative_traits<Field>::is_associative) {
-      using key_type = typename associative_traits<Field>::key_type;
-      using mapped_type = typename associative_traits<Field>::mapped_type;
-
-      const std::optional<meta_type> key = caors::find_type<key_type>();
-      if (key.has_value()) {
-        field.key_type = key->id();
-        field.key_type_name = key->name();
-      }
-
-      const std::optional<meta_type> mapped = caors::find_type<mapped_type>();
-      if (mapped.has_value()) {
-        field.mapped_type = mapped->id();
-        field.mapped_type_name = mapped->name();
-      }
     }
   }
 
