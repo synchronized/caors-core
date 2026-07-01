@@ -7,6 +7,7 @@
 #include <catch2/catch_all.hpp>
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -138,6 +139,14 @@ struct pointer_actor {
   std::unique_ptr<int> unique{};
   std::optional<int> optional{};
   nested_stats* stats = nullptr;
+};
+
+struct reference_wrapper_actor {
+  reference_wrapper_actor() : value(storage) {}
+  explicit reference_wrapper_actor(int initial) : storage(initial), value(storage) {}
+
+  int storage = 0;
+  std::reference_wrapper<int> value;
 };
 
 struct vector_actor {
@@ -959,6 +968,45 @@ TEST_CASE("serialization - deserializes pointer and wrapper fields into existing
   CHECK(*actor.optional == 100);
   CHECK(stats.level == 4);
   CHECK(stats.score == Catch::Approx(5.5));
+}
+
+TEST_CASE("serialization - serializes and deserializes reference wrapper fields",
+          "[serialization]") {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<reference_wrapper_actor>(
+          "caors.test.serialization.reference_wrapper_actor")
+          .field("value", &reference_wrapper_actor::value, "std.reference_wrapper<int>")
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<reference_wrapper_actor>()));
+
+  reference_wrapper_actor actor{7};
+
+  const caors::serialization_text_result text = caors::serialize_text(actor);
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"value":7})");
+
+  const caors::error result = caors::deserialize_json(actor, R"({"value":11})");
+
+  REQUIRE(result.succeeded());
+  CHECK(&actor.value.get() == &actor.storage);
+  CHECK(actor.storage == 11);
+}
+
+TEST_CASE("serialization - rejects null reference wrapper fields", "[serialization]") {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<reference_wrapper_actor>(
+          "caors.test.serialization.reference_wrapper_actor")
+          .field("value", &reference_wrapper_actor::value, "std.reference_wrapper<int>")
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<reference_wrapper_actor>()));
+
+  reference_wrapper_actor actor{7};
+  const caors::error result = caors::deserialize_json(actor, R"({"value":null})");
+
+  CHECK(result.failed());
+  CHECK(result.domain() == caors::error_domain::serialization);
+  CHECK(result.value() == caors::errc::invalid_field);
+  CHECK(actor.storage == 7);
 }
 
 TEST_CASE("serialization - serializes empty pointer and wrapper fields as null",
