@@ -150,7 +150,8 @@ private:
           get_reflection_registry().template find_registered_type<element_type>();
       if (!element.has_value()) {
         if constexpr (detail::has_type_name_v<element_type>) {
-          const error status = caors::register_type<element_type>(type_name<element_type>::value);
+          const error status =
+              caors::detail::register_type<element_type>(type_name<element_type>::value);
           if (status && status.value() != errc::duplicate_id) {
             return std::nullopt;
           }
@@ -203,7 +204,7 @@ private:
     std::optional<meta_type> type = get_reflection_registry().template find_registered_type<T>();
     if (!type.has_value()) {
       if constexpr (detail::has_type_name_v<T>) {
-        const error status = caors::register_type<T>(type_name<T>::value);
+        const error status = caors::detail::register_type<T>(type_name<T>::value);
         if (status && status.value() != errc::duplicate_id) {
           return std::nullopt;
         }

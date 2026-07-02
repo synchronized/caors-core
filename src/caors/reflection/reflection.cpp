@@ -523,6 +523,8 @@ std::size_t reflection_registry::size() const noexcept {
 
 reflection_registry& get_reflection_registry() noexcept { return reflection_registry::instance(); }
 
+namespace detail {
+
 error register_reflection(type_id id, reflection_type_data data) {
   return get_reflection_registry().register_type(id, data);
 }
@@ -530,6 +532,8 @@ error register_reflection(type_id id, reflection_type_data data) {
 error register_reflection(meta_type type, reflection_type_data data) {
   return get_reflection_registry().register_type(type, data);
 }
+
+} // namespace detail
 
 std::optional<reflection_type> find_reflection(type_id id) {
   return get_reflection_registry().find_type(id);

@@ -19,11 +19,11 @@ public:
 int main() {
   caors::object_registry& registry = caors::get_object_registry();
 
-  if (caors::register_object_type<actor>(actor::object_type_name)) {
+  if (caors::objects::class_<actor>(actor::object_type_name).commit()) {
     return 1;
   }
 
-  if (caors::register_object_type<player>(player::object_type_name)) {
+  if (caors::objects::class_<player>(player::object_type_name).commit()) {
     return 1;
   }
 

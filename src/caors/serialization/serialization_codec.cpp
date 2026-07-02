@@ -28,7 +28,7 @@ struct serialization_codec_registry_state {
 template <typename T> [[nodiscard]] type_id registered_codec_type_id() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (detail::has_type_name_v<type>) {
-    const error result = caors::register_type<type>(type_name<type>::value);
+    const error result = caors::detail::register_type<type>(type_name<type>::value);
     if (result && result.value() != errc::duplicate_id) {
       return type_id::invalid();
     }

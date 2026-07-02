@@ -45,7 +45,7 @@ TEST_CASE("freeze - meta registry becomes read only", "[freeze]") {
   CHECK(caors::freeze_meta_registry() == caors::error{});
   CHECK(caors::type::get<macro_actor>().valid());
 
-  CHECK(caors::register_type<late_actor>("caors.test.freeze.late") ==
+  CHECK(caors::detail::register_type<late_actor>("caors.test.freeze.late") ==
         meta_error(caors::errc::frozen));
   CHECK(caors::get_meta_registry().emplace<late_component>(type.id(), true) ==
         meta_error(caors::errc::frozen));

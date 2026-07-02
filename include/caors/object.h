@@ -355,7 +355,7 @@ class object_registry;
  *
  * `object_registry` 不表示彼此隔离的注册表实例。它复用全局 `meta_registry`
  * 管理基础类型信息，并把 `object_type_data` 作为组件挂载到同一个 `type_id`
- * 上。普通代码应通过 `get_object_registry()` 和全局辅助函数访问它。
+ * 上。普通代码应通过 `objects::class_<T>()`、`get_object_registry()` 和查询接口访问它。
  */
 class CAORS_API object_registry final {
 public:
@@ -423,7 +423,9 @@ private:
   [[nodiscard]] const object_type_data* find_type_data(object_type_id id) const;
 };
 
-/** @brief 向全局对象注册表注册对象类型。 */
+namespace detail {
+
+/** @brief 向全局对象注册表注册对象类型。内部入口，公开代码优先使用 `objects::class_<T>()`。 */
 template <typename T>
 [[nodiscard]] error register_object_type(std::string_view name,
                                          object_type_id parent_id = object_type_id::invalid()) {
@@ -439,6 +441,55 @@ template <typename T>
   return registry.register_type_for<T>(make_object_meta_type_data<T>(name, parent_id),
                                        make_object_type_data<T>());
 }
+
+} // namespace detail
+
+namespace objects {
+
+/** @brief 对象类型注册构建器。 */
+template <typename T> class class_builder {
+public:
+  explicit class_builder(std::string_view name) : name_(name) {}
+
+  class_builder& parent(object_type_id parent_id) noexcept {
+    parent_id_ = parent_id;
+    return *this;
+  }
+
+  [[nodiscard]] error commit() {
+    status_ = detail::register_object_type<T>(name_, parent_id_);
+    refresh();
+    return status_;
+  }
+
+  [[nodiscard]] object_type get() const noexcept { return type_; }
+  [[nodiscard]] error result() const noexcept { return status_; }
+  [[nodiscard]] bool succeeded() const noexcept {
+    return status_.succeeded() || status_.value() == errc::duplicate_id;
+  }
+
+  [[nodiscard]] operator object_type() const noexcept { return type_; }
+
+private:
+  void refresh() {
+    const std::optional<object_type> refreshed = get_object_registry().find_type<T>();
+    if (refreshed.has_value()) {
+      type_ = *refreshed;
+    }
+  }
+
+  std::string_view name_{};
+  object_type_id parent_id_{};
+  object_type type_{};
+  error status_{};
+};
+
+/** @brief 创建对象类型注册构建器。 */
+template <typename T> [[nodiscard]] class_builder<T> class_(std::string_view name) {
+  return class_builder<T>{name};
+}
+
+} // namespace objects
 
 /** @brief 直接创建指定 C++ 类型的对象。 */
 template <typename T, typename... Args>

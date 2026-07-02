@@ -115,8 +115,8 @@ public:
 
 `object_type_guid` 是可选静态成员。运行期临时对象可以不声明，`meta_type_data::guid()` 会保持 nil；可序列化、可反射或跨插件暴露的对象类型建议显式声明稳定 GUID。
 
-`static_type_id()` 只查询已经注册的对象类型；对象类型尚未调用 `register_object_type<T>()` 时返回无效
-id。类型名、GUID 和父类型关系应在启动注册阶段一次性写入全局元数据注册表。
+`static_type_id()` 只查询已经注册的对象类型；对象类型尚未通过 `objects::class_<T>(name).commit()`
+注册时返回无效 id。类型名、GUID 和父类型关系应在启动注册阶段一次性写入全局元数据注册表。
 
 这样通过基类引用也能查询真实类型：
 
@@ -135,12 +135,12 @@ object.type_name(); // "game.player"
 ```cpp
 caors::object_registry& registry = caors::get_object_registry();
 
-if (caors::register_object_type<actor>(actor::object_type_name)) {
+if (caors::objects::class_<actor>(actor::object_type_name).commit()) {
   // 处理注册失败。
 }
 
 caors::error result =
-    caors::register_object_type<player>(player::object_type_name);
+    caors::objects::class_<player>(player::object_type_name).commit();
 ```
 
 注册后可以查询类型：
@@ -210,6 +210,7 @@ caors::destroy_object(instance, &resource);
 - `object_type`：对象类型只读视图，组合 `meta_type` 和内部 `object_type_data`。
 - `caors::error`：明确对象类型注册失败原因和错误来源域。
 - `object_registry`：类型注册、查询、继承关系判断、默认构造工厂。
+- `objects::class_<T>()`：对象类型链式注册入口。
 - `get_object_registry()`：进程内默认对象注册表。
 - `create_object<T>()` / `destroy_object<T>()`：接入 `memory_resource` 的直接对象创建和销毁入口。
 

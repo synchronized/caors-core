@@ -51,6 +51,8 @@ serialization_registry& get_serialization_registry() noexcept {
   return serialization_registry::instance();
 }
 
+namespace detail {
+
 error register_serialization(type_id id, serialization_type_data data) {
   return get_serialization_registry().register_type(id, data);
 }
@@ -58,5 +60,7 @@ error register_serialization(type_id id, serialization_type_data data) {
 error register_serialization(meta_type type, serialization_type_data data) {
   return get_serialization_registry().register_type(type, data);
 }
+
+} // namespace detail
 
 } // namespace caors

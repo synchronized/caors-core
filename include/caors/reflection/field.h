@@ -24,7 +24,7 @@ using object_ref_set_fn = bool (*)(void*, object*) noexcept;
 
 template <typename T> [[nodiscard]] type_id register_field_type_id(std::string_view name) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  const error result = caors::register_type<type>(name);
+  const error result = caors::detail::register_type<type>(name);
   if (result.succeeded() || result.value() == errc::duplicate_id) {
     const std::optional<meta_type> registered = caors::find_type<type>();
     return registered.has_value() ? registered->id() : type_id::invalid();

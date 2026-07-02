@@ -87,9 +87,13 @@ bool meta_registry::is_frozen() const noexcept {
 
 meta_registry& get_meta_registry() noexcept { return meta_registry::instance(); }
 
+namespace detail {
+
 error register_meta_registration(meta_registration_fn fn) {
   return get_meta_registry().add_registration(fn);
 }
+
+} // namespace detail
 
 error run_meta_registrations() { return get_meta_registry().run_registrations(); }
 

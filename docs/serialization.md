@@ -13,7 +13,7 @@
 - 用 `serialization_type_data` 表示类型的序列化元信息。
 - 用 `serialization_field_data` 表示字段级序列化配置，例如字段别名、稳定字段 id、跳过和版本信息。
 - 基于全局 `meta_registry` 挂载序列化组件，避免单独维护类型索引。
-- 提供 `serialization_registry` 和 `register_serialization<T>()` 注册入口。
+- 提供 `serialization_registry` 和 `serialization::class_(meta_type)` 链式注册入口。
 - 提供 `serialization_writer` 后端接口，让不同格式复用同一套字段遍历逻辑。
 - 提供 `serialization_reader` 后端接口，让不同格式复用同一套字段读入逻辑。
 - 提供 `variant` 中间对象树，方便工具、调试和多格式转换。
@@ -44,7 +44,7 @@
 序列化模块按职责拆分公共头文件：
 
 - `caors/serialization/types.h`：格式枚举、后端能力、字段/类型配置、上下文和结果类型。
-- `caors/serialization/registry.h`：序列化组件注册表和 `register_serialization()`。
+- `caors/serialization/registry.h`：序列化组件注册表和链式注册入口。
 - `caors/serialization/writer.h`：`serialization_writer`、`text_serialization_writer` 和
   `json_serialization_writer`。
 - `caors/serialization/reader.h`：`serialization_reader`。
@@ -69,10 +69,12 @@
 序列化配置：
 
 ```cpp
-caors::register_serialization<actor>({
-    caors::make_serialization_field("health", "hp"),
-    caors::make_serialization_field("debug_only", {}, true),
-});
+caors::meta_type type = caors::type::get<actor>();
+
+caors::serialization::class_(type)
+    .field("health", "hp")
+    .field("debug_only", {}, true)
+    .commit();
 ```
 
 字段配置按字段名引用反射字段，但注册时不会要求反射字段已经存在。因此序列化注册可以先于
@@ -386,7 +388,7 @@ DOM 是可选路径，适合工具、编辑器、测试对比和格式转换。�
 运行期 C++ 值可以显式转换为 `variant`：
 
 ```cpp
-caors::register_type<int>("int");
+caors::meta<int>("int");
 
 caors::variant_result value = caors::to_variant(caors::any::from(42));
 ```
@@ -412,10 +414,9 @@ if (status) {
 }
 ```
 
-推荐由 meta 层先注册基础类型，再使用 `serialization::class_(meta_type)` 或
-`register_serialization(meta_type, data)` 挂载序列化组件。这条路径不会创建或修改基础类型记录；无效
-`meta_type` 返回 `errc::invalid_type`，不存在的 `type_id` 返回 `errc::missing_type`。旧的
-`register_serialization<T>()` 仍作为兼容入口保留，会先确保 C++ 类型存在。
+推荐由 meta 层先注册基础类型，再使用 `serialization::class_(meta_type)` 挂载序列化组件。这条路径不会
+创建或修改基础类型记录；无效 `meta_type` 返回 `errc::invalid_type`，不存在的 `type_id` 返回
+`errc::missing_type`。低层组件注册函数属于内部实现入口，普通代码不直接调用。
 
 重复注册同一个类型会返回 `errc::duplicate_component`，错误来源域为
 `error_domain::serialization`。全局 meta 注册表冻结后继续注册序列化组件会返回 `errc::frozen`。
@@ -477,7 +478,6 @@ caors::string text = result.value;
 - `variant_member`：对象成员，保存字段名、字段 id 和字段值。
 - `variant_entry`：字典条目，保存 key 和 value。
 - `serialization_registry`：全局序列化注册表。
-- `register_serialization()`：注册序列化组件。
 - `serialization::class_(meta_type)`：推荐的链式序列化组件注册入口，只挂载序列化组件。
 - `serialize()`：通过指定 writer 后端序列化对象。
 - `deserialize()`：通过指定 reader 后端反序列化对象。

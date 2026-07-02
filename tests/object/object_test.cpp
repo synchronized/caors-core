@@ -94,6 +94,18 @@ public:
   return {caors::error_domain::object, code};
 }
 
+template <typename T>
+[[nodiscard]] caors::error
+register_object_test_type(std::string_view name,
+                          caors::object_type_id parent_id = caors::object_type_id::invalid()) {
+  auto builder = caors::objects::class_<T>(name);
+  if (parent_id) {
+    builder.parent(parent_id);
+  }
+
+  return builder.commit();
+}
+
 } // namespace
 
 TEST_CASE("object - generated ids are valid and unique", "[object]") {
@@ -106,9 +118,9 @@ TEST_CASE("object - generated ids are valid and unique", "[object]") {
 }
 
 TEST_CASE("object - typed base exposes runtime type information", "[object]") {
-  REQUIRE(caors::register_object_type<runtime_actor>(runtime_actor::object_type_name) ==
+  REQUIRE(register_object_test_type<runtime_actor>(runtime_actor::object_type_name) ==
           caors::error{});
-  REQUIRE(caors::register_object_type<runtime_player>(runtime_player::object_type_name) ==
+  REQUIRE(register_object_test_type<runtime_player>(runtime_player::object_type_name) ==
           caors::error{});
 
   runtime_player instance;
@@ -141,9 +153,9 @@ TEST_CASE("object - handles carry identity without owning instances", "[object]"
 TEST_CASE("object - registry registers and finds types", "[object]") {
   caors::object_registry& registry = caors::get_object_registry();
 
-  CHECK(caors::register_object_type<registry_actor>(registry_actor::object_type_name) ==
+  CHECK(register_object_test_type<registry_actor>(registry_actor::object_type_name) ==
         caors::error{});
-  CHECK(caors::register_object_type<registry_actor>(registry_actor::object_type_name) ==
+  CHECK(register_object_test_type<registry_actor>(registry_actor::object_type_name) ==
         object_error(caors::errc::duplicate_id));
 
   auto type = registry.find_type<registry_actor>();
@@ -169,7 +181,7 @@ TEST_CASE("object - type guid can be provided by object subclass", "[object]") {
       caors::make_object_meta_type_data<persistent_actor>(persistent_actor::object_type_name);
   CHECK(type.guid() == persistent_actor::object_type_guid);
 
-  REQUIRE(caors::register_object_type<persistent_actor>(persistent_actor::object_type_name) ==
+  REQUIRE(register_object_test_type<persistent_actor>(persistent_actor::object_type_name) ==
           caors::error{});
 
   auto stored = registry.find_type<persistent_actor>();
@@ -189,8 +201,7 @@ TEST_CASE("object - registry reports registration errors", "[object]") {
   CHECK(registry.register_type(missing_parent, caors::make_object_type_data<error_actor>()) ==
         object_error(caors::errc::missing_parent));
 
-  REQUIRE(caors::register_object_type<error_actor>(error_actor::object_type_name) ==
-          caors::error{});
+  REQUIRE(register_object_test_type<error_actor>(error_actor::object_type_name) == caors::error{});
   const auto actor_type = registry.find_type<error_actor>();
   REQUIRE(actor_type.has_value());
 
@@ -210,7 +221,7 @@ TEST_CASE("object - registry reports registration errors", "[object]") {
 TEST_CASE("object - registry reports duplicate type guid", "[object]") {
   caors::object_registry& registry = caors::get_object_registry();
 
-  REQUIRE(caors::register_object_type<guid_owner_actor>(guid_owner_actor::object_type_name) ==
+  REQUIRE(register_object_test_type<guid_owner_actor>(guid_owner_actor::object_type_name) ==
           caors::error{});
 
   caors::meta_type_data duplicate_guid = caors::make_object_meta_type_data<duplicate_guid_player>(
@@ -224,15 +235,15 @@ TEST_CASE("object - registry reports duplicate type guid", "[object]") {
 TEST_CASE("object - registry checks parent relationship", "[object]") {
   caors::object_registry& registry = caors::get_object_registry();
 
-  REQUIRE(caors::register_object_type<relation_actor>(relation_actor::object_type_name) ==
+  REQUIRE(register_object_test_type<relation_actor>(relation_actor::object_type_name) ==
           caors::error{});
   const auto object_type = registry.find_type<caors::object>();
   const auto actor_type = registry.find_type<relation_actor>();
   REQUIRE(object_type.has_value());
   REQUIRE(actor_type.has_value());
 
-  REQUIRE(caors::register_object_type<relation_player>(relation_player::object_type_name,
-                                                       actor_type->id()) == caors::error{});
+  REQUIRE(register_object_test_type<relation_player>(relation_player::object_type_name,
+                                                     actor_type->id()) == caors::error{});
   const auto player_type = registry.find_type<relation_player>();
   REQUIRE(player_type.has_value());
 
@@ -246,7 +257,7 @@ TEST_CASE("object - registry creates and destroys registered objects", "[object]
   caors::object_registry& registry = caors::get_object_registry();
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
 
-  REQUIRE(caors::register_object_type<factory_actor>(factory_actor::object_type_name) ==
+  REQUIRE(register_object_test_type<factory_actor>(factory_actor::object_type_name) ==
           caors::error{});
 
   const auto actor_type = registry.find_type<factory_actor>();
@@ -267,7 +278,7 @@ TEST_CASE("object - non default constructible types can be described but not fac
           "[object]") {
   caors::object_registry& registry = caors::get_object_registry();
 
-  REQUIRE(caors::register_object_type<registered_non_default_object>(
+  REQUIRE(register_object_test_type<registered_non_default_object>(
               registered_non_default_object::object_type_name) == caors::error{});
 
   auto type = registry.find_type<registered_non_default_object>();

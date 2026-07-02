@@ -50,26 +50,30 @@ private:
 /** @brief 获取进程内全局序列化注册表。 */
 [[nodiscard]] CAORS_API serialization_registry& get_serialization_registry() noexcept;
 
-/** @brief 向全局序列化注册表注册类型。 */
+namespace detail {
+
+/** @brief 向全局序列化注册表注册类型。内部入口，公开代码优先使用 `serialization::class_()`。 */
 [[nodiscard]] CAORS_API error
 register_serialization(type_id id, serialization_type_data data = serialization_type_data{});
 
-/** @brief 向已注册元类型挂载序列化组件。不会创建或修改基础类型记录。 */
+/** @brief 向已注册元类型挂载序列化组件。内部入口，不会创建或修改基础类型记录。 */
 [[nodiscard]] CAORS_API error
 register_serialization(meta_type type, serialization_type_data data = serialization_type_data{});
 
-/** @brief 向全局序列化注册表注册指定 C++ 类型。 */
+/** @brief 向全局序列化注册表注册指定 C++ 类型。内部入口。 */
 template <typename T>
 [[nodiscard]] error
 register_serialization(serialization_type_data data = serialization_type_data{}) {
   return get_serialization_registry().register_type_for<T>(data);
 }
 
-/** @brief 向全局序列化注册表注册指定 C++ 类型和字段配置。 */
+/** @brief 向全局序列化注册表注册指定 C++ 类型和字段配置。内部入口。 */
 template <typename T>
 [[nodiscard]] error register_serialization(std::initializer_list<serialization_field_data> fields) {
   return register_serialization<T>(make_serialization_type_data(fields));
 }
+
+} // namespace detail
 
 namespace serialization {
 
@@ -98,7 +102,7 @@ public:
       return status_;
     }
 
-    return caors::register_serialization(type_, data_);
+    return caors::detail::register_serialization(type_, data_);
   }
 
   [[nodiscard]] const serialization_type_data& serialization_data() const noexcept { return data_; }

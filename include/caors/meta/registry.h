@@ -328,8 +328,12 @@ private:
 /** @brief 获取进程内全局类型元数据注册表。 */
 [[nodiscard]] CAORS_API meta_registry& get_meta_registry() noexcept;
 
-/** @brief 注册一个延迟执行的元数据注册函数。 */
+namespace detail {
+
+/** @brief 注册一个延迟执行的元数据注册函数。内部入口，优先使用 `CAORS_META_REGISTRATION`。 */
 [[nodiscard]] CAORS_API error register_meta_registration(meta_registration_fn fn);
+
+} // namespace detail
 
 /** @brief 执行所有已收集的元数据注册函数；最多执行一次。 */
 [[nodiscard]] CAORS_API error run_meta_registrations();
@@ -352,7 +356,7 @@ private:
   namespace {                                                                                      \
   struct name##_caors_meta_registration_auto_register {                                            \
     name##_caors_meta_registration_auto_register() {                                               \
-      (void)::caors::register_meta_registration(&name);                                            \
+      (void)::caors::detail::register_meta_registration(&name);                                    \
     }                                                                                              \
   };                                                                                               \
   static const name##_caors_meta_registration_auto_register                                        \
@@ -450,31 +454,35 @@ template <typename T> [[nodiscard]] meta_type get() {
 
 } // namespace type
 
-/** @brief 向全局元数据注册表注册基础类型。 */
+namespace detail {
+
+/** @brief 向全局元数据注册表注册基础类型。内部入口，公开代码优先使用 `meta<T>()`。 */
 template <typename T>
 [[nodiscard]] error register_type(string_name name, type_id parent_id = type_id::invalid()) {
   return get_meta_registry().register_type_for<T>(make_meta_type_data<T>(name, parent_id));
 }
 
-/** @brief 向全局元数据注册表注册带稳定 GUID 的基础类型。 */
+/** @brief 向全局元数据注册表注册带稳定 GUID 的基础类型。内部入口。 */
 template <typename T>
 [[nodiscard]] error register_type(string_name name, type_guid guid,
                                   type_id parent_id = type_id::invalid()) {
   return get_meta_registry().register_type_for<T>(make_meta_type_data<T>(name, guid, parent_id));
 }
 
-/** @brief 向全局元数据注册表注册基础类型。 */
+/** @brief 向全局元数据注册表注册基础类型。内部入口。 */
 template <typename T>
 [[nodiscard]] error register_type(std::string_view name, type_id parent_id = type_id::invalid()) {
   return register_type<T>(string_name{name}, parent_id);
 }
 
-/** @brief 向全局元数据注册表注册带稳定 GUID 的基础类型。 */
+/** @brief 向全局元数据注册表注册带稳定 GUID 的基础类型。内部入口。 */
 template <typename T>
 [[nodiscard]] error register_type(std::string_view name, type_guid guid,
                                   type_id parent_id = type_id::invalid()) {
   return register_type<T>(string_name{name}, guid, parent_id);
 }
+
+} // namespace detail
 
 /** @brief 在全局元数据注册表中按 C++ 类型查找基础类型。 */
 template <typename T> [[nodiscard]] std::optional<meta_type> find_type() {

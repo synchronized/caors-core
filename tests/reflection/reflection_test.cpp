@@ -265,7 +265,7 @@ constexpr caors::type_guid view_actor_guid{caors::guid::from_bytes(
 }
 
 template <typename T> void require_registered_type(std::string_view name) {
-  const caors::error status = caors::register_type<T>(name);
+  const caors::error status = caors::detail::register_type<T>(name);
   REQUIRE((status == caors::error{} || status == meta_error(caors::errc::duplicate_id)));
 }
 
@@ -479,7 +479,7 @@ TEST_CASE("reflection - type data stores and finds fields", "[reflection]") {
 }
 
 TEST_CASE("reflection - registry registers and finds types", "[reflection]") {
-  REQUIRE(caors::register_reflection<registry_actor>(
+  REQUIRE(caors::detail::register_reflection<registry_actor>(
               "caors.test.reflection.registry_actor", registry_actor_guid,
               {
                   caors::make_reflection_field_data<int>("id", "int", offsetof(registry_actor, id)),
@@ -520,8 +520,8 @@ TEST_CASE("reflection - class builder can attach to explicit meta type", "[refle
 
 TEST_CASE("reflection - explicit registration reports missing meta type", "[reflection]") {
   const caors::error status =
-      caors::register_reflection(caors::type_id{std::numeric_limits<std::uint64_t>::max()},
-                                 caors::make_reflection_type_data({}));
+      caors::detail::register_reflection(caors::type_id{std::numeric_limits<std::uint64_t>::max()},
+                                         caors::make_reflection_type_data({}));
 
   CHECK(status.failed());
   CHECK(status.domain() == caors::error_domain::reflection);
@@ -529,7 +529,7 @@ TEST_CASE("reflection - explicit registration reports missing meta type", "[refl
 }
 
 TEST_CASE("reflection - registry returns type and field views", "[reflection]") {
-  const caors::error register_status = caors::register_reflection<view_actor>(
+  const caors::error register_status = caors::detail::register_reflection<view_actor>(
       "caors.test.reflection.view_actor", view_actor_guid,
       {
           caors::make_reflection_field_data<int>("id", "int", offsetof(view_actor, id)),
@@ -1177,13 +1177,15 @@ TEST_CASE("reflection - set field view exposes element metadata", "[reflection]"
 }
 
 TEST_CASE("reflection - set iterator creation failure is treated as empty range", "[reflection]") {
-  const caors::error begin_type_status = caors::register_type<test_reflection::failing_begin_set>(
-      "caors.test.reflection.failing_begin_set");
+  const caors::error begin_type_status =
+      caors::detail::register_type<test_reflection::failing_begin_set>(
+          "caors.test.reflection.failing_begin_set");
   REQUIRE((begin_type_status == caors::error{} ||
            begin_type_status == meta_error(caors::errc::duplicate_id)));
 
-  const caors::error end_type_status = caors::register_type<test_reflection::failing_end_set>(
-      "caors.test.reflection.failing_end_set");
+  const caors::error end_type_status =
+      caors::detail::register_type<test_reflection::failing_end_set>(
+          "caors.test.reflection.failing_end_set");
   REQUIRE((end_type_status == caors::error{} ||
            end_type_status == meta_error(caors::errc::duplicate_id)));
 
@@ -1192,7 +1194,7 @@ TEST_CASE("reflection - set iterator creation failure is treated as empty range"
   REQUIRE(begin_type.has_value());
   REQUIRE(end_type.has_value());
 
-  const caors::error int_type_status = caors::register_type<int>("int");
+  const caors::error int_type_status = caors::detail::register_type<int>("int");
   REQUIRE((int_type_status == caors::error{} ||
            int_type_status == meta_error(caors::errc::duplicate_id)));
 
@@ -1264,7 +1266,7 @@ TEST_CASE("reflection - set iterator creation failure is treated as empty range"
 }
 
 TEST_CASE("reflection - views remain valid for append-only registry", "[reflection]") {
-  const caors::error register_status = caors::register_reflection<view_actor>(
+  const caors::error register_status = caors::detail::register_reflection<view_actor>(
       "caors.test.reflection.view_actor", view_actor_guid,
       {
           caors::make_reflection_field_data<int>("id", "int", offsetof(view_actor, id)),
@@ -1281,7 +1283,7 @@ TEST_CASE("reflection - views remain valid for append-only registry", "[reflecti
   CHECK(reflected->valid());
   CHECK(field->valid());
 
-  CHECK(caors::register_reflection<view_actor>(
+  CHECK(caors::detail::register_reflection<view_actor>(
             "caors.test.reflection.view_actor", view_actor_guid,
             {
                 caors::make_reflection_field_data<int>("id", "int", offsetof(view_actor, id)),
@@ -1294,7 +1296,7 @@ TEST_CASE("reflection - views remain valid for append-only registry", "[reflecti
 }
 
 TEST_CASE("reflection - registry registers child type with parent", "[reflection]") {
-  REQUIRE(caors::register_reflection<parent_actor>(
+  REQUIRE(caors::detail::register_reflection<parent_actor>(
               "caors.test.reflection.parent_actor",
               {
                   caors::make_reflection_field_data<int>("id", "int", offsetof(parent_actor, id)),
@@ -1303,7 +1305,7 @@ TEST_CASE("reflection - registry registers child type with parent", "[reflection
   REQUIRE(reflected_actor.has_value());
 
   REQUIRE(
-      caors::register_reflection<child_player>(
+      caors::detail::register_reflection<child_player>(
           "caors.test.reflection.child_player",
           {
               caors::make_reflection_field_data<int>("level", "int", offsetof(child_player, level)),
@@ -1317,12 +1319,12 @@ TEST_CASE("reflection - registry registers child type with parent", "[reflection
 
 TEST_CASE("reflection - registry reports duplicate reflection", "[reflection]") {
   REQUIRE(
-      caors::register_reflection<duplicate_actor>(
+      caors::detail::register_reflection<duplicate_actor>(
           "caors.test.reflection.duplicate_actor",
           {
               caors::make_reflection_field_data<int>("id", "int", offsetof(duplicate_actor, id)),
           }) == caors::error{});
-  CHECK(caors::register_reflection<duplicate_actor>(
+  CHECK(caors::detail::register_reflection<duplicate_actor>(
             "caors.test.reflection.duplicate_actor",
             {
                 caors::make_reflection_field_data<int>("id", "int", offsetof(duplicate_actor, id)),
@@ -1330,13 +1332,13 @@ TEST_CASE("reflection - registry reports duplicate reflection", "[reflection]") 
 }
 
 TEST_CASE("reflection - registry validates fields", "[reflection]") {
-  CHECK(caors::register_reflection<invalid_field_owner>("caors.test.reflection.invalid_field",
-                                                        {
-                                                            caors::reflection_field_data{},
-                                                        }) ==
-        reflection_error(caors::errc::invalid_field));
+  CHECK(caors::detail::register_reflection<invalid_field_owner>(
+            "caors.test.reflection.invalid_field",
+            {
+                caors::reflection_field_data{},
+            }) == reflection_error(caors::errc::invalid_field));
 
-  CHECK(caors::register_reflection<duplicate_field_owner>(
+  CHECK(caors::detail::register_reflection<duplicate_field_owner>(
             "caors.test.reflection.duplicate_field",
             {
                 caors::make_reflection_field_data<int>("id", "int",
@@ -1348,7 +1350,7 @@ TEST_CASE("reflection - registry validates fields", "[reflection]") {
 
 TEST_CASE("reflection - registry reports inconsistent existing type", "[reflection]") {
   REQUIRE(
-      caors::register_reflection<inconsistent_actor>(
+      caors::detail::register_reflection<inconsistent_actor>(
           "caors.test.reflection.inconsistent_actor",
           {
               caors::make_reflection_field_data<int>("id", "int", offsetof(inconsistent_actor, id)),

@@ -18,8 +18,7 @@ namespace caors {
  * @brief 底层全局反射注册表。
  *
  * 注册表基于 `meta_registry` 保存基础类型信息，并把 `reflection_type_data`
- * 作为元数据组件挂载到同一个 `type_id` 上。普通代码应使用
- * `register_reflection()`、`reflection::class_<T>()` 和
+ * 作为元数据组件挂载到同一个 `type_id` 上。普通代码应使用 `reflection::class_<T>()` 和
  * `find_reflection()`，不要创建或管理注册表实例。
  */
 class CAORS_API reflection_registry final {
@@ -63,7 +62,9 @@ private:
 /** @brief 获取进程内全局反射注册表。 */
 [[nodiscard]] CAORS_API reflection_registry& get_reflection_registry() noexcept;
 
-/** @brief 向全局反射注册表注册反射类型。 */
+namespace detail {
+
+/** @brief 向全局反射注册表注册反射类型。内部入口，公开代码优先使用 `reflection::class_<T>()`。 */
 template <typename T>
 [[nodiscard]] error register_reflection(std::string_view name,
                                         std::initializer_list<reflection_field_data> fields,
@@ -72,7 +73,7 @@ template <typename T>
                                                         make_reflection_type_data(fields));
 }
 
-/** @brief 向全局反射注册表注册带稳定 GUID 的反射类型。 */
+/** @brief 向全局反射注册表注册带稳定 GUID 的反射类型。内部入口。 */
 template <typename T>
 [[nodiscard]] error register_reflection(std::string_view name, type_guid guid,
                                         std::initializer_list<reflection_field_data> fields,
@@ -81,13 +82,15 @@ template <typename T>
       make_meta_type_data<T>(name, guid, parent_id), make_reflection_type_data(fields));
 }
 
-/** @brief 向已注册元类型挂载反射组件。不会创建或修改基础类型记录。 */
+/** @brief 向已注册元类型挂载反射组件。内部入口，不会创建或修改基础类型记录。 */
 [[nodiscard]] CAORS_API error
 register_reflection(type_id id, reflection_type_data data = reflection_type_data{});
 
-/** @brief 向已注册元类型挂载反射组件。不会创建或修改基础类型记录。 */
+/** @brief 向已注册元类型挂载反射组件。内部入口，不会创建或修改基础类型记录。 */
 [[nodiscard]] CAORS_API error
 register_reflection(meta_type type, reflection_type_data data = reflection_type_data{});
+
+} // namespace detail
 
 /** @brief 在全局反射注册表中查找反射类型。 */
 [[nodiscard]] CAORS_API std::optional<reflection_type> find_reflection(type_id id);
