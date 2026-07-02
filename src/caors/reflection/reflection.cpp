@@ -34,7 +34,7 @@ namespace {
 }
 
 [[nodiscard]] error validate_registered_fields(const reflection_type_data& reflection) {
-  hash_set<std::uint64_t> names;
+  hash_set<string_name> names;
   names.reserve(reflection.fields.size());
 
   for (const reflection_field_data& field : reflection.fields) {
@@ -42,7 +42,7 @@ namespace {
       return {error_domain::reflection, errc::invalid_field};
     }
 
-    if (!names.insert(field.name.id()).second) {
+    if (!names.insert(field.name).second) {
       return {error_domain::reflection, errc::duplicate_field};
     }
   }

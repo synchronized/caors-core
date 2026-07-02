@@ -15,7 +15,7 @@ public:
   mutable std::mutex mutex;
   std::uint64_t next_type_id = 1;
   hash_map<std::uint64_t, std::unique_ptr<meta_type_data>> types;
-  hash_map<std::uint64_t, type_id> names;
+  hash_map<string_name, type_id> names;
   hash_map<guid, type_id, guid_hash> guids;
   hash_map<detail::cpp_type_key, type_id> cpp_types;
   hash_map<detail::meta_component_key, std::unique_ptr<detail::meta_component_storage_base>>

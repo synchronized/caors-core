@@ -13,7 +13,6 @@ TEST_CASE("core - string names are interned", "[core]") {
   CHECK(first);
   CHECK(first == second);
   CHECK(first != other);
-  CHECK(first.id() == second.id());
   CHECK(first.view() == "caors.test.sample");
   CHECK(first.string() == "caors.test.sample");
 
@@ -28,7 +27,6 @@ TEST_CASE("core - invalid string name is empty", "[core]") {
 
   CHECK_FALSE(invalid);
   CHECK(invalid.empty());
-  CHECK(invalid.id() == 0);
   CHECK(invalid.view().empty());
   CHECK(invalid.string().empty());
 }

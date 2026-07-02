@@ -43,14 +43,14 @@
 
 ### string_name
 
-`string_name` 是运行期字符串名。相同文本会共享同一个运行期 id，适合名称比较和查找：
+`string_name` 是运行期字符串名。相同文本会共享同一个运行期 entry，适合名称比较和查找：
 
 ```cpp
 caors::string_name name{"game.player"};
 std::string_view view = name.view();
 ```
 
-`string_name::id()` 只保证当前进程内唯一，不承诺跨进程或跨版本稳定。
+`string_name` 不暴露运行期 id，不承诺跨进程或跨版本稳定。
 
 ### type_id
 
@@ -84,7 +84,7 @@ caors::meta_type_data data =
 需要注意：
 
 - 未显式传入时，`meta_type_data::guid()` 为 nil。
-- `type_guid` 不应由 `type_id` 或 `string_name::id()` 派生。
+- `type_guid` 不应由 `type_id`、`string_name` 的运行期 entry 或哈希值派生。
 - 修改类型名不应自动修改 `type_guid`，否则旧数据无法稳定识别类型。
 
 ### meta_type_data 和 meta_type

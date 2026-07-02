@@ -20,7 +20,7 @@
 
 ## string_name
 
-`string_name` 会把文本加入进程内字符串表，相同文本共享同一个运行期 id：
+`string_name` 会把文本加入进程内字符串表，相同文本共享同一个运行期 entry：
 
 ```cpp
 caors::string_name first{"game.actor"};
@@ -33,8 +33,8 @@ first == second; // true
 
 需要注意：
 
-- `string_name::id()` 只保证当前进程内唯一。
 - `string_name` 不承诺跨进程、跨版本或跨动态库边界稳定。
+- `string_name` 不暴露运行期 id；比较和哈希只适合当前进程内使用。
 - 序列化和资源引用应使用显式 `type_guid` 或业务自己的稳定 GUID。
 
 ## guid

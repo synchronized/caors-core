@@ -6,18 +6,23 @@
 
 #include "caors/export.h"
 
-#include <cstdint>
+#include <cstddef>
+#include <functional>
 #include <optional>
 #include <string>
 #include <string_view>
 
 namespace caors {
 
+namespace detail {
+struct string_name_entry;
+}
+
 /**
  * @brief 运行期字符串名。
  *
- * `string_name` 会把文本加入进程内字符串表，相同文本共享同一个运行期 id。该 id 只用于本次
- * 进程运行期的快速比较和查找，不承诺跨进程或跨版本稳定。
+ * `string_name` 会把文本加入进程内字符串表，相同文本共享同一个稳定 entry 指针。该指针只用于
+ * 本次进程运行期的快速比较和查找，不承诺跨进程或跨版本稳定。
  */
 class CAORS_API string_name {
 public:
@@ -29,14 +34,13 @@ public:
   [[nodiscard]] static constexpr string_name invalid() noexcept { return string_name{}; }
   [[nodiscard]] static std::optional<string_name> find(std::string_view name);
 
-  [[nodiscard]] constexpr std::uint64_t id() const noexcept { return id_; }
-  [[nodiscard]] constexpr bool empty() const noexcept { return id_ == 0; }
-  [[nodiscard]] constexpr explicit operator bool() const noexcept { return id_ != 0; }
+  [[nodiscard]] constexpr bool empty() const noexcept { return entry_ == nullptr; }
+  [[nodiscard]] constexpr explicit operator bool() const noexcept { return entry_ != nullptr; }
   [[nodiscard]] std::string_view view() const noexcept;
   [[nodiscard]] std::string string() const;
 
   friend constexpr bool operator==(string_name lhs, string_name rhs) noexcept {
-    return lhs.id_ == rhs.id_;
+    return lhs.entry_ == rhs.entry_;
   }
 
   friend constexpr bool operator!=(string_name lhs, string_name rhs) noexcept {
@@ -44,9 +48,18 @@ public:
   }
 
 private:
-  explicit constexpr string_name(std::uint64_t id) noexcept : id_(id) {}
+  friend struct string_name_hash;
 
-  std::uint64_t id_ = 0;
+  explicit constexpr string_name(const detail::string_name_entry* entry) noexcept : entry_(entry) {}
+
+  const detail::string_name_entry* entry_ = nullptr;
+};
+
+/** @brief `string_name` 的运行期哈希函数。 */
+struct string_name_hash {
+  [[nodiscard]] std::size_t operator()(string_name name) const noexcept {
+    return std::hash<const detail::string_name_entry*>{}(name.entry_);
+  }
 };
 
 [[nodiscard]] CAORS_API bool operator==(string_name lhs, std::string_view rhs);
@@ -55,5 +68,15 @@ private:
 [[nodiscard]] CAORS_API bool operator!=(std::string_view lhs, string_name rhs);
 
 }
+
+namespace std {
+
+template <> struct hash<caors::string_name> {
+  [[nodiscard]] std::size_t operator()(caors::string_name name) const noexcept {
+    return caors::string_name_hash{}(name);
+  }
+};
+
+} // namespace std
 
 #endif

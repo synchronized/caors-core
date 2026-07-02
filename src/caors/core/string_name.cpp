@@ -5,61 +5,56 @@
 
 #include "caors/core/containers.h"
 
+#include <memory>
 #include <mutex>
 #include <string_view>
+#include <utility>
 
 namespace caors {
+
+namespace detail {
+
+struct string_name_entry {
+  string text;
+};
+
+} // namespace detail
+
 namespace {
 
 class string_name_table {
 public:
-  [[nodiscard]] std::uint64_t intern(std::string_view text) {
+  [[nodiscard]] const detail::string_name_entry* intern(std::string_view text) {
     if (text.empty()) {
-      return 0;
+      return nullptr;
     }
 
     std::lock_guard lock(mutex_);
-    const auto existing = ids_by_text_.find(string{text});
-    if (existing != ids_by_text_.end()) {
-      return existing->second;
+    const auto existing = entries_by_text_.find(string{text});
+    if (existing != entries_by_text_.end()) {
+      return existing->second.get();
     }
 
-    std::uint64_t id = next_id_++;
-    if (id == 0) {
-      id = next_id_++;
-    }
-
-    string owned_text{text};
-    ids_by_text_.emplace(owned_text, id);
-    text_by_id_.emplace(id, std::move(owned_text));
-    return id;
+    auto entry = std::make_unique<detail::string_name_entry>();
+    entry->text = string{text};
+    const detail::string_name_entry* stored = entry.get();
+    entries_by_text_.emplace(stored->text, std::move(entry));
+    return stored;
   }
 
-  [[nodiscard]] std::optional<std::uint64_t> find_id(std::string_view text) const {
+  [[nodiscard]] const detail::string_name_entry* find_entry(std::string_view text) const {
     std::lock_guard lock(mutex_);
-    const auto position = ids_by_text_.find(string{text});
-    if (position == ids_by_text_.end()) {
-      return std::nullopt;
+    const auto position = entries_by_text_.find(string{text});
+    if (position == entries_by_text_.end()) {
+      return nullptr;
     }
 
-    return position->second;
-  }
-
-  [[nodiscard]] std::string_view find_text(std::uint64_t id) const noexcept {
-    std::lock_guard lock(mutex_);
-    const auto position = text_by_id_.find(id);
-    if (position == text_by_id_.end()) {
-      return {};
-    }
-
-    return position->second;
+    return position->second.get();
   }
 
 private:
   mutable std::mutex mutex_;
-  std::uint64_t next_id_ = 1;
-  hash_map<string, std::uint64_t> ids_by_text_;
-  hash_map<std::uint64_t, string> text_by_id_;
+  hash_map<string, std::unique_ptr<detail::string_name_entry>> entries_by_text_;
 };
 
 [[nodiscard]] string_name_table& get_string_name_table() {
@@ -72,21 +67,21 @@ private:
 string_name::string_name(const char* name)
     : string_name(name != nullptr ? std::string_view{name} : std::string_view{}) {}
 
-string_name::string_name(std::string_view name) : id_(get_string_name_table().intern(name)) {}
+string_name::string_name(std::string_view name) : entry_(get_string_name_table().intern(name)) {}
 
 string_name::string_name(const std::string& name) : string_name(std::string_view{name}) {}
 
 std::optional<string_name> string_name::find(std::string_view name) {
-  std::optional<std::uint64_t> id = get_string_name_table().find_id(name);
-  if (!id.has_value()) {
+  const detail::string_name_entry* entry = get_string_name_table().find_entry(name);
+  if (entry == nullptr) {
     return std::nullopt;
   }
 
-  return string_name{*id};
+  return string_name{entry};
 }
 
 std::string_view string_name::view() const noexcept {
-  return get_string_name_table().find_text(id_);
+  return entry_ != nullptr ? std::string_view{entry_->text} : std::string_view{};
 }
 
 std::string string_name::string() const { return std::string{view()}; }

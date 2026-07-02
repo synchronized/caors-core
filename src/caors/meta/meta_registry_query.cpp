@@ -72,7 +72,7 @@ std::optional<meta_type> meta_registry::find_type(std::string_view name) const {
 
 std::optional<meta_type> meta_registry::find_type(string_name name) const {
   std::lock_guard lock(state_->mutex);
-  const auto name_position = state_->names.find(name.id());
+  const auto name_position = state_->names.find(name);
   if (name_position == state_->names.end()) {
     return std::nullopt;
   }

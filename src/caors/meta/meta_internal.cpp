@@ -61,7 +61,7 @@ std::optional<type_id> find_existing_type_id(const meta_registry_state& state,
   }
 
   if (type.name()) {
-    const auto name_position = state.names.find(type.name().id());
+    const auto name_position = state.names.find(type.name());
     if (name_position != state.names.end() &&
         !merge_candidate(name_position->second, {error_domain::meta, errc::duplicate_name})) {
       return std::nullopt;
@@ -82,7 +82,7 @@ std::optional<type_id> find_existing_type_id(const meta_registry_state& state,
 error duplicate_identity_error(const meta_registry_state& state, const meta_type_data& type,
                                type_id existing_id) {
   if (type.name()) {
-    const auto name_position = state.names.find(type.name().id());
+    const auto name_position = state.names.find(type.name());
     if (name_position != state.names.end() && name_position->second == existing_id) {
       return {error_domain::meta, errc::duplicate_name};
     }
@@ -174,7 +174,7 @@ error merge_type_data(meta_registry_state& state, meta_type_data& stored,
   }
 
   if (incoming.name()) {
-    const auto name_position = state.names.find(incoming.name().id());
+    const auto name_position = state.names.find(incoming.name());
     if (name_position != state.names.end() && name_position->second != stored.id()) {
       return {error_domain::meta, errc::duplicate_name};
     }
@@ -186,7 +186,7 @@ error merge_type_data(meta_registry_state& state, meta_type_data& stored,
 
     if (!stored.name()) {
       stored.set_name(incoming.name());
-      state.names.emplace(stored.name().id(), stored.id());
+      state.names.emplace(stored.name(), stored.id());
       changed = true;
     }
   }
@@ -222,7 +222,7 @@ error store_new_type(meta_registry_state& state, const meta_type_data& incoming,
     return {error_domain::meta, errc::missing_parent};
   }
 
-  if (incoming.name() && state.names.contains(incoming.name().id())) {
+  if (incoming.name() && state.names.contains(incoming.name())) {
     return {error_domain::meta, errc::duplicate_name};
   }
 
@@ -245,7 +245,7 @@ error store_new_type(meta_registry_state& state, const meta_type_data& incoming,
   }
 
   if (stored.name()) {
-    state.names.emplace(stored.name().id(), id);
+    state.names.emplace(stored.name(), id);
   }
 
   if (stored.guid()) {
