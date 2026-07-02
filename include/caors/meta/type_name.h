@@ -7,6 +7,7 @@
 #include "caors/core/containers.h"
 #include "caors/meta/type_id.h"
 
+#include <filesystem>
 #include <string>
 #include <string_view>
 
@@ -90,6 +91,10 @@ template <> struct type_name<string> {
 
 template <> struct type_name<std::string_view> {
   inline static constexpr std::string_view value = "std.string_view";
+};
+
+template <> struct type_name<std::filesystem::path> {
+  inline static constexpr std::string_view value = "std.filesystem.path";
 };
 
 template <> struct type_name<guid> {

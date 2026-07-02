@@ -209,6 +209,7 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `object_ref<T>` 
 - `caors::string`：按字符串读写，默认走 CAORS allocator。
 - `std::string`：按字符串读写，用于兼容外部结构。
 - `std::string_view`：按字符串写出和构造 DOM；反序列化暂不支持直接写回 view。
+- `std::filesystem::path`：按通用路径字符串读写，写出使用 `/` 分隔的 `generic_string()`。
 - `caors::guid`：按标准 UUID/GUID 字符串读写。
 - `caors::type_guid`：按内部 `guid` 的标准字符串读写。
 - `caors::vector<T>` / `std::vector<T>`：通过 `sequence_serialization_codec<T>` 输出为数组。
@@ -288,6 +289,7 @@ DOM reader 同时接受 `variant::dictionary` 和 pair 数组形态。普通 `st
 | --- | --- | --- | --- |
 | 基础标量、枚举、`caors::string`、`std::string` | 保存真实 C++ 类型，可读写字段 | 支持 | 支持 |
 | `std::string_view` | 保存 view 本身，不拥有字符存储 | 支持，按字符串写出 | 不支持，避免悬空引用 |
+| `std::filesystem::path` | 作为普通值类型 | 支持，按通用路径字符串写出 | 支持，从字符串构造 path |
 | `guid`、`type_guid` | 作为普通值类型 | 支持，按字符串写出 | 支持，从字符串解析 |
 | 裸指针 `T*` | 通过 `indirect_view` 访问已指向的 `T` | 空值写 `null`，非空展开内部值 | `null` 可重置；非空要求目标已经指向有效对象 |
 | `std::unique_ptr<T>`、`std::shared_ptr<T>`、`std::optional<T>` | 通过 `indirect_view` 访问内部 `T` | 空值写 `null`，非空展开内部值 | `null` 可重置；非空可在 `T` 默认可构造时创建内部值 |

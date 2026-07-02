@@ -9,6 +9,7 @@
 #include <array>
 #include <cstdint>
 #include <deque>
+#include <filesystem>
 #include <functional>
 #include <map>
 #include <memory>
@@ -88,6 +89,10 @@ struct codec_guid_actor {
 
 struct codec_string_view_actor {
   std::string_view name{};
+};
+
+struct codec_path_actor {
+  std::filesystem::path path{};
 };
 
 enum class scalar_color : std::uint8_t {
@@ -2683,6 +2688,34 @@ TEST_CASE("serialization - built in codecs reject string view deserialization", 
   CHECK(result.domain() == caors::error_domain::serialization);
   CHECK(result.value() == caors::errc::unsupported);
   CHECK(actor.name == "original");
+}
+
+TEST_CASE("serialization - built in codecs roundtrip filesystem paths as strings",
+          "[serialization]") {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<codec_path_actor>("caors.test.serialization.codec_path_actor")
+          .field("path", &codec_path_actor::path)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<codec_path_actor>()));
+
+  codec_path_actor actor{std::filesystem::path{"assets/textures/albedo.png"}};
+
+  const caors::serialization_text_result text = caors::serialize_text(actor);
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"path":"assets/textures/albedo.png"})");
+
+  const caors::variant_result value = caors::to_serialization_value(actor);
+  REQUIRE(value.succeeded());
+  const caors::variant_member* path = value.value.find_member(caors::string_name{"path"});
+  REQUIRE(path != nullptr);
+  REQUIRE(path->value.try_as_string() != nullptr);
+  CHECK(*path->value.try_as_string() == "assets/textures/albedo.png");
+
+  codec_path_actor decoded{};
+  const caors::error result = caors::deserialize_json(decoded, R"({"path":"levels/start.scene"})");
+
+  REQUIRE(result.succeeded());
+  CHECK(decoded.path.generic_string() == "levels/start.scene");
 }
 
 TEST_CASE("serialization - writer features validate required field identifiers",

@@ -3,6 +3,7 @@
 
 #include "caors/serialization/codec.h"
 
+#include <filesystem>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -77,6 +78,18 @@ template <typename T> [[nodiscard]] type_id ensure_codec_type() {
   return {};
 }
 
+[[nodiscard]] error read_filesystem_path(serialization_reader& reader,
+                                         std::filesystem::path& value) {
+  string text;
+  const error status = reader.read_string(text);
+  if (status) {
+    return status;
+  }
+
+  value = std::filesystem::path{std::string_view{text.data(), text.size()}};
+  return {};
+}
+
 template <typename T>
 [[nodiscard]] error read_codec_payload(serialization_reader& reader, T& decoded) {
   if constexpr (std::is_same_v<T, string>) {
@@ -87,6 +100,8 @@ template <typename T>
     return read_guid(reader, decoded);
   } else if constexpr (std::is_same_v<T, type_guid>) {
     return read_type_guid(reader, decoded);
+  } else if constexpr (std::is_same_v<T, std::filesystem::path>) {
+    return read_filesystem_path(reader, decoded);
   } else {
     return {error_domain::serialization, errc::unsupported};
   }
@@ -158,6 +173,12 @@ template <typename T> [[nodiscard]] const T* codec_value(const any& data) noexce
                            : error{error_domain::serialization, errc::invalid_type};
 }
 
+[[nodiscard]] error write_filesystem_path(serialization_writer& writer, const any& data) {
+  const std::filesystem::path* stored = codec_value<std::filesystem::path>(data);
+  return stored != nullptr ? writer.write_string(stored->generic_string())
+                           : error{error_domain::serialization, errc::invalid_type};
+}
+
 [[nodiscard]] variant_result make_caors_string_value(const any& data) {
   const string* stored = codec_value<string>(data);
   return stored != nullptr ? variant_result{{}, variant::from(*stored)}
@@ -185,6 +206,12 @@ template <typename T> [[nodiscard]] const T* codec_value(const any& data) noexce
 [[nodiscard]] variant_result make_type_guid_value(const any& data) {
   const type_guid* stored = codec_value<type_guid>(data);
   return stored != nullptr ? variant_result{{}, variant::from(stored->value.string())}
+                           : variant_result{{error_domain::serialization, errc::invalid_type}, {}};
+}
+
+[[nodiscard]] variant_result make_filesystem_path_value(const any& data) {
+  const std::filesystem::path* stored = codec_value<std::filesystem::path>(data);
+  return stored != nullptr ? variant_result{{}, variant::from(stored->generic_string())}
                            : variant_result{{error_domain::serialization, errc::invalid_type}, {}};
 }
 
@@ -225,6 +252,12 @@ void register_builtin_codecs() {
       &read_codec_value<type_guid>,
       &read_codec_ref<type_guid>,
       &make_type_guid_value,
+  });
+  register_builtin_codec<std::filesystem::path>(serialization_codec_data{
+      &write_filesystem_path,
+      &read_codec_value<std::filesystem::path>,
+      &read_codec_ref<std::filesystem::path>,
+      &make_filesystem_path_value,
   });
 }
 
