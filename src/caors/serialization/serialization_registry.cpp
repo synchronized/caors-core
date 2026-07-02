@@ -15,12 +15,24 @@ error serialization_registry::register_type(type_id id, serialization_type_data 
     return {error_domain::serialization, errc::invalid_type};
   }
 
+  if (!get_meta_registry().contains(id)) {
+    return {error_domain::serialization, errc::missing_type};
+  }
+
   if (!data.valid()) {
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  return rethrow_as(get_meta_registry().emplace<serialization_type_data>(id, data),
+  return rethrow_as(get_meta_registry().try_emplace_component<serialization_type_data>(id, data),
                     error_domain::serialization);
+}
+
+error serialization_registry::register_type(meta_type type, serialization_type_data data) {
+  if (!type.valid()) {
+    return {error_domain::serialization, errc::invalid_type};
+  }
+
+  return register_type(type.id(), data);
 }
 
 bool serialization_registry::contains(type_id id) const {
@@ -41,6 +53,10 @@ serialization_registry& get_serialization_registry() noexcept {
 
 error register_serialization(type_id id, serialization_type_data data) {
   return get_serialization_registry().register_type(id, data);
+}
+
+error register_serialization(meta_type type, serialization_type_data data) {
+  return get_serialization_registry().register_type(type, data);
 }
 
 } // namespace caors

@@ -142,10 +142,13 @@ auto type = caors::find_type<actor>();
 也可以使用 RTTR 风格入口：
 
 ```cpp
-caors::meta<actor>()
-    .type("game.actor")
+caors::meta<actor>("game.actor")
     .guid(caors::type_guid{*guid});
 ```
+
+`caors::type::try_get<T>()` 和 `caors::type::get<T>()` 只查询已经注册的 C++ 类型，不会创建匿名记录；
+不存在时分别返回 `std::nullopt` 和无效 `meta_type`。如果确实需要旧的“没有则创建匿名类型”语义，
+使用 `caors::type::ensure<T>()` 或 `type_id_of<T>()`。
 
 ### meta_type_semantics_data
 
@@ -213,6 +216,10 @@ caors::get_meta_registry().emplace<object_factory_meta>(actor_id, true);
 - `find<T>(type_id)`：获取组件副本。
 - `find_ptr<T>(type_id)`：获取组件只读指针。组件由注册表以 `unique_ptr` 保存，地址在 append-only
   注册表生命周期内保持稳定。
+- `try_emplace_component<T>(type_id, args...)`：类似 `std::try_emplace`，组件不存在时挂载，已存在时返回
+  `errc::duplicate_component`。
+- `ensure_component<T>(type_id, args...)`：类似 lazy resolve，组件已存在时返回现有指针，不存在时创建并返回
+  新组件指针。
 - `component_status<T>(type_id)`：查询组件诊断状态，区分无效类型、未注册类型、缺失组件和已挂载组件。
 - `view<T...>()`：查询同时拥有指定组件集合的类型。
 

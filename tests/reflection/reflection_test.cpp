@@ -130,6 +130,10 @@ struct registry_actor {
   float health = 0.0F;
 };
 
+struct explicit_meta_actor {
+  int id = 0;
+};
+
 struct view_actor {
   int id = 0;
   float health = 0.0F;
@@ -488,6 +492,35 @@ TEST_CASE("reflection - registry registers and finds types", "[reflection]") {
   auto by_guid = caors::find_reflection(registry_actor_guid);
   REQUIRE(by_guid.has_value());
   CHECK(by_guid->id() == by_name->id());
+}
+
+TEST_CASE("reflection - class builder can attach to explicit meta type", "[reflection]") {
+  const caors::meta_type type =
+      caors::meta<explicit_meta_actor>("caors.test.reflection.explicit_meta_actor").get();
+  REQUIRE(type.valid());
+  CHECK(caors::type::get<explicit_meta_actor>().id() == type.id());
+
+  const caors::error status = caors::reflection::class_<explicit_meta_actor>(type)
+                                  .field("id", &explicit_meta_actor::id)
+                                  .commit();
+
+  REQUIRE(
+      (status == caors::error{} || status == reflection_error(caors::errc::duplicate_reflection)));
+
+  auto reflected = caors::find_reflection(type.id());
+  REQUIRE(reflected.has_value());
+  CHECK(reflected->field_count() == 1);
+  CHECK(reflected->find_field("id").has_value());
+}
+
+TEST_CASE("reflection - explicit registration reports missing meta type", "[reflection]") {
+  const caors::error status =
+      caors::register_reflection(caors::type_id{std::numeric_limits<std::uint64_t>::max()},
+                                 caors::make_reflection_type_data({}));
+
+  CHECK(status.failed());
+  CHECK(status.domain() == caors::error_domain::reflection);
+  CHECK(status.value() == caors::errc::missing_type);
 }
 
 TEST_CASE("reflection - registry returns type and field views", "[reflection]") {

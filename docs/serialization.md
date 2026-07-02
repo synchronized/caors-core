@@ -397,12 +397,23 @@ caors::variant_result value = caors::to_variant(caors::any::from(42));
 `serialization_registry` 是全局序列化注册表，内部复用 `meta_registry`：
 
 ```cpp
-caors::error status = caors::register_serialization<actor>();
+caors::meta_type type = caors::type::get<actor>();
+
+caors::error status =
+    caors::serialization::class_(type)
+        .field("id")
+        .field("health")
+        .commit();
 
 if (status) {
   // 处理重复注册、缺失类型等错误。
 }
 ```
+
+推荐由 meta 层先注册基础类型，再使用 `serialization::class_(meta_type)` 或
+`register_serialization(meta_type, data)` 挂载序列化组件。这条路径不会创建或修改基础类型记录；无效
+`meta_type` 返回 `errc::invalid_type`，不存在的 `type_id` 返回 `errc::missing_type`。旧的
+`register_serialization<T>()` 仍作为兼容入口保留，会先确保 C++ 类型存在。
 
 重复注册同一个类型会返回 `errc::duplicate_component`，错误来源域为
 `error_domain::serialization`。
@@ -412,12 +423,17 @@ if (status) {
 `serialize_text()` 使用已注册的反射字段读取对象：
 
 ```cpp
-caors::reflection::class_<actor>("game.actor")
+caors::meta_type type = caors::meta<actor>("game.actor").get();
+
+caors::reflection::class_<actor>(type)
     .field("id", &actor::id)
     .field("health", &actor::health)
     .commit();
 
-caors::register_serialization<actor>();
+caors::serialization::class_(type)
+    .field("id")
+    .field("health")
+    .commit();
 
 actor instance{7, 95.5F};
 caors::serialization_text_result result = caors::serialize_text(instance);
@@ -460,6 +476,7 @@ caors::string text = result.value;
 - `variant_entry`：字典条目，保存 key 和 value。
 - `serialization_registry`：全局序列化注册表。
 - `register_serialization()`：注册序列化组件。
+- `serialization::class_(meta_type)`：推荐的链式序列化组件注册入口，只挂载序列化组件。
 - `serialize()`：通过指定 writer 后端序列化对象。
 - `deserialize()`：通过指定 reader 后端反序列化对象。
 - `to_serialization_value()`：通过反射和序列化元信息构造中间对象树。

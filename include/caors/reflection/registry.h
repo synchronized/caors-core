@@ -31,6 +31,8 @@ public:
 
   [[nodiscard]] error register_type(const meta_type_data& type,
                                     const reflection_type_data& reflection);
+  [[nodiscard]] error register_type(type_id id, const reflection_type_data& reflection);
+  [[nodiscard]] error register_type(meta_type type, const reflection_type_data& reflection);
   template <typename T>
   [[nodiscard]] error register_type_for(const meta_type_data& type,
                                         const reflection_type_data& reflection) {
@@ -78,6 +80,14 @@ template <typename T>
   return get_reflection_registry().register_type_for<T>(
       make_meta_type_data<T>(name, guid, parent_id), make_reflection_type_data(fields));
 }
+
+/** @brief 向已注册元类型挂载反射组件。不会创建或修改基础类型记录。 */
+[[nodiscard]] CAORS_API error
+register_reflection(type_id id, reflection_type_data data = reflection_type_data{});
+
+/** @brief 向已注册元类型挂载反射组件。不会创建或修改基础类型记录。 */
+[[nodiscard]] CAORS_API error
+register_reflection(meta_type type, reflection_type_data data = reflection_type_data{});
 
 /** @brief 在全局反射注册表中查找反射类型。 */
 [[nodiscard]] CAORS_API std::optional<reflection_type> find_reflection(type_id id);

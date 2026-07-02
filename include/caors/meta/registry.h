@@ -221,6 +221,32 @@ public:
     return {};
   }
 
+  /** @brief 类似 `std::try_emplace` 的组件挂载入口，已存在时返回 `duplicate_component`。 */
+  template <typename Component, typename... Args>
+  [[nodiscard]] error try_emplace_component(type_id id, Args&&... args) {
+    return emplace<Component>(id, std::forward<Args>(args)...);
+  }
+
+  /**
+   * @brief 确保指定类型拥有组件。
+   *
+   * 如果组件已经存在，直接返回现有组件指针；如果不存在，则用传入参数创建。返回指针不拥有组件，
+   * 生命周期由全局注册表管理。
+   */
+  template <typename Component, typename... Args>
+  [[nodiscard]] const Component* ensure_component(type_id id, Args&&... args) {
+    if (const Component* existing = find_ptr<Component>(id); existing != nullptr) {
+      return existing;
+    }
+
+    const error status = try_emplace_component<Component>(id, std::forward<Args>(args)...);
+    if (status && status.value() != errc::duplicate_component) {
+      return nullptr;
+    }
+
+    return find_ptr<Component>(id);
+  }
+
   /** @brief 判断指定类型是否挂载了某个元数据组件。 */
   template <typename Component> [[nodiscard]] bool has(type_id id) const {
     using component_type = std::decay_t<Component>;
@@ -397,6 +423,31 @@ private:
 
 /** @brief 获取或创建指定 C++ 类型的元类型注册构建器。 */
 template <typename T> [[nodiscard]] meta_builder<T> meta() { return meta_builder<T>{}; }
+
+/** @brief 获取或创建指定 C++ 类型并设置类型名。 */
+template <typename T> [[nodiscard]] meta_builder<T> meta(std::string_view name) {
+  return meta_builder<T>{}.type(name);
+}
+
+namespace type {
+
+/** @brief 查找已注册的 C++ 类型；不会创建匿名类型。 */
+template <typename T> [[nodiscard]] std::optional<meta_type> try_get() {
+  return get_meta_registry().find_type<T>();
+}
+
+/** @brief 获取已注册的 C++ 类型；不存在时返回无效 `meta_type`。 */
+template <typename T> [[nodiscard]] meta_type get() {
+  const std::optional<meta_type> type = try_get<T>();
+  return type.value_or(meta_type{});
+}
+
+/** @brief 获取或创建匿名 C++ 类型记录。 */
+template <typename T> [[nodiscard]] meta_type ensure() {
+  return get_meta_registry().ensure_type_for<T>();
+}
+
+} // namespace type
 
 /** @brief 向全局元数据注册表注册基础类型。 */
 template <typename T>

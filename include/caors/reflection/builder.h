@@ -28,6 +28,12 @@ public:
   class_builder(std::string_view name, type_guid guid, type_id parent_id = type_id::invalid())
       : type_(make_meta_type_data<Class>(name, guid, parent_id)) {}
 
+  explicit class_builder(meta_type type) : existing_type_(type) {
+    if (!type.valid()) {
+      pending_status_ = {error_domain::reflection, errc::invalid_type};
+    }
+  }
+
   template <typename Field> class_builder& field(std::string_view name, Field Class::* member) {
     using field_type = std::remove_cv_t<Field>;
 
@@ -123,6 +129,10 @@ public:
   [[nodiscard]] error commit() {
     if (pending_status_) {
       return pending_status_;
+    }
+
+    if (existing_type_.valid()) {
+      return get_reflection_registry().register_type(existing_type_, reflection_);
     }
 
     return get_reflection_registry().template register_type_for<Class>(type_, reflection_);
@@ -329,6 +339,7 @@ private:
   }
 
   meta_type_data type_{};
+  meta_type existing_type_{};
   reflection_type_data reflection_{};
   error pending_status_{};
 };
@@ -345,6 +356,11 @@ template <typename Class>
 [[nodiscard]] class_builder<Class> class_(std::string_view name, type_guid guid,
                                           type_id parent_id = type_id::invalid()) {
   return class_builder<Class>{name, guid, parent_id};
+}
+
+/** @brief 为已注册元类型创建反射注册构建器，不会创建或修改基础类型记录。 */
+template <typename Class> [[nodiscard]] class_builder<Class> class_(meta_type type) {
+  return class_builder<Class>{type};
 }
 
 } // namespace caors::reflection

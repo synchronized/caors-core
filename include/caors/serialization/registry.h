@@ -26,6 +26,8 @@ public:
 
   [[nodiscard]] error register_type(type_id id,
                                     serialization_type_data data = serialization_type_data{});
+  [[nodiscard]] error register_type(meta_type type,
+                                    serialization_type_data data = serialization_type_data{});
   [[nodiscard]] bool contains(type_id id) const;
   [[nodiscard]] std::optional<serialization_type_data> find_type(type_id id) const;
   [[nodiscard]] std::size_t size() const noexcept;
@@ -47,6 +49,10 @@ private:
 [[nodiscard]] CAORS_API error
 register_serialization(type_id id, serialization_type_data data = serialization_type_data{});
 
+/** @brief 向已注册元类型挂载序列化组件。不会创建或修改基础类型记录。 */
+[[nodiscard]] CAORS_API error
+register_serialization(meta_type type, serialization_type_data data = serialization_type_data{});
+
 /** @brief 向全局序列化注册表注册指定 C++ 类型。 */
 template <typename T>
 [[nodiscard]] error
@@ -59,6 +65,49 @@ template <typename T>
 [[nodiscard]] error register_serialization(std::initializer_list<serialization_field_data> fields) {
   return register_serialization<T>(make_serialization_type_data(fields));
 }
+
+namespace serialization {
+
+/** @brief 已注册元类型的序列化配置构建器。 */
+class class_builder {
+public:
+  explicit class_builder(meta_type type) : type_(type) {
+    if (!type.valid()) {
+      status_ = {error_domain::serialization, errc::invalid_type};
+    }
+  }
+
+  class_builder& field(std::string_view field_name, std::string_view serialized_name = {},
+                       bool skipped = false, std::uint32_t field_id = 0) {
+    if (status_) {
+      return *this;
+    }
+
+    data_.fields.push_back(
+        make_serialization_field(field_name, serialized_name, skipped, field_id));
+    return *this;
+  }
+
+  [[nodiscard]] error commit() {
+    if (status_) {
+      return status_;
+    }
+
+    return caors::register_serialization(type_, data_);
+  }
+
+  [[nodiscard]] const serialization_type_data& serialization_data() const noexcept { return data_; }
+
+private:
+  meta_type type_{};
+  serialization_type_data data_{};
+  error status_{};
+};
+
+/** @brief 为已注册元类型创建序列化配置构建器。 */
+[[nodiscard]] inline class_builder class_(meta_type type) { return class_builder{type}; }
+
+} // namespace serialization
 
 } // namespace caors
 

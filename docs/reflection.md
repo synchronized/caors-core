@@ -588,13 +588,21 @@ for (caors::associative_entry_ref entry : map) {
 和 `find_reflection()` 访问它，不需要创建 registry 对象：
 
 ```cpp
+caors::meta_type type = caors::meta<actor>("game.actor").get();
+
 caors::error result =
-    caors::reflection::class_<actor>("game.actor")
+    caors::reflection::class_<actor>(type)
         .field("id", &actor::id)
         .commit();
 
 auto reflected = caors::find_reflection("game.actor");
 ```
+
+推荐先通过 `meta<T>()` 注册基础类型，再把 `caors::type::get<T>()` 或保存下来的 `meta_type` 传给
+`reflection::class_<T>(meta_type)`。这条路径只向已注册类型挂载 `reflection_type_data`，不会创建或修改
+基础类型记录；传入无效 `meta_type` 会返回 `errc::invalid_type`，传入不存在的 `type_id` 会返回
+`errc::missing_type`。旧的 `reflection::class_<T>("name")` 和 `register_reflection<T>("name", ...)`
+仍作为兼容入口保留，会同时处理基础类型注册。
 
 底层 `reflection_registry` 仍作为实现类型存在，并复用 `meta_registry` 保存基础类型信息，再把
 `reflection_type_data` 作为组件挂载到同一个 `type_id` 上。注册表构造由库内部管理；注册后不提供
@@ -627,6 +635,7 @@ auto reflected = caors::find_reflection("game.actor");
 - `reflection_type` / `reflection_field`：全局反射数据的推荐查询入口。
 - `reflection_registry`：底层全局注册表实现。
 - `reflection::class_<T>()`：RTTR 风格链式注册入口。
+- `reflection::class_<T>(meta_type)`：推荐的显式 meta 注册入口，只挂载反射组件。
 - `register_reflection<T>()`：底层字段列表注册入口。
 - `find_reflection()`：在全局反射注册表中查询类型视图。
 

@@ -368,6 +368,45 @@ error reflection_registry::register_type(const meta_type_data& type,
   return register_type(nullptr, type, reflection);
 }
 
+error reflection_registry::register_type(type_id id, const reflection_type_data& reflection) {
+  if (!id) {
+    return {error_domain::reflection, errc::invalid_type};
+  }
+
+  const std::optional<meta_type> stored_meta = get_meta_registry().find_type(id);
+  if (!stored_meta.has_value()) {
+    return {error_domain::reflection, errc::missing_type};
+  }
+
+  if (!reflection.valid()) {
+    return {error_domain::reflection, errc::invalid_field};
+  }
+
+  reflection_type_data stored_reflection = reflection;
+
+  const error field_status = resolve_fields(get_meta_registry(), stored_reflection);
+  if (field_status) {
+    return field_status;
+  }
+
+  const error validation_status = validate_registered_fields(stored_reflection);
+  if (validation_status) {
+    return validation_status;
+  }
+
+  return rethrow_as(
+      get_meta_registry().try_emplace_component<reflection_type_data>(id, stored_reflection),
+      error_domain::reflection, errc::duplicate_component, errc::duplicate_reflection);
+}
+
+error reflection_registry::register_type(meta_type type, const reflection_type_data& reflection) {
+  if (!type.valid()) {
+    return {error_domain::reflection, errc::invalid_type};
+  }
+
+  return register_type(type.id(), reflection);
+}
+
 error reflection_registry::register_type(detail::cpp_type_key key, const meta_type_data& type,
                                          const reflection_type_data& reflection) {
   if (!type.valid()) {
@@ -483,6 +522,14 @@ std::size_t reflection_registry::size() const noexcept {
 }
 
 reflection_registry& get_reflection_registry() noexcept { return reflection_registry::instance(); }
+
+error register_reflection(type_id id, reflection_type_data data) {
+  return get_reflection_registry().register_type(id, data);
+}
+
+error register_reflection(meta_type type, reflection_type_data data) {
+  return get_reflection_registry().register_type(type, data);
+}
 
 std::optional<reflection_type> find_reflection(type_id id) {
   return get_reflection_registry().find_type(id);

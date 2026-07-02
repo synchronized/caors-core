@@ -37,6 +37,10 @@ struct relation_child_type : relation_parent_type {};
 
 struct fluent_meta_type {};
 
+struct explicit_get_type {};
+
+struct missing_get_type {};
+
 [[nodiscard]] constexpr caors::error meta_error(caors::errc code) noexcept {
   return {caors::error_domain::meta, code};
 }
@@ -164,6 +168,20 @@ TEST_CASE("meta type - fluent builder registers name and guid", "[meta]") {
   CHECK(type.guid() == caors::type_guid{*guid});
   CHECK(caors::find_type<fluent_meta_type>()->id() == type.id());
   CHECK(caors::find_type(caors::type_guid{*guid})->id() == type.id());
+}
+
+TEST_CASE("meta type - explicit type access does not create missing types", "[meta]") {
+  CHECK_FALSE(caors::type::try_get<missing_get_type>().has_value());
+  CHECK_FALSE(caors::type::get<missing_get_type>());
+
+  const caors::meta_type type =
+      caors::meta<explicit_get_type>("caors.test.type.explicit_get").get();
+  REQUIRE(type.valid());
+
+  const std::optional<caors::meta_type> found = caors::type::try_get<explicit_get_type>();
+  REQUIRE(found.has_value());
+  CHECK(found->id() == type.id());
+  CHECK(caors::type::get<explicit_get_type>().id() == type.id());
 }
 
 TEST_CASE("meta type - global registry reports registration errors", "[meta]") {
