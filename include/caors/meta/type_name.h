@@ -7,6 +7,7 @@
 #include "caors/core/containers.h"
 #include "caors/meta/type_id.h"
 
+#include <chrono>
 #include <filesystem>
 #include <string>
 #include <string_view>
@@ -95,6 +96,34 @@ template <> struct type_name<std::string_view> {
 
 template <> struct type_name<std::filesystem::path> {
   inline static constexpr std::string_view value = "std.filesystem.path";
+};
+
+template <> struct type_name<std::chrono::nanoseconds> {
+  inline static constexpr std::string_view value = "std.chrono.nanoseconds";
+};
+
+template <> struct type_name<std::chrono::microseconds> {
+  inline static constexpr std::string_view value = "std.chrono.microseconds";
+};
+
+template <> struct type_name<std::chrono::milliseconds> {
+  inline static constexpr std::string_view value = "std.chrono.milliseconds";
+};
+
+template <> struct type_name<std::chrono::seconds> {
+  inline static constexpr std::string_view value = "std.chrono.seconds";
+};
+
+template <> struct type_name<std::chrono::minutes> {
+  inline static constexpr std::string_view value = "std.chrono.minutes";
+};
+
+template <> struct type_name<std::chrono::hours> {
+  inline static constexpr std::string_view value = "std.chrono.hours";
+};
+
+template <> struct type_name<std::chrono::system_clock::time_point> {
+  inline static constexpr std::string_view value = "std.chrono.system_clock.time_point";
 };
 
 template <> struct type_name<guid> {

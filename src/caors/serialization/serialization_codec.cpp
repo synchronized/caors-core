@@ -3,7 +3,9 @@
 
 #include "caors/serialization/codec.h"
 
+#include <chrono>
 #include <filesystem>
+#include <limits>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -90,6 +92,56 @@ template <typename T> [[nodiscard]] type_id ensure_codec_type() {
   return {};
 }
 
+[[nodiscard]] error read_i64_or_u64(serialization_reader& reader, std::int64_t& value) {
+  error status = reader.read_i64(value);
+  if (!status) {
+    return {};
+  }
+
+  std::uint64_t unsigned_value = 0;
+  status = reader.read_u64(unsigned_value);
+  if (status) {
+    return status;
+  }
+
+  if (unsigned_value > static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max())) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  value = static_cast<std::int64_t>(unsigned_value);
+  return {};
+}
+
+template <typename Duration>
+[[nodiscard]] error read_chrono_duration(serialization_reader& reader, Duration& value) {
+  std::int64_t count = 0;
+  const error status = read_i64_or_u64(reader, count);
+  if (status) {
+    return status;
+  }
+
+  using rep = typename Duration::rep;
+  if (count < static_cast<std::int64_t>(std::numeric_limits<rep>::min()) ||
+      count > static_cast<std::int64_t>(std::numeric_limits<rep>::max())) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  value = Duration{static_cast<rep>(count)};
+  return {};
+}
+
+[[nodiscard]] error read_system_time_point(serialization_reader& reader,
+                                           std::chrono::system_clock::time_point& value) {
+  std::int64_t milliseconds = 0;
+  const error status = read_i64_or_u64(reader, milliseconds);
+  if (status) {
+    return status;
+  }
+
+  value = std::chrono::system_clock::time_point{std::chrono::milliseconds{milliseconds}};
+  return {};
+}
+
 template <typename T>
 [[nodiscard]] error read_codec_payload(serialization_reader& reader, T& decoded) {
   if constexpr (std::is_same_v<T, string>) {
@@ -102,6 +154,15 @@ template <typename T>
     return read_type_guid(reader, decoded);
   } else if constexpr (std::is_same_v<T, std::filesystem::path>) {
     return read_filesystem_path(reader, decoded);
+  } else if constexpr (std::is_same_v<T, std::chrono::nanoseconds> ||
+                       std::is_same_v<T, std::chrono::microseconds> ||
+                       std::is_same_v<T, std::chrono::milliseconds> ||
+                       std::is_same_v<T, std::chrono::seconds> ||
+                       std::is_same_v<T, std::chrono::minutes> ||
+                       std::is_same_v<T, std::chrono::hours>) {
+    return read_chrono_duration(reader, decoded);
+  } else if constexpr (std::is_same_v<T, std::chrono::system_clock::time_point>) {
+    return read_system_time_point(reader, decoded);
   } else {
     return {error_domain::serialization, errc::unsupported};
   }
@@ -179,6 +240,24 @@ template <typename T> [[nodiscard]] const T* codec_value(const any& data) noexce
                            : error{error_domain::serialization, errc::invalid_type};
 }
 
+template <typename Duration>
+[[nodiscard]] error write_chrono_duration(serialization_writer& writer, const any& data) {
+  const Duration* stored = codec_value<Duration>(data);
+  return stored != nullptr ? writer.write_i64(static_cast<std::int64_t>(stored->count()))
+                           : error{error_domain::serialization, errc::invalid_type};
+}
+
+[[nodiscard]] error write_system_time_point(serialization_writer& writer, const any& data) {
+  const auto* stored = codec_value<std::chrono::system_clock::time_point>(data);
+  if (stored == nullptr) {
+    return {error_domain::serialization, errc::invalid_type};
+  }
+
+  const auto milliseconds =
+      std::chrono::duration_cast<std::chrono::milliseconds>(stored->time_since_epoch());
+  return writer.write_i64(static_cast<std::int64_t>(milliseconds.count()));
+}
+
 [[nodiscard]] variant_result make_caors_string_value(const any& data) {
   const string* stored = codec_value<string>(data);
   return stored != nullptr ? variant_result{{}, variant::from(*stored)}
@@ -213,6 +292,25 @@ template <typename T> [[nodiscard]] const T* codec_value(const any& data) noexce
   const std::filesystem::path* stored = codec_value<std::filesystem::path>(data);
   return stored != nullptr ? variant_result{{}, variant::from(stored->generic_string())}
                            : variant_result{{error_domain::serialization, errc::invalid_type}, {}};
+}
+
+template <typename Duration>
+[[nodiscard]] variant_result make_chrono_duration_value(const any& data) {
+  const Duration* stored = codec_value<Duration>(data);
+  return stored != nullptr
+             ? variant_result{{}, variant::from(static_cast<std::int64_t>(stored->count()))}
+             : variant_result{{error_domain::serialization, errc::invalid_type}, {}};
+}
+
+[[nodiscard]] variant_result make_system_time_point_value(const any& data) {
+  const auto* stored = codec_value<std::chrono::system_clock::time_point>(data);
+  if (stored == nullptr) {
+    return {{error_domain::serialization, errc::invalid_type}, {}};
+  }
+
+  const auto milliseconds =
+      std::chrono::duration_cast<std::chrono::milliseconds>(stored->time_since_epoch());
+  return {{}, variant::from(static_cast<std::int64_t>(milliseconds.count()))};
 }
 
 template <typename T> void register_builtin_codec(serialization_codec_data codec) {
@@ -258,6 +356,48 @@ void register_builtin_codecs() {
       &read_codec_value<std::filesystem::path>,
       &read_codec_ref<std::filesystem::path>,
       &make_filesystem_path_value,
+  });
+  register_builtin_codec<std::chrono::nanoseconds>(serialization_codec_data{
+      &write_chrono_duration<std::chrono::nanoseconds>,
+      &read_codec_value<std::chrono::nanoseconds>,
+      &read_codec_ref<std::chrono::nanoseconds>,
+      &make_chrono_duration_value<std::chrono::nanoseconds>,
+  });
+  register_builtin_codec<std::chrono::microseconds>(serialization_codec_data{
+      &write_chrono_duration<std::chrono::microseconds>,
+      &read_codec_value<std::chrono::microseconds>,
+      &read_codec_ref<std::chrono::microseconds>,
+      &make_chrono_duration_value<std::chrono::microseconds>,
+  });
+  register_builtin_codec<std::chrono::milliseconds>(serialization_codec_data{
+      &write_chrono_duration<std::chrono::milliseconds>,
+      &read_codec_value<std::chrono::milliseconds>,
+      &read_codec_ref<std::chrono::milliseconds>,
+      &make_chrono_duration_value<std::chrono::milliseconds>,
+  });
+  register_builtin_codec<std::chrono::seconds>(serialization_codec_data{
+      &write_chrono_duration<std::chrono::seconds>,
+      &read_codec_value<std::chrono::seconds>,
+      &read_codec_ref<std::chrono::seconds>,
+      &make_chrono_duration_value<std::chrono::seconds>,
+  });
+  register_builtin_codec<std::chrono::minutes>(serialization_codec_data{
+      &write_chrono_duration<std::chrono::minutes>,
+      &read_codec_value<std::chrono::minutes>,
+      &read_codec_ref<std::chrono::minutes>,
+      &make_chrono_duration_value<std::chrono::minutes>,
+  });
+  register_builtin_codec<std::chrono::hours>(serialization_codec_data{
+      &write_chrono_duration<std::chrono::hours>,
+      &read_codec_value<std::chrono::hours>,
+      &read_codec_ref<std::chrono::hours>,
+      &make_chrono_duration_value<std::chrono::hours>,
+  });
+  register_builtin_codec<std::chrono::system_clock::time_point>(serialization_codec_data{
+      &write_system_time_point,
+      &read_codec_value<std::chrono::system_clock::time_point>,
+      &read_codec_ref<std::chrono::system_clock::time_point>,
+      &make_system_time_point_value,
   });
 }
 
