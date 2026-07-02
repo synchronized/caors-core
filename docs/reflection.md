@@ -99,7 +99,8 @@ caors::reflection::class_<actor>("game.actor")
   `wrapper_semantics` 为 `inline_value`。
 - `std::shared_ptr<T>`：`type_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
   `wrapper_semantics` 为 `inline_value`。
-- `std::weak_ptr<T>`：当前按普通 `type_kind::value` 描述，不作为默认 wrapper 展开。
+- `std::weak_ptr<T>`：`type_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
+  `wrapper_semantics` 为 `unsupported`，不默认展开内部值。
 - `std::optional<T>`：`type_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
   `wrapper_semantics` 为 `inline_value`。
 - `std::reference_wrapper<T>`：`type_kind::wrapper`，`value_type` 为 `T`，不表示空值，
@@ -153,7 +154,7 @@ struct wrapper_access<my_box<T>> {
 `any_ref::create_indirect_view()` 或 `reflection_field::create_indirect_view()` 能访问内部值，则需要同时特化
 `wrapper_access<T>`。内置适配支持裸指针、`std::unique_ptr<T>`、`std::shared_ptr<T>`、
 `std::optional<T>`、`std::reference_wrapper<T>` 和 `caors::object_ref<T>` 的内部值访问；`std::weak_ptr<T>`
-当前没有默认 wrapper 适配，避免返回可能悬空的内部引用。
+只提供 unsupported wrapper 语义，当前没有默认内部值访问，避免返回可能悬空的引用。
 
 顺序容器识别通过 `sequence_traits<T>` 扩展。traits 需要提供元素类型、类型名前缀和基础元素访问函数：
 

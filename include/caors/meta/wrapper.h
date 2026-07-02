@@ -143,6 +143,14 @@ template <typename T> struct wrapper_access<std::shared_ptr<T>> {
   }
 };
 
+/** @brief `std::weak_ptr` 只标记为不支持的 wrapper，不默认暴露内部值。 */
+template <typename T> struct wrapper_traits<std::weak_ptr<T>> {
+  static constexpr bool is_wrapper = true;
+  static constexpr bool nullable = true;
+  static constexpr wrapper_semantics semantics = wrapper_semantics::unsupported;
+  using wrapped_type = std::remove_cv_t<T>;
+};
+
 template <typename T> struct wrapper_traits<std::optional<T>> {
   static constexpr bool is_wrapper = true;
   static constexpr bool nullable = true;

@@ -1749,7 +1749,9 @@ inline indirect_view any::create_indirect_view() {
 
   const meta_type_semantics_data* data =
       get_meta_registry().find_ptr<meta_type_semantics_data>(type_);
-  if (data == nullptr) {
+  if (data == nullptr || (data->kind != type_kind::raw_pointer &&
+                          (data->kind != type_kind::wrapper ||
+                           data->wrapper_semantics == wrapper_semantics::unsupported))) {
     return {};
   }
 
@@ -1763,7 +1765,9 @@ inline indirect_view any::create_indirect_view() const {
 
   const meta_type_semantics_data* data =
       get_meta_registry().find_ptr<meta_type_semantics_data>(type_);
-  if (data == nullptr) {
+  if (data == nullptr || (data->kind != type_kind::raw_pointer &&
+                          (data->kind != type_kind::wrapper ||
+                           data->wrapper_semantics == wrapper_semantics::unsupported))) {
     return {};
   }
 
@@ -1777,7 +1781,9 @@ inline indirect_view any_ref::create_indirect_view() const {
 
   const meta_type_semantics_data* data =
       get_meta_registry().find_ptr<meta_type_semantics_data>(type_);
-  if (data == nullptr) {
+  if (data == nullptr || (data->kind != type_kind::raw_pointer &&
+                          (data->kind != type_kind::wrapper ||
+                           data->wrapper_semantics == wrapper_semantics::unsupported))) {
     return {};
   }
 

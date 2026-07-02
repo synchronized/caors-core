@@ -273,7 +273,8 @@ DOM reader 同时接受 `variant::dictionary` 和 pair 数组形态。普通 `st
   `T`；`std::reference_wrapper<T>` 会写入已经绑定的对象。
 - 如果 `T` 不支持默认构造，已经存在的 `T` 对象仍可被字段反序列化写入；但空智能指针、空 `optional`
   和需要新增元素的容器不会隐式构造 `T`。
-- `std::weak_ptr<T>` 无法稳定暴露可写内部值，当前不作为普通 value 序列化或反序列化。
+- `std::weak_ptr<T>` 明确标记为不支持的 wrapper，无法稳定暴露可写内部值，当前不作为普通 value
+  序列化或反序列化。
 - `caors::object_ref<T>` 不走内部 value 语义，仍通过 `serialization_reference_resolver` 写出和读入对象 id。
 
 这条规则避免序列化层隐式决定所有权。后续如果要让某类 wrapper 采用引用语义、共享身份或自定义构造策略，
@@ -284,7 +285,7 @@ DOM reader 同时接受 `variant::dictionary` 和 pair 数组形态。普通 `st
 当前实现优先覆盖可明确表达所有权和生命周期的类型。以下限制是刻意保留的边界，后续应逐项解决：
 
 - `std::string_view` 只支持写出和构造 DOM，不支持反序列化写回，避免把临时字符串读入成悬空引用。
-- `std::weak_ptr<T>` 默认不作为 wrapper 展开；如果需要弱引用序列化，应通过对象 handle、资源 id 或
+- `std::weak_ptr<T>` 默认不展开内部值；如果需要弱引用序列化，应通过对象 handle、资源 id 或
   `object_ref<T>` 类似的显式引用语义处理。
 - 裸指针和普通智能指针按 inline value 处理，不保留对象身份、共享关系或对象图引用；需要身份保持时使用
   `caors::object_ref<T>` 或后续对象 handle。
