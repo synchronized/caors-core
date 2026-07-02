@@ -319,7 +319,7 @@ template <typename T> void require_registered_type(std::string_view name) {
 
 template <typename T> void require_serialization_codec(std::string_view name) {
   require_registered_type<T>(name);
-  REQUIRE(serialization_result_ok(caors::register_serialization_codec<T>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_codec<T>()));
 }
 
 void require_pointer_actor_metadata() {

@@ -474,8 +474,12 @@ serialization_codec_registry& get_serialization_codec_registry() noexcept {
   return serialization_codec_registry::instance();
 }
 
+namespace detail {
+
 error register_serialization_codec(type_id id, serialization_codec_data codec) {
   return get_serialization_codec_registry().register_codec(id, codec);
 }
+
+} // namespace detail
 
 } // namespace caors

@@ -67,11 +67,14 @@ private:
 /** @brief 把运行期 C++ 引用转换为序列化中间值。不可拷贝引用会返回不支持。 */
 [[nodiscard]] CAORS_API variant_result to_variant(const any_ref& data);
 
-/** @brief 按类型 id 注册序列化 codec。 */
+namespace detail {
+
+/** @brief 按类型 id 注册序列化 codec。内部入口，公开代码优先使用
+ * `serialization::register_codec<T>()`。 */
 [[nodiscard]] CAORS_API error register_serialization_codec(type_id id,
                                                            serialization_codec_data codec);
 
-/** @brief 按 C++ 类型注册已特化的序列化 codec。 */
+/** @brief 按 C++ 类型注册已特化的序列化 codec。内部入口。 */
 template <typename T> [[nodiscard]] error register_serialization_codec() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   serialization_codec_data codec{};
@@ -147,6 +150,17 @@ template <typename T> [[nodiscard]] error register_serialization_codec() {
 
   return register_serialization_codec(meta->id(), codec);
 }
+
+} // namespace detail
+
+namespace serialization {
+
+/** @brief 按 C++ 类型注册已特化的序列化 codec。 */
+template <typename T> [[nodiscard]] error register_codec() {
+  return detail::register_serialization_codec<T>();
+}
+
+} // namespace serialization
 
 } // namespace caors
 

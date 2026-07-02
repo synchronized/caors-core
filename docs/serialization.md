@@ -234,7 +234,7 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `object_ref<T>` 
 因此既有代码不需要额外 include；如果只想显式引入 STL/CAORS 容器适配，也可以包含
 `caors/adapters/stl.h`。
 
-反射字段中的容器、pair、tuple 和 variant 不要求显式调用 `register_serialization_codec<T>()`；只要字段类型通过
+反射字段中的容器、pair、tuple 和 variant 不要求显式调用 `serialization::register_codec<T>()`；只要字段类型通过
 `sequence_traits<T>`、`set_traits<T>`、`associative_traits<T>`、`pair_traits<T>`、`tuple_traits<T>` 或
 `variant_traits<T>` 注册了 meta 访问数据，序列化层就能按元素、key、first、候选下标和 value 递归处理。`sequence_serialization_codec<T>`、
 `set_serialization_codec<T>` 和 `associative_serialization_codec<T>`
@@ -263,9 +263,9 @@ DOM reader 同时接受 `variant::dictionary` 和 pair 数组形态。普通 `st
 普通 `std::variant<Ts...>` 字段会写成 `[index, value]`，`index` 是当前候选下标；读入时数组长度必须等于 2，
 `index` 必须在候选范围内。目标对象已经处于相同候选时会更新已有值；切换到其他候选时，该候选类型需要支持默认构造。
 
-外部类型可以通过特化 `serialization_codec<T>` 并调用 `register_serialization_codec<T>()` 注册，也可以
-直接按 `type_id` 注册 `serialization_codec_data`。codec 可以分别提供 writer、reader 和 DOM
-构造函数；没有提供的方向会继续走默认逻辑或返回不支持。
+外部类型可以通过特化 `serialization_codec<T>` 并调用 `serialization::register_codec<T>()` 注册。底层按
+`type_id` 注册 `serialization_codec_data` 的入口属于内部实现，普通代码不直接调用。codec 可以分别提供
+writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认逻辑或返回不支持。
 
 ### 指针和 wrapper 字段
 
@@ -471,6 +471,7 @@ caors::string text = result.value;
 - `serialization_reader`：格式读入后端接口。
 - `serialization_context`：单次序列化/反序列化上下文，支持 schema version 字段过滤。
 - `serialization_codec_registry`：类型级 codec 注册表。
+- `serialization::register_codec<T>()`：注册已特化的类型级 codec。
 - `text_serialization_writer`：简单文本格式后端。
 - `variant`：序列化 DOM 中间对象。
 - `to_variant()`：把运行期 `any` / `any_ref` 转换为 `variant`。
