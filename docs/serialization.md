@@ -217,6 +217,7 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `object_ref<T>` 
 - `caors::type_guid`：按内部 `guid` 的标准字符串读写。
 - `caors::vector<T>` / `std::vector<T>`：通过 `sequence_serialization_codec<T>` 输出为数组。
 - `caors::list<T>` / `std::list<T>`：通过 `sequence_serialization_codec<T>` 输出为数组。
+- `std::forward_list<T>`：通过 `sequence_serialization_codec<T>` 输出为数组；反射随机访问需要线性遍历。
 - `std::deque<T>`：通过 `sequence_serialization_codec<T>` 输出为数组。
 - `std::array<T, N>`：通过 `sequence_serialization_codec<T>` 输出为数组；读入长度必须等于 `N`。
 - `std::span<T>` / `std::span<T, N>`：通过 `sequence_traits<T>` 输出为数组；它是借用视图，默认不支持反序列化读回。

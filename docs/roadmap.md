@@ -60,10 +60,10 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 提供运行时类型查询和字段元信息查询入口。
 - [x] 提供字段动态 get/set 入口。
 - [x] 支持基于 `sequence_traits<T>` 的顺序容器字段描述、元素类型查询和基础修改入口。
-- [x] 支持 `caors::list<T>` / `std::list<T>` 等非连续顺序容器类型反射描述。
+- [x] 支持 `caors::list<T>` / `std::list<T>` / `std::forward_list<T>` 等非连续顺序容器类型反射描述。
 - [x] 支持基于 `set_traits<T>` 的集合容器字段描述和元素类型查询。
 - [x] 支持基于 `associative_traits<T>` 的 hash map 字段描述和 key/value 类型查询。
-- [x] 支持 `std::array<T,N>`、`std::deque<T>`、`std::set<T>` 和 `std::map<K,V>` 的默认 traits 适配。
+- [x] 支持 `std::array<T,N>`、`std::deque<T>`、`std::forward_list<T>`、`std::set<T>` 和 `std::map<K,V>` 的默认 traits 适配。
 - [x] 支持 `std::pair<T,U>` 的二元组字段描述、first/second 类型查询和基础修改入口。
 - [x] 支持 `std::tuple<Ts...>` 的 tuple-like 字段描述、元素类型查询和基础修改入口。
 - [ ] 定义函数和属性的元信息模型。
@@ -94,7 +94,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 支持基于 `set_traits<T>` 的 `caors::hash_set<T>` 集合 codec。
 - [x] 支持基于 `sequence_traits<T>` 的 `caors::list<T>` 数组 codec。
 - [x] 支持裸指针、普通 wrapper、`object_ref<T>` 和 `null` 边界处理。
-- [x] 支持 `std::array<T,N>`、`std::deque<T>`、`std::set<T>` 和 `std::map<K,V>` 的默认序列化适配。
+- [x] 支持 `std::array<T,N>`、`std::deque<T>`、`std::forward_list<T>`、`std::set<T>` 和 `std::map<K,V>` 的默认序列化适配。
 - [x] 支持 `std::pair<T,U>` 按二元素数组序列化和反序列化。
 - [x] 支持 `std::tuple<Ts...>` 按元素数组序列化和反序列化。
 - [x] 支持 `std::variant<Ts...>` 按 `[index, value]` tagged union 序列化和反序列化。

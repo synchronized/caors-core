@@ -8,6 +8,7 @@
 
 #include <array>
 #include <deque>
+#include <forward_list>
 #include <limits>
 #include <list>
 #include <string>
@@ -301,6 +302,11 @@ struct serialization_codec<std::deque<T, Allocator>>
 template <typename T, typename Allocator>
 struct serialization_codec<std::list<T, Allocator>>
     : sequence_serialization_codec<std::list<T, Allocator>> {};
+
+/** @brief `std::forward_list` 的数组序列化 codec。 */
+template <typename T, typename Allocator>
+struct serialization_codec<std::forward_list<T, Allocator>>
+    : sequence_serialization_codec<std::forward_list<T, Allocator>> {};
 
 } // namespace caors
 

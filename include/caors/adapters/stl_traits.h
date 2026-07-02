@@ -9,6 +9,7 @@
 
 #include <array>
 #include <deque>
+#include <forward_list>
 #include <iterator>
 #include <list>
 #include <map>
@@ -287,6 +288,66 @@ template <typename T, typename Allocator> struct sequence_traits<std::list<T, Al
   [[nodiscard]] static bool append(list_type& values, const element_type& value) {
     if constexpr (std::is_copy_constructible_v<T>) {
       values.push_back(value);
+      return true;
+    } else {
+      return false;
+    }
+  }
+};
+
+/** @brief `std::forward_list` 的顺序容器反射适配。 */
+template <typename T, typename Allocator> struct sequence_traits<std::forward_list<T, Allocator>> {
+  static constexpr bool is_sequence = true;
+  using element_type = std::remove_cv_t<T>;
+  using list_type = std::forward_list<T, Allocator>;
+
+  [[nodiscard]] static constexpr std::string_view type_name_prefix() noexcept {
+    return "std.forward_list";
+  }
+
+  [[nodiscard]] static std::size_t size(const list_type& values) noexcept {
+    return static_cast<std::size_t>(std::distance(values.begin(), values.end()));
+  }
+
+  [[nodiscard]] static const element_type* element(const list_type& values,
+                                                   std::size_t index) noexcept {
+    auto iterator = values.begin();
+    for (std::size_t current = 0; current < index && iterator != values.end(); ++current) {
+      ++iterator;
+    }
+
+    return iterator != values.end() ? &*iterator : nullptr;
+  }
+
+  [[nodiscard]] static element_type* mutable_element(list_type& values,
+                                                     std::size_t index) noexcept {
+    auto iterator = values.begin();
+    for (std::size_t current = 0; current < index && iterator != values.end(); ++current) {
+      ++iterator;
+    }
+
+    return iterator != values.end() ? &*iterator : nullptr;
+  }
+
+  static void clear(list_type& values) { values.clear(); }
+
+  [[nodiscard]] static bool resize(list_type& values, std::size_t size) {
+    if constexpr (std::is_default_constructible_v<T>) {
+      values.resize(size);
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  [[nodiscard]] static bool append(list_type& values, const element_type& value) {
+    if constexpr (std::is_copy_constructible_v<T>) {
+      auto before_end = values.before_begin();
+      for (auto current = values.begin(); current != values.end(); ++current) {
+        ++before_end;
+      }
+
+      values.insert_after(before_end, value);
       return true;
     } else {
       return false;
