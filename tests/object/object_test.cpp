@@ -106,6 +106,11 @@ TEST_CASE("object - generated ids are valid and unique", "[object]") {
 }
 
 TEST_CASE("object - typed base exposes runtime type information", "[object]") {
+  REQUIRE(caors::register_object_type<runtime_actor>(runtime_actor::object_type_name) ==
+          caors::error{});
+  REQUIRE(caors::register_object_type<runtime_player>(runtime_player::object_type_name) ==
+          caors::error{});
+
   runtime_player instance;
   caors::object& base = instance;
 

@@ -264,6 +264,11 @@ constexpr caors::type_guid view_actor_guid{caors::guid::from_bytes(
   return {caors::error_domain::meta, code};
 }
 
+template <typename T> void require_registered_type(std::string_view name) {
+  const caors::error status = caors::register_type<T>(name);
+  REQUIRE((status == caors::error{} || status == meta_error(caors::errc::duplicate_id)));
+}
+
 [[nodiscard]] const caors::meta_type_semantics_data&
 registered_traits(const caors::reflection_field_data& field) {
   const auto* traits =
@@ -1047,6 +1052,10 @@ TEST_CASE("reflection - associative field view supports dynamic operations", "[r
 }
 
 TEST_CASE("reflection - container views can be created from any_ref", "[reflection]") {
+  require_registered_type<caors::vector<int>>("caors.vector<int>");
+  require_registered_type<caors::hash_set<int>>("caors.hash_set<int>");
+  require_registered_type<caors::hash_map<int, int>>("caors.hash_map<int,int>");
+
   caors::vector<int> scores{};
   caors::any_ref scores_ref = caors::any_ref::from(scores, "caors.vector<int>");
   REQUIRE(scores_ref.valid());
@@ -1405,12 +1414,8 @@ TEST_CASE("reflection - class builder resolves registered C++ field types", "[re
   CHECK(items->type() == registered_type_id("caors.test.reflection.inventory"));
 }
 
-TEST_CASE("reflection - class builder names anonymous C++ field types", "[reflection]") {
-  const caors::type_id anonymous_id = caors::type_id_of<test_reflection::named_field_value>();
-  auto anonymous = caors::find_type<test_reflection::named_field_value>();
-  REQUIRE(anonymous.has_value());
-  CHECK(anonymous->id() == anonymous_id);
-  CHECK(anonymous->name().empty());
+TEST_CASE("reflection - class builder names C++ field types from type_name", "[reflection]") {
+  CHECK_FALSE(caors::type_id_of<test_reflection::named_field_value>());
 
   REQUIRE(caors::reflection::class_<test_reflection::named_field_owner>(
               "caors.test.reflection.named_field_owner")
@@ -1419,7 +1424,7 @@ TEST_CASE("reflection - class builder names anonymous C++ field types", "[reflec
 
   auto value_type = caors::find_type("caors.test.reflection.named_field_value");
   REQUIRE(value_type.has_value());
-  CHECK(value_type->id() == anonymous_id);
+  CHECK(value_type->id() == caors::type_id_of<test_reflection::named_field_value>());
 
   auto reflected = caors::find_reflection("caors.test.reflection.named_field_owner");
   REQUIRE(reflected.has_value());
@@ -1427,7 +1432,7 @@ TEST_CASE("reflection - class builder names anonymous C++ field types", "[reflec
   auto value = reflected->find_field("value");
   REQUIRE(value.has_value());
   CHECK(value->type_name() == "caors.test.reflection.named_field_value");
-  CHECK(value->type() == anonymous_id);
+  CHECK(value->type() == value_type->id());
 }
 
 TEST_CASE("reflection - class builder reports missing field type mapping", "[reflection]") {

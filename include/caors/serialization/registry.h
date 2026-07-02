@@ -34,7 +34,12 @@ public:
 
   template <typename T>
   [[nodiscard]] error register_type_for(serialization_type_data data = serialization_type_data{}) {
-    return register_type(get_meta_registry().ensure_type_for<T>().id(), data);
+    const std::optional<meta_type> type = get_meta_registry().find_type<T>();
+    if (!type.has_value()) {
+      return {error_domain::serialization, errc::invalid_type};
+    }
+
+    return register_type(type->id(), data);
   }
 
 private:

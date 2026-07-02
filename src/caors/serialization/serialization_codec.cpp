@@ -25,7 +25,7 @@ struct serialization_codec_registry_state {
   return state;
 }
 
-template <typename T> [[nodiscard]] type_id ensure_codec_type() {
+template <typename T> [[nodiscard]] type_id registered_codec_type_id() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (detail::has_type_name_v<type>) {
     const error result = caors::register_type<type>(type_name<type>::value);
@@ -34,8 +34,8 @@ template <typename T> [[nodiscard]] type_id ensure_codec_type() {
     }
   }
 
-  const meta_type meta = get_meta_registry().ensure_type_for<type>();
-  return meta.valid() ? meta.id() : type_id::invalid();
+  const std::optional<meta_type> meta = get_meta_registry().find_type<type>();
+  return meta.has_value() ? meta->id() : type_id::invalid();
 }
 
 [[nodiscard]] error read_caors_string(serialization_reader& reader, string& value) {
@@ -314,7 +314,7 @@ template <typename Duration>
 }
 
 template <typename T> void register_builtin_codec(serialization_codec_data codec) {
-  const type_id id = ensure_codec_type<T>();
+  const type_id id = registered_codec_type_id<T>();
   if (id) {
     static_cast<void>(serialization_codec_registry::instance().register_codec(id, codec));
   }

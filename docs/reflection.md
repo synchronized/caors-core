@@ -360,6 +360,8 @@ value.try_set(7);
 可以从同类型 `any` 显式写回字段：
 
 ```cpp
+caors::register_type<int>("int");
+
 int source = 42;
 id->try_set_value(&instance, caors::any::from(source));
 ```
@@ -570,6 +572,8 @@ caors::sequence_view field_sequence =
     field->get_ref(&instance).create_sequence_view();
 caors::associative_view field_map =
     field->get_ref(&instance).create_associative_view();
+
+caors::register_type<caors::hash_map<int, int>>("caors.hash_map<int,int>");
 
 caors::hash_map<int, int> values;
 caors::any_ref ref = caors::any_ref::from(values, "caors.hash_map<int,int>");

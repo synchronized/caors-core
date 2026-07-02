@@ -139,8 +139,6 @@ public:
 
   [[nodiscard]] error register_type(const meta_type_data& type);
   [[nodiscard]] error register_cpp_type(detail::cpp_type_key key, const meta_type_data& type);
-  [[nodiscard]] meta_type ensure_cpp_type(detail::cpp_type_key key, std::size_t size,
-                                          std::size_t alignment);
   [[nodiscard]] error add_registration(meta_registration_fn fn);
   [[nodiscard]] error run_registrations();
   [[nodiscard]] error freeze();
@@ -161,36 +159,6 @@ public:
     }
 
     return status;
-  }
-
-  template <typename T> [[nodiscard]] meta_type ensure_type_for() {
-    using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const detail::cpp_type_key key = detail::cpp_type_key_of<type>();
-    std::optional<meta_type> existing = find_cpp_type(key);
-    if (existing.has_value()) {
-      if (!is_frozen()) {
-        (void)detail::ensure_type_semantics_for<type>(existing->id());
-        (void)detail::register_container_data_for<type>(existing->id());
-      }
-      return *existing;
-    }
-
-    if (is_frozen()) {
-      return {};
-    }
-
-    const error status = register_cpp_type(key, make_meta_type_data<type>(string_name{}));
-    if (status && status.value() != errc::duplicate_id) {
-      return {};
-    }
-
-    existing = find_cpp_type(key);
-    if (existing.has_value()) {
-      (void)detail::ensure_type_semantics_for<type>(existing->id());
-      (void)detail::register_container_data_for<type>(existing->id());
-    }
-
-    return existing.value_or(meta_type{});
   }
 
   [[nodiscard]] bool contains(type_id id) const;
@@ -397,9 +365,10 @@ private:
 
 namespace caors {
 
-/** @brief 获取指定 C++ 类型的运行期类型 id，必要时创建低层匿名类型记录。 */
+/** @brief 获取已注册 C++ 类型的运行期类型 id；未注册时返回无效 id。 */
 template <typename T> [[nodiscard]] type_id type_id_of() {
-  return get_meta_registry().ensure_type_for<T>().id();
+  const std::optional<meta_type> type = get_meta_registry().find_type<T>();
+  return type.has_value() ? type->id() : type_id::invalid();
 }
 
 /** @brief RTTR 风格的元类型注册构建器。 */

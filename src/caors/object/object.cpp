@@ -40,12 +40,12 @@ std::string_view object::type_name() const noexcept { return static_type_name();
 object_type_id object::static_type_id() noexcept {
 #if CAORS_HAS_EXCEPTIONS
   try {
-    return type_id_of<object>();
+    return caors::type::get<object>().id();
   } catch (...) {
     return object_type_id::invalid();
   }
 #else
-  return type_id_of<object>();
+  return caors::type::get<object>().id();
 #endif
 }
 

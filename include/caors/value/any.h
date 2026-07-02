@@ -67,31 +67,24 @@ public:
   /**
    * @brief 从 C++ 值创建运行期值。
    *
-   * 没有 `type_name<T>` 默认映射的类型需要使用显式类型名重载。
+   * 类型必须已经注册到全局 meta 注册表。没有 `type_name<T>` 默认映射的类型需要使用显式类型名重载。
    */
   template <typename T> [[nodiscard]] static any from(const T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
     static_assert(detail::has_type_name_v<type>,
-                  "any::from<T>() requires type_name<T> or an explicit type name");
+                  "any::from<T>() requires a registered type_name<T> or an explicit type name");
     return from(source, caors::type_name<type>::value);
   }
 
-  /** @brief 从 C++ 值和显式类型名创建运行期值。 */
+  /** @brief 从 C++ 值和显式类型名创建运行期值；类型名必须已经注册并匹配该 C++ 类型。 */
   template <typename T> [[nodiscard]] static any from(const T& source, std::string_view name) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
     static_assert(std::is_copy_constructible_v<type>, "any requires copy constructible types");
 
-    const error result = caors::register_type<type>(name);
-    if (result && result.value() != errc::duplicate_id) {
-      return {};
-    }
-
     const std::optional<meta_type> registered = caors::find_type<type>();
-    if (!registered.has_value() || registered->name().empty()) {
+    if (!registered.has_value() || registered->name().empty() || registered->name() != name) {
       return {};
     }
-
-    (void)detail::register_container_data_for<type>(registered->id());
 
     return copy_from_raw(registered->id(), &source);
   }
@@ -290,24 +283,17 @@ public:
   template <typename T> [[nodiscard]] static any_ref from(T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
     static_assert(detail::has_type_name_v<type>,
-                  "any_ref::from<T>() requires type_name<T> or an explicit type name");
+                  "any_ref::from<T>() requires a registered type_name<T> or an explicit type name");
     return from(source, caors::type_name<type>::value);
   }
 
-  /** @brief 从可写 C++ 对象和显式类型名创建引用。 */
+  /** @brief 从可写 C++ 对象和显式类型名创建引用；类型名必须已经注册并匹配该 C++ 类型。 */
   template <typename T> [[nodiscard]] static any_ref from(T& source, std::string_view name) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const error result = caors::register_type<type>(name);
-    if (result && result.value() != errc::duplicate_id) {
-      return {};
-    }
-
     const std::optional<meta_type> registered = caors::find_type<type>();
-    if (!registered.has_value() || registered->name().empty()) {
+    if (!registered.has_value() || registered->name().empty() || registered->name() != name) {
       return {};
     }
-
-    (void)detail::register_container_data_for<type>(registered->id());
 
     return from_raw(registered->id(), &source, !std::is_const_v<T>);
   }
@@ -315,26 +301,20 @@ public:
   /** @brief 从只读 C++ 对象创建引用。 */
   template <typename T> [[nodiscard]] static any_ref from_const(const T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    static_assert(detail::has_type_name_v<type>,
-                  "any_ref::from_const<T>() requires type_name<T> or an explicit type name");
+    static_assert(
+        detail::has_type_name_v<type>,
+        "any_ref::from_const<T>() requires a registered type_name<T> or an explicit type name");
     return from_const(source, caors::type_name<type>::value);
   }
 
-  /** @brief 从只读 C++ 对象和显式类型名创建引用。 */
+  /** @brief 从只读 C++ 对象和显式类型名创建引用；类型名必须已经注册并匹配该 C++ 类型。 */
   template <typename T>
   [[nodiscard]] static any_ref from_const(const T& source, std::string_view name) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const error result = caors::register_type<type>(name);
-    if (result && result.value() != errc::duplicate_id) {
-      return {};
-    }
-
     const std::optional<meta_type> registered = caors::find_type<type>();
-    if (!registered.has_value() || registered->name().empty()) {
+    if (!registered.has_value() || registered->name().empty() || registered->name() != name) {
       return {};
     }
-
-    (void)detail::register_container_data_for<type>(registered->id());
 
     return from_raw(registered->id(), &source, false);
   }

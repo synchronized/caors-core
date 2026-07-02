@@ -55,8 +55,13 @@ TEST_CASE("meta type - built-in C++ types have default names", "[meta]") {
   CHECK(caors::type_name<bool>::value == "bool");
 }
 
-TEST_CASE("meta type - type id is allocated by global registry", "[meta]") {
+TEST_CASE("meta type - type id is allocated by explicit registration", "[meta]") {
   CHECK_FALSE(caors::make_type_id("caors.test.type.unregistered_name"));
+  CHECK_FALSE(caors::type_id_of<anonymous_cpp_type>());
+  CHECK_FALSE(caors::find_type<anonymous_cpp_type>().has_value());
+
+  REQUIRE(caors::register_type<anonymous_cpp_type>("caors.test.type.anonymous_cpp") ==
+          caors::error{});
 
   const caors::type_id first = caors::type_id_of<anonymous_cpp_type>();
   const caors::type_id second = caors::type_id_of<anonymous_cpp_type>();
@@ -64,21 +69,13 @@ TEST_CASE("meta type - type id is allocated by global registry", "[meta]") {
   CHECK(first);
   CHECK(first == second);
 
-  auto anonymous = caors::find_type<anonymous_cpp_type>();
-  REQUIRE(anonymous.has_value());
-  CHECK(anonymous->id() == first);
-  CHECK(anonymous->name().empty());
-  CHECK(anonymous->cpp_type() == caors::detail::cpp_type_key_of<anonymous_cpp_type>());
-  CHECK(anonymous->clone_value() != nullptr);
-  CHECK(anonymous->destroy_value() != nullptr);
-  CHECK(anonymous->assign_value() != nullptr);
-
-  REQUIRE(caors::register_type<anonymous_cpp_type>("caors.test.type.anonymous_cpp") ==
-          caors::error{});
-
   auto named = caors::find_type("caors.test.type.anonymous_cpp");
   REQUIRE(named.has_value());
   CHECK(named->id() == first);
+  CHECK(named->cpp_type() == caors::detail::cpp_type_key_of<anonymous_cpp_type>());
+  CHECK(named->clone_value() != nullptr);
+  CHECK(named->destroy_value() != nullptr);
+  CHECK(named->assign_value() != nullptr);
   CHECK(caors::make_type_id("caors.test.type.anonymous_cpp") == first);
 }
 

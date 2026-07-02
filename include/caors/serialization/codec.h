@@ -140,12 +140,12 @@ template <typename T> [[nodiscard]] error register_serialization_codec() {
     }
   }
 
-  const meta_type meta = get_meta_registry().ensure_type_for<type>();
-  if (!meta.valid()) {
+  const std::optional<meta_type> meta = get_meta_registry().find_type<type>();
+  if (!meta.has_value()) {
     return {error_domain::serialization, errc::invalid_type};
   }
 
-  return register_serialization_codec(meta.id(), codec);
+  return register_serialization_codec(meta->id(), codec);
 }
 
 } // namespace caors

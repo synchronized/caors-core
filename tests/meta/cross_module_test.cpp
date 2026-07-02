@@ -70,6 +70,11 @@ TEST_CASE("meta - view finds types with reflection and serialization components"
 
 TEST_CASE("meta - cross module view supports serialization registered before reflection",
           "[meta]") {
+  const caors::meta_type type = caors::meta<cross_module_serialization_first>(
+                                    "caors.test.meta.cross_module_serialization_first")
+                                    .get();
+  REQUIRE(type.valid());
+
   REQUIRE(serialization_result_ok(caors::register_serialization<cross_module_serialization_first>({
       caors::make_serialization_field("id", "actor_id"),
   })));
@@ -78,12 +83,9 @@ TEST_CASE("meta - cross module view supports serialization registered before ref
                                    .field("id", &cross_module_serialization_first::id)
                                    .commit()));
 
-  const auto type = caors::find_type<cross_module_serialization_first>();
-  REQUIRE(type.has_value());
-
   auto view = caors::get_meta_registry()
                   .view<caors::reflection_type_data, caors::serialization_type_data>();
-  CHECK(view_contains(view, type->id()));
+  CHECK(view_contains(view, type.id()));
 
   const cross_module_serialization_first instance{42};
   const caors::serialization_text_result result = caors::serialize_text(instance);

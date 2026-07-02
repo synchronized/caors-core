@@ -386,6 +386,8 @@ DOM 是可选路径，适合工具、编辑器、测试对比和格式转换。�
 运行期 C++ 值可以显式转换为 `variant`：
 
 ```cpp
+caors::register_type<int>("int");
+
 caors::variant_result value = caors::to_variant(caors::any::from(42));
 ```
 

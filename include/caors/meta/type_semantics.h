@@ -196,8 +196,6 @@ template <typename T> [[nodiscard]] type_id semantic_type_id() {
     if (result && result.value() != errc::duplicate_id) {
       return type_id::invalid();
     }
-  } else {
-    (void)get_meta_registry().ensure_type_for<type>();
   }
 
   const std::optional<meta_type> registered = get_meta_registry().find_type<type>();

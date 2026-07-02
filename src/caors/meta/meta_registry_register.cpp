@@ -100,33 +100,4 @@ error meta_registry::register_cpp_type(detail::cpp_type_key key, const meta_type
   return register_type_impl(*state_, type, key);
 }
 
-meta_type meta_registry::ensure_cpp_type(detail::cpp_type_key key, std::size_t size,
-                                         std::size_t alignment) {
-  if (key == nullptr || size == 0 || alignment == 0) {
-    return {};
-  }
-
-  const std::optional<meta_type> existing = find_cpp_type(key);
-  if (existing.has_value()) {
-    return *existing;
-  }
-
-  if (is_frozen()) {
-    return {};
-  }
-
-  meta_type_data data{
-      type_id::invalid(), string_name{}, type_guid::nil(), size, alignment, type_id::invalid(), key,
-  };
-
-  type_id stored_id{};
-  const error status = register_type_impl(*state_, data, key, &stored_id);
-  if (status && status.value() != errc::duplicate_id) {
-    return {};
-  }
-
-  const std::optional<meta_type> type = find_type(stored_id);
-  return type.value_or(meta_type{});
-}
-
 } // namespace caors

@@ -62,6 +62,7 @@ std::string_view view = name.view();
 entity，只保证当前进程内唯一，不承诺跨进程或跨版本稳定。
 
 ```cpp
+caors::register_type<player>("game.player");
 caors::type_id id = caors::type_id_of<player>();
 ```
 
@@ -110,8 +111,8 @@ caors::meta_type_data data = caors::make_meta_type_data<player>("game.player");
 
 `make_meta_type_data<T>()` 只创建待注册描述，`id` 保持无效。真正的 `type_id` 在写入全局
 `meta_registry` 时分配。模板路径会同时记录 C++ 类型 key，以及可用时的复制、析构和赋值函数。
-C++ 类型可以先通过 `type_id_of<T>()` 创建匿名记录，后续注册名称或 GUID 时会补充到同一个类型记录上。
-这属于低层兼容入口；普通代码推荐在启动注册阶段直接使用 `meta<T>("name")` 或 `register_type<T>("name")`。
+`type_id_of<T>()` 只查询已经注册的 C++ 类型，不会创建匿名类型记录；普通代码应在启动注册阶段直接使用
+`meta<T>("name")` 或 `register_type<T>("name")`。
 
 `meta_type` 是对外查询返回的只读视图：
 
@@ -151,9 +152,9 @@ caors::meta<actor>("game.actor")
     .guid(caors::type_guid{*guid});
 ```
 
-`caors::type::get<T>()` 只查询已经注册的 C++ 类型，不会创建匿名记录；不存在时返回无效
+`caors::type::get<T>()` 只查询已经注册的 C++ 类型，不会创建临时记录；不存在时返回无效
 `meta_type`。普通类型应通过 `caors::meta<T>("name")` 或 `register_type<T>("name")` 显式注册。
-`type_id_of<T>()` 只作为低层按需创建匿名类型 id 的入口，普通注册代码不应依赖它。
+`type_id_of<T>()` 同样只查询已注册类型，不会触发运行期隐式注册。
 
 ### meta_type_semantics_data
 
@@ -170,9 +171,8 @@ caors::meta<actor>("game.actor")
 
 这部分数据不放在 `reflection_field_data` 上重复保存。字段只记录声明类型的 `type_id`，需要查询字段形态、
 value 类型、关联容器 key 类型、二元组 first 类型或 tuple-like 字段形态时，通过该 `type_id` 到 `meta_registry` 查询 `meta_type_semantics_data`。
-`meta_type_semantics_data` 由 `meta_registry::register_type_for<T>()` 和 `ensure_type_for<T>()`
-在基础类型注册或匿名类型创建时自动挂载；反射字段注册只负责确保字段声明类型已经注册。注册表冻结后，
-这些按需创建入口不会再新增类型或组件。
+`meta_type_semantics_data` 由 `meta_registry::register_type_for<T>()` 在基础类型注册时自动挂载；反射字段
+注册只负责确保字段声明类型已经注册。没有默认 `type_name<T>` 且尚未显式注册的关联类型不会被匿名创建。
 
 ### meta_registry
 
@@ -218,7 +218,7 @@ CAORS_META_REGISTRATION(register_actor_meta) {
 
 `freeze_meta_registry()` 会先执行所有通过 `register_meta_registration()` 或 `CAORS_META_REGISTRATION`
 收集到的注册函数，再校验 meta 层索引和父类型关系，最后把注册表切换为只读。冻结后，基础类型注册、
-组件挂载、`type_id_of<T>()` 触发的新类型创建都会失败或返回无效结果；查询接口仍可使用。
+组件挂载都会失败；查询接口仍可使用。
 
 `CAORS_META_REGISTRATION(name)` 只是便利入口，不建议作为唯一主流程。它依赖静态对象把函数加入列表：
 静态库中未被链接进最终程序的翻译单元不会执行注册；注册函数执行顺序也不应被依赖。需要精确控制初始化、
@@ -227,7 +227,7 @@ CAORS_META_REGISTRATION(register_actor_meta) {
 注册表维护几类索引：
 
 - `type_id -> meta_type_data`：运行期主索引。
-- `cpp_type_key -> type_id`：C++ 类型查询索引，允许匿名类型提前获得 id；C++ 类型操作函数保存在
+- `cpp_type_key -> type_id`：C++ 类型查询索引，只记录已经显式注册的 C++ 类型；C++ 类型操作函数保存在
   对应的 `meta_type_data` 内。
 - `type_name -> type_id`：名称查询索引，可选。
 - `type_guid -> type_id`：稳定身份查询索引，可选。
@@ -261,7 +261,7 @@ caors::get_meta_registry().emplace<object_factory_meta>(actor_id, true);
 - `find<T>(type_id)`：获取组件副本。
 - `find_ptr<T>(type_id)`：获取组件只读指针。组件由注册表以 `unique_ptr` 保存，地址在 append-only
   注册表生命周期内保持稳定。
-- `ensure_component<T>(type_id, args...)`：类似 lazy resolve，组件已存在时返回现有指针，不存在时创建并返回
+- `ensure_component<T>(type_id, args...)`：按需组件创建 helper，组件已存在时返回现有指针，不存在时创建并返回
   新组件指针。
 - `component_status<T>(type_id)`：查询组件诊断状态，区分无效类型、未注册类型、缺失组件和已挂载组件。
 - `view<T...>()`：查询同时拥有指定组件集合的类型。
@@ -306,7 +306,7 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 - `type_id`：运行期类型标识。
 - `type_guid`：稳定类型标识。
 - `string_name`：运行期 interned 名称，定义在 `caors/core/string_name.h`。
-- `type_id_of<T>()`：低层获取指定 C++ 类型的运行期类型 id，必要时先创建匿名记录；冻结后不会创建新类型。
+- `type_id_of<T>()`：查询已注册 C++ 类型的运行期类型 id；未注册时返回无效 id。
 - `make_type_id()`：根据已注册类型名查询运行期类型标识。
 - `type_name<T>`：基础 C++ 类型到 CAORS 类型名的默认映射。
 - `meta_type_data` / `make_meta_type_data<T>()`：底层类型注册描述。

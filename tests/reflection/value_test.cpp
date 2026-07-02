@@ -11,6 +11,7 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <string_view>
 #include <tuple>
 #include <utility>
 #include <variant>
@@ -34,9 +35,32 @@ struct indirect_value_holder {
   std::weak_ptr<int> weak{};
 };
 
+[[nodiscard]] bool type_result_ok(caors::error result) noexcept {
+  return result.succeeded() || result.value() == caors::errc::duplicate_id;
+}
+
+template <typename T> void require_registered_type(std::string_view name) {
+  REQUIRE(type_result_ok(caors::register_type<T>(name)));
+}
+
+void require_value_test_meta() {
+  require_registered_type<int>("int");
+  require_registered_type<float>("float");
+  require_registered_type<caors::string>("caors.string");
+  require_registered_type<std::unique_ptr<int>>("std.unique_ptr<int>");
+  require_registered_type<std::weak_ptr<int>>("std.weak_ptr<int>");
+  require_registered_type<std::optional<int>>("std.optional<int>");
+  require_registered_type<std::pair<int, int>>("std.pair<int,int>");
+  require_registered_type<std::tuple<int, int, caors::string>>("std.tuple<int,int,caors.string>");
+  require_registered_type<std::span<int>>("std.span<int>");
+  require_registered_type<std::variant<int, caors::string>>("std.variant<int,caors.string>");
+}
+
 } // namespace
 
 TEST_CASE("reflection any - stores copied values", "[reflection]") {
+  require_value_test_meta();
+
   int source = 7;
   caors::any stored = caors::any::from(source);
 
@@ -65,6 +89,8 @@ TEST_CASE("reflection any - stores copied values", "[reflection]") {
 }
 
 TEST_CASE("reflection any - copies deeply and rejects mismatched writes", "[reflection]") {
+  require_value_test_meta();
+
   caors::any stored = caors::any::from(7);
   caors::any copied = stored;
 
@@ -85,6 +111,8 @@ TEST_CASE("reflection any - copies deeply and rejects mismatched writes", "[refl
 }
 
 TEST_CASE("reflection any_ref - references external typed values", "[reflection]") {
+  require_value_test_meta();
+
   int source = 7;
   caors::any_ref reference = caors::any_ref::from(source);
 
@@ -121,6 +149,8 @@ TEST_CASE("reflection any_ref - references external typed values", "[reflection]
 }
 
 TEST_CASE("reflection any - fields expose copied runtime values", "[reflection]") {
+  require_value_test_meta();
+
   reflected_value_holder holder{1, 7};
   const caors::reflection_field_data value = caors::make_reflection_field_data<int>(
       "value", "int", offsetof(reflected_value_holder, value));
@@ -155,6 +185,8 @@ TEST_CASE("reflection any - fields expose copied runtime values", "[reflection]"
 }
 
 TEST_CASE("reflection any - noncopyable fields return invalid values", "[reflection]") {
+  require_value_test_meta();
+
   move_only_value holder{std::make_unique<int>(7)};
   const caors::reflection_field_data field =
       caors::make_reflection_field_data<std::unique_ptr<int>>("value", "std.unique_ptr<int>",
@@ -193,6 +225,8 @@ TEST_CASE("reflection any - noncopyable fields return invalid values", "[reflect
 }
 
 TEST_CASE("reflection any_ref - creates indirect views for pointer and wrappers", "[reflection]") {
+  require_value_test_meta();
+
   indirect_value_holder holder{};
 
   const caors::reflection_field_data pointer_field = caors::make_reflection_field_data<int*>(
@@ -256,6 +290,8 @@ TEST_CASE("reflection any_ref - creates indirect views for pointer and wrappers"
 
 TEST_CASE("reflection any_ref - creates indirect views for registered wrapper values",
           "[reflection]") {
+  require_value_test_meta();
+
   std::optional<int> value = 41;
 
   caors::any_ref reference = caors::any_ref::from(value, "std.optional<int>");
@@ -277,6 +313,8 @@ TEST_CASE("reflection any_ref - creates indirect views for registered wrapper va
 }
 
 TEST_CASE("reflection any_ref - creates pair views for registered pair values", "[reflection]") {
+  require_value_test_meta();
+
   std::pair<int, int> value{3, 5};
 
   caors::any_ref reference = caors::any_ref::from(value, "std.pair<int,int>");
@@ -300,6 +338,8 @@ TEST_CASE("reflection any_ref - creates pair views for registered pair values", 
 }
 
 TEST_CASE("reflection any_ref - creates tuple views for registered tuple values", "[reflection]") {
+  require_value_test_meta();
+
   std::tuple<int, int, caors::string> value{3, 5, caors::string{"five"}};
 
   caors::any_ref reference = caors::any_ref::from(value, "std.tuple<int,int,caors.string>");
@@ -330,6 +370,8 @@ TEST_CASE("reflection any_ref - creates tuple views for registered tuple values"
 
 TEST_CASE("reflection any_ref - creates sequence views for registered span values",
           "[reflection]") {
+  require_value_test_meta();
+
   std::array<int, 3> storage{3, 5, 8};
   std::span<int> value{storage};
 
@@ -354,6 +396,8 @@ TEST_CASE("reflection any_ref - creates sequence views for registered span value
 }
 
 TEST_CASE("reflection any_ref - keeps readonly span views immutable", "[reflection]") {
+  require_value_test_meta();
+
   std::array<int, 3> storage{3, 5, 8};
   std::span<int> value{storage};
 
@@ -374,6 +418,8 @@ TEST_CASE("reflection any_ref - keeps readonly span views immutable", "[reflecti
 
 TEST_CASE("reflection any_ref - creates variant views for registered variant values",
           "[reflection]") {
+  require_value_test_meta();
+
   std::variant<int, caors::string> value{3};
 
   caors::any_ref reference = caors::any_ref::from(value, "std.variant<int,caors.string>");
