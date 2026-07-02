@@ -353,6 +353,25 @@ TEST_CASE("reflection any_ref - creates sequence views for registered span value
   CHECK_FALSE(sequence.resize(2));
 }
 
+TEST_CASE("reflection any_ref - keeps readonly span views immutable", "[reflection]") {
+  std::array<int, 3> storage{3, 5, 8};
+  std::span<int> value{storage};
+
+  caors::any_ref reference = caors::any_ref::from_const(value, "std.span<int>");
+  REQUIRE(reference.valid());
+  CHECK_FALSE(reference.writable());
+
+  caors::sequence_view sequence = reference.create_sequence_view();
+  REQUIRE(sequence.valid());
+  CHECK_FALSE(sequence.writable());
+
+  caors::any_ref second = sequence.element_ref(1);
+  REQUIRE(second.valid());
+  CHECK_FALSE(second.writable());
+  CHECK_FALSE(second.try_set(13));
+  CHECK(storage[1] == 5);
+}
+
 TEST_CASE("reflection any_ref - creates variant views for registered variant values",
           "[reflection]") {
   std::variant<int, caors::string> value{3};

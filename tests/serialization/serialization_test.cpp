@@ -1286,6 +1286,11 @@ TEST_CASE("serialization - rejects non-null values for empty raw pointers", "[se
   REQUIRE(result.failed());
   CHECK(result.domain() == caors::error_domain::serialization);
   CHECK(result.value() == caors::errc::invalid_field);
+  CHECK(actor.raw == nullptr);
+  CHECK(actor.shared == nullptr);
+  CHECK(actor.unique == nullptr);
+  CHECK_FALSE(actor.optional.has_value());
+  CHECK(actor.stats == nullptr);
 }
 
 TEST_CASE("serialization - serializes vector fields as arrays", "[serialization]") {

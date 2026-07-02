@@ -284,6 +284,21 @@ DOM reader 同时接受 `variant::dictionary` 和 pair 数组形态。普通 `st
 
 当前实现优先覆盖可明确表达所有权和生命周期的类型。以下限制是刻意保留的边界，后续应逐项解决：
 
+| 类型形态 | 反射 / any 访问 | 序列化写出 | 反序列化读回 |
+| --- | --- | --- | --- |
+| 基础标量、枚举、`caors::string`、`std::string` | 保存真实 C++ 类型，可读写字段 | 支持 | 支持 |
+| `std::string_view` | 保存 view 本身，不拥有字符存储 | 支持，按字符串写出 | 不支持，避免悬空引用 |
+| `guid`、`type_guid` | 作为普通值类型 | 支持，按字符串写出 | 支持，从字符串解析 |
+| 裸指针 `T*` | 通过 `indirect_view` 访问已指向的 `T` | 空值写 `null`，非空展开内部值 | `null` 可重置；非空要求目标已经指向有效对象 |
+| `std::unique_ptr<T>`、`std::shared_ptr<T>`、`std::optional<T>` | 通过 `indirect_view` 访问内部 `T` | 空值写 `null`，非空展开内部值 | `null` 可重置；非空可在 `T` 默认可构造时创建内部值 |
+| `std::reference_wrapper<T>` | 通过 `indirect_view` 访问已绑定的 `T` | 按内部 `T` 写出 | 只能写入已绑定对象，不能置空或重绑定 |
+| `std::weak_ptr<T>` | 只标记为不支持 wrapper，不展开 | 不支持 | 不支持 |
+| `object_ref<T>` | 作为对象引用 wrapper | 通过 resolver 写出 `object_id` | 通过 resolver 从 `object_id` 写回引用 |
+| 顺序容器、集合、关联容器 | 通过 `sequence_view`、`set_view`、`associative_view` 访问 | 支持已适配 traits 的类型 | 支持拥有型容器；借用视图默认拒绝 |
+| `std::span<T>` / `std::span<T, N>` | 借用顺序视图，元素是否可写由 `T` 和字段可写性决定 | 支持，按数组写出 | 默认拒绝，避免决定 backing storage 生命周期 |
+| `std::array<T, N>` | 固定长度顺序视图 | 支持 | 支持，但输入长度必须等于 `N` |
+| `std::pair`、`std::tuple`、`std::variant` | 通过 pair / tuple / variant 视图访问 | 支持 | 支持；切换 variant 候选时目标候选需要默认构造 |
+
 - `std::string_view` 只支持写出和构造 DOM，不支持反序列化写回，避免把临时字符串读入成悬空引用。
 - `std::weak_ptr<T>` 默认不展开内部值；如果需要弱引用序列化，应通过对象 handle、资源 id 或
   `object_ref<T>` 类似的显式引用语义处理。
