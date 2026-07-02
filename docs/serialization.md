@@ -69,7 +69,7 @@
 序列化配置：
 
 ```cpp
-caors::meta_type type = caors::type::get<actor>();
+caors::meta_type type = caors::meta::get<actor>();
 
 caors::serialization::class_(type)
     .field("health", "hp")
@@ -388,7 +388,7 @@ DOM 是可选路径，适合工具、编辑器、测试对比和格式转换。�
 运行期 C++ 值可以显式转换为 `variant`：
 
 ```cpp
-caors::meta<int>("int");
+caors::meta::type<int>("int");
 
 caors::variant_result value = caors::to_variant(caors::any::from(42));
 ```
@@ -401,7 +401,7 @@ caors::variant_result value = caors::to_variant(caors::any::from(42));
 `serialization_registry` 是全局序列化注册表，内部复用 `meta_registry`：
 
 ```cpp
-caors::meta_type type = caors::type::get<actor>();
+caors::meta_type type = caors::meta::get<actor>();
 
 caors::error status =
     caors::serialization::class_(type)
@@ -426,7 +426,7 @@ if (status) {
 `serialize_text()` 使用已注册的反射字段读取对象：
 
 ```cpp
-caors::meta_type type = caors::meta<actor>("game.actor").get();
+caors::meta_type type = caors::meta::type<actor>("game.actor").get();
 
 caors::reflection::class_<actor>(type)
     .field("id", &actor::id)

@@ -52,7 +52,7 @@ TEST_CASE("meta - view finds types with reflection and serialization components"
       caors::make_serialization_field("health"),
   })));
 
-  const auto type = caors::find_type<cross_module_actor>();
+  const auto type = caors::meta::find<cross_module_actor>();
   REQUIRE(type.has_value());
 
   auto view = caors::get_meta_registry()
@@ -70,7 +70,7 @@ TEST_CASE("meta - view finds types with reflection and serialization components"
 
 TEST_CASE("meta - cross module view supports serialization registered before reflection",
           "[meta]") {
-  const caors::meta_type type = caors::meta<cross_module_serialization_first>(
+  const caors::meta_type type = caors::meta::type<cross_module_serialization_first>(
                                     "caors.test.meta.cross_module_serialization_first")
                                     .get();
   REQUIRE(type.valid());

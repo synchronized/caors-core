@@ -127,8 +127,8 @@ class meta_registry_state;
  * @brief 底层全局类型元数据注册表。
  *
  * `meta_registry` 以 `type_id` 为 key，先注册基础 `meta_type_data`，再按类型挂载对象工厂、
- * 反射描述、序列化描述等元数据组件。普通代码应使用全局 `register_type()` 和
- * `find_type()` 入口，不要创建或管理注册表实例。
+ * 反射描述、序列化描述等元数据组件。普通代码应使用 `meta::type<T>()`、`meta::get<T>()`
+ * 和 `meta::find()` 入口，不要创建或管理注册表实例。
  */
 class CAORS_API meta_registry final {
 public:
@@ -369,7 +369,8 @@ namespace detail {
 
 namespace caors {
 
-/** @brief 获取已注册 C++ 类型的运行期类型 id；未注册时返回无效 id。 */
+/** @brief 获取已注册 C++ 类型的运行期类型 id；未注册时返回无效 id。兼容入口，优先使用
+ * `meta::id_of<T>()`。 */
 template <typename T> [[nodiscard]] type_id type_id_of() {
   const std::optional<meta_type> type = get_meta_registry().find_type<T>();
   return type.has_value() ? type->id() : type_id::invalid();
@@ -436,27 +437,63 @@ private:
   error status_{};
 };
 
+namespace meta {
+
 /** @brief 获取指定 C++ 类型的元类型注册构建器；默认不注册类型。 */
-template <typename T> [[nodiscard]] meta_builder<T> meta() { return meta_builder<T>{}; }
+template <typename T> [[nodiscard]] meta_builder<T> type() { return meta_builder<T>{}; }
 
 /** @brief 显式注册指定 C++ 类型并设置类型名。 */
-template <typename T> [[nodiscard]] meta_builder<T> meta(std::string_view name) {
+template <typename T> [[nodiscard]] meta_builder<T> type(std::string_view name) {
   return meta_builder<T>{}.type(name);
 }
+
+/** @brief 获取已注册的 C++ 类型；不存在时返回无效 `meta_type`。 */
+template <typename T> [[nodiscard]] meta_type get() {
+  const std::optional<meta_type> stored = get_meta_registry().find_type<T>();
+  return stored.value_or(meta_type{});
+}
+
+/** @brief 按 C++ 类型查找基础类型。 */
+template <typename T> [[nodiscard]] std::optional<meta_type> find() {
+  return get_meta_registry().find_type<T>();
+}
+
+/** @brief 按类型 id 查找基础类型。 */
+[[nodiscard]] CAORS_API std::optional<meta_type> find(type_id id);
+
+/** @brief 按稳定 GUID 查找基础类型。 */
+[[nodiscard]] CAORS_API std::optional<meta_type> find(type_guid guid);
+
+/** @brief 按类型名查找基础类型。 */
+[[nodiscard]] CAORS_API std::optional<meta_type> find(std::string_view name);
+
+/** @brief 按类型名查找基础类型。 */
+[[nodiscard]] CAORS_API std::optional<meta_type> find(string_name name);
+
+/** @brief 获取已注册 C++ 类型的运行期类型 id；未注册时返回无效 id。 */
+template <typename T> [[nodiscard]] type_id id_of() {
+  const std::optional<meta_type> stored = find<T>();
+  return stored.has_value() ? stored->id() : type_id::invalid();
+}
+
+/** @brief 根据已注册类型名查询运行期类型 id。 */
+[[nodiscard]] CAORS_API type_id id(string_name name) noexcept;
+
+/** @brief 根据已注册类型名查询运行期类型 id。 */
+[[nodiscard]] CAORS_API type_id id(std::string_view name);
+
+} // namespace meta
 
 namespace type {
 
 /** @brief 获取已注册的 C++ 类型；不存在时返回无效 `meta_type`。 */
-template <typename T> [[nodiscard]] meta_type get() {
-  const std::optional<meta_type> type = get_meta_registry().find_type<T>();
-  return type.value_or(meta_type{});
-}
+template <typename T> [[nodiscard]] meta_type get() { return meta::get<T>(); }
 
 } // namespace type
 
 namespace detail {
 
-/** @brief 向全局元数据注册表注册基础类型。内部入口，公开代码优先使用 `meta<T>()`。 */
+/** @brief 向全局元数据注册表注册基础类型。内部入口，公开代码优先使用 `meta::type<T>()`。 */
 template <typename T>
 [[nodiscard]] error register_type(string_name name, type_id parent_id = type_id::invalid()) {
   return get_meta_registry().register_type_for<T>(make_meta_type_data<T>(name, parent_id));
@@ -484,21 +521,21 @@ template <typename T>
 
 } // namespace detail
 
-/** @brief 在全局元数据注册表中按 C++ 类型查找基础类型。 */
+/** @brief 在全局元数据注册表中按 C++ 类型查找基础类型。兼容入口，优先使用 `meta::find<T>()`。 */
 template <typename T> [[nodiscard]] std::optional<meta_type> find_type() {
   return get_meta_registry().find_type<T>();
 }
 
-/** @brief 在全局元数据注册表中按类型 id 查找基础类型。 */
+/** @brief 在全局元数据注册表中按类型 id 查找基础类型。兼容入口，优先使用 `meta::find()`。 */
 [[nodiscard]] CAORS_API std::optional<meta_type> find_type(type_id id);
 
-/** @brief 在全局元数据注册表中按稳定 GUID 查找基础类型。 */
+/** @brief 在全局元数据注册表中按稳定 GUID 查找基础类型。兼容入口，优先使用 `meta::find()`。 */
 [[nodiscard]] CAORS_API std::optional<meta_type> find_type(type_guid guid);
 
-/** @brief 在全局元数据注册表中按类型名查找基础类型。 */
+/** @brief 在全局元数据注册表中按类型名查找基础类型。兼容入口，优先使用 `meta::find()`。 */
 [[nodiscard]] CAORS_API std::optional<meta_type> find_type(std::string_view name);
 
-/** @brief 在全局元数据注册表中按类型名查找基础类型。 */
+/** @brief 在全局元数据注册表中按类型名查找基础类型。兼容入口，优先使用 `meta::find()`。 */
 [[nodiscard]] CAORS_API std::optional<meta_type> find_type(string_name name);
 
 /** @brief 在全局元数据注册表中判断类型继承关系。 */

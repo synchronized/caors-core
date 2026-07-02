@@ -360,7 +360,7 @@ value.try_set(7);
 可以从同类型 `any` 显式写回字段：
 
 ```cpp
-caors::meta<int>("int");
+caors::meta::type<int>("int");
 
 int source = 42;
 id->try_set_value(&instance, caors::any::from(source));
@@ -573,7 +573,7 @@ caors::sequence_view field_sequence =
 caors::associative_view field_map =
     field->get_ref(&instance).create_associative_view();
 
-caors::meta<caors::hash_map<int, int>>("caors.hash_map<int,int>");
+caors::meta::type<caors::hash_map<int, int>>("caors.hash_map<int,int>");
 
 caors::hash_map<int, int> values;
 caors::any_ref ref = caors::any_ref::from(values, "caors.hash_map<int,int>");
@@ -592,7 +592,7 @@ for (caors::associative_entry_ref entry : map) {
 访问它，不需要创建 registry 对象：
 
 ```cpp
-caors::meta_type type = caors::meta<actor>("game.actor").get();
+caors::meta_type type = caors::meta::type<actor>("game.actor").get();
 
 caors::error result =
     caors::reflection::class_<actor>(type)
@@ -602,7 +602,7 @@ caors::error result =
 auto reflected = caors::find_reflection("game.actor");
 ```
 
-推荐先通过 `meta<T>("name")` 注册基础类型，再把 `caors::type::get<T>()` 或保存下来的 `meta_type` 传给
+推荐先通过 `meta::type<T>("name")` 注册基础类型，再把 `caors::meta::get<T>()` 或保存下来的 `meta_type` 传给
 `reflection::class_<T>(meta_type)`。这条路径只向已注册类型挂载 `reflection_type_data`，不会创建或修改
 基础类型记录；传入无效 `meta_type` 会返回 `errc::invalid_type`，传入不存在的 `type_id` 会返回
 `errc::missing_type`。低层反射组件注册函数属于内部实现入口，普通代码不直接调用。

@@ -127,12 +127,17 @@ TEST_CASE("object - typed base exposes runtime type information", "[object]") {
   caors::object& base = instance;
 
   CHECK(runtime_player::static_type_id());
-  CHECK(runtime_player::static_type_id() == caors::type_id_of<runtime_player>());
+  CHECK(runtime_player::static_type_id() == caors::meta::id_of<runtime_player>());
   CHECK(base.type_id() == runtime_player::static_type_id());
   CHECK(base.type_name() == runtime_player::object_type_name);
 }
 
 TEST_CASE("object - handles carry identity without owning instances", "[object]") {
+  const caors::error register_status =
+      register_object_test_type<runtime_actor>(runtime_actor::object_type_name);
+  REQUIRE((register_status == caors::error{} ||
+           register_status == object_error(caors::errc::duplicate_id)));
+
   runtime_actor instance;
 
   const caors::object_handle handle{instance.id(), instance.type_id()};

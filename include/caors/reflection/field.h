@@ -26,7 +26,7 @@ template <typename T> [[nodiscard]] type_id register_field_type_id(std::string_v
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   const error result = caors::detail::register_type<type>(name);
   if (result.succeeded() || result.value() == errc::duplicate_id) {
-    const std::optional<meta_type> registered = caors::find_type<type>();
+    const std::optional<meta_type> registered = caors::meta::find<type>();
     return registered.has_value() ? registered->id() : type_id::invalid();
   }
 
@@ -99,7 +99,7 @@ struct reflection_field_data {
   /** @brief 判断字段是否匹配指定 C++ 类型。 */
   template <typename Field> [[nodiscard]] bool matches_type() const noexcept {
     using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
-    const std::optional<meta_type> meta = caors::find_type(type);
+    const std::optional<meta_type> meta = caors::meta::find(type);
     return meta.has_value() && meta->cpp_type() == detail::cpp_type_key_of<field_type>() &&
            meta->size() == sizeof(field_type) && meta->alignment() == alignof(field_type);
   }
@@ -156,7 +156,7 @@ struct reflection_field_data {
 
   /** @brief 从运行期值写入字段。 */
   bool try_set_value(void* object, const any& source) const {
-    const std::optional<meta_type> meta = caors::find_type(type);
+    const std::optional<meta_type> meta = caors::meta::find(type);
     if (!source.valid() || !meta.has_value() || source.cpp_type() != meta->cpp_type() ||
         source.size() != meta->size() || source.alignment() != meta->alignment() ||
         meta->assign_value() == nullptr) {

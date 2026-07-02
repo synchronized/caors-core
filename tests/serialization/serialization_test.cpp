@@ -564,7 +564,8 @@ TEST_CASE("serialization - registers type metadata component", "[serialization]"
   const caors::error status = caors::detail::register_serialization<serializable_actor>();
 
   CHECK(serialization_result_ok(status));
-  CHECK(caors::get_serialization_registry().contains(caors::find_type<serializable_actor>()->id()));
+  CHECK(
+      caors::get_serialization_registry().contains(caors::meta::find<serializable_actor>()->id()));
   CHECK(caors::get_serialization_registry().size() >= 1);
 
   const caors::error duplicate = caors::detail::register_serialization<serializable_actor>();
@@ -574,11 +575,11 @@ TEST_CASE("serialization - registers type metadata component", "[serialization]"
 }
 
 TEST_CASE("serialization - class builder can attach to explicit meta type", "[serialization]") {
-  const caors::meta_type type =
-      caors::meta<explicit_meta_serialization_actor>("caors.test.serialization.explicit_meta_actor")
-          .get();
+  const caors::meta_type type = caors::meta::type<explicit_meta_serialization_actor>(
+                                    "caors.test.serialization.explicit_meta_actor")
+                                    .get();
   REQUIRE(type.valid());
-  CHECK(caors::type::get<explicit_meta_serialization_actor>().id() == type.id());
+  CHECK(caors::meta::get<explicit_meta_serialization_actor>().id() == type.id());
 
   REQUIRE(reflection_result_ok(caors::reflection::class_<explicit_meta_serialization_actor>(type)
                                    .field("id", &explicit_meta_serialization_actor::id)
@@ -2905,9 +2906,9 @@ TEST_CASE("serialization - writer features validate required field identifiers",
 }
 
 TEST_CASE("serialization - registration can happen before reflection fields", "[serialization]") {
-  const caors::meta_type type =
-      caors::meta<serialization_first_actor>("caors.test.serialization.serialization_first_actor")
-          .get();
+  const caors::meta_type type = caors::meta::type<serialization_first_actor>(
+                                    "caors.test.serialization.serialization_first_actor")
+                                    .get();
   REQUIRE(type.valid());
 
   REQUIRE(caors::detail::register_serialization<serialization_first_actor>(

@@ -156,7 +156,7 @@ private:
             return std::nullopt;
           }
 
-          element = caors::find_type<element_type>();
+          element = caors::meta::find<element_type>();
         }
       }
 
@@ -209,7 +209,7 @@ private:
           return std::nullopt;
         }
 
-        type = caors::find_type<T>();
+        type = caors::meta::find<T>();
       }
     }
 

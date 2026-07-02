@@ -251,7 +251,7 @@ constexpr caors::type_guid view_actor_guid{caors::guid::from_bytes(
 }
 
 [[nodiscard]] caors::type_id registered_type_id(std::string_view name) {
-  const auto type = caors::find_type(name);
+  const auto type = caors::meta::find(name);
   REQUIRE(type.has_value());
   return type->id();
 }
@@ -289,7 +289,7 @@ TEST_CASE("reflection - field info describes field layout", "[reflection]") {
   CHECK(field.offset == offsetof(actor, health));
   CHECK(field.writable);
 
-  const auto type = caors::find_type(field.type);
+  const auto type = caors::meta::find(field.type);
   REQUIRE(type.has_value());
   CHECK(type->name() == "float");
   CHECK(type->size() == sizeof(float));
@@ -472,7 +472,7 @@ TEST_CASE("reflection - type data stores and finds fields", "[reflection]") {
 
   auto health = type.find_field("health");
   REQUIRE(health.has_value());
-  const auto health_type = caors::find_type(health->type);
+  const auto health_type = caors::meta::find(health->type);
   REQUIRE(health_type.has_value());
   CHECK(health_type->name() == "float");
   CHECK_FALSE(type.find_field("missing").has_value());
@@ -501,9 +501,9 @@ TEST_CASE("reflection - registry registers and finds types", "[reflection]") {
 
 TEST_CASE("reflection - class builder can attach to explicit meta type", "[reflection]") {
   const caors::meta_type type =
-      caors::meta<explicit_meta_actor>("caors.test.reflection.explicit_meta_actor").get();
+      caors::meta::type<explicit_meta_actor>("caors.test.reflection.explicit_meta_actor").get();
   REQUIRE(type.valid());
-  CHECK(caors::type::get<explicit_meta_actor>().id() == type.id());
+  CHECK(caors::meta::get<explicit_meta_actor>().id() == type.id());
 
   const caors::error status = caors::reflection::class_<explicit_meta_actor>(type)
                                   .field("id", &explicit_meta_actor::id)
@@ -1189,8 +1189,8 @@ TEST_CASE("reflection - set iterator creation failure is treated as empty range"
   REQUIRE((end_type_status == caors::error{} ||
            end_type_status == meta_error(caors::errc::duplicate_id)));
 
-  auto begin_type = caors::find_type<test_reflection::failing_begin_set>();
-  auto end_type = caors::find_type<test_reflection::failing_end_set>();
+  auto begin_type = caors::meta::find<test_reflection::failing_begin_set>();
+  auto end_type = caors::meta::find<test_reflection::failing_end_set>();
   REQUIRE(begin_type.has_value());
   REQUIRE(end_type.has_value());
 
@@ -1417,16 +1417,16 @@ TEST_CASE("reflection - class builder resolves registered C++ field types", "[re
 }
 
 TEST_CASE("reflection - class builder names C++ field types from type_name", "[reflection]") {
-  CHECK_FALSE(caors::type_id_of<test_reflection::named_field_value>());
+  CHECK_FALSE(caors::meta::id_of<test_reflection::named_field_value>());
 
   REQUIRE(caors::reflection::class_<test_reflection::named_field_owner>(
               "caors.test.reflection.named_field_owner")
               .field("value", &test_reflection::named_field_owner::value)
               .commit() == caors::error{});
 
-  auto value_type = caors::find_type("caors.test.reflection.named_field_value");
+  auto value_type = caors::meta::find("caors.test.reflection.named_field_value");
   REQUIRE(value_type.has_value());
-  CHECK(value_type->id() == caors::type_id_of<test_reflection::named_field_value>());
+  CHECK(value_type->id() == caors::meta::id_of<test_reflection::named_field_value>());
 
   auto reflected = caors::find_reflection("caors.test.reflection.named_field_owner");
   REQUIRE(reflected.has_value());

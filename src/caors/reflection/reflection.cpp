@@ -55,7 +55,7 @@ namespace {
     return std::nullopt;
   }
 
-  return caors::find_type(field->type);
+  return caors::meta::find(field->type);
 }
 
 [[nodiscard]] const meta_type_semantics_data*
@@ -68,7 +68,7 @@ field_type_semantics(const reflection_field_data* field) noexcept {
 }
 
 [[nodiscard]] string_name type_name_of(type_id id) noexcept {
-  const std::optional<meta_type> type = caors::find_type(id);
+  const std::optional<meta_type> type = caors::meta::find(id);
   return type.has_value() ? type->name() : string_name{};
 }
 

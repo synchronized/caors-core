@@ -62,10 +62,12 @@ struct type_guid {
   }
 };
 
-/** @brief 根据已注册类型名查询运行期类型标识；未注册时返回无效 id。 */
+/** @brief 根据已注册类型名查询运行期类型标识；未注册时返回无效 id。兼容入口，优先使用
+ * `meta::id()`。 */
 [[nodiscard]] CAORS_API type_id make_type_id(string_name name) noexcept;
 
-/** @brief 根据已注册类型名查询运行期类型标识；未注册时返回无效 id。 */
+/** @brief 根据已注册类型名查询运行期类型标识；未注册时返回无效 id。兼容入口，优先使用
+ * `meta::id()`。 */
 [[nodiscard]] CAORS_API type_id make_type_id(std::string_view name);
 
 } // namespace caors

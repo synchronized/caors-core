@@ -65,7 +65,7 @@ TEST_CASE("reflection any - stores copied values", "[reflection]") {
   caors::any stored = caors::any::from(source);
 
   CHECK(stored.valid());
-  const auto int_type = caors::find_type("int");
+  const auto int_type = caors::meta::find("int");
   REQUIRE(int_type.has_value());
   CHECK(stored.type() == int_type->id());
   CHECK(stored.type_name() == "int");
@@ -244,7 +244,7 @@ TEST_CASE("reflection any_ref - creates indirect views for pointer and wrappers"
   caors::indirect_view pointer = pointer_field.get_ref(&holder).create_indirect_view();
   REQUIRE(pointer.valid());
   CHECK(pointer.writable());
-  CHECK(pointer.value_type() == caors::make_type_id("int"));
+  CHECK(pointer.value_type() == caors::meta::id("int"));
   CHECK(pointer.value_type_name() == "int");
   CHECK(pointer.has_value());
   caors::any_ref pointer_value = pointer.value_ref();
@@ -300,7 +300,7 @@ TEST_CASE("reflection any_ref - creates indirect views for registered wrapper va
   caors::indirect_view indirect = reference.create_indirect_view();
   REQUIRE(indirect.valid());
   CHECK(indirect.has_value());
-  CHECK(indirect.value_type() == caors::make_type_id("int"));
+  CHECK(indirect.value_type() == caors::meta::id("int"));
 
   caors::any_ref inner = indirect.value_ref();
   REQUIRE(inner.valid());
@@ -323,8 +323,8 @@ TEST_CASE("reflection any_ref - creates pair views for registered pair values", 
   caors::pair_view pair = reference.create_pair_view();
   REQUIRE(pair.valid());
   CHECK(pair.writable());
-  CHECK(pair.first_type() == caors::make_type_id("int"));
-  CHECK(pair.second_type() == caors::make_type_id("int"));
+  CHECK(pair.first_type() == caors::meta::id("int"));
+  CHECK(pair.second_type() == caors::meta::id("int"));
 
   caors::any_ref first = pair.first_ref();
   caors::any_ref second = pair.second_ref();
@@ -350,7 +350,7 @@ TEST_CASE("reflection any_ref - creates tuple views for registered tuple values"
   CHECK(tuple.writable());
   CHECK(tuple.size() == 3);
   REQUIRE(tuple.element_type(0).has_value());
-  CHECK(*tuple.element_type(0) == caors::make_type_id("int"));
+  CHECK(*tuple.element_type(0) == caors::meta::id("int"));
   CHECK(tuple.element_type_name(2) == "caors.string");
 
   caors::any_ref first = tuple.element_ref(0);
@@ -381,7 +381,7 @@ TEST_CASE("reflection any_ref - creates sequence views for registered span value
   caors::sequence_view sequence = reference.create_sequence_view();
   REQUIRE(sequence.valid());
   CHECK(sequence.writable());
-  CHECK(sequence.value_type() == caors::make_type_id("int"));
+  CHECK(sequence.value_type() == caors::meta::id("int"));
 
   const std::optional<std::size_t> size = sequence.size();
   REQUIRE(size.has_value());
@@ -432,7 +432,7 @@ TEST_CASE("reflection any_ref - creates variant views for registered variant val
   REQUIRE(variant.index().has_value());
   CHECK(*variant.index() == 0);
   REQUIRE(variant.alternative_type(1).has_value());
-  CHECK(*variant.alternative_type(1) == caors::make_type_id("caors.string"));
+  CHECK(*variant.alternative_type(1) == caors::meta::id("caors.string"));
 
   caors::any_ref active = variant.value_ref();
   REQUIRE(active.valid());

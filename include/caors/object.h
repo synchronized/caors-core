@@ -49,7 +49,7 @@ using object_type_id = type_id;
 
 /** @brief 根据已注册对象类型名查询对象类型标识。 */
 [[nodiscard]] inline object_type_id make_object_type_id(std::string_view name) {
-  return make_type_id(name);
+  return meta::id(name);
 }
 
 /**
@@ -264,12 +264,12 @@ public:
   [[nodiscard]] static object_type_id static_type_id() noexcept {
 #if CAORS_HAS_EXCEPTIONS
     try {
-      return caors::type::get<Derived>().id();
+      return caors::meta::get<Derived>().id();
     } catch (...) {
       return object_type_id::invalid();
     }
 #else
-    return caors::type::get<Derived>().id();
+    return caors::meta::get<Derived>().id();
 #endif
   }
 

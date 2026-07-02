@@ -28,28 +28,29 @@ struct late_component {
 } // namespace
 
 CAORS_META_REGISTRATION(register_freeze_macro_actor) {
-  const caors::meta_type type = caors::meta<macro_actor>("caors.test.freeze.macro_actor").get();
+  const caors::meta_type type =
+      caors::meta::type<macro_actor>("caors.test.freeze.macro_actor").get();
   return type.valid() ? caors::error{} : meta_error(caors::errc::invalid_type);
 }
 
 TEST_CASE("freeze - meta registry becomes read only", "[freeze]") {
   REQUIRE_FALSE(caors::is_meta_registry_frozen());
-  CHECK_FALSE(caors::type::get<macro_actor>());
+  CHECK_FALSE(caors::meta::get<macro_actor>());
 
-  const caors::meta_type type = caors::meta<freeze_actor>("caors.test.freeze.actor").get();
+  const caors::meta_type type = caors::meta::type<freeze_actor>("caors.test.freeze.actor").get();
   REQUIRE(type.valid());
   REQUIRE(caors::get_meta_registry().emplace<freeze_component>(type.id(), true) == caors::error{});
 
   CHECK(caors::freeze_meta_registry() == caors::error{});
   CHECK(caors::is_meta_registry_frozen());
   CHECK(caors::freeze_meta_registry() == caors::error{});
-  CHECK(caors::type::get<macro_actor>().valid());
+  CHECK(caors::meta::get<macro_actor>().valid());
 
   CHECK(caors::detail::register_type<late_actor>("caors.test.freeze.late") ==
         meta_error(caors::errc::frozen));
   CHECK(caors::get_meta_registry().emplace<late_component>(type.id(), true) ==
         meta_error(caors::errc::frozen));
 
-  CHECK_FALSE(caors::type_id_of<late_actor>());
-  CHECK(caors::type::get<freeze_actor>().id() == type.id());
+  CHECK_FALSE(caors::meta::id_of<late_actor>());
+  CHECK(caors::meta::get<freeze_actor>().id() == type.id());
 }
