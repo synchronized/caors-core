@@ -6,7 +6,7 @@
 
 #include "caors/meta.h"
 #include "caors/meta/container_traits.h"
-#include "caors/reflection/wrapper.h"
+#include "caors/object/wrapper_traits.h"
 #include "caors/value/any.h"
 
 #include <cstddef>

@@ -9,6 +9,5 @@
 #include "caors/reflection/registry.h"
 #include "caors/reflection/type.h"
 #include "caors/reflection/view.h"
-#include "caors/reflection/wrapper.h"
 
 #endif

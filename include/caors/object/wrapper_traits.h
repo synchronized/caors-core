@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_REFLECTION_WRAPPER_H_
-#define CAORS_REFLECTION_WRAPPER_H_
+#ifndef CAORS_OBJECT_WRAPPER_TRAITS_H_
+#define CAORS_OBJECT_WRAPPER_TRAITS_H_
 
 #include "caors/meta/wrapper.h"
 #include "caors/object.h"

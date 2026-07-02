@@ -633,14 +633,13 @@ auto reflected = caors::find_reflection("game.actor");
 ## 相关入口
 
 - 公共头文件按职责拆分在 `include/caors/reflection/`：
-  - `value.h`：历史入口，转发到 `include/caors/value/any.h`。
-  - `wrapper.h`：`object_ref<T>` 的 wrapper 语义适配。
   - `field.h`：字段元信息和字段访问。
   - `type.h`：类型反射描述。
   - `view.h`：类型和字段的外部查询视图。
   - `registry.h`：全局反射注册表和注册查询函数。
   - `builder.h`：RTTR 风格链式注册入口。
 - `include/caors/reflection.h` 是 umbrella 头，继续提供完整反射 API。
+- `include/caors/object/wrapper_traits.h` 提供 `object_ref<T>` 的 wrapper 语义适配。
 - `include/caors/meta/wrapper.h` 和 `include/caors/meta/container_traits.h` 提供 wrapper / 容器 / pair / tuple / variant 类型语义扩展点。
 - `include/caors/adapters/stl_traits.h` 提供 `std::vector`、`std::deque`、`std::list`、`std::array`、`std::span`、
   `std::pair`、`std::tuple`、`std::variant`、`std::set`、`std::unordered_set`、`std::map`、`std::unordered_map` 以及 CAORS 容器别名的默认 traits 特化。
