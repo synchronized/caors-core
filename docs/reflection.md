@@ -604,6 +604,9 @@ auto reflected = caors::find_reflection("game.actor");
 `errc::missing_type`。旧的 `reflection::class_<T>("name")` 和 `register_reflection<T>("name", ...)`
 仍作为兼容入口保留，会同时处理基础类型注册。
 
+反射注册应在 `freeze_meta_registry()` 前完成。全局 meta 注册表冻结后，继续注册反射组件会返回
+`errc::frozen`。
+
 底层 `reflection_registry` 仍作为实现类型存在，并复用 `meta_registry` 保存基础类型信息，再把
 `reflection_type_data` 作为组件挂载到同一个 `type_id` 上。注册表构造由库内部管理；注册后不提供
 清理和撤销入口。
@@ -619,6 +622,7 @@ auto reflected = caors::find_reflection("game.actor");
 - `errc::duplicate_reflection`：目标类型已经挂载反射组件。
 - `errc::inconsistent_type`：目标类型已存在，但基础 `meta_type_data` 不一致。
 - `errc::missing_parent`：父类型未注册。
+- `errc::frozen`：全局 meta 注册表已冻结。
 
 重复注册同一个类型时，如果基础类型信息一致且已经挂载反射组件，会返回 `duplicate_reflection`；
 如果同名、同 GUID 或同 C++ 类型对应的基础 `meta_type_data` 不一致，会返回 `inconsistent_type` 或

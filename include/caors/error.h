@@ -28,6 +28,7 @@ enum class errc {
   duplicate_reflection,
   inconsistent_type,
   missing_parent,
+  frozen,
   unsupported,
   out_of_memory,
   backend_failure,

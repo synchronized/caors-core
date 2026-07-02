@@ -42,6 +42,8 @@ public:
       return "inconsistent type";
     case errc::missing_parent:
       return "missing parent";
+    case errc::frozen:
+      return "frozen";
     case errc::unsupported:
       return "unsupported";
     case errc::out_of_memory:

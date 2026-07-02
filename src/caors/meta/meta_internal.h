@@ -14,6 +14,7 @@ class meta_registry_state {
 public:
   mutable std::mutex mutex;
   std::uint64_t next_type_id = 1;
+  bool frozen = false;
   hash_map<std::uint64_t, std::unique_ptr<meta_type_data>> types;
   hash_map<string_name, type_id> names;
   hash_map<guid, type_id, guid_hash> guids;
@@ -37,6 +38,7 @@ namespace detail {
                                     const meta_type_data& incoming);
 [[nodiscard]] error store_new_type(meta_registry_state& state, const meta_type_data& incoming,
                                    type_id* stored_id = nullptr);
+[[nodiscard]] error validate_registry_for_freeze(const meta_registry_state& state);
 
 } // namespace detail
 

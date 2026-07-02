@@ -18,6 +18,10 @@ TEST_CASE("error - errc converts to std error code", "[error]") {
   CHECK(code.value() == static_cast<int>(caors::errc::invalid_type));
   CHECK(code.category() == caors::error_category());
   CHECK(code.message() == "invalid type");
+
+  const std::error_code frozen = caors::errc::frozen;
+  CHECK(frozen);
+  CHECK(frozen.message() == "frozen");
 }
 
 TEST_CASE("error - lightweight status keeps domain and code", "[error]") {

@@ -3,7 +3,10 @@
 
 # Meta
 
-本文档说明 CAORS 类型元数据层的当前设计。`meta` 不是运行期游戏 ECS，而是围绕 `string_name` 和 `type_id` 组织类型、对象、反射和序列化元信息的共享底座。`string_name` 定义在 `caors/core/string_name.h`，完整说明见 [core.md](core.md)。
+本文档说明 CAORS 类型元数据层的当前设计。`meta` 不是运行期游戏 ECS，而是围绕 `string_name` 和
+`type_id` 组织 C++ 类型、对象、反射和序列化元信息的共享底座。脚本或动态类型后续应放到独立注册系统，
+再通过上层 resolver 统一查询。`string_name` 定义在 `caors/core/string_name.h`，完整说明见
+[core.md](core.md)。
 
 ## 设计目标
 
@@ -22,6 +25,7 @@
 当前不会包含：
 
 - 运行期实体 ECS。
+- 脚本或动态类型注册中心。
 - system 调度。
 - 对象生命周期管理器。
 - 具体字段、方法或序列化格式。
@@ -107,6 +111,7 @@ caors::meta_type_data data = caors::make_meta_type_data<player>("game.player");
 `make_meta_type_data<T>()` 只创建待注册描述，`id` 保持无效。真正的 `type_id` 在写入全局
 `meta_registry` 时分配。模板路径会同时记录 C++ 类型 key，以及可用时的复制、析构和赋值函数。
 C++ 类型可以先通过 `type_id_of<T>()` 创建匿名记录，后续注册名称或 GUID 时会补充到同一个类型记录上。
+这属于低层兼容入口；普通代码推荐在启动注册阶段直接使用 `meta<T>("name")` 或 `register_type<T>("name")`。
 
 `meta_type` 是对外查询返回的只读视图：
 
@@ -166,7 +171,8 @@ caors::meta<actor>("game.actor")
 这部分数据不放在 `reflection_field_data` 上重复保存。字段只记录声明类型的 `type_id`，需要查询字段形态、
 value 类型、关联容器 key 类型、二元组 first 类型或 tuple-like 字段形态时，通过该 `type_id` 到 `meta_registry` 查询 `meta_type_semantics_data`。
 `meta_type_semantics_data` 由 `meta_registry::register_type_for<T>()` 和 `ensure_type_for<T>()`
-在基础类型注册或匿名类型创建时自动挂载；反射字段注册只负责确保字段声明类型已经注册。
+在基础类型注册或匿名类型创建时自动挂载；反射字段注册只负责确保字段声明类型已经注册。注册表冻结后，
+这些按需创建入口不会再新增类型或组件。
 
 ### meta_registry
 
@@ -176,9 +182,30 @@ value 类型、关联容器 key 类型、二元组 first 类型或 tuple-like �
 caors::error result = caors::register_type<actor>("game.actor");
 ```
 
-注册表是 append-only：基础类型注册后不可清理或撤销，重复注册相同类型会返回重复结果。
+注册表面向 C++ 类型：`cpp_type_key` 是 C++ 类型到 `type_id` 的内部索引，脚本或动态类型不应直接写入
+当前注册表。注册表是 append-only：基础类型注册后不可清理或撤销，重复注册相同类型会返回重复结果。
 当前组件同样按 append-only 方式挂载：同一类型的同类组件注册后不可替换。反射和序列化这类组件
 内部字段数据也按“注册后冻结”处理，外部视图只在该约束下承诺进程生命周期内稳定。
+
+推荐生命周期：
+
+```cpp
+void register_game_types() {
+  caors::meta<actor>("game.actor");
+  caors::reflection::class_<actor>(caors::type::get<actor>())
+      .field("id", &actor::id)
+      .commit();
+}
+
+int main() {
+  register_game_types();
+  caors::freeze_meta_registry();
+  run_app();
+}
+```
+
+`freeze_meta_registry()` 会校验 meta 层索引和父类型关系，然后把注册表切换为只读。冻结后，基础类型注册、
+组件挂载、`type_id_of<T>()` 触发的新类型创建都会失败或返回无效结果；查询接口仍可使用。
 
 注册表维护几类索引：
 
@@ -195,6 +222,7 @@ caors::error result = caors::register_type<actor>("game.actor");
 - `errc::duplicate_name`：同一个名称已注册。
 - `errc::duplicate_guid`：同一个非 nil 稳定 GUID 已注册。
 - `errc::missing_parent`：父类型未注册。
+- `errc::frozen`：注册表已冻结，不能继续注册类型或挂载组件。
 
 使用方式是先注册基础类型，再给该类型挂载组件：
 
@@ -230,18 +258,18 @@ caors::get_meta_registry().emplace<object_factory_meta>(actor_id, true);
 - `errc::invalid_type`：传入无效 `type_id`。
 - `errc::missing_type`：目标类型尚未注册。
 - `errc::duplicate_component`：目标类型已经挂载同类组件。
+- `errc::frozen`：注册表已冻结。
 
 `component_status<T>()` 不修改注册表，适合在模块重复注册、热加载诊断或报错前检查当前状态。当前注册表仍是
 append-only 语义，不支持组件替换；如果后续支持热重载，应在替换 API 上显式处理旧组件生命周期和读者同步。
 
 ## 线程安全边界
 
-`meta_registry` 的注册、查询和组件挂载入口内部会加锁，避免注册表容器自身出现 data race。返回的
-`meta_type` 和各模块视图是指向注册表内部数据的轻量只读视图，适合在注册完成后长期保存和读取。
+`meta_registry` 的注册、查询和组件挂载入口内部仍会加锁，避免注册表容器自身出现 data race。推荐在启动期
+或模块加载期单线程完成注册，并调用 `freeze_meta_registry()`。冻结后的注册表只允许只读查询，返回的
+`meta_type` 和各模块视图是指向注册表内部数据的轻量只读视图，适合长期保存和并发读取。
 
-需要注意的是，注册表允许匿名类型记录在后续注册时补充名称、GUID、父类型和复制/赋值函数等信息。
-因此推荐在启动期或模块加载期完成类型注册，再进入并发查询阶段。如果必须在运行期并发注册和读取同一类
-型视图，调用方需要在更高层保证同步。
+当前不会支持运行期并发写注册表。脚本类型、异步加载、卸载和热重载应放到独立注册系统中处理。
 
 ## 与对象和反射的关系
 
@@ -261,7 +289,7 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 - `type_id`：运行期类型标识。
 - `type_guid`：稳定类型标识。
 - `string_name`：运行期 interned 名称，定义在 `caors/core/string_name.h`。
-- `type_id_of<T>()`：获取指定 C++ 类型的运行期类型 id，必要时先创建匿名记录。
+- `type_id_of<T>()`：低层获取指定 C++ 类型的运行期类型 id，必要时先创建匿名记录；冻结后不会创建新类型。
 - `make_type_id()`：根据已注册类型名查询运行期类型标识。
 - `type_name<T>`：基础 C++ 类型到 CAORS 类型名的默认映射。
 - `meta_type_data` / `make_meta_type_data<T>()`：底层类型注册描述。
@@ -274,5 +302,6 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 - `meta_registry`：全局基础类型注册、按 id/name/guid/C++ 类型查询、继承关系判断和组件式元数据挂载。
 - `meta_view<T...>`：按组件集合查询类型。
 - `get_meta_registry()`：进程内全局元数据注册表。
+- `freeze_meta_registry()` / `is_meta_registry_frozen()`：冻结全局注册表并查询冻结状态。
 
 相关测试位于 `tests/meta/` 和 `tests/core/`，测试组织规则见 [tests/README.md](../tests/README.md)。

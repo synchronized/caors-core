@@ -26,6 +26,9 @@ namespace {
   }
 
   std::lock_guard lock(state.mutex);
+  if (state.frozen) {
+    return {error_domain::meta, errc::frozen};
+  }
 
   if (type.cpp_type() != nullptr) {
     const auto key_position = state.cpp_types.find(type.cpp_type());
@@ -100,6 +103,15 @@ error meta_registry::register_cpp_type(detail::cpp_type_key key, const meta_type
 meta_type meta_registry::ensure_cpp_type(detail::cpp_type_key key, std::size_t size,
                                          std::size_t alignment) {
   if (key == nullptr || size == 0 || alignment == 0) {
+    return {};
+  }
+
+  const std::optional<meta_type> existing = find_cpp_type(key);
+  if (existing.has_value()) {
+    return *existing;
+  }
+
+  if (is_frozen()) {
     return {};
   }
 

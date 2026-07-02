@@ -416,7 +416,7 @@ if (status) {
 `register_serialization<T>()` 仍作为兼容入口保留，会先确保 C++ 类型存在。
 
 重复注册同一个类型会返回 `errc::duplicate_component`，错误来源域为
-`error_domain::serialization`。
+`error_domain::serialization`。全局 meta 注册表冻结后继续注册序列化组件会返回 `errc::frozen`。
 
 ### serialize_text
 

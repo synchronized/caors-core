@@ -75,6 +75,15 @@ if (status.domain() == caors::error_domain::meta &&
 }
 ```
 
+注册表冻结后继续注册类型或挂载组件会返回 `errc::frozen`：
+
+```cpp
+caors::freeze_meta_registry();
+
+caors::error status = caors::register_type<actor>("game.actor");
+// status.value() == caors::errc::frozen
+```
+
 ### rethrow_as
 
 跨模块 API 边界可以用 `rethrow_as()` 保留底层错误码，并替换为当前模块的错误来源域：

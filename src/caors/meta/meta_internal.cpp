@@ -263,4 +263,72 @@ error store_new_type(meta_registry_state& state, const meta_type_data& incoming,
   return {};
 }
 
+error validate_registry_for_freeze(const meta_registry_state& state) {
+  for (const auto& [raw_id, stored] : state.types) {
+    if (stored == nullptr || !stored->registered() || stored->id().value() != raw_id) {
+      return {error_domain::meta, errc::invalid_type};
+    }
+
+    if (stored->parent_id() && !state.types.contains(stored->parent_id().value())) {
+      return {error_domain::meta, errc::missing_parent};
+    }
+
+    if (stored->name()) {
+      const auto name_position = state.names.find(stored->name());
+      if (name_position == state.names.end() || name_position->second != stored->id()) {
+        return {error_domain::meta, errc::inconsistent_type};
+      }
+    }
+
+    if (stored->guid()) {
+      const auto guid_position = state.guids.find(stored->guid().value);
+      if (guid_position == state.guids.end() || guid_position->second != stored->id()) {
+        return {error_domain::meta, errc::inconsistent_type};
+      }
+    }
+
+    if (stored->cpp_type() != nullptr) {
+      const auto cpp_position = state.cpp_types.find(stored->cpp_type());
+      if (cpp_position == state.cpp_types.end() || cpp_position->second != stored->id()) {
+        return {error_domain::meta, errc::inconsistent_type};
+      }
+    }
+  }
+
+  for (const auto& [name, id] : state.names) {
+    const meta_type_data* stored = find_type_data(state, id);
+    if (stored == nullptr || stored->name() != name) {
+      return {error_domain::meta, errc::inconsistent_type};
+    }
+  }
+
+  for (const auto& [guid_value, id] : state.guids) {
+    const meta_type_data* stored = find_type_data(state, id);
+    if (stored == nullptr || stored->guid().value != guid_value) {
+      return {error_domain::meta, errc::inconsistent_type};
+    }
+  }
+
+  for (const auto& [key, id] : state.cpp_types) {
+    const meta_type_data* stored = find_type_data(state, id);
+    if (key == nullptr || stored == nullptr || stored->cpp_type() != key) {
+      return {error_domain::meta, errc::inconsistent_type};
+    }
+  }
+
+  for (const auto& [key, storage] : state.components) {
+    if (key == nullptr || storage == nullptr) {
+      return {error_domain::meta, errc::invalid_type};
+    }
+
+    for (const type_id id : storage->ids()) {
+      if (!state.types.contains(id.value())) {
+        return {error_domain::meta, errc::missing_type};
+      }
+    }
+  }
+
+  return {};
+}
+
 } // namespace caors::detail

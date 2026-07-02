@@ -138,6 +138,9 @@ public:
   [[nodiscard]] error register_cpp_type(detail::cpp_type_key key, const meta_type_data& type);
   [[nodiscard]] meta_type ensure_cpp_type(detail::cpp_type_key key, std::size_t size,
                                           std::size_t alignment);
+  [[nodiscard]] error freeze();
+  [[nodiscard]] bool is_frozen() const noexcept;
+
   template <typename T> [[nodiscard]] error register_type_for(const meta_type_data& type) {
     using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
     const detail::cpp_type_key key = detail::cpp_type_key_of<value_type>();
@@ -160,9 +163,15 @@ public:
     const detail::cpp_type_key key = detail::cpp_type_key_of<type>();
     std::optional<meta_type> existing = find_cpp_type(key);
     if (existing.has_value()) {
-      (void)detail::ensure_type_semantics_for<type>(existing->id());
-      (void)detail::register_container_data_for<type>(existing->id());
+      if (!is_frozen()) {
+        (void)detail::ensure_type_semantics_for<type>(existing->id());
+        (void)detail::register_container_data_for<type>(existing->id());
+      }
       return *existing;
+    }
+
+    if (is_frozen()) {
+      return {};
     }
 
     const error status = register_cpp_type(key, make_meta_type_data<type>(string_name{}));
@@ -196,6 +205,10 @@ public:
   template <typename Component, typename... Args>
   [[nodiscard]] error emplace(type_id id, Args&&... args) {
     using component_type = std::decay_t<Component>;
+
+    if (is_frozen()) {
+      return {error_domain::meta, errc::frozen};
+    }
 
     if (!id) {
       return {error_domain::meta, errc::invalid_type};
@@ -341,6 +354,12 @@ private:
 
 /** @brief 获取进程内全局类型元数据注册表。 */
 [[nodiscard]] CAORS_API meta_registry& get_meta_registry() noexcept;
+
+/** @brief 冻结全局元数据注册表；冻结后只允许只读查询。 */
+[[nodiscard]] CAORS_API error freeze_meta_registry();
+
+/** @brief 查询全局元数据注册表是否已经冻结。 */
+[[nodiscard]] CAORS_API bool is_meta_registry_frozen() noexcept;
 
 } // namespace caors
 
