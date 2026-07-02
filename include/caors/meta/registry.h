@@ -27,6 +27,14 @@
 
 namespace caors {
 
+/** @brief 指定类型上的元数据组件挂载状态。 */
+enum class meta_component_status {
+  invalid_type,
+  missing_type,
+  missing_component,
+  present,
+};
+
 namespace detail {
 
 using meta_component_key = const void*;
@@ -268,6 +276,27 @@ public:
     }
 
     return storage_base->size();
+  }
+
+  /** @brief 查询指定类型上的组件状态，用于重复注册和缺失组件诊断。 */
+  template <typename Component>
+  [[nodiscard]] meta_component_status component_status(type_id id) const {
+    using component_type = std::decay_t<Component>;
+    if (!id) {
+      return meta_component_status::invalid_type;
+    }
+
+    if (!contains(id)) {
+      return meta_component_status::missing_type;
+    }
+
+    const detail::meta_component_storage_base* storage_base =
+        find_component_storage(detail::meta_component_key_of<component_type>());
+    if (storage_base == nullptr || !storage_base->contains(id)) {
+      return meta_component_status::missing_component;
+    }
+
+    return meta_component_status::present;
   }
 
   /** @brief 查询同时拥有指定组件集合的类型。 */

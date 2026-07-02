@@ -81,6 +81,19 @@ caors::object_id id = ref.id();
 `object_id`，反序列化时再把 `object_id` 解析回对象指针。`object_id` 本身仍是运行期标识，跨存档稳定
 引用应由上层资源或对象数据库提供稳定 id 映射。
 
+### object_handle 和 object_weak_handle
+
+`object_handle` 是只保存 `object_id` 和 `object_type_id` 的身份描述，不拥有对象，也不提供解引用：
+
+```cpp
+caors::object_handle handle{instance.id(), instance.type_id()};
+```
+
+`object_weak_handle<T>` 是类型化弱句柄，内部同样只保存 `object_handle`。它不会延长对象生命周期，
+也不会隐式查询全局对象表；后续对象生命周期管理器或资源系统可以基于它实现弱引用解析、失效检测和跨存档
+稳定 id 映射。当前阶段如果需要把对象关系序列化为运行期对象 id，仍应使用 `object_ref<T>` 和
+`serialization_reference_resolver`。
+
 ### object_base
 
 `object_base<Derived, Base>` 帮助派生类提供运行期类型查询。派生类需要提供 `object_type_name`：

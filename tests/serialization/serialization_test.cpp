@@ -2731,6 +2731,27 @@ TEST_CASE("serialization - built in codecs reject string view deserialization", 
   CHECK(actor.name == "original");
 }
 
+TEST_CASE("serialization - string view deserialization can use explicit backing storage",
+          "[serialization]") {
+  REQUIRE(reflection_result_ok(caors::reflection::class_<codec_string_view_actor>(
+                                   "caors.test.serialization.codec_string_view_actor")
+                                   .field("name", &codec_string_view_actor::name)
+                                   .commit()));
+  REQUIRE(serialization_result_ok(caors::register_serialization<codec_string_view_actor>()));
+
+  codec_string_view_actor actor{std::string_view{"original"}};
+  caors::string backing;
+  caors::serialization_context context{};
+  context.string_view_storage = &backing;
+
+  const caors::error result = caors::deserialize_json(actor, R"({"name":"Ada"})", context);
+
+  REQUIRE(result.succeeded());
+  CHECK(backing == "Ada");
+  CHECK(actor.name == "Ada");
+  CHECK(actor.name.data() == backing.data());
+}
+
 TEST_CASE("serialization - built in codecs roundtrip filesystem paths as strings",
           "[serialization]") {
   REQUIRE(reflection_result_ok(

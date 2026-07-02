@@ -52,6 +52,35 @@ using object_type_id = type_id;
   return make_type_id(name);
 }
 
+/**
+ * @brief 不拥有对象的运行期身份句柄。
+ *
+ * `object_handle` 只保存对象 id 和声明类型 id，不保证对象仍然存活，也不提供解引用能力。它适合在
+ * 序列化、资源表或生命周期管理器之间传递对象身份；真正解析为指针需要上层对象数据库或 resolver。
+ */
+class object_handle {
+public:
+  constexpr object_handle() noexcept = default;
+  constexpr object_handle(object_id id, object_type_id type) noexcept : id_(id), type_(type) {}
+
+  [[nodiscard]] static constexpr object_handle invalid() noexcept { return {}; }
+  [[nodiscard]] constexpr object_id id() const noexcept { return id_; }
+  [[nodiscard]] constexpr object_type_id type() const noexcept { return type_; }
+  [[nodiscard]] explicit constexpr operator bool() const noexcept { return id_ && type_; }
+
+  friend constexpr bool operator==(object_handle lhs, object_handle rhs) noexcept {
+    return lhs.id_ == rhs.id_ && lhs.type_ == rhs.type_;
+  }
+
+  friend constexpr bool operator!=(object_handle lhs, object_handle rhs) noexcept {
+    return !(lhs == rhs);
+  }
+
+private:
+  object_id id_{};
+  object_type_id type_{};
+};
+
 class object;
 
 using object_try_create_fn = object* (*)(memory_resource * resource) noexcept;
@@ -149,6 +178,33 @@ private:
   T* instance_ = nullptr;
 };
 
+/**
+ * @brief 类型化弱对象句柄。
+ *
+ * 该类型只保存对象身份，不拥有对象、不延长生命周期，也不隐式解析指针。它为后续对象生命周期管理器、
+ * 弱引用 resolver 和资源引用序列化预留稳定边界。
+ */
+template <typename T> class object_weak_handle {
+  static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
+
+public:
+  object_weak_handle() noexcept = default;
+  object_weak_handle(std::nullptr_t) noexcept {}
+  explicit object_weak_handle(object_handle handle) noexcept : handle_(handle) {}
+  explicit object_weak_handle(const T& instance) noexcept
+      : handle_(instance.id(), instance.type_id()) {}
+
+  [[nodiscard]] object_handle handle() const noexcept { return handle_; }
+  [[nodiscard]] object_id id() const noexcept { return handle_.id(); }
+  [[nodiscard]] object_type_id type() const noexcept { return handle_.type(); }
+  [[nodiscard]] explicit operator bool() const noexcept { return static_cast<bool>(handle_); }
+
+  void reset(object_handle handle = {}) noexcept { handle_ = handle; }
+
+private:
+  object_handle handle_{};
+};
+
 namespace detail {
 
 template <typename T> struct object_ref_traits {
@@ -157,6 +213,11 @@ template <typename T> struct object_ref_traits {
 
 template <typename T> struct object_ref_traits<object_ref<T>> {
   static constexpr bool is_object_ref = true;
+  using object_type = T;
+};
+
+template <typename T> struct object_ref_traits<object_weak_handle<T>> {
+  static constexpr bool is_object_ref = false;
   using object_type = T;
 };
 

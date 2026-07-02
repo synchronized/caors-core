@@ -208,7 +208,8 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `object_ref<T>` 
 
 - `caors::string`：按字符串读写，默认走 CAORS allocator。
 - `std::string`：按字符串读写，用于兼容外部结构。
-- `std::string_view`：按字符串写出和构造 DOM；反序列化暂不支持直接写回 view。
+- `std::string_view`：按字符串写出和构造 DOM；反序列化默认拒绝，只有在
+  `serialization_context::string_view_storage` 指向外部可写字符串时才会读入该存储并让 view 指向它。
 - `std::filesystem::path`：按通用路径字符串读写，写出使用 `/` 分隔的 `generic_string()`。
 - `std::chrono::nanoseconds` / `microseconds` / `milliseconds` / `seconds` / `minutes` / `hours`：
   按对应 duration 的整数 `count()` 读写。
@@ -292,7 +293,7 @@ DOM reader 同时接受 `variant::dictionary` 和 pair 数组形态。普通 `st
 | 类型形态 | 反射 / any 访问 | 序列化写出 | 反序列化读回 |
 | --- | --- | --- | --- |
 | 基础标量、枚举、`caors::string`、`std::string` | 保存真实 C++ 类型，可读写字段 | 支持 | 支持 |
-| `std::string_view` | 保存 view 本身，不拥有字符存储 | 支持，按字符串写出 | 不支持，避免悬空引用 |
+| `std::string_view` | 保存 view 本身，不拥有字符存储 | 支持，按字符串写出 | 默认拒绝；可通过 `serialization_context::string_view_storage` 指向外部存储后读回 |
 | `std::filesystem::path` | 作为普通值类型 | 支持，按通用路径字符串写出 | 支持，从字符串构造 path |
 | `std::chrono` duration / `system_clock::time_point` | 作为普通值类型 | 支持，按整数写出 | 支持，从整数构造 |
 | `guid`、`type_guid` | 作为普通值类型 | 支持，按字符串写出 | 支持，从字符串解析 |
@@ -306,7 +307,9 @@ DOM reader 同时接受 `variant::dictionary` 和 pair 数组形态。普通 `st
 | `std::array<T, N>` | 固定长度顺序视图 | 支持 | 支持，但输入长度必须等于 `N` |
 | `std::pair`、`std::tuple`、`std::variant` | 通过 pair / tuple / variant 视图访问 | 支持 | 支持；切换 variant 候选时目标候选需要默认构造 |
 
-- `std::string_view` 只支持写出和构造 DOM，不支持反序列化写回，避免把临时字符串读入成悬空引用。
+- `std::string_view` 默认拒绝反序列化写回，避免把临时字符串读入成悬空引用。调用方如果提供
+  `serialization_context::string_view_storage`，序列化层会先把文本写入该字符串，再让字段 view 指向它；
+  调用方必须保证该字符串生命周期长于目标对象或目标字段。
 - `std::weak_ptr<T>` 默认不展开内部值；如果需要弱引用序列化，应通过对象 handle、资源 id 或
   `object_ref<T>` 类似的显式引用语义处理。
 - 裸指针和普通智能指针按 inline value 处理，不保留对象身份、共享关系或对象图引用；需要身份保持时使用

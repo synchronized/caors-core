@@ -213,6 +213,7 @@ caors::get_meta_registry().emplace<object_factory_meta>(actor_id, true);
 - `find<T>(type_id)`：获取组件副本。
 - `find_ptr<T>(type_id)`：获取组件只读指针。组件由注册表以 `unique_ptr` 保存，地址在 append-only
   注册表生命周期内保持稳定。
+- `component_status<T>(type_id)`：查询组件诊断状态，区分无效类型、未注册类型、缺失组件和已挂载组件。
 - `view<T...>()`：查询同时拥有指定组件集合的类型。
 
 容器 metadata 会在具体容器支持 `begin()` / `end()` 时额外挂载类型擦除 iterator 函数，用于
@@ -224,6 +225,9 @@ caors::get_meta_registry().emplace<object_factory_meta>(actor_id, true);
 - `errc::invalid_type`：传入无效 `type_id`。
 - `errc::missing_type`：目标类型尚未注册。
 - `errc::duplicate_component`：目标类型已经挂载同类组件。
+
+`component_status<T>()` 不修改注册表，适合在模块重复注册、热加载诊断或报错前检查当前状态。当前注册表仍是
+append-only 语义，不支持组件替换；如果后续支持热重载，应在替换 API 上显式处理旧组件生命周期和读者同步。
 
 ## 线程安全边界
 

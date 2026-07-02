@@ -73,6 +73,15 @@ TEST_CASE("meta - global registry stores components by type id", "[meta]") {
   CHECK(caors::get_meta_registry().emplace<factory_meta>(actor_id, false) ==
         meta_error(caors::errc::duplicate_component));
   CHECK(caors::get_meta_registry().has<factory_meta>(actor_id));
+  CHECK(caors::get_meta_registry().component_status<factory_meta>(actor_id) ==
+        caors::meta_component_status::present);
+  CHECK(caors::get_meta_registry().component_status<view_reflection_meta>(actor_id) ==
+        caors::meta_component_status::missing_component);
+  CHECK(caors::get_meta_registry().component_status<factory_meta>(caors::type_id::invalid()) ==
+        caors::meta_component_status::invalid_type);
+  CHECK(caors::get_meta_registry().component_status<factory_meta>(
+            caors::type_id{std::numeric_limits<std::uint64_t>::max()}) ==
+        caors::meta_component_status::missing_type);
 }
 
 TEST_CASE("meta - global registry rejects components for missing types", "[meta]") {

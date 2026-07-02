@@ -133,6 +133,14 @@ struct serialization_reference_resolver {
 struct serialization_context {
   std::uint32_t schema_version = 0;
   const serialization_reference_resolver* reference_resolver = nullptr;
+  /**
+   * @brief `std::string_view` 反序列化使用的外部字符串存储。
+   *
+   * 默认保持 `nullptr`，此时读回 `std::string_view` 会返回 `errc::unsupported`，避免指向临时
+   * 字符串。调用方如果能保证该存储的生命周期长于目标对象，可以传入一个可写字符串；读入时会把文本
+   * 写入该字符串，再让目标 `std::string_view` 指向它。
+   */
+  string* string_view_storage = nullptr;
 };
 
 /** @brief 文本序列化结果。 */

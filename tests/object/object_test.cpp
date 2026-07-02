@@ -115,6 +115,24 @@ TEST_CASE("object - typed base exposes runtime type information", "[object]") {
   CHECK(base.type_name() == runtime_player::object_type_name);
 }
 
+TEST_CASE("object - handles carry identity without owning instances", "[object]") {
+  runtime_actor instance;
+
+  const caors::object_handle handle{instance.id(), instance.type_id()};
+  CHECK(handle);
+  CHECK(handle.id() == instance.id());
+  CHECK(handle.type() == instance.type_id());
+  CHECK(handle == caors::object_handle{instance.id(), instance.type_id()});
+  CHECK(handle != caors::object_handle{caors::object_id{999}, instance.type_id()});
+
+  caors::object_weak_handle<runtime_actor> weak{instance};
+  CHECK(weak);
+  CHECK(weak.handle() == handle);
+
+  weak.reset();
+  CHECK_FALSE(weak);
+}
+
 TEST_CASE("object - registry registers and finds types", "[object]") {
   caors::object_registry& registry = caors::get_object_registry();
 
