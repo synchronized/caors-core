@@ -9,6 +9,8 @@ namespace {
 
 struct freeze_actor {};
 
+struct macro_actor {};
+
 struct late_actor {};
 
 struct freeze_component {
@@ -25,8 +27,14 @@ struct late_component {
 
 } // namespace
 
+CAORS_META_REGISTRATION(register_freeze_macro_actor) {
+  const caors::meta_type type = caors::meta<macro_actor>("caors.test.freeze.macro_actor").get();
+  return type.valid() ? caors::error{} : meta_error(caors::errc::invalid_type);
+}
+
 TEST_CASE("freeze - meta registry becomes read only", "[freeze]") {
   REQUIRE_FALSE(caors::is_meta_registry_frozen());
+  CHECK_FALSE(caors::type::get<macro_actor>());
 
   const caors::meta_type type = caors::meta<freeze_actor>("caors.test.freeze.actor").get();
   REQUIRE(type.valid());
@@ -35,6 +43,7 @@ TEST_CASE("freeze - meta registry becomes read only", "[freeze]") {
   CHECK(caors::freeze_meta_registry() == caors::error{});
   CHECK(caors::is_meta_registry_frozen());
   CHECK(caors::freeze_meta_registry() == caors::error{});
+  CHECK(caors::type::get<macro_actor>().valid());
 
   CHECK(caors::register_type<late_actor>("caors.test.freeze.late") ==
         meta_error(caors::errc::frozen));

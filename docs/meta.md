@@ -204,8 +204,25 @@ int main() {
 }
 ```
 
-`freeze_meta_registry()` 会校验 meta 层索引和父类型关系，然后把注册表切换为只读。冻结后，基础类型注册、
+也可以把局部注册函数挂到自动注册列表，由 `freeze_meta_registry()` 统一执行：
+
+```cpp
+CAORS_META_REGISTRATION(register_actor_meta) {
+  caors::meta<actor>("game.actor");
+
+  return caors::reflection::class_<actor>(caors::type::get<actor>())
+      .field("id", &actor::id)
+      .commit();
+}
+```
+
+`freeze_meta_registry()` 会先执行所有通过 `register_meta_registration()` 或 `CAORS_META_REGISTRATION`
+收集到的注册函数，再校验 meta 层索引和父类型关系，最后把注册表切换为只读。冻结后，基础类型注册、
 组件挂载、`type_id_of<T>()` 触发的新类型创建都会失败或返回无效结果；查询接口仍可使用。
+
+`CAORS_META_REGISTRATION(name)` 只是便利入口，不建议作为唯一主流程。它依赖静态对象把函数加入列表：
+静态库中未被链接进最终程序的翻译单元不会执行注册；注册函数执行顺序也不应被依赖。需要精确控制初始化、
+测试隔离或插件加载时，优先使用显式 `register_all()`。
 
 注册表维护几类索引：
 
@@ -301,7 +318,9 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 - `meta<T>("name")`：推荐的显式命名注册入口。
 - `meta_registry`：全局基础类型注册、按 id/name/guid/C++ 类型查询、继承关系判断和组件式元数据挂载。
 - `meta_view<T...>`：按组件集合查询类型。
+- `register_meta_registration()` / `run_meta_registrations()`：收集并执行延迟元数据注册函数。
+- `CAORS_META_REGISTRATION(name)`：定义一个延迟注册函数，函数体需要返回 `caors::error`。
 - `get_meta_registry()`：进程内全局元数据注册表。
-- `freeze_meta_registry()` / `is_meta_registry_frozen()`：冻结全局注册表并查询冻结状态。
+- `freeze_meta_registry()` / `is_meta_registry_frozen()`：执行延迟注册函数、冻结全局注册表并查询冻结状态。
 
 相关测试位于 `tests/meta/` 和 `tests/core/`，测试组织规则见 [tests/README.md](../tests/README.md)。

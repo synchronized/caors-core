@@ -35,6 +35,9 @@ enum class meta_component_status {
   present,
 };
 
+/** @brief 延迟到 `freeze_meta_registry()` 前执行的元数据注册函数。 */
+using meta_registration_fn = error (*)();
+
 namespace detail {
 
 using meta_component_key = const void*;
@@ -138,6 +141,8 @@ public:
   [[nodiscard]] error register_cpp_type(detail::cpp_type_key key, const meta_type_data& type);
   [[nodiscard]] meta_type ensure_cpp_type(detail::cpp_type_key key, std::size_t size,
                                           std::size_t alignment);
+  [[nodiscard]] error add_registration(meta_registration_fn fn);
+  [[nodiscard]] error run_registrations();
   [[nodiscard]] error freeze();
   [[nodiscard]] bool is_frozen() const noexcept;
 
@@ -355,6 +360,12 @@ private:
 /** @brief 获取进程内全局类型元数据注册表。 */
 [[nodiscard]] CAORS_API meta_registry& get_meta_registry() noexcept;
 
+/** @brief 注册一个延迟执行的元数据注册函数。 */
+[[nodiscard]] CAORS_API error register_meta_registration(meta_registration_fn fn);
+
+/** @brief 执行所有已收集的元数据注册函数；最多执行一次。 */
+[[nodiscard]] CAORS_API error run_meta_registrations();
+
 /** @brief 冻结全局元数据注册表；冻结后只允许只读查询。 */
 [[nodiscard]] CAORS_API error freeze_meta_registry();
 
@@ -362,6 +373,24 @@ private:
 [[nodiscard]] CAORS_API bool is_meta_registry_frozen() noexcept;
 
 } // namespace caors
+
+/**
+ * @brief 定义一个延迟到 `freeze_meta_registry()` 前执行的元数据注册函数。
+ *
+ * `name` 必须是当前翻译单元内唯一的普通标识符。函数体需要返回 `caors::error`。
+ */
+#define CAORS_META_REGISTRATION(name)                                                              \
+  static ::caors::error name();                                                                    \
+  namespace {                                                                                      \
+  struct name##_caors_meta_registration_auto_register {                                            \
+    name##_caors_meta_registration_auto_register() {                                               \
+      (void)::caors::register_meta_registration(&name);                                            \
+    }                                                                                              \
+  };                                                                                               \
+  static const name##_caors_meta_registration_auto_register                                        \
+      name##_caors_meta_registration_auto_register_instance{};                                     \
+  }                                                                                                \
+  static ::caors::error name()
 
 #include "caors/meta/container_registration.h"
 #include "caors/meta/type_semantics.h"

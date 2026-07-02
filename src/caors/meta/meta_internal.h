@@ -15,6 +15,8 @@ public:
   mutable std::mutex mutex;
   std::uint64_t next_type_id = 1;
   bool frozen = false;
+  bool registrations_ran = false;
+  vector<meta_registration_fn> registrations;
   hash_map<std::uint64_t, std::unique_ptr<meta_type_data>> types;
   hash_map<string_name, type_id> names;
   hash_map<guid, type_id, guid_hash> guids;
