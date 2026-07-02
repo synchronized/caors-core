@@ -394,9 +394,9 @@ error reflection_registry::register_type(type_id id, const reflection_type_data&
     return validation_status;
   }
 
-  return rethrow_as(
-      get_meta_registry().try_emplace_component<reflection_type_data>(id, stored_reflection),
-      error_domain::reflection, errc::duplicate_component, errc::duplicate_reflection);
+  return rethrow_as(get_meta_registry().emplace<reflection_type_data>(id, stored_reflection),
+                    error_domain::reflection, errc::duplicate_component,
+                    errc::duplicate_reflection);
 }
 
 error reflection_registry::register_type(meta_type type, const reflection_type_data& reflection) {

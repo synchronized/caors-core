@@ -146,9 +146,9 @@ caors::meta<actor>("game.actor")
     .guid(caors::type_guid{*guid});
 ```
 
-`caors::type::try_get<T>()` 和 `caors::type::get<T>()` 只查询已经注册的 C++ 类型，不会创建匿名记录；
-不存在时分别返回 `std::nullopt` 和无效 `meta_type`。如果确实需要旧的“没有则创建匿名类型”语义，
-使用 `caors::type::ensure<T>()` 或 `type_id_of<T>()`。
+`caors::type::get<T>()` 只查询已经注册的 C++ 类型，不会创建匿名记录；不存在时返回无效
+`meta_type`。普通类型应通过 `caors::meta<T>("name")` 或 `register_type<T>("name")` 显式注册。
+`type_id_of<T>()` 只作为低层按需创建匿名类型 id 的入口，普通注册代码不应依赖它。
 
 ### meta_type_semantics_data
 
@@ -216,8 +216,6 @@ caors::get_meta_registry().emplace<object_factory_meta>(actor_id, true);
 - `find<T>(type_id)`：获取组件副本。
 - `find_ptr<T>(type_id)`：获取组件只读指针。组件由注册表以 `unique_ptr` 保存，地址在 append-only
   注册表生命周期内保持稳定。
-- `try_emplace_component<T>(type_id, args...)`：类似 `std::try_emplace`，组件不存在时挂载，已存在时返回
-  `errc::duplicate_component`。
 - `ensure_component<T>(type_id, args...)`：类似 lazy resolve，组件已存在时返回现有指针，不存在时创建并返回
   新组件指针。
 - `component_status<T>(type_id)`：查询组件诊断状态，区分无效类型、未注册类型、缺失组件和已挂载组件。
@@ -271,7 +269,8 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 - `wrapper_traits<T>` / `wrapper_access<T>`：wrapper 类型语义和内部值访问扩展点。
 - `sequence_traits<T>` / `set_traits<T>` / `associative_traits<T>` / `pair_traits<T>` / `tuple_traits<T>` / `variant_traits<T>`：容器、二元组、tuple-like 和 variant-like 类型语义扩展点。
 - `meta_type`：全局注册表中的类型只读视图。
-- `meta<T>()`：RTTR 风格的链式元类型注册入口。
+- `meta<T>()`：RTTR 风格的链式元类型注册入口；默认不注册类型，需要继续调用 `.type("name")`。
+- `meta<T>("name")`：推荐的显式命名注册入口。
 - `meta_registry`：全局基础类型注册、按 id/name/guid/C++ 类型查询、继承关系判断和组件式元数据挂载。
 - `meta_view<T...>`：按组件集合查询类型。
 - `get_meta_registry()`：进程内全局元数据注册表。

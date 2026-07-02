@@ -221,12 +221,6 @@ public:
     return {};
   }
 
-  /** @brief 类似 `std::try_emplace` 的组件挂载入口，已存在时返回 `duplicate_component`。 */
-  template <typename Component, typename... Args>
-  [[nodiscard]] error try_emplace_component(type_id id, Args&&... args) {
-    return emplace<Component>(id, std::forward<Args>(args)...);
-  }
-
   /**
    * @brief 确保指定类型拥有组件。
    *
@@ -239,7 +233,7 @@ public:
       return existing;
     }
 
-    const error status = try_emplace_component<Component>(id, std::forward<Args>(args)...);
+    const error status = emplace<Component>(id, std::forward<Args>(args)...);
     if (status && status.value() != errc::duplicate_component) {
       return nullptr;
     }
@@ -355,7 +349,7 @@ private:
 
 namespace caors {
 
-/** @brief 获取指定 C++ 类型的运行期类型 id，必要时先创建匿名类型记录。 */
+/** @brief 获取指定 C++ 类型的运行期类型 id，必要时创建低层匿名类型记录。 */
 template <typename T> [[nodiscard]] type_id type_id_of() {
   return get_meta_registry().ensure_type_for<T>().id();
 }
@@ -363,7 +357,7 @@ template <typename T> [[nodiscard]] type_id type_id_of() {
 /** @brief RTTR 风格的元类型注册构建器。 */
 template <typename T> class meta_builder {
 public:
-  meta_builder() : type_(get_meta_registry().ensure_type_for<T>()) {}
+  meta_builder() = default;
 
   meta_builder& type(std::string_view name) {
     status_ = get_meta_registry().register_type_for<T>(make_meta_type_data<T>(name));
@@ -421,30 +415,20 @@ private:
   error status_{};
 };
 
-/** @brief 获取或创建指定 C++ 类型的元类型注册构建器。 */
+/** @brief 获取指定 C++ 类型的元类型注册构建器；默认不注册类型。 */
 template <typename T> [[nodiscard]] meta_builder<T> meta() { return meta_builder<T>{}; }
 
-/** @brief 获取或创建指定 C++ 类型并设置类型名。 */
+/** @brief 显式注册指定 C++ 类型并设置类型名。 */
 template <typename T> [[nodiscard]] meta_builder<T> meta(std::string_view name) {
   return meta_builder<T>{}.type(name);
 }
 
 namespace type {
 
-/** @brief 查找已注册的 C++ 类型；不会创建匿名类型。 */
-template <typename T> [[nodiscard]] std::optional<meta_type> try_get() {
-  return get_meta_registry().find_type<T>();
-}
-
 /** @brief 获取已注册的 C++ 类型；不存在时返回无效 `meta_type`。 */
 template <typename T> [[nodiscard]] meta_type get() {
-  const std::optional<meta_type> type = try_get<T>();
+  const std::optional<meta_type> type = get_meta_registry().find_type<T>();
   return type.value_or(meta_type{});
-}
-
-/** @brief 获取或创建匿名 C++ 类型记录。 */
-template <typename T> [[nodiscard]] meta_type ensure() {
-  return get_meta_registry().ensure_type_for<T>();
 }
 
 } // namespace type

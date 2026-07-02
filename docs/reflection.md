@@ -598,7 +598,7 @@ caors::error result =
 auto reflected = caors::find_reflection("game.actor");
 ```
 
-推荐先通过 `meta<T>()` 注册基础类型，再把 `caors::type::get<T>()` 或保存下来的 `meta_type` 传给
+推荐先通过 `meta<T>("name")` 注册基础类型，再把 `caors::type::get<T>()` 或保存下来的 `meta_type` 传给
 `reflection::class_<T>(meta_type)`。这条路径只向已注册类型挂载 `reflection_type_data`，不会创建或修改
 基础类型记录；传入无效 `meta_type` 会返回 `errc::invalid_type`，传入不存在的 `type_id` 会返回
 `errc::missing_type`。旧的 `reflection::class_<T>("name")` 和 `register_reflection<T>("name", ...)`
