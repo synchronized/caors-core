@@ -100,17 +100,17 @@ caors::reflection::class_<actor>("game.actor")
 - `T`：`meta::type_kind::value`，`value_type` 为 `T`。
 - `enum`：`meta::type_kind::enumeration`，`value_type` 为枚举类型。
 - `T*`：`meta::type_kind::raw_pointer`，`value_type` 为 `T`，`nullable` 为 `true`，
-  `meta::wrapper_semantics` 为 `inline_value`。
+  `traits::wrapper_semantics` 为 `inline_value`。
 - `std::unique_ptr<T>`：`meta::type_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
-  `meta::wrapper_semantics` 为 `inline_value`。
+  `traits::wrapper_semantics` 为 `inline_value`。
 - `std::shared_ptr<T>`：`meta::type_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
-  `meta::wrapper_semantics` 为 `inline_value`。
+  `traits::wrapper_semantics` 为 `inline_value`。
 - `std::weak_ptr<T>`：`meta::type_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
-  `meta::wrapper_semantics` 为 `unsupported`，不默认展开内部值。
+  `traits::wrapper_semantics` 为 `unsupported`，不默认展开内部值。
 - `std::optional<T>`：`meta::type_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
-  `meta::wrapper_semantics` 为 `inline_value`。
+  `traits::wrapper_semantics` 为 `inline_value`。
 - `std::reference_wrapper<T>`：`meta::type_kind::wrapper`，`value_type` 为 `T`，不表示空值，
-  `meta::wrapper_semantics` 为 `inline_value`。
+  `traits::wrapper_semantics` 为 `inline_value`。
 - `traits::sequence_traits<T>` 顺序容器：`meta::type_kind::sequence`，`value_type` 为元素类型；`element_type()`
   是对外语义别名。字段视图可以查询元素数量、访问元素引用，并在 traits 支持时执行清空、调整大小和追加元素。内置 `caors::vector<T>` 会生成
   `caors.vector<T>` 类型名。
@@ -139,7 +139,7 @@ template <typename T>
 struct wrapper_traits<my_box<T>> {
   static constexpr bool is_wrapper = true;
   static constexpr bool nullable = false;
-  static constexpr meta::wrapper_semantics semantics = meta::wrapper_semantics::inline_value;
+  static constexpr wrapper_semantics semantics = wrapper_semantics::inline_value;
   using wrapped_type = T;
 };
 
@@ -327,7 +327,7 @@ struct variant_traits<my_variant<Ts...>> {
 内置适配已覆盖 `std::variant<Ts...>`。variant 默认按 tagged union 数组 `[index, value]` 序列化；
 反序列化时数组长度必须等于 2，`index` 必须落在候选类型范围内。切换到某个候选类型时，候选类型需要支持默认构造。
 
-`meta::wrapper_semantics` 当前含义：
+`traits::wrapper_semantics` 当前含义：
 
 - `none`：不是 wrapper，也不是需要特殊处理的指针。
 - `inline_value`：序列化时按包装的 `T` 本体处理。`T*`、标准智能指针和 `optional<T>`
@@ -662,7 +662,6 @@ auto reflected = caors::reflection::find("game.actor");
 - `include/caors/reflection.h` 是 umbrella 头，继续提供完整反射 API。
 - `include/caors/traits/*.h` 提供 `type_name`、wrapper、容器、pair、tuple 和 variant 类型语义扩展点主模板。
 - `include/caors/object/wrapper_traits.h` 提供 `objects::ref<T>` 的 wrapper 语义适配。
-- `include/caors/meta/wrapper.h` 和 `include/caors/meta/container_traits.h` 是兼容转发头。
 - `include/caors/adapters/stl_traits.h` 和 `include/caors/adapters/stl_wrapper.h` 提供 `std::vector`、`std::deque`、`std::list`、`std::forward_list`、`std::array`、`std::span`、
   `std::pair`、`std::tuple`、`std::variant`、`std::set`、`std::unordered_set`、`std::map`、`std::unordered_map` 以及 CAORS 容器别名的默认 traits 特化。
 - `include/caors/adapters/stl.h` 是 STL/CAORS 容器、wrapper、反射和序列化适配的聚合入口。

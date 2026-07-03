@@ -4,9 +4,12 @@
 #ifndef CAORS_META_TYPE_H_
 #define CAORS_META_TYPE_H_
 
+#include "caors/core/string_name.h"
 #include "caors/detail/type_key.h"
 #include "caors/export.h"
+#include "caors/meta/type_id.h"
 #include "caors/traits/container.h"
+#include "caors/traits/wrapper.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -39,13 +42,7 @@ enum class type_kind {
   variant,
 };
 
-/** @brief wrapper 类型的序列化语义。 */
-enum class wrapper_semantics {
-  none,
-  inline_value,
-  object_ref,
-  unsupported,
-};
+using wrapper_semantics = traits::wrapper_semantics;
 
 namespace detail {
 

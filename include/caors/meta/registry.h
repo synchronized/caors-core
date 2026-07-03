@@ -4,13 +4,13 @@
 #ifndef CAORS_META_REGISTRY_H_
 #define CAORS_META_REGISTRY_H_
 
+#include "caors/adapters/stl_wrapper.h"
 #include "caors/detail/type_key.h"
 #include "caors/error.h"
 #include "caors/export.h"
 #include "caors/meta/container.h"
 #include "caors/meta/type.h"
 #include "caors/meta/view.h"
-#include "caors/meta/wrapper.h"
 #include "caors/traits/container.h"
 
 #include <cstddef>

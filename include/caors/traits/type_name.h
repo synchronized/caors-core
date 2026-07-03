@@ -5,7 +5,7 @@
 #define CAORS_TRAITS_TYPE_NAME_H_
 
 #include "caors/core/containers.h"
-#include "caors/meta/type_id.h"
+#include "caors/core/type_guid.h"
 
 #include <chrono>
 #include <filesystem>
@@ -135,17 +135,5 @@ template <> struct type_name<type_guid> {
 };
 
 } // namespace caors::traits
-
-namespace caors {
-
-template <typename T> using type_name = traits::type_name<T>;
-
-} // namespace caors
-
-namespace caors::meta {
-
-template <typename T> using type_name = ::caors::traits::type_name<T>;
-
-} // namespace caors::meta
 
 #endif

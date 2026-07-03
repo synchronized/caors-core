@@ -34,13 +34,13 @@
 
 新代码可以直接包含 `caors/meta.h` 使用完整类型元数据 API；如果只需要局部能力，也可以包含对应子头文件：
 
-- `caors/meta/type_id.h`：`type_id`、`type_guid` 和运行期类型 id 基础定义。
+- `caors/meta/type_id.h`：`type_id` 和 `meta::type_guid` 兼容类型别名。
+- `caors/core/type_guid.h`：`type_guid` 稳定类型标识。
 - `caors/traits/type_name.h`：`traits::type_name<T>` 默认类型名映射。
 - `caors/traits/wrapper.h`：`traits::wrapper_traits<T>` 和 `traits::wrapper_access<T>` 主模板。
 - `caors/traits/container.h`：顺序、集合、关联、pair、tuple 和 variant 类型语义 traits 主模板。
 - `caors/meta/type_key.h`：内部 C++ 类型 key。
 - `caors/meta/type.h`：`meta::type_data`、`meta::type_view` 和 `meta::make_type_data<T>()`。
-- `caors/meta/wrapper.h`、`caors/meta/container_traits.h`：兼容转发头。
 - `caors/adapters/stl_traits.h`、`caors/adapters/stl_wrapper.h`：STL/CAORS 类型的默认 traits 特化。
 - `caors/meta/view.h`：`meta::view<T...>` 查询视图。
 - `caors/meta/registry.h`：全局 `meta::registry`、注册错误状态和注册 helper。
@@ -80,7 +80,7 @@ caors::type_id id = caors::meta::id("game.player");
 
 ### type_guid
 
-`type_guid` 是稳定类型标识，基于 `guid` 包装。它用于序列化、存档、资源引用和插件边界等需要长期稳定识别类型的场景。
+`type_guid` 是稳定类型标识，定义在 `caors/core/type_guid.h`，基于 `guid` 包装。它用于序列化、存档、资源引用和插件边界等需要长期稳定识别类型的场景。
 
 ```cpp
 auto guid = caors::guid::parse("5ed39a97-7b20-4d87-86ac-e62a4a615b10");
@@ -142,8 +142,6 @@ caors::traits::type_name<float>::value; // "float"
 用户类型可以通过特化 `traits::type_name<T>` 提供默认名称，也可以直接通过 `meta::type<T>("name")`
 显式注册。模板注册入口会把 C++ 类型和注册后的 `meta::type_view` 绑定起来，后续可以用 C++ 类型查询：
 
-`caors::type_name<T>` 仍作为兼容读取别名保留；新代码应在 `caors::traits` 命名空间中提供特化。
-
 ```cpp
 caors::meta::type<actor>("game.actor");
 
@@ -166,7 +164,7 @@ caors::meta::type<actor>("game.actor")
 `meta::type_semantics_data` 是挂在类型上的语义组件，用来描述该类型在反射、序列化和 value 模块中的运行期形态：
 
 - `kind`：值、枚举、裸指针、wrapper、顺序容器、集合容器、关联容器、二元组、tuple-like 或 variant-like 类型。
-- `meta::wrapper_semantics`：wrapper 或裸指针的处理语义，例如内联值、对象引用或不支持。
+- `traits::wrapper_semantics`：wrapper 或裸指针的处理语义，例如内联值、对象引用或不支持。
 - `value_type`：统一 value 类型。普通值、枚举、裸指针和 wrapper 对应自身或内部值；顺序容器和集合容器对应元素类型；关联容器对应 mapped/value 类型；二元组对应 second 类型；tuple-like 和 variant-like 类型没有单一 value 类型，应分别通过 `tuple_view` 或 `variant_view` 查询元素或候选类型。
 - `key_type`：关联容器的 key 类型；二元组内部复用它保存 first 类型。
 - `indirect_value` / `mutable_indirect_value`：指针或 wrapper 解包后的内部值访问函数。

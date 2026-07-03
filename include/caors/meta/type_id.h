@@ -4,11 +4,9 @@
 #ifndef CAORS_META_TYPE_ID_H_
 #define CAORS_META_TYPE_ID_H_
 
-#include "caors/core/guid.h"
-#include "caors/core/string_name.h"
+#include "caors/core/type_guid.h"
 
 #include <cstdint>
-#include <string_view>
 
 namespace caors::meta {
 
@@ -37,37 +35,13 @@ private:
   std::uint64_t value_ = 0;
 };
 
-/**
- * @brief 稳定类型标识。
- *
- * `type_guid` 用于序列化、存档、资源引用和插件边界等需要跨进程、跨版本稳定识别类型的场景。
- * 它和运行期 `type_id` 不同，不应由 `string_name` 的运行期 entry 或哈希值派生。
- */
-struct type_guid {
-  guid value{};
-
-  constexpr type_guid() noexcept = default;
-  explicit constexpr type_guid(guid guid_value) noexcept : value(guid_value) {}
-
-  [[nodiscard]] static constexpr type_guid nil() noexcept { return type_guid{}; }
-  [[nodiscard]] bool is_nil() const noexcept { return value.is_nil(); }
-  [[nodiscard]] explicit operator bool() const noexcept { return !is_nil(); }
-
-  friend constexpr bool operator==(const type_guid& lhs, const type_guid& rhs) noexcept {
-    return lhs.value == rhs.value;
-  }
-
-  friend constexpr bool operator!=(const type_guid& lhs, const type_guid& rhs) noexcept {
-    return !(lhs == rhs);
-  }
-};
+using type_guid = core::type_guid;
 
 } // namespace caors::meta
 
 namespace caors {
 
 using type_id = meta::type_id;
-using type_guid = meta::type_guid;
 
 } // namespace caors
 

@@ -11,6 +11,7 @@
 
 - `caors/core/string_name.h`：运行期字符串名。
 - `caors/core/guid.h`：128-bit 稳定标识值类型。
+- `caors/core/type_guid.h`：基于 `guid` 的稳定类型标识。
 - `caors/core/containers.h`：基于 CAORS allocator 的基础容器别名。
 
 后续可以按需要扩展：
@@ -59,6 +60,22 @@ constexpr caors::guid stable = caors::guid::from_bytes(caors::guid::byte_array{
 - `guid::from_bytes()` 可用于声明编译期稳定 GUID。
 - `guid::parse()` 只接受标准 8-4-4-4-12 格式，失败时返回 `std::nullopt`。
 - `guid::string()` 输出小写标准格式。
+
+## type_guid
+
+`type_guid` 是专门用于类型身份的稳定 GUID 包装。它定义在 `caors/core/type_guid.h`，根命名空间下保留
+`caors::type_guid` 作为常用值类型别名：
+
+```cpp
+auto parsed = caors::guid::parse("5ed39a97-7b20-4d87-86ac-e62a4a615b10");
+caors::type_guid id{*parsed};
+```
+
+需要注意：
+
+- `type_guid` 不等于 `meta::type_id`；前者用于跨进程、跨版本稳定识别，后者只用于当前进程内注册表索引。
+- `type_guid` 不应由 `string_name` 或运行期 hash 自动派生。
+- 没有长期序列化或资源引用需求的临时类型可以保持 nil。
 
 相关测试位于 `tests/core/`，测试组织规则见 [tests/README.md](../tests/README.md)。
 

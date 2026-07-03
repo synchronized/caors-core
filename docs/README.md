@@ -10,10 +10,11 @@
 - [build.md](build.md)：环境要求、CMake preset、构建、测试、安装和 CMake 选项。
 - [development.md](development.md)：目录结构、代码规范、格式化、静态检查和新增模块规则。
 - [roadmap.md](roadmap.md)：项目路线图。
+- [traits.md](traits.md)：底层 traits 扩展点、adapters 边界和用户特化规则。
 
 ## 主题文档
 
-- [core.md](core.md)：core 主题，包含 `string_name`、`guid` 和后续基础容器规划。
+- [core.md](core.md)：core 主题，包含 `string_name`、`guid`、`type_guid` 和基础容器规划。
 - [error.md](error.md)：统一错误码、错误来源域和 `std::error_code` 适配。
 - [memory.md](memory.md)：内存资源、分配器、策略资源和调试跟踪。
 - [meta.md](meta.md)：类型元数据、`type_guid`、`meta::type_view`、`meta::registry` 和元数据组件。

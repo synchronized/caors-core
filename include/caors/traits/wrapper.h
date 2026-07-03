@@ -4,15 +4,21 @@
 #ifndef CAORS_TRAITS_WRAPPER_H_
 #define CAORS_TRAITS_WRAPPER_H_
 
-#include "caors/meta/type.h"
-
 namespace caors::traits {
+
+/** @brief wrapper 类型的序列化语义。 */
+enum class wrapper_semantics {
+  none,
+  inline_value,
+  object_ref,
+  unsupported,
+};
 
 /** @brief C++ wrapper 类型到 meta 类型语义的映射。 */
 template <typename T> struct wrapper_traits {
   static constexpr bool is_wrapper = false;
   static constexpr bool nullable = false;
-  static constexpr meta::wrapper_semantics semantics = meta::wrapper_semantics::none;
+  static constexpr wrapper_semantics semantics = wrapper_semantics::none;
 };
 
 /** @brief wrapper 类型的内部值访问适配。 */
@@ -27,19 +33,5 @@ template <typename T> struct wrapper_access {
 };
 
 } // namespace caors::traits
-
-namespace caors {
-
-template <typename T> using wrapper_traits = traits::wrapper_traits<T>;
-template <typename T> using wrapper_access = traits::wrapper_access<T>;
-
-} // namespace caors
-
-namespace caors::meta {
-
-template <typename T> using wrapper_traits = ::caors::traits::wrapper_traits<T>;
-template <typename T> using wrapper_access = ::caors::traits::wrapper_access<T>;
-
-} // namespace caors::meta
 
 #endif

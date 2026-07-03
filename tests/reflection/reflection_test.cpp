@@ -53,14 +53,14 @@ namespace caors::traits {
 template <typename T> struct wrapper_traits<test_reflection::custom_inline_wrapper<T>> {
   static constexpr bool is_wrapper = true;
   static constexpr bool nullable = false;
-  static constexpr meta::wrapper_semantics semantics = meta::wrapper_semantics::inline_value;
+  static constexpr wrapper_semantics semantics = wrapper_semantics::inline_value;
   using wrapped_type = T;
 };
 
 template <typename T> struct wrapper_traits<test_reflection::custom_object_ref<T>> {
   static constexpr bool is_wrapper = true;
   static constexpr bool nullable = true;
-  static constexpr meta::wrapper_semantics semantics = meta::wrapper_semantics::object_ref;
+  static constexpr wrapper_semantics semantics = wrapper_semantics::object_ref;
   using wrapped_type = T;
 };
 
