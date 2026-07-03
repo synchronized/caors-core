@@ -10,7 +10,7 @@
 #include <string>
 #include <string_view>
 
-namespace caors {
+namespace caors::serialization {
 namespace {
 
 [[nodiscard]] string_name serialized_field_name(const serialization::field_data& data) noexcept {
@@ -676,4 +676,4 @@ variant_result parse_json(std::string_view text) {
   return parser.parse();
 }
 
-} // namespace caors
+} // namespace caors::serialization

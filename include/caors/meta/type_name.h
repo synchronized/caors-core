@@ -136,4 +136,10 @@ template <> struct type_name<type_guid> {
 
 } // namespace caors
 
+namespace caors::meta {
+
+template <typename T> using type_name = ::caors::type_name<T>;
+
+} // namespace caors::meta
+
 #endif

@@ -5,8 +5,8 @@
 #define CAORS_META_TYPE_H_
 
 #include "caors/export.h"
-#include "caors/meta/container_traits.h"
-#include "caors/meta/type_key.h"
+#include "caors/adapters/container_traits.h"
+#include "caors/detail/type_key.h"
 
 #include <cstddef>
 #include <cstdint>

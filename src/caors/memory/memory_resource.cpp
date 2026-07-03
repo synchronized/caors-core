@@ -12,8 +12,7 @@
 #include <new>
 #include <stdexcept>
 
-namespace caors {
-namespace detail {
+namespace caors::memory::detail {
 
 bool is_power_of_two(std::size_t value) noexcept {
   return value != 0 && (value & (value - 1)) == 0;
@@ -134,7 +133,9 @@ memory_resource& resolve_resource(memory_resource* resource) noexcept {
   return current != nullptr ? *current : system_resource;
 }
 
-} // namespace detail
+} // namespace caors::memory::detail
+
+namespace caors::memory {
 
 void* memory_resource::try_allocate(std::size_t size, std::size_t alignment) noexcept {
   if (!detail::is_power_of_two(alignment)) {
@@ -262,4 +263,4 @@ void deallocate(void* ptr, std::size_t size, std::size_t alignment,
   detail::resolve_resource(resource).deallocate(ptr, size, alignment);
 }
 
-} // namespace caors
+} // namespace caors::memory

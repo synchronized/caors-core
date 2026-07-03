@@ -9,54 +9,54 @@
 
 #include <cstddef>
 
-namespace caors {
+namespace caors::meta {
 
-using meta_set_raw_visitor = bool (*)(const void*, void*);
-using meta_associative_raw_visitor = bool (*)(const void*, const void*, void*);
+using set_raw_visitor = bool (*)(const void*, void*);
+using associative_raw_visitor = bool (*)(const void*, const void*, void*);
 
-using meta_sequence_size_fn = std::size_t (*)(const void*) noexcept;
-using meta_sequence_const_element_fn = const void* (*)(const void*, std::size_t) noexcept;
-using meta_sequence_mutable_element_fn = void* (*)(void*, std::size_t) noexcept;
-using meta_sequence_clear_fn = void (*)(void*) noexcept;
-using meta_sequence_resize_fn = bool (*)(void*, std::size_t);
-using meta_sequence_append_fn = bool (*)(void*, const void*);
+using sequence_size_fn = std::size_t (*)(const void*) noexcept;
+using sequence_const_element_fn = const void* (*)(const void*, std::size_t) noexcept;
+using sequence_mutable_element_fn = void* (*)(void*, std::size_t) noexcept;
+using sequence_clear_fn = void (*)(void*) noexcept;
+using sequence_resize_fn = bool (*)(void*, std::size_t);
+using sequence_append_fn = bool (*)(void*, const void*);
 
-using meta_set_size_fn = std::size_t (*)(const void*) noexcept;
-using meta_set_visit_fn = bool (*)(const void*, meta_set_raw_visitor, void*);
-using meta_set_clear_fn = void (*)(void*) noexcept;
-using meta_set_insert_fn = bool (*)(void*, const void*);
-using meta_container_iterator_create_fn = void* (*)(const void*) noexcept;
-using meta_container_iterator_clone_fn = void* (*)(const void*) noexcept;
-using meta_container_iterator_destroy_fn = void (*)(void*) noexcept;
-using meta_container_iterator_advance_fn = void (*)(void*) noexcept;
-using meta_container_iterator_equal_fn = bool (*)(const void*, const void*) noexcept;
-using meta_set_iterator_value_fn = const void* (*)(const void*) noexcept;
+using set_size_fn = std::size_t (*)(const void*) noexcept;
+using set_visit_fn = bool (*)(const void*, set_raw_visitor, void*);
+using set_clear_fn = void (*)(void*) noexcept;
+using set_insert_fn = bool (*)(void*, const void*);
+using container_iterator_create_fn = void* (*)(const void*) noexcept;
+using container_iterator_clone_fn = void* (*)(const void*) noexcept;
+using container_iterator_destroy_fn = void (*)(void*) noexcept;
+using container_iterator_advance_fn = void (*)(void*) noexcept;
+using container_iterator_equal_fn = bool (*)(const void*, const void*) noexcept;
+using set_iterator_value_fn = const void* (*)(const void*) noexcept;
 
-using meta_associative_size_fn = std::size_t (*)(const void*) noexcept;
-using meta_associative_visit_fn = bool (*)(const void*, meta_associative_raw_visitor, void*);
-using meta_associative_clear_fn = void (*)(void*) noexcept;
-using meta_associative_insert_fn = bool (*)(void*, const void*, const void*);
-using meta_associative_iterator_key_fn = const void* (*)(const void*) noexcept;
-using meta_associative_iterator_value_fn = const void* (*)(const void*) noexcept;
+using associative_size_fn = std::size_t (*)(const void*) noexcept;
+using associative_visit_fn = bool (*)(const void*, associative_raw_visitor, void*);
+using associative_clear_fn = void (*)(void*) noexcept;
+using associative_insert_fn = bool (*)(void*, const void*, const void*);
+using associative_iterator_key_fn = const void* (*)(const void*) noexcept;
+using associative_iterator_value_fn = const void* (*)(const void*) noexcept;
 
-using meta_pair_const_value_fn = const void* (*)(const void*) noexcept;
-using meta_pair_mutable_value_fn = void* (*)(void*) noexcept;
-using meta_tuple_const_element_fn = const void* (*)(const void*) noexcept;
-using meta_tuple_mutable_element_fn = void* (*)(void*) noexcept;
-using meta_variant_index_fn = std::size_t (*)(const void*) noexcept;
-using meta_variant_const_alternative_fn = const void* (*)(const void*) noexcept;
-using meta_variant_mutable_alternative_fn = void* (*)(void*) noexcept;
-using meta_variant_emplace_fn = bool (*)(void*);
+using pair_const_value_fn = const void* (*)(const void*) noexcept;
+using pair_mutable_value_fn = void* (*)(void*) noexcept;
+using tuple_const_element_fn = const void* (*)(const void*) noexcept;
+using tuple_mutable_element_fn = void* (*)(void*) noexcept;
+using variant_index_fn = std::size_t (*)(const void*) noexcept;
+using variant_const_alternative_fn = const void* (*)(const void*) noexcept;
+using variant_mutable_alternative_fn = void* (*)(void*) noexcept;
+using variant_emplace_fn = bool (*)(void*);
 
 /** @brief 顺序容器运行期访问数据。 */
-struct meta_sequence_data {
+struct sequence_data {
   type_id value_type{};
-  meta_sequence_size_fn size = nullptr;
-  meta_sequence_const_element_fn element = nullptr;
-  meta_sequence_mutable_element_fn mutable_element = nullptr;
-  meta_sequence_clear_fn clear = nullptr;
-  meta_sequence_resize_fn resize = nullptr;
-  meta_sequence_append_fn append = nullptr;
+  sequence_size_fn size = nullptr;
+  sequence_const_element_fn element = nullptr;
+  sequence_mutable_element_fn mutable_element = nullptr;
+  sequence_clear_fn clear = nullptr;
+  sequence_resize_fn resize = nullptr;
+  sequence_append_fn append = nullptr;
   bool can_read = true;
   bool read_in_place = false;
 
@@ -66,19 +66,19 @@ struct meta_sequence_data {
 };
 
 /** @brief 集合容器运行期访问数据。 */
-struct meta_set_data {
+struct set_data {
   type_id value_type{};
-  meta_set_size_fn size = nullptr;
-  meta_set_visit_fn visit = nullptr;
-  meta_set_clear_fn clear = nullptr;
-  meta_set_insert_fn insert = nullptr;
-  meta_container_iterator_create_fn begin = nullptr;
-  meta_container_iterator_create_fn end = nullptr;
-  meta_container_iterator_clone_fn iterator_clone = nullptr;
-  meta_container_iterator_destroy_fn iterator_destroy = nullptr;
-  meta_container_iterator_advance_fn iterator_advance = nullptr;
-  meta_container_iterator_equal_fn iterator_equal = nullptr;
-  meta_set_iterator_value_fn iterator_value = nullptr;
+  set_size_fn size = nullptr;
+  set_visit_fn visit = nullptr;
+  set_clear_fn clear = nullptr;
+  set_insert_fn insert = nullptr;
+  container_iterator_create_fn begin = nullptr;
+  container_iterator_create_fn end = nullptr;
+  container_iterator_clone_fn iterator_clone = nullptr;
+  container_iterator_destroy_fn iterator_destroy = nullptr;
+  container_iterator_advance_fn iterator_advance = nullptr;
+  container_iterator_equal_fn iterator_equal = nullptr;
+  set_iterator_value_fn iterator_value = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
     return value_type && size != nullptr && visit != nullptr;
@@ -86,21 +86,21 @@ struct meta_set_data {
 };
 
 /** @brief 关联容器运行期访问数据。 */
-struct meta_associative_data {
+struct associative_data {
   type_id key_type{};
   type_id value_type{};
-  meta_associative_size_fn size = nullptr;
-  meta_associative_visit_fn visit = nullptr;
-  meta_associative_clear_fn clear = nullptr;
-  meta_associative_insert_fn insert = nullptr;
-  meta_container_iterator_create_fn begin = nullptr;
-  meta_container_iterator_create_fn end = nullptr;
-  meta_container_iterator_clone_fn iterator_clone = nullptr;
-  meta_container_iterator_destroy_fn iterator_destroy = nullptr;
-  meta_container_iterator_advance_fn iterator_advance = nullptr;
-  meta_container_iterator_equal_fn iterator_equal = nullptr;
-  meta_associative_iterator_key_fn iterator_key = nullptr;
-  meta_associative_iterator_value_fn iterator_value = nullptr;
+  associative_size_fn size = nullptr;
+  associative_visit_fn visit = nullptr;
+  associative_clear_fn clear = nullptr;
+  associative_insert_fn insert = nullptr;
+  container_iterator_create_fn begin = nullptr;
+  container_iterator_create_fn end = nullptr;
+  container_iterator_clone_fn iterator_clone = nullptr;
+  container_iterator_destroy_fn iterator_destroy = nullptr;
+  container_iterator_advance_fn iterator_advance = nullptr;
+  container_iterator_equal_fn iterator_equal = nullptr;
+  associative_iterator_key_fn iterator_key = nullptr;
+  associative_iterator_value_fn iterator_value = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
     return key_type && value_type && size != nullptr && visit != nullptr;
@@ -108,13 +108,13 @@ struct meta_associative_data {
 };
 
 /** @brief 二元组运行期访问数据。 */
-struct meta_pair_data {
+struct pair_data {
   type_id key_type{};
   type_id value_type{};
-  meta_pair_const_value_fn first = nullptr;
-  meta_pair_mutable_value_fn mutable_first = nullptr;
-  meta_pair_const_value_fn second = nullptr;
-  meta_pair_mutable_value_fn mutable_second = nullptr;
+  pair_const_value_fn first = nullptr;
+  pair_mutable_value_fn mutable_first = nullptr;
+  pair_const_value_fn second = nullptr;
+  pair_mutable_value_fn mutable_second = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
     return key_type && value_type && first != nullptr && second != nullptr;
@@ -122,20 +122,20 @@ struct meta_pair_data {
 };
 
 /** @brief tuple-like 单个元素运行期访问数据。 */
-struct meta_tuple_element_data {
+struct tuple_element_data {
   type_id value_type{};
-  meta_tuple_const_element_fn element = nullptr;
-  meta_tuple_mutable_element_fn mutable_element = nullptr;
+  tuple_const_element_fn element = nullptr;
+  tuple_mutable_element_fn mutable_element = nullptr;
 
   [[nodiscard]] bool valid() const noexcept { return value_type && element != nullptr; }
 };
 
 /** @brief tuple-like 运行期访问数据。 */
-struct meta_tuple_data {
-  vector<meta_tuple_element_data> elements{};
+struct tuple_data {
+  vector<tuple_element_data> elements{};
 
   [[nodiscard]] bool valid() const noexcept {
-    for (const meta_tuple_element_data& element : elements) {
+    for (const tuple_element_data& element : elements) {
       if (!element.valid()) {
         return false;
       }
@@ -146,26 +146,26 @@ struct meta_tuple_data {
 };
 
 /** @brief variant-like 单个候选类型运行期访问数据。 */
-struct meta_variant_alternative_data {
+struct variant_alternative_data {
   type_id value_type{};
-  meta_variant_const_alternative_fn alternative = nullptr;
-  meta_variant_mutable_alternative_fn mutable_alternative = nullptr;
-  meta_variant_emplace_fn emplace = nullptr;
+  variant_const_alternative_fn alternative = nullptr;
+  variant_mutable_alternative_fn mutable_alternative = nullptr;
+  variant_emplace_fn emplace = nullptr;
 
   [[nodiscard]] bool valid() const noexcept { return value_type && alternative != nullptr; }
 };
 
 /** @brief variant-like 运行期访问数据。 */
-struct meta_variant_data {
-  vector<meta_variant_alternative_data> alternatives{};
-  meta_variant_index_fn index = nullptr;
+struct variant_data {
+  vector<variant_alternative_data> alternatives{};
+  variant_index_fn index = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
     if (index == nullptr || alternatives.empty()) {
       return false;
     }
 
-    for (const meta_variant_alternative_data& alternative : alternatives) {
+    for (const variant_alternative_data& alternative : alternatives) {
       if (!alternative.valid()) {
         return false;
       }
@@ -174,6 +174,56 @@ struct meta_variant_data {
     return true;
   }
 };
+
+} // namespace caors::meta
+
+namespace caors {
+
+using meta_set_raw_visitor = meta::set_raw_visitor;
+using meta_associative_raw_visitor = meta::associative_raw_visitor;
+
+using meta_sequence_size_fn = meta::sequence_size_fn;
+using meta_sequence_const_element_fn = meta::sequence_const_element_fn;
+using meta_sequence_mutable_element_fn = meta::sequence_mutable_element_fn;
+using meta_sequence_clear_fn = meta::sequence_clear_fn;
+using meta_sequence_resize_fn = meta::sequence_resize_fn;
+using meta_sequence_append_fn = meta::sequence_append_fn;
+
+using meta_set_size_fn = meta::set_size_fn;
+using meta_set_visit_fn = meta::set_visit_fn;
+using meta_set_clear_fn = meta::set_clear_fn;
+using meta_set_insert_fn = meta::set_insert_fn;
+using meta_container_iterator_create_fn = meta::container_iterator_create_fn;
+using meta_container_iterator_clone_fn = meta::container_iterator_clone_fn;
+using meta_container_iterator_destroy_fn = meta::container_iterator_destroy_fn;
+using meta_container_iterator_advance_fn = meta::container_iterator_advance_fn;
+using meta_container_iterator_equal_fn = meta::container_iterator_equal_fn;
+using meta_set_iterator_value_fn = meta::set_iterator_value_fn;
+
+using meta_associative_size_fn = meta::associative_size_fn;
+using meta_associative_visit_fn = meta::associative_visit_fn;
+using meta_associative_clear_fn = meta::associative_clear_fn;
+using meta_associative_insert_fn = meta::associative_insert_fn;
+using meta_associative_iterator_key_fn = meta::associative_iterator_key_fn;
+using meta_associative_iterator_value_fn = meta::associative_iterator_value_fn;
+
+using meta_pair_const_value_fn = meta::pair_const_value_fn;
+using meta_pair_mutable_value_fn = meta::pair_mutable_value_fn;
+using meta_tuple_const_element_fn = meta::tuple_const_element_fn;
+using meta_tuple_mutable_element_fn = meta::tuple_mutable_element_fn;
+using meta_variant_index_fn = meta::variant_index_fn;
+using meta_variant_const_alternative_fn = meta::variant_const_alternative_fn;
+using meta_variant_mutable_alternative_fn = meta::variant_mutable_alternative_fn;
+using meta_variant_emplace_fn = meta::variant_emplace_fn;
+
+using meta_sequence_data = meta::sequence_data;
+using meta_set_data = meta::set_data;
+using meta_associative_data = meta::associative_data;
+using meta_pair_data = meta::pair_data;
+using meta_tuple_element_data = meta::tuple_element_data;
+using meta_tuple_data = meta::tuple_data;
+using meta_variant_alternative_data = meta::variant_alternative_data;
+using meta_variant_data = meta::variant_data;
 
 } // namespace caors
 

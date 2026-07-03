@@ -5,7 +5,7 @@
 #define CAORS_REFLECTION_FIELD_H_
 
 #include "caors/meta.h"
-#include "caors/meta/container_traits.h"
+#include "caors/adapters/container_traits.h"
 #include "caors/object/wrapper_traits.h"
 #include "caors/value/any.h"
 

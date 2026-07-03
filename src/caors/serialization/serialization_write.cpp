@@ -5,7 +5,7 @@
 
 #include "serialization_internal.h"
 
-namespace caors {
+namespace caors::serialization {
 
 error write(serialization_writer& writer, const variant& value) {
   switch (value.kind()) {
@@ -153,4 +153,4 @@ error write(serialization_writer& writer, const variant& value) {
   return {error_domain::serialization, errc::invalid_argument};
 }
 
-} // namespace caors
+} // namespace caors::serialization

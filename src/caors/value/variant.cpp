@@ -5,7 +5,7 @@
 
 #include <utility>
 
-namespace caors {
+namespace caors::value {
 
 variant::variant() = default;
 
@@ -140,4 +140,4 @@ variant_member* variant::find_member(std::uint32_t field_id) noexcept {
   return const_cast<variant_member*>(std::as_const(*this).find_member(field_id));
 }
 
-} // namespace caors
+} // namespace caors::value

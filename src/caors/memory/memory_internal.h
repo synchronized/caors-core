@@ -10,7 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace caors::detail {
+namespace caors::memory::detail {
 
 [[nodiscard]] bool is_power_of_two(std::size_t value) noexcept;
 [[nodiscard]] std::size_t normalize_size(std::size_t size) noexcept;
@@ -32,6 +32,6 @@ void update_peak(std::atomic<std::size_t>& peak, std::size_t value) noexcept;
 void subtract_saturating(std::atomic<std::size_t>& value, std::size_t amount) noexcept;
 [[nodiscard]] memory_resource& resolve_resource(memory_resource* resource) noexcept;
 
-} // namespace caors::detail
+} // namespace caors::memory::detail
 
 #endif

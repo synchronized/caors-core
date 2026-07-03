@@ -10,7 +10,7 @@
 #include <string_view>
 #include <utility>
 
-namespace caors {
+namespace caors::core {
 
 namespace detail {
 
@@ -94,4 +94,4 @@ bool operator!=(string_name lhs, std::string_view rhs) { return !(lhs == rhs); }
 
 bool operator!=(std::string_view lhs, string_name rhs) { return !(lhs == rhs); }
 
-}
+} // namespace caors::core

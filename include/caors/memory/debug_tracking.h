@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <source_location>
 
-namespace caors {
+namespace caors::memory {
 
 /**
  * @brief 单个存活分配的调试记录。
@@ -100,6 +100,16 @@ private:
 
   debug_tracking_state* state_ = nullptr;
 };
+
+} // namespace caors::memory
+
+namespace caors {
+
+using memory::debug_tracking_resource;
+using memory::debug_tracking_state;
+using memory::memory_debug_record;
+using memory::memory_debug_record_fn;
+using memory::memory_debug_statistics;
 
 } // namespace caors
 

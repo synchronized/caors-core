@@ -7,7 +7,7 @@
 #include "caors/core/containers.h"
 #include "caors/memory/debug_tracking.h"
 
-namespace caors {
+namespace caors::memory {
 
 /** @brief 将调试分配器的存活分配记录收集为 CAORS 动态数组。 */
 [[nodiscard]] inline vector<memory_debug_record>
@@ -23,6 +23,12 @@ collect_live_allocations(const debug_tracking_resource& resource,
       &records);
   return records;
 }
+
+} // namespace caors::memory
+
+namespace caors {
+
+using memory::collect_live_allocations;
 
 } // namespace caors
 

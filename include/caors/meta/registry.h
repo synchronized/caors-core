@@ -7,9 +7,9 @@
 #include "caors/error.h"
 #include "caors/export.h"
 #include "caors/meta/container.h"
-#include "caors/meta/container_traits.h"
+#include "caors/adapters/container_traits.h"
 #include "caors/meta/type.h"
-#include "caors/meta/type_key.h"
+#include "caors/detail/type_key.h"
 #include "caors/meta/view.h"
 #include "caors/meta/wrapper.h"
 

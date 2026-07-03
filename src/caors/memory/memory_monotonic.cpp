@@ -9,7 +9,7 @@
 #include <cstdint>
 #include <limits>
 
-namespace caors {
+namespace caors::memory {
 
 struct monotonic_resource::chunk {
   chunk* next = nullptr;
@@ -121,4 +121,4 @@ bool monotonic_resource::try_add_chunk(std::size_t capacity) noexcept {
   return true;
 }
 
-} // namespace caors
+} // namespace caors::memory

@@ -8,7 +8,7 @@
 
 #include <cstddef>
 
-namespace caors {
+namespace caors::memory {
 
 class CAORS_API monotonic_resource final : public memory_resource {
 public:
@@ -37,6 +37,12 @@ private:
   std::size_t initial_capacity_ = 0;
   std::size_t next_capacity_ = 0;
 };
+
+} // namespace caors::memory
+
+namespace caors {
+
+using memory::monotonic_resource;
 
 } // namespace caors
 

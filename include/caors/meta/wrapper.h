@@ -229,4 +229,11 @@ template <typename T> struct wrapper_access<std::reference_wrapper<T>> {
 
 } // namespace caors
 
+namespace caors::meta {
+
+template <typename T> using wrapper_traits = ::caors::wrapper_traits<T>;
+template <typename T> using wrapper_access = ::caors::wrapper_access<T>;
+
+} // namespace caors::meta
+
 #endif

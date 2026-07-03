@@ -8,7 +8,7 @@
 
 #include <cstddef>
 
-namespace caors {
+namespace caors::memory {
 
 class CAORS_API fixed_block_pool final : public memory_resource {
 public:
@@ -42,6 +42,12 @@ private:
   std::size_t block_alignment_ = 0;
   std::size_t blocks_per_chunk_ = 0;
 };
+
+} // namespace caors::memory
+
+namespace caors {
+
+using memory::fixed_block_pool;
 
 } // namespace caors
 

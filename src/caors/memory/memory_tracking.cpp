@@ -5,7 +5,7 @@
 
 #include "memory_internal.h"
 
-namespace caors {
+namespace caors::memory {
 
 tracking_resource::tracking_resource(memory_resource* upstream) noexcept
     : upstream_(&detail::resolve_resource(upstream)) {}
@@ -56,4 +56,4 @@ void tracking_resource::do_deallocate(void* ptr, std::size_t size, std::size_t a
 
 bool tracking_resource::do_is_equal(const memory_resource&) const noexcept { return false; }
 
-} // namespace caors
+} // namespace caors::memory

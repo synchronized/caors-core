@@ -9,7 +9,7 @@
 #include <atomic>
 #include <cstddef>
 
-namespace caors {
+namespace caors::memory {
 
 struct memory_statistics {
   std::size_t allocation_count = 0;
@@ -41,6 +41,13 @@ private:
   std::atomic<std::size_t> bytes_in_use_{0};
   std::atomic<std::size_t> peak_bytes_in_use_{0};
 };
+
+} // namespace caors::memory
+
+namespace caors {
+
+using memory::memory_statistics;
+using memory::tracking_resource;
 
 } // namespace caors
 

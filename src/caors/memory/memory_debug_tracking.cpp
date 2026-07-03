@@ -8,7 +8,7 @@
 
 #include <mutex>
 
-namespace caors {
+namespace caors::memory {
 
 struct debug_tracking_state {
   explicit debug_tracking_state(memory_resource* upstream_resource) noexcept
@@ -196,4 +196,4 @@ void* debug_tracking_resource::try_allocate_recorded(std::size_t size, std::size
   return ptr;
 }
 
-} // namespace caors
+} // namespace caors::memory

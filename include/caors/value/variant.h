@@ -12,7 +12,7 @@
 #include <string_view>
 #include <utility>
 
-namespace caors {
+namespace caors::value {
 
 /** @brief 运行期数据值类型。 */
 enum class variant_kind {
@@ -151,6 +151,15 @@ struct variant_member {
   std::uint32_t field_id = 0;
   variant value{};
 };
+
+} // namespace caors::value
+
+namespace caors {
+
+using value::variant;
+using value::variant_entry;
+using value::variant_kind;
+using value::variant_member;
 
 } // namespace caors
 

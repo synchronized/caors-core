@@ -7,7 +7,7 @@
 
 #include "serialization_internal.h"
 
-namespace caors {
+namespace caors::serialization {
 
 error serialize(const reflection::type& type, const void* object, serialization_writer& writer) {
   return serialize(type, object, writer, serialization::context{});
@@ -94,4 +94,4 @@ error serialize(type_id id, const void* object, serialization_writer& writer,
   return serialize(*type, object, writer, context);
 }
 
-} // namespace caors
+} // namespace caors::serialization

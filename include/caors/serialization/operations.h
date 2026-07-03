@@ -12,7 +12,7 @@
 #include <optional>
 #include <string_view>
 
-namespace caors {
+namespace caors::serialization {
 
 /** @brief 通过反射类型视图和指定后端序列化对象。 */
 [[nodiscard]] CAORS_API error serialize(const reflection::type& type, const void* object,
@@ -244,6 +244,19 @@ template <typename T>
 
   return serialize_json(type->id(), &object, context);
 }
+
+} // namespace caors::serialization
+
+namespace caors {
+
+using serialization::deserialize;
+using serialization::deserialize_json;
+using serialization::parse_json;
+using serialization::serialize;
+using serialization::serialize_json;
+using serialization::serialize_text;
+using serialization::to_serialization_value;
+using serialization::write;
 
 } // namespace caors
 

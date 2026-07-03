@@ -5,7 +5,7 @@
 #define CAORS_VALUE_ANY_H_
 
 #include "caors/meta.h"
-#include "caors/meta/container_traits.h"
+#include "caors/adapters/container_traits.h"
 
 #include <cstddef>
 #include <iterator>
@@ -15,11 +15,11 @@
 #include <type_traits>
 #include <utility>
 
-namespace caors {
-
-namespace reflection {
+namespace caors::reflection {
 struct field_data;
-} // namespace reflection
+} // namespace caors::reflection
+
+namespace caors::value {
 
 class any_ref;
 class indirect_view;
@@ -1860,6 +1860,23 @@ inline set_view any_ref::create_set_view() const {
 
   return set_view{data, data_, writable_};
 }
+
+} // namespace caors::value
+
+namespace caors {
+
+using value::any;
+using value::any_ref;
+using value::associative_entry_ref;
+using value::associative_entry_visitor;
+using value::associative_view;
+using value::indirect_view;
+using value::pair_view;
+using value::sequence_view;
+using value::set_element_visitor;
+using value::set_view;
+using value::tuple_view;
+using value::variant_view;
 
 } // namespace caors
 

@@ -9,7 +9,7 @@
 
 #include <utility>
 
-namespace caors {
+namespace caors::serialization {
 namespace {
 
 [[nodiscard]] variant_result
@@ -74,11 +74,11 @@ value_ref_to_serialization_value(const any_ref& value, const serialization::cont
 
 } // namespace
 
-variant_result serialization::to_variant(const any& data) {
+variant_result to_variant(const any& data) {
   return serialization::detail::make_serialized_value(data);
 }
 
-variant_result serialization::to_variant(const any_ref& data) {
+variant_result to_variant(const any_ref& data) {
   if (!data.valid()) {
     return {{error_domain::serialization, errc::invalid_argument}, {}};
   }
@@ -181,4 +181,4 @@ variant_result to_serialization_value(type_id id, const void* object,
   return to_serialization_value(*type, object, context);
 }
 
-} // namespace caors
+} // namespace caors::serialization

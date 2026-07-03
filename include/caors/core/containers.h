@@ -13,7 +13,7 @@
 #include <unordered_set>
 #include <vector>
 
-namespace caors {
+namespace caors::core {
 
 /** @brief 使用 CAORS allocator 的动态数组别名。 */
 template <typename T> using vector = std::vector<T, allocator<T>>;
@@ -59,6 +59,24 @@ template <typename T, typename Hash = std::hash<T>, typename Equal = std::equal_
 [[nodiscard]] hash_set<T, Hash, Equal> make_hash_set(memory_resource* resource = nullptr) {
   return hash_set<T, Hash, Equal>{typename hash_set<T, Hash, Equal>::allocator_type{resource}};
 }
+
+} // namespace caors::core
+
+namespace caors {
+
+template <typename T> using vector = core::vector<T>;
+template <typename T> using list = core::list<T>;
+using string = core::string;
+template <typename K, typename V, typename Hash = std::hash<K>, typename Equal = std::equal_to<K>>
+using hash_map = core::hash_map<K, V, Hash, Equal>;
+template <typename T, typename Hash = std::hash<T>, typename Equal = std::equal_to<T>>
+using hash_set = core::hash_set<T, Hash, Equal>;
+
+using core::make_hash_map;
+using core::make_hash_set;
+using core::make_list;
+using core::make_string;
+using core::make_vector;
 
 } // namespace caors
 

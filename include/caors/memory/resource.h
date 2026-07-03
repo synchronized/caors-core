@@ -14,7 +14,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace caors {
+namespace caors::memory {
 
 inline constexpr std::size_t default_memory_alignment = alignof(std::max_align_t);
 
@@ -173,6 +173,29 @@ template <typename T> void destroy(T* ptr, memory_resource* resource = nullptr) 
   ptr->~T();
   resolved->deallocate(ptr, sizeof(T), alignof(T));
 }
+
+} // namespace caors::memory
+
+namespace caors {
+
+using memory::callback_memory_resource;
+using memory::default_memory_alignment;
+using memory::deallocate;
+using memory::destroy;
+using memory::get_default_memory_resource;
+using memory::get_system_memory_resource;
+using memory::make;
+using memory::memory_allocate_fn;
+using memory::memory_deallocate_fn;
+using memory::memory_resource;
+using memory::operator!=;
+using memory::operator==;
+using memory::set_default_memory_resource;
+using memory::system_memory_resource;
+using memory::try_allocate;
+using memory::allocate;
+
+template <typename T> using allocator = memory::allocator<T>;
 
 } // namespace caors
 

@@ -5,7 +5,7 @@
 #define CAORS_ADAPTERS_STL_TRAITS_H_
 
 #include "caors/core/containers.h"
-#include "caors/meta/container_traits.h"
+#include "caors/adapters/container_traits.h"
 
 #include <array>
 #include <deque>

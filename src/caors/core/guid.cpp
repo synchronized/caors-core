@@ -7,7 +7,7 @@
 #include <string>
 #include <string_view>
 
-namespace caors {
+namespace caors::core {
 namespace {
 
 [[nodiscard]] constexpr int hex_digit_value(char digit) noexcept {

@@ -13,7 +13,7 @@
 #include <string>
 #include <string_view>
 
-namespace caors {
+namespace caors::core {
 
 /**
  * @brief 128-bit 全局唯一标识值类型。
@@ -54,6 +54,13 @@ struct CAORS_API guid_hash {
   [[nodiscard]] std::size_t operator()(const guid& value) const noexcept;
 };
 
-}
+} // namespace caors::core
+
+namespace caors {
+
+using core::guid;
+using core::guid_hash;
+
+} // namespace caors
 
 #endif

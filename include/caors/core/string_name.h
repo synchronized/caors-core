@@ -12,7 +12,7 @@
 #include <string>
 #include <string_view>
 
-namespace caors {
+namespace caors::core {
 
 namespace detail {
 struct string_name_entry;
@@ -67,13 +67,22 @@ struct string_name_hash {
 [[nodiscard]] CAORS_API bool operator!=(string_name lhs, std::string_view rhs);
 [[nodiscard]] CAORS_API bool operator!=(std::string_view lhs, string_name rhs);
 
-}
+} // namespace caors::core
+
+namespace caors {
+
+using core::operator!=;
+using core::operator==;
+using core::string_name;
+using core::string_name_hash;
+
+} // namespace caors
 
 namespace std {
 
-template <> struct hash<caors::string_name> {
-  [[nodiscard]] std::size_t operator()(caors::string_name name) const noexcept {
-    return caors::string_name_hash{}(name);
+template <> struct hash<caors::core::string_name> {
+  [[nodiscard]] std::size_t operator()(caors::core::string_name name) const noexcept {
+    return caors::core::string_name_hash{}(name);
   }
 };
 

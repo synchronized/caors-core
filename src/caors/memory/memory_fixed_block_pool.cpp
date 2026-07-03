@@ -7,7 +7,7 @@
 
 #include <algorithm>
 
-namespace caors {
+namespace caors::memory {
 
 struct fixed_block_pool::chunk {
   chunk* next = nullptr;
@@ -107,4 +107,4 @@ bool fixed_block_pool::try_add_chunk() noexcept {
   return true;
 }
 
-} // namespace caors
+} // namespace caors::memory
