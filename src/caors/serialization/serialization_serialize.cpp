@@ -44,25 +44,25 @@ error serialize(const reflection::type& type, const void* object, writer& writer
         continue;
       }
 
-      const std::optional<reflection::field> field = type.find_field(field_data.field_name);
-      if (!field.has_value()) {
+      const reflection::field field = type.find_field(field_data.field_name);
+      if (!field) {
         return {error_domain::serialization, errc::not_found};
       }
 
-      status = serialization::detail::write_field(writer, *field, object, field_data, context);
+      status = serialization::detail::write_field(writer, field, object, field_data, context);
       if (status) {
         return status;
       }
     }
   } else {
     for (std::size_t index = 0; index < type.field_count(); ++index) {
-      const std::optional<reflection::field> field = type.field_at(index);
-      if (!field.has_value()) {
+      const reflection::field field = type.field_at(index);
+      if (!field) {
         return {error_domain::serialization, errc::invalid_field};
       }
 
-      serialization::field_data field_data = serialization::make_field(field->name().view());
-      status = serialization::detail::write_field(writer, *field, object, field_data, context);
+      serialization::field_data field_data = serialization::make_field(field.name().view());
+      status = serialization::detail::write_field(writer, field, object, field_data, context);
       if (status) {
         return status;
       }
@@ -86,12 +86,12 @@ error serialize(type_id id, const void* object, writer& writer,
     return {error_domain::serialization, errc::missing_type};
   }
 
-  const std::optional<reflection::type> type = reflection::find(id);
-  if (!type.has_value()) {
+  const reflection::type type = reflection::find(id);
+  if (!type) {
     return {error_domain::serialization, errc::not_found};
   }
 
-  return serialize(*type, object, writer, context);
+  return serialize(type, object, writer, context);
 }
 
 } // namespace caors::serialization

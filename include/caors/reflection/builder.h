@@ -42,13 +42,13 @@ public:
       return *this;
     }
 
-    const std::optional<meta::type_view> resolved_type = caors::meta::find<field_type>();
-    if (!resolved_type.has_value() || resolved_type->name().empty()) {
+    const meta::type_view resolved_type = caors::meta::find<field_type>();
+    if (!resolved_type || resolved_type.name().empty()) {
       pending_status_ = {error_domain::reflection, errc::invalid_field};
       return *this;
     }
 
-    detail::field_data field = detail::make_field_data<Field>(name, resolved_type->name().view(),
+    detail::field_data field = detail::make_field_data<Field>(name, resolved_type.name().view(),
                                                               detail::member_offset(member));
     if (!field.valid()) {
       pending_status_ = {error_domain::reflection, errc::invalid_field};

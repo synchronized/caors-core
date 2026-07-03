@@ -139,12 +139,12 @@ template <typename T> [[nodiscard]] error register_serialization_codec() {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  const std::optional<meta::type_view> meta = meta::get_registry().find_type<type>();
-  if (!meta.has_value()) {
+  const meta::type_view meta_type = meta::get_registry().find_type<type>();
+  if (!meta_type) {
     return {error_domain::serialization, errc::invalid_type};
   }
 
-  return register_serialization_codec(meta->id(), codec);
+  return register_serialization_codec(meta_type.id(), codec);
 }
 
 } // namespace caors::serialization::detail

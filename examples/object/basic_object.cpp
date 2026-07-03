@@ -28,7 +28,7 @@ int main() {
   }
 
   const auto actor_type = caors::objects::find<actor>();
-  if (!actor_type.has_value()) {
+  if (!actor_type) {
     return 1;
   }
 
@@ -39,7 +39,7 @@ int main() {
 
   std::cout << "object id: " << instance->id().value() << '\n';
   std::cout << "type name: " << instance->type_name() << '\n';
-  std::cout << "is actor: " << caors::objects::is_a(instance->type_id(), actor_type->id()) << '\n';
+  std::cout << "is actor: " << caors::objects::is_a(instance->type_id(), actor_type.id()) << '\n';
 
   registry.destroy(instance);
   return 0;

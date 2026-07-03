@@ -32,9 +32,8 @@ public:
 
   /** @brief 查询 first 类型名。 */
   [[nodiscard]] string_name first_type_name() const noexcept {
-    const std::optional<meta::type_view> meta =
-        valid() ? caors::meta::find(data_->key_type) : std::nullopt;
-    return meta ? meta->name() : string_name{};
+    const meta::type_view meta = valid() ? caors::meta::find(data_->key_type) : meta::type_view{};
+    return meta ? meta.name() : string_name{};
   }
 
   /** @brief 查询 second 的统一 value 类型。 */
@@ -44,9 +43,8 @@ public:
 
   /** @brief 查询 second 的统一 value 类型名。 */
   [[nodiscard]] string_name value_type_name() const noexcept {
-    const std::optional<meta::type_view> meta =
-        valid() ? caors::meta::find(data_->value_type) : std::nullopt;
-    return meta ? meta->name() : string_name{};
+    const meta::type_view meta = valid() ? caors::meta::find(data_->value_type) : meta::type_view{};
+    return meta ? meta.name() : string_name{};
   }
 
   /** @brief 查询 second 类型，等价于 `value_type()`。 */

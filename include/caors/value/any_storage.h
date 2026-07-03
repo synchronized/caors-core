@@ -86,23 +86,23 @@ public:
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
     static_assert(std::is_copy_constructible_v<type>, "any requires copy constructible types");
 
-    const std::optional<meta::type_view> registered = caors::meta::find<type>();
-    if (!registered.has_value() || registered->name().empty() || registered->name() != name) {
+    const meta::type_view registered = caors::meta::find<type>();
+    if (!registered || registered.name().empty() || registered.name() != name) {
       return {};
     }
 
-    return copy_from_raw(registered->id(), &source);
+    return copy_from_raw(registered.id(), &source);
   }
 
   /** @brief 按运行期类型 id 默认构造一个值。不可默认构造类型会返回无效 `any`。 */
   [[nodiscard]] static any default_construct(type_id type) {
-    const std::optional<meta::type_view> meta = caors::meta::find(type);
-    if (!meta.has_value() || !meta->valid() || meta->default_construct_value() == nullptr ||
-        meta->destroy_value() == nullptr) {
+    const meta::type_view meta = caors::meta::find(type);
+    if (!meta.valid() || meta.default_construct_value() == nullptr ||
+        meta.destroy_value() == nullptr) {
       return {};
     }
 
-    void* value = meta->default_construct_value()();
+    void* value = meta.default_construct_value()();
     if (value == nullptr) {
       return {};
     }
@@ -114,28 +114,28 @@ public:
   }
 
   [[nodiscard]] bool valid() const noexcept {
-    const std::optional<meta::type_view> meta = caors::meta::find(type_);
-    return meta.has_value() && meta->valid() && data_ != nullptr;
+    const meta::type_view meta = caors::meta::find(type_);
+    return meta.valid() && data_ != nullptr;
   }
 
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
 
   [[nodiscard]] type_id type() const noexcept { return type_; }
   [[nodiscard]] string_name type_name() const noexcept {
-    const std::optional<meta::type_view> meta = caors::meta::find(type_);
-    return meta.has_value() ? meta->name() : string_name{};
+    const meta::type_view meta = caors::meta::find(type_);
+    return meta ? meta.name() : string_name{};
   }
   [[nodiscard]] const void* data() const noexcept { return valid() ? data_ : nullptr; }
   [[nodiscard]] void* mutable_data() noexcept { return valid() ? data_ : nullptr; }
   [[nodiscard]] any_ref ref();
   [[nodiscard]] any_ref ref() const;
   [[nodiscard]] std::size_t size() const noexcept {
-    const std::optional<meta::type_view> meta = caors::meta::find(type_);
-    return meta.has_value() ? meta->size() : 0;
+    const meta::type_view meta = caors::meta::find(type_);
+    return meta ? meta.size() : 0;
   }
   [[nodiscard]] std::size_t alignment() const noexcept {
-    const std::optional<meta::type_view> meta = caors::meta::find(type_);
-    return meta.has_value() ? meta->alignment() : 0;
+    const meta::type_view meta = caors::meta::find(type_);
+    return meta ? meta.alignment() : 0;
   }
   [[nodiscard]] sequence_view create_sequence_view();
   [[nodiscard]] sequence_view create_sequence_view() const;
@@ -154,9 +154,9 @@ public:
 
   /** @brief 清空当前值。 */
   void reset() noexcept {
-    const std::optional<meta::type_view> meta = caors::meta::find(type_);
-    if (data_ != nullptr && meta.has_value() && meta->destroy_value() != nullptr) {
-      meta->destroy_value()(data_);
+    const meta::type_view meta = caors::meta::find(type_);
+    if (data_ != nullptr && meta && meta.destroy_value() != nullptr) {
+      meta.destroy_value()(data_);
     }
 
     type_ = {};
@@ -208,22 +208,22 @@ public:
   /** @brief 从同类型 C++ 值写入当前值。 */
   template <typename T> bool try_set(const T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const std::optional<meta::type_view> meta = caors::meta::find(type_);
-    if (!matches_type<type>() || !meta.has_value() || meta->assign_value() == nullptr) {
+    const meta::type_view meta = caors::meta::find(type_);
+    if (!matches_type<type>() || !meta || meta.assign_value() == nullptr) {
       return false;
     }
 
-    return meta->assign_value()(data_, &source);
+    return meta.assign_value()(data_, &source);
   }
 
   /** @brief 从同类型运行期值写入当前值。 */
   bool try_set(const any& source) {
-    const std::optional<meta::type_view> meta = caors::meta::find(type_);
-    if (!matches_type(source) || !meta.has_value() || meta->assign_value() == nullptr) {
+    const meta::type_view meta = caors::meta::find(type_);
+    if (!matches_type(source) || !meta || meta.assign_value() == nullptr) {
       return false;
     }
 
-    return meta->assign_value()(data_, source.data_);
+    return meta.assign_value()(data_, source.data_);
   }
 
 private:
@@ -231,13 +231,13 @@ private:
   friend struct reflection::detail::field_data;
 
   [[nodiscard]] static any copy_from_raw(type_id type, const void* source) {
-    const std::optional<meta::type_view> meta = caors::meta::find(type);
-    if (!meta.has_value() || !meta->valid() || source == nullptr ||
-        meta->clone_value() == nullptr || meta->destroy_value() == nullptr) {
+    const meta::type_view meta = caors::meta::find(type);
+    if (!meta.valid() || source == nullptr || meta.clone_value() == nullptr ||
+        meta.destroy_value() == nullptr) {
       return {};
     }
 
-    void* copy = meta->clone_value()(source);
+    void* copy = meta.clone_value()(source);
     if (copy == nullptr) {
       return {};
     }

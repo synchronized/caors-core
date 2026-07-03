@@ -165,17 +165,17 @@ TEST_CASE("object - registry registers and finds types", "[object]") {
         object_error(caors::errc::duplicate_id));
 
   auto type = caors::objects::find<registry_actor>();
-  REQUIRE(type.has_value());
-  CHECK(type->id() == registry_actor::static_type_id());
-  CHECK(type->name() == registry_actor::object_type_name);
-  CHECK_FALSE(type->guid());
-  CHECK(type->size() == sizeof(registry_actor));
-  CHECK(type->alignment() == alignof(registry_actor));
-  CHECK(type->constructible());
+  REQUIRE(type);
+  CHECK(type.id() == registry_actor::static_type_id());
+  CHECK(type.name() == registry_actor::object_type_name);
+  CHECK_FALSE(type.guid());
+  CHECK(type.size() == sizeof(registry_actor));
+  CHECK(type.alignment() == alignof(registry_actor));
+  CHECK(type.constructible());
 
   auto by_name = caors::objects::find(registry_actor::object_type_name);
-  REQUIRE(by_name.has_value());
-  CHECK(by_name->id() == registry_actor::static_type_id());
+  REQUIRE(by_name);
+  CHECK(by_name.id() == registry_actor::static_type_id());
 }
 
 TEST_CASE("object - type guid can be provided by object subclass", "[object]") {
@@ -185,8 +185,8 @@ TEST_CASE("object - type guid can be provided by object subclass", "[object]") {
           caors::error{});
 
   auto stored = caors::objects::find<persistent_actor>();
-  REQUIRE(stored.has_value());
-  CHECK(stored->guid() == persistent_actor::object_type_guid);
+  REQUIRE(stored);
+  CHECK(stored.guid() == persistent_actor::object_type_guid);
 }
 
 TEST_CASE("object - registry reports registration errors", "[object]") {
@@ -213,18 +213,18 @@ TEST_CASE("object - registry checks parent relationship", "[object]") {
           caors::error{});
   const auto object_type = caors::objects::find<caors::object>();
   const auto actor_type = caors::objects::find<relation_actor>();
-  REQUIRE(object_type.has_value());
-  REQUIRE(actor_type.has_value());
+  REQUIRE(object_type);
+  REQUIRE(actor_type);
 
   REQUIRE(register_object_test_type<relation_player>(relation_player::object_type_name,
-                                                     actor_type->id()) == caors::error{});
+                                                     actor_type.id()) == caors::error{});
   const auto player_type = caors::objects::find<relation_player>();
-  REQUIRE(player_type.has_value());
+  REQUIRE(player_type);
 
-  CHECK(caors::objects::is_a(player_type->id(), player_type->id()));
-  CHECK(caors::objects::is_a(player_type->id(), actor_type->id()));
-  CHECK(caors::objects::is_a(player_type->id(), object_type->id()));
-  CHECK_FALSE(caors::objects::is_a(actor_type->id(), player_type->id()));
+  CHECK(caors::objects::is_a(player_type.id(), player_type.id()));
+  CHECK(caors::objects::is_a(player_type.id(), actor_type.id()));
+  CHECK(caors::objects::is_a(player_type.id(), object_type.id()));
+  CHECK_FALSE(caors::objects::is_a(actor_type.id(), player_type.id()));
 }
 
 TEST_CASE("object - registry creates and destroys registered objects", "[object]") {
@@ -235,12 +235,12 @@ TEST_CASE("object - registry creates and destroys registered objects", "[object]
           caors::error{});
 
   const auto actor_type = caors::objects::find<factory_actor>();
-  REQUIRE(actor_type.has_value());
+  REQUIRE(actor_type);
 
-  caors::object* instance = registry.create(actor_type->id(), &tracking);
+  caors::object* instance = registry.create(actor_type.id(), &tracking);
 
   REQUIRE(instance != nullptr);
-  CHECK(instance->type_id() == actor_type->id());
+  CHECK(instance->type_id() == actor_type.id());
   CHECK(tracking.statistics().allocation_count == 1);
 
   CHECK(registry.destroy(instance, &tracking));
@@ -256,8 +256,8 @@ TEST_CASE("object - non default constructible types can be described but not fac
               registered_non_default_object::object_type_name) == caors::error{});
 
   auto type = caors::objects::find<registered_non_default_object>();
-  REQUIRE(type.has_value());
-  CHECK_FALSE(type->constructible());
+  REQUIRE(type);
+  CHECK_FALSE(type.constructible());
   CHECK(registry.try_create<registered_non_default_object>() == nullptr);
   CHECK(registry.create<registered_non_default_object>() == nullptr);
 }

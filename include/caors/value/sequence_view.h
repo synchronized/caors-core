@@ -72,9 +72,8 @@ public:
 
   /** @brief 查询顺序容器元素的统一 value 类型名。 */
   [[nodiscard]] string_name value_type_name() const noexcept {
-    const std::optional<meta::type_view> meta =
-        valid() ? caors::meta::find(data_->value_type) : std::nullopt;
-    return meta ? meta->name() : string_name{};
+    const meta::type_view meta = valid() ? caors::meta::find(data_->value_type) : meta::type_view{};
+    return meta ? meta.name() : string_name{};
   }
 
   /** @brief 查询顺序容器元素类型，等价于 `value_type()`。 */

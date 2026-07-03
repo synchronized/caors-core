@@ -42,15 +42,15 @@ struct stored_fields_actor {
 
 [[nodiscard]] caors::reflection::type require_reflected(std::string_view name) {
   auto reflected = caors::reflection::find(name);
-  REQUIRE(reflected.has_value());
-  return *reflected;
+  REQUIRE(reflected);
+  return reflected;
 }
 
 [[nodiscard]] caors::reflection::field require_field(const caors::reflection::type& type,
                                                      std::string_view name) {
   auto field = type.find_field(name);
-  REQUIRE(field.has_value());
-  return *field;
+  REQUIRE(field);
+  return field;
 }
 
 } // namespace
@@ -245,7 +245,7 @@ TEST_CASE("reflection - type view stores and finds fields", "[reflection]") {
   CHECK(type.field_count() == 2);
 
   auto health = type.find_field("health");
-  REQUIRE(health.has_value());
-  CHECK(health->type_name() == "float");
-  CHECK_FALSE(type.find_field("missing").has_value());
+  REQUIRE(health);
+  CHECK(health.type_name() == "float");
+  CHECK_FALSE(type.find_field("missing"));
 }

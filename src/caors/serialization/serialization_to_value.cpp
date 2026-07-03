@@ -119,12 +119,12 @@ variant_result to_serialization_value(const reflection::type& type, const void* 
         continue;
       }
 
-      const std::optional<reflection::field> field = type.find_field(field_data.field_name);
-      if (!field.has_value()) {
+      const reflection::field field = type.find_field(field_data.field_name);
+      if (!field) {
         return {{error_domain::serialization, errc::not_found}, {}};
       }
 
-      variant_result serialized = field_to_serialization_value(*field, object, context);
+      variant_result serialized = field_to_serialization_value(field, object, context);
       if (serialized.failed()) {
         return serialized;
       }
@@ -138,18 +138,18 @@ variant_result to_serialization_value(const reflection::type& type, const void* 
   } else {
     members.reserve(type.field_count());
     for (std::size_t index = 0; index < type.field_count(); ++index) {
-      const std::optional<reflection::field> field = type.field_at(index);
-      if (!field.has_value()) {
+      const reflection::field field = type.field_at(index);
+      if (!field) {
         return {{error_domain::serialization, errc::invalid_field}, {}};
       }
 
-      variant_result serialized = field_to_serialization_value(*field, object, context);
+      variant_result serialized = field_to_serialization_value(field, object, context);
       if (serialized.failed()) {
         return serialized;
       }
 
       members.push_back(value::variant_member{
-          field->name(),
+          field.name(),
           0,
           std::move(serialized.value),
       });
@@ -173,12 +173,12 @@ variant_result to_serialization_value(type_id id, const void* object,
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
 
-  const std::optional<reflection::type> type = reflection::find(id);
-  if (!type.has_value()) {
+  const reflection::type type = reflection::find(id);
+  if (!type) {
     return {{error_domain::serialization, errc::not_found}, {}};
   }
 
-  return to_serialization_value(*type, object, context);
+  return to_serialization_value(type, object, context);
 }
 
 } // namespace caors::serialization

@@ -32,12 +32,12 @@ public:
   [[nodiscard]] std::size_t size() const noexcept;
 
   template <typename T> [[nodiscard]] error register_type_for(type_data data = type_data{}) {
-    const std::optional<meta::type_view> type = meta::get_registry().find_type<T>();
-    if (!type.has_value()) {
+    const meta::type_view type = meta::get_registry().find_type<T>();
+    if (!type) {
       return {error_domain::serialization, errc::invalid_type};
     }
 
-    return register_type(type->id(), data);
+    return register_type(type.id(), data);
   }
 
 private:

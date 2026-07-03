@@ -75,24 +75,24 @@ public:
       return status;
     }
 
-    const std::optional<type_view> registered = find_type(expected_id);
-    if (registered.has_value()) {
-      (void)detail::ensure_type_semantics_for<value_type>(registered->id());
-      (void)detail::register_container_data_for<value_type>(registered->id());
+    const type_view registered = find_type(expected_id);
+    if (registered) {
+      (void)detail::ensure_type_semantics_for<value_type>(registered.id());
+      (void)detail::register_container_data_for<value_type>(registered.id());
     }
 
     return status;
   }
 
   [[nodiscard]] bool contains(type_id id) const;
-  template <typename T> [[nodiscard]] std::optional<type_view> find_type() const {
+  template <typename T> [[nodiscard]] type_view find_type() const {
     return find_type(detail::type_id_of_cpp_type<T>());
   }
 
-  [[nodiscard]] std::optional<type_view> find_type(type_id id) const;
-  [[nodiscard]] std::optional<type_view> find_type(type_guid guid) const;
-  [[nodiscard]] std::optional<type_view> find_type(std::string_view name) const;
-  [[nodiscard]] std::optional<type_view> find_type(string_name name) const;
+  [[nodiscard]] type_view find_type(type_id id) const;
+  [[nodiscard]] type_view find_type(type_guid guid) const;
+  [[nodiscard]] type_view find_type(std::string_view name) const;
+  [[nodiscard]] type_view find_type(string_name name) const;
   [[nodiscard]] bool is_a(type_id id, type_id base_id) const;
   [[nodiscard]] std::size_t size() const noexcept;
 

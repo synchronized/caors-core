@@ -23,25 +23,25 @@ int main() {
   }
 
   const auto reflected = caors::reflection::find("example.actor");
-  if (!reflected.has_value()) {
+  if (!reflected) {
     return 1;
   }
 
-  std::cout << "type: " << reflected->name().view() << '\n';
-  for (std::size_t index = 0; index < reflected->field_count(); ++index) {
-    const auto field = reflected->field_at(index);
-    if (!field.has_value()) {
+  std::cout << "type: " << reflected.name().view() << '\n';
+  for (std::size_t index = 0; index < reflected.field_count(); ++index) {
+    const auto field = reflected.field_at(index);
+    if (!field) {
       continue;
     }
 
-    std::cout << "field: " << field->name().view() << ", type: " << field->type_name().view()
-              << ", offset: " << field->offset() << '\n';
+    std::cout << "field: " << field.name().view() << ", type: " << field.type_name().view()
+              << ", offset: " << field.offset() << '\n';
   }
 
   actor instance{};
-  const auto health = reflected->find_field("health");
-  if (health.has_value() && health->try_set<float>(&instance, 75.0F)) {
-    const auto value = health->try_get<float>(&instance);
+  const auto health = reflected.find_field("health");
+  if (health && health.try_set<float>(&instance, 75.0F)) {
+    const auto value = health.try_get<float>(&instance);
     if (value.has_value()) {
       std::cout << "health: " << *value << '\n';
     }

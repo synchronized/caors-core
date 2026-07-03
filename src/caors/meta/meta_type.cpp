@@ -50,8 +50,7 @@ type_view type_view::parent() const noexcept {
     return {};
   }
 
-  const std::optional<type_view> parent_type = registry_->find_type(parent_id());
-  return parent_type.value_or(type_view{});
+  return registry_->find_type(parent_id());
 }
 
 } // namespace caors::meta

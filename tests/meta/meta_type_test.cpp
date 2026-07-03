@@ -63,7 +63,7 @@ TEST_CASE("meta type - built-in C++ types have default names", "[meta]") {
 TEST_CASE("meta type - type id is allocated by explicit registration", "[meta]") {
   CHECK_FALSE(caors::meta::id("caors.test.type.unregistered_name"));
   CHECK_FALSE(caors::meta::id_of<anonymous_cpp_type>());
-  CHECK_FALSE(caors::meta::find<anonymous_cpp_type>().has_value());
+  CHECK_FALSE(caors::meta::find<anonymous_cpp_type>());
 
   REQUIRE(caors::meta::type<anonymous_cpp_type>("caors.test.type.anonymous_cpp").result() ==
           caors::error{});
@@ -75,12 +75,12 @@ TEST_CASE("meta type - type id is allocated by explicit registration", "[meta]")
   CHECK(first == second);
 
   auto named = caors::meta::find("caors.test.type.anonymous_cpp");
-  REQUIRE(named.has_value());
-  CHECK(named->id() == first);
-  CHECK(caors::meta::find<anonymous_cpp_type>()->id() == first);
-  CHECK(named->clone_value() != nullptr);
-  CHECK(named->destroy_value() != nullptr);
-  CHECK(named->assign_value() != nullptr);
+  REQUIRE(named);
+  CHECK(named.id() == first);
+  CHECK(caors::meta::find<anonymous_cpp_type>().id() == first);
+  CHECK(named.clone_value() != nullptr);
+  CHECK(named.destroy_value() != nullptr);
+  CHECK(named.assign_value() != nullptr);
   CHECK(caors::meta::id("caors.test.type.anonymous_cpp") == first);
 }
 
@@ -122,15 +122,15 @@ TEST_CASE("meta type - global registry registers and finds types", "[meta]") {
         meta_error(caors::errc::duplicate_id));
 
   auto type = caors::meta::find("caors.test.type.registry_parent");
-  REQUIRE(type.has_value());
-  CHECK(type->id());
-  CHECK(type->name() == "caors.test.type.registry_parent");
-  CHECK(type->size() == sizeof(registry_parent_type));
-  CHECK(type->alignment() == alignof(registry_parent_type));
+  REQUIRE(type);
+  CHECK(type.id());
+  CHECK(type.name() == "caors.test.type.registry_parent");
+  CHECK(type.size() == sizeof(registry_parent_type));
+  CHECK(type.alignment() == alignof(registry_parent_type));
 
   auto by_name = caors::meta::find("caors.test.type.registry_parent");
-  REQUIRE(by_name.has_value());
-  CHECK(by_name->id() == type->id());
+  REQUIRE(by_name);
+  CHECK(by_name.id() == type.id());
 }
 
 TEST_CASE("meta type - global registry finds types by C++ type", "[meta]") {
@@ -138,9 +138,9 @@ TEST_CASE("meta type - global registry finds types by C++ type", "[meta]") {
           caors::error{});
 
   auto type = caors::meta::find<cpp_sample_type>();
-  REQUIRE(type.has_value());
-  CHECK(type->name() == "caors.test.type.cpp_sample");
-  CHECK(caors::meta::id("caors.test.type.cpp_sample") == type->id());
+  REQUIRE(type);
+  CHECK(type.name() == "caors.test.type.cpp_sample");
+  CHECK(caors::meta::id("caors.test.type.cpp_sample") == type.id());
 }
 
 TEST_CASE("meta type - global registry finds types by stable guid", "[meta]") {
@@ -152,9 +152,9 @@ TEST_CASE("meta type - global registry finds types by stable guid", "[meta]") {
               .result() == caors::error{});
 
   auto type = caors::meta::find(caors::type_guid{*guid});
-  REQUIRE(type.has_value());
-  CHECK(type->name() == "caors.test.type.guid_parent");
-  CHECK(type->guid() == caors::type_guid{*guid});
+  REQUIRE(type);
+  CHECK(type.name() == "caors.test.type.guid_parent");
+  CHECK(type.guid() == caors::type_guid{*guid});
 }
 
 TEST_CASE("meta type - fluent builder registers name and guid", "[meta]") {
@@ -170,8 +170,8 @@ TEST_CASE("meta type - fluent builder registers name and guid", "[meta]") {
   REQUIRE(type);
   CHECK(type.name() == "caors.test.type.fluent_meta");
   CHECK(type.guid() == caors::type_guid{*guid});
-  CHECK(caors::meta::find<fluent_meta_type>()->id() == type.id());
-  CHECK(caors::meta::find(caors::type_guid{*guid})->id() == type.id());
+  CHECK(caors::meta::find<fluent_meta_type>().id() == type.id());
+  CHECK(caors::meta::find(caors::type_guid{*guid}).id() == type.id());
 }
 
 TEST_CASE("meta type - builder without name does not register type", "[meta]") {
@@ -179,7 +179,7 @@ TEST_CASE("meta type - builder without name does not register type", "[meta]") {
 
   CHECK_FALSE(builder.get());
   CHECK_FALSE(caors::meta::get<lazy_meta_builder_type>());
-  CHECK_FALSE(caors::meta::find<lazy_meta_builder_type>().has_value());
+  CHECK_FALSE(caors::meta::find<lazy_meta_builder_type>());
 }
 
 TEST_CASE("meta type - explicit type access does not create missing types", "[meta]") {
@@ -220,18 +220,18 @@ TEST_CASE("meta type - global registry checks parent relationship", "[meta]") {
   REQUIRE(caors::meta::type<relation_parent_type>("caors.test.type.relation_parent").result() ==
           caors::error{});
   const auto parent = caors::meta::find("caors.test.type.relation_parent");
-  REQUIRE(parent.has_value());
+  REQUIRE(parent);
 
   REQUIRE(caors::meta::type<relation_child_type>("caors.test.type.relation_child")
-              .parent(parent->id())
+              .parent(parent.id())
               .result() == caors::error{});
   const auto child = caors::meta::find("caors.test.type.relation_child");
-  REQUIRE(child.has_value());
+  REQUIRE(child);
 
-  CHECK(caors::meta::get_registry().contains(parent->id()));
-  CHECK(caors::meta::get_registry().contains(child->id()));
-  CHECK(caors::meta::is_a(child->id(), child->id()));
-  CHECK(caors::meta::is_a(child->id(), parent->id()));
-  CHECK_FALSE(caors::meta::is_a(parent->id(), child->id()));
-  CHECK(child->parent().id() == parent->id());
+  CHECK(caors::meta::get_registry().contains(parent.id()));
+  CHECK(caors::meta::get_registry().contains(child.id()));
+  CHECK(caors::meta::is_a(child.id(), child.id()));
+  CHECK(caors::meta::is_a(child.id(), parent.id()));
+  CHECK_FALSE(caors::meta::is_a(parent.id(), child.id()));
+  CHECK(child.parent().id() == parent.id());
 }

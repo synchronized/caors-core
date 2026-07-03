@@ -51,14 +51,14 @@ public:
   }
 
   [[nodiscard]] bool contains(type_id id) const;
-  template <typename T> [[nodiscard]] std::optional<meta::type_view> find_registered_type() const {
+  template <typename T> [[nodiscard]] meta::type_view find_registered_type() const {
     return meta::get_registry().find_type<T>();
   }
 
-  [[nodiscard]] std::optional<type> find_type(type_id id) const;
-  [[nodiscard]] std::optional<type> find_type(type_guid guid) const;
-  [[nodiscard]] std::optional<type> find_type(std::string_view name) const;
-  [[nodiscard]] std::optional<type> find_type(string_name name) const;
+  [[nodiscard]] type find_type(type_id id) const;
+  [[nodiscard]] type find_type(type_guid guid) const;
+  [[nodiscard]] type find_type(std::string_view name) const;
+  [[nodiscard]] type find_type(string_name name) const;
   [[nodiscard]] std::size_t size() const noexcept;
 
 private:
@@ -72,13 +72,13 @@ private:
 [[nodiscard]] CAORS_API registry& get_registry() noexcept;
 
 /** @brief 在全局反射注册表中查找反射类型。 */
-[[nodiscard]] CAORS_API std::optional<type> find(type_id id);
+[[nodiscard]] CAORS_API type find(type_id id);
 
 /** @brief 在全局反射注册表中按稳定 GUID 查找反射类型。 */
-[[nodiscard]] CAORS_API std::optional<type> find(type_guid guid);
+[[nodiscard]] CAORS_API type find(type_guid guid);
 
 /** @brief 在全局反射注册表中按类型名查找反射类型。 */
-[[nodiscard]] CAORS_API std::optional<type> find(std::string_view name);
+[[nodiscard]] CAORS_API type find(std::string_view name);
 
 /** @brief 判断指定类型是否挂载了反射组件。 */
 [[nodiscard]] CAORS_API bool contains(type_id id);

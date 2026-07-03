@@ -221,7 +221,8 @@ caors::objects::destroy(instance, &resource);
 - `caors::error`：明确对象类型注册失败原因和错误来源域。
 - `objects::registry`：类型注册、查询、继承关系判断、默认构造工厂。
 - `objects::class_<T>()`：对象类型链式注册入口。
-- `objects::id()` / `objects::find()` / `objects::is_a()`：对象类型查询入口。
+- `objects::id()` / `objects::find()` / `objects::is_a()`：对象类型查询入口；`objects::find()` 未命中时返回无效
+  `objects::type`。
 - `objects::get_registry()`：进程内默认对象注册表。
 - `objects::create<T>()` / `objects::destroy<T>()`：接入 `memory_resource` 的直接对象创建和销毁入口。
 

@@ -52,9 +52,9 @@ namespace {
   return {};
 }
 
-[[nodiscard]] std::optional<meta::type_view> field_meta(const detail::field_data* field) {
+[[nodiscard]] meta::type_view field_meta(const detail::field_data* field) {
   if (field == nullptr || !field->type) {
-    return std::nullopt;
+    return {};
   }
 
   return caors::meta::find(field->type);
@@ -70,8 +70,8 @@ field_type_semantics(const detail::field_data* field) noexcept {
 }
 
 [[nodiscard]] core::string_name type_name_of(type_id id) noexcept {
-  const std::optional<meta::type_view> type = caors::meta::find(id);
-  return type.has_value() ? type->name() : core::string_name{};
+  const meta::type_view type = caors::meta::find(id);
+  return type ? type.name() : core::string_name{};
 }
 
 } // namespace
@@ -127,8 +127,8 @@ type_id field::type() const noexcept {
 }
 
 core::string_name field::type_name() const noexcept {
-  const std::optional<meta::type_view> meta = field_meta(info());
-  return meta.has_value() ? meta->name() : core::string_name{};
+  const meta::type_view meta = field_meta(info());
+  return meta ? meta.name() : core::string_name{};
 }
 
 type_id field::value_type() const noexcept {
@@ -196,13 +196,13 @@ std::size_t field::offset() const noexcept {
 }
 
 std::size_t field::size() const noexcept {
-  const std::optional<meta::type_view> meta = field_meta(info());
-  return meta.has_value() ? meta->size() : 0;
+  const meta::type_view meta = field_meta(info());
+  return meta ? meta.size() : 0;
 }
 
 std::size_t field::alignment() const noexcept {
-  const std::optional<meta::type_view> meta = field_meta(info());
-  return meta.has_value() ? meta->alignment() : 0;
+  const meta::type_view meta = field_meta(info());
+  return meta ? meta.alignment() : 0;
 }
 
 const detail::field_data* field::info() const noexcept {
@@ -305,19 +305,19 @@ std::size_t type::field_count() const noexcept {
   return reflected != nullptr ? reflected->fields.size() : 0;
 }
 
-std::optional<field> type::field_at(std::size_t index) const {
+field type::field_at(std::size_t index) const {
   const detail::type_data* reflected = data();
   if (reflected == nullptr || index >= reflected->fields.size()) {
-    return std::nullopt;
+    return {};
   }
 
   return field{type_, &reflected->fields[index]};
 }
 
-std::optional<field> type::find_field(core::string_name name) const {
+field type::find_field(core::string_name name) const {
   const detail::type_data* reflected = data();
   if (reflected == nullptr || !name) {
-    return std::nullopt;
+    return {};
   }
 
   for (std::size_t index = 0; index < reflected->fields.size(); ++index) {
@@ -326,13 +326,13 @@ std::optional<field> type::find_field(core::string_name name) const {
     }
   }
 
-  return std::nullopt;
+  return {};
 }
 
-std::optional<field> type::find_field(std::string_view name) const {
+field type::find_field(std::string_view name) const {
   const std::optional<core::string_name> interned_name = core::string_name::find(name);
   if (!interned_name.has_value()) {
-    return std::nullopt;
+    return {};
   }
 
   return find_field(*interned_name);
@@ -365,19 +365,19 @@ error registry::register_type(const meta::detail::type_data& type,
     return {error_domain::reflection, errc::invalid_field};
   }
 
-  std::optional<meta::type_view> existing;
+  meta::type_view existing;
   if (type.id()) {
     existing = meta::get_registry().find_type(type.id());
   }
-  if (!existing.has_value()) {
+  if (!existing) {
     existing = meta::get_registry().find_type(type.name());
   }
-  if (!existing.has_value() && type.guid()) {
+  if (!existing && type.guid()) {
     existing = meta::get_registry().find_type(type.guid());
   }
 
-  if (existing.has_value()) {
-    if (!same_type_data(*existing, type)) {
+  if (existing) {
+    if (!same_type_data(existing, type)) {
       return {error_domain::reflection, errc::inconsistent_type};
     }
   }
@@ -387,8 +387,8 @@ error registry::register_type(const meta::detail::type_data& type,
     return rethrow_as(type_status, error_domain::reflection);
   }
 
-  const std::optional<meta::type_view> stored_meta = meta::get_registry().find_type(type.id());
-  if (!stored_meta.has_value()) {
+  const meta::type_view stored_meta = meta::get_registry().find_type(type.id());
+  if (!stored_meta) {
     return {error_domain::reflection, errc::invalid_type};
   }
 
@@ -405,7 +405,7 @@ error registry::register_type(const meta::detail::type_data& type,
   }
 
   return rethrow_as(
-      meta::get_registry().emplace<detail::type_data>(stored_meta->id(), stored_reflection),
+      meta::get_registry().emplace<detail::type_data>(stored_meta.id(), stored_reflection),
       error_domain::reflection, errc::duplicate_component, errc::duplicate_reflection);
 }
 
@@ -414,8 +414,8 @@ error registry::register_type(type_id id, const detail::type_data& reflection) {
     return {error_domain::reflection, errc::invalid_type};
   }
 
-  const std::optional<meta::type_view> stored_meta = meta::get_registry().find_type(id);
-  if (!stored_meta.has_value()) {
+  const meta::type_view stored_meta = meta::get_registry().find_type(id);
+  if (!stored_meta) {
     return {error_domain::reflection, errc::missing_type};
   }
 
@@ -456,45 +456,45 @@ const detail::type_data* registry::find_reflection_data(type_id id) const {
   return meta::get_registry().find_ptr<detail::type_data>(id);
 }
 
-std::optional<type> registry::find_type(type_id id) const {
-  const std::optional<meta::type_view> meta_type = meta::get_registry().find_type(id);
-  if (!meta_type.has_value()) {
-    return std::nullopt;
+type registry::find_type(type_id id) const {
+  const meta::type_view meta_type = meta::get_registry().find_type(id);
+  if (!meta_type) {
+    return {};
   }
 
   const detail::type_data* reflection = find_reflection_data(id);
   if (reflection == nullptr) {
-    return std::nullopt;
+    return {};
   }
 
-  return type{*meta_type, reflection};
+  return type{meta_type, reflection};
 }
 
-std::optional<type> registry::find_type(core::type_guid guid) const {
-  const std::optional<meta::type_view> type = meta::get_registry().find_type(guid);
-  if (!type.has_value()) {
-    return std::nullopt;
+type registry::find_type(core::type_guid guid) const {
+  const meta::type_view type = meta::get_registry().find_type(guid);
+  if (!type) {
+    return {};
   }
 
-  return find_type(type->id());
+  return find_type(type.id());
 }
 
-std::optional<type> registry::find_type(std::string_view name) const {
-  const std::optional<meta::type_view> type = meta::get_registry().find_type(name);
-  if (!type.has_value()) {
-    return std::nullopt;
+type registry::find_type(std::string_view name) const {
+  const meta::type_view type = meta::get_registry().find_type(name);
+  if (!type) {
+    return {};
   }
 
-  return find_type(type->id());
+  return find_type(type.id());
 }
 
-std::optional<type> registry::find_type(core::string_name name) const {
-  const std::optional<meta::type_view> type = meta::get_registry().find_type(name);
-  if (!type.has_value()) {
-    return std::nullopt;
+type registry::find_type(core::string_name name) const {
+  const meta::type_view type = meta::get_registry().find_type(name);
+  if (!type) {
+    return {};
   }
 
-  return find_type(type->id());
+  return find_type(type.id());
 }
 
 std::size_t registry::size() const noexcept {
@@ -515,11 +515,11 @@ error register_reflection(meta::type_view type, type_data data) {
 
 } // namespace detail
 
-std::optional<type> find(type_id id) { return get_registry().find_type(id); }
+type find(type_id id) { return get_registry().find_type(id); }
 
-std::optional<type> find(core::type_guid guid) { return get_registry().find_type(guid); }
+type find(core::type_guid guid) { return get_registry().find_type(guid); }
 
-std::optional<type> find(std::string_view name) { return get_registry().find_type(name); }
+type find(std::string_view name) { return get_registry().find_type(name); }
 
 bool contains(type_id id) { return get_registry().contains(id); }
 

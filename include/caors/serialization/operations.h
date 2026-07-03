@@ -31,24 +31,24 @@ namespace caors::serialization {
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象写入指定后端。 */
 template <typename T> [[nodiscard]] error serialize(const T& object, writer& writer) {
-  const std::optional<meta::type_view> type = caors::meta::find<T>();
-  if (!type.has_value()) {
+  const meta::type_view type = caors::meta::find<T>();
+  if (!type) {
     return {error_domain::serialization, errc::missing_type};
   }
 
-  return serialize(type->id(), &object, writer);
+  return serialize(type.id(), &object, writer);
 }
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象按上下文写入指定后端。 */
 template <typename T>
 [[nodiscard]] error serialize(const T& object, writer& writer,
                               const serialization::context& context) {
-  const std::optional<meta::type_view> type = caors::meta::find<T>();
-  if (!type.has_value()) {
+  const meta::type_view type = caors::meta::find<T>();
+  if (!type) {
     return {error_domain::serialization, errc::missing_type};
   }
 
-  return serialize(type->id(), &object, writer, context);
+  return serialize(type.id(), &object, writer, context);
 }
 
 /** @brief 将序列化中间值写入指定后端。 */
@@ -74,23 +74,23 @@ template <typename T>
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象从指定后端读入。 */
 template <typename T> [[nodiscard]] error deserialize(T& object, reader& reader) {
-  const std::optional<meta::type_view> type = caors::meta::find<T>();
-  if (!type.has_value()) {
+  const meta::type_view type = caors::meta::find<T>();
+  if (!type) {
     return {error_domain::serialization, errc::missing_type};
   }
 
-  return deserialize(type->id(), &object, reader);
+  return deserialize(type.id(), &object, reader);
 }
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象按上下文从指定后端读入。 */
 template <typename T>
 [[nodiscard]] error deserialize(T& object, reader& reader, const serialization::context& context) {
-  const std::optional<meta::type_view> type = caors::meta::find<T>();
-  if (!type.has_value()) {
+  const meta::type_view type = caors::meta::find<T>();
+  if (!type) {
     return {error_domain::serialization, errc::missing_type};
   }
 
-  return deserialize(type->id(), &object, reader, context);
+  return deserialize(type.id(), &object, reader, context);
 }
 
 /** @brief 从序列化 DOM 中间对象反序列化到对象。 */
@@ -146,24 +146,24 @@ to_serialization_value(type_id id, const void* object, const serialization::cont
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象转换为序列化中间值。 */
 template <typename T> [[nodiscard]] variant_result to_serialization_value(const T& object) {
-  const std::optional<meta::type_view> type = caors::meta::find<T>();
-  if (!type.has_value()) {
+  const meta::type_view type = caors::meta::find<T>();
+  if (!type) {
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
 
-  return to_serialization_value(type->id(), &object);
+  return to_serialization_value(type.id(), &object);
 }
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象按上下文转换为序列化中间值。 */
 template <typename T>
 [[nodiscard]] variant_result to_serialization_value(const T& object,
                                                     const serialization::context& context) {
-  const std::optional<meta::type_view> type = caors::meta::find<T>();
-  if (!type.has_value()) {
+  const meta::type_view type = caors::meta::find<T>();
+  if (!type) {
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
 
-  return to_serialization_value(type->id(), &object, context);
+  return to_serialization_value(type.id(), &object, context);
 }
 
 /** @brief 通过反射类型视图把对象序列化为简单文本格式。 */
@@ -183,24 +183,24 @@ serialize_text(type_id id, const void* object, const serialization::context& con
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象序列化为简单文本格式。 */
 template <typename T> [[nodiscard]] serialization_text_result serialize_text(const T& object) {
-  const std::optional<meta::type_view> type = caors::meta::find<T>();
-  if (!type.has_value()) {
+  const meta::type_view type = caors::meta::find<T>();
+  if (!type) {
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
 
-  return serialize_text(type->id(), &object);
+  return serialize_text(type.id(), &object);
 }
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象按上下文序列化为简单文本格式。 */
 template <typename T>
 [[nodiscard]] serialization_text_result serialize_text(const T& object,
                                                        const serialization::context& context) {
-  const std::optional<meta::type_view> type = caors::meta::find<T>();
-  if (!type.has_value()) {
+  const meta::type_view type = caors::meta::find<T>();
+  if (!type) {
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
 
-  return serialize_text(type->id(), &object, context);
+  return serialize_text(type.id(), &object, context);
 }
 
 /** @brief 通过反射类型视图把对象序列化为 JSON。 */
@@ -220,24 +220,24 @@ serialize_json(type_id id, const void* object, const serialization::context& con
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象序列化为 JSON。 */
 template <typename T> [[nodiscard]] serialization_text_result serialize_json(const T& object) {
-  const std::optional<meta::type_view> type = caors::meta::find<T>();
-  if (!type.has_value()) {
+  const meta::type_view type = caors::meta::find<T>();
+  if (!type) {
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
 
-  return serialize_json(type->id(), &object);
+  return serialize_json(type.id(), &object);
 }
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象按上下文序列化为 JSON。 */
 template <typename T>
 [[nodiscard]] serialization_text_result serialize_json(const T& object,
                                                        const serialization::context& context) {
-  const std::optional<meta::type_view> type = caors::meta::find<T>();
-  if (!type.has_value()) {
+  const meta::type_view type = caors::meta::find<T>();
+  if (!type) {
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
 
-  return serialize_json(type->id(), &object, context);
+  return serialize_json(type.id(), &object, context);
 }
 
 } // namespace caors::serialization

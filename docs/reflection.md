@@ -318,10 +318,10 @@ struct variant_traits<my_variant<Ts...>> {
 actor instance{};
 
 auto reflected = caors::reflection::find("game.actor");
-auto id = reflected->find_field("id");
-id->try_set<int>(&instance, 42);
+auto id = reflected.find_field("id");
+id.try_set<int>(&instance, 42);
 
-auto value = id->try_get<int>(&instance);
+auto value = id.try_get<int>(&instance);
 ```
 
 `try_get<T>()` 在对象为空或类型不匹配时返回 `std::nullopt`。`try_set<T>()`
@@ -330,7 +330,7 @@ auto value = id->try_get<int>(&instance);
 也可以通过 `get_value()` 获取运行期值拷贝：
 
 ```cpp
-caors::any value = id->get_value(&instance);
+caors::any value = id.get_value(&instance);
 
 if (const int* current = value.try_get<int>()) {
   // 使用 current 读取字段值。
@@ -346,14 +346,14 @@ value.try_set(7);
 caors::meta::type<int>("int");
 
 int source = 42;
-id->try_set_value(&instance, caors::any::from(source));
+id.try_set_value(&instance, caors::any::from(source));
 ```
 
 如果只需要访问字段本体，或者字段不可拷贝，可以使用 `get_ref()` 获取运行期引用。传入
 `const void*` 时返回只读引用，传入 `void*` 时返回可写引用：
 
 ```cpp
-caors::any_ref ref = id->get_ref(&instance);
+caors::any_ref ref = id.get_ref(&instance);
 
 if (int* current = ref.try_get_mutable<int>()) {
   *current = 7;
@@ -412,10 +412,10 @@ ref.try_set(9);
 
 ```cpp
 auto reflected = caors::reflection::find("game.actor");
-auto field = reflected->find_field("health");
+auto field = reflected.find_field("health");
 
 actor instance{};
-field->try_set<float>(&instance, 75.0F);
+field.try_set<float>(&instance, 75.0F);
 ```
 
 `reflection::type` 和 `reflection::field` 是轻量只读视图，内部引用全局注册表保存的反射数据。
@@ -429,8 +429,8 @@ field->try_set<float>(&instance, 75.0F);
 
 - `valid()`：判断视图是否仍有效。
 - `info()` / `id()` / `name()` / `guid()`：查询类型身份。
-- `field_count()` / `field_at()`：按索引遍历字段。
-- `find_field()`：按字段名查询字段视图。
+- `field_count()` / `field_at()`：按索引遍历字段；索引越界时返回无效 `reflection::field`。
+- `find_field()`：按字段名查询字段视图；未命中时返回无效 `reflection::field`。
 
 `reflection::field` 当前提供：
 
@@ -531,9 +531,9 @@ field->try_set<float>(&instance, 75.0F);
 
 ```cpp
 caors::value::sequence_view field_sequence =
-    field->get_ref(&instance).create_sequence_view();
+    field.get_ref(&instance).create_sequence_view();
 caors::value::associative_view field_map =
-    field->get_ref(&instance).create_associative_view();
+    field.get_ref(&instance).create_associative_view();
 
 caors::meta::type<caors::hash_map<int, int>>("caors.hash_map<int,int>");
 

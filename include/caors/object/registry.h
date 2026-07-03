@@ -68,15 +68,15 @@ public:
   }
 
   [[nodiscard]] bool contains(object_type_id id) const;
-  [[nodiscard]] std::optional<type> find_type(object_type_id id) const;
-  [[nodiscard]] std::optional<type> find_type(std::string_view name) const;
-  template <typename T> [[nodiscard]] std::optional<type> find_type() const {
-    const std::optional<meta::type_view> type = meta::get_registry().find_type<T>();
-    if (!type.has_value()) {
-      return std::nullopt;
+  [[nodiscard]] type find_type(object_type_id id) const;
+  [[nodiscard]] type find_type(std::string_view name) const;
+  template <typename T> [[nodiscard]] type find_type() const {
+    const meta::type_view type = meta::get_registry().find_type<T>();
+    if (!type) {
+      return {};
     }
 
-    return find_type(type->id());
+    return find_type(type.id());
   }
 
   [[nodiscard]] bool is_a(object_type_id type_id, object_type_id base_type_id) const;
@@ -88,23 +88,23 @@ public:
                                    memory_resource* resource = nullptr) const noexcept;
   template <typename T>
   [[nodiscard]] T* try_create(memory_resource* resource = nullptr) const noexcept {
-    const std::optional<type> type = find_type<T>();
-    if (!type.has_value()) {
+    const type object_type = find_type<T>();
+    if (!object_type) {
       return nullptr;
     }
 
-    return static_cast<T*>(try_create(type->id(), resource));
+    return static_cast<T*>(try_create(object_type.id(), resource));
   }
 
   [[nodiscard]] object* create(object_type_id id, memory_resource* resource = nullptr) const;
   [[nodiscard]] object* create(std::string_view name, memory_resource* resource = nullptr) const;
   template <typename T> [[nodiscard]] T* create(memory_resource* resource = nullptr) const {
-    const std::optional<type> type = find_type<T>();
-    if (!type.has_value()) {
+    const type object_type = find_type<T>();
+    if (!object_type) {
       return nullptr;
     }
 
-    return static_cast<T*>(create(type->id(), resource));
+    return static_cast<T*>(create(object_type.id(), resource));
   }
 
   bool destroy(object* instance, memory_resource* resource = nullptr) const noexcept;
@@ -129,9 +129,9 @@ template <typename T>
   objects::registry& registry = objects::get_registry();
   if (!parent_id) {
     using base_type = typename object_base_type_traits<T>::type;
-    const std::optional<objects::type> base = registry.find_type<base_type>();
-    if (base.has_value()) {
-      parent_id = base->id();
+    const objects::type base = registry.find_type<base_type>();
+    if (base) {
+      parent_id = base.id();
     }
   }
 
@@ -147,19 +147,13 @@ namespace caors::objects {
 [[nodiscard]] inline object_type_id id(std::string_view name) { return meta::id(name); }
 
 /** @brief 在全局对象注册表中按对象类型 id 查找类型。 */
-[[nodiscard]] inline std::optional<type> find(object_type_id id) {
-  return get_registry().find_type(id);
-}
+[[nodiscard]] inline type find(object_type_id id) { return get_registry().find_type(id); }
 
 /** @brief 在全局对象注册表中按对象类型名查找类型。 */
-[[nodiscard]] inline std::optional<type> find(std::string_view name) {
-  return get_registry().find_type(name);
-}
+[[nodiscard]] inline type find(std::string_view name) { return get_registry().find_type(name); }
 
 /** @brief 在全局对象注册表中按 C++ 类型查找对象类型。 */
-template <typename T> [[nodiscard]] std::optional<type> find() {
-  return get_registry().find_type<T>();
-}
+template <typename T> [[nodiscard]] type find() { return get_registry().find_type<T>(); }
 
 /** @brief 判断对象类型是否已注册。 */
 [[nodiscard]] inline bool contains(object_type_id id) { return get_registry().contains(id); }
@@ -198,9 +192,9 @@ public:
 
 private:
   void refresh() {
-    const std::optional<type> refreshed = get_registry().find_type<T>();
-    if (refreshed.has_value()) {
-      type_ = *refreshed;
+    const type refreshed = get_registry().find_type<T>();
+    if (refreshed) {
+      type_ = refreshed;
     }
   }
 

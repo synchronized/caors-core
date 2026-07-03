@@ -22,12 +22,12 @@ using object_ref_set_fn = bool (*)(void*, object*) noexcept;
 
 template <typename T> [[nodiscard]] type_id find_field_type_id(std::string_view name) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  const std::optional<meta::type_view> registered = caors::meta::find<type>();
-  if (!registered.has_value() || registered->name().empty() || registered->name() != name) {
+  const meta::type_view registered = caors::meta::find<type>();
+  if (!registered || registered.name().empty() || registered.name() != name) {
     return type_id::invalid();
   }
 
-  return registered->id();
+  return registered.id();
 }
 
 template <typename Field> [[nodiscard]] object_ref_get_fn object_ref_get_fn_of() noexcept {
@@ -94,10 +94,9 @@ struct field_data {
   /** @brief 判断字段是否匹配指定 C++ 类型。 */
   template <typename Field> [[nodiscard]] bool matches_type() const noexcept {
     using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
-    const std::optional<meta::type_view> meta = caors::meta::find(type);
-    return meta.has_value() &&
-           meta->id() == caors::meta::detail::type_id_of_cpp_type<field_type>() &&
-           meta->size() == sizeof(field_type) && meta->alignment() == alignof(field_type);
+    const meta::type_view meta = caors::meta::find(type);
+    return meta && meta.id() == caors::meta::detail::type_id_of_cpp_type<field_type>() &&
+           meta.size() == sizeof(field_type) && meta.alignment() == alignof(field_type);
   }
 
   /** @brief 获取字段在对象内的只读地址。 */
@@ -152,10 +151,9 @@ struct field_data {
 
   /** @brief 从运行期值写入字段。 */
   bool try_set_value(void* object, const any& source) const {
-    const std::optional<meta::type_view> meta = caors::meta::find(type);
-    if (!source.valid() || !meta.has_value() || source.type() != meta->id() ||
-        source.size() != meta->size() || source.alignment() != meta->alignment() ||
-        meta->assign_value() == nullptr) {
+    const meta::type_view meta = caors::meta::find(type);
+    if (!source.valid() || !meta || source.type() != meta.id() || source.size() != meta.size() ||
+        source.alignment() != meta.alignment() || meta.assign_value() == nullptr) {
       return false;
     }
 
@@ -164,7 +162,7 @@ struct field_data {
       return false;
     }
 
-    return meta->assign_value()(storage, source.data());
+    return meta.assign_value()(storage, source.data());
   }
 
   /** @brief 按指定类型读取字段值。 */

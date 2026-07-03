@@ -191,8 +191,8 @@ template <typename Wrapper>
 
 template <typename T> [[nodiscard]] type_id semantic_type_id() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  const std::optional<type_view> registered = caors::meta::get_registry().find_type<type>();
-  return registered.has_value() ? registered->id() : type_id::invalid();
+  const type_view registered = caors::meta::get_registry().find_type<type>();
+  return registered ? registered.id() : type_id::invalid();
 }
 
 template <typename Type> struct type_semantics_traits {

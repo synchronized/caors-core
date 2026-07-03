@@ -39,9 +39,8 @@ public:
   }
 
   [[nodiscard]] string_name value_type_name() const noexcept {
-    const std::optional<meta::type_view> meta =
-        valid() ? caors::meta::find(data_->value_type) : std::nullopt;
-    return meta ? meta->name() : string_name{};
+    const meta::type_view meta = valid() ? caors::meta::find(data_->value_type) : meta::type_view{};
+    return meta ? meta.name() : string_name{};
   }
 
   /** @brief 判断 wrapper 当前是否持有内部值。 */

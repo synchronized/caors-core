@@ -36,12 +36,12 @@ template <typename T> [[nodiscard]] error write_vector_element(writer& writer, c
                        std::is_same_v<type, std::string_view>) {
     return writer.write_string(value);
   } else {
-    const std::optional<meta::type_view> element_type = caors::meta::find<type>();
-    if (!element_type.has_value()) {
+    const meta::type_view element_type = caors::meta::find<type>();
+    if (!element_type) {
       return {error_domain::serialization, errc::unsupported};
     }
 
-    return caors::serialize(element_type->id(), &value, writer);
+    return caors::serialize(element_type.id(), &value, writer);
   }
 }
 
@@ -122,12 +122,12 @@ template <typename T> [[nodiscard]] error read_vector_element(reader& reader, T&
     value.assign(decoded.data(), decoded.size());
     return {};
   } else {
-    const std::optional<meta::type_view> element_type = caors::meta::find<type>();
-    if (!element_type.has_value()) {
+    const meta::type_view element_type = caors::meta::find<type>();
+    if (!element_type) {
       return {error_domain::serialization, errc::unsupported};
     }
 
-    return caors::deserialize(element_type->id(), &value, reader);
+    return caors::deserialize(element_type.id(), &value, reader);
   }
 }
 
@@ -148,12 +148,12 @@ template <typename T> [[nodiscard]] variant_result make_vector_element_value(con
                        std::is_same_v<type, std::string_view>) {
     return {{}, variant::from(value)};
   } else {
-    const std::optional<meta::type_view> element_type = caors::meta::find<type>();
-    if (!element_type.has_value()) {
+    const meta::type_view element_type = caors::meta::find<type>();
+    if (!element_type) {
       return {{error_domain::serialization, errc::unsupported}, {}};
     }
 
-    return caors::to_serialization_value(element_type->id(), &value);
+    return caors::to_serialization_value(element_type.id(), &value);
   }
 }
 

@@ -117,11 +117,11 @@ caors::meta::type<player>("game.player")
 `meta::type_view` 是对外查询返回的只读视图：
 
 ```cpp
-std::optional<caors::meta::type_view> type = caors::meta::find<player>();
+caors::meta::type_view type = caors::meta::find<player>();
 
 if (type) {
-  caors::type_id id = type->id();
-  std::string_view name = type->name().view();
+  caors::type_id id = type.id();
+  std::string_view name = type.name().view();
 }
 ```
 
@@ -153,8 +153,8 @@ caors::meta::type<actor>("game.actor")
     .guid(caors::type_guid{*guid});
 ```
 
-`caors::meta::get<T>()` 只查询已经注册的 C++ 类型，不会创建临时记录；不存在时返回无效
-`meta::type_view`。普通类型应通过 `caors::meta::type<T>("name")` 显式注册。
+`caors::meta::find(...)` 和 `caors::meta::get<T>()` 只查询已经注册的类型，不会创建临时记录；
+不存在时返回无效 `meta::type_view`。普通类型应通过 `caors::meta::type<T>("name")` 显式注册。
 `meta::id_of<T>()` 同样只查询已注册类型，不会触发运行期隐式注册。
 
 ### meta::type_semantics_data
@@ -252,7 +252,7 @@ struct object_factory_meta {
 
 caors::meta::type<actor>("game.actor");
 
-caors::type_id actor_id = caors::meta::find<actor>()->id();
+caors::type_id actor_id = caors::meta::find<actor>().id();
 caors::meta::get_registry().emplace<object_factory_meta>(actor_id, true);
 ```
 

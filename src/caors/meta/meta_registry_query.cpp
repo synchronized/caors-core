@@ -13,54 +13,54 @@ bool registry::contains(type_id id) const {
   return state_->types.contains(id.value());
 }
 
-std::optional<type_view> registry::find_type(type_id id) const {
+type_view registry::find_type(type_id id) const {
   std::lock_guard lock(state_->mutex);
   const detail::type_data* type = detail::find_type_data(*state_, id);
   if (type == nullptr) {
-    return std::nullopt;
+    return {};
   }
 
   return type_view{this, type};
 }
 
-std::optional<type_view> registry::find_type(core::type_guid guid) const {
+type_view registry::find_type(core::type_guid guid) const {
   if (!guid) {
-    return std::nullopt;
+    return {};
   }
 
   std::lock_guard lock(state_->mutex);
   const auto guid_position = state_->guids.find(guid.value);
   if (guid_position == state_->guids.end()) {
-    return std::nullopt;
+    return {};
   }
 
   const detail::type_data* type = detail::find_type_data(*state_, guid_position->second);
   if (type == nullptr) {
-    return std::nullopt;
+    return {};
   }
 
   return type_view{this, type};
 }
 
-std::optional<type_view> registry::find_type(std::string_view name) const {
+type_view registry::find_type(std::string_view name) const {
   std::optional<core::string_name> interned_name = core::string_name::find(name);
   if (!interned_name.has_value()) {
-    return std::nullopt;
+    return {};
   }
 
   return find_type(*interned_name);
 }
 
-std::optional<type_view> registry::find_type(core::string_name name) const {
+type_view registry::find_type(core::string_name name) const {
   std::lock_guard lock(state_->mutex);
   const auto name_position = state_->names.find(name);
   if (name_position == state_->names.end()) {
-    return std::nullopt;
+    return {};
   }
 
   const detail::type_data* type = detail::find_type_data(*state_, name_position->second);
   if (type == nullptr) {
-    return std::nullopt;
+    return {};
   }
 
   return type_view{this, type};

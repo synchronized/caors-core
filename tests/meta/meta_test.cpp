@@ -46,18 +46,18 @@ TEST_CASE("meta - global registry stores base type information", "[meta]") {
         caors::error{});
 
   auto type = caors::meta::find("caors.test.meta.base_actor");
-  REQUIRE(type.has_value());
-  CHECK(type->name() == "caors.test.meta.base_actor");
-  CHECK(type->size() == sizeof(base_actor_type));
-  CHECK(type->alignment() == alignof(base_actor_type));
+  REQUIRE(type);
+  CHECK(type.name() == "caors.test.meta.base_actor");
+  CHECK(type.size() == sizeof(base_actor_type));
+  CHECK(type.alignment() == alignof(base_actor_type));
 }
 
 TEST_CASE("meta - global registry stores components by type id", "[meta]") {
   REQUIRE(caors::meta::type<component_actor_type>("caors.test.meta.component_actor").result() ==
           caors::error{});
   const auto actor = caors::meta::find<component_actor_type>();
-  REQUIRE(actor.has_value());
-  const caors::type_id actor_id = actor->id();
+  REQUIRE(actor);
+  const caors::type_id actor_id = actor.id();
 
   CHECK(caors::meta::get_registry().emplace<factory_meta>(actor_id, true) == caors::error{});
   CHECK(caors::meta::get_registry().has<factory_meta>(actor_id));
@@ -97,15 +97,15 @@ TEST_CASE("meta - global view finds types with all requested components", "[meta
   REQUIRE(caors::meta::type<view_actor_type>("caors.test.meta.view_actor").result() ==
           caors::error{});
   const auto actor = caors::meta::find<view_actor_type>();
-  REQUIRE(actor.has_value());
-  const caors::type_id actor_id = actor->id();
+  REQUIRE(actor);
+  const caors::type_id actor_id = actor.id();
 
   REQUIRE(caors::meta::type<view_player_type>("caors.test.meta.view_player")
               .parent(actor_id)
               .result() == caors::error{});
   const auto player = caors::meta::find<view_player_type>();
-  REQUIRE(player.has_value());
-  const caors::type_id player_id = player->id();
+  REQUIRE(player);
+  const caors::type_id player_id = player.id();
 
   REQUIRE(caors::meta::get_registry().emplace<view_factory_meta>(actor_id, true) == caors::error{});
   REQUIRE(caors::meta::get_registry().emplace<view_factory_meta>(player_id, true) ==

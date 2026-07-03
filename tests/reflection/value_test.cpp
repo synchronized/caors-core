@@ -59,10 +59,10 @@ void require_value_test_meta() {
 [[nodiscard]] caors::reflection::field require_reflected_field(std::string_view type_name,
                                                                std::string_view field_name) {
   auto reflected = caors::reflection::find(type_name);
-  REQUIRE(reflected.has_value());
-  auto field = reflected->find_field(field_name);
-  REQUIRE(field.has_value());
-  return *field;
+  REQUIRE(reflected);
+  auto field = reflected.find_field(field_name);
+  REQUIRE(field);
+  return field;
 }
 
 } // namespace
@@ -75,8 +75,8 @@ TEST_CASE("reflection any - stores copied values", "[reflection]") {
 
   CHECK(stored.valid());
   const auto int_type = caors::meta::find("int");
-  REQUIRE(int_type.has_value());
-  CHECK(stored.type() == int_type->id());
+  REQUIRE(int_type);
+  CHECK(stored.type() == int_type.id());
   CHECK(stored.type_name() == "int");
   CHECK(stored.matches_type<int>());
   CHECK(stored.size() == sizeof(int));

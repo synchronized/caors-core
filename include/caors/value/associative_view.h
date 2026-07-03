@@ -151,9 +151,8 @@ public:
   [[nodiscard]] type_id key_type() const noexcept { return valid() ? data_->key_type : type_id{}; }
 
   [[nodiscard]] string_name key_type_name() const noexcept {
-    const std::optional<meta::type_view> meta =
-        valid() ? caors::meta::find(data_->key_type) : std::nullopt;
-    return meta ? meta->name() : string_name{};
+    const meta::type_view meta = valid() ? caors::meta::find(data_->key_type) : meta::type_view{};
+    return meta ? meta.name() : string_name{};
   }
 
   /** @brief 查询关联容器 value 类型。 */
@@ -163,9 +162,8 @@ public:
 
   /** @brief 查询关联容器 value 类型名。 */
   [[nodiscard]] string_name value_type_name() const noexcept {
-    const std::optional<meta::type_view> meta =
-        valid() ? caors::meta::find(data_->value_type) : std::nullopt;
-    return meta ? meta->name() : string_name{};
+    const meta::type_view meta = valid() ? caors::meta::find(data_->value_type) : meta::type_view{};
+    return meta ? meta.name() : string_name{};
   }
 
   /** @brief 查询关联容器 mapped 类型，等价于 `value_type()`。 */

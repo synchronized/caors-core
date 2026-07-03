@@ -17,7 +17,7 @@ TEST_CASE("serialization - registers type metadata component", "[serialization]"
   const caors::error status = caors::serialization::register_type<serializable_actor>();
 
   CHECK(serialization_result_ok(status));
-  CHECK(caors::serialization::contains(caors::meta::find<serializable_actor>()->id()));
+  CHECK(caors::serialization::contains(caors::meta::find<serializable_actor>().id()));
   CHECK(caors::serialization::size() >= 1);
 
   const caors::error duplicate = caors::serialization::register_type<serializable_actor>();

@@ -64,16 +64,16 @@ TEST_CASE("meta - view finds types with reflection and serialization components"
   })));
 
   const auto type = caors::meta::find<cross_module_actor>();
-  REQUIRE(type.has_value());
+  REQUIRE(type);
 
   auto view = caors::meta::get_registry().view<caors::serialization::type_data>();
-  CHECK(view_contains(view, type->id()));
+  CHECK(view_contains(view, type.id()));
 
-  auto reflection = caors::reflection::find(type->id());
-  REQUIRE(reflection.has_value());
-  CHECK(reflection->field_count() == 2);
+  auto reflection = caors::reflection::find(type.id());
+  REQUIRE(reflection);
+  CHECK(reflection.field_count() == 2);
 
-  auto serialization = view.find<caors::serialization::type_data>(type->id());
+  auto serialization = view.find<caors::serialization::type_data>(type.id());
   REQUIRE(serialization.has_value());
   CHECK(serialization->fields.size() == 2);
 }
@@ -111,11 +111,11 @@ TEST_CASE("reflection - field handles remain valid after later registrations", "
           .commit()));
 
   auto reflected = caors::reflection::find("caors.test.meta.cross_module_actor");
-  REQUIRE(reflected.has_value());
+  REQUIRE(reflected);
 
-  auto id = reflected->find_field("id");
-  REQUIRE(id.has_value());
-  REQUIRE(id->valid());
+  auto id = reflected.find_field("id");
+  REQUIRE(id);
+  REQUIRE(id.valid());
 
   REQUIRE(reflection_result_ok(caors::reflection::class_<cross_module_late_registered>(
                                    "caors.test.meta.cross_module_late_registered")
@@ -123,8 +123,8 @@ TEST_CASE("reflection - field handles remain valid after later registrations", "
                                    .commit()));
 
   const cross_module_actor instance{7, 12.0F};
-  const auto value = id->try_get<int>(&instance);
+  const auto value = id.try_get<int>(&instance);
   REQUIRE(value.has_value());
   CHECK(*value == 7);
-  CHECK(id->valid());
+  CHECK(id.valid());
 }

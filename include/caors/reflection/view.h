@@ -170,9 +170,9 @@ public:
   [[nodiscard]] string_name name() const noexcept;
   [[nodiscard]] type_guid guid() const noexcept;
   [[nodiscard]] std::size_t field_count() const noexcept;
-  [[nodiscard]] std::optional<field> field_at(std::size_t index) const;
-  [[nodiscard]] std::optional<field> find_field(string_name name) const;
-  [[nodiscard]] std::optional<field> find_field(std::string_view name) const;
+  [[nodiscard]] field field_at(std::size_t index) const;
+  [[nodiscard]] field find_field(string_name name) const;
+  [[nodiscard]] field find_field(std::string_view name) const;
 
 private:
   friend class registry;

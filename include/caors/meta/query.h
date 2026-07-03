@@ -68,9 +68,9 @@ public:
 
 private:
   void refresh() {
-    std::optional<type_view> refreshed = get_registry().find_type<T>();
-    if (refreshed.has_value()) {
-      type_ = *refreshed;
+    type_view refreshed = get_registry().find_type<T>();
+    if (refreshed) {
+      type_ = refreshed;
     }
   }
 
@@ -87,32 +87,27 @@ template <typename T> [[nodiscard]] type_builder<T> type(std::string_view name) 
 }
 
 /** @brief 获取已注册的 C++ 类型；不存在时返回无效 `type_view`。 */
-template <typename T> [[nodiscard]] type_view get() {
-  const std::optional<type_view> stored = get_registry().find_type<T>();
-  return stored.value_or(type_view{});
-}
+template <typename T> [[nodiscard]] type_view get() { return get_registry().find_type<T>(); }
 
 /** @brief 按 C++ 类型查找基础类型。 */
-template <typename T> [[nodiscard]] std::optional<type_view> find() {
-  return get_registry().find_type<T>();
-}
+template <typename T> [[nodiscard]] type_view find() { return get_registry().find_type<T>(); }
 
 /** @brief 按类型 id 查找基础类型。 */
-[[nodiscard]] CAORS_API std::optional<type_view> find(type_id id);
+[[nodiscard]] CAORS_API type_view find(type_id id);
 
 /** @brief 按稳定 GUID 查找基础类型。 */
-[[nodiscard]] CAORS_API std::optional<type_view> find(type_guid guid);
+[[nodiscard]] CAORS_API type_view find(type_guid guid);
 
 /** @brief 按类型名查找基础类型。 */
-[[nodiscard]] CAORS_API std::optional<type_view> find(std::string_view name);
+[[nodiscard]] CAORS_API type_view find(std::string_view name);
 
 /** @brief 按类型名查找基础类型。 */
-[[nodiscard]] CAORS_API std::optional<type_view> find(string_name name);
+[[nodiscard]] CAORS_API type_view find(string_name name);
 
 /** @brief 获取已注册 C++ 类型的运行期类型 id；未注册时返回无效 id。 */
 template <typename T> [[nodiscard]] type_id id_of() {
-  const std::optional<type_view> stored = find<T>();
-  return stored.has_value() ? stored->id() : type_id::invalid();
+  const type_view stored = find<T>();
+  return stored ? stored.id() : type_id::invalid();
 }
 
 /** @brief 根据已注册类型名查询运行期类型 id。 */

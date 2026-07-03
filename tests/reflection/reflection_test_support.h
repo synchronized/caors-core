@@ -248,8 +248,8 @@ constexpr caors::type_guid view_actor_guid{caors::guid::from_bytes(
 
 [[nodiscard]] inline caors::type_id registered_type_id(std::string_view name) {
   const auto type = caors::meta::find(name);
-  REQUIRE(type.has_value());
-  return type->id();
+  REQUIRE(type);
+  return type.id();
 }
 
 [[nodiscard]] constexpr caors::error reflection_error(caors::errc code) noexcept {
