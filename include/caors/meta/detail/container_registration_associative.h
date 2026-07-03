@@ -4,8 +4,8 @@
 #ifndef CAORS_META_DETAIL_CONTAINER_REGISTRATION_ASSOCIATIVE_H_
 #define CAORS_META_DETAIL_CONTAINER_REGISTRATION_ASSOCIATIVE_H_
 
-#include "caors/meta/registry.h"
 #include "caors/meta/detail/container_registration_iterators.h"
+#include "caors/meta/registry.h"
 
 namespace caors::meta::detail {
 template <typename T> [[nodiscard]] error register_associative_data_for(type_id id) {
@@ -20,7 +20,7 @@ template <typename T> [[nodiscard]] error register_associative_data_for(type_id 
       return {};
     }
 
-    meta::associative_data data{
+    meta::detail::associative_data data{
         key,
         value,
         [](const void* storage) noexcept -> std::size_t {
@@ -30,7 +30,7 @@ template <typename T> [[nodiscard]] error register_associative_data_for(type_id 
 
           return traits::associative_traits<type>::size(*static_cast<const type*>(storage));
         },
-        [](const void* storage, meta::associative_raw_visitor visitor, void* user_data) -> bool {
+        [](const void* storage, associative_raw_visitor visitor, void* user_data) -> bool {
           if (storage == nullptr || visitor == nullptr) {
             return false;
           }
@@ -76,7 +76,8 @@ template <typename T> [[nodiscard]] error register_associative_data_for(type_id 
       data.iterator_value = &associative_iterator_value<iterator_type>;
     }
 
-    const error result = caors::meta::get_registry().emplace<meta::associative_data>(id, data);
+    const error result =
+        caors::meta::get_registry().emplace<meta::detail::associative_data>(id, data);
     if (result && result.value() != errc::duplicate_component) {
       return result;
     }

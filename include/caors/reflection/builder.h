@@ -16,17 +16,18 @@ namespace caors::reflection {
 /**
  * @brief RTTR 风格的反射注册构建器。
  *
- * 构建器通过成员指针推导字段大小、对齐和偏移；字段类型必须已经通过 `meta::type<T>()`
- *
- * 显式注册到全局 meta 注册表。
+ * 构建器通过成员指针推导字段大小、对齐和偏移；字段类型必须已经通过
+ * `meta::type<T>()`
+
+ * * 显式注册到全局 meta 注册表。
  */
 template <typename Class> class class_builder {
 public:
   explicit class_builder(std::string_view name, type_id parent_id = type_id::invalid())
-      : type_(meta::make_type_data<Class>(name, parent_id)) {}
+      : type_(meta::detail::make_type_data<Class>(name, parent_id)) {}
 
   class_builder(std::string_view name, type_guid guid, type_id parent_id = type_id::invalid())
-      : type_(meta::make_type_data<Class>(name, guid, parent_id)) {}
+      : type_(meta::detail::make_type_data<Class>(name, guid, parent_id)) {}
 
   explicit class_builder(meta::type_view type) : existing_type_(type) {
     if (!type.valid()) {
@@ -47,8 +48,8 @@ public:
       return *this;
     }
 
-    field_data field =
-        make_field_data<Field>(name, resolved_type->name().view(), detail::member_offset(member));
+    detail::field_data field = detail::make_field_data<Field>(name, resolved_type->name().view(),
+                                                              detail::member_offset(member));
     if (!field.valid()) {
       pending_status_ = {error_domain::reflection, errc::invalid_field};
       return *this;
@@ -64,7 +65,8 @@ public:
       return *this;
     }
 
-    field_data field = make_field_data<Field>(name, type_name, detail::member_offset(member));
+    detail::field_data field =
+        detail::make_field_data<Field>(name, type_name, detail::member_offset(member));
     if (!field.valid()) {
       pending_status_ = {error_domain::reflection, errc::invalid_field};
       return *this;
@@ -86,15 +88,10 @@ public:
     return get_registry().template register_type_for<Class>(type_, reflection_);
   }
 
-  [[nodiscard]] const meta::type_data& type_data() const noexcept { return type_; }
-  [[nodiscard]] const reflection::type_data& reflection_data() const noexcept {
-    return reflection_;
-  }
-
 private:
-  meta::type_data type_{};
+  meta::detail::type_data type_{};
   meta::type_view existing_type_{};
-  reflection::type_data reflection_{};
+  detail::type_data reflection_{};
   error pending_status_{};
 };
 

@@ -48,8 +48,8 @@ namespace caors::serialization::detail {
 
 [[nodiscard]] error read_sequence_value(reader& reader, const any_ref& target,
                                         const serialization::context& context) {
-  const meta::sequence_data* sequence =
-      meta::get_registry().find_ptr<meta::sequence_data>(target.type());
+  const meta::detail::sequence_data* sequence =
+      meta::get_registry().find_ptr<meta::detail::sequence_data>(target.type());
   if (sequence != nullptr && !sequence->can_read) {
     return {error_domain::serialization, errc::unsupported};
   }

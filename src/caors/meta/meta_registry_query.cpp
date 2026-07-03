@@ -15,7 +15,7 @@ bool registry::contains(type_id id) const {
 
 std::optional<type_view> registry::find_type(type_id id) const {
   std::lock_guard lock(state_->mutex);
-  const type_data* type = detail::find_type_data(*state_, id);
+  const detail::type_data* type = detail::find_type_data(*state_, id);
   if (type == nullptr) {
     return std::nullopt;
   }
@@ -34,7 +34,7 @@ std::optional<type_view> registry::find_type(core::type_guid guid) const {
     return std::nullopt;
   }
 
-  const type_data* type = detail::find_type_data(*state_, guid_position->second);
+  const detail::type_data* type = detail::find_type_data(*state_, guid_position->second);
   if (type == nullptr) {
     return std::nullopt;
   }
@@ -58,7 +58,7 @@ std::optional<type_view> registry::find_type(core::string_name name) const {
     return std::nullopt;
   }
 
-  const type_data* type = detail::find_type_data(*state_, name_position->second);
+  const detail::type_data* type = detail::find_type_data(*state_, name_position->second);
   if (type == nullptr) {
     return std::nullopt;
   }
@@ -78,7 +78,7 @@ bool registry::is_a(type_id id, type_id base_id) const {
       return true;
     }
 
-    const type_data* type = detail::find_type_data(*state_, current_id);
+    const detail::type_data* type = detail::find_type_data(*state_, current_id);
     if (type == nullptr) {
       return false;
     }

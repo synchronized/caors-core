@@ -8,11 +8,11 @@
 
 namespace caors::meta::detail {
 template <typename Variant, std::size_t Index>
-[[nodiscard]] meta::variant_alternative_data make_variant_alternative_data() {
+[[nodiscard]] variant_alternative_data make_variant_alternative_data() {
   using type = std::remove_cv_t<std::remove_reference_t<Variant>>;
   using alternative_type = typename traits::variant_traits<type>::template alternative_type<Index>;
 
-  return meta::variant_alternative_data{
+  return variant_alternative_data{
       semantic_type_id<alternative_type>(),
       [](const void* storage) noexcept -> const void* {
         if (storage == nullptr) {
@@ -41,10 +41,10 @@ template <typename Variant, std::size_t Index>
 }
 
 template <typename Variant, std::size_t... Indices>
-[[nodiscard]] meta::variant_data make_variant_data(std::index_sequence<Indices...>) {
+[[nodiscard]] meta::detail::variant_data make_variant_data(std::index_sequence<Indices...>) {
   using type = std::remove_cv_t<std::remove_reference_t<Variant>>;
 
-  meta::variant_data data{};
+  meta::detail::variant_data data{};
   data.alternatives.reserve(sizeof...(Indices));
   (data.alternatives.push_back(make_variant_alternative_data<type, Indices>()), ...);
   data.index = [](const void* storage) noexcept -> std::size_t {
@@ -64,13 +64,13 @@ template <typename T> [[nodiscard]] error register_variant_data_for(type_id id) 
       return {};
     }
 
-    meta::variant_data data =
+    meta::detail::variant_data data =
         make_variant_data<type>(std::make_index_sequence<traits::variant_traits<type>::size>{});
     if (!data.valid()) {
       return {};
     }
 
-    const error result = caors::meta::get_registry().emplace<meta::variant_data>(id, data);
+    const error result = caors::meta::get_registry().emplace<meta::detail::variant_data>(id, data);
     if (result && result.value() != errc::duplicate_component) {
       return result;
     }

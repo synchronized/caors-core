@@ -55,6 +55,7 @@ public:
 class duplicate_guid_player : public caors::object_base<duplicate_guid_player> {
 public:
   static constexpr std::string_view object_type_name = "caors.test.object.duplicate_guid_player";
+  static constexpr caors::type_guid object_type_guid = guid_owner_actor::object_type_guid;
 };
 
 class relation_actor : public caors::object_base<relation_actor> {
@@ -178,13 +179,7 @@ TEST_CASE("object - registry registers and finds types", "[object]") {
 }
 
 TEST_CASE("object - type guid can be provided by object subclass", "[object]") {
-  caors::objects::registry& registry = caors::objects::get_registry();
-
   CHECK(persistent_actor::static_type_guid() == persistent_actor::object_type_guid);
-
-  const caors::meta::type_data type =
-      caors::objects::make_meta_type_data<persistent_actor>(persistent_actor::object_type_name);
-  CHECK(type.guid() == persistent_actor::object_type_guid);
 
   REQUIRE(register_object_test_type<persistent_actor>(persistent_actor::object_type_name) ==
           caors::error{});
@@ -195,52 +190,25 @@ TEST_CASE("object - type guid can be provided by object subclass", "[object]") {
 }
 
 TEST_CASE("object - registry reports registration errors", "[object]") {
-  caors::objects::registry& registry = caors::objects::get_registry();
-
-  CHECK(registry.register_type(caors::meta::type_data{}, caors::objects::type_data{}) ==
-        object_error(caors::errc::invalid_type));
-
-  caors::meta::type_data missing_parent = caors::objects::make_meta_type_data<error_actor>(
-      "caors.test.object.missing_parent_child",
-      caors::type_id{std::numeric_limits<std::uint64_t>::max()});
-  CHECK(registry.register_type(missing_parent, caors::objects::make_type_data<error_actor>()) ==
-        object_error(caors::errc::missing_parent));
+  CHECK(caors::objects::class_<error_actor>("caors.test.object.missing_parent_child")
+            .parent(caors::type_id{std::numeric_limits<std::uint64_t>::max()})
+            .commit() == object_error(caors::errc::missing_parent));
 
   REQUIRE(register_object_test_type<error_actor>(error_actor::object_type_name) == caors::error{});
-  const auto actor_type = caors::objects::find<error_actor>();
-  REQUIRE(actor_type.has_value());
 
-  caors::meta::type_data colliding = caors::objects::make_meta_type_data<error_player>(
-      error_player::object_type_name, actor_type->id());
-  colliding.set_id(actor_type->id());
-  CHECK(registry.register_type(colliding, caors::objects::make_type_data<error_player>()) ==
-        object_error(caors::errc::invalid_type));
-
-  caors::meta::type_data duplicate_name =
-      caors::objects::make_meta_type_data<error_player>("caors.test.object.unique_duplicate_name");
-  duplicate_name.set_name(caors::string_name{error_actor::object_type_name});
-  CHECK(registry.register_type(duplicate_name, caors::objects::make_type_data<error_player>()) ==
+  CHECK(register_object_test_type<error_player>(error_actor::object_type_name) ==
         object_error(caors::errc::duplicate_name));
 }
 
 TEST_CASE("object - registry reports duplicate type guid", "[object]") {
-  caors::objects::registry& registry = caors::objects::get_registry();
-
   REQUIRE(register_object_test_type<guid_owner_actor>(guid_owner_actor::object_type_name) ==
           caors::error{});
 
-  caors::meta::type_data duplicate_guid =
-      caors::objects::make_meta_type_data<duplicate_guid_player>(
-          duplicate_guid_player::object_type_name);
-  duplicate_guid.set_guid(guid_owner_actor::object_type_guid);
-  CHECK(registry.register_type(duplicate_guid,
-                               caors::objects::make_type_data<duplicate_guid_player>()) ==
+  CHECK(register_object_test_type<duplicate_guid_player>(duplicate_guid_player::object_type_name) ==
         object_error(caors::errc::duplicate_guid));
 }
 
 TEST_CASE("object - registry checks parent relationship", "[object]") {
-  caors::objects::registry& registry = caors::objects::get_registry();
-
   REQUIRE(register_object_test_type<relation_actor>(relation_actor::object_type_name) ==
           caors::error{});
   const auto object_type = caors::objects::find<caors::object>();

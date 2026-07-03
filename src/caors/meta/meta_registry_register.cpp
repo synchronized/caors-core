@@ -8,7 +8,7 @@
 namespace caors::meta {
 namespace {
 
-[[nodiscard]] error register_type_impl(registry_state& state, type_data type,
+[[nodiscard]] error register_type_impl(registry_state& state, detail::type_data type,
                                        type_id* stored_id = nullptr) {
   if (!type.valid() || !type.id()) {
     return {error_domain::meta, errc::invalid_type};
@@ -26,7 +26,7 @@ namespace {
   }
 
   if (existing_id.has_value()) {
-    type_data* existing = detail::find_type_data(state, *existing_id);
+    detail::type_data* existing = detail::find_type_data(state, *existing_id);
     if (existing == nullptr) {
       return {error_domain::meta, errc::invalid_type};
     }
@@ -48,6 +48,8 @@ namespace {
 
 } // namespace
 
-error registry::register_type(const type_data& type) { return register_type_impl(*state_, type); }
+error registry::register_type(const detail::type_data& type) {
+  return register_type_impl(*state_, type);
+}
 
 } // namespace caors::meta

@@ -154,10 +154,11 @@ private:
   friend class any;
   friend class any_ref;
 
-  sequence_view(const meta::sequence_data* data, const void* storage, bool writable) noexcept
+  sequence_view(const meta::detail::sequence_data* data, const void* storage,
+                bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
 
-  const meta::sequence_data* data_ = nullptr;
+  const meta::detail::sequence_data* data_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };

@@ -246,13 +246,6 @@ constexpr caors::type_guid view_actor_guid{caors::guid::from_bytes(
     caors::guid::byte_array{0x49, 0xd0, 0x23, 0x6f, 0x74, 0xb5, 0x41, 0x3f, 0x99, 0x37, 0xfa, 0x9f,
                             0xf8, 0xa6, 0x36, 0x02})};
 
-[[nodiscard]] inline caors::reflection::type_data make_actor_reflection_data() {
-  return caors::reflection::make_type_data({
-      caors::reflection::make_field_data<int>("id", "int", offsetof(actor, id)),
-      caors::reflection::make_field_data<float>("health", "float", offsetof(actor, health)),
-  });
-}
-
 [[nodiscard]] inline caors::type_id registered_type_id(std::string_view name) {
   const auto type = caors::meta::find(name);
   REQUIRE(type.has_value());
@@ -305,14 +298,6 @@ template <typename T> void register_common_type(std::string_view name) {
   register_common_type<inventory>("caors.test.reflection.inventory");
   return true;
 }();
-
-[[nodiscard]] inline const caors::meta::type_semantics_data&
-registered_traits(const caors::reflection::field_data& field) {
-  const auto* traits =
-      caors::meta::get_registry().find_ptr<caors::meta::type_semantics_data>(field.type);
-  REQUIRE(traits != nullptr);
-  return *traits;
-}
 
 } // namespace test_reflection
 

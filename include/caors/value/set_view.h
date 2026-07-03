@@ -193,7 +193,7 @@ public:
     }
 
     struct visit_context {
-      const meta::set_data* data = nullptr;
+      const meta::detail::set_data* data = nullptr;
       set_element_visitor visitor = nullptr;
       void* user_data = nullptr;
     };
@@ -203,7 +203,7 @@ public:
         storage_,
         [](const void* element, void* raw_context) -> bool {
           auto* context = static_cast<visit_context*>(raw_context);
-          const meta::set_data* data = context->data;
+          const meta::detail::set_data* data = context->data;
           any_ref element_ref = any_ref::from_raw(data->value_type, element, false);
 
           return context->visitor(element_ref, context->user_data);
@@ -235,7 +235,7 @@ private:
   friend class any;
   friend class any_ref;
 
-  set_view(const meta::set_data* data, const void* storage, bool writable) noexcept
+  set_view(const meta::detail::set_data* data, const void* storage, bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
 
   [[nodiscard]] bool has_iterator_support() const noexcept {
@@ -245,7 +245,7 @@ private:
            data_->iterator_value != nullptr;
   }
 
-  const meta::set_data* data_ = nullptr;
+  const meta::detail::set_data* data_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };

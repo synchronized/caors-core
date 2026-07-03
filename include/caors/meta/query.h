@@ -23,7 +23,7 @@ public:
   type_builder() = default;
 
   type_builder& type(std::string_view name) {
-    status_ = get_registry().register_type_for<T>(make_type_data<T>(name));
+    status_ = get_registry().register_type_for<T>(detail::make_type_data<T>(name));
     refresh();
     return *this;
   }
@@ -34,7 +34,7 @@ public:
       return *this;
     }
 
-    type_data data{
+    detail::type_data data{
         type_.id(), type_.name(), guid_value, type_.size(), type_.alignment(), type_.parent_id(),
     };
     status_ = get_registry().register_type_for<T>(data);
@@ -50,7 +50,7 @@ public:
       return *this;
     }
 
-    type_data data{
+    detail::type_data data{
         type_.id(), type_.name(), type_.guid(), type_.size(), type_.alignment(), parent_id,
     };
     status_ = get_registry().register_type_for<T>(data);

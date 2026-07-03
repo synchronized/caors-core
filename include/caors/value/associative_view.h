@@ -206,7 +206,7 @@ public:
     }
 
     struct visit_context {
-      const meta::associative_data* data = nullptr;
+      const meta::detail::associative_data* data = nullptr;
       associative_entry_visitor visitor = nullptr;
       void* user_data = nullptr;
     };
@@ -216,7 +216,7 @@ public:
         storage_,
         [](const void* key, const void* mapped, void* raw_context) -> bool {
           auto* context = static_cast<visit_context*>(raw_context);
-          const meta::associative_data* data = context->data;
+          const meta::detail::associative_data* data = context->data;
           any_ref key_ref = any_ref::from_raw(data->key_type, key, false);
           any_ref mapped_ref = any_ref::from_raw(data->value_type, mapped, false);
 
@@ -249,7 +249,8 @@ private:
   friend class any;
   friend class any_ref;
 
-  associative_view(const meta::associative_data* data, const void* storage, bool writable) noexcept
+  associative_view(const meta::detail::associative_data* data, const void* storage,
+                   bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
 
   [[nodiscard]] bool has_iterator_support() const noexcept {
@@ -259,7 +260,7 @@ private:
            data_->iterator_key != nullptr && data_->iterator_value != nullptr;
   }
 
-  const meta::associative_data* data_ = nullptr;
+  const meta::detail::associative_data* data_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };

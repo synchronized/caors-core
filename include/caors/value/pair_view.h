@@ -126,10 +126,10 @@ private:
   friend class any;
   friend class any_ref;
 
-  pair_view(const meta::pair_data* data, const void* storage, bool writable) noexcept
+  pair_view(const meta::detail::pair_data* data, const void* storage, bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
 
-  const meta::pair_data* data_ = nullptr;
+  const meta::detail::pair_data* data_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };

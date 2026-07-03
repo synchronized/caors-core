@@ -17,7 +17,7 @@ template <typename T> [[nodiscard]] error register_sequence_data_for(type_id id)
       return {};
     }
 
-    meta::sequence_data data{
+    meta::detail::sequence_data data{
         value,
         [](const void* storage) noexcept -> std::size_t {
           if (storage == nullptr) {
@@ -71,7 +71,7 @@ template <typename T> [[nodiscard]] error register_sequence_data_for(type_id id)
       data.can_read = traits::sequence_traits<type>::can_read;
     }
 
-    const error result = caors::meta::get_registry().emplace<meta::sequence_data>(id, data);
+    const error result = caors::meta::get_registry().emplace<meta::detail::sequence_data>(id, data);
     if (result && result.value() != errc::duplicate_component) {
       return result;
     }

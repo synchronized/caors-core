@@ -9,9 +9,9 @@
 
 反射第一阶段解决几件事：
 
-- 复用 `meta::type_data`、`meta::type_view`、`type_id` 和 `type_guid` 表达类型身份。
-- 基于 `meta::registry` 把 `reflection::type_data` 挂载为类型元数据组件。
-- 通过 RTTR 风格 builder 或底层字段列表描述字段。
+- 复用 `meta::type_view`、`type_id` 和 `type_guid` 表达类型身份。
+- 基于 `meta::registry` 挂载内部反射组件。
+- 通过 RTTR 风格 builder 描述字段。
 - 提供按类型 id、类型名和稳定 GUID 查询反射类型。
 - 提供全局 append-only 注册表，以及稳定的类型视图和字段视图。
 - 提供字段基础读写入口和运行期值拷贝。
@@ -27,28 +27,14 @@
 
 ### 命名空间
 
-反射模块的公开类型位于 `caors::reflection` 命名空间，例如 `reflection::field_data`、
-`reflection::type_data`、`reflection::field`、`reflection::type` 和 `reflection::registry`。新代码应直接使用
-命名空间内的短名称；旧的根命名空间低频别名已经移除。
+反射模块的公开类型位于 `caors::reflection` 命名空间，例如 `reflection::field`、
+`reflection::type` 和 `reflection::registry`。新代码应直接使用命名空间内的短名称；
+旧的根命名空间低频别名已经移除。
 
-### 底层 reflection::field_data
+### 字段注册
 
-`reflection::field_data` 是字段的底层存储描述，主要用于注册表内部保存字段数据，以及 `reflection::make_field_data<Field>()`
-这类底层注册入口。外部查询和字段访问更推荐使用 `reflection::field`，避免直接依赖底层存储结构。
-
-`reflection::field_data` 描述一个字段：
-
-- `name`：字段名。
-- `type`：字段声明类型的运行期 `type_id`。
-- `get_object_ref` / `set_object_ref`：对象引用 wrapper 的访问函数。
-- `offset`：字段在类型中的偏移。
-- `writable`：字段是否允许写入。
-
-字段声明类型名、大小、对齐和 C++ 类型操作函数由 `type` 对应的 `meta::type_data` 查询。字段形态、
-wrapper 语义、解包值类型、容器元素类型和 key/value 类型由同一 `type` 上挂载的
-`meta::type_semantics_data` 查询，避免反射、序列化和 value 模块分别重复保存类型事实。
-
-字段描述可以通过 `reflection::make_field_data<Field>()` 创建：
+推荐使用 `reflection::class_<T>()` builder 注册字段。builder 通过成员指针推导偏移、字段类型和可写性，
+底层字段数据只保存在注册表内部，对外通过 `reflection::field` 视图查询。
 
 ```cpp
 struct actor {
@@ -56,16 +42,6 @@ struct actor {
   float health = 100.0F;
 };
 
-caors::reflection::field_data field =
-    caors::reflection::make_field_data<float>("health", "float", offsetof(actor, health));
-```
-
-字段类型必须已经通过 `meta::type<T>("name")` 注册，`make_field_data()` 不会隐式创建类型。
-第一版要求调用方显式传入 offset，通常配合 `offsetof()` 使用。后续如果引入代码生成工具，可以由工具生成字段描述。
-
-更推荐使用 `reflection::class_<T>()` builder，它可以通过成员指针推导偏移和字段类型：
-
-```cpp
 caors::meta::type<int>("int");
 caors::meta::type<float>("float");
 
@@ -392,7 +368,7 @@ ref.try_set(9);
 ### any
 
 `any` 是运行期 C++ 类型值拷贝，只保存运行期类型 id 和对象拷贝。类型名、大小、对齐、复制、析构和赋值函数
-通过同一 `type_id` 的 `meta::type_data` 查询。
+通过同一 `type_id` 的基础类型信息查询。
 它不引用原对象，因此可以安全地脱离字段所属对象生命周期使用。
 
 `any` 当前提供：
@@ -430,25 +406,6 @@ ref.try_set(9);
 - `create_associative_view()`：如果当前引用的类型挂载了关联容器 metadata，则创建关联容器视图。
 - `create_indirect_view()`：如果当前引用的类型挂载了指针或 wrapper 语义 metadata，则创建内部值视图。
 
-### reflection::type_data
-
-`reflection::type_data` 是底层类型反射数据，只保存反射系统自己的内容，例如字段列表。类型身份由
-`meta::type_data` / `meta::type_view` 统一管理。
-
-```cpp
-caors::reflection::type_data data = caors::reflection::make_type_data(
-    {
-        caors::reflection::make_field_data<int>("id", "int", offsetof(actor, id)),
-        caors::reflection::make_field_data<float>("health", "float", offsetof(actor, health)),
-    });
-```
-
-可以通过 `find_field()` 按字段名查询字段：
-
-```cpp
-auto field = data.find_field("health");
-```
-
 ### reflection::type 和 reflection::field
 
 `reflection::type` 和 `reflection::field` 是外部查询反射信息的推荐入口：
@@ -461,12 +418,11 @@ actor instance{};
 field->try_set<float>(&instance, 75.0F);
 ```
 
-`reflection::type` 内部持有 `meta::type_view` 和 `reflection::type_data` 的只读指针。`reflection::field`
-内部持有 `reflection::field_data` 的只读指针。反射注册表是进程级 append-only 注册表，
+`reflection::type` 和 `reflection::field` 是轻量只读视图，内部引用全局注册表保存的反射数据。
+反射注册表是进程级 append-only 注册表，
 类型和字段注册后不可撤销、不可替换，因此有效视图可以在进程生命周期内稳定使用。
 
-当前字段数据以 `caors::vector<reflection::field_data>` 保存在 `reflection::type_data` 内。字段视图的
-稳定性依赖“注册后冻结”约束：注册完成后不会再向该类型追加、删除或替换字段。如果后续支持热重载、
+字段视图的稳定性依赖“注册后冻结”约束：注册完成后不会再向该类型追加、删除或替换字段。如果后续支持热重载、
 字段增量注册或组件替换，需要先重新设计字段存储和视图失效规则。
 
 `reflection::type` 当前提供：
@@ -566,10 +522,9 @@ field->try_set<float>(&instance, 75.0F);
 `indirect_view` 不拥有 wrapper 或内部值，也不延长内部对象生命周期。裸指针和智能指针解包后返回的是当前
 指向对象的引用；调用方需要保证引用使用期间对象仍然有效。
 
-`meta::sequence_data`、`meta::set_data`、`meta::associative_data`、`meta::pair_data`、`meta::tuple_data` 和
-`meta::variant_data` 只保存 value/key、元素或候选类型的 `type_id`
+内部容器 metadata 只保存 value/key、元素或候选类型的 `type_id`
 以及容器操作函数。value/key 的名称、大小、对齐和复制/赋值函数统一从
-基础 `meta::type_data` 查询，避免容器 metadata 与基础类型 metadata 重复维护。
+基础类型信息查询，避免容器 metadata 与基础类型 metadata 重复维护。
 
 容器、pair、tuple 和 variant 视图不要求值一定来自反射字段。反射字段场景可以先通过 `get_ref()` 创建 `any_ref`，
 再调用对应的 `create_*_view()`；普通 `any` / `any_ref` 也可以直接创建视图：
@@ -611,15 +566,15 @@ auto reflected = caors::reflection::find("game.actor");
 ```
 
 推荐先通过 `meta::type<T>("name")` 注册基础类型，再把 `caors::meta::get<T>()` 或保存下来的 `meta::type_view` 传给
-`reflection::class_<T>(meta::type_view)`。这条路径只向已注册类型挂载 `reflection::type_data`，不会创建或修改
+`reflection::class_<T>(meta::type_view)`。这条路径只向已注册类型挂载反射组件，不会创建或修改
 基础类型记录；传入无效 `meta::type_view` 会返回 `errc::invalid_type`，传入不存在的 `type_id` 会返回
 `errc::missing_type`。低层反射组件注册函数属于内部实现入口，普通代码不直接调用。
 
 反射注册应在 `meta::freeze_registry()` 前完成。全局 meta 注册表冻结后，继续注册反射组件会返回
 `errc::frozen`。
 
-底层 `reflection::registry` 仍作为实现类型存在，并复用 `meta::registry` 保存基础类型信息，再把
-`reflection::type_data` 作为组件挂载到同一个 `type_id` 上。注册表构造由库内部管理；注册后不提供
+`reflection::registry` 仍作为实现 facade 存在，并复用 `meta::registry` 保存基础类型信息，再把
+内部反射组件挂载到同一个 `type_id` 上。注册表构造由库内部管理；注册后不提供
 清理和撤销入口。
 
 注册失败会返回 `caors::error`，`domain()` 为 `error_domain::reflection`，`value()` 为明确的通用错误码：
@@ -631,12 +586,12 @@ auto reflected = caors::reflection::find("game.actor");
 - `errc::duplicate_guid`：同一个非 nil 稳定 GUID 已注册。
 - `errc::duplicate_field`：同一个类型内存在重复字段名。
 - `errc::duplicate_reflection`：目标类型已经挂载反射组件。
-- `errc::inconsistent_type`：目标类型已存在，但基础 `meta::type_data` 不一致。
+- `errc::inconsistent_type`：目标类型已存在，但基础类型信息不一致。
 - `errc::missing_parent`：父类型未注册。
 - `errc::frozen`：全局 meta 注册表已冻结。
 
 重复注册同一个类型时，如果基础类型信息一致且已经挂载反射组件，会返回 `duplicate_reflection`；
-如果同名、同 GUID 或同运行期类型 id 对应的基础 `meta::type_data` 不一致，会返回
+如果同名、同 GUID 或同运行期类型 id 对应的基础类型信息不一致，会返回
 `inconsistent_type` 或对应的重复错误。
 
 ## 当前已实现能力
@@ -644,14 +599,11 @@ auto reflected = caors::reflection::find("game.actor");
 - `any`：运行期 C++ 类型值拷贝。
 - `any_ref`：运行期 C++ 类型非拥有引用。
 - `sequence_view` / `set_view` / `associative_view` / `pair_view` / `tuple_view` / `variant_view`：容器、二元组、tuple-like 和 variant-like 类型的运行期视图。
-- `reflection::field_data`：字段名、字段声明类型 id、offset、可写性、对象引用访问函数和基础字段访问。
 - `meta::type_semantics_data`：字段声明类型的形态、wrapper 语义、统一 value 类型和关联容器 key 类型。
-- `reflection::type_data`：字段列表等反射组件数据。
 - `reflection::type` / `reflection::field`：全局反射数据的推荐查询入口。
-- `reflection::registry`：底层全局注册表实现。
+- `reflection::registry`：全局反射注册表 facade。
 - `reflection::class_<T>()`：RTTR 风格链式注册入口。
 - `reflection::class_<T>(meta::type_view)`：推荐的显式 meta 注册入口，只挂载反射组件。
-- `reflection::register_type()`：公开低层注册入口，适合测试或已经手工构造 `reflection::type_data` 的场景。
 - `reflection::find()` / `reflection::contains()`：反射组件查询入口。
 
 ## 相关入口

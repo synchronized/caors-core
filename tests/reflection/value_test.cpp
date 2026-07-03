@@ -56,6 +56,15 @@ void require_value_test_meta() {
   require_registered_type<std::variant<int, caors::string>>("std.variant<int,caors.string>");
 }
 
+[[nodiscard]] caors::reflection::field require_reflected_field(std::string_view type_name,
+                                                               std::string_view field_name) {
+  auto reflected = caors::reflection::find(type_name);
+  REQUIRE(reflected.has_value());
+  auto field = reflected->find_field(field_name);
+  REQUIRE(field.has_value());
+  return *field;
+}
+
 } // namespace
 
 TEST_CASE("reflection any - stores copied values", "[reflection]") {
@@ -151,11 +160,17 @@ TEST_CASE("reflection any_ref - references external typed values", "[reflection]
 TEST_CASE("reflection any - fields expose copied runtime values", "[reflection]") {
   require_value_test_meta();
 
+  REQUIRE(caors::reflection::class_<reflected_value_holder>(
+              "caors.test.reflection.value_reflected_holder")
+              .field("value", &reflected_value_holder::value)
+              .field("readonly", &reflected_value_holder::readonly)
+              .commit() == caors::error{});
+
   reflected_value_holder holder{1, 7};
-  const caors::reflection::field_data value = caors::reflection::make_field_data<int>(
-      "value", "int", offsetof(reflected_value_holder, value));
-  const caors::reflection::field_data readonly = caors::reflection::make_field_data<const int>(
-      "readonly", "int", offsetof(reflected_value_holder, readonly));
+  const caors::reflection::field value =
+      require_reflected_field("caors.test.reflection.value_reflected_holder", "value");
+  const caors::reflection::field readonly =
+      require_reflected_field("caors.test.reflection.value_reflected_holder", "readonly");
 
   caors::any copied = value.get_value(&holder);
   CHECK(copied.valid());
@@ -187,10 +202,13 @@ TEST_CASE("reflection any - fields expose copied runtime values", "[reflection]"
 TEST_CASE("reflection any - noncopyable fields return invalid values", "[reflection]") {
   require_value_test_meta();
 
+  REQUIRE(caors::reflection::class_<move_only_value>("caors.test.reflection.move_only_value")
+              .field("value", &move_only_value::value)
+              .commit() == caors::error{});
+
   move_only_value holder{std::make_unique<int>(7)};
-  const caors::reflection::field_data field =
-      caors::reflection::make_field_data<std::unique_ptr<int>>("value", "std.unique_ptr<int>",
-                                                               offsetof(move_only_value, value));
+  const caors::reflection::field field =
+      require_reflected_field("caors.test.reflection.move_only_value", "value");
 
   caors::any copied = field.get_value(&holder);
   CHECK_FALSE(copied.valid());
@@ -217,9 +235,7 @@ TEST_CASE("reflection any - noncopyable fields return invalid values", "[reflect
   CHECK_FALSE(writable.try_set(replacement));
 
   int numeric = 15;
-  const caors::reflection::field_data numeric_field =
-      caors::reflection::make_field_data<int>("numeric", "int", 0);
-  caors::any_ref numeric_ref = numeric_field.get_ref(&numeric);
+  caors::any_ref numeric_ref = caors::any_ref::from(numeric);
   CHECK(numeric_ref.try_set(21));
   CHECK(numeric == 21);
 }
@@ -227,19 +243,24 @@ TEST_CASE("reflection any - noncopyable fields return invalid values", "[reflect
 TEST_CASE("reflection any_ref - creates indirect views for pointer and wrappers", "[reflection]") {
   require_value_test_meta();
 
+  REQUIRE(caors::reflection::class_<indirect_value_holder>(
+              "caors.test.reflection.indirect_value_holder")
+              .field("pointer", &indirect_value_holder::pointer)
+              .field("optional", &indirect_value_holder::optional)
+              .field("unique", &indirect_value_holder::unique)
+              .field("weak", &indirect_value_holder::weak)
+              .commit() == caors::error{});
+
   indirect_value_holder holder{};
 
-  const caors::reflection::field_data pointer_field = caors::reflection::make_field_data<int*>(
-      "pointer", "int*", offsetof(indirect_value_holder, pointer));
-  const caors::reflection::field_data optional_field =
-      caors::reflection::make_field_data<std::optional<int>>(
-          "optional", "std.optional<int>", offsetof(indirect_value_holder, optional));
-  const caors::reflection::field_data unique_field =
-      caors::reflection::make_field_data<std::unique_ptr<int>>(
-          "unique", "std.unique_ptr<int>", offsetof(indirect_value_holder, unique));
-  const caors::reflection::field_data weak_field =
-      caors::reflection::make_field_data<std::weak_ptr<int>>("weak", "std.weak_ptr<int>",
-                                                             offsetof(indirect_value_holder, weak));
+  const caors::reflection::field pointer_field =
+      require_reflected_field("caors.test.reflection.indirect_value_holder", "pointer");
+  const caors::reflection::field optional_field =
+      require_reflected_field("caors.test.reflection.indirect_value_holder", "optional");
+  const caors::reflection::field unique_field =
+      require_reflected_field("caors.test.reflection.indirect_value_holder", "unique");
+  const caors::reflection::field weak_field =
+      require_reflected_field("caors.test.reflection.indirect_value_holder", "weak");
 
   caors::value::indirect_view pointer = pointer_field.get_ref(&holder).create_indirect_view();
   REQUIRE(pointer.valid());

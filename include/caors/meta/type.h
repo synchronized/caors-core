@@ -5,7 +5,6 @@
 #define CAORS_META_TYPE_H_
 
 #include "caors/core/string_name.h"
-#include "caors/detail/type_key.h"
 #include "caors/error.h"
 #include "caors/export.h"
 #include "caors/meta/type_id.h"
@@ -29,7 +28,12 @@ namespace caors::meta {
 
 class registry;
 class registry_state;
+
+namespace detail {
+
 class type_data;
+
+} // namespace detail
 
 /** @brief 类型运行期形态。 */
 enum class type_kind {
@@ -67,15 +71,6 @@ using meta_object_ref_set_fn = bool (*)(void*, objects::object*) noexcept;
 
 [[nodiscard]] error merge_type_data(registry_state& state, type_data& stored,
                                     const type_data& incoming);
-
-[[nodiscard]] inline type_id type_id_from_cpp_type_key(caors::detail::cpp_type_key key) noexcept {
-  static_assert(sizeof(std::uintptr_t) <= sizeof(std::uint64_t));
-  return type_id{static_cast<std::uint64_t>(reinterpret_cast<std::uintptr_t>(key))};
-}
-
-template <typename T> [[nodiscard]] inline type_id type_id_of_cpp_type() noexcept {
-  return type_id_from_cpp_type_key(caors::detail::cpp_type_key_of<T>());
-}
 
 template <typename T> struct meta_copy_constructible {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
@@ -191,6 +186,129 @@ template <typename T> [[nodiscard]] value_assign_fn value_assign_fn_of() noexcep
   }
 }
 
+/**
+ * @brief 元类型底层数据。
+ *
+ * 该类型用于注册表内部存储和低层注册描述。对外查询应使用 `meta::type_view` 视图，避免直接依赖
+ * 注册表内部数据布局。
+ */
+class type_data {
+public:
+  constexpr type_data() noexcept = default;
+
+  constexpr type_data(type_id id, string_name name, type_guid guid, std::size_t size,
+                      std::size_t alignment, type_id parent_id,
+                      value_default_construct_fn default_construct_value = nullptr,
+                      value_clone_fn clone_value = nullptr,
+                      value_destroy_fn destroy_value = nullptr,
+                      value_assign_fn assign_value = nullptr) noexcept
+      : id_(id), name_(name), guid_(guid), size_(size), alignment_(alignment),
+        parent_id_(parent_id), default_construct_value_(default_construct_value),
+        clone_value_(clone_value), destroy_value_(destroy_value), assign_value_(assign_value) {}
+
+  [[nodiscard]] constexpr type_id id() const noexcept { return id_; }
+  [[nodiscard]] constexpr string_name name() const noexcept { return name_; }
+  [[nodiscard]] constexpr type_guid guid() const noexcept { return guid_; }
+  [[nodiscard]] constexpr std::size_t size() const noexcept { return size_; }
+  [[nodiscard]] constexpr std::size_t alignment() const noexcept { return alignment_; }
+  [[nodiscard]] constexpr type_id parent_id() const noexcept { return parent_id_; }
+  [[nodiscard]] constexpr value_default_construct_fn default_construct_value() const noexcept {
+    return default_construct_value_;
+  }
+  [[nodiscard]] constexpr value_clone_fn clone_value() const noexcept { return clone_value_; }
+  [[nodiscard]] constexpr value_destroy_fn destroy_value() const noexcept { return destroy_value_; }
+  [[nodiscard]] constexpr value_assign_fn assign_value() const noexcept { return assign_value_; }
+
+  [[nodiscard]] constexpr bool valid() const noexcept { return size_ > 0 && alignment_ > 0; }
+
+  [[nodiscard]] constexpr bool registered() const noexcept {
+    return static_cast<bool>(id_) && valid();
+  }
+
+  constexpr void set_id(type_id id) noexcept { id_ = id; }
+  constexpr void set_name(string_name name) noexcept { name_ = name; }
+  constexpr void set_guid(type_guid guid) noexcept { guid_ = guid; }
+  constexpr void set_parent_id(type_id parent_id) noexcept { parent_id_ = parent_id; }
+
+private:
+  friend error merge_type_data(registry_state& state, type_data& stored, const type_data& incoming);
+
+  constexpr void
+  set_default_construct_value(value_default_construct_fn default_construct_value) noexcept {
+    default_construct_value_ = default_construct_value;
+  }
+  constexpr void set_clone_value(value_clone_fn clone_value) noexcept {
+    clone_value_ = clone_value;
+  }
+  constexpr void set_destroy_value(value_destroy_fn destroy_value) noexcept {
+    destroy_value_ = destroy_value;
+  }
+  constexpr void set_assign_value(value_assign_fn assign_value) noexcept {
+    assign_value_ = assign_value;
+  }
+
+  type_id id_{};
+  string_name name_{};
+  type_guid guid_{};
+  std::size_t size_ = 0;
+  std::size_t alignment_ = 0;
+  type_id parent_id_{};
+  value_default_construct_fn default_construct_value_ = nullptr;
+  value_clone_fn clone_value_ = nullptr;
+  value_destroy_fn destroy_value_ = nullptr;
+  value_assign_fn assign_value_ = nullptr;
+};
+
+/** @brief 创建基础元类型注册描述。 */
+template <typename T>
+[[nodiscard]] type_data make_type_data(string_name name,
+                                       type_id parent_id = type_id::invalid()) noexcept {
+  return type_data{
+      type_id_of_cpp_type<T>(),
+      name,
+      type_guid::nil(),
+      sizeof(T),
+      alignof(T),
+      parent_id,
+      default_construct_fn_of<T>(),
+      value_clone_fn_of<T>(),
+      value_destroy_fn_of<T>(),
+      value_assign_fn_of<T>(),
+  };
+}
+
+/** @brief 创建带稳定 GUID 的基础元类型注册描述。 */
+template <typename T>
+[[nodiscard]] type_data make_type_data(string_name name, type_guid guid,
+                                       type_id parent_id = type_id::invalid()) noexcept {
+  return type_data{
+      type_id_of_cpp_type<T>(),
+      name,
+      guid,
+      sizeof(T),
+      alignof(T),
+      parent_id,
+      default_construct_fn_of<T>(),
+      value_clone_fn_of<T>(),
+      value_destroy_fn_of<T>(),
+      value_assign_fn_of<T>(),
+  };
+}
+
+/** @brief 创建基础元类型注册描述。 */
+template <typename T>
+[[nodiscard]] type_data make_type_data(std::string_view name,
+                                       type_id parent_id = type_id::invalid()) {
+  return make_type_data<T>(string_name{name}, parent_id);
+}
+
+/** @brief 创建带稳定 GUID 的基础元类型注册描述。 */
+template <typename T>
+[[nodiscard]] type_data make_type_data(std::string_view name, type_guid guid,
+                                       type_id parent_id = type_id::invalid()) {
+  return make_type_data<T>(string_name{name}, guid, parent_id);
+}
+
 } // namespace detail
 
 /**
@@ -221,91 +339,10 @@ struct type_semantics_data {
 };
 
 /**
- * @brief 元类型底层数据。
- *
- * 该类型用于注册表内部存储和低层注册描述。对外查询应使用 `meta::type_view` 视图，避免直接依赖
- * 注册表内部数据布局。
- */
-class type_data {
-public:
-  constexpr type_data() noexcept = default;
-
-  constexpr type_data(type_id id, string_name name, type_guid guid, std::size_t size,
-                      std::size_t alignment, type_id parent_id,
-                      detail::value_default_construct_fn default_construct_value = nullptr,
-                      detail::value_clone_fn clone_value = nullptr,
-                      detail::value_destroy_fn destroy_value = nullptr,
-                      detail::value_assign_fn assign_value = nullptr) noexcept
-      : id_(id), name_(name), guid_(guid), size_(size), alignment_(alignment),
-        parent_id_(parent_id), default_construct_value_(default_construct_value),
-        clone_value_(clone_value), destroy_value_(destroy_value), assign_value_(assign_value) {}
-
-  [[nodiscard]] constexpr type_id id() const noexcept { return id_; }
-  [[nodiscard]] constexpr string_name name() const noexcept { return name_; }
-  [[nodiscard]] constexpr type_guid guid() const noexcept { return guid_; }
-  [[nodiscard]] constexpr std::size_t size() const noexcept { return size_; }
-  [[nodiscard]] constexpr std::size_t alignment() const noexcept { return alignment_; }
-  [[nodiscard]] constexpr type_id parent_id() const noexcept { return parent_id_; }
-  [[nodiscard]] constexpr detail::value_default_construct_fn
-  default_construct_value() const noexcept {
-    return default_construct_value_;
-  }
-  [[nodiscard]] constexpr detail::value_clone_fn clone_value() const noexcept {
-    return clone_value_;
-  }
-  [[nodiscard]] constexpr detail::value_destroy_fn destroy_value() const noexcept {
-    return destroy_value_;
-  }
-  [[nodiscard]] constexpr detail::value_assign_fn assign_value() const noexcept {
-    return assign_value_;
-  }
-
-  [[nodiscard]] constexpr bool valid() const noexcept { return size_ > 0 && alignment_ > 0; }
-
-  [[nodiscard]] constexpr bool registered() const noexcept {
-    return static_cast<bool>(id_) && valid();
-  }
-
-  constexpr void set_id(type_id id) noexcept { id_ = id; }
-  constexpr void set_name(string_name name) noexcept { name_ = name; }
-  constexpr void set_guid(type_guid guid) noexcept { guid_ = guid; }
-  constexpr void set_parent_id(type_id parent_id) noexcept { parent_id_ = parent_id; }
-
-private:
-  friend error detail::merge_type_data(registry_state& state, type_data& stored,
-                                       const type_data& incoming);
-
-  constexpr void
-  set_default_construct_value(detail::value_default_construct_fn default_construct_value) noexcept {
-    default_construct_value_ = default_construct_value;
-  }
-  constexpr void set_clone_value(detail::value_clone_fn clone_value) noexcept {
-    clone_value_ = clone_value;
-  }
-  constexpr void set_destroy_value(detail::value_destroy_fn destroy_value) noexcept {
-    destroy_value_ = destroy_value;
-  }
-  constexpr void set_assign_value(detail::value_assign_fn assign_value) noexcept {
-    assign_value_ = assign_value;
-  }
-
-  type_id id_{};
-  string_name name_{};
-  type_guid guid_{};
-  std::size_t size_ = 0;
-  std::size_t alignment_ = 0;
-  type_id parent_id_{};
-  detail::value_default_construct_fn default_construct_value_ = nullptr;
-  detail::value_clone_fn clone_value_ = nullptr;
-  detail::value_destroy_fn destroy_value_ = nullptr;
-  detail::value_assign_fn assign_value_ = nullptr;
-};
-
-/**
  * @brief 元类型只读视图。
  *
  * `meta::type_view` 不拥有类型数据，只引用全局 `meta::registry` 中 append-only 保存的
- * `meta::type_data`。视图复制成本低，适合作为对外查询结果。
+ * 内部类型数据。视图复制成本低，适合作为对外查询结果。
  */
 class CAORS_API type_view {
 public:
@@ -329,62 +366,12 @@ public:
 private:
   friend class registry;
 
-  constexpr type_view(const registry* registry, const type_data* data) noexcept
+  constexpr type_view(const registry* registry, const detail::type_data* data) noexcept
       : registry_(registry), data_(data) {}
 
   const registry* registry_ = nullptr;
-  const type_data* data_ = nullptr;
+  const detail::type_data* data_ = nullptr;
 };
-
-/** @brief 创建基础元类型注册描述。 */
-template <typename T>
-[[nodiscard]] type_data make_type_data(string_name name,
-                                       type_id parent_id = type_id::invalid()) noexcept {
-  return type_data{
-      detail::type_id_of_cpp_type<T>(),
-      name,
-      type_guid::nil(),
-      sizeof(T),
-      alignof(T),
-      parent_id,
-      detail::default_construct_fn_of<T>(),
-      detail::value_clone_fn_of<T>(),
-      detail::value_destroy_fn_of<T>(),
-      detail::value_assign_fn_of<T>(),
-  };
-}
-
-/** @brief 创建带稳定 GUID 的基础元类型注册描述。 */
-template <typename T>
-[[nodiscard]] type_data make_type_data(string_name name, type_guid guid,
-                                       type_id parent_id = type_id::invalid()) noexcept {
-  return type_data{
-      detail::type_id_of_cpp_type<T>(),
-      name,
-      guid,
-      sizeof(T),
-      alignof(T),
-      parent_id,
-      detail::default_construct_fn_of<T>(),
-      detail::value_clone_fn_of<T>(),
-      detail::value_destroy_fn_of<T>(),
-      detail::value_assign_fn_of<T>(),
-  };
-}
-
-/** @brief 创建基础元类型注册描述。 */
-template <typename T>
-[[nodiscard]] type_data make_type_data(std::string_view name,
-                                       type_id parent_id = type_id::invalid()) {
-  return make_type_data<T>(string_name{name}, parent_id);
-}
-
-/** @brief 创建带稳定 GUID 的基础元类型注册描述。 */
-template <typename T>
-[[nodiscard]] type_data make_type_data(std::string_view name, type_guid guid,
-                                       type_id parent_id = type_id::invalid()) {
-  return make_type_data<T>(string_name{name}, guid, parent_id);
-}
 
 } // namespace caors::meta
 

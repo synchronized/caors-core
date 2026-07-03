@@ -72,10 +72,6 @@ template <typename Field> [[nodiscard]] object_ref_set_fn object_ref_set_fn_of()
   }
 }
 
-} // namespace caors::reflection::detail
-
-namespace caors::reflection {
-
 /**
  * @brief 底层字段反射元信息。
  *
@@ -247,10 +243,6 @@ template <typename Field>
 
   return field;
 }
-
-} // namespace caors::reflection
-
-namespace caors::reflection::detail {
 
 template <typename Member> struct member_pointer_traits;
 

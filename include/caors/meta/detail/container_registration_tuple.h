@@ -8,11 +8,11 @@
 
 namespace caors::meta::detail {
 template <typename Tuple, std::size_t Index>
-[[nodiscard]] meta::tuple_element_data make_tuple_element_data() {
+[[nodiscard]] tuple_element_data make_tuple_element_data() {
   using type = std::remove_cv_t<std::remove_reference_t<Tuple>>;
   using element_type = typename traits::tuple_traits<type>::template element_type<Index>;
 
-  return meta::tuple_element_data{
+  return tuple_element_data{
       semantic_type_id<element_type>(),
       [](const void* storage) noexcept -> const void* {
         if (storage == nullptr) {
@@ -34,8 +34,8 @@ template <typename Tuple, std::size_t Index>
 }
 
 template <typename Tuple, std::size_t... Indices>
-[[nodiscard]] meta::tuple_data make_tuple_data(std::index_sequence<Indices...>) {
-  meta::tuple_data data{};
+[[nodiscard]] meta::detail::tuple_data make_tuple_data(std::index_sequence<Indices...>) {
+  meta::detail::tuple_data data{};
   data.elements.reserve(sizeof...(Indices));
   (data.elements.push_back(make_tuple_element_data<Tuple, Indices>()), ...);
   return data;
@@ -48,13 +48,13 @@ template <typename T> [[nodiscard]] error register_tuple_data_for(type_id id) {
       return {};
     }
 
-    meta::tuple_data data =
+    meta::detail::tuple_data data =
         make_tuple_data<type>(std::make_index_sequence<traits::tuple_traits<type>::size>{});
     if (!data.valid()) {
       return {};
     }
 
-    const error result = caors::meta::get_registry().emplace<meta::tuple_data>(id, data);
+    const error result = caors::meta::get_registry().emplace<meta::detail::tuple_data>(id, data);
     if (result && result.value() != errc::duplicate_component) {
       return result;
     }

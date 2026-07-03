@@ -19,7 +19,7 @@ template <typename T> [[nodiscard]] error register_pair_data_for(type_id id) {
       return {};
     }
 
-    meta::pair_data data{
+    meta::detail::pair_data data{
         key,
         value,
         [](const void* storage) noexcept -> const void* {
@@ -52,7 +52,7 @@ template <typename T> [[nodiscard]] error register_pair_data_for(type_id id) {
         },
     };
 
-    const error result = caors::meta::get_registry().emplace<meta::pair_data>(id, data);
+    const error result = caors::meta::get_registry().emplace<meta::detail::pair_data>(id, data);
     if (result && result.value() != errc::duplicate_component) {
       return result;
     }

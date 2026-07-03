@@ -93,4 +93,4 @@ CAORS_META_REGISTRATION(register_actor) {
 - `errc::invalid_field`：反射字段类型未注册、字段无效或字段名冲突。
 - `errc::frozen`：注册表已冻结。
 
-公共测试和用户代码应使用 `meta::type<T>()`、`objects::class_<T>()`、`reflection::class_<T>()`、`reflection::register_type()`、`serialization::class_()`、`serialization::register_type()` 等公开入口，不直接调用各模块的 `detail` 命名空间函数。
+公共测试和用户代码应使用 `meta::type<T>()`、`objects::class_<T>()`、`reflection::class_<T>()`、`serialization::class_()`、`serialization::register_type()` 等公开入口，不直接调用各模块的 `detail` 命名空间函数。

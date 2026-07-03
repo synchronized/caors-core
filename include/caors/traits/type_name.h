@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <string>
 #include <string_view>
+#include <type_traits>
 
 namespace caors::traits {
 
@@ -133,6 +134,19 @@ template <> struct type_name<core::guid> {
 template <> struct type_name<core::type_guid> {
   inline static constexpr std::string_view value = "caors.type_guid";
 };
+
+namespace detail {
+
+template <typename T, typename = void> struct has_type_name : std::false_type {};
+
+template <typename T>
+struct has_type_name<
+    T, std::void_t<decltype(type_name<std::remove_cv_t<std::remove_reference_t<T>>>::value)>>
+    : std::true_type {};
+
+} // namespace detail
+
+template <typename T> inline constexpr bool has_type_name_v = detail::has_type_name<T>::value;
 
 } // namespace caors::traits
 

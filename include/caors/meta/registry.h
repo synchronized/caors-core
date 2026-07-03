@@ -8,7 +8,8 @@
 #include "caors/error.h"
 #include "caors/export.h"
 #include "caors/meta/component_storage.h"
-#include "caors/meta/container.h"
+#include "caors/meta/detail/component_storage.h"
+#include "caors/meta/detail/container.h"
 #include "caors/meta/registration.h"
 #include "caors/meta/type.h"
 #include "caors/meta/view.h"
@@ -40,7 +41,7 @@ class registry_state;
 /**
  * @brief 底层全局类型元数据注册表。
  *
- * `meta::registry` 以 `type_id` 为 key，先注册基础 `meta::type_data`，再按类型挂载对象工厂、
+ * `meta::registry` 以 `type_id` 为 key，先注册内部基础类型数据，再按类型挂载对象工厂、
  * 反射描述、序列化描述等元数据组件。普通代码应使用 `meta::type<T>()`、`meta::get<T>()`
  * 和 `meta::find()` 入口，不要创建或管理注册表实例。
  */
@@ -51,20 +52,20 @@ public:
   registry(const registry&) = delete;
   registry& operator=(const registry&) = delete;
 
-  [[nodiscard]] error register_type(const type_data& type);
+  [[nodiscard]] error register_type(const detail::type_data& type);
   [[nodiscard]] error add_registration(registration_fn fn);
   [[nodiscard]] error run_registrations();
   [[nodiscard]] error freeze();
   [[nodiscard]] bool is_frozen() const noexcept;
 
-  template <typename T> [[nodiscard]] error register_type_for(const type_data& type) {
+  template <typename T> [[nodiscard]] error register_type_for(const detail::type_data& type) {
     using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
     const type_id expected_id = detail::type_id_of_cpp_type<value_type>();
     if (!type.valid() || (type.id() && type.id() != expected_id)) {
       return {error_domain::meta, errc::invalid_type};
     }
 
-    type_data stored_type = type;
+    detail::type_data stored_type = type;
     if (!stored_type.id()) {
       stored_type.set_id(expected_id);
     }

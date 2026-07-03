@@ -124,7 +124,7 @@ public:
   template <typename Field>
   [[nodiscard]] std::optional<std::remove_cv_t<std::remove_reference_t<Field>>>
   try_get(const void* object) const {
-    const field_data* reflected_field = info();
+    const detail::field_data* reflected_field = info();
     if (reflected_field == nullptr) {
       return std::nullopt;
     }
@@ -134,7 +134,7 @@ public:
 
   /** @brief 按指定类型写入字段值。 */
   template <typename Field> bool try_set(void* object, const Field& value) const {
-    const field_data* reflected_field = info();
+    const detail::field_data* reflected_field = info();
     if (reflected_field == nullptr) {
       return false;
     }
@@ -145,18 +145,18 @@ public:
 private:
   friend class type;
 
-  field(meta::type_view owner, const field_data* reflected_field) noexcept;
-  [[nodiscard]] const field_data* info() const noexcept;
+  field(meta::type_view owner, const detail::field_data* reflected_field) noexcept;
+  [[nodiscard]] const detail::field_data* info() const noexcept;
 
   meta::type_view owner_{};
-  const field_data* field_ = nullptr;
+  const detail::field_data* field_ = nullptr;
 };
 
 /**
  * @brief 类型反射只读视图。
  *
  * `reflection::type` 不拥有反射数据，只引用全局注册表中 append-only 保存的 `meta::type_view` 和
- * `reflection::type_data`。有效视图可以在进程生命周期内稳定使用。
+ * 内部反射数据。有效视图可以在进程生命周期内稳定使用。
  */
 class CAORS_API type final {
 public:
@@ -177,11 +177,11 @@ public:
 private:
   friend class registry;
 
-  type(meta::type_view info, const type_data* data) noexcept;
-  [[nodiscard]] const type_data* data() const noexcept;
+  type(meta::type_view info, const detail::type_data* data) noexcept;
+  [[nodiscard]] const detail::type_data* data() const noexcept;
 
   meta::type_view type_{};
-  const type_data* data_ = nullptr;
+  const detail::type_data* data_ = nullptr;
 };
 
 } // namespace caors::reflection

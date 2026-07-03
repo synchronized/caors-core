@@ -15,17 +15,27 @@
 
 namespace caors::objects {
 
-/** @brief 创建对象类型基础元信息。 */
-template <typename T>
-[[nodiscard]] meta::type_data
-make_meta_type_data(std::string_view name,
-                    object_type_id parent_id = object::static_type_id()) noexcept {
-  static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
-  return caors::meta::make_type_data<T>(name, detail::object_type_guid_of<T>(), parent_id);
-}
+class registry;
 
 /** @brief 获取进程内默认对象类型注册表。 */
 [[nodiscard]] CAORS_API registry& get_registry() noexcept;
+
+} // namespace caors::objects
+
+namespace caors::objects::detail {
+
+/** @brief 创建对象类型基础元信息。 */
+template <typename T>
+[[nodiscard]] meta::detail::type_data
+make_meta_type_data(std::string_view name,
+                    object_type_id parent_id = object::static_type_id()) noexcept {
+  static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
+  return caors::meta::detail::make_type_data<T>(name, detail::object_type_guid_of<T>(), parent_id);
+}
+
+} // namespace caors::objects::detail
+
+namespace caors::objects {
 
 /**
  * @brief 全局对象类型注册表 facade 和默认构造工厂。
@@ -39,16 +49,17 @@ public:
   registry(const registry&) = delete;
   registry& operator=(const registry&) = delete;
 
-  [[nodiscard]] error register_type(const meta::type_data& type, const type_data& object);
+  [[nodiscard]] error register_type(const meta::detail::type_data& type, const type_data& object);
   template <typename T>
-  [[nodiscard]] error register_type_for(const meta::type_data& type, const type_data& object) {
+  [[nodiscard]] error register_type_for(const meta::detail::type_data& type,
+                                        const type_data& object) {
     using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
     const type_id expected_id = meta::detail::type_id_of_cpp_type<value_type>();
     if (type.id() && type.id() != expected_id) {
       return {error_domain::object, errc::invalid_type};
     }
 
-    meta::type_data stored_type = type;
+    meta::detail::type_data stored_type = type;
     if (!stored_type.id()) {
       stored_type.set_id(expected_id);
     }
@@ -124,7 +135,7 @@ template <typename T>
     }
   }
 
-  return registry.register_type_for<T>(objects::make_meta_type_data<T>(name, parent_id),
+  return registry.register_type_for<T>(objects::detail::make_meta_type_data<T>(name, parent_id),
                                        objects::make_type_data<T>());
 }
 

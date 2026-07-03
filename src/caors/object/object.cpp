@@ -10,8 +10,9 @@ namespace {
 
 std::atomic<std::uint64_t> next_object_id{1};
 
-[[nodiscard]] meta::type_data make_root_object_meta_type_data() {
-  return meta::make_type_data<object>(object::static_type_name(), object_type_id::invalid());
+[[nodiscard]] meta::detail::type_data make_root_object_meta_type_data() {
+  return meta::detail::make_type_data<object>(object::static_type_name(),
+                                              object_type_id::invalid());
 }
 
 [[nodiscard]] type_data make_root_object_type_data() { return {}; }
@@ -79,7 +80,7 @@ registry::registry() {
 
 registry::~registry() = default;
 
-error registry::register_type(const meta::type_data& type, const type_data& object) {
+error registry::register_type(const meta::detail::type_data& type, const type_data& object) {
   const error type_status = meta::get_registry().register_type(type);
   if (type_status && type_status.value() != errc::duplicate_id) {
     return rethrow_as(type_status, error_domain::object);

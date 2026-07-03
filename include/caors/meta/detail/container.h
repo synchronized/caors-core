@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_META_CONTAINER_H_
-#define CAORS_META_CONTAINER_H_
+#ifndef CAORS_META_DETAIL_CONTAINER_H_
+#define CAORS_META_DETAIL_CONTAINER_H_
 
 #include "caors/core/containers.h"
 #include "caors/meta/type_id.h"
 
 #include <cstddef>
 
-namespace caors::meta {
+namespace caors::meta::detail {
 
 using set_raw_visitor = bool (*)(const void*, void*);
 using associative_raw_visitor = bool (*)(const void*, const void*, void*);
@@ -175,6 +175,6 @@ struct variant_data {
   }
 };
 
-} // namespace caors::meta
+} // namespace caors::meta::detail
 
 #endif

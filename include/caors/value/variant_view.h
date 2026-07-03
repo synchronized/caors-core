@@ -84,7 +84,7 @@ public:
       return {};
     }
 
-    const meta::variant_alternative_data& alternative_data = data_->alternatives[*active];
+    const meta::detail::variant_alternative_data& alternative_data = data_->alternatives[*active];
     const void* value = nullptr;
     bool value_writable = false;
     if (writable() && alternative_data.mutable_alternative != nullptr) {
@@ -112,7 +112,8 @@ public:
       return true;
     }
 
-    const meta::variant_alternative_data& alternative_data = data_->alternatives[alternative];
+    const meta::detail::variant_alternative_data& alternative_data =
+        data_->alternatives[alternative];
     if (alternative_data.emplace == nullptr) {
       return false;
     }
@@ -135,10 +136,10 @@ private:
   friend class any;
   friend class any_ref;
 
-  variant_view(const meta::variant_data* data, const void* storage, bool writable) noexcept
+  variant_view(const meta::detail::variant_data* data, const void* storage, bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
 
-  const meta::variant_data* data_ = nullptr;
+  const meta::detail::variant_data* data_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };

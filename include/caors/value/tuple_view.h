@@ -51,7 +51,7 @@ public:
       return {};
     }
 
-    const meta::tuple_element_data& element_data = data_->elements[index];
+    const meta::detail::tuple_element_data& element_data = data_->elements[index];
     const void* value = nullptr;
     bool value_writable = false;
     if (writable() && element_data.mutable_element != nullptr) {
@@ -83,10 +83,10 @@ private:
   friend class any;
   friend class any_ref;
 
-  tuple_view(const meta::tuple_data* data, const void* storage, bool writable) noexcept
+  tuple_view(const meta::detail::tuple_data* data, const void* storage, bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
 
-  const meta::tuple_data* data_ = nullptr;
+  const meta::detail::tuple_data* data_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };

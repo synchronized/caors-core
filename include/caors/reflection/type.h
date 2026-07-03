@@ -11,12 +11,12 @@
 #include <optional>
 #include <string_view>
 
-namespace caors::reflection {
+namespace caors::reflection::detail {
 
 /**
  * @brief 类型反射底层数据。
  *
- * 该类型只保存反射组件自己的数据，例如字段列表；类型身份由 `meta::type_data` 和 `meta::type_view`
+ * 该类型只保存反射组件自己的数据，例如字段列表；类型身份由 `meta::type_view`
  * 统一表达。外部查询优先使用 `reflection::type` 只读视图。
  */
 struct type_data {
@@ -32,6 +32,6 @@ struct type_data {
   return type_data{vector<field_data>{fields}};
 }
 
-} // namespace caors::reflection
+} // namespace caors::reflection::detail
 
 #endif

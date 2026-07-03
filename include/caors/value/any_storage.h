@@ -6,6 +6,7 @@
 
 #include "caors/meta.h"
 #include "caors/traits/container.h"
+#include "caors/traits/type_name.h"
 
 #include <cstddef>
 #include <optional>
@@ -13,9 +14,9 @@
 #include <type_traits>
 #include <utility>
 
-namespace caors::reflection {
+namespace caors::reflection::detail {
 struct field_data;
-} // namespace caors::reflection
+} // namespace caors::reflection::detail
 
 namespace caors::value {
 
@@ -75,7 +76,7 @@ public:
   template <typename T> [[nodiscard]] static any from(const T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
     static_assert(
-        detail::has_type_name_v<type>,
+        traits::has_type_name_v<type>,
         "any::from<T>() requires a registered traits::type_name<T> or an explicit type name");
     return from(source, caors::traits::type_name<type>::value);
   }
@@ -227,7 +228,7 @@ public:
 
 private:
   friend class any_ref;
-  friend struct reflection::field_data;
+  friend struct reflection::detail::field_data;
 
   [[nodiscard]] static any copy_from_raw(type_id type, const void* source) {
     const std::optional<meta::type_view> meta = caors::meta::find(type);

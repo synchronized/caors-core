@@ -16,7 +16,7 @@ public:
   bool frozen = false;
   bool registrations_ran = false;
   core::vector<registration_fn> registrations;
-  core::hash_map<std::uint64_t, std::unique_ptr<type_data>> types;
+  core::hash_map<std::uint64_t, std::unique_ptr<detail::type_data>> types;
   core::hash_map<core::string_name, type_id> names;
   core::hash_map<core::guid, type_id, core::guid_hash> guids;
   core::hash_map<detail::meta_component_key, std::unique_ptr<detail::meta_component_storage_base>>

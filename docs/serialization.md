@@ -109,8 +109,8 @@ caors::serialization::class_(type)
 - `version_added != 0 && schema_version < version_added` 的字段会被跳过。
 - `version_removed != 0 && schema_version >= version_removed` 的字段会被跳过。
 
-序列化字段配置属于 serialization 组件，不直接写入 `reflection::field_data`，也不持有
-`reflection::field_data` 指针。反射负责描述字段是什么，序列化负责描述字段如何存储；真正序列化时
+序列化字段配置属于 serialization 组件，不直接写入反射内部字段数据，也不持有
+反射内部字段数据指针。反射负责描述字段是什么，序列化负责描述字段如何存储；真正序列化时
 再按字段名解析反射字段，因此序列化注册和反射注册没有固定顺序要求。
 
 ### serialization::writer

@@ -4,8 +4,8 @@
 #ifndef CAORS_META_DETAIL_CONTAINER_REGISTRATION_SET_H_
 #define CAORS_META_DETAIL_CONTAINER_REGISTRATION_SET_H_
 
-#include "caors/meta/registry.h"
 #include "caors/meta/detail/container_registration_iterators.h"
+#include "caors/meta/registry.h"
 
 namespace caors::meta::detail {
 template <typename T> [[nodiscard]] error register_set_data_for(type_id id) {
@@ -18,7 +18,7 @@ template <typename T> [[nodiscard]] error register_set_data_for(type_id id) {
       return {};
     }
 
-    meta::set_data data{
+    meta::detail::set_data data{
         value,
         [](const void* storage) noexcept -> std::size_t {
           if (storage == nullptr) {
@@ -27,7 +27,7 @@ template <typename T> [[nodiscard]] error register_set_data_for(type_id id) {
 
           return traits::set_traits<type>::size(*static_cast<const type*>(storage));
         },
-        [](const void* storage, meta::set_raw_visitor visitor, void* user_data) -> bool {
+        [](const void* storage, set_raw_visitor visitor, void* user_data) -> bool {
           if (storage == nullptr || visitor == nullptr) {
             return false;
           }
@@ -70,7 +70,7 @@ template <typename T> [[nodiscard]] error register_set_data_for(type_id id) {
       data.iterator_value = &set_iterator_value<iterator_type>;
     }
 
-    const error result = caors::meta::get_registry().emplace<meta::set_data>(id, data);
+    const error result = caors::meta::get_registry().emplace<meta::detail::set_data>(id, data);
     if (result && result.value() != errc::duplicate_component) {
       return result;
     }

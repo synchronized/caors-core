@@ -15,7 +15,7 @@
 - 用 `string_name` 保存运行期去重后的类型名。
 - 用 `type_id` 表示由 C++ 类型运行期 key 派生的进程内类型句柄。
 - 用 `type_guid` 保存可选的稳定类型标识。
-- 用 `meta::type_data` 保存类型名、稳定 GUID、大小、对齐和父类型。
+- 用注册表内部基础类型数据保存类型名、稳定 GUID、大小、对齐和父类型。
 - 用 `meta::type_semantics_data` 保存 wrapper、指针和容器等类型语义。
 - 用 `meta::type_view` 作为对外只读类型视图，避免直接暴露注册表内部数据。
 - 用全局 `meta::registry` 集中处理基础类型注册、查找和继承关系判断。
@@ -39,7 +39,7 @@
 - `caors/traits/type_name.h`：`traits::type_name<T>` 默认类型名映射。
 - `caors/traits/wrapper.h`：`traits::wrapper_traits<T>` 和 `traits::wrapper_access<T>` 主模板。
 - `caors/traits/container.h`：顺序、集合、关联、pair、tuple 和 variant 类型语义 traits 主模板。
-- `caors/meta/type.h`：`meta::type_data`、`meta::type_view` 和 `meta::make_type_data<T>()`。
+- `caors/meta/type.h`：`meta::type_view`、类型语义数据和内部类型描述实现。
 - `caors/adapters/stl_traits.h`、`caors/adapters/stl_wrapper.h`：STL/CAORS 类型的默认 traits 特化。
 - `caors/meta/view.h`：`meta::view<T...>` 查询视图。
 - `caors/meta/registry.h`：全局 `meta::registry`、注册错误状态和注册 helper。
@@ -87,19 +87,20 @@ caors::type_id id = caors::meta::id("game.player");
 
 ```cpp
 auto guid = caors::guid::parse("5ed39a97-7b20-4d87-86ac-e62a4a615b10");
-caors::meta::type_data data =
-    caors::meta::make_type_data<player>("game.player", caors::type_guid{*guid});
+caors::meta::type<player>("game.player")
+    .guid(caors::type_guid{*guid});
 ```
 
 需要注意：
 
-- 未显式传入时，`meta::type_data::guid()` 为 nil。
+- 未显式传入时，`meta::type_view::guid()` 为 nil。
 - `type_guid` 不应由 `type_id`、`string_name` 的运行期 entry 或哈希值派生。
 - 修改类型名不应自动修改 `type_guid`，否则旧数据无法稳定识别类型。
 
-### meta::type_data 和 meta::type_view
+### meta::type_view
 
-`meta::type_data` 是底层注册描述，包含公开身份和布局信息：
+基础类型数据由全局注册表内部保存，普通代码不直接构造或修改。对外查询统一返回
+`meta::type_view`，它提供以下只读信息：
 
 - `id`
 - `name`
@@ -108,16 +109,8 @@ caors::meta::type_data data =
 - `alignment`
 - `parent_id`
 
-模板创建路径会写入该 C++ 类型的运行期 `type_id`，并记录可用时的默认构造、复制、析构和赋值函数。
+注册时会记录该 C++ 类型的运行期 `type_id`，并记录可用时的默认构造、复制、析构和赋值函数。
 这些操作函数属于注册表和 `value` 模块的内部运行期能力，普通代码不应直接修改或依赖其具体布局。
-
-```cpp
-caors::meta::type_data data = caors::meta::make_type_data<player>("game.player");
-```
-
-`meta::make_type_data<T>()` 只创建待注册描述，不会把类型写入全局注册表。描述中的 `id` 已经是该
-C++ 类型的运行期 `type_id`；只有调用 `meta::type<T>("name")` 或底层注册入口后，才能通过 registry
-查询到这条记录。
 `meta::id_of<T>()` 只查询已经注册的 C++ 类型，不会创建匿名类型记录；普通代码应在启动注册阶段直接使用
 `meta::type<T>("name")`。
 
@@ -132,8 +125,8 @@ if (type) {
 }
 ```
 
-`meta::type_view` 不拥有数据，内部引用全局 append-only 注册表中的 `meta::type_data`。普通代码不应持有
-或修改 `meta::type_data`，需要查询类型信息时使用 `meta::type_view`。
+`meta::type_view` 不拥有数据，内部引用全局 append-only 注册表中的基础类型数据。需要查询类型信息时
+使用 `meta::type_view`。
 
 ### traits::type_name<T>
 
@@ -177,7 +170,7 @@ caors::meta::type<actor>("game.actor")
 - `pointer_depth`：当前支持的指针层级。
 - `nullable`：运行期值是否可能为空。
 
-这部分数据不放在 `reflection::field_data` 上重复保存。字段只记录声明类型的 `type_id`，需要查询字段形态、
+这部分数据不在反射字段数据上重复保存。字段只记录声明类型的 `type_id`，需要查询字段形态、
 value 类型、关联容器 key 类型、二元组 first 类型或 tuple-like 字段形态时，通过该 `type_id` 到 `meta::registry` 查询 `meta::type_semantics_data`。
 `meta::type_semantics_data` 由 `meta::registry::register_type_for<T>()` 在基础类型注册时自动挂载；反射字段
 注册只负责确保字段声明类型已经注册。wrapper、指针和容器依赖的 value/key/元素/候选类型也必须提前显式注册；
@@ -194,7 +187,7 @@ caors::error result = caors::meta::type<actor>("game.actor").result();
 注册表只面向 C++ 类型。脚本或动态类型不应直接写入当前注册表，后续应放到独立系统，再由上层 resolver
 统一查询。注册表是 append-only：基础类型注册后不可清理或撤销，重复注册相同类型会返回重复结果。
 当前组件同样按 append-only 方式挂载：同一类型的同类组件注册后不可替换。反射和序列化这类组件
-内部字段数据也按“注册后冻结”处理，外部视图只在该约束下承诺进程生命周期内稳定。
+反射字段数据也按“注册后冻结”处理，外部视图只在该约束下承诺进程生命周期内稳定。
 
 推荐生命周期：
 
@@ -237,7 +230,7 @@ CAORS_META_REGISTRATION(register_actor_meta) {
 
 注册表维护几类索引：
 
-- `type_id -> meta::type_data`：运行期主索引。
+- `type_id -> 内部基础类型数据`：运行期主索引。
 - `type_name -> type_id`：名称查询索引，可选。
 - `type_guid -> type_id`：稳定身份查询索引，可选。
 
@@ -302,13 +295,12 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 全局 `meta::registry` 是共享元数据层：
 
 - `objects::registry` 复用全局基础类型信息，再给同一个 `type_id` 挂载 `objects::type_data` 组件，并对外返回 `objects::type` 视图。
-- 全局反射注册表复用基础类型信息，再挂载 `reflection::type_data` 组件。
+- 全局反射注册表复用基础类型信息，再挂载内部反射组件，并通过 `reflection::type` / `reflection::field` 对外查询。
 - 后续 `serialization::registry` 可以挂载序列化相关组件。
 
 这样对象、反射和序列化的全局注册入口不需要重复处理重名、重复 GUID、不一致类型描述和父类型缺失。
-跨模块查询可以通过 `meta::view<T...>()` 完成，例如查询同时拥有 `reflection::type_data` 和
-`serialization::type_data` 的类型。该视图保存查询时匹配的 `type_id` 列表，不持有组件引用；需要
-读取组件内容时再通过 `find<T>()` 获取组件副本，或者由对应模块 API 返回稳定只读视图。
+跨模块查询可以通过 `meta::view<T...>()` 完成。反射这类内部组件应通过对应模块 API 返回稳定只读视图；
+序列化等公开组件仍可通过 `meta::view<serialization::type_data>()` 查询。
 
 ## 当前已实现能力
 
@@ -318,7 +310,6 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 - `meta::id_of<T>()`：查询已注册 C++ 类型的运行期类型 id；未注册时返回无效 id。
 - `meta::id()`：根据已注册类型名查询运行期类型标识。
 - `traits::type_name<T>`：基础 C++ 类型到 CAORS 类型名的默认映射。
-- `meta::type_data` / `meta::make_type_data<T>()`：底层类型注册描述。
 - `meta::type_semantics_data`：类型形态、wrapper、指针和容器语义组件。
 - `traits::wrapper_traits<T>` / `traits::wrapper_access<T>`：wrapper 类型语义和内部值访问扩展点。
 - `traits::sequence_traits<T>` / `traits::set_traits<T>` / `traits::associative_traits<T>` / `traits::pair_traits<T>` / `traits::tuple_traits<T>` / `traits::variant_traits<T>`：容器、二元组、tuple-like 和 variant-like 类型语义扩展点。

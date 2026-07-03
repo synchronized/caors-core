@@ -22,7 +22,7 @@ public:
   template <typename T> [[nodiscard]] static any_ref from(T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
     static_assert(
-        detail::has_type_name_v<type>,
+        traits::has_type_name_v<type>,
         "any_ref::from<T>() requires a registered traits::type_name<T> or an explicit type name");
     return from(source, caors::traits::type_name<type>::value);
   }
@@ -41,7 +41,7 @@ public:
   /** @brief 从只读 C++ 对象创建引用。 */
   template <typename T> [[nodiscard]] static any_ref from_const(const T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    static_assert(detail::has_type_name_v<type>, "any_ref::from_const<T>() requires a registered "
+    static_assert(traits::has_type_name_v<type>, "any_ref::from_const<T>() requires a registered "
                                                  "traits::type_name<T> or an explicit type name");
     return from_const(source, caors::traits::type_name<type>::value);
   }
@@ -178,7 +178,7 @@ private:
   friend class pair_view;
   friend class tuple_view;
   friend class variant_view;
-  friend struct reflection::field_data;
+  friend struct reflection::detail::field_data;
 
   [[nodiscard]] static any_ref from_raw(type_id type, const void* data, bool writable) noexcept {
     const std::optional<meta::type_view> meta = caors::meta::find(type);

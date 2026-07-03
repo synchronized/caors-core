@@ -19,7 +19,8 @@ inline associative_view any::create_associative_view() {
     return {};
   }
 
-  const meta::associative_data* data = meta::get_registry().find_ptr<meta::associative_data>(type_);
+  const meta::detail::associative_data* data =
+      meta::get_registry().find_ptr<meta::detail::associative_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -32,7 +33,8 @@ inline associative_view any::create_associative_view() const {
     return {};
   }
 
-  const meta::associative_data* data = meta::get_registry().find_ptr<meta::associative_data>(type_);
+  const meta::detail::associative_data* data =
+      meta::get_registry().find_ptr<meta::detail::associative_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -45,7 +47,8 @@ inline associative_view any_ref::create_associative_view() const {
     return {};
   }
 
-  const meta::associative_data* data = meta::get_registry().find_ptr<meta::associative_data>(type_);
+  const meta::detail::associative_data* data =
+      meta::get_registry().find_ptr<meta::detail::associative_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -58,7 +61,8 @@ inline pair_view any::create_pair_view() {
     return {};
   }
 
-  const meta::pair_data* data = meta::get_registry().find_ptr<meta::pair_data>(type_);
+  const meta::detail::pair_data* data =
+      meta::get_registry().find_ptr<meta::detail::pair_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -71,7 +75,8 @@ inline pair_view any::create_pair_view() const {
     return {};
   }
 
-  const meta::pair_data* data = meta::get_registry().find_ptr<meta::pair_data>(type_);
+  const meta::detail::pair_data* data =
+      meta::get_registry().find_ptr<meta::detail::pair_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -84,7 +89,8 @@ inline pair_view any_ref::create_pair_view() const {
     return {};
   }
 
-  const meta::pair_data* data = meta::get_registry().find_ptr<meta::pair_data>(type_);
+  const meta::detail::pair_data* data =
+      meta::get_registry().find_ptr<meta::detail::pair_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -97,7 +103,8 @@ inline tuple_view any::create_tuple_view() {
     return {};
   }
 
-  const meta::tuple_data* data = meta::get_registry().find_ptr<meta::tuple_data>(type_);
+  const meta::detail::tuple_data* data =
+      meta::get_registry().find_ptr<meta::detail::tuple_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -110,7 +117,8 @@ inline tuple_view any::create_tuple_view() const {
     return {};
   }
 
-  const meta::tuple_data* data = meta::get_registry().find_ptr<meta::tuple_data>(type_);
+  const meta::detail::tuple_data* data =
+      meta::get_registry().find_ptr<meta::detail::tuple_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -123,7 +131,8 @@ inline tuple_view any_ref::create_tuple_view() const {
     return {};
   }
 
-  const meta::tuple_data* data = meta::get_registry().find_ptr<meta::tuple_data>(type_);
+  const meta::detail::tuple_data* data =
+      meta::get_registry().find_ptr<meta::detail::tuple_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -136,7 +145,8 @@ inline variant_view any::create_variant_view() {
     return {};
   }
 
-  const meta::variant_data* data = meta::get_registry().find_ptr<meta::variant_data>(type_);
+  const meta::detail::variant_data* data =
+      meta::get_registry().find_ptr<meta::detail::variant_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -149,7 +159,8 @@ inline variant_view any::create_variant_view() const {
     return {};
   }
 
-  const meta::variant_data* data = meta::get_registry().find_ptr<meta::variant_data>(type_);
+  const meta::detail::variant_data* data =
+      meta::get_registry().find_ptr<meta::detail::variant_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -162,7 +173,8 @@ inline variant_view any_ref::create_variant_view() const {
     return {};
   }
 
-  const meta::variant_data* data = meta::get_registry().find_ptr<meta::variant_data>(type_);
+  const meta::detail::variant_data* data =
+      meta::get_registry().find_ptr<meta::detail::variant_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -223,7 +235,8 @@ inline sequence_view any::create_sequence_view() {
     return {};
   }
 
-  const meta::sequence_data* data = meta::get_registry().find_ptr<meta::sequence_data>(type_);
+  const meta::detail::sequence_data* data =
+      meta::get_registry().find_ptr<meta::detail::sequence_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -236,7 +249,8 @@ inline sequence_view any::create_sequence_view() const {
     return {};
   }
 
-  const meta::sequence_data* data = meta::get_registry().find_ptr<meta::sequence_data>(type_);
+  const meta::detail::sequence_data* data =
+      meta::get_registry().find_ptr<meta::detail::sequence_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -249,7 +263,8 @@ inline sequence_view any_ref::create_sequence_view() const {
     return {};
   }
 
-  const meta::sequence_data* data = meta::get_registry().find_ptr<meta::sequence_data>(type_);
+  const meta::detail::sequence_data* data =
+      meta::get_registry().find_ptr<meta::detail::sequence_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -262,7 +277,7 @@ inline set_view any::create_set_view() {
     return {};
   }
 
-  const meta::set_data* data = meta::get_registry().find_ptr<meta::set_data>(type_);
+  const meta::detail::set_data* data = meta::get_registry().find_ptr<meta::detail::set_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -275,7 +290,7 @@ inline set_view any::create_set_view() const {
     return {};
   }
 
-  const meta::set_data* data = meta::get_registry().find_ptr<meta::set_data>(type_);
+  const meta::detail::set_data* data = meta::get_registry().find_ptr<meta::detail::set_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -288,7 +303,7 @@ inline set_view any_ref::create_set_view() const {
     return {};
   }
 
-  const meta::set_data* data = meta::get_registry().find_ptr<meta::set_data>(type_);
+  const meta::detail::set_data* data = meta::get_registry().find_ptr<meta::detail::set_data>(type_);
   if (data == nullptr) {
     return {};
   }
