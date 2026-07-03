@@ -30,7 +30,7 @@ struct cross_module_late_registered {
 }
 
 template <typename T> void register_common_type(std::string_view name) {
-  const caors::error status = caors::meta::type<T>(name).result();
+  const caors::error status = caors::meta::type_<T>(name).result();
   (void)status;
 }
 
@@ -80,7 +80,7 @@ TEST_CASE("meta - view finds types with reflection and serialization components"
 
 TEST_CASE("meta - cross module view supports serialization registered before reflection",
           "[meta]") {
-  const caors::meta::type_view type = caors::meta::type<cross_module_serialization_first>(
+  const caors::meta::type type = caors::meta::type_<cross_module_serialization_first>(
                                           "caors.test.meta.cross_module_serialization_first")
                                           .get();
   REQUIRE(type.valid());

@@ -54,7 +54,7 @@ namespace caors::serialization::detail {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  const meta::type_view meta = caors::meta::find(target.type());
+  const meta::type meta = caors::meta::find(target.type());
   if (sequence != nullptr && !sequence->read_in_place && meta && meta.assign_value() != nullptr) {
     any decoded = any::default_construct(target.type());
     if (decoded.valid()) {
@@ -121,7 +121,7 @@ namespace caors::serialization::detail {
 
 [[nodiscard]] error read_set_value(reader& reader, const any_ref& target,
                                    const serialization::context& context) {
-  const meta::type_view meta = caors::meta::find(target.type());
+  const meta::type meta = caors::meta::find(target.type());
   if (meta && meta.assign_value() != nullptr) {
     any decoded = any::default_construct(target.type());
     if (decoded.valid()) {
@@ -214,7 +214,7 @@ namespace caors::serialization::detail {
 
 [[nodiscard]] error read_associative_value(reader& reader, const any_ref& target,
                                            const serialization::context& context) {
-  const meta::type_view meta = caors::meta::find(target.type());
+  const meta::type meta = caors::meta::find(target.type());
   if (meta && meta.assign_value() != nullptr) {
     any decoded = any::default_construct(target.type());
     if (decoded.valid()) {
@@ -295,7 +295,7 @@ namespace caors::serialization::detail {
 
 [[nodiscard]] error read_pair_value(reader& reader, const any_ref& target,
                                     const serialization::context& context) {
-  const meta::type_view meta = caors::meta::find(target.type());
+  const meta::type meta = caors::meta::find(target.type());
   if (meta && meta.assign_value() != nullptr) {
     any decoded = any::default_construct(target.type());
     if (decoded.valid()) {
@@ -358,7 +358,7 @@ namespace caors::serialization::detail {
 
 [[nodiscard]] error read_tuple_value(reader& reader, const any_ref& target,
                                      const serialization::context& context) {
-  const meta::type_view meta = caors::meta::find(target.type());
+  const meta::type meta = caors::meta::find(target.type());
   if (meta && meta.assign_value() != nullptr) {
     any decoded = any::default_construct(target.type());
     if (decoded.valid()) {
@@ -443,7 +443,7 @@ namespace caors::serialization::detail {
 
 [[nodiscard]] error read_variant_value(reader& reader, const any_ref& target,
                                        const serialization::context& context) {
-  const meta::type_view meta = caors::meta::find(target.type());
+  const meta::type meta = caors::meta::find(target.type());
   if (meta && meta.assign_value() != nullptr) {
     any decoded = target.to_any();
     if (!decoded.valid()) {

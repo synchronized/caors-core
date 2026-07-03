@@ -316,11 +316,11 @@ struct object_ref_resolver_data {
 }
 
 template <typename T> void require_registered_type(std::string_view name) {
-  REQUIRE(type_result_ok(caors::meta::type<T>(name).result()));
+  REQUIRE(type_result_ok(caors::meta::type_<T>(name).result()));
 }
 
 template <typename T> void register_common_type(std::string_view name) {
-  const caors::error status = caors::meta::type<T>(name).result();
+  const caors::error status = caors::meta::type_<T>(name).result();
   (void)status;
 }
 

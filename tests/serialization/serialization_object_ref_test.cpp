@@ -6,7 +6,7 @@
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - serializes object references through resolver", "[serialization]") {
-  REQUIRE(type_result_ok(caors::meta::type<caors::object_ref<object_ref_target>>(
+  REQUIRE(type_result_ok(caors::meta::type_<caors::object_ref<object_ref_target>>(
                              "caors.object_ref<caors.test.serialization.object_ref_target>")
                              .result()));
   REQUIRE(reflection_result_ok(
@@ -45,7 +45,7 @@ TEST_CASE("serialization - serializes object references through resolver", "[ser
 }
 
 TEST_CASE("serialization - deserializes object references through resolver", "[serialization]") {
-  REQUIRE(type_result_ok(caors::meta::type<caors::object_ref<object_ref_target>>(
+  REQUIRE(type_result_ok(caors::meta::type_<caors::object_ref<object_ref_target>>(
                              "caors.object_ref<caors.test.serialization.object_ref_target>")
                              .result()));
   REQUIRE(reflection_result_ok(
@@ -137,7 +137,7 @@ TEST_CASE("serialization - deserializes object references inside vectors", "[ser
 }
 
 TEST_CASE("serialization - object reference resolver failures are reported", "[serialization]") {
-  REQUIRE(type_result_ok(caors::meta::type<caors::object_ref<object_ref_target>>(
+  REQUIRE(type_result_ok(caors::meta::type_<caors::object_ref<object_ref_target>>(
                              "caors.object_ref<caors.test.serialization.object_ref_target>")
                              .result()));
   REQUIRE(reflection_result_ok(

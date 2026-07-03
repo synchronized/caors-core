@@ -32,7 +32,7 @@ public:
   [[nodiscard]] error register_type(const meta::detail::type_data& type,
                                     const detail::type_data& reflection);
   [[nodiscard]] error register_type(type_id id, const detail::type_data& reflection);
-  [[nodiscard]] error register_type(meta::type_view type, const detail::type_data& reflection);
+  [[nodiscard]] error register_type(meta::type type, const detail::type_data& reflection);
   template <typename T>
   [[nodiscard]] error register_type_for(const meta::detail::type_data& type,
                                         const detail::type_data& reflection) {
@@ -51,7 +51,7 @@ public:
   }
 
   [[nodiscard]] bool contains(type_id id) const;
-  template <typename T> [[nodiscard]] meta::type_view find_registered_type() const {
+  template <typename T> [[nodiscard]] meta::type find_registered_type() const {
     return meta::get_registry().find_type<T>();
   }
 
@@ -115,7 +115,7 @@ register_reflection(std::string_view name, type_guid guid,
 
 /** @brief 向已注册元类型挂载反射组件。内部入口，不会创建或修改基础类型记录。 */
 [[nodiscard]] CAORS_API error register_reflection(
-    meta::type_view type, reflection::detail::type_data data = reflection::detail::type_data{});
+    meta::type type, reflection::detail::type_data data = reflection::detail::type_data{});
 
 } // namespace detail
 

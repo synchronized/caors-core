@@ -26,7 +26,7 @@ error registry::register_type(type_id id, type_data data) {
   return rethrow_as(meta::get_registry().emplace<type_data>(id, data), error_domain::serialization);
 }
 
-error registry::register_type(meta::type_view type, type_data data) {
+error registry::register_type(meta::type type, type_data data) {
   if (!type.valid()) {
     return {error_domain::serialization, errc::invalid_type};
   }
@@ -46,13 +46,13 @@ registry& get_registry() noexcept { return registry::instance(); }
 
 std::optional<type_data> find(type_id id) { return get_registry().find_type(id); }
 
-std::optional<type_data> find(meta::type_view type) {
+std::optional<type_data> find(meta::type type) {
   return type.valid() ? get_registry().find_type(type.id()) : std::nullopt;
 }
 
 bool contains(type_id id) { return get_registry().contains(id); }
 
-bool contains(meta::type_view type) { return type.valid() && contains(type.id()); }
+bool contains(meta::type type) { return type.valid() && contains(type.id()); }
 
 std::size_t size() noexcept { return get_registry().size(); }
 
@@ -62,7 +62,7 @@ error register_serialization(type_id id, type_data data) {
   return get_registry().register_type(id, data);
 }
 
-error register_serialization(meta::type_view type, type_data data) {
+error register_serialization(meta::type type, type_data data) {
   return get_registry().register_type(type, data);
 }
 

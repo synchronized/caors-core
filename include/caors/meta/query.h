@@ -58,55 +58,55 @@ public:
     return *this;
   }
 
-  [[nodiscard]] type_view get() const noexcept { return type_; }
+  [[nodiscard]] ::caors::meta::type get() const noexcept { return type_; }
   [[nodiscard]] error result() const noexcept { return status_; }
   [[nodiscard]] bool succeeded() const noexcept {
     return status_.succeeded() || status_.value() == errc::duplicate_id;
   }
 
-  [[nodiscard]] operator type_view() const noexcept { return type_; }
+  [[nodiscard]] operator ::caors::meta::type() const noexcept { return type_; }
 
 private:
   void refresh() {
-    type_view refreshed = get_registry().find_type<T>();
+    ::caors::meta::type refreshed = get_registry().find_type<T>();
     if (refreshed) {
       type_ = refreshed;
     }
   }
 
-  type_view type_{};
+  ::caors::meta::type type_{};
   error status_{};
 };
 
 /** @brief 获取指定 C++ 类型的元类型注册构建器；默认不注册类型。 */
-template <typename T> [[nodiscard]] type_builder<T> type() { return type_builder<T>{}; }
+template <typename T> [[nodiscard]] type_builder<T> type_() { return type_builder<T>{}; }
 
 /** @brief 显式注册指定 C++ 类型并设置类型名。 */
-template <typename T> [[nodiscard]] type_builder<T> type(std::string_view name) {
+template <typename T> [[nodiscard]] type_builder<T> type_(std::string_view name) {
   return type_builder<T>{}.type(name);
 }
 
-/** @brief 获取已注册的 C++ 类型；不存在时返回无效 `type_view`。 */
-template <typename T> [[nodiscard]] type_view get() { return get_registry().find_type<T>(); }
+/** @brief 获取已注册的 C++ 类型；不存在时返回无效 `type`。 */
+template <typename T> [[nodiscard]] type get() { return get_registry().find_type<T>(); }
 
 /** @brief 按 C++ 类型查找基础类型。 */
-template <typename T> [[nodiscard]] type_view find() { return get_registry().find_type<T>(); }
+template <typename T> [[nodiscard]] type find() { return get_registry().find_type<T>(); }
 
 /** @brief 按类型 id 查找基础类型。 */
-[[nodiscard]] CAORS_API type_view find(type_id id);
+[[nodiscard]] CAORS_API type find(type_id id);
 
 /** @brief 按稳定 GUID 查找基础类型。 */
-[[nodiscard]] CAORS_API type_view find(type_guid guid);
+[[nodiscard]] CAORS_API type find(type_guid guid);
 
 /** @brief 按类型名查找基础类型。 */
-[[nodiscard]] CAORS_API type_view find(std::string_view name);
+[[nodiscard]] CAORS_API type find(std::string_view name);
 
 /** @brief 按类型名查找基础类型。 */
-[[nodiscard]] CAORS_API type_view find(string_name name);
+[[nodiscard]] CAORS_API type find(string_name name);
 
 /** @brief 获取已注册 C++ 类型的运行期类型 id；未注册时返回无效 id。 */
 template <typename T> [[nodiscard]] type_id id_of() {
-  const type_view stored = find<T>();
+  const type stored = find<T>();
   return stored ? stored.id() : type_id::invalid();
 }
 
@@ -121,7 +121,7 @@ template <typename T> [[nodiscard]] type_id id_of() {
 
 namespace detail {
 
-/** @brief 向全局元数据注册表注册基础类型。内部入口，公开代码优先使用 `meta::type<T>()`。 */
+/** @brief 向全局元数据注册表注册基础类型。内部入口，公开代码优先使用 `meta::type_<T>()`。 */
 template <typename T>
 [[nodiscard]] error register_type(string_name name, type_id parent_id = type_id::invalid()) {
   return get_registry().register_type_for<T>(make_type_data<T>(name, parent_id));

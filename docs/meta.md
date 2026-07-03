@@ -17,7 +17,7 @@
 - 用 `type_guid` 保存可选的稳定类型标识。
 - 用注册表内部基础类型数据保存类型名、稳定 GUID、大小、对齐和父类型。
 - 用 `meta::type_semantics_data` 保存 wrapper、指针和容器等类型语义。
-- 用 `meta::type_view` 作为对外只读类型视图，避免直接暴露注册表内部数据。
+- 用 `meta::type` 作为对外只读类型视图，避免直接暴露注册表内部数据。
 - 用全局 `meta::registry` 集中处理基础类型注册、查找和继承关系判断。
 - 用全局 `meta::registry` 在同一个 `type_id` 上挂载不同主题的元数据组件。
 - 避免对象系统、反射系统和序列化系统各自重复实现类型注册逻辑。
@@ -39,7 +39,7 @@
 - `caors/traits/type_name.h`：`traits::type_name<T>` 默认类型名映射。
 - `caors/traits/wrapper.h`：`traits::wrapper_traits<T>` 和 `traits::wrapper_access<T>` 主模板。
 - `caors/traits/container.h`：顺序、集合、关联、pair、tuple 和 variant 类型语义 traits 主模板。
-- `caors/meta/type.h`：`meta::type_view`、类型语义数据和内部类型描述实现。
+- `caors/meta/type.h`：`meta::type`、类型语义数据和内部类型描述实现。
 - `caors/adapters/stl_traits.h`、`caors/adapters/stl_wrapper.h`：STL/CAORS 类型的默认 traits 特化。
 - `caors/meta/view.h`：`meta::view<T...>` 查询视图。
 - `caors/meta/registry.h`：全局 `meta::registry`、注册错误状态和注册 helper。
@@ -63,14 +63,14 @@ std::string_view view = name.view();
 只保证当前进程内可用于注册表索引，不承诺跨进程、跨版本或跨动态库边界稳定。
 
 ```cpp
-caors::meta::type<player>("game.player");
+caors::meta::type_<player>("game.player");
 caors::type_id id = caors::meta::id_of<player>();
 ```
 
 类型注册后，也可以通过名称查询当前进程内的运行期 id：
 
 ```cpp
-caors::meta::type<player>("game.player");
+caors::meta::type_<player>("game.player");
 caors::type_id id = caors::meta::id("game.player");
 ```
 
@@ -87,20 +87,20 @@ caors::type_id id = caors::meta::id("game.player");
 
 ```cpp
 auto guid = caors::guid::parse("5ed39a97-7b20-4d87-86ac-e62a4a615b10");
-caors::meta::type<player>("game.player")
+caors::meta::type_<player>("game.player")
     .guid(caors::type_guid{*guid});
 ```
 
 需要注意：
 
-- 未显式传入时，`meta::type_view::guid()` 为 nil。
+- 未显式传入时，`meta::type::guid()` 为 nil。
 - `type_guid` 不应由 `type_id`、`string_name` 的运行期 entry 或哈希值派生。
 - 修改类型名不应自动修改 `type_guid`，否则旧数据无法稳定识别类型。
 
-### meta::type_view
+### meta::type
 
 基础类型数据由全局注册表内部保存，普通代码不直接构造或修改。对外查询统一返回
-`meta::type_view`，它提供以下只读信息：
+`meta::type`，它提供以下只读信息：
 
 - `id`
 - `name`
@@ -112,12 +112,12 @@ caors::meta::type<player>("game.player")
 注册时会记录该 C++ 类型的运行期 `type_id`，并记录可用时的默认构造、复制、析构和赋值函数。
 这些操作函数属于注册表和 `value` 模块的内部运行期能力，普通代码不应直接修改或依赖其具体布局。
 `meta::id_of<T>()` 只查询已经注册的 C++ 类型，不会创建匿名类型记录；普通代码应在启动注册阶段直接使用
-`meta::type<T>("name")`。
+`meta::type_<T>("name")`。
 
-`meta::type_view` 是对外查询返回的只读视图：
+`meta::type` 是对外查询返回的只读视图：
 
 ```cpp
-caors::meta::type_view type = caors::meta::find<player>();
+caors::meta::type type = caors::meta::find<player>();
 
 if (type) {
   caors::type_id id = type.id();
@@ -125,8 +125,8 @@ if (type) {
 }
 ```
 
-`meta::type_view` 不拥有数据，内部引用全局 append-only 注册表中的基础类型数据。需要查询类型信息时
-使用 `meta::type_view`。
+`meta::type` 不拥有数据，内部引用全局 append-only 注册表中的基础类型数据。需要查询类型信息时
+使用 `meta::type`。
 
 ### traits::type_name<T>
 
@@ -137,11 +137,11 @@ caors::traits::type_name<int>::value;   // "int"
 caors::traits::type_name<float>::value; // "float"
 ```
 
-用户类型可以通过特化 `traits::type_name<T>` 提供默认名称，也可以直接通过 `meta::type<T>("name")`
-显式注册。模板注册入口会把 C++ 类型和注册后的 `meta::type_view` 绑定起来，后续可以用 C++ 类型查询：
+用户类型可以通过特化 `traits::type_name<T>` 提供默认名称，也可以直接通过 `meta::type_<T>("name")`
+显式注册。模板注册入口会把 C++ 类型和注册后的 `meta::type` 绑定起来，后续可以用 C++ 类型查询：
 
 ```cpp
-caors::meta::type<actor>("game.actor");
+caors::meta::type_<actor>("game.actor");
 
 auto type = caors::meta::find<actor>();
 ```
@@ -149,12 +149,12 @@ auto type = caors::meta::find<actor>();
 也可以使用 RTTR 风格入口：
 
 ```cpp
-caors::meta::type<actor>("game.actor")
+caors::meta::type_<actor>("game.actor")
     .guid(caors::type_guid{*guid});
 ```
 
 `caors::meta::find(...)` 和 `caors::meta::get<T>()` 只查询已经注册的类型，不会创建临时记录；
-不存在时返回无效 `meta::type_view`。普通类型应通过 `caors::meta::type<T>("name")` 显式注册。
+不存在时返回无效 `meta::type`。普通类型应通过 `caors::meta::type_<T>("name")` 显式注册。
 `meta::id_of<T>()` 同样只查询已注册类型，不会触发运行期隐式注册。
 
 ### meta::type_semantics_data
@@ -181,7 +181,7 @@ meta 不会因为存在 `traits::type_name<T>` 就在运行期隐式创建这些
 `meta::registry` 是进程级全局类型元数据注册表。它直接管理基础类型信息，并允许在同一个 `type_id` 上挂载对象、反射、序列化等元数据组件。普通代码不需要创建 registry 对象：
 
 ```cpp
-caors::error result = caors::meta::type<actor>("game.actor").result();
+caors::error result = caors::meta::type_<actor>("game.actor").result();
 ```
 
 注册表只面向 C++ 类型。脚本或动态类型不应直接写入当前注册表，后续应放到独立系统，再由上层 resolver
@@ -193,8 +193,8 @@ caors::error result = caors::meta::type<actor>("game.actor").result();
 
 ```cpp
 void register_game_types() {
-  caors::meta::type<int>("int");
-  caors::meta::type<actor>("game.actor");
+  caors::meta::type_<int>("int");
+  caors::meta::type_<actor>("game.actor");
   caors::reflection::class_<actor>(caors::meta::get<actor>())
       .field("id", &actor::id)
       .commit();
@@ -211,8 +211,8 @@ int main() {
 
 ```cpp
 CAORS_META_REGISTRATION(register_actor_meta) {
-  caors::meta::type<int>("int");
-  caors::meta::type<actor>("game.actor");
+  caors::meta::type_<int>("int");
+  caors::meta::type_<actor>("game.actor");
 
   return caors::reflection::class_<actor>(caors::meta::get<actor>())
       .field("id", &actor::id)
@@ -250,7 +250,7 @@ struct object_factory_meta {
   bool constructible = false;
 };
 
-caors::meta::type<actor>("game.actor");
+caors::meta::type_<actor>("game.actor");
 
 caors::type_id actor_id = caors::meta::find<actor>().id();
 caors::meta::get_registry().emplace<object_factory_meta>(actor_id, true);
@@ -286,7 +286,7 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 
 `meta::registry` 的注册、查询和组件挂载入口内部仍会加锁，避免注册表容器自身出现 data race。推荐在启动期
 或模块加载期单线程完成注册，并调用 `meta::freeze_registry()`。冻结后的注册表只允许只读查询，返回的
-`meta::type_view` 和各模块视图是指向注册表内部数据的轻量只读视图，适合长期保存和并发读取。
+`meta::type` 和各模块视图是指向注册表内部数据的轻量只读视图，适合长期保存和并发读取。
 
 当前不会支持运行期并发写注册表。脚本类型、异步加载、卸载和热重载应放到独立注册系统中处理。
 
@@ -313,9 +313,9 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 - `meta::type_semantics_data`：类型形态、wrapper、指针和容器语义组件。
 - `traits::wrapper_traits<T>` / `traits::wrapper_access<T>`：wrapper 类型语义和内部值访问扩展点。
 - `traits::sequence_traits<T>` / `traits::set_traits<T>` / `traits::associative_traits<T>` / `traits::pair_traits<T>` / `traits::tuple_traits<T>` / `traits::variant_traits<T>`：容器、二元组、tuple-like 和 variant-like 类型语义扩展点。
-- `meta::type_view`：全局注册表中的类型只读视图。
-- `meta::type<T>()`：RTTR 风格的链式元类型注册入口；默认不注册类型，需要继续调用 `.type("name")`。
-- `meta::type<T>("name")`：推荐的显式命名注册入口。
+- `meta::type`：全局注册表中的类型只读视图。
+- `meta::type_<T>()`：RTTR 风格的链式元类型注册入口；默认不注册类型，需要继续调用 `.type("name")`。
+- `meta::type_<T>("name")`：推荐的显式命名注册入口。
 - `meta::registry`：全局基础类型注册、按 id/name/guid 或 C++ 类型查询、继承关系判断和组件式元数据挂载。
 - `meta::view<T...>`：按组件集合查询类型。
 - `meta::run_registrations()`：执行已收集的延迟元数据注册函数。

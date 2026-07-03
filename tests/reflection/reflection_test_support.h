@@ -261,12 +261,12 @@ constexpr caors::type_guid view_actor_guid{caors::guid::from_bytes(
 }
 
 template <typename T> void require_registered_type(std::string_view name) {
-  const caors::error status = caors::meta::type<T>(name).result();
+  const caors::error status = caors::meta::type_<T>(name).result();
   REQUIRE((status == caors::error{} || status == meta_error(caors::errc::duplicate_id)));
 }
 
 template <typename T> void register_common_type(std::string_view name) {
-  const caors::error status = caors::meta::type<T>(name).result();
+  const caors::error status = caors::meta::type_<T>(name).result();
   (void)status;
 }
 

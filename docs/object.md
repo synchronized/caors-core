@@ -10,7 +10,7 @@
 CAORS 对象系统第一阶段只解决几件事：
 
 - 对象实例有运行期唯一标识。
-- 对象类型复用 `meta::type_view`，包含类型标识、名称、稳定 GUID、大小、对齐和父类型。
+- 对象类型复用 `meta::type`，包含类型标识、名称、稳定 GUID、大小、对齐和父类型。
 - 对象可以注册到基于 `meta::registry` 的对象注册表。
 - 注册表可以按类型创建和销毁默认构造对象。
 - 对象创建和销毁可以接入 `memory_resource`。
@@ -50,7 +50,7 @@ caors::object_id id = instance.id();
 
 ### 基础类型信息
 
-基础类型信息由全局 `meta::registry` 内部保存，并通过 `meta::type_view` 对外查询，包含：
+基础类型信息由全局 `meta::registry` 内部保存，并通过 `meta::type` 对外查询，包含：
 
 - `id`
 - `name`
@@ -123,7 +123,7 @@ public:
 };
 ```
 
-`object_type_guid` 是可选静态成员。运行期临时对象可以不声明，`meta::type_view::guid()` 会保持 nil；可序列化、可反射或跨插件暴露的对象类型建议显式声明稳定 GUID。
+`object_type_guid` 是可选静态成员。运行期临时对象可以不声明，`meta::type::guid()` 会保持 nil；可序列化、可反射或跨插件暴露的对象类型建议显式声明稳定 GUID。
 
 `static_type_id()` 只查询已经注册的对象类型；对象类型尚未通过 `objects::class_<T>(name).commit()`
 注册时返回无效 id。类型名、GUID 和父类型关系应在启动注册阶段一次性写入全局元数据注册表。
@@ -140,7 +140,7 @@ object.type_name(); // "game.player"
 
 `objects::registry` 是基于全局 `meta::registry` 的对象注册表 facade 和默认构造工厂。它不表示彼此隔离的局部注册表实例。普通代码优先通过 `objects::class_<T>()`、`objects::find()`、`objects::id()` 和 `objects::is_a()` 访问对象元数据；需要默认构造工厂时再使用 `objects::get_registry()`。
 
-对外查询返回 `objects::type` 只读视图。它组合了基础 `meta::type_view` 和内部 `objects::type_data`，因此调用方可以通过 `id()`、`name()`、`guid()`、`size()`、`alignment()`、`parent_id()` 和 `constructible()` 查询对象类型信息，但不能直接修改注册表内部数据。
+对外查询返回 `objects::type` 只读视图。它组合了基础 `meta::type` 和内部 `objects::type_data`，因此调用方可以通过 `id()`、`name()`、`guid()`、`size()`、`alignment()`、`parent_id()` 和 `constructible()` 查询对象类型信息，但不能直接修改注册表内部数据。
 
 ```cpp
 if (caors::objects::class_<actor>(actor::object_type_name).commit()) {
@@ -215,9 +215,9 @@ caors::objects::destroy(instance, &resource);
 - `object_type_id`：运行期对象类型标识。
 - `object`：基础对象身份和类型查询入口。
 - `object_base<Derived, Base>`：CRTP 类型查询辅助。
-- `meta::type_view` / `meta::registry`：对象系统和反射系统共享的全局基础类型视图和元数据注册表。
+- `meta::type` / `meta::registry`：对象系统和反射系统共享的全局基础类型视图和元数据注册表。
 - `objects::type_data`：内部对象元数据组件，保存默认构造、创建和销毁函数。
-- `objects::type`：对象类型只读视图，组合 `meta::type_view` 和内部 `objects::type_data`。
+- `objects::type`：对象类型只读视图，组合 `meta::type` 和内部 `objects::type_data`。
 - `caors::error`：明确对象类型注册失败原因和错误来源域。
 - `objects::registry`：类型注册、查询、继承关系判断、默认构造工厂。
 - `objects::class_<T>()`：对象类型链式注册入口。

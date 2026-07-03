@@ -40,8 +40,8 @@ TEST_CASE("reflection - registry registers and finds types", "[reflection]") {
 }
 
 TEST_CASE("reflection - class builder can attach to explicit meta type", "[reflection]") {
-  const caors::meta::type_view type =
-      caors::meta::type<explicit_meta_actor>("caors.test.reflection.explicit_meta_actor").get();
+  const caors::meta::type type =
+      caors::meta::type_<explicit_meta_actor>("caors.test.reflection.explicit_meta_actor").get();
   REQUIRE(type.valid());
   CHECK(caors::meta::get<explicit_meta_actor>().id() == type.id());
 
@@ -60,7 +60,7 @@ TEST_CASE("reflection - class builder can attach to explicit meta type", "[refle
 
 TEST_CASE("reflection - class builder reports invalid explicit meta type", "[reflection]") {
   const caors::error status =
-      caors::reflection::class_<explicit_meta_actor>(caors::meta::type_view{})
+      caors::reflection::class_<explicit_meta_actor>(caors::meta::type{})
           .field("id", &explicit_meta_actor::id)
           .commit();
 

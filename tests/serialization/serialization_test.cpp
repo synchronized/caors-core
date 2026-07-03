@@ -27,7 +27,7 @@ TEST_CASE("serialization - registers type metadata component", "[serialization]"
 }
 
 TEST_CASE("serialization - class builder can attach to explicit meta type", "[serialization]") {
-  const caors::meta::type_view type = caors::meta::type<explicit_meta_serialization_actor>(
+  const caors::meta::type type = caors::meta::type_<explicit_meta_serialization_actor>(
                                           "caors.test.serialization.explicit_meta_actor")
                                           .get();
   REQUIRE(type.valid());

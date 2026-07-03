@@ -27,7 +27,7 @@ struct codec_registry_state {
 
 template <typename T> [[nodiscard]] type_id registered_codec_type_id() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  const meta::type_view meta_type = meta::get_registry().find_type<type>();
+  const meta::type meta_type = meta::get_registry().find_type<type>();
   return meta_type ? meta_type.id() : type_id::invalid();
 }
 

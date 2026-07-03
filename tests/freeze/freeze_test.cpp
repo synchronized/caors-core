@@ -28,8 +28,8 @@ struct late_component {
 } // namespace
 
 CAORS_META_REGISTRATION(register_freeze_macro_actor) {
-  const caors::meta::type_view type =
-      caors::meta::type<macro_actor>("caors.test.freeze.macro_actor").get();
+  const caors::meta::type type =
+      caors::meta::type_<macro_actor>("caors.test.freeze.macro_actor").get();
   return type.valid() ? caors::error{} : meta_error(caors::errc::invalid_type);
 }
 
@@ -37,8 +37,8 @@ TEST_CASE("freeze - meta registry becomes read only", "[freeze]") {
   REQUIRE_FALSE(caors::meta::is_registry_frozen());
   CHECK_FALSE(caors::meta::get<macro_actor>());
 
-  const caors::meta::type_view type =
-      caors::meta::type<freeze_actor>("caors.test.freeze.actor").get();
+  const caors::meta::type type =
+      caors::meta::type_<freeze_actor>("caors.test.freeze.actor").get();
   REQUIRE(type.valid());
   REQUIRE(caors::meta::get_registry().emplace<freeze_component>(type.id(), true) == caors::error{});
 
@@ -47,7 +47,7 @@ TEST_CASE("freeze - meta registry becomes read only", "[freeze]") {
   CHECK(caors::meta::freeze_registry() == caors::error{});
   CHECK(caors::meta::get<macro_actor>().valid());
 
-  CHECK(caors::meta::type<late_actor>("caors.test.freeze.late").result() ==
+  CHECK(caors::meta::type_<late_actor>("caors.test.freeze.late").result() ==
         meta_error(caors::errc::frozen));
   CHECK(caors::meta::get_registry().emplace<late_component>(type.id(), true) ==
         meta_error(caors::errc::frozen));

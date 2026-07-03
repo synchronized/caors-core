@@ -9,7 +9,7 @@
 
 反射第一阶段解决几件事：
 
-- 复用 `meta::type_view`、`type_id` 和 `type_guid` 表达类型身份。
+- 复用 `meta::type`、`type_id` 和 `type_guid` 表达类型身份。
 - 基于 `meta::registry` 挂载内部反射组件。
 - 通过 RTTR 风格 builder 描述字段。
 - 提供按类型 id、类型名和稳定 GUID 查询反射类型。
@@ -42,8 +42,8 @@ struct actor {
   float health = 100.0F;
 };
 
-caors::meta::type<int>("int");
-caors::meta::type<float>("float");
+caors::meta::type_<int>("int");
+caors::meta::type_<float>("float");
 
 caors::reflection::class_<actor>("game.actor")
     .field("id", &actor::id)
@@ -53,7 +53,7 @@ caors::reflection::class_<actor>("game.actor")
 
 字段类型推导规则：
 
-- 字段声明类型必须已经通过 `meta::type<Field>("name")` 注册；未注册时 `.field()` 会记录失败，
+- 字段声明类型必须已经通过 `meta::type_<Field>("name")` 注册；未注册时 `.field()` 会记录失败，
   `.commit()` 返回 `invalid_field`。
 - 如果字段类型满足 `traits::sequence_traits<T>::is_sequence`，字段类型注册到 meta 时会同步挂载元素类型语义。
   内置特化支持 `caors::vector<T>`、
@@ -343,7 +343,7 @@ value.try_set(7);
 可以从同类型 `any` 显式写回字段：
 
 ```cpp
-caors::meta::type<int>("int");
+caors::meta::type_<int>("int");
 
 int source = 42;
 id.try_set_value(&instance, caors::any::from(source));
@@ -535,7 +535,7 @@ caors::value::sequence_view field_sequence =
 caors::value::associative_view field_map =
     field.get_ref(&instance).create_associative_view();
 
-caors::meta::type<caors::hash_map<int, int>>("caors.hash_map<int,int>");
+caors::meta::type_<caors::hash_map<int, int>>("caors.hash_map<int,int>");
 
 caors::hash_map<int, int> values;
 caors::any_ref ref = caors::any_ref::from(values, "caors.hash_map<int,int>");
@@ -554,8 +554,8 @@ for (caors::value::associative_entry_ref entry : map) {
 访问它，不需要创建 registry 对象：
 
 ```cpp
-caors::meta::type<int>("int");
-caors::meta::type_view type = caors::meta::type<actor>("game.actor").get();
+caors::meta::type_<int>("int");
+caors::meta::type type = caors::meta::type_<actor>("game.actor").get();
 
 caors::error result =
     caors::reflection::class_<actor>(type)
@@ -565,9 +565,9 @@ caors::error result =
 auto reflected = caors::reflection::find("game.actor");
 ```
 
-推荐先通过 `meta::type<T>("name")` 注册基础类型，再把 `caors::meta::get<T>()` 或保存下来的 `meta::type_view` 传给
-`reflection::class_<T>(meta::type_view)`。这条路径只向已注册类型挂载反射组件，不会创建或修改
-基础类型记录；传入无效 `meta::type_view` 会返回 `errc::invalid_type`，传入不存在的 `type_id` 会返回
+推荐先通过 `meta::type_<T>("name")` 注册基础类型，再把 `caors::meta::get<T>()` 或保存下来的 `meta::type` 传给
+`reflection::class_<T>(meta::type)`。这条路径只向已注册类型挂载反射组件，不会创建或修改
+基础类型记录；传入无效 `meta::type` 会返回 `errc::invalid_type`，传入不存在的 `type_id` 会返回
 `errc::missing_type`。低层反射组件注册函数属于内部实现入口，普通代码不直接调用。
 
 反射注册应在 `meta::freeze_registry()` 前完成。全局 meta 注册表冻结后，继续注册反射组件会返回
@@ -603,7 +603,7 @@ auto reflected = caors::reflection::find("game.actor");
 - `reflection::type` / `reflection::field`：全局反射数据的推荐查询入口。
 - `reflection::registry`：全局反射注册表 facade。
 - `reflection::class_<T>()`：RTTR 风格链式注册入口。
-- `reflection::class_<T>(meta::type_view)`：推荐的显式 meta 注册入口，只挂载反射组件。
+- `reflection::class_<T>(meta::type)`：推荐的显式 meta 注册入口，只挂载反射组件。
 - `reflection::find()` / `reflection::contains()`：反射组件查询入口。
 
 ## 相关入口

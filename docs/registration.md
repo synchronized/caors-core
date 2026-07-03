@@ -20,10 +20,10 @@
 
 ```cpp
 void register_actor() {
-  caors::meta::type<int>("int");
+  caors::meta::type_<int>("int");
 
-  caors::meta::type_view actor_type =
-      caors::meta::type<actor>("game.actor")
+  caors::meta::type actor_type =
+      caors::meta::type_<actor>("game.actor")
           .guid(caors::type_guid{actor_guid})
           .get();
 
@@ -37,7 +37,7 @@ void register_actor() {
 }
 ```
 
-字段声明类型必须先完成 `meta::type<T>("name")` 注册。反射 builder 不会为字段类型隐式创建 meta 类型，序列化 codec 注册也不会隐式创建 meta 类型。
+字段声明类型必须先完成 `meta::type_<T>("name")` 注册。反射 builder 不会为字段类型隐式创建 meta 类型，序列化 codec 注册也不会隐式创建 meta 类型。
 
 ## 显式初始化
 
@@ -60,7 +60,7 @@ int main() {
 
 ```cpp
 CAORS_META_REGISTRATION(register_actor) {
-  caors::meta::type<actor>("game.actor");
+  caors::meta::type_<actor>("game.actor");
   return caors::error{};
 }
 ```
@@ -93,4 +93,4 @@ CAORS_META_REGISTRATION(register_actor) {
 - `errc::invalid_field`：反射字段类型未注册、字段无效或字段名冲突。
 - `errc::frozen`：注册表已冻结。
 
-公共测试和用户代码应使用 `meta::type<T>()`、`objects::class_<T>()`、`reflection::class_<T>()`、`serialization::class_()`、`serialization::register_type()` 等公开入口，不直接调用各模块的 `detail` 命名空间函数。
+公共测试和用户代码应使用 `meta::type_<T>()`、`objects::class_<T>()`、`reflection::class_<T>()`、`serialization::class_()`、`serialization::register_type()` 等公开入口，不直接调用各模块的 `detail` 命名空间函数。

@@ -40,7 +40,7 @@ public:
   /** @brief 查询指定元素类型名。 */
   [[nodiscard]] string_name element_type_name(std::size_t index) const noexcept {
     const std::optional<type_id> id = element_type(index);
-    const meta::type_view meta = id.has_value() ? caors::meta::find(*id) : meta::type_view{};
+    const meta::type meta = id.has_value() ? caors::meta::find(*id) : meta::type{};
     return meta ? meta.name() : string_name{};
   }
 

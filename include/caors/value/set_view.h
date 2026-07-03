@@ -150,7 +150,7 @@ public:
 
   /** @brief 查询集合元素的统一 value 类型名。 */
   [[nodiscard]] string_name value_type_name() const noexcept {
-    const meta::type_view meta = valid() ? caors::meta::find(data_->value_type) : meta::type_view{};
+    const meta::type meta = valid() ? caors::meta::find(data_->value_type) : meta::type{};
     return meta ? meta.name() : string_name{};
   }
 

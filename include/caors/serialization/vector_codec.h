@@ -36,7 +36,7 @@ template <typename T> [[nodiscard]] error write_vector_element(writer& writer, c
                        std::is_same_v<type, std::string_view>) {
     return writer.write_string(value);
   } else {
-    const meta::type_view element_type = caors::meta::find<type>();
+    const meta::type element_type = caors::meta::find<type>();
     if (!element_type) {
       return {error_domain::serialization, errc::unsupported};
     }
@@ -122,7 +122,7 @@ template <typename T> [[nodiscard]] error read_vector_element(reader& reader, T&
     value.assign(decoded.data(), decoded.size());
     return {};
   } else {
-    const meta::type_view element_type = caors::meta::find<type>();
+    const meta::type element_type = caors::meta::find<type>();
     if (!element_type) {
       return {error_domain::serialization, errc::unsupported};
     }
@@ -148,7 +148,7 @@ template <typename T> [[nodiscard]] variant_result make_vector_element_value(con
                        std::is_same_v<type, std::string_view>) {
     return {{}, variant::from(value)};
   } else {
-    const meta::type_view element_type = caors::meta::find<type>();
+    const meta::type element_type = caors::meta::find<type>();
     if (!element_type) {
       return {{error_domain::serialization, errc::unsupported}, {}};
     }

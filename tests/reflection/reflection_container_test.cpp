@@ -600,14 +600,14 @@ TEST_CASE("reflection - set field view exposes element metadata", "[reflection]"
 }
 
 TEST_CASE("reflection - set iterator creation failure is treated as empty range", "[reflection]") {
-  const caors::error begin_type_status = caors::meta::type<test_reflection::failing_begin_set>(
+  const caors::error begin_type_status = caors::meta::type_<test_reflection::failing_begin_set>(
                                              "caors.test.reflection.failing_begin_set")
                                              .result();
   REQUIRE((begin_type_status == caors::error{} ||
            begin_type_status == meta_error(caors::errc::duplicate_id)));
 
   const caors::error end_type_status =
-      caors::meta::type<test_reflection::failing_end_set>("caors.test.reflection.failing_end_set")
+      caors::meta::type_<test_reflection::failing_end_set>("caors.test.reflection.failing_end_set")
           .result();
   REQUIRE((end_type_status == caors::error{} ||
            end_type_status == meta_error(caors::errc::duplicate_id)));
@@ -617,7 +617,7 @@ TEST_CASE("reflection - set iterator creation failure is treated as empty range"
   REQUIRE(begin_type);
   REQUIRE(end_type);
 
-  const caors::error int_type_status = caors::meta::type<int>("int").result();
+  const caors::error int_type_status = caors::meta::type_<int>("int").result();
   REQUIRE((int_type_status == caors::error{} ||
            int_type_status == meta_error(caors::errc::duplicate_id)));
 

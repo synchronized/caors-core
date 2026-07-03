@@ -189,7 +189,7 @@ template <typename T> [[nodiscard]] value_assign_fn value_assign_fn_of() noexcep
 /**
  * @brief 元类型底层数据。
  *
- * 该类型用于注册表内部存储和低层注册描述。对外查询应使用 `meta::type_view` 视图，避免直接依赖
+ * 该类型用于注册表内部存储和低层注册描述。对外查询应使用 `meta::type` 视图，避免直接依赖
  * 注册表内部数据布局。
  */
 class type_data {
@@ -341,12 +341,12 @@ struct type_semantics_data {
 /**
  * @brief 元类型只读视图。
  *
- * `meta::type_view` 不拥有类型数据，只引用全局 `meta::registry` 中 append-only 保存的
+ * `meta::type` 不拥有类型数据，只引用全局 `meta::registry` 中 append-only 保存的
  * 内部类型数据。视图复制成本低，适合作为对外查询结果。
  */
-class CAORS_API type_view {
+class CAORS_API type {
 public:
-  constexpr type_view() noexcept = default;
+  constexpr type() noexcept = default;
 
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
@@ -361,12 +361,12 @@ public:
   [[nodiscard]] detail::value_clone_fn clone_value() const noexcept;
   [[nodiscard]] detail::value_destroy_fn destroy_value() const noexcept;
   [[nodiscard]] detail::value_assign_fn assign_value() const noexcept;
-  [[nodiscard]] type_view parent() const noexcept;
+  [[nodiscard]] type parent() const noexcept;
 
 private:
   friend class registry;
 
-  constexpr type_view(const registry* registry, const detail::type_data* data) noexcept
+  constexpr type(const registry* registry, const detail::type_data* data) noexcept
       : registry_(registry), data_(data) {}
 
   const registry* registry_ = nullptr;

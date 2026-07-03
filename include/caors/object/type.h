@@ -39,7 +39,7 @@ public:
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
 
-  [[nodiscard]] meta::type_view info() const noexcept;
+  [[nodiscard]] meta::type info() const noexcept;
   [[nodiscard]] object_type_id id() const noexcept;
   [[nodiscard]] string_name name() const noexcept;
   [[nodiscard]] type_guid guid() const noexcept;
@@ -51,10 +51,10 @@ public:
 private:
   friend class registry;
 
-  type(meta::type_view info, const type_data* data) noexcept;
+  type(meta::type info, const type_data* data) noexcept;
   [[nodiscard]] const type_data* data() const noexcept;
 
-  meta::type_view type_{};
+  meta::type type_{};
   const type_data* data_ = nullptr;
 };
 

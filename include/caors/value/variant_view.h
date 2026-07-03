@@ -56,7 +56,7 @@ public:
   /** @brief 查询指定候选类型名。 */
   [[nodiscard]] string_name alternative_type_name(std::size_t alternative) const noexcept {
     const std::optional<type_id> id = alternative_type(alternative);
-    const meta::type_view meta = id.has_value() ? caors::meta::find(*id) : meta::type_view{};
+    const meta::type meta = id.has_value() ? caors::meta::find(*id) : meta::type{};
     return meta ? meta.name() : string_name{};
   }
 
@@ -72,7 +72,7 @@ public:
 
   /** @brief 查询当前值类型名。 */
   [[nodiscard]] string_name value_type_name() const noexcept {
-    const meta::type_view meta = caors::meta::find(value_type());
+    const meta::type meta = caors::meta::find(value_type());
     return meta ? meta.name() : string_name{};
   }
 

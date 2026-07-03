@@ -31,7 +31,7 @@ namespace caors::serialization {
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象写入指定后端。 */
 template <typename T> [[nodiscard]] error serialize(const T& object, writer& writer) {
-  const meta::type_view type = caors::meta::find<T>();
+  const meta::type type = caors::meta::find<T>();
   if (!type) {
     return {error_domain::serialization, errc::missing_type};
   }
@@ -43,7 +43,7 @@ template <typename T> [[nodiscard]] error serialize(const T& object, writer& wri
 template <typename T>
 [[nodiscard]] error serialize(const T& object, writer& writer,
                               const serialization::context& context) {
-  const meta::type_view type = caors::meta::find<T>();
+  const meta::type type = caors::meta::find<T>();
   if (!type) {
     return {error_domain::serialization, errc::missing_type};
   }
@@ -74,7 +74,7 @@ template <typename T>
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象从指定后端读入。 */
 template <typename T> [[nodiscard]] error deserialize(T& object, reader& reader) {
-  const meta::type_view type = caors::meta::find<T>();
+  const meta::type type = caors::meta::find<T>();
   if (!type) {
     return {error_domain::serialization, errc::missing_type};
   }
@@ -85,7 +85,7 @@ template <typename T> [[nodiscard]] error deserialize(T& object, reader& reader)
 /** @brief 把已注册序列化和反射信息的 C++ 对象按上下文从指定后端读入。 */
 template <typename T>
 [[nodiscard]] error deserialize(T& object, reader& reader, const serialization::context& context) {
-  const meta::type_view type = caors::meta::find<T>();
+  const meta::type type = caors::meta::find<T>();
   if (!type) {
     return {error_domain::serialization, errc::missing_type};
   }
@@ -146,7 +146,7 @@ to_serialization_value(type_id id, const void* object, const serialization::cont
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象转换为序列化中间值。 */
 template <typename T> [[nodiscard]] variant_result to_serialization_value(const T& object) {
-  const meta::type_view type = caors::meta::find<T>();
+  const meta::type type = caors::meta::find<T>();
   if (!type) {
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
@@ -158,7 +158,7 @@ template <typename T> [[nodiscard]] variant_result to_serialization_value(const 
 template <typename T>
 [[nodiscard]] variant_result to_serialization_value(const T& object,
                                                     const serialization::context& context) {
-  const meta::type_view type = caors::meta::find<T>();
+  const meta::type type = caors::meta::find<T>();
   if (!type) {
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
@@ -183,7 +183,7 @@ serialize_text(type_id id, const void* object, const serialization::context& con
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象序列化为简单文本格式。 */
 template <typename T> [[nodiscard]] serialization_text_result serialize_text(const T& object) {
-  const meta::type_view type = caors::meta::find<T>();
+  const meta::type type = caors::meta::find<T>();
   if (!type) {
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
@@ -195,7 +195,7 @@ template <typename T> [[nodiscard]] serialization_text_result serialize_text(con
 template <typename T>
 [[nodiscard]] serialization_text_result serialize_text(const T& object,
                                                        const serialization::context& context) {
-  const meta::type_view type = caors::meta::find<T>();
+  const meta::type type = caors::meta::find<T>();
   if (!type) {
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
@@ -220,7 +220,7 @@ serialize_json(type_id id, const void* object, const serialization::context& con
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象序列化为 JSON。 */
 template <typename T> [[nodiscard]] serialization_text_result serialize_json(const T& object) {
-  const meta::type_view type = caors::meta::find<T>();
+  const meta::type type = caors::meta::find<T>();
   if (!type) {
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
@@ -232,7 +232,7 @@ template <typename T> [[nodiscard]] serialization_text_result serialize_json(con
 template <typename T>
 [[nodiscard]] serialization_text_result serialize_json(const T& object,
                                                        const serialization::context& context) {
-  const meta::type_view type = caors::meta::find<T>();
+  const meta::type type = caors::meta::find<T>();
   if (!type) {
     return {{error_domain::serialization, errc::missing_type}, {}};
   }

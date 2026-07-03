@@ -42,7 +42,7 @@ class registry_state;
  * @brief 底层全局类型元数据注册表。
  *
  * `meta::registry` 以 `type_id` 为 key，先注册内部基础类型数据，再按类型挂载对象工厂、
- * 反射描述、序列化描述等元数据组件。普通代码应使用 `meta::type<T>()`、`meta::get<T>()`
+ * 反射描述、序列化描述等元数据组件。普通代码应使用 `meta::type_<T>()`、`meta::get<T>()`
  * 和 `meta::find()` 入口，不要创建或管理注册表实例。
  */
 class CAORS_API registry final {
@@ -58,14 +58,14 @@ public:
   [[nodiscard]] error freeze();
   [[nodiscard]] bool is_frozen() const noexcept;
 
-  template <typename T> [[nodiscard]] error register_type_for(const detail::type_data& type) {
+  template <typename T> [[nodiscard]] error register_type_for(const detail::type_data& data) {
     using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
     const type_id expected_id = detail::type_id_of_cpp_type<value_type>();
-    if (!type.valid() || (type.id() && type.id() != expected_id)) {
+    if (!data.valid() || (data.id() && data.id() != expected_id)) {
       return {error_domain::meta, errc::invalid_type};
     }
 
-    detail::type_data stored_type = type;
+    detail::type_data stored_type = data;
     if (!stored_type.id()) {
       stored_type.set_id(expected_id);
     }
@@ -75,7 +75,7 @@ public:
       return status;
     }
 
-    const type_view registered = find_type(expected_id);
+    const meta::type registered = find_type(expected_id);
     if (registered) {
       (void)detail::ensure_type_semantics_for<value_type>(registered.id());
       (void)detail::register_container_data_for<value_type>(registered.id());
@@ -85,14 +85,14 @@ public:
   }
 
   [[nodiscard]] bool contains(type_id id) const;
-  template <typename T> [[nodiscard]] type_view find_type() const {
+  template <typename T> [[nodiscard]] type find_type() const {
     return find_type(detail::type_id_of_cpp_type<T>());
   }
 
-  [[nodiscard]] type_view find_type(type_id id) const;
-  [[nodiscard]] type_view find_type(type_guid guid) const;
-  [[nodiscard]] type_view find_type(std::string_view name) const;
-  [[nodiscard]] type_view find_type(string_name name) const;
+  [[nodiscard]] type find_type(type_id id) const;
+  [[nodiscard]] type find_type(type_guid guid) const;
+  [[nodiscard]] type find_type(std::string_view name) const;
+  [[nodiscard]] type find_type(string_name name) const;
   [[nodiscard]] bool is_a(type_id id, type_id base_id) const;
   [[nodiscard]] std::size_t size() const noexcept;
 

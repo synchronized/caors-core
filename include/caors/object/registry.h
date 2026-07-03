@@ -71,7 +71,7 @@ public:
   [[nodiscard]] type find_type(object_type_id id) const;
   [[nodiscard]] type find_type(std::string_view name) const;
   template <typename T> [[nodiscard]] type find_type() const {
-    const meta::type_view type = meta::get_registry().find_type<T>();
+    const meta::type type = meta::get_registry().find_type<T>();
     if (!type) {
       return {};
     }

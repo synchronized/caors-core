@@ -145,17 +145,17 @@ public:
 private:
   friend class type;
 
-  field(meta::type_view owner, const detail::field_data* reflected_field) noexcept;
+  field(meta::type owner, const detail::field_data* reflected_field) noexcept;
   [[nodiscard]] const detail::field_data* info() const noexcept;
 
-  meta::type_view owner_{};
+  meta::type owner_{};
   const detail::field_data* field_ = nullptr;
 };
 
 /**
  * @brief 类型反射只读视图。
  *
- * `reflection::type` 不拥有反射数据，只引用全局注册表中 append-only 保存的 `meta::type_view` 和
+ * `reflection::type` 不拥有反射数据，只引用全局注册表中 append-only 保存的 `meta::type` 和
  * 内部反射数据。有效视图可以在进程生命周期内稳定使用。
  */
 class CAORS_API type final {
@@ -165,7 +165,7 @@ public:
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
 
-  [[nodiscard]] meta::type_view info() const noexcept;
+  [[nodiscard]] meta::type info() const noexcept;
   [[nodiscard]] type_id id() const noexcept;
   [[nodiscard]] string_name name() const noexcept;
   [[nodiscard]] type_guid guid() const noexcept;
@@ -177,10 +177,10 @@ public:
 private:
   friend class registry;
 
-  type(meta::type_view info, const detail::type_data* data) noexcept;
+  type(meta::type info, const detail::type_data* data) noexcept;
   [[nodiscard]] const detail::type_data* data() const noexcept;
 
-  meta::type_view type_{};
+  meta::type type_{};
   const detail::type_data* data_ = nullptr;
 };
 

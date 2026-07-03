@@ -52,11 +52,11 @@ object_type_id object::static_type_id() noexcept {
 
 std::string_view object::static_type_name() noexcept { return "caors.object"; }
 
-type::type(meta::type_view type, const type_data* data) noexcept : type_(type), data_(data) {}
+type::type(meta::type type, const type_data* data) noexcept : type_(type), data_(data) {}
 
 bool type::valid() const noexcept { return type_.valid() && data_ != nullptr; }
 
-meta::type_view type::info() const noexcept { return valid() ? type_ : meta::type_view{}; }
+meta::type type::info() const noexcept { return valid() ? type_ : meta::type{}; }
 
 object_type_id type::id() const noexcept { return type_.id(); }
 
@@ -86,7 +86,7 @@ error registry::register_type(const meta::detail::type_data& type, const type_da
     return rethrow_as(type_status, error_domain::object);
   }
 
-  const meta::type_view stored_meta = meta::get_registry().find_type(type.id());
+  const meta::type stored_meta = meta::get_registry().find_type(type.id());
   if (!stored_meta) {
     return {error_domain::object, errc::invalid_type};
   }
@@ -102,7 +102,7 @@ const type_data* registry::find_type_data(object_type_id id) const {
 }
 
 type registry::find_type(object_type_id id) const {
-  const meta::type_view stored_meta = meta::get_registry().find_type(id);
+  const meta::type stored_meta = meta::get_registry().find_type(id);
   if (!stored_meta) {
     return {};
   }
@@ -116,7 +116,7 @@ type registry::find_type(object_type_id id) const {
 }
 
 type registry::find_type(std::string_view name) const {
-  const meta::type_view type = meta::get_registry().find_type(name);
+  const meta::type type = meta::get_registry().find_type(name);
   if (!type) {
     return {};
   }

@@ -191,7 +191,7 @@ template <typename Wrapper>
 
 template <typename T> [[nodiscard]] type_id semantic_type_id() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  const type_view registered = caors::meta::get_registry().find_type<type>();
+  const ::caors::meta::type registered = caors::meta::get_registry().find_type<type>();
   return registered ? registered.id() : type_id::invalid();
 }
 

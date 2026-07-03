@@ -30,7 +30,7 @@ public:
   /** @brief 从可写 C++ 对象和显式类型名创建引用；类型名必须已经注册并匹配该 C++ 类型。 */
   template <typename T> [[nodiscard]] static any_ref from(T& source, std::string_view name) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const meta::type_view registered = caors::meta::find<type>();
+    const meta::type registered = caors::meta::find<type>();
     if (!registered || registered.name().empty() || registered.name() != name) {
       return {};
     }
@@ -50,7 +50,7 @@ public:
   template <typename T>
   [[nodiscard]] static any_ref from_const(const T& source, std::string_view name) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const meta::type_view registered = caors::meta::find<type>();
+    const meta::type registered = caors::meta::find<type>();
     if (!registered || registered.name().empty() || registered.name() != name) {
       return {};
     }
@@ -59,7 +59,7 @@ public:
   }
 
   [[nodiscard]] bool valid() const noexcept {
-    const meta::type_view meta = caors::meta::find(type_);
+    const meta::type meta = caors::meta::find(type_);
     return meta.valid() && data_ != nullptr;
   }
 
@@ -67,7 +67,7 @@ public:
 
   [[nodiscard]] type_id type() const noexcept { return type_; }
   [[nodiscard]] string_name type_name() const noexcept {
-    const meta::type_view meta = caors::meta::find(type_);
+    const meta::type meta = caors::meta::find(type_);
     return meta ? meta.name() : string_name{};
   }
   [[nodiscard]] const void* data() const noexcept { return valid() ? data_ : nullptr; }
@@ -75,11 +75,11 @@ public:
     return valid() && writable_ ? const_cast<void*>(data_) : nullptr;
   }
   [[nodiscard]] std::size_t size() const noexcept {
-    const meta::type_view meta = caors::meta::find(type_);
+    const meta::type meta = caors::meta::find(type_);
     return meta ? meta.size() : 0;
   }
   [[nodiscard]] std::size_t alignment() const noexcept {
-    const meta::type_view meta = caors::meta::find(type_);
+    const meta::type meta = caors::meta::find(type_);
     return meta ? meta.alignment() : 0;
   }
   [[nodiscard]] bool writable() const noexcept { return valid() && writable_; }
@@ -135,7 +135,7 @@ public:
   /** @brief 从同类型 C++ 值写入当前引用指向的对象。 */
   template <typename T> bool try_set(const T& source) const {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const meta::type_view meta = caors::meta::find(type_);
+    const meta::type meta = caors::meta::find(type_);
     if (!matches_type<type>() || !writable_ || !meta || meta.assign_value() == nullptr) {
       return false;
     }
@@ -145,7 +145,7 @@ public:
 
   /** @brief 从同类型运行期值写入当前引用指向的对象。 */
   bool try_set(const any& source) const {
-    const meta::type_view meta = caors::meta::find(type_);
+    const meta::type meta = caors::meta::find(type_);
     if (!matches_type(source) || !writable_ || !meta || meta.assign_value() == nullptr) {
       return false;
     }
@@ -155,7 +155,7 @@ public:
 
   /** @brief 从同类型运行期引用写入当前引用指向的对象。 */
   bool try_set(const any_ref& source) const {
-    const meta::type_view meta = caors::meta::find(type_);
+    const meta::type meta = caors::meta::find(type_);
     if (!matches_type(source) || !writable_ || !meta || meta.assign_value() == nullptr) {
       return false;
     }
@@ -178,7 +178,7 @@ private:
   friend struct reflection::detail::field_data;
 
   [[nodiscard]] static any_ref from_raw(type_id type, const void* data, bool writable) noexcept {
-    const meta::type_view meta = caors::meta::find(type);
+    const meta::type meta = caors::meta::find(type);
     if (!meta.valid() || data == nullptr) {
       return {};
     }

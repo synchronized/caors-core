@@ -139,7 +139,7 @@ template <typename T> [[nodiscard]] error register_serialization_codec() {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  const meta::type_view meta_type = meta::get_registry().find_type<type>();
+  const meta::type meta_type = meta::get_registry().find_type<type>();
   if (!meta_type) {
     return {error_domain::serialization, errc::invalid_type};
   }

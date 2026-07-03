@@ -151,7 +151,7 @@ public:
   [[nodiscard]] type_id key_type() const noexcept { return valid() ? data_->key_type : type_id{}; }
 
   [[nodiscard]] string_name key_type_name() const noexcept {
-    const meta::type_view meta = valid() ? caors::meta::find(data_->key_type) : meta::type_view{};
+    const meta::type meta = valid() ? caors::meta::find(data_->key_type) : meta::type{};
     return meta ? meta.name() : string_name{};
   }
 
@@ -162,7 +162,7 @@ public:
 
   /** @brief 查询关联容器 value 类型名。 */
   [[nodiscard]] string_name value_type_name() const noexcept {
-    const meta::type_view meta = valid() ? caors::meta::find(data_->value_type) : meta::type_view{};
+    const meta::type meta = valid() ? caors::meta::find(data_->value_type) : meta::type{};
     return meta ? meta.name() : string_name{};
   }
 

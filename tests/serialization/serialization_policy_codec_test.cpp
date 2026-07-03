@@ -494,7 +494,7 @@ TEST_CASE("serialization - writer features validate required field identifiers",
 }
 
 TEST_CASE("serialization - registration can happen before reflection fields", "[serialization]") {
-  const caors::meta::type_view type = caors::meta::type<serialization_first_actor>(
+  const caors::meta::type type = caors::meta::type_<serialization_first_actor>(
                                           "caors.test.serialization.serialization_first_actor")
                                           .get();
   REQUIRE(type.valid());

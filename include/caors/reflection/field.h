@@ -22,7 +22,7 @@ using object_ref_set_fn = bool (*)(void*, object*) noexcept;
 
 template <typename T> [[nodiscard]] type_id find_field_type_id(std::string_view name) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  const meta::type_view registered = caors::meta::find<type>();
+  const meta::type registered = caors::meta::find<type>();
   if (!registered || registered.name().empty() || registered.name() != name) {
     return type_id::invalid();
   }
@@ -94,7 +94,7 @@ struct field_data {
   /** @brief 判断字段是否匹配指定 C++ 类型。 */
   template <typename Field> [[nodiscard]] bool matches_type() const noexcept {
     using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
-    const meta::type_view meta = caors::meta::find(type);
+    const meta::type meta = caors::meta::find(type);
     return meta && meta.id() == caors::meta::detail::type_id_of_cpp_type<field_type>() &&
            meta.size() == sizeof(field_type) && meta.alignment() == alignof(field_type);
   }
@@ -151,7 +151,7 @@ struct field_data {
 
   /** @brief 从运行期值写入字段。 */
   bool try_set_value(void* object, const any& source) const {
-    const meta::type_view meta = caors::meta::find(type);
+    const meta::type meta = caors::meta::find(type);
     if (!source.valid() || !meta || source.type() != meta.id() || source.size() != meta.size() ||
         source.alignment() != meta.alignment() || meta.assign_value() == nullptr) {
       return false;
