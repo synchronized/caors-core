@@ -487,14 +487,14 @@ TEST_CASE("reflection - registry registers and finds types", "[reflection]") {
                                                            offsetof(registry_actor, health)),
               }) == caors::error{});
 
-  CHECK(caors::get_reflection_registry().size() >= 1);
+  CHECK(caors::reflection::size() >= 1);
 
-  auto by_name = caors::find_reflection("caors.test.reflection.registry_actor");
+  auto by_name = caors::reflection::find("caors.test.reflection.registry_actor");
   REQUIRE(by_name.has_value());
-  CHECK(caors::get_reflection_registry().contains(by_name->id()));
+  CHECK(caors::reflection::contains(by_name->id()));
   CHECK(by_name->field_count() == 2);
 
-  auto by_guid = caors::find_reflection(registry_actor_guid);
+  auto by_guid = caors::reflection::find(registry_actor_guid);
   REQUIRE(by_guid.has_value());
   CHECK(by_guid->id() == by_name->id());
 }
@@ -512,7 +512,7 @@ TEST_CASE("reflection - class builder can attach to explicit meta type", "[refle
   REQUIRE(
       (status == caors::error{} || status == reflection_error(caors::errc::duplicate_reflection)));
 
-  auto reflected = caors::find_reflection(type.id());
+  auto reflected = caors::reflection::find(type.id());
   REQUIRE(reflected.has_value());
   CHECK(reflected->field_count() == 1);
   CHECK(reflected->find_field("id").has_value());
@@ -538,7 +538,7 @@ TEST_CASE("reflection - registry returns type and field views", "[reflection]") 
   REQUIRE((register_status == caors::error{} ||
            register_status == reflection_error(caors::errc::duplicate_reflection)));
 
-  auto reflected = caors::find_reflection("caors.test.reflection.view_actor");
+  auto reflected = caors::reflection::find("caors.test.reflection.view_actor");
   REQUIRE(reflected.has_value());
   CHECK(reflected->valid());
   CHECK(reflected->id() == registered_type_id("caors.test.reflection.view_actor"));
@@ -587,7 +587,7 @@ TEST_CASE("reflection - sequence field view exposes element metadata", "[reflect
               .commit()
               .succeeded());
 
-  auto reflected = caors::find_reflection("caors.test.reflection.vector_holder");
+  auto reflected = caors::reflection::find("caors.test.reflection.vector_holder");
   REQUIRE(reflected.has_value());
 
   auto values = reflected->find_field("values");
@@ -660,7 +660,7 @@ TEST_CASE("reflection - custom sequence traits expose field view", "[reflection]
               .commit()
               .succeeded());
 
-  auto reflected = caors::find_reflection("caors.test.reflection.custom_sequence_holder");
+  auto reflected = caors::reflection::find("caors.test.reflection.custom_sequence_holder");
   REQUIRE(reflected.has_value());
 
   auto values = reflected->find_field("values");
@@ -697,7 +697,7 @@ TEST_CASE("reflection - std array field view uses fixed sequence traits", "[refl
               .commit()
               .succeeded());
 
-  auto reflected = caors::find_reflection("caors.test.reflection.array_holder");
+  auto reflected = caors::reflection::find("caors.test.reflection.array_holder");
   REQUIRE(reflected.has_value());
 
   auto values = reflected->find_field("values");
@@ -731,7 +731,7 @@ TEST_CASE("reflection - std span field view is borrowed sequence", "[reflection]
               .commit()
               .succeeded());
 
-  auto reflected = caors::find_reflection("caors.test.reflection.span_holder");
+  auto reflected = caors::reflection::find("caors.test.reflection.span_holder");
   REQUIRE(reflected.has_value());
 
   auto values = reflected->find_field("values");
@@ -766,7 +766,7 @@ TEST_CASE("reflection - fixed std span field name includes extent", "[reflection
               .commit()
               .succeeded());
 
-  auto reflected = caors::find_reflection("caors.test.reflection.fixed_span_holder");
+  auto reflected = caors::reflection::find("caors.test.reflection.fixed_span_holder");
   REQUIRE(reflected.has_value());
 
   auto values = reflected->find_field("values");
@@ -782,7 +782,7 @@ TEST_CASE("reflection - std pair field view exposes first and second values", "[
               .commit()
               .succeeded());
 
-  auto reflected = caors::find_reflection("caors.test.reflection.pair_holder");
+  auto reflected = caors::reflection::find("caors.test.reflection.pair_holder");
   REQUIRE(reflected.has_value());
 
   auto value = reflected->find_field("value");
@@ -821,7 +821,7 @@ TEST_CASE("reflection - std tuple field view exposes indexed elements", "[reflec
               .commit()
               .succeeded());
 
-  auto reflected = caors::find_reflection("caors.test.reflection.tuple_holder");
+  auto reflected = caors::reflection::find("caors.test.reflection.tuple_holder");
   REQUIRE(reflected.has_value());
 
   auto value = reflected->find_field("value");
@@ -866,7 +866,7 @@ TEST_CASE("reflection - std variant field view exposes active alternative", "[re
               .commit()
               .succeeded());
 
-  auto reflected = caors::find_reflection("caors.test.reflection.variant_holder");
+  auto reflected = caors::reflection::find("caors.test.reflection.variant_holder");
   REQUIRE(reflected.has_value());
 
   auto value = reflected->find_field("value");
@@ -914,7 +914,7 @@ TEST_CASE("reflection - list field view uses sequence traits", "[reflection]") {
               .commit()
               .succeeded());
 
-  auto reflected = caors::find_reflection("caors.test.reflection.list_holder");
+  auto reflected = caors::reflection::find("caors.test.reflection.list_holder");
   REQUIRE(reflected.has_value());
 
   auto values = reflected->find_field("values");
@@ -949,7 +949,7 @@ TEST_CASE("reflection - associative field view exposes key and value metadata", 
               .commit()
               .succeeded());
 
-  auto reflected = caors::find_reflection("caors.test.reflection.hash_map_holder");
+  auto reflected = caors::reflection::find("caors.test.reflection.hash_map_holder");
   REQUIRE(reflected.has_value());
 
   auto values = reflected->find_field("values");
@@ -971,7 +971,7 @@ TEST_CASE("reflection - associative field view supports dynamic operations", "[r
           .commit()
           .succeeded());
 
-  auto reflected = caors::find_reflection("caors.test.reflection.hash_map_ops_holder");
+  auto reflected = caors::reflection::find("caors.test.reflection.hash_map_ops_holder");
   REQUIRE(reflected.has_value());
 
   auto values = reflected->find_field("values");
@@ -1114,7 +1114,7 @@ TEST_CASE("reflection - set field view exposes element metadata", "[reflection]"
               .commit()
               .succeeded());
 
-  auto reflected = caors::find_reflection("caors.test.reflection.hash_set_holder");
+  auto reflected = caors::reflection::find("caors.test.reflection.hash_set_holder");
   REQUIRE(reflected.has_value());
 
   auto values = reflected->find_field("values");
@@ -1275,7 +1275,7 @@ TEST_CASE("reflection - views remain valid for append-only registry", "[reflecti
   REQUIRE((register_status == caors::error{} ||
            register_status == reflection_error(caors::errc::duplicate_reflection)));
 
-  auto reflected = caors::find_reflection("caors.test.reflection.view_actor");
+  auto reflected = caors::reflection::find("caors.test.reflection.view_actor");
   REQUIRE(reflected.has_value());
 
   auto field = reflected->find_field("id");
@@ -1301,7 +1301,7 @@ TEST_CASE("reflection - registry registers child type with parent", "[reflection
               {
                   caors::make_reflection_field_data<int>("id", "int", offsetof(parent_actor, id)),
               }) == caors::error{});
-  const auto reflected_actor = caors::find_reflection("caors.test.reflection.parent_actor");
+  const auto reflected_actor = caors::reflection::find("caors.test.reflection.parent_actor");
   REQUIRE(reflected_actor.has_value());
 
   REQUIRE(
@@ -1312,7 +1312,7 @@ TEST_CASE("reflection - registry registers child type with parent", "[reflection
           },
           reflected_actor->id()) == caors::error{});
 
-  auto reflected_player = caors::find_reflection("caors.test.reflection.child_player");
+  auto reflected_player = caors::reflection::find("caors.test.reflection.child_player");
   REQUIRE(reflected_player.has_value());
   CHECK(reflected_player->info().parent_id() == reflected_actor->id());
 }
@@ -1378,7 +1378,7 @@ TEST_CASE("reflection - class builder infers built-in field types", "[reflection
 
   REQUIRE(result == caors::error{});
 
-  auto reflected = caors::find_reflection("caors.test.reflection.builder_actor");
+  auto reflected = caors::reflection::find("caors.test.reflection.builder_actor");
   REQUIRE(reflected.has_value());
 
   auto id = reflected->find_field("id");
@@ -1407,7 +1407,7 @@ TEST_CASE("reflection - class builder resolves registered C++ field types", "[re
               .field("items", &inventory_holder::items)
               .commit() == caors::error{});
 
-  auto reflected = caors::find_reflection("caors.test.reflection.inventory_holder");
+  auto reflected = caors::reflection::find("caors.test.reflection.inventory_holder");
   REQUIRE(reflected.has_value());
 
   auto items = reflected->find_field("items");
@@ -1428,7 +1428,7 @@ TEST_CASE("reflection - class builder names C++ field types from type_name", "[r
   REQUIRE(value_type.has_value());
   CHECK(value_type->id() == caors::meta::id_of<test_reflection::named_field_value>());
 
-  auto reflected = caors::find_reflection("caors.test.reflection.named_field_owner");
+  auto reflected = caors::reflection::find("caors.test.reflection.named_field_owner");
   REQUIRE(reflected.has_value());
 
   auto value = reflected->find_field("value");

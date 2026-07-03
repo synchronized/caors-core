@@ -19,7 +19,7 @@ namespace caors {
  *
  * 注册表基于 `meta_registry` 保存基础类型信息，并把 `reflection_type_data`
  * 作为元数据组件挂载到同一个 `type_id` 上。普通代码应使用 `reflection::class_<T>()` 和
- * `find_reflection()`，不要创建或管理注册表实例。
+ * `reflection::find()`，不要创建或管理注册表实例。
  */
 class CAORS_API reflection_registry final {
 public:
@@ -92,13 +92,32 @@ register_reflection(meta_type type, reflection_type_data data = reflection_type_
 
 } // namespace detail
 
+namespace reflection {
+
 /** @brief 在全局反射注册表中查找反射类型。 */
-[[nodiscard]] CAORS_API std::optional<reflection_type> find_reflection(type_id id);
+[[nodiscard]] CAORS_API std::optional<reflection_type> find(type_id id);
 
 /** @brief 在全局反射注册表中按稳定 GUID 查找反射类型。 */
-[[nodiscard]] CAORS_API std::optional<reflection_type> find_reflection(type_guid guid);
+[[nodiscard]] CAORS_API std::optional<reflection_type> find(type_guid guid);
 
 /** @brief 在全局反射注册表中按类型名查找反射类型。 */
+[[nodiscard]] CAORS_API std::optional<reflection_type> find(std::string_view name);
+
+/** @brief 判断指定类型是否挂载了反射组件。 */
+[[nodiscard]] CAORS_API bool contains(type_id id);
+
+/** @brief 获取当前反射组件数量。 */
+[[nodiscard]] CAORS_API std::size_t size() noexcept;
+
+} // namespace reflection
+
+/** @brief 在全局反射注册表中查找反射类型。兼容入口，优先使用 `reflection::find()`。 */
+[[nodiscard]] CAORS_API std::optional<reflection_type> find_reflection(type_id id);
+
+/** @brief 在全局反射注册表中按稳定 GUID 查找反射类型。兼容入口，优先使用 `reflection::find()`。 */
+[[nodiscard]] CAORS_API std::optional<reflection_type> find_reflection(type_guid guid);
+
+/** @brief 在全局反射注册表中按类型名查找反射类型。兼容入口，优先使用 `reflection::find()`。 */
 [[nodiscard]] CAORS_API std::optional<reflection_type> find_reflection(std::string_view name);
 
 } // namespace caors

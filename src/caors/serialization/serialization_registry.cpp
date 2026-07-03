@@ -51,6 +51,24 @@ serialization_registry& get_serialization_registry() noexcept {
   return serialization_registry::instance();
 }
 
+namespace serialization {
+
+std::optional<serialization_type_data> find(type_id id) {
+  return get_serialization_registry().find_type(id);
+}
+
+std::optional<serialization_type_data> find(meta_type type) {
+  return type.valid() ? find(type.id()) : std::nullopt;
+}
+
+bool contains(type_id id) { return get_serialization_registry().contains(id); }
+
+bool contains(meta_type type) { return type.valid() && contains(type.id()); }
+
+std::size_t size() noexcept { return get_serialization_registry().size(); }
+
+} // namespace serialization
+
 namespace detail {
 
 error register_serialization(type_id id, serialization_type_data data) {

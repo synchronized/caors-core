@@ -22,7 +22,7 @@ int main() {
     return 1;
   }
 
-  const auto reflected = caors::find_reflection("example.actor");
+  const auto reflected = caors::reflection::find("example.actor");
   if (!reflected.has_value()) {
     return 1;
   }

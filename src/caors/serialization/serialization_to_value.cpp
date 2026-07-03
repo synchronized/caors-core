@@ -97,21 +97,20 @@ variant_result to_serialization_value(const reflection_type& type, const void* o
     return {{error_domain::serialization, errc::invalid_argument}, {}};
   }
 
-  if (!get_serialization_registry().contains(type.id())) {
+  if (!serialization::contains(type.id())) {
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
 
-  const std::optional<serialization_type_data> serialization =
-      get_serialization_registry().find_type(type.id());
-  if (!serialization.has_value() || !serialization->valid()) {
+  const std::optional<serialization_type_data> serialization_data = serialization::find(type.id());
+  if (!serialization_data.has_value() || !serialization_data->valid()) {
     return {{error_domain::serialization, errc::invalid_type}, {}};
   }
 
   variant::object_type members;
 
-  if (!serialization->fields.empty()) {
-    members.reserve(serialization->fields.size());
-    for (const serialization_field_data& field_data : serialization->fields) {
+  if (!serialization_data->fields.empty()) {
+    members.reserve(serialization_data->fields.size());
+    for (const serialization_field_data& field_data : serialization_data->fields) {
       if (field_data.skipped || !detail::field_visible_in_context(field_data, context)) {
         continue;
       }
@@ -166,11 +165,11 @@ variant_result to_serialization_value(type_id id, const void* object,
     return {{error_domain::serialization, errc::invalid_type}, {}};
   }
 
-  if (!get_serialization_registry().contains(id)) {
+  if (!serialization::contains(id)) {
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
 
-  const std::optional<reflection_type> type = find_reflection(id);
+  const std::optional<reflection_type> type = reflection::find(id);
   if (!type.has_value()) {
     return {{error_domain::serialization, errc::not_found}, {}};
   }

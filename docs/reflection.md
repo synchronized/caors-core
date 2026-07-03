@@ -334,7 +334,7 @@ struct variant_traits<my_variant<Ts...>> {
 ```cpp
 actor instance{};
 
-auto reflected = caors::find_reflection("game.actor");
+auto reflected = caors::reflection::find("game.actor");
 auto id = reflected->find_field("id");
 id->try_set<int>(&instance, 42);
 
@@ -447,7 +447,7 @@ auto field = data.find_field("health");
 `reflection_type` 和 `reflection_field` 是外部查询反射信息的推荐入口：
 
 ```cpp
-auto reflected = caors::find_reflection("game.actor");
+auto reflected = caors::reflection::find("game.actor");
 auto field = reflected->find_field("health");
 
 actor instance{};
@@ -588,7 +588,7 @@ for (caors::associative_entry_ref entry : map) {
 
 ### 全局注册表
 
-反射系统使用进程级全局注册表。普通代码通过 `reflection::class_<T>()` 和 `find_reflection()`
+反射系统使用进程级全局注册表。普通代码通过 `reflection::class_<T>()` 和 `reflection::find()`
 访问它，不需要创建 registry 对象：
 
 ```cpp
@@ -599,7 +599,7 @@ caors::error result =
         .field("id", &actor::id)
         .commit();
 
-auto reflected = caors::find_reflection("game.actor");
+auto reflected = caors::reflection::find("game.actor");
 ```
 
 推荐先通过 `meta::type<T>("name")` 注册基础类型，再把 `caors::meta::get<T>()` 或保存下来的 `meta_type` 传给
@@ -643,7 +643,7 @@ auto reflected = caors::find_reflection("game.actor");
 - `reflection_registry`：底层全局注册表实现。
 - `reflection::class_<T>()`：RTTR 风格链式注册入口。
 - `reflection::class_<T>(meta_type)`：推荐的显式 meta 注册入口，只挂载反射组件。
-- `find_reflection()`：在全局反射注册表中查询类型视图。
+- `reflection::find()` / `reflection::contains()`：反射组件查询入口。
 
 ## 相关入口
 

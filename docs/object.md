@@ -128,13 +128,11 @@ object.type_name(); // "game.player"
 
 ### object_registry
 
-`object_registry` 是基于全局 `meta_registry` 的对象注册表 facade 和默认构造工厂。它不表示彼此隔离的局部注册表实例，而是通过 `get_object_registry()` 暴露进程内唯一对象注册入口。它通过全局 `meta_registry` 管理类型 id、名称和父类型关系，并将 `object_type_data` 作为对象元数据组件挂载到同一个 `type_id` 上。
+`object_registry` 是基于全局 `meta_registry` 的对象注册表 facade 和默认构造工厂。它不表示彼此隔离的局部注册表实例。普通代码优先通过 `objects::class_<T>()`、`objects::find()`、`objects::id()` 和 `objects::is_a()` 访问对象元数据；需要默认构造工厂时再使用 `get_object_registry()`。
 
 对外查询返回 `object_type` 只读视图。它组合了基础 `meta_type` 和内部 `object_type_data`，因此调用方可以通过 `id()`、`name()`、`guid()`、`size()`、`alignment()`、`parent_id()` 和 `constructible()` 查询对象类型信息，但不能直接修改注册表内部数据。
 
 ```cpp
-caors::object_registry& registry = caors::get_object_registry();
-
 if (caors::objects::class_<actor>(actor::object_type_name).commit()) {
   // 处理注册失败。
 }
@@ -146,13 +144,13 @@ caors::error result =
 注册后可以查询类型：
 
 ```cpp
-auto type = registry.find_type<player>();
+auto type = caors::objects::find<player>();
 ```
 
 也可以检查继承关系：
 
 ```cpp
-registry.is_a(player::static_type_id(), actor::static_type_id());
+caors::objects::is_a(player::static_type_id(), actor::static_type_id());
 ```
 
 注册失败会返回 `caors::error`，`domain()` 为 `error_domain::object`，`value()` 为明确的通用错误码：
@@ -168,6 +166,8 @@ registry.is_a(player::static_type_id(), actor::static_type_id());
 注册表支持按 `object_type_id` 创建默认构造对象：
 
 ```cpp
+caors::object_registry& registry = caors::get_object_registry();
+
 caors::object* instance = registry.create(player::static_type_id());
 registry.destroy(instance);
 ```
@@ -211,6 +211,7 @@ caors::destroy_object(instance, &resource);
 - `caors::error`：明确对象类型注册失败原因和错误来源域。
 - `object_registry`：类型注册、查询、继承关系判断、默认构造工厂。
 - `objects::class_<T>()`：对象类型链式注册入口。
+- `objects::id()` / `objects::find()` / `objects::is_a()`：对象类型查询入口。
 - `get_object_registry()`：进程内默认对象注册表。
 - `create_object<T>()` / `destroy_object<T>()`：接入 `memory_resource` 的直接对象创建和销毁入口。
 

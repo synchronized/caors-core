@@ -101,7 +101,7 @@ TEST_CASE("reflection - field handles remain valid after later registrations", "
           .field("health", &cross_module_actor::health)
           .commit()));
 
-  auto reflected = caors::find_reflection("caors.test.meta.cross_module_actor");
+  auto reflected = caors::reflection::find("caors.test.meta.cross_module_actor");
   REQUIRE(reflected.has_value());
 
   auto id = reflected->find_field("id");

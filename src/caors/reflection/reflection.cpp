@@ -535,16 +535,30 @@ error register_reflection(meta_type type, reflection_type_data data) {
 
 } // namespace detail
 
-std::optional<reflection_type> find_reflection(type_id id) {
-  return get_reflection_registry().find_type(id);
-}
+namespace reflection {
 
-std::optional<reflection_type> find_reflection(type_guid guid) {
+std::optional<reflection_type> find(type_id id) { return get_reflection_registry().find_type(id); }
+
+std::optional<reflection_type> find(type_guid guid) {
   return get_reflection_registry().find_type(guid);
 }
 
-std::optional<reflection_type> find_reflection(std::string_view name) {
+std::optional<reflection_type> find(std::string_view name) {
   return get_reflection_registry().find_type(name);
 }
 
+bool contains(type_id id) { return get_reflection_registry().contains(id); }
+
+std::size_t size() noexcept { return get_reflection_registry().size(); }
+
+} // namespace reflection
+
+std::optional<reflection_type> find_reflection(type_id id) { return reflection::find(id); }
+
+std::optional<reflection_type> find_reflection(type_guid guid) { return reflection::find(guid); }
+
+std::optional<reflection_type> find_reflection(std::string_view name) {
+  return reflection::find(name);
 }
+
+} // namespace caors

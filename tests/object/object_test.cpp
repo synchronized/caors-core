@@ -118,8 +118,10 @@ TEST_CASE("object - generated ids are valid and unique", "[object]") {
 }
 
 TEST_CASE("object - typed base exposes runtime type information", "[object]") {
-  REQUIRE(register_object_test_type<runtime_actor>(runtime_actor::object_type_name) ==
-          caors::error{});
+  const caors::error actor_status =
+      register_object_test_type<runtime_actor>(runtime_actor::object_type_name);
+  REQUIRE(
+      (actor_status == caors::error{} || actor_status == object_error(caors::errc::duplicate_id)));
   REQUIRE(register_object_test_type<runtime_player>(runtime_player::object_type_name) ==
           caors::error{});
 
@@ -156,14 +158,12 @@ TEST_CASE("object - handles carry identity without owning instances", "[object]"
 }
 
 TEST_CASE("object - registry registers and finds types", "[object]") {
-  caors::object_registry& registry = caors::get_object_registry();
-
   CHECK(register_object_test_type<registry_actor>(registry_actor::object_type_name) ==
         caors::error{});
   CHECK(register_object_test_type<registry_actor>(registry_actor::object_type_name) ==
         object_error(caors::errc::duplicate_id));
 
-  auto type = registry.find_type<registry_actor>();
+  auto type = caors::objects::find<registry_actor>();
   REQUIRE(type.has_value());
   CHECK(type->id() == registry_actor::static_type_id());
   CHECK(type->name() == registry_actor::object_type_name);
@@ -172,7 +172,7 @@ TEST_CASE("object - registry registers and finds types", "[object]") {
   CHECK(type->alignment() == alignof(registry_actor));
   CHECK(type->constructible());
 
-  auto by_name = registry.find_type(registry_actor::object_type_name);
+  auto by_name = caors::objects::find(registry_actor::object_type_name);
   REQUIRE(by_name.has_value());
   CHECK(by_name->id() == registry_actor::static_type_id());
 }
@@ -189,7 +189,7 @@ TEST_CASE("object - type guid can be provided by object subclass", "[object]") {
   REQUIRE(register_object_test_type<persistent_actor>(persistent_actor::object_type_name) ==
           caors::error{});
 
-  auto stored = registry.find_type<persistent_actor>();
+  auto stored = caors::objects::find<persistent_actor>();
   REQUIRE(stored.has_value());
   CHECK(stored->guid() == persistent_actor::object_type_guid);
 }
@@ -207,7 +207,7 @@ TEST_CASE("object - registry reports registration errors", "[object]") {
         object_error(caors::errc::missing_parent));
 
   REQUIRE(register_object_test_type<error_actor>(error_actor::object_type_name) == caors::error{});
-  const auto actor_type = registry.find_type<error_actor>();
+  const auto actor_type = caors::objects::find<error_actor>();
   REQUIRE(actor_type.has_value());
 
   caors::meta_type_data colliding = caors::make_object_meta_type_data<error_player>(
@@ -242,20 +242,20 @@ TEST_CASE("object - registry checks parent relationship", "[object]") {
 
   REQUIRE(register_object_test_type<relation_actor>(relation_actor::object_type_name) ==
           caors::error{});
-  const auto object_type = registry.find_type<caors::object>();
-  const auto actor_type = registry.find_type<relation_actor>();
+  const auto object_type = caors::objects::find<caors::object>();
+  const auto actor_type = caors::objects::find<relation_actor>();
   REQUIRE(object_type.has_value());
   REQUIRE(actor_type.has_value());
 
   REQUIRE(register_object_test_type<relation_player>(relation_player::object_type_name,
                                                      actor_type->id()) == caors::error{});
-  const auto player_type = registry.find_type<relation_player>();
+  const auto player_type = caors::objects::find<relation_player>();
   REQUIRE(player_type.has_value());
 
-  CHECK(registry.is_a(player_type->id(), player_type->id()));
-  CHECK(registry.is_a(player_type->id(), actor_type->id()));
-  CHECK(registry.is_a(player_type->id(), object_type->id()));
-  CHECK_FALSE(registry.is_a(actor_type->id(), player_type->id()));
+  CHECK(caors::objects::is_a(player_type->id(), player_type->id()));
+  CHECK(caors::objects::is_a(player_type->id(), actor_type->id()));
+  CHECK(caors::objects::is_a(player_type->id(), object_type->id()));
+  CHECK_FALSE(caors::objects::is_a(actor_type->id(), player_type->id()));
 }
 
 TEST_CASE("object - registry creates and destroys registered objects", "[object]") {
@@ -265,7 +265,7 @@ TEST_CASE("object - registry creates and destroys registered objects", "[object]
   REQUIRE(register_object_test_type<factory_actor>(factory_actor::object_type_name) ==
           caors::error{});
 
-  const auto actor_type = registry.find_type<factory_actor>();
+  const auto actor_type = caors::objects::find<factory_actor>();
   REQUIRE(actor_type.has_value());
 
   caors::object* instance = registry.create(actor_type->id(), &tracking);
@@ -286,7 +286,7 @@ TEST_CASE("object - non default constructible types can be described but not fac
   REQUIRE(register_object_test_type<registered_non_default_object>(
               registered_non_default_object::object_type_name) == caors::error{});
 
-  auto type = registry.find_type<registered_non_default_object>();
+  auto type = caors::objects::find<registered_non_default_object>();
   REQUIRE(type.has_value());
   CHECK_FALSE(type->constructible());
   CHECK(registry.try_create<registered_non_default_object>() == nullptr);

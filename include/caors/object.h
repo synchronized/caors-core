@@ -47,7 +47,7 @@ private:
 
 using object_type_id = type_id;
 
-/** @brief 根据已注册对象类型名查询对象类型标识。 */
+/** @brief 根据已注册对象类型名查询对象类型标识。兼容入口，优先使用 `objects::id()`。 */
 [[nodiscard]] inline object_type_id make_object_type_id(std::string_view name) {
   return meta::id(name);
 }
@@ -445,6 +445,35 @@ template <typename T>
 } // namespace detail
 
 namespace objects {
+
+/** @brief 根据已注册对象类型名查询对象类型标识。 */
+[[nodiscard]] inline object_type_id id(std::string_view name) { return meta::id(name); }
+
+/** @brief 在全局对象注册表中按对象类型 id 查找类型。 */
+[[nodiscard]] inline std::optional<object_type> find(object_type_id id) {
+  return get_object_registry().find_type(id);
+}
+
+/** @brief 在全局对象注册表中按对象类型名查找类型。 */
+[[nodiscard]] inline std::optional<object_type> find(std::string_view name) {
+  return get_object_registry().find_type(name);
+}
+
+/** @brief 在全局对象注册表中按 C++ 类型查找对象类型。 */
+template <typename T> [[nodiscard]] std::optional<object_type> find() {
+  return get_object_registry().find_type<T>();
+}
+
+/** @brief 判断对象类型是否已注册。 */
+[[nodiscard]] inline bool contains(object_type_id id) { return get_object_registry().contains(id); }
+
+/** @brief 判断对象类型继承关系。 */
+[[nodiscard]] inline bool is_a(object_type_id id, object_type_id base_id) {
+  return get_object_registry().is_a(id, base_id);
+}
+
+/** @brief 获取当前对象类型数量。 */
+[[nodiscard]] inline std::size_t size() noexcept { return get_object_registry().size(); }
 
 /** @brief 对象类型注册构建器。 */
 template <typename T> class class_builder {

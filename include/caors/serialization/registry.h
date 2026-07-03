@@ -77,6 +77,21 @@ template <typename T>
 
 namespace serialization {
 
+/** @brief 查找指定类型的序列化组件。 */
+[[nodiscard]] CAORS_API std::optional<serialization_type_data> find(type_id id);
+
+/** @brief 查找指定元类型的序列化组件。 */
+[[nodiscard]] CAORS_API std::optional<serialization_type_data> find(meta_type type);
+
+/** @brief 判断指定类型是否挂载了序列化组件。 */
+[[nodiscard]] CAORS_API bool contains(type_id id);
+
+/** @brief 判断指定元类型是否挂载了序列化组件。 */
+[[nodiscard]] CAORS_API bool contains(meta_type type);
+
+/** @brief 获取当前序列化组件数量。 */
+[[nodiscard]] CAORS_API std::size_t size() noexcept;
+
 /** @brief 已注册元类型的序列化配置构建器。 */
 class class_builder {
 public:

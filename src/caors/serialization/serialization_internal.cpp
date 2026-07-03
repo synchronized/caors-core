@@ -1634,8 +1634,8 @@ variant_result make_serialized_value(const any_ref& value, const serialization_c
     return codec->make_value(copied);
   }
 
-  const std::optional<reflection_type> nested_type = find_reflection(value.type());
-  if (nested_type.has_value() && get_serialization_registry().contains(value.type())) {
+  const std::optional<reflection_type> nested_type = reflection::find(value.type());
+  if (nested_type.has_value() && serialization::contains(value.type())) {
     return to_serialization_value(*nested_type, value.data(), context);
   }
 
@@ -1707,8 +1707,8 @@ error write_serialized_value(serialization_writer& writer, const any_ref& value,
     return codec->write(writer, copied);
   }
 
-  const std::optional<reflection_type> nested_type = find_reflection(value.type());
-  if (nested_type.has_value() && get_serialization_registry().contains(value.type())) {
+  const std::optional<reflection_type> nested_type = reflection::find(value.type());
+  if (nested_type.has_value() && serialization::contains(value.type())) {
     return serialize(*nested_type, value.data(), writer, context);
   }
 
@@ -1773,8 +1773,8 @@ error read_serialized_value(serialization_reader& reader, const any_ref& target,
     return codec->read_value(reader, target);
   }
 
-  const std::optional<reflection_type> nested_type = find_reflection(target.type());
-  if (nested_type.has_value() && get_serialization_registry().contains(target.type())) {
+  const std::optional<reflection_type> nested_type = reflection::find(target.type());
+  if (nested_type.has_value() && serialization::contains(target.type())) {
     return deserialize(*nested_type, target.mutable_data(), reader, context);
   }
 

@@ -27,7 +27,7 @@ int main() {
     return 1;
   }
 
-  const auto actor_type = registry.find_type<actor>();
+  const auto actor_type = caors::objects::find<actor>();
   if (!actor_type.has_value()) {
     return 1;
   }
@@ -39,7 +39,7 @@ int main() {
 
   std::cout << "object id: " << instance->id().value() << '\n';
   std::cout << "type name: " << instance->type_name() << '\n';
-  std::cout << "is actor: " << registry.is_a(instance->type_id(), actor_type->id()) << '\n';
+  std::cout << "is actor: " << caors::objects::is_a(instance->type_id(), actor_type->id()) << '\n';
 
   registry.destroy(instance);
   return 0;
