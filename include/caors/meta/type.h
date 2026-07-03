@@ -309,33 +309,56 @@ template <typename T>
   return make_type_data<T>(string_name{name}, guid, parent_id);
 }
 
+/** @brief 指针或 wrapper 的内部值访问函数表。 */
+struct indirect_data {
+  indirect_const_value_fn value = nullptr;
+  indirect_mutable_value_fn mutable_value = nullptr;
+  indirect_has_value_fn has_value = nullptr;
+  indirect_reset_fn reset = nullptr;
+  indirect_ensure_value_fn ensure_value = nullptr;
+
+  [[nodiscard]] bool valid() const noexcept {
+    return value != nullptr || mutable_value != nullptr || has_value != nullptr ||
+           reset != nullptr || ensure_value != nullptr;
+  }
+};
+
+/** @brief 枚举类型和整数之间的转换函数表。 */
+struct enum_data {
+  enum_to_i64_fn to_i64 = nullptr;
+  enum_to_u64_fn to_u64 = nullptr;
+  enum_from_i64_fn from_i64 = nullptr;
+  enum_from_u64_fn from_u64 = nullptr;
+  bool is_signed = false;
+
+  [[nodiscard]] bool valid() const noexcept {
+    return to_i64 != nullptr && to_u64 != nullptr && from_i64 != nullptr && from_u64 != nullptr;
+  }
+};
+
+/** @brief 对象引用 wrapper 和对象指针之间的访问函数表。 */
+struct object_ref_data {
+  meta_object_ref_get_fn get = nullptr;
+  meta_object_ref_set_fn set = nullptr;
+
+  [[nodiscard]] bool valid() const noexcept { return get != nullptr && set != nullptr; }
+};
+
 } // namespace detail
 
 /**
  * @brief 类型语义元数据。
  *
- * 该组件挂在字段声明类型对应的 `type_id` 上，集中描述 wrapper、指针和容器等运行期语义。反射、
- * 序列化和 value 模块通过同一份数据查询 value 类型和可选 key 类型，避免字段级重复存储。
+ * 该组件挂在字段声明类型对应的 `type_id` 上，集中描述运行期形态、wrapper 语义和通用类型关系。
+ * 具体访问函数表由 `meta::detail` 下的能力组件保存。
  */
 struct type_semantics_data {
   type_kind kind = type_kind::value;
   wrapper_semantics wrapper_semantics = meta::wrapper_semantics::none;
   type_id value_type{};
   type_id key_type{};
-  detail::indirect_const_value_fn indirect_value = nullptr;
-  detail::indirect_mutable_value_fn mutable_indirect_value = nullptr;
-  detail::indirect_has_value_fn has_indirect_value = nullptr;
-  detail::indirect_reset_fn reset_indirect_value = nullptr;
-  detail::indirect_ensure_value_fn ensure_indirect_value = nullptr;
-  detail::enum_to_i64_fn enum_to_i64 = nullptr;
-  detail::enum_to_u64_fn enum_to_u64 = nullptr;
-  detail::enum_from_i64_fn enum_from_i64 = nullptr;
-  detail::enum_from_u64_fn enum_from_u64 = nullptr;
-  detail::meta_object_ref_get_fn get_object_ref = nullptr;
-  detail::meta_object_ref_set_fn set_object_ref = nullptr;
   std::uint8_t pointer_depth = 0;
   bool nullable = false;
-  bool enum_signed = false;
 };
 
 /**

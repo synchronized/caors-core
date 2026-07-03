@@ -19,87 +19,89 @@ public:
   indirect_view() noexcept = default;
 
   [[nodiscard]] bool valid() const noexcept {
-    if (data_ == nullptr || storage_ == nullptr || !data_->value_type) {
+    if (semantics_ == nullptr || data_ == nullptr || storage_ == nullptr ||
+        !semantics_->value_type) {
       return false;
     }
 
-    if (data_->kind != meta::type_kind::raw_pointer && data_->kind != meta::type_kind::wrapper) {
+    if (semantics_->kind != meta::type_kind::raw_pointer &&
+        semantics_->kind != meta::type_kind::wrapper) {
       return false;
     }
 
-    return data_->indirect_value != nullptr || data_->mutable_indirect_value != nullptr ||
-           data_->has_indirect_value != nullptr || data_->reset_indirect_value != nullptr ||
-           data_->ensure_indirect_value != nullptr;
+    return data_->valid();
   }
 
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
   [[nodiscard]] bool writable() const noexcept { return valid() && writable_; }
   [[nodiscard]] type_id value_type() const noexcept {
-    return valid() ? data_->value_type : type_id{};
+    return valid() ? semantics_->value_type : type_id{};
   }
 
   [[nodiscard]] string_name value_type_name() const noexcept {
-    const meta::type meta = valid() ? caors::meta::find(data_->value_type) : meta::type{};
+    const meta::type meta = valid() ? caors::meta::find(semantics_->value_type) : meta::type{};
     return meta ? meta.name() : string_name{};
   }
 
   /** @brief 判断 wrapper 当前是否持有内部值。 */
   [[nodiscard]] bool has_value() const noexcept {
-    if (!valid() || data_->has_indirect_value == nullptr) {
+    if (!valid() || data_->has_value == nullptr) {
       return false;
     }
 
-    return data_->has_indirect_value(storage_);
+    return data_->has_value(storage_);
   }
 
   /** @brief 获取内部值引用。 */
   [[nodiscard]] any_ref value_ref() const {
-    if (!valid() || data_->indirect_value == nullptr) {
+    if (!valid() || data_->value == nullptr) {
       return {};
     }
 
     const void* value = nullptr;
     bool value_writable = false;
-    if (writable() && data_->mutable_indirect_value != nullptr) {
-      value = data_->mutable_indirect_value(const_cast<void*>(storage_));
+    if (writable() && data_->mutable_value != nullptr) {
+      value = data_->mutable_value(const_cast<void*>(storage_));
       value_writable = value != nullptr;
     } else {
-      value = data_->indirect_value(storage_);
+      value = data_->value(storage_);
     }
 
     if (value == nullptr) {
       return {};
     }
 
-    return any_ref::from_raw(data_->value_type, value, value_writable);
+    return any_ref::from_raw(semantics_->value_type, value, value_writable);
   }
 
   /** @brief 重置 wrapper 或裸指针为空。 */
   bool reset() const {
-    if (!writable() || data_->reset_indirect_value == nullptr) {
+    if (!writable() || data_->reset == nullptr) {
       return false;
     }
 
-    return data_->reset_indirect_value(const_cast<void*>(storage_));
+    return data_->reset(const_cast<void*>(storage_));
   }
 
   /** @brief 确保 wrapper 持有内部值。裸指针不会自动分配内存。 */
   bool ensure_value() const {
-    if (!writable() || data_->ensure_indirect_value == nullptr) {
+    if (!writable() || data_->ensure_value == nullptr) {
       return false;
     }
 
-    return data_->ensure_indirect_value(const_cast<void*>(storage_));
+    return data_->ensure_value(const_cast<void*>(storage_));
   }
 
 private:
   friend class any;
   friend class any_ref;
 
-  indirect_view(const meta::type_semantics_data* data, const void* storage, bool writable) noexcept
-      : data_(data), storage_(storage), writable_(writable) {}
+  indirect_view(const meta::type_semantics_data* semantics, const meta::detail::indirect_data* data,
+                const void* storage, bool writable) noexcept
+      : semantics_(semantics), data_(data), storage_(storage), writable_(writable) {}
 
-  const meta::type_semantics_data* data_ = nullptr;
+  const meta::type_semantics_data* semantics_ = nullptr;
+  const meta::detail::indirect_data* data_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };

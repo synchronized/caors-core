@@ -48,6 +48,14 @@ namespace caors::serialization::detail {
   return meta::get_registry().find_ptr<meta::type_semantics_data>(id);
 }
 
+[[nodiscard]] const meta::detail::enum_data* enum_data(type_id id) noexcept {
+  return meta::get_registry().find_ptr<meta::detail::enum_data>(id);
+}
+
+[[nodiscard]] const meta::detail::object_ref_data* object_ref_data(type_id id) noexcept {
+  return meta::get_registry().find_ptr<meta::detail::object_ref_data>(id);
+}
+
 [[nodiscard]] bool type_uses_inline_indirect_value(type_id id) noexcept {
   const meta::type_semantics_data* semantics = type_semantics(id);
   return semantics != nullptr &&
@@ -64,24 +72,26 @@ namespace caors::serialization::detail {
 [[nodiscard]] bool type_uses_object_ref(type_id id) noexcept {
   const meta::type_semantics_data* semantics = type_semantics(id);
   return semantics != nullptr && semantics->kind == meta::type_kind::wrapper &&
-         semantics->wrapper_semantics == meta::wrapper_semantics::object_ref;
+         semantics->wrapper_semantics == meta::wrapper_semantics::object_ref &&
+         object_ref_data(id) != nullptr;
 }
 
 [[nodiscard]] const object*
 object_ref_value_from_ref(const any_ref& value,
-                          const meta::type_semantics_data& semantics) noexcept {
-  if (!value.valid() || value.data() == nullptr || semantics.get_object_ref == nullptr) {
+                          const meta::detail::object_ref_data& data) noexcept {
+  if (!value.valid() || value.data() == nullptr || data.get == nullptr) {
     return nullptr;
   }
 
-  return semantics.get_object_ref(value.data());
+  return data.get(value.data());
 }
 
 [[nodiscard]] variant_result make_object_ref_value(const any_ref& value,
                                                    const serialization::context& context) {
   const meta::type_semantics_data* semantics = type_semantics(value.type());
+  const meta::detail::object_ref_data* data = object_ref_data(value.type());
   if (semantics == nullptr || semantics->wrapper_semantics != meta::wrapper_semantics::object_ref ||
-      semantics->get_object_ref == nullptr) {
+      data == nullptr || data->get == nullptr) {
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
@@ -89,7 +99,7 @@ object_ref_value_from_ref(const any_ref& value,
     return {{error_domain::serialization, errc::invalid_argument}, {}};
   }
 
-  const object* referenced = object_ref_value_from_ref(value, *semantics);
+  const object* referenced = object_ref_value_from_ref(value, *data);
   const object_id id = referenced != nullptr
                            ? context.reference_resolver->object_to_id(
                                  referenced, context.reference_resolver->user_data)
@@ -104,8 +114,9 @@ object_ref_value_from_ref(const any_ref& value,
 [[nodiscard]] error write_object_ref_value(writer& writer, const any_ref& value,
                                            const serialization::context& context) {
   const meta::type_semantics_data* semantics = type_semantics(value.type());
+  const meta::detail::object_ref_data* data = object_ref_data(value.type());
   if (semantics == nullptr || semantics->wrapper_semantics != meta::wrapper_semantics::object_ref ||
-      semantics->get_object_ref == nullptr) {
+      data == nullptr || data->get == nullptr) {
     return {error_domain::serialization, errc::unsupported};
   }
 
@@ -113,7 +124,7 @@ object_ref_value_from_ref(const any_ref& value,
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  const object* referenced = object_ref_value_from_ref(value, *semantics);
+  const object* referenced = object_ref_value_from_ref(value, *data);
   const object_id id = referenced != nullptr
                            ? context.reference_resolver->object_to_id(
                                  referenced, context.reference_resolver->user_data)
@@ -128,8 +139,9 @@ object_ref_value_from_ref(const any_ref& value,
 [[nodiscard]] error read_object_ref_value(reader& reader, const any_ref& target,
                                           const serialization::context& context) {
   const meta::type_semantics_data* semantics = type_semantics(target.type());
+  const meta::detail::object_ref_data* data = object_ref_data(target.type());
   if (semantics == nullptr || semantics->wrapper_semantics != meta::wrapper_semantics::object_ref ||
-      semantics->set_object_ref == nullptr || target.mutable_data() == nullptr) {
+      data == nullptr || data->set == nullptr || target.mutable_data() == nullptr) {
     return {error_domain::serialization, errc::unsupported};
   }
 
@@ -152,7 +164,7 @@ object_ref_value_from_ref(const any_ref& value,
     }
   }
 
-  if (!semantics->set_object_ref(target.mutable_data(), referenced)) {
+  if (!data->set(target.mutable_data(), referenced)) {
     return {error_domain::serialization, errc::invalid_type};
   }
 
@@ -161,67 +173,69 @@ object_ref_value_from_ref(const any_ref& value,
 
 [[nodiscard]] variant_result make_enum_value(const any_ref& value) {
   const meta::type_semantics_data* semantics = type_semantics(value.type());
-  if (semantics == nullptr || semantics->kind != meta::type_kind::enumeration ||
+  const meta::detail::enum_data* data = enum_data(value.type());
+  if (semantics == nullptr || semantics->kind != meta::type_kind::enumeration || data == nullptr ||
       value.data() == nullptr) {
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
-  if (semantics->enum_signed) {
-    if (semantics->enum_to_i64 == nullptr) {
+  if (data->is_signed) {
+    if (data->to_i64 == nullptr) {
       return {{error_domain::serialization, errc::unsupported}, {}};
     }
 
-    return {{}, variant::from(semantics->enum_to_i64(value.data()))};
+    return {{}, variant::from(data->to_i64(value.data()))};
   }
 
-  if (semantics->enum_to_u64 == nullptr) {
+  if (data->to_u64 == nullptr) {
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
-  return {{}, variant::from(semantics->enum_to_u64(value.data()))};
+  return {{}, variant::from(data->to_u64(value.data()))};
 }
 
 [[nodiscard]] error write_enum_value(writer& writer, const any_ref& value) {
   const meta::type_semantics_data* semantics = type_semantics(value.type());
-  if (semantics == nullptr || semantics->kind != meta::type_kind::enumeration ||
+  const meta::detail::enum_data* data = enum_data(value.type());
+  if (semantics == nullptr || semantics->kind != meta::type_kind::enumeration || data == nullptr ||
       value.data() == nullptr) {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  if (semantics->enum_signed) {
-    if (semantics->enum_to_i64 == nullptr) {
+  if (data->is_signed) {
+    if (data->to_i64 == nullptr) {
       return {error_domain::serialization, errc::unsupported};
     }
 
-    return writer.write_i64(semantics->enum_to_i64(value.data()));
+    return writer.write_i64(data->to_i64(value.data()));
   }
 
-  if (semantics->enum_to_u64 == nullptr) {
+  if (data->to_u64 == nullptr) {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  return writer.write_u64(semantics->enum_to_u64(value.data()));
+  return writer.write_u64(data->to_u64(value.data()));
 }
 
 [[nodiscard]] error read_enum_value(reader& reader, const any_ref& target) {
   const meta::type_semantics_data* semantics = type_semantics(target.type());
-  if (semantics == nullptr || semantics->kind != meta::type_kind::enumeration ||
-      target.mutable_data() == nullptr || semantics->enum_from_i64 == nullptr ||
-      semantics->enum_from_u64 == nullptr) {
+  const meta::detail::enum_data* data = enum_data(target.type());
+  if (semantics == nullptr || semantics->kind != meta::type_kind::enumeration || data == nullptr ||
+      target.mutable_data() == nullptr || data->from_i64 == nullptr || data->from_u64 == nullptr) {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  if (semantics->enum_signed) {
+  if (data->is_signed) {
     std::int64_t signed_value = 0;
     if (reader.read_i64(signed_value).succeeded()) {
-      return semantics->enum_from_i64(target.mutable_data(), signed_value)
+      return data->from_i64(target.mutable_data(), signed_value)
                  ? error{}
                  : error{error_domain::serialization, errc::invalid_argument};
     }
 
     std::uint64_t unsigned_value = 0;
     if (reader.read_u64(unsigned_value).succeeded()) {
-      return semantics->enum_from_u64(target.mutable_data(), unsigned_value)
+      return data->from_u64(target.mutable_data(), unsigned_value)
                  ? error{}
                  : error{error_domain::serialization, errc::invalid_argument};
     }
@@ -231,14 +245,14 @@ object_ref_value_from_ref(const any_ref& value,
 
   std::uint64_t unsigned_value = 0;
   if (reader.read_u64(unsigned_value).succeeded()) {
-    return semantics->enum_from_u64(target.mutable_data(), unsigned_value)
+    return data->from_u64(target.mutable_data(), unsigned_value)
                ? error{}
                : error{error_domain::serialization, errc::invalid_argument};
   }
 
   std::int64_t signed_value = 0;
   if (reader.read_i64(signed_value).succeeded()) {
-    return semantics->enum_from_i64(target.mutable_data(), signed_value)
+    return data->from_i64(target.mutable_data(), signed_value)
                ? error{}
                : error{error_domain::serialization, errc::invalid_argument};
   }

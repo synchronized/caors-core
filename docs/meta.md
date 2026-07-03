@@ -16,7 +16,7 @@
 - 用 `type_id` 表示由 C++ 类型运行期 key 派生的进程内类型句柄。
 - 用 `type_guid` 保存可选的稳定类型标识。
 - 用注册表内部基础类型数据保存类型名、稳定 GUID、大小、对齐和父类型。
-- 用 `meta::type_semantics_data` 保存 wrapper、指针和容器等类型语义。
+- 用 `meta::type_semantics_data` 保存类型形态和通用类型关系，并把具体访问函数拆到内部能力组件。
 - 用 `meta::type` 作为对外只读类型视图，避免直接暴露注册表内部数据。
 - 用全局 `meta::registry` 集中处理基础类型注册、查找和继承关系判断。
 - 用全局 `meta::registry` 在同一个 `type_id` 上挂载不同主题的元数据组件。
@@ -159,18 +159,23 @@ caors::meta::type_<actor>("game.actor")
 
 ### meta::type_semantics_data
 
-`meta::type_semantics_data` 是挂在类型上的语义组件，用来描述该类型在反射、序列化和 value 模块中的运行期形态：
+`meta::type_semantics_data` 是挂在类型上的通用语义组件，用来描述该类型在反射、序列化和 value 模块中的运行期形态：
 
 - `kind`：值、枚举、裸指针、wrapper、顺序容器、集合容器、关联容器、二元组、tuple-like 或 variant-like 类型。
 - `traits::wrapper_semantics`：wrapper 或裸指针的处理语义，例如内联值、对象引用或不支持。
 - `value_type`：统一 value 类型。普通值、枚举、裸指针和 wrapper 对应自身或内部值；顺序容器和集合容器对应元素类型；关联容器对应 mapped/value 类型；二元组对应 second 类型；tuple-like 和 variant-like 类型没有单一 value 类型，应分别通过 `tuple_view` 或 `variant_view` 查询元素或候选类型。
 - `key_type`：关联容器的 key 类型；二元组内部复用它保存 first 类型。
-- `indirect_value` / `mutable_indirect_value`：指针或 wrapper 解包后的内部值访问函数。
-- `has_indirect_value` / `reset_indirect_value`：指针或 wrapper 的持值检测和重置函数。
 - `pointer_depth`：当前支持的指针层级。
 - `nullable`：运行期值是否可能为空。
 
-这部分数据不在反射字段数据上重复保存。字段只记录声明类型的 `type_id`，需要查询字段形态、
+具体访问函数表不直接放在 `type_semantics_data` 里，而是按能力挂到独立内部组件：
+
+- `meta::detail::indirect_data`：裸指针或 wrapper 的内部值访问、持值检测、重置和确保持值函数。
+- `meta::detail::enum_data`：枚举类型和整数之间的转换函数。
+- `meta::detail::object_ref_data`：对象引用 wrapper 和对象指针之间的读写函数。
+- `meta::detail::sequence_data` / `set_data` / `associative_data` / `pair_data` / `tuple_data` / `variant_data`：容器、二元组、tuple-like 和 variant-like 的运行期访问函数。
+
+类型形态和通用类型关系不在反射字段数据上重复保存。字段只记录声明类型的 `type_id`，需要查询字段形态、
 value 类型、关联容器 key 类型、二元组 first 类型或 tuple-like 字段形态时，通过该 `type_id` 到 `meta::registry` 查询 `meta::type_semantics_data`。
 `meta::type_semantics_data` 由 `meta::registry::register_type_for<T>()` 在基础类型注册时自动挂载；反射字段
 注册只负责确保字段声明类型已经注册。wrapper、指针和容器依赖的 value/key/元素/候选类型也必须提前显式注册；
@@ -310,7 +315,7 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 - `meta::id_of<T>()`：查询已注册 C++ 类型的运行期类型 id；未注册时返回无效 id。
 - `meta::id()`：根据已注册类型名查询运行期类型标识。
 - `traits::type_name<T>`：基础 C++ 类型到 CAORS 类型名的默认映射。
-- `meta::type_semantics_data`：类型形态、wrapper、指针和容器语义组件。
+- `meta::type_semantics_data`：类型形态、wrapper 语义和通用 value/key 类型关系组件。
 - `traits::wrapper_traits<T>` / `traits::wrapper_access<T>`：wrapper 类型语义和内部值访问扩展点。
 - `traits::sequence_traits<T>` / `traits::set_traits<T>` / `traits::associative_traits<T>` / `traits::pair_traits<T>` / `traits::tuple_traits<T>` / `traits::variant_traits<T>`：容器、二元组、tuple-like 和 variant-like 类型语义扩展点。
 - `meta::type`：全局注册表中的类型只读视图。

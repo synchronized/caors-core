@@ -244,26 +244,11 @@ template <typename Type> struct type_semantics_traits {
       info.kind = type_kind::wrapper;
       info.wrapper_semantics = traits::wrapper_traits<type>::semantics;
       info.value_type = semantic_type_id<value_type>();
-      info.indirect_value = &wrapper_indirect_value<type>;
-      info.mutable_indirect_value = &wrapper_mutable_indirect_value<type>;
-      info.has_indirect_value = &wrapper_has_indirect_value<type>;
-      info.reset_indirect_value = &wrapper_reset_indirect_value<type>;
-      info.ensure_indirect_value = &wrapper_ensure_indirect_value<type>;
-      if constexpr (traits::wrapper_traits<type>::semantics == wrapper_semantics::object_ref) {
-        info.get_object_ref = &wrapper_object_ref_value<type>;
-        info.set_object_ref = &wrapper_set_object_ref<type>;
-      }
       info.nullable = traits::wrapper_traits<type>::nullable;
       return info;
     } else {
       if constexpr (std::is_enum_v<type>) {
-        using underlying_type = std::underlying_type_t<type>;
         info.kind = type_kind::enumeration;
-        info.enum_to_i64 = &enum_to_i64<type>;
-        info.enum_to_u64 = &enum_to_u64<type>;
-        info.enum_from_i64 = &enum_from_i64<type>;
-        info.enum_from_u64 = &enum_from_u64<type>;
-        info.enum_signed = std::is_signed_v<underlying_type>;
       } else {
         info.kind = type_kind::value;
       }
@@ -283,11 +268,6 @@ template <typename T> struct type_semantics_traits<T*> {
     info.kind = type_kind::raw_pointer;
     info.wrapper_semantics = wrapper_semantics::inline_value;
     info.value_type = semantic_type_id<value_type>();
-    info.indirect_value = &raw_pointer_value<T>;
-    info.mutable_indirect_value = &raw_pointer_mutable_value<T>;
-    info.has_indirect_value = &raw_pointer_has_value<T>;
-    info.reset_indirect_value = &raw_pointer_reset<T>;
-    info.ensure_indirect_value = &raw_pointer_ensure_value<T>;
     info.pointer_depth = 1;
     info.nullable = true;
     return info;
@@ -299,27 +279,129 @@ template <typename T> [[nodiscard]] type_semantics_data make_type_semantics_data
   return type_semantics_traits<type>::get();
 }
 
-template <typename T> [[nodiscard]] error ensure_type_semantics_for(type_id id) {
-  if (!id) {
-    return {error_domain::meta, errc::invalid_type};
+template <typename T> [[nodiscard]] indirect_data make_indirect_data() {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (std::is_pointer_v<type>) {
+    using value_type = std::remove_pointer_t<type>;
+    indirect_data data{};
+    data.value = &raw_pointer_value<value_type>;
+    data.mutable_value = &raw_pointer_mutable_value<value_type>;
+    data.has_value = &raw_pointer_has_value<value_type>;
+    data.reset = &raw_pointer_reset<value_type>;
+    data.ensure_value = &raw_pointer_ensure_value<value_type>;
+    return data;
+  } else if constexpr (traits::wrapper_traits<type>::is_wrapper &&
+                       traits::wrapper_traits<type>::semantics != wrapper_semantics::unsupported) {
+    indirect_data data{};
+    data.value = &wrapper_indirect_value<type>;
+    data.mutable_value = &wrapper_mutable_indirect_value<type>;
+    data.has_value = &wrapper_has_indirect_value<type>;
+    data.reset = &wrapper_reset_indirect_value<type>;
+    data.ensure_value = &wrapper_ensure_indirect_value<type>;
+    return data;
+  } else {
+    return {};
   }
+}
 
-  if (caors::meta::get_registry().has<type_semantics_data>(id)) {
+template <typename T> [[nodiscard]] enum_data make_enum_data() {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (std::is_enum_v<type>) {
+    using underlying_type = std::underlying_type_t<type>;
+    return enum_data{
+        &enum_to_i64<type>,
+        &enum_to_u64<type>,
+        &enum_from_i64<type>,
+        &enum_from_u64<type>,
+        std::is_signed_v<underlying_type>,
+    };
+  } else {
+    return {};
+  }
+}
+
+template <typename T> [[nodiscard]] object_ref_data make_object_ref_data() {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (traits::wrapper_traits<type>::is_wrapper &&
+                traits::wrapper_traits<type>::semantics == wrapper_semantics::object_ref) {
+    return object_ref_data{
+        &wrapper_object_ref_value<type>,
+        &wrapper_set_object_ref<type>,
+    };
+  } else {
+    return {};
+  }
+}
+
+template <typename Component> [[nodiscard]] error ensure_component_for(type_id id, Component data) {
+  if (!data.valid() || caors::meta::get_registry().has<Component>(id)) {
     return {};
   }
 
-  type_semantics_data semantics = make_type_semantics_data<T>();
-  if (!semantics.value_type && semantics.kind != type_kind::tuple &&
-      semantics.kind != type_kind::variant) {
-    semantics.value_type = id;
-  }
-
-  const error result = caors::meta::get_registry().emplace<type_semantics_data>(id, semantics);
+  const error result = caors::meta::get_registry().emplace<Component>(id, data);
   if (result && result.value() != errc::duplicate_component) {
     return result;
   }
 
   return {};
+}
+
+template <typename T>
+[[nodiscard]] error ensure_semantic_access_data_for(type_id id,
+                                                    const type_semantics_data& semantics) {
+  if (semantics.kind == type_kind::raw_pointer || semantics.kind == type_kind::wrapper) {
+    const error result = ensure_component_for(id, make_indirect_data<T>());
+    if (result) {
+      return result;
+    }
+  }
+
+  if (semantics.kind == type_kind::enumeration) {
+    const error result = ensure_component_for(id, make_enum_data<T>());
+    if (result) {
+      return result;
+    }
+  }
+
+  if (semantics.kind == type_kind::wrapper &&
+      semantics.wrapper_semantics == wrapper_semantics::object_ref) {
+    const error result = ensure_component_for(id, make_object_ref_data<T>());
+    if (result) {
+      return result;
+    }
+  }
+
+  return {};
+}
+
+template <typename T> [[nodiscard]] error ensure_type_semantics_for(type_id id) {
+  if (!id) {
+    return {error_domain::meta, errc::invalid_type};
+  }
+
+  const type_semantics_data* semantics =
+      caors::meta::get_registry().find_ptr<type_semantics_data>(id);
+  type_semantics_data local_semantics{};
+  if (semantics == nullptr) {
+    local_semantics = make_type_semantics_data<T>();
+    if (!local_semantics.value_type && local_semantics.kind != type_kind::tuple &&
+        local_semantics.kind != type_kind::variant) {
+      local_semantics.value_type = id;
+    }
+
+    const error result =
+        caors::meta::get_registry().emplace<type_semantics_data>(id, local_semantics);
+    if (result && result.value() != errc::duplicate_component) {
+      return result;
+    }
+
+    semantics = caors::meta::get_registry().find_ptr<type_semantics_data>(id);
+    if (semantics == nullptr) {
+      return {error_domain::meta, errc::invalid_type};
+    }
+  }
+
+  return ensure_semantic_access_data_for<T>(id, *semantics);
 }
 
 } // namespace caors::meta::detail
