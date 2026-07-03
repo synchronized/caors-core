@@ -79,7 +79,7 @@
 序列化配置：
 
 ```cpp
-caors::meta::type type = caors::meta::get<actor>();
+caors::meta::type type = caors::meta::find<actor>();
 
 caors::serialization::class_(type)
     .field("health", "hp")
@@ -414,7 +414,7 @@ caors::serialization::variant_result value = caors::serialization::to_variant(ca
 `serialization::registry` 是全局序列化注册表，内部复用 `meta::registry`：
 
 ```cpp
-caors::meta::type type = caors::meta::get<actor>();
+caors::meta::type type = caors::meta::find<actor>();
 
 caors::error status =
     caors::serialization::class_(type)

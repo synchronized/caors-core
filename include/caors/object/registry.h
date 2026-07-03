@@ -188,8 +188,6 @@ public:
     return status_.succeeded() || status_.value() == errc::duplicate_id;
   }
 
-  [[nodiscard]] operator type() const noexcept { return type_; }
-
 private:
   void refresh() {
     const type refreshed = get_registry().find_type<T>();

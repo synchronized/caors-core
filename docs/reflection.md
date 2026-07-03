@@ -565,7 +565,7 @@ caors::error result =
 auto reflected = caors::reflection::find("game.actor");
 ```
 
-推荐先通过 `meta::type_<T>("name")` 注册基础类型，再把 `caors::meta::get<T>()` 或保存下来的 `meta::type` 传给
+推荐先通过 `meta::type_<T>("name")` 注册基础类型，再把 `caors::meta::find<T>()` 或保存下来的 `meta::type` 传给
 `reflection::class_<T>(meta::type)`。这条路径只向已注册类型挂载反射组件，不会创建或修改
 基础类型记录；传入无效 `meta::type` 会返回 `errc::invalid_type`，传入不存在的 `type_id` 会返回
 `errc::missing_type`。低层反射组件注册函数属于内部实现入口，普通代码不直接调用。

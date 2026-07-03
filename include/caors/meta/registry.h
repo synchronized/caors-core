@@ -42,7 +42,7 @@ class registry_state;
  * @brief 底层全局类型元数据注册表。
  *
  * `meta::registry` 以 `type_id` 为 key，先注册内部基础类型数据，再按类型挂载对象工厂、
- * 反射描述、序列化描述等元数据组件。普通代码应使用 `meta::type_<T>()`、`meta::get<T>()`
+ * 反射描述、序列化描述等元数据组件。普通代码应使用 `meta::type_<T>()`、`meta::find<T>()`
  * 和 `meta::find()` 入口，不要创建或管理注册表实例。
  */
 class CAORS_API registry final {

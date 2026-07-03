@@ -64,8 +64,6 @@ public:
     return status_.succeeded() || status_.value() == errc::duplicate_id;
   }
 
-  [[nodiscard]] operator ::caors::meta::type() const noexcept { return type_; }
-
 private:
   void refresh() {
     ::caors::meta::type refreshed = get_registry().find_type<T>();
@@ -85,9 +83,6 @@ template <typename T> [[nodiscard]] type_builder<T> type_() { return type_builde
 template <typename T> [[nodiscard]] type_builder<T> type_(std::string_view name) {
   return type_builder<T>{}.type(name);
 }
-
-/** @brief 获取已注册的 C++ 类型；不存在时返回无效 `type`。 */
-template <typename T> [[nodiscard]] type get() { return get_registry().find_type<T>(); }
 
 /** @brief 按 C++ 类型查找基础类型。 */
 template <typename T> [[nodiscard]] type find() { return get_registry().find_type<T>(); }

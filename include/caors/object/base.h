@@ -84,12 +84,12 @@ public:
   [[nodiscard]] static object_type_id static_type_id() noexcept {
 #if CAORS_HAS_EXCEPTIONS
     try {
-      return caors::meta::get<Derived>().id();
+      return caors::meta::find<Derived>().id();
     } catch (...) {
       return object_type_id::invalid();
     }
 #else
-    return caors::meta::get<Derived>().id();
+    return caors::meta::find<Derived>().id();
 #endif
   }
 

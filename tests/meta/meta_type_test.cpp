@@ -44,9 +44,9 @@ struct lazy_meta_builder_type {};
 
 struct fluent_meta_type {};
 
-struct explicit_get_type {};
+struct explicit_find_type {};
 
-struct missing_get_type {};
+struct missing_find_type {};
 
 [[nodiscard]] constexpr caors::error meta_error(caors::errc code) noexcept {
   return {caors::error_domain::meta, code};
@@ -106,8 +106,8 @@ TEST_CASE("meta type view - describes stable type guid", "[meta]") {
   REQUIRE(guid.has_value());
 
   const caors::meta::type type = caors::meta::type_<guid_sample_type>("caors.test.guid.sample")
-                                          .guid(caors::type_guid{*guid})
-                                          .get();
+                                     .guid(caors::type_guid{*guid})
+                                     .get();
 
   CHECK(type.valid());
   CHECK(type.id());
@@ -178,18 +178,18 @@ TEST_CASE("meta type - builder without name does not register type", "[meta]") {
   const auto builder = caors::meta::type_<lazy_meta_builder_type>();
 
   CHECK_FALSE(builder.get());
-  CHECK_FALSE(caors::meta::get<lazy_meta_builder_type>());
+  CHECK_FALSE(caors::meta::find<lazy_meta_builder_type>());
   CHECK_FALSE(caors::meta::find<lazy_meta_builder_type>());
 }
 
 TEST_CASE("meta type - explicit type access does not create missing types", "[meta]") {
-  CHECK_FALSE(caors::meta::get<missing_get_type>());
+  CHECK_FALSE(caors::meta::find<missing_find_type>());
 
   const caors::meta::type type =
-      caors::meta::type_<explicit_get_type>("caors.test.type.explicit_get").get();
+      caors::meta::type_<explicit_find_type>("caors.test.type.explicit_find").get();
   REQUIRE(type.valid());
 
-  const caors::meta::type found = caors::meta::get<explicit_get_type>();
+  const caors::meta::type found = caors::meta::find<explicit_find_type>();
   REQUIRE(found.valid());
   CHECK(found.id() == type.id());
 }

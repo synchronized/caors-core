@@ -43,7 +43,7 @@ TEST_CASE("reflection - class builder can attach to explicit meta type", "[refle
   const caors::meta::type type =
       caors::meta::type_<explicit_meta_actor>("caors.test.reflection.explicit_meta_actor").get();
   REQUIRE(type.valid());
-  CHECK(caors::meta::get<explicit_meta_actor>().id() == type.id());
+  CHECK(caors::meta::find<explicit_meta_actor>().id() == type.id());
 
   const caors::error status = caors::reflection::class_<explicit_meta_actor>(type)
                                   .field("id", &explicit_meta_actor::id)
@@ -59,10 +59,9 @@ TEST_CASE("reflection - class builder can attach to explicit meta type", "[refle
 }
 
 TEST_CASE("reflection - class builder reports invalid explicit meta type", "[reflection]") {
-  const caors::error status =
-      caors::reflection::class_<explicit_meta_actor>(caors::meta::type{})
-          .field("id", &explicit_meta_actor::id)
-          .commit();
+  const caors::error status = caors::reflection::class_<explicit_meta_actor>(caors::meta::type{})
+                                  .field("id", &explicit_meta_actor::id)
+                                  .commit();
 
   CHECK(status.failed());
   CHECK(status.domain() == caors::error_domain::reflection);

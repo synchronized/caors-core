@@ -35,17 +35,16 @@ CAORS_META_REGISTRATION(register_freeze_macro_actor) {
 
 TEST_CASE("freeze - meta registry becomes read only", "[freeze]") {
   REQUIRE_FALSE(caors::meta::is_registry_frozen());
-  CHECK_FALSE(caors::meta::get<macro_actor>());
+  CHECK_FALSE(caors::meta::find<macro_actor>());
 
-  const caors::meta::type type =
-      caors::meta::type_<freeze_actor>("caors.test.freeze.actor").get();
+  const caors::meta::type type = caors::meta::type_<freeze_actor>("caors.test.freeze.actor").get();
   REQUIRE(type.valid());
   REQUIRE(caors::meta::get_registry().emplace<freeze_component>(type.id(), true) == caors::error{});
 
   CHECK(caors::meta::freeze_registry() == caors::error{});
   CHECK(caors::meta::is_registry_frozen());
   CHECK(caors::meta::freeze_registry() == caors::error{});
-  CHECK(caors::meta::get<macro_actor>().valid());
+  CHECK(caors::meta::find<macro_actor>().valid());
 
   CHECK(caors::meta::type_<late_actor>("caors.test.freeze.late").result() ==
         meta_error(caors::errc::frozen));
@@ -53,5 +52,5 @@ TEST_CASE("freeze - meta registry becomes read only", "[freeze]") {
         meta_error(caors::errc::frozen));
 
   CHECK_FALSE(caors::meta::id_of<late_actor>());
-  CHECK(caors::meta::get<freeze_actor>().id() == type.id());
+  CHECK(caors::meta::find<freeze_actor>().id() == type.id());
 }

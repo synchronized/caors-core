@@ -153,7 +153,7 @@ caors::meta::type_<actor>("game.actor")
     .guid(caors::type_guid{*guid});
 ```
 
-`caors::meta::find(...)` 和 `caors::meta::get<T>()` 只查询已经注册的类型，不会创建临时记录；
+`caors::meta::find(...)` 和 `caors::meta::find<T>()` 只查询已经注册的类型，不会创建临时记录；
 不存在时返回无效 `meta::type`。普通类型应通过 `caors::meta::type_<T>("name")` 显式注册。
 `meta::id_of<T>()` 同样只查询已注册类型，不会触发运行期隐式注册。
 
@@ -200,7 +200,7 @@ caors::error result = caors::meta::type_<actor>("game.actor").result();
 void register_game_types() {
   caors::meta::type_<int>("int");
   caors::meta::type_<actor>("game.actor");
-  caors::reflection::class_<actor>(caors::meta::get<actor>())
+  caors::reflection::class_<actor>(caors::meta::find<actor>())
       .field("id", &actor::id)
       .commit();
 }
@@ -219,7 +219,7 @@ CAORS_META_REGISTRATION(register_actor_meta) {
   caors::meta::type_<int>("int");
   caors::meta::type_<actor>("game.actor");
 
-  return caors::reflection::class_<actor>(caors::meta::get<actor>())
+  return caors::reflection::class_<actor>(caors::meta::find<actor>())
       .field("id", &actor::id)
       .commit();
 }

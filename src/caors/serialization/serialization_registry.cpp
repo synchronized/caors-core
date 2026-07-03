@@ -56,16 +56,4 @@ bool contains(meta::type type) { return type.valid() && contains(type.id()); }
 
 std::size_t size() noexcept { return get_registry().size(); }
 
-namespace detail {
-
-error register_serialization(type_id id, type_data data) {
-  return get_registry().register_type(id, data);
-}
-
-error register_serialization(meta::type type, type_data data) {
-  return get_registry().register_type(type, data);
-}
-
-} // namespace detail
-
 } // namespace caors::serialization
