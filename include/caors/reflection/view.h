@@ -16,17 +16,21 @@
 namespace caors {
 
 class reflection_registry;
-class reflection_field;
+
+namespace reflection {
+
+class field;
+class type;
 
 /**
  * @brief 字段反射只读视图。
  *
- * `reflection_field` 是全局反射注册表返回的字段只读句柄。反射数据注册后不可撤销，因此有效视图
+ * `reflection::field` 是全局反射注册表返回的字段只读句柄。反射数据注册后不可撤销，因此有效视图
  * 可以在进程生命周期内稳定使用。
  */
-class CAORS_API reflection_field final {
+class CAORS_API field final {
 public:
-  reflection_field() noexcept = default;
+  field() noexcept = default;
 
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
@@ -123,43 +127,43 @@ public:
   template <typename Field>
   [[nodiscard]] std::optional<std::remove_cv_t<std::remove_reference_t<Field>>>
   try_get(const void* object) const {
-    const reflection_field_data* field = info();
-    if (field == nullptr) {
+    const field_data* reflected_field = info();
+    if (reflected_field == nullptr) {
       return std::nullopt;
     }
 
-    return field->try_get<Field>(object);
+    return reflected_field->try_get<Field>(object);
   }
 
   /** @brief 按指定类型写入字段值。 */
   template <typename Field> bool try_set(void* object, const Field& value) const {
-    const reflection_field_data* field = info();
-    if (field == nullptr) {
+    const field_data* reflected_field = info();
+    if (reflected_field == nullptr) {
       return false;
     }
 
-    return field->try_set<Field>(object, value);
+    return reflected_field->try_set<Field>(object, value);
   }
 
 private:
-  friend class reflection_type;
+  friend class type;
 
-  reflection_field(meta_type owner, const reflection_field_data* field) noexcept;
-  [[nodiscard]] const reflection_field_data* info() const noexcept;
+  field(meta_type owner, const field_data* reflected_field) noexcept;
+  [[nodiscard]] const field_data* info() const noexcept;
 
   meta_type owner_{};
-  const reflection_field_data* field_ = nullptr;
+  const field_data* field_ = nullptr;
 };
 
 /**
  * @brief 类型反射只读视图。
  *
- * `reflection_type` 不拥有反射数据，只引用全局注册表中 append-only 保存的 `meta_type` 和
- * `reflection_type_data`。有效视图可以在进程生命周期内稳定使用。
+ * `reflection::type` 不拥有反射数据，只引用全局注册表中 append-only 保存的 `meta_type` 和
+ * `reflection::type_data`。有效视图可以在进程生命周期内稳定使用。
  */
-class CAORS_API reflection_type final {
+class CAORS_API type final {
 public:
-  reflection_type() noexcept = default;
+  type() noexcept = default;
 
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
@@ -169,19 +173,24 @@ public:
   [[nodiscard]] string_name name() const noexcept;
   [[nodiscard]] type_guid guid() const noexcept;
   [[nodiscard]] std::size_t field_count() const noexcept;
-  [[nodiscard]] std::optional<reflection_field> field_at(std::size_t index) const;
-  [[nodiscard]] std::optional<reflection_field> find_field(string_name name) const;
-  [[nodiscard]] std::optional<reflection_field> find_field(std::string_view name) const;
+  [[nodiscard]] std::optional<field> field_at(std::size_t index) const;
+  [[nodiscard]] std::optional<field> find_field(string_name name) const;
+  [[nodiscard]] std::optional<field> find_field(std::string_view name) const;
 
 private:
-  friend class reflection_registry;
+  friend class ::caors::reflection_registry;
 
-  reflection_type(meta_type type, const reflection_type_data* data) noexcept;
-  [[nodiscard]] const reflection_type_data* data() const noexcept;
+  type(meta_type info, const type_data* data) noexcept;
+  [[nodiscard]] const type_data* data() const noexcept;
 
   meta_type type_{};
-  const reflection_type_data* data_ = nullptr;
+  const type_data* data_ = nullptr;
 };
+
+} // namespace reflection
+
+using reflection_field = reflection::field;
+using reflection_type = reflection::type;
 
 } // namespace caors
 

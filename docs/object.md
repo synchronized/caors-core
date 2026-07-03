@@ -27,6 +27,14 @@ CAORS 对象系统第一阶段只解决几件事：
 
 ## 核心概念
 
+### 命名空间
+
+对象实例基类 `caors::object`、`object_id` 和 `object_type_id` 仍位于根命名空间。对象系统的辅助类型推荐使用
+`caors::objects` 命名空间下的短名称，例如 `objects::type_data`、`objects::type`、
+`objects::handle`、`objects::weak_handle<T>` 和 `objects::ref<T>`。根命名空间仍保留
+`object_type_data`、`object_type`、`object_handle`、`object_weak_handle<T>` 和
+`object_ref<T>` 等兼容别名，旧代码可以继续编译；新文档和新代码优先使用命名空间内的短名称。
+
 ### object_id
 
 `object_id` 是运行期对象实例标识。`0` 保留为无效值。
@@ -68,31 +76,31 @@ caors::object_type_id id = player::static_type_id();
 
 它不负责对象所有权，也不内置引用计数或 GC。
 
-### object_ref
+### objects::ref
 
-`object_ref<T>` 是非拥有对象引用，只保存对象指针，不延长对象生命周期：
+`objects::ref<T>` 是非拥有对象引用，只保存对象指针，不延长对象生命周期：
 
 ```cpp
-caors::object_ref<actor> ref{&instance};
+caors::objects::ref<actor> ref{&instance};
 caors::object_id id = ref.id();
 ```
 
-它适合表达运行期对象关系。序列化时需要通过 `serialization_reference_resolver` 把对象指针转换为
+它适合表达运行期对象关系。序列化时需要通过 `serialization::reference_resolver` 把对象指针转换为
 `object_id`，反序列化时再把 `object_id` 解析回对象指针。`object_id` 本身仍是运行期标识，跨存档稳定
 引用应由上层资源或对象数据库提供稳定 id 映射。
 
-### object_handle 和 object_weak_handle
+### objects::handle 和 objects::weak_handle
 
-`object_handle` 是只保存 `object_id` 和 `object_type_id` 的身份描述，不拥有对象，也不提供解引用：
+`objects::handle` 是只保存 `object_id` 和 `object_type_id` 的身份描述，不拥有对象，也不提供解引用：
 
 ```cpp
-caors::object_handle handle{instance.id(), instance.type_id()};
+caors::objects::handle handle{instance.id(), instance.type_id()};
 ```
 
-`object_weak_handle<T>` 是类型化弱句柄，内部同样只保存 `object_handle`。它不会延长对象生命周期，
+`objects::weak_handle<T>` 是类型化弱句柄，内部同样只保存 `objects::handle`。它不会延长对象生命周期，
 也不会隐式查询全局对象表；后续对象生命周期管理器或资源系统可以基于它实现弱引用解析、失效检测和跨存档
-稳定 id 映射。当前阶段如果需要把对象关系序列化为运行期对象 id，仍应使用 `object_ref<T>` 和
-`serialization_reference_resolver`。
+稳定 id 映射。当前阶段如果需要把对象关系序列化为运行期对象 id，仍应使用 `objects::ref<T>` 和
+`serialization::reference_resolver`。
 
 ### object_base
 
@@ -130,7 +138,7 @@ object.type_name(); // "game.player"
 
 `object_registry` 是基于全局 `meta_registry` 的对象注册表 facade 和默认构造工厂。它不表示彼此隔离的局部注册表实例。普通代码优先通过 `objects::class_<T>()`、`objects::find()`、`objects::id()` 和 `objects::is_a()` 访问对象元数据；需要默认构造工厂时再使用 `get_object_registry()`。
 
-对外查询返回 `object_type` 只读视图。它组合了基础 `meta_type` 和内部 `object_type_data`，因此调用方可以通过 `id()`、`name()`、`guid()`、`size()`、`alignment()`、`parent_id()` 和 `constructible()` 查询对象类型信息，但不能直接修改注册表内部数据。
+对外查询返回 `objects::type` 只读视图。它组合了基础 `meta_type` 和内部 `objects::type_data`，因此调用方可以通过 `id()`、`name()`、`guid()`、`size()`、`alignment()`、`parent_id()` 和 `constructible()` 查询对象类型信息，但不能直接修改注册表内部数据。
 
 ```cpp
 if (caors::objects::class_<actor>(actor::object_type_name).commit()) {
@@ -206,8 +214,8 @@ caors::destroy_object(instance, &resource);
 - `object`：基础对象身份和类型查询入口。
 - `object_base<Derived, Base>`：CRTP 类型查询辅助。
 - `meta_type_data` / `meta_registry`：对象系统和反射系统共享的全局基础类型描述和元数据注册表。
-- `object_type_data`：内部对象元数据组件，保存默认构造、创建和销毁函数。
-- `object_type`：对象类型只读视图，组合 `meta_type` 和内部 `object_type_data`。
+- `objects::type_data`：内部对象元数据组件，保存默认构造、创建和销毁函数。
+- `objects::type`：对象类型只读视图，组合 `meta_type` 和内部 `objects::type_data`。
 - `caors::error`：明确对象类型注册失败原因和错误来源域。
 - `object_registry`：类型注册、查询、继承关系判断、默认构造工厂。
 - `objects::class_<T>()`：对象类型链式注册入口。
@@ -220,7 +228,7 @@ caors::destroy_object(instance, &resource);
 - [x] 对象实例 id。
 - [x] 对象类型 id、名称、大小、对齐和父类型。
 - [x] 复用全局 `meta_registry`。
-- [x] 将 `object_type_data` 作为类型元数据组件挂载，并通过 `object_type` 视图对外查询。
+- [x] 将 `objects::type_data` 作为类型元数据组件挂载，并通过 `objects::type` 视图对外查询。
 - [x] 注册错误状态和不一致类型描述检测。
 - [x] 默认构造工厂。
 - [x] 接入 `memory_resource`。

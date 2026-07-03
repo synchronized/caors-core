@@ -17,6 +17,10 @@
 
 namespace caors {
 
+namespace reflection {
+struct field_data;
+} // namespace reflection
+
 class any_ref;
 class indirect_view;
 class sequence_view;
@@ -227,7 +231,7 @@ public:
 
 private:
   friend class any_ref;
-  friend struct reflection_field_data;
+  friend struct reflection::field_data;
 
   [[nodiscard]] static any copy_from_raw(type_id type, const void* source) {
     const std::optional<meta_type> meta = caors::meta::find(type);
@@ -443,7 +447,7 @@ private:
   friend class pair_view;
   friend class tuple_view;
   friend class variant_view;
-  friend struct reflection_field_data;
+  friend struct reflection::field_data;
 
   [[nodiscard]] static any_ref from_raw(type_id type, const void* data, bool writable) noexcept {
     const std::optional<meta_type> meta = caors::meta::find(type);

@@ -77,14 +77,16 @@ template <typename Field> [[nodiscard]] object_ref_set_fn object_ref_set_fn_of()
 
 } // namespace detail
 
+namespace reflection {
+
 /**
  * @brief 底层字段反射元信息。
  *
  * 字段访问基于注册时记录的 offset 和 C++ 类型 key。调用方需要传入该字段所属对象的地址；
  * 类型不匹配、对象为空或字段不可写时会返回失败，不抛出异常。常规查询优先使用
- * `reflection_field`，该结构主要作为注册表内部存储和底层注册入口。
+ * `reflection::field`，该结构主要作为注册表内部存储和底层注册入口。
  */
-struct reflection_field_data {
+struct field_data {
   string_name name{};
   type_id type{};
   detail::object_ref_get_fn get_object_ref = nullptr;
@@ -215,12 +217,12 @@ struct reflection_field_data {
 
 /** @brief 创建字段反射元信息。 */
 template <typename Field>
-[[nodiscard]] reflection_field_data
-make_reflection_field_data(std::string_view name, std::string_view type_name, std::size_t offset) {
+[[nodiscard]] field_data make_field_data(std::string_view name, std::string_view type_name,
+                                         std::size_t offset) {
   using field_type = std::remove_cv_t<Field>;
   const type_id field_type_id = detail::register_field_type_id<field_type>(type_name);
 
-  reflection_field_data field{
+  field_data field{
       string_name{name},
       field_type_id,
       detail::object_ref_get_fn_of<Field>(),
@@ -244,6 +246,17 @@ make_reflection_field_data(std::string_view name, std::string_view type_name, st
   }
 
   return field;
+}
+
+} // namespace reflection
+
+using reflection_field_data = reflection::field_data;
+
+/** @brief 创建字段反射元信息。兼容入口，优先使用 `reflection::make_field_data()`。 */
+template <typename Field>
+[[nodiscard]] reflection_field_data
+make_reflection_field_data(std::string_view name, std::string_view type_name, std::size_t offset) {
+  return reflection::make_field_data<Field>(name, type_name, offset);
 }
 
 namespace detail {

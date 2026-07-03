@@ -89,7 +89,7 @@ caors::error status = caors::meta::type<actor>("game.actor").result();
 跨模块 API 边界可以用 `rethrow_as()` 保留底层错误码，并替换为当前模块的错误来源域：
 
 ```cpp
-caors::error status = meta.emplace<serialization_type_data>(id, data);
+caors::error status = meta.emplace<serialization::type_data>(id, data);
 return caors::rethrow_as(status, caors::error_domain::serialization);
 ```
 

@@ -51,30 +51,30 @@ object_type_id object::static_type_id() noexcept {
 
 std::string_view object::static_type_name() noexcept { return "caors.object"; }
 
-object_type::object_type(meta_type type, const object_type_data* data) noexcept
+objects::type::type(meta_type type, const objects::type_data* data) noexcept
     : type_(type), data_(data) {}
 
-bool object_type::valid() const noexcept { return type_.valid() && data_ != nullptr; }
+bool objects::type::valid() const noexcept { return type_.valid() && data_ != nullptr; }
 
-meta_type object_type::info() const noexcept { return valid() ? type_ : meta_type{}; }
+meta_type objects::type::info() const noexcept { return valid() ? type_ : meta_type{}; }
 
-object_type_id object_type::id() const noexcept { return type_.id(); }
+object_type_id objects::type::id() const noexcept { return type_.id(); }
 
-string_name object_type::name() const noexcept { return type_.name(); }
+string_name objects::type::name() const noexcept { return type_.name(); }
 
-type_guid object_type::guid() const noexcept { return type_.guid(); }
+type_guid objects::type::guid() const noexcept { return type_.guid(); }
 
-std::size_t object_type::size() const noexcept { return type_.size(); }
+std::size_t objects::type::size() const noexcept { return type_.size(); }
 
-std::size_t object_type::alignment() const noexcept { return type_.alignment(); }
+std::size_t objects::type::alignment() const noexcept { return type_.alignment(); }
 
-object_type_id object_type::parent_id() const noexcept { return type_.parent_id(); }
+object_type_id objects::type::parent_id() const noexcept { return type_.parent_id(); }
 
-bool object_type::constructible() const noexcept {
+bool objects::type::constructible() const noexcept {
   return data_ != nullptr && data_->constructible();
 }
 
-const object_type_data* object_type::data() const noexcept { return valid() ? data_ : nullptr; }
+const objects::type_data* objects::type::data() const noexcept { return valid() ? data_ : nullptr; }
 
 object_registry::object_registry() {
   (void)register_type_for<object>(make_root_object_meta_type_data(), make_root_object_type_data());

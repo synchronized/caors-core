@@ -10,7 +10,7 @@
 反射第一阶段解决几件事：
 
 - 复用 `meta_type_data`、`meta_type`、`type_id` 和 `type_guid` 表达类型身份。
-- 基于 `meta_registry` 把 `reflection_type_data` 挂载为类型元数据组件。
+- 基于 `meta_registry` 把 `reflection::type_data` 挂载为类型元数据组件。
 - 通过 RTTR 风格 builder 或底层字段列表描述字段。
 - 提供按类型 id、类型名和稳定 GUID 查询反射类型。
 - 提供全局 append-only 注册表，以及稳定的类型视图和字段视图。
@@ -25,12 +25,19 @@
 
 ## 核心概念
 
-### 底层 reflection_field_data
+### 命名空间
 
-`reflection_field_data` 是字段的底层存储描述，主要用于注册表内部保存字段数据，以及 `make_reflection_field_data<Field>()`
-这类底层注册入口。外部查询和字段访问更推荐使用 `reflection_field`，避免直接依赖底层存储结构。
+反射模块的推荐类型名位于 `caors::reflection` 命名空间，例如 `reflection::field_data`、
+`reflection::type_data`、`reflection::field` 和 `reflection::type`。根命名空间仍保留
+`reflection_field_data`、`reflection_type_data`、`reflection_field` 和 `reflection_type`
+等兼容别名，旧代码可以继续编译；新文档和新代码优先使用命名空间内的短名称。
 
-`reflection_field_data` 描述一个字段：
+### 底层 reflection::field_data
+
+`reflection::field_data` 是字段的底层存储描述，主要用于注册表内部保存字段数据，以及 `reflection::make_field_data<Field>()`
+这类底层注册入口。外部查询和字段访问更推荐使用 `reflection::field`，避免直接依赖底层存储结构。
+
+`reflection::field_data` 描述一个字段：
 
 - `name`：字段名。
 - `type`：字段声明类型的运行期 `type_id`。
@@ -42,7 +49,7 @@
 wrapper 语义、解包值类型、容器元素类型和 key/value 类型由同一 `type` 上挂载的
 `meta_type_semantics_data` 查询，避免反射、序列化和 value 模块分别重复保存类型事实。
 
-字段描述可以通过 `make_reflection_field_data<Field>()` 创建：
+字段描述可以通过 `reflection::make_field_data<Field>()` 创建：
 
 ```cpp
 struct actor {
@@ -50,8 +57,8 @@ struct actor {
   float health = 100.0F;
 };
 
-caors::reflection_field_data field =
-    caors::make_reflection_field_data<float>("health", "float", offsetof(actor, health));
+caors::reflection::field_data field =
+    caors::reflection::make_field_data<float>("health", "float", offsetof(actor, health));
 ```
 
 第一版要求调用方显式传入 offset，通常配合 `offsetof()` 使用。后续如果引入代码生成工具，可以由工具生成字段描述。
@@ -151,9 +158,9 @@ struct wrapper_access<my_box<T>> {
 ```
 
 `wrapper_access<T>` 是可选扩展点。只需要识别 wrapper 形态时可以只特化 `wrapper_traits<T>`；如果希望
-`any_ref::create_indirect_view()` 或 `reflection_field::create_indirect_view()` 能访问内部值，则需要同时特化
+`any_ref::create_indirect_view()` 或 `reflection::field::create_indirect_view()` 能访问内部值，则需要同时特化
 `wrapper_access<T>`。内置适配支持裸指针、`std::unique_ptr<T>`、`std::shared_ptr<T>`、
-`std::optional<T>`、`std::reference_wrapper<T>` 和 `caors::object_ref<T>` 的内部值访问；`std::weak_ptr<T>`
+`std::optional<T>`、`std::reference_wrapper<T>` 和 `caors::objects::ref<T>` 的内部值访问；`std::weak_ptr<T>`
 只提供 unsupported wrapper 语义，当前没有默认内部值访问，避免返回可能悬空的引用。
 
 顺序容器识别通过 `sequence_traits<T>` 扩展。traits 需要提供元素类型、类型名前缀和基础元素访问函数：
@@ -181,7 +188,7 @@ struct sequence_traits<my_sequence<T>> {
 `resize()` 适合只在元素可默认构造时返回成功，`append()` 适合只在元素可拷贝时返回成功。借用视图类型应额外提供
 `static constexpr bool can_read = false`，避免序列化层默认读回到不受它管理的 backing storage；如果后续有明确字段策略，
 可再通过显式 opt-in 配合 `read_in_place` 做原地读入。
-调用方通过 `reflection_field` 操作 sequence 字段时，类型不匹配、对象为空或 traits 不支持对应操作都会返回失败。
+调用方通过 `reflection::field` 操作 sequence 字段时，类型不匹配、对象为空或 traits 不支持对应操作都会返回失败。
 内置适配已覆盖 `std::vector<T>`、`caors::vector<T>`、`std::list<T>`、`caors::list<T>`、
 `std::forward_list<T>`、`std::deque<T>` 和 `std::array<T, N>`。`std::array<T, N>` 的类型名包含固定长度，例如
 `std.array<int,3>`；读入或调整长度时只有 `size == N` 才会成功。`std::span<T>` 是借用视图，
@@ -326,10 +333,10 @@ struct variant_traits<my_variant<Ts...>> {
 - `none`：不是 wrapper，也不是需要特殊处理的指针。
 - `inline_value`：序列化时按包装的 `T` 本体处理。`T*`、标准智能指针和 `optional<T>`
   默认都属于该语义。
-- `object_ref`：序列化时按对象引用 id 处理。内置 `caors::object_ref<T>` 属于该语义。
+- `object_ref`：序列化时按对象引用 id 处理。内置 `caors::objects::ref<T>` 属于该语义。
 - `unsupported`：明确识别为 wrapper，但当前序列化层不支持。
 
-推荐通过 `reflection_field` 读写字段：
+推荐通过 `reflection::field` 读写字段：
 
 ```cpp
 actor instance{};
@@ -423,16 +430,16 @@ ref.try_set(9);
 - `create_associative_view()`：如果当前引用的类型挂载了关联容器 metadata，则创建关联容器视图。
 - `create_indirect_view()`：如果当前引用的类型挂载了指针或 wrapper 语义 metadata，则创建内部值视图。
 
-### reflection_type_data
+### reflection::type_data
 
-`reflection_type_data` 是底层类型反射数据，只保存反射系统自己的内容，例如字段列表。类型身份由
+`reflection::type_data` 是底层类型反射数据，只保存反射系统自己的内容，例如字段列表。类型身份由
 `meta_type_data` / `meta_type` 统一管理。
 
 ```cpp
-caors::reflection_type_data data = caors::make_reflection_type_data(
+caors::reflection::type_data data = caors::reflection::make_type_data(
     {
-        caors::make_reflection_field_data<int>("id", "int", offsetof(actor, id)),
-        caors::make_reflection_field_data<float>("health", "float", offsetof(actor, health)),
+        caors::reflection::make_field_data<int>("id", "int", offsetof(actor, id)),
+        caors::reflection::make_field_data<float>("health", "float", offsetof(actor, health)),
     });
 ```
 
@@ -442,9 +449,9 @@ caors::reflection_type_data data = caors::make_reflection_type_data(
 auto field = data.find_field("health");
 ```
 
-### reflection_type 和 reflection_field
+### reflection::type 和 reflection::field
 
-`reflection_type` 和 `reflection_field` 是外部查询反射信息的推荐入口：
+`reflection::type` 和 `reflection::field` 是外部查询反射信息的推荐入口：
 
 ```cpp
 auto reflected = caors::reflection::find("game.actor");
@@ -454,22 +461,22 @@ actor instance{};
 field->try_set<float>(&instance, 75.0F);
 ```
 
-`reflection_type` 内部持有 `meta_type` 和 `reflection_type_data` 的只读指针。`reflection_field`
-内部持有 `reflection_field_data` 的只读指针。反射注册表是进程级 append-only 注册表，
+`reflection::type` 内部持有 `meta_type` 和 `reflection::type_data` 的只读指针。`reflection::field`
+内部持有 `reflection::field_data` 的只读指针。反射注册表是进程级 append-only 注册表，
 类型和字段注册后不可撤销、不可替换，因此有效视图可以在进程生命周期内稳定使用。
 
-当前字段数据以 `caors::vector<reflection_field_data>` 保存在 `reflection_type_data` 内。字段视图的
+当前字段数据以 `caors::vector<reflection::field_data>` 保存在 `reflection::type_data` 内。字段视图的
 稳定性依赖“注册后冻结”约束：注册完成后不会再向该类型追加、删除或替换字段。如果后续支持热重载、
 字段增量注册或组件替换，需要先重新设计字段存储和视图失效规则。
 
-`reflection_type` 当前提供：
+`reflection::type` 当前提供：
 
 - `valid()`：判断视图是否仍有效。
 - `info()` / `id()` / `name()` / `guid()`：查询类型身份。
 - `field_count()` / `field_at()`：按索引遍历字段。
 - `find_field()`：按字段名查询字段视图。
 
-`reflection_field` 当前提供：
+`reflection::field` 当前提供：
 
 - `valid()`：判断视图是否仍有效。
 - `name()` / `type()` / `type_name()`：查询字段声明类型信息。
@@ -603,7 +610,7 @@ auto reflected = caors::reflection::find("game.actor");
 ```
 
 推荐先通过 `meta::type<T>("name")` 注册基础类型，再把 `caors::meta::get<T>()` 或保存下来的 `meta_type` 传给
-`reflection::class_<T>(meta_type)`。这条路径只向已注册类型挂载 `reflection_type_data`，不会创建或修改
+`reflection::class_<T>(meta_type)`。这条路径只向已注册类型挂载 `reflection::type_data`，不会创建或修改
 基础类型记录；传入无效 `meta_type` 会返回 `errc::invalid_type`，传入不存在的 `type_id` 会返回
 `errc::missing_type`。低层反射组件注册函数属于内部实现入口，普通代码不直接调用。
 
@@ -611,7 +618,7 @@ auto reflected = caors::reflection::find("game.actor");
 `errc::frozen`。
 
 底层 `reflection_registry` 仍作为实现类型存在，并复用 `meta_registry` 保存基础类型信息，再把
-`reflection_type_data` 作为组件挂载到同一个 `type_id` 上。注册表构造由库内部管理；注册后不提供
+`reflection::type_data` 作为组件挂载到同一个 `type_id` 上。注册表构造由库内部管理；注册后不提供
 清理和撤销入口。
 
 注册失败会返回 `caors::error`，`domain()` 为 `error_domain::reflection`，`value()` 为明确的通用错误码：
@@ -636,10 +643,10 @@ auto reflected = caors::reflection::find("game.actor");
 - `any`：运行期 C++ 类型值拷贝。
 - `any_ref`：运行期 C++ 类型非拥有引用。
 - `sequence_view` / `set_view` / `associative_view` / `pair_view` / `tuple_view` / `variant_view`：容器、二元组、tuple-like 和 variant-like 类型的运行期视图。
-- `reflection_field_data`：字段名、字段声明类型 id、offset、可写性、对象引用访问函数和基础字段访问。
+- `reflection::field_data`：字段名、字段声明类型 id、offset、可写性、对象引用访问函数和基础字段访问。
 - `meta_type_semantics_data`：字段声明类型的形态、wrapper 语义、统一 value 类型和关联容器 key 类型。
-- `reflection_type_data`：字段列表等反射组件数据。
-- `reflection_type` / `reflection_field`：全局反射数据的推荐查询入口。
+- `reflection::type_data`：字段列表等反射组件数据。
+- `reflection::type` / `reflection::field`：全局反射数据的推荐查询入口。
 - `reflection_registry`：底层全局注册表实现。
 - `reflection::class_<T>()`：RTTR 风格链式注册入口。
 - `reflection::class_<T>(meta_type)`：推荐的显式 meta 注册入口，只挂载反射组件。
@@ -654,7 +661,7 @@ auto reflected = caors::reflection::find("game.actor");
   - `registry.h`：全局反射注册表和注册查询函数。
   - `builder.h`：RTTR 风格链式注册入口。
 - `include/caors/reflection.h` 是 umbrella 头，继续提供完整反射 API。
-- `include/caors/object/wrapper_traits.h` 提供 `object_ref<T>` 的 wrapper 语义适配。
+- `include/caors/object/wrapper_traits.h` 提供 `objects::ref<T>` 的 wrapper 语义适配。
 - `include/caors/meta/wrapper.h` 和 `include/caors/meta/container_traits.h` 提供 wrapper / 容器 / pair / tuple / variant 类型语义扩展点。
 - `include/caors/adapters/stl_traits.h` 提供 `std::vector`、`std::deque`、`std::list`、`std::forward_list`、`std::array`、`std::span`、
   `std::pair`、`std::tuple`、`std::variant`、`std::set`、`std::unordered_set`、`std::map`、`std::unordered_map` 以及 CAORS 容器别名的默认 traits 特化。

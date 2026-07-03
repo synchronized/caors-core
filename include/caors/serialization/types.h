@@ -15,16 +15,16 @@
 #include <initializer_list>
 #include <string_view>
 
-namespace caors {
+namespace caors::serialization {
 
 /** @brief 序列化格式。当前 MVP 仅提供简单文本格式。 */
-enum class serialization_format {
+enum class format {
   text,
   json,
 };
 
 /** @brief 序列化后端能力。 */
-enum class serialization_format_features : std::uint32_t {
+enum class format_features : std::uint32_t {
   none = 0,
   named_fields = 1U << 0,
   numeric_fields = 1U << 1,
@@ -33,25 +33,25 @@ enum class serialization_format_features : std::uint32_t {
   schema_required = 1U << 4,
 };
 
-[[nodiscard]] constexpr serialization_format_features
-operator|(serialization_format_features lhs, serialization_format_features rhs) noexcept {
-  return static_cast<serialization_format_features>(static_cast<std::uint32_t>(lhs) |
-                                                    static_cast<std::uint32_t>(rhs));
+[[nodiscard]] constexpr format_features operator|(format_features lhs,
+                                                  format_features rhs) noexcept {
+  return static_cast<format_features>(static_cast<std::uint32_t>(lhs) |
+                                      static_cast<std::uint32_t>(rhs));
 }
 
-[[nodiscard]] constexpr serialization_format_features
-operator&(serialization_format_features lhs, serialization_format_features rhs) noexcept {
-  return static_cast<serialization_format_features>(static_cast<std::uint32_t>(lhs) &
-                                                    static_cast<std::uint32_t>(rhs));
+[[nodiscard]] constexpr format_features operator&(format_features lhs,
+                                                  format_features rhs) noexcept {
+  return static_cast<format_features>(static_cast<std::uint32_t>(lhs) &
+                                      static_cast<std::uint32_t>(rhs));
 }
 
-[[nodiscard]] constexpr bool has_feature(serialization_format_features features,
-                                         serialization_format_features feature) noexcept {
-  return (features & feature) != serialization_format_features::none;
+[[nodiscard]] constexpr bool has_feature(format_features features,
+                                         format_features feature) noexcept {
+  return (features & feature) != format_features::none;
 }
 
 /** @brief 单个字段的序列化配置。 */
-struct serialization_field_data {
+struct field_data {
   string_name field_name{};
   string_name serialized_name{};
   std::uint32_t field_id = 0;
@@ -69,17 +69,16 @@ struct serialization_field_data {
  * 字段配置按字段名引用反射字段。注册序列化组件时不要求反射字段已经注册，实际序列化时再解析
  * 字段配置和反射字段。
  */
-struct serialization_type_data {
-  serialization_format default_format = serialization_format::text;
-  vector<serialization_field_data> fields{};
+struct type_data {
+  format default_format = format::text;
+  vector<field_data> fields{};
 
   [[nodiscard]] bool valid() const noexcept {
-    if (default_format != serialization_format::text &&
-        default_format != serialization_format::json) {
+    if (default_format != format::text && default_format != format::json) {
       return false;
     }
 
-    for (const serialization_field_data& field : fields) {
+    for (const field_data& field : fields) {
       if (!field.valid()) {
         return false;
       }
@@ -90,10 +89,10 @@ struct serialization_type_data {
 };
 
 /** @brief 创建字段序列化配置。 */
-[[nodiscard]] inline serialization_field_data
-make_serialization_field(std::string_view field_name, std::string_view serialized_name = {},
-                         bool skipped = false, std::uint32_t field_id = 0) {
-  return serialization_field_data{
+[[nodiscard]] inline field_data make_field(std::string_view field_name,
+                                           std::string_view serialized_name = {},
+                                           bool skipped = false, std::uint32_t field_id = 0) {
+  return field_data{
       string_name{field_name},
       serialized_name.empty() ? string_name{field_name} : string_name{serialized_name},
       field_id,
@@ -105,19 +104,17 @@ make_serialization_field(std::string_view field_name, std::string_view serialize
 }
 
 /** @brief 创建类型序列化配置。 */
-[[nodiscard]] inline serialization_type_data
-make_serialization_type_data(std::initializer_list<serialization_field_data> fields) {
-  return serialization_type_data{serialization_format::text,
-                                 vector<serialization_field_data>{fields}};
+[[nodiscard]] inline type_data make_type_data(std::initializer_list<field_data> fields) {
+  return type_data{format::text, vector<field_data>{fields}};
 }
 
-using serialization_object_to_id_fn = object_id (*)(const object* instance, void* user_data);
-using serialization_id_to_object_fn = object* (*)(object_id id, void* user_data);
+using object_to_id_fn = object_id (*)(const object* instance, void* user_data);
+using id_to_object_fn = object* (*)(object_id id, void* user_data);
 
 /** @brief 对象引用解析器。 */
-struct serialization_reference_resolver {
-  serialization_object_to_id_fn object_to_id = nullptr;
-  serialization_id_to_object_fn id_to_object = nullptr;
+struct reference_resolver {
+  object_to_id_fn object_to_id = nullptr;
+  id_to_object_fn id_to_object = nullptr;
   void* user_data = nullptr;
 
   [[nodiscard]] constexpr bool can_write() const noexcept { return object_to_id != nullptr; }
@@ -130,9 +127,9 @@ struct serialization_reference_resolver {
  * `schema_version == 0` 表示不启用字段版本过滤。传入非 0 版本时，调度层只处理当前版本可见的
  * 字段。
  */
-struct serialization_context {
+struct context {
   std::uint32_t schema_version = 0;
-  const serialization_reference_resolver* reference_resolver = nullptr;
+  const reference_resolver* reference_resolver = nullptr;
   /**
    * @brief `std::string_view` 反序列化使用的外部字符串存储。
    *
@@ -148,6 +145,35 @@ using serialization_text_result = result<string>;
 
 /** @brief 序列化中间值构造结果。 */
 using variant_result = result<variant>;
+
+} // namespace caors::serialization
+
+namespace caors {
+
+using serialization_format = serialization::format;
+using serialization_format_features = serialization::format_features;
+using serialization_field_data = serialization::field_data;
+using serialization_type_data = serialization::type_data;
+using serialization_object_to_id_fn = serialization::object_to_id_fn;
+using serialization_id_to_object_fn = serialization::id_to_object_fn;
+using serialization_reference_resolver = serialization::reference_resolver;
+using serialization_context = serialization::context;
+using serialization_text_result = serialization::serialization_text_result;
+using variant_result = serialization::variant_result;
+using serialization::has_feature;
+
+/** @brief 创建字段序列化配置。兼容入口，优先使用 `serialization::make_field()`。 */
+[[nodiscard]] inline serialization_field_data
+make_serialization_field(std::string_view field_name, std::string_view serialized_name = {},
+                         bool skipped = false, std::uint32_t field_id = 0) {
+  return serialization::make_field(field_name, serialized_name, skipped, field_id);
+}
+
+/** @brief 创建类型序列化配置。兼容入口，优先使用 `serialization::make_type_data()`。 */
+[[nodiscard]] inline serialization_type_data
+make_serialization_type_data(std::initializer_list<serialization_field_data> fields) {
+  return serialization::make_type_data(fields);
+}
 
 } // namespace caors
 

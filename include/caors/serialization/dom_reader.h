@@ -6,16 +6,16 @@
 
 #include "caors/serialization/reader.h"
 
-namespace caors {
+namespace caors::serialization {
 
 /** @brief 从序列化 DOM 中间对象读取数据的后端。 */
-class CAORS_API variant_serialization_reader final : public serialization_reader {
+class CAORS_API variant_reader final : public reader {
 public:
-  explicit variant_serialization_reader(const variant& value) noexcept;
+  explicit variant_reader(const variant& value) noexcept;
 
-  [[nodiscard]] serialization_format_features features() const noexcept override;
-  [[nodiscard]] error begin_object(const serialization_type_data& type) override;
-  [[nodiscard]] error begin_field(const serialization_field_data& field) override;
+  [[nodiscard]] format_features features() const noexcept override;
+  [[nodiscard]] error begin_object(const type_data& type) override;
+  [[nodiscard]] error begin_field(const field_data& field) override;
   [[nodiscard]] error begin_array(std::size_t& size) override;
   [[nodiscard]] error begin_element(std::size_t index) override;
   [[nodiscard]] error begin_dictionary(std::size_t& size) override;
@@ -38,7 +38,7 @@ public:
   [[nodiscard]] error end_object() override;
 
 private:
-  [[nodiscard]] const variant_member* find_member(const serialization_field_data& field) const;
+  [[nodiscard]] const variant_member* find_member(const field_data& field) const;
   [[nodiscard]] const variant* current_value() const noexcept;
 
   struct dictionary_context {
@@ -55,6 +55,12 @@ private:
   vector<const variant*> current_elements_{};
   vector<dictionary_context> dictionary_stack_{};
 };
+
+} // namespace caors::serialization
+
+namespace caors {
+
+using variant_serialization_reader = serialization::variant_reader;
 
 } // namespace caors
 

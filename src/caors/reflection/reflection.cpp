@@ -107,7 +107,7 @@ std::optional<reflection_field_data> reflection_type_data::find_field(std::strin
   return find_field(*interned_name);
 }
 
-reflection_field::reflection_field(meta_type owner, const reflection_field_data* field) noexcept
+reflection::field::field(meta_type owner, const reflection_field_data* field) noexcept
     : owner_(owner), field_(field) {}
 
 bool reflection_field::valid() const noexcept {
@@ -293,7 +293,7 @@ bool reflection_field::is_tuple() const noexcept { return kind() == type_kind::t
 
 bool reflection_field::is_variant() const noexcept { return kind() == type_kind::variant; }
 
-reflection_type::reflection_type(meta_type type, const reflection_type_data* data) noexcept
+reflection::type::type(meta_type type, const reflection_type_data* data) noexcept
     : type_(type), data_(data) {}
 
 bool reflection_type::valid() const noexcept {

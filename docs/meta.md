@@ -170,7 +170,7 @@ caors::meta::type<actor>("game.actor")
 - `pointer_depth`：当前支持的指针层级。
 - `nullable`：运行期值是否可能为空。
 
-这部分数据不放在 `reflection_field_data` 上重复保存。字段只记录声明类型的 `type_id`，需要查询字段形态、
+这部分数据不放在 `reflection::field_data` 上重复保存。字段只记录声明类型的 `type_id`，需要查询字段形态、
 value 类型、关联容器 key 类型、二元组 first 类型或 tuple-like 字段形态时，通过该 `type_id` 到 `meta_registry` 查询 `meta_type_semantics_data`。
 `meta_type_semantics_data` 由 `meta_registry::register_type_for<T>()` 在基础类型注册时自动挂载；反射字段
 注册只负责确保字段声明类型已经注册。没有默认 `type_name<T>` 且尚未显式注册的关联类型不会被匿名创建。
@@ -293,13 +293,13 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 
 全局 `meta_registry` 是共享元数据层：
 
-- `object_registry` 复用全局基础类型信息，再给同一个 `type_id` 挂载 `object_type_data` 组件，并对外返回 `object_type` 视图。
-- 全局反射注册表复用基础类型信息，再挂载 `reflection_type_data` 组件。
+- `object_registry` 复用全局基础类型信息，再给同一个 `type_id` 挂载 `objects::type_data` 组件，并对外返回 `objects::type` 视图。
+- 全局反射注册表复用基础类型信息，再挂载 `reflection::type_data` 组件。
 - 后续 `serialization_registry` 可以挂载序列化相关组件。
 
 这样对象、反射和序列化的全局注册入口不需要重复处理重名、重复 GUID、不一致类型描述和父类型缺失。
-跨模块查询可以通过 `meta_view<T...>()` 完成，例如查询同时拥有 `reflection_type_data` 和
-`serialization_type_data` 的类型。该视图保存查询时匹配的 `type_id` 列表，不持有组件引用；需要
+跨模块查询可以通过 `meta_view<T...>()` 完成，例如查询同时拥有 `reflection::type_data` 和
+`serialization::type_data` 的类型。该视图保存查询时匹配的 `type_id` 列表，不持有组件引用；需要
 读取组件内容时再通过 `find<T>()` 获取组件副本，或者由对应模块 API 返回稳定只读视图。
 
 ## 当前已实现能力

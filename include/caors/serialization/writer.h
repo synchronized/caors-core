@@ -10,22 +10,22 @@
 #include <cstdint>
 #include <string_view>
 
-namespace caors {
+namespace caors::serialization {
 
 /** @brief 序列化写出后端接口。 */
-class CAORS_API serialization_writer {
+class CAORS_API writer {
 public:
-  serialization_writer() = default;
-  virtual ~serialization_writer();
+  writer() = default;
+  virtual ~writer();
 
-  serialization_writer(const serialization_writer&) = delete;
-  serialization_writer& operator=(const serialization_writer&) = delete;
-  serialization_writer(serialization_writer&&) = delete;
-  serialization_writer& operator=(serialization_writer&&) = delete;
+  writer(const writer&) = delete;
+  writer& operator=(const writer&) = delete;
+  writer(writer&&) = delete;
+  writer& operator=(writer&&) = delete;
 
-  [[nodiscard]] virtual serialization_format_features features() const noexcept = 0;
-  [[nodiscard]] virtual error begin_object(const serialization_type_data& type) = 0;
-  [[nodiscard]] virtual error begin_field(const serialization_field_data& field) = 0;
+  [[nodiscard]] virtual format_features features() const noexcept = 0;
+  [[nodiscard]] virtual error begin_object(const type_data& type) = 0;
+  [[nodiscard]] virtual error begin_field(const field_data& field) = 0;
   [[nodiscard]] virtual error begin_array(std::size_t size) = 0;
   [[nodiscard]] virtual error begin_element(std::size_t index) = 0;
   [[nodiscard]] virtual error begin_dictionary(std::size_t size);
@@ -49,13 +49,13 @@ public:
 };
 
 /** @brief 简单文本序列化写出后端。 */
-class CAORS_API text_serialization_writer final : public serialization_writer {
+class CAORS_API text_writer final : public writer {
 public:
-  text_serialization_writer() = default;
+  text_writer() = default;
 
-  [[nodiscard]] serialization_format_features features() const noexcept override;
-  [[nodiscard]] error begin_object(const serialization_type_data& type) override;
-  [[nodiscard]] error begin_field(const serialization_field_data& field) override;
+  [[nodiscard]] format_features features() const noexcept override;
+  [[nodiscard]] error begin_object(const type_data& type) override;
+  [[nodiscard]] error begin_field(const field_data& field) override;
   [[nodiscard]] error begin_array(std::size_t size) override;
   [[nodiscard]] error begin_element(std::size_t index) override;
   [[nodiscard]] error begin_dictionary(std::size_t size) override;
@@ -101,13 +101,13 @@ private:
 };
 
 /** @brief JSON 序列化写出后端。 */
-class CAORS_API json_serialization_writer final : public serialization_writer {
+class CAORS_API json_writer final : public writer {
 public:
-  json_serialization_writer() = default;
+  json_writer() = default;
 
-  [[nodiscard]] serialization_format_features features() const noexcept override;
-  [[nodiscard]] error begin_object(const serialization_type_data& type) override;
-  [[nodiscard]] error begin_field(const serialization_field_data& field) override;
+  [[nodiscard]] format_features features() const noexcept override;
+  [[nodiscard]] error begin_object(const type_data& type) override;
+  [[nodiscard]] error begin_field(const field_data& field) override;
   [[nodiscard]] error begin_array(std::size_t size) override;
   [[nodiscard]] error begin_element(std::size_t index) override;
   [[nodiscard]] error begin_dictionary(std::size_t size) override;
@@ -151,6 +151,14 @@ private:
   bool expecting_value_ = false;
   bool root_written_ = false;
 };
+
+} // namespace caors::serialization
+
+namespace caors {
+
+using serialization_writer = serialization::writer;
+using text_serialization_writer = serialization::text_writer;
+using json_serialization_writer = serialization::json_writer;
 
 } // namespace caors
 

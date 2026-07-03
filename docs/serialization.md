@@ -10,21 +10,21 @@
 
 第一阶段解决几件事：
 
-- 用 `serialization_type_data` 表示类型的序列化元信息。
-- 用 `serialization_field_data` 表示字段级序列化配置，例如字段别名、稳定字段 id、跳过和版本信息。
+- 用 `serialization::type_data` 表示类型的序列化元信息。
+- 用 `serialization::field_data` 表示字段级序列化配置，例如字段别名、稳定字段 id、跳过和版本信息。
 - 基于全局 `meta_registry` 挂载序列化组件，避免单独维护类型索引。
 - 提供 `serialization_registry` 和 `serialization::class_(meta_type)` 链式注册入口。
-- 提供 `serialization_writer` 后端接口，让不同格式复用同一套字段遍历逻辑。
-- 提供 `serialization_reader` 后端接口，让不同格式复用同一套字段读入逻辑。
+- 提供 `serialization::writer` 后端接口，让不同格式复用同一套字段遍历逻辑。
+- 提供 `serialization::reader` 后端接口，让不同格式复用同一套字段读入逻辑。
 - 提供 `variant` 中间对象树，方便工具、调试和多格式转换。
-- 提供 `text_serialization_writer` 和 `serialize_text()`，通过反射字段读取对象并输出简单文本结构。
-- 提供 `json_serialization_writer`、`serialize_json()`、`parse_json()` 和 `deserialize_json()`。
-- 提供 `variant_serialization_reader` 和 `deserialize()`，通过 DOM 中间对象写回基础反射字段。
-- 提供 `serialization_context`，支持按 schema version 过滤字段。
+- 提供 `serialization::text_writer` 和 `serialize_text()`，通过反射字段读取对象并输出简单文本结构。
+- 提供 `serialization::json_writer`、`serialize_json()`、`parse_json()` 和 `deserialize_json()`。
+- 提供 `serialization::variant_reader` 和 `deserialize()`，通过 DOM 中间对象写回基础反射字段。
+- 提供 `serialization::context`，支持按 schema version 过滤字段。
 - 提供 `serialization_codec_registry`，允许把特定 C++ 类型作为原子序列化值读写。
 - 支持已注册反射和序列化元信息的值类型结构体字段递归序列化和 DOM 反序列化。
 - 提供基于 traits 的顺序容器、集合容器、关联容器、pair、tuple 和 variant 访问，支持标量、wrapper、对象引用和已注册结构体元素。
-- 通过 `serialization_reference_resolver` 支持 `caors::object_ref<T>` 对象引用字段。
+- 通过 `serialization::reference_resolver` 支持 `caors::objects::ref<T>` 对象引用字段。
 - 用 `caors::error` 和 `caors::result<T>` 表达失败状态和携带值的返回结果。
 
 当前不会包含：
@@ -39,15 +39,25 @@
 
 ## 核心概念
 
+### 命名空间
+
+序列化模块的推荐类型名位于 `caors::serialization` 命名空间，例如
+`serialization::type_data`、`serialization::field_data`、`serialization::context`、
+`serialization::writer`、`serialization::reader`、`serialization::text_writer`、
+`serialization::json_writer` 和 `serialization::variant_reader`。根命名空间仍保留
+`serialization_type_data`、`serialization_field_data`、`serialization_context`、
+`serialization_writer`、`serialization_reader`、`text_serialization_writer` 等兼容别名，
+旧代码可以继续编译；新文档和新代码优先使用命名空间内的短名称。
+
 ### 文件组织
 
 序列化模块按职责拆分公共头文件：
 
 - `caors/serialization/types.h`：格式枚举、后端能力、字段/类型配置、上下文和结果类型。
 - `caors/serialization/registry.h`：序列化组件注册表和链式注册入口。
-- `caors/serialization/writer.h`：`serialization_writer`、`text_serialization_writer` 和
-  `json_serialization_writer`。
-- `caors/serialization/reader.h`：`serialization_reader`。
+- `caors/serialization/writer.h`：`serialization::writer`、`serialization::text_writer` 和
+  `serialization::json_writer`。
+- `caors/serialization/reader.h`：`serialization::reader`。
 - `caors/serialization/codec.h`：类型级 codec 扩展点和 codec 注册表。
 - `caors/serialization/dom_reader.h`：从 `variant` DOM 读入的 reader 后端。
 - `caors/serialization/operations.h`：`serialize()`、`deserialize()`、`to_serialization_value()`、`serialize_text()` 等调度入口。
@@ -63,9 +73,9 @@
 `src/caors/serialization/`。共享的字段校验、schema version
 过滤和标量读写 helper 保留在私有 `src/caors/serialization/serialization_internal.*`。
 
-### serialization_type_data
+### serialization::type_data
 
-`serialization_type_data` 是挂载在 `meta_registry` 上的序列化组件。它保存默认格式和字段级
+`serialization::type_data` 是挂载在 `meta_registry` 上的序列化组件。它保存默认格式和字段级
 序列化配置：
 
 ```cpp
@@ -81,34 +91,34 @@ caors::serialization::class_(type)
 反射字段注册执行。真正序列化时才会查找反射字段；如果字段配置找不到对应反射字段，会返回
 `errc::not_found`。
 
-如果 `serialization_type_data::fields` 为空，`serialize_text()` 会回退到输出全部反射字段。
+如果 `serialization::type_data::fields` 为空，`serialize_text()` 会回退到输出全部反射字段。
 
-### serialization_field_data
+### serialization::field_data
 
-`serialization_field_data` 描述单个字段的序列化规则：
+`serialization::field_data` 描述单个字段的序列化规则：
 
 - `field_name`：反射字段名。
 - `serialized_name`：输出字段名；为空时使用 `field_name`。
 - `field_id`：稳定字段编号，供紧凑二进制、数字键 msgpack 等不写字段名的格式使用。
-- `version_added` / `version_removed`：配合 `serialization_context::schema_version` 做字段版本过滤。
+- `version_added` / `version_removed`：配合 `serialization::context::schema_version` 做字段版本过滤。
 - `required`：反序列化时缺失该字段会返回 `errc::not_found`。
 - `skipped`：序列化和反序列化时跳过该字段。
 
-`serialization_context::schema_version == 0` 表示不启用版本过滤，保持兼容默认行为。传入非 0 版本时：
+`serialization::context::schema_version == 0` 表示不启用版本过滤，保持兼容默认行为。传入非 0 版本时：
 
 - `version_added != 0 && schema_version < version_added` 的字段会被跳过。
 - `version_removed != 0 && schema_version >= version_removed` 的字段会被跳过。
 
-序列化字段配置属于 serialization 组件，不直接写入 `reflection_field_data`，也不持有
-`reflection_field_data` 指针。反射负责描述字段是什么，序列化负责描述字段如何存储；真正序列化时
+序列化字段配置属于 serialization 组件，不直接写入 `reflection::field_data`，也不持有
+`reflection::field_data` 指针。反射负责描述字段是什么，序列化负责描述字段如何存储；真正序列化时
 再按字段名解析反射字段，因此序列化注册和反射注册没有固定顺序要求。
 
-### serialization_writer
+### serialization::writer
 
-`serialization_writer` 是格式后端接口。序列化调度层负责查找 `meta_registry`、匹配反射字段和读取
+`serialization::writer` 是格式后端接口。序列化调度层负责查找 `meta_registry`、匹配反射字段和读取
 字段值；writer 只负责把对象、字段和值写成目标格式。
 
-writer 通过 `serialization_format_features` 声明能力：
+writer 通过 `serialization::format_features` 声明能力：
 
 - `named_fields`：格式需要字段名，例如 text/json/msgpack map。
 - `numeric_fields`：格式需要字段 id，例如紧凑二进制或数字键 map。
@@ -117,22 +127,22 @@ writer 通过 `serialization_format_features` 声明能力：
 - `schema_required`：格式需要外部 schema 才能解释。
 
 调度层会根据 writer 能力检查字段配置。例如 writer 声明 `numeric_fields` 时，
-`serialization_field_data::field_id` 必须非 0；writer 声明 `named_fields` 时会使用
+`serialization::field_data::field_id` 必须非 0；writer 声明 `named_fields` 时会使用
 `serialized_name` 或 `field_name`。
 
 当前内置后端：
 
-- `text_serialization_writer`：声明 `named_fields | ordered_fields | self_describing`。
-- `json_serialization_writer`：声明 `named_fields | ordered_fields | self_describing`，输出紧凑 JSON。
+- `serialization::text_writer`：声明 `named_fields | ordered_fields | self_describing`。
+- `serialization::json_writer`：声明 `named_fields | ordered_fields | self_describing`，输出紧凑 JSON。
 
-### serialization_reader
+### serialization::reader
 
-`serialization_reader` 是格式读入后端接口。反序列化调度层负责查找 `meta_registry`、匹配反射字段和
+`serialization::reader` 是格式读入后端接口。反序列化调度层负责查找 `meta_registry`、匹配反射字段和
 写入对象；reader 只负责按字段配置提供当前字段值。
 
 当前内置 reader：
 
-- `variant_serialization_reader`：从 `variant` 对象树读取字段，声明
+- `serialization::variant_reader`：从 `variant` 对象树读取字段，声明
   `named_fields | numeric_fields | self_describing`。
 
 可以直接从 DOM 中间对象反序列化到已注册反射和序列化元信息的对象：
@@ -145,7 +155,7 @@ caors::error status = caors::deserialize(instance, value.value);
 字段查找优先使用非 0 的 `field_id`，再回退到 `serialized_name` 或 `field_name`。当前支持写入
 `bool`、`char`、整数、浮点、`caors::string`、`std::string`、`guid`、`type_guid`、枚举、
 已注册反射/序列化元信息的值类型结构体字段、已适配的顺序/集合/关联容器字段、二元组字段、tuple-like 字段、裸指针和普通 wrapper
-字段，以及通过 resolver 解析的 `caors::object_ref<T>` 字段。
+字段，以及通过 resolver 解析的 `caors::objects::ref<T>` 字段。
 
 反序列化缺失字段策略：
 
@@ -164,7 +174,7 @@ JSON 写出入口：
 caors::serialization_text_result text = caors::serialize_json(instance);
 ```
 
-JSON 读入入口先解析为 `variant` DOM，再复用 `variant_serialization_reader` 写回对象：
+JSON 读入入口先解析为 `variant` DOM，再复用 `serialization::variant_reader` 写回对象：
 
 ```cpp
 caors::variant_result value = caors::parse_json(text);
@@ -177,21 +187,21 @@ caors::error status = caors::deserialize_json(instance, text);
 
 ### object references
 
-`caors::object_ref<T>` 是非拥有对象引用。序列化层不会自行管理对象生命周期，也不会假设
-`object_id` 可以跨存档稳定使用。调用方需要在 `serialization_context` 中提供
-`serialization_reference_resolver`：
+`caors::objects::ref<T>` 是非拥有对象引用。序列化层不会自行管理对象生命周期，也不会假设
+`object_id` 可以跨存档稳定使用。调用方需要在 `serialization::context` 中提供
+`serialization::reference_resolver`：
 
 ```cpp
-caors::serialization_reference_resolver resolver{
+caors::serialization::reference_resolver resolver{
     &object_to_id,
     &id_to_object,
     user_data,
 };
-caors::serialization_context context{0, &resolver};
+caors::serialization::context context{0, &resolver};
 ```
 
 写出时，resolver 把 `object*` 转换为 `object_id`，输出为无符号整数；空引用输出 `0`。读入时，
-resolver 把非 0 `object_id` 转换回对象指针，再写入 `object_ref<T>` 字段。
+resolver 把非 0 `object_id` 转换回对象指针，再写入 `objects::ref<T>` 字段。
 
 失败策略：
 
@@ -211,7 +221,7 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `object_ref<T>` 
 - `caors::string`：按字符串读写，默认走 CAORS allocator。
 - `std::string`：按字符串读写，用于兼容外部结构。
 - `std::string_view`：按字符串写出和构造 DOM；反序列化默认拒绝，只有在
-  `serialization_context::string_view_storage` 指向外部可写字符串时才会读入该存储并让 view 指向它。
+  `serialization::context::string_view_storage` 指向外部可写字符串时才会读入该存储并让 view 指向它。
 - `std::filesystem::path`：按通用路径字符串读写，写出使用 `/` 分隔的 `generic_string()`。
 - `std::chrono::nanoseconds` / `microseconds` / `milliseconds` / `seconds` / `minutes` / `hours`：
   按对应 duration 的整数 `count()` 读写。
@@ -283,7 +293,7 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
   和需要新增元素的容器不会隐式构造 `T`。
 - `std::weak_ptr<T>` 明确标记为不支持的 wrapper，无法稳定暴露可写内部值，当前不作为普通 value
   序列化或反序列化。
-- `caors::object_ref<T>` 不走内部 value 语义，仍通过 `serialization_reference_resolver` 写出和读入对象 id。
+- `caors::objects::ref<T>` 不走内部 value 语义，仍通过 `serialization::reference_resolver` 写出和读入对象 id。
 
 这条规则避免序列化层隐式决定所有权。后续如果要让某类 wrapper 采用引用语义、共享身份或自定义构造策略，
 应在字段策略或专用 wrapper trait 中显式声明。
@@ -295,7 +305,7 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 | 类型形态 | 反射 / any 访问 | 序列化写出 | 反序列化读回 |
 | --- | --- | --- | --- |
 | 基础标量、枚举、`caors::string`、`std::string` | 保存真实 C++ 类型，可读写字段 | 支持 | 支持 |
-| `std::string_view` | 保存 view 本身，不拥有字符存储 | 支持，按字符串写出 | 默认拒绝；可通过 `serialization_context::string_view_storage` 指向外部存储后读回 |
+| `std::string_view` | 保存 view 本身，不拥有字符存储 | 支持，按字符串写出 | 默认拒绝；可通过 `serialization::context::string_view_storage` 指向外部存储后读回 |
 | `std::filesystem::path` | 作为普通值类型 | 支持，按通用路径字符串写出 | 支持，从字符串构造 path |
 | `std::chrono` duration / `system_clock::time_point` | 作为普通值类型 | 支持，按整数写出 | 支持，从整数构造 |
 | `guid`、`type_guid` | 作为普通值类型 | 支持，按字符串写出 | 支持，从字符串解析 |
@@ -303,19 +313,19 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 | `std::unique_ptr<T>`、`std::shared_ptr<T>`、`std::optional<T>` | 通过 `indirect_view` 访问内部 `T` | 空值写 `null`，非空展开内部值 | `null` 可重置；非空可在 `T` 默认可构造时创建内部值 |
 | `std::reference_wrapper<T>` | 通过 `indirect_view` 访问已绑定的 `T` | 按内部 `T` 写出 | 只能写入已绑定对象，不能置空或重绑定 |
 | `std::weak_ptr<T>` | 只标记为不支持 wrapper，不展开 | 不支持 | 不支持 |
-| `object_ref<T>` | 作为对象引用 wrapper | 通过 resolver 写出 `object_id` | 通过 resolver 从 `object_id` 写回引用 |
+| `objects::ref<T>` | 作为对象引用 wrapper | 通过 resolver 写出 `object_id` | 通过 resolver 从 `object_id` 写回引用 |
 | 顺序容器、集合、关联容器 | 通过 `sequence_view`、`set_view`、`associative_view` 访问 | 支持已适配 traits 的类型 | 支持拥有型容器；借用视图默认拒绝 |
 | `std::span<T>` / `std::span<T, N>` | 借用顺序视图，元素是否可写由 `T` 和字段可写性决定 | 支持，按数组写出 | 默认拒绝，避免决定 backing storage 生命周期 |
 | `std::array<T, N>` | 固定长度顺序视图 | 支持 | 支持，但输入长度必须等于 `N` |
 | `std::pair`、`std::tuple`、`std::variant` | 通过 pair / tuple / variant 视图访问 | 支持 | 支持；切换 variant 候选时目标候选需要默认构造 |
 
 - `std::string_view` 默认拒绝反序列化写回，避免把临时字符串读入成悬空引用。调用方如果提供
-  `serialization_context::string_view_storage`，序列化层会先把文本写入该字符串，再让字段 view 指向它；
+  `serialization::context::string_view_storage`，序列化层会先把文本写入该字符串，再让字段 view 指向它；
   调用方必须保证该字符串生命周期长于目标对象或目标字段。
 - `std::weak_ptr<T>` 默认不展开内部值；如果需要弱引用序列化，应通过对象 handle、资源 id 或
-  `object_ref<T>` 类似的显式引用语义处理。
+  `objects::ref<T>` 类似的显式引用语义处理。
 - 裸指针和普通智能指针按 inline value 处理，不保留对象身份、共享关系或对象图引用；需要身份保持时使用
-  `caors::object_ref<T>` 或后续对象 handle。
+  `caors::objects::ref<T>` 或后续对象 handle。
 - 类型语义最多支持一层间接类型；`T**`、`std::unique_ptr<T*>`、
   `std::optional<std::shared_ptr<T>>` 等多层组合当前会触发静态断言。
 - `std::array<T, N>` 已支持固定长度数组读写；反序列化时数组长度必须等于 `N`，长度不匹配会返回失败。
@@ -374,7 +384,7 @@ caors::variant_result value = caors::to_serialization_value(instance);
 也可以把中间树写入任意 writer：
 
 ```cpp
-caors::text_serialization_writer writer;
+caors::serialization::text_writer writer;
 caors::write(writer, value.value);
 ```
 
@@ -462,23 +472,23 @@ caors::string text = result.value;
 - `std::string_view`
 - 已注册 codec 的容器类型
 - 已注册反射和序列化元信息的嵌套对象
-- 裸指针、普通 wrapper 字段和 `caors::object_ref<T>`
+- 裸指针、普通 wrapper 字段和 `caors::objects::ref<T>`
 
 遇到不可拷贝字段、未支持字段类型、无 resolver 的对象引用或超出当前类型边界的字段时返回错误。
 
 ## 当前已实现能力
 
-- `serialization_type_data`：序列化组件数据。
-- `serialization_field_data`：字段级序列化配置。
-- `serialization_writer`：格式后端接口。
-- `serialization_reader`：格式读入后端接口。
-- `serialization_context`：单次序列化/反序列化上下文，支持 schema version 字段过滤。
+- `serialization::type_data`：序列化组件数据。
+- `serialization::field_data`：字段级序列化配置。
+- `serialization::writer`：格式后端接口。
+- `serialization::reader`：格式读入后端接口。
+- `serialization::context`：单次序列化/反序列化上下文，支持 schema version 字段过滤。
 - `serialization_codec_registry`：类型级 codec 注册表。
 - `serialization::register_codec<T>()`：注册已特化的类型级 codec。
-- `text_serialization_writer`：简单文本格式后端。
+- `serialization::text_writer`：简单文本格式后端。
 - `variant`：序列化 DOM 中间对象。
 - `to_variant()`：把运行期 `any` / `any_ref` 转换为 `variant`。
-- `variant_serialization_reader`：从 DOM 中间对象读入字段的后端。
+- `serialization::variant_reader`：从 DOM 中间对象读入字段的后端。
 - `variant_member`：对象成员，保存字段名、字段 id 和字段值。
 - `variant_entry`：字典条目，保存 key 和 value。
 - `serialization_registry`：全局序列化注册表。
@@ -497,7 +507,7 @@ caors::string text = result.value;
 - DOM 反序列化默认忽略未知字段。
 - 基础 schema version 字段过滤。
 - 内置 string、string_view、guid 和 type_guid codec。
-- 裸指针、普通 wrapper、`object_ref<T>` 和已适配容器字段。
+- 裸指针、普通 wrapper、`objects::ref<T>` 和已适配容器字段。
 - `variant` 安全访问器、数组/字典/对象辅助修改和成员查询。
 - 序列化注册早于反射字段注册。
 

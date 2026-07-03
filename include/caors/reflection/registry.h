@@ -17,7 +17,7 @@ namespace caors {
 /**
  * @brief 底层全局反射注册表。
  *
- * 注册表基于 `meta_registry` 保存基础类型信息，并把 `reflection_type_data`
+ * 注册表基于 `meta_registry` 保存基础类型信息，并把 `reflection::type_data`
  * 作为元数据组件挂载到同一个 `type_id` 上。普通代码应使用 `reflection::class_<T>()` 和
  * `reflection::find()`，不要创建或管理注册表实例。
  */

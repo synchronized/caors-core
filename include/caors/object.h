@@ -52,46 +52,47 @@ using object_type_id = type_id;
   return meta::id(name);
 }
 
+class object;
+class object_registry;
+
+namespace objects {
+
 /**
  * @brief 不拥有对象的运行期身份句柄。
  *
- * `object_handle` 只保存对象 id 和声明类型 id，不保证对象仍然存活，也不提供解引用能力。它适合在
+ * `objects::handle` 只保存对象 id 和声明类型 id，不保证对象仍然存活，也不提供解引用能力。它适合在
  * 序列化、资源表或生命周期管理器之间传递对象身份；真正解析为指针需要上层对象数据库或 resolver。
  */
-class object_handle {
+class handle {
 public:
-  constexpr object_handle() noexcept = default;
-  constexpr object_handle(object_id id, object_type_id type) noexcept : id_(id), type_(type) {}
+  constexpr handle() noexcept = default;
+  constexpr handle(object_id id, object_type_id type) noexcept : id_(id), type_(type) {}
 
-  [[nodiscard]] static constexpr object_handle invalid() noexcept { return {}; }
+  [[nodiscard]] static constexpr handle invalid() noexcept { return {}; }
   [[nodiscard]] constexpr object_id id() const noexcept { return id_; }
   [[nodiscard]] constexpr object_type_id type() const noexcept { return type_; }
   [[nodiscard]] explicit constexpr operator bool() const noexcept { return id_ && type_; }
 
-  friend constexpr bool operator==(object_handle lhs, object_handle rhs) noexcept {
+  friend constexpr bool operator==(handle lhs, handle rhs) noexcept {
     return lhs.id_ == rhs.id_ && lhs.type_ == rhs.type_;
   }
 
-  friend constexpr bool operator!=(object_handle lhs, object_handle rhs) noexcept {
-    return !(lhs == rhs);
-  }
+  friend constexpr bool operator!=(handle lhs, handle rhs) noexcept { return !(lhs == rhs); }
 
 private:
   object_id id_{};
   object_type_id type_{};
 };
 
-class object;
-
-using object_try_create_fn = object* (*)(memory_resource * resource) noexcept;
-using object_create_fn = object* (*)(memory_resource * resource);
-using object_destroy_fn = void (*)(object* instance, memory_resource* resource) noexcept;
+using try_create_fn = object* (*)(memory_resource * resource) noexcept;
+using create_fn = object* (*)(memory_resource * resource);
+using destroy_fn = void (*)(object* instance, memory_resource* resource) noexcept;
 
 /** @brief 对象类型底层数据。 */
-struct object_type_data {
-  object_try_create_fn try_create = nullptr;
-  object_create_fn create = nullptr;
-  object_destroy_fn destroy = nullptr;
+struct type_data {
+  try_create_fn try_create = nullptr;
+  create_fn create = nullptr;
+  destroy_fn destroy = nullptr;
 
   [[nodiscard]] constexpr bool constructible() const noexcept {
     return try_create != nullptr && create != nullptr;
@@ -99,9 +100,9 @@ struct object_type_data {
 };
 
 /** @brief 对象类型只读视图。 */
-class CAORS_API object_type final {
+class CAORS_API type final {
 public:
-  object_type() noexcept = default;
+  type() noexcept = default;
 
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
@@ -116,14 +117,78 @@ public:
   [[nodiscard]] bool constructible() const noexcept;
 
 private:
-  friend class object_registry;
+  friend class ::caors::object_registry;
 
-  object_type(meta_type type, const object_type_data* data) noexcept;
-  [[nodiscard]] const object_type_data* data() const noexcept;
+  type(meta_type info, const type_data* data) noexcept;
+  [[nodiscard]] const type_data* data() const noexcept;
 
   meta_type type_{};
-  const object_type_data* data_ = nullptr;
+  const type_data* data_ = nullptr;
 };
+
+/**
+ * @brief 非拥有对象引用。
+ *
+ * `objects::ref<T>` 只保存对象指针，不延长对象生命周期。序列化时它通过
+ * `serialization::reference_resolver` 转换为 `object_id`，反序列化时再从 `object_id`
+ * 解析回对象指针。
+ */
+template <typename T> class ref {
+  static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
+
+public:
+  ref() noexcept = default;
+  ref(std::nullptr_t) noexcept {}
+  explicit ref(T* instance) noexcept : instance_(instance) {}
+
+  [[nodiscard]] T* get() const noexcept { return instance_; }
+  [[nodiscard]] object_id id() const noexcept {
+    return instance_ != nullptr ? instance_->id() : object_id::invalid();
+  }
+  [[nodiscard]] explicit operator bool() const noexcept { return instance_ != nullptr; }
+
+  void reset(T* instance = nullptr) noexcept { instance_ = instance; }
+
+private:
+  T* instance_ = nullptr;
+};
+
+/**
+ * @brief 类型化弱对象句柄。
+ *
+ * 该类型只保存对象身份，不拥有对象、不延长生命周期，也不隐式解析指针。它为后续对象生命周期管理器、
+ * 弱引用 resolver 和资源引用序列化预留稳定边界。
+ */
+template <typename T> class weak_handle {
+  static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
+
+public:
+  weak_handle() noexcept = default;
+  weak_handle(std::nullptr_t) noexcept {}
+  explicit weak_handle(handle object_handle) noexcept : handle_(object_handle) {}
+  explicit weak_handle(const T& instance) noexcept : handle_(instance.id(), instance.type_id()) {}
+
+  [[nodiscard]] handle handle() const noexcept { return handle_; }
+  [[nodiscard]] object_id id() const noexcept { return handle_.id(); }
+  [[nodiscard]] object_type_id type() const noexcept { return handle_.type(); }
+  [[nodiscard]] explicit operator bool() const noexcept { return static_cast<bool>(handle_); }
+
+  void reset(::caors::objects::handle object_handle = {}) noexcept { handle_ = object_handle; }
+
+private:
+  ::caors::objects::handle handle_{};
+};
+
+} // namespace objects
+
+using object_handle = objects::handle;
+using object_try_create_fn = objects::try_create_fn;
+using object_create_fn = objects::create_fn;
+using object_destroy_fn = objects::destroy_fn;
+using object_type_data = objects::type_data;
+using object_type = objects::type;
+template <typename T> using object_ref = objects::ref<T>;
+template <typename T> using object_weak_handle = objects::weak_handle<T>;
 
 /**
  * @brief CAORS 对象基类。
@@ -151,72 +216,18 @@ private:
   object_id id_;
 };
 
-/**
- * @brief 非拥有对象引用。
- *
- * `object_ref<T>` 只保存对象指针，不延长对象生命周期。序列化时它通过
- * `serialization_reference_resolver` 转换为 `object_id`，反序列化时再从 `object_id`
- * 解析回对象指针。
- */
-template <typename T> class object_ref {
-  static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
-
-public:
-  object_ref() noexcept = default;
-  object_ref(std::nullptr_t) noexcept {}
-  explicit object_ref(T* instance) noexcept : instance_(instance) {}
-
-  [[nodiscard]] T* get() const noexcept { return instance_; }
-  [[nodiscard]] object_id id() const noexcept {
-    return instance_ != nullptr ? instance_->id() : object_id::invalid();
-  }
-  [[nodiscard]] explicit operator bool() const noexcept { return instance_ != nullptr; }
-
-  void reset(T* instance = nullptr) noexcept { instance_ = instance; }
-
-private:
-  T* instance_ = nullptr;
-};
-
-/**
- * @brief 类型化弱对象句柄。
- *
- * 该类型只保存对象身份，不拥有对象、不延长生命周期，也不隐式解析指针。它为后续对象生命周期管理器、
- * 弱引用 resolver 和资源引用序列化预留稳定边界。
- */
-template <typename T> class object_weak_handle {
-  static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
-
-public:
-  object_weak_handle() noexcept = default;
-  object_weak_handle(std::nullptr_t) noexcept {}
-  explicit object_weak_handle(object_handle handle) noexcept : handle_(handle) {}
-  explicit object_weak_handle(const T& instance) noexcept
-      : handle_(instance.id(), instance.type_id()) {}
-
-  [[nodiscard]] object_handle handle() const noexcept { return handle_; }
-  [[nodiscard]] object_id id() const noexcept { return handle_.id(); }
-  [[nodiscard]] object_type_id type() const noexcept { return handle_.type(); }
-  [[nodiscard]] explicit operator bool() const noexcept { return static_cast<bool>(handle_); }
-
-  void reset(object_handle handle = {}) noexcept { handle_ = handle; }
-
-private:
-  object_handle handle_{};
-};
-
 namespace detail {
 
 template <typename T> struct object_ref_traits {
   static constexpr bool is_object_ref = false;
 };
 
-template <typename T> struct object_ref_traits<object_ref<T>> {
+template <typename T> struct object_ref_traits<objects::ref<T>> {
   static constexpr bool is_object_ref = true;
   using object_type = T;
 };
 
-template <typename T> struct object_ref_traits<object_weak_handle<T>> {
+template <typename T> struct object_ref_traits<objects::weak_handle<T>> {
   static constexpr bool is_object_ref = false;
   using object_type = T;
 };
@@ -354,7 +365,7 @@ class object_registry;
  * @brief 全局对象类型注册表 facade 和默认构造工厂。
  *
  * `object_registry` 不表示彼此隔离的注册表实例。它复用全局 `meta_registry`
- * 管理基础类型信息，并把 `object_type_data` 作为组件挂载到同一个 `type_id`
+ * 管理基础类型信息，并把 `objects::type_data` 作为组件挂载到同一个 `type_id`
  * 上。普通代码应通过 `objects::class_<T>()`、`get_object_registry()` 和查询接口访问它。
  */
 class CAORS_API object_registry final {

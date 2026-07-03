@@ -44,7 +44,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 定义基础对象类型、对象标识和类型描述。
 - [x] 提供轻量级类型层级和运行时查询能力。
 - [x] 抽象共享 `meta_registry`，避免对象系统和反射系统重复维护基础类型索引。
-- [x] 对象注册表改为基于 `meta_registry` 挂载 `object_type_data` 组件，并通过 `object_type` 视图对外查询。
+- [x] 对象注册表改为基于 `meta_registry` 挂载 `objects::type_data` 组件，并通过 `objects::type` 视图对外查询。
 - [x] 提供对象注册表和默认构造工厂。
 - [x] 提供注册错误状态，区分重复注册、重名、不一致类型描述和父类型缺失。
 - [x] 接入 `memory_resource` 完成对象创建和销毁。
@@ -56,7 +56,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 ## 4. 反射
 
 - [x] 定义类型和字段的基础元信息模型。
-- [x] 基于 `meta_registry` 挂载 `reflection_type_data` 组件。
+- [x] 基于 `meta_registry` 挂载 `reflection::type_data` 组件。
 - [x] 支持基于已注册 `meta_type` 挂载反射组件，减少反射层隐式类型注册。
 - [x] 设计手写注册 API，并为后续代码生成保留扩展空间。
 - [x] 提供运行时类型查询和字段元信息查询入口。
@@ -84,19 +84,19 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 补充 `variant` 安全访问器、数组/对象 helper 和 `any` / `any_ref` 到 `variant` 的转换入口。
 - [x] 拆出 `value` 模块，提供 `any` C++ 类型值和 `variant` 数据值。
 - [x] 增加 `any_ref`，支持反射字段零拷贝引用访问和不可拷贝字段读取。
-- [x] 增加 `serialization_reader` 后端接口和 DOM reader，支持基础字段反序列化。
+- [x] 增加 `serialization::reader` 后端接口和 DOM reader，支持基础字段反序列化。
 - [x] 增加反序列化缺失字段策略、未知字段默认忽略和基础 schema version 字段过滤。
 - [x] 增加类型级 serialization codec 扩展点，并内置 string、string_view、guid 和 type_guid codec。
 - [x] 支持值类型嵌套结构递归序列化和 DOM 反序列化。
 - [x] 支持 `caors::vector<T>` 数组字段，覆盖标量元素和已注册结构体元素。
 - [x] 序列化 vector 字段不再要求手动注册 vector 类型名。
-- [x] 支持 `caors::object_ref<T>` 对象引用字段和 resolver。
+- [x] 支持 `caors::objects::ref<T>` 对象引用字段和 resolver。
 - [x] 增加 JSON writer、JSON DOM parser 和 `serialize_json()` / `deserialize_json()`。
 - [x] 增加 `variant::dictionary` 和 `caors::hash_map<K, V>` 字典 codec。
 - [x] 抽出基于 `sequence_traits<T>` 和 `associative_traits<T>` 的通用容器 codec。
 - [x] 支持基于 `set_traits<T>` 的 `caors::hash_set<T>` 集合 codec。
 - [x] 支持基于 `sequence_traits<T>` 的 `caors::list<T>` 数组 codec。
-- [x] 支持裸指针、普通 wrapper、`object_ref<T>` 和 `null` 边界处理。
+- [x] 支持裸指针、普通 wrapper、`objects::ref<T>` 和 `null` 边界处理。
 - [x] 支持 `std::array<T,N>`、`std::deque<T>`、`std::forward_list<T>`、`std::set<T>` 和 `std::map<K,V>` 的默认序列化适配。
 - [x] 支持 `std::pair<T,U>` 按二元素数组序列化和反序列化。
 - [x] 支持 `std::tuple<Ts...>` 按元素数组序列化和反序列化。

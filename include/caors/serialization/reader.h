@@ -8,22 +8,22 @@
 
 #include <cstdint>
 
-namespace caors {
+namespace caors::serialization {
 
 /** @brief 序列化读入后端接口。 */
-class CAORS_API serialization_reader {
+class CAORS_API reader {
 public:
-  serialization_reader() = default;
-  virtual ~serialization_reader();
+  reader() = default;
+  virtual ~reader();
 
-  serialization_reader(const serialization_reader&) = delete;
-  serialization_reader& operator=(const serialization_reader&) = delete;
-  serialization_reader(serialization_reader&&) = delete;
-  serialization_reader& operator=(serialization_reader&&) = delete;
+  reader(const reader&) = delete;
+  reader& operator=(const reader&) = delete;
+  reader(reader&&) = delete;
+  reader& operator=(reader&&) = delete;
 
-  [[nodiscard]] virtual serialization_format_features features() const noexcept = 0;
-  [[nodiscard]] virtual error begin_object(const serialization_type_data& type) = 0;
-  [[nodiscard]] virtual error begin_field(const serialization_field_data& field) = 0;
+  [[nodiscard]] virtual format_features features() const noexcept = 0;
+  [[nodiscard]] virtual error begin_object(const type_data& type) = 0;
+  [[nodiscard]] virtual error begin_field(const field_data& field) = 0;
   [[nodiscard]] virtual error begin_array(std::size_t& size) = 0;
   [[nodiscard]] virtual error begin_element(std::size_t index) = 0;
   [[nodiscard]] virtual error begin_dictionary(std::size_t& size);
@@ -45,6 +45,12 @@ public:
   [[nodiscard]] virtual error end_field() = 0;
   [[nodiscard]] virtual error end_object() = 0;
 };
+
+} // namespace caors::serialization
+
+namespace caors {
+
+using serialization_reader = serialization::reader;
 
 } // namespace caors
 

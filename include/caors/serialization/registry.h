@@ -14,7 +14,7 @@ namespace caors {
 /**
  * @brief 底层全局序列化注册表。
  *
- * 注册表复用全局 `meta_registry`，把 `serialization_type_data` 作为组件挂载到同一个
+ * 注册表复用全局 `meta_registry`，把 `serialization::type_data` 作为组件挂载到同一个
  * `type_id` 上。当前序列化实现依赖反射字段信息读取对象数据。
  */
 class CAORS_API serialization_registry final {
