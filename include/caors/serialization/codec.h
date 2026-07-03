@@ -14,6 +14,26 @@
 
 namespace caors::serialization {
 
+/** @brief 可特化的类型序列化 codec。 */
+template <typename T> struct codec {
+  static constexpr bool can_write = false;
+  static constexpr bool can_read = false;
+  static constexpr bool can_make_value = false;
+};
+
+/** @brief 把运行期 C++ 值转换为序列化中间值。 */
+[[nodiscard]] CAORS_API variant_result to_variant(const any& data);
+
+/** @brief 把运行期 C++ 引用转换为序列化中间值。不可拷贝引用会返回不支持。 */
+[[nodiscard]] CAORS_API variant_result to_variant(const any_ref& data);
+
+/** @brief 按 C++ 类型注册已特化的序列化 codec。 */
+template <typename T> [[nodiscard]] error register_codec();
+
+} // namespace caors::serialization
+
+namespace caors::serialization::detail {
+
 using codec_write_fn = error (*)(writer& writer, const any& data);
 using codec_read_fn = error (*)(reader& reader, const reflection::field& field, void* object);
 using codec_read_value_fn = error (*)(reader& reader, const any_ref& target);
@@ -31,14 +51,8 @@ struct codec_data {
   }
 };
 
-/** @brief 可特化的类型序列化 codec。 */
-template <typename T> struct codec {
-  static constexpr bool can_write = false;
-  static constexpr bool can_read = false;
-  static constexpr bool can_make_value = false;
-};
-
-/** @brief 运行期序列化 codec 注册表。 */
+/** @brief 运行期序列化 codec 注册表。内部入口，公开代码优先使用
+ * `serialization::register_codec<T>()`。 */
 class CAORS_API codec_registry final {
 public:
   [[nodiscard]] static codec_registry& instance() noexcept;
@@ -56,31 +70,17 @@ private:
   ~codec_registry() = default;
 };
 
-/** @brief 获取进程内全局序列化 codec 注册表。 */
+/** @brief 获取进程内全局序列化 codec 注册表。内部入口。 */
 [[nodiscard]] CAORS_API codec_registry& get_codec_registry() noexcept;
-
-/** @brief 把运行期 C++ 值转换为序列化中间值。 */
-[[nodiscard]] CAORS_API variant_result to_variant(const any& data);
-
-/** @brief 把运行期 C++ 引用转换为序列化中间值。不可拷贝引用会返回不支持。 */
-[[nodiscard]] CAORS_API variant_result to_variant(const any_ref& data);
-
-/** @brief 按 C++ 类型注册已特化的序列化 codec。 */
-template <typename T> [[nodiscard]] error register_codec();
-
-} // namespace caors::serialization
-
-namespace caors::serialization::detail {
 
 /** @brief 按类型 id 注册序列化 codec。内部入口，公开代码优先使用
  * `serialization::register_codec<T>()`。 */
-[[nodiscard]] CAORS_API error register_serialization_codec(type_id id,
-                                                           serialization::codec_data codec);
+[[nodiscard]] CAORS_API error register_serialization_codec(type_id id, codec_data codec);
 
 /** @brief 按 C++ 类型注册已特化的序列化 codec。内部入口。 */
 template <typename T> [[nodiscard]] error register_serialization_codec() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  serialization::codec_data codec{};
+  codec_data codec{};
 
   if constexpr (serialization::codec<type>::can_write) {
     codec.write = [](serialization::writer& writer, const any& data) -> error {

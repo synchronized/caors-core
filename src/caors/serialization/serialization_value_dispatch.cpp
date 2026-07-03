@@ -29,8 +29,7 @@ variant_result make_serialized_value(const any& data) {
     return make_serialized_value(data.ref(), serialization::context{});
   }
 
-  const std::optional<serialization::codec_data> codec =
-      serialization::get_codec_registry().find_codec(data.type());
+  const std::optional<codec_data> codec = get_codec_registry().find_codec(data.type());
   if (codec.has_value() && codec->make_value != nullptr) {
     return codec->make_value(data);
   }
@@ -143,8 +142,7 @@ variant_result make_serialized_value(const any_ref& value, const serialization::
     return make_variant_value(variant, context);
   }
 
-  const std::optional<serialization::codec_data> codec =
-      serialization::get_codec_registry().find_codec(value.type());
+  const std::optional<codec_data> codec = get_codec_registry().find_codec(value.type());
   if (codec.has_value() && codec->make_value != nullptr) {
     any copied = value.to_any();
     if (!copied.valid()) {
@@ -216,8 +214,7 @@ error write_serialized_value(writer& writer, const any_ref& value,
     return write_variant_value(writer, variant, context);
   }
 
-  const std::optional<serialization::codec_data> codec =
-      serialization::get_codec_registry().find_codec(value.type());
+  const std::optional<codec_data> codec = get_codec_registry().find_codec(value.type());
   if (codec.has_value() && codec->write != nullptr) {
     any copied = value.to_any();
     if (!copied.valid()) {
@@ -287,8 +284,7 @@ error read_serialized_value(reader& reader, const any_ref& target,
     return read_variant_value(reader, target, context);
   }
 
-  const std::optional<serialization::codec_data> codec =
-      serialization::get_codec_registry().find_codec(target.type());
+  const std::optional<codec_data> codec = get_codec_registry().find_codec(target.type());
   if (codec.has_value() && codec->read_value != nullptr) {
     return codec->read_value(reader, target);
   }
@@ -371,8 +367,7 @@ error read_field(reader& reader, const reflection::field& field, void* object,
   any_ref target{};
   bool use_legacy_codec_read = false;
   if (field_uses_direct_value(field)) {
-    const std::optional<serialization::codec_data> codec =
-        serialization::get_codec_registry().find_codec(field.type());
+    const std::optional<codec_data> codec = get_codec_registry().find_codec(field.type());
     use_legacy_codec_read =
         codec.has_value() && codec->read != nullptr && codec->read_value == nullptr;
     target = field.get_ref(object);
@@ -400,8 +395,7 @@ error read_field(reader& reader, const reflection::field& field, void* object,
   }
 
   if (use_legacy_codec_read) {
-    const std::optional<serialization::codec_data> codec =
-        serialization::get_codec_registry().find_codec(field.type());
+    const std::optional<codec_data> codec = get_codec_registry().find_codec(field.type());
     if (!codec.has_value() || codec->read == nullptr) {
       return {error_domain::serialization, errc::unsupported};
     }

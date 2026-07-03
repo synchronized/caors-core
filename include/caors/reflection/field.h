@@ -152,8 +152,9 @@ struct field_data {
   /** @brief 从运行期值写入字段。 */
   bool try_set_value(void* object, const any& source) const {
     const meta::type meta = caors::meta::find(type);
+    const auto assign = caors::meta::detail::get_assign_value_fn(meta);
     if (!source.valid() || !meta || source.type() != meta.id() || source.size() != meta.size() ||
-        source.alignment() != meta.alignment() || meta.assign_value() == nullptr) {
+        source.alignment() != meta.alignment() || assign == nullptr) {
       return false;
     }
 
@@ -162,7 +163,7 @@ struct field_data {
       return false;
     }
 
-    return meta.assign_value()(storage, source.data());
+    return assign(storage, source.data());
   }
 
   /** @brief 按指定类型读取字段值。 */

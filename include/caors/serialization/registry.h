@@ -12,6 +12,11 @@
 
 namespace caors::serialization {
 
+class class_builder;
+[[nodiscard]] inline error register_type(type_id id, type_data data = type_data{});
+[[nodiscard]] inline error register_type(meta::type type, type_data data = type_data{});
+template <typename T> [[nodiscard]] error register_type(type_data data = type_data{});
+
 /**
  * @brief 底层全局序列化注册表。
  *
@@ -25,11 +30,21 @@ public:
   registry(const registry&) = delete;
   registry& operator=(const registry&) = delete;
 
-  [[nodiscard]] error register_type(type_id id, type_data data = type_data{});
-  [[nodiscard]] error register_type(meta::type type, type_data data = type_data{});
   [[nodiscard]] bool contains(type_id id) const;
   [[nodiscard]] std::optional<type_data> find_type(type_id id) const;
   [[nodiscard]] std::size_t size() const noexcept;
+
+private:
+  friend class class_builder;
+  friend error register_type(type_id id, type_data data);
+  friend error register_type(meta::type type, type_data data);
+  template <typename T> friend error register_type(type_data data);
+
+  registry() = default;
+  ~registry() = default;
+
+  [[nodiscard]] error register_type(type_id id, type_data data = type_data{});
+  [[nodiscard]] error register_type(meta::type type, type_data data = type_data{});
 
   template <typename T> [[nodiscard]] error register_type_for(type_data data = type_data{}) {
     const meta::type type = meta::get_registry().find_type<T>();
@@ -39,10 +54,6 @@ public:
 
     return register_type(type.id(), data);
   }
-
-private:
-  registry() = default;
-  ~registry() = default;
 };
 
 /** @brief 获取进程内全局序列化注册表。 */
@@ -64,17 +75,17 @@ private:
 [[nodiscard]] CAORS_API std::size_t size() noexcept;
 
 /** @brief 向全局序列化注册表注册指定类型 id。 */
-[[nodiscard]] inline error register_type(type_id id, type_data data = type_data{}) {
+[[nodiscard]] inline error register_type(type_id id, type_data data) {
   return get_registry().register_type(id, std::move(data));
 }
 
 /** @brief 向已注册元类型挂载序列化组件，不会创建或修改基础类型记录。 */
-[[nodiscard]] inline error register_type(meta::type type, type_data data = type_data{}) {
+[[nodiscard]] inline error register_type(meta::type type, type_data data) {
   return get_registry().register_type(type, std::move(data));
 }
 
 /** @brief 向全局序列化注册表注册指定 C++ 类型。 */
-template <typename T> [[nodiscard]] error register_type(type_data data = type_data{}) {
+template <typename T> [[nodiscard]] error register_type(type_data data) {
   return get_registry().register_type_for<T>(std::move(data));
 }
 

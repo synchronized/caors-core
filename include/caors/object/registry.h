@@ -24,6 +24,10 @@ class registry;
 
 namespace caors::objects::detail {
 
+template <typename T>
+[[nodiscard]] error register_object_type(std::string_view name,
+                                         object_type_id parent_id = object_type_id::invalid());
+
 /** @brief 创建对象类型基础元信息。 */
 template <typename T>
 [[nodiscard]] meta::detail::type_data
@@ -48,24 +52,6 @@ class CAORS_API registry final {
 public:
   registry(const registry&) = delete;
   registry& operator=(const registry&) = delete;
-
-  [[nodiscard]] error register_type(const meta::detail::type_data& type, const type_data& object);
-  template <typename T>
-  [[nodiscard]] error register_type_for(const meta::detail::type_data& type,
-                                        const type_data& object) {
-    using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const type_id expected_id = meta::detail::type_id_of_cpp_type<value_type>();
-    if (type.id() && type.id() != expected_id) {
-      return {error_domain::object, errc::invalid_type};
-    }
-
-    meta::detail::type_data stored_type = type;
-    if (!stored_type.id()) {
-      stored_type.set_id(expected_id);
-    }
-
-    return register_type(stored_type, object);
-  }
 
   [[nodiscard]] bool contains(object_type_id id) const;
   [[nodiscard]] type find_type(object_type_id id) const;
@@ -111,9 +97,29 @@ public:
 
 private:
   friend registry& get_registry() noexcept;
+  template <typename T>
+  friend error detail::register_object_type(std::string_view name, object_type_id parent_id);
 
   registry();
   ~registry();
+
+  [[nodiscard]] error register_type(const meta::detail::type_data& type, const type_data& object);
+  template <typename T>
+  [[nodiscard]] error register_type_for(const meta::detail::type_data& type,
+                                        const type_data& object) {
+    using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+    const type_id expected_id = meta::detail::type_id_of_cpp_type<value_type>();
+    if (type.id() && type.id() != expected_id) {
+      return {error_domain::object, errc::invalid_type};
+    }
+
+    meta::detail::type_data stored_type = type;
+    if (!stored_type.id()) {
+      stored_type.set_id(expected_id);
+    }
+
+    return register_type(stored_type, object);
+  }
 
   [[nodiscard]] const type_data* find_type_data(object_type_id id) const;
 };
@@ -124,8 +130,7 @@ namespace caors::objects::detail {
 
 /** @brief 向全局对象注册表注册对象类型。内部入口，公开代码优先使用 `objects::class_<T>()`。 */
 template <typename T>
-[[nodiscard]] error register_object_type(std::string_view name,
-                                         object_type_id parent_id = object_type_id::invalid()) {
+[[nodiscard]] error register_object_type(std::string_view name, object_type_id parent_id) {
   objects::registry& registry = objects::get_registry();
   if (!parent_id) {
     using base_type = typename object_base_type_traits<T>::type;

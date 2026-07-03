@@ -21,7 +21,7 @@
 - 提供 `serialization::json_writer`、`serialize_json()`、`parse_json()` 和 `deserialize_json()`。
 - 提供 `serialization::variant_reader` 和 `deserialize()`，通过 DOM 中间对象写回基础反射字段。
 - 提供 `serialization::context`，支持按 schema version 过滤字段。
-- 提供 `serialization::codec_registry`，允许把特定 C++ 类型作为原子序列化值读写。
+- 提供 `serialization::codec<T>` 和 `register_codec<T>()`，允许把特定 C++ 类型作为原子序列化值读写。
 - 支持已注册反射和序列化元信息的值类型结构体字段递归序列化和 DOM 反序列化。
 - 提供基于 traits 的顺序容器、集合容器、关联容器、pair、tuple 和 variant 访问，支持标量、wrapper、对象引用和已注册结构体元素。
 - 通过 `serialization::reference_resolver` 支持 `caors::objects::ref<T>` 对象引用字段。
@@ -44,8 +44,8 @@
 序列化模块的推荐类型名位于 `caors::serialization` 命名空间，例如
 `serialization::type_data`、`serialization::field_data`、`serialization::context`、
 `serialization::writer`、`serialization::reader`、`serialization::text_writer`、
-`serialization::json_writer`、`serialization::variant_reader`、`serialization::codec<T>` 和
-`serialization::codec_registry`。根命名空间只保留高频操作函数别名；reader、writer、result
+`serialization::json_writer`、`serialization::variant_reader` 和 `serialization::codec<T>`。
+根命名空间只保留高频操作函数别名；reader、writer、result
 等类型使用 `serialization::` 下的短名称。
 
 ### 文件组织
@@ -211,7 +211,7 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `objects::ref<T>
 
 ### serialization codec
 
-`serialization::codec_registry` 是类型级扩展点。调度层读写非容器普通值时会按类型查询 codec；命中后
+`serialization::codec<T>` 是类型级扩展点。调度层读写非容器普通值时会按类型查询内部 codec 注册表；命中后
 由 codec 直接处理该值，未命中时再回退到内置标量探测。这样 `guid`、`type_guid` 这类语义上是
 原子值的类型，不需要暴露内部字段结构。容器、pair、tuple 和 variant 字段优先通过 meta 视图递归处理元素，因此元素也能继续
 复用 codec、反射、指针和 wrapper 规则。
@@ -277,7 +277,7 @@ DOM reader 同时接受 `variant::dictionary` 和 pair 数组形态。普通 `st
 
 外部类型可以通过特化 `serialization::codec<T>` 并调用 `serialization::register_codec<T>()` 注册。
 调用前必须已经通过 `meta::type_<T>("name")` 注册对应 C++ 类型；codec 注册不会隐式创建 meta 类型。底层按
-`type_id` 注册 `serialization::codec_data` 的入口属于内部实现，普通代码不直接调用。codec 可以分别提供
+`type_id` 注册 codec 函数表的入口属于内部实现，普通代码不直接调用。codec 可以分别提供
 writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认逻辑或返回不支持。
 
 ### 指针和 wrapper 字段
@@ -487,7 +487,7 @@ caors::string text = result.value;
 - `serialization::writer`：格式后端接口。
 - `serialization::reader`：格式读入后端接口。
 - `serialization::context`：单次序列化/反序列化上下文，支持 schema version 字段过滤。
-- `serialization::codec_registry`：类型级 codec 注册表。
+- `serialization::codec<T>`：类型级 codec 特化入口，配合 `serialization::register_codec<T>()` 使用。
 - `serialization::register_codec<T>()`：注册已特化的类型级 codec。
 - `serialization::text_writer`：简单文本格式后端。
 - `variant`：序列化 DOM 中间对象。

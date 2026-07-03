@@ -97,12 +97,13 @@ public:
   /** @brief 按运行期类型 id 默认构造一个值。不可默认构造类型会返回无效 `any`。 */
   [[nodiscard]] static any default_construct(type_id type) {
     const meta::type meta = caors::meta::find(type);
-    if (!meta.valid() || meta.default_construct_value() == nullptr ||
-        meta.destroy_value() == nullptr) {
+    const auto construct = caors::meta::detail::get_default_construct_value_fn(meta);
+    const auto destroy = caors::meta::detail::get_destroy_value_fn(meta);
+    if (!meta.valid() || construct == nullptr || destroy == nullptr) {
       return {};
     }
 
-    void* value = meta.default_construct_value()();
+    void* value = construct();
     if (value == nullptr) {
       return {};
     }
@@ -155,8 +156,9 @@ public:
   /** @brief 清空当前值。 */
   void reset() noexcept {
     const meta::type meta = caors::meta::find(type_);
-    if (data_ != nullptr && meta && meta.destroy_value() != nullptr) {
-      meta.destroy_value()(data_);
+    const auto destroy = caors::meta::detail::get_destroy_value_fn(meta);
+    if (data_ != nullptr && meta && destroy != nullptr) {
+      destroy(data_);
     }
 
     type_ = {};
@@ -209,21 +211,23 @@ public:
   template <typename T> bool try_set(const T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
     const meta::type meta = caors::meta::find(type_);
-    if (!matches_type<type>() || !meta || meta.assign_value() == nullptr) {
+    const auto assign = caors::meta::detail::get_assign_value_fn(meta);
+    if (!matches_type<type>() || !meta || assign == nullptr) {
       return false;
     }
 
-    return meta.assign_value()(data_, &source);
+    return assign(data_, &source);
   }
 
   /** @brief 从同类型运行期值写入当前值。 */
   bool try_set(const any& source) {
     const meta::type meta = caors::meta::find(type_);
-    if (!matches_type(source) || !meta || meta.assign_value() == nullptr) {
+    const auto assign = caors::meta::detail::get_assign_value_fn(meta);
+    if (!matches_type(source) || !meta || assign == nullptr) {
       return false;
     }
 
-    return meta.assign_value()(data_, source.data_);
+    return assign(data_, source.data_);
   }
 
 private:
@@ -232,12 +236,13 @@ private:
 
   [[nodiscard]] static any copy_from_raw(type_id type, const void* source) {
     const meta::type meta = caors::meta::find(type);
-    if (!meta.valid() || source == nullptr || meta.clone_value() == nullptr ||
-        meta.destroy_value() == nullptr) {
+    const auto clone = caors::meta::detail::get_clone_value_fn(meta);
+    const auto destroy = caors::meta::detail::get_destroy_value_fn(meta);
+    if (!meta.valid() || source == nullptr || clone == nullptr || destroy == nullptr) {
       return {};
     }
 
-    void* copy = meta.clone_value()(source);
+    void* copy = clone(source);
     if (copy == nullptr) {
       return {};
     }

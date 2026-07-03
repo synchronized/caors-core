@@ -6,8 +6,7 @@
 namespace caors::reflection {
 namespace {
 
-[[nodiscard]] bool same_type_data(meta::type lhs,
-                                  const meta::detail::type_data& rhs) noexcept {
+[[nodiscard]] bool same_type_data(meta::type lhs, const meta::detail::type_data& rhs) noexcept {
   return lhs.id() == rhs.id() && lhs.name() == rhs.name() && lhs.guid() == rhs.guid() &&
          lhs.size() == rhs.size() && lhs.alignment() == rhs.alignment() &&
          lhs.parent_id() == rhs.parent_id();
@@ -287,8 +286,7 @@ bool field::is_tuple() const noexcept { return kind() == meta::type_kind::tuple;
 
 bool field::is_variant() const noexcept { return kind() == meta::type_kind::variant; }
 
-type::type(meta::type type, const detail::type_data* data) noexcept
-    : type_(type), data_(data) {}
+type::type(meta::type type, const detail::type_data* data) noexcept : type_(type), data_(data) {}
 
 bool type::valid() const noexcept { return type_.valid() && data_ != nullptr && data_->valid(); }
 
@@ -502,18 +500,6 @@ std::size_t registry::size() const noexcept {
 }
 
 registry& get_registry() noexcept { return registry::instance(); }
-
-namespace detail {
-
-error register_reflection(type_id id, type_data data) {
-  return get_registry().register_type(id, data);
-}
-
-error register_reflection(meta::type type, type_data data) {
-  return get_registry().register_type(type, data);
-}
-
-} // namespace detail
 
 type find(type_id id) { return get_registry().find_type(id); }
 

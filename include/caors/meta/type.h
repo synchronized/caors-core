@@ -28,6 +28,7 @@ namespace caors::meta {
 
 class registry;
 class registry_state;
+class type;
 
 namespace detail {
 
@@ -68,6 +69,12 @@ using enum_from_i64_fn = bool (*)(void*, std::int64_t) noexcept;
 using enum_from_u64_fn = bool (*)(void*, std::uint64_t) noexcept;
 using meta_object_ref_get_fn = objects::object* (*)(const void*) noexcept;
 using meta_object_ref_set_fn = bool (*)(void*, objects::object*) noexcept;
+
+[[nodiscard]] CAORS_API value_default_construct_fn
+get_default_construct_value_fn(const meta::type& type) noexcept;
+[[nodiscard]] CAORS_API value_clone_fn get_clone_value_fn(const meta::type& type) noexcept;
+[[nodiscard]] CAORS_API value_destroy_fn get_destroy_value_fn(const meta::type& type) noexcept;
+[[nodiscard]] CAORS_API value_assign_fn get_assign_value_fn(const meta::type& type) noexcept;
 
 [[nodiscard]] error merge_type_data(registry_state& state, type_data& stored,
                                     const type_data& incoming);
@@ -380,14 +387,15 @@ public:
   [[nodiscard]] std::size_t size() const noexcept;
   [[nodiscard]] std::size_t alignment() const noexcept;
   [[nodiscard]] type_id parent_id() const noexcept;
-  [[nodiscard]] detail::value_default_construct_fn default_construct_value() const noexcept;
-  [[nodiscard]] detail::value_clone_fn clone_value() const noexcept;
-  [[nodiscard]] detail::value_destroy_fn destroy_value() const noexcept;
-  [[nodiscard]] detail::value_assign_fn assign_value() const noexcept;
   [[nodiscard]] type parent() const noexcept;
 
 private:
   friend class registry;
+  friend detail::value_default_construct_fn
+  detail::get_default_construct_value_fn(const type&) noexcept;
+  friend detail::value_clone_fn detail::get_clone_value_fn(const type&) noexcept;
+  friend detail::value_destroy_fn detail::get_destroy_value_fn(const type&) noexcept;
+  friend detail::value_assign_fn detail::get_assign_value_fn(const type&) noexcept;
 
   constexpr type(const registry* registry, const detail::type_data* data) noexcept
       : registry_(registry), data_(data) {}

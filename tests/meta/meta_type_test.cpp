@@ -3,6 +3,7 @@
 
 #include "caors/meta.h"
 #include "caors/traits/type_name.h"
+#include "caors/value.h"
 
 #include <catch2/catch_all.hpp>
 
@@ -78,9 +79,8 @@ TEST_CASE("meta type - type id is allocated by explicit registration", "[meta]")
   REQUIRE(named);
   CHECK(named.id() == first);
   CHECK(caors::meta::find<anonymous_cpp_type>().id() == first);
-  CHECK(named.clone_value() != nullptr);
-  CHECK(named.destroy_value() != nullptr);
-  CHECK(named.assign_value() != nullptr);
+  CHECK(caors::any::default_construct(named.id()).valid());
+  CHECK(caors::any::from(anonymous_cpp_type{}, "caors.test.type.anonymous_cpp").valid());
   CHECK(caors::meta::id("caors.test.type.anonymous_cpp") == first);
 }
 
@@ -95,10 +95,13 @@ TEST_CASE("meta type view - describes layout", "[meta]") {
   CHECK(type.size() == sizeof(sample_type));
   CHECK(type.alignment() == alignof(sample_type));
   CHECK_FALSE(type.parent_id());
-  CHECK(type.default_construct_value() != nullptr);
-  CHECK(type.clone_value() != nullptr);
-  CHECK(type.destroy_value() != nullptr);
-  CHECK(type.assign_value() != nullptr);
+
+  caors::any value = caors::any::default_construct(type.id());
+  REQUIRE(value.valid());
+  REQUIRE(value.try_get_mutable<sample_type>() != nullptr);
+  CHECK(value.try_set(sample_type{7}));
+  REQUIRE(value.try_get<sample_type>() != nullptr);
+  CHECK(value.try_get<sample_type>()->value == 7);
 }
 
 TEST_CASE("meta type view - describes stable type guid", "[meta]") {

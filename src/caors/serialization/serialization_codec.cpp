@@ -12,7 +12,7 @@
 #include <string_view>
 #include <type_traits>
 
-namespace caors::serialization {
+namespace caors::serialization::detail {
 namespace {
 
 struct codec_registry_state {
@@ -464,12 +464,8 @@ codec_registry& get_codec_registry() noexcept {
   return codec_registry::instance();
 }
 
-namespace detail {
-
 error register_serialization_codec(type_id id, codec_data codec) {
   return get_codec_registry().register_codec(id, codec);
 }
 
-} // namespace detail
-
-} // namespace caors::serialization
+} // namespace caors::serialization::detail

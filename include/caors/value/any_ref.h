@@ -136,31 +136,34 @@ public:
   template <typename T> bool try_set(const T& source) const {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
     const meta::type meta = caors::meta::find(type_);
-    if (!matches_type<type>() || !writable_ || !meta || meta.assign_value() == nullptr) {
+    const auto assign = caors::meta::detail::get_assign_value_fn(meta);
+    if (!matches_type<type>() || !writable_ || !meta || assign == nullptr) {
       return false;
     }
 
-    return meta.assign_value()(const_cast<void*>(data_), &source);
+    return assign(const_cast<void*>(data_), &source);
   }
 
   /** @brief 从同类型运行期值写入当前引用指向的对象。 */
   bool try_set(const any& source) const {
     const meta::type meta = caors::meta::find(type_);
-    if (!matches_type(source) || !writable_ || !meta || meta.assign_value() == nullptr) {
+    const auto assign = caors::meta::detail::get_assign_value_fn(meta);
+    if (!matches_type(source) || !writable_ || !meta || assign == nullptr) {
       return false;
     }
 
-    return meta.assign_value()(const_cast<void*>(data_), source.data());
+    return assign(const_cast<void*>(data_), source.data());
   }
 
   /** @brief 从同类型运行期引用写入当前引用指向的对象。 */
   bool try_set(const any_ref& source) const {
     const meta::type meta = caors::meta::find(type_);
-    if (!matches_type(source) || !writable_ || !meta || meta.assign_value() == nullptr) {
+    const auto assign = caors::meta::detail::get_assign_value_fn(meta);
+    if (!matches_type(source) || !writable_ || !meta || assign == nullptr) {
       return false;
     }
 
-    return meta.assign_value()(const_cast<void*>(data_), source.data_);
+    return assign(const_cast<void*>(data_), source.data_);
   }
 
   /** @brief 尝试复制引用指向的对象。不可拷贝对象会返回无效 `any`。 */
