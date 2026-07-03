@@ -182,7 +182,7 @@ TEST_CASE("object - type guid can be provided by object subclass", "[object]") {
 
   CHECK(persistent_actor::static_type_guid() == persistent_actor::object_type_guid);
 
-  const caors::meta_type_data type =
+  const caors::meta::type_data type =
       caors::objects::make_meta_type_data<persistent_actor>(persistent_actor::object_type_name);
   CHECK(type.guid() == persistent_actor::object_type_guid);
 
@@ -197,10 +197,10 @@ TEST_CASE("object - type guid can be provided by object subclass", "[object]") {
 TEST_CASE("object - registry reports registration errors", "[object]") {
   caors::objects::registry& registry = caors::objects::get_registry();
 
-  CHECK(registry.register_type(caors::meta_type_data{}, caors::objects::type_data{}) ==
+  CHECK(registry.register_type(caors::meta::type_data{}, caors::objects::type_data{}) ==
         object_error(caors::errc::invalid_type));
 
-  caors::meta_type_data missing_parent = caors::objects::make_meta_type_data<error_actor>(
+  caors::meta::type_data missing_parent = caors::objects::make_meta_type_data<error_actor>(
       "caors.test.object.missing_parent_child",
       caors::type_id{std::numeric_limits<std::uint64_t>::max()});
   CHECK(registry.register_type(missing_parent, caors::objects::make_type_data<error_actor>()) ==
@@ -210,13 +210,13 @@ TEST_CASE("object - registry reports registration errors", "[object]") {
   const auto actor_type = caors::objects::find<error_actor>();
   REQUIRE(actor_type.has_value());
 
-  caors::meta_type_data colliding = caors::objects::make_meta_type_data<error_player>(
+  caors::meta::type_data colliding = caors::objects::make_meta_type_data<error_player>(
       error_player::object_type_name, actor_type->id());
   colliding.set_id(actor_type->id());
   CHECK(registry.register_type(colliding, caors::objects::make_type_data<error_player>()) ==
         object_error(caors::errc::invalid_type));
 
-  caors::meta_type_data duplicate_name =
+  caors::meta::type_data duplicate_name =
       caors::objects::make_meta_type_data<error_player>("caors.test.object.unique_duplicate_name");
   duplicate_name.set_name(caors::string_name{error_actor::object_type_name});
   CHECK(registry.register_type(duplicate_name, caors::objects::make_type_data<error_player>()) ==
@@ -229,8 +229,9 @@ TEST_CASE("object - registry reports duplicate type guid", "[object]") {
   REQUIRE(register_object_test_type<guid_owner_actor>(guid_owner_actor::object_type_name) ==
           caors::error{});
 
-  caors::meta_type_data duplicate_guid = caors::objects::make_meta_type_data<duplicate_guid_player>(
-      duplicate_guid_player::object_type_name);
+  caors::meta::type_data duplicate_guid =
+      caors::objects::make_meta_type_data<duplicate_guid_player>(
+          duplicate_guid_player::object_type_name);
   duplicate_guid.set_guid(guid_owner_actor::object_type_guid);
   CHECK(registry.register_type(duplicate_guid,
                                caors::objects::make_type_data<duplicate_guid_player>()) ==

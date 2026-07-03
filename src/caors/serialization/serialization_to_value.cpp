@@ -32,8 +32,9 @@ object_ref_to_serialization_value(const reflection::field& field, const void* ob
 }
 
 [[nodiscard]] bool field_uses_inline_indirect_value(const reflection::field& field) noexcept {
-  return (field.kind() == type_kind::raw_pointer || field.kind() == type_kind::wrapper) &&
-         field.wrapper_semantics() == wrapper_semantics::inline_value;
+  return (field.kind() == meta::type_kind::raw_pointer ||
+          field.kind() == meta::type_kind::wrapper) &&
+         field.wrapper_semantics() == meta::wrapper_semantics::inline_value;
 }
 
 [[nodiscard]] variant_result
@@ -44,7 +45,7 @@ value_ref_to_serialization_value(const any_ref& value, const serialization::cont
 [[nodiscard]] variant_result field_to_serialization_value(const reflection::field& field,
                                                           const void* object,
                                                           const serialization::context& context) {
-  if (field.wrapper_semantics() == wrapper_semantics::object_ref) {
+  if (field.wrapper_semantics() == meta::wrapper_semantics::object_ref) {
     return object_ref_to_serialization_value(field, object, context);
   }
 

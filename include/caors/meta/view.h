@@ -11,9 +11,9 @@
 #include <optional>
 #include <utility>
 
-namespace caors {
+namespace caors::meta {
 
-class meta_registry;
+class registry;
 
 /**
  * @brief 元数据组件查询视图。
@@ -21,11 +21,11 @@ class meta_registry;
  * 视图保存查询时匹配的 `type_id` 列表，不持有组件引用。需要组件内容时可通过 `find<T>()`
  * 获取副本。
  */
-template <typename... Components> class meta_view final {
+template <typename... Components> class view final {
 public:
   using const_iterator = typename vector<type_id>::const_iterator;
 
-  meta_view() = default;
+  view() = default;
 
   [[nodiscard]] const_iterator begin() const noexcept { return ids_.begin(); }
   [[nodiscard]] const_iterator end() const noexcept { return ids_.end(); }
@@ -37,15 +37,14 @@ public:
   template <typename Component> [[nodiscard]] std::optional<Component> find(type_id id) const;
 
 private:
-  friend class meta_registry;
+  friend class registry;
 
-  meta_view(const meta_registry* registry, vector<type_id> ids)
-      : registry_(registry), ids_(std::move(ids)) {}
+  view(const registry* owner, vector<type_id> ids) : registry_(owner), ids_(std::move(ids)) {}
 
-  const meta_registry* registry_ = nullptr;
+  const registry* registry_ = nullptr;
   vector<type_id> ids_;
 };
 
-} // namespace caors
+} // namespace caors::meta
 
 #endif

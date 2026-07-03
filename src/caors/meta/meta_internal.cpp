@@ -3,9 +3,9 @@
 
 #include "meta_internal.h"
 
-namespace caors::detail {
+namespace caors::meta::detail {
 
-type_id allocate_type_id(meta_registry_state& state) {
+type_id allocate_type_id(registry_state& state) {
   type_id id{};
   do {
     id = type_id{state.next_type_id++};
@@ -17,7 +17,7 @@ type_id allocate_type_id(meta_registry_state& state) {
   return id;
 }
 
-meta_type_data* find_type_data(meta_registry_state& state, type_id id) {
+type_data* find_type_data(registry_state& state, type_id id) {
   const auto position = state.types.find(id.value());
   if (position == state.types.end()) {
     return nullptr;
@@ -26,7 +26,7 @@ meta_type_data* find_type_data(meta_registry_state& state, type_id id) {
   return position->second.get();
 }
 
-const meta_type_data* find_type_data(const meta_registry_state& state, type_id id) {
+const type_data* find_type_data(const registry_state& state, type_id id) {
   const auto position = state.types.find(id.value());
   if (position == state.types.end()) {
     return nullptr;
@@ -35,8 +35,8 @@ const meta_type_data* find_type_data(const meta_registry_state& state, type_id i
   return position->second.get();
 }
 
-std::optional<type_id> find_existing_type_id(const meta_registry_state& state,
-                                             const meta_type_data& type, error& conflict) {
+std::optional<type_id> find_existing_type_id(const registry_state& state, const type_data& type,
+                                             error& conflict) {
   std::optional<type_id> existing_id;
 
   const auto merge_candidate = [&](type_id candidate, error result) {
@@ -79,7 +79,7 @@ std::optional<type_id> find_existing_type_id(const meta_registry_state& state,
   return existing_id;
 }
 
-error duplicate_identity_error(const meta_registry_state& state, const meta_type_data& type,
+error duplicate_identity_error(const registry_state& state, const type_data& type,
                                type_id existing_id) {
   if (type.name()) {
     const auto name_position = state.names.find(type.name());
@@ -98,13 +98,12 @@ error duplicate_identity_error(const meta_registry_state& state, const meta_type
   return {error_domain::meta, errc::invalid_type};
 }
 
-bool has_cpp_type(const meta_registry_state& state, type_id id) {
-  const meta_type_data* type = find_type_data(state, id);
+bool has_cpp_type(const registry_state& state, type_id id) {
+  const type_data* type = find_type_data(state, id);
   return type != nullptr && type->cpp_type() != nullptr;
 }
 
-error merge_type_data(meta_registry_state& state, meta_type_data& stored,
-                      const meta_type_data& incoming) {
+error merge_type_data(registry_state& state, type_data& stored, const type_data& incoming) {
   if (!incoming.valid()) {
     return {error_domain::meta, errc::invalid_type};
   }
@@ -212,8 +211,7 @@ error merge_type_data(meta_registry_state& state, meta_type_data& stored,
   return changed ? error{} : error{error_domain::meta, errc::duplicate_id};
 }
 
-error store_new_type(meta_registry_state& state, const meta_type_data& incoming,
-                     type_id* stored_id) {
+error store_new_type(registry_state& state, const type_data& incoming, type_id* stored_id) {
   if (!incoming.valid() || incoming.id()) {
     return {error_domain::meta, errc::invalid_type};
   }
@@ -234,12 +232,12 @@ error store_new_type(meta_registry_state& state, const meta_type_data& incoming,
     return {error_domain::meta, errc::invalid_type};
   }
 
-  meta_type_data stored = incoming;
+  type_data stored = incoming;
   stored.set_id(allocate_type_id(state));
   const type_id id = stored.id();
 
   auto [position, inserted] =
-      state.types.try_emplace(id.value(), std::make_unique<meta_type_data>(stored));
+      state.types.try_emplace(id.value(), std::make_unique<type_data>(stored));
   if (!inserted) {
     return {error_domain::meta, errc::duplicate_id};
   }
@@ -263,7 +261,7 @@ error store_new_type(meta_registry_state& state, const meta_type_data& incoming,
   return {};
 }
 
-error validate_registry_for_freeze(const meta_registry_state& state) {
+error validate_registry_for_freeze(const registry_state& state) {
   for (const auto& [raw_id, stored] : state.types) {
     if (stored == nullptr || !stored->registered() || stored->id().value() != raw_id) {
       return {error_domain::meta, errc::invalid_type};
@@ -296,21 +294,21 @@ error validate_registry_for_freeze(const meta_registry_state& state) {
   }
 
   for (const auto& [name, id] : state.names) {
-    const meta_type_data* stored = find_type_data(state, id);
+    const type_data* stored = find_type_data(state, id);
     if (stored == nullptr || stored->name() != name) {
       return {error_domain::meta, errc::inconsistent_type};
     }
   }
 
   for (const auto& [guid_value, id] : state.guids) {
-    const meta_type_data* stored = find_type_data(state, id);
+    const type_data* stored = find_type_data(state, id);
     if (stored == nullptr || stored->guid().value != guid_value) {
       return {error_domain::meta, errc::inconsistent_type};
     }
   }
 
   for (const auto& [key, id] : state.cpp_types) {
-    const meta_type_data* stored = find_type_data(state, id);
+    const type_data* stored = find_type_data(state, id);
     if (key == nullptr || stored == nullptr || stored->cpp_type() != key) {
       return {error_domain::meta, errc::inconsistent_type};
     }
@@ -331,4 +329,4 @@ error validate_registry_for_freeze(const meta_registry_state& state) {
   return {};
 }
 
-} // namespace caors::detail
+} // namespace caors::meta::detail

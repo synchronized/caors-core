@@ -6,14 +6,14 @@
 #include <mutex>
 #include <string_view>
 
-namespace caors {
+namespace caors::meta {
 
-bool meta_registry::contains(type_id id) const {
+bool registry::contains(type_id id) const {
   std::lock_guard lock(state_->mutex);
   return state_->types.contains(id.value());
 }
 
-std::optional<meta_type> meta_registry::find_cpp_type(detail::cpp_type_key key) const {
+std::optional<type_view> registry::find_cpp_type(caors::detail::cpp_type_key key) const {
   if (key == nullptr) {
     return std::nullopt;
   }
@@ -24,25 +24,25 @@ std::optional<meta_type> meta_registry::find_cpp_type(detail::cpp_type_key key) 
     return std::nullopt;
   }
 
-  const meta_type_data* type = detail::find_type_data(*state_, key_position->second);
+  const type_data* type = detail::find_type_data(*state_, key_position->second);
   if (type == nullptr) {
     return std::nullopt;
   }
 
-  return meta_type{this, type};
+  return type_view{this, type};
 }
 
-std::optional<meta_type> meta_registry::find_type(type_id id) const {
+std::optional<type_view> registry::find_type(type_id id) const {
   std::lock_guard lock(state_->mutex);
-  const meta_type_data* type = detail::find_type_data(*state_, id);
+  const type_data* type = detail::find_type_data(*state_, id);
   if (type == nullptr) {
     return std::nullopt;
   }
 
-  return meta_type{this, type};
+  return type_view{this, type};
 }
 
-std::optional<meta_type> meta_registry::find_type(type_guid guid) const {
+std::optional<type_view> registry::find_type(type_guid guid) const {
   if (!guid) {
     return std::nullopt;
   }
@@ -53,15 +53,15 @@ std::optional<meta_type> meta_registry::find_type(type_guid guid) const {
     return std::nullopt;
   }
 
-  const meta_type_data* type = detail::find_type_data(*state_, guid_position->second);
+  const type_data* type = detail::find_type_data(*state_, guid_position->second);
   if (type == nullptr) {
     return std::nullopt;
   }
 
-  return meta_type{this, type};
+  return type_view{this, type};
 }
 
-std::optional<meta_type> meta_registry::find_type(std::string_view name) const {
+std::optional<type_view> registry::find_type(std::string_view name) const {
   std::optional<string_name> interned_name = string_name::find(name);
   if (!interned_name.has_value()) {
     return std::nullopt;
@@ -70,22 +70,22 @@ std::optional<meta_type> meta_registry::find_type(std::string_view name) const {
   return find_type(*interned_name);
 }
 
-std::optional<meta_type> meta_registry::find_type(string_name name) const {
+std::optional<type_view> registry::find_type(string_name name) const {
   std::lock_guard lock(state_->mutex);
   const auto name_position = state_->names.find(name);
   if (name_position == state_->names.end()) {
     return std::nullopt;
   }
 
-  const meta_type_data* type = detail::find_type_data(*state_, name_position->second);
+  const type_data* type = detail::find_type_data(*state_, name_position->second);
   if (type == nullptr) {
     return std::nullopt;
   }
 
-  return meta_type{this, type};
+  return type_view{this, type};
 }
 
-bool meta_registry::is_a(type_id id, type_id base_id) const {
+bool registry::is_a(type_id id, type_id base_id) const {
   if (!id || !base_id) {
     return false;
   }
@@ -97,7 +97,7 @@ bool meta_registry::is_a(type_id id, type_id base_id) const {
       return true;
     }
 
-    const meta_type_data* type = detail::find_type_data(*state_, current_id);
+    const type_data* type = detail::find_type_data(*state_, current_id);
     if (type == nullptr) {
       return false;
     }
@@ -108,9 +108,9 @@ bool meta_registry::is_a(type_id id, type_id base_id) const {
   return false;
 }
 
-std::size_t meta_registry::size() const noexcept {
+std::size_t registry::size() const noexcept {
   std::lock_guard lock(state_->mutex);
   return state_->types.size();
 }
 
-} // namespace caors
+} // namespace caors::meta

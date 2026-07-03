@@ -4,7 +4,7 @@
 # Serialization
 
 本文档说明 CAORS 序列化层的当前 MVP。当前实现提供基于反射字段的简单文本序列化、DOM 中间对象和
-基础 DOM 反序列化，用于验证 `meta_registry`、反射字段访问和统一错误模型之间的协作边界。
+基础 DOM 反序列化，用于验证 `meta::registry`、反射字段访问和统一错误模型之间的协作边界。
 
 ## 设计目标
 
@@ -12,8 +12,8 @@
 
 - 用 `serialization::type_data` 表示类型的序列化元信息。
 - 用 `serialization::field_data` 表示字段级序列化配置，例如字段别名、稳定字段 id、跳过和版本信息。
-- 基于全局 `meta_registry` 挂载序列化组件，避免单独维护类型索引。
-- 提供 `serialization::registry` 和 `serialization::class_(meta_type)` 链式注册入口。
+- 基于全局 `meta::registry` 挂载序列化组件，避免单独维护类型索引。
+- 提供 `serialization::registry` 和 `serialization::class_(meta::type_view)` 链式注册入口。
 - 提供 `serialization::writer` 后端接口，让不同格式复用同一套字段遍历逻辑。
 - 提供 `serialization::reader` 后端接口，让不同格式复用同一套字段读入逻辑。
 - 提供 `variant` 中间对象树，方便工具、调试和多格式转换。
@@ -75,11 +75,11 @@
 
 ### serialization::type_data
 
-`serialization::type_data` 是挂载在 `meta_registry` 上的序列化组件。它保存默认格式和字段级
+`serialization::type_data` 是挂载在 `meta::registry` 上的序列化组件。它保存默认格式和字段级
 序列化配置：
 
 ```cpp
-caors::meta_type type = caors::meta::get<actor>();
+caors::meta::type_view type = caors::meta::get<actor>();
 
 caors::serialization::class_(type)
     .field("health", "hp")
@@ -115,7 +115,7 @@ caors::serialization::class_(type)
 
 ### serialization::writer
 
-`serialization::writer` 是格式后端接口。序列化调度层负责查找 `meta_registry`、匹配反射字段和读取
+`serialization::writer` 是格式后端接口。序列化调度层负责查找 `meta::registry`、匹配反射字段和读取
 字段值；writer 只负责把对象、字段和值写成目标格式。
 
 writer 通过 `serialization::format_features` 声明能力：
@@ -137,7 +137,7 @@ writer 通过 `serialization::format_features` 声明能力：
 
 ### serialization::reader
 
-`serialization::reader` 是格式读入后端接口。反序列化调度层负责查找 `meta_registry`、匹配反射字段和
+`serialization::reader` 是格式读入后端接口。反序列化调度层负责查找 `meta::registry`、匹配反射字段和
 写入对象；reader 只负责按字段配置提供当前字段值。
 
 当前内置 reader：
@@ -408,10 +408,10 @@ caors::variant_result value = caors::serialization::to_variant(caors::any::from(
 
 ### serialization::registry
 
-`serialization::registry` 是全局序列化注册表，内部复用 `meta_registry`：
+`serialization::registry` 是全局序列化注册表，内部复用 `meta::registry`：
 
 ```cpp
-caors::meta_type type = caors::meta::get<actor>();
+caors::meta::type_view type = caors::meta::get<actor>();
 
 caors::error status =
     caors::serialization::class_(type)
@@ -426,8 +426,8 @@ if (status) {
 auto serialization_type = caors::serialization::find(type);
 ```
 
-推荐由 meta 层先注册基础类型，再使用 `serialization::class_(meta_type)` 挂载序列化组件。这条路径不会
-创建或修改基础类型记录；无效 `meta_type` 返回 `errc::invalid_type`，不存在的 `type_id` 返回
+推荐由 meta 层先注册基础类型，再使用 `serialization::class_(meta::type_view)` 挂载序列化组件。这条路径不会
+创建或修改基础类型记录；无效 `meta::type_view` 返回 `errc::invalid_type`，不存在的 `type_id` 返回
 `errc::missing_type`。查询序列化组件时使用 `serialization::find()` 或 `serialization::contains()`。
 低层组件注册函数属于内部实现入口，普通代码不直接调用。
 
@@ -439,7 +439,7 @@ auto serialization_type = caors::serialization::find(type);
 `serialize_text()` 使用已注册的反射字段读取对象：
 
 ```cpp
-caors::meta_type type = caors::meta::type<actor>("game.actor").get();
+caors::meta::type_view type = caors::meta::type<actor>("game.actor").get();
 
 caors::reflection::class_<actor>(type)
     .field("id", &actor::id)
@@ -492,7 +492,7 @@ caors::string text = result.value;
 - `variant_member`：对象成员，保存字段名、字段 id 和字段值。
 - `variant_entry`：字典条目，保存 key 和 value。
 - `serialization::registry`：全局序列化注册表。
-- `serialization::class_(meta_type)`：推荐的链式序列化组件注册入口，只挂载序列化组件。
+- `serialization::class_(meta::type_view)`：推荐的链式序列化组件注册入口，只挂载序列化组件。
 - `serialization::find()` / `serialization::contains()`：序列化组件查询入口。
 - `serialize()`：通过指定 writer 后端序列化对象。
 - `deserialize()`：通过指定 reader 后端反序列化对象。

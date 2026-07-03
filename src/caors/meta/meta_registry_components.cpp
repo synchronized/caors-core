@@ -5,10 +5,10 @@
 
 #include <mutex>
 
-namespace caors {
+namespace caors::meta {
 
 detail::meta_component_storage_base*
-meta_registry::find_component_storage(detail::meta_component_key key) {
+registry::find_component_storage(detail::meta_component_key key) {
   std::lock_guard lock(state_->mutex);
   const auto position = state_->components.find(key);
   if (position == state_->components.end()) {
@@ -19,7 +19,7 @@ meta_registry::find_component_storage(detail::meta_component_key key) {
 }
 
 const detail::meta_component_storage_base*
-meta_registry::find_component_storage(detail::meta_component_key key) const {
+registry::find_component_storage(detail::meta_component_key key) const {
   std::lock_guard lock(state_->mutex);
   const auto position = state_->components.find(key);
   if (position == state_->components.end()) {
@@ -29,8 +29,9 @@ meta_registry::find_component_storage(detail::meta_component_key key) const {
   return position->second.get();
 }
 
-detail::meta_component_storage_base& meta_registry::ensure_component_storage(
-    detail::meta_component_key key, std::unique_ptr<detail::meta_component_storage_base> storage) {
+detail::meta_component_storage_base&
+registry::ensure_component_storage(detail::meta_component_key key,
+                                   std::unique_ptr<detail::meta_component_storage_base> storage) {
   std::lock_guard lock(state_->mutex);
   auto [position, inserted] = state_->components.try_emplace(key, nullptr);
   if (inserted) {
@@ -40,8 +41,8 @@ detail::meta_component_storage_base& meta_registry::ensure_component_storage(
   return *position->second;
 }
 
-vector<type_id> meta_registry::view_component_ids(const detail::meta_component_key* keys,
-                                                  std::size_t count) const {
+vector<type_id> registry::view_component_ids(const detail::meta_component_key* keys,
+                                             std::size_t count) const {
   if (keys == nullptr || count == 0) {
     return {};
   }
@@ -74,4 +75,4 @@ vector<type_id> meta_registry::view_component_ids(const detail::meta_component_k
   return result;
 }
 
-} // namespace caors
+} // namespace caors::meta

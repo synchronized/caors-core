@@ -10,12 +10,12 @@
 #include <cstdint>
 #include <string_view>
 
-namespace caors {
+namespace caors::meta {
 
 /**
  * @brief 运行期类型标识。
  *
- * 类型标识由全局 `meta_registry` 分配，适合当前进程内的注册表索引。它不是类型名 hash，也不是
+ * 类型标识由全局 `meta::registry` 分配，适合当前进程内的注册表索引。它不是类型名 hash，也不是
  * 跨版本序列化 ID。
  */
 class type_id {
@@ -61,6 +61,13 @@ struct type_guid {
     return !(lhs == rhs);
   }
 };
+
+} // namespace caors::meta
+
+namespace caors {
+
+using type_id = meta::type_id;
+using type_guid = meta::type_guid;
 
 } // namespace caors
 

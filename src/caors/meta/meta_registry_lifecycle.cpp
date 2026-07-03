@@ -3,18 +3,18 @@
 
 #include "meta_internal.h"
 
-namespace caors {
+namespace caors::meta {
 
-meta_registry::meta_registry() : state_(new meta_registry_state) {}
+registry::registry() : state_(new registry_state) {}
 
-meta_registry::~meta_registry() { delete state_; }
+registry::~registry() { delete state_; }
 
-meta_registry& meta_registry::instance() noexcept {
-  static meta_registry registry;
-  return registry;
+registry& registry::instance() noexcept {
+  static registry instance;
+  return instance;
 }
 
-error meta_registry::add_registration(meta_registration_fn fn) {
+error registry::add_registration(registration_fn fn) {
   if (fn == nullptr) {
     return {error_domain::meta, errc::invalid_argument};
   }
@@ -24,7 +24,7 @@ error meta_registry::add_registration(meta_registration_fn fn) {
     return {error_domain::meta, errc::frozen};
   }
 
-  for (const meta_registration_fn existing : state_->registrations) {
+  for (const registration_fn existing : state_->registrations) {
     if (existing == fn) {
       return {error_domain::meta, errc::already_exists};
     }
@@ -34,8 +34,8 @@ error meta_registry::add_registration(meta_registration_fn fn) {
   return {};
 }
 
-error meta_registry::run_registrations() {
-  vector<meta_registration_fn> registrations;
+error registry::run_registrations() {
+  vector<registration_fn> registrations;
   {
     std::lock_guard lock(state_->mutex);
     if (state_->registrations_ran) {
@@ -46,7 +46,7 @@ error meta_registry::run_registrations() {
     registrations = state_->registrations;
   }
 
-  for (const meta_registration_fn fn : registrations) {
+  for (const registration_fn fn : registrations) {
     if (fn == nullptr) {
       return {error_domain::meta, errc::invalid_argument};
     }
@@ -60,7 +60,7 @@ error meta_registry::run_registrations() {
   return {};
 }
 
-error meta_registry::freeze() {
+error registry::freeze() {
   const error registration_status = run_registrations();
   if (registration_status) {
     return registration_status;
@@ -80,25 +80,23 @@ error meta_registry::freeze() {
   return {};
 }
 
-bool meta_registry::is_frozen() const noexcept {
+bool registry::is_frozen() const noexcept {
   std::lock_guard lock(state_->mutex);
   return state_->frozen;
 }
 
-meta_registry& get_meta_registry() noexcept { return meta_registry::instance(); }
+registry& get_registry() noexcept { return registry::instance(); }
 
 namespace detail {
 
-error register_meta_registration(meta_registration_fn fn) {
-  return get_meta_registry().add_registration(fn);
-}
+error register_registration(registration_fn fn) { return get_registry().add_registration(fn); }
 
 } // namespace detail
 
-error run_meta_registrations() { return get_meta_registry().run_registrations(); }
+error run_registrations() { return get_registry().run_registrations(); }
 
-error freeze_meta_registry() { return get_meta_registry().freeze(); }
+error freeze_registry() { return get_registry().freeze(); }
 
-bool is_meta_registry_frozen() noexcept { return get_meta_registry().is_frozen(); }
+bool is_registry_frozen() noexcept { return get_registry().is_frozen(); }
 
-} // namespace caors
+} // namespace caors::meta

@@ -40,7 +40,7 @@ struct indirect_value_holder {
 }
 
 template <typename T> void require_registered_type(std::string_view name) {
-  REQUIRE(type_result_ok(caors::detail::register_type<T>(name)));
+  REQUIRE(type_result_ok(caors::meta::detail::register_type<T>(name)));
 }
 
 void require_value_test_meta() {

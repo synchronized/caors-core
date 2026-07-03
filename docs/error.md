@@ -78,7 +78,7 @@ if (status.domain() == caors::error_domain::meta &&
 注册表冻结后继续注册类型或挂载组件会返回 `errc::frozen`：
 
 ```cpp
-caors::freeze_meta_registry();
+caors::meta::freeze_registry();
 
 caors::error status = caors::meta::type<actor>("game.actor").result();
 // status.value() == caors::errc::frozen

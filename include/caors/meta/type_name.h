@@ -18,7 +18,7 @@ namespace caors {
  * @brief C++ 类型到 CAORS 类型名的默认映射。
  *
  * 用户类型可以通过特化 `type_name<T>` 提供默认名称。没有默认名称的类型需要先显式注册到
- * `meta_registry`，或者在反射注册时手动传入字段类型名。
+ * `meta::registry`，或者在反射注册时手动传入字段类型名。
  */
 template <typename T> struct type_name;
 

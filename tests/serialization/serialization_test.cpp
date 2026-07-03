@@ -314,7 +314,7 @@ struct object_ref_resolver_data {
 }
 
 template <typename T> void require_registered_type(std::string_view name) {
-  REQUIRE(type_result_ok(caors::detail::register_type<T>(name)));
+  REQUIRE(type_result_ok(caors::meta::detail::register_type<T>(name)));
 }
 
 template <typename T> void require_serialization_codec(std::string_view name) {
@@ -375,8 +375,8 @@ void require_non_default_value_metadata() {
 }
 
 void require_unique_ptr_vector_actor_metadata() {
-  REQUIRE(
-      type_result_ok(caors::detail::register_type<std::unique_ptr<int>>("std.unique_ptr<int>")));
+  REQUIRE(type_result_ok(
+      caors::meta::detail::register_type<std::unique_ptr<int>>("std.unique_ptr<int>")));
   REQUIRE(reflection_result_ok(caors::reflection::class_<unique_ptr_vector_actor>(
                                    "caors.test.serialization.unique_ptr_vector_actor")
                                    .field("values", &unique_ptr_vector_actor::values)
@@ -396,7 +396,7 @@ void require_scalar_actor_metadata() {
 }
 
 void require_object_ref_vector_actor_metadata() {
-  REQUIRE(type_result_ok(caors::detail::register_type<caors::object_ref<object_ref_target>>(
+  REQUIRE(type_result_ok(caors::meta::detail::register_type<caors::object_ref<object_ref_target>>(
       "caors.object_ref<caors.test.serialization.object_ref_target>")));
   REQUIRE(reflection_result_ok(caors::reflection::class_<object_ref_vector_actor>(
                                    "caors.test.serialization.object_ref_vector_actor")
@@ -580,9 +580,9 @@ TEST_CASE("serialization - registers type metadata component", "[serialization]"
 }
 
 TEST_CASE("serialization - class builder can attach to explicit meta type", "[serialization]") {
-  const caors::meta_type type = caors::meta::type<explicit_meta_serialization_actor>(
-                                    "caors.test.serialization.explicit_meta_actor")
-                                    .get();
+  const caors::meta::type_view type = caors::meta::type<explicit_meta_serialization_actor>(
+                                          "caors.test.serialization.explicit_meta_actor")
+                                          .get();
   REQUIRE(type.valid());
   CHECK(caors::meta::get<explicit_meta_serialization_actor>().id() == type.id());
 
@@ -2238,7 +2238,7 @@ TEST_CASE("serialization - recursively serializes vector struct elements", "[ser
 }
 
 TEST_CASE("serialization - serializes object references through resolver", "[serialization]") {
-  REQUIRE(type_result_ok(caors::detail::register_type<caors::object_ref<object_ref_target>>(
+  REQUIRE(type_result_ok(caors::meta::detail::register_type<caors::object_ref<object_ref_target>>(
       "caors.object_ref<caors.test.serialization.object_ref_target>")));
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<object_ref_actor>("caors.test.serialization.object_ref_actor")
@@ -2274,7 +2274,7 @@ TEST_CASE("serialization - serializes object references through resolver", "[ser
 }
 
 TEST_CASE("serialization - deserializes object references through resolver", "[serialization]") {
-  REQUIRE(type_result_ok(caors::detail::register_type<caors::object_ref<object_ref_target>>(
+  REQUIRE(type_result_ok(caors::meta::detail::register_type<caors::object_ref<object_ref_target>>(
       "caors.object_ref<caors.test.serialization.object_ref_target>")));
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<object_ref_actor>("caors.test.serialization.object_ref_actor")
@@ -2363,7 +2363,7 @@ TEST_CASE("serialization - deserializes object references inside vectors", "[ser
 }
 
 TEST_CASE("serialization - object reference resolver failures are reported", "[serialization]") {
-  REQUIRE(type_result_ok(caors::detail::register_type<caors::object_ref<object_ref_target>>(
+  REQUIRE(type_result_ok(caors::meta::detail::register_type<caors::object_ref<object_ref_target>>(
       "caors.object_ref<caors.test.serialization.object_ref_target>")));
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<object_ref_actor>("caors.test.serialization.object_ref_actor")
@@ -2911,9 +2911,9 @@ TEST_CASE("serialization - writer features validate required field identifiers",
 }
 
 TEST_CASE("serialization - registration can happen before reflection fields", "[serialization]") {
-  const caors::meta_type type = caors::meta::type<serialization_first_actor>(
-                                    "caors.test.serialization.serialization_first_actor")
-                                    .get();
+  const caors::meta::type_view type = caors::meta::type<serialization_first_actor>(
+                                          "caors.test.serialization.serialization_first_actor")
+                                          .get();
   REQUIRE(type.valid());
 
   REQUIRE(caors::detail::register_serialization<serialization_first_actor>(

@@ -163,7 +163,7 @@ template <typename T> [[nodiscard]] error register_associative_data_for(type_id 
       data.iterator_value = &associative_iterator_value<iterator_type>;
     }
 
-    const error result = get_meta_registry().emplace<meta_associative_data>(id, data);
+    const error result = meta::get_registry().emplace<meta_associative_data>(id, data);
     if (result && result.value() != errc::duplicate_component) {
       return result;
     }
@@ -217,7 +217,7 @@ template <typename T> [[nodiscard]] error register_pair_data_for(type_id id) {
         },
     };
 
-    const error result = get_meta_registry().emplace<meta_pair_data>(id, data);
+    const error result = meta::get_registry().emplace<meta_pair_data>(id, data);
     if (result && result.value() != errc::duplicate_component) {
       return result;
     }
@@ -273,7 +273,7 @@ template <typename T> [[nodiscard]] error register_tuple_data_for(type_id id) {
       return {};
     }
 
-    const error result = get_meta_registry().emplace<meta_tuple_data>(id, data);
+    const error result = meta::get_registry().emplace<meta_tuple_data>(id, data);
     if (result && result.value() != errc::duplicate_component) {
       return result;
     }
@@ -347,7 +347,7 @@ template <typename T> [[nodiscard]] error register_variant_data_for(type_id id) 
       return {};
     }
 
-    const error result = get_meta_registry().emplace<meta_variant_data>(id, data);
+    const error result = meta::get_registry().emplace<meta_variant_data>(id, data);
     if (result && result.value() != errc::duplicate_component) {
       return result;
     }
@@ -421,7 +421,7 @@ template <typename T> [[nodiscard]] error register_sequence_data_for(type_id id)
       data.can_read = adapters::sequence_traits<type>::can_read;
     }
 
-    const error result = get_meta_registry().emplace<meta_sequence_data>(id, data);
+    const error result = meta::get_registry().emplace<meta_sequence_data>(id, data);
     if (result && result.value() != errc::duplicate_component) {
       return result;
     }
@@ -492,7 +492,7 @@ template <typename T> [[nodiscard]] error register_set_data_for(type_id id) {
       data.iterator_value = &set_iterator_value<iterator_type>;
     }
 
-    const error result = get_meta_registry().emplace<meta_set_data>(id, data);
+    const error result = meta::get_registry().emplace<meta_set_data>(id, data);
     if (result && result.value() != errc::duplicate_component) {
       return result;
     }

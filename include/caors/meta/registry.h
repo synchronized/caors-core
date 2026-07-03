@@ -25,26 +25,29 @@
 #include <type_traits>
 #include <utility>
 
-namespace caors {
+namespace caors::detail {
+
+template <typename T> [[nodiscard]] error ensure_type_semantics_for(type_id id);
+template <typename T> [[nodiscard]] error register_container_data_for(type_id id);
+
+} // namespace caors::detail
+
+namespace caors::meta {
 
 /** @brief 指定类型上的元数据组件挂载状态。 */
-enum class meta_component_status {
+enum class component_status {
   invalid_type,
   missing_type,
   missing_component,
   present,
 };
 
-/** @brief 延迟到 `freeze_meta_registry()` 前执行的元数据注册函数。 */
-using meta_registration_fn = error (*)();
+/** @brief 延迟到 `meta::freeze_registry()` 前执行的元数据注册函数。 */
+using registration_fn = error (*)();
 
 namespace detail {
 
 using meta_component_key = const void*;
-
-template <typename T> [[nodiscard]] error ensure_type_semantics_for(type_id id);
-template <typename T> [[nodiscard]] error register_container_data_for(type_id id);
-template <typename T> [[nodiscard]] type_id semantic_type_id();
 
 template <typename Component> [[nodiscard]] meta_component_key meta_component_key_of() noexcept {
   static const int key = 0;
@@ -121,56 +124,56 @@ private:
 
 } // namespace detail
 
-class meta_registry_state;
+class registry_state;
 
 /**
  * @brief 底层全局类型元数据注册表。
  *
- * `meta_registry` 以 `type_id` 为 key，先注册基础 `meta_type_data`，再按类型挂载对象工厂、
+ * `meta::registry` 以 `type_id` 为 key，先注册基础 `meta::type_data`，再按类型挂载对象工厂、
  * 反射描述、序列化描述等元数据组件。普通代码应使用 `meta::type<T>()`、`meta::get<T>()`
  * 和 `meta::find()` 入口，不要创建或管理注册表实例。
  */
-class CAORS_API meta_registry final {
+class CAORS_API registry final {
 public:
-  [[nodiscard]] static meta_registry& instance() noexcept;
+  [[nodiscard]] static registry& instance() noexcept;
 
-  meta_registry(const meta_registry&) = delete;
-  meta_registry& operator=(const meta_registry&) = delete;
+  registry(const registry&) = delete;
+  registry& operator=(const registry&) = delete;
 
-  [[nodiscard]] error register_type(const meta_type_data& type);
-  [[nodiscard]] error register_cpp_type(detail::cpp_type_key key, const meta_type_data& type);
-  [[nodiscard]] error add_registration(meta_registration_fn fn);
+  [[nodiscard]] error register_type(const type_data& type);
+  [[nodiscard]] error register_cpp_type(caors::detail::cpp_type_key key, const type_data& type);
+  [[nodiscard]] error add_registration(registration_fn fn);
   [[nodiscard]] error run_registrations();
   [[nodiscard]] error freeze();
   [[nodiscard]] bool is_frozen() const noexcept;
 
-  template <typename T> [[nodiscard]] error register_type_for(const meta_type_data& type) {
+  template <typename T> [[nodiscard]] error register_type_for(const type_data& type) {
     using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const detail::cpp_type_key key = detail::cpp_type_key_of<value_type>();
+    const caors::detail::cpp_type_key key = caors::detail::cpp_type_key_of<value_type>();
     const error status = register_cpp_type(key, type);
     if (status && status.value() != errc::duplicate_id) {
       return status;
     }
 
-    const std::optional<meta_type> registered = find_cpp_type(key);
+    const std::optional<type_view> registered = find_cpp_type(key);
     if (registered.has_value()) {
-      (void)detail::ensure_type_semantics_for<value_type>(registered->id());
-      (void)detail::register_container_data_for<value_type>(registered->id());
+      (void)caors::detail::ensure_type_semantics_for<value_type>(registered->id());
+      (void)caors::detail::register_container_data_for<value_type>(registered->id());
     }
 
     return status;
   }
 
   [[nodiscard]] bool contains(type_id id) const;
-  [[nodiscard]] std::optional<meta_type> find_cpp_type(detail::cpp_type_key key) const;
-  template <typename T> [[nodiscard]] std::optional<meta_type> find_type() const {
-    return find_cpp_type(detail::cpp_type_key_of<T>());
+  [[nodiscard]] std::optional<type_view> find_cpp_type(caors::detail::cpp_type_key key) const;
+  template <typename T> [[nodiscard]] std::optional<type_view> find_type() const {
+    return find_cpp_type(caors::detail::cpp_type_key_of<T>());
   }
 
-  [[nodiscard]] std::optional<meta_type> find_type(type_id id) const;
-  [[nodiscard]] std::optional<meta_type> find_type(type_guid guid) const;
-  [[nodiscard]] std::optional<meta_type> find_type(std::string_view name) const;
-  [[nodiscard]] std::optional<meta_type> find_type(string_name name) const;
+  [[nodiscard]] std::optional<type_view> find_type(type_id id) const;
+  [[nodiscard]] std::optional<type_view> find_type(type_guid guid) const;
+  [[nodiscard]] std::optional<type_view> find_type(std::string_view name) const;
+  [[nodiscard]] std::optional<type_view> find_type(string_name name) const;
   [[nodiscard]] bool is_a(type_id id, type_id base_id) const;
   [[nodiscard]] std::size_t size() const noexcept;
 
@@ -285,32 +288,31 @@ public:
   }
 
   /** @brief 查询指定类型上的组件状态，用于重复注册和缺失组件诊断。 */
-  template <typename Component>
-  [[nodiscard]] meta_component_status component_status(type_id id) const {
+  template <typename Component> [[nodiscard]] component_status component_status(type_id id) const {
     using component_type = std::decay_t<Component>;
     if (!id) {
-      return meta_component_status::invalid_type;
+      return component_status::invalid_type;
     }
 
     if (!contains(id)) {
-      return meta_component_status::missing_type;
+      return component_status::missing_type;
     }
 
     const detail::meta_component_storage_base* storage_base =
         find_component_storage(detail::meta_component_key_of<component_type>());
     if (storage_base == nullptr || !storage_base->contains(id)) {
-      return meta_component_status::missing_component;
+      return component_status::missing_component;
     }
 
-    return meta_component_status::present;
+    return component_status::present;
   }
 
   /** @brief 查询同时拥有指定组件集合的类型。 */
-  template <typename... Components> [[nodiscard]] meta_view<Components...> view() const;
+  template <typename... Components> [[nodiscard]] view<Components...> view() const;
 
 private:
-  meta_registry();
-  ~meta_registry();
+  registry();
+  ~registry();
 
   [[nodiscard]] detail::meta_component_storage_base*
   find_component_storage(detail::meta_component_key key);
@@ -322,32 +324,32 @@ private:
   [[nodiscard]] vector<type_id> view_component_ids(const detail::meta_component_key* keys,
                                                    std::size_t count) const;
 
-  meta_registry_state* state_ = nullptr;
+  registry_state* state_ = nullptr;
 };
 
 /** @brief 获取进程内全局类型元数据注册表。 */
-[[nodiscard]] CAORS_API meta_registry& get_meta_registry() noexcept;
+[[nodiscard]] CAORS_API registry& get_registry() noexcept;
 
 namespace detail {
 
 /** @brief 注册一个延迟执行的元数据注册函数。内部入口，优先使用 `CAORS_META_REGISTRATION`。 */
-[[nodiscard]] CAORS_API error register_meta_registration(meta_registration_fn fn);
+[[nodiscard]] CAORS_API error register_registration(registration_fn fn);
 
 } // namespace detail
 
 /** @brief 执行所有已收集的元数据注册函数；最多执行一次。 */
-[[nodiscard]] CAORS_API error run_meta_registrations();
+[[nodiscard]] CAORS_API error run_registrations();
 
 /** @brief 冻结全局元数据注册表；冻结后只允许只读查询。 */
-[[nodiscard]] CAORS_API error freeze_meta_registry();
+[[nodiscard]] CAORS_API error freeze_registry();
 
 /** @brief 查询全局元数据注册表是否已经冻结。 */
-[[nodiscard]] CAORS_API bool is_meta_registry_frozen() noexcept;
+[[nodiscard]] CAORS_API bool is_registry_frozen() noexcept;
 
-} // namespace caors
+} // namespace caors::meta
 
 /**
- * @brief 定义一个延迟到 `freeze_meta_registry()` 前执行的元数据注册函数。
+ * @brief 定义一个延迟到 `meta::freeze_registry()` 前执行的元数据注册函数。
  *
  * `name` 必须是当前翻译单元内唯一的普通标识符。函数体需要返回 `caors::error`。
  */
@@ -356,7 +358,7 @@ namespace detail {
   namespace {                                                                                      \
   struct name##_caors_meta_registration_auto_register {                                            \
     name##_caors_meta_registration_auto_register() {                                               \
-      (void)::caors::detail::register_meta_registration(&name);                                    \
+      (void)::caors::meta::detail::register_registration(&name);                                   \
     }                                                                                              \
   };                                                                                               \
   static const name##_caors_meta_registration_auto_register                                        \
@@ -364,108 +366,108 @@ namespace detail {
   }                                                                                                \
   static ::caors::error name()
 
-#include "caors/meta/container_registration.h"
+// clang-format off
 #include "caors/meta/type_semantics.h"
+#include "caors/meta/container_registration.h"
+// clang-format on
 
-namespace caors {
+namespace caors::meta {
 
 /** @brief RTTR 风格的元类型注册构建器。 */
-template <typename T> class meta_builder {
+template <typename T> class type_builder {
 public:
-  meta_builder() = default;
+  type_builder() = default;
 
-  meta_builder& type(std::string_view name) {
-    status_ = get_meta_registry().register_type_for<T>(make_meta_type_data<T>(name));
+  type_builder& type(std::string_view name) {
+    status_ = get_registry().register_type_for<T>(make_type_data<T>(name));
     refresh();
     return *this;
   }
 
-  meta_builder& guid(type_guid guid_value) {
+  type_builder& guid(type_guid guid_value) {
     if (!type_) {
       status_ = {error_domain::meta, errc::invalid_type};
       return *this;
     }
 
-    meta_type_data data{
+    type_data data{
         type_.id(), type_.name(), guid_value, type_.size(), type_.alignment(), type_.parent_id(),
     };
-    status_ = get_meta_registry().register_type_for<T>(data);
+    status_ = get_registry().register_type_for<T>(data);
     refresh();
     return *this;
   }
 
-  meta_builder& guid(caors::guid guid_value) { return guid(type_guid{guid_value}); }
+  type_builder& guid(caors::guid guid_value) { return guid(type_guid{guid_value}); }
 
-  meta_builder& parent(type_id parent_id) {
+  type_builder& parent(type_id parent_id) {
     if (!type_) {
       status_ = {error_domain::meta, errc::invalid_type};
       return *this;
     }
 
-    meta_type_data data{
+    type_data data{
         type_.id(), type_.name(), type_.guid(), type_.size(), type_.alignment(), parent_id,
     };
-    status_ = get_meta_registry().register_type_for<T>(data);
+    status_ = get_registry().register_type_for<T>(data);
     refresh();
     return *this;
   }
 
-  [[nodiscard]] meta_type get() const noexcept { return type_; }
+  [[nodiscard]] type_view get() const noexcept { return type_; }
   [[nodiscard]] error result() const noexcept { return status_; }
   [[nodiscard]] bool succeeded() const noexcept {
     return status_.succeeded() || status_.value() == errc::duplicate_id;
   }
 
-  [[nodiscard]] operator meta_type() const noexcept { return type_; }
+  [[nodiscard]] operator type_view() const noexcept { return type_; }
 
 private:
   void refresh() {
-    std::optional<meta_type> refreshed = get_meta_registry().find_type<T>();
+    std::optional<type_view> refreshed = get_registry().find_type<T>();
     if (refreshed.has_value()) {
       type_ = *refreshed;
     }
   }
 
-  meta_type type_{};
+  type_view type_{};
   error status_{};
 };
 
-namespace meta {
-
 /** @brief 获取指定 C++ 类型的元类型注册构建器；默认不注册类型。 */
-template <typename T> [[nodiscard]] meta_builder<T> type() { return meta_builder<T>{}; }
+template <typename T> [[nodiscard]] type_builder<T> type() { return type_builder<T>{}; }
 
 /** @brief 显式注册指定 C++ 类型并设置类型名。 */
-template <typename T> [[nodiscard]] meta_builder<T> type(std::string_view name) {
-  return meta_builder<T>{}.type(name);
+template <typename T> [[nodiscard]] type_builder<T> type(std::string_view name) {
+  return type_builder<T>{}.type(name);
 }
 
-/** @brief 获取已注册的 C++ 类型；不存在时返回无效 `meta_type`。 */
-template <typename T> [[nodiscard]] meta_type get() {
-  const std::optional<meta_type> stored = get_meta_registry().find_type<T>();
-  return stored.value_or(meta_type{});
+/** @brief 获取已注册的 C++ 类型；不存在时返回无效 `type_view`。 */
+template <typename T> [[nodiscard]] type_view get() {
+  const std::optional<type_view> stored = get_registry().find_type<T>();
+  return stored.value_or(type_view{});
 }
 
 /** @brief 按 C++ 类型查找基础类型。 */
-template <typename T> [[nodiscard]] std::optional<meta_type> find() {
-  return get_meta_registry().find_type<T>();
+template <typename T> [[nodiscard]] std::optional<type_view> find() {
+  return get_registry().find_type<T>();
 }
 
 /** @brief 按类型 id 查找基础类型。 */
-[[nodiscard]] CAORS_API std::optional<meta_type> find(type_id id);
+[[nodiscard]] CAORS_API std::optional<type_view> find(type_id id);
 
 /** @brief 按稳定 GUID 查找基础类型。 */
-[[nodiscard]] CAORS_API std::optional<meta_type> find(type_guid guid);
+[[nodiscard]] CAORS_API std::optional<type_view> find(type_guid guid);
 
 /** @brief 按类型名查找基础类型。 */
-[[nodiscard]] CAORS_API std::optional<meta_type> find(std::string_view name);
+[[nodiscard]] CAORS_API std::optional<type_view> find(std::string_view name);
 
 /** @brief 按类型名查找基础类型。 */
-[[nodiscard]] CAORS_API std::optional<meta_type> find(string_name name);
+[[nodiscard]] CAORS_API std::optional<type_view> find(string_name name);
 
 /** @brief 获取已注册 C++ 类型的运行期类型 id；未注册时返回无效 id。 */
 template <typename T> [[nodiscard]] type_id id_of() {
-  const std::optional<meta_type> stored = find<T>();
+  const std::optional<type_view> stored = find<T>();
   return stored.has_value() ? stored->id() : type_id::invalid();
 }
 
@@ -478,28 +480,19 @@ template <typename T> [[nodiscard]] type_id id_of() {
 /** @brief 在全局元数据注册表中判断类型继承关系。 */
 [[nodiscard]] CAORS_API bool is_a(type_id id, type_id base_id);
 
-} // namespace meta
-
-namespace type {
-
-/** @brief 获取已注册的 C++ 类型；不存在时返回无效 `meta_type`。 */
-template <typename T> [[nodiscard]] meta_type get() { return meta::get<T>(); }
-
-} // namespace type
-
 namespace detail {
 
 /** @brief 向全局元数据注册表注册基础类型。内部入口，公开代码优先使用 `meta::type<T>()`。 */
 template <typename T>
 [[nodiscard]] error register_type(string_name name, type_id parent_id = type_id::invalid()) {
-  return get_meta_registry().register_type_for<T>(make_meta_type_data<T>(name, parent_id));
+  return get_registry().register_type_for<T>(make_type_data<T>(name, parent_id));
 }
 
 /** @brief 向全局元数据注册表注册带稳定 GUID 的基础类型。内部入口。 */
 template <typename T>
 [[nodiscard]] error register_type(string_name name, type_guid guid,
                                   type_id parent_id = type_id::invalid()) {
-  return get_meta_registry().register_type_for<T>(make_meta_type_data<T>(name, guid, parent_id));
+  return get_registry().register_type_for<T>(make_type_data<T>(name, guid, parent_id));
 }
 
 /** @brief 向全局元数据注册表注册基础类型。内部入口。 */
@@ -519,7 +512,7 @@ template <typename T>
 
 template <typename... Components>
 template <typename Component>
-[[nodiscard]] std::optional<Component> meta_view<Components...>::find(type_id id) const {
+[[nodiscard]] std::optional<Component> view<Components...>::find(type_id id) const {
   if (registry_ == nullptr) {
     return std::nullopt;
   }
@@ -527,15 +520,14 @@ template <typename Component>
   return registry_->template find<Component>(id);
 }
 
-template <typename... Components>
-[[nodiscard]] meta_view<Components...> meta_registry::view() const {
+template <typename... Components> [[nodiscard]] view<Components...> registry::view() const {
   static_assert(sizeof...(Components) > 0, "Meta view requires at least one component type");
 
   detail::meta_component_key keys[] = {
       detail::meta_component_key_of<std::decay_t<Components>>()...};
-  return meta_view<Components...>{this, view_component_ids(keys, sizeof...(Components))};
+  return ::caors::meta::view<Components...>{this, view_component_ids(keys, sizeof...(Components))};
 }
 
-} // namespace caors
+} // namespace caors::meta
 
 #endif

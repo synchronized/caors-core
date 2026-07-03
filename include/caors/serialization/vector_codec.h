@@ -37,7 +37,7 @@ template <typename T>
                        std::is_same_v<type, std::string_view>) {
     return writer.write_string(value);
   } else {
-    const std::optional<meta_type> element_type = caors::meta::find<type>();
+    const std::optional<meta::type_view> element_type = caors::meta::find<type>();
     if (!element_type.has_value()) {
       return {error_domain::serialization, errc::unsupported};
     }
@@ -124,7 +124,7 @@ template <typename T>
     value.assign(decoded.data(), decoded.size());
     return {};
   } else {
-    const std::optional<meta_type> element_type = caors::meta::find<type>();
+    const std::optional<meta::type_view> element_type = caors::meta::find<type>();
     if (!element_type.has_value()) {
       return {error_domain::serialization, errc::unsupported};
     }
@@ -150,7 +150,7 @@ template <typename T> [[nodiscard]] variant_result make_vector_element_value(con
                        std::is_same_v<type, std::string_view>) {
     return {{}, variant::from(value)};
   } else {
-    const std::optional<meta_type> element_type = caors::meta::find<type>();
+    const std::optional<meta::type_view> element_type = caors::meta::find<type>();
     if (!element_type.has_value()) {
       return {{error_domain::serialization, errc::unsupported}, {}};
     }

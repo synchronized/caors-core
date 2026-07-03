@@ -14,7 +14,7 @@ namespace caors::serialization {
 /**
  * @brief 底层全局序列化注册表。
  *
- * 注册表复用全局 `meta_registry`，把 `serialization::type_data` 作为组件挂载到同一个
+ * 注册表复用全局 `meta::registry`，把 `serialization::type_data` 作为组件挂载到同一个
  * `type_id` 上。当前序列化实现依赖反射字段信息读取对象数据。
  */
 class CAORS_API registry final {
@@ -25,13 +25,13 @@ public:
   registry& operator=(const registry&) = delete;
 
   [[nodiscard]] error register_type(type_id id, type_data data = type_data{});
-  [[nodiscard]] error register_type(meta_type type, type_data data = type_data{});
+  [[nodiscard]] error register_type(meta::type_view type, type_data data = type_data{});
   [[nodiscard]] bool contains(type_id id) const;
   [[nodiscard]] std::optional<type_data> find_type(type_id id) const;
   [[nodiscard]] std::size_t size() const noexcept;
 
   template <typename T> [[nodiscard]] error register_type_for(type_data data = type_data{}) {
-    const std::optional<meta_type> type = get_meta_registry().find_type<T>();
+    const std::optional<meta::type_view> type = meta::get_registry().find_type<T>();
     if (!type.has_value()) {
       return {error_domain::serialization, errc::invalid_type};
     }
@@ -51,13 +51,13 @@ private:
 [[nodiscard]] CAORS_API std::optional<type_data> find(type_id id);
 
 /** @brief 查找指定元类型的序列化组件。 */
-[[nodiscard]] CAORS_API std::optional<type_data> find(meta_type type);
+[[nodiscard]] CAORS_API std::optional<type_data> find(meta::type_view type);
 
 /** @brief 判断指定类型是否挂载了序列化组件。 */
 [[nodiscard]] CAORS_API bool contains(type_id id);
 
 /** @brief 判断指定元类型是否挂载了序列化组件。 */
-[[nodiscard]] CAORS_API bool contains(meta_type type);
+[[nodiscard]] CAORS_API bool contains(meta::type_view type);
 
 /** @brief 获取当前序列化组件数量。 */
 [[nodiscard]] CAORS_API std::size_t size() noexcept;
@@ -73,8 +73,8 @@ namespace detail {
 register_serialization(type_id id, serialization::type_data data = serialization::type_data{});
 
 /** @brief 向已注册元类型挂载序列化组件。内部入口，不会创建或修改基础类型记录。 */
-[[nodiscard]] CAORS_API error
-register_serialization(meta_type type, serialization::type_data data = serialization::type_data{});
+[[nodiscard]] CAORS_API error register_serialization(
+    meta::type_view type, serialization::type_data data = serialization::type_data{});
 
 /** @brief 向全局序列化注册表注册指定 C++ 类型。内部入口。 */
 template <typename T>
@@ -97,7 +97,7 @@ namespace serialization {
 /** @brief 已注册元类型的序列化配置构建器。 */
 class class_builder {
 public:
-  explicit class_builder(meta_type type) : type_(type) {
+  explicit class_builder(meta::type_view type) : type_(type) {
     if (!type.valid()) {
       status_ = {error_domain::serialization, errc::invalid_type};
     }
@@ -124,13 +124,13 @@ public:
   [[nodiscard]] const type_data& serialization_data() const noexcept { return data_; }
 
 private:
-  meta_type type_{};
+  meta::type_view type_{};
   type_data data_{};
   error status_{};
 };
 
 /** @brief 为已注册元类型创建序列化配置构建器。 */
-[[nodiscard]] inline class_builder class_(meta_type type) { return class_builder{type}; }
+[[nodiscard]] inline class_builder class_(meta::type_view type) { return class_builder{type}; }
 
 } // namespace serialization
 

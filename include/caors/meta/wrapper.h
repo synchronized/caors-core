@@ -19,7 +19,7 @@ namespace caors {
 template <typename T> struct wrapper_traits {
   static constexpr bool is_wrapper = false;
   static constexpr bool nullable = false;
-  static constexpr wrapper_semantics semantics = wrapper_semantics::none;
+  static constexpr meta::wrapper_semantics semantics = meta::wrapper_semantics::none;
 };
 
 /** @brief wrapper 类型的内部值访问适配。 */
@@ -36,7 +36,7 @@ template <typename T> struct wrapper_access {
 template <typename T, typename Deleter> struct wrapper_traits<std::unique_ptr<T, Deleter>> {
   static constexpr bool is_wrapper = true;
   static constexpr bool nullable = true;
-  static constexpr wrapper_semantics semantics = wrapper_semantics::inline_value;
+  static constexpr meta::wrapper_semantics semantics = meta::wrapper_semantics::inline_value;
   using wrapped_type = std::remove_cv_t<T>;
 };
 
@@ -97,7 +97,7 @@ template <typename T, typename Deleter> struct wrapper_access<std::unique_ptr<T,
 template <typename T> struct wrapper_traits<std::shared_ptr<T>> {
   static constexpr bool is_wrapper = true;
   static constexpr bool nullable = true;
-  static constexpr wrapper_semantics semantics = wrapper_semantics::inline_value;
+  static constexpr meta::wrapper_semantics semantics = meta::wrapper_semantics::inline_value;
   using wrapped_type = std::remove_cv_t<T>;
 };
 
@@ -147,14 +147,14 @@ template <typename T> struct wrapper_access<std::shared_ptr<T>> {
 template <typename T> struct wrapper_traits<std::weak_ptr<T>> {
   static constexpr bool is_wrapper = true;
   static constexpr bool nullable = true;
-  static constexpr wrapper_semantics semantics = wrapper_semantics::unsupported;
+  static constexpr meta::wrapper_semantics semantics = meta::wrapper_semantics::unsupported;
   using wrapped_type = std::remove_cv_t<T>;
 };
 
 template <typename T> struct wrapper_traits<std::optional<T>> {
   static constexpr bool is_wrapper = true;
   static constexpr bool nullable = true;
-  static constexpr wrapper_semantics semantics = wrapper_semantics::inline_value;
+  static constexpr meta::wrapper_semantics semantics = meta::wrapper_semantics::inline_value;
   using wrapped_type = std::remove_cv_t<T>;
 };
 
@@ -207,7 +207,7 @@ template <typename T> struct wrapper_access<std::optional<T>> {
 template <typename T> struct wrapper_traits<std::reference_wrapper<T>> {
   static constexpr bool is_wrapper = true;
   static constexpr bool nullable = false;
-  static constexpr wrapper_semantics semantics = wrapper_semantics::inline_value;
+  static constexpr meta::wrapper_semantics semantics = meta::wrapper_semantics::inline_value;
   using wrapped_type = std::remove_cv_t<T>;
 };
 

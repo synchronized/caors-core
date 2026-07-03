@@ -140,13 +140,13 @@ template <typename T> [[nodiscard]] error register_serialization_codec() {
   }
 
   if constexpr (has_type_name_v<type>) {
-    const error result = caors::detail::register_type<type>(type_name<type>::value);
+    const error result = caors::meta::detail::register_type<type>(type_name<type>::value);
     if (result && result.value() != errc::duplicate_id) {
       return {error_domain::serialization, errc::invalid_type};
     }
   }
 
-  const std::optional<meta_type> meta = get_meta_registry().find_type<type>();
+  const std::optional<meta::type_view> meta = meta::get_registry().find_type<type>();
   if (!meta.has_value()) {
     return {error_domain::serialization, errc::invalid_type};
   }

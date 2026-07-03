@@ -85,7 +85,7 @@ public:
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
     static_assert(std::is_copy_constructible_v<type>, "any requires copy constructible types");
 
-    const std::optional<meta_type> registered = caors::meta::find<type>();
+    const std::optional<meta::type_view> registered = caors::meta::find<type>();
     if (!registered.has_value() || registered->name().empty() || registered->name() != name) {
       return {};
     }
@@ -95,7 +95,7 @@ public:
 
   /** @brief 按运行期类型 id 默认构造一个值。不可默认构造类型会返回无效 `any`。 */
   [[nodiscard]] static any default_construct(type_id type) {
-    const std::optional<meta_type> meta = caors::meta::find(type);
+    const std::optional<meta::type_view> meta = caors::meta::find(type);
     if (!meta.has_value() || !meta->valid() || meta->cpp_type() == nullptr ||
         meta->default_construct_value() == nullptr || meta->destroy_value() == nullptr) {
       return {};
@@ -113,7 +113,7 @@ public:
   }
 
   [[nodiscard]] bool valid() const noexcept {
-    const std::optional<meta_type> meta = caors::meta::find(type_);
+    const std::optional<meta::type_view> meta = caors::meta::find(type_);
     return meta.has_value() && meta->valid() && meta->cpp_type() != nullptr && data_ != nullptr;
   }
 
@@ -121,11 +121,11 @@ public:
 
   [[nodiscard]] type_id type() const noexcept { return type_; }
   [[nodiscard]] string_name type_name() const noexcept {
-    const std::optional<meta_type> meta = caors::meta::find(type_);
+    const std::optional<meta::type_view> meta = caors::meta::find(type_);
     return meta.has_value() ? meta->name() : string_name{};
   }
   [[nodiscard]] detail::cpp_type_key cpp_type() const noexcept {
-    const std::optional<meta_type> meta = caors::meta::find(type_);
+    const std::optional<meta::type_view> meta = caors::meta::find(type_);
     return meta.has_value() ? meta->cpp_type() : nullptr;
   }
   [[nodiscard]] const void* data() const noexcept { return valid() ? data_ : nullptr; }
@@ -133,11 +133,11 @@ public:
   [[nodiscard]] any_ref ref();
   [[nodiscard]] any_ref ref() const;
   [[nodiscard]] std::size_t size() const noexcept {
-    const std::optional<meta_type> meta = caors::meta::find(type_);
+    const std::optional<meta::type_view> meta = caors::meta::find(type_);
     return meta.has_value() ? meta->size() : 0;
   }
   [[nodiscard]] std::size_t alignment() const noexcept {
-    const std::optional<meta_type> meta = caors::meta::find(type_);
+    const std::optional<meta::type_view> meta = caors::meta::find(type_);
     return meta.has_value() ? meta->alignment() : 0;
   }
   [[nodiscard]] sequence_view create_sequence_view();
@@ -157,7 +157,7 @@ public:
 
   /** @brief 清空当前值。 */
   void reset() noexcept {
-    const std::optional<meta_type> meta = caors::meta::find(type_);
+    const std::optional<meta::type_view> meta = caors::meta::find(type_);
     if (data_ != nullptr && meta.has_value() && meta->destroy_value() != nullptr) {
       meta->destroy_value()(data_);
     }
@@ -211,7 +211,7 @@ public:
   /** @brief 从同类型 C++ 值写入当前值。 */
   template <typename T> bool try_set(const T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const std::optional<meta_type> meta = caors::meta::find(type_);
+    const std::optional<meta::type_view> meta = caors::meta::find(type_);
     if (!matches_type<type>() || !meta.has_value() || meta->assign_value() == nullptr) {
       return false;
     }
@@ -221,7 +221,7 @@ public:
 
   /** @brief 从同类型运行期值写入当前值。 */
   bool try_set(const any& source) {
-    const std::optional<meta_type> meta = caors::meta::find(type_);
+    const std::optional<meta::type_view> meta = caors::meta::find(type_);
     if (!matches_type(source) || !meta.has_value() || meta->assign_value() == nullptr) {
       return false;
     }
@@ -234,7 +234,7 @@ private:
   friend struct reflection::field_data;
 
   [[nodiscard]] static any copy_from_raw(type_id type, const void* source) {
-    const std::optional<meta_type> meta = caors::meta::find(type);
+    const std::optional<meta::type_view> meta = caors::meta::find(type);
     if (!meta.has_value() || !meta->valid() || meta->cpp_type() == nullptr || source == nullptr ||
         meta->clone_value() == nullptr || meta->destroy_value() == nullptr) {
       return {};
@@ -294,7 +294,7 @@ public:
   /** @brief 从可写 C++ 对象和显式类型名创建引用；类型名必须已经注册并匹配该 C++ 类型。 */
   template <typename T> [[nodiscard]] static any_ref from(T& source, std::string_view name) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const std::optional<meta_type> registered = caors::meta::find<type>();
+    const std::optional<meta::type_view> registered = caors::meta::find<type>();
     if (!registered.has_value() || registered->name().empty() || registered->name() != name) {
       return {};
     }
@@ -315,7 +315,7 @@ public:
   template <typename T>
   [[nodiscard]] static any_ref from_const(const T& source, std::string_view name) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const std::optional<meta_type> registered = caors::meta::find<type>();
+    const std::optional<meta::type_view> registered = caors::meta::find<type>();
     if (!registered.has_value() || registered->name().empty() || registered->name() != name) {
       return {};
     }
@@ -324,7 +324,7 @@ public:
   }
 
   [[nodiscard]] bool valid() const noexcept {
-    const std::optional<meta_type> meta = caors::meta::find(type_);
+    const std::optional<meta::type_view> meta = caors::meta::find(type_);
     return meta.has_value() && meta->valid() && meta->cpp_type() != nullptr && data_ != nullptr;
   }
 
@@ -332,11 +332,11 @@ public:
 
   [[nodiscard]] type_id type() const noexcept { return type_; }
   [[nodiscard]] string_name type_name() const noexcept {
-    const std::optional<meta_type> meta = caors::meta::find(type_);
+    const std::optional<meta::type_view> meta = caors::meta::find(type_);
     return meta.has_value() ? meta->name() : string_name{};
   }
   [[nodiscard]] detail::cpp_type_key cpp_type() const noexcept {
-    const std::optional<meta_type> meta = caors::meta::find(type_);
+    const std::optional<meta::type_view> meta = caors::meta::find(type_);
     return meta.has_value() ? meta->cpp_type() : nullptr;
   }
   [[nodiscard]] const void* data() const noexcept { return valid() ? data_ : nullptr; }
@@ -344,11 +344,11 @@ public:
     return valid() && writable_ ? const_cast<void*>(data_) : nullptr;
   }
   [[nodiscard]] std::size_t size() const noexcept {
-    const std::optional<meta_type> meta = caors::meta::find(type_);
+    const std::optional<meta::type_view> meta = caors::meta::find(type_);
     return meta.has_value() ? meta->size() : 0;
   }
   [[nodiscard]] std::size_t alignment() const noexcept {
-    const std::optional<meta_type> meta = caors::meta::find(type_);
+    const std::optional<meta::type_view> meta = caors::meta::find(type_);
     return meta.has_value() ? meta->alignment() : 0;
   }
   [[nodiscard]] bool writable() const noexcept { return valid() && writable_; }
@@ -404,7 +404,7 @@ public:
   /** @brief 从同类型 C++ 值写入当前引用指向的对象。 */
   template <typename T> bool try_set(const T& source) const {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const std::optional<meta_type> meta = caors::meta::find(type_);
+    const std::optional<meta::type_view> meta = caors::meta::find(type_);
     if (!matches_type<type>() || !writable_ || !meta.has_value() ||
         meta->assign_value() == nullptr) {
       return false;
@@ -415,7 +415,7 @@ public:
 
   /** @brief 从同类型运行期值写入当前引用指向的对象。 */
   bool try_set(const any& source) const {
-    const std::optional<meta_type> meta = caors::meta::find(type_);
+    const std::optional<meta::type_view> meta = caors::meta::find(type_);
     if (!matches_type(source) || !writable_ || !meta.has_value() ||
         meta->assign_value() == nullptr) {
       return false;
@@ -426,7 +426,7 @@ public:
 
   /** @brief 从同类型运行期引用写入当前引用指向的对象。 */
   bool try_set(const any_ref& source) const {
-    const std::optional<meta_type> meta = caors::meta::find(type_);
+    const std::optional<meta::type_view> meta = caors::meta::find(type_);
     if (!matches_type(source) || !writable_ || !meta.has_value() ||
         meta->assign_value() == nullptr) {
       return false;
@@ -450,7 +450,7 @@ private:
   friend struct reflection::field_data;
 
   [[nodiscard]] static any_ref from_raw(type_id type, const void* data, bool writable) noexcept {
-    const std::optional<meta_type> meta = caors::meta::find(type);
+    const std::optional<meta::type_view> meta = caors::meta::find(type);
     if (!meta.has_value() || !meta->valid() || meta->cpp_type() == nullptr || data == nullptr) {
       return {};
     }
@@ -486,7 +486,7 @@ public:
       return false;
     }
 
-    if (data_->kind != type_kind::raw_pointer && data_->kind != type_kind::wrapper) {
+    if (data_->kind != meta::type_kind::raw_pointer && data_->kind != meta::type_kind::wrapper) {
       return false;
     }
 
@@ -502,7 +502,7 @@ public:
   }
 
   [[nodiscard]] string_name value_type_name() const noexcept {
-    const std::optional<meta_type> meta =
+    const std::optional<meta::type_view> meta =
         valid() ? caors::meta::find(data_->value_type) : std::nullopt;
     return meta ? meta->name() : string_name{};
   }
@@ -560,10 +560,10 @@ private:
   friend class any;
   friend class any_ref;
 
-  indirect_view(const meta_type_semantics_data* data, const void* storage, bool writable) noexcept
+  indirect_view(const meta::type_semantics_data* data, const void* storage, bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
 
-  const meta_type_semantics_data* data_ = nullptr;
+  const meta::type_semantics_data* data_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };
@@ -607,7 +607,7 @@ public:
 
   /** @brief 查询 first 类型名。 */
   [[nodiscard]] string_name first_type_name() const noexcept {
-    const std::optional<meta_type> meta =
+    const std::optional<meta::type_view> meta =
         valid() ? caors::meta::find(data_->key_type) : std::nullopt;
     return meta ? meta->name() : string_name{};
   }
@@ -619,7 +619,7 @@ public:
 
   /** @brief 查询 second 的统一 value 类型名。 */
   [[nodiscard]] string_name value_type_name() const noexcept {
-    const std::optional<meta_type> meta =
+    const std::optional<meta::type_view> meta =
         valid() ? caors::meta::find(data_->value_type) : std::nullopt;
     return meta ? meta->name() : string_name{};
   }
@@ -741,7 +741,8 @@ public:
   /** @brief 查询指定元素类型名。 */
   [[nodiscard]] string_name element_type_name(std::size_t index) const noexcept {
     const std::optional<type_id> id = element_type(index);
-    const std::optional<meta_type> meta = id.has_value() ? caors::meta::find(*id) : std::nullopt;
+    const std::optional<meta::type_view> meta =
+        id.has_value() ? caors::meta::find(*id) : std::nullopt;
     return meta ? meta->name() : string_name{};
   }
 
@@ -839,7 +840,8 @@ public:
   /** @brief 查询指定候选类型名。 */
   [[nodiscard]] string_name alternative_type_name(std::size_t alternative) const noexcept {
     const std::optional<type_id> id = alternative_type(alternative);
-    const std::optional<meta_type> meta = id.has_value() ? caors::meta::find(*id) : std::nullopt;
+    const std::optional<meta::type_view> meta =
+        id.has_value() ? caors::meta::find(*id) : std::nullopt;
     return meta ? meta->name() : string_name{};
   }
 
@@ -855,7 +857,7 @@ public:
 
   /** @brief 查询当前值类型名。 */
   [[nodiscard]] string_name value_type_name() const noexcept {
-    const std::optional<meta_type> meta = caors::meta::find(value_type());
+    const std::optional<meta::type_view> meta = caors::meta::find(value_type());
     return meta ? meta->name() : string_name{};
   }
 
@@ -989,7 +991,7 @@ public:
 
   /** @brief 查询顺序容器元素的统一 value 类型名。 */
   [[nodiscard]] string_name value_type_name() const noexcept {
-    const std::optional<meta_type> meta =
+    const std::optional<meta::type_view> meta =
         valid() ? caors::meta::find(data_->value_type) : std::nullopt;
     return meta ? meta->name() : string_name{};
   }
@@ -1221,7 +1223,7 @@ public:
 
   /** @brief 查询集合元素的统一 value 类型名。 */
   [[nodiscard]] string_name value_type_name() const noexcept {
-    const std::optional<meta_type> meta =
+    const std::optional<meta::type_view> meta =
         valid() ? caors::meta::find(data_->value_type) : std::nullopt;
     return meta ? meta->name() : string_name{};
   }
@@ -1464,7 +1466,7 @@ public:
   [[nodiscard]] type_id key_type() const noexcept { return valid() ? data_->key_type : type_id{}; }
 
   [[nodiscard]] string_name key_type_name() const noexcept {
-    const std::optional<meta_type> meta =
+    const std::optional<meta::type_view> meta =
         valid() ? caors::meta::find(data_->key_type) : std::nullopt;
     return meta ? meta->name() : string_name{};
   }
@@ -1476,7 +1478,7 @@ public:
 
   /** @brief 查询关联容器 value 类型名。 */
   [[nodiscard]] string_name value_type_name() const noexcept {
-    const std::optional<meta_type> meta =
+    const std::optional<meta::type_view> meta =
         valid() ? caors::meta::find(data_->value_type) : std::nullopt;
     return meta ? meta->name() : string_name{};
   }
@@ -1582,7 +1584,7 @@ inline associative_view any::create_associative_view() {
     return {};
   }
 
-  const meta_associative_data* data = get_meta_registry().find_ptr<meta_associative_data>(type_);
+  const meta_associative_data* data = meta::get_registry().find_ptr<meta_associative_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1595,7 +1597,7 @@ inline associative_view any::create_associative_view() const {
     return {};
   }
 
-  const meta_associative_data* data = get_meta_registry().find_ptr<meta_associative_data>(type_);
+  const meta_associative_data* data = meta::get_registry().find_ptr<meta_associative_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1608,7 +1610,7 @@ inline associative_view any_ref::create_associative_view() const {
     return {};
   }
 
-  const meta_associative_data* data = get_meta_registry().find_ptr<meta_associative_data>(type_);
+  const meta_associative_data* data = meta::get_registry().find_ptr<meta_associative_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1621,7 +1623,7 @@ inline pair_view any::create_pair_view() {
     return {};
   }
 
-  const meta_pair_data* data = get_meta_registry().find_ptr<meta_pair_data>(type_);
+  const meta_pair_data* data = meta::get_registry().find_ptr<meta_pair_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1634,7 +1636,7 @@ inline pair_view any::create_pair_view() const {
     return {};
   }
 
-  const meta_pair_data* data = get_meta_registry().find_ptr<meta_pair_data>(type_);
+  const meta_pair_data* data = meta::get_registry().find_ptr<meta_pair_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1647,7 +1649,7 @@ inline pair_view any_ref::create_pair_view() const {
     return {};
   }
 
-  const meta_pair_data* data = get_meta_registry().find_ptr<meta_pair_data>(type_);
+  const meta_pair_data* data = meta::get_registry().find_ptr<meta_pair_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1660,7 +1662,7 @@ inline tuple_view any::create_tuple_view() {
     return {};
   }
 
-  const meta_tuple_data* data = get_meta_registry().find_ptr<meta_tuple_data>(type_);
+  const meta_tuple_data* data = meta::get_registry().find_ptr<meta_tuple_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1673,7 +1675,7 @@ inline tuple_view any::create_tuple_view() const {
     return {};
   }
 
-  const meta_tuple_data* data = get_meta_registry().find_ptr<meta_tuple_data>(type_);
+  const meta_tuple_data* data = meta::get_registry().find_ptr<meta_tuple_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1686,7 +1688,7 @@ inline tuple_view any_ref::create_tuple_view() const {
     return {};
   }
 
-  const meta_tuple_data* data = get_meta_registry().find_ptr<meta_tuple_data>(type_);
+  const meta_tuple_data* data = meta::get_registry().find_ptr<meta_tuple_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1699,7 +1701,7 @@ inline variant_view any::create_variant_view() {
     return {};
   }
 
-  const meta_variant_data* data = get_meta_registry().find_ptr<meta_variant_data>(type_);
+  const meta_variant_data* data = meta::get_registry().find_ptr<meta_variant_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1712,7 +1714,7 @@ inline variant_view any::create_variant_view() const {
     return {};
   }
 
-  const meta_variant_data* data = get_meta_registry().find_ptr<meta_variant_data>(type_);
+  const meta_variant_data* data = meta::get_registry().find_ptr<meta_variant_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1725,7 +1727,7 @@ inline variant_view any_ref::create_variant_view() const {
     return {};
   }
 
-  const meta_variant_data* data = get_meta_registry().find_ptr<meta_variant_data>(type_);
+  const meta_variant_data* data = meta::get_registry().find_ptr<meta_variant_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1738,11 +1740,11 @@ inline indirect_view any::create_indirect_view() {
     return {};
   }
 
-  const meta_type_semantics_data* data =
-      get_meta_registry().find_ptr<meta_type_semantics_data>(type_);
-  if (data == nullptr || (data->kind != type_kind::raw_pointer &&
-                          (data->kind != type_kind::wrapper ||
-                           data->wrapper_semantics == wrapper_semantics::unsupported))) {
+  const meta::type_semantics_data* data =
+      meta::get_registry().find_ptr<meta::type_semantics_data>(type_);
+  if (data == nullptr || (data->kind != meta::type_kind::raw_pointer &&
+                          (data->kind != meta::type_kind::wrapper ||
+                           data->wrapper_semantics == meta::wrapper_semantics::unsupported))) {
     return {};
   }
 
@@ -1754,11 +1756,11 @@ inline indirect_view any::create_indirect_view() const {
     return {};
   }
 
-  const meta_type_semantics_data* data =
-      get_meta_registry().find_ptr<meta_type_semantics_data>(type_);
-  if (data == nullptr || (data->kind != type_kind::raw_pointer &&
-                          (data->kind != type_kind::wrapper ||
-                           data->wrapper_semantics == wrapper_semantics::unsupported))) {
+  const meta::type_semantics_data* data =
+      meta::get_registry().find_ptr<meta::type_semantics_data>(type_);
+  if (data == nullptr || (data->kind != meta::type_kind::raw_pointer &&
+                          (data->kind != meta::type_kind::wrapper ||
+                           data->wrapper_semantics == meta::wrapper_semantics::unsupported))) {
     return {};
   }
 
@@ -1770,11 +1772,11 @@ inline indirect_view any_ref::create_indirect_view() const {
     return {};
   }
 
-  const meta_type_semantics_data* data =
-      get_meta_registry().find_ptr<meta_type_semantics_data>(type_);
-  if (data == nullptr || (data->kind != type_kind::raw_pointer &&
-                          (data->kind != type_kind::wrapper ||
-                           data->wrapper_semantics == wrapper_semantics::unsupported))) {
+  const meta::type_semantics_data* data =
+      meta::get_registry().find_ptr<meta::type_semantics_data>(type_);
+  if (data == nullptr || (data->kind != meta::type_kind::raw_pointer &&
+                          (data->kind != meta::type_kind::wrapper ||
+                           data->wrapper_semantics == meta::wrapper_semantics::unsupported))) {
     return {};
   }
 
@@ -1786,7 +1788,7 @@ inline sequence_view any::create_sequence_view() {
     return {};
   }
 
-  const meta_sequence_data* data = get_meta_registry().find_ptr<meta_sequence_data>(type_);
+  const meta_sequence_data* data = meta::get_registry().find_ptr<meta_sequence_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1799,7 +1801,7 @@ inline sequence_view any::create_sequence_view() const {
     return {};
   }
 
-  const meta_sequence_data* data = get_meta_registry().find_ptr<meta_sequence_data>(type_);
+  const meta_sequence_data* data = meta::get_registry().find_ptr<meta_sequence_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1812,7 +1814,7 @@ inline sequence_view any_ref::create_sequence_view() const {
     return {};
   }
 
-  const meta_sequence_data* data = get_meta_registry().find_ptr<meta_sequence_data>(type_);
+  const meta_sequence_data* data = meta::get_registry().find_ptr<meta_sequence_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1825,7 +1827,7 @@ inline set_view any::create_set_view() {
     return {};
   }
 
-  const meta_set_data* data = get_meta_registry().find_ptr<meta_set_data>(type_);
+  const meta_set_data* data = meta::get_registry().find_ptr<meta_set_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1838,7 +1840,7 @@ inline set_view any::create_set_view() const {
     return {};
   }
 
-  const meta_set_data* data = get_meta_registry().find_ptr<meta_set_data>(type_);
+  const meta_set_data* data = meta::get_registry().find_ptr<meta_set_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1851,7 +1853,7 @@ inline set_view any_ref::create_set_view() const {
     return {};
   }
 
-  const meta_set_data* data = get_meta_registry().find_ptr<meta_set_data>(type_);
+  const meta_set_data* data = meta::get_registry().find_ptr<meta_set_data>(type_);
   if (data == nullptr) {
     return {};
   }

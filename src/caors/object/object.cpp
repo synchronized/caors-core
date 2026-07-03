@@ -10,8 +10,8 @@ namespace {
 
 std::atomic<std::uint64_t> next_object_id{1};
 
-[[nodiscard]] meta_type_data make_root_object_meta_type_data() {
-  return make_meta_type_data<object>(object::static_type_name(), object_type_id::invalid());
+[[nodiscard]] meta::type_data make_root_object_meta_type_data() {
+  return meta::make_type_data<object>(object::static_type_name(), object_type_id::invalid());
 }
 
 [[nodiscard]] objects::type_data make_root_object_type_data() { return {}; }
@@ -51,12 +51,12 @@ object_type_id object::static_type_id() noexcept {
 
 std::string_view object::static_type_name() noexcept { return "caors.object"; }
 
-objects::type::type(meta_type type, const objects::type_data* data) noexcept
+objects::type::type(meta::type_view type, const objects::type_data* data) noexcept
     : type_(type), data_(data) {}
 
 bool objects::type::valid() const noexcept { return type_.valid() && data_ != nullptr; }
 
-meta_type objects::type::info() const noexcept { return valid() ? type_ : meta_type{}; }
+meta::type_view objects::type::info() const noexcept { return valid() ? type_ : meta::type_view{}; }
 
 object_type_id objects::type::id() const noexcept { return type_.id(); }
 
@@ -82,44 +82,45 @@ objects::registry::registry() {
 
 objects::registry::~registry() = default;
 
-error objects::registry::register_type(const meta_type_data& type,
+error objects::registry::register_type(const meta::type_data& type,
                                        const objects::type_data& object) {
   return register_type(nullptr, type, object);
 }
 
-error objects::registry::register_type(detail::cpp_type_key key, const meta_type_data& type,
+error objects::registry::register_type(detail::cpp_type_key key, const meta::type_data& type,
                                        const objects::type_data& object) {
-  const error type_status = key != nullptr ? get_meta_registry().register_cpp_type(key, type)
-                                           : get_meta_registry().register_type(type);
+  const error type_status = key != nullptr ? meta::get_registry().register_cpp_type(key, type)
+                                           : meta::get_registry().register_type(type);
   if (type_status && type_status.value() != errc::duplicate_id) {
     return rethrow_as(type_status, error_domain::object);
   }
 
-  std::optional<meta_type> stored_meta = key != nullptr
-                                             ? get_meta_registry().find_cpp_type(key)
-                                             : get_meta_registry().find_type(type.name());
+  std::optional<meta::type_view> stored_meta = key != nullptr
+                                                   ? meta::get_registry().find_cpp_type(key)
+                                                   : meta::get_registry().find_type(type.name());
   if (!stored_meta.has_value()) {
     return {error_domain::object, errc::invalid_type};
   }
 
-  return rethrow_as(get_meta_registry().emplace<objects::type_data>(stored_meta->id(), object),
+  return rethrow_as(meta::get_registry().emplace<objects::type_data>(stored_meta->id(), object),
                     error_domain::object, errc::duplicate_component, errc::duplicate_id);
 }
 
 bool objects::registry::contains(object_type_id id) const {
-  return get_meta_registry().has<objects::type_data>(id);
+  return meta::get_registry().has<objects::type_data>(id);
 }
 
-std::optional<meta_type> objects::registry::find_registered_type(detail::cpp_type_key key) const {
-  return get_meta_registry().find_cpp_type(key);
+std::optional<meta::type_view>
+objects::registry::find_registered_type(detail::cpp_type_key key) const {
+  return meta::get_registry().find_cpp_type(key);
 }
 
 const objects::type_data* objects::registry::find_type_data(object_type_id id) const {
-  return get_meta_registry().find_ptr<objects::type_data>(id);
+  return meta::get_registry().find_ptr<objects::type_data>(id);
 }
 
 std::optional<objects::type> objects::registry::find_type(object_type_id id) const {
-  const std::optional<meta_type> type = get_meta_registry().find_type(id);
+  const std::optional<meta::type_view> type = meta::get_registry().find_type(id);
   if (!type.has_value()) {
     return std::nullopt;
   }
@@ -133,7 +134,7 @@ std::optional<objects::type> objects::registry::find_type(object_type_id id) con
 }
 
 std::optional<objects::type> objects::registry::find_type(std::string_view name) const {
-  std::optional<meta_type> type = get_meta_registry().find_type(name);
+  std::optional<meta::type_view> type = meta::get_registry().find_type(name);
   if (!type.has_value()) {
     return std::nullopt;
   }
@@ -142,11 +143,11 @@ std::optional<objects::type> objects::registry::find_type(std::string_view name)
 }
 
 bool objects::registry::is_a(object_type_id type_id, object_type_id base_type_id) const {
-  return get_meta_registry().is_a(type_id, base_type_id);
+  return meta::get_registry().is_a(type_id, base_type_id);
 }
 
 std::size_t objects::registry::size() const noexcept {
-  return get_meta_registry().count<objects::type_data>();
+  return meta::get_registry().count<objects::type_data>();
 }
 
 object* objects::registry::try_create(object_type_id id, memory_resource* resource) const noexcept {

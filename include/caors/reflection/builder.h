@@ -23,12 +23,12 @@ namespace caors::reflection {
 template <typename Class> class class_builder {
 public:
   explicit class_builder(std::string_view name, type_id parent_id = type_id::invalid())
-      : type_(make_meta_type_data<Class>(name, parent_id)) {}
+      : type_(meta::make_type_data<Class>(name, parent_id)) {}
 
   class_builder(std::string_view name, type_guid guid, type_id parent_id = type_id::invalid())
-      : type_(make_meta_type_data<Class>(name, guid, parent_id)) {}
+      : type_(meta::make_type_data<Class>(name, guid, parent_id)) {}
 
-  explicit class_builder(meta_type type) : existing_type_(type) {
+  explicit class_builder(meta::type_view type) : existing_type_(type) {
     if (!type.valid()) {
       pending_status_ = {error_domain::reflection, errc::invalid_type};
     }
@@ -41,7 +41,7 @@ public:
       return *this;
     }
 
-    const std::optional<meta_type> resolved_type =
+    const std::optional<meta::type_view> resolved_type =
         get_registry().template find_registered_type<field_type>();
     if (resolved_type.has_value() && !resolved_type->name().empty()) {
       field_data field =
@@ -137,7 +137,7 @@ public:
     return get_registry().template register_type_for<Class>(type_, reflection_);
   }
 
-  [[nodiscard]] const meta_type_data& type_data() const noexcept { return type_; }
+  [[nodiscard]] const meta::type_data& type_data() const noexcept { return type_; }
   [[nodiscard]] const reflection::type_data& reflection_data() const noexcept {
     return reflection_;
   }
@@ -147,12 +147,12 @@ private:
     if constexpr (adapters::sequence_traits<Field>::is_sequence) {
       using element_type = typename adapters::sequence_traits<Field>::element_type;
 
-      std::optional<meta_type> element =
+      std::optional<meta::type_view> element =
           get_registry().template find_registered_type<element_type>();
       if (!element.has_value()) {
         if constexpr (detail::has_type_name_v<element_type>) {
           const error status =
-              caors::detail::register_type<element_type>(type_name<element_type>::value);
+              caors::meta::detail::register_type<element_type>(type_name<element_type>::value);
           if (status && status.value() != errc::duplicate_id) {
             return std::nullopt;
           }
@@ -185,7 +185,7 @@ private:
     if constexpr (adapters::set_traits<Field>::is_set) {
       using element_type = typename adapters::set_traits<Field>::element_type;
 
-      const std::optional<meta_type> element = ensure_registered_type<element_type>();
+      const std::optional<meta::type_view> element = ensure_registered_type<element_type>();
       if (!element.has_value()) {
         return std::nullopt;
       }
@@ -201,11 +201,12 @@ private:
     }
   }
 
-  template <typename T> [[nodiscard]] std::optional<meta_type> ensure_registered_type() const {
-    std::optional<meta_type> type = get_registry().template find_registered_type<T>();
+  template <typename T>
+  [[nodiscard]] std::optional<meta::type_view> ensure_registered_type() const {
+    std::optional<meta::type_view> type = get_registry().template find_registered_type<T>();
     if (!type.has_value()) {
       if constexpr (detail::has_type_name_v<T>) {
-        const error status = caors::detail::register_type<T>(type_name<T>::value);
+        const error status = caors::meta::detail::register_type<T>(type_name<T>::value);
         if (status && status.value() != errc::duplicate_id) {
           return std::nullopt;
         }
@@ -226,8 +227,8 @@ private:
       using key_type = typename adapters::associative_traits<Field>::key_type;
       using mapped_type = typename adapters::associative_traits<Field>::mapped_type;
 
-      const std::optional<meta_type> key = ensure_registered_type<key_type>();
-      const std::optional<meta_type> mapped = ensure_registered_type<mapped_type>();
+      const std::optional<meta::type_view> key = ensure_registered_type<key_type>();
+      const std::optional<meta::type_view> mapped = ensure_registered_type<mapped_type>();
       if (!key.has_value() || !mapped.has_value()) {
         return std::nullopt;
       }
@@ -247,7 +248,7 @@ private:
 
   template <typename Element>
   [[nodiscard]] bool append_registered_type_name(string& name, bool& first) const {
-    const std::optional<meta_type> type = ensure_registered_type<Element>();
+    const std::optional<meta::type_view> type = ensure_registered_type<Element>();
     if (!type.has_value()) {
       return false;
     }
@@ -324,8 +325,8 @@ private:
       using first_type = typename adapters::pair_traits<Field>::first_type;
       using second_type = typename adapters::pair_traits<Field>::second_type;
 
-      const std::optional<meta_type> first = ensure_registered_type<first_type>();
-      const std::optional<meta_type> second = ensure_registered_type<second_type>();
+      const std::optional<meta::type_view> first = ensure_registered_type<first_type>();
+      const std::optional<meta::type_view> second = ensure_registered_type<second_type>();
       if (!first.has_value() || !second.has_value()) {
         return std::nullopt;
       }
@@ -343,8 +344,8 @@ private:
     }
   }
 
-  meta_type_data type_{};
-  meta_type existing_type_{};
+  meta::type_data type_{};
+  meta::type_view existing_type_{};
   reflection::type_data reflection_{};
   error pending_status_{};
 };
@@ -364,7 +365,7 @@ template <typename Class>
 }
 
 /** @brief 为已注册元类型创建反射注册构建器，不会创建或修改基础类型记录。 */
-template <typename Class> [[nodiscard]] class_builder<Class> class_(meta_type type) {
+template <typename Class> [[nodiscard]] class_builder<Class> class_(meta::type_view type) {
   return class_builder<Class>{type};
 }
 

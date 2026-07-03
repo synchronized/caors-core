@@ -15,7 +15,7 @@ namespace caors {
 template <typename T> struct wrapper_traits<objects::ref<T>> {
   static constexpr bool is_wrapper = true;
   static constexpr bool nullable = true;
-  static constexpr wrapper_semantics semantics = wrapper_semantics::object_ref;
+  static constexpr meta::wrapper_semantics semantics = meta::wrapper_semantics::object_ref;
   using wrapped_type = std::remove_cv_t<T>;
 };
 

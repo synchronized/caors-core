@@ -191,39 +191,39 @@ template <typename Wrapper>
 template <typename T> [[nodiscard]] type_id semantic_type_id() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (has_type_name_v<type>) {
-    const error result = get_meta_registry().register_type_for<type>(
-        make_meta_type_data<type>(type_name<type>::value));
+    const error result = meta::get_registry().register_type_for<type>(
+        meta::make_type_data<type>(type_name<type>::value));
     if (result && result.value() != errc::duplicate_id) {
       return type_id::invalid();
     }
   }
 
-  const std::optional<meta_type> registered = get_meta_registry().find_type<type>();
+  const std::optional<meta::type_view> registered = meta::get_registry().find_type<type>();
   return registered.has_value() ? registered->id() : type_id::invalid();
 }
 
 template <typename Type> struct type_semantics_traits {
   using type = std::remove_cv_t<std::remove_reference_t<Type>>;
 
-  [[nodiscard]] static meta_type_semantics_data get() {
-    meta_type_semantics_data info{};
+  [[nodiscard]] static meta::type_semantics_data get() {
+    meta::type_semantics_data info{};
     if constexpr (adapters::sequence_traits<type>::is_sequence) {
       using element_type = typename adapters::sequence_traits<type>::element_type;
 
-      info.kind = type_kind::sequence;
+      info.kind = meta::type_kind::sequence;
       info.value_type = semantic_type_id<element_type>();
       return info;
     } else if constexpr (adapters::set_traits<type>::is_set) {
       using element_type = typename adapters::set_traits<type>::element_type;
 
-      info.kind = type_kind::set;
+      info.kind = meta::type_kind::set;
       info.value_type = semantic_type_id<element_type>();
       return info;
     } else if constexpr (adapters::associative_traits<type>::is_associative) {
       using key_type = typename adapters::associative_traits<type>::key_type;
       using mapped_type = typename adapters::associative_traits<type>::mapped_type;
 
-      info.kind = type_kind::associative;
+      info.kind = meta::type_kind::associative;
       info.key_type = semantic_type_id<key_type>();
       info.value_type = semantic_type_id<mapped_type>();
       return info;
@@ -231,15 +231,15 @@ template <typename Type> struct type_semantics_traits {
       using first_type = typename adapters::pair_traits<type>::first_type;
       using second_type = typename adapters::pair_traits<type>::second_type;
 
-      info.kind = type_kind::pair;
+      info.kind = meta::type_kind::pair;
       info.key_type = semantic_type_id<first_type>();
       info.value_type = semantic_type_id<second_type>();
       return info;
     } else if constexpr (adapters::tuple_traits<type>::is_tuple) {
-      info.kind = type_kind::tuple;
+      info.kind = meta::type_kind::tuple;
       return info;
     } else if constexpr (adapters::variant_traits<type>::is_variant) {
-      info.kind = type_kind::variant;
+      info.kind = meta::type_kind::variant;
       return info;
     } else if constexpr (wrapper_traits<type>::is_wrapper) {
       using wrapped_type = typename wrapper_traits<type>::wrapped_type;
@@ -248,7 +248,7 @@ template <typename Type> struct type_semantics_traits {
       static_assert(!is_nested_type_indirection_v<value_type>,
                     "CAORS meta supports at most one pointer or wrapper level");
 
-      info.kind = type_kind::wrapper;
+      info.kind = meta::type_kind::wrapper;
       info.wrapper_semantics = wrapper_traits<type>::semantics;
       info.value_type = semantic_type_id<value_type>();
       info.indirect_value = &wrapper_indirect_value<type>;
@@ -256,7 +256,7 @@ template <typename Type> struct type_semantics_traits {
       info.has_indirect_value = &wrapper_has_indirect_value<type>;
       info.reset_indirect_value = &wrapper_reset_indirect_value<type>;
       info.ensure_indirect_value = &wrapper_ensure_indirect_value<type>;
-      if constexpr (wrapper_traits<type>::semantics == wrapper_semantics::object_ref) {
+      if constexpr (wrapper_traits<type>::semantics == meta::wrapper_semantics::object_ref) {
         info.get_object_ref = &wrapper_object_ref_value<type>;
         info.set_object_ref = &wrapper_set_object_ref<type>;
       }
@@ -265,14 +265,14 @@ template <typename Type> struct type_semantics_traits {
     } else {
       if constexpr (std::is_enum_v<type>) {
         using underlying_type = std::underlying_type_t<type>;
-        info.kind = type_kind::enumeration;
+        info.kind = meta::type_kind::enumeration;
         info.enum_to_i64 = &enum_to_i64<type>;
         info.enum_to_u64 = &enum_to_u64<type>;
         info.enum_from_i64 = &enum_from_i64<type>;
         info.enum_from_u64 = &enum_from_u64<type>;
         info.enum_signed = std::is_signed_v<underlying_type>;
       } else {
-        info.kind = type_kind::value;
+        info.kind = meta::type_kind::value;
       }
       return info;
     }
@@ -285,10 +285,10 @@ template <typename T> struct type_semantics_traits<T*> {
   static_assert(!is_nested_type_indirection_v<value_type>,
                 "CAORS meta supports at most one pointer or wrapper level");
 
-  [[nodiscard]] static meta_type_semantics_data get() {
-    meta_type_semantics_data info{};
-    info.kind = type_kind::raw_pointer;
-    info.wrapper_semantics = wrapper_semantics::inline_value;
+  [[nodiscard]] static meta::type_semantics_data get() {
+    meta::type_semantics_data info{};
+    info.kind = meta::type_kind::raw_pointer;
+    info.wrapper_semantics = meta::wrapper_semantics::inline_value;
     info.value_type = semantic_type_id<value_type>();
     info.indirect_value = &raw_pointer_value<T>;
     info.mutable_indirect_value = &raw_pointer_mutable_value<T>;
@@ -301,7 +301,7 @@ template <typename T> struct type_semantics_traits<T*> {
   }
 };
 
-template <typename T> [[nodiscard]] meta_type_semantics_data make_type_semantics_data() {
+template <typename T> [[nodiscard]] meta::type_semantics_data make_type_semantics_data() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   return type_semantics_traits<type>::get();
 }
@@ -311,17 +311,17 @@ template <typename T> [[nodiscard]] error ensure_type_semantics_for(type_id id) 
     return {error_domain::meta, errc::invalid_type};
   }
 
-  if (get_meta_registry().has<meta_type_semantics_data>(id)) {
+  if (meta::get_registry().has<meta::type_semantics_data>(id)) {
     return {};
   }
 
-  meta_type_semantics_data semantics = make_type_semantics_data<T>();
-  if (!semantics.value_type && semantics.kind != type_kind::tuple &&
-      semantics.kind != type_kind::variant) {
+  meta::type_semantics_data semantics = make_type_semantics_data<T>();
+  if (!semantics.value_type && semantics.kind != meta::type_kind::tuple &&
+      semantics.kind != meta::type_kind::variant) {
     semantics.value_type = id;
   }
 
-  const error result = get_meta_registry().emplace<meta_type_semantics_data>(id, semantics);
+  const error result = meta::get_registry().emplace<meta::type_semantics_data>(id, semantics);
   if (result && result.value() != errc::duplicate_component) {
     return result;
   }

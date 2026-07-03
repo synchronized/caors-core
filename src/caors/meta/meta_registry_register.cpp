@@ -5,11 +5,11 @@
 
 #include <mutex>
 
-namespace caors {
+namespace caors::meta {
 namespace {
 
-[[nodiscard]] error register_type_impl(meta_registry_state& state, meta_type_data type,
-                                       detail::cpp_type_key explicit_key = nullptr,
+[[nodiscard]] error register_type_impl(registry_state& state, type_data type,
+                                       caors::detail::cpp_type_key explicit_key = nullptr,
                                        type_id* stored_id = nullptr) {
   if (explicit_key != nullptr) {
     if (type.cpp_type() != nullptr && type.cpp_type() != explicit_key) {
@@ -33,7 +33,7 @@ namespace {
   if (type.cpp_type() != nullptr) {
     const auto key_position = state.cpp_types.find(type.cpp_type());
     if (key_position != state.cpp_types.end()) {
-      meta_type_data* existing = detail::find_type_data(state, key_position->second);
+      type_data* existing = detail::find_type_data(state, key_position->second);
       if (existing == nullptr) {
         return {error_domain::meta, errc::invalid_type};
       }
@@ -58,7 +58,7 @@ namespace {
   }
 
   if (existing_id.has_value()) {
-    meta_type_data* existing = detail::find_type_data(state, *existing_id);
+    type_data* existing = detail::find_type_data(state, *existing_id);
     if (existing == nullptr) {
       return {error_domain::meta, errc::invalid_type};
     }
@@ -88,11 +88,9 @@ namespace {
 
 } // namespace
 
-error meta_registry::register_type(const meta_type_data& type) {
-  return register_type_impl(*state_, type);
-}
+error registry::register_type(const type_data& type) { return register_type_impl(*state_, type); }
 
-error meta_registry::register_cpp_type(detail::cpp_type_key key, const meta_type_data& type) {
+error registry::register_cpp_type(caors::detail::cpp_type_key key, const type_data& type) {
   if (key == nullptr) {
     return register_type(type);
   }
@@ -100,4 +98,4 @@ error meta_registry::register_cpp_type(detail::cpp_type_key key, const meta_type
   return register_type_impl(*state_, type, key);
 }
 
-} // namespace caors
+} // namespace caors::meta

@@ -71,8 +71,8 @@ public:
   /** @brief 查询 pair 字段的 second 类型名。 */
   [[nodiscard]] string_name second_type_name() const noexcept;
 
-  [[nodiscard]] type_kind kind() const noexcept;
-  [[nodiscard]] wrapper_semantics wrapper_semantics() const noexcept;
+  [[nodiscard]] meta::type_kind kind() const noexcept;
+  [[nodiscard]] meta::wrapper_semantics wrapper_semantics() const noexcept;
   [[nodiscard]] std::uint8_t pointer_depth() const noexcept;
   [[nodiscard]] bool nullable() const noexcept;
   [[nodiscard]] bool writable() const noexcept;
@@ -147,17 +147,17 @@ public:
 private:
   friend class type;
 
-  field(meta_type owner, const field_data* reflected_field) noexcept;
+  field(meta::type_view owner, const field_data* reflected_field) noexcept;
   [[nodiscard]] const field_data* info() const noexcept;
 
-  meta_type owner_{};
+  meta::type_view owner_{};
   const field_data* field_ = nullptr;
 };
 
 /**
  * @brief 类型反射只读视图。
  *
- * `reflection::type` 不拥有反射数据，只引用全局注册表中 append-only 保存的 `meta_type` 和
+ * `reflection::type` 不拥有反射数据，只引用全局注册表中 append-only 保存的 `meta::type_view` 和
  * `reflection::type_data`。有效视图可以在进程生命周期内稳定使用。
  */
 class CAORS_API type final {
@@ -167,7 +167,7 @@ public:
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
 
-  [[nodiscard]] meta_type info() const noexcept;
+  [[nodiscard]] meta::type_view info() const noexcept;
   [[nodiscard]] type_id id() const noexcept;
   [[nodiscard]] string_name name() const noexcept;
   [[nodiscard]] type_guid guid() const noexcept;
@@ -179,10 +179,10 @@ public:
 private:
   friend class registry;
 
-  type(meta_type info, const type_data* data) noexcept;
+  type(meta::type_view info, const type_data* data) noexcept;
   [[nodiscard]] const type_data* data() const noexcept;
 
-  meta_type type_{};
+  meta::type_view type_{};
   const type_data* data_ = nullptr;
 };
 

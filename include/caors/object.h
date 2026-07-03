@@ -103,7 +103,7 @@ public:
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
 
-  [[nodiscard]] meta_type info() const noexcept;
+  [[nodiscard]] meta::type_view info() const noexcept;
   [[nodiscard]] object_type_id id() const noexcept;
   [[nodiscard]] string_name name() const noexcept;
   [[nodiscard]] type_guid guid() const noexcept;
@@ -115,10 +115,10 @@ public:
 private:
   friend class registry;
 
-  type(meta_type info, const type_data* data) noexcept;
+  type(meta::type_view info, const type_data* data) noexcept;
   [[nodiscard]] const type_data* data() const noexcept;
 
-  meta_type type_{};
+  meta::type_view type_{};
   const type_data* data_ = nullptr;
 };
 
@@ -327,11 +327,11 @@ namespace objects {
 
 /** @brief 创建对象类型基础元信息。 */
 template <typename T>
-[[nodiscard]] meta_type_data
+[[nodiscard]] meta::type_data
 make_meta_type_data(std::string_view name,
                     object_type_id parent_id = object::static_type_id()) noexcept {
   static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
-  return caors::make_meta_type_data<T>(name, detail::object_type_guid_of<T>(), parent_id);
+  return caors::meta::make_type_data<T>(name, detail::object_type_guid_of<T>(), parent_id);
 }
 
 /** @brief 创建对象类型底层数据。 */
@@ -353,7 +353,7 @@ template <typename T> [[nodiscard]] type_data make_type_data() noexcept {
 /**
  * @brief 全局对象类型注册表 facade 和默认构造工厂。
  *
- * `objects::registry` 不表示彼此隔离的注册表实例。它复用全局 `meta_registry`
+ * `objects::registry` 不表示彼此隔离的注册表实例。它复用全局 `meta::registry`
  * 管理基础类型信息，并把 `objects::type_data` 作为组件挂载到同一个 `type_id`
  * 上。普通代码应通过 `objects::class_<T>()`、`objects::get_registry()` 和查询接口访问它。
  */
@@ -362,9 +362,9 @@ public:
   registry(const registry&) = delete;
   registry& operator=(const registry&) = delete;
 
-  [[nodiscard]] error register_type(const meta_type_data& type, const type_data& object);
+  [[nodiscard]] error register_type(const meta::type_data& type, const type_data& object);
   template <typename T>
-  [[nodiscard]] error register_type_for(const meta_type_data& type, const type_data& object) {
+  [[nodiscard]] error register_type_for(const meta::type_data& type, const type_data& object) {
     return register_type(detail::cpp_type_key_of<T>(), type, object);
   }
 
@@ -372,7 +372,7 @@ public:
   [[nodiscard]] std::optional<type> find_type(object_type_id id) const;
   [[nodiscard]] std::optional<type> find_type(std::string_view name) const;
   template <typename T> [[nodiscard]] std::optional<type> find_type() const {
-    const std::optional<meta_type> type = find_registered_type(detail::cpp_type_key_of<T>());
+    const std::optional<meta::type_view> type = find_registered_type(detail::cpp_type_key_of<T>());
     if (!type.has_value()) {
       return std::nullopt;
     }
@@ -416,9 +416,9 @@ private:
   registry();
   ~registry();
 
-  [[nodiscard]] error register_type(detail::cpp_type_key key, const meta_type_data& type,
+  [[nodiscard]] error register_type(detail::cpp_type_key key, const meta::type_data& type,
                                     const type_data& object);
-  [[nodiscard]] std::optional<meta_type> find_registered_type(detail::cpp_type_key key) const;
+  [[nodiscard]] std::optional<meta::type_view> find_registered_type(detail::cpp_type_key key) const;
   [[nodiscard]] const type_data* find_type_data(object_type_id id) const;
 };
 

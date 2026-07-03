@@ -3,59 +3,59 @@
 
 #include "caors/meta.h"
 
-namespace caors {
+namespace caors::meta {
 
-bool meta_type::valid() const noexcept { return data_ != nullptr && data_->registered(); }
+bool type_view::valid() const noexcept { return data_ != nullptr && data_->registered(); }
 
-type_id meta_type::id() const noexcept {
+type_id type_view::id() const noexcept {
   return data_ != nullptr ? data_->id() : type_id::invalid();
 }
 
-string_name meta_type::name() const noexcept {
+string_name type_view::name() const noexcept {
   return data_ != nullptr ? data_->name() : string_name{};
 }
 
-type_guid meta_type::guid() const noexcept {
+type_guid type_view::guid() const noexcept {
   return data_ != nullptr ? data_->guid() : type_guid::nil();
 }
 
-std::size_t meta_type::size() const noexcept { return data_ != nullptr ? data_->size() : 0; }
+std::size_t type_view::size() const noexcept { return data_ != nullptr ? data_->size() : 0; }
 
-std::size_t meta_type::alignment() const noexcept {
+std::size_t type_view::alignment() const noexcept {
   return data_ != nullptr ? data_->alignment() : 0;
 }
 
-type_id meta_type::parent_id() const noexcept {
+type_id type_view::parent_id() const noexcept {
   return data_ != nullptr ? data_->parent_id() : type_id::invalid();
 }
 
-detail::cpp_type_key meta_type::cpp_type() const noexcept {
+caors::detail::cpp_type_key type_view::cpp_type() const noexcept {
   return data_ != nullptr ? data_->cpp_type() : nullptr;
 }
 
-detail::value_default_construct_fn meta_type::default_construct_value() const noexcept {
+detail::value_default_construct_fn type_view::default_construct_value() const noexcept {
   return data_ != nullptr ? data_->default_construct_value() : nullptr;
 }
 
-detail::value_clone_fn meta_type::clone_value() const noexcept {
+detail::value_clone_fn type_view::clone_value() const noexcept {
   return data_ != nullptr ? data_->clone_value() : nullptr;
 }
 
-detail::value_destroy_fn meta_type::destroy_value() const noexcept {
+detail::value_destroy_fn type_view::destroy_value() const noexcept {
   return data_ != nullptr ? data_->destroy_value() : nullptr;
 }
 
-detail::value_assign_fn meta_type::assign_value() const noexcept {
+detail::value_assign_fn type_view::assign_value() const noexcept {
   return data_ != nullptr ? data_->assign_value() : nullptr;
 }
 
-meta_type meta_type::parent() const noexcept {
+type_view type_view::parent() const noexcept {
   if (registry_ == nullptr || !parent_id()) {
     return {};
   }
 
-  const std::optional<meta_type> parent_type = registry_->find_type(parent_id());
-  return parent_type.value_or(meta_type{});
+  const std::optional<type_view> parent_type = registry_->find_type(parent_id());
+  return parent_type.value_or(type_view{});
 }
 
-} // namespace caors
+} // namespace caors::meta
