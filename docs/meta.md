@@ -299,7 +299,7 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 
 全局 `meta::registry` 是共享元数据层：
 
-- `objects::registry` 复用全局基础类型信息，再给同一个 `type_id` 挂载 `objects::type_data` 组件，并对外返回 `objects::type` 视图。
+- `objects::registry` 复用全局基础类型信息，再给同一个 `type_id` 挂载 `objects::detail::type_data` 组件，并对外返回 `objects::type` 视图。
 - 全局反射注册表复用基础类型信息，再挂载内部反射组件，并通过 `reflection::type` / `reflection::field` 对外查询。
 - 后续 `serialization::registry` 可以挂载序列化相关组件。
 

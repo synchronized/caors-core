@@ -6,6 +6,7 @@
 
 #include "caors/memory.h"
 #include "caors/object/base.h"
+#include "caors/object/detail/type_data.h"
 #include "caors/object/type.h"
 
 #include <type_traits>
@@ -50,22 +51,22 @@ void destroy_object_instance(object* instance, memory_resource* resource) noexce
   caors::destroy(static_cast<T*>(instance), resource);
 }
 
-} // namespace caors::objects::detail
-
-namespace caors::objects {
-
-/** @brief 创建对象类型底层数据。 */
+/** @brief 创建对象类型内部工厂数据。 */
 template <typename T> [[nodiscard]] type_data make_type_data() noexcept {
   static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
 
-  type_data data{nullptr, nullptr, &detail::destroy_object_instance<T>};
+  type_data data{nullptr, nullptr, &destroy_object_instance<T>};
   if constexpr (std::is_default_constructible_v<T>) {
-    data.try_create = &detail::try_create_object_instance<T>;
-    data.create = &detail::create_object_instance<T>;
+    data.try_create = &try_create_object_instance<T>;
+    data.create = &create_object_instance<T>;
   }
 
   return data;
 }
+
+} // namespace caors::objects::detail
+
+namespace caors::objects {
 
 /** @brief 直接创建指定 C++ 类型的对象。 */
 template <typename T, typename... Args>

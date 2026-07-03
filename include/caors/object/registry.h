@@ -45,7 +45,7 @@ namespace caors::objects {
  * @brief 全局对象类型注册表 facade 和默认构造工厂。
  *
  * `objects::registry` 不表示彼此隔离的注册表实例。它复用全局 `meta::registry`
- * 管理基础类型信息，并把 `objects::type_data` 作为组件挂载到同一个 `type_id`
+ * 管理基础类型信息，并把 `objects::detail::type_data` 作为组件挂载到同一个 `type_id`
  * 上。普通代码应通过 `objects::class_<T>()`、`objects::get_registry()` 和查询接口访问它。
  */
 class CAORS_API registry final {
@@ -103,10 +103,11 @@ private:
   registry();
   ~registry();
 
-  [[nodiscard]] error register_type(const meta::detail::type_data& type, const type_data& object);
+  [[nodiscard]] error register_type(const meta::detail::type_data& type,
+                                    const detail::type_data& object);
   template <typename T>
   [[nodiscard]] error register_type_for(const meta::detail::type_data& type,
-                                        const type_data& object) {
+                                        const detail::type_data& object) {
     using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
     const type_id expected_id = meta::detail::type_id_of_cpp_type<value_type>();
     if (type.id() && type.id() != expected_id) {
@@ -121,7 +122,7 @@ private:
     return register_type(stored_type, object);
   }
 
-  [[nodiscard]] const type_data* find_type_data(object_type_id id) const;
+  [[nodiscard]] const detail::type_data* find_type_data(object_type_id id) const;
 };
 
 } // namespace caors::objects
@@ -141,7 +142,7 @@ template <typename T>
   }
 
   return registry.register_type_for<T>(objects::detail::make_meta_type_data<T>(name, parent_id),
-                                       objects::make_type_data<T>());
+                                       objects::detail::make_type_data<T>());
 }
 
 } // namespace caors::objects::detail

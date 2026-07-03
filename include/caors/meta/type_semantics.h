@@ -4,6 +4,7 @@
 #ifndef CAORS_META_TYPE_SEMANTICS_H_
 #define CAORS_META_TYPE_SEMANTICS_H_
 
+#include "caors/meta/detail/type_capabilities.h"
 #include "caors/meta/registry.h"
 
 namespace caors::meta::detail {

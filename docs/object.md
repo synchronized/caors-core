@@ -30,7 +30,7 @@ CAORS 对象系统第一阶段只解决几件事：
 ### 命名空间
 
 对象系统的主定义位于 `caors::objects` 命名空间，例如 `objects::object`、`objects::object_id`、
-`objects::object_base<T>`、`objects::type_data`、`objects::type`、`objects::handle`、
+`objects::object_base<T>`、`objects::type`、`objects::handle`、
 `objects::weak_handle<T>`、`objects::ref<T>` 和 `objects::registry`。
 
 为了保持常用 API 简洁，根命名空间保留兼容别名：`caors::object`、`caors::object_id`、
@@ -140,7 +140,7 @@ object.type_name(); // "game.player"
 
 `objects::registry` 是基于全局 `meta::registry` 的对象注册表 facade 和默认构造工厂。它不表示彼此隔离的局部注册表实例。普通代码优先通过 `objects::class_<T>()`、`objects::find()`、`objects::id()` 和 `objects::is_a()` 访问对象元数据；需要默认构造工厂时再使用 `objects::get_registry()`。
 
-对外查询返回 `objects::type` 只读视图。它组合了基础 `meta::type` 和内部 `objects::type_data`，因此调用方可以通过 `id()`、`name()`、`guid()`、`size()`、`alignment()`、`parent_id()` 和 `constructible()` 查询对象类型信息，但不能直接修改注册表内部数据。
+对外查询返回 `objects::type` 只读视图。它组合了基础 `meta::type` 和内部 `objects::detail::type_data`，因此调用方可以通过 `id()`、`name()`、`guid()`、`size()`、`alignment()`、`parent_id()` 和 `constructible()` 查询对象类型信息，但不能直接修改注册表内部数据。
 
 ```cpp
 if (caors::objects::class_<actor>(actor::object_type_name).commit()) {
@@ -216,8 +216,8 @@ caors::objects::destroy(instance, &resource);
 - `object`：基础对象身份和类型查询入口。
 - `object_base<Derived, Base>`：CRTP 类型查询辅助。
 - `meta::type` / `meta::registry`：对象系统和反射系统共享的全局基础类型视图和元数据注册表。
-- `objects::type_data`：内部对象元数据组件，保存默认构造、创建和销毁函数。
-- `objects::type`：对象类型只读视图，组合 `meta::type` 和内部 `objects::type_data`。
+- `objects::detail::type_data`：内部对象元数据组件，保存默认构造、创建和销毁函数。
+- `objects::type`：对象类型只读视图，组合 `meta::type` 和内部 `objects::detail::type_data`。
 - `caors::error`：明确对象类型注册失败原因和错误来源域。
 - `objects::registry`：类型注册、查询、继承关系判断、默认构造工厂。
 - `objects::class_<T>()`：对象类型链式注册入口。
@@ -231,7 +231,7 @@ caors::objects::destroy(instance, &resource);
 - [x] 对象实例 id。
 - [x] 对象类型 id、名称、大小、对齐和父类型。
 - [x] 复用全局 `meta::registry`。
-- [x] 将 `objects::type_data` 作为类型元数据组件挂载，并通过 `objects::type` 视图对外查询。
+- [x] 将 `objects::detail::type_data` 作为类型元数据组件挂载，并通过 `objects::type` 视图对外查询。
 - [x] 注册错误状态和不一致类型描述检测。
 - [x] 默认构造工厂。
 - [x] 接入 `memory_resource`。

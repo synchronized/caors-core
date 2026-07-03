@@ -4,6 +4,7 @@
 #ifndef CAORS_VALUE_INDIRECT_VIEW_H_
 #define CAORS_VALUE_INDIRECT_VIEW_H_
 
+#include "caors/meta/detail/type_capabilities.h"
 #include "caors/value/any_value.h"
 
 namespace caors::value {

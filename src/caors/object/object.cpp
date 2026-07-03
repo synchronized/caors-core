@@ -15,7 +15,7 @@ std::atomic<std::uint64_t> next_object_id{1};
                                               object_type_id::invalid());
 }
 
-[[nodiscard]] type_data make_root_object_type_data() { return {}; }
+[[nodiscard]] detail::type_data make_root_object_type_data() { return {}; }
 
 } // namespace
 
@@ -52,7 +52,7 @@ object_type_id object::static_type_id() noexcept {
 
 std::string_view object::static_type_name() noexcept { return "caors.object"; }
 
-type::type(meta::type type, const type_data* data) noexcept : type_(type), data_(data) {}
+type::type(meta::type type, const detail::type_data* data) noexcept : type_(type), data_(data) {}
 
 bool type::valid() const noexcept { return type_.valid() && data_ != nullptr; }
 
@@ -72,7 +72,7 @@ object_type_id type::parent_id() const noexcept { return type_.parent_id(); }
 
 bool type::constructible() const noexcept { return data_ != nullptr && data_->constructible(); }
 
-const type_data* type::data() const noexcept { return valid() ? data_ : nullptr; }
+const detail::type_data* type::data() const noexcept { return valid() ? data_ : nullptr; }
 
 registry::registry() {
   (void)register_type_for<object>(make_root_object_meta_type_data(), make_root_object_type_data());
@@ -80,7 +80,8 @@ registry::registry() {
 
 registry::~registry() = default;
 
-error registry::register_type(const meta::detail::type_data& type, const type_data& object) {
+error registry::register_type(const meta::detail::type_data& type,
+                              const detail::type_data& object) {
   const error type_status = meta::get_registry().register_type(type);
   if (type_status && type_status.value() != errc::duplicate_id) {
     return rethrow_as(type_status, error_domain::object);
@@ -91,14 +92,16 @@ error registry::register_type(const meta::detail::type_data& type, const type_da
     return {error_domain::object, errc::invalid_type};
   }
 
-  return rethrow_as(meta::get_registry().emplace<type_data>(stored_meta.id(), object),
+  return rethrow_as(meta::get_registry().emplace<detail::type_data>(stored_meta.id(), object),
                     error_domain::object, errc::duplicate_component, errc::duplicate_id);
 }
 
-bool registry::contains(object_type_id id) const { return meta::get_registry().has<type_data>(id); }
+bool registry::contains(object_type_id id) const {
+  return meta::get_registry().has<detail::type_data>(id);
+}
 
-const type_data* registry::find_type_data(object_type_id id) const {
-  return meta::get_registry().find_ptr<type_data>(id);
+const detail::type_data* registry::find_type_data(object_type_id id) const {
+  return meta::get_registry().find_ptr<detail::type_data>(id);
 }
 
 type registry::find_type(object_type_id id) const {
@@ -107,7 +110,7 @@ type registry::find_type(object_type_id id) const {
     return {};
   }
 
-  const type_data* data = find_type_data(id);
+  const detail::type_data* data = find_type_data(id);
   if (data == nullptr) {
     return {};
   }
@@ -128,10 +131,12 @@ bool registry::is_a(object_type_id type_id, object_type_id base_type_id) const {
   return meta::get_registry().is_a(type_id, base_type_id);
 }
 
-std::size_t registry::size() const noexcept { return meta::get_registry().count<type_data>(); }
+std::size_t registry::size() const noexcept {
+  return meta::get_registry().count<detail::type_data>();
+}
 
 object* registry::try_create(object_type_id id, memory_resource* resource) const noexcept {
-  const type_data* type = find_type_data(id);
+  const detail::type_data* type = find_type_data(id);
   if (type == nullptr) {
     return nullptr;
   }
@@ -153,7 +158,7 @@ object* registry::try_create(std::string_view name, memory_resource* resource) c
 }
 
 object* registry::create(object_type_id id, memory_resource* resource) const {
-  const type_data* type = find_type_data(id);
+  const detail::type_data* type = find_type_data(id);
   if (type == nullptr) {
     return nullptr;
   }
@@ -187,7 +192,7 @@ bool registry::destroy(object* instance, memory_resource* resource) const noexce
     return false;
   }
 
-  const type_data* data = object_type.data();
+  const detail::type_data* data = object_type.data();
   if (data == nullptr || data->destroy == nullptr) {
     return false;
   }

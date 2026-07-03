@@ -4,9 +4,7 @@
 #ifndef CAORS_OBJECT_TYPE_H_
 #define CAORS_OBJECT_TYPE_H_
 
-#include "caors/error.h"
 #include "caors/export.h"
-#include "caors/memory/resource.h"
 #include "caors/meta/type.h"
 #include "caors/object/id.h"
 
@@ -16,20 +14,11 @@ class object;
 
 class registry;
 
-using try_create_fn = object* (*)(memory_resource * resource) noexcept;
-using create_fn = object* (*)(memory_resource * resource);
-using destroy_fn = void (*)(object* instance, memory_resource* resource) noexcept;
+namespace detail {
 
-/** @brief 对象类型底层数据。 */
-struct type_data {
-  try_create_fn try_create = nullptr;
-  create_fn create = nullptr;
-  destroy_fn destroy = nullptr;
+struct type_data;
 
-  [[nodiscard]] constexpr bool constructible() const noexcept {
-    return try_create != nullptr && create != nullptr;
-  }
-};
+} // namespace detail
 
 /** @brief 对象类型只读视图。 */
 class CAORS_API type final {
@@ -51,11 +40,11 @@ public:
 private:
   friend class registry;
 
-  type(meta::type info, const type_data* data) noexcept;
-  [[nodiscard]] const type_data* data() const noexcept;
+  type(meta::type info, const detail::type_data* data) noexcept;
+  [[nodiscard]] const detail::type_data* data() const noexcept;
 
   meta::type type_{};
-  const type_data* data_ = nullptr;
+  const detail::type_data* data_ = nullptr;
 };
 
 } // namespace caors::objects

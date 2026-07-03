@@ -3,6 +3,7 @@
 
 #include "serialization_internal_helpers.h"
 
+#include "caors/meta/detail/type_capabilities.h"
 #include "caors/reflection/registry.h"
 
 #include <limits>
