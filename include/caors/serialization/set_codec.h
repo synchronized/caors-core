@@ -13,25 +13,26 @@
 
 namespace caors::serialization {
 
-/** @brief 基于 `adapters::set_traits<T>` 的通用集合容器序列化 codec。 */
+/** @brief 基于 `traits::set_traits<T>` 的通用集合容器序列化 codec。 */
 template <typename Set> struct set_codec {
-  using traits = adapters::set_traits<Set>;
-  using element_type = typename traits::element_type;
+  using container_traits = traits::set_traits<Set>;
+  using element_type = typename container_traits::element_type;
 
-  static constexpr bool can_write = traits::is_set;
-  static constexpr bool can_read = traits::is_set && std::is_default_constructible_v<Set> &&
+  static constexpr bool can_write = container_traits::is_set;
+  static constexpr bool can_read = container_traits::is_set &&
+                                   std::is_default_constructible_v<Set> &&
                                    std::is_default_constructible_v<element_type>;
-  static constexpr bool can_make_value = traits::is_set;
+  static constexpr bool can_make_value = container_traits::is_set;
 
   [[nodiscard]] static error write(serialization_writer& writer, const Set& values) {
-    error status = writer.begin_array(traits::size(values));
+    error status = writer.begin_array(container_traits::size(values));
     if (status) {
       return status;
     }
 
     std::size_t index = 0;
     error visitor_status{};
-    traits::for_each(values, [&](const element_type& value) {
+    container_traits::for_each(values, [&](const element_type& value) {
       if (visitor_status) {
         return;
       }
@@ -84,7 +85,7 @@ template <typename Set> struct set_codec {
         return status;
       }
 
-      if (!traits::insert(decoded, std::move(element))) {
+      if (!container_traits::insert(decoded, std::move(element))) {
         return {error_domain::serialization, errc::already_exists};
       }
 
@@ -105,10 +106,10 @@ template <typename Set> struct set_codec {
 
   [[nodiscard]] static variant_result make_value(const Set& values) {
     variant::array_type elements;
-    elements.reserve(traits::size(values));
+    elements.reserve(container_traits::size(values));
     variant_result visitor_result{};
 
-    traits::for_each(values, [&](const element_type& value) {
+    container_traits::for_each(values, [&](const element_type& value) {
       if (visitor_result.failed()) {
         return;
       }

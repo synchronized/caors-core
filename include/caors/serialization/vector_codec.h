@@ -163,26 +163,26 @@ template <typename T> [[nodiscard]] variant_result make_vector_element_value(con
 
 namespace caors::serialization {
 
-/** @brief 基于 `adapters::sequence_traits<T>` 的通用顺序容器序列化 codec。 */
+/** @brief 基于 `traits::sequence_traits<T>` 的通用顺序容器序列化 codec。 */
 template <typename Sequence> struct sequence_codec {
-  using traits = adapters::sequence_traits<Sequence>;
-  using element_type = typename traits::element_type;
+  using container_traits = traits::sequence_traits<Sequence>;
+  using element_type = typename container_traits::element_type;
 
   static constexpr bool traits_can_read = [] {
-    if constexpr (requires { traits::can_read; }) {
-      return traits::can_read;
+    if constexpr (requires { container_traits::can_read; }) {
+      return container_traits::can_read;
     } else {
       return true;
     }
   }();
-  static constexpr bool can_write = traits::is_sequence;
-  static constexpr bool can_read = traits::is_sequence && traits_can_read &&
+  static constexpr bool can_write = container_traits::is_sequence;
+  static constexpr bool can_read = container_traits::is_sequence && traits_can_read &&
                                    std::is_default_constructible_v<Sequence> &&
                                    std::is_default_constructible_v<element_type>;
-  static constexpr bool can_make_value = traits::is_sequence;
+  static constexpr bool can_make_value = container_traits::is_sequence;
 
   [[nodiscard]] static error write(serialization_writer& writer, const Sequence& values) {
-    const std::size_t size = traits::size(values);
+    const std::size_t size = container_traits::size(values);
     error status = writer.begin_array(size);
     if (status) {
       return status;
@@ -194,7 +194,7 @@ template <typename Sequence> struct sequence_codec {
         return status;
       }
 
-      const element_type* element = traits::element(values, index);
+      const element_type* element = container_traits::element(values, index);
       if (element == nullptr) {
         return {error_domain::serialization, errc::invalid_argument};
       }
@@ -225,8 +225,8 @@ template <typename Sequence> struct sequence_codec {
       decoded.reserve(size);
     }
 
-    traits::clear(decoded);
-    if (!traits::resize(decoded, size)) {
+    container_traits::clear(decoded);
+    if (!container_traits::resize(decoded, size)) {
       return {error_domain::serialization, errc::unsupported};
     }
 
@@ -236,7 +236,7 @@ template <typename Sequence> struct sequence_codec {
         return status;
       }
 
-      element_type* element = traits::mutable_element(decoded, index);
+      element_type* element = container_traits::mutable_element(decoded, index);
       if (element == nullptr) {
         return {error_domain::serialization, errc::invalid_argument};
       }
@@ -263,10 +263,10 @@ template <typename Sequence> struct sequence_codec {
 
   [[nodiscard]] static variant_result make_value(const Sequence& values) {
     variant::array_type elements;
-    const std::size_t size = traits::size(values);
+    const std::size_t size = container_traits::size(values);
     elements.reserve(size);
     for (std::size_t index = 0; index < size; ++index) {
-      const element_type* value = traits::element(values, index);
+      const element_type* value = container_traits::element(values, index);
       if (value == nullptr) {
         return {{error_domain::serialization, errc::invalid_argument}, {}};
       }

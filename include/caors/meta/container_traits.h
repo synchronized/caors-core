@@ -4,6 +4,6 @@
 #ifndef CAORS_META_CONTAINER_TRAITS_H_
 #define CAORS_META_CONTAINER_TRAITS_H_
 
-#include "caors/adapters/container_traits.h"
+#include "caors/traits/container.h"
 
 #endif

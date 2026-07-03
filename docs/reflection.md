@@ -74,22 +74,22 @@ caors::reflection::class_<actor>("game.actor")
 字段类型推导规则：
 
 - 如果字段类型已经通过模板注册函数注册到全局反射注册表，优先复用该类型的 `meta::type_view`。
-- 如果字段类型没有注册，但存在 `type_name<T>` 默认映射，则使用默认类型名注册为基础类型，并使用注册表分配的 `type_id`。
-- 如果字段类型满足 `adapters::sequence_traits<T>::is_sequence`，反射 builder 会根据 traits 的类型名前缀和元素类型名生成
+- 如果字段类型没有注册，但存在 `traits::type_name<T>` 默认映射，则使用默认类型名注册为基础类型，并使用注册表分配的 `type_id`。
+- 如果字段类型满足 `traits::sequence_traits<T>::is_sequence`，反射 builder 会根据 traits 的类型名前缀和元素类型名生成
   容器类型名。字段类型注册到 meta 时会同步挂载元素类型语义。内置特化支持 `caors::vector<T>`、
   `std::vector<T, Allocator>`、`caors::list<T>`、`std::list<T, Allocator>`、`std::deque<T, Allocator>`、
   `std::array<T, N>` 和 `std::span<T, Extent>`。
-- 如果字段类型满足 `adapters::set_traits<T>::is_set`，反射 builder 会根据 traits 的类型名前缀和元素类型名生成
+- 如果字段类型满足 `traits::set_traits<T>::is_set`，反射 builder 会根据 traits 的类型名前缀和元素类型名生成
   容器类型名。字段类型注册到 meta 时会同步挂载元素类型语义。内置特化支持 `caors::hash_set<T>`、
   `std::unordered_set<T, ...>` 和 `std::set<T, ...>`。
-- 如果字段类型满足 `adapters::associative_traits<T>::is_associative`，反射 builder 会根据 traits 的类型名前缀、
+- 如果字段类型满足 `traits::associative_traits<T>::is_associative`，反射 builder 会根据 traits 的类型名前缀、
   key 类型名和 value 类型名生成容器类型名。字段类型注册到 meta 时会同步挂载 key/value 类型语义。内置特化支持
   `caors::hash_map<K, V>`、`std::unordered_map<K, V, ...>` 和 `std::map<K, V, ...>`。
-- 如果字段类型满足 `adapters::pair_traits<T>::is_pair`，反射 builder 会根据 traits 的类型名前缀、first 类型名和
+- 如果字段类型满足 `traits::pair_traits<T>::is_pair`，反射 builder 会根据 traits 的类型名前缀、first 类型名和
   second 类型名生成二元组类型名。内置特化支持 `std::pair<T, U>`。
-- 如果字段类型满足 `adapters::tuple_traits<T>::is_tuple`，反射 builder 会根据 traits 的类型名前缀和每个元素类型名
+- 如果字段类型满足 `traits::tuple_traits<T>::is_tuple`，反射 builder 会根据 traits 的类型名前缀和每个元素类型名
   生成 tuple-like 类型名。内置特化支持 `std::tuple<Ts...>`。
-- 如果字段类型满足 `adapters::variant_traits<T>::is_variant`，反射 builder 会根据 traits 的类型名前缀和每个候选类型名
+- 如果字段类型满足 `traits::variant_traits<T>::is_variant`，反射 builder 会根据 traits 的类型名前缀和每个候选类型名
   生成 variant-like 类型名。内置特化支持 `std::variant<Ts...>`。
 - 如果以上规则都没有命中，`.commit()` 返回 `invalid_field`。
 - 字段类型语义最多支持一层裸指针或 wrapper；`T**`、`std::unique_ptr<T*>`、
@@ -111,18 +111,18 @@ caors::reflection::class_<actor>("game.actor")
   `meta::wrapper_semantics` 为 `inline_value`。
 - `std::reference_wrapper<T>`：`meta::type_kind::wrapper`，`value_type` 为 `T`，不表示空值，
   `meta::wrapper_semantics` 为 `inline_value`。
-- `adapters::sequence_traits<T>` 顺序容器：`meta::type_kind::sequence`，`value_type` 为元素类型；`element_type()`
+- `traits::sequence_traits<T>` 顺序容器：`meta::type_kind::sequence`，`value_type` 为元素类型；`element_type()`
   是对外语义别名。字段视图可以查询元素数量、访问元素引用，并在 traits 支持时执行清空、调整大小和追加元素。内置 `caors::vector<T>` 会生成
   `caors.vector<T>` 类型名。
-- `adapters::set_traits<T>` 集合容器：`meta::type_kind::set`，`value_type` 为元素类型；`element_type()` 是对外语义别名。内置
+- `traits::set_traits<T>` 集合容器：`meta::type_kind::set`，`value_type` 为元素类型；`element_type()` 是对外语义别名。内置
   `caors::hash_set<T>` 会生成 `caors.hash_set<T>` 类型名。
-- `adapters::associative_traits<T>` 关联容器：`meta::type_kind::associative`，`key_type` 为 key 类型，`value_type` 为
+- `traits::associative_traits<T>` 关联容器：`meta::type_kind::associative`，`key_type` 为 key 类型，`value_type` 为
   mapped/value 类型；`mapped_type()` 是对外语义别名。内置 `caors::hash_map<K, V>` 会生成 `caors.hash_map<K,V>` 类型名。
-- `adapters::pair_traits<T>` 二元组：`meta::type_kind::pair`，`key_type` 为 first 类型，`value_type` 为 second 类型；
+- `traits::pair_traits<T>` 二元组：`meta::type_kind::pair`，`key_type` 为 first 类型，`value_type` 为 second 类型；
   `first_type()` / `second_type()` 是对外语义别名。内置 `std::pair<T, U>` 会生成 `std.pair<T,U>` 类型名。
-- `adapters::tuple_traits<T>` tuple-like 类型：`meta::type_kind::tuple`，元素类型由 `tuple_view::element_type(index)` 查询。
+- `traits::tuple_traits<T>` tuple-like 类型：`meta::type_kind::tuple`，元素类型由 `tuple_view::element_type(index)` 查询。
   内置 `std::tuple<Ts...>` 会生成 `std.tuple<Ts...>` 类型名。
-- `adapters::variant_traits<T>` variant-like 类型：`meta::type_kind::variant`，候选类型由
+- `traits::variant_traits<T>` variant-like 类型：`meta::type_kind::variant`，候选类型由
   `variant_view::alternative_type(index)` 查询，当前值类型由 `variant_view::value_type()` 查询。
   内置 `std::variant<Ts...>` 会生成 `std.variant<Ts...>` 类型名。
 
@@ -130,10 +130,10 @@ STL 智能指针和裸指针只作为外部字段类型被反射系统描述。C
 用户如果直接使用这些类型，需要自行保证释放、引用有效性和线程安全。后续 CAORS 自身的对象句柄、
 引用计数或分配器类型会作为独立 wrapper 接入反射规则。
 
-wrapper 识别通过 `wrapper_traits<T>` 扩展，而不是固定写死所有 wrapper 类型：
+wrapper 识别通过 `traits::wrapper_traits<T>` 扩展，而不是固定写死所有 wrapper 类型：
 
 ```cpp
-namespace caors {
+namespace caors::traits {
 
 template <typename T>
 struct wrapper_traits<my_box<T>> {
@@ -153,19 +153,19 @@ struct wrapper_access<my_box<T>> {
   static bool reset(my_box<T>& source) noexcept;
 };
 
-}
+} // namespace caors::traits
 ```
 
-`wrapper_access<T>` 是可选扩展点。只需要识别 wrapper 形态时可以只特化 `wrapper_traits<T>`；如果希望
+`traits::wrapper_access<T>` 是可选扩展点。只需要识别 wrapper 形态时可以只特化 `traits::wrapper_traits<T>`；如果希望
 `any_ref::create_indirect_view()` 或 `reflection::field::create_indirect_view()` 能访问内部值，则需要同时特化
-`wrapper_access<T>`。内置适配支持裸指针、`std::unique_ptr<T>`、`std::shared_ptr<T>`、
+`traits::wrapper_access<T>`。内置适配支持裸指针、`std::unique_ptr<T>`、`std::shared_ptr<T>`、
 `std::optional<T>`、`std::reference_wrapper<T>` 和 `caors::objects::ref<T>` 的内部值访问；`std::weak_ptr<T>`
 只提供 unsupported wrapper 语义，当前没有默认内部值访问，避免返回可能悬空的引用。
 
-顺序容器识别通过 `adapters::sequence_traits<T>` 扩展。traits 需要提供元素类型、类型名前缀和基础元素访问函数：
+顺序容器识别通过 `traits::sequence_traits<T>` 扩展。traits 需要提供元素类型、类型名前缀和基础元素访问函数：
 
 ```cpp
-namespace caors::adapters {
+namespace caors::traits {
 
 template <typename T>
 struct sequence_traits<my_sequence<T>> {
@@ -193,11 +193,11 @@ struct sequence_traits<my_sequence<T>> {
 `std.array<int,3>`；读入或调整长度时只有 `size == N` 才会成功。`std::span<T>` 是借用视图，
 类型名为 `std.span<T>`；固定长度 `std::span<T, N>` 的类型名为 `std.span<T,N>`，默认只用于反射访问和序列化写出。
 
-集合容器识别通过 `adapters::set_traits<T>` 扩展。集合只有元素，没有 mapped value；序列化层会按数组读写，
+集合容器识别通过 `traits::set_traits<T>` 扩展。集合只有元素，没有 mapped value；序列化层会按数组读写，
 反序列化时遇到重复元素会返回失败：
 
 ```cpp
-namespace caors::adapters {
+namespace caors::traits {
 
 template <typename T>
 struct set_traits<my_set<T>> {
@@ -217,11 +217,11 @@ struct set_traits<my_set<T>> {
 }
 ```
 
-关联容器识别通过 `adapters::associative_traits<T>` 扩展。traits 用于描述 key/value 类型、生成容器类型名，
+关联容器识别通过 `traits::associative_traits<T>` 扩展。traits 用于描述 key/value 类型、生成容器类型名，
 并为通用 serialization codec 提供遍历和插入入口：
 
 ```cpp
-namespace caors::adapters {
+namespace caors::traits {
 
 template <typename K, typename V>
 struct associative_traits<my_map<K, V>> {
@@ -242,11 +242,11 @@ struct associative_traits<my_map<K, V>> {
 }
 ```
 
-二元组识别通过 `adapters::pair_traits<T>` 扩展。traits 用于描述 first/second 类型、生成类型名，并给
+二元组识别通过 `traits::pair_traits<T>` 扩展。traits 用于描述 first/second 类型、生成类型名，并给
 `pair_view` 和序列化层提供访问入口：
 
 ```cpp
-namespace caors::adapters {
+namespace caors::traits {
 
 template <typename A, typename B>
 struct pair_traits<my_pair<A, B>> {
@@ -266,11 +266,11 @@ struct pair_traits<my_pair<A, B>> {
 
 内置适配已覆盖 `std::pair<T, U>`。pair 默认按二元素数组 `[first, second]` 序列化；反序列化时数组长度必须为 2。
 
-tuple-like 类型识别通过 `adapters::tuple_traits<T>` 扩展。traits 用于描述元素数量、元素类型、生成类型名，并给
+tuple-like 类型识别通过 `traits::tuple_traits<T>` 扩展。traits 用于描述元素数量、元素类型、生成类型名，并给
 `tuple_view` 和序列化层提供按下标访问入口：
 
 ```cpp
-namespace caors::adapters {
+namespace caors::traits {
 
 template <typename... Ts>
 struct tuple_traits<my_tuple<Ts...>> {
@@ -294,11 +294,11 @@ struct tuple_traits<my_tuple<Ts...>> {
 
 内置适配已覆盖 `std::tuple<Ts...>`。tuple 默认按数组 `[v0, v1, ...]` 序列化；反序列化时数组长度必须等于 tuple 元素数量。
 
-variant-like 类型识别通过 `adapters::variant_traits<T>` 扩展。traits 用于描述候选类型、生成类型名，并给
+variant-like 类型识别通过 `traits::variant_traits<T>` 扩展。traits 用于描述候选类型、生成类型名，并给
 `variant_view` 和序列化层提供当前候选访问与切换入口：
 
 ```cpp
-namespace caors::adapters {
+namespace caors::traits {
 
 template <typename... Ts>
 struct variant_traits<my_variant<Ts...>> {
@@ -504,7 +504,7 @@ field->try_set<float>(&instance, 75.0F);
 - `value_type()` / `value_type_name()`：查询元素类型信息。
 - `element_type()` / `element_type_name()`：查询元素类型信息，是 `value_type()` 的语义别名。
 - `size()` / `element_ref()` / `begin()` / `end()`：查询和访问顺序容器元素。可写视图返回的元素引用也可写。
-- `clear()` / `resize()` / `append_value()`：通过 `adapters::sequence_traits` 修改顺序容器。只有可写视图允许修改。
+- `clear()` / `resize()` / `append_value()`：通过 `traits::sequence_traits` 修改顺序容器。只有可写视图允许修改。
 
 `set_view` 当前提供：
 
@@ -512,7 +512,7 @@ field->try_set<float>(&instance, 75.0F);
 - `value_type()` / `value_type_name()`：查询元素类型信息。
 - `element_type()` / `element_type_name()`：查询元素类型信息，是 `value_type()` 的语义别名。
 - `size()` / `begin()` / `end()` / `for_each_ref()`：查询和遍历集合。集合元素按 key 语义暴露为只读 `any_ref`。
-- `clear()` / `insert_value()`：通过 `adapters::set_traits` 修改集合。只有可写视图允许修改。
+- `clear()` / `insert_value()`：通过 `traits::set_traits` 修改集合。只有可写视图允许修改。
 
 `associative_view` 当前提供：
 
@@ -520,7 +520,7 @@ field->try_set<float>(&instance, 75.0F);
 - `key_type()` / `key_type_name()` / `value_type()` / `value_type_name()`：查询 key/value 类型信息。
 - `mapped_type()` / `mapped_type_name()`：查询 mapped/value 类型信息，是 `value_type()` 的语义别名。
 - `size()` / `begin()` / `end()` / `for_each_ref()`：查询和遍历关联容器。iterator 解引用返回 `associative_entry_ref`，其中 key/value 都是只读 `any_ref`。
-- `clear()` / `insert_value()`：通过 `adapters::associative_traits` 修改关联容器。只有可写视图允许修改；插入时
+- `clear()` / `insert_value()`：通过 `traits::associative_traits` 修改关联容器。只有可写视图允许修改；插入时
   key 和 value 必须与类型级关联容器 metadata 记录的 `type_id` 一致。
 
 `set_view` 和 `associative_view` 的 iterator 不拥有底层容器，也不延长 view 或容器对象生命周期。
@@ -660,11 +660,12 @@ auto reflected = caors::reflection::find("game.actor");
   - `registry.h`：全局反射注册表和注册查询函数。
   - `builder.h`：RTTR 风格链式注册入口。
 - `include/caors/reflection.h` 是 umbrella 头，继续提供完整反射 API。
+- `include/caors/traits/*.h` 提供 `type_name`、wrapper、容器、pair、tuple 和 variant 类型语义扩展点主模板。
 - `include/caors/object/wrapper_traits.h` 提供 `objects::ref<T>` 的 wrapper 语义适配。
-- `include/caors/meta/wrapper.h` 和 `include/caors/meta/container_traits.h` 提供 wrapper / 容器 / pair / tuple / variant 类型语义扩展点。
-- `include/caors/adapters/stl_traits.h` 提供 `std::vector`、`std::deque`、`std::list`、`std::forward_list`、`std::array`、`std::span`、
+- `include/caors/meta/wrapper.h` 和 `include/caors/meta/container_traits.h` 是兼容转发头。
+- `include/caors/adapters/stl_traits.h` 和 `include/caors/adapters/stl_wrapper.h` 提供 `std::vector`、`std::deque`、`std::list`、`std::forward_list`、`std::array`、`std::span`、
   `std::pair`、`std::tuple`、`std::variant`、`std::set`、`std::unordered_set`、`std::map`、`std::unordered_map` 以及 CAORS 容器别名的默认 traits 特化。
-- `include/caors/adapters/stl.h` 是 STL/CAORS 容器反射和序列化适配的聚合入口。
+- `include/caors/adapters/stl.h` 是 STL/CAORS 容器、wrapper、反射和序列化适配的聚合入口。
 - `include/caors/value.h` 是 value 模块 umbrella 头，提供 `any` 和 `caors::variant` DOM 值。
 - 可运行示例位于 `examples/reflection/`，示例组织规则见 [examples/README.md](../examples/README.md)。
 - 行为测试位于 `tests/reflection/`，测试组织规则见 [tests/README.md](../tests/README.md)。

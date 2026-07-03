@@ -4,7 +4,7 @@
 #ifndef CAORS_DETAIL_TYPE_KEY_H_
 #define CAORS_DETAIL_TYPE_KEY_H_
 
-#include "caors/meta/type_name.h"
+#include "caors/traits/type_name.h"
 
 #include <type_traits>
 
@@ -25,7 +25,8 @@ template <typename T, typename = void> struct has_type_name : std::false_type {}
 
 template <typename T>
 struct has_type_name<
-    T, std::void_t<decltype(type_name<std::remove_cv_t<std::remove_reference_t<T>>>::value)>>
+    T,
+    std::void_t<decltype(traits::type_name<std::remove_cv_t<std::remove_reference_t<T>>>::value)>>
     : std::true_type {};
 
 template <typename T> inline constexpr bool has_type_name_v = has_type_name<T>::value;

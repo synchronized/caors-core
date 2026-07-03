@@ -35,11 +35,13 @@
 新代码可以直接包含 `caors/meta.h` 使用完整类型元数据 API；如果只需要局部能力，也可以包含对应子头文件：
 
 - `caors/meta/type_id.h`：`type_id`、`type_guid` 和运行期类型 id 基础定义。
-- `caors/meta/type_name.h`：`type_name<T>` 默认类型名映射。
+- `caors/traits/type_name.h`：`traits::type_name<T>` 默认类型名映射。
+- `caors/traits/wrapper.h`：`traits::wrapper_traits<T>` 和 `traits::wrapper_access<T>` 主模板。
+- `caors/traits/container.h`：顺序、集合、关联、pair、tuple 和 variant 类型语义 traits 主模板。
 - `caors/meta/type_key.h`：内部 C++ 类型 key。
 - `caors/meta/type.h`：`meta::type_data`、`meta::type_view` 和 `meta::make_type_data<T>()`。
-- `caors/meta/wrapper.h`：wrapper 类型语义 traits 和内部值访问适配。
-- `caors/meta/container_traits.h`：顺序、集合和关联容器类型语义 traits 主模板。
+- `caors/meta/wrapper.h`、`caors/meta/container_traits.h`：兼容转发头。
+- `caors/adapters/stl_traits.h`、`caors/adapters/stl_wrapper.h`：STL/CAORS 类型的默认 traits 特化。
 - `caors/meta/view.h`：`meta::view<T...>` 查询视图。
 - `caors/meta/registry.h`：全局 `meta::registry`、注册错误状态和注册 helper。
 
@@ -128,17 +130,19 @@ if (type) {
 `meta::type_view` 不拥有数据，内部引用全局 append-only 注册表中的 `meta::type_data`。普通代码不应持有
 或修改 `meta::type_data`，需要查询类型信息时使用 `meta::type_view`。
 
-### type_name<T>
+### traits::type_name<T>
 
-`type_name<T>` 是 C++ 类型到 CAORS 类型名的默认映射。内置基础类型已经提供默认名称，例如：
+`traits::type_name<T>` 是 C++ 类型到 CAORS 类型名的默认映射。内置基础类型已经提供默认名称，例如：
 
 ```cpp
-caors::type_name<int>::value;   // "int"
-caors::type_name<float>::value; // "float"
+caors::traits::type_name<int>::value;   // "int"
+caors::traits::type_name<float>::value; // "float"
 ```
 
-用户类型可以通过特化 `type_name<T>` 提供默认名称，也可以直接通过 `meta::type<T>("name")`
+用户类型可以通过特化 `traits::type_name<T>` 提供默认名称，也可以直接通过 `meta::type<T>("name")`
 显式注册。模板注册入口会把 C++ 类型和注册后的 `meta::type_view` 绑定起来，后续可以用 C++ 类型查询：
+
+`caors::type_name<T>` 仍作为兼容读取别名保留；新代码应在 `caors::traits` 命名空间中提供特化。
 
 ```cpp
 caors::meta::type<actor>("game.actor");
@@ -173,7 +177,7 @@ caors::meta::type<actor>("game.actor")
 这部分数据不放在 `reflection::field_data` 上重复保存。字段只记录声明类型的 `type_id`，需要查询字段形态、
 value 类型、关联容器 key 类型、二元组 first 类型或 tuple-like 字段形态时，通过该 `type_id` 到 `meta::registry` 查询 `meta::type_semantics_data`。
 `meta::type_semantics_data` 由 `meta::registry::register_type_for<T>()` 在基础类型注册时自动挂载；反射字段
-注册只负责确保字段声明类型已经注册。没有默认 `type_name<T>` 且尚未显式注册的关联类型不会被匿名创建。
+注册只负责确保字段声明类型已经注册。没有默认 `traits::type_name<T>` 且尚未显式注册的关联类型不会被匿名创建。
 
 ### meta::registry
 
@@ -309,11 +313,11 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 - `string_name`：运行期 interned 名称，定义在 `caors/core/string_name.h`。
 - `meta::id_of<T>()`：查询已注册 C++ 类型的运行期类型 id；未注册时返回无效 id。
 - `meta::id()`：根据已注册类型名查询运行期类型标识。
-- `type_name<T>`：基础 C++ 类型到 CAORS 类型名的默认映射。
+- `traits::type_name<T>`：基础 C++ 类型到 CAORS 类型名的默认映射。
 - `meta::type_data` / `meta::make_type_data<T>()`：底层类型注册描述。
 - `meta::type_semantics_data`：类型形态、wrapper、指针和容器语义组件。
-- `wrapper_traits<T>` / `wrapper_access<T>`：wrapper 类型语义和内部值访问扩展点。
-- `adapters::sequence_traits<T>` / `adapters::set_traits<T>` / `adapters::associative_traits<T>` / `adapters::pair_traits<T>` / `adapters::tuple_traits<T>` / `adapters::variant_traits<T>`：容器、二元组、tuple-like 和 variant-like 类型语义扩展点。
+- `traits::wrapper_traits<T>` / `traits::wrapper_access<T>`：wrapper 类型语义和内部值访问扩展点。
+- `traits::sequence_traits<T>` / `traits::set_traits<T>` / `traits::associative_traits<T>` / `traits::pair_traits<T>` / `traits::tuple_traits<T>` / `traits::variant_traits<T>`：容器、二元组、tuple-like 和 variant-like 类型语义扩展点。
 - `meta::type_view`：全局注册表中的类型只读视图。
 - `meta::type<T>()`：RTTR 风格的链式元类型注册入口；默认不注册类型，需要继续调用 `.type("name")`。
 - `meta::type<T>("name")`：推荐的显式命名注册入口。

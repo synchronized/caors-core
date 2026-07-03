@@ -5,8 +5,8 @@
 #define CAORS_REFLECTION_FIELD_H_
 
 #include "caors/meta.h"
-#include "caors/adapters/container_traits.h"
 #include "caors/object/wrapper_traits.h"
+#include "caors/traits/container.h"
 #include "caors/value/any.h"
 
 #include <cstddef>
@@ -229,17 +229,17 @@ template <typename Field>
       !std::is_const_v<Field>,
   };
 
-  if constexpr (adapters::sequence_traits<field_type>::is_sequence) {
+  if constexpr (traits::sequence_traits<field_type>::is_sequence) {
     (void)meta::detail::register_container_data_for<field_type>(field.type);
-  } else if constexpr (adapters::set_traits<field_type>::is_set) {
+  } else if constexpr (traits::set_traits<field_type>::is_set) {
     (void)meta::detail::register_container_data_for<field_type>(field.type);
-  } else if constexpr (adapters::associative_traits<field_type>::is_associative) {
+  } else if constexpr (traits::associative_traits<field_type>::is_associative) {
     (void)meta::detail::register_container_data_for<field_type>(field.type);
-  } else if constexpr (adapters::pair_traits<field_type>::is_pair) {
+  } else if constexpr (traits::pair_traits<field_type>::is_pair) {
     (void)meta::detail::register_container_data_for<field_type>(field.type);
-  } else if constexpr (adapters::tuple_traits<field_type>::is_tuple) {
+  } else if constexpr (traits::tuple_traits<field_type>::is_tuple) {
     (void)meta::detail::register_container_data_for<field_type>(field.type);
-  } else if constexpr (adapters::variant_traits<field_type>::is_variant) {
+  } else if constexpr (traits::variant_traits<field_type>::is_variant) {
     (void)meta::detail::register_container_data_for<field_type>(field.type);
   }
 

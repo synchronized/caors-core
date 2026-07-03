@@ -474,7 +474,7 @@ public:
 
 } // namespace
 
-namespace caors {
+namespace caors::traits {
 
 template <> struct type_name<unsupported_field_value> {
   static constexpr std::string_view value = "caors.test.serialization.unsupported_value";
@@ -484,9 +484,9 @@ template <> struct type_name<nested_stats> {
   static constexpr std::string_view value = "caors.test.serialization.nested_stats";
 };
 
-} // namespace caors
+} // namespace caors::traits
 
-namespace caors::adapters {
+namespace caors::traits {
 
 template <typename T> struct sequence_traits<custom_codec_sequence<T>> {
   static constexpr bool is_sequence = true;
@@ -550,7 +550,7 @@ template <typename K, typename V> struct associative_traits<custom_codec_map<K, 
   }
 };
 
-} // namespace caors::adapters
+} // namespace caors::traits
 
 namespace caors::serialization {
 

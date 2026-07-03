@@ -50,9 +50,9 @@ struct missing_get_type {};
 }
 
 TEST_CASE("meta type - built-in C++ types have default names", "[meta]") {
-  CHECK(caors::type_name<int>::value == "int");
-  CHECK(caors::type_name<float>::value == "float");
-  CHECK(caors::type_name<bool>::value == "bool");
+  CHECK(caors::traits::type_name<int>::value == "int");
+  CHECK(caors::traits::type_name<float>::value == "float");
+  CHECK(caors::traits::type_name<bool>::value == "bool");
 }
 
 TEST_CASE("meta type - type id is allocated by explicit registration", "[meta]") {

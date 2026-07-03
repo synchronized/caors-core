@@ -5,7 +5,7 @@
 #define CAORS_ADAPTERS_STL_TRAITS_H_
 
 #include "caors/core/containers.h"
-#include "caors/adapters/container_traits.h"
+#include "caors/traits/container.h"
 
 #include <array>
 #include <deque>
@@ -24,7 +24,7 @@
 #include <variant>
 #include <vector>
 
-namespace caors::adapters {
+namespace caors::traits {
 
 /** @brief `std::vector` / `caors::vector` 的顺序容器反射适配。 */
 template <typename T, typename Allocator> struct sequence_traits<std::vector<T, Allocator>> {
@@ -577,6 +577,6 @@ template <typename... Types> struct variant_traits<std::variant<Types...>> {
   }
 };
 
-} // namespace caors::adapters
+} // namespace caors::traits
 
 #endif

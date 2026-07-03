@@ -4,37 +4,16 @@
 #ifndef CAORS_ADAPTERS_CONTAINER_TRAITS_H_
 #define CAORS_ADAPTERS_CONTAINER_TRAITS_H_
 
+#include "caors/traits/container.h"
+
 namespace caors::adapters {
 
-/** @brief 顺序容器类型语义 traits。 */
-template <typename T> struct sequence_traits {
-  static constexpr bool is_sequence = false;
-};
-
-/** @brief 集合容器类型语义 traits。 */
-template <typename T> struct set_traits {
-  static constexpr bool is_set = false;
-};
-
-/** @brief 关联容器类型语义 traits。 */
-template <typename T> struct associative_traits {
-  static constexpr bool is_associative = false;
-};
-
-/** @brief 二元组类型语义 traits。 */
-template <typename T> struct pair_traits {
-  static constexpr bool is_pair = false;
-};
-
-/** @brief tuple-like 类型语义 traits。 */
-template <typename T> struct tuple_traits {
-  static constexpr bool is_tuple = false;
-};
-
-/** @brief variant-like 类型语义 traits。 */
-template <typename T> struct variant_traits {
-  static constexpr bool is_variant = false;
-};
+template <typename T> using sequence_traits = traits::sequence_traits<T>;
+template <typename T> using set_traits = traits::set_traits<T>;
+template <typename T> using associative_traits = traits::associative_traits<T>;
+template <typename T> using pair_traits = traits::pair_traits<T>;
+template <typename T> using tuple_traits = traits::tuple_traits<T>;
+template <typename T> using variant_traits = traits::variant_traits<T>;
 
 } // namespace caors::adapters
 

@@ -61,12 +61,13 @@
 - `caors/serialization/codec.h`：类型级 codec 扩展点和 codec 注册表。
 - `caors/serialization/dom_reader.h`：从 `variant` DOM 读入的 reader 后端。
 - `caors/serialization/operations.h`：`serialize()`、`deserialize()`、`to_serialization_value()`、`serialize_text()` 等调度入口。
-- `caors/serialization/vector_codec.h`：基于 `adapters::sequence_traits<T>` 的通用数组 codec，以及顺序容器默认适配。
-- `caors/serialization/set_codec.h`：基于 `adapters::set_traits<T>` 的通用集合 codec，以及集合容器默认适配。
-- `caors/serialization/map_codec.h`：基于 `adapters::associative_traits<T>` 的通用字典 codec，以及关联容器默认适配。
+- `caors/serialization/vector_codec.h`：基于 `traits::sequence_traits<T>` 的通用数组 codec，以及顺序容器默认适配。
+- `caors/serialization/set_codec.h`：基于 `traits::set_traits<T>` 的通用集合 codec，以及集合容器默认适配。
+- `caors/serialization/map_codec.h`：基于 `traits::associative_traits<T>` 的通用字典 codec，以及关联容器默认适配。
 - `caors/serialization/stl_codecs.h`：STL/CAORS 容器 codec 聚合入口。
 - `caors/serialization.h`：兼容用聚合头，包含以上所有入口。
-- `caors/adapters/stl.h`：STL/CAORS 容器反射 traits 和序列化 codec 的一站式适配入口。
+- `caors/traits/*.h`：类型名、wrapper 和容器类扩展点主模板。
+- `caors/adapters/stl.h`：STL/CAORS 容器、wrapper、反射 traits 和序列化 codec 的一站式适配入口。
 
 实现文件按 registry、codec、text writer、JSON writer/parser、DOM/value、writer 接口、DOM
 写出、对象序列化、对象反序列化、中间值构造和文本便捷入口拆分在
@@ -233,20 +234,20 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `objects::ref<T>
 - `std::forward_list<T>`：通过 `serialization::sequence_codec<T>` 输出为数组；反射随机访问需要线性遍历。
 - `std::deque<T>`：通过 `serialization::sequence_codec<T>` 输出为数组。
 - `std::array<T, N>`：通过 `serialization::sequence_codec<T>` 输出为数组；读入长度必须等于 `N`。
-- `std::span<T>` / `std::span<T, N>`：通过 `adapters::sequence_traits<T>` 输出为数组；它是借用视图，默认不支持反序列化读回。
+- `std::span<T>` / `std::span<T, N>`：通过 `traits::sequence_traits<T>` 输出为数组；它是借用视图，默认不支持反序列化读回。
 - `caors::hash_set<T>` / `std::unordered_set<T>` / `std::set<T>`：通过 `serialization::set_codec<T>`
   输出为数组，读入时拒绝重复元素。
 - `caors::hash_map<K, V>` / `std::unordered_map<K, V>` / `std::map<K, V>`：通过
   `serialization::associative_codec<T>` 输出为字典 pair 数组。
-- `std::variant<Ts...>`：通过 `adapters::variant_traits<T>` 输出为 tagged union 数组 `[index, value]`。
+- `std::variant<Ts...>`：通过 `traits::variant_traits<T>` 输出为 tagged union 数组 `[index, value]`。
 
 `caors/serialization/stl_codecs.h` 聚合了当前内置容器 codec。`caors/serialization.h` 会继续包含它，
 因此既有代码不需要额外 include；如果只想显式引入 STL/CAORS 容器适配，也可以包含
 `caors/adapters/stl.h`。
 
 反射字段中的容器、pair、tuple 和 variant 不要求显式调用 `serialization::register_codec<T>()`；只要字段类型通过
-`adapters::sequence_traits<T>`、`adapters::set_traits<T>`、`adapters::associative_traits<T>`、`adapters::pair_traits<T>`、`adapters::tuple_traits<T>` 或
-`adapters::variant_traits<T>` 注册了 meta 访问数据，序列化层就能按元素、key、first、候选下标和 value 递归处理。`serialization::sequence_codec<T>`、
+`traits::sequence_traits<T>`、`traits::set_traits<T>`、`traits::associative_traits<T>`、`traits::pair_traits<T>`、`traits::tuple_traits<T>` 或
+`traits::variant_traits<T>` 注册了 meta 访问数据，序列化层就能按元素、key、first、候选下标和 value 递归处理。`serialization::sequence_codec<T>`、
 `serialization::set_codec<T>` 和 `serialization::associative_codec<T>`
 仍保留给显式 codec 注册、独立值转换和外部复用。自定义容器通常只需要特化 traits；如果还需要作为 codec
 单独注册，可以让自己的 `serialization::codec<T>` 继承通用 codec：

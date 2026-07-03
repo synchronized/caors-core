@@ -5,7 +5,7 @@
 #define CAORS_VALUE_ANY_H_
 
 #include "caors/meta.h"
-#include "caors/adapters/container_traits.h"
+#include "caors/traits/container.h"
 
 #include <cstddef>
 #include <iterator>
@@ -71,13 +71,15 @@ public:
   /**
    * @brief 从 C++ 值创建运行期值。
    *
-   * 类型必须已经注册到全局 meta 注册表。没有 `type_name<T>` 默认映射的类型需要使用显式类型名重载。
+   * 类型必须已经注册到全局 meta 注册表。没有 `traits::type_name<T>`
+   * 默认映射的类型需要使用显式类型名重载。
    */
   template <typename T> [[nodiscard]] static any from(const T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    static_assert(detail::has_type_name_v<type>,
-                  "any::from<T>() requires a registered type_name<T> or an explicit type name");
-    return from(source, caors::type_name<type>::value);
+    static_assert(
+        detail::has_type_name_v<type>,
+        "any::from<T>() requires a registered traits::type_name<T> or an explicit type name");
+    return from(source, caors::traits::type_name<type>::value);
   }
 
   /** @brief 从 C++ 值和显式类型名创建运行期值；类型名必须已经注册并匹配该 C++ 类型。 */
@@ -286,9 +288,10 @@ public:
   /** @brief 从可写 C++ 对象创建引用。 */
   template <typename T> [[nodiscard]] static any_ref from(T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    static_assert(detail::has_type_name_v<type>,
-                  "any_ref::from<T>() requires a registered type_name<T> or an explicit type name");
-    return from(source, caors::type_name<type>::value);
+    static_assert(
+        detail::has_type_name_v<type>,
+        "any_ref::from<T>() requires a registered traits::type_name<T> or an explicit type name");
+    return from(source, caors::traits::type_name<type>::value);
   }
 
   /** @brief 从可写 C++ 对象和显式类型名创建引用；类型名必须已经注册并匹配该 C++ 类型。 */
@@ -305,10 +308,9 @@ public:
   /** @brief 从只读 C++ 对象创建引用。 */
   template <typename T> [[nodiscard]] static any_ref from_const(const T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    static_assert(
-        detail::has_type_name_v<type>,
-        "any_ref::from_const<T>() requires a registered type_name<T> or an explicit type name");
-    return from_const(source, caors::type_name<type>::value);
+    static_assert(detail::has_type_name_v<type>, "any_ref::from_const<T>() requires a registered "
+                                                 "traits::type_name<T> or an explicit type name");
+    return from_const(source, caors::traits::type_name<type>::value);
   }
 
   /** @brief 从只读 C++ 对象和显式类型名创建引用；类型名必须已经注册并匹配该 C++ 类型。 */

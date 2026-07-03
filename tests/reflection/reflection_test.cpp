@@ -48,7 +48,7 @@ struct failing_end_set {};
 
 } // namespace test_reflection
 
-namespace caors {
+namespace caors::traits {
 
 template <typename T> struct wrapper_traits<test_reflection::custom_inline_wrapper<T>> {
   static constexpr bool is_wrapper = true;
@@ -68,9 +68,9 @@ template <> struct type_name<test_reflection::named_field_value> {
   static constexpr std::string_view value = "caors.test.reflection.named_field_value";
 };
 
-} // namespace caors
+} // namespace caors::traits
 
-namespace caors::adapters {
+namespace caors::traits {
 
 template <typename T> struct sequence_traits<test_reflection::custom_sequence<T>> {
   static constexpr bool is_sequence = true;
@@ -117,7 +117,7 @@ template <typename T> struct sequence_traits<test_reflection::custom_sequence<T>
   }
 };
 
-} // namespace caors::adapters
+} // namespace caors::traits
 
 namespace {
 

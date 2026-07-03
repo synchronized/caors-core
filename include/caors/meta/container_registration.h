@@ -95,9 +95,9 @@ template <typename Iterator>
 
 template <typename T> [[nodiscard]] error register_associative_data_for(type_id id) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (adapters::associative_traits<type>::is_associative) {
-    using key_type = typename adapters::associative_traits<type>::key_type;
-    using mapped_type = typename adapters::associative_traits<type>::mapped_type;
+  if constexpr (traits::associative_traits<type>::is_associative) {
+    using key_type = typename traits::associative_traits<type>::key_type;
+    using mapped_type = typename traits::associative_traits<type>::mapped_type;
 
     const type_id key = semantic_type_id<key_type>();
     const type_id value = semantic_type_id<mapped_type>();
@@ -113,7 +113,7 @@ template <typename T> [[nodiscard]] error register_associative_data_for(type_id 
             return 0;
           }
 
-          return adapters::associative_traits<type>::size(*static_cast<const type*>(storage));
+          return traits::associative_traits<type>::size(*static_cast<const type*>(storage));
         },
         [](const void* storage, meta_associative_raw_visitor visitor, void* user_data) -> bool {
           if (storage == nullptr || visitor == nullptr) {
@@ -121,7 +121,7 @@ template <typename T> [[nodiscard]] error register_associative_data_for(type_id 
           }
 
           bool keep_going = true;
-          adapters::associative_traits<type>::for_each(
+          traits::associative_traits<type>::for_each(
               *static_cast<const type*>(storage),
               [&](const key_type& key, const mapped_type& mapped) {
                 if (!keep_going) {
@@ -135,7 +135,7 @@ template <typename T> [[nodiscard]] error register_associative_data_for(type_id 
         },
         [](void* storage) noexcept {
           if (storage != nullptr) {
-            adapters::associative_traits<type>::clear(*static_cast<type*>(storage));
+            traits::associative_traits<type>::clear(*static_cast<type*>(storage));
           }
         },
         [](void* storage, const void* key, const void* mapped) -> bool {
@@ -143,9 +143,9 @@ template <typename T> [[nodiscard]] error register_associative_data_for(type_id 
             return false;
           }
 
-          return adapters::associative_traits<type>::insert(
-              *static_cast<type*>(storage), *static_cast<const key_type*>(key),
-              *static_cast<const mapped_type*>(mapped));
+          return traits::associative_traits<type>::insert(*static_cast<type*>(storage),
+                                                          *static_cast<const key_type*>(key),
+                                                          *static_cast<const mapped_type*>(mapped));
         },
     };
 
@@ -172,9 +172,9 @@ template <typename T> [[nodiscard]] error register_associative_data_for(type_id 
 
 template <typename T> [[nodiscard]] error register_pair_data_for(type_id id) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (adapters::pair_traits<type>::is_pair) {
-    using first_type = typename adapters::pair_traits<type>::first_type;
-    using second_type = typename adapters::pair_traits<type>::second_type;
+  if constexpr (traits::pair_traits<type>::is_pair) {
+    using first_type = typename traits::pair_traits<type>::first_type;
+    using second_type = typename traits::pair_traits<type>::second_type;
 
     const type_id key = semantic_type_id<first_type>();
     const type_id value = semantic_type_id<second_type>();
@@ -190,28 +190,28 @@ template <typename T> [[nodiscard]] error register_pair_data_for(type_id id) {
             return nullptr;
           }
 
-          return adapters::pair_traits<type>::first(*static_cast<const type*>(storage));
+          return traits::pair_traits<type>::first(*static_cast<const type*>(storage));
         },
         [](void* storage) noexcept -> void* {
           if (storage == nullptr) {
             return nullptr;
           }
 
-          return adapters::pair_traits<type>::mutable_first(*static_cast<type*>(storage));
+          return traits::pair_traits<type>::mutable_first(*static_cast<type*>(storage));
         },
         [](const void* storage) noexcept -> const void* {
           if (storage == nullptr) {
             return nullptr;
           }
 
-          return adapters::pair_traits<type>::second(*static_cast<const type*>(storage));
+          return traits::pair_traits<type>::second(*static_cast<const type*>(storage));
         },
         [](void* storage) noexcept -> void* {
           if (storage == nullptr) {
             return nullptr;
           }
 
-          return adapters::pair_traits<type>::mutable_second(*static_cast<type*>(storage));
+          return traits::pair_traits<type>::mutable_second(*static_cast<type*>(storage));
         },
     };
 
@@ -227,7 +227,7 @@ template <typename T> [[nodiscard]] error register_pair_data_for(type_id id) {
 template <typename Tuple, std::size_t Index>
 [[nodiscard]] meta_tuple_element_data make_tuple_element_data() {
   using type = std::remove_cv_t<std::remove_reference_t<Tuple>>;
-  using element_type = typename adapters::tuple_traits<type>::template element_type<Index>;
+  using element_type = typename traits::tuple_traits<type>::template element_type<Index>;
 
   return meta_tuple_element_data{
       semantic_type_id<element_type>(),
@@ -236,7 +236,7 @@ template <typename Tuple, std::size_t Index>
           return nullptr;
         }
 
-        return adapters::tuple_traits<type>::template element<Index>(
+        return traits::tuple_traits<type>::template element<Index>(
             *static_cast<const type*>(storage));
       },
       [](void* storage) noexcept -> void* {
@@ -244,7 +244,7 @@ template <typename Tuple, std::size_t Index>
           return nullptr;
         }
 
-        return adapters::tuple_traits<type>::template mutable_element<Index>(
+        return traits::tuple_traits<type>::template mutable_element<Index>(
             *static_cast<type*>(storage));
       },
   };
@@ -260,13 +260,13 @@ template <typename Tuple, std::size_t... Indices>
 
 template <typename T> [[nodiscard]] error register_tuple_data_for(type_id id) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (adapters::tuple_traits<type>::is_tuple) {
+  if constexpr (traits::tuple_traits<type>::is_tuple) {
     if (!id) {
       return {};
     }
 
     meta_tuple_data data =
-        make_tuple_data<type>(std::make_index_sequence<adapters::tuple_traits<type>::size>{});
+        make_tuple_data<type>(std::make_index_sequence<traits::tuple_traits<type>::size>{});
     if (!data.valid()) {
       return {};
     }
@@ -283,8 +283,7 @@ template <typename T> [[nodiscard]] error register_tuple_data_for(type_id id) {
 template <typename Variant, std::size_t Index>
 [[nodiscard]] meta_variant_alternative_data make_variant_alternative_data() {
   using type = std::remove_cv_t<std::remove_reference_t<Variant>>;
-  using alternative_type =
-      typename adapters::variant_traits<type>::template alternative_type<Index>;
+  using alternative_type = typename traits::variant_traits<type>::template alternative_type<Index>;
 
   return meta_variant_alternative_data{
       semantic_type_id<alternative_type>(),
@@ -293,7 +292,7 @@ template <typename Variant, std::size_t Index>
           return nullptr;
         }
 
-        return adapters::variant_traits<type>::template alternative<Index>(
+        return traits::variant_traits<type>::template alternative<Index>(
             *static_cast<const type*>(storage));
       },
       [](void* storage) noexcept -> void* {
@@ -301,7 +300,7 @@ template <typename Variant, std::size_t Index>
           return nullptr;
         }
 
-        return adapters::variant_traits<type>::template mutable_alternative<Index>(
+        return traits::variant_traits<type>::template mutable_alternative<Index>(
             *static_cast<type*>(storage));
       },
       [](void* storage) -> bool {
@@ -309,8 +308,7 @@ template <typename Variant, std::size_t Index>
           return false;
         }
 
-        return adapters::variant_traits<type>::template emplace<Index>(
-            *static_cast<type*>(storage));
+        return traits::variant_traits<type>::template emplace<Index>(*static_cast<type*>(storage));
       },
   };
 }
@@ -327,20 +325,20 @@ template <typename Variant, std::size_t... Indices>
       return static_cast<std::size_t>(-1);
     }
 
-    return adapters::variant_traits<type>::index(*static_cast<const type*>(storage));
+    return traits::variant_traits<type>::index(*static_cast<const type*>(storage));
   };
   return data;
 }
 
 template <typename T> [[nodiscard]] error register_variant_data_for(type_id id) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (adapters::variant_traits<type>::is_variant) {
+  if constexpr (traits::variant_traits<type>::is_variant) {
     if (!id) {
       return {};
     }
 
     meta_variant_data data =
-        make_variant_data<type>(std::make_index_sequence<adapters::variant_traits<type>::size>{});
+        make_variant_data<type>(std::make_index_sequence<traits::variant_traits<type>::size>{});
     if (!data.valid()) {
       return {};
     }
@@ -356,8 +354,8 @@ template <typename T> [[nodiscard]] error register_variant_data_for(type_id id) 
 
 template <typename T> [[nodiscard]] error register_sequence_data_for(type_id id) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (adapters::sequence_traits<type>::is_sequence) {
-    using element_type = typename adapters::sequence_traits<type>::element_type;
+  if constexpr (traits::sequence_traits<type>::is_sequence) {
+    using element_type = typename traits::sequence_traits<type>::element_type;
 
     const type_id value = semantic_type_id<element_type>();
     if (!id || !value) {
@@ -371,27 +369,26 @@ template <typename T> [[nodiscard]] error register_sequence_data_for(type_id id)
             return 0;
           }
 
-          return adapters::sequence_traits<type>::size(*static_cast<const type*>(storage));
+          return traits::sequence_traits<type>::size(*static_cast<const type*>(storage));
         },
         [](const void* storage, std::size_t index) noexcept -> const void* {
           if (storage == nullptr) {
             return nullptr;
           }
 
-          return adapters::sequence_traits<type>::element(*static_cast<const type*>(storage),
-                                                          index);
+          return traits::sequence_traits<type>::element(*static_cast<const type*>(storage), index);
         },
         [](void* storage, std::size_t index) noexcept -> void* {
           if (storage == nullptr) {
             return nullptr;
           }
 
-          return adapters::sequence_traits<type>::mutable_element(*static_cast<type*>(storage),
-                                                                  index);
+          return traits::sequence_traits<type>::mutable_element(*static_cast<type*>(storage),
+                                                                index);
         },
         [](void* storage) noexcept {
           if (storage != nullptr) {
-            adapters::sequence_traits<type>::clear(*static_cast<type*>(storage));
+            traits::sequence_traits<type>::clear(*static_cast<type*>(storage));
           }
         },
         [](void* storage, std::size_t size) -> bool {
@@ -399,24 +396,24 @@ template <typename T> [[nodiscard]] error register_sequence_data_for(type_id id)
             return false;
           }
 
-          return adapters::sequence_traits<type>::resize(*static_cast<type*>(storage), size);
+          return traits::sequence_traits<type>::resize(*static_cast<type*>(storage), size);
         },
         [](void* storage, const void* element) -> bool {
           if (storage == nullptr || element == nullptr) {
             return false;
           }
 
-          return adapters::sequence_traits<type>::append(
-              *static_cast<type*>(storage), *static_cast<const element_type*>(element));
+          return traits::sequence_traits<type>::append(*static_cast<type*>(storage),
+                                                       *static_cast<const element_type*>(element));
         },
     };
 
-    if constexpr (requires { adapters::sequence_traits<type>::read_in_place; }) {
-      data.read_in_place = adapters::sequence_traits<type>::read_in_place;
+    if constexpr (requires { traits::sequence_traits<type>::read_in_place; }) {
+      data.read_in_place = traits::sequence_traits<type>::read_in_place;
     }
 
-    if constexpr (requires { adapters::sequence_traits<type>::can_read; }) {
-      data.can_read = adapters::sequence_traits<type>::can_read;
+    if constexpr (requires { traits::sequence_traits<type>::can_read; }) {
+      data.can_read = traits::sequence_traits<type>::can_read;
     }
 
     const error result = caors::meta::get_registry().emplace<meta_sequence_data>(id, data);
@@ -430,8 +427,8 @@ template <typename T> [[nodiscard]] error register_sequence_data_for(type_id id)
 
 template <typename T> [[nodiscard]] error register_set_data_for(type_id id) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (adapters::set_traits<type>::is_set) {
-    using element_type = typename adapters::set_traits<type>::element_type;
+  if constexpr (traits::set_traits<type>::is_set) {
+    using element_type = typename traits::set_traits<type>::element_type;
 
     const type_id value = semantic_type_id<element_type>();
     if (!id || !value) {
@@ -445,7 +442,7 @@ template <typename T> [[nodiscard]] error register_set_data_for(type_id id) {
             return 0;
           }
 
-          return adapters::set_traits<type>::size(*static_cast<const type*>(storage));
+          return traits::set_traits<type>::size(*static_cast<const type*>(storage));
         },
         [](const void* storage, meta_set_raw_visitor visitor, void* user_data) -> bool {
           if (storage == nullptr || visitor == nullptr) {
@@ -453,20 +450,20 @@ template <typename T> [[nodiscard]] error register_set_data_for(type_id id) {
           }
 
           bool keep_going = true;
-          adapters::set_traits<type>::for_each(*static_cast<const type*>(storage),
-                                               [&](const element_type& value) {
-                                                 if (!keep_going) {
-                                                   return;
-                                                 }
+          traits::set_traits<type>::for_each(*static_cast<const type*>(storage),
+                                             [&](const element_type& value) {
+                                               if (!keep_going) {
+                                                 return;
+                                               }
 
-                                                 keep_going = visitor(&value, user_data);
-                                               });
+                                               keep_going = visitor(&value, user_data);
+                                             });
 
           return keep_going;
         },
         [](void* storage) noexcept {
           if (storage != nullptr) {
-            adapters::set_traits<type>::clear(*static_cast<type*>(storage));
+            traits::set_traits<type>::clear(*static_cast<type*>(storage));
           }
         },
         [](void* storage, const void* element) -> bool {
@@ -474,8 +471,8 @@ template <typename T> [[nodiscard]] error register_set_data_for(type_id id) {
             return false;
           }
 
-          return adapters::set_traits<type>::insert(*static_cast<type*>(storage),
-                                                    *static_cast<const element_type*>(element));
+          return traits::set_traits<type>::insert(*static_cast<type*>(storage),
+                                                  *static_cast<const element_type*>(element));
         },
     };
 
@@ -501,17 +498,17 @@ template <typename T> [[nodiscard]] error register_set_data_for(type_id id) {
 
 template <typename T> [[nodiscard]] error register_container_data_for(type_id id) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (adapters::sequence_traits<type>::is_sequence) {
+  if constexpr (traits::sequence_traits<type>::is_sequence) {
     return register_sequence_data_for<type>(id);
-  } else if constexpr (adapters::set_traits<type>::is_set) {
+  } else if constexpr (traits::set_traits<type>::is_set) {
     return register_set_data_for<type>(id);
-  } else if constexpr (adapters::associative_traits<type>::is_associative) {
+  } else if constexpr (traits::associative_traits<type>::is_associative) {
     return register_associative_data_for<type>(id);
-  } else if constexpr (adapters::pair_traits<type>::is_pair) {
+  } else if constexpr (traits::pair_traits<type>::is_pair) {
     return register_pair_data_for<type>(id);
-  } else if constexpr (adapters::tuple_traits<type>::is_tuple) {
+  } else if constexpr (traits::tuple_traits<type>::is_tuple) {
     return register_tuple_data_for<type>(id);
-  } else if constexpr (adapters::variant_traits<type>::is_variant) {
+  } else if constexpr (traits::variant_traits<type>::is_variant) {
     return register_variant_data_for<type>(id);
   }
 

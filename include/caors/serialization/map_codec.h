@@ -13,27 +13,27 @@
 
 namespace caors::serialization {
 
-/** @brief 基于 `adapters::associative_traits<T>` 的通用关联容器序列化 codec。 */
+/** @brief 基于 `traits::associative_traits<T>` 的通用关联容器序列化 codec。 */
 template <typename Associative> struct associative_codec {
-  using traits = adapters::associative_traits<Associative>;
-  using key_type = typename traits::key_type;
-  using mapped_type = typename traits::mapped_type;
+  using container_traits = traits::associative_traits<Associative>;
+  using key_type = typename container_traits::key_type;
+  using mapped_type = typename container_traits::mapped_type;
 
-  static constexpr bool can_write = traits::is_associative;
+  static constexpr bool can_write = container_traits::is_associative;
   static constexpr bool can_read =
-      traits::is_associative && std::is_default_constructible_v<Associative> &&
+      container_traits::is_associative && std::is_default_constructible_v<Associative> &&
       std::is_default_constructible_v<key_type> && std::is_default_constructible_v<mapped_type>;
-  static constexpr bool can_make_value = traits::is_associative;
+  static constexpr bool can_make_value = container_traits::is_associative;
 
   [[nodiscard]] static error write(serialization_writer& writer, const Associative& values) {
-    error status = writer.begin_dictionary(traits::size(values));
+    error status = writer.begin_dictionary(container_traits::size(values));
     if (status) {
       return status;
     }
 
     std::size_t index = 0;
     error visitor_status{};
-    traits::for_each(values, [&](const key_type& key, const mapped_type& value) {
+    container_traits::for_each(values, [&](const key_type& key, const mapped_type& value) {
       if (visitor_status) {
         return;
       }
@@ -149,7 +149,7 @@ template <typename Associative> struct associative_codec {
         return status;
       }
 
-      if (!traits::insert(decoded, std::move(key), std::move(value))) {
+      if (!container_traits::insert(decoded, std::move(key), std::move(value))) {
         return {error_domain::serialization, errc::already_exists};
       }
     }
@@ -165,10 +165,10 @@ template <typename Associative> struct associative_codec {
 
   [[nodiscard]] static variant_result make_value(const Associative& values) {
     variant::dictionary_type entries;
-    entries.reserve(traits::size(values));
+    entries.reserve(container_traits::size(values));
     variant_result visitor_result{};
 
-    traits::for_each(values, [&](const key_type& key, const mapped_type& value) {
+    container_traits::for_each(values, [&](const key_type& key, const mapped_type& value) {
       if (visitor_result.failed()) {
         return;
       }

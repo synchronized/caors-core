@@ -9,7 +9,7 @@
 
 #include <type_traits>
 
-namespace caors {
+namespace caors::traits {
 
 /** @brief `objects::ref<T>` 的 wrapper 类型语义适配。 */
 template <typename T> struct wrapper_traits<objects::ref<T>> {
@@ -60,6 +60,6 @@ template <typename T> struct wrapper_access<objects::ref<T>> {
   }
 };
 
-} // namespace caors
+} // namespace caors::traits
 
 #endif

@@ -140,7 +140,7 @@ template <typename T> [[nodiscard]] error register_serialization_codec() {
   }
 
   if constexpr (caors::detail::has_type_name_v<type>) {
-    const error result = caors::meta::detail::register_type<type>(type_name<type>::value);
+    const error result = caors::meta::detail::register_type<type>(traits::type_name<type>::value);
     if (result && result.value() != errc::duplicate_id) {
       return {error_domain::serialization, errc::invalid_type};
     }

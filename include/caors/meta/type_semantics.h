@@ -9,7 +9,8 @@
 namespace caors::meta::detail {
 
 template <typename T>
-inline constexpr bool is_supported_wrapper_v = wrapper_traits<std::remove_cv_t<T>>::is_wrapper;
+inline constexpr bool is_supported_wrapper_v =
+    traits::wrapper_traits<std::remove_cv_t<T>>::is_wrapper;
 
 template <typename T>
 inline constexpr bool is_nested_type_indirection_v =
@@ -56,7 +57,7 @@ template <typename Wrapper>
     return nullptr;
   }
 
-  return wrapper_access<Wrapper>::value(*static_cast<const Wrapper*>(storage));
+  return traits::wrapper_access<Wrapper>::value(*static_cast<const Wrapper*>(storage));
 }
 
 template <typename Wrapper>
@@ -65,7 +66,7 @@ template <typename Wrapper>
     return nullptr;
   }
 
-  return wrapper_access<Wrapper>::mutable_value(*static_cast<Wrapper*>(storage));
+  return traits::wrapper_access<Wrapper>::mutable_value(*static_cast<Wrapper*>(storage));
 }
 
 template <typename Wrapper>
@@ -74,7 +75,7 @@ template <typename Wrapper>
     return false;
   }
 
-  return wrapper_access<Wrapper>::has_value(*static_cast<const Wrapper*>(storage));
+  return traits::wrapper_access<Wrapper>::has_value(*static_cast<const Wrapper*>(storage));
 }
 
 template <typename Wrapper> bool wrapper_reset_indirect_value(void* storage) noexcept {
@@ -82,7 +83,7 @@ template <typename Wrapper> bool wrapper_reset_indirect_value(void* storage) noe
     return false;
   }
 
-  return wrapper_access<Wrapper>::reset(*static_cast<Wrapper*>(storage));
+  return traits::wrapper_access<Wrapper>::reset(*static_cast<Wrapper*>(storage));
 }
 
 template <typename Wrapper> bool wrapper_ensure_indirect_value(void* storage) {
@@ -90,8 +91,10 @@ template <typename Wrapper> bool wrapper_ensure_indirect_value(void* storage) {
     return false;
   }
 
-  if constexpr (requires(Wrapper& source) { wrapper_access<Wrapper>::ensure_value(source); }) {
-    return wrapper_access<Wrapper>::ensure_value(*static_cast<Wrapper*>(storage));
+  if constexpr (requires(Wrapper& source) {
+                  traits::wrapper_access<Wrapper>::ensure_value(source);
+                }) {
+    return traits::wrapper_access<Wrapper>::ensure_value(*static_cast<Wrapper*>(storage));
   } else {
     return false;
   }
@@ -151,12 +154,12 @@ template <typename Wrapper>
   }
 
   if constexpr (requires(const Wrapper& source) {
-                  wrapper_access<Wrapper>::object_value(source);
+                  traits::wrapper_access<Wrapper>::object_value(source);
                 }) {
     using result_type =
-        decltype(wrapper_access<Wrapper>::object_value(std::declval<const Wrapper&>()));
+        decltype(traits::wrapper_access<Wrapper>::object_value(std::declval<const Wrapper&>()));
     if constexpr (std::is_convertible_v<result_type, object*>) {
-      return wrapper_access<Wrapper>::object_value(*static_cast<const Wrapper*>(storage));
+      return traits::wrapper_access<Wrapper>::object_value(*static_cast<const Wrapper*>(storage));
     } else {
       return nullptr;
     }
@@ -172,12 +175,12 @@ template <typename Wrapper>
   }
 
   if constexpr (requires(Wrapper& source, object* object_instance) {
-                  wrapper_access<Wrapper>::set_object(source, object_instance);
+                  traits::wrapper_access<Wrapper>::set_object(source, object_instance);
                 }) {
-    using result_type = decltype(wrapper_access<Wrapper>::set_object(std::declval<Wrapper&>(),
-                                                                     std::declval<object*>()));
+    using result_type = decltype(traits::wrapper_access<Wrapper>::set_object(
+        std::declval<Wrapper&>(), std::declval<object*>()));
     if constexpr (std::is_convertible_v<result_type, bool>) {
-      return wrapper_access<Wrapper>::set_object(*static_cast<Wrapper*>(storage), instance);
+      return traits::wrapper_access<Wrapper>::set_object(*static_cast<Wrapper*>(storage), instance);
     } else {
       return false;
     }
@@ -190,7 +193,7 @@ template <typename T> [[nodiscard]] type_id semantic_type_id() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (caors::detail::has_type_name_v<type>) {
     const error result = caors::meta::get_registry().register_type_for<type>(
-        caors::meta::make_type_data<type>(type_name<type>::value));
+        caors::meta::make_type_data<type>(traits::type_name<type>::value));
     if (result && result.value() != errc::duplicate_id) {
       return type_id::invalid();
     }
@@ -205,60 +208,60 @@ template <typename Type> struct type_semantics_traits {
 
   [[nodiscard]] static type_semantics_data get() {
     type_semantics_data info{};
-    if constexpr (adapters::sequence_traits<type>::is_sequence) {
-      using element_type = typename adapters::sequence_traits<type>::element_type;
+    if constexpr (traits::sequence_traits<type>::is_sequence) {
+      using element_type = typename traits::sequence_traits<type>::element_type;
 
       info.kind = type_kind::sequence;
       info.value_type = semantic_type_id<element_type>();
       return info;
-    } else if constexpr (adapters::set_traits<type>::is_set) {
-      using element_type = typename adapters::set_traits<type>::element_type;
+    } else if constexpr (traits::set_traits<type>::is_set) {
+      using element_type = typename traits::set_traits<type>::element_type;
 
       info.kind = type_kind::set;
       info.value_type = semantic_type_id<element_type>();
       return info;
-    } else if constexpr (adapters::associative_traits<type>::is_associative) {
-      using key_type = typename adapters::associative_traits<type>::key_type;
-      using mapped_type = typename adapters::associative_traits<type>::mapped_type;
+    } else if constexpr (traits::associative_traits<type>::is_associative) {
+      using key_type = typename traits::associative_traits<type>::key_type;
+      using mapped_type = typename traits::associative_traits<type>::mapped_type;
 
       info.kind = type_kind::associative;
       info.key_type = semantic_type_id<key_type>();
       info.value_type = semantic_type_id<mapped_type>();
       return info;
-    } else if constexpr (adapters::pair_traits<type>::is_pair) {
-      using first_type = typename adapters::pair_traits<type>::first_type;
-      using second_type = typename adapters::pair_traits<type>::second_type;
+    } else if constexpr (traits::pair_traits<type>::is_pair) {
+      using first_type = typename traits::pair_traits<type>::first_type;
+      using second_type = typename traits::pair_traits<type>::second_type;
 
       info.kind = type_kind::pair;
       info.key_type = semantic_type_id<first_type>();
       info.value_type = semantic_type_id<second_type>();
       return info;
-    } else if constexpr (adapters::tuple_traits<type>::is_tuple) {
+    } else if constexpr (traits::tuple_traits<type>::is_tuple) {
       info.kind = type_kind::tuple;
       return info;
-    } else if constexpr (adapters::variant_traits<type>::is_variant) {
+    } else if constexpr (traits::variant_traits<type>::is_variant) {
       info.kind = type_kind::variant;
       return info;
-    } else if constexpr (wrapper_traits<type>::is_wrapper) {
-      using wrapped_type = typename wrapper_traits<type>::wrapped_type;
+    } else if constexpr (traits::wrapper_traits<type>::is_wrapper) {
+      using wrapped_type = typename traits::wrapper_traits<type>::wrapped_type;
       using value_type = std::remove_cv_t<wrapped_type>;
 
       static_assert(!is_nested_type_indirection_v<value_type>,
                     "CAORS meta supports at most one pointer or wrapper level");
 
       info.kind = type_kind::wrapper;
-      info.wrapper_semantics = wrapper_traits<type>::semantics;
+      info.wrapper_semantics = traits::wrapper_traits<type>::semantics;
       info.value_type = semantic_type_id<value_type>();
       info.indirect_value = &wrapper_indirect_value<type>;
       info.mutable_indirect_value = &wrapper_mutable_indirect_value<type>;
       info.has_indirect_value = &wrapper_has_indirect_value<type>;
       info.reset_indirect_value = &wrapper_reset_indirect_value<type>;
       info.ensure_indirect_value = &wrapper_ensure_indirect_value<type>;
-      if constexpr (wrapper_traits<type>::semantics == wrapper_semantics::object_ref) {
+      if constexpr (traits::wrapper_traits<type>::semantics == wrapper_semantics::object_ref) {
         info.get_object_ref = &wrapper_object_ref_value<type>;
         info.set_object_ref = &wrapper_set_object_ref<type>;
       }
-      info.nullable = wrapper_traits<type>::nullable;
+      info.nullable = traits::wrapper_traits<type>::nullable;
       return info;
     } else {
       if constexpr (std::is_enum_v<type>) {

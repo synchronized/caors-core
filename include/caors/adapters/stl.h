@@ -5,6 +5,7 @@
 #define CAORS_ADAPTERS_STL_H_
 
 #include "caors/adapters/stl_traits.h"
+#include "caors/adapters/stl_wrapper.h"
 #include "caors/serialization/stl_codecs.h"
 
 #endif
