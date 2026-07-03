@@ -331,7 +331,8 @@ error write_field(writer& writer, const reflection::field& field, const void* ob
   }
 
   if (uses_indirect_value) {
-    status = write_indirect_serialized_value(writer, field.create_indirect_view(object), context);
+    status = write_indirect_serialized_value(writer, field.get_ref(object).create_indirect_view(),
+                                             context);
   } else {
     status = write_serialized_value(writer, field_value, context);
   }
@@ -386,7 +387,8 @@ error read_field(reader& reader, const reflection::field& field, void* object,
   }
 
   if (uses_indirect_value) {
-    status = read_indirect_serialized_value(reader, field.create_indirect_view(object), context);
+    status = read_indirect_serialized_value(reader, field.get_ref(object).create_indirect_view(),
+                                            context);
     if (status) {
       return status;
     }

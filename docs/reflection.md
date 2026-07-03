@@ -134,7 +134,7 @@ struct wrapper_access<my_box<T>> {
 ```
 
 `traits::wrapper_access<T>` 是可选扩展点。只需要识别 wrapper 形态时可以只特化 `traits::wrapper_traits<T>`；如果希望
-`any_ref::create_indirect_view()` 或 `reflection::field::create_indirect_view()` 能访问内部值，则需要同时特化
+`any_ref::create_indirect_view()` 能访问内部值，则需要同时特化
 `traits::wrapper_access<T>`。内置适配支持裸指针、`std::unique_ptr<T>`、`std::shared_ptr<T>`、
 `std::optional<T>`、`std::reference_wrapper<T>` 和 `caors::objects::ref<T>` 的内部值访问；`std::weak_ptr<T>`
 只提供 unsupported wrapper 语义，当前没有默认内部值访问，避免返回可能悬空的引用。
@@ -447,7 +447,6 @@ field.try_set<float>(&instance, 75.0F);
 - `try_get<T>()` / `try_set<T>()`：按静态类型读写字段。
 - `get_value()` / `try_set_value()`：按运行期 `any` 读写字段。
 - `get_ref(const void*)` / `get_ref(void*)`：按运行期 `any_ref` 引用字段，权限由对象指针的 constness 决定。
-- `create_indirect_view(const void*)` / `create_indirect_view(void*)`：创建指针或 wrapper 字段的内部值视图。
 - `is_sequence()`：判断字段是否是顺序容器字段。
 - `is_set()`：判断字段是否是集合容器字段。
 - `is_associative()`：判断字段是否是关联容器字段。

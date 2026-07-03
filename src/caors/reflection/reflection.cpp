@@ -239,14 +239,6 @@ any_ref field::get_ref(void* object) const {
   return field->get_ref(object);
 }
 
-value::indirect_view field::create_indirect_view(const void* object) const {
-  return get_ref(object).create_indirect_view();
-}
-
-value::indirect_view field::create_indirect_view(void* object) const {
-  return get_ref(object).create_indirect_view();
-}
-
 bool field::try_set_value(void* object, const any& source) const {
   const detail::field_data* field = info();
   if (field == nullptr) {

@@ -51,7 +51,7 @@ value_ref_to_serialization_value(const any_ref& value, const serialization::cont
 
   any_ref field_ref{};
   if (field_uses_inline_indirect_value(field)) {
-    const value::indirect_view indirect = field.create_indirect_view(object);
+    const value::indirect_view indirect = field.get_ref(object).create_indirect_view();
     if (!indirect.valid()) {
       return {{error_domain::serialization, errc::unsupported}, {}};
     }
