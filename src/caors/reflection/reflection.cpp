@@ -3,7 +3,7 @@
 
 #include "caors/reflection.h"
 
-namespace caors {
+namespace caors::reflection {
 namespace {
 
 [[nodiscard]] bool same_type_data(meta::type_view lhs, const meta::type_data& rhs) noexcept {
@@ -11,7 +11,7 @@ namespace {
          lhs.alignment() == rhs.alignment() && lhs.parent_id() == rhs.parent_id();
 }
 
-[[nodiscard]] bool resolve_field_type(meta::registry& meta, reflection::field_data& field) {
+[[nodiscard]] bool resolve_field_type(meta::registry& meta, field_data& field) {
   if (!field.valid()) {
     return false;
   }
@@ -23,8 +23,8 @@ namespace {
   return false;
 }
 
-[[nodiscard]] error resolve_fields(meta::registry& meta, reflection::type_data& reflection) {
-  for (reflection::field_data& field : reflection.fields) {
+[[nodiscard]] error resolve_fields(meta::registry& meta, type_data& reflection) {
+  for (field_data& field : reflection.fields) {
     if (!resolve_field_type(meta, field)) {
       return {error_domain::reflection, errc::invalid_field};
     }
@@ -33,11 +33,11 @@ namespace {
   return {};
 }
 
-[[nodiscard]] error validate_registered_fields(const reflection::type_data& reflection) {
+[[nodiscard]] error validate_registered_fields(const type_data& reflection) {
   core::hash_set<core::string_name> names;
   names.reserve(reflection.fields.size());
 
-  for (const reflection::field_data& field : reflection.fields) {
+  for (const field_data& field : reflection.fields) {
     if (!field.valid() || !field.type) {
       return {error_domain::reflection, errc::invalid_field};
     }
@@ -50,7 +50,7 @@ namespace {
   return {};
 }
 
-[[nodiscard]] std::optional<meta::type_view> field_meta(const reflection::field_data* field) {
+[[nodiscard]] std::optional<meta::type_view> field_meta(const field_data* field) {
   if (field == nullptr || !field->type) {
     return std::nullopt;
   }
@@ -59,7 +59,7 @@ namespace {
 }
 
 [[nodiscard]] const meta::type_semantics_data*
-field_type_semantics(const reflection::field_data* field) noexcept {
+field_type_semantics(const field_data* field) noexcept {
   if (field == nullptr || !field->type) {
     return nullptr;
   }
@@ -74,8 +74,8 @@ field_type_semantics(const reflection::field_data* field) noexcept {
 
 } // namespace
 
-bool reflection::type_data::valid() const noexcept {
-  for (const reflection::field_data& field : fields) {
+bool type_data::valid() const noexcept {
+  for (const field_data& field : fields) {
     if (!field.valid()) {
       return false;
     }
@@ -84,13 +84,12 @@ bool reflection::type_data::valid() const noexcept {
   return true;
 }
 
-std::optional<reflection::field_data>
-reflection::type_data::find_field(core::string_name name) const {
+std::optional<field_data> type_data::find_field(core::string_name name) const {
   if (!name) {
     return std::nullopt;
   }
 
-  for (const reflection::field_data& field : fields) {
+  for (const field_data& field : fields) {
     if (field.name == name) {
       return field;
     }
@@ -99,8 +98,7 @@ reflection::type_data::find_field(core::string_name name) const {
   return std::nullopt;
 }
 
-std::optional<reflection::field_data>
-reflection::type_data::find_field(std::string_view name) const {
+std::optional<field_data> type_data::find_field(std::string_view name) const {
   const std::optional<core::string_name> interned_name = core::string_name::find(name);
   if (!interned_name.has_value()) {
     return std::nullopt;
@@ -109,113 +107,103 @@ reflection::type_data::find_field(std::string_view name) const {
   return find_field(*interned_name);
 }
 
-reflection::field::field(meta::type_view owner, const reflection::field_data* field) noexcept
+field::field(meta::type_view owner, const field_data* field) noexcept
     : owner_(owner), field_(field) {}
 
-bool reflection::field::valid() const noexcept {
+bool field::valid() const noexcept {
   return owner_.valid() && field_ != nullptr && field_->valid();
 }
 
-core::string_name reflection::field::name() const noexcept {
-  const reflection::field_data* field = info();
+core::string_name field::name() const noexcept {
+  const field_data* field = info();
   return field != nullptr ? field->name : core::string_name{};
 }
 
-type_id reflection::field::type() const noexcept {
-  const reflection::field_data* field = info();
+type_id field::type() const noexcept {
+  const field_data* field = info();
   return field != nullptr ? field->type : type_id{};
 }
 
-core::string_name reflection::field::type_name() const noexcept {
+core::string_name field::type_name() const noexcept {
   const std::optional<meta::type_view> meta = field_meta(info());
   return meta.has_value() ? meta->name() : core::string_name{};
 }
 
-type_id reflection::field::value_type() const noexcept {
+type_id field::value_type() const noexcept {
   const meta::type_semantics_data* traits = field_type_semantics(info());
   return traits != nullptr ? traits->value_type : type_id{};
 }
 
-type_id reflection::field::element_type() const noexcept {
+type_id field::element_type() const noexcept {
   const meta::type_semantics_data* traits = field_type_semantics(info());
   return traits != nullptr ? traits->value_type : type_id{};
 }
 
-core::string_name reflection::field::element_type_name() const noexcept {
-  return type_name_of(element_type());
-}
+core::string_name field::element_type_name() const noexcept { return type_name_of(element_type()); }
 
-type_id reflection::field::key_type() const noexcept {
+type_id field::key_type() const noexcept {
   const meta::type_semantics_data* traits = field_type_semantics(info());
   return traits != nullptr ? traits->key_type : type_id{};
 }
 
-core::string_name reflection::field::key_type_name() const noexcept {
-  return type_name_of(key_type());
-}
+core::string_name field::key_type_name() const noexcept { return type_name_of(key_type()); }
 
-type_id reflection::field::first_type() const noexcept { return key_type(); }
+type_id field::first_type() const noexcept { return key_type(); }
 
-core::string_name reflection::field::first_type_name() const noexcept {
-  return type_name_of(first_type());
-}
+core::string_name field::first_type_name() const noexcept { return type_name_of(first_type()); }
 
-type_id reflection::field::mapped_type() const noexcept {
+type_id field::mapped_type() const noexcept {
   const meta::type_semantics_data* traits = field_type_semantics(info());
   return traits != nullptr ? traits->value_type : type_id{};
 }
 
-core::string_name reflection::field::mapped_type_name() const noexcept {
-  return type_name_of(mapped_type());
-}
+core::string_name field::mapped_type_name() const noexcept { return type_name_of(mapped_type()); }
 
-type_id reflection::field::second_type() const noexcept { return value_type(); }
+type_id field::second_type() const noexcept { return value_type(); }
 
-core::string_name reflection::field::second_type_name() const noexcept {
-  return type_name_of(second_type());
-}
+core::string_name field::second_type_name() const noexcept { return type_name_of(second_type()); }
 
-meta::type_kind reflection::field::kind() const noexcept {
+meta::type_kind field::kind() const noexcept {
   const meta::type_semantics_data* traits = field_type_semantics(info());
   return traits != nullptr ? traits->kind : meta::type_kind::value;
 }
 
-meta::wrapper_semantics reflection::field::wrapper_semantics() const noexcept {
+meta::wrapper_semantics field::wrapper_semantics() const noexcept {
   const meta::type_semantics_data* traits = field_type_semantics(info());
   return traits != nullptr ? traits->wrapper_semantics : meta::wrapper_semantics::none;
 }
 
-std::uint8_t reflection::field::pointer_depth() const noexcept {
+std::uint8_t field::pointer_depth() const noexcept {
   const meta::type_semantics_data* traits = field_type_semantics(info());
   return traits != nullptr ? traits->pointer_depth : 0;
 }
 
-bool reflection::field::nullable() const noexcept {
+bool field::nullable() const noexcept {
   const meta::type_semantics_data* traits = field_type_semantics(info());
   return traits != nullptr && traits->nullable;
 }
 
-bool reflection::field::writable() const noexcept {
-  const reflection::field_data* field = info();
+bool field::writable() const noexcept {
+  const field_data* field = info();
   return field != nullptr && field->writable;
 }
 
-std::size_t reflection::field::offset() const noexcept {
-  const reflection::field_data* field = info();
+std::size_t field::offset() const noexcept {
+  const field_data* field = info();
   return field != nullptr ? field->offset : 0;
 }
 
-std::size_t reflection::field::size() const noexcept {
+std::size_t field::size() const noexcept {
   const std::optional<meta::type_view> meta = field_meta(info());
   return meta.has_value() ? meta->size() : 0;
 }
 
-std::size_t reflection::field::alignment() const noexcept {
+std::size_t field::alignment() const noexcept {
   const std::optional<meta::type_view> meta = field_meta(info());
   return meta.has_value() ? meta->alignment() : 0;
 }
 
-const reflection::field_data* reflection::field::info() const noexcept {
+const field_data* field::info() const noexcept {
   if (!valid()) {
     return nullptr;
   }
@@ -223,8 +211,8 @@ const reflection::field_data* reflection::field::info() const noexcept {
   return field_;
 }
 
-any reflection::field::get_value(const void* object) const {
-  const reflection::field_data* field = info();
+any field::get_value(const void* object) const {
+  const field_data* field = info();
   if (field == nullptr) {
     return {};
   }
@@ -232,8 +220,8 @@ any reflection::field::get_value(const void* object) const {
   return field->get_value(object);
 }
 
-any_ref reflection::field::get_ref(const void* object) const {
-  const reflection::field_data* field = info();
+any_ref field::get_ref(const void* object) const {
+  const field_data* field = info();
   if (field == nullptr) {
     return {};
   }
@@ -241,8 +229,8 @@ any_ref reflection::field::get_ref(const void* object) const {
   return field->get_ref(object);
 }
 
-any_ref reflection::field::get_ref(void* object) const {
-  const reflection::field_data* field = info();
+any_ref field::get_ref(void* object) const {
+  const field_data* field = info();
   if (field == nullptr) {
     return {};
   }
@@ -250,16 +238,16 @@ any_ref reflection::field::get_ref(void* object) const {
   return field->get_ref(object);
 }
 
-indirect_view reflection::field::create_indirect_view(const void* object) const {
+indirect_view field::create_indirect_view(const void* object) const {
   return get_ref(object).create_indirect_view();
 }
 
-indirect_view reflection::field::create_indirect_view(void* object) const {
+indirect_view field::create_indirect_view(void* object) const {
   return get_ref(object).create_indirect_view();
 }
 
-bool reflection::field::try_set_value(void* object, const any& source) const {
-  const reflection::field_data* field = info();
+bool field::try_set_value(void* object, const any& source) const {
+  const field_data* field = info();
   if (field == nullptr) {
     return false;
   }
@@ -267,8 +255,8 @@ bool reflection::field::try_set_value(void* object, const any& source) const {
   return field->try_set_value(object, source);
 }
 
-object* reflection::field::get_object_ref(const void* object) const {
-  const reflection::field_data* field = info();
+object* field::get_object_ref(const void* object) const {
+  const field_data* field = info();
   if (field == nullptr || field->get_object_ref == nullptr) {
     return nullptr;
   }
@@ -276,8 +264,8 @@ object* reflection::field::get_object_ref(const void* object) const {
   return field->get_object_ref(field->data(object));
 }
 
-bool reflection::field::try_set_object_ref(void* object, caors::object* instance) const {
-  const reflection::field_data* field = info();
+bool field::try_set_object_ref(void* object, caors::object* instance) const {
+  const field_data* field = info();
   if (field == nullptr || field->set_object_ref == nullptr) {
     return false;
   }
@@ -285,53 +273,46 @@ bool reflection::field::try_set_object_ref(void* object, caors::object* instance
   return field->set_object_ref(field->mutable_data(object), instance);
 }
 
-bool reflection::field::is_sequence() const noexcept { return kind() == meta::type_kind::sequence; }
+bool field::is_sequence() const noexcept { return kind() == meta::type_kind::sequence; }
 
-bool reflection::field::is_set() const noexcept { return kind() == meta::type_kind::set; }
+bool field::is_set() const noexcept { return kind() == meta::type_kind::set; }
 
-bool reflection::field::is_associative() const noexcept {
-  return kind() == meta::type_kind::associative;
-}
+bool field::is_associative() const noexcept { return kind() == meta::type_kind::associative; }
 
-bool reflection::field::is_pair() const noexcept { return kind() == meta::type_kind::pair; }
+bool field::is_pair() const noexcept { return kind() == meta::type_kind::pair; }
 
-bool reflection::field::is_tuple() const noexcept { return kind() == meta::type_kind::tuple; }
+bool field::is_tuple() const noexcept { return kind() == meta::type_kind::tuple; }
 
-bool reflection::field::is_variant() const noexcept { return kind() == meta::type_kind::variant; }
+bool field::is_variant() const noexcept { return kind() == meta::type_kind::variant; }
 
-reflection::type::type(meta::type_view type, const reflection::type_data* data) noexcept
-    : type_(type), data_(data) {}
+type::type(meta::type_view type, const type_data* data) noexcept : type_(type), data_(data) {}
 
-bool reflection::type::valid() const noexcept {
-  return type_.valid() && data_ != nullptr && data_->valid();
-}
+bool type::valid() const noexcept { return type_.valid() && data_ != nullptr && data_->valid(); }
 
-meta::type_view reflection::type::info() const noexcept {
-  return valid() ? type_ : meta::type_view{};
-}
+meta::type_view type::info() const noexcept { return valid() ? type_ : meta::type_view{}; }
 
-type_id reflection::type::id() const noexcept { return type_.id(); }
+type_id type::id() const noexcept { return type_.id(); }
 
-core::string_name reflection::type::name() const noexcept { return type_.name(); }
+core::string_name type::name() const noexcept { return type_.name(); }
 
-core::type_guid reflection::type::guid() const noexcept { return type_.guid(); }
+core::type_guid type::guid() const noexcept { return type_.guid(); }
 
-std::size_t reflection::type::field_count() const noexcept {
-  const reflection::type_data* reflected = data();
+std::size_t type::field_count() const noexcept {
+  const type_data* reflected = data();
   return reflected != nullptr ? reflected->fields.size() : 0;
 }
 
-std::optional<reflection::field> reflection::type::field_at(std::size_t index) const {
-  const reflection::type_data* reflected = data();
+std::optional<field> type::field_at(std::size_t index) const {
+  const type_data* reflected = data();
   if (reflected == nullptr || index >= reflected->fields.size()) {
     return std::nullopt;
   }
 
-  return reflection::field{type_, &reflected->fields[index]};
+  return field{type_, &reflected->fields[index]};
 }
 
-std::optional<reflection::field> reflection::type::find_field(core::string_name name) const {
-  const reflection::type_data* reflected = data();
+std::optional<field> type::find_field(core::string_name name) const {
+  const type_data* reflected = data();
   if (reflected == nullptr || !name) {
     return std::nullopt;
   }
@@ -345,7 +326,7 @@ std::optional<reflection::field> reflection::type::find_field(core::string_name 
   return std::nullopt;
 }
 
-std::optional<reflection::field> reflection::type::find_field(std::string_view name) const {
+std::optional<field> type::find_field(std::string_view name) const {
   const std::optional<core::string_name> interned_name = core::string_name::find(name);
   if (!interned_name.has_value()) {
     return std::nullopt;
@@ -354,7 +335,7 @@ std::optional<reflection::field> reflection::type::find_field(std::string_view n
   return find_field(*interned_name);
 }
 
-const reflection::type_data* reflection::type::data() const noexcept {
+const type_data* type::data() const noexcept {
   if (!valid()) {
     return nullptr;
   }
@@ -362,21 +343,20 @@ const reflection::type_data* reflection::type::data() const noexcept {
   return data_;
 }
 
-reflection::registry::registry() = default;
+registry::registry() = default;
 
-reflection::registry::~registry() = default;
+registry::~registry() = default;
 
-reflection::registry& reflection::registry::instance() noexcept {
-  static reflection::registry registry;
+registry& registry::instance() noexcept {
+  static registry registry;
   return registry;
 }
 
-error reflection::registry::register_type(const meta::type_data& type,
-                                          const reflection::type_data& reflection) {
+error registry::register_type(const meta::type_data& type, const type_data& reflection) {
   return register_type(nullptr, type, reflection);
 }
 
-error reflection::registry::register_type(type_id id, const reflection::type_data& reflection) {
+error registry::register_type(type_id id, const type_data& reflection) {
   if (!id) {
     return {error_domain::reflection, errc::invalid_type};
   }
@@ -390,7 +370,7 @@ error reflection::registry::register_type(type_id id, const reflection::type_dat
     return {error_domain::reflection, errc::invalid_field};
   }
 
-  reflection::type_data stored_reflection = reflection;
+  type_data stored_reflection = reflection;
 
   const error field_status = resolve_fields(meta::get_registry(), stored_reflection);
   if (field_status) {
@@ -402,13 +382,12 @@ error reflection::registry::register_type(type_id id, const reflection::type_dat
     return validation_status;
   }
 
-  return rethrow_as(meta::get_registry().emplace<reflection::type_data>(id, stored_reflection),
+  return rethrow_as(meta::get_registry().emplace<type_data>(id, stored_reflection),
                     error_domain::reflection, errc::duplicate_component,
                     errc::duplicate_reflection);
 }
 
-error reflection::registry::register_type(meta::type_view type,
-                                          const reflection::type_data& reflection) {
+error registry::register_type(meta::type_view type, const type_data& reflection) {
   if (!type.valid()) {
     return {error_domain::reflection, errc::invalid_type};
   }
@@ -416,9 +395,8 @@ error reflection::registry::register_type(meta::type_view type,
   return register_type(type.id(), reflection);
 }
 
-error reflection::registry::register_type(caors::detail::cpp_type_key key,
-                                          const meta::type_data& type,
-                                          const reflection::type_data& reflection) {
+error registry::register_type(caors::detail::cpp_type_key key, const meta::type_data& type,
+                              const type_data& reflection) {
   if (!type.valid()) {
     return {error_domain::reflection, errc::invalid_type};
   }
@@ -457,7 +435,7 @@ error reflection::registry::register_type(caors::detail::cpp_type_key key,
     return {error_domain::reflection, errc::invalid_type};
   }
 
-  reflection::type_data stored_reflection = reflection;
+  type_data stored_reflection = reflection;
 
   const error field_status = resolve_fields(meta::get_registry(), stored_reflection);
   if (field_status) {
@@ -469,39 +447,37 @@ error reflection::registry::register_type(caors::detail::cpp_type_key key,
     return validation_status;
   }
 
-  return rethrow_as(
-      meta::get_registry().emplace<reflection::type_data>(stored_meta->id(), stored_reflection),
-      error_domain::reflection, errc::duplicate_component, errc::duplicate_reflection);
+  return rethrow_as(meta::get_registry().emplace<type_data>(stored_meta->id(), stored_reflection),
+                    error_domain::reflection, errc::duplicate_component,
+                    errc::duplicate_reflection);
 }
 
-bool reflection::registry::contains(type_id id) const {
-  return meta::get_registry().has<reflection::type_data>(id);
-}
+bool registry::contains(type_id id) const { return meta::get_registry().has<type_data>(id); }
 
-const reflection::type_data* reflection::registry::find_reflection_data(type_id id) const {
-  return meta::get_registry().find_ptr<reflection::type_data>(id);
+const type_data* registry::find_reflection_data(type_id id) const {
+  return meta::get_registry().find_ptr<type_data>(id);
 }
 
 std::optional<meta::type_view>
-reflection::registry::find_registered_type(caors::detail::cpp_type_key key) const {
+registry::find_registered_type(caors::detail::cpp_type_key key) const {
   return meta::get_registry().find_cpp_type(key);
 }
 
-std::optional<reflection::type> reflection::registry::find_type(type_id id) const {
-  const std::optional<meta::type_view> type = meta::get_registry().find_type(id);
-  if (!type.has_value()) {
+std::optional<type> registry::find_type(type_id id) const {
+  const std::optional<meta::type_view> meta_type = meta::get_registry().find_type(id);
+  if (!meta_type.has_value()) {
     return std::nullopt;
   }
 
-  const reflection::type_data* reflection = find_reflection_data(id);
+  const type_data* reflection = find_reflection_data(id);
   if (reflection == nullptr) {
     return std::nullopt;
   }
 
-  return reflection::type{*type, reflection};
+  return type{*meta_type, reflection};
 }
 
-std::optional<reflection::type> reflection::registry::find_type(core::type_guid guid) const {
+std::optional<type> registry::find_type(core::type_guid guid) const {
   const std::optional<meta::type_view> type = meta::get_registry().find_type(guid);
   if (!type.has_value()) {
     return std::nullopt;
@@ -510,7 +486,7 @@ std::optional<reflection::type> reflection::registry::find_type(core::type_guid 
   return find_type(type->id());
 }
 
-std::optional<reflection::type> reflection::registry::find_type(std::string_view name) const {
+std::optional<type> registry::find_type(std::string_view name) const {
   const std::optional<meta::type_view> type = meta::get_registry().find_type(name);
   if (!type.has_value()) {
     return std::nullopt;
@@ -519,7 +495,7 @@ std::optional<reflection::type> reflection::registry::find_type(std::string_view
   return find_type(type->id());
 }
 
-std::optional<reflection::type> reflection::registry::find_type(core::string_name name) const {
+std::optional<type> registry::find_type(core::string_name name) const {
   const std::optional<meta::type_view> type = meta::get_registry().find_type(name);
   if (!type.has_value()) {
     return std::nullopt;
@@ -528,44 +504,30 @@ std::optional<reflection::type> reflection::registry::find_type(core::string_nam
   return find_type(type->id());
 }
 
-std::size_t reflection::registry::size() const noexcept {
-  return meta::get_registry().count<reflection::type_data>();
+std::size_t registry::size() const noexcept { return meta::get_registry().count<type_data>(); }
+
+registry& get_registry() noexcept { return registry::instance(); }
+
+namespace detail {
+
+error register_reflection(type_id id, type_data data) {
+  return get_registry().register_type(id, data);
 }
 
-reflection::registry& reflection::get_registry() noexcept {
-  return reflection::registry::instance();
+error register_reflection(meta::type_view type, type_data data) {
+  return get_registry().register_type(type, data);
 }
 
-namespace reflection::detail {
+} // namespace detail
 
-error register_reflection(type_id id, reflection::type_data data) {
-  return reflection::get_registry().register_type(id, data);
-}
+std::optional<type> find(type_id id) { return get_registry().find_type(id); }
 
-error register_reflection(meta::type_view type, reflection::type_data data) {
-  return reflection::get_registry().register_type(type, data);
-}
+std::optional<type> find(core::type_guid guid) { return get_registry().find_type(guid); }
 
-} // namespace reflection::detail
+std::optional<type> find(std::string_view name) { return get_registry().find_type(name); }
 
-namespace reflection {
+bool contains(type_id id) { return get_registry().contains(id); }
 
-std::optional<reflection::type> find(type_id id) {
-  return reflection::get_registry().find_type(id);
-}
+std::size_t size() noexcept { return get_registry().size(); }
 
-std::optional<reflection::type> find(core::type_guid guid) {
-  return reflection::get_registry().find_type(guid);
-}
-
-std::optional<reflection::type> find(std::string_view name) {
-  return reflection::get_registry().find_type(name);
-}
-
-bool contains(type_id id) { return reflection::get_registry().contains(id); }
-
-std::size_t size() noexcept { return reflection::get_registry().size(); }
-
-} // namespace reflection
-
-} // namespace caors
+} // namespace caors::reflection

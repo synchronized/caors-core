@@ -5,8 +5,8 @@
 #define CAORS_REFLECTION_FIELD_H_
 
 #include "caors/meta.h"
-#include "caors/object/wrapper_traits.h"
 #include "caors/traits/container.h"
+#include "caors/traits/object_ref.h"
 #include "caors/value/any.h"
 
 #include <cstddef>

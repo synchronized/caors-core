@@ -13,9 +13,7 @@
 #include <string_view>
 #include <type_traits>
 
-namespace caors {
-
-namespace reflection {
+namespace caors::reflection {
 
 class field;
 class registry;
@@ -186,8 +184,6 @@ private:
   const type_data* data_ = nullptr;
 };
 
-} // namespace reflection
-
-} // namespace caors
+} // namespace caors::reflection
 
 #endif

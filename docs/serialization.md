@@ -69,9 +69,9 @@
 - `caors/adapters/stl.h`：STL/CAORS 容器、wrapper 和反射 traits 的适配聚合入口；不包含序列化 codec。
 
 实现文件按 registry、codec、text writer、JSON writer/parser、DOM/value、writer 接口、DOM
-写出、对象序列化、对象反序列化、中间值构造和文本便捷入口拆分在
-`src/caors/serialization/`。共享的字段校验、schema version
-过滤和标量读写 helper 保留在私有 `src/caors/serialization/serialization_internal.*`。
+写出、对象序列化、对象反序列化、字段读写、容器读写、中间值构造和文本便捷入口拆分在
+`src/caors/serialization/`。共享的字段校验、schema version 过滤和内部调度声明保留在私有
+`src/caors/serialization/serialization_internal*.h`。
 
 ### serialization::type_data
 

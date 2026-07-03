@@ -8,10 +8,11 @@ CAORS 自身类型的具体适配放在 `adapters` 或对应主题模块中。
 
 ## 头文件边界
 
-- `caors/traits.h`：聚合所有 traits 主模板。
+- `caors/traits.h`：聚合 traits 主模板和 CAORS 自身对象引用适配。
 - `caors/traits/type_name.h`：C++ 类型到 CAORS 类型名的默认映射。
 - `caors/traits/wrapper.h`：wrapper 类型语义和内部值访问扩展点。
 - `caors/traits/container.h`：顺序容器、集合、关联容器、pair、tuple 和 variant 语义扩展点。
+- `caors/traits/object_ref.h`：`objects::ref<T>` 的 wrapper 语义适配。
 - `caors/adapters/stl.h`：标准库类型 traits 和 wrapper 适配聚合入口。
 - `caors/adapters/stl_traits.h`：标准库容器、pair、tuple 和 variant 的 traits 特化。
 - `caors/adapters/stl_wrapper.h`：标准库智能指针、`std::optional` 和

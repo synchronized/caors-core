@@ -661,10 +661,11 @@ auto reflected = caors::reflection::find("game.actor");
   - `builder.h`：RTTR 风格链式注册入口。
 - `include/caors/reflection.h` 是 umbrella 头，继续提供完整反射 API。
 - `include/caors/traits/*.h` 提供 `type_name`、wrapper、容器、pair、tuple 和 variant 类型语义扩展点主模板。
-- `include/caors/object/wrapper_traits.h` 提供 `objects::ref<T>` 的 wrapper 语义适配。
+- `include/caors/traits/object_ref.h` 提供 `objects::ref<T>` 的 wrapper 语义适配。
 - `include/caors/adapters/stl_traits.h` 和 `include/caors/adapters/stl_wrapper.h` 提供 `std::vector`、`std::deque`、`std::list`、`std::forward_list`、`std::array`、`std::span`、
   `std::pair`、`std::tuple`、`std::variant`、`std::set`、`std::unordered_set`、`std::map`、`std::unordered_map` 以及 CAORS 容器别名的默认 traits 特化。
 - `include/caors/adapters/stl.h` 是 STL/CAORS 容器、wrapper 和反射 traits 适配的聚合入口，不包含序列化 codec。
-- `include/caors/value.h` 是 value 模块 umbrella 头，提供 `any` 和 `caors::variant` DOM 值。
+- `include/caors/value.h` 是 value 模块 umbrella 头，提供 `any`、各类运行期 view 和
+  `caors::variant` DOM 值；具体 view 头位于 `include/caors/value/`。
 - 可运行示例位于 `examples/reflection/`，示例组织规则见 [examples/README.md](../examples/README.md)。
 - 行为测试位于 `tests/reflection/`，测试组织规则见 [tests/README.md](../tests/README.md)。
