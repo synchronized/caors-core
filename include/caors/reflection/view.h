@@ -88,10 +88,10 @@ public:
   [[nodiscard]] any_ref get_ref(void* object) const;
 
   /** @brief 获取指针或 wrapper 字段内部值的只读视图。 */
-  [[nodiscard]] indirect_view create_indirect_view(const void* object) const;
+  [[nodiscard]] value::indirect_view create_indirect_view(const void* object) const;
 
   /** @brief 获取指针或 wrapper 字段内部值的可写视图。 */
-  [[nodiscard]] indirect_view create_indirect_view(void* object) const;
+  [[nodiscard]] value::indirect_view create_indirect_view(void* object) const;
 
   /** @brief 从运行期值写入字段。 */
   bool try_set_value(void* object, const any& source) const;

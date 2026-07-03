@@ -574,19 +574,19 @@ field->try_set<float>(&instance, 75.0F);
 再调用对应的 `create_*_view()`；普通 `any` / `any_ref` 也可以直接创建视图：
 
 ```cpp
-caors::sequence_view field_sequence =
+caors::value::sequence_view field_sequence =
     field->get_ref(&instance).create_sequence_view();
-caors::associative_view field_map =
+caors::value::associative_view field_map =
     field->get_ref(&instance).create_associative_view();
 
 caors::meta::type<caors::hash_map<int, int>>("caors.hash_map<int,int>");
 
 caors::hash_map<int, int> values;
 caors::any_ref ref = caors::any_ref::from(values, "caors.hash_map<int,int>");
-caors::associative_view map = ref.create_associative_view();
+caors::value::associative_view map = ref.create_associative_view();
 map.insert_value(caors::any::from(1), caors::any::from(2));
 
-for (caors::associative_entry_ref entry : map) {
+for (caors::value::associative_entry_ref entry : map) {
   caors::any_ref key = entry.key();
   caors::any_ref value = entry.value();
 }

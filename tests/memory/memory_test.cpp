@@ -77,7 +77,7 @@ TEST_CASE("memory - invalid alignment is rejected", "[memory]") {
 
 TEST_CASE("memory - try allocate reports backend failure", "[memory]") {
   callback_memory_state state;
-  caors::callback_memory_resource resource(&test_failed_allocate, &test_deallocate, &state);
+  caors::memory::callback_memory_resource resource(&test_failed_allocate, &test_deallocate, &state);
 
   CHECK(resource.try_allocate(48, 32) == nullptr);
   CHECK(state.allocate_count == 1);
@@ -92,7 +92,7 @@ TEST_CASE("memory - try allocate reports backend failure", "[memory]") {
 
 TEST_CASE("memory - callback backend uses callbacks", "[memory]") {
   callback_memory_state state;
-  caors::callback_memory_resource resource(&test_allocate, &test_deallocate, &state);
+  caors::memory::callback_memory_resource resource(&test_allocate, &test_deallocate, &state);
 
   void* ptr = resource.allocate(48, 32);
 
@@ -111,7 +111,7 @@ TEST_CASE("memory - callback backend uses callbacks", "[memory]") {
 
 TEST_CASE("memory - default resource can be replaced", "[memory]") {
   callback_memory_state state;
-  caors::callback_memory_resource resource(&test_allocate, &test_deallocate, &state);
+  caors::memory::callback_memory_resource resource(&test_allocate, &test_deallocate, &state);
 
   caors::memory_resource* old_resource = caors::set_default_memory_resource(&resource);
 

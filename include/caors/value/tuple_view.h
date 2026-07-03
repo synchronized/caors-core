@@ -93,6 +93,4 @@ private:
 
 } // namespace caors::value
 
-#include "caors/value/view_factory.h"
-
 #endif

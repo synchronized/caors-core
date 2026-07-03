@@ -30,7 +30,8 @@ void callback_deallocate(void* ptr, std::size_t, std::size_t alignment, void* us
 
 int main() {
   allocation_stats stats;
-  caors::callback_memory_resource resource(&callback_allocate, &callback_deallocate, &stats);
+  caors::memory::callback_memory_resource resource(&callback_allocate, &callback_deallocate,
+                                                   &stats);
 
   constexpr std::size_t size = 256;
   constexpr std::size_t alignment = 32;

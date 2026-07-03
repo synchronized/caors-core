@@ -21,7 +21,7 @@ format_features variant_reader::features() const noexcept {
 
 error variant_reader::begin_object(const type_data&) {
   const variant* object = object_stack_.empty() ? root_ : current_value();
-  if (object == nullptr || object->kind() != variant_kind::object) {
+  if (object == nullptr || object->kind() != value::variant_kind::object) {
     return {error_domain::serialization, errc::invalid_argument};
   }
 
@@ -30,18 +30,18 @@ error variant_reader::begin_object(const type_data&) {
   return {};
 }
 
-const variant_member* variant_reader::find_member(const field_data& field) const {
+const value::variant_member* variant_reader::find_member(const field_data& field) const {
   if (object_stack_.empty()) {
     return nullptr;
   }
 
   const variant* object = object_stack_.back();
-  if (object == nullptr || object->kind() != variant_kind::object) {
+  if (object == nullptr || object->kind() != value::variant_kind::object) {
     return nullptr;
   }
 
   const core::string_name name = serialized_field_name(field);
-  for (const variant_member& member : object->as_object()) {
+  for (const value::variant_member& member : object->as_object()) {
     if (field.field_id != 0 && member.field_id == field.field_id) {
       return &member;
     }
@@ -90,7 +90,7 @@ error variant_reader::begin_field(const field_data& field) {
 
 error variant_reader::begin_array(std::size_t& size) {
   const variant* array = current_value();
-  if (array == nullptr || array->kind() != variant_kind::array) {
+  if (array == nullptr || array->kind() != value::variant_kind::array) {
     return {error_domain::serialization, errc::invalid_argument};
   }
 
@@ -106,7 +106,7 @@ error variant_reader::begin_element(std::size_t index) {
   }
 
   const variant* array = array_stack_.back();
-  if (array == nullptr || array->kind() != variant_kind::array ||
+  if (array == nullptr || array->kind() != value::variant_kind::array ||
       index >= array->as_array().size()) {
     return {error_domain::serialization, errc::invalid_argument};
   }
@@ -117,13 +117,13 @@ error variant_reader::begin_element(std::size_t index) {
 
 error variant_reader::begin_dictionary(std::size_t& size) {
   const variant* dictionary = current_value();
-  if (dictionary == nullptr || (dictionary->kind() != variant_kind::dictionary &&
-                                dictionary->kind() != variant_kind::array)) {
+  if (dictionary == nullptr || (dictionary->kind() != value::variant_kind::dictionary &&
+                                dictionary->kind() != value::variant_kind::array)) {
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  size = dictionary->kind() == variant_kind::dictionary ? dictionary->as_dictionary().size()
-                                                        : dictionary->as_array().size();
+  size = dictionary->kind() == value::variant_kind::dictionary ? dictionary->as_dictionary().size()
+                                                               : dictionary->as_array().size();
   dictionary_stack_.push_back(dictionary_context{dictionary, nullptr, nullptr, nullptr});
   return {};
 }
@@ -138,7 +138,7 @@ error variant_reader::begin_entry(std::size_t index) {
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  if (context.source->kind() == variant_kind::dictionary) {
+  if (context.source->kind() == value::variant_kind::dictionary) {
     if (index >= context.source->as_dictionary().size()) {
       return {error_domain::serialization, errc::invalid_argument};
     }
@@ -152,7 +152,7 @@ error variant_reader::begin_entry(std::size_t index) {
   }
 
   const variant& pair = context.source->as_array()[index];
-  if (pair.kind() != variant_kind::array || pair.as_array().size() != 2) {
+  if (pair.kind() != value::variant_kind::array || pair.as_array().size() != 2) {
     return {error_domain::serialization, errc::invalid_argument};
   }
 
@@ -237,7 +237,7 @@ error variant_reader::end_dictionary() {
 
 error variant_reader::read_bool(bool& value) {
   const variant* current = current_value();
-  if (current == nullptr || current->kind() != variant_kind::boolean) {
+  if (current == nullptr || current->kind() != value::variant_kind::boolean) {
     return {error_domain::serialization, errc::invalid_type};
   }
 
@@ -247,7 +247,7 @@ error variant_reader::read_bool(bool& value) {
 
 error variant_reader::read_i64(std::int64_t& value) {
   const variant* current = current_value();
-  if (current == nullptr || current->kind() != variant_kind::signed_integer) {
+  if (current == nullptr || current->kind() != value::variant_kind::signed_integer) {
     return {error_domain::serialization, errc::invalid_type};
   }
 
@@ -257,7 +257,7 @@ error variant_reader::read_i64(std::int64_t& value) {
 
 error variant_reader::read_u64(std::uint64_t& value) {
   const variant* current = current_value();
-  if (current == nullptr || current->kind() != variant_kind::unsigned_integer) {
+  if (current == nullptr || current->kind() != value::variant_kind::unsigned_integer) {
     return {error_domain::serialization, errc::invalid_type};
   }
 
@@ -267,7 +267,7 @@ error variant_reader::read_u64(std::uint64_t& value) {
 
 error variant_reader::read_f64(double& value) {
   const variant* current = current_value();
-  if (current == nullptr || current->kind() != variant_kind::floating) {
+  if (current == nullptr || current->kind() != value::variant_kind::floating) {
     return {error_domain::serialization, errc::invalid_type};
   }
 
@@ -277,7 +277,7 @@ error variant_reader::read_f64(double& value) {
 
 error variant_reader::read_string(core::string& value) {
   const variant* current = current_value();
-  if (current == nullptr || current->kind() != variant_kind::string) {
+  if (current == nullptr || current->kind() != value::variant_kind::string) {
     return {error_domain::serialization, errc::invalid_type};
   }
 

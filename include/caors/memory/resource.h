@@ -178,22 +178,19 @@ template <typename T> void destroy(T* ptr, memory_resource* resource = nullptr) 
 
 namespace caors {
 
-using memory::callback_memory_resource;
-using memory::default_memory_alignment;
 using memory::deallocate;
+using memory::default_memory_alignment;
 using memory::destroy;
 using memory::get_default_memory_resource;
 using memory::get_system_memory_resource;
 using memory::make;
-using memory::memory_allocate_fn;
-using memory::memory_deallocate_fn;
 using memory::memory_resource;
 using memory::operator!=;
 using memory::operator==;
+using memory::allocate;
 using memory::set_default_memory_resource;
 using memory::system_memory_resource;
 using memory::try_allocate;
-using memory::allocate;
 
 template <typename T> using allocator = memory::allocator<T>;
 

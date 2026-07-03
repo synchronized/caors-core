@@ -238,11 +238,11 @@ any_ref field::get_ref(void* object) const {
   return field->get_ref(object);
 }
 
-indirect_view field::create_indirect_view(const void* object) const {
+value::indirect_view field::create_indirect_view(const void* object) const {
   return get_ref(object).create_indirect_view();
 }
 
-indirect_view field::create_indirect_view(void* object) const {
+value::indirect_view field::create_indirect_view(void* object) const {
   return get_ref(object).create_indirect_view();
 }
 

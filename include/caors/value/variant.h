@@ -157,9 +157,6 @@ struct variant_member {
 namespace caors {
 
 using value::variant;
-using value::variant_entry;
-using value::variant_kind;
-using value::variant_member;
 
 } // namespace caors
 

@@ -5,7 +5,7 @@
 
 namespace caors::serialization::detail {
 
-[[nodiscard]] variant_result make_sequence_value(const sequence_view& view,
+[[nodiscard]] variant_result make_sequence_value(const value::sequence_view& view,
                                                  const serialization::context& context) {
   const std::optional<std::size_t> size = view.size();
   if (!view.valid() || !size.has_value()) {
@@ -31,7 +31,7 @@ namespace caors::serialization::detail {
   return {{}, variant::array(std::move(elements))};
 }
 
-[[nodiscard]] variant_result make_set_value(const set_view& view,
+[[nodiscard]] variant_result make_set_value(const value::set_view& view,
                                             const serialization::context& context) {
   const std::optional<std::size_t> size = view.size();
   if (!view.valid() || !size.has_value()) {
@@ -70,7 +70,7 @@ namespace caors::serialization::detail {
   return {{}, variant::array(std::move(elements))};
 }
 
-[[nodiscard]] variant_result make_associative_value(const associative_view& view,
+[[nodiscard]] variant_result make_associative_value(const value::associative_view& view,
                                                     const serialization::context& context) {
   const std::optional<std::size_t> size = view.size();
   if (!view.valid() || !size.has_value()) {
@@ -102,7 +102,7 @@ namespace caors::serialization::detail {
         }
 
         visitor->entries->push_back(
-            variant_entry{std::move(encoded_key.value), std::move(encoded_value.value)});
+            value::variant_entry{std::move(encoded_key.value), std::move(encoded_value.value)});
         return true;
       },
       &visitor);
@@ -116,7 +116,7 @@ namespace caors::serialization::detail {
   return {{}, variant::dictionary(std::move(entries))};
 }
 
-[[nodiscard]] variant_result make_pair_value(const pair_view& view,
+[[nodiscard]] variant_result make_pair_value(const value::pair_view& view,
                                              const serialization::context& context) {
   if (!view.valid()) {
     return {{error_domain::serialization, errc::unsupported}, {}};
@@ -146,7 +146,7 @@ namespace caors::serialization::detail {
   return {{}, variant::array(std::move(elements))};
 }
 
-[[nodiscard]] variant_result make_tuple_value(const tuple_view& view,
+[[nodiscard]] variant_result make_tuple_value(const value::tuple_view& view,
                                               const serialization::context& context) {
   if (!view.valid()) {
     return {{error_domain::serialization, errc::unsupported}, {}};
@@ -172,7 +172,7 @@ namespace caors::serialization::detail {
   return {{}, variant::array(std::move(elements))};
 }
 
-[[nodiscard]] variant_result make_variant_value(const variant_view& view,
+[[nodiscard]] variant_result make_variant_value(const value::variant_view& view,
                                                 const serialization::context& context) {
   const std::optional<std::size_t> active = view.index();
   if (!view.valid() || !active.has_value()) {

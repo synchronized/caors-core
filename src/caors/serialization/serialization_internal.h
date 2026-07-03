@@ -16,7 +16,9 @@ serialized_field_name(const serialization::field_data& data) noexcept;
                                               serialization::format_features features);
 [[nodiscard]] error validate_field_for_reader(const serialization::field_data& field,
                                               serialization::format_features features);
-[[nodiscard]] bool try_write_serialized_value(writer& writer, const any& data);
+[[nodiscard]] bool try_write_scalar_value(writer& writer, const any& data);
+[[nodiscard]] error read_scalar_value(reader& reader, const any_ref& target,
+                                      const serialization::context& context);
 [[nodiscard]] variant_result make_serialized_value(const any& data);
 [[nodiscard]] variant_result make_serialized_value(const any_ref& value,
                                                    const serialization::context& context);

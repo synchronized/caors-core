@@ -186,7 +186,7 @@ template <typename Associative> struct associative_codec {
       }
 
       entries.push_back(
-          variant_entry{std::move(encoded_key.value), std::move(encoded_value.value)});
+          value::variant_entry{std::move(encoded_key.value), std::move(encoded_value.value)});
     });
 
     if (visitor_result.failed()) {

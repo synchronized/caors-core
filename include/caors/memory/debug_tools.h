@@ -26,10 +26,4 @@ collect_live_allocations(const debug_tracking_resource& resource,
 
 } // namespace caors::memory
 
-namespace caors {
-
-using memory::collect_live_allocations;
-
-} // namespace caors
-
 #endif

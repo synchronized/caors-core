@@ -51,7 +51,7 @@ value_ref_to_serialization_value(const any_ref& value, const serialization::cont
 
   any_ref field_ref{};
   if (field_uses_inline_indirect_value(field)) {
-    const indirect_view indirect = field.create_indirect_view(object);
+    const value::indirect_view indirect = field.create_indirect_view(object);
     if (!indirect.valid()) {
       return {{error_domain::serialization, errc::unsupported}, {}};
     }
@@ -129,7 +129,7 @@ variant_result to_serialization_value(const reflection::type& type, const void* 
         return serialized;
       }
 
-      members.push_back(variant_member{
+      members.push_back(value::variant_member{
           serialization::detail::serialized_field_name(field_data),
           field_data.field_id,
           std::move(serialized.value),
@@ -148,7 +148,7 @@ variant_result to_serialization_value(const reflection::type& type, const void* 
         return serialized;
       }
 
-      members.push_back(variant_member{
+      members.push_back(value::variant_member{
           field->name(),
           0,
           std::move(serialized.value),

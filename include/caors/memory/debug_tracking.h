@@ -103,14 +103,6 @@ private:
 
 } // namespace caors::memory
 
-namespace caors {
-
-using memory::debug_tracking_resource;
-using memory::debug_tracking_state;
-using memory::memory_debug_record;
-using memory::memory_debug_record_fn;
-using memory::memory_debug_statistics;
-
-} // namespace caors
+namespace caors {} // namespace caors
 
 #endif

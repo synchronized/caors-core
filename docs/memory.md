@@ -88,7 +88,7 @@ caors::deallocate(ptr, 128, 64, &resource);
 它不直接决定底层如何分配，而是把分配和释放请求转发给调用方提供的函数指针：
 
 ```cpp
-caors::callback_memory_resource resource(&allocate_fn, &deallocate_fn, user_data);
+caors::memory::callback_memory_resource resource(&allocate_fn, &deallocate_fn, user_data);
 ```
 
 它适合临时接入外部分配器或已有系统，例如：
@@ -157,7 +157,7 @@ memory 内部调试记录时，底层 `debug_tracking_resource` API 使用 callb
 
 ```cpp
 debug.for_each_live_allocation(
-    [](const caors::memory_debug_record& record, void* user_data) {
+    [](const caors::memory::memory_debug_record& record, void* user_data) {
       // 直接消费 record，不要求 memory 层构造容器。
     },
     nullptr);
@@ -166,8 +166,8 @@ debug.for_each_live_allocation(
 如果调用方需要快照容器，可以使用 `caors/memory/debug_tools.h` 提供的便利 helper：
 
 ```cpp
-caors::vector<caors::memory_debug_record> records =
-    caors::collect_live_allocations(debug);
+caors::vector<caors::memory::memory_debug_record> records =
+    caors::memory::collect_live_allocations(debug);
 ```
 
 这样可以避免 `memory -> core containers -> memory` 的循环依赖，也让底层 allocator/resource
@@ -229,17 +229,17 @@ caors::allocate()
 推荐通过 `allocate_debug()` 捕获调用点和标签：
 
 ```cpp
-caors::debug_tracking_resource debug(&caors::get_system_memory_resource());
+caors::memory::debug_tracking_resource debug(&caors::get_system_memory_resource());
 
 void* ptr = debug.allocate_debug(128, 64, "temporary-buffer");
 
 debug.for_each_live_allocation(
-    [](const caors::memory_debug_record& record, void*) {
+    [](const caors::memory::memory_debug_record& record, void*) {
   // record 中包含 ptr、size、alignment、label、file_name、function_name、line 和 column。
     },
     nullptr);
 
-caors::vector<caors::memory_debug_record> records = caors::collect_live_allocations(debug);
+caors::vector<caors::memory::memory_debug_record> records = caors::memory::collect_live_allocations(debug);
 
 debug.deallocate(ptr, 128, 64);
 ```

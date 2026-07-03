@@ -246,7 +246,7 @@ object_ref_value_from_ref(const any_ref& value,
   return {error_domain::serialization, errc::unsupported};
 }
 
-[[nodiscard]] variant_result make_indirect_serialized_value(const indirect_view& indirect,
+[[nodiscard]] variant_result make_indirect_serialized_value(const value::indirect_view& indirect,
                                                             const serialization::context& context) {
   if (!indirect.valid()) {
     return {{error_domain::serialization, errc::unsupported}, {}};
@@ -264,7 +264,8 @@ object_ref_value_from_ref(const any_ref& value,
   return make_serialized_value(value, context);
 }
 
-[[nodiscard]] error write_indirect_serialized_value(writer& writer, const indirect_view& indirect,
+[[nodiscard]] error write_indirect_serialized_value(writer& writer,
+                                                    const value::indirect_view& indirect,
                                                     const serialization::context& context) {
   if (!indirect.valid()) {
     return {error_domain::serialization, errc::unsupported};
@@ -282,7 +283,8 @@ object_ref_value_from_ref(const any_ref& value,
   return write_serialized_value(writer, value, context);
 }
 
-[[nodiscard]] error read_indirect_serialized_value(reader& reader, const indirect_view& indirect,
+[[nodiscard]] error read_indirect_serialized_value(reader& reader,
+                                                   const value::indirect_view& indirect,
                                                    const serialization::context& context) {
   if (!indirect.valid() || !indirect.writable()) {
     return {error_domain::serialization, errc::invalid_field};

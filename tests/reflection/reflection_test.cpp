@@ -609,7 +609,7 @@ TEST_CASE("reflection - sequence field view exposes element metadata", "[reflect
   instance.values.push_back(3);
   instance.values.push_back(5);
 
-  caors::sequence_view sequence = values->get_ref(&instance).create_sequence_view();
+  caors::value::sequence_view sequence = values->get_ref(&instance).create_sequence_view();
   CHECK(sequence.valid());
   CHECK(sequence.writable());
   CHECK(sequence.value_type() == registered_type_id("int"));
@@ -630,7 +630,7 @@ TEST_CASE("reflection - sequence field view exposes element metadata", "[reflect
   CHECK(*size == 2);
 
   const vector_holder& readonly_instance = instance;
-  caors::sequence_view readonly_sequence =
+  caors::value::sequence_view readonly_sequence =
       values->get_ref(&readonly_instance).create_sequence_view();
   CHECK(readonly_sequence.valid());
   CHECK_FALSE(readonly_sequence.writable());
@@ -678,7 +678,7 @@ TEST_CASE("reflection - custom sequence traits expose field view", "[reflection]
   CHECK(values->element_type_name() == "int");
 
   custom_sequence_holder instance{};
-  caors::sequence_view sequence = values->get_ref(&instance).create_sequence_view();
+  caors::value::sequence_view sequence = values->get_ref(&instance).create_sequence_view();
   CHECK(sequence.append_value(caors::any::from(21)));
   CHECK(sequence.append_value(caors::any::from(34)));
 
@@ -714,7 +714,7 @@ TEST_CASE("reflection - std array field view uses fixed sequence traits", "[refl
   CHECK(values->element_type() == registered_type_id("int"));
 
   array_holder instance{{1, 2, 3}};
-  caors::sequence_view sequence = values->get_ref(&instance).create_sequence_view();
+  caors::value::sequence_view sequence = values->get_ref(&instance).create_sequence_view();
   REQUIRE(sequence.valid());
   CHECK(sequence.writable());
 
@@ -749,7 +749,7 @@ TEST_CASE("reflection - std span field view is borrowed sequence", "[reflection]
 
   std::array<int, 3> storage{1, 2, 3};
   span_holder instance{std::span<int>{storage}};
-  caors::sequence_view sequence = values->get_ref(&instance).create_sequence_view();
+  caors::value::sequence_view sequence = values->get_ref(&instance).create_sequence_view();
   REQUIRE(sequence.valid());
   CHECK(sequence.writable());
 
@@ -804,7 +804,7 @@ TEST_CASE("reflection - std pair field view exposes first and second values", "[
   CHECK(value->value_type() == registered_type_id("caors.string"));
 
   pair_holder instance{{7, caors::string{"seven"}}};
-  caors::pair_view pair = value->get_ref(&instance).create_pair_view();
+  caors::value::pair_view pair = value->get_ref(&instance).create_pair_view();
   REQUIRE(pair.valid());
   CHECK(pair.writable());
   CHECK(pair.first_type() == registered_type_id("int"));
@@ -838,7 +838,7 @@ TEST_CASE("reflection - std tuple field view exposes indexed elements", "[reflec
   CHECK(value->type_name() == "std.tuple<int,caors.string,float>");
 
   tuple_holder instance{std::tuple<int, caors::string, float>{7, caors::string{"seven"}, 1.5F}};
-  caors::tuple_view tuple = value->get_ref(&instance).create_tuple_view();
+  caors::value::tuple_view tuple = value->get_ref(&instance).create_tuple_view();
   REQUIRE(tuple.valid());
   CHECK(tuple.writable());
   CHECK(tuple.size() == 3);
@@ -883,7 +883,7 @@ TEST_CASE("reflection - std variant field view exposes active alternative", "[re
   CHECK(value->type_name() == "std.variant<int,caors.string,float>");
 
   variant_holder instance{std::variant<int, caors::string, float>{7}};
-  caors::variant_view variant = value->get_ref(&instance).create_variant_view();
+  caors::value::variant_view variant = value->get_ref(&instance).create_variant_view();
   REQUIRE(variant.valid());
   CHECK(variant.writable());
   CHECK(variant.size() == 3);
@@ -934,7 +934,7 @@ TEST_CASE("reflection - list field view uses sequence traits", "[reflection]") {
   instance.values.push_back(3);
   instance.values.push_back(5);
 
-  caors::sequence_view sequence = values->get_ref(&instance).create_sequence_view();
+  caors::value::sequence_view sequence = values->get_ref(&instance).create_sequence_view();
   CHECK(sequence.valid());
   CHECK(sequence.writable());
 
@@ -985,7 +985,7 @@ TEST_CASE("reflection - associative field view supports dynamic operations", "[r
   REQUIRE(values.has_value());
 
   hash_map_ops_holder instance{};
-  caors::associative_view map = values->get_ref(&instance).create_associative_view();
+  caors::value::associative_view map = values->get_ref(&instance).create_associative_view();
   CHECK(map.valid());
   CHECK(map.writable());
   CHECK(map.key_type() == registered_type_id("int"));
@@ -1001,7 +1001,7 @@ TEST_CASE("reflection - associative field view supports dynamic operations", "[r
 
   int key_sum = 0;
   int value_sum = 0;
-  for (caors::associative_entry_ref entry : map) {
+  for (caors::value::associative_entry_ref entry : map) {
     const int* key = entry.key().try_get<int>();
     const int* value = entry.value().try_get<int>();
     REQUIRE(key != nullptr);
@@ -1017,7 +1017,7 @@ TEST_CASE("reflection - associative field view supports dynamic operations", "[r
   CHECK(*size == 1);
 
   const hash_map_ops_holder& readonly_instance = instance;
-  caors::associative_view readonly_map =
+  caors::value::associative_view readonly_map =
       values->get_ref(&readonly_instance).create_associative_view();
   CHECK(readonly_map.valid());
   CHECK_FALSE(readonly_map.writable());
@@ -1067,7 +1067,7 @@ TEST_CASE("reflection - container views can be created from any_ref", "[reflecti
   caors::any_ref scores_ref = caors::any_ref::from(scores, "caors.vector<int>");
   REQUIRE(scores_ref.valid());
 
-  caors::sequence_view sequence = scores_ref.create_sequence_view();
+  caors::value::sequence_view sequence = scores_ref.create_sequence_view();
   CHECK(sequence.valid());
   CHECK(sequence.writable());
   CHECK(sequence.append_value(caors::any::from(10)));
@@ -1082,7 +1082,7 @@ TEST_CASE("reflection - container views can be created from any_ref", "[reflecti
   caors::any_ref ids_ref = caors::any_ref::from(ids, "caors.hash_set<int>");
   REQUIRE(ids_ref.valid());
 
-  caors::set_view set = ids_ref.create_set_view();
+  caors::value::set_view set = ids_ref.create_set_view();
   CHECK(set.valid());
   CHECK(set.writable());
   CHECK(set.insert_value(caors::any::from(3)));
@@ -1092,20 +1092,20 @@ TEST_CASE("reflection - container views can be created from any_ref", "[reflecti
   caors::any_ref ref = caors::any_ref::from(values, "caors.hash_map<int,int>");
   REQUIRE(ref.valid());
 
-  caors::associative_view map = ref.create_associative_view();
+  caors::value::associative_view map = ref.create_associative_view();
   CHECK(map.valid());
   CHECK(map.writable());
   CHECK(map.insert_value(caors::any::from(3), caors::any::from(30)));
   CHECK(values.at(3) == 30);
 
   const caors::any_ref readonly_ref = caors::any_ref::from_const(values, "caors.hash_map<int,int>");
-  caors::associative_view readonly_map = readonly_ref.create_associative_view();
+  caors::value::associative_view readonly_map = readonly_ref.create_associative_view();
   CHECK(readonly_map.valid());
   CHECK_FALSE(readonly_map.writable());
   CHECK_FALSE(readonly_map.insert_value(caors::any::from(4), caors::any::from(40)));
 
   caors::any copied = caors::any::from(values, "caors.hash_map<int,int>");
-  caors::associative_view copied_map = copied.create_associative_view();
+  caors::value::associative_view copied_map = copied.create_associative_view();
   CHECK(copied_map.valid());
   CHECK(copied_map.writable());
   CHECK(copied_map.insert_value(caors::any::from(5), caors::any::from(50)));
@@ -1134,7 +1134,7 @@ TEST_CASE("reflection - set field view exposes element metadata", "[reflection]"
   CHECK(values->element_type_name() == "int");
 
   hash_set_holder instance{};
-  caors::set_view set = values->get_ref(&instance).create_set_view();
+  caors::value::set_view set = values->get_ref(&instance).create_set_view();
   CHECK(set.valid());
   CHECK(set.writable());
   CHECK(set.value_type() == registered_type_id("int"));
@@ -1158,7 +1158,7 @@ TEST_CASE("reflection - set field view exposes element metadata", "[reflection]"
   CHECK(*size == 1);
 
   const hash_set_holder& readonly_instance = instance;
-  caors::set_view readonly_set = values->get_ref(&readonly_instance).create_set_view();
+  caors::value::set_view readonly_set = values->get_ref(&readonly_instance).create_set_view();
   CHECK(readonly_set.valid());
   CHECK_FALSE(readonly_set.writable());
   CHECK_FALSE(readonly_set.insert_value(caors::any::from(12)));
@@ -1247,7 +1247,7 @@ TEST_CASE("reflection - set iterator creation failure is treated as empty range"
            end_component_status == meta_error(caors::errc::duplicate_component)));
 
   test_reflection::failing_begin_set begin_storage{};
-  caors::set_view begin_view =
+  caors::value::set_view begin_view =
       caors::any_ref::from(begin_storage, "caors.test.reflection.failing_begin_set")
           .create_set_view();
   REQUIRE(begin_view.valid());
@@ -1260,7 +1260,7 @@ TEST_CASE("reflection - set iterator creation failure is treated as empty range"
   CHECK(begin_visit_count == 0);
 
   test_reflection::failing_end_set end_storage{};
-  caors::set_view end_view =
+  caors::value::set_view end_view =
       caors::any_ref::from(end_storage, "caors.test.reflection.failing_end_set").create_set_view();
   REQUIRE(end_view.valid());
 

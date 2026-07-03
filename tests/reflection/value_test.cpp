@@ -241,7 +241,7 @@ TEST_CASE("reflection any_ref - creates indirect views for pointer and wrappers"
       caors::reflection::make_field_data<std::weak_ptr<int>>("weak", "std.weak_ptr<int>",
                                                              offsetof(indirect_value_holder, weak));
 
-  caors::indirect_view pointer = pointer_field.get_ref(&holder).create_indirect_view();
+  caors::value::indirect_view pointer = pointer_field.get_ref(&holder).create_indirect_view();
   REQUIRE(pointer.valid());
   CHECK(pointer.writable());
   CHECK(pointer.value_type() == caors::meta::id("int"));
@@ -257,7 +257,7 @@ TEST_CASE("reflection any_ref - creates indirect views for pointer and wrappers"
   CHECK_FALSE(pointer.has_value());
   CHECK_FALSE(pointer.value_ref().valid());
 
-  caors::indirect_view optional = optional_field.get_ref(&holder).create_indirect_view();
+  caors::value::indirect_view optional = optional_field.get_ref(&holder).create_indirect_view();
   REQUIRE(optional.valid());
   REQUIRE(optional.value_ref().try_get_mutable<int>() != nullptr);
   CHECK(*optional.value_ref().try_get_mutable<int>() == 11);
@@ -267,7 +267,7 @@ TEST_CASE("reflection any_ref - creates indirect views for pointer and wrappers"
   CHECK_FALSE(holder.optional.has_value());
   CHECK_FALSE(optional.has_value());
 
-  caors::indirect_view unique = unique_field.get_ref(&holder).create_indirect_view();
+  caors::value::indirect_view unique = unique_field.get_ref(&holder).create_indirect_view();
   REQUIRE(unique.valid());
   REQUIRE(unique.value_ref().try_get_mutable<int>() != nullptr);
   CHECK(*unique.value_ref().try_get_mutable<int>() == 13);
@@ -276,7 +276,7 @@ TEST_CASE("reflection any_ref - creates indirect views for pointer and wrappers"
   CHECK(*holder.unique == 37);
 
   const indirect_value_holder& readonly_holder = holder;
-  caors::indirect_view readonly_unique =
+  caors::value::indirect_view readonly_unique =
       unique_field.get_ref(&readonly_holder).create_indirect_view();
   REQUIRE(readonly_unique.valid());
   CHECK_FALSE(readonly_unique.writable());
@@ -297,7 +297,7 @@ TEST_CASE("reflection any_ref - creates indirect views for registered wrapper va
   caors::any_ref reference = caors::any_ref::from(value, "std.optional<int>");
   REQUIRE(reference.valid());
 
-  caors::indirect_view indirect = reference.create_indirect_view();
+  caors::value::indirect_view indirect = reference.create_indirect_view();
   REQUIRE(indirect.valid());
   CHECK(indirect.has_value());
   CHECK(indirect.value_type() == caors::meta::id("int"));
@@ -320,7 +320,7 @@ TEST_CASE("reflection any_ref - creates pair views for registered pair values", 
   caors::any_ref reference = caors::any_ref::from(value, "std.pair<int,int>");
   REQUIRE(reference.valid());
 
-  caors::pair_view pair = reference.create_pair_view();
+  caors::value::pair_view pair = reference.create_pair_view();
   REQUIRE(pair.valid());
   CHECK(pair.writable());
   CHECK(pair.first_type() == caors::meta::id("int"));
@@ -345,7 +345,7 @@ TEST_CASE("reflection any_ref - creates tuple views for registered tuple values"
   caors::any_ref reference = caors::any_ref::from(value, "std.tuple<int,int,caors.string>");
   REQUIRE(reference.valid());
 
-  caors::tuple_view tuple = reference.create_tuple_view();
+  caors::value::tuple_view tuple = reference.create_tuple_view();
   REQUIRE(tuple.valid());
   CHECK(tuple.writable());
   CHECK(tuple.size() == 3);
@@ -378,7 +378,7 @@ TEST_CASE("reflection any_ref - creates sequence views for registered span value
   caors::any_ref reference = caors::any_ref::from(value, "std.span<int>");
   REQUIRE(reference.valid());
 
-  caors::sequence_view sequence = reference.create_sequence_view();
+  caors::value::sequence_view sequence = reference.create_sequence_view();
   REQUIRE(sequence.valid());
   CHECK(sequence.writable());
   CHECK(sequence.value_type() == caors::meta::id("int"));
@@ -405,7 +405,7 @@ TEST_CASE("reflection any_ref - keeps readonly span views immutable", "[reflecti
   REQUIRE(reference.valid());
   CHECK_FALSE(reference.writable());
 
-  caors::sequence_view sequence = reference.create_sequence_view();
+  caors::value::sequence_view sequence = reference.create_sequence_view();
   REQUIRE(sequence.valid());
   CHECK_FALSE(sequence.writable());
 
@@ -425,7 +425,7 @@ TEST_CASE("reflection any_ref - creates variant views for registered variant val
   caors::any_ref reference = caors::any_ref::from(value, "std.variant<int,caors.string>");
   REQUIRE(reference.valid());
 
-  caors::variant_view variant = reference.create_variant_view();
+  caors::value::variant_view variant = reference.create_variant_view();
   REQUIRE(variant.valid());
   CHECK(variant.writable());
   CHECK(variant.size() == 2);
