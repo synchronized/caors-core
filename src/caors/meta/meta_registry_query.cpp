@@ -13,25 +13,6 @@ bool registry::contains(type_id id) const {
   return state_->types.contains(id.value());
 }
 
-std::optional<type_view> registry::find_cpp_type(caors::detail::cpp_type_key key) const {
-  if (key == nullptr) {
-    return std::nullopt;
-  }
-
-  std::lock_guard lock(state_->mutex);
-  const auto key_position = state_->cpp_types.find(key);
-  if (key_position == state_->cpp_types.end()) {
-    return std::nullopt;
-  }
-
-  const type_data* type = detail::find_type_data(*state_, key_position->second);
-  if (type == nullptr) {
-    return std::nullopt;
-  }
-
-  return type_view{this, type};
-}
-
 std::optional<type_view> registry::find_type(type_id id) const {
   std::lock_guard lock(state_->mutex);
   const type_data* type = detail::find_type_data(*state_, id);

@@ -7,8 +7,9 @@ namespace caors::reflection {
 namespace {
 
 [[nodiscard]] bool same_type_data(meta::type_view lhs, const meta::type_data& rhs) noexcept {
-  return lhs.name() == rhs.name() && lhs.guid() == rhs.guid() && lhs.size() == rhs.size() &&
-         lhs.alignment() == rhs.alignment() && lhs.parent_id() == rhs.parent_id();
+  return lhs.id() == rhs.id() && lhs.name() == rhs.name() && lhs.guid() == rhs.guid() &&
+         lhs.size() == rhs.size() && lhs.alignment() == rhs.alignment() &&
+         lhs.parent_id() == rhs.parent_id();
 }
 
 [[nodiscard]] bool resolve_field_type(meta::registry& meta, field_data& field) {
@@ -353,7 +354,56 @@ registry& registry::instance() noexcept {
 }
 
 error registry::register_type(const meta::type_data& type, const type_data& reflection) {
-  return register_type(nullptr, type, reflection);
+  if (!type.valid() || !type.id()) {
+    return {error_domain::reflection, errc::invalid_type};
+  }
+
+  if (!reflection.valid()) {
+    return {error_domain::reflection, errc::invalid_field};
+  }
+
+  std::optional<meta::type_view> existing;
+  if (type.id()) {
+    existing = meta::get_registry().find_type(type.id());
+  }
+  if (!existing.has_value()) {
+    existing = meta::get_registry().find_type(type.name());
+  }
+  if (!existing.has_value() && type.guid()) {
+    existing = meta::get_registry().find_type(type.guid());
+  }
+
+  if (existing.has_value()) {
+    if (!same_type_data(*existing, type)) {
+      return {error_domain::reflection, errc::inconsistent_type};
+    }
+  }
+
+  const error type_status = meta::get_registry().register_type(type);
+  if (type_status && type_status.value() != errc::duplicate_id) {
+    return rethrow_as(type_status, error_domain::reflection);
+  }
+
+  const std::optional<meta::type_view> stored_meta = meta::get_registry().find_type(type.id());
+  if (!stored_meta.has_value()) {
+    return {error_domain::reflection, errc::invalid_type};
+  }
+
+  type_data stored_reflection = reflection;
+
+  const error field_status = resolve_fields(meta::get_registry(), stored_reflection);
+  if (field_status) {
+    return field_status;
+  }
+
+  const error validation_status = validate_registered_fields(stored_reflection);
+  if (validation_status) {
+    return validation_status;
+  }
+
+  return rethrow_as(meta::get_registry().emplace<type_data>(stored_meta->id(), stored_reflection),
+                    error_domain::reflection, errc::duplicate_component,
+                    errc::duplicate_reflection);
 }
 
 error registry::register_type(type_id id, const type_data& reflection) {
@@ -395,72 +445,10 @@ error registry::register_type(meta::type_view type, const type_data& reflection)
   return register_type(type.id(), reflection);
 }
 
-error registry::register_type(caors::detail::cpp_type_key key, const meta::type_data& type,
-                              const type_data& reflection) {
-  if (!type.valid()) {
-    return {error_domain::reflection, errc::invalid_type};
-  }
-
-  if (!reflection.valid()) {
-    return {error_domain::reflection, errc::invalid_field};
-  }
-
-  std::optional<meta::type_view> existing;
-  if (type.id()) {
-    existing = meta::get_registry().find_type(type.id());
-  }
-  if (!existing.has_value()) {
-    existing = meta::get_registry().find_type(type.name());
-  }
-  if (!existing.has_value() && type.guid()) {
-    existing = meta::get_registry().find_type(type.guid());
-  }
-
-  if (existing.has_value()) {
-    if (!same_type_data(*existing, type)) {
-      return {error_domain::reflection, errc::inconsistent_type};
-    }
-  }
-
-  const error type_status = key != nullptr ? meta::get_registry().register_cpp_type(key, type)
-                                           : meta::get_registry().register_type(type);
-  if (type_status && type_status.value() != errc::duplicate_id) {
-    return rethrow_as(type_status, error_domain::reflection);
-  }
-
-  const std::optional<meta::type_view> stored_meta =
-      key != nullptr ? meta::get_registry().find_cpp_type(key)
-                     : meta::get_registry().find_type(type.name());
-  if (!stored_meta.has_value()) {
-    return {error_domain::reflection, errc::invalid_type};
-  }
-
-  type_data stored_reflection = reflection;
-
-  const error field_status = resolve_fields(meta::get_registry(), stored_reflection);
-  if (field_status) {
-    return field_status;
-  }
-
-  const error validation_status = validate_registered_fields(stored_reflection);
-  if (validation_status) {
-    return validation_status;
-  }
-
-  return rethrow_as(meta::get_registry().emplace<type_data>(stored_meta->id(), stored_reflection),
-                    error_domain::reflection, errc::duplicate_component,
-                    errc::duplicate_reflection);
-}
-
 bool registry::contains(type_id id) const { return meta::get_registry().has<type_data>(id); }
 
 const type_data* registry::find_reflection_data(type_id id) const {
   return meta::get_registry().find_ptr<type_data>(id);
-}
-
-std::optional<meta::type_view>
-registry::find_registered_type(caors::detail::cpp_type_key key) const {
-  return meta::get_registry().find_cpp_type(key);
 }
 
 std::optional<type> registry::find_type(type_id id) const {

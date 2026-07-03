@@ -13,12 +13,12 @@
 `meta` 第一阶段解决几件事：
 
 - 用 `string_name` 保存运行期去重后的类型名。
-- 用 `type_id` 表示全局注册表分配的运行期类型句柄。
+- 用 `type_id` 表示由 C++ 类型运行期 key 派生的进程内类型句柄。
 - 用 `type_guid` 保存可选的稳定类型标识。
 - 用 `meta::type_data` 保存类型名、稳定 GUID、大小、对齐和父类型。
 - 用 `meta::type_semantics_data` 保存 wrapper、指针和容器等类型语义。
 - 用 `meta::type_view` 作为对外只读类型视图，避免直接暴露注册表内部数据。
-- 用全局 `meta::registry` 集中处理基础类型注册、id 分配、查找和继承关系判断。
+- 用全局 `meta::registry` 集中处理基础类型注册、查找和继承关系判断。
 - 用全局 `meta::registry` 在同一个 `type_id` 上挂载不同主题的元数据组件。
 - 避免对象系统、反射系统和序列化系统各自重复实现类型注册逻辑。
 
@@ -59,8 +59,8 @@ std::string_view view = name.view();
 
 ### type_id
 
-`type_id` 是运行期类型标识。`0` 保留为无效值。它由全局 `meta::registry` 分配，类似 ECS
-entity，只保证当前进程内唯一，不承诺跨进程或跨版本稳定。
+`type_id` 是运行期类型标识。`0` 保留为无效值。对于 C++ 类型，它由库内部 C++ type key 派生，
+只保证当前进程内可用于注册表索引，不承诺跨进程、跨版本或跨动态库边界稳定。
 
 ```cpp
 caors::meta::type<player>("game.player");
@@ -76,6 +76,10 @@ caors::type_id id = caors::meta::id("game.player");
 
 `type_id` 适合当前进程内的运行期查找，不适合作为序列化长期稳定 ID。需要长期稳定身份时使用
 `type_guid`。
+
+在 DLL 或插件边界，同一 C++ 类型如果被多个模块分别实例化内部 type key，运行期 `type_id` 不承诺相同。
+当前约定是同一个可反射 C++ 类型只由一个模块负责注册；跨模块、跨进程或存档数据里的稳定身份使用
+`type_guid`，必要时再结合类型名和版本迁移策略。
 
 ### type_guid
 
@@ -104,15 +108,16 @@ caors::meta::type_data data =
 - `alignment`
 - `parent_id`
 
-模板创建路径内部还会记录 C++ 类型 key，以及可用时的复制、析构和赋值函数。这些操作函数属于注册表和
-`value` 模块的内部运行期能力，普通代码不应直接修改或依赖其具体布局。
+模板创建路径会写入该 C++ 类型的运行期 `type_id`，并记录可用时的默认构造、复制、析构和赋值函数。
+这些操作函数属于注册表和 `value` 模块的内部运行期能力，普通代码不应直接修改或依赖其具体布局。
 
 ```cpp
 caors::meta::type_data data = caors::meta::make_type_data<player>("game.player");
 ```
 
-`meta::make_type_data<T>()` 只创建待注册描述，`id` 保持无效。真正的 `type_id` 在写入全局
-`meta::registry` 时分配。
+`meta::make_type_data<T>()` 只创建待注册描述，不会把类型写入全局注册表。描述中的 `id` 已经是该
+C++ 类型的运行期 `type_id`；只有调用 `meta::type<T>("name")` 或底层注册入口后，才能通过 registry
+查询到这条记录。
 `meta::id_of<T>()` 只查询已经注册的 C++ 类型，不会创建匿名类型记录；普通代码应在启动注册阶段直接使用
 `meta::type<T>("name")`。
 
@@ -186,8 +191,8 @@ meta 不会因为存在 `traits::type_name<T>` 就在运行期隐式创建这些
 caors::error result = caors::meta::type<actor>("game.actor").result();
 ```
 
-注册表面向 C++ 类型：`cpp_type_key` 是 C++ 类型到 `type_id` 的内部索引，脚本或动态类型不应直接写入
-当前注册表。注册表是 append-only：基础类型注册后不可清理或撤销，重复注册相同类型会返回重复结果。
+注册表只面向 C++ 类型。脚本或动态类型不应直接写入当前注册表，后续应放到独立系统，再由上层 resolver
+统一查询。注册表是 append-only：基础类型注册后不可清理或撤销，重复注册相同类型会返回重复结果。
 当前组件同样按 append-only 方式挂载：同一类型的同类组件注册后不可替换。反射和序列化这类组件
 内部字段数据也按“注册后冻结”处理，外部视图只在该约束下承诺进程生命周期内稳定。
 
@@ -233,15 +238,13 @@ CAORS_META_REGISTRATION(register_actor_meta) {
 注册表维护几类索引：
 
 - `type_id -> meta::type_data`：运行期主索引。
-- `cpp_type_key -> type_id`：C++ 类型查询索引，只记录已经显式注册的 C++ 类型；C++ 类型操作函数保存在
-  对应的 `meta::type_data` 内。
 - `type_name -> type_id`：名称查询索引，可选。
 - `type_guid -> type_id`：稳定身份查询索引，可选。
 
 注册失败会返回 `caors::error`，`domain()` 为 `error_domain::meta`，`value()` 为明确的通用错误码：
 
 - `errc::invalid_type`：类型描述无效。
-- `errc::duplicate_id`：同一个运行期类型记录、C++ 类型或等价类型描述已注册。
+- `errc::duplicate_id`：同一个运行期类型记录已注册。
 - `errc::duplicate_name`：同一个名称已注册。
 - `errc::duplicate_guid`：同一个非 nil 稳定 GUID 已注册。
 - `errc::missing_parent`：父类型未注册。
@@ -322,7 +325,7 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 - `meta::type_view`：全局注册表中的类型只读视图。
 - `meta::type<T>()`：RTTR 风格的链式元类型注册入口；默认不注册类型，需要继续调用 `.type("name")`。
 - `meta::type<T>("name")`：推荐的显式命名注册入口。
-- `meta::registry`：全局基础类型注册、按 id/name/guid/C++ 类型查询、继承关系判断和组件式元数据挂载。
+- `meta::registry`：全局基础类型注册、按 id/name/guid 或 C++ 类型查询、继承关系判断和组件式元数据挂载。
 - `meta::view<T...>`：按组件集合查询类型。
 - `meta::run_registrations()`：执行已收集的延迟元数据注册函数。
 - `CAORS_META_REGISTRATION(name)`：定义一个延迟注册函数，函数体需要返回 `caors::error`。

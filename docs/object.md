@@ -59,7 +59,7 @@ caors::object_id id = instance.id();
 - `alignment`
 - `parent_id`
 
-`object_type_id` 是 `type_id` 在对象系统里的别名。它由全局 `meta::registry` 分配，不由对象类型名派生：
+`object_type_id` 是 `type_id` 在对象系统里的别名。它由 C++ 对象类型的运行期 key 派生，不由对象类型名派生：
 
 ```cpp
 caors::object_type_id id = player::static_type_id();
@@ -166,7 +166,7 @@ caors::objects::is_a(player::static_type_id(), actor::static_type_id());
 注册失败会返回 `caors::error`，`domain()` 为 `error_domain::object`，`value()` 为明确的通用错误码：
 
 - `errc::invalid_type`：类型描述无效。
-- `errc::duplicate_id`：同一个运行期 id、C++ 类型或对象元数据组件已注册。
+- `errc::duplicate_id`：同一个运行期对象类型 id 已注册。
 - `errc::duplicate_name`：同一个名称已注册。
 - `errc::duplicate_guid`：同一个非 nil 稳定 GUID 已注册。
 - `errc::missing_parent`：父类型未注册。

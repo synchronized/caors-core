@@ -84,8 +84,8 @@ TEST_CASE("meta type data - describes layout", "[meta]") {
   const caors::meta::type_data data = caors::meta::make_type_data<sample_type>(name);
 
   CHECK(data.valid());
-  CHECK_FALSE(data.registered());
-  CHECK_FALSE(data.id());
+  CHECK(data.registered());
+  CHECK(data.id());
   CHECK(data.name() == name);
   CHECK_FALSE(data.guid());
   CHECK(data.size() == sizeof(sample_type));
@@ -105,8 +105,8 @@ TEST_CASE("meta type data - describes stable type guid", "[meta]") {
       caors::meta::make_type_data<sample_type>("caors.test.guid.sample", caors::type_guid{*guid});
 
   CHECK(data.valid());
-  CHECK_FALSE(data.registered());
-  CHECK_FALSE(data.id());
+  CHECK(data.registered());
+  CHECK(data.id());
   CHECK(data.guid() == caors::type_guid{*guid});
   CHECK(data.guid().value.string() == "5ed39a97-7b20-4d87-86ac-e62a4a615b10");
 }

@@ -29,10 +29,6 @@ type_id type_view::parent_id() const noexcept {
   return data_ != nullptr ? data_->parent_id() : type_id::invalid();
 }
 
-caors::detail::cpp_type_key type_view::cpp_type() const noexcept {
-  return data_ != nullptr ? data_->cpp_type() : nullptr;
-}
-
 detail::value_default_construct_fn type_view::default_construct_value() const noexcept {
   return data_ != nullptr ? data_->default_construct_value() : nullptr;
 }

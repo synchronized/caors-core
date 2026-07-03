@@ -391,8 +391,8 @@ ref.try_set(9);
 
 ### any
 
-`any` 是运行期 C++ 类型值拷贝，只保存注册表分配的类型 id 和对象拷贝。类型名、C++ 类型 key、大小、
-对齐、复制、析构和赋值函数通过同一 `type_id` 的 `meta::type_data` 查询。
+`any` 是运行期 C++ 类型值拷贝，只保存运行期类型 id 和对象拷贝。类型名、大小、对齐、复制、析构和赋值函数
+通过同一 `type_id` 的 `meta::type_data` 查询。
 它不引用原对象，因此可以安全地脱离字段所属对象生命周期使用。
 
 `any` 当前提供：
@@ -568,7 +568,7 @@ field->try_set<float>(&instance, 75.0F);
 
 `meta::sequence_data`、`meta::set_data`、`meta::associative_data`、`meta::pair_data`、`meta::tuple_data` 和
 `meta::variant_data` 只保存 value/key、元素或候选类型的 `type_id`
-以及容器操作函数。value/key 的名称、C++ 类型 key、大小、对齐和复制/赋值函数统一从
+以及容器操作函数。value/key 的名称、大小、对齐和复制/赋值函数统一从
 基础 `meta::type_data` 查询，避免容器 metadata 与基础类型 metadata 重复维护。
 
 容器、pair、tuple 和 variant 视图不要求值一定来自反射字段。反射字段场景可以先通过 `get_ref()` 创建 `any_ref`，
@@ -626,7 +626,7 @@ auto reflected = caors::reflection::find("game.actor");
 
 - `errc::invalid_type`：类型描述无效。
 - `errc::invalid_field`：字段描述无效。
-- `errc::duplicate_id`：同一个运行期 id、C++ 类型或等价类型描述已注册。
+- `errc::duplicate_id`：同一个运行期类型 id 已注册。
 - `errc::duplicate_name`：同一个名称已注册。
 - `errc::duplicate_guid`：同一个非 nil 稳定 GUID 已注册。
 - `errc::duplicate_field`：同一个类型内存在重复字段名。
@@ -636,8 +636,8 @@ auto reflected = caors::reflection::find("game.actor");
 - `errc::frozen`：全局 meta 注册表已冻结。
 
 重复注册同一个类型时，如果基础类型信息一致且已经挂载反射组件，会返回 `duplicate_reflection`；
-如果同名、同 GUID 或同 C++ 类型对应的基础 `meta::type_data` 不一致，会返回 `inconsistent_type` 或
-对应的重复错误。
+如果同名、同 GUID 或同运行期类型 id 对应的基础 `meta::type_data` 不一致，会返回
+`inconsistent_type` 或对应的重复错误。
 
 ## 当前已实现能力
 

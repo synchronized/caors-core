@@ -79,9 +79,9 @@ namespace caors::reflection {
 /**
  * @brief 底层字段反射元信息。
  *
- * 字段访问基于注册时记录的 offset 和 C++ 类型 key。调用方需要传入该字段所属对象的地址；
- * 类型不匹配、对象为空或字段不可写时会返回失败，不抛出异常。常规查询优先使用
- * `reflection::field`，该结构主要作为注册表内部存储和底层注册入口。
+ * 字段访问基于注册时记录的 offset 和运行期类型 id。调用方需要传入该字段所属对象的地址；
+ * 类型不匹配、对象为空或字段不可写时会返回失败，不抛出异常。常规查询优先使用 `reflection::field`，
+ * 该结构主要作为注册表内部存储和底层注册入口。
  */
 struct field_data {
   string_name name{};
@@ -99,7 +99,8 @@ struct field_data {
   template <typename Field> [[nodiscard]] bool matches_type() const noexcept {
     using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
     const std::optional<meta::type_view> meta = caors::meta::find(type);
-    return meta.has_value() && meta->cpp_type() == caors::detail::cpp_type_key_of<field_type>() &&
+    return meta.has_value() &&
+           meta->id() == caors::meta::detail::type_id_of_cpp_type<field_type>() &&
            meta->size() == sizeof(field_type) && meta->alignment() == alignof(field_type);
   }
 
@@ -156,7 +157,7 @@ struct field_data {
   /** @brief 从运行期值写入字段。 */
   bool try_set_value(void* object, const any& source) const {
     const std::optional<meta::type_view> meta = caors::meta::find(type);
-    if (!source.valid() || !meta.has_value() || source.cpp_type() != meta->cpp_type() ||
+    if (!source.valid() || !meta.has_value() || source.type() != meta->id() ||
         source.size() != meta->size() || source.alignment() != meta->alignment() ||
         meta->assign_value() == nullptr) {
       return false;

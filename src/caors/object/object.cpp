@@ -80,20 +80,12 @@ registry::registry() {
 registry::~registry() = default;
 
 error registry::register_type(const meta::type_data& type, const type_data& object) {
-  return register_type(nullptr, type, object);
-}
-
-error registry::register_type(caors::detail::cpp_type_key key, const meta::type_data& type,
-                              const type_data& object) {
-  const error type_status = key != nullptr ? meta::get_registry().register_cpp_type(key, type)
-                                           : meta::get_registry().register_type(type);
+  const error type_status = meta::get_registry().register_type(type);
   if (type_status && type_status.value() != errc::duplicate_id) {
     return rethrow_as(type_status, error_domain::object);
   }
 
-  std::optional<meta::type_view> stored_meta = key != nullptr
-                                                   ? meta::get_registry().find_cpp_type(key)
-                                                   : meta::get_registry().find_type(type.name());
+  const std::optional<meta::type_view> stored_meta = meta::get_registry().find_type(type.id());
   if (!stored_meta.has_value()) {
     return {error_domain::object, errc::invalid_type};
   }
@@ -103,11 +95,6 @@ error registry::register_type(caors::detail::cpp_type_key key, const meta::type_
 }
 
 bool registry::contains(object_type_id id) const { return meta::get_registry().has<type_data>(id); }
-
-std::optional<meta::type_view>
-registry::find_registered_type(caors::detail::cpp_type_key key) const {
-  return meta::get_registry().find_cpp_type(key);
-}
 
 const type_data* registry::find_type_data(object_type_id id) const {
   return meta::get_registry().find_ptr<type_data>(id);

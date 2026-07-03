@@ -5,7 +5,6 @@
 #define CAORS_META_REGISTRY_H_
 
 #include "caors/adapters/stl_wrapper.h"
-#include "caors/detail/type_key.h"
 #include "caors/error.h"
 #include "caors/export.h"
 #include "caors/meta/component_storage.h"
@@ -53,7 +52,6 @@ public:
   registry& operator=(const registry&) = delete;
 
   [[nodiscard]] error register_type(const type_data& type);
-  [[nodiscard]] error register_cpp_type(caors::detail::cpp_type_key key, const type_data& type);
   [[nodiscard]] error add_registration(registration_fn fn);
   [[nodiscard]] error run_registrations();
   [[nodiscard]] error freeze();
@@ -61,13 +59,22 @@ public:
 
   template <typename T> [[nodiscard]] error register_type_for(const type_data& type) {
     using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const caors::detail::cpp_type_key key = caors::detail::cpp_type_key_of<value_type>();
-    const error status = register_cpp_type(key, type);
+    const type_id expected_id = detail::type_id_of_cpp_type<value_type>();
+    if (!type.valid() || (type.id() && type.id() != expected_id)) {
+      return {error_domain::meta, errc::invalid_type};
+    }
+
+    type_data stored_type = type;
+    if (!stored_type.id()) {
+      stored_type.set_id(expected_id);
+    }
+
+    const error status = register_type(stored_type);
     if (status && status.value() != errc::duplicate_id) {
       return status;
     }
 
-    const std::optional<type_view> registered = find_cpp_type(key);
+    const std::optional<type_view> registered = find_type(expected_id);
     if (registered.has_value()) {
       (void)detail::ensure_type_semantics_for<value_type>(registered->id());
       (void)detail::register_container_data_for<value_type>(registered->id());
@@ -77,9 +84,8 @@ public:
   }
 
   [[nodiscard]] bool contains(type_id id) const;
-  [[nodiscard]] std::optional<type_view> find_cpp_type(caors::detail::cpp_type_key key) const;
   template <typename T> [[nodiscard]] std::optional<type_view> find_type() const {
-    return find_cpp_type(caors::detail::cpp_type_key_of<T>());
+    return find_type(detail::type_id_of_cpp_type<T>());
   }
 
   [[nodiscard]] std::optional<type_view> find_type(type_id id) const;

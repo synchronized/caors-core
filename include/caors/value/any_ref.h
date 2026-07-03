@@ -60,7 +60,7 @@ public:
 
   [[nodiscard]] bool valid() const noexcept {
     const std::optional<meta::type_view> meta = caors::meta::find(type_);
-    return meta.has_value() && meta->valid() && meta->cpp_type() != nullptr && data_ != nullptr;
+    return meta.has_value() && meta->valid() && data_ != nullptr;
   }
 
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
@@ -69,10 +69,6 @@ public:
   [[nodiscard]] string_name type_name() const noexcept {
     const std::optional<meta::type_view> meta = caors::meta::find(type_);
     return meta.has_value() ? meta->name() : string_name{};
-  }
-  [[nodiscard]] detail::cpp_type_key cpp_type() const noexcept {
-    const std::optional<meta::type_view> meta = caors::meta::find(type_);
-    return meta.has_value() ? meta->cpp_type() : nullptr;
   }
   [[nodiscard]] const void* data() const noexcept { return valid() ? data_ : nullptr; }
   [[nodiscard]] void* mutable_data() const noexcept {
@@ -98,19 +94,19 @@ public:
   /** @brief 判断当前引用是否匹配指定 C++ 类型。 */
   template <typename T> [[nodiscard]] bool matches_type() const noexcept {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    return valid() && cpp_type() == detail::cpp_type_key_of<type>() && size() == sizeof(type) &&
-           alignment() == alignof(type);
+    return valid() && type_ == meta::detail::type_id_of_cpp_type<type>() &&
+           size() == sizeof(type) && alignment() == alignof(type);
   }
 
   /** @brief 判断两个运行期值是否具有相同 C++ 类型。 */
   [[nodiscard]] bool matches_type(const any& other) const noexcept {
-    return valid() && other.valid() && cpp_type() == other.cpp_type() && size() == other.size() &&
+    return valid() && other.valid() && type_ == other.type() && size() == other.size() &&
            alignment() == other.alignment();
   }
 
   /** @brief 判断两个运行期引用是否具有相同 C++ 类型。 */
   [[nodiscard]] bool matches_type(const any_ref& other) const noexcept {
-    return valid() && other.valid() && cpp_type() == other.cpp_type() && size() == other.size() &&
+    return valid() && other.valid() && type_ == other.type_ && size() == other.size() &&
            alignment() == other.alignment();
   }
 
@@ -186,7 +182,7 @@ private:
 
   [[nodiscard]] static any_ref from_raw(type_id type, const void* data, bool writable) noexcept {
     const std::optional<meta::type_view> meta = caors::meta::find(type);
-    if (!meta.has_value() || !meta->valid() || meta->cpp_type() == nullptr || data == nullptr) {
+    if (!meta.has_value() || !meta->valid() || data == nullptr) {
       return {};
     }
 

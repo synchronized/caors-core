@@ -86,7 +86,7 @@ CAORS_META_REGISTRATION(register_actor) {
 
 注册 API 返回 `caors::error`：
 
-- `errc::duplicate_id`：同一个 C++ 类型或等价类型描述已经注册。测试和初始化代码可按需视为成功。
+- `errc::duplicate_id`：同一个运行期类型 id 已经注册。测试和初始化代码可按需视为成功。
 - `errc::duplicate_name` / `errc::duplicate_guid`：名称或稳定 GUID 冲突，应修正类型声明。
 - `errc::missing_type`：给不存在的 `type_id` 挂载组件。
 - `errc::missing_parent`：父类型尚未注册。

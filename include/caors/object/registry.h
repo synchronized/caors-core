@@ -11,6 +11,7 @@
 
 #include <optional>
 #include <string_view>
+#include <type_traits>
 
 namespace caors::objects {
 
@@ -41,15 +42,25 @@ public:
   [[nodiscard]] error register_type(const meta::type_data& type, const type_data& object);
   template <typename T>
   [[nodiscard]] error register_type_for(const meta::type_data& type, const type_data& object) {
-    return register_type(caors::detail::cpp_type_key_of<T>(), type, object);
+    using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+    const type_id expected_id = meta::detail::type_id_of_cpp_type<value_type>();
+    if (type.id() && type.id() != expected_id) {
+      return {error_domain::object, errc::invalid_type};
+    }
+
+    meta::type_data stored_type = type;
+    if (!stored_type.id()) {
+      stored_type.set_id(expected_id);
+    }
+
+    return register_type(stored_type, object);
   }
 
   [[nodiscard]] bool contains(object_type_id id) const;
   [[nodiscard]] std::optional<type> find_type(object_type_id id) const;
   [[nodiscard]] std::optional<type> find_type(std::string_view name) const;
   template <typename T> [[nodiscard]] std::optional<type> find_type() const {
-    const std::optional<meta::type_view> type =
-        find_registered_type(caors::detail::cpp_type_key_of<T>());
+    const std::optional<meta::type_view> type = meta::get_registry().find_type<T>();
     if (!type.has_value()) {
       return std::nullopt;
     }
@@ -93,10 +104,6 @@ private:
   registry();
   ~registry();
 
-  [[nodiscard]] error register_type(caors::detail::cpp_type_key key, const meta::type_data& type,
-                                    const type_data& object);
-  [[nodiscard]] std::optional<meta::type_view>
-  find_registered_type(caors::detail::cpp_type_key key) const;
   [[nodiscard]] const type_data* find_type_data(object_type_id id) const;
 };
 

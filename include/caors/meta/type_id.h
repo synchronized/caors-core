@@ -13,8 +13,8 @@ namespace caors::meta {
 /**
  * @brief 运行期类型标识。
  *
- * 类型标识由全局 `meta::registry` 分配，适合当前进程内的注册表索引。它不是类型名 hash，也不是
- * 跨版本序列化 ID。
+ * 对于 C++ 类型，类型标识由库内部 C++ type key 派生，适合当前进程内的注册表索引。它不是类型名
+ * hash，也不是跨进程、跨动态库或跨版本序列化 ID。
  */
 class type_id {
 public:

@@ -65,9 +65,17 @@ using enum_from_u64_fn = bool (*)(void*, std::uint64_t) noexcept;
 using meta_object_ref_get_fn = objects::object* (*)(const void*) noexcept;
 using meta_object_ref_set_fn = bool (*)(void*, objects::object*) noexcept;
 
-void set_cpp_type(type_data& type, caors::detail::cpp_type_key cpp_type) noexcept;
 [[nodiscard]] error merge_type_data(registry_state& state, type_data& stored,
                                     const type_data& incoming);
+
+[[nodiscard]] inline type_id type_id_from_cpp_type_key(caors::detail::cpp_type_key key) noexcept {
+  static_assert(sizeof(std::uintptr_t) <= sizeof(std::uint64_t));
+  return type_id{static_cast<std::uint64_t>(reinterpret_cast<std::uintptr_t>(key))};
+}
+
+template <typename T> [[nodiscard]] inline type_id type_id_of_cpp_type() noexcept {
+  return type_id_from_cpp_type_key(caors::detail::cpp_type_key_of<T>());
+}
 
 template <typename T> struct meta_copy_constructible {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
@@ -224,15 +232,13 @@ public:
 
   constexpr type_data(type_id id, string_name name, type_guid guid, std::size_t size,
                       std::size_t alignment, type_id parent_id,
-                      caors::detail::cpp_type_key cpp_type = nullptr,
                       detail::value_default_construct_fn default_construct_value = nullptr,
                       detail::value_clone_fn clone_value = nullptr,
                       detail::value_destroy_fn destroy_value = nullptr,
                       detail::value_assign_fn assign_value = nullptr) noexcept
       : id_(id), name_(name), guid_(guid), size_(size), alignment_(alignment),
-        parent_id_(parent_id), cpp_type_(cpp_type),
-        default_construct_value_(default_construct_value), clone_value_(clone_value),
-        destroy_value_(destroy_value), assign_value_(assign_value) {}
+        parent_id_(parent_id), default_construct_value_(default_construct_value),
+        clone_value_(clone_value), destroy_value_(destroy_value), assign_value_(assign_value) {}
 
   [[nodiscard]] constexpr type_id id() const noexcept { return id_; }
   [[nodiscard]] constexpr string_name name() const noexcept { return name_; }
@@ -240,9 +246,6 @@ public:
   [[nodiscard]] constexpr std::size_t size() const noexcept { return size_; }
   [[nodiscard]] constexpr std::size_t alignment() const noexcept { return alignment_; }
   [[nodiscard]] constexpr type_id parent_id() const noexcept { return parent_id_; }
-  [[nodiscard]] constexpr caors::detail::cpp_type_key cpp_type() const noexcept {
-    return cpp_type_;
-  }
   [[nodiscard]] constexpr detail::value_default_construct_fn
   default_construct_value() const noexcept {
     return default_construct_value_;
@@ -269,13 +272,9 @@ public:
   constexpr void set_parent_id(type_id parent_id) noexcept { parent_id_ = parent_id; }
 
 private:
-  friend void detail::set_cpp_type(type_data& type, caors::detail::cpp_type_key cpp_type) noexcept;
   friend error detail::merge_type_data(registry_state& state, type_data& stored,
                                        const type_data& incoming);
 
-  constexpr void set_cpp_type(caors::detail::cpp_type_key cpp_type) noexcept {
-    cpp_type_ = cpp_type;
-  }
   constexpr void
   set_default_construct_value(detail::value_default_construct_fn default_construct_value) noexcept {
     default_construct_value_ = default_construct_value;
@@ -296,20 +295,11 @@ private:
   std::size_t size_ = 0;
   std::size_t alignment_ = 0;
   type_id parent_id_{};
-  caors::detail::cpp_type_key cpp_type_ = nullptr;
   detail::value_default_construct_fn default_construct_value_ = nullptr;
   detail::value_clone_fn clone_value_ = nullptr;
   detail::value_destroy_fn destroy_value_ = nullptr;
   detail::value_assign_fn assign_value_ = nullptr;
 };
-
-namespace detail {
-
-inline void set_cpp_type(type_data& type, caors::detail::cpp_type_key cpp_type) noexcept {
-  type.set_cpp_type(cpp_type);
-}
-
-} // namespace detail
 
 /**
  * @brief 元类型只读视图。
@@ -330,7 +320,6 @@ public:
   [[nodiscard]] std::size_t size() const noexcept;
   [[nodiscard]] std::size_t alignment() const noexcept;
   [[nodiscard]] type_id parent_id() const noexcept;
-  [[nodiscard]] caors::detail::cpp_type_key cpp_type() const noexcept;
   [[nodiscard]] detail::value_default_construct_fn default_construct_value() const noexcept;
   [[nodiscard]] detail::value_clone_fn clone_value() const noexcept;
   [[nodiscard]] detail::value_destroy_fn destroy_value() const noexcept;
@@ -349,16 +338,15 @@ private:
 
 /** @brief 创建基础元类型注册描述。 */
 template <typename T>
-[[nodiscard]] constexpr type_data make_type_data(string_name name,
-                                                 type_id parent_id = type_id::invalid()) noexcept {
+[[nodiscard]] type_data make_type_data(string_name name,
+                                       type_id parent_id = type_id::invalid()) noexcept {
   return type_data{
-      type_id::invalid(),
+      detail::type_id_of_cpp_type<T>(),
       name,
       type_guid::nil(),
       sizeof(T),
       alignof(T),
       parent_id,
-      caors::detail::cpp_type_key_of<T>(),
       detail::default_construct_fn_of<T>(),
       detail::value_clone_fn_of<T>(),
       detail::value_destroy_fn_of<T>(),
@@ -368,16 +356,15 @@ template <typename T>
 
 /** @brief 创建带稳定 GUID 的基础元类型注册描述。 */
 template <typename T>
-[[nodiscard]] constexpr type_data make_type_data(string_name name, type_guid guid,
-                                                 type_id parent_id = type_id::invalid()) noexcept {
+[[nodiscard]] type_data make_type_data(string_name name, type_guid guid,
+                                       type_id parent_id = type_id::invalid()) noexcept {
   return type_data{
-      type_id::invalid(),
+      detail::type_id_of_cpp_type<T>(),
       name,
       guid,
       sizeof(T),
       alignof(T),
       parent_id,
-      caors::detail::cpp_type_key_of<T>(),
       detail::default_construct_fn_of<T>(),
       detail::value_clone_fn_of<T>(),
       detail::value_destroy_fn_of<T>(),

@@ -11,6 +11,7 @@
 #include <initializer_list>
 #include <optional>
 #include <string_view>
+#include <type_traits>
 
 namespace caors::reflection {
 
@@ -33,12 +34,23 @@ public:
   [[nodiscard]] error register_type(meta::type_view type, const type_data& reflection);
   template <typename T>
   [[nodiscard]] error register_type_for(const meta::type_data& type, const type_data& reflection) {
-    return register_type(caors::detail::cpp_type_key_of<T>(), type, reflection);
+    using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+    const type_id expected_id = meta::detail::type_id_of_cpp_type<value_type>();
+    if (type.id() && type.id() != expected_id) {
+      return {error_domain::reflection, errc::invalid_type};
+    }
+
+    meta::type_data stored_type = type;
+    if (!stored_type.id()) {
+      stored_type.set_id(expected_id);
+    }
+
+    return register_type(stored_type, reflection);
   }
 
   [[nodiscard]] bool contains(type_id id) const;
   template <typename T> [[nodiscard]] std::optional<meta::type_view> find_registered_type() const {
-    return find_registered_type(caors::detail::cpp_type_key_of<T>());
+    return meta::get_registry().find_type<T>();
   }
 
   [[nodiscard]] std::optional<type> find_type(type_id id) const;
@@ -51,10 +63,6 @@ private:
   registry();
   ~registry();
 
-  [[nodiscard]] error register_type(caors::detail::cpp_type_key key, const meta::type_data& type,
-                                    const type_data& reflection);
-  [[nodiscard]] std::optional<meta::type_view>
-  find_registered_type(caors::detail::cpp_type_key key) const;
   [[nodiscard]] const type_data* find_reflection_data(type_id id) const;
 };
 
