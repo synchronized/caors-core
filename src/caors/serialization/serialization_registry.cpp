@@ -69,7 +69,7 @@ std::size_t size() noexcept { return serialization::get_registry().size(); }
 
 } // namespace serialization
 
-namespace detail {
+namespace serialization::detail {
 
 error register_serialization(type_id id, serialization::type_data data) {
   return serialization::get_registry().register_type(id, data);
@@ -79,6 +79,6 @@ error register_serialization(meta::type_view type, serialization::type_data data
   return serialization::get_registry().register_type(type, data);
 }
 
-} // namespace detail
+} // namespace serialization::detail
 
 } // namespace caors

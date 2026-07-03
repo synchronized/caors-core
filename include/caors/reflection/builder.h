@@ -103,7 +103,7 @@ public:
 
         reflection_.fields.push_back(
             make_field_data<Field>(name, *variant_name, detail::member_offset(member)));
-      } else if constexpr (detail::has_type_name_v<field_type>) {
+      } else if constexpr (caors::detail::has_type_name_v<field_type>) {
         reflection_.fields.push_back(make_field_data<Field>(name, type_name<field_type>::value,
                                                             detail::member_offset(member)));
       } else {
@@ -150,7 +150,7 @@ private:
       std::optional<meta::type_view> element =
           get_registry().template find_registered_type<element_type>();
       if (!element.has_value()) {
-        if constexpr (detail::has_type_name_v<element_type>) {
+        if constexpr (caors::detail::has_type_name_v<element_type>) {
           const error status =
               caors::meta::detail::register_type<element_type>(type_name<element_type>::value);
           if (status && status.value() != errc::duplicate_id) {
@@ -205,7 +205,7 @@ private:
   [[nodiscard]] std::optional<meta::type_view> ensure_registered_type() const {
     std::optional<meta::type_view> type = get_registry().template find_registered_type<T>();
     if (!type.has_value()) {
-      if constexpr (detail::has_type_name_v<T>) {
+      if constexpr (caors::detail::has_type_name_v<T>) {
         const error status = caors::meta::detail::register_type<T>(type_name<T>::value);
         if (status && status.value() != errc::duplicate_id) {
           return std::nullopt;

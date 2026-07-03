@@ -6,7 +6,7 @@
 
 #include "caors/serialization.h"
 
-namespace caors::detail {
+namespace caors::serialization::detail {
 
 [[nodiscard]] string_name serialized_field_name(const serialization::field_data& data) noexcept;
 [[nodiscard]] bool field_visible_in_context(const serialization::field_data& field,
@@ -34,6 +34,6 @@ namespace caors::detail {
                                           const serialization::field_data& field_data,
                                           const serialization::context& context);
 
-} // namespace caors::detail
+} // namespace caors::serialization::detail
 
 #endif

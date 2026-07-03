@@ -70,7 +70,7 @@ template <typename T> [[nodiscard]] error register_codec();
 
 } // namespace caors::serialization
 
-namespace caors::detail {
+namespace caors::serialization::detail {
 
 /** @brief 按类型 id 注册序列化 codec。内部入口，公开代码优先使用
  * `serialization::register_codec<T>()`。 */
@@ -139,7 +139,7 @@ template <typename T> [[nodiscard]] error register_serialization_codec() {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  if constexpr (has_type_name_v<type>) {
+  if constexpr (caors::detail::has_type_name_v<type>) {
     const error result = caors::meta::detail::register_type<type>(type_name<type>::value);
     if (result && result.value() != errc::duplicate_id) {
       return {error_domain::serialization, errc::invalid_type};
@@ -154,13 +154,13 @@ template <typename T> [[nodiscard]] error register_serialization_codec() {
   return register_serialization_codec(meta->id(), codec);
 }
 
-} // namespace detail
+} // namespace caors::serialization::detail
 
 namespace caors::serialization {
 
 /** @brief 按 C++ 类型注册已特化的序列化 codec。 */
 template <typename T> [[nodiscard]] error register_codec() {
-  return caors::detail::register_serialization_codec<T>();
+  return detail::register_serialization_codec<T>();
 }
 
 } // namespace caors::serialization

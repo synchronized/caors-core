@@ -124,7 +124,8 @@ error write(serialization_writer& writer, const variant& value) {
 
     for (std::size_t index = 0; index < value.as_object().size(); ++index) {
       const variant_member& member = value.as_object()[index];
-      status = detail::validate_field_for_writer(type_data.fields[index], writer.features());
+      status = serialization::detail::validate_field_for_writer(type_data.fields[index],
+                                                                writer.features());
       if (status) {
         return status;
       }

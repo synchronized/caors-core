@@ -205,18 +205,18 @@ private:
   object_id id_;
 };
 
-namespace detail {
+namespace objects::detail {
 
 template <typename T> struct object_ref_traits {
   static constexpr bool is_object_ref = false;
 };
 
-template <typename T> struct object_ref_traits<objects::ref<T>> {
+template <typename T> struct object_ref_traits<ref<T>> {
   static constexpr bool is_object_ref = true;
   using object_type = T;
 };
 
-template <typename T> struct object_ref_traits<objects::weak_handle<T>> {
+template <typename T> struct object_ref_traits<weak_handle<T>> {
   static constexpr bool is_object_ref = false;
   using object_type = T;
 };
@@ -247,7 +247,7 @@ template <typename T> struct object_base_type_traits<T, std::void_t<typename T::
   using type = typename T::base_type;
 };
 
-} // namespace detail
+} // namespace objects::detail
 
 /**
  * @brief 为派生对象提供默认运行期类型名实现。
@@ -278,7 +278,7 @@ public:
   }
 
   [[nodiscard]] static constexpr type_guid static_type_guid() noexcept {
-    return detail::object_type_guid_of<Derived>();
+    return objects::detail::object_type_guid_of<Derived>();
   }
 
   [[nodiscard]] object_type_id type_id() const noexcept override { return static_type_id(); }
@@ -365,14 +365,15 @@ public:
   [[nodiscard]] error register_type(const meta::type_data& type, const type_data& object);
   template <typename T>
   [[nodiscard]] error register_type_for(const meta::type_data& type, const type_data& object) {
-    return register_type(detail::cpp_type_key_of<T>(), type, object);
+    return register_type(caors::detail::cpp_type_key_of<T>(), type, object);
   }
 
   [[nodiscard]] bool contains(object_type_id id) const;
   [[nodiscard]] std::optional<type> find_type(object_type_id id) const;
   [[nodiscard]] std::optional<type> find_type(std::string_view name) const;
   template <typename T> [[nodiscard]] std::optional<type> find_type() const {
-    const std::optional<meta::type_view> type = find_registered_type(detail::cpp_type_key_of<T>());
+    const std::optional<meta::type_view> type =
+        find_registered_type(caors::detail::cpp_type_key_of<T>());
     if (!type.has_value()) {
       return std::nullopt;
     }
@@ -416,15 +417,16 @@ private:
   registry();
   ~registry();
 
-  [[nodiscard]] error register_type(detail::cpp_type_key key, const meta::type_data& type,
+  [[nodiscard]] error register_type(caors::detail::cpp_type_key key, const meta::type_data& type,
                                     const type_data& object);
-  [[nodiscard]] std::optional<meta::type_view> find_registered_type(detail::cpp_type_key key) const;
+  [[nodiscard]] std::optional<meta::type_view>
+  find_registered_type(caors::detail::cpp_type_key key) const;
   [[nodiscard]] const type_data* find_type_data(object_type_id id) const;
 };
 
 } // namespace objects
 
-namespace detail {
+namespace objects::detail {
 
 /** @brief 向全局对象注册表注册对象类型。内部入口，公开代码优先使用 `objects::class_<T>()`。 */
 template <typename T>
@@ -432,7 +434,7 @@ template <typename T>
                                          object_type_id parent_id = object_type_id::invalid()) {
   objects::registry& registry = objects::get_registry();
   if (!parent_id) {
-    using base_type = typename detail::object_base_type_traits<T>::type;
+    using base_type = typename object_base_type_traits<T>::type;
     const std::optional<objects::type> base = registry.find_type<base_type>();
     if (base.has_value()) {
       parent_id = base->id();
@@ -443,7 +445,7 @@ template <typename T>
                                        objects::make_type_data<T>());
 }
 
-} // namespace detail
+} // namespace objects::detail
 
 namespace objects {
 

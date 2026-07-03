@@ -10,7 +10,7 @@
 #include <string_view>
 #include <utility>
 
-namespace caors::detail {
+namespace caors::serialization::detail {
 namespace {
 
 template <typename T>
@@ -1963,4 +1963,4 @@ error read_configured_field(serialization_reader& reader, const reflection::fiel
   return status;
 }
 
-} // namespace caors::detail
+} // namespace caors::serialization::detail

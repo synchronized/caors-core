@@ -6,9 +6,7 @@
 
 #include "caors/meta/registry.h"
 
-namespace caors {
-
-namespace detail {
+namespace caors::meta::detail {
 
 template <typename T, typename = void> struct has_const_container_iterator : std::false_type {};
 
@@ -163,7 +161,7 @@ template <typename T> [[nodiscard]] error register_associative_data_for(type_id 
       data.iterator_value = &associative_iterator_value<iterator_type>;
     }
 
-    const error result = meta::get_registry().emplace<meta_associative_data>(id, data);
+    const error result = caors::meta::get_registry().emplace<meta_associative_data>(id, data);
     if (result && result.value() != errc::duplicate_component) {
       return result;
     }
@@ -217,7 +215,7 @@ template <typename T> [[nodiscard]] error register_pair_data_for(type_id id) {
         },
     };
 
-    const error result = meta::get_registry().emplace<meta_pair_data>(id, data);
+    const error result = caors::meta::get_registry().emplace<meta_pair_data>(id, data);
     if (result && result.value() != errc::duplicate_component) {
       return result;
     }
@@ -273,7 +271,7 @@ template <typename T> [[nodiscard]] error register_tuple_data_for(type_id id) {
       return {};
     }
 
-    const error result = meta::get_registry().emplace<meta_tuple_data>(id, data);
+    const error result = caors::meta::get_registry().emplace<meta_tuple_data>(id, data);
     if (result && result.value() != errc::duplicate_component) {
       return result;
     }
@@ -347,7 +345,7 @@ template <typename T> [[nodiscard]] error register_variant_data_for(type_id id) 
       return {};
     }
 
-    const error result = meta::get_registry().emplace<meta_variant_data>(id, data);
+    const error result = caors::meta::get_registry().emplace<meta_variant_data>(id, data);
     if (result && result.value() != errc::duplicate_component) {
       return result;
     }
@@ -421,7 +419,7 @@ template <typename T> [[nodiscard]] error register_sequence_data_for(type_id id)
       data.can_read = adapters::sequence_traits<type>::can_read;
     }
 
-    const error result = meta::get_registry().emplace<meta_sequence_data>(id, data);
+    const error result = caors::meta::get_registry().emplace<meta_sequence_data>(id, data);
     if (result && result.value() != errc::duplicate_component) {
       return result;
     }
@@ -492,7 +490,7 @@ template <typename T> [[nodiscard]] error register_set_data_for(type_id id) {
       data.iterator_value = &set_iterator_value<iterator_type>;
     }
 
-    const error result = meta::get_registry().emplace<meta_set_data>(id, data);
+    const error result = caors::meta::get_registry().emplace<meta_set_data>(id, data);
     if (result && result.value() != errc::duplicate_component) {
       return result;
     }
@@ -520,8 +518,6 @@ template <typename T> [[nodiscard]] error register_container_data_for(type_id id
   return {};
 }
 
-} // namespace detail
-
-} // namespace caors
+} // namespace caors::meta::detail
 
 #endif

@@ -33,12 +33,12 @@ public:
   [[nodiscard]] error register_type(meta::type_view type, const type_data& reflection);
   template <typename T>
   [[nodiscard]] error register_type_for(const meta::type_data& type, const type_data& reflection) {
-    return register_type(detail::cpp_type_key_of<T>(), type, reflection);
+    return register_type(caors::detail::cpp_type_key_of<T>(), type, reflection);
   }
 
   [[nodiscard]] bool contains(type_id id) const;
   template <typename T> [[nodiscard]] std::optional<meta::type_view> find_registered_type() const {
-    return find_registered_type(detail::cpp_type_key_of<T>());
+    return find_registered_type(caors::detail::cpp_type_key_of<T>());
   }
 
   [[nodiscard]] std::optional<type> find_type(type_id id) const;
@@ -51,9 +51,10 @@ private:
   registry();
   ~registry();
 
-  [[nodiscard]] error register_type(detail::cpp_type_key key, const meta::type_data& type,
+  [[nodiscard]] error register_type(caors::detail::cpp_type_key key, const meta::type_data& type,
                                     const type_data& reflection);
-  [[nodiscard]] std::optional<meta::type_view> find_registered_type(detail::cpp_type_key key) const;
+  [[nodiscard]] std::optional<meta::type_view>
+  find_registered_type(caors::detail::cpp_type_key key) const;
   [[nodiscard]] const type_data* find_reflection_data(type_id id) const;
 };
 
@@ -74,10 +75,6 @@ private:
 
 /** @brief 获取当前反射组件数量。 */
 [[nodiscard]] CAORS_API std::size_t size() noexcept;
-
-} // namespace caors::reflection
-
-namespace caors {
 
 namespace detail {
 
@@ -109,6 +106,6 @@ register_reflection(meta::type_view type, reflection::type_data data = reflectio
 
 } // namespace detail
 
-} // namespace caors
+} // namespace caors::reflection
 
 #endif

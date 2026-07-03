@@ -39,7 +39,8 @@ error deserialize(const reflection::type& type, void* object, serialization_read
 
   if (!serialization_data->fields.empty()) {
     for (const serialization::field_data& field_data : serialization_data->fields) {
-      if (field_data.skipped || !detail::field_visible_in_context(field_data, context)) {
+      if (field_data.skipped ||
+          !serialization::detail::field_visible_in_context(field_data, context)) {
         continue;
       }
 
@@ -48,7 +49,8 @@ error deserialize(const reflection::type& type, void* object, serialization_read
         return {error_domain::serialization, errc::not_found};
       }
 
-      status = detail::read_configured_field(reader, *field, object, field_data, context);
+      status =
+          serialization::detail::read_configured_field(reader, *field, object, field_data, context);
       if (status) {
         return status;
       }
@@ -61,7 +63,7 @@ error deserialize(const reflection::type& type, void* object, serialization_read
       }
 
       serialization::field_data field_data = serialization::make_field(field->name().view());
-      status = detail::read_field(reader, *field, object, field_data, context);
+      status = serialization::detail::read_field(reader, *field, object, field_data, context);
       if (status) {
         return status;
       }

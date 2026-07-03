@@ -3,7 +3,7 @@
 
 #include "serialization_internal.h"
 
-namespace caors::detail {
+namespace caors::serialization::detail {
 
 string_name serialized_field_name(const serialization::field_data& data) noexcept {
   return data.serialized_name.empty() ? data.field_name : data.serialized_name;
@@ -57,4 +57,4 @@ error validate_field_for_reader(const serialization::field_data& field,
   return {};
 }
 
-} // namespace caors::detail
+} // namespace caors::serialization::detail

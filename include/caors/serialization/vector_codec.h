@@ -17,7 +17,7 @@
 #include <utility>
 #include <vector>
 
-namespace caors::detail {
+namespace caors::serialization::detail {
 
 template <typename T>
 [[nodiscard]] error write_vector_element(serialization_writer& writer, const T& value) {
@@ -159,7 +159,7 @@ template <typename T> [[nodiscard]] variant_result make_vector_element_value(con
   }
 }
 
-} // namespace caors::detail
+} // namespace caors::serialization::detail
 
 namespace caors::serialization {
 

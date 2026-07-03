@@ -413,7 +413,8 @@ error reflection::registry::register_type(meta::type_view type,
   return register_type(type.id(), reflection);
 }
 
-error reflection::registry::register_type(detail::cpp_type_key key, const meta::type_data& type,
+error reflection::registry::register_type(caors::detail::cpp_type_key key,
+                                          const meta::type_data& type,
                                           const reflection::type_data& reflection) {
   if (!type.valid()) {
     return {error_domain::reflection, errc::invalid_type};
@@ -479,7 +480,7 @@ const reflection::type_data* reflection::registry::find_reflection_data(type_id 
 }
 
 std::optional<meta::type_view>
-reflection::registry::find_registered_type(detail::cpp_type_key key) const {
+reflection::registry::find_registered_type(caors::detail::cpp_type_key key) const {
   return meta::get_registry().find_cpp_type(key);
 }
 
@@ -532,7 +533,7 @@ reflection::registry& reflection::get_registry() noexcept {
   return reflection::registry::instance();
 }
 
-namespace detail {
+namespace reflection::detail {
 
 error register_reflection(type_id id, reflection::type_data data) {
   return reflection::get_registry().register_type(id, data);
@@ -542,7 +543,7 @@ error register_reflection(meta::type_view type, reflection::type_data data) {
   return reflection::get_registry().register_type(type, data);
 }
 
-} // namespace detail
+} // namespace reflection::detail
 
 namespace reflection {
 

@@ -336,8 +336,10 @@ void require_pointer_actor_metadata() {
           .field("optional", &pointer_actor::optional, "std.optional<int>")
           .field("stats", &pointer_actor::stats, "caors.test.serialization.nested_stats*")
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<nested_stats>()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<pointer_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<nested_stats>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<pointer_actor>()));
 }
 
 void require_non_default_value_metadata() {
@@ -363,15 +365,16 @@ void require_non_default_value_metadata() {
                                    "caors.test.serialization.non_default_variant_actor")
                                    .field("value", &non_default_variant_actor::value)
                                    .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<non_default_value>()));
-  REQUIRE(
-      serialization_result_ok(caors::detail::register_serialization<non_default_field_actor>()));
-  REQUIRE(
-      serialization_result_ok(caors::detail::register_serialization<non_default_vector_actor>()));
   REQUIRE(serialization_result_ok(
-      caors::detail::register_serialization<non_default_unique_ptr_actor>()));
-  REQUIRE(
-      serialization_result_ok(caors::detail::register_serialization<non_default_variant_actor>()));
+      caors::serialization::detail::register_serialization<non_default_value>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<non_default_field_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<non_default_vector_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<non_default_unique_ptr_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<non_default_variant_actor>()));
 }
 
 void require_unique_ptr_vector_actor_metadata() {
@@ -381,8 +384,8 @@ void require_unique_ptr_vector_actor_metadata() {
                                    "caors.test.serialization.unique_ptr_vector_actor")
                                    .field("values", &unique_ptr_vector_actor::values)
                                    .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::detail::register_serialization<unique_ptr_vector_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<unique_ptr_vector_actor>()));
 }
 
 void require_scalar_actor_metadata() {
@@ -392,7 +395,8 @@ void require_scalar_actor_metadata() {
           .field("color", &scalar_actor::color, "caors.test.serialization.scalar_color")
           .field("state", &scalar_actor::state, "caors.test.serialization.scalar_state")
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<scalar_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<scalar_actor>()));
 }
 
 void require_object_ref_vector_actor_metadata() {
@@ -402,8 +406,8 @@ void require_object_ref_vector_actor_metadata() {
                                    "caors.test.serialization.object_ref_vector_actor")
                                    .field("targets", &object_ref_vector_actor::targets)
                                    .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::detail::register_serialization<object_ref_vector_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<object_ref_vector_actor>()));
 }
 
 [[nodiscard]] caors::object_id resolve_object_id(const caors::object* instance, void* user_data) {
@@ -567,13 +571,15 @@ TEST_CASE("serialization - registers type metadata component", "[serialization]"
           .field("name", &serializable_actor::name)
           .commit()));
 
-  const caors::error status = caors::detail::register_serialization<serializable_actor>();
+  const caors::error status =
+      caors::serialization::detail::register_serialization<serializable_actor>();
 
   CHECK(serialization_result_ok(status));
   CHECK(caors::serialization::contains(caors::meta::find<serializable_actor>()->id()));
   CHECK(caors::serialization::size() >= 1);
 
-  const caors::error duplicate = caors::detail::register_serialization<serializable_actor>();
+  const caors::error duplicate =
+      caors::serialization::detail::register_serialization<serializable_actor>();
   CHECK(duplicate.failed());
   CHECK(duplicate.domain() == caors::error_domain::serialization);
   CHECK(duplicate.value() == caors::errc::duplicate_component);
@@ -601,7 +607,7 @@ TEST_CASE("serialization - class builder can attach to explicit meta type", "[se
 }
 
 TEST_CASE("serialization - explicit registration reports missing meta type", "[serialization]") {
-  const caors::error status = caors::detail::register_serialization(
+  const caors::error status = caors::serialization::detail::register_serialization(
       caors::type_id{std::numeric_limits<std::uint64_t>::max()});
 
   CHECK(status.failed());
@@ -618,7 +624,8 @@ TEST_CASE("serialization - serializes reflected struct fields to text", "[serial
           .field("name", &serializable_actor::name)
           .commit()));
 
-  const caors::error register_status = caors::detail::register_serialization<serializable_actor>();
+  const caors::error register_status =
+      caors::serialization::detail::register_serialization<serializable_actor>();
   REQUIRE(serialization_result_ok(register_status));
 
   const serializable_actor actor{7, 95.5F, true, "Ada"};
@@ -637,7 +644,8 @@ TEST_CASE("serialization - serializes reflected struct fields to json", "[serial
           .field("name", &serializable_actor::name)
           .commit()));
 
-  const caors::error register_status = caors::detail::register_serialization<serializable_actor>();
+  const caors::error register_status =
+      caors::serialization::detail::register_serialization<serializable_actor>();
   REQUIRE(serialization_result_ok(register_status));
 
   const serializable_actor actor{7, 95.5F, true, "Ada\nLovelace"};
@@ -655,7 +663,7 @@ TEST_CASE("serialization - field metadata renames and skips fields", "[serializa
           .field("debug", &configured_actor::debug)
           .commit()));
 
-  REQUIRE(caors::detail::register_serialization<configured_actor>(
+  REQUIRE(caors::serialization::detail::register_serialization<configured_actor>(
               {
                   caors::serialization::make_field("health", "hp"),
                   caors::serialization::make_field("debug", {}, true),
@@ -675,9 +683,10 @@ TEST_CASE("serialization - generic writer backend serializes fields", "[serializ
       caors::reflection::class_<writer_actor>("caors.test.serialization.writer_actor")
           .field("id", &writer_actor::id)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<writer_actor>({
-      caors::serialization::make_field("id", {}, false, 7),
-  })));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::detail::register_serialization<writer_actor>({
+          caors::serialization::make_field("id", {}, false, 7),
+      })));
 
   numeric_field_writer writer;
   const writer_actor actor{42};
@@ -695,7 +704,7 @@ TEST_CASE("serialization - builds variant from reflected object", "[serializatio
       caors::reflection::class_<dom_actor>("caors.test.serialization.dom_actor")
           .field("id", &dom_actor::id)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<dom_actor>({
+  REQUIRE(serialization_result_ok(caors::serialization::detail::register_serialization<dom_actor>({
       caors::serialization::make_field("id", "actor_id", false, 7),
   })));
 
@@ -801,7 +810,8 @@ TEST_CASE("serialization - variant reader deserializes reflected struct fields",
           .field("active", &reader_actor::active)
           .field("name", &reader_actor::name)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<reader_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<reader_actor>()));
 
   caors::variant::object_type members;
   members.push_back(caors::variant_member{
@@ -844,7 +854,8 @@ TEST_CASE("serialization - parses json and deserializes reflected struct fields"
           .field("active", &reader_actor::active)
           .field("name", &reader_actor::name)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<reader_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<reader_actor>()));
 
   const caors::variant_result parsed =
       caors::parse_json(R"({"id":7,"health":95.5,"active":true,"name":"Ada\nLovelace"})");
@@ -939,8 +950,10 @@ TEST_CASE("serialization - recursively serializes nested reflected structs", "[s
           .field("id", &nested_actor::id)
           .field("stats", &nested_actor::stats)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<nested_stats>()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<nested_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<nested_stats>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<nested_actor>()));
 
   const nested_actor actor{7, nested_stats{3, 12.5F}};
   const caors::serialization_text_result text = caors::serialize_text(actor);
@@ -966,14 +979,16 @@ TEST_CASE("serialization - json handles nested structs arrays and schema context
           .field("level", &nested_stats::level)
           .field("score", &nested_stats::score)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<nested_stats>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<nested_stats>()));
   require_serialization_codec<caors::vector<nested_stats>>(
       "caors.vector<caors.test.serialization.nested_stats>");
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<nested_vector_actor>("caors.test.serialization.nested_vector_actor")
           .field("stats", &nested_vector_actor::stats)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<nested_vector_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<nested_vector_actor>()));
 
   nested_vector_actor actor{};
   actor.stats.push_back(nested_stats{1, 2.5F});
@@ -995,8 +1010,10 @@ TEST_CASE("serialization - recursively deserializes nested reflected structs", "
           .field("id", &nested_actor::id)
           .field("stats", &nested_actor::stats)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<nested_stats>()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<nested_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<nested_stats>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<nested_actor>()));
 
   caors::variant::object_type stats_members;
   stats_members.push_back(caors::variant_member{
@@ -1237,8 +1254,8 @@ TEST_CASE("serialization - serializes and deserializes reference wrapper fields"
           "caors.test.serialization.reference_wrapper_actor")
           .field("value", &reference_wrapper_actor::value, "std.reference_wrapper<int>")
           .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::detail::register_serialization<reference_wrapper_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<reference_wrapper_actor>()));
 
   reference_wrapper_actor actor{7};
 
@@ -1259,8 +1276,8 @@ TEST_CASE("serialization - rejects null reference wrapper fields", "[serializati
           "caors.test.serialization.reference_wrapper_actor")
           .field("value", &reference_wrapper_actor::value, "std.reference_wrapper<int>")
           .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::detail::register_serialization<reference_wrapper_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<reference_wrapper_actor>()));
 
   reference_wrapper_actor actor{7};
   const caors::error result = caors::deserialize_json(actor, R"({"value":null})");
@@ -1377,7 +1394,8 @@ TEST_CASE("serialization - serializes vector fields as arrays", "[serialization]
       caors::reflection::class_<vector_actor>("caors.test.serialization.vector_actor")
           .field("scores", &vector_actor::scores)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<vector_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<vector_actor>()));
 
   vector_actor actor{};
   actor.scores.push_back(1);
@@ -1403,7 +1421,8 @@ TEST_CASE("serialization - deserializes vector fields from arrays", "[serializat
       caors::reflection::class_<vector_actor>("caors.test.serialization.vector_actor")
           .field("scores", &vector_actor::scores)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<vector_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<vector_actor>()));
 
   caors::variant::array_type scores;
   scores.push_back(caors::variant::from(std::int64_t{5}));
@@ -1433,8 +1452,8 @@ TEST_CASE("serialization - recursively serializes nested vector values", "[seria
           "caors.test.serialization.nested_vector_values_actor")
           .field("groups", &nested_vector_values_actor::groups, "caors.vector<caors.vector<int>>")
           .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::detail::register_serialization<nested_vector_values_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<nested_vector_values_actor>()));
 
   nested_vector_values_actor actor{};
   actor.groups.push_back(caors::vector<int>{1, 2});
@@ -1501,7 +1520,8 @@ TEST_CASE("serialization - recursively serializes codec values inside vectors", 
       caors::reflection::class_<guid_vector_actor>("caors.test.serialization.guid_vector_actor")
           .field("ids", &guid_vector_actor::ids, "caors.vector<guid>")
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<guid_vector_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<guid_vector_actor>()));
 
   const std::optional<caors::guid> first =
       caors::guid::parse("2f6d1f64-7a3a-4db2-9a2d-123456789abc");
@@ -1537,7 +1557,8 @@ TEST_CASE("serialization - serializes list fields as arrays", "[serialization]")
       caors::reflection::class_<list_actor>("caors.test.serialization.list_actor")
           .field("scores", &list_actor::scores)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<list_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::detail::register_serialization<list_actor>()));
 
   list_actor actor{};
   actor.scores.push_back(1);
@@ -1563,7 +1584,8 @@ TEST_CASE("serialization - deserializes list fields from arrays", "[serializatio
       caors::reflection::class_<list_actor>("caors.test.serialization.list_actor")
           .field("scores", &list_actor::scores)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<list_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::detail::register_serialization<list_actor>()));
 
   caors::variant::array_type scores;
   scores.push_back(caors::variant::from(std::int64_t{5}));
@@ -1594,7 +1616,8 @@ TEST_CASE("serialization - roundtrips std forward list fields", "[serialization]
       caors::reflection::class_<forward_list_actor>("caors.test.serialization.forward_list_actor")
           .field("scores", &forward_list_actor::scores)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<forward_list_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<forward_list_actor>()));
 
   forward_list_actor actor{};
   actor.scores.assign({1, 2, 3});
@@ -1624,7 +1647,8 @@ TEST_CASE("serialization - roundtrips std deque fields", "[serialization]") {
       caors::reflection::class_<deque_actor>("caors.test.serialization.deque_actor")
           .field("scores", &deque_actor::scores)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<deque_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::detail::register_serialization<deque_actor>()));
 
   deque_actor actor{};
   actor.scores.push_back(1);
@@ -1651,7 +1675,8 @@ TEST_CASE("serialization - roundtrips std array fields", "[serialization]") {
       caors::reflection::class_<array_actor>("caors.test.serialization.array_actor")
           .field("scores", &array_actor::scores)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<array_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::detail::register_serialization<array_actor>()));
 
   array_actor actor{{1, 2, 3}};
 
@@ -1673,7 +1698,8 @@ TEST_CASE("serialization - rejects std array length mismatch", "[serialization]"
       caors::reflection::class_<array_actor>("caors.test.serialization.array_actor")
           .field("scores", &array_actor::scores)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<array_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::detail::register_serialization<array_actor>()));
 
   array_actor actor{{1, 2, 3}};
   const caors::error result = caors::deserialize_json(actor, R"({"scores":[5,6]})");
@@ -1689,7 +1715,8 @@ TEST_CASE("serialization - serializes std span fields as borrowed views", "[seri
       caors::reflection::class_<span_actor>("caors.test.serialization.span_actor")
           .field("scores", &span_actor::scores)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<span_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::detail::register_serialization<span_actor>()));
 
   std::array<int, 3> storage{1, 2, 3};
   span_actor actor{std::span<int>{storage}};
@@ -1704,7 +1731,8 @@ TEST_CASE("serialization - rejects std span deserialization by default", "[seria
       caors::reflection::class_<span_actor>("caors.test.serialization.span_actor")
           .field("scores", &span_actor::scores)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<span_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::detail::register_serialization<span_actor>()));
 
   std::array<int, 3> storage{1, 2, 3};
   span_actor actor{std::span<int>{storage}};
@@ -1723,7 +1751,8 @@ TEST_CASE("serialization - rejects std span length mismatch without writing stor
       caors::reflection::class_<span_actor>("caors.test.serialization.span_actor")
           .field("scores", &span_actor::scores)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<span_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::detail::register_serialization<span_actor>()));
 
   std::array<int, 3> storage{1, 2, 3};
   span_actor actor{std::span<int>{storage}};
@@ -1740,7 +1769,8 @@ TEST_CASE("serialization - roundtrips std pair fields", "[serialization]") {
       caors::reflection::class_<pair_actor>("caors.test.serialization.pair_actor")
           .field("entry", &pair_actor::entry)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<pair_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::detail::register_serialization<pair_actor>()));
 
   pair_actor actor{{7, caors::string{"seven"}}};
 
@@ -1770,7 +1800,8 @@ TEST_CASE("serialization - rejects std pair length mismatch", "[serialization]")
       caors::reflection::class_<pair_actor>("caors.test.serialization.pair_actor")
           .field("entry", &pair_actor::entry)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<pair_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::detail::register_serialization<pair_actor>()));
 
   pair_actor actor{{7, caors::string{"seven"}}};
   const caors::error result = caors::deserialize_json(actor, R"({"entry":[9]})");
@@ -1787,7 +1818,8 @@ TEST_CASE("serialization - roundtrips std tuple fields", "[serialization]") {
       caors::reflection::class_<tuple_actor>("caors.test.serialization.tuple_actor")
           .field("entry", &tuple_actor::entry)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<tuple_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::detail::register_serialization<tuple_actor>()));
 
   tuple_actor actor{{7, caors::string{"seven"}, 1.5F}};
 
@@ -1819,7 +1851,8 @@ TEST_CASE("serialization - rejects std tuple length mismatch", "[serialization]"
       caors::reflection::class_<tuple_actor>("caors.test.serialization.tuple_actor")
           .field("entry", &tuple_actor::entry)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<tuple_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::detail::register_serialization<tuple_actor>()));
 
   tuple_actor actor{{7, caors::string{"seven"}, 1.5F}};
   const caors::error result = caors::deserialize_json(actor, R"({"entry":[9,"nine"]})");
@@ -1837,7 +1870,8 @@ TEST_CASE("serialization - roundtrips std variant fields", "[serialization]") {
       caors::reflection::class_<variant_actor>("caors.test.serialization.variant_actor")
           .field("entry", &variant_actor::entry)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<variant_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<variant_actor>()));
 
   variant_actor actor{};
   actor.entry = caors::string{"seven"};
@@ -1868,7 +1902,8 @@ TEST_CASE("serialization - rejects std variant invalid data", "[serialization]")
       caors::reflection::class_<variant_actor>("caors.test.serialization.variant_actor")
           .field("entry", &variant_actor::entry)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<variant_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<variant_actor>()));
 
   variant_actor actor{};
   actor.entry = caors::string{"seven"};
@@ -1896,7 +1931,8 @@ TEST_CASE("serialization - serializes hash map fields as dictionaries", "[serial
       caors::reflection::class_<map_actor>("caors.test.serialization.map_actor")
           .field("labels", &map_actor::labels)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<map_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::detail::register_serialization<map_actor>()));
 
   map_actor actor{};
   actor.labels.emplace(7, caors::string{"seven"});
@@ -1922,7 +1958,8 @@ TEST_CASE("serialization - deserializes hash map fields from dictionaries", "[se
       caors::reflection::class_<map_actor>("caors.test.serialization.map_actor")
           .field("labels", &map_actor::labels)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<map_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::detail::register_serialization<map_actor>()));
 
   caors::variant::dictionary_type entries;
   entries.push_back(caors::variant_entry{
@@ -1957,7 +1994,8 @@ TEST_CASE("serialization - deserializes hash map fields from pair arrays", "[ser
       caors::reflection::class_<map_actor>("caors.test.serialization.map_actor")
           .field("labels", &map_actor::labels)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<map_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::detail::register_serialization<map_actor>()));
 
   const caors::variant_result parsed = caors::parse_json(R"({"labels":[[3,"three"]]})");
   REQUIRE(parsed.succeeded());
@@ -1977,7 +2015,8 @@ TEST_CASE("serialization - roundtrips std map fields", "[serialization]") {
       caors::reflection::class_<ordered_map_actor>("caors.test.serialization.ordered_map_actor")
           .field("labels", &ordered_map_actor::labels)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<ordered_map_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<ordered_map_actor>()));
 
   ordered_map_actor actor{};
   actor.labels.emplace(2, caors::string{"two"});
@@ -2004,7 +2043,8 @@ TEST_CASE("serialization - serializes hash set fields as arrays", "[serializatio
       caors::reflection::class_<set_actor>("caors.test.serialization.set_actor")
           .field("ids", &set_actor::ids)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<set_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::detail::register_serialization<set_actor>()));
 
   set_actor actor{};
   actor.ids.emplace(7);
@@ -2029,7 +2069,8 @@ TEST_CASE("serialization - deserializes hash set fields from arrays", "[serializ
       caors::reflection::class_<set_actor>("caors.test.serialization.set_actor")
           .field("ids", &set_actor::ids)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<set_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::detail::register_serialization<set_actor>()));
 
   caors::variant::array_type ids;
   ids.push_back(caors::variant::from(std::int64_t{1}));
@@ -2058,7 +2099,8 @@ TEST_CASE("serialization - hash set reader rejects duplicate elements", "[serial
       caors::reflection::class_<set_actor>("caors.test.serialization.set_actor")
           .field("ids", &set_actor::ids)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<set_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::detail::register_serialization<set_actor>()));
 
   caors::variant::array_type ids;
   ids.push_back(caors::variant::from(std::int64_t{1}));
@@ -2086,7 +2128,8 @@ TEST_CASE("serialization - roundtrips std set fields", "[serialization]") {
       caors::reflection::class_<ordered_set_actor>("caors.test.serialization.ordered_set_actor")
           .field("ids", &ordered_set_actor::ids)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<ordered_set_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<ordered_set_actor>()));
 
   ordered_set_actor actor{};
   actor.ids.emplace(3);
@@ -2113,7 +2156,7 @@ TEST_CASE("serialization - generic sequence codec uses sequence traits", "[seria
                                    .field("scores", &custom_codec_sequence_actor::scores)
                                    .commit()));
   REQUIRE(serialization_result_ok(
-      caors::detail::register_serialization<custom_codec_sequence_actor>()));
+      caors::serialization::detail::register_serialization<custom_codec_sequence_actor>()));
 
   custom_codec_sequence_actor actor{};
   actor.scores.values.push_back(4);
@@ -2151,7 +2194,8 @@ TEST_CASE("serialization - generic associative codec uses associative traits", "
                                    "caors.test.serialization.custom_codec_map_actor")
                                    .field("labels", &custom_codec_map_actor::labels)
                                    .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<custom_codec_map_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<custom_codec_map_actor>()));
 
   custom_codec_map_actor actor{};
   actor.labels.values.emplace(6, caors::string{"six"});
@@ -2188,14 +2232,16 @@ TEST_CASE("serialization - recursively serializes vector struct elements", "[ser
           .field("level", &nested_stats::level)
           .field("score", &nested_stats::score)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<nested_stats>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<nested_stats>()));
   require_serialization_codec<caors::vector<nested_stats>>(
       "caors.vector<caors.test.serialization.nested_stats>");
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<nested_vector_actor>("caors.test.serialization.nested_vector_actor")
           .field("stats", &nested_vector_actor::stats)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<nested_vector_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<nested_vector_actor>()));
 
   nested_vector_actor actor{};
   actor.stats.push_back(nested_stats{1, 2.5F});
@@ -2244,7 +2290,8 @@ TEST_CASE("serialization - serializes object references through resolver", "[ser
       caors::reflection::class_<object_ref_actor>("caors.test.serialization.object_ref_actor")
           .field("target", &object_ref_actor::target)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<object_ref_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<object_ref_actor>()));
 
   object_ref_target target;
   object_ref_resolver_data resolver_data{caors::object_id{77}, &target};
@@ -2280,7 +2327,8 @@ TEST_CASE("serialization - deserializes object references through resolver", "[s
       caors::reflection::class_<object_ref_actor>("caors.test.serialization.object_ref_actor")
           .field("target", &object_ref_actor::target)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<object_ref_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<object_ref_actor>()));
 
   object_ref_target target;
   object_ref_resolver_data resolver_data{caors::object_id{88}, &target};
@@ -2369,7 +2417,8 @@ TEST_CASE("serialization - object reference resolver failures are reported", "[s
       caors::reflection::class_<object_ref_actor>("caors.test.serialization.object_ref_actor")
           .field("target", &object_ref_actor::target)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<object_ref_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<object_ref_actor>()));
 
   object_ref_target target;
   const object_ref_actor actor{caors::object_ref<object_ref_target>{&target}};
@@ -2425,9 +2474,10 @@ TEST_CASE("serialization - variant reader matches fields by stable field id", "[
                                    "caors.test.serialization.reader_field_id_actor")
                                    .field("id", &reader_field_id_actor::id)
                                    .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<reader_field_id_actor>({
-      caors::serialization::make_field("id", "actor_id", false, 7),
-  })));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<reader_field_id_actor>({
+          caors::serialization::make_field("id", "actor_id", false, 7),
+      })));
 
   caors::variant::object_type members;
   members.push_back(caors::variant_member{
@@ -2448,8 +2498,8 @@ TEST_CASE("serialization - variant reader reports missing fields", "[serializati
                                    "caors.test.serialization.reader_missing_field_actor")
                                    .field("id", &reader_missing_field_actor::id)
                                    .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::detail::register_serialization<reader_missing_field_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<reader_missing_field_actor>()));
 
   reader_missing_field_actor actor{};
   const caors::error result = caors::deserialize(actor, caors::variant::object({}));
@@ -2476,12 +2526,13 @@ TEST_CASE("serialization - variant reader applies required optional and skipped 
   caors::serialization::field_data skipped = caors::serialization::make_field("skipped");
   skipped.skipped = true;
 
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<reader_field_policy_actor>({
-      id,
-      optional,
-      required,
-      skipped,
-  })));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<reader_field_policy_actor>({
+          id,
+          optional,
+          required,
+          skipped,
+      })));
 
   caors::variant::object_type members;
   members.push_back(caors::variant_member{
@@ -2526,12 +2577,13 @@ TEST_CASE("serialization - variant reader reports missing required fields", "[se
   caors::serialization::field_data skipped = caors::serialization::make_field("skipped");
   skipped.skipped = true;
 
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<reader_field_policy_actor>({
-      id,
-      optional,
-      required,
-      skipped,
-  })));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<reader_field_policy_actor>({
+          id,
+          optional,
+          required,
+          skipped,
+      })));
 
   reader_field_policy_actor actor{};
   const caors::error result = caors::deserialize(actor, caors::variant::object({}));
@@ -2546,8 +2598,8 @@ TEST_CASE("serialization - variant reader ignores unknown object members", "[ser
                                    "caors.test.serialization.reader_unknown_field_actor")
                                    .field("id", &reader_unknown_field_actor::id)
                                    .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::detail::register_serialization<reader_unknown_field_actor>({
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<reader_unknown_field_actor>({
           caors::serialization::make_field("id"),
       })));
 
@@ -2589,12 +2641,13 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
   future.version_added = 3;
   future.required = true;
 
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<versioned_actor>({
-      id,
-      legacy,
-      current,
-      future,
-  })));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<versioned_actor>({
+          id,
+          legacy,
+          current,
+          future,
+      })));
 
   const versioned_actor actor{1, 10, 20, 30};
   const caors::serialization_text_result text_v2 =
@@ -2698,7 +2751,8 @@ TEST_CASE("serialization - built in codecs serialize guid and type guid as scala
           .field("id", &codec_guid_actor::id)
           .field("type", &codec_guid_actor::type)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<codec_guid_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<codec_guid_actor>()));
 
   const codec_guid_actor actor{*id, caors::type_guid{*type}};
   const caors::serialization_text_result text = caors::serialize_text(actor);
@@ -2724,7 +2778,8 @@ TEST_CASE("serialization - built in codecs deserialize guid and type guid from s
           .field("id", &codec_guid_actor::id)
           .field("type", &codec_guid_actor::type)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<codec_guid_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<codec_guid_actor>()));
 
   caors::variant::object_type members;
   members.push_back(caors::variant_member{
@@ -2752,7 +2807,8 @@ TEST_CASE("serialization - built in codecs reject invalid guid text", "[serializ
           .field("id", &codec_guid_actor::id)
           .field("type", &codec_guid_actor::type)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<codec_guid_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<codec_guid_actor>()));
 
   caors::variant::object_type members;
   members.push_back(caors::variant_member{
@@ -2774,8 +2830,8 @@ TEST_CASE("serialization - built in codecs serialize string view fields", "[seri
                                    "caors.test.serialization.codec_string_view_actor")
                                    .field("name", &codec_string_view_actor::name)
                                    .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::detail::register_serialization<codec_string_view_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<codec_string_view_actor>()));
 
   const codec_string_view_actor actor{std::string_view{"Ada"}};
   const caors::serialization_text_result text = caors::serialize_text(actor);
@@ -2789,8 +2845,8 @@ TEST_CASE("serialization - built in codecs reject string view deserialization", 
                                    "caors.test.serialization.codec_string_view_actor")
                                    .field("name", &codec_string_view_actor::name)
                                    .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::detail::register_serialization<codec_string_view_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<codec_string_view_actor>()));
 
   codec_string_view_actor actor{std::string_view{"original"}};
   const caors::error result = caors::deserialize_json(actor, R"({"name":"Ada"})");
@@ -2807,8 +2863,8 @@ TEST_CASE("serialization - string view deserialization can use explicit backing 
                                    "caors.test.serialization.codec_string_view_actor")
                                    .field("name", &codec_string_view_actor::name)
                                    .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::detail::register_serialization<codec_string_view_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<codec_string_view_actor>()));
 
   codec_string_view_actor actor{std::string_view{"original"}};
   caors::string backing;
@@ -2829,7 +2885,8 @@ TEST_CASE("serialization - built in codecs roundtrip filesystem paths as strings
       caors::reflection::class_<codec_path_actor>("caors.test.serialization.codec_path_actor")
           .field("path", &codec_path_actor::path)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<codec_path_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<codec_path_actor>()));
 
   codec_path_actor actor{std::filesystem::path{"assets/textures/albedo.png"}};
 
@@ -2858,7 +2915,8 @@ TEST_CASE("serialization - built in codecs roundtrip chrono values as integers",
           .field("timeout", &codec_chrono_actor::timeout)
           .field("timestamp", &codec_chrono_actor::timestamp)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<codec_chrono_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<codec_chrono_actor>()));
 
   codec_chrono_actor actor{
       std::chrono::milliseconds{2500},
@@ -2895,7 +2953,7 @@ TEST_CASE("serialization - writer features validate required field identifiers",
                                    "caors.test.serialization.numeric_writer_actor")
                                    .field("id", &numeric_writer_actor::id)
                                    .commit()));
-  REQUIRE(caors::detail::register_serialization<numeric_writer_actor>(
+  REQUIRE(caors::serialization::detail::register_serialization<numeric_writer_actor>(
               {
                   caors::serialization::make_field("id"),
               })
@@ -2916,7 +2974,7 @@ TEST_CASE("serialization - registration can happen before reflection fields", "[
                                           .get();
   REQUIRE(type.valid());
 
-  REQUIRE(caors::detail::register_serialization<serialization_first_actor>(
+  REQUIRE(caors::serialization::detail::register_serialization<serialization_first_actor>(
               {
                   caors::serialization::make_field("id", "actor_id"),
               })
@@ -2954,7 +3012,7 @@ TEST_CASE("serialization - reports missing configured reflection field", "[seria
       caors::reflection::class_<missing_field_actor>("caors.test.serialization.missing_field")
           .field("id", &missing_field_actor::id)
           .commit()));
-  REQUIRE(caors::detail::register_serialization<missing_field_actor>(
+  REQUIRE(caors::serialization::detail::register_serialization<missing_field_actor>(
               {
                   caors::serialization::make_field("missing"),
               })
@@ -2973,8 +3031,8 @@ TEST_CASE("serialization - reports unsupported reflected field kind", "[serializ
                                    "caors.test.serialization.unsupported_field")
                                    .field("value", &unsupported_field_actor::value)
                                    .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::detail::register_serialization<unsupported_field_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<unsupported_field_actor>()));
 
   const unsupported_field_actor actor{{1}};
   const caors::serialization_text_result result = caors::serialize_text(actor);
@@ -2989,7 +3047,8 @@ TEST_CASE("serialization - reports unsupported weak pointer fields", "[serializa
       caors::reflection::class_<weak_ptr_actor>("caors.test.serialization.weak_ptr_actor")
           .field("value", &weak_ptr_actor::value, "std.weak_ptr<int>")
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<weak_ptr_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<weak_ptr_actor>()));
 
   const std::shared_ptr<int> value = std::make_shared<int>(7);
   const weak_ptr_actor actor{value};
@@ -3005,7 +3064,8 @@ TEST_CASE("serialization - rejects weak pointer deserialization", "[serializatio
       caors::reflection::class_<weak_ptr_actor>("caors.test.serialization.weak_ptr_actor")
           .field("value", &weak_ptr_actor::value, "std.weak_ptr<int>")
           .commit()));
-  REQUIRE(serialization_result_ok(caors::detail::register_serialization<weak_ptr_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::detail::register_serialization<weak_ptr_actor>()));
 
   weak_ptr_actor actor{};
   const caors::error result = caors::deserialize_json(actor, R"({"value":7})");

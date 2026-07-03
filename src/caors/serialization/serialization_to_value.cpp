@@ -39,7 +39,7 @@ object_ref_to_serialization_value(const reflection::field& field, const void* ob
 
 [[nodiscard]] variant_result
 value_ref_to_serialization_value(const any_ref& value, const serialization::context& context) {
-  return detail::make_serialized_value(value, context);
+  return serialization::detail::make_serialized_value(value, context);
 }
 
 [[nodiscard]] variant_result field_to_serialization_value(const reflection::field& field,
@@ -75,7 +75,7 @@ value_ref_to_serialization_value(const any_ref& value, const serialization::cont
 } // namespace
 
 variant_result serialization::to_variant(const any& data) {
-  return detail::make_serialized_value(data);
+  return serialization::detail::make_serialized_value(data);
 }
 
 variant_result serialization::to_variant(const any_ref& data) {
@@ -83,7 +83,7 @@ variant_result serialization::to_variant(const any_ref& data) {
     return {{error_domain::serialization, errc::invalid_argument}, {}};
   }
 
-  return detail::make_serialized_value(data, serialization::context{});
+  return serialization::detail::make_serialized_value(data, serialization::context{});
 }
 
 variant_result to_serialization_value(const reflection::type& type, const void* object) {
@@ -114,7 +114,8 @@ variant_result to_serialization_value(const reflection::type& type, const void* 
   if (!serialization_data->fields.empty()) {
     members.reserve(serialization_data->fields.size());
     for (const serialization::field_data& field_data : serialization_data->fields) {
-      if (field_data.skipped || !detail::field_visible_in_context(field_data, context)) {
+      if (field_data.skipped ||
+          !serialization::detail::field_visible_in_context(field_data, context)) {
         continue;
       }
 
@@ -129,7 +130,7 @@ variant_result to_serialization_value(const reflection::type& type, const void* 
       }
 
       members.push_back(variant_member{
-          detail::serialized_field_name(field_data),
+          serialization::detail::serialized_field_name(field_data),
           field_data.field_id,
           std::move(serialized.value),
       });

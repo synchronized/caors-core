@@ -39,7 +39,8 @@ error serialize(const reflection::type& type, const void* object, serialization_
 
   if (!serialization_data->fields.empty()) {
     for (const serialization::field_data& field_data : serialization_data->fields) {
-      if (field_data.skipped || !detail::field_visible_in_context(field_data, context)) {
+      if (field_data.skipped ||
+          !serialization::detail::field_visible_in_context(field_data, context)) {
         continue;
       }
 
@@ -48,7 +49,7 @@ error serialize(const reflection::type& type, const void* object, serialization_
         return {error_domain::serialization, errc::not_found};
       }
 
-      status = detail::write_field(writer, *field, object, field_data, context);
+      status = serialization::detail::write_field(writer, *field, object, field_data, context);
       if (status) {
         return status;
       }
@@ -61,7 +62,7 @@ error serialize(const reflection::type& type, const void* object, serialization_
       }
 
       serialization::field_data field_data = serialization::make_field(field->name().view());
-      status = detail::write_field(writer, *field, object, field_data, context);
+      status = serialization::detail::write_field(writer, *field, object, field_data, context);
       if (status) {
         return status;
       }

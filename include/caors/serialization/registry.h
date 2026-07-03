@@ -64,9 +64,7 @@ private:
 
 } // namespace caors::serialization
 
-namespace caors {
-
-namespace detail {
+namespace caors::serialization::detail {
 
 /** @brief 向全局序列化注册表注册类型。内部入口，公开代码优先使用 `serialization::class_()`。 */
 [[nodiscard]] CAORS_API error
@@ -90,9 +88,9 @@ register_serialization(std::initializer_list<serialization::field_data> fields) 
   return register_serialization<T>(serialization::make_type_data(fields));
 }
 
-} // namespace detail
+} // namespace caors::serialization::detail
 
-namespace serialization {
+namespace caors::serialization {
 
 /** @brief 已注册元类型的序列化配置构建器。 */
 class class_builder {
@@ -118,7 +116,7 @@ public:
       return status_;
     }
 
-    return caors::detail::register_serialization(type_, data_);
+    return detail::register_serialization(type_, data_);
   }
 
   [[nodiscard]] const type_data& serialization_data() const noexcept { return data_; }
@@ -132,8 +130,6 @@ private:
 /** @brief 为已注册元类型创建序列化配置构建器。 */
 [[nodiscard]] inline class_builder class_(meta::type_view type) { return class_builder{type}; }
 
-} // namespace serialization
-
-} // namespace caors
+} // namespace caors::serialization
 
 #endif

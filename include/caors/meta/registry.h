@@ -25,12 +25,12 @@
 #include <type_traits>
 #include <utility>
 
-namespace caors::detail {
+namespace caors::meta::detail {
 
 template <typename T> [[nodiscard]] error ensure_type_semantics_for(type_id id);
 template <typename T> [[nodiscard]] error register_container_data_for(type_id id);
 
-} // namespace caors::detail
+} // namespace caors::meta::detail
 
 namespace caors::meta {
 
@@ -157,8 +157,8 @@ public:
 
     const std::optional<type_view> registered = find_cpp_type(key);
     if (registered.has_value()) {
-      (void)caors::detail::ensure_type_semantics_for<value_type>(registered->id());
-      (void)caors::detail::register_container_data_for<value_type>(registered->id());
+      (void)detail::ensure_type_semantics_for<value_type>(registered->id());
+      (void)detail::register_container_data_for<value_type>(registered->id());
     }
 
     return status;

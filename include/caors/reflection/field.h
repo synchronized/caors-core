@@ -15,9 +15,7 @@
 #include <string_view>
 #include <type_traits>
 
-namespace caors {
-
-namespace detail {
+namespace caors::reflection::detail {
 
 using object_ref_get_fn = object* (*)(const void*) noexcept;
 using object_ref_set_fn = bool (*)(void*, object*) noexcept;
@@ -35,7 +33,7 @@ template <typename T> [[nodiscard]] type_id register_field_type_id(std::string_v
 
 template <typename Field> [[nodiscard]] object_ref_get_fn object_ref_get_fn_of() noexcept {
   using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
-  if constexpr (object_ref_traits<field_type>::is_object_ref) {
+  if constexpr (objects::detail::object_ref_traits<field_type>::is_object_ref) {
     return [](const void* storage) noexcept -> object* {
       if (storage == nullptr) {
         return nullptr;
@@ -50,8 +48,8 @@ template <typename Field> [[nodiscard]] object_ref_get_fn object_ref_get_fn_of()
 
 template <typename Field> [[nodiscard]] object_ref_set_fn object_ref_set_fn_of() noexcept {
   using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
-  if constexpr (object_ref_traits<field_type>::is_object_ref) {
-    using object_type = typename object_ref_traits<field_type>::object_type;
+  if constexpr (objects::detail::object_ref_traits<field_type>::is_object_ref) {
+    using object_type = typename objects::detail::object_ref_traits<field_type>::object_type;
     return [](void* storage, object* instance) noexcept -> bool {
       if (storage == nullptr) {
         return false;
@@ -75,9 +73,9 @@ template <typename Field> [[nodiscard]] object_ref_set_fn object_ref_set_fn_of()
   }
 }
 
-} // namespace detail
+} // namespace caors::reflection::detail
 
-namespace reflection {
+namespace caors::reflection {
 
 /**
  * @brief 底层字段反射元信息。
@@ -102,7 +100,7 @@ struct field_data {
   template <typename Field> [[nodiscard]] bool matches_type() const noexcept {
     using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
     const std::optional<meta::type_view> meta = caors::meta::find(type);
-    return meta.has_value() && meta->cpp_type() == detail::cpp_type_key_of<field_type>() &&
+    return meta.has_value() && meta->cpp_type() == caors::detail::cpp_type_key_of<field_type>() &&
            meta->size() == sizeof(field_type) && meta->alignment() == alignof(field_type);
   }
 
@@ -232,25 +230,25 @@ template <typename Field>
   };
 
   if constexpr (adapters::sequence_traits<field_type>::is_sequence) {
-    (void)detail::register_container_data_for<field_type>(field.type);
+    (void)meta::detail::register_container_data_for<field_type>(field.type);
   } else if constexpr (adapters::set_traits<field_type>::is_set) {
-    (void)detail::register_container_data_for<field_type>(field.type);
+    (void)meta::detail::register_container_data_for<field_type>(field.type);
   } else if constexpr (adapters::associative_traits<field_type>::is_associative) {
-    (void)detail::register_container_data_for<field_type>(field.type);
+    (void)meta::detail::register_container_data_for<field_type>(field.type);
   } else if constexpr (adapters::pair_traits<field_type>::is_pair) {
-    (void)detail::register_container_data_for<field_type>(field.type);
+    (void)meta::detail::register_container_data_for<field_type>(field.type);
   } else if constexpr (adapters::tuple_traits<field_type>::is_tuple) {
-    (void)detail::register_container_data_for<field_type>(field.type);
+    (void)meta::detail::register_container_data_for<field_type>(field.type);
   } else if constexpr (adapters::variant_traits<field_type>::is_variant) {
-    (void)detail::register_container_data_for<field_type>(field.type);
+    (void)meta::detail::register_container_data_for<field_type>(field.type);
   }
 
   return field;
 }
 
-} // namespace reflection
+} // namespace caors::reflection
 
-namespace detail {
+namespace caors::reflection::detail {
 
 template <typename Member> struct member_pointer_traits;
 
@@ -266,8 +264,6 @@ template <typename Class, typename Field>
   return reinterpret_cast<std::uintptr_t>(field) - reinterpret_cast<std::uintptr_t>(object);
 }
 
-} // namespace detail
-
-} // namespace caors
+} // namespace caors::reflection::detail
 
 #endif
