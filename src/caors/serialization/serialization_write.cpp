@@ -7,7 +7,7 @@
 
 namespace caors::serialization {
 
-error write(serialization_writer& writer, const variant& value) {
+error write(writer& writer, const variant& value) {
   switch (value.kind()) {
   case variant_kind::null:
     return writer.write_null();

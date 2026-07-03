@@ -13,11 +13,12 @@
 namespace caors::serialization {
 namespace {
 
-[[nodiscard]] string_name serialized_field_name(const serialization::field_data& data) noexcept {
+[[nodiscard]] core::string_name
+serialized_field_name(const serialization::field_data& data) noexcept {
   return data.serialized_name.empty() ? data.field_name : data.serialized_name;
 }
 
-void append_hex4(string& output, std::uint32_t value) {
+void append_hex4(core::string& output, std::uint32_t value) {
   constexpr char digits[] = "0123456789abcdef";
   output += "\\u";
   output.push_back(digits[(value >> 12U) & 0x0FU]);
@@ -26,7 +27,7 @@ void append_hex4(string& output, std::uint32_t value) {
   output.push_back(digits[value & 0x0FU]);
 }
 
-void append_json_string(string& output, std::string_view value) {
+void append_json_string(core::string& output, std::string_view value) {
   output.push_back('"');
   for (const unsigned char character : value) {
     switch (character) {
@@ -63,7 +64,7 @@ void append_json_string(string& output, std::string_view value) {
   output.push_back('"');
 }
 
-void append_text(string& output, std::string_view value) {
+void append_text(core::string& output, std::string_view value) {
   output.append(value.data(), value.size());
 }
 
@@ -132,7 +133,7 @@ private:
     case '[':
       return parse_array();
     case '"': {
-      string value;
+      core::string value;
       const error status = parse_string(value);
       return status ? variant_result{status, {}} : variant_result{{}, variant::from(value)};
     }
@@ -173,7 +174,7 @@ private:
     }
 
     while (true) {
-      string name;
+      core::string name;
       error status = parse_string(name);
       if (status) {
         return {status, {}};
@@ -189,7 +190,7 @@ private:
         return value;
       }
 
-      members.push_back(variant_member{string_name{name}, 0, std::move(value.value)});
+      members.push_back(variant_member{core::string_name{name}, 0, std::move(value.value)});
       skip_space();
       if (consume('}')) {
         break;
@@ -236,7 +237,7 @@ private:
     return {{}, variant::array(std::move(values))};
   }
 
-  [[nodiscard]] error parse_string(string& output) {
+  [[nodiscard]] error parse_string(core::string& output) {
     if (!consume('"')) {
       return {error_domain::serialization, errc::invalid_argument};
     }
@@ -295,7 +296,7 @@ private:
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  [[nodiscard]] bool parse_ascii_unicode_escape(string& output) {
+  [[nodiscard]] bool parse_ascii_unicode_escape(core::string& output) {
     if (position_ + 4 > text_.size()) {
       return false;
     }
@@ -427,7 +428,7 @@ error serialization::json_writer::begin_field(const serialization::field_data& f
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  const string_name name = serialized_field_name(field);
+  const core::string_name name = serialized_field_name(field);
   if (name.empty()) {
     return {error_domain::serialization, errc::invalid_field};
   }

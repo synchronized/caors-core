@@ -5,7 +5,7 @@
 
 namespace caors::serialization::detail {
 
-string_name serialized_field_name(const serialization::field_data& data) noexcept {
+core::string_name serialized_field_name(const serialization::field_data& data) noexcept {
   return data.serialized_name.empty() ? data.field_name : data.serialized_name;
 }
 

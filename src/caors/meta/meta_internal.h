@@ -16,12 +16,12 @@ public:
   std::uint64_t next_type_id = 1;
   bool frozen = false;
   bool registrations_ran = false;
-  vector<registration_fn> registrations;
-  hash_map<std::uint64_t, std::unique_ptr<type_data>> types;
-  hash_map<string_name, type_id> names;
-  hash_map<guid, type_id, guid_hash> guids;
-  hash_map<caors::detail::cpp_type_key, type_id> cpp_types;
-  hash_map<detail::meta_component_key, std::unique_ptr<detail::meta_component_storage_base>>
+  core::vector<registration_fn> registrations;
+  core::hash_map<std::uint64_t, std::unique_ptr<type_data>> types;
+  core::hash_map<core::string_name, type_id> names;
+  core::hash_map<core::guid, type_id, core::guid_hash> guids;
+  core::hash_map<caors::detail::cpp_type_key, type_id> cpp_types;
+  core::hash_map<detail::meta_component_key, std::unique_ptr<detail::meta_component_storage_base>>
       components;
 };
 

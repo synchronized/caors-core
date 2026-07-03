@@ -42,7 +42,7 @@ std::optional<type_view> registry::find_type(type_id id) const {
   return type_view{this, type};
 }
 
-std::optional<type_view> registry::find_type(type_guid guid) const {
+std::optional<type_view> registry::find_type(core::type_guid guid) const {
   if (!guid) {
     return std::nullopt;
   }
@@ -62,7 +62,7 @@ std::optional<type_view> registry::find_type(type_guid guid) const {
 }
 
 std::optional<type_view> registry::find_type(std::string_view name) const {
-  std::optional<string_name> interned_name = string_name::find(name);
+  std::optional<core::string_name> interned_name = core::string_name::find(name);
   if (!interned_name.has_value()) {
     return std::nullopt;
   }
@@ -70,7 +70,7 @@ std::optional<type_view> registry::find_type(std::string_view name) const {
   return find_type(*interned_name);
 }
 
-std::optional<type_view> registry::find_type(string_name name) const {
+std::optional<type_view> registry::find_type(core::string_name name) const {
   std::lock_guard lock(state_->mutex);
   const auto name_position = state_->names.find(name);
   if (name_position == state_->names.end()) {

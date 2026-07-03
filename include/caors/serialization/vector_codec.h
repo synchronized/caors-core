@@ -19,8 +19,7 @@
 
 namespace caors::serialization::detail {
 
-template <typename T>
-[[nodiscard]] error write_vector_element(serialization_writer& writer, const T& value) {
+template <typename T> [[nodiscard]] error write_vector_element(writer& writer, const T& value) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
 
   if constexpr (std::is_same_v<type, bool>) {
@@ -46,8 +45,7 @@ template <typename T>
   }
 }
 
-template <typename T>
-[[nodiscard]] error read_vector_element(serialization_reader& reader, T& value) {
+template <typename T> [[nodiscard]] error read_vector_element(reader& reader, T& value) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
 
   if constexpr (std::is_same_v<type, bool>) {
@@ -181,7 +179,7 @@ template <typename Sequence> struct sequence_codec {
                                    std::is_default_constructible_v<element_type>;
   static constexpr bool can_make_value = container_traits::is_sequence;
 
-  [[nodiscard]] static error write(serialization_writer& writer, const Sequence& values) {
+  [[nodiscard]] static error write(writer& writer, const Sequence& values) {
     const std::size_t size = container_traits::size(values);
     error status = writer.begin_array(size);
     if (status) {
@@ -213,7 +211,7 @@ template <typename Sequence> struct sequence_codec {
     return writer.end_array();
   }
 
-  [[nodiscard]] static error read(serialization_reader& reader, Sequence& values) {
+  [[nodiscard]] static error read(reader& reader, Sequence& values) {
     std::size_t size = 0;
     error status = reader.begin_array(size);
     if (status) {

@@ -6,7 +6,7 @@
 namespace caors::serialization {
 namespace {
 
-[[nodiscard]] string_name serialized_field_name(const field_data& data) noexcept {
+[[nodiscard]] core::string_name serialized_field_name(const field_data& data) noexcept {
   return data.serialized_name.empty() ? data.field_name : data.serialized_name;
 }
 
@@ -40,7 +40,7 @@ const variant_member* variant_reader::find_member(const field_data& field) const
     return nullptr;
   }
 
-  const string_name name = serialized_field_name(field);
+  const core::string_name name = serialized_field_name(field);
   for (const variant_member& member : object->as_object()) {
     if (field.field_id != 0 && member.field_id == field.field_id) {
       return &member;
@@ -275,7 +275,7 @@ error variant_reader::read_f64(double& value) {
   return {};
 }
 
-error variant_reader::read_string(string& value) {
+error variant_reader::read_string(core::string& value) {
   const variant* current = current_value();
   if (current == nullptr || current->kind() != variant_kind::string) {
     return {error_domain::serialization, errc::invalid_type};

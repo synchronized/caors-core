@@ -90,7 +90,7 @@ TEST_CASE("meta - cross module view supports serialization registered before ref
   CHECK(view_contains(view, type.id()));
 
   const cross_module_serialization_first instance{42};
-  const caors::serialization_text_result result = caors::serialize_text(instance);
+  const caors::serialization::serialization_text_result result = caors::serialize_text(instance);
   REQUIRE(result.succeeded());
   CHECK(result.value == R"({"actor_id":42})");
 }

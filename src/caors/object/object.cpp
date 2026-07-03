@@ -60,9 +60,9 @@ meta::type_view objects::type::info() const noexcept { return valid() ? type_ : 
 
 object_type_id objects::type::id() const noexcept { return type_.id(); }
 
-string_name objects::type::name() const noexcept { return type_.name(); }
+core::string_name objects::type::name() const noexcept { return type_.name(); }
 
-type_guid objects::type::guid() const noexcept { return type_.guid(); }
+core::type_guid objects::type::guid() const noexcept { return type_.guid(); }
 
 std::size_t objects::type::size() const noexcept { return type_.size(); }
 

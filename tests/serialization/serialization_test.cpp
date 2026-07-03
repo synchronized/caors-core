@@ -428,7 +428,7 @@ void require_object_ref_vector_actor_metadata() {
   return data->instance;
 }
 
-class numeric_field_writer final : public caors::serialization_writer {
+class numeric_field_writer final : public caors::serialization::writer {
 public:
   [[nodiscard]] caors::serialization::format_features features() const noexcept override {
     return caors::serialization::format_features::numeric_fields;
@@ -600,7 +600,7 @@ TEST_CASE("serialization - class builder can attach to explicit meta type", "[se
   REQUIRE(serialization_result_ok(status));
 
   const explicit_meta_serialization_actor actor{42};
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
 
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"id":42})");
@@ -629,7 +629,7 @@ TEST_CASE("serialization - serializes reflected struct fields to text", "[serial
   REQUIRE(serialization_result_ok(register_status));
 
   const serializable_actor actor{7, 95.5F, true, "Ada"};
-  const caors::serialization_text_result result = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result result = caors::serialize_text(actor);
 
   REQUIRE(result.succeeded());
   CHECK(result.value == R"({"id":7,"health":95.5,"active":true,"name":"Ada"})");
@@ -649,7 +649,7 @@ TEST_CASE("serialization - serializes reflected struct fields to json", "[serial
   REQUIRE(serialization_result_ok(register_status));
 
   const serializable_actor actor{7, 95.5F, true, "Ada\nLovelace"};
-  const caors::serialization_text_result result = caors::serialize_json(actor);
+  const caors::serialization::serialization_text_result result = caors::serialize_json(actor);
 
   REQUIRE(result.succeeded());
   CHECK(result.value == R"({"id":7,"health":95.5,"active":true,"name":"Ada\nLovelace"})");
@@ -672,7 +672,7 @@ TEST_CASE("serialization - field metadata renames and skips fields", "[serializa
               .succeeded());
 
   const configured_actor actor{7, 42.5F, true};
-  const caors::serialization_text_result result = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result result = caors::serialize_text(actor);
 
   REQUIRE(result.succeeded());
   CHECK(result.value == R"({"hp":42.5,"id":7})");
@@ -709,7 +709,7 @@ TEST_CASE("serialization - builds variant from reflected object", "[serializatio
   })));
 
   const dom_actor actor{42};
-  const caors::variant_result result = caors::to_serialization_value(actor);
+  const caors::serialization::variant_result result = caors::to_serialization_value(actor);
 
   REQUIRE(result.succeeded());
   CHECK(result.value.kind() == caors::variant_kind::object);
@@ -774,7 +774,7 @@ TEST_CASE("serialization - converts runtime values to variant", "[serialization]
   require_registered_type<caors::guid>("caors.guid");
 
   caors::any number = caors::any::from(42);
-  caors::variant_result number_result = caors::serialization::to_variant(number);
+  caors::serialization::variant_result number_result = caors::serialization::to_variant(number);
   REQUIRE(number_result.succeeded());
   CHECK(number_result.value.is_i64());
   REQUIRE(number_result.value.try_as_i64() != nullptr);
@@ -782,7 +782,7 @@ TEST_CASE("serialization - converts runtime values to variant", "[serialization]
 
   caors::string name = "Ada";
   caors::any_ref name_ref = caors::any_ref::from(name);
-  caors::variant_result name_result = caors::serialization::to_variant(name_ref);
+  caors::serialization::variant_result name_result = caors::serialization::to_variant(name_ref);
   REQUIRE(name_result.succeeded());
   CHECK(name_result.value.is_string());
   REQUIRE(name_result.value.try_as_string() != nullptr);
@@ -790,13 +790,15 @@ TEST_CASE("serialization - converts runtime values to variant", "[serialization]
 
   const std::optional<caors::guid> id = caors::guid::parse("2f6d1f64-7a3a-4db2-9a2d-123456789abc");
   REQUIRE(id.has_value());
-  caors::variant_result guid_result = caors::serialization::to_variant(caors::any::from(*id));
+  caors::serialization::variant_result guid_result =
+      caors::serialization::to_variant(caors::any::from(*id));
   REQUIRE(guid_result.succeeded());
   CHECK(guid_result.value.is_string());
   REQUIRE(guid_result.value.try_as_string() != nullptr);
   CHECK(*guid_result.value.try_as_string() == "2f6d1f64-7a3a-4db2-9a2d-123456789abc");
 
-  caors::variant_result invalid_result = caors::serialization::to_variant(caors::any_ref{});
+  caors::serialization::variant_result invalid_result =
+      caors::serialization::to_variant(caors::any_ref{});
   CHECK(invalid_result.failed());
   CHECK(invalid_result.status.value() == caors::errc::invalid_argument);
 }
@@ -857,7 +859,7 @@ TEST_CASE("serialization - parses json and deserializes reflected struct fields"
   REQUIRE(serialization_result_ok(
       caors::serialization::detail::register_serialization<reader_actor>()));
 
-  const caors::variant_result parsed =
+  const caors::serialization::variant_result parsed =
       caors::parse_json(R"({"id":7,"health":95.5,"active":true,"name":"Ada\nLovelace"})");
   REQUIRE(parsed.succeeded());
   REQUIRE(parsed.value.is_object());
@@ -885,11 +887,11 @@ TEST_CASE("serialization - roundtrips char and enum fields", "[serialization]") 
   actor.color = scalar_color::blue;
   actor.state = scalar_state::enabled;
 
-  const caors::serialization_text_result text = caors::serialize_json(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_json(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"code":"A","color":2,"state":2})");
 
-  const caors::variant_result value = caors::to_serialization_value(actor);
+  const caors::serialization::variant_result value = caors::to_serialization_value(actor);
   REQUIRE(value.succeeded());
 
   const caors::variant_member* code = value.value.find_member(caors::string_name{"code"});
@@ -932,7 +934,7 @@ TEST_CASE("serialization - rejects invalid char and enum values", "[serializatio
 }
 
 TEST_CASE("serialization - rejects invalid json", "[serialization]") {
-  const caors::variant_result parsed = caors::parse_json(R"({"id":1,})");
+  const caors::serialization::variant_result parsed = caors::parse_json(R"({"id":1,})");
 
   CHECK(parsed.failed());
   CHECK(parsed.status.domain() == caors::error_domain::serialization);
@@ -956,12 +958,12 @@ TEST_CASE("serialization - recursively serializes nested reflected structs", "[s
       caors::serialization::detail::register_serialization<nested_actor>()));
 
   const nested_actor actor{7, nested_stats{3, 12.5F}};
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
 
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"id":7,"stats":{"level":3,"score":12.5}})");
 
-  const caors::variant_result value = caors::to_serialization_value(actor);
+  const caors::serialization::variant_result value = caors::to_serialization_value(actor);
   REQUIRE(value.succeeded());
   REQUIRE(value.value.is_object());
   const caors::variant_member* stats = value.value.find_member(caors::string_name{"stats"});
@@ -994,7 +996,7 @@ TEST_CASE("serialization - json handles nested structs arrays and schema context
   actor.stats.push_back(nested_stats{1, 2.5F});
   actor.stats.push_back(nested_stats{3, 4.5F});
 
-  const caors::serialization_text_result json = caors::serialize_json(actor);
+  const caors::serialization::serialization_text_result json = caors::serialize_json(actor);
   REQUIRE(json.succeeded());
   CHECK(json.value == R"({"stats":[{"level":1,"score":2.5},{"level":3,"score":4.5}]})");
 }
@@ -1054,7 +1056,7 @@ TEST_CASE("serialization - updates non default constructible direct fields", "[s
 
   non_default_field_actor actor{non_default_value{1}};
 
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"value":{"value":1}})");
 
@@ -1071,7 +1073,7 @@ TEST_CASE("serialization - rejects non default constructible sequence elements",
   non_default_vector_actor actor{};
   actor.values.emplace_back(1);
 
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"values":[{"value":1}]})");
 
@@ -1155,12 +1157,12 @@ TEST_CASE("serialization - serializes pointer and wrapper fields as inline value
   actor.optional = 10;
   actor.stats = &stats;
 
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value ==
         R"({"raw":7,"shared":8,"unique":9,"optional":10,"stats":{"level":2,"score":3.5}})");
 
-  const caors::variant_result value = caors::to_serialization_value(actor);
+  const caors::serialization::variant_result value = caors::to_serialization_value(actor);
   REQUIRE(value.succeeded());
   const caors::variant_member* shared = value.value.find_member(caors::string_name{"shared"});
   REQUIRE(shared != nullptr);
@@ -1259,7 +1261,7 @@ TEST_CASE("serialization - serializes and deserializes reference wrapper fields"
 
   reference_wrapper_actor actor{7};
 
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"value":7})");
 
@@ -1294,12 +1296,12 @@ TEST_CASE("serialization - serializes empty pointer and wrapper fields as null",
 
   pointer_actor actor{};
 
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
 
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"raw":null,"shared":null,"unique":null,"optional":null,"stats":null})");
 
-  const caors::variant_result value = caors::to_serialization_value(actor);
+  const caors::serialization::variant_result value = caors::to_serialization_value(actor);
   REQUIRE(value.succeeded());
 
   const caors::variant_member* raw = value.value.find_member(caors::string_name{"raw"});
@@ -1402,11 +1404,11 @@ TEST_CASE("serialization - serializes vector fields as arrays", "[serialization]
   actor.scores.push_back(2);
   actor.scores.push_back(3);
 
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"scores":[1,2,3]})");
 
-  const caors::variant_result value = caors::to_serialization_value(actor);
+  const caors::serialization::variant_result value = caors::to_serialization_value(actor);
   REQUIRE(value.succeeded());
   const caors::variant_member* scores = value.value.find_member(caors::string_name{"scores"});
   REQUIRE(scores != nullptr);
@@ -1459,11 +1461,11 @@ TEST_CASE("serialization - recursively serializes nested vector values", "[seria
   actor.groups.push_back(caors::vector<int>{1, 2});
   actor.groups.push_back(caors::vector<int>{3});
 
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"groups":[[1,2],[3]]})");
 
-  const caors::variant_result value = caors::to_serialization_value(actor);
+  const caors::serialization::variant_result value = caors::to_serialization_value(actor);
   REQUIRE(value.succeeded());
   const caors::variant_member* groups = value.value.find_member(caors::string_name{"groups"});
   REQUIRE(groups != nullptr);
@@ -1490,11 +1492,11 @@ TEST_CASE("serialization - roundtrips unique pointer vectors", "[serialization]"
   actor.values.push_back(std::unique_ptr<int>{});
   actor.values.push_back(std::make_unique<int>(9));
 
-  const caors::serialization_text_result text = caors::serialize_json(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_json(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"values":[7,null,9]})");
 
-  const caors::variant_result value = caors::to_serialization_value(actor);
+  const caors::serialization::variant_result value = caors::to_serialization_value(actor);
   REQUIRE(value.succeeded());
   const caors::variant_member* values = value.value.find_member(caors::string_name{"values"});
   REQUIRE(values != nullptr);
@@ -1534,7 +1536,7 @@ TEST_CASE("serialization - recursively serializes codec values inside vectors", 
   actor.ids.push_back(*first);
   actor.ids.push_back(*second);
 
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(
       text.value ==
@@ -1565,11 +1567,11 @@ TEST_CASE("serialization - serializes list fields as arrays", "[serialization]")
   actor.scores.push_back(2);
   actor.scores.push_back(3);
 
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"scores":[1,2,3]})");
 
-  const caors::variant_result value = caors::to_serialization_value(actor);
+  const caors::serialization::variant_result value = caors::to_serialization_value(actor);
   REQUIRE(value.succeeded());
   const caors::variant_member* scores = value.value.find_member(caors::string_name{"scores"});
   REQUIRE(scores != nullptr);
@@ -1622,7 +1624,7 @@ TEST_CASE("serialization - roundtrips std forward list fields", "[serialization]
   forward_list_actor actor{};
   actor.scores.assign({1, 2, 3});
 
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"scores":[1,2,3]})");
 
@@ -1655,7 +1657,7 @@ TEST_CASE("serialization - roundtrips std deque fields", "[serialization]") {
   actor.scores.push_back(2);
   actor.scores.push_back(3);
 
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"scores":[1,2,3]})");
 
@@ -1680,7 +1682,7 @@ TEST_CASE("serialization - roundtrips std array fields", "[serialization]") {
 
   array_actor actor{{1, 2, 3}};
 
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"scores":[1,2,3]})");
 
@@ -1721,7 +1723,7 @@ TEST_CASE("serialization - serializes std span fields as borrowed views", "[seri
   std::array<int, 3> storage{1, 2, 3};
   span_actor actor{std::span<int>{storage}};
 
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"scores":[1,2,3]})");
 }
@@ -1774,7 +1776,7 @@ TEST_CASE("serialization - roundtrips std pair fields", "[serialization]") {
 
   pair_actor actor{{7, caors::string{"seven"}}};
 
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"entry":[7,"seven"]})");
 
@@ -1785,7 +1787,7 @@ TEST_CASE("serialization - roundtrips std pair fields", "[serialization]") {
   CHECK(decoded.entry.first == 9);
   CHECK(decoded.entry.second == "nine");
 
-  const caors::variant_result value = caors::to_serialization_value(actor);
+  const caors::serialization::variant_result value = caors::to_serialization_value(actor);
   REQUIRE(value.succeeded());
   const caors::variant_member* entry = value.value.find_member(caors::string_name{"entry"});
   REQUIRE(entry != nullptr);
@@ -1823,7 +1825,7 @@ TEST_CASE("serialization - roundtrips std tuple fields", "[serialization]") {
 
   tuple_actor actor{{7, caors::string{"seven"}, 1.5F}};
 
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"entry":[7,"seven",1.5]})");
 
@@ -1835,7 +1837,7 @@ TEST_CASE("serialization - roundtrips std tuple fields", "[serialization]") {
   CHECK(std::get<1>(decoded.entry) == "nine");
   CHECK(std::get<2>(decoded.entry) == 2.5F);
 
-  const caors::variant_result value = caors::to_serialization_value(actor);
+  const caors::serialization::variant_result value = caors::to_serialization_value(actor);
   REQUIRE(value.succeeded());
   const caors::variant_member* entry = value.value.find_member(caors::string_name{"entry"});
   REQUIRE(entry != nullptr);
@@ -1876,7 +1878,7 @@ TEST_CASE("serialization - roundtrips std variant fields", "[serialization]") {
   variant_actor actor{};
   actor.entry = caors::string{"seven"};
 
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"entry":[1,"seven"]})");
 
@@ -1887,7 +1889,7 @@ TEST_CASE("serialization - roundtrips std variant fields", "[serialization]") {
   REQUIRE(std::holds_alternative<float>(decoded.entry));
   CHECK(std::get<float>(decoded.entry) == 2.5F);
 
-  const caors::variant_result value = caors::to_serialization_value(actor);
+  const caors::serialization::variant_result value = caors::to_serialization_value(actor);
   REQUIRE(value.succeeded());
   const caors::variant_member* entry = value.value.find_member(caors::string_name{"entry"});
   REQUIRE(entry != nullptr);
@@ -1937,11 +1939,11 @@ TEST_CASE("serialization - serializes hash map fields as dictionaries", "[serial
   map_actor actor{};
   actor.labels.emplace(7, caors::string{"seven"});
 
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"labels":[[7,"seven"]]})");
 
-  const caors::variant_result value = caors::to_serialization_value(actor);
+  const caors::serialization::variant_result value = caors::to_serialization_value(actor);
   REQUIRE(value.succeeded());
   const caors::variant_member* labels = value.value.find_member(caors::string_name{"labels"});
   REQUIRE(labels != nullptr);
@@ -1997,7 +1999,8 @@ TEST_CASE("serialization - deserializes hash map fields from pair arrays", "[ser
   REQUIRE(
       serialization_result_ok(caors::serialization::detail::register_serialization<map_actor>()));
 
-  const caors::variant_result parsed = caors::parse_json(R"({"labels":[[3,"three"]]})");
+  const caors::serialization::variant_result parsed =
+      caors::parse_json(R"({"labels":[[3,"three"]]})");
   REQUIRE(parsed.succeeded());
 
   map_actor actor{};
@@ -2022,7 +2025,7 @@ TEST_CASE("serialization - roundtrips std map fields", "[serialization]") {
   actor.labels.emplace(2, caors::string{"two"});
   actor.labels.emplace(1, caors::string{"one"});
 
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"labels":[[1,"one"],[2,"two"]]})");
 
@@ -2049,11 +2052,11 @@ TEST_CASE("serialization - serializes hash set fields as arrays", "[serializatio
   set_actor actor{};
   actor.ids.emplace(7);
 
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"ids":[7]})");
 
-  const caors::variant_result value = caors::to_serialization_value(actor);
+  const caors::serialization::variant_result value = caors::to_serialization_value(actor);
   REQUIRE(value.succeeded());
   const caors::variant_member* ids = value.value.find_member(caors::string_name{"ids"});
   REQUIRE(ids != nullptr);
@@ -2135,7 +2138,7 @@ TEST_CASE("serialization - roundtrips std set fields", "[serialization]") {
   actor.ids.emplace(3);
   actor.ids.emplace(1);
 
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"ids":[1,3]})");
 
@@ -2162,7 +2165,7 @@ TEST_CASE("serialization - generic sequence codec uses sequence traits", "[seria
   actor.scores.values.push_back(4);
   actor.scores.values.push_back(5);
 
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"scores":[4,5]})");
 
@@ -2200,7 +2203,7 @@ TEST_CASE("serialization - generic associative codec uses associative traits", "
   custom_codec_map_actor actor{};
   actor.labels.values.emplace(6, caors::string{"six"});
 
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"labels":[[6,"six"]]})");
 
@@ -2247,7 +2250,7 @@ TEST_CASE("serialization - recursively serializes vector struct elements", "[ser
   actor.stats.push_back(nested_stats{1, 2.5F});
   actor.stats.push_back(nested_stats{3, 4.5F});
 
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"stats":[{"level":1,"score":2.5},{"level":3,"score":4.5}]})");
 
@@ -2303,11 +2306,12 @@ TEST_CASE("serialization - serializes object references through resolver", "[ser
   const caors::serialization::context context{0, &resolver};
   const object_ref_actor actor{caors::object_ref<object_ref_target>{&target}};
 
-  const caors::serialization_text_result text = caors::serialize_text(actor, context);
+  const caors::serialization::serialization_text_result text =
+      caors::serialize_text(actor, context);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"target":77})");
 
-  const caors::variant_result value = caors::to_serialization_value(actor, context);
+  const caors::serialization::variant_result value = caors::to_serialization_value(actor, context);
   REQUIRE(value.succeeded());
   const caors::variant_member* target_member =
       value.value.find_member(caors::string_name{"target"});
@@ -2315,7 +2319,8 @@ TEST_CASE("serialization - serializes object references through resolver", "[ser
   CHECK(target_member->value.is_u64());
   CHECK(target_member->value.as_u64() == 77);
 
-  const caors::serialization_text_result json = caors::serialize_json(actor, context);
+  const caors::serialization::serialization_text_result json =
+      caors::serialize_json(actor, context);
   REQUIRE(json.succeeded());
   CHECK(json.value == R"({"target":77})");
 }
@@ -2375,11 +2380,12 @@ TEST_CASE("serialization - serializes object references inside vectors", "[seria
   actor.targets.push_back(caors::object_ref<object_ref_target>{&target});
   actor.targets.push_back(caors::object_ref<object_ref_target>{});
 
-  const caors::serialization_text_result text = caors::serialize_json(actor, context);
+  const caors::serialization::serialization_text_result text =
+      caors::serialize_json(actor, context);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"targets":[77,0]})");
 
-  const caors::variant_result value = caors::to_serialization_value(actor, context);
+  const caors::serialization::variant_result value = caors::to_serialization_value(actor, context);
   REQUIRE(value.succeeded());
   const caors::variant_member* targets = value.value.find_member(caors::string_name{"targets"});
   REQUIRE(targets != nullptr);
@@ -2422,7 +2428,8 @@ TEST_CASE("serialization - object reference resolver failures are reported", "[s
 
   object_ref_target target;
   const object_ref_actor actor{caors::object_ref<object_ref_target>{&target}};
-  const caors::serialization_text_result missing_resolver = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result missing_resolver =
+      caors::serialize_text(actor);
   CHECK(missing_resolver.failed());
   CHECK(missing_resolver.status.value() == caors::errc::invalid_argument);
 
@@ -2650,13 +2657,13 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
       })));
 
   const versioned_actor actor{1, 10, 20, 30};
-  const caors::serialization_text_result text_v2 =
+  const caors::serialization::serialization_text_result text_v2 =
       caors::serialize_text(actor, caors::serialization::context{2});
 
   REQUIRE(text_v2.succeeded());
   CHECK(text_v2.value == R"({"id":1,"current":20})");
 
-  const caors::serialization_text_result text_v3 =
+  const caors::serialization::serialization_text_result text_v3 =
       caors::serialize_text(actor, caors::serialization::context{3});
 
   REQUIRE(text_v3.succeeded());
@@ -2755,14 +2762,14 @@ TEST_CASE("serialization - built in codecs serialize guid and type guid as scala
       caors::serialization::detail::register_serialization<codec_guid_actor>()));
 
   const codec_guid_actor actor{*id, caors::type_guid{*type}};
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
 
   REQUIRE(text.succeeded());
   CHECK(
       text.value ==
       R"({"id":"2f6d1f64-7a3a-4db2-9a2d-123456789abc","type":"5ed39a97-7b20-4d87-86ac-e62a4a615b10"})");
 
-  const caors::variant_result value = caors::to_serialization_value(actor);
+  const caors::serialization::variant_result value = caors::to_serialization_value(actor);
   REQUIRE(value.succeeded());
   REQUIRE(value.value.as_object().size() == 2);
   CHECK(value.value.as_object()[0].value.kind() == caors::variant_kind::string);
@@ -2834,7 +2841,7 @@ TEST_CASE("serialization - built in codecs serialize string view fields", "[seri
       caors::serialization::detail::register_serialization<codec_string_view_actor>()));
 
   const codec_string_view_actor actor{std::string_view{"Ada"}};
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
 
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"name":"Ada"})");
@@ -2890,11 +2897,11 @@ TEST_CASE("serialization - built in codecs roundtrip filesystem paths as strings
 
   codec_path_actor actor{std::filesystem::path{"assets/textures/albedo.png"}};
 
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"path":"assets/textures/albedo.png"})");
 
-  const caors::variant_result value = caors::to_serialization_value(actor);
+  const caors::serialization::variant_result value = caors::to_serialization_value(actor);
   REQUIRE(value.succeeded());
   const caors::variant_member* path = value.value.find_member(caors::string_name{"path"});
   REQUIRE(path != nullptr);
@@ -2923,11 +2930,11 @@ TEST_CASE("serialization - built in codecs roundtrip chrono values as integers",
       std::chrono::system_clock::time_point{std::chrono::milliseconds{1700000000123}},
   };
 
-  const caors::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"timeout":2500,"timestamp":1700000000123})");
 
-  const caors::variant_result value = caors::to_serialization_value(actor);
+  const caors::serialization::variant_result value = caors::to_serialization_value(actor);
   REQUIRE(value.succeeded());
   const caors::variant_member* timeout = value.value.find_member(caors::string_name{"timeout"});
   const caors::variant_member* timestamp = value.value.find_member(caors::string_name{"timestamp"});
@@ -2986,7 +2993,7 @@ TEST_CASE("serialization - registration can happen before reflection fields", "[
                                    .commit()));
 
   const serialization_first_actor actor{9};
-  const caors::serialization_text_result result = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result result = caors::serialize_text(actor);
 
   REQUIRE(result.succeeded());
   CHECK(result.value == R"({"actor_id":9})");
@@ -2999,7 +3006,7 @@ TEST_CASE("serialization - reports missing serialization metadata", "[serializat
           .commit()));
 
   const reflected_only_actor actor{3};
-  const caors::serialization_text_result result = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result result = caors::serialize_text(actor);
 
   CHECK(result.failed());
   CHECK(result.status.domain() == caors::error_domain::serialization);
@@ -3019,7 +3026,7 @@ TEST_CASE("serialization - reports missing configured reflection field", "[seria
               .succeeded());
 
   const missing_field_actor actor{3};
-  const caors::serialization_text_result result = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result result = caors::serialize_text(actor);
 
   CHECK(result.failed());
   CHECK(result.status.domain() == caors::error_domain::serialization);
@@ -3035,7 +3042,7 @@ TEST_CASE("serialization - reports unsupported reflected field kind", "[serializ
       caors::serialization::detail::register_serialization<unsupported_field_actor>()));
 
   const unsupported_field_actor actor{{1}};
-  const caors::serialization_text_result result = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result result = caors::serialize_text(actor);
 
   CHECK(result.failed());
   CHECK(result.status.domain() == caors::error_domain::serialization);
@@ -3052,7 +3059,7 @@ TEST_CASE("serialization - reports unsupported weak pointer fields", "[serializa
 
   const std::shared_ptr<int> value = std::make_shared<int>(7);
   const weak_ptr_actor actor{value};
-  const caors::serialization_text_result result = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result result = caors::serialize_text(actor);
 
   CHECK(result.failed());
   CHECK(result.status.domain() == caors::error_domain::serialization);

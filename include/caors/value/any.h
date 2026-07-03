@@ -703,10 +703,10 @@ private:
   friend class any;
   friend class any_ref;
 
-  pair_view(const meta_pair_data* data, const void* storage, bool writable) noexcept
+  pair_view(const meta::pair_data* data, const void* storage, bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
 
-  const meta_pair_data* data_ = nullptr;
+  const meta::pair_data* data_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };
@@ -754,7 +754,7 @@ public:
       return {};
     }
 
-    const meta_tuple_element_data& element_data = data_->elements[index];
+    const meta::tuple_element_data& element_data = data_->elements[index];
     const void* value = nullptr;
     bool value_writable = false;
     if (writable() && element_data.mutable_element != nullptr) {
@@ -786,10 +786,10 @@ private:
   friend class any;
   friend class any_ref;
 
-  tuple_view(const meta_tuple_data* data, const void* storage, bool writable) noexcept
+  tuple_view(const meta::tuple_data* data, const void* storage, bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
 
-  const meta_tuple_data* data_ = nullptr;
+  const meta::tuple_data* data_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };
@@ -870,7 +870,7 @@ public:
       return {};
     }
 
-    const meta_variant_alternative_data& alternative_data = data_->alternatives[*active];
+    const meta::variant_alternative_data& alternative_data = data_->alternatives[*active];
     const void* value = nullptr;
     bool value_writable = false;
     if (writable() && alternative_data.mutable_alternative != nullptr) {
@@ -898,7 +898,7 @@ public:
       return true;
     }
 
-    const meta_variant_alternative_data& alternative_data = data_->alternatives[alternative];
+    const meta::variant_alternative_data& alternative_data = data_->alternatives[alternative];
     if (alternative_data.emplace == nullptr) {
       return false;
     }
@@ -921,10 +921,10 @@ private:
   friend class any;
   friend class any_ref;
 
-  variant_view(const meta_variant_data* data, const void* storage, bool writable) noexcept
+  variant_view(const meta::variant_data* data, const void* storage, bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
 
-  const meta_variant_data* data_ = nullptr;
+  const meta::variant_data* data_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };
@@ -1075,10 +1075,10 @@ private:
   friend class any;
   friend class any_ref;
 
-  sequence_view(const meta_sequence_data* data, const void* storage, bool writable) noexcept
+  sequence_view(const meta::sequence_data* data, const void* storage, bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
 
-  const meta_sequence_data* data_ = nullptr;
+  const meta::sequence_data* data_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };
@@ -1268,7 +1268,7 @@ public:
     }
 
     struct visit_context {
-      const meta_set_data* data = nullptr;
+      const meta::set_data* data = nullptr;
       set_element_visitor visitor = nullptr;
       void* user_data = nullptr;
     };
@@ -1278,7 +1278,7 @@ public:
         storage_,
         [](const void* element, void* raw_context) -> bool {
           auto* context = static_cast<visit_context*>(raw_context);
-          const meta_set_data* data = context->data;
+          const meta::set_data* data = context->data;
           any_ref element_ref = any_ref::from_raw(data->value_type, element, false);
 
           return context->visitor(element_ref, context->user_data);
@@ -1310,7 +1310,7 @@ private:
   friend class any;
   friend class any_ref;
 
-  set_view(const meta_set_data* data, const void* storage, bool writable) noexcept
+  set_view(const meta::set_data* data, const void* storage, bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
 
   [[nodiscard]] bool has_iterator_support() const noexcept {
@@ -1320,7 +1320,7 @@ private:
            data_->iterator_value != nullptr;
   }
 
-  const meta_set_data* data_ = nullptr;
+  const meta::set_data* data_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };
@@ -1523,7 +1523,7 @@ public:
     }
 
     struct visit_context {
-      const meta_associative_data* data = nullptr;
+      const meta::associative_data* data = nullptr;
       associative_entry_visitor visitor = nullptr;
       void* user_data = nullptr;
     };
@@ -1533,7 +1533,7 @@ public:
         storage_,
         [](const void* key, const void* mapped, void* raw_context) -> bool {
           auto* context = static_cast<visit_context*>(raw_context);
-          const meta_associative_data* data = context->data;
+          const meta::associative_data* data = context->data;
           any_ref key_ref = any_ref::from_raw(data->key_type, key, false);
           any_ref mapped_ref = any_ref::from_raw(data->value_type, mapped, false);
 
@@ -1566,7 +1566,7 @@ private:
   friend class any;
   friend class any_ref;
 
-  associative_view(const meta_associative_data* data, const void* storage, bool writable) noexcept
+  associative_view(const meta::associative_data* data, const void* storage, bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
 
   [[nodiscard]] bool has_iterator_support() const noexcept {
@@ -1576,7 +1576,7 @@ private:
            data_->iterator_key != nullptr && data_->iterator_value != nullptr;
   }
 
-  const meta_associative_data* data_ = nullptr;
+  const meta::associative_data* data_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };
@@ -1586,7 +1586,7 @@ inline associative_view any::create_associative_view() {
     return {};
   }
 
-  const meta_associative_data* data = meta::get_registry().find_ptr<meta_associative_data>(type_);
+  const meta::associative_data* data = meta::get_registry().find_ptr<meta::associative_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1599,7 +1599,7 @@ inline associative_view any::create_associative_view() const {
     return {};
   }
 
-  const meta_associative_data* data = meta::get_registry().find_ptr<meta_associative_data>(type_);
+  const meta::associative_data* data = meta::get_registry().find_ptr<meta::associative_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1612,7 +1612,7 @@ inline associative_view any_ref::create_associative_view() const {
     return {};
   }
 
-  const meta_associative_data* data = meta::get_registry().find_ptr<meta_associative_data>(type_);
+  const meta::associative_data* data = meta::get_registry().find_ptr<meta::associative_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1625,7 +1625,7 @@ inline pair_view any::create_pair_view() {
     return {};
   }
 
-  const meta_pair_data* data = meta::get_registry().find_ptr<meta_pair_data>(type_);
+  const meta::pair_data* data = meta::get_registry().find_ptr<meta::pair_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1638,7 +1638,7 @@ inline pair_view any::create_pair_view() const {
     return {};
   }
 
-  const meta_pair_data* data = meta::get_registry().find_ptr<meta_pair_data>(type_);
+  const meta::pair_data* data = meta::get_registry().find_ptr<meta::pair_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1651,7 +1651,7 @@ inline pair_view any_ref::create_pair_view() const {
     return {};
   }
 
-  const meta_pair_data* data = meta::get_registry().find_ptr<meta_pair_data>(type_);
+  const meta::pair_data* data = meta::get_registry().find_ptr<meta::pair_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1664,7 +1664,7 @@ inline tuple_view any::create_tuple_view() {
     return {};
   }
 
-  const meta_tuple_data* data = meta::get_registry().find_ptr<meta_tuple_data>(type_);
+  const meta::tuple_data* data = meta::get_registry().find_ptr<meta::tuple_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1677,7 +1677,7 @@ inline tuple_view any::create_tuple_view() const {
     return {};
   }
 
-  const meta_tuple_data* data = meta::get_registry().find_ptr<meta_tuple_data>(type_);
+  const meta::tuple_data* data = meta::get_registry().find_ptr<meta::tuple_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1690,7 +1690,7 @@ inline tuple_view any_ref::create_tuple_view() const {
     return {};
   }
 
-  const meta_tuple_data* data = meta::get_registry().find_ptr<meta_tuple_data>(type_);
+  const meta::tuple_data* data = meta::get_registry().find_ptr<meta::tuple_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1703,7 +1703,7 @@ inline variant_view any::create_variant_view() {
     return {};
   }
 
-  const meta_variant_data* data = meta::get_registry().find_ptr<meta_variant_data>(type_);
+  const meta::variant_data* data = meta::get_registry().find_ptr<meta::variant_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1716,7 +1716,7 @@ inline variant_view any::create_variant_view() const {
     return {};
   }
 
-  const meta_variant_data* data = meta::get_registry().find_ptr<meta_variant_data>(type_);
+  const meta::variant_data* data = meta::get_registry().find_ptr<meta::variant_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1729,7 +1729,7 @@ inline variant_view any_ref::create_variant_view() const {
     return {};
   }
 
-  const meta_variant_data* data = meta::get_registry().find_ptr<meta_variant_data>(type_);
+  const meta::variant_data* data = meta::get_registry().find_ptr<meta::variant_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1790,7 +1790,7 @@ inline sequence_view any::create_sequence_view() {
     return {};
   }
 
-  const meta_sequence_data* data = meta::get_registry().find_ptr<meta_sequence_data>(type_);
+  const meta::sequence_data* data = meta::get_registry().find_ptr<meta::sequence_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1803,7 +1803,7 @@ inline sequence_view any::create_sequence_view() const {
     return {};
   }
 
-  const meta_sequence_data* data = meta::get_registry().find_ptr<meta_sequence_data>(type_);
+  const meta::sequence_data* data = meta::get_registry().find_ptr<meta::sequence_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1816,7 +1816,7 @@ inline sequence_view any_ref::create_sequence_view() const {
     return {};
   }
 
-  const meta_sequence_data* data = meta::get_registry().find_ptr<meta_sequence_data>(type_);
+  const meta::sequence_data* data = meta::get_registry().find_ptr<meta::sequence_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1829,7 +1829,7 @@ inline set_view any::create_set_view() {
     return {};
   }
 
-  const meta_set_data* data = meta::get_registry().find_ptr<meta_set_data>(type_);
+  const meta::set_data* data = meta::get_registry().find_ptr<meta::set_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1842,7 +1842,7 @@ inline set_view any::create_set_view() const {
     return {};
   }
 
-  const meta_set_data* data = meta::get_registry().find_ptr<meta_set_data>(type_);
+  const meta::set_data* data = meta::get_registry().find_ptr<meta::set_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1855,7 +1855,7 @@ inline set_view any_ref::create_set_view() const {
     return {};
   }
 
-  const meta_set_data* data = meta::get_registry().find_ptr<meta_set_data>(type_);
+  const meta::set_data* data = meta::get_registry().find_ptr<meta::set_data>(type_);
   if (data == nullptr) {
     return {};
   }
@@ -1870,12 +1870,10 @@ namespace caors {
 using value::any;
 using value::any_ref;
 using value::associative_entry_ref;
-using value::associative_entry_visitor;
 using value::associative_view;
 using value::indirect_view;
 using value::pair_view;
 using value::sequence_view;
-using value::set_element_visitor;
 using value::set_view;
 using value::tuple_view;
 using value::variant_view;

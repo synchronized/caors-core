@@ -41,8 +41,8 @@ registry::ensure_component_storage(detail::meta_component_key key,
   return *position->second;
 }
 
-vector<type_id> registry::view_component_ids(const detail::meta_component_key* keys,
-                                             std::size_t count) const {
+core::vector<type_id> registry::view_component_ids(const detail::meta_component_key* keys,
+                                                   std::size_t count) const {
   if (keys == nullptr || count == 0) {
     return {};
   }
@@ -53,8 +53,8 @@ vector<type_id> registry::view_component_ids(const detail::meta_component_key* k
     return {};
   }
 
-  vector<type_id> candidate_ids = first_position->second->ids();
-  vector<type_id> result;
+  core::vector<type_id> candidate_ids = first_position->second->ids();
+  core::vector<type_id> result;
   result.reserve(candidate_ids.size());
 
   for (const type_id id : candidate_ids) {

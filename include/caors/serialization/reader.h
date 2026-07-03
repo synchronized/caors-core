@@ -48,10 +48,4 @@ public:
 
 } // namespace caors::serialization
 
-namespace caors {
-
-using serialization_reader = serialization::reader;
-
-} // namespace caors
-
 #endif

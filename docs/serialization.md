@@ -45,9 +45,8 @@
 `serialization::type_data`、`serialization::field_data`、`serialization::context`、
 `serialization::writer`、`serialization::reader`、`serialization::text_writer`、
 `serialization::json_writer`、`serialization::variant_reader`、`serialization::codec<T>` 和
-`serialization::codec_registry`。根命名空间只保留高频的 `serialization_writer`、
-`serialization_reader`、`serialization_text_result` 和 `variant_result` 兼容别名；其他低频类型使用
-`serialization::` 下的短名称。
+`serialization::codec_registry`。根命名空间只保留高频操作函数别名；reader、writer、result
+等类型使用 `serialization::` 下的短名称。
 
 ### 文件组织
 
@@ -67,7 +66,7 @@
 - `caors/serialization/stl_codecs.h`：STL/CAORS 容器 codec 聚合入口。
 - `caors/serialization.h`：兼容用聚合头，包含以上所有入口。
 - `caors/traits/*.h`：类型名、wrapper 和容器类扩展点主模板。
-- `caors/adapters/stl.h`：STL/CAORS 容器、wrapper、反射 traits 和序列化 codec 的一站式适配入口。
+- `caors/adapters/stl.h`：STL/CAORS 容器、wrapper 和反射 traits 的适配聚合入口；不包含序列化 codec。
 
 实现文件按 registry、codec、text writer、JSON writer/parser、DOM/value、writer 接口、DOM
 写出、对象序列化、对象反序列化、中间值构造和文本便捷入口拆分在
@@ -172,13 +171,13 @@ caors::error status = caors::deserialize(instance, value.value);
 JSON 写出入口：
 
 ```cpp
-caors::serialization_text_result text = caors::serialize_json(instance);
+caors::serialization::serialization_text_result text = caors::serialize_json(instance);
 ```
 
 JSON 读入入口先解析为 `variant` DOM，再复用 `serialization::variant_reader` 写回对象：
 
 ```cpp
-caors::variant_result value = caors::parse_json(text);
+caors::serialization::variant_result value = caors::parse_json(text);
 caors::error status = caors::deserialize_json(instance, text);
 ```
 
@@ -242,8 +241,8 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `objects::ref<T>
 - `std::variant<Ts...>`：通过 `traits::variant_traits<T>` 输出为 tagged union 数组 `[index, value]`。
 
 `caors/serialization/stl_codecs.h` 聚合了当前内置容器 codec。`caors/serialization.h` 会继续包含它，
-因此既有代码不需要额外 include；如果只想显式引入 STL/CAORS 容器适配，也可以包含
-`caors/adapters/stl.h`。
+因此既有代码不需要额外 include。如果只需要反射 traits 或 wrapper 语义，可以包含
+`caors/adapters/stl.h`，该头不会拉入序列化 codec。
 
 反射字段中的容器、pair、tuple 和 variant 不要求显式调用 `serialization::register_codec<T>()`；只要字段类型通过
 `traits::sequence_traits<T>`、`traits::set_traits<T>`、`traits::associative_traits<T>`、`traits::pair_traits<T>`、`traits::tuple_traits<T>` 或
@@ -379,7 +378,7 @@ struct variant_member {
 可以从已注册反射和序列化元信息的对象构造中间树：
 
 ```cpp
-caors::variant_result value = caors::to_serialization_value(instance);
+caors::serialization::variant_result value = caors::to_serialization_value(instance);
 ```
 
 也可以把中间树写入任意 writer：
@@ -401,7 +400,7 @@ DOM 是可选路径，适合工具、编辑器、测试对比和格式转换。�
 ```cpp
 caors::meta::type<int>("int");
 
-caors::variant_result value = caors::serialization::to_variant(caors::any::from(42));
+caors::serialization::variant_result value = caors::serialization::to_variant(caors::any::from(42));
 ```
 
 `serialization::to_variant(any)` 会先查询 serialization codec，再回退到内置标量和字符串转换。`serialization::to_variant(any_ref)`
@@ -453,7 +452,7 @@ caors::serialization::class_(type)
     .commit();
 
 actor instance{7, 95.5F};
-caors::serialization_text_result result = caors::serialize_text(instance);
+caors::serialization::serialization_text_result result = caors::serialize_text(instance);
 caors::string text = result.value;
 ```
 

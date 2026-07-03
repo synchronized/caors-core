@@ -565,8 +565,8 @@ field->try_set<float>(&instance, 75.0F);
 `indirect_view` 不拥有 wrapper 或内部值，也不延长内部对象生命周期。裸指针和智能指针解包后返回的是当前
 指向对象的引用；调用方需要保证引用使用期间对象仍然有效。
 
-`meta_sequence_data`、`meta_set_data`、`meta_associative_data`、`meta_pair_data`、`meta_tuple_data` 和
-`meta_variant_data` 只保存 value/key、元素或候选类型的 `type_id`
+`meta::sequence_data`、`meta::set_data`、`meta::associative_data`、`meta::pair_data`、`meta::tuple_data` 和
+`meta::variant_data` 只保存 value/key、元素或候选类型的 `type_id`
 以及容器操作函数。value/key 的名称、C++ 类型 key、大小、对齐和复制/赋值函数统一从
 基础 `meta::type_data` 查询，避免容器 metadata 与基础类型 metadata 重复维护。
 
@@ -664,7 +664,7 @@ auto reflected = caors::reflection::find("game.actor");
 - `include/caors/object/wrapper_traits.h` 提供 `objects::ref<T>` 的 wrapper 语义适配。
 - `include/caors/adapters/stl_traits.h` 和 `include/caors/adapters/stl_wrapper.h` 提供 `std::vector`、`std::deque`、`std::list`、`std::forward_list`、`std::array`、`std::span`、
   `std::pair`、`std::tuple`、`std::variant`、`std::set`、`std::unordered_set`、`std::map`、`std::unordered_map` 以及 CAORS 容器别名的默认 traits 特化。
-- `include/caors/adapters/stl.h` 是 STL/CAORS 容器、wrapper、反射和序列化适配的聚合入口。
+- `include/caors/adapters/stl.h` 是 STL/CAORS 容器、wrapper 和反射 traits 适配的聚合入口，不包含序列化 codec。
 - `include/caors/value.h` 是 value 模块 umbrella 头，提供 `any` 和 `caors::variant` DOM 值。
 - 可运行示例位于 `examples/reflection/`，示例组织规则见 [examples/README.md](../examples/README.md)。
 - 行为测试位于 `tests/reflection/`，测试组织规则见 [tests/README.md](../tests/README.md)。

@@ -148,11 +148,4 @@ using variant_result = result<variant>;
 
 } // namespace caors::serialization
 
-namespace caors {
-
-using serialization_text_result = serialization::serialization_text_result;
-using variant_result = serialization::variant_result;
-
-} // namespace caors
-
 #endif

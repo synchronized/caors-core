@@ -25,7 +25,7 @@ template <typename Associative> struct associative_codec {
       std::is_default_constructible_v<key_type> && std::is_default_constructible_v<mapped_type>;
   static constexpr bool can_make_value = container_traits::is_associative;
 
-  [[nodiscard]] static error write(serialization_writer& writer, const Associative& values) {
+  [[nodiscard]] static error write(writer& writer, const Associative& values) {
     error status = writer.begin_dictionary(container_traits::size(values));
     if (status) {
       return status;
@@ -92,7 +92,7 @@ template <typename Associative> struct associative_codec {
     return visitor_status ? visitor_status : writer.end_dictionary();
   }
 
-  [[nodiscard]] static error read(serialization_reader& reader, Associative& values) {
+  [[nodiscard]] static error read(reader& reader, Associative& values) {
     std::size_t size = 0;
     error status = reader.begin_dictionary(size);
     if (status) {

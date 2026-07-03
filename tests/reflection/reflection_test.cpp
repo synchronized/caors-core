@@ -1205,10 +1205,10 @@ TEST_CASE("reflection - set iterator creation failure is treated as empty range"
   REQUIRE((int_type_status == caors::error{} ||
            int_type_status == meta_error(caors::errc::duplicate_id)));
 
-  caors::meta_set_data failing_begin{};
+  caors::meta::set_data failing_begin{};
   failing_begin.value_type = registered_type_id("int");
   failing_begin.size = [](const void*) noexcept -> std::size_t { return 1; };
-  failing_begin.visit = [](const void*, caors::meta_set_raw_visitor, void*) -> bool {
+  failing_begin.visit = [](const void*, caors::meta::set_raw_visitor, void*) -> bool {
     return true;
   };
   failing_begin.begin = [](const void*) noexcept -> void* { return nullptr; };
@@ -1232,17 +1232,17 @@ TEST_CASE("reflection - set iterator creation failure is treated as empty range"
     return &value;
   };
 
-  caors::meta_set_data failing_end = failing_begin;
+  caors::meta::set_data failing_end = failing_begin;
   failing_end.begin = [](const void*) noexcept -> void* { return new (std::nothrow) int{0}; };
   failing_end.end = [](const void*) noexcept -> void* { return nullptr; };
 
   const caors::error begin_component_status =
-      caors::meta::get_registry().emplace<caors::meta_set_data>(begin_type->id(), failing_begin);
+      caors::meta::get_registry().emplace<caors::meta::set_data>(begin_type->id(), failing_begin);
   REQUIRE((begin_component_status == caors::error{} ||
            begin_component_status == meta_error(caors::errc::duplicate_component)));
 
   const caors::error end_component_status =
-      caors::meta::get_registry().emplace<caors::meta_set_data>(end_type->id(), failing_end);
+      caors::meta::get_registry().emplace<caors::meta::set_data>(end_type->id(), failing_end);
   REQUIRE((end_component_status == caors::error{} ||
            end_component_status == meta_error(caors::errc::duplicate_component)));
 

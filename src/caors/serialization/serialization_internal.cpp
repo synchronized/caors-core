@@ -13,8 +13,7 @@
 namespace caors::serialization::detail {
 namespace {
 
-template <typename T>
-[[nodiscard]] bool try_write_i64(serialization_writer& writer, const any& data) {
+template <typename T> [[nodiscard]] bool try_write_i64(writer& writer, const any& data) {
   const T* stored = data.try_get<T>();
   if (stored == nullptr) {
     return false;
@@ -23,8 +22,7 @@ template <typename T>
   return writer.write_i64(static_cast<std::int64_t>(*stored)).succeeded();
 }
 
-template <typename T>
-[[nodiscard]] bool try_write_u64(serialization_writer& writer, const any& data) {
+template <typename T> [[nodiscard]] bool try_write_u64(writer& writer, const any& data) {
   const T* stored = data.try_get<T>();
   if (stored == nullptr) {
     return false;
@@ -33,8 +31,7 @@ template <typename T>
   return writer.write_u64(static_cast<std::uint64_t>(*stored)).succeeded();
 }
 
-template <typename T>
-[[nodiscard]] bool try_write_f64(serialization_writer& writer, const any& data) {
+template <typename T> [[nodiscard]] bool try_write_f64(writer& writer, const any& data) {
   const T* stored = data.try_get<T>();
   if (stored == nullptr) {
     return false;
@@ -44,7 +41,7 @@ template <typename T>
 }
 
 template <typename T>
-[[nodiscard]] bool try_read_signed_value(serialization_reader& reader, const any_ref& target) {
+[[nodiscard]] bool try_read_signed_value(reader& reader, const any_ref& target) {
   std::int64_t value = 0;
   if (reader.read_i64(value).succeeded()) {
     if (value < static_cast<std::int64_t>(std::numeric_limits<T>::min()) ||
@@ -65,7 +62,7 @@ template <typename T>
 }
 
 template <typename T>
-[[nodiscard]] bool try_read_unsigned_value(serialization_reader& reader, const any_ref& target) {
+[[nodiscard]] bool try_read_unsigned_value(reader& reader, const any_ref& target) {
   std::uint64_t value = 0;
   if (reader.read_u64(value).succeeded()) {
     if (value > static_cast<std::uint64_t>(std::numeric_limits<T>::max())) {
@@ -86,7 +83,7 @@ template <typename T>
 }
 
 template <typename T>
-[[nodiscard]] bool try_read_float_value(serialization_reader& reader, const any_ref& target) {
+[[nodiscard]] bool try_read_float_value(reader& reader, const any_ref& target) {
   double value = 0.0;
   if (reader.read_f64(value).succeeded()) {
     return target.try_set<T>(static_cast<T>(value));
@@ -105,8 +102,8 @@ template <typename T>
   return false;
 }
 
-[[nodiscard]] bool try_read_char_value(serialization_reader& reader, const any_ref& target) {
-  string value;
+[[nodiscard]] bool try_read_char_value(reader& reader, const any_ref& target) {
+  core::string value;
   if (reader.read_string(value).failed() || value.size() != 1) {
     return false;
   }
@@ -114,13 +111,13 @@ template <typename T>
   return target.try_set<char>(value[0]);
 }
 
-[[nodiscard]] bool try_read_string_view_value(serialization_reader& reader, const any_ref& target,
+[[nodiscard]] bool try_read_string_view_value(reader& reader, const any_ref& target,
                                               const serialization::context& context) {
   if (context.string_view_storage == nullptr || !target.matches_type<std::string_view>()) {
     return false;
   }
 
-  string value;
+  core::string value;
   if (reader.read_string(value).failed()) {
     return false;
   }
@@ -130,7 +127,7 @@ template <typename T>
       std::string_view{context.string_view_storage->data(), context.string_view_storage->size()});
 }
 
-[[nodiscard]] error read_size_value(serialization_reader& reader, std::size_t& value) {
+[[nodiscard]] error read_size_value(reader& reader, std::size_t& value) {
   std::uint64_t unsigned_value = 0;
   if (reader.read_u64(unsigned_value).succeeded()) {
     if (unsigned_value > static_cast<std::uint64_t>(std::numeric_limits<std::size_t>::max())) {
@@ -222,7 +219,7 @@ object_ref_value_from_ref(const any_ref& value,
   return {{}, variant::from(id.value())};
 }
 
-[[nodiscard]] error write_object_ref_value(serialization_writer& writer, const any_ref& value,
+[[nodiscard]] error write_object_ref_value(writer& writer, const any_ref& value,
                                            const serialization::context& context) {
   const meta::type_semantics_data* semantics = type_semantics(value.type());
   if (semantics == nullptr || semantics->wrapper_semantics != meta::wrapper_semantics::object_ref ||
@@ -246,7 +243,7 @@ object_ref_value_from_ref(const any_ref& value,
   return writer.write_u64(id.value());
 }
 
-[[nodiscard]] error read_object_ref_value(serialization_reader& reader, const any_ref& target,
+[[nodiscard]] error read_object_ref_value(reader& reader, const any_ref& target,
                                           const serialization::context& context) {
   const meta::type_semantics_data* semantics = type_semantics(target.type());
   if (semantics == nullptr || semantics->wrapper_semantics != meta::wrapper_semantics::object_ref ||
@@ -302,7 +299,7 @@ object_ref_value_from_ref(const any_ref& value,
   return {{}, variant::from(semantics->enum_to_u64(value.data()))};
 }
 
-[[nodiscard]] error write_enum_value(serialization_writer& writer, const any_ref& value) {
+[[nodiscard]] error write_enum_value(writer& writer, const any_ref& value) {
   const meta::type_semantics_data* semantics = type_semantics(value.type());
   if (semantics == nullptr || semantics->kind != meta::type_kind::enumeration ||
       value.data() == nullptr) {
@@ -324,7 +321,7 @@ object_ref_value_from_ref(const any_ref& value,
   return writer.write_u64(semantics->enum_to_u64(value.data()));
 }
 
-[[nodiscard]] error read_enum_value(serialization_reader& reader, const any_ref& target) {
+[[nodiscard]] error read_enum_value(reader& reader, const any_ref& target) {
   const meta::type_semantics_data* semantics = type_semantics(target.type());
   if (semantics == nullptr || semantics->kind != meta::type_kind::enumeration ||
       target.mutable_data() == nullptr || semantics->enum_from_i64 == nullptr ||
@@ -385,8 +382,7 @@ object_ref_value_from_ref(const any_ref& value,
   return make_serialized_value(value, context);
 }
 
-[[nodiscard]] error write_indirect_serialized_value(serialization_writer& writer,
-                                                    const indirect_view& indirect,
+[[nodiscard]] error write_indirect_serialized_value(writer& writer, const indirect_view& indirect,
                                                     const serialization::context& context) {
   if (!indirect.valid()) {
     return {error_domain::serialization, errc::unsupported};
@@ -404,8 +400,7 @@ object_ref_value_from_ref(const any_ref& value,
   return write_serialized_value(writer, value, context);
 }
 
-[[nodiscard]] error read_indirect_serialized_value(serialization_reader& reader,
-                                                   const indirect_view& indirect,
+[[nodiscard]] error read_indirect_serialized_value(reader& reader, const indirect_view& indirect,
                                                    const serialization::context& context) {
   if (!indirect.valid() || !indirect.writable()) {
     return {error_domain::serialization, errc::invalid_field};
@@ -431,7 +426,7 @@ object_ref_value_from_ref(const any_ref& value,
   return read_serialized_value(reader, value, context);
 }
 
-[[nodiscard]] error write_sequence_value(serialization_writer& writer, const sequence_view& view,
+[[nodiscard]] error write_sequence_value(writer& writer, const sequence_view& view,
                                          const serialization::context& context) {
   const std::optional<std::size_t> size = view.size();
   if (!view.valid() || !size.has_value()) {
@@ -468,24 +463,24 @@ object_ref_value_from_ref(const any_ref& value,
   return writer.end_array();
 }
 
-[[nodiscard]] error write_set_value(serialization_writer& writer, const set_view& view,
+[[nodiscard]] error write_set_value(writer& output, const set_view& view,
                                     const serialization::context& context) {
   const std::optional<std::size_t> size = view.size();
   if (!view.valid() || !size.has_value()) {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  error status = writer.begin_array(*size);
+  error status = output.begin_array(*size);
   if (status) {
     return status;
   }
 
   struct visitor_context {
-    serialization_writer* writer = nullptr;
+    writer* writer = nullptr;
     const serialization::context* context = nullptr;
     std::size_t index = 0;
     error status{};
-  } visitor{&writer, &context, 0, {}};
+  } visitor{&output, &context, 0, {}};
 
   const bool completed = view.for_each_ref(
       [](any_ref element, void* user_data) -> bool {
@@ -514,28 +509,27 @@ object_ref_value_from_ref(const any_ref& value,
     return visitor.status ? visitor.status : error{error_domain::serialization, errc::unsupported};
   }
 
-  return writer.end_array();
+  return output.end_array();
 }
 
-[[nodiscard]] error write_associative_value(serialization_writer& writer,
-                                            const associative_view& view,
+[[nodiscard]] error write_associative_value(writer& output, const associative_view& view,
                                             const serialization::context& context) {
   const std::optional<std::size_t> size = view.size();
   if (!view.valid() || !size.has_value()) {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  error status = writer.begin_dictionary(*size);
+  error status = output.begin_dictionary(*size);
   if (status) {
     return status;
   }
 
   struct visitor_context {
-    serialization_writer* writer = nullptr;
+    writer* writer = nullptr;
     const serialization::context* context = nullptr;
     std::size_t index = 0;
     error status{};
-  } visitor{&writer, &context, 0, {}};
+  } visitor{&output, &context, 0, {}};
 
   const bool completed = view.for_each_ref(
       [](any_ref key, any_ref value, void* user_data) -> bool {
@@ -589,10 +583,10 @@ object_ref_value_from_ref(const any_ref& value,
     return visitor.status ? visitor.status : error{error_domain::serialization, errc::unsupported};
   }
 
-  return writer.end_dictionary();
+  return output.end_dictionary();
 }
 
-[[nodiscard]] error write_pair_value(serialization_writer& writer, const pair_view& view,
+[[nodiscard]] error write_pair_value(writer& writer, const pair_view& view,
                                      const serialization::context& context) {
   if (!view.valid()) {
     return {error_domain::serialization, errc::unsupported};
@@ -646,7 +640,7 @@ object_ref_value_from_ref(const any_ref& value,
   return writer.end_array();
 }
 
-[[nodiscard]] error write_tuple_value(serialization_writer& writer, const tuple_view& view,
+[[nodiscard]] error write_tuple_value(writer& writer, const tuple_view& view,
                                       const serialization::context& context) {
   if (!view.valid()) {
     return {error_domain::serialization, errc::unsupported};
@@ -683,7 +677,7 @@ object_ref_value_from_ref(const any_ref& value,
   return writer.end_array();
 }
 
-[[nodiscard]] error write_variant_value(serialization_writer& writer, const variant_view& view,
+[[nodiscard]] error write_variant_value(writer& writer, const variant_view& view,
                                         const serialization::context& context) {
   const std::optional<std::size_t> active = view.index();
   if (!view.valid() || !active.has_value()) {
@@ -733,7 +727,7 @@ object_ref_value_from_ref(const any_ref& value,
   return writer.end_array();
 }
 
-[[nodiscard]] error read_sequence_into_view(serialization_reader& reader, const sequence_view& view,
+[[nodiscard]] error read_sequence_into_view(reader& reader, const sequence_view& view,
                                             const serialization::context& context) {
   if (!view.valid() || !view.writable()) {
     return {error_domain::serialization, errc::invalid_field};
@@ -774,10 +768,10 @@ object_ref_value_from_ref(const any_ref& value,
   return reader.end_array();
 }
 
-[[nodiscard]] error read_sequence_value(serialization_reader& reader, const any_ref& target,
+[[nodiscard]] error read_sequence_value(reader& reader, const any_ref& target,
                                         const serialization::context& context) {
-  const meta_sequence_data* sequence =
-      meta::get_registry().find_ptr<meta_sequence_data>(target.type());
+  const meta::sequence_data* sequence =
+      meta::get_registry().find_ptr<meta::sequence_data>(target.type());
   if (sequence != nullptr && !sequence->can_read) {
     return {error_domain::serialization, errc::unsupported};
   }
@@ -803,7 +797,7 @@ object_ref_value_from_ref(const any_ref& value,
   return read_sequence_into_view(reader, target.create_sequence_view(), context);
 }
 
-[[nodiscard]] error read_set_into_view(serialization_reader& reader, const set_view& view,
+[[nodiscard]] error read_set_into_view(reader& reader, const set_view& view,
                                        const serialization::context& context) {
   if (!view.valid() || !view.writable()) {
     return {error_domain::serialization, errc::invalid_field};
@@ -848,7 +842,7 @@ object_ref_value_from_ref(const any_ref& value,
   return reader.end_array();
 }
 
-[[nodiscard]] error read_set_value(serialization_reader& reader, const any_ref& target,
+[[nodiscard]] error read_set_value(reader& reader, const any_ref& target,
                                    const serialization::context& context) {
   const std::optional<meta::type_view> meta = caors::meta::find(target.type());
   if (meta.has_value() && meta->assign_value() != nullptr) {
@@ -870,8 +864,7 @@ object_ref_value_from_ref(const any_ref& value,
   return read_set_into_view(reader, target.create_set_view(), context);
 }
 
-[[nodiscard]] error read_associative_into_view(serialization_reader& reader,
-                                               const associative_view& view,
+[[nodiscard]] error read_associative_into_view(reader& reader, const associative_view& view,
                                                const serialization::context& context) {
   if (!view.valid() || !view.writable()) {
     return {error_domain::serialization, errc::invalid_field};
@@ -942,7 +935,7 @@ object_ref_value_from_ref(const any_ref& value,
   return reader.end_dictionary();
 }
 
-[[nodiscard]] error read_associative_value(serialization_reader& reader, const any_ref& target,
+[[nodiscard]] error read_associative_value(reader& reader, const any_ref& target,
                                            const serialization::context& context) {
   const std::optional<meta::type_view> meta = caors::meta::find(target.type());
   if (meta.has_value() && meta->assign_value() != nullptr) {
@@ -964,7 +957,7 @@ object_ref_value_from_ref(const any_ref& value,
   return read_associative_into_view(reader, target.create_associative_view(), context);
 }
 
-[[nodiscard]] error read_pair_into_view(serialization_reader& reader, const pair_view& view,
+[[nodiscard]] error read_pair_into_view(reader& reader, const pair_view& view,
                                         const serialization::context& context) {
   if (!view.valid() || !view.writable()) {
     return {error_domain::serialization, errc::invalid_field};
@@ -1023,7 +1016,7 @@ object_ref_value_from_ref(const any_ref& value,
   return reader.end_array();
 }
 
-[[nodiscard]] error read_pair_value(serialization_reader& reader, const any_ref& target,
+[[nodiscard]] error read_pair_value(reader& reader, const any_ref& target,
                                     const serialization::context& context) {
   const std::optional<meta::type_view> meta = caors::meta::find(target.type());
   if (meta.has_value() && meta->assign_value() != nullptr) {
@@ -1045,7 +1038,7 @@ object_ref_value_from_ref(const any_ref& value,
   return read_pair_into_view(reader, target.create_pair_view(), context);
 }
 
-[[nodiscard]] error read_tuple_into_view(serialization_reader& reader, const tuple_view& view,
+[[nodiscard]] error read_tuple_into_view(reader& reader, const tuple_view& view,
                                          const serialization::context& context) {
   if (!view.valid() || !view.writable()) {
     return {error_domain::serialization, errc::invalid_field};
@@ -1086,7 +1079,7 @@ object_ref_value_from_ref(const any_ref& value,
   return reader.end_array();
 }
 
-[[nodiscard]] error read_tuple_value(serialization_reader& reader, const any_ref& target,
+[[nodiscard]] error read_tuple_value(reader& reader, const any_ref& target,
                                      const serialization::context& context) {
   const std::optional<meta::type_view> meta = caors::meta::find(target.type());
   if (meta.has_value() && meta->assign_value() != nullptr) {
@@ -1108,7 +1101,7 @@ object_ref_value_from_ref(const any_ref& value,
   return read_tuple_into_view(reader, target.create_tuple_view(), context);
 }
 
-[[nodiscard]] error read_variant_into_view(serialization_reader& reader, const variant_view& view,
+[[nodiscard]] error read_variant_into_view(reader& reader, const variant_view& view,
                                            const serialization::context& context) {
   if (!view.valid() || !view.writable()) {
     return {error_domain::serialization, errc::invalid_field};
@@ -1171,7 +1164,7 @@ object_ref_value_from_ref(const any_ref& value,
   return reader.end_array();
 }
 
-[[nodiscard]] error read_variant_value(serialization_reader& reader, const any_ref& target,
+[[nodiscard]] error read_variant_value(reader& reader, const any_ref& target,
                                        const serialization::context& context) {
   const std::optional<meta::type_view> meta = caors::meta::find(target.type());
   if (meta.has_value() && meta->assign_value() != nullptr) {
@@ -1389,8 +1382,8 @@ object_ref_value_from_ref(const any_ref& value,
   return {{}, variant::array(std::move(elements))};
 }
 
-[[nodiscard]] error write_object_ref_field(serialization_writer& writer,
-                                           const reflection::field& field, const void* object,
+[[nodiscard]] error write_object_ref_field(writer& writer, const reflection::field& field,
+                                           const void* object,
                                            const serialization::field_data& field_data,
                                            const serialization::context& context) {
   if (context.reference_resolver == nullptr || !context.reference_resolver->can_write()) {
@@ -1424,9 +1417,8 @@ object_ref_value_from_ref(const any_ref& value,
   return writer.end_field();
 }
 
-[[nodiscard]] error read_object_ref_field(serialization_reader& reader,
-                                          const reflection::field& field, void* object,
-                                          const serialization::field_data& field_data,
+[[nodiscard]] error read_object_ref_field(reader& reader, const reflection::field& field,
+                                          void* object, const serialization::field_data& field_data,
                                           const serialization::context& context) {
   if (context.reference_resolver == nullptr || !context.reference_resolver->can_read()) {
     return {error_domain::serialization, errc::invalid_argument};
@@ -1466,7 +1458,7 @@ object_ref_value_from_ref(const any_ref& value,
 
 } // namespace
 
-bool try_write_serialized_value(serialization_writer& writer, const any& data) {
+bool try_write_serialized_value(writer& writer, const any& data) {
   if (const bool* stored = data.try_get<bool>()) {
     return writer.write_bool(*stored).succeeded();
   }
@@ -1651,7 +1643,7 @@ variant_result make_serialized_value(const any_ref& value, const serialization::
   return make_serialized_value(copied);
 }
 
-error write_serialized_value(serialization_writer& writer, const any_ref& value,
+error write_serialized_value(writer& writer, const any_ref& value,
                              const serialization::context& context) {
   if (!value.valid()) {
     return {error_domain::serialization, errc::unsupported};
@@ -1728,7 +1720,7 @@ error write_serialized_value(serialization_writer& writer, const any_ref& value,
   return {};
 }
 
-error read_serialized_value(serialization_reader& reader, const any_ref& target,
+error read_serialized_value(reader& reader, const any_ref& target,
                             const serialization::context& context) {
   if (!target.valid() || !target.writable() || target.mutable_data() == nullptr) {
     return {error_domain::serialization, errc::invalid_field};
@@ -1816,11 +1808,11 @@ error read_serialized_value(serialization_reader& reader, const any_ref& target,
   }
 
   if (!written) {
-    string string_value;
+    core::string string_value;
     if (reader.read_string(string_value).succeeded()) {
       const std::string standard_string{string_value.data(), string_value.size()};
-      written =
-          target.try_set<string>(string_value) || target.try_set<std::string>(standard_string);
+      written = target.try_set<core::string>(string_value) ||
+                target.try_set<std::string>(standard_string);
     }
   }
 
@@ -1831,7 +1823,7 @@ error read_serialized_value(serialization_reader& reader, const any_ref& target,
   return {};
 }
 
-error write_field(serialization_writer& writer, const reflection::field& field, const void* object,
+error write_field(writer& writer, const reflection::field& field, const void* object,
                   const serialization::field_data& field_data,
                   const serialization::context& context) {
   if (!field.valid()) {
@@ -1877,7 +1869,7 @@ error write_field(serialization_writer& writer, const reflection::field& field, 
   return writer.end_field();
 }
 
-error read_field(serialization_reader& reader, const reflection::field& field, void* object,
+error read_field(reader& reader, const reflection::field& field, void* object,
                  const serialization::field_data& field_data,
                  const serialization::context& context) {
   if (!field.valid()) {
@@ -1952,8 +1944,8 @@ error read_field(serialization_reader& reader, const reflection::field& field, v
   return reader.end_field();
 }
 
-error read_configured_field(serialization_reader& reader, const reflection::field& field,
-                            void* object, const serialization::field_data& field_data,
+error read_configured_field(reader& reader, const reflection::field& field, void* object,
+                            const serialization::field_data& field_data,
                             const serialization::context& context) {
   const error status = read_field(reader, field, object, field_data, context);
   if (status.value() == errc::not_found && !field_data.required) {

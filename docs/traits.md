@@ -12,10 +12,11 @@ CAORS 自身类型的具体适配放在 `adapters` 或对应主题模块中。
 - `caors/traits/type_name.h`：C++ 类型到 CAORS 类型名的默认映射。
 - `caors/traits/wrapper.h`：wrapper 类型语义和内部值访问扩展点。
 - `caors/traits/container.h`：顺序容器、集合、关联容器、pair、tuple 和 variant 语义扩展点。
-- `caors/adapters/stl.h`：标准库类型的默认 traits 和序列化 codec 适配。
+- `caors/adapters/stl.h`：标准库类型 traits 和 wrapper 适配聚合入口。
 - `caors/adapters/stl_traits.h`：标准库容器、pair、tuple 和 variant 的 traits 特化。
 - `caors/adapters/stl_wrapper.h`：标准库智能指针、`std::optional` 和
   `std::reference_wrapper` 的 wrapper traits 特化。
+- `caors/serialization/stl_codecs.h`：标准库和 CAORS 容器的序列化 codec 聚合入口。
 
 新代码应直接包含 `caors/traits/*.h` 或 `caors/adapters/*.h`。旧的 `meta` / `adapters`
 转发头已经移除，避免用户在错误命名空间里特化 traits。

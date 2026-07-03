@@ -17,7 +17,7 @@ namespace {
 
 struct codec_registry_state {
   mutable std::mutex mutex;
-  hash_map<std::uint64_t, serialization::codec_data> codecs;
+  core::hash_map<std::uint64_t, serialization::codec_data> codecs;
 };
 
 [[nodiscard]] codec_registry_state& codec_state() {
@@ -38,12 +38,12 @@ template <typename T> [[nodiscard]] type_id registered_codec_type_id() {
   return meta.has_value() ? meta->id() : type_id::invalid();
 }
 
-[[nodiscard]] error read_caors_string(serialization_reader& reader, string& value) {
+[[nodiscard]] error read_caors_string(serialization::reader& reader, core::string& value) {
   return reader.read_string(value);
 }
 
-[[nodiscard]] error read_std_string(serialization_reader& reader, std::string& value) {
-  string text;
+[[nodiscard]] error read_std_string(serialization::reader& reader, std::string& value) {
+  core::string text;
   const error status = reader.read_string(text);
   if (status) {
     return status;
@@ -53,14 +53,15 @@ template <typename T> [[nodiscard]] type_id registered_codec_type_id() {
   return {};
 }
 
-[[nodiscard]] error read_guid(serialization_reader& reader, guid& value) {
-  string text;
+[[nodiscard]] error read_guid(serialization::reader& reader, core::guid& value) {
+  core::string text;
   const error status = reader.read_string(text);
   if (status) {
     return status;
   }
 
-  const std::optional<guid> parsed = guid::parse(std::string_view{text.data(), text.size()});
+  const std::optional<core::guid> parsed =
+      core::guid::parse(std::string_view{text.data(), text.size()});
   if (!parsed.has_value()) {
     return {error_domain::serialization, errc::invalid_argument};
   }
@@ -69,20 +70,20 @@ template <typename T> [[nodiscard]] type_id registered_codec_type_id() {
   return {};
 }
 
-[[nodiscard]] error read_type_guid(serialization_reader& reader, type_guid& value) {
-  guid parsed;
+[[nodiscard]] error read_type_guid(serialization::reader& reader, core::type_guid& value) {
+  core::guid parsed;
   const error status = read_guid(reader, parsed);
   if (status) {
     return status;
   }
 
-  value = type_guid{parsed};
+  value = core::type_guid{parsed};
   return {};
 }
 
-[[nodiscard]] error read_filesystem_path(serialization_reader& reader,
+[[nodiscard]] error read_filesystem_path(serialization::reader& reader,
                                          std::filesystem::path& value) {
-  string text;
+  core::string text;
   const error status = reader.read_string(text);
   if (status) {
     return status;
@@ -92,7 +93,7 @@ template <typename T> [[nodiscard]] type_id registered_codec_type_id() {
   return {};
 }
 
-[[nodiscard]] error read_i64_or_u64(serialization_reader& reader, std::int64_t& value) {
+[[nodiscard]] error read_i64_or_u64(serialization::reader& reader, std::int64_t& value) {
   error status = reader.read_i64(value);
   if (!status) {
     return {};
@@ -113,7 +114,7 @@ template <typename T> [[nodiscard]] type_id registered_codec_type_id() {
 }
 
 template <typename Duration>
-[[nodiscard]] error read_chrono_duration(serialization_reader& reader, Duration& value) {
+[[nodiscard]] error read_chrono_duration(serialization::reader& reader, Duration& value) {
   std::int64_t count = 0;
   const error status = read_i64_or_u64(reader, count);
   if (status) {
@@ -130,7 +131,7 @@ template <typename Duration>
   return {};
 }
 
-[[nodiscard]] error read_system_time_point(serialization_reader& reader,
+[[nodiscard]] error read_system_time_point(serialization::reader& reader,
                                            std::chrono::system_clock::time_point& value) {
   std::int64_t milliseconds = 0;
   const error status = read_i64_or_u64(reader, milliseconds);
@@ -143,14 +144,14 @@ template <typename Duration>
 }
 
 template <typename T>
-[[nodiscard]] error read_codec_payload(serialization_reader& reader, T& decoded) {
-  if constexpr (std::is_same_v<T, string>) {
+[[nodiscard]] error read_codec_payload(serialization::reader& reader, T& decoded) {
+  if constexpr (std::is_same_v<T, core::string>) {
     return read_caors_string(reader, decoded);
   } else if constexpr (std::is_same_v<T, std::string>) {
     return read_std_string(reader, decoded);
-  } else if constexpr (std::is_same_v<T, guid>) {
+  } else if constexpr (std::is_same_v<T, core::guid>) {
     return read_guid(reader, decoded);
-  } else if constexpr (std::is_same_v<T, type_guid>) {
+  } else if constexpr (std::is_same_v<T, core::type_guid>) {
     return read_type_guid(reader, decoded);
   } else if constexpr (std::is_same_v<T, std::filesystem::path>) {
     return read_filesystem_path(reader, decoded);
@@ -169,7 +170,7 @@ template <typename T>
 }
 
 template <typename T>
-[[nodiscard]] error read_codec_value(serialization_reader& reader, const reflection::field& field,
+[[nodiscard]] error read_codec_value(serialization::reader& reader, const reflection::field& field,
                                      void* object) {
   T decoded{};
   const error status = read_codec_payload<T>(reader, decoded);
@@ -186,7 +187,7 @@ template <typename T>
 }
 
 template <typename T>
-[[nodiscard]] error read_codec_ref(serialization_reader& reader, const any_ref& target) {
+[[nodiscard]] error read_codec_ref(serialization::reader& reader, const any_ref& target) {
   T decoded{};
   const error status = read_codec_payload<T>(reader, decoded);
   if (status) {
@@ -204,50 +205,50 @@ template <typename T> [[nodiscard]] const T* codec_value(const any& data) noexce
   return data.try_get<T>();
 }
 
-[[nodiscard]] error write_caors_string(serialization_writer& writer, const any& data) {
-  const string* stored = codec_value<string>(data);
+[[nodiscard]] error write_caors_string(serialization::writer& writer, const any& data) {
+  const core::string* stored = codec_value<core::string>(data);
   return stored != nullptr ? writer.write_string(*stored)
                            : error{error_domain::serialization, errc::invalid_type};
 }
 
-[[nodiscard]] error write_std_string(serialization_writer& writer, const any& data) {
+[[nodiscard]] error write_std_string(serialization::writer& writer, const any& data) {
   const std::string* stored = codec_value<std::string>(data);
   return stored != nullptr ? writer.write_string(*stored)
                            : error{error_domain::serialization, errc::invalid_type};
 }
 
-[[nodiscard]] error write_string_view(serialization_writer& writer, const any& data) {
+[[nodiscard]] error write_string_view(serialization::writer& writer, const any& data) {
   const std::string_view* stored = codec_value<std::string_view>(data);
   return stored != nullptr ? writer.write_string(*stored)
                            : error{error_domain::serialization, errc::invalid_type};
 }
 
-[[nodiscard]] error write_guid(serialization_writer& writer, const any& data) {
-  const guid* stored = codec_value<guid>(data);
+[[nodiscard]] error write_guid(serialization::writer& writer, const any& data) {
+  const core::guid* stored = codec_value<core::guid>(data);
   return stored != nullptr ? writer.write_string(stored->string())
                            : error{error_domain::serialization, errc::invalid_type};
 }
 
-[[nodiscard]] error write_type_guid(serialization_writer& writer, const any& data) {
-  const type_guid* stored = codec_value<type_guid>(data);
+[[nodiscard]] error write_type_guid(serialization::writer& writer, const any& data) {
+  const core::type_guid* stored = codec_value<core::type_guid>(data);
   return stored != nullptr ? writer.write_string(stored->value.string())
                            : error{error_domain::serialization, errc::invalid_type};
 }
 
-[[nodiscard]] error write_filesystem_path(serialization_writer& writer, const any& data) {
+[[nodiscard]] error write_filesystem_path(serialization::writer& writer, const any& data) {
   const std::filesystem::path* stored = codec_value<std::filesystem::path>(data);
   return stored != nullptr ? writer.write_string(stored->generic_string())
                            : error{error_domain::serialization, errc::invalid_type};
 }
 
 template <typename Duration>
-[[nodiscard]] error write_chrono_duration(serialization_writer& writer, const any& data) {
+[[nodiscard]] error write_chrono_duration(serialization::writer& writer, const any& data) {
   const Duration* stored = codec_value<Duration>(data);
   return stored != nullptr ? writer.write_i64(static_cast<std::int64_t>(stored->count()))
                            : error{error_domain::serialization, errc::invalid_type};
 }
 
-[[nodiscard]] error write_system_time_point(serialization_writer& writer, const any& data) {
+[[nodiscard]] error write_system_time_point(serialization::writer& writer, const any& data) {
   const auto* stored = codec_value<std::chrono::system_clock::time_point>(data);
   if (stored == nullptr) {
     return {error_domain::serialization, errc::invalid_type};
@@ -258,51 +259,59 @@ template <typename Duration>
   return writer.write_i64(static_cast<std::int64_t>(milliseconds.count()));
 }
 
-[[nodiscard]] variant_result make_caors_string_value(const any& data) {
-  const string* stored = codec_value<string>(data);
-  return stored != nullptr ? variant_result{{}, variant::from(*stored)}
-                           : variant_result{{error_domain::serialization, errc::invalid_type}, {}};
+[[nodiscard]] serialization::variant_result make_caors_string_value(const any& data) {
+  const core::string* stored = codec_value<core::string>(data);
+  return stored != nullptr
+             ? serialization::variant_result{{}, variant::from(*stored)}
+             : serialization::variant_result{{error_domain::serialization, errc::invalid_type}, {}};
 }
 
-[[nodiscard]] variant_result make_std_string_value(const any& data) {
+[[nodiscard]] serialization::variant_result make_std_string_value(const any& data) {
   const std::string* stored = codec_value<std::string>(data);
-  return stored != nullptr ? variant_result{{}, variant::from(*stored)}
-                           : variant_result{{error_domain::serialization, errc::invalid_type}, {}};
+  return stored != nullptr
+             ? serialization::variant_result{{}, variant::from(*stored)}
+             : serialization::variant_result{{error_domain::serialization, errc::invalid_type}, {}};
 }
 
-[[nodiscard]] variant_result make_string_view_value(const any& data) {
+[[nodiscard]] serialization::variant_result make_string_view_value(const any& data) {
   const std::string_view* stored = codec_value<std::string_view>(data);
-  return stored != nullptr ? variant_result{{}, variant::from(*stored)}
-                           : variant_result{{error_domain::serialization, errc::invalid_type}, {}};
+  return stored != nullptr
+             ? serialization::variant_result{{}, variant::from(*stored)}
+             : serialization::variant_result{{error_domain::serialization, errc::invalid_type}, {}};
 }
 
-[[nodiscard]] variant_result make_guid_value(const any& data) {
-  const guid* stored = codec_value<guid>(data);
-  return stored != nullptr ? variant_result{{}, variant::from(stored->string())}
-                           : variant_result{{error_domain::serialization, errc::invalid_type}, {}};
+[[nodiscard]] serialization::variant_result make_guid_value(const any& data) {
+  const core::guid* stored = codec_value<core::guid>(data);
+  return stored != nullptr
+             ? serialization::variant_result{{}, variant::from(stored->string())}
+             : serialization::variant_result{{error_domain::serialization, errc::invalid_type}, {}};
 }
 
-[[nodiscard]] variant_result make_type_guid_value(const any& data) {
-  const type_guid* stored = codec_value<type_guid>(data);
-  return stored != nullptr ? variant_result{{}, variant::from(stored->value.string())}
-                           : variant_result{{error_domain::serialization, errc::invalid_type}, {}};
+[[nodiscard]] serialization::variant_result make_type_guid_value(const any& data) {
+  const core::type_guid* stored = codec_value<core::type_guid>(data);
+  return stored != nullptr
+             ? serialization::variant_result{{}, variant::from(stored->value.string())}
+             : serialization::variant_result{{error_domain::serialization, errc::invalid_type}, {}};
 }
 
-[[nodiscard]] variant_result make_filesystem_path_value(const any& data) {
+[[nodiscard]] serialization::variant_result make_filesystem_path_value(const any& data) {
   const std::filesystem::path* stored = codec_value<std::filesystem::path>(data);
-  return stored != nullptr ? variant_result{{}, variant::from(stored->generic_string())}
-                           : variant_result{{error_domain::serialization, errc::invalid_type}, {}};
+  return stored != nullptr
+             ? serialization::variant_result{{}, variant::from(stored->generic_string())}
+             : serialization::variant_result{{error_domain::serialization, errc::invalid_type}, {}};
 }
 
 template <typename Duration>
-[[nodiscard]] variant_result make_chrono_duration_value(const any& data) {
+[[nodiscard]] serialization::variant_result make_chrono_duration_value(const any& data) {
   const Duration* stored = codec_value<Duration>(data);
   return stored != nullptr
-             ? variant_result{{}, variant::from(static_cast<std::int64_t>(stored->count()))}
-             : variant_result{{error_domain::serialization, errc::invalid_type}, {}};
+             ? serialization::variant_result{{},
+                                             variant::from(
+                                                 static_cast<std::int64_t>(stored->count()))}
+             : serialization::variant_result{{error_domain::serialization, errc::invalid_type}, {}};
 }
 
-[[nodiscard]] variant_result make_system_time_point_value(const any& data) {
+[[nodiscard]] serialization::variant_result make_system_time_point_value(const any& data) {
   const auto* stored = codec_value<std::chrono::system_clock::time_point>(data);
   if (stored == nullptr) {
     return {{error_domain::serialization, errc::invalid_type}, {}};
@@ -321,10 +330,10 @@ template <typename T> void register_builtin_codec(serialization::codec_data code
 }
 
 void register_builtin_codecs() {
-  register_builtin_codec<string>(serialization::codec_data{
+  register_builtin_codec<core::string>(serialization::codec_data{
       &write_caors_string,
-      &read_codec_value<string>,
-      &read_codec_ref<string>,
+      &read_codec_value<core::string>,
+      &read_codec_ref<core::string>,
       &make_caors_string_value,
   });
   register_builtin_codec<std::string>(serialization::codec_data{
@@ -339,16 +348,16 @@ void register_builtin_codecs() {
       nullptr,
       &make_string_view_value,
   });
-  register_builtin_codec<guid>(serialization::codec_data{
+  register_builtin_codec<core::guid>(serialization::codec_data{
       &write_guid,
-      &read_codec_value<guid>,
-      &read_codec_ref<guid>,
+      &read_codec_value<core::guid>,
+      &read_codec_ref<core::guid>,
       &make_guid_value,
   });
-  register_builtin_codec<type_guid>(serialization::codec_data{
+  register_builtin_codec<core::type_guid>(serialization::codec_data{
       &write_type_guid,
-      &read_codec_value<type_guid>,
-      &read_codec_ref<type_guid>,
+      &read_codec_value<core::type_guid>,
+      &read_codec_ref<core::type_guid>,
       &make_type_guid_value,
   });
   register_builtin_codec<std::filesystem::path>(serialization::codec_data{

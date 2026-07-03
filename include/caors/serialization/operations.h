@@ -16,24 +16,21 @@ namespace caors::serialization {
 
 /** @brief 通过反射类型视图和指定后端序列化对象。 */
 [[nodiscard]] CAORS_API error serialize(const reflection::type& type, const void* object,
-                                        serialization_writer& writer);
+                                        writer& writer);
 
 /** @brief 通过反射类型视图、指定后端和上下文序列化对象。 */
 [[nodiscard]] CAORS_API error serialize(const reflection::type& type, const void* object,
-                                        serialization_writer& writer,
-                                        const serialization::context& context);
+                                        writer& writer, const serialization::context& context);
 
 /** @brief 通过类型 id 查找反射信息并使用指定后端序列化对象。 */
-[[nodiscard]] CAORS_API error serialize(type_id id, const void* object,
-                                        serialization_writer& writer);
+[[nodiscard]] CAORS_API error serialize(type_id id, const void* object, writer& writer);
 
 /** @brief 通过类型 id 查找反射信息并使用指定后端和上下文序列化对象。 */
-[[nodiscard]] CAORS_API error serialize(type_id id, const void* object,
-                                        serialization_writer& writer,
+[[nodiscard]] CAORS_API error serialize(type_id id, const void* object, writer& writer,
                                         const serialization::context& context);
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象写入指定后端。 */
-template <typename T> [[nodiscard]] error serialize(const T& object, serialization_writer& writer) {
+template <typename T> [[nodiscard]] error serialize(const T& object, writer& writer) {
   const std::optional<meta::type_view> type = caors::meta::find<T>();
   if (!type.has_value()) {
     return {error_domain::serialization, errc::missing_type};
@@ -44,7 +41,7 @@ template <typename T> [[nodiscard]] error serialize(const T& object, serializati
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象按上下文写入指定后端。 */
 template <typename T>
-[[nodiscard]] error serialize(const T& object, serialization_writer& writer,
+[[nodiscard]] error serialize(const T& object, writer& writer,
                               const serialization::context& context) {
   const std::optional<meta::type_view> type = caors::meta::find<T>();
   if (!type.has_value()) {
@@ -55,29 +52,28 @@ template <typename T>
 }
 
 /** @brief 将序列化中间值写入指定后端。 */
-[[nodiscard]] CAORS_API error write(serialization_writer& writer, const variant& value);
+[[nodiscard]] CAORS_API error write(writer& writer, const variant& value);
 
 /** @brief 解析 JSON 文本为序列化中间值。 */
 [[nodiscard]] CAORS_API variant_result parse_json(std::string_view text);
 
 /** @brief 通过反射类型视图和指定后端反序列化到对象。 */
 [[nodiscard]] CAORS_API error deserialize(const reflection::type& type, void* object,
-                                          serialization_reader& reader);
+                                          reader& reader);
 
 /** @brief 通过反射类型视图、指定后端和上下文反序列化到对象。 */
 [[nodiscard]] CAORS_API error deserialize(const reflection::type& type, void* object,
-                                          serialization_reader& reader,
-                                          const serialization::context& context);
+                                          reader& reader, const serialization::context& context);
 
 /** @brief 通过类型 id 查找反射信息并使用指定后端反序列化到对象。 */
-[[nodiscard]] CAORS_API error deserialize(type_id id, void* object, serialization_reader& reader);
+[[nodiscard]] CAORS_API error deserialize(type_id id, void* object, reader& reader);
 
 /** @brief 通过类型 id 查找反射信息并使用指定后端和上下文反序列化到对象。 */
-[[nodiscard]] CAORS_API error deserialize(type_id id, void* object, serialization_reader& reader,
+[[nodiscard]] CAORS_API error deserialize(type_id id, void* object, reader& reader,
                                           const serialization::context& context);
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象从指定后端读入。 */
-template <typename T> [[nodiscard]] error deserialize(T& object, serialization_reader& reader) {
+template <typename T> [[nodiscard]] error deserialize(T& object, reader& reader) {
   const std::optional<meta::type_view> type = caors::meta::find<T>();
   if (!type.has_value()) {
     return {error_domain::serialization, errc::missing_type};
@@ -88,8 +84,7 @@ template <typename T> [[nodiscard]] error deserialize(T& object, serialization_r
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象按上下文从指定后端读入。 */
 template <typename T>
-[[nodiscard]] error deserialize(T& object, serialization_reader& reader,
-                                const serialization::context& context) {
+[[nodiscard]] error deserialize(T& object, reader& reader, const serialization::context& context) {
   const std::optional<meta::type_view> type = caors::meta::find<T>();
   if (!type.has_value()) {
     return {error_domain::serialization, errc::missing_type};

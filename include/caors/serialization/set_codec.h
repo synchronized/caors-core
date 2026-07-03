@@ -24,7 +24,7 @@ template <typename Set> struct set_codec {
                                    std::is_default_constructible_v<element_type>;
   static constexpr bool can_make_value = container_traits::is_set;
 
-  [[nodiscard]] static error write(serialization_writer& writer, const Set& values) {
+  [[nodiscard]] static error write(writer& writer, const Set& values) {
     error status = writer.begin_array(container_traits::size(values));
     if (status) {
       return status;
@@ -61,7 +61,7 @@ template <typename Set> struct set_codec {
     return visitor_status ? visitor_status : writer.end_array();
   }
 
-  [[nodiscard]] static error read(serialization_reader& reader, Set& values) {
+  [[nodiscard]] static error read(reader& reader, Set& values) {
     std::size_t size = 0;
     error status = reader.begin_array(size);
     if (status) {

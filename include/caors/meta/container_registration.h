@@ -105,7 +105,7 @@ template <typename T> [[nodiscard]] error register_associative_data_for(type_id 
       return {};
     }
 
-    meta_associative_data data{
+    meta::associative_data data{
         key,
         value,
         [](const void* storage) noexcept -> std::size_t {
@@ -115,7 +115,7 @@ template <typename T> [[nodiscard]] error register_associative_data_for(type_id 
 
           return traits::associative_traits<type>::size(*static_cast<const type*>(storage));
         },
-        [](const void* storage, meta_associative_raw_visitor visitor, void* user_data) -> bool {
+        [](const void* storage, meta::associative_raw_visitor visitor, void* user_data) -> bool {
           if (storage == nullptr || visitor == nullptr) {
             return false;
           }
@@ -161,7 +161,7 @@ template <typename T> [[nodiscard]] error register_associative_data_for(type_id 
       data.iterator_value = &associative_iterator_value<iterator_type>;
     }
 
-    const error result = caors::meta::get_registry().emplace<meta_associative_data>(id, data);
+    const error result = caors::meta::get_registry().emplace<meta::associative_data>(id, data);
     if (result && result.value() != errc::duplicate_component) {
       return result;
     }
@@ -182,7 +182,7 @@ template <typename T> [[nodiscard]] error register_pair_data_for(type_id id) {
       return {};
     }
 
-    meta_pair_data data{
+    meta::pair_data data{
         key,
         value,
         [](const void* storage) noexcept -> const void* {
@@ -215,7 +215,7 @@ template <typename T> [[nodiscard]] error register_pair_data_for(type_id id) {
         },
     };
 
-    const error result = caors::meta::get_registry().emplace<meta_pair_data>(id, data);
+    const error result = caors::meta::get_registry().emplace<meta::pair_data>(id, data);
     if (result && result.value() != errc::duplicate_component) {
       return result;
     }
@@ -225,11 +225,11 @@ template <typename T> [[nodiscard]] error register_pair_data_for(type_id id) {
 }
 
 template <typename Tuple, std::size_t Index>
-[[nodiscard]] meta_tuple_element_data make_tuple_element_data() {
+[[nodiscard]] meta::tuple_element_data make_tuple_element_data() {
   using type = std::remove_cv_t<std::remove_reference_t<Tuple>>;
   using element_type = typename traits::tuple_traits<type>::template element_type<Index>;
 
-  return meta_tuple_element_data{
+  return meta::tuple_element_data{
       semantic_type_id<element_type>(),
       [](const void* storage) noexcept -> const void* {
         if (storage == nullptr) {
@@ -251,8 +251,8 @@ template <typename Tuple, std::size_t Index>
 }
 
 template <typename Tuple, std::size_t... Indices>
-[[nodiscard]] meta_tuple_data make_tuple_data(std::index_sequence<Indices...>) {
-  meta_tuple_data data{};
+[[nodiscard]] meta::tuple_data make_tuple_data(std::index_sequence<Indices...>) {
+  meta::tuple_data data{};
   data.elements.reserve(sizeof...(Indices));
   (data.elements.push_back(make_tuple_element_data<Tuple, Indices>()), ...);
   return data;
@@ -265,13 +265,13 @@ template <typename T> [[nodiscard]] error register_tuple_data_for(type_id id) {
       return {};
     }
 
-    meta_tuple_data data =
+    meta::tuple_data data =
         make_tuple_data<type>(std::make_index_sequence<traits::tuple_traits<type>::size>{});
     if (!data.valid()) {
       return {};
     }
 
-    const error result = caors::meta::get_registry().emplace<meta_tuple_data>(id, data);
+    const error result = caors::meta::get_registry().emplace<meta::tuple_data>(id, data);
     if (result && result.value() != errc::duplicate_component) {
       return result;
     }
@@ -281,11 +281,11 @@ template <typename T> [[nodiscard]] error register_tuple_data_for(type_id id) {
 }
 
 template <typename Variant, std::size_t Index>
-[[nodiscard]] meta_variant_alternative_data make_variant_alternative_data() {
+[[nodiscard]] meta::variant_alternative_data make_variant_alternative_data() {
   using type = std::remove_cv_t<std::remove_reference_t<Variant>>;
   using alternative_type = typename traits::variant_traits<type>::template alternative_type<Index>;
 
-  return meta_variant_alternative_data{
+  return meta::variant_alternative_data{
       semantic_type_id<alternative_type>(),
       [](const void* storage) noexcept -> const void* {
         if (storage == nullptr) {
@@ -314,10 +314,10 @@ template <typename Variant, std::size_t Index>
 }
 
 template <typename Variant, std::size_t... Indices>
-[[nodiscard]] meta_variant_data make_variant_data(std::index_sequence<Indices...>) {
+[[nodiscard]] meta::variant_data make_variant_data(std::index_sequence<Indices...>) {
   using type = std::remove_cv_t<std::remove_reference_t<Variant>>;
 
-  meta_variant_data data{};
+  meta::variant_data data{};
   data.alternatives.reserve(sizeof...(Indices));
   (data.alternatives.push_back(make_variant_alternative_data<type, Indices>()), ...);
   data.index = [](const void* storage) noexcept -> std::size_t {
@@ -337,13 +337,13 @@ template <typename T> [[nodiscard]] error register_variant_data_for(type_id id) 
       return {};
     }
 
-    meta_variant_data data =
+    meta::variant_data data =
         make_variant_data<type>(std::make_index_sequence<traits::variant_traits<type>::size>{});
     if (!data.valid()) {
       return {};
     }
 
-    const error result = caors::meta::get_registry().emplace<meta_variant_data>(id, data);
+    const error result = caors::meta::get_registry().emplace<meta::variant_data>(id, data);
     if (result && result.value() != errc::duplicate_component) {
       return result;
     }
@@ -362,7 +362,7 @@ template <typename T> [[nodiscard]] error register_sequence_data_for(type_id id)
       return {};
     }
 
-    meta_sequence_data data{
+    meta::sequence_data data{
         value,
         [](const void* storage) noexcept -> std::size_t {
           if (storage == nullptr) {
@@ -416,7 +416,7 @@ template <typename T> [[nodiscard]] error register_sequence_data_for(type_id id)
       data.can_read = traits::sequence_traits<type>::can_read;
     }
 
-    const error result = caors::meta::get_registry().emplace<meta_sequence_data>(id, data);
+    const error result = caors::meta::get_registry().emplace<meta::sequence_data>(id, data);
     if (result && result.value() != errc::duplicate_component) {
       return result;
     }
@@ -435,7 +435,7 @@ template <typename T> [[nodiscard]] error register_set_data_for(type_id id) {
       return {};
     }
 
-    meta_set_data data{
+    meta::set_data data{
         value,
         [](const void* storage) noexcept -> std::size_t {
           if (storage == nullptr) {
@@ -444,7 +444,7 @@ template <typename T> [[nodiscard]] error register_set_data_for(type_id id) {
 
           return traits::set_traits<type>::size(*static_cast<const type*>(storage));
         },
-        [](const void* storage, meta_set_raw_visitor visitor, void* user_data) -> bool {
+        [](const void* storage, meta::set_raw_visitor visitor, void* user_data) -> bool {
           if (storage == nullptr || visitor == nullptr) {
             return false;
           }
@@ -487,7 +487,7 @@ template <typename T> [[nodiscard]] error register_set_data_for(type_id id) {
       data.iterator_value = &set_iterator_value<iterator_type>;
     }
 
-    const error result = caors::meta::get_registry().emplace<meta_set_data>(id, data);
+    const error result = caors::meta::get_registry().emplace<meta::set_data>(id, data);
     if (result && result.value() != errc::duplicate_component) {
       return result;
     }

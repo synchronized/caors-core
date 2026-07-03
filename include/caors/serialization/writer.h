@@ -154,10 +154,4 @@ private:
 
 } // namespace caors::serialization
 
-namespace caors {
-
-using serialization_writer = serialization::writer;
-
-} // namespace caors
-
 #endif

@@ -11,12 +11,12 @@ type_id type_view::id() const noexcept {
   return data_ != nullptr ? data_->id() : type_id::invalid();
 }
 
-string_name type_view::name() const noexcept {
-  return data_ != nullptr ? data_->name() : string_name{};
+core::string_name type_view::name() const noexcept {
+  return data_ != nullptr ? data_->name() : core::string_name{};
 }
 
-type_guid type_view::guid() const noexcept {
-  return data_ != nullptr ? data_->guid() : type_guid::nil();
+core::type_guid type_view::guid() const noexcept {
+  return data_ != nullptr ? data_->guid() : core::type_guid::nil();
 }
 
 std::size_t type_view::size() const noexcept { return data_ != nullptr ? data_->size() : 0; }

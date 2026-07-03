@@ -86,7 +86,7 @@ template <> struct type_name<std::string> {
   inline static constexpr std::string_view value = "std.string";
 };
 
-template <> struct type_name<string> {
+template <> struct type_name<core::string> {
   inline static constexpr std::string_view value = "caors.string";
 };
 
@@ -126,11 +126,11 @@ template <> struct type_name<std::chrono::system_clock::time_point> {
   inline static constexpr std::string_view value = "std.chrono.system_clock.time_point";
 };
 
-template <> struct type_name<guid> {
+template <> struct type_name<core::guid> {
   inline static constexpr std::string_view value = "caors.guid";
 };
 
-template <> struct type_name<type_guid> {
+template <> struct type_name<core::type_guid> {
   inline static constexpr std::string_view value = "caors.type_guid";
 };
 

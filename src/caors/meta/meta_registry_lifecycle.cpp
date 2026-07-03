@@ -35,7 +35,7 @@ error registry::add_registration(registration_fn fn) {
 }
 
 error registry::run_registrations() {
-  vector<registration_fn> registrations;
+  core::vector<registration_fn> registrations;
   {
     std::lock_guard lock(state_->mutex);
     if (state_->registrations_ran) {

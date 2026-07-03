@@ -9,11 +9,11 @@
 
 namespace caors::serialization {
 
-error deserialize(const reflection::type& type, void* object, serialization_reader& reader) {
+error deserialize(const reflection::type& type, void* object, reader& reader) {
   return deserialize(type, object, reader, serialization::context{});
 }
 
-error deserialize(const reflection::type& type, void* object, serialization_reader& reader,
+error deserialize(const reflection::type& type, void* object, reader& reader,
                   const serialization::context& context) {
   if (!type.valid()) {
     return {error_domain::serialization, errc::invalid_type};
@@ -73,12 +73,11 @@ error deserialize(const reflection::type& type, void* object, serialization_read
   return reader.end_object();
 }
 
-error deserialize(type_id id, void* object, serialization_reader& reader) {
+error deserialize(type_id id, void* object, reader& reader) {
   return deserialize(id, object, reader, serialization::context{});
 }
 
-error deserialize(type_id id, void* object, serialization_reader& reader,
-                  const serialization::context& context) {
+error deserialize(type_id id, void* object, reader& reader, const serialization::context& context) {
   if (!id) {
     return {error_domain::serialization, errc::invalid_type};
   }

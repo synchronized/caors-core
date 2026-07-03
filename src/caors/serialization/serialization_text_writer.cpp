@@ -10,11 +10,12 @@
 namespace caors {
 namespace {
 
-[[nodiscard]] string_name serialized_field_name(const serialization::field_data& data) noexcept {
+[[nodiscard]] core::string_name
+serialized_field_name(const serialization::field_data& data) noexcept {
   return data.serialized_name.empty() ? data.field_name : data.serialized_name;
 }
 
-void append_escaped_string(string& output, std::string_view value) {
+void append_escaped_string(core::string& output, std::string_view value) {
   output.push_back('"');
   for (const char character : value) {
     switch (character) {
@@ -41,7 +42,7 @@ void append_escaped_string(string& output, std::string_view value) {
   output.push_back('"');
 }
 
-void append_text(string& output, std::string_view value) {
+void append_text(core::string& output, std::string_view value) {
   output.append(value.data(), value.size());
 }
 
@@ -70,7 +71,7 @@ error serialization::text_writer::begin_field(const serialization::field_data& f
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  const string_name name = serialized_field_name(field);
+  const core::string_name name = serialized_field_name(field);
   if (name.empty()) {
     return {error_domain::serialization, errc::invalid_field};
   }
