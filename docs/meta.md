@@ -113,6 +113,8 @@ caors::meta::type_<player>("game.player")
 这些操作函数属于注册表和 `value` 模块的内部运行期能力，普通代码不应直接修改或依赖其具体布局。
 `meta::id_of<T>()` 只查询已经注册的 C++ 类型，不会创建匿名类型记录；普通代码应在启动注册阶段直接使用
 `meta::type_<T>("name")`。
+`meta::type_<T>()` 链式 builder 会原地更新全局注册表中已经保存的类型数据；已有 `meta::type`
+视图只引用这份稳定数据，不会因为后续 `.guid()` 或 `.parent()` 调用而失效。
 
 `meta::type` 是对外查询返回的只读视图：
 

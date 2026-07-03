@@ -34,10 +34,7 @@ public:
       return *this;
     }
 
-    detail::type_data data{
-        type_.id(), type_.name(), guid_value, type_.size(), type_.alignment(), type_.parent_id(),
-    };
-    status_ = get_registry().register_type_for<T>(data);
+    status_ = get_registry().set_type_guid(type_.id(), guid_value);
     refresh();
     return *this;
   }
@@ -50,10 +47,7 @@ public:
       return *this;
     }
 
-    detail::type_data data{
-        type_.id(), type_.name(), type_.guid(), type_.size(), type_.alignment(), parent_id,
-    };
-    status_ = get_registry().register_type_for<T>(data);
+    status_ = get_registry().set_type_parent(type_.id(), parent_id);
     refresh();
     return *this;
   }

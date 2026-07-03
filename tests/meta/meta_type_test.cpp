@@ -45,6 +45,8 @@ struct lazy_meta_builder_type {};
 
 struct fluent_meta_type {};
 
+struct stable_builder_type {};
+
 struct explicit_find_type {};
 
 struct missing_find_type {};
@@ -175,6 +177,24 @@ TEST_CASE("meta type - fluent builder registers name and guid", "[meta]") {
   CHECK(type.guid() == caors::type_guid{*guid});
   CHECK(caors::meta::find<fluent_meta_type>().id() == type.id());
   CHECK(caors::meta::find(caors::type_guid{*guid}).id() == type.id());
+}
+
+TEST_CASE("meta type - builder updates registered data in place", "[meta]") {
+  const auto guid = caors::guid::parse("2f7cc996-e0bc-4b61-85ea-b0263b876081");
+  REQUIRE(guid.has_value());
+
+  auto builder = caors::meta::type_<stable_builder_type>().type("caors.test.type.stable_builder");
+  const caors::meta::type before = builder.get();
+  REQUIRE(before);
+  CHECK_FALSE(before.guid());
+
+  REQUIRE(builder.guid(caors::type_guid{*guid}).result() == caors::error{});
+  const caors::meta::type after = builder.get();
+  REQUIRE(after);
+
+  CHECK(before.id() == after.id());
+  CHECK(before.guid() == caors::type_guid{*guid});
+  CHECK(after.guid() == caors::type_guid{*guid});
 }
 
 TEST_CASE("meta type - builder without name does not register type", "[meta]") {

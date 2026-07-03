@@ -52,4 +52,69 @@ error registry::register_type(const detail::type_data& type) {
   return register_type_impl(*state_, type);
 }
 
+error registry::set_type_guid(type_id id, type_guid guid) {
+  if (!id) {
+    return {error_domain::meta, errc::invalid_type};
+  }
+
+  std::lock_guard lock(state_->mutex);
+  if (state_->frozen) {
+    return {error_domain::meta, errc::frozen};
+  }
+
+  detail::type_data* stored = detail::find_type_data(*state_, id);
+  if (stored == nullptr) {
+    return {error_domain::meta, errc::invalid_type};
+  }
+
+  if (!guid) {
+    return {error_domain::meta, errc::duplicate_id};
+  }
+
+  if (stored->guid()) {
+    return stored->guid() == guid ? error{error_domain::meta, errc::duplicate_id}
+                                  : error{error_domain::meta, errc::invalid_type};
+  }
+
+  if (state_->guids.contains(guid.value)) {
+    return {error_domain::meta, errc::duplicate_guid};
+  }
+
+  stored->set_guid(guid);
+  state_->guids.emplace(guid.value, id);
+  return {};
+}
+
+error registry::set_type_parent(type_id id, type_id parent_id) {
+  if (!id) {
+    return {error_domain::meta, errc::invalid_type};
+  }
+
+  std::lock_guard lock(state_->mutex);
+  if (state_->frozen) {
+    return {error_domain::meta, errc::frozen};
+  }
+
+  detail::type_data* stored = detail::find_type_data(*state_, id);
+  if (stored == nullptr) {
+    return {error_domain::meta, errc::invalid_type};
+  }
+
+  if (!parent_id) {
+    return {error_domain::meta, errc::duplicate_id};
+  }
+
+  if (!state_->types.contains(parent_id.value())) {
+    return {error_domain::meta, errc::missing_parent};
+  }
+
+  if (stored->parent_id()) {
+    return stored->parent_id() == parent_id ? error{error_domain::meta, errc::duplicate_id}
+                                            : error{error_domain::meta, errc::invalid_type};
+  }
+
+  stored->set_parent_id(parent_id);
+  return {};
+}
+
 } // namespace caors::meta

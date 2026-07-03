@@ -37,6 +37,7 @@ template <typename T> [[nodiscard]] error register_container_data_for(type_id id
 namespace caors::meta {
 
 class registry_state;
+template <typename T> class type_builder;
 
 /**
  * @brief 底层全局类型元数据注册表。
@@ -232,6 +233,11 @@ public:
 private:
   registry();
   ~registry();
+
+  template <typename T> friend class type_builder;
+
+  [[nodiscard]] error set_type_guid(type_id id, type_guid guid);
+  [[nodiscard]] error set_type_parent(type_id id, type_id parent_id);
 
   [[nodiscard]] detail::meta_component_storage_base*
   find_component_storage(detail::meta_component_key key);
