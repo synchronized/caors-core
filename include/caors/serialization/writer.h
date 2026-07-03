@@ -157,8 +157,6 @@ private:
 namespace caors {
 
 using serialization_writer = serialization::writer;
-using text_serialization_writer = serialization::text_writer;
-using json_serialization_writer = serialization::json_writer;
 
 } // namespace caors
 

@@ -15,11 +15,10 @@
 
 namespace caors {
 
-class reflection_registry;
-
 namespace reflection {
 
 class field;
+class registry;
 class type;
 
 /**
@@ -178,7 +177,7 @@ public:
   [[nodiscard]] std::optional<field> find_field(std::string_view name) const;
 
 private:
-  friend class ::caors::reflection_registry;
+  friend class registry;
 
   type(meta_type info, const type_data* data) noexcept;
   [[nodiscard]] const type_data* data() const noexcept;
@@ -188,9 +187,6 @@ private:
 };
 
 } // namespace reflection
-
-using reflection_field = reflection::field;
-using reflection_type = reflection::type;
 
 } // namespace caors
 

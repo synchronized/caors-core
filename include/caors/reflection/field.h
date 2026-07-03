@@ -231,17 +231,17 @@ template <typename Field>
       !std::is_const_v<Field>,
   };
 
-  if constexpr (sequence_traits<field_type>::is_sequence) {
+  if constexpr (adapters::sequence_traits<field_type>::is_sequence) {
     (void)detail::register_container_data_for<field_type>(field.type);
-  } else if constexpr (set_traits<field_type>::is_set) {
+  } else if constexpr (adapters::set_traits<field_type>::is_set) {
     (void)detail::register_container_data_for<field_type>(field.type);
-  } else if constexpr (associative_traits<field_type>::is_associative) {
+  } else if constexpr (adapters::associative_traits<field_type>::is_associative) {
     (void)detail::register_container_data_for<field_type>(field.type);
-  } else if constexpr (pair_traits<field_type>::is_pair) {
+  } else if constexpr (adapters::pair_traits<field_type>::is_pair) {
     (void)detail::register_container_data_for<field_type>(field.type);
-  } else if constexpr (tuple_traits<field_type>::is_tuple) {
+  } else if constexpr (adapters::tuple_traits<field_type>::is_tuple) {
     (void)detail::register_container_data_for<field_type>(field.type);
-  } else if constexpr (variant_traits<field_type>::is_variant) {
+  } else if constexpr (adapters::variant_traits<field_type>::is_variant) {
     (void)detail::register_container_data_for<field_type>(field.type);
   }
 
@@ -250,11 +250,9 @@ template <typename Field>
 
 } // namespace reflection
 
-using reflection_field_data = reflection::field_data;
-
 /** @brief 创建字段反射元信息。兼容入口，优先使用 `reflection::make_field_data()`。 */
 template <typename Field>
-[[nodiscard]] reflection_field_data
+[[nodiscard]] reflection::field_data
 make_reflection_field_data(std::string_view name, std::string_view type_name, std::size_t offset) {
   return reflection::make_field_data<Field>(name, type_name, offset);
 }

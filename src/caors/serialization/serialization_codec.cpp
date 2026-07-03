@@ -15,13 +15,13 @@
 namespace caors {
 namespace {
 
-struct serialization_codec_registry_state {
+struct codec_registry_state {
   mutable std::mutex mutex;
-  hash_map<std::uint64_t, serialization_codec_data> codecs;
+  hash_map<std::uint64_t, serialization::codec_data> codecs;
 };
 
-[[nodiscard]] serialization_codec_registry_state& codec_state() {
-  static serialization_codec_registry_state state;
+[[nodiscard]] codec_registry_state& codec_state() {
+  static codec_registry_state state;
   return state;
 }
 
@@ -169,7 +169,7 @@ template <typename T>
 }
 
 template <typename T>
-[[nodiscard]] error read_codec_value(serialization_reader& reader, const reflection_field& field,
+[[nodiscard]] error read_codec_value(serialization_reader& reader, const reflection::field& field,
                                      void* object) {
   T decoded{};
   const error status = read_codec_payload<T>(reader, decoded);
@@ -313,87 +313,87 @@ template <typename Duration>
   return {{}, variant::from(static_cast<std::int64_t>(milliseconds.count()))};
 }
 
-template <typename T> void register_builtin_codec(serialization_codec_data codec) {
+template <typename T> void register_builtin_codec(serialization::codec_data codec) {
   const type_id id = registered_codec_type_id<T>();
   if (id) {
-    static_cast<void>(serialization_codec_registry::instance().register_codec(id, codec));
+    static_cast<void>(serialization::codec_registry::instance().register_codec(id, codec));
   }
 }
 
 void register_builtin_codecs() {
-  register_builtin_codec<string>(serialization_codec_data{
+  register_builtin_codec<string>(serialization::codec_data{
       &write_caors_string,
       &read_codec_value<string>,
       &read_codec_ref<string>,
       &make_caors_string_value,
   });
-  register_builtin_codec<std::string>(serialization_codec_data{
+  register_builtin_codec<std::string>(serialization::codec_data{
       &write_std_string,
       &read_codec_value<std::string>,
       &read_codec_ref<std::string>,
       &make_std_string_value,
   });
-  register_builtin_codec<std::string_view>(serialization_codec_data{
+  register_builtin_codec<std::string_view>(serialization::codec_data{
       &write_string_view,
       nullptr,
       nullptr,
       &make_string_view_value,
   });
-  register_builtin_codec<guid>(serialization_codec_data{
+  register_builtin_codec<guid>(serialization::codec_data{
       &write_guid,
       &read_codec_value<guid>,
       &read_codec_ref<guid>,
       &make_guid_value,
   });
-  register_builtin_codec<type_guid>(serialization_codec_data{
+  register_builtin_codec<type_guid>(serialization::codec_data{
       &write_type_guid,
       &read_codec_value<type_guid>,
       &read_codec_ref<type_guid>,
       &make_type_guid_value,
   });
-  register_builtin_codec<std::filesystem::path>(serialization_codec_data{
+  register_builtin_codec<std::filesystem::path>(serialization::codec_data{
       &write_filesystem_path,
       &read_codec_value<std::filesystem::path>,
       &read_codec_ref<std::filesystem::path>,
       &make_filesystem_path_value,
   });
-  register_builtin_codec<std::chrono::nanoseconds>(serialization_codec_data{
+  register_builtin_codec<std::chrono::nanoseconds>(serialization::codec_data{
       &write_chrono_duration<std::chrono::nanoseconds>,
       &read_codec_value<std::chrono::nanoseconds>,
       &read_codec_ref<std::chrono::nanoseconds>,
       &make_chrono_duration_value<std::chrono::nanoseconds>,
   });
-  register_builtin_codec<std::chrono::microseconds>(serialization_codec_data{
+  register_builtin_codec<std::chrono::microseconds>(serialization::codec_data{
       &write_chrono_duration<std::chrono::microseconds>,
       &read_codec_value<std::chrono::microseconds>,
       &read_codec_ref<std::chrono::microseconds>,
       &make_chrono_duration_value<std::chrono::microseconds>,
   });
-  register_builtin_codec<std::chrono::milliseconds>(serialization_codec_data{
+  register_builtin_codec<std::chrono::milliseconds>(serialization::codec_data{
       &write_chrono_duration<std::chrono::milliseconds>,
       &read_codec_value<std::chrono::milliseconds>,
       &read_codec_ref<std::chrono::milliseconds>,
       &make_chrono_duration_value<std::chrono::milliseconds>,
   });
-  register_builtin_codec<std::chrono::seconds>(serialization_codec_data{
+  register_builtin_codec<std::chrono::seconds>(serialization::codec_data{
       &write_chrono_duration<std::chrono::seconds>,
       &read_codec_value<std::chrono::seconds>,
       &read_codec_ref<std::chrono::seconds>,
       &make_chrono_duration_value<std::chrono::seconds>,
   });
-  register_builtin_codec<std::chrono::minutes>(serialization_codec_data{
+  register_builtin_codec<std::chrono::minutes>(serialization::codec_data{
       &write_chrono_duration<std::chrono::minutes>,
       &read_codec_value<std::chrono::minutes>,
       &read_codec_ref<std::chrono::minutes>,
       &make_chrono_duration_value<std::chrono::minutes>,
   });
-  register_builtin_codec<std::chrono::hours>(serialization_codec_data{
+  register_builtin_codec<std::chrono::hours>(serialization::codec_data{
       &write_chrono_duration<std::chrono::hours>,
       &read_codec_value<std::chrono::hours>,
       &read_codec_ref<std::chrono::hours>,
       &make_chrono_duration_value<std::chrono::hours>,
   });
-  register_builtin_codec<std::chrono::system_clock::time_point>(serialization_codec_data{
+  register_builtin_codec<std::chrono::system_clock::time_point>(serialization::codec_data{
       &write_system_time_point,
       &read_codec_value<std::chrono::system_clock::time_point>,
       &read_codec_ref<std::chrono::system_clock::time_point>,
@@ -408,12 +408,12 @@ void ensure_builtin_codecs_registered() {
 
 } // namespace
 
-serialization_codec_registry& serialization_codec_registry::instance() noexcept {
-  static serialization_codec_registry registry;
+serialization::codec_registry& serialization::codec_registry::instance() noexcept {
+  static serialization::codec_registry registry;
   return registry;
 }
 
-error serialization_codec_registry::register_codec(type_id id, serialization_codec_data codec) {
+error serialization::codec_registry::register_codec(type_id id, serialization::codec_data codec) {
   if (!id) {
     return {error_domain::serialization, errc::invalid_type};
   }
@@ -422,7 +422,7 @@ error serialization_codec_registry::register_codec(type_id id, serialization_cod
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  serialization_codec_registry_state& state = codec_state();
+  codec_registry_state& state = codec_state();
   std::lock_guard lock(state.mutex);
   const auto [_, inserted] = state.codecs.emplace(id.value(), codec);
   if (!inserted) {
@@ -432,14 +432,15 @@ error serialization_codec_registry::register_codec(type_id id, serialization_cod
   return {};
 }
 
-std::optional<serialization_codec_data> serialization_codec_registry::find_codec(type_id id) const {
+std::optional<serialization::codec_data>
+serialization::codec_registry::find_codec(type_id id) const {
   if (!id) {
     return std::nullopt;
   }
 
   ensure_builtin_codecs_registered();
 
-  serialization_codec_registry_state& state = codec_state();
+  codec_registry_state& state = codec_state();
   std::lock_guard lock(state.mutex);
   const auto position = state.codecs.find(id.value());
   if (position == state.codecs.end()) {
@@ -449,35 +450,35 @@ std::optional<serialization_codec_data> serialization_codec_registry::find_codec
   return position->second;
 }
 
-bool serialization_codec_registry::contains(type_id id) const {
+bool serialization::codec_registry::contains(type_id id) const {
   if (!id) {
     return false;
   }
 
   ensure_builtin_codecs_registered();
 
-  serialization_codec_registry_state& state = codec_state();
+  codec_registry_state& state = codec_state();
   std::lock_guard lock(state.mutex);
   return state.codecs.contains(id.value());
 }
 
-std::size_t serialization_codec_registry::size() const noexcept {
+std::size_t serialization::codec_registry::size() const noexcept {
   ensure_builtin_codecs_registered();
 
-  serialization_codec_registry_state& state = codec_state();
+  codec_registry_state& state = codec_state();
   std::lock_guard lock(state.mutex);
   return state.codecs.size();
 }
 
-serialization_codec_registry& get_serialization_codec_registry() noexcept {
+serialization::codec_registry& serialization::get_codec_registry() noexcept {
   ensure_builtin_codecs_registered();
-  return serialization_codec_registry::instance();
+  return serialization::codec_registry::instance();
 }
 
 namespace detail {
 
-error register_serialization_codec(type_id id, serialization_codec_data codec) {
-  return get_serialization_codec_registry().register_codec(id, codec);
+error register_serialization_codec(type_id id, serialization::codec_data codec) {
+  return serialization::get_codec_registry().register_codec(id, codec);
 }
 
 } // namespace detail

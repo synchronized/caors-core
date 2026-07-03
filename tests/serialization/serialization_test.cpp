@@ -426,16 +426,16 @@ void require_object_ref_vector_actor_metadata() {
 
 class numeric_field_writer final : public caors::serialization_writer {
 public:
-  [[nodiscard]] caors::serialization_format_features features() const noexcept override {
-    return caors::serialization_format_features::numeric_fields;
+  [[nodiscard]] caors::serialization::format_features features() const noexcept override {
+    return caors::serialization::format_features::numeric_fields;
   }
 
-  [[nodiscard]] caors::error begin_object(const caors::serialization_type_data&) override {
+  [[nodiscard]] caors::error begin_object(const caors::serialization::type_data&) override {
     object_open = true;
     return {};
   }
 
-  [[nodiscard]] caors::error begin_field(const caors::serialization_field_data& field) override {
+  [[nodiscard]] caors::error begin_field(const caors::serialization::field_data& field) override {
     if (field.field_id == 0) {
       return {caors::error_domain::serialization, caors::errc::invalid_field};
     }
@@ -479,6 +479,10 @@ template <> struct type_name<unsupported_field_value> {
 template <> struct type_name<nested_stats> {
   static constexpr std::string_view value = "caors.test.serialization.nested_stats";
 };
+
+} // namespace caors
+
+namespace caors::adapters {
 
 template <typename T> struct sequence_traits<custom_codec_sequence<T>> {
   static constexpr bool is_sequence = true;
@@ -542,15 +546,17 @@ template <typename K, typename V> struct associative_traits<custom_codec_map<K, 
   }
 };
 
+} // namespace caors::adapters
+
+namespace caors::serialization {
+
 template <typename T>
-struct serialization_codec<custom_codec_sequence<T>>
-    : sequence_serialization_codec<custom_codec_sequence<T>> {};
+struct codec<custom_codec_sequence<T>> : sequence_codec<custom_codec_sequence<T>> {};
 
 template <typename K, typename V>
-struct serialization_codec<custom_codec_map<K, V>>
-    : associative_serialization_codec<custom_codec_map<K, V>> {};
+struct codec<custom_codec_map<K, V>> : associative_codec<custom_codec_map<K, V>> {};
 
-} // namespace caors
+} // namespace caors::serialization
 
 TEST_CASE("serialization - registers type metadata component", "[serialization]") {
   REQUIRE(reflection_result_ok(
@@ -718,7 +724,7 @@ TEST_CASE("serialization - writes intermediate arrays and objects through text w
       caors::variant::array(std::move(items)),
   });
 
-  caors::text_serialization_writer writer;
+  caors::serialization::text_writer writer;
   const caors::error result = caors::write(writer, caors::variant::object(std::move(members)));
 
   REQUIRE(result.succeeded());
@@ -759,7 +765,7 @@ TEST_CASE("serialization - converts runtime values to variant", "[serialization]
   require_registered_type<caors::guid>("caors.guid");
 
   caors::any number = caors::any::from(42);
-  caors::variant_result number_result = caors::to_variant(number);
+  caors::variant_result number_result = caors::serialization::to_variant(number);
   REQUIRE(number_result.succeeded());
   CHECK(number_result.value.is_i64());
   REQUIRE(number_result.value.try_as_i64() != nullptr);
@@ -767,7 +773,7 @@ TEST_CASE("serialization - converts runtime values to variant", "[serialization]
 
   caors::string name = "Ada";
   caors::any_ref name_ref = caors::any_ref::from(name);
-  caors::variant_result name_result = caors::to_variant(name_ref);
+  caors::variant_result name_result = caors::serialization::to_variant(name_ref);
   REQUIRE(name_result.succeeded());
   CHECK(name_result.value.is_string());
   REQUIRE(name_result.value.try_as_string() != nullptr);
@@ -775,13 +781,13 @@ TEST_CASE("serialization - converts runtime values to variant", "[serialization]
 
   const std::optional<caors::guid> id = caors::guid::parse("2f6d1f64-7a3a-4db2-9a2d-123456789abc");
   REQUIRE(id.has_value());
-  caors::variant_result guid_result = caors::to_variant(caors::any::from(*id));
+  caors::variant_result guid_result = caors::serialization::to_variant(caors::any::from(*id));
   REQUIRE(guid_result.succeeded());
   CHECK(guid_result.value.is_string());
   REQUIRE(guid_result.value.try_as_string() != nullptr);
   CHECK(*guid_result.value.try_as_string() == "2f6d1f64-7a3a-4db2-9a2d-123456789abc");
 
-  caors::variant_result invalid_result = caors::to_variant(caors::any_ref{});
+  caors::variant_result invalid_result = caors::serialization::to_variant(caors::any_ref{});
   CHECK(invalid_result.failed());
   CHECK(invalid_result.status.value() == caors::errc::invalid_argument);
 }
@@ -2242,12 +2248,12 @@ TEST_CASE("serialization - serializes object references through resolver", "[ser
 
   object_ref_target target;
   object_ref_resolver_data resolver_data{caors::object_id{77}, &target};
-  const caors::serialization_reference_resolver resolver{
+  const caors::serialization::reference_resolver resolver{
       &resolve_object_id,
       &resolve_object,
       &resolver_data,
   };
-  const caors::serialization_context context{0, &resolver};
+  const caors::serialization::context context{0, &resolver};
   const object_ref_actor actor{caors::object_ref<object_ref_target>{&target}};
 
   const caors::serialization_text_result text = caors::serialize_text(actor, context);
@@ -2278,7 +2284,7 @@ TEST_CASE("serialization - deserializes object references through resolver", "[s
 
   object_ref_target target;
   object_ref_resolver_data resolver_data{caors::object_id{88}, &target};
-  const caors::serialization_reference_resolver resolver{
+  const caors::serialization::reference_resolver resolver{
       &resolve_object_id,
       &resolve_object,
       &resolver_data,
@@ -2293,14 +2299,14 @@ TEST_CASE("serialization - deserializes object references through resolver", "[s
 
   object_ref_actor actor{};
   const caors::error result = caors::deserialize(actor, caors::variant::object(std::move(members)),
-                                                 caors::serialization_context{0, &resolver});
+                                                 caors::serialization::context{0, &resolver});
 
   REQUIRE(result.succeeded());
   CHECK(actor.target.get() == &target);
 
   object_ref_actor from_json{};
   const caors::error json_result = caors::deserialize_json(
-      from_json, R"({"target":88})", caors::serialization_context{0, &resolver});
+      from_json, R"({"target":88})", caors::serialization::context{0, &resolver});
   REQUIRE(json_result.succeeded());
   CHECK(from_json.target.get() == &target);
 }
@@ -2310,12 +2316,12 @@ TEST_CASE("serialization - serializes object references inside vectors", "[seria
 
   object_ref_target target;
   object_ref_resolver_data resolver_data{caors::object_id{77}, &target};
-  const caors::serialization_reference_resolver resolver{
+  const caors::serialization::reference_resolver resolver{
       &resolve_object_id,
       &resolve_object,
       &resolver_data,
   };
-  const caors::serialization_context context{0, &resolver};
+  const caors::serialization::context context{0, &resolver};
 
   object_ref_vector_actor actor{};
   actor.targets.push_back(caors::object_ref<object_ref_target>{&target});
@@ -2340,7 +2346,7 @@ TEST_CASE("serialization - deserializes object references inside vectors", "[ser
 
   object_ref_target target;
   object_ref_resolver_data resolver_data{caors::object_id{88}, &target};
-  const caors::serialization_reference_resolver resolver{
+  const caors::serialization::reference_resolver resolver{
       &resolve_object_id,
       &resolve_object,
       &resolver_data,
@@ -2348,7 +2354,7 @@ TEST_CASE("serialization - deserializes object references inside vectors", "[ser
 
   object_ref_vector_actor actor{};
   const caors::error result = caors::deserialize_json(actor, R"({"targets":[88,0]})",
-                                                      caors::serialization_context{0, &resolver});
+                                                      caors::serialization::context{0, &resolver});
 
   REQUIRE(result.succeeded());
   REQUIRE(actor.targets.size() == 2);
@@ -2372,7 +2378,7 @@ TEST_CASE("serialization - object reference resolver failures are reported", "[s
   CHECK(missing_resolver.status.value() == caors::errc::invalid_argument);
 
   object_ref_resolver_data resolver_data{caors::object_id{99}, nullptr};
-  const caors::serialization_reference_resolver resolver{
+  const caors::serialization::reference_resolver resolver{
       &resolve_object_id,
       &resolve_object,
       &resolver_data,
@@ -2388,13 +2394,13 @@ TEST_CASE("serialization - object reference resolver failures are reported", "[s
   object_ref_actor decoded{};
   const caors::error missing_object =
       caors::deserialize(decoded, caors::variant::object(std::move(members)),
-                         caors::serialization_context{0, &resolver});
+                         caors::serialization::context{0, &resolver});
   CHECK(missing_object.failed());
   CHECK(missing_object.value() == caors::errc::not_found);
 
   other_object_ref_target other;
   object_ref_resolver_data wrong_type_data{caors::object_id{100}, &other};
-  const caors::serialization_reference_resolver wrong_type_resolver{
+  const caors::serialization::reference_resolver wrong_type_resolver{
       &resolve_object_id,
       &resolve_object,
       &wrong_type_data,
@@ -2409,7 +2415,7 @@ TEST_CASE("serialization - object reference resolver failures are reported", "[s
 
   const caors::error wrong_type =
       caors::deserialize(decoded, caors::variant::object(std::move(wrong_type_members)),
-                         caors::serialization_context{0, &wrong_type_resolver});
+                         caors::serialization::context{0, &wrong_type_resolver});
   CHECK(wrong_type.failed());
   CHECK(wrong_type.value() == caors::errc::invalid_type);
 }
@@ -2463,11 +2469,11 @@ TEST_CASE("serialization - variant reader applies required optional and skipped 
                                    .field("skipped", &reader_field_policy_actor::skipped)
                                    .commit()));
 
-  caors::serialization_field_data id = caors::make_serialization_field("id");
-  caors::serialization_field_data optional = caors::make_serialization_field("optional");
-  caors::serialization_field_data required = caors::make_serialization_field("required");
+  caors::serialization::field_data id = caors::make_serialization_field("id");
+  caors::serialization::field_data optional = caors::make_serialization_field("optional");
+  caors::serialization::field_data required = caors::make_serialization_field("required");
   required.required = true;
-  caors::serialization_field_data skipped = caors::make_serialization_field("skipped");
+  caors::serialization::field_data skipped = caors::make_serialization_field("skipped");
   skipped.skipped = true;
 
   REQUIRE(serialization_result_ok(caors::detail::register_serialization<reader_field_policy_actor>({
@@ -2513,11 +2519,11 @@ TEST_CASE("serialization - variant reader reports missing required fields", "[se
                                    .field("skipped", &reader_field_policy_actor::skipped)
                                    .commit()));
 
-  caors::serialization_field_data id = caors::make_serialization_field("id");
-  caors::serialization_field_data optional = caors::make_serialization_field("optional");
-  caors::serialization_field_data required = caors::make_serialization_field("required");
+  caors::serialization::field_data id = caors::make_serialization_field("id");
+  caors::serialization::field_data optional = caors::make_serialization_field("optional");
+  caors::serialization::field_data required = caors::make_serialization_field("required");
   required.required = true;
-  caors::serialization_field_data skipped = caors::make_serialization_field("skipped");
+  caors::serialization::field_data skipped = caors::make_serialization_field("skipped");
   skipped.skipped = true;
 
   REQUIRE(serialization_result_ok(caors::detail::register_serialization<reader_field_policy_actor>({
@@ -2573,13 +2579,13 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
           .field("future", &versioned_actor::future)
           .commit()));
 
-  caors::serialization_field_data id = caors::make_serialization_field("id");
-  caors::serialization_field_data legacy = caors::make_serialization_field("legacy");
+  caors::serialization::field_data id = caors::make_serialization_field("id");
+  caors::serialization::field_data legacy = caors::make_serialization_field("legacy");
   legacy.version_added = 1;
   legacy.version_removed = 2;
-  caors::serialization_field_data current = caors::make_serialization_field("current");
+  caors::serialization::field_data current = caors::make_serialization_field("current");
   current.version_added = 2;
-  caors::serialization_field_data future = caors::make_serialization_field("future");
+  caors::serialization::field_data future = caors::make_serialization_field("future");
   future.version_added = 3;
   future.required = true;
 
@@ -2592,13 +2598,13 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
 
   const versioned_actor actor{1, 10, 20, 30};
   const caors::serialization_text_result text_v2 =
-      caors::serialize_text(actor, caors::serialization_context{2});
+      caors::serialize_text(actor, caors::serialization::context{2});
 
   REQUIRE(text_v2.succeeded());
   CHECK(text_v2.value == R"({"id":1,"current":20})");
 
   const caors::serialization_text_result text_v3 =
-      caors::serialize_text(actor, caors::serialization_context{3});
+      caors::serialize_text(actor, caors::serialization::context{3});
 
   REQUIRE(text_v3.succeeded());
   CHECK(text_v3.value == R"({"id":1,"current":20,"future":30})");
@@ -2617,7 +2623,7 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
 
   versioned_actor deserialized{};
   const caors::error result = caors::deserialize(
-      deserialized, caors::variant::object(std::move(members)), caors::serialization_context{2});
+      deserialized, caors::variant::object(std::move(members)), caors::serialization::context{2});
 
   REQUIRE(result.succeeded());
   CHECK(deserialized.id == 2);
@@ -2649,7 +2655,7 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
 
   versioned_actor filtered{0, 10, 0, 30};
   const caors::error filtered_result = caors::deserialize(
-      filtered, caors::variant::object(std::move(extra_members)), caors::serialization_context{2});
+      filtered, caors::variant::object(std::move(extra_members)), caors::serialization::context{2});
 
   REQUIRE(filtered_result.succeeded());
   CHECK(filtered.id == 3);
@@ -2672,7 +2678,7 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
   versioned_actor missing_required{};
   const caors::error missing_required_result = caors::deserialize(
       missing_required, caors::variant::object(std::move(missing_required_members)),
-      caors::serialization_context{3});
+      caors::serialization::context{3});
 
   CHECK(missing_required_result.failed());
   CHECK(missing_required_result.domain() == caors::error_domain::serialization);
@@ -2806,7 +2812,7 @@ TEST_CASE("serialization - string view deserialization can use explicit backing 
 
   codec_string_view_actor actor{std::string_view{"original"}};
   caors::string backing;
-  caors::serialization_context context{};
+  caors::serialization::context context{};
   context.string_view_storage = &backing;
 
   const caors::error result = caors::deserialize_json(actor, R"({"name":"Ada"})", context);

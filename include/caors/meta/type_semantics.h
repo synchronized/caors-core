@@ -207,38 +207,38 @@ template <typename Type> struct type_semantics_traits {
 
   [[nodiscard]] static meta_type_semantics_data get() {
     meta_type_semantics_data info{};
-    if constexpr (sequence_traits<type>::is_sequence) {
-      using element_type = typename sequence_traits<type>::element_type;
+    if constexpr (adapters::sequence_traits<type>::is_sequence) {
+      using element_type = typename adapters::sequence_traits<type>::element_type;
 
       info.kind = type_kind::sequence;
       info.value_type = semantic_type_id<element_type>();
       return info;
-    } else if constexpr (set_traits<type>::is_set) {
-      using element_type = typename set_traits<type>::element_type;
+    } else if constexpr (adapters::set_traits<type>::is_set) {
+      using element_type = typename adapters::set_traits<type>::element_type;
 
       info.kind = type_kind::set;
       info.value_type = semantic_type_id<element_type>();
       return info;
-    } else if constexpr (associative_traits<type>::is_associative) {
-      using key_type = typename associative_traits<type>::key_type;
-      using mapped_type = typename associative_traits<type>::mapped_type;
+    } else if constexpr (adapters::associative_traits<type>::is_associative) {
+      using key_type = typename adapters::associative_traits<type>::key_type;
+      using mapped_type = typename adapters::associative_traits<type>::mapped_type;
 
       info.kind = type_kind::associative;
       info.key_type = semantic_type_id<key_type>();
       info.value_type = semantic_type_id<mapped_type>();
       return info;
-    } else if constexpr (pair_traits<type>::is_pair) {
-      using first_type = typename pair_traits<type>::first_type;
-      using second_type = typename pair_traits<type>::second_type;
+    } else if constexpr (adapters::pair_traits<type>::is_pair) {
+      using first_type = typename adapters::pair_traits<type>::first_type;
+      using second_type = typename adapters::pair_traits<type>::second_type;
 
       info.kind = type_kind::pair;
       info.key_type = semantic_type_id<first_type>();
       info.value_type = semantic_type_id<second_type>();
       return info;
-    } else if constexpr (tuple_traits<type>::is_tuple) {
+    } else if constexpr (adapters::tuple_traits<type>::is_tuple) {
       info.kind = type_kind::tuple;
       return info;
-    } else if constexpr (variant_traits<type>::is_variant) {
+    } else if constexpr (adapters::variant_traits<type>::is_variant) {
       info.kind = type_kind::variant;
       return info;
     } else if constexpr (wrapper_traits<type>::is_wrapper) {

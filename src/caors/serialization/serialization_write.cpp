@@ -103,10 +103,10 @@ error write(serialization_writer& writer, const variant& value) {
     return writer.end_dictionary();
   }
   case variant_kind::object: {
-    serialization_type_data type_data;
+    serialization::type_data type_data;
     type_data.fields.reserve(value.as_object().size());
     for (const variant_member& member : value.as_object()) {
-      type_data.fields.push_back(serialization_field_data{
+      type_data.fields.push_back(serialization::field_data{
           member.name,
           member.name,
           member.field_id,

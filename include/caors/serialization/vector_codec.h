@@ -161,11 +161,11 @@ template <typename T> [[nodiscard]] variant_result make_vector_element_value(con
 
 } // namespace caors::detail
 
-namespace caors {
+namespace caors::serialization {
 
-/** @brief 基于 `sequence_traits<T>` 的通用顺序容器序列化 codec。 */
-template <typename Sequence> struct sequence_serialization_codec {
-  using traits = sequence_traits<Sequence>;
+/** @brief 基于 `adapters::sequence_traits<T>` 的通用顺序容器序列化 codec。 */
+template <typename Sequence> struct sequence_codec {
+  using traits = adapters::sequence_traits<Sequence>;
   using element_type = typename traits::element_type;
 
   static constexpr bool traits_can_read = [] {
@@ -285,29 +285,24 @@ template <typename Sequence> struct sequence_serialization_codec {
 
 /** @brief `std::vector` / `caors::vector` 的数组序列化 codec。 */
 template <typename T, typename Allocator>
-struct serialization_codec<std::vector<T, Allocator>>
-    : sequence_serialization_codec<std::vector<T, Allocator>> {};
+struct codec<std::vector<T, Allocator>> : sequence_codec<std::vector<T, Allocator>> {};
 
 /** @brief `std::array` 的固定长度数组序列化 codec。 */
 template <typename T, std::size_t Size>
-struct serialization_codec<std::array<T, Size>>
-    : sequence_serialization_codec<std::array<T, Size>> {};
+struct codec<std::array<T, Size>> : sequence_codec<std::array<T, Size>> {};
 
 /** @brief `std::deque` 的数组序列化 codec。 */
 template <typename T, typename Allocator>
-struct serialization_codec<std::deque<T, Allocator>>
-    : sequence_serialization_codec<std::deque<T, Allocator>> {};
+struct codec<std::deque<T, Allocator>> : sequence_codec<std::deque<T, Allocator>> {};
 
 /** @brief `std::list` / `caors::list` 的数组序列化 codec。 */
 template <typename T, typename Allocator>
-struct serialization_codec<std::list<T, Allocator>>
-    : sequence_serialization_codec<std::list<T, Allocator>> {};
+struct codec<std::list<T, Allocator>> : sequence_codec<std::list<T, Allocator>> {};
 
 /** @brief `std::forward_list` 的数组序列化 codec。 */
 template <typename T, typename Allocator>
-struct serialization_codec<std::forward_list<T, Allocator>>
-    : sequence_serialization_codec<std::forward_list<T, Allocator>> {};
+struct codec<std::forward_list<T, Allocator>> : sequence_codec<std::forward_list<T, Allocator>> {};
 
-} // namespace caors
+} // namespace caors::serialization
 
 #endif

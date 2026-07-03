@@ -53,9 +53,10 @@ using object_type_id = type_id;
 }
 
 class object;
-class object_registry;
 
 namespace objects {
+
+class registry;
 
 /**
  * @brief 不拥有对象的运行期身份句柄。
@@ -117,7 +118,7 @@ public:
   [[nodiscard]] bool constructible() const noexcept;
 
 private:
-  friend class ::caors::object_registry;
+  friend class registry;
 
   type(meta_type info, const type_data* data) noexcept;
   [[nodiscard]] const type_data* data() const noexcept;
@@ -181,14 +182,7 @@ private:
 
 } // namespace objects
 
-using object_handle = objects::handle;
-using object_try_create_fn = objects::try_create_fn;
-using object_create_fn = objects::create_fn;
-using object_destroy_fn = objects::destroy_fn;
-using object_type_data = objects::type_data;
-using object_type = objects::type;
 template <typename T> using object_ref = objects::ref<T>;
-template <typename T> using object_weak_handle = objects::weak_handle<T>;
 
 /**
  * @brief CAORS 对象基类。
@@ -344,10 +338,10 @@ make_object_meta_type_data(std::string_view name,
 }
 
 /** @brief 创建对象类型底层数据。 */
-template <typename T> [[nodiscard]] object_type_data make_object_type_data() noexcept {
+template <typename T> [[nodiscard]] objects::type_data make_object_type_data() noexcept {
   static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
 
-  object_type_data data{nullptr, nullptr, &destroy_object_instance<T>};
+  objects::type_data data{nullptr, nullptr, &destroy_object_instance<T>};
   if constexpr (std::is_default_constructible_v<T>) {
     data.try_create = &try_create_object_instance<T>;
     data.create = &create_object_instance<T>;
@@ -356,34 +350,33 @@ template <typename T> [[nodiscard]] object_type_data make_object_type_data() noe
   return data;
 }
 
-class object_registry;
+namespace objects {
 
 /** @brief 获取进程内默认对象类型注册表。 */
-[[nodiscard]] CAORS_API object_registry& get_object_registry() noexcept;
+[[nodiscard]] CAORS_API registry& get_registry() noexcept;
 
 /**
  * @brief 全局对象类型注册表 facade 和默认构造工厂。
  *
- * `object_registry` 不表示彼此隔离的注册表实例。它复用全局 `meta_registry`
+ * `objects::registry` 不表示彼此隔离的注册表实例。它复用全局 `meta_registry`
  * 管理基础类型信息，并把 `objects::type_data` 作为组件挂载到同一个 `type_id`
- * 上。普通代码应通过 `objects::class_<T>()`、`get_object_registry()` 和查询接口访问它。
+ * 上。普通代码应通过 `objects::class_<T>()`、`objects::get_registry()` 和查询接口访问它。
  */
-class CAORS_API object_registry final {
+class CAORS_API registry final {
 public:
-  object_registry(const object_registry&) = delete;
-  object_registry& operator=(const object_registry&) = delete;
+  registry(const registry&) = delete;
+  registry& operator=(const registry&) = delete;
 
-  [[nodiscard]] error register_type(const meta_type_data& type, const object_type_data& object);
+  [[nodiscard]] error register_type(const meta_type_data& type, const type_data& object);
   template <typename T>
-  [[nodiscard]] error register_type_for(const meta_type_data& type,
-                                        const object_type_data& object) {
+  [[nodiscard]] error register_type_for(const meta_type_data& type, const type_data& object) {
     return register_type(detail::cpp_type_key_of<T>(), type, object);
   }
 
   [[nodiscard]] bool contains(object_type_id id) const;
-  [[nodiscard]] std::optional<object_type> find_type(object_type_id id) const;
-  [[nodiscard]] std::optional<object_type> find_type(std::string_view name) const;
-  template <typename T> [[nodiscard]] std::optional<object_type> find_type() const {
+  [[nodiscard]] std::optional<type> find_type(object_type_id id) const;
+  [[nodiscard]] std::optional<type> find_type(std::string_view name) const;
+  template <typename T> [[nodiscard]] std::optional<type> find_type() const {
     const std::optional<meta_type> type = find_registered_type(detail::cpp_type_key_of<T>());
     if (!type.has_value()) {
       return std::nullopt;
@@ -401,7 +394,7 @@ public:
                                    memory_resource* resource = nullptr) const noexcept;
   template <typename T>
   [[nodiscard]] T* try_create(memory_resource* resource = nullptr) const noexcept {
-    const std::optional<object_type> type = find_type<T>();
+    const std::optional<type> type = find_type<T>();
     if (!type.has_value()) {
       return nullptr;
     }
@@ -412,7 +405,7 @@ public:
   [[nodiscard]] object* create(object_type_id id, memory_resource* resource = nullptr) const;
   [[nodiscard]] object* create(std::string_view name, memory_resource* resource = nullptr) const;
   template <typename T> [[nodiscard]] T* create(memory_resource* resource = nullptr) const {
-    const std::optional<object_type> type = find_type<T>();
+    const std::optional<type> type = find_type<T>();
     if (!type.has_value()) {
       return nullptr;
     }
@@ -423,16 +416,18 @@ public:
   bool destroy(object* instance, memory_resource* resource = nullptr) const noexcept;
 
 private:
-  friend object_registry& get_object_registry() noexcept;
+  friend registry& get_registry() noexcept;
 
-  object_registry();
-  ~object_registry();
+  registry();
+  ~registry();
 
   [[nodiscard]] error register_type(detail::cpp_type_key key, const meta_type_data& type,
-                                    const object_type_data& object);
+                                    const type_data& object);
   [[nodiscard]] std::optional<meta_type> find_registered_type(detail::cpp_type_key key) const;
-  [[nodiscard]] const object_type_data* find_type_data(object_type_id id) const;
+  [[nodiscard]] const type_data* find_type_data(object_type_id id) const;
 };
+
+} // namespace objects
 
 namespace detail {
 
@@ -440,10 +435,10 @@ namespace detail {
 template <typename T>
 [[nodiscard]] error register_object_type(std::string_view name,
                                          object_type_id parent_id = object_type_id::invalid()) {
-  object_registry& registry = get_object_registry();
+  objects::registry& registry = objects::get_registry();
   if (!parent_id) {
     using base_type = typename detail::object_base_type_traits<T>::type;
-    const std::optional<object_type> base = registry.find_type<base_type>();
+    const std::optional<objects::type> base = registry.find_type<base_type>();
     if (base.has_value()) {
       parent_id = base->id();
     }
@@ -461,30 +456,30 @@ namespace objects {
 [[nodiscard]] inline object_type_id id(std::string_view name) { return meta::id(name); }
 
 /** @brief 在全局对象注册表中按对象类型 id 查找类型。 */
-[[nodiscard]] inline std::optional<object_type> find(object_type_id id) {
-  return get_object_registry().find_type(id);
+[[nodiscard]] inline std::optional<type> find(object_type_id id) {
+  return get_registry().find_type(id);
 }
 
 /** @brief 在全局对象注册表中按对象类型名查找类型。 */
-[[nodiscard]] inline std::optional<object_type> find(std::string_view name) {
-  return get_object_registry().find_type(name);
+[[nodiscard]] inline std::optional<type> find(std::string_view name) {
+  return get_registry().find_type(name);
 }
 
 /** @brief 在全局对象注册表中按 C++ 类型查找对象类型。 */
-template <typename T> [[nodiscard]] std::optional<object_type> find() {
-  return get_object_registry().find_type<T>();
+template <typename T> [[nodiscard]] std::optional<type> find() {
+  return get_registry().find_type<T>();
 }
 
 /** @brief 判断对象类型是否已注册。 */
-[[nodiscard]] inline bool contains(object_type_id id) { return get_object_registry().contains(id); }
+[[nodiscard]] inline bool contains(object_type_id id) { return get_registry().contains(id); }
 
 /** @brief 判断对象类型继承关系。 */
 [[nodiscard]] inline bool is_a(object_type_id id, object_type_id base_id) {
-  return get_object_registry().is_a(id, base_id);
+  return get_registry().is_a(id, base_id);
 }
 
 /** @brief 获取当前对象类型数量。 */
-[[nodiscard]] inline std::size_t size() noexcept { return get_object_registry().size(); }
+[[nodiscard]] inline std::size_t size() noexcept { return get_registry().size(); }
 
 /** @brief 对象类型注册构建器。 */
 template <typename T> class class_builder {
@@ -502,17 +497,17 @@ public:
     return status_;
   }
 
-  [[nodiscard]] object_type get() const noexcept { return type_; }
+  [[nodiscard]] type get() const noexcept { return type_; }
   [[nodiscard]] error result() const noexcept { return status_; }
   [[nodiscard]] bool succeeded() const noexcept {
     return status_.succeeded() || status_.value() == errc::duplicate_id;
   }
 
-  [[nodiscard]] operator object_type() const noexcept { return type_; }
+  [[nodiscard]] operator type() const noexcept { return type_; }
 
 private:
   void refresh() {
-    const std::optional<object_type> refreshed = get_object_registry().find_type<T>();
+    const std::optional<type> refreshed = get_registry().find_type<T>();
     if (refreshed.has_value()) {
       type_ = *refreshed;
     }
@@ -520,7 +515,7 @@ private:
 
   std::string_view name_{};
   object_type_id parent_id_{};
-  object_type type_{};
+  type type_{};
   error status_{};
 };
 
@@ -529,33 +524,54 @@ template <typename T> [[nodiscard]] class_builder<T> class_(std::string_view nam
   return class_builder<T>{name};
 }
 
-} // namespace objects
-
 /** @brief 直接创建指定 C++ 类型的对象。 */
 template <typename T, typename... Args>
-[[nodiscard]] T* create_object(memory_resource* resource, Args&&... args) {
+[[nodiscard]] T* create(memory_resource* resource, Args&&... args) {
   static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
   return make<T>(resource, std::forward<Args>(args)...);
 }
 
-template <typename T> [[nodiscard]] T* create_object() {
+template <typename T> [[nodiscard]] T* create() {
   static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
-  return create_object<T>(static_cast<memory_resource*>(nullptr));
+  return create<T>(static_cast<memory_resource*>(nullptr));
 }
 
 template <typename T, typename First, typename... Rest>
   requires(!std::is_convertible_v<std::remove_cvref_t<First>, memory_resource*>)
-[[nodiscard]] T* create_object(First&& first, Rest&&... rest) {
+[[nodiscard]] T* create(First&& first, Rest&&... rest) {
   static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
-  return create_object<T>(static_cast<memory_resource*>(nullptr), std::forward<First>(first),
-                          std::forward<Rest>(rest)...);
+  return create<T>(static_cast<memory_resource*>(nullptr), std::forward<First>(first),
+                   std::forward<Rest>(rest)...);
 }
 
 /** @brief 销毁通过 CAORS 内存资源创建的对象。 */
+template <typename T> void destroy(T* instance, memory_resource* resource = nullptr) noexcept {
+  static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
+  caors::destroy(instance, resource);
+}
+
+} // namespace objects
+
+/** @brief 直接创建指定 C++ 类型的对象。兼容入口，优先使用 `objects::create()`。 */
+template <typename T, typename... Args>
+[[nodiscard]] T* create_object(memory_resource* resource, Args&&... args) {
+  return objects::create<T>(resource, std::forward<Args>(args)...);
+}
+
+/** @brief 直接创建指定 C++ 类型的对象。兼容入口，优先使用 `objects::create()`。 */
+template <typename T> [[nodiscard]] T* create_object() { return objects::create<T>(); }
+
+/** @brief 直接创建指定 C++ 类型的对象。兼容入口，优先使用 `objects::create()`。 */
+template <typename T, typename First, typename... Rest>
+  requires(!std::is_convertible_v<std::remove_cvref_t<First>, memory_resource*>)
+[[nodiscard]] T* create_object(First&& first, Rest&&... rest) {
+  return objects::create<T>(std::forward<First>(first), std::forward<Rest>(rest)...);
+}
+
+/** @brief 销毁通过 CAORS 内存资源创建的对象。兼容入口，优先使用 `objects::destroy()`。 */
 template <typename T>
 void destroy_object(T* instance, memory_resource* resource = nullptr) noexcept {
-  static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
-  destroy(instance, resource);
+  objects::destroy(instance, resource);
 }
 
 }

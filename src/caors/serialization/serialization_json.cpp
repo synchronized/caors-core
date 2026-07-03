@@ -13,7 +13,7 @@
 namespace caors {
 namespace {
 
-[[nodiscard]] string_name serialized_field_name(const serialization_field_data& data) noexcept {
+[[nodiscard]] string_name serialized_field_name(const serialization::field_data& data) noexcept {
   return data.serialized_name.empty() ? data.field_name : data.serialized_name;
 }
 
@@ -404,13 +404,13 @@ private:
 
 } // namespace
 
-serialization_format_features json_serialization_writer::features() const noexcept {
-  return serialization_format_features::named_fields |
-         serialization_format_features::ordered_fields |
-         serialization_format_features::self_describing;
+serialization::format_features serialization::json_writer::features() const noexcept {
+  return serialization::format_features::named_fields |
+         serialization::format_features::ordered_fields |
+         serialization::format_features::self_describing;
 }
 
-error json_serialization_writer::begin_object(const serialization_type_data&) {
+error serialization::json_writer::begin_object(const serialization::type_data&) {
   error status = prepare_value();
   if (status) {
     return status;
@@ -422,7 +422,7 @@ error json_serialization_writer::begin_object(const serialization_type_data&) {
   return {};
 }
 
-error json_serialization_writer::begin_field(const serialization_field_data& field) {
+error serialization::json_writer::begin_field(const serialization::field_data& field) {
   if (contexts_.empty() || contexts_.back().kind != context_kind::object || expecting_value_) {
     return {error_domain::serialization, errc::invalid_argument};
   }
@@ -444,7 +444,7 @@ error json_serialization_writer::begin_field(const serialization_field_data& fie
   return {};
 }
 
-error json_serialization_writer::begin_array(std::size_t) {
+error serialization::json_writer::begin_array(std::size_t) {
   error status = prepare_value();
   if (status) {
     return status;
@@ -456,7 +456,7 @@ error json_serialization_writer::begin_array(std::size_t) {
   return {};
 }
 
-error json_serialization_writer::begin_element(std::size_t) {
+error serialization::json_writer::begin_element(std::size_t) {
   if (contexts_.empty() || contexts_.back().kind != context_kind::array || expecting_value_) {
     return {error_domain::serialization, errc::invalid_argument};
   }
@@ -471,9 +471,9 @@ error json_serialization_writer::begin_element(std::size_t) {
   return {};
 }
 
-error json_serialization_writer::begin_dictionary(std::size_t size) { return begin_array(size); }
+error serialization::json_writer::begin_dictionary(std::size_t size) { return begin_array(size); }
 
-error json_serialization_writer::begin_entry(std::size_t index) {
+error serialization::json_writer::begin_entry(std::size_t index) {
   error status = begin_element(index);
   if (status) {
     return status;
@@ -482,15 +482,15 @@ error json_serialization_writer::begin_entry(std::size_t index) {
   return begin_array(2);
 }
 
-error json_serialization_writer::begin_key() { return begin_element(0); }
+error serialization::json_writer::begin_key() { return begin_element(0); }
 
-error json_serialization_writer::end_key() { return end_element(); }
+error serialization::json_writer::end_key() { return end_element(); }
 
-error json_serialization_writer::begin_value() { return begin_element(1); }
+error serialization::json_writer::begin_value() { return begin_element(1); }
 
-error json_serialization_writer::end_value() { return end_element(); }
+error serialization::json_writer::end_value() { return end_element(); }
 
-error json_serialization_writer::end_entry() {
+error serialization::json_writer::end_entry() {
   error status = end_array();
   if (status) {
     return status;
@@ -499,9 +499,9 @@ error json_serialization_writer::end_entry() {
   return end_element();
 }
 
-error json_serialization_writer::end_dictionary() { return end_array(); }
+error serialization::json_writer::end_dictionary() { return end_array(); }
 
-error json_serialization_writer::write_bool(bool value) {
+error serialization::json_writer::write_bool(bool value) {
   error status = prepare_value();
   if (status) {
     return status;
@@ -512,7 +512,7 @@ error json_serialization_writer::write_bool(bool value) {
   return {};
 }
 
-error json_serialization_writer::write_i64(std::int64_t value) {
+error serialization::json_writer::write_i64(std::int64_t value) {
   error status = prepare_value();
   if (status) {
     return status;
@@ -523,7 +523,7 @@ error json_serialization_writer::write_i64(std::int64_t value) {
   return {};
 }
 
-error json_serialization_writer::write_u64(std::uint64_t value) {
+error serialization::json_writer::write_u64(std::uint64_t value) {
   error status = prepare_value();
   if (status) {
     return status;
@@ -534,7 +534,7 @@ error json_serialization_writer::write_u64(std::uint64_t value) {
   return {};
 }
 
-error json_serialization_writer::write_f64(double value) {
+error serialization::json_writer::write_f64(double value) {
   error status = prepare_value();
   if (status) {
     return status;
@@ -551,7 +551,7 @@ error json_serialization_writer::write_f64(double value) {
   return {};
 }
 
-error json_serialization_writer::write_string(std::string_view value) {
+error serialization::json_writer::write_string(std::string_view value) {
   error status = prepare_value();
   if (status) {
     return status;
@@ -562,7 +562,7 @@ error json_serialization_writer::write_string(std::string_view value) {
   return {};
 }
 
-error json_serialization_writer::write_null() {
+error serialization::json_writer::write_null() {
   error status = prepare_value();
   if (status) {
     return status;
@@ -573,7 +573,7 @@ error json_serialization_writer::write_null() {
   return {};
 }
 
-error json_serialization_writer::end_element() {
+error serialization::json_writer::end_element() {
   if (contexts_.empty() || contexts_.back().kind != context_kind::array || expecting_value_) {
     return {error_domain::serialization, errc::invalid_argument};
   }
@@ -581,7 +581,7 @@ error json_serialization_writer::end_element() {
   return {};
 }
 
-error json_serialization_writer::end_array() {
+error serialization::json_writer::end_array() {
   if (contexts_.empty() || contexts_.back().kind != context_kind::array || expecting_value_) {
     return {error_domain::serialization, errc::invalid_argument};
   }
@@ -591,7 +591,7 @@ error json_serialization_writer::end_array() {
   return {};
 }
 
-error json_serialization_writer::end_field() {
+error serialization::json_writer::end_field() {
   if (contexts_.empty() || contexts_.back().kind != context_kind::object || expecting_value_) {
     return {error_domain::serialization, errc::invalid_argument};
   }
@@ -599,7 +599,7 @@ error json_serialization_writer::end_field() {
   return {};
 }
 
-error json_serialization_writer::end_object() {
+error serialization::json_writer::end_object() {
   if (contexts_.empty() || contexts_.back().kind != context_kind::object || expecting_value_) {
     return {error_domain::serialization, errc::invalid_argument};
   }
@@ -609,14 +609,14 @@ error json_serialization_writer::end_object() {
   return {};
 }
 
-void json_serialization_writer::reset() {
+void serialization::json_writer::reset() {
   text_.clear();
   contexts_.clear();
   expecting_value_ = false;
   root_written_ = false;
 }
 
-error json_serialization_writer::prepare_value() {
+error serialization::json_writer::prepare_value() {
   if (contexts_.empty()) {
     if (root_written_) {
       return {error_domain::serialization, errc::invalid_argument};
@@ -632,7 +632,7 @@ error json_serialization_writer::prepare_value() {
   return {};
 }
 
-void json_serialization_writer::mark_value_written() noexcept {
+void serialization::json_writer::mark_value_written() noexcept {
   if (contexts_.empty()) {
     root_written_ = true;
     return;
@@ -641,13 +641,13 @@ void json_serialization_writer::mark_value_written() noexcept {
   expecting_value_ = false;
 }
 
-serialization_text_result serialize_json(const reflection_type& type, const void* object) {
-  return serialize_json(type, object, serialization_context{});
+serialization_text_result serialize_json(const reflection::type& type, const void* object) {
+  return serialize_json(type, object, serialization::context{});
 }
 
-serialization_text_result serialize_json(const reflection_type& type, const void* object,
-                                         const serialization_context& context) {
-  json_serialization_writer writer;
+serialization_text_result serialize_json(const reflection::type& type, const void* object,
+                                         const serialization::context& context) {
+  serialization::json_writer writer;
   const error status = serialize(type, object, writer, context);
   if (status) {
     return {status, {}};
@@ -657,12 +657,12 @@ serialization_text_result serialize_json(const reflection_type& type, const void
 }
 
 serialization_text_result serialize_json(type_id id, const void* object) {
-  return serialize_json(id, object, serialization_context{});
+  return serialize_json(id, object, serialization::context{});
 }
 
 serialization_text_result serialize_json(type_id id, const void* object,
-                                         const serialization_context& context) {
-  json_serialization_writer writer;
+                                         const serialization::context& context) {
+  serialization::json_writer writer;
   const error status = serialize(id, object, writer, context);
   if (status) {
     return {status, {}};

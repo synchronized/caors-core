@@ -5,12 +5,12 @@
 
 namespace caors::detail {
 
-string_name serialized_field_name(const serialization_field_data& data) noexcept {
+string_name serialized_field_name(const serialization::field_data& data) noexcept {
   return data.serialized_name.empty() ? data.field_name : data.serialized_name;
 }
 
-bool field_visible_in_context(const serialization_field_data& field,
-                              const serialization_context& context) noexcept {
+bool field_visible_in_context(const serialization::field_data& field,
+                              const serialization::context& context) noexcept {
   if (context.schema_version == 0) {
     return true;
   }
@@ -26,26 +26,27 @@ bool field_visible_in_context(const serialization_field_data& field,
   return true;
 }
 
-error validate_field_for_writer(const serialization_field_data& field,
-                                serialization_format_features features) {
-  if (has_feature(features, serialization_format_features::named_fields) &&
+error validate_field_for_writer(const serialization::field_data& field,
+                                serialization::format_features features) {
+  if (has_feature(features, serialization::format_features::named_fields) &&
       serialized_field_name(field).empty()) {
     return {error_domain::serialization, errc::invalid_field};
   }
 
-  if (has_feature(features, serialization_format_features::numeric_fields) && field.field_id == 0) {
+  if (has_feature(features, serialization::format_features::numeric_fields) &&
+      field.field_id == 0) {
     return {error_domain::serialization, errc::invalid_field};
   }
 
   return {};
 }
 
-error validate_field_for_reader(const serialization_field_data& field,
-                                serialization_format_features features) {
-  const bool can_use_name = has_feature(features, serialization_format_features::named_fields) &&
+error validate_field_for_reader(const serialization::field_data& field,
+                                serialization::format_features features) {
+  const bool can_use_name = has_feature(features, serialization::format_features::named_fields) &&
                             !serialized_field_name(field).empty();
   const bool can_use_id =
-      has_feature(features, serialization_format_features::numeric_fields) && field.field_id != 0;
+      has_feature(features, serialization::format_features::numeric_fields) && field.field_id != 0;
 
   if (!can_use_name && !can_use_id) {
     return {error_domain::serialization, errc::invalid_field};

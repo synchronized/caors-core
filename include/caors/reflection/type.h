@@ -36,11 +36,9 @@ struct type_data {
 
 namespace caors {
 
-using reflection_type_data = reflection::type_data;
-
 /** @brief 创建类型反射底层数据。兼容入口，优先使用 `reflection::make_type_data()`。 */
-[[nodiscard]] inline reflection_type_data
-make_reflection_type_data(std::initializer_list<reflection_field_data> fields) {
+[[nodiscard]] inline reflection::type_data
+make_reflection_type_data(std::initializer_list<reflection::field_data> fields) {
   return reflection::make_type_data(fields);
 }
 

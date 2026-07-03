@@ -12,7 +12,7 @@
 #include <optional>
 #include <string_view>
 
-namespace caors {
+namespace caors::reflection {
 
 /**
  * @brief 底层全局反射注册表。
@@ -21,20 +21,18 @@ namespace caors {
  * 作为元数据组件挂载到同一个 `type_id` 上。普通代码应使用 `reflection::class_<T>()` 和
  * `reflection::find()`，不要创建或管理注册表实例。
  */
-class CAORS_API reflection_registry final {
+class CAORS_API registry final {
 public:
-  [[nodiscard]] static reflection_registry& instance() noexcept;
+  [[nodiscard]] static registry& instance() noexcept;
 
-  reflection_registry(const reflection_registry&) = delete;
-  reflection_registry& operator=(const reflection_registry&) = delete;
+  registry(const registry&) = delete;
+  registry& operator=(const registry&) = delete;
 
-  [[nodiscard]] error register_type(const meta_type_data& type,
-                                    const reflection_type_data& reflection);
-  [[nodiscard]] error register_type(type_id id, const reflection_type_data& reflection);
-  [[nodiscard]] error register_type(meta_type type, const reflection_type_data& reflection);
+  [[nodiscard]] error register_type(const meta_type_data& type, const type_data& reflection);
+  [[nodiscard]] error register_type(type_id id, const type_data& reflection);
+  [[nodiscard]] error register_type(meta_type type, const type_data& reflection);
   template <typename T>
-  [[nodiscard]] error register_type_for(const meta_type_data& type,
-                                        const reflection_type_data& reflection) {
+  [[nodiscard]] error register_type_for(const meta_type_data& type, const type_data& reflection) {
     return register_type(detail::cpp_type_key_of<T>(), type, reflection);
   }
 
@@ -43,65 +41,33 @@ public:
     return find_registered_type(detail::cpp_type_key_of<T>());
   }
 
-  [[nodiscard]] std::optional<reflection_type> find_type(type_id id) const;
-  [[nodiscard]] std::optional<reflection_type> find_type(type_guid guid) const;
-  [[nodiscard]] std::optional<reflection_type> find_type(std::string_view name) const;
-  [[nodiscard]] std::optional<reflection_type> find_type(string_name name) const;
+  [[nodiscard]] std::optional<type> find_type(type_id id) const;
+  [[nodiscard]] std::optional<type> find_type(type_guid guid) const;
+  [[nodiscard]] std::optional<type> find_type(std::string_view name) const;
+  [[nodiscard]] std::optional<type> find_type(string_name name) const;
   [[nodiscard]] std::size_t size() const noexcept;
 
 private:
-  reflection_registry();
-  ~reflection_registry();
+  registry();
+  ~registry();
 
   [[nodiscard]] error register_type(detail::cpp_type_key key, const meta_type_data& type,
-                                    const reflection_type_data& reflection);
+                                    const type_data& reflection);
   [[nodiscard]] std::optional<meta_type> find_registered_type(detail::cpp_type_key key) const;
-  [[nodiscard]] const reflection_type_data* find_reflection_data(type_id id) const;
+  [[nodiscard]] const type_data* find_reflection_data(type_id id) const;
 };
 
 /** @brief 获取进程内全局反射注册表。 */
-[[nodiscard]] CAORS_API reflection_registry& get_reflection_registry() noexcept;
-
-namespace detail {
-
-/** @brief 向全局反射注册表注册反射类型。内部入口，公开代码优先使用 `reflection::class_<T>()`。 */
-template <typename T>
-[[nodiscard]] error register_reflection(std::string_view name,
-                                        std::initializer_list<reflection_field_data> fields,
-                                        type_id parent_id = type_id::invalid()) {
-  return get_reflection_registry().register_type_for<T>(make_meta_type_data<T>(name, parent_id),
-                                                        make_reflection_type_data(fields));
-}
-
-/** @brief 向全局反射注册表注册带稳定 GUID 的反射类型。内部入口。 */
-template <typename T>
-[[nodiscard]] error register_reflection(std::string_view name, type_guid guid,
-                                        std::initializer_list<reflection_field_data> fields,
-                                        type_id parent_id = type_id::invalid()) {
-  return get_reflection_registry().register_type_for<T>(
-      make_meta_type_data<T>(name, guid, parent_id), make_reflection_type_data(fields));
-}
-
-/** @brief 向已注册元类型挂载反射组件。内部入口，不会创建或修改基础类型记录。 */
-[[nodiscard]] CAORS_API error
-register_reflection(type_id id, reflection_type_data data = reflection_type_data{});
-
-/** @brief 向已注册元类型挂载反射组件。内部入口，不会创建或修改基础类型记录。 */
-[[nodiscard]] CAORS_API error
-register_reflection(meta_type type, reflection_type_data data = reflection_type_data{});
-
-} // namespace detail
-
-namespace reflection {
+[[nodiscard]] CAORS_API registry& get_registry() noexcept;
 
 /** @brief 在全局反射注册表中查找反射类型。 */
-[[nodiscard]] CAORS_API std::optional<reflection_type> find(type_id id);
+[[nodiscard]] CAORS_API std::optional<type> find(type_id id);
 
 /** @brief 在全局反射注册表中按稳定 GUID 查找反射类型。 */
-[[nodiscard]] CAORS_API std::optional<reflection_type> find(type_guid guid);
+[[nodiscard]] CAORS_API std::optional<type> find(type_guid guid);
 
 /** @brief 在全局反射注册表中按类型名查找反射类型。 */
-[[nodiscard]] CAORS_API std::optional<reflection_type> find(std::string_view name);
+[[nodiscard]] CAORS_API std::optional<type> find(std::string_view name);
 
 /** @brief 判断指定类型是否挂载了反射组件。 */
 [[nodiscard]] CAORS_API bool contains(type_id id);
@@ -109,16 +75,48 @@ namespace reflection {
 /** @brief 获取当前反射组件数量。 */
 [[nodiscard]] CAORS_API std::size_t size() noexcept;
 
-} // namespace reflection
+} // namespace caors::reflection
+
+namespace caors {
+
+namespace detail {
+
+/** @brief 向全局反射注册表注册反射类型。内部入口，公开代码优先使用 `reflection::class_<T>()`。 */
+template <typename T>
+[[nodiscard]] error register_reflection(std::string_view name,
+                                        std::initializer_list<reflection::field_data> fields,
+                                        type_id parent_id = type_id::invalid()) {
+  return reflection::get_registry().register_type_for<T>(make_meta_type_data<T>(name, parent_id),
+                                                         reflection::make_type_data(fields));
+}
+
+/** @brief 向全局反射注册表注册带稳定 GUID 的反射类型。内部入口。 */
+template <typename T>
+[[nodiscard]] error register_reflection(std::string_view name, type_guid guid,
+                                        std::initializer_list<reflection::field_data> fields,
+                                        type_id parent_id = type_id::invalid()) {
+  return reflection::get_registry().register_type_for<T>(
+      make_meta_type_data<T>(name, guid, parent_id), reflection::make_type_data(fields));
+}
+
+/** @brief 向已注册元类型挂载反射组件。内部入口，不会创建或修改基础类型记录。 */
+[[nodiscard]] CAORS_API error
+register_reflection(type_id id, reflection::type_data data = reflection::type_data{});
+
+/** @brief 向已注册元类型挂载反射组件。内部入口，不会创建或修改基础类型记录。 */
+[[nodiscard]] CAORS_API error
+register_reflection(meta_type type, reflection::type_data data = reflection::type_data{});
+
+} // namespace detail
 
 /** @brief 在全局反射注册表中查找反射类型。兼容入口，优先使用 `reflection::find()`。 */
-[[nodiscard]] CAORS_API std::optional<reflection_type> find_reflection(type_id id);
+[[nodiscard]] CAORS_API std::optional<reflection::type> find_reflection(type_id id);
 
 /** @brief 在全局反射注册表中按稳定 GUID 查找反射类型。兼容入口，优先使用 `reflection::find()`。 */
-[[nodiscard]] CAORS_API std::optional<reflection_type> find_reflection(type_guid guid);
+[[nodiscard]] CAORS_API std::optional<reflection::type> find_reflection(type_guid guid);
 
 /** @brief 在全局反射注册表中按类型名查找反射类型。兼容入口，优先使用 `reflection::find()`。 */
-[[nodiscard]] CAORS_API std::optional<reflection_type> find_reflection(std::string_view name);
+[[nodiscard]] CAORS_API std::optional<reflection::type> find_reflection(std::string_view name);
 
 } // namespace caors
 

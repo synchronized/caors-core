@@ -9,12 +9,12 @@
 
 namespace caors {
 
-error deserialize(const reflection_type& type, void* object, serialization_reader& reader) {
-  return deserialize(type, object, reader, serialization_context{});
+error deserialize(const reflection::type& type, void* object, serialization_reader& reader) {
+  return deserialize(type, object, reader, serialization::context{});
 }
 
-error deserialize(const reflection_type& type, void* object, serialization_reader& reader,
-                  const serialization_context& context) {
+error deserialize(const reflection::type& type, void* object, serialization_reader& reader,
+                  const serialization::context& context) {
   if (!type.valid()) {
     return {error_domain::serialization, errc::invalid_type};
   }
@@ -27,7 +27,7 @@ error deserialize(const reflection_type& type, void* object, serialization_reade
     return {error_domain::serialization, errc::missing_type};
   }
 
-  const std::optional<serialization_type_data> serialization_data = serialization::find(type.id());
+  const std::optional<serialization::type_data> serialization_data = serialization::find(type.id());
   if (!serialization_data.has_value() || !serialization_data->valid()) {
     return {error_domain::serialization, errc::invalid_type};
   }
@@ -38,12 +38,12 @@ error deserialize(const reflection_type& type, void* object, serialization_reade
   }
 
   if (!serialization_data->fields.empty()) {
-    for (const serialization_field_data& field_data : serialization_data->fields) {
+    for (const serialization::field_data& field_data : serialization_data->fields) {
       if (field_data.skipped || !detail::field_visible_in_context(field_data, context)) {
         continue;
       }
 
-      const std::optional<reflection_field> field = type.find_field(field_data.field_name);
+      const std::optional<reflection::field> field = type.find_field(field_data.field_name);
       if (!field.has_value()) {
         return {error_domain::serialization, errc::not_found};
       }
@@ -55,12 +55,12 @@ error deserialize(const reflection_type& type, void* object, serialization_reade
     }
   } else {
     for (std::size_t index = 0; index < type.field_count(); ++index) {
-      const std::optional<reflection_field> field = type.field_at(index);
+      const std::optional<reflection::field> field = type.field_at(index);
       if (!field.has_value()) {
         return {error_domain::serialization, errc::invalid_field};
       }
 
-      serialization_field_data field_data = make_serialization_field(field->name().view());
+      serialization::field_data field_data = make_serialization_field(field->name().view());
       status = detail::read_field(reader, *field, object, field_data, context);
       if (status) {
         return status;
@@ -72,11 +72,11 @@ error deserialize(const reflection_type& type, void* object, serialization_reade
 }
 
 error deserialize(type_id id, void* object, serialization_reader& reader) {
-  return deserialize(id, object, reader, serialization_context{});
+  return deserialize(id, object, reader, serialization::context{});
 }
 
 error deserialize(type_id id, void* object, serialization_reader& reader,
-                  const serialization_context& context) {
+                  const serialization::context& context) {
   if (!id) {
     return {error_domain::serialization, errc::invalid_type};
   }
@@ -85,7 +85,7 @@ error deserialize(type_id id, void* object, serialization_reader& reader,
     return {error_domain::serialization, errc::missing_type};
   }
 
-  const std::optional<reflection_type> type = reflection::find(id);
+  const std::optional<reflection::type> type = reflection::find(id);
   if (!type.has_value()) {
     return {error_domain::serialization, errc::not_found};
   }

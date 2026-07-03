@@ -42,14 +42,14 @@ public:
     }
 
     const std::optional<meta_type> resolved_type =
-        get_reflection_registry().template find_registered_type<field_type>();
+        get_registry().template find_registered_type<field_type>();
     if (resolved_type.has_value() && !resolved_type->name().empty()) {
-      reflection_field_data field = make_reflection_field_data<Field>(
-          name, resolved_type->name().view(), detail::member_offset(member));
+      field_data field =
+          make_field_data<Field>(name, resolved_type->name().view(), detail::member_offset(member));
       field.type = resolved_type->id();
       reflection_.fields.push_back(field);
     } else {
-      if constexpr (sequence_traits<field_type>::is_sequence) {
+      if constexpr (adapters::sequence_traits<field_type>::is_sequence) {
         const std::optional<string> sequence_name = sequence_type_name<field_type>();
         if (!sequence_name.has_value()) {
           pending_status_ = {error_domain::reflection, errc::invalid_field};
@@ -57,8 +57,8 @@ public:
         }
 
         reflection_.fields.push_back(
-            make_reflection_field_data<Field>(name, *sequence_name, detail::member_offset(member)));
-      } else if constexpr (set_traits<field_type>::is_set) {
+            make_field_data<Field>(name, *sequence_name, detail::member_offset(member)));
+      } else if constexpr (adapters::set_traits<field_type>::is_set) {
         const std::optional<string> set_name = set_type_name<field_type>();
         if (!set_name.has_value()) {
           pending_status_ = {error_domain::reflection, errc::invalid_field};
@@ -66,17 +66,17 @@ public:
         }
 
         reflection_.fields.push_back(
-            make_reflection_field_data<Field>(name, *set_name, detail::member_offset(member)));
-      } else if constexpr (associative_traits<field_type>::is_associative) {
+            make_field_data<Field>(name, *set_name, detail::member_offset(member)));
+      } else if constexpr (adapters::associative_traits<field_type>::is_associative) {
         const std::optional<string> associative_name = associative_type_name<field_type>();
         if (!associative_name.has_value()) {
           pending_status_ = {error_domain::reflection, errc::invalid_field};
           return *this;
         }
 
-        reflection_.fields.push_back(make_reflection_field_data<Field>(
-            name, *associative_name, detail::member_offset(member)));
-      } else if constexpr (pair_traits<field_type>::is_pair) {
+        reflection_.fields.push_back(
+            make_field_data<Field>(name, *associative_name, detail::member_offset(member)));
+      } else if constexpr (adapters::pair_traits<field_type>::is_pair) {
         const std::optional<string> pair_name = pair_type_name<field_type>();
         if (!pair_name.has_value()) {
           pending_status_ = {error_domain::reflection, errc::invalid_field};
@@ -84,8 +84,8 @@ public:
         }
 
         reflection_.fields.push_back(
-            make_reflection_field_data<Field>(name, *pair_name, detail::member_offset(member)));
-      } else if constexpr (tuple_traits<field_type>::is_tuple) {
+            make_field_data<Field>(name, *pair_name, detail::member_offset(member)));
+      } else if constexpr (adapters::tuple_traits<field_type>::is_tuple) {
         const std::optional<string> tuple_name = tuple_type_name<field_type>();
         if (!tuple_name.has_value()) {
           pending_status_ = {error_domain::reflection, errc::invalid_field};
@@ -93,8 +93,8 @@ public:
         }
 
         reflection_.fields.push_back(
-            make_reflection_field_data<Field>(name, *tuple_name, detail::member_offset(member)));
-      } else if constexpr (variant_traits<field_type>::is_variant) {
+            make_field_data<Field>(name, *tuple_name, detail::member_offset(member)));
+      } else if constexpr (adapters::variant_traits<field_type>::is_variant) {
         const std::optional<string> variant_name = variant_type_name<field_type>();
         if (!variant_name.has_value()) {
           pending_status_ = {error_domain::reflection, errc::invalid_field};
@@ -102,10 +102,10 @@ public:
         }
 
         reflection_.fields.push_back(
-            make_reflection_field_data<Field>(name, *variant_name, detail::member_offset(member)));
+            make_field_data<Field>(name, *variant_name, detail::member_offset(member)));
       } else if constexpr (detail::has_type_name_v<field_type>) {
-        reflection_.fields.push_back(make_reflection_field_data<Field>(
-            name, type_name<field_type>::value, detail::member_offset(member)));
+        reflection_.fields.push_back(make_field_data<Field>(name, type_name<field_type>::value,
+                                                            detail::member_offset(member)));
       } else {
         pending_status_ = {error_domain::reflection, errc::invalid_field};
       }
@@ -120,8 +120,7 @@ public:
       return *this;
     }
 
-    reflection_field_data field =
-        make_reflection_field_data<Field>(name, type_name, detail::member_offset(member));
+    field_data field = make_field_data<Field>(name, type_name, detail::member_offset(member));
     reflection_.fields.push_back(field);
     return *this;
   }
@@ -132,22 +131,24 @@ public:
     }
 
     if (existing_type_.valid()) {
-      return get_reflection_registry().register_type(existing_type_, reflection_);
+      return get_registry().register_type(existing_type_, reflection_);
     }
 
-    return get_reflection_registry().template register_type_for<Class>(type_, reflection_);
+    return get_registry().template register_type_for<Class>(type_, reflection_);
   }
 
   [[nodiscard]] const meta_type_data& type_data() const noexcept { return type_; }
-  [[nodiscard]] const reflection_type_data& reflection_data() const noexcept { return reflection_; }
+  [[nodiscard]] const reflection::type_data& reflection_data() const noexcept {
+    return reflection_;
+  }
 
 private:
   template <typename Field> [[nodiscard]] std::optional<string> sequence_type_name() const {
-    if constexpr (sequence_traits<Field>::is_sequence) {
-      using element_type = typename sequence_traits<Field>::element_type;
+    if constexpr (adapters::sequence_traits<Field>::is_sequence) {
+      using element_type = typename adapters::sequence_traits<Field>::element_type;
 
       std::optional<meta_type> element =
-          get_reflection_registry().template find_registered_type<element_type>();
+          get_registry().template find_registered_type<element_type>();
       if (!element.has_value()) {
         if constexpr (detail::has_type_name_v<element_type>) {
           const error status =
@@ -165,12 +166,12 @@ private:
       }
 
       string name;
-      name += sequence_traits<Field>::type_name_prefix();
+      name += adapters::sequence_traits<Field>::type_name_prefix();
       name += "<";
       name += element->name().view();
-      if constexpr (requires { sequence_traits<Field>::fixed_size; }) {
+      if constexpr (requires { adapters::sequence_traits<Field>::fixed_size; }) {
         name += ",";
-        const std::string fixed_size = std::to_string(sequence_traits<Field>::fixed_size);
+        const std::string fixed_size = std::to_string(adapters::sequence_traits<Field>::fixed_size);
         name.append(fixed_size.data(), fixed_size.size());
       }
       name += ">";
@@ -181,8 +182,8 @@ private:
   }
 
   template <typename Field> [[nodiscard]] std::optional<string> set_type_name() const {
-    if constexpr (set_traits<Field>::is_set) {
-      using element_type = typename set_traits<Field>::element_type;
+    if constexpr (adapters::set_traits<Field>::is_set) {
+      using element_type = typename adapters::set_traits<Field>::element_type;
 
       const std::optional<meta_type> element = ensure_registered_type<element_type>();
       if (!element.has_value()) {
@@ -190,7 +191,7 @@ private:
       }
 
       string name;
-      name += set_traits<Field>::type_name_prefix();
+      name += adapters::set_traits<Field>::type_name_prefix();
       name += "<";
       name += element->name().view();
       name += ">";
@@ -201,7 +202,7 @@ private:
   }
 
   template <typename T> [[nodiscard]] std::optional<meta_type> ensure_registered_type() const {
-    std::optional<meta_type> type = get_reflection_registry().template find_registered_type<T>();
+    std::optional<meta_type> type = get_registry().template find_registered_type<T>();
     if (!type.has_value()) {
       if constexpr (detail::has_type_name_v<T>) {
         const error status = caors::detail::register_type<T>(type_name<T>::value);
@@ -221,9 +222,9 @@ private:
   }
 
   template <typename Field> [[nodiscard]] std::optional<string> associative_type_name() const {
-    if constexpr (associative_traits<Field>::is_associative) {
-      using key_type = typename associative_traits<Field>::key_type;
-      using mapped_type = typename associative_traits<Field>::mapped_type;
+    if constexpr (adapters::associative_traits<Field>::is_associative) {
+      using key_type = typename adapters::associative_traits<Field>::key_type;
+      using mapped_type = typename adapters::associative_traits<Field>::mapped_type;
 
       const std::optional<meta_type> key = ensure_registered_type<key_type>();
       const std::optional<meta_type> mapped = ensure_registered_type<mapped_type>();
@@ -232,7 +233,7 @@ private:
       }
 
       string name;
-      name += associative_traits<Field>::type_name_prefix();
+      name += adapters::associative_traits<Field>::type_name_prefix();
       name += "<";
       name += key->name().view();
       name += ",";
@@ -263,13 +264,13 @@ private:
   template <typename Field, std::size_t... Indices>
   [[nodiscard]] std::optional<string> tuple_type_name_impl(std::index_sequence<Indices...>) const {
     string name;
-    name += tuple_traits<Field>::type_name_prefix();
+    name += adapters::tuple_traits<Field>::type_name_prefix();
     name += "<";
 
     bool first = true;
     const bool succeeded =
-        (append_registered_type_name<typename tuple_traits<Field>::template element_type<Indices>>(
-             name, first) &&
+        (append_registered_type_name<
+             typename adapters::tuple_traits<Field>::template element_type<Indices>>(name, first) &&
          ... && true);
     if (!succeeded) {
       return std::nullopt;
@@ -280,8 +281,9 @@ private:
   }
 
   template <typename Field> [[nodiscard]] std::optional<string> tuple_type_name() const {
-    if constexpr (tuple_traits<Field>::is_tuple) {
-      return tuple_type_name_impl<Field>(std::make_index_sequence<tuple_traits<Field>::size>{});
+    if constexpr (adapters::tuple_traits<Field>::is_tuple) {
+      return tuple_type_name_impl<Field>(
+          std::make_index_sequence<adapters::tuple_traits<Field>::size>{});
     } else {
       return std::nullopt;
     }
@@ -291,13 +293,14 @@ private:
   [[nodiscard]] std::optional<string>
   variant_type_name_impl(std::index_sequence<Indices...>) const {
     string name;
-    name += variant_traits<Field>::type_name_prefix();
+    name += adapters::variant_traits<Field>::type_name_prefix();
     name += "<";
 
     bool first = true;
     const bool succeeded =
         (append_registered_type_name<
-             typename variant_traits<Field>::template alternative_type<Indices>>(name, first) &&
+             typename adapters::variant_traits<Field>::template alternative_type<Indices>>(name,
+                                                                                           first) &&
          ... && true);
     if (!succeeded) {
       return std::nullopt;
@@ -308,17 +311,18 @@ private:
   }
 
   template <typename Field> [[nodiscard]] std::optional<string> variant_type_name() const {
-    if constexpr (variant_traits<Field>::is_variant) {
-      return variant_type_name_impl<Field>(std::make_index_sequence<variant_traits<Field>::size>{});
+    if constexpr (adapters::variant_traits<Field>::is_variant) {
+      return variant_type_name_impl<Field>(
+          std::make_index_sequence<adapters::variant_traits<Field>::size>{});
     } else {
       return std::nullopt;
     }
   }
 
   template <typename Field> [[nodiscard]] std::optional<string> pair_type_name() const {
-    if constexpr (pair_traits<Field>::is_pair) {
-      using first_type = typename pair_traits<Field>::first_type;
-      using second_type = typename pair_traits<Field>::second_type;
+    if constexpr (adapters::pair_traits<Field>::is_pair) {
+      using first_type = typename adapters::pair_traits<Field>::first_type;
+      using second_type = typename adapters::pair_traits<Field>::second_type;
 
       const std::optional<meta_type> first = ensure_registered_type<first_type>();
       const std::optional<meta_type> second = ensure_registered_type<second_type>();
@@ -327,7 +331,7 @@ private:
       }
 
       string name;
-      name += pair_traits<Field>::type_name_prefix();
+      name += adapters::pair_traits<Field>::type_name_prefix();
       name += "<";
       name += first->name().view();
       name += ",";
@@ -341,7 +345,7 @@ private:
 
   meta_type_data type_{};
   meta_type existing_type_{};
-  reflection_type_data reflection_{};
+  reflection::type_data reflection_{};
   error pending_status_{};
 };
 

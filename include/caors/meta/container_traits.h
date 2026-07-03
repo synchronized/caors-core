@@ -4,7 +4,7 @@
 #ifndef CAORS_META_CONTAINER_TRAITS_H_
 #define CAORS_META_CONTAINER_TRAITS_H_
 
-namespace caors {
+namespace caors::adapters {
 
 /** @brief 顺序容器类型语义 traits。 */
 template <typename T> struct sequence_traits {
@@ -36,6 +36,6 @@ template <typename T> struct variant_traits {
   static constexpr bool is_variant = false;
 };
 
-} // namespace caors
+} // namespace caors::adapters
 
 #endif

@@ -11,11 +11,11 @@
 #include <unordered_map>
 #include <utility>
 
-namespace caors {
+namespace caors::serialization {
 
-/** @brief 基于 `associative_traits<T>` 的通用关联容器序列化 codec。 */
-template <typename Associative> struct associative_serialization_codec {
-  using traits = associative_traits<Associative>;
+/** @brief 基于 `adapters::associative_traits<T>` 的通用关联容器序列化 codec。 */
+template <typename Associative> struct associative_codec {
+  using traits = adapters::associative_traits<Associative>;
   using key_type = typename traits::key_type;
   using mapped_type = typename traits::mapped_type;
 
@@ -199,14 +199,14 @@ template <typename Associative> struct associative_serialization_codec {
 
 /** @brief `std::unordered_map` / `caors::hash_map` 的字典序列化 codec。 */
 template <typename K, typename V, typename Hash, typename Equal, typename Allocator>
-struct serialization_codec<std::unordered_map<K, V, Hash, Equal, Allocator>>
-    : associative_serialization_codec<std::unordered_map<K, V, Hash, Equal, Allocator>> {};
+struct codec<std::unordered_map<K, V, Hash, Equal, Allocator>>
+    : associative_codec<std::unordered_map<K, V, Hash, Equal, Allocator>> {};
 
 /** @brief `std::map` 的字典序列化 codec。 */
 template <typename K, typename V, typename Compare, typename Allocator>
-struct serialization_codec<std::map<K, V, Compare, Allocator>>
-    : associative_serialization_codec<std::map<K, V, Compare, Allocator>> {};
+struct codec<std::map<K, V, Compare, Allocator>>
+    : associative_codec<std::map<K, V, Compare, Allocator>> {};
 
-} // namespace caors
+} // namespace caors::serialization
 
 #endif

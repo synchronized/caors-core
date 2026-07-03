@@ -58,10 +58,4 @@ private:
 
 } // namespace caors::serialization
 
-namespace caors {
-
-using variant_serialization_reader = serialization::variant_reader;
-
-} // namespace caors
-
 #endif

@@ -293,9 +293,9 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 
 全局 `meta_registry` 是共享元数据层：
 
-- `object_registry` 复用全局基础类型信息，再给同一个 `type_id` 挂载 `objects::type_data` 组件，并对外返回 `objects::type` 视图。
+- `objects::registry` 复用全局基础类型信息，再给同一个 `type_id` 挂载 `objects::type_data` 组件，并对外返回 `objects::type` 视图。
 - 全局反射注册表复用基础类型信息，再挂载 `reflection::type_data` 组件。
-- 后续 `serialization_registry` 可以挂载序列化相关组件。
+- 后续 `serialization::registry` 可以挂载序列化相关组件。
 
 这样对象、反射和序列化的全局注册入口不需要重复处理重名、重复 GUID、不一致类型描述和父类型缺失。
 跨模块查询可以通过 `meta_view<T...>()` 完成，例如查询同时拥有 `reflection::type_data` 和
@@ -313,7 +313,7 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 - `meta_type_data` / `make_meta_type_data<T>()`：底层类型注册描述。
 - `meta_type_semantics_data`：类型形态、wrapper、指针和容器语义组件。
 - `wrapper_traits<T>` / `wrapper_access<T>`：wrapper 类型语义和内部值访问扩展点。
-- `sequence_traits<T>` / `set_traits<T>` / `associative_traits<T>` / `pair_traits<T>` / `tuple_traits<T>` / `variant_traits<T>`：容器、二元组、tuple-like 和 variant-like 类型语义扩展点。
+- `adapters::sequence_traits<T>` / `adapters::set_traits<T>` / `adapters::associative_traits<T>` / `adapters::pair_traits<T>` / `adapters::tuple_traits<T>` / `adapters::variant_traits<T>`：容器、二元组、tuple-like 和 variant-like 类型语义扩展点。
 - `meta_type`：全局注册表中的类型只读视图。
 - `meta::type<T>()`：RTTR 风格的链式元类型注册入口；默认不注册类型，需要继续调用 `.type("name")`。
 - `meta::type<T>("name")`：推荐的显式命名注册入口。

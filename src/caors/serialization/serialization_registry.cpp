@@ -5,12 +5,12 @@
 
 namespace caors {
 
-serialization_registry& serialization_registry::instance() noexcept {
-  static serialization_registry registry;
+serialization::registry& serialization::registry::instance() noexcept {
+  static serialization::registry registry;
   return registry;
 }
 
-error serialization_registry::register_type(type_id id, serialization_type_data data) {
+error serialization::registry::register_type(type_id id, serialization::type_data data) {
   if (!id) {
     return {error_domain::serialization, errc::invalid_type};
   }
@@ -23,11 +23,11 @@ error serialization_registry::register_type(type_id id, serialization_type_data 
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  return rethrow_as(get_meta_registry().emplace<serialization_type_data>(id, data),
+  return rethrow_as(get_meta_registry().emplace<serialization::type_data>(id, data),
                     error_domain::serialization);
 }
 
-error serialization_registry::register_type(meta_type type, serialization_type_data data) {
+error serialization::registry::register_type(meta_type type, serialization::type_data data) {
   if (!type.valid()) {
     return {error_domain::serialization, errc::invalid_type};
   }
@@ -35,48 +35,48 @@ error serialization_registry::register_type(meta_type type, serialization_type_d
   return register_type(type.id(), data);
 }
 
-bool serialization_registry::contains(type_id id) const {
-  return get_meta_registry().has<serialization_type_data>(id);
+bool serialization::registry::contains(type_id id) const {
+  return get_meta_registry().has<serialization::type_data>(id);
 }
 
-std::optional<serialization_type_data> serialization_registry::find_type(type_id id) const {
-  return get_meta_registry().find<serialization_type_data>(id);
+std::optional<serialization::type_data> serialization::registry::find_type(type_id id) const {
+  return get_meta_registry().find<serialization::type_data>(id);
 }
 
-std::size_t serialization_registry::size() const noexcept {
-  return get_meta_registry().count<serialization_type_data>();
+std::size_t serialization::registry::size() const noexcept {
+  return get_meta_registry().count<serialization::type_data>();
 }
 
-serialization_registry& get_serialization_registry() noexcept {
-  return serialization_registry::instance();
+serialization::registry& serialization::get_registry() noexcept {
+  return serialization::registry::instance();
 }
 
 namespace serialization {
 
-std::optional<serialization_type_data> find(type_id id) {
-  return get_serialization_registry().find_type(id);
+std::optional<serialization::type_data> find(type_id id) {
+  return serialization::get_registry().find_type(id);
 }
 
-std::optional<serialization_type_data> find(meta_type type) {
+std::optional<serialization::type_data> find(meta_type type) {
   return type.valid() ? find(type.id()) : std::nullopt;
 }
 
-bool contains(type_id id) { return get_serialization_registry().contains(id); }
+bool contains(type_id id) { return serialization::get_registry().contains(id); }
 
 bool contains(meta_type type) { return type.valid() && contains(type.id()); }
 
-std::size_t size() noexcept { return get_serialization_registry().size(); }
+std::size_t size() noexcept { return serialization::get_registry().size(); }
 
 } // namespace serialization
 
 namespace detail {
 
-error register_serialization(type_id id, serialization_type_data data) {
-  return get_serialization_registry().register_type(id, data);
+error register_serialization(type_id id, serialization::type_data data) {
+  return serialization::get_registry().register_type(id, data);
 }
 
-error register_serialization(meta_type type, serialization_type_data data) {
-  return get_serialization_registry().register_type(type, data);
+error register_serialization(meta_type type, serialization::type_data data) {
+  return serialization::get_registry().register_type(type, data);
 }
 
 } // namespace detail

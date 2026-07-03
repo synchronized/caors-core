@@ -64,22 +64,24 @@ template <typename T> struct meta_copy_constructible {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
 
   static constexpr bool value = [] {
-    if constexpr (sequence_traits<type>::is_sequence) {
-      return meta_copy_constructible<typename sequence_traits<type>::element_type>::value;
-    } else if constexpr (set_traits<type>::is_set) {
-      return meta_copy_constructible<typename set_traits<type>::element_type>::value;
-    } else if constexpr (associative_traits<type>::is_associative) {
-      return meta_copy_constructible<typename associative_traits<type>::key_type>::value &&
-             meta_copy_constructible<typename associative_traits<type>::mapped_type>::value;
-    } else if constexpr (pair_traits<type>::is_pair) {
-      return meta_copy_constructible<typename pair_traits<type>::first_type>::value &&
-             meta_copy_constructible<typename pair_traits<type>::second_type>::value;
-    } else if constexpr (variant_traits<type>::is_variant) {
+    if constexpr (adapters::sequence_traits<type>::is_sequence) {
+      return meta_copy_constructible<typename adapters::sequence_traits<type>::element_type>::value;
+    } else if constexpr (adapters::set_traits<type>::is_set) {
+      return meta_copy_constructible<typename adapters::set_traits<type>::element_type>::value;
+    } else if constexpr (adapters::associative_traits<type>::is_associative) {
+      return meta_copy_constructible<
+                 typename adapters::associative_traits<type>::key_type>::value &&
+             meta_copy_constructible<
+                 typename adapters::associative_traits<type>::mapped_type>::value;
+    } else if constexpr (adapters::pair_traits<type>::is_pair) {
+      return meta_copy_constructible<typename adapters::pair_traits<type>::first_type>::value &&
+             meta_copy_constructible<typename adapters::pair_traits<type>::second_type>::value;
+    } else if constexpr (adapters::variant_traits<type>::is_variant) {
       return []<std::size_t... Indices>(std::index_sequence<Indices...>) {
-        return (meta_copy_constructible<
-                    typename variant_traits<type>::template alternative_type<Indices>>::value &&
+        return (meta_copy_constructible<typename adapters::variant_traits<
+                    type>::template alternative_type<Indices>>::value &&
                 ... && true);
-      }(std::make_index_sequence<variant_traits<type>::size>{});
+      }(std::make_index_sequence<adapters::variant_traits<type>::size>{});
     } else {
       return std::is_copy_constructible_v<type>;
     }
@@ -90,9 +92,11 @@ template <typename T> struct meta_copy_assignable {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
 
   static constexpr bool value = [] {
-    if constexpr (sequence_traits<type>::is_sequence || set_traits<type>::is_set ||
-                  associative_traits<type>::is_associative || pair_traits<type>::is_pair ||
-                  variant_traits<type>::is_variant) {
+    if constexpr (adapters::sequence_traits<type>::is_sequence ||
+                  adapters::set_traits<type>::is_set ||
+                  adapters::associative_traits<type>::is_associative ||
+                  adapters::pair_traits<type>::is_pair ||
+                  adapters::variant_traits<type>::is_variant) {
       if constexpr (!meta_copy_constructible<type>::value) {
         return false;
       } else {

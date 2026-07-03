@@ -10,7 +10,7 @@
 namespace caors {
 namespace {
 
-[[nodiscard]] string_name serialized_field_name(const serialization_field_data& data) noexcept {
+[[nodiscard]] string_name serialized_field_name(const serialization::field_data& data) noexcept {
   return data.serialized_name.empty() ? data.field_name : data.serialized_name;
 }
 
@@ -47,13 +47,13 @@ void append_text(string& output, std::string_view value) {
 
 } // namespace
 
-serialization_format_features text_serialization_writer::features() const noexcept {
-  return serialization_format_features::named_fields |
-         serialization_format_features::ordered_fields |
-         serialization_format_features::self_describing;
+serialization::format_features serialization::text_writer::features() const noexcept {
+  return serialization::format_features::named_fields |
+         serialization::format_features::ordered_fields |
+         serialization::format_features::self_describing;
 }
 
-error text_serialization_writer::begin_object(const serialization_type_data&) {
+error serialization::text_writer::begin_object(const serialization::type_data&) {
   error status = prepare_value();
   if (status) {
     return status;
@@ -65,7 +65,7 @@ error text_serialization_writer::begin_object(const serialization_type_data&) {
   return {};
 }
 
-error text_serialization_writer::begin_field(const serialization_field_data& field) {
+error serialization::text_writer::begin_field(const serialization::field_data& field) {
   if (contexts_.empty() || contexts_.back().kind != context_kind::object || expecting_value_) {
     return {error_domain::serialization, errc::invalid_argument};
   }
@@ -87,7 +87,7 @@ error text_serialization_writer::begin_field(const serialization_field_data& fie
   return {};
 }
 
-error text_serialization_writer::begin_array(std::size_t) {
+error serialization::text_writer::begin_array(std::size_t) {
   error status = prepare_value();
   if (status) {
     return status;
@@ -99,7 +99,7 @@ error text_serialization_writer::begin_array(std::size_t) {
   return {};
 }
 
-error text_serialization_writer::begin_element(std::size_t) {
+error serialization::text_writer::begin_element(std::size_t) {
   if (contexts_.empty() || contexts_.back().kind != context_kind::array || expecting_value_) {
     return {error_domain::serialization, errc::invalid_argument};
   }
@@ -114,9 +114,9 @@ error text_serialization_writer::begin_element(std::size_t) {
   return {};
 }
 
-error text_serialization_writer::begin_dictionary(std::size_t size) { return begin_array(size); }
+error serialization::text_writer::begin_dictionary(std::size_t size) { return begin_array(size); }
 
-error text_serialization_writer::begin_entry(std::size_t index) {
+error serialization::text_writer::begin_entry(std::size_t index) {
   error status = begin_element(index);
   if (status) {
     return status;
@@ -125,15 +125,15 @@ error text_serialization_writer::begin_entry(std::size_t index) {
   return begin_array(2);
 }
 
-error text_serialization_writer::begin_key() { return begin_element(0); }
+error serialization::text_writer::begin_key() { return begin_element(0); }
 
-error text_serialization_writer::end_key() { return end_element(); }
+error serialization::text_writer::end_key() { return end_element(); }
 
-error text_serialization_writer::begin_value() { return begin_element(1); }
+error serialization::text_writer::begin_value() { return begin_element(1); }
 
-error text_serialization_writer::end_value() { return end_element(); }
+error serialization::text_writer::end_value() { return end_element(); }
 
-error text_serialization_writer::end_entry() {
+error serialization::text_writer::end_entry() {
   error status = end_array();
   if (status) {
     return status;
@@ -142,9 +142,9 @@ error text_serialization_writer::end_entry() {
   return end_element();
 }
 
-error text_serialization_writer::end_dictionary() { return end_array(); }
+error serialization::text_writer::end_dictionary() { return end_array(); }
 
-error text_serialization_writer::write_bool(bool value) {
+error serialization::text_writer::write_bool(bool value) {
   error status = prepare_value();
   if (status) {
     return status;
@@ -155,7 +155,7 @@ error text_serialization_writer::write_bool(bool value) {
   return {};
 }
 
-error text_serialization_writer::write_i64(std::int64_t value) {
+error serialization::text_writer::write_i64(std::int64_t value) {
   error status = prepare_value();
   if (status) {
     return status;
@@ -166,7 +166,7 @@ error text_serialization_writer::write_i64(std::int64_t value) {
   return {};
 }
 
-error text_serialization_writer::write_u64(std::uint64_t value) {
+error serialization::text_writer::write_u64(std::uint64_t value) {
   error status = prepare_value();
   if (status) {
     return status;
@@ -177,7 +177,7 @@ error text_serialization_writer::write_u64(std::uint64_t value) {
   return {};
 }
 
-error text_serialization_writer::write_f64(double value) {
+error serialization::text_writer::write_f64(double value) {
   error status = prepare_value();
   if (status) {
     return status;
@@ -190,7 +190,7 @@ error text_serialization_writer::write_f64(double value) {
   return {};
 }
 
-error text_serialization_writer::write_string(std::string_view value) {
+error serialization::text_writer::write_string(std::string_view value) {
   error status = prepare_value();
   if (status) {
     return status;
@@ -201,7 +201,7 @@ error text_serialization_writer::write_string(std::string_view value) {
   return {};
 }
 
-error text_serialization_writer::write_null() {
+error serialization::text_writer::write_null() {
   error status = prepare_value();
   if (status) {
     return status;
@@ -212,7 +212,7 @@ error text_serialization_writer::write_null() {
   return {};
 }
 
-error text_serialization_writer::end_element() {
+error serialization::text_writer::end_element() {
   if (contexts_.empty() || contexts_.back().kind != context_kind::array || expecting_value_) {
     return {error_domain::serialization, errc::invalid_argument};
   }
@@ -220,7 +220,7 @@ error text_serialization_writer::end_element() {
   return {};
 }
 
-error text_serialization_writer::end_array() {
+error serialization::text_writer::end_array() {
   if (contexts_.empty() || contexts_.back().kind != context_kind::array || expecting_value_) {
     return {error_domain::serialization, errc::invalid_argument};
   }
@@ -230,7 +230,7 @@ error text_serialization_writer::end_array() {
   return {};
 }
 
-error text_serialization_writer::end_field() {
+error serialization::text_writer::end_field() {
   if (contexts_.empty() || contexts_.back().kind != context_kind::object || expecting_value_) {
     return {error_domain::serialization, errc::invalid_argument};
   }
@@ -238,7 +238,7 @@ error text_serialization_writer::end_field() {
   return {};
 }
 
-error text_serialization_writer::end_object() {
+error serialization::text_writer::end_object() {
   if (contexts_.empty() || contexts_.back().kind != context_kind::object || expecting_value_) {
     return {error_domain::serialization, errc::invalid_argument};
   }
@@ -248,14 +248,14 @@ error text_serialization_writer::end_object() {
   return {};
 }
 
-void text_serialization_writer::reset() {
+void serialization::text_writer::reset() {
   text_.clear();
   contexts_.clear();
   expecting_value_ = false;
   root_written_ = false;
 }
 
-error text_serialization_writer::prepare_value() {
+error serialization::text_writer::prepare_value() {
   if (contexts_.empty()) {
     if (root_written_) {
       return {error_domain::serialization, errc::invalid_argument};
@@ -271,7 +271,7 @@ error text_serialization_writer::prepare_value() {
   return {};
 }
 
-void text_serialization_writer::mark_value_written() noexcept {
+void serialization::text_writer::mark_value_written() noexcept {
   if (contexts_.empty()) {
     root_written_ = true;
     return;

@@ -142,14 +142,14 @@ TEST_CASE("object - handles carry identity without owning instances", "[object]"
 
   runtime_actor instance;
 
-  const caors::object_handle handle{instance.id(), instance.type_id()};
+  const caors::objects::handle handle{instance.id(), instance.type_id()};
   CHECK(handle);
   CHECK(handle.id() == instance.id());
   CHECK(handle.type() == instance.type_id());
-  CHECK(handle == caors::object_handle{instance.id(), instance.type_id()});
-  CHECK(handle != caors::object_handle{caors::object_id{999}, instance.type_id()});
+  CHECK(handle == caors::objects::handle{instance.id(), instance.type_id()});
+  CHECK(handle != caors::objects::handle{caors::object_id{999}, instance.type_id()});
 
-  caors::object_weak_handle<runtime_actor> weak{instance};
+  caors::objects::weak_handle<runtime_actor> weak{instance};
   CHECK(weak);
   CHECK(weak.handle() == handle);
 
@@ -178,7 +178,7 @@ TEST_CASE("object - registry registers and finds types", "[object]") {
 }
 
 TEST_CASE("object - type guid can be provided by object subclass", "[object]") {
-  caors::object_registry& registry = caors::get_object_registry();
+  caors::objects::registry& registry = caors::objects::get_registry();
 
   CHECK(persistent_actor::static_type_guid() == persistent_actor::object_type_guid);
 
@@ -195,9 +195,9 @@ TEST_CASE("object - type guid can be provided by object subclass", "[object]") {
 }
 
 TEST_CASE("object - registry reports registration errors", "[object]") {
-  caors::object_registry& registry = caors::get_object_registry();
+  caors::objects::registry& registry = caors::objects::get_registry();
 
-  CHECK(registry.register_type(caors::meta_type_data{}, caors::object_type_data{}) ==
+  CHECK(registry.register_type(caors::meta_type_data{}, caors::objects::type_data{}) ==
         object_error(caors::errc::invalid_type));
 
   caors::meta_type_data missing_parent = caors::make_object_meta_type_data<error_actor>(
@@ -224,7 +224,7 @@ TEST_CASE("object - registry reports registration errors", "[object]") {
 }
 
 TEST_CASE("object - registry reports duplicate type guid", "[object]") {
-  caors::object_registry& registry = caors::get_object_registry();
+  caors::objects::registry& registry = caors::objects::get_registry();
 
   REQUIRE(register_object_test_type<guid_owner_actor>(guid_owner_actor::object_type_name) ==
           caors::error{});
@@ -238,7 +238,7 @@ TEST_CASE("object - registry reports duplicate type guid", "[object]") {
 }
 
 TEST_CASE("object - registry checks parent relationship", "[object]") {
-  caors::object_registry& registry = caors::get_object_registry();
+  caors::objects::registry& registry = caors::objects::get_registry();
 
   REQUIRE(register_object_test_type<relation_actor>(relation_actor::object_type_name) ==
           caors::error{});
@@ -259,7 +259,7 @@ TEST_CASE("object - registry checks parent relationship", "[object]") {
 }
 
 TEST_CASE("object - registry creates and destroys registered objects", "[object]") {
-  caors::object_registry& registry = caors::get_object_registry();
+  caors::objects::registry& registry = caors::objects::get_registry();
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
 
   REQUIRE(register_object_test_type<factory_actor>(factory_actor::object_type_name) ==
@@ -281,7 +281,7 @@ TEST_CASE("object - registry creates and destroys registered objects", "[object]
 
 TEST_CASE("object - non default constructible types can be described but not factory-created",
           "[object]") {
-  caors::object_registry& registry = caors::get_object_registry();
+  caors::objects::registry& registry = caors::objects::get_registry();
 
   REQUIRE(register_object_test_type<registered_non_default_object>(
               registered_non_default_object::object_type_name) == caors::error{});

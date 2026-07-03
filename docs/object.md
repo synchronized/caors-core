@@ -31,9 +31,8 @@ CAORS 对象系统第一阶段只解决几件事：
 
 对象实例基类 `caors::object`、`object_id` 和 `object_type_id` 仍位于根命名空间。对象系统的辅助类型推荐使用
 `caors::objects` 命名空间下的短名称，例如 `objects::type_data`、`objects::type`、
-`objects::handle`、`objects::weak_handle<T>` 和 `objects::ref<T>`。根命名空间仍保留
-`object_type_data`、`object_type`、`object_handle`、`object_weak_handle<T>` 和
-`object_ref<T>` 等兼容别名，旧代码可以继续编译；新文档和新代码优先使用命名空间内的短名称。
+`objects::handle`、`objects::weak_handle<T>`、`objects::ref<T>` 和 `objects::registry`。根命名空间只保留
+常用的 `object_ref<T>` 兼容别名；其他低频辅助类型使用 `objects::` 下的短名称。
 
 ### object_id
 
@@ -134,9 +133,9 @@ object.type_id();   // player::static_type_id()
 object.type_name(); // "game.player"
 ```
 
-### object_registry
+### objects::registry
 
-`object_registry` 是基于全局 `meta_registry` 的对象注册表 facade 和默认构造工厂。它不表示彼此隔离的局部注册表实例。普通代码优先通过 `objects::class_<T>()`、`objects::find()`、`objects::id()` 和 `objects::is_a()` 访问对象元数据；需要默认构造工厂时再使用 `get_object_registry()`。
+`objects::registry` 是基于全局 `meta_registry` 的对象注册表 facade 和默认构造工厂。它不表示彼此隔离的局部注册表实例。普通代码优先通过 `objects::class_<T>()`、`objects::find()`、`objects::id()` 和 `objects::is_a()` 访问对象元数据；需要默认构造工厂时再使用 `objects::get_registry()`。
 
 对外查询返回 `objects::type` 只读视图。它组合了基础 `meta_type` 和内部 `objects::type_data`，因此调用方可以通过 `id()`、`name()`、`guid()`、`size()`、`alignment()`、`parent_id()` 和 `constructible()` 查询对象类型信息，但不能直接修改注册表内部数据。
 
@@ -174,7 +173,7 @@ caors::objects::is_a(player::static_type_id(), actor::static_type_id());
 注册表支持按 `object_type_id` 创建默认构造对象：
 
 ```cpp
-caors::object_registry& registry = caors::get_object_registry();
+caors::objects::registry& registry = caors::objects::get_registry();
 
 caors::object* instance = registry.create(player::static_type_id());
 registry.destroy(instance);
@@ -201,8 +200,8 @@ registry.destroy(instance, &tracking);
 对于需要构造参数的类型，可以直接使用模板入口：
 
 ```cpp
-auto* instance = caors::create_object<player>(&resource, constructor_arg);
-caors::destroy_object(instance, &resource);
+auto* instance = caors::objects::create<player>(&resource, constructor_arg);
+caors::objects::destroy(instance, &resource);
 ```
 
 非默认构造类型仍可注册类型描述，但不能通过注册表默认创建。
@@ -217,11 +216,11 @@ caors::destroy_object(instance, &resource);
 - `objects::type_data`：内部对象元数据组件，保存默认构造、创建和销毁函数。
 - `objects::type`：对象类型只读视图，组合 `meta_type` 和内部 `objects::type_data`。
 - `caors::error`：明确对象类型注册失败原因和错误来源域。
-- `object_registry`：类型注册、查询、继承关系判断、默认构造工厂。
+- `objects::registry`：类型注册、查询、继承关系判断、默认构造工厂。
 - `objects::class_<T>()`：对象类型链式注册入口。
 - `objects::id()` / `objects::find()` / `objects::is_a()`：对象类型查询入口。
-- `get_object_registry()`：进程内默认对象注册表。
-- `create_object<T>()` / `destroy_object<T>()`：接入 `memory_resource` 的直接对象创建和销毁入口。
+- `objects::get_registry()`：进程内默认对象注册表。
+- `objects::create<T>()` / `objects::destroy<T>()`：接入 `memory_resource` 的直接对象创建和销毁入口。
 
 ## 后续路线图
 

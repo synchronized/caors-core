@@ -17,7 +17,7 @@ public:
 };
 
 int main() {
-  caors::object_registry& registry = caors::get_object_registry();
+  caors::objects::registry& registry = caors::objects::get_registry();
 
   if (caors::objects::class_<actor>(actor::object_type_name).commit()) {
     return 1;

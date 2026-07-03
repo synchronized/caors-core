@@ -13,8 +13,8 @@ namespace caors {
 namespace {
 
 [[nodiscard]] variant_result
-object_ref_to_serialization_value(const reflection_field& field, const void* object,
-                                  const serialization_context& context) {
+object_ref_to_serialization_value(const reflection::field& field, const void* object,
+                                  const serialization::context& context) {
   if (context.reference_resolver == nullptr || !context.reference_resolver->can_write()) {
     return {{error_domain::serialization, errc::invalid_argument}, {}};
   }
@@ -31,19 +31,19 @@ object_ref_to_serialization_value(const reflection_field& field, const void* obj
   return {{}, variant::from(id.value())};
 }
 
-[[nodiscard]] bool field_uses_inline_indirect_value(const reflection_field& field) noexcept {
+[[nodiscard]] bool field_uses_inline_indirect_value(const reflection::field& field) noexcept {
   return (field.kind() == type_kind::raw_pointer || field.kind() == type_kind::wrapper) &&
          field.wrapper_semantics() == wrapper_semantics::inline_value;
 }
 
 [[nodiscard]] variant_result
-value_ref_to_serialization_value(const any_ref& value, const serialization_context& context) {
+value_ref_to_serialization_value(const any_ref& value, const serialization::context& context) {
   return detail::make_serialized_value(value, context);
 }
 
-[[nodiscard]] variant_result field_to_serialization_value(const reflection_field& field,
+[[nodiscard]] variant_result field_to_serialization_value(const reflection::field& field,
                                                           const void* object,
-                                                          const serialization_context& context) {
+                                                          const serialization::context& context) {
   if (field.wrapper_semantics() == wrapper_semantics::object_ref) {
     return object_ref_to_serialization_value(field, object, context);
   }
@@ -73,22 +73,24 @@ value_ref_to_serialization_value(const any_ref& value, const serialization_conte
 
 } // namespace
 
-variant_result to_variant(const any& data) { return detail::make_serialized_value(data); }
+variant_result serialization::to_variant(const any& data) {
+  return detail::make_serialized_value(data);
+}
 
-variant_result to_variant(const any_ref& data) {
+variant_result serialization::to_variant(const any_ref& data) {
   if (!data.valid()) {
     return {{error_domain::serialization, errc::invalid_argument}, {}};
   }
 
-  return detail::make_serialized_value(data, serialization_context{});
+  return detail::make_serialized_value(data, serialization::context{});
 }
 
-variant_result to_serialization_value(const reflection_type& type, const void* object) {
-  return to_serialization_value(type, object, serialization_context{});
+variant_result to_serialization_value(const reflection::type& type, const void* object) {
+  return to_serialization_value(type, object, serialization::context{});
 }
 
-variant_result to_serialization_value(const reflection_type& type, const void* object,
-                                      const serialization_context& context) {
+variant_result to_serialization_value(const reflection::type& type, const void* object,
+                                      const serialization::context& context) {
   if (!type.valid()) {
     return {{error_domain::serialization, errc::invalid_type}, {}};
   }
@@ -101,7 +103,7 @@ variant_result to_serialization_value(const reflection_type& type, const void* o
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
 
-  const std::optional<serialization_type_data> serialization_data = serialization::find(type.id());
+  const std::optional<serialization::type_data> serialization_data = serialization::find(type.id());
   if (!serialization_data.has_value() || !serialization_data->valid()) {
     return {{error_domain::serialization, errc::invalid_type}, {}};
   }
@@ -110,12 +112,12 @@ variant_result to_serialization_value(const reflection_type& type, const void* o
 
   if (!serialization_data->fields.empty()) {
     members.reserve(serialization_data->fields.size());
-    for (const serialization_field_data& field_data : serialization_data->fields) {
+    for (const serialization::field_data& field_data : serialization_data->fields) {
       if (field_data.skipped || !detail::field_visible_in_context(field_data, context)) {
         continue;
       }
 
-      const std::optional<reflection_field> field = type.find_field(field_data.field_name);
+      const std::optional<reflection::field> field = type.find_field(field_data.field_name);
       if (!field.has_value()) {
         return {{error_domain::serialization, errc::not_found}, {}};
       }
@@ -134,7 +136,7 @@ variant_result to_serialization_value(const reflection_type& type, const void* o
   } else {
     members.reserve(type.field_count());
     for (std::size_t index = 0; index < type.field_count(); ++index) {
-      const std::optional<reflection_field> field = type.field_at(index);
+      const std::optional<reflection::field> field = type.field_at(index);
       if (!field.has_value()) {
         return {{error_domain::serialization, errc::invalid_field}, {}};
       }
@@ -156,11 +158,11 @@ variant_result to_serialization_value(const reflection_type& type, const void* o
 }
 
 variant_result to_serialization_value(type_id id, const void* object) {
-  return to_serialization_value(id, object, serialization_context{});
+  return to_serialization_value(id, object, serialization::context{});
 }
 
 variant_result to_serialization_value(type_id id, const void* object,
-                                      const serialization_context& context) {
+                                      const serialization::context& context) {
   if (!id) {
     return {{error_domain::serialization, errc::invalid_type}, {}};
   }
@@ -169,7 +171,7 @@ variant_result to_serialization_value(type_id id, const void* object,
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
 
-  const std::optional<reflection_type> type = reflection::find(id);
+  const std::optional<reflection::type> type = reflection::find(id);
   if (!type.has_value()) {
     return {{error_domain::serialization, errc::not_found}, {}};
   }

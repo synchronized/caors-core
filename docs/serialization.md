@@ -13,7 +13,7 @@
 - 用 `serialization::type_data` 表示类型的序列化元信息。
 - 用 `serialization::field_data` 表示字段级序列化配置，例如字段别名、稳定字段 id、跳过和版本信息。
 - 基于全局 `meta_registry` 挂载序列化组件，避免单独维护类型索引。
-- 提供 `serialization_registry` 和 `serialization::class_(meta_type)` 链式注册入口。
+- 提供 `serialization::registry` 和 `serialization::class_(meta_type)` 链式注册入口。
 - 提供 `serialization::writer` 后端接口，让不同格式复用同一套字段遍历逻辑。
 - 提供 `serialization::reader` 后端接口，让不同格式复用同一套字段读入逻辑。
 - 提供 `variant` 中间对象树，方便工具、调试和多格式转换。
@@ -21,7 +21,7 @@
 - 提供 `serialization::json_writer`、`serialize_json()`、`parse_json()` 和 `deserialize_json()`。
 - 提供 `serialization::variant_reader` 和 `deserialize()`，通过 DOM 中间对象写回基础反射字段。
 - 提供 `serialization::context`，支持按 schema version 过滤字段。
-- 提供 `serialization_codec_registry`，允许把特定 C++ 类型作为原子序列化值读写。
+- 提供 `serialization::codec_registry`，允许把特定 C++ 类型作为原子序列化值读写。
 - 支持已注册反射和序列化元信息的值类型结构体字段递归序列化和 DOM 反序列化。
 - 提供基于 traits 的顺序容器、集合容器、关联容器、pair、tuple 和 variant 访问，支持标量、wrapper、对象引用和已注册结构体元素。
 - 通过 `serialization::reference_resolver` 支持 `caors::objects::ref<T>` 对象引用字段。
@@ -44,10 +44,10 @@
 序列化模块的推荐类型名位于 `caors::serialization` 命名空间，例如
 `serialization::type_data`、`serialization::field_data`、`serialization::context`、
 `serialization::writer`、`serialization::reader`、`serialization::text_writer`、
-`serialization::json_writer` 和 `serialization::variant_reader`。根命名空间仍保留
-`serialization_type_data`、`serialization_field_data`、`serialization_context`、
-`serialization_writer`、`serialization_reader`、`text_serialization_writer` 等兼容别名，
-旧代码可以继续编译；新文档和新代码优先使用命名空间内的短名称。
+`serialization::json_writer`、`serialization::variant_reader`、`serialization::codec<T>` 和
+`serialization::codec_registry`。根命名空间只保留高频的 `serialization_writer`、
+`serialization_reader`、`serialization_text_result` 和 `variant_result` 兼容别名；其他低频类型使用
+`serialization::` 下的短名称。
 
 ### 文件组织
 
@@ -61,9 +61,9 @@
 - `caors/serialization/codec.h`：类型级 codec 扩展点和 codec 注册表。
 - `caors/serialization/dom_reader.h`：从 `variant` DOM 读入的 reader 后端。
 - `caors/serialization/operations.h`：`serialize()`、`deserialize()`、`to_serialization_value()`、`serialize_text()` 等调度入口。
-- `caors/serialization/vector_codec.h`：基于 `sequence_traits<T>` 的通用数组 codec，以及顺序容器默认适配。
-- `caors/serialization/set_codec.h`：基于 `set_traits<T>` 的通用集合 codec，以及集合容器默认适配。
-- `caors/serialization/map_codec.h`：基于 `associative_traits<T>` 的通用字典 codec，以及关联容器默认适配。
+- `caors/serialization/vector_codec.h`：基于 `adapters::sequence_traits<T>` 的通用数组 codec，以及顺序容器默认适配。
+- `caors/serialization/set_codec.h`：基于 `adapters::set_traits<T>` 的通用集合 codec，以及集合容器默认适配。
+- `caors/serialization/map_codec.h`：基于 `adapters::associative_traits<T>` 的通用字典 codec，以及关联容器默认适配。
 - `caors/serialization/stl_codecs.h`：STL/CAORS 容器 codec 聚合入口。
 - `caors/serialization.h`：兼容用聚合头，包含以上所有入口。
 - `caors/adapters/stl.h`：STL/CAORS 容器反射 traits 和序列化 codec 的一站式适配入口。
@@ -211,7 +211,7 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `objects::ref<T>
 
 ### serialization codec
 
-`serialization_codec_registry` 是类型级扩展点。调度层读写非容器普通值时会按类型查询 codec；命中后
+`serialization::codec_registry` 是类型级扩展点。调度层读写非容器普通值时会按类型查询 codec；命中后
 由 codec 直接处理该值，未命中时再回退到内置标量探测。这样 `guid`、`type_guid` 这类语义上是
 原子值的类型，不需要暴露内部字段结构。容器、pair、tuple 和 variant 字段优先通过 meta 视图递归处理元素，因此元素也能继续
 复用 codec、反射、指针和 wrapper 规则。
@@ -228,40 +228,40 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `objects::ref<T>
 - `std::chrono::system_clock::time_point`：按毫秒 epoch 整数读写，不包含时区或格式化字符串策略。
 - `caors::guid`：按标准 UUID/GUID 字符串读写。
 - `caors::type_guid`：按内部 `guid` 的标准字符串读写。
-- `caors::vector<T>` / `std::vector<T>`：通过 `sequence_serialization_codec<T>` 输出为数组。
-- `caors::list<T>` / `std::list<T>`：通过 `sequence_serialization_codec<T>` 输出为数组。
-- `std::forward_list<T>`：通过 `sequence_serialization_codec<T>` 输出为数组；反射随机访问需要线性遍历。
-- `std::deque<T>`：通过 `sequence_serialization_codec<T>` 输出为数组。
-- `std::array<T, N>`：通过 `sequence_serialization_codec<T>` 输出为数组；读入长度必须等于 `N`。
-- `std::span<T>` / `std::span<T, N>`：通过 `sequence_traits<T>` 输出为数组；它是借用视图，默认不支持反序列化读回。
-- `caors::hash_set<T>` / `std::unordered_set<T>` / `std::set<T>`：通过 `set_serialization_codec<T>`
+- `caors::vector<T>` / `std::vector<T>`：通过 `serialization::sequence_codec<T>` 输出为数组。
+- `caors::list<T>` / `std::list<T>`：通过 `serialization::sequence_codec<T>` 输出为数组。
+- `std::forward_list<T>`：通过 `serialization::sequence_codec<T>` 输出为数组；反射随机访问需要线性遍历。
+- `std::deque<T>`：通过 `serialization::sequence_codec<T>` 输出为数组。
+- `std::array<T, N>`：通过 `serialization::sequence_codec<T>` 输出为数组；读入长度必须等于 `N`。
+- `std::span<T>` / `std::span<T, N>`：通过 `adapters::sequence_traits<T>` 输出为数组；它是借用视图，默认不支持反序列化读回。
+- `caors::hash_set<T>` / `std::unordered_set<T>` / `std::set<T>`：通过 `serialization::set_codec<T>`
   输出为数组，读入时拒绝重复元素。
 - `caors::hash_map<K, V>` / `std::unordered_map<K, V>` / `std::map<K, V>`：通过
-  `associative_serialization_codec<T>` 输出为字典 pair 数组。
-- `std::variant<Ts...>`：通过 `variant_traits<T>` 输出为 tagged union 数组 `[index, value]`。
+  `serialization::associative_codec<T>` 输出为字典 pair 数组。
+- `std::variant<Ts...>`：通过 `adapters::variant_traits<T>` 输出为 tagged union 数组 `[index, value]`。
 
 `caors/serialization/stl_codecs.h` 聚合了当前内置容器 codec。`caors/serialization.h` 会继续包含它，
 因此既有代码不需要额外 include；如果只想显式引入 STL/CAORS 容器适配，也可以包含
 `caors/adapters/stl.h`。
 
 反射字段中的容器、pair、tuple 和 variant 不要求显式调用 `serialization::register_codec<T>()`；只要字段类型通过
-`sequence_traits<T>`、`set_traits<T>`、`associative_traits<T>`、`pair_traits<T>`、`tuple_traits<T>` 或
-`variant_traits<T>` 注册了 meta 访问数据，序列化层就能按元素、key、first、候选下标和 value 递归处理。`sequence_serialization_codec<T>`、
-`set_serialization_codec<T>` 和 `associative_serialization_codec<T>`
+`adapters::sequence_traits<T>`、`adapters::set_traits<T>`、`adapters::associative_traits<T>`、`adapters::pair_traits<T>`、`adapters::tuple_traits<T>` 或
+`adapters::variant_traits<T>` 注册了 meta 访问数据，序列化层就能按元素、key、first、候选下标和 value 递归处理。`serialization::sequence_codec<T>`、
+`serialization::set_codec<T>` 和 `serialization::associative_codec<T>`
 仍保留给显式 codec 注册、独立值转换和外部复用。自定义容器通常只需要特化 traits；如果还需要作为 codec
-单独注册，可以让自己的 `serialization_codec<T>` 继承通用 codec：
+单独注册，可以让自己的 `serialization::codec<T>` 继承通用 codec：
 
 ```cpp
-namespace caors {
+namespace caors::serialization {
 
 template <typename T>
-struct serialization_codec<my_sequence<T>> : sequence_serialization_codec<my_sequence<T>> {};
+struct codec<my_sequence<T>> : sequence_codec<my_sequence<T>> {};
 
 template <typename T>
-struct serialization_codec<my_set<T>> : set_serialization_codec<my_set<T>> {};
+struct codec<my_set<T>> : set_codec<my_set<T>> {};
 
 template <typename K, typename V>
-struct serialization_codec<my_map<K, V>> : associative_serialization_codec<my_map<K, V>> {};
+struct codec<my_map<K, V>> : associative_codec<my_map<K, V>> {};
 
 }
 ```
@@ -273,8 +273,8 @@ DOM reader 同时接受 `variant::dictionary` 和 pair 数组形态。普通 `st
 普通 `std::variant<Ts...>` 字段会写成 `[index, value]`，`index` 是当前候选下标；读入时数组长度必须等于 2，
 `index` 必须在候选范围内。目标对象已经处于相同候选时会更新已有值；切换到其他候选时，该候选类型需要支持默认构造。
 
-外部类型可以通过特化 `serialization_codec<T>` 并调用 `serialization::register_codec<T>()` 注册。底层按
-`type_id` 注册 `serialization_codec_data` 的入口属于内部实现，普通代码不直接调用。codec 可以分别提供
+外部类型可以通过特化 `serialization::codec<T>` 并调用 `serialization::register_codec<T>()` 注册。底层按
+`type_id` 注册 `serialization::codec_data` 的入口属于内部实现，普通代码不直接调用。codec 可以分别提供
 writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认逻辑或返回不支持。
 
 ### 指针和 wrapper 字段
@@ -400,15 +400,15 @@ DOM 是可选路径，适合工具、编辑器、测试对比和格式转换。�
 ```cpp
 caors::meta::type<int>("int");
 
-caors::variant_result value = caors::to_variant(caors::any::from(42));
+caors::variant_result value = caors::serialization::to_variant(caors::any::from(42));
 ```
 
-`to_variant(any)` 会先查询 serialization codec，再回退到内置标量和字符串转换。`to_variant(any_ref)`
+`serialization::to_variant(any)` 会先查询 serialization codec，再回退到内置标量和字符串转换。`serialization::to_variant(any_ref)`
 会先尝试复制引用指向的对象；不可拷贝引用会返回 `errc::unsupported`。
 
-### serialization_registry
+### serialization::registry
 
-`serialization_registry` 是全局序列化注册表，内部复用 `meta_registry`：
+`serialization::registry` 是全局序列化注册表，内部复用 `meta_registry`：
 
 ```cpp
 caors::meta_type type = caors::meta::get<actor>();
@@ -483,15 +483,15 @@ caors::string text = result.value;
 - `serialization::writer`：格式后端接口。
 - `serialization::reader`：格式读入后端接口。
 - `serialization::context`：单次序列化/反序列化上下文，支持 schema version 字段过滤。
-- `serialization_codec_registry`：类型级 codec 注册表。
+- `serialization::codec_registry`：类型级 codec 注册表。
 - `serialization::register_codec<T>()`：注册已特化的类型级 codec。
 - `serialization::text_writer`：简单文本格式后端。
 - `variant`：序列化 DOM 中间对象。
-- `to_variant()`：把运行期 `any` / `any_ref` 转换为 `variant`。
+- `serialization::to_variant()`：把运行期 `any` / `any_ref` 转换为 `variant`。
 - `serialization::variant_reader`：从 DOM 中间对象读入字段的后端。
 - `variant_member`：对象成员，保存字段名、字段 id 和字段值。
 - `variant_entry`：字典条目，保存 key 和 value。
-- `serialization_registry`：全局序列化注册表。
+- `serialization::registry`：全局序列化注册表。
 - `serialization::class_(meta_type)`：推荐的链式序列化组件注册入口，只挂载序列化组件。
 - `serialization::find()` / `serialization::contains()`：序列化组件查询入口。
 - `serialize()`：通过指定 writer 后端序列化对象。

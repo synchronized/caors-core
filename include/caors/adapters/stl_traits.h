@@ -24,7 +24,7 @@
 #include <variant>
 #include <vector>
 
-namespace caors {
+namespace caors::adapters {
 
 /** @brief `std::vector` / `caors::vector` 的顺序容器反射适配。 */
 template <typename T, typename Allocator> struct sequence_traits<std::vector<T, Allocator>> {
@@ -577,6 +577,6 @@ template <typename... Types> struct variant_traits<std::variant<Types...>> {
   }
 };
 
-} // namespace caors
+} // namespace caors::adapters
 
 #endif

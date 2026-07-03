@@ -150,28 +150,20 @@ using variant_result = result<variant>;
 
 namespace caors {
 
-using serialization_format = serialization::format;
-using serialization_format_features = serialization::format_features;
-using serialization_field_data = serialization::field_data;
-using serialization_type_data = serialization::type_data;
-using serialization_object_to_id_fn = serialization::object_to_id_fn;
-using serialization_id_to_object_fn = serialization::id_to_object_fn;
-using serialization_reference_resolver = serialization::reference_resolver;
-using serialization_context = serialization::context;
 using serialization_text_result = serialization::serialization_text_result;
 using variant_result = serialization::variant_result;
 using serialization::has_feature;
 
 /** @brief 创建字段序列化配置。兼容入口，优先使用 `serialization::make_field()`。 */
-[[nodiscard]] inline serialization_field_data
+[[nodiscard]] inline serialization::field_data
 make_serialization_field(std::string_view field_name, std::string_view serialized_name = {},
                          bool skipped = false, std::uint32_t field_id = 0) {
   return serialization::make_field(field_name, serialized_name, skipped, field_id);
 }
 
 /** @brief 创建类型序列化配置。兼容入口，优先使用 `serialization::make_type_data()`。 */
-[[nodiscard]] inline serialization_type_data
-make_serialization_type_data(std::initializer_list<serialization_field_data> fields) {
+[[nodiscard]] inline serialization::type_data
+make_serialization_type_data(std::initializer_list<serialization::field_data> fields) {
   return serialization::make_type_data(fields);
 }
 

@@ -11,11 +11,11 @@
 #include <unordered_set>
 #include <utility>
 
-namespace caors {
+namespace caors::serialization {
 
-/** @brief 基于 `set_traits<T>` 的通用集合容器序列化 codec。 */
-template <typename Set> struct set_serialization_codec {
-  using traits = set_traits<Set>;
+/** @brief 基于 `adapters::set_traits<T>` 的通用集合容器序列化 codec。 */
+template <typename Set> struct set_codec {
+  using traits = adapters::set_traits<Set>;
   using element_type = typename traits::element_type;
 
   static constexpr bool can_write = traits::is_set;
@@ -132,14 +132,13 @@ template <typename Set> struct set_serialization_codec {
 
 /** @brief `std::unordered_set` / `caors::hash_set` 的数组序列化 codec。 */
 template <typename T, typename Hash, typename Equal, typename Allocator>
-struct serialization_codec<std::unordered_set<T, Hash, Equal, Allocator>>
-    : set_serialization_codec<std::unordered_set<T, Hash, Equal, Allocator>> {};
+struct codec<std::unordered_set<T, Hash, Equal, Allocator>>
+    : set_codec<std::unordered_set<T, Hash, Equal, Allocator>> {};
 
 /** @brief `std::set` 的数组序列化 codec。 */
 template <typename T, typename Compare, typename Allocator>
-struct serialization_codec<std::set<T, Compare, Allocator>>
-    : set_serialization_codec<std::set<T, Compare, Allocator>> {};
+struct codec<std::set<T, Compare, Allocator>> : set_codec<std::set<T, Compare, Allocator>> {};
 
-} // namespace caors
+} // namespace caors::serialization
 
 #endif
