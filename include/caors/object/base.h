@@ -11,7 +11,7 @@
 #include <string_view>
 #include <type_traits>
 
-namespace caors {
+namespace caors::objects {
 
 /**
  * @brief CAORS 对象基类。
@@ -39,7 +39,7 @@ private:
   object_id id_;
 };
 
-namespace objects::detail {
+namespace detail {
 
 template <typename T, typename = void> struct object_type_guid_traits {
   [[nodiscard]] static constexpr type_guid get() noexcept { return type_guid::nil(); }
@@ -67,7 +67,7 @@ template <typename T> struct object_base_type_traits<T, std::void_t<typename T::
   using type = typename T::base_type;
 };
 
-} // namespace objects::detail
+} // namespace detail
 
 /**
  * @brief 为派生对象提供默认运行期类型名实现。
@@ -98,13 +98,22 @@ public:
   }
 
   [[nodiscard]] static constexpr type_guid static_type_guid() noexcept {
-    return objects::detail::object_type_guid_of<Derived>();
+    return detail::object_type_guid_of<Derived>();
   }
 
   [[nodiscard]] object_type_id type_id() const noexcept override { return static_type_id(); }
 
   [[nodiscard]] std::string_view type_name() const noexcept override { return static_type_name(); }
 };
+
+} // namespace caors::objects
+
+namespace caors {
+
+using object = objects::object;
+
+template <typename Derived, typename Base = object>
+using object_base = objects::object_base<Derived, Base>;
 
 } // namespace caors
 

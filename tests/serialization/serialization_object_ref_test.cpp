@@ -13,8 +13,7 @@ TEST_CASE("serialization - serializes object references through resolver", "[ser
       caors::reflection::class_<object_ref_actor>("caors.test.serialization.object_ref_actor")
           .field("target", &object_ref_actor::target)
           .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<object_ref_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<object_ref_actor>()));
 
   object_ref_target target;
   object_ref_resolver_data resolver_data{caors::object_id{77}, &target};
@@ -53,8 +52,7 @@ TEST_CASE("serialization - deserializes object references through resolver", "[s
       caors::reflection::class_<object_ref_actor>("caors.test.serialization.object_ref_actor")
           .field("target", &object_ref_actor::target)
           .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<object_ref_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<object_ref_actor>()));
 
   object_ref_target target;
   object_ref_resolver_data resolver_data{caors::object_id{88}, &target};
@@ -146,8 +144,7 @@ TEST_CASE("serialization - object reference resolver failures are reported", "[s
       caors::reflection::class_<object_ref_actor>("caors.test.serialization.object_ref_actor")
           .field("target", &object_ref_actor::target)
           .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<object_ref_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<object_ref_actor>()));
 
   object_ref_target target;
   const object_ref_actor actor{caors::object_ref<object_ref_target>{&target}};

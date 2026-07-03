@@ -11,7 +11,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace caors {
+namespace caors::objects::detail {
 
 template <typename T>
 [[nodiscard]] object* try_create_object_instance(memory_resource* resource) noexcept {
@@ -40,26 +40,28 @@ template <typename T> [[nodiscard]] object* create_object_instance(memory_resour
   static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
   static_assert(std::is_default_constructible_v<T>, "T must be default constructible");
 
-  return make<T>(resource);
+  return caors::make<T>(resource);
 }
 
 template <typename T>
 void destroy_object_instance(object* instance, memory_resource* resource) noexcept {
   static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
 
-  destroy(static_cast<T*>(instance), resource);
+  caors::destroy(static_cast<T*>(instance), resource);
 }
 
-namespace objects {
+} // namespace caors::objects::detail
+
+namespace caors::objects {
 
 /** @brief 创建对象类型底层数据。 */
 template <typename T> [[nodiscard]] type_data make_type_data() noexcept {
   static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
 
-  type_data data{nullptr, nullptr, &destroy_object_instance<T>};
+  type_data data{nullptr, nullptr, &detail::destroy_object_instance<T>};
   if constexpr (std::is_default_constructible_v<T>) {
-    data.try_create = &try_create_object_instance<T>;
-    data.create = &create_object_instance<T>;
+    data.try_create = &detail::try_create_object_instance<T>;
+    data.create = &detail::create_object_instance<T>;
   }
 
   return data;
@@ -69,7 +71,7 @@ template <typename T> [[nodiscard]] type_data make_type_data() noexcept {
 template <typename T, typename... Args>
 [[nodiscard]] T* create(memory_resource* resource, Args&&... args) {
   static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
-  return make<T>(resource, std::forward<Args>(args)...);
+  return caors::make<T>(resource, std::forward<Args>(args)...);
 }
 
 template <typename T> [[nodiscard]] T* create() {
@@ -91,8 +93,6 @@ template <typename T> void destroy(T* instance, memory_resource* resource = null
   caors::destroy(instance, resource);
 }
 
-} // namespace objects
-
-} // namespace caors
+} // namespace caors::objects
 
 #endif

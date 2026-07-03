@@ -651,6 +651,7 @@ auto reflected = caors::reflection::find("game.actor");
 - `reflection::registry`：底层全局注册表实现。
 - `reflection::class_<T>()`：RTTR 风格链式注册入口。
 - `reflection::class_<T>(meta::type_view)`：推荐的显式 meta 注册入口，只挂载反射组件。
+- `reflection::register_type()`：公开低层注册入口，适合测试或已经手工构造 `reflection::type_data` 的场景。
 - `reflection::find()` / `reflection::contains()`：反射组件查询入口。
 
 ## 相关入口

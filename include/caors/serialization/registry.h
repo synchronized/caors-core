@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <optional>
+#include <utility>
 
 namespace caors::serialization {
 
@@ -61,6 +62,26 @@ private:
 
 /** @brief 获取当前序列化组件数量。 */
 [[nodiscard]] CAORS_API std::size_t size() noexcept;
+
+/** @brief 向全局序列化注册表注册指定类型 id。 */
+[[nodiscard]] inline error register_type(type_id id, type_data data = type_data{}) {
+  return get_registry().register_type(id, std::move(data));
+}
+
+/** @brief 向已注册元类型挂载序列化组件，不会创建或修改基础类型记录。 */
+[[nodiscard]] inline error register_type(meta::type_view type, type_data data = type_data{}) {
+  return get_registry().register_type(type, std::move(data));
+}
+
+/** @brief 向全局序列化注册表注册指定 C++ 类型。 */
+template <typename T> [[nodiscard]] error register_type(type_data data = type_data{}) {
+  return get_registry().register_type_for<T>(std::move(data));
+}
+
+/** @brief 向全局序列化注册表注册指定 C++ 类型和字段配置。 */
+template <typename T> [[nodiscard]] error register_type(std::initializer_list<field_data> fields) {
+  return register_type<T>(make_type_data(fields));
+}
 
 } // namespace caors::serialization
 

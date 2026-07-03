@@ -6,6 +6,7 @@
 
 #include "caors/core/string_name.h"
 #include "caors/detail/type_key.h"
+#include "caors/error.h"
 #include "caors/export.h"
 #include "caors/meta/type_id.h"
 #include "caors/traits/container.h"
@@ -18,15 +19,17 @@
 #include <type_traits>
 #include <utility>
 
-namespace caors {
+namespace caors::objects {
 
 class object;
 
-} // namespace caors
+} // namespace caors::objects
 
 namespace caors::meta {
 
 class registry;
+class registry_state;
+class type_data;
 
 /** @brief 类型运行期形态。 */
 enum class type_kind {
@@ -59,8 +62,12 @@ using enum_to_i64_fn = std::int64_t (*)(const void*) noexcept;
 using enum_to_u64_fn = std::uint64_t (*)(const void*) noexcept;
 using enum_from_i64_fn = bool (*)(void*, std::int64_t) noexcept;
 using enum_from_u64_fn = bool (*)(void*, std::uint64_t) noexcept;
-using meta_object_ref_get_fn = object* (*)(const void*) noexcept;
-using meta_object_ref_set_fn = bool (*)(void*, object*) noexcept;
+using meta_object_ref_get_fn = objects::object* (*)(const void*) noexcept;
+using meta_object_ref_set_fn = bool (*)(void*, objects::object*) noexcept;
+
+void set_cpp_type(type_data& type, caors::detail::cpp_type_key cpp_type) noexcept;
+[[nodiscard]] error merge_type_data(registry_state& state, type_data& stored,
+                                    const type_data& incoming);
 
 template <typename T> struct meta_copy_constructible {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
@@ -260,6 +267,12 @@ public:
   constexpr void set_name(string_name name) noexcept { name_ = name; }
   constexpr void set_guid(type_guid guid) noexcept { guid_ = guid; }
   constexpr void set_parent_id(type_id parent_id) noexcept { parent_id_ = parent_id; }
+
+private:
+  friend void detail::set_cpp_type(type_data& type, caors::detail::cpp_type_key cpp_type) noexcept;
+  friend error detail::merge_type_data(registry_state& state, type_data& stored,
+                                       const type_data& incoming);
+
   constexpr void set_cpp_type(caors::detail::cpp_type_key cpp_type) noexcept {
     cpp_type_ = cpp_type;
   }
@@ -277,7 +290,6 @@ public:
     assign_value_ = assign_value;
   }
 
-private:
   type_id id_{};
   string_name name_{};
   type_guid guid_{};
@@ -290,6 +302,14 @@ private:
   detail::value_destroy_fn destroy_value_ = nullptr;
   detail::value_assign_fn assign_value_ = nullptr;
 };
+
+namespace detail {
+
+inline void set_cpp_type(type_data& type, caors::detail::cpp_type_key cpp_type) noexcept {
+  type.set_cpp_type(cpp_type);
+}
+
+} // namespace detail
 
 /**
  * @brief 元类型只读视图。

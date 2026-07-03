@@ -9,7 +9,7 @@
 
 #include <cstdint>
 
-namespace caors {
+namespace caors::objects {
 
 /**
  * @brief 运行期对象实例标识。
@@ -39,6 +39,14 @@ private:
 [[nodiscard]] CAORS_API object_id generate_object_id() noexcept;
 
 using object_type_id = type_id;
+
+} // namespace caors::objects
+
+namespace caors {
+
+using object_id = objects::object_id;
+using object_type_id = objects::object_type_id;
+using objects::generate_object_id;
 
 } // namespace caors
 

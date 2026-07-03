@@ -14,15 +14,13 @@ TEST_CASE("serialization - registers type metadata component", "[serialization]"
           .field("name", &serializable_actor::name)
           .commit()));
 
-  const caors::error status =
-      caors::serialization::detail::register_serialization<serializable_actor>();
+  const caors::error status = caors::serialization::register_type<serializable_actor>();
 
   CHECK(serialization_result_ok(status));
   CHECK(caors::serialization::contains(caors::meta::find<serializable_actor>()->id()));
   CHECK(caors::serialization::size() >= 1);
 
-  const caors::error duplicate =
-      caors::serialization::detail::register_serialization<serializable_actor>();
+  const caors::error duplicate = caors::serialization::register_type<serializable_actor>();
   CHECK(duplicate.failed());
   CHECK(duplicate.domain() == caors::error_domain::serialization);
   CHECK(duplicate.value() == caors::errc::duplicate_component);
@@ -50,7 +48,7 @@ TEST_CASE("serialization - class builder can attach to explicit meta type", "[se
 }
 
 TEST_CASE("serialization - explicit registration reports missing meta type", "[serialization]") {
-  const caors::error status = caors::serialization::detail::register_serialization(
+  const caors::error status = caors::serialization::register_type(
       caors::type_id{std::numeric_limits<std::uint64_t>::max()});
 
   CHECK(status.failed());
@@ -67,8 +65,7 @@ TEST_CASE("serialization - serializes reflected struct fields to text", "[serial
           .field("name", &serializable_actor::name)
           .commit()));
 
-  const caors::error register_status =
-      caors::serialization::detail::register_serialization<serializable_actor>();
+  const caors::error register_status = caors::serialization::register_type<serializable_actor>();
   REQUIRE(serialization_result_ok(register_status));
 
   const serializable_actor actor{7, 95.5F, true, "Ada"};
@@ -87,8 +84,7 @@ TEST_CASE("serialization - serializes reflected struct fields to json", "[serial
           .field("name", &serializable_actor::name)
           .commit()));
 
-  const caors::error register_status =
-      caors::serialization::detail::register_serialization<serializable_actor>();
+  const caors::error register_status = caors::serialization::register_type<serializable_actor>();
   REQUIRE(serialization_result_ok(register_status));
 
   const serializable_actor actor{7, 95.5F, true, "Ada\nLovelace"};
@@ -106,7 +102,7 @@ TEST_CASE("serialization - field metadata renames and skips fields", "[serializa
           .field("debug", &configured_actor::debug)
           .commit()));
 
-  REQUIRE(caors::serialization::detail::register_serialization<configured_actor>(
+  REQUIRE(caors::serialization::register_type<configured_actor>(
               {
                   caors::serialization::make_field("health", "hp"),
                   caors::serialization::make_field("debug", {}, true),
@@ -126,10 +122,9 @@ TEST_CASE("serialization - generic writer backend serializes fields", "[serializ
       caors::reflection::class_<writer_actor>("caors.test.serialization.writer_actor")
           .field("id", &writer_actor::id)
           .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::detail::register_serialization<writer_actor>({
-          caors::serialization::make_field("id", {}, false, 7),
-      })));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<writer_actor>({
+      caors::serialization::make_field("id", {}, false, 7),
+  })));
 
   numeric_field_writer writer;
   const writer_actor actor{42};
@@ -147,7 +142,7 @@ TEST_CASE("serialization - builds variant from reflected object", "[serializatio
       caors::reflection::class_<dom_actor>("caors.test.serialization.dom_actor")
           .field("id", &dom_actor::id)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::detail::register_serialization<dom_actor>({
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<dom_actor>({
       caors::serialization::make_field("id", "actor_id", false, 7),
   })));
 
@@ -255,8 +250,7 @@ TEST_CASE("serialization - variant reader deserializes reflected struct fields",
           .field("active", &reader_actor::active)
           .field("name", &reader_actor::name)
           .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<reader_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<reader_actor>()));
 
   caors::variant::object_type members;
   members.push_back(caors::value::variant_member{
@@ -299,8 +293,7 @@ TEST_CASE("serialization - parses json and deserializes reflected struct fields"
           .field("active", &reader_actor::active)
           .field("name", &reader_actor::name)
           .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<reader_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<reader_actor>()));
 
   const caors::serialization::variant_result parsed =
       caors::parse_json(R"({"id":7,"health":95.5,"active":true,"name":"Ada\nLovelace"})");

@@ -17,7 +17,7 @@ namespace {
     }
 
     if (type.cpp_type() == nullptr) {
-      type.set_cpp_type(explicit_key);
+      detail::set_cpp_type(type, explicit_key);
     }
   }
 

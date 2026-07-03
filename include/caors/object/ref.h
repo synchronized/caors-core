@@ -9,11 +9,9 @@
 #include <cstddef>
 #include <type_traits>
 
-namespace caors {
+namespace caors::objects {
 
 class object;
-
-namespace objects {
 
 /**
  * @brief 不拥有对象的运行期身份句柄。
@@ -113,7 +111,9 @@ template <typename T> struct object_ref_traits<weak_handle<T>> {
 
 } // namespace detail
 
-} // namespace objects
+} // namespace caors::objects
+
+namespace caors {
 
 template <typename T> using object_ref = objects::ref<T>;
 

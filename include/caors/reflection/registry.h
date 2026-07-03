@@ -76,6 +76,32 @@ private:
 /** @brief 获取当前反射组件数量。 */
 [[nodiscard]] CAORS_API std::size_t size() noexcept;
 
+/** @brief 向全局反射注册表注册指定 C++ 类型。 */
+template <typename T>
+[[nodiscard]] error register_type(std::string_view name,
+                                  std::initializer_list<reflection::field_data> fields,
+                                  type_id parent_id = type_id::invalid()) {
+  return reflection::get_registry().register_type_for<T>(meta::make_type_data<T>(name, parent_id),
+                                                         reflection::make_type_data(fields));
+}
+
+/** @brief 向全局反射注册表注册带稳定 GUID 的指定 C++ 类型。 */
+template <typename T>
+[[nodiscard]] error register_type(std::string_view name, type_guid guid,
+                                  std::initializer_list<reflection::field_data> fields,
+                                  type_id parent_id = type_id::invalid()) {
+  return reflection::get_registry().register_type_for<T>(
+      meta::make_type_data<T>(name, guid, parent_id), reflection::make_type_data(fields));
+}
+
+/** @brief 向已注册元类型挂载反射组件，不会创建或修改基础类型记录。 */
+[[nodiscard]] CAORS_API error register_type(type_id id,
+                                            reflection::type_data data = reflection::type_data{});
+
+/** @brief 向已注册元类型挂载反射组件，不会创建或修改基础类型记录。 */
+[[nodiscard]] CAORS_API error register_type(meta::type_view type,
+                                            reflection::type_data data = reflection::type_data{});
+
 namespace detail {
 
 /** @brief 向全局反射注册表注册反射类型。内部入口，公开代码优先使用 `reflection::class_<T>()`。 */

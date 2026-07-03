@@ -29,10 +29,13 @@ CAORS 对象系统第一阶段只解决几件事：
 
 ### 命名空间
 
-对象实例基类 `caors::object`、`object_id` 和 `object_type_id` 仍位于根命名空间。对象系统的辅助类型推荐使用
-`caors::objects` 命名空间下的短名称，例如 `objects::type_data`、`objects::type`、
-`objects::handle`、`objects::weak_handle<T>`、`objects::ref<T>` 和 `objects::registry`。根命名空间只保留
-常用的 `object_ref<T>` 兼容别名；其他低频辅助类型使用 `objects::` 下的短名称。
+对象系统的主定义位于 `caors::objects` 命名空间，例如 `objects::object`、`objects::object_id`、
+`objects::object_base<T>`、`objects::type_data`、`objects::type`、`objects::handle`、
+`objects::weak_handle<T>`、`objects::ref<T>` 和 `objects::registry`。
+
+为了保持常用 API 简洁，根命名空间保留兼容别名：`caors::object`、`caors::object_id`、
+`caors::object_type_id`、`caors::object_base<T>` 和 `caors::object_ref<T>`。新代码在模块内部实现和低频辅助类型上优先使用
+`caors::objects::*`。
 
 ### object_id
 

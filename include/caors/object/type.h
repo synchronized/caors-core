@@ -10,11 +10,9 @@
 #include "caors/meta/type.h"
 #include "caors/object/id.h"
 
-namespace caors {
+namespace caors::objects {
 
 class object;
-
-namespace objects {
 
 class registry;
 
@@ -60,8 +58,6 @@ private:
   const type_data* data_ = nullptr;
 };
 
-} // namespace objects
-
-} // namespace caors
+} // namespace caors::objects
 
 #endif

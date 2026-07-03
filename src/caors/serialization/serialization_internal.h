@@ -22,6 +22,7 @@ serialized_field_name(const serialization::field_data& data) noexcept;
 [[nodiscard]] variant_result make_serialized_value(const any& data);
 [[nodiscard]] variant_result make_serialized_value(const any_ref& value,
                                                    const serialization::context& context);
+[[nodiscard]] variant_result parse_json_value(std::string_view text);
 [[nodiscard]] error write_serialized_value(writer& writer, const any_ref& value,
                                            const serialization::context& context);
 [[nodiscard]] error read_serialized_value(reader& reader, const any_ref& target,

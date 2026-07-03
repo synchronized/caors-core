@@ -431,8 +431,9 @@ auto serialization_type = caors::serialization::find(type);
 
 推荐由 meta 层先注册基础类型，再使用 `serialization::class_(meta::type_view)` 挂载序列化组件。这条路径不会
 创建或修改基础类型记录；无效 `meta::type_view` 返回 `errc::invalid_type`，不存在的 `type_id` 返回
-`errc::missing_type`。查询序列化组件时使用 `serialization::find()` 或 `serialization::contains()`。
-低层组件注册函数属于内部实现入口，普通代码不直接调用。
+`errc::missing_type`。简单场景也可以使用公开便捷入口 `serialization::register_type<T>()` 或
+`serialization::register_type<T>({ ... })`。查询序列化组件时使用 `serialization::find()` 或
+`serialization::contains()`。低层 detail 组件注册函数属于内部实现入口，普通代码不直接调用。
 
 重复注册同一个类型会返回 `errc::duplicate_component`，错误来源域为
 `error_domain::serialization`。全局 meta 注册表冻结后继续注册序列化组件会返回 `errc::frozen`。
@@ -496,6 +497,7 @@ caors::string text = result.value;
 - `variant_entry`：字典条目，保存 key 和 value。
 - `serialization::registry`：全局序列化注册表。
 - `serialization::class_(meta::type_view)`：推荐的链式序列化组件注册入口，只挂载序列化组件。
+- `serialization::register_type<T>()`：公开便捷注册入口，要求对应 C++ 类型已经完成 meta 注册。
 - `serialization::find()` / `serialization::contains()`：序列化组件查询入口。
 - `serialize()`：通过指定 writer 后端序列化对象。
 - `deserialize()`：通过指定 reader 后端反序列化对象。

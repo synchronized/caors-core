@@ -11,8 +11,7 @@ TEST_CASE("serialization - serializes vector fields as arrays", "[serialization]
       caors::reflection::class_<vector_actor>("caors.test.serialization.vector_actor")
           .field("scores", &vector_actor::scores)
           .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<vector_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<vector_actor>()));
 
   vector_actor actor{};
   actor.scores.push_back(1);
@@ -25,13 +24,13 @@ TEST_CASE("serialization - serializes vector fields as arrays", "[serialization]
 
   const caors::serialization::variant_result value = caors::to_serialization_value(actor);
   REQUIRE(value.succeeded());
-  const caors::value::variant_member* scores = value.value.find_member(caors::string_name{"scores"});
+  const caors::value::variant_member* scores =
+      value.value.find_member(caors::string_name{"scores"});
   REQUIRE(scores != nullptr);
   REQUIRE(scores->value.is_array());
   REQUIRE(scores->value.as_array().size() == 3);
   CHECK(scores->value.as_array()[2].as_i64() == 3);
 }
-
 
 TEST_CASE("serialization - deserializes vector fields from arrays", "[serialization]") {
   require_serialization_codec<caors::vector<int>>("caors.vector<int>");
@@ -39,8 +38,7 @@ TEST_CASE("serialization - deserializes vector fields from arrays", "[serializat
       caors::reflection::class_<vector_actor>("caors.test.serialization.vector_actor")
           .field("scores", &vector_actor::scores)
           .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<vector_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<vector_actor>()));
 
   caors::variant::array_type scores;
   scores.push_back(caors::variant::from(std::int64_t{5}));
@@ -62,7 +60,6 @@ TEST_CASE("serialization - deserializes vector fields from arrays", "[serializat
   CHECK(actor.scores[1] == 6);
 }
 
-
 TEST_CASE("serialization - recursively serializes nested vector values", "[serialization]") {
   require_serialization_codec<caors::vector<int>>("caors.vector<int>");
   require_registered_type<caors::vector<caors::vector<int>>>("caors.vector<caors.vector<int>>");
@@ -71,8 +68,8 @@ TEST_CASE("serialization - recursively serializes nested vector values", "[seria
           "caors.test.serialization.nested_vector_values_actor")
           .field("groups", &nested_vector_values_actor::groups, "caors.vector<caors.vector<int>>")
           .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<nested_vector_values_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::register_type<nested_vector_values_actor>()));
 
   nested_vector_values_actor actor{};
   actor.groups.push_back(caors::vector<int>{1, 2});
@@ -84,7 +81,8 @@ TEST_CASE("serialization - recursively serializes nested vector values", "[seria
 
   const caors::serialization::variant_result value = caors::to_serialization_value(actor);
   REQUIRE(value.succeeded());
-  const caors::value::variant_member* groups = value.value.find_member(caors::string_name{"groups"});
+  const caors::value::variant_member* groups =
+      value.value.find_member(caors::string_name{"groups"});
   REQUIRE(groups != nullptr);
   REQUIRE(groups->value.is_array());
   REQUIRE(groups->value.as_array().size() == 2);
@@ -101,7 +99,6 @@ TEST_CASE("serialization - recursively serializes nested vector values", "[seria
   CHECK(decoded.groups[1][0] == 6);
 }
 
-
 TEST_CASE("serialization - roundtrips unique pointer vectors", "[serialization]") {
   require_unique_ptr_vector_actor_metadata();
 
@@ -116,7 +113,8 @@ TEST_CASE("serialization - roundtrips unique pointer vectors", "[serialization]"
 
   const caors::serialization::variant_result value = caors::to_serialization_value(actor);
   REQUIRE(value.succeeded());
-  const caors::value::variant_member* values = value.value.find_member(caors::string_name{"values"});
+  const caors::value::variant_member* values =
+      value.value.find_member(caors::string_name{"values"});
   REQUIRE(values != nullptr);
   REQUIRE(values->value.is_array());
   REQUIRE(values->value.as_array().size() == 3);
@@ -135,14 +133,12 @@ TEST_CASE("serialization - roundtrips unique pointer vectors", "[serialization]"
   CHECK(*decoded.values[2] == 6);
 }
 
-
 TEST_CASE("serialization - recursively serializes codec values inside vectors", "[serialization]") {
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<guid_vector_actor>("caors.test.serialization.guid_vector_actor")
           .field("ids", &guid_vector_actor::ids, "caors.vector<guid>")
           .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<guid_vector_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<guid_vector_actor>()));
 
   const std::optional<caors::guid> first =
       caors::guid::parse("2f6d1f64-7a3a-4db2-9a2d-123456789abc");
@@ -172,15 +168,13 @@ TEST_CASE("serialization - recursively serializes codec values inside vectors", 
   CHECK(decoded.ids[1] == *first);
 }
 
-
 TEST_CASE("serialization - serializes list fields as arrays", "[serialization]") {
   require_serialization_codec<caors::list<int>>("caors.list<int>");
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<list_actor>("caors.test.serialization.list_actor")
           .field("scores", &list_actor::scores)
           .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::detail::register_serialization<list_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<list_actor>()));
 
   list_actor actor{};
   actor.scores.push_back(1);
@@ -193,13 +187,13 @@ TEST_CASE("serialization - serializes list fields as arrays", "[serialization]")
 
   const caors::serialization::variant_result value = caors::to_serialization_value(actor);
   REQUIRE(value.succeeded());
-  const caors::value::variant_member* scores = value.value.find_member(caors::string_name{"scores"});
+  const caors::value::variant_member* scores =
+      value.value.find_member(caors::string_name{"scores"});
   REQUIRE(scores != nullptr);
   REQUIRE(scores->value.is_array());
   REQUIRE(scores->value.as_array().size() == 3);
   CHECK(scores->value.as_array()[2].as_i64() == 3);
 }
-
 
 TEST_CASE("serialization - deserializes list fields from arrays", "[serialization]") {
   require_serialization_codec<caors::list<int>>("caors.list<int>");
@@ -207,8 +201,7 @@ TEST_CASE("serialization - deserializes list fields from arrays", "[serializatio
       caors::reflection::class_<list_actor>("caors.test.serialization.list_actor")
           .field("scores", &list_actor::scores)
           .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::detail::register_serialization<list_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<list_actor>()));
 
   caors::variant::array_type scores;
   scores.push_back(caors::variant::from(std::int64_t{5}));
@@ -232,7 +225,6 @@ TEST_CASE("serialization - deserializes list fields from arrays", "[serializatio
   CHECK(*iterator == 6);
 }
 
-
 TEST_CASE("serialization - roundtrips std forward list fields", "[serialization]") {
   using scores_type = std::forward_list<int>;
   require_serialization_codec<scores_type>("std.forward_list<int>");
@@ -240,8 +232,7 @@ TEST_CASE("serialization - roundtrips std forward list fields", "[serialization]
       caors::reflection::class_<forward_list_actor>("caors.test.serialization.forward_list_actor")
           .field("scores", &forward_list_actor::scores)
           .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<forward_list_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<forward_list_actor>()));
 
   forward_list_actor actor{};
   actor.scores.assign({1, 2, 3});
@@ -264,7 +255,6 @@ TEST_CASE("serialization - roundtrips std forward list fields", "[serialization]
   CHECK(iterator == decoded.scores.end());
 }
 
-
 TEST_CASE("serialization - roundtrips std deque fields", "[serialization]") {
   using scores_type = std::deque<int>;
   require_serialization_codec<scores_type>("std.deque<int>");
@@ -272,8 +262,7 @@ TEST_CASE("serialization - roundtrips std deque fields", "[serialization]") {
       caors::reflection::class_<deque_actor>("caors.test.serialization.deque_actor")
           .field("scores", &deque_actor::scores)
           .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::detail::register_serialization<deque_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<deque_actor>()));
 
   deque_actor actor{};
   actor.scores.push_back(1);
@@ -293,7 +282,6 @@ TEST_CASE("serialization - roundtrips std deque fields", "[serialization]") {
   CHECK(decoded.scores[1] == 6);
 }
 
-
 TEST_CASE("serialization - roundtrips std array fields", "[serialization]") {
   using scores_type = std::array<int, 3>;
   require_serialization_codec<scores_type>("std.array<int,3>");
@@ -301,8 +289,7 @@ TEST_CASE("serialization - roundtrips std array fields", "[serialization]") {
       caors::reflection::class_<array_actor>("caors.test.serialization.array_actor")
           .field("scores", &array_actor::scores)
           .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::detail::register_serialization<array_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<array_actor>()));
 
   array_actor actor{{1, 2, 3}};
 
@@ -317,7 +304,6 @@ TEST_CASE("serialization - roundtrips std array fields", "[serialization]") {
   CHECK(decoded.scores == std::array<int, 3>{5, 6, 7});
 }
 
-
 TEST_CASE("serialization - rejects std array length mismatch", "[serialization]") {
   using scores_type = std::array<int, 3>;
   require_serialization_codec<scores_type>("std.array<int,3>");
@@ -325,8 +311,7 @@ TEST_CASE("serialization - rejects std array length mismatch", "[serialization]"
       caors::reflection::class_<array_actor>("caors.test.serialization.array_actor")
           .field("scores", &array_actor::scores)
           .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::detail::register_serialization<array_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<array_actor>()));
 
   array_actor actor{{1, 2, 3}};
   const caors::error result = caors::deserialize_json(actor, R"({"scores":[5,6]})");
@@ -337,14 +322,12 @@ TEST_CASE("serialization - rejects std array length mismatch", "[serialization]"
   CHECK(actor.scores == std::array<int, 3>{1, 2, 3});
 }
 
-
 TEST_CASE("serialization - serializes std span fields as borrowed views", "[serialization]") {
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<span_actor>("caors.test.serialization.span_actor")
           .field("scores", &span_actor::scores)
           .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::detail::register_serialization<span_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<span_actor>()));
 
   std::array<int, 3> storage{1, 2, 3};
   span_actor actor{std::span<int>{storage}};
@@ -354,14 +337,12 @@ TEST_CASE("serialization - serializes std span fields as borrowed views", "[seri
   CHECK(text.value == R"({"scores":[1,2,3]})");
 }
 
-
 TEST_CASE("serialization - rejects std span deserialization by default", "[serialization]") {
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<span_actor>("caors.test.serialization.span_actor")
           .field("scores", &span_actor::scores)
           .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::detail::register_serialization<span_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<span_actor>()));
 
   std::array<int, 3> storage{1, 2, 3};
   span_actor actor{std::span<int>{storage}};
@@ -374,15 +355,13 @@ TEST_CASE("serialization - rejects std span deserialization by default", "[seria
   CHECK(storage == std::array<int, 3>{1, 2, 3});
 }
 
-
 TEST_CASE("serialization - rejects std span length mismatch without writing storage",
           "[serialization]") {
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<span_actor>("caors.test.serialization.span_actor")
           .field("scores", &span_actor::scores)
           .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::detail::register_serialization<span_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<span_actor>()));
 
   std::array<int, 3> storage{1, 2, 3};
   span_actor actor{std::span<int>{storage}};
@@ -394,14 +373,12 @@ TEST_CASE("serialization - rejects std span length mismatch without writing stor
   CHECK(storage == std::array<int, 3>{1, 2, 3});
 }
 
-
 TEST_CASE("serialization - roundtrips std pair fields", "[serialization]") {
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<pair_actor>("caors.test.serialization.pair_actor")
           .field("entry", &pair_actor::entry)
           .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::detail::register_serialization<pair_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<pair_actor>()));
 
   pair_actor actor{{7, caors::string{"seven"}}};
 
@@ -426,14 +403,12 @@ TEST_CASE("serialization - roundtrips std pair fields", "[serialization]") {
   CHECK(entry->value.as_array()[1].as_string() == "seven");
 }
 
-
 TEST_CASE("serialization - rejects std pair length mismatch", "[serialization]") {
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<pair_actor>("caors.test.serialization.pair_actor")
           .field("entry", &pair_actor::entry)
           .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::detail::register_serialization<pair_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<pair_actor>()));
 
   pair_actor actor{{7, caors::string{"seven"}}};
   const caors::error result = caors::deserialize_json(actor, R"({"entry":[9]})");
@@ -445,14 +420,12 @@ TEST_CASE("serialization - rejects std pair length mismatch", "[serialization]")
   CHECK(actor.entry.second == "seven");
 }
 
-
 TEST_CASE("serialization - roundtrips std tuple fields", "[serialization]") {
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<tuple_actor>("caors.test.serialization.tuple_actor")
           .field("entry", &tuple_actor::entry)
           .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::detail::register_serialization<tuple_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<tuple_actor>()));
 
   tuple_actor actor{{7, caors::string{"seven"}, 1.5F}};
 
@@ -479,14 +452,12 @@ TEST_CASE("serialization - roundtrips std tuple fields", "[serialization]") {
   CHECK(entry->value.as_array()[2].as_f64() == 1.5);
 }
 
-
 TEST_CASE("serialization - rejects std tuple length mismatch", "[serialization]") {
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<tuple_actor>("caors.test.serialization.tuple_actor")
           .field("entry", &tuple_actor::entry)
           .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::detail::register_serialization<tuple_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<tuple_actor>()));
 
   tuple_actor actor{{7, caors::string{"seven"}, 1.5F}};
   const caors::error result = caors::deserialize_json(actor, R"({"entry":[9,"nine"]})");
@@ -499,14 +470,12 @@ TEST_CASE("serialization - rejects std tuple length mismatch", "[serialization]"
   CHECK(std::get<2>(actor.entry) == 1.5F);
 }
 
-
 TEST_CASE("serialization - roundtrips std variant fields", "[serialization]") {
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<variant_actor>("caors.test.serialization.variant_actor")
           .field("entry", &variant_actor::entry)
           .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<variant_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<variant_actor>()));
 
   variant_actor actor{};
   actor.entry = caors::string{"seven"};
@@ -532,14 +501,12 @@ TEST_CASE("serialization - roundtrips std variant fields", "[serialization]") {
   CHECK(entry->value.as_array()[1].as_string() == "seven");
 }
 
-
 TEST_CASE("serialization - rejects std variant invalid data", "[serialization]") {
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<variant_actor>("caors.test.serialization.variant_actor")
           .field("entry", &variant_actor::entry)
           .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<variant_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<variant_actor>()));
 
   variant_actor actor{};
   actor.entry = caors::string{"seven"};
@@ -560,7 +527,6 @@ TEST_CASE("serialization - rejects std variant invalid data", "[serialization]")
   CHECK(std::get<caors::string>(actor.entry) == "seven");
 }
 
-
 TEST_CASE("serialization - serializes hash map fields as dictionaries", "[serialization]") {
   using labels_type = caors::hash_map<int, caors::string>;
   require_serialization_codec<labels_type>("caors.hash_map<int,caors.string>");
@@ -568,8 +534,7 @@ TEST_CASE("serialization - serializes hash map fields as dictionaries", "[serial
       caors::reflection::class_<map_actor>("caors.test.serialization.map_actor")
           .field("labels", &map_actor::labels)
           .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::detail::register_serialization<map_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<map_actor>()));
 
   map_actor actor{};
   actor.labels.emplace(7, caors::string{"seven"});
@@ -580,14 +545,14 @@ TEST_CASE("serialization - serializes hash map fields as dictionaries", "[serial
 
   const caors::serialization::variant_result value = caors::to_serialization_value(actor);
   REQUIRE(value.succeeded());
-  const caors::value::variant_member* labels = value.value.find_member(caors::string_name{"labels"});
+  const caors::value::variant_member* labels =
+      value.value.find_member(caors::string_name{"labels"});
   REQUIRE(labels != nullptr);
   REQUIRE(labels->value.is_dictionary());
   REQUIRE(labels->value.as_dictionary().size() == 1);
   CHECK(labels->value.as_dictionary()[0].key.as_i64() == 7);
   CHECK(labels->value.as_dictionary()[0].value.as_string() == "seven");
 }
-
 
 TEST_CASE("serialization - deserializes hash map fields from dictionaries", "[serialization]") {
   using labels_type = caors::hash_map<int, caors::string>;
@@ -596,8 +561,7 @@ TEST_CASE("serialization - deserializes hash map fields from dictionaries", "[se
       caors::reflection::class_<map_actor>("caors.test.serialization.map_actor")
           .field("labels", &map_actor::labels)
           .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::detail::register_serialization<map_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<map_actor>()));
 
   caors::variant::dictionary_type entries;
   entries.push_back(caors::value::variant_entry{
@@ -625,7 +589,6 @@ TEST_CASE("serialization - deserializes hash map fields from dictionaries", "[se
   CHECK(actor.labels.at(2) == "two");
 }
 
-
 TEST_CASE("serialization - deserializes hash map fields from pair arrays", "[serialization]") {
   using labels_type = caors::hash_map<int, caors::string>;
   require_serialization_codec<labels_type>("caors.hash_map<int,caors.string>");
@@ -633,8 +596,7 @@ TEST_CASE("serialization - deserializes hash map fields from pair arrays", "[ser
       caors::reflection::class_<map_actor>("caors.test.serialization.map_actor")
           .field("labels", &map_actor::labels)
           .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::detail::register_serialization<map_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<map_actor>()));
 
   const caors::serialization::variant_result parsed =
       caors::parse_json(R"({"labels":[[3,"three"]]})");
@@ -648,7 +610,6 @@ TEST_CASE("serialization - deserializes hash map fields from pair arrays", "[ser
   CHECK(actor.labels.at(3) == "three");
 }
 
-
 TEST_CASE("serialization - roundtrips std map fields", "[serialization]") {
   using labels_type = std::map<int, caors::string>;
   require_serialization_codec<labels_type>("std.map<int,caors.string>");
@@ -656,8 +617,7 @@ TEST_CASE("serialization - roundtrips std map fields", "[serialization]") {
       caors::reflection::class_<ordered_map_actor>("caors.test.serialization.ordered_map_actor")
           .field("labels", &ordered_map_actor::labels)
           .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<ordered_map_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<ordered_map_actor>()));
 
   ordered_map_actor actor{};
   actor.labels.emplace(2, caors::string{"two"});
@@ -677,7 +637,6 @@ TEST_CASE("serialization - roundtrips std map fields", "[serialization]") {
   CHECK(decoded.labels.at(4) == "four");
 }
 
-
 TEST_CASE("serialization - serializes hash set fields as arrays", "[serialization]") {
   using ids_type = caors::hash_set<int>;
   require_serialization_codec<ids_type>("caors.hash_set<int>");
@@ -685,8 +644,7 @@ TEST_CASE("serialization - serializes hash set fields as arrays", "[serializatio
       caors::reflection::class_<set_actor>("caors.test.serialization.set_actor")
           .field("ids", &set_actor::ids)
           .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::detail::register_serialization<set_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<set_actor>()));
 
   set_actor actor{};
   actor.ids.emplace(7);
@@ -704,7 +662,6 @@ TEST_CASE("serialization - serializes hash set fields as arrays", "[serializatio
   CHECK(ids->value.as_array()[0].as_i64() == 7);
 }
 
-
 TEST_CASE("serialization - deserializes hash set fields from arrays", "[serialization]") {
   using ids_type = caors::hash_set<int>;
   require_serialization_codec<ids_type>("caors.hash_set<int>");
@@ -712,8 +669,7 @@ TEST_CASE("serialization - deserializes hash set fields from arrays", "[serializ
       caors::reflection::class_<set_actor>("caors.test.serialization.set_actor")
           .field("ids", &set_actor::ids)
           .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::detail::register_serialization<set_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<set_actor>()));
 
   caors::variant::array_type ids;
   ids.push_back(caors::variant::from(std::int64_t{1}));
@@ -735,7 +691,6 @@ TEST_CASE("serialization - deserializes hash set fields from arrays", "[serializ
   CHECK(actor.ids.contains(2));
 }
 
-
 TEST_CASE("serialization - hash set reader rejects duplicate elements", "[serialization]") {
   using ids_type = caors::hash_set<int>;
   require_serialization_codec<ids_type>("caors.hash_set<int>");
@@ -743,8 +698,7 @@ TEST_CASE("serialization - hash set reader rejects duplicate elements", "[serial
       caors::reflection::class_<set_actor>("caors.test.serialization.set_actor")
           .field("ids", &set_actor::ids)
           .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::detail::register_serialization<set_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<set_actor>()));
 
   caors::variant::array_type ids;
   ids.push_back(caors::variant::from(std::int64_t{1}));
@@ -765,7 +719,6 @@ TEST_CASE("serialization - hash set reader rejects duplicate elements", "[serial
   CHECK(result.value() == caors::errc::already_exists);
 }
 
-
 TEST_CASE("serialization - roundtrips std set fields", "[serialization]") {
   using ids_type = std::set<int>;
   require_serialization_codec<ids_type>("std.set<int>");
@@ -773,8 +726,7 @@ TEST_CASE("serialization - roundtrips std set fields", "[serialization]") {
       caors::reflection::class_<ordered_set_actor>("caors.test.serialization.ordered_set_actor")
           .field("ids", &ordered_set_actor::ids)
           .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<ordered_set_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<ordered_set_actor>()));
 
   ordered_set_actor actor{};
   actor.ids.emplace(3);
@@ -793,7 +745,6 @@ TEST_CASE("serialization - roundtrips std set fields", "[serialization]") {
   CHECK(decoded.ids.contains(4));
 }
 
-
 TEST_CASE("serialization - generic sequence codec uses sequence traits", "[serialization]") {
   using scores_type = custom_codec_sequence<int>;
   require_serialization_codec<scores_type>("caors.test.serialization.custom_sequence<int>");
@@ -801,8 +752,8 @@ TEST_CASE("serialization - generic sequence codec uses sequence traits", "[seria
                                    "caors.test.serialization.custom_codec_sequence_actor")
                                    .field("scores", &custom_codec_sequence_actor::scores)
                                    .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<custom_codec_sequence_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::register_type<custom_codec_sequence_actor>()));
 
   custom_codec_sequence_actor actor{};
   actor.scores.values.push_back(4);
@@ -833,7 +784,6 @@ TEST_CASE("serialization - generic sequence codec uses sequence traits", "[seria
   CHECK(decoded.scores.values[1] == 9);
 }
 
-
 TEST_CASE("serialization - generic associative codec uses associative traits", "[serialization]") {
   using labels_type = custom_codec_map<int, caors::string>;
   require_serialization_codec<labels_type>("caors.test.serialization.custom_map<int,caors.string>");
@@ -841,8 +791,7 @@ TEST_CASE("serialization - generic associative codec uses associative traits", "
                                    "caors.test.serialization.custom_codec_map_actor")
                                    .field("labels", &custom_codec_map_actor::labels)
                                    .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<custom_codec_map_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<custom_codec_map_actor>()));
 
   custom_codec_map_actor actor{};
   actor.labels.values.emplace(6, caors::string{"six"});
@@ -873,23 +822,20 @@ TEST_CASE("serialization - generic associative codec uses associative traits", "
   CHECK(decoded.labels.values.at(10) == "ten");
 }
 
-
 TEST_CASE("serialization - recursively serializes vector struct elements", "[serialization]") {
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<nested_stats>("caors.test.serialization.nested_stats")
           .field("level", &nested_stats::level)
           .field("score", &nested_stats::score)
           .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<nested_stats>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<nested_stats>()));
   require_serialization_codec<caors::vector<nested_stats>>(
       "caors.vector<caors.test.serialization.nested_stats>");
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<nested_vector_actor>("caors.test.serialization.nested_vector_actor")
           .field("stats", &nested_vector_actor::stats)
           .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<nested_vector_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<nested_vector_actor>()));
 
   nested_vector_actor actor{};
   actor.stats.push_back(nested_stats{1, 2.5F});
@@ -930,6 +876,3 @@ TEST_CASE("serialization - recursively serializes vector struct elements", "[ser
   CHECK(decoded.stats[0].level == 7);
   CHECK(decoded.stats[0].score == Catch::Approx(8.5));
 }
-
-
-

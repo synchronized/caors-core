@@ -508,6 +508,12 @@ std::size_t registry::size() const noexcept { return meta::get_registry().count<
 
 registry& get_registry() noexcept { return registry::instance(); }
 
+error register_type(type_id id, type_data data) { return get_registry().register_type(id, data); }
+
+error register_type(meta::type_view type, type_data data) {
+  return get_registry().register_type(type, data);
+}
+
 namespace detail {
 
 error register_reflection(type_id id, type_data data) {

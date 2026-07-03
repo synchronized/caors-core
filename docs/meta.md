@@ -95,7 +95,7 @@ caors::meta::type_data data =
 
 ### meta::type_data 和 meta::type_view
 
-`meta::type_data` 是底层注册描述，包含：
+`meta::type_data` 是底层注册描述，包含公开身份和布局信息：
 
 - `id`
 - `name`
@@ -103,15 +103,16 @@ caors::meta::type_data data =
 - `size`
 - `alignment`
 - `parent_id`
-- `cpp_type`
-- `clone_value` / `destroy_value` / `assign_value`
+
+模板创建路径内部还会记录 C++ 类型 key，以及可用时的复制、析构和赋值函数。这些操作函数属于注册表和
+`value` 模块的内部运行期能力，普通代码不应直接修改或依赖其具体布局。
 
 ```cpp
 caors::meta::type_data data = caors::meta::make_type_data<player>("game.player");
 ```
 
 `meta::make_type_data<T>()` 只创建待注册描述，`id` 保持无效。真正的 `type_id` 在写入全局
-`meta::registry` 时分配。模板路径会同时记录 C++ 类型 key，以及可用时的复制、析构和赋值函数。
+`meta::registry` 时分配。
 `meta::id_of<T>()` 只查询已经注册的 C++ 类型，不会创建匿名类型记录；普通代码应在启动注册阶段直接使用
 `meta::type<T>("name")`。
 

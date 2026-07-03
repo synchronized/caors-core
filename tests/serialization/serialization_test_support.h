@@ -343,10 +343,8 @@ inline void require_pointer_actor_metadata() {
           .field("optional", &pointer_actor::optional, "std.optional<int>")
           .field("stats", &pointer_actor::stats, "caors.test.serialization.nested_stats*")
           .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<nested_stats>()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<pointer_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<nested_stats>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<pointer_actor>()));
 }
 
 inline void require_non_default_value_metadata() {
@@ -372,16 +370,13 @@ inline void require_non_default_value_metadata() {
                                    "caors.test.serialization.non_default_variant_actor")
                                    .field("value", &non_default_variant_actor::value)
                                    .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<non_default_value>()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<non_default_field_actor>()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<non_default_vector_actor>()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<non_default_unique_ptr_actor>()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<non_default_variant_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<non_default_value>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<non_default_field_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<non_default_vector_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::register_type<non_default_unique_ptr_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::register_type<non_default_variant_actor>()));
 }
 
 inline void require_unique_ptr_vector_actor_metadata() {
@@ -390,8 +385,7 @@ inline void require_unique_ptr_vector_actor_metadata() {
                                    "caors.test.serialization.unique_ptr_vector_actor")
                                    .field("values", &unique_ptr_vector_actor::values)
                                    .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<unique_ptr_vector_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<unique_ptr_vector_actor>()));
 }
 
 inline void require_scalar_actor_metadata() {
@@ -401,8 +395,7 @@ inline void require_scalar_actor_metadata() {
           .field("color", &scalar_actor::color, "caors.test.serialization.scalar_color")
           .field("state", &scalar_actor::state, "caors.test.serialization.scalar_state")
           .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<scalar_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<scalar_actor>()));
 }
 
 inline void require_object_ref_vector_actor_metadata() {
@@ -412,8 +405,7 @@ inline void require_object_ref_vector_actor_metadata() {
                                    "caors.test.serialization.object_ref_vector_actor")
                                    .field("targets", &object_ref_vector_actor::targets)
                                    .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<object_ref_vector_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<object_ref_vector_actor>()));
 }
 
 [[nodiscard]] inline caors::object_id resolve_object_id(const caors::object* instance,

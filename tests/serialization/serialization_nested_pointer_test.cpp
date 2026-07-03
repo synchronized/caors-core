@@ -16,10 +16,8 @@ TEST_CASE("serialization - recursively serializes nested reflected structs", "[s
           .field("id", &nested_actor::id)
           .field("stats", &nested_actor::stats)
           .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<nested_stats>()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<nested_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<nested_stats>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<nested_actor>()));
 
   const nested_actor actor{7, nested_stats{3, 12.5F}};
   const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
@@ -38,7 +36,6 @@ TEST_CASE("serialization - recursively serializes nested reflected structs", "[s
   CHECK(level->value.as_i64() == 3);
 }
 
-
 TEST_CASE("serialization - json handles nested structs arrays and schema context",
           "[serialization]") {
   REQUIRE(reflection_result_ok(
@@ -46,16 +43,14 @@ TEST_CASE("serialization - json handles nested structs arrays and schema context
           .field("level", &nested_stats::level)
           .field("score", &nested_stats::score)
           .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<nested_stats>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<nested_stats>()));
   require_serialization_codec<caors::vector<nested_stats>>(
       "caors.vector<caors.test.serialization.nested_stats>");
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<nested_vector_actor>("caors.test.serialization.nested_vector_actor")
           .field("stats", &nested_vector_actor::stats)
           .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<nested_vector_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<nested_vector_actor>()));
 
   nested_vector_actor actor{};
   actor.stats.push_back(nested_stats{1, 2.5F});
@@ -65,7 +60,6 @@ TEST_CASE("serialization - json handles nested structs arrays and schema context
   REQUIRE(json.succeeded());
   CHECK(json.value == R"({"stats":[{"level":1,"score":2.5},{"level":3,"score":4.5}]})");
 }
-
 
 TEST_CASE("serialization - recursively deserializes nested reflected structs", "[serialization]") {
   REQUIRE(reflection_result_ok(
@@ -78,10 +72,8 @@ TEST_CASE("serialization - recursively deserializes nested reflected structs", "
           .field("id", &nested_actor::id)
           .field("stats", &nested_actor::stats)
           .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<nested_stats>()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<nested_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<nested_stats>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<nested_actor>()));
 
   caors::variant::object_type stats_members;
   stats_members.push_back(caors::value::variant_member{
@@ -117,7 +109,6 @@ TEST_CASE("serialization - recursively deserializes nested reflected structs", "
   CHECK(actor.stats.score == Catch::Approx(15.25));
 }
 
-
 TEST_CASE("serialization - updates non default constructible direct fields", "[serialization]") {
   require_non_default_value_metadata();
 
@@ -132,7 +123,6 @@ TEST_CASE("serialization - updates non default constructible direct fields", "[s
   REQUIRE(result.succeeded());
   CHECK(actor.value.value == 7);
 }
-
 
 TEST_CASE("serialization - rejects non default constructible sequence elements",
           "[serialization]") {
@@ -154,7 +144,6 @@ TEST_CASE("serialization - rejects non default constructible sequence elements",
   CHECK(actor.values[0].value == 1);
 }
 
-
 TEST_CASE("serialization - updates existing non default constructible unique pointers",
           "[serialization]") {
   require_non_default_value_metadata();
@@ -168,7 +157,6 @@ TEST_CASE("serialization - updates existing non default constructible unique poi
   REQUIRE(actor.value != nullptr);
   CHECK(actor.value->value == 7);
 }
-
 
 TEST_CASE("serialization - rejects empty non default constructible unique pointers",
           "[serialization]") {
@@ -184,7 +172,6 @@ TEST_CASE("serialization - rejects empty non default constructible unique pointe
   CHECK(actor.value == nullptr);
 }
 
-
 TEST_CASE("serialization - updates existing non default constructible variant alternatives",
           "[serialization]") {
   require_non_default_value_metadata();
@@ -198,7 +185,6 @@ TEST_CASE("serialization - updates existing non default constructible variant al
   REQUIRE(std::holds_alternative<non_default_value>(actor.value));
   CHECK(std::get<non_default_value>(actor.value).value == 7);
 }
-
 
 TEST_CASE("serialization - rejects switching to non default constructible variant alternatives",
           "[serialization]") {
@@ -215,7 +201,6 @@ TEST_CASE("serialization - rejects switching to non default constructible varian
   REQUIRE(std::holds_alternative<int>(actor.value));
   CHECK(std::get<int>(actor.value) == 3);
 }
-
 
 TEST_CASE("serialization - serializes pointer and wrapper fields as inline values",
           "[serialization]") {
@@ -237,18 +222,19 @@ TEST_CASE("serialization - serializes pointer and wrapper fields as inline value
 
   const caors::serialization::variant_result value = caors::to_serialization_value(actor);
   REQUIRE(value.succeeded());
-  const caors::value::variant_member* shared = value.value.find_member(caors::string_name{"shared"});
+  const caors::value::variant_member* shared =
+      value.value.find_member(caors::string_name{"shared"});
   REQUIRE(shared != nullptr);
   CHECK(shared->value.as_i64() == 8);
 
   const caors::value::variant_member* nested = value.value.find_member(caors::string_name{"stats"});
   REQUIRE(nested != nullptr);
   REQUIRE(nested->value.is_object());
-  const caors::value::variant_member* level = nested->value.find_member(caors::string_name{"level"});
+  const caors::value::variant_member* level =
+      nested->value.find_member(caors::string_name{"level"});
   REQUIRE(level != nullptr);
   CHECK(level->value.as_i64() == 2);
 }
-
 
 TEST_CASE("serialization - deserializes pointer and wrapper fields into existing values",
           "[serialization]") {
@@ -323,7 +309,6 @@ TEST_CASE("serialization - deserializes pointer and wrapper fields into existing
   CHECK(stats.score == Catch::Approx(5.5));
 }
 
-
 TEST_CASE("serialization - serializes and deserializes reference wrapper fields",
           "[serialization]") {
   REQUIRE(reflection_result_ok(
@@ -331,8 +316,7 @@ TEST_CASE("serialization - serializes and deserializes reference wrapper fields"
           "caors.test.serialization.reference_wrapper_actor")
           .field("value", &reference_wrapper_actor::value, "std.reference_wrapper<int>")
           .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<reference_wrapper_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<reference_wrapper_actor>()));
 
   reference_wrapper_actor actor{7};
 
@@ -347,15 +331,13 @@ TEST_CASE("serialization - serializes and deserializes reference wrapper fields"
   CHECK(actor.storage == 11);
 }
 
-
 TEST_CASE("serialization - rejects null reference wrapper fields", "[serialization]") {
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<reference_wrapper_actor>(
           "caors.test.serialization.reference_wrapper_actor")
           .field("value", &reference_wrapper_actor::value, "std.reference_wrapper<int>")
           .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::detail::register_serialization<reference_wrapper_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<reference_wrapper_actor>()));
 
   reference_wrapper_actor actor{7};
   const caors::error result = caors::deserialize_json(actor, R"({"value":null})");
@@ -365,7 +347,6 @@ TEST_CASE("serialization - rejects null reference wrapper fields", "[serializati
   CHECK(result.value() == caors::errc::invalid_field);
   CHECK(actor.storage == 7);
 }
-
 
 TEST_CASE("serialization - serializes empty pointer and wrapper fields as null",
           "[serialization]") {
@@ -382,9 +363,12 @@ TEST_CASE("serialization - serializes empty pointer and wrapper fields as null",
   REQUIRE(value.succeeded());
 
   const caors::value::variant_member* raw = value.value.find_member(caors::string_name{"raw"});
-  const caors::value::variant_member* shared = value.value.find_member(caors::string_name{"shared"});
-  const caors::value::variant_member* unique = value.value.find_member(caors::string_name{"unique"});
-  const caors::value::variant_member* optional = value.value.find_member(caors::string_name{"optional"});
+  const caors::value::variant_member* shared =
+      value.value.find_member(caors::string_name{"shared"});
+  const caors::value::variant_member* unique =
+      value.value.find_member(caors::string_name{"unique"});
+  const caors::value::variant_member* optional =
+      value.value.find_member(caors::string_name{"optional"});
   const caors::value::variant_member* stats = value.value.find_member(caors::string_name{"stats"});
   REQUIRE(raw != nullptr);
   REQUIRE(shared != nullptr);
@@ -397,7 +381,6 @@ TEST_CASE("serialization - serializes empty pointer and wrapper fields as null",
   CHECK(optional->value.is_null());
   CHECK(stats->value.is_null());
 }
-
 
 TEST_CASE("serialization - deserializes null pointer and wrapper fields", "[serialization]") {
   require_pointer_actor_metadata();
@@ -421,7 +404,6 @@ TEST_CASE("serialization - deserializes null pointer and wrapper fields", "[seri
   CHECK_FALSE(actor.optional.has_value());
   CHECK(actor.stats == nullptr);
 }
-
 
 TEST_CASE("serialization - deserializes non-null values into empty wrappers", "[serialization]") {
   require_pointer_actor_metadata();
@@ -450,7 +432,6 @@ TEST_CASE("serialization - deserializes non-null values into empty wrappers", "[
   CHECK(stats.score == Catch::Approx(5.5));
 }
 
-
 TEST_CASE("serialization - rejects non-null values for empty raw pointers", "[serialization]") {
   require_pointer_actor_metadata();
 
@@ -469,6 +450,3 @@ TEST_CASE("serialization - rejects non-null values for empty raw pointers", "[se
   CHECK_FALSE(actor.optional.has_value());
   CHECK(actor.stats == nullptr);
 }
-
-
-

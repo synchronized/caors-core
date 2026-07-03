@@ -148,7 +148,7 @@ template <typename Enum>
 }
 
 template <typename Wrapper>
-[[nodiscard]] object* wrapper_object_ref_value(const void* storage) noexcept {
+[[nodiscard]] objects::object* wrapper_object_ref_value(const void* storage) noexcept {
   if (storage == nullptr) {
     return nullptr;
   }
@@ -158,7 +158,7 @@ template <typename Wrapper>
                 }) {
     using result_type =
         decltype(traits::wrapper_access<Wrapper>::object_value(std::declval<const Wrapper&>()));
-    if constexpr (std::is_convertible_v<result_type, object*>) {
+    if constexpr (std::is_convertible_v<result_type, objects::object*>) {
       return traits::wrapper_access<Wrapper>::object_value(*static_cast<const Wrapper*>(storage));
     } else {
       return nullptr;
@@ -169,16 +169,16 @@ template <typename Wrapper>
 }
 
 template <typename Wrapper>
-[[nodiscard]] bool wrapper_set_object_ref(void* storage, object* instance) noexcept {
+[[nodiscard]] bool wrapper_set_object_ref(void* storage, objects::object* instance) noexcept {
   if (storage == nullptr) {
     return false;
   }
 
-  if constexpr (requires(Wrapper& source, object* object_instance) {
+  if constexpr (requires(Wrapper& source, objects::object* object_instance) {
                   traits::wrapper_access<Wrapper>::set_object(source, object_instance);
                 }) {
     using result_type = decltype(traits::wrapper_access<Wrapper>::set_object(
-        std::declval<Wrapper&>(), std::declval<object*>()));
+        std::declval<Wrapper&>(), std::declval<objects::object*>()));
     if constexpr (std::is_convertible_v<result_type, bool>) {
       return traits::wrapper_access<Wrapper>::set_object(*static_cast<Wrapper*>(storage), instance);
     } else {

@@ -42,7 +42,7 @@ struct view_reflection_meta {
 }
 
 TEST_CASE("meta - global registry stores base type information", "[meta]") {
-  CHECK(caors::meta::detail::register_type<base_actor_type>("caors.test.meta.base_actor") ==
+  CHECK(caors::meta::type<base_actor_type>("caors.test.meta.base_actor").result() ==
         caors::error{});
 
   auto type = caors::meta::find("caors.test.meta.base_actor");
@@ -53,8 +53,8 @@ TEST_CASE("meta - global registry stores base type information", "[meta]") {
 }
 
 TEST_CASE("meta - global registry stores components by type id", "[meta]") {
-  REQUIRE(caors::meta::detail::register_type<component_actor_type>(
-              "caors.test.meta.component_actor") == caors::error{});
+  REQUIRE(caors::meta::type<component_actor_type>("caors.test.meta.component_actor").result() ==
+          caors::error{});
   const auto actor = caors::meta::find<component_actor_type>();
   REQUIRE(actor.has_value());
   const caors::type_id actor_id = actor->id();
@@ -94,14 +94,15 @@ TEST_CASE("meta - global registry rejects components for missing types", "[meta]
 }
 
 TEST_CASE("meta - global view finds types with all requested components", "[meta]") {
-  REQUIRE(caors::meta::detail::register_type<view_actor_type>("caors.test.meta.view_actor") ==
+  REQUIRE(caors::meta::type<view_actor_type>("caors.test.meta.view_actor").result() ==
           caors::error{});
   const auto actor = caors::meta::find<view_actor_type>();
   REQUIRE(actor.has_value());
   const caors::type_id actor_id = actor->id();
 
-  REQUIRE(caors::meta::detail::register_type<view_player_type>("caors.test.meta.view_player",
-                                                               actor_id) == caors::error{});
+  REQUIRE(caors::meta::type<view_player_type>("caors.test.meta.view_player")
+              .parent(actor_id)
+              .result() == caors::error{});
   const auto player = caors::meta::find<view_player_type>();
   REQUIRE(player.has_value());
   const caors::type_id player_id = player->id();

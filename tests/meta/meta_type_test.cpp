@@ -60,7 +60,7 @@ TEST_CASE("meta type - type id is allocated by explicit registration", "[meta]")
   CHECK_FALSE(caors::meta::id_of<anonymous_cpp_type>());
   CHECK_FALSE(caors::meta::find<anonymous_cpp_type>().has_value());
 
-  REQUIRE(caors::meta::detail::register_type<anonymous_cpp_type>("caors.test.type.anonymous_cpp") ==
+  REQUIRE(caors::meta::type<anonymous_cpp_type>("caors.test.type.anonymous_cpp").result() ==
           caors::error{});
 
   const caors::type_id first = caors::meta::id_of<anonymous_cpp_type>();
@@ -72,7 +72,7 @@ TEST_CASE("meta type - type id is allocated by explicit registration", "[meta]")
   auto named = caors::meta::find("caors.test.type.anonymous_cpp");
   REQUIRE(named.has_value());
   CHECK(named->id() == first);
-  CHECK(named->cpp_type() == caors::detail::cpp_type_key_of<anonymous_cpp_type>());
+  CHECK(caors::meta::find<anonymous_cpp_type>()->id() == first);
   CHECK(named->clone_value() != nullptr);
   CHECK(named->destroy_value() != nullptr);
   CHECK(named->assign_value() != nullptr);
@@ -91,7 +91,6 @@ TEST_CASE("meta type data - describes layout", "[meta]") {
   CHECK(data.size() == sizeof(sample_type));
   CHECK(data.alignment() == alignof(sample_type));
   CHECK_FALSE(data.parent_id());
-  CHECK(data.cpp_type() == caors::detail::cpp_type_key_of<sample_type>());
   CHECK(data.default_construct_value() != nullptr);
   CHECK(data.clone_value() != nullptr);
   CHECK(data.destroy_value() != nullptr);
@@ -113,10 +112,10 @@ TEST_CASE("meta type data - describes stable type guid", "[meta]") {
 }
 
 TEST_CASE("meta type - global registry registers and finds types", "[meta]") {
-  CHECK(caors::meta::detail::register_type<registry_parent_type>(
-            "caors.test.type.registry_parent") == caors::error{});
-  CHECK(caors::meta::detail::register_type<registry_parent_type>(
-            "caors.test.type.registry_parent") == meta_error(caors::errc::duplicate_id));
+  CHECK(caors::meta::type<registry_parent_type>("caors.test.type.registry_parent").result() ==
+        caors::error{});
+  CHECK(caors::meta::type<registry_parent_type>("caors.test.type.registry_parent").result() ==
+        meta_error(caors::errc::duplicate_id));
 
   auto type = caors::meta::find("caors.test.type.registry_parent");
   REQUIRE(type.has_value());
@@ -131,7 +130,7 @@ TEST_CASE("meta type - global registry registers and finds types", "[meta]") {
 }
 
 TEST_CASE("meta type - global registry finds types by C++ type", "[meta]") {
-  REQUIRE(caors::meta::detail::register_type<cpp_sample_type>("caors.test.type.cpp_sample") ==
+  REQUIRE(caors::meta::type<cpp_sample_type>("caors.test.type.cpp_sample").result() ==
           caors::error{});
 
   auto type = caors::meta::find<cpp_sample_type>();
@@ -144,8 +143,9 @@ TEST_CASE("meta type - global registry finds types by stable guid", "[meta]") {
   const auto guid = caors::guid::parse("7b458821-d56a-4133-a5a6-90a8661ee474");
   REQUIRE(guid.has_value());
 
-  REQUIRE(caors::meta::detail::register_type<guid_parent_type>(
-              "caors.test.type.guid_parent", caors::type_guid{*guid}) == caors::error{});
+  REQUIRE(caors::meta::type<guid_parent_type>("caors.test.type.guid_parent")
+              .guid(caors::type_guid{*guid})
+              .result() == caors::error{});
 
   auto type = caors::meta::find(caors::type_guid{*guid});
   REQUIRE(type.has_value());
@@ -200,7 +200,7 @@ TEST_CASE("meta type - global registry reports registration errors", "[meta]") {
   CHECK(caors::meta::get_registry().register_type(missing_parent) ==
         meta_error(caors::errc::missing_parent));
 
-  REQUIRE(caors::meta::detail::register_type<error_parent_type>("caors.test.type.error_parent") ==
+  REQUIRE(caors::meta::type<error_parent_type>("caors.test.type.error_parent").result() ==
           caors::error{});
   const auto parent = caors::meta::find<error_parent_type>();
   REQUIRE(parent.has_value());
@@ -219,8 +219,9 @@ TEST_CASE("meta type - global registry reports registration errors", "[meta]") {
 
   const auto guid = caors::guid::parse("c9e7a3da-2cc0-4048-97ef-d9327f71b09e");
   REQUIRE(guid.has_value());
-  REQUIRE(caors::meta::detail::register_type<guid_owner_type>(
-              "caors.test.type.guid_owner", caors::type_guid{*guid}) == caors::error{});
+  REQUIRE(caors::meta::type<guid_owner_type>("caors.test.type.guid_owner")
+              .guid(caors::type_guid{*guid})
+              .result() == caors::error{});
 
   caors::meta::type_data duplicate_guid = caors::meta::make_type_data<duplicate_guid_type>(
       "caors.test.type.duplicate_guid", caors::type_guid{*guid});
@@ -229,13 +230,14 @@ TEST_CASE("meta type - global registry reports registration errors", "[meta]") {
 }
 
 TEST_CASE("meta type - global registry checks parent relationship", "[meta]") {
-  REQUIRE(caors::meta::detail::register_type<relation_parent_type>(
-              "caors.test.type.relation_parent") == caors::error{});
+  REQUIRE(caors::meta::type<relation_parent_type>("caors.test.type.relation_parent").result() ==
+          caors::error{});
   const auto parent = caors::meta::find("caors.test.type.relation_parent");
   REQUIRE(parent.has_value());
 
-  REQUIRE(caors::meta::detail::register_type<relation_child_type>("caors.test.type.relation_child",
-                                                                  parent->id()) == caors::error{});
+  REQUIRE(caors::meta::type<relation_child_type>("caors.test.type.relation_child")
+              .parent(parent->id())
+              .result() == caors::error{});
   const auto child = caors::meta::find("caors.test.type.relation_child");
   REQUIRE(child.has_value());
 
