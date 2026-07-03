@@ -27,13 +27,6 @@ struct codec_registry_state {
 
 template <typename T> [[nodiscard]] type_id registered_codec_type_id() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (caors::detail::has_type_name_v<type>) {
-    const error result = caors::meta::detail::register_type<type>(traits::type_name<type>::value);
-    if (result && result.value() != errc::duplicate_id) {
-      return type_id::invalid();
-    }
-  }
-
   const std::optional<meta::type_view> meta = meta::get_registry().find_type<type>();
   return meta.has_value() ? meta->id() : type_id::invalid();
 }

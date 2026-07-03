@@ -139,13 +139,6 @@ template <typename T> [[nodiscard]] error register_serialization_codec() {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  if constexpr (caors::detail::has_type_name_v<type>) {
-    const error result = caors::meta::detail::register_type<type>(traits::type_name<type>::value);
-    if (result && result.value() != errc::duplicate_id) {
-      return {error_domain::serialization, errc::invalid_type};
-    }
-  }
-
   const std::optional<meta::type_view> meta = meta::get_registry().find_type<type>();
   if (!meta.has_value()) {
     return {error_domain::serialization, errc::invalid_type};

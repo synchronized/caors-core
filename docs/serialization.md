@@ -244,9 +244,11 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `objects::ref<T>
 因此既有代码不需要额外 include。如果只需要反射 traits 或 wrapper 语义，可以包含
 `caors/adapters/stl.h`，该头不会拉入序列化 codec。
 
-反射字段中的容器、pair、tuple 和 variant 不要求显式调用 `serialization::register_codec<T>()`；只要字段类型通过
+反射字段中的容器、pair、tuple 和 variant 不要求显式调用 `serialization::register_codec<T>()`；
+但字段声明类型以及递归用到的元素、key、first、value 或候选类型都必须先通过 `meta::type<T>("name")`
+注册到 meta。字段类型注册时会根据
 `traits::sequence_traits<T>`、`traits::set_traits<T>`、`traits::associative_traits<T>`、`traits::pair_traits<T>`、`traits::tuple_traits<T>` 或
-`traits::variant_traits<T>` 注册了 meta 访问数据，序列化层就能按元素、key、first、候选下标和 value 递归处理。`serialization::sequence_codec<T>`、
+`traits::variant_traits<T>` 挂载 meta 访问数据，序列化层随后按元素、key、first、候选下标和 value 递归处理。`serialization::sequence_codec<T>`、
 `serialization::set_codec<T>` 和 `serialization::associative_codec<T>`
 仍保留给显式 codec 注册、独立值转换和外部复用。自定义容器通常只需要特化 traits；如果还需要作为 codec
 单独注册，可以让自己的 `serialization::codec<T>` 继承通用 codec：
@@ -273,7 +275,8 @@ DOM reader 同时接受 `variant::dictionary` 和 pair 数组形态。普通 `st
 普通 `std::variant<Ts...>` 字段会写成 `[index, value]`，`index` 是当前候选下标；读入时数组长度必须等于 2，
 `index` 必须在候选范围内。目标对象已经处于相同候选时会更新已有值；切换到其他候选时，该候选类型需要支持默认构造。
 
-外部类型可以通过特化 `serialization::codec<T>` 并调用 `serialization::register_codec<T>()` 注册。底层按
+外部类型可以通过特化 `serialization::codec<T>` 并调用 `serialization::register_codec<T>()` 注册。
+调用前必须已经通过 `meta::type<T>("name")` 注册对应 C++ 类型；codec 注册不会隐式创建 meta 类型。底层按
 `type_id` 注册 `serialization::codec_data` 的入口属于内部实现，普通代码不直接调用。codec 可以分别提供
 writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认逻辑或返回不支持。
 

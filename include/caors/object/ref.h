@@ -95,6 +95,24 @@ private:
   ::caors::objects::handle handle_{};
 };
 
+namespace detail {
+
+template <typename T> struct object_ref_traits {
+  static constexpr bool is_object_ref = false;
+};
+
+template <typename T> struct object_ref_traits<ref<T>> {
+  static constexpr bool is_object_ref = true;
+  using object_type = T;
+};
+
+template <typename T> struct object_ref_traits<weak_handle<T>> {
+  static constexpr bool is_object_ref = false;
+  using object_type = T;
+};
+
+} // namespace detail
+
 } // namespace objects
 
 template <typename T> using object_ref = objects::ref<T>;

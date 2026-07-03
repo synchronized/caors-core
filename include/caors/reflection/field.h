@@ -20,15 +20,14 @@ namespace caors::reflection::detail {
 using object_ref_get_fn = object* (*)(const void*) noexcept;
 using object_ref_set_fn = bool (*)(void*, object*) noexcept;
 
-template <typename T> [[nodiscard]] type_id register_field_type_id(std::string_view name) {
+template <typename T> [[nodiscard]] type_id find_field_type_id(std::string_view name) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  const error result = caors::meta::detail::register_type<type>(name);
-  if (result.succeeded() || result.value() == errc::duplicate_id) {
-    const std::optional<meta::type_view> registered = caors::meta::find<type>();
-    return registered.has_value() ? registered->id() : type_id::invalid();
+  const std::optional<meta::type_view> registered = caors::meta::find<type>();
+  if (!registered.has_value() || registered->name().empty() || registered->name() != name) {
+    return type_id::invalid();
   }
 
-  return type_id::invalid();
+  return registered->id();
 }
 
 template <typename Field> [[nodiscard]] object_ref_get_fn object_ref_get_fn_of() noexcept {
@@ -218,7 +217,7 @@ template <typename Field>
 [[nodiscard]] field_data make_field_data(std::string_view name, std::string_view type_name,
                                          std::size_t offset) {
   using field_type = std::remove_cv_t<Field>;
-  const type_id field_type_id = detail::register_field_type_id<field_type>(type_name);
+  const type_id field_type_id = detail::find_field_type_id<field_type>(type_name);
 
   field_data field{
       string_name{name},
@@ -229,18 +228,20 @@ template <typename Field>
       !std::is_const_v<Field>,
   };
 
-  if constexpr (traits::sequence_traits<field_type>::is_sequence) {
-    (void)meta::detail::register_container_data_for<field_type>(field.type);
-  } else if constexpr (traits::set_traits<field_type>::is_set) {
-    (void)meta::detail::register_container_data_for<field_type>(field.type);
-  } else if constexpr (traits::associative_traits<field_type>::is_associative) {
-    (void)meta::detail::register_container_data_for<field_type>(field.type);
-  } else if constexpr (traits::pair_traits<field_type>::is_pair) {
-    (void)meta::detail::register_container_data_for<field_type>(field.type);
-  } else if constexpr (traits::tuple_traits<field_type>::is_tuple) {
-    (void)meta::detail::register_container_data_for<field_type>(field.type);
-  } else if constexpr (traits::variant_traits<field_type>::is_variant) {
-    (void)meta::detail::register_container_data_for<field_type>(field.type);
+  if (field.type) {
+    if constexpr (traits::sequence_traits<field_type>::is_sequence) {
+      (void)meta::detail::register_container_data_for<field_type>(field.type);
+    } else if constexpr (traits::set_traits<field_type>::is_set) {
+      (void)meta::detail::register_container_data_for<field_type>(field.type);
+    } else if constexpr (traits::associative_traits<field_type>::is_associative) {
+      (void)meta::detail::register_container_data_for<field_type>(field.type);
+    } else if constexpr (traits::pair_traits<field_type>::is_pair) {
+      (void)meta::detail::register_container_data_for<field_type>(field.type);
+    } else if constexpr (traits::tuple_traits<field_type>::is_tuple) {
+      (void)meta::detail::register_container_data_for<field_type>(field.type);
+    } else if constexpr (traits::variant_traits<field_type>::is_variant) {
+      (void)meta::detail::register_container_data_for<field_type>(field.type);
+    }
   }
 
   return field;

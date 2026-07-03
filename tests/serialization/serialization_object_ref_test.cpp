@@ -6,8 +6,9 @@
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - serializes object references through resolver", "[serialization]") {
-  REQUIRE(type_result_ok(caors::meta::detail::register_type<caors::object_ref<object_ref_target>>(
-      "caors.object_ref<caors.test.serialization.object_ref_target>")));
+  REQUIRE(type_result_ok(caors::meta::type<caors::object_ref<object_ref_target>>(
+                             "caors.object_ref<caors.test.serialization.object_ref_target>")
+                             .result()));
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<object_ref_actor>("caors.test.serialization.object_ref_actor")
           .field("target", &object_ref_actor::target)
@@ -44,10 +45,10 @@ TEST_CASE("serialization - serializes object references through resolver", "[ser
   CHECK(json.value == R"({"target":77})");
 }
 
-
 TEST_CASE("serialization - deserializes object references through resolver", "[serialization]") {
-  REQUIRE(type_result_ok(caors::meta::detail::register_type<caors::object_ref<object_ref_target>>(
-      "caors.object_ref<caors.test.serialization.object_ref_target>")));
+  REQUIRE(type_result_ok(caors::meta::type<caors::object_ref<object_ref_target>>(
+                             "caors.object_ref<caors.test.serialization.object_ref_target>")
+                             .result()));
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<object_ref_actor>("caors.test.serialization.object_ref_actor")
           .field("target", &object_ref_actor::target)
@@ -84,7 +85,6 @@ TEST_CASE("serialization - deserializes object references through resolver", "[s
   CHECK(from_json.target.get() == &target);
 }
 
-
 TEST_CASE("serialization - serializes object references inside vectors", "[serialization]") {
   require_object_ref_vector_actor_metadata();
 
@@ -108,14 +108,14 @@ TEST_CASE("serialization - serializes object references inside vectors", "[seria
 
   const caors::serialization::variant_result value = caors::to_serialization_value(actor, context);
   REQUIRE(value.succeeded());
-  const caors::value::variant_member* targets = value.value.find_member(caors::string_name{"targets"});
+  const caors::value::variant_member* targets =
+      value.value.find_member(caors::string_name{"targets"});
   REQUIRE(targets != nullptr);
   REQUIRE(targets->value.is_array());
   REQUIRE(targets->value.as_array().size() == 2);
   CHECK(targets->value.as_array()[0].as_u64() == 77);
   CHECK(targets->value.as_array()[1].as_u64() == 0);
 }
-
 
 TEST_CASE("serialization - deserializes object references inside vectors", "[serialization]") {
   require_object_ref_vector_actor_metadata();
@@ -138,10 +138,10 @@ TEST_CASE("serialization - deserializes object references inside vectors", "[ser
   CHECK(actor.targets[1].get() == nullptr);
 }
 
-
 TEST_CASE("serialization - object reference resolver failures are reported", "[serialization]") {
-  REQUIRE(type_result_ok(caors::meta::detail::register_type<caors::object_ref<object_ref_target>>(
-      "caors.object_ref<caors.test.serialization.object_ref_target>")));
+  REQUIRE(type_result_ok(caors::meta::type<caors::object_ref<object_ref_target>>(
+                             "caors.object_ref<caors.test.serialization.object_ref_target>")
+                             .result()));
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<object_ref_actor>("caors.test.serialization.object_ref_actor")
           .field("target", &object_ref_actor::target)
@@ -198,6 +198,3 @@ TEST_CASE("serialization - object reference resolver failures are reported", "[s
   CHECK(wrong_type.failed());
   CHECK(wrong_type.value() == caors::errc::invalid_type);
 }
-
-
-

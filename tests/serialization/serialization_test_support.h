@@ -316,7 +316,12 @@ struct object_ref_resolver_data {
 }
 
 template <typename T> void require_registered_type(std::string_view name) {
-  REQUIRE(type_result_ok(caors::meta::detail::register_type<T>(name)));
+  REQUIRE(type_result_ok(caors::meta::type<T>(name).result()));
+}
+
+template <typename T> void register_common_type(std::string_view name) {
+  const caors::error status = caors::meta::type<T>(name).result();
+  (void)status;
 }
 
 template <typename T> void require_serialization_codec(std::string_view name) {
@@ -380,8 +385,7 @@ inline void require_non_default_value_metadata() {
 }
 
 inline void require_unique_ptr_vector_actor_metadata() {
-  REQUIRE(type_result_ok(
-      caors::meta::detail::register_type<std::unique_ptr<int>>("std.unique_ptr<int>")));
+  require_registered_type<std::unique_ptr<int>>("std.unique_ptr<int>");
   REQUIRE(reflection_result_ok(caors::reflection::class_<unique_ptr_vector_actor>(
                                    "caors.test.serialization.unique_ptr_vector_actor")
                                    .field("values", &unique_ptr_vector_actor::values)
@@ -402,8 +406,8 @@ inline void require_scalar_actor_metadata() {
 }
 
 inline void require_object_ref_vector_actor_metadata() {
-  REQUIRE(type_result_ok(caors::meta::detail::register_type<caors::object_ref<object_ref_target>>(
-      "caors.object_ref<caors.test.serialization.object_ref_target>")));
+  require_registered_type<caors::object_ref<object_ref_target>>(
+      "caors.object_ref<caors.test.serialization.object_ref_target>");
   REQUIRE(reflection_result_ok(caors::reflection::class_<object_ref_vector_actor>(
                                    "caors.test.serialization.object_ref_vector_actor")
                                    .field("targets", &object_ref_vector_actor::targets)
@@ -412,7 +416,8 @@ inline void require_object_ref_vector_actor_metadata() {
       caors::serialization::detail::register_serialization<object_ref_vector_actor>()));
 }
 
-[[nodiscard]] inline caors::object_id resolve_object_id(const caors::object* instance, void* user_data) {
+[[nodiscard]] inline caors::object_id resolve_object_id(const caors::object* instance,
+                                                        void* user_data) {
   const auto* data = static_cast<const object_ref_resolver_data*>(user_data);
   if (data == nullptr || instance == nullptr || instance != data->instance) {
     return caors::object_id::invalid();
@@ -490,7 +495,8 @@ template <> struct type_name<caors::tests::serialization::nested_stats> {
 
 namespace caors::traits {
 
-template <typename T> struct sequence_traits<caors::tests::serialization::custom_codec_sequence<T>> {
+template <typename T>
+struct sequence_traits<caors::tests::serialization::custom_codec_sequence<T>> {
   static constexpr bool is_sequence = true;
   using element_type = std::remove_cv_t<T>;
 
@@ -498,34 +504,42 @@ template <typename T> struct sequence_traits<caors::tests::serialization::custom
     return "caors.test.serialization.custom_sequence";
   }
 
-  [[nodiscard]] static std::size_t size(const caors::tests::serialization::custom_codec_sequence<T>& values) noexcept {
+  [[nodiscard]] static std::size_t
+  size(const caors::tests::serialization::custom_codec_sequence<T>& values) noexcept {
     return values.values.size();
   }
 
-  [[nodiscard]] static const element_type* element(const caors::tests::serialization::custom_codec_sequence<T>& values,
-                                                   std::size_t index) noexcept {
+  [[nodiscard]] static const element_type*
+  element(const caors::tests::serialization::custom_codec_sequence<T>& values,
+          std::size_t index) noexcept {
     return index < values.values.size() ? &values.values[index] : nullptr;
   }
 
-  [[nodiscard]] static element_type* mutable_element(caors::tests::serialization::custom_codec_sequence<T>& values,
-                                                     std::size_t index) noexcept {
+  [[nodiscard]] static element_type*
+  mutable_element(caors::tests::serialization::custom_codec_sequence<T>& values,
+                  std::size_t index) noexcept {
     return index < values.values.size() ? &values.values[index] : nullptr;
   }
 
-  static void clear(caors::tests::serialization::custom_codec_sequence<T>& values) { values.values.clear(); }
+  static void clear(caors::tests::serialization::custom_codec_sequence<T>& values) {
+    values.values.clear();
+  }
 
-  [[nodiscard]] static bool resize(caors::tests::serialization::custom_codec_sequence<T>& values, std::size_t size) {
+  [[nodiscard]] static bool resize(caors::tests::serialization::custom_codec_sequence<T>& values,
+                                   std::size_t size) {
     values.values.resize(size);
     return true;
   }
 
-  [[nodiscard]] static bool append(caors::tests::serialization::custom_codec_sequence<T>& values, const element_type& value) {
+  [[nodiscard]] static bool append(caors::tests::serialization::custom_codec_sequence<T>& values,
+                                   const element_type& value) {
     values.values.push_back(value);
     return true;
   }
 };
 
-template <typename K, typename V> struct associative_traits<caors::tests::serialization::custom_codec_map<K, V>> {
+template <typename K, typename V>
+struct associative_traits<caors::tests::serialization::custom_codec_map<K, V>> {
   static constexpr bool is_associative = true;
   using key_type = std::remove_cv_t<K>;
   using mapped_type = std::remove_cv_t<V>;
@@ -557,11 +571,75 @@ template <typename K, typename V> struct associative_traits<caors::tests::serial
 namespace caors::serialization {
 
 template <typename T>
-struct codec<caors::tests::serialization::custom_codec_sequence<T>> : sequence_codec<caors::tests::serialization::custom_codec_sequence<T>> {};
+struct codec<caors::tests::serialization::custom_codec_sequence<T>>
+    : sequence_codec<caors::tests::serialization::custom_codec_sequence<T>> {};
 
 template <typename K, typename V>
-struct codec<caors::tests::serialization::custom_codec_map<K, V>> : associative_codec<caors::tests::serialization::custom_codec_map<K, V>> {};
+struct codec<caors::tests::serialization::custom_codec_map<K, V>>
+    : associative_codec<caors::tests::serialization::custom_codec_map<K, V>> {};
 
 } // namespace caors::serialization
 
+namespace caors::tests::serialization {
 
+[[maybe_unused]] inline const bool common_serialization_types_registered = [] {
+  register_common_type<bool>("bool");
+  register_common_type<char>("char");
+  register_common_type<int>("int");
+  register_common_type<float>("float");
+  register_common_type<caors::string>("caors.string");
+  register_common_type<std::string>("std.string");
+  register_common_type<std::string_view>("std.string_view");
+  register_common_type<caors::guid>("caors.guid");
+  register_common_type<caors::type_guid>("caors.type_guid");
+  register_common_type<std::filesystem::path>("std.filesystem.path");
+  register_common_type<std::chrono::milliseconds>("std.chrono.milliseconds");
+  register_common_type<std::chrono::system_clock::time_point>("std.chrono.system_clock.time_point");
+  register_common_type<scalar_color>("caors.test.serialization.scalar_color");
+  register_common_type<scalar_state>("caors.test.serialization.scalar_state");
+  register_common_type<unsupported_field_value>("caors.test.serialization.unsupported_value");
+  register_common_type<nested_stats>("caors.test.serialization.nested_stats");
+  register_common_type<non_default_value>("caors.test.serialization.non_default_value");
+  register_common_type<int*>("int*");
+  register_common_type<nested_stats*>("caors.test.serialization.nested_stats*");
+  register_common_type<std::shared_ptr<int>>("std.shared_ptr<int>");
+  register_common_type<std::unique_ptr<int>>("std.unique_ptr<int>");
+  register_common_type<std::weak_ptr<int>>("std.weak_ptr<int>");
+  register_common_type<std::optional<int>>("std.optional<int>");
+  register_common_type<std::reference_wrapper<int>>("std.reference_wrapper<int>");
+  register_common_type<std::unique_ptr<non_default_value>>(
+      "std.unique_ptr<caors.test.serialization.non_default_value>");
+  register_common_type<caors::vector<int>>("caors.vector<int>");
+  register_common_type<caors::vector<caors::vector<int>>>("caors.vector<caors.vector<int>>");
+  register_common_type<caors::vector<std::unique_ptr<int>>>("caors.vector<std.unique_ptr<int>>");
+  register_common_type<caors::vector<caors::guid>>("caors.vector<guid>");
+  register_common_type<caors::vector<non_default_value>>(
+      "caors.vector<caors.test.serialization.non_default_value>");
+  register_common_type<caors::vector<nested_stats>>(
+      "caors.vector<caors.test.serialization.nested_stats>");
+  register_common_type<caors::vector<caors::object_ref<object_ref_target>>>(
+      "caors.vector<caors.object_ref<caors.test.serialization.object_ref_target>>");
+  register_common_type<caors::list<int>>("caors.list<int>");
+  register_common_type<std::forward_list<int>>("std.forward_list<int>");
+  register_common_type<std::deque<int>>("std.deque<int>");
+  register_common_type<std::array<int, 3>>("std.array<int,3>");
+  register_common_type<std::span<int>>("std.span<int>");
+  register_common_type<std::pair<int, caors::string>>("std.pair<int,caors.string>");
+  register_common_type<std::tuple<int, caors::string, float>>("std.tuple<int,caors.string,float>");
+  register_common_type<std::variant<int, caors::string, float>>(
+      "std.variant<int,caors.string,float>");
+  register_common_type<std::variant<int, non_default_value>>(
+      "std.variant<int,caors.test.serialization.non_default_value>");
+  register_common_type<caors::hash_map<int, caors::string>>("caors.hash_map<int,caors.string>");
+  register_common_type<std::map<int, caors::string>>("std.map<int,caors.string>");
+  register_common_type<caors::hash_set<int>>("caors.hash_set<int>");
+  register_common_type<std::set<int>>("std.set<int>");
+  register_common_type<custom_codec_sequence<int>>("caors.test.serialization.custom_sequence<int>");
+  register_common_type<custom_codec_map<int, caors::string>>(
+      "caors.test.serialization.custom_map<int,caors.string>");
+  register_common_type<caors::object_ref<object_ref_target>>(
+      "caors.object_ref<caors.test.serialization.object_ref_target>");
+  return true;
+}();
+
+} // namespace caors::tests::serialization

@@ -174,7 +174,8 @@ caors::meta::type<actor>("game.actor")
 这部分数据不放在 `reflection::field_data` 上重复保存。字段只记录声明类型的 `type_id`，需要查询字段形态、
 value 类型、关联容器 key 类型、二元组 first 类型或 tuple-like 字段形态时，通过该 `type_id` 到 `meta::registry` 查询 `meta::type_semantics_data`。
 `meta::type_semantics_data` 由 `meta::registry::register_type_for<T>()` 在基础类型注册时自动挂载；反射字段
-注册只负责确保字段声明类型已经注册。没有默认 `traits::type_name<T>` 且尚未显式注册的关联类型不会被匿名创建。
+注册只负责确保字段声明类型已经注册。wrapper、指针和容器依赖的 value/key/元素/候选类型也必须提前显式注册；
+meta 不会因为存在 `traits::type_name<T>` 就在运行期隐式创建这些关联类型。
 
 ### meta::registry
 
@@ -193,6 +194,7 @@ caors::error result = caors::meta::type<actor>("game.actor").result();
 
 ```cpp
 void register_game_types() {
+  caors::meta::type<int>("int");
   caors::meta::type<actor>("game.actor");
   caors::reflection::class_<actor>(caors::meta::get<actor>())
       .field("id", &actor::id)
@@ -210,6 +212,7 @@ int main() {
 
 ```cpp
 CAORS_META_REGISTRATION(register_actor_meta) {
+  caors::meta::type<int>("int");
   caors::meta::type<actor>("game.actor");
 
   return caors::reflection::class_<actor>(caors::meta::get<actor>())

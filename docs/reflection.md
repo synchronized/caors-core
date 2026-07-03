@@ -60,11 +60,15 @@ caors::reflection::field_data field =
     caors::reflection::make_field_data<float>("health", "float", offsetof(actor, health));
 ```
 
+字段类型必须已经通过 `meta::type<T>("name")` 注册，`make_field_data()` 不会隐式创建类型。
 第一版要求调用方显式传入 offset，通常配合 `offsetof()` 使用。后续如果引入代码生成工具，可以由工具生成字段描述。
 
 更推荐使用 `reflection::class_<T>()` builder，它可以通过成员指针推导偏移和字段类型：
 
 ```cpp
+caors::meta::type<int>("int");
+caors::meta::type<float>("float");
+
 caors::reflection::class_<actor>("game.actor")
     .field("id", &actor::id)
     .field("health", &actor::health)
@@ -73,25 +77,22 @@ caors::reflection::class_<actor>("game.actor")
 
 字段类型推导规则：
 
-- 如果字段类型已经通过模板注册函数注册到全局反射注册表，优先复用该类型的 `meta::type_view`。
-- 如果字段类型没有注册，但存在 `traits::type_name<T>` 默认映射，则使用默认类型名注册为基础类型，并使用注册表分配的 `type_id`。
-- 如果字段类型满足 `traits::sequence_traits<T>::is_sequence`，反射 builder 会根据 traits 的类型名前缀和元素类型名生成
-  容器类型名。字段类型注册到 meta 时会同步挂载元素类型语义。内置特化支持 `caors::vector<T>`、
+- 字段声明类型必须已经通过 `meta::type<Field>("name")` 注册；未注册时 `.field()` 会记录失败，
+  `.commit()` 返回 `invalid_field`。
+- 如果字段类型满足 `traits::sequence_traits<T>::is_sequence`，字段类型注册到 meta 时会同步挂载元素类型语义。
+  内置特化支持 `caors::vector<T>`、
   `std::vector<T, Allocator>`、`caors::list<T>`、`std::list<T, Allocator>`、`std::deque<T, Allocator>`、
   `std::array<T, N>` 和 `std::span<T, Extent>`。
-- 如果字段类型满足 `traits::set_traits<T>::is_set`，反射 builder 会根据 traits 的类型名前缀和元素类型名生成
-  容器类型名。字段类型注册到 meta 时会同步挂载元素类型语义。内置特化支持 `caors::hash_set<T>`、
+- 如果字段类型满足 `traits::set_traits<T>::is_set`，字段类型注册到 meta 时会同步挂载元素类型语义。内置特化支持 `caors::hash_set<T>`、
   `std::unordered_set<T, ...>` 和 `std::set<T, ...>`。
-- 如果字段类型满足 `traits::associative_traits<T>::is_associative`，反射 builder 会根据 traits 的类型名前缀、
-  key 类型名和 value 类型名生成容器类型名。字段类型注册到 meta 时会同步挂载 key/value 类型语义。内置特化支持
+- 如果字段类型满足 `traits::associative_traits<T>::is_associative`，字段类型注册到 meta 时会同步挂载 key/value 类型语义。内置特化支持
   `caors::hash_map<K, V>`、`std::unordered_map<K, V, ...>` 和 `std::map<K, V, ...>`。
-- 如果字段类型满足 `traits::pair_traits<T>::is_pair`，反射 builder 会根据 traits 的类型名前缀、first 类型名和
-  second 类型名生成二元组类型名。内置特化支持 `std::pair<T, U>`。
-- 如果字段类型满足 `traits::tuple_traits<T>::is_tuple`，反射 builder 会根据 traits 的类型名前缀和每个元素类型名
-  生成 tuple-like 类型名。内置特化支持 `std::tuple<Ts...>`。
-- 如果字段类型满足 `traits::variant_traits<T>::is_variant`，反射 builder 会根据 traits 的类型名前缀和每个候选类型名
-  生成 variant-like 类型名。内置特化支持 `std::variant<Ts...>`。
-- 如果以上规则都没有命中，`.commit()` 返回 `invalid_field`。
+- 如果字段类型满足 `traits::pair_traits<T>::is_pair`，字段类型注册到 meta 时会同步挂载 first/value 类型语义。
+  内置特化支持 `std::pair<T, U>`。
+- 如果字段类型满足 `traits::tuple_traits<T>::is_tuple`，字段类型注册到 meta 时会同步挂载每个元素类型语义。
+  内置特化支持 `std::tuple<Ts...>`。
+- 如果字段类型满足 `traits::variant_traits<T>::is_variant`，字段类型注册到 meta 时会同步挂载每个候选类型语义。
+  内置特化支持 `std::variant<Ts...>`。
 - 字段类型语义最多支持一层裸指针或 wrapper；`T**`、`std::unique_ptr<T*>`、
   `std::optional<std::shared_ptr<T>>` 这类嵌套组合会触发静态断言。
 
@@ -598,6 +599,7 @@ for (caors::value::associative_entry_ref entry : map) {
 访问它，不需要创建 registry 对象：
 
 ```cpp
+caors::meta::type<int>("int");
 caors::meta::type_view type = caors::meta::type<actor>("game.actor").get();
 
 caors::error result =
