@@ -250,13 +250,6 @@ template <typename Field>
 
 } // namespace reflection
 
-/** @brief 创建字段反射元信息。兼容入口，优先使用 `reflection::make_field_data()`。 */
-template <typename Field>
-[[nodiscard]] reflection::field_data
-make_reflection_field_data(std::string_view name, std::string_view type_name, std::size_t offset) {
-  return reflection::make_field_data<Field>(name, type_name, offset);
-}
-
 namespace detail {
 
 template <typename Member> struct member_pointer_traits;

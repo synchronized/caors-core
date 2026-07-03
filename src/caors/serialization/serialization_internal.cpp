@@ -780,7 +780,7 @@ object_ref_value_from_ref(const any_ref& value,
     return {error_domain::serialization, errc::unsupported};
   }
 
-  const std::optional<meta_type> meta = find_type(target.type());
+  const std::optional<meta_type> meta = caors::meta::find(target.type());
   if (sequence != nullptr && !sequence->read_in_place && meta.has_value() &&
       meta->assign_value() != nullptr) {
     any decoded = any::default_construct(target.type());
@@ -848,7 +848,7 @@ object_ref_value_from_ref(const any_ref& value,
 
 [[nodiscard]] error read_set_value(serialization_reader& reader, const any_ref& target,
                                    const serialization::context& context) {
-  const std::optional<meta_type> meta = find_type(target.type());
+  const std::optional<meta_type> meta = caors::meta::find(target.type());
   if (meta.has_value() && meta->assign_value() != nullptr) {
     any decoded = any::default_construct(target.type());
     if (decoded.valid()) {
@@ -942,7 +942,7 @@ object_ref_value_from_ref(const any_ref& value,
 
 [[nodiscard]] error read_associative_value(serialization_reader& reader, const any_ref& target,
                                            const serialization::context& context) {
-  const std::optional<meta_type> meta = find_type(target.type());
+  const std::optional<meta_type> meta = caors::meta::find(target.type());
   if (meta.has_value() && meta->assign_value() != nullptr) {
     any decoded = any::default_construct(target.type());
     if (decoded.valid()) {
@@ -1023,7 +1023,7 @@ object_ref_value_from_ref(const any_ref& value,
 
 [[nodiscard]] error read_pair_value(serialization_reader& reader, const any_ref& target,
                                     const serialization::context& context) {
-  const std::optional<meta_type> meta = find_type(target.type());
+  const std::optional<meta_type> meta = caors::meta::find(target.type());
   if (meta.has_value() && meta->assign_value() != nullptr) {
     any decoded = any::default_construct(target.type());
     if (decoded.valid()) {
@@ -1086,7 +1086,7 @@ object_ref_value_from_ref(const any_ref& value,
 
 [[nodiscard]] error read_tuple_value(serialization_reader& reader, const any_ref& target,
                                      const serialization::context& context) {
-  const std::optional<meta_type> meta = find_type(target.type());
+  const std::optional<meta_type> meta = caors::meta::find(target.type());
   if (meta.has_value() && meta->assign_value() != nullptr) {
     any decoded = any::default_construct(target.type());
     if (decoded.valid()) {
@@ -1171,7 +1171,7 @@ object_ref_value_from_ref(const any_ref& value,
 
 [[nodiscard]] error read_variant_value(serialization_reader& reader, const any_ref& target,
                                        const serialization::context& context) {
-  const std::optional<meta_type> meta = find_type(target.type());
+  const std::optional<meta_type> meta = caors::meta::find(target.type());
   if (meta.has_value() && meta->assign_value() != nullptr) {
     any decoded = target.to_any();
     if (!decoded.valid()) {

@@ -559,12 +559,4 @@ std::size_t size() noexcept { return reflection::get_registry().size(); }
 
 } // namespace reflection
 
-std::optional<reflection::type> find_reflection(type_id id) { return reflection::find(id); }
-
-std::optional<reflection::type> find_reflection(type_guid guid) { return reflection::find(guid); }
-
-std::optional<reflection::type> find_reflection(std::string_view name) {
-  return reflection::find(name);
-}
-
 } // namespace caors

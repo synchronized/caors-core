@@ -657,9 +657,9 @@ TEST_CASE("serialization - field metadata renames and skips fields", "[serializa
 
   REQUIRE(caors::detail::register_serialization<configured_actor>(
               {
-                  caors::make_serialization_field("health", "hp"),
-                  caors::make_serialization_field("debug", {}, true),
-                  caors::make_serialization_field("id"),
+                  caors::serialization::make_field("health", "hp"),
+                  caors::serialization::make_field("debug", {}, true),
+                  caors::serialization::make_field("id"),
               })
               .succeeded());
 
@@ -676,7 +676,7 @@ TEST_CASE("serialization - generic writer backend serializes fields", "[serializ
           .field("id", &writer_actor::id)
           .commit()));
   REQUIRE(serialization_result_ok(caors::detail::register_serialization<writer_actor>({
-      caors::make_serialization_field("id", {}, false, 7),
+      caors::serialization::make_field("id", {}, false, 7),
   })));
 
   numeric_field_writer writer;
@@ -696,7 +696,7 @@ TEST_CASE("serialization - builds variant from reflected object", "[serializatio
           .field("id", &dom_actor::id)
           .commit()));
   REQUIRE(serialization_result_ok(caors::detail::register_serialization<dom_actor>({
-      caors::make_serialization_field("id", "actor_id", false, 7),
+      caors::serialization::make_field("id", "actor_id", false, 7),
   })));
 
   const dom_actor actor{42};
@@ -2426,7 +2426,7 @@ TEST_CASE("serialization - variant reader matches fields by stable field id", "[
                                    .field("id", &reader_field_id_actor::id)
                                    .commit()));
   REQUIRE(serialization_result_ok(caors::detail::register_serialization<reader_field_id_actor>({
-      caors::make_serialization_field("id", "actor_id", false, 7),
+      caors::serialization::make_field("id", "actor_id", false, 7),
   })));
 
   caors::variant::object_type members;
@@ -2469,11 +2469,11 @@ TEST_CASE("serialization - variant reader applies required optional and skipped 
                                    .field("skipped", &reader_field_policy_actor::skipped)
                                    .commit()));
 
-  caors::serialization::field_data id = caors::make_serialization_field("id");
-  caors::serialization::field_data optional = caors::make_serialization_field("optional");
-  caors::serialization::field_data required = caors::make_serialization_field("required");
+  caors::serialization::field_data id = caors::serialization::make_field("id");
+  caors::serialization::field_data optional = caors::serialization::make_field("optional");
+  caors::serialization::field_data required = caors::serialization::make_field("required");
   required.required = true;
-  caors::serialization::field_data skipped = caors::make_serialization_field("skipped");
+  caors::serialization::field_data skipped = caors::serialization::make_field("skipped");
   skipped.skipped = true;
 
   REQUIRE(serialization_result_ok(caors::detail::register_serialization<reader_field_policy_actor>({
@@ -2519,11 +2519,11 @@ TEST_CASE("serialization - variant reader reports missing required fields", "[se
                                    .field("skipped", &reader_field_policy_actor::skipped)
                                    .commit()));
 
-  caors::serialization::field_data id = caors::make_serialization_field("id");
-  caors::serialization::field_data optional = caors::make_serialization_field("optional");
-  caors::serialization::field_data required = caors::make_serialization_field("required");
+  caors::serialization::field_data id = caors::serialization::make_field("id");
+  caors::serialization::field_data optional = caors::serialization::make_field("optional");
+  caors::serialization::field_data required = caors::serialization::make_field("required");
   required.required = true;
-  caors::serialization::field_data skipped = caors::make_serialization_field("skipped");
+  caors::serialization::field_data skipped = caors::serialization::make_field("skipped");
   skipped.skipped = true;
 
   REQUIRE(serialization_result_ok(caors::detail::register_serialization<reader_field_policy_actor>({
@@ -2548,7 +2548,7 @@ TEST_CASE("serialization - variant reader ignores unknown object members", "[ser
                                    .commit()));
   REQUIRE(
       serialization_result_ok(caors::detail::register_serialization<reader_unknown_field_actor>({
-          caors::make_serialization_field("id"),
+          caors::serialization::make_field("id"),
       })));
 
   caors::variant::object_type members;
@@ -2579,13 +2579,13 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
           .field("future", &versioned_actor::future)
           .commit()));
 
-  caors::serialization::field_data id = caors::make_serialization_field("id");
-  caors::serialization::field_data legacy = caors::make_serialization_field("legacy");
+  caors::serialization::field_data id = caors::serialization::make_field("id");
+  caors::serialization::field_data legacy = caors::serialization::make_field("legacy");
   legacy.version_added = 1;
   legacy.version_removed = 2;
-  caors::serialization::field_data current = caors::make_serialization_field("current");
+  caors::serialization::field_data current = caors::serialization::make_field("current");
   current.version_added = 2;
-  caors::serialization::field_data future = caors::make_serialization_field("future");
+  caors::serialization::field_data future = caors::serialization::make_field("future");
   future.version_added = 3;
   future.required = true;
 
@@ -2897,7 +2897,7 @@ TEST_CASE("serialization - writer features validate required field identifiers",
                                    .commit()));
   REQUIRE(caors::detail::register_serialization<numeric_writer_actor>(
               {
-                  caors::make_serialization_field("id"),
+                  caors::serialization::make_field("id"),
               })
               .succeeded());
 
@@ -2918,7 +2918,7 @@ TEST_CASE("serialization - registration can happen before reflection fields", "[
 
   REQUIRE(caors::detail::register_serialization<serialization_first_actor>(
               {
-                  caors::make_serialization_field("id", "actor_id"),
+                  caors::serialization::make_field("id", "actor_id"),
               })
               .succeeded());
 
@@ -2956,7 +2956,7 @@ TEST_CASE("serialization - reports missing configured reflection field", "[seria
           .commit()));
   REQUIRE(caors::detail::register_serialization<missing_field_actor>(
               {
-                  caors::make_serialization_field("missing"),
+                  caors::serialization::make_field("missing"),
               })
               .succeeded());
 

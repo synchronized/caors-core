@@ -241,8 +241,8 @@ TEST_CASE("meta type - global registry checks parent relationship", "[meta]") {
 
   CHECK(caors::get_meta_registry().contains(parent->id()));
   CHECK(caors::get_meta_registry().contains(child->id()));
-  CHECK(caors::is_a(child->id(), child->id()));
-  CHECK(caors::is_a(child->id(), parent->id()));
-  CHECK_FALSE(caors::is_a(parent->id(), child->id()));
+  CHECK(caors::meta::is_a(child->id(), child->id()));
+  CHECK(caors::meta::is_a(child->id(), parent->id()));
+  CHECK_FALSE(caors::meta::is_a(parent->id(), child->id()));
   CHECK(child->parent().id() == parent->id());
 }

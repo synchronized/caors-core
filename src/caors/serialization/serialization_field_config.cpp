@@ -28,12 +28,12 @@ bool field_visible_in_context(const serialization::field_data& field,
 
 error validate_field_for_writer(const serialization::field_data& field,
                                 serialization::format_features features) {
-  if (has_feature(features, serialization::format_features::named_fields) &&
+  if (serialization::has_feature(features, serialization::format_features::named_fields) &&
       serialized_field_name(field).empty()) {
     return {error_domain::serialization, errc::invalid_field};
   }
 
-  if (has_feature(features, serialization::format_features::numeric_fields) &&
+  if (serialization::has_feature(features, serialization::format_features::numeric_fields) &&
       field.field_id == 0) {
     return {error_domain::serialization, errc::invalid_field};
   }
@@ -43,10 +43,12 @@ error validate_field_for_writer(const serialization::field_data& field,
 
 error validate_field_for_reader(const serialization::field_data& field,
                                 serialization::format_features features) {
-  const bool can_use_name = has_feature(features, serialization::format_features::named_fields) &&
-                            !serialized_field_name(field).empty();
+  const bool can_use_name =
+      serialization::has_feature(features, serialization::format_features::named_fields) &&
+      !serialized_field_name(field).empty();
   const bool can_use_id =
-      has_feature(features, serialization::format_features::numeric_fields) && field.field_id != 0;
+      serialization::has_feature(features, serialization::format_features::numeric_fields) &&
+      field.field_id != 0;
 
   if (!can_use_name && !can_use_id) {
     return {error_domain::serialization, errc::invalid_field};

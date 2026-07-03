@@ -60,7 +60,7 @@ error serialize(const reflection::type& type, const void* object, serialization_
         return {error_domain::serialization, errc::invalid_field};
       }
 
-      serialization::field_data field_data = make_serialization_field(field->name().view());
+      serialization::field_data field_data = serialization::make_field(field->name().view());
       status = detail::write_field(writer, *field, object, field_data, context);
       if (status) {
         return status;

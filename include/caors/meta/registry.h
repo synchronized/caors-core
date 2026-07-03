@@ -369,13 +369,6 @@ namespace detail {
 
 namespace caors {
 
-/** @brief 获取已注册 C++ 类型的运行期类型 id；未注册时返回无效 id。兼容入口，优先使用
- * `meta::id_of<T>()`。 */
-template <typename T> [[nodiscard]] type_id type_id_of() {
-  const std::optional<meta_type> type = get_meta_registry().find_type<T>();
-  return type.has_value() ? type->id() : type_id::invalid();
-}
-
 /** @brief RTTR 风格的元类型注册构建器。 */
 template <typename T> class meta_builder {
 public:
@@ -482,6 +475,9 @@ template <typename T> [[nodiscard]] type_id id_of() {
 /** @brief 根据已注册类型名查询运行期类型 id。 */
 [[nodiscard]] CAORS_API type_id id(std::string_view name);
 
+/** @brief 在全局元数据注册表中判断类型继承关系。 */
+[[nodiscard]] CAORS_API bool is_a(type_id id, type_id base_id);
+
 } // namespace meta
 
 namespace type {
@@ -520,26 +516,6 @@ template <typename T>
 }
 
 } // namespace detail
-
-/** @brief 在全局元数据注册表中按 C++ 类型查找基础类型。兼容入口，优先使用 `meta::find<T>()`。 */
-template <typename T> [[nodiscard]] std::optional<meta_type> find_type() {
-  return get_meta_registry().find_type<T>();
-}
-
-/** @brief 在全局元数据注册表中按类型 id 查找基础类型。兼容入口，优先使用 `meta::find()`。 */
-[[nodiscard]] CAORS_API std::optional<meta_type> find_type(type_id id);
-
-/** @brief 在全局元数据注册表中按稳定 GUID 查找基础类型。兼容入口，优先使用 `meta::find()`。 */
-[[nodiscard]] CAORS_API std::optional<meta_type> find_type(type_guid guid);
-
-/** @brief 在全局元数据注册表中按类型名查找基础类型。兼容入口，优先使用 `meta::find()`。 */
-[[nodiscard]] CAORS_API std::optional<meta_type> find_type(std::string_view name);
-
-/** @brief 在全局元数据注册表中按类型名查找基础类型。兼容入口，优先使用 `meta::find()`。 */
-[[nodiscard]] CAORS_API std::optional<meta_type> find_type(string_name name);
-
-/** @brief 在全局元数据注册表中判断类型继承关系。 */
-[[nodiscard]] CAORS_API bool is_a(type_id id, type_id base_id);
 
 template <typename... Components>
 template <typename Component>

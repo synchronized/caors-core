@@ -502,7 +502,8 @@ public:
   }
 
   [[nodiscard]] string_name value_type_name() const noexcept {
-    const std::optional<meta_type> meta = valid() ? find_type(data_->value_type) : std::nullopt;
+    const std::optional<meta_type> meta =
+        valid() ? caors::meta::find(data_->value_type) : std::nullopt;
     return meta ? meta->name() : string_name{};
   }
 
@@ -606,7 +607,8 @@ public:
 
   /** @brief 查询 first 类型名。 */
   [[nodiscard]] string_name first_type_name() const noexcept {
-    const std::optional<meta_type> meta = valid() ? find_type(data_->key_type) : std::nullopt;
+    const std::optional<meta_type> meta =
+        valid() ? caors::meta::find(data_->key_type) : std::nullopt;
     return meta ? meta->name() : string_name{};
   }
 
@@ -617,7 +619,8 @@ public:
 
   /** @brief 查询 second 的统一 value 类型名。 */
   [[nodiscard]] string_name value_type_name() const noexcept {
-    const std::optional<meta_type> meta = valid() ? find_type(data_->value_type) : std::nullopt;
+    const std::optional<meta_type> meta =
+        valid() ? caors::meta::find(data_->value_type) : std::nullopt;
     return meta ? meta->name() : string_name{};
   }
 
@@ -738,7 +741,7 @@ public:
   /** @brief 查询指定元素类型名。 */
   [[nodiscard]] string_name element_type_name(std::size_t index) const noexcept {
     const std::optional<type_id> id = element_type(index);
-    const std::optional<meta_type> meta = id.has_value() ? find_type(*id) : std::nullopt;
+    const std::optional<meta_type> meta = id.has_value() ? caors::meta::find(*id) : std::nullopt;
     return meta ? meta->name() : string_name{};
   }
 
@@ -836,7 +839,7 @@ public:
   /** @brief 查询指定候选类型名。 */
   [[nodiscard]] string_name alternative_type_name(std::size_t alternative) const noexcept {
     const std::optional<type_id> id = alternative_type(alternative);
-    const std::optional<meta_type> meta = id.has_value() ? find_type(*id) : std::nullopt;
+    const std::optional<meta_type> meta = id.has_value() ? caors::meta::find(*id) : std::nullopt;
     return meta ? meta->name() : string_name{};
   }
 
@@ -852,7 +855,7 @@ public:
 
   /** @brief 查询当前值类型名。 */
   [[nodiscard]] string_name value_type_name() const noexcept {
-    const std::optional<meta_type> meta = find_type(value_type());
+    const std::optional<meta_type> meta = caors::meta::find(value_type());
     return meta ? meta->name() : string_name{};
   }
 
@@ -986,7 +989,8 @@ public:
 
   /** @brief 查询顺序容器元素的统一 value 类型名。 */
   [[nodiscard]] string_name value_type_name() const noexcept {
-    const std::optional<meta_type> meta = valid() ? find_type(data_->value_type) : std::nullopt;
+    const std::optional<meta_type> meta =
+        valid() ? caors::meta::find(data_->value_type) : std::nullopt;
     return meta ? meta->name() : string_name{};
   }
 
@@ -1217,7 +1221,8 @@ public:
 
   /** @brief 查询集合元素的统一 value 类型名。 */
   [[nodiscard]] string_name value_type_name() const noexcept {
-    const std::optional<meta_type> meta = valid() ? find_type(data_->value_type) : std::nullopt;
+    const std::optional<meta_type> meta =
+        valid() ? caors::meta::find(data_->value_type) : std::nullopt;
     return meta ? meta->name() : string_name{};
   }
 
@@ -1459,7 +1464,8 @@ public:
   [[nodiscard]] type_id key_type() const noexcept { return valid() ? data_->key_type : type_id{}; }
 
   [[nodiscard]] string_name key_type_name() const noexcept {
-    const std::optional<meta_type> meta = valid() ? find_type(data_->key_type) : std::nullopt;
+    const std::optional<meta_type> meta =
+        valid() ? caors::meta::find(data_->key_type) : std::nullopt;
     return meta ? meta->name() : string_name{};
   }
 
@@ -1470,7 +1476,8 @@ public:
 
   /** @brief 查询关联容器 value 类型名。 */
   [[nodiscard]] string_name value_type_name() const noexcept {
-    const std::optional<meta_type> meta = valid() ? find_type(data_->value_type) : std::nullopt;
+    const std::optional<meta_type> meta =
+        valid() ? caors::meta::find(data_->value_type) : std::nullopt;
     return meta ? meta->name() : string_name{};
   }
 

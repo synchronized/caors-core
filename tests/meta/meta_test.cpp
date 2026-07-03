@@ -122,5 +122,5 @@ TEST_CASE("meta - global view finds types with all requested components", "[meta
   auto reflection = reflected_object_view.find<view_reflection_meta>(player_id);
   REQUIRE(reflection.has_value());
   CHECK(reflection->display_name == "Player");
-  CHECK(caors::is_a(player_id, actor_id));
+  CHECK(caors::meta::is_a(player_id, actor_id));
 }

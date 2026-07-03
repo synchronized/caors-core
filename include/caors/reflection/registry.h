@@ -109,15 +109,6 @@ register_reflection(meta_type type, reflection::type_data data = reflection::typ
 
 } // namespace detail
 
-/** @brief 在全局反射注册表中查找反射类型。兼容入口，优先使用 `reflection::find()`。 */
-[[nodiscard]] CAORS_API std::optional<reflection::type> find_reflection(type_id id);
-
-/** @brief 在全局反射注册表中按稳定 GUID 查找反射类型。兼容入口，优先使用 `reflection::find()`。 */
-[[nodiscard]] CAORS_API std::optional<reflection::type> find_reflection(type_guid guid);
-
-/** @brief 在全局反射注册表中按类型名查找反射类型。兼容入口，优先使用 `reflection::find()`。 */
-[[nodiscard]] CAORS_API std::optional<reflection::type> find_reflection(std::string_view name);
-
 } // namespace caors
 
 #endif

@@ -60,7 +60,7 @@ error deserialize(const reflection::type& type, void* object, serialization_read
         return {error_domain::serialization, errc::invalid_field};
       }
 
-      serialization::field_data field_data = make_serialization_field(field->name().view());
+      serialization::field_data field_data = serialization::make_field(field->name().view());
       status = detail::read_field(reader, *field, object, field_data, context);
       if (status) {
         return status;

@@ -47,11 +47,6 @@ private:
 
 using object_type_id = type_id;
 
-/** @brief 根据已注册对象类型名查询对象类型标识。兼容入口，优先使用 `objects::id()`。 */
-[[nodiscard]] inline object_type_id make_object_type_id(std::string_view name) {
-  return meta::id(name);
-}
-
 class object;
 
 namespace objects {
@@ -328,20 +323,22 @@ void destroy_object_instance(object* instance, memory_resource* resource) noexce
   destroy(static_cast<T*>(instance), resource);
 }
 
+namespace objects {
+
 /** @brief 创建对象类型基础元信息。 */
 template <typename T>
 [[nodiscard]] meta_type_data
-make_object_meta_type_data(std::string_view name,
-                           object_type_id parent_id = object::static_type_id()) noexcept {
+make_meta_type_data(std::string_view name,
+                    object_type_id parent_id = object::static_type_id()) noexcept {
   static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
-  return make_meta_type_data<T>(name, detail::object_type_guid_of<T>(), parent_id);
+  return caors::make_meta_type_data<T>(name, detail::object_type_guid_of<T>(), parent_id);
 }
 
 /** @brief 创建对象类型底层数据。 */
-template <typename T> [[nodiscard]] objects::type_data make_object_type_data() noexcept {
+template <typename T> [[nodiscard]] type_data make_type_data() noexcept {
   static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
 
-  objects::type_data data{nullptr, nullptr, &destroy_object_instance<T>};
+  type_data data{nullptr, nullptr, &destroy_object_instance<T>};
   if constexpr (std::is_default_constructible_v<T>) {
     data.try_create = &try_create_object_instance<T>;
     data.create = &create_object_instance<T>;
@@ -349,8 +346,6 @@ template <typename T> [[nodiscard]] objects::type_data make_object_type_data() n
 
   return data;
 }
-
-namespace objects {
 
 /** @brief 获取进程内默认对象类型注册表。 */
 [[nodiscard]] CAORS_API registry& get_registry() noexcept;
@@ -444,8 +439,8 @@ template <typename T>
     }
   }
 
-  return registry.register_type_for<T>(make_object_meta_type_data<T>(name, parent_id),
-                                       make_object_type_data<T>());
+  return registry.register_type_for<T>(objects::make_meta_type_data<T>(name, parent_id),
+                                       objects::make_type_data<T>());
 }
 
 } // namespace detail
@@ -551,28 +546,6 @@ template <typename T> void destroy(T* instance, memory_resource* resource = null
 }
 
 } // namespace objects
-
-/** @brief 直接创建指定 C++ 类型的对象。兼容入口，优先使用 `objects::create()`。 */
-template <typename T, typename... Args>
-[[nodiscard]] T* create_object(memory_resource* resource, Args&&... args) {
-  return objects::create<T>(resource, std::forward<Args>(args)...);
-}
-
-/** @brief 直接创建指定 C++ 类型的对象。兼容入口，优先使用 `objects::create()`。 */
-template <typename T> [[nodiscard]] T* create_object() { return objects::create<T>(); }
-
-/** @brief 直接创建指定 C++ 类型的对象。兼容入口，优先使用 `objects::create()`。 */
-template <typename T, typename First, typename... Rest>
-  requires(!std::is_convertible_v<std::remove_cvref_t<First>, memory_resource*>)
-[[nodiscard]] T* create_object(First&& first, Rest&&... rest) {
-  return objects::create<T>(std::forward<First>(first), std::forward<Rest>(rest)...);
-}
-
-/** @brief 销毁通过 CAORS 内存资源创建的对象。兼容入口，优先使用 `objects::destroy()`。 */
-template <typename T>
-void destroy_object(T* instance, memory_resource* resource = nullptr) noexcept {
-  objects::destroy(instance, resource);
-}
 
 }
 
