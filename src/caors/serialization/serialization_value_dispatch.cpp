@@ -18,16 +18,14 @@ variant_result make_serialized_value(const any& data) {
 
   const caors::meta::detail::type_descriptor* descriptor =
       caors::value::detail::descriptor_of(data);
-  const meta::type_semantics_data* semantics =
-      descriptor != nullptr ? descriptor->semantics : nullptr;
-  if (semantics != nullptr &&
-      (semantics->kind == meta::type_kind::raw_pointer ||
-       semantics->kind == meta::type_kind::wrapper ||
-       semantics->kind == meta::type_kind::enumeration ||
-       semantics->kind == meta::type_kind::sequence || semantics->kind == meta::type_kind::set ||
-       semantics->kind == meta::type_kind::associative ||
-       semantics->kind == meta::type_kind::pair || semantics->kind == meta::type_kind::tuple ||
-       semantics->kind == meta::type_kind::variant)) {
+  if (descriptor != nullptr &&
+      (descriptor->kind == meta::type_kind::raw_pointer ||
+       descriptor->kind == meta::type_kind::wrapper ||
+       descriptor->kind == meta::type_kind::enumeration ||
+       descriptor->kind == meta::type_kind::sequence || descriptor->kind == meta::type_kind::set ||
+       descriptor->kind == meta::type_kind::associative ||
+       descriptor->kind == meta::type_kind::pair || descriptor->kind == meta::type_kind::tuple ||
+       descriptor->kind == meta::type_kind::variant)) {
     return make_serialized_value(data.ref(), serialization::context{});
   }
 

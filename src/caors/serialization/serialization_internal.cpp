@@ -45,41 +45,38 @@ namespace caors::serialization::detail {
          field.kind() == meta::type_kind::tuple || field.kind() == meta::type_kind::variant;
 }
 
-[[nodiscard]] const meta::type_semantics_data* type_semantics(const any_ref& value) noexcept {
-  const caors::meta::detail::type_descriptor* descriptor =
-      caors::value::detail::descriptor_of(value);
-  return descriptor != nullptr ? descriptor->semantics : nullptr;
+[[nodiscard]] const meta::detail::type_descriptor*
+descriptor_of_value(const any_ref& value) noexcept {
+  return caors::value::detail::descriptor_of(value);
 }
 
 [[nodiscard]] const meta::detail::enum_data* enum_data(const any_ref& value) noexcept {
-  const caors::meta::detail::type_descriptor* descriptor =
-      caors::value::detail::descriptor_of(value);
+  const caors::meta::detail::type_descriptor* descriptor = descriptor_of_value(value);
   return descriptor != nullptr ? descriptor->enumeration : nullptr;
 }
 
 [[nodiscard]] const meta::detail::object_ref_data* object_ref_data(const any_ref& value) noexcept {
-  const caors::meta::detail::type_descriptor* descriptor =
-      caors::value::detail::descriptor_of(value);
+  const caors::meta::detail::type_descriptor* descriptor = descriptor_of_value(value);
   return descriptor != nullptr ? descriptor->object_ref : nullptr;
 }
 
 [[nodiscard]] bool type_uses_inline_indirect_value(const any_ref& value) noexcept {
-  const meta::type_semantics_data* semantics = type_semantics(value);
-  return semantics != nullptr &&
-         (semantics->kind == meta::type_kind::raw_pointer ||
-          semantics->kind == meta::type_kind::wrapper) &&
-         semantics->wrapper_semantics == meta::wrapper_semantics::inline_value;
+  const meta::detail::type_descriptor* descriptor = descriptor_of_value(value);
+  return descriptor != nullptr &&
+         (descriptor->kind == meta::type_kind::raw_pointer ||
+          descriptor->kind == meta::type_kind::wrapper) &&
+         descriptor->wrapper_semantics == meta::wrapper_semantics::inline_value;
 }
 
 [[nodiscard]] bool type_is_enumeration(const any_ref& value) noexcept {
-  const meta::type_semantics_data* semantics = type_semantics(value);
-  return semantics != nullptr && semantics->kind == meta::type_kind::enumeration;
+  const meta::detail::type_descriptor* descriptor = descriptor_of_value(value);
+  return descriptor != nullptr && descriptor->kind == meta::type_kind::enumeration;
 }
 
 [[nodiscard]] bool type_uses_object_ref(const any_ref& value) noexcept {
-  const meta::type_semantics_data* semantics = type_semantics(value);
-  return semantics != nullptr && semantics->kind == meta::type_kind::wrapper &&
-         semantics->wrapper_semantics == meta::wrapper_semantics::object_ref &&
+  const meta::detail::type_descriptor* descriptor = descriptor_of_value(value);
+  return descriptor != nullptr && descriptor->kind == meta::type_kind::wrapper &&
+         descriptor->wrapper_semantics == meta::wrapper_semantics::object_ref &&
          object_ref_data(value) != nullptr;
 }
 
@@ -95,10 +92,11 @@ object_ref_value_from_ref(const any_ref& value,
 
 [[nodiscard]] variant_result make_object_ref_value(const any_ref& value,
                                                    const serialization::context& context) {
-  const meta::type_semantics_data* semantics = type_semantics(value);
+  const meta::detail::type_descriptor* descriptor = descriptor_of_value(value);
   const meta::detail::object_ref_data* data = object_ref_data(value);
-  if (semantics == nullptr || semantics->wrapper_semantics != meta::wrapper_semantics::object_ref ||
-      data == nullptr || data->get == nullptr) {
+  if (descriptor == nullptr ||
+      descriptor->wrapper_semantics != meta::wrapper_semantics::object_ref || data == nullptr ||
+      data->get == nullptr) {
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
@@ -120,10 +118,11 @@ object_ref_value_from_ref(const any_ref& value,
 
 [[nodiscard]] error write_object_ref_value(writer& writer, const any_ref& value,
                                            const serialization::context& context) {
-  const meta::type_semantics_data* semantics = type_semantics(value);
+  const meta::detail::type_descriptor* descriptor = descriptor_of_value(value);
   const meta::detail::object_ref_data* data = object_ref_data(value);
-  if (semantics == nullptr || semantics->wrapper_semantics != meta::wrapper_semantics::object_ref ||
-      data == nullptr || data->get == nullptr) {
+  if (descriptor == nullptr ||
+      descriptor->wrapper_semantics != meta::wrapper_semantics::object_ref || data == nullptr ||
+      data->get == nullptr) {
     return {error_domain::serialization, errc::unsupported};
   }
 
@@ -145,10 +144,11 @@ object_ref_value_from_ref(const any_ref& value,
 
 [[nodiscard]] error read_object_ref_value(reader& reader, const any_ref& target,
                                           const serialization::context& context) {
-  const meta::type_semantics_data* semantics = type_semantics(target);
+  const meta::detail::type_descriptor* descriptor = descriptor_of_value(target);
   const meta::detail::object_ref_data* data = object_ref_data(target);
-  if (semantics == nullptr || semantics->wrapper_semantics != meta::wrapper_semantics::object_ref ||
-      data == nullptr || data->set == nullptr || target.mutable_data() == nullptr) {
+  if (descriptor == nullptr ||
+      descriptor->wrapper_semantics != meta::wrapper_semantics::object_ref || data == nullptr ||
+      data->set == nullptr || target.mutable_data() == nullptr) {
     return {error_domain::serialization, errc::unsupported};
   }
 
@@ -179,10 +179,10 @@ object_ref_value_from_ref(const any_ref& value,
 }
 
 [[nodiscard]] variant_result make_enum_value(const any_ref& value) {
-  const meta::type_semantics_data* semantics = type_semantics(value);
+  const meta::detail::type_descriptor* descriptor = descriptor_of_value(value);
   const meta::detail::enum_data* data = enum_data(value);
-  if (semantics == nullptr || semantics->kind != meta::type_kind::enumeration || data == nullptr ||
-      value.data() == nullptr) {
+  if (descriptor == nullptr || descriptor->kind != meta::type_kind::enumeration ||
+      data == nullptr || value.data() == nullptr) {
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
@@ -202,10 +202,10 @@ object_ref_value_from_ref(const any_ref& value,
 }
 
 [[nodiscard]] error write_enum_value(writer& writer, const any_ref& value) {
-  const meta::type_semantics_data* semantics = type_semantics(value);
+  const meta::detail::type_descriptor* descriptor = descriptor_of_value(value);
   const meta::detail::enum_data* data = enum_data(value);
-  if (semantics == nullptr || semantics->kind != meta::type_kind::enumeration || data == nullptr ||
-      value.data() == nullptr) {
+  if (descriptor == nullptr || descriptor->kind != meta::type_kind::enumeration ||
+      data == nullptr || value.data() == nullptr) {
     return {error_domain::serialization, errc::unsupported};
   }
 
@@ -225,10 +225,11 @@ object_ref_value_from_ref(const any_ref& value,
 }
 
 [[nodiscard]] error read_enum_value(reader& reader, const any_ref& target) {
-  const meta::type_semantics_data* semantics = type_semantics(target);
+  const meta::detail::type_descriptor* descriptor = descriptor_of_value(target);
   const meta::detail::enum_data* data = enum_data(target);
-  if (semantics == nullptr || semantics->kind != meta::type_kind::enumeration || data == nullptr ||
-      target.mutable_data() == nullptr || data->from_i64 == nullptr || data->from_u64 == nullptr) {
+  if (descriptor == nullptr || descriptor->kind != meta::type_kind::enumeration ||
+      data == nullptr || target.mutable_data() == nullptr || data->from_i64 == nullptr ||
+      data->from_u64 == nullptr) {
     return {error_domain::serialization, errc::unsupported};
   }
 

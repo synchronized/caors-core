@@ -167,7 +167,7 @@ caors::meta::type_<actor>("game.actor")
 类型语义和运行期视图能力；未注册结构类型也可以通过 `any`、`any_ref` 或反射字段携带的静态 descriptor
 访问同一套能力。
 
-descriptor 内部的 `type_semantics_data` 用来描述该类型在反射、序列化和 value 模块中的运行期形态：
+descriptor 直接保存以下语义字段，用来描述该类型在反射、序列化和 value 模块中的运行期形态：
 
 - `kind`：值、枚举、裸指针、wrapper、顺序容器、集合容器、关联容器、二元组、tuple-like 或 variant-like 类型。
 - `traits::wrapper_semantics`：wrapper 或裸指针的处理语义，例如内联值、对象引用或不支持。
@@ -184,8 +184,8 @@ tuple 和 variant 访问能力：
 - `meta::detail::object_ref_data`：对象引用 wrapper 和对象指针之间的读写函数。
 - `meta::detail::sequence_data` / `set_data` / `associative_data` / `pair_data` / `tuple_data` / `variant_data`：容器、二元组、tuple-like 和 variant-like 的运行期访问函数。
 
-类型形态和通用类型关系只从 descriptor 查询，不再把 `type_semantics_data`、枚举数据、容器数据或
-间接访问数据作为独立 meta 组件挂载到注册表。反射字段会保存声明类型的 `type_id` 和 descriptor，因此
+类型形态和通用类型关系只从 descriptor 查询，不再把语义数据、枚举数据、容器数据或间接访问数据作为
+独立 meta 组件挂载到注册表。反射字段会保存声明类型的 `type_id` 和 descriptor，因此
 `std::vector<T>`、`std::optional<T>`、`std::tuple<...>` 这类结构类型不要求
 自身注册为 meta 类型；未注册枚举也可以在 `any` / `any_ref` 或容器元素路径上按底层整数读写。
 

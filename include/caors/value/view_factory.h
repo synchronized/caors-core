@@ -19,13 +19,11 @@ inline associative_view any::create_associative_view() {
     return {};
   }
 
-  const meta::detail::associative_data* data =
-      descriptor_ != nullptr ? descriptor_->associative : nullptr;
-  if (data == nullptr) {
+  if (descriptor_ == nullptr || descriptor_->associative == nullptr) {
     return {};
   }
 
-  return associative_view{data, mutable_data(), true};
+  return associative_view{descriptor_, mutable_data(), true};
 }
 
 inline associative_view any::create_associative_view() const {
@@ -33,13 +31,11 @@ inline associative_view any::create_associative_view() const {
     return {};
   }
 
-  const meta::detail::associative_data* data =
-      descriptor_ != nullptr ? descriptor_->associative : nullptr;
-  if (data == nullptr) {
+  if (descriptor_ == nullptr || descriptor_->associative == nullptr) {
     return {};
   }
 
-  return associative_view{data, data_, false};
+  return associative_view{descriptor_, data_, false};
 }
 
 inline associative_view any_ref::create_associative_view() const {
@@ -47,13 +43,11 @@ inline associative_view any_ref::create_associative_view() const {
     return {};
   }
 
-  const meta::detail::associative_data* data =
-      descriptor_ != nullptr ? descriptor_->associative : nullptr;
-  if (data == nullptr) {
+  if (descriptor_ == nullptr || descriptor_->associative == nullptr) {
     return {};
   }
 
-  return associative_view{data, data_, writable_};
+  return associative_view{descriptor_, data_, writable_};
 }
 
 inline pair_view any::create_pair_view() {
@@ -61,12 +55,11 @@ inline pair_view any::create_pair_view() {
     return {};
   }
 
-  const meta::detail::pair_data* data = descriptor_ != nullptr ? descriptor_->pair : nullptr;
-  if (data == nullptr) {
+  if (descriptor_ == nullptr || descriptor_->pair == nullptr) {
     return {};
   }
 
-  return pair_view{data, mutable_data(), true};
+  return pair_view{descriptor_, mutable_data(), true};
 }
 
 inline pair_view any::create_pair_view() const {
@@ -74,12 +67,11 @@ inline pair_view any::create_pair_view() const {
     return {};
   }
 
-  const meta::detail::pair_data* data = descriptor_ != nullptr ? descriptor_->pair : nullptr;
-  if (data == nullptr) {
+  if (descriptor_ == nullptr || descriptor_->pair == nullptr) {
     return {};
   }
 
-  return pair_view{data, data_, false};
+  return pair_view{descriptor_, data_, false};
 }
 
 inline pair_view any_ref::create_pair_view() const {
@@ -87,12 +79,11 @@ inline pair_view any_ref::create_pair_view() const {
     return {};
   }
 
-  const meta::detail::pair_data* data = descriptor_ != nullptr ? descriptor_->pair : nullptr;
-  if (data == nullptr) {
+  if (descriptor_ == nullptr || descriptor_->pair == nullptr) {
     return {};
   }
 
-  return pair_view{data, data_, writable_};
+  return pair_view{descriptor_, data_, writable_};
 }
 
 inline tuple_view any::create_tuple_view() {
@@ -100,12 +91,11 @@ inline tuple_view any::create_tuple_view() {
     return {};
   }
 
-  const meta::detail::tuple_data* data = descriptor_ != nullptr ? descriptor_->tuple : nullptr;
-  if (data == nullptr) {
+  if (descriptor_ == nullptr || descriptor_->tuple == nullptr) {
     return {};
   }
 
-  return tuple_view{data, mutable_data(), true};
+  return tuple_view{descriptor_, mutable_data(), true};
 }
 
 inline tuple_view any::create_tuple_view() const {
@@ -113,12 +103,11 @@ inline tuple_view any::create_tuple_view() const {
     return {};
   }
 
-  const meta::detail::tuple_data* data = descriptor_ != nullptr ? descriptor_->tuple : nullptr;
-  if (data == nullptr) {
+  if (descriptor_ == nullptr || descriptor_->tuple == nullptr) {
     return {};
   }
 
-  return tuple_view{data, data_, false};
+  return tuple_view{descriptor_, data_, false};
 }
 
 inline tuple_view any_ref::create_tuple_view() const {
@@ -126,12 +115,11 @@ inline tuple_view any_ref::create_tuple_view() const {
     return {};
   }
 
-  const meta::detail::tuple_data* data = descriptor_ != nullptr ? descriptor_->tuple : nullptr;
-  if (data == nullptr) {
+  if (descriptor_ == nullptr || descriptor_->tuple == nullptr) {
     return {};
   }
 
-  return tuple_view{data, data_, writable_};
+  return tuple_view{descriptor_, data_, writable_};
 }
 
 inline variant_view any::create_variant_view() {
@@ -139,12 +127,11 @@ inline variant_view any::create_variant_view() {
     return {};
   }
 
-  const meta::detail::variant_data* data = descriptor_ != nullptr ? descriptor_->variant : nullptr;
-  if (data == nullptr) {
+  if (descriptor_ == nullptr || descriptor_->variant == nullptr) {
     return {};
   }
 
-  return variant_view{data, mutable_data(), true};
+  return variant_view{descriptor_, mutable_data(), true};
 }
 
 inline variant_view any::create_variant_view() const {
@@ -152,12 +139,11 @@ inline variant_view any::create_variant_view() const {
     return {};
   }
 
-  const meta::detail::variant_data* data = descriptor_ != nullptr ? descriptor_->variant : nullptr;
-  if (data == nullptr) {
+  if (descriptor_ == nullptr || descriptor_->variant == nullptr) {
     return {};
   }
 
-  return variant_view{data, data_, false};
+  return variant_view{descriptor_, data_, false};
 }
 
 inline variant_view any_ref::create_variant_view() const {
@@ -165,12 +151,11 @@ inline variant_view any_ref::create_variant_view() const {
     return {};
   }
 
-  const meta::detail::variant_data* data = descriptor_ != nullptr ? descriptor_->variant : nullptr;
-  if (data == nullptr) {
+  if (descriptor_ == nullptr || descriptor_->variant == nullptr) {
     return {};
   }
 
-  return variant_view{data, data_, writable_};
+  return variant_view{descriptor_, data_, writable_};
 }
 
 inline indirect_view any::create_indirect_view() {
@@ -178,18 +163,14 @@ inline indirect_view any::create_indirect_view() {
     return {};
   }
 
-  const meta::type_semantics_data* semantics =
-      descriptor_ != nullptr ? descriptor_->semantics : nullptr;
-  const meta::detail::indirect_data* data =
-      descriptor_ != nullptr ? descriptor_->indirect : nullptr;
-  if (semantics == nullptr || data == nullptr ||
-      (semantics->kind != meta::type_kind::raw_pointer &&
-       (semantics->kind != meta::type_kind::wrapper ||
-        semantics->wrapper_semantics == meta::wrapper_semantics::unsupported))) {
+  if (descriptor_ == nullptr || descriptor_->indirect == nullptr ||
+      (descriptor_->kind != meta::type_kind::raw_pointer &&
+       (descriptor_->kind != meta::type_kind::wrapper ||
+        descriptor_->wrapper_semantics == meta::wrapper_semantics::unsupported))) {
     return {};
   }
 
-  return indirect_view{semantics, data, mutable_data(), true};
+  return indirect_view{descriptor_, mutable_data(), true};
 }
 
 inline indirect_view any::create_indirect_view() const {
@@ -197,18 +178,14 @@ inline indirect_view any::create_indirect_view() const {
     return {};
   }
 
-  const meta::type_semantics_data* semantics =
-      descriptor_ != nullptr ? descriptor_->semantics : nullptr;
-  const meta::detail::indirect_data* data =
-      descriptor_ != nullptr ? descriptor_->indirect : nullptr;
-  if (semantics == nullptr || data == nullptr ||
-      (semantics->kind != meta::type_kind::raw_pointer &&
-       (semantics->kind != meta::type_kind::wrapper ||
-        semantics->wrapper_semantics == meta::wrapper_semantics::unsupported))) {
+  if (descriptor_ == nullptr || descriptor_->indirect == nullptr ||
+      (descriptor_->kind != meta::type_kind::raw_pointer &&
+       (descriptor_->kind != meta::type_kind::wrapper ||
+        descriptor_->wrapper_semantics == meta::wrapper_semantics::unsupported))) {
     return {};
   }
 
-  return indirect_view{semantics, data, data_, false};
+  return indirect_view{descriptor_, data_, false};
 }
 
 inline indirect_view any_ref::create_indirect_view() const {
@@ -216,18 +193,14 @@ inline indirect_view any_ref::create_indirect_view() const {
     return {};
   }
 
-  const meta::type_semantics_data* semantics =
-      descriptor_ != nullptr ? descriptor_->semantics : nullptr;
-  const meta::detail::indirect_data* data =
-      descriptor_ != nullptr ? descriptor_->indirect : nullptr;
-  if (semantics == nullptr || data == nullptr ||
-      (semantics->kind != meta::type_kind::raw_pointer &&
-       (semantics->kind != meta::type_kind::wrapper ||
-        semantics->wrapper_semantics == meta::wrapper_semantics::unsupported))) {
+  if (descriptor_ == nullptr || descriptor_->indirect == nullptr ||
+      (descriptor_->kind != meta::type_kind::raw_pointer &&
+       (descriptor_->kind != meta::type_kind::wrapper ||
+        descriptor_->wrapper_semantics == meta::wrapper_semantics::unsupported))) {
     return {};
   }
 
-  return indirect_view{semantics, data, data_, writable_};
+  return indirect_view{descriptor_, data_, writable_};
 }
 
 inline sequence_view any::create_sequence_view() {
@@ -235,13 +208,11 @@ inline sequence_view any::create_sequence_view() {
     return {};
   }
 
-  const meta::detail::sequence_data* data =
-      descriptor_ != nullptr ? descriptor_->sequence : nullptr;
-  if (data == nullptr) {
+  if (descriptor_ == nullptr || descriptor_->sequence == nullptr) {
     return {};
   }
 
-  return sequence_view{data, mutable_data(), true};
+  return sequence_view{descriptor_, mutable_data(), true};
 }
 
 inline sequence_view any::create_sequence_view() const {
@@ -249,13 +220,11 @@ inline sequence_view any::create_sequence_view() const {
     return {};
   }
 
-  const meta::detail::sequence_data* data =
-      descriptor_ != nullptr ? descriptor_->sequence : nullptr;
-  if (data == nullptr) {
+  if (descriptor_ == nullptr || descriptor_->sequence == nullptr) {
     return {};
   }
 
-  return sequence_view{data, data_, false};
+  return sequence_view{descriptor_, data_, false};
 }
 
 inline sequence_view any_ref::create_sequence_view() const {
@@ -263,13 +232,11 @@ inline sequence_view any_ref::create_sequence_view() const {
     return {};
   }
 
-  const meta::detail::sequence_data* data =
-      descriptor_ != nullptr ? descriptor_->sequence : nullptr;
-  if (data == nullptr) {
+  if (descriptor_ == nullptr || descriptor_->sequence == nullptr) {
     return {};
   }
 
-  return sequence_view{data, data_, writable_};
+  return sequence_view{descriptor_, data_, writable_};
 }
 
 inline set_view any::create_set_view() {
@@ -277,12 +244,11 @@ inline set_view any::create_set_view() {
     return {};
   }
 
-  const meta::detail::set_data* data = descriptor_ != nullptr ? descriptor_->set : nullptr;
-  if (data == nullptr) {
+  if (descriptor_ == nullptr || descriptor_->set == nullptr) {
     return {};
   }
 
-  return set_view{data, mutable_data(), true};
+  return set_view{descriptor_, mutable_data(), true};
 }
 
 inline set_view any::create_set_view() const {
@@ -290,12 +256,11 @@ inline set_view any::create_set_view() const {
     return {};
   }
 
-  const meta::detail::set_data* data = descriptor_ != nullptr ? descriptor_->set : nullptr;
-  if (data == nullptr) {
+  if (descriptor_ == nullptr || descriptor_->set == nullptr) {
     return {};
   }
 
-  return set_view{data, data_, false};
+  return set_view{descriptor_, data_, false};
 }
 
 inline set_view any_ref::create_set_view() const {
@@ -303,12 +268,11 @@ inline set_view any_ref::create_set_view() const {
     return {};
   }
 
-  const meta::detail::set_data* data = descriptor_ != nullptr ? descriptor_->set : nullptr;
-  if (data == nullptr) {
+  if (descriptor_ == nullptr || descriptor_->set == nullptr) {
     return {};
   }
 
-  return set_view{data, data_, writable_};
+  return set_view{descriptor_, data_, writable_};
 }
 
 } // namespace caors::value

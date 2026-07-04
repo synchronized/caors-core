@@ -58,17 +58,9 @@ namespace {
   return caors::meta::find(field->type);
 }
 
-[[nodiscard]] const meta::type_semantics_data*
-field_type_semantics(const detail::field_data* field) noexcept {
-  if (field == nullptr || !field->type) {
-    return nullptr;
-  }
-
-  if (field->descriptor != nullptr && field->descriptor->semantics != nullptr) {
-    return field->descriptor->semantics;
-  }
-
-  return nullptr;
+[[nodiscard]] const meta::detail::type_descriptor*
+field_descriptor(const detail::field_data* field) noexcept {
+  return field != nullptr && field->type ? field->descriptor : nullptr;
 }
 
 [[nodiscard]] core::string_name type_name_of(type_id id) noexcept {
@@ -134,20 +126,20 @@ core::string_name field::type_name() const noexcept {
 }
 
 type_id field::value_type() const noexcept {
-  const meta::type_semantics_data* traits = field_type_semantics(info());
-  return traits != nullptr ? traits->value_type : type_id{};
+  const meta::detail::type_descriptor* descriptor = field_descriptor(info());
+  return descriptor != nullptr ? descriptor->value_type : type_id{};
 }
 
 type_id field::element_type() const noexcept {
-  const meta::type_semantics_data* traits = field_type_semantics(info());
-  return traits != nullptr ? traits->value_type : type_id{};
+  const meta::detail::type_descriptor* descriptor = field_descriptor(info());
+  return descriptor != nullptr ? descriptor->value_type : type_id{};
 }
 
 core::string_name field::element_type_name() const noexcept { return type_name_of(element_type()); }
 
 type_id field::key_type() const noexcept {
-  const meta::type_semantics_data* traits = field_type_semantics(info());
-  return traits != nullptr ? traits->key_type : type_id{};
+  const meta::detail::type_descriptor* descriptor = field_descriptor(info());
+  return descriptor != nullptr ? descriptor->key_type : type_id{};
 }
 
 core::string_name field::key_type_name() const noexcept { return type_name_of(key_type()); }
@@ -157,8 +149,8 @@ type_id field::first_type() const noexcept { return key_type(); }
 core::string_name field::first_type_name() const noexcept { return type_name_of(first_type()); }
 
 type_id field::mapped_type() const noexcept {
-  const meta::type_semantics_data* traits = field_type_semantics(info());
-  return traits != nullptr ? traits->value_type : type_id{};
+  const meta::detail::type_descriptor* descriptor = field_descriptor(info());
+  return descriptor != nullptr ? descriptor->value_type : type_id{};
 }
 
 core::string_name field::mapped_type_name() const noexcept { return type_name_of(mapped_type()); }
@@ -168,23 +160,23 @@ type_id field::second_type() const noexcept { return value_type(); }
 core::string_name field::second_type_name() const noexcept { return type_name_of(second_type()); }
 
 meta::type_kind field::kind() const noexcept {
-  const meta::type_semantics_data* traits = field_type_semantics(info());
-  return traits != nullptr ? traits->kind : meta::type_kind::value;
+  const meta::detail::type_descriptor* descriptor = field_descriptor(info());
+  return descriptor != nullptr ? descriptor->kind : meta::type_kind::value;
 }
 
 meta::wrapper_semantics field::wrapper_semantics() const noexcept {
-  const meta::type_semantics_data* traits = field_type_semantics(info());
-  return traits != nullptr ? traits->wrapper_semantics : meta::wrapper_semantics::none;
+  const meta::detail::type_descriptor* descriptor = field_descriptor(info());
+  return descriptor != nullptr ? descriptor->wrapper_semantics : meta::wrapper_semantics::none;
 }
 
 std::uint8_t field::pointer_depth() const noexcept {
-  const meta::type_semantics_data* traits = field_type_semantics(info());
-  return traits != nullptr ? traits->pointer_depth : 0;
+  const meta::detail::type_descriptor* descriptor = field_descriptor(info());
+  return descriptor != nullptr ? descriptor->pointer_depth : 0;
 }
 
 bool field::nullable() const noexcept {
-  const meta::type_semantics_data* traits = field_type_semantics(info());
-  return traits != nullptr && traits->nullable;
+  const meta::detail::type_descriptor* descriptor = field_descriptor(info());
+  return descriptor != nullptr && descriptor->nullable;
 }
 
 bool field::writable() const noexcept {

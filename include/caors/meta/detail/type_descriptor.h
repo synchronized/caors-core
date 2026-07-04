@@ -9,6 +9,7 @@
 #include "caors/meta/type_semantics.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <type_traits>
 #include <utility>
 
@@ -27,7 +28,12 @@ struct type_descriptor {
   value_clone_fn clone = nullptr;
   value_destroy_fn destroy = nullptr;
   value_assign_fn assign = nullptr;
-  const type_semantics_data* semantics = nullptr;
+  type_kind kind = type_kind::value;
+  meta::wrapper_semantics wrapper_semantics = meta::wrapper_semantics::none;
+  type_id value_type{};
+  type_id key_type{};
+  std::uint8_t pointer_depth = 0;
+  bool nullable = false;
   const enum_data* enumeration = nullptr;
   const indirect_data* indirect = nullptr;
   const object_ref_data* object_ref = nullptr;
@@ -58,44 +64,48 @@ template <typename T>
 inline constexpr bool descriptor_nested_type_indirection_v =
     std::is_pointer_v<std::remove_cv_t<T>> || descriptor_supported_wrapper_v<T>;
 
-template <typename T> [[nodiscard]] type_semantics_data make_semantics_data() {
+template <typename T> void fill_descriptor_semantics(type_descriptor& descriptor) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
 
-  type_semantics_data info{};
-  if constexpr (traits::sequence_traits<type>::is_sequence) {
+  if constexpr (std::is_pointer_v<type>) {
+    using value_type = std::remove_cv_t<std::remove_pointer_t<type>>;
+
+    static_assert(!descriptor_nested_type_indirection_v<value_type>,
+                  "CAORS value supports at most one pointer or wrapper level");
+
+    descriptor.kind = type_kind::raw_pointer;
+    descriptor.wrapper_semantics = meta::wrapper_semantics::inline_value;
+    descriptor.value_type = descriptor_type_id<value_type>();
+    descriptor.pointer_depth = 1;
+    descriptor.nullable = true;
+  } else if constexpr (traits::sequence_traits<type>::is_sequence) {
     using element_type = typename traits::sequence_traits<type>::element_type;
 
-    info.kind = type_kind::sequence;
-    info.value_type = descriptor_type_id<element_type>();
-    return info;
+    descriptor.kind = type_kind::sequence;
+    descriptor.value_type = descriptor_type_id<element_type>();
   } else if constexpr (traits::set_traits<type>::is_set) {
     using element_type = typename traits::set_traits<type>::element_type;
 
-    info.kind = type_kind::set;
-    info.value_type = descriptor_type_id<element_type>();
-    return info;
+    descriptor.kind = type_kind::set;
+    descriptor.value_type = descriptor_type_id<element_type>();
   } else if constexpr (traits::associative_traits<type>::is_associative) {
     using key_type = typename traits::associative_traits<type>::key_type;
     using mapped_type = typename traits::associative_traits<type>::mapped_type;
 
-    info.kind = type_kind::associative;
-    info.key_type = descriptor_type_id<key_type>();
-    info.value_type = descriptor_type_id<mapped_type>();
-    return info;
+    descriptor.kind = type_kind::associative;
+    descriptor.key_type = descriptor_type_id<key_type>();
+    descriptor.value_type = descriptor_type_id<mapped_type>();
   } else if constexpr (traits::pair_traits<type>::is_pair) {
     using first_type = typename traits::pair_traits<type>::first_type;
     using second_type = typename traits::pair_traits<type>::second_type;
 
-    info.kind = type_kind::pair;
-    info.key_type = descriptor_type_id<first_type>();
-    info.value_type = descriptor_type_id<second_type>();
-    return info;
+    descriptor.kind = type_kind::pair;
+    descriptor.key_type = descriptor_type_id<first_type>();
+    descriptor.value_type = descriptor_type_id<second_type>();
   } else if constexpr (traits::tuple_traits<type>::is_tuple) {
-    info.kind = type_kind::tuple;
-    return info;
+    descriptor.kind = type_kind::tuple;
   } else if constexpr (traits::variant_traits<type>::is_variant) {
-    info.kind = type_kind::variant;
-    return info;
+    descriptor.kind = type_kind::variant;
   } else if constexpr (traits::wrapper_traits<type>::is_wrapper) {
     using wrapped_type = typename traits::wrapper_traits<type>::wrapped_type;
     using value_type = std::remove_cv_t<wrapped_type>;
@@ -103,28 +113,18 @@ template <typename T> [[nodiscard]] type_semantics_data make_semantics_data() {
     static_assert(!descriptor_nested_type_indirection_v<value_type>,
                   "CAORS value supports at most one pointer or wrapper level");
 
-    info.kind = type_kind::wrapper;
-    info.wrapper_semantics = traits::wrapper_traits<type>::semantics;
-    info.value_type = descriptor_type_id<value_type>();
-    info.nullable = traits::wrapper_traits<type>::nullable;
-    return info;
+    descriptor.kind = type_kind::wrapper;
+    descriptor.wrapper_semantics = traits::wrapper_traits<type>::semantics;
+    descriptor.value_type = descriptor_type_id<value_type>();
+    descriptor.nullable = traits::wrapper_traits<type>::nullable;
   } else {
     if constexpr (std::is_enum_v<type>) {
-      info.kind = type_kind::enumeration;
+      descriptor.kind = type_kind::enumeration;
     } else {
-      info.kind = type_kind::value;
+      descriptor.kind = type_kind::value;
     }
-    info.value_type = descriptor_type_id<type>();
-    return info;
+    descriptor.value_type = descriptor_type_id<type>();
   }
-}
-
-template <typename T> struct semantic_data_holder {
-  inline static const type_semantics_data value = make_semantics_data<T>();
-};
-
-template <typename T> [[nodiscard]] const type_semantics_data* semantics_ptr_of() noexcept {
-  return &semantic_data_holder<std::remove_cv_t<std::remove_reference_t<T>>>::value;
 }
 
 template <typename T> [[nodiscard]] const enum_data* enum_data_ptr_of() {
@@ -136,25 +136,6 @@ template <typename T> [[nodiscard]] const enum_data* enum_data_ptr_of() {
     return nullptr;
   }
 }
-
-template <typename T> [[nodiscard]] type_semantics_data make_pointer_semantics_data() {
-  using value_type = std::remove_cv_t<T>;
-
-  static_assert(!descriptor_nested_type_indirection_v<value_type>,
-                "CAORS value supports at most one pointer or wrapper level");
-
-  type_semantics_data info{};
-  info.kind = type_kind::raw_pointer;
-  info.wrapper_semantics = wrapper_semantics::inline_value;
-  info.value_type = descriptor_type_id<value_type>();
-  info.pointer_depth = 1;
-  info.nullable = true;
-  return info;
-}
-
-template <typename T> struct semantic_data_holder<T*> {
-  inline static const type_semantics_data value = make_pointer_semantics_data<T>();
-};
 
 template <typename T> [[nodiscard]] const indirect_data* indirect_data_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
@@ -564,25 +545,27 @@ template <typename T> [[nodiscard]] const variant_data* variant_data_ptr_of() {
 template <typename T> struct descriptor_holder {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
 
-  inline static const type_descriptor value{
-      descriptor_type_id<type>(),
-      sizeof(type),
-      alignof(type),
-      default_construct_fn_of<type>(),
-      value_clone_fn_of<type>(),
-      value_destroy_fn_of<type>(),
-      value_assign_fn_of<type>(),
-      semantics_ptr_of<type>(),
-      enum_data_ptr_of<type>(),
-      indirect_data_ptr_of<type>(),
-      object_ref_data_ptr_of<type>(),
-      sequence_data_ptr_of<type>(),
-      set_data_ptr_of<type>(),
-      associative_data_ptr_of<type>(),
-      pair_data_ptr_of<type>(),
-      tuple_data_ptr_of<type>(),
-      variant_data_ptr_of<type>(),
-  };
+  inline static const type_descriptor value = [] {
+    type_descriptor descriptor{};
+    descriptor.type = descriptor_type_id<type>();
+    descriptor.size = sizeof(type);
+    descriptor.alignment = alignof(type);
+    descriptor.default_construct = default_construct_fn_of<type>();
+    descriptor.clone = value_clone_fn_of<type>();
+    descriptor.destroy = value_destroy_fn_of<type>();
+    descriptor.assign = value_assign_fn_of<type>();
+    fill_descriptor_semantics<type>(descriptor);
+    descriptor.enumeration = enum_data_ptr_of<type>();
+    descriptor.indirect = indirect_data_ptr_of<type>();
+    descriptor.object_ref = object_ref_data_ptr_of<type>();
+    descriptor.sequence = sequence_data_ptr_of<type>();
+    descriptor.set = set_data_ptr_of<type>();
+    descriptor.associative = associative_data_ptr_of<type>();
+    descriptor.pair = pair_data_ptr_of<type>();
+    descriptor.tuple = tuple_data_ptr_of<type>();
+    descriptor.variant = variant_data_ptr_of<type>();
+    return descriptor;
+  }();
 };
 
 template <typename T> [[nodiscard]] const type_descriptor* descriptor_ptr_of() noexcept {

@@ -59,7 +59,8 @@ public:
   sequence_view() noexcept = default;
 
   [[nodiscard]] bool valid() const noexcept {
-    return data_ != nullptr && data_->valid() && storage_ != nullptr;
+    const meta::detail::sequence_data* info = data();
+    return info != nullptr && info->valid() && storage_ != nullptr;
   }
 
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
@@ -67,12 +68,13 @@ public:
 
   /** @brief 查询顺序容器元素的统一 value 类型。 */
   [[nodiscard]] type_id value_type() const noexcept {
-    return valid() ? data_->value_type : type_id{};
+    const meta::detail::sequence_data* info = data();
+    return valid() ? info->value_type : type_id{};
   }
 
   /** @brief 查询顺序容器元素的统一 value 类型名。 */
   [[nodiscard]] string_name value_type_name() const noexcept {
-    const meta::type meta = valid() ? caors::meta::find(data_->value_type) : meta::type{};
+    const meta::type meta = valid() ? caors::meta::find(data()->value_type) : meta::type{};
     return meta ? meta.name() : string_name{};
   }
 
@@ -84,11 +86,12 @@ public:
 
   /** @brief 获取顺序容器元素数量。 */
   [[nodiscard]] std::optional<std::size_t> size() const {
-    if (!valid() || data_->size == nullptr) {
+    const meta::detail::sequence_data* info = data();
+    if (!valid() || info->size == nullptr) {
       return std::nullopt;
     }
 
-    return data_->size(storage_);
+    return info->size(storage_);
   }
 
   [[nodiscard]] iterator begin() const { return valid() ? iterator{this, 0} : iterator{}; }
@@ -100,64 +103,72 @@ public:
 
   /** @brief 获取指定元素引用。 */
   [[nodiscard]] any_ref element_ref(std::size_t index) const {
-    if (!valid() || data_->element == nullptr) {
+    const meta::detail::sequence_data* info = data();
+    if (!valid() || info->element == nullptr) {
       return {};
     }
 
     const void* element = nullptr;
     bool element_writable = false;
-    if (writable() && data_->mutable_element != nullptr) {
-      element = data_->mutable_element(const_cast<void*>(storage_), index);
+    if (writable() && info->mutable_element != nullptr) {
+      element = info->mutable_element(const_cast<void*>(storage_), index);
       element_writable = element != nullptr;
     } else {
-      element = data_->element(storage_, index);
+      element = info->element(storage_, index);
     }
 
     if (element == nullptr) {
       return {};
     }
 
-    return any_ref::from_raw(data_->value_type, data_->value_descriptor, element, element_writable);
+    return any_ref::from_raw(info->value_type, info->value_descriptor, element, element_writable);
   }
 
   /** @brief 清空顺序容器。 */
   bool clear() const {
-    if (!writable() || data_->clear == nullptr) {
+    const meta::detail::sequence_data* info = data();
+    if (!writable() || info->clear == nullptr) {
       return false;
     }
 
-    data_->clear(const_cast<void*>(storage_));
+    info->clear(const_cast<void*>(storage_));
     return true;
   }
 
   /** @brief 调整顺序容器大小。 */
   bool resize(std::size_t size) const {
-    if (!writable() || data_->resize == nullptr) {
+    const meta::detail::sequence_data* info = data();
+    if (!writable() || info->resize == nullptr) {
       return false;
     }
 
-    return data_->resize(const_cast<void*>(storage_), size);
+    return info->resize(const_cast<void*>(storage_), size);
   }
 
   /** @brief 追加一个元素。 */
   bool append_value(const any& value) const {
-    if (!writable() || data_->append == nullptr || !value.valid() ||
-        value.type() != data_->value_type) {
+    const meta::detail::sequence_data* info = data();
+    if (!writable() || info->append == nullptr || !value.valid() ||
+        value.type() != info->value_type) {
       return false;
     }
 
-    return data_->append(const_cast<void*>(storage_), value.data());
+    return info->append(const_cast<void*>(storage_), value.data());
   }
 
 private:
   friend class any;
   friend class any_ref;
 
-  sequence_view(const meta::detail::sequence_data* data, const void* storage,
+  sequence_view(const meta::detail::type_descriptor* descriptor, const void* storage,
                 bool writable) noexcept
-      : data_(data), storage_(storage), writable_(writable) {}
+      : descriptor_(descriptor), storage_(storage), writable_(writable) {}
 
-  const meta::detail::sequence_data* data_ = nullptr;
+  [[nodiscard]] const meta::detail::sequence_data* data() const noexcept {
+    return descriptor_ != nullptr ? descriptor_->sequence : nullptr;
+  }
+
+  const meta::detail::type_descriptor* descriptor_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };

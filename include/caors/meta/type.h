@@ -256,21 +256,6 @@ template <typename T>
 } // namespace detail
 
 /**
- * @brief 类型语义元数据。
- *
- * 该组件挂在字段声明类型对应的 `type_id` 上，集中描述运行期形态、wrapper 语义和通用类型关系。
- * 具体访问函数表由内部 `meta::detail::type_descriptor` 保存。
- */
-struct type_semantics_data {
-  type_kind kind = type_kind::value;
-  wrapper_semantics wrapper_semantics = meta::wrapper_semantics::none;
-  type_id value_type{};
-  type_id key_type{};
-  std::uint8_t pointer_depth = 0;
-  bool nullable = false;
-};
-
-/**
  * @brief 元类型只读视图。
  *
  * `meta::type` 不拥有类型数据，只引用全局 `meta::registry` 中 append-only 保存的

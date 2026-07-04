@@ -19,22 +19,27 @@ public:
   tuple_view() noexcept = default;
 
   [[nodiscard]] bool valid() const noexcept {
-    return data_ != nullptr && data_->valid() && storage_ != nullptr;
+    const meta::detail::tuple_data* info = data();
+    return info != nullptr && info->valid() && storage_ != nullptr;
   }
 
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
   [[nodiscard]] bool writable() const noexcept { return valid() && writable_; }
 
   /** @brief 查询 tuple 元素数量。 */
-  [[nodiscard]] std::size_t size() const noexcept { return valid() ? data_->elements.size() : 0; }
+  [[nodiscard]] std::size_t size() const noexcept {
+    const meta::detail::tuple_data* info = data();
+    return valid() ? info->elements.size() : 0;
+  }
 
   /** @brief 查询指定元素类型。 */
   [[nodiscard]] std::optional<type_id> element_type(std::size_t index) const noexcept {
-    if (!valid() || index >= data_->elements.size()) {
+    const meta::detail::tuple_data* info = data();
+    if (!valid() || index >= info->elements.size()) {
       return std::nullopt;
     }
 
-    return data_->elements[index].value_type;
+    return info->elements[index].value_type;
   }
 
   /** @brief 查询指定元素类型名。 */
@@ -46,11 +51,12 @@ public:
 
   /** @brief 获取指定元素引用。 */
   [[nodiscard]] any_ref element_ref(std::size_t index) const {
-    if (!valid() || index >= data_->elements.size()) {
+    const meta::detail::tuple_data* info = data();
+    if (!valid() || index >= info->elements.size()) {
       return {};
     }
 
-    const meta::detail::tuple_element_data& element_data = data_->elements[index];
+    const meta::detail::tuple_element_data& element_data = info->elements[index];
     const void* value = nullptr;
     bool value_writable = false;
     if (writable() && element_data.mutable_element != nullptr) {
@@ -83,10 +89,15 @@ private:
   friend class any;
   friend class any_ref;
 
-  tuple_view(const meta::detail::tuple_data* data, const void* storage, bool writable) noexcept
-      : data_(data), storage_(storage), writable_(writable) {}
+  tuple_view(const meta::detail::type_descriptor* descriptor, const void* storage,
+             bool writable) noexcept
+      : descriptor_(descriptor), storage_(storage), writable_(writable) {}
 
-  const meta::detail::tuple_data* data_ = nullptr;
+  [[nodiscard]] const meta::detail::tuple_data* data() const noexcept {
+    return descriptor_ != nullptr ? descriptor_->tuple : nullptr;
+  }
+
+  const meta::detail::type_descriptor* descriptor_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };

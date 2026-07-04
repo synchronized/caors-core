@@ -4,7 +4,6 @@
 #ifndef CAORS_VALUE_INDIRECT_VIEW_H_
 #define CAORS_VALUE_INDIRECT_VIEW_H_
 
-#include "caors/meta/detail/type_capabilities.h"
 #include "caors/value/any_value.h"
 
 namespace caors::value {
@@ -20,90 +19,103 @@ public:
   indirect_view() noexcept = default;
 
   [[nodiscard]] bool valid() const noexcept {
-    if (semantics_ == nullptr || data_ == nullptr || storage_ == nullptr ||
-        !semantics_->value_type) {
+    const meta::detail::indirect_data* info = data();
+    if (descriptor_ == nullptr || info == nullptr || storage_ == nullptr ||
+        !descriptor_->value_type) {
       return false;
     }
 
-    if (semantics_->kind != meta::type_kind::raw_pointer &&
-        semantics_->kind != meta::type_kind::wrapper) {
+    if (descriptor_->kind != meta::type_kind::raw_pointer &&
+        descriptor_->kind != meta::type_kind::wrapper) {
       return false;
     }
 
-    return data_->valid();
+    if (descriptor_->kind == meta::type_kind::wrapper &&
+        descriptor_->wrapper_semantics == meta::wrapper_semantics::unsupported) {
+      return false;
+    }
+
+    return info->valid();
   }
 
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
   [[nodiscard]] bool writable() const noexcept { return valid() && writable_; }
   [[nodiscard]] type_id value_type() const noexcept {
-    return valid() ? semantics_->value_type : type_id{};
+    return valid() ? descriptor_->value_type : type_id{};
   }
 
   [[nodiscard]] string_name value_type_name() const noexcept {
-    const meta::type meta = valid() ? caors::meta::find(semantics_->value_type) : meta::type{};
+    const meta::type meta = valid() ? caors::meta::find(descriptor_->value_type) : meta::type{};
     return meta ? meta.name() : string_name{};
   }
 
   /** @brief 判断 wrapper 当前是否持有内部值。 */
   [[nodiscard]] bool has_value() const noexcept {
-    if (!valid() || data_->has_value == nullptr) {
+    const meta::detail::indirect_data* info = data();
+    if (!valid() || info->has_value == nullptr) {
       return false;
     }
 
-    return data_->has_value(storage_);
+    return info->has_value(storage_);
   }
 
   /** @brief 获取内部值引用。 */
   [[nodiscard]] any_ref value_ref() const {
-    if (!valid() || data_->value == nullptr) {
+    const meta::detail::indirect_data* info = data();
+    if (!valid() || info->value == nullptr) {
       return {};
     }
 
     const void* value = nullptr;
     bool value_writable = false;
-    if (writable() && data_->mutable_value != nullptr) {
-      value = data_->mutable_value(const_cast<void*>(storage_));
+    if (writable() && info->mutable_value != nullptr) {
+      value = info->mutable_value(const_cast<void*>(storage_));
       value_writable = value != nullptr;
     } else {
-      value = data_->value(storage_);
+      value = info->value(storage_);
     }
 
     if (value == nullptr) {
       return {};
     }
 
-    return any_ref::from_raw(semantics_->value_type, data_->value_descriptor, value,
+    return any_ref::from_raw(descriptor_->value_type, info->value_descriptor, value,
                              value_writable);
   }
 
   /** @brief 重置 wrapper 或裸指针为空。 */
   bool reset() const {
-    if (!writable() || data_->reset == nullptr) {
+    const meta::detail::indirect_data* info = data();
+    if (!writable() || info->reset == nullptr) {
       return false;
     }
 
-    return data_->reset(const_cast<void*>(storage_));
+    return info->reset(const_cast<void*>(storage_));
   }
 
   /** @brief 确保 wrapper 持有内部值。裸指针不会自动分配内存。 */
   bool ensure_value() const {
-    if (!writable() || data_->ensure_value == nullptr) {
+    const meta::detail::indirect_data* info = data();
+    if (!writable() || info->ensure_value == nullptr) {
       return false;
     }
 
-    return data_->ensure_value(const_cast<void*>(storage_));
+    return info->ensure_value(const_cast<void*>(storage_));
   }
 
 private:
   friend class any;
   friend class any_ref;
 
-  indirect_view(const meta::type_semantics_data* semantics, const meta::detail::indirect_data* data,
-                const void* storage, bool writable) noexcept
-      : semantics_(semantics), data_(data), storage_(storage), writable_(writable) {}
+  indirect_view(const meta::detail::type_descriptor* descriptor, const void* storage,
+                bool writable) noexcept
+      : descriptor_(descriptor), storage_(storage), writable_(writable) {}
 
-  const meta::type_semantics_data* semantics_ = nullptr;
-  const meta::detail::indirect_data* data_ = nullptr;
+  [[nodiscard]] const meta::detail::indirect_data* data() const noexcept {
+    return descriptor_ != nullptr ? descriptor_->indirect : nullptr;
+  }
+
+  const meta::detail::type_descriptor* descriptor_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };

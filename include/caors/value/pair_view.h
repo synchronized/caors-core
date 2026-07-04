@@ -19,7 +19,8 @@ public:
   pair_view() noexcept = default;
 
   [[nodiscard]] bool valid() const noexcept {
-    return data_ != nullptr && data_->valid() && storage_ != nullptr;
+    const meta::detail::pair_data* info = data();
+    return info != nullptr && info->valid() && storage_ != nullptr;
   }
 
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
@@ -27,23 +28,25 @@ public:
 
   /** @brief 查询 first 类型。 */
   [[nodiscard]] type_id first_type() const noexcept {
-    return valid() ? data_->key_type : type_id{};
+    const meta::detail::pair_data* info = data();
+    return valid() ? info->key_type : type_id{};
   }
 
   /** @brief 查询 first 类型名。 */
   [[nodiscard]] string_name first_type_name() const noexcept {
-    const meta::type meta = valid() ? caors::meta::find(data_->key_type) : meta::type{};
+    const meta::type meta = valid() ? caors::meta::find(data()->key_type) : meta::type{};
     return meta ? meta.name() : string_name{};
   }
 
   /** @brief 查询 second 的统一 value 类型。 */
   [[nodiscard]] type_id value_type() const noexcept {
-    return valid() ? data_->value_type : type_id{};
+    const meta::detail::pair_data* info = data();
+    return valid() ? info->value_type : type_id{};
   }
 
   /** @brief 查询 second 的统一 value 类型名。 */
   [[nodiscard]] string_name value_type_name() const noexcept {
-    const meta::type meta = valid() ? caors::meta::find(data_->value_type) : meta::type{};
+    const meta::type meta = valid() ? caors::meta::find(data()->value_type) : meta::type{};
     return meta ? meta.name() : string_name{};
   }
 
@@ -55,46 +58,48 @@ public:
 
   /** @brief 获取 first 引用。 */
   [[nodiscard]] any_ref first_ref() const {
-    if (!valid() || data_->first == nullptr) {
+    const meta::detail::pair_data* info = data();
+    if (!valid() || info->first == nullptr) {
       return {};
     }
 
     const void* value = nullptr;
     bool value_writable = false;
-    if (writable() && data_->mutable_first != nullptr) {
-      value = data_->mutable_first(const_cast<void*>(storage_));
+    if (writable() && info->mutable_first != nullptr) {
+      value = info->mutable_first(const_cast<void*>(storage_));
       value_writable = value != nullptr;
     } else {
-      value = data_->first(storage_);
+      value = info->first(storage_);
     }
 
     if (value == nullptr) {
       return {};
     }
 
-    return any_ref::from_raw(data_->key_type, data_->key_descriptor, value, value_writable);
+    return any_ref::from_raw(info->key_type, info->key_descriptor, value, value_writable);
   }
 
   /** @brief 获取 second 引用。 */
   [[nodiscard]] any_ref second_ref() const {
-    if (!valid() || data_->second == nullptr) {
+    const meta::detail::pair_data* info = data();
+    if (!valid() || info->second == nullptr) {
       return {};
     }
 
     const void* value = nullptr;
     bool value_writable = false;
-    if (writable() && data_->mutable_second != nullptr) {
-      value = data_->mutable_second(const_cast<void*>(storage_));
+    if (writable() && info->mutable_second != nullptr) {
+      value = info->mutable_second(const_cast<void*>(storage_));
       value_writable = value != nullptr;
     } else {
-      value = data_->second(storage_);
+      value = info->second(storage_);
     }
 
     if (value == nullptr) {
       return {};
     }
 
-    return any_ref::from_raw(data_->value_type, data_->value_descriptor, value, value_writable);
+    return any_ref::from_raw(info->value_type, info->value_descriptor, value, value_writable);
   }
 
   /** @brief 获取 second 引用，等价于 `second_ref()`。 */
@@ -102,7 +107,8 @@ public:
 
   /** @brief 写入 first。 */
   bool set_first(const any& value) const {
-    if (!writable() || !value.valid() || value.type() != data_->key_type) {
+    const meta::detail::pair_data* info = data();
+    if (!writable() || !value.valid() || value.type() != info->key_type) {
       return false;
     }
 
@@ -112,7 +118,8 @@ public:
 
   /** @brief 写入 second。 */
   bool set_second(const any& value) const {
-    if (!writable() || !value.valid() || value.type() != data_->value_type) {
+    const meta::detail::pair_data* info = data();
+    if (!writable() || !value.valid() || value.type() != info->value_type) {
       return false;
     }
 
@@ -124,10 +131,15 @@ private:
   friend class any;
   friend class any_ref;
 
-  pair_view(const meta::detail::pair_data* data, const void* storage, bool writable) noexcept
-      : data_(data), storage_(storage), writable_(writable) {}
+  pair_view(const meta::detail::type_descriptor* descriptor, const void* storage,
+            bool writable) noexcept
+      : descriptor_(descriptor), storage_(storage), writable_(writable) {}
 
-  const meta::detail::pair_data* data_ = nullptr;
+  [[nodiscard]] const meta::detail::pair_data* data() const noexcept {
+    return descriptor_ != nullptr ? descriptor_->pair : nullptr;
+  }
+
+  const meta::detail::type_descriptor* descriptor_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };
