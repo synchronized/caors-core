@@ -148,48 +148,6 @@ template <typename Enum>
   return true;
 }
 
-template <typename Wrapper>
-[[nodiscard]] objects::object* wrapper_object_ref_value(const void* storage) noexcept {
-  if (storage == nullptr) {
-    return nullptr;
-  }
-
-  if constexpr (requires(const Wrapper& source) {
-                  traits::wrapper_access<Wrapper>::object_value(source);
-                }) {
-    using result_type =
-        decltype(traits::wrapper_access<Wrapper>::object_value(std::declval<const Wrapper&>()));
-    if constexpr (std::is_convertible_v<result_type, objects::object*>) {
-      return traits::wrapper_access<Wrapper>::object_value(*static_cast<const Wrapper*>(storage));
-    } else {
-      return nullptr;
-    }
-  } else {
-    return nullptr;
-  }
-}
-
-template <typename Wrapper>
-[[nodiscard]] bool wrapper_set_object_ref(void* storage, objects::object* instance) noexcept {
-  if (storage == nullptr) {
-    return false;
-  }
-
-  if constexpr (requires(Wrapper& source, objects::object* object_instance) {
-                  traits::wrapper_access<Wrapper>::set_object(source, object_instance);
-                }) {
-    using result_type = decltype(traits::wrapper_access<Wrapper>::set_object(
-        std::declval<Wrapper&>(), std::declval<objects::object*>()));
-    if constexpr (std::is_convertible_v<result_type, bool>) {
-      return traits::wrapper_access<Wrapper>::set_object(*static_cast<Wrapper*>(storage), instance);
-    } else {
-      return false;
-    }
-  } else {
-    return false;
-  }
-}
-
 template <typename T> [[nodiscard]] indirect_data make_indirect_data() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (std::is_pointer_v<type>) {
@@ -225,19 +183,6 @@ template <typename T> [[nodiscard]] enum_data make_enum_data() {
         &enum_from_i64<type>,
         &enum_from_u64<type>,
         std::is_signed_v<underlying_type>,
-    };
-  } else {
-    return {};
-  }
-}
-
-template <typename T> [[nodiscard]] object_ref_data make_object_ref_data() {
-  using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (traits::wrapper_traits<type>::is_wrapper &&
-                traits::wrapper_traits<type>::semantics == wrapper_semantics::object_ref) {
-    return object_ref_data{
-        &wrapper_object_ref_value<type>,
-        &wrapper_set_object_ref<type>,
     };
   } else {
     return {};

@@ -170,18 +170,18 @@ caors::meta::type_<actor>("game.actor")
 descriptor 直接保存以下语义字段，用来描述该类型在反射、序列化和 value 模块中的运行期形态：
 
 - `kind`：值、枚举、裸指针、wrapper、顺序容器、集合容器、关联容器、二元组、tuple-like 或 variant-like 类型。
-- `traits::wrapper_semantics`：wrapper 或裸指针的处理语义，例如内联值、对象引用或不支持。
+- `traits::wrapper_semantics`：wrapper 或裸指针的处理语义，例如内联值或不支持。
 - `value_type`：统一 value 类型。普通值、枚举、裸指针和 wrapper 对应自身或内部值；顺序容器和集合容器对应元素类型；关联容器对应 mapped/value 类型；二元组对应 second 类型；tuple-like 和 variant-like 类型没有单一 value 类型，应分别通过 `tuple_view` 或 `variant_view` 查询元素或候选类型。
 - `key_type`：关联容器的 key 类型；二元组内部复用它保存 first 类型。
 - `pointer_depth`：当前支持的指针层级。
 - `nullable`：运行期值是否可能为空。
 
-具体访问函数表同样由 descriptor 持有，用来描述枚举转换、容器、指针、wrapper、对象引用 wrapper、pair、
+具体访问函数表同样由 descriptor 持有，用来描述枚举转换、容器、指针、wrapper、对象引用、pair、
 tuple 和 variant 访问能力：
 
 - `meta::detail::indirect_data`：裸指针或 wrapper 的内部值访问、持值检测、重置和确保持值函数。
 - `meta::detail::enum_data`：枚举类型和整数之间的转换函数。
-- `meta::detail::object_ref_data`：对象引用 wrapper 和对象指针之间的读写函数。
+- `objects::detail::object_ref_data`：对象引用类型和对象指针之间的读写函数。
 - `meta::detail::sequence_data` / `set_data` / `associative_data` / `pair_data` / `tuple_data` / `variant_data`：容器、二元组、tuple-like 和 variant-like 的运行期访问函数。
 
 类型形态和通用类型关系只从 descriptor 查询，不再把语义数据、枚举数据、容器数据或间接访问数据作为
@@ -328,7 +328,7 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 - `meta::id_of<T>()`：查询已注册 C++ 类型的运行期类型 id；未注册时返回无效 id。
 - `meta::id()`：根据已注册类型名查询运行期类型标识。
 - `traits::type_name<T>`：基础 C++ 类型到 CAORS 类型名的默认映射。
-- `meta::detail::type_descriptor`：类型形态、wrapper 语义、通用 value/key 类型关系、布局和访问函数表。
+- `meta::detail::type_descriptor`：类型形态、wrapper 语义、对象引用能力、通用 value/key 类型关系、布局和访问函数表。
 - `traits::wrapper_traits<T>` / `traits::wrapper_access<T>`：wrapper 类型语义和内部值访问扩展点。
 - `traits::sequence_traits<T>` / `traits::set_traits<T>` / `traits::associative_traits<T>` / `traits::pair_traits<T>` / `traits::tuple_traits<T>` / `traits::variant_traits<T>`：容器、二元组、tuple-like 和 variant-like 类型语义扩展点。
 - `meta::type`：全局注册表中的类型只读视图。

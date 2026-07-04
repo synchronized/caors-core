@@ -3,6 +3,7 @@
 
 #include "serialization_internal_helpers.h"
 
+#include "caors/object/ref_view.h"
 #include "caors/reflection/registry.h"
 
 #include <limits>
@@ -19,7 +20,7 @@ variant_result make_serialized_value(const any& data) {
   const caors::meta::detail::type_descriptor* descriptor =
       caors::value::detail::descriptor_of(data);
   if (descriptor != nullptr &&
-      (descriptor->kind == meta::type_kind::raw_pointer ||
+      (descriptor->object_ref != nullptr || descriptor->kind == meta::type_kind::raw_pointer ||
        descriptor->kind == meta::type_kind::wrapper ||
        descriptor->kind == meta::type_kind::enumeration ||
        descriptor->kind == meta::type_kind::sequence || descriptor->kind == meta::type_kind::set ||
@@ -99,13 +100,13 @@ variant_result make_serialized_value(const any_ref& value, const serialization::
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
+  if (type_uses_object_ref(value)) {
+    return make_object_ref_value(value, context);
+  }
+
   if (type_uses_inline_indirect_value(value)) {
     const value::indirect_view indirect = value.create_indirect_view();
     return make_indirect_serialized_value(indirect, context);
-  }
-
-  if (type_uses_object_ref(value)) {
-    return make_object_ref_value(value, context);
   }
 
   if (type_is_enumeration(value)) {
@@ -171,13 +172,13 @@ error write_serialized_value(writer& writer, const any_ref& value,
     return {error_domain::serialization, errc::unsupported};
   }
 
+  if (type_uses_object_ref(value)) {
+    return write_object_ref_value(writer, value, context);
+  }
+
   if (type_uses_inline_indirect_value(value)) {
     const value::indirect_view indirect = value.create_indirect_view();
     return write_indirect_serialized_value(writer, indirect, context);
-  }
-
-  if (type_uses_object_ref(value)) {
-    return write_object_ref_value(writer, value, context);
   }
 
   if (type_is_enumeration(value)) {
@@ -247,13 +248,13 @@ error read_serialized_value(reader& reader, const any_ref& target,
     return {error_domain::serialization, errc::invalid_field};
   }
 
+  if (type_uses_object_ref(target)) {
+    return read_object_ref_value(reader, target, context);
+  }
+
   if (type_uses_inline_indirect_value(target)) {
     const value::indirect_view indirect = target.create_indirect_view();
     return read_indirect_serialized_value(reader, indirect, context);
-  }
-
-  if (type_uses_object_ref(target)) {
-    return read_object_ref_value(reader, target, context);
   }
 
   if (type_is_enumeration(target)) {
@@ -304,7 +305,7 @@ error write_field(writer& writer, const reflection::field& field, const void* ob
     return {error_domain::serialization, errc::invalid_field};
   }
 
-  if (field.wrapper_semantics() == meta::wrapper_semantics::object_ref) {
+  if (objects::is_object_ref(field.get_ref(object))) {
     return write_object_ref_field(writer, field, object, field_data, context);
   }
 
@@ -355,7 +356,7 @@ error read_field(reader& reader, const reflection::field& field, void* object,
     return {error_domain::serialization, errc::invalid_field};
   }
 
-  if (field.wrapper_semantics() == meta::wrapper_semantics::object_ref) {
+  if (objects::is_object_ref(field.get_ref(object))) {
     return read_object_ref_field(reader, field, object, field_data, context);
   }
 

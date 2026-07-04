@@ -6,12 +6,6 @@
 
 #include <cstdint>
 
-namespace caors::objects {
-
-class object;
-
-} // namespace caors::objects
-
 namespace caors::meta::detail {
 
 struct type_descriptor;
@@ -25,8 +19,6 @@ using enum_to_i64_fn = std::int64_t (*)(const void*) noexcept;
 using enum_to_u64_fn = std::uint64_t (*)(const void*) noexcept;
 using enum_from_i64_fn = bool (*)(void*, std::int64_t) noexcept;
 using enum_from_u64_fn = bool (*)(void*, std::uint64_t) noexcept;
-using meta_object_ref_get_fn = objects::object* (*)(const void*) noexcept;
-using meta_object_ref_set_fn = bool (*)(void*, objects::object*) noexcept;
 
 /** @brief 指针或 wrapper 的内部值访问函数表。 */
 struct indirect_data {
@@ -54,14 +46,6 @@ struct enum_data {
   [[nodiscard]] bool valid() const noexcept {
     return to_i64 != nullptr && to_u64 != nullptr && from_i64 != nullptr && from_u64 != nullptr;
   }
-};
-
-/** @brief 对象引用 wrapper 和对象指针之间的访问函数表。 */
-struct object_ref_data {
-  meta_object_ref_get_fn get = nullptr;
-  meta_object_ref_set_fn set = nullptr;
-
-  [[nodiscard]] bool valid() const noexcept { return get != nullptr && set != nullptr; }
 };
 
 } // namespace caors::meta::detail

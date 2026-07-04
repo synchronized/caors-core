@@ -10,7 +10,6 @@ namespace caors::traits {
 enum class wrapper_semantics {
   none,
   inline_value,
-  object_ref,
   unsupported,
 };
 

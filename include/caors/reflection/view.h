@@ -5,6 +5,7 @@
 #define CAORS_REFLECTION_VIEW_H_
 
 #include "caors/export.h"
+#include "caors/object/ref.h"
 #include "caors/reflection/type.h"
 
 #include <cstddef>
@@ -91,10 +92,10 @@ public:
   bool try_set_value(void* object, const any& source) const;
 
   /** @brief 获取对象引用字段指向的对象。 */
-  [[nodiscard]] object* get_object_ref(const void* object) const;
+  [[nodiscard]] objects::object* get_object_ref(const void* object) const;
 
   /** @brief 写入对象引用字段。 */
-  bool try_set_object_ref(void* object, caors::object* instance) const;
+  bool try_set_object_ref(void* object, objects::object* instance) const;
 
   /** @brief 判断字段是否是顺序容器。 */
   [[nodiscard]] bool is_sequence() const noexcept;

@@ -95,8 +95,20 @@ private:
 
 namespace detail {
 
+using object_ref_get_fn = object* (*)(const void*) noexcept;
+using object_ref_set_fn = bool (*)(void*, object*) noexcept;
+
+/** @brief 对象引用类型和对象指针之间的访问函数表。 */
+struct object_ref_data {
+  object_ref_get_fn get = nullptr;
+  object_ref_set_fn set = nullptr;
+
+  [[nodiscard]] bool valid() const noexcept { return get != nullptr && set != nullptr; }
+};
+
 template <typename T> struct object_ref_traits {
   static constexpr bool is_object_ref = false;
+  using object_type = void;
 };
 
 template <typename T> struct object_ref_traits<ref<T>> {
@@ -108,6 +120,58 @@ template <typename T> struct object_ref_traits<weak_handle<T>> {
   static constexpr bool is_object_ref = false;
   using object_type = T;
 };
+
+template <typename T> struct object_ref_access {
+  [[nodiscard]] static object* get(const T&) noexcept { return nullptr; }
+  static bool set(T&, object*) noexcept { return false; }
+};
+
+template <typename T> struct object_ref_access<ref<T>> {
+  using object_type = T;
+
+  [[nodiscard]] static object* get(const ref<T>& source) noexcept { return source.get(); }
+
+  static bool set(ref<T>& source, object* instance) noexcept {
+    if (instance == nullptr) {
+      source.reset();
+      return true;
+    }
+
+    auto* typed = dynamic_cast<object_type*>(instance);
+    if (typed == nullptr) {
+      return false;
+    }
+
+    source.reset(typed);
+    return true;
+  }
+};
+
+template <typename T> [[nodiscard]] const object_ref_data* object_ref_data_ptr_of() {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (object_ref_traits<type>::is_object_ref) {
+    static const object_ref_data data{
+        [](const void* storage) noexcept -> object* {
+          if (storage == nullptr) {
+            return nullptr;
+          }
+
+          return object_ref_access<type>::get(*static_cast<const type*>(storage));
+        },
+        [](void* storage, object* instance) noexcept -> bool {
+          if (storage == nullptr) {
+            return false;
+          }
+
+          return object_ref_access<type>::set(*static_cast<type*>(storage), instance);
+        },
+    };
+
+    return data.valid() ? &data : nullptr;
+  } else {
+    return nullptr;
+  }
+}
 
 } // namespace detail
 

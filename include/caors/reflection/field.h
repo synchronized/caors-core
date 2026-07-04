@@ -6,7 +6,6 @@
 
 #include "caors/meta.h"
 #include "caors/traits/container.h"
-#include "caors/traits/object_ref.h"
 #include "caors/value/any.h"
 
 #include <cstddef>
@@ -17,9 +16,6 @@
 
 namespace caors::reflection::detail {
 
-using object_ref_get_fn = object* (*)(const void*) noexcept;
-using object_ref_set_fn = bool (*)(void*, object*) noexcept;
-
 template <typename T> [[nodiscard]] type_id find_field_type_id(std::string_view name) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   const meta::type registered = caors::meta::find<type>();
@@ -28,48 +24,6 @@ template <typename T> [[nodiscard]] type_id find_field_type_id(std::string_view 
   }
 
   return registered.id();
-}
-
-template <typename Field> [[nodiscard]] object_ref_get_fn object_ref_get_fn_of() noexcept {
-  using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
-  if constexpr (objects::detail::object_ref_traits<field_type>::is_object_ref) {
-    return [](const void* storage) noexcept -> object* {
-      if (storage == nullptr) {
-        return nullptr;
-      }
-
-      return static_cast<const field_type*>(storage)->get();
-    };
-  } else {
-    return nullptr;
-  }
-}
-
-template <typename Field> [[nodiscard]] object_ref_set_fn object_ref_set_fn_of() noexcept {
-  using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
-  if constexpr (objects::detail::object_ref_traits<field_type>::is_object_ref) {
-    using object_type = typename objects::detail::object_ref_traits<field_type>::object_type;
-    return [](void* storage, object* instance) noexcept -> bool {
-      if (storage == nullptr) {
-        return false;
-      }
-
-      if (instance == nullptr) {
-        static_cast<field_type*>(storage)->reset();
-        return true;
-      }
-
-      object_type* typed = dynamic_cast<object_type*>(instance);
-      if (typed == nullptr) {
-        return false;
-      }
-
-      static_cast<field_type*>(storage)->reset(typed);
-      return true;
-    };
-  } else {
-    return nullptr;
-  }
 }
 
 /**
@@ -83,8 +37,6 @@ struct field_data {
   string_name name{};
   type_id type{};
   const meta::detail::type_descriptor* descriptor = nullptr;
-  detail::object_ref_get_fn get_object_ref = nullptr;
-  detail::object_ref_set_fn set_object_ref = nullptr;
   std::size_t offset = 0;
   bool writable = true;
 
@@ -232,13 +184,7 @@ template <typename Field>
   }
 
   field_data field{
-      string_name{name},
-      field_type_id,
-      descriptor,
-      detail::object_ref_get_fn_of<Field>(),
-      detail::object_ref_set_fn_of<Field>(),
-      offset,
-      !std::is_const_v<Field>,
+      string_name{name}, field_type_id, descriptor, offset, !std::is_const_v<Field>,
   };
 
   return field;

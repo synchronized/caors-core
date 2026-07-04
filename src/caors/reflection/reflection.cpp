@@ -3,6 +3,8 @@
 
 #include "caors/reflection.h"
 
+#include "caors/object/ref_view.h"
+
 namespace caors::reflection {
 namespace {
 
@@ -253,22 +255,24 @@ bool field::try_set_value(void* object, const any& source) const {
   return field->try_set_value(object, source);
 }
 
-object* field::get_object_ref(const void* object) const {
-  const detail::field_data* field = info();
-  if (field == nullptr || field->get_object_ref == nullptr) {
+objects::object* field::get_object_ref(const void* object) const {
+  const any_ref ref = get_ref(object);
+  const objects::object_ref_view object_ref = objects::object_ref(ref);
+  if (!object_ref) {
     return nullptr;
   }
 
-  return field->get_object_ref(field->data(object));
+  return object_ref.get();
 }
 
-bool field::try_set_object_ref(void* object, caors::object* instance) const {
-  const detail::field_data* field = info();
-  if (field == nullptr || field->set_object_ref == nullptr) {
+bool field::try_set_object_ref(void* object, objects::object* instance) const {
+  const any_ref ref = get_ref(object);
+  const objects::object_ref_view object_ref = objects::object_ref(ref);
+  if (!object_ref) {
     return false;
   }
 
-  return field->set_object_ref(field->mutable_data(object), instance);
+  return object_ref.set(instance);
 }
 
 bool field::is_sequence() const noexcept { return kind() == meta::type_kind::sequence; }

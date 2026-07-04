@@ -4,6 +4,7 @@
 #include "serialization_internal_helpers.h"
 
 #include "caors/meta/detail/type_capabilities.h"
+#include "caors/object/ref_view.h"
 #include "caors/reflection/registry.h"
 
 #include <limits>
@@ -55,11 +56,6 @@ descriptor_of_value(const any_ref& value) noexcept {
   return descriptor != nullptr ? descriptor->enumeration : nullptr;
 }
 
-[[nodiscard]] const meta::detail::object_ref_data* object_ref_data(const any_ref& value) noexcept {
-  const caors::meta::detail::type_descriptor* descriptor = descriptor_of_value(value);
-  return descriptor != nullptr ? descriptor->object_ref : nullptr;
-}
-
 [[nodiscard]] bool type_uses_inline_indirect_value(const any_ref& value) noexcept {
   const meta::detail::type_descriptor* descriptor = descriptor_of_value(value);
   return descriptor != nullptr &&
@@ -74,29 +70,13 @@ descriptor_of_value(const any_ref& value) noexcept {
 }
 
 [[nodiscard]] bool type_uses_object_ref(const any_ref& value) noexcept {
-  const meta::detail::type_descriptor* descriptor = descriptor_of_value(value);
-  return descriptor != nullptr && descriptor->kind == meta::type_kind::wrapper &&
-         descriptor->wrapper_semantics == meta::wrapper_semantics::object_ref &&
-         object_ref_data(value) != nullptr;
-}
-
-[[nodiscard]] const object*
-object_ref_value_from_ref(const any_ref& value,
-                          const meta::detail::object_ref_data& data) noexcept {
-  if (!value.valid() || value.data() == nullptr || data.get == nullptr) {
-    return nullptr;
-  }
-
-  return data.get(value.data());
+  return objects::is_object_ref(value);
 }
 
 [[nodiscard]] variant_result make_object_ref_value(const any_ref& value,
                                                    const serialization::context& context) {
-  const meta::detail::type_descriptor* descriptor = descriptor_of_value(value);
-  const meta::detail::object_ref_data* data = object_ref_data(value);
-  if (descriptor == nullptr ||
-      descriptor->wrapper_semantics != meta::wrapper_semantics::object_ref || data == nullptr ||
-      data->get == nullptr) {
+  const objects::object_ref_view object_ref = objects::object_ref(value);
+  if (!object_ref) {
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
@@ -104,7 +84,7 @@ object_ref_value_from_ref(const any_ref& value,
     return {{error_domain::serialization, errc::invalid_argument}, {}};
   }
 
-  const object* referenced = object_ref_value_from_ref(value, *data);
+  const object* referenced = object_ref.get();
   const object_id id = referenced != nullptr
                            ? context.reference_resolver->object_to_id(
                                  referenced, context.reference_resolver->user_data)
@@ -118,11 +98,8 @@ object_ref_value_from_ref(const any_ref& value,
 
 [[nodiscard]] error write_object_ref_value(writer& writer, const any_ref& value,
                                            const serialization::context& context) {
-  const meta::detail::type_descriptor* descriptor = descriptor_of_value(value);
-  const meta::detail::object_ref_data* data = object_ref_data(value);
-  if (descriptor == nullptr ||
-      descriptor->wrapper_semantics != meta::wrapper_semantics::object_ref || data == nullptr ||
-      data->get == nullptr) {
+  const objects::object_ref_view object_ref = objects::object_ref(value);
+  if (!object_ref) {
     return {error_domain::serialization, errc::unsupported};
   }
 
@@ -130,7 +107,7 @@ object_ref_value_from_ref(const any_ref& value,
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  const object* referenced = object_ref_value_from_ref(value, *data);
+  const object* referenced = object_ref.get();
   const object_id id = referenced != nullptr
                            ? context.reference_resolver->object_to_id(
                                  referenced, context.reference_resolver->user_data)
@@ -144,11 +121,8 @@ object_ref_value_from_ref(const any_ref& value,
 
 [[nodiscard]] error read_object_ref_value(reader& reader, const any_ref& target,
                                           const serialization::context& context) {
-  const meta::detail::type_descriptor* descriptor = descriptor_of_value(target);
-  const meta::detail::object_ref_data* data = object_ref_data(target);
-  if (descriptor == nullptr ||
-      descriptor->wrapper_semantics != meta::wrapper_semantics::object_ref || data == nullptr ||
-      data->set == nullptr || target.mutable_data() == nullptr) {
+  const objects::object_ref_view object_ref = objects::object_ref(target);
+  if (!object_ref || !object_ref.writable() || target.mutable_data() == nullptr) {
     return {error_domain::serialization, errc::unsupported};
   }
 
@@ -171,7 +145,7 @@ object_ref_value_from_ref(const any_ref& value,
     }
   }
 
-  if (!data->set(target.mutable_data(), referenced)) {
+  if (!object_ref.set(referenced)) {
     return {error_domain::serialization, errc::invalid_type};
   }
 

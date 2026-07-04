@@ -3,6 +3,7 @@
 
 #include "caors/serialization/operations.h"
 
+#include "caors/object/ref_view.h"
 #include "caors/reflection/registry.h"
 
 #include "serialization_internal.h"
@@ -45,7 +46,7 @@ value_ref_to_serialization_value(const any_ref& value, const serialization::cont
 [[nodiscard]] variant_result field_to_serialization_value(const reflection::field& field,
                                                           const void* object,
                                                           const serialization::context& context) {
-  if (field.wrapper_semantics() == meta::wrapper_semantics::object_ref) {
+  if (objects::is_object_ref(field.get_ref(object))) {
     return object_ref_to_serialization_value(field, object, context);
   }
 

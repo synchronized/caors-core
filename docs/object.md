@@ -95,6 +95,16 @@ caors::object_id id = ref.id();
 `object_id`，反序列化时再把 `object_id` 解析回对象指针。`object_id` 本身仍是运行期标识，跨存档稳定
 引用应由上层资源或对象数据库提供稳定 id 映射。
 
+运行期值可以通过对象模块入口查询对象引用能力：
+
+```cpp
+caors::any_ref value = caors::any_ref::from(ref);
+auto object_ref = caors::objects::object_ref(value);
+if (object_ref) {
+  caors::object* object = object_ref.get();
+}
+```
+
 ### objects::handle 和 objects::weak_handle
 
 `objects::handle` 是只保存 `object_id` 和 `object_type_id` 的身份描述，不拥有对象，也不提供解引用：

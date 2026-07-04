@@ -20,9 +20,9 @@ struct field_traits_owner {
   std::shared_ptr<int> shared{};
   std::weak_ptr<int> weak{};
   std::optional<int> optional{};
-  std::reference_wrapper<int> wrapper;
+  std::reference_wrapper<int> wrapper{value};
   custom_inline_wrapper<int> custom_inline{};
-  custom_object_ref<int> custom_ref{};
+  caors::object_ref<reflected_object_ref_target> object_ref{};
   caors::vector<int> sequence{};
   std::span<int> span{};
   std::pair<int, caors::string> pair{};
@@ -85,7 +85,7 @@ TEST_CASE("reflection - field view describes field type traits", "[reflection]")
               .field("optional", &field_traits_owner::optional)
               .field("wrapper", &field_traits_owner::wrapper)
               .field("custom_inline", &field_traits_owner::custom_inline)
-              .field("custom_ref", &field_traits_owner::custom_ref)
+              .field("object_ref", &field_traits_owner::object_ref)
               .field("sequence", &field_traits_owner::sequence)
               .field("span", &field_traits_owner::span)
               .field("pair", &field_traits_owner::pair)
@@ -151,11 +151,20 @@ TEST_CASE("reflection - field view describes field type traits", "[reflection]")
   CHECK(custom_inline.value_type() == registered_type_id("int"));
   CHECK_FALSE(custom_inline.nullable());
 
-  const caors::reflection::field custom_ref = require_field(reflected, "custom_ref");
-  CHECK(custom_ref.kind() == caors::meta::type_kind::wrapper);
-  CHECK(custom_ref.wrapper_semantics() == caors::meta::wrapper_semantics::object_ref);
-  CHECK(custom_ref.value_type() == registered_type_id("int"));
-  CHECK(custom_ref.nullable());
+  const caors::reflection::field object_ref = require_field(reflected, "object_ref");
+  CHECK(object_ref.kind() == caors::meta::type_kind::value);
+  CHECK(object_ref.wrapper_semantics() == caors::meta::wrapper_semantics::none);
+  CHECK(object_ref.value_type() ==
+        registered_type_id("caors.object_ref<caors.test.reflection.reflected_object_ref_target>"));
+  CHECK_FALSE(object_ref.nullable());
+
+  field_traits_owner owner{};
+  reflected_object_ref_target target{};
+  owner.object_ref.reset(&target);
+  CHECK(object_ref.get_object_ref(&owner) == &target);
+  owner.object_ref.reset();
+  CHECK(object_ref.try_set_object_ref(&owner, &target));
+  CHECK(owner.object_ref.get() == &target);
 
   const caors::reflection::field sequence = require_field(reflected, "sequence");
   CHECK(sequence.kind() == caors::meta::type_kind::sequence);

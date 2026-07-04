@@ -4,6 +4,7 @@
 #ifndef CAORS_TESTS_REFLECTION_TEST_SUPPORT_H_
 #define CAORS_TESTS_REFLECTION_TEST_SUPPORT_H_
 #include "caors/adapters/stl.h"
+#include "caors/object/base.h"
 #include "caors/reflection.h"
 
 #include <catch2/catch_all.hpp>
@@ -28,10 +29,6 @@ template <typename T> struct custom_inline_wrapper {
   T value{};
 };
 
-template <typename T> struct custom_object_ref {
-  T* value = nullptr;
-};
-
 struct named_field_value {
   int value = 0;
 };
@@ -52,13 +49,6 @@ template <typename T> struct wrapper_traits<test_reflection::custom_inline_wrapp
   static constexpr bool is_wrapper = true;
   static constexpr bool nullable = false;
   static constexpr wrapper_semantics semantics = wrapper_semantics::inline_value;
-  using wrapped_type = T;
-};
-
-template <typename T> struct wrapper_traits<test_reflection::custom_object_ref<T>> {
-  static constexpr bool is_wrapper = true;
-  static constexpr bool nullable = true;
-  static constexpr wrapper_semantics semantics = wrapper_semantics::object_ref;
   using wrapped_type = T;
 };
 
@@ -172,6 +162,8 @@ struct inventory {
   int count = 0;
 };
 
+struct reflected_object_ref_target : caors::object {};
+
 struct inventory_holder {
   inventory items{};
 };
@@ -278,7 +270,10 @@ template <typename T> void register_common_type(std::string_view name) {
   register_common_type<std::optional<int>>("std.optional<int>");
   register_common_type<std::reference_wrapper<int>>("std.reference_wrapper<int>");
   register_common_type<custom_inline_wrapper<int>>("custom.inline<int>");
-  register_common_type<custom_object_ref<int>>("custom.object_ref<int>");
+  register_common_type<reflected_object_ref_target>(
+      "caors.test.reflection.reflected_object_ref_target");
+  register_common_type<caors::object_ref<reflected_object_ref_target>>(
+      "caors.object_ref<caors.test.reflection.reflected_object_ref_target>");
   register_common_type<caors::vector<int>>("caors.vector<int>");
   register_common_type<caors::list<int>>("caors.list<int>");
   register_common_type<std::array<int, 3>>("std.array<int,3>");

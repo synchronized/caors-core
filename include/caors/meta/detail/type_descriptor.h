@@ -7,6 +7,7 @@
 #include "caors/meta/detail/container.h"
 #include "caors/meta/detail/container_iterators.h"
 #include "caors/meta/type_semantics.h"
+#include "caors/object/ref.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -36,7 +37,7 @@ struct type_descriptor {
   bool nullable = false;
   const enum_data* enumeration = nullptr;
   const indirect_data* indirect = nullptr;
-  const object_ref_data* object_ref = nullptr;
+  const objects::detail::object_ref_data* object_ref = nullptr;
   const sequence_data* sequence = nullptr;
   const set_data* set = nullptr;
   const associative_data* associative = nullptr;
@@ -47,8 +48,8 @@ struct type_descriptor {
   [[nodiscard]] bool valid() const noexcept { return type && size > 0 && alignment > 0; }
 
   [[nodiscard]] bool has_view_capability() const noexcept {
-    return indirect != nullptr || sequence != nullptr || set != nullptr || associative != nullptr ||
-           pair != nullptr || tuple != nullptr || variant != nullptr;
+    return object_ref != nullptr || indirect != nullptr || sequence != nullptr || set != nullptr ||
+           associative != nullptr || pair != nullptr || tuple != nullptr || variant != nullptr;
   }
 };
 
@@ -163,15 +164,10 @@ template <typename T> [[nodiscard]] const indirect_data* indirect_data_ptr_of() 
   }
 }
 
-template <typename T> [[nodiscard]] const object_ref_data* object_ref_data_ptr_of() {
+template <typename T>
+[[nodiscard]] const objects::detail::object_ref_data* object_ref_data_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (traits::wrapper_traits<type>::is_wrapper &&
-                traits::wrapper_traits<type>::semantics == wrapper_semantics::object_ref) {
-    static const object_ref_data data = make_object_ref_data<type>();
-    return data.valid() ? &data : nullptr;
-  } else {
-    return nullptr;
-  }
+  return objects::detail::object_ref_data_ptr_of<type>();
 }
 
 template <typename T> [[nodiscard]] const sequence_data* sequence_data_ptr_of() {
