@@ -18,136 +18,45 @@ class variant_view final {
 public:
   variant_view() noexcept = default;
 
-  [[nodiscard]] bool valid() const noexcept {
-    const meta::detail::variant_data* info = data();
-    return info != nullptr && info->valid() && storage_ != nullptr;
-  }
-
+  [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
   [[nodiscard]] bool writable() const noexcept { return valid() && writable_; }
 
   /** @brief 查询候选类型数量。 */
-  [[nodiscard]] std::size_t size() const noexcept {
-    const meta::detail::variant_data* info = data();
-    return valid() ? info->alternatives.size() : 0;
-  }
+  [[nodiscard]] std::size_t size() const noexcept;
 
   /** @brief 查询当前候选下标。variant 处于 valueless 状态时返回空。 */
-  [[nodiscard]] std::optional<std::size_t> index() const noexcept {
-    const meta::detail::variant_data* info = data();
-    if (!valid() || info->index == nullptr) {
-      return std::nullopt;
-    }
-
-    const std::size_t active = info->index(storage_);
-    if (active >= info->alternatives.size()) {
-      return std::nullopt;
-    }
-
-    return active;
-  }
+  [[nodiscard]] std::optional<std::size_t> index() const noexcept;
 
   /** @brief 查询指定候选类型。 */
-  [[nodiscard]] std::optional<type_id> alternative_type(std::size_t alternative) const noexcept {
-    const meta::detail::variant_data* info = data();
-    if (!valid() || alternative >= info->alternatives.size()) {
-      return std::nullopt;
-    }
-
-    return info->alternatives[alternative].value_type;
-  }
+  [[nodiscard]] std::optional<type_id> alternative_type(std::size_t alternative) const noexcept;
 
   /** @brief 查询指定候选类型名。 */
-  [[nodiscard]] string_name alternative_type_name(std::size_t alternative) const noexcept {
-    const std::optional<type_id> id = alternative_type(alternative);
-    const meta::type meta = id.has_value() ? caors::meta::find(*id) : meta::type{};
-    return meta ? meta.name() : string_name{};
-  }
+  [[nodiscard]] string_name alternative_type_name(std::size_t alternative) const noexcept;
 
   /** @brief 查询当前值类型。 */
-  [[nodiscard]] type_id value_type() const noexcept {
-    const std::optional<std::size_t> active = index();
-    if (!active.has_value()) {
-      return {};
-    }
-
-    return data()->alternatives[*active].value_type;
-  }
+  [[nodiscard]] type_id value_type() const noexcept;
 
   /** @brief 查询当前值类型名。 */
-  [[nodiscard]] string_name value_type_name() const noexcept {
-    const meta::type meta = caors::meta::find(value_type());
-    return meta ? meta.name() : string_name{};
-  }
+  [[nodiscard]] string_name value_type_name() const noexcept;
 
   /** @brief 获取当前候选值引用。 */
-  [[nodiscard]] any_ref value_ref() const {
-    const std::optional<std::size_t> active = index();
-    if (!active.has_value()) {
-      return {};
-    }
-
-    const meta::detail::variant_alternative_data& alternative_data = data()->alternatives[*active];
-    const void* value = nullptr;
-    bool value_writable = false;
-    if (writable() && alternative_data.mutable_alternative != nullptr) {
-      value = alternative_data.mutable_alternative(const_cast<void*>(storage_));
-      value_writable = value != nullptr;
-    } else if (alternative_data.alternative != nullptr) {
-      value = alternative_data.alternative(storage_);
-    }
-
-    if (value == nullptr) {
-      return {};
-    }
-
-    return any_ref::from_raw(alternative_data.value_type, alternative_data.value_descriptor, value,
-                             value_writable);
-  }
+  [[nodiscard]] any_ref value_ref() const;
 
   /** @brief 切换当前候选。已处于目标候选时直接成功。 */
-  bool emplace(std::size_t alternative) const {
-    const meta::detail::variant_data* info = data();
-    if (!writable() || alternative >= info->alternatives.size()) {
-      return false;
-    }
-
-    const std::optional<std::size_t> active = index();
-    if (active.has_value() && *active == alternative) {
-      return true;
-    }
-
-    const meta::detail::variant_alternative_data& alternative_data =
-        info->alternatives[alternative];
-    if (alternative_data.emplace == nullptr) {
-      return false;
-    }
-
-    return alternative_data.emplace(const_cast<void*>(storage_));
-  }
+  bool emplace(std::size_t alternative) const;
 
   /** @brief 写入当前候选值。 */
-  bool set_value(const any& value) const {
-    const type_id expected = value_type();
-    if (!writable() || !expected || !value.valid() || value.type() != expected) {
-      return false;
-    }
-
-    any_ref target = value_ref();
-    return target.valid() && target.try_set(value);
-  }
+  bool set_value(const any& value) const;
 
 private:
   friend class any;
   friend class any_ref;
 
   variant_view(const meta::detail::type_descriptor* descriptor, const void* storage,
-               bool writable) noexcept
-      : descriptor_(descriptor), storage_(storage), writable_(writable) {}
+               bool writable) noexcept;
 
-  [[nodiscard]] const meta::detail::variant_data* data() const noexcept {
-    return meta::detail::descriptor_capability<meta::detail::variant_data>(descriptor_);
-  }
+  [[nodiscard]] const meta::detail::variant_data* data() const noexcept;
 
   const meta::detail::type_descriptor* descriptor_ = nullptr;
   const void* storage_ = nullptr;

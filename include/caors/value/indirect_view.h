@@ -18,101 +18,32 @@ class indirect_view final {
 public:
   indirect_view() noexcept = default;
 
-  [[nodiscard]] bool valid() const noexcept {
-    const meta::detail::indirect_data* info = data();
-    if (descriptor_ == nullptr || info == nullptr || storage_ == nullptr ||
-        !meta::detail::descriptor_value_type(*descriptor_)) {
-      return false;
-    }
-
-    if (!meta::detail::descriptor_indirect(*descriptor_)) {
-      return false;
-    }
-
-    if (meta::detail::descriptor_kind(*descriptor_) == meta::type_kind::wrapper &&
-        meta::detail::descriptor_wrapper_semantics(*descriptor_) ==
-            meta::wrapper_semantics::unsupported) {
-      return false;
-    }
-
-    return info->valid();
-  }
-
+  [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
   [[nodiscard]] bool writable() const noexcept { return valid() && writable_; }
-  [[nodiscard]] type_id value_type() const noexcept {
-    return valid() ? meta::detail::descriptor_value_type(*descriptor_) : type_id{};
-  }
-
-  [[nodiscard]] string_name value_type_name() const noexcept {
-    const meta::type meta = valid() ? caors::meta::find(value_type()) : meta::type{};
-    return meta ? meta.name() : string_name{};
-  }
+  [[nodiscard]] type_id value_type() const noexcept;
+  [[nodiscard]] string_name value_type_name() const noexcept;
 
   /** @brief 判断 wrapper 当前是否持有内部值。 */
-  [[nodiscard]] bool has_value() const noexcept {
-    const meta::detail::indirect_data* info = data();
-    if (!valid() || info->has_value == nullptr) {
-      return false;
-    }
-
-    return info->has_value(storage_);
-  }
+  [[nodiscard]] bool has_value() const noexcept;
 
   /** @brief 获取内部值引用。 */
-  [[nodiscard]] any_ref value_ref() const {
-    const meta::detail::indirect_data* info = data();
-    if (!valid() || info->value == nullptr) {
-      return {};
-    }
-
-    const void* value = nullptr;
-    bool value_writable = false;
-    if (writable() && info->mutable_value != nullptr) {
-      value = info->mutable_value(const_cast<void*>(storage_));
-      value_writable = value != nullptr;
-    } else {
-      value = info->value(storage_);
-    }
-
-    if (value == nullptr) {
-      return {};
-    }
-
-    return any_ref::from_raw(value_type(), info->value_descriptor, value, value_writable);
-  }
+  [[nodiscard]] any_ref value_ref() const;
 
   /** @brief 重置 wrapper 或裸指针为空。 */
-  bool reset() const {
-    const meta::detail::indirect_data* info = data();
-    if (!writable() || info->reset == nullptr) {
-      return false;
-    }
-
-    return info->reset(const_cast<void*>(storage_));
-  }
+  bool reset() const;
 
   /** @brief 确保 wrapper 持有内部值。裸指针不会自动分配内存。 */
-  bool ensure_value() const {
-    const meta::detail::indirect_data* info = data();
-    if (!writable() || info->ensure_value == nullptr) {
-      return false;
-    }
-
-    return info->ensure_value(const_cast<void*>(storage_));
-  }
+  bool ensure_value() const;
 
 private:
   friend class any;
   friend class any_ref;
 
   indirect_view(const meta::detail::type_descriptor* descriptor, const void* storage,
-                bool writable) noexcept
-      : descriptor_(descriptor), storage_(storage), writable_(writable) {}
+                bool writable) noexcept;
 
-  [[nodiscard]] const meta::detail::indirect_data* data() const noexcept {
-    return meta::detail::descriptor_capability<meta::detail::indirect_data>(descriptor_);
-  }
+  [[nodiscard]] const meta::detail::indirect_data* data() const noexcept;
 
   const meta::detail::type_descriptor* descriptor_ = nullptr;
   const void* storage_ = nullptr;
