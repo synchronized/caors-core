@@ -24,6 +24,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 提供 `meta::view<T...>()`，查询同时拥有指定元数据组件的类型。
 - [x] 补充反射和序列化组件的跨模块查询测试。
 - [x] 增加组件 `try_emplace` / `ensure` 语义和组件状态诊断 API。
+- [ ] 设计开放 runtime capability / poly concept table，用于外挂用户自定义运行期访问能力，并与内置 `type_descriptor` capability 并行。
 - [ ] 评估组件替换和批量注册 API。
 
 ## 2. 定制化分配器
