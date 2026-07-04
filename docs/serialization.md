@@ -203,6 +203,18 @@ caors::serialization::context context{0, &resolver};
 写出时，resolver 把 `object*` 转换为 `object_id`，输出为无符号整数；空引用输出 `0`。读入时，
 resolver 把非 0 `object_id` 转换回对象指针，再写入 `objects::ref<T>` 字段。
 
+如果对象由 `objects::manager` 管理，可以直接创建基于 manager 的 resolver：
+
+```cpp
+caors::objects::manager manager;
+caors::serialization::reference_resolver resolver =
+    caors::serialization::make_reference_resolver(manager);
+caors::serialization::context context{0, &resolver};
+```
+
+该 resolver 只解析 manager 当前仍持有的对象。对象销毁后，同一个 `object_id` 会解析失败并返回
+`errc::not_found`。
+
 失败策略：
 
 - 未提供 resolver 或 resolver 缺少对应方向函数时返回 `errc::invalid_argument`。

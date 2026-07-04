@@ -28,6 +28,35 @@ struct reference_resolver {
   [[nodiscard]] constexpr bool can_read() const noexcept { return id_to_object != nullptr; }
 };
 
+namespace detail {
+
+[[nodiscard]] inline object_id manager_object_to_id(const object* instance,
+                                                    void* user_data) noexcept {
+  auto* manager = static_cast<objects::manager*>(user_data);
+  if (manager == nullptr || instance == nullptr || !manager->contains(instance->id())) {
+    return object_id::invalid();
+  }
+
+  return instance->id();
+}
+
+[[nodiscard]] inline object* manager_id_to_object(object_id id, void* user_data) noexcept {
+  auto* manager = static_cast<objects::manager*>(user_data);
+  return manager != nullptr ? manager->find(id) : nullptr;
+}
+
+} // namespace detail
+
+/** @brief 使用对象生命周期管理器创建对象引用 resolver。 */
+[[nodiscard]] inline reference_resolver
+make_reference_resolver(objects::manager& manager) noexcept {
+  return reference_resolver{
+      &detail::manager_object_to_id,
+      &detail::manager_id_to_object,
+      &manager,
+  };
+}
+
 /**
  * @brief 单次序列化调度上下文。
  *

@@ -3,6 +3,9 @@
 
 #include "serialization_test_support.h"
 
+#include <string>
+#include <string_view>
+
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - serializes object references through resolver", "[serialization]") {
@@ -194,4 +197,47 @@ TEST_CASE("serialization - object reference resolver failures are reported", "[s
                          caors::serialization::context{0, &wrong_type_resolver});
   CHECK(wrong_type.failed());
   CHECK(wrong_type.value() == caors::errc::invalid_type);
+}
+
+TEST_CASE("serialization - object manager can resolve object references", "[serialization]") {
+  const caors::error object_status =
+      caors::objects::class_<object_ref_target>("caors.test.serialization.object_ref_target")
+          .commit();
+  REQUIRE((object_status == caors::error{} || object_status.value() == caors::errc::duplicate_id));
+  REQUIRE(type_result_ok(caors::meta::type_<caors::object_ref<object_ref_target>>(
+                             "caors.object_ref<caors.test.serialization.object_ref_target>")
+                             .result()));
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<object_ref_actor>("caors.test.serialization.object_ref_actor")
+          .field("target", &object_ref_actor::target)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<object_ref_actor>()));
+
+  caors::objects::manager manager;
+  object_ref_target* target = manager.create<object_ref_target>();
+  REQUIRE(target != nullptr);
+
+  const caors::object_id target_id = target->id();
+  const caors::serialization::reference_resolver resolver =
+      caors::serialization::make_reference_resolver(manager);
+  const caors::serialization::context context{0, &resolver};
+  const object_ref_actor actor{caors::object_ref<object_ref_target>{target}};
+
+  const caors::serialization::serialization_text_result json =
+      caors::serialize_json(actor, context);
+  REQUIRE(json.succeeded());
+  const std::string expected_json = "{\"target\":" + std::to_string(target_id.value()) + "}";
+  CHECK(std::string_view{json.value.data(), json.value.size()} == std::string_view{expected_json});
+
+  object_ref_actor decoded{};
+  const caors::error result = caors::deserialize_json(decoded, json.value, context);
+  REQUIRE(result.succeeded());
+  CHECK(decoded.target.get() == target);
+
+  REQUIRE(manager.destroy(target_id));
+
+  object_ref_actor missing{};
+  const caors::error missing_result = caors::deserialize_json(missing, json.value, context);
+  CHECK(missing_result.failed());
+  CHECK(missing_result.value() == caors::errc::not_found);
 }

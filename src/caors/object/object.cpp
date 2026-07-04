@@ -179,15 +179,13 @@ object* registry::create(std::string_view name, memory_resource* resource) const
   return create(object_type.id(), resource);
 }
 
-bool registry::destroy(object* instance, memory_resource* resource) const noexcept {
+bool registry::destroy(object_type_id id, object* instance,
+                       memory_resource* resource) const noexcept {
   if (instance == nullptr) {
     return false;
   }
 
-  type object_type = find_type(instance->type_id());
-  if (!object_type) {
-    object_type = find_type(instance->type_name());
-  }
+  const type object_type = find_type(id);
   if (!object_type) {
     return false;
   }
@@ -201,9 +199,158 @@ bool registry::destroy(object* instance, memory_resource* resource) const noexce
   return true;
 }
 
+bool registry::destroy(object* instance, memory_resource* resource) const noexcept {
+  if (instance == nullptr) {
+    return false;
+  }
+
+  type object_type = find_type(instance->type_id());
+  if (!object_type) {
+    object_type = find_type(instance->type_name());
+  }
+  if (!object_type) {
+    return false;
+  }
+
+  return destroy(object_type.id(), instance, resource);
+}
+
 registry& get_registry() noexcept {
   static registry registry;
   return registry;
+}
+
+manager::manager(memory_resource* resource)
+    : resource_(resource != nullptr ? resource : get_default_memory_resource()),
+      entries_(entry_map::allocator_type{resource_}) {}
+
+manager::~manager() { clear(); }
+
+std::size_t manager::size() const noexcept { return entries_.size(); }
+
+bool manager::contains(object_id id) const { return find_entry(id) != nullptr; }
+
+object* manager::find(object_id id) const {
+  const entry* stored = find_entry(id);
+  return stored != nullptr ? stored->instance : nullptr;
+}
+
+object* manager::find(handle object_handle) const {
+  if (!object_handle) {
+    return nullptr;
+  }
+
+  const entry* stored = find_entry(object_handle.id());
+  if (stored == nullptr) {
+    return nullptr;
+  }
+
+  if (!objects::is_a(stored->type, object_handle.type())) {
+    return nullptr;
+  }
+
+  return stored->instance;
+}
+
+object* manager::create(object_type_id id) {
+  if (!id) {
+    return nullptr;
+  }
+
+  object* instance = get_registry().create(id, resource_);
+  if (instance == nullptr) {
+    return nullptr;
+  }
+
+#if CAORS_HAS_EXCEPTIONS
+  try {
+#endif
+    if (!store(instance, id, resource_)) {
+      (void)get_registry().destroy(id, instance, resource_);
+      return nullptr;
+    }
+
+    return instance;
+#if CAORS_HAS_EXCEPTIONS
+  } catch (...) {
+    (void)get_registry().destroy(id, instance, resource_);
+    throw;
+  }
+#endif
+}
+
+bool manager::destroy(object_id id) noexcept {
+  auto position = entries_.find(id);
+  if (position == entries_.end()) {
+    return false;
+  }
+
+  const entry stored = position->second;
+  if (!get_registry().destroy(stored.type, stored.instance, stored.resource)) {
+    return false;
+  }
+
+  entries_.erase(position);
+  return true;
+}
+
+bool manager::destroy(object* instance) noexcept {
+  if (instance == nullptr) {
+    return false;
+  }
+
+  const entry* stored = find_entry(instance->id());
+  if (stored == nullptr || stored->instance != instance) {
+    return false;
+  }
+
+  return destroy(stored->id);
+}
+
+void manager::clear() noexcept {
+  while (!entries_.empty()) {
+    auto position = entries_.begin();
+    const entry stored = position->second;
+    entries_.erase(position);
+    (void)get_registry().destroy(stored.type, stored.instance, stored.resource);
+  }
+}
+
+handle manager::handle_of(object_id id) const {
+  const entry* stored = find_entry(id);
+  return stored != nullptr ? handle{stored->id, stored->type} : handle{};
+}
+
+const manager::entry* manager::find_entry(object_id id) const {
+  if (!id) {
+    return nullptr;
+  }
+
+  const auto position = entries_.find(id);
+  return position != entries_.end() ? &position->second : nullptr;
+}
+
+manager::entry* manager::find_entry(object_id id) {
+  if (!id) {
+    return nullptr;
+  }
+
+  const auto position = entries_.find(id);
+  return position != entries_.end() ? &position->second : nullptr;
+}
+
+bool manager::store(object* instance, object_type_id type, memory_resource* resource) {
+  if (instance == nullptr || !type) {
+    return false;
+  }
+
+  const object_id id = instance->id();
+  if (!id) {
+    return false;
+  }
+
+  const auto result = entries_.emplace(id, entry{id, type, instance, resource});
+  return result.second;
 }
 
 } // namespace caors::objects

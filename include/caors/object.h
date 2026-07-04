@@ -7,6 +7,7 @@
 #include "caors/object/base.h"
 #include "caors/object/factory.h"
 #include "caors/object/id.h"
+#include "caors/object/manager.h"
 #include "caors/object/ref.h"
 #include "caors/object/ref_view.h"
 #include "caors/object/registry.h"

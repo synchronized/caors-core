@@ -91,6 +91,27 @@ public:
   int value = 0;
 };
 
+class managed_actor : public caors::object_base<managed_actor> {
+public:
+  static constexpr std::string_view object_type_name = "caors.test.object.managed_actor";
+
+  int value = 0;
+};
+
+class managed_player : public caors::object_base<managed_player, managed_actor> {
+public:
+  static constexpr std::string_view object_type_name = "caors.test.object.managed_player";
+};
+
+class managed_non_default_object : public caors::object_base<managed_non_default_object> {
+public:
+  static constexpr std::string_view object_type_name = "caors.test.object.managed_non_default";
+
+  explicit managed_non_default_object(int value) : value(value) {}
+
+  int value = 0;
+};
+
 [[nodiscard]] constexpr caors::error object_error(caors::errc code) noexcept {
   return {caors::error_domain::object, code};
 }
@@ -273,4 +294,91 @@ TEST_CASE("object - direct creation supports constructor arguments", "[object]")
 
   caors::objects::destroy(instance, &tracking);
   CHECK(tracking.statistics().bytes_in_use == 0);
+}
+
+TEST_CASE("object - manager owns objects and resolves handles", "[object]") {
+  caors::tracking_resource tracking(&caors::get_system_memory_resource());
+
+  {
+    caors::objects::manager manager(&tracking);
+
+    const caors::error actor_status =
+        register_object_test_type<managed_actor>(managed_actor::object_type_name);
+    REQUIRE((actor_status == caors::error{} ||
+             actor_status == object_error(caors::errc::duplicate_id)));
+
+    managed_actor* instance = manager.create<managed_actor>();
+    REQUIRE(instance != nullptr);
+    instance->value = 13;
+
+    const caors::object_id id = instance->id();
+    const caors::objects::handle handle = manager.handle_of(id);
+
+    CHECK(manager.size() == 1);
+    CHECK(manager.contains(id));
+    CHECK(handle);
+    CHECK(handle.id() == id);
+    CHECK(handle.type() == managed_actor::static_type_id());
+    CHECK(manager.find(id) == instance);
+    CHECK(manager.find(handle) == instance);
+    CHECK(manager.find<managed_actor>(id) == instance);
+    CHECK(manager.find<managed_actor>(handle) == instance);
+    CHECK(manager.alive(handle));
+
+    CHECK(manager.destroy(id));
+    CHECK(manager.empty());
+    CHECK_FALSE(manager.contains(id));
+    CHECK_FALSE(manager.alive(handle));
+    CHECK(manager.find(id) == nullptr);
+    CHECK(manager.find(handle) == nullptr);
+    CHECK_FALSE(manager.destroy(id));
+  }
+
+  CHECK(tracking.statistics().bytes_in_use == 0);
+}
+
+TEST_CASE("object - manager resolves typed weak handles and inheritance", "[object]") {
+  caors::objects::manager manager;
+
+  const caors::error actor_status =
+      register_object_test_type<managed_actor>(managed_actor::object_type_name);
+  REQUIRE(
+      (actor_status == caors::error{} || actor_status == object_error(caors::errc::duplicate_id)));
+  REQUIRE(register_object_test_type<managed_player>(managed_player::object_type_name) ==
+          caors::error{});
+
+  managed_player* player = manager.create<managed_player>();
+  REQUIRE(player != nullptr);
+
+  const caors::object_id id = player->id();
+  const caors::objects::weak_handle<managed_player> player_weak = manager.weak<managed_player>(id);
+  const caors::objects::weak_handle<managed_actor> actor_weak = manager.weak<managed_actor>(id);
+
+  REQUIRE(player_weak);
+  REQUIRE(actor_weak);
+  CHECK(manager.find(player_weak) == player);
+  CHECK(manager.find(actor_weak) == static_cast<managed_actor*>(player));
+  CHECK(manager.find(caors::objects::handle{id, managed_actor::static_type_id()}) == player);
+
+  CHECK(manager.destroy(player));
+  CHECK(manager.find(player_weak) == nullptr);
+  CHECK(manager.find(actor_weak) == nullptr);
+  CHECK_FALSE(manager.alive(player_weak.handle()));
+}
+
+TEST_CASE("object - manager supports registered non default constructible objects", "[object]") {
+  caors::objects::manager manager;
+
+  REQUIRE(register_object_test_type<managed_non_default_object>(
+              managed_non_default_object::object_type_name) == caors::error{});
+
+  CHECK(manager.create(managed_non_default_object::static_type_id()) == nullptr);
+
+  managed_non_default_object* instance = manager.create<managed_non_default_object>(42);
+  REQUIRE(instance != nullptr);
+  CHECK(instance->value == 42);
+  CHECK(manager.find<managed_non_default_object>(instance->id()) == instance);
+
+  CHECK(manager.destroy(instance));
+  CHECK(manager.empty());
 }

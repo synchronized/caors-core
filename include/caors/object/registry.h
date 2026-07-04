@@ -93,6 +93,8 @@ public:
     return static_cast<T*>(create(object_type.id(), resource));
   }
 
+  bool destroy(object_type_id id, object* instance,
+               memory_resource* resource = nullptr) const noexcept;
   bool destroy(object* instance, memory_resource* resource = nullptr) const noexcept;
 
 private:

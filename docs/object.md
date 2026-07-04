@@ -14,6 +14,7 @@ CAORS 对象系统第一阶段只解决几件事：
 - 对象可以注册到基于 `meta::registry` 的对象注册表。
 - 注册表可以按类型创建和销毁默认构造对象。
 - 对象创建和销毁可以接入 `memory_resource`。
+- 对象生命周期管理器可以持有实例、按 `object_id` 查找对象，并解析弱句柄和序列化引用。
 
 当前不会实现：
 
@@ -31,11 +32,11 @@ CAORS 对象系统第一阶段只解决几件事：
 
 对象系统的主定义位于 `caors::objects` 命名空间，例如 `objects::object`、`objects::object_id`、
 `objects::object_base<T>`、`objects::type`、`objects::handle`、
-`objects::weak_handle<T>`、`objects::ref<T>` 和 `objects::registry`。
+`objects::weak_handle<T>`、`objects::ref<T>`、`objects::registry` 和 `objects::manager`。
 
 为了保持常用 API 简洁，根命名空间保留兼容别名：`caors::object`、`caors::object_id`、
-`caors::object_type_id`、`caors::object_base<T>` 和 `caors::object_ref<T>`。新代码在模块内部实现和低频辅助类型上优先使用
-`caors::objects::*`。
+`caors::object_type_id`、`caors::object_base<T>`、`caors::object_ref<T>` 和
+`caors::object_manager`。新代码在模块内部实现和低频辅助类型上优先使用 `caors::objects::*`。
 
 ### object_id
 
@@ -114,9 +115,46 @@ caors::objects::handle handle{instance.id(), instance.type_id()};
 ```
 
 `objects::weak_handle<T>` 是类型化弱句柄，内部同样只保存 `objects::handle`。它不会延长对象生命周期，
-也不会隐式查询全局对象表；后续对象生命周期管理器或资源系统可以基于它实现弱引用解析、失效检测和跨存档
-稳定 id 映射。当前阶段如果需要把对象关系序列化为运行期对象 id，仍应使用 `objects::ref<T>` 和
-`serialization::reference_resolver`。
+也不会隐式查询全局对象表；需要解析时应显式传给 `objects::manager` 或上层对象数据库。当前阶段如果需要把对象关系序列化为运行期对象 id，可以使用 `objects::ref<T>` 和
+`serialization::reference_resolver`，也可以从 `objects::manager` 创建 resolver。
+
+### objects::manager
+
+`objects::manager` 是对象实例生命周期管理器。它拥有通过自身创建的对象，记录对象 id、注册类型和创建时使用的
+`memory_resource`，并在 `destroy()` 或析构时释放对象：
+
+```cpp
+caors::objects::manager manager;
+
+player* instance = manager.create<player>();
+caors::objects::handle handle = manager.handle_of(instance->id());
+
+player* resolved = manager.find<player>(handle);
+manager.destroy(handle.id());
+```
+
+也可以创建已注册但非默认构造的对象：
+
+```cpp
+enemy* instance = manager.create<enemy>(spawn_level, spawn_position);
+```
+
+`manager.create(object_type_id)` 只支持已注册且默认构造的对象类型；`manager.create<T>(args...)`
+要求 `T` 已注册，但允许构造参数。对象销毁时会使用 manager 记录的注册类型和内存资源，因此不依赖对象虚函数返回的类型 id。
+
+弱句柄不会自动解引用，必须显式通过 manager 查询：
+
+```cpp
+caors::objects::weak_handle<player> weak = manager.weak<player>(instance->id());
+
+if (player* current = manager.find(weak)) {
+  // 使用 current。
+}
+```
+
+线程安全边界：`manager` 当前不提供内部同步。创建、销毁、查找和遍历存活对象数量如果跨线程并发使用，
+调用方需要自行加锁。`destroy()` 后，已有裸指针、`objects::ref<T>` 和 weak handle 都会失效；weak handle
+可以再次通过 `manager.find()` 检测是否仍可解析。
 
 ### object_base
 
@@ -212,7 +250,8 @@ player* instance = registry.create<player>(&tracking);
 registry.destroy(instance, &tracking);
 ```
 
-`registry.destroy()` 需要传回与创建时一致的内存资源。当前对象本身不保存分配来源。
+`registry.destroy()` 需要传回与创建时一致的内存资源。对象本身不保存分配来源；如果希望由库记录分配来源，
+应优先使用 `objects::manager`。
 
 对于需要构造参数的类型，可以直接使用模板入口：
 
@@ -222,6 +261,18 @@ caors::objects::destroy(instance, &resource);
 ```
 
 非默认构造类型仍可注册类型描述，但不能通过注册表默认创建。
+
+生命周期管理器适合应用层持有运行期对象：
+
+```cpp
+caors::tracking_resource tracking(&caors::get_system_memory_resource());
+caors::objects::manager manager(&tracking);
+
+player* instance = manager.create<player>();
+caors::objects::weak_handle<player> weak = manager.weak<player>(instance->id());
+
+manager.destroy(instance);
+```
 
 ## 当前已实现能力
 
@@ -234,11 +285,13 @@ caors::objects::destroy(instance, &resource);
 - `objects::type`：对象类型只读视图，组合 `meta::type` 和内部 `objects::detail::type_data`。
 - `caors::error`：明确对象类型注册失败原因和错误来源域。
 - `objects::registry`：类型注册、查询、继承关系判断、默认构造工厂。
+- `objects::manager`：对象实例生命周期管理器，持有对象、按 `object_id` 查找和销毁对象，并解析 handle / weak handle。
 - `objects::class_<T>()`：对象类型链式注册入口。
 - `objects::id()` / `objects::find()` / `objects::is_a()`：对象类型查询入口；`objects::find()` 未命中时返回无效
   `objects::type`。
 - `objects::get_registry()`：进程内默认对象注册表。
 - `objects::create<T>()` / `objects::destroy<T>()`：接入 `memory_resource` 的直接对象创建和销毁入口。
+- `serialization::make_reference_resolver(objects::manager&)`：为对象引用序列化创建基于 manager 的 resolver。
 
 ## 后续路线图
 
@@ -249,8 +302,8 @@ caors::objects::destroy(instance, &resource);
 - [x] 注册错误状态和不一致类型描述检测。
 - [x] 默认构造工厂。
 - [x] 接入 `memory_resource`。
-- [ ] 明确对象 handle / weak handle 设计。
-- [ ] 增加对象生命周期管理器。
+- [x] 明确对象 handle / weak handle 设计。
+- [x] 增加对象生命周期管理器。
 - [ ] 与反射系统打通字段、方法和属性元信息。
 - [ ] 与序列化系统打通类型名、版本和构造流程。
 - [ ] 评估是否需要线程安全对象容器或对象数据库。

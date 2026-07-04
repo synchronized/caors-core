@@ -7,6 +7,7 @@
 #include "caors/export.h"
 #include "caors/meta/type_id.h"
 
+#include <cstddef>
 #include <cstdint>
 
 namespace caors::objects {
@@ -33,6 +34,14 @@ public:
 
 private:
   std::uint64_t value_ = 0;
+};
+
+/** @brief `object_id` 的哈希函数。 */
+struct object_id_hash {
+  [[nodiscard]] constexpr std::size_t operator()(object_id id) const noexcept {
+    const std::uint64_t value = id.value();
+    return static_cast<std::size_t>(value ^ (value >> 32U));
+  }
 };
 
 /** @brief 生成新的运行期对象实例标识。 */
