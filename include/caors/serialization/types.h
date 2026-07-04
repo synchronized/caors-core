@@ -8,7 +8,7 @@
 #include "caors/meta.h"
 #include "caors/object.h"
 #include "caors/result.h"
-#include "caors/serialization/detail/type_data.h"
+#include "caors/serialization/type_data.h"
 #include "caors/value/variant.h"
 
 #include <cstdint>

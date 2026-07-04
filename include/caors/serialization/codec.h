@@ -4,7 +4,7 @@
 #ifndef CAORS_SERIALIZATION_CODEC_H_
 #define CAORS_SERIALIZATION_CODEC_H_
 
-#include "caors/reflection/view.h"
+#include "caors/reflection/field.h"
 #include "caors/serialization/reader.h"
 #include "caors/serialization/writer.h"
 #include "caors/value/any.h"

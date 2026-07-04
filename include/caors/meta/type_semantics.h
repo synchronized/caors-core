@@ -5,7 +5,11 @@
 #define CAORS_META_TYPE_SEMANTICS_H_
 
 #include "caors/meta/detail/type_capabilities.h"
-#include "caors/meta/registry.h"
+#include "caors/traits/wrapper.h"
+
+#include <cstdint>
+#include <limits>
+#include <type_traits>
 
 namespace caors::meta::detail {
 
@@ -160,7 +164,8 @@ template <typename T> [[nodiscard]] indirect_data make_indirect_data() {
     data.ensure_value = &raw_pointer_ensure_value<value_type>;
     return data;
   } else if constexpr (traits::wrapper_traits<type>::is_wrapper &&
-                       traits::wrapper_traits<type>::semantics != wrapper_semantics::unsupported) {
+                       traits::wrapper_traits<type>::semantics !=
+                           traits::wrapper_semantics::unsupported) {
     indirect_data data{};
     data.value = &wrapper_indirect_value<type>;
     data.mutable_value = &wrapper_mutable_indirect_value<type>;
@@ -187,19 +192,6 @@ template <typename T> [[nodiscard]] enum_data make_enum_data() {
   } else {
     return {};
   }
-}
-
-template <typename Component> [[nodiscard]] error ensure_component_for(type_id id, Component data) {
-  if (!data.valid() || caors::meta::get_registry().has<Component>(id)) {
-    return {};
-  }
-
-  const error result = caors::meta::get_registry().emplace<Component>(id, data);
-  if (result && result.value() != errc::duplicate_component) {
-    return result;
-  }
-
-  return {};
 }
 
 } // namespace caors::meta::detail
