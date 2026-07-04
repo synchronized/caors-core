@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_VALUE_DETAIL_TYPE_DESCRIPTOR_H_
-#define CAORS_VALUE_DETAIL_TYPE_DESCRIPTOR_H_
+#ifndef CAORS_META_DETAIL_TYPE_DESCRIPTOR_H_
+#define CAORS_META_DETAIL_TYPE_DESCRIPTOR_H_
 
 #include "caors/meta/detail/container.h"
 #include "caors/meta/detail/container_registration_iterators.h"
@@ -12,30 +12,30 @@
 #include <type_traits>
 #include <utility>
 
-namespace caors::value::detail {
+namespace caors::meta::detail {
 
 struct type_descriptor;
 
 template <typename T> [[nodiscard]] const type_descriptor* descriptor_ptr_of() noexcept;
 
-/** @brief value 层内部类型描述符。 */
+/** @brief meta 内部类型描述符，保存布局、值操作和运行期视图能力。 */
 struct type_descriptor {
   type_id type{};
   std::size_t size = 0;
   std::size_t alignment = 0;
-  meta::detail::value_default_construct_fn default_construct = nullptr;
-  meta::detail::value_clone_fn clone = nullptr;
-  meta::detail::value_destroy_fn destroy = nullptr;
-  meta::detail::value_assign_fn assign = nullptr;
-  const meta::type_semantics_data* semantics = nullptr;
-  const meta::detail::enum_data* enumeration = nullptr;
-  const meta::detail::indirect_data* indirect = nullptr;
-  const meta::detail::sequence_data* sequence = nullptr;
-  const meta::detail::set_data* set = nullptr;
-  const meta::detail::associative_data* associative = nullptr;
-  const meta::detail::pair_data* pair = nullptr;
-  const meta::detail::tuple_data* tuple = nullptr;
-  const meta::detail::variant_data* variant = nullptr;
+  value_default_construct_fn default_construct = nullptr;
+  value_clone_fn clone = nullptr;
+  value_destroy_fn destroy = nullptr;
+  value_assign_fn assign = nullptr;
+  const type_semantics_data* semantics = nullptr;
+  const enum_data* enumeration = nullptr;
+  const indirect_data* indirect = nullptr;
+  const sequence_data* sequence = nullptr;
+  const set_data* set = nullptr;
+  const associative_data* associative = nullptr;
+  const pair_data* pair = nullptr;
+  const tuple_data* tuple = nullptr;
+  const variant_data* variant = nullptr;
 
   [[nodiscard]] bool valid() const noexcept { return type && size > 0 && alignment > 0; }
 
@@ -46,38 +46,38 @@ struct type_descriptor {
 };
 
 template <typename T> [[nodiscard]] type_id descriptor_type_id() noexcept {
-  return meta::detail::type_id_of_cpp_type<std::remove_cv_t<std::remove_reference_t<T>>>();
+  return type_id_of_cpp_type<std::remove_cv_t<std::remove_reference_t<T>>>();
 }
 
 template <typename T>
-inline constexpr bool is_supported_wrapper_v =
+inline constexpr bool descriptor_supported_wrapper_v =
     traits::wrapper_traits<std::remove_cv_t<T>>::is_wrapper;
 
 template <typename T>
-inline constexpr bool is_nested_type_indirection_v =
-    std::is_pointer_v<std::remove_cv_t<T>> || is_supported_wrapper_v<T>;
+inline constexpr bool descriptor_nested_type_indirection_v =
+    std::is_pointer_v<std::remove_cv_t<T>> || descriptor_supported_wrapper_v<T>;
 
-template <typename T> [[nodiscard]] meta::type_semantics_data make_semantics_data() {
+template <typename T> [[nodiscard]] type_semantics_data make_semantics_data() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
 
-  meta::type_semantics_data info{};
+  type_semantics_data info{};
   if constexpr (traits::sequence_traits<type>::is_sequence) {
     using element_type = typename traits::sequence_traits<type>::element_type;
 
-    info.kind = meta::type_kind::sequence;
+    info.kind = type_kind::sequence;
     info.value_type = descriptor_type_id<element_type>();
     return info;
   } else if constexpr (traits::set_traits<type>::is_set) {
     using element_type = typename traits::set_traits<type>::element_type;
 
-    info.kind = meta::type_kind::set;
+    info.kind = type_kind::set;
     info.value_type = descriptor_type_id<element_type>();
     return info;
   } else if constexpr (traits::associative_traits<type>::is_associative) {
     using key_type = typename traits::associative_traits<type>::key_type;
     using mapped_type = typename traits::associative_traits<type>::mapped_type;
 
-    info.kind = meta::type_kind::associative;
+    info.kind = type_kind::associative;
     info.key_type = descriptor_type_id<key_type>();
     info.value_type = descriptor_type_id<mapped_type>();
     return info;
@@ -85,33 +85,33 @@ template <typename T> [[nodiscard]] meta::type_semantics_data make_semantics_dat
     using first_type = typename traits::pair_traits<type>::first_type;
     using second_type = typename traits::pair_traits<type>::second_type;
 
-    info.kind = meta::type_kind::pair;
+    info.kind = type_kind::pair;
     info.key_type = descriptor_type_id<first_type>();
     info.value_type = descriptor_type_id<second_type>();
     return info;
   } else if constexpr (traits::tuple_traits<type>::is_tuple) {
-    info.kind = meta::type_kind::tuple;
+    info.kind = type_kind::tuple;
     return info;
   } else if constexpr (traits::variant_traits<type>::is_variant) {
-    info.kind = meta::type_kind::variant;
+    info.kind = type_kind::variant;
     return info;
   } else if constexpr (traits::wrapper_traits<type>::is_wrapper) {
     using wrapped_type = typename traits::wrapper_traits<type>::wrapped_type;
     using value_type = std::remove_cv_t<wrapped_type>;
 
-    static_assert(!is_nested_type_indirection_v<value_type>,
+    static_assert(!descriptor_nested_type_indirection_v<value_type>,
                   "CAORS value supports at most one pointer or wrapper level");
 
-    info.kind = meta::type_kind::wrapper;
+    info.kind = type_kind::wrapper;
     info.wrapper_semantics = traits::wrapper_traits<type>::semantics;
     info.value_type = descriptor_type_id<value_type>();
     info.nullable = traits::wrapper_traits<type>::nullable;
     return info;
   } else {
     if constexpr (std::is_enum_v<type>) {
-      info.kind = meta::type_kind::enumeration;
+      info.kind = type_kind::enumeration;
     } else {
-      info.kind = meta::type_kind::value;
+      info.kind = type_kind::value;
     }
     info.value_type = descriptor_type_id<type>();
     return info;
@@ -119,32 +119,32 @@ template <typename T> [[nodiscard]] meta::type_semantics_data make_semantics_dat
 }
 
 template <typename T> struct semantic_data_holder {
-  inline static const meta::type_semantics_data value = make_semantics_data<T>();
+  inline static const type_semantics_data value = make_semantics_data<T>();
 };
 
-template <typename T> [[nodiscard]] const meta::type_semantics_data* semantics_ptr_of() noexcept {
+template <typename T> [[nodiscard]] const type_semantics_data* semantics_ptr_of() noexcept {
   return &semantic_data_holder<std::remove_cv_t<std::remove_reference_t<T>>>::value;
 }
 
-template <typename T> [[nodiscard]] const meta::detail::enum_data* enum_data_ptr_of() {
+template <typename T> [[nodiscard]] const enum_data* enum_data_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (std::is_enum_v<type>) {
-    static const meta::detail::enum_data data = meta::detail::make_enum_data<type>();
+    static const enum_data data = make_enum_data<type>();
     return data.valid() ? &data : nullptr;
   } else {
     return nullptr;
   }
 }
 
-template <typename T> [[nodiscard]] meta::type_semantics_data make_pointer_semantics_data() {
+template <typename T> [[nodiscard]] type_semantics_data make_pointer_semantics_data() {
   using value_type = std::remove_cv_t<T>;
 
-  static_assert(!is_nested_type_indirection_v<value_type>,
+  static_assert(!descriptor_nested_type_indirection_v<value_type>,
                 "CAORS value supports at most one pointer or wrapper level");
 
-  meta::type_semantics_data info{};
-  info.kind = meta::type_kind::raw_pointer;
-  info.wrapper_semantics = meta::wrapper_semantics::inline_value;
+  type_semantics_data info{};
+  info.kind = type_kind::raw_pointer;
+  info.wrapper_semantics = wrapper_semantics::inline_value;
   info.value_type = descriptor_type_id<value_type>();
   info.pointer_depth = 1;
   info.nullable = true;
@@ -152,26 +152,25 @@ template <typename T> [[nodiscard]] meta::type_semantics_data make_pointer_seman
 }
 
 template <typename T> struct semantic_data_holder<T*> {
-  inline static const meta::type_semantics_data value = make_pointer_semantics_data<T>();
+  inline static const type_semantics_data value = make_pointer_semantics_data<T>();
 };
 
-template <typename T> [[nodiscard]] const meta::detail::indirect_data* indirect_data_ptr_of() {
+template <typename T> [[nodiscard]] const indirect_data* indirect_data_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (std::is_pointer_v<type>) {
     using value_type = std::remove_pointer_t<type>;
-    static const meta::detail::indirect_data data = [] {
-      meta::detail::indirect_data result = meta::detail::make_indirect_data<type>();
+    static const indirect_data data = [] {
+      indirect_data result = make_indirect_data<type>();
       result.value_descriptor = descriptor_ptr_of<std::remove_cv_t<value_type>>();
       return result;
     }();
 
     return data.valid() ? &data : nullptr;
   } else if constexpr (traits::wrapper_traits<type>::is_wrapper &&
-                       traits::wrapper_traits<type>::semantics !=
-                           meta::wrapper_semantics::unsupported) {
+                       traits::wrapper_traits<type>::semantics != wrapper_semantics::unsupported) {
     using value_type = std::remove_cv_t<typename traits::wrapper_traits<type>::wrapped_type>;
-    static const meta::detail::indirect_data data = [] {
-      meta::detail::indirect_data result = meta::detail::make_indirect_data<type>();
+    static const indirect_data data = [] {
+      indirect_data result = make_indirect_data<type>();
       result.value_descriptor = descriptor_ptr_of<value_type>();
       return result;
     }();
@@ -182,12 +181,12 @@ template <typename T> [[nodiscard]] const meta::detail::indirect_data* indirect_
   }
 }
 
-template <typename T> [[nodiscard]] const meta::detail::sequence_data* sequence_data_ptr_of() {
+template <typename T> [[nodiscard]] const sequence_data* sequence_data_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (traits::sequence_traits<type>::is_sequence) {
     using element_type = typename traits::sequence_traits<type>::element_type;
-    static const meta::detail::sequence_data data = [] {
-      meta::detail::sequence_data result{
+    static const sequence_data data = [] {
+      sequence_data result{
           descriptor_type_id<element_type>(),
           [](const void* storage) noexcept -> std::size_t {
             if (storage == nullptr) {
@@ -252,12 +251,12 @@ template <typename T> [[nodiscard]] const meta::detail::sequence_data* sequence_
   }
 }
 
-template <typename T> [[nodiscard]] const meta::detail::set_data* set_data_ptr_of() {
+template <typename T> [[nodiscard]] const set_data* set_data_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (traits::set_traits<type>::is_set) {
     using element_type = typename traits::set_traits<type>::element_type;
-    static const meta::detail::set_data data = [] {
-      meta::detail::set_data result{
+    static const set_data data = [] {
+      set_data result{
           descriptor_type_id<element_type>(),
           [](const void* storage) noexcept -> std::size_t {
             if (storage == nullptr) {
@@ -266,7 +265,7 @@ template <typename T> [[nodiscard]] const meta::detail::set_data* set_data_ptr_o
 
             return traits::set_traits<type>::size(*static_cast<const type*>(storage));
           },
-          [](const void* storage, meta::detail::set_raw_visitor visitor, void* user_data) -> bool {
+          [](const void* storage, set_raw_visitor visitor, void* user_data) -> bool {
             if (storage == nullptr || visitor == nullptr) {
               return false;
             }
@@ -298,15 +297,15 @@ template <typename T> [[nodiscard]] const meta::detail::set_data* set_data_ptr_o
           },
       };
 
-      if constexpr (meta::detail::has_const_container_iterator_v<type>) {
+      if constexpr (has_const_container_iterator_v<type>) {
         using iterator_type = decltype(std::declval<const type&>().begin());
-        result.begin = &meta::detail::begin_container_iterator<type>;
-        result.end = &meta::detail::end_container_iterator<type>;
-        result.iterator_clone = &meta::detail::clone_container_iterator<iterator_type>;
-        result.iterator_destroy = &meta::detail::destroy_container_iterator<iterator_type>;
-        result.iterator_advance = &meta::detail::advance_container_iterator<iterator_type>;
-        result.iterator_equal = &meta::detail::equal_container_iterator<iterator_type>;
-        result.iterator_value = &meta::detail::set_iterator_value<iterator_type>;
+        result.begin = &begin_container_iterator<type>;
+        result.end = &end_container_iterator<type>;
+        result.iterator_clone = &clone_container_iterator<iterator_type>;
+        result.iterator_destroy = &destroy_container_iterator<iterator_type>;
+        result.iterator_advance = &advance_container_iterator<iterator_type>;
+        result.iterator_equal = &equal_container_iterator<iterator_type>;
+        result.iterator_value = &set_iterator_value<iterator_type>;
       }
 
       result.value_descriptor = descriptor_ptr_of<element_type>();
@@ -319,14 +318,13 @@ template <typename T> [[nodiscard]] const meta::detail::set_data* set_data_ptr_o
   }
 }
 
-template <typename T>
-[[nodiscard]] const meta::detail::associative_data* associative_data_ptr_of() {
+template <typename T> [[nodiscard]] const associative_data* associative_data_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (traits::associative_traits<type>::is_associative) {
     using key_type = typename traits::associative_traits<type>::key_type;
     using mapped_type = typename traits::associative_traits<type>::mapped_type;
-    static const meta::detail::associative_data data = [] {
-      meta::detail::associative_data result{
+    static const associative_data data = [] {
+      associative_data result{
           descriptor_type_id<key_type>(),
           descriptor_type_id<mapped_type>(),
           [](const void* storage) noexcept -> std::size_t {
@@ -336,8 +334,7 @@ template <typename T>
 
             return traits::associative_traits<type>::size(*static_cast<const type*>(storage));
           },
-          [](const void* storage, meta::detail::associative_raw_visitor visitor,
-             void* user_data) -> bool {
+          [](const void* storage, associative_raw_visitor visitor, void* user_data) -> bool {
             if (storage == nullptr || visitor == nullptr) {
               return false;
             }
@@ -371,16 +368,16 @@ template <typename T>
           },
       };
 
-      if constexpr (meta::detail::has_const_container_iterator_v<type>) {
+      if constexpr (has_const_container_iterator_v<type>) {
         using iterator_type = decltype(std::declval<const type&>().begin());
-        result.begin = &meta::detail::begin_container_iterator<type>;
-        result.end = &meta::detail::end_container_iterator<type>;
-        result.iterator_clone = &meta::detail::clone_container_iterator<iterator_type>;
-        result.iterator_destroy = &meta::detail::destroy_container_iterator<iterator_type>;
-        result.iterator_advance = &meta::detail::advance_container_iterator<iterator_type>;
-        result.iterator_equal = &meta::detail::equal_container_iterator<iterator_type>;
-        result.iterator_key = &meta::detail::associative_iterator_key<iterator_type>;
-        result.iterator_value = &meta::detail::associative_iterator_value<iterator_type>;
+        result.begin = &begin_container_iterator<type>;
+        result.end = &end_container_iterator<type>;
+        result.iterator_clone = &clone_container_iterator<iterator_type>;
+        result.iterator_destroy = &destroy_container_iterator<iterator_type>;
+        result.iterator_advance = &advance_container_iterator<iterator_type>;
+        result.iterator_equal = &equal_container_iterator<iterator_type>;
+        result.iterator_key = &associative_iterator_key<iterator_type>;
+        result.iterator_value = &associative_iterator_value<iterator_type>;
       }
 
       result.key_descriptor = descriptor_ptr_of<key_type>();
@@ -394,13 +391,13 @@ template <typename T>
   }
 }
 
-template <typename T> [[nodiscard]] const meta::detail::pair_data* pair_data_ptr_of() {
+template <typename T> [[nodiscard]] const pair_data* pair_data_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (traits::pair_traits<type>::is_pair) {
     using first_type = typename traits::pair_traits<type>::first_type;
     using second_type = typename traits::pair_traits<type>::second_type;
-    static const meta::detail::pair_data data = [] {
-      meta::detail::pair_data result{
+    static const pair_data data = [] {
+      pair_data result{
           descriptor_type_id<first_type>(),
           descriptor_type_id<second_type>(),
           [](const void* storage) noexcept -> const void* {
@@ -445,11 +442,11 @@ template <typename T> [[nodiscard]] const meta::detail::pair_data* pair_data_ptr
 }
 
 template <typename Tuple, std::size_t Index>
-[[nodiscard]] meta::detail::tuple_element_data make_tuple_element_descriptor_data() {
+[[nodiscard]] tuple_element_data make_tuple_element_descriptor_data() {
   using type = std::remove_cv_t<std::remove_reference_t<Tuple>>;
   using element_type = typename traits::tuple_traits<type>::template element_type<Index>;
 
-  return meta::detail::tuple_element_data{
+  return tuple_element_data{
       descriptor_type_id<element_type>(),
       [](const void* storage) noexcept -> const void* {
         if (storage == nullptr) {
@@ -472,17 +469,17 @@ template <typename Tuple, std::size_t Index>
 }
 
 template <typename Tuple, std::size_t... Indices>
-[[nodiscard]] meta::detail::tuple_data make_tuple_descriptor_data(std::index_sequence<Indices...>) {
-  meta::detail::tuple_data data{};
+[[nodiscard]] tuple_data make_tuple_descriptor_data(std::index_sequence<Indices...>) {
+  tuple_data data{};
   data.elements.reserve(sizeof...(Indices));
   (data.elements.push_back(make_tuple_element_descriptor_data<Tuple, Indices>()), ...);
   return data;
 }
 
-template <typename T> [[nodiscard]] const meta::detail::tuple_data* tuple_data_ptr_of() {
+template <typename T> [[nodiscard]] const tuple_data* tuple_data_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (traits::tuple_traits<type>::is_tuple) {
-    static const meta::detail::tuple_data data = make_tuple_descriptor_data<type>(
+    static const tuple_data data = make_tuple_descriptor_data<type>(
         std::make_index_sequence<traits::tuple_traits<type>::size>{});
     return data.valid() ? &data : nullptr;
   } else {
@@ -491,11 +488,11 @@ template <typename T> [[nodiscard]] const meta::detail::tuple_data* tuple_data_p
 }
 
 template <typename Variant, std::size_t Index>
-[[nodiscard]] meta::detail::variant_alternative_data make_variant_alternative_descriptor_data() {
+[[nodiscard]] variant_alternative_data make_variant_alternative_descriptor_data() {
   using type = std::remove_cv_t<std::remove_reference_t<Variant>>;
   using alternative_type = typename traits::variant_traits<type>::template alternative_type<Index>;
 
-  return meta::detail::variant_alternative_data{
+  return variant_alternative_data{
       descriptor_type_id<alternative_type>(),
       [](const void* storage) noexcept -> const void* {
         if (storage == nullptr) {
@@ -525,11 +522,10 @@ template <typename Variant, std::size_t Index>
 }
 
 template <typename Variant, std::size_t... Indices>
-[[nodiscard]] meta::detail::variant_data
-make_variant_descriptor_data(std::index_sequence<Indices...>) {
+[[nodiscard]] variant_data make_variant_descriptor_data(std::index_sequence<Indices...>) {
   using type = std::remove_cv_t<std::remove_reference_t<Variant>>;
 
-  meta::detail::variant_data data{};
+  variant_data data{};
   data.alternatives.reserve(sizeof...(Indices));
   (data.alternatives.push_back(make_variant_alternative_descriptor_data<type, Indices>()), ...);
   data.index = [](const void* storage) noexcept -> std::size_t {
@@ -542,10 +538,10 @@ make_variant_descriptor_data(std::index_sequence<Indices...>) {
   return data;
 }
 
-template <typename T> [[nodiscard]] const meta::detail::variant_data* variant_data_ptr_of() {
+template <typename T> [[nodiscard]] const variant_data* variant_data_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (traits::variant_traits<type>::is_variant) {
-    static const meta::detail::variant_data data = make_variant_descriptor_data<type>(
+    static const variant_data data = make_variant_descriptor_data<type>(
         std::make_index_sequence<traits::variant_traits<type>::size>{});
     return data.valid() ? &data : nullptr;
   } else {
@@ -560,10 +556,10 @@ template <typename T> struct descriptor_holder {
       descriptor_type_id<type>(),
       sizeof(type),
       alignof(type),
-      meta::detail::default_construct_fn_of<type>(),
-      meta::detail::value_clone_fn_of<type>(),
-      meta::detail::value_destroy_fn_of<type>(),
-      meta::detail::value_assign_fn_of<type>(),
+      default_construct_fn_of<type>(),
+      value_clone_fn_of<type>(),
+      value_destroy_fn_of<type>(),
+      value_assign_fn_of<type>(),
       semantics_ptr_of<type>(),
       enum_data_ptr_of<type>(),
       indirect_data_ptr_of<type>(),
@@ -581,6 +577,29 @@ template <typename T> [[nodiscard]] const type_descriptor* descriptor_ptr_of() n
   return &descriptor_holder<type>::value;
 }
 
-} // namespace caors::value::detail
+template <typename T> [[nodiscard]] error ensure_type_descriptor_for(type_id id) {
+  if (!id) {
+    return {error_domain::meta, errc::invalid_type};
+  }
+
+  const type_descriptor* descriptor = descriptor_ptr_of<T>();
+  if (descriptor == nullptr || !descriptor->valid()) {
+    return {error_domain::meta, errc::invalid_type};
+  }
+
+  const type_descriptor* existing = get_registry().find_ptr<type_descriptor>(id);
+  if (existing != nullptr) {
+    if (existing->type != descriptor->type || existing->size != descriptor->size ||
+        existing->alignment != descriptor->alignment) {
+      return {error_domain::meta, errc::invalid_type};
+    }
+
+    return {};
+  }
+
+  return ensure_component_for(id, *descriptor);
+}
+
+} // namespace caors::meta::detail
 
 #endif

@@ -21,8 +21,8 @@ public:
   /** @brief 从可写 C++ 对象创建引用。 */
   template <typename T> [[nodiscard]] static any_ref from(T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    return from_raw(detail::descriptor_type_id<type>(), detail::descriptor_ptr_of<type>(), &source,
-                    !std::is_const_v<T>);
+    return from_raw(meta::detail::descriptor_type_id<type>(),
+                    meta::detail::descriptor_ptr_of<type>(), &source, !std::is_const_v<T>);
   }
 
   /** @brief 从可写 C++ 对象和显式类型名创建引用；类型名必须已经注册并匹配该 C++ 类型。 */
@@ -33,15 +33,15 @@ public:
       return {};
     }
 
-    return from_raw(registered.id(), detail::descriptor_ptr_of<type>(), &source,
+    return from_raw(registered.id(), meta::detail::descriptor_ptr_of<type>(), &source,
                     !std::is_const_v<T>);
   }
 
   /** @brief 从只读 C++ 对象创建引用。 */
   template <typename T> [[nodiscard]] static any_ref from_const(const T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    return from_raw(detail::descriptor_type_id<type>(), detail::descriptor_ptr_of<type>(), &source,
-                    false);
+    return from_raw(meta::detail::descriptor_type_id<type>(),
+                    meta::detail::descriptor_ptr_of<type>(), &source, false);
   }
 
   /** @brief 从只读 C++ 对象和显式类型名创建引用；类型名必须已经注册并匹配该 C++ 类型。 */
@@ -53,7 +53,7 @@ public:
       return {};
     }
 
-    return from_raw(registered.id(), detail::descriptor_ptr_of<type>(), &source, false);
+    return from_raw(registered.id(), meta::detail::descriptor_ptr_of<type>(), &source, false);
   }
 
   [[nodiscard]] bool valid() const noexcept {
@@ -192,9 +192,10 @@ private:
   friend class tuple_view;
   friend class variant_view;
   friend struct reflection::detail::field_data;
-  friend const detail::type_descriptor* detail::descriptor_of(const any_ref& value) noexcept;
+  friend const meta::detail::type_descriptor* detail::descriptor_of(const any_ref& value) noexcept;
 
-  [[nodiscard]] static any_ref from_raw(type_id type, const detail::type_descriptor* descriptor,
+  [[nodiscard]] static any_ref from_raw(type_id type,
+                                        const meta::detail::type_descriptor* descriptor,
                                         const void* data, bool writable) noexcept {
     if (data == nullptr) {
       return {};
@@ -220,14 +221,15 @@ private:
   }
 
   type_id type_{};
-  const detail::type_descriptor* descriptor_ = nullptr;
+  const meta::detail::type_descriptor* descriptor_ = nullptr;
   const void* data_ = nullptr;
   bool writable_ = false;
 };
 
 namespace detail {
 
-[[nodiscard]] inline const type_descriptor* descriptor_of(const any_ref& value) noexcept {
+[[nodiscard]] inline const meta::detail::type_descriptor*
+descriptor_of(const any_ref& value) noexcept {
   return value.descriptor_;
 }
 

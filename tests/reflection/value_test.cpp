@@ -251,6 +251,8 @@ TEST_CASE("reflection any - descriptor fields do not require container type regi
   auto values_field = reflected.find_field("values");
   REQUIRE(values_field);
   CHECK(values_field.type_name().empty());
+  CHECK(values_field.size() == sizeof(std::vector<std::vector<int>>));
+  CHECK(values_field.alignment() == alignof(std::vector<std::vector<int>>));
   CHECK(values_field.kind() == caors::meta::type_kind::sequence);
   CHECK(static_cast<bool>(values_field.value_type()));
   CHECK_FALSE(caors::meta::find(values_field.value_type()));

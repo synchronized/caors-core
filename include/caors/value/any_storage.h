@@ -5,9 +5,9 @@
 #define CAORS_VALUE_ANY_STORAGE_H_
 
 #include "caors/meta.h"
+#include "caors/meta/detail/type_descriptor.h"
 #include "caors/traits/container.h"
 #include "caors/traits/type_name.h"
-#include "caors/value/detail/type_descriptor.h"
 
 #include <cstddef>
 #include <optional>
@@ -33,8 +33,9 @@ class variant_view;
 
 namespace detail {
 
-[[nodiscard]] const type_descriptor* descriptor_of(const any& value) noexcept;
-[[nodiscard]] const type_descriptor* descriptor_of(const any_ref& value) noexcept;
+[[nodiscard]] const meta::detail::type_descriptor* descriptor_of(const any& value) noexcept;
+[[nodiscard]] const meta::detail::type_descriptor* descriptor_of(const any_ref& value) noexcept;
+[[nodiscard]] any default_construct(type_id type, const meta::detail::type_descriptor* descriptor);
 
 } // namespace detail
 
@@ -85,8 +86,8 @@ public:
   template <typename T> [[nodiscard]] static any from(const T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
     static_assert(std::is_copy_constructible_v<type>, "any requires copy constructible types");
-    return copy_from_raw(detail::descriptor_type_id<type>(), detail::descriptor_ptr_of<type>(),
-                         &source);
+    return copy_from_raw(meta::detail::descriptor_type_id<type>(),
+                         meta::detail::descriptor_ptr_of<type>(), &source);
   }
 
   /** @brief 从 C++ 值和显式类型名创建运行期值；类型名必须已经注册并匹配该 C++ 类型。 */
@@ -99,27 +100,16 @@ public:
       return {};
     }
 
-    return copy_from_raw(registered.id(), detail::descriptor_ptr_of<type>(), &source);
+    return copy_from_raw(registered.id(), meta::detail::descriptor_ptr_of<type>(), &source);
   }
 
   /** @brief 按运行期类型 id 默认构造一个值。不可默认构造类型会返回无效 `any`。 */
   [[nodiscard]] static any default_construct(type_id type) {
     const meta::type meta = caors::meta::find(type);
-    const auto construct = caors::meta::detail::get_default_construct_value_fn(meta);
-    const auto destroy = caors::meta::detail::get_destroy_value_fn(meta);
-    if (!meta.valid() || construct == nullptr || destroy == nullptr) {
-      return {};
-    }
-
-    void* value = construct();
-    if (value == nullptr) {
-      return {};
-    }
-
-    any result;
-    result.type_ = type;
-    result.data_ = value;
-    return result;
+    const meta::detail::type_descriptor* descriptor =
+        meta ? caors::meta::get_registry().find_ptr<meta::detail::type_descriptor>(meta.id())
+             : nullptr;
+    return meta.valid() ? detail::default_construct(type, descriptor) : any{};
   }
 
   [[nodiscard]] bool valid() const noexcept {
@@ -263,10 +253,12 @@ public:
 private:
   friend class any_ref;
   friend struct reflection::detail::field_data;
-  friend const detail::type_descriptor* detail::descriptor_of(const any& value) noexcept;
+  friend const meta::detail::type_descriptor* detail::descriptor_of(const any& value) noexcept;
+  friend any detail::default_construct(type_id type,
+                                       const meta::detail::type_descriptor* descriptor);
 
-  [[nodiscard]] static any copy_from_raw(type_id type, const detail::type_descriptor* descriptor,
-                                         const void* source) {
+  [[nodiscard]] static any
+  copy_from_raw(type_id type, const meta::detail::type_descriptor* descriptor, const void* source) {
     auto clone = descriptor != nullptr ? descriptor->clone : nullptr;
     auto destroy = descriptor != nullptr ? descriptor->destroy : nullptr;
     if (descriptor == nullptr) {
@@ -317,14 +309,33 @@ private:
   }
 
   type_id type_{};
-  const detail::type_descriptor* descriptor_ = nullptr;
+  const meta::detail::type_descriptor* descriptor_ = nullptr;
   void* data_ = nullptr;
 };
 
 namespace detail {
 
-[[nodiscard]] inline const type_descriptor* descriptor_of(const any& value) noexcept {
+[[nodiscard]] inline const meta::detail::type_descriptor* descriptor_of(const any& value) noexcept {
   return value.descriptor_;
+}
+
+[[nodiscard]] inline any default_construct(type_id type,
+                                           const meta::detail::type_descriptor* descriptor) {
+  if (descriptor == nullptr || descriptor->type != type ||
+      descriptor->default_construct == nullptr || descriptor->destroy == nullptr) {
+    return {};
+  }
+
+  void* value = descriptor->default_construct();
+  if (value == nullptr) {
+    return {};
+  }
+
+  any result;
+  result.type_ = type;
+  result.descriptor_ = descriptor;
+  result.data_ = value;
+  return result;
 }
 
 } // namespace detail

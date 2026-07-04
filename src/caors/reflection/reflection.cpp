@@ -8,7 +8,6 @@ namespace {
 
 [[nodiscard]] bool same_type_data(meta::type lhs, const meta::detail::type_data& rhs) noexcept {
   return lhs.id() == rhs.id() && lhs.name() == rhs.name() && lhs.guid() == rhs.guid() &&
-         lhs.size() == rhs.size() && lhs.alignment() == rhs.alignment() &&
          lhs.parent_id() == rhs.parent_id();
 }
 

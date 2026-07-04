@@ -16,7 +16,7 @@ variant_result make_serialized_value(const any& data) {
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
-  const caors::value::detail::type_descriptor* descriptor =
+  const caors::meta::detail::type_descriptor* descriptor =
       caors::value::detail::descriptor_of(data);
   const meta::type_semantics_data* semantics =
       descriptor != nullptr ? descriptor->semantics

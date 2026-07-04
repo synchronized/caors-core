@@ -17,9 +17,17 @@ core::type_guid type::guid() const noexcept {
   return data_ != nullptr ? data_->guid() : core::type_guid::nil();
 }
 
-std::size_t type::size() const noexcept { return data_ != nullptr ? data_->size() : 0; }
+std::size_t type::size() const noexcept {
+  const detail::type_descriptor* descriptor =
+      registry_ != nullptr ? registry_->find_ptr<detail::type_descriptor>(id()) : nullptr;
+  return descriptor != nullptr ? descriptor->size : 0;
+}
 
-std::size_t type::alignment() const noexcept { return data_ != nullptr ? data_->alignment() : 0; }
+std::size_t type::alignment() const noexcept {
+  const detail::type_descriptor* descriptor =
+      registry_ != nullptr ? registry_->find_ptr<detail::type_descriptor>(id()) : nullptr;
+  return descriptor != nullptr ? descriptor->alignment : 0;
+}
 
 type_id type::parent_id() const noexcept {
   return data_ != nullptr ? data_->parent_id() : type_id::invalid();
@@ -36,19 +44,27 @@ type type::parent() const noexcept {
 namespace detail {
 
 value_default_construct_fn get_default_construct_value_fn(const meta::type& type) noexcept {
-  return type.data_ != nullptr ? type.data_->default_construct_value() : nullptr;
+  const type_descriptor* descriptor =
+      type.registry_ != nullptr ? type.registry_->find_ptr<type_descriptor>(type.id()) : nullptr;
+  return descriptor != nullptr ? descriptor->default_construct : nullptr;
 }
 
 value_clone_fn get_clone_value_fn(const meta::type& type) noexcept {
-  return type.data_ != nullptr ? type.data_->clone_value() : nullptr;
+  const type_descriptor* descriptor =
+      type.registry_ != nullptr ? type.registry_->find_ptr<type_descriptor>(type.id()) : nullptr;
+  return descriptor != nullptr ? descriptor->clone : nullptr;
 }
 
 value_destroy_fn get_destroy_value_fn(const meta::type& type) noexcept {
-  return type.data_ != nullptr ? type.data_->destroy_value() : nullptr;
+  const type_descriptor* descriptor =
+      type.registry_ != nullptr ? type.registry_->find_ptr<type_descriptor>(type.id()) : nullptr;
+  return descriptor != nullptr ? descriptor->destroy : nullptr;
 }
 
 value_assign_fn get_assign_value_fn(const meta::type& type) noexcept {
-  return type.data_ != nullptr ? type.data_->assign_value() : nullptr;
+  const type_descriptor* descriptor =
+      type.registry_ != nullptr ? type.registry_->find_ptr<type_descriptor>(type.id()) : nullptr;
+  return descriptor != nullptr ? descriptor->assign : nullptr;
 }
 
 } // namespace detail

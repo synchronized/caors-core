@@ -85,32 +85,7 @@ error merge_type_data(registry_state& state, type_data& stored, const type_data&
     return {error_domain::meta, errc::invalid_type};
   }
 
-  if (stored.size() != incoming.size() || stored.alignment() != incoming.alignment()) {
-    return {error_domain::meta, errc::invalid_type};
-  }
-
   bool changed = false;
-
-  if (incoming.clone_value() != nullptr && stored.clone_value() == nullptr) {
-    stored.set_clone_value(incoming.clone_value());
-    changed = true;
-  }
-
-  if (incoming.default_construct_value() != nullptr &&
-      stored.default_construct_value() == nullptr) {
-    stored.set_default_construct_value(incoming.default_construct_value());
-    changed = true;
-  }
-
-  if (incoming.destroy_value() != nullptr && stored.destroy_value() == nullptr) {
-    stored.set_destroy_value(incoming.destroy_value());
-    changed = true;
-  }
-
-  if (incoming.assign_value() != nullptr && stored.assign_value() == nullptr) {
-    stored.set_assign_value(incoming.assign_value());
-    changed = true;
-  }
 
   if (incoming.parent_id()) {
     if (!state.types.contains(incoming.parent_id().value())) {

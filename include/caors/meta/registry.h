@@ -29,6 +29,8 @@
 
 namespace caors::meta::detail {
 
+struct type_descriptor;
+template <typename T> [[nodiscard]] error ensure_type_descriptor_for(type_id id);
 template <typename T> [[nodiscard]] error ensure_type_semantics_for(type_id id);
 template <typename T> [[nodiscard]] error register_container_data_for(type_id id);
 
@@ -62,7 +64,7 @@ public:
   template <typename T> [[nodiscard]] error register_type_for(const detail::type_data& data) {
     using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
     const type_id expected_id = detail::type_id_of_cpp_type<value_type>();
-    if (!data.valid() || (data.id() && data.id() != expected_id)) {
+    if ((data.id() && data.id() != expected_id) || !expected_id) {
       return {error_domain::meta, errc::invalid_type};
     }
 
@@ -78,6 +80,12 @@ public:
 
     const meta::type registered = find_type(expected_id);
     if (registered) {
+      const error descriptor_status =
+          detail::ensure_type_descriptor_for<value_type>(registered.id());
+      if (descriptor_status) {
+        return descriptor_status;
+      }
+
       (void)detail::ensure_type_semantics_for<value_type>(registered.id());
       (void)detail::register_container_data_for<value_type>(registered.id());
     }

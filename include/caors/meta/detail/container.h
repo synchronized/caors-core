@@ -9,13 +9,9 @@
 
 #include <cstddef>
 
-namespace caors::value::detail {
+namespace caors::meta::detail {
 
 struct type_descriptor;
-
-} // namespace caors::value::detail
-
-namespace caors::meta::detail {
 
 using set_raw_visitor = bool (*)(const void*, void*);
 using associative_raw_visitor = bool (*)(const void*, const void*, void*);
@@ -65,7 +61,7 @@ struct sequence_data {
   sequence_append_fn append = nullptr;
   bool can_read = true;
   bool read_in_place = false;
-  const value::detail::type_descriptor* value_descriptor = nullptr;
+  const type_descriptor* value_descriptor = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
     return value_type && size != nullptr && element != nullptr;
@@ -86,7 +82,7 @@ struct set_data {
   container_iterator_advance_fn iterator_advance = nullptr;
   container_iterator_equal_fn iterator_equal = nullptr;
   set_iterator_value_fn iterator_value = nullptr;
-  const value::detail::type_descriptor* value_descriptor = nullptr;
+  const type_descriptor* value_descriptor = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
     return value_type && size != nullptr && visit != nullptr;
@@ -109,8 +105,8 @@ struct associative_data {
   container_iterator_equal_fn iterator_equal = nullptr;
   associative_iterator_key_fn iterator_key = nullptr;
   associative_iterator_value_fn iterator_value = nullptr;
-  const value::detail::type_descriptor* key_descriptor = nullptr;
-  const value::detail::type_descriptor* value_descriptor = nullptr;
+  const type_descriptor* key_descriptor = nullptr;
+  const type_descriptor* value_descriptor = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
     return key_type && value_type && size != nullptr && visit != nullptr;
@@ -125,8 +121,8 @@ struct pair_data {
   pair_mutable_value_fn mutable_first = nullptr;
   pair_const_value_fn second = nullptr;
   pair_mutable_value_fn mutable_second = nullptr;
-  const value::detail::type_descriptor* key_descriptor = nullptr;
-  const value::detail::type_descriptor* value_descriptor = nullptr;
+  const type_descriptor* key_descriptor = nullptr;
+  const type_descriptor* value_descriptor = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
     return key_type && value_type && first != nullptr && second != nullptr;
@@ -138,7 +134,7 @@ struct tuple_element_data {
   type_id value_type{};
   tuple_const_element_fn element = nullptr;
   tuple_mutable_element_fn mutable_element = nullptr;
-  const value::detail::type_descriptor* value_descriptor = nullptr;
+  const type_descriptor* value_descriptor = nullptr;
 
   [[nodiscard]] bool valid() const noexcept { return value_type && element != nullptr; }
 };
@@ -164,7 +160,7 @@ struct variant_alternative_data {
   variant_const_alternative_fn alternative = nullptr;
   variant_mutable_alternative_fn mutable_alternative = nullptr;
   variant_emplace_fn emplace = nullptr;
-  const value::detail::type_descriptor* value_descriptor = nullptr;
+  const type_descriptor* value_descriptor = nullptr;
 
   [[nodiscard]] bool valid() const noexcept { return value_type && alternative != nullptr; }
 };

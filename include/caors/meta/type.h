@@ -27,6 +27,7 @@ class type;
 namespace detail {
 
 class type_data;
+struct type_descriptor;
 
 } // namespace detail
 
@@ -186,30 +187,15 @@ class type_data {
 public:
   constexpr type_data() noexcept = default;
 
-  constexpr type_data(type_id id, string_name name, type_guid guid, std::size_t size,
-                      std::size_t alignment, type_id parent_id,
-                      value_default_construct_fn default_construct_value = nullptr,
-                      value_clone_fn clone_value = nullptr,
-                      value_destroy_fn destroy_value = nullptr,
-                      value_assign_fn assign_value = nullptr) noexcept
-      : id_(id), name_(name), guid_(guid), size_(size), alignment_(alignment),
-        parent_id_(parent_id), default_construct_value_(default_construct_value),
-        clone_value_(clone_value), destroy_value_(destroy_value), assign_value_(assign_value) {}
+  constexpr type_data(type_id id, string_name name, type_guid guid, type_id parent_id) noexcept
+      : id_(id), name_(name), guid_(guid), parent_id_(parent_id) {}
 
   [[nodiscard]] constexpr type_id id() const noexcept { return id_; }
   [[nodiscard]] constexpr string_name name() const noexcept { return name_; }
   [[nodiscard]] constexpr type_guid guid() const noexcept { return guid_; }
-  [[nodiscard]] constexpr std::size_t size() const noexcept { return size_; }
-  [[nodiscard]] constexpr std::size_t alignment() const noexcept { return alignment_; }
   [[nodiscard]] constexpr type_id parent_id() const noexcept { return parent_id_; }
-  [[nodiscard]] constexpr value_default_construct_fn default_construct_value() const noexcept {
-    return default_construct_value_;
-  }
-  [[nodiscard]] constexpr value_clone_fn clone_value() const noexcept { return clone_value_; }
-  [[nodiscard]] constexpr value_destroy_fn destroy_value() const noexcept { return destroy_value_; }
-  [[nodiscard]] constexpr value_assign_fn assign_value() const noexcept { return assign_value_; }
 
-  [[nodiscard]] constexpr bool valid() const noexcept { return size_ > 0 && alignment_ > 0; }
+  [[nodiscard]] constexpr bool valid() const noexcept { return static_cast<bool>(id_); }
 
   [[nodiscard]] constexpr bool registered() const noexcept {
     return static_cast<bool>(id_) && valid();
@@ -223,30 +209,10 @@ public:
 private:
   friend error merge_type_data(registry_state& state, type_data& stored, const type_data& incoming);
 
-  constexpr void
-  set_default_construct_value(value_default_construct_fn default_construct_value) noexcept {
-    default_construct_value_ = default_construct_value;
-  }
-  constexpr void set_clone_value(value_clone_fn clone_value) noexcept {
-    clone_value_ = clone_value;
-  }
-  constexpr void set_destroy_value(value_destroy_fn destroy_value) noexcept {
-    destroy_value_ = destroy_value;
-  }
-  constexpr void set_assign_value(value_assign_fn assign_value) noexcept {
-    assign_value_ = assign_value;
-  }
-
   type_id id_{};
   string_name name_{};
   type_guid guid_{};
-  std::size_t size_ = 0;
-  std::size_t alignment_ = 0;
   type_id parent_id_{};
-  value_default_construct_fn default_construct_value_ = nullptr;
-  value_clone_fn clone_value_ = nullptr;
-  value_destroy_fn destroy_value_ = nullptr;
-  value_assign_fn assign_value_ = nullptr;
 };
 
 /** @brief 创建基础元类型注册描述。 */
@@ -257,13 +223,7 @@ template <typename T>
       type_id_of_cpp_type<T>(),
       name,
       type_guid::nil(),
-      sizeof(T),
-      alignof(T),
       parent_id,
-      default_construct_fn_of<T>(),
-      value_clone_fn_of<T>(),
-      value_destroy_fn_of<T>(),
-      value_assign_fn_of<T>(),
   };
 }
 
@@ -275,13 +235,7 @@ template <typename T>
       type_id_of_cpp_type<T>(),
       name,
       guid,
-      sizeof(T),
-      alignof(T),
       parent_id,
-      default_construct_fn_of<T>(),
-      value_clone_fn_of<T>(),
-      value_destroy_fn_of<T>(),
-      value_assign_fn_of<T>(),
   };
 }
 

@@ -20,7 +20,7 @@ namespace caors::reflection {
  * `meta::type_<T>()`
  * 显式注册到全局 meta 注册表。容器、指针、wrapper、pair、tuple 和
  * variant 等结构类型可以通过
- * value descriptor 描述，不要求自身注册为 meta 类型。
+ * meta descriptor 描述，不要求自身注册为 meta 类型。
  */
 template <typename Class> class class_builder {
 public:
@@ -44,8 +44,7 @@ public:
     }
 
     const meta::type resolved_type = caors::meta::find<field_type>();
-    const value::detail::type_descriptor* descriptor =
-        value::detail::descriptor_ptr_of<field_type>();
+    const meta::detail::type_descriptor* descriptor = meta::detail::descriptor_ptr_of<field_type>();
     if ((!resolved_type || resolved_type.name().empty()) &&
         (descriptor == nullptr || !descriptor->has_view_capability())) {
       pending_status_ = {error_domain::reflection, errc::invalid_field};

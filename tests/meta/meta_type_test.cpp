@@ -187,12 +187,16 @@ TEST_CASE("meta type - builder updates registered data in place", "[meta]") {
   const caors::meta::type before = builder.get();
   REQUIRE(before);
   CHECK_FALSE(before.guid());
+  CHECK(before.size() == sizeof(stable_builder_type));
+  CHECK(before.alignment() == alignof(stable_builder_type));
 
   REQUIRE(builder.guid(caors::type_guid{*guid}).result() == caors::error{});
   const caors::meta::type after = builder.get();
   REQUIRE(after);
 
   CHECK(before.id() == after.id());
+  CHECK(after.size() == sizeof(stable_builder_type));
+  CHECK(after.alignment() == alignof(stable_builder_type));
   CHECK(before.guid() == caors::type_guid{*guid});
   CHECK(after.guid() == caors::type_guid{*guid});
 }

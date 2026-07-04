@@ -59,6 +59,10 @@ caors::object_id id = instance.id();
 - `alignment`
 - `parent_id`
 
+其中名称、GUID 和父类型属于基础类型数据；大小、对齐和默认值操作函数来自同一 `type_id`
+挂载的内部 `meta::detail::type_descriptor`。对象模块只通过 `meta::type` 查询这些信息，不直接暴露
+descriptor。
+
 `object_type_id` 是 `type_id` 在对象系统里的别名。它由 C++ 对象类型的运行期 key 派生，不由对象类型名派生：
 
 ```cpp

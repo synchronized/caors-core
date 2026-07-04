@@ -66,7 +66,18 @@ private:
       stored_type.set_id(expected_id);
     }
 
-    return register_type(stored_type, reflection);
+    const error type_status =
+        meta::get_registry().template register_type_for<value_type>(stored_type);
+    if (type_status && type_status.value() != errc::duplicate_id) {
+      return rethrow_as(type_status, error_domain::reflection);
+    }
+
+    const meta::type stored_meta = meta::get_registry().find_type(expected_id);
+    if (!stored_meta) {
+      return {error_domain::reflection, errc::invalid_type};
+    }
+
+    return register_type(stored_meta.id(), reflection);
   }
 
   [[nodiscard]] const detail::type_data* find_reflection_data(type_id id) const;

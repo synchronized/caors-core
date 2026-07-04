@@ -5,6 +5,53 @@
 
 namespace caors::serialization::detail {
 
+[[nodiscard]] const meta::detail::sequence_data* sequence_data_of(const any_ref& target) noexcept {
+  const meta::detail::type_descriptor* descriptor = value::detail::descriptor_of(target);
+  if (descriptor != nullptr && descriptor->sequence != nullptr) {
+    return descriptor->sequence;
+  }
+
+  return meta::get_registry().find_ptr<meta::detail::sequence_data>(target.type());
+}
+
+[[nodiscard]] const meta::detail::set_data* set_data_of(const any_ref& target) noexcept {
+  const meta::detail::type_descriptor* descriptor = value::detail::descriptor_of(target);
+  if (descriptor != nullptr && descriptor->set != nullptr) {
+    return descriptor->set;
+  }
+
+  return meta::get_registry().find_ptr<meta::detail::set_data>(target.type());
+}
+
+[[nodiscard]] const meta::detail::associative_data*
+associative_data_of(const any_ref& target) noexcept {
+  const meta::detail::type_descriptor* descriptor = value::detail::descriptor_of(target);
+  if (descriptor != nullptr && descriptor->associative != nullptr) {
+    return descriptor->associative;
+  }
+
+  return meta::get_registry().find_ptr<meta::detail::associative_data>(target.type());
+}
+
+[[nodiscard]] meta::detail::value_assign_fn assign_fn_of(const any_ref& target) noexcept {
+  const meta::detail::type_descriptor* descriptor = value::detail::descriptor_of(target);
+  if (descriptor != nullptr && descriptor->assign != nullptr) {
+    return descriptor->assign;
+  }
+
+  return caors::meta::detail::get_assign_value_fn(caors::meta::find(target.type()));
+}
+
+[[nodiscard]] any default_construct_for(const any_ref& target) {
+  any decoded =
+      value::detail::default_construct(target.type(), value::detail::descriptor_of(target));
+  if (!decoded.valid()) {
+    decoded = any::default_construct(target.type());
+  }
+
+  return decoded;
+}
+
 [[nodiscard]] error read_sequence_into_view(reader& reader, const value::sequence_view& view,
                                             const serialization::context& context) {
   if (!view.valid() || !view.writable()) {
@@ -48,16 +95,14 @@ namespace caors::serialization::detail {
 
 [[nodiscard]] error read_sequence_value(reader& reader, const any_ref& target,
                                         const serialization::context& context) {
-  const meta::detail::sequence_data* sequence =
-      meta::get_registry().find_ptr<meta::detail::sequence_data>(target.type());
+  const meta::detail::sequence_data* sequence = sequence_data_of(target);
   if (sequence != nullptr && !sequence->can_read) {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  const meta::type meta = caors::meta::find(target.type());
-  const auto assign = caors::meta::detail::get_assign_value_fn(meta);
-  if (sequence != nullptr && !sequence->read_in_place && meta && assign != nullptr) {
-    any decoded = any::default_construct(target.type());
+  const auto assign = assign_fn_of(target);
+  if (sequence != nullptr && !sequence->read_in_place && assign != nullptr) {
+    any decoded = default_construct_for(target);
     if (decoded.valid()) {
       error status = read_sequence_into_view(reader, decoded.create_sequence_view(), context);
       if (status) {
@@ -76,6 +121,7 @@ namespace caors::serialization::detail {
 }
 
 [[nodiscard]] error read_set_into_view(reader& reader, const value::set_view& view,
+                                       const meta::detail::set_data* set,
                                        const serialization::context& context) {
   if (!view.valid() || !view.writable()) {
     return {error_domain::serialization, errc::invalid_field};
@@ -97,7 +143,12 @@ namespace caors::serialization::detail {
       return status;
     }
 
-    any element = any::default_construct(view.value_type());
+    const meta::detail::type_descriptor* value_descriptor =
+        set != nullptr ? set->value_descriptor : nullptr;
+    any element = value::detail::default_construct(view.value_type(), value_descriptor);
+    if (!element.valid()) {
+      element = any::default_construct(view.value_type());
+    }
     if (!element.valid()) {
       return {error_domain::serialization, errc::unsupported};
     }
@@ -122,12 +173,12 @@ namespace caors::serialization::detail {
 
 [[nodiscard]] error read_set_value(reader& reader, const any_ref& target,
                                    const serialization::context& context) {
-  const meta::type meta = caors::meta::find(target.type());
-  const auto assign = caors::meta::detail::get_assign_value_fn(meta);
-  if (meta && assign != nullptr) {
-    any decoded = any::default_construct(target.type());
+  const meta::detail::set_data* set = set_data_of(target);
+  const auto assign = assign_fn_of(target);
+  if (assign != nullptr) {
+    any decoded = default_construct_for(target);
     if (decoded.valid()) {
-      error status = read_set_into_view(reader, decoded.create_set_view(), context);
+      error status = read_set_into_view(reader, decoded.create_set_view(), set, context);
       if (status) {
         return status;
       }
@@ -140,10 +191,11 @@ namespace caors::serialization::detail {
     }
   }
 
-  return read_set_into_view(reader, target.create_set_view(), context);
+  return read_set_into_view(reader, target.create_set_view(), set, context);
 }
 
 [[nodiscard]] error read_associative_into_view(reader& reader, const value::associative_view& view,
+                                               const meta::detail::associative_data* associative,
                                                const serialization::context& context) {
   if (!view.valid() || !view.writable()) {
     return {error_domain::serialization, errc::invalid_field};
@@ -165,8 +217,18 @@ namespace caors::serialization::detail {
       return status;
     }
 
-    any key = any::default_construct(view.key_type());
-    any value = any::default_construct(view.value_type());
+    const meta::detail::type_descriptor* key_descriptor =
+        associative != nullptr ? associative->key_descriptor : nullptr;
+    const meta::detail::type_descriptor* value_descriptor =
+        associative != nullptr ? associative->value_descriptor : nullptr;
+    any key = value::detail::default_construct(view.key_type(), key_descriptor);
+    any value = value::detail::default_construct(view.value_type(), value_descriptor);
+    if (!key.valid()) {
+      key = any::default_construct(view.key_type());
+    }
+    if (!value.valid()) {
+      value = any::default_construct(view.value_type());
+    }
     if (!key.valid() || !value.valid()) {
       return {error_domain::serialization, errc::unsupported};
     }
@@ -216,12 +278,13 @@ namespace caors::serialization::detail {
 
 [[nodiscard]] error read_associative_value(reader& reader, const any_ref& target,
                                            const serialization::context& context) {
-  const meta::type meta = caors::meta::find(target.type());
-  const auto assign = caors::meta::detail::get_assign_value_fn(meta);
-  if (meta && assign != nullptr) {
-    any decoded = any::default_construct(target.type());
+  const meta::detail::associative_data* associative = associative_data_of(target);
+  const auto assign = assign_fn_of(target);
+  if (assign != nullptr) {
+    any decoded = default_construct_for(target);
     if (decoded.valid()) {
-      error status = read_associative_into_view(reader, decoded.create_associative_view(), context);
+      error status = read_associative_into_view(reader, decoded.create_associative_view(),
+                                                associative, context);
       if (status) {
         return status;
       }
@@ -234,7 +297,7 @@ namespace caors::serialization::detail {
     }
   }
 
-  return read_associative_into_view(reader, target.create_associative_view(), context);
+  return read_associative_into_view(reader, target.create_associative_view(), associative, context);
 }
 
 [[nodiscard]] error read_pair_into_view(reader& reader, const value::pair_view& view,
@@ -298,10 +361,9 @@ namespace caors::serialization::detail {
 
 [[nodiscard]] error read_pair_value(reader& reader, const any_ref& target,
                                     const serialization::context& context) {
-  const meta::type meta = caors::meta::find(target.type());
-  const auto assign = caors::meta::detail::get_assign_value_fn(meta);
-  if (meta && assign != nullptr) {
-    any decoded = any::default_construct(target.type());
+  const auto assign = assign_fn_of(target);
+  if (assign != nullptr) {
+    any decoded = default_construct_for(target);
     if (decoded.valid()) {
       error status = read_pair_into_view(reader, decoded.create_pair_view(), context);
       if (status) {
@@ -362,10 +424,9 @@ namespace caors::serialization::detail {
 
 [[nodiscard]] error read_tuple_value(reader& reader, const any_ref& target,
                                      const serialization::context& context) {
-  const meta::type meta = caors::meta::find(target.type());
-  const auto assign = caors::meta::detail::get_assign_value_fn(meta);
-  if (meta && assign != nullptr) {
-    any decoded = any::default_construct(target.type());
+  const auto assign = assign_fn_of(target);
+  if (assign != nullptr) {
+    any decoded = default_construct_for(target);
     if (decoded.valid()) {
       error status = read_tuple_into_view(reader, decoded.create_tuple_view(), context);
       if (status) {
@@ -448,12 +509,11 @@ namespace caors::serialization::detail {
 
 [[nodiscard]] error read_variant_value(reader& reader, const any_ref& target,
                                        const serialization::context& context) {
-  const meta::type meta = caors::meta::find(target.type());
-  const auto assign = caors::meta::detail::get_assign_value_fn(meta);
-  if (meta && assign != nullptr) {
+  const auto assign = assign_fn_of(target);
+  if (assign != nullptr) {
     any decoded = target.to_any();
     if (!decoded.valid()) {
-      decoded = any::default_construct(target.type());
+      decoded = default_construct_for(target);
     }
 
     if (decoded.valid()) {

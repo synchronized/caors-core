@@ -82,7 +82,7 @@ template <typename Field> [[nodiscard]] object_ref_set_fn object_ref_set_fn_of()
 struct field_data {
   string_name name{};
   type_id type{};
-  const value::detail::type_descriptor* descriptor = nullptr;
+  const meta::detail::type_descriptor* descriptor = nullptr;
   detail::object_ref_get_fn get_object_ref = nullptr;
   detail::object_ref_set_fn set_object_ref = nullptr;
   std::size_t offset = 0;
@@ -225,7 +225,7 @@ template <typename Field>
 [[nodiscard]] field_data make_field_data(std::string_view name, std::string_view type_name,
                                          std::size_t offset) {
   using field_type = std::remove_cv_t<Field>;
-  const value::detail::type_descriptor* descriptor = value::detail::descriptor_ptr_of<field_type>();
+  const meta::detail::type_descriptor* descriptor = meta::detail::descriptor_ptr_of<field_type>();
   type_id field_type_id = descriptor->type;
   if (!type_name.empty()) {
     field_type_id = detail::find_field_type_id<field_type>(type_name);

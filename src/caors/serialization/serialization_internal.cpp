@@ -54,7 +54,7 @@ namespace caors::serialization::detail {
 }
 
 [[nodiscard]] const meta::type_semantics_data* type_semantics(const any_ref& value) noexcept {
-  const caors::value::detail::type_descriptor* descriptor =
+  const caors::meta::detail::type_descriptor* descriptor =
       caors::value::detail::descriptor_of(value);
   if (descriptor != nullptr && descriptor->semantics != nullptr) {
     return descriptor->semantics;
@@ -64,7 +64,7 @@ namespace caors::serialization::detail {
 }
 
 [[nodiscard]] const meta::detail::enum_data* enum_data(const any_ref& value) noexcept {
-  const caors::value::detail::type_descriptor* descriptor =
+  const caors::meta::detail::type_descriptor* descriptor =
       caors::value::detail::descriptor_of(value);
   if (descriptor != nullptr && descriptor->enumeration != nullptr) {
     return descriptor->enumeration;

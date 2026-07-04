@@ -119,7 +119,19 @@ private:
       stored_type.set_id(expected_id);
     }
 
-    return register_type(stored_type, object);
+    const error type_status =
+        meta::get_registry().template register_type_for<value_type>(stored_type);
+    if (type_status && type_status.value() != errc::duplicate_id) {
+      return rethrow_as(type_status, error_domain::object);
+    }
+
+    const meta::type stored_meta = meta::get_registry().find_type(expected_id);
+    if (!stored_meta) {
+      return {error_domain::object, errc::invalid_type};
+    }
+
+    return rethrow_as(meta::get_registry().emplace<detail::type_data>(stored_meta.id(), object),
+                      error_domain::object, errc::duplicate_component, errc::duplicate_id);
   }
 
   [[nodiscard]] const detail::type_data* find_type_data(object_type_id id) const;

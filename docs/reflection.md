@@ -53,21 +53,24 @@ caors::reflection::class_<actor>("game.actor")
 
 字段类型推导规则：
 
-- 字段声明类型必须已经通过 `meta::type_<Field>("name")` 注册；未注册时 `.field()` 会记录失败，
-  `.commit()` 返回 `invalid_field`。
-- 如果字段类型满足 `traits::sequence_traits<T>::is_sequence`，字段类型注册到 meta 时会同步挂载元素类型语义。
+- 普通业务字段如果需要稳定名称、GUID、对象工厂、反射身份或多态序列化身份，应先通过
+  `meta::type_<Field>("name")` 显式注册。未注册且不具备 descriptor 运行期视图能力的普通值字段，
+  `.field()` 会记录失败，`.commit()` 返回 `invalid_field`。
+- 容器、指针、wrapper、pair、tuple 和 variant 等结构类型可以由内部 descriptor 描述，不要求每一种
+  模板组合都显式注册到 meta。
+- 如果字段类型满足 `traits::sequence_traits<T>::is_sequence`，字段 descriptor 会同步记录元素类型语义。
   内置特化支持 `caors::vector<T>`、
   `std::vector<T, Allocator>`、`caors::list<T>`、`std::list<T, Allocator>`、`std::deque<T, Allocator>`、
   `std::array<T, N>` 和 `std::span<T, Extent>`。
-- 如果字段类型满足 `traits::set_traits<T>::is_set`，字段类型注册到 meta 时会同步挂载元素类型语义。内置特化支持 `caors::hash_set<T>`、
+- 如果字段类型满足 `traits::set_traits<T>::is_set`，字段 descriptor 会同步记录元素类型语义。内置特化支持 `caors::hash_set<T>`、
   `std::unordered_set<T, ...>` 和 `std::set<T, ...>`。
-- 如果字段类型满足 `traits::associative_traits<T>::is_associative`，字段类型注册到 meta 时会同步挂载 key/value 类型语义。内置特化支持
+- 如果字段类型满足 `traits::associative_traits<T>::is_associative`，字段 descriptor 会同步记录 key/value 类型语义。内置特化支持
   `caors::hash_map<K, V>`、`std::unordered_map<K, V, ...>` 和 `std::map<K, V, ...>`。
-- 如果字段类型满足 `traits::pair_traits<T>::is_pair`，字段类型注册到 meta 时会同步挂载 first/value 类型语义。
+- 如果字段类型满足 `traits::pair_traits<T>::is_pair`，字段 descriptor 会同步记录 first/value 类型语义。
   内置特化支持 `std::pair<T, U>`。
-- 如果字段类型满足 `traits::tuple_traits<T>::is_tuple`，字段类型注册到 meta 时会同步挂载每个元素类型语义。
+- 如果字段类型满足 `traits::tuple_traits<T>::is_tuple`，字段 descriptor 会同步记录每个元素类型语义。
   内置特化支持 `std::tuple<Ts...>`。
-- 如果字段类型满足 `traits::variant_traits<T>::is_variant`，字段类型注册到 meta 时会同步挂载每个候选类型语义。
+- 如果字段类型满足 `traits::variant_traits<T>::is_variant`，字段 descriptor 会同步记录每个候选类型语义。
   内置特化支持 `std::variant<Ts...>`。
 - 字段类型语义最多支持一层裸指针或 wrapper；`T**`、`std::unique_ptr<T*>`、
   `std::optional<std::shared_ptr<T>>` 这类嵌套组合会触发静态断言。
@@ -367,8 +370,8 @@ ref.try_set(9);
 
 ### any
 
-`any` 是运行期 C++ 类型值拷贝，保存运行期类型 id、对象拷贝和内部 value descriptor。
-descriptor 记录大小、对齐、复制、析构、赋值和可创建的运行期视图；如果值来自只按 `type_id`
+`any` 是运行期 C++ 类型值拷贝，保存运行期类型 id、对象拷贝和内部 meta descriptor。
+descriptor 记录大小、对齐、默认构造、复制、析构、赋值和可创建的运行期视图；如果值来自只按 `type_id`
 构造的已注册业务类型，则会回退到同一 `type_id` 的基础类型信息。
 它不引用原对象，因此可以安全地脱离字段所属对象生命周期使用。
 
@@ -390,7 +393,7 @@ descriptor 记录大小、对齐、复制、析构、赋值和可创建的运行
 
 ### any_ref
 
-`any_ref` 是运行期 C++ 类型引用，保存类型 id、对象地址、可写性和内部 value descriptor。
+`any_ref` 是运行期 C++ 类型引用，保存类型 id、对象地址、可写性和内部 meta descriptor。
 它不拥有对象，不复制对象，也不析构对象，适合零拷贝访问字段和不可拷贝字段。
 无显式类型名的 `any_ref::from<T>()` 不要求 `T` 已注册到 meta；显式类型名重载仍要求类型已注册且名称匹配。
 

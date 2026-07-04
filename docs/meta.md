@@ -15,7 +15,8 @@
 - 用 `string_name` 保存运行期去重后的类型名。
 - 用 `type_id` 表示由 C++ 类型运行期 key 派生的进程内类型句柄。
 - 用 `type_guid` 保存可选的稳定类型标识。
-- 用注册表内部基础类型数据保存类型名、稳定 GUID、大小、对齐和父类型。
+- 用注册表内部基础类型数据保存类型名、稳定 GUID 和父类型。
+- 用内部 type descriptor 保存 C++ 类型布局、默认构造、复制、析构、赋值和运行期视图能力。
 - 用 `meta::type_semantics_data` 保存类型形态和通用类型关系，并把具体访问函数拆到内部能力组件。
 - 用 `meta::type` 作为对外只读类型视图，避免直接暴露注册表内部数据。
 - 用全局 `meta::registry` 集中处理基础类型注册、查找和继承关系判断。
@@ -109,8 +110,9 @@ caors::meta::type_<player>("game.player")
 - `alignment`
 - `parent_id`
 
-注册时会记录该 C++ 类型的运行期 `type_id`，并记录可用时的默认构造、复制、析构和赋值函数。
-这些操作函数属于注册表和 `value` 模块的内部运行期能力，普通代码不应直接修改或依赖其具体布局。
+注册时会记录该 C++ 类型的运行期 `type_id`。`size()` / `alignment()` 不来自基础类型数据本身，
+而是从同一 `type_id` 挂载的内部 `meta::detail::type_descriptor` 查询；默认构造、复制、析构和赋值函数
+也保存在该 descriptor 中。普通代码不应直接修改或依赖 descriptor 的具体布局。
 `meta::id_of<T>()` 只查询已经注册的 C++ 类型，不会创建匿名类型记录；普通代码应在启动注册阶段直接使用
 `meta::type_<T>("name")`。
 `meta::type_<T>()` 链式 builder 会原地更新全局注册表中已经保存的类型数据；已有 `meta::type`
@@ -170,8 +172,9 @@ caors::meta::type_<actor>("game.actor")
 - `pointer_depth`：当前支持的指针层级。
 - `nullable`：运行期值是否可能为空。
 
-具体访问函数表不直接放在 `type_semantics_data` 里。已注册业务类型可以按能力挂到独立内部组件；
-`value::any`、`value::any_ref` 和反射字段也会携带内部 value descriptor，用来描述未注册结构类型的
+具体访问函数表不直接放在 `type_semantics_data` 里。已注册业务类型会在同一 `type_id` 上挂载内部
+`meta::detail::type_descriptor` 组件；`value::any`、`value::any_ref` 和反射字段也会携带内部 descriptor，
+用来描述未注册结构类型的
 枚举转换、容器、指针、wrapper、pair、tuple 和 variant 访问能力：
 
 - `meta::detail::indirect_data`：裸指针或 wrapper 的内部值访问、持值检测、重置和确保持值函数。
@@ -179,7 +182,7 @@ caors::meta::type_<actor>("game.actor")
 - `meta::detail::object_ref_data`：对象引用 wrapper 和对象指针之间的读写函数。
 - `meta::detail::sequence_data` / `set_data` / `associative_data` / `pair_data` / `tuple_data` / `variant_data`：容器、二元组、tuple-like 和 variant-like 的运行期访问函数。
 
-类型形态和通用类型关系优先来自 value descriptor；如果类型已经显式注册到 meta，则也可以通过同一
+类型形态和通用类型关系优先来自 descriptor；如果类型已经显式注册到 meta，则也可以通过同一
 `type_id` 到 `meta::registry` 查询 `meta::type_semantics_data`。反射字段会保存声明类型的
 `type_id` 和 descriptor，因此 `std::vector<T>`、`std::optional<T>`、`std::tuple<...>` 这类结构类型不要求
 自身注册为 meta 类型；未注册枚举也可以在 `any` / `any_ref` 或容器元素路径上按底层整数读写。
@@ -241,7 +244,8 @@ CAORS_META_REGISTRATION(register_actor_meta) {
 
 注册表维护几类索引：
 
-- `type_id -> 内部基础类型数据`：运行期主索引。
+- `type_id -> 内部基础类型数据`：运行期主索引，只保存身份类信息。
+- `type_id -> meta::detail::type_descriptor`：布局、值操作函数和运行期视图能力组件。
 - `type_name -> type_id`：名称查询索引，可选。
 - `type_guid -> type_id`：稳定身份查询索引，可选。
 
