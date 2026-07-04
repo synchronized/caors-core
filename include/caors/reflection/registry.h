@@ -6,7 +6,8 @@
 
 #include "caors/error.h"
 #include "caors/export.h"
-#include "caors/reflection/view.h"
+#include "caors/reflection/detail/type_data.h"
+#include "caors/reflection/type.h"
 
 #include <initializer_list>
 #include <optional>

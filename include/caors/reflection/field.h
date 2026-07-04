@@ -4,131 +4,125 @@
 #ifndef CAORS_REFLECTION_FIELD_H_
 #define CAORS_REFLECTION_FIELD_H_
 
-#include "caors/meta.h"
-#include "caors/traits/container.h"
+#include "caors/export.h"
+#include "caors/meta/type.h"
 #include "caors/value/any.h"
 
 #include <cstddef>
-#include <cstdint>
 #include <optional>
 #include <string_view>
 #include <type_traits>
 
-namespace caors::reflection::detail {
+namespace caors::objects {
 
-template <typename T> [[nodiscard]] type_id find_field_type_id(std::string_view name) {
-  using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  const meta::type registered = caors::meta::find<type>();
-  if (!registered || registered.name().empty() || registered.name() != name) {
-    return type_id::invalid();
-  }
+class object;
 
-  return registered.id();
-}
+} // namespace caors::objects
+
+namespace caors::reflection {
+
+class type;
+
+namespace detail {
+
+struct field_data;
+
+} // namespace detail
 
 /**
- * @brief 底层字段反射元信息。
+ * @brief 字段反射只读视图。
  *
- * 字段访问基于注册时记录的 offset 和运行期类型 id。调用方需要传入该字段所属对象的地址；
- * 类型不匹配、对象为空或字段不可写时会返回失败，不抛出异常。常规查询优先使用 `reflection::field`，
- * 该结构主要作为注册表内部存储和底层注册入口。
+ * `reflection::field` 是全局反射注册表返回的字段只读句柄。反射数据注册后不可撤销，因此有效视图
+ * 可以在进程生命周期内稳定使用。
  */
-struct field_data {
-  string_name name{};
-  type_id type{};
-  const meta::detail::type_descriptor* descriptor = nullptr;
-  std::size_t offset = 0;
-  bool writable = true;
+class CAORS_API field final {
+public:
+  field() noexcept = default;
 
-  [[nodiscard]] constexpr bool valid() const noexcept {
-    return !name.empty() && static_cast<bool>(type);
-  }
+  [[nodiscard]] bool valid() const noexcept;
+  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
 
-  /** @brief 判断字段是否匹配指定 C++ 类型。 */
-  template <typename Field> [[nodiscard]] bool matches_type() const noexcept {
-    using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
-    const std::size_t size = descriptor != nullptr ? descriptor->layout.size : 0;
-    const std::size_t alignment = descriptor != nullptr ? descriptor->layout.alignment : 0;
-    if (descriptor != nullptr) {
-      return descriptor->type == caors::meta::detail::type_id_of_cpp_type<field_type>() &&
-             size == sizeof(field_type) && alignment == alignof(field_type);
-    }
+  [[nodiscard]] string_name name() const noexcept;
+  [[nodiscard]] type_id type() const noexcept;
+  [[nodiscard]] string_name type_name() const noexcept;
 
-    const meta::type meta = caors::meta::find(type);
-    return meta && meta.id() == caors::meta::detail::type_id_of_cpp_type<field_type>() &&
-           meta.size() == sizeof(field_type) && meta.alignment() == alignof(field_type);
-  }
+  /** @brief 查询统一 value 类型。容器字段返回元素或 mapped/value 类型。 */
+  [[nodiscard]] type_id value_type() const noexcept;
 
-  /** @brief 获取字段在对象内的只读地址。 */
-  [[nodiscard]] const void* data(const void* object) const noexcept {
-    if (object == nullptr || !valid()) {
-      return nullptr;
-    }
+  /** @brief 查询 sequence/set 字段的元素类型，等价于对应语义下的 `value_type()`。 */
+  [[nodiscard]] type_id element_type() const noexcept;
 
-    const auto* bytes = static_cast<const unsigned char*>(object);
-    return bytes + offset;
-  }
+  /** @brief 查询 sequence/set 字段的元素类型名。 */
+  [[nodiscard]] string_name element_type_name() const noexcept;
 
-  /** @brief 获取字段在对象内的可写地址。 */
-  [[nodiscard]] void* mutable_data(void* object) const noexcept {
-    if (object == nullptr || !valid() || !writable) {
-      return nullptr;
-    }
+  /** @brief 查询 associative 字段的 key 类型。 */
+  [[nodiscard]] type_id key_type() const noexcept;
 
-    auto* bytes = static_cast<unsigned char*>(object);
-    return bytes + offset;
-  }
+  /** @brief 查询 associative 字段的 key 类型名。 */
+  [[nodiscard]] string_name key_type_name() const noexcept;
+
+  /** @brief 查询 pair 字段的 first 类型，当前等价于对应语义下的 `key_type()`。 */
+  [[nodiscard]] type_id first_type() const noexcept;
+
+  /** @brief 查询 pair 字段的 first 类型名。 */
+  [[nodiscard]] string_name first_type_name() const noexcept;
+
+  /** @brief 查询 associative 字段的 mapped/value 类型，等价于 `value_type()`。 */
+  [[nodiscard]] type_id mapped_type() const noexcept;
+
+  /** @brief 查询 associative 字段的 mapped/value 类型名。 */
+  [[nodiscard]] string_name mapped_type_name() const noexcept;
+
+  /** @brief 查询 pair 字段的 second 类型，当前等价于对应语义下的 `value_type()`。 */
+  [[nodiscard]] type_id second_type() const noexcept;
+
+  /** @brief 查询 pair 字段的 second 类型名。 */
+  [[nodiscard]] string_name second_type_name() const noexcept;
+
+  [[nodiscard]] meta::type_kind kind() const noexcept;
+  [[nodiscard]] meta::wrapper_semantics wrapper_semantics() const noexcept;
+  [[nodiscard]] bool indirect() const noexcept;
+  [[nodiscard]] bool nullable() const noexcept;
+  [[nodiscard]] bool writable() const noexcept;
+  [[nodiscard]] std::size_t offset() const noexcept;
+  [[nodiscard]] std::size_t size() const noexcept;
+  [[nodiscard]] std::size_t alignment() const noexcept;
 
   /** @brief 获取字段值的运行期拷贝。 */
-  [[nodiscard]] any get_value(const void* object) const {
-    const void* field_value = data(object);
-    if (field_value == nullptr) {
-      return {};
-    }
-
-    return any::copy_from_raw(type, descriptor, field_value);
-  }
+  [[nodiscard]] any get_value(const void* object) const;
 
   /** @brief 获取字段值的只读运行期引用。 */
-  [[nodiscard]] any_ref get_ref(const void* object) const {
-    const void* field_value = data(object);
-    if (field_value == nullptr) {
-      return {};
-    }
-
-    return any_ref::from_raw(type, descriptor, field_value, false);
-  }
+  [[nodiscard]] any_ref get_ref(const void* object) const;
 
   /** @brief 获取字段值的可写运行期引用。 */
-  [[nodiscard]] any_ref get_ref(void* object) const {
-    void* field_value = mutable_data(object);
-    if (field_value == nullptr) {
-      return {};
-    }
-
-    return any_ref::from_raw(type, descriptor, field_value, true);
-  }
+  [[nodiscard]] any_ref get_ref(void* object) const;
 
   /** @brief 从运行期值写入字段。 */
-  bool try_set_value(void* object, const any& source) const {
-    const meta::type meta = caors::meta::find(type);
-    const auto assign = descriptor != nullptr ? descriptor->ops.assign
-                                              : caors::meta::detail::get_assign_value_fn(meta);
-    const std::size_t expected_size = descriptor != nullptr ? descriptor->layout.size : meta.size();
-    const std::size_t expected_alignment =
-        descriptor != nullptr ? descriptor->layout.alignment : meta.alignment();
-    if (!source.valid() || source.type() != type || source.size() != expected_size ||
-        source.alignment() != expected_alignment || assign == nullptr) {
-      return false;
-    }
+  bool try_set_value(void* object, const any& source) const;
 
-    void* storage = mutable_data(object);
-    if (storage == nullptr) {
-      return false;
-    }
+  /** @brief 获取对象引用字段指向的对象。 */
+  [[nodiscard]] objects::object* get_object_ref(const void* object) const;
 
-    return assign(storage, source.data());
-  }
+  /** @brief 写入对象引用字段。 */
+  bool try_set_object_ref(void* object, objects::object* instance) const;
+
+  /** @brief 判断字段是否是顺序容器。 */
+  [[nodiscard]] bool is_sequence() const noexcept;
+
+  /** @brief 判断字段是否是集合容器。 */
+  [[nodiscard]] bool is_set() const noexcept;
+
+  /** @brief 判断字段是否是关联容器。 */
+  [[nodiscard]] bool is_associative() const noexcept;
+
+  /** @brief 判断字段是否是二元组。 */
+  [[nodiscard]] bool is_pair() const noexcept;
+
+  /** @brief 判断字段是否是 tuple-like 字段。 */
+  [[nodiscard]] bool is_tuple() const noexcept;
+
+  /** @brief 判断字段是否是 variant-like 字段。 */
+  [[nodiscard]] bool is_variant() const noexcept;
 
   /** @brief 按指定类型读取字段值。 */
   template <typename Field>
@@ -138,72 +132,31 @@ struct field_data {
     static_assert(std::is_copy_constructible_v<field_type>,
                   "Reflected field values must be copy constructible");
 
-    if (!matches_type<field_type>()) {
+    const any_ref ref = get_ref(object);
+    const field_type* value = ref.template try_get<field_type>();
+    if (value == nullptr) {
       return std::nullopt;
     }
 
-    const void* field_value = data(object);
-    if (field_value == nullptr) {
-      return std::nullopt;
-    }
-
-    return *static_cast<const field_type*>(field_value);
+    return *value;
   }
 
   /** @brief 按指定类型写入字段值。 */
   template <typename Field> bool try_set(void* object, const Field& value) const {
-    using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
-    if (!matches_type<field_type>()) {
-      return false;
-    }
-
-    void* storage = mutable_data(object);
-    if (storage == nullptr) {
-      return false;
-    }
-
-    auto* target = static_cast<field_type*>(storage);
-    if constexpr (std::is_assignable_v<field_type&, const Field&>) {
-      *target = value;
-      return true;
-    } else {
-      return false;
-    }
-  }
-};
-
-/** @brief 创建字段反射元信息。 */
-template <typename Field>
-[[nodiscard]] field_data make_field_data(std::string_view name, std::string_view type_name,
-                                         std::size_t offset) {
-  using field_type = std::remove_cv_t<Field>;
-  const meta::detail::type_descriptor* descriptor = meta::detail::descriptor_ptr_of<field_type>();
-  type_id field_type_id = descriptor->type;
-  if (!type_name.empty()) {
-    field_type_id = detail::find_field_type_id<field_type>(type_name);
+    const any_ref ref = get_ref(object);
+    return ref.try_set(value);
   }
 
-  field_data field{
-      string_name{name}, field_type_id, descriptor, offset, !std::is_const_v<Field>,
-  };
+private:
+  friend class type;
 
-  return field;
-}
+  field(meta::type owner, const detail::field_data* reflected_field) noexcept;
+  [[nodiscard]] const detail::field_data* info() const noexcept;
 
-template <typename Member> struct member_pointer_traits;
-
-template <typename Class, typename Field> struct member_pointer_traits<Field Class::*> {
-  using class_type = Class;
-  using field_type = Field;
+  meta::type owner_{};
+  const detail::field_data* field_ = nullptr;
 };
 
-template <typename Class, typename Field>
-[[nodiscard]] std::size_t member_offset(Field Class::* member) noexcept {
-  const auto* object = reinterpret_cast<const volatile Class*>(0x1000);
-  const auto* field = &(object->*member);
-  return reinterpret_cast<std::uintptr_t>(field) - reinterpret_cast<std::uintptr_t>(object);
-}
-
-} // namespace caors::reflection::detail
+} // namespace caors::reflection
 
 #endif

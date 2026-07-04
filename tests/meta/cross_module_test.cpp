@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "caors/reflection/builder.h"
+#include "caors/reflection.h"
 #include "caors/serialization.h"
 
 #include <catch2/catch_all.hpp>
@@ -81,8 +81,8 @@ TEST_CASE("meta - view finds types with reflection and serialization components"
 TEST_CASE("meta - cross module view supports serialization registered before reflection",
           "[meta]") {
   const caors::meta::type type = caors::meta::type_<cross_module_serialization_first>(
-                                          "caors.test.meta.cross_module_serialization_first")
-                                          .get();
+                                     "caors.test.meta.cross_module_serialization_first")
+                                     .get();
   REQUIRE(type.valid());
 
   REQUIRE(serialization_result_ok(

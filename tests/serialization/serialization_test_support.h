@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "caors/reflection/builder.h"
+#include "caors/reflection.h"
 #include "caors/serialization.h"
 
 #include <catch2/catch_all.hpp>

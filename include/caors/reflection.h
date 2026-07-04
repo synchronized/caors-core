@@ -8,6 +8,5 @@
 #include "caors/reflection/field.h"
 #include "caors/reflection/registry.h"
 #include "caors/reflection/type.h"
-#include "caors/reflection/view.h"
 
 #endif

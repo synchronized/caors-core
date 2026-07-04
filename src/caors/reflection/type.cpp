@@ -3,6 +3,8 @@
 
 #include "caors/reflection.h"
 
+#include "caors/reflection/detail/type_data.h"
+
 namespace caors::reflection {
 
 type::type(meta::type type, const detail::type_data* data) noexcept : type_(type), data_(data) {}

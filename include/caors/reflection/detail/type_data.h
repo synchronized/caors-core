@@ -5,7 +5,7 @@
 #define CAORS_REFLECTION_DETAIL_TYPE_DATA_H_
 
 #include "caors/core/containers.h"
-#include "caors/reflection/field.h"
+#include "caors/reflection/detail/field_data.h"
 
 #include <initializer_list>
 #include <optional>

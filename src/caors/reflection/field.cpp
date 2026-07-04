@@ -4,6 +4,7 @@
 #include "caors/reflection.h"
 
 #include "caors/object/ref_view.h"
+#include "caors/reflection/detail/field_data.h"
 
 namespace caors::reflection {
 namespace {
