@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_META_INTERNAL_H_
-#define CAORS_META_INTERNAL_H_
+#ifndef CAORS_META_DETAIL_INTERNAL_H_
+#define CAORS_META_DETAIL_INTERNAL_H_
 
 #include "caors/meta.h"
 
 #include <mutex>
 
-namespace caors::meta {
+namespace caors::meta::detail {
 
 class registry_state {
 public:
@@ -16,15 +16,12 @@ public:
   bool frozen = false;
   bool registrations_ran = false;
   core::vector<registration_fn> registrations;
-  core::hash_map<std::uint64_t, std::unique_ptr<detail::type_data>> types;
-  core::hash_map<std::uint64_t, const detail::type_descriptor*> descriptors;
+  core::hash_map<std::uint64_t, std::unique_ptr<type_data>> types;
+  core::hash_map<std::uint64_t, const type_descriptor*> descriptors;
   core::hash_map<core::string_name, type_id> names;
   core::hash_map<core::guid, type_id, core::guid_hash> guids;
-  core::hash_map<detail::meta_component_key, std::unique_ptr<detail::meta_component_storage_base>>
-      components;
+  core::hash_map<meta_component_key, std::unique_ptr<meta_component_storage_base>> components;
 };
-
-namespace detail {
 
 [[nodiscard]] type_data* find_type_data(registry_state& state, type_id id);
 [[nodiscard]] const type_data* find_type_data(const registry_state& state, type_id id);
@@ -40,8 +37,6 @@ namespace detail {
 [[nodiscard]] error store_type_descriptor(registry_state& state, const type_descriptor& descriptor);
 [[nodiscard]] error validate_registry_for_freeze(const registry_state& state);
 
-} // namespace detail
-
-} // namespace caors::meta
+} // namespace caors::meta::detail
 
 #endif

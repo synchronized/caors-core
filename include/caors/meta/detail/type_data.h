@@ -10,12 +10,9 @@
 
 #include <string_view>
 
-namespace caors::meta {
+namespace caors::meta::detail {
 
 class registry_state;
-
-namespace detail {
-
 class type_data;
 
 [[nodiscard]] error merge_type_data(registry_state& state, type_data& stored,
@@ -97,8 +94,6 @@ template <typename T>
   return make_type_data<T>(string_name{name}, guid, parent_id);
 }
 
-} // namespace detail
-
-} // namespace caors::meta
+} // namespace caors::meta::detail
 
 #endif

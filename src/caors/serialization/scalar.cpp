@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "serialization_internal.h"
+#include "detail/internal.h"
 
 #include <limits>
 #include <string>
@@ -209,5 +209,3 @@ error read_scalar_value(reader& reader, const any_ref& target,
 }
 
 } // namespace caors::serialization::detail
-
-

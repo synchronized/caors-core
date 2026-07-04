@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "meta_internal.h"
+#include "detail/internal.h"
 
 #include <mutex>
 

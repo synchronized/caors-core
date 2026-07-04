@@ -4,7 +4,7 @@
 #include "caors/memory/resource.h"
 
 #include "caors/config.h"
-#include "memory_internal.h"
+#include "detail/internal.h"
 
 #include <atomic>
 #include <cstdlib>

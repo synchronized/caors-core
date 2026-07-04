@@ -71,7 +71,7 @@
 实现文件按 registry、codec、text writer、JSON writer/parser、DOM/value、writer 接口、DOM
 写出、对象序列化、对象反序列化、字段读写、容器读写、中间值构造和文本便捷入口拆分在
 `src/caors/serialization/`。共享的字段校验、schema version 过滤和内部调度声明保留在私有
-`src/caors/serialization/serialization_internal*.h`。
+`src/caors/serialization/detail/internal.h` 和 `src/caors/serialization/detail/helpers.h`。
 
 ### serialization::type_data
 

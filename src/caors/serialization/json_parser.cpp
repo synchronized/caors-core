@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "serialization_internal.h"
+#include "detail/internal.h"
 
 #include <charconv>
 #include <cmath>

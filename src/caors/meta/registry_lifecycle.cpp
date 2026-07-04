@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "meta_internal.h"
+#include "detail/internal.h"
 
 namespace caors::meta {
 
-registry::registry() : state_(new registry_state) {}
+registry::registry() : state_(new detail::registry_state) {}
 
 registry::~registry() { delete state_; }
 

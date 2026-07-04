@@ -6,7 +6,7 @@
 #include "caors/object/ref_view.h"
 #include "caors/reflection/registry.h"
 
-#include "serialization_internal.h"
+#include "detail/internal.h"
 
 #include <utility>
 

@@ -4,7 +4,7 @@
 #include "caors/memory/debug_tracking.h"
 
 #include "caors/core/containers.h"
-#include "memory_internal.h"
+#include "detail/internal.h"
 
 #include <mutex>
 

@@ -5,7 +5,7 @@
 
 #include "caors/reflection/registry.h"
 
-#include "serialization_internal.h"
+#include "detail/internal.h"
 
 namespace caors::serialization {
 

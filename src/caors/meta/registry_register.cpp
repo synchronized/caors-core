@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "meta_internal.h"
+#include "detail/internal.h"
 
 #include "caors/meta/detail/type_descriptor.h"
 
@@ -10,7 +10,7 @@
 namespace caors::meta {
 namespace {
 
-[[nodiscard]] error register_type_impl(registry_state& state, detail::type_data type,
+[[nodiscard]] error register_type_impl(detail::registry_state& state, detail::type_data type,
                                        type_id* stored_id = nullptr) {
   if (!type.valid() || !type.id()) {
     return {error_domain::meta, errc::invalid_type};

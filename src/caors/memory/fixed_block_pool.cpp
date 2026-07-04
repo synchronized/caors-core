@@ -3,7 +3,7 @@
 
 #include "caors/memory/fixed_block_pool.h"
 
-#include "memory_internal.h"
+#include "detail/internal.h"
 
 #include <algorithm>
 

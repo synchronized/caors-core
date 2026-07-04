@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_SERIALIZATION_INTERNAL_HELPERS_H_
-#define CAORS_SERIALIZATION_INTERNAL_HELPERS_H_
+#ifndef CAORS_SERIALIZATION_DETAIL_HELPERS_H_
+#define CAORS_SERIALIZATION_DETAIL_HELPERS_H_
 
-#include "serialization_internal.h"
+#include "internal.h"
 
 namespace caors::serialization::detail {
 

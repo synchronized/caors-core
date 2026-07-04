@@ -27,6 +27,7 @@
 
 namespace caors::meta::detail {
 
+class registry_state;
 struct type_descriptor;
 template <typename T> [[nodiscard]] error ensure_type_descriptor_for();
 
@@ -34,7 +35,6 @@ template <typename T> [[nodiscard]] error ensure_type_descriptor_for();
 
 namespace caors::meta {
 
-class registry_state;
 template <typename T> class type_builder;
 
 /**
@@ -251,7 +251,7 @@ private:
   [[nodiscard]] vector<type_id> view_component_ids(const detail::meta_component_key* keys,
                                                    std::size_t count) const;
 
-  registry_state* state_ = nullptr;
+  detail::registry_state* state_ = nullptr;
 };
 
 /** @brief 获取进程内全局类型元数据注册表。 */

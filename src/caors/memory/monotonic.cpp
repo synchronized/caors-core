@@ -3,7 +3,7 @@
 
 #include "caors/memory/monotonic.h"
 
-#include "memory_internal.h"
+#include "detail/internal.h"
 
 #include <algorithm>
 #include <cstdint>

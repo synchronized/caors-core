@@ -22,7 +22,6 @@
 namespace caors::meta {
 
 class registry;
-class registry_state;
 class type;
 
 namespace detail {

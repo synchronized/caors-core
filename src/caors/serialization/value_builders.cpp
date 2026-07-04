@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "serialization_internal_helpers.h"
+#include "detail/helpers.h"
 
 namespace caors::serialization::detail {
 

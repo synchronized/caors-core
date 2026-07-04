@@ -2,7 +2,7 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/serialization/operations.h"
-#include "serialization_internal.h"
+#include "detail/internal.h"
 
 #include <cmath>
 #include <sstream>

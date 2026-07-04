@@ -3,7 +3,7 @@
 
 #include "caors/memory/tracking.h"
 
-#include "memory_internal.h"
+#include "detail/internal.h"
 
 namespace caors::memory {
 

@@ -3,7 +3,7 @@
 
 #include "caors/serialization/operations.h"
 
-#include "serialization_internal.h"
+#include "detail/internal.h"
 
 namespace caors::serialization {
 
