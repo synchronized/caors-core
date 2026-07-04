@@ -32,7 +32,7 @@ cmake --build --preset windows-clang-debug --target caors_example_version_basic
 
 - `version/`：版本信息 API。
 - `memory/`：内存资源、分配器、策略资源和调试跟踪。
-- `object/`：对象注册、对象创建和销毁。
+- `object/`：对象注册、对象创建、生命周期管理器和销毁。
 - `reflection/`：反射类型和字段元信息注册。
 
 具体示例以各主题目录下的 `*.cpp` 文件为准。

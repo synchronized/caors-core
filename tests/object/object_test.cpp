@@ -103,6 +103,11 @@ public:
   static constexpr std::string_view object_type_name = "caors.test.object.managed_player";
 };
 
+class managed_other_actor : public caors::object_base<managed_other_actor> {
+public:
+  static constexpr std::string_view object_type_name = "caors.test.object.managed_other_actor";
+};
+
 class managed_non_default_object : public caors::object_base<managed_non_default_object> {
 public:
   static constexpr std::string_view object_type_name = "caors.test.object.managed_non_default";
@@ -110,6 +115,11 @@ public:
   explicit managed_non_default_object(int value) : value(value) {}
 
   int value = 0;
+};
+
+class unregistered_managed_actor : public caors::object_base<unregistered_managed_actor> {
+public:
+  static constexpr std::string_view object_type_name = "caors.test.object.unregistered_managed";
 };
 
 [[nodiscard]] constexpr caors::error object_error(caors::errc code) noexcept {
@@ -381,4 +391,78 @@ TEST_CASE("object - manager supports registered non default constructible object
 
   CHECK(manager.destroy(instance));
   CHECK(manager.empty());
+}
+
+TEST_CASE("object - manager rejects unregistered and foreign objects", "[object]") {
+  caors::objects::manager manager;
+
+  CHECK(manager.create<unregistered_managed_actor>() == nullptr);
+
+  const caors::error actor_status =
+      register_object_test_type<managed_actor>(managed_actor::object_type_name);
+  REQUIRE(
+      (actor_status == caors::error{} || actor_status == object_error(caors::errc::duplicate_id)));
+
+  managed_actor external{};
+  CHECK_FALSE(manager.destroy(&external));
+  CHECK_FALSE(manager.contains(external.id()));
+  CHECK(manager.find(external.id()) == nullptr);
+}
+
+TEST_CASE("object - manager rejects mismatched typed lookups", "[object]") {
+  caors::objects::manager manager;
+
+  const caors::error actor_status =
+      register_object_test_type<managed_actor>(managed_actor::object_type_name);
+  REQUIRE(
+      (actor_status == caors::error{} || actor_status == object_error(caors::errc::duplicate_id)));
+  REQUIRE(register_object_test_type<managed_other_actor>(managed_other_actor::object_type_name) ==
+          caors::error{});
+
+  managed_actor* instance = manager.create<managed_actor>();
+  REQUIRE(instance != nullptr);
+
+  CHECK(manager.find<managed_other_actor>(instance->id()) == nullptr);
+  CHECK_FALSE(manager.weak<managed_other_actor>(instance->id()));
+  CHECK(manager.find(caors::objects::handle{instance->id(),
+                                            managed_other_actor::static_type_id()}) == nullptr);
+}
+
+TEST_CASE("object - manager clear releases objects and invalidates handles", "[object]") {
+  caors::tracking_resource tracking(&caors::get_system_memory_resource());
+
+  {
+    caors::objects::manager manager(&tracking);
+
+    const caors::error actor_status =
+        register_object_test_type<managed_actor>(managed_actor::object_type_name);
+    REQUIRE((actor_status == caors::error{} ||
+             actor_status == object_error(caors::errc::duplicate_id)));
+    const caors::error player_status =
+        register_object_test_type<managed_player>(managed_player::object_type_name);
+    REQUIRE((player_status == caors::error{} ||
+             player_status == object_error(caors::errc::duplicate_id)));
+
+    managed_actor* actor = manager.create<managed_actor>();
+    managed_player* player = manager.create<managed_player>();
+    REQUIRE(actor != nullptr);
+    REQUIRE(player != nullptr);
+
+    const caors::objects::handle actor_handle = manager.handle_of(actor->id());
+    const caors::objects::handle player_handle = manager.handle_of(player->id());
+
+    REQUIRE(manager.size() == 2);
+    REQUIRE(actor_handle);
+    REQUIRE(player_handle);
+
+    manager.clear();
+
+    CHECK(manager.empty());
+    CHECK_FALSE(manager.alive(actor_handle));
+    CHECK_FALSE(manager.alive(player_handle));
+    CHECK(manager.find(actor_handle) == nullptr);
+    CHECK(manager.find(player_handle) == nullptr);
+  }
+
+  CHECK(tracking.statistics().bytes_in_use == 0);
 }
