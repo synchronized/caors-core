@@ -4,7 +4,7 @@
 #ifndef CAORS_VALUE_ASSOCIATIVE_VIEW_H_
 #define CAORS_VALUE_ASSOCIATIVE_VIEW_H_
 
-#include "caors/value/associative_entry_ref.h"
+#include "caors/value/fwd.h"
 
 namespace caors::value {
 

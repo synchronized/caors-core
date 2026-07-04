@@ -3,6 +3,8 @@
 
 #include "reflection_test_support.h"
 
+#include "caors/value/associative_entry_ref.h"
+
 using namespace test_reflection;
 TEST_CASE("reflection - sequence field view exposes element metadata", "[reflection]") {
   REQUIRE(caors::reflection::class_<vector_holder>("caors.test.reflection.vector_holder")

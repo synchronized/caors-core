@@ -4,7 +4,7 @@
 #ifndef CAORS_VALUE_PAIR_VIEW_H_
 #define CAORS_VALUE_PAIR_VIEW_H_
 
-#include "caors/value/any_value.h"
+#include "caors/value/fwd.h"
 
 namespace caors::value {
 
@@ -47,7 +47,7 @@ public:
   [[nodiscard]] any_ref second_ref() const;
 
   /** @brief 获取 second 引用，等价于 `second_ref()`。 */
-  [[nodiscard]] any_ref value_ref() const { return second_ref(); }
+  [[nodiscard]] any_ref value_ref() const;
 
   /** @brief 写入 first。 */
   bool set_first(const any& value) const;

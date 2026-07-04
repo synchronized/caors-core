@@ -4,6 +4,7 @@
 #ifndef CAORS_VALUE_ANY_H_
 #define CAORS_VALUE_ANY_H_
 
+#include "caors/value/any_ref.h"
 #include "caors/value/view_factory.h"
 
 namespace caors {

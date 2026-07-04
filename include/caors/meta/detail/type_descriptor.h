@@ -6,6 +6,7 @@
 
 #include "caors/meta/detail/container.h"
 #include "caors/meta/detail/container_iterators.h"
+#include "caors/meta/type.h"
 #include "caors/meta/type_semantics.h"
 #include "caors/object/ref.h"
 

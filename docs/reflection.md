@@ -539,6 +539,9 @@ meta，名称查询会返回空，但嵌套视图仍可依靠 descriptor 继续�
 容器、pair、tuple 和 variant 视图不要求值一定来自反射字段。反射字段场景可以先通过 `get_ref()` 创建 `any_ref`，
 再调用对应的 `create_*_view()`；普通 `any` / `any_ref` 也可以直接创建视图：
 
+如果只包含细粒度 value 头文件，并且需要按值使用 `associative_entry_ref`，应显式包含
+`caors/value/associative_entry_ref.h`；包含总入口 `caors/value.h` 时不需要额外处理。
+
 ```cpp
 caors::value::sequence_view field_sequence =
     field.get_ref(&instance).create_sequence_view();

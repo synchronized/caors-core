@@ -4,7 +4,7 @@
 #ifndef CAORS_VALUE_VARIANT_VIEW_H_
 #define CAORS_VALUE_VARIANT_VIEW_H_
 
-#include "caors/value/any_value.h"
+#include "caors/value/fwd.h"
 
 namespace caors::value {
 

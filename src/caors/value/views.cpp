@@ -4,6 +4,9 @@
 #include "caors/value/view_factory.h"
 
 #include "caors/meta/detail/type_descriptor.h"
+#include "caors/meta/query.h"
+#include "caors/value/any_ref.h"
+#include "caors/value/associative_entry_ref.h"
 
 #include <utility>
 
@@ -179,6 +182,8 @@ any_ref pair_view::second_ref() const {
 
   return any_ref::from_raw(info->value_type, info->value_descriptor, value, value_writable);
 }
+
+any_ref pair_view::value_ref() const { return second_ref(); }
 
 bool pair_view::set_first(const any& value) const {
   const meta::detail::pair_data* info = data();

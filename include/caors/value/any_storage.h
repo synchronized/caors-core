@@ -8,6 +8,7 @@
 #include "caors/meta/detail/type_descriptor.h"
 #include "caors/traits/container.h"
 #include "caors/traits/type_name.h"
+#include "caors/value/fwd.h"
 
 #include <cstddef>
 #include <optional>
@@ -21,16 +22,6 @@ struct field_data;
 
 namespace caors::value {
 
-class any;
-class any_ref;
-class indirect_view;
-class sequence_view;
-class set_view;
-class associative_view;
-class pair_view;
-class tuple_view;
-class variant_view;
-
 namespace detail {
 
 [[nodiscard]] const meta::detail::type_descriptor* descriptor_of(const any& value) noexcept;
@@ -38,9 +29,6 @@ namespace detail {
 [[nodiscard]] any default_construct(type_id type, const meta::detail::type_descriptor* descriptor);
 
 } // namespace detail
-
-using set_element_visitor = bool (*)(any_ref element, void* user_data);
-using associative_entry_visitor = bool (*)(any_ref key, any_ref mapped, void* user_data);
 
 /**
  * @brief 运行期 C++ 类型值。
