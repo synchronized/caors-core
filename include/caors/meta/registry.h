@@ -28,7 +28,7 @@
 namespace caors::meta::detail {
 
 struct type_descriptor;
-template <typename T> [[nodiscard]] error ensure_type_descriptor_for(type_id id);
+template <typename T> [[nodiscard]] error ensure_type_descriptor_for();
 
 } // namespace caors::meta::detail
 
@@ -52,6 +52,7 @@ public:
   registry& operator=(const registry&) = delete;
 
   [[nodiscard]] error register_type(const detail::type_data& type);
+  [[nodiscard]] error ensure_type_descriptor(const detail::type_descriptor& descriptor);
   [[nodiscard]] error add_registration(registration_fn fn);
   [[nodiscard]] error run_registrations();
   [[nodiscard]] error freeze();
@@ -76,8 +77,7 @@ public:
 
     const meta::type registered = find_type(expected_id);
     if (registered) {
-      const error descriptor_status =
-          detail::ensure_type_descriptor_for<value_type>(registered.id());
+      const error descriptor_status = detail::ensure_type_descriptor_for<value_type>();
       if (descriptor_status) {
         return descriptor_status;
       }
@@ -95,6 +95,7 @@ public:
   [[nodiscard]] type find_type(type_guid guid) const;
   [[nodiscard]] type find_type(std::string_view name) const;
   [[nodiscard]] type find_type(string_name name) const;
+  [[nodiscard]] const detail::type_descriptor* find_type_descriptor(type_id id) const;
   [[nodiscard]] bool is_a(type_id id, type_id base_id) const;
   [[nodiscard]] std::size_t size() const noexcept;
 

@@ -680,27 +680,13 @@ template <typename T> [[nodiscard]] const type_descriptor* descriptor_ptr_of() n
   return &descriptor_holder<type>::value;
 }
 
-template <typename T> [[nodiscard]] error ensure_type_descriptor_for(type_id id) {
-  if (!id) {
-    return {error_domain::meta, errc::invalid_type};
-  }
-
+template <typename T> [[nodiscard]] error ensure_type_descriptor_for() {
   const type_descriptor* descriptor = descriptor_ptr_of<T>();
   if (descriptor == nullptr || !descriptor->valid()) {
     return {error_domain::meta, errc::invalid_type};
   }
 
-  const type_descriptor* existing = get_registry().find_ptr<type_descriptor>(id);
-  if (existing != nullptr) {
-    if (existing->type != descriptor->type || existing->layout.size != descriptor->layout.size ||
-        existing->layout.alignment != descriptor->layout.alignment) {
-      return {error_domain::meta, errc::invalid_type};
-    }
-
-    return {};
-  }
-
-  return ensure_component_for(id, *descriptor);
+  return get_registry().ensure_type_descriptor(*descriptor);
 }
 
 } // namespace caors::meta::detail

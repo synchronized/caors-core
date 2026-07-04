@@ -17,6 +17,7 @@ public:
   bool registrations_ran = false;
   core::vector<registration_fn> registrations;
   core::hash_map<std::uint64_t, std::unique_ptr<detail::type_data>> types;
+  core::hash_map<std::uint64_t, const detail::type_descriptor*> descriptors;
   core::hash_map<core::string_name, type_id> names;
   core::hash_map<core::guid, type_id, core::guid_hash> guids;
   core::hash_map<detail::meta_component_key, std::unique_ptr<detail::meta_component_storage_base>>
@@ -27,6 +28,7 @@ namespace detail {
 
 [[nodiscard]] type_data* find_type_data(registry_state& state, type_id id);
 [[nodiscard]] const type_data* find_type_data(const registry_state& state, type_id id);
+[[nodiscard]] const type_descriptor* find_type_descriptor(const registry_state& state, type_id id);
 [[nodiscard]] std::optional<type_id> find_existing_type_id(const registry_state& state,
                                                            const type_data& type, error& conflict);
 [[nodiscard]] error duplicate_identity_error(const registry_state& state, const type_data& type,
@@ -35,6 +37,7 @@ namespace detail {
                                     const type_data& incoming);
 [[nodiscard]] error store_new_type(registry_state& state, const type_data& incoming,
                                    type_id* stored_id = nullptr);
+[[nodiscard]] error store_type_descriptor(registry_state& state, const type_descriptor& descriptor);
 [[nodiscard]] error validate_registry_for_freeze(const registry_state& state);
 
 } // namespace detail

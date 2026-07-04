@@ -3,6 +3,8 @@
 
 #include "meta_internal.h"
 
+#include "caors/meta/detail/type_descriptor.h"
+
 #include <mutex>
 
 namespace caors::meta {
@@ -50,6 +52,23 @@ namespace {
 
 error registry::register_type(const detail::type_data& type) {
   return register_type_impl(*state_, type);
+}
+
+error registry::ensure_type_descriptor(const detail::type_descriptor& descriptor) {
+  std::lock_guard lock(state_->mutex);
+  if (!descriptor.valid() || !descriptor.type) {
+    return {error_domain::meta, errc::invalid_type};
+  }
+
+  if (detail::find_type_descriptor(*state_, descriptor.type) != nullptr) {
+    return detail::store_type_descriptor(*state_, descriptor);
+  }
+
+  if (state_->frozen) {
+    return {error_domain::meta, errc::frozen};
+  }
+
+  return detail::store_type_descriptor(*state_, descriptor);
 }
 
 error registry::set_type_guid(type_id id, type_guid guid) {

@@ -107,8 +107,7 @@ public:
   [[nodiscard]] static any default_construct(type_id type) {
     const meta::type meta = caors::meta::find(type);
     const meta::detail::type_descriptor* descriptor =
-        meta ? caors::meta::get_registry().find_ptr<meta::detail::type_descriptor>(meta.id())
-             : nullptr;
+        meta ? caors::meta::get_registry().find_type_descriptor(meta.id()) : nullptr;
     return meta.valid() ? detail::default_construct(type, descriptor) : any{};
   }
 

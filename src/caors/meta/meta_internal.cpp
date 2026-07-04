@@ -3,6 +3,8 @@
 
 #include "meta_internal.h"
 
+#include "caors/meta/detail/type_descriptor.h"
+
 namespace caors::meta::detail {
 
 type_data* find_type_data(registry_state& state, type_id id) {
@@ -21,6 +23,15 @@ const type_data* find_type_data(const registry_state& state, type_id id) {
   }
 
   return position->second.get();
+}
+
+const type_descriptor* find_type_descriptor(const registry_state& state, type_id id) {
+  const auto position = state.descriptors.find(id.value());
+  if (position == state.descriptors.end()) {
+    return nullptr;
+  }
+
+  return position->second;
 }
 
 std::optional<type_id> find_existing_type_id(const registry_state& state, const type_data& type,
@@ -183,6 +194,31 @@ error store_new_type(registry_state& state, const type_data& incoming, type_id* 
   return {};
 }
 
+error store_type_descriptor(registry_state& state, const type_descriptor& descriptor) {
+  if (!descriptor.valid() || !descriptor.type) {
+    return {error_domain::meta, errc::invalid_type};
+  }
+
+  if (!state.types.contains(descriptor.type.value())) {
+    return {error_domain::meta, errc::missing_type};
+  }
+
+  const auto position = state.descriptors.find(descriptor.type.value());
+  if (position != state.descriptors.end()) {
+    const type_descriptor* existing = position->second;
+    if (existing == nullptr || existing->type != descriptor.type ||
+        existing->layout.size != descriptor.layout.size ||
+        existing->layout.alignment != descriptor.layout.alignment) {
+      return {error_domain::meta, errc::invalid_type};
+    }
+
+    return {};
+  }
+
+  state.descriptors.emplace(descriptor.type.value(), &descriptor);
+  return {};
+}
+
 error validate_registry_for_freeze(const registry_state& state) {
   for (const auto& [raw_id, stored] : state.types) {
     if (stored == nullptr || !stored->registered() || stored->id().value() != raw_id) {
@@ -205,6 +241,16 @@ error validate_registry_for_freeze(const registry_state& state) {
       if (guid_position == state.guids.end() || guid_position->second != stored->id()) {
         return {error_domain::meta, errc::inconsistent_type};
       }
+    }
+  }
+
+  for (const auto& [raw_id, descriptor] : state.descriptors) {
+    if (descriptor == nullptr || !descriptor->valid() || descriptor->type.value() != raw_id) {
+      return {error_domain::meta, errc::invalid_type};
+    }
+
+    if (!state.types.contains(raw_id)) {
+      return {error_domain::meta, errc::missing_type};
     }
   }
 

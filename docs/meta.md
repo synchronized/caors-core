@@ -163,9 +163,10 @@ caors::meta::type_<actor>("game.actor")
 
 ### meta::detail::type_descriptor
 
-`meta::detail::type_descriptor` 是挂在已注册 C++ 类型上的内部能力组件。它由布局、值操作、类型语义、
-主访问能力和对象引用能力几部分组成；未注册结构类型也可以通过 `any`、`any_ref` 或反射字段携带的静态
-descriptor 访问同一套能力。
+`meta::detail::type_descriptor` 是已注册 C++ 类型的内部能力描述。注册表按 `type_id`
+保存指向静态 descriptor 的指针，不把 descriptor 当作普通 generic component 复制存储。descriptor
+由布局、值操作、类型语义、主访问能力和对象引用能力几部分组成；未注册结构类型也可以通过 `any`、
+`any_ref` 或反射字段携带的静态 descriptor 访问同一套能力。
 
 descriptor 内部按职责拆分：
 
@@ -258,7 +259,7 @@ CAORS_META_REGISTRATION(register_actor_meta) {
 注册表维护几类索引：
 
 - `type_id -> 内部基础类型数据`：运行期主索引，只保存身份类信息。
-- `type_id -> meta::detail::type_descriptor`：布局、值操作、类型语义、主访问能力和对象引用能力组件。
+- `type_id -> const meta::detail::type_descriptor*`：布局、值操作、类型语义、主访问能力和对象引用能力。
 - `type_name -> type_id`：名称查询索引，可选。
 - `type_guid -> type_id`：稳定身份查询索引，可选。
 
