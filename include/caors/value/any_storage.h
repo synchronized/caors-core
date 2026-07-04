@@ -39,31 +39,12 @@ namespace detail {
 class any final {
 public:
   any() noexcept = default;
-  ~any() { reset(); }
+  ~any();
 
-  any(const any& other) { copy_from(other); }
-
-  any(any&& other) noexcept { move_from(other); }
-
-  any& operator=(const any& other) {
-    if (this == &other) {
-      return *this;
-    }
-
-    any copy{other};
-    swap(copy);
-    return *this;
-  }
-
-  any& operator=(any&& other) noexcept {
-    if (this == &other) {
-      return *this;
-    }
-
-    reset();
-    move_from(other);
-    return *this;
-  }
+  any(const any& other);
+  any(any&& other) noexcept;
+  any& operator=(const any& other);
+  any& operator=(any&& other) noexcept;
 
   /**
    * @brief 从 C++ 值创建运行期值。
@@ -92,34 +73,18 @@ public:
   }
 
   /** @brief 按运行期类型 id 默认构造一个值。不可默认构造类型会返回无效 `any`。 */
-  [[nodiscard]] static any default_construct(type_id type) {
-    const meta::type meta = caors::meta::find(type);
-    const meta::detail::type_descriptor* descriptor =
-        meta ? caors::meta::get_registry().find_type_descriptor(meta.id()) : nullptr;
-    return meta.valid() ? detail::default_construct(type, descriptor) : any{};
-  }
+  [[nodiscard]] static any default_construct(type_id type);
 
-  [[nodiscard]] bool valid() const noexcept {
-    return descriptor_ != nullptr && descriptor_->valid() && data_ != nullptr;
-  }
-
+  [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
-
-  [[nodiscard]] type_id type() const noexcept { return get_type_id(); }
-  [[nodiscard]] string_name type_name() const noexcept {
-    const meta::type meta = caors::meta::find(get_type_id());
-    return meta ? meta.name() : string_name{};
-  }
-  [[nodiscard]] const void* data() const noexcept { return valid() ? data_ : nullptr; }
-  [[nodiscard]] void* mutable_data() noexcept { return valid() ? data_ : nullptr; }
+  [[nodiscard]] type_id type() const noexcept;
+  [[nodiscard]] string_name type_name() const noexcept;
+  [[nodiscard]] const void* data() const noexcept;
+  [[nodiscard]] void* mutable_data() noexcept;
   [[nodiscard]] any_ref ref();
   [[nodiscard]] any_ref ref() const;
-  [[nodiscard]] std::size_t size() const noexcept {
-    return descriptor_ != nullptr ? descriptor_->layout.size : 0;
-  }
-  [[nodiscard]] std::size_t alignment() const noexcept {
-    return descriptor_ != nullptr ? descriptor_->layout.alignment : 0;
-  }
+  [[nodiscard]] std::size_t size() const noexcept;
+  [[nodiscard]] std::size_t alignment() const noexcept;
   [[nodiscard]] sequence_view create_sequence_view();
   [[nodiscard]] sequence_view create_sequence_view() const;
   [[nodiscard]] set_view create_set_view();
@@ -136,23 +101,10 @@ public:
   [[nodiscard]] indirect_view create_indirect_view() const;
 
   /** @brief 清空当前值。 */
-  void reset() noexcept {
-    if (data_ != nullptr) {
-      if (descriptor_ != nullptr && descriptor_->ops.destroy != nullptr) {
-        descriptor_->ops.destroy(data_);
-      }
-    }
-
-    descriptor_ = nullptr;
-    data_ = nullptr;
-  }
+  void reset() noexcept;
 
   /** @brief 交换两个运行期值。 */
-  void swap(any& other) noexcept {
-    using std::swap;
-    swap(descriptor_, other.descriptor_);
-    swap(data_, other.data_);
-  }
+  void swap(any& other) noexcept;
 
   /** @brief 判断当前值是否匹配指定 C++ 类型。 */
   template <typename T> [[nodiscard]] bool matches_type() const noexcept {
@@ -162,10 +114,7 @@ public:
   }
 
   /** @brief 判断两个运行期值是否具有相同 C++ 类型。 */
-  [[nodiscard]] bool matches_type(const any& other) const noexcept {
-    return valid() && other.valid() && get_type_id() == other.get_type_id() &&
-           size() == other.size() && alignment() == other.alignment();
-  }
+  [[nodiscard]] bool matches_type(const any& other) const noexcept;
 
   /** @brief 按指定类型获取只读指针。 */
   template <typename T>
@@ -201,14 +150,7 @@ public:
   }
 
   /** @brief 从同类型运行期值写入当前值。 */
-  bool try_set(const any& source) {
-    const auto assign = descriptor_ != nullptr ? descriptor_->ops.assign : nullptr;
-    if (!matches_type(source) || assign == nullptr) {
-      return false;
-    }
-
-    return assign(data_, source.data_);
-  }
+  bool try_set(const any& source);
 
 private:
   friend class any_ref;
@@ -218,78 +160,19 @@ private:
                                        const meta::detail::type_descriptor* descriptor);
 
   [[nodiscard]] static any
-  copy_from_raw(type_id type, const meta::detail::type_descriptor* descriptor, const void* source) {
-    if (descriptor == nullptr || descriptor->type != type) {
-      return {};
-    }
+  copy_from_raw(type_id type, const meta::detail::type_descriptor* descriptor, const void* source);
 
-    if (source == nullptr || descriptor->ops.clone == nullptr ||
-        descriptor->ops.destroy == nullptr) {
-      return {};
-    }
-
-    void* copy = descriptor->ops.clone(source);
-    if (copy == nullptr) {
-      return {};
-    }
-
-    any result;
-    result.descriptor_ = descriptor;
-    result.data_ = copy;
-    return result;
-  }
-
-  void copy_from(const any& other) {
-    if (!other.valid()) {
-      return;
-    }
-
-    *this = copy_from_raw(other.get_type_id(), other.descriptor_, other.data_);
-  }
-
-  void move_from(any& other) noexcept {
-    descriptor_ = other.descriptor_;
-    data_ = other.data_;
-
-    other.descriptor_ = nullptr;
-    other.data_ = nullptr;
-  }
-
-  [[nodiscard]] type_id get_type_id() const noexcept {
-    return descriptor_ != nullptr ? descriptor_->type : type_id{};
-  }
+  void copy_from(const any& other);
+  void move_from(any& other) noexcept;
+  [[nodiscard]] type_id get_type_id() const noexcept;
 
   const meta::detail::type_descriptor* descriptor_ = nullptr;
   void* data_ = nullptr;
 };
 
-namespace detail {
+namespace detail {} // namespace detail
 
-[[nodiscard]] inline const meta::detail::type_descriptor* descriptor_of(const any& value) noexcept {
-  return value.descriptor_;
-}
-
-[[nodiscard]] inline any default_construct(type_id type,
-                                           const meta::detail::type_descriptor* descriptor) {
-  if (descriptor == nullptr || descriptor->type != type ||
-      descriptor->ops.default_construct == nullptr || descriptor->ops.destroy == nullptr) {
-    return {};
-  }
-
-  void* value = descriptor->ops.default_construct();
-  if (value == nullptr) {
-    return {};
-  }
-
-  any result;
-  result.descriptor_ = descriptor;
-  result.data_ = value;
-  return result;
-}
-
-} // namespace detail
-
-inline void swap(any& lhs, any& rhs) noexcept { lhs.swap(rhs); }
+void swap(any& lhs, any& rhs) noexcept;
 
 } // namespace caors::value
 

@@ -56,28 +56,17 @@ public:
     return from_raw(registered.id(), meta::detail::descriptor_ptr_of<type>(), &source, false);
   }
 
-  [[nodiscard]] bool valid() const noexcept {
-    return descriptor_ != nullptr && descriptor_->valid() && data_ != nullptr;
-  }
+  [[nodiscard]] bool valid() const noexcept;
 
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
 
-  [[nodiscard]] type_id type() const noexcept { return get_type_id(); }
-  [[nodiscard]] string_name type_name() const noexcept {
-    const meta::type meta = caors::meta::find(get_type_id());
-    return meta ? meta.name() : string_name{};
-  }
-  [[nodiscard]] const void* data() const noexcept { return valid() ? data_ : nullptr; }
-  [[nodiscard]] void* mutable_data() const noexcept {
-    return valid() && writable_ ? const_cast<void*>(data_) : nullptr;
-  }
-  [[nodiscard]] std::size_t size() const noexcept {
-    return descriptor_ != nullptr ? descriptor_->layout.size : 0;
-  }
-  [[nodiscard]] std::size_t alignment() const noexcept {
-    return descriptor_ != nullptr ? descriptor_->layout.alignment : 0;
-  }
-  [[nodiscard]] bool writable() const noexcept { return valid() && writable_; }
+  [[nodiscard]] type_id type() const noexcept;
+  [[nodiscard]] string_name type_name() const noexcept;
+  [[nodiscard]] const void* data() const noexcept;
+  [[nodiscard]] void* mutable_data() const noexcept;
+  [[nodiscard]] std::size_t size() const noexcept;
+  [[nodiscard]] std::size_t alignment() const noexcept;
+  [[nodiscard]] bool writable() const noexcept;
   [[nodiscard]] sequence_view create_sequence_view() const;
   [[nodiscard]] set_view create_set_view() const;
   [[nodiscard]] associative_view create_associative_view() const;
@@ -94,16 +83,10 @@ public:
   }
 
   /** @brief 判断两个运行期值是否具有相同 C++ 类型。 */
-  [[nodiscard]] bool matches_type(const any& other) const noexcept {
-    return valid() && other.valid() && get_type_id() == other.type() && size() == other.size() &&
-           alignment() == other.alignment();
-  }
+  [[nodiscard]] bool matches_type(const any& other) const noexcept;
 
   /** @brief 判断两个运行期引用是否具有相同 C++ 类型。 */
-  [[nodiscard]] bool matches_type(const any_ref& other) const noexcept {
-    return valid() && other.valid() && get_type_id() == other.get_type_id() &&
-           size() == other.size() && alignment() == other.alignment();
-  }
+  [[nodiscard]] bool matches_type(const any_ref& other) const noexcept;
 
   /** @brief 按指定类型获取只读指针。 */
   template <typename T>
@@ -139,27 +122,13 @@ public:
   }
 
   /** @brief 从同类型运行期值写入当前引用指向的对象。 */
-  bool try_set(const any& source) const {
-    const auto assign = descriptor_ != nullptr ? descriptor_->ops.assign : nullptr;
-    if (!matches_type(source) || !writable_ || assign == nullptr) {
-      return false;
-    }
-
-    return assign(const_cast<void*>(data_), source.data());
-  }
+  bool try_set(const any& source) const;
 
   /** @brief 从同类型运行期引用写入当前引用指向的对象。 */
-  bool try_set(const any_ref& source) const {
-    const auto assign = descriptor_ != nullptr ? descriptor_->ops.assign : nullptr;
-    if (!matches_type(source) || !writable_ || assign == nullptr) {
-      return false;
-    }
-
-    return assign(const_cast<void*>(data_), source.data_);
-  }
+  bool try_set(const any_ref& source) const;
 
   /** @brief 尝试复制引用指向的对象。不可拷贝对象会返回无效 `any`。 */
-  [[nodiscard]] any to_any() const { return any::copy_from_raw(get_type_id(), descriptor_, data_); }
+  [[nodiscard]] any to_any() const;
 
 private:
   friend class any;
@@ -175,41 +144,16 @@ private:
 
   [[nodiscard]] static any_ref from_raw(type_id type,
                                         const meta::detail::type_descriptor* descriptor,
-                                        const void* data, bool writable) noexcept {
-    if (data == nullptr || descriptor == nullptr || descriptor->type != type) {
-      return {};
-    }
+                                        const void* data, bool writable) noexcept;
 
-    any_ref result;
-    result.descriptor_ = descriptor;
-    result.data_ = data;
-    result.writable_ = writable;
-    return result;
-  }
-
-  [[nodiscard]] type_id get_type_id() const noexcept {
-    return descriptor_ != nullptr ? descriptor_->type : type_id{};
-  }
+  [[nodiscard]] type_id get_type_id() const noexcept;
 
   const meta::detail::type_descriptor* descriptor_ = nullptr;
   const void* data_ = nullptr;
   bool writable_ = false;
 };
 
-namespace detail {
-
-[[nodiscard]] inline const meta::detail::type_descriptor*
-descriptor_of(const any_ref& value) noexcept {
-  return value.descriptor_;
-}
-
-} // namespace detail
-
-inline any_ref any::ref() { return any_ref::from_raw(get_type_id(), descriptor_, data_, true); }
-
-inline any_ref any::ref() const {
-  return any_ref::from_raw(get_type_id(), descriptor_, data_, false);
-}
+namespace detail {} // namespace detail
 
 } // namespace caors::value
 
