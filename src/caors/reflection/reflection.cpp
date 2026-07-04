@@ -22,7 +22,7 @@ namespace {
     return true;
   }
 
-  return field.descriptor != nullptr && field.descriptor->has_view_capability();
+  return field.descriptor != nullptr && field.descriptor->valid();
 }
 
 [[nodiscard]] error resolve_fields(meta::registry& meta, detail::type_data& reflection) {
@@ -63,6 +63,14 @@ namespace {
 [[nodiscard]] const meta::detail::type_descriptor*
 field_descriptor(const detail::field_data* field) noexcept {
   return field != nullptr && field->type ? field->descriptor : nullptr;
+}
+
+[[nodiscard]] type_id field_value_type(const meta::detail::type_descriptor* descriptor) noexcept {
+  return descriptor != nullptr ? meta::detail::descriptor_value_type(*descriptor) : type_id{};
+}
+
+[[nodiscard]] type_id field_key_type(const meta::detail::type_descriptor* descriptor) noexcept {
+  return descriptor != nullptr ? meta::detail::descriptor_key_type(*descriptor) : type_id{};
 }
 
 [[nodiscard]] core::string_name type_name_of(type_id id) noexcept {
@@ -129,19 +137,19 @@ core::string_name field::type_name() const noexcept {
 
 type_id field::value_type() const noexcept {
   const meta::detail::type_descriptor* descriptor = field_descriptor(info());
-  return descriptor != nullptr ? descriptor->value_type : type_id{};
+  return field_value_type(descriptor);
 }
 
 type_id field::element_type() const noexcept {
   const meta::detail::type_descriptor* descriptor = field_descriptor(info());
-  return descriptor != nullptr ? descriptor->value_type : type_id{};
+  return field_value_type(descriptor);
 }
 
 core::string_name field::element_type_name() const noexcept { return type_name_of(element_type()); }
 
 type_id field::key_type() const noexcept {
   const meta::detail::type_descriptor* descriptor = field_descriptor(info());
-  return descriptor != nullptr ? descriptor->key_type : type_id{};
+  return field_key_type(descriptor);
 }
 
 core::string_name field::key_type_name() const noexcept { return type_name_of(key_type()); }
@@ -152,7 +160,7 @@ core::string_name field::first_type_name() const noexcept { return type_name_of(
 
 type_id field::mapped_type() const noexcept {
   const meta::detail::type_descriptor* descriptor = field_descriptor(info());
-  return descriptor != nullptr ? descriptor->value_type : type_id{};
+  return field_value_type(descriptor);
 }
 
 core::string_name field::mapped_type_name() const noexcept { return type_name_of(mapped_type()); }
@@ -171,9 +179,9 @@ meta::wrapper_semantics field::wrapper_semantics() const noexcept {
   return descriptor != nullptr ? descriptor->wrapper_semantics : meta::wrapper_semantics::none;
 }
 
-std::uint8_t field::pointer_depth() const noexcept {
+bool field::indirect() const noexcept {
   const meta::detail::type_descriptor* descriptor = field_descriptor(info());
-  return descriptor != nullptr ? descriptor->pointer_depth : 0;
+  return descriptor != nullptr && descriptor->indirect;
 }
 
 bool field::nullable() const noexcept {

@@ -16,11 +16,8 @@ namespace caors::reflection {
 /**
  * @brief RTTR 风格的反射注册构建器。
  *
- * 构建器通过成员指针推导字段大小、对齐和偏移；普通业务字段类型必须已经通过
- * `meta::type_<T>()`
- * 显式注册到全局 meta 注册表。容器、指针、wrapper、pair、tuple 和
- * variant 等结构类型可以通过
- * meta descriptor 描述，不要求自身注册为 meta 类型。
+ * 构建器通过成员指针推导字段大小、对齐和偏移。字段类型未注册为 meta 类型时不会拥有类型名、GUID
+ * 或反射组件，但只要能生成有效 type descriptor，仍可通过运行期值视图使用基础类型能力。
  */
 template <typename Class> class class_builder {
 public:
@@ -46,7 +43,7 @@ public:
     const meta::type resolved_type = caors::meta::find<field_type>();
     const meta::detail::type_descriptor* descriptor = meta::detail::descriptor_ptr_of<field_type>();
     if ((!resolved_type || resolved_type.name().empty()) &&
-        (descriptor == nullptr || !descriptor->has_view_capability())) {
+        (descriptor == nullptr || !descriptor->valid())) {
       pending_status_ = {error_domain::reflection, errc::invalid_field};
       return *this;
     }

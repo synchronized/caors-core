@@ -10,7 +10,6 @@
 #include "caors/object/ref.h"
 
 #include <cstddef>
-#include <cstdint>
 #include <type_traits>
 #include <utility>
 
@@ -31,12 +30,10 @@ struct type_descriptor {
   value_assign_fn assign = nullptr;
   type_kind kind = type_kind::value;
   meta::wrapper_semantics wrapper_semantics = meta::wrapper_semantics::none;
-  type_id value_type{};
-  type_id key_type{};
-  std::uint8_t pointer_depth = 0;
+  bool indirect = false;
   bool nullable = false;
   const enum_data* enumeration = nullptr;
-  const indirect_data* indirect = nullptr;
+  const indirect_data* indirect_access = nullptr;
   const objects::detail::object_ref_data* object_ref = nullptr;
   const sequence_data* sequence = nullptr;
   const set_data* set = nullptr;
@@ -48,22 +45,62 @@ struct type_descriptor {
   [[nodiscard]] bool valid() const noexcept { return type && size > 0 && alignment > 0; }
 
   [[nodiscard]] bool has_view_capability() const noexcept {
-    return object_ref != nullptr || indirect != nullptr || sequence != nullptr || set != nullptr ||
-           associative != nullptr || pair != nullptr || tuple != nullptr || variant != nullptr;
+    return object_ref != nullptr || (indirect_access != nullptr && indirect_access->valid()) ||
+           sequence != nullptr || set != nullptr || associative != nullptr || pair != nullptr ||
+           tuple != nullptr || variant != nullptr;
   }
 };
+
+[[nodiscard]] inline type_id descriptor_value_type(const type_descriptor& descriptor) noexcept {
+  switch (descriptor.kind) {
+  case type_kind::value:
+  case type_kind::enumeration:
+    return descriptor.type;
+  case type_kind::raw_pointer:
+  case type_kind::wrapper:
+    return descriptor.indirect_access != nullptr &&
+                   descriptor.indirect_access->value_descriptor != nullptr
+               ? descriptor.indirect_access->value_descriptor->type
+               : type_id{};
+  case type_kind::sequence:
+    return descriptor.sequence != nullptr ? descriptor.sequence->value_type : type_id{};
+  case type_kind::set:
+    return descriptor.set != nullptr ? descriptor.set->value_type : type_id{};
+  case type_kind::associative:
+    return descriptor.associative != nullptr ? descriptor.associative->value_type : type_id{};
+  case type_kind::pair:
+    return descriptor.pair != nullptr ? descriptor.pair->value_type : type_id{};
+  case type_kind::tuple:
+  case type_kind::variant:
+    return {};
+  }
+
+  return {};
+}
+
+[[nodiscard]] inline type_id descriptor_key_type(const type_descriptor& descriptor) noexcept {
+  switch (descriptor.kind) {
+  case type_kind::associative:
+    return descriptor.associative != nullptr ? descriptor.associative->key_type : type_id{};
+  case type_kind::pair:
+    return descriptor.pair != nullptr ? descriptor.pair->key_type : type_id{};
+  case type_kind::value:
+  case type_kind::enumeration:
+  case type_kind::raw_pointer:
+  case type_kind::wrapper:
+  case type_kind::sequence:
+  case type_kind::set:
+  case type_kind::tuple:
+  case type_kind::variant:
+    return {};
+  }
+
+  return {};
+}
 
 template <typename T> [[nodiscard]] type_id descriptor_type_id() noexcept {
   return type_id_of_cpp_type<std::remove_cv_t<std::remove_reference_t<T>>>();
 }
-
-template <typename T>
-inline constexpr bool descriptor_supported_wrapper_v =
-    traits::wrapper_traits<std::remove_cv_t<T>>::is_wrapper;
-
-template <typename T>
-inline constexpr bool descriptor_nested_type_indirection_v =
-    std::is_pointer_v<std::remove_cv_t<T>> || descriptor_supported_wrapper_v<T>;
 
 template <typename T> void fill_descriptor_semantics(type_descriptor& descriptor) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
@@ -71,38 +108,21 @@ template <typename T> void fill_descriptor_semantics(type_descriptor& descriptor
   if constexpr (std::is_pointer_v<type>) {
     using value_type = std::remove_cv_t<std::remove_pointer_t<type>>;
 
-    static_assert(!descriptor_nested_type_indirection_v<value_type>,
+    static_assert(!is_nested_type_indirection_v<value_type>,
                   "CAORS value supports at most one pointer or wrapper level");
 
     descriptor.kind = type_kind::raw_pointer;
     descriptor.wrapper_semantics = meta::wrapper_semantics::inline_value;
-    descriptor.value_type = descriptor_type_id<value_type>();
-    descriptor.pointer_depth = 1;
+    descriptor.indirect = true;
     descriptor.nullable = true;
   } else if constexpr (traits::sequence_traits<type>::is_sequence) {
-    using element_type = typename traits::sequence_traits<type>::element_type;
-
     descriptor.kind = type_kind::sequence;
-    descriptor.value_type = descriptor_type_id<element_type>();
   } else if constexpr (traits::set_traits<type>::is_set) {
-    using element_type = typename traits::set_traits<type>::element_type;
-
     descriptor.kind = type_kind::set;
-    descriptor.value_type = descriptor_type_id<element_type>();
   } else if constexpr (traits::associative_traits<type>::is_associative) {
-    using key_type = typename traits::associative_traits<type>::key_type;
-    using mapped_type = typename traits::associative_traits<type>::mapped_type;
-
     descriptor.kind = type_kind::associative;
-    descriptor.key_type = descriptor_type_id<key_type>();
-    descriptor.value_type = descriptor_type_id<mapped_type>();
   } else if constexpr (traits::pair_traits<type>::is_pair) {
-    using first_type = typename traits::pair_traits<type>::first_type;
-    using second_type = typename traits::pair_traits<type>::second_type;
-
     descriptor.kind = type_kind::pair;
-    descriptor.key_type = descriptor_type_id<first_type>();
-    descriptor.value_type = descriptor_type_id<second_type>();
   } else if constexpr (traits::tuple_traits<type>::is_tuple) {
     descriptor.kind = type_kind::tuple;
   } else if constexpr (traits::variant_traits<type>::is_variant) {
@@ -111,12 +131,12 @@ template <typename T> void fill_descriptor_semantics(type_descriptor& descriptor
     using wrapped_type = typename traits::wrapper_traits<type>::wrapped_type;
     using value_type = std::remove_cv_t<wrapped_type>;
 
-    static_assert(!descriptor_nested_type_indirection_v<value_type>,
+    static_assert(!is_nested_type_indirection_v<value_type>,
                   "CAORS value supports at most one pointer or wrapper level");
 
     descriptor.kind = type_kind::wrapper;
     descriptor.wrapper_semantics = traits::wrapper_traits<type>::semantics;
-    descriptor.value_type = descriptor_type_id<value_type>();
+    descriptor.indirect = true;
     descriptor.nullable = traits::wrapper_traits<type>::nullable;
   } else {
     if constexpr (std::is_enum_v<type>) {
@@ -124,7 +144,6 @@ template <typename T> void fill_descriptor_semantics(type_descriptor& descriptor
     } else {
       descriptor.kind = type_kind::value;
     }
-    descriptor.value_type = descriptor_type_id<type>();
   }
 }
 
@@ -149,16 +168,18 @@ template <typename T> [[nodiscard]] const indirect_data* indirect_data_ptr_of() 
     }();
 
     return data.valid() ? &data : nullptr;
-  } else if constexpr (traits::wrapper_traits<type>::is_wrapper &&
-                       traits::wrapper_traits<type>::semantics != wrapper_semantics::unsupported) {
+  } else if constexpr (traits::wrapper_traits<type>::is_wrapper) {
     using value_type = std::remove_cv_t<typename traits::wrapper_traits<type>::wrapped_type>;
     static const indirect_data data = [] {
-      indirect_data result = make_indirect_data<type>();
+      indirect_data result{};
+      if constexpr (traits::wrapper_traits<type>::semantics != wrapper_semantics::unsupported) {
+        result = make_indirect_data<type>();
+      }
       result.value_descriptor = descriptor_ptr_of<value_type>();
       return result;
     }();
 
-    return data.valid() ? &data : nullptr;
+    return data.value_descriptor != nullptr ? &data : nullptr;
   } else {
     return nullptr;
   }
@@ -552,7 +573,7 @@ template <typename T> struct descriptor_holder {
     descriptor.assign = value_assign_fn_of<type>();
     fill_descriptor_semantics<type>(descriptor);
     descriptor.enumeration = enum_data_ptr_of<type>();
-    descriptor.indirect = indirect_data_ptr_of<type>();
+    descriptor.indirect_access = indirect_data_ptr_of<type>();
     descriptor.object_ref = object_ref_data_ptr_of<type>();
     descriptor.sequence = sequence_data_ptr_of<type>();
     descriptor.set = set_data_ptr_of<type>();

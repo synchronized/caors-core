@@ -21,12 +21,11 @@ public:
   [[nodiscard]] bool valid() const noexcept {
     const meta::detail::indirect_data* info = data();
     if (descriptor_ == nullptr || info == nullptr || storage_ == nullptr ||
-        !descriptor_->value_type) {
+        !meta::detail::descriptor_value_type(*descriptor_)) {
       return false;
     }
 
-    if (descriptor_->kind != meta::type_kind::raw_pointer &&
-        descriptor_->kind != meta::type_kind::wrapper) {
+    if (!descriptor_->indirect) {
       return false;
     }
 
@@ -41,11 +40,11 @@ public:
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
   [[nodiscard]] bool writable() const noexcept { return valid() && writable_; }
   [[nodiscard]] type_id value_type() const noexcept {
-    return valid() ? descriptor_->value_type : type_id{};
+    return valid() ? meta::detail::descriptor_value_type(*descriptor_) : type_id{};
   }
 
   [[nodiscard]] string_name value_type_name() const noexcept {
-    const meta::type meta = valid() ? caors::meta::find(descriptor_->value_type) : meta::type{};
+    const meta::type meta = valid() ? caors::meta::find(value_type()) : meta::type{};
     return meta ? meta.name() : string_name{};
   }
 
@@ -79,8 +78,7 @@ public:
       return {};
     }
 
-    return any_ref::from_raw(descriptor_->value_type, info->value_descriptor, value,
-                             value_writable);
+    return any_ref::from_raw(value_type(), info->value_descriptor, value, value_writable);
   }
 
   /** @brief 重置 wrapper 或裸指针为空。 */
@@ -112,7 +110,7 @@ private:
       : descriptor_(descriptor), storage_(storage), writable_(writable) {}
 
   [[nodiscard]] const meta::detail::indirect_data* data() const noexcept {
-    return descriptor_ != nullptr ? descriptor_->indirect : nullptr;
+    return descriptor_ != nullptr ? descriptor_->indirect_access : nullptr;
   }
 
   const meta::detail::type_descriptor* descriptor_ = nullptr;

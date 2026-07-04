@@ -94,7 +94,7 @@ TEST_CASE("reflection - registry returns type and field views", "[reflection]") 
   CHECK(health.name() == "health");
   CHECK(health.kind() == caors::meta::type_kind::value);
   CHECK(health.wrapper_semantics() == caors::meta::wrapper_semantics::none);
-  CHECK(health.pointer_depth() == 0);
+  CHECK_FALSE(health.indirect());
   CHECK_FALSE(health.nullable());
   CHECK(health.writable());
   CHECK(health.offset() == offsetof(view_actor, health));

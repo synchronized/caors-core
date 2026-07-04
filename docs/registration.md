@@ -90,7 +90,7 @@ CAORS_META_REGISTRATION(register_actor) {
 - `errc::duplicate_name` / `errc::duplicate_guid`：名称或稳定 GUID 冲突，应修正类型声明。
 - `errc::missing_type`：给不存在的 `type_id` 挂载组件。
 - `errc::missing_parent`：父类型尚未注册。
-- `errc::invalid_field`：反射字段类型未注册、字段无效或字段名冲突。
+- `errc::invalid_field`：反射字段描述无效、字段名冲突，或字段类型无法生成有效 descriptor。
 - `errc::frozen`：注册表已冻结。
 
 公共测试和用户代码应使用 `meta::type_<T>()`、`objects::class_<T>()`、`reflection::class_<T>()`、`serialization::class_()`、`serialization::register_type()` 等公开入口，不直接调用各模块的 `detail` 命名空间函数。

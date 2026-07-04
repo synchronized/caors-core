@@ -9,7 +9,6 @@
 #include "caors/reflection/type.h"
 
 #include <cstddef>
-#include <cstdint>
 #include <optional>
 #include <string_view>
 #include <type_traits>
@@ -72,7 +71,7 @@ public:
 
   [[nodiscard]] meta::type_kind kind() const noexcept;
   [[nodiscard]] meta::wrapper_semantics wrapper_semantics() const noexcept;
-  [[nodiscard]] std::uint8_t pointer_depth() const noexcept;
+  [[nodiscard]] bool indirect() const noexcept;
   [[nodiscard]] bool nullable() const noexcept;
   [[nodiscard]] bool writable() const noexcept;
   [[nodiscard]] std::size_t offset() const noexcept;

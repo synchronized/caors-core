@@ -163,10 +163,8 @@ inline indirect_view any::create_indirect_view() {
     return {};
   }
 
-  if (descriptor_ == nullptr || descriptor_->indirect == nullptr ||
-      (descriptor_->kind != meta::type_kind::raw_pointer &&
-       (descriptor_->kind != meta::type_kind::wrapper ||
-        descriptor_->wrapper_semantics == meta::wrapper_semantics::unsupported))) {
+  if (descriptor_ == nullptr || !descriptor_->indirect || descriptor_->indirect_access == nullptr ||
+      !descriptor_->indirect_access->valid()) {
     return {};
   }
 
@@ -178,10 +176,8 @@ inline indirect_view any::create_indirect_view() const {
     return {};
   }
 
-  if (descriptor_ == nullptr || descriptor_->indirect == nullptr ||
-      (descriptor_->kind != meta::type_kind::raw_pointer &&
-       (descriptor_->kind != meta::type_kind::wrapper ||
-        descriptor_->wrapper_semantics == meta::wrapper_semantics::unsupported))) {
+  if (descriptor_ == nullptr || !descriptor_->indirect || descriptor_->indirect_access == nullptr ||
+      !descriptor_->indirect_access->valid()) {
     return {};
   }
 
@@ -193,10 +189,8 @@ inline indirect_view any_ref::create_indirect_view() const {
     return {};
   }
 
-  if (descriptor_ == nullptr || descriptor_->indirect == nullptr ||
-      (descriptor_->kind != meta::type_kind::raw_pointer &&
-       (descriptor_->kind != meta::type_kind::wrapper ||
-        descriptor_->wrapper_semantics == meta::wrapper_semantics::unsupported))) {
+  if (descriptor_ == nullptr || !descriptor_->indirect || descriptor_->indirect_access == nullptr ||
+      !descriptor_->indirect_access->valid()) {
     return {};
   }
 

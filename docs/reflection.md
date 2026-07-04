@@ -54,8 +54,8 @@ caors::reflection::class_<actor>("game.actor")
 字段类型推导规则：
 
 - 普通业务字段如果需要稳定名称、GUID、对象工厂、反射身份或多态序列化身份，应先通过
-  `meta::type_<Field>("name")` 显式注册。未注册且不具备 descriptor 运行期视图能力的普通值字段，
-  `.field()` 会记录失败，`.commit()` 返回 `invalid_field`。
+  `meta::type_<Field>("name")` 显式注册。未注册字段不会拥有这些元信息，但只要能生成有效
+  descriptor，仍可作为字段注册，并通过 `any_ref` 使用布局、值操作和运行期视图能力。
 - 容器、指针、wrapper、pair、tuple 和 variant 等结构类型可以由内部 descriptor 描述，不要求每一种
   模板组合都显式注册到 meta。
 - 如果字段类型满足 `traits::sequence_traits<T>::is_sequence`，字段 descriptor 会同步记录元素类型语义。
@@ -449,7 +449,7 @@ field.try_set<float>(&instance, 75.0F);
 - `first_type()` / `first_type_name()`：查询 pair 字段的 first 类型信息。
 - `mapped_type()` / `mapped_type_name()`：查询 associative 字段的 mapped/value 类型信息，是 `value_type()` 的语义别名。
 - `second_type()` / `second_type_name()`：查询 pair 字段的 second 类型信息，是 `value_type()` 的语义别名。
-- `kind()` / `wrapper_semantics()` / `pointer_depth()` / `nullable()`：查询字段形态语义。
+- `kind()` / `wrapper_semantics()` / `indirect()` / `nullable()`：查询字段形态语义。
 - `offset()` / `size()` / `alignment()` / `writable()`：查询字段布局和可写性。
 - `try_get<T>()` / `try_set<T>()`：按静态类型读写字段。
 - `get_value()` / `try_set_value()`：按运行期 `any` 读写字段。
@@ -606,7 +606,7 @@ auto reflected = caors::reflection::find("game.actor");
 - `any`：运行期 C++ 类型值拷贝。
 - `any_ref`：运行期 C++ 类型非拥有引用。
 - `sequence_view` / `set_view` / `associative_view` / `pair_view` / `tuple_view` / `variant_view`：容器、二元组、tuple-like 和 variant-like 类型的运行期视图。
-- `meta::detail::type_descriptor`：字段声明类型的形态、wrapper 语义、统一 value 类型、关联容器 key 类型和访问函数表。
+- `meta::detail::type_descriptor`：字段声明类型的形态、wrapper 语义、间接值语义、布局、值操作和访问函数表。
 - `reflection::type` / `reflection::field`：全局反射数据的推荐查询入口。
 - `reflection::registry`：全局反射注册表 facade。
 - `reflection::class_<T>()`：RTTR 风格链式注册入口。

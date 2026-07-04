@@ -100,7 +100,7 @@ TEST_CASE("reflection - field view describes field type traits", "[reflection]")
   CHECK(value.kind() == caors::meta::type_kind::value);
   CHECK(value.wrapper_semantics() == caors::meta::wrapper_semantics::none);
   CHECK(value.value_type() == registered_type_id("int"));
-  CHECK(value.pointer_depth() == 0);
+  CHECK_FALSE(value.indirect());
   CHECK_FALSE(value.nullable());
 
   const caors::reflection::field enumeration = require_field(reflected, "color");
@@ -112,7 +112,7 @@ TEST_CASE("reflection - field view describes field type traits", "[reflection]")
   CHECK(raw.kind() == caors::meta::type_kind::raw_pointer);
   CHECK(raw.wrapper_semantics() == caors::meta::wrapper_semantics::inline_value);
   CHECK(raw.value_type() == registered_type_id("int"));
-  CHECK(raw.pointer_depth() == 1);
+  CHECK(raw.indirect());
   CHECK(raw.nullable());
 
   const caors::reflection::field unique = require_field(reflected, "unique");
