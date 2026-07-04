@@ -8,6 +8,8 @@
 #include "caors/reflection/registry.h"
 
 #include <limits>
+#include <optional>
+#include <string>
 
 namespace caors::serialization::detail {
 
@@ -75,6 +77,119 @@ descriptor_of_value(const any_ref& value) noexcept {
   return objects::is_object_ref(value);
 }
 
+[[nodiscard]] variant_result make_object_ref_identity_value(const object* referenced,
+                                                            const serialization::context& context) {
+  if (context.reference_resolver == nullptr || !context.reference_resolver->can_write()) {
+    return {{error_domain::serialization, errc::invalid_argument}, {}};
+  }
+
+  const reference_resolver& resolver = *context.reference_resolver;
+  if (resolver.uses_persistent_guid()) {
+    if (referenced == nullptr) {
+      return {{}, variant::null()};
+    }
+
+    const object_guid guid = resolver.object_to_guid(referenced, resolver.user_data);
+    if (!guid) {
+      return {{error_domain::serialization, errc::not_found}, {}};
+    }
+
+    const std::string text = guid.string();
+    return {{}, variant::from(std::string_view{text.data(), text.size()})};
+  }
+
+  const object_id id = referenced != nullptr ? resolver.object_to_id(referenced, resolver.user_data)
+                                             : object_id::invalid();
+  if (referenced != nullptr && !id) {
+    return {{error_domain::serialization, errc::not_found}, {}};
+  }
+
+  return {{}, variant::from(id.value())};
+}
+
+[[nodiscard]] error write_object_ref_identity(writer& writer, const object* referenced,
+                                              const serialization::context& context) {
+  if (context.reference_resolver == nullptr || !context.reference_resolver->can_write()) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  const reference_resolver& resolver = *context.reference_resolver;
+  if (resolver.uses_persistent_guid()) {
+    if (referenced == nullptr) {
+      return writer.write_null();
+    }
+
+    const object_guid guid = resolver.object_to_guid(referenced, resolver.user_data);
+    if (!guid) {
+      return {error_domain::serialization, errc::not_found};
+    }
+
+    const std::string text = guid.string();
+    return writer.write_string(std::string_view{text.data(), text.size()});
+  }
+
+  const object_id id = referenced != nullptr ? resolver.object_to_id(referenced, resolver.user_data)
+                                             : object_id::invalid();
+  if (referenced != nullptr && !id) {
+    return {error_domain::serialization, errc::not_found};
+  }
+
+  return writer.write_u64(id.value());
+}
+
+[[nodiscard]] error read_object_ref_identity(reader& reader, const serialization::context& context,
+                                             object*& referenced) {
+  referenced = nullptr;
+  if (context.reference_resolver == nullptr || !context.reference_resolver->can_read()) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  const reference_resolver& resolver = *context.reference_resolver;
+  if (resolver.uses_persistent_guid()) {
+    if (reader.is_null()) {
+      return {};
+    }
+
+    string encoded_guid{};
+    error status = reader.read_string(encoded_guid);
+    if (status) {
+      return status;
+    }
+
+    const std::optional<object_guid> parsed =
+        object_guid::parse(std::string_view{encoded_guid.data(), encoded_guid.size()});
+    if (!parsed.has_value()) {
+      return {error_domain::serialization, errc::invalid_argument};
+    }
+
+    if (!*parsed) {
+      return {};
+    }
+
+    referenced = resolver.guid_to_object(*parsed, resolver.user_data);
+    if (referenced == nullptr) {
+      return {error_domain::serialization, errc::not_found};
+    }
+
+    return {};
+  }
+
+  std::uint64_t encoded_id = 0;
+  error status = reader.read_u64(encoded_id);
+  if (status) {
+    return status;
+  }
+
+  if (encoded_id != 0) {
+    referenced = resolver.id_to_object(object_id{encoded_id}, resolver.user_data);
+    if (referenced == nullptr) {
+      return {error_domain::serialization, errc::not_found};
+    }
+  }
+
+  return {};
+}
+
 [[nodiscard]] variant_result make_object_ref_value(const any_ref& value,
                                                    const serialization::context& context) {
   const objects::object_ref_view object_ref = objects::object_ref(value);
@@ -82,20 +197,7 @@ descriptor_of_value(const any_ref& value) noexcept {
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
-  if (context.reference_resolver == nullptr || !context.reference_resolver->can_write()) {
-    return {{error_domain::serialization, errc::invalid_argument}, {}};
-  }
-
-  const object* referenced = object_ref.get();
-  const object_id id = referenced != nullptr
-                           ? context.reference_resolver->object_to_id(
-                                 referenced, context.reference_resolver->user_data)
-                           : object_id::invalid();
-  if (referenced != nullptr && !id) {
-    return {{error_domain::serialization, errc::not_found}, {}};
-  }
-
-  return {{}, variant::from(id.value())};
+  return make_object_ref_identity_value(object_ref.get(), context);
 }
 
 [[nodiscard]] error write_object_ref_value(writer& writer, const any_ref& value,
@@ -105,20 +207,7 @@ descriptor_of_value(const any_ref& value) noexcept {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  if (context.reference_resolver == nullptr || !context.reference_resolver->can_write()) {
-    return {error_domain::serialization, errc::invalid_argument};
-  }
-
-  const object* referenced = object_ref.get();
-  const object_id id = referenced != nullptr
-                           ? context.reference_resolver->object_to_id(
-                                 referenced, context.reference_resolver->user_data)
-                           : object_id::invalid();
-  if (referenced != nullptr && !id) {
-    return {error_domain::serialization, errc::not_found};
-  }
-
-  return writer.write_u64(id.value());
+  return write_object_ref_identity(writer, object_ref.get(), context);
 }
 
 [[nodiscard]] error read_object_ref_value(reader& reader, const any_ref& target,
@@ -128,23 +217,10 @@ descriptor_of_value(const any_ref& value) noexcept {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  if (context.reference_resolver == nullptr || !context.reference_resolver->can_read()) {
-    return {error_domain::serialization, errc::invalid_argument};
-  }
-
-  std::uint64_t encoded_id = 0;
-  error status = reader.read_u64(encoded_id);
+  object* referenced = nullptr;
+  error status = read_object_ref_identity(reader, context, referenced);
   if (status) {
     return status;
-  }
-
-  object* referenced = nullptr;
-  if (encoded_id != 0) {
-    referenced = context.reference_resolver->id_to_object(object_id{encoded_id},
-                                                          context.reference_resolver->user_data);
-    if (referenced == nullptr) {
-      return {error_domain::serialization, errc::not_found};
-    }
   }
 
   if (!object_ref.set(referenced)) {

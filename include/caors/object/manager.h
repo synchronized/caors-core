@@ -5,6 +5,7 @@
 #define CAORS_OBJECT_MANAGER_H_
 
 #include "caors/core/containers.h"
+#include "caors/object/index.h"
 #include "caors/object/registry.h"
 
 #include <cstddef>
@@ -22,6 +23,7 @@ namespace caors::objects {
 class CAORS_API manager final {
 public:
   explicit manager(memory_resource* resource = nullptr);
+  explicit manager(object_index& index, memory_resource* resource = nullptr);
   ~manager();
 
   manager(const manager&) = delete;
@@ -32,6 +34,10 @@ public:
   /** @brief 查询对象和索引使用的内存资源。 */
   [[nodiscard]] memory_resource* resource() const noexcept { return resource_; }
 
+  /** @brief 查询当前关联的持久对象索引。未关联时返回 `nullptr`。 */
+  [[nodiscard]] object_index* index() noexcept { return index_; }
+  [[nodiscard]] const object_index* index() const noexcept { return index_; }
+
   /** @brief 查询当前存活对象数量。 */
   [[nodiscard]] std::size_t size() const noexcept;
   [[nodiscard]] bool empty() const noexcept { return size() == 0; }
@@ -41,6 +47,9 @@ public:
 
   /** @brief 按对象 id 查找对象。返回值不转移所有权。 */
   [[nodiscard]] object* find(object_id id) const;
+
+  /** @brief 按持久 GUID 查找对象。未关联 `object_index` 或未命中时返回 `nullptr`。 */
+  [[nodiscard]] object* find(object_guid guid) const;
 
   /** @brief 按身份句柄查找对象，并校验声明类型。返回值不转移所有权。 */
   [[nodiscard]] object* find(handle object_handle) const;
@@ -79,6 +88,9 @@ public:
   /** @brief 创建默认构造对象。对象类型必须已注册且支持默认构造。 */
   [[nodiscard]] object* create(object_type_id id);
 
+  /** @brief 创建默认构造对象并绑定持久 GUID。需要 manager 关联 `object_index`。 */
+  [[nodiscard]] object* create_with_guid(object_type_id id, object_guid guid);
+
   /** @brief 创建指定 C++ 类型对象。类型必须已注册，可使用构造参数。 */
   template <typename T, typename... Args> [[nodiscard]] T* create(Args&&... args) {
     static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
@@ -110,6 +122,26 @@ public:
 #endif
   }
 
+  /** @brief 创建指定 C++ 类型对象并绑定持久 GUID。需要 manager 关联 `object_index`。 */
+  template <typename T, typename... Args>
+  [[nodiscard]] T* create_with_guid(object_guid guid, Args&&... args) {
+    if (index_ == nullptr || !guid) {
+      return nullptr;
+    }
+
+    T* instance = create<T>(std::forward<Args>(args)...);
+    if (instance == nullptr) {
+      return nullptr;
+    }
+
+    if (!index_->bind(guid, instance->id())) {
+      (void)destroy(instance);
+      return nullptr;
+    }
+
+    return instance;
+  }
+
   /** @brief 按 id 销毁对象。销毁后已有裸指针、`ref` 和 weak handle 都会失效。 */
   bool destroy(object_id id) noexcept;
 
@@ -121,6 +153,12 @@ public:
 
   /** @brief 获取当前对象身份句柄。未找到时返回无效句柄。 */
   [[nodiscard]] handle handle_of(object_id id) const;
+
+  /** @brief 给当前由 manager 持有的对象绑定持久 GUID。 */
+  bool bind_guid(object_id id, object_guid guid);
+
+  /** @brief 查询当前对象绑定的持久 GUID。未关联索引或未绑定时返回 nil GUID。 */
+  [[nodiscard]] object_guid guid_of(object_id id) const;
 
   /** @brief 获取当前对象的类型化弱句柄。未找到或类型不匹配时返回无效弱句柄。 */
   template <typename T> [[nodiscard]] weak_handle<T> weak(object_id id) const {
@@ -152,6 +190,7 @@ private:
   bool store(object* instance, object_type_id type, memory_resource* resource);
 
   memory_resource* resource_ = nullptr;
+  object_index* index_ = nullptr;
   entry_map entries_;
 };
 

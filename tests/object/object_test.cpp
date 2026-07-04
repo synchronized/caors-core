@@ -135,6 +135,14 @@ public:
   inline static bool invisible_during_destruction = false;
 };
 
+constexpr caors::object_guid test_object_guid_a{caors::guid::from_bytes(
+    caors::guid::byte_array{0x18, 0x50, 0xf2, 0x4f, 0x4f, 0xf8, 0x47, 0x66, 0x9f, 0x38, 0x2b, 0x79,
+                            0xc9, 0xd7, 0x3a, 0x01})};
+
+constexpr caors::object_guid test_object_guid_b{caors::guid::from_bytes(
+    caors::guid::byte_array{0x18, 0x50, 0xf2, 0x4f, 0x4f, 0xf8, 0x47, 0x66, 0x9f, 0x38, 0x2b, 0x79,
+                            0xc9, 0xd7, 0x3a, 0x02})};
+
 [[nodiscard]] constexpr caors::error object_error(caors::errc code) noexcept {
   return {caors::error_domain::object, code};
 }
@@ -174,6 +182,35 @@ TEST_CASE("object - object_id supports standard unordered containers", "[object]
   values.emplace(id, 7);
 
   CHECK(values.at(id) == 7);
+}
+
+TEST_CASE("object - object index maps persistent guid to runtime id", "[object]") {
+  caors::objects::object_index index;
+  const caors::object_id first = caors::objects::generate_object_id();
+  const caors::object_id second = caors::objects::generate_object_id();
+
+  REQUIRE(first);
+  REQUIRE(second);
+  REQUIRE(first != second);
+
+  CHECK(index.bind(test_object_guid_a, first));
+  CHECK(index.bind(test_object_guid_a, first));
+  CHECK(index.size() == 1);
+  CHECK(index.contains(test_object_guid_a));
+  CHECK(index.contains(first));
+  CHECK(index.find(test_object_guid_a) == first);
+  CHECK(index.guid_of(first) == test_object_guid_a);
+
+  CHECK_FALSE(index.bind(test_object_guid_a, second));
+  CHECK_FALSE(index.bind(test_object_guid_b, first));
+  CHECK_FALSE(index.bind(caors::object_guid::nil(), second));
+  CHECK_FALSE(index.bind(test_object_guid_b, caors::object_id::invalid()));
+
+  CHECK(index.unbind(first));
+  CHECK(index.empty());
+  CHECK_FALSE(index.contains(test_object_guid_a));
+  CHECK(index.find(test_object_guid_a) == caors::object_id::invalid());
+  CHECK(index.guid_of(first) == caors::object_guid::nil());
 }
 
 TEST_CASE("object - typed base exposes runtime type information", "[object]") {
@@ -374,6 +411,30 @@ TEST_CASE("object - manager owns objects and resolves handles", "[object]") {
   CHECK(tracking.statistics().bytes_in_use == 0);
 }
 
+TEST_CASE("object - manager binds persistent object guids through index", "[object]") {
+  caors::objects::object_index index;
+  caors::objects::manager manager(index);
+
+  const caors::error actor_status =
+      register_object_test_type<managed_actor>(managed_actor::object_type_name);
+  REQUIRE(
+      (actor_status == caors::error{} || actor_status == object_error(caors::errc::duplicate_id)));
+
+  managed_actor* instance = manager.create_with_guid<managed_actor>(test_object_guid_a);
+  REQUIRE(instance != nullptr);
+
+  const caors::object_id id = instance->id();
+  CHECK(index.find(test_object_guid_a) == id);
+  CHECK(index.guid_of(id) == test_object_guid_a);
+  CHECK(manager.guid_of(id) == test_object_guid_a);
+  CHECK(manager.find(test_object_guid_a) == instance);
+  CHECK_FALSE(manager.bind_guid(id, test_object_guid_b));
+
+  CHECK(manager.destroy(id));
+  CHECK(index.empty());
+  CHECK(manager.find(test_object_guid_a) == nullptr);
+}
+
 TEST_CASE("object - manager resolves typed weak handles and inheritance", "[object]") {
   caors::objects::manager manager;
 
@@ -381,8 +442,10 @@ TEST_CASE("object - manager resolves typed weak handles and inheritance", "[obje
       register_object_test_type<managed_actor>(managed_actor::object_type_name);
   REQUIRE(
       (actor_status == caors::error{} || actor_status == object_error(caors::errc::duplicate_id)));
-  REQUIRE(register_object_test_type<managed_player>(managed_player::object_type_name) ==
-          caors::error{});
+  const caors::error player_status =
+      register_object_test_type<managed_player>(managed_player::object_type_name);
+  REQUIRE((player_status == caors::error{} ||
+           player_status == object_error(caors::errc::duplicate_id)));
 
   managed_player* player = manager.create<managed_player>();
   REQUIRE(player != nullptr);
@@ -516,4 +579,31 @@ TEST_CASE("object - manager clear releases objects and invalidates handles", "[o
   }
 
   CHECK(tracking.statistics().bytes_in_use == 0);
+}
+
+TEST_CASE("object - manager clear unbinds persistent object guids", "[object]") {
+  caors::objects::object_index index;
+  caors::objects::manager manager(index);
+
+  const caors::error actor_status =
+      register_object_test_type<managed_actor>(managed_actor::object_type_name);
+  REQUIRE(
+      (actor_status == caors::error{} || actor_status == object_error(caors::errc::duplicate_id)));
+  const caors::error player_status =
+      register_object_test_type<managed_player>(managed_player::object_type_name);
+  REQUIRE((player_status == caors::error{} ||
+           player_status == object_error(caors::errc::duplicate_id)));
+
+  managed_actor* actor = manager.create_with_guid<managed_actor>(test_object_guid_a);
+  managed_player* player = manager.create_with_guid<managed_player>(test_object_guid_b);
+  REQUIRE(actor != nullptr);
+  REQUIRE(player != nullptr);
+  REQUIRE(index.size() == 2);
+
+  manager.clear();
+
+  CHECK(manager.empty());
+  CHECK(index.empty());
+  CHECK(manager.find(test_object_guid_a) == nullptr);
+  CHECK(manager.find(test_object_guid_b) == nullptr);
 }

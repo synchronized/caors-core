@@ -32,7 +32,8 @@ CAORS 对象系统第一阶段只解决几件事：
 
 对象系统的主定义位于 `caors::objects` 命名空间，例如 `objects::object`、`objects::object_id`、
 `objects::object_base<T>`、`objects::type`、`objects::handle`、
-`objects::weak_handle<T>`、`objects::ref<T>`、`objects::registry` 和 `objects::manager`。
+`objects::weak_handle<T>`、`objects::ref<T>`、`objects::registry`、`objects::object_index` 和
+`objects::manager`。
 
 为了保持常用 API 简洁，根命名空间保留兼容别名：`caors::object`、`caors::object_id`、
 `caors::object_type_id`、`caors::object_base<T>`、`caors::object_ref<T>` 和
@@ -52,6 +53,24 @@ caors::object_id id = instance.id();
 正常情况下 id 在当前进程内全局递增且不复用；理论上耗尽 `std::uint64_t` 可用空间后会返回无效 id，
 不会回绕复用旧 id。它只表示当前进程运行期间的对象身份，不承诺跨进程、跨版本或跨存档稳定。需要
 持久对象引用时，后续应使用显式 `object_guid` / 业务持久 id，再在加载时映射到运行期 `object_id`。
+
+### object_guid 和 object_index
+
+`object_guid` 是对象系统里对 `core::guid` 的语义别名，用于表达跨存档、资源、网络或场景文件稳定的
+对象身份。CAORS 不自动生成持久 GUID；调用方应从资源数据库、场景文件或编辑器保存的数据中提供。
+
+`objects::object_index` 保存 `object_guid <-> object_id` 的双向映射，但不拥有对象：
+
+```cpp
+caors::objects::object_index index;
+
+index.bind(persistent_guid, instance.id());
+caors::object_id runtime_id = index.find(persistent_guid);
+caors::object_guid guid = index.guid_of(runtime_id);
+```
+
+同一个 GUID 和 id 重复绑定到同一对值会视为成功；同一个 GUID 或 id 试图绑定到另一个值会失败。
+nil GUID 和无效 `object_id` 不能绑定。索引不提供内部同步，跨线程访问时调用方需要自行加锁。
 
 ### 基础类型信息
 
@@ -137,6 +156,18 @@ player* resolved = manager.find<player>(handle);
 manager.destroy(handle.id());
 ```
 
+如果希望 manager 在创建和销毁对象时同步维护持久 GUID 映射，可以传入 `object_index`：
+
+```cpp
+caors::objects::object_index index;
+caors::objects::manager manager(index);
+
+player* instance = manager.create_with_guid<player>(persistent_guid);
+player* resolved = static_cast<player*>(manager.find(persistent_guid));
+
+manager.destroy(instance);
+```
+
 也可以创建已注册但非默认构造的对象：
 
 ```cpp
@@ -159,6 +190,9 @@ if (player* current = manager.find(weak)) {
 线程安全边界：`manager` 当前不提供内部同步。创建、销毁、查找和遍历存活对象数量如果跨线程并发使用，
 调用方需要自行加锁。`destroy()` 后，已有裸指针、`objects::ref<T>` 和 weak handle 都会失效；weak handle
 可以再次通过 `manager.find()` 检测是否仍可解析。
+
+当 manager 关联了 `object_index` 时，`destroy()` 和 `clear()` 会自动解除对象 id 对应的持久 GUID
+绑定。未通过 manager 持有的对象不能通过 `manager.bind_guid()` 绑定。
 
 ### object_base
 
@@ -283,6 +317,8 @@ manager.destroy(instance);
 - `object_id`：运行期对象实例标识。
 - `objects::generate_object_id()`：全进程运行期对象 id 生成入口，正常返回非 0 且不复用的
   `object_id`。
+- `object_guid`：对象系统对 `guid` 的语义别名，用于持久对象身份。
+- `objects::object_index`：持久对象 GUID 和运行期对象 id 的双向索引。
 - `object_type_id`：运行期对象类型标识。
 - `object`：基础对象身份和类型查询入口。
 - `object_base<Derived, Base>`：CRTP 类型查询辅助。
@@ -291,18 +327,23 @@ manager.destroy(instance);
 - `objects::type`：对象类型只读视图，组合 `meta::type` 和内部 `objects::detail::type_data`。
 - `caors::error`：明确对象类型注册失败原因和错误来源域。
 - `objects::registry`：类型注册、查询、继承关系判断、默认构造工厂。
-- `objects::manager`：对象实例生命周期管理器，持有对象、按 `object_id` 查找和销毁对象，并解析 handle / weak handle。
+- `objects::manager`：对象实例生命周期管理器，持有对象、按 `object_id` 查找和销毁对象，可选同步
+  `object_index`，并解析 handle / weak handle。
 - `objects::class_<T>()`：对象类型链式注册入口。
 - `objects::id()` / `objects::find()` / `objects::is_a()`：对象类型查询入口；`objects::find()` 未命中时返回无效
   `objects::type`。
 - `objects::get_registry()`：进程内默认对象注册表。
 - `objects::create<T>()` / `objects::destroy<T>()`：接入 `memory_resource` 的直接对象创建和销毁入口。
-- `serialization::make_reference_resolver(objects::manager&)`：为对象引用序列化创建基于 manager 的 resolver。
+- `serialization::make_reference_resolver(objects::manager&)`：为对象引用序列化创建基于运行期
+  `object_id` 的 manager resolver。
+- `serialization::make_persistent_reference_resolver(objects::manager&)`：为对象引用序列化创建基于
+  `object_guid` 的 manager resolver，需要 manager 关联 `object_index`。
 
 ## 后续路线图
 
 - [x] 对象实例 id。
 - [x] 全局运行期对象 id 生成器。
+- [x] 增加持久对象 GUID 语义别名和 `object_index` 双向映射。
 - [x] 对象类型 id、名称、大小、对齐和父类型。
 - [x] 复用全局 `meta::registry`。
 - [x] 将 `objects::detail::type_data` 作为类型元数据组件挂载，并通过 `objects::type` 视图对外查询。
@@ -311,9 +352,10 @@ manager.destroy(instance);
 - [x] 接入 `memory_resource`。
 - [x] 明确对象 handle / weak handle 设计。
 - [x] 增加对象生命周期管理器。
+- [x] manager 可选联动 `object_index`，创建、销毁和清理时维护持久对象映射。
 - [ ] 与反射系统打通字段、方法和属性元信息。
 - [ ] 与序列化系统打通类型名、版本和构造流程。
-- [ ] 设计持久对象 GUID / 业务对象 id，并与运行期 `object_id` 建立加载期映射。
+- [x] 设计持久对象 GUID / 业务对象 id，并与运行期 `object_id` 建立加载期映射。
 - [ ] 评估是否需要线程安全对象容器或对象数据库。
 
 ## 相关入口

@@ -226,8 +226,102 @@ registry& get_registry() noexcept {
   return registry;
 }
 
+object_index::object_index(memory_resource* resource)
+    : resource_(resource != nullptr ? resource : get_default_memory_resource()),
+      ids_by_guid_(guid_map::allocator_type{resource_}),
+      guids_by_id_(id_map::allocator_type{resource_}) {}
+
+object_index::~object_index() = default;
+
+std::size_t object_index::size() const noexcept { return ids_by_guid_.size(); }
+
+bool object_index::contains(object_guid guid) const { return find(guid) != object_id::invalid(); }
+
+bool object_index::contains(object_id id) const { return static_cast<bool>(guid_of(id)); }
+
+bool object_index::bind(object_guid guid, object_id id) {
+  if (!guid || !id) {
+    return false;
+  }
+
+  const auto guid_position = ids_by_guid_.find(guid);
+  if (guid_position != ids_by_guid_.end()) {
+    return guid_position->second == id;
+  }
+
+  const auto id_position = guids_by_id_.find(id);
+  if (id_position != guids_by_id_.end()) {
+    return id_position->second == guid;
+  }
+
+  ids_by_guid_.emplace(guid, id);
+#if CAORS_HAS_EXCEPTIONS
+  try {
+#endif
+    guids_by_id_.emplace(id, guid);
+#if CAORS_HAS_EXCEPTIONS
+  } catch (...) {
+    ids_by_guid_.erase(guid);
+    throw;
+  }
+#endif
+
+  return true;
+}
+
+bool object_index::unbind(object_guid guid) noexcept {
+  const auto guid_position = ids_by_guid_.find(guid);
+  if (guid_position == ids_by_guid_.end()) {
+    return false;
+  }
+
+  const object_id id = guid_position->second;
+  ids_by_guid_.erase(guid_position);
+  guids_by_id_.erase(id);
+  return true;
+}
+
+bool object_index::unbind(object_id id) noexcept {
+  const auto id_position = guids_by_id_.find(id);
+  if (id_position == guids_by_id_.end()) {
+    return false;
+  }
+
+  const object_guid guid = id_position->second;
+  guids_by_id_.erase(id_position);
+  ids_by_guid_.erase(guid);
+  return true;
+}
+
+void object_index::clear() noexcept {
+  ids_by_guid_.clear();
+  guids_by_id_.clear();
+}
+
+object_id object_index::find(object_guid guid) const {
+  if (!guid) {
+    return object_id::invalid();
+  }
+
+  const auto position = ids_by_guid_.find(guid);
+  return position != ids_by_guid_.end() ? position->second : object_id::invalid();
+}
+
+object_guid object_index::guid_of(object_id id) const {
+  if (!id) {
+    return object_guid::nil();
+  }
+
+  const auto position = guids_by_id_.find(id);
+  return position != guids_by_id_.end() ? position->second : object_guid::nil();
+}
+
 manager::manager(memory_resource* resource)
     : resource_(resource != nullptr ? resource : get_default_memory_resource()),
+      entries_(entry_map::allocator_type{resource_}) {}
+
+manager::manager(object_index& index, memory_resource* resource)
+    : resource_(resource != nullptr ? resource : index.resource()), index_(&index),
       entries_(entry_map::allocator_type{resource_}) {}
 
 manager::~manager() { clear(); }
@@ -239,6 +333,14 @@ bool manager::contains(object_id id) const { return find_entry(id) != nullptr; }
 object* manager::find(object_id id) const {
   const entry* stored = find_entry(id);
   return stored != nullptr ? stored->instance : nullptr;
+}
+
+object* manager::find(object_guid guid) const {
+  if (index_ == nullptr) {
+    return nullptr;
+  }
+
+  return find(index_->find(guid));
 }
 
 object* manager::find(handle object_handle) const {
@@ -285,6 +387,24 @@ object* manager::create(object_type_id id) {
 #endif
 }
 
+object* manager::create_with_guid(object_type_id id, object_guid guid) {
+  if (index_ == nullptr || !guid) {
+    return nullptr;
+  }
+
+  object* instance = create(id);
+  if (instance == nullptr) {
+    return nullptr;
+  }
+
+  if (!index_->bind(guid, instance->id())) {
+    (void)destroy(instance);
+    return nullptr;
+  }
+
+  return instance;
+}
+
 bool manager::destroy(object_id id) noexcept {
   auto position = entries_.find(id);
   if (position == entries_.end()) {
@@ -293,6 +413,9 @@ bool manager::destroy(object_id id) noexcept {
 
   const entry stored = position->second;
   entries_.erase(position);
+  if (index_ != nullptr) {
+    (void)index_->unbind(stored.id);
+  }
 
   if (!get_registry().destroy(stored.type, stored.instance, stored.resource)) {
     return false;
@@ -319,6 +442,9 @@ void manager::clear() noexcept {
     auto position = entries_.begin();
     const entry stored = position->second;
     entries_.erase(position);
+    if (index_ != nullptr) {
+      (void)index_->unbind(stored.id);
+    }
     (void)get_registry().destroy(stored.type, stored.instance, stored.resource);
   }
 }
@@ -326,6 +452,18 @@ void manager::clear() noexcept {
 handle manager::handle_of(object_id id) const {
   const entry* stored = find_entry(id);
   return stored != nullptr ? handle{stored->id, stored->type} : handle{};
+}
+
+bool manager::bind_guid(object_id id, object_guid guid) {
+  if (index_ == nullptr || find_entry(id) == nullptr) {
+    return false;
+  }
+
+  return index_->bind(guid, id);
+}
+
+object_guid manager::guid_of(object_id id) const {
+  return index_ != nullptr ? index_->guid_of(id) : object_guid::nil();
 }
 
 const manager::entry* manager::find_entry(object_id id) const {

@@ -15,17 +15,40 @@
 
 namespace caors::serialization {
 
+enum class reference_identity {
+  runtime_id,
+  persistent_guid,
+};
+
 using object_to_id_fn = object_id (*)(const object* instance, void* user_data);
 using id_to_object_fn = object* (*)(object_id id, void* user_data);
+using object_to_guid_fn = object_guid (*)(const object* instance, void* user_data);
+using guid_to_object_fn = object* (*)(object_guid guid, void* user_data);
 
 /** @brief 对象引用解析器。 */
 struct reference_resolver {
   object_to_id_fn object_to_id = nullptr;
   id_to_object_fn id_to_object = nullptr;
   void* user_data = nullptr;
+  reference_identity identity = reference_identity::runtime_id;
+  object_to_guid_fn object_to_guid = nullptr;
+  guid_to_object_fn guid_to_object = nullptr;
 
-  [[nodiscard]] constexpr bool can_write() const noexcept { return object_to_id != nullptr; }
-  [[nodiscard]] constexpr bool can_read() const noexcept { return id_to_object != nullptr; }
+  [[nodiscard]] constexpr bool uses_runtime_id() const noexcept {
+    return identity == reference_identity::runtime_id;
+  }
+
+  [[nodiscard]] constexpr bool uses_persistent_guid() const noexcept {
+    return identity == reference_identity::persistent_guid;
+  }
+
+  [[nodiscard]] constexpr bool can_write() const noexcept {
+    return uses_runtime_id() ? object_to_id != nullptr : object_to_guid != nullptr;
+  }
+
+  [[nodiscard]] constexpr bool can_read() const noexcept {
+    return uses_runtime_id() ? id_to_object != nullptr : guid_to_object != nullptr;
+  }
 };
 
 namespace detail {
@@ -45,6 +68,21 @@ namespace detail {
   return manager != nullptr ? manager->find(id) : nullptr;
 }
 
+[[nodiscard]] inline object_guid manager_object_to_guid(const object* instance,
+                                                        void* user_data) noexcept {
+  auto* manager = static_cast<objects::manager*>(user_data);
+  if (manager == nullptr || instance == nullptr || manager->find(instance->id()) != instance) {
+    return object_guid::nil();
+  }
+
+  return manager->guid_of(instance->id());
+}
+
+[[nodiscard]] inline object* manager_guid_to_object(object_guid guid, void* user_data) noexcept {
+  auto* manager = static_cast<objects::manager*>(user_data);
+  return manager != nullptr ? manager->find(guid) : nullptr;
+}
+
 } // namespace detail
 
 /** @brief 使用对象生命周期管理器创建对象引用 resolver。 */
@@ -54,6 +92,22 @@ make_reference_resolver(objects::manager& manager) noexcept {
       &detail::manager_object_to_id,
       &detail::manager_id_to_object,
       &manager,
+      reference_identity::runtime_id,
+      nullptr,
+      nullptr,
+  };
+}
+
+/** @brief 使用对象生命周期管理器和对象索引创建持久对象引用 resolver。 */
+[[nodiscard]] inline reference_resolver
+make_persistent_reference_resolver(objects::manager& manager) noexcept {
+  return reference_resolver{
+      nullptr,
+      nullptr,
+      &manager,
+      reference_identity::persistent_guid,
+      &detail::manager_object_to_guid,
+      &detail::manager_guid_to_object,
   };
 }
 

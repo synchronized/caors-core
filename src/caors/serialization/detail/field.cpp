@@ -23,16 +23,7 @@ namespace caors::serialization::detail {
     return status;
   }
 
-  const caors::object* referenced = field.get_object_ref(object);
-  const object_id id = referenced != nullptr
-                           ? context.reference_resolver->object_to_id(
-                                 referenced, context.reference_resolver->user_data)
-                           : object_id::invalid();
-  if (referenced != nullptr && !id) {
-    return {error_domain::serialization, errc::not_found};
-  }
-
-  status = writer.write_u64(id.value());
+  status = write_object_ref_identity(writer, field.get_object_ref(object), context);
   if (status) {
     return status;
   }
@@ -57,19 +48,10 @@ namespace caors::serialization::detail {
     return status;
   }
 
-  std::uint64_t encoded_id = 0;
-  status = reader.read_u64(encoded_id);
+  caors::object* referenced = nullptr;
+  status = read_object_ref_identity(reader, context, referenced);
   if (status) {
     return status;
-  }
-
-  caors::object* referenced = nullptr;
-  if (encoded_id != 0) {
-    referenced = context.reference_resolver->id_to_object(object_id{encoded_id},
-                                                          context.reference_resolver->user_data);
-    if (referenced == nullptr) {
-      return {error_domain::serialization, errc::not_found};
-    }
   }
 
   if (!field.try_set_object_ref(object, referenced)) {

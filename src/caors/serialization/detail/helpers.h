@@ -17,6 +17,13 @@ namespace caors::serialization::detail {
 [[nodiscard]] bool type_is_enumeration(const any_ref& value) noexcept;
 [[nodiscard]] bool type_uses_object_ref(const any_ref& value) noexcept;
 
+[[nodiscard]] variant_result make_object_ref_identity_value(const object* referenced,
+                                                            const serialization::context& context);
+[[nodiscard]] error write_object_ref_identity(writer& writer, const object* referenced,
+                                              const serialization::context& context);
+[[nodiscard]] error read_object_ref_identity(reader& reader, const serialization::context& context,
+                                             object*& referenced);
+
 [[nodiscard]] variant_result make_object_ref_value(const any_ref& value,
                                                    const serialization::context& context);
 [[nodiscard]] error write_object_ref_value(writer& writer, const any_ref& value,

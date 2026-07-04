@@ -52,8 +52,10 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 设计对象 handle、weak handle 和所有权约束。
 - [x] 增加对象生命周期管理器。
 - [x] 增加全局运行期 `object_id` 生成器，避免多个 manager 生成重复运行期 id。
+- [x] 增加 `object_guid` 语义别名和 `object_index` 双向索引，用于持久对象引用映射。
+- [x] manager 可选联动 `object_index`，支持按持久 GUID 创建、查找和销毁解绑。
 - [ ] 明确线程安全边界，避免隐式全局状态。
-- [ ] 设计持久对象 GUID / 业务对象 id，用于跨存档、资源和网络引用。
+- [x] 设计持久对象 GUID / 业务对象 id，用于跨存档、资源和网络引用。
 - [x] 增加对象生命周期、继承关系和错误路径测试。
 
 ## 4. 反射
@@ -100,6 +102,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 支持基于 `traits::set_traits<T>` 的 `caors::hash_set<T>` 集合 codec。
 - [x] 支持基于 `traits::sequence_traits<T>` 的 `caors::list<T>` 数组 codec。
 - [x] 支持裸指针、普通 wrapper、`objects::ref<T>` 和 `null` 边界处理。
+- [x] 支持 `objects::ref<T>` 通过持久 `object_guid` resolver 写出和读回。
 - [x] 支持 `std::array<T,N>`、`std::deque<T>`、`std::forward_list<T>`、`std::set<T>` 和 `std::map<K,V>` 的默认序列化适配。
 - [x] 支持 `std::pair<T,U>` 按二元素数组序列化和反序列化。
 - [x] 支持 `std::tuple<Ts...>` 按元素数组序列化和反序列化。

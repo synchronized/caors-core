@@ -7,6 +7,7 @@
 #include "caors/reflection/registry.h"
 #include "caors/value/indirect_view.h"
 
+#include "detail/helpers.h"
 #include "detail/internal.h"
 
 #include <utility>
@@ -21,16 +22,8 @@ object_ref_to_serialization_value(const reflection::field& field, const void* ob
     return {{error_domain::serialization, errc::invalid_argument}, {}};
   }
 
-  const caors::object* referenced = field.get_object_ref(object);
-  const object_id id = referenced != nullptr
-                           ? context.reference_resolver->object_to_id(
-                                 referenced, context.reference_resolver->user_data)
-                           : object_id::invalid();
-  if (referenced != nullptr && !id) {
-    return {{error_domain::serialization, errc::not_found}, {}};
-  }
-
-  return {{}, variant::from(id.value())};
+  return serialization::detail::make_object_ref_identity_value(field.get_object_ref(object),
+                                                               context);
 }
 
 [[nodiscard]] bool field_uses_inline_indirect_value(const reflection::field& field) noexcept {

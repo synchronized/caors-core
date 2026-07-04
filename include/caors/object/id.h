@@ -4,6 +4,7 @@
 #ifndef CAORS_OBJECT_ID_H_
 #define CAORS_OBJECT_ID_H_
 
+#include "caors/core/guid.h"
 #include "caors/export.h"
 #include "caors/meta/type_id.h"
 
@@ -55,6 +56,8 @@ struct object_id_hash {
 [[nodiscard]] CAORS_API object_id generate_object_id() noexcept;
 
 using object_type_id = type_id;
+using object_guid = core::guid;
+using object_guid_hash = core::guid_hash;
 
 } // namespace caors::objects
 
@@ -72,6 +75,8 @@ namespace caors {
 
 using object_id = objects::object_id;
 using object_type_id = objects::object_type_id;
+using object_guid = objects::object_guid;
+using object_guid_hash = objects::object_guid_hash;
 using objects::generate_object_id;
 
 } // namespace caors

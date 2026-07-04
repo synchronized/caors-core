@@ -215,6 +215,24 @@ caors::serialization::context context{0, &resolver};
 该 resolver 只解析 manager 当前仍持有的对象。对象销毁后，同一个 `object_id` 会解析失败并返回
 `errc::not_found`。
 
+如果对象需要跨存档或跨运行期稳定引用，应让 manager 关联 `objects::object_index`，并使用持久
+resolver。该模式会把非空对象引用写成 GUID 字符串，空引用写成 `null`：
+
+```cpp
+caors::objects::object_index index;
+caors::objects::manager manager(index);
+
+player* instance = manager.create_with_guid<player>(persistent_guid);
+
+caors::serialization::reference_resolver resolver =
+    caors::serialization::make_persistent_reference_resolver(manager);
+caors::serialization::context context{0, &resolver};
+```
+
+持久 resolver 写出时通过 `manager.guid_of(instance->id())` 查找 `object_guid`，读入时通过
+`manager.find(object_guid)` 解析对象。对象销毁或 manager 清空后，对应 GUID 会从 index 解绑，
+再次读入该 GUID 会返回 `errc::not_found`。
+
 失败策略：
 
 - 未提供 resolver 或 resolver 缺少对应方向函数时返回 `errc::invalid_argument`。
@@ -309,7 +327,7 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
   和需要新增元素的容器不会隐式构造 `T`。
 - `std::weak_ptr<T>` 明确标记为不支持的 wrapper，无法稳定暴露可写内部值，当前不作为普通 value
   序列化或反序列化。
-- `caors::objects::ref<T>` 不走内部 value 语义，仍通过 `serialization::reference_resolver` 写出和读入对象 id。
+- `caors::objects::ref<T>` 不走内部 value 语义，仍通过 `serialization::reference_resolver` 写出和读入对象 id 或持久 GUID。
 
 这条规则避免序列化层隐式决定所有权。后续如果要让某类 wrapper 采用引用语义、共享身份或自定义构造策略，
 应在字段策略或专用 wrapper trait 中显式声明。
@@ -329,7 +347,7 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 | `std::unique_ptr<T>`、`std::shared_ptr<T>`、`std::optional<T>` | 通过 `indirect_view` 访问内部 `T` | 空值写 `null`，非空展开内部值 | `null` 可重置；非空可在 `T` 默认可构造时创建内部值 |
 | `std::reference_wrapper<T>` | 通过 `indirect_view` 访问已绑定的 `T` | 按内部 `T` 写出 | 只能写入已绑定对象，不能置空或重绑定 |
 | `std::weak_ptr<T>` | 只标记为不支持 wrapper，不展开 | 不支持 | 不支持 |
-| `objects::ref<T>` | 作为对象引用类型，可通过 `objects::object_ref(any_ref)` 识别 | 通过 resolver 写出 `object_id` | 通过 resolver 从 `object_id` 写回引用 |
+| `objects::ref<T>` | 作为对象引用类型，可通过 `objects::object_ref(any_ref)` 识别 | 通过 resolver 写出 `object_id` 或 `object_guid` | 通过 resolver 从 `object_id` 或 `object_guid` 写回引用 |
 | 顺序容器、集合、关联容器 | 通过 `sequence_view`、`set_view`、`associative_view` 访问 | 支持已适配 traits 的类型 | 支持拥有型容器；借用视图默认拒绝 |
 | `std::span<T>` / `std::span<T, N>` | 借用顺序视图，元素是否可写由 `T` 和字段可写性决定 | 支持，按数组写出 | 默认拒绝，避免决定 backing storage 生命周期 |
 | `std::array<T, N>` | 固定长度顺序视图 | 支持 | 支持，但输入长度必须等于 `N` |
@@ -530,6 +548,7 @@ caors::string text = result.value;
 - 基础 schema version 字段过滤。
 - 内置 string、string_view、guid 和 type_guid codec。
 - 裸指针、普通 wrapper、`objects::ref<T>` 和已适配容器字段。
+- 运行期 `object_id` resolver 和持久 `object_guid` resolver。
 - `variant` 安全访问器、数组/字典/对象辅助修改和成员查询。
 - 序列化注册早于反射字段注册。
 
