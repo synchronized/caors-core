@@ -19,8 +19,7 @@ variant_result make_serialized_value(const any& data) {
   const caors::meta::detail::type_descriptor* descriptor =
       caors::value::detail::descriptor_of(data);
   const meta::type_semantics_data* semantics =
-      descriptor != nullptr ? descriptor->semantics
-                            : meta::get_registry().find_ptr<meta::type_semantics_data>(data.type());
+      descriptor != nullptr ? descriptor->semantics : nullptr;
   if (semantics != nullptr &&
       (semantics->kind == meta::type_kind::raw_pointer ||
        semantics->kind == meta::type_kind::wrapper ||
@@ -102,12 +101,12 @@ variant_result make_serialized_value(const any_ref& value, const serialization::
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
-  if (type_uses_inline_indirect_value(value.type())) {
+  if (type_uses_inline_indirect_value(value)) {
     const value::indirect_view indirect = value.create_indirect_view();
     return make_indirect_serialized_value(indirect, context);
   }
 
-  if (type_uses_object_ref(value.type())) {
+  if (type_uses_object_ref(value)) {
     return make_object_ref_value(value, context);
   }
 
@@ -174,12 +173,12 @@ error write_serialized_value(writer& writer, const any_ref& value,
     return {error_domain::serialization, errc::unsupported};
   }
 
-  if (type_uses_inline_indirect_value(value.type())) {
+  if (type_uses_inline_indirect_value(value)) {
     const value::indirect_view indirect = value.create_indirect_view();
     return write_indirect_serialized_value(writer, indirect, context);
   }
 
-  if (type_uses_object_ref(value.type())) {
+  if (type_uses_object_ref(value)) {
     return write_object_ref_value(writer, value, context);
   }
 
@@ -250,12 +249,12 @@ error read_serialized_value(reader& reader, const any_ref& target,
     return {error_domain::serialization, errc::invalid_field};
   }
 
-  if (type_uses_inline_indirect_value(target.type())) {
+  if (type_uses_inline_indirect_value(target)) {
     const value::indirect_view indirect = target.create_indirect_view();
     return read_indirect_serialized_value(reader, indirect, context);
   }
 
-  if (type_uses_object_ref(target.type())) {
+  if (type_uses_object_ref(target)) {
     return read_object_ref_value(reader, target, context);
   }
 

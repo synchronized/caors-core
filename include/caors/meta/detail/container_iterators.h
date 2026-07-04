@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_META_DETAIL_CONTAINER_REGISTRATION_ITERATORS_H_
-#define CAORS_META_DETAIL_CONTAINER_REGISTRATION_ITERATORS_H_
+#ifndef CAORS_META_DETAIL_CONTAINER_ITERATORS_H_
+#define CAORS_META_DETAIL_CONTAINER_ITERATORS_H_
 
-#include "caors/meta/registry.h"
+#include <new>
+#include <type_traits>
+#include <utility>
 
 namespace caors::meta::detail {
 template <typename T, typename = void> struct has_const_container_iterator : std::false_type {};

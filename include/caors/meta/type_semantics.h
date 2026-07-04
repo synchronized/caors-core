@@ -347,64 +347,6 @@ template <typename Component> [[nodiscard]] error ensure_component_for(type_id i
   return {};
 }
 
-template <typename T>
-[[nodiscard]] error ensure_semantic_access_data_for(type_id id,
-                                                    const type_semantics_data& semantics) {
-  if (semantics.kind == type_kind::raw_pointer || semantics.kind == type_kind::wrapper) {
-    const error result = ensure_component_for(id, make_indirect_data<T>());
-    if (result) {
-      return result;
-    }
-  }
-
-  if (semantics.kind == type_kind::enumeration) {
-    const error result = ensure_component_for(id, make_enum_data<T>());
-    if (result) {
-      return result;
-    }
-  }
-
-  if (semantics.kind == type_kind::wrapper &&
-      semantics.wrapper_semantics == wrapper_semantics::object_ref) {
-    const error result = ensure_component_for(id, make_object_ref_data<T>());
-    if (result) {
-      return result;
-    }
-  }
-
-  return {};
-}
-
-template <typename T> [[nodiscard]] error ensure_type_semantics_for(type_id id) {
-  if (!id) {
-    return {error_domain::meta, errc::invalid_type};
-  }
-
-  const type_semantics_data* semantics =
-      caors::meta::get_registry().find_ptr<type_semantics_data>(id);
-  type_semantics_data local_semantics{};
-  if (semantics == nullptr) {
-    local_semantics = make_type_semantics_data<T>();
-    if (!local_semantics.value_type && local_semantics.kind != type_kind::tuple &&
-        local_semantics.kind != type_kind::variant) {
-      local_semantics.value_type = id;
-    }
-
-    const error result =
-        caors::meta::get_registry().emplace<type_semantics_data>(id, local_semantics);
-    if (result && result.value() != errc::duplicate_component) {
-      return result;
-    }
-
-    semantics = caors::meta::get_registry().find_ptr<type_semantics_data>(id);
-    if (semantics == nullptr) {
-      return {error_domain::meta, errc::invalid_type};
-    }
-  }
-
-  return ensure_semantic_access_data_for<T>(id, *semantics);
-}
-
 } // namespace caors::meta::detail
 
 #endif

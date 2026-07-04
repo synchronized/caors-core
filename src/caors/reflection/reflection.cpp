@@ -68,7 +68,7 @@ field_type_semantics(const detail::field_data* field) noexcept {
     return field->descriptor->semantics;
   }
 
-  return meta::get_registry().find_ptr<meta::type_semantics_data>(field->type);
+  return nullptr;
 }
 
 [[nodiscard]] core::string_name type_name_of(type_id id) noexcept {

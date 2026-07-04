@@ -259,7 +259,7 @@ template <typename T>
  * @brief 类型语义元数据。
  *
  * 该组件挂在字段声明类型对应的 `type_id` 上，集中描述运行期形态、wrapper 语义和通用类型关系。
- * 具体访问函数表由 `meta::detail` 下的能力组件保存。
+ * 具体访问函数表由内部 `meta::detail::type_descriptor` 保存。
  */
 struct type_semantics_data {
   type_kind kind = type_kind::value;

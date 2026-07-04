@@ -17,7 +17,7 @@
 - 用 `type_guid` 保存可选的稳定类型标识。
 - 用注册表内部基础类型数据保存类型名、稳定 GUID 和父类型。
 - 用内部 type descriptor 保存 C++ 类型布局、默认构造、复制、析构、赋值和运行期视图能力。
-- 用 `meta::type_semantics_data` 保存类型形态和通用类型关系，并把具体访问函数拆到内部能力组件。
+- 用内部 type descriptor 保存类型形态、通用类型关系和具体访问函数表。
 - 用 `meta::type` 作为对外只读类型视图，避免直接暴露注册表内部数据。
 - 用全局 `meta::registry` 集中处理基础类型注册、查找和继承关系判断。
 - 用全局 `meta::registry` 在同一个 `type_id` 上挂载不同主题的元数据组件。
@@ -161,9 +161,13 @@ caors::meta::type_<actor>("game.actor")
 不存在时返回无效 `meta::type`。普通类型应通过 `caors::meta::type_<T>("name")` 显式注册。
 `meta::id_of<T>()` 同样只查询已注册类型，不会触发运行期隐式注册。
 
-### meta::type_semantics_data
+### meta::detail::type_descriptor
 
-`meta::type_semantics_data` 是挂在类型上的通用语义组件，用来描述该类型在反射、序列化和 value 模块中的运行期形态：
+`meta::detail::type_descriptor` 是挂在已注册 C++ 类型上的内部能力组件。它保存该类型的布局、值操作函数、
+类型语义和运行期视图能力；未注册结构类型也可以通过 `any`、`any_ref` 或反射字段携带的静态 descriptor
+访问同一套能力。
+
+descriptor 内部的 `type_semantics_data` 用来描述该类型在反射、序列化和 value 模块中的运行期形态：
 
 - `kind`：值、枚举、裸指针、wrapper、顺序容器、集合容器、关联容器、二元组、tuple-like 或 variant-like 类型。
 - `traits::wrapper_semantics`：wrapper 或裸指针的处理语义，例如内联值、对象引用或不支持。
@@ -172,19 +176,17 @@ caors::meta::type_<actor>("game.actor")
 - `pointer_depth`：当前支持的指针层级。
 - `nullable`：运行期值是否可能为空。
 
-具体访问函数表不直接放在 `type_semantics_data` 里。已注册业务类型会在同一 `type_id` 上挂载内部
-`meta::detail::type_descriptor` 组件；`value::any`、`value::any_ref` 和反射字段也会携带内部 descriptor，
-用来描述未注册结构类型的
-枚举转换、容器、指针、wrapper、pair、tuple 和 variant 访问能力：
+具体访问函数表同样由 descriptor 持有，用来描述枚举转换、容器、指针、wrapper、对象引用 wrapper、pair、
+tuple 和 variant 访问能力：
 
 - `meta::detail::indirect_data`：裸指针或 wrapper 的内部值访问、持值检测、重置和确保持值函数。
 - `meta::detail::enum_data`：枚举类型和整数之间的转换函数。
 - `meta::detail::object_ref_data`：对象引用 wrapper 和对象指针之间的读写函数。
 - `meta::detail::sequence_data` / `set_data` / `associative_data` / `pair_data` / `tuple_data` / `variant_data`：容器、二元组、tuple-like 和 variant-like 的运行期访问函数。
 
-类型形态和通用类型关系优先来自 descriptor；如果类型已经显式注册到 meta，则也可以通过同一
-`type_id` 到 `meta::registry` 查询 `meta::type_semantics_data`。反射字段会保存声明类型的
-`type_id` 和 descriptor，因此 `std::vector<T>`、`std::optional<T>`、`std::tuple<...>` 这类结构类型不要求
+类型形态和通用类型关系只从 descriptor 查询，不再把 `type_semantics_data`、枚举数据、容器数据或
+间接访问数据作为独立 meta 组件挂载到注册表。反射字段会保存声明类型的 `type_id` 和 descriptor，因此
+`std::vector<T>`、`std::optional<T>`、`std::tuple<...>` 这类结构类型不要求
 自身注册为 meta 类型；未注册枚举也可以在 `any` / `any_ref` 或容器元素路径上按底层整数读写。
 
 meta 不会因为存在 `traits::type_name<T>` 就在运行期隐式创建业务类型。需要稳定名称、GUID、对象工厂、
@@ -245,7 +247,7 @@ CAORS_META_REGISTRATION(register_actor_meta) {
 注册表维护几类索引：
 
 - `type_id -> 内部基础类型数据`：运行期主索引，只保存身份类信息。
-- `type_id -> meta::detail::type_descriptor`：布局、值操作函数和运行期视图能力组件。
+- `type_id -> meta::detail::type_descriptor`：布局、值操作函数、类型语义和运行期视图能力组件。
 - `type_name -> type_id`：名称查询索引，可选。
 - `type_guid -> type_id`：稳定身份查询索引，可选。
 
@@ -285,8 +287,8 @@ caors::meta::get_registry().emplace<object_factory_meta>(actor_id, true);
 
 容器 descriptor 会在具体容器支持 `begin()` / `end()` 时额外保存类型擦除 iterator 函数，用于
 `set_view` 和 `associative_view` 的 range-for 遍历。只提供 traits callback 的自定义容器仍可通过
-`for_each_ref()` 遍历。兼容的 registry 容器 metadata 仍可用于已注册类型，但新代码不应为了创建 view
-而专门把每一种容器组合注册为 meta 类型。
+`for_each_ref()` 遍历。容器 view 只依赖 descriptor，不再为了创建 view 把每一种容器组合额外挂载为
+meta 组件。
 
 组件挂载同样返回 `caors::error`，`domain()` 为 `error_domain::meta`：
 
@@ -326,7 +328,7 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 - `meta::id_of<T>()`：查询已注册 C++ 类型的运行期类型 id；未注册时返回无效 id。
 - `meta::id()`：根据已注册类型名查询运行期类型标识。
 - `traits::type_name<T>`：基础 C++ 类型到 CAORS 类型名的默认映射。
-- `meta::type_semantics_data`：类型形态、wrapper 语义和通用 value/key 类型关系组件。
+- `meta::detail::type_descriptor`：类型形态、wrapper 语义、通用 value/key 类型关系、布局和访问函数表。
 - `traits::wrapper_traits<T>` / `traits::wrapper_access<T>`：wrapper 类型语义和内部值访问扩展点。
 - `traits::sequence_traits<T>` / `traits::set_traits<T>` / `traits::associative_traits<T>` / `traits::pair_traits<T>` / `traits::tuple_traits<T>` / `traits::variant_traits<T>`：容器、二元组、tuple-like 和 variant-like 类型语义扩展点。
 - `meta::type`：全局注册表中的类型只读视图。

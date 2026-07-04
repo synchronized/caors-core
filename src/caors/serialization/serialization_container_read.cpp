@@ -11,7 +11,7 @@ namespace caors::serialization::detail {
     return descriptor->sequence;
   }
 
-  return meta::get_registry().find_ptr<meta::detail::sequence_data>(target.type());
+  return nullptr;
 }
 
 [[nodiscard]] const meta::detail::set_data* set_data_of(const any_ref& target) noexcept {
@@ -20,7 +20,7 @@ namespace caors::serialization::detail {
     return descriptor->set;
   }
 
-  return meta::get_registry().find_ptr<meta::detail::set_data>(target.type());
+  return nullptr;
 }
 
 [[nodiscard]] const meta::detail::associative_data*
@@ -30,7 +30,7 @@ associative_data_of(const any_ref& target) noexcept {
     return descriptor->associative;
   }
 
-  return meta::get_registry().find_ptr<meta::detail::associative_data>(target.type());
+  return nullptr;
 }
 
 [[nodiscard]] meta::detail::value_assign_fn assign_fn_of(const any_ref& target) noexcept {

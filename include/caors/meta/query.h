@@ -9,7 +9,6 @@
 // clang-format off
 #include "caors/meta/type_semantics.h"
 #include "caors/meta/detail/type_descriptor.h"
-#include "caors/meta/container_registration.h"
 // clang-format on
 
 #include <optional>

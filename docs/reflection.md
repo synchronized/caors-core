@@ -384,10 +384,10 @@ descriptor 记录大小、对齐、默认构造、复制、析构、赋值和可
 - `try_get_mutable<T>()`：获取可写指针。
 - `try_set<T>()`：从同类型 C++ 值写入当前 `any`。
 - `try_set(any)`：从同类型运行期值写入当前 `any`。
-- `create_sequence_view()`：如果 descriptor 或兼容 registry metadata 描述了顺序容器，则创建顺序容器视图。
-- `create_set_view()`：如果 descriptor 或兼容 registry metadata 描述了集合容器，则创建集合容器视图。
-- `create_associative_view()`：如果 descriptor 或兼容 registry metadata 描述了关联容器，则创建可写或只读关联容器视图。
-- `create_indirect_view()`：如果 descriptor 或兼容 registry metadata 描述了指针或 wrapper，则创建内部值视图。
+- `create_sequence_view()`：如果 descriptor 描述了顺序容器，则创建顺序容器视图。
+- `create_set_view()`：如果 descriptor 描述了集合容器，则创建集合容器视图。
+- `create_associative_view()`：如果 descriptor 描述了关联容器，则创建可写或只读关联容器视图。
+- `create_indirect_view()`：如果 descriptor 描述了指针或 wrapper，则创建内部值视图。
 
 第一版 `any` 只支持可拷贝类型；不可拷贝字段调用 `get_value()` 会返回无效 `any`。
 
@@ -406,10 +406,10 @@ descriptor 记录大小、对齐、默认构造、复制、析构、赋值和可
 - `try_get<T>()`：获取只读指针。
 - `try_get_mutable<T>()`：获取可写指针；只读引用会返回 `nullptr`。
 - `try_set<T>()` / `try_set(any)` / `try_set(any_ref)`：从同类型值或引用写入当前引用指向的对象。
-- `create_sequence_view()`：如果 descriptor 或兼容 registry metadata 描述了顺序容器，则创建顺序容器视图。
-- `create_set_view()`：如果 descriptor 或兼容 registry metadata 描述了集合容器，则创建集合容器视图。
-- `create_associative_view()`：如果 descriptor 或兼容 registry metadata 描述了关联容器，则创建关联容器视图。
-- `create_indirect_view()`：如果 descriptor 或兼容 registry metadata 描述了指针或 wrapper，则创建内部值视图。
+- `create_sequence_view()`：如果 descriptor 描述了顺序容器，则创建顺序容器视图。
+- `create_set_view()`：如果 descriptor 描述了集合容器，则创建集合容器视图。
+- `create_associative_view()`：如果 descriptor 描述了关联容器，则创建关联容器视图。
+- `create_indirect_view()`：如果 descriptor 描述了指针或 wrapper，则创建内部值视图。
 
 ### reflection::type 和 reflection::field
 
@@ -604,7 +604,7 @@ auto reflected = caors::reflection::find("game.actor");
 - `any`：运行期 C++ 类型值拷贝。
 - `any_ref`：运行期 C++ 类型非拥有引用。
 - `sequence_view` / `set_view` / `associative_view` / `pair_view` / `tuple_view` / `variant_view`：容器、二元组、tuple-like 和 variant-like 类型的运行期视图。
-- `meta::type_semantics_data`：字段声明类型的形态、wrapper 语义、统一 value 类型和关联容器 key 类型。
+- `meta::detail::type_descriptor`：字段声明类型的形态、wrapper 语义、统一 value 类型、关联容器 key 类型和访问函数表。
 - `reflection::type` / `reflection::field`：全局反射数据的推荐查询入口。
 - `reflection::registry`：全局反射注册表 facade。
 - `reflection::class_<T>()`：RTTR 风格链式注册入口。

@@ -44,10 +44,6 @@ template <typename T> struct custom_sequence {
   caors::vector<T> values{};
 };
 
-struct failing_begin_set {};
-
-struct failing_end_set {};
-
 } // namespace test_reflection
 
 namespace caors::traits {

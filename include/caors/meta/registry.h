@@ -9,11 +9,9 @@
 #include "caors/export.h"
 #include "caors/meta/component_storage.h"
 #include "caors/meta/detail/component_storage.h"
-#include "caors/meta/detail/container.h"
 #include "caors/meta/registration.h"
 #include "caors/meta/type.h"
 #include "caors/meta/view.h"
-#include "caors/traits/container.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -31,8 +29,6 @@ namespace caors::meta::detail {
 
 struct type_descriptor;
 template <typename T> [[nodiscard]] error ensure_type_descriptor_for(type_id id);
-template <typename T> [[nodiscard]] error ensure_type_semantics_for(type_id id);
-template <typename T> [[nodiscard]] error register_container_data_for(type_id id);
 
 } // namespace caors::meta::detail
 
@@ -85,9 +81,6 @@ public:
       if (descriptor_status) {
         return descriptor_status;
       }
-
-      (void)detail::ensure_type_semantics_for<value_type>(registered.id());
-      (void)detail::register_container_data_for<value_type>(registered.id());
     }
 
     return status;

@@ -5,7 +5,7 @@
 #define CAORS_META_DETAIL_TYPE_DESCRIPTOR_H_
 
 #include "caors/meta/detail/container.h"
-#include "caors/meta/detail/container_registration_iterators.h"
+#include "caors/meta/detail/container_iterators.h"
 #include "caors/meta/type_semantics.h"
 
 #include <cstddef>
@@ -30,6 +30,7 @@ struct type_descriptor {
   const type_semantics_data* semantics = nullptr;
   const enum_data* enumeration = nullptr;
   const indirect_data* indirect = nullptr;
+  const object_ref_data* object_ref = nullptr;
   const sequence_data* sequence = nullptr;
   const set_data* set = nullptr;
   const associative_data* associative = nullptr;
@@ -175,6 +176,17 @@ template <typename T> [[nodiscard]] const indirect_data* indirect_data_ptr_of() 
       return result;
     }();
 
+    return data.valid() ? &data : nullptr;
+  } else {
+    return nullptr;
+  }
+}
+
+template <typename T> [[nodiscard]] const object_ref_data* object_ref_data_ptr_of() {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (traits::wrapper_traits<type>::is_wrapper &&
+                traits::wrapper_traits<type>::semantics == wrapper_semantics::object_ref) {
+    static const object_ref_data data = make_object_ref_data<type>();
     return data.valid() ? &data : nullptr;
   } else {
     return nullptr;
@@ -563,6 +575,7 @@ template <typename T> struct descriptor_holder {
       semantics_ptr_of<type>(),
       enum_data_ptr_of<type>(),
       indirect_data_ptr_of<type>(),
+      object_ref_data_ptr_of<type>(),
       sequence_data_ptr_of<type>(),
       set_data_ptr_of<type>(),
       associative_data_ptr_of<type>(),
