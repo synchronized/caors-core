@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "detail/helpers.h"
+#include "helpers.h"
 
 #include "caors/meta/detail/type_capabilities.h"
 #include "caors/object/ref_view.h"

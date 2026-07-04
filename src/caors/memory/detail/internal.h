@@ -30,7 +30,9 @@ void validate_alignment_or_fail(std::size_t alignment);
                                         std::uintptr_t& result) noexcept;
 void update_peak(std::atomic<std::size_t>& peak, std::size_t value) noexcept;
 void subtract_saturating(std::atomic<std::size_t>& value, std::size_t amount) noexcept;
+[[nodiscard]] memory_resource& system_resource_instance() noexcept;
 [[nodiscard]] memory_resource& resolve_resource(memory_resource* resource) noexcept;
+[[nodiscard]] memory_resource* replace_default_resource(memory_resource* resource) noexcept;
 
 } // namespace caors::memory::detail
 
