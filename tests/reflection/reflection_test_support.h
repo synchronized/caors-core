@@ -6,6 +6,7 @@
 #include "caors/adapters/stl.h"
 #include "caors/object/base.h"
 #include "caors/reflection.h"
+#include "caors/traits/type_name.h"
 
 #include <catch2/catch_all.hpp>
 

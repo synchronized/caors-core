@@ -5,6 +5,7 @@
 
 #include "caors/reflection.h"
 #include "caors/serialization.h"
+#include "caors/traits/type_name.h"
 
 #include <catch2/catch_all.hpp>
 
