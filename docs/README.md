@@ -22,6 +22,7 @@
 - [object.md](object.md)：对象基类、对象注册表和对象创建销毁入口。
 - [reflection.md](reflection.md)：反射类型、字段元信息和手写注册入口。
 - [serialization.md](serialization.md)：序列化元信息、注册表和基于反射的文本序列化 MVP。
+- [value.md](value.md)：`any`、`any_ref`、运行期 view、细粒度头文件边界和 `variant` 数据 DOM。
 
 ## 相关入口
 
