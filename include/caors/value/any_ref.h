@@ -157,4 +157,10 @@ namespace detail {} // namespace detail
 
 } // namespace caors::value
 
+namespace caors {
+
+using value::any_ref;
+
+} // namespace caors
+
 #endif

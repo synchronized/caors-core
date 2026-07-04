@@ -172,13 +172,9 @@ void swap(any& lhs, any& rhs) noexcept;
 
 } // namespace caors::value
 
-#include "caors/value/any_ref.h"
-#include "caors/value/view_factory.h"
-
 namespace caors {
 
 using value::any;
-using value::any_ref;
 
 } // namespace caors
 

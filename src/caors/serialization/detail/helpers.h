@@ -6,6 +6,8 @@
 
 #include "internal.h"
 
+#include "caors/value/view_factory.h"
+
 namespace caors::serialization::detail {
 
 [[nodiscard]] error read_size_value(reader& reader, std::size_t& value);

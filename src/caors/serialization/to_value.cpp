@@ -5,6 +5,7 @@
 
 #include "caors/object/ref_view.h"
 #include "caors/reflection/registry.h"
+#include "caors/value/indirect_view.h"
 
 #include "detail/internal.h"
 

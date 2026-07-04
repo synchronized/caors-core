@@ -4,6 +4,7 @@
 #include "reflection_test_support.h"
 
 #include "caors/value/associative_entry_ref.h"
+#include "caors/value/view_factory.h"
 
 using namespace test_reflection;
 TEST_CASE("reflection - sequence field view exposes element metadata", "[reflection]") {

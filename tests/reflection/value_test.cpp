@@ -3,6 +3,7 @@
 
 #include "caors/adapters/stl.h"
 #include "caors/reflection.h"
+#include "caors/value/view_factory.h"
 
 #include <catch2/catch_all.hpp>
 
