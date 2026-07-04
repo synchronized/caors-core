@@ -117,7 +117,7 @@ public:
       return {};
     }
 
-    return any_ref::from_raw(data_->value_type, element, element_writable);
+    return any_ref::from_raw(data_->value_type, data_->value_descriptor, element, element_writable);
   }
 
   /** @brief 清空顺序容器。 */

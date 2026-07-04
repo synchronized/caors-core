@@ -72,8 +72,8 @@ public:
       const void* key = view_->data_->iterator_key(iterator_);
       const void* value = view_->data_->iterator_value(iterator_);
       return associative_entry_ref{
-          any_ref::from_raw(view_->data_->key_type, key, false),
-          any_ref::from_raw(view_->data_->value_type, value, false),
+          any_ref::from_raw(view_->data_->key_type, view_->data_->key_descriptor, key, false),
+          any_ref::from_raw(view_->data_->value_type, view_->data_->value_descriptor, value, false),
       };
     }
 
@@ -215,8 +215,9 @@ public:
         [](const void* key, const void* mapped, void* raw_context) -> bool {
           auto* context = static_cast<visit_context*>(raw_context);
           const meta::detail::associative_data* data = context->data;
-          any_ref key_ref = any_ref::from_raw(data->key_type, key, false);
-          any_ref mapped_ref = any_ref::from_raw(data->value_type, mapped, false);
+          any_ref key_ref = any_ref::from_raw(data->key_type, data->key_descriptor, key, false);
+          any_ref mapped_ref =
+              any_ref::from_raw(data->value_type, data->value_descriptor, mapped, false);
 
           return context->visitor(key_ref, mapped_ref, context->user_data);
         },

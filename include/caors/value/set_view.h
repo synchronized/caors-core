@@ -70,7 +70,8 @@ public:
       }
 
       const void* value = view_->data_->iterator_value(iterator_);
-      return any_ref::from_raw(view_->data_->value_type, value, false);
+      return any_ref::from_raw(view_->data_->value_type, view_->data_->value_descriptor, value,
+                               false);
     }
 
     iterator& operator++() noexcept {
@@ -203,7 +204,8 @@ public:
         [](const void* element, void* raw_context) -> bool {
           auto* context = static_cast<visit_context*>(raw_context);
           const meta::detail::set_data* data = context->data;
-          any_ref element_ref = any_ref::from_raw(data->value_type, element, false);
+          any_ref element_ref =
+              any_ref::from_raw(data->value_type, data->value_descriptor, element, false);
 
           return context->visitor(element_ref, context->user_data);
         },

@@ -64,7 +64,8 @@ public:
       return {};
     }
 
-    return any_ref::from_raw(element_data.value_type, value, value_writable);
+    return any_ref::from_raw(element_data.value_type, element_data.value_descriptor, value,
+                             value_writable);
   }
 
   /** @brief 写入指定元素。 */

@@ -329,6 +329,9 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
   `objects::ref<T>` 类似的显式引用语义处理。
 - 裸指针和普通智能指针按 inline value 处理，不保留对象身份、共享关系或对象图引用；需要身份保持时使用
   `caors::objects::ref<T>` 或后续对象 handle。
+- 容器、指针、wrapper、pair、tuple 和 variant 通过 value descriptor 生成运行期视图，不要求每一种
+  `std::vector<T>`、`std::map<K, V>` 或嵌套组合都注册为 meta 类型。元素或候选值如果需要稳定名称、
+  GUID、多态构造或对象工厂，仍应作为业务类型显式注册。
 - 类型语义最多支持一层间接类型；`T**`、`std::unique_ptr<T*>`、
   `std::optional<std::shared_ptr<T>>` 等多层组合当前会触发静态断言。
 - `std::array<T, N>` 已支持固定长度数组读写；反序列化时数组长度必须等于 `N`，长度不匹配会返回失败。

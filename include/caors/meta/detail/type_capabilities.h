@@ -12,6 +12,12 @@ class object;
 
 } // namespace caors::objects
 
+namespace caors::value::detail {
+
+struct type_descriptor;
+
+} // namespace caors::value::detail
+
 namespace caors::meta::detail {
 
 using indirect_const_value_fn = const void* (*)(const void*) noexcept;
@@ -33,6 +39,7 @@ struct indirect_data {
   indirect_has_value_fn has_value = nullptr;
   indirect_reset_fn reset = nullptr;
   indirect_ensure_value_fn ensure_value = nullptr;
+  const value::detail::type_descriptor* value_descriptor = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
     return value != nullptr || mutable_value != nullptr || has_value != nullptr ||

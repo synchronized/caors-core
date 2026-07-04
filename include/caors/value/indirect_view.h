@@ -72,7 +72,8 @@ public:
       return {};
     }
 
-    return any_ref::from_raw(semantics_->value_type, value, value_writable);
+    return any_ref::from_raw(semantics_->value_type, data_->value_descriptor, value,
+                             value_writable);
   }
 
   /** @brief 重置 wrapper 或裸指针为空。 */

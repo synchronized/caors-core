@@ -367,8 +367,9 @@ ref.try_set(9);
 
 ### any
 
-`any` 是运行期 C++ 类型值拷贝，只保存运行期类型 id 和对象拷贝。类型名、大小、对齐、复制、析构和赋值函数
-通过同一 `type_id` 的基础类型信息查询。
+`any` 是运行期 C++ 类型值拷贝，保存运行期类型 id、对象拷贝和内部 value descriptor。
+descriptor 记录大小、对齐、复制、析构、赋值和可创建的运行期视图；如果值来自只按 `type_id`
+构造的已注册业务类型，则会回退到同一 `type_id` 的基础类型信息。
 它不引用原对象，因此可以安全地脱离字段所属对象生命周期使用。
 
 `any` 当前提供：
@@ -380,17 +381,18 @@ ref.try_set(9);
 - `try_get_mutable<T>()`：获取可写指针。
 - `try_set<T>()`：从同类型 C++ 值写入当前 `any`。
 - `try_set(any)`：从同类型运行期值写入当前 `any`。
-- `create_sequence_view()`：如果当前值的类型挂载了顺序容器 metadata，则创建顺序容器视图。
-- `create_set_view()`：如果当前值的类型挂载了集合容器 metadata，则创建集合容器视图。
-- `create_associative_view()`：如果当前值的类型挂载了关联容器 metadata，则创建可写或只读关联容器视图。
-- `create_indirect_view()`：如果当前值的类型挂载了指针或 wrapper 语义 metadata，则创建内部值视图。
+- `create_sequence_view()`：如果 descriptor 或兼容 registry metadata 描述了顺序容器，则创建顺序容器视图。
+- `create_set_view()`：如果 descriptor 或兼容 registry metadata 描述了集合容器，则创建集合容器视图。
+- `create_associative_view()`：如果 descriptor 或兼容 registry metadata 描述了关联容器，则创建可写或只读关联容器视图。
+- `create_indirect_view()`：如果 descriptor 或兼容 registry metadata 描述了指针或 wrapper，则创建内部值视图。
 
 第一版 `any` 只支持可拷贝类型；不可拷贝字段调用 `get_value()` 会返回无效 `any`。
 
 ### any_ref
 
-`any_ref` 是运行期 C++ 类型引用，只保存类型 id、对象地址和可写性。类型细节同样通过 meta 查询。
+`any_ref` 是运行期 C++ 类型引用，保存类型 id、对象地址、可写性和内部 value descriptor。
 它不拥有对象，不复制对象，也不析构对象，适合零拷贝访问字段和不可拷贝字段。
+无显式类型名的 `any_ref::from<T>()` 不要求 `T` 已注册到 meta；显式类型名重载仍要求类型已注册且名称匹配。
 
 `any_ref` 当前提供：
 
@@ -401,10 +403,10 @@ ref.try_set(9);
 - `try_get<T>()`：获取只读指针。
 - `try_get_mutable<T>()`：获取可写指针；只读引用会返回 `nullptr`。
 - `try_set<T>()` / `try_set(any)` / `try_set(any_ref)`：从同类型值或引用写入当前引用指向的对象。
-- `create_sequence_view()`：如果当前引用的类型挂载了顺序容器 metadata，则创建顺序容器视图。
-- `create_set_view()`：如果当前引用的类型挂载了集合容器 metadata，则创建集合容器视图。
-- `create_associative_view()`：如果当前引用的类型挂载了关联容器 metadata，则创建关联容器视图。
-- `create_indirect_view()`：如果当前引用的类型挂载了指针或 wrapper 语义 metadata，则创建内部值视图。
+- `create_sequence_view()`：如果 descriptor 或兼容 registry metadata 描述了顺序容器，则创建顺序容器视图。
+- `create_set_view()`：如果 descriptor 或兼容 registry metadata 描述了集合容器，则创建集合容器视图。
+- `create_associative_view()`：如果 descriptor 或兼容 registry metadata 描述了关联容器，则创建关联容器视图。
+- `create_indirect_view()`：如果 descriptor 或兼容 registry metadata 描述了指针或 wrapper，则创建内部值视图。
 
 ### reflection::type 和 reflection::field
 
@@ -521,9 +523,12 @@ field.try_set<float>(&instance, 75.0F);
 `indirect_view` 不拥有 wrapper 或内部值，也不延长内部对象生命周期。裸指针和智能指针解包后返回的是当前
 指向对象的引用；调用方需要保证引用使用期间对象仍然有效。
 
-内部容器 metadata 只保存 value/key、元素或候选类型的 `type_id`
-以及容器操作函数。value/key 的名称、大小、对齐和复制/赋值函数统一从
-基础类型信息查询，避免容器 metadata 与基础类型 metadata 重复维护。
+内部容器 descriptor 保存 value/key、元素或候选类型的 `type_id`、子类型 descriptor
+以及容器操作函数。value/key 的名称仍通过 meta 注册表查询；如果子类型本身没有注册到
+meta，名称查询会返回空，但嵌套视图仍可依靠 descriptor 继续访问。
+
+容器、指针、wrapper、pair、tuple 和 variant 这类结构类型不要求自身注册到 `meta::registry`。
+业务对象、枚举、标量命名类型等需要被名称、GUID、反射字段或多态构造策略稳定识别的类型仍应显式注册。
 
 容器、pair、tuple 和 variant 视图不要求值一定来自反射字段。反射字段场景可以先通过 `get_ref()` 创建 `any_ref`，
 再调用对应的 `create_*_view()`；普通 `any` / `any_ref` 也可以直接创建视图：
@@ -534,10 +539,8 @@ caors::value::sequence_view field_sequence =
 caors::value::associative_view field_map =
     field.get_ref(&instance).create_associative_view();
 
-caors::meta::type_<caors::hash_map<int, int>>("caors.hash_map<int,int>");
-
 caors::hash_map<int, int> values;
-caors::any_ref ref = caors::any_ref::from(values, "caors.hash_map<int,int>");
+caors::any_ref ref = caors::any_ref::from(values);
 caors::value::associative_view map = ref.create_associative_view();
 map.insert_value(caors::any::from(1), caors::any::from(2));
 

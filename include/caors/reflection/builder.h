@@ -16,10 +16,11 @@ namespace caors::reflection {
 /**
  * @brief RTTR 风格的反射注册构建器。
  *
- * 构建器通过成员指针推导字段大小、对齐和偏移；字段类型必须已经通过
+ * 构建器通过成员指针推导字段大小、对齐和偏移；普通业务字段类型必须已经通过
  * `meta::type_<T>()`
-
- * * 显式注册到全局 meta 注册表。
+ * 显式注册到全局 meta 注册表。容器、指针、wrapper、pair、tuple 和
+ * variant 等结构类型可以通过
+ * value descriptor 描述，不要求自身注册为 meta 类型。
  */
 template <typename Class> class class_builder {
 public:
@@ -43,13 +44,19 @@ public:
     }
 
     const meta::type resolved_type = caors::meta::find<field_type>();
-    if (!resolved_type || resolved_type.name().empty()) {
+    const value::detail::type_descriptor* descriptor =
+        value::detail::descriptor_ptr_of<field_type>();
+    if ((!resolved_type || resolved_type.name().empty()) &&
+        (descriptor == nullptr || !descriptor->has_view_capability())) {
       pending_status_ = {error_domain::reflection, errc::invalid_field};
       return *this;
     }
 
-    detail::field_data field = detail::make_field_data<Field>(name, resolved_type.name().view(),
-                                                              detail::member_offset(member));
+    const std::string_view resolved_name = resolved_type && !resolved_type.name().empty()
+                                               ? resolved_type.name().view()
+                                               : std::string_view{};
+    detail::field_data field =
+        detail::make_field_data<Field>(name, resolved_name, detail::member_offset(member));
     if (!field.valid()) {
       pending_status_ = {error_domain::reflection, errc::invalid_field};
       return *this;

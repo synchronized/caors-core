@@ -72,7 +72,7 @@ public:
       return {};
     }
 
-    return any_ref::from_raw(data_->key_type, value, value_writable);
+    return any_ref::from_raw(data_->key_type, data_->key_descriptor, value, value_writable);
   }
 
   /** @brief 获取 second 引用。 */
@@ -94,7 +94,7 @@ public:
       return {};
     }
 
-    return any_ref::from_raw(data_->value_type, value, value_writable);
+    return any_ref::from_raw(data_->value_type, data_->value_descriptor, value, value_writable);
   }
 
   /** @brief 获取 second 引用，等价于 `second_ref()`。 */

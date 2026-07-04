@@ -97,7 +97,8 @@ public:
       return {};
     }
 
-    return any_ref::from_raw(alternative_data.value_type, value, value_writable);
+    return any_ref::from_raw(alternative_data.value_type, alternative_data.value_descriptor, value,
+                             value_writable);
   }
 
   /** @brief 切换当前候选。已处于目标候选时直接成功。 */

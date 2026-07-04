@@ -21,7 +21,7 @@ namespace {
     return true;
   }
 
-  return false;
+  return field.descriptor != nullptr && field.descriptor->has_view_capability();
 }
 
 [[nodiscard]] error resolve_fields(meta::registry& meta, detail::type_data& reflection) {
@@ -63,6 +63,10 @@ namespace {
 field_type_semantics(const detail::field_data* field) noexcept {
   if (field == nullptr || !field->type) {
     return nullptr;
+  }
+
+  if (field->descriptor != nullptr && field->descriptor->semantics != nullptr) {
+    return field->descriptor->semantics;
   }
 
   return meta::get_registry().find_ptr<meta::type_semantics_data>(field->type);
@@ -195,11 +199,21 @@ std::size_t field::offset() const noexcept {
 }
 
 std::size_t field::size() const noexcept {
+  const detail::field_data* field = info();
+  if (field != nullptr && field->descriptor != nullptr) {
+    return field->descriptor->size;
+  }
+
   const meta::type meta = field_meta(info());
   return meta ? meta.size() : 0;
 }
 
 std::size_t field::alignment() const noexcept {
+  const detail::field_data* field = info();
+  if (field != nullptr && field->descriptor != nullptr) {
+    return field->descriptor->alignment;
+  }
+
   const meta::type meta = field_meta(info());
   return meta ? meta.alignment() : 0;
 }

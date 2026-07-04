@@ -170,18 +170,22 @@ caors::meta::type_<actor>("game.actor")
 - `pointer_depth`：当前支持的指针层级。
 - `nullable`：运行期值是否可能为空。
 
-具体访问函数表不直接放在 `type_semantics_data` 里，而是按能力挂到独立内部组件：
+具体访问函数表不直接放在 `type_semantics_data` 里。已注册业务类型可以按能力挂到独立内部组件；
+`value::any`、`value::any_ref` 和反射字段也会携带内部 value descriptor，用来描述未注册结构类型的
+容器、指针、wrapper、pair、tuple 和 variant 访问能力：
 
 - `meta::detail::indirect_data`：裸指针或 wrapper 的内部值访问、持值检测、重置和确保持值函数。
 - `meta::detail::enum_data`：枚举类型和整数之间的转换函数。
 - `meta::detail::object_ref_data`：对象引用 wrapper 和对象指针之间的读写函数。
 - `meta::detail::sequence_data` / `set_data` / `associative_data` / `pair_data` / `tuple_data` / `variant_data`：容器、二元组、tuple-like 和 variant-like 的运行期访问函数。
 
-类型形态和通用类型关系不在反射字段数据上重复保存。字段只记录声明类型的 `type_id`，需要查询字段形态、
-value 类型、关联容器 key 类型、二元组 first 类型或 tuple-like 字段形态时，通过该 `type_id` 到 `meta::registry` 查询 `meta::type_semantics_data`。
-`meta::type_semantics_data` 由 `meta::registry::register_type_for<T>()` 在基础类型注册时自动挂载；反射字段
-注册只负责确保字段声明类型已经注册。wrapper、指针和容器依赖的 value/key/元素/候选类型也必须提前显式注册；
-meta 不会因为存在 `traits::type_name<T>` 就在运行期隐式创建这些关联类型。
+类型形态和通用类型关系优先来自 value descriptor；如果类型已经显式注册到 meta，则也可以通过同一
+`type_id` 到 `meta::registry` 查询 `meta::type_semantics_data`。反射字段会保存声明类型的
+`type_id` 和 descriptor，因此 `std::vector<T>`、`std::optional<T>`、`std::tuple<...>` 这类结构类型不要求
+自身注册为 meta 类型。
+
+meta 不会因为存在 `traits::type_name<T>` 就在运行期隐式创建业务类型。需要稳定名称、GUID、对象工厂、
+反射字段列表或多态序列化身份的 C++ 类型仍应通过 `meta::type_<T>("name")` 显式注册。
 
 ### meta::registry
 
@@ -275,9 +279,10 @@ caors::meta::get_registry().emplace<object_factory_meta>(actor_id, true);
 - `component_status<T>(type_id)`：查询组件诊断状态，区分无效类型、未注册类型、缺失组件和已挂载组件。
 - `view<T...>()`：查询同时拥有指定组件集合的类型。
 
-容器 metadata 会在具体容器支持 `begin()` / `end()` 时额外挂载类型擦除 iterator 函数，用于
+容器 descriptor 会在具体容器支持 `begin()` / `end()` 时额外保存类型擦除 iterator 函数，用于
 `set_view` 和 `associative_view` 的 range-for 遍历。只提供 traits callback 的自定义容器仍可通过
-`for_each_ref()` 遍历。
+`for_each_ref()` 遍历。兼容的 registry 容器 metadata 仍可用于已注册类型，但新代码不应为了创建 view
+而专门把每一种容器组合注册为 meta 类型。
 
 组件挂载同样返回 `caors::error`，`domain()` 为 `error_domain::meta`：
 
