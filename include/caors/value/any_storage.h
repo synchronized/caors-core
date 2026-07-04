@@ -112,19 +112,14 @@ public:
   }
 
   [[nodiscard]] bool valid() const noexcept {
-    if (descriptor_ != nullptr) {
-      return descriptor_->valid() && data_ != nullptr;
-    }
-
-    const meta::type meta = caors::meta::find(type_);
-    return meta.valid() && data_ != nullptr;
+    return descriptor_ != nullptr && descriptor_->valid() && data_ != nullptr;
   }
 
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
 
-  [[nodiscard]] type_id type() const noexcept { return type_; }
+  [[nodiscard]] type_id type() const noexcept { return get_type_id(); }
   [[nodiscard]] string_name type_name() const noexcept {
-    const meta::type meta = caors::meta::find(type_);
+    const meta::type meta = caors::meta::find(get_type_id());
     return meta ? meta.name() : string_name{};
   }
   [[nodiscard]] const void* data() const noexcept { return valid() ? data_ : nullptr; }
@@ -132,20 +127,10 @@ public:
   [[nodiscard]] any_ref ref();
   [[nodiscard]] any_ref ref() const;
   [[nodiscard]] std::size_t size() const noexcept {
-    if (descriptor_ != nullptr) {
-      return descriptor_->layout.size;
-    }
-
-    const meta::type meta = caors::meta::find(type_);
-    return meta ? meta.size() : 0;
+    return descriptor_ != nullptr ? descriptor_->layout.size : 0;
   }
   [[nodiscard]] std::size_t alignment() const noexcept {
-    if (descriptor_ != nullptr) {
-      return descriptor_->layout.alignment;
-    }
-
-    const meta::type meta = caors::meta::find(type_);
-    return meta ? meta.alignment() : 0;
+    return descriptor_ != nullptr ? descriptor_->layout.alignment : 0;
   }
   [[nodiscard]] sequence_view create_sequence_view();
   [[nodiscard]] sequence_view create_sequence_view() const;
@@ -167,16 +152,9 @@ public:
     if (data_ != nullptr) {
       if (descriptor_ != nullptr && descriptor_->ops.destroy != nullptr) {
         descriptor_->ops.destroy(data_);
-      } else {
-        const meta::type meta = caors::meta::find(type_);
-        const auto destroy = caors::meta::detail::get_destroy_value_fn(meta);
-        if (meta && destroy != nullptr) {
-          destroy(data_);
-        }
       }
     }
 
-    type_ = {};
     descriptor_ = nullptr;
     data_ = nullptr;
   }
@@ -184,7 +162,6 @@ public:
   /** @brief 交换两个运行期值。 */
   void swap(any& other) noexcept {
     using std::swap;
-    swap(type_, other.type_);
     swap(descriptor_, other.descriptor_);
     swap(data_, other.data_);
   }
@@ -192,14 +169,14 @@ public:
   /** @brief 判断当前值是否匹配指定 C++ 类型。 */
   template <typename T> [[nodiscard]] bool matches_type() const noexcept {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    return valid() && type_ == meta::detail::type_id_of_cpp_type<type>() &&
+    return valid() && get_type_id() == meta::detail::type_id_of_cpp_type<type>() &&
            size() == sizeof(type) && alignment() == alignof(type);
   }
 
   /** @brief 判断两个运行期值是否具有相同 C++ 类型。 */
   [[nodiscard]] bool matches_type(const any& other) const noexcept {
-    return valid() && other.valid() && type_ == other.type_ && size() == other.size() &&
-           alignment() == other.alignment();
+    return valid() && other.valid() && get_type_id() == other.get_type_id() &&
+           size() == other.size() && alignment() == other.alignment();
   }
 
   /** @brief 按指定类型获取只读指针。 */
@@ -227,9 +204,7 @@ public:
   /** @brief 从同类型 C++ 值写入当前值。 */
   template <typename T> bool try_set(const T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const auto assign = descriptor_ != nullptr
-                            ? descriptor_->ops.assign
-                            : caors::meta::detail::get_assign_value_fn(caors::meta::find(type_));
+    const auto assign = descriptor_ != nullptr ? descriptor_->ops.assign : nullptr;
     if (!matches_type<type>() || assign == nullptr) {
       return false;
     }
@@ -239,9 +214,7 @@ public:
 
   /** @brief 从同类型运行期值写入当前值。 */
   bool try_set(const any& source) {
-    const auto assign = descriptor_ != nullptr
-                            ? descriptor_->ops.assign
-                            : caors::meta::detail::get_assign_value_fn(caors::meta::find(type_));
+    const auto assign = descriptor_ != nullptr ? descriptor_->ops.assign : nullptr;
     if (!matches_type(source) || assign == nullptr) {
       return false;
     }
@@ -258,35 +231,24 @@ private:
 
   [[nodiscard]] static any
   copy_from_raw(type_id type, const meta::detail::type_descriptor* descriptor, const void* source) {
-    auto clone = descriptor != nullptr ? descriptor->ops.clone : nullptr;
-    auto destroy = descriptor != nullptr ? descriptor->ops.destroy : nullptr;
-    if (descriptor == nullptr) {
-      const meta::type meta = caors::meta::find(type);
-      clone = caors::meta::detail::get_clone_value_fn(meta);
-      destroy = caors::meta::detail::get_destroy_value_fn(meta);
-      if (!meta.valid()) {
-        return {};
-      }
-    }
-
-    if (source == nullptr || clone == nullptr || destroy == nullptr) {
+    if (descriptor == nullptr || descriptor->type != type) {
       return {};
     }
 
-    void* copy = clone(source);
+    if (source == nullptr || descriptor->ops.clone == nullptr ||
+        descriptor->ops.destroy == nullptr) {
+      return {};
+    }
+
+    void* copy = descriptor->ops.clone(source);
     if (copy == nullptr) {
       return {};
     }
 
     any result;
-    result.type_ = type;
     result.descriptor_ = descriptor;
     result.data_ = copy;
     return result;
-  }
-
-  [[nodiscard]] static any copy_from_raw(type_id type, const void* source) {
-    return copy_from_raw(type, nullptr, source);
   }
 
   void copy_from(const any& other) {
@@ -294,20 +256,21 @@ private:
       return;
     }
 
-    *this = copy_from_raw(other.type_, other.descriptor_, other.data_);
+    *this = copy_from_raw(other.get_type_id(), other.descriptor_, other.data_);
   }
 
   void move_from(any& other) noexcept {
-    type_ = other.type_;
     descriptor_ = other.descriptor_;
     data_ = other.data_;
 
-    other.type_ = {};
     other.descriptor_ = nullptr;
     other.data_ = nullptr;
   }
 
-  type_id type_{};
+  [[nodiscard]] type_id get_type_id() const noexcept {
+    return descriptor_ != nullptr ? descriptor_->type : type_id{};
+  }
+
   const meta::detail::type_descriptor* descriptor_ = nullptr;
   void* data_ = nullptr;
 };
@@ -331,7 +294,6 @@ namespace detail {
   }
 
   any result;
-  result.type_ = type;
   result.descriptor_ = descriptor;
   result.data_ = value;
   return result;

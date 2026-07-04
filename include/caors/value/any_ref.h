@@ -57,19 +57,14 @@ public:
   }
 
   [[nodiscard]] bool valid() const noexcept {
-    if (descriptor_ != nullptr) {
-      return descriptor_->valid() && data_ != nullptr;
-    }
-
-    const meta::type meta = caors::meta::find(type_);
-    return meta.valid() && data_ != nullptr;
+    return descriptor_ != nullptr && descriptor_->valid() && data_ != nullptr;
   }
 
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
 
-  [[nodiscard]] type_id type() const noexcept { return type_; }
+  [[nodiscard]] type_id type() const noexcept { return get_type_id(); }
   [[nodiscard]] string_name type_name() const noexcept {
-    const meta::type meta = caors::meta::find(type_);
+    const meta::type meta = caors::meta::find(get_type_id());
     return meta ? meta.name() : string_name{};
   }
   [[nodiscard]] const void* data() const noexcept { return valid() ? data_ : nullptr; }
@@ -77,20 +72,10 @@ public:
     return valid() && writable_ ? const_cast<void*>(data_) : nullptr;
   }
   [[nodiscard]] std::size_t size() const noexcept {
-    if (descriptor_ != nullptr) {
-      return descriptor_->layout.size;
-    }
-
-    const meta::type meta = caors::meta::find(type_);
-    return meta ? meta.size() : 0;
+    return descriptor_ != nullptr ? descriptor_->layout.size : 0;
   }
   [[nodiscard]] std::size_t alignment() const noexcept {
-    if (descriptor_ != nullptr) {
-      return descriptor_->layout.alignment;
-    }
-
-    const meta::type meta = caors::meta::find(type_);
-    return meta ? meta.alignment() : 0;
+    return descriptor_ != nullptr ? descriptor_->layout.alignment : 0;
   }
   [[nodiscard]] bool writable() const noexcept { return valid() && writable_; }
   [[nodiscard]] sequence_view create_sequence_view() const;
@@ -104,20 +89,20 @@ public:
   /** @brief 判断当前引用是否匹配指定 C++ 类型。 */
   template <typename T> [[nodiscard]] bool matches_type() const noexcept {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    return valid() && type_ == meta::detail::type_id_of_cpp_type<type>() &&
+    return valid() && get_type_id() == meta::detail::type_id_of_cpp_type<type>() &&
            size() == sizeof(type) && alignment() == alignof(type);
   }
 
   /** @brief 判断两个运行期值是否具有相同 C++ 类型。 */
   [[nodiscard]] bool matches_type(const any& other) const noexcept {
-    return valid() && other.valid() && type_ == other.type() && size() == other.size() &&
+    return valid() && other.valid() && get_type_id() == other.type() && size() == other.size() &&
            alignment() == other.alignment();
   }
 
   /** @brief 判断两个运行期引用是否具有相同 C++ 类型。 */
   [[nodiscard]] bool matches_type(const any_ref& other) const noexcept {
-    return valid() && other.valid() && type_ == other.type_ && size() == other.size() &&
-           alignment() == other.alignment();
+    return valid() && other.valid() && get_type_id() == other.get_type_id() &&
+           size() == other.size() && alignment() == other.alignment();
   }
 
   /** @brief 按指定类型获取只读指针。 */
@@ -145,9 +130,7 @@ public:
   /** @brief 从同类型 C++ 值写入当前引用指向的对象。 */
   template <typename T> bool try_set(const T& source) const {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const auto assign = descriptor_ != nullptr
-                            ? descriptor_->ops.assign
-                            : caors::meta::detail::get_assign_value_fn(caors::meta::find(type_));
+    const auto assign = descriptor_ != nullptr ? descriptor_->ops.assign : nullptr;
     if (!matches_type<type>() || !writable_ || assign == nullptr) {
       return false;
     }
@@ -157,9 +140,7 @@ public:
 
   /** @brief 从同类型运行期值写入当前引用指向的对象。 */
   bool try_set(const any& source) const {
-    const auto assign = descriptor_ != nullptr
-                            ? descriptor_->ops.assign
-                            : caors::meta::detail::get_assign_value_fn(caors::meta::find(type_));
+    const auto assign = descriptor_ != nullptr ? descriptor_->ops.assign : nullptr;
     if (!matches_type(source) || !writable_ || assign == nullptr) {
       return false;
     }
@@ -169,9 +150,7 @@ public:
 
   /** @brief 从同类型运行期引用写入当前引用指向的对象。 */
   bool try_set(const any_ref& source) const {
-    const auto assign = descriptor_ != nullptr
-                            ? descriptor_->ops.assign
-                            : caors::meta::detail::get_assign_value_fn(caors::meta::find(type_));
+    const auto assign = descriptor_ != nullptr ? descriptor_->ops.assign : nullptr;
     if (!matches_type(source) || !writable_ || assign == nullptr) {
       return false;
     }
@@ -180,7 +159,7 @@ public:
   }
 
   /** @brief 尝试复制引用指向的对象。不可拷贝对象会返回无效 `any`。 */
-  [[nodiscard]] any to_any() const { return any::copy_from_raw(type_, descriptor_, data_); }
+  [[nodiscard]] any to_any() const { return any::copy_from_raw(get_type_id(), descriptor_, data_); }
 
 private:
   friend class any;
@@ -197,30 +176,21 @@ private:
   [[nodiscard]] static any_ref from_raw(type_id type,
                                         const meta::detail::type_descriptor* descriptor,
                                         const void* data, bool writable) noexcept {
-    if (data == nullptr) {
+    if (data == nullptr || descriptor == nullptr || descriptor->type != type) {
       return {};
     }
 
-    if (descriptor == nullptr) {
-      const meta::type meta = caors::meta::find(type);
-      if (!meta.valid()) {
-        return {};
-      }
-    }
-
     any_ref result;
-    result.type_ = type;
     result.descriptor_ = descriptor;
     result.data_ = data;
     result.writable_ = writable;
     return result;
   }
 
-  [[nodiscard]] static any_ref from_raw(type_id type, const void* data, bool writable) noexcept {
-    return from_raw(type, nullptr, data, writable);
+  [[nodiscard]] type_id get_type_id() const noexcept {
+    return descriptor_ != nullptr ? descriptor_->type : type_id{};
   }
 
-  type_id type_{};
   const meta::detail::type_descriptor* descriptor_ = nullptr;
   const void* data_ = nullptr;
   bool writable_ = false;
@@ -235,9 +205,11 @@ descriptor_of(const any_ref& value) noexcept {
 
 } // namespace detail
 
-inline any_ref any::ref() { return any_ref::from_raw(type_, descriptor_, data_, true); }
+inline any_ref any::ref() { return any_ref::from_raw(get_type_id(), descriptor_, data_, true); }
 
-inline any_ref any::ref() const { return any_ref::from_raw(type_, descriptor_, data_, false); }
+inline any_ref any::ref() const {
+  return any_ref::from_raw(get_type_id(), descriptor_, data_, false);
+}
 
 } // namespace caors::value
 
