@@ -19,15 +19,15 @@ variant_result make_serialized_value(const any& data) {
 
   const caors::meta::detail::type_descriptor* descriptor =
       caors::value::detail::descriptor_of(data);
-  if (descriptor != nullptr &&
-      (descriptor->object_ref != nullptr || descriptor->kind == meta::type_kind::raw_pointer ||
-       descriptor->kind == meta::type_kind::wrapper ||
-       descriptor->kind == meta::type_kind::enumeration ||
-       descriptor->kind == meta::type_kind::sequence || descriptor->kind == meta::type_kind::set ||
-       descriptor->kind == meta::type_kind::associative ||
-       descriptor->kind == meta::type_kind::pair || descriptor->kind == meta::type_kind::tuple ||
-       descriptor->kind == meta::type_kind::variant)) {
-    return make_serialized_value(data.ref(), serialization::context{});
+  if (descriptor != nullptr) {
+    const meta::type_kind kind = meta::detail::descriptor_kind(*descriptor);
+    if (descriptor->object_ref != nullptr || kind == meta::type_kind::raw_pointer ||
+        kind == meta::type_kind::wrapper || kind == meta::type_kind::enumeration ||
+        kind == meta::type_kind::sequence || kind == meta::type_kind::set ||
+        kind == meta::type_kind::associative || kind == meta::type_kind::pair ||
+        kind == meta::type_kind::tuple || kind == meta::type_kind::variant) {
+      return make_serialized_value(data.ref(), serialization::context{});
+    }
   }
 
   const std::optional<codec_data> codec = get_codec_registry().find_codec(data.type());

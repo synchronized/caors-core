@@ -94,7 +94,7 @@ private:
       : descriptor_(descriptor), storage_(storage), writable_(writable) {}
 
   [[nodiscard]] const meta::detail::tuple_data* data() const noexcept {
-    return descriptor_ != nullptr ? descriptor_->tuple : nullptr;
+    return meta::detail::descriptor_capability<meta::detail::tuple_data>(descriptor_);
   }
 
   const meta::detail::type_descriptor* descriptor_ = nullptr;

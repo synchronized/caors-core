@@ -244,11 +244,12 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `objects::ref<T>
 因此既有代码不需要额外 include。如果只需要反射 traits 或 wrapper 语义，可以包含
 `caors/adapters/stl.h`，该头不会拉入序列化 codec。
 
-反射字段中的容器、pair、tuple 和 variant 不要求显式调用 `serialization::register_codec<T>()`；
-但字段声明类型以及递归用到的元素、key、first、value 或候选类型都必须先通过 `meta::type_<T>("name")`
-注册到 meta。字段类型注册时会根据
+反射字段中的容器、pair、tuple 和 variant 不要求显式调用 `serialization::register_codec<T>()`，
+也不要求每一种容器模板组合都注册为 meta 类型。字段 descriptor 会根据
 `traits::sequence_traits<T>`、`traits::set_traits<T>`、`traits::associative_traits<T>`、`traits::pair_traits<T>`、`traits::tuple_traits<T>` 或
-`traits::variant_traits<T>` 挂载 meta 访问数据，序列化层随后按元素、key、first、候选下标和 value 递归处理。`serialization::sequence_codec<T>`、
+`traits::variant_traits<T>` 生成运行期访问能力，序列化层随后按元素、key、first、候选下标和 value 递归处理。
+递归用到的业务类型如果需要稳定名称、GUID、反射字段、多态构造或对象工厂，仍应通过
+`meta::type_<T>("name")` 显式注册。`serialization::sequence_codec<T>`、
 `serialization::set_codec<T>` 和 `serialization::associative_codec<T>`
 仍保留给显式 codec 注册、独立值转换和外部复用。自定义容器通常只需要特化 traits；如果还需要作为 codec
 单独注册，可以让自己的 `serialization::codec<T>` 继承通用 codec：

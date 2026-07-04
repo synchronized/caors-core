@@ -163,23 +163,31 @@ caors::meta::type_<actor>("game.actor")
 
 ### meta::detail::type_descriptor
 
-`meta::detail::type_descriptor` 是挂在已注册 C++ 类型上的内部能力组件。它保存该类型的布局、值操作函数、
-类型语义和运行期视图能力；未注册结构类型也可以通过 `any`、`any_ref` 或反射字段携带的静态 descriptor
-访问同一套能力。
+`meta::detail::type_descriptor` 是挂在已注册 C++ 类型上的内部能力组件。它由布局、值操作、类型语义、
+主访问能力和对象引用能力几部分组成；未注册结构类型也可以通过 `any`、`any_ref` 或反射字段携带的静态
+descriptor 访问同一套能力。
 
-descriptor 直接保存以下语义字段，用来描述该类型在反射、序列化和 value 模块中的运行期形态：
+descriptor 内部按职责拆分：
+
+- `type_layout`：保存 `size` 和 `alignment`。
+- `value_ops`：保存默认构造、复制、析构和赋值的类型擦除函数。
+- `type_semantics`：保存该类型在反射、序列化和 value 模块中的运行期形态。
+- `type_capability`：保存一个主访问能力，例如枚举、间接值、顺序容器、集合、关联容器、pair、tuple 或 variant。
+- `objects::detail::object_ref_data`：对象引用能力，它独立于主访问能力。
+
+`type_semantics` 描述以下语义：
 
 - `kind`：值、枚举、裸指针、wrapper、顺序容器、集合容器、关联容器、二元组、tuple-like 或 variant-like 类型。
 - `traits::wrapper_semantics`：wrapper 或裸指针的处理语义，例如内联值或不支持。
 - `indirect`：该类型是否具备一层间接值语义，例如裸指针或 wrapper。
 - `nullable`：运行期值是否可能为空。
 
-具体访问函数表同样由 descriptor 持有，用来描述枚举转换、容器、指针、wrapper、对象引用、pair、
-tuple 和 variant 访问能力：
+具体访问函数表由 `type_capability` 或对象引用能力持有，用来描述枚举转换、容器、指针、wrapper、对象引用、
+pair、tuple 和 variant 访问能力：
 
 - `meta::detail::indirect_data`：裸指针或 wrapper 的内部值访问、持值检测、重置和确保持值函数。
 - `meta::detail::enum_data`：枚举类型和整数之间的转换函数。
-- `objects::detail::object_ref_data`：对象引用类型和对象指针之间的读写函数。
+- `objects::detail::object_ref_data`：对象引用类型和对象指针之间的读写函数，和 `type_capability` 独立保存。
 - `meta::detail::sequence_data` / `set_data` / `associative_data` / `pair_data` / `tuple_data` / `variant_data`：容器、二元组、tuple-like 和 variant-like 的运行期访问函数。
 
 统一 `value_type` / `key_type` 不再作为 `type_descriptor` 顶层字段保存。普通值和枚举直接使用
@@ -250,7 +258,7 @@ CAORS_META_REGISTRATION(register_actor_meta) {
 注册表维护几类索引：
 
 - `type_id -> 内部基础类型数据`：运行期主索引，只保存身份类信息。
-- `type_id -> meta::detail::type_descriptor`：布局、值操作函数、类型语义和运行期视图能力组件。
+- `type_id -> meta::detail::type_descriptor`：布局、值操作、类型语义、主访问能力和对象引用能力组件。
 - `type_name -> type_id`：名称查询索引，可选。
 - `type_guid -> type_id`：稳定身份查询索引，可选。
 
@@ -331,7 +339,7 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 - `meta::id_of<T>()`：查询已注册 C++ 类型的运行期类型 id；未注册时返回无效 id。
 - `meta::id()`：根据已注册类型名查询运行期类型标识。
 - `traits::type_name<T>`：基础 C++ 类型到 CAORS 类型名的默认映射。
-- `meta::detail::type_descriptor`：类型形态、wrapper 语义、对象引用能力、布局、值操作和访问函数表。
+- `meta::detail::type_descriptor`：布局、值操作、类型语义、主访问能力和对象引用能力。
 - `traits::wrapper_traits<T>` / `traits::wrapper_access<T>`：wrapper 类型语义和内部值访问扩展点。
 - `traits::sequence_traits<T>` / `traits::set_traits<T>` / `traits::associative_traits<T>` / `traits::pair_traits<T>` / `traits::tuple_traits<T>` / `traits::variant_traits<T>`：容器、二元组、tuple-like 和 variant-like 类型语义扩展点。
 - `meta::type`：全局注册表中的类型只读视图。

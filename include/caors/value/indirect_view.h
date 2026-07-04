@@ -25,12 +25,13 @@ public:
       return false;
     }
 
-    if (!descriptor_->indirect) {
+    if (!meta::detail::descriptor_indirect(*descriptor_)) {
       return false;
     }
 
-    if (descriptor_->kind == meta::type_kind::wrapper &&
-        descriptor_->wrapper_semantics == meta::wrapper_semantics::unsupported) {
+    if (meta::detail::descriptor_kind(*descriptor_) == meta::type_kind::wrapper &&
+        meta::detail::descriptor_wrapper_semantics(*descriptor_) ==
+            meta::wrapper_semantics::unsupported) {
       return false;
     }
 
@@ -110,7 +111,7 @@ private:
       : descriptor_(descriptor), storage_(storage), writable_(writable) {}
 
   [[nodiscard]] const meta::detail::indirect_data* data() const noexcept {
-    return descriptor_ != nullptr ? descriptor_->indirect_access : nullptr;
+    return meta::detail::descriptor_capability<meta::detail::indirect_data>(descriptor_);
   }
 
   const meta::detail::type_descriptor* descriptor_ = nullptr;

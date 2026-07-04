@@ -171,22 +171,24 @@ core::string_name field::second_type_name() const noexcept { return type_name_of
 
 meta::type_kind field::kind() const noexcept {
   const meta::detail::type_descriptor* descriptor = field_descriptor(info());
-  return descriptor != nullptr ? descriptor->kind : meta::type_kind::value;
+  return descriptor != nullptr ? meta::detail::descriptor_kind(*descriptor)
+                               : meta::type_kind::value;
 }
 
 meta::wrapper_semantics field::wrapper_semantics() const noexcept {
   const meta::detail::type_descriptor* descriptor = field_descriptor(info());
-  return descriptor != nullptr ? descriptor->wrapper_semantics : meta::wrapper_semantics::none;
+  return descriptor != nullptr ? meta::detail::descriptor_wrapper_semantics(*descriptor)
+                               : meta::wrapper_semantics::none;
 }
 
 bool field::indirect() const noexcept {
   const meta::detail::type_descriptor* descriptor = field_descriptor(info());
-  return descriptor != nullptr && descriptor->indirect;
+  return descriptor != nullptr && meta::detail::descriptor_indirect(*descriptor);
 }
 
 bool field::nullable() const noexcept {
   const meta::detail::type_descriptor* descriptor = field_descriptor(info());
-  return descriptor != nullptr && descriptor->nullable;
+  return descriptor != nullptr && meta::detail::descriptor_nullable(*descriptor);
 }
 
 bool field::writable() const noexcept {
@@ -202,7 +204,7 @@ std::size_t field::offset() const noexcept {
 std::size_t field::size() const noexcept {
   const detail::field_data* field = info();
   if (field != nullptr && field->descriptor != nullptr) {
-    return field->descriptor->size;
+    return field->descriptor->layout.size;
   }
 
   const meta::type meta = field_meta(info());
@@ -212,7 +214,7 @@ std::size_t field::size() const noexcept {
 std::size_t field::alignment() const noexcept {
   const detail::field_data* field = info();
   if (field != nullptr && field->descriptor != nullptr) {
-    return field->descriptor->alignment;
+    return field->descriptor->layout.alignment;
   }
 
   const meta::type meta = field_meta(info());

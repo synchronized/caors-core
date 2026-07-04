@@ -78,7 +78,7 @@ public:
   }
   [[nodiscard]] std::size_t size() const noexcept {
     if (descriptor_ != nullptr) {
-      return descriptor_->size;
+      return descriptor_->layout.size;
     }
 
     const meta::type meta = caors::meta::find(type_);
@@ -86,7 +86,7 @@ public:
   }
   [[nodiscard]] std::size_t alignment() const noexcept {
     if (descriptor_ != nullptr) {
-      return descriptor_->alignment;
+      return descriptor_->layout.alignment;
     }
 
     const meta::type meta = caors::meta::find(type_);
@@ -146,7 +146,7 @@ public:
   template <typename T> bool try_set(const T& source) const {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
     const auto assign = descriptor_ != nullptr
-                            ? descriptor_->assign
+                            ? descriptor_->ops.assign
                             : caors::meta::detail::get_assign_value_fn(caors::meta::find(type_));
     if (!matches_type<type>() || !writable_ || assign == nullptr) {
       return false;
@@ -158,7 +158,7 @@ public:
   /** @brief 从同类型运行期值写入当前引用指向的对象。 */
   bool try_set(const any& source) const {
     const auto assign = descriptor_ != nullptr
-                            ? descriptor_->assign
+                            ? descriptor_->ops.assign
                             : caors::meta::detail::get_assign_value_fn(caors::meta::find(type_));
     if (!matches_type(source) || !writable_ || assign == nullptr) {
       return false;
@@ -170,7 +170,7 @@ public:
   /** @brief 从同类型运行期引用写入当前引用指向的对象。 */
   bool try_set(const any_ref& source) const {
     const auto assign = descriptor_ != nullptr
-                            ? descriptor_->assign
+                            ? descriptor_->ops.assign
                             : caors::meta::detail::get_assign_value_fn(caors::meta::find(type_));
     if (!matches_type(source) || !writable_ || assign == nullptr) {
       return false;

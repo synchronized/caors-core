@@ -47,8 +47,8 @@ struct field_data {
   /** @brief 判断字段是否匹配指定 C++ 类型。 */
   template <typename Field> [[nodiscard]] bool matches_type() const noexcept {
     using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
-    const std::size_t size = descriptor != nullptr ? descriptor->size : 0;
-    const std::size_t alignment = descriptor != nullptr ? descriptor->alignment : 0;
+    const std::size_t size = descriptor != nullptr ? descriptor->layout.size : 0;
+    const std::size_t alignment = descriptor != nullptr ? descriptor->layout.alignment : 0;
     if (descriptor != nullptr) {
       return descriptor->type == caors::meta::detail::type_id_of_cpp_type<field_type>() &&
              size == sizeof(field_type) && alignment == alignof(field_type);
@@ -112,11 +112,11 @@ struct field_data {
   /** @brief 从运行期值写入字段。 */
   bool try_set_value(void* object, const any& source) const {
     const meta::type meta = caors::meta::find(type);
-    const auto assign =
-        descriptor != nullptr ? descriptor->assign : caors::meta::detail::get_assign_value_fn(meta);
-    const std::size_t expected_size = descriptor != nullptr ? descriptor->size : meta.size();
+    const auto assign = descriptor != nullptr ? descriptor->ops.assign
+                                              : caors::meta::detail::get_assign_value_fn(meta);
+    const std::size_t expected_size = descriptor != nullptr ? descriptor->layout.size : meta.size();
     const std::size_t expected_alignment =
-        descriptor != nullptr ? descriptor->alignment : meta.alignment();
+        descriptor != nullptr ? descriptor->layout.alignment : meta.alignment();
     if (!source.valid() || source.type() != type || source.size() != expected_size ||
         source.alignment() != expected_alignment || assign == nullptr) {
       return false;

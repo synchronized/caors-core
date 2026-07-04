@@ -254,7 +254,7 @@ private:
   }
 
   [[nodiscard]] const meta::detail::set_data* data() const noexcept {
-    return descriptor_ != nullptr ? descriptor_->set : nullptr;
+    return meta::detail::descriptor_capability<meta::detail::set_data>(descriptor_);
   }
 
   const meta::detail::type_descriptor* descriptor_ = nullptr;

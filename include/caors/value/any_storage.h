@@ -134,7 +134,7 @@ public:
   [[nodiscard]] any_ref ref() const;
   [[nodiscard]] std::size_t size() const noexcept {
     if (descriptor_ != nullptr) {
-      return descriptor_->size;
+      return descriptor_->layout.size;
     }
 
     const meta::type meta = caors::meta::find(type_);
@@ -142,7 +142,7 @@ public:
   }
   [[nodiscard]] std::size_t alignment() const noexcept {
     if (descriptor_ != nullptr) {
-      return descriptor_->alignment;
+      return descriptor_->layout.alignment;
     }
 
     const meta::type meta = caors::meta::find(type_);
@@ -166,8 +166,8 @@ public:
   /** @brief 清空当前值。 */
   void reset() noexcept {
     if (data_ != nullptr) {
-      if (descriptor_ != nullptr && descriptor_->destroy != nullptr) {
-        descriptor_->destroy(data_);
+      if (descriptor_ != nullptr && descriptor_->ops.destroy != nullptr) {
+        descriptor_->ops.destroy(data_);
       } else {
         const meta::type meta = caors::meta::find(type_);
         const auto destroy = caors::meta::detail::get_destroy_value_fn(meta);
@@ -229,7 +229,7 @@ public:
   template <typename T> bool try_set(const T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
     const auto assign = descriptor_ != nullptr
-                            ? descriptor_->assign
+                            ? descriptor_->ops.assign
                             : caors::meta::detail::get_assign_value_fn(caors::meta::find(type_));
     if (!matches_type<type>() || assign == nullptr) {
       return false;
@@ -241,7 +241,7 @@ public:
   /** @brief 从同类型运行期值写入当前值。 */
   bool try_set(const any& source) {
     const auto assign = descriptor_ != nullptr
-                            ? descriptor_->assign
+                            ? descriptor_->ops.assign
                             : caors::meta::detail::get_assign_value_fn(caors::meta::find(type_));
     if (!matches_type(source) || assign == nullptr) {
       return false;
@@ -259,8 +259,8 @@ private:
 
   [[nodiscard]] static any
   copy_from_raw(type_id type, const meta::detail::type_descriptor* descriptor, const void* source) {
-    auto clone = descriptor != nullptr ? descriptor->clone : nullptr;
-    auto destroy = descriptor != nullptr ? descriptor->destroy : nullptr;
+    auto clone = descriptor != nullptr ? descriptor->ops.clone : nullptr;
+    auto destroy = descriptor != nullptr ? descriptor->ops.destroy : nullptr;
     if (descriptor == nullptr) {
       const meta::type meta = caors::meta::find(type);
       clone = caors::meta::detail::get_clone_value_fn(meta);
@@ -322,11 +322,11 @@ namespace detail {
 [[nodiscard]] inline any default_construct(type_id type,
                                            const meta::detail::type_descriptor* descriptor) {
   if (descriptor == nullptr || descriptor->type != type ||
-      descriptor->default_construct == nullptr || descriptor->destroy == nullptr) {
+      descriptor->ops.default_construct == nullptr || descriptor->ops.destroy == nullptr) {
     return {};
   }
 
-  void* value = descriptor->default_construct();
+  void* value = descriptor->ops.default_construct();
   if (value == nullptr) {
     return {};
   }

@@ -7,36 +7,24 @@ namespace caors::serialization::detail {
 
 [[nodiscard]] const meta::detail::sequence_data* sequence_data_of(const any_ref& target) noexcept {
   const meta::detail::type_descriptor* descriptor = value::detail::descriptor_of(target);
-  if (descriptor != nullptr && descriptor->sequence != nullptr) {
-    return descriptor->sequence;
-  }
-
-  return nullptr;
+  return meta::detail::descriptor_capability<meta::detail::sequence_data>(descriptor);
 }
 
 [[nodiscard]] const meta::detail::set_data* set_data_of(const any_ref& target) noexcept {
   const meta::detail::type_descriptor* descriptor = value::detail::descriptor_of(target);
-  if (descriptor != nullptr && descriptor->set != nullptr) {
-    return descriptor->set;
-  }
-
-  return nullptr;
+  return meta::detail::descriptor_capability<meta::detail::set_data>(descriptor);
 }
 
 [[nodiscard]] const meta::detail::associative_data*
 associative_data_of(const any_ref& target) noexcept {
   const meta::detail::type_descriptor* descriptor = value::detail::descriptor_of(target);
-  if (descriptor != nullptr && descriptor->associative != nullptr) {
-    return descriptor->associative;
-  }
-
-  return nullptr;
+  return meta::detail::descriptor_capability<meta::detail::associative_data>(descriptor);
 }
 
 [[nodiscard]] meta::detail::value_assign_fn assign_fn_of(const any_ref& target) noexcept {
   const meta::detail::type_descriptor* descriptor = value::detail::descriptor_of(target);
-  if (descriptor != nullptr && descriptor->assign != nullptr) {
-    return descriptor->assign;
+  if (descriptor != nullptr && descriptor->ops.assign != nullptr) {
+    return descriptor->ops.assign;
   }
 
   return caors::meta::detail::get_assign_value_fn(caors::meta::find(target.type()));

@@ -272,7 +272,7 @@ private:
   }
 
   [[nodiscard]] const meta::detail::associative_data* data() const noexcept {
-    return descriptor_ != nullptr ? descriptor_->associative : nullptr;
+    return meta::detail::descriptor_capability<meta::detail::associative_data>(descriptor_);
   }
 
   const meta::detail::type_descriptor* descriptor_ = nullptr;

@@ -53,20 +53,22 @@ descriptor_of_value(const any_ref& value) noexcept {
 
 [[nodiscard]] const meta::detail::enum_data* enum_data(const any_ref& value) noexcept {
   const caors::meta::detail::type_descriptor* descriptor = descriptor_of_value(value);
-  return descriptor != nullptr ? descriptor->enumeration : nullptr;
+  return meta::detail::descriptor_capability<meta::detail::enum_data>(descriptor);
 }
 
 [[nodiscard]] bool type_uses_inline_indirect_value(const any_ref& value) noexcept {
   const meta::detail::type_descriptor* descriptor = descriptor_of_value(value);
   return descriptor != nullptr &&
-         (descriptor->kind == meta::type_kind::raw_pointer ||
-          descriptor->kind == meta::type_kind::wrapper) &&
-         descriptor->wrapper_semantics == meta::wrapper_semantics::inline_value;
+         (meta::detail::descriptor_kind(*descriptor) == meta::type_kind::raw_pointer ||
+          meta::detail::descriptor_kind(*descriptor) == meta::type_kind::wrapper) &&
+         meta::detail::descriptor_wrapper_semantics(*descriptor) ==
+             meta::wrapper_semantics::inline_value;
 }
 
 [[nodiscard]] bool type_is_enumeration(const any_ref& value) noexcept {
   const meta::detail::type_descriptor* descriptor = descriptor_of_value(value);
-  return descriptor != nullptr && descriptor->kind == meta::type_kind::enumeration;
+  return descriptor != nullptr &&
+         meta::detail::descriptor_kind(*descriptor) == meta::type_kind::enumeration;
 }
 
 [[nodiscard]] bool type_uses_object_ref(const any_ref& value) noexcept {
@@ -155,7 +157,8 @@ descriptor_of_value(const any_ref& value) noexcept {
 [[nodiscard]] variant_result make_enum_value(const any_ref& value) {
   const meta::detail::type_descriptor* descriptor = descriptor_of_value(value);
   const meta::detail::enum_data* data = enum_data(value);
-  if (descriptor == nullptr || descriptor->kind != meta::type_kind::enumeration ||
+  if (descriptor == nullptr ||
+      meta::detail::descriptor_kind(*descriptor) != meta::type_kind::enumeration ||
       data == nullptr || value.data() == nullptr) {
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
@@ -178,7 +181,8 @@ descriptor_of_value(const any_ref& value) noexcept {
 [[nodiscard]] error write_enum_value(writer& writer, const any_ref& value) {
   const meta::detail::type_descriptor* descriptor = descriptor_of_value(value);
   const meta::detail::enum_data* data = enum_data(value);
-  if (descriptor == nullptr || descriptor->kind != meta::type_kind::enumeration ||
+  if (descriptor == nullptr ||
+      meta::detail::descriptor_kind(*descriptor) != meta::type_kind::enumeration ||
       data == nullptr || value.data() == nullptr) {
     return {error_domain::serialization, errc::unsupported};
   }
@@ -201,7 +205,8 @@ descriptor_of_value(const any_ref& value) noexcept {
 [[nodiscard]] error read_enum_value(reader& reader, const any_ref& target) {
   const meta::detail::type_descriptor* descriptor = descriptor_of_value(target);
   const meta::detail::enum_data* data = enum_data(target);
-  if (descriptor == nullptr || descriptor->kind != meta::type_kind::enumeration ||
+  if (descriptor == nullptr ||
+      meta::detail::descriptor_kind(*descriptor) != meta::type_kind::enumeration ||
       data == nullptr || target.mutable_data() == nullptr || data->from_i64 == nullptr ||
       data->from_u64 == nullptr) {
     return {error_domain::serialization, errc::unsupported};

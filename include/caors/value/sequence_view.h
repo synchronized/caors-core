@@ -165,7 +165,7 @@ private:
       : descriptor_(descriptor), storage_(storage), writable_(writable) {}
 
   [[nodiscard]] const meta::detail::sequence_data* data() const noexcept {
-    return descriptor_ != nullptr ? descriptor_->sequence : nullptr;
+    return meta::detail::descriptor_capability<meta::detail::sequence_data>(descriptor_);
   }
 
   const meta::detail::type_descriptor* descriptor_ = nullptr;

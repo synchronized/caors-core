@@ -13,13 +13,29 @@
 #include "caors/value/variant_view.h"
 
 namespace caors::value {
+namespace detail {
+
+template <typename Capability>
+[[nodiscard]] inline bool has_capability(const meta::detail::type_descriptor* descriptor) noexcept {
+  return meta::detail::descriptor_capability<Capability>(descriptor) != nullptr;
+}
+
+[[nodiscard]] inline bool
+has_indirect_capability(const meta::detail::type_descriptor* descriptor) noexcept {
+  const meta::detail::indirect_data* indirect =
+      meta::detail::descriptor_capability<meta::detail::indirect_data>(descriptor);
+  return descriptor != nullptr && meta::detail::descriptor_indirect(*descriptor) &&
+         indirect != nullptr && indirect->valid();
+}
+
+} // namespace detail
 
 inline associative_view any::create_associative_view() {
   if (!valid()) {
     return {};
   }
 
-  if (descriptor_ == nullptr || descriptor_->associative == nullptr) {
+  if (!detail::has_capability<meta::detail::associative_data>(descriptor_)) {
     return {};
   }
 
@@ -31,7 +47,7 @@ inline associative_view any::create_associative_view() const {
     return {};
   }
 
-  if (descriptor_ == nullptr || descriptor_->associative == nullptr) {
+  if (!detail::has_capability<meta::detail::associative_data>(descriptor_)) {
     return {};
   }
 
@@ -43,7 +59,7 @@ inline associative_view any_ref::create_associative_view() const {
     return {};
   }
 
-  if (descriptor_ == nullptr || descriptor_->associative == nullptr) {
+  if (!detail::has_capability<meta::detail::associative_data>(descriptor_)) {
     return {};
   }
 
@@ -55,7 +71,7 @@ inline pair_view any::create_pair_view() {
     return {};
   }
 
-  if (descriptor_ == nullptr || descriptor_->pair == nullptr) {
+  if (!detail::has_capability<meta::detail::pair_data>(descriptor_)) {
     return {};
   }
 
@@ -67,7 +83,7 @@ inline pair_view any::create_pair_view() const {
     return {};
   }
 
-  if (descriptor_ == nullptr || descriptor_->pair == nullptr) {
+  if (!detail::has_capability<meta::detail::pair_data>(descriptor_)) {
     return {};
   }
 
@@ -79,7 +95,7 @@ inline pair_view any_ref::create_pair_view() const {
     return {};
   }
 
-  if (descriptor_ == nullptr || descriptor_->pair == nullptr) {
+  if (!detail::has_capability<meta::detail::pair_data>(descriptor_)) {
     return {};
   }
 
@@ -91,7 +107,7 @@ inline tuple_view any::create_tuple_view() {
     return {};
   }
 
-  if (descriptor_ == nullptr || descriptor_->tuple == nullptr) {
+  if (!detail::has_capability<meta::detail::tuple_data>(descriptor_)) {
     return {};
   }
 
@@ -103,7 +119,7 @@ inline tuple_view any::create_tuple_view() const {
     return {};
   }
 
-  if (descriptor_ == nullptr || descriptor_->tuple == nullptr) {
+  if (!detail::has_capability<meta::detail::tuple_data>(descriptor_)) {
     return {};
   }
 
@@ -115,7 +131,7 @@ inline tuple_view any_ref::create_tuple_view() const {
     return {};
   }
 
-  if (descriptor_ == nullptr || descriptor_->tuple == nullptr) {
+  if (!detail::has_capability<meta::detail::tuple_data>(descriptor_)) {
     return {};
   }
 
@@ -127,7 +143,7 @@ inline variant_view any::create_variant_view() {
     return {};
   }
 
-  if (descriptor_ == nullptr || descriptor_->variant == nullptr) {
+  if (!detail::has_capability<meta::detail::variant_data>(descriptor_)) {
     return {};
   }
 
@@ -139,7 +155,7 @@ inline variant_view any::create_variant_view() const {
     return {};
   }
 
-  if (descriptor_ == nullptr || descriptor_->variant == nullptr) {
+  if (!detail::has_capability<meta::detail::variant_data>(descriptor_)) {
     return {};
   }
 
@@ -151,7 +167,7 @@ inline variant_view any_ref::create_variant_view() const {
     return {};
   }
 
-  if (descriptor_ == nullptr || descriptor_->variant == nullptr) {
+  if (!detail::has_capability<meta::detail::variant_data>(descriptor_)) {
     return {};
   }
 
@@ -163,8 +179,7 @@ inline indirect_view any::create_indirect_view() {
     return {};
   }
 
-  if (descriptor_ == nullptr || !descriptor_->indirect || descriptor_->indirect_access == nullptr ||
-      !descriptor_->indirect_access->valid()) {
+  if (!detail::has_indirect_capability(descriptor_)) {
     return {};
   }
 
@@ -176,8 +191,7 @@ inline indirect_view any::create_indirect_view() const {
     return {};
   }
 
-  if (descriptor_ == nullptr || !descriptor_->indirect || descriptor_->indirect_access == nullptr ||
-      !descriptor_->indirect_access->valid()) {
+  if (!detail::has_indirect_capability(descriptor_)) {
     return {};
   }
 
@@ -189,8 +203,7 @@ inline indirect_view any_ref::create_indirect_view() const {
     return {};
   }
 
-  if (descriptor_ == nullptr || !descriptor_->indirect || descriptor_->indirect_access == nullptr ||
-      !descriptor_->indirect_access->valid()) {
+  if (!detail::has_indirect_capability(descriptor_)) {
     return {};
   }
 
@@ -202,7 +215,7 @@ inline sequence_view any::create_sequence_view() {
     return {};
   }
 
-  if (descriptor_ == nullptr || descriptor_->sequence == nullptr) {
+  if (!detail::has_capability<meta::detail::sequence_data>(descriptor_)) {
     return {};
   }
 
@@ -214,7 +227,7 @@ inline sequence_view any::create_sequence_view() const {
     return {};
   }
 
-  if (descriptor_ == nullptr || descriptor_->sequence == nullptr) {
+  if (!detail::has_capability<meta::detail::sequence_data>(descriptor_)) {
     return {};
   }
 
@@ -226,7 +239,7 @@ inline sequence_view any_ref::create_sequence_view() const {
     return {};
   }
 
-  if (descriptor_ == nullptr || descriptor_->sequence == nullptr) {
+  if (!detail::has_capability<meta::detail::sequence_data>(descriptor_)) {
     return {};
   }
 
@@ -238,7 +251,7 @@ inline set_view any::create_set_view() {
     return {};
   }
 
-  if (descriptor_ == nullptr || descriptor_->set == nullptr) {
+  if (!detail::has_capability<meta::detail::set_data>(descriptor_)) {
     return {};
   }
 
@@ -250,7 +263,7 @@ inline set_view any::create_set_view() const {
     return {};
   }
 
-  if (descriptor_ == nullptr || descriptor_->set == nullptr) {
+  if (!detail::has_capability<meta::detail::set_data>(descriptor_)) {
     return {};
   }
 
@@ -262,7 +275,7 @@ inline set_view any_ref::create_set_view() const {
     return {};
   }
 
-  if (descriptor_ == nullptr || descriptor_->set == nullptr) {
+  if (!detail::has_capability<meta::detail::set_data>(descriptor_)) {
     return {};
   }
 
