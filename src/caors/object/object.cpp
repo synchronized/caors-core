@@ -4,6 +4,7 @@
 #include "caors/object.h"
 
 #include <atomic>
+#include <limits>
 
 namespace caors::objects {
 namespace {
@@ -20,12 +21,17 @@ std::atomic<std::uint64_t> next_object_id{1};
 } // namespace
 
 object_id generate_object_id() noexcept {
-  std::uint64_t value = next_object_id.fetch_add(1, std::memory_order_relaxed);
-  if (value == 0) {
-    value = next_object_id.fetch_add(1, std::memory_order_relaxed);
+  std::uint64_t current = next_object_id.load(std::memory_order_relaxed);
+  while (current != 0) {
+    const std::uint64_t next =
+        current == std::numeric_limits<std::uint64_t>::max() ? 0 : current + 1U;
+    if (next_object_id.compare_exchange_weak(current, next, std::memory_order_relaxed,
+                                             std::memory_order_relaxed)) {
+      return object_id{current};
+    }
   }
 
-  return object_id{value};
+  return object_id::invalid();
 }
 
 object::object() noexcept : id_(generate_object_id()) {}
@@ -286,11 +292,12 @@ bool manager::destroy(object_id id) noexcept {
   }
 
   const entry stored = position->second;
+  entries_.erase(position);
+
   if (!get_registry().destroy(stored.type, stored.instance, stored.resource)) {
     return false;
   }
 
-  entries_.erase(position);
   return true;
 }
 

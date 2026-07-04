@@ -33,7 +33,7 @@ namespace detail {
 [[nodiscard]] inline object_id manager_object_to_id(const object* instance,
                                                     void* user_data) noexcept {
   auto* manager = static_cast<objects::manager*>(user_data);
-  if (manager == nullptr || instance == nullptr || !manager->contains(instance->id())) {
+  if (manager == nullptr || instance == nullptr || manager->find(instance->id()) != instance) {
     return object_id::invalid();
   }
 

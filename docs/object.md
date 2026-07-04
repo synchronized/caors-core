@@ -40,14 +40,18 @@ CAORS 对象系统第一阶段只解决几件事：
 
 ### object_id
 
-`object_id` 是运行期对象实例标识。`0` 保留为无效值。
+`object_id` 是运行期对象实例标识。`0` 保留为无效值。普通对象构造时会通过
+`objects::generate_object_id()` 从 CAORS 核心库中的全局原子生成器取得新 id；`objects::manager`
+只负责持有和索引对象，不负责生成 id。
 
 ```cpp
 actor instance;
 caors::object_id id = instance.id();
 ```
 
-它只表示当前进程运行期间的对象身份，不承诺跨进程、跨版本或跨存档稳定。
+正常情况下 id 在当前进程内全局递增且不复用；理论上耗尽 `std::uint64_t` 可用空间后会返回无效 id，
+不会回绕复用旧 id。它只表示当前进程运行期间的对象身份，不承诺跨进程、跨版本或跨存档稳定。需要
+持久对象引用时，后续应使用显式 `object_guid` / 业务持久 id，再在加载时映射到运行期 `object_id`。
 
 ### 基础类型信息
 
@@ -277,6 +281,8 @@ manager.destroy(instance);
 ## 当前已实现能力
 
 - `object_id`：运行期对象实例标识。
+- `objects::generate_object_id()`：全进程运行期对象 id 生成入口，正常返回非 0 且不复用的
+  `object_id`。
 - `object_type_id`：运行期对象类型标识。
 - `object`：基础对象身份和类型查询入口。
 - `object_base<Derived, Base>`：CRTP 类型查询辅助。
@@ -296,6 +302,7 @@ manager.destroy(instance);
 ## 后续路线图
 
 - [x] 对象实例 id。
+- [x] 全局运行期对象 id 生成器。
 - [x] 对象类型 id、名称、大小、对齐和父类型。
 - [x] 复用全局 `meta::registry`。
 - [x] 将 `objects::detail::type_data` 作为类型元数据组件挂载，并通过 `objects::type` 视图对外查询。
@@ -306,6 +313,7 @@ manager.destroy(instance);
 - [x] 增加对象生命周期管理器。
 - [ ] 与反射系统打通字段、方法和属性元信息。
 - [ ] 与序列化系统打通类型名、版本和构造流程。
+- [ ] 设计持久对象 GUID / 业务对象 id，并与运行期 `object_id` 建立加载期映射。
 - [ ] 评估是否需要线程安全对象容器或对象数据库。
 
 ## 相关入口

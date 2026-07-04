@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <limits>
 #include <string_view>
+#include <unordered_map>
 
 namespace {
 
@@ -122,6 +123,18 @@ public:
   static constexpr std::string_view object_type_name = "caors.test.object.unregistered_managed";
 };
 
+class destruction_observer : public caors::object_base<destruction_observer> {
+public:
+  static constexpr std::string_view object_type_name = "caors.test.object.destruction_observer";
+
+  ~destruction_observer() override {
+    invisible_during_destruction = manager != nullptr && manager->find(id()) == nullptr;
+  }
+
+  inline static caors::objects::manager* manager = nullptr;
+  inline static bool invisible_during_destruction = false;
+};
+
 [[nodiscard]] constexpr caors::error object_error(caors::errc code) noexcept {
   return {caors::error_domain::object, code};
 }
@@ -141,12 +154,26 @@ register_object_test_type(std::string_view name,
 } // namespace
 
 TEST_CASE("object - generated ids are valid and unique", "[object]") {
+  const caors::object_id generated = caors::objects::generate_object_id();
   runtime_actor first;
   runtime_actor second;
 
+  CHECK(static_cast<bool>(generated));
   CHECK(static_cast<bool>(first.id()));
   CHECK(static_cast<bool>(second.id()));
+  CHECK(generated != first.id());
+  CHECK(generated != second.id());
   CHECK(first.id() != second.id());
+}
+
+TEST_CASE("object - object_id supports standard unordered containers", "[object]") {
+  const caors::object_id id = caors::objects::generate_object_id();
+  REQUIRE(id);
+
+  std::unordered_map<caors::object_id, int> values;
+  values.emplace(id, 7);
+
+  CHECK(values.at(id) == 7);
 }
 
 TEST_CASE("object - typed base exposes runtime type information", "[object]") {
@@ -426,6 +453,30 @@ TEST_CASE("object - manager rejects mismatched typed lookups", "[object]") {
   CHECK_FALSE(manager.weak<managed_other_actor>(instance->id()));
   CHECK(manager.find(caors::objects::handle{instance->id(),
                                             managed_other_actor::static_type_id()}) == nullptr);
+}
+
+TEST_CASE("object - manager removes lookup entry before destruction", "[object]") {
+  caors::objects::manager manager;
+
+  const caors::error register_status =
+      register_object_test_type<destruction_observer>(destruction_observer::object_type_name);
+  REQUIRE((register_status == caors::error{} ||
+           register_status == object_error(caors::errc::duplicate_id)));
+
+  destruction_observer::manager = &manager;
+  destruction_observer::invisible_during_destruction = false;
+
+  destruction_observer* instance = manager.create<destruction_observer>();
+  REQUIRE(instance != nullptr);
+
+  const caors::object_id id = instance->id();
+  REQUIRE(manager.find(id) == instance);
+
+  CHECK(manager.destroy(id));
+  CHECK(destruction_observer::invisible_during_destruction);
+  CHECK(manager.find(id) == nullptr);
+
+  destruction_observer::manager = nullptr;
 }
 
 TEST_CASE("object - manager clear releases objects and invalidates handles", "[object]") {
