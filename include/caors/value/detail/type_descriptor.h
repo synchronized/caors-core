@@ -28,6 +28,7 @@ struct type_descriptor {
   meta::detail::value_destroy_fn destroy = nullptr;
   meta::detail::value_assign_fn assign = nullptr;
   const meta::type_semantics_data* semantics = nullptr;
+  const meta::detail::enum_data* enumeration = nullptr;
   const meta::detail::indirect_data* indirect = nullptr;
   const meta::detail::sequence_data* sequence = nullptr;
   const meta::detail::set_data* set = nullptr;
@@ -123,6 +124,16 @@ template <typename T> struct semantic_data_holder {
 
 template <typename T> [[nodiscard]] const meta::type_semantics_data* semantics_ptr_of() noexcept {
   return &semantic_data_holder<std::remove_cv_t<std::remove_reference_t<T>>>::value;
+}
+
+template <typename T> [[nodiscard]] const meta::detail::enum_data* enum_data_ptr_of() {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (std::is_enum_v<type>) {
+    static const meta::detail::enum_data data = meta::detail::make_enum_data<type>();
+    return data.valid() ? &data : nullptr;
+  } else {
+    return nullptr;
+  }
 }
 
 template <typename T> [[nodiscard]] meta::type_semantics_data make_pointer_semantics_data() {
@@ -554,6 +565,7 @@ template <typename T> struct descriptor_holder {
       meta::detail::value_destroy_fn_of<type>(),
       meta::detail::value_assign_fn_of<type>(),
       semantics_ptr_of<type>(),
+      enum_data_ptr_of<type>(),
       indirect_data_ptr_of<type>(),
       sequence_data_ptr_of<type>(),
       set_data_ptr_of<type>(),

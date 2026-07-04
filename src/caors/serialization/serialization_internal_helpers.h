@@ -13,6 +13,7 @@ namespace caors::serialization::detail {
 [[nodiscard]] bool field_uses_direct_value(const reflection::field& field) noexcept;
 [[nodiscard]] bool type_uses_inline_indirect_value(type_id id) noexcept;
 [[nodiscard]] bool type_is_enumeration(type_id id) noexcept;
+[[nodiscard]] bool type_is_enumeration(const any_ref& value) noexcept;
 [[nodiscard]] bool type_uses_object_ref(type_id id) noexcept;
 
 [[nodiscard]] variant_result make_object_ref_value(const any_ref& value,

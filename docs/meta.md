@@ -172,7 +172,7 @@ caors::meta::type_<actor>("game.actor")
 
 具体访问函数表不直接放在 `type_semantics_data` 里。已注册业务类型可以按能力挂到独立内部组件；
 `value::any`、`value::any_ref` 和反射字段也会携带内部 value descriptor，用来描述未注册结构类型的
-容器、指针、wrapper、pair、tuple 和 variant 访问能力：
+枚举转换、容器、指针、wrapper、pair、tuple 和 variant 访问能力：
 
 - `meta::detail::indirect_data`：裸指针或 wrapper 的内部值访问、持值检测、重置和确保持值函数。
 - `meta::detail::enum_data`：枚举类型和整数之间的转换函数。
@@ -182,7 +182,7 @@ caors::meta::type_<actor>("game.actor")
 类型形态和通用类型关系优先来自 value descriptor；如果类型已经显式注册到 meta，则也可以通过同一
 `type_id` 到 `meta::registry` 查询 `meta::type_semantics_data`。反射字段会保存声明类型的
 `type_id` 和 descriptor，因此 `std::vector<T>`、`std::optional<T>`、`std::tuple<...>` 这类结构类型不要求
-自身注册为 meta 类型。
+自身注册为 meta 类型；未注册枚举也可以在 `any` / `any_ref` 或容器元素路径上按底层整数读写。
 
 meta 不会因为存在 `traits::type_name<T>` 就在运行期隐式创建业务类型。需要稳定名称、GUID、对象工厂、
 反射字段列表或多态序列化身份的 C++ 类型仍应通过 `meta::type_<T>("name")` 显式注册。

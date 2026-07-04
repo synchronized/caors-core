@@ -21,6 +21,7 @@ struct field_data;
 
 namespace caors::value {
 
+class any;
 class any_ref;
 class indirect_view;
 class sequence_view;
@@ -29,6 +30,13 @@ class associative_view;
 class pair_view;
 class tuple_view;
 class variant_view;
+
+namespace detail {
+
+[[nodiscard]] const type_descriptor* descriptor_of(const any& value) noexcept;
+[[nodiscard]] const type_descriptor* descriptor_of(const any_ref& value) noexcept;
+
+} // namespace detail
 
 using set_element_visitor = bool (*)(any_ref element, void* user_data);
 using associative_entry_visitor = bool (*)(any_ref key, any_ref mapped, void* user_data);
@@ -255,6 +263,7 @@ public:
 private:
   friend class any_ref;
   friend struct reflection::detail::field_data;
+  friend const detail::type_descriptor* detail::descriptor_of(const any& value) noexcept;
 
   [[nodiscard]] static any copy_from_raw(type_id type, const detail::type_descriptor* descriptor,
                                          const void* source) {
@@ -311,6 +320,14 @@ private:
   const detail::type_descriptor* descriptor_ = nullptr;
   void* data_ = nullptr;
 };
+
+namespace detail {
+
+[[nodiscard]] inline const type_descriptor* descriptor_of(const any& value) noexcept {
+  return value.descriptor_;
+}
+
+} // namespace detail
 
 inline void swap(any& lhs, any& rhs) noexcept { lhs.swap(rhs); }
 

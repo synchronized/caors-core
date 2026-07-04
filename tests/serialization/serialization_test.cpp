@@ -3,7 +3,22 @@
 
 #include "serialization_test_support.h"
 
+#include <vector>
+
 using namespace caors::tests::serialization;
+
+namespace {
+
+enum class descriptor_enum_color : unsigned char {
+  red = 1,
+  blue = 2,
+};
+
+struct descriptor_enum_actor {
+  std::vector<descriptor_enum_color> colors{};
+};
+
+} // namespace
 
 TEST_CASE("serialization - registers type metadata component", "[serialization]") {
   REQUIRE(reflection_result_ok(
@@ -239,6 +254,41 @@ TEST_CASE("serialization - converts runtime values to variant", "[serialization]
       caors::serialization::to_variant(caors::any_ref{});
   CHECK(invalid_result.failed());
   CHECK(invalid_result.status.value() == caors::errc::invalid_argument);
+}
+
+TEST_CASE("serialization - descriptor enum data handles unregistered enum values",
+          "[serialization]") {
+  descriptor_enum_color color = descriptor_enum_color::blue;
+
+  const caors::serialization::variant_result ref_value =
+      caors::serialization::to_variant(caors::any_ref::from(color));
+  REQUIRE(ref_value.succeeded());
+  REQUIRE(ref_value.value.try_as_u64() != nullptr);
+  CHECK(ref_value.value.as_u64() == 2U);
+
+  const caors::serialization::variant_result owned_value =
+      caors::serialization::to_variant(caors::any::from(color));
+  REQUIRE(owned_value.succeeded());
+  REQUIRE(owned_value.value.try_as_u64() != nullptr);
+  CHECK(owned_value.value.as_u64() == 2U);
+
+  REQUIRE(reflection_result_ok(caors::reflection::class_<descriptor_enum_actor>(
+                                   "caors.test.serialization.descriptor_enum_actor")
+                                   .field("colors", &descriptor_enum_actor::colors)
+                                   .commit()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<descriptor_enum_actor>()));
+
+  const descriptor_enum_actor actor{{descriptor_enum_color::blue, descriptor_enum_color::red}};
+  const caors::serialization::serialization_text_result text = caors::serialize_json(actor);
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"colors":[2,1]})");
+
+  descriptor_enum_actor decoded{};
+  const caors::error result = caors::deserialize_json(decoded, R"({"colors":[1,2]})");
+  REQUIRE(result.succeeded());
+  REQUIRE(decoded.colors.size() == 2);
+  CHECK(decoded.colors[0] == descriptor_enum_color::red);
+  CHECK(decoded.colors[1] == descriptor_enum_color::blue);
 }
 
 TEST_CASE("serialization - variant reader deserializes reflected struct fields",

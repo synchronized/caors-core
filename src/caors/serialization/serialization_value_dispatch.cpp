@@ -16,8 +16,11 @@ variant_result make_serialized_value(const any& data) {
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
+  const caors::value::detail::type_descriptor* descriptor =
+      caors::value::detail::descriptor_of(data);
   const meta::type_semantics_data* semantics =
-      meta::get_registry().find_ptr<meta::type_semantics_data>(data.type());
+      descriptor != nullptr ? descriptor->semantics
+                            : meta::get_registry().find_ptr<meta::type_semantics_data>(data.type());
   if (semantics != nullptr &&
       (semantics->kind == meta::type_kind::raw_pointer ||
        semantics->kind == meta::type_kind::wrapper ||
@@ -108,7 +111,7 @@ variant_result make_serialized_value(const any_ref& value, const serialization::
     return make_object_ref_value(value, context);
   }
 
-  if (type_is_enumeration(value.type())) {
+  if (type_is_enumeration(value)) {
     return make_enum_value(value);
   }
 
@@ -180,7 +183,7 @@ error write_serialized_value(writer& writer, const any_ref& value,
     return write_object_ref_value(writer, value, context);
   }
 
-  if (type_is_enumeration(value.type())) {
+  if (type_is_enumeration(value)) {
     return write_enum_value(writer, value);
   }
 
@@ -256,7 +259,7 @@ error read_serialized_value(reader& reader, const any_ref& target,
     return read_object_ref_value(reader, target, context);
   }
 
-  if (type_is_enumeration(target.type())) {
+  if (type_is_enumeration(target)) {
     return read_enum_value(reader, target);
   }
 

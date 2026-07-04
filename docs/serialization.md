@@ -307,7 +307,7 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 
 | 类型形态 | 反射 / any 访问 | 序列化写出 | 反序列化读回 |
 | --- | --- | --- | --- |
-| 基础标量、枚举、`caors::string`、`std::string` | 保存真实 C++ 类型，可读写字段 | 支持 | 支持 |
+| 基础标量、枚举、`caors::string`、`std::string` | 保存真实 C++ 类型，可读写字段；枚举可通过 descriptor 或已注册 meta 能力转换 | 支持 | 支持 |
 | `std::string_view` | 保存 view 本身，不拥有字符存储 | 支持，按字符串写出 | 默认拒绝；可通过 `serialization::context::string_view_storage` 指向外部存储后读回 |
 | `std::filesystem::path` | 作为普通值类型 | 支持，按通用路径字符串写出 | 支持，从字符串构造 path |
 | `std::chrono` duration / `system_clock::time_point` | 作为普通值类型 | 支持，按整数写出 | 支持，从整数构造 |
@@ -329,6 +329,7 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
   `objects::ref<T>` 类似的显式引用语义处理。
 - 裸指针和普通智能指针按 inline value 处理，不保留对象身份、共享关系或对象图引用；需要身份保持时使用
   `caors::objects::ref<T>` 或后续对象 handle。
+- 未注册枚举可以通过 value descriptor 在 `any` / `any_ref` 和容器元素路径上按底层整数读写；如果枚举需要稳定名称、GUID 或作为普通反射字段类型被识别，仍应显式注册。
 - 容器、指针、wrapper、pair、tuple 和 variant 通过 value descriptor 生成运行期视图，不要求每一种
   `std::vector<T>`、`std::map<K, V>` 或嵌套组合都注册为 meta 类型。元素或候选值如果需要稳定名称、
   GUID、多态构造或对象工厂，仍应作为业务类型显式注册。

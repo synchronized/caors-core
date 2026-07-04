@@ -192,6 +192,7 @@ private:
   friend class tuple_view;
   friend class variant_view;
   friend struct reflection::detail::field_data;
+  friend const detail::type_descriptor* detail::descriptor_of(const any_ref& value) noexcept;
 
   [[nodiscard]] static any_ref from_raw(type_id type, const detail::type_descriptor* descriptor,
                                         const void* data, bool writable) noexcept {
@@ -223,6 +224,14 @@ private:
   const void* data_ = nullptr;
   bool writable_ = false;
 };
+
+namespace detail {
+
+[[nodiscard]] inline const type_descriptor* descriptor_of(const any_ref& value) noexcept {
+  return value.descriptor_;
+}
+
+} // namespace detail
 
 inline any_ref any::ref() { return any_ref::from_raw(type_, descriptor_, data_, true); }
 
