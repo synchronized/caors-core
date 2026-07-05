@@ -213,6 +213,34 @@ TEST_CASE("object - object index maps persistent guid to runtime id", "[object]"
   CHECK(index.guid_of(first) == caors::object_guid::nil());
 }
 
+TEST_CASE("object - object index unbinds by guid and clears mappings", "[object]") {
+  caors::objects::object_index index;
+  const caors::object_id first = caors::objects::generate_object_id();
+  const caors::object_id second = caors::objects::generate_object_id();
+
+  REQUIRE(index.bind(test_object_guid_a, first));
+  REQUIRE(index.bind(test_object_guid_b, second));
+  REQUIRE(index.size() == 2);
+
+  CHECK(index.unbind(test_object_guid_a));
+  CHECK_FALSE(index.unbind(test_object_guid_a));
+  CHECK_FALSE(index.contains(test_object_guid_a));
+  CHECK_FALSE(index.contains(first));
+  CHECK(index.find(test_object_guid_a) == caors::object_id::invalid());
+  CHECK(index.guid_of(first) == caors::object_guid::nil());
+  CHECK(index.find(test_object_guid_b) == second);
+  CHECK(index.guid_of(second) == test_object_guid_b);
+
+  index.clear();
+
+  CHECK(index.empty());
+  CHECK_FALSE(index.contains(test_object_guid_b));
+  CHECK_FALSE(index.contains(caors::object_guid::nil()));
+  CHECK_FALSE(index.contains(caors::object_id::invalid()));
+  CHECK(index.find(test_object_guid_b) == caors::object_id::invalid());
+  CHECK(index.guid_of(second) == caors::object_guid::nil());
+}
+
 TEST_CASE("object - typed base exposes runtime type information", "[object]") {
   const caors::error actor_status =
       register_object_test_type<runtime_actor>(runtime_actor::object_type_name);
@@ -433,6 +461,58 @@ TEST_CASE("object - manager binds persistent object guids through index", "[obje
   CHECK(manager.destroy(id));
   CHECK(index.empty());
   CHECK(manager.find(test_object_guid_a) == nullptr);
+}
+
+TEST_CASE("object - manager rejects persistent guid operations without index", "[object]") {
+  caors::objects::manager manager;
+
+  const caors::error actor_status =
+      register_object_test_type<managed_actor>(managed_actor::object_type_name);
+  REQUIRE(
+      (actor_status == caors::error{} || actor_status == object_error(caors::errc::duplicate_id)));
+
+  CHECK(manager.create_with_guid<managed_actor>(test_object_guid_a) == nullptr);
+  CHECK(manager.create_with_guid(managed_actor::static_type_id(), test_object_guid_a) == nullptr);
+
+  managed_actor* instance = manager.create<managed_actor>();
+  REQUIRE(instance != nullptr);
+
+  CHECK_FALSE(manager.bind_guid(instance->id(), test_object_guid_a));
+  CHECK(manager.guid_of(instance->id()) == caors::object_guid::nil());
+  CHECK(manager.find(test_object_guid_a) == nullptr);
+
+  CHECK(manager.destroy(instance));
+  CHECK(manager.empty());
+}
+
+TEST_CASE("object - manager rejects duplicate persistent guid bindings", "[object]") {
+  caors::objects::object_index index;
+  caors::objects::manager manager(index);
+
+  const caors::error actor_status =
+      register_object_test_type<managed_actor>(managed_actor::object_type_name);
+  REQUIRE(
+      (actor_status == caors::error{} || actor_status == object_error(caors::errc::duplicate_id)));
+
+  managed_actor* first = manager.create_with_guid<managed_actor>(test_object_guid_a);
+  REQUIRE(first != nullptr);
+  const caors::object_id first_id = first->id();
+
+  CHECK(manager.create_with_guid<managed_actor>(test_object_guid_a) == nullptr);
+  CHECK(manager.size() == 1);
+  CHECK(index.size() == 1);
+  CHECK(manager.find(test_object_guid_a) == first);
+  CHECK(index.find(test_object_guid_a) == first_id);
+
+  managed_actor* second = manager.create<managed_actor>();
+  REQUIRE(second != nullptr);
+  CHECK_FALSE(manager.bind_guid(second->id(), test_object_guid_a));
+  CHECK(manager.guid_of(second->id()) == caors::object_guid::nil());
+
+  CHECK(manager.destroy(second));
+  CHECK(manager.destroy(first_id));
+  CHECK(manager.empty());
+  CHECK(index.empty());
 }
 
 TEST_CASE("object - manager resolves typed weak handles and inheritance", "[object]") {
