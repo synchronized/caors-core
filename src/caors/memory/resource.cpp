@@ -104,6 +104,50 @@ bool callback_memory_resource::do_is_equal(const memory_resource& other) const n
          deallocate_fn_ == rhs->deallocate_fn_ && user_data_ == rhs->user_data_;
 }
 
+memory_block::~memory_block() { reset(); }
+
+memory_block::memory_block(memory_block&& other) noexcept
+    : ptr_(other.ptr_), size_(other.size_), alignment_(other.alignment_),
+      resource_(other.resource_) {
+  other.ptr_ = nullptr;
+  other.size_ = 0;
+  other.alignment_ = default_memory_alignment;
+  other.resource_ = nullptr;
+}
+
+memory_block& memory_block::operator=(memory_block&& other) noexcept {
+  if (this != &other) {
+    reset();
+    ptr_ = other.ptr_;
+    size_ = other.size_;
+    alignment_ = other.alignment_;
+    resource_ = other.resource_;
+    other.ptr_ = nullptr;
+    other.size_ = 0;
+    other.alignment_ = default_memory_alignment;
+    other.resource_ = nullptr;
+  }
+
+  return *this;
+}
+
+void* memory_block::release() noexcept {
+  void* ptr = ptr_;
+  ptr_ = nullptr;
+  return ptr;
+}
+
+void memory_block::reset() noexcept {
+  if (ptr_ != nullptr && resource_ != nullptr) {
+    resource_->deallocate(ptr_, size_, alignment_);
+  }
+
+  ptr_ = nullptr;
+  size_ = 0;
+  alignment_ = default_memory_alignment;
+  resource_ = nullptr;
+}
+
 bool operator==(const memory_resource& lhs, const memory_resource& rhs) noexcept {
   return lhs.is_equal(rhs);
 }
@@ -135,6 +179,25 @@ void* allocate(std::size_t size, std::size_t alignment, memory_resource* resourc
 void deallocate(void* ptr, std::size_t size, std::size_t alignment,
                 memory_resource* resource) noexcept {
   detail::resolve_resource(resource).deallocate(ptr, size, alignment);
+}
+
+memory_block try_allocate_block(std::size_t size, std::size_t alignment,
+                                memory_resource* resource) noexcept {
+  if (!detail::is_power_of_two(alignment)) {
+    return {};
+  }
+
+  memory_resource& resolved = detail::resolve_resource(resource);
+  void* ptr = resolved.try_allocate(size, alignment);
+  return ptr != nullptr ? memory_block{ptr, size, alignment, &resolved} : memory_block{};
+}
+
+memory_block allocate_block(std::size_t size, std::size_t alignment, memory_resource* resource) {
+  detail::validate_alignment_or_fail(alignment);
+
+  memory_resource& resolved = detail::resolve_resource(resource);
+  void* ptr = resolved.allocate(size, alignment);
+  return memory_block{ptr, size, alignment, &resolved};
 }
 
 } // namespace caors::memory

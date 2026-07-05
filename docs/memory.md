@@ -43,6 +43,8 @@ meta / reflection / serialization / object
 - `caors/memory/debug_tools.h`：调试记录收集 helper，例如 `collect_live_allocations()`。
 - `caors/memory/monotonic.h`：线性分配策略资源。
 - `caors/memory/fixed_block_pool.h`：固定块池策略资源。
+- `caors/memory/resource.h`：同时提供裸内存 RAII 句柄 `memory_block` 和
+  `allocate_block()` / `try_allocate_block()`。
 - `caors/memory/unique_ptr.h`：可保存运行期销毁回调的 `erased_deleter<T>` 和
   `memory::unique_ptr<T>`。
 - `caors/memory.h`：兼容用聚合头，包含以上所有入口。
@@ -142,6 +144,42 @@ caors::set_default_memory_resource(&resource);
   和 `value::any` 等类型可能保存 `memory_resource*`，它们不拥有资源对象，调用方必须保证资源生命周期更长。
 - 多线程运行中不应切换默认资源。默认资源指针使用原子变量只能避免数据竞争，不能保证同一块内存的分配和释放走同一个资源。
   需要切换时，应在明确的停机点完成，并保证没有跨越切换点存活的默认资源分配。
+
+### memory_block
+
+`memory_block` 是一块裸内存的 RAII 句柄。它保存 `ptr`、`size`、`alignment` 和分配时解析到的
+`memory_resource*`，析构或 `reset()` 时会用同一个资源释放内存，不再读取当前默认资源：
+
+```cpp
+caors::tracking_resource tracking(&caors::get_system_memory_resource());
+
+caors::memory_block block = caors::allocate_block(128, 64, &tracking);
+// block 析构时自动调用 tracking.deallocate(ptr, 128, 64)
+```
+
+如果需要不抛异常的路径，可以使用 `try_allocate_block()`。分配失败或非法对齐时返回空句柄：
+
+```cpp
+caors::memory_block block = caors::try_allocate_block(128, 64, &tracking);
+if (!block) {
+  // 分配失败
+}
+```
+
+需要把裸指针交给外部系统时，可以调用 `release()` 放弃所有权。调用方必须保存并使用原来的资源、大小和对齐释放：
+
+```cpp
+void* ptr = block.release();
+tracking.deallocate(ptr, 128, 64);
+```
+
+推荐规则：
+
+- 普通代码需要持有裸内存时优先使用 `memory_block`。
+- 只有在实现底层 resource、对接外部 C API 或确实需要手动生命周期时，才直接使用
+  `allocate()` / `deallocate()`。
+- `memory_block` 不构造对象；对象生命周期仍应使用 `make<T>()` / `destroy<T>()` 或
+  `memory::make_unique<T>()`。
 
 ### 内部全局分配策略
 

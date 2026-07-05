@@ -66,6 +66,54 @@ private:
   void* user_data_ = nullptr;
 };
 
+/** @brief 拥有一块裸内存的 RAII 句柄。 */
+class CAORS_API memory_block final {
+public:
+  constexpr memory_block() noexcept = default;
+  ~memory_block();
+
+  memory_block(const memory_block&) = delete;
+  memory_block& operator=(const memory_block&) = delete;
+
+  memory_block(memory_block&& other) noexcept;
+  memory_block& operator=(memory_block&& other) noexcept;
+
+  /** @brief 返回裸内存起始地址。 */
+  [[nodiscard]] void* data() const noexcept { return ptr_; }
+  /** @brief 返回分配时记录的大小。 */
+  [[nodiscard]] std::size_t size() const noexcept { return size_; }
+  /** @brief 返回分配时记录的对齐。 */
+  [[nodiscard]] std::size_t alignment() const noexcept { return alignment_; }
+  /** @brief 返回释放时使用的资源。 */
+  [[nodiscard]] memory_resource* resource() const noexcept { return resource_; }
+  /** @brief 判断当前是否拥有内存。 */
+  [[nodiscard]] explicit operator bool() const noexcept { return ptr_ != nullptr; }
+
+  /**
+   * @brief 放弃所有权并返回裸指针。
+   *
+   * 调用方接管释放责任，必须使用返回前记录的资源、大小和对齐释放该指针。
+   */
+  [[nodiscard]] void* release() noexcept;
+  /** @brief 释放当前内存并清空句柄。 */
+  void reset() noexcept;
+
+private:
+  friend memory_block try_allocate_block(std::size_t size, std::size_t alignment,
+                                         memory_resource* resource) noexcept;
+  friend memory_block allocate_block(std::size_t size, std::size_t alignment,
+                                     memory_resource* resource);
+
+  constexpr memory_block(void* ptr, std::size_t size, std::size_t alignment,
+                         memory_resource* resource) noexcept
+      : ptr_(ptr), size_(size), alignment_(alignment), resource_(resource) {}
+
+  void* ptr_ = nullptr;
+  std::size_t size_ = 0;
+  std::size_t alignment_ = default_memory_alignment;
+  memory_resource* resource_ = nullptr;
+};
+
 [[nodiscard]] CAORS_API bool operator==(const memory_resource& lhs,
                                         const memory_resource& rhs) noexcept;
 [[nodiscard]] CAORS_API bool operator!=(const memory_resource& lhs,
@@ -84,6 +132,12 @@ CAORS_API memory_resource* set_default_memory_resource(memory_resource* resource
 CAORS_API void deallocate(void* ptr, std::size_t size,
                           std::size_t alignment = default_memory_alignment,
                           memory_resource* resource = nullptr) noexcept;
+[[nodiscard]] CAORS_API memory_block
+try_allocate_block(std::size_t size, std::size_t alignment = default_memory_alignment,
+                   memory_resource* resource = nullptr) noexcept;
+[[nodiscard]] CAORS_API memory_block
+allocate_block(std::size_t size, std::size_t alignment = default_memory_alignment,
+               memory_resource* resource = nullptr);
 
 template <typename T> class allocator {
 public:
@@ -184,13 +238,16 @@ using memory::destroy;
 using memory::get_default_memory_resource;
 using memory::get_system_memory_resource;
 using memory::make;
+using memory::memory_block;
 using memory::memory_resource;
 using memory::operator!=;
 using memory::operator==;
 using memory::allocate;
+using memory::allocate_block;
 using memory::set_default_memory_resource;
 using memory::system_memory_resource;
 using memory::try_allocate;
+using memory::try_allocate_block;
 
 template <typename T> using allocator = memory::allocator<T>;
 
