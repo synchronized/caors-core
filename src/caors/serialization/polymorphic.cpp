@@ -46,6 +46,78 @@ namespace {
 
 } // namespace
 
+namespace detail {
+
+bool object_requires_polymorphic_envelope(type_id declared_id,
+                                          const objects::object& object) noexcept {
+  const objects::object_type_id dynamic_id = object.type_id();
+  return declared_id && dynamic_id && dynamic_id != declared_id;
+}
+
+variant_result to_polymorphic_object_serialization_value(type_id declared_id,
+                                                         const objects::object& object,
+                                                         const serialization::context& context) {
+  const objects::object_type_id dynamic_id = object.type_id();
+  if (!declared_id || !dynamic_id) {
+    return {{error_domain::serialization, errc::invalid_type}, {}};
+  }
+
+  if (dynamic_id == declared_id) {
+    return to_serialization_value(declared_id, &object, context);
+  }
+
+  if (!objects::is_a(dynamic_id, declared_id)) {
+    return {{error_domain::serialization, errc::invalid_type}, {}};
+  }
+
+  const objects::type dynamic_type = objects::find(dynamic_id);
+  if (!dynamic_type) {
+    return {{error_domain::serialization, errc::missing_type}, {}};
+  }
+
+  variant_result value = to_serialization_value(dynamic_type.id(), &object, context);
+  if (value.failed()) {
+    return value;
+  }
+
+  return make_polymorphic_envelope(dynamic_type.guid(), std::move(value.value));
+}
+
+error serialize_polymorphic_object(type_id declared_id, const objects::object& object,
+                                   writer& writer, const serialization::context& context) {
+  variant_result value = to_polymorphic_object_serialization_value(declared_id, object, context);
+  if (value.failed()) {
+    return value.status;
+  }
+
+  return serialization::write_variant(writer, value.value);
+}
+
+bool is_polymorphic_value(const variant& value) noexcept { return is_polymorphic_envelope(value); }
+
+error deserialize_polymorphic_object_into(type_id declared_id, objects::object& object,
+                                          const variant& value,
+                                          const serialization::context& context) {
+  result<meta::type> dynamic_type = resolve_polymorphic_meta_type(declared_id, value);
+  if (dynamic_type.failed()) {
+    return dynamic_type.status;
+  }
+
+  if (object.type_id() != dynamic_type.value.id()) {
+    return {error_domain::serialization, errc::invalid_type};
+  }
+
+  const variant* stored_value = read_polymorphic_value(value);
+  if (stored_value == nullptr) {
+    return {error_domain::serialization, errc::not_found};
+  }
+
+  variant_reader reader{*stored_value};
+  return deserialize(dynamic_type.value.id(), &object, reader, context);
+}
+
+} // namespace detail
+
 variant_result to_polymorphic_serialization_value(const objects::object& object,
                                                   const serialization::context& context) {
   const objects::object_type_id dynamic_id = object.type_id();

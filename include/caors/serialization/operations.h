@@ -22,6 +22,14 @@ template <typename T> [[nodiscard]] error serialize(const T& object, writer& wri
     return {error_domain::serialization, errc::missing_type};
   }
 
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (std::is_base_of_v<objects::object, value_type>) {
+    if (detail::object_requires_polymorphic_envelope(type.id(), object)) {
+      return detail::serialize_polymorphic_object(type.id(), object, writer,
+                                                  serialization::context{});
+    }
+  }
+
   return detail::serialize(type.id(), &object, writer);
 }
 
@@ -32,6 +40,13 @@ template <typename T>
   const meta::type type = caors::meta::find<T>();
   if (!type) {
     return {error_domain::serialization, errc::missing_type};
+  }
+
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (std::is_base_of_v<objects::object, value_type>) {
+    if (detail::object_requires_polymorphic_envelope(type.id(), object)) {
+      return detail::serialize_polymorphic_object(type.id(), object, writer, context);
+    }
   }
 
   return detail::serialize(type.id(), &object, writer, context);
@@ -66,14 +81,25 @@ template <typename T>
 
 /** @brief 从序列化 DOM 中间对象反序列化到对象。 */
 template <typename T> [[nodiscard]] error deserialize(T& object, const variant& value) {
-  serialization::variant_reader reader{value};
-  return deserialize(object, reader);
+  return deserialize(object, value, serialization::context{});
 }
 
 /** @brief 按上下文从序列化 DOM 中间对象反序列化到对象。 */
 template <typename T>
 [[nodiscard]] error deserialize(T& object, const variant& value,
                                 const serialization::context& context) {
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (std::is_base_of_v<objects::object, value_type>) {
+    if (detail::is_polymorphic_value(value)) {
+      const meta::type type = caors::meta::find<value_type>();
+      if (!type) {
+        return {error_domain::serialization, errc::missing_type};
+      }
+
+      return detail::deserialize_polymorphic_object_into(type.id(), object, value, context);
+    }
+  }
+
   serialization::variant_reader reader{value};
   return deserialize(object, reader, context);
 }
@@ -107,6 +133,14 @@ template <typename T> [[nodiscard]] variant_result to_serialization_value(const 
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
 
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (std::is_base_of_v<objects::object, value_type>) {
+    if (detail::object_requires_polymorphic_envelope(type.id(), object)) {
+      return detail::to_polymorphic_object_serialization_value(type.id(), object,
+                                                               serialization::context{});
+    }
+  }
+
   return detail::to_serialization_value(type.id(), &object);
 }
 
@@ -119,51 +153,62 @@ template <typename T>
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
 
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (std::is_base_of_v<objects::object, value_type>) {
+    if (detail::object_requires_polymorphic_envelope(type.id(), object)) {
+      return detail::to_polymorphic_object_serialization_value(type.id(), object, context);
+    }
+  }
+
   return detail::to_serialization_value(type.id(), &object, context);
 }
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象序列化为简单文本格式。 */
 template <typename T> [[nodiscard]] serialization_text_result serialize_text(const T& object) {
-  const meta::type type = caors::meta::find<T>();
-  if (!type) {
-    return {{error_domain::serialization, errc::missing_type}, {}};
+  serialization::text_writer writer;
+  const error status = serialize(object, writer);
+  if (status) {
+    return {status, {}};
   }
 
-  return detail::serialize_text(type.id(), &object);
+  return {{}, writer.text()};
 }
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象按上下文序列化为简单文本格式。 */
 template <typename T>
 [[nodiscard]] serialization_text_result serialize_text(const T& object,
                                                        const serialization::context& context) {
-  const meta::type type = caors::meta::find<T>();
-  if (!type) {
-    return {{error_domain::serialization, errc::missing_type}, {}};
+  serialization::text_writer writer;
+  const error status = serialize(object, writer, context);
+  if (status) {
+    return {status, {}};
   }
 
-  return detail::serialize_text(type.id(), &object, context);
+  return {{}, writer.text()};
 }
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象序列化为 JSON。 */
 template <typename T> [[nodiscard]] serialization_text_result serialize_json(const T& object) {
-  const meta::type type = caors::meta::find<T>();
-  if (!type) {
-    return {{error_domain::serialization, errc::missing_type}, {}};
+  serialization::json_writer writer;
+  const error status = serialize(object, writer);
+  if (status) {
+    return {status, {}};
   }
 
-  return detail::serialize_json(type.id(), &object);
+  return {{}, writer.text()};
 }
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象按上下文序列化为 JSON。 */
 template <typename T>
 [[nodiscard]] serialization_text_result serialize_json(const T& object,
                                                        const serialization::context& context) {
-  const meta::type type = caors::meta::find<T>();
-  if (!type) {
-    return {{error_domain::serialization, errc::missing_type}, {}};
+  serialization::json_writer writer;
+  const error status = serialize(object, writer, context);
+  if (status) {
+    return {status, {}};
   }
 
-  return detail::serialize_json(type.id(), &object, context);
+  return {{}, writer.text()};
 }
 
 /** @brief 把对象按真实运行期类型序列化为带 `$type` / `$value` 的多态 DOM envelope。 */

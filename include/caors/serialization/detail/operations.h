@@ -86,6 +86,28 @@ serialize_text(type_id id, const void* object, const serialization::context& con
 [[nodiscard]] CAORS_API serialization_text_result
 serialize_json(type_id id, const void* object, const serialization::context& context);
 
+/** @brief 判断对象运行期类型是否需要写出多态 envelope。 */
+[[nodiscard]] CAORS_API bool
+object_requires_polymorphic_envelope(type_id declared_id, const objects::object& object) noexcept;
+
+/** @brief 按对象运行期真实类型写出多态 envelope。 */
+[[nodiscard]] CAORS_API error serialize_polymorphic_object(type_id declared_id,
+                                                           const objects::object& object,
+                                                           writer& writer,
+                                                           const serialization::context& context);
+
+/** @brief 按对象运行期真实类型构造多态 envelope。 */
+[[nodiscard]] CAORS_API variant_result to_polymorphic_object_serialization_value(
+    type_id declared_id, const objects::object& object, const serialization::context& context);
+
+/** @brief 判断 DOM 值是否为多态 envelope。 */
+[[nodiscard]] CAORS_API bool is_polymorphic_value(const variant& value) noexcept;
+
+/** @brief 把多态 envelope 写入已存在且运行期类型匹配的对象。 */
+[[nodiscard]] CAORS_API error
+deserialize_polymorphic_object_into(type_id declared_id, objects::object& object,
+                                    const variant& value, const serialization::context& context);
+
 } // namespace caors::serialization::detail
 
 #endif

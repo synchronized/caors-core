@@ -25,7 +25,7 @@
 - 支持已注册反射和序列化元信息的值类型结构体字段递归序列化和 DOM 反序列化。
 - 提供基于 traits 的顺序容器、集合容器、关联容器、pair、tuple 和 variant 访问，支持标量、wrapper、对象引用和已注册结构体元素。
 - 通过 `serialization::reference_resolver` 支持 `caors::objects::ref<T>` 对象引用字段。
-- 通过显式多态 object envelope 支持 `caors::objects::object` 派生对象的动态类型记录、manager 创建和安全下转型。
+- 普通序列化入口会在 `caors::objects::object` 派生对象的运行期类型不同于声明类型时自动写出多态 envelope。
 - 通过 `$type` / `$value` envelope 支持 `std::unique_ptr<Base>`、`caors::memory::unique_ptr<Base>`
   和 `std::shared_ptr<Base>` 字段持有普通 C++ 派生类对象，并支持显式 factory 构造策略。
 - 用 `caors::error` 和 `caors::result<T>` 表达失败状态和携带值的返回结果。
@@ -80,23 +80,24 @@
 
 ### 多态 object
 
-多态对象序列化使用显式 API，不会改变普通 `serialize<T>()` / `deserialize<T>()` 的静态类型行为。
-写出时，调度层读取对象的真实 `type_id()`，要求动态类型已经完成 object、reflection 和 serialization
-注册，并且拥有非 nil `type_guid`。输出 DOM envelope 固定包含：
+普通序列化入口默认支持 `objects::object` 的运行期真实类型。写出时，调度层读取对象的
+`type_id()`；如果运行期类型不同于调用点声明类型，就按真实类型写出 DOM envelope。动态类型必须已经
+完成 object、reflection 和 serialization 注册，并且拥有非 nil `type_guid`。输出 envelope 固定包含：
 
 - `$type`：动态类型的稳定 `type_guid` 字符串。
 - `$value`：按动态类型反射字段生成的对象数据。
 
 ```cpp
-caors::serialization::variant_result value =
-    caors::serialization::to_polymorphic_serialization_value(instance);
+player instance{};
+actor& base = instance;
 
-caors::serialization::serialization_text_result json =
-    caors::serialization::serialize_polymorphic_json(instance);
+caors::serialization::variant_result value = caors::to_serialization_value(base);
+caors::serialization::serialization_text_result json = caors::serialize_json(base);
 ```
 
-反序列化时需要在 `serialization::context` 中提供 `objects::manager`。manager 持有的
-`memory_resource` 负责分配，创建出的对象也由 manager 负责销毁：
+普通反序列化入口读到 `$type` / `$value` 时，会先校验动态类型是声明基类的派生类型。如果目标对象
+当前运行期类型和 `$type` 一致，则把 `$value` 写入这个已有对象；如果没有 `$type`，则按普通声明类型
+读入。需要从 envelope 新建对象时，仍需使用 manager 创建路径，`context.object_manager` 负责分配和销毁：
 
 ```cpp
 caors::objects::manager manager;
@@ -111,14 +112,15 @@ caors::result<actor*> decoded =
 
 1. 读取 `$type` 并用 `type_guid` 查找动态类型。
 2. 校验动态类型是调用点声明基类的派生类型。
-3. 通过 `context.object_manager->create(dynamic_type_id)` 默认构造对象。
-4. 用 `$value` 按动态类型反序列化字段。
-5. 如果字段读入失败，自动通过 manager 销毁刚创建的对象并返回错误。
+3. 已有对象读入时，要求目标对象当前 `type_id()` 和 `$type` 对应的动态类型一致。
+4. 新建对象读入时，通过 `context.object_manager->create(dynamic_type_id)` 默认构造对象。
+5. 用 `$value` 按动态类型反序列化字段。
+6. 如果新建对象字段读入失败，自动通过 manager 销毁刚创建的对象并返回错误。
 
 当前边界：
 
 - 只支持 `objects::object` 派生类型。
-- 动态类型必须可由 `objects::manager` 默认构造。
+- 只有新建对象读入需要动态类型可由 `objects::manager` 默认构造；写入已有对象不需要 manager。
 - 类型身份只写稳定 `type_guid`，不写运行期 `type_id`。
 - 不自动接管裸指针、`std::shared_ptr<Base>` 等字段的所有权；这类字段仍按现有指针/wrapper 规则处理。
 - 不保留对象图中的共享实例身份和循环引用；需要对象引用时继续使用 `objects::ref<T>` 和 resolver。
@@ -589,7 +591,8 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 - `std::variant<...>` 已支持按 tagged union 数组 `[index, value]` 读写；反序列化时数组长度必须等于 2，
   `index` 必须在候选范围内，否则返回 `errc::invalid_argument`。相同候选会更新已有值；切换候选时目标候选
   需要支持默认构造或资源感知构造，否则返回 `errc::invalid_type`。处于无值状态的 variant 当前返回不支持。
-- 直接值字段仍按字段声明静态类型处理；运行期动态类型记录只发生在显式多态 object API 或拥有型智能指针 wrapper envelope 上。
+- 直接值字段仍按字段声明静态类型处理；运行期动态类型记录发生在 `objects::object`
+  声明类型和真实类型不一致时，以及拥有型智能指针 wrapper envelope 上。
 - JSON reader 目前不完整支持非 ASCII `\uXXXX` 解码，二进制格式、版本迁移和默认值恢复也尚未实现。
 
 ### caors::variant
@@ -749,9 +752,9 @@ caors::string text = result.value;
 - `serialize()`：通过指定 writer 后端序列化对象。
 - `deserialize()`：通过指定 reader 后端反序列化对象。
 - `to_serialization_value()`：通过反射和序列化元信息构造中间对象树。
-- `to_polymorphic_serialization_value()`：按对象真实运行期类型构造 `$type` / `$value` envelope。
-- `deserialize_polymorphic_object()`：通过 `context.object_manager` 构造并读入多态对象。
-- `serialize_polymorphic_json()` / `deserialize_polymorphic_json()`：JSON 形式的多态对象 envelope 入口。
+- `to_polymorphic_serialization_value()`：兼容入口，显式按对象真实运行期类型构造 `$type` / `$value` envelope。
+- `deserialize_polymorphic_object()`：兼容入口，通过 `context.object_manager` 构造并读入多态对象。
+- `serialize_polymorphic_json()` / `deserialize_polymorphic_json()`：兼容入口，JSON 形式的多态对象 envelope。
 - `serialization::write_variant()`：把中间对象树写入指定 writer。
 - `serialization_text_result`：`caors::result<caors::string>` 文本序列化结果。
 - `variant_result`：`caors::result<variant>` 中间值构造结果。
@@ -764,7 +767,7 @@ caors::string text = result.value;
 - 内置 string、string_view、guid 和 type_guid codec。
 - 裸指针、普通 wrapper、`objects::ref<T>` 和已适配容器字段。
 - 运行期 `object_id` resolver 和持久 `object_guid` resolver。
-- 基于稳定 `type_guid` 和 `objects::manager` 的显式多态 object 序列化。
+- 基于稳定 `type_guid` 的 `objects::object` 运行期真实类型序列化。
 - 基于稳定 `type_guid`、RTTI、typed parent upcast 和可选 factory 的普通类拥有型智能指针多态序列化。
 - `variant` 安全访问器、数组/字典/对象辅助修改和成员查询。
 - 序列化注册早于反射字段注册。
