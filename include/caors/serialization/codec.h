@@ -77,27 +77,27 @@ private:
  * `serialization::register_codec<T>()`。 */
 [[nodiscard]] CAORS_API error register_serialization_codec(type_id id, codec_data codec);
 
-/** @brief 按 C++ 类型注册已特化的序列化 codec。内部入口。 */
-template <typename T> [[nodiscard]] error register_serialization_codec() {
+/** @brief 从 codec 策略类型构造类型擦除函数表。 */
+template <typename Codec, typename T> [[nodiscard]] codec_data make_codec_data_from() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  codec_data codec{};
+  codec_data data{};
 
-  if constexpr (serialization::codec<type>::can_write) {
-    codec.write = [](serialization::writer& writer, const any& data) -> error {
-      const type* stored = data.try_get<type>();
+  if constexpr (Codec::can_write) {
+    data.write = [](serialization::writer& writer, const any& value) -> error {
+      const type* stored = value.try_get<type>();
       if (stored == nullptr) {
         return {error_domain::serialization, errc::invalid_type};
       }
 
-      return serialization::codec<type>::write(writer, *stored);
+      return Codec::write(writer, *stored);
     };
   }
 
-  if constexpr (serialization::codec<type>::can_read) {
-    codec.read = [](serialization::reader& reader, const reflection::field& field,
-                    void* object) -> error {
+  if constexpr (Codec::can_read) {
+    data.read = [](serialization::reader& reader, const reflection::field& field,
+                   void* object) -> error {
       type decoded{};
-      error status = serialization::codec<type>::read(reader, decoded);
+      error status = Codec::read(reader, decoded);
       if (status) {
         return status;
       }
@@ -109,9 +109,9 @@ template <typename T> [[nodiscard]] error register_serialization_codec() {
       return {};
     };
 
-    codec.read_value = [](serialization::reader& reader, const any_ref& target) -> error {
+    data.read_value = [](serialization::reader& reader, const any_ref& target) -> error {
       type decoded{};
-      error status = serialization::codec<type>::read(reader, decoded);
+      error status = Codec::read(reader, decoded);
       if (status) {
         return status;
       }
@@ -124,18 +124,38 @@ template <typename T> [[nodiscard]] error register_serialization_codec() {
     };
   }
 
-  if constexpr (serialization::codec<type>::can_make_value) {
-    codec.make_value = [](const any& data) -> variant_result {
-      const type* stored = data.try_get<type>();
+  if constexpr (Codec::can_make_value) {
+    data.make_value = [](const any& value) -> variant_result {
+      const type* stored = value.try_get<type>();
       if (stored == nullptr) {
         return {{error_domain::serialization, errc::invalid_type}, {}};
       }
 
-      return serialization::codec<type>::make_value(*stored);
+      return Codec::make_value(*stored);
     };
   }
 
-  if (!codec.valid()) {
+  return data;
+}
+
+/** @brief 从公开 `serialization::codec<T>` 特化构造类型擦除函数表。 */
+template <typename T> [[nodiscard]] codec_data make_codec_data() {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  return make_codec_data_from<serialization::codec<type>, type>();
+}
+
+/** @brief 查询公开 codec 特化对应的静态函数表。 */
+template <typename T> [[nodiscard]] const codec_data* codec_data_ptr_of() {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  static const codec_data data = make_codec_data<type>();
+  return data.valid() ? &data : nullptr;
+}
+
+/** @brief 按 C++ 类型注册已特化的序列化 codec。内部入口。 */
+template <typename T> [[nodiscard]] error register_serialization_codec() {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  const codec_data* codec = codec_data_ptr_of<type>();
+  if (codec == nullptr) {
     return {error_domain::serialization, errc::unsupported};
   }
 
@@ -144,7 +164,7 @@ template <typename T> [[nodiscard]] error register_serialization_codec() {
     return {error_domain::serialization, errc::invalid_type};
   }
 
-  return register_serialization_codec(meta_type.id(), codec);
+  return register_serialization_codec(meta_type.id(), *codec);
 }
 
 } // namespace caors::serialization::detail

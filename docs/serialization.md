@@ -410,6 +410,16 @@ caors::serialization::context context{0, &resolver};
 原子值的类型，不需要暴露内部字段结构。容器、pair、tuple 和 variant 字段优先通过 meta 视图递归处理元素，因此元素也能继续
 复用 codec、反射、指针和 wrapper 规则。
 
+codec 和 meta descriptor 的边界：
+
+- `meta::detail::type_descriptor` 描述 C++ 值本身的基础能力，例如布局、构造、销毁、枚举、容器和 wrapper
+  访问。
+- `serialization::detail::codec_data` 描述序列化专用能力，例如写入 writer、从 reader 读回和构造
+  `variant` 中间值。
+- 编译期已知 `T` 时，内部可以从 `serialization::codec<T>` 静态生成一份 `codec_data` 函数表。
+- 运行期只剩 `type_id` 时，序列化调度只能通过 codec registry 查询 `type_id -> codec_data`。
+- `serialization::register_codec<T>()` 不创建 meta 类型，只把已经注册的 `type_id` 和对应 codec 函数表绑定。
+
 内置 codec 和默认 traits 处理：
 
 - `caors::string`：按字符串读写，默认走 CAORS allocator。
@@ -439,7 +449,9 @@ caors::serialization::context context{0, &resolver};
 `caors/adapters/stl.h`，该头不会拉入序列化 codec。
 
 内置标量 codec 按当前已注册的 meta 类型懒加载补齐，不要求所有内置类型都在第一次查询 codec
-注册表前完成注册。外部自定义 codec 仍需要在对应类型注册后显式调用 `serialization::register_codec<T>()`。
+注册表前完成注册。内置 codec 和外部 `serialization::codec<T>` 特化都通过同一套函数表构造逻辑生成
+`codec_data`；区别只是内置 codec 由库内部按需注册，外部自定义 codec 仍需要在对应类型注册后显式调用
+`serialization::register_codec<T>()`。
 
 反射字段中的容器、pair、tuple 和 variant 不要求显式调用 `serialization::register_codec<T>()`，
 也不要求每一种容器模板组合都注册为 meta 类型。字段 descriptor 会根据

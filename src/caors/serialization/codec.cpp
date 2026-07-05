@@ -135,260 +135,200 @@ template <typename Duration>
   return {};
 }
 
-template <typename T> [[nodiscard]] error read_codec_payload(reader& reader, T& decoded) {
-  if constexpr (std::is_same_v<T, core::string>) {
-    return read_caors_string(reader, decoded);
-  } else if constexpr (std::is_same_v<T, std::string>) {
-    return read_std_string(reader, decoded);
-  } else if constexpr (std::is_same_v<T, core::guid>) {
-    return read_guid(reader, decoded);
-  } else if constexpr (std::is_same_v<T, core::type_guid>) {
-    return read_type_guid(reader, decoded);
-  } else if constexpr (std::is_same_v<T, std::filesystem::path>) {
-    return read_filesystem_path(reader, decoded);
-  } else if constexpr (std::is_same_v<T, std::chrono::nanoseconds> ||
-                       std::is_same_v<T, std::chrono::microseconds> ||
-                       std::is_same_v<T, std::chrono::milliseconds> ||
-                       std::is_same_v<T, std::chrono::seconds> ||
-                       std::is_same_v<T, std::chrono::minutes> ||
-                       std::is_same_v<T, std::chrono::hours>) {
-    return read_chrono_duration(reader, decoded);
-  } else if constexpr (std::is_same_v<T, std::chrono::system_clock::time_point>) {
-    return read_system_time_point(reader, decoded);
-  } else {
-    return {error_domain::serialization, errc::unsupported};
-  }
-}
+template <typename T> struct builtin_codec {
+  static constexpr bool can_write = false;
+  static constexpr bool can_read = false;
+  static constexpr bool can_make_value = false;
+};
 
-template <typename T>
-[[nodiscard]] error read_codec_value(reader& reader, const reflection::field& field, void* object) {
-  T decoded{};
-  const error status = read_codec_payload<T>(reader, decoded);
+template <> struct builtin_codec<core::string> {
+  static constexpr bool can_write = true;
+  static constexpr bool can_read = true;
+  static constexpr bool can_make_value = true;
 
-  if (status) {
-    return status;
+  [[nodiscard]] static error write(writer& writer, const core::string& value) {
+    return writer.write_string(value);
   }
 
-  if (!field.try_set<T>(object, decoded)) {
-    return {error_domain::serialization, errc::unsupported};
+  [[nodiscard]] static error read(reader& reader, core::string& value) {
+    return read_caors_string(reader, value);
   }
 
-  return {};
-}
+  [[nodiscard]] static variant_result make_value(const core::string& value) {
+    return {{}, variant::from(value)};
+  }
+};
 
-template <typename T> [[nodiscard]] error read_codec_ref(reader& reader, const any_ref& target) {
-  T decoded{};
-  const error status = read_codec_payload<T>(reader, decoded);
-  if (status) {
-    return status;
+template <> struct builtin_codec<std::string> {
+  static constexpr bool can_write = true;
+  static constexpr bool can_read = true;
+  static constexpr bool can_make_value = true;
+
+  [[nodiscard]] static error write(writer& writer, const std::string& value) {
+    return writer.write_string(value);
   }
 
-  if (!target.try_set<T>(decoded)) {
-    return {error_domain::serialization, errc::unsupported};
+  [[nodiscard]] static error read(reader& reader, std::string& value) {
+    return read_std_string(reader, value);
   }
 
-  return {};
-}
+  [[nodiscard]] static variant_result make_value(const std::string& value) {
+    return {{}, variant::from(value)};
+  }
+};
 
-template <typename T> [[nodiscard]] const T* codec_value(const any& data) noexcept {
-  return data.try_get<T>();
-}
+template <> struct builtin_codec<std::string_view> {
+  static constexpr bool can_write = true;
+  static constexpr bool can_read = false;
+  static constexpr bool can_make_value = true;
 
-[[nodiscard]] error write_caors_string(writer& writer, const any& data) {
-  const core::string* stored = codec_value<core::string>(data);
-  return stored != nullptr ? writer.write_string(*stored)
-                           : error{error_domain::serialization, errc::invalid_type};
-}
-
-[[nodiscard]] error write_std_string(writer& writer, const any& data) {
-  const std::string* stored = codec_value<std::string>(data);
-  return stored != nullptr ? writer.write_string(*stored)
-                           : error{error_domain::serialization, errc::invalid_type};
-}
-
-[[nodiscard]] error write_string_view(writer& writer, const any& data) {
-  const std::string_view* stored = codec_value<std::string_view>(data);
-  return stored != nullptr ? writer.write_string(*stored)
-                           : error{error_domain::serialization, errc::invalid_type};
-}
-
-[[nodiscard]] error write_guid(writer& writer, const any& data) {
-  const core::guid* stored = codec_value<core::guid>(data);
-  return stored != nullptr ? writer.write_string(stored->string())
-                           : error{error_domain::serialization, errc::invalid_type};
-}
-
-[[nodiscard]] error write_type_guid(writer& writer, const any& data) {
-  const core::type_guid* stored = codec_value<core::type_guid>(data);
-  return stored != nullptr ? writer.write_string(stored->value.string())
-                           : error{error_domain::serialization, errc::invalid_type};
-}
-
-[[nodiscard]] error write_filesystem_path(writer& writer, const any& data) {
-  const std::filesystem::path* stored = codec_value<std::filesystem::path>(data);
-  return stored != nullptr ? writer.write_string(stored->generic_string())
-                           : error{error_domain::serialization, errc::invalid_type};
-}
-
-template <typename Duration>
-[[nodiscard]] error write_chrono_duration(writer& writer, const any& data) {
-  const Duration* stored = codec_value<Duration>(data);
-  return stored != nullptr ? writer.write_i64(static_cast<std::int64_t>(stored->count()))
-                           : error{error_domain::serialization, errc::invalid_type};
-}
-
-[[nodiscard]] error write_system_time_point(writer& writer, const any& data) {
-  const auto* stored = codec_value<std::chrono::system_clock::time_point>(data);
-  if (stored == nullptr) {
-    return {error_domain::serialization, errc::invalid_type};
+  [[nodiscard]] static error write(writer& writer, std::string_view value) {
+    return writer.write_string(value);
   }
 
-  const auto milliseconds =
-      std::chrono::duration_cast<std::chrono::milliseconds>(stored->time_since_epoch());
-  return writer.write_i64(static_cast<std::int64_t>(milliseconds.count()));
-}
+  [[nodiscard]] static variant_result make_value(std::string_view value) {
+    return {{}, variant::from(value)};
+  }
+};
 
-[[nodiscard]] variant_result make_caors_string_value(const any& data) {
-  const core::string* stored = codec_value<core::string>(data);
-  return stored != nullptr ? variant_result{{}, variant::from(*stored)}
-                           : variant_result{{error_domain::serialization, errc::invalid_type}, {}};
-}
+template <> struct builtin_codec<core::guid> {
+  static constexpr bool can_write = true;
+  static constexpr bool can_read = true;
+  static constexpr bool can_make_value = true;
 
-[[nodiscard]] variant_result make_std_string_value(const any& data) {
-  const std::string* stored = codec_value<std::string>(data);
-  return stored != nullptr ? variant_result{{}, variant::from(*stored)}
-                           : variant_result{{error_domain::serialization, errc::invalid_type}, {}};
-}
-
-[[nodiscard]] variant_result make_string_view_value(const any& data) {
-  const std::string_view* stored = codec_value<std::string_view>(data);
-  return stored != nullptr ? variant_result{{}, variant::from(*stored)}
-                           : variant_result{{error_domain::serialization, errc::invalid_type}, {}};
-}
-
-[[nodiscard]] variant_result make_guid_value(const any& data) {
-  const core::guid* stored = codec_value<core::guid>(data);
-  return stored != nullptr ? variant_result{{}, variant::from(stored->string())}
-                           : variant_result{{error_domain::serialization, errc::invalid_type}, {}};
-}
-
-[[nodiscard]] variant_result make_type_guid_value(const any& data) {
-  const core::type_guid* stored = codec_value<core::type_guid>(data);
-  return stored != nullptr ? variant_result{{}, variant::from(stored->value.string())}
-                           : variant_result{{error_domain::serialization, errc::invalid_type}, {}};
-}
-
-[[nodiscard]] variant_result make_filesystem_path_value(const any& data) {
-  const std::filesystem::path* stored = codec_value<std::filesystem::path>(data);
-  return stored != nullptr ? variant_result{{}, variant::from(stored->generic_string())}
-                           : variant_result{{error_domain::serialization, errc::invalid_type}, {}};
-}
-
-template <typename Duration>
-[[nodiscard]] variant_result make_chrono_duration_value(const any& data) {
-  const Duration* stored = codec_value<Duration>(data);
-  return stored != nullptr
-             ? variant_result{{}, variant::from(static_cast<std::int64_t>(stored->count()))}
-             : variant_result{{error_domain::serialization, errc::invalid_type}, {}};
-}
-
-[[nodiscard]] variant_result make_system_time_point_value(const any& data) {
-  const auto* stored = codec_value<std::chrono::system_clock::time_point>(data);
-  if (stored == nullptr) {
-    return {{error_domain::serialization, errc::invalid_type}, {}};
+  [[nodiscard]] static error write(writer& writer, const core::guid& value) {
+    return writer.write_string(value.string());
   }
 
-  const auto milliseconds =
-      std::chrono::duration_cast<std::chrono::milliseconds>(stored->time_since_epoch());
-  return {{}, variant::from(static_cast<std::int64_t>(milliseconds.count()))};
+  [[nodiscard]] static error read(reader& reader, core::guid& value) {
+    return read_guid(reader, value);
+  }
+
+  [[nodiscard]] static variant_result make_value(const core::guid& value) {
+    return {{}, variant::from(value.string())};
+  }
+};
+
+template <> struct builtin_codec<core::type_guid> {
+  static constexpr bool can_write = true;
+  static constexpr bool can_read = true;
+  static constexpr bool can_make_value = true;
+
+  [[nodiscard]] static error write(writer& writer, const core::type_guid& value) {
+    return writer.write_string(value.value.string());
+  }
+
+  [[nodiscard]] static error read(reader& reader, core::type_guid& value) {
+    return read_type_guid(reader, value);
+  }
+
+  [[nodiscard]] static variant_result make_value(const core::type_guid& value) {
+    return {{}, variant::from(value.value.string())};
+  }
+};
+
+template <> struct builtin_codec<std::filesystem::path> {
+  static constexpr bool can_write = true;
+  static constexpr bool can_read = true;
+  static constexpr bool can_make_value = true;
+
+  [[nodiscard]] static error write(writer& writer, const std::filesystem::path& value) {
+    return writer.write_string(value.generic_string());
+  }
+
+  [[nodiscard]] static error read(reader& reader, std::filesystem::path& value) {
+    return read_filesystem_path(reader, value);
+  }
+
+  [[nodiscard]] static variant_result make_value(const std::filesystem::path& value) {
+    return {{}, variant::from(value.generic_string())};
+  }
+};
+
+template <typename Duration> struct chrono_duration_codec {
+  static constexpr bool can_write = true;
+  static constexpr bool can_read = true;
+  static constexpr bool can_make_value = true;
+
+  [[nodiscard]] static error write(writer& writer, const Duration& value) {
+    return writer.write_i64(static_cast<std::int64_t>(value.count()));
+  }
+
+  [[nodiscard]] static error read(reader& reader, Duration& value) {
+    return read_chrono_duration(reader, value);
+  }
+
+  [[nodiscard]] static variant_result make_value(const Duration& value) {
+    return {{}, variant::from(static_cast<std::int64_t>(value.count()))};
+  }
+};
+
+template <>
+struct builtin_codec<std::chrono::nanoseconds> : chrono_duration_codec<std::chrono::nanoseconds> {};
+template <>
+struct builtin_codec<std::chrono::microseconds> : chrono_duration_codec<std::chrono::microseconds> {
+};
+template <>
+struct builtin_codec<std::chrono::milliseconds> : chrono_duration_codec<std::chrono::milliseconds> {
+};
+template <>
+struct builtin_codec<std::chrono::seconds> : chrono_duration_codec<std::chrono::seconds> {};
+template <>
+struct builtin_codec<std::chrono::minutes> : chrono_duration_codec<std::chrono::minutes> {};
+template <> struct builtin_codec<std::chrono::hours> : chrono_duration_codec<std::chrono::hours> {};
+
+template <> struct builtin_codec<std::chrono::system_clock::time_point> {
+  static constexpr bool can_write = true;
+  static constexpr bool can_read = true;
+  static constexpr bool can_make_value = true;
+
+  [[nodiscard]] static error write(writer& writer,
+                                   const std::chrono::system_clock::time_point& value) {
+    const auto milliseconds =
+        std::chrono::duration_cast<std::chrono::milliseconds>(value.time_since_epoch());
+    return writer.write_i64(static_cast<std::int64_t>(milliseconds.count()));
+  }
+
+  [[nodiscard]] static error read(reader& reader, std::chrono::system_clock::time_point& value) {
+    return read_system_time_point(reader, value);
+  }
+
+  [[nodiscard]] static variant_result
+  make_value(const std::chrono::system_clock::time_point& value) {
+    const auto milliseconds =
+        std::chrono::duration_cast<std::chrono::milliseconds>(value.time_since_epoch());
+    return {{}, variant::from(static_cast<std::int64_t>(milliseconds.count()))};
+  }
+};
+
+template <typename T> [[nodiscard]] const codec_data* builtin_codec_data_ptr_of() {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  static const codec_data data = make_codec_data_from<builtin_codec<type>, type>();
+  return data.valid() ? &data : nullptr;
 }
 
-template <typename T> void register_builtin_codec(codec_data codec) {
+template <typename T> void register_builtin_codec() {
   const type_id id = registered_codec_type_id<T>();
-  if (id) {
-    static_cast<void>(codec_registry::instance().register_codec(id, codec));
+  const codec_data* codec = builtin_codec_data_ptr_of<T>();
+  if (id && codec != nullptr) {
+    static_cast<void>(codec_registry::instance().register_codec(id, *codec));
   }
 }
 
 void register_builtin_codecs() {
-  register_builtin_codec<core::string>(codec_data{
-      &write_caors_string,
-      &read_codec_value<core::string>,
-      &read_codec_ref<core::string>,
-      &make_caors_string_value,
-  });
-  register_builtin_codec<std::string>(codec_data{
-      &write_std_string,
-      &read_codec_value<std::string>,
-      &read_codec_ref<std::string>,
-      &make_std_string_value,
-  });
-  register_builtin_codec<std::string_view>(codec_data{
-      &write_string_view,
-      nullptr,
-      nullptr,
-      &make_string_view_value,
-  });
-  register_builtin_codec<core::guid>(codec_data{
-      &write_guid,
-      &read_codec_value<core::guid>,
-      &read_codec_ref<core::guid>,
-      &make_guid_value,
-  });
-  register_builtin_codec<core::type_guid>(codec_data{
-      &write_type_guid,
-      &read_codec_value<core::type_guid>,
-      &read_codec_ref<core::type_guid>,
-      &make_type_guid_value,
-  });
-  register_builtin_codec<std::filesystem::path>(codec_data{
-      &write_filesystem_path,
-      &read_codec_value<std::filesystem::path>,
-      &read_codec_ref<std::filesystem::path>,
-      &make_filesystem_path_value,
-  });
-  register_builtin_codec<std::chrono::nanoseconds>(codec_data{
-      &write_chrono_duration<std::chrono::nanoseconds>,
-      &read_codec_value<std::chrono::nanoseconds>,
-      &read_codec_ref<std::chrono::nanoseconds>,
-      &make_chrono_duration_value<std::chrono::nanoseconds>,
-  });
-  register_builtin_codec<std::chrono::microseconds>(codec_data{
-      &write_chrono_duration<std::chrono::microseconds>,
-      &read_codec_value<std::chrono::microseconds>,
-      &read_codec_ref<std::chrono::microseconds>,
-      &make_chrono_duration_value<std::chrono::microseconds>,
-  });
-  register_builtin_codec<std::chrono::milliseconds>(codec_data{
-      &write_chrono_duration<std::chrono::milliseconds>,
-      &read_codec_value<std::chrono::milliseconds>,
-      &read_codec_ref<std::chrono::milliseconds>,
-      &make_chrono_duration_value<std::chrono::milliseconds>,
-  });
-  register_builtin_codec<std::chrono::seconds>(codec_data{
-      &write_chrono_duration<std::chrono::seconds>,
-      &read_codec_value<std::chrono::seconds>,
-      &read_codec_ref<std::chrono::seconds>,
-      &make_chrono_duration_value<std::chrono::seconds>,
-  });
-  register_builtin_codec<std::chrono::minutes>(codec_data{
-      &write_chrono_duration<std::chrono::minutes>,
-      &read_codec_value<std::chrono::minutes>,
-      &read_codec_ref<std::chrono::minutes>,
-      &make_chrono_duration_value<std::chrono::minutes>,
-  });
-  register_builtin_codec<std::chrono::hours>(codec_data{
-      &write_chrono_duration<std::chrono::hours>,
-      &read_codec_value<std::chrono::hours>,
-      &read_codec_ref<std::chrono::hours>,
-      &make_chrono_duration_value<std::chrono::hours>,
-  });
-  register_builtin_codec<std::chrono::system_clock::time_point>(codec_data{
-      &write_system_time_point,
-      &read_codec_value<std::chrono::system_clock::time_point>,
-      &read_codec_ref<std::chrono::system_clock::time_point>,
-      &make_system_time_point_value,
-  });
+  register_builtin_codec<core::string>();
+  register_builtin_codec<std::string>();
+  register_builtin_codec<std::string_view>();
+  register_builtin_codec<core::guid>();
+  register_builtin_codec<core::type_guid>();
+  register_builtin_codec<std::filesystem::path>();
+  register_builtin_codec<std::chrono::nanoseconds>();
+  register_builtin_codec<std::chrono::microseconds>();
+  register_builtin_codec<std::chrono::milliseconds>();
+  register_builtin_codec<std::chrono::seconds>();
+  register_builtin_codec<std::chrono::minutes>();
+  register_builtin_codec<std::chrono::hours>();
+  register_builtin_codec<std::chrono::system_clock::time_point>();
 }
 
 void ensure_builtin_codecs_registered() { register_builtin_codecs(); }
