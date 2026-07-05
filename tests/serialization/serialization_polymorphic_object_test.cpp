@@ -131,6 +131,65 @@ TEST_CASE("serialization - ordinary object API writes runtime type envelopes", "
   CHECK(json.value.find("level") != caors::string::npos);
 }
 
+TEST_CASE("serialization - polymorphic object envelope names are configurable", "[serialization]") {
+  require_polymorphic_object_metadata();
+
+  caors::serialization::context context{};
+  context.polymorphic.type_field = caors::string_name{"kind"};
+  context.polymorphic.value_field = caors::string_name{"data"};
+  context.polymorphic.type_name_field = caors::string_name{"debug_type"};
+  context.polymorphic.write_type_name = true;
+
+  polymorphic_player player{};
+  player.level = 13;
+  player.name = "Kai";
+  const polymorphic_actor& actor = player;
+
+  const caors::serialization::variant_result value = caors::to_serialization_value(actor, context);
+  REQUIRE(value.succeeded());
+  REQUIRE(value.value.is_object());
+
+  CHECK(value.value.find_member(caors::string_name{"$type"}) == nullptr);
+  CHECK(value.value.find_member(caors::string_name{"$value"}) == nullptr);
+
+  const caors::value::variant_member* type_member =
+      value.value.find_member(caors::string_name{"kind"});
+  REQUIRE(type_member != nullptr);
+  REQUIRE(type_member->value.is_string());
+  CHECK(std::string_view{type_member->value.as_string().data(),
+                         type_member->value.as_string().size()} ==
+        std::string_view{polymorphic_player::object_type_guid.value.string()});
+
+  const caors::value::variant_member* type_name_member =
+      value.value.find_member(caors::string_name{"debug_type"});
+  REQUIRE(type_name_member != nullptr);
+  REQUIRE(type_name_member->value.is_string());
+  CHECK(std::string_view{type_name_member->value.as_string().data(),
+                         type_name_member->value.as_string().size()} ==
+        polymorphic_player::object_type_name);
+
+  const caors::value::variant_member* stored_value =
+      value.value.find_member(caors::string_name{"data"});
+  REQUIRE(stored_value != nullptr);
+  REQUIRE(stored_value->value.is_object());
+  CHECK(stored_value->value.find_member(caors::string_name{"level"}) != nullptr);
+  CHECK(stored_value->value.find_member(caors::string_name{"name"}) != nullptr);
+
+  const caors::serialization::serialization_text_result json =
+      caors::serialize_json(actor, context);
+  REQUIRE(json.succeeded());
+  CHECK(json.value.find("kind") != caors::string::npos);
+  CHECK(json.value.find("data") != caors::string::npos);
+  CHECK(json.value.find("debug_type") != caors::string::npos);
+
+  polymorphic_player target{};
+  polymorphic_actor& target_actor = target;
+  const caors::error status = caors::deserialize_json(target_actor, json.value, context);
+  REQUIRE(status.succeeded());
+  CHECK(target.level == 13);
+  CHECK(target.name == "Kai");
+}
+
 TEST_CASE("serialization - ordinary object API reads runtime type envelopes", "[serialization]") {
   require_polymorphic_object_metadata();
 

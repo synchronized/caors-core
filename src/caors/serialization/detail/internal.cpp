@@ -486,7 +486,7 @@ make_polymorphic_indirect_value(const value::indirect_view& indirect,
     return value;
   }
 
-  return make_polymorphic_envelope(dynamic_type, std::move(value.value));
+  return make_polymorphic_envelope(dynamic_type, std::move(value.value), context);
 }
 
 [[nodiscard]] error read_polymorphic_indirect_value(const variant& envelope,
@@ -496,12 +496,13 @@ make_polymorphic_indirect_value(const value::indirect_view& indirect,
     return {error_domain::serialization, errc::unsupported};
   }
 
-  result<meta::type> dynamic_type = resolve_polymorphic_meta_type(indirect.value_type(), envelope);
+  result<meta::type> dynamic_type =
+      resolve_polymorphic_meta_type(indirect.value_type(), envelope, context);
   if (dynamic_type.failed()) {
     return dynamic_type.status;
   }
 
-  const variant* stored_value = read_polymorphic_value(envelope);
+  const variant* stored_value = read_polymorphic_value(envelope, context);
   if (stored_value == nullptr) {
     return {error_domain::serialization, errc::not_found};
   }
@@ -626,7 +627,7 @@ make_polymorphic_indirect_value(const value::indirect_view& indirect,
   }
 
   if (const variant* current = reader.current_variant();
-      current != nullptr && is_polymorphic_envelope(*current)) {
+      current != nullptr && is_polymorphic_envelope(*current, context)) {
     return read_polymorphic_indirect_value(*current, indirect, context);
   }
 

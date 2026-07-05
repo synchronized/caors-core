@@ -26,6 +26,19 @@ using id_to_object_fn = object* (*)(object_id id, void* user_data);
 using object_to_guid_fn = object_guid (*)(const object* instance, void* user_data);
 using guid_to_object_fn = object* (*)(object_guid guid, void* user_data);
 
+/**
+ * @brief 多态对象和值 wrapper 的 envelope 输出配置。
+ *
+ * 字段名保持空值时使用默认 `$type`、`$value` 和 `$type_name`。`$type` 始终写入稳定
+ * `type_guid`，`$type_name` 只用于调试输出，默认不写出，读入时也不作为类型身份依据。
+ */
+struct polymorphic_options {
+  string_name type_field{};
+  string_name value_field{};
+  string_name type_name_field{};
+  bool write_type_name = false;
+};
+
 /** @brief 对象引用解析器。 */
 struct reference_resolver {
   object_to_id_fn object_to_id = nullptr;
@@ -121,6 +134,7 @@ make_persistent_reference_resolver(objects::manager& manager) noexcept {
 struct context {
   std::uint32_t schema_version = 0;
   const reference_resolver* reference_resolver = nullptr;
+  polymorphic_options polymorphic{};
   /**
    * @brief `std::string_view` 反序列化使用的外部字符串存储。
    *

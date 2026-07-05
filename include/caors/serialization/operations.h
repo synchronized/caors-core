@@ -90,7 +90,7 @@ template <typename T>
                                 const serialization::context& context) {
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (std::is_base_of_v<objects::object, value_type>) {
-    if (detail::is_polymorphic_value(value)) {
+    if (detail::is_polymorphic_value(value, context)) {
       const meta::type type = caors::meta::find<value_type>();
       if (!type) {
         return {error_domain::serialization, errc::missing_type};

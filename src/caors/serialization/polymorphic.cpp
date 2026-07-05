@@ -12,13 +12,14 @@
 namespace caors::serialization {
 namespace {
 
-[[nodiscard]] result<objects::type> resolve_polymorphic_type(objects::object_type_id declared_base,
-                                                             const variant& envelope) {
+[[nodiscard]] result<objects::type>
+resolve_polymorphic_type(objects::object_type_id declared_base, const variant& envelope,
+                         const serialization::context& context) {
   if (!declared_base) {
     return {{error_domain::serialization, errc::invalid_type}, {}};
   }
 
-  result<type_guid> guid = detail::read_polymorphic_type_guid(envelope);
+  result<type_guid> guid = detail::read_polymorphic_type_guid(envelope, context);
   if (guid.failed()) {
     return {guid.status, {}};
   }
@@ -80,7 +81,8 @@ variant_result to_polymorphic_object_serialization_value(type_id declared_id,
     return value;
   }
 
-  return make_polymorphic_envelope(dynamic_type.guid(), std::move(value.value));
+  return make_polymorphic_envelope(dynamic_type.guid(), dynamic_type.name(), std::move(value.value),
+                                   context);
 }
 
 error serialize_polymorphic_object(type_id declared_id, const objects::object& object,
@@ -93,12 +95,14 @@ error serialize_polymorphic_object(type_id declared_id, const objects::object& o
   return serialization::write_variant(writer, value.value);
 }
 
-bool is_polymorphic_value(const variant& value) noexcept { return is_polymorphic_envelope(value); }
+bool is_polymorphic_value(const variant& value, const serialization::context& context) noexcept {
+  return is_polymorphic_envelope(value, context);
+}
 
 error deserialize_polymorphic_object_into(type_id declared_id, objects::object& object,
                                           const variant& value,
                                           const serialization::context& context) {
-  result<meta::type> dynamic_type = resolve_polymorphic_meta_type(declared_id, value);
+  result<meta::type> dynamic_type = resolve_polymorphic_meta_type(declared_id, value, context);
   if (dynamic_type.failed()) {
     return dynamic_type.status;
   }
@@ -107,7 +111,7 @@ error deserialize_polymorphic_object_into(type_id declared_id, objects::object& 
     return {error_domain::serialization, errc::invalid_type};
   }
 
-  const variant* stored_value = read_polymorphic_value(value);
+  const variant* stored_value = read_polymorphic_value(value, context);
   if (stored_value == nullptr) {
     return {error_domain::serialization, errc::not_found};
   }
@@ -135,7 +139,8 @@ variant_result to_polymorphic_serialization_value(const objects::object& object,
     return value;
   }
 
-  return detail::make_polymorphic_envelope(dynamic_type.guid(), std::move(value.value));
+  return detail::make_polymorphic_envelope(dynamic_type.guid(), dynamic_type.name(),
+                                           std::move(value.value), context);
 }
 
 variant_result to_polymorphic_serialization_value(const objects::object* object,
@@ -158,12 +163,12 @@ result<objects::object*> deserialize_polymorphic_object(objects::object_type_id 
     return {{error_domain::serialization, errc::invalid_argument}, nullptr};
   }
 
-  result<objects::type> dynamic_type = resolve_polymorphic_type(declared_base, value);
+  result<objects::type> dynamic_type = resolve_polymorphic_type(declared_base, value, context);
   if (dynamic_type.failed()) {
     return {dynamic_type.status, nullptr};
   }
 
-  const variant* stored_value = detail::read_polymorphic_value(value);
+  const variant* stored_value = detail::read_polymorphic_value(value, context);
   if (stored_value == nullptr) {
     return {{error_domain::serialization, errc::not_found}, nullptr};
   }

@@ -20,13 +20,13 @@
 - 提供 `serialization::text_writer` 和 `serialize_text()`，通过反射字段读取对象并输出简单文本结构。
 - 提供 `serialization::json_writer`、`serialize_json()`、`parse_json()` 和 `deserialize_json()`。
 - 提供 `serialization::variant_reader` 和 `deserialize()`，通过 DOM 中间对象写回基础反射字段。
-- 提供 `serialization::context`，支持按 schema version 过滤字段。
+- 提供 `serialization::context`，支持按 schema version 过滤字段、配置多态 envelope 字段名和传递运行期资源。
 - 提供 `serialization::codec<T>` 和 `register_codec<T>()`，允许把特定 C++ 类型作为原子序列化值读写。
 - 支持已注册反射和序列化元信息的值类型结构体字段递归序列化和 DOM 反序列化。
 - 提供基于 traits 的顺序容器、集合容器、关联容器、pair、tuple 和 variant 访问，支持标量、wrapper、对象引用和已注册结构体元素。
 - 通过 `serialization::reference_resolver` 支持 `caors::objects::ref<T>` 对象引用字段。
 - 普通序列化入口会在 `caors::objects::object` 派生对象的运行期类型不同于声明类型时自动写出多态 envelope。
-- 通过 `$type` / `$value` envelope 支持 `std::unique_ptr<Base>`、`caors::memory::unique_ptr<Base>`
+- 通过默认 `$type` / `$value` envelope 支持 `std::unique_ptr<Base>`、`caors::memory::unique_ptr<Base>`
   和 `std::shared_ptr<Base>` 字段持有普通 C++ 派生类对象，并支持显式 factory 构造策略。
 - 用 `caors::error` 和 `caors::result<T>` 表达失败状态和携带值的返回结果。
 
@@ -82,7 +82,7 @@
 
 普通序列化入口默认支持 `objects::object` 的运行期真实类型。写出时，调度层读取对象的
 `type_id()`；如果运行期类型不同于调用点声明类型，就按真实类型写出 DOM envelope。动态类型必须已经
-完成 object、reflection 和 serialization 注册，并且拥有非 nil `type_guid`。输出 envelope 固定包含：
+完成 object、reflection 和 serialization 注册，并且拥有非 nil `type_guid`。输出 envelope 默认包含：
 
 - `$type`：动态类型的稳定 `type_guid` 字符串。
 - `$value`：按动态类型反射字段生成的对象数据。
@@ -95,8 +95,21 @@ caors::serialization::variant_result value = caors::to_serialization_value(base)
 caors::serialization::serialization_text_result json = caors::serialize_json(base);
 ```
 
-普通反序列化入口读到 `$type` / `$value` 时，会先校验动态类型是声明基类的派生类型。如果目标对象
-当前运行期类型和 `$type` 一致，则把 `$value` 写入这个已有对象；如果没有 `$type`，则按普通声明类型
+多态 envelope 字段名可以通过 `serialization::context::polymorphic` 调整。空配置使用默认字段名；
+`write_type_name` 打开后会额外写出调试用类型名，读入时仍只以 `type_guid` 作为类型身份依据：
+
+```cpp
+caors::serialization::context context{};
+context.polymorphic.type_field = caors::string_name{"kind"};
+context.polymorphic.value_field = caors::string_name{"data"};
+context.polymorphic.type_name_field = caors::string_name{"debug_type"};
+context.polymorphic.write_type_name = true;
+
+caors::serialization::serialization_text_result json = caors::serialize_json(base, context);
+```
+
+读写双方需要使用一致的字段名配置。普通反序列化入口读到配置后的 type/value envelope 时，会先校验动态类型是声明基类的派生类型。如果目标对象
+当前运行期类型和 type 字段一致，则把 value 字段写入这个已有对象；如果没有 type 字段，则按普通声明类型
 读入。需要从 envelope 新建对象时，仍需使用 manager 创建路径，`context.object_manager` 负责分配和销毁：
 
 ```cpp
@@ -110,11 +123,11 @@ caors::result<actor*> decoded =
 
 读入流程：
 
-1. 读取 `$type` 并用 `type_guid` 查找动态类型。
+1. 读取 type 字段并用 `type_guid` 查找动态类型。
 2. 校验动态类型是调用点声明基类的派生类型。
-3. 已有对象读入时，要求目标对象当前 `type_id()` 和 `$type` 对应的动态类型一致。
+3. 已有对象读入时，要求目标对象当前 `type_id()` 和 type 字段对应的动态类型一致。
 4. 新建对象读入时，通过 `context.object_manager->create(dynamic_type_id)` 默认构造对象。
-5. 用 `$value` 按动态类型反序列化字段。
+5. 用 value 字段按动态类型反序列化字段。
 6. 如果新建对象字段读入失败，自动通过 manager 销毁刚创建的对象并返回错误。
 
 当前边界：
@@ -172,7 +185,7 @@ caors::serialization::register_type<player>();
 caors::serialization::register_type<holder>();
 ```
 
-字段写出格式和多态 object 相同：
+字段写出格式和多态 object 相同，默认字段名如下：
 
 ```json
 {
@@ -187,10 +200,10 @@ caors::serialization::register_type<holder>();
 
 读入流程：
 
-1. 读取 `$type` 并用 `type_guid` 查找动态类型。
+1. 读取 type 字段并用 `type_guid` 查找动态类型。
 2. 校验动态类型继承自字段声明的 `Base`。
 3. 通过动态类型 factory 或 descriptor 默认构造派生对象。
-4. 用 `$value` 按动态类型反序列化字段。
+4. 用 value 字段按动态类型反序列化字段。
 5. 通过 wrapper 的接管函数把对象放入 `unique_ptr<Base>`、`memory::unique_ptr<Base>` 或
    `shared_ptr<Base>`。
 
@@ -525,7 +538,7 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
   序列化或反序列化。
 - `caors::objects::ref<T>` 不走内部 value 语义，仍通过 `serialization::reference_resolver` 写出和读入对象 id 或持久 GUID。
 - 当 `std::unique_ptr<Base>`、`caors::memory::unique_ptr<Base>` 或 `std::shared_ptr<Base>`
-  实际持有已注册派生类对象时，序列化层会写出 `$type` / `$value` envelope。读回时要求派生类型可默认构造，
+  实际持有已注册派生类对象时，序列化层会写出多态 envelope，默认字段名为 `$type` / `$value`。读回时要求派生类型可默认构造，
   或已通过 `meta::type_<T>().factory()` 注册构造策略，并通过 wrapper 接管新对象。
 - 如果反序列化上下文提供 `memory_resource`，`std::shared_ptr<T>` 和
   `caors::memory::unique_ptr<T>` 可以保存运行期销毁回调，让资源分配和释放匹配。普通
@@ -736,7 +749,7 @@ caors::string text = result.value;
 - `serialization::field_data`：字段级序列化配置。
 - `serialization::writer`：格式后端接口。
 - `serialization::reader`：格式读入后端接口。
-- `serialization::context`：单次序列化/反序列化上下文，支持 schema version 字段过滤。
+- `serialization::context`：单次序列化/反序列化上下文，支持 schema version 字段过滤、多态 envelope 字段名配置、引用 resolver 和运行期资源传递。
 - `serialization::codec<T>`：类型级 codec 特化入口，配合 `serialization::register_codec<T>()` 使用。
 - `serialization::register_codec<T>()`：注册已特化的类型级 codec。
 - `serialization::text_writer`：简单文本格式后端。
@@ -752,7 +765,7 @@ caors::string text = result.value;
 - `serialize()`：通过指定 writer 后端序列化对象。
 - `deserialize()`：通过指定 reader 后端反序列化对象。
 - `to_serialization_value()`：通过反射和序列化元信息构造中间对象树。
-- `to_polymorphic_serialization_value()`：兼容入口，显式按对象真实运行期类型构造 `$type` / `$value` envelope。
+- `to_polymorphic_serialization_value()`：兼容入口，显式按对象真实运行期类型构造多态 envelope，默认字段名为 `$type` / `$value`。
 - `deserialize_polymorphic_object()`：兼容入口，通过 `context.object_manager` 构造并读入多态对象。
 - `serialize_polymorphic_json()` / `deserialize_polymorphic_json()`：兼容入口，JSON 形式的多态对象 envelope。
 - `serialization::write_variant()`：把中间对象树写入指定 writer。

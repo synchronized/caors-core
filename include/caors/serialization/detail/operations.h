@@ -100,8 +100,9 @@ object_requires_polymorphic_envelope(type_id declared_id, const objects::object&
 [[nodiscard]] CAORS_API variant_result to_polymorphic_object_serialization_value(
     type_id declared_id, const objects::object& object, const serialization::context& context);
 
-/** @brief 判断 DOM 值是否为多态 envelope。 */
-[[nodiscard]] CAORS_API bool is_polymorphic_value(const variant& value) noexcept;
+/** @brief 按上下文判断 DOM 值是否为多态 envelope。 */
+[[nodiscard]] CAORS_API bool is_polymorphic_value(const variant& value,
+                                                  const serialization::context& context) noexcept;
 
 /** @brief 把多态 envelope 写入已存在且运行期类型匹配的对象。 */
 [[nodiscard]] CAORS_API error
