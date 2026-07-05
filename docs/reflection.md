@@ -403,7 +403,7 @@ ref.try_set(9);
 ### any
 
 `any` 是运行期 C++ 类型值拷贝，保存运行期类型 id、对象拷贝和内部 meta descriptor。
-descriptor 通过 layout、value ops、type semantics 和主访问能力记录大小、对齐、默认构造、复制、析构、
+descriptor 通过 layout、value ops、type semantics 和固定运行期能力集合记录大小、对齐、默认构造、复制、析构、
 赋值和可创建的运行期视图；如果值来自只按 `type_id` 构造的已注册业务类型，则会回退到同一 `type_id`
 的基础类型信息。
 它不引用原对象，因此可以安全地脱离字段所属对象生命周期使用。
@@ -577,7 +577,7 @@ damage.invoke(&instance, args);
 `indirect_view` 不拥有 wrapper 或内部值，也不延长内部对象生命周期。裸指针和智能指针解包后返回的是当前
 指向对象的引用；调用方需要保证引用使用期间对象仍然有效。
 
-内部容器 descriptor 的主访问能力保存 value/key、元素或候选类型的 `type_id`、子类型 descriptor
+内部容器 descriptor 的固定运行期能力集合保存 value/key、元素或候选类型的 `type_id`、子类型 descriptor
 以及容器操作函数。value/key 的名称仍通过 meta 注册表查询；如果子类型本身没有注册到
 meta，名称查询会返回空，但嵌套视图仍可依靠 descriptor 继续访问。
 
@@ -659,7 +659,7 @@ auto reflected = caors::reflection::find("game.actor");
 - `any`：运行期 C++ 类型值拷贝。
 - `any_ref`：运行期 C++ 类型非拥有引用。
 - `sequence_view` / `set_view` / `associative_view` / `pair_view` / `tuple_view` / `variant_view`：容器、二元组、tuple-like 和 variant-like 类型的运行期视图。
-- `meta::detail::type_descriptor`：字段声明类型的布局、值操作、类型语义、主访问能力和对象引用能力。
+- `meta::detail::type_descriptor`：字段声明类型的布局、值操作、类型语义、固定运行期能力集合和对象引用能力。
 - `reflection::type` / `reflection::field` / `reflection::method`：全局反射数据的推荐查询入口。
 - `reflection::registry`：全局反射注册表 facade。
 - `reflection::class_<T>()`：RTTR 风格链式注册入口。

@@ -13,7 +13,6 @@
 #include <cstddef>
 #include <type_traits>
 #include <utility>
-#include <variant>
 
 namespace caors::meta::detail {
 
@@ -47,10 +46,26 @@ struct type_semantics {
   bool nullable = false;
 };
 
-/** @brief 类型的主运行期访问能力。 */
-using type_capability =
-    std::variant<std::monostate, enum_data, indirect_data, sequence_data, set_data,
-                 associative_data, pair_data, tuple_data, variant_data>;
+/** @brief 类型的固定运行期能力集合。 */
+struct type_capabilities {
+  const enum_data* enumeration = nullptr;
+  const indirect_data* indirect = nullptr;
+  const sequence_data* sequence = nullptr;
+  const set_data* set = nullptr;
+  const associative_data* associative = nullptr;
+  const pair_data* pair = nullptr;
+  const tuple_data* tuple = nullptr;
+  const variant_data* variant = nullptr;
+
+  [[nodiscard]] bool valid() const noexcept {
+    return (enumeration != nullptr && enumeration->valid()) ||
+           (indirect != nullptr && indirect->valid()) ||
+           (sequence != nullptr && sequence->valid()) || (set != nullptr && set->valid()) ||
+           (associative != nullptr && associative->valid()) ||
+           (pair != nullptr && pair->valid()) || (tuple != nullptr && tuple->valid()) ||
+           (variant != nullptr && variant->valid());
+  }
+};
 
 /** @brief meta 内部类型描述符，保存布局、值操作和运行期视图能力。 */
 struct type_descriptor {
@@ -58,7 +73,7 @@ struct type_descriptor {
   type_layout layout{};
   value_ops ops{};
   type_semantics semantics{};
-  type_capability capability{};
+  type_capabilities capabilities{};
   const objects::detail::object_ref_data* object_ref = nullptr;
 
   [[nodiscard]] bool valid() const noexcept { return type && layout.valid(); }
@@ -68,18 +83,34 @@ struct type_descriptor {
       return true;
     }
 
-    if (const auto* indirect = std::get_if<indirect_data>(&capability)) {
-      return indirect->valid();
-    }
-
-    return !std::holds_alternative<std::monostate>(capability);
+    return capabilities.valid();
   }
 };
+
+template <typename T> inline constexpr bool always_false_v = false;
 
 template <typename Capability>
 [[nodiscard]] inline const Capability*
 descriptor_capability(const type_descriptor& descriptor) noexcept {
-  return std::get_if<Capability>(&descriptor.capability);
+  if constexpr (std::is_same_v<Capability, enum_data>) {
+    return descriptor.capabilities.enumeration;
+  } else if constexpr (std::is_same_v<Capability, indirect_data>) {
+    return descriptor.capabilities.indirect;
+  } else if constexpr (std::is_same_v<Capability, sequence_data>) {
+    return descriptor.capabilities.sequence;
+  } else if constexpr (std::is_same_v<Capability, set_data>) {
+    return descriptor.capabilities.set;
+  } else if constexpr (std::is_same_v<Capability, associative_data>) {
+    return descriptor.capabilities.associative;
+  } else if constexpr (std::is_same_v<Capability, pair_data>) {
+    return descriptor.capabilities.pair;
+  } else if constexpr (std::is_same_v<Capability, tuple_data>) {
+    return descriptor.capabilities.tuple;
+  } else if constexpr (std::is_same_v<Capability, variant_data>) {
+    return descriptor.capabilities.variant;
+  } else {
+    static_assert(always_false_v<Capability>, "Unsupported CAORS type capability");
+  }
 }
 
 template <typename Capability>
@@ -645,36 +676,43 @@ template <typename T> [[nodiscard]] const variant_data* variant_data_ptr_of() {
   }
 }
 
-template <typename T> [[nodiscard]] type_capability type_capability_of() {
+template <typename T> [[nodiscard]] type_capabilities type_capabilities_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  type_capabilities capabilities{};
 
   if constexpr (std::is_enum_v<type>) {
-    const enum_data* data = enum_data_ptr_of<type>();
-    return data != nullptr ? type_capability{*data} : type_capability{};
-  } else if constexpr (std::is_pointer_v<type> || traits::wrapper_traits<type>::is_wrapper) {
-    const indirect_data* data = indirect_data_ptr_of<type>();
-    return data != nullptr ? type_capability{*data} : type_capability{};
-  } else if constexpr (traits::sequence_traits<type>::is_sequence) {
-    const sequence_data* data = sequence_data_ptr_of<type>();
-    return data != nullptr ? type_capability{*data} : type_capability{};
-  } else if constexpr (traits::set_traits<type>::is_set) {
-    const set_data* data = set_data_ptr_of<type>();
-    return data != nullptr ? type_capability{*data} : type_capability{};
-  } else if constexpr (traits::associative_traits<type>::is_associative) {
-    const associative_data* data = associative_data_ptr_of<type>();
-    return data != nullptr ? type_capability{*data} : type_capability{};
-  } else if constexpr (traits::pair_traits<type>::is_pair) {
-    const pair_data* data = pair_data_ptr_of<type>();
-    return data != nullptr ? type_capability{*data} : type_capability{};
-  } else if constexpr (traits::tuple_traits<type>::is_tuple) {
-    const tuple_data* data = tuple_data_ptr_of<type>();
-    return data != nullptr ? type_capability{*data} : type_capability{};
-  } else if constexpr (traits::variant_traits<type>::is_variant) {
-    const variant_data* data = variant_data_ptr_of<type>();
-    return data != nullptr ? type_capability{*data} : type_capability{};
-  } else {
-    return {};
+    capabilities.enumeration = enum_data_ptr_of<type>();
   }
+
+  if constexpr (std::is_pointer_v<type> || traits::wrapper_traits<type>::is_wrapper) {
+    capabilities.indirect = indirect_data_ptr_of<type>();
+  }
+
+  if constexpr (traits::sequence_traits<type>::is_sequence) {
+    capabilities.sequence = sequence_data_ptr_of<type>();
+  }
+
+  if constexpr (traits::set_traits<type>::is_set) {
+    capabilities.set = set_data_ptr_of<type>();
+  }
+
+  if constexpr (traits::associative_traits<type>::is_associative) {
+    capabilities.associative = associative_data_ptr_of<type>();
+  }
+
+  if constexpr (traits::pair_traits<type>::is_pair) {
+    capabilities.pair = pair_data_ptr_of<type>();
+  }
+
+  if constexpr (traits::tuple_traits<type>::is_tuple) {
+    capabilities.tuple = tuple_data_ptr_of<type>();
+  }
+
+  if constexpr (traits::variant_traits<type>::is_variant) {
+    capabilities.variant = variant_data_ptr_of<type>();
+  }
+
+  return capabilities;
 }
 
 template <typename T> struct descriptor_holder {
@@ -693,7 +731,7 @@ template <typename T> struct descriptor_holder {
         resource_destroy_fn_of<type>(),
     };
     fill_descriptor_semantics<type>(descriptor);
-    descriptor.capability = type_capability_of<type>();
+    descriptor.capabilities = type_capabilities_of<type>();
     descriptor.object_ref = object_ref_data_ptr_of<type>();
     return descriptor;
   }();
