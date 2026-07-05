@@ -622,7 +622,7 @@ make_polymorphic_indirect_value(const value::indirect_view& indirect,
     return read_polymorphic_indirect_value(*current, indirect, context);
   }
 
-  if (!indirect.has_value() && !indirect.ensure_value()) {
+  if (!indirect.has_value() && !indirect.ensure_value(context.memory_resource)) {
     return {error_domain::serialization, errc::invalid_field};
   }
 

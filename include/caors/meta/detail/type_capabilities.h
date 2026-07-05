@@ -4,6 +4,7 @@
 #ifndef CAORS_META_DETAIL_TYPE_CAPABILITIES_H_
 #define CAORS_META_DETAIL_TYPE_CAPABILITIES_H_
 
+#include "caors/memory/resource.h"
 #include "caors/meta/type_id.h"
 #include "caors/traits/wrapper.h"
 
@@ -20,7 +21,7 @@ using indirect_dynamic_value_fn = const void* (*)(const void*) noexcept;
 using indirect_mutable_dynamic_value_fn = void* (*)(void*) noexcept;
 using indirect_has_value_fn = bool (*)(const void*) noexcept;
 using indirect_reset_fn = bool (*)(void*) noexcept;
-using indirect_ensure_value_fn = bool (*)(void*);
+using indirect_ensure_value_fn = bool (*)(void*, memory::memory_resource*);
 using indirect_set_value_fn = bool (*)(void*, void*) noexcept;
 using indirect_set_value_with_context_fn = bool (*)(void*, void*,
                                                     const traits::wrapper_set_context&) noexcept;

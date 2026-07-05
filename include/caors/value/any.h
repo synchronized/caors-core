@@ -4,6 +4,7 @@
 #ifndef CAORS_VALUE_ANY_H_
 #define CAORS_VALUE_ANY_H_
 
+#include "caors/memory/resource.h"
 #include "caors/meta.h"
 #include "caors/meta/detail/type_descriptor.h"
 #include "caors/value/fwd.h"
@@ -25,6 +26,8 @@ namespace detail {
 [[nodiscard]] const meta::detail::type_descriptor* descriptor_of(const any& value) noexcept;
 [[nodiscard]] const meta::detail::type_descriptor* descriptor_of(const any_ref& value) noexcept;
 [[nodiscard]] any default_construct(type_id type, const meta::detail::type_descriptor* descriptor);
+[[nodiscard]] any default_construct(type_id type, const meta::detail::type_descriptor* descriptor,
+                                    memory::memory_resource* resource);
 
 } // namespace detail
 
@@ -72,6 +75,15 @@ public:
 
   /** @brief 按运行期类型 id 默认构造一个值。不可默认构造类型会返回无效 `any`。 */
   [[nodiscard]] static any default_construct(type_id type);
+
+  /**
+   * @brief 按运行期类型 id 用指定内存资源默认构造一个值。
+   *
+   * 返回的 `any`
+   * 会记住对应资源，并在析构时用匹配的资源销毁函数释放对象。若类型没有资源感知构造函数表，
+   * 会回退到普通默认构造。
+   */
+  [[nodiscard]] static any default_construct(type_id type, memory::memory_resource* resource);
 
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
@@ -156,6 +168,9 @@ private:
   friend const meta::detail::type_descriptor* detail::descriptor_of(const any& value) noexcept;
   friend any detail::default_construct(type_id type,
                                        const meta::detail::type_descriptor* descriptor);
+  friend any detail::default_construct(type_id type,
+                                       const meta::detail::type_descriptor* descriptor,
+                                       memory::memory_resource* resource);
 
   [[nodiscard]] static any
   copy_from_raw(type_id type, const meta::detail::type_descriptor* descriptor, const void* source);
@@ -166,6 +181,8 @@ private:
 
   const meta::detail::type_descriptor* descriptor_ = nullptr;
   void* data_ = nullptr;
+  memory::memory_resource* resource_ = nullptr;
+  meta::detail::value_resource_destroy_fn resource_destroy_ = nullptr;
 };
 
 void swap(any& lhs, any& rhs) noexcept;

@@ -219,6 +219,11 @@ caors::error status = caors::deserialize_json(holder, json, context);
 `std::unique_ptr<Base>` 的 deleter 不能保存运行期销毁上下文，因此会回退到标准 `new` / `delete`
 或无资源 factory 路径。自定义 wrapper 或自定义 deleter 需要通过 wrapper traits 明确提供匹配的接管语义。
 
+同一个 `context.memory_resource` 也会用于普通反序列化路径里需要临时默认构造的 `any`，以及空
+`std::shared_ptr<T>` / `caors::memory::unique_ptr<T>` 读入非空值时创建内部 `T`。普通
+`std::unique_ptr<T>` 和 `std::optional<T>` 没有可替换的资源释放语义，仍按自身默认构造规则处理。
+标准容器元素的实际存储由容器自身 allocator 决定，序列化上下文不会强行替换目标容器的 allocator。
+
 当前不支持：
 
 - `Base*` 自动创建派生对象；裸指针仍只表示借用。
@@ -532,6 +537,9 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 - 不可默认构造类型可以作为已有直接字段、已持有 wrapper 内部值或 `variant` 当前候选被写入；普通类多态
   智能指针读回可以通过 `meta::type_<T>().factory()` 显式构造派生对象。其他需要序列化层自动实例化对象的路径
   仍可能失败，例如容器新增元素、空 `optional` 读入非空值、`variant` 切换到不可默认构造候选。
+- `serialization::context::memory_resource` 会用于资源感知 `any` 默认构造、空 `std::shared_ptr<T>` 和
+  空 `caors::memory::unique_ptr<T>` 的内部值创建，以及普通类多态值 factory。容器元素存储仍由目标容器
+  自身 allocator 管理。
 - `std::pair<T, U>` 已支持按二元素数组 `[first, second]` 读写；反序列化时数组长度必须等于 2。
 - `std::tuple<...>` 已支持按元素数组 `[v0, v1, ...]` 读写；反序列化时数组长度必须等于 tuple 元素数量。
 - `std::variant<...>` 已支持按 tagged union 数组 `[index, value]` 读写；反序列化时数组长度必须等于 2，

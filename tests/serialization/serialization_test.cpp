@@ -3,6 +3,8 @@
 
 #include "serialization_test_support.h"
 
+#include "caors/memory.h"
+
 #include <vector>
 
 using namespace caors::tests::serialization;
@@ -17,6 +19,43 @@ enum class descriptor_enum_color : unsigned char {
 struct descriptor_enum_actor {
   std::vector<descriptor_enum_color> colors{};
 };
+
+struct context_resource_value {
+  int value = 0;
+};
+
+struct context_resource_holder {
+  caors::memory::unique_ptr<context_resource_value> unique{};
+  std::shared_ptr<context_resource_value> shared{};
+};
+
+void require_context_resource_holder_metadata() {
+  REQUIRE(type_result_ok(
+      caors::meta::type_<context_resource_value>("caors.test.serialization.context_resource_value")
+          .result()));
+  REQUIRE(
+      type_result_ok(caors::meta::type_<caors::memory::unique_ptr<context_resource_value>>(
+                         "caors.memory.unique_ptr<caors.test.serialization.context_resource_value>")
+                         .result()));
+  REQUIRE(type_result_ok(caors::meta::type_<std::shared_ptr<context_resource_value>>(
+                             "std.shared_ptr<caors.test.serialization.context_resource_value>")
+                             .result()));
+
+  REQUIRE(reflection_result_ok(caors::reflection::class_<context_resource_value>(
+                                   "caors.test.serialization.context_resource_value")
+                                   .field("value", &context_resource_value::value)
+                                   .commit()));
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<context_resource_holder>(
+          "caors.test.serialization.context_resource_holder")
+          .field("unique", &context_resource_holder::unique,
+                 "caors.memory.unique_ptr<caors.test.serialization.context_resource_value>")
+          .field("shared", &context_resource_holder::shared,
+                 "std.shared_ptr<caors.test.serialization.context_resource_value>")
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<context_resource_value>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<context_resource_holder>()));
+}
 
 } // namespace
 
@@ -289,6 +328,32 @@ TEST_CASE("serialization - descriptor enum data handles unregistered enum values
   REQUIRE(decoded.colors.size() == 2);
   CHECK(decoded.colors[0] == descriptor_enum_color::red);
   CHECK(decoded.colors[1] == descriptor_enum_color::blue);
+}
+
+TEST_CASE("serialization - context memory resource constructs empty wrapper values",
+          "[serialization]") {
+  require_context_resource_holder_metadata();
+
+  caors::tracking_resource tracking(&caors::get_system_memory_resource());
+  caors::serialization::context context{};
+  context.memory_resource = &tracking;
+
+  context_resource_holder decoded{};
+  const caors::error status =
+      caors::deserialize_json(decoded, R"({"unique":{"value":7},"shared":{"value":9}})", context);
+  REQUIRE(status.succeeded());
+
+  REQUIRE(decoded.unique != nullptr);
+  REQUIRE(decoded.shared != nullptr);
+  CHECK(decoded.unique->value == 7);
+  CHECK(decoded.shared->value == 9);
+  CHECK(tracking.statistics().allocation_count == 2);
+  CHECK(tracking.statistics().bytes_in_use >= sizeof(context_resource_value) * 2);
+
+  decoded.unique.reset();
+  decoded.shared.reset();
+  CHECK(tracking.statistics().deallocation_count == 2);
+  CHECK(tracking.statistics().bytes_in_use == 0);
 }
 
 TEST_CASE("serialization - variant reader deserializes reflected struct fields",

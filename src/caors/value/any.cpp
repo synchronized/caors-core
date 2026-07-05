@@ -43,6 +43,13 @@ any any::default_construct(type_id type) {
   return meta.valid() ? detail::default_construct(type, descriptor) : any{};
 }
 
+any any::default_construct(type_id type, memory::memory_resource* resource) {
+  const meta::type meta = caors::meta::find(type);
+  const meta::detail::type_descriptor* descriptor =
+      meta ? caors::meta::get_registry().find_type_descriptor(meta.id()) : nullptr;
+  return meta.valid() ? detail::default_construct(type, descriptor, resource) : any{};
+}
+
 bool any::valid() const noexcept {
   return descriptor_ != nullptr && descriptor_->valid() && data_ != nullptr;
 }
@@ -72,19 +79,25 @@ std::size_t any::alignment() const noexcept {
 
 void any::reset() noexcept {
   if (data_ != nullptr) {
-    if (descriptor_ != nullptr && descriptor_->ops.destroy != nullptr) {
+    if (resource_destroy_ != nullptr) {
+      resource_destroy_(resource_, data_);
+    } else if (descriptor_ != nullptr && descriptor_->ops.destroy != nullptr) {
       descriptor_->ops.destroy(data_);
     }
   }
 
   descriptor_ = nullptr;
   data_ = nullptr;
+  resource_ = nullptr;
+  resource_destroy_ = nullptr;
 }
 
 void any::swap(any& other) noexcept {
   using std::swap;
   swap(descriptor_, other.descriptor_);
   swap(data_, other.data_);
+  swap(resource_, other.resource_);
+  swap(resource_destroy_, other.resource_destroy_);
 }
 
 bool any::matches_type(const any& other) const noexcept {
@@ -133,9 +146,13 @@ void any::copy_from(const any& other) {
 void any::move_from(any& other) noexcept {
   descriptor_ = other.descriptor_;
   data_ = other.data_;
+  resource_ = other.resource_;
+  resource_destroy_ = other.resource_destroy_;
 
   other.descriptor_ = nullptr;
   other.data_ = nullptr;
+  other.resource_ = nullptr;
+  other.resource_destroy_ = nullptr;
 }
 
 type_id any::get_type_id() const noexcept {
@@ -227,12 +244,26 @@ const meta::detail::type_descriptor* descriptor_of(const any_ref& value) noexcep
 }
 
 any default_construct(type_id type, const meta::detail::type_descriptor* descriptor) {
+  return default_construct(type, descriptor, nullptr);
+}
+
+any default_construct(type_id type, const meta::detail::type_descriptor* descriptor,
+                      memory::memory_resource* resource) {
   if (descriptor == nullptr || descriptor->type != type ||
       descriptor->ops.default_construct == nullptr || descriptor->ops.destroy == nullptr) {
     return {};
   }
 
-  void* value = descriptor->ops.default_construct();
+  void* value = nullptr;
+  meta::detail::value_resource_destroy_fn resource_destroy = nullptr;
+  if (resource != nullptr && descriptor->ops.resource_construct != nullptr &&
+      descriptor->ops.resource_destroy != nullptr) {
+    value = descriptor->ops.resource_construct(resource);
+    resource_destroy = descriptor->ops.resource_destroy;
+  } else {
+    value = descriptor->ops.default_construct();
+  }
+
   if (value == nullptr) {
     return {};
   }
@@ -240,6 +271,8 @@ any default_construct(type_id type, const meta::detail::type_descriptor* descrip
   any result;
   result.descriptor_ = descriptor;
   result.data_ = value;
+  result.resource_ = resource_destroy != nullptr ? resource : nullptr;
+  result.resource_destroy_ = resource_destroy;
   return result;
 }
 

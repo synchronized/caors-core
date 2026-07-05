@@ -2,6 +2,7 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/adapters/stl.h"
+#include "caors/memory.h"
 #include "caors/reflection.h"
 #include "caors/value/view_factory.h"
 
@@ -27,6 +28,10 @@ struct reflected_value_holder {
 
 struct move_only_value {
   std::unique_ptr<int> value{};
+};
+
+struct any_resource_value {
+  int value = 17;
 };
 
 struct unregistered_nested_vector_holder {
@@ -60,6 +65,7 @@ void require_value_test_meta() {
   require_registered_type<std::tuple<int, int, caors::string>>("std.tuple<int,int,caors.string>");
   require_registered_type<std::span<int>>("std.span<int>");
   require_registered_type<std::variant<int, caors::string>>("std.variant<int,caors.string>");
+  require_registered_type<any_resource_value>("caors.test.reflection.any_resource_value");
 }
 
 [[nodiscard]] caors::reflection::field require_reflected_field(std::string_view type_name,
@@ -123,6 +129,24 @@ TEST_CASE("reflection any - copies deeply and rejects mismatched writes", "[refl
   CHECK(moved.valid());
   CHECK_FALSE(stored.valid());
   CHECK(*moved.try_get<int>() == 8);
+}
+
+TEST_CASE("reflection any - default construction can use memory resource", "[reflection]") {
+  require_value_test_meta();
+
+  caors::tracking_resource tracking(&caors::get_system_memory_resource());
+  caors::any stored = caors::any::default_construct(
+      caors::meta::id("caors.test.reflection.any_resource_value"), &tracking);
+
+  REQUIRE(stored.valid());
+  REQUIRE(stored.try_get<any_resource_value>() != nullptr);
+  CHECK(stored.try_get<any_resource_value>()->value == 17);
+  CHECK(tracking.statistics().allocation_count == 1);
+  CHECK(tracking.statistics().bytes_in_use >= sizeof(any_resource_value));
+
+  stored.reset();
+  CHECK(tracking.statistics().deallocation_count == 1);
+  CHECK(tracking.statistics().bytes_in_use == 0);
 }
 
 TEST_CASE("reflection any_ref - references external typed values", "[reflection]") {

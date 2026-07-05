@@ -5,6 +5,7 @@
 #define CAORS_ADAPTERS_STL_WRAPPER_H_
 
 #include "caors/config.h"
+#include "caors/memory/resource.h"
 #include "caors/memory/unique_ptr.h"
 #include "caors/traits/wrapper.h"
 
@@ -70,6 +71,10 @@ template <typename T, typename Deleter> struct unique_ptr_wrapper_access_base {
     }
   }
 
+  static bool ensure_value(pointer& source, caors::memory::memory_resource*) {
+    return ensure_value(source);
+  }
+
   static bool set_value(pointer& source, wrapped_type* value) noexcept {
     if (value == nullptr) {
       return false;
@@ -102,8 +107,81 @@ struct wrapper_access<std::unique_ptr<T, caors::memory::erased_deleter<T>>>
     : detail::unique_ptr_wrapper_access_base<T, caors::memory::erased_deleter<T>> {
   using base = detail::unique_ptr_wrapper_access_base<T, caors::memory::erased_deleter<T>>;
   using wrapped_type = typename base::wrapped_type;
+  using pointer_type = typename base::pointer_type;
   using pointer = std::unique_ptr<T, caors::memory::erased_deleter<T>>;
-  using base::set_value;
+
+  static bool reset(pointer& source) noexcept {
+    source.reset();
+    source.get_deleter().reset();
+    return true;
+  }
+
+  static bool ensure_value(pointer& source) {
+    if (source) {
+      return true;
+    }
+
+    source.get_deleter().reset();
+    return base::ensure_value(source);
+  }
+
+  static bool ensure_value(pointer& source, caors::memory::memory_resource* resource) {
+    if (source) {
+      return true;
+    }
+
+    if (resource == nullptr) {
+      return ensure_value(source);
+    }
+
+    if constexpr (std::is_default_constructible_v<wrapped_type> &&
+                  std::is_convertible_v<wrapped_type*, pointer_type>) {
+#if CAORS_HAS_EXCEPTIONS
+      try {
+        wrapped_type* value = caors::memory::make<wrapped_type>(resource);
+        source.get_deleter().reset(resource, [](void* user_data, void* stored) noexcept {
+          caors::memory::destroy(static_cast<wrapped_type*>(stored),
+                                 static_cast<caors::memory::memory_resource*>(user_data));
+        });
+        source.reset(value);
+      } catch (...) {
+        return false;
+      }
+#else
+      if constexpr (!std::is_nothrow_default_constructible_v<wrapped_type>) {
+        return false;
+      } else {
+        wrapped_type* value = caors::memory::make<wrapped_type>(resource);
+        if (value == nullptr) {
+          return false;
+        }
+        source.get_deleter().reset(resource, [](void* user_data, void* stored) noexcept {
+          caors::memory::destroy(static_cast<wrapped_type*>(stored),
+                                 static_cast<caors::memory::memory_resource*>(user_data));
+        });
+        source.reset(value);
+      }
+#endif
+      return static_cast<bool>(source);
+    } else {
+      return false;
+    }
+  }
+
+  static bool set_value(pointer& source, wrapped_type* value) noexcept {
+    if (value == nullptr) {
+      return false;
+    }
+
+    if constexpr (std::is_convertible_v<wrapped_type*, pointer_type>) {
+      source.reset();
+      source.get_deleter().reset();
+      source.reset(value);
+      return static_cast<bool>(source);
+    } else {
+      return false;
+    }
+  }
 
   static bool set_value(pointer& source, wrapped_type* value,
                         const wrapper_set_context& context) noexcept {
@@ -112,7 +190,7 @@ struct wrapper_access<std::unique_ptr<T, caors::memory::erased_deleter<T>>>
     }
 
     if (!context.valid()) {
-      return base::set_value(source, value);
+      return set_value(source, value);
     }
 
     source.reset();
@@ -165,6 +243,34 @@ template <typename T> struct wrapper_access<std::shared_ptr<T>> {
       return false;
 #endif
       return static_cast<bool>(source);
+    } else {
+      return false;
+    }
+  }
+
+  static bool ensure_value(std::shared_ptr<T>& source, caors::memory::memory_resource* resource) {
+    if (source) {
+      return true;
+    }
+
+    if (resource == nullptr) {
+      return ensure_value(source);
+    }
+
+    if constexpr (std::is_default_constructible_v<wrapped_type>) {
+#if CAORS_HAS_EXCEPTIONS
+      try {
+        source =
+            std::allocate_shared<wrapped_type>(caors::memory::allocator<wrapped_type>{resource});
+      } catch (...) {
+        return false;
+      }
+      return static_cast<bool>(source);
+#else
+      (void)source;
+      (void)resource;
+      return false;
+#endif
     } else {
       return false;
     }

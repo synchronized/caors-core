@@ -84,10 +84,14 @@ struct wrapper_access<game::box<T>> {
   static bool has_value(const game::box<T>& source) noexcept;
   static bool reset(game::box<T>& source) noexcept;
   static bool ensure_value(game::box<T>& source);
+  static bool ensure_value(game::box<T>& source, caors::memory_resource* resource);
 };
 
 } // namespace caors::traits
 ```
+
+第二个 `ensure_value` 重载是可选的。反序列化上下文提供 `memory_resource` 时，序列化层会优先调用
+这个重载；没有提供时或 wrapper 不支持资源接管时，可以只实现普通 `ensure_value(source)`。
 
 对象引用不再作为 `wrapper_semantics` 的一种。需要按对象 id 序列化的引用类型应适配
 `objects::detail::object_ref_traits<T>` 和 `objects::detail::object_ref_access<T>`，然后通过

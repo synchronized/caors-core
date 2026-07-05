@@ -156,9 +156,9 @@ CAORS 不会调用 `std::pmr::set_default_resource()`，避免库代码修改进
 
 `caors::memory::unique_ptr<T>` 是 `std::unique_ptr<T, memory::erased_deleter<T>>` 的别名。
 默认情况下它仍然使用普通 `delete`；当序列化层通过 `serialization::context::memory_resource`
-构造出运行期派生对象时，wrapper 适配器可以把匹配的销毁回调写入 deleter。
+构造内部对象或运行期派生对象时，wrapper 适配器可以把匹配的销毁回调写入 deleter。
 
-这个类型主要服务于普通类多态反序列化：
+这个类型主要服务于需要资源托管的 owning pointer 字段，包括普通字段反序列化和普通类多态反序列化：
 
 ```cpp
 struct scene {

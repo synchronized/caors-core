@@ -4,6 +4,7 @@
 #ifndef CAORS_VALUE_INDIRECT_VIEW_H_
 #define CAORS_VALUE_INDIRECT_VIEW_H_
 
+#include "caors/memory/resource.h"
 #include "caors/traits/wrapper.h"
 #include "caors/value/fwd.h"
 
@@ -55,6 +56,9 @@ public:
 
   /** @brief 确保 wrapper 持有内部值。裸指针不会自动分配内存。 */
   bool ensure_value() const;
+
+  /** @brief 用指定内存资源确保 wrapper 持有内部值；不支持资源接管的 wrapper 会回退到普通构造。 */
+  bool ensure_value(memory::memory_resource* resource) const;
 
 private:
   friend class any;

@@ -30,11 +30,12 @@ associative_data_of(const any_ref& target) noexcept {
   return caors::meta::detail::get_assign_value_fn(caors::meta::find(target.type()));
 }
 
-[[nodiscard]] any default_construct_for(const any_ref& target) {
-  any decoded =
-      value::detail::default_construct(target.type(), value::detail::descriptor_of(target));
+[[nodiscard]] any default_construct_for(const any_ref& target,
+                                        const serialization::context& context) {
+  any decoded = value::detail::default_construct(
+      target.type(), value::detail::descriptor_of(target), context.memory_resource);
   if (!decoded.valid()) {
-    decoded = any::default_construct(target.type());
+    decoded = any::default_construct(target.type(), context.memory_resource);
   }
 
   return decoded;
@@ -90,7 +91,7 @@ associative_data_of(const any_ref& target) noexcept {
 
   const auto assign = assign_fn_of(target);
   if (sequence != nullptr && !sequence->read_in_place && assign != nullptr) {
-    any decoded = default_construct_for(target);
+    any decoded = default_construct_for(target, context);
     if (decoded.valid()) {
       error status = read_sequence_into_view(reader, decoded.create_sequence_view(), context);
       if (status) {
@@ -133,9 +134,10 @@ associative_data_of(const any_ref& target) noexcept {
 
     const meta::detail::type_descriptor* value_descriptor =
         set != nullptr ? set->value_descriptor : nullptr;
-    any element = value::detail::default_construct(view.value_type(), value_descriptor);
+    any element = value::detail::default_construct(view.value_type(), value_descriptor,
+                                                   context.memory_resource);
     if (!element.valid()) {
-      element = any::default_construct(view.value_type());
+      element = any::default_construct(view.value_type(), context.memory_resource);
     }
     if (!element.valid()) {
       return {error_domain::serialization, errc::unsupported};
@@ -164,7 +166,7 @@ associative_data_of(const any_ref& target) noexcept {
   const meta::detail::set_data* set = set_data_of(target);
   const auto assign = assign_fn_of(target);
   if (assign != nullptr) {
-    any decoded = default_construct_for(target);
+    any decoded = default_construct_for(target, context);
     if (decoded.valid()) {
       error status = read_set_into_view(reader, decoded.create_set_view(), set, context);
       if (status) {
@@ -209,13 +211,15 @@ associative_data_of(const any_ref& target) noexcept {
         associative != nullptr ? associative->key_descriptor : nullptr;
     const meta::detail::type_descriptor* value_descriptor =
         associative != nullptr ? associative->value_descriptor : nullptr;
-    any key = value::detail::default_construct(view.key_type(), key_descriptor);
-    any value = value::detail::default_construct(view.value_type(), value_descriptor);
+    any key =
+        value::detail::default_construct(view.key_type(), key_descriptor, context.memory_resource);
+    any value = value::detail::default_construct(view.value_type(), value_descriptor,
+                                                 context.memory_resource);
     if (!key.valid()) {
-      key = any::default_construct(view.key_type());
+      key = any::default_construct(view.key_type(), context.memory_resource);
     }
     if (!value.valid()) {
-      value = any::default_construct(view.value_type());
+      value = any::default_construct(view.value_type(), context.memory_resource);
     }
     if (!key.valid() || !value.valid()) {
       return {error_domain::serialization, errc::unsupported};
@@ -269,7 +273,7 @@ associative_data_of(const any_ref& target) noexcept {
   const meta::detail::associative_data* associative = associative_data_of(target);
   const auto assign = assign_fn_of(target);
   if (assign != nullptr) {
-    any decoded = default_construct_for(target);
+    any decoded = default_construct_for(target, context);
     if (decoded.valid()) {
       error status = read_associative_into_view(reader, decoded.create_associative_view(),
                                                 associative, context);
@@ -351,7 +355,7 @@ associative_data_of(const any_ref& target) noexcept {
                                     const serialization::context& context) {
   const auto assign = assign_fn_of(target);
   if (assign != nullptr) {
-    any decoded = default_construct_for(target);
+    any decoded = default_construct_for(target, context);
     if (decoded.valid()) {
       error status = read_pair_into_view(reader, decoded.create_pair_view(), context);
       if (status) {
@@ -414,7 +418,7 @@ associative_data_of(const any_ref& target) noexcept {
                                      const serialization::context& context) {
   const auto assign = assign_fn_of(target);
   if (assign != nullptr) {
-    any decoded = default_construct_for(target);
+    any decoded = default_construct_for(target, context);
     if (decoded.valid()) {
       error status = read_tuple_into_view(reader, decoded.create_tuple_view(), context);
       if (status) {
@@ -501,7 +505,7 @@ associative_data_of(const any_ref& target) noexcept {
   if (assign != nullptr) {
     any decoded = target.to_any();
     if (!decoded.valid()) {
-      decoded = default_construct_for(target);
+      decoded = default_construct_for(target, context);
     }
 
     if (decoded.valid()) {

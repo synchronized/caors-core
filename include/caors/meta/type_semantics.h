@@ -101,7 +101,9 @@ template <typename T> bool raw_pointer_reset(void* storage) noexcept {
   return true;
 }
 
-template <typename T> bool raw_pointer_ensure_value(void*) { return false; }
+template <typename T> bool raw_pointer_ensure_value(void*, memory::memory_resource*) {
+  return false;
+}
 
 template <typename Wrapper>
 [[nodiscard]] const void* wrapper_indirect_value(const void* storage) noexcept {
@@ -183,14 +185,19 @@ template <typename Wrapper> bool wrapper_reset_indirect_value(void* storage) noe
   return traits::wrapper_access<Wrapper>::reset(*static_cast<Wrapper*>(storage));
 }
 
-template <typename Wrapper> bool wrapper_ensure_indirect_value(void* storage) {
+template <typename Wrapper>
+bool wrapper_ensure_indirect_value(void* storage, memory::memory_resource* resource) {
   if (storage == nullptr) {
     return false;
   }
 
-  if constexpr (requires(Wrapper& source) {
-                  traits::wrapper_access<Wrapper>::ensure_value(source);
+  if constexpr (requires(Wrapper& source, memory::memory_resource* value_resource) {
+                  traits::wrapper_access<Wrapper>::ensure_value(source, value_resource);
                 }) {
+    return traits::wrapper_access<Wrapper>::ensure_value(*static_cast<Wrapper*>(storage), resource);
+  } else if constexpr (requires(Wrapper& source) {
+                         traits::wrapper_access<Wrapper>::ensure_value(source);
+                       }) {
     return traits::wrapper_access<Wrapper>::ensure_value(*static_cast<Wrapper*>(storage));
   } else {
     return false;

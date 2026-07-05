@@ -181,13 +181,15 @@ bool indirect_view::reset() const {
   return info->reset(const_cast<void*>(storage_));
 }
 
-bool indirect_view::ensure_value() const {
+bool indirect_view::ensure_value() const { return ensure_value(nullptr); }
+
+bool indirect_view::ensure_value(memory::memory_resource* resource) const {
   const meta::detail::indirect_data* info = data();
   if (!writable() || info->ensure_value == nullptr) {
     return false;
   }
 
-  return info->ensure_value(const_cast<void*>(storage_));
+  return info->ensure_value(const_cast<void*>(storage_), resource);
 }
 
 indirect_view::indirect_view(const meta::detail::type_descriptor* descriptor, const void* storage,

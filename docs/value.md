@@ -74,6 +74,9 @@ caors::any value = caors::any::from(7);
 ## any
 
 `any` 拥有对象副本，适合把字段值从原对象中取出后独立保存。它依赖 meta descriptor 执行默认构造、复制、销毁和赋值。
+`any::default_construct(type_id, memory_resource*)` 可以用指定 `memory_resource` 默认构造对象，返回的
+`any` 会记住匹配的资源销毁函数；没有传入资源或类型缺少资源构造函数表时，回退到普通 `new` / `delete`
+路径。
 
 当前限制：
 
