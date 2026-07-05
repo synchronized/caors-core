@@ -112,7 +112,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 为 `std::weak_ptr<T>`、对象 handle 和资源引用设计稳定引用语义。
 - [x] 支持多态对象的动态类型记录、manager 构造和安全下转型。
 - [x] 支持普通 C++ 类在 `std::unique_ptr<Base>` / `std::shared_ptr<Base>` 字段中的动态类型记录、默认构造和安全下转型。
-- [ ] 为不可默认构造类型设计显式 factory、placement 构造或字段级构造策略。
+- [x] 为普通类多态值补充显式 factory 和可选 `memory_resource` 构造策略。
+- [ ] 为容器元素、`optional`、`variant` 切换等路径设计 placement 构造或字段级构造策略。
 - [ ] 评估是否放宽多层指针 / 多层 wrapper 限制，或提供清晰诊断与显式适配点。
 - [ ] 增加紧凑二进制和 msgpack 等二进制后端。
 - [x] 增加版本兼容、缺失字段和未知字段基础测试。

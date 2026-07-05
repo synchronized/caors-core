@@ -4,6 +4,7 @@
 #ifndef CAORS_VALUE_INDIRECT_VIEW_H_
 #define CAORS_VALUE_INDIRECT_VIEW_H_
 
+#include "caors/traits/wrapper.h"
 #include "caors/value/fwd.h"
 
 namespace caors::value {
@@ -39,8 +40,15 @@ public:
   /** @brief 判断该 wrapper 是否能接管一个按真实类型构造出的内部值。 */
   [[nodiscard]] bool can_set_value() const noexcept;
 
+  /** @brief 判断该 wrapper 是否能接管需要自定义销毁回调的内部值。 */
+  [[nodiscard]] bool can_set_value_with_context() const noexcept;
+
   /** @brief 让 wrapper 接管一个按真实类型构造出的内部值。 */
   bool set_value(type_id dynamic_type, void* value) const;
+
+  /** @brief 让 wrapper 接管一个按真实类型构造出的内部值，并保存销毁回调上下文。 */
+  bool set_value(type_id dynamic_type, void* value,
+                 const traits::wrapper_set_context& context) const;
 
   /** @brief 重置 wrapper 或裸指针为空。 */
   bool reset() const;

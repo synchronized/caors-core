@@ -86,6 +86,11 @@ const detail::type_descriptor* registry::find_type_descriptor(type_id id) const 
   return detail::find_type_descriptor(*state_, id);
 }
 
+detail::value_factory_ops registry::find_type_factory(type_id id) const {
+  std::lock_guard lock(state_->mutex);
+  return detail::find_type_factory(*state_, id);
+}
+
 bool registry::is_a(type_id id, type_id base_id) const {
   if (!id || !base_id) {
     return false;

@@ -7,6 +7,7 @@
 #include "caors/core/string_name.h"
 #include "caors/error.h"
 #include "caors/export.h"
+#include "caors/memory/resource.h"
 #include "caors/meta/detail/type_data.h"
 #include "caors/meta/type_id.h"
 #include "caors/traits/container.h"
@@ -52,6 +53,18 @@ using value_default_construct_fn = void* (*)();
 using value_clone_fn = void* (*)(const void*);
 using value_destroy_fn = void (*)(void*) noexcept;
 using value_assign_fn = bool (*)(void*, const void*);
+using value_resource_construct_fn = void* (*)(memory::memory_resource*);
+using value_resource_destroy_fn = void (*)(memory::memory_resource*, void*) noexcept;
+
+/** @brief C++ 值的可选资源感知构造策略。 */
+struct value_factory_ops {
+  value_resource_construct_fn construct = nullptr;
+  value_resource_destroy_fn destroy = nullptr;
+
+  [[nodiscard]] constexpr bool valid() const noexcept {
+    return construct != nullptr && destroy != nullptr;
+  }
+};
 
 [[nodiscard]] CAORS_API value_default_construct_fn
 get_default_construct_value_fn(const meta::type& type) noexcept;
@@ -127,6 +140,21 @@ template <typename T> void destroy_value(void* value) noexcept {
   delete static_cast<type*>(value);
 }
 
+template <typename T> void* resource_default_construct_value(memory::memory_resource* resource) {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (std::is_default_constructible_v<type>) {
+    return memory::make<type>(resource);
+  } else {
+    return nullptr;
+  }
+}
+
+template <typename T>
+void resource_destroy_value(memory::memory_resource* resource, void* value) noexcept {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  memory::destroy(static_cast<type*>(value), resource);
+}
+
 template <typename T> bool assign_value(void* target, const void* source) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (meta_copy_assignable<type>::value) {
@@ -173,7 +201,32 @@ template <typename T> [[nodiscard]] value_assign_fn value_assign_fn_of() noexcep
   }
 }
 
+template <typename T>
+[[nodiscard]] value_resource_construct_fn resource_default_construct_fn_of() noexcept {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (std::is_default_constructible_v<type>) {
+    return &resource_default_construct_value<type>;
+  } else {
+    return nullptr;
+  }
+}
+
+template <typename T> [[nodiscard]] value_resource_destroy_fn resource_destroy_fn_of() noexcept {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (std::is_destructible_v<type>) {
+    return &resource_destroy_value<type>;
+  } else {
+    return nullptr;
+  }
+}
+
 } // namespace detail
+
+/** @brief 自定义类型工厂构造函数；可选择使用传入的内存资源。 */
+using type_factory_construct_fn = detail::value_resource_construct_fn;
+
+/** @brief 自定义类型工厂销毁函数；必须匹配对应构造函数的分配策略。 */
+using type_factory_destroy_fn = detail::value_resource_destroy_fn;
 
 /**
  * @brief 元类型只读视图。

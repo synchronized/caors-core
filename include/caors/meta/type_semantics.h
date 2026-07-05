@@ -213,6 +213,25 @@ template <typename Wrapper> bool wrapper_set_indirect_value(void* storage, void*
   }
 }
 
+template <typename Wrapper>
+bool wrapper_set_indirect_value_with_context(void* storage, void* value,
+                                             const traits::wrapper_set_context& context) noexcept {
+  if (storage == nullptr || value == nullptr) {
+    return false;
+  }
+
+  using value_type = std::remove_cv_t<typename traits::wrapper_traits<Wrapper>::wrapped_type>;
+  if constexpr (requires(Wrapper& source, value_type* stored,
+                         const traits::wrapper_set_context& set_context) {
+                  traits::wrapper_access<Wrapper>::set_value(source, stored, set_context);
+                }) {
+    return traits::wrapper_access<Wrapper>::set_value(*static_cast<Wrapper*>(storage),
+                                                      static_cast<value_type*>(value), context);
+  } else {
+    return false;
+  }
+}
+
 template <typename Enum> [[nodiscard]] std::int64_t enum_to_i64(const void* storage) noexcept {
   using underlying_type = std::underlying_type_t<Enum>;
   return static_cast<std::int64_t>(
@@ -287,6 +306,7 @@ template <typename T> [[nodiscard]] indirect_data make_indirect_data() {
     data.reset = &wrapper_reset_indirect_value<type>;
     data.ensure_value = &wrapper_ensure_indirect_value<type>;
     data.set_value = &wrapper_set_indirect_value<type>;
+    data.set_value_with_context = &wrapper_set_indirect_value_with_context<type>;
     return data;
   } else {
     return {};

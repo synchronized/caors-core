@@ -5,6 +5,7 @@
 #define CAORS_SERIALIZATION_TYPES_H_
 
 #include "caors/error.h"
+#include "caors/memory/resource.h"
 #include "caors/meta.h"
 #include "caors/object.h"
 #include "caors/result.h"
@@ -135,6 +136,13 @@ struct context {
    * `memory_resource` 负责实际分配，对象生命周期也由 manager 接管。
    */
   objects::manager* object_manager = nullptr;
+  /**
+   * @brief 普通 C++ 多态值反序列化时可选的内存资源。
+   *
+   * 只有目标 wrapper 能保存匹配销毁回调时，反序列化才会用该资源构造动态对象。否则保持标准
+   * `new` / `delete` 语义，避免默认 deleter 与自定义资源释放策略不匹配。
+   */
+  memory::memory_resource* memory_resource = nullptr;
 };
 
 /** @brief 文本序列化结果。 */

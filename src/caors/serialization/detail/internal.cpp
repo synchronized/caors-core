@@ -2,16 +2,136 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "helpers.h"
+#include "polymorphic.h"
 
 #include "caors/meta/detail/type_capabilities.h"
 #include "caors/object/ref_view.h"
 #include "caors/reflection/registry.h"
 
 #include <limits>
+#include <new>
 #include <optional>
 #include <string>
 
 namespace caors::serialization::detail {
+namespace {
+
+struct constructed_value {
+  void* value = nullptr;
+  memory::memory_resource* resource = nullptr;
+  meta::detail::value_resource_destroy_fn resource_destroy = nullptr;
+  meta::detail::value_destroy_fn default_destroy = nullptr;
+  bool transfer_destroy_context = false;
+
+  constructed_value() = default;
+
+  constructed_value(void* constructed, memory::memory_resource* memory,
+                    meta::detail::value_resource_destroy_fn destroy, bool transfer_context) noexcept
+      : value(constructed), resource(memory), resource_destroy(destroy),
+        transfer_destroy_context(transfer_context) {}
+
+  constructed_value(void* constructed, meta::detail::value_destroy_fn destroy) noexcept
+      : value(constructed), default_destroy(destroy) {}
+
+  constructed_value(const constructed_value&) = delete;
+  constructed_value& operator=(const constructed_value&) = delete;
+
+  constructed_value(constructed_value&& other) noexcept
+      : value(other.value), resource(other.resource), resource_destroy(other.resource_destroy),
+        default_destroy(other.default_destroy),
+        transfer_destroy_context(other.transfer_destroy_context) {
+    other.release();
+  }
+
+  constructed_value& operator=(constructed_value&& other) noexcept {
+    if (this != &other) {
+      reset();
+      value = other.value;
+      resource = other.resource;
+      resource_destroy = other.resource_destroy;
+      default_destroy = other.default_destroy;
+      transfer_destroy_context = other.transfer_destroy_context;
+      other.release();
+    }
+
+    return *this;
+  }
+
+  ~constructed_value() { reset(); }
+
+  [[nodiscard]] bool valid() const noexcept { return value != nullptr; }
+  [[nodiscard]] bool uses_resource_destroy() const noexcept {
+    return value != nullptr && resource_destroy != nullptr && transfer_destroy_context;
+  }
+
+  void release() noexcept {
+    value = nullptr;
+    resource = nullptr;
+    resource_destroy = nullptr;
+    default_destroy = nullptr;
+    transfer_destroy_context = false;
+  }
+
+  void reset() noexcept {
+    if (value == nullptr) {
+      return;
+    }
+
+    if (resource_destroy != nullptr) {
+      resource_destroy(resource, value);
+    } else if (default_destroy != nullptr) {
+      default_destroy(value);
+    }
+
+    release();
+  }
+};
+
+struct polymorphic_destroy_context {
+  memory::memory_resource* resource = nullptr;
+  meta::detail::value_resource_destroy_fn destroy = nullptr;
+};
+
+void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcept {
+  auto* context = static_cast<polymorphic_destroy_context*>(user_data);
+  if (context != nullptr && context->destroy != nullptr && value != nullptr) {
+    context->destroy(context->resource, value);
+  }
+
+  delete context;
+}
+
+[[nodiscard]] constructed_value construct_polymorphic_value(
+    const meta::type& dynamic_type, const meta::detail::type_descriptor& descriptor,
+    const value::indirect_view& indirect, const serialization::context& context) {
+  const meta::detail::value_factory_ops registered_factory =
+      meta::get_registry().find_type_factory(dynamic_type.id());
+
+  if (context.memory_resource != nullptr && indirect.can_set_value_with_context()) {
+    if (registered_factory.valid()) {
+      return {registered_factory.construct(context.memory_resource), context.memory_resource,
+              registered_factory.destroy, true};
+    }
+
+    if (descriptor.ops.resource_construct != nullptr &&
+        descriptor.ops.resource_destroy != nullptr) {
+      return {descriptor.ops.resource_construct(context.memory_resource), context.memory_resource,
+              descriptor.ops.resource_destroy, true};
+    }
+  }
+
+  if (registered_factory.valid()) {
+    return {registered_factory.construct(nullptr), nullptr, registered_factory.destroy, false};
+  }
+
+  if (descriptor.ops.default_construct == nullptr || descriptor.ops.destroy == nullptr) {
+    return {};
+  }
+
+  return {descriptor.ops.default_construct(), descriptor.ops.destroy};
+}
+
+} // namespace
 
 [[nodiscard]] error read_size_value(reader& reader, std::size_t& value) {
   std::uint64_t unsigned_value = 0;
@@ -323,74 +443,6 @@ descriptor_of_value(const any_ref& value) noexcept {
   return {error_domain::serialization, errc::unsupported};
 }
 
-[[nodiscard]] core::string_name polymorphic_type_field() { return core::string_name{"$type"}; }
-
-[[nodiscard]] core::string_name polymorphic_value_field() { return core::string_name{"$value"}; }
-
-[[nodiscard]] const value::variant_member* find_variant_member(const variant& source,
-                                                               core::string_name name) noexcept {
-  return source.is_object() ? source.find_member(name) : nullptr;
-}
-
-[[nodiscard]] bool is_polymorphic_envelope(const variant& source) noexcept {
-  const value::variant_member* type_member = find_variant_member(source, polymorphic_type_field());
-  const value::variant_member* value_member =
-      find_variant_member(source, polymorphic_value_field());
-  return type_member != nullptr && type_member->value.is_string() && value_member != nullptr;
-}
-
-[[nodiscard]] result<meta::type> resolve_polymorphic_meta_type(type_id declared_base,
-                                                               const variant& envelope) {
-  if (!declared_base || !envelope.is_object()) {
-    return {{error_domain::serialization, errc::invalid_type}, {}};
-  }
-
-  const value::variant_member* type_member = envelope.find_member(polymorphic_type_field());
-  if (type_member == nullptr || !type_member->value.is_string()) {
-    return {{error_domain::serialization, errc::not_found}, {}};
-  }
-
-  const string& text = type_member->value.as_string();
-  const std::optional<guid> parsed = guid::parse(std::string_view{text.data(), text.size()});
-  if (!parsed.has_value()) {
-    return {{error_domain::serialization, errc::invalid_type}, {}};
-  }
-
-  const meta::type dynamic_type = meta::find(type_guid{*parsed});
-  if (!dynamic_type) {
-    return {{error_domain::serialization, errc::missing_type}, {}};
-  }
-
-  if (!meta::is_a(dynamic_type.id(), declared_base)) {
-    return {{error_domain::serialization, errc::invalid_type}, {}};
-  }
-
-  return {{}, dynamic_type};
-}
-
-[[nodiscard]] variant_result make_polymorphic_envelope(const meta::type& dynamic_type,
-                                                       variant stored_value) {
-  const type_guid guid = dynamic_type.guid();
-  if (!guid) {
-    return {{error_domain::serialization, errc::invalid_type}, {}};
-  }
-
-  variant::object_type members;
-  members.reserve(2);
-  members.push_back(value::variant_member{
-      polymorphic_type_field(),
-      0,
-      variant::from(guid.value.string()),
-  });
-  members.push_back(value::variant_member{
-      polymorphic_value_field(),
-      0,
-      std::move(stored_value),
-  });
-
-  return {{}, variant::object(std::move(members))};
-}
-
 [[nodiscard]] variant_result
 make_polymorphic_indirect_value(const value::indirect_view& indirect,
                                 const serialization::context& context) {
@@ -444,35 +496,56 @@ make_polymorphic_indirect_value(const value::indirect_view& indirect,
     return dynamic_type.status;
   }
 
-  const value::variant_member* value_member = envelope.find_member(polymorphic_value_field());
-  if (value_member == nullptr) {
+  const variant* stored_value = read_polymorphic_value(envelope);
+  if (stored_value == nullptr) {
     return {error_domain::serialization, errc::not_found};
   }
 
   const meta::detail::type_descriptor* descriptor =
       meta::get_registry().find_type_descriptor(dynamic_type.value.id());
-  if (descriptor == nullptr || descriptor->ops.default_construct == nullptr ||
-      descriptor->ops.destroy == nullptr) {
+  if (descriptor == nullptr) {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  void* instance = descriptor->ops.default_construct();
-  if (instance == nullptr) {
+  constructed_value instance =
+      construct_polymorphic_value(dynamic_type.value, *descriptor, indirect, context);
+  if (!instance.valid()) {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  variant_reader value_reader{value_member->value};
-  error status = deserialize(dynamic_type.value.id(), instance, value_reader, context);
+  variant_reader value_reader{*stored_value};
+  error status = deserialize(dynamic_type.value.id(), instance.value, value_reader, context);
   if (status) {
-    descriptor->ops.destroy(instance);
     return status;
   }
 
-  if (!indirect.set_value(dynamic_type.value.id(), instance)) {
-    descriptor->ops.destroy(instance);
+  if (instance.uses_resource_destroy()) {
+    auto* destroy_context = new (std::nothrow) polymorphic_destroy_context{
+        instance.resource,
+        instance.resource_destroy,
+    };
+    if (destroy_context == nullptr) {
+      return {error_domain::serialization, errc::unsupported};
+    }
+
+    const traits::wrapper_set_context set_context{
+        destroy_context,
+        &destroy_polymorphic_constructed_value,
+    };
+    if (!indirect.set_value(dynamic_type.value.id(), instance.value, set_context)) {
+      delete destroy_context;
+      return {error_domain::serialization, errc::invalid_field};
+    }
+
+    instance.release();
+    return {};
+  }
+
+  if (!indirect.set_value(dynamic_type.value.id(), instance.value)) {
     return {error_domain::serialization, errc::invalid_field};
   }
 
+  instance.release();
   return {};
 }
 

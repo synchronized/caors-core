@@ -3,73 +3,14 @@
 
 #include "caors/serialization/operations.h"
 
+#include "detail/polymorphic.h"
+
 #include "caors/reflection/registry.h"
 
-#include <optional>
 #include <utility>
 
 namespace caors::serialization {
 namespace {
-
-[[nodiscard]] core::string_name polymorphic_type_field() { return core::string_name{"$type"}; }
-
-[[nodiscard]] core::string_name polymorphic_value_field() { return core::string_name{"$value"}; }
-
-[[nodiscard]] variant_result make_polymorphic_envelope(const objects::type& dynamic_type,
-                                                       variant value) {
-  const type_guid guid = dynamic_type.guid();
-  if (!guid) {
-    return {{error_domain::serialization, errc::invalid_type}, {}};
-  }
-
-  variant::object_type members;
-  members.reserve(2);
-  members.push_back(value::variant_member{
-      polymorphic_type_field(),
-      0,
-      variant::from(guid.value.string()),
-  });
-  members.push_back(value::variant_member{
-      polymorphic_value_field(),
-      0,
-      std::move(value),
-  });
-
-  return {{}, variant::object(std::move(members))};
-}
-
-[[nodiscard]] result<type_guid> read_polymorphic_type_guid(const variant& envelope) {
-  if (!envelope.is_object()) {
-    return {{error_domain::serialization, errc::invalid_argument}, {}};
-  }
-
-  const value::variant_member* type_member = envelope.find_member(polymorphic_type_field());
-  if (type_member == nullptr || !type_member->value.is_string()) {
-    return {{error_domain::serialization, errc::not_found}, {}};
-  }
-
-  const string& text = type_member->value.as_string();
-  const std::optional<guid> parsed = guid::parse(std::string_view{text.data(), text.size()});
-  if (!parsed.has_value()) {
-    return {{error_domain::serialization, errc::invalid_type}, {}};
-  }
-
-  type_guid result{*parsed};
-  if (!result) {
-    return {{error_domain::serialization, errc::invalid_type}, {}};
-  }
-
-  return {{}, result};
-}
-
-[[nodiscard]] const variant* read_polymorphic_value(const variant& envelope) {
-  if (!envelope.is_object()) {
-    return nullptr;
-  }
-
-  const value::variant_member* value_member = envelope.find_member(polymorphic_value_field());
-  return value_member != nullptr ? &value_member->value : nullptr;
-}
 
 [[nodiscard]] result<objects::type> resolve_polymorphic_type(objects::object_type_id declared_base,
                                                              const variant& envelope) {
@@ -77,7 +18,7 @@ namespace {
     return {{error_domain::serialization, errc::invalid_type}, {}};
   }
 
-  result<type_guid> guid = read_polymorphic_type_guid(envelope);
+  result<type_guid> guid = detail::read_polymorphic_type_guid(envelope);
   if (guid.failed()) {
     return {guid.status, {}};
   }
@@ -122,7 +63,7 @@ variant_result to_polymorphic_serialization_value(const objects::object& object,
     return value;
   }
 
-  return make_polymorphic_envelope(dynamic_type, std::move(value.value));
+  return detail::make_polymorphic_envelope(dynamic_type.guid(), std::move(value.value));
 }
 
 variant_result to_polymorphic_serialization_value(const objects::object* object,
@@ -150,7 +91,7 @@ result<objects::object*> deserialize_polymorphic_object(objects::object_type_id 
     return {dynamic_type.status, nullptr};
   }
 
-  const variant* stored_value = read_polymorphic_value(value);
+  const variant* stored_value = detail::read_polymorphic_value(value);
   if (stored_value == nullptr) {
     return {{error_domain::serialization, errc::not_found}, nullptr};
   }

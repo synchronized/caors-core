@@ -6,6 +6,16 @@
 
 namespace caors::traits {
 
+/** @brief wrapper 接管外部构造值时可选的销毁回调上下文。 */
+struct wrapper_set_context {
+  using destroy_fn = void (*)(void* user_data, void* value) noexcept;
+
+  void* user_data = nullptr;
+  destroy_fn destroy = nullptr;
+
+  [[nodiscard]] constexpr bool valid() const noexcept { return destroy != nullptr; }
+};
+
 /** @brief wrapper 类型的序列化语义。 */
 enum class wrapper_semantics {
   none,

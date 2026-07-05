@@ -183,4 +183,32 @@ error registry::set_type_parent(type_id id, type_id parent_id, detail::parent_ca
   return changed ? error{} : error{error_domain::meta, errc::duplicate_id};
 }
 
+error registry::set_type_factory(type_id id, detail::value_factory_ops factory) {
+  if (!id || !factory.valid()) {
+    return {error_domain::meta, errc::invalid_type};
+  }
+
+  std::lock_guard lock(state_->mutex);
+  if (state_->frozen) {
+    return {error_domain::meta, errc::frozen};
+  }
+
+  if (!state_->types.contains(id.value())) {
+    return {error_domain::meta, errc::missing_type};
+  }
+
+  const auto position = state_->factories.find(id.value());
+  if (position != state_->factories.end()) {
+    if (position->second.construct != factory.construct ||
+        position->second.destroy != factory.destroy) {
+      return {error_domain::meta, errc::invalid_type};
+    }
+
+    return {error_domain::meta, errc::duplicate_id};
+  }
+
+  state_->factories.emplace(id.value(), factory);
+  return {};
+}
+
 } // namespace caors::meta

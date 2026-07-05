@@ -64,6 +64,36 @@ public:
     return *this;
   }
 
+  /**
+   * @brief 为类型注册资源感知默认工厂。
+   *
+   * 该工厂使用 `memory::make<T>()` / `memory::destroy<T>()`，适合默认可构造类型。非默认可构造
+   * 类型应使用带函数指针的 `factory()` 重载。
+   */
+  type_builder& factory() {
+    return factory(detail::resource_default_construct_fn_of<T>(),
+                   detail::resource_destroy_fn_of<T>());
+  }
+
+  /**
+   * @brief 为类型注册自定义资源感知工厂。
+   *
+   * `construct` 可使用传入的 `memory_resource` 分配并构造对象；`destroy` 必须用匹配策略销毁对象。
+   */
+  type_builder& factory(type_factory_construct_fn construct, type_factory_destroy_fn destroy) {
+    if (!type_) {
+      status_ = {error_domain::meta, errc::invalid_type};
+      return *this;
+    }
+
+    status_ = get_registry().set_type_factory(type_.id(), detail::value_factory_ops{
+                                                              construct,
+                                                              destroy,
+                                                          });
+    refresh();
+    return *this;
+  }
+
   [[nodiscard]] ::caors::meta::type get() const noexcept { return type_; }
   [[nodiscard]] error result() const noexcept { return status_; }
   [[nodiscard]] bool succeeded() const noexcept {

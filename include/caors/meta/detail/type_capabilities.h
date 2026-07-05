@@ -5,6 +5,7 @@
 #define CAORS_META_DETAIL_TYPE_CAPABILITIES_H_
 
 #include "caors/meta/type_id.h"
+#include "caors/traits/wrapper.h"
 
 #include <cstdint>
 
@@ -21,6 +22,8 @@ using indirect_has_value_fn = bool (*)(const void*) noexcept;
 using indirect_reset_fn = bool (*)(void*) noexcept;
 using indirect_ensure_value_fn = bool (*)(void*);
 using indirect_set_value_fn = bool (*)(void*, void*) noexcept;
+using indirect_set_value_with_context_fn = bool (*)(void*, void*,
+                                                    const traits::wrapper_set_context&) noexcept;
 using enum_to_i64_fn = std::int64_t (*)(const void*) noexcept;
 using enum_to_u64_fn = std::uint64_t (*)(const void*) noexcept;
 using enum_from_i64_fn = bool (*)(void*, std::int64_t) noexcept;
@@ -39,12 +42,14 @@ struct indirect_data {
   indirect_reset_fn reset = nullptr;
   indirect_ensure_value_fn ensure_value = nullptr;
   indirect_set_value_fn set_value = nullptr;
+  indirect_set_value_with_context_fn set_value_with_context = nullptr;
   const type_descriptor* value_descriptor = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
     return value != nullptr || mutable_value != nullptr || has_value != nullptr ||
            reset != nullptr || ensure_value != nullptr || dynamic_type != nullptr ||
-           dynamic_value != nullptr || mutable_dynamic_value != nullptr || set_value != nullptr;
+           dynamic_value != nullptr || mutable_dynamic_value != nullptr || set_value != nullptr ||
+           set_value_with_context != nullptr;
   }
 };
 

@@ -137,6 +137,11 @@ bool indirect_view::can_set_value() const noexcept {
   return valid() && info->set_value != nullptr;
 }
 
+bool indirect_view::can_set_value_with_context() const noexcept {
+  const meta::detail::indirect_data* info = data();
+  return valid() && info->set_value_with_context != nullptr;
+}
+
 bool indirect_view::set_value(type_id dynamic_type, void* value) const {
   const meta::detail::indirect_data* info = data();
   if (!writable() || info->set_value == nullptr || value == nullptr || !dynamic_type) {
@@ -149,6 +154,22 @@ bool indirect_view::set_value(type_id dynamic_type, void* value) const {
   }
 
   return info->set_value(const_cast<void*>(storage_), adjusted);
+}
+
+bool indirect_view::set_value(type_id dynamic_type, void* value,
+                              const traits::wrapper_set_context& context) const {
+  const meta::detail::indirect_data* info = data();
+  if (!writable() || info->set_value_with_context == nullptr || value == nullptr || !dynamic_type ||
+      !context.valid()) {
+    return false;
+  }
+
+  void* adjusted = caors::meta::get_registry().upcast(dynamic_type, value_type(), value);
+  if (adjusted == nullptr) {
+    return false;
+  }
+
+  return info->set_value_with_context(const_cast<void*>(storage_), adjusted, context);
 }
 
 bool indirect_view::reset() const {

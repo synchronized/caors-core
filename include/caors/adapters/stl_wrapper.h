@@ -156,6 +156,37 @@ template <typename T> struct wrapper_access<std::shared_ptr<T>> {
     return false;
 #endif
   }
+
+  static bool set_value(std::shared_ptr<T>& source, wrapped_type* value,
+                        const wrapper_set_context& context) {
+    if (value == nullptr || !context.valid()) {
+      return set_value(source, value);
+    }
+
+#if CAORS_HAS_EXCEPTIONS
+    try {
+      source = std::shared_ptr<T>(value, [context](wrapped_type* stored) noexcept {
+        if (stored == nullptr) {
+          return;
+        }
+
+        if constexpr (std::is_polymorphic_v<wrapped_type>) {
+          context.destroy(context.user_data, dynamic_cast<void*>(stored));
+        } else {
+          context.destroy(context.user_data, stored);
+        }
+      });
+    } catch (...) {
+      return false;
+    }
+    return static_cast<bool>(source);
+#else
+    (void)source;
+    (void)value;
+    (void)context;
+    return false;
+#endif
+  }
 };
 
 /** @brief `std::weak_ptr` 只标记为不支持的 wrapper，不默认暴露内部值。 */

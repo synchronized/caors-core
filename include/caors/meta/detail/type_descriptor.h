@@ -35,6 +35,8 @@ struct value_ops {
   value_clone_fn clone = nullptr;
   value_destroy_fn destroy = nullptr;
   value_assign_fn assign = nullptr;
+  value_resource_construct_fn resource_construct = nullptr;
+  value_resource_destroy_fn resource_destroy = nullptr;
 };
 
 /** @brief C++ 类型的运行期语义摘要。 */
@@ -668,6 +670,8 @@ template <typename T> struct descriptor_holder {
         value_clone_fn_of<type>(),
         value_destroy_fn_of<type>(),
         value_assign_fn_of<type>(),
+        resource_default_construct_fn_of<type>(),
+        resource_destroy_fn_of<type>(),
     };
     fill_descriptor_semantics<type>(descriptor);
     descriptor.capability = type_capability_of<type>();

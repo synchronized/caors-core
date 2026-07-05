@@ -104,6 +104,7 @@ public:
   [[nodiscard]] type find_type(std::string_view name) const;
   [[nodiscard]] type find_type(string_name name) const;
   [[nodiscard]] const detail::type_descriptor* find_type_descriptor(type_id id) const;
+  [[nodiscard]] detail::value_factory_ops find_type_factory(type_id id) const;
   [[nodiscard]] bool is_a(type_id id, type_id base_id) const;
   [[nodiscard]] const void* upcast(type_id id, type_id base_id, const void* value) const;
   [[nodiscard]] void* upcast(type_id id, type_id base_id, void* value) const;
@@ -251,6 +252,7 @@ private:
   [[nodiscard]] error set_type_guid(type_id id, type_guid guid);
   [[nodiscard]] error set_type_parent(type_id id, type_id parent_id);
   [[nodiscard]] error set_type_parent(type_id id, type_id parent_id, detail::parent_cast_data cast);
+  [[nodiscard]] error set_type_factory(type_id id, detail::value_factory_ops factory);
 
   template <typename Child, typename Parent> [[nodiscard]] error set_type_parent_for() {
     using child_type = std::remove_cv_t<std::remove_reference_t<Child>>;

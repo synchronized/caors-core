@@ -18,6 +18,7 @@
 - 用注册表内部基础类型数据保存类型名、稳定 GUID 和父类型。
 - 用内部 type descriptor 保存 C++ 类型布局、默认构造、复制、析构、赋值和运行期视图能力。
 - 用内部 type descriptor 保存类型形态、通用类型关系和具体访问函数表。
+- 用可选 type factory 保存资源感知构造策略，供普通类多态反序列化等需要运行期创建值的路径使用。
 - 用 `meta::type` 作为对外只读类型视图，避免直接暴露注册表内部数据。
 - 用全局 `meta::registry` 集中处理基础类型注册、查找和继承关系判断。
 - 用全局 `meta::registry` 在同一个 `type_id` 上挂载不同主题的元数据组件。
@@ -172,6 +173,21 @@ caors::meta::type_<player>("game.player")
 `player` 对象交给声明基类 wrapper。`.parent(type_id)` 仍可用于只需要关系查询的场景，但不会提供
 typed upcast 能力。
 
+如果类型需要在运行期由序列化层创建，可以注册资源感知 factory：
+
+```cpp
+void* construct_player(caors::memory_resource* resource);
+void destroy_player(caors::memory_resource* resource, void* value) noexcept;
+
+caors::meta::type_<player>("game.player")
+    .guid(player_guid)
+    .parent<actor>()
+    .factory(&construct_player, &destroy_player);
+```
+
+`.factory()` 无参数重载使用 `memory::make<T>()` / `memory::destroy<T>()` 注册默认构造策略，要求 `T`
+可默认构造。带函数指针的重载用于不可默认构造类型，`destroy` 必须匹配 `construct` 的分配策略。
+
 `caors::meta::find(...)` 和 `caors::meta::find<T>()` 只查询已经注册的类型，不会创建临时记录；
 不存在时返回无效 `meta::type`。普通类型应通过 `caors::meta::type_<T>("name")` 显式注册。
 `meta::id_of<T>()` 同样只查询已注册类型，不会触发运行期隐式注册。
@@ -275,6 +291,7 @@ CAORS_META_REGISTRATION(register_actor_meta) {
 
 - `type_id -> 内部基础类型数据`：运行期主索引，只保存身份类信息。
 - `type_id -> const meta::detail::type_descriptor*`：布局、值操作、类型语义、主访问能力和对象引用能力。
+- `type_id -> type factory`：可选资源感知构造/销毁函数表。
 - `typeid(T) -> type_id`：当前进程内 RTTI 查询索引，用于普通 C++ 多态辅助。
 - `type_id -> parent upcast`：typed parent 注册保存的直接父类 upcast 回调。
 - `type_name -> type_id`：名称查询索引，可选。
@@ -364,6 +381,7 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 - `meta::type_<T>()`：RTTR 风格的链式元类型注册入口；默认不注册类型，需要继续调用 `.type("name")`。
 - `meta::type_<T>("name")`：推荐的显式命名注册入口。
 - `meta::type_<T>().parent<Base>()`：保存 C++ 父类型关系和安全 upcast 回调。
+- `meta::type_<T>().factory()` / `.factory(construct, destroy)`：保存运行期值构造和销毁策略。
 - `meta::registry`：全局基础类型注册、按 id/name/guid 或 C++ 类型查询、继承关系判断和组件式元数据挂载。
 - `meta::view<T...>`：按组件集合查询类型。
 - `meta::run_registrations()`：执行已收集的延迟元数据注册函数。
