@@ -53,6 +53,7 @@ caors::object_id id = instance.id();
 正常情况下 id 在当前进程内全局递增且不复用；理论上耗尽 `std::uint64_t` 可用空间后会返回无效 id，
 不会回绕复用旧 id。它只表示当前进程运行期间的对象身份，不承诺跨进程、跨版本或跨存档稳定。需要
 持久对象引用时，后续应使用显式 `object_guid` / 业务持久 id，再在加载时映射到运行期 `object_id`。
+`generate_object_id()` 内部使用原子计数器，可以从多个线程并发调用。
 
 ### object_guid 和 object_index
 
@@ -71,6 +72,21 @@ caors::object_guid guid = index.guid_of(runtime_id);
 
 同一个 GUID 和 id 重复绑定到同一对值会视为成功；同一个 GUID 或 id 试图绑定到另一个值会失败。
 nil GUID 和无效 `object_id` 不能绑定。索引不提供内部同步，跨线程访问时调用方需要自行加锁。
+
+### 线程安全边界
+
+对象系统当前只保证 `objects::generate_object_id()` 的并发调用安全。它只负责生成当前进程内唯一的
+运行期 id，不访问对象实例、注册表或 manager。
+
+其他对象系统组件默认不提供内部同步：
+
+- `objects::manager`：创建、销毁、查找、遍历和 `object_index` 联动都需要调用方保证外部同步。
+- `objects::object_index`：绑定、解绑和查询需要和对应对象生命周期保持一致，跨线程访问时由调用方加锁。
+- `objects::ref<T>`、`objects::handle` 和 `objects::weak_handle<T>`：只是轻量引用或身份描述，不延长对象生命周期，也不隐式保证对象仍然存活。
+- 对象类型注册应在启动注册阶段完成；运行期并发注册和查询的策略由上层调度保证。
+
+因此对象系统不会维护全局对象实例表，也不会在 `ref` 或 handle 中自动解引用全局状态。需要跨线程共享对象时，
+建议在上层 manager、场景数据库或资源系统外包一层同步和生命周期策略。
 
 ### 基础类型信息
 
@@ -187,9 +203,9 @@ if (player* current = manager.find(weak)) {
 }
 ```
 
-线程安全边界：`manager` 当前不提供内部同步。创建、销毁、查找和遍历存活对象数量如果跨线程并发使用，
-调用方需要自行加锁。`destroy()` 后，已有裸指针、`objects::ref<T>` 和 weak handle 都会失效；weak handle
-可以再次通过 `manager.find()` 检测是否仍可解析。
+`manager` 当前不提供内部同步。创建、销毁、查找和遍历存活对象数量如果跨线程并发使用，调用方需要自行加锁。
+`destroy()` 后，已有裸指针、`objects::ref<T>` 和 weak handle 都会失效；weak handle 可以再次通过
+`manager.find()` 检测是否仍可解析。
 
 当 manager 关联了 `object_index` 时，`destroy()` 和 `clear()` 会自动解除对象 id 对应的持久 GUID
 绑定。未通过 manager 持有的对象不能通过 `manager.bind_guid()` 绑定。
