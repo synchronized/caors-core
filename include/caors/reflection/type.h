@@ -5,6 +5,7 @@
 #define CAORS_REFLECTION_TYPE_H_
 
 #include "caors/reflection/field.h"
+#include "caors/reflection/method.h"
 
 #include <cstddef>
 #include <string_view>
@@ -40,6 +41,10 @@ public:
   [[nodiscard]] field field_at(std::size_t index) const;
   [[nodiscard]] field find_field(string_name name) const;
   [[nodiscard]] field find_field(std::string_view name) const;
+  [[nodiscard]] std::size_t method_count() const noexcept;
+  [[nodiscard]] method method_at(std::size_t index) const;
+  [[nodiscard]] method find_method(string_name name) const;
+  [[nodiscard]] method find_method(std::string_view name) const;
 
 private:
   friend class registry;

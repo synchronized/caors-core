@@ -36,6 +36,8 @@ public:
       return "duplicate component";
     case errc::duplicate_field:
       return "duplicate field";
+    case errc::duplicate_method:
+      return "duplicate method";
     case errc::duplicate_reflection:
       return "duplicate reflection";
     case errc::inconsistent_type:

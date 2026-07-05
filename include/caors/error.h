@@ -25,6 +25,7 @@ enum class errc {
   duplicate_guid,
   duplicate_component,
   duplicate_field,
+  duplicate_method,
   duplicate_reflection,
   inconsistent_type,
   missing_parent,

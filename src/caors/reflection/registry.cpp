@@ -50,6 +50,23 @@ namespace {
   return {};
 }
 
+[[nodiscard]] error validate_registered_methods(const detail::type_data& reflection) {
+  core::hash_set<core::string_name> names;
+  names.reserve(reflection.methods.size());
+
+  for (const detail::method_data& method : reflection.methods) {
+    if (!method.valid()) {
+      return {error_domain::reflection, errc::invalid_field};
+    }
+
+    if (!names.insert(method.name).second) {
+      return {error_domain::reflection, errc::duplicate_method};
+    }
+  }
+
+  return {};
+}
+
 } // namespace
 
 registry::registry() = default;
@@ -110,6 +127,11 @@ error registry::register_type(const meta::detail::type_data& type,
     return validation_status;
   }
 
+  const error method_status = validate_registered_methods(stored_reflection);
+  if (method_status) {
+    return method_status;
+  }
+
   return rethrow_as(
       meta::get_registry().emplace<detail::type_data>(stored_meta.id(), stored_reflection),
       error_domain::reflection, errc::duplicate_component, errc::duplicate_reflection);
@@ -139,6 +161,11 @@ error registry::register_type(type_id id, const detail::type_data& reflection) {
   const error validation_status = validate_registered_fields(stored_reflection);
   if (validation_status) {
     return validation_status;
+  }
+
+  const error method_status = validate_registered_methods(stored_reflection);
+  if (method_status) {
+    return method_status;
   }
 
   return rethrow_as(meta::get_registry().emplace<detail::type_data>(id, stored_reflection),

@@ -6,6 +6,7 @@
 
 #include "caors/reflection/builder.h"
 #include "caors/reflection/field.h"
+#include "caors/reflection/method.h"
 #include "caors/reflection/registry.h"
 #include "caors/reflection/type.h"
 

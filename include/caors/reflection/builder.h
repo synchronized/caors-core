@@ -79,6 +79,38 @@ public:
     return *this;
   }
 
+  template <typename Return, typename... Arguments>
+  class_builder& method(std::string_view name, Return (Class::*member)(Arguments...)) {
+    if (pending_status_) {
+      return *this;
+    }
+
+    detail::method_data method = detail::make_method_data<Class>(name, member);
+    if (!method.valid()) {
+      pending_status_ = {error_domain::reflection, errc::invalid_field};
+      return *this;
+    }
+
+    reflection_.methods.push_back(method);
+    return *this;
+  }
+
+  template <typename Return, typename... Arguments>
+  class_builder& method(std::string_view name, Return (Class::*member)(Arguments...) const) {
+    if (pending_status_) {
+      return *this;
+    }
+
+    detail::method_data method = detail::make_method_data<Class>(name, member);
+    if (!method.valid()) {
+      pending_status_ = {error_domain::reflection, errc::invalid_field};
+      return *this;
+    }
+
+    reflection_.methods.push_back(method);
+    return *this;
+  }
+
   [[nodiscard]] error commit() {
     if (pending_status_) {
       return pending_status_;

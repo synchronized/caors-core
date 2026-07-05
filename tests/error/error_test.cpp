@@ -22,6 +22,10 @@ TEST_CASE("error - errc converts to std error code", "[error]") {
   const std::error_code frozen = caors::errc::frozen;
   CHECK(frozen);
   CHECK(frozen.message() == "frozen");
+
+  const std::error_code duplicate_method = caors::errc::duplicate_method;
+  CHECK(duplicate_method);
+  CHECK(duplicate_method.message() == "duplicate method");
 }
 
 TEST_CASE("error - lightweight status keeps domain and code", "[error]") {

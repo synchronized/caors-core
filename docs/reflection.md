@@ -3,7 +3,7 @@
 
 # Reflection
 
-本文档说明 CAORS 反射系统的当前设计边界。当前反射提供类型和字段元信息注册、查询，以及基础字段读写；暂不提供方法调用、属性系统或代码生成。
+本文档说明 CAORS 反射系统的当前设计边界。当前反射提供类型、字段和成员方法元信息注册、查询，以及基础字段读写和成员方法调用；暂不提供独立属性系统或代码生成。
 
 ## 设计目标
 
@@ -11,15 +11,17 @@
 
 - 复用 `meta::type`、`type_id` 和 `type_guid` 表达类型身份。
 - 基于 `meta::registry` 挂载内部反射组件。
-- 通过 RTTR 风格 builder 描述字段。
+- 通过 RTTR 风格 builder 描述字段和成员方法。
 - 提供按类型 id、类型名和稳定 GUID 查询反射类型。
-- 提供全局 append-only 注册表，以及稳定的类型视图和字段视图。
+- 提供全局 append-only 注册表，以及稳定的类型、字段和方法视图。
 - 提供字段基础读写入口和运行期值拷贝。
+- 提供成员方法基础调用入口。
 
 当前不会包含：
 
-- 方法调用。
-- 属性元数据。
+- 自由函数注册。
+- 独立属性元数据。
+- 方法重载选择、默认参数和复杂类型转换规则。
 - 自动代码扫描或代码生成。
 - 动态多态类型记录和复杂类型转换规则。
 
@@ -111,6 +113,34 @@ caors::reflection::class_<actor>("game.actor")
 STL 智能指针和裸指针只作为外部字段类型被反射系统描述。CAORS 不根据这些字段接管对象生命周期；
 用户如果直接使用这些类型，需要自行保证释放、引用有效性和线程安全。后续 CAORS 自身的对象句柄、
 引用计数或分配器类型会作为独立 wrapper 接入反射规则。
+
+### 方法注册
+
+`reflection::class_<T>()` 也可以注册成员函数指针：
+
+```cpp
+struct actor {
+  int health = 100;
+
+  void damage(int amount) { health -= amount; }
+  int score() const { return health * 2; }
+};
+
+caors::reflection::class_<actor>("game.actor")
+    .field("health", &actor::health)
+    .method("damage", &actor::damage)
+    .method("score", &actor::score)
+    .commit();
+```
+
+当前方法反射的边界：
+
+- 只支持成员函数指针，包括 `const` 成员函数。
+- 参数通过 `std::span<const caors::any_ref>` 传入，类型必须和注册时的方法参数匹配。
+- 非 const 引用参数要求传入可写 `any_ref`。
+- 非 const 成员函数只能通过可写对象指针调用；`const` 对象只能调用 `const` 成员函数。
+- 返回值通过 `caors::any` 拷贝返回；`void` 返回值会得到无效 `any`，调用是否成功应通过对象副作用或业务返回值表达。
+- 暂不支持自由函数、静态函数、重载解析、默认参数、隐式类型转换和不可拷贝返回值。
 
 wrapper 识别通过 `traits::wrapper_traits<T>` 扩展，而不是固定写死所有 wrapper 类型：
 
@@ -414,9 +444,9 @@ descriptor 通过 layout、value ops、type semantics 和主访问能力记录�
 - `create_associative_view()`：如果 descriptor 描述了关联容器，则创建关联容器视图。
 - `create_indirect_view()`：如果 descriptor 描述了指针或 wrapper，则创建内部值视图。
 
-### reflection::type 和 reflection::field
+### reflection::type、reflection::field 和 reflection::method
 
-`reflection::type` 和 `reflection::field` 是外部查询反射信息的推荐入口：
+`reflection::type`、`reflection::field` 和 `reflection::method` 是外部查询反射信息的推荐入口：
 
 ```cpp
 auto reflected = caors::reflection::find("game.actor");
@@ -424,14 +454,19 @@ auto field = reflected.find_field("health");
 
 actor instance{};
 field.try_set<float>(&instance, 75.0F);
+
+auto damage = reflected.find_method("damage");
+int amount = 10;
+std::array<caors::any_ref, 1> args{caors::any_ref::from(amount)};
+damage.invoke(&instance, args);
 ```
 
-`reflection::type` 和 `reflection::field` 是轻量只读视图，内部引用全局注册表保存的反射数据。
+`reflection::type`、`reflection::field` 和 `reflection::method` 是轻量只读视图，内部引用全局注册表保存的反射数据。
 反射注册表是进程级 append-only 注册表，
-类型和字段注册后不可撤销、不可替换，因此有效视图可以在进程生命周期内稳定使用。
+类型、字段和方法注册后不可撤销、不可替换，因此有效视图可以在进程生命周期内稳定使用。
 
-字段视图的稳定性依赖“注册后冻结”约束：注册完成后不会再向该类型追加、删除或替换字段。如果后续支持热重载、
-字段增量注册或组件替换，需要先重新设计字段存储和视图失效规则。
+字段和方法视图的稳定性依赖“注册后冻结”约束：注册完成后不会再向该类型追加、删除或替换成员。如果后续支持热重载、
+增量注册或组件替换，需要先重新设计成员存储和视图失效规则。
 
 `reflection::type` 当前提供：
 
@@ -439,6 +474,8 @@ field.try_set<float>(&instance, 75.0F);
 - `info()` / `id()` / `name()` / `guid()`：查询类型身份。
 - `field_count()` / `field_at()`：按索引遍历字段；索引越界时返回无效 `reflection::field`。
 - `find_field()`：按字段名查询字段视图；未命中时返回无效 `reflection::field`。
+- `method_count()` / `method_at()`：按索引遍历方法；索引越界时返回无效 `reflection::method`。
+- `find_method()`：按方法名查询方法视图；未命中时返回无效 `reflection::method`。
 
 `reflection::field` 当前提供：
 
@@ -461,6 +498,17 @@ field.try_set<float>(&instance, 75.0F);
 - `is_pair()`：判断字段是否是二元组字段。
 - `is_tuple()`：判断字段是否是 tuple-like 字段。
 - `is_variant()`：判断字段是否是 variant-like 字段。
+
+`reflection::method` 当前提供：
+
+- `valid()`：判断视图是否仍有效。
+- `name()`：查询方法名。
+- `return_type()` / `return_type_name()`：查询返回值类型；`void` 返回值的 `return_type()` 为无效 id。
+- `parameter_count()` / `parameter_type()` / `parameter_type_name()`：查询参数列表。
+- `const_method()`：判断是否是 `const` 成员函数。
+- `invoke(void*, args)`：在可写对象上调用方法。
+- `invoke(const void*, args)`：在只读对象上调用方法；非 const 方法会失败。
+- `try_invoke<T>()`：调用方法并按指定类型读取返回值。
 
 `sequence_view` 当前提供：
 
@@ -596,6 +644,7 @@ auto reflected = caors::reflection::find("game.actor");
 - `errc::duplicate_name`：同一个名称已注册。
 - `errc::duplicate_guid`：同一个非 nil 稳定 GUID 已注册。
 - `errc::duplicate_field`：同一个类型内存在重复字段名。
+- `errc::duplicate_method`：同一个类型内存在重复方法名。
 - `errc::duplicate_reflection`：目标类型已经挂载反射组件。
 - `errc::inconsistent_type`：目标类型已存在，但基础类型信息不一致。
 - `errc::missing_parent`：父类型未注册。
@@ -611,7 +660,7 @@ auto reflected = caors::reflection::find("game.actor");
 - `any_ref`：运行期 C++ 类型非拥有引用。
 - `sequence_view` / `set_view` / `associative_view` / `pair_view` / `tuple_view` / `variant_view`：容器、二元组、tuple-like 和 variant-like 类型的运行期视图。
 - `meta::detail::type_descriptor`：字段声明类型的布局、值操作、类型语义、主访问能力和对象引用能力。
-- `reflection::type` / `reflection::field`：全局反射数据的推荐查询入口。
+- `reflection::type` / `reflection::field` / `reflection::method`：全局反射数据的推荐查询入口。
 - `reflection::registry`：全局反射注册表 facade。
 - `reflection::class_<T>()`：RTTR 风格链式注册入口。
 - `reflection::class_<T>(meta::type)`：推荐的显式 meta 注册入口，只挂载反射组件。
@@ -621,6 +670,7 @@ auto reflected = caors::reflection::find("game.actor");
 
 - 公共头文件按职责拆分在 `include/caors/reflection/`：
   - `field.h`：字段元信息和字段访问。
+  - `method.h`：成员方法元信息和运行期调用。
   - `type.h`：类型反射描述。
   - `view.h`：类型和字段的外部查询视图。
   - `registry.h`：全局反射注册表和注册查询函数。
