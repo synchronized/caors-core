@@ -89,6 +89,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 补充 `variant` 安全访问器、数组/对象 helper 和 `any` / `any_ref` 到 `variant` 的转换入口。
 - [x] 拆出 `value` 模块，提供 `any` C++ 类型值和 `variant` 数据值。
 - [x] 增加 `any_ref`，支持反射字段零拷贝引用访问和不可拷贝字段读取。
+- [ ] 为 `value::any` 评估并实现小对象优化，优先减少标量、小型平凡对象和常见临时值的堆分配，同时保持
+  `memory_resource` 构造和销毁语义一致。
 - [x] 增加 `serialization::reader` 后端接口和 DOM reader，支持基础字段反序列化。
 - [x] 增加反序列化缺失字段策略、未知字段默认忽略和基础 schema version 字段过滤。
 - [x] 增加类型级 serialization codec 扩展点，并内置 string、string_view、guid 和 type_guid codec。
