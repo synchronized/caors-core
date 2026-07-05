@@ -12,7 +12,6 @@
 namespace caors::memory::detail {
 namespace {
 
-system_memory_resource system_resource;
 std::atomic<memory_resource*> default_resource{nullptr};
 
 } // namespace
@@ -124,7 +123,10 @@ void subtract_saturating(std::atomic<std::size_t>& value, std::size_t amount) no
                                         std::memory_order_relaxed));
 }
 
-memory_resource& system_resource_instance() noexcept { return system_resource; }
+memory_resource& system_resource_instance() noexcept {
+  static system_memory_resource system_resource;
+  return system_resource;
+}
 
 memory_resource& resolve_resource(memory_resource* resource) noexcept {
   if (resource != nullptr) {
@@ -132,12 +134,12 @@ memory_resource& resolve_resource(memory_resource* resource) noexcept {
   }
 
   memory_resource* current = default_resource.load(std::memory_order_acquire);
-  return current != nullptr ? *current : system_resource;
+  return current != nullptr ? *current : system_resource_instance();
 }
 
 memory_resource* replace_default_resource(memory_resource* resource) noexcept {
   memory_resource* old = default_resource.exchange(resource, std::memory_order_acq_rel);
-  return old != nullptr ? old : &system_resource;
+  return old != nullptr ? old : &system_resource_instance();
 }
 
 } // namespace caors::memory::detail

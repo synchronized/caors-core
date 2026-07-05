@@ -4,6 +4,7 @@
 #include "caors/memory/debug_tracking.h"
 
 #include "caors/core/containers.h"
+#include "caors/memory/detail/internal_resource.h"
 #include "detail/internal.h"
 
 #include <mutex>
@@ -11,10 +12,13 @@
 namespace caors::memory {
 
 struct debug_tracking_state {
-  explicit debug_tracking_state(memory_resource* upstream_resource) noexcept
-      : upstream(upstream_resource) {}
+  debug_tracking_state(memory_resource* upstream_resource,
+                       memory_resource* storage_resource) noexcept
+      : upstream(upstream_resource), storage(storage_resource),
+        allocations(hash_map<void*, memory_debug_record>::allocator_type{storage_resource}) {}
 
   memory_resource* upstream = nullptr;
+  memory_resource* storage = nullptr;
   mutable std::mutex mutex;
   hash_map<void*, memory_debug_record> allocations;
   std::atomic<std::size_t> allocation_count{0};
@@ -28,10 +32,16 @@ struct debug_tracking_state {
   std::atomic<std::size_t> mismatched_deallocation_count{0};
 };
 
-debug_tracking_resource::debug_tracking_resource(memory_resource* upstream)
-    : state_(new debug_tracking_state(&detail::resolve_resource(upstream))) {}
+debug_tracking_resource::debug_tracking_resource(memory_resource* upstream) : state_(nullptr) {
+  memory_resource& resolved = detail::resolve_resource(upstream);
+  memory_resource& storage = detail::internal_resource();
+  state_ = make<debug_tracking_state>(&storage, &resolved, &storage);
+}
 
-debug_tracking_resource::~debug_tracking_resource() { delete state_; }
+debug_tracking_resource::~debug_tracking_resource() {
+  memory_resource* storage = state_ != nullptr ? state_->storage : nullptr;
+  destroy(state_, storage);
+}
 
 memory_resource* debug_tracking_resource::upstream_resource() const noexcept {
   return state_->upstream;

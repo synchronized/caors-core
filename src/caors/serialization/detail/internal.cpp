@@ -88,17 +88,22 @@ struct constructed_value {
 };
 
 struct polymorphic_destroy_context {
-  memory::memory_resource* resource = nullptr;
+  memory::memory_resource* allocation_resource = nullptr;
+  memory::memory_resource* value_resource = nullptr;
   meta::detail::value_resource_destroy_fn destroy = nullptr;
 };
 
 void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcept {
   auto* context = static_cast<polymorphic_destroy_context*>(user_data);
-  if (context != nullptr && context->destroy != nullptr && value != nullptr) {
-    context->destroy(context->resource, value);
+  if (context == nullptr) {
+    return;
   }
 
-  delete context;
+  if (context->destroy != nullptr && value != nullptr) {
+    context->destroy(context->value_resource, value);
+  }
+
+  memory::destroy(context, context->allocation_resource);
 }
 
 [[nodiscard]] constructed_value construct_polymorphic_value(
@@ -520,20 +525,23 @@ make_polymorphic_indirect_value(const value::indirect_view& indirect,
   }
 
   if (instance.uses_resource_destroy()) {
-    auto* destroy_context = new (std::nothrow) polymorphic_destroy_context{
-        instance.resource,
-        instance.resource_destroy,
-    };
-    if (destroy_context == nullptr) {
+    void* context_storage = context.memory_resource->try_allocate(
+        sizeof(polymorphic_destroy_context), alignof(polymorphic_destroy_context));
+    if (context_storage == nullptr) {
       return {error_domain::serialization, errc::unsupported};
     }
 
+    auto* destroy_context = ::new (context_storage) polymorphic_destroy_context{
+        context.memory_resource,
+        instance.resource,
+        instance.resource_destroy,
+    };
     const traits::wrapper_set_context set_context{
         destroy_context,
         &destroy_polymorphic_constructed_value,
     };
     if (!indirect.set_value(dynamic_type.value.id(), instance.value, set_context)) {
-      delete destroy_context;
+      memory::destroy(destroy_context, destroy_context->allocation_resource);
       return {error_domain::serialization, errc::invalid_field};
     }
 

@@ -191,7 +191,7 @@ error store_new_type(registry_state& state, const type_data& incoming, type_id* 
 
   const type_id id = incoming.id();
   auto [position, inserted] =
-      state.types.try_emplace(id.value(), std::make_unique<type_data>(incoming));
+      state.types.try_emplace(id.value(), memory::make_unique<type_data>(state.resource, incoming));
   if (!inserted) {
     return {error_domain::meta, errc::duplicate_id};
   }

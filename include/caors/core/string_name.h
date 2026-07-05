@@ -4,6 +4,7 @@
 #ifndef CAORS_BASE_STRING_NAME_H_
 #define CAORS_BASE_STRING_NAME_H_
 
+#include "caors/core/containers.h"
 #include "caors/export.h"
 
 #include <cstddef>
@@ -37,7 +38,8 @@ public:
   [[nodiscard]] constexpr bool empty() const noexcept { return entry_ == nullptr; }
   [[nodiscard]] constexpr explicit operator bool() const noexcept { return entry_ != nullptr; }
   [[nodiscard]] std::string_view view() const noexcept;
-  [[nodiscard]] std::string string() const;
+  [[nodiscard]] caors::core::string string(memory::memory_resource* resource = nullptr) const;
+  [[nodiscard]] std::string to_string() const;
 
   friend constexpr bool operator==(string_name lhs, string_name rhs) noexcept {
     return lhs.entry_ == rhs.entry_;

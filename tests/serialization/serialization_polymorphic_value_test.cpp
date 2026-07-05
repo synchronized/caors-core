@@ -334,11 +334,11 @@ TEST_CASE("serialization - polymorphic value factory uses memory resource", "[se
   REQUIRE(decoded_shared != nullptr);
   CHECK(decoded_shared->level == 41);
   CHECK(decoded_shared->name == "Rin");
-  CHECK(tracking.statistics().allocation_count == 1);
+  CHECK(tracking.statistics().allocation_count == 2);
   CHECK(tracking.statistics().bytes_in_use >= sizeof(polymorphic_factory_player));
 
   decoded.shared.reset();
-  CHECK(tracking.statistics().deallocation_count == 1);
+  CHECK(tracking.statistics().deallocation_count == 2);
   CHECK(tracking.statistics().bytes_in_use == 0);
 }
 
@@ -392,10 +392,10 @@ TEST_CASE("serialization - polymorphic value factory uses memory resource for un
   REQUIRE(decoded_owner != nullptr);
   CHECK(decoded_owner->level == 43);
   CHECK(decoded_owner->name == "Uma");
-  CHECK(tracking.statistics().allocation_count == 1);
+  CHECK(tracking.statistics().allocation_count == 2);
   CHECK(tracking.statistics().bytes_in_use >= sizeof(polymorphic_factory_player));
 
   decoded.owner.reset();
-  CHECK(tracking.statistics().deallocation_count == 1);
+  CHECK(tracking.statistics().deallocation_count == 2);
   CHECK(tracking.statistics().bytes_in_use == 0);
 }

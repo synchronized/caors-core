@@ -2,6 +2,7 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/core/string_name.h"
+#include "caors/memory/tracking.h"
 
 #include <catch2/catch_all.hpp>
 
@@ -14,7 +15,7 @@ TEST_CASE("core - string names are interned", "[core]") {
   CHECK(first == second);
   CHECK(first != other);
   CHECK(first.view() == "caors.test.sample");
-  CHECK(first.string() == "caors.test.sample");
+  CHECK(first.to_string() == "caors.test.sample");
 
   auto found = caors::string_name::find("caors.test.sample");
   REQUIRE(found.has_value());
@@ -28,5 +29,15 @@ TEST_CASE("core - invalid string name is empty", "[core]") {
   CHECK_FALSE(invalid);
   CHECK(invalid.empty());
   CHECK(invalid.view().empty());
-  CHECK(invalid.string().empty());
+  CHECK(invalid.to_string().empty());
+}
+
+TEST_CASE("core - string name can create caors string with resource", "[core]") {
+  caors::tracking_resource tracking(&caors::get_system_memory_resource());
+  const caors::string_name name{"caors.test.resource.string"};
+
+  caors::string text = name.string(&tracking);
+
+  CHECK(text == "caors.test.resource.string");
+  CHECK(text.get_allocator().resource() == &tracking);
 }

@@ -4,6 +4,8 @@
 #ifndef CAORS_META_DETAIL_INTERNAL_H_
 #define CAORS_META_DETAIL_INTERNAL_H_
 
+#include "caors/memory/detail/internal_resource.h"
+#include "caors/memory/unique_ptr.h"
 #include "caors/meta.h"
 #include "caors/meta/detail/type_capabilities.h"
 
@@ -14,18 +16,36 @@ namespace caors::meta::detail {
 
 class registry_state {
 public:
+  explicit registry_state(memory::memory_resource* internal_resource = nullptr)
+      : resource(internal_resource != nullptr ? internal_resource
+                                              : &memory::detail::internal_resource()),
+        registrations(core::vector<registration_fn>::allocator_type{resource}),
+        types(
+            core::hash_map<std::uint64_t, memory::unique_ptr<type_data>>::allocator_type{resource}),
+        descriptors(
+            core::hash_map<std::uint64_t, const type_descriptor*>::allocator_type{resource}),
+        factories(core::hash_map<std::uint64_t, value_factory_ops>::allocator_type{resource}),
+        cpp_type_ids(core::hash_map<std::type_index, type_id>::allocator_type{resource}),
+        parent_casts(core::hash_map<std::uint64_t, parent_cast_data>::allocator_type{resource}),
+        names(core::hash_map<core::string_name, type_id>::allocator_type{resource}),
+        guids(core::hash_map<core::guid, type_id, core::guid_hash>::allocator_type{resource}),
+        components(core::hash_map<meta_component_key,
+                                  memory::unique_ptr<meta_component_storage_base>>::allocator_type{
+            resource}) {}
+
   mutable std::mutex mutex;
+  memory::memory_resource* resource = nullptr;
   bool frozen = false;
   bool registrations_ran = false;
   core::vector<registration_fn> registrations;
-  core::hash_map<std::uint64_t, std::unique_ptr<type_data>> types;
+  core::hash_map<std::uint64_t, memory::unique_ptr<type_data>> types;
   core::hash_map<std::uint64_t, const type_descriptor*> descriptors;
   core::hash_map<std::uint64_t, value_factory_ops> factories;
   core::hash_map<std::type_index, type_id> cpp_type_ids;
   core::hash_map<std::uint64_t, parent_cast_data> parent_casts;
   core::hash_map<core::string_name, type_id> names;
   core::hash_map<core::guid, type_id, core::guid_hash> guids;
-  core::hash_map<meta_component_key, std::unique_ptr<meta_component_storage_base>> components;
+  core::hash_map<meta_component_key, memory::unique_ptr<meta_component_storage_base>> components;
 };
 
 [[nodiscard]] type_data* find_type_data(registry_state& state, type_id id);

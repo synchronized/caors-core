@@ -5,11 +5,12 @@
 #define CAORS_META_DETAIL_COMPONENT_STORAGE_H_
 
 #include "caors/core/containers.h"
+#include "caors/memory/detail/internal_resource.h"
+#include "caors/memory/unique_ptr.h"
 #include "caors/meta/type.h"
 
 #include <cstddef>
 #include <cstdint>
-#include <memory>
 #include <mutex>
 #include <optional>
 #include <type_traits>
@@ -39,9 +40,14 @@ public:
   static_assert(std::is_copy_constructible_v<Component>,
                 "Meta components must be copy constructible");
 
+  explicit meta_component_storage(memory::memory_resource* resource = nullptr)
+      : resource_(resource != nullptr ? resource : &memory::detail::internal_resource()),
+        components_(typename hash_map<std::uint64_t, memory::unique_ptr<Component>>::allocator_type{
+            resource_}) {}
+
   template <typename... Args> [[nodiscard]] bool emplace(type_id id, Args&&... args) {
     std::lock_guard lock(mutex_);
-    auto component = std::make_unique<Component>(std::forward<Args>(args)...);
+    auto component = memory::make_unique<Component>(resource_, std::forward<Args>(args)...);
     return components_.try_emplace(id.value(), std::move(component)).second;
   }
 
@@ -77,7 +83,7 @@ public:
 
   [[nodiscard]] vector<type_id> ids() const override {
     std::lock_guard lock(mutex_);
-    vector<type_id> result;
+    vector<type_id> result{allocator<type_id>{resource_}};
     result.reserve(components_.size());
     for (const auto& [id, component] : components_) {
       (void)component;
@@ -89,8 +95,24 @@ public:
 
 private:
   mutable std::mutex mutex_;
-  hash_map<std::uint64_t, std::unique_ptr<Component>> components_;
+  memory::memory_resource* resource_ = nullptr;
+  hash_map<std::uint64_t, memory::unique_ptr<Component>> components_;
 };
+
+template <typename Component>
+[[nodiscard]] memory::unique_ptr<meta_component_storage_base>
+make_meta_component_storage(memory::memory_resource* resource = nullptr) {
+  memory::memory_resource* resolved =
+      resource != nullptr ? resource : &memory::detail::internal_resource();
+  using storage_type = meta_component_storage<Component>;
+  auto* storage = memory::make<storage_type>(resolved, resolved);
+  memory::unique_ptr<meta_component_storage_base> result{storage};
+  result.get_deleter().reset(resolved, [](void* user_data, void* value) noexcept {
+    memory::destroy(static_cast<storage_type*>(value),
+                    static_cast<memory::memory_resource*>(user_data));
+  });
+  return result;
+}
 
 } // namespace caors::meta::detail
 

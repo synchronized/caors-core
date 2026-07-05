@@ -32,6 +32,13 @@ first == second; // true
 
 它适合用于类型名、字段名、方法名、属性名等运行期名称比较和查找。
 
+需要取回字符串时：
+
+```cpp
+caors::string text = first.string(resource); // 使用 CAORS allocator
+std::string std_text = first.to_string();    // 使用标准库字符串
+```
+
 需要注意：
 
 - `string_name` 不承诺跨进程、跨版本或跨动态库边界稳定。

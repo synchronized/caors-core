@@ -131,6 +131,22 @@ caors::set_default_memory_resource(&resource);
 
 之后没有显式传入资源的 `caors::allocate()` 调用都会走新的默认资源。
 
+### 内部全局分配策略
+
+类型注册表、`string_name` 表、反射/序列化元数据组件等内部全局数据，默认不跟随
+`default_resource`，而是固定使用 `system_memory_resource`。原因是这些数据可能在静态初始化阶段被创建，
+此时应用通常还没有机会调用 `set_default_memory_resource()`；如果让它们隐式捕获默认资源，容易产生初始化顺序
+依赖。
+
+需要调试内部全局元数据分配时，可以在编译 CAORS 前定义：
+
+```cpp
+#define CAORS_INTERNAL_ALLOCATIONS_USE_DEFAULT_RESOURCE 1
+```
+
+开启后，内部全局数据会使用访问时的 CAORS 默认资源。该选项适合测试和诊断；正式使用时仍建议保持默认值，
+让这些 append-only 全局表使用稳定的系统资源。
+
 ### 基础容器适配
 
 `caors::allocator<T>` 可以把 CAORS `memory_resource` 接入标准容器。`caors/core/containers.h`
@@ -157,6 +173,9 @@ CAORS 不会调用 `std::pmr::set_default_resource()`，避免库代码修改进
 `caors::memory::unique_ptr<T>` 是 `std::unique_ptr<T, memory::erased_deleter<T>>` 的别名。
 默认情况下它仍然使用普通 `delete`；当序列化层通过 `serialization::context::memory_resource`
 构造内部对象或运行期派生对象时，wrapper 适配器可以把匹配的销毁回调写入 deleter。
+
+`memory::make_unique<T>(resource, ...)` 会使用指定 `memory_resource` 构造对象，并让返回的
+`memory::unique_ptr<T>` 保存匹配销毁回调。
 
 这个类型主要服务于需要资源托管的 owning pointer 字段，包括普通字段反序列化和普通类多态反序列化：
 

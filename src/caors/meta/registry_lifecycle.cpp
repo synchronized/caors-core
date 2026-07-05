@@ -5,9 +5,11 @@
 
 namespace caors::meta {
 
-registry::registry() : state_(new detail::registry_state) {}
+registry::registry()
+    : state_resource_(&memory::detail::internal_resource()),
+      state_(memory::make<detail::registry_state>(state_resource_, state_resource_)) {}
 
-registry::~registry() { delete state_; }
+registry::~registry() { memory::destroy(state_, state_resource_); }
 
 registry& registry::instance() noexcept {
   static registry instance;

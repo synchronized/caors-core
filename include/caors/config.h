@@ -14,9 +14,15 @@
 #define CAORS_HAS_EXCEPTIONS 0
 #endif
 
+#if !defined(CAORS_INTERNAL_ALLOCATIONS_USE_DEFAULT_RESOURCE)
+#define CAORS_INTERNAL_ALLOCATIONS_USE_DEFAULT_RESOURCE 0
+#endif
+
 namespace caors::config {
 
 inline constexpr bool has_exceptions = CAORS_HAS_EXCEPTIONS != 0;
+inline constexpr bool internal_allocations_use_default_resource =
+    CAORS_INTERNAL_ALLOCATIONS_USE_DEFAULT_RESOURCE != 0;
 
 #if defined(__STDCPP_DEFAULT_NEW_ALIGNMENT__)
 inline constexpr std::size_t default_new_alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;

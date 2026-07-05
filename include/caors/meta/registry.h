@@ -18,7 +18,6 @@
 #include <cstdint>
 #include <iterator>
 #include <limits>
-#include <memory>
 #include <mutex>
 #include <new>
 #include <optional>
@@ -132,7 +131,7 @@ public:
     if (storage_base == nullptr) {
       storage_base = &ensure_component_storage(
           detail::meta_component_key_of<component_type>(),
-          std::make_unique<detail::meta_component_storage<component_type>>());
+          detail::make_meta_component_storage<component_type>(state_resource_));
     }
 
     auto& storage = static_cast<detail::meta_component_storage<component_type>&>(*storage_base);
@@ -284,10 +283,11 @@ private:
   find_component_storage(detail::meta_component_key key) const;
   detail::meta_component_storage_base&
   ensure_component_storage(detail::meta_component_key key,
-                           std::unique_ptr<detail::meta_component_storage_base> storage);
+                           memory::unique_ptr<detail::meta_component_storage_base> storage);
   [[nodiscard]] vector<type_id> view_component_ids(const detail::meta_component_key* keys,
                                                    std::size_t count) const;
 
+  memory::memory_resource* state_resource_ = nullptr;
   detail::registry_state* state_ = nullptr;
 };
 

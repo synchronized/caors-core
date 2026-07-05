@@ -23,3 +23,8 @@ TEST_CASE("config - default new alignment", "[config]") {
 TEST_CASE("config - exception detection matches macro", "[config]") {
   CHECK(caors::config::has_exceptions == (CAORS_HAS_EXCEPTIONS != 0));
 }
+
+TEST_CASE("config - internal allocation policy matches macro", "[config]") {
+  CHECK(caors::config::internal_allocations_use_default_resource ==
+        (CAORS_INTERNAL_ALLOCATIONS_USE_DEFAULT_RESOURCE != 0));
+}

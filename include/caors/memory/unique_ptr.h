@@ -4,8 +4,11 @@
 #ifndef CAORS_MEMORY_UNIQUE_PTR_H_
 #define CAORS_MEMORY_UNIQUE_PTR_H_
 
+#include "caors/memory/resource.h"
+
 #include <memory>
 #include <type_traits>
+#include <utility>
 
 namespace caors::memory {
 
@@ -64,6 +67,18 @@ private:
  * `serialization::context::memory_resource` 时，应使用这个别名作为字段类型。
  */
 template <typename T> using unique_ptr = std::unique_ptr<T, erased_deleter<T>>;
+
+/** @brief 使用指定资源构造对象，并返回携带匹配销毁回调的 unique_ptr。 */
+template <typename T, typename... Args>
+[[nodiscard]] unique_ptr<T> make_unique(memory_resource* resource, Args&&... args) {
+  memory_resource* resolved = resource != nullptr ? resource : get_default_memory_resource();
+  T* value = make<T>(resolved, std::forward<Args>(args)...);
+  unique_ptr<T> result{value};
+  result.get_deleter().reset(resolved, [](void* user_data, void* stored) noexcept {
+    destroy(static_cast<T*>(stored), static_cast<memory_resource*>(user_data));
+  });
+  return result;
+}
 
 } // namespace caors::memory
 

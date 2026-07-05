@@ -29,9 +29,9 @@ registry::find_component_storage(detail::meta_component_key key) const {
   return position->second.get();
 }
 
-detail::meta_component_storage_base&
-registry::ensure_component_storage(detail::meta_component_key key,
-                                   std::unique_ptr<detail::meta_component_storage_base> storage) {
+detail::meta_component_storage_base& registry::ensure_component_storage(
+    detail::meta_component_key key,
+    memory::unique_ptr<detail::meta_component_storage_base> storage) {
   std::lock_guard lock(state_->mutex);
   auto [position, inserted] = state_->components.try_emplace(key, nullptr);
   if (inserted) {
@@ -43,18 +43,19 @@ registry::ensure_component_storage(detail::meta_component_key key,
 
 core::vector<type_id> registry::view_component_ids(const detail::meta_component_key* keys,
                                                    std::size_t count) const {
+  core::vector<type_id> empty{core::vector<type_id>::allocator_type{state_->resource}};
   if (keys == nullptr || count == 0) {
-    return {};
+    return empty;
   }
 
   std::lock_guard lock(state_->mutex);
   const auto first_position = state_->components.find(keys[0]);
   if (first_position == state_->components.end()) {
-    return {};
+    return empty;
   }
 
   core::vector<type_id> candidate_ids = first_position->second->ids();
-  core::vector<type_id> result;
+  core::vector<type_id> result{core::vector<type_id>::allocator_type{state_->resource}};
   result.reserve(candidate_ids.size());
 
   for (const type_id id : candidate_ids) {
