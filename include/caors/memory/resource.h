@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <limits>
+#include <memory>
 #include <new>
 #include <type_traits>
 #include <utility>
@@ -169,6 +170,13 @@ public:
     resource_->deallocate(ptr, sizeof(T) * count, alignof(T));
   }
 
+  template <typename U, typename... Args> void construct(U* ptr, Args&&... args) {
+    std::uninitialized_construct_using_allocator(ptr, allocator<U>{*this},
+                                                 std::forward<Args>(args)...);
+  }
+
+  template <typename U> void destroy(U* ptr) noexcept { std::destroy_at(ptr); }
+
   [[nodiscard]] memory_resource* resource() const noexcept { return resource_; }
   [[nodiscard]] static constexpr std::size_t max_size() noexcept {
     return std::numeric_limits<std::size_t>::max() / sizeof(T);
@@ -197,13 +205,17 @@ template <typename T, typename... Args>
 
 #if CAORS_HAS_EXCEPTIONS
   try {
-    return ::new (storage) T(std::forward<Args>(args)...);
+    auto* value = static_cast<T*>(storage);
+    allocator<T>{resolved}.construct(value, std::forward<Args>(args)...);
+    return value;
   } catch (...) {
     resolved->deallocate(storage, sizeof(T), alignof(T));
     throw;
   }
 #else
-  return ::new (storage) T(std::forward<Args>(args)...);
+  auto* value = static_cast<T*>(storage);
+  allocator<T>{resolved}.construct(value, std::forward<Args>(args)...);
+  return value;
 #endif
 }
 

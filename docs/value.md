@@ -81,6 +81,8 @@ caors::any value = caors::any::from(7);
 资源边界：
 
 - 传入 `memory_resource*` 时，`any` 会优先使用 descriptor 中的资源构造/销毁函数。
+- 对 `caors::vector<T>`、`caors::string`、`caors::hash_map<K, V>` 等 allocator-aware 类型，
+  资源构造会使用标准 uses-allocator 规则，把同一个 `memory_resource` 传给对象内部 allocator。
 - 不传资源时，`any` 使用普通 `new` / `delete` fallback，不读取或保存 CAORS 默认资源。
 - 复制已有值生成 `any` 时仍按普通 clone 路径工作；需要指定资源创建空对象再读入数据时，应使用
   `any::default_construct(type_id, resource)`。

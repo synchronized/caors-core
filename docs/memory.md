@@ -216,6 +216,12 @@ names.emplace(1, caors::string{"player", caors::allocator<char>{&tracking}});
 `caors::allocator`。默认构造时，allocator 会捕获当前 CAORS 默认 `memory_resource`；显式资源可以通过
 allocator 构造参数或 `make_string()`、`make_vector()`、`make_hash_map()`、`make_hash_set()` 工厂传入。
 
+`caors::make<T>(resource, ...)` 会使用标准 uses-allocator construction 构造对象。对
+`caors::vector<T>`、`caors::string`、`caors::hash_map<K, V>` 等 allocator-aware 类型，传入的
+`memory_resource` 会转换成对应 `caors::allocator` 并传给对象构造函数；`caors::allocator<T>`
+在构造容器元素时也会继续使用同样规则，因此 `caors::vector<caors::string>` 这类嵌套
+allocator-aware 类型可以继续向内传播资源。
+
 CAORS 不会调用 `std::pmr::set_default_resource()`，避免库代码修改进程级全局状态。
 
 ### memory::unique_ptr
