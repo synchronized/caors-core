@@ -13,6 +13,7 @@
 #include <memory>
 #include <new>
 #include <optional>
+#include <tuple>
 #include <type_traits>
 
 namespace caors::traits {
@@ -384,6 +385,37 @@ template <typename T> struct wrapper_access<std::optional<T>> {
       return source.has_value();
     } else {
       return false;
+    }
+  }
+
+  static bool ensure_value(std::optional<T>& source, caors::memory::memory_resource* resource) {
+    if (source.has_value()) {
+      return true;
+    }
+
+    if (resource == nullptr) {
+      return ensure_value(source);
+    }
+
+    if constexpr (std::uses_allocator_v<wrapped_type, caors::memory::allocator<wrapped_type>>) {
+#if CAORS_HAS_EXCEPTIONS
+      try {
+        auto args = std::uses_allocator_construction_args<wrapped_type>(
+            caors::memory::allocator<wrapped_type>{resource});
+        std::apply(
+            [&source](auto&&... construction_args) {
+              source.emplace(std::forward<decltype(construction_args)>(construction_args)...);
+            },
+            std::move(args));
+      } catch (...) {
+        return false;
+      }
+      return source.has_value();
+#else
+      return false;
+#endif
+    } else {
+      return ensure_value(source);
     }
   }
 };

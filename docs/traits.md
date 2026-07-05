@@ -100,8 +100,8 @@ struct wrapper_access<game::box<T>> {
 - `caors::memory::unique_ptr<T>` 使用可擦除 deleter。反序列化上下文提供 `memory_resource` 时，可以保存匹配的销毁回调。
 - `std::shared_ptr<T>` 在上下文提供 `memory_resource` 且需要构造空内部值时，使用
   `std::allocate_shared<T>(caors::allocator<T>{resource})`。用户已经创建好的 `shared_ptr` 保持其原始控制块和分配策略。
-- `std::optional<T>` 在自身对象内部原地构造 `T`，不单独分配；如果 `T` 自身需要 allocator，需要由
-  `T` 的构造和序列化策略显式处理。
+- `std::optional<T>` 在自身对象内部原地构造 `T`，不单独分配；反序列化上下文提供 `memory_resource`
+  时，会优先通过标准 uses-allocator 规则构造 allocator-aware 的 `T`。
 
 对象引用不再作为 `wrapper_semantics` 的一种。需要按对象 id 序列化的引用类型应适配
 `objects::detail::object_ref_traits<T>` 和 `objects::detail::object_ref_access<T>`，然后通过

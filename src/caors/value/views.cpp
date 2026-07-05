@@ -443,7 +443,9 @@ any_ref variant_view::value_ref() const {
                            value_writable);
 }
 
-bool variant_view::emplace(std::size_t alternative) const {
+bool variant_view::emplace(std::size_t alternative) const { return emplace(alternative, nullptr); }
+
+bool variant_view::emplace(std::size_t alternative, memory::memory_resource* resource) const {
   const meta::detail::variant_data* info = data();
   if (!writable() || alternative >= info->alternatives.size()) {
     return false;
@@ -459,7 +461,7 @@ bool variant_view::emplace(std::size_t alternative) const {
     return false;
   }
 
-  return alternative_data.emplace(const_cast<void*>(storage_));
+  return alternative_data.emplace(const_cast<void*>(storage_), resource);
 }
 
 bool variant_view::set_value(const any& value) const {
@@ -571,13 +573,15 @@ bool sequence_view::clear() const {
   return true;
 }
 
-bool sequence_view::resize(std::size_t size) const {
+bool sequence_view::resize(std::size_t size) const { return resize(size, nullptr); }
+
+bool sequence_view::resize(std::size_t size, memory::memory_resource* resource) const {
   const meta::detail::sequence_data* info = data();
   if (!writable() || info->resize == nullptr) {
     return false;
   }
 
-  return info->resize(const_cast<void*>(storage_), size);
+  return info->resize(const_cast<void*>(storage_), size, resource);
 }
 
 bool sequence_view::append_value(const any& value) const {

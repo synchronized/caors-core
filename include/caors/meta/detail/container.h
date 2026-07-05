@@ -5,6 +5,7 @@
 #define CAORS_META_DETAIL_CONTAINER_H_
 
 #include "caors/core/containers.h"
+#include "caors/memory/resource.h"
 #include "caors/meta/type_id.h"
 
 #include <cstddef>
@@ -20,7 +21,7 @@ using sequence_size_fn = std::size_t (*)(const void*) noexcept;
 using sequence_const_element_fn = const void* (*)(const void*, std::size_t) noexcept;
 using sequence_mutable_element_fn = void* (*)(void*, std::size_t) noexcept;
 using sequence_clear_fn = void (*)(void*) noexcept;
-using sequence_resize_fn = bool (*)(void*, std::size_t);
+using sequence_resize_fn = bool (*)(void*, std::size_t, memory::memory_resource*);
 using sequence_append_fn = bool (*)(void*, const void*);
 
 using set_size_fn = std::size_t (*)(const void*) noexcept;
@@ -48,7 +49,7 @@ using tuple_mutable_element_fn = void* (*)(void*) noexcept;
 using variant_index_fn = std::size_t (*)(const void*) noexcept;
 using variant_const_alternative_fn = const void* (*)(const void*) noexcept;
 using variant_mutable_alternative_fn = void* (*)(void*) noexcept;
-using variant_emplace_fn = bool (*)(void*);
+using variant_emplace_fn = bool (*)(void*, memory::memory_resource*);
 
 /** @brief 顺序容器运行期访问数据。 */
 struct sequence_data {

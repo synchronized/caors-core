@@ -4,6 +4,7 @@
 #ifndef CAORS_ADAPTERS_STL_VARIANT_TRAITS_H_
 #define CAORS_ADAPTERS_STL_VARIANT_TRAITS_H_
 
+#include "caors/memory/resource.h"
 #include "caors/traits/container.h"
 
 #include <cstddef>
@@ -54,6 +55,39 @@ template <typename... Types> struct variant_traits<std::variant<Types...>> {
       return true;
     } else {
       (void)value;
+      return false;
+    }
+  }
+
+  template <std::size_t Index>
+  [[nodiscard]] static bool emplace(std::variant<Types...>& value,
+                                    memory::memory_resource* resource) {
+    using raw_alternative_type = std::variant_alternative_t<Index, std::variant<Types...>>;
+    if constexpr (std::is_default_constructible_v<raw_alternative_type>) {
+      if constexpr (std::uses_allocator_v<raw_alternative_type,
+                                          memory::allocator<raw_alternative_type>>) {
+        if (resource == nullptr) {
+          value.template emplace<Index>();
+        } else {
+          value.template emplace<Index>(memory::allocator<raw_alternative_type>{resource});
+        }
+      } else {
+        (void)resource;
+        value.template emplace<Index>();
+      }
+      return true;
+    } else if constexpr (std::uses_allocator_v<raw_alternative_type,
+                                               memory::allocator<raw_alternative_type>>) {
+      if (resource != nullptr) {
+        value.template emplace<Index>(memory::allocator<raw_alternative_type>{resource});
+        return true;
+      } else {
+        (void)value;
+        return false;
+      }
+    } else {
+      (void)value;
+      (void)resource;
       return false;
     }
   }

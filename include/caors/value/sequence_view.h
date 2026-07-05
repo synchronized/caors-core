@@ -76,6 +76,9 @@ public:
   /** @brief 调整顺序容器大小。 */
   bool resize(std::size_t size) const;
 
+  /** @brief 使用指定资源调整顺序容器大小。 */
+  bool resize(std::size_t size, memory::memory_resource* resource) const;
+
   /** @brief 追加一个元素。 */
   bool append_value(const any& value) const;
 

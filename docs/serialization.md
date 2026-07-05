@@ -219,10 +219,12 @@ caors::error status = caors::deserialize_json(holder, json, context);
 `std::unique_ptr<Base>` 的 deleter 不能保存运行期销毁上下文，因此会回退到标准 `new` / `delete`
 或无资源 factory 路径。自定义 wrapper 或自定义 deleter 需要通过 wrapper traits 明确提供匹配的接管语义。
 
-同一个 `context.memory_resource` 也会用于普通反序列化路径里需要临时默认构造的 `any`，以及空
-`std::shared_ptr<T>` / `caors::memory::unique_ptr<T>` 读入非空值时创建内部 `T`。普通
-`std::unique_ptr<T>` 和 `std::optional<T>` 没有可替换的资源释放语义，仍按自身默认构造规则处理。
-标准容器元素的实际存储由容器自身 allocator 决定，序列化上下文不会强行替换目标容器的 allocator。
+同一个 `context.memory_resource` 也会用于普通反序列化路径里需要临时默认构造的 `any`、空 wrapper
+读入非空值时创建内部 `T`、顺序容器 resize 时需要新增的 allocator-aware 元素，以及
+`std::variant` 切换候选时构造新的候选值。普通 `std::unique_ptr<T>` 没有可替换的资源释放语义，
+仍按自身默认构造规则处理。标准容器元素的实际存储由容器自身 allocator 决定，序列化上下文不会强行替换目标容器的 allocator。
+如果希望 `caors::vector<caors::string>`、嵌套容器或 `caors::hash_map` 的最终元素也使用某个资源，
+目标对象或字段容器本身需要用该资源构造。
 
 当前不支持：
 
@@ -493,6 +495,8 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
   `caors::memory::unique_ptr<T>` 可以保存运行期销毁回调，让资源分配和释放匹配。普通
   `std::unique_ptr<T>` 使用标准 deleter，不能安全接管资源构造出的运行期派生对象，因此会回退到
   默认 `new/delete` 或非资源 factory 路径。
+- `std::optional<T>` 在读入非空值且内部为空时会优先尝试资源感知构造内部 `T`；如果 `T` 不支持
+  allocator-aware 构造，则回退到普通默认构造。
 
 这条规则避免序列化层隐式决定所有权。后续如果要让某类 wrapper 采用引用语义、共享身份或自定义构造策略，
 应在字段策略或专用 wrapper trait 中显式声明。
@@ -537,13 +541,14 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 - 不可默认构造类型可以作为已有直接字段、已持有 wrapper 内部值或 `variant` 当前候选被写入；普通类多态
   智能指针读回可以通过 `meta::type_<T>().factory()` 显式构造派生对象。其他需要序列化层自动实例化对象的路径
   仍可能失败，例如容器新增元素、空 `optional` 读入非空值、`variant` 切换到不可默认构造候选。
-- `serialization::context::memory_resource` 会用于资源感知 `any` 默认构造、空 `std::shared_ptr<T>` 和
-  空 `caors::memory::unique_ptr<T>` 的内部值创建，以及普通类多态值 factory。容器元素存储仍由目标容器
-  自身 allocator 管理。
+- `serialization::context::memory_resource` 会用于资源感知 `any` 默认构造、空 `std::shared_ptr<T>`、
+  空 `caors::memory::unique_ptr<T>` 和空 `std::optional<T>` 的内部值创建、顺序容器新增元素、
+  `std::variant` 切换候选、关联容器 key/value 临时值，以及普通类多态值 factory。容器最终存储仍由目标容器
+  自身 allocator 管理；上下文不会替换已存在容器的 allocator。
 - `std::pair<T, U>` 已支持按二元素数组 `[first, second]` 读写；反序列化时数组长度必须等于 2。
 - `std::tuple<...>` 已支持按元素数组 `[v0, v1, ...]` 读写；反序列化时数组长度必须等于 tuple 元素数量。
 - `std::variant<...>` 已支持按 tagged union 数组 `[index, value]` 读写；反序列化时数组长度必须等于 2，
-  `index` 必须在候选范围内。相同候选会更新已有值；切换候选时目标候选需要支持默认构造。
+  `index` 必须在候选范围内。相同候选会更新已有值；切换候选时目标候选需要支持默认构造或资源感知构造。
   处于无值状态的 variant 当前返回不支持。
 - 直接值字段仍按字段声明静态类型处理；运行期动态类型记录只发生在显式多态 object API 或拥有型智能指针 wrapper envelope 上。
 - JSON reader 目前不完整支持非 ASCII `\uXXXX` 解码，二进制格式、版本迁移和默认值恢复也尚未实现。

@@ -293,12 +293,21 @@ template <typename T> [[nodiscard]] const sequence_data* sequence_data_ptr_of() 
               traits::sequence_traits<type>::clear(*static_cast<type*>(storage));
             }
           },
-          [](void* storage, std::size_t size) -> bool {
+          [](void* storage, std::size_t size, memory::memory_resource* resource) -> bool {
             if (storage == nullptr) {
               return false;
             }
 
-            return traits::sequence_traits<type>::resize(*static_cast<type*>(storage), size);
+            if constexpr (requires(type& values, std::size_t count,
+                                   memory::memory_resource* resize_resource) {
+                            traits::sequence_traits<type>::resize(values, count, resize_resource);
+                          }) {
+              return traits::sequence_traits<type>::resize(*static_cast<type*>(storage), size,
+                                                           resource);
+            } else {
+              (void)resource;
+              return traits::sequence_traits<type>::resize(*static_cast<type*>(storage), size);
+            }
           },
           [](void* storage, const void* element) -> bool {
             if (storage == nullptr || element == nullptr) {
@@ -587,12 +596,22 @@ template <typename Variant, std::size_t Index>
         return traits::variant_traits<type>::template mutable_alternative<Index>(
             *static_cast<type*>(storage));
       },
-      [](void* storage) -> bool {
+      [](void* storage, memory::memory_resource* resource) -> bool {
         if (storage == nullptr) {
           return false;
         }
 
-        return traits::variant_traits<type>::template emplace<Index>(*static_cast<type*>(storage));
+        if constexpr (requires(type& values, memory::memory_resource* emplace_resource) {
+                        traits::variant_traits<type>::template emplace<Index>(values,
+                                                                              emplace_resource);
+                      }) {
+          return traits::variant_traits<type>::template emplace<Index>(*static_cast<type*>(storage),
+                                                                       resource);
+        } else {
+          (void)resource;
+          return traits::variant_traits<type>::template emplace<Index>(
+              *static_cast<type*>(storage));
+        }
       },
       descriptor_ptr_of<alternative_type>(),
   };

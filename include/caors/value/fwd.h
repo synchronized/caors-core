@@ -24,6 +24,12 @@ struct variant_data;
 
 } // namespace caors::meta::detail
 
+namespace caors::memory {
+
+class memory_resource;
+
+} // namespace caors::memory
+
 namespace caors::value {
 
 class any;

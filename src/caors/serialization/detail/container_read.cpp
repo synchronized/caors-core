@@ -53,7 +53,7 @@ associative_data_of(const any_ref& target) noexcept {
     return status;
   }
 
-  if (!view.clear() || !view.resize(size)) {
+  if (!view.clear() || !view.resize(size, context.memory_resource)) {
     return {error_domain::serialization, errc::unsupported};
   }
 
@@ -472,7 +472,7 @@ associative_data_of(const any_ref& target) noexcept {
     return status;
   }
 
-  if (!view.emplace(active)) {
+  if (!view.emplace(active, context.memory_resource)) {
     return {error_domain::serialization, errc::unsupported};
   }
 

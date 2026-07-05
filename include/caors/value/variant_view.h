@@ -46,6 +46,9 @@ public:
   /** @brief 切换当前候选。已处于目标候选时直接成功。 */
   bool emplace(std::size_t alternative) const;
 
+  /** @brief 使用指定资源切换当前候选。已处于目标候选时直接成功。 */
+  bool emplace(std::size_t alternative, memory::memory_resource* resource) const;
+
   /** @brief 写入当前候选值。 */
   bool set_value(const any& value) const;
 
