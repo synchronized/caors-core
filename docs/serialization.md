@@ -26,6 +26,7 @@
 - 提供基于 traits 的顺序容器、集合容器、关联容器、pair、tuple 和 variant 访问，支持标量、wrapper、对象引用和已注册结构体元素。
 - 通过 `serialization::reference_resolver` 支持 `caors::objects::ref<T>` 对象引用字段。
 - 通过显式多态 object envelope 支持 `caors::objects::object` 派生对象的动态类型记录、manager 创建和安全下转型。
+- 通过 `$type` / `$value` envelope 支持 `std::unique_ptr<Base>` 和 `std::shared_ptr<Base>` 字段持有普通 C++ 派生类对象。
 - 用 `caors::error` 和 `caors::result<T>` 表达失败状态和携带值的返回结果。
 
 当前不会包含：
@@ -34,7 +35,7 @@
 - 版本迁移和默认值恢复。
 - 完整 JSON 标准扩展，例如非 ASCII `\uXXXX` 解码。
 - 多层指针、多层 wrapper 和完整对象图身份保持。
-- 自动把任意裸指针、智能指针字段提升为拥有型多态对象。
+- 自动把任意裸指针或非拥有 wrapper 字段提升为拥有型多态对象。
 - 借用视图的自动存储分配和生命周期管理。
 
 这些能力后续应在对象 handle、字段策略和格式扩展点明确后逐步补充。
@@ -119,6 +120,79 @@ caors::result<actor*> decoded =
 - 类型身份只写稳定 `type_guid`，不写运行期 `type_id`。
 - 不自动接管裸指针、`std::shared_ptr<Base>` 等字段的所有权；这类字段仍按现有指针/wrapper 规则处理。
 - 不保留对象图中的共享实例身份和循环引用；需要对象引用时继续使用 `objects::ref<T>` 和 resolver。
+
+### 普通类多态 wrapper
+
+普通 C++ 类没有 `objects::object::type_id()`，也没有 `objects::manager` 生命周期托管。序列化层只在
+拥有型 wrapper 字段上支持一版明确边界的多态值语义：
+
+- 支持 `std::unique_ptr<Base>` 和 `std::shared_ptr<Base>`。
+- 写出时通过 RTTI 查询真实动态类型，动态类型必须已经注册到 `meta::registry`。
+- 派生类必须通过 typed parent 注册，例如 `.parent<Base>()`，这样注册表同时保存继承关系和安全 upcast 回调。
+- 动态类型必须拥有稳定 `type_guid`，并完成 reflection 和 serialization 注册。
+- 读入时只支持 DOM/JSON 路径；自定义流式 reader 如果不暴露 `current_variant()`，暂时不能读入普通类多态 envelope。
+
+示例：
+
+```cpp
+struct actor {
+  virtual ~actor() = default;
+};
+
+struct player : actor {
+  int level = 0;
+};
+
+struct holder {
+  std::unique_ptr<actor> owner;
+};
+
+caors::meta::type_<actor>("game.actor")
+    .guid(actor_guid);
+
+caors::meta::type_<player>("game.player")
+    .guid(player_guid)
+    .parent<actor>();
+
+caors::reflection::class_<player>(caors::meta::find<player>())
+    .field("level", &player::level)
+    .commit();
+
+caors::reflection::class_<holder>("game.holder")
+    .field("owner", &holder::owner, "std.unique_ptr<game.actor>")
+    .commit();
+
+caors::serialization::register_type<player>();
+caors::serialization::register_type<holder>();
+```
+
+字段写出格式和多态 object 相同：
+
+```json
+{
+  "owner": {
+    "$type": "5ed39a97-7b20-4d87-86ac-e62a4a615b10",
+    "$value": {
+      "level": 10
+    }
+  }
+}
+```
+
+读入流程：
+
+1. 读取 `$type` 并用 `type_guid` 查找动态类型。
+2. 校验动态类型继承自字段声明的 `Base`。
+3. 通过动态类型 descriptor 默认构造派生对象。
+4. 用 `$value` 按动态类型反序列化字段。
+5. 通过 wrapper 的接管函数把对象放入 `unique_ptr<Base>` 或 `shared_ptr<Base>`。
+
+当前不支持：
+
+- `Base*` 自动创建派生对象；裸指针仍只表示借用。
+- `std::optional<Base>`，它按值保存 `Base`，会发生对象切片，不适合作为多态所有权。
+- `std::reference_wrapper<Base>` 自动重绑定。
+- `std::weak_ptr<Base>` 读写；弱引用应通过对象 handle、资源 id 或 resolver 表达。
 
 ### serialization::type_data
 
@@ -375,6 +449,8 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 - `std::weak_ptr<T>` 明确标记为不支持的 wrapper，无法稳定暴露可写内部值，当前不作为普通 value
   序列化或反序列化。
 - `caors::objects::ref<T>` 不走内部 value 语义，仍通过 `serialization::reference_resolver` 写出和读入对象 id 或持久 GUID。
+- 当 `std::unique_ptr<Base>` 或 `std::shared_ptr<Base>` 实际持有已注册派生类对象时，序列化层会写出
+  `$type` / `$value` envelope。读回时要求派生类型可默认构造，并通过 wrapper 接管新对象。
 
 这条规则避免序列化层隐式决定所有权。后续如果要让某类 wrapper 采用引用语义、共享身份或自定义构造策略，
 应在字段策略或专用 wrapper trait 中显式声明。
@@ -391,7 +467,7 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 | `std::chrono` duration / `system_clock::time_point` | 作为普通值类型 | 支持，按整数写出 | 支持，从整数构造 |
 | `guid`、`type_guid` | 作为普通值类型 | 支持，按字符串写出 | 支持，从字符串解析 |
 | 裸指针 `T*` | 通过 `indirect_view` 访问已指向的 `T` | 空值写 `null`，非空展开内部值 | `null` 可重置；非空要求目标已经指向有效对象 |
-| `std::unique_ptr<T>`、`std::shared_ptr<T>`、`std::optional<T>` | 通过 `indirect_view` 访问内部 `T` | 空值写 `null`，非空展开内部值 | `null` 可重置；非空可在 `T` 默认可构造时创建内部值 |
+| `std::unique_ptr<T>`、`std::shared_ptr<T>`、`std::optional<T>` | 通过 `indirect_view` 访问内部 `T` | 空值写 `null`，非空展开内部值；拥有型智能指针可写出普通类多态 envelope | `null` 可重置；非空可在 `T` 默认可构造时创建内部值；拥有型智能指针可按 envelope 构造派生对象 |
 | `std::reference_wrapper<T>` | 通过 `indirect_view` 访问已绑定的 `T` | 按内部 `T` 写出 | 只能写入已绑定对象，不能置空或重绑定 |
 | `std::weak_ptr<T>` | 只标记为不支持 wrapper，不展开 | 不支持 | 不支持 |
 | `objects::ref<T>` | 作为对象引用类型，可通过 `objects::object_ref(any_ref)` 识别 | 通过 resolver 写出 `object_id` 或 `object_guid` | 通过 resolver 从 `object_id` 或 `object_guid` 写回引用 |
@@ -424,7 +500,7 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 - `std::variant<...>` 已支持按 tagged union 数组 `[index, value]` 读写；反序列化时数组长度必须等于 2，
   `index` 必须在候选范围内。相同候选会更新已有值；切换候选时目标候选需要支持默认构造。
   处于无值状态的 variant 当前返回不支持。
-- 反射对象按字段声明静态类型处理，不会自动记录运行期动态类型；多态序列化需要后续引入类型标识和构造策略。
+- 直接值字段仍按字段声明静态类型处理；运行期动态类型记录只发生在显式多态 object API 或拥有型智能指针 wrapper envelope 上。
 - JSON reader 目前不完整支持非 ASCII `\uXXXX` 解码，二进制格式、版本迁移和默认值恢复也尚未实现。
 
 ### caors::variant
@@ -600,6 +676,7 @@ caors::string text = result.value;
 - 裸指针、普通 wrapper、`objects::ref<T>` 和已适配容器字段。
 - 运行期 `object_id` resolver 和持久 `object_guid` resolver。
 - 基于稳定 `type_guid` 和 `objects::manager` 的显式多态 object 序列化。
+- 基于稳定 `type_guid`、RTTI 和 typed parent upcast 的普通类拥有型智能指针多态序列化。
 - `variant` 安全访问器、数组/字典/对象辅助修改和成员查询。
 - 序列化注册早于反射字段注册。
 

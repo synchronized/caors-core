@@ -52,6 +52,18 @@ public:
     return *this;
   }
 
+  /** @brief 设置 C++ 父类型，并保存安全 upcast 信息供普通类多态使用。 */
+  template <typename Parent> type_builder& parent() {
+    if (!type_) {
+      status_ = {error_domain::meta, errc::invalid_type};
+      return *this;
+    }
+
+    status_ = get_registry().template set_type_parent_for<T, Parent>();
+    refresh();
+    return *this;
+  }
+
   [[nodiscard]] ::caors::meta::type get() const noexcept { return type_; }
   [[nodiscard]] error result() const noexcept { return status_; }
   [[nodiscard]] bool succeeded() const noexcept {

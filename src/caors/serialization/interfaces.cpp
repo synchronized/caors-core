@@ -50,4 +50,6 @@ error reader::end_dictionary() { return {error_domain::serialization, errc::unsu
 
 bool reader::is_null() const noexcept { return false; }
 
+const variant* reader::current_variant() const noexcept { return nullptr; }
+
 } // namespace caors::serialization

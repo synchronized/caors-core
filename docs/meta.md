@@ -82,6 +82,9 @@ caors::type_id id = caors::meta::id("game.player");
 当前约定是同一个可反射 C++ 类型只由一个模块负责注册；跨模块、跨进程或存档数据里的稳定身份使用
 `type_guid`，必要时再结合类型名和版本迁移策略。
 
+注册 C++ 类型时，注册表还会记录 `typeid(T) -> type_id` 的进程内映射。该映射只用于运行期 RTTI
+辅助，例如普通 C++ 多态 wrapper 从 `Base*` 查到真实 `Derived` 类型；它同样不承诺跨进程或跨动态库稳定。
+
 ### type_guid
 
 `type_guid` 是稳定类型标识，定义在 `caors/core/type_guid.h`，基于 `guid` 包装。它用于序列化、存档、资源引用和插件边界等需要长期稳定识别类型的场景。
@@ -156,6 +159,18 @@ auto type = caors::meta::find<actor>();
 caors::meta::type_<actor>("game.actor")
     .guid(caors::type_guid{*guid});
 ```
+
+如果类型需要表达 C++ 继承关系，推荐使用 typed parent 注册：
+
+```cpp
+caors::meta::type_<player>("game.player")
+    .parent<actor>();
+```
+
+`.parent<actor>()` 不只保存 `parent_id`，还会保存 `player* -> actor*` 的安全 upcast 回调。普通类
+多态序列化读入 `std::unique_ptr<actor>` / `std::shared_ptr<actor>` 时需要这份回调把新建的
+`player` 对象交给声明基类 wrapper。`.parent(type_id)` 仍可用于只需要关系查询的场景，但不会提供
+typed upcast 能力。
 
 `caors::meta::find(...)` 和 `caors::meta::find<T>()` 只查询已经注册的类型，不会创建临时记录；
 不存在时返回无效 `meta::type`。普通类型应通过 `caors::meta::type_<T>("name")` 显式注册。
@@ -260,6 +275,8 @@ CAORS_META_REGISTRATION(register_actor_meta) {
 
 - `type_id -> 内部基础类型数据`：运行期主索引，只保存身份类信息。
 - `type_id -> const meta::detail::type_descriptor*`：布局、值操作、类型语义、主访问能力和对象引用能力。
+- `typeid(T) -> type_id`：当前进程内 RTTI 查询索引，用于普通 C++ 多态辅助。
+- `type_id -> parent upcast`：typed parent 注册保存的直接父类 upcast 回调。
 - `type_name -> type_id`：名称查询索引，可选。
 - `type_guid -> type_id`：稳定身份查询索引，可选。
 
@@ -346,6 +363,7 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 - `meta::type`：全局注册表中的类型只读视图。
 - `meta::type_<T>()`：RTTR 风格的链式元类型注册入口；默认不注册类型，需要继续调用 `.type("name")`。
 - `meta::type_<T>("name")`：推荐的显式命名注册入口。
+- `meta::type_<T>().parent<Base>()`：保存 C++ 父类型关系和安全 upcast 回调。
 - `meta::registry`：全局基础类型注册、按 id/name/guid 或 C++ 类型查询、继承关系判断和组件式元数据挂载。
 - `meta::view<T...>`：按组件集合查询类型。
 - `meta::run_registrations()`：执行已收集的延迟元数据注册函数。

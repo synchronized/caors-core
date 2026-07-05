@@ -6,6 +6,7 @@
 #include "caors/meta/detail/type_descriptor.h"
 
 #include <mutex>
+#include <typeindex>
 
 namespace caors::meta {
 namespace {
@@ -104,7 +105,31 @@ error registry::set_type_guid(type_id id, type_guid guid) {
   return {};
 }
 
+error registry::register_cpp_type_info(const std::type_info& info, type_id id) {
+  if (!id) {
+    return {error_domain::meta, errc::invalid_type};
+  }
+
+  std::lock_guard lock(state_->mutex);
+  if (!state_->types.contains(id.value())) {
+    return {error_domain::meta, errc::missing_type};
+  }
+
+  const std::type_index index{info};
+  const auto position = state_->cpp_type_ids.find(index);
+  if (position != state_->cpp_type_ids.end()) {
+    return position->second == id ? error{} : error{error_domain::meta, errc::invalid_type};
+  }
+
+  state_->cpp_type_ids.emplace(index, id);
+  return {};
+}
+
 error registry::set_type_parent(type_id id, type_id parent_id) {
+  return set_type_parent(id, parent_id, {});
+}
+
+error registry::set_type_parent(type_id id, type_id parent_id, detail::parent_cast_data cast) {
   if (!id) {
     return {error_domain::meta, errc::invalid_type};
   }
@@ -123,17 +148,39 @@ error registry::set_type_parent(type_id id, type_id parent_id) {
     return {error_domain::meta, errc::duplicate_id};
   }
 
+  if (cast.parent && cast.parent != parent_id) {
+    return {error_domain::meta, errc::invalid_type};
+  }
+
   if (!state_->types.contains(parent_id.value())) {
     return {error_domain::meta, errc::missing_parent};
   }
 
+  bool changed = false;
   if (stored->parent_id()) {
-    return stored->parent_id() == parent_id ? error{error_domain::meta, errc::duplicate_id}
-                                            : error{error_domain::meta, errc::invalid_type};
+    if (stored->parent_id() != parent_id) {
+      return {error_domain::meta, errc::invalid_type};
+    }
+  } else {
+    stored->set_parent_id(parent_id);
+    changed = true;
   }
 
-  stored->set_parent_id(parent_id);
-  return {};
+  if (cast.valid()) {
+    const auto position = state_->parent_casts.find(id.value());
+    if (position != state_->parent_casts.end()) {
+      if (position->second.parent != parent_id ||
+          position->second.const_upcast != cast.const_upcast ||
+          position->second.mutable_upcast != cast.mutable_upcast) {
+        return {error_domain::meta, errc::invalid_type};
+      }
+    } else {
+      state_->parent_casts.emplace(id.value(), cast);
+      changed = true;
+    }
+  }
+
+  return changed ? error{} : error{error_domain::meta, errc::duplicate_id};
 }
 
 } // namespace caors::meta

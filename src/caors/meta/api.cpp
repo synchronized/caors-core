@@ -31,4 +31,13 @@ type find(core::string_name name) { return get_registry().find_type(name); }
 
 bool is_a(type_id id, type_id base_id) { return get_registry().is_a(id, base_id); }
 
+namespace detail {
+
+type_id type_id_of_cpp_type_info(const std::type_info& info) noexcept {
+  const type type = get_registry().find_type(info);
+  return type ? type.id() : type_id::invalid();
+}
+
+} // namespace detail
+
 } // namespace caors::meta

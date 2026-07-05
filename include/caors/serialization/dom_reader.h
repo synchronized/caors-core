@@ -32,6 +32,7 @@ public:
   [[nodiscard]] error read_f64(double& value) override;
   [[nodiscard]] error read_string(string& value) override;
   [[nodiscard]] bool is_null() const noexcept override;
+  [[nodiscard]] const variant* current_variant() const noexcept override;
   [[nodiscard]] error end_element() override;
   [[nodiscard]] error end_array() override;
   [[nodiscard]] error end_field() override;

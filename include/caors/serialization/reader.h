@@ -40,6 +40,7 @@ public:
   [[nodiscard]] virtual error read_f64(double& value) = 0;
   [[nodiscard]] virtual error read_string(string& value) = 0;
   [[nodiscard]] virtual bool is_null() const noexcept;
+  [[nodiscard]] virtual const variant* current_variant() const noexcept;
   [[nodiscard]] virtual error end_element() = 0;
   [[nodiscard]] virtual error end_array() = 0;
   [[nodiscard]] virtual error end_field() = 0;

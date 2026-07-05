@@ -47,15 +47,7 @@ value_ref_to_serialization_value(const any_ref& value, const serialization::cont
   any_ref field_ref{};
   if (field_uses_inline_indirect_value(field)) {
     const value::indirect_view indirect = field.get_ref(object).create_indirect_view();
-    if (!indirect.valid()) {
-      return {{error_domain::serialization, errc::unsupported}, {}};
-    }
-
-    if (!indirect.has_value()) {
-      return {{}, variant::null()};
-    }
-
-    field_ref = indirect.value_ref();
+    return serialization::detail::make_indirect_serialized_value(indirect, context);
   } else {
     field_ref = field.get_ref(object);
   }

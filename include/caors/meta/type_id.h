@@ -5,9 +5,11 @@
 #define CAORS_META_TYPE_ID_H_
 
 #include "caors/core/type_guid.h"
+#include "caors/export.h"
 
 #include <cstdint>
 #include <type_traits>
+#include <typeinfo>
 
 namespace caors::meta {
 
@@ -50,6 +52,9 @@ template <typename T> [[nodiscard]] inline type_id type_id_of_cpp_type() noexcep
   return type_id{static_cast<std::uint64_t>(
       reinterpret_cast<std::uintptr_t>(&cpp_type_id_storage<type>::key))};
 }
+
+/** @brief 按已注册 C++ RTTI 查询当前进程内类型 id。 */
+[[nodiscard]] CAORS_API type_id type_id_of_cpp_type_info(const std::type_info& info) noexcept;
 
 } // namespace detail
 

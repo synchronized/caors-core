@@ -34,6 +34,15 @@ const type_descriptor* find_type_descriptor(const registry_state& state, type_id
   return position->second;
 }
 
+const parent_cast_data* find_parent_cast(const registry_state& state, type_id id) {
+  const auto position = state.parent_casts.find(id.value());
+  if (position == state.parent_casts.end()) {
+    return nullptr;
+  }
+
+  return &position->second;
+}
+
 std::optional<type_id> find_existing_type_id(const registry_state& state, const type_data& type,
                                              error& conflict) {
   std::optional<type_id> existing_id;
@@ -251,6 +260,18 @@ error validate_registry_for_freeze(const registry_state& state) {
 
     if (!state.types.contains(raw_id)) {
       return {error_domain::meta, errc::missing_type};
+    }
+  }
+
+  for (const auto& [raw_id, cast] : state.parent_casts) {
+    if (!cast.valid() || !state.types.contains(raw_id) ||
+        !state.types.contains(cast.parent.value())) {
+      return {error_domain::meta, errc::invalid_type};
+    }
+
+    const type_data* stored = find_type_data(state, type_id{raw_id});
+    if (stored == nullptr || stored->parent_id() != cast.parent) {
+      return {error_domain::meta, errc::inconsistent_type};
     }
   }
 

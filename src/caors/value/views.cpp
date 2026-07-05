@@ -88,6 +88,69 @@ any_ref indirect_view::value_ref() const {
   return any_ref::from_raw(value_type(), info->value_descriptor, value, value_writable);
 }
 
+type_id indirect_view::dynamic_value_type() const noexcept {
+  const meta::detail::indirect_data* info = data();
+  if (!valid() || info->dynamic_type == nullptr) {
+    return value_type();
+  }
+
+  return info->dynamic_type(storage_);
+}
+
+any_ref indirect_view::dynamic_value_ref() const {
+  const meta::detail::indirect_data* info = data();
+  if (!valid()) {
+    return {};
+  }
+
+  const type_id dynamic_type = dynamic_value_type();
+  if (!dynamic_type) {
+    return {};
+  }
+
+  const void* value = nullptr;
+  bool value_writable = false;
+  if (writable() && info->mutable_dynamic_value != nullptr) {
+    value = info->mutable_dynamic_value(const_cast<void*>(storage_));
+    value_writable = value != nullptr;
+  } else if (info->dynamic_value != nullptr) {
+    value = info->dynamic_value(storage_);
+  } else {
+    return value_ref();
+  }
+
+  if (value == nullptr) {
+    return {};
+  }
+
+  const meta::detail::type_descriptor* descriptor =
+      caors::meta::get_registry().find_type_descriptor(dynamic_type);
+  if (descriptor == nullptr) {
+    descriptor = dynamic_type == value_type() ? info->value_descriptor : nullptr;
+  }
+
+  return any_ref::from_raw(dynamic_type, descriptor, value, value_writable);
+}
+
+bool indirect_view::can_set_value() const noexcept {
+  const meta::detail::indirect_data* info = data();
+  return valid() && info->set_value != nullptr;
+}
+
+bool indirect_view::set_value(type_id dynamic_type, void* value) const {
+  const meta::detail::indirect_data* info = data();
+  if (!writable() || info->set_value == nullptr || value == nullptr || !dynamic_type) {
+    return false;
+  }
+
+  void* adjusted = caors::meta::get_registry().upcast(dynamic_type, value_type(), value);
+  if (adjusted == nullptr) {
+    return false;
+  }
+
+  return info->set_value(const_cast<void*>(storage_), adjusted);
+}
+
 bool indirect_view::reset() const {
   const meta::detail::indirect_data* info = data();
   if (!writable() || info->reset == nullptr) {

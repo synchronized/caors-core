@@ -9,6 +9,7 @@
 #include "caors/export.h"
 #include "caors/meta/component_storage.h"
 #include "caors/meta/detail/component_storage.h"
+#include "caors/meta/detail/type_capabilities.h"
 #include "caors/meta/registration.h"
 #include "caors/meta/type.h"
 #include "caors/meta/view.h"
@@ -23,6 +24,7 @@
 #include <optional>
 #include <string_view>
 #include <type_traits>
+#include <typeinfo>
 #include <utility>
 
 namespace caors::meta::detail {
@@ -75,6 +77,11 @@ public:
       return status;
     }
 
+    const error type_info_status = register_cpp_type_info(typeid(value_type), expected_id);
+    if (type_info_status) {
+      return type_info_status;
+    }
+
     const meta::type registered = find_type(expected_id);
     if (registered) {
       const error descriptor_status = detail::ensure_type_descriptor_for<value_type>();
@@ -93,10 +100,13 @@ public:
 
   [[nodiscard]] type find_type(type_id id) const;
   [[nodiscard]] type find_type(type_guid guid) const;
+  [[nodiscard]] type find_type(const std::type_info& info) const;
   [[nodiscard]] type find_type(std::string_view name) const;
   [[nodiscard]] type find_type(string_name name) const;
   [[nodiscard]] const detail::type_descriptor* find_type_descriptor(type_id id) const;
   [[nodiscard]] bool is_a(type_id id, type_id base_id) const;
+  [[nodiscard]] const void* upcast(type_id id, type_id base_id, const void* value) const;
+  [[nodiscard]] void* upcast(type_id id, type_id base_id, void* value) const;
   [[nodiscard]] std::size_t size() const noexcept;
 
   /** @brief 给已注册类型挂载一个元数据组件。 */
@@ -240,6 +250,31 @@ private:
 
   [[nodiscard]] error set_type_guid(type_id id, type_guid guid);
   [[nodiscard]] error set_type_parent(type_id id, type_id parent_id);
+  [[nodiscard]] error set_type_parent(type_id id, type_id parent_id, detail::parent_cast_data cast);
+
+  template <typename Child, typename Parent> [[nodiscard]] error set_type_parent_for() {
+    using child_type = std::remove_cv_t<std::remove_reference_t<Child>>;
+    using parent_type = std::remove_cv_t<std::remove_reference_t<Parent>>;
+    static_assert(std::is_base_of_v<parent_type, child_type>,
+                  "Parent must be a base class of Child");
+
+    return set_type_parent(
+        detail::type_id_of_cpp_type<child_type>(), detail::type_id_of_cpp_type<parent_type>(),
+        detail::parent_cast_data{
+            detail::type_id_of_cpp_type<parent_type>(),
+            [](const void* value) noexcept -> const void* {
+              return value != nullptr
+                         ? static_cast<const parent_type*>(static_cast<const child_type*>(value))
+                         : nullptr;
+            },
+            [](void* value) noexcept -> void* {
+              return value != nullptr ? static_cast<parent_type*>(static_cast<child_type*>(value))
+                                      : nullptr;
+            },
+        });
+  }
+
+  [[nodiscard]] error register_cpp_type_info(const std::type_info& info, type_id id);
 
   [[nodiscard]] detail::meta_component_storage_base*
   find_component_storage(detail::meta_component_key key);

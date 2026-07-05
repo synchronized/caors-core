@@ -290,6 +290,8 @@ bool variant_reader::is_null() const noexcept {
   return current != nullptr && current->is_null();
 }
 
+const variant* variant_reader::current_variant() const noexcept { return current_value(); }
+
 error variant_reader::end_element() {
   if (current_elements_.empty() || current_elements_.back() == nullptr) {
     return {error_domain::serialization, errc::invalid_argument};

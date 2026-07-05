@@ -74,6 +74,20 @@ template <typename T, typename Deleter> struct wrapper_access<std::unique_ptr<T,
       return false;
     }
   }
+
+  static bool set_value(std::unique_ptr<T, Deleter>& source, wrapped_type* value) noexcept {
+    using pointer_type = typename std::unique_ptr<T, Deleter>::pointer;
+    if (value == nullptr) {
+      return false;
+    }
+
+    if constexpr (std::is_convertible_v<wrapped_type*, pointer_type>) {
+      source.reset(value);
+      return static_cast<bool>(source);
+    } else {
+      return false;
+    }
+  }
 };
 
 template <typename T> struct wrapper_traits<std::shared_ptr<T>> {
@@ -122,6 +136,25 @@ template <typename T> struct wrapper_access<std::shared_ptr<T>> {
     } else {
       return false;
     }
+  }
+
+  static bool set_value(std::shared_ptr<T>& source, wrapped_type* value) {
+    if (value == nullptr) {
+      return false;
+    }
+
+#if CAORS_HAS_EXCEPTIONS
+    try {
+      source.reset(value);
+    } catch (...) {
+      return false;
+    }
+    return static_cast<bool>(source);
+#else
+    (void)source;
+    (void)value;
+    return false;
+#endif
   }
 };
 

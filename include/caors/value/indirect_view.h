@@ -30,6 +30,18 @@ public:
   /** @brief 获取内部值引用。 */
   [[nodiscard]] any_ref value_ref() const;
 
+  /** @brief 获取内部值的真实运行期类型。普通非多态值返回声明的 value 类型。 */
+  [[nodiscard]] type_id dynamic_value_type() const noexcept;
+
+  /** @brief 按真实运行期类型获取内部值引用。 */
+  [[nodiscard]] any_ref dynamic_value_ref() const;
+
+  /** @brief 判断该 wrapper 是否能接管一个按真实类型构造出的内部值。 */
+  [[nodiscard]] bool can_set_value() const noexcept;
+
+  /** @brief 让 wrapper 接管一个按真实类型构造出的内部值。 */
+  bool set_value(type_id dynamic_type, void* value) const;
+
   /** @brief 重置 wrapper 或裸指针为空。 */
   bool reset() const;
 

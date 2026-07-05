@@ -323,6 +323,159 @@ descriptor_of_value(const any_ref& value) noexcept {
   return {error_domain::serialization, errc::unsupported};
 }
 
+[[nodiscard]] core::string_name polymorphic_type_field() { return core::string_name{"$type"}; }
+
+[[nodiscard]] core::string_name polymorphic_value_field() { return core::string_name{"$value"}; }
+
+[[nodiscard]] const value::variant_member* find_variant_member(const variant& source,
+                                                               core::string_name name) noexcept {
+  return source.is_object() ? source.find_member(name) : nullptr;
+}
+
+[[nodiscard]] bool is_polymorphic_envelope(const variant& source) noexcept {
+  const value::variant_member* type_member = find_variant_member(source, polymorphic_type_field());
+  const value::variant_member* value_member =
+      find_variant_member(source, polymorphic_value_field());
+  return type_member != nullptr && type_member->value.is_string() && value_member != nullptr;
+}
+
+[[nodiscard]] result<meta::type> resolve_polymorphic_meta_type(type_id declared_base,
+                                                               const variant& envelope) {
+  if (!declared_base || !envelope.is_object()) {
+    return {{error_domain::serialization, errc::invalid_type}, {}};
+  }
+
+  const value::variant_member* type_member = envelope.find_member(polymorphic_type_field());
+  if (type_member == nullptr || !type_member->value.is_string()) {
+    return {{error_domain::serialization, errc::not_found}, {}};
+  }
+
+  const string& text = type_member->value.as_string();
+  const std::optional<guid> parsed = guid::parse(std::string_view{text.data(), text.size()});
+  if (!parsed.has_value()) {
+    return {{error_domain::serialization, errc::invalid_type}, {}};
+  }
+
+  const meta::type dynamic_type = meta::find(type_guid{*parsed});
+  if (!dynamic_type) {
+    return {{error_domain::serialization, errc::missing_type}, {}};
+  }
+
+  if (!meta::is_a(dynamic_type.id(), declared_base)) {
+    return {{error_domain::serialization, errc::invalid_type}, {}};
+  }
+
+  return {{}, dynamic_type};
+}
+
+[[nodiscard]] variant_result make_polymorphic_envelope(const meta::type& dynamic_type,
+                                                       variant stored_value) {
+  const type_guid guid = dynamic_type.guid();
+  if (!guid) {
+    return {{error_domain::serialization, errc::invalid_type}, {}};
+  }
+
+  variant::object_type members;
+  members.reserve(2);
+  members.push_back(value::variant_member{
+      polymorphic_type_field(),
+      0,
+      variant::from(guid.value.string()),
+  });
+  members.push_back(value::variant_member{
+      polymorphic_value_field(),
+      0,
+      std::move(stored_value),
+  });
+
+  return {{}, variant::object(std::move(members))};
+}
+
+[[nodiscard]] variant_result
+make_polymorphic_indirect_value(const value::indirect_view& indirect,
+                                const serialization::context& context) {
+  if (!indirect.valid() || !indirect.has_value() || !indirect.can_set_value()) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
+  }
+
+  const type_id declared_type = indirect.value_type();
+  const type_id dynamic_type_id = indirect.dynamic_value_type();
+  if (!declared_type) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
+  }
+  if (!dynamic_type_id) {
+    return {{error_domain::serialization, errc::missing_type}, {}};
+  }
+  if (dynamic_type_id == declared_type) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
+  }
+
+  if (!meta::is_a(dynamic_type_id, declared_type)) {
+    return {{error_domain::serialization, errc::invalid_type}, {}};
+  }
+
+  const meta::type dynamic_type = meta::find(dynamic_type_id);
+  if (!dynamic_type || !dynamic_type.guid()) {
+    return {{error_domain::serialization, errc::invalid_type}, {}};
+  }
+
+  const any_ref dynamic_value = indirect.dynamic_value_ref();
+  if (!dynamic_value.valid() || dynamic_value.type() != dynamic_type_id) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
+  }
+
+  variant_result value = make_serialized_value(dynamic_value, context);
+  if (value.failed()) {
+    return value;
+  }
+
+  return make_polymorphic_envelope(dynamic_type, std::move(value.value));
+}
+
+[[nodiscard]] error read_polymorphic_indirect_value(const variant& envelope,
+                                                    const value::indirect_view& indirect,
+                                                    const serialization::context& context) {
+  if (!indirect.valid() || !indirect.writable() || !indirect.can_set_value()) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  result<meta::type> dynamic_type = resolve_polymorphic_meta_type(indirect.value_type(), envelope);
+  if (dynamic_type.failed()) {
+    return dynamic_type.status;
+  }
+
+  const value::variant_member* value_member = envelope.find_member(polymorphic_value_field());
+  if (value_member == nullptr) {
+    return {error_domain::serialization, errc::not_found};
+  }
+
+  const meta::detail::type_descriptor* descriptor =
+      meta::get_registry().find_type_descriptor(dynamic_type.value.id());
+  if (descriptor == nullptr || descriptor->ops.default_construct == nullptr ||
+      descriptor->ops.destroy == nullptr) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  void* instance = descriptor->ops.default_construct();
+  if (instance == nullptr) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  variant_reader value_reader{value_member->value};
+  error status = deserialize(dynamic_type.value.id(), instance, value_reader, context);
+  if (status) {
+    descriptor->ops.destroy(instance);
+    return status;
+  }
+
+  if (!indirect.set_value(dynamic_type.value.id(), instance)) {
+    descriptor->ops.destroy(instance);
+    return {error_domain::serialization, errc::invalid_field};
+  }
+
+  return {};
+}
+
 [[nodiscard]] variant_result make_indirect_serialized_value(const value::indirect_view& indirect,
                                                             const serialization::context& context) {
   if (!indirect.valid()) {
@@ -331,6 +484,14 @@ descriptor_of_value(const any_ref& value) noexcept {
 
   if (!indirect.has_value()) {
     return {{}, variant::null()};
+  }
+
+  variant_result polymorphic = make_polymorphic_indirect_value(indirect, context);
+  if (polymorphic.succeeded()) {
+    return polymorphic;
+  }
+  if (polymorphic.status.value() != errc::unsupported) {
+    return polymorphic;
   }
 
   const any_ref value = indirect.value_ref();
@@ -350,6 +511,14 @@ descriptor_of_value(const any_ref& value) noexcept {
 
   if (!indirect.has_value()) {
     return writer.write_null();
+  }
+
+  variant_result polymorphic = make_polymorphic_indirect_value(indirect, context);
+  if (polymorphic.succeeded()) {
+    return write(writer, polymorphic.value);
+  }
+  if (polymorphic.status.value() != errc::unsupported) {
+    return polymorphic.status;
   }
 
   const any_ref value = indirect.value_ref();
@@ -373,6 +542,11 @@ descriptor_of_value(const any_ref& value) noexcept {
     }
 
     return {};
+  }
+
+  if (const variant* current = reader.current_variant();
+      current != nullptr && is_polymorphic_envelope(*current)) {
+    return read_polymorphic_indirect_value(*current, indirect, context);
   }
 
   if (!indirect.has_value() && !indirect.ensure_value()) {

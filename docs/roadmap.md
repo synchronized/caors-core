@@ -111,6 +111,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 为 `std::string_view` 设计安全反序列化策略，避免悬空引用。
 - [x] 为 `std::weak_ptr<T>`、对象 handle 和资源引用设计稳定引用语义。
 - [x] 支持多态对象的动态类型记录、manager 构造和安全下转型。
+- [x] 支持普通 C++ 类在 `std::unique_ptr<Base>` / `std::shared_ptr<Base>` 字段中的动态类型记录、默认构造和安全下转型。
 - [ ] 为不可默认构造类型设计显式 factory、placement 构造或字段级构造策略。
 - [ ] 评估是否放宽多层指针 / 多层 wrapper 限制，或提供清晰诊断与显式适配点。
 - [ ] 增加紧凑二进制和 msgpack 等二进制后端。
