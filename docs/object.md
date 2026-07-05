@@ -369,6 +369,7 @@ manager.destroy(instance);
 - [x] 明确对象 handle / weak handle 设计。
 - [x] 增加对象生命周期管理器。
 - [x] manager 可选联动 `object_index`，创建、销毁和清理时维护持久对象映射。
+- [ ] 设计对象引用计数机制，明确它与 weak handle、`objects::ref<T>`、manager 所有权和序列化 resolver 的关系。
 - [ ] 与反射系统打通字段、方法和属性元信息。
 - [ ] 与序列化系统打通类型名、版本和构造流程。
 - [x] 设计持久对象 GUID / 业务对象 id，并与运行期 `object_id` 建立加载期映射。
