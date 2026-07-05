@@ -325,6 +325,20 @@ writer 通过 `serialization::format_features` 声明能力：
 - `serialization::text_writer`：声明 `named_fields | ordered_fields | self_describing`。
 - `serialization::json_writer`：声明 `named_fields | ordered_fields | self_describing`，输出紧凑 JSON。
 
+`text_writer` 和 `json_writer` 默认持有内部 `caors::string`。如果调用方希望复用输出 buffer，可以把
+外部字符串传给 writer，或使用 `serialize_text_to()` / `serialize_json_to()`：
+
+```cpp
+caors::string output;
+caors::error status = caors::serialize_json_to(instance, output);
+
+caors::serialization::json_writer writer{output};
+status = caors::serialize(instance, writer);
+```
+
+`serialize_text()` 和 `serialize_json()` 是高频格式的便捷封装；核心序列化入口仍是
+`serialize(object, writer, context)`。
+
 ### serialization::reader
 
 `serialization::reader` 是格式读入后端接口。反序列化调度层负责查找 `meta::registry`、匹配反射字段和
@@ -362,6 +376,8 @@ JSON 写出入口：
 
 ```cpp
 caors::serialization::serialization_text_result text = caors::serialize_json(instance);
+caors::string output;
+caors::error write_status = caors::serialize_json_to(instance, output);
 ```
 
 JSON 读入入口先解析为 `variant` DOM，再复用 `serialization::variant_reader` 写回对象：
@@ -455,7 +471,7 @@ codec 和 meta descriptor 的边界：
 - `caors::string`：按字符串读写，默认走 CAORS allocator。
 - `std::string`：按字符串读写，用于兼容外部结构。
 - `std::string_view`：按字符串写出和构造 DOM；反序列化默认拒绝，只有在
-  `serialization::context::string_view_storage` 指向外部可写字符串时才会读入该存储并让 view 指向它。
+  `serialization::context::string_view_storage` 指向外部 `serialization::string_storage` 时才会读入该存储并让 view 指向其中一段字符串。
 - `std::filesystem::path`：按通用路径字符串读写，写出使用 `/` 分隔的 `generic_string()`。
 - `std::chrono::nanoseconds` / `microseconds` / `milliseconds` / `seconds` / `minutes` / `hours`：
   按对应 duration 的整数 `count()` 读写。
@@ -557,7 +573,7 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 | 类型形态 | 反射 / any 访问 | 序列化写出 | 反序列化读回 |
 | --- | --- | --- | --- |
 | 基础标量、枚举、`caors::string`、`std::string` | 保存真实 C++ 类型，可读写字段；枚举可通过 descriptor 或已注册 meta 能力转换 | 支持 | 支持 |
-| `std::string_view` | 保存 view 本身，不拥有字符存储 | 支持，按字符串写出 | 默认拒绝；可通过 `serialization::context::string_view_storage` 指向外部存储后读回 |
+| `std::string_view` | 保存 view 本身，不拥有字符存储 | 支持，按字符串写出 | 默认拒绝；可通过 `serialization::context::string_view_storage` 指向外部 `string_storage` 后读回 |
 | `std::filesystem::path` | 作为普通值类型 | 支持，按通用路径字符串写出 | 支持，从字符串构造 path |
 | `std::chrono` duration / `system_clock::time_point` | 作为普通值类型 | 支持，按整数写出 | 支持，从整数构造 |
 | `guid`、`type_guid` | 作为普通值类型 | 支持，按字符串写出 | 支持，从字符串解析 |
@@ -572,8 +588,8 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 | `std::pair`、`std::tuple`、`std::variant` | 通过 pair / tuple / variant 视图访问 | 支持 | 支持；pair / tuple 长度、variant envelope 长度或下标错误返回 `errc::invalid_argument`；切换 variant 候选时目标候选需要默认构造或资源构造 |
 
 - `std::string_view` 默认拒绝反序列化写回，避免把临时字符串读入成悬空引用。调用方如果提供
-  `serialization::context::string_view_storage`，序列化层会先把文本写入该字符串，再让字段 view 指向它；
-  调用方必须保证该字符串生命周期长于目标对象或目标字段。
+  `serialization::context::string_view_storage`，序列化层会把每个读入文本追加为独立字符串，再让字段
+  view 指向对应字符串；调用方必须保证该 storage 生命周期长于目标对象或目标字段。
 - `std::weak_ptr<T>` 默认不展开内部值；如果需要弱引用序列化，应通过对象 handle、资源 id 或
   `objects::ref<T>` 类似的显式引用语义处理。
 - 裸指针和普通智能指针按 inline value 处理，不保留对象身份、共享关系或对象图引用；需要身份保持时使用
@@ -750,6 +766,7 @@ caors::string text = result.value;
 - `serialization::writer`：格式后端接口。
 - `serialization::reader`：格式读入后端接口。
 - `serialization::context`：单次序列化/反序列化上下文，支持 schema version 字段过滤、多态 envelope 字段名配置、引用 resolver 和运行期资源传递。
+- `serialization::string_storage`：`std::string_view` 反序列化使用的多段字符串存储。
 - `serialization::codec<T>`：类型级 codec 特化入口，配合 `serialization::register_codec<T>()` 使用。
 - `serialization::register_codec<T>()`：注册已特化的类型级 codec。
 - `serialization::text_writer`：简单文本格式后端。
@@ -765,6 +782,7 @@ caors::string text = result.value;
 - `serialize()`：通过指定 writer 后端序列化对象。
 - `deserialize()`：通过指定 reader 后端反序列化对象。
 - `to_serialization_value()`：通过反射和序列化元信息构造中间对象树。
+- `serialize_text_to()` / `serialize_json_to()`：把对象写入调用方提供的 `caors::string` buffer。
 - `to_polymorphic_serialization_value()`：兼容入口，显式按对象真实运行期类型构造多态 envelope，默认字段名为 `$type` / `$value`。
 - `deserialize_polymorphic_object()`：兼容入口，通过 `context.object_manager` 构造并读入多态对象。
 - `serialize_polymorphic_json()` / `deserialize_polymorphic_json()`：兼容入口，JSON 形式的多态对象 envelope。

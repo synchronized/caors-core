@@ -100,6 +100,11 @@ struct codec_string_view_actor {
   std::string_view name{};
 };
 
+struct codec_string_view_pair_actor {
+  std::string_view first{};
+  std::string_view second{};
+};
+
 struct codec_path_actor {
   std::filesystem::path path{};
 };

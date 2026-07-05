@@ -455,16 +455,40 @@ TEST_CASE("serialization - string view deserialization can use explicit backing 
   REQUIRE(serialization_result_ok(caors::serialization::register_type<codec_string_view_actor>()));
 
   codec_string_view_actor actor{std::string_view{"original"}};
-  caors::string backing;
+  caors::serialization::string_storage storage;
   caors::serialization::context context{};
-  context.string_view_storage = &backing;
+  context.string_view_storage = &storage;
 
   const caors::error result = caors::deserialize_json(actor, R"({"name":"Ada"})", context);
 
   REQUIRE(result.succeeded());
-  CHECK(backing == "Ada");
+  REQUIRE(storage.size() == 1);
   CHECK(actor.name == "Ada");
-  CHECK(actor.name.data() == backing.data());
+}
+
+TEST_CASE("serialization - string view storage keeps multiple deserialized strings",
+          "[serialization]") {
+  REQUIRE(reflection_result_ok(caors::reflection::class_<codec_string_view_pair_actor>(
+                                   "caors.test.serialization.codec_string_view_pair_actor")
+                                   .field("first", &codec_string_view_pair_actor::first)
+                                   .field("second", &codec_string_view_pair_actor::second)
+                                   .commit()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::register_type<codec_string_view_pair_actor>()));
+
+  codec_string_view_pair_actor actor{};
+  caors::serialization::string_storage storage;
+  caors::serialization::context context{};
+  context.string_view_storage = &storage;
+
+  const caors::error result =
+      caors::deserialize_json(actor, R"({"first":"Ada","second":"Mina"})", context);
+
+  REQUIRE(result.succeeded());
+  CHECK(actor.first == "Ada");
+  CHECK(actor.second == "Mina");
+  CHECK(actor.first.data() != actor.second.data());
+  CHECK(storage.size() == 2);
 }
 
 TEST_CASE("serialization - built in codecs roundtrip filesystem paths as strings",

@@ -12,6 +12,7 @@
 
 #include <string_view>
 #include <type_traits>
+#include <utility>
 
 namespace caors::serialization {
 
@@ -163,64 +164,94 @@ template <typename T>
   return detail::to_serialization_value(type.id(), &object, context);
 }
 
+/** @brief 把已注册序列化和反射信息的 C++ 对象序列化到外部简单文本 buffer。 */
+template <typename T> [[nodiscard]] error serialize_text_to(const T& object, string& output) {
+  serialization::text_writer writer{output};
+  return serialize(object, writer);
+}
+
+/** @brief 把已注册序列化和反射信息的 C++ 对象按上下文序列化到外部简单文本 buffer。 */
+template <typename T>
+[[nodiscard]] error serialize_text_to(const T& object, string& output,
+                                      const serialization::context& context) {
+  serialization::text_writer writer{output};
+  return serialize(object, writer, context);
+}
+
 /** @brief 把已注册序列化和反射信息的 C++ 对象序列化为简单文本格式。 */
 template <typename T> [[nodiscard]] serialization_text_result serialize_text(const T& object) {
-  serialization::text_writer writer;
-  const error status = serialize(object, writer);
+  string output;
+  const error status = serialize_text_to(object, output);
   if (status) {
     return {status, {}};
   }
 
-  return {{}, writer.text()};
+  return {{}, std::move(output)};
 }
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象按上下文序列化为简单文本格式。 */
 template <typename T>
 [[nodiscard]] serialization_text_result serialize_text(const T& object,
                                                        const serialization::context& context) {
-  serialization::text_writer writer;
-  const error status = serialize(object, writer, context);
+  string output;
+  const error status = serialize_text_to(object, output, context);
   if (status) {
     return {status, {}};
   }
 
-  return {{}, writer.text()};
+  return {{}, std::move(output)};
+}
+
+/** @brief 把已注册序列化和反射信息的 C++ 对象序列化到外部 JSON buffer。 */
+template <typename T> [[nodiscard]] error serialize_json_to(const T& object, string& output) {
+  serialization::json_writer writer{output};
+  const error status = serialize(object, writer);
+  return status;
+}
+
+/** @brief 把已注册序列化和反射信息的 C++ 对象按上下文序列化到外部 JSON buffer。 */
+template <typename T>
+[[nodiscard]] error serialize_json_to(const T& object, string& output,
+                                      const serialization::context& context) {
+  serialization::json_writer writer{output};
+  const error status = serialize(object, writer, context);
+  return status;
 }
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象序列化为 JSON。 */
 template <typename T> [[nodiscard]] serialization_text_result serialize_json(const T& object) {
-  serialization::json_writer writer;
-  const error status = serialize(object, writer);
+  string output;
+  const error status = serialize_json_to(object, output);
   if (status) {
     return {status, {}};
   }
 
-  return {{}, writer.text()};
+  return {{}, std::move(output)};
 }
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象按上下文序列化为 JSON。 */
 template <typename T>
 [[nodiscard]] serialization_text_result serialize_json(const T& object,
                                                        const serialization::context& context) {
-  serialization::json_writer writer;
-  const error status = serialize(object, writer, context);
+  string output;
+  const error status = serialize_json_to(object, output, context);
   if (status) {
     return {status, {}};
   }
 
-  return {{}, writer.text()};
+  return {{}, std::move(output)};
 }
 
-/** @brief 把对象按真实运行期类型序列化为带 `$type` / `$value` 的多态 DOM envelope。 */
+/** @brief 兼容入口：把对象按真实运行期类型序列化为多态 DOM envelope。 */
 [[nodiscard]] CAORS_API variant_result to_polymorphic_serialization_value(
     const objects::object& object, const serialization::context& context = {});
 
-/** @brief 把可空对象指针按真实运行期类型序列化为多态 DOM envelope；空指针写为 null。 */
+/** @brief 兼容入口：把可空对象指针按真实运行期类型序列化为多态 DOM envelope；空指针写为 null。 */
 [[nodiscard]] CAORS_API variant_result to_polymorphic_serialization_value(
     const objects::object* object, const serialization::context& context = {});
 
 /**
- * @brief 从多态 DOM envelope 构造对象。
+ * @brief 兼容入口：从多态 DOM envelope 构造对象。
  *
  * `declared_base` 是字段或调用点声明的对象基类类型。动态类型必须继承自该类型。成功返回的对象由
  * `context.object_manager` 拥有；缺少 manager、类型不匹配或反序列化失败时返回错误。
@@ -229,7 +260,7 @@ template <typename T>
 deserialize_polymorphic_object(objects::object_type_id declared_base, const variant& value,
                                const serialization::context& context);
 
-/** @brief 按 C++ 基类类型从多态 DOM envelope 构造对象。 */
+/** @brief 兼容入口：按 C++ 基类类型从多态 DOM envelope 构造对象。 */
 template <typename Base>
 [[nodiscard]] result<Base*> deserialize_polymorphic_object(const variant& value,
                                                            const serialization::context& context) {
@@ -256,16 +287,16 @@ template <typename Base>
   return {{}, typed};
 }
 
-/** @brief 把对象按真实运行期类型序列化为 JSON envelope。 */
+/** @brief 兼容入口：把对象按真实运行期类型序列化为 JSON envelope。 */
 [[nodiscard]] CAORS_API serialization_text_result serialize_polymorphic_json(
     const objects::object& object, const serialization::context& context = {});
 
-/** @brief 从 JSON envelope 构造多态对象。 */
+/** @brief 兼容入口：从 JSON envelope 构造多态对象。 */
 [[nodiscard]] CAORS_API result<objects::object*>
 deserialize_polymorphic_json(objects::object_type_id declared_base, std::string_view text,
                              const serialization::context& context);
 
-/** @brief 按 C++ 基类类型从 JSON envelope 构造多态对象。 */
+/** @brief 兼容入口：按 C++ 基类类型从 JSON envelope 构造多态对象。 */
 template <typename Base>
 [[nodiscard]] result<Base*> deserialize_polymorphic_json(std::string_view text,
                                                          const serialization::context& context) {
@@ -283,14 +314,12 @@ namespace caors {
 
 using serialization::deserialize;
 using serialization::deserialize_json;
-using serialization::deserialize_polymorphic_json;
-using serialization::deserialize_polymorphic_object;
 using serialization::parse_json;
 using serialization::serialize;
 using serialization::serialize_json;
-using serialization::serialize_polymorphic_json;
+using serialization::serialize_json_to;
 using serialization::serialize_text;
-using serialization::to_polymorphic_serialization_value;
+using serialization::serialize_text_to;
 using serialization::to_serialization_value;
 
 } // namespace caors

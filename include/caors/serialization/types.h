@@ -4,6 +4,7 @@
 #ifndef CAORS_SERIALIZATION_TYPES_H_
 #define CAORS_SERIALIZATION_TYPES_H_
 
+#include "caors/core/containers.h"
 #include "caors/error.h"
 #include "caors/memory/resource.h"
 #include "caors/meta.h"
@@ -12,7 +13,10 @@
 #include "caors/serialization/type_data.h"
 #include "caors/value/variant.h"
 
+#include <cstddef>
 #include <cstdint>
+#include <string_view>
+#include <utility>
 
 namespace caors::serialization {
 
@@ -37,6 +41,31 @@ struct polymorphic_options {
   string_name value_field{};
   string_name type_name_field{};
   bool write_type_name = false;
+};
+
+/**
+ * @brief `std::string_view` 反序列化使用的多段字符串存储。
+ *
+ * `std::string_view` 不拥有字符数据。反序列化读回 view 字段时，调用方应让该 storage 的生命周期
+ * 长于目标对象中所有读回的 view。每次 `store()` 都会追加一段独立字符串，避免多个 view
+ * 字段互相覆盖。
+ */
+struct string_storage {
+  explicit string_storage(memory::memory_resource* resource = nullptr)
+      : values_(core::make_list<string>(resource)) {}
+
+  [[nodiscard]] std::string_view store(string value) {
+    values_.push_back(std::move(value));
+    const string& stored = values_.back();
+    return {stored.data(), stored.size()};
+  }
+
+  void clear() noexcept { values_.clear(); }
+  [[nodiscard]] bool empty() const noexcept { return values_.empty(); }
+  [[nodiscard]] std::size_t size() const noexcept { return values_.size(); }
+
+private:
+  list<string> values_;
 };
 
 /** @brief 对象引用解析器。 */
@@ -136,13 +165,13 @@ struct context {
   const reference_resolver* reference_resolver = nullptr;
   polymorphic_options polymorphic{};
   /**
-   * @brief `std::string_view` 反序列化使用的外部字符串存储。
+   * @brief `std::string_view` 反序列化使用的外部多段字符串存储。
    *
    * 默认保持 `nullptr`，此时读回 `std::string_view` 会返回 `errc::unsupported`，避免指向临时
-   * 字符串。调用方如果能保证该存储的生命周期长于目标对象，可以传入一个可写字符串；读入时会把文本
-   * 写入该字符串，再让目标 `std::string_view` 指向它。
+   * 字符串。调用方如果能保证该存储的生命周期长于目标对象，可以传入一个 storage；读入时会把文本
+   * 追加到 storage，再让目标 `std::string_view` 指向其中一段字符串。
    */
-  string* string_view_storage = nullptr;
+  string_storage* string_view_storage = nullptr;
   /**
    * @brief 多态对象反序列化使用的对象生命周期管理器。
    *

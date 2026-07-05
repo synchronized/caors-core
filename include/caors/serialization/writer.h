@@ -51,7 +51,8 @@ public:
 /** @brief 简单文本序列化写出后端。 */
 class CAORS_API text_writer final : public writer {
 public:
-  text_writer() = default;
+  text_writer() noexcept;
+  explicit text_writer(string& output);
 
   [[nodiscard]] format_features features() const noexcept override;
   [[nodiscard]] error begin_object(const type_data& type) override;
@@ -77,7 +78,7 @@ public:
   [[nodiscard]] error end_field() override;
   [[nodiscard]] error end_object() override;
 
-  [[nodiscard]] const string& text() const noexcept { return text_; }
+  [[nodiscard]] const string& text() const noexcept { return *text_; }
   void reset();
 
 private:
@@ -93,8 +94,10 @@ private:
 
   [[nodiscard]] error prepare_value();
   void mark_value_written() noexcept;
+  [[nodiscard]] string& output() noexcept { return *text_; }
 
-  string text_{};
+  string owned_text_{};
+  string* text_ = nullptr;
   vector<context> contexts_{};
   bool expecting_value_ = false;
   bool root_written_ = false;
@@ -103,7 +106,8 @@ private:
 /** @brief JSON 序列化写出后端。 */
 class CAORS_API json_writer final : public writer {
 public:
-  json_writer() = default;
+  json_writer() noexcept;
+  explicit json_writer(string& output);
 
   [[nodiscard]] format_features features() const noexcept override;
   [[nodiscard]] error begin_object(const type_data& type) override;
@@ -129,7 +133,7 @@ public:
   [[nodiscard]] error end_field() override;
   [[nodiscard]] error end_object() override;
 
-  [[nodiscard]] const string& text() const noexcept { return text_; }
+  [[nodiscard]] const string& text() const noexcept { return *text_; }
   void reset();
 
 private:
@@ -145,8 +149,10 @@ private:
 
   [[nodiscard]] error prepare_value();
   void mark_value_written() noexcept;
+  [[nodiscard]] string& output() noexcept { return *text_; }
 
-  string text_{};
+  string owned_text_{};
+  string* text_ = nullptr;
   vector<context> contexts_{};
   bool expecting_value_ = false;
   bool root_written_ = false;

@@ -120,9 +120,7 @@ template <typename T>
     return false;
   }
 
-  *context.string_view_storage = std::move(value);
-  return target.try_set<std::string_view>(
-      std::string_view{context.string_view_storage->data(), context.string_view_storage->size()});
+  return target.try_set<std::string_view>(context.string_view_storage->store(std::move(value)));
 }
 
 } // namespace

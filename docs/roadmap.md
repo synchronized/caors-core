@@ -99,7 +99,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 序列化 vector 字段不再要求手动注册 vector 类型名。
 - [x] 支持 `caors::objects::ref<T>` 对象引用字段和 resolver。
 - [x] 增加 JSON writer、JSON DOM parser 和 `serialize_json()` / `deserialize_json()`。
-- [ ] 为文本和 JSON writer 增加外部输出 buffer / `serialize_*_to()` 入口，允许调用方复用
+- [x] 为文本和 JSON writer 增加外部输出 buffer / `serialize_*_to()` 入口，允许调用方复用
   `caors::string` 并减少结果拷贝，后续可接入指定 `memory_resource`。
 - [x] 增加 `variant::dictionary` 和 `caors::hash_map<K, V>` 字典 codec。
 - [x] 抽出基于 `traits::sequence_traits<T>` 和 `traits::associative_traits<T>` 的通用容器 codec。
@@ -113,7 +113,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 支持 `std::variant<Ts...>` 按 `[index, value]` tagged union 序列化和反序列化。
 - [x] 支持 `std::span<T>` / `std::span<T,N>` 作为借用数组视图反射访问和序列化写出，默认禁止反序列化写回。
 - [x] 为 `std::string_view` 设计安全反序列化策略，避免悬空引用。
-- [ ] 将 `serialization::context::string_view_storage` 从单个字符串存储升级为多段
+- [x] 将 `serialization::context::string_view_storage` 从单个字符串存储升级为多段
   `string_storage` / `string_buffer`，支持同一对象内多个 `std::string_view` 字段安全读回。
 - [x] 为 `std::weak_ptr<T>`、对象 handle 和资源引用设计稳定引用语义。
 - [x] 支持多态对象的动态类型记录、manager 构造和安全下转型。

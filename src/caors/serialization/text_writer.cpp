@@ -47,6 +47,10 @@ void append_text(core::string& output, std::string_view value) {
 
 } // namespace
 
+text_writer::text_writer() noexcept : text_(&owned_text_) {}
+
+text_writer::text_writer(string& output) : text_(&output) { reset(); }
+
 format_features text_writer::features() const noexcept {
   return format_features::named_fields | format_features::ordered_fields |
          format_features::self_describing;
@@ -58,7 +62,7 @@ error text_writer::begin_object(const type_data&) {
     return status;
   }
 
-  text_.push_back('{');
+  output().push_back('{');
   contexts_.push_back(context{context_kind::object, true});
   mark_value_written();
   return {};
@@ -76,11 +80,11 @@ error text_writer::begin_field(const field_data& field) {
 
   context& current = contexts_.back();
   if (!current.first) {
-    text_.push_back(',');
+    output().push_back(',');
   }
 
-  append_escaped_string(text_, name.view());
-  text_.push_back(':');
+  append_escaped_string(output(), name.view());
+  output().push_back(':');
   current.first = false;
   expecting_value_ = true;
   return {};
@@ -92,7 +96,7 @@ error text_writer::begin_array(std::size_t) {
     return status;
   }
 
-  text_.push_back('[');
+  output().push_back('[');
   contexts_.push_back(context{context_kind::array, true});
   mark_value_written();
   return {};
@@ -105,7 +109,7 @@ error text_writer::begin_element(std::size_t) {
 
   context& current = contexts_.back();
   if (!current.first) {
-    text_.push_back(',');
+    output().push_back(',');
   }
 
   current.first = false;
@@ -149,7 +153,7 @@ error text_writer::write_bool(bool value) {
     return status;
   }
 
-  text_ += value ? "true" : "false";
+  output() += value ? "true" : "false";
   mark_value_written();
   return {};
 }
@@ -160,7 +164,7 @@ error text_writer::write_i64(std::int64_t value) {
     return status;
   }
 
-  append_text(text_, std::to_string(value));
+  append_text(output(), std::to_string(value));
   mark_value_written();
   return {};
 }
@@ -171,7 +175,7 @@ error text_writer::write_u64(std::uint64_t value) {
     return status;
   }
 
-  append_text(text_, std::to_string(value));
+  append_text(output(), std::to_string(value));
   mark_value_written();
   return {};
 }
@@ -184,7 +188,7 @@ error text_writer::write_f64(double value) {
 
   std::ostringstream output;
   output << value;
-  append_text(text_, output.str());
+  append_text(this->output(), output.str());
   mark_value_written();
   return {};
 }
@@ -195,7 +199,7 @@ error text_writer::write_string(std::string_view value) {
     return status;
   }
 
-  append_escaped_string(text_, value);
+  append_escaped_string(output(), value);
   mark_value_written();
   return {};
 }
@@ -206,7 +210,7 @@ error text_writer::write_null() {
     return status;
   }
 
-  text_ += "null";
+  output() += "null";
   mark_value_written();
   return {};
 }
@@ -224,7 +228,7 @@ error text_writer::end_array() {
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  text_.push_back(']');
+  output().push_back(']');
   contexts_.pop_back();
   return {};
 }
@@ -242,13 +246,13 @@ error text_writer::end_object() {
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  text_.push_back('}');
+  output().push_back('}');
   contexts_.pop_back();
   return {};
 }
 
 void text_writer::reset() {
-  text_.clear();
+  output().clear();
   contexts_.clear();
   expecting_value_ = false;
   root_written_ = false;
