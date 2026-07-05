@@ -453,8 +453,9 @@ caors::serialization::context context{0, &resolver};
 
 `serialization::codec<T>` 是类型级扩展点。调度层读写非容器普通值时会按类型查询内部 codec 注册表；命中后
 由 codec 直接处理该值，未命中时再回退到内置标量探测。这样 `guid`、`type_guid` 这类语义上是
-原子值的类型，不需要暴露内部字段结构。容器、pair、tuple 和 variant 字段优先通过 meta 视图递归处理元素，因此元素也能继续
-复用 codec、反射、指针和 wrapper 规则。
+原子值的类型，不需要暴露内部字段结构。容器、pair、tuple、variant、裸指针和普通 wrapper 字段优先通过
+`meta::detail::type_descriptor` 生成的视图递归处理内部值，因此这类字段通常不需要显式注册
+`serialization::codec<T>`。
 
 codec 和 meta descriptor 的边界：
 
@@ -499,14 +500,15 @@ codec 和 meta descriptor 的边界：
 `codec_data`；区别只是内置 codec 由库内部按需注册，外部自定义 codec 仍需要在对应类型注册后显式调用
 `serialization::register_codec<T>()`。
 
-反射字段中的容器、pair、tuple 和 variant 不要求显式调用 `serialization::register_codec<T>()`，
+反射字段中的容器、pair、tuple、variant、裸指针和普通 wrapper 不要求显式调用
+`serialization::register_codec<T>()`，
 也不要求每一种容器模板组合都注册为 meta 类型。字段 descriptor 会根据
 `traits::sequence_traits<T>`、`traits::set_traits<T>`、`traits::associative_traits<T>`、`traits::pair_traits<T>`、`traits::tuple_traits<T>` 或
 `traits::variant_traits<T>` 生成运行期访问能力，序列化层随后按元素、key、first、候选下标和 value 递归处理。
 递归用到的业务类型如果需要稳定名称、GUID、反射字段、多态构造或对象工厂，仍应通过
 `meta::type_<T>("name")` 显式注册。`serialization::sequence_codec<T>`、
 `serialization::set_codec<T>` 和 `serialization::associative_codec<T>`
-仍保留给显式 codec 注册、独立值转换和外部复用。自定义容器通常只需要特化 traits；如果还需要作为 codec
+仍保留给显式 codec 注册、独立 `any` / `type_id` 运行期转换和外部复用。自定义容器通常只需要特化 traits；如果还需要作为 codec
 单独注册，可以让自己的 `serialization::codec<T>` 继承通用 codec：
 
 ```cpp
@@ -753,7 +755,7 @@ caors::string text = result.value;
 - `caors::string`
 - `std::string`
 - `std::string_view`
-- 已注册 codec 的容器类型
+- 基于 traits 的容器、pair、tuple 和 variant 字段
 - 已注册反射和序列化元信息的嵌套对象
 - 裸指针、普通 wrapper 字段和 `caors::objects::ref<T>`
 

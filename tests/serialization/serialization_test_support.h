@@ -330,11 +330,6 @@ template <typename T> void register_common_type(std::string_view name) {
   (void)status;
 }
 
-template <typename T> void require_serialization_codec(std::string_view name) {
-  require_registered_type<T>(name);
-  REQUIRE(serialization_result_ok(caors::serialization::register_codec<T>()));
-}
-
 inline void require_pointer_actor_metadata() {
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<nested_stats>("caors.test.serialization.nested_stats")
