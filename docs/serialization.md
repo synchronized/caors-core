@@ -438,6 +438,9 @@ caors::serialization::context context{0, &resolver};
 因此既有代码不需要额外 include。如果只需要反射 traits 或 wrapper 语义，可以包含
 `caors/adapters/stl.h`，该头不会拉入序列化 codec。
 
+内置标量 codec 按当前已注册的 meta 类型懒加载补齐，不要求所有内置类型都在第一次查询 codec
+注册表前完成注册。外部自定义 codec 仍需要在对应类型注册后显式调用 `serialization::register_codec<T>()`。
+
 反射字段中的容器、pair、tuple 和 variant 不要求显式调用 `serialization::register_codec<T>()`，
 也不要求每一种容器模板组合都注册为 meta 类型。字段 descriptor 会根据
 `traits::sequence_traits<T>`、`traits::set_traits<T>`、`traits::associative_traits<T>`、`traits::pair_traits<T>`、`traits::tuple_traits<T>` 或

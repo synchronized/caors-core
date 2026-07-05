@@ -391,10 +391,7 @@ void register_builtin_codecs() {
   });
 }
 
-void ensure_builtin_codecs_registered() {
-  static std::once_flag once;
-  std::call_once(once, register_builtin_codecs);
-}
+void ensure_builtin_codecs_registered() { register_builtin_codecs(); }
 
 } // namespace
 

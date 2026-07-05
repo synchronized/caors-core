@@ -5,6 +5,14 @@
 
 using namespace caors::tests::serialization;
 
+namespace {
+
+struct late_builtin_codec_actor {
+  std::chrono::seconds timeout{};
+};
+
+} // namespace
+
 TEST_CASE("serialization - variant reader matches fields by stable field id", "[serialization]") {
   REQUIRE(reflection_result_ok(caors::reflection::class_<reader_field_id_actor>(
                                    "caors.test.serialization.reader_field_id_actor")
@@ -472,6 +480,36 @@ TEST_CASE("serialization - built in codecs roundtrip chrono values as integers",
   CHECK(decoded.timestamp.time_since_epoch() == std::chrono::milliseconds{1700000000456});
 }
 
+TEST_CASE("serialization - built in codecs survive late meta type registration",
+          "[serialization]") {
+  const std::optional<caors::guid> id = caors::guid::parse("2f6d1f64-7a3a-4db2-9a2d-123456789abc");
+  REQUIRE(id.has_value());
+
+  const caors::serialization::variant_result probe =
+      caors::serialization::to_variant(caors::any::from(*id));
+  REQUIRE(probe.succeeded());
+  CHECK_FALSE(caors::meta::find<std::chrono::seconds>());
+
+  require_registered_type<std::chrono::seconds>("std.chrono.seconds");
+  REQUIRE(reflection_result_ok(caors::reflection::class_<late_builtin_codec_actor>(
+                                   "caors.test.serialization.late_builtin_codec_actor")
+                                   .field("timeout", &late_builtin_codec_actor::timeout)
+                                   .commit()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<late_builtin_codec_actor>()));
+
+  const late_builtin_codec_actor actor{std::chrono::seconds{42}};
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
+
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"timeout":42})");
+
+  late_builtin_codec_actor decoded{};
+  const caors::error result = caors::deserialize_json(decoded, R"({"timeout":7})");
+
+  REQUIRE(result.succeeded());
+  CHECK(decoded.timeout == std::chrono::seconds{7});
+}
+
 TEST_CASE("serialization - writer features validate required field identifiers",
           "[serialization]") {
   REQUIRE(reflection_result_ok(caors::reflection::class_<numeric_writer_actor>(
@@ -495,8 +533,8 @@ TEST_CASE("serialization - writer features validate required field identifiers",
 
 TEST_CASE("serialization - registration can happen before reflection fields", "[serialization]") {
   const caors::meta::type type = caors::meta::type_<serialization_first_actor>(
-                                          "caors.test.serialization.serialization_first_actor")
-                                          .get();
+                                     "caors.test.serialization.serialization_first_actor")
+                                     .get();
   REQUIRE(type.valid());
 
   REQUIRE(caors::serialization::register_type<serialization_first_actor>(
