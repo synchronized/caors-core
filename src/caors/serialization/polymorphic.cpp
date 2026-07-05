@@ -58,7 +58,7 @@ variant_result to_polymorphic_serialization_value(const objects::object& object,
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
 
-  variant_result value = to_serialization_value(dynamic_type.id(), &object, context);
+  variant_result value = detail::to_serialization_value(dynamic_type.id(), &object, context);
   if (value.failed()) {
     return value;
   }
@@ -102,7 +102,7 @@ result<objects::object*> deserialize_polymorphic_object(objects::object_type_id 
   }
 
   variant_reader reader{*stored_value};
-  const error status = deserialize(dynamic_type.value.id(), instance, reader, context);
+  const error status = detail::deserialize(dynamic_type.value.id(), instance, reader, context);
   if (status) {
     (void)context.object_manager->destroy(instance);
     return {status, nullptr};
@@ -119,7 +119,7 @@ serialization_text_result serialize_polymorphic_json(const objects::object& obje
   }
 
   serialization::json_writer writer;
-  const error status = write(writer, value.value);
+  const error status = write_variant(writer, value.value);
   if (status) {
     return {status, {}};
   }

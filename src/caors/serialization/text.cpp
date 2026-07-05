@@ -3,7 +3,7 @@
 
 #include "caors/serialization/operations.h"
 
-namespace caors::serialization {
+namespace caors::serialization::detail {
 
 serialization_text_result serialize_text(const reflection::type& type, const void* object) {
   return serialize_text(type, object, serialization::context{});
@@ -35,4 +35,4 @@ serialization_text_result serialize_text(type_id id, const void* object,
   return {status, writer.text()};
 }
 
-} // namespace caors::serialization
+} // namespace caors::serialization::detail

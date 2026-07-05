@@ -73,6 +73,8 @@ variant_result to_variant(const any_ref& data) {
   return serialization::detail::make_serialized_value(data, serialization::context{});
 }
 
+namespace detail {
+
 variant_result to_serialization_value(const reflection::type& type, const void* object) {
   return to_serialization_value(type, object, serialization::context{});
 }
@@ -167,5 +169,7 @@ variant_result to_serialization_value(type_id id, const void* object,
 
   return to_serialization_value(type, object, context);
 }
+
+} // namespace detail
 
 } // namespace caors::serialization

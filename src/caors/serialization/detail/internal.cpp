@@ -596,7 +596,7 @@ make_polymorphic_indirect_value(const value::indirect_view& indirect,
 
   variant_result polymorphic = make_polymorphic_indirect_value(indirect, context);
   if (polymorphic.succeeded()) {
-    return write(writer, polymorphic.value);
+    return serialization::write_variant(writer, polymorphic.value);
   }
   if (polymorphic.status.value() != errc::unsupported) {
     return polymorphic.status;

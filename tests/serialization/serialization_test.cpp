@@ -239,7 +239,8 @@ TEST_CASE("serialization - writes intermediate arrays and objects through text w
   });
 
   caors::serialization::text_writer writer;
-  const caors::error result = caors::write(writer, caors::variant::object(std::move(members)));
+  const caors::error result =
+      caors::serialization::write_variant(writer, caors::variant::object(std::move(members)));
 
   REQUIRE(result.succeeded());
   CHECK(writer.text() == R"({"items":[1,2]})");

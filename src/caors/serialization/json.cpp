@@ -300,6 +300,8 @@ void serialization::json_writer::mark_value_written() noexcept {
   expecting_value_ = false;
 }
 
+namespace detail {
+
 serialization_text_result serialize_json(const reflection::type& type, const void* object) {
   return serialize_json(type, object, serialization::context{});
 }
@@ -329,6 +331,8 @@ serialization_text_result serialize_json(type_id id, const void* object,
 
   return {status, writer.text()};
 }
+
+} // namespace detail
 
 variant_result parse_json(std::string_view text) { return detail::parse_json_value(text); }
 

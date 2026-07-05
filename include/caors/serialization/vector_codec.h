@@ -41,7 +41,7 @@ template <typename T> [[nodiscard]] error write_vector_element(writer& writer, c
       return {error_domain::serialization, errc::unsupported};
     }
 
-    return caors::serialize(element_type.id(), &value, writer);
+    return serialization::detail::serialize(element_type.id(), &value, writer);
   }
 }
 
@@ -127,7 +127,7 @@ template <typename T> [[nodiscard]] error read_vector_element(reader& reader, T&
       return {error_domain::serialization, errc::unsupported};
     }
 
-    return caors::deserialize(element_type.id(), &value, reader);
+    return serialization::detail::deserialize(element_type.id(), &value, reader);
   }
 }
 
@@ -153,7 +153,7 @@ template <typename T> [[nodiscard]] variant_result make_vector_element_value(con
       return {{error_domain::serialization, errc::unsupported}, {}};
     }
 
-    return caors::to_serialization_value(element_type.id(), &value);
+    return serialization::detail::to_serialization_value(element_type.id(), &value);
   }
 }
 

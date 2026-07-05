@@ -13,12 +13,6 @@
 
 namespace caors::serialization {
 
-/** @brief 序列化格式。当前 MVP 仅提供简单文本格式。 */
-enum class format {
-  text,
-  json,
-};
-
 /** @brief 序列化后端能力。 */
 enum class format_features : std::uint32_t {
   none = 0,
@@ -66,14 +60,9 @@ struct field_data {
  * 字段配置和反射字段。
  */
 struct type_data {
-  format default_format = format::text;
   vector<field_data> fields{};
 
   [[nodiscard]] bool valid() const noexcept {
-    if (default_format != format::text && default_format != format::json) {
-      return false;
-    }
-
     for (const field_data& field : fields) {
       if (!field.valid()) {
         return false;
@@ -101,7 +90,7 @@ struct type_data {
 
 /** @brief 创建类型序列化配置。 */
 [[nodiscard]] inline type_data make_type_data(std::initializer_list<field_data> fields) {
-  return type_data{format::text, vector<field_data>{fields}};
+  return type_data{vector<field_data>{fields}};
 }
 
 } // namespace caors::serialization

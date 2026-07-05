@@ -56,14 +56,15 @@
 
 序列化模块按职责拆分公共头文件：
 
-- `caors/serialization/types.h`：格式枚举、后端能力、字段/类型配置、上下文和结果类型。
+- `caors/serialization/type_data.h`：后端能力、字段配置和类型序列化组件数据。
+- `caors/serialization/types.h`：引用 resolver、单次调度上下文和结果类型。
 - `caors/serialization/registry.h`：序列化组件注册表和链式注册入口。
 - `caors/serialization/writer.h`：`serialization::writer`、`serialization::text_writer` 和
   `serialization::json_writer`。
 - `caors/serialization/reader.h`：`serialization::reader`。
 - `caors/serialization/codec.h`：类型级 codec 扩展点和 codec 注册表。
 - `caors/serialization/dom_reader.h`：从 `variant` DOM 读入的 reader 后端。
-- `caors/serialization/operations.h`：`serialize()`、`deserialize()`、`to_serialization_value()`、`serialize_text()` 等调度入口。
+- `caors/serialization/operations.h`：`serialize()`、`deserialize()`、`to_serialization_value()`、`serialize_text()`、`write_variant()` 等调度入口。
 - `caors/serialization/vector_codec.h`：基于 `traits::sequence_traits<T>` 的通用数组 codec，以及顺序容器默认适配。
 - `caors/serialization/set_codec.h`：基于 `traits::set_traits<T>` 的通用集合 codec，以及集合容器默认适配。
 - `caors/serialization/map_codec.h`：基于 `traits::associative_traits<T>` 的通用字典 codec，以及关联容器默认适配。
@@ -249,8 +250,8 @@ descriptor 的资源构造能力或 traits 的资源重载；缺少资源重载�
 
 ### serialization::type_data
 
-`serialization::type_data` 是挂载在 `meta::registry` 上的序列化组件。它保存默认格式和字段级
-序列化配置：
+`serialization::type_data` 是挂载在 `meta::registry` 上的序列化组件。它只保存字段级
+序列化配置；具体输出格式由当前使用的 `writer` 后端决定：
 
 ```cpp
 caors::meta::type type = caors::meta::find<actor>();
@@ -634,7 +635,7 @@ caors::serialization::variant_result value = caors::to_serialization_value(insta
 
 ```cpp
 caors::serialization::text_writer writer;
-caors::write(writer, value.value);
+caors::serialization::write_variant(writer, value.value);
 ```
 
 DOM 是可选路径，适合工具、编辑器、测试对比和格式转换。性能敏感路径仍可直接使用
@@ -751,7 +752,7 @@ caors::string text = result.value;
 - `to_polymorphic_serialization_value()`：按对象真实运行期类型构造 `$type` / `$value` envelope。
 - `deserialize_polymorphic_object()`：通过 `context.object_manager` 构造并读入多态对象。
 - `serialize_polymorphic_json()` / `deserialize_polymorphic_json()`：JSON 形式的多态对象 envelope 入口。
-- `write()`：把中间对象树写入指定 writer。
+- `serialization::write_variant()`：把中间对象树写入指定 writer。
 - `serialization_text_result`：`caors::result<caors::string>` 文本序列化结果。
 - `variant_result`：`caors::result<variant>` 中间值构造结果。
 - `serialize_text()`：基于反射字段的简单文本序列化。

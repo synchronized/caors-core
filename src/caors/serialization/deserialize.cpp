@@ -7,7 +7,7 @@
 
 #include "detail/internal.h"
 
-namespace caors::serialization {
+namespace caors::serialization::detail {
 
 error deserialize(const reflection::type& type, void* object, reader& reader) {
   return deserialize(type, object, reader, serialization::context{});
@@ -94,4 +94,4 @@ error deserialize(type_id id, void* object, reader& reader, const serialization:
   return deserialize(type, object, reader, context);
 }
 
-} // namespace caors::serialization
+} // namespace caors::serialization::detail

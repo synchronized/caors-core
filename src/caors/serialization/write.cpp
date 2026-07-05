@@ -7,7 +7,7 @@
 
 namespace caors::serialization {
 
-error write(writer& writer, const variant& value) {
+error write_variant(writer& writer, const variant& value) {
   switch (value.kind()) {
   case value::variant_kind::null:
     return writer.write_null();
@@ -34,7 +34,7 @@ error write(writer& writer, const variant& value) {
         return status;
       }
 
-      status = write(writer, element);
+      status = write_variant(writer, element);
       if (status) {
         return status;
       }
@@ -67,7 +67,7 @@ error write(writer& writer, const variant& value) {
         return status;
       }
 
-      status = write(writer, entry.key);
+      status = write_variant(writer, entry.key);
       if (status) {
         return status;
       }
@@ -82,7 +82,7 @@ error write(writer& writer, const variant& value) {
         return status;
       }
 
-      status = write(writer, entry.value);
+      status = write_variant(writer, entry.value);
       if (status) {
         return status;
       }
@@ -135,7 +135,7 @@ error write(writer& writer, const variant& value) {
         return status;
       }
 
-      status = write(writer, member.value);
+      status = write_variant(writer, member.value);
       if (status) {
         return status;
       }
