@@ -43,6 +43,8 @@ meta / reflection / serialization / object
 - `caors/memory/debug_tools.h`：调试记录收集 helper，例如 `collect_live_allocations()`。
 - `caors/memory/monotonic.h`：线性分配策略资源。
 - `caors/memory/fixed_block_pool.h`：固定块池策略资源。
+- `caors/memory/unique_ptr.h`：可保存运行期销毁回调的 `erased_deleter<T>` 和
+  `memory::unique_ptr<T>`。
 - `caors/memory.h`：兼容用聚合头，包含以上所有入口。
 
 实现文件也按相同职责拆分在 `src/caors/memory/`；共享的内部对齐、溢出检查、默认资源解析等工具保留在私有头 `src/caors/memory/detail/internal.h`。
@@ -149,6 +151,24 @@ names.emplace(1, caors::string{"player", caors::allocator<char>{&tracking}});
 allocator 构造参数或 `make_string()`、`make_vector()`、`make_hash_map()`、`make_hash_set()` 工厂传入。
 
 CAORS 不会调用 `std::pmr::set_default_resource()`，避免库代码修改进程级全局状态。
+
+### memory::unique_ptr
+
+`caors::memory::unique_ptr<T>` 是 `std::unique_ptr<T, memory::erased_deleter<T>>` 的别名。
+默认情况下它仍然使用普通 `delete`；当序列化层通过 `serialization::context::memory_resource`
+构造出运行期派生对象时，wrapper 适配器可以把匹配的销毁回调写入 deleter。
+
+这个类型主要服务于普通类多态反序列化：
+
+```cpp
+struct scene {
+  caors::memory::unique_ptr<actor> owner;
+};
+```
+
+如果字段使用普通 `std::unique_ptr<T>`，序列化层仍可按默认 `new/delete` 路径构造对象，但不能把
+`memory_resource` 构造出的对象安全交给默认 deleter。需要资源托管时，应显式使用
+`caors::memory::unique_ptr<T>`。
 
 ### 容器依赖边界
 

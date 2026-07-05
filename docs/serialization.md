@@ -26,7 +26,8 @@
 - 提供基于 traits 的顺序容器、集合容器、关联容器、pair、tuple 和 variant 访问，支持标量、wrapper、对象引用和已注册结构体元素。
 - 通过 `serialization::reference_resolver` 支持 `caors::objects::ref<T>` 对象引用字段。
 - 通过显式多态 object envelope 支持 `caors::objects::object` 派生对象的动态类型记录、manager 创建和安全下转型。
-- 通过 `$type` / `$value` envelope 支持 `std::unique_ptr<Base>` 和 `std::shared_ptr<Base>` 字段持有普通 C++ 派生类对象，并支持显式 factory 构造策略。
+- 通过 `$type` / `$value` envelope 支持 `std::unique_ptr<Base>`、`caors::memory::unique_ptr<Base>`
+  和 `std::shared_ptr<Base>` 字段持有普通 C++ 派生类对象，并支持显式 factory 构造策略。
 - 用 `caors::error` 和 `caors::result<T>` 表达失败状态和携带值的返回结果。
 
 当前不会包含：
@@ -126,7 +127,7 @@ caors::result<actor*> decoded =
 普通 C++ 类没有 `objects::object::type_id()`，也没有 `objects::manager` 生命周期托管。序列化层只在
 拥有型 wrapper 字段上支持一版明确边界的多态值语义：
 
-- 支持 `std::unique_ptr<Base>` 和 `std::shared_ptr<Base>`。
+- 支持 `std::unique_ptr<Base>`、`caors::memory::unique_ptr<Base>` 和 `std::shared_ptr<Base>`。
 - 写出时通过 RTTI 查询真实动态类型，动态类型必须已经注册到 `meta::registry`。
 - 派生类必须通过 typed parent 注册，例如 `.parent<Base>()`，这样注册表同时保存继承关系和安全 upcast 回调。
 - 动态类型必须拥有稳定 `type_guid`，并完成 reflection 和 serialization 注册。
@@ -144,7 +145,7 @@ struct player : actor {
 };
 
 struct holder {
-  std::unique_ptr<actor> owner;
+  caors::memory::unique_ptr<actor> owner;
 };
 
 caors::meta::type_<actor>("game.actor")
@@ -158,8 +159,10 @@ caors::reflection::class_<player>(caors::meta::find<player>())
     .field("level", &player::level)
     .commit();
 
+caors::meta::type_<caors::memory::unique_ptr<actor>>("caors.memory.unique_ptr<game.actor>");
+
 caors::reflection::class_<holder>("game.holder")
-    .field("owner", &holder::owner, "std.unique_ptr<game.actor>")
+    .field("owner", &holder::owner, "caors.memory.unique_ptr<game.actor>")
     .commit();
 
 caors::serialization::register_type<player>();
@@ -185,7 +188,8 @@ caors::serialization::register_type<holder>();
 2. 校验动态类型继承自字段声明的 `Base`。
 3. 通过动态类型 factory 或 descriptor 默认构造派生对象。
 4. 用 `$value` 按动态类型反序列化字段。
-5. 通过 wrapper 的接管函数把对象放入 `unique_ptr<Base>` 或 `shared_ptr<Base>`。
+5. 通过 wrapper 的接管函数把对象放入 `unique_ptr<Base>`、`memory::unique_ptr<Base>` 或
+   `shared_ptr<Base>`。
 
 不可默认构造的派生类可以在 meta 注册时提供 factory：
 
@@ -210,10 +214,10 @@ context.memory_resource = &tracking;
 caors::error status = caors::deserialize_json(holder, json, context);
 ```
 
-资源构造只会在目标 wrapper 能保存匹配销毁回调时启用。当前 `std::shared_ptr<Base>` 会捕获销毁回调，
-可以安全接管由 `memory_resource` 分配的派生对象；默认 `std::unique_ptr<Base>` 的 deleter 不能保存
-运行期销毁上下文，因此会回退到标准 `new` / `delete` 或无资源 factory 路径。自定义 wrapper 或
-自定义 deleter 需要通过 wrapper traits 明确提供匹配的接管语义。
+资源构造只会在目标 wrapper 能保存匹配销毁回调时启用。当前 `std::shared_ptr<Base>` 和
+`caors::memory::unique_ptr<Base>` 可以安全接管由 `memory_resource` 分配的派生对象；默认
+`std::unique_ptr<Base>` 的 deleter 不能保存运行期销毁上下文，因此会回退到标准 `new` / `delete`
+或无资源 factory 路径。自定义 wrapper 或自定义 deleter 需要通过 wrapper traits 明确提供匹配的接管语义。
 
 当前不支持：
 
@@ -464,8 +468,8 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 
 反射层把裸指针和普通 wrapper 拆成“外层持有者”和“内部 value”两层。序列化层只处理内部 value：
 
-- `T*`、`std::unique_ptr<T>`、`std::shared_ptr<T>`、`std::optional<T>` 和
-  `std::reference_wrapper<T>` 会按内部 `T` 写出。
+- `T*`、`std::unique_ptr<T>`、`caors::memory::unique_ptr<T>`、`std::shared_ptr<T>`、
+  `std::optional<T>` 和 `std::reference_wrapper<T>` 会按内部 `T` 写出。
 - 空裸指针、空智能指针或空 `optional` 写出为 `null`；`std::reference_wrapper<T>` 不表示空值。
 - 读入 `null` 会重置裸指针、`std::unique_ptr<T>`、`std::shared_ptr<T>` 和 `std::optional<T>`；
   写入 `std::reference_wrapper<T>` 时返回 `errc::invalid_field`。
@@ -477,9 +481,13 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 - `std::weak_ptr<T>` 明确标记为不支持的 wrapper，无法稳定暴露可写内部值，当前不作为普通 value
   序列化或反序列化。
 - `caors::objects::ref<T>` 不走内部 value 语义，仍通过 `serialization::reference_resolver` 写出和读入对象 id 或持久 GUID。
-- 当 `std::unique_ptr<Base>` 或 `std::shared_ptr<Base>` 实际持有已注册派生类对象时，序列化层会写出
-  `$type` / `$value` envelope。读回时要求派生类型可默认构造，或已通过 `meta::type_<T>().factory()`
-  注册构造策略，并通过 wrapper 接管新对象。
+- 当 `std::unique_ptr<Base>`、`caors::memory::unique_ptr<Base>` 或 `std::shared_ptr<Base>`
+  实际持有已注册派生类对象时，序列化层会写出 `$type` / `$value` envelope。读回时要求派生类型可默认构造，
+  或已通过 `meta::type_<T>().factory()` 注册构造策略，并通过 wrapper 接管新对象。
+- 如果反序列化上下文提供 `memory_resource`，`std::shared_ptr<T>` 和
+  `caors::memory::unique_ptr<T>` 可以保存运行期销毁回调，让资源分配和释放匹配。普通
+  `std::unique_ptr<T>` 使用标准 deleter，不能安全接管资源构造出的运行期派生对象，因此会回退到
+  默认 `new/delete` 或非资源 factory 路径。
 
 这条规则避免序列化层隐式决定所有权。后续如果要让某类 wrapper 采用引用语义、共享身份或自定义构造策略，
 应在字段策略或专用 wrapper trait 中显式声明。
@@ -496,7 +504,7 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 | `std::chrono` duration / `system_clock::time_point` | 作为普通值类型 | 支持，按整数写出 | 支持，从整数构造 |
 | `guid`、`type_guid` | 作为普通值类型 | 支持，按字符串写出 | 支持，从字符串解析 |
 | 裸指针 `T*` | 通过 `indirect_view` 访问已指向的 `T` | 空值写 `null`，非空展开内部值 | `null` 可重置；非空要求目标已经指向有效对象 |
-| `std::unique_ptr<T>`、`std::shared_ptr<T>`、`std::optional<T>` | 通过 `indirect_view` 访问内部 `T` | 空值写 `null`，非空展开内部值；拥有型智能指针可写出普通类多态 envelope | `null` 可重置；非空可在 `T` 默认可构造时创建内部值；拥有型智能指针可按 envelope 和可用 factory 构造派生对象 |
+| `std::unique_ptr<T>`、`caors::memory::unique_ptr<T>`、`std::shared_ptr<T>`、`std::optional<T>` | 通过 `indirect_view` 访问内部 `T` | 空值写 `null`，非空展开内部值；拥有型智能指针可写出普通类多态 envelope | `null` 可重置；非空可在 `T` 默认可构造时创建内部值；拥有型智能指针可按 envelope 和可用 factory 构造派生对象；需要 `memory_resource` 托管 unique pointer 时使用 `caors::memory::unique_ptr<T>` |
 | `std::reference_wrapper<T>` | 通过 `indirect_view` 访问已绑定的 `T` | 按内部 `T` 写出 | 只能写入已绑定对象，不能置空或重绑定 |
 | `std::weak_ptr<T>` | 只标记为不支持 wrapper，不展开 | 不支持 | 不支持 |
 | `objects::ref<T>` | 作为对象引用类型，可通过 `objects::object_ref(any_ref)` 识别 | 通过 resolver 写出 `object_id` 或 `object_guid` | 通过 resolver 从 `object_id` 或 `object_guid` 写回引用 |

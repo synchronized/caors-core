@@ -5,6 +5,7 @@
 #define CAORS_ADAPTERS_STL_WRAPPER_H_
 
 #include "caors/config.h"
+#include "caors/memory/unique_ptr.h"
 #include "caors/traits/wrapper.h"
 
 #include <functional>
@@ -15,37 +16,31 @@
 
 namespace caors::traits {
 
-template <typename T, typename Deleter> struct wrapper_traits<std::unique_ptr<T, Deleter>> {
-  static constexpr bool is_wrapper = true;
-  static constexpr bool nullable = true;
-  static constexpr wrapper_semantics semantics = wrapper_semantics::inline_value;
-  using wrapped_type = std::remove_cv_t<T>;
-};
+namespace detail {
 
-template <typename T, typename Deleter> struct wrapper_access<std::unique_ptr<T, Deleter>> {
+template <typename T, typename Deleter> struct unique_ptr_wrapper_access_base {
   using wrapped_type = std::remove_cv_t<T>;
+  using pointer_type = typename std::unique_ptr<T, Deleter>::pointer;
+  using pointer = std::unique_ptr<T, Deleter>;
 
-  [[nodiscard]] static const wrapped_type*
-  value(const std::unique_ptr<T, Deleter>& source) noexcept {
+  [[nodiscard]] static const wrapped_type* value(const pointer& source) noexcept {
     return source.get();
   }
 
-  [[nodiscard]] static wrapped_type* mutable_value(std::unique_ptr<T, Deleter>& source) noexcept {
+  [[nodiscard]] static wrapped_type* mutable_value(pointer& source) noexcept {
     return source.get();
   }
 
-  [[nodiscard]] static bool has_value(const std::unique_ptr<T, Deleter>& source) noexcept {
+  [[nodiscard]] static bool has_value(const pointer& source) noexcept {
     return static_cast<bool>(source);
   }
 
-  static bool reset(std::unique_ptr<T, Deleter>& source) noexcept {
+  static bool reset(pointer& source) noexcept {
     source.reset();
     return true;
   }
 
-  static bool ensure_value(std::unique_ptr<T, Deleter>& source) {
-    using pointer_type = typename std::unique_ptr<T, Deleter>::pointer;
-
+  static bool ensure_value(pointer& source) {
     if (source) {
       return true;
     }
@@ -75,8 +70,7 @@ template <typename T, typename Deleter> struct wrapper_access<std::unique_ptr<T,
     }
   }
 
-  static bool set_value(std::unique_ptr<T, Deleter>& source, wrapped_type* value) noexcept {
-    using pointer_type = typename std::unique_ptr<T, Deleter>::pointer;
+  static bool set_value(pointer& source, wrapped_type* value) noexcept {
     if (value == nullptr) {
       return false;
     }
@@ -87,6 +81,44 @@ template <typename T, typename Deleter> struct wrapper_access<std::unique_ptr<T,
     } else {
       return false;
     }
+  }
+};
+
+} // namespace detail
+
+template <typename T, typename Deleter> struct wrapper_traits<std::unique_ptr<T, Deleter>> {
+  static constexpr bool is_wrapper = true;
+  static constexpr bool nullable = true;
+  static constexpr wrapper_semantics semantics = wrapper_semantics::inline_value;
+  using wrapped_type = std::remove_cv_t<T>;
+};
+
+template <typename T, typename Deleter>
+struct wrapper_access<std::unique_ptr<T, Deleter>>
+    : detail::unique_ptr_wrapper_access_base<T, Deleter> {};
+
+template <typename T>
+struct wrapper_access<std::unique_ptr<T, caors::memory::erased_deleter<T>>>
+    : detail::unique_ptr_wrapper_access_base<T, caors::memory::erased_deleter<T>> {
+  using base = detail::unique_ptr_wrapper_access_base<T, caors::memory::erased_deleter<T>>;
+  using wrapped_type = typename base::wrapped_type;
+  using pointer = std::unique_ptr<T, caors::memory::erased_deleter<T>>;
+  using base::set_value;
+
+  static bool set_value(pointer& source, wrapped_type* value,
+                        const wrapper_set_context& context) noexcept {
+    if (value == nullptr) {
+      return false;
+    }
+
+    if (!context.valid()) {
+      return base::set_value(source, value);
+    }
+
+    source.reset();
+    source.get_deleter().reset(context.user_data, context.destroy);
+    source.reset(value);
+    return static_cast<bool>(source);
   }
 };
 

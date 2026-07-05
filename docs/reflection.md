@@ -83,7 +83,7 @@ caors::reflection::class_<actor>("game.actor")
 - `enum`：`meta::type_kind::enumeration`，`value_type` 为枚举类型。
 - `T*`：`meta::type_kind::raw_pointer`，`value_type` 为 `T`，`nullable` 为 `true`，
   `traits::wrapper_semantics` 为 `inline_value`。
-- `std::unique_ptr<T>`：`meta::type_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
+- `std::unique_ptr<T>` / `caors::memory::unique_ptr<T>`：`meta::type_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
   `traits::wrapper_semantics` 为 `inline_value`。
 - `std::shared_ptr<T>`：`meta::type_kind::wrapper`，`value_type` 为 `T`，`nullable` 为 `true`，
   `traits::wrapper_semantics` 为 `inline_value`。
@@ -170,8 +170,8 @@ struct wrapper_access<my_box<T>> {
 
 `traits::wrapper_access<T>` 是可选扩展点。只需要识别 wrapper 形态时可以只特化 `traits::wrapper_traits<T>`；如果希望
 `any_ref::create_indirect_view()` 能访问内部值，则需要同时特化
-`traits::wrapper_access<T>`。内置适配支持裸指针、`std::unique_ptr<T>`、`std::shared_ptr<T>`、
-`std::optional<T>` 和 `std::reference_wrapper<T>` 的内部值访问；`std::weak_ptr<T>` 只提供 unsupported
+`traits::wrapper_access<T>`。内置适配支持裸指针、`std::unique_ptr<T>`、`caors::memory::unique_ptr<T>`、
+`std::shared_ptr<T>`、`std::optional<T>` 和 `std::reference_wrapper<T>` 的内部值访问；`std::weak_ptr<T>` 只提供 unsupported
 wrapper 语义，当前没有默认内部值访问，避免返回可能悬空的引用。`caors::objects::ref<T>` 通过
 `objects::object_ref(any_ref)` 按对象引用语义访问，不再作为 wrapper 语义处理。
 

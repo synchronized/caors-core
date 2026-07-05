@@ -10,5 +10,6 @@
 #include "caors/memory/monotonic.h"
 #include "caors/memory/resource.h"
 #include "caors/memory/tracking.h"
+#include "caors/memory/unique_ptr.h"
 
 #endif

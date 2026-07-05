@@ -45,6 +45,10 @@ struct polymorphic_factory_holder {
   std::shared_ptr<polymorphic_factory_actor> shared{};
 };
 
+struct polymorphic_factory_unique_holder {
+  caors::memory::unique_ptr<polymorphic_factory_actor> owner{};
+};
+
 constexpr caors::type_guid actor_guid{caors::guid::from_bytes(
     caors::guid::byte_array{0x0f, 0xc2, 0x7d, 0x83, 0x34, 0x4a, 0x42, 0x58, 0x90, 0x9d, 0xf9, 0x0e,
                             0x5c, 0xb7, 0x20, 0x01})};
@@ -156,6 +160,9 @@ void require_polymorphic_factory_metadata() {
   REQUIRE(type_result_ok(caors::meta::type_<std::shared_ptr<polymorphic_factory_actor>>(
                              "std.shared_ptr<caors.test.serialization.poly_factory.actor>")
                              .result()));
+  REQUIRE(type_result_ok(caors::meta::type_<caors::memory::unique_ptr<polymorphic_factory_actor>>(
+                             "caors.memory.unique_ptr<caors.test.serialization.poly_factory.actor>")
+                             .result()));
 
   REQUIRE(caors::tests::serialization::reflection_result_ok(
       caors::reflection::class_<polymorphic_factory_actor>(
@@ -173,6 +180,12 @@ void require_polymorphic_factory_metadata() {
           .field("shared", &polymorphic_factory_holder::shared,
                  "std.shared_ptr<caors.test.serialization.poly_factory.actor>")
           .commit()));
+  REQUIRE(caors::tests::serialization::reflection_result_ok(
+      caors::reflection::class_<polymorphic_factory_unique_holder>(
+          "caors.test.serialization.poly_factory.unique_holder")
+          .field("owner", &polymorphic_factory_unique_holder::owner,
+                 "caors.memory.unique_ptr<caors.test.serialization.poly_factory.actor>")
+          .commit()));
 
   REQUIRE(caors::tests::serialization::serialization_result_ok(
       caors::serialization::register_type<polymorphic_factory_actor>()));
@@ -180,6 +193,8 @@ void require_polymorphic_factory_metadata() {
       caors::serialization::register_type<polymorphic_factory_player>()));
   REQUIRE(caors::tests::serialization::serialization_result_ok(
       caors::serialization::register_type<polymorphic_factory_holder>()));
+  REQUIRE(caors::tests::serialization::serialization_result_ok(
+      caors::serialization::register_type<polymorphic_factory_unique_holder>()));
 }
 
 } // namespace
@@ -323,6 +338,64 @@ TEST_CASE("serialization - polymorphic value factory uses memory resource", "[se
   CHECK(tracking.statistics().bytes_in_use >= sizeof(polymorphic_factory_player));
 
   decoded.shared.reset();
+  CHECK(tracking.statistics().deallocation_count == 1);
+  CHECK(tracking.statistics().bytes_in_use == 0);
+}
+
+TEST_CASE("serialization - polymorphic value factory roundtrips unique pointer",
+          "[serialization]") {
+  require_polymorphic_factory_metadata();
+
+  polymorphic_factory_unique_holder holder{};
+  caors::memory::unique_ptr<polymorphic_factory_actor> owner{new polymorphic_factory_player(1)};
+  auto* player = static_cast<polymorphic_factory_player*>(owner.get());
+  player->level = 42;
+  player->name = "Una";
+  holder.owner = std::move(owner);
+
+  const caors::serialization::serialization_text_result json = caors::serialize_json(holder);
+  REQUIRE(json.succeeded());
+
+  polymorphic_factory_unique_holder decoded{};
+  const caors::error status = caors::deserialize_json(decoded, json.value);
+  REQUIRE(status.succeeded());
+
+  auto* decoded_owner = dynamic_cast<polymorphic_factory_player*>(decoded.owner.get());
+  REQUIRE(decoded_owner != nullptr);
+  CHECK(decoded_owner->level == 42);
+  CHECK(decoded_owner->name == "Una");
+}
+
+TEST_CASE("serialization - polymorphic value factory uses memory resource for unique pointer",
+          "[serialization]") {
+  require_polymorphic_factory_metadata();
+
+  polymorphic_factory_unique_holder holder{};
+  caors::memory::unique_ptr<polymorphic_factory_actor> owner{new polymorphic_factory_player(1)};
+  auto* player = static_cast<polymorphic_factory_player*>(owner.get());
+  player->level = 43;
+  player->name = "Uma";
+  holder.owner = std::move(owner);
+
+  const caors::serialization::serialization_text_result json = caors::serialize_json(holder);
+  REQUIRE(json.succeeded());
+
+  caors::tracking_resource tracking(&caors::get_system_memory_resource());
+  caors::serialization::context context{};
+  context.memory_resource = &tracking;
+
+  polymorphic_factory_unique_holder decoded{};
+  const caors::error status = caors::deserialize_json(decoded, json.value, context);
+  REQUIRE(status.succeeded());
+
+  auto* decoded_owner = dynamic_cast<polymorphic_factory_player*>(decoded.owner.get());
+  REQUIRE(decoded_owner != nullptr);
+  CHECK(decoded_owner->level == 43);
+  CHECK(decoded_owner->name == "Uma");
+  CHECK(tracking.statistics().allocation_count == 1);
+  CHECK(tracking.statistics().bytes_in_use >= sizeof(polymorphic_factory_player));
+
+  decoded.owner.reset();
   CHECK(tracking.statistics().deallocation_count == 1);
   CHECK(tracking.statistics().bytes_in_use == 0);
 }
