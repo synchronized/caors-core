@@ -61,9 +61,8 @@ struct type_capabilities {
     return (enumeration != nullptr && enumeration->valid()) ||
            (indirect != nullptr && indirect->valid()) ||
            (sequence != nullptr && sequence->valid()) || (set != nullptr && set->valid()) ||
-           (associative != nullptr && associative->valid()) ||
-           (pair != nullptr && pair->valid()) || (tuple != nullptr && tuple->valid()) ||
-           (variant != nullptr && variant->valid());
+           (associative != nullptr && associative->valid()) || (pair != nullptr && pair->valid()) ||
+           (tuple != nullptr && tuple->valid()) || (variant != nullptr && variant->valid());
   }
 };
 
@@ -356,6 +355,10 @@ template <typename T> [[nodiscard]] const sequence_data* sequence_data_ptr_of() 
 
       if constexpr (requires { traits::sequence_traits<type>::can_read; }) {
         result.can_read = traits::sequence_traits<type>::can_read;
+      }
+
+      if constexpr (requires { traits::sequence_traits<type>::fixed_size; }) {
+        result.fixed_size = traits::sequence_traits<type>::fixed_size;
       }
 
       result.value_descriptor = descriptor_ptr_of<element_type>();

@@ -32,7 +32,18 @@ associative_data_of(const any_ref& target) noexcept {
   return caors::meta::detail::get_assign_value_fn(caors::meta::find(target.type()));
 }
 
+[[nodiscard]] error sequence_resize_failure(const meta::detail::sequence_data* sequence,
+                                            std::size_t size) noexcept {
+  if (sequence != nullptr && sequence->fixed_size != meta::detail::dynamic_sequence_size &&
+      sequence->fixed_size != size) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  return {error_domain::serialization, errc::invalid_type};
+}
+
 [[nodiscard]] error read_sequence_into_view(reader& reader, const value::sequence_view& view,
+                                            const meta::detail::sequence_data* sequence,
                                             const serialization::context& context) {
   if (!view.valid() || !view.writable()) {
     return {error_domain::serialization, errc::invalid_field};
@@ -45,7 +56,7 @@ associative_data_of(const any_ref& target) noexcept {
   }
 
   if (!view.clear() || !view.resize(size, context.memory_resource)) {
-    return {error_domain::serialization, errc::unsupported};
+    return sequence_resize_failure(sequence, size);
   }
 
   for (std::size_t index = 0; index < size; ++index) {
@@ -84,20 +95,21 @@ associative_data_of(const any_ref& target) noexcept {
   if (sequence != nullptr && !sequence->read_in_place && assign != nullptr) {
     any decoded = default_construct_for(target, context);
     if (decoded.valid()) {
-      error status = read_sequence_into_view(reader, decoded.create_sequence_view(), context);
+      error status =
+          read_sequence_into_view(reader, decoded.create_sequence_view(), sequence, context);
       if (status) {
         return status;
       }
 
       if (!target.try_set(decoded)) {
-        return {error_domain::serialization, errc::unsupported};
+        return {error_domain::serialization, errc::invalid_field};
       }
 
       return {};
     }
   }
 
-  return read_sequence_into_view(reader, target.create_sequence_view(), context);
+  return read_sequence_into_view(reader, target.create_sequence_view(), sequence, context);
 }
 
 [[nodiscard]] error read_set_into_view(reader& reader, const value::set_view& view,
@@ -127,7 +139,7 @@ associative_data_of(const any_ref& target) noexcept {
         set != nullptr ? set->value_descriptor : nullptr;
     any element = default_construct_value(view.value_type(), value_descriptor, context);
     if (!element.valid()) {
-      return {error_domain::serialization, errc::unsupported};
+      return {error_domain::serialization, errc::invalid_type};
     }
 
     status = read_serialized_value(reader, element.ref(), context);
@@ -161,7 +173,7 @@ associative_data_of(const any_ref& target) noexcept {
       }
 
       if (!target.try_set(decoded)) {
-        return {error_domain::serialization, errc::unsupported};
+        return {error_domain::serialization, errc::invalid_field};
       }
 
       return {};
@@ -201,7 +213,7 @@ associative_data_of(const any_ref& target) noexcept {
     any key = default_construct_value(view.key_type(), key_descriptor, context);
     any value = default_construct_value(view.value_type(), value_descriptor, context);
     if (!key.valid() || !value.valid()) {
-      return {error_domain::serialization, errc::unsupported};
+      return {error_domain::serialization, errc::invalid_type};
     }
 
     status = reader.begin_key();
@@ -261,7 +273,7 @@ associative_data_of(const any_ref& target) noexcept {
       }
 
       if (!target.try_set(decoded)) {
-        return {error_domain::serialization, errc::unsupported};
+        return {error_domain::serialization, errc::invalid_field};
       }
 
       return {};
@@ -284,7 +296,7 @@ associative_data_of(const any_ref& target) noexcept {
   }
 
   if (size != 2) {
-    return {error_domain::serialization, errc::unsupported};
+    return {error_domain::serialization, errc::invalid_argument};
   }
 
   status = reader.begin_element(0);
@@ -342,7 +354,7 @@ associative_data_of(const any_ref& target) noexcept {
       }
 
       if (!target.try_set(decoded)) {
-        return {error_domain::serialization, errc::unsupported};
+        return {error_domain::serialization, errc::invalid_field};
       }
 
       return {};
@@ -365,7 +377,7 @@ associative_data_of(const any_ref& target) noexcept {
   }
 
   if (size != view.size()) {
-    return {error_domain::serialization, errc::unsupported};
+    return {error_domain::serialization, errc::invalid_argument};
   }
 
   for (std::size_t index = 0; index < size; ++index) {
@@ -405,7 +417,7 @@ associative_data_of(const any_ref& target) noexcept {
       }
 
       if (!target.try_set(decoded)) {
-        return {error_domain::serialization, errc::unsupported};
+        return {error_domain::serialization, errc::invalid_field};
       }
 
       return {};
@@ -428,7 +440,7 @@ associative_data_of(const any_ref& target) noexcept {
   }
 
   if (size != 2) {
-    return {error_domain::serialization, errc::unsupported};
+    return {error_domain::serialization, errc::invalid_argument};
   }
 
   status = reader.begin_element(0);
@@ -443,7 +455,7 @@ associative_data_of(const any_ref& target) noexcept {
   }
 
   if (active >= view.size()) {
-    return {error_domain::serialization, errc::unsupported};
+    return {error_domain::serialization, errc::invalid_argument};
   }
 
   status = reader.end_element();
@@ -452,7 +464,7 @@ associative_data_of(const any_ref& target) noexcept {
   }
 
   if (!view.emplace(active, context.memory_resource)) {
-    return {error_domain::serialization, errc::unsupported};
+    return {error_domain::serialization, errc::invalid_type};
   }
 
   status = reader.begin_element(1);
@@ -494,7 +506,7 @@ associative_data_of(const any_ref& target) noexcept {
       }
 
       if (!target.try_set(decoded)) {
-        return {error_domain::serialization, errc::unsupported};
+        return {error_domain::serialization, errc::invalid_field};
       }
 
       return {};

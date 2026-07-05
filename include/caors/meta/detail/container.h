@@ -9,8 +9,11 @@
 #include "caors/meta/type_id.h"
 
 #include <cstddef>
+#include <limits>
 
 namespace caors::meta::detail {
+
+inline constexpr std::size_t dynamic_sequence_size = std::numeric_limits<std::size_t>::max();
 
 struct type_descriptor;
 
@@ -63,6 +66,7 @@ struct sequence_data {
   bool can_read = true;
   bool read_in_place = false;
   const type_descriptor* value_descriptor = nullptr;
+  std::size_t fixed_size = dynamic_sequence_size;
 
   [[nodiscard]] bool valid() const noexcept {
     return value_type && size != nullptr && element != nullptr;

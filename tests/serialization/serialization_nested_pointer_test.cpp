@@ -139,7 +139,7 @@ TEST_CASE("serialization - rejects non default constructible sequence elements",
 
   CHECK(result.failed());
   CHECK(result.domain() == caors::error_domain::serialization);
-  CHECK(result.value() == caors::errc::unsupported);
+  CHECK(result.value() == caors::errc::invalid_type);
   REQUIRE(actor.values.size() == 1);
   CHECK(actor.values[0].value == 1);
 }
@@ -168,7 +168,7 @@ TEST_CASE("serialization - rejects empty non default constructible unique pointe
 
   CHECK(result.failed());
   CHECK(result.domain() == caors::error_domain::serialization);
-  CHECK(result.value() == caors::errc::invalid_field);
+  CHECK(result.value() == caors::errc::invalid_type);
   CHECK(actor.value == nullptr);
 }
 
@@ -197,7 +197,7 @@ TEST_CASE("serialization - rejects switching to non default constructible varian
 
   CHECK(result.failed());
   CHECK(result.domain() == caors::error_domain::serialization);
-  CHECK(result.value() == caors::errc::unsupported);
+  CHECK(result.value() == caors::errc::invalid_type);
   REQUIRE(std::holds_alternative<int>(actor.value));
   CHECK(std::get<int>(actor.value) == 3);
 }

@@ -435,7 +435,7 @@ TEST_CASE("serialization - rejects std array length mismatch", "[serialization]"
 
   CHECK(result.failed());
   CHECK(result.domain() == caors::error_domain::serialization);
-  CHECK(result.value() == caors::errc::unsupported);
+  CHECK(result.value() == caors::errc::invalid_argument);
   CHECK(actor.scores == std::array<int, 3>{1, 2, 3});
 }
 
@@ -532,7 +532,7 @@ TEST_CASE("serialization - rejects std pair length mismatch", "[serialization]")
 
   CHECK(result.failed());
   CHECK(result.domain() == caors::error_domain::serialization);
-  CHECK(result.value() == caors::errc::unsupported);
+  CHECK(result.value() == caors::errc::invalid_argument);
   CHECK(actor.entry.first == 7);
   CHECK(actor.entry.second == "seven");
 }
@@ -581,7 +581,7 @@ TEST_CASE("serialization - rejects std tuple length mismatch", "[serialization]"
 
   CHECK(result.failed());
   CHECK(result.domain() == caors::error_domain::serialization);
-  CHECK(result.value() == caors::errc::unsupported);
+  CHECK(result.value() == caors::errc::invalid_argument);
   CHECK(std::get<0>(actor.entry) == 7);
   CHECK(std::get<1>(actor.entry) == "seven");
   CHECK(std::get<2>(actor.entry) == 1.5F);
@@ -631,7 +631,7 @@ TEST_CASE("serialization - rejects std variant invalid data", "[serialization]")
 
   CHECK(invalid_index.failed());
   CHECK(invalid_index.domain() == caors::error_domain::serialization);
-  CHECK(invalid_index.value() == caors::errc::unsupported);
+  CHECK(invalid_index.value() == caors::errc::invalid_argument);
   REQUIRE(std::holds_alternative<caors::string>(actor.entry));
   CHECK(std::get<caors::string>(actor.entry) == "seven");
 
@@ -639,7 +639,7 @@ TEST_CASE("serialization - rejects std variant invalid data", "[serialization]")
 
   CHECK(invalid_length.failed());
   CHECK(invalid_length.domain() == caors::error_domain::serialization);
-  CHECK(invalid_length.value() == caors::errc::unsupported);
+  CHECK(invalid_length.value() == caors::errc::invalid_argument);
   REQUIRE(std::holds_alternative<caors::string>(actor.entry));
   CHECK(std::get<caors::string>(actor.entry) == "seven");
 }

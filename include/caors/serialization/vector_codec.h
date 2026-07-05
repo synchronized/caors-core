@@ -225,7 +225,13 @@ template <typename Sequence> struct sequence_codec {
 
     container_traits::clear(decoded);
     if (!container_traits::resize(decoded, size)) {
-      return {error_domain::serialization, errc::unsupported};
+      if constexpr (requires { container_traits::fixed_size; }) {
+        if (container_traits::fixed_size != size) {
+          return {error_domain::serialization, errc::invalid_argument};
+        }
+      }
+
+      return {error_domain::serialization, errc::invalid_type};
     }
 
     for (std::size_t index = 0; index < size; ++index) {

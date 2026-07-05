@@ -230,6 +230,16 @@ caors::error status = caors::deserialize_json(holder, json, context);
 descriptor 的资源构造能力或 traits 的资源重载；缺少资源重载时回退到普通默认构造。自定义顺序容器
 可以通过 `traits::sequence_traits<T>::resize(values, size, resource)` 接入同一策略。
 
+构造失败和边界错误按以下语义返回：
+
+- 输入形态不符合约定时返回 `errc::invalid_argument`，例如固定长度数组、pair、tuple 或 variant
+  envelope 的数组长度不匹配，或者 variant 下标越界。
+- 目标字段不可写、裸指针为空且需要写入非空值、引用 wrapper 不能置空或重绑定时返回
+  `errc::invalid_field`。
+- 需要序列化层创建新对象但目标类型不可默认构造、不可资源构造或容器新增元素无法构造时返回
+  `errc::invalid_type`。
+- 借用视图、弱引用和当前刻意禁止的类型形态返回 `errc::unsupported`。
+
 当前不支持：
 
 - `Base*` 自动创建派生对象；裸指针仍只表示借用。
@@ -536,14 +546,14 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 | `std::chrono` duration / `system_clock::time_point` | 作为普通值类型 | 支持，按整数写出 | 支持，从整数构造 |
 | `guid`、`type_guid` | 作为普通值类型 | 支持，按字符串写出 | 支持，从字符串解析 |
 | 裸指针 `T*` | 通过 `indirect_view` 访问已指向的 `T` | 空值写 `null`，非空展开内部值 | `null` 可重置；非空要求目标已经指向有效对象 |
-| `std::unique_ptr<T>`、`caors::memory::unique_ptr<T>`、`std::shared_ptr<T>`、`std::optional<T>` | 通过 `indirect_view` 访问内部 `T` | 空值写 `null`，非空展开内部值；拥有型智能指针可写出普通类多态 envelope | `null` 可重置；非空可在 `T` 默认可构造时创建内部值；拥有型智能指针可按 envelope 和可用 factory 构造派生对象；需要 `memory_resource` 托管 unique pointer 时使用 `caors::memory::unique_ptr<T>` |
+| `std::unique_ptr<T>`、`caors::memory::unique_ptr<T>`、`std::shared_ptr<T>`、`std::optional<T>` | 通过 `indirect_view` 访问内部 `T` | 空值写 `null`，非空展开内部值；拥有型智能指针可写出普通类多态 envelope | `null` 可重置；非空可在 `T` 默认可构造时创建内部值；拥有型智能指针可按 envelope 和可用 factory 构造派生对象；空 wrapper 读入非空值但 `T` 不可构造时返回 `errc::invalid_type`；需要 `memory_resource` 托管 unique pointer 时使用 `caors::memory::unique_ptr<T>` |
 | `std::reference_wrapper<T>` | 通过 `indirect_view` 访问已绑定的 `T` | 按内部 `T` 写出 | 只能写入已绑定对象，不能置空或重绑定 |
 | `std::weak_ptr<T>` | 只标记为不支持 wrapper，不展开 | 不支持 | 不支持 |
 | `objects::ref<T>` | 作为对象引用类型，可通过 `objects::object_ref(any_ref)` 识别 | 通过 resolver 写出 `object_id` 或 `object_guid` | 通过 resolver 从 `object_id` 或 `object_guid` 写回引用 |
-| 顺序容器、集合、关联容器 | 通过 `sequence_view`、`set_view`、`associative_view` 访问 | 支持已适配 traits 的类型 | 支持拥有型容器；借用视图默认拒绝 |
+| 顺序容器、集合、关联容器 | 通过 `sequence_view`、`set_view`、`associative_view` 访问 | 支持已适配 traits 的类型 | 支持拥有型容器；新增元素或临时 key/value 不可构造时返回 `errc::invalid_type`；借用视图默认拒绝 |
 | `std::span<T>` / `std::span<T, N>` | 借用顺序视图，元素是否可写由 `T` 和字段可写性决定 | 支持，按数组写出 | 默认拒绝，避免决定 backing storage 生命周期 |
-| `std::array<T, N>` | 固定长度顺序视图 | 支持 | 支持，但输入长度必须等于 `N` |
-| `std::pair`、`std::tuple`、`std::variant` | 通过 pair / tuple / variant 视图访问 | 支持 | 支持；切换 variant 候选时目标候选需要默认构造 |
+| `std::array<T, N>` | 固定长度顺序视图 | 支持 | 支持，但输入长度必须等于 `N`；长度不匹配返回 `errc::invalid_argument` |
+| `std::pair`、`std::tuple`、`std::variant` | 通过 pair / tuple / variant 视图访问 | 支持 | 支持；pair / tuple 长度、variant envelope 长度或下标错误返回 `errc::invalid_argument`；切换 variant 候选时目标候选需要默认构造或资源构造 |
 
 - `std::string_view` 默认拒绝反序列化写回，避免把临时字符串读入成悬空引用。调用方如果提供
   `serialization::context::string_view_storage`，序列化层会先把文本写入该字符串，再让字段 view 指向它；
@@ -558,22 +568,26 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
   GUID、多态构造或对象工厂，仍应作为业务类型显式注册。
 - 类型语义最多支持一层间接类型；`T**`、`std::unique_ptr<T*>`、
   `std::optional<std::shared_ptr<T>>` 等多层组合当前会触发静态断言。
-- `std::array<T, N>` 已支持固定长度数组读写；反序列化时数组长度必须等于 `N`，长度不匹配会返回失败。
+- `std::array<T, N>` 已支持固定长度数组读写；反序列化时数组长度必须等于 `N`，长度不匹配会返回
+  `errc::invalid_argument`。
 - `std::span<T>` / `std::span<T, N>` 已支持按借用数组视图写出和反射访问；默认不支持反序列化写回，
   避免序列化层隐式决定 backing storage 的分配、长度调整和生命周期。
 - 不可默认构造类型可以作为已有直接字段、已持有 wrapper 内部值或 `variant` 当前候选被写入；普通类多态
   智能指针读回可以通过 `meta::type_<T>().factory()` 显式构造派生对象。其他需要序列化层自动实例化对象的路径
-  仍可能失败，例如容器新增元素、空 `optional` 读入非空值、`variant` 切换到不可默认构造候选。
+  会返回 `errc::invalid_type`，例如容器新增元素、空 `optional` 读入非空值、`variant`
+  切换到不可默认构造候选。
 - `serialization::context::memory_resource` 会用于资源感知 `any` 默认构造、空 `std::shared_ptr<T>`、
   空 `caors::memory::unique_ptr<T>` 和空 `std::optional<T>` 的内部值创建、顺序容器新增元素、
   `std::variant` 切换候选、关联容器 key/value 临时值，以及普通类多态值 factory。容器最终存储仍由目标容器
   自身 allocator 管理；上下文不会替换已存在容器的 allocator。标准顺序容器适配会把该资源传给新增的
   allocator-aware 元素。
-- `std::pair<T, U>` 已支持按二元素数组 `[first, second]` 读写；反序列化时数组长度必须等于 2。
-- `std::tuple<...>` 已支持按元素数组 `[v0, v1, ...]` 读写；反序列化时数组长度必须等于 tuple 元素数量。
+- `std::pair<T, U>` 已支持按二元素数组 `[first, second]` 读写；反序列化时数组长度必须等于 2，
+  否则返回 `errc::invalid_argument`。
+- `std::tuple<...>` 已支持按元素数组 `[v0, v1, ...]` 读写；反序列化时数组长度必须等于 tuple
+  元素数量，否则返回 `errc::invalid_argument`。
 - `std::variant<...>` 已支持按 tagged union 数组 `[index, value]` 读写；反序列化时数组长度必须等于 2，
-  `index` 必须在候选范围内。相同候选会更新已有值；切换候选时目标候选需要支持默认构造或资源感知构造。
-  处于无值状态的 variant 当前返回不支持。
+  `index` 必须在候选范围内，否则返回 `errc::invalid_argument`。相同候选会更新已有值；切换候选时目标候选
+  需要支持默认构造或资源感知构造，否则返回 `errc::invalid_type`。处于无值状态的 variant 当前返回不支持。
 - 直接值字段仍按字段声明静态类型处理；运行期动态类型记录只发生在显式多态 object API 或拥有型智能指针 wrapper envelope 上。
 - JSON reader 目前不完整支持非 ASCII `\uXXXX` 解码，二进制格式、版本迁移和默认值恢复也尚未实现。
 
