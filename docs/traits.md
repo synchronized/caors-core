@@ -93,6 +93,16 @@ struct wrapper_access<game::box<T>> {
 第二个 `ensure_value` 重载是可选的。反序列化上下文提供 `memory_resource` 时，序列化层会优先调用
 这个重载；没有提供时或 wrapper 不支持资源接管时，可以只实现普通 `ensure_value(source)`。
 
+标准 wrapper 的资源语义：
+
+- 普通 `std::unique_ptr<T>` 的 deleter 类型固定，空值构造和非多态读回保持标准 `new` / `delete`
+  语义，不接管 `memory_resource`。
+- `caors::memory::unique_ptr<T>` 使用可擦除 deleter。反序列化上下文提供 `memory_resource` 时，可以保存匹配的销毁回调。
+- `std::shared_ptr<T>` 在上下文提供 `memory_resource` 且需要构造空内部值时，使用
+  `std::allocate_shared<T>(caors::allocator<T>{resource})`。用户已经创建好的 `shared_ptr` 保持其原始控制块和分配策略。
+- `std::optional<T>` 在自身对象内部原地构造 `T`，不单独分配；如果 `T` 自身需要 allocator，需要由
+  `T` 的构造和序列化策略显式处理。
+
 对象引用不再作为 `wrapper_semantics` 的一种。需要按对象 id 序列化的引用类型应适配
 `objects::detail::object_ref_traits<T>` 和 `objects::detail::object_ref_access<T>`，然后通过
 `objects::object_ref(any_ref)` 查询对象引用视图。

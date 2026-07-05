@@ -78,6 +78,13 @@ caors::any value = caors::any::from(7);
 `any` 会记住匹配的资源销毁函数；没有传入资源或类型缺少资源构造函数表时，回退到普通 `new` / `delete`
 路径。
 
+资源边界：
+
+- 传入 `memory_resource*` 时，`any` 会优先使用 descriptor 中的资源构造/销毁函数。
+- 不传资源时，`any` 使用普通 `new` / `delete` fallback，不读取或保存 CAORS 默认资源。
+- 复制已有值生成 `any` 时仍按普通 clone 路径工作；需要指定资源创建空对象再读入数据时，应使用
+  `any::default_construct(type_id, resource)`。
+
 当前限制：
 
 - 不可拷贝类型无法被复制成有效 `any`。
@@ -111,6 +118,9 @@ caors::any value = caors::any::from(7);
 - `variant_view`：访问 variant-like 类型。
 
 这些 view 通过 `meta::detail::type_descriptor` 保存的类型能力工作，不要求容器类型本身一定注册到全局 meta registry。需要名称、GUID、反射字段、序列化策略或多态构造的业务类型仍应显式注册。
+
+集合和关联容器的 erased iterator 是 value/meta 内部临时对象，使用 CAORS 内部资源策略分配，并在 iterator
+视图析构时自动释放。它不使用用户容器的 allocator，也不会延长底层容器元素生命周期。
 
 ## variant
 
