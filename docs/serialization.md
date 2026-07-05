@@ -363,6 +363,10 @@ caors::serialization::context context{0, &resolver};
 写出时，resolver 把 `object*` 转换为 `object_id`，输出为无符号整数；空引用输出 `0`。读入时，
 resolver 把非 0 `object_id` 转换回对象指针，再写入 `objects::ref<T>` 字段。
 
+对象图中的共享关系应通过 `objects::ref<T>` 表达。序列化层只写出引用身份，不展开被引用对象本体；
+同一个对象被多个字段或容器元素引用时会重复写出同一个 id / GUID，读回后 resolver 会把它们解析回同一个
+运行期对象指针。循环引用也应按身份引用处理，而不是通过普通 inline value 递归展开。
+
 如果对象由 `objects::manager` 管理，可以直接创建基于 manager 的 resolver：
 
 ```cpp
