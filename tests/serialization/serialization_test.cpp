@@ -27,6 +27,9 @@ struct context_resource_value {
 struct context_resource_holder {
   caors::memory::unique_ptr<context_resource_value> unique{};
   std::shared_ptr<context_resource_value> shared{};
+  std::vector<caors::string> names{};
+  std::optional<caors::string> maybe{};
+  std::variant<int, caors::string> choice{0};
 };
 
 void require_context_resource_holder_metadata() {
@@ -40,6 +43,13 @@ void require_context_resource_holder_metadata() {
   REQUIRE(type_result_ok(caors::meta::type_<std::shared_ptr<context_resource_value>>(
                              "std.shared_ptr<caors.test.serialization.context_resource_value>")
                              .result()));
+  REQUIRE(type_result_ok(
+      caors::meta::type_<std::vector<caors::string>>("std.vector<caors.string>").result()));
+  REQUIRE(type_result_ok(
+      caors::meta::type_<std::optional<caors::string>>("std.optional<caors.string>").result()));
+  REQUIRE(type_result_ok(
+      caors::meta::type_<std::variant<int, caors::string>>("std.variant<int,caors.string>")
+          .result()));
 
   REQUIRE(reflection_result_ok(caors::reflection::class_<context_resource_value>(
                                    "caors.test.serialization.context_resource_value")
@@ -52,6 +62,9 @@ void require_context_resource_holder_metadata() {
                  "caors.memory.unique_ptr<caors.test.serialization.context_resource_value>")
           .field("shared", &context_resource_holder::shared,
                  "std.shared_ptr<caors.test.serialization.context_resource_value>")
+          .field("names", &context_resource_holder::names, "std.vector<caors.string>")
+          .field("maybe", &context_resource_holder::maybe, "std.optional<caors.string>")
+          .field("choice", &context_resource_holder::choice, "std.variant<int,caors.string>")
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::register_type<context_resource_value>()));
   REQUIRE(serialization_result_ok(caors::serialization::register_type<context_resource_holder>()));
@@ -338,21 +351,37 @@ TEST_CASE("serialization - context memory resource constructs empty wrapper valu
   caors::serialization::context context{};
   context.memory_resource = &tracking;
 
-  context_resource_holder decoded{};
-  const caors::error status =
-      caors::deserialize_json(decoded, R"({"unique":{"value":7},"shared":{"value":9}})", context);
-  REQUIRE(status.succeeded());
+  std::size_t allocation_count = 0;
+  {
+    context_resource_holder decoded{};
+    const caors::error status = caors::deserialize_json(
+        decoded,
+        R"({"unique":{"value":7},"shared":{"value":9},"names":["Ada","Grace"],"maybe":"present","choice":[1,"variant"]})",
+        context);
+    REQUIRE(status.succeeded());
 
-  REQUIRE(decoded.unique != nullptr);
-  REQUIRE(decoded.shared != nullptr);
-  CHECK(decoded.unique->value == 7);
-  CHECK(decoded.shared->value == 9);
-  CHECK(tracking.statistics().allocation_count == 2);
-  CHECK(tracking.statistics().bytes_in_use >= sizeof(context_resource_value) * 2);
+    REQUIRE(decoded.unique != nullptr);
+    REQUIRE(decoded.shared != nullptr);
+    CHECK(decoded.unique->value == 7);
+    CHECK(decoded.shared->value == 9);
+    REQUIRE(decoded.names.size() == 2);
+    CHECK(decoded.names[0] == "Ada");
+    CHECK(decoded.names[0].get_allocator().resource() == &tracking);
+    CHECK(decoded.names[1] == "Grace");
+    CHECK(decoded.names[1].get_allocator().resource() == &tracking);
+    REQUIRE(decoded.maybe.has_value());
+    CHECK(*decoded.maybe == "present");
+    CHECK(decoded.maybe->get_allocator().resource() == &tracking);
+    REQUIRE(std::holds_alternative<caors::string>(decoded.choice));
+    CHECK(std::get<caors::string>(decoded.choice) == "variant");
+    CHECK(std::get<caors::string>(decoded.choice).get_allocator().resource() == &tracking);
 
-  decoded.unique.reset();
-  decoded.shared.reset();
-  CHECK(tracking.statistics().deallocation_count == 2);
+    allocation_count = tracking.statistics().allocation_count;
+    CHECK(allocation_count >= 2);
+    CHECK(tracking.statistics().bytes_in_use >= sizeof(context_resource_value) * 2);
+  }
+
+  CHECK(tracking.statistics().deallocation_count == allocation_count);
   CHECK(tracking.statistics().bytes_in_use == 0);
 }
 

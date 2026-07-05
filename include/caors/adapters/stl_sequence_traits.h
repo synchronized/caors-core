@@ -13,12 +13,115 @@
 #include <forward_list>
 #include <iterator>
 #include <list>
+#include <memory>
 #include <span>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace caors::traits {
+namespace detail {
+
+template <typename Container>
+inline constexpr bool uses_caors_container_allocator_v =
+    std::is_same_v<typename Container::allocator_type,
+                   memory::allocator<typename Container::value_type>>;
+
+template <typename T, typename = void> inline constexpr bool has_resource_allocator_v = false;
+
+template <typename T>
+inline constexpr bool has_resource_allocator_v<T, std::void_t<typename T::allocator_type>> =
+    std::is_constructible_v<typename T::allocator_type, memory::memory_resource*>;
+
+template <typename Element, typename Emplace>
+[[nodiscard]] bool emplace_default_with_resource(memory::memory_resource* resource,
+                                                 Emplace&& emplace) {
+#if CAORS_HAS_EXCEPTIONS
+  try {
+#endif
+    if constexpr (!std::is_default_constructible_v<Element>) {
+      (void)resource;
+      (void)emplace;
+      return false;
+    } else {
+      if constexpr (has_resource_allocator_v<Element> && std::is_move_constructible_v<Element>) {
+        if (resource != nullptr) {
+          Element value{typename Element::allocator_type{resource}};
+          emplace(std::move(value));
+        } else {
+          emplace();
+        }
+      } else {
+        (void)resource;
+        emplace();
+      }
+
+      return true;
+    }
+#if CAORS_HAS_EXCEPTIONS
+  } catch (...) {
+    return false;
+  }
+#endif
+}
+
+template <typename Container>
+[[nodiscard]] bool resize_back_sequence(Container& values, std::size_t size,
+                                        memory::memory_resource* resource) {
+  using element_type = typename Container::value_type;
+
+  if (size <= values.size()) {
+    while (values.size() > size) {
+      values.pop_back();
+    }
+    return true;
+  }
+
+  if constexpr (!std::is_default_constructible_v<element_type>) {
+    (void)resource;
+    return false;
+  } else {
+    if constexpr (!has_resource_allocator_v<element_type>) {
+      (void)resource;
+      values.resize(size);
+      return true;
+    }
+
+    if (resource == nullptr) {
+      values.resize(size);
+      return true;
+    }
+
+    const std::size_t original_size = values.size();
+    while (values.size() < size) {
+      if (!emplace_default_with_resource<element_type>(resource, [&values](auto&&... args) {
+            values.emplace_back(std::forward<decltype(args)>(args)...);
+          })) {
+        values.resize(original_size);
+        return false;
+      }
+    }
+
+    return true;
+  }
+}
+
+template <typename ForwardList> void trim_forward_list(ForwardList& values, std::size_t size) {
+  auto before = values.before_begin();
+  auto current = values.begin();
+  std::size_t index = 0;
+  while (current != values.end() && index < size) {
+    ++before;
+    ++current;
+    ++index;
+  }
+
+  values.erase_after(before, values.end());
+}
+
+} // namespace detail
+
 /** @brief `std::vector` / `caors::vector` 的顺序容器反射适配。 */
 template <typename T, typename Allocator> struct sequence_traits<std::vector<T, Allocator>> {
   static constexpr bool is_sequence = true;
@@ -55,6 +158,11 @@ template <typename T, typename Allocator> struct sequence_traits<std::vector<T, 
     } else {
       return false;
     }
+  }
+
+  [[nodiscard]] static bool resize(std::vector<T, Allocator>& values, std::size_t size,
+                                   memory::memory_resource* resource) {
+    return detail::resize_back_sequence(values, size, resource);
   }
 
   [[nodiscard]] static bool append(std::vector<T, Allocator>& values, const element_type& value) {
@@ -219,6 +327,11 @@ template <typename T, typename Allocator> struct sequence_traits<std::deque<T, A
     }
   }
 
+  [[nodiscard]] static bool resize(std::deque<T, Allocator>& values, std::size_t size,
+                                   memory::memory_resource* resource) {
+    return detail::resize_back_sequence(values, size, resource);
+  }
+
   [[nodiscard]] static bool append(std::deque<T, Allocator>& values, const element_type& value) {
     if constexpr (std::is_copy_constructible_v<T>) {
       values.push_back(value);
@@ -278,6 +391,11 @@ template <typename T, typename Allocator> struct sequence_traits<std::list<T, Al
     }
   }
 
+  [[nodiscard]] static bool resize(list_type& values, std::size_t size,
+                                   memory::memory_resource* resource) {
+    return detail::resize_back_sequence(values, size, resource);
+  }
+
   [[nodiscard]] static bool append(list_type& values, const element_type& value) {
     if constexpr (std::is_copy_constructible_v<T>) {
       values.push_back(value);
@@ -330,6 +448,50 @@ template <typename T, typename Allocator> struct sequence_traits<std::forward_li
       return true;
     } else {
       return false;
+    }
+  }
+
+  [[nodiscard]] static bool resize(list_type& values, std::size_t size,
+                                   memory::memory_resource* resource) {
+    const std::size_t current_size = sequence_traits<list_type>::size(values);
+    if (size <= current_size) {
+      detail::trim_forward_list(values, size);
+      return true;
+    }
+
+    if constexpr (!std::is_default_constructible_v<T>) {
+      (void)resource;
+      return false;
+    } else {
+      if constexpr (!detail::has_resource_allocator_v<element_type>) {
+        (void)resource;
+        values.resize(size);
+        return true;
+      }
+
+      if (resource == nullptr) {
+        values.resize(size);
+        return true;
+      }
+
+      auto before_end = values.before_begin();
+      for (auto current = values.begin(); current != values.end(); ++current) {
+        ++before_end;
+      }
+
+      std::size_t appended = current_size;
+      while (appended < size) {
+        if (!detail::emplace_default_with_resource<element_type>(resource, [&values, &before_end](
+                                                                               auto&&... args) {
+              before_end = values.emplace_after(before_end, std::forward<decltype(args)>(args)...);
+            })) {
+          detail::trim_forward_list(values, current_size);
+          return false;
+        }
+        ++appended;
+      }
+
+      return true;
     }
   }
 

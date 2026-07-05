@@ -226,6 +226,10 @@ caors::error status = caors::deserialize_json(holder, json, context);
 如果希望 `caors::vector<caors::string>`、嵌套容器或 `caors::hash_map` 的最终元素也使用某个资源，
 目标对象或字段容器本身需要用该资源构造。
 
+资源感知构造的优先级是：字段或 view 已持有目标值时直接写入已有对象；需要新建对象时，先使用
+descriptor 的资源构造能力或 traits 的资源重载；缺少资源重载时回退到普通默认构造。自定义顺序容器
+可以通过 `traits::sequence_traits<T>::resize(values, size, resource)` 接入同一策略。
+
 当前不支持：
 
 - `Base*` 自动创建派生对象；裸指针仍只表示借用。
@@ -563,7 +567,8 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 - `serialization::context::memory_resource` 会用于资源感知 `any` 默认构造、空 `std::shared_ptr<T>`、
   空 `caors::memory::unique_ptr<T>` 和空 `std::optional<T>` 的内部值创建、顺序容器新增元素、
   `std::variant` 切换候选、关联容器 key/value 临时值，以及普通类多态值 factory。容器最终存储仍由目标容器
-  自身 allocator 管理；上下文不会替换已存在容器的 allocator。
+  自身 allocator 管理；上下文不会替换已存在容器的 allocator。标准顺序容器适配会把该资源传给新增的
+  allocator-aware 元素。
 - `std::pair<T, U>` 已支持按二元素数组 `[first, second]` 读写；反序列化时数组长度必须等于 2。
 - `std::tuple<...>` 已支持按元素数组 `[v0, v1, ...]` 读写；反序列化时数组长度必须等于 tuple 元素数量。
 - `std::variant<...>` 已支持按 tagged union 数组 `[index, value]` 读写；反序列化时数组长度必须等于 2，

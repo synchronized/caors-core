@@ -3,6 +3,8 @@
 
 #include "helpers.h"
 
+#include "construction.h"
+
 namespace caors::serialization::detail {
 
 [[nodiscard]] const meta::detail::sequence_data* sequence_data_of(const any_ref& target) noexcept {
@@ -28,17 +30,6 @@ associative_data_of(const any_ref& target) noexcept {
   }
 
   return caors::meta::detail::get_assign_value_fn(caors::meta::find(target.type()));
-}
-
-[[nodiscard]] any default_construct_for(const any_ref& target,
-                                        const serialization::context& context) {
-  any decoded = value::detail::default_construct(
-      target.type(), value::detail::descriptor_of(target), context.memory_resource);
-  if (!decoded.valid()) {
-    decoded = any::default_construct(target.type(), context.memory_resource);
-  }
-
-  return decoded;
 }
 
 [[nodiscard]] error read_sequence_into_view(reader& reader, const value::sequence_view& view,
@@ -134,11 +125,7 @@ associative_data_of(const any_ref& target) noexcept {
 
     const meta::detail::type_descriptor* value_descriptor =
         set != nullptr ? set->value_descriptor : nullptr;
-    any element = value::detail::default_construct(view.value_type(), value_descriptor,
-                                                   context.memory_resource);
-    if (!element.valid()) {
-      element = any::default_construct(view.value_type(), context.memory_resource);
-    }
+    any element = default_construct_value(view.value_type(), value_descriptor, context);
     if (!element.valid()) {
       return {error_domain::serialization, errc::unsupported};
     }
@@ -211,16 +198,8 @@ associative_data_of(const any_ref& target) noexcept {
         associative != nullptr ? associative->key_descriptor : nullptr;
     const meta::detail::type_descriptor* value_descriptor =
         associative != nullptr ? associative->value_descriptor : nullptr;
-    any key =
-        value::detail::default_construct(view.key_type(), key_descriptor, context.memory_resource);
-    any value = value::detail::default_construct(view.value_type(), value_descriptor,
-                                                 context.memory_resource);
-    if (!key.valid()) {
-      key = any::default_construct(view.key_type(), context.memory_resource);
-    }
-    if (!value.valid()) {
-      value = any::default_construct(view.value_type(), context.memory_resource);
-    }
+    any key = default_construct_value(view.key_type(), key_descriptor, context);
+    any value = default_construct_value(view.value_type(), value_descriptor, context);
     if (!key.valid() || !value.valid()) {
       return {error_domain::serialization, errc::unsupported};
     }
