@@ -128,6 +128,13 @@ struct context {
    * 写入该字符串，再让目标 `std::string_view` 指向它。
    */
   string* string_view_storage = nullptr;
+  /**
+   * @brief 多态对象反序列化使用的对象生命周期管理器。
+   *
+   * `deserialize_polymorphic_object()` 会通过该 manager 创建动态对象。manager 持有的
+   * `memory_resource` 负责实际分配，对象生命周期也由 manager 接管。
+   */
+  objects::manager* object_manager = nullptr;
 };
 
 /** @brief 文本序列化结果。 */

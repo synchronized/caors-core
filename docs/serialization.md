@@ -25,6 +25,7 @@
 - 支持已注册反射和序列化元信息的值类型结构体字段递归序列化和 DOM 反序列化。
 - 提供基于 traits 的顺序容器、集合容器、关联容器、pair、tuple 和 variant 访问，支持标量、wrapper、对象引用和已注册结构体元素。
 - 通过 `serialization::reference_resolver` 支持 `caors::objects::ref<T>` 对象引用字段。
+- 通过显式多态 object envelope 支持 `caors::objects::object` 派生对象的动态类型记录、manager 创建和安全下转型。
 - 用 `caors::error` 和 `caors::result<T>` 表达失败状态和携带值的返回结果。
 
 当前不会包含：
@@ -32,7 +33,8 @@
 - 内置二进制格式。
 - 版本迁移和默认值恢复。
 - 完整 JSON 标准扩展，例如非 ASCII `\uXXXX` 解码。
-- 多层指针、多层 wrapper、动态多态类型记录和对象图身份保持。
+- 多层指针、多层 wrapper 和完整对象图身份保持。
+- 自动把任意裸指针、智能指针字段提升为拥有型多态对象。
 - 借用视图的自动存储分配和生命周期管理。
 
 这些能力后续应在对象 handle、字段策略和格式扩展点明确后逐步补充。
@@ -72,6 +74,51 @@
 写出、对象序列化、对象反序列化、字段读写、容器读写、中间值构造和文本便捷入口拆分在
 `src/caors/serialization/`。共享的字段校验、schema version 过滤和内部调度声明保留在私有
 `src/caors/serialization/detail/internal.h` 和 `src/caors/serialization/detail/helpers.h`。
+
+### 多态 object
+
+多态对象序列化使用显式 API，不会改变普通 `serialize<T>()` / `deserialize<T>()` 的静态类型行为。
+写出时，调度层读取对象的真实 `type_id()`，要求动态类型已经完成 object、reflection 和 serialization
+注册，并且拥有非 nil `type_guid`。输出 DOM envelope 固定包含：
+
+- `$type`：动态类型的稳定 `type_guid` 字符串。
+- `$value`：按动态类型反射字段生成的对象数据。
+
+```cpp
+caors::serialization::variant_result value =
+    caors::serialization::to_polymorphic_serialization_value(instance);
+
+caors::serialization::serialization_text_result json =
+    caors::serialization::serialize_polymorphic_json(instance);
+```
+
+反序列化时需要在 `serialization::context` 中提供 `objects::manager`。manager 持有的
+`memory_resource` 负责分配，创建出的对象也由 manager 负责销毁：
+
+```cpp
+caors::objects::manager manager;
+caors::serialization::context context{};
+context.object_manager = &manager;
+
+caors::result<actor*> decoded =
+    caors::serialization::deserialize_polymorphic_json<actor>(json.value, context);
+```
+
+读入流程：
+
+1. 读取 `$type` 并用 `type_guid` 查找动态类型。
+2. 校验动态类型是调用点声明基类的派生类型。
+3. 通过 `context.object_manager->create(dynamic_type_id)` 默认构造对象。
+4. 用 `$value` 按动态类型反序列化字段。
+5. 如果字段读入失败，自动通过 manager 销毁刚创建的对象并返回错误。
+
+当前边界：
+
+- 只支持 `objects::object` 派生类型。
+- 动态类型必须可由 `objects::manager` 默认构造。
+- 类型身份只写稳定 `type_guid`，不写运行期 `type_id`。
+- 不自动接管裸指针、`std::shared_ptr<Base>` 等字段的所有权；这类字段仍按现有指针/wrapper 规则处理。
+- 不保留对象图中的共享实例身份和循环引用；需要对象引用时继续使用 `objects::ref<T>` 和 resolver。
 
 ### serialization::type_data
 
@@ -537,6 +584,9 @@ caors::string text = result.value;
 - `serialize()`：通过指定 writer 后端序列化对象。
 - `deserialize()`：通过指定 reader 后端反序列化对象。
 - `to_serialization_value()`：通过反射和序列化元信息构造中间对象树。
+- `to_polymorphic_serialization_value()`：按对象真实运行期类型构造 `$type` / `$value` envelope。
+- `deserialize_polymorphic_object()`：通过 `context.object_manager` 构造并读入多态对象。
+- `serialize_polymorphic_json()` / `deserialize_polymorphic_json()`：JSON 形式的多态对象 envelope 入口。
 - `write()`：把中间对象树写入指定 writer。
 - `serialization_text_result`：`caors::result<caors::string>` 文本序列化结果。
 - `variant_result`：`caors::result<variant>` 中间值构造结果。
@@ -549,6 +599,7 @@ caors::string text = result.value;
 - 内置 string、string_view、guid 和 type_guid codec。
 - 裸指针、普通 wrapper、`objects::ref<T>` 和已适配容器字段。
 - 运行期 `object_id` resolver 和持久 `object_guid` resolver。
+- 基于稳定 `type_guid` 和 `objects::manager` 的显式多态 object 序列化。
 - `variant` 安全访问器、数组/字典/对象辅助修改和成员查询。
 - 序列化注册早于反射字段注册。
 

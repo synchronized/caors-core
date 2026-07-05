@@ -11,6 +11,7 @@
 
 #include <optional>
 #include <string_view>
+#include <type_traits>
 
 namespace caors::serialization {
 
@@ -240,16 +241,86 @@ template <typename T>
   return serialize_json(type.id(), &object, context);
 }
 
+/** @brief 把对象按真实运行期类型序列化为带 `$type` / `$value` 的多态 DOM envelope。 */
+[[nodiscard]] CAORS_API variant_result to_polymorphic_serialization_value(
+    const objects::object& object, const serialization::context& context = {});
+
+/** @brief 把可空对象指针按真实运行期类型序列化为多态 DOM envelope；空指针写为 null。 */
+[[nodiscard]] CAORS_API variant_result to_polymorphic_serialization_value(
+    const objects::object* object, const serialization::context& context = {});
+
+/**
+ * @brief 从多态 DOM envelope 构造对象。
+ *
+ * `declared_base` 是字段或调用点声明的对象基类类型。动态类型必须继承自该类型。成功返回的对象由
+ * `context.object_manager` 拥有；缺少 manager、类型不匹配或反序列化失败时返回错误。
+ */
+[[nodiscard]] CAORS_API result<objects::object*>
+deserialize_polymorphic_object(objects::object_type_id declared_base, const variant& value,
+                               const serialization::context& context);
+
+/** @brief 按 C++ 基类类型从多态 DOM envelope 构造对象。 */
+template <typename Base>
+[[nodiscard]] result<Base*> deserialize_polymorphic_object(const variant& value,
+                                                           const serialization::context& context) {
+  static_assert(std::is_base_of_v<objects::object, Base>, "Base must derive from caors::object");
+
+  const objects::type base_type = objects::find<Base>();
+  if (!base_type) {
+    return {{error_domain::serialization, errc::missing_type}, nullptr};
+  }
+
+  result<objects::object*> object = deserialize_polymorphic_object(base_type.id(), value, context);
+  if (object.failed()) {
+    return {object.status, nullptr};
+  }
+
+  Base* typed = dynamic_cast<Base*>(object.value);
+  if (typed == nullptr) {
+    if (context.object_manager != nullptr) {
+      (void)context.object_manager->destroy(object.value);
+    }
+    return {{error_domain::serialization, errc::invalid_type}, nullptr};
+  }
+
+  return {{}, typed};
+}
+
+/** @brief 把对象按真实运行期类型序列化为 JSON envelope。 */
+[[nodiscard]] CAORS_API serialization_text_result serialize_polymorphic_json(
+    const objects::object& object, const serialization::context& context = {});
+
+/** @brief 从 JSON envelope 构造多态对象。 */
+[[nodiscard]] CAORS_API result<objects::object*>
+deserialize_polymorphic_json(objects::object_type_id declared_base, std::string_view text,
+                             const serialization::context& context);
+
+/** @brief 按 C++ 基类类型从 JSON envelope 构造多态对象。 */
+template <typename Base>
+[[nodiscard]] result<Base*> deserialize_polymorphic_json(std::string_view text,
+                                                         const serialization::context& context) {
+  variant_result value = parse_json(text);
+  if (value.failed()) {
+    return {value.status, nullptr};
+  }
+
+  return deserialize_polymorphic_object<Base>(value.value, context);
+}
+
 } // namespace caors::serialization
 
 namespace caors {
 
 using serialization::deserialize;
 using serialization::deserialize_json;
+using serialization::deserialize_polymorphic_json;
+using serialization::deserialize_polymorphic_object;
 using serialization::parse_json;
 using serialization::serialize;
 using serialization::serialize_json;
+using serialization::serialize_polymorphic_json;
 using serialization::serialize_text;
+using serialization::to_polymorphic_serialization_value;
 using serialization::to_serialization_value;
 using serialization::write;
 
