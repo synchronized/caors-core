@@ -426,6 +426,29 @@ TEST_CASE("resources - saver interface receives resources", "[resources]") {
   CHECK(saver.saved_guid == test_guid_a);
 }
 
+TEST_CASE("resources - saver can persist cache entries", "[resources]") {
+  caors::resource_cache<texture_resource> cache;
+  REQUIRE(cache.create(test_guid_a) != nullptr);
+
+  counting_texture_saver saver;
+
+  caors::error saved = caors::save_from(cache, saver, test_guid_a);
+  REQUIRE(saved.succeeded());
+  CHECK(saver.save_count == 1);
+  CHECK(saver.saved_guid == test_guid_a);
+
+  caors::error invalid = caors::save_from(cache, saver, caors::resource_guid::nil());
+  REQUIRE(invalid.failed());
+  CHECK(invalid.domain() == caors::error_domain::resources);
+  CHECK(invalid.value() == caors::errc::invalid_argument);
+
+  caors::error missing = caors::save_from(cache, saver, test_guid_b);
+  REQUIRE(missing.failed());
+  CHECK(missing.domain() == caors::error_domain::resources);
+  CHECK(missing.value() == caors::errc::not_found);
+  CHECK(saver.save_count == 1);
+}
+
 TEST_CASE("resources - serialized helpers load and save resources", "[resources]") {
   require_serialized_resource_metadata();
 

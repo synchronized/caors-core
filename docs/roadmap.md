@@ -156,6 +156,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 支持 manifest 全量替换 provider 绑定，方便完整资源清单刷新时移除旧资源位置。
 - [x] 支持 `resources::provider` 通过可写 source 按 GUID 写回字节，为后续 saver 和热更新回写提供基础。
 - [x] 实现 `resources::json_saver<T>`，打通 `resource -> JSON -> provider -> source` 的同步保存链路。
+- [x] 提供 `resources::save_from()`，把 cache 中指定 GUID 的资源交给 saver 保存。
 - [ ] 实现资源包、远程资源或异步 loader/saver 后端。
 - [ ] 打通资源引用序列化 resolver，支持反序列化后自动解析资源依赖关系和稳定 GUID 引用。
 - [ ] 后续评估热重载、导入管线、资源数据库和编辑器工具层；这些能力不进入第一阶段底层 API。

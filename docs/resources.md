@@ -71,6 +71,7 @@
 - `caors::resource_saver<T>`
 - `caors::resource_json_saver<T>`
 - `caors::bind_manifest()`
+- `caors::save_from()`
 
 ## resource_guid
 
@@ -373,12 +374,25 @@ texture_loader loader;
 caors::result<texture*> value = caors::load_into(cache, loader, id);
 ```
 
+保存方向可以使用 `save_from()` 从 cache 取出指定 GUID 的资源并交给 saver：
+
+```cpp
+texture_saver saver;
+caors::error saved = caors::save_from(cache, saver, id);
+```
+
 `load_into()` 的规则：
 
 - cache 已经有同 GUID 资源时直接返回已有对象，不再次调用 loader。
 - loader 返回的资源如果没有 GUID，会写入请求 GUID。
 - loader 返回的资源如果携带不同 GUID，会返回 `errc::inconsistent_type`。
 - 成功后资源所有权转入 cache，后续由 cache 销毁或 `release()` 转移。
+
+`save_from()` 的规则：
+
+- GUID 为 nil 时返回 `errc::invalid_argument`。
+- cache 未包含该 GUID 时返回 `errc::not_found`。
+- 具体保存目标、格式和覆盖策略由 saver 实现决定。
 
 `load_serialized<T>()` / `save_serialized<T>()` 是最小序列化读写 helper，复用现有
 `serialization::reader` / `serialization::writer`：

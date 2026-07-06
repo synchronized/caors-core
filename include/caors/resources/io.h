@@ -108,6 +108,25 @@ template <typename T>
 }
 
 /**
+ * @brief 使用保存器保存 cache 中的指定资源。
+ *
+ * 如果 cache 未包含该 GUID，返回 `errc::not_found`。保存目标、格式和覆盖策略由 saver 实现决定。
+ */
+template <typename T>
+[[nodiscard]] error save_from(const cache<T>& source, saver<T>& target, resource_guid guid) {
+  if (!guid) {
+    return {error_domain::resources, errc::invalid_argument};
+  }
+
+  const T* existing = source.find(guid);
+  if (existing == nullptr) {
+    return {error_domain::resources, errc::not_found};
+  }
+
+  return target.save(*existing);
+}
+
+/**
  * @brief 从序列化 reader 构造资源。
  *
  * 该 helper 面向简单资源类型：先用指定内存资源默认构造 `T`，写入 GUID，再通过现有
@@ -264,6 +283,7 @@ using resources::load_into;
 using resources::load_manifest;
 using resources::load_manifest_json;
 using resources::load_serialized;
+using resources::save_from;
 using resources::save_serialized;
 
 } // namespace caors
