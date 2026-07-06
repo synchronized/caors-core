@@ -13,6 +13,7 @@
 - `caors/core/guid.h`：128-bit 稳定标识值类型。
 - `caors/core/type_guid.h`：基于 `guid` 的稳定类型标识。
 - `caors/core/containers.h`：基于 CAORS allocator 的基础容器别名。
+- `caors/core/locator.h`：非拥有的进程级服务定位器。
 
 后续可以按需要扩展：
 
@@ -115,3 +116,33 @@ auto map = caors::make_hash_map<int, caors::string>(&tracking);
 
 当前先覆盖序列化 DOM、注册表和元数据等近期需求。后续如果需要稳定地址或短数组优化，再分别评估
 `stable_vector`、`small_vector` 等容器。
+
+## 服务定位器
+
+`locator<T>` 是一个轻量的进程内服务定位器，用于保存默认资源管理器、文件系统、配置服务等全局可选服务：
+
+```cpp
+struct file_system {};
+
+file_system fs;
+caors::locator<file_system>::set(&fs);
+
+auto* current = caors::locator<file_system>::get();
+```
+
+它只保存非拥有指针，不负责创建或销毁服务对象。调用方必须保证服务对象在定位器保存期间保持存活。
+
+测试或临时替换服务时可以使用 `with()` 自动恢复旧值：
+
+```cpp
+caors::locator<file_system>::with(&fs, [] {
+  auto* current = caors::locator<file_system>::get();
+});
+```
+
+需要注意：
+
+- `get()` 未设置时返回 `nullptr`，不会自动构造服务。
+- `set()` 和 `reset()` 会返回之前保存的指针，便于调用方恢复。
+- `locator<T>` 不加锁；推荐只在初始化阶段、关闭阶段或测试隔离代码中修改。
+- 多线程运行期切换服务时需要上层自行同步。
