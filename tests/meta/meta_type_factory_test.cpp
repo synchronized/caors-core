@@ -1,0 +1,132 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 CAORS contributors
+
+#include "caors/core/containers.h"
+#include "caors/memory.h"
+#include "caors/meta.h"
+#include "caors/value.h"
+
+#include <catch2/catch_all.hpp>
+
+namespace {
+
+struct default_factory_type {
+  int value = 11;
+};
+
+struct missing_default_factory_type {
+  explicit missing_default_factory_type(int input) : value(input) {}
+
+  int value = 0;
+};
+
+struct custom_factory_type {
+  explicit custom_factory_type(int input) : value(input) {}
+
+  int value = 0;
+};
+
+[[nodiscard]] constexpr caors::error meta_error(caors::errc code) noexcept {
+  return {caors::error_domain::meta, code};
+}
+
+void* construct_custom_factory_type(caors::memory_resource* resource) {
+  if (resource != nullptr) {
+    return caors::memory::make<custom_factory_type>(resource, 23);
+  }
+
+  return new custom_factory_type(23);
+}
+
+void destroy_custom_factory_type(caors::memory_resource* resource, void* value) noexcept {
+  auto* typed = static_cast<custom_factory_type*>(value);
+  if (resource != nullptr) {
+    caors::memory::destroy(typed, resource);
+    return;
+  }
+
+  delete typed;
+}
+
+}
+
+TEST_CASE("meta type - factory registers resource-aware default construction", "[meta]") {
+  auto builder =
+      caors::meta::type_<default_factory_type>("caors.test.type.factory_default").factory();
+  CHECK(builder.succeeded());
+
+  const caors::meta::type type = builder.get();
+  REQUIRE(type.valid());
+
+  const caors::meta::detail::value_factory_ops factory =
+      caors::meta::get_registry().find_type_factory(type.id());
+  REQUIRE(factory.valid());
+
+  caors::tracking_resource tracking(&caors::get_system_memory_resource());
+  auto* value = static_cast<default_factory_type*>(factory.construct(&tracking));
+  REQUIRE(value != nullptr);
+  CHECK(value->value == 11);
+  CHECK(tracking.statistics().allocation_count == 1);
+  CHECK(tracking.statistics().bytes_in_use >= sizeof(default_factory_type));
+
+  factory.destroy(&tracking, value);
+  CHECK(tracking.statistics().deallocation_count == 1);
+  CHECK(tracking.statistics().bytes_in_use == 0);
+}
+
+TEST_CASE("meta type - resource default construction propagates allocator", "[meta]") {
+  using value_type = caors::vector<int>;
+
+  const caors::meta::type type =
+      caors::meta::type_<value_type>("caors.test.type.resource_vector").get();
+  REQUIRE(type.valid());
+
+  caors::tracking_resource tracking(&caors::get_system_memory_resource());
+  caors::any value = caors::any::default_construct(type.id(), &tracking);
+
+  REQUIRE(value.valid());
+  auto* values = value.try_get_mutable<value_type>();
+  REQUIRE(values != nullptr);
+  CHECK(values->get_allocator().resource() == &tracking);
+
+  values->reserve(4);
+  values->push_back(7);
+
+  CHECK(values->front() == 7);
+  CHECK(tracking.statistics().allocation_count >= 2);
+
+  value.reset();
+
+  CHECK(tracking.statistics().bytes_in_use == 0);
+  CHECK(tracking.statistics().allocation_count == tracking.statistics().deallocation_count);
+}
+
+TEST_CASE("meta type - default factory rejects non-default-constructible types", "[meta]") {
+  auto builder =
+      caors::meta::type_<missing_default_factory_type>("caors.test.type.factory_missing_default")
+          .factory();
+
+  CHECK(builder.result() == meta_error(caors::errc::invalid_type));
+  REQUIRE(builder.get().valid());
+  CHECK_FALSE(caors::meta::get_registry().find_type_factory(builder.get().id()).valid());
+}
+
+TEST_CASE("meta type - factory registers custom construction strategy", "[meta]") {
+  auto builder = caors::meta::type_<custom_factory_type>("caors.test.type.factory_custom")
+                     .factory(&construct_custom_factory_type, &destroy_custom_factory_type);
+  CHECK(builder.succeeded());
+
+  const caors::meta::detail::value_factory_ops factory =
+      caors::meta::get_registry().find_type_factory(builder.get().id());
+  REQUIRE(factory.valid());
+
+  auto* value = static_cast<custom_factory_type*>(factory.construct(nullptr));
+  REQUIRE(value != nullptr);
+  CHECK(value->value == 23);
+  factory.destroy(nullptr, value);
+
+  auto duplicate = caors::meta::type_<custom_factory_type>("caors.test.type.factory_custom")
+                       .factory(&construct_custom_factory_type, &destroy_custom_factory_type);
+  CHECK(duplicate.result() == meta_error(caors::errc::duplicate_id));
+  CHECK(duplicate.succeeded());
+}
