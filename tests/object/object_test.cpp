@@ -138,6 +138,18 @@ public:
   inline static bool invisible_during_destruction = false;
 };
 
+class counted_actor : public caors::object_base<counted_actor>, public caors::objects::ref_counted {
+public:
+  static constexpr std::string_view object_type_name = "caors.test.object.counted_actor";
+
+  explicit counted_actor(int value = 0) : value(value) {}
+
+  ~counted_actor() override { ++destroyed_count; }
+
+  int value = 0;
+  inline static int destroyed_count = 0;
+};
+
 constexpr caors::object_guid test_object_guid_a{caors::guid::from_bytes(
     caors::guid::byte_array{0x18, 0x50, 0xf2, 0x4f, 0x4f, 0xf8, 0x47, 0x66, 0x9f, 0x38, 0x2b, 0x79,
                             0xc9, 0xd7, 0x3a, 0x01})};
@@ -432,6 +444,44 @@ TEST_CASE("object - direct creation supports constructor arguments", "[object]")
 
   caors::objects::destroy(instance, &tracking);
   CHECK(tracking.statistics().bytes_in_use == 0);
+}
+
+TEST_CASE("object - strong refs own intrusive ref counted objects", "[object]") {
+  caors::tracking_resource tracking(&caors::get_system_memory_resource());
+  counted_actor::destroyed_count = 0;
+
+  {
+    caors::objects::strong_ref<counted_actor> owner =
+        caors::objects::make_ref<counted_actor>(&tracking, 42);
+
+    REQUIRE(owner);
+    CHECK(owner->value == 42);
+    CHECK(owner.use_count() == 1);
+    CHECK(owner.unique());
+
+    {
+      caors::objects::strong_ref<counted_actor> copy = owner;
+      CHECK(copy.get() == owner.get());
+      CHECK(owner.use_count() == 2);
+      CHECK_FALSE(owner.unique());
+
+      caors::objects::strong_ref<counted_actor> moved = std::move(copy);
+      CHECK(copy == nullptr);
+      CHECK(moved.get() == owner.get());
+      CHECK(owner.use_count() == 2);
+    }
+
+    CHECK(owner.use_count() == 1);
+    CHECK(counted_actor::destroyed_count == 0);
+
+    owner.reset();
+    CHECK(owner == nullptr);
+    CHECK(counted_actor::destroyed_count == 1);
+  }
+
+  const caors::memory_statistics statistics = tracking.statistics();
+  CHECK(statistics.bytes_in_use == 0);
+  CHECK(statistics.allocation_count == statistics.deallocation_count);
 }
 
 TEST_CASE("object - manager owns objects and resolves handles", "[object]") {

@@ -10,6 +10,7 @@
 #include "caors/object/index.h"
 #include "caors/object/manager.h"
 #include "caors/object/ref.h"
+#include "caors/object/ref_counted.h"
 #include "caors/object/ref_view.h"
 #include "caors/object/registry.h"
 #include "caors/object/type.h"
