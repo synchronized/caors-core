@@ -87,6 +87,23 @@ public:
   caors::resource_guid saved_guid{};
 };
 
+class read_only_source final : public caors::resource_source {
+public:
+  [[nodiscard]] bool exists(caors::io::path_view location) const override {
+    return !location.empty();
+  }
+
+  [[nodiscard]] caors::byte_buffer_result
+  read(caors::io::path_view location, caors::memory_resource* resource = nullptr) override {
+    if (location.empty()) {
+      return {{caors::error_domain::resources, caors::errc::invalid_argument}, {}};
+    }
+
+    caors::byte_buffer bytes = caors::make_byte_buffer(resource);
+    return {{}, std::move(bytes)};
+  }
+};
+
 [[nodiscard]] bool reflection_result_ok(caors::error result) noexcept {
   return result.succeeded() || result.value() == caors::errc::duplicate_reflection;
 }
@@ -686,6 +703,38 @@ TEST_CASE("resources - provider reads bytes from file source", "[resources]") {
   std::filesystem::remove_all(directory, ec);
 }
 
+TEST_CASE("resources - provider writes bytes through file source", "[resources]") {
+  caors::memory_file_system files;
+  caors::resource_file_source source{files};
+  caors::resource_provider provider;
+
+  REQUIRE(provider.bind(test_guid_a, source, "assets/generated.txt").succeeded());
+  REQUIRE(provider.write(test_guid_a, std::string_view{"generated-bytes"}).succeeded());
+
+  caors::byte_buffer_result bytes = files.read_all("assets/generated.txt");
+  REQUIRE(bytes.succeeded());
+  CHECK(std::string_view{reinterpret_cast<const char*>(bytes.value.data()), bytes.value.size()} ==
+        "generated-bytes");
+
+  REQUIRE(provider.write(test_guid_a, std::string_view{"updated-bytes"}).succeeded());
+  bytes = provider.read(test_guid_a);
+  REQUIRE(bytes.succeeded());
+  CHECK(std::string_view{reinterpret_cast<const char*>(bytes.value.data()), bytes.value.size()} ==
+        "updated-bytes");
+}
+
+TEST_CASE("resources - provider reports unsupported writes for read only sources", "[resources]") {
+  read_only_source source;
+  caors::resource_provider provider;
+
+  REQUIRE(provider.bind(test_guid_a, source, "assets/generated.txt").succeeded());
+
+  caors::error status = provider.write(test_guid_a, std::string_view{"generated-bytes"});
+  REQUIRE(status.failed());
+  CHECK(status.domain() == caors::error_domain::resources);
+  CHECK(status.value() == caors::errc::unsupported);
+}
+
 TEST_CASE("resources - provider reports invalid and missing resources", "[resources]") {
   caors::native_file_system native;
   caors::resource_file_source source{native};
@@ -695,6 +744,12 @@ TEST_CASE("resources - provider reports invalid and missing resources", "[resour
   REQUIRE(invalid_guid.failed());
   CHECK(invalid_guid.domain() == caors::error_domain::resources);
   CHECK(invalid_guid.value() == caors::errc::invalid_argument);
+
+  caors::error invalid_write =
+      provider.write(caors::resource_guid::nil(), std::string_view{"data"});
+  REQUIRE(invalid_write.failed());
+  CHECK(invalid_write.domain() == caors::error_domain::resources);
+  CHECK(invalid_write.value() == caors::errc::invalid_argument);
 
   caors::error invalid_location = provider.bind(test_guid_a, source, "");
   REQUIRE(invalid_location.failed());
@@ -711,6 +766,11 @@ TEST_CASE("resources - provider reports invalid and missing resources", "[resour
   REQUIRE(missing_guid.failed());
   CHECK(missing_guid.status.domain() == caors::error_domain::resources);
   CHECK(missing_guid.status.value() == caors::errc::not_found);
+
+  caors::error missing_write = provider.write(test_guid_b, std::string_view{"data"});
+  REQUIRE(missing_write.failed());
+  CHECK(missing_write.domain() == caors::error_domain::resources);
+  CHECK(missing_write.value() == caors::errc::not_found);
 
   caors::byte_buffer_result missing_file = provider.read(test_guid_a);
   REQUIRE(missing_file.failed());

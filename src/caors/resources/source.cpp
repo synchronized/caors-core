@@ -19,6 +19,10 @@ namespace {
 
 source::~source() = default;
 
+error source::write(io::path_view, std::span<const std::byte>) {
+  return {error_domain::resources, errc::unsupported};
+}
+
 file_source::file_source(io::file_system& file_system) noexcept : file_system_(&file_system) {}
 
 io::file_system& file_source::file_system() const noexcept { return *file_system_; }
@@ -33,6 +37,14 @@ io::byte_buffer_result file_source::read(io::path_view location, memory_resource
   }
 
   return file_system_->read_all(location, resource);
+}
+
+error file_source::write(io::path_view location, std::span<const std::byte> bytes) {
+  if (file_system_ == nullptr) {
+    return {error_domain::resources, errc::backend_failure};
+  }
+
+  return file_system_->write_all(location, bytes);
 }
 
 provider::provider(memory_resource* resource)
@@ -106,6 +118,19 @@ io::byte_buffer_result provider::read(resource_guid guid, memory_resource* resou
   }
 
   return location.source->read(location.location, resource);
+}
+
+error provider::write(resource_guid guid, std::span<const std::byte> bytes) const {
+  if (!guid) {
+    return {error_domain::resources, errc::invalid_argument};
+  }
+
+  const source_location location = find(guid);
+  if (!location) {
+    return {error_domain::resources, errc::not_found};
+  }
+
+  return location.source->write(location.location, bytes);
 }
 
 } // namespace caors::resources

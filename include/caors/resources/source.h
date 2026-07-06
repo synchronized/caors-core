@@ -9,6 +9,7 @@
 #include "caors/resources/id.h"
 
 #include <cstddef>
+#include <span>
 #include <string_view>
 
 namespace caors::resources {
@@ -16,7 +17,8 @@ namespace caors::resources {
 /**
  * @brief 资源字节来源接口。
  *
- * `source` 只负责按字符串位置读取字节，不负责解析资源 GUID、缓存资源对象或决定异步策略。
+ * `source` 负责按字符串位置访问字节，不负责解析资源 GUID、缓存资源对象或决定异步策略。默认只读；
+ * 支持写入的实现应覆盖 `write()`。
  */
 class CAORS_API source {
 public:
@@ -34,6 +36,15 @@ public:
   /** @brief 读取指定位置的完整字节内容。 */
   [[nodiscard]] virtual io::byte_buffer_result read(io::path_view location,
                                                     memory_resource* resource = nullptr) = 0;
+
+  /** @brief 写入指定位置的完整字节内容；默认返回 `errc::unsupported`。 */
+  [[nodiscard]] virtual error write(io::path_view location, std::span<const std::byte> bytes);
+
+  /** @brief 写入指定位置的字符串内容。 */
+  [[nodiscard]] error write(io::path_view location, std::string_view text) {
+    return write(location, std::span<const std::byte>{
+                               reinterpret_cast<const std::byte*>(text.data()), text.size()});
+  }
 };
 
 /**
@@ -43,6 +54,8 @@ public:
  */
 class CAORS_API file_source final : public source {
 public:
+  using source::write;
+
   explicit file_source(io::file_system& file_system) noexcept;
 
   /** @brief 返回底层文件系统。 */
@@ -51,6 +64,7 @@ public:
   [[nodiscard]] bool exists(io::path_view location) const override;
   [[nodiscard]] io::byte_buffer_result read(io::path_view location,
                                             memory_resource* resource = nullptr) override;
+  [[nodiscard]] error write(io::path_view location, std::span<const std::byte> bytes) override;
 
 private:
   io::file_system* file_system_ = nullptr;
@@ -116,6 +130,15 @@ public:
   /** @brief 读取 GUID 对应位置的完整字节内容。 */
   [[nodiscard]] io::byte_buffer_result read(resource_guid guid,
                                             memory_resource* resource = nullptr) const;
+
+  /** @brief 写入 GUID 对应位置的完整字节内容。 */
+  [[nodiscard]] error write(resource_guid guid, std::span<const std::byte> bytes) const;
+
+  /** @brief 写入 GUID 对应位置的字符串内容。 */
+  [[nodiscard]] error write(resource_guid guid, std::string_view text) const {
+    return write(guid, std::span<const std::byte>{reinterpret_cast<const std::byte*>(text.data()),
+                                                  text.size()});
+  }
 
 private:
   struct entry {

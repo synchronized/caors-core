@@ -331,6 +331,7 @@ caors::resource_provider provider;
 provider.bind(texture_id, source, "assets/textures/albedo.png");
 
 caors::byte_buffer_result bytes = provider.read(texture_id);
+caors::error written = provider.write(texture_id, std::string_view{"new-bytes"});
 ```
 
 `resources::file_source` 把任意 `io::file_system` 适配成资源字节来源。因此本地目录、挂载文件系统、
@@ -340,7 +341,8 @@ caors::byte_buffer_result bytes = provider.read(texture_id);
 
 - `provider` 不拥有 source，调用方需要保证 source 生命周期。
 - `source_location::location` 是非拥有 `io::path_view`，provider 修改或销毁后失效。
-- `provider` 只负责定位和读取字节，不负责解码资源对象。
+- `provider` 只负责定位、读取和可选写入字节，不负责解码资源对象。
+- `source::write()` 默认返回 `errc::unsupported`；`file_source` 会转发到后端 `io::file_system::write_all()`。
 - `bind()` 会拒绝 nil GUID、空 location 和重复 GUID。
 - provider 未命中 GUID 返回 `error_domain::resources / errc::not_found`。
 - 具体 source 读取失败时，错误域保持来源模块语义，例如 `file_source` 可能返回 `error_domain::io`。
@@ -407,7 +409,7 @@ auto loaded = caors::load_into(cache, loader, texture_id);
 - 读写的资源类型仍需要完成 reflection 和 serialization 注册。
 - helper 只读写资源对象字段；资源 GUID 由外部资源数据库、路径或包索引维护，不写入资源对象本体。
 - `json_loader<T>` 不拥有 provider；provider、source 和底层 file_system 的生命周期由调用方保证。
-- `json_loader<T>` 当前只覆盖读取路径。保存到 provider / source 需要后续引入写入型 source 或 sink。
+- `json_loader<T>` 当前只覆盖读取路径；JSON saver 到 provider 的桥接仍需要后续补充。
 - 非默认构造、需要外部依赖或需要异步调度的资源应实现自定义 `loader<T>`。
 
 相关测试位于 `tests/resources/`，测试组织规则见 [tests/README.md](../tests/README.md)。
