@@ -449,6 +449,36 @@ caors::serialization::context context{0, &resolver};
 - 非空引用写出时无法映射到 id，或读入 id 找不到对象时返回 `errc::not_found`。
 - 读入对象不能转换为 `T*` 时返回 `errc::invalid_type`。
 
+### object handles
+
+`caors::objects::handle` 和 `caors::objects::typed_handle<T>` 表达已经存在的对象身份，而不是对象地址。
+它们序列化时不需要 `reference_resolver`，因为句柄本身已经保存 `object_id` 和 `object_type_id`：
+
+```json
+{
+  "target": {
+    "id": 42,
+    "type": 84
+  }
+}
+```
+
+反序列化时只恢复身份，不自动查询全局对象表，也不保证对象仍然存活。调用方需要显式交给
+`objects::manager`、场景数据库或资源系统解析：
+
+```cpp
+caors::objects::typed_handle<player> target;
+caors::deserialize_json(target_holder, text);
+
+if (player* current = manager.find(target)) {
+  // 句柄当前仍可解析。
+}
+```
+
+`objects::typed_handle<T>` 的反序列化行为和 `objects::handle` 一样，只写回 `{id,type}`。类型兼容性
+在后续解析阶段由 `objects::manager::find(typed_handle<T>)` 或上层 resolver 判断。这样可以避免读入
+数据时隐式访问全局状态，也避免序列化层决定对象生命周期。
+
 ### serialization codec
 
 `serialization::codec<T>` 是类型级扩展点。调度层读写非容器普通值时会按类型查询内部 codec 注册表；命中后
@@ -584,6 +614,7 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 | `std::reference_wrapper<T>` | 通过 `indirect_view` 访问已绑定的 `T` | 按内部 `T` 写出 | 只能写入已绑定对象，不能置空或重绑定 |
 | `std::weak_ptr<T>` | 只标记为不支持 wrapper，不展开 | 不支持 | 不支持 |
 | `objects::ptr<T>` | 作为对象指针类型，可通过 `objects::ptr_view_of(any_ref)` 识别 | 通过 resolver 写出 `object_id` 或 `object_guid` | 通过 resolver 从 `object_id` 或 `object_guid` 写回引用 |
+| `objects::handle`、`objects::typed_handle<T>` | 作为对象身份句柄，可通过 `objects::handle_view_of(any_ref)` 识别 | 写出 `{id,type}`，不访问 resolver | 读回 `{id,type}`，只恢复身份，不自动解析对象 |
 | 顺序容器、集合、关联容器 | 通过 `sequence_view`、`set_view`、`associative_view` 访问 | 支持已适配 traits 的类型 | 支持拥有型容器；新增元素或临时 key/value 不可构造时返回 `errc::invalid_type`；借用视图默认拒绝 |
 | `std::span<T>` / `std::span<T, N>` | 借用顺序视图，元素是否可写由 `T` 和字段可写性决定 | 支持，按数组写出 | 默认拒绝，避免决定 backing storage 生命周期 |
 | `std::array<T, N>` | 固定长度顺序视图 | 支持 | 支持，但输入长度必须等于 `N`；长度不匹配返回 `errc::invalid_argument` |
@@ -595,7 +626,7 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 - `std::weak_ptr<T>` 默认不展开内部值；如果需要弱引用序列化，应通过对象句柄、资源 id 或
   `objects::ptr<T>` 类似的显式引用语义处理。
 - 裸指针和普通智能指针按 inline value 处理，不保留对象身份、共享关系或对象图引用；需要身份保持时使用
-  `caors::objects::ptr<T>` 或后续对象句柄。
+  `caors::objects::ptr<T>`、`caors::objects::handle` 或 `caors::objects::typed_handle<T>`。
 - 未注册枚举可以通过 meta descriptor 在字段、`any` / `any_ref` 和容器元素路径上按底层整数读写；如果枚举需要稳定名称、GUID 或多态身份，仍应显式注册。
 - 容器、指针、wrapper、pair、tuple 和 variant 通过 meta descriptor 生成运行期视图，不要求每一种
   `std::vector<T>`、`std::map<K, V>` 或嵌套组合都注册为 meta 类型。元素或候选值如果需要稳定名称、

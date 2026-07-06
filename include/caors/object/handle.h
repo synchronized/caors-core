@@ -85,6 +85,62 @@ template <typename Lhs, typename Rhs>
   return !(lhs == rhs);
 }
 
+using handle_get_fn = basic_handle<untyped_handle_tag> (*)(const void*) noexcept;
+using handle_set_fn = bool (*)(void*, basic_handle<untyped_handle_tag>) noexcept;
+
+/** @brief 对象身份句柄类型和统一身份句柄之间的访问函数表。 */
+struct handle_data {
+  handle_get_fn get = nullptr;
+  handle_set_fn set = nullptr;
+
+  [[nodiscard]] bool valid() const noexcept { return get != nullptr && set != nullptr; }
+};
+
+template <typename T> struct handle_traits {
+  static constexpr bool is_handle = false;
+};
+
+template <typename T> struct handle_traits<basic_handle<T>> {
+  static constexpr bool is_handle = true;
+};
+
+template <typename T>
+[[nodiscard]] constexpr basic_handle<untyped_handle_tag>
+to_untyped_handle(basic_handle<T> source) noexcept {
+  if constexpr (typed_handle_type_v<T>) {
+    return source.handle();
+  } else {
+    return source;
+  }
+}
+
+template <typename T> [[nodiscard]] const handle_data* handle_data_ptr_of() {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (handle_traits<type>::is_handle) {
+    static const handle_data data{
+        [](const void* storage) noexcept -> basic_handle<untyped_handle_tag> {
+          if (storage == nullptr) {
+            return {};
+          }
+
+          return to_untyped_handle(*static_cast<const type*>(storage));
+        },
+        [](void* storage, basic_handle<untyped_handle_tag> value) noexcept -> bool {
+          if (storage == nullptr) {
+            return false;
+          }
+
+          static_cast<type*>(storage)->reset(value);
+          return true;
+        },
+    };
+
+    return data.valid() ? &data : nullptr;
+  } else {
+    return nullptr;
+  }
+}
+
 } // namespace detail
 
 /**

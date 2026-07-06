@@ -21,11 +21,12 @@ variant_result make_serialized_value(const any& data) {
       caors::value::detail::descriptor_of(data);
   if (descriptor != nullptr) {
     const meta::type_kind kind = meta::detail::descriptor_kind(*descriptor);
-    if (descriptor->object_ptr != nullptr || kind == meta::type_kind::raw_pointer ||
-        kind == meta::type_kind::wrapper || kind == meta::type_kind::enumeration ||
-        kind == meta::type_kind::sequence || kind == meta::type_kind::set ||
-        kind == meta::type_kind::associative || kind == meta::type_kind::pair ||
-        kind == meta::type_kind::tuple || kind == meta::type_kind::variant) {
+    if (descriptor->object_handle != nullptr || descriptor->object_ptr != nullptr ||
+        kind == meta::type_kind::raw_pointer || kind == meta::type_kind::wrapper ||
+        kind == meta::type_kind::enumeration || kind == meta::type_kind::sequence ||
+        kind == meta::type_kind::set || kind == meta::type_kind::associative ||
+        kind == meta::type_kind::pair || kind == meta::type_kind::tuple ||
+        kind == meta::type_kind::variant) {
       return make_serialized_value(data.ref(), serialization::context{});
     }
   }
@@ -100,6 +101,10 @@ variant_result make_serialized_value(const any_ref& value, const serialization::
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
+  if (type_uses_object_handle(value)) {
+    return make_object_handle_value(value);
+  }
+
   if (type_uses_object_ptr(value)) {
     return make_object_ptr_value(value, context);
   }
@@ -170,6 +175,10 @@ error write_serialized_value(writer& writer, const any_ref& value,
                              const serialization::context& context) {
   if (!value.valid()) {
     return {error_domain::serialization, errc::unsupported};
+  }
+
+  if (type_uses_object_handle(value)) {
+    return write_object_handle_value(writer, value);
   }
 
   if (type_uses_object_ptr(value)) {
@@ -246,6 +255,10 @@ error read_serialized_value(reader& reader, const any_ref& target,
                             const serialization::context& context) {
   if (!target.valid() || !target.writable() || target.mutable_data() == nullptr) {
     return {error_domain::serialization, errc::invalid_field};
+  }
+
+  if (type_uses_object_handle(target)) {
+    return read_object_handle_value(reader, target);
   }
 
   if (type_uses_object_ptr(target)) {

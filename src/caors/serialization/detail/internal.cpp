@@ -5,6 +5,7 @@
 #include "polymorphic.h"
 
 #include "caors/meta/detail/type_capabilities.h"
+#include "caors/object/handle_view.h"
 #include "caors/object/ptr_view.h"
 #include "caors/reflection/registry.h"
 
@@ -136,6 +137,50 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
   return {descriptor.ops.default_construct(), descriptor.ops.destroy};
 }
 
+[[nodiscard]] field_data object_handle_id_field() {
+  return serialization::make_field("id", {}, false, 1);
+}
+
+[[nodiscard]] field_data object_handle_type_field() {
+  return serialization::make_field("type", {}, false, 2);
+}
+
+[[nodiscard]] type_data object_handle_type_data() {
+  type_data data{};
+  data.fields.reserve(2);
+  data.fields.push_back(object_handle_id_field());
+  data.fields.push_back(object_handle_type_field());
+  return data;
+}
+
+[[nodiscard]] error write_u64_field(writer& writer, const field_data& field, std::uint64_t value) {
+  error status = writer.begin_field(field);
+  if (status) {
+    return status;
+  }
+
+  status = writer.write_u64(value);
+  if (status) {
+    return status;
+  }
+
+  return writer.end_field();
+}
+
+[[nodiscard]] error read_u64_field(reader& reader, const field_data& field, std::uint64_t& value) {
+  error status = reader.begin_field(field);
+  if (status) {
+    return status;
+  }
+
+  status = reader.read_u64(value);
+  if (status) {
+    return status;
+  }
+
+  return reader.end_field();
+}
+
 } // namespace
 
 [[nodiscard]] error read_size_value(reader& reader, std::size_t& value) {
@@ -198,8 +243,114 @@ descriptor_of_value(const any_ref& value) noexcept {
          meta::detail::descriptor_kind(*descriptor) == meta::type_kind::enumeration;
 }
 
+[[nodiscard]] bool type_uses_object_handle(const any_ref& value) noexcept {
+  return objects::is_handle(value);
+}
+
 [[nodiscard]] bool type_uses_object_ptr(const any_ref& value) noexcept {
   return objects::is_ptr(value);
+}
+
+[[nodiscard]] variant_result make_object_handle_identity_value(objects::handle value) {
+  variant::object_type members;
+  members.reserve(2);
+  members.push_back(value::variant_member{
+      core::string_name{"id"},
+      1,
+      variant::from(value.id().value()),
+  });
+  members.push_back(value::variant_member{
+      core::string_name{"type"},
+      2,
+      variant::from(value.type().value()),
+  });
+
+  return {{}, variant::object(std::move(members))};
+}
+
+[[nodiscard]] error write_object_handle_identity(writer& writer, objects::handle value) {
+  const type_data type = object_handle_type_data();
+  error status = writer.begin_object(type);
+  if (status) {
+    return status;
+  }
+
+  status = write_u64_field(writer, type.fields[0], value.id().value());
+  if (status) {
+    return status;
+  }
+
+  status = write_u64_field(writer, type.fields[1], value.type().value());
+  if (status) {
+    return status;
+  }
+
+  return writer.end_object();
+}
+
+[[nodiscard]] error read_object_handle_identity(reader& reader, objects::handle& value) {
+  const type_data type = object_handle_type_data();
+  error status = reader.begin_object(type);
+  if (status) {
+    return status;
+  }
+
+  std::uint64_t id = 0;
+  status = read_u64_field(reader, type.fields[0], id);
+  if (status) {
+    return status;
+  }
+
+  std::uint64_t object_type = 0;
+  status = read_u64_field(reader, type.fields[1], object_type);
+  if (status) {
+    return status;
+  }
+
+  status = reader.end_object();
+  if (status) {
+    return status;
+  }
+
+  value = objects::handle{object_id{id}, object_type_id{object_type}};
+  return {};
+}
+
+[[nodiscard]] variant_result make_object_handle_value(const any_ref& value) {
+  const objects::handle_view object_handle = objects::handle_view_of(value);
+  if (!object_handle) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
+  }
+
+  return make_object_handle_identity_value(object_handle.get());
+}
+
+[[nodiscard]] error write_object_handle_value(writer& writer, const any_ref& value) {
+  const objects::handle_view object_handle = objects::handle_view_of(value);
+  if (!object_handle) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  return write_object_handle_identity(writer, object_handle.get());
+}
+
+[[nodiscard]] error read_object_handle_value(reader& reader, const any_ref& target) {
+  const objects::handle_view object_handle = objects::handle_view_of(target);
+  if (!object_handle || !object_handle.writable() || target.mutable_data() == nullptr) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  objects::handle value{};
+  error status = read_object_handle_identity(reader, value);
+  if (status) {
+    return status;
+  }
+
+  if (!object_handle.set(value)) {
+    return {error_domain::serialization, errc::invalid_type};
+  }
+
+  return {};
 }
 
 [[nodiscard]] variant_result make_object_ptr_identity_value(const object* referenced,

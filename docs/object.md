@@ -178,7 +178,7 @@ if (player* current = manager.find(typed)) {
 因此三类对象引用语义的边界是：
 
 - `objects::ptr<T>`：保存地址，适合短期直接访问，不拥有对象。
-- `objects::handle` / `objects::typed_handle<T>`：保存身份，适合 manager、world、场景树或序列化关系，必须通过 resolver 解析。
+- `objects::handle` / `objects::typed_handle<T>`：保存身份，适合 manager、world、场景树或序列化关系，必须通过 manager、对象数据库或资源系统解析。
 - `objects::ref<T>` / `objects::weak_ref<T>`：保存引用计数所有权或弱观察关系，只管理 `objects::make_ref<T>()` 创建的对象。
 
 ### 对象引用计数

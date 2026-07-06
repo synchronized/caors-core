@@ -7,6 +7,7 @@
 #include "caors/object/base.h"
 #include "caors/object/factory.h"
 #include "caors/object/handle.h"
+#include "caors/object/handle_view.h"
 #include "caors/object/id.h"
 #include "caors/object/index.h"
 #include "caors/object/manager.h"

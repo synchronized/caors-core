@@ -8,6 +8,7 @@
 #include "caors/meta/detail/container_iterators.h"
 #include "caors/meta/type.h"
 #include "caors/meta/type_semantics.h"
+#include "caors/object/handle.h"
 #include "caors/object/ptr.h"
 
 #include <cstddef>
@@ -73,12 +74,13 @@ struct type_descriptor {
   value_ops ops{};
   type_semantics semantics{};
   type_capabilities capabilities{};
+  const objects::detail::handle_data* object_handle = nullptr;
   const objects::detail::ptr_data* object_ptr = nullptr;
 
   [[nodiscard]] bool valid() const noexcept { return type && layout.valid(); }
 
   [[nodiscard]] bool has_view_capability() const noexcept {
-    if (object_ptr != nullptr) {
+    if (object_handle != nullptr || object_ptr != nullptr) {
       return true;
     }
 
@@ -285,6 +287,11 @@ template <typename T> [[nodiscard]] const indirect_data* indirect_data_ptr_of() 
 template <typename T> [[nodiscard]] const objects::detail::ptr_data* ptr_data_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   return objects::detail::ptr_data_ptr_of<type>();
+}
+
+template <typename T> [[nodiscard]] const objects::detail::handle_data* handle_data_ptr_of() {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  return objects::detail::handle_data_ptr_of<type>();
 }
 
 template <typename T> [[nodiscard]] const sequence_data* sequence_data_ptr_of() {
@@ -734,6 +741,7 @@ template <typename T> struct descriptor_holder {
     };
     fill_descriptor_semantics<type>(descriptor);
     descriptor.capabilities = type_capabilities_of<type>();
+    descriptor.object_handle = handle_data_ptr_of<type>();
     descriptor.object_ptr = ptr_data_ptr_of<type>();
     return descriptor;
   }();
