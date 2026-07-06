@@ -206,6 +206,39 @@ template <typename T>
   return serialization::serialize(value, writer, context);
 }
 
+/**
+ * @brief 基于 `resources::provider` 的 JSON 资源保存器。
+ *
+ * `json_saver<T>` 通过 `save_serialized<T>()` 把资源对象写成 JSON 文本，再按资源 GUID 通过 provider
+ * 写回已绑定位置。它不拥有 provider，调用方需要保证 provider 和底层 source 生命周期。
+ */
+template <typename T> class json_saver final : public saver<T> {
+  static_assert(std::is_base_of_v<resources::resource, T>,
+                "T must derive from caors::resources::resource");
+
+public:
+  using resource_type = T;
+
+  explicit json_saver(const provider& provider,
+                      serialization::context context = serialization::context{})
+      : provider_(&provider), context_(context) {}
+
+  [[nodiscard]] error save(const resource_type& value) override {
+    core::string output{allocator<char>{provider_->resource()}};
+    serialization::json_writer writer{output};
+    const error status = save_serialized(value, writer, context_);
+    if (status) {
+      return status;
+    }
+
+    return provider_->write(value.guid(), std::string_view{output.data(), output.size()});
+  }
+
+private:
+  const provider* provider_ = nullptr;
+  serialization::context context_{};
+};
+
 /** @brief 从序列化 DOM 导入资源清单。导入会新增或替换 target 中的条目，不会清空已有条目。 */
 [[nodiscard]] CAORS_API error load_manifest(manifest& target, const variant& value);
 
@@ -223,6 +256,7 @@ namespace caors {
 
 template <typename T> using resource_load_result = resources::load_result<T>;
 template <typename T> using resource_json_loader = resources::json_loader<T>;
+template <typename T> using resource_json_saver = resources::json_saver<T>;
 template <typename T> using resource_loader = resources::loader<T>;
 template <typename T> using resource_saver = resources::saver<T>;
 

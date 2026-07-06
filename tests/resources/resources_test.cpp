@@ -810,6 +810,59 @@ TEST_CASE("resources - json loader loads resource through provider", "[resources
   std::filesystem::remove_all(directory, ec);
 }
 
+TEST_CASE("resources - json saver saves resource through provider", "[resources]") {
+  require_serialized_resource_metadata();
+
+  caors::memory_file_system files;
+  caors::resource_file_source source{files};
+  caors::resource_provider provider;
+  REQUIRE(provider.bind(test_guid_a, source, "assets/resource.json").succeeded());
+
+  serialized_resource value{test_guid_a};
+  value.width = 640;
+
+  caors::resource_json_saver<serialized_resource> saver{provider};
+  REQUIRE(saver.save(value).succeeded());
+
+  caors::byte_buffer_result bytes = files.read_all("assets/resource.json");
+  REQUIRE(bytes.succeeded());
+  CHECK(std::string_view{reinterpret_cast<const char*>(bytes.value.data()), bytes.value.size()} ==
+        R"({"width":640})");
+
+  caors::resource_json_loader<serialized_resource> loader{provider};
+  caors::resource_cache<serialized_resource> cache;
+  caors::result<serialized_resource*> loaded = caors::load_into(cache, loader, test_guid_a);
+
+  REQUIRE(loaded.succeeded());
+  REQUIRE(loaded.value != nullptr);
+  CHECK(loaded.value->guid() == test_guid_a);
+  CHECK(loaded.value->width == 640);
+}
+
+TEST_CASE("resources - json saver reports invalid and missing targets", "[resources]") {
+  require_serialized_resource_metadata();
+
+  caors::memory_file_system files;
+  caors::resource_file_source source{files};
+  caors::resource_provider provider;
+  REQUIRE(provider.bind(test_guid_a, source, "assets/resource.json").succeeded());
+
+  caors::resource_json_saver<serialized_resource> saver{provider};
+
+  serialized_resource invalid_resource{};
+  caors::error invalid = saver.save(invalid_resource);
+  REQUIRE(invalid.failed());
+  CHECK(invalid.domain() == caors::error_domain::resources);
+  CHECK(invalid.value() == caors::errc::invalid_argument);
+
+  serialized_resource missing_resource{test_guid_b};
+  missing_resource.width = 7;
+  caors::error missing = saver.save(missing_resource);
+  REQUIRE(missing.failed());
+  CHECK(missing.domain() == caors::error_domain::resources);
+  CHECK(missing.value() == caors::errc::not_found);
+}
+
 TEST_CASE("resources - json loader reports parse failures", "[resources]") {
   const std::filesystem::path directory = make_temp_dir();
   const std::filesystem::path file = directory / "invalid.json";

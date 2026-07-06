@@ -50,6 +50,7 @@
 - `resources::loader<T>`
 - `resources::json_loader<T>`
 - `resources::saver<T>`
+- `resources::json_saver<T>`
 
 根命名空间保留常用别名：
 
@@ -68,6 +69,7 @@
 - `caors::resource_loader<T>`
 - `caors::resource_json_loader<T>`
 - `caors::resource_saver<T>`
+- `caors::resource_json_saver<T>`
 - `caors::bind_manifest()`
 
 ## resource_guid
@@ -403,13 +405,23 @@ caors::resource_cache<texture> cache;
 auto loaded = caors::load_into(cache, loader, texture_id);
 ```
 
+`resources::json_saver<T>` 是资源对象到 provider 的同步 JSON 保存桥接。它会把资源对象字段序列化为
+JSON 文本，再按资源 GUID 写回 provider 已绑定的位置：
+
+```cpp
+caors::resource_json_saver<texture> saver{provider};
+caors::error saved = saver.save(*loaded.value);
+```
+
 需要注意：
 
 - `load_serialized<T>()` 要求 `T` 派生自 `resources::resource` 且可默认构造。
 - 读写的资源类型仍需要完成 reflection 和 serialization 注册。
 - helper 只读写资源对象字段；资源 GUID 由外部资源数据库、路径或包索引维护，不写入资源对象本体。
-- `json_loader<T>` 不拥有 provider；provider、source 和底层 file_system 的生命周期由调用方保证。
-- `json_loader<T>` 当前只覆盖读取路径；JSON saver 到 provider 的桥接仍需要后续补充。
+- `json_loader<T>` 和 `json_saver<T>` 不拥有 provider；provider、source 和底层 file_system 的生命周期
+  由调用方保证。
+- `json_saver<T>` 要求资源携带非 nil GUID，且 provider 中已有对应 GUID 绑定；绑定到只读 source 时会返回
+  `errc::unsupported`。
 - 非默认构造、需要外部依赖或需要异步调度的资源应实现自定义 `loader<T>`。
 
 相关测试位于 `tests/resources/`，测试组织规则见 [tests/README.md](../tests/README.md)。
