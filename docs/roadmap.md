@@ -135,7 +135,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 建立 engine-agnostic 资源核心层文档边界：资源表示可持久化、可缓存、可复用资产，对象表示当前运行期实例。
 - [x] 定义 `resources::resource`、`resource_guid` 和 `resources::ref<T>` 基础身份与轻量引用模型。
 - [x] 提供非拥有 `resources::manager` 资源索引，支持按 `resource_guid` 绑定、查找、解绑、清空和解析 `resources::ref<T>`。
-- [ ] 扩展 `resources::manager` 的拥有式缓存、加载、卸载和失效处理策略，并明确生命周期与线程安全边界。
+- [x] 提供 `resources::cache<T>` 拥有式资源缓存，支持按 `resource_guid` 创建、持有、释放、销毁和解析资源引用。
+- [ ] 扩展资源加载、卸载、依赖关系和失效处理策略，并明确生命周期与线程安全边界。
 - [x] 提供 `core::locator<T>` 可选全局服务定位器，用于定位默认资源管理器、文件系统、配置服务等进程级服务，并明确注册、重置和测试隔离规则。
 - [ ] 设计 `resources::loader` / `resources::saver` 接口，先基于 serialization 完成最小读写流程，为文件系统、资源包和异步加载预留扩展点。
 - [ ] 打通资源引用序列化 resolver，支持资源依赖关系和稳定 GUID 引用。

@@ -4,6 +4,7 @@
 #include "caors/resources.h"
 
 #include "caors/core/containers.h"
+#include "caors/memory/tracking.h"
 
 #include <catch2/catch_all.hpp>
 
@@ -25,6 +26,15 @@ public:
 class image_texture_resource : public texture_resource {
 public:
   using texture_resource::texture_resource;
+};
+
+class observed_resource : public caors::resource {
+public:
+  using caors::resource::resource;
+
+  ~observed_resource() override { ++destroyed; }
+
+  inline static int destroyed = 0;
 };
 
 } // namespace
@@ -216,4 +226,88 @@ TEST_CASE("resources - manager resolves resource refs", "[resources]") {
 
   caors::resources::ref<texture_resource> missing{caors::resource_guid::nil()};
   CHECK_FALSE(manager.resolve(missing));
+}
+
+TEST_CASE("resources - cache creates and indexes resources", "[resources]") {
+  caors::resource_cache<texture_resource> cache;
+
+  texture_resource* texture = cache.create(test_guid_a);
+  REQUIRE(texture != nullptr);
+
+  CHECK(cache.size() == 1);
+  CHECK(cache.contains(test_guid_a));
+  CHECK(texture->guid() == test_guid_a);
+  CHECK(cache.find(test_guid_a) == texture);
+  CHECK(cache.find_as<texture_resource>(test_guid_a) == texture);
+  CHECK(cache.index().find(test_guid_a) == texture);
+}
+
+TEST_CASE("resources - cache rejects invalid duplicate and mismatched resources", "[resources]") {
+  caors::resource_cache<texture_resource> cache;
+
+  CHECK(cache.create(caors::resource_guid::nil()) == nullptr);
+  REQUIRE(cache.create(test_guid_a) != nullptr);
+
+  CHECK(cache.create(test_guid_a) == nullptr);
+  CHECK(cache.create(test_guid_b, test_guid_a) == nullptr);
+  CHECK_FALSE(cache.contains(test_guid_b));
+}
+
+TEST_CASE("resources - cache resolves refs through internal manager", "[resources]") {
+  caors::resource_cache<image_texture_resource> cache;
+  image_texture_resource* image = cache.create(test_guid_a);
+  REQUIRE(image != nullptr);
+
+  caors::resource_ref<texture_resource> base_ref{test_guid_a};
+  REQUIRE(cache.resolve(base_ref));
+
+  CHECK(base_ref.resolved());
+  CHECK(base_ref.get() == image);
+
+  caors::resources::ref<image_texture_resource> derived_ref{test_guid_a};
+  REQUIRE(cache.resolve(derived_ref));
+  CHECK(derived_ref.get() == image);
+}
+
+TEST_CASE("resources - cache erase destroys owned resource", "[resources]") {
+  observed_resource::destroyed = 0;
+
+  caors::resource_cache<observed_resource> cache;
+  REQUIRE(cache.create(test_guid_a) != nullptr);
+
+  CHECK(cache.erase(test_guid_a));
+
+  CHECK(observed_resource::destroyed == 1);
+  CHECK(cache.empty());
+  CHECK(cache.index().find(test_guid_a) == nullptr);
+  CHECK_FALSE(cache.erase(test_guid_a));
+}
+
+TEST_CASE("resources - cache release transfers ownership", "[resources]") {
+  observed_resource::destroyed = 0;
+
+  caors::resource_cache<observed_resource> cache;
+  REQUIRE(cache.create(test_guid_a) != nullptr);
+
+  auto released = cache.release(test_guid_a);
+
+  REQUIRE(released != nullptr);
+  CHECK(cache.empty());
+  CHECK(cache.index().find(test_guid_a) == nullptr);
+  CHECK(released->guid() == test_guid_a);
+  CHECK(observed_resource::destroyed == 0);
+
+  released.reset();
+  CHECK(observed_resource::destroyed == 1);
+}
+
+TEST_CASE("resources - cache uses requested memory resource", "[resources]") {
+  caors::tracking_resource tracking(&caors::get_system_memory_resource());
+  caors::resource_cache<texture_resource> cache{&tracking};
+
+  REQUIRE(cache.create(test_guid_a) != nullptr);
+
+  CHECK(cache.resource() == &tracking);
+  CHECK(cache.index().resource() == &tracking);
+  CHECK(tracking.statistics().allocation_count > 0);
 }

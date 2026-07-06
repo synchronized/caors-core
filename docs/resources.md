@@ -3,8 +3,8 @@
 
 # Resources
 
-本文档说明 CAORS 资源系统的当前设计边界。资源系统仍处于最小核心阶段，当前只提供资源身份和轻量引用模型，
-后续再补管理器、加载器、缓存和序列化 resolver。
+本文档说明 CAORS 资源系统的当前设计边界。资源系统仍处于基础阶段，当前提供资源身份、轻量引用模型、
+非拥有资源索引和拥有式缓存；加载器、保存器和序列化 resolver 后续再补。
 
 ## 设计目标
 
@@ -14,6 +14,7 @@
 - 资源对象可以保存自己的稳定身份。
 - 资源引用可以先保存 GUID，在资源加载后再解析成实际资源指针。
 - 资源管理器可以保存非拥有索引，用 GUID 定位已经存在的资源对象。
+- 资源缓存可以按 GUID 拥有资源对象，并复用 manager 做查找和引用解析。
 - 底层资源模型不绑定具体引擎、文件系统、异步加载框架或编辑器管线。
 
 当前不会实现：
@@ -35,6 +36,7 @@
 - `resources::resource`
 - `resources::ref<T>`
 - `resources::manager`
+- `resources::cache<T>`
 
 根命名空间保留常用别名：
 
@@ -43,6 +45,7 @@
 - `caors::resource`
 - `caors::resource_ref<T>`
 - `caors::resource_manager`
+- `caors::resource_cache<T>`
 
 ## resource_guid
 
@@ -132,5 +135,30 @@ if (manager.resolve(reference)) {
 - `unbind()` 和 `clear()` 只清理索引，不修改资源对象自身 GUID。
 - 跨线程访问时调用方需要自行同步。
 - 后续拥有式缓存、加载、卸载、失效通知和异步策略应在 manager 之上继续扩展，而不是由当前非拥有索引隐式完成。
+
+## cache
+
+`resources::cache<T>` 是拥有式资源缓存。它按 `resource_guid` 创建并持有 `T` 资源对象，同时维护一个
+内部 `resources::manager` 作为非拥有索引：
+
+```cpp
+caors::resource_cache<texture> cache;
+
+texture* value = cache.create(id);
+caors::resource_ref<texture> reference{id};
+
+if (cache.resolve(reference)) {
+  texture* current = reference.get();
+}
+```
+
+需要注意：
+
+- `cache<T>` 拥有它创建的资源，`erase()` 和 `clear()` 会销毁资源。
+- `release()` 会从缓存和索引中移除资源，并把所有权交给调用方。
+- `create(guid, args...)` 会使用缓存的 `memory_resource` 构造资源；nil GUID、重复 GUID 或构造后资源
+  GUID 与传入 GUID 不一致都会失败。
+- `cache<T>` 当前不负责从磁盘、网络或资源包加载内容；后续 loader 层会决定如何构造资源。
+- `cache<T>` 不提供内部线程同步；跨线程访问时调用方需要自行加锁。
 
 相关测试位于 `tests/resources/`，测试组织规则见 [tests/README.md](../tests/README.md)。
