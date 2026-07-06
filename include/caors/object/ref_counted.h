@@ -14,12 +14,87 @@
 namespace caors::objects {
 
 template <typename T> class strong_ref;
+template <typename T> class weak_ref;
+
+template <typename T, typename... Args>
+[[nodiscard]] strong_ref<T> make_ref(memory_resource* resource, Args&&... args);
+
+namespace detail {
+
+using ref_destroy_fn = void (*)(void* instance, memory_resource* resource) noexcept;
+
+struct ref_control_block {
+  ref_control_block(memory_resource* object_resource, memory_resource* control_resource,
+                    ref_destroy_fn destroy) noexcept
+      : object_resource(object_resource), control_resource(control_resource), destroy(destroy) {}
+
+  std::atomic<std::size_t> strong_count{0};
+  std::atomic<std::size_t> weak_count{1};
+  memory_resource* object_resource = nullptr;
+  memory_resource* control_resource = nullptr;
+  ref_destroy_fn destroy = nullptr;
+  void* instance = nullptr;
+};
+
+inline void destroy_ref_control_block(ref_control_block* control) noexcept {
+  memory_resource* resource = control->control_resource;
+  caors::destroy(control, resource);
+}
+
+inline void add_strong_ref(ref_control_block* control) noexcept {
+  control->strong_count.fetch_add(1, std::memory_order_relaxed);
+}
+
+[[nodiscard]] inline bool try_add_strong_ref(ref_control_block* control) noexcept {
+  std::size_t current = control->strong_count.load(std::memory_order_acquire);
+  while (current != 0) {
+    if (control->strong_count.compare_exchange_weak(current, current + 1, std::memory_order_acq_rel,
+                                                    std::memory_order_acquire)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+[[nodiscard]] inline bool release_strong_ref(ref_control_block* control) noexcept {
+  std::size_t current = control->strong_count.load(std::memory_order_acquire);
+  while (current != 0) {
+    if (control->strong_count.compare_exchange_weak(current, current - 1, std::memory_order_acq_rel,
+                                                    std::memory_order_acquire)) {
+      return current == 1;
+    }
+  }
+
+  return false;
+}
+
+inline void add_weak_ref(ref_control_block* control) noexcept {
+  control->weak_count.fetch_add(1, std::memory_order_relaxed);
+}
+
+inline void release_weak_ref(ref_control_block* control) noexcept {
+  if (control->weak_count.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+    destroy_ref_control_block(control);
+  }
+}
+
+[[nodiscard]] inline std::size_t strong_ref_count(const ref_control_block* control) noexcept {
+  return control != nullptr ? control->strong_count.load(std::memory_order_acquire) : 0;
+}
+
+template <typename T>
+void destroy_ref_counted_instance(void* instance, memory_resource* resource) noexcept {
+  objects::destroy(static_cast<T*>(instance), resource);
+}
+
+} // namespace detail
 
 /**
  * @brief 可选侵入式引用计数基类。
  *
- * 继承该类型的对象可以由 `objects::strong_ref<T>` 管理强引用计数。计数本身使用原子变量，保证强引用
- * 增减操作可跨线程执行；这不表示对象内部状态具备线程安全访问能力。
+ * 继承该类型的对象可以由 `objects::strong_ref<T>` 和 `objects::weak_ref<T>` 管理引用计数。计数位于
+ * 独立控制块中，因此对象销毁后弱引用仍可安全判断失效；这不表示对象内部状态具备线程安全访问能力。
  */
 class ref_counted {
 public:
@@ -29,7 +104,7 @@ public:
 
   /** @brief 当前强引用数量。 */
   [[nodiscard]] std::size_t use_count() const noexcept {
-    return strong_count_.load(std::memory_order_acquire);
+    return detail::strong_ref_count(control_);
   }
 
   /** @brief 当前是否只有一个强引用。 */
@@ -40,22 +115,13 @@ protected:
 
 private:
   template <typename T> friend class strong_ref;
+  template <typename T> friend class weak_ref;
+  template <typename T, typename... Args>
+  friend strong_ref<T> make_ref(memory_resource* resource, Args&&... args);
 
-  void add_strong_ref() const noexcept { strong_count_.fetch_add(1, std::memory_order_relaxed); }
+  void bind_control_block(detail::ref_control_block* control) noexcept { control_ = control; }
 
-  [[nodiscard]] bool release_strong_ref() const noexcept {
-    std::size_t current = strong_count_.load(std::memory_order_acquire);
-    while (current != 0) {
-      if (strong_count_.compare_exchange_weak(current, current - 1, std::memory_order_acq_rel,
-                                              std::memory_order_acquire)) {
-        return current == 1;
-      }
-    }
-
-    return false;
-  }
-
-  mutable std::atomic<std::size_t> strong_count_{0};
+  detail::ref_control_block* control_ = nullptr;
 };
 
 /**
@@ -76,13 +142,13 @@ public:
   strong_ref(std::nullptr_t) noexcept {}
 
   strong_ref(const strong_ref& other) noexcept
-      : instance_(other.instance_), resource_(other.resource_) {
+      : instance_(other.instance_), control_(other.control_) {
     retain();
   }
 
-  strong_ref(strong_ref&& other) noexcept : instance_(other.instance_), resource_(other.resource_) {
+  strong_ref(strong_ref&& other) noexcept : instance_(other.instance_), control_(other.control_) {
     other.instance_ = nullptr;
-    other.resource_ = nullptr;
+    other.control_ = nullptr;
   }
 
   ~strong_ref() { release(); }
@@ -104,9 +170,9 @@ public:
 
     release();
     instance_ = other.instance_;
-    resource_ = other.resource_;
+    control_ = other.control_;
     other.instance_ = nullptr;
-    other.resource_ = nullptr;
+    other.control_ = nullptr;
     return *this;
   }
 
@@ -131,7 +197,7 @@ public:
   void swap(strong_ref& other) noexcept {
     using std::swap;
     swap(instance_, other.instance_);
-    swap(resource_, other.resource_);
+    swap(control_, other.control_);
   }
 
   friend bool operator==(const strong_ref& lhs, std::nullptr_t) noexcept {
@@ -151,38 +217,172 @@ public:
   }
 
 private:
+  template <typename U> friend class weak_ref;
+
   template <typename Object, typename... Args>
   friend strong_ref<Object> make_ref(memory_resource* resource, Args&&... args);
 
   struct adopt_tag {};
+  struct retained_tag {};
 
-  strong_ref(T* instance, memory_resource* resource, adopt_tag) noexcept
-      : instance_(instance), resource_(resource) {
+  strong_ref(T* instance, detail::ref_control_block* control, adopt_tag) noexcept
+      : instance_(instance), control_(control) {
     retain();
   }
 
+  strong_ref(T* instance, detail::ref_control_block* control, retained_tag) noexcept
+      : instance_(instance), control_(control) {}
+
   void retain() noexcept {
-    if (instance_ != nullptr) {
-      instance_->add_strong_ref();
+    if (control_ != nullptr) {
+      detail::add_strong_ref(control_);
     }
   }
 
   void release() noexcept {
     T* instance = instance_;
-    memory_resource* resource = resource_;
+    detail::ref_control_block* control = control_;
     instance_ = nullptr;
-    resource_ = nullptr;
+    control_ = nullptr;
 
-    if (instance != nullptr && instance->release_strong_ref()) {
-      objects::destroy(instance, resource);
+    if (control != nullptr && detail::release_strong_ref(control)) {
+      control->instance = nullptr;
+      control->destroy(instance, control->object_resource);
+      detail::release_weak_ref(control);
     }
   }
 
   T* instance_ = nullptr;
-  memory_resource* resource_ = nullptr;
+  detail::ref_control_block* control_ = nullptr;
 };
 
 template <typename T> void swap(strong_ref<T>& lhs, strong_ref<T>& rhs) noexcept { lhs.swap(rhs); }
+
+/**
+ * @brief 引用计数对象的弱引用。
+ *
+ * `weak_ref<T>` 不延长对象生命周期。对象仍存活时可通过 `lock()` 尝试提升为 `strong_ref<T>`；
+ * 最后一个强引用释放后，`lock()` 返回空强引用。
+ */
+template <typename T> class weak_ref {
+  static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
+  static_assert(std::is_base_of_v<ref_counted, T>,
+                "T must derive from caors::objects::ref_counted");
+  static_assert(!std::is_const_v<T>, "T must not be const");
+
+public:
+  weak_ref() noexcept = default;
+  weak_ref(std::nullptr_t) noexcept {}
+
+  weak_ref(const strong_ref<T>& strong) noexcept
+      : instance_(strong.instance_), control_(strong.control_) {
+    retain();
+  }
+
+  weak_ref(const weak_ref& other) noexcept : instance_(other.instance_), control_(other.control_) {
+    retain();
+  }
+
+  weak_ref(weak_ref&& other) noexcept : instance_(other.instance_), control_(other.control_) {
+    other.instance_ = nullptr;
+    other.control_ = nullptr;
+  }
+
+  ~weak_ref() { release(); }
+
+  weak_ref& operator=(const strong_ref<T>& strong) noexcept {
+    weak_ref copy{strong};
+    swap(copy);
+    return *this;
+  }
+
+  weak_ref& operator=(const weak_ref& other) noexcept {
+    if (this == &other) {
+      return *this;
+    }
+
+    weak_ref copy{other};
+    swap(copy);
+    return *this;
+  }
+
+  weak_ref& operator=(weak_ref&& other) noexcept {
+    if (this == &other) {
+      return *this;
+    }
+
+    release();
+    instance_ = other.instance_;
+    control_ = other.control_;
+    other.instance_ = nullptr;
+    other.control_ = nullptr;
+    return *this;
+  }
+
+  /** @brief 当前对象的强引用数量。空引用或已失效引用返回 0。 */
+  [[nodiscard]] std::size_t use_count() const noexcept {
+    return detail::strong_ref_count(control_);
+  }
+
+  /** @brief 判断对象是否已经失效。 */
+  [[nodiscard]] bool expired() const noexcept { return use_count() == 0; }
+
+  /** @brief 尝试提升为强引用。对象已经销毁时返回空强引用。 */
+  [[nodiscard]] strong_ref<T> lock() const noexcept {
+    if (control_ == nullptr || !detail::try_add_strong_ref(control_)) {
+      return {};
+    }
+
+    return strong_ref<T>{instance_, control_, typename strong_ref<T>::retained_tag{}};
+  }
+
+  /** @brief 判断当前是否仍能提升为强引用。 */
+  [[nodiscard]] explicit operator bool() const noexcept { return !expired(); }
+
+  /** @brief 释放当前弱引用。 */
+  void reset(std::nullptr_t = nullptr) noexcept { release(); }
+
+  /** @brief 交换两个弱引用。 */
+  void swap(weak_ref& other) noexcept {
+    using std::swap;
+    swap(instance_, other.instance_);
+    swap(control_, other.control_);
+  }
+
+  friend bool operator==(const weak_ref& lhs, std::nullptr_t) noexcept {
+    return lhs.control_ == nullptr || lhs.expired();
+  }
+
+  friend bool operator==(std::nullptr_t, const weak_ref& rhs) noexcept {
+    return rhs.control_ == nullptr || rhs.expired();
+  }
+
+  friend bool operator!=(const weak_ref& lhs, std::nullptr_t) noexcept { return !(lhs == nullptr); }
+
+  friend bool operator!=(std::nullptr_t, const weak_ref& rhs) noexcept { return !(nullptr == rhs); }
+
+private:
+  void retain() noexcept {
+    if (control_ != nullptr) {
+      detail::add_weak_ref(control_);
+    }
+  }
+
+  void release() noexcept {
+    detail::ref_control_block* control = control_;
+    instance_ = nullptr;
+    control_ = nullptr;
+
+    if (control != nullptr) {
+      detail::release_weak_ref(control);
+    }
+  }
+
+  T* instance_ = nullptr;
+  detail::ref_control_block* control_ = nullptr;
+};
+
+template <typename T> void swap(weak_ref<T>& lhs, weak_ref<T>& rhs) noexcept { lhs.swap(rhs); }
 
 /** @brief 使用指定内存资源创建引用计数对象并返回强引用。 */
 template <typename T, typename... Args>
@@ -191,12 +391,25 @@ template <typename T, typename... Args>
   static_assert(std::is_base_of_v<ref_counted, T>,
                 "T must derive from caors::objects::ref_counted");
 
-  T* instance = objects::create<T>(resource, std::forward<Args>(args)...);
-  if (instance == nullptr) {
-    return {};
-  }
+  memory_resource* resolved = resource != nullptr ? resource : get_default_memory_resource();
+  auto* control = caors::make<detail::ref_control_block>(resolved, resolved, resolved,
+                                                         &detail::destroy_ref_counted_instance<T>);
 
-  return strong_ref<T>{instance, resource, typename strong_ref<T>::adopt_tag{}};
+#if CAORS_HAS_EXCEPTIONS
+  try {
+#endif
+    T* instance = objects::create<T>(resolved, std::forward<Args>(args)...);
+    instance->bind_control_block(control);
+    control->instance = instance;
+    return strong_ref<T>{instance, control, typename strong_ref<T>::adopt_tag{}};
+#if CAORS_HAS_EXCEPTIONS
+  } catch (...) {
+    caors::destroy(control, resolved);
+    throw;
+  }
+#endif
+
+  return {};
 }
 
 /** @brief 使用默认内存资源创建引用计数对象并返回强引用。 */

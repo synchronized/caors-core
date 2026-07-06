@@ -18,7 +18,8 @@ CAORS 对象系统第一阶段只解决几件事：
 
 当前不会实现：
 
-- GC 或引用计数。
+- GC。
+- manager 感知的引用计数回收策略。
 - 脚本绑定。
 - 信号事件系统。
 - 属性字段反射。
@@ -32,8 +33,8 @@ CAORS 对象系统第一阶段只解决几件事：
 
 对象系统的主定义位于 `caors::objects` 命名空间，例如 `objects::object`、`objects::object_id`、
 `objects::object_base<T>`、`objects::type`、`objects::handle`、
-`objects::weak_handle<T>`、`objects::ref<T>`、`objects::registry`、`objects::object_index` 和
-`objects::manager`。
+`objects::weak_handle<T>`、`objects::ref<T>`、`objects::ref_counted`、`objects::strong_ref<T>`、
+`objects::weak_ref<T>`、`objects::registry`、`objects::object_index` 和 `objects::manager`。
 
 为了保持常用 API 简洁，根命名空间保留兼容别名：`caors::object`、`caors::object_id`、
 `caors::object_type_id`、`caors::object_base<T>`、`caors::object_ref<T>` 和
@@ -168,7 +169,9 @@ caors::objects::handle handle{instance.id(), instance.type_id()};
 
 第一阶段提供侵入式引用计数基础设施。对象类型显式继承 `objects::ref_counted`，并通过
 `objects::make_ref<T>()` 创建由 `objects::strong_ref<T>` 拥有的对象。强引用在构造、拷贝、移动、析构和
-`reset()` 时维护计数；最后一个强引用释放时，会按创建时传入的 `memory_resource` 销毁对象：
+`reset()` 时维护计数；最后一个强引用释放时，会按创建时传入的 `memory_resource` 销毁对象。
+弱引用使用 `objects::weak_ref<T>` 表达，它不延长对象生命周期；对象仍存活时可以通过 `lock()`
+尝试提升为强引用，对象销毁后 `lock()` 返回空强引用。
 
 ```cpp
 class actor : public caors::objects::object_base<actor>,
@@ -180,13 +183,22 @@ public:
 caors::tracking_resource tracking(&caors::get_system_memory_resource());
 caors::objects::strong_ref<actor> owner = caors::objects::make_ref<actor>(&tracking);
 caors::objects::strong_ref<actor> copy = owner;
+caors::objects::weak_ref<actor> weak = owner;
 
 owner.reset(); // copy 仍然持有对象。
-copy.reset();  // 最后一个强引用释放，对象通过 tracking 销毁。
+
+if (caors::objects::strong_ref<actor> locked = weak.lock()) {
+  // 对象仍然存活。
+}
+
+copy.reset(); // 最后一个强引用释放，对象通过 tracking 销毁。
+weak.lock();  // 返回空强引用。
 ```
 
-`objects::ref_counted` 内部计数使用原子变量，保证强引用增减操作可跨线程执行；这只保证生命周期控制，
-不表示对象内部状态可以并发读写。
+`objects::ref_counted` 内部关联一个独立控制块。对象销毁后，只要仍存在 `objects::weak_ref<T>`，
+控制块会继续保留，用于安全判断对象是否失效；最后一个弱引用释放后，控制块也会通过创建时使用的
+`memory_resource` 释放。控制块中的强/弱计数使用原子变量，保证引用增减和 `weak_ref<T>::lock()`
+可跨线程执行；这只保证生命周期控制，不表示对象内部状态可以并发读写。
 
 引用计数和 manager 托管对象不应隐式混用。`objects::strong_ref<T>` 只管理由 `objects::make_ref<T>()`
 创建的对象，不接管 `objects::manager` 已拥有的对象。若某个对象由 `objects::manager` 拥有，manager
@@ -194,8 +206,14 @@ copy.reset();  // 最后一个强引用释放，对象通过 tracking 销毁。
 manager 感知强引用，应显式增加 `destroy_later()`、延迟回收或“强引用归零后由 manager 销毁”的策略，
 并补充失败路径测试。
 
-当前还没有 `weak_ref<T>` 控制块语义。需要弱引用时继续使用 `objects::weak_handle<T>`，并显式通过
-`objects::manager` 或上层对象数据库解析。
+`objects::weak_ref<T>` 和 `objects::weak_handle<T>` 解决的问题不同：
+
+- `objects::weak_ref<T>` 面向引用计数对象，可以通过控制块安全判断对象是否仍由强引用持有。
+- `objects::weak_handle<T>` 面向 manager / world 托管对象，只保存 `object_id` 和类型，必须显式通过
+  `objects::manager` 或上层对象数据库解析。
+
+因此场景树、world 或 manager 拥有的对象关系仍优先使用 `objects::ref<T>` / `objects::weak_handle<T>`；
+临时共享对象、资源对象或不挂在 manager 下的对象可以使用 `objects::strong_ref<T>` / `objects::weak_ref<T>`。
 
 ### objects::manager
 
@@ -387,6 +405,7 @@ manager.destroy(instance);
   `object_index`，并解析 handle / weak handle。
 - `objects::ref_counted`：可选侵入式引用计数基类。
 - `objects::strong_ref<T>`：引用计数对象的强引用，只管理 `objects::make_ref<T>()` 创建的对象。
+- `objects::weak_ref<T>`：引用计数对象的弱引用，可通过 `lock()` 尝试提升为强引用。
 - `objects::make_ref<T>()`：接入 `memory_resource` 创建引用计数对象并返回强引用。
 - `objects::class_<T>()`：对象类型链式注册入口。
 - `objects::id()` / `objects::find()` / `objects::is_a()`：对象类型查询入口；`objects::find()` 未命中时返回无效
@@ -414,7 +433,8 @@ manager.destroy(instance);
 - [x] manager 可选联动 `object_index`，创建、销毁和清理时维护持久对象映射。
 - [x] 设计对象引用计数边界，明确它与 weak handle、`objects::ref<T>`、manager 所有权和序列化 resolver 的关系。
 - [x] 实现可选侵入式引用计数基础类型和强引用包装。
-- [ ] 设计弱引用控制信息、延迟销毁和 manager 感知引用计数的策略。
+- [x] 实现引用计数弱引用控制信息和 `objects::weak_ref<T>`。
+- [ ] 设计延迟销毁和 manager 感知引用计数的策略。
 - [ ] 与反射系统打通字段、方法和属性元信息。
 - [ ] 与序列化系统打通类型名、版本和构造流程。
 - [x] 设计持久对象 GUID / 业务对象 id，并与运行期 `object_id` 建立加载期映射。

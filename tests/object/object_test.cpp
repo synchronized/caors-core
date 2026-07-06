@@ -484,6 +484,86 @@ TEST_CASE("object - strong refs own intrusive ref counted objects", "[object]") 
   CHECK(statistics.allocation_count == statistics.deallocation_count);
 }
 
+TEST_CASE("object - weak refs observe intrusive ref counted object lifetime", "[object]") {
+  caors::tracking_resource tracking(&caors::get_system_memory_resource());
+  counted_actor::destroyed_count = 0;
+
+  caors::objects::weak_ref<counted_actor> weak;
+
+  {
+    caors::objects::strong_ref<counted_actor> owner =
+        caors::objects::make_ref<counted_actor>(&tracking, 7);
+    weak = owner;
+
+    REQUIRE(weak);
+    CHECK_FALSE(weak.expired());
+    CHECK(weak.use_count() == 1);
+
+    {
+      caors::objects::strong_ref<counted_actor> locked = weak.lock();
+      REQUIRE(locked);
+      CHECK(locked.get() == owner.get());
+      CHECK(locked->value == 7);
+      CHECK(owner.use_count() == 2);
+      CHECK(weak.use_count() == 2);
+    }
+
+    CHECK(owner.use_count() == 1);
+    CHECK(weak.use_count() == 1);
+    CHECK(counted_actor::destroyed_count == 0);
+  }
+
+  CHECK(counted_actor::destroyed_count == 1);
+  CHECK(weak.expired());
+  CHECK(weak == nullptr);
+  CHECK(weak.use_count() == 0);
+  CHECK(weak.lock() == nullptr);
+  CHECK(tracking.statistics().bytes_in_use > 0);
+
+  weak.reset();
+
+  const caors::memory_statistics statistics = tracking.statistics();
+  CHECK(statistics.bytes_in_use == 0);
+  CHECK(statistics.allocation_count == statistics.deallocation_count);
+}
+
+TEST_CASE("object - locked weak refs keep intrusive ref counted objects alive", "[object]") {
+  caors::tracking_resource tracking(&caors::get_system_memory_resource());
+  counted_actor::destroyed_count = 0;
+
+  caors::objects::weak_ref<counted_actor> weak;
+  caors::objects::strong_ref<counted_actor> locked;
+
+  {
+    caors::objects::strong_ref<counted_actor> owner =
+        caors::objects::make_ref<counted_actor>(&tracking, 9);
+    weak = owner;
+    locked = weak.lock();
+
+    REQUIRE(locked);
+    CHECK(owner.use_count() == 2);
+
+    owner.reset();
+    CHECK(counted_actor::destroyed_count == 0);
+    CHECK(weak.use_count() == 1);
+    CHECK_FALSE(weak.expired());
+  }
+
+  CHECK(counted_actor::destroyed_count == 0);
+  CHECK(locked->value == 9);
+
+  locked.reset();
+
+  CHECK(counted_actor::destroyed_count == 1);
+  CHECK(weak.expired());
+
+  weak.reset();
+
+  const caors::memory_statistics statistics = tracking.statistics();
+  CHECK(statistics.bytes_in_use == 0);
+  CHECK(statistics.allocation_count == statistics.deallocation_count);
+}
+
 TEST_CASE("object - manager owns objects and resolves handles", "[object]") {
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
 
