@@ -13,12 +13,13 @@
 - 资源有跨进程、跨存档稳定的 `resource_guid`。
 - 资源对象可以保存自己的稳定身份。
 - 资源引用可以先保存 GUID，在资源加载后再解析成实际资源指针。
+- 资源管理器可以保存非拥有索引，用 GUID 定位已经存在的资源对象。
 - 底层资源模型不绑定具体引擎、文件系统、异步加载框架或编辑器管线。
 
 当前不会实现：
 
 - 资源加载和保存。
-- 全局资源缓存。
+- 拥有式全局资源缓存。
 - 自动引用计数。
 - 热重载。
 - 资源导入管线。
@@ -33,6 +34,7 @@
 - `resources::resource_guid`
 - `resources::resource`
 - `resources::ref<T>`
+- `resources::manager`
 
 根命名空间保留常用别名：
 
@@ -40,6 +42,7 @@
 - `caors::resource_guid_hash`
 - `caors::resource`
 - `caors::resource_ref<T>`
+- `caors::resource_manager`
 
 ## resource_guid
 
@@ -83,7 +86,7 @@ value.set_guid(id);
 caors::resource_ref<texture> reference{id};
 
 if (!reference.resolved()) {
-  // 后续由 resources::manager 按 GUID 查找或加载资源。
+  // 可以由 resources::manager 按 GUID 查找已存在资源。
 }
 ```
 
@@ -102,6 +105,32 @@ if (reference.resolve(&value)) {
 - `ref<T>` 不拥有资源，也不延长资源生命周期。
 - `resolve()` 会拒绝已保存 GUID 和资源对象 GUID 不一致的情况。
 - `unresolve()` 只清除资源指针，保留 GUID，适合资源卸载或缓存失效后继续保留引用身份。
-- 后续 `resources::manager` 应负责 GUID 到资源对象的解析、缓存和生命周期策略。
+- 当前 `resources::manager` 只负责 GUID 到已存在资源对象的解析；拥有式缓存和生命周期策略后续再扩展。
+
+## manager
+
+`resources::manager` 是非拥有资源索引。它保存 `resource_guid -> resource*` 映射，可以绑定、查找、
+解绑和清空资源，也可以把 `resource_ref<T>` 解析成实际资源指针：
+
+```cpp
+caors::resource_manager manager;
+
+texture value{id};
+manager.bind(&value);
+
+caors::resource_ref<texture> reference{id};
+if (manager.resolve(reference)) {
+  texture* current = reference.get();
+}
+```
+
+需要注意：
+
+- `manager` 不创建、不销毁资源，也不延长资源生命周期。
+- `bind(guid, resource)` 在资源对象 GUID 为 nil 时会写入传入 GUID；如果资源对象已经有不同 GUID，则绑定失败。
+- 同一对 GUID 和资源重复绑定视为成功；同一个 GUID 或同一个资源指针绑定到不同对象会失败。
+- `unbind()` 和 `clear()` 只清理索引，不修改资源对象自身 GUID。
+- 跨线程访问时调用方需要自行同步。
+- 后续拥有式缓存、加载、卸载、失效通知和异步策略应在 manager 之上继续扩展，而不是由当前非拥有索引隐式完成。
 
 相关测试位于 `tests/resources/`，测试组织规则见 [tests/README.md](../tests/README.md)。

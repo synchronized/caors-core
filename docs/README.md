@@ -21,7 +21,7 @@
 - [meta.md](meta.md)：类型元数据、`type_guid`、`meta::type`、`meta::registry` 和元数据组件。
 - [object.md](object.md)：对象基类、对象注册表和对象创建销毁入口。
 - [reflection.md](reflection.md)：反射类型、字段元信息和手写注册入口。
-- [resources.md](resources.md)：资源身份、资源基类和轻量资源引用模型。
+- [resources.md](resources.md)：资源身份、资源基类、轻量资源引用和非拥有资源索引。
 - [serialization.md](serialization.md)：序列化元信息、注册表和基于反射的文本序列化 MVP。
 - [value.md](value.md)：`any`、`any_ref`、运行期 view、细粒度头文件边界和 `variant` 数据 DOM。
 
