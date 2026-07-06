@@ -4,7 +4,8 @@
 # Resources
 
 本文档说明 CAORS 资源系统的当前设计边界。资源系统仍处于基础阶段，当前提供资源身份、轻量引用模型、
-非拥有资源索引和拥有式缓存；加载器、保存器和序列化 resolver 后续再补。
+非拥有资源索引、拥有式缓存、加载/保存接口和最小序列化读写 helper；具体文件系统、异步加载和
+序列化 resolver 后续再补。
 
 ## 设计目标
 
@@ -15,11 +16,12 @@
 - 资源引用可以先保存 GUID，在资源加载后再解析成实际资源指针。
 - 资源管理器可以保存非拥有索引，用 GUID 定位已经存在的资源对象。
 - 资源缓存可以按 GUID 拥有资源对象，并复用 manager 做查找和引用解析。
+- 资源加载器和保存器先只定义类型化接口，不绑定路径、文件系统或异步框架。
 - 底层资源模型不绑定具体引擎、文件系统、异步加载框架或编辑器管线。
 
 当前不会实现：
 
-- 资源加载和保存。
+- 具体文件、资源包或网络加载后端。
 - 拥有式全局资源缓存。
 - 自动引用计数。
 - 热重载。
@@ -37,6 +39,8 @@
 - `resources::ref<T>`
 - `resources::manager`
 - `resources::cache<T>`
+- `resources::loader<T>`
+- `resources::saver<T>`
 
 根命名空间保留常用别名：
 
@@ -46,6 +50,9 @@
 - `caors::resource_ref<T>`
 - `caors::resource_manager`
 - `caors::resource_cache<T>`
+- `caors::resource_load_result<T>`
+- `caors::resource_loader<T>`
+- `caors::resource_saver<T>`
 
 ## resource_guid
 
@@ -192,10 +199,59 @@ if (cache.resolve(reference)) {
 需要注意：
 
 - `cache<T>` 拥有它创建的资源，`erase()` 和 `clear()` 会销毁资源。
+- `insert()` 可以接收已经构造好的 `memory::unique_ptr<T>`，适合 loader 把资源所有权转入缓存。
 - `release()` 会从缓存和索引中移除资源，并把所有权交给调用方。
 - `create(guid, args...)` 会使用缓存的 `memory_resource` 构造资源；nil GUID、重复 GUID 或构造后资源
   GUID 与传入 GUID 不一致都会失败。
-- `cache<T>` 当前不负责从磁盘、网络或资源包加载内容；后续 loader 层会决定如何构造资源。
+- `cache<T>` 当前不负责从磁盘、网络或资源包加载内容；loader 层会决定如何构造资源。
 - `cache<T>` 不提供内部线程同步；跨线程访问时调用方需要自行加锁。
+
+## loader / saver
+
+`resources::loader<T>` 和 `resources::saver<T>` 是类型化资源 IO 接口。它们只描述“按 GUID 加载一个
+资源”和“保存一个已有资源”，不规定路径、文件格式、资源包、缓存策略或异步调度：
+
+```cpp
+class texture_loader : public caors::resource_loader<texture> {
+public:
+  caors::resource_load_result<texture>
+  load(caors::resource_guid id, caors::memory_resource* resource) override;
+};
+```
+
+加载结果使用 `resource_load_result<T>`，内部是 `result<memory::unique_ptr<T>>`。加载器返回所有权后，
+可以通过 `load_into()` 转入 `resources::cache<T>`：
+
+```cpp
+caors::resource_cache<texture> cache;
+texture_loader loader;
+
+caors::result<texture*> value = caors::load_into(cache, loader, id);
+```
+
+`load_into()` 的规则：
+
+- cache 已经有同 GUID 资源时直接返回已有对象，不再次调用 loader。
+- loader 返回的资源如果没有 GUID，会写入请求 GUID。
+- loader 返回的资源如果携带不同 GUID，会返回 `errc::inconsistent_type`。
+- 成功后资源所有权转入 cache，后续由 cache 销毁或 `release()` 转移。
+
+`load_serialized<T>()` / `save_serialized<T>()` 是最小序列化读写 helper，复用现有
+`serialization::reader` / `serialization::writer`：
+
+```cpp
+caors::serialization::variant_reader reader{value};
+auto loaded = caors::load_serialized<texture>(id, reader);
+
+caors::serialization::json_writer writer;
+caors::save_serialized(*loaded.value, writer);
+```
+
+需要注意：
+
+- `load_serialized<T>()` 要求 `T` 派生自 `resources::resource` 且可默认构造。
+- 读写的资源类型仍需要完成 reflection 和 serialization 注册。
+- helper 只读写资源对象字段；资源 GUID 由外部资源数据库、路径或包索引维护，不写入资源对象本体。
+- 非默认构造、需要外部依赖或需要异步调度的资源应实现自定义 `loader<T>`。
 
 相关测试位于 `tests/resources/`，测试组织规则见 [tests/README.md](../tests/README.md)。

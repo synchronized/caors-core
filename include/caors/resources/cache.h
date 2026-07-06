@@ -94,6 +94,31 @@ public:
   }
 
   /**
+   * @brief 插入已经构造好的资源并转移所有权。
+   *
+   * 传入资源必须携带非 nil GUID，且该 GUID 尚未存在于缓存中。成功后缓存接管资源生命周期。
+   */
+  bool insert(memory::unique_ptr<resource_type> owned) {
+    if (owned == nullptr || !owned->has_guid() || contains(owned->guid())) {
+      return false;
+    }
+
+    const resource_guid guid = owned->guid();
+    resource_type* stored = owned.get();
+    if (!index_.bind(guid, stored)) {
+      return false;
+    }
+
+    const auto [_, inserted] = resources_by_guid_.emplace(guid, std::move(owned));
+    if (!inserted) {
+      index_.unbind(guid);
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
    * @brief 从缓存中移除并销毁资源。
    *
    * 成功移除时返回 true。已有外部裸指针或已解析 `resource_ref<T>` 不会自动置空。

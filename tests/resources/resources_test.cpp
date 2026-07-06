@@ -5,6 +5,8 @@
 
 #include "caors/core/containers.h"
 #include "caors/memory/tracking.h"
+#include "caors/reflection.h"
+#include "caors/serialization.h"
 
 #include <catch2/catch_all.hpp>
 
@@ -36,6 +38,53 @@ public:
 
   inline static int destroyed = 0;
 };
+
+class serialized_resource : public caors::resource {
+public:
+  using caors::resource::resource;
+
+  int width = 0;
+};
+
+class counting_texture_loader final : public caors::resource_loader<texture_resource> {
+public:
+  [[nodiscard]] caors::resource_load_result<texture_resource>
+  load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {
+    ++load_count;
+    auto loaded = caors::memory::make_unique<texture_resource>(resource, guid);
+    return {{}, std::move(loaded)};
+  }
+
+  int load_count = 0;
+};
+
+class counting_texture_saver final : public caors::resource_saver<texture_resource> {
+public:
+  [[nodiscard]] caors::error save(const texture_resource& value) override {
+    ++save_count;
+    saved_guid = value.guid();
+    return {};
+  }
+
+  int save_count = 0;
+  caors::resource_guid saved_guid{};
+};
+
+[[nodiscard]] bool reflection_result_ok(caors::error result) noexcept {
+  return result.succeeded() || result.value() == caors::errc::duplicate_reflection;
+}
+
+[[nodiscard]] bool serialization_result_ok(caors::error result) noexcept {
+  return result.succeeded() || result.value() == caors::errc::duplicate_component;
+}
+
+void require_serialized_resource_metadata() {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<serialized_resource>("caors.test.resources.serialized_resource")
+          .field("width", &serialized_resource::width)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<serialized_resource>()));
+}
 
 } // namespace
 
@@ -269,6 +318,19 @@ TEST_CASE("resources - cache resolves refs through internal manager", "[resource
   CHECK(derived_ref.get() == image);
 }
 
+TEST_CASE("resources - cache inserts owned resources", "[resources]") {
+  caors::resource_cache<texture_resource> cache;
+  auto texture = caors::memory::make_unique<texture_resource>(nullptr, test_guid_a);
+  texture_resource* stored = texture.get();
+
+  REQUIRE(cache.insert(std::move(texture)));
+
+  CHECK(cache.size() == 1);
+  CHECK(cache.find(test_guid_a) == stored);
+  CHECK(cache.index().find(test_guid_a) == stored);
+  CHECK_FALSE(cache.insert({}));
+}
+
 TEST_CASE("resources - cache erase destroys owned resource", "[resources]") {
   observed_resource::destroyed = 0;
 
@@ -299,6 +361,81 @@ TEST_CASE("resources - cache release transfers ownership", "[resources]") {
 
   released.reset();
   CHECK(observed_resource::destroyed == 1);
+}
+
+TEST_CASE("resources - loader can populate cache", "[resources]") {
+  caors::resource_cache<texture_resource> cache;
+  counting_texture_loader loader;
+
+  caors::result<texture_resource*> loaded = caors::load_into(cache, loader, test_guid_a);
+  REQUIRE(loaded.succeeded());
+  REQUIRE(loaded.value != nullptr);
+
+  CHECK(loader.load_count == 1);
+  CHECK(loaded.value->guid() == test_guid_a);
+  CHECK(cache.find(test_guid_a) == loaded.value);
+
+  caors::result<texture_resource*> cached = caors::load_into(cache, loader, test_guid_a);
+  REQUIRE(cached.succeeded());
+  CHECK(cached.value == loaded.value);
+  CHECK(loader.load_count == 1);
+}
+
+TEST_CASE("resources - saver interface receives resources", "[resources]") {
+  texture_resource texture{test_guid_a};
+  counting_texture_saver saver;
+
+  const caors::error status = saver.save(texture);
+
+  REQUIRE(status.succeeded());
+  CHECK(saver.save_count == 1);
+  CHECK(saver.saved_guid == test_guid_a);
+}
+
+TEST_CASE("resources - serialized helpers load and save resources", "[resources]") {
+  require_serialized_resource_metadata();
+
+  const caors::serialization::variant_result parsed = caors::parse_json(R"({"width":256})");
+  REQUIRE(parsed.succeeded());
+
+  caors::serialization::variant_reader reader{parsed.value};
+  caors::resource_load_result<serialized_resource> loaded =
+      caors::load_serialized<serialized_resource>(test_guid_a, reader);
+
+  REQUIRE(loaded.succeeded());
+  REQUIRE(loaded.value != nullptr);
+  CHECK(loaded.value->guid() == test_guid_a);
+  CHECK(loaded.value->width == 256);
+
+  caors::string output;
+  caors::serialization::json_writer writer{output};
+  const caors::error save_status = caors::save_serialized(*loaded.value, writer);
+
+  REQUIRE(save_status.succeeded());
+  CHECK(output == R"({"width":256})");
+}
+
+TEST_CASE("resources - serialized helpers reject invalid resource identity", "[resources]") {
+  require_serialized_resource_metadata();
+
+  const caors::serialization::variant_result parsed = caors::parse_json(R"({"width":256})");
+  REQUIRE(parsed.succeeded());
+
+  caors::serialization::variant_reader reader{parsed.value};
+  caors::resource_load_result<serialized_resource> loaded =
+      caors::load_serialized<serialized_resource>(caors::resource_guid::nil(), reader);
+
+  REQUIRE(loaded.failed());
+  CHECK(loaded.status.domain() == caors::error_domain::resources);
+  CHECK(loaded.status.value() == caors::errc::invalid_argument);
+
+  serialized_resource value{};
+  caors::serialization::json_writer writer;
+  const caors::error save_status = caors::save_serialized(value, writer);
+
+  REQUIRE(save_status.failed());
+  CHECK(save_status.domain() == caors::error_domain::resources);
+  CHECK(save_status.value() == caors::errc::invalid_argument);
 }
 
 TEST_CASE("resources - cache uses requested memory resource", "[resources]") {

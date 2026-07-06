@@ -1,0 +1,180 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 CAORS contributors
+
+#ifndef CAORS_RESOURCES_IO_H_
+#define CAORS_RESOURCES_IO_H_
+
+#include "caors/resources/cache.h"
+#include "caors/result.h"
+#include "caors/serialization/operations.h"
+
+#include <type_traits>
+#include <utility>
+
+namespace caors::resources {
+
+template <typename T> using load_result = result<memory::unique_ptr<T>>;
+
+/**
+ * @brief 指定资源类型的加载器接口。
+ *
+ * `loader<T>` 不绑定文件路径、资源包或异步系统。实现类只需要按 GUID 构造资源并返回所有权；
+ * 调用方可选择直接持有结果，或通过 `load_into()` 转入 `resources::cache<T>`。
+ */
+template <typename T> class loader {
+  static_assert(std::is_base_of_v<resources::resource, T>,
+                "T must derive from caors::resources::resource");
+
+public:
+  using resource_type = T;
+
+  loader() = default;
+  virtual ~loader() = default;
+
+  loader(const loader&) = delete;
+  loader& operator=(const loader&) = delete;
+  loader(loader&&) = delete;
+  loader& operator=(loader&&) = delete;
+
+  /** @brief 按 GUID 加载资源，返回资源所有权。 */
+  [[nodiscard]] virtual load_result<resource_type> load(resource_guid guid,
+                                                        memory_resource* resource = nullptr) = 0;
+};
+
+/**
+ * @brief 指定资源类型的保存器接口。
+ *
+ * `saver<T>` 只表达“保存一个已有资源”的动作，不规定目标位置、格式或同步策略。
+ */
+template <typename T> class saver {
+  static_assert(std::is_base_of_v<resources::resource, T>,
+                "T must derive from caors::resources::resource");
+
+public:
+  using resource_type = T;
+
+  saver() = default;
+  virtual ~saver() = default;
+
+  saver(const saver&) = delete;
+  saver& operator=(const saver&) = delete;
+  saver(saver&&) = delete;
+  saver& operator=(saver&&) = delete;
+
+  /** @brief 保存资源。资源应携带非 nil GUID。 */
+  [[nodiscard]] virtual error save(const resource_type& value) = 0;
+};
+
+/**
+ * @brief 使用加载器把资源加载进 cache。
+ *
+ * 如果 cache 已包含该 GUID，直接返回已有对象。否则调用 loader 加载资源并把所有权转入 cache。
+ */
+template <typename T>
+[[nodiscard]] result<T*> load_into(cache<T>& target, loader<T>& source, resource_guid guid) {
+  if (!guid) {
+    return {{error_domain::resources, errc::invalid_argument}, nullptr};
+  }
+
+  if (T* existing = target.find(guid)) {
+    return {{}, existing};
+  }
+
+  load_result<T> loaded = source.load(guid, target.resource());
+  if (loaded.failed()) {
+    return {loaded.status, nullptr};
+  }
+
+  if (loaded.value == nullptr) {
+    return {{error_domain::resources, errc::backend_failure}, nullptr};
+  }
+
+  if (!loaded.value->has_guid()) {
+    loaded.value->set_guid(guid);
+  }
+  if (loaded.value->guid() != guid) {
+    return {{error_domain::resources, errc::inconsistent_type}, nullptr};
+  }
+
+  T* stored = loaded.value.get();
+  if (!target.insert(std::move(loaded.value))) {
+    return {{error_domain::resources, errc::already_exists}, nullptr};
+  }
+
+  return {{}, stored};
+}
+
+/**
+ * @brief 从序列化 reader 构造资源。
+ *
+ * 该 helper 面向简单资源类型：先用指定内存资源默认构造 `T`，写入 GUID，再通过现有
+ * `serialization::deserialize()` 读回资源字段。非默认可构造或有自定义加载流程的资源应实现
+ * `loader<T>`。
+ */
+template <typename T>
+[[nodiscard]] load_result<T> load_serialized(resource_guid guid, serialization::reader& reader,
+                                             const serialization::context& context = {},
+                                             memory_resource* resource = nullptr) {
+  static_assert(std::is_base_of_v<resources::resource, T>,
+                "T must derive from caors::resources::resource");
+  static_assert(std::is_default_constructible_v<T>,
+                "load_serialized<T>() requires default constructible resources");
+
+  if (!guid) {
+    return {{error_domain::resources, errc::invalid_argument}, {}};
+  }
+
+  memory::unique_ptr<T> value = memory::make_unique<T>(resource);
+  if (value == nullptr) {
+    return {{error_domain::resources, errc::out_of_memory}, {}};
+  }
+
+  if (value->has_guid() && value->guid() != guid) {
+    return {{error_domain::resources, errc::inconsistent_type}, {}};
+  }
+  if (!value->has_guid()) {
+    value->set_guid(guid);
+  }
+
+  const error status = serialization::deserialize(*value, reader, context);
+  if (status) {
+    return {status, {}};
+  }
+
+  return {{}, std::move(value)};
+}
+
+/**
+ * @brief 使用序列化 writer 保存资源字段。
+ *
+ * 资源必须携带非 nil GUID。当前 helper 只写资源对象本体字段，资源身份由调用方的数据库、路径或包索引
+ * 维护。
+ */
+template <typename T>
+[[nodiscard]] error save_serialized(const T& value, serialization::writer& writer,
+                                    const serialization::context& context = {}) {
+  static_assert(std::is_base_of_v<resources::resource, T>,
+                "T must derive from caors::resources::resource");
+
+  if (!value.has_guid()) {
+    return {error_domain::resources, errc::invalid_argument};
+  }
+
+  return serialization::serialize(value, writer, context);
+}
+
+} // namespace caors::resources
+
+namespace caors {
+
+template <typename T> using resource_load_result = resources::load_result<T>;
+template <typename T> using resource_loader = resources::loader<T>;
+template <typename T> using resource_saver = resources::saver<T>;
+
+using resources::load_into;
+using resources::load_serialized;
+using resources::save_serialized;
+
+} // namespace caors
+
+#endif

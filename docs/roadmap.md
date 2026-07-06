@@ -138,9 +138,10 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 提供非拥有 `resources::manager` 资源索引，支持按 `resource_guid` 绑定、查找、解绑、清空和解析 `resources::ref<T>`。
 - [x] 提供 `resources::cache<T>` 拥有式资源缓存，支持按 `resource_guid` 创建、持有、释放、销毁和解析资源引用。
 - [x] 支持 `resources::ref<T>` 通过序列化 codec 按稳定 `resource_guid` 读写，读回后由 manager/cache 显式解析。
+- [x] 设计 `resources::loader<T>` / `resources::saver<T>` 接口，并提供基于 serialization reader/writer 的最小读写 helper。
 - [ ] 扩展资源加载、卸载、依赖关系和失效处理策略，并明确生命周期与线程安全边界。
 - [x] 提供 `core::locator<T>` 可选全局服务定位器，用于定位默认资源管理器、文件系统、配置服务等进程级服务，并明确注册、重置和测试隔离规则。
-- [ ] 设计 `resources::loader` / `resources::saver` 接口，先基于 serialization 完成最小读写流程，为文件系统、资源包和异步加载预留扩展点。
+- [ ] 实现具体文件系统、资源包或异步 loader/saver 后端。
 - [ ] 打通资源引用序列化 resolver，支持反序列化后自动解析资源依赖关系和稳定 GUID 引用。
 - [ ] 后续评估热重载、导入管线、资源数据库和编辑器工具层；这些能力不进入第一阶段底层 API。
 
