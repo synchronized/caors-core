@@ -74,17 +74,19 @@ caors::any value = caors::any::from(7);
 ## any
 
 `any` 拥有对象副本，适合把字段值从原对象中取出后独立保存。它依赖 meta descriptor 执行默认构造、复制、销毁和赋值。
+小型平凡可拷贝、平凡析构的值会直接保存在 `any` 内部，避免为标量和小型 POD 临时值产生堆分配；超过内联容量、
+对齐不满足或非平凡析构的类型仍使用 descriptor 的普通构造/销毁路径。
 `any::default_construct(type_id, memory_resource*)` 可以用指定 `memory_resource` 默认构造对象，返回的
 `any` 会记住匹配的资源销毁函数；没有传入资源或类型缺少资源构造函数表时，回退到普通 `new` / `delete`
-路径。
+或小对象内联存储。
 
 资源边界：
 
-- 传入 `memory_resource*` 时，`any` 会优先使用 descriptor 中的资源构造/销毁函数。
+- 不传资源时，`any` 会优先内联保存小型平凡对象；不能内联的值使用普通 `new` / `delete` fallback。
+- 传入 `memory_resource*` 时，`any` 会优先使用 descriptor 中的资源构造/销毁函数，不走内联路径，保证分配和释放资源匹配。
 - 对 `caors::vector<T>`、`caors::string`、`caors::hash_map<K, V>` 等 allocator-aware 类型，
   资源构造会使用标准 uses-allocator 规则，把同一个 `memory_resource` 传给对象内部 allocator。
-- 不传资源时，`any` 使用普通 `new` / `delete` fallback，不读取或保存 CAORS 默认资源。
-- 复制已有值生成 `any` 时仍按普通 clone 路径工作；需要指定资源创建空对象再读入数据时，应使用
+- 复制已有值生成 `any` 时会沿用当前存储策略：可内联的小型平凡值继续内联，其他值走 clone；需要指定资源创建空对象再读入数据时，应使用
   `any::default_construct(type_id, resource)`。
 
 当前限制：

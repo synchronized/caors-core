@@ -11,6 +11,7 @@
 #include <array>
 #include <cstddef>
 #include <memory>
+#include <new>
 #include <optional>
 #include <span>
 #include <string_view>
@@ -32,6 +33,41 @@ struct move_only_value {
 
 struct any_resource_value {
   int value = 17;
+};
+
+struct tracked_small_trivial {
+  int value;
+
+  static void* operator new(std::size_t size) {
+    ++allocation_count;
+    return ::operator new(size);
+  }
+
+  static void operator delete(void* ptr) noexcept {
+    ++deallocation_count;
+    ::operator delete(ptr);
+  }
+
+  inline static int allocation_count = 0;
+  inline static int deallocation_count = 0;
+};
+
+struct tracked_large_trivial {
+  int value;
+  unsigned char padding[128]{};
+
+  static void* operator new(std::size_t size) {
+    ++allocation_count;
+    return ::operator new(size);
+  }
+
+  static void operator delete(void* ptr) noexcept {
+    ++deallocation_count;
+    ::operator delete(ptr);
+  }
+
+  inline static int allocation_count = 0;
+  inline static int deallocation_count = 0;
 };
 
 struct unregistered_nested_vector_holder {
@@ -129,6 +165,83 @@ TEST_CASE("reflection any - copies deeply and rejects mismatched writes", "[refl
   CHECK(moved.valid());
   CHECK_FALSE(stored.valid());
   CHECK(*moved.try_get<int>() == 8);
+}
+
+TEST_CASE("reflection any - stores small trivial values inline", "[reflection]") {
+  tracked_small_trivial::allocation_count = 0;
+  tracked_small_trivial::deallocation_count = 0;
+
+  tracked_small_trivial source{42};
+  caors::any stored = caors::any::from(source);
+
+  REQUIRE(stored.valid());
+  REQUIRE(stored.try_get<tracked_small_trivial>() != nullptr);
+  CHECK(stored.try_get<tracked_small_trivial>()->value == 42);
+  CHECK(tracked_small_trivial::allocation_count == 0);
+
+  caors::any copied = stored;
+  REQUIRE(copied.try_get<tracked_small_trivial>() != nullptr);
+  CHECK(copied.try_get<tracked_small_trivial>()->value == 42);
+  CHECK(tracked_small_trivial::allocation_count == 0);
+
+  REQUIRE(stored.try_set(tracked_small_trivial{77}));
+  CHECK(stored.try_get<tracked_small_trivial>()->value == 77);
+  CHECK(copied.try_get<tracked_small_trivial>()->value == 42);
+
+  caors::any moved = std::move(stored);
+  CHECK_FALSE(stored.valid());
+  REQUIRE(moved.try_get<tracked_small_trivial>() != nullptr);
+  CHECK(moved.try_get<tracked_small_trivial>()->value == 77);
+
+  moved.reset();
+  copied.reset();
+  CHECK(tracked_small_trivial::allocation_count == 0);
+  CHECK(tracked_small_trivial::deallocation_count == 0);
+}
+
+TEST_CASE("reflection any - default constructs small trivial values inline", "[reflection]") {
+  require_registered_type<tracked_small_trivial>("caors.test.reflection.tracked_small_trivial");
+  tracked_small_trivial::allocation_count = 0;
+  tracked_small_trivial::deallocation_count = 0;
+
+  caors::any stored =
+      caors::any::default_construct(caors::meta::id("caors.test.reflection.tracked_small_trivial"));
+
+  REQUIRE(stored.valid());
+  REQUIRE(stored.try_get<tracked_small_trivial>() != nullptr);
+  CHECK(stored.try_get<tracked_small_trivial>()->value == 0);
+  CHECK(tracked_small_trivial::allocation_count == 0);
+
+  stored.reset();
+  CHECK(tracked_small_trivial::allocation_count == 0);
+  CHECK(tracked_small_trivial::deallocation_count == 0);
+}
+
+TEST_CASE("reflection any - keeps large trivial values on heap", "[reflection]") {
+  tracked_large_trivial::allocation_count = 0;
+  tracked_large_trivial::deallocation_count = 0;
+
+  tracked_large_trivial source{};
+  source.value = 64;
+
+  caors::any stored = caors::any::from(source);
+  REQUIRE(stored.valid());
+  REQUIRE(stored.try_get<tracked_large_trivial>() != nullptr);
+  CHECK(stored.try_get<tracked_large_trivial>()->value == 64);
+  CHECK(tracked_large_trivial::allocation_count == 1);
+
+  {
+    caors::any copied = stored;
+    REQUIRE(copied.try_get<tracked_large_trivial>() != nullptr);
+    CHECK(copied.try_get<tracked_large_trivial>()->value == 64);
+    CHECK(tracked_large_trivial::allocation_count == 2);
+  }
+
+  CHECK(tracked_large_trivial::deallocation_count == 1);
+
+  stored.reset();
+  CHECK(tracked_large_trivial::allocation_count == 2);
+  CHECK(tracked_large_trivial::deallocation_count == 2);
 }
 
 TEST_CASE("reflection any - default construction can use memory resource", "[reflection]") {

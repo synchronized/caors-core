@@ -134,7 +134,7 @@ public:
       return nullptr;
     }
 
-    return static_cast<const type*>(data_);
+    return static_cast<const type*>(data());
   }
 
   /** @brief 按指定类型获取可写指针。 */
@@ -145,7 +145,7 @@ public:
       return nullptr;
     }
 
-    return static_cast<type*>(data_);
+    return static_cast<type*>(mutable_data());
   }
 
   /** @brief 从同类型 C++ 值写入当前值。 */
@@ -175,14 +175,34 @@ private:
   [[nodiscard]] static any
   copy_from_raw(type_id type, const meta::detail::type_descriptor* descriptor, const void* source);
 
+  enum class storage_mode : unsigned char {
+    empty,
+    inline_value,
+    heap_value,
+    resource_value,
+  };
+
+  static constexpr std::size_t inline_storage_size = sizeof(void*) * 3;
+  static constexpr std::size_t inline_storage_alignment = alignof(std::max_align_t);
+
+  [[nodiscard]] static bool
+  can_store_inline(const meta::detail::type_descriptor* descriptor) noexcept;
+  [[nodiscard]] static bool
+  can_default_construct_inline(const meta::detail::type_descriptor* descriptor) noexcept;
+
   void copy_from(const any& other);
   void move_from(any& other) noexcept;
+  [[nodiscard]] void* inline_data() noexcept;
+  [[nodiscard]] const void* inline_data() const noexcept;
+  [[nodiscard]] bool stores_inline() const noexcept { return mode_ == storage_mode::inline_value; }
   [[nodiscard]] type_id get_type_id() const noexcept;
 
   const meta::detail::type_descriptor* descriptor_ = nullptr;
   void* data_ = nullptr;
   memory::memory_resource* resource_ = nullptr;
   meta::detail::value_resource_destroy_fn resource_destroy_ = nullptr;
+  storage_mode mode_ = storage_mode::empty;
+  alignas(std::max_align_t) unsigned char inline_storage_[inline_storage_size]{};
 };
 
 void swap(any& lhs, any& rhs) noexcept;

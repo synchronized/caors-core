@@ -6,6 +6,7 @@
 #include "caors/meta/detail/type_descriptor.h"
 #include "caors/meta/query.h"
 
+#include <cstring>
 #include <utility>
 
 namespace caors::value {
@@ -79,7 +80,9 @@ std::size_t any::alignment() const noexcept {
 
 void any::reset() noexcept {
   if (data_ != nullptr) {
-    if (resource_destroy_ != nullptr) {
+    if (stores_inline()) {
+      // 内联路径只接收平凡析构类型，不需要调用销毁函数。
+    } else if (resource_destroy_ != nullptr) {
       resource_destroy_(resource_, data_);
     } else if (descriptor_ != nullptr && descriptor_->ops.destroy != nullptr) {
       descriptor_->ops.destroy(data_);
@@ -90,14 +93,17 @@ void any::reset() noexcept {
   data_ = nullptr;
   resource_ = nullptr;
   resource_destroy_ = nullptr;
+  mode_ = storage_mode::empty;
 }
 
 void any::swap(any& other) noexcept {
-  using std::swap;
-  swap(descriptor_, other.descriptor_);
-  swap(data_, other.data_);
-  swap(resource_, other.resource_);
-  swap(resource_destroy_, other.resource_destroy_);
+  if (this == &other) {
+    return;
+  }
+
+  any temporary{std::move(other)};
+  other = std::move(*this);
+  *this = std::move(temporary);
 }
 
 bool any::matches_type(const any& other) const noexcept {
@@ -124,6 +130,19 @@ any any::copy_from_raw(type_id type, const meta::detail::type_descriptor* descri
     return {};
   }
 
+  if (can_store_inline(descriptor)) {
+    any result;
+    result.descriptor_ = descriptor;
+    result.data_ = result.inline_data();
+    result.mode_ = storage_mode::inline_value;
+    std::memcpy(result.data_, source, descriptor->layout.size);
+    return result;
+  }
+
+  if (descriptor->ops.clone == nullptr || descriptor->ops.destroy == nullptr) {
+    return {};
+  }
+
   void* copy = descriptor->ops.clone(source);
   if (copy == nullptr) {
     return {};
@@ -132,6 +151,7 @@ any any::copy_from_raw(type_id type, const meta::detail::type_descriptor* descri
   any result;
   result.descriptor_ = descriptor;
   result.data_ = copy;
+  result.mode_ = storage_mode::heap_value;
   return result;
 }
 
@@ -145,19 +165,42 @@ void any::copy_from(const any& other) {
 
 void any::move_from(any& other) noexcept {
   descriptor_ = other.descriptor_;
-  data_ = other.data_;
   resource_ = other.resource_;
   resource_destroy_ = other.resource_destroy_;
+  mode_ = other.mode_;
+
+  if (other.stores_inline()) {
+    data_ = inline_data();
+    std::memcpy(data_, other.inline_data(), other.descriptor_->layout.size);
+  } else {
+    data_ = other.data_;
+  }
 
   other.descriptor_ = nullptr;
   other.data_ = nullptr;
   other.resource_ = nullptr;
   other.resource_destroy_ = nullptr;
+  other.mode_ = storage_mode::empty;
 }
 
 type_id any::get_type_id() const noexcept {
   return descriptor_ != nullptr ? descriptor_->type : type_id{};
 }
+
+bool any::can_store_inline(const meta::detail::type_descriptor* descriptor) noexcept {
+  return descriptor != nullptr && descriptor->valid() &&
+         descriptor->layout.size <= inline_storage_size &&
+         descriptor->layout.alignment <= inline_storage_alignment &&
+         descriptor->traits.trivially_copyable && descriptor->traits.trivially_destructible;
+}
+
+bool any::can_default_construct_inline(const meta::detail::type_descriptor* descriptor) noexcept {
+  return can_store_inline(descriptor) && descriptor->traits.trivially_default_constructible;
+}
+
+void* any::inline_data() noexcept { return static_cast<void*>(inline_storage_); }
+
+const void* any::inline_data() const noexcept { return static_cast<const void*>(inline_storage_); }
 
 bool any_ref::valid() const noexcept {
   return descriptor_ != nullptr && descriptor_->valid() && data_ != nullptr;
@@ -254,6 +297,15 @@ any default_construct(type_id type, const meta::detail::type_descriptor* descrip
     return {};
   }
 
+  if (resource == nullptr && any::can_default_construct_inline(descriptor)) {
+    any result;
+    result.descriptor_ = descriptor;
+    result.data_ = result.inline_data();
+    result.mode_ = any::storage_mode::inline_value;
+    std::memset(result.data_, 0, descriptor->layout.size);
+    return result;
+  }
+
   void* value = nullptr;
   meta::detail::value_resource_destroy_fn resource_destroy = nullptr;
   if (resource != nullptr && descriptor->ops.resource_construct != nullptr &&
@@ -273,6 +325,8 @@ any default_construct(type_id type, const meta::detail::type_descriptor* descrip
   result.data_ = value;
   result.resource_ = resource_destroy != nullptr ? resource : nullptr;
   result.resource_destroy_ = resource_destroy;
+  result.mode_ = resource_destroy != nullptr ? any::storage_mode::resource_value
+                                             : any::storage_mode::heap_value;
   return result;
 }
 

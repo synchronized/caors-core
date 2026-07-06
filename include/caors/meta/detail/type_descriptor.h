@@ -39,6 +39,13 @@ struct value_ops {
   value_resource_destroy_fn resource_destroy = nullptr;
 };
 
+/** @brief C++ 值的编译期特征摘要。 */
+struct value_traits {
+  bool trivially_copyable = false;
+  bool trivially_destructible = false;
+  bool trivially_default_constructible = false;
+};
+
 /** @brief C++ 类型的运行期语义摘要。 */
 struct type_semantics {
   type_kind kind = type_kind::value;
@@ -72,6 +79,7 @@ struct type_descriptor {
   type_id type{};
   type_layout layout{};
   value_ops ops{};
+  value_traits traits{};
   type_semantics semantics{};
   type_capabilities capabilities{};
   const objects::detail::handle_data* object_handle = nullptr;
@@ -738,6 +746,11 @@ template <typename T> struct descriptor_holder {
         value_assign_fn_of<type>(),
         resource_default_construct_fn_of<type>(),
         resource_destroy_fn_of<type>(),
+    };
+    descriptor.traits = value_traits{
+        std::is_trivially_copyable_v<type>,
+        std::is_trivially_destructible_v<type>,
+        std::is_trivially_default_constructible_v<type>,
     };
     fill_descriptor_semantics<type>(descriptor);
     descriptor.capabilities = type_capabilities_of<type>();
