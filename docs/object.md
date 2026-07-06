@@ -204,6 +204,8 @@ if (player* current = manager.find(typed)) {
 也可以转换为 `objects::weak_ref<Base>`。转换只在 `Derived*` 可安全转换为 `Base*` 时启用，引用计数
 控制块仍保存创建时的真实销毁函数，因此最后一个基类强引用释放时仍会按真实派生类型销毁对象。
 不提供向下转换或横向转换；需要这类操作时应先通过对象类型信息显式判断。
+序列化读入 `objects::ref<Base>` 的多态 envelope 时，也会创建真实派生对象并让强引用接管对应控制块；
+引用计数仍是运行期状态，不写入存档。
 
 ```cpp
 class actor : public caors::objects::object_base<actor>,

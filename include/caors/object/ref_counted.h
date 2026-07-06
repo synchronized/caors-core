@@ -22,20 +22,38 @@ template <typename T, typename... Args>
 
 namespace detail {
 
-using ref_destroy_fn = void (*)(void* instance, memory_resource* resource) noexcept;
+using ref_destroy_fn = void (*)(void* instance, memory_resource* resource,
+                                const traits::wrapper_set_context& context) noexcept;
 
 struct ref_control_block {
   ref_control_block(memory_resource* object_resource, memory_resource* control_resource,
-                    ref_destroy_fn destroy) noexcept
-      : object_resource(object_resource), control_resource(control_resource), destroy(destroy) {}
+                    ref_destroy_fn destroy,
+                    traits::wrapper_set_context destroy_context = {}) noexcept
+      : object_resource(object_resource), control_resource(control_resource), destroy(destroy),
+        destroy_context(destroy_context) {}
 
   std::atomic<std::size_t> strong_count{0};
   std::atomic<std::size_t> weak_count{1};
   memory_resource* object_resource = nullptr;
   memory_resource* control_resource = nullptr;
   ref_destroy_fn destroy = nullptr;
+  traits::wrapper_set_context destroy_context{};
   void* instance = nullptr;
 };
+
+[[nodiscard]] inline ref_control_block*
+try_make_ref_control_block(memory_resource* object_resource, memory_resource* control_resource,
+                           ref_destroy_fn destroy,
+                           traits::wrapper_set_context destroy_context = {}) noexcept {
+  memory_resource* resolved =
+      control_resource != nullptr ? control_resource : get_default_memory_resource();
+  void* storage = resolved->try_allocate(sizeof(ref_control_block), alignof(ref_control_block));
+  if (storage == nullptr) {
+    return nullptr;
+  }
+
+  return ::new (storage) ref_control_block{object_resource, resolved, destroy, destroy_context};
+}
 
 inline void destroy_ref_control_block(ref_control_block* control) noexcept {
   memory_resource* resource = control->control_resource;
@@ -85,8 +103,30 @@ inline void release_weak_ref(ref_control_block* control) noexcept {
 }
 
 template <typename T>
-void destroy_ref_counted_instance(void* instance, memory_resource* resource) noexcept {
+void destroy_ref_counted_instance(void* instance, memory_resource* resource,
+                                  const traits::wrapper_set_context&) noexcept {
   objects::destroy(static_cast<T*>(instance), resource);
+}
+
+template <typename T>
+void delete_ref_counted_instance(void* instance, memory_resource*,
+                                 const traits::wrapper_set_context&) noexcept {
+  delete static_cast<T*>(instance);
+}
+
+template <typename T>
+void destroy_ref_counted_context_instance(void* instance, memory_resource*,
+                                          const traits::wrapper_set_context& context) noexcept {
+  if (instance == nullptr || !context.valid()) {
+    return;
+  }
+
+  auto* value = static_cast<T*>(instance);
+  if constexpr (std::is_polymorphic_v<T>) {
+    context.destroy(context.user_data, dynamic_cast<void*>(value));
+  } else {
+    context.destroy(context.user_data, value);
+  }
 }
 
 } // namespace detail
@@ -249,6 +289,7 @@ public:
 private:
   template <typename U> friend class ref;
   template <typename U> friend class weak_ref;
+  template <typename U> friend struct caors::traits::wrapper_access;
 
   template <typename Object, typename... Args>
   friend ref<Object> make_ref(memory_resource* resource, Args&&... args);
@@ -264,6 +305,17 @@ private:
   ref(T* instance, detail::ref_control_block* control, retained_tag) noexcept
       : instance_(instance), control_(control) {}
 
+  [[nodiscard]] static ref adopt_existing(T* instance,
+                                          detail::ref_control_block* control) noexcept {
+    if (instance == nullptr || control == nullptr) {
+      return {};
+    }
+
+    static_cast<ref_counted*>(instance)->bind_control_block(control);
+    control->instance = instance;
+    return ref{instance, control, adopt_tag{}};
+  }
+
   void retain() noexcept {
     if (control_ != nullptr) {
       detail::add_ref(control_);
@@ -277,8 +329,9 @@ private:
     control_ = nullptr;
 
     if (control != nullptr && detail::release_ref(control)) {
+      void* stored_instance = control->instance != nullptr ? control->instance : instance;
       control->instance = nullptr;
-      control->destroy(instance, control->object_resource);
+      control->destroy(stored_instance, control->object_resource, control->destroy_context);
       detail::release_weak_ref(control);
     }
   }
@@ -590,6 +643,48 @@ template <typename T> struct wrapper_access<caors::objects::ref<T>> {
     } else {
       return false;
     }
+  }
+
+  static bool set_value(caors::objects::ref<T>& source, wrapped_type* value) noexcept {
+    if (value == nullptr) {
+      return false;
+    }
+
+    caors::memory::memory_resource* control_resource = caors::get_default_memory_resource();
+    auto* control = caors::objects::detail::try_make_ref_control_block(
+        nullptr, control_resource,
+        &caors::objects::detail::delete_ref_counted_instance<wrapped_type>);
+    if (control == nullptr) {
+      return false;
+    }
+
+    source.reset();
+    source = caors::objects::ref<T>::adopt_existing(value, control);
+    return static_cast<bool>(source);
+  }
+
+  static bool set_value(caors::objects::ref<T>& source, wrapped_type* value,
+                        const wrapper_set_context& context) noexcept {
+    if (value == nullptr) {
+      return false;
+    }
+
+    if (!context.valid()) {
+      return set_value(source, value);
+    }
+
+    caors::memory::memory_resource* control_resource =
+        context.resource != nullptr ? context.resource : caors::get_default_memory_resource();
+    auto* control = caors::objects::detail::try_make_ref_control_block(
+        nullptr, control_resource,
+        &caors::objects::detail::destroy_ref_counted_context_instance<wrapped_type>, context);
+    if (control == nullptr) {
+      return false;
+    }
+
+    source.reset();
+    source = caors::objects::ref<T>::adopt_existing(value, control);
+    return static_cast<bool>(source);
   }
 };
 

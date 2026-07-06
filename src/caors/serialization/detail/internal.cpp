@@ -691,6 +691,7 @@ make_polymorphic_indirect_value(const value::indirect_view& indirect,
     const traits::wrapper_set_context set_context{
         destroy_context,
         &destroy_polymorphic_constructed_value,
+        context.memory_resource,
     };
     if (!indirect.set_value(dynamic_type.value.id(), instance.value, set_context)) {
       memory::destroy(destroy_context, destroy_context->allocation_resource);

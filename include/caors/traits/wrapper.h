@@ -4,6 +4,10 @@
 #ifndef CAORS_TRAITS_WRAPPER_H_
 #define CAORS_TRAITS_WRAPPER_H_
 
+namespace caors::memory {
+class memory_resource;
+} // namespace caors::memory
+
 namespace caors::traits {
 
 /** @brief wrapper 接管外部构造值时可选的销毁回调上下文。 */
@@ -12,6 +16,7 @@ struct wrapper_set_context {
 
   void* user_data = nullptr;
   destroy_fn destroy = nullptr;
+  caors::memory::memory_resource* resource = nullptr;
 
   [[nodiscard]] constexpr bool valid() const noexcept { return destroy != nullptr; }
 };
