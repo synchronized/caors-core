@@ -188,13 +188,17 @@ if (player* current = manager.find(typed)) {
 - `objects::ptr<T>` 继续表示非拥有裸引用，不增加引用计数。
 - `objects::handle` / `objects::typed_handle<T>` 继续表示可解析身份，不隐式访问全局对象表，也不延长生命周期。
 - `objects::manager` 继续作为明确拥有者，负责按创建时记录的 `memory_resource` 销毁对象。
-- 序列化对象引用继续写出 `object_id` 或 `object_guid`，不序列化运行期引用计数。
+- `objects::ptr<T>`、`objects::handle` 和 `objects::typed_handle<T>` 这类对象身份引用继续写出
+  `object_id` 或 `object_guid`，不延长对象生命周期。
+- `objects::ref<T>` 作为拥有型 inline value 序列化内部对象值，空引用写 `null`，不序列化运行期引用计数。
 
 第一阶段提供侵入式引用计数基础设施。对象类型显式继承 `objects::ref_counted`，并通过
 `objects::make_ref<T>()` 创建由 `objects::ref<T>` 拥有的对象。强引用在构造、拷贝、移动、析构和
 `reset()` 时维护计数；最后一个强引用释放时，会按创建时传入的 `memory_resource` 销毁对象。
 弱引用使用 `objects::weak_ref<T>` 表达，它不延长对象生命周期；对象仍存活时可以通过 `lock()`
 尝试提升为强引用，对象销毁后 `lock()` 返回空强引用。
+`objects::weak_ref<T>` 不作为普通字段序列化；需要保存弱关系时应使用 `objects::handle`、资源 id
+或上层对象数据库可解析的身份。
 
 ```cpp
 class actor : public caors::objects::object_base<actor>,

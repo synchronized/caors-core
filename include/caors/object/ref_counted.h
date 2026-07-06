@@ -5,6 +5,7 @@
 #define CAORS_OBJECT_REF_COUNTED_H_
 
 #include "caors/object/factory.h"
+#include "caors/traits/wrapper.h"
 
 #include <atomic>
 #include <cstddef>
@@ -427,5 +428,97 @@ template <typename T> using object_ref = objects::ref<T>;
 template <typename T> using object_weak_ref = objects::weak_ref<T>;
 
 } // namespace caors
+
+namespace caors::traits {
+
+/** @brief `objects::ref<T>` 按拥有型 inline wrapper 序列化内部对象。 */
+template <typename T> struct wrapper_traits<caors::objects::ref<T>> {
+  static constexpr bool is_wrapper = true;
+  static constexpr bool nullable = true;
+  static constexpr wrapper_semantics semantics = wrapper_semantics::inline_value;
+  using wrapped_type = std::remove_cv_t<T>;
+};
+
+template <typename T> struct wrapper_access<caors::objects::ref<T>> {
+  using wrapped_type = std::remove_cv_t<T>;
+
+  [[nodiscard]] static const wrapped_type* value(const caors::objects::ref<T>& source) noexcept {
+    return source.get();
+  }
+
+  [[nodiscard]] static wrapped_type* mutable_value(caors::objects::ref<T>& source) noexcept {
+    return source.get();
+  }
+
+  [[nodiscard]] static bool has_value(const caors::objects::ref<T>& source) noexcept {
+    return static_cast<bool>(source);
+  }
+
+  static bool reset(caors::objects::ref<T>& source) noexcept {
+    source.reset();
+    return true;
+  }
+
+  static bool ensure_value(caors::objects::ref<T>& source) {
+    if (source) {
+      return true;
+    }
+
+    if constexpr (std::is_default_constructible_v<wrapped_type>) {
+#if CAORS_HAS_EXCEPTIONS
+      try {
+        source = caors::objects::make_ref<wrapped_type>();
+      } catch (...) {
+        return false;
+      }
+#else
+      if constexpr (!std::is_nothrow_default_constructible_v<wrapped_type>) {
+        return false;
+      } else {
+        source = caors::objects::make_ref<wrapped_type>();
+      }
+#endif
+      return static_cast<bool>(source);
+    } else {
+      return false;
+    }
+  }
+
+  static bool ensure_value(caors::objects::ref<T>& source,
+                           caors::memory::memory_resource* resource) {
+    if (source) {
+      return true;
+    }
+
+    if constexpr (std::is_default_constructible_v<wrapped_type>) {
+#if CAORS_HAS_EXCEPTIONS
+      try {
+        source = caors::objects::make_ref<wrapped_type>(resource);
+      } catch (...) {
+        return false;
+      }
+#else
+      if constexpr (!std::is_nothrow_default_constructible_v<wrapped_type>) {
+        return false;
+      } else {
+        source = caors::objects::make_ref<wrapped_type>(resource);
+      }
+#endif
+      return static_cast<bool>(source);
+    } else {
+      return false;
+    }
+  }
+};
+
+/** @brief 弱引用不稳定拥有内部值，默认禁止作为普通 wrapper 序列化。 */
+template <typename T> struct wrapper_traits<caors::objects::weak_ref<T>> {
+  static constexpr bool is_wrapper = true;
+  static constexpr bool nullable = true;
+  static constexpr wrapper_semantics semantics = wrapper_semantics::unsupported;
+  using wrapped_type = std::remove_cv_t<T>;
+};
+
+} // namespace caors::traits
 
 #endif

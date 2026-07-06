@@ -573,17 +573,19 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 反射层把裸指针和普通 wrapper 拆成“外层持有者”和“内部 value”两层。序列化层只处理内部 value：
 
 - `T*`、`std::unique_ptr<T>`、`caors::memory::unique_ptr<T>`、`std::shared_ptr<T>`、
-  `std::optional<T>` 和 `std::reference_wrapper<T>` 会按内部 `T` 写出。
-- 空裸指针、空智能指针或空 `optional` 写出为 `null`；`std::reference_wrapper<T>` 不表示空值。
-- 读入 `null` 会重置裸指针、`std::unique_ptr<T>`、`std::shared_ptr<T>` 和 `std::optional<T>`；
-  写入 `std::reference_wrapper<T>` 时返回 `errc::invalid_field`。
+  `std::optional<T>`、`std::reference_wrapper<T>` 和 `caors::objects::ref<T>` 会按内部 `T` 写出。
+- 空裸指针、空智能指针、空 `optional` 或空 `objects::ref<T>` 写出为 `null`；
+  `std::reference_wrapper<T>` 不表示空值。
+- 读入 `null` 会重置裸指针、`std::unique_ptr<T>`、`std::shared_ptr<T>`、`std::optional<T>`
+  和 `objects::ref<T>`；写入 `std::reference_wrapper<T>` 时返回 `errc::invalid_field`。
 - 读入非空值时，裸指针要求目标指针已经指向有效对象，不会自动分配内存。
-- 读入非空值时，`std::unique_ptr<T>`、`std::shared_ptr<T>` 和 `std::optional<T>` 会在内部为空时尝试默认构造
-  `T`；`std::reference_wrapper<T>` 会写入已经绑定的对象。
+- 读入非空值时，`std::unique_ptr<T>`、`std::shared_ptr<T>`、`std::optional<T>` 和
+  `objects::ref<T>` 会在内部为空时尝试默认构造 `T`；`std::reference_wrapper<T>`
+  会写入已经绑定的对象。
 - 如果 `T` 不支持默认构造，已经存在的 `T` 对象仍可被字段反序列化写入；但空智能指针、空 `optional`
   和需要新增元素的容器不会隐式构造 `T`。
-- `std::weak_ptr<T>` 明确标记为不支持的 wrapper，无法稳定暴露可写内部值，当前不作为普通 value
-  序列化或反序列化。
+- `std::weak_ptr<T>` 和 `objects::weak_ref<T>` 明确标记为不支持的 wrapper，无法稳定暴露可写内部值，
+  当前不作为普通 value 序列化或反序列化。
 - `caors::objects::ptr<T>` 不走内部 value 语义，仍通过 `serialization::reference_resolver` 写出和读入对象 id 或持久 GUID。
 - 当 `std::unique_ptr<Base>`、`caors::memory::unique_ptr<Base>` 或 `std::shared_ptr<Base>`
   实际持有已注册派生类对象时，序列化层会写出多态 envelope，默认字段名为 `$type` / `$value`。读回时要求派生类型可默认构造，
@@ -594,6 +596,8 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
   默认 `new/delete` 或非资源 factory 路径。
 - `std::optional<T>` 在读入非空值且内部为空时会优先尝试资源感知构造内部 `T`；如果 `T` 不支持
   allocator-aware 构造，则回退到普通默认构造。
+- `objects::ref<T>` 读入非空值且内部为空时会通过 `objects::make_ref<T>(context.memory_resource)`
+  创建对象；引用计数本身不写入存档。当前不支持把多态 envelope 读入到 `objects::ref<Base>` 并接管派生对象。
 
 这条规则避免序列化层隐式决定所有权。后续如果要让某类 wrapper 采用引用语义、共享身份或自定义构造策略，
 应在字段策略或专用 wrapper trait 中显式声明。
@@ -611,8 +615,9 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 | `guid`、`type_guid` | 作为普通值类型 | 支持，按字符串写出 | 支持，从字符串解析 |
 | 裸指针 `T*` | 通过 `indirect_view` 访问已指向的 `T` | 空值写 `null`，非空展开内部值 | `null` 可重置；非空要求目标已经指向有效对象 |
 | `std::unique_ptr<T>`、`caors::memory::unique_ptr<T>`、`std::shared_ptr<T>`、`std::optional<T>` | 通过 `indirect_view` 访问内部 `T` | 空值写 `null`，非空展开内部值；拥有型智能指针可写出普通类多态 envelope | `null` 可重置；非空可在 `T` 默认可构造时创建内部值；拥有型智能指针可按 envelope 和可用 factory 构造派生对象；空 wrapper 读入非空值但 `T` 不可构造时返回 `errc::invalid_type`；需要 `memory_resource` 托管 unique pointer 时使用 `caors::memory::unique_ptr<T>` |
+| `objects::ref<T>` | 通过 `indirect_view` 访问引用计数对象内部 `T` | 空值写 `null`，非空展开内部值，不写引用计数 | `null` 可重置；非空可在 `T` 默认可构造时通过 `objects::make_ref<T>(context.memory_resource)` 创建对象；暂不支持 `ref<Base>` 多态 envelope 接管派生对象 |
 | `std::reference_wrapper<T>` | 通过 `indirect_view` 访问已绑定的 `T` | 按内部 `T` 写出 | 只能写入已绑定对象，不能置空或重绑定 |
-| `std::weak_ptr<T>` | 只标记为不支持 wrapper，不展开 | 不支持 | 不支持 |
+| `std::weak_ptr<T>`、`objects::weak_ref<T>` | 只标记为不支持 wrapper，不展开 | 不支持 | 不支持 |
 | `objects::ptr<T>` | 作为对象指针类型，可通过 `objects::ptr_view_of(any_ref)` 识别 | 通过 resolver 写出 `object_id` 或 `object_guid` | 通过 resolver 从 `object_id` 或 `object_guid` 写回引用 |
 | `objects::handle`、`objects::typed_handle<T>` | 作为对象身份句柄，可通过 `objects::handle_view_of(any_ref)` 识别 | 写出 `{id,type}`，不访问 resolver | 读回 `{id,type}`，只恢复身份，不自动解析对象 |
 | 顺序容器、集合、关联容器 | 通过 `sequence_view`、`set_view`、`associative_view` 访问 | 支持已适配 traits 的类型 | 支持拥有型容器；新增元素或临时 key/value 不可构造时返回 `errc::invalid_type`；借用视图默认拒绝 |
@@ -623,10 +628,10 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 - `std::string_view` 默认拒绝反序列化写回，避免把临时字符串读入成悬空引用。调用方如果提供
   `serialization::context::string_view_storage`，序列化层会把每个读入文本追加为独立字符串，再让字段
   view 指向对应字符串；调用方必须保证该 storage 生命周期长于目标对象或目标字段。
-- `std::weak_ptr<T>` 默认不展开内部值；如果需要弱引用序列化，应通过对象句柄、资源 id 或
+- `std::weak_ptr<T>` 和 `objects::weak_ref<T>` 默认不展开内部值；如果需要弱引用序列化，应通过对象句柄、资源 id 或
   `objects::ptr<T>` 类似的显式引用语义处理。
-- 裸指针和普通智能指针按 inline value 处理，不保留对象身份、共享关系或对象图引用；需要身份保持时使用
-  `caors::objects::ptr<T>`、`caors::objects::handle` 或 `caors::objects::typed_handle<T>`。
+- 裸指针、普通智能指针和 `objects::ref<T>` 按 inline value 处理，不保留对象身份、共享关系或对象图引用；
+  需要身份保持时使用 `caors::objects::ptr<T>`、`caors::objects::handle` 或 `caors::objects::typed_handle<T>`。
 - 未注册枚举可以通过 meta descriptor 在字段、`any` / `any_ref` 和容器元素路径上按底层整数读写；如果枚举需要稳定名称、GUID 或多态身份，仍应显式注册。
 - 容器、指针、wrapper、pair、tuple 和 variant 通过 meta descriptor 生成运行期视图，不要求每一种
   `std::vector<T>`、`std::map<K, V>` 或嵌套组合都注册为 meta 类型。元素或候选值如果需要稳定名称、
@@ -642,7 +647,7 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
   会返回 `errc::invalid_type`，例如容器新增元素、空 `optional` 读入非空值、`variant`
   切换到不可默认构造候选。
 - `serialization::context::memory_resource` 会用于资源感知 `any` 默认构造、空 `std::shared_ptr<T>`、
-  空 `caors::memory::unique_ptr<T>` 和空 `std::optional<T>` 的内部值创建、顺序容器新增元素、
+  空 `caors::memory::unique_ptr<T>`、空 `std::optional<T>` 和空 `objects::ref<T>` 的内部值创建、顺序容器新增元素、
   `std::variant` 切换候选、关联容器 key/value 临时值，以及普通类多态值 factory。容器最终存储仍由目标容器
   自身 allocator 管理；上下文不会替换已存在容器的 allocator。标准顺序容器适配会把该资源传给新增的
   allocator-aware 元素。
