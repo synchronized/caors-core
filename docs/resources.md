@@ -4,8 +4,8 @@
 # Resources
 
 本文档说明 CAORS 资源系统的当前设计边界。资源系统仍处于基础阶段，当前提供资源身份、轻量引用模型、
-非拥有资源索引、拥有式缓存、加载/保存接口和最小序列化读写 helper；具体文件系统、异步加载和
-序列化 resolver 后续再补。
+非拥有资源索引、拥有式缓存、字节来源 provider、加载/保存接口和最小序列化读写 helper；异步加载、
+资源包和序列化 resolver 后续再补。
 
 ## 设计目标
 
@@ -16,19 +16,21 @@
 - 资源引用可以先保存 GUID，在资源加载后再解析成实际资源指针。
 - 资源管理器可以保存非拥有索引，用 GUID 定位已经存在的资源对象。
 - 资源缓存可以按 GUID 拥有资源对象，并复用 manager 做查找和引用解析。
+- 资源 provider 可以把稳定 GUID 映射到字节来源和位置，作为 manifest 或资源数据库的运行期表示。
 - 资源加载器和保存器先只定义类型化接口，不绑定路径、文件系统或异步框架。
 - 底层资源模型不绑定具体引擎、文件系统、异步加载框架或编辑器管线。
 
 当前不会实现：
 
-- 具体文件、资源包或网络加载后端。
+- 资源包或网络加载后端。
 - 拥有式全局资源缓存。
 - 自动引用计数。
 - 热重载。
 - 资源导入管线。
 - 与对象系统的场景树生命周期绑定。
 
-这些能力后续应建立在 `resources::manager`、`resources::loader` / `resources::saver` 和上层资源数据库之上。
+这些能力后续应建立在 `io::file_system`、`resources::provider`、`resources::manager`、
+`resources::loader` / `resources::saver` 和上层资源数据库之上。
 
 ## 命名空间
 
@@ -39,6 +41,9 @@
 - `resources::ref<T>`
 - `resources::manager`
 - `resources::cache<T>`
+- `resources::source`
+- `resources::file_source`
+- `resources::provider`
 - `resources::loader<T>`
 - `resources::saver<T>`
 
@@ -50,6 +55,9 @@
 - `caors::resource_ref<T>`
 - `caors::resource_manager`
 - `caors::resource_cache<T>`
+- `caors::resource_source`
+- `caors::resource_file_source`
+- `caors::resource_provider`
 - `caors::resource_load_result<T>`
 - `caors::resource_loader<T>`
 - `caors::resource_saver<T>`
@@ -205,6 +213,33 @@ if (cache.resolve(reference)) {
   GUID 与传入 GUID 不一致都会失败。
 - `cache<T>` 当前不负责从磁盘、网络或资源包加载内容；loader 层会决定如何构造资源。
 - `cache<T>` 不提供内部线程同步；跨线程访问时调用方需要自行加锁。
+
+## source / provider
+
+`resources::source` 是“按字符串位置读取字节”的接口；`resources::provider` 是
+`resource_guid -> (source, location)` 的运行期索引：
+
+```cpp
+caors::native_file_system native;
+caors::resource_file_source source{native};
+caors::resource_provider provider;
+
+provider.bind(texture_id, source, "assets/textures/albedo.png");
+
+caors::byte_buffer_result bytes = provider.read(texture_id);
+```
+
+`resources::file_source` 把任意 `io::file_system` 适配成资源字节来源。因此本地目录、挂载文件系统、
+后续 HTTP fileserver 或资源包都可以通过同一套 provider 暴露给资源 loader。
+
+需要注意：
+
+- `provider` 不拥有 source，调用方需要保证 source 生命周期。
+- `provider` 只负责定位和读取字节，不负责解码资源对象。
+- `bind()` 会拒绝 nil GUID、空 location 和重复 GUID。
+- provider 未命中 GUID 返回 `error_domain::resources / errc::not_found`。
+- 具体 source 读取失败时，错误域保持来源模块语义，例如 `file_source` 可能返回 `error_domain::io`。
+- 跨线程访问 provider 或 source 时，调用方需要自行同步。
 
 ## loader / saver
 

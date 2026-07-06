@@ -4,11 +4,19 @@
 #include "caors/resources.h"
 
 #include "caors/core/containers.h"
+#include "caors/io.h"
 #include "caors/memory/tracking.h"
 #include "caors/reflection.h"
 #include "caors/serialization.h"
 
 #include <catch2/catch_all.hpp>
+
+#include <atomic>
+#include <chrono>
+#include <filesystem>
+#include <string>
+#include <string_view>
+#include <system_error>
 
 namespace {
 
@@ -19,6 +27,15 @@ constexpr caors::resource_guid test_guid_a{caors::guid::from_bytes(
 constexpr caors::resource_guid test_guid_b{caors::guid::from_bytes(
     caors::guid::byte_array{0x0c, 0x2f, 0x82, 0xf8, 0x2b, 0x3e, 0x4f, 0x77, 0x96, 0x5c, 0x4f, 0x2d,
                             0x1c, 0x4a, 0x90, 0x7a})};
+
+[[nodiscard]] std::filesystem::path make_temp_dir() {
+  static std::atomic_uint64_t counter{0};
+  const auto suffix = std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) +
+                      "_" + std::to_string(counter.fetch_add(1));
+  return std::filesystem::temp_directory_path() / ("caors_resources_test_" + suffix);
+}
+
+[[nodiscard]] std::string path_string(const std::filesystem::path& path) { return path.string(); }
 
 class texture_resource : public caors::resource {
 public:
@@ -447,4 +464,72 @@ TEST_CASE("resources - cache uses requested memory resource", "[resources]") {
   CHECK(cache.resource() == &tracking);
   CHECK(cache.index().resource() == &tracking);
   CHECK(tracking.statistics().allocation_count > 0);
+}
+
+TEST_CASE("resources - provider reads bytes from file source", "[resources]") {
+  const std::filesystem::path directory = make_temp_dir();
+  const std::filesystem::path file = directory / "texture.txt";
+  std::error_code ec;
+  std::filesystem::remove_all(directory, ec);
+  REQUIRE(std::filesystem::create_directories(directory, ec));
+  REQUIRE_FALSE(ec);
+
+  caors::native_file_system native;
+  const std::string file_path = path_string(file);
+  REQUIRE(native.write_all(file_path, std::string_view{"texture-bytes"}).succeeded());
+
+  caors::resource_file_source source{native};
+  caors::resource_provider provider;
+
+  REQUIRE(provider.bind(test_guid_a, source, file_path).succeeded());
+  CHECK(provider.size() == 1);
+  CHECK(provider.contains(test_guid_a));
+  CHECK(provider.exists(test_guid_a));
+
+  const caors::resource_source_location location = provider.find(test_guid_a);
+  REQUIRE(location);
+  CHECK(location.source == &source);
+  CHECK(location.location == file_path);
+
+  caors::tracking_resource tracking(&caors::get_system_memory_resource());
+  caors::byte_buffer_result bytes = provider.read(test_guid_a, &tracking);
+
+  REQUIRE(bytes.succeeded());
+  CHECK(bytes.value.get_allocator().resource() == &tracking);
+  CHECK(std::string_view{reinterpret_cast<const char*>(bytes.value.data()), bytes.value.size()} ==
+        "texture-bytes");
+
+  std::filesystem::remove_all(directory, ec);
+}
+
+TEST_CASE("resources - provider reports invalid and missing resources", "[resources]") {
+  caors::native_file_system native;
+  caors::resource_file_source source{native};
+  caors::resource_provider provider;
+
+  caors::error invalid_guid = provider.bind(caors::resource_guid::nil(), source, "asset.txt");
+  REQUIRE(invalid_guid.failed());
+  CHECK(invalid_guid.domain() == caors::error_domain::resources);
+  CHECK(invalid_guid.value() == caors::errc::invalid_argument);
+
+  caors::error invalid_location = provider.bind(test_guid_a, source, "");
+  REQUIRE(invalid_location.failed());
+  CHECK(invalid_location.domain() == caors::error_domain::resources);
+  CHECK(invalid_location.value() == caors::errc::invalid_argument);
+
+  REQUIRE(provider.bind(test_guid_a, source, "missing.txt").succeeded());
+  caors::error duplicate = provider.bind(test_guid_a, source, "other.txt");
+  REQUIRE(duplicate.failed());
+  CHECK(duplicate.domain() == caors::error_domain::resources);
+  CHECK(duplicate.value() == caors::errc::already_exists);
+
+  caors::byte_buffer_result missing_guid = provider.read(test_guid_b);
+  REQUIRE(missing_guid.failed());
+  CHECK(missing_guid.status.domain() == caors::error_domain::resources);
+  CHECK(missing_guid.status.value() == caors::errc::not_found);
+
+  caors::byte_buffer_result missing_file = provider.read(test_guid_a);
+  REQUIRE(missing_file.failed());
+  CHECK(missing_file.status.domain() == caors::error_domain::io);
+  CHECK(missing_file.status.value() == caors::errc::not_found);
 }

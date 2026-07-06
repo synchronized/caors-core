@@ -15,6 +15,7 @@
 - `io::output_stream`：同步输出字节流接口。
 - `io::file_system`：同步文件系统抽象。
 - `io::native_file_system`：基于宿主操作系统的本地文件系统实现。
+- `io::mount_file_system`：基于虚拟路径前缀转发到其他文件系统。
 
 当前不会实现：
 
@@ -23,7 +24,7 @@
 - 目录遍历和权限模型。
 - 资源包格式。
 - HTTP、对象存储或其他远程协议。
-- URI 解析和挂载表。
+- URI 解析。
 
 这些能力后续应建立在 `io::file_system` 和资源层 `resources::source` / `resources::provider` 之上。
 
@@ -36,6 +37,7 @@ IO 模块主定义位于 `caors::io` 命名空间，例如：
 - `io::output_stream`
 - `io::file_system`
 - `io::native_file_system`
+- `io::mount_file_system`
 
 根命名空间保留常用别名：
 
@@ -48,6 +50,7 @@ IO 模块主定义位于 `caors::io` 命名空间，例如：
 - `caors::file_system`
 - `caors::native_file_system`
 - `caors::get_native_file_system`
+- `caors::mount_file_system`
 
 ## file_system
 
@@ -99,5 +102,28 @@ caors::native_file_system& fs = caors::get_native_file_system();
 - 写入不会自动创建父目录。
 - 当前实现是同步阻塞 IO。
 - 跨线程并发访问同一个文件路径时，调用方需要自行定义同步和覆盖策略。
+
+## mount_file_system
+
+`io::mount_file_system` 把虚拟路径前缀转发到其他 `file_system`。它适合把本地目录、后续 HTTP
+fileserver、资源包等组合成统一入口：
+
+```cpp
+caors::native_file_system native;
+caors::mount_file_system fs;
+
+fs.mount("assets", native, "D:/game/assets");
+
+auto bytes = fs.read_all("assets/textures/albedo.png");
+```
+
+规则：
+
+- 挂载表不拥有目标 `file_system`，调用方需要保证目标生命周期。
+- 虚拟路径使用 `/` 作为分隔符，开头的 `/` 会被忽略。
+- `mount()` 会拒绝重复前缀，返回 `errc::already_exists`。
+- 读写时使用最长前缀匹配，允许更具体的挂载覆盖通用挂载。
+- 未命中挂载返回 `errc::not_found`。
+- 目标路径语义仍由被挂载的具体文件系统决定。
 
 相关测试位于 `tests/io/`，测试组织规则见 [tests/README.md](../tests/README.md)。

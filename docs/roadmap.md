@@ -143,8 +143,9 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [ ] 扩展资源加载、卸载、依赖关系和失效处理策略，并明确生命周期与线程安全边界。
 - [x] 提供 `core::locator<T>` 可选全局服务定位器，用于定位默认资源管理器、文件系统、配置服务等进程级服务，并明确注册、重置和测试隔离规则。
 - [x] 设计底层 `io::file_system` 字节来源抽象，统一本地文件、内存文件、资源包和远程网络资源访问的接口边界。
-- [ ] 设计资源层 `resources::source` / `resources::provider`，负责从 `resource_guid` 或资源位置解析到统一数据流，再交给 loader 解码。
+- [x] 设计资源层 `resources::source` / `resources::provider`，负责从 `resource_guid` 或资源位置解析到统一数据流，再交给 loader 解码。
 - [x] 实现本地文件系统后端 `io::native_file_system`。
+- [x] 实现 `resources::file_source`，把 `io::file_system` 适配为资源字节来源。
 - [ ] 实现内存文件系统、资源包、远程资源或异步 loader/saver 后端。
 - [ ] 打通资源引用序列化 resolver，支持反序列化后自动解析资源依赖关系和稳定 GUID 引用。
 - [ ] 后续评估热重载、导入管线、资源数据库和编辑器工具层；这些能力不进入第一阶段底层 API。

@@ -5,6 +5,7 @@
 #define CAORS_IO_H_
 
 #include "caors/io/file_system.h"
+#include "caors/io/mount_file_system.h"
 #include "caors/io/native_file_system.h"
 #include "caors/io/stream.h"
 #include "caors/io/types.h"
