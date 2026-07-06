@@ -43,6 +43,9 @@ public:
   [[nodiscard]] std::size_t size() const noexcept;
   [[nodiscard]] bool empty() const noexcept { return size() == 0; }
 
+  /** @brief 查询已逻辑销毁、等待物理释放的对象数量。 */
+  [[nodiscard]] std::size_t pending_destroy_count() const noexcept;
+
   /** @brief 判断对象 id 当前是否由该管理器持有。 */
   [[nodiscard]] bool contains(object_id id) const;
 
@@ -149,6 +152,20 @@ public:
   /** @brief 按对象指针销毁对象。指针必须来自该管理器。 */
   bool destroy(object* instance) noexcept;
 
+  /**
+   * @brief 延迟销毁对象。
+   *
+   * 成功后对象会立即从 manager 查找表和持久索引中移除，`handle` 不再可解析；对象内存会保留到
+   * `flush_destroy_queue()`、`clear()` 或 manager 析构时释放。
+   */
+  bool destroy_later(object_id id);
+
+  /** @brief 按对象指针延迟销毁对象。指针必须来自该管理器。 */
+  bool destroy_later(object* instance);
+
+  /** @brief 释放所有等待延迟销毁的对象。 */
+  void flush_destroy_queue() noexcept;
+
   /** @brief 销毁所有仍存活对象。 */
   void clear() noexcept;
 
@@ -185,14 +202,17 @@ private:
   };
 
   using entry_map = core::hash_map<object_id, entry, object_id_hash>;
+  using entry_queue = core::vector<entry>;
 
   [[nodiscard]] const entry* find_entry(object_id id) const;
   [[nodiscard]] entry* find_entry(object_id id);
   bool store(object* instance, object_type_id type, memory_resource* resource);
+  void destroy_entry(const entry& stored) noexcept;
 
   memory_resource* resource_ = nullptr;
   object_index* index_ = nullptr;
   entry_map entries_;
+  entry_queue pending_destroy_;
 };
 
 } // namespace caors::objects

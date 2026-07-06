@@ -236,9 +236,9 @@ weak.lock();  // 返回空强引用。
 
 引用计数和 manager 托管对象不应隐式混用。`objects::ref<T>` 只管理由 `objects::make_ref<T>()`
 创建的对象，不接管 `objects::manager` 已拥有的对象。若某个对象由 `objects::manager` 拥有，manager
-仍是销毁入口；不能让普通 `objects::ptr<T>`、`objects::handle` 或强引用包装偷偷接管对象所有权。若后续需要
-manager 感知强引用，应显式增加 `destroy_later()`、延迟回收或“强引用归零后由 manager 销毁”的策略，
-并补充失败路径测试。
+仍是销毁入口；不能让普通 `objects::ptr<T>`、`objects::handle` 或强引用包装偷偷接管对象所有权。
+如果在事件派发、对象遍历或上层场景更新中不能立即释放对象，应使用 manager 的延迟销毁队列，而不是让
+`objects::ref<T>` 接管 manager 对象。
 
 `objects::weak_ref<T>` 和 `objects::typed_handle<T>` 解决的问题不同：
 
@@ -252,7 +252,7 @@ manager 感知强引用，应显式增加 `destroy_later()`、延迟回收或“
 ### objects::manager
 
 `objects::manager` 是对象实例生命周期管理器。它拥有通过自身创建的对象，记录对象 id、注册类型和创建时使用的
-`memory_resource`，并在 `destroy()` 或析构时释放对象：
+`memory_resource`，并在 `destroy()`、`flush_destroy_queue()`、`clear()` 或析构时释放对象：
 
 ```cpp
 caors::objects::manager manager;
@@ -299,7 +299,26 @@ if (player* current = manager.find(typed)) {
 `destroy()` 后，已有裸指针、`objects::ptr<T>` 和类型化身份句柄都不会再指向存活对象；类型化身份句柄可以再次通过
 `manager.find()` 检测是否仍可解析。
 
-当 manager 关联了 `object_index` 时，`destroy()` 和 `clear()` 会自动解除对象 id 对应的持久 GUID
+需要延迟释放对象时，可以调用 `destroy_later()`。它会立即把对象从 manager 查找表和 `object_index`
+中移除，使 `handle` / `typed_handle<T>` 逻辑失效；对象实例本身会进入销毁队列，直到调用
+`flush_destroy_queue()`、`clear()` 或 manager 析构时才真正析构和释放：
+
+```cpp
+caors::objects::handle handle = manager.handle_of(instance->id());
+
+manager.destroy_later(instance);
+
+manager.find(handle);           // 返回 nullptr，逻辑上已经失效。
+manager.pending_destroy_count(); // 返回等待物理释放的对象数量。
+
+manager.flush_destroy_queue();  // 真正析构并释放延迟队列中的对象。
+```
+
+延迟销毁只解决 manager 拥有对象的“逻辑失效”和“物理释放”分离问题，不提供引用计数，也不保证裸指针安全。
+调用方如果在 `destroy_later()` 后临时保留原始指针，只能在明确知道 `flush_destroy_queue()` 尚未执行时使用；
+更推荐用 `handle` 重新解析对象，并把无法解析视为对象已经死亡。
+
+当 manager 关联了 `object_index` 时，`destroy()`、`destroy_later()` 和 `clear()` 会自动解除对象 id 对应的持久 GUID
 绑定。未通过 manager 持有的对象不能通过 `manager.bind_guid()` 绑定。
 
 ### object_base
@@ -439,7 +458,7 @@ manager.destroy(instance);
 - `caors::error`：明确对象类型注册失败原因和错误来源域。
 - `objects::registry`：类型注册、查询、继承关系判断、默认构造工厂。
 - `objects::manager`：对象实例生命周期管理器，持有对象、按 `object_id` 查找和销毁对象，可选同步
-  `object_index`，并解析 `objects::handle` / `objects::typed_handle<T>`。
+  `object_index`，支持延迟销毁队列，并解析 `objects::handle` / `objects::typed_handle<T>`。
 - `objects::ref_counted`：可选侵入式引用计数基类。
 - `objects::ref<T>`：引用计数对象的强引用，只管理 `objects::make_ref<T>()` 创建的对象。
 - `objects::weak_ref<T>`：引用计数对象的弱引用，可通过 `lock()` 尝试提升为强引用。
@@ -471,7 +490,7 @@ manager.destroy(instance);
 - [x] 设计对象引用计数边界，明确它与 `objects::typed_handle<T>`、`objects::ptr<T>`、manager 所有权和序列化 resolver 的关系。
 - [x] 实现可选侵入式引用计数基础类型和强引用包装。
 - [x] 实现引用计数弱引用控制信息和 `objects::weak_ref<T>`。
-- [ ] 设计延迟销毁和 manager 感知引用计数的策略。
+- [x] 设计并实现 manager 延迟销毁策略，明确它和引用计数对象的边界。
 - [ ] 与反射系统打通字段、方法和属性元信息。
 - [ ] 与序列化系统打通类型名、版本和构造流程。
 - [x] 设计持久对象 GUID / 业务对象 id，并与运行期 `object_id` 建立加载期映射。

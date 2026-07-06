@@ -318,15 +318,19 @@ object_guid object_index::guid_of(object_id id) const {
 
 manager::manager(memory_resource* resource)
     : resource_(resource != nullptr ? resource : get_default_memory_resource()),
-      entries_(entry_map::allocator_type{resource_}) {}
+      entries_(entry_map::allocator_type{resource_}),
+      pending_destroy_(entry_queue::allocator_type{resource_}) {}
 
 manager::manager(object_index& index, memory_resource* resource)
     : resource_(resource != nullptr ? resource : index.resource()), index_(&index),
-      entries_(entry_map::allocator_type{resource_}) {}
+      entries_(entry_map::allocator_type{resource_}),
+      pending_destroy_(entry_queue::allocator_type{resource_}) {}
 
 manager::~manager() { clear(); }
 
 std::size_t manager::size() const noexcept { return entries_.size(); }
+
+std::size_t manager::pending_destroy_count() const noexcept { return pending_destroy_.size(); }
 
 bool manager::contains(object_id id) const { return find_entry(id) != nullptr; }
 
@@ -417,10 +421,7 @@ bool manager::destroy(object_id id) noexcept {
     (void)index_->unbind(stored.id);
   }
 
-  if (!get_registry().destroy(stored.type, stored.instance, stored.resource)) {
-    return false;
-  }
-
+  destroy_entry(stored);
   return true;
 }
 
@@ -437,6 +438,52 @@ bool manager::destroy(object* instance) noexcept {
   return destroy(stored->id);
 }
 
+bool manager::destroy_later(object_id id) {
+  auto position = entries_.find(id);
+  if (position == entries_.end()) {
+    return false;
+  }
+
+#if CAORS_HAS_EXCEPTIONS
+  try {
+#endif
+    pending_destroy_.push_back(position->second);
+#if CAORS_HAS_EXCEPTIONS
+  } catch (...) {
+    return false;
+  }
+#endif
+
+  const object_id stored_id = position->second.id;
+  entries_.erase(position);
+  if (index_ != nullptr) {
+    (void)index_->unbind(stored_id);
+  }
+
+  return true;
+}
+
+bool manager::destroy_later(object* instance) {
+  if (instance == nullptr) {
+    return false;
+  }
+
+  const entry* stored = find_entry(instance->id());
+  if (stored == nullptr || stored->instance != instance) {
+    return false;
+  }
+
+  return destroy_later(stored->id);
+}
+
+void manager::flush_destroy_queue() noexcept {
+  while (!pending_destroy_.empty()) {
+    const entry stored = pending_destroy_.back();
+    pending_destroy_.pop_back();
+    destroy_entry(stored);
+  }
+}
+
 void manager::clear() noexcept {
   while (!entries_.empty()) {
     auto position = entries_.begin();
@@ -445,8 +492,10 @@ void manager::clear() noexcept {
     if (index_ != nullptr) {
       (void)index_->unbind(stored.id);
     }
-    (void)get_registry().destroy(stored.type, stored.instance, stored.resource);
+    destroy_entry(stored);
   }
+
+  flush_destroy_queue();
 }
 
 handle manager::handle_of(object_id id) const {
@@ -496,6 +545,10 @@ bool manager::store(object* instance, object_type_id type, memory_resource* reso
 
   const auto result = entries_.emplace(id, entry{id, type, instance, resource});
   return result.second;
+}
+
+void manager::destroy_entry(const entry& stored) noexcept {
+  (void)get_registry().destroy(stored.type, stored.instance, stored.resource);
 }
 
 } // namespace caors::objects
