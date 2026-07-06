@@ -13,10 +13,25 @@ class CAORS_API native_file_system final : public file_system {
 public:
   using file_system::write_all;
 
+  explicit native_file_system(memory_resource* resource = nullptr);
+  explicit native_file_system(path_view root, memory_resource* resource = nullptr);
+
+  /** @brief 返回 root 路径存储使用的内存资源。 */
+  [[nodiscard]] memory_resource* resource() const noexcept;
+
+  /** @brief 返回当前本地文件系统根目录。空 root 表示直接使用传入路径。 */
+  [[nodiscard]] path_view root() const noexcept;
+
+  /** @brief 设置本地文件系统根目录。root 不会按虚拟路径规则规范化。 */
+  void set_root(path_view root);
+
   [[nodiscard]] bool exists(path_view path) const override;
   [[nodiscard]] byte_buffer_result read_all(path_view path,
                                             memory_resource* resource = nullptr) override;
   [[nodiscard]] error write_all(path_view path, std::span<const std::byte> bytes) override;
+
+private:
+  core::string root_;
 };
 
 /** @brief 获取进程内默认本地文件系统实例。 */

@@ -119,6 +119,15 @@ caors::error status = fs.write_all("hello.txt", "hello");
 caors::byte_buffer_result bytes = fs.read_all("hello.txt");
 ```
 
+也可以在构造时指定本地根目录。此时相对路径会在 root 下解析，绝对路径仍按宿主平台语义直接使用：
+
+```cpp
+caors::native_file_system assets{"D:/game/assets"};
+
+assets.write_all("config.json", R"({"debug":true})");
+// 实际写入 D:/game/assets/config.json
+```
+
 也可以使用进程内默认实例：
 
 ```cpp
@@ -128,6 +137,8 @@ caors::native_file_system& fs = caors::get_native_file_system();
 需要注意：
 
 - 路径当前使用 `std::filesystem::path` 的宿主平台语义解释。
+- root 不按虚拟路径规则规范化，避免破坏 Windows 盘符、UNC 路径或平台相关路径。
+- root 只影响相对路径；传入绝对路径时不会再拼接 root。
 - 写入不会自动创建父目录。
 - 当前实现是同步阻塞 IO。
 - 跨线程并发访问同一个文件路径时，调用方需要自行定义同步和覆盖策略。
@@ -157,18 +168,30 @@ auto bytes = fs.read_all("/assets\\config.json");
 fileserver、资源包等组合成统一入口：
 
 ```cpp
-caors::native_file_system native;
+caors::native_file_system assets{"D:/game/assets"};
 caors::mount_file_system fs;
 
-fs.mount("assets", native, "D:/game/assets");
+fs.mount("assets", assets);
 
 auto bytes = fs.read_all("assets/textures/albedo.png");
+```
+
+如果需要把同一个目标文件系统里的不同子目录挂到不同虚拟路径，可以使用 `target_prefix`：
+
+```cpp
+caors::native_file_system project{"D:/game_project"};
+caors::mount_file_system fs;
+
+fs.mount("textures", project, "assets/textures");
+fs.mount("materials", project, "assets/materials");
 ```
 
 规则：
 
 - 挂载表不拥有目标 `file_system`，调用方需要保证目标生命周期。
 - 虚拟路径使用 `/` 作为分隔符，开头的 `/` 会被忽略。
+- 常规物理根目录应放在目标 `file_system` 内，例如 `native_file_system{"D:/game/assets"}`。
+- `target_prefix` 只用于目标文件系统内部的子路径重映射，不应承担后端物理根目录职责。
 - `mount()` 会拒绝重复前缀，返回 `errc::already_exists`。
 - 读写时使用最长前缀匹配，允许更具体的挂载覆盖通用挂载。
 - 未命中挂载返回 `errc::not_found`。

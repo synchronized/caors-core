@@ -12,8 +12,17 @@
 namespace caors::io {
 namespace {
 
-[[nodiscard]] std::filesystem::path native_path(path_view path) {
+[[nodiscard]] std::filesystem::path to_native_path(path_view path) {
   return std::filesystem::path{std::string{path.string_view()}};
+}
+
+[[nodiscard]] std::filesystem::path native_path(path_view root, path_view path) {
+  std::filesystem::path result = to_native_path(path);
+  if (root.empty() || result.is_absolute()) {
+    return result;
+  }
+
+  return to_native_path(root) / result;
 }
 
 [[nodiscard]] error validate_path(path_view path) noexcept {
@@ -22,13 +31,32 @@ namespace {
 
 } // namespace
 
+native_file_system::native_file_system(memory_resource* resource)
+    : root_{allocator<char>{resource}} {}
+
+native_file_system::native_file_system(path_view root, memory_resource* resource)
+    : native_file_system(resource) {
+  set_root(root);
+}
+
+memory_resource* native_file_system::resource() const noexcept {
+  return root_.get_allocator().resource();
+}
+
+path_view native_file_system::root() const noexcept { return path_view{root_}; }
+
+void native_file_system::set_root(path_view root) {
+  const std::string_view text = root.string_view();
+  root_.assign(text.begin(), text.end());
+}
+
 bool native_file_system::exists(path_view path) const {
   if (path.empty()) {
     return false;
   }
 
   std::error_code ec;
-  return std::filesystem::exists(native_path(path), ec) && !ec;
+  return std::filesystem::exists(native_path(root(), path), ec) && !ec;
 }
 
 byte_buffer_result native_file_system::read_all(path_view path, memory_resource* resource) {
@@ -41,7 +69,7 @@ byte_buffer_result native_file_system::read_all(path_view path, memory_resource*
     return {{error_domain::io, errc::not_found}, {}};
   }
 
-  std::ifstream input{native_path(path), std::ios::binary | std::ios::ate};
+  std::ifstream input{native_path(root(), path), std::ios::binary | std::ios::ate};
   if (!input) {
     return {{error_domain::io, errc::backend_failure}, {}};
   }
@@ -70,7 +98,7 @@ error native_file_system::write_all(path_view path, std::span<const std::byte> b
     return status;
   }
 
-  std::ofstream output{native_path(path), std::ios::binary | std::ios::trunc};
+  std::ofstream output{native_path(root(), path), std::ios::binary | std::ios::trunc};
   if (!output) {
     return {error_domain::io, errc::backend_failure};
   }

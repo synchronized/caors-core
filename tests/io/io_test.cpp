@@ -82,6 +82,36 @@ TEST_CASE("io - native file system writes text", "[io]") {
   std::filesystem::remove_all(directory, ec);
 }
 
+TEST_CASE("io - native file system can use a root directory", "[io]") {
+  const std::filesystem::path directory = make_temp_dir();
+  std::error_code ec;
+  std::filesystem::remove_all(directory, ec);
+  REQUIRE(std::filesystem::create_directories(directory, ec));
+  REQUIRE_FALSE(ec);
+
+  const std::string root = path_string(directory);
+  caors::native_file_system fs{root};
+
+  CHECK(fs.root().string_view() == root);
+
+  REQUIRE(fs.write_all("rooted.txt", std::string_view{"rooted"}).succeeded());
+  CHECK(std::filesystem::exists(directory / "rooted.txt", ec));
+
+  caors::byte_buffer_result read = fs.read_all("rooted.txt");
+  REQUIRE(read.succeeded());
+  CHECK(std::string_view{reinterpret_cast<const char*>(read.value.data()), read.value.size()} ==
+        "rooted");
+
+  const std::filesystem::path absolute_file = directory / "absolute.txt";
+  REQUIRE(fs.write_all(path_string(absolute_file), std::string_view{"absolute"}).succeeded());
+  caors::byte_buffer_result absolute_read = fs.read_all(path_string(absolute_file));
+  REQUIRE(absolute_read.succeeded());
+  CHECK(std::string_view{reinterpret_cast<const char*>(absolute_read.value.data()),
+                         absolute_read.value.size()} == "absolute");
+
+  std::filesystem::remove_all(directory, ec);
+}
+
 TEST_CASE("io - native file system reports invalid paths and missing files", "[io]") {
   caors::native_file_system fs;
 
@@ -184,18 +214,19 @@ TEST_CASE("io - mount file system routes virtual prefixes", "[io]") {
   REQUIRE(std::filesystem::create_directories(override, ec));
   REQUIRE_FALSE(ec);
 
-  caors::native_file_system native;
+  caors::native_file_system base_fs{path_string(base)};
+  caors::native_file_system override_fs{path_string(override)};
   caors::mount_file_system mounted;
 
-  REQUIRE(mounted.mount("assets", native, path_string(base)).succeeded());
-  REQUIRE(mounted.mount("assets/special", native, path_string(override)).succeeded());
+  REQUIRE(mounted.mount("assets", base_fs).succeeded());
+  REQUIRE(mounted.mount("assets/special", override_fs).succeeded());
   CHECK(mounted.mount_count() == 2);
 
   REQUIRE(mounted.write_all("assets/config.txt", std::string_view{"base"}).succeeded());
   REQUIRE(mounted.write_all("assets/special/config.txt", std::string_view{"override"}).succeeded());
 
-  caors::byte_buffer_result base_read = native.read_all(path_string(base / "config.txt"));
-  caors::byte_buffer_result override_read = native.read_all(path_string(override / "config.txt"));
+  caors::byte_buffer_result base_read = base_fs.read_all("config.txt");
+  caors::byte_buffer_result override_read = override_fs.read_all("config.txt");
 
   REQUIRE(base_read.succeeded());
   REQUIRE(override_read.succeeded());
@@ -215,4 +246,19 @@ TEST_CASE("io - mount file system routes virtual prefixes", "[io]") {
   CHECK(mounted.mount_count() == 1);
 
   std::filesystem::remove_all(directory, ec);
+}
+
+TEST_CASE("io - mount file system can remap target prefixes", "[io]") {
+  caors::memory_file_system storage;
+  caors::mount_file_system mounted;
+
+  REQUIRE(mounted.mount("textures", storage, "assets/textures").succeeded());
+  REQUIRE(mounted.write_all("textures/hero.txt", std::string_view{"hero"}).succeeded());
+
+  CHECK(storage.exists("assets/textures/hero.txt"));
+
+  caors::byte_buffer_result read = mounted.read_all("textures/hero.txt");
+  REQUIRE(read.succeeded());
+  CHECK(std::string_view{reinterpret_cast<const char*>(read.value.data()), read.value.size()} ==
+        "hero");
 }
