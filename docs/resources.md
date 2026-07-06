@@ -255,10 +255,54 @@ caors::resource_provider provider;
 caors::bind_manifest(provider, source, manifest);
 ```
 
+也可以从 JSON 文本或 source 读取清单：
+
+```cpp
+caors::resource_manifest manifest;
+
+caors::load_manifest_json(manifest, R"({
+  "resources": [
+    {
+      "guid": "6cd2da3d-b549-4756-8b8b-0c84293af410",
+      "location": "assets/textures/albedo.json",
+      "type": "game.texture",
+      "hash": "content-hash",
+      "version": 12
+    }
+  ]
+})");
+
+caors::load_manifest(manifest, source, "manifest.json");
+```
+
+JSON 清单支持两种根格式：
+
+```json
+[
+  {
+    "guid": "6cd2da3d-b549-4756-8b8b-0c84293af410",
+    "location": "assets/textures/albedo.json"
+  }
+]
+```
+
+```json
+{
+  "resources": [
+    {
+      "guid": "6cd2da3d-b549-4756-8b8b-0c84293af410",
+      "location": "assets/textures/albedo.json"
+    }
+  ]
+}
+```
+
 需要注意：
 
 - `manifest` 只保存清单数据，不读取字节、不构造资源对象，也不拥有 source。
 - `bind()` 会拒绝 nil GUID、空路径和重复 GUID，并会按虚拟路径规则规范化 location。
+- JSON 导入要求每个条目至少包含字符串 `guid` 和字符串 `location`；`type`、`hash`、`version` 可选。
+- `load_manifest_json()` 和 `load_manifest()` 会向现有 manifest 追加条目，不会隐式清空已有内容。
 - `bind_manifest()` 不回滚已经成功绑定到 provider 的条目；失败时调用方需要按自身策略处理。
 - 清单的 `type`、`hash`、`version` 只是轻量元数据，不替代资源对象本身的序列化内容。
 - 跨线程更新 manifest 或 provider 时，调用方需要自行同步。

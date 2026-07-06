@@ -5,6 +5,7 @@
 #define CAORS_RESOURCES_IO_H_
 
 #include "caors/resources/cache.h"
+#include "caors/resources/manifest.h"
 #include "caors/resources/source.h"
 #include "caors/result.h"
 #include "caors/serialization/operations.h"
@@ -205,6 +206,17 @@ template <typename T>
   return serialization::serialize(value, writer, context);
 }
 
+/** @brief 从序列化 DOM 导入资源清单。导入会追加到 target，不会清空已有条目。 */
+[[nodiscard]] CAORS_API error load_manifest(manifest& target, const variant& value);
+
+/** @brief 从 JSON 文本导入资源清单。导入会追加到 target，不会清空已有条目。 */
+[[nodiscard]] CAORS_API error load_manifest_json(manifest& target, std::string_view text);
+
+/** @brief 从资源字节来源读取 JSON 文本并导入资源清单。 */
+[[nodiscard]] CAORS_API error load_manifest(manifest& target, source& resource_source,
+                                            io::path_view location,
+                                            memory_resource* resource = nullptr);
+
 } // namespace caors::resources
 
 namespace caors {
@@ -215,6 +227,8 @@ template <typename T> using resource_loader = resources::loader<T>;
 template <typename T> using resource_saver = resources::saver<T>;
 
 using resources::load_into;
+using resources::load_manifest;
+using resources::load_manifest_json;
 using resources::load_serialized;
 using resources::save_serialized;
 

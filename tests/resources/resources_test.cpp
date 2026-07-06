@@ -526,6 +526,62 @@ TEST_CASE("resources - manifest can populate provider bindings", "[resources]") 
         "texture-bytes");
 }
 
+TEST_CASE("resources - manifest loads from json document", "[resources]") {
+  caors::resource_manifest manifest;
+  const std::string json =
+      std::string{R"({"resources":[{"guid":")"} + test_guid_a.string() +
+      R"(","location":"/assets//texture.json","type":"game.texture","hash":"etag-a","version":9}]})";
+
+  REQUIRE(caors::load_manifest_json(manifest, json).succeeded());
+
+  const caors::resource_manifest_entry* entry = manifest.find(test_guid_a);
+  REQUIRE(entry != nullptr);
+  CHECK(entry->location.string_view() == "assets/texture.json");
+  CHECK(entry->type == std::string_view{"game.texture"});
+  CHECK(std::string_view{entry->hash.data(), entry->hash.size()} == "etag-a");
+  CHECK(entry->version == 9);
+}
+
+TEST_CASE("resources - manifest loads array json from source", "[resources]") {
+  const std::string json =
+      std::string{R"([{"guid":")"} + test_guid_b.string() + R"(","location":"assets/mesh.json"}])";
+
+  caors::memory_file_system files;
+  REQUIRE(files.write_all("manifest.json", std::string_view{json}).succeeded());
+
+  caors::resource_file_source source{files};
+  caors::resource_manifest manifest;
+
+  REQUIRE(caors::load_manifest(manifest, source, "manifest.json").succeeded());
+
+  const caors::resource_manifest_entry* entry = manifest.find(test_guid_b);
+  REQUIRE(entry != nullptr);
+  CHECK(entry->location.string_view() == "assets/mesh.json");
+  CHECK(entry->type.empty());
+  CHECK(entry->hash.empty());
+  CHECK(entry->version == 0);
+}
+
+TEST_CASE("resources - manifest reports invalid json entries", "[resources]") {
+  caors::resource_manifest manifest;
+
+  caors::error invalid_guid = caors::load_manifest_json(
+      manifest, R"({"resources":[{"guid":"not-a-guid","location":"asset.json"}]})");
+  REQUIRE(invalid_guid.failed());
+  CHECK(invalid_guid.domain() == caors::error_domain::resources);
+  CHECK(invalid_guid.value() == caors::errc::invalid_argument);
+
+  caors::error missing_entries = caors::load_manifest_json(manifest, R"({"items":[]})");
+  REQUIRE(missing_entries.failed());
+  CHECK(missing_entries.domain() == caors::error_domain::resources);
+  CHECK(missing_entries.value() == caors::errc::invalid_argument);
+
+  caors::error syntax_error = caors::load_manifest_json(manifest, R"({"resources":)");
+  REQUIRE(syntax_error.failed());
+  CHECK(syntax_error.domain() == caors::error_domain::serialization);
+  CHECK(syntax_error.value() == caors::errc::invalid_argument);
+}
+
 TEST_CASE("resources - provider reads bytes from file source", "[resources]") {
   const std::filesystem::path directory = make_temp_dir();
   const std::filesystem::path file = directory / "texture.txt";
