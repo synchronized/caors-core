@@ -1,0 +1,115 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 CAORS contributors
+
+#include "object_test_common.h"
+
+using namespace caors::tests::object;
+
+TEST_CASE("object - registry registers and finds types", "[object]") {
+  CHECK(register_object_test_type<registry_actor>() == caors::error{});
+  CHECK(register_object_test_type<registry_actor>() == object_error(caors::errc::duplicate_id));
+
+  auto type = caors::objects::find<registry_actor>();
+  REQUIRE(type);
+  CHECK(type.id() == registry_actor::static_type_id());
+  CHECK(type.name() == registry_actor::object_type_name);
+  CHECK_FALSE(type.guid());
+  CHECK(type.size() == sizeof(registry_actor));
+  CHECK(type.alignment() == alignof(registry_actor));
+  CHECK(type.constructible());
+
+  auto by_name = caors::objects::find(registry_actor::object_type_name);
+  REQUIRE(by_name);
+  CHECK(by_name.id() == registry_actor::static_type_id());
+}
+
+TEST_CASE("object - type guid can be provided by object subclass", "[object]") {
+  CHECK(persistent_actor::static_type_guid() == persistent_actor::object_type_guid);
+
+  REQUIRE(register_object_test_type<persistent_actor>() == caors::error{});
+
+  auto stored = caors::objects::find<persistent_actor>();
+  REQUIRE(stored);
+  CHECK(stored.guid() == persistent_actor::object_type_guid);
+}
+
+TEST_CASE("object - registry reports registration errors", "[object]") {
+  CHECK(caors::objects::class_<error_actor>("caors.test.object.missing_parent_child")
+            .parent(caors::type_id{std::numeric_limits<std::uint64_t>::max()})
+            .commit() == object_error(caors::errc::missing_parent));
+
+  REQUIRE(register_object_test_type<error_actor>() == caors::error{});
+
+  CHECK(register_object_test_type<error_player>(error_actor::object_type_name) ==
+        object_error(caors::errc::duplicate_name));
+}
+
+TEST_CASE("object - registry reports duplicate type guid", "[object]") {
+  REQUIRE(register_object_test_type<guid_owner_actor>() == caors::error{});
+
+  CHECK(register_object_test_type<duplicate_guid_player>() ==
+        object_error(caors::errc::duplicate_guid));
+}
+
+TEST_CASE("object - registry checks parent relationship", "[object]") {
+  REQUIRE(register_object_test_type<relation_actor>() == caors::error{});
+  const auto object_type = caors::objects::find<caors::object>();
+  const auto actor_type = caors::objects::find<relation_actor>();
+  REQUIRE(object_type);
+  REQUIRE(actor_type);
+
+  REQUIRE(register_object_test_type<relation_player>(actor_type.id()) == caors::error{});
+  const auto player_type = caors::objects::find<relation_player>();
+  REQUIRE(player_type);
+
+  CHECK(caors::objects::is_a(player_type.id(), player_type.id()));
+  CHECK(caors::objects::is_a(player_type.id(), actor_type.id()));
+  CHECK(caors::objects::is_a(player_type.id(), object_type.id()));
+  CHECK_FALSE(caors::objects::is_a(actor_type.id(), player_type.id()));
+}
+
+TEST_CASE("object - registry creates and destroys registered objects", "[object]") {
+  caors::objects::registry& registry = caors::objects::get_registry();
+  caors::tracking_resource tracking(&caors::get_system_memory_resource());
+
+  REQUIRE(register_object_test_type<factory_actor>() == caors::error{});
+
+  const auto actor_type = caors::objects::find<factory_actor>();
+  REQUIRE(actor_type);
+
+  caors::object* instance = registry.create(actor_type.id(), &tracking);
+
+  REQUIRE(instance != nullptr);
+  CHECK(instance->type_id() == actor_type.id());
+  CHECK(tracking.statistics().allocation_count == 1);
+
+  CHECK(registry.destroy(instance, &tracking));
+  CHECK(tracking.statistics().deallocation_count == 1);
+  CHECK(tracking.statistics().bytes_in_use == 0);
+}
+
+TEST_CASE("object - non default constructible types can be described but not factory-created",
+          "[object]") {
+  caors::objects::registry& registry = caors::objects::get_registry();
+
+  REQUIRE(register_object_test_type<registered_non_default_object>() == caors::error{});
+
+  auto type = caors::objects::find<registered_non_default_object>();
+  REQUIRE(type);
+  CHECK_FALSE(type.constructible());
+  CHECK(registry.try_create<registered_non_default_object>() == nullptr);
+  CHECK(registry.create<registered_non_default_object>() == nullptr);
+}
+
+TEST_CASE("object - direct creation supports constructor arguments", "[object]") {
+  caors::tracking_resource tracking(&caors::get_system_memory_resource());
+
+  auto* instance = caors::objects::create<direct_non_default_object>(&tracking, 42);
+
+  REQUIRE(instance != nullptr);
+  CHECK(instance->value == 42);
+  CHECK(instance->type_id() == direct_non_default_object::static_type_id());
+
+  caors::objects::destroy(instance, &tracking);
+  CHECK(tracking.statistics().bytes_in_use == 0);
+}
