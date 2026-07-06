@@ -3,7 +3,7 @@
 
 #include "helpers.h"
 
-#include "caors/object/object_ptr_view.h"
+#include "caors/object/ptr_view.h"
 #include "caors/reflection/registry.h"
 
 #include <limits>
@@ -305,7 +305,7 @@ error write_field(writer& writer, const reflection::field& field, const void* ob
     return {error_domain::serialization, errc::invalid_field};
   }
 
-  if (objects::is_object_ptr(field.get_ref(object))) {
+  if (objects::is_ptr(field.get_ref(object))) {
     return write_object_ptr_field(writer, field, object, field_data, context);
   }
 
@@ -356,7 +356,7 @@ error read_field(reader& reader, const reflection::field& field, void* object,
     return {error_domain::serialization, errc::invalid_field};
   }
 
-  if (objects::is_object_ptr(field.get_ref(object))) {
+  if (objects::is_ptr(field.get_ref(object))) {
     return read_object_ptr_field(reader, field, object, field_data, context);
   }
 

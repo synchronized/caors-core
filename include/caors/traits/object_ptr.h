@@ -4,6 +4,6 @@
 #ifndef CAORS_TRAITS_OBJECT_PTR_H_
 #define CAORS_TRAITS_OBJECT_PTR_H_
 
-#include "caors/object/object_ptr.h"
+#include "caors/object/ptr.h"
 
 #endif

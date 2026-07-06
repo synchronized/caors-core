@@ -205,7 +205,7 @@ descriptor 内部按职责拆分：
 - `value_ops`：保存默认构造、复制、析构和赋值的类型擦除函数。
 - `type_semantics`：保存该类型在反射、序列化和 value 模块中的运行期形态。
 - `type_capabilities`：保存固定内置能力集合，例如枚举、间接值、顺序容器、集合、关联容器、pair、tuple 或 variant。
-- `objects::detail::object_ptr_data`：对象指针能力，它独立于固定运行期能力集合。
+- `objects::detail::ptr_data`：对象指针能力，它独立于固定运行期能力集合。
 
 `type_semantics` 描述以下语义：
 
@@ -220,7 +220,7 @@ pair、tuple 和 variant 访问能力。当前能力集合由 CAORS 固定定义
 
 - `meta::detail::indirect_data`：裸指针或 wrapper 的内部值访问、持值检测、重置和确保持值函数。
 - `meta::detail::enum_data`：枚举类型和整数之间的转换函数。
-- `objects::detail::object_ptr_data`：对象指针类型和对象指针之间的读写函数，和 `type_capabilities` 独立保存。
+- `objects::detail::ptr_data`：对象指针类型和对象指针之间的读写函数，和 `type_capabilities` 独立保存。
 - `meta::detail::sequence_data` / `set_data` / `associative_data` / `pair_data` / `tuple_data` / `variant_data`：容器、二元组、tuple-like 和 variant-like 的运行期访问函数。
 
 统一 `value_type` / `key_type` 不再作为 `type_descriptor` 顶层字段保存。普通值和枚举直接使用

@@ -32,7 +32,7 @@ int main() {
     return 1;
   }
 
-  const caors::objects::typed_object_handle<managed_player> typed =
+  const caors::objects::typed_handle<managed_player> typed =
       manager.handle_of<managed_player>(player->id());
   if (!typed) {
     return 1;
@@ -44,12 +44,11 @@ int main() {
   caors::object* resolved = resolver.id_to_object(id, resolver.user_data);
 
   std::cout << "managed object id: " << id.value() << '\n';
-  std::cout << "typed object handle alive: " << (manager.find(typed) != nullptr) << '\n';
+  std::cout << "typed handle alive: " << (manager.find(typed) != nullptr) << '\n';
   std::cout << "resolver matched: " << (resolved == player) << '\n';
 
   manager.destroy(id);
-  std::cout << "typed object handle alive after destroy: " << (manager.find(typed) != nullptr)
-            << '\n';
+  std::cout << "typed handle alive after destroy: " << (manager.find(typed) != nullptr) << '\n';
 
   return 0;
 }

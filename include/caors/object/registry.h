@@ -6,7 +6,7 @@
 
 #include "caors/meta.h"
 #include "caors/object/factory.h"
-#include "caors/object/object_ptr.h"
+#include "caors/object/ptr.h"
 #include "caors/object/type.h"
 
 #include <optional>

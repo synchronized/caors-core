@@ -12,7 +12,7 @@ CAORS 自身类型的具体适配放在 `adapters` 或对应主题模块中。
 - `caors/traits/type_name.h`：C++ 类型到 CAORS 类型名的默认映射。
 - `caors/traits/wrapper.h`：wrapper 类型语义和内部值访问扩展点。
 - `caors/traits/container.h`：顺序容器、集合、关联容器、pair、tuple 和 variant 语义扩展点。
-- `caors/traits/object_ptr.h`：兼容转发头，对象指针扩展点实际位于 `caors/object/object_ptr.h`。
+- `caors/traits/object_ptr.h`：兼容转发头，对象指针扩展点实际位于 `caors/object/ptr.h`。
 - `caors/adapters/stl.h`：标准库类型 traits 和 wrapper 适配聚合入口。
 - `caors/adapters/stl_traits.h`：标准库容器、pair、tuple 和 variant 的 traits 特化。
 - `caors/adapters/stl_wrapper.h`：标准库智能指针、`std::optional` 和
@@ -104,8 +104,8 @@ struct wrapper_access<game::box<T>> {
   时，会优先通过标准 uses-allocator 规则构造 allocator-aware 的 `T`。
 
 对象引用不再作为 `wrapper_semantics` 的一种。需要按对象 id 序列化的引用类型应适配
-`objects::detail::object_ptr_traits<T>` 和 `objects::detail::object_ptr_access<T>`，然后通过
-`objects::object_ptr_view_of(any_ref)` 查询对象指针视图。
+`objects::detail::ptr_traits<T>` 和 `objects::detail::ptr_access<T>`，然后通过
+`objects::ptr_view_of(any_ref)` 查询对象指针视图。
 
 ## 容器 traits
 

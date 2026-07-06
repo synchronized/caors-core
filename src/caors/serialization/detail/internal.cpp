@@ -5,7 +5,7 @@
 #include "polymorphic.h"
 
 #include "caors/meta/detail/type_capabilities.h"
-#include "caors/object/object_ptr_view.h"
+#include "caors/object/ptr_view.h"
 #include "caors/reflection/registry.h"
 
 #include <limits>
@@ -199,7 +199,7 @@ descriptor_of_value(const any_ref& value) noexcept {
 }
 
 [[nodiscard]] bool type_uses_object_ptr(const any_ref& value) noexcept {
-  return objects::is_object_ptr(value);
+  return objects::is_ptr(value);
 }
 
 [[nodiscard]] variant_result make_object_ptr_identity_value(const object* referenced,
@@ -317,7 +317,7 @@ descriptor_of_value(const any_ref& value) noexcept {
 
 [[nodiscard]] variant_result make_object_ptr_value(const any_ref& value,
                                                    const serialization::context& context) {
-  const objects::object_ptr_view object_ptr = objects::object_ptr_view_of(value);
+  const objects::ptr_view object_ptr = objects::ptr_view_of(value);
   if (!object_ptr) {
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
@@ -327,7 +327,7 @@ descriptor_of_value(const any_ref& value) noexcept {
 
 [[nodiscard]] error write_object_ptr_value(writer& writer, const any_ref& value,
                                            const serialization::context& context) {
-  const objects::object_ptr_view object_ptr = objects::object_ptr_view_of(value);
+  const objects::ptr_view object_ptr = objects::ptr_view_of(value);
   if (!object_ptr) {
     return {error_domain::serialization, errc::unsupported};
   }
@@ -337,7 +337,7 @@ descriptor_of_value(const any_ref& value) noexcept {
 
 [[nodiscard]] error read_object_ptr_value(reader& reader, const any_ref& target,
                                           const serialization::context& context) {
-  const objects::object_ptr_view object_ptr = objects::object_ptr_view_of(target);
+  const objects::ptr_view object_ptr = objects::ptr_view_of(target);
   if (!object_ptr || !object_ptr.writable() || target.mutable_data() == nullptr) {
     return {error_domain::serialization, errc::unsupported};
   }

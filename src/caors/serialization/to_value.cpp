@@ -3,7 +3,7 @@
 
 #include "caors/serialization/operations.h"
 
-#include "caors/object/object_ptr_view.h"
+#include "caors/object/ptr_view.h"
 #include "caors/reflection/registry.h"
 #include "caors/value/indirect_view.h"
 
@@ -40,7 +40,7 @@ value_ref_to_serialization_value(const any_ref& value, const serialization::cont
 [[nodiscard]] variant_result field_to_serialization_value(const reflection::field& field,
                                                           const void* object,
                                                           const serialization::context& context) {
-  if (objects::is_object_ptr(field.get_ref(object))) {
+  if (objects::is_ptr(field.get_ref(object))) {
     return object_ptr_to_serialization_value(field, object, context);
   }
 
