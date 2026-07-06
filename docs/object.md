@@ -147,6 +147,9 @@ if (ptr) {
 }
 ```
 
+它表达的是“当前已经拿到了对象地址”。如果对象由 `objects::manager`、场景树或其他上层容器拥有，
+调用方必须保证 `ptr<T>` 的使用时间不超过对象生命周期；对象销毁后已有 `ptr<T>` 不会自动置空。
+
 ### objects::handle 和 objects::typed_handle
 
 `objects::handle` 是只保存 `object_id` 和 `object_type_id` 的身份描述，不拥有对象，也不提供解引用：
@@ -158,6 +161,25 @@ caors::objects::handle handle{instance.id(), instance.type_id()};
 `objects::typed_handle<T>` 是类型化身份句柄，内部同样只保存 `objects::handle`。它不会延长对象生命周期，
 也不会隐式查询全局对象表；需要解析时应显式传给 `objects::manager` 或上层对象数据库。当前阶段如果需要把对象关系序列化为运行期对象 id，可以使用 `objects::ptr<T>` 和
 `serialization::reference_resolver`，也可以从 `objects::manager` 创建 resolver。
+
+两者共享同一个内部句柄实现：`objects::handle` 是非类型化身份，`objects::typed_handle<T>` 是带
+C++ 编译期类型约束的身份视图。类型化句柄可以从非类型化句柄构造，也可以通过 `.handle()` 取回
+非类型化句柄：
+
+```cpp
+caors::objects::handle handle = manager.handle_of(instance->id());
+caors::objects::typed_handle<player> typed{handle};
+
+if (player* current = manager.find(typed)) {
+  // 使用 current。
+}
+```
+
+因此三类对象引用语义的边界是：
+
+- `objects::ptr<T>`：保存地址，适合短期直接访问，不拥有对象。
+- `objects::handle` / `objects::typed_handle<T>`：保存身份，适合 manager、world、场景树或序列化关系，必须通过 resolver 解析。
+- `objects::ref<T>` / `objects::weak_ref<T>`：保存引用计数所有权或弱观察关系，只管理 `objects::make_ref<T>()` 创建的对象。
 
 ### 对象引用计数
 
