@@ -11,6 +11,8 @@
 当前已实现：
 
 - `io::byte_buffer`：使用 CAORS allocator 的字节缓冲区。
+- `io::path_view`：非拥有路径视图。
+- `io::path`：使用 CAORS allocator 的拥有式路径字符串。
 - `io::input_stream`：同步输入字节流接口。
 - `io::output_stream`：同步输出字节流接口。
 - `io::file_system`：同步文件系统抽象。
@@ -33,6 +35,8 @@
 IO 模块主定义位于 `caors::io` 命名空间，例如：
 
 - `io::byte_buffer`
+- `io::path_view`
+- `io::path`
 - `io::input_stream`
 - `io::output_stream`
 - `io::file_system`
@@ -45,6 +49,10 @@ IO 模块主定义位于 `caors::io` 命名空间，例如：
 - `caors::byte_buffer_result`
 - `caors::size_result`
 - `caors::make_byte_buffer`
+- `caors::path_view`
+- `caors::path`
+- `caors::normalize_path`
+- `caors::join_path`
 - `caors::input_stream`
 - `caors::output_stream`
 - `caors::file_system`
@@ -52,9 +60,27 @@ IO 模块主定义位于 `caors::io` 命名空间，例如：
 - `caors::get_native_file_system`
 - `caors::mount_file_system`
 
+## path / path_view
+
+`io::path_view` 是非拥有字符串视图，`io::path` 是拥有式字符串。它们用于表达 IO 和资源层的路径语义，
+但不等同于 `std::filesystem::path`：
+
+```cpp
+caors::path path = caors::normalize_path("\\assets//textures\\albedo.png");
+// path.string_view() == "assets/textures/albedo.png"
+```
+
+当前规则：
+
+- `path_view` 不拥有内容，调用方需要保证底层字符串生命周期。
+- `path` 使用 CAORS allocator 保存内容。
+- `path` 普通构造不自动规范化，避免破坏本地绝对路径。
+- `normalize_path()` 和 `join_path()` 面向虚拟路径：统一为 `/`，去掉开头分隔符，折叠连续分隔符。
+- `native_file_system` 仍由后端把 `path_view` 转为宿主平台路径。
+
 ## file_system
 
-`io::file_system` 表示一类可通过字符串路径访问的字节来源。路径语义由具体实现决定：
+`io::file_system` 表示一类可通过 `path_view` 访问的字节来源。路径语义由具体实现决定：
 
 ```cpp
 caors::file_system& fs = caors::get_native_file_system();

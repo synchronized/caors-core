@@ -12,17 +12,17 @@
 namespace caors::io {
 namespace {
 
-[[nodiscard]] std::filesystem::path native_path(std::string_view path) {
-  return std::filesystem::path{std::string{path}};
+[[nodiscard]] std::filesystem::path native_path(path_view path) {
+  return std::filesystem::path{std::string{path.string_view()}};
 }
 
-[[nodiscard]] error validate_path(std::string_view path) noexcept {
+[[nodiscard]] error validate_path(path_view path) noexcept {
   return path.empty() ? error{error_domain::io, errc::invalid_argument} : error{};
 }
 
 } // namespace
 
-bool native_file_system::exists(std::string_view path) const {
+bool native_file_system::exists(path_view path) const {
   if (path.empty()) {
     return false;
   }
@@ -31,7 +31,7 @@ bool native_file_system::exists(std::string_view path) const {
   return std::filesystem::exists(native_path(path), ec) && !ec;
 }
 
-byte_buffer_result native_file_system::read_all(std::string_view path, memory_resource* resource) {
+byte_buffer_result native_file_system::read_all(path_view path, memory_resource* resource) {
   error status = validate_path(path);
   if (status) {
     return {status, {}};
@@ -64,7 +64,7 @@ byte_buffer_result native_file_system::read_all(std::string_view path, memory_re
   return {{}, std::move(bytes)};
 }
 
-error native_file_system::write_all(std::string_view path, std::span<const std::byte> bytes) {
+error native_file_system::write_all(path_view path, std::span<const std::byte> bytes) {
   error status = validate_path(path);
   if (status) {
     return status;

@@ -27,11 +27,10 @@ public:
   [[nodiscard]] memory_resource* resource() const noexcept;
 
   /** @brief 挂载虚拟路径前缀到目标文件系统和目标路径前缀。 */
-  [[nodiscard]] error mount(std::string_view prefix, file_system& target,
-                            std::string_view target_prefix = {});
+  [[nodiscard]] error mount(path_view prefix, file_system& target, path_view target_prefix = {});
 
   /** @brief 取消挂载虚拟路径前缀。 */
-  [[nodiscard]] bool unmount(std::string_view prefix);
+  [[nodiscard]] bool unmount(path_view prefix);
 
   /** @brief 清空所有挂载。 */
   void clear();
@@ -39,10 +38,10 @@ public:
   /** @brief 返回挂载数量。 */
   [[nodiscard]] std::size_t mount_count() const noexcept;
 
-  [[nodiscard]] bool exists(std::string_view path) const override;
-  [[nodiscard]] byte_buffer_result read_all(std::string_view path,
+  [[nodiscard]] bool exists(path_view path) const override;
+  [[nodiscard]] byte_buffer_result read_all(path_view path,
                                             memory_resource* resource = nullptr) override;
-  [[nodiscard]] error write_all(std::string_view path, std::span<const std::byte> bytes) override;
+  [[nodiscard]] error write_all(path_view path, std::span<const std::byte> bytes) override;
 
 private:
   struct mount_entry {
@@ -51,8 +50,8 @@ private:
     core::string target_prefix;
   };
 
-  [[nodiscard]] const mount_entry* find_mount(std::string_view path) const noexcept;
-  [[nodiscard]] core::string resolve_path(const mount_entry& entry, std::string_view path) const;
+  [[nodiscard]] const mount_entry* find_mount(path_view path) const noexcept;
+  [[nodiscard]] core::string resolve_path(const mount_entry& entry, path_view path) const;
 
   core::vector<mount_entry> mounts_;
 };

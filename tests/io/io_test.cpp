@@ -108,6 +108,20 @@ TEST_CASE("io - default native file system is stable", "[io]") {
   CHECK(&first == &second);
 }
 
+TEST_CASE("io - path owns and normalizes virtual paths", "[io]") {
+  caors::path owned{"assets\\textures"};
+  caors::path_view view{owned};
+
+  CHECK(owned.string_view() == "assets\\textures");
+  CHECK(view.string_view() == "assets\\textures");
+
+  caors::path normalized = caors::normalize_path("\\assets//textures\\albedo.png");
+  CHECK(normalized.string_view() == "assets/textures/albedo.png");
+
+  caors::path joined = caors::join_path("/assets/textures/", "\\albedo.png");
+  CHECK(joined.string_view() == "assets/textures/albedo.png");
+}
+
 TEST_CASE("io - mount file system routes virtual prefixes", "[io]") {
   const std::filesystem::path directory = make_temp_dir();
   const std::filesystem::path base = directory / "base";

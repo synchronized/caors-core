@@ -28,18 +28,17 @@ public:
   file_system& operator=(file_system&&) = delete;
 
   /** @brief 判断路径是否存在。 */
-  [[nodiscard]] virtual bool exists(std::string_view path) const = 0;
+  [[nodiscard]] virtual bool exists(path_view path) const = 0;
 
   /** @brief 读取整个文件或对象内容。 */
-  [[nodiscard]] virtual byte_buffer_result read_all(std::string_view path,
+  [[nodiscard]] virtual byte_buffer_result read_all(path_view path,
                                                     memory_resource* resource = nullptr) = 0;
 
   /** @brief 写出整个字节缓冲区。 */
-  [[nodiscard]] virtual error write_all(std::string_view path,
-                                        std::span<const std::byte> bytes) = 0;
+  [[nodiscard]] virtual error write_all(path_view path, std::span<const std::byte> bytes) = 0;
 
   /** @brief 写出字符串内容。 */
-  [[nodiscard]] error write_all(std::string_view path, std::string_view text) {
+  [[nodiscard]] error write_all(path_view path, std::string_view text) {
     return write_all(path, std::span<const std::byte>{
                                reinterpret_cast<const std::byte*>(text.data()), text.size()});
   }

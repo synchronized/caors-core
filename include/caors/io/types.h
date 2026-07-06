@@ -5,6 +5,7 @@
 #define CAORS_IO_TYPES_H_
 
 #include "caors/core/containers.h"
+#include "caors/io/path.h"
 #include "caors/result.h"
 
 #include <cstddef>

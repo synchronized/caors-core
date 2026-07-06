@@ -29,10 +29,10 @@ public:
   source& operator=(source&&) = delete;
 
   /** @brief 判断指定位置是否存在。 */
-  [[nodiscard]] virtual bool exists(std::string_view location) const = 0;
+  [[nodiscard]] virtual bool exists(io::path_view location) const = 0;
 
   /** @brief 读取指定位置的完整字节内容。 */
-  [[nodiscard]] virtual io::byte_buffer_result read(std::string_view location,
+  [[nodiscard]] virtual io::byte_buffer_result read(io::path_view location,
                                                     memory_resource* resource = nullptr) = 0;
 };
 
@@ -48,8 +48,8 @@ public:
   /** @brief 返回底层文件系统。 */
   [[nodiscard]] io::file_system& file_system() const noexcept;
 
-  [[nodiscard]] bool exists(std::string_view location) const override;
-  [[nodiscard]] io::byte_buffer_result read(std::string_view location,
+  [[nodiscard]] bool exists(io::path_view location) const override;
+  [[nodiscard]] io::byte_buffer_result read(io::path_view location,
                                             memory_resource* resource = nullptr) override;
 
 private:
@@ -63,7 +63,7 @@ private:
  */
 struct source_location {
   resources::source* source = nullptr;
-  std::string_view location{};
+  io::path_view location{};
 
   [[nodiscard]] explicit operator bool() const noexcept {
     return source != nullptr && !location.empty();
@@ -89,8 +89,7 @@ public:
   [[nodiscard]] memory_resource* resource() const noexcept;
 
   /** @brief 绑定 GUID 到指定来源和位置。 */
-  [[nodiscard]] error bind(resource_guid guid, resources::source& source,
-                           std::string_view location);
+  [[nodiscard]] error bind(resource_guid guid, resources::source& source, io::path_view location);
 
   /** @brief 解绑 GUID。 */
   [[nodiscard]] bool unbind(resource_guid guid);

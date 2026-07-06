@@ -489,7 +489,7 @@ TEST_CASE("resources - provider reads bytes from file source", "[resources]") {
   const caors::resource_source_location location = provider.find(test_guid_a);
   REQUIRE(location);
   CHECK(location.source == &source);
-  CHECK(location.location == file_path);
+  CHECK(location.location.string_view() == file_path);
 
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
   caors::byte_buffer_result bytes = provider.read(test_guid_a, &tracking);

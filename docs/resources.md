@@ -216,7 +216,7 @@ if (cache.resolve(reference)) {
 
 ## source / provider
 
-`resources::source` 是“按字符串位置读取字节”的接口；`resources::provider` 是
+`resources::source` 是“按 `io::path_view` 位置读取字节”的接口；`resources::provider` 是
 `resource_guid -> (source, location)` 的运行期索引：
 
 ```cpp
@@ -235,6 +235,7 @@ caors::byte_buffer_result bytes = provider.read(texture_id);
 需要注意：
 
 - `provider` 不拥有 source，调用方需要保证 source 生命周期。
+- `source_location::location` 是非拥有 `io::path_view`，provider 修改或销毁后失效。
 - `provider` 只负责定位和读取字节，不负责解码资源对象。
 - `bind()` 会拒绝 nil GUID、空 location 和重复 GUID。
 - provider 未命中 GUID 返回 `error_domain::resources / errc::not_found`。

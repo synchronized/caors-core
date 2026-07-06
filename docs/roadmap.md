@@ -15,6 +15,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 提供与 CAORS 内存系统适配的 `string` / `vector` / `hash_map` / `hash_set` 基础容器别名。
 - [x] 提供与 CAORS 内存系统适配的 `list` 基础容器别名。
 - [x] 建立 `io` 主题，提供同步字节流、文件系统抽象和本地文件系统实现。
+- [x] 增加 `io::path_view` / `io::path`，明确虚拟路径和宿主文件系统路径的边界。
 - [ ] 在 core 主题下逐步补充 small_vector、stable_vector 等基础容器。
 
 ## 1. 类型元数据底座

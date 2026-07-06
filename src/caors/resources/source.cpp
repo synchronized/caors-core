@@ -6,9 +6,10 @@
 namespace caors::resources {
 namespace {
 
-[[nodiscard]] core::string make_location(std::string_view location, memory_resource* resource) {
+[[nodiscard]] core::string make_location(io::path_view location, memory_resource* resource) {
+  const std::string_view text = location.string_view();
   core::string result{allocator<char>{resource}};
-  result.assign(location.begin(), location.end());
+  result.assign(text.begin(), text.end());
   return result;
 }
 
@@ -20,11 +21,11 @@ file_source::file_source(io::file_system& file_system) noexcept : file_system_(&
 
 io::file_system& file_source::file_system() const noexcept { return *file_system_; }
 
-bool file_source::exists(std::string_view location) const {
+bool file_source::exists(io::path_view location) const {
   return file_system_ != nullptr && file_system_->exists(location);
 }
 
-io::byte_buffer_result file_source::read(std::string_view location, memory_resource* resource) {
+io::byte_buffer_result file_source::read(io::path_view location, memory_resource* resource) {
   if (file_system_ == nullptr) {
     return {{error_domain::resources, errc::backend_failure}, {}};
   }
@@ -38,7 +39,7 @@ provider::provider(memory_resource* resource)
 
 memory_resource* provider::resource() const noexcept { return resource_; }
 
-error provider::bind(resource_guid guid, resources::source& source, std::string_view location) {
+error provider::bind(resource_guid guid, resources::source& source, io::path_view location) {
   if (!guid || location.empty()) {
     return {error_domain::resources, errc::invalid_argument};
   }
@@ -68,8 +69,7 @@ source_location provider::find(resource_guid guid) const {
     return {};
   }
 
-  return {position->second.source,
-          std::string_view{position->second.location.data(), position->second.location.size()}};
+  return {position->second.source, io::path_view{position->second.location}};
 }
 
 bool provider::exists(resource_guid guid) const {
