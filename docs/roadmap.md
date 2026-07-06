@@ -149,6 +149,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 实现 `resources::file_source`，把 `io::file_system` 适配为资源字节来源。
 - [x] 实现 `resources::json_loader<T>`，打通 `resource_guid -> provider -> JSON -> resource` 的同步加载链路。
 - [x] 实现内存文件系统后端 `io::memory_file_system`，用于测试、热更新缓存和后续资源包索引内存镜像。
+- [x] 增加 `resources::manifest`，保存 `resource_guid -> location/type/hash/version` 清单，并可批量绑定到 provider。
 - [ ] 实现资源包、远程资源或异步 loader/saver 后端。
 - [ ] 打通资源引用序列化 resolver，支持反序列化后自动解析资源依赖关系和稳定 GUID 引用。
 - [ ] 后续评估热重载、导入管线、资源数据库和编辑器工具层；这些能力不进入第一阶段底层 API。

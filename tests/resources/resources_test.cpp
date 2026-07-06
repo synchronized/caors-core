@@ -466,6 +466,66 @@ TEST_CASE("resources - cache uses requested memory resource", "[resources]") {
   CHECK(tracking.statistics().allocation_count > 0);
 }
 
+TEST_CASE("resources - manifest stores normalized locations and metadata", "[resources]") {
+  caors::resource_manifest manifest;
+  const caors::string_name texture_type{"game.texture"};
+
+  REQUIRE(
+      manifest.bind(test_guid_a, "/assets//texture.json", texture_type, "etag-a", 7).succeeded());
+
+  CHECK(manifest.size() == 1);
+  CHECK(manifest.contains(test_guid_a));
+
+  const caors::resource_manifest_entry* entry = manifest.find(test_guid_a);
+  REQUIRE(entry != nullptr);
+  CHECK(entry->guid == test_guid_a);
+  CHECK(entry->location.string_view() == "assets/texture.json");
+  CHECK(entry->type == std::string_view{"game.texture"});
+  CHECK(std::string_view{entry->hash.data(), entry->hash.size()} == "etag-a");
+  CHECK(entry->version == 7);
+  CHECK(entry->valid());
+
+  const caors::error duplicate = manifest.bind(test_guid_a, "other.json");
+  REQUIRE(duplicate.failed());
+  CHECK(duplicate.domain() == caors::error_domain::resources);
+  CHECK(duplicate.value() == caors::errc::already_exists);
+
+  const caors::error invalid_guid = manifest.bind(caors::resource_guid::nil(), "asset.json");
+  REQUIRE(invalid_guid.failed());
+  CHECK(invalid_guid.domain() == caors::error_domain::resources);
+  CHECK(invalid_guid.value() == caors::errc::invalid_argument);
+
+  const caors::error empty_location = manifest.bind(test_guid_b, "///");
+  REQUIRE(empty_location.failed());
+  CHECK(empty_location.domain() == caors::error_domain::resources);
+  CHECK(empty_location.value() == caors::errc::invalid_argument);
+}
+
+TEST_CASE("resources - manifest can populate provider bindings", "[resources]") {
+  caors::memory_file_system files;
+  REQUIRE(files.write_all("assets/texture.json", std::string_view{"texture-bytes"}).succeeded());
+
+  caors::resource_file_source source{files};
+  caors::resource_manifest manifest;
+  REQUIRE(manifest.bind(test_guid_a, "/assets//texture.json").succeeded());
+
+  caors::resource_provider provider;
+  REQUIRE(caors::bind_manifest(provider, source, manifest).succeeded());
+
+  CHECK(provider.size() == 1);
+  CHECK(provider.exists(test_guid_a));
+
+  const caors::resource_source_location location = provider.find(test_guid_a);
+  REQUIRE(location);
+  CHECK(location.source == &source);
+  CHECK(location.location.string_view() == "assets/texture.json");
+
+  const caors::byte_buffer_result bytes = provider.read(test_guid_a);
+  REQUIRE(bytes.succeeded());
+  CHECK(std::string_view{reinterpret_cast<const char*>(bytes.value.data()), bytes.value.size()} ==
+        "texture-bytes");
+}
+
 TEST_CASE("resources - provider reads bytes from file source", "[resources]") {
   const std::filesystem::path directory = make_temp_dir();
   const std::filesystem::path file = directory / "texture.txt";
