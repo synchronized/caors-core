@@ -76,8 +76,8 @@ namespace {
     return version_status;
   }
 
-  return target.bind(*parsed_guid, std::string_view{location_text->data(), location_text->size()},
-                     type, hash, version);
+  return target.set(*parsed_guid, std::string_view{location_text->data(), location_text->size()},
+                    type, hash, version);
 }
 
 [[nodiscard]] const variant::array_type* manifest_entries(const variant& value) {

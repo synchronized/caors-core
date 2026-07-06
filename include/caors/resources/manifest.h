@@ -75,6 +75,22 @@ public:
   /** @brief 新增资源清单条目。location 会按虚拟路径规则规范化。 */
   [[nodiscard]] error bind(resource_guid guid, io::path_view location, core::string_name type = {},
                            std::string_view hash = {}, std::uint64_t version = 0) {
+    if (contains(guid)) {
+      return {error_domain::resources, errc::already_exists};
+    }
+
+    return set(guid, location, type, hash, version);
+  }
+
+  /** @brief 新增资源清单条目，并把输入条目内容复制到当前 manifest 的内存资源中。 */
+  [[nodiscard]] error bind(const manifest_entry& entry) {
+    return bind(entry.guid, entry.location, entry.type,
+                std::string_view{entry.hash.data(), entry.hash.size()}, entry.version);
+  }
+
+  /** @brief 新增或替换资源清单条目。location 会按虚拟路径规则规范化。 */
+  [[nodiscard]] error set(resource_guid guid, io::path_view location, core::string_name type = {},
+                          std::string_view hash = {}, std::uint64_t version = 0) {
     if (!guid || location.empty()) {
       return {error_domain::resources, errc::invalid_argument};
     }
@@ -89,18 +105,20 @@ public:
     entry.hash.assign(hash.begin(), hash.end());
     entry.version = version;
 
-    if (contains(guid)) {
-      return {error_domain::resources, errc::already_exists};
+    const auto position = entries_.find(guid);
+    if (position == entries_.end()) {
+      entries_.emplace(guid, std::move(entry));
+      return {};
     }
 
-    entries_.emplace(guid, std::move(entry));
+    position->second = std::move(entry);
     return {};
   }
 
-  /** @brief 新增资源清单条目，并把输入条目内容复制到当前 manifest 的内存资源中。 */
-  [[nodiscard]] error bind(const manifest_entry& entry) {
-    return bind(entry.guid, entry.location, entry.type,
-                std::string_view{entry.hash.data(), entry.hash.size()}, entry.version);
+  /** @brief 新增或替换资源清单条目，并把输入条目内容复制到当前 manifest 的内存资源中。 */
+  [[nodiscard]] error set(const manifest_entry& entry) {
+    return set(entry.guid, entry.location, entry.type,
+               std::string_view{entry.hash.data(), entry.hash.size()}, entry.version);
   }
 
   /** @brief 删除指定 GUID 的清单条目。 */
@@ -151,6 +169,26 @@ private:
   return status;
 }
 
+/**
+ * @brief 把清单中的 GUID/location 批量同步到 provider。
+ *
+ * `sync_manifest()` 会对每个条目调用 `provider::rebind()`：已存在的 GUID 会更新位置或 source，
+ * 不存在的 GUID 会新增。它不会删除 provider 中清单未包含的旧绑定。
+ */
+[[nodiscard]] inline error sync_manifest(provider& target, source& source,
+                                         const manifest& entries) {
+  error status{};
+  entries.for_each([&](const manifest_entry& entry) {
+    if (status.failed()) {
+      return;
+    }
+
+    status = target.rebind(entry.guid, source, entry.location);
+  });
+
+  return status;
+}
+
 } // namespace caors::resources
 
 namespace caors {
@@ -158,6 +196,7 @@ namespace caors {
 using resource_manifest = resources::manifest;
 using resource_manifest_entry = resources::manifest_entry;
 using resources::bind_manifest;
+using resources::sync_manifest;
 
 } // namespace caors
 

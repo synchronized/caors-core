@@ -206,10 +206,10 @@ template <typename T>
   return serialization::serialize(value, writer, context);
 }
 
-/** @brief 从序列化 DOM 导入资源清单。导入会追加到 target，不会清空已有条目。 */
+/** @brief 从序列化 DOM 导入资源清单。导入会新增或替换 target 中的条目，不会清空已有条目。 */
 [[nodiscard]] CAORS_API error load_manifest(manifest& target, const variant& value);
 
-/** @brief 从 JSON 文本导入资源清单。导入会追加到 target，不会清空已有条目。 */
+/** @brief 从 JSON 文本导入资源清单。导入会新增或替换 target 中的条目，不会清空已有条目。 */
 [[nodiscard]] CAORS_API error load_manifest_json(manifest& target, std::string_view text);
 
 /** @brief 从资源字节来源读取 JSON 文本并导入资源清单。 */

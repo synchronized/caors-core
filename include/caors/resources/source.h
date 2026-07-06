@@ -91,6 +91,9 @@ public:
   /** @brief 绑定 GUID 到指定来源和位置。 */
   [[nodiscard]] error bind(resource_guid guid, resources::source& source, io::path_view location);
 
+  /** @brief 绑定或更新 GUID 到指定来源和位置。 */
+  [[nodiscard]] error rebind(resource_guid guid, resources::source& source, io::path_view location);
+
   /** @brief 解绑 GUID。 */
   [[nodiscard]] bool unbind(resource_guid guid);
 

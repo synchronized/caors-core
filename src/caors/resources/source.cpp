@@ -3,6 +3,8 @@
 
 #include "caors/resources/source.h"
 
+#include <utility>
+
 namespace caors::resources {
 namespace {
 
@@ -48,6 +50,22 @@ error provider::bind(resource_guid guid, resources::source& source, io::path_vie
   }
 
   locations_.emplace(guid, entry{&source, make_location(location, resource_)});
+  return {};
+}
+
+error provider::rebind(resource_guid guid, resources::source& source, io::path_view location) {
+  if (!guid || location.empty()) {
+    return {error_domain::resources, errc::invalid_argument};
+  }
+
+  entry updated{&source, make_location(location, resource_)};
+  const auto position = locations_.find(guid);
+  if (position == locations_.end()) {
+    locations_.emplace(guid, std::move(updated));
+    return {};
+  }
+
+  position->second = std::move(updated);
   return {};
 }
 
