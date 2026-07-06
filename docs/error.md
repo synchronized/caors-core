@@ -3,7 +3,7 @@
 
 # Error
 
-本文档说明 CAORS 的统一错误模型。当前错误层目标是为 meta、object、reflection、resources 和
+本文档说明 CAORS 的统一错误模型。当前错误层目标是为 io、meta、object、reflection、resources 和
 serialization 等模块提供一致的跨模块错误表达。
 
 ## 设计目标

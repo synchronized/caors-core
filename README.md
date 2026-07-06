@@ -24,6 +24,7 @@ CAORS 目前更偏底层库和实验性基础设施，而不是完整引擎或�
 - 导出宏 API：`caors/export.h`。
 - 基础版本 API：`caors/version.h`，由 `include/caors/version.h.in` 在配置阶段生成。
 - Core API：`caors/core/string_name.h` 和 `caors/core/guid.h`。
+- 基础 IO API：`caors/io.h`，包含同步字节流、文件系统抽象和本地文件系统实现。
 - 类型元数据 API：`caors/meta.h`，包含运行期 `type_id` 和稳定 `type_guid`。
 - 基础内存资源 API：`caors/memory.h`。
 - 基础对象系统 API：`caors/object.h`。
@@ -60,6 +61,7 @@ ctest --preset windows-clang-debug
 - [docs/build.md](docs/build.md)：构建、测试、安装和 CMake 选项。
 - [docs/development.md](docs/development.md)：开发规范、代码格式和静态检查。
 - [docs/error.md](docs/error.md)：统一错误模型和标准库错误码适配。
+- [docs/io.md](docs/io.md)：同步字节流、文件系统抽象和本地文件系统实现。
 - [docs/roadmap.md](docs/roadmap.md)：项目路线图。
 - [docs/registration.md](docs/registration.md)：类型、对象、反射和序列化的注册顺序与初始化策略。
 - [docs/serialization.md](docs/serialization.md)：序列化元信息和文本序列化 MVP。

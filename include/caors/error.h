@@ -39,6 +39,7 @@ enum class errc {
 enum class error_domain {
   none,
   core,
+  io,
   meta,
   memory,
   object,
