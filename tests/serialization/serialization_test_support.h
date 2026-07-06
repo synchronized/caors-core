@@ -348,6 +348,15 @@ inline void require_pointer_actor_metadata() {
   REQUIRE(serialization_result_ok(caors::serialization::register_type<pointer_actor>()));
 }
 
+inline void require_reference_wrapper_actor_metadata() {
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<reference_wrapper_actor>(
+          "caors.test.serialization.reference_wrapper_actor")
+          .field("value", &reference_wrapper_actor::value, "std.reference_wrapper<int>")
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<reference_wrapper_actor>()));
+}
+
 inline void require_non_default_value_metadata() {
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<non_default_value>("caors.test.serialization.non_default_value")

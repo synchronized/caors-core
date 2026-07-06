@@ -227,6 +227,52 @@ enum class reflected_color {
   blue,
 };
 
+struct field_layout_actor {
+  int id = 0;
+  float health = 0.0F;
+};
+
+struct field_traits_owner {
+  int value = 0;
+  reflected_color color = reflected_color::red;
+  int* raw = nullptr;
+  std::unique_ptr<int> unique{};
+  std::shared_ptr<int> shared{};
+  std::weak_ptr<int> weak{};
+  std::optional<int> optional{};
+  std::reference_wrapper<int> wrapper{value};
+  custom_inline_wrapper<int> custom_inline{};
+  caors::object_ptr<reflected_object_ptr_target> object_ptr{};
+  caors::vector<int> sequence{};
+  std::span<int> span{};
+  std::pair<int, caors::string> pair{};
+  std::tuple<int, caors::string, float> tuple{};
+  std::variant<int, caors::string, float> variant{};
+};
+
+struct read_write_actor {
+  int id = 0;
+  float health = 0.0F;
+};
+
+struct stored_fields_actor {
+  int id = 0;
+  float health = 0.0F;
+};
+
+[[nodiscard]] inline caors::reflection::type require_reflected(std::string_view name) {
+  auto reflected = caors::reflection::find(name);
+  REQUIRE(reflected);
+  return reflected;
+}
+
+[[nodiscard]] inline caors::reflection::field require_field(const caors::reflection::type& type,
+                                                            std::string_view name) {
+  auto field = type.find_field(name);
+  REQUIRE(field);
+  return field;
+}
+
 constexpr caors::type_guid registry_actor_guid{caors::guid::from_bytes(
     caors::guid::byte_array{0x49, 0xd0, 0x23, 0x6f, 0x74, 0xb5, 0x41, 0x3f, 0x99, 0x37, 0xfa, 0x9f,
                             0xf8, 0xa6, 0x36, 0x01})};
@@ -247,6 +293,31 @@ constexpr caors::type_guid view_actor_guid{caors::guid::from_bytes(
 
 [[nodiscard]] constexpr caors::error meta_error(caors::errc code) noexcept {
   return {caors::error_domain::meta, code};
+}
+
+[[nodiscard]] inline caors::reflection::type require_field_traits_owner_reflection() {
+  const caors::error status =
+      caors::reflection::class_<field_traits_owner>("caors.test.reflection.field_traits_owner")
+          .field("value", &field_traits_owner::value)
+          .field("color", &field_traits_owner::color)
+          .field("raw", &field_traits_owner::raw)
+          .field("unique", &field_traits_owner::unique)
+          .field("shared", &field_traits_owner::shared)
+          .field("weak", &field_traits_owner::weak)
+          .field("optional", &field_traits_owner::optional)
+          .field("wrapper", &field_traits_owner::wrapper)
+          .field("custom_inline", &field_traits_owner::custom_inline)
+          .field("object_ptr", &field_traits_owner::object_ptr)
+          .field("sequence", &field_traits_owner::sequence)
+          .field("span", &field_traits_owner::span)
+          .field("pair", &field_traits_owner::pair)
+          .field("tuple", &field_traits_owner::tuple)
+          .field("variant", &field_traits_owner::variant)
+          .commit();
+
+  REQUIRE(
+      (status == caors::error{} || status == reflection_error(caors::errc::duplicate_reflection)));
+  return require_reflected("caors.test.reflection.field_traits_owner");
 }
 
 template <typename T> void require_registered_type(std::string_view name) {
