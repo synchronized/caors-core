@@ -3,7 +3,7 @@
 
 #include "helpers.h"
 
-#include "caors/object/ref_view.h"
+#include "caors/object/object_ptr_view.h"
 #include "caors/reflection/registry.h"
 
 #include <limits>
@@ -21,7 +21,7 @@ variant_result make_serialized_value(const any& data) {
       caors::value::detail::descriptor_of(data);
   if (descriptor != nullptr) {
     const meta::type_kind kind = meta::detail::descriptor_kind(*descriptor);
-    if (descriptor->object_ref != nullptr || kind == meta::type_kind::raw_pointer ||
+    if (descriptor->object_ptr != nullptr || kind == meta::type_kind::raw_pointer ||
         kind == meta::type_kind::wrapper || kind == meta::type_kind::enumeration ||
         kind == meta::type_kind::sequence || kind == meta::type_kind::set ||
         kind == meta::type_kind::associative || kind == meta::type_kind::pair ||
@@ -100,8 +100,8 @@ variant_result make_serialized_value(const any_ref& value, const serialization::
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
-  if (type_uses_object_ref(value)) {
-    return make_object_ref_value(value, context);
+  if (type_uses_object_ptr(value)) {
+    return make_object_ptr_value(value, context);
   }
 
   if (type_uses_inline_indirect_value(value)) {
@@ -172,8 +172,8 @@ error write_serialized_value(writer& writer, const any_ref& value,
     return {error_domain::serialization, errc::unsupported};
   }
 
-  if (type_uses_object_ref(value)) {
-    return write_object_ref_value(writer, value, context);
+  if (type_uses_object_ptr(value)) {
+    return write_object_ptr_value(writer, value, context);
   }
 
   if (type_uses_inline_indirect_value(value)) {
@@ -248,8 +248,8 @@ error read_serialized_value(reader& reader, const any_ref& target,
     return {error_domain::serialization, errc::invalid_field};
   }
 
-  if (type_uses_object_ref(target)) {
-    return read_object_ref_value(reader, target, context);
+  if (type_uses_object_ptr(target)) {
+    return read_object_ptr_value(reader, target, context);
   }
 
   if (type_uses_inline_indirect_value(target)) {
@@ -305,8 +305,8 @@ error write_field(writer& writer, const reflection::field& field, const void* ob
     return {error_domain::serialization, errc::invalid_field};
   }
 
-  if (objects::is_object_ref(field.get_ref(object))) {
-    return write_object_ref_field(writer, field, object, field_data, context);
+  if (objects::is_object_ptr(field.get_ref(object))) {
+    return write_object_ptr_field(writer, field, object, field_data, context);
   }
 
   const bool uses_indirect_value = field_uses_inline_indirect_value(field);
@@ -356,8 +356,8 @@ error read_field(reader& reader, const reflection::field& field, void* object,
     return {error_domain::serialization, errc::invalid_field};
   }
 
-  if (objects::is_object_ref(field.get_ref(object))) {
-    return read_object_ref_field(reader, field, object, field_data, context);
+  if (objects::is_object_ptr(field.get_ref(object))) {
+    return read_object_ptr_field(reader, field, object, field_data, context);
   }
 
   error status = validate_field_for_reader(field_data, reader.features());

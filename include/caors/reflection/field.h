@@ -100,11 +100,11 @@ public:
   /** @brief 从运行期值写入字段。 */
   bool try_set_value(void* object, const any& source) const;
 
-  /** @brief 获取对象引用字段指向的对象。 */
-  [[nodiscard]] objects::object* get_object_ref(const void* object) const;
+  /** @brief 获取对象指针字段指向的对象。 */
+  [[nodiscard]] objects::object* get_object_ptr(const void* object) const;
 
-  /** @brief 写入对象引用字段。 */
-  bool try_set_object_ref(void* object, objects::object* instance) const;
+  /** @brief 写入对象指针字段。 */
+  bool try_set_object_ptr(void* object, objects::object* instance) const;
 
   /** @brief 判断字段是否是顺序容器。 */
   [[nodiscard]] bool is_sequence() const noexcept;

@@ -196,7 +196,7 @@ caors::meta::type_<player>("game.player")
 
 `meta::detail::type_descriptor` 是已注册 C++ 类型的内部能力描述。注册表按 `type_id`
 保存指向静态 descriptor 的指针，不把 descriptor 当作普通 generic component 复制存储。descriptor
-由布局、值操作、类型语义、固定运行期能力集合和对象引用能力几部分组成；未注册结构类型也可以通过 `any`、
+由布局、值操作、类型语义、固定运行期能力集合和对象指针能力几部分组成；未注册结构类型也可以通过 `any`、
 `any_ref` 或反射字段携带的静态 descriptor 访问同一套能力。
 
 descriptor 内部按职责拆分：
@@ -205,7 +205,7 @@ descriptor 内部按职责拆分：
 - `value_ops`：保存默认构造、复制、析构和赋值的类型擦除函数。
 - `type_semantics`：保存该类型在反射、序列化和 value 模块中的运行期形态。
 - `type_capabilities`：保存固定内置能力集合，例如枚举、间接值、顺序容器、集合、关联容器、pair、tuple 或 variant。
-- `objects::detail::object_ref_data`：对象引用能力，它独立于固定运行期能力集合。
+- `objects::detail::object_ptr_data`：对象指针能力，它独立于固定运行期能力集合。
 
 `type_semantics` 描述以下语义：
 
@@ -214,13 +214,13 @@ descriptor 内部按职责拆分：
 - `indirect`：该类型是否具备一层间接值语义，例如裸指针或 wrapper。
 - `nullable`：运行期值是否可能为空。
 
-具体访问函数表由 `type_capabilities` 或对象引用能力持有，用来描述枚举转换、容器、指针、wrapper、对象引用、
+具体访问函数表由 `type_capabilities` 或对象指针能力持有，用来描述枚举转换、容器、指针、wrapper、对象引用、
 pair、tuple 和 variant 访问能力。当前能力集合由 CAORS 固定定义，查询入口仍是内部
 `descriptor_capability<T>()`；后续如果需要用户扩展自定义运行期能力，再在此基础上外挂 poly / concept table：
 
 - `meta::detail::indirect_data`：裸指针或 wrapper 的内部值访问、持值检测、重置和确保持值函数。
 - `meta::detail::enum_data`：枚举类型和整数之间的转换函数。
-- `objects::detail::object_ref_data`：对象引用类型和对象指针之间的读写函数，和 `type_capabilities` 独立保存。
+- `objects::detail::object_ptr_data`：对象指针类型和对象指针之间的读写函数，和 `type_capabilities` 独立保存。
 - `meta::detail::sequence_data` / `set_data` / `associative_data` / `pair_data` / `tuple_data` / `variant_data`：容器、二元组、tuple-like 和 variant-like 的运行期访问函数。
 
 统一 `value_type` / `key_type` 不再作为 `type_descriptor` 顶层字段保存。普通值和枚举直接使用
@@ -291,7 +291,7 @@ CAORS_META_REGISTRATION(register_actor_meta) {
 注册表维护几类索引：
 
 - `type_id -> 内部基础类型数据`：运行期主索引，只保存身份类信息。
-- `type_id -> const meta::detail::type_descriptor*`：布局、值操作、类型语义、固定运行期能力集合和对象引用能力。
+- `type_id -> const meta::detail::type_descriptor*`：布局、值操作、类型语义、固定运行期能力集合和对象指针能力。
 - `type_id -> type factory`：可选资源感知构造/销毁函数表。
 - `typeid(T) -> type_id`：当前进程内 RTTI 查询索引，用于普通 C++ 多态辅助。
 - `type_id -> parent upcast`：typed parent 注册保存的直接父类 upcast 回调。
@@ -375,7 +375,7 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 - `meta::id_of<T>()`：查询已注册 C++ 类型的运行期类型 id；未注册时返回无效 id。
 - `meta::id()`：根据已注册类型名查询运行期类型标识。
 - `traits::type_name<T>`：基础 C++ 类型到 CAORS 类型名的默认映射。
-- `meta::detail::type_descriptor`：布局、值操作、类型语义、固定运行期能力集合和对象引用能力。
+- `meta::detail::type_descriptor`：布局、值操作、类型语义、固定运行期能力集合和对象指针能力。
 - `traits::wrapper_traits<T>` / `traits::wrapper_access<T>`：wrapper 类型语义和内部值访问扩展点。
 - `traits::sequence_traits<T>` / `traits::set_traits<T>` / `traits::associative_traits<T>` / `traits::pair_traits<T>` / `traits::tuple_traits<T>` / `traits::variant_traits<T>`：容器、二元组、tuple-like 和 variant-like 类型语义扩展点。
 - `meta::type`：全局注册表中的类型只读视图。

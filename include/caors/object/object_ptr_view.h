@@ -1,23 +1,23 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_OBJECT_REF_VIEW_H_
-#define CAORS_OBJECT_REF_VIEW_H_
+#ifndef CAORS_OBJECT_PTR_VIEW_H_
+#define CAORS_OBJECT_PTR_VIEW_H_
 
-#include "caors/object/ref.h"
+#include "caors/object/object_ptr.h"
 #include "caors/value/any_ref.h"
 
 namespace caors::objects {
 
 /**
- * @brief 对象引用运行期视图。
+ * @brief 对象指针运行期视图。
  *
- * `object_ref_view` 不拥有对象，只引用 `any_ref` 指向的对象引用字段。它用于把对象引用语义从通用
- * wrapper 语义中拆出来，调用方可通过该视图按对象身份读写引用。
+ * `object_ptr_view` 不拥有对象，只引用 `any_ref` 指向的对象指针字段。它用于把对象指针语义从通用
+ * wrapper 语义中拆出来，调用方可通过该视图按对象身份读写指针。
  */
-class object_ref_view final {
+class object_ptr_view final {
 public:
-  object_ref_view() noexcept = default;
+  object_ptr_view() noexcept = default;
 
   [[nodiscard]] bool valid() const noexcept {
     return data_ != nullptr && data_->valid() && storage_ != nullptr;
@@ -45,34 +45,34 @@ public:
   }
 
 private:
-  friend object_ref_view object_ref(value::any_ref source) noexcept;
+  friend object_ptr_view object_ptr_view_of(value::any_ref source) noexcept;
 
-  object_ref_view(const detail::object_ref_data* data, const void* storage, bool writable) noexcept
+  object_ptr_view(const detail::object_ptr_data* data, const void* storage, bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
 
-  const detail::object_ref_data* data_ = nullptr;
+  const detail::object_ptr_data* data_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };
 
-/** @brief 如果运行期引用具备对象引用语义，则创建对象引用视图。 */
-[[nodiscard]] inline object_ref_view object_ref(value::any_ref source) noexcept {
+/** @brief 如果运行期引用具备对象指针语义，则创建对象指针视图。 */
+[[nodiscard]] inline object_ptr_view object_ptr_view_of(value::any_ref source) noexcept {
   if (!source.valid()) {
     return {};
   }
 
   const meta::detail::type_descriptor* descriptor = value::detail::descriptor_of(source);
-  const detail::object_ref_data* data = descriptor != nullptr ? descriptor->object_ref : nullptr;
+  const detail::object_ptr_data* data = descriptor != nullptr ? descriptor->object_ptr : nullptr;
   if (data == nullptr) {
     return {};
   }
 
-  return object_ref_view{data, source.data(), source.writable()};
+  return object_ptr_view{data, source.data(), source.writable()};
 }
 
-/** @brief 判断运行期引用是否具备对象引用语义。 */
-[[nodiscard]] inline bool is_object_ref(value::any_ref source) noexcept {
-  return static_cast<bool>(object_ref(source));
+/** @brief 判断运行期引用是否具备对象指针语义。 */
+[[nodiscard]] inline bool is_object_ptr(value::any_ref source) noexcept {
+  return static_cast<bool>(object_ptr_view_of(source));
 }
 
 } // namespace caors::objects

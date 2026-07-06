@@ -5,7 +5,7 @@
 #include "polymorphic.h"
 
 #include "caors/meta/detail/type_capabilities.h"
-#include "caors/object/ref_view.h"
+#include "caors/object/object_ptr_view.h"
 #include "caors/reflection/registry.h"
 
 #include <limits>
@@ -198,11 +198,11 @@ descriptor_of_value(const any_ref& value) noexcept {
          meta::detail::descriptor_kind(*descriptor) == meta::type_kind::enumeration;
 }
 
-[[nodiscard]] bool type_uses_object_ref(const any_ref& value) noexcept {
-  return objects::is_object_ref(value);
+[[nodiscard]] bool type_uses_object_ptr(const any_ref& value) noexcept {
+  return objects::is_object_ptr(value);
 }
 
-[[nodiscard]] variant_result make_object_ref_identity_value(const object* referenced,
+[[nodiscard]] variant_result make_object_ptr_identity_value(const object* referenced,
                                                             const serialization::context& context) {
   if (context.reference_resolver == nullptr || !context.reference_resolver->can_write()) {
     return {{error_domain::serialization, errc::invalid_argument}, {}};
@@ -232,7 +232,7 @@ descriptor_of_value(const any_ref& value) noexcept {
   return {{}, variant::from(id.value())};
 }
 
-[[nodiscard]] error write_object_ref_identity(writer& writer, const object* referenced,
+[[nodiscard]] error write_object_ptr_identity(writer& writer, const object* referenced,
                                               const serialization::context& context) {
   if (context.reference_resolver == nullptr || !context.reference_resolver->can_write()) {
     return {error_domain::serialization, errc::invalid_argument};
@@ -262,7 +262,7 @@ descriptor_of_value(const any_ref& value) noexcept {
   return writer.write_u64(id.value());
 }
 
-[[nodiscard]] error read_object_ref_identity(reader& reader, const serialization::context& context,
+[[nodiscard]] error read_object_ptr_identity(reader& reader, const serialization::context& context,
                                              object*& referenced) {
   referenced = nullptr;
   if (context.reference_resolver == nullptr || !context.reference_resolver->can_read()) {
@@ -315,40 +315,40 @@ descriptor_of_value(const any_ref& value) noexcept {
   return {};
 }
 
-[[nodiscard]] variant_result make_object_ref_value(const any_ref& value,
+[[nodiscard]] variant_result make_object_ptr_value(const any_ref& value,
                                                    const serialization::context& context) {
-  const objects::object_ref_view object_ref = objects::object_ref(value);
-  if (!object_ref) {
+  const objects::object_ptr_view object_ptr = objects::object_ptr_view_of(value);
+  if (!object_ptr) {
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
-  return make_object_ref_identity_value(object_ref.get(), context);
+  return make_object_ptr_identity_value(object_ptr.get(), context);
 }
 
-[[nodiscard]] error write_object_ref_value(writer& writer, const any_ref& value,
+[[nodiscard]] error write_object_ptr_value(writer& writer, const any_ref& value,
                                            const serialization::context& context) {
-  const objects::object_ref_view object_ref = objects::object_ref(value);
-  if (!object_ref) {
+  const objects::object_ptr_view object_ptr = objects::object_ptr_view_of(value);
+  if (!object_ptr) {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  return write_object_ref_identity(writer, object_ref.get(), context);
+  return write_object_ptr_identity(writer, object_ptr.get(), context);
 }
 
-[[nodiscard]] error read_object_ref_value(reader& reader, const any_ref& target,
+[[nodiscard]] error read_object_ptr_value(reader& reader, const any_ref& target,
                                           const serialization::context& context) {
-  const objects::object_ref_view object_ref = objects::object_ref(target);
-  if (!object_ref || !object_ref.writable() || target.mutable_data() == nullptr) {
+  const objects::object_ptr_view object_ptr = objects::object_ptr_view_of(target);
+  if (!object_ptr || !object_ptr.writable() || target.mutable_data() == nullptr) {
     return {error_domain::serialization, errc::unsupported};
   }
 
   object* referenced = nullptr;
-  error status = read_object_ref_identity(reader, context, referenced);
+  error status = read_object_ptr_identity(reader, context, referenced);
   if (status) {
     return status;
   }
 
-  if (!object_ref.set(referenced)) {
+  if (!object_ptr.set(referenced)) {
     return {error_domain::serialization, errc::invalid_type};
   }
 

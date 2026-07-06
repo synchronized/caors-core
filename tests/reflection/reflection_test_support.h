@@ -163,7 +163,7 @@ struct inventory {
   int count = 0;
 };
 
-struct reflected_object_ref_target : caors::object {};
+struct reflected_object_ptr_target : caors::object {};
 
 struct inventory_holder {
   inventory items{};
@@ -271,10 +271,10 @@ template <typename T> void register_common_type(std::string_view name) {
   register_common_type<std::optional<int>>("std.optional<int>");
   register_common_type<std::reference_wrapper<int>>("std.reference_wrapper<int>");
   register_common_type<custom_inline_wrapper<int>>("custom.inline<int>");
-  register_common_type<reflected_object_ref_target>(
-      "caors.test.reflection.reflected_object_ref_target");
-  register_common_type<caors::object_ref<reflected_object_ref_target>>(
-      "caors.object_ref<caors.test.reflection.reflected_object_ref_target>");
+  register_common_type<reflected_object_ptr_target>(
+      "caors.test.reflection.reflected_object_ptr_target");
+  register_common_type<caors::object_ptr<reflected_object_ptr_target>>(
+      "caors.object_ptr<caors.test.reflection.reflected_object_ptr_target>");
   register_common_type<caors::vector<int>>("caors.vector<int>");
   register_common_type<caors::list<int>>("caors.list<int>");
   register_common_type<std::array<int, 3>>("std.array<int,3>");

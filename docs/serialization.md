@@ -24,7 +24,7 @@
 - 提供 `serialization::codec<T>` 和 `register_codec<T>()`，允许把特定 C++ 类型作为原子序列化值读写。
 - 支持已注册反射和序列化元信息的值类型结构体字段递归序列化和 DOM 反序列化。
 - 提供基于 traits 的顺序容器、集合容器、关联容器、pair、tuple 和 variant 访问，支持标量、wrapper、对象引用和已注册结构体元素。
-- 通过 `serialization::reference_resolver` 支持 `caors::objects::ref<T>` 对象引用字段。
+- 通过 `serialization::reference_resolver` 支持 `caors::objects::object_ptr<T>` 对象指针字段。
 - 普通序列化入口会在 `caors::objects::object` 派生对象的运行期类型不同于声明类型时自动写出多态 envelope。
 - 通过默认 `$type` / `$value` envelope 支持 `std::unique_ptr<Base>`、`caors::memory::unique_ptr<Base>`
   和 `std::shared_ptr<Base>` 字段持有普通 C++ 派生类对象，并支持显式 factory 构造策略。
@@ -39,7 +39,7 @@
 - 自动把任意裸指针或非拥有 wrapper 字段提升为拥有型多态对象。
 - 借用视图的自动存储分配和生命周期管理。
 
-这些能力后续应在对象 handle、字段策略和格式扩展点明确后逐步补充。
+这些能力后续应在对象句柄、字段策略和格式扩展点明确后逐步补充。
 
 ## 核心概念
 
@@ -136,7 +136,7 @@ caors::result<actor*> decoded =
 - 只有新建对象读入需要动态类型可由 `objects::manager` 默认构造；写入已有对象不需要 manager。
 - 类型身份只写稳定 `type_guid`，不写运行期 `type_id`。
 - 不自动接管裸指针、`std::shared_ptr<Base>` 等字段的所有权；这类字段仍按现有指针/wrapper 规则处理。
-- 不保留对象图中的共享实例身份和循环引用；需要对象引用时继续使用 `objects::ref<T>` 和 resolver。
+- 不保留对象图中的共享实例身份和循环引用；需要对象引用时继续使用 `objects::object_ptr<T>` 和 resolver。
 
 ### 普通类多态 wrapper
 
@@ -261,7 +261,7 @@ descriptor 的资源构造能力或 traits 的资源重载；缺少资源重载�
 - `Base*` 自动创建派生对象；裸指针仍只表示借用。
 - `std::optional<Base>`，它按值保存 `Base`，会发生对象切片，不适合作为多态所有权。
 - `std::reference_wrapper<Base>` 自动重绑定。
-- `std::weak_ptr<Base>` 读写；弱引用应通过对象 handle、资源 id 或 resolver 表达。
+- `std::weak_ptr<Base>` 读写；弱引用应通过对象句柄、资源 id 或 resolver 表达。
 
 ### serialization::type_data
 
@@ -359,7 +359,7 @@ caors::error status = caors::deserialize(instance, value.value);
 字段查找优先使用非 0 的 `field_id`，再回退到 `serialized_name` 或 `field_name`。当前支持写入
 `bool`、`char`、整数、浮点、`caors::string`、`std::string`、`guid`、`type_guid`、枚举、
 已注册反射/序列化元信息的值类型结构体字段、已适配的顺序/集合/关联容器字段、二元组字段、tuple-like 字段、裸指针和普通 wrapper
-字段，以及通过 resolver 解析的 `caors::objects::ref<T>` 字段。
+字段，以及通过 resolver 解析的 `caors::objects::object_ptr<T>` 字段。
 
 反序列化缺失字段策略：
 
@@ -391,9 +391,9 @@ caors::error status = caors::deserialize_json(instance, text);
 字符串支持常见转义和 ASCII 范围内的 `\u00XX`；非 ASCII `\uXXXX` 暂返回 `errc::unsupported`。
 字段 id 无法从 JSON 对象名表达，因此 JSON 读入主要按字段名匹配。
 
-### object references
+### object pointers
 
-`caors::objects::ref<T>` 是非拥有对象引用。序列化层不会自行管理对象生命周期，也不会假设
+`caors::objects::object_ptr<T>` 是非拥有对象引用。序列化层不会自行管理对象生命周期，也不会假设
 `object_id` 可以跨存档稳定使用。调用方需要在 `serialization::context` 中提供
 `serialization::reference_resolver`：
 
@@ -407,9 +407,9 @@ caors::serialization::context context{0, &resolver};
 ```
 
 写出时，resolver 把 `object*` 转换为 `object_id`，输出为无符号整数；空引用输出 `0`。读入时，
-resolver 把非 0 `object_id` 转换回对象指针，再写入 `objects::ref<T>` 字段。
+resolver 把非 0 `object_id` 转换回对象指针，再写入 `objects::object_ptr<T>` 字段。
 
-对象图中的共享关系应通过 `objects::ref<T>` 表达。序列化层只写出引用身份，不展开被引用对象本体；
+对象图中的共享关系应通过 `objects::object_ptr<T>` 表达。序列化层只写出引用身份，不展开被引用对象本体；
 同一个对象被多个字段或容器元素引用时会重复写出同一个 id / GUID，读回后 resolver 会把它们解析回同一个
 运行期对象指针。循环引用也应按身份引用处理，而不是通过普通 inline value 递归展开。
 
@@ -554,7 +554,7 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
   和需要新增元素的容器不会隐式构造 `T`。
 - `std::weak_ptr<T>` 明确标记为不支持的 wrapper，无法稳定暴露可写内部值，当前不作为普通 value
   序列化或反序列化。
-- `caors::objects::ref<T>` 不走内部 value 语义，仍通过 `serialization::reference_resolver` 写出和读入对象 id 或持久 GUID。
+- `caors::objects::object_ptr<T>` 不走内部 value 语义，仍通过 `serialization::reference_resolver` 写出和读入对象 id 或持久 GUID。
 - 当 `std::unique_ptr<Base>`、`caors::memory::unique_ptr<Base>` 或 `std::shared_ptr<Base>`
   实际持有已注册派生类对象时，序列化层会写出多态 envelope，默认字段名为 `$type` / `$value`。读回时要求派生类型可默认构造，
   或已通过 `meta::type_<T>().factory()` 注册构造策略，并通过 wrapper 接管新对象。
@@ -583,7 +583,7 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 | `std::unique_ptr<T>`、`caors::memory::unique_ptr<T>`、`std::shared_ptr<T>`、`std::optional<T>` | 通过 `indirect_view` 访问内部 `T` | 空值写 `null`，非空展开内部值；拥有型智能指针可写出普通类多态 envelope | `null` 可重置；非空可在 `T` 默认可构造时创建内部值；拥有型智能指针可按 envelope 和可用 factory 构造派生对象；空 wrapper 读入非空值但 `T` 不可构造时返回 `errc::invalid_type`；需要 `memory_resource` 托管 unique pointer 时使用 `caors::memory::unique_ptr<T>` |
 | `std::reference_wrapper<T>` | 通过 `indirect_view` 访问已绑定的 `T` | 按内部 `T` 写出 | 只能写入已绑定对象，不能置空或重绑定 |
 | `std::weak_ptr<T>` | 只标记为不支持 wrapper，不展开 | 不支持 | 不支持 |
-| `objects::ref<T>` | 作为对象引用类型，可通过 `objects::object_ref(any_ref)` 识别 | 通过 resolver 写出 `object_id` 或 `object_guid` | 通过 resolver 从 `object_id` 或 `object_guid` 写回引用 |
+| `objects::object_ptr<T>` | 作为对象指针类型，可通过 `objects::object_ptr_view_of(any_ref)` 识别 | 通过 resolver 写出 `object_id` 或 `object_guid` | 通过 resolver 从 `object_id` 或 `object_guid` 写回引用 |
 | 顺序容器、集合、关联容器 | 通过 `sequence_view`、`set_view`、`associative_view` 访问 | 支持已适配 traits 的类型 | 支持拥有型容器；新增元素或临时 key/value 不可构造时返回 `errc::invalid_type`；借用视图默认拒绝 |
 | `std::span<T>` / `std::span<T, N>` | 借用顺序视图，元素是否可写由 `T` 和字段可写性决定 | 支持，按数组写出 | 默认拒绝，避免决定 backing storage 生命周期 |
 | `std::array<T, N>` | 固定长度顺序视图 | 支持 | 支持，但输入长度必须等于 `N`；长度不匹配返回 `errc::invalid_argument` |
@@ -592,10 +592,10 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 - `std::string_view` 默认拒绝反序列化写回，避免把临时字符串读入成悬空引用。调用方如果提供
   `serialization::context::string_view_storage`，序列化层会把每个读入文本追加为独立字符串，再让字段
   view 指向对应字符串；调用方必须保证该 storage 生命周期长于目标对象或目标字段。
-- `std::weak_ptr<T>` 默认不展开内部值；如果需要弱引用序列化，应通过对象 handle、资源 id 或
-  `objects::ref<T>` 类似的显式引用语义处理。
+- `std::weak_ptr<T>` 默认不展开内部值；如果需要弱引用序列化，应通过对象句柄、资源 id 或
+  `objects::object_ptr<T>` 类似的显式引用语义处理。
 - 裸指针和普通智能指针按 inline value 处理，不保留对象身份、共享关系或对象图引用；需要身份保持时使用
-  `caors::objects::ref<T>` 或后续对象 handle。
+  `caors::objects::object_ptr<T>` 或后续对象句柄。
 - 未注册枚举可以通过 meta descriptor 在字段、`any` / `any_ref` 和容器元素路径上按底层整数读写；如果枚举需要稳定名称、GUID 或多态身份，仍应显式注册。
 - 容器、指针、wrapper、pair、tuple 和 variant 通过 meta descriptor 生成运行期视图，不要求每一种
   `std::vector<T>`、`std::map<K, V>` 或嵌套组合都注册为 meta 类型。元素或候选值如果需要稳定名称、
@@ -757,7 +757,7 @@ caors::string text = result.value;
 - `std::string_view`
 - 基于 traits 的容器、pair、tuple 和 variant 字段
 - 已注册反射和序列化元信息的嵌套对象
-- 裸指针、普通 wrapper 字段和 `caors::objects::ref<T>`
+- 裸指针、普通 wrapper 字段和 `caors::objects::object_ptr<T>`
 
 遇到不可拷贝字段、未支持字段类型、无 resolver 的对象引用或超出当前类型边界的字段时返回错误。
 
@@ -798,7 +798,7 @@ caors::string text = result.value;
 - DOM 反序列化默认忽略未知字段。
 - 基础 schema version 字段过滤。
 - 内置 string、string_view、guid 和 type_guid codec。
-- 裸指针、普通 wrapper、`objects::ref<T>` 和已适配容器字段。
+- 裸指针、普通 wrapper、`objects::object_ptr<T>` 和已适配容器字段。
 - 运行期 `object_id` resolver 和持久 `object_guid` resolver。
 - 基于稳定 `type_guid` 的 `objects::object` 运行期真实类型序列化。
 - 基于稳定 `type_guid`、RTTI、typed parent upcast 和可选 factory 的普通类拥有型智能指针多态序列化。

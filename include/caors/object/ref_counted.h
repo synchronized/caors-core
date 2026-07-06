@@ -128,8 +128,8 @@ private:
  * @brief 引用计数对象的强引用。
  *
  * `strong_ref<T>` 只管理由 `objects::make_ref<T>()` 创建的对象。它不会接管 `objects::manager`
- * 已经拥有的对象，也不会改变 `objects::ref<T>`、`objects::handle` 或 `objects::weak_handle<T>`
- * 的非拥有语义。
+ * 已经拥有的对象，也不会改变 `objects::object_ptr<T>`、`objects::object_handle` 或
+ * `objects::typed_object_handle<T>` 的非拥有语义。
  */
 template <typename T> class strong_ref {
   static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");

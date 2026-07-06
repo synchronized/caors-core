@@ -3,7 +3,7 @@
 
 #include "caors/serialization/operations.h"
 
-#include "caors/object/ref_view.h"
+#include "caors/object/object_ptr_view.h"
 #include "caors/reflection/registry.h"
 #include "caors/value/indirect_view.h"
 
@@ -16,13 +16,13 @@ namespace caors::serialization {
 namespace {
 
 [[nodiscard]] variant_result
-object_ref_to_serialization_value(const reflection::field& field, const void* object,
+object_ptr_to_serialization_value(const reflection::field& field, const void* object,
                                   const serialization::context& context) {
   if (context.reference_resolver == nullptr || !context.reference_resolver->can_write()) {
     return {{error_domain::serialization, errc::invalid_argument}, {}};
   }
 
-  return serialization::detail::make_object_ref_identity_value(field.get_object_ref(object),
+  return serialization::detail::make_object_ptr_identity_value(field.get_object_ptr(object),
                                                                context);
 }
 
@@ -40,8 +40,8 @@ value_ref_to_serialization_value(const any_ref& value, const serialization::cont
 [[nodiscard]] variant_result field_to_serialization_value(const reflection::field& field,
                                                           const void* object,
                                                           const serialization::context& context) {
-  if (objects::is_object_ref(field.get_ref(object))) {
-    return object_ref_to_serialization_value(field, object, context);
+  if (objects::is_object_ptr(field.get_ref(object))) {
+    return object_ptr_to_serialization_value(field, object, context);
   }
 
   any_ref field_ref{};

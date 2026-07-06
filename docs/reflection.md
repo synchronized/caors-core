@@ -93,8 +93,8 @@ caors::reflection::class_<actor>("game.actor")
   `traits::wrapper_semantics` 为 `inline_value`。
 - `std::reference_wrapper<T>`：`meta::type_kind::wrapper`，`value_type` 为 `T`，不表示空值，
   `traits::wrapper_semantics` 为 `inline_value`。
-- `caors::objects::ref<T>`：`meta::type_kind::value`，对象引用能力通过 descriptor 上的
-  `objects::detail::object_ref_data` 暴露，并使用 `objects::object_ref(any_ref)` 查询。
+- `caors::objects::object_ptr<T>`：`meta::type_kind::value`，对象指针能力通过 descriptor 上的
+  `objects::detail::object_ptr_data` 暴露，并使用 `objects::object_ptr_view_of(any_ref)` 查询。
 - `traits::sequence_traits<T>` 顺序容器：`meta::type_kind::sequence`，`value_type` 为元素类型；`element_type()`
   是对外语义别名。字段视图可以查询元素数量、访问元素引用，并在 traits 支持时执行清空、调整大小和追加元素。内置 `caors::vector<T>` 会生成
   `caors.vector<T>` 类型名。
@@ -172,8 +172,8 @@ struct wrapper_access<my_box<T>> {
 `any_ref::create_indirect_view()` 能访问内部值，则需要同时特化
 `traits::wrapper_access<T>`。内置适配支持裸指针、`std::unique_ptr<T>`、`caors::memory::unique_ptr<T>`、
 `std::shared_ptr<T>`、`std::optional<T>` 和 `std::reference_wrapper<T>` 的内部值访问；`std::weak_ptr<T>` 只提供 unsupported
-wrapper 语义，当前没有默认内部值访问，避免返回可能悬空的引用。`caors::objects::ref<T>` 通过
-`objects::object_ref(any_ref)` 按对象引用语义访问，不再作为 wrapper 语义处理。
+wrapper 语义，当前没有默认内部值访问，避免返回可能悬空的引用。`caors::objects::object_ptr<T>` 通过
+`objects::object_ptr_view_of(any_ref)` 按对象指针语义访问，不再作为 wrapper 语义处理。
 
 顺序容器识别通过 `traits::sequence_traits<T>` 扩展。traits 需要提供元素类型、类型名前缀和基础元素访问函数：
 
@@ -659,7 +659,7 @@ auto reflected = caors::reflection::find("game.actor");
 - `any`：运行期 C++ 类型值拷贝。
 - `any_ref`：运行期 C++ 类型非拥有引用。
 - `sequence_view` / `set_view` / `associative_view` / `pair_view` / `tuple_view` / `variant_view`：容器、二元组、tuple-like 和 variant-like 类型的运行期视图。
-- `meta::detail::type_descriptor`：字段声明类型的布局、值操作、类型语义、固定运行期能力集合和对象引用能力。
+- `meta::detail::type_descriptor`：字段声明类型的布局、值操作、类型语义、固定运行期能力集合和对象指针能力。
 - `reflection::type` / `reflection::field` / `reflection::method`：全局反射数据的推荐查询入口。
 - `reflection::registry`：全局反射注册表 facade。
 - `reflection::class_<T>()`：RTTR 风格链式注册入口。
@@ -677,8 +677,8 @@ auto reflected = caors::reflection::find("game.actor");
   - `builder.h`：RTTR 风格链式注册入口。
 - `include/caors/reflection.h` 是 umbrella 头，继续提供完整反射 API。
 - `include/caors/traits/*.h` 提供 `type_name`、wrapper、容器、pair、tuple 和 variant 类型语义扩展点主模板。
-- `include/caors/object/ref.h` 提供 `objects::ref<T>` 和对象引用 trait；
-  `include/caors/object/ref_view.h` 提供 `objects::object_ref(any_ref)` 运行期查询入口。
+- `include/caors/object/object_ptr.h` 提供 `objects::object_ptr<T>` 和对象指针 trait；
+  `include/caors/object/object_ptr_view.h` 提供 `objects::object_ptr_view_of(any_ref)` 运行期查询入口。
 - `include/caors/adapters/stl_traits.h` 和 `include/caors/adapters/stl_wrapper.h` 提供 `std::vector`、`std::deque`、`std::list`、`std::forward_list`、`std::array`、`std::span`、
   `std::pair`、`std::tuple`、`std::variant`、`std::set`、`std::unordered_set`、`std::map`、`std::unordered_map` 以及 CAORS 容器别名的默认 traits 特化。
 - `include/caors/adapters/stl.h` 是 STL/CAORS 容器、wrapper 和反射 traits 适配的聚合入口，不包含序列化 codec。

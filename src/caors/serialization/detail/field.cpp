@@ -5,7 +5,7 @@
 
 namespace caors::serialization::detail {
 
-[[nodiscard]] error write_object_ref_field(writer& writer, const reflection::field& field,
+[[nodiscard]] error write_object_ptr_field(writer& writer, const reflection::field& field,
                                            const void* object,
                                            const serialization::field_data& field_data,
                                            const serialization::context& context) {
@@ -23,7 +23,7 @@ namespace caors::serialization::detail {
     return status;
   }
 
-  status = write_object_ref_identity(writer, field.get_object_ref(object), context);
+  status = write_object_ptr_identity(writer, field.get_object_ptr(object), context);
   if (status) {
     return status;
   }
@@ -31,7 +31,7 @@ namespace caors::serialization::detail {
   return writer.end_field();
 }
 
-[[nodiscard]] error read_object_ref_field(reader& reader, const reflection::field& field,
+[[nodiscard]] error read_object_ptr_field(reader& reader, const reflection::field& field,
                                           void* object, const serialization::field_data& field_data,
                                           const serialization::context& context) {
   if (context.reference_resolver == nullptr || !context.reference_resolver->can_read()) {
@@ -49,12 +49,12 @@ namespace caors::serialization::detail {
   }
 
   caors::object* referenced = nullptr;
-  status = read_object_ref_identity(reader, context, referenced);
+  status = read_object_ptr_identity(reader, context, referenced);
   if (status) {
     return status;
   }
 
-  if (!field.try_set_object_ref(object, referenced)) {
+  if (!field.try_set_object_ptr(object, referenced)) {
     return {error_domain::serialization, errc::invalid_type};
   }
 

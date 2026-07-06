@@ -32,12 +32,12 @@ CAORS 对象系统第一阶段只解决几件事：
 ### 命名空间
 
 对象系统的主定义位于 `caors::objects` 命名空间，例如 `objects::object`、`objects::object_id`、
-`objects::object_base<T>`、`objects::type`、`objects::handle`、
-`objects::weak_handle<T>`、`objects::ref<T>`、`objects::ref_counted`、`objects::strong_ref<T>`、
+`objects::object_base<T>`、`objects::type`、`objects::object_handle`、
+`objects::typed_object_handle<T>`、`objects::object_ptr<T>`、`objects::ref_counted`、`objects::strong_ref<T>`、
 `objects::weak_ref<T>`、`objects::registry`、`objects::object_index` 和 `objects::manager`。
 
 为了保持常用 API 简洁，根命名空间保留兼容别名：`caors::object`、`caors::object_id`、
-`caors::object_type_id`、`caors::object_base<T>`、`caors::object_ref<T>` 和
+`caors::object_type_id`、`caors::object_base<T>`、`caors::object_ptr<T>` 和
 `caors::object_manager`。新代码在模块内部实现和低频辅助类型上优先使用 `caors::objects::*`。
 
 ### object_id
@@ -83,10 +83,10 @@ nil GUID 和无效 `object_id` 不能绑定。索引不提供内部同步，跨�
 
 - `objects::manager`：创建、销毁、查找、遍历和 `object_index` 联动都需要调用方保证外部同步。
 - `objects::object_index`：绑定、解绑和查询需要和对应对象生命周期保持一致，跨线程访问时由调用方加锁。
-- `objects::ref<T>`、`objects::handle` 和 `objects::weak_handle<T>`：只是轻量引用或身份描述，不延长对象生命周期，也不隐式保证对象仍然存活。
+- `objects::object_ptr<T>`、`objects::object_handle` 和 `objects::typed_object_handle<T>`：只是轻量引用或身份描述，不延长对象生命周期，也不隐式保证对象仍然存活。
 - 对象类型注册应在启动注册阶段完成；运行期并发注册和查询的策略由上层调度保证。
 
-因此对象系统不会维护全局对象实例表，也不会在 `ref` 或 handle 中自动解引用全局状态。需要跨线程共享对象时，
+因此对象系统不会维护全局对象实例表，也不会在 `object_ptr` 或 `object_handle` 中自动解引用全局状态。需要跨线程共享对象时，
 建议在上层 manager、场景数据库或资源系统外包一层同步和生命周期策略。
 
 ### 基础类型信息
@@ -123,47 +123,47 @@ caors::object_type_id id = player::static_type_id();
 
 它不负责对象所有权，也不内置引用计数或 GC。
 
-### objects::ref
+### objects::object_ptr
 
-`objects::ref<T>` 是非拥有对象引用，只保存对象指针，不延长对象生命周期：
+`objects::object_ptr<T>` 是非拥有对象指针，只保存对象指针，不延长对象生命周期：
 
 ```cpp
-caors::objects::ref<actor> ref{&instance};
-caors::object_id id = ref.id();
+caors::objects::object_ptr<actor> ptr{&instance};
+caors::object_id id = ptr.id();
 ```
 
 它适合表达运行期对象关系。序列化时需要通过 `serialization::reference_resolver` 把对象指针转换为
 `object_id`，反序列化时再把 `object_id` 解析回对象指针。`object_id` 本身仍是运行期标识，跨存档稳定
 引用应由上层资源或对象数据库提供稳定 id 映射。
 
-运行期值可以通过对象模块入口查询对象引用能力：
+运行期值可以通过对象模块入口查询对象指针能力：
 
 ```cpp
-caors::any_ref value = caors::any_ref::from(ref);
-auto object_ref = caors::objects::object_ref(value);
-if (object_ref) {
-  caors::object* object = object_ref.get();
+caors::any_ref value = caors::any_ref::from(ptr);
+auto object_ptr = caors::objects::object_ptr_view_of(value);
+if (object_ptr) {
+  caors::object* object = object_ptr.get();
 }
 ```
 
-### objects::handle 和 objects::weak_handle
+### objects::object_handle 和 objects::typed_object_handle
 
-`objects::handle` 是只保存 `object_id` 和 `object_type_id` 的身份描述，不拥有对象，也不提供解引用：
+`objects::object_handle` 是只保存 `object_id` 和 `object_type_id` 的身份描述，不拥有对象，也不提供解引用：
 
 ```cpp
-caors::objects::handle handle{instance.id(), instance.type_id()};
+caors::objects::object_handle object_handle{instance.id(), instance.type_id()};
 ```
 
-`objects::weak_handle<T>` 是类型化弱句柄，内部同样只保存 `objects::handle`。它不会延长对象生命周期，
-也不会隐式查询全局对象表；需要解析时应显式传给 `objects::manager` 或上层对象数据库。当前阶段如果需要把对象关系序列化为运行期对象 id，可以使用 `objects::ref<T>` 和
+`objects::typed_object_handle<T>` 是类型化身份句柄，内部同样只保存 `objects::object_handle`。它不会延长对象生命周期，
+也不会隐式查询全局对象表；需要解析时应显式传给 `objects::manager` 或上层对象数据库。当前阶段如果需要把对象关系序列化为运行期对象 id，可以使用 `objects::object_ptr<T>` 和
 `serialization::reference_resolver`，也可以从 `objects::manager` 创建 resolver。
 
 ### 对象引用计数
 
 对象引用计数是可选所有权策略，而不是替换当前所有对象关系：
 
-- `objects::ref<T>` 继续表示非拥有裸引用，不增加引用计数。
-- `objects::handle` / `objects::weak_handle<T>` 继续表示可解析身份，不隐式访问全局对象表，也不延长生命周期。
+- `objects::object_ptr<T>` 继续表示非拥有裸引用，不增加引用计数。
+- `objects::object_handle` / `objects::typed_object_handle<T>` 继续表示可解析身份，不隐式访问全局对象表，也不延长生命周期。
 - `objects::manager` 继续作为明确拥有者，负责按创建时记录的 `memory_resource` 销毁对象。
 - 序列化对象引用继续写出 `object_id` 或 `object_guid`，不序列化运行期引用计数。
 
@@ -202,17 +202,17 @@ weak.lock();  // 返回空强引用。
 
 引用计数和 manager 托管对象不应隐式混用。`objects::strong_ref<T>` 只管理由 `objects::make_ref<T>()`
 创建的对象，不接管 `objects::manager` 已拥有的对象。若某个对象由 `objects::manager` 拥有，manager
-仍是销毁入口；不能让普通 `objects::ref<T>`、handle 或强引用包装偷偷接管对象所有权。若后续需要
+仍是销毁入口；不能让普通 `objects::object_ptr<T>`、object_handle 或强引用包装偷偷接管对象所有权。若后续需要
 manager 感知强引用，应显式增加 `destroy_later()`、延迟回收或“强引用归零后由 manager 销毁”的策略，
 并补充失败路径测试。
 
-`objects::weak_ref<T>` 和 `objects::weak_handle<T>` 解决的问题不同：
+`objects::weak_ref<T>` 和 `objects::typed_object_handle<T>` 解决的问题不同：
 
 - `objects::weak_ref<T>` 面向引用计数对象，可以通过控制块安全判断对象是否仍由强引用持有。
-- `objects::weak_handle<T>` 面向 manager / world 托管对象，只保存 `object_id` 和类型，必须显式通过
+- `objects::typed_object_handle<T>` 面向 manager / world 托管对象，只保存 `object_id` 和类型，必须显式通过
   `objects::manager` 或上层对象数据库解析。
 
-因此场景树、world 或 manager 拥有的对象关系仍优先使用 `objects::ref<T>` / `objects::weak_handle<T>`；
+因此场景树、world 或 manager 拥有的对象关系仍优先使用 `objects::object_ptr<T>` / `objects::typed_object_handle<T>`；
 临时共享对象、资源对象或不挂在 manager 下的对象可以使用 `objects::strong_ref<T>` / `objects::weak_ref<T>`。
 
 ### objects::manager
@@ -224,10 +224,10 @@ manager 感知强引用，应显式增加 `destroy_later()`、延迟回收或“
 caors::objects::manager manager;
 
 player* instance = manager.create<player>();
-caors::objects::handle handle = manager.handle_of(instance->id());
+caors::objects::object_handle object_handle = manager.handle_of(instance->id());
 
-player* resolved = manager.find<player>(handle);
-manager.destroy(handle.id());
+player* resolved = manager.find<player>(object_handle);
+manager.destroy(object_handle.id());
 ```
 
 如果希望 manager 在创建和销毁对象时同步维护持久 GUID 映射，可以传入 `object_index`：
@@ -251,18 +251,18 @@ enemy* instance = manager.create<enemy>(spawn_level, spawn_position);
 `manager.create(object_type_id)` 只支持已注册且默认构造的对象类型；`manager.create<T>(args...)`
 要求 `T` 已注册，但允许构造参数。对象销毁时会使用 manager 记录的注册类型和内存资源，因此不依赖对象虚函数返回的类型 id。
 
-弱句柄不会自动解引用，必须显式通过 manager 查询：
+类型化身份句柄不会自动解引用，必须显式通过 manager 查询：
 
 ```cpp
-caors::objects::weak_handle<player> weak = manager.weak<player>(instance->id());
+caors::objects::typed_object_handle<player> typed = manager.handle_of<player>(instance->id());
 
-if (player* current = manager.find(weak)) {
+if (player* current = manager.find(typed)) {
   // 使用 current。
 }
 ```
 
 `manager` 当前不提供内部同步。创建、销毁、查找和遍历存活对象数量如果跨线程并发使用，调用方需要自行加锁。
-`destroy()` 后，已有裸指针、`objects::ref<T>` 和 weak handle 都会失效；weak handle 可以再次通过
+`destroy()` 后，已有裸指针、`objects::object_ptr<T>` 和类型化身份句柄都不会再指向存活对象；类型化身份句柄可以再次通过
 `manager.find()` 检测是否仍可解析。
 
 当 manager 关联了 `object_index` 时，`destroy()` 和 `clear()` 会自动解除对象 id 对应的持久 GUID
@@ -381,7 +381,7 @@ caors::tracking_resource tracking(&caors::get_system_memory_resource());
 caors::objects::manager manager(&tracking);
 
 player* instance = manager.create<player>();
-caors::objects::weak_handle<player> weak = manager.weak<player>(instance->id());
+caors::objects::typed_object_handle<player> typed = manager.handle_of<player>(instance->id());
 
 manager.destroy(instance);
 ```
@@ -402,7 +402,7 @@ manager.destroy(instance);
 - `caors::error`：明确对象类型注册失败原因和错误来源域。
 - `objects::registry`：类型注册、查询、继承关系判断、默认构造工厂。
 - `objects::manager`：对象实例生命周期管理器，持有对象、按 `object_id` 查找和销毁对象，可选同步
-  `object_index`，并解析 handle / weak handle。
+  `object_index`，并解析 `object_handle` / `typed_object_handle<T>`。
 - `objects::ref_counted`：可选侵入式引用计数基类。
 - `objects::strong_ref<T>`：引用计数对象的强引用，只管理 `objects::make_ref<T>()` 创建的对象。
 - `objects::weak_ref<T>`：引用计数对象的弱引用，可通过 `lock()` 尝试提升为强引用。
@@ -428,10 +428,10 @@ manager.destroy(instance);
 - [x] 注册错误状态和不一致类型描述检测。
 - [x] 默认构造工厂。
 - [x] 接入 `memory_resource`。
-- [x] 明确对象 handle / weak handle 设计。
+- [x] 明确 `object_handle` / `typed_object_handle<T>` 设计。
 - [x] 增加对象生命周期管理器。
 - [x] manager 可选联动 `object_index`，创建、销毁和清理时维护持久对象映射。
-- [x] 设计对象引用计数边界，明确它与 weak handle、`objects::ref<T>`、manager 所有权和序列化 resolver 的关系。
+- [x] 设计对象引用计数边界，明确它与 `typed_object_handle<T>`、`objects::object_ptr<T>`、manager 所有权和序列化 resolver 的关系。
 - [x] 实现可选侵入式引用计数基础类型和强引用包装。
 - [x] 实现引用计数弱引用控制信息和 `objects::weak_ref<T>`。
 - [ ] 设计延迟销毁和 manager 感知引用计数的策略。

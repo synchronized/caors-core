@@ -6,12 +6,13 @@
 
 #include "caors/object/base.h"
 #include "caors/object/factory.h"
+#include "caors/object/handle.h"
 #include "caors/object/id.h"
 #include "caors/object/index.h"
 #include "caors/object/manager.h"
-#include "caors/object/ref.h"
+#include "caors/object/object_ptr.h"
+#include "caors/object/object_ptr_view.h"
 #include "caors/object/ref_counted.h"
-#include "caors/object/ref_view.h"
 #include "caors/object/registry.h"
 #include "caors/object/type.h"
 

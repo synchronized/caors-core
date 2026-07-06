@@ -343,17 +343,17 @@ object* manager::find(object_guid guid) const {
   return find(index_->find(guid));
 }
 
-object* manager::find(handle object_handle) const {
-  if (!object_handle) {
+object* manager::find(object_handle handle) const {
+  if (!handle) {
     return nullptr;
   }
 
-  const entry* stored = find_entry(object_handle.id());
+  const entry* stored = find_entry(handle.id());
   if (stored == nullptr) {
     return nullptr;
   }
 
-  if (!objects::is_a(stored->type, object_handle.type())) {
+  if (!objects::is_a(stored->type, handle.type())) {
     return nullptr;
   }
 
@@ -449,9 +449,9 @@ void manager::clear() noexcept {
   }
 }
 
-handle manager::handle_of(object_id id) const {
+object_handle manager::handle_of(object_id id) const {
   const entry* stored = find_entry(id);
-  return stored != nullptr ? handle{stored->id, stored->type} : handle{};
+  return stored != nullptr ? object_handle{stored->id, stored->type} : object_handle{};
 }
 
 bool manager::bind_guid(object_id id, object_guid guid) {

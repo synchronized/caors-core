@@ -292,19 +292,19 @@ struct nested_vector_actor {
   caors::vector<nested_stats> stats{};
 };
 
-struct object_ref_target : caors::object {};
+struct object_ptr_target : caors::object {};
 
-struct other_object_ref_target : caors::object {};
+struct other_object_ptr_target : caors::object {};
 
-struct object_ref_actor {
-  caors::object_ref<object_ref_target> target{};
+struct object_ptr_actor {
+  caors::object_ptr<object_ptr_target> target{};
 };
 
-struct object_ref_vector_actor {
-  caors::vector<caors::object_ref<object_ref_target>> targets{};
+struct object_ptr_vector_actor {
+  caors::vector<caors::object_ptr<object_ptr_target>> targets{};
 };
 
-struct object_ref_resolver_data {
+struct object_ptr_resolver_data {
   caors::object_id id{};
   caors::object* instance = nullptr;
 };
@@ -399,19 +399,19 @@ inline void require_scalar_actor_metadata() {
   REQUIRE(serialization_result_ok(caors::serialization::register_type<scalar_actor>()));
 }
 
-inline void require_object_ref_vector_actor_metadata() {
-  require_registered_type<caors::object_ref<object_ref_target>>(
-      "caors.object_ref<caors.test.serialization.object_ref_target>");
-  REQUIRE(reflection_result_ok(caors::reflection::class_<object_ref_vector_actor>(
-                                   "caors.test.serialization.object_ref_vector_actor")
-                                   .field("targets", &object_ref_vector_actor::targets)
+inline void require_object_ptr_vector_actor_metadata() {
+  require_registered_type<caors::object_ptr<object_ptr_target>>(
+      "caors.object_ptr<caors.test.serialization.object_ptr_target>");
+  REQUIRE(reflection_result_ok(caors::reflection::class_<object_ptr_vector_actor>(
+                                   "caors.test.serialization.object_ptr_vector_actor")
+                                   .field("targets", &object_ptr_vector_actor::targets)
                                    .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<object_ref_vector_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<object_ptr_vector_actor>()));
 }
 
 [[nodiscard]] inline caors::object_id resolve_object_id(const caors::object* instance,
                                                         void* user_data) {
-  const auto* data = static_cast<const object_ref_resolver_data*>(user_data);
+  const auto* data = static_cast<const object_ptr_resolver_data*>(user_data);
   if (data == nullptr || instance == nullptr || instance != data->instance) {
     return caors::object_id::invalid();
   }
@@ -420,7 +420,7 @@ inline void require_object_ref_vector_actor_metadata() {
 }
 
 [[nodiscard]] inline caors::object* resolve_object(caors::object_id id, void* user_data) {
-  const auto* data = static_cast<const object_ref_resolver_data*>(user_data);
+  const auto* data = static_cast<const object_ptr_resolver_data*>(user_data);
   if (data == nullptr || id != data->id) {
     return nullptr;
   }
@@ -610,8 +610,8 @@ namespace caors::tests::serialization {
       "caors.vector<caors.test.serialization.non_default_value>");
   register_common_type<caors::vector<nested_stats>>(
       "caors.vector<caors.test.serialization.nested_stats>");
-  register_common_type<caors::vector<caors::object_ref<object_ref_target>>>(
-      "caors.vector<caors.object_ref<caors.test.serialization.object_ref_target>>");
+  register_common_type<caors::vector<caors::object_ptr<object_ptr_target>>>(
+      "caors.vector<caors.object_ptr<caors.test.serialization.object_ptr_target>>");
   register_common_type<caors::list<int>>("caors.list<int>");
   register_common_type<std::forward_list<int>>("std.forward_list<int>");
   register_common_type<std::deque<int>>("std.deque<int>");
@@ -630,8 +630,8 @@ namespace caors::tests::serialization {
   register_common_type<custom_codec_sequence<int>>("caors.test.serialization.custom_sequence<int>");
   register_common_type<custom_codec_map<int, caors::string>>(
       "caors.test.serialization.custom_map<int,caors.string>");
-  register_common_type<caors::object_ref<object_ref_target>>(
-      "caors.object_ref<caors.test.serialization.object_ref_target>");
+  register_common_type<caors::object_ptr<object_ptr_target>>(
+      "caors.object_ptr<caors.test.serialization.object_ptr_target>");
   return true;
 }();
 

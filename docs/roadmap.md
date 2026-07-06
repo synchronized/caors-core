@@ -49,7 +49,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 提供对象注册表和默认构造工厂。
 - [x] 提供注册错误状态，区分重复注册、重名、不一致类型描述和父类型缺失。
 - [x] 接入 `memory_resource` 完成对象创建和销毁。
-- [x] 设计对象 handle、weak handle 和所有权约束。
+- [x] 设计 `object_handle`、`typed_object_handle<T>` 和所有权约束。
 - [x] 增加对象生命周期管理器。
 - [x] 设计对象引用计数机制边界，明确侵入式引用计数、弱引用、manager 托管对象和序列化引用之间的关系。
 - [x] 实现可选侵入式引用计数基础类型和强引用包装。
@@ -101,7 +101,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 支持值类型嵌套结构递归序列化和 DOM 反序列化。
 - [x] 支持 `caors::vector<T>` 数组字段，覆盖标量元素和已注册结构体元素。
 - [x] 序列化 vector 字段不再要求手动注册 vector 类型名。
-- [x] 支持 `caors::objects::ref<T>` 对象引用字段和 resolver。
+- [x] 支持 `caors::objects::object_ptr<T>` 对象指针字段和 resolver。
 - [x] 增加 JSON writer、JSON DOM parser 和 `serialize_json()` / `deserialize_json()`。
 - [x] 为文本和 JSON writer 增加外部输出 buffer / `serialize_*_to()` 入口，允许调用方复用
   `caors::string` 并减少结果拷贝，后续可接入指定 `memory_resource`。
@@ -109,8 +109,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 抽出基于 `traits::sequence_traits<T>` 和 `traits::associative_traits<T>` 的通用容器 codec。
 - [x] 支持基于 `traits::set_traits<T>` 的 `caors::hash_set<T>` 集合 codec。
 - [x] 支持基于 `traits::sequence_traits<T>` 的 `caors::list<T>` 数组 codec。
-- [x] 支持裸指针、普通 wrapper、`objects::ref<T>` 和 `null` 边界处理。
-- [x] 支持 `objects::ref<T>` 通过持久 `object_guid` resolver 写出和读回。
+- [x] 支持裸指针、普通 wrapper、`objects::object_ptr<T>` 和 `null` 边界处理。
+- [x] 支持 `objects::object_ptr<T>` 通过持久 `object_guid` resolver 写出和读回。
 - [x] 支持 `std::array<T,N>`、`std::deque<T>`、`std::forward_list<T>`、`std::set<T>` 和 `std::map<K,V>` 的默认序列化适配。
 - [x] 支持 `std::pair<T,U>` 按二元素数组序列化和反序列化。
 - [x] 支持 `std::tuple<Ts...>` 按元素数组序列化和反序列化。
@@ -119,7 +119,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 为 `std::string_view` 设计安全反序列化策略，避免悬空引用。
 - [x] 将 `serialization::context::string_view_storage` 从单个字符串存储升级为多段
   `string_storage` / `string_buffer`，支持同一对象内多个 `std::string_view` 字段安全读回。
-- [x] 为 `std::weak_ptr<T>`、对象 handle 和资源引用设计稳定引用语义。
+- [x] 为 `std::weak_ptr<T>`、对象句柄和资源引用设计稳定引用语义。
 - [x] 支持多态对象的动态类型记录、manager 构造和安全下转型。
 - [x] 支持普通 C++ 类在 `std::unique_ptr<Base>` / `caors::memory::unique_ptr<Base>` /
   `std::shared_ptr<Base>` 字段中的动态类型记录、默认构造和安全下转型。
@@ -145,6 +145,6 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [ ] 设计类似 EnTT 的轻量 `events::delegate`，支持自由函数、成员函数、lambda / 函数对象绑定，并明确所有权和生命周期限制。
 - [ ] 设计 `events::signal` / `events::sink`，支持类型安全订阅、取消订阅和同步触发。
 - [ ] 设计 `events::dispatcher`，支持按事件类型入队、批量派发和清空队列，并接入 CAORS 容器与 `memory_resource`。
-- [ ] 明确事件系统和对象系统的关系：底层事件模块不隐式持有对象，涉及对象生命周期时由 `objects::ref<T>`、handle 或上层系统显式管理。
+- [ ] 明确事件系统和对象系统的关系：底层事件模块不隐式持有对象，涉及对象生命周期时由 `objects::object_ptr<T>`、`object_handle` 或上层系统显式管理。
 - [ ] 评估线程安全事件队列、跨线程投递和异步调度策略；第一阶段默认只保证单线程使用边界。
 - [ ] 补充委托连接、断开、事件顺序、递归派发和监听器失效等边界测试。

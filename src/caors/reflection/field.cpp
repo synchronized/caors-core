@@ -3,7 +3,7 @@
 
 #include "caors/reflection.h"
 
-#include "caors/object/ref_view.h"
+#include "caors/object/object_ptr_view.h"
 #include "caors/reflection/detail/field_data.h"
 
 namespace caors::reflection {
@@ -189,24 +189,24 @@ bool field::try_set_value(void* object, const any& source) const {
   return field->try_set_value(object, source);
 }
 
-objects::object* field::get_object_ref(const void* object) const {
+objects::object* field::get_object_ptr(const void* object) const {
   const any_ref ref = get_ref(object);
-  const objects::object_ref_view object_ref = objects::object_ref(ref);
-  if (!object_ref) {
+  const objects::object_ptr_view object_ptr = objects::object_ptr_view_of(ref);
+  if (!object_ptr) {
     return nullptr;
   }
 
-  return object_ref.get();
+  return object_ptr.get();
 }
 
-bool field::try_set_object_ref(void* object, objects::object* instance) const {
+bool field::try_set_object_ptr(void* object, objects::object* instance) const {
   const any_ref ref = get_ref(object);
-  const objects::object_ref_view object_ref = objects::object_ref(ref);
-  if (!object_ref) {
+  const objects::object_ptr_view object_ptr = objects::object_ptr_view_of(ref);
+  if (!object_ptr) {
     return false;
   }
 
-  return object_ref.set(instance);
+  return object_ptr.set(instance);
 }
 
 bool field::is_sequence() const noexcept { return kind() == meta::type_kind::sequence; }

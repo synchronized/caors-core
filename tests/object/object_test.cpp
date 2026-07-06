@@ -314,19 +314,19 @@ TEST_CASE("object - handles carry identity without owning instances", "[object]"
 
   runtime_actor instance;
 
-  const caors::objects::handle handle{instance.id(), instance.type_id()};
-  CHECK(handle);
-  CHECK(handle.id() == instance.id());
-  CHECK(handle.type() == instance.type_id());
-  CHECK(handle == caors::objects::handle{instance.id(), instance.type_id()});
-  CHECK(handle != caors::objects::handle{caors::object_id{999}, instance.type_id()});
+  const caors::objects::object_handle object_handle{instance.id(), instance.type_id()};
+  CHECK(object_handle);
+  CHECK(object_handle.id() == instance.id());
+  CHECK(object_handle.type() == instance.type_id());
+  CHECK(object_handle == caors::objects::object_handle{instance.id(), instance.type_id()});
+  CHECK(object_handle != caors::objects::object_handle{caors::object_id{999}, instance.type_id()});
 
-  caors::objects::weak_handle<runtime_actor> weak{instance};
-  CHECK(weak);
-  CHECK(weak.handle() == handle);
+  caors::objects::typed_object_handle<runtime_actor> typed{instance};
+  CHECK(typed);
+  CHECK(typed.handle() == object_handle);
 
-  weak.reset();
-  CHECK_FALSE(weak);
+  typed.reset();
+  CHECK_FALSE(typed);
 }
 
 TEST_CASE("object - registry registers and finds types", "[object]") {
@@ -580,25 +580,25 @@ TEST_CASE("object - manager owns objects and resolves handles", "[object]") {
     instance->value = 13;
 
     const caors::object_id id = instance->id();
-    const caors::objects::handle handle = manager.handle_of(id);
+    const caors::objects::object_handle object_handle = manager.handle_of(id);
 
     CHECK(manager.size() == 1);
     CHECK(manager.contains(id));
-    CHECK(handle);
-    CHECK(handle.id() == id);
-    CHECK(handle.type() == managed_actor::static_type_id());
+    CHECK(object_handle);
+    CHECK(object_handle.id() == id);
+    CHECK(object_handle.type() == managed_actor::static_type_id());
     CHECK(manager.find(id) == instance);
-    CHECK(manager.find(handle) == instance);
+    CHECK(manager.find(object_handle) == instance);
     CHECK(manager.find<managed_actor>(id) == instance);
-    CHECK(manager.find<managed_actor>(handle) == instance);
-    CHECK(manager.alive(handle));
+    CHECK(manager.find<managed_actor>(object_handle) == instance);
+    CHECK(manager.alive(object_handle));
 
     CHECK(manager.destroy(id));
     CHECK(manager.empty());
     CHECK_FALSE(manager.contains(id));
-    CHECK_FALSE(manager.alive(handle));
+    CHECK_FALSE(manager.alive(object_handle));
     CHECK(manager.find(id) == nullptr);
-    CHECK(manager.find(handle) == nullptr);
+    CHECK(manager.find(object_handle) == nullptr);
     CHECK_FALSE(manager.destroy(id));
   }
 
@@ -681,7 +681,7 @@ TEST_CASE("object - manager rejects duplicate persistent guid bindings", "[objec
   CHECK(index.empty());
 }
 
-TEST_CASE("object - manager resolves typed weak handles and inheritance", "[object]") {
+TEST_CASE("object - manager resolves typed object handles and inheritance", "[object]") {
   caors::objects::manager manager;
 
   const caors::error actor_status =
@@ -697,19 +697,21 @@ TEST_CASE("object - manager resolves typed weak handles and inheritance", "[obje
   REQUIRE(player != nullptr);
 
   const caors::object_id id = player->id();
-  const caors::objects::weak_handle<managed_player> player_weak = manager.weak<managed_player>(id);
-  const caors::objects::weak_handle<managed_actor> actor_weak = manager.weak<managed_actor>(id);
+  const caors::objects::typed_object_handle<managed_player> player_typed =
+      manager.handle_of<managed_player>(id);
+  const caors::objects::typed_object_handle<managed_actor> actor_typed =
+      manager.handle_of<managed_actor>(id);
 
-  REQUIRE(player_weak);
-  REQUIRE(actor_weak);
-  CHECK(manager.find(player_weak) == player);
-  CHECK(manager.find(actor_weak) == static_cast<managed_actor*>(player));
-  CHECK(manager.find(caors::objects::handle{id, managed_actor::static_type_id()}) == player);
+  REQUIRE(player_typed);
+  REQUIRE(actor_typed);
+  CHECK(manager.find(player_typed) == player);
+  CHECK(manager.find(actor_typed) == static_cast<managed_actor*>(player));
+  CHECK(manager.find(caors::objects::object_handle{id, managed_actor::static_type_id()}) == player);
 
   CHECK(manager.destroy(player));
-  CHECK(manager.find(player_weak) == nullptr);
-  CHECK(manager.find(actor_weak) == nullptr);
-  CHECK_FALSE(manager.alive(player_weak.handle()));
+  CHECK(manager.find(player_typed) == nullptr);
+  CHECK(manager.find(actor_typed) == nullptr);
+  CHECK_FALSE(manager.alive(player_typed.handle()));
 }
 
 TEST_CASE("object - manager supports registered non default constructible objects", "[object]") {
@@ -759,9 +761,9 @@ TEST_CASE("object - manager rejects mismatched typed lookups", "[object]") {
   REQUIRE(instance != nullptr);
 
   CHECK(manager.find<managed_other_actor>(instance->id()) == nullptr);
-  CHECK_FALSE(manager.weak<managed_other_actor>(instance->id()));
-  CHECK(manager.find(caors::objects::handle{instance->id(),
-                                            managed_other_actor::static_type_id()}) == nullptr);
+  CHECK_FALSE(manager.handle_of<managed_other_actor>(instance->id()));
+  CHECK(manager.find(caors::objects::object_handle{
+            instance->id(), managed_other_actor::static_type_id()}) == nullptr);
 }
 
 TEST_CASE("object - manager removes lookup entry before destruction", "[object]") {
@@ -808,8 +810,8 @@ TEST_CASE("object - manager clear releases objects and invalidates handles", "[o
     REQUIRE(actor != nullptr);
     REQUIRE(player != nullptr);
 
-    const caors::objects::handle actor_handle = manager.handle_of(actor->id());
-    const caors::objects::handle player_handle = manager.handle_of(player->id());
+    const caors::objects::object_handle actor_handle = manager.handle_of(actor->id());
+    const caors::objects::object_handle player_handle = manager.handle_of(player->id());
 
     REQUIRE(manager.size() == 2);
     REQUIRE(actor_handle);

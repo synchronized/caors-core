@@ -5,7 +5,7 @@
 #define CAORS_TRAITS_H_
 
 #include "caors/traits/container.h"
-#include "caors/traits/object_ref.h"
+#include "caors/traits/object_ptr.h"
 #include "caors/traits/type_name.h"
 #include "caors/traits/wrapper.h"
 

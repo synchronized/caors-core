@@ -19,7 +19,7 @@ public:
 };
 
 struct party_slot {
-  caors::object_ref<persistent_player> leader{};
+  caors::object_ptr<persistent_player> leader{};
 };
 
 int main() {
@@ -31,8 +31,8 @@ int main() {
     return 1;
   }
 
-  if (caors::meta::type_<caors::object_ref<persistent_player>>(
-          "caors.object_ref<example.persistent_player>")
+  if (caors::meta::type_<caors::object_ptr<persistent_player>>(
+          "caors.object_ptr<example.persistent_player>")
           .result()) {
     return 1;
   }
@@ -63,7 +63,7 @@ int main() {
       caors::serialization::make_persistent_reference_resolver(manager);
   const caors::serialization::context context{0, &resolver};
 
-  const party_slot slot{caors::object_ref<persistent_player>{player}};
+  const party_slot slot{caors::object_ptr<persistent_player>{player}};
   const caors::serialization::serialization_text_result json = caors::serialize_json(slot, context);
   if (json.failed()) {
     return 1;

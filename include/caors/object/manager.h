@@ -5,6 +5,7 @@
 #define CAORS_OBJECT_MANAGER_H_
 
 #include "caors/core/containers.h"
+#include "caors/object/handle.h"
 #include "caors/object/index.h"
 #include "caors/object/registry.h"
 
@@ -52,7 +53,7 @@ public:
   [[nodiscard]] object* find(object_guid guid) const;
 
   /** @brief 按身份句柄查找对象，并校验声明类型。返回值不转移所有权。 */
-  [[nodiscard]] object* find(handle object_handle) const;
+  [[nodiscard]] object* find(object_handle handle) const;
 
   /** @brief 按对象 id 查找并动态转换为指定 C++ 类型。返回值不转移所有权。 */
   template <typename T> [[nodiscard]] T* find(object_id id) const {
@@ -72,18 +73,18 @@ public:
   }
 
   /** @brief 按身份句柄查找并动态转换为指定 C++ 类型。返回值不转移所有权。 */
-  template <typename T> [[nodiscard]] T* find(handle object_handle) const {
-    object* instance = find(object_handle);
+  template <typename T> [[nodiscard]] T* find(object_handle handle) const {
+    object* instance = find(handle);
     return instance != nullptr ? dynamic_cast<T*>(instance) : nullptr;
   }
 
-  /** @brief 按弱句柄查找对象。返回值不转移所有权。 */
-  template <typename T> [[nodiscard]] T* find(weak_handle<T> object_handle) const {
-    return find<T>(object_handle.handle());
+  /** @brief 按类型化身份句柄查找对象。返回值不转移所有权。 */
+  template <typename T> [[nodiscard]] T* find(typed_object_handle<T> handle) const {
+    return find<T>(handle.handle());
   }
 
   /** @brief 判断身份句柄当前是否仍可解析。 */
-  [[nodiscard]] bool alive(handle object_handle) const { return find(object_handle) != nullptr; }
+  [[nodiscard]] bool alive(object_handle handle) const { return find(handle) != nullptr; }
 
   /** @brief 创建默认构造对象。对象类型必须已注册且支持默认构造。 */
   [[nodiscard]] object* create(object_type_id id);
@@ -142,7 +143,7 @@ public:
     return instance;
   }
 
-  /** @brief 按 id 销毁对象。销毁后已有裸指针、`ref` 和 weak handle 都会失效。 */
+  /** @brief 按 id 销毁对象。销毁后已有裸指针、`object_ptr` 和类型化句柄都会失效。 */
   bool destroy(object_id id) noexcept;
 
   /** @brief 按对象指针销毁对象。指针必须来自该管理器。 */
@@ -152,7 +153,7 @@ public:
   void clear() noexcept;
 
   /** @brief 获取当前对象身份句柄。未找到时返回无效句柄。 */
-  [[nodiscard]] handle handle_of(object_id id) const;
+  [[nodiscard]] object_handle handle_of(object_id id) const;
 
   /** @brief 给当前由 manager 持有的对象绑定持久 GUID。 */
   bool bind_guid(object_id id, object_guid guid);
@@ -160,8 +161,8 @@ public:
   /** @brief 查询当前对象绑定的持久 GUID。未关联索引或未绑定时返回 nil GUID。 */
   [[nodiscard]] object_guid guid_of(object_id id) const;
 
-  /** @brief 获取当前对象的类型化弱句柄。未找到或类型不匹配时返回无效弱句柄。 */
-  template <typename T> [[nodiscard]] weak_handle<T> weak(object_id id) const {
+  /** @brief 获取当前对象的类型化身份句柄。未找到或类型不匹配时返回无效句柄。 */
+  template <typename T> [[nodiscard]] typed_object_handle<T> handle_of(object_id id) const {
     const entry* stored = find_entry(id);
     if (stored == nullptr) {
       return {};
@@ -172,7 +173,7 @@ public:
       return {};
     }
 
-    return weak_handle<T>{handle{stored->id, stored->type}};
+    return typed_object_handle<T>{object_handle{stored->id, stored->type}};
   }
 
 private:
