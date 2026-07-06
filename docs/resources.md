@@ -260,6 +260,7 @@ caors::resource_provider provider;
 
 caors::bind_manifest(provider, source, manifest);
 caors::sync_manifest(provider, source, manifest);
+caors::replace_manifest(provider, source, manifest);
 ```
 
 也可以从 JSON 文本或 source 读取清单：
@@ -313,6 +314,7 @@ JSON 清单支持两种根格式：
 - `load_manifest_json()` 和 `load_manifest()` 会向现有 manifest 新增或替换条目，不会隐式清空已有内容。
 - `bind_manifest()` 不回滚已经成功绑定到 provider 的条目；失败时调用方需要按自身策略处理。
 - `sync_manifest()` 会更新 provider 中已有 GUID 的 source/location，也会新增缺失 GUID；它不会删除清单外的旧绑定。
+- `replace_manifest()` 会先清空 provider，再绑定完整清单，适合完整清单刷新；失败时不会恢复旧 provider 状态。
 - 清单的 `type`、`hash`、`version` 只是轻量元数据，不替代资源对象本身的序列化内容。
 - 跨线程更新 manifest 或 provider 时，调用方需要自行同步。
 

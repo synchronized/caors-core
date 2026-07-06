@@ -189,6 +189,18 @@ private:
   return status;
 }
 
+/**
+ * @brief 使用完整清单替换 provider 中的全部 GUID/location 绑定。
+ *
+ * `replace_manifest()` 会先清空 provider，再把清单条目重新绑定进去。它适合资源数据库或调试
+ * fileserver 下发完整清单的场景；如果绑定失败，函数不会恢复清空前的 provider 状态。
+ */
+[[nodiscard]] inline error replace_manifest(provider& target, source& source,
+                                            const manifest& entries) {
+  target.clear();
+  return bind_manifest(target, source, entries);
+}
+
 } // namespace caors::resources
 
 namespace caors {
@@ -196,6 +208,7 @@ namespace caors {
 using resource_manifest = resources::manifest;
 using resource_manifest_entry = resources::manifest_entry;
 using resources::bind_manifest;
+using resources::replace_manifest;
 using resources::sync_manifest;
 
 } // namespace caors
