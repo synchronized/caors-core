@@ -122,6 +122,57 @@ TEST_CASE("io - path owns and normalizes virtual paths", "[io]") {
   CHECK(joined.string_view() == "assets/textures/albedo.png");
 }
 
+TEST_CASE("io - memory file system stores normalized virtual paths", "[io]") {
+  caors::memory_file_system fs;
+
+  REQUIRE(fs.write_all("\\assets//data.txt", std::string_view{"memory"}).succeeded());
+
+  CHECK(fs.file_count() == 1);
+  CHECK(fs.exists("assets/data.txt"));
+  CHECK(fs.exists("/assets\\data.txt"));
+
+  caors::tracking_resource tracking(&caors::get_system_memory_resource());
+  caors::byte_buffer_result read = fs.read_all("assets/data.txt", &tracking);
+
+  REQUIRE(read.succeeded());
+  CHECK(read.value.get_allocator().resource() == &tracking);
+  CHECK(std::string_view{reinterpret_cast<const char*>(read.value.data()), read.value.size()} ==
+        "memory");
+
+  REQUIRE(fs.write_all("assets/data.txt", std::string_view{"updated"}).succeeded());
+  CHECK(fs.file_count() == 1);
+
+  caors::byte_buffer_result updated = fs.read_all("assets/data.txt");
+  REQUIRE(updated.succeeded());
+  CHECK(std::string_view{reinterpret_cast<const char*>(updated.value.data()),
+                         updated.value.size()} == "updated");
+}
+
+TEST_CASE("io - memory file system reports missing and supports erase", "[io]") {
+  caors::memory_file_system fs;
+
+  caors::byte_buffer_result empty = fs.read_all("");
+  REQUIRE(empty.failed());
+  CHECK(empty.status.domain() == caors::error_domain::io);
+  CHECK(empty.status.value() == caors::errc::invalid_argument);
+
+  caors::byte_buffer_result missing = fs.read_all("missing.txt");
+  REQUIRE(missing.failed());
+  CHECK(missing.status.domain() == caors::error_domain::io);
+  CHECK(missing.status.value() == caors::errc::not_found);
+
+  REQUIRE(fs.write_all("assets/data.txt", std::string_view{"data"}).succeeded());
+  CHECK(fs.erase("/assets/data.txt"));
+  CHECK_FALSE(fs.exists("assets/data.txt"));
+  CHECK(fs.empty());
+
+  REQUIRE(fs.write_all("assets/a.txt", std::string_view{"a"}).succeeded());
+  REQUIRE(fs.write_all("assets/b.txt", std::string_view{"b"}).succeeded());
+  CHECK(fs.file_count() == 2);
+  fs.clear();
+  CHECK(fs.empty());
+}
+
 TEST_CASE("io - mount file system routes virtual prefixes", "[io]") {
   const std::filesystem::path directory = make_temp_dir();
   const std::filesystem::path base = directory / "base";

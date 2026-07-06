@@ -17,6 +17,7 @@
 - `io::output_stream`：同步输出字节流接口。
 - `io::file_system`：同步文件系统抽象。
 - `io::native_file_system`：基于宿主操作系统的本地文件系统实现。
+- `io::memory_file_system`：基于内存哈希表的虚拟文件系统实现。
 - `io::mount_file_system`：基于虚拟路径前缀转发到其他文件系统。
 
 当前不会实现：
@@ -41,6 +42,7 @@ IO 模块主定义位于 `caors::io` 命名空间，例如：
 - `io::output_stream`
 - `io::file_system`
 - `io::native_file_system`
+- `io::memory_file_system`
 - `io::mount_file_system`
 
 根命名空间保留常用别名：
@@ -58,6 +60,7 @@ IO 模块主定义位于 `caors::io` 命名空间，例如：
 - `caors::file_system`
 - `caors::native_file_system`
 - `caors::get_native_file_system`
+- `caors::memory_file_system`
 - `caors::mount_file_system`
 
 ## path / path_view
@@ -128,6 +131,25 @@ caors::native_file_system& fs = caors::get_native_file_system();
 - 写入不会自动创建父目录。
 - 当前实现是同步阻塞 IO。
 - 跨线程并发访问同一个文件路径时，调用方需要自行定义同步和覆盖策略。
+
+## memory_file_system
+
+`io::memory_file_system` 是内存中的虚拟文件系统。它按规范化虚拟路径保存字节内容：
+
+```cpp
+caors::memory_file_system fs;
+
+fs.write_all("assets/config.json", R"({"debug":true})");
+auto bytes = fs.read_all("/assets\\config.json");
+```
+
+需要注意：
+
+- 写入会覆盖同一路径已有内容。
+- 路径会通过 `normalize_path()` 规范化，因此 `/assets\\a.txt` 和 `assets/a.txt` 命中同一条记录。
+- 读取返回的 `byte_buffer` 可以使用调用方传入的 `memory_resource`。
+- 该实现不模拟目录、权限、时间戳或宿主平台路径语义。
+- 跨线程访问时调用方需要自行同步。
 
 ## mount_file_system
 
