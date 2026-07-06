@@ -200,6 +200,11 @@ if (player* current = manager.find(typed)) {
 `objects::weak_ref<T>` 不作为普通字段序列化；需要保存弱关系时应使用 `objects::handle`、资源 id
 或上层对象数据库可解析的身份。
 
+`objects::ref<Derived>` 可以隐式转换为 `objects::ref<Base>`，`objects::weak_ref<Derived>`
+也可以转换为 `objects::weak_ref<Base>`。转换只在 `Derived*` 可安全转换为 `Base*` 时启用，引用计数
+控制块仍保存创建时的真实销毁函数，因此最后一个基类强引用释放时仍会按真实派生类型销毁对象。
+不提供向下转换或横向转换；需要这类操作时应先通过对象类型信息显式判断。
+
 ```cpp
 class actor : public caors::objects::object_base<actor>,
               public caors::objects::ref_counted {

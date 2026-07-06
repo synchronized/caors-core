@@ -150,6 +150,15 @@ public:
   inline static int destroyed_count = 0;
 };
 
+class counted_player : public caors::object_base<counted_player, counted_actor> {
+public:
+  static constexpr std::string_view object_type_name = "caors.test.object.counted_player";
+
+  ~counted_player() override { ++destroyed_count; }
+
+  inline static int destroyed_count = 0;
+};
+
 constexpr caors::object_guid test_object_guid_a{caors::guid::from_bytes(
     caors::guid::byte_array{0x18, 0x50, 0xf2, 0x4f, 0x4f, 0xf8, 0x47, 0x66, 0x9f, 0x38, 0x2b, 0x79,
                             0xc9, 0xd7, 0x3a, 0x01})};
@@ -622,6 +631,71 @@ TEST_CASE("object - locked weak refs keep intrusive ref counted objects alive", 
   CHECK(weak.expired());
 
   weak.reset();
+
+  const caors::memory_statistics statistics = tracking.statistics();
+  CHECK(statistics.bytes_in_use == 0);
+  CHECK(statistics.allocation_count == statistics.deallocation_count);
+}
+
+TEST_CASE("object - ref and weak_ref support safe upcasts", "[object]") {
+  caors::tracking_resource tracking(&caors::get_system_memory_resource());
+  counted_actor::destroyed_count = 0;
+  counted_player::destroyed_count = 0;
+
+  caors::objects::weak_ref<counted_actor> weak_base;
+
+  {
+    caors::objects::ref<counted_player> player =
+        caors::objects::make_ref<counted_player>(&tracking);
+    player->value = 33;
+
+    caors::objects::ref<counted_actor> copied = player;
+    caors::objects::ref<counted_actor> assigned;
+    assigned = player;
+
+    CHECK(copied.get() == static_cast<counted_actor*>(player.get()));
+    CHECK(assigned.get() == static_cast<counted_actor*>(player.get()));
+    CHECK(player.use_count() == 3);
+
+    caors::objects::weak_ref<counted_player> weak_player = player;
+    caors::objects::weak_ref<counted_actor> weak_from_strong = player;
+    caors::objects::weak_ref<counted_actor> weak_from_weak = weak_player;
+    weak_base = weak_player;
+
+    CHECK_FALSE(weak_base.expired());
+    CHECK(weak_from_strong.use_count() == 3);
+    CHECK(weak_from_weak.use_count() == 3);
+
+    caors::objects::ref<counted_actor> locked = weak_base.lock();
+    REQUIRE(locked);
+    CHECK(locked.get() == static_cast<counted_actor*>(player.get()));
+    CHECK(locked->value == 33);
+    CHECK(player.use_count() == 4);
+
+    locked.reset();
+    CHECK(player.use_count() == 3);
+
+    caors::objects::weak_ref<counted_actor> moved_weak = std::move(weak_from_weak);
+    CHECK(weak_from_weak == nullptr);
+    CHECK_FALSE(moved_weak.expired());
+
+    caors::objects::ref<counted_actor> moved = std::move(player);
+    CHECK(player == nullptr);
+    REQUIRE(moved);
+    CHECK(moved->value == 33);
+    CHECK(moved.use_count() == 3);
+
+    copied.reset();
+    assigned.reset();
+    CHECK(moved.use_count() == 1);
+  }
+
+  CHECK(counted_player::destroyed_count == 1);
+  CHECK(counted_actor::destroyed_count == 1);
+  CHECK(weak_base.expired());
+  CHECK(tracking.statistics().bytes_in_use > 0);
+
+  weak_base.reset();
 
   const caors::memory_statistics statistics = tracking.statistics();
   CHECK(statistics.bytes_in_use == 0);

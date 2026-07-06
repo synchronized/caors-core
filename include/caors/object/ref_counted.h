@@ -144,7 +144,20 @@ public:
     retain();
   }
 
+  template <typename U>
+    requires(!std::is_same_v<U, T> && std::is_convertible_v<U*, T*>)
+  ref(const ref<U>& other) noexcept : instance_(other.instance_), control_(other.control_) {
+    retain();
+  }
+
   ref(ref&& other) noexcept : instance_(other.instance_), control_(other.control_) {
+    other.instance_ = nullptr;
+    other.control_ = nullptr;
+  }
+
+  template <typename U>
+    requires(!std::is_same_v<U, T> && std::is_convertible_v<U*, T*>)
+  ref(ref<U>&& other) noexcept : instance_(other.instance_), control_(other.control_) {
     other.instance_ = nullptr;
     other.control_ = nullptr;
   }
@@ -166,6 +179,25 @@ public:
       return *this;
     }
 
+    release();
+    instance_ = other.instance_;
+    control_ = other.control_;
+    other.instance_ = nullptr;
+    other.control_ = nullptr;
+    return *this;
+  }
+
+  template <typename U>
+    requires(!std::is_same_v<U, T> && std::is_convertible_v<U*, T*>)
+  ref& operator=(const ref<U>& other) noexcept {
+    ref copy{other};
+    swap(copy);
+    return *this;
+  }
+
+  template <typename U>
+    requires(!std::is_same_v<U, T> && std::is_convertible_v<U*, T*>)
+  ref& operator=(ref<U>&& other) noexcept {
     release();
     instance_ = other.instance_;
     control_ = other.control_;
@@ -215,6 +247,7 @@ public:
   }
 
 private:
+  template <typename U> friend class ref;
   template <typename U> friend class weak_ref;
 
   template <typename Object, typename... Args>
@@ -276,7 +309,20 @@ public:
     retain();
   }
 
+  template <typename U>
+    requires(!std::is_same_v<U, T> && std::is_convertible_v<U*, T*>)
+  weak_ref(const ref<U>& strong) noexcept : instance_(strong.instance_), control_(strong.control_) {
+    retain();
+  }
+
   weak_ref(const weak_ref& other) noexcept : instance_(other.instance_), control_(other.control_) {
+    retain();
+  }
+
+  template <typename U>
+    requires(!std::is_same_v<U, T> && std::is_convertible_v<U*, T*>)
+  weak_ref(const weak_ref<U>& other) noexcept
+      : instance_(other.instance_), control_(other.control_) {
     retain();
   }
 
@@ -285,9 +331,24 @@ public:
     other.control_ = nullptr;
   }
 
+  template <typename U>
+    requires(!std::is_same_v<U, T> && std::is_convertible_v<U*, T*>)
+  weak_ref(weak_ref<U>&& other) noexcept : instance_(other.instance_), control_(other.control_) {
+    other.instance_ = nullptr;
+    other.control_ = nullptr;
+  }
+
   ~weak_ref() { release(); }
 
   weak_ref& operator=(const ref<T>& strong) noexcept {
+    weak_ref copy{strong};
+    swap(copy);
+    return *this;
+  }
+
+  template <typename U>
+    requires(!std::is_same_v<U, T> && std::is_convertible_v<U*, T*>)
+  weak_ref& operator=(const ref<U>& strong) noexcept {
     weak_ref copy{strong};
     swap(copy);
     return *this;
@@ -308,6 +369,25 @@ public:
       return *this;
     }
 
+    release();
+    instance_ = other.instance_;
+    control_ = other.control_;
+    other.instance_ = nullptr;
+    other.control_ = nullptr;
+    return *this;
+  }
+
+  template <typename U>
+    requires(!std::is_same_v<U, T> && std::is_convertible_v<U*, T*>)
+  weak_ref& operator=(const weak_ref<U>& other) noexcept {
+    weak_ref copy{other};
+    swap(copy);
+    return *this;
+  }
+
+  template <typename U>
+    requires(!std::is_same_v<U, T> && std::is_convertible_v<U*, T*>)
+  weak_ref& operator=(weak_ref<U>&& other) noexcept {
     release();
     instance_ = other.instance_;
     control_ = other.control_;
@@ -357,6 +437,8 @@ public:
   friend bool operator!=(std::nullptr_t, const weak_ref& rhs) noexcept { return !(nullptr == rhs); }
 
 private:
+  template <typename U> friend class weak_ref;
+
   void retain() noexcept {
     if (control_ != nullptr) {
       detail::add_weak_ref(control_);
