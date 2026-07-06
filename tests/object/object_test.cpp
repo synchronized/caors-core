@@ -164,6 +164,17 @@ constexpr caors::object_guid test_object_guid_b{caors::guid::from_bytes(
 
 template <typename T>
 [[nodiscard]] caors::error
+register_object_test_type(caors::object_type_id parent_id = caors::object_type_id::invalid()) {
+  auto builder = caors::objects::class_<T>();
+  if (parent_id) {
+    builder.parent(parent_id);
+  }
+
+  return builder.commit();
+}
+
+template <typename T>
+[[nodiscard]] caors::error
 register_object_test_type(std::string_view name,
                           caors::object_type_id parent_id = caors::object_type_id::invalid()) {
   auto builder = caors::objects::class_<T>(name);
@@ -290,12 +301,10 @@ TEST_CASE("object - object index unbinds by guid and clears mappings", "[object]
 }
 
 TEST_CASE("object - typed base exposes runtime type information", "[object]") {
-  const caors::error actor_status =
-      register_object_test_type<runtime_actor>(runtime_actor::object_type_name);
+  const caors::error actor_status = register_object_test_type<runtime_actor>();
   REQUIRE(
       (actor_status == caors::error{} || actor_status == object_error(caors::errc::duplicate_id)));
-  REQUIRE(register_object_test_type<runtime_player>(runtime_player::object_type_name) ==
-          caors::error{});
+  REQUIRE(register_object_test_type<runtime_player>() == caors::error{});
 
   runtime_player instance;
   caors::object& base = instance;
@@ -307,8 +316,7 @@ TEST_CASE("object - typed base exposes runtime type information", "[object]") {
 }
 
 TEST_CASE("object - handles carry identity without owning instances", "[object]") {
-  const caors::error register_status =
-      register_object_test_type<runtime_actor>(runtime_actor::object_type_name);
+  const caors::error register_status = register_object_test_type<runtime_actor>();
   REQUIRE((register_status == caors::error{} ||
            register_status == object_error(caors::errc::duplicate_id)));
 
@@ -330,10 +338,8 @@ TEST_CASE("object - handles carry identity without owning instances", "[object]"
 }
 
 TEST_CASE("object - registry registers and finds types", "[object]") {
-  CHECK(register_object_test_type<registry_actor>(registry_actor::object_type_name) ==
-        caors::error{});
-  CHECK(register_object_test_type<registry_actor>(registry_actor::object_type_name) ==
-        object_error(caors::errc::duplicate_id));
+  CHECK(register_object_test_type<registry_actor>() == caors::error{});
+  CHECK(register_object_test_type<registry_actor>() == object_error(caors::errc::duplicate_id));
 
   auto type = caors::objects::find<registry_actor>();
   REQUIRE(type);
@@ -352,8 +358,7 @@ TEST_CASE("object - registry registers and finds types", "[object]") {
 TEST_CASE("object - type guid can be provided by object subclass", "[object]") {
   CHECK(persistent_actor::static_type_guid() == persistent_actor::object_type_guid);
 
-  REQUIRE(register_object_test_type<persistent_actor>(persistent_actor::object_type_name) ==
-          caors::error{});
+  REQUIRE(register_object_test_type<persistent_actor>() == caors::error{});
 
   auto stored = caors::objects::find<persistent_actor>();
   REQUIRE(stored);
@@ -365,30 +370,27 @@ TEST_CASE("object - registry reports registration errors", "[object]") {
             .parent(caors::type_id{std::numeric_limits<std::uint64_t>::max()})
             .commit() == object_error(caors::errc::missing_parent));
 
-  REQUIRE(register_object_test_type<error_actor>(error_actor::object_type_name) == caors::error{});
+  REQUIRE(register_object_test_type<error_actor>() == caors::error{});
 
   CHECK(register_object_test_type<error_player>(error_actor::object_type_name) ==
         object_error(caors::errc::duplicate_name));
 }
 
 TEST_CASE("object - registry reports duplicate type guid", "[object]") {
-  REQUIRE(register_object_test_type<guid_owner_actor>(guid_owner_actor::object_type_name) ==
-          caors::error{});
+  REQUIRE(register_object_test_type<guid_owner_actor>() == caors::error{});
 
-  CHECK(register_object_test_type<duplicate_guid_player>(duplicate_guid_player::object_type_name) ==
+  CHECK(register_object_test_type<duplicate_guid_player>() ==
         object_error(caors::errc::duplicate_guid));
 }
 
 TEST_CASE("object - registry checks parent relationship", "[object]") {
-  REQUIRE(register_object_test_type<relation_actor>(relation_actor::object_type_name) ==
-          caors::error{});
+  REQUIRE(register_object_test_type<relation_actor>() == caors::error{});
   const auto object_type = caors::objects::find<caors::object>();
   const auto actor_type = caors::objects::find<relation_actor>();
   REQUIRE(object_type);
   REQUIRE(actor_type);
 
-  REQUIRE(register_object_test_type<relation_player>(relation_player::object_type_name,
-                                                     actor_type.id()) == caors::error{});
+  REQUIRE(register_object_test_type<relation_player>(actor_type.id()) == caors::error{});
   const auto player_type = caors::objects::find<relation_player>();
   REQUIRE(player_type);
 
@@ -402,8 +404,7 @@ TEST_CASE("object - registry creates and destroys registered objects", "[object]
   caors::objects::registry& registry = caors::objects::get_registry();
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
 
-  REQUIRE(register_object_test_type<factory_actor>(factory_actor::object_type_name) ==
-          caors::error{});
+  REQUIRE(register_object_test_type<factory_actor>() == caors::error{});
 
   const auto actor_type = caors::objects::find<factory_actor>();
   REQUIRE(actor_type);
@@ -423,8 +424,7 @@ TEST_CASE("object - non default constructible types can be described but not fac
           "[object]") {
   caors::objects::registry& registry = caors::objects::get_registry();
 
-  REQUIRE(register_object_test_type<registered_non_default_object>(
-              registered_non_default_object::object_type_name) == caors::error{});
+  REQUIRE(register_object_test_type<registered_non_default_object>() == caors::error{});
 
   auto type = caors::objects::find<registered_non_default_object>();
   REQUIRE(type);
@@ -570,8 +570,7 @@ TEST_CASE("object - manager owns objects and resolves handles", "[object]") {
   {
     caors::objects::manager manager(&tracking);
 
-    const caors::error actor_status =
-        register_object_test_type<managed_actor>(managed_actor::object_type_name);
+    const caors::error actor_status = register_object_test_type<managed_actor>();
     REQUIRE((actor_status == caors::error{} ||
              actor_status == object_error(caors::errc::duplicate_id)));
 
@@ -609,8 +608,7 @@ TEST_CASE("object - manager binds persistent object guids through index", "[obje
   caors::objects::object_index index;
   caors::objects::manager manager(index);
 
-  const caors::error actor_status =
-      register_object_test_type<managed_actor>(managed_actor::object_type_name);
+  const caors::error actor_status = register_object_test_type<managed_actor>();
   REQUIRE(
       (actor_status == caors::error{} || actor_status == object_error(caors::errc::duplicate_id)));
 
@@ -632,8 +630,7 @@ TEST_CASE("object - manager binds persistent object guids through index", "[obje
 TEST_CASE("object - manager rejects persistent guid operations without index", "[object]") {
   caors::objects::manager manager;
 
-  const caors::error actor_status =
-      register_object_test_type<managed_actor>(managed_actor::object_type_name);
+  const caors::error actor_status = register_object_test_type<managed_actor>();
   REQUIRE(
       (actor_status == caors::error{} || actor_status == object_error(caors::errc::duplicate_id)));
 
@@ -655,8 +652,7 @@ TEST_CASE("object - manager rejects duplicate persistent guid bindings", "[objec
   caors::objects::object_index index;
   caors::objects::manager manager(index);
 
-  const caors::error actor_status =
-      register_object_test_type<managed_actor>(managed_actor::object_type_name);
+  const caors::error actor_status = register_object_test_type<managed_actor>();
   REQUIRE(
       (actor_status == caors::error{} || actor_status == object_error(caors::errc::duplicate_id)));
 
@@ -684,12 +680,10 @@ TEST_CASE("object - manager rejects duplicate persistent guid bindings", "[objec
 TEST_CASE("object - manager resolves typed object handles and inheritance", "[object]") {
   caors::objects::manager manager;
 
-  const caors::error actor_status =
-      register_object_test_type<managed_actor>(managed_actor::object_type_name);
+  const caors::error actor_status = register_object_test_type<managed_actor>();
   REQUIRE(
       (actor_status == caors::error{} || actor_status == object_error(caors::errc::duplicate_id)));
-  const caors::error player_status =
-      register_object_test_type<managed_player>(managed_player::object_type_name);
+  const caors::error player_status = register_object_test_type<managed_player>();
   REQUIRE((player_status == caors::error{} ||
            player_status == object_error(caors::errc::duplicate_id)));
 
@@ -717,8 +711,7 @@ TEST_CASE("object - manager resolves typed object handles and inheritance", "[ob
 TEST_CASE("object - manager supports registered non default constructible objects", "[object]") {
   caors::objects::manager manager;
 
-  REQUIRE(register_object_test_type<managed_non_default_object>(
-              managed_non_default_object::object_type_name) == caors::error{});
+  REQUIRE(register_object_test_type<managed_non_default_object>() == caors::error{});
 
   CHECK(manager.create(managed_non_default_object::static_type_id()) == nullptr);
 
@@ -736,8 +729,7 @@ TEST_CASE("object - manager rejects unregistered and foreign objects", "[object]
 
   CHECK(manager.create<unregistered_managed_actor>() == nullptr);
 
-  const caors::error actor_status =
-      register_object_test_type<managed_actor>(managed_actor::object_type_name);
+  const caors::error actor_status = register_object_test_type<managed_actor>();
   REQUIRE(
       (actor_status == caors::error{} || actor_status == object_error(caors::errc::duplicate_id)));
 
@@ -750,12 +742,10 @@ TEST_CASE("object - manager rejects unregistered and foreign objects", "[object]
 TEST_CASE("object - manager rejects mismatched typed lookups", "[object]") {
   caors::objects::manager manager;
 
-  const caors::error actor_status =
-      register_object_test_type<managed_actor>(managed_actor::object_type_name);
+  const caors::error actor_status = register_object_test_type<managed_actor>();
   REQUIRE(
       (actor_status == caors::error{} || actor_status == object_error(caors::errc::duplicate_id)));
-  REQUIRE(register_object_test_type<managed_other_actor>(managed_other_actor::object_type_name) ==
-          caors::error{});
+  REQUIRE(register_object_test_type<managed_other_actor>() == caors::error{});
 
   managed_actor* instance = manager.create<managed_actor>();
   REQUIRE(instance != nullptr);
@@ -769,8 +759,7 @@ TEST_CASE("object - manager rejects mismatched typed lookups", "[object]") {
 TEST_CASE("object - manager removes lookup entry before destruction", "[object]") {
   caors::objects::manager manager;
 
-  const caors::error register_status =
-      register_object_test_type<destruction_observer>(destruction_observer::object_type_name);
+  const caors::error register_status = register_object_test_type<destruction_observer>();
   REQUIRE((register_status == caors::error{} ||
            register_status == object_error(caors::errc::duplicate_id)));
 
@@ -796,12 +785,10 @@ TEST_CASE("object - manager clear releases objects and invalidates handles", "[o
   {
     caors::objects::manager manager(&tracking);
 
-    const caors::error actor_status =
-        register_object_test_type<managed_actor>(managed_actor::object_type_name);
+    const caors::error actor_status = register_object_test_type<managed_actor>();
     REQUIRE((actor_status == caors::error{} ||
              actor_status == object_error(caors::errc::duplicate_id)));
-    const caors::error player_status =
-        register_object_test_type<managed_player>(managed_player::object_type_name);
+    const caors::error player_status = register_object_test_type<managed_player>();
     REQUIRE((player_status == caors::error{} ||
              player_status == object_error(caors::errc::duplicate_id)));
 
@@ -833,12 +820,10 @@ TEST_CASE("object - manager clear unbinds persistent object guids", "[object]") 
   caors::objects::object_index index;
   caors::objects::manager manager(index);
 
-  const caors::error actor_status =
-      register_object_test_type<managed_actor>(managed_actor::object_type_name);
+  const caors::error actor_status = register_object_test_type<managed_actor>();
   REQUIRE(
       (actor_status == caors::error{} || actor_status == object_error(caors::errc::duplicate_id)));
-  const caors::error player_status =
-      register_object_test_type<managed_player>(managed_player::object_type_name);
+  const caors::error player_status = register_object_test_type<managed_player>();
   REQUIRE((player_status == caors::error{} ||
            player_status == object_error(caors::errc::duplicate_id)));
 

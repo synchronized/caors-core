@@ -289,7 +289,7 @@ public:
 
 `object_type_guid` 是可选静态成员。运行期临时对象可以不声明，`meta::type::guid()` 会保持 nil；可序列化、可反射或跨插件暴露的对象类型建议显式声明稳定 GUID。
 
-`static_type_id()` 只查询已经注册的对象类型；对象类型尚未通过 `objects::class_<T>(name).commit()`
+`static_type_id()` 只查询已经注册的对象类型；对象类型尚未通过 `objects::class_<T>().commit()`
 注册时返回无效 id。类型名、GUID 和父类型关系应在启动注册阶段一次性写入全局元数据注册表。
 
 这样通过基类引用也能查询真实类型：
@@ -307,13 +307,16 @@ object.type_name(); // "game.player"
 对外查询返回 `objects::type` 只读视图。它组合了基础 `meta::type` 和内部 `objects::detail::type_data`，因此调用方可以通过 `id()`、`name()`、`guid()`、`size()`、`alignment()`、`parent_id()` 和 `constructible()` 查询对象类型信息，但不能直接修改注册表内部数据。
 
 ```cpp
-if (caors::objects::class_<actor>(actor::object_type_name).commit()) {
+if (caors::objects::class_<actor>().commit()) {
   // 处理注册失败。
 }
 
-caors::error result =
-    caors::objects::class_<player>(player::object_type_name).commit();
+caors::error result = caors::objects::class_<player>().commit();
 ```
+
+无参 `objects::class_<T>()` 会读取 `T::object_type_name`。带名字的
+`objects::class_<T>("custom.name")` 重载仍然保留，主要用于测试错误路径或非常规显式覆盖；常规对象类型不应重复传入
+`T::object_type_name`。
 
 注册后可以查询类型：
 

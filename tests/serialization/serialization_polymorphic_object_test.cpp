@@ -39,12 +39,9 @@ public:
 }
 
 void require_polymorphic_object_metadata() {
-  REQUIRE(object_result_ok(
-      caors::objects::class_<polymorphic_actor>(polymorphic_actor::object_type_name).commit()));
-  REQUIRE(object_result_ok(
-      caors::objects::class_<polymorphic_player>(polymorphic_player::object_type_name).commit()));
-  REQUIRE(object_result_ok(
-      caors::objects::class_<polymorphic_enemy>(polymorphic_enemy::object_type_name).commit()));
+  REQUIRE(object_result_ok(caors::objects::class_<polymorphic_actor>().commit()));
+  REQUIRE(object_result_ok(caors::objects::class_<polymorphic_player>().commit()));
+  REQUIRE(object_result_ok(caors::objects::class_<polymorphic_enemy>().commit()));
 
   REQUIRE(caors::tests::serialization::reflection_result_ok(
       caors::reflection::class_<polymorphic_actor>(caors::meta::find<polymorphic_actor>())

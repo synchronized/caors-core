@@ -24,6 +24,22 @@ class registry;
 
 namespace caors::objects::detail {
 
+template <typename T, typename = void> struct object_type_name_traits {
+  static constexpr bool exists = false;
+  static constexpr bool valid = false;
+
+  [[nodiscard]] static constexpr std::string_view get() noexcept { return {}; }
+};
+
+template <typename T>
+struct object_type_name_traits<T, std::void_t<decltype(T::object_type_name)>> {
+  static constexpr bool exists = true;
+  static constexpr bool valid =
+      std::is_convertible_v<decltype(T::object_type_name), std::string_view>;
+
+  [[nodiscard]] static constexpr std::string_view get() noexcept { return T::object_type_name; }
+};
+
 template <typename T>
 [[nodiscard]] error register_object_type(std::string_view name,
                                          object_type_id parent_id = object_type_id::invalid());
@@ -225,6 +241,20 @@ private:
 /** @brief 创建对象类型注册构建器。 */
 template <typename T> [[nodiscard]] class_builder<T> class_(std::string_view name) {
   return class_builder<T>{name};
+}
+
+/**
+ * @brief 创建对象类型注册构建器，并使用对象类型自身声明的类型名。
+ *
+ * `T` 通常应继承 `object_base<T>` 并提供 `object_type_name`。该重载避免注册时重复书写
+ * `T::object_type_name`，也避免注册名和对象自身类型名不一致。
+ */
+template <typename T> [[nodiscard]] class_builder<T> class_() {
+  static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
+  static_assert(detail::object_type_name_traits<T>::exists, "T must declare object_type_name");
+  static_assert(detail::object_type_name_traits<T>::valid,
+                "object_type_name must be convertible to std::string_view");
+  return class_builder<T>{detail::object_type_name_traits<T>::get()};
 }
 
 } // namespace caors::objects

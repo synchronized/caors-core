@@ -18,11 +18,11 @@ public:
 };
 
 int main() {
-  if (caors::objects::class_<managed_actor>(managed_actor::object_type_name).commit()) {
+  if (caors::objects::class_<managed_actor>().commit()) {
     return 1;
   }
 
-  if (caors::objects::class_<managed_player>(managed_player::object_type_name).commit()) {
+  if (caors::objects::class_<managed_player>().commit()) {
     return 1;
   }
 
