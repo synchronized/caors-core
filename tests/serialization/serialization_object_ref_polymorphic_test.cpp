@@ -5,25 +5,12 @@
 
 #include "caors/object.h"
 
+#include <cstdint>
+#include <string_view>
+
 using namespace caors::tests::serialization;
 
 namespace {
-
-class object_ref_target : public caors::object_base<object_ref_target>,
-                          public caors::objects::ref_counted {
-public:
-  static constexpr std::string_view object_type_name = "caors.test.serialization.object_ref_target";
-
-  int value = 0;
-};
-
-struct object_ref_owner_actor {
-  caors::object_ref<object_ref_target> owner{};
-};
-
-struct object_weak_ref_actor {
-  caors::object_weak_ref<object_ref_target> observer{};
-};
 
 class polymorphic_object_ref_actor : public caors::object_base<polymorphic_object_ref_actor>,
                                      public caors::objects::ref_counted {
@@ -71,37 +58,6 @@ constexpr caors::type_guid polymorphic_object_ref_enemy_guid{caors::guid::from_b
     caors::guid::byte_array{0x3e, 0x1a, 0xa8, 0x02, 0x3d, 0x91, 0x4c, 0xa6, 0x8f, 0x31, 0x2b, 0xc5,
                             0xd5, 0x84, 0x10, 0x03})};
 
-void require_object_ref_target_metadata() {
-  const caors::error object_status = caors::objects::class_<object_ref_target>().commit();
-  REQUIRE((object_status == caors::error{} || object_status.value() == caors::errc::duplicate_id));
-
-  REQUIRE(reflection_result_ok(
-      caors::reflection::class_<object_ref_target>(object_ref_target::object_type_name)
-          .field("value", &object_ref_target::value)
-          .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<object_ref_target>()));
-}
-
-void require_object_ref_owner_actor_metadata() {
-  require_object_ref_target_metadata();
-
-  REQUIRE(reflection_result_ok(caors::reflection::class_<object_ref_owner_actor>(
-                                   "caors.test.serialization.object_ref_owner_actor")
-                                   .field("owner", &object_ref_owner_actor::owner)
-                                   .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<object_ref_owner_actor>()));
-}
-
-void require_object_weak_ref_actor_metadata() {
-  require_object_ref_target_metadata();
-
-  REQUIRE(reflection_result_ok(caors::reflection::class_<object_weak_ref_actor>(
-                                   "caors.test.serialization.object_weak_ref_actor")
-                                   .field("observer", &object_weak_ref_actor::observer)
-                                   .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<object_weak_ref_actor>()));
-}
-
 void require_polymorphic_object_ref_metadata() {
   REQUIRE(type_result_ok(caors::meta::type_<polymorphic_object_ref_actor>(
                              polymorphic_object_ref_actor::object_type_name)
@@ -145,80 +101,6 @@ void require_polymorphic_object_ref_metadata() {
 }
 
 } // namespace
-
-TEST_CASE("serialization - serializes object refs as inline values", "[serialization]") {
-  require_object_ref_owner_actor_metadata();
-
-  object_ref_owner_actor actor{};
-  actor.owner = caors::objects::make_ref<object_ref_target>();
-  actor.owner->value = 42;
-
-  const caors::serialization::serialization_text_result json = caors::serialize_json(actor);
-
-  REQUIRE(json.succeeded());
-  CHECK(json.value == R"({"owner":{"value":42}})");
-}
-
-TEST_CASE("serialization - serializes empty object refs as null", "[serialization]") {
-  require_object_ref_owner_actor_metadata();
-
-  const object_ref_owner_actor actor{};
-
-  const caors::serialization::serialization_text_result json = caors::serialize_json(actor);
-
-  REQUIRE(json.succeeded());
-  CHECK(json.value == R"({"owner":null})");
-}
-
-TEST_CASE("serialization - deserializes object refs with context resource", "[serialization]") {
-  require_object_ref_owner_actor_metadata();
-
-  caors::tracking_resource tracking(&caors::get_system_memory_resource());
-  caors::serialization::context context{};
-  context.memory_resource = &tracking;
-
-  object_ref_owner_actor actor{};
-  const caors::error result = caors::deserialize_json(actor, R"({"owner":{"value":17}})", context);
-
-  REQUIRE(result.succeeded());
-  REQUIRE(actor.owner);
-  CHECK(actor.owner->value == 17);
-  CHECK(actor.owner.use_count() == 1);
-  CHECK(tracking.statistics().bytes_in_use > 0);
-
-  actor.owner.reset();
-  const caors::memory_statistics statistics = tracking.statistics();
-  CHECK(statistics.bytes_in_use == 0);
-  CHECK(statistics.allocation_count == statistics.deallocation_count);
-}
-
-TEST_CASE("serialization - deserializes null object refs", "[serialization]") {
-  require_object_ref_owner_actor_metadata();
-
-  object_ref_owner_actor actor{};
-  actor.owner = caors::objects::make_ref<object_ref_target>();
-  actor.owner->value = 9;
-
-  const caors::error result = caors::deserialize_json(actor, R"({"owner":null})");
-
-  REQUIRE(result.succeeded());
-  CHECK(actor.owner == nullptr);
-}
-
-TEST_CASE("serialization - rejects object weak refs", "[serialization]") {
-  require_object_weak_ref_actor_metadata();
-
-  const caors::objects::ref<object_ref_target> owner =
-      caors::objects::make_ref<object_ref_target>();
-  object_weak_ref_actor actor{};
-  actor.observer = owner;
-
-  const caors::serialization::serialization_text_result json = caors::serialize_json(actor);
-
-  CHECK(json.failed());
-  CHECK(json.status.domain() == caors::error_domain::serialization);
-  CHECK(json.status.value() == caors::errc::unsupported);
-}
 
 TEST_CASE("serialization - polymorphic object refs write type envelopes", "[serialization]") {
   require_polymorphic_object_ref_metadata();

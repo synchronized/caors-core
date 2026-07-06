@@ -1,0 +1,63 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 CAORS contributors
+
+#include "serialization_test_support.h"
+
+#include "caors/object.h"
+
+#include <string_view>
+
+using namespace caors::tests::serialization;
+
+namespace {
+
+class weak_object_ref_target : public caors::object_base<weak_object_ref_target>,
+                               public caors::objects::ref_counted {
+public:
+  static constexpr std::string_view object_type_name =
+      "caors.test.serialization.weak_object_ref_target";
+
+  int value = 0;
+};
+
+struct object_weak_ref_actor {
+  caors::object_weak_ref<weak_object_ref_target> observer{};
+};
+
+void require_weak_object_ref_target_metadata() {
+  const caors::error object_status = caors::objects::class_<weak_object_ref_target>().commit();
+  REQUIRE((object_status == caors::error{} || object_status.value() == caors::errc::duplicate_id));
+
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<weak_object_ref_target>(weak_object_ref_target::object_type_name)
+          .field("value", &weak_object_ref_target::value)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<weak_object_ref_target>()));
+}
+
+void require_object_weak_ref_actor_metadata() {
+  require_weak_object_ref_target_metadata();
+
+  REQUIRE(reflection_result_ok(caors::reflection::class_<object_weak_ref_actor>(
+                                   "caors.test.serialization.object_weak_ref_actor")
+                                   .field("observer", &object_weak_ref_actor::observer)
+                                   .commit()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<object_weak_ref_actor>()));
+}
+
+} // namespace
+
+TEST_CASE("serialization - rejects object weak refs", "[serialization]") {
+  require_object_weak_ref_actor_metadata();
+
+  const caors::objects::ref<weak_object_ref_target> owner =
+      caors::objects::make_ref<weak_object_ref_target>();
+  object_weak_ref_actor actor{};
+  actor.observer = owner;
+
+  const caors::serialization::serialization_text_result json = caors::serialize_json(actor);
+
+  CHECK(json.failed());
+  CHECK(json.status.domain() == caors::error_domain::serialization);
+  CHECK(json.status.value() == caors::errc::unsupported);
+}
