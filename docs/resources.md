@@ -110,6 +110,43 @@ if (reference.resolve(&value)) {
 - `unresolve()` 只清除资源指针，保留 GUID，适合资源卸载或缓存失效后继续保留引用身份。
 - 当前 `resources::manager` 只负责 GUID 到已存在资源对象的解析；拥有式缓存和生命周期策略后续再扩展。
 
+## 序列化
+
+`caors/serialization.h` 包含 `resource_guid` 和 `resource_ref<T>` 的 codec。资源引用序列化只保存稳定
+GUID，不展开资源对象，也不保存运行期资源指针：
+
+```cpp
+struct material {
+  caors::resource_ref<texture> albedo;
+};
+
+caors::meta::type_<caors::resource_ref<texture>>("game.resource_ref<game.texture>");
+caors::serialization::register_codec<caors::resource_ref<texture>>();
+```
+
+写出规则：
+
+- `resource_ref<T>` 为空或 GUID 为 nil 时写出 `null`。
+- 非空引用写出 `resource_guid` 字符串。
+- 即使引用已经解析到资源对象，也只写 GUID，不写资源对象内容。
+
+读回规则：
+
+- `null` 会清空引用。
+- GUID 字符串会读回为未解析的 `resource_ref<T>`。
+- 读回不会访问全局 manager、cache 或 locator，避免序列化层隐式决定资源生命周期。
+
+资源加载完成后再显式解析：
+
+```cpp
+material decoded{};
+caors::deserialize_json(decoded, R"({"albedo":"6cd2da3d-b549-4756-8b8b-0c84293af410"})");
+
+caors::resource_cache<texture> cache;
+// cache 创建或加载同 GUID 的资源后：
+cache.resolve(decoded.albedo);
+```
+
 ## manager
 
 `resources::manager` 是非拥有资源索引。它保存 `resource_guid -> resource*` 映射，可以绑定、查找、

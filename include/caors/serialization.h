@@ -9,6 +9,7 @@
 #include "caors/serialization/operations.h"
 #include "caors/serialization/reader.h"
 #include "caors/serialization/registry.h"
+#include "caors/serialization/resource_codec.h"
 #include "caors/serialization/stl_codecs.h"
 #include "caors/serialization/types.h"
 #include "caors/serialization/writer.h"

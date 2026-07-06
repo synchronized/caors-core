@@ -65,6 +65,7 @@
 - `caors/serialization/codec.h`：类型级 codec 扩展点和 codec 注册表。
 - `caors/serialization/dom_reader.h`：从 `variant` DOM 读入的 reader 后端。
 - `caors/serialization/operations.h`：`serialize()`、`deserialize()`、`to_serialization_value()`、`serialize_text()`、`write_variant()` 等调度入口。
+- `caors/serialization/resource_codec.h`：资源 GUID 和资源引用的稳定标识 codec。
 - `caors/serialization/vector_codec.h`：基于 `traits::sequence_traits<T>` 的通用数组 codec，以及顺序容器默认适配。
 - `caors/serialization/set_codec.h`：基于 `traits::set_traits<T>` 的通用集合 codec，以及集合容器默认适配。
 - `caors/serialization/map_codec.h`：基于 `traits::associative_traits<T>` 的通用字典 codec，以及关联容器默认适配。
@@ -511,6 +512,8 @@ codec 和 meta descriptor 的边界：
 - `std::chrono::system_clock::time_point`：按毫秒 epoch 整数读写，不包含时区或格式化字符串策略。
 - `caors::guid`：按标准 UUID/GUID 字符串读写。
 - `caors::type_guid`：按内部 `guid` 的标准字符串读写。
+- `caors::resource_guid`：按标准 UUID/GUID 字符串读写。
+- `caors::resource_ref<T>`：非空引用按 `resource_guid` 字符串读写；空引用写 `null`，读回后只恢复 GUID，不自动解析运行期资源指针。
 - `caors::vector<T>` / `std::vector<T>`：通过 `serialization::sequence_codec<T>` 输出为数组。
 - `caors::list<T>` / `std::list<T>`：通过 `serialization::sequence_codec<T>` 输出为数组。
 - `std::forward_list<T>`：通过 `serialization::sequence_codec<T>` 输出为数组；反射随机访问需要线性遍历。
@@ -616,7 +619,8 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 | `std::string_view` | 保存 view 本身，不拥有字符存储 | 支持，按字符串写出 | 默认拒绝；可通过 `serialization::context::string_view_storage` 指向外部 `string_storage` 后读回 |
 | `std::filesystem::path` | 作为普通值类型 | 支持，按通用路径字符串写出 | 支持，从字符串构造 path |
 | `std::chrono` duration / `system_clock::time_point` | 作为普通值类型 | 支持，按整数写出 | 支持，从整数构造 |
-| `guid`、`type_guid` | 作为普通值类型 | 支持，按字符串写出 | 支持，从字符串解析 |
+| `guid`、`type_guid`、`resource_guid` | 作为普通值类型 | 支持，按字符串写出 | 支持，从字符串解析 |
+| `resource_ref<T>` | 保存稳定资源 GUID 和可选已解析资源指针；序列化层只处理 GUID | 空值写 `null`，非空写 `resource_guid` 字符串，不展开资源对象 | `null` 会清空引用；非空字符串只恢复未解析 GUID，后续由 `resources::manager` 或 `resources::cache<T>` 显式解析 |
 | 裸指针 `T*` | 通过 `indirect_view` 访问已指向的 `T` | 空值写 `null`，非空展开内部值 | `null` 可重置；非空要求目标已经指向有效对象 |
 | `std::unique_ptr<T>`、`caors::memory::unique_ptr<T>`、`std::shared_ptr<T>`、`std::optional<T>` | 通过 `indirect_view` 访问内部 `T` | 空值写 `null`，非空展开内部值；拥有型智能指针可写出普通类多态 envelope | `null` 可重置；非空可在 `T` 默认可构造时创建内部值；拥有型智能指针可按 envelope 和可用 factory 构造派生对象；空 wrapper 读入非空值但 `T` 不可构造时返回 `errc::invalid_type`；需要 `memory_resource` 托管 unique pointer 时使用 `caors::memory::unique_ptr<T>` |
 | `objects::ref<T>` | 通过 `indirect_view` 访问引用计数对象内部 `T` | 空值写 `null`，非空展开内部值，不写引用计数；`ref<Base>` 持有派生对象时可写出多态 envelope | `null` 可重置；普通非空值可在 `T` 默认可构造时通过 `objects::make_ref<T>(context.memory_resource)` 创建对象；多态 envelope 可构造真实派生对象并接管匹配销毁回调 |
@@ -632,6 +636,8 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 - `std::string_view` 默认拒绝反序列化写回，避免把临时字符串读入成悬空引用。调用方如果提供
   `serialization::context::string_view_storage`，序列化层会把每个读入文本追加为独立字符串，再让字段
   view 指向对应字符串；调用方必须保证该 storage 生命周期长于目标对象或目标字段。
+- `resource_ref<T>` 不拥有资源，也不保留已解析指针；反序列化完成后调用方应按 GUID 使用
+  `resources::manager::resolve()` 或 `resources::cache<T>::resolve()` 绑定实际资源对象。
 - `std::weak_ptr<T>` 和 `objects::weak_ref<T>` 默认不展开内部值；如果需要弱引用序列化，应通过对象句柄、资源 id 或
   `objects::ptr<T>` 类似的显式引用语义处理。
 - 裸指针、普通智能指针和 `objects::ref<T>` 按 inline value 处理，不保留对象身份、共享关系或对象图引用；
