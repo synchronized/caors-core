@@ -45,6 +45,7 @@
 - `resources::file_source`
 - `resources::provider`
 - `resources::loader<T>`
+- `resources::json_loader<T>`
 - `resources::saver<T>`
 
 根命名空间保留常用别名：
@@ -60,6 +61,7 @@
 - `caors::resource_provider`
 - `caors::resource_load_result<T>`
 - `caors::resource_loader<T>`
+- `caors::resource_json_loader<T>`
 - `caors::resource_saver<T>`
 
 ## resource_guid
@@ -283,11 +285,27 @@ caors::serialization::json_writer writer;
 caors::save_serialized(*loaded.value, writer);
 ```
 
+`resources::json_loader<T>` 是 provider 到资源对象的第一版桥接。它按 GUID 从 provider 读取 JSON
+字节，再通过 `load_serialized<T>()` 构造资源，可直接配合 `load_into()` 使用：
+
+```cpp
+caors::resource_file_source source{file_system};
+caors::resource_provider provider;
+provider.bind(texture_id, source, "assets/texture.json");
+
+caors::resource_json_loader<texture> loader{provider};
+caors::resource_cache<texture> cache;
+
+auto loaded = caors::load_into(cache, loader, texture_id);
+```
+
 需要注意：
 
 - `load_serialized<T>()` 要求 `T` 派生自 `resources::resource` 且可默认构造。
 - 读写的资源类型仍需要完成 reflection 和 serialization 注册。
 - helper 只读写资源对象字段；资源 GUID 由外部资源数据库、路径或包索引维护，不写入资源对象本体。
+- `json_loader<T>` 不拥有 provider；provider、source 和底层 file_system 的生命周期由调用方保证。
+- `json_loader<T>` 当前只覆盖读取路径。保存到 provider / source 需要后续引入写入型 source 或 sink。
 - 非默认构造、需要外部依赖或需要异步调度的资源应实现自定义 `loader<T>`。
 
 相关测试位于 `tests/resources/`，测试组织规则见 [tests/README.md](../tests/README.md)。

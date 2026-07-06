@@ -5,9 +5,11 @@
 #define CAORS_RESOURCES_IO_H_
 
 #include "caors/resources/cache.h"
+#include "caors/resources/source.h"
 #include "caors/result.h"
 #include "caors/serialization/operations.h"
 
+#include <string_view>
 #include <type_traits>
 #include <utility>
 
@@ -145,6 +147,46 @@ template <typename T>
 }
 
 /**
+ * @brief 基于 `resources::provider` 的 JSON 资源加载器。
+ *
+ * `json_loader<T>` 通过 provider 按 GUID 定位字节来源和位置，读取 JSON 文本后复用
+ * `load_serialized<T>()` 反序列化为资源对象。它不拥有 provider，调用方需要保证 provider 生命周期。
+ */
+template <typename T> class json_loader final : public loader<T> {
+  static_assert(std::is_base_of_v<resources::resource, T>,
+                "T must derive from caors::resources::resource");
+
+public:
+  using resource_type = T;
+
+  explicit json_loader(const provider& provider,
+                       serialization::context context = serialization::context{})
+      : provider_(&provider), context_(context) {}
+
+  [[nodiscard]] load_result<resource_type> load(resource_guid guid,
+                                                memory_resource* resource = nullptr) override {
+    io::byte_buffer_result bytes = provider_->read(guid, resource);
+    if (bytes.failed()) {
+      return {bytes.status, {}};
+    }
+
+    const std::string_view text{reinterpret_cast<const char*>(bytes.value.data()),
+                                bytes.value.size()};
+    serialization::variant_result parsed = serialization::parse_json(text);
+    if (parsed.failed()) {
+      return {parsed.status, {}};
+    }
+
+    serialization::variant_reader reader{parsed.value};
+    return load_serialized<resource_type>(guid, reader, context_, resource);
+  }
+
+private:
+  const provider* provider_ = nullptr;
+  serialization::context context_{};
+};
+
+/**
  * @brief 使用序列化 writer 保存资源字段。
  *
  * 资源必须携带非 nil GUID。当前 helper 只写资源对象本体字段，资源身份由调用方的数据库、路径或包索引
@@ -168,6 +210,7 @@ template <typename T>
 namespace caors {
 
 template <typename T> using resource_load_result = resources::load_result<T>;
+template <typename T> using resource_json_loader = resources::json_loader<T>;
 template <typename T> using resource_loader = resources::loader<T>;
 template <typename T> using resource_saver = resources::saver<T>;
 
