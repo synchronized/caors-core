@@ -180,6 +180,16 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [ ] 实现资源包、远程资源或异步 loader/saver 后端。
 - [ ] 扩展 `resources::database` 的资源类型选择策略，例如按 manifest type、type_guid 或外部资源数据库选择
   匹配 loader/cache。
+- [ ] 设计 Godot 风格的异步资源加载 API：`request_load<T>()` / `request_reload<T>()` 提交后台任务，
+  `load_request` 保存 queued/loading/loaded/failed/cancelled 状态、错误和可选进度，调用方跨帧查询状态后再获取结果。
+- [ ] 实现资源异步执行器和后台任务队列：后台阶段只做 provider 读取、loader 解码和资源对象构造，不直接修改
+  `cache<T>`、manifest 或运行期对象状态。
+- [ ] 实现主线程 commit 阶段：`resources::database::update()` 将已完成异步结果插入或替换 cache，
+  失败时保留旧资源，并通过现有 events/signal 或 dispatcher 发出完成、失败和 reload 通知。
+- [ ] 设计异步加载请求合并和生命周期策略：同 GUID 重复请求复用同一 request，已缓存资源可立即完成，
+  后续再评估取消、优先级、依赖批量预加载和进度聚合。
+- [ ] 明确异步资源系统线程安全边界：哪些 `source` / `provider` / `memory_resource` 可跨线程访问，
+  cache 修改必须在哪个线程执行，未完成 request 的 `get()` 是阻塞、返回错误还是禁止调用。
 - [x] 打通资源引用序列化 resolver，支持反序列化后按策略解析稳定 GUID 引用。
 - [x] 设计资源热重载边界：第一阶段放在资源系统主题内，不新增独立主题；热重载只负责发现资源描述或字节内容变化、
   刷新 manifest / provider / cache，并返回 reload 结果，不隐式修改对象、场景树或运行期业务状态。
