@@ -279,6 +279,42 @@ if (cache.resolve(reference)) {
 - `erase()`、`release()`、`clear()` 和 `replace()` 不会通知外部已解析的 `resource_ref<T>` 或裸指针。
   已解析引用可能继续保存旧资源地址；调用方应在资源卸载或替换后重新解析引用，或由上层系统广播失效事件。
 
+## reload 策略现状
+
+当前资源 reload 是一套底层同步方案，而不是完整热重载系统。它的职责划分如下：
+
+- `resource_ref<T>` 保存稳定 `resource_guid` 和可选已解析 `T*`，不拥有资源。
+- `resources::cache<T>` 拥有资源对象，并维护 GUID 到资源指针的索引。
+- `resources::manifest` / `resources::provider` / `resources::loader<T>` 负责定位和重新加载资源内容。
+- `resources::reload_into(cache, loader, guid)` 只负责“重新加载已有资源并替换 cache 中的对象”。
+
+当前方案优点：
+
+- 身份稳定：引用保存 GUID，不依赖路径或运行期地址。
+- 失败安全：重新加载失败、解析失败或 GUID 不一致时，cache 保留旧资源。
+- 职责清晰：底层资源库不隐式修改业务对象、场景树或编辑器状态。
+- 易于扩展：后续可以在同一层之上增加 generation、通知、异步任务和依赖图。
+
+当前方案限制：
+
+- `resource_ref<T>` 已解析后保存的是普通指针；`cache.replace()` 销毁旧资源后，旧指针不会自动置空。
+- 调用方需要在 reload 成功后重新解析引用，或由上层系统统一广播资源失效/重载事件。
+- 当前没有 generation / version 检测，旧引用无法自行判断是否过期。
+- 当前没有依赖图，不会自动知道哪些材质、场景或资源需要跟随刷新。
+- 当前没有文件监听、异步加载和后台任务队列。
+
+主流资源系统通常会在这个基础上继续补几层能力：
+
+1. 使用稳定资源 ID、GUID 或路径作为长期身份。
+2. 由 cache、manager 或 resource database 统一拥有资源生命周期。
+3. reload 失败时保留旧资源，避免运行期对象进入坏状态。
+4. 资源句柄保存 generation / version 或内部控制块，用于检测旧引用是否失效。
+5. reload 成功后广播资源更新事件，让使用方主动刷新运行期状态。
+6. 维护资源依赖图，用于预加载、打包、热更新和级联刷新。
+
+因此当前方案适合作为 CAORS 资源系统第一层：它先保证同步加载、替换和失败保留语义明确；完整热重载、
+自动失效检测和级联刷新应在后续的事件系统、资源句柄 generation 和资源依赖图上继续扩展。
+
 ## manifest
 
 `resources::manifest` 是资源 GUID 到资源位置和轻量元数据的清单。它适合承载本地资源数据库、资源包索引
