@@ -748,7 +748,8 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 - `std::string_view` 默认拒绝反序列化写回，避免把临时字符串读入成悬空引用。调用方如果提供
   `serialization::context::storage.string_view_storage`，序列化层会把每个读入文本追加为独立字符串，再让字段
   view 指向对应字符串；调用方必须保证该 storage 生命周期长于目标对象或目标字段。
-- `resource_ref<T>` 不拥有资源，也不延长资源生命周期。默认反序列化只恢复 GUID；调用方可以后续按 GUID 使用
+- `resource_ref<T>` 不拥有资源，也不延长资源生命周期。默认反序列化只恢复 GUID；运行期
+  `resource_generation` 不写入存档。调用方可以后续按 GUID 使用
   `resources::manager::resolve()` 或 `resources::cache<T>::resolve()` 绑定实际资源对象，也可以在
   `serialization::context` 中设置 `resources.resolver` 和 `resources.resolution` 让读入过程立即解析。
 - `std::weak_ptr<T>` 和 `objects::weak_ref<T>` 默认不展开内部值；如果需要弱引用序列化，应通过对象句柄、资源 id 或

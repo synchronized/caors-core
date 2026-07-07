@@ -121,7 +121,8 @@ value.set_guid(id);
 
 ## ref
 
-`resources::ref<T>` 保存一个 `resource_guid` 和一个可选已解析资源指针：
+`resources::ref<T>` 保存一个 `resource_guid`、一个可选已解析资源指针，以及解析时记录的运行期
+`resource_generation`：
 
 ```cpp
 caors::resource_ref<texture> reference{id};
@@ -145,8 +146,10 @@ if (reference.resolve(&value)) {
 
 - `ref<T>` 不拥有资源，也不延长资源生命周期。
 - `resolve()` 会拒绝已保存 GUID 和资源对象 GUID 不一致的情况。
+- 通过 `manager.resolve(ref)` 或 `cache.resolve(ref)` 解析时，引用会记录当前 GUID 绑定的 generation。
+- `manager.is_current(ref)` / `cache.is_current(ref)` 可用于判断已解析引用是否仍指向当前索引中的同一绑定版本。
 - `unresolve()` 只清除资源指针，保留 GUID，适合资源卸载或缓存失效后继续保留引用身份。
-- 当前 `resources::manager` 只负责 GUID 到已存在资源对象的解析；拥有式缓存和生命周期策略后续再扩展。
+- `resource_generation` 是当前进程内 manager/cache 的运行期版本，不会被序列化，也不能作为跨进程稳定身份。
 
 ## 序列化
 
@@ -282,13 +285,14 @@ if (cache.resolve(reference)) {
 - `cache<T>` 当前不负责从磁盘、网络或资源包加载内容；loader 层会决定如何构造资源。
 - `cache<T>` 不提供内部线程同步；跨线程访问时调用方需要自行加锁。
 - `erase()`、`release()`、`clear()` 和 `replace()` 不会通知外部已解析的 `resource_ref<T>` 或裸指针。
-  已解析引用可能继续保存旧资源地址；调用方应在资源卸载或替换后重新解析引用，或由上层系统广播失效事件。
+  已解析引用可能继续保存旧资源地址；调用方可以用 `cache.is_current(ref)` 检测是否仍为当前版本，并在资源
+  卸载或替换后重新解析引用，或由上层系统广播失效事件。
 
 ## reload 策略现状
 
 当前资源 reload 是一套底层同步方案，而不是完整热重载系统。它的职责划分如下：
 
-- `resource_ref<T>` 保存稳定 `resource_guid` 和可选已解析 `T*`，不拥有资源。
+- `resource_ref<T>` 保存稳定 `resource_guid`、可选已解析 `T*` 和运行期 generation，不拥有资源。
 - `resources::cache<T>` 拥有资源对象，并维护 GUID 到资源指针的索引。
 - `resources::manifest` / `resources::provider` / `resources::loader<T>` 负责定位和重新加载资源内容。
 - `resources::reload_into(cache, loader, guid)` 只负责“重新加载已有资源并替换 cache 中的对象”。
@@ -300,13 +304,15 @@ if (cache.resolve(reference)) {
 - 身份稳定：引用保存 GUID，不依赖路径或运行期地址。
 - 失败安全：重新加载失败、解析失败或 GUID 不一致时，cache 保留旧资源。
 - 职责清晰：底层资源库不隐式修改业务对象、场景树或编辑器状态。
-- 易于扩展：后续可以在同一层之上增加 generation、通知、异步任务和依赖图。
+- 易于扩展：后续可以在同一层之上增加通知、异步任务和依赖图。
 
 当前方案限制：
 
 - `resource_ref<T>` 已解析后保存的是普通指针；`cache.replace()` 销毁旧资源后，旧指针不会自动置空。
+  调用方可以用 `cache.is_current(ref)` 检测该引用是否已经过期，但不能继续解引用旧指针。
 - 调用方需要在 reload 成功后重新解析引用；可以使用 `reload_and_notify()` 显式广播资源失效/重载事件。
-- 当前没有 generation / version 检测，旧引用无法自行判断是否过期。
+- 当前 generation 只能判断同一个 manager/cache 内的运行期绑定是否仍当前，不解决跨进程版本、资源依赖或
+  自动刷新。
 - 当前没有依赖图，不会自动知道哪些材质、场景或资源需要跟随刷新。
 - 当前没有文件监听、异步加载和后台任务队列。
 
@@ -320,7 +326,7 @@ if (cache.resolve(reference)) {
 6. 维护资源依赖图，用于预加载、打包、热更新和级联刷新。
 
 因此当前方案适合作为 CAORS 资源系统第一层：它先保证同步加载、替换、失败保留和显式通知语义明确；
-完整热重载、自动失效检测和级联刷新应在后续的资源句柄 generation 和资源依赖图上继续扩展。
+完整热重载、自动刷新和级联刷新应在后续的资源依赖图、文件监听和资源数据库上继续扩展。
 
 ## manifest
 
@@ -492,7 +498,8 @@ caors::error saved = caors::save_from(cache, saver, id);
 - loader 加载失败、返回空指针或返回不同 GUID 时，不修改 cache 中旧资源。
 - 只有新资源完整加载且身份校验通过后，才通过 `cache.replace()` 替换旧资源。
 - 替换成功后旧资源会被销毁，但外部已解析到旧资源的 `resource_ref<T>` 或裸指针不会自动置空。
-  使用方应重新调用 `cache.resolve(ref)` 或由上层资源系统统一处理引用失效通知。
+  使用方可以先通过 `cache.is_current(ref)` 判断引用是否过期，再重新调用 `cache.resolve(ref)`，或由上层资源
+  系统统一处理引用失效通知。
 
 如果需要同步通知，可以使用 `reload_and_notify()`：
 
@@ -509,7 +516,8 @@ auto result = caors::reload_and_notify(cache, loader, texture_id, reloaded);
 - `event.status` 表示本次 reload 结果；`event.succeeded()` 为 true 时 `event.resource` 指向 cache
   中的新资源。
 - 失败时 `event.resource` 为 `nullptr`，cache 中旧资源保持不变。
-- 通知是同步的，不做线程切换，也不会自动刷新外部 `resource_ref<T>`。
+- 通知是同步的，不做线程切换，也不会自动刷新外部 `resource_ref<T>`；监听者可以调用
+  `cache.is_current(ref)` 和 `cache.resolve(ref)` 自行刷新。
 
 `save_from()` 的规则：
 

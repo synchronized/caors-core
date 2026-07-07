@@ -30,10 +30,17 @@ public:
 
   template <typename U>
     requires(!std::is_same_v<U, T> && std::is_convertible_v<U*, T*>)
-  ref(const ref<U>& other) noexcept : guid_(other.guid()), instance_(other.get()) {}
+  ref(const ref<U>& other) noexcept
+      : guid_(other.guid()), instance_(other.get()), generation_(other.generation()) {}
 
   /** @brief 返回引用保存的稳定资源 GUID。 */
   [[nodiscard]] resource_guid guid() const noexcept { return guid_; }
+
+  /** @brief 返回引用解析时记录的资源绑定版本；0 表示没有有效版本。 */
+  [[nodiscard]] resource_generation generation() const noexcept { return generation_; }
+  [[nodiscard]] bool has_generation() const noexcept {
+    return generation_ != invalid_resource_generation;
+  }
 
   /** @brief 判断引用是否保存了非 nil GUID。 */
   [[nodiscard]] bool has_guid() const noexcept { return static_cast<bool>(guid_); }
@@ -53,16 +60,21 @@ public:
   void reset(resource_guid guid = resource_guid::nil()) noexcept {
     guid_ = guid;
     instance_ = nullptr;
+    generation_ = invalid_resource_generation;
   }
 
   /** @brief 重置为已解析资源引用，GUID 会从资源对象读取。 */
   void reset(resource_type* instance) noexcept {
     instance_ = instance;
     guid_ = instance != nullptr ? instance->guid() : resource_guid::nil();
+    generation_ = invalid_resource_generation;
   }
 
   /** @brief 清除已解析指针，但保留当前 GUID。 */
-  void unresolve() noexcept { instance_ = nullptr; }
+  void unresolve() noexcept {
+    instance_ = nullptr;
+    generation_ = invalid_resource_generation;
+  }
 
   /**
    * @brief 尝试把引用解析到资源对象。
@@ -70,6 +82,16 @@ public:
    * 如果当前引用已有非 nil GUID，传入资源也有非 nil GUID 且两者不一致，则解析失败并保持原值。
    */
   [[nodiscard]] bool resolve(resource_type* instance) noexcept {
+    return resolve(instance, invalid_resource_generation);
+  }
+
+  /**
+   * @brief 尝试把引用解析到带版本的资源对象。
+   *
+   * `generation` 通常由 `resources::manager` 或 `resources::cache`
+   * 写入，用于后续判断已解析引用是否仍指向当前索引中的资源对象。
+   */
+  [[nodiscard]] bool resolve(resource_type* instance, resource_generation generation) noexcept {
     if (instance == nullptr) {
       unresolve();
       return true;
@@ -84,12 +106,14 @@ public:
       guid_ = instance_guid;
     }
     instance_ = instance;
+    generation_ = generation;
     return true;
   }
 
 private:
   resource_guid guid_{};
   resource_type* instance_ = nullptr;
+  resource_generation generation_ = invalid_resource_generation;
 };
 
 } // namespace caors::resources

@@ -23,7 +23,8 @@ public:
   explicit manager(memory_resource* resource = nullptr)
       : resource_(resource != nullptr ? resource : get_default_memory_resource()),
         resources_by_guid_(typename resource_map::allocator_type{resource_}),
-        guids_by_resource_(typename pointer_map::allocator_type{resource_}) {}
+        guids_by_resource_(typename pointer_map::allocator_type{resource_}),
+        generations_by_guid_(typename generation_map::allocator_type{resource_}) {}
 
   manager(const manager&) = delete;
   manager& operator=(const manager&) = delete;
@@ -84,8 +85,10 @@ public:
       instance->set_guid(guid);
     }
 
+    const resource_generation generation = next_generation();
     resources_by_guid_.emplace(guid, instance);
     guids_by_resource_.emplace(instance, guid);
+    generations_by_guid_.emplace(guid, generation);
     return true;
   }
 
@@ -97,6 +100,7 @@ public:
     }
 
     guids_by_resource_.erase(position->second);
+    generations_by_guid_.erase(guid);
     resources_by_guid_.erase(position);
     return true;
   }
@@ -109,6 +113,7 @@ public:
     }
 
     resources_by_guid_.erase(position->second);
+    generations_by_guid_.erase(position->second);
     guids_by_resource_.erase(position);
     return true;
   }
@@ -117,6 +122,7 @@ public:
   void clear() noexcept {
     resources_by_guid_.clear();
     guids_by_resource_.clear();
+    generations_by_guid_.clear();
   }
 
   /** @brief 按 GUID 查找资源。未命中时返回 `nullptr`。 */
@@ -142,6 +148,26 @@ public:
     return position != guids_by_resource_.end() ? position->second : resource_guid::nil();
   }
 
+  /** @brief 查询指定 GUID 当前绑定版本。未绑定时返回 0。 */
+  [[nodiscard]] resource_generation generation_of(resource_guid guid) const {
+    const auto position = generations_by_guid_.find(guid);
+    return position != generations_by_guid_.end() ? position->second : invalid_resource_generation;
+  }
+
+  /**
+   * @brief 判断已解析资源引用是否仍指向当前索引中的同一绑定版本。
+   *
+   * 返回 false 只表示引用需要重新解析，不会修改引用本身。
+   */
+  template <typename T> [[nodiscard]] bool is_current(const ref<T>& reference) const {
+    if (!reference.resolved() || !reference.has_generation()) {
+      return false;
+    }
+
+    return generation_of(reference.guid()) == reference.generation() &&
+           find<T>(reference.guid()) == reference.get();
+  }
+
   /**
    * @brief 按引用保存的 GUID 解析资源。
    *
@@ -158,16 +184,28 @@ public:
       return false;
     }
 
-    return reference.resolve(instance);
+    return reference.resolve(instance, generation_of(reference.guid()));
   }
 
 private:
   using resource_map = core::hash_map<resource_guid, resources::resource*, resource_guid_hash>;
   using pointer_map = core::hash_map<const resources::resource*, resource_guid>;
+  using generation_map = core::hash_map<resource_guid, resource_generation, resource_guid_hash>;
+
+  [[nodiscard]] resource_generation next_generation() noexcept {
+    const resource_generation generation = next_generation_;
+    ++next_generation_;
+    if (next_generation_ == invalid_resource_generation) {
+      ++next_generation_;
+    }
+    return generation;
+  }
 
   memory_resource* resource_ = nullptr;
   resource_map resources_by_guid_;
   pointer_map guids_by_resource_;
+  generation_map generations_by_guid_;
+  resource_generation next_generation_ = 1;
 };
 
 } // namespace caors::resources

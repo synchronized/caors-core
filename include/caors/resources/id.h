@@ -7,6 +7,7 @@
 #include "caors/core/guid.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <optional>
 #include <string>
@@ -50,6 +51,10 @@ struct resource_guid {
   }
 };
 
+/** @brief 资源在当前运行期索引中的绑定版本。0 表示没有有效版本。 */
+using resource_generation = std::uint64_t;
+inline constexpr resource_generation invalid_resource_generation = 0;
+
 /** @brief `resource_guid` 的哈希函数。 */
 struct resource_guid_hash {
   [[nodiscard]] std::size_t operator()(resource_guid guid) const noexcept {
@@ -73,6 +78,8 @@ namespace caors {
 
 using resource_guid = resources::resource_guid;
 using resource_guid_hash = resources::resource_guid_hash;
+using resource_generation = resources::resource_generation;
+using resources::invalid_resource_generation;
 
 } // namespace caors
 

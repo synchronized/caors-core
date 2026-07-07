@@ -42,6 +42,11 @@ public:
   /** @brief 查询非拥有资源索引。 */
   [[nodiscard]] const manager& index() const noexcept { return index_; }
 
+  /** @brief 查询指定 GUID 当前缓存绑定版本。未绑定时返回 0。 */
+  [[nodiscard]] resource_generation generation_of(resource_guid guid) const {
+    return index_.generation_of(guid);
+  }
+
   /** @brief 查询当前缓存资源数量。 */
   [[nodiscard]] std::size_t size() const noexcept { return resources_by_guid_.size(); }
   [[nodiscard]] bool empty() const noexcept { return resources_by_guid_.empty(); }
@@ -192,6 +197,11 @@ public:
   /** @brief 按引用保存的 GUID 解析资源。 */
   template <typename U> [[nodiscard]] bool resolve(ref<U>& reference) const {
     return index_.resolve(reference);
+  }
+
+  /** @brief 判断已解析资源引用是否仍指向当前缓存中的同一绑定版本。 */
+  template <typename U> [[nodiscard]] bool is_current(const ref<U>& reference) const {
+    return index_.is_current(reference);
   }
 
 private:
