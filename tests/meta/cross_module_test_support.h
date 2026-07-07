@@ -1,0 +1,55 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 CAORS contributors
+
+#pragma once
+
+#include "caors/reflection.h"
+#include "caors/serialization.h"
+
+#include <catch2/catch_all.hpp>
+
+namespace caors::tests::cross_module {
+
+struct cross_module_actor {
+  int id = 0;
+  float health = 0.0F;
+};
+
+struct cross_module_serialization_first {
+  int id = 0;
+};
+
+struct cross_module_late_registered {
+  int value = 0;
+};
+
+[[nodiscard]] inline bool reflection_result_ok(caors::error result) noexcept {
+  return result.succeeded() || result.value() == caors::errc::duplicate_reflection;
+}
+
+[[nodiscard]] inline bool serialization_result_ok(caors::error result) noexcept {
+  return result.succeeded() || result.value() == caors::errc::duplicate_component;
+}
+
+template <typename T> void register_common_type(std::string_view name) {
+  const caors::error status = caors::meta::type_<T>(name).result();
+  (void)status;
+}
+
+[[maybe_unused]] const bool common_cross_module_types_registered = [] {
+  register_common_type<int>("int");
+  register_common_type<float>("float");
+  return true;
+}();
+
+template <typename View> [[nodiscard]] bool view_contains(const View& view, caors::type_id id) {
+  for (const caors::type_id candidate : view.ids()) {
+    if (candidate == id) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+} // namespace caors::tests::cross_module
