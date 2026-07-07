@@ -17,6 +17,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string_view>
 #include <utility>
 
@@ -156,7 +157,13 @@ struct resource_dependency_collector {
 struct resource_options {
   const resource_resolver* resolver = nullptr;
   const resource_dependency_collector* dependencies = nullptr;
-  resource_ref_resolution resolution = resource_ref_resolution::keep_unresolved;
+  /**
+   * @brief 资源引用解析策略。
+   *
+   * 空值表示未在分组字段中显式配置，此时兼容旧字段 `context::resource_resolution`。如果需要明确
+   * 覆盖旧字段为“不解析”，应设置为 `resource_ref_resolution::keep_unresolved`。
+   */
+  std::optional<resource_ref_resolution> resolution{};
 };
 
 /** @brief 对象生命周期管理相关的序列化语义选项。 */
@@ -368,8 +375,7 @@ struct context {
   }
 
   [[nodiscard]] resource_ref_resolution effective_resource_resolution() const noexcept {
-    return resources.resolution != resource_ref_resolution::keep_unresolved ? resources.resolution
-                                                                            : resource_resolution;
+    return resources.resolution.has_value() ? *resources.resolution : resource_resolution;
   }
 
   [[nodiscard]] string_storage* effective_string_view_storage() const noexcept {

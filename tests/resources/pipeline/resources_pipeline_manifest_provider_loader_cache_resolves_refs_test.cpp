@@ -50,7 +50,25 @@ TEST_CASE("resources - manifest provider loader cache can resolve serialized res
 
   caors::resource_json_loader<serialized_resource> loader{provider};
   caors::resource_cache<serialized_resource> cache;
-  caors::result<serialized_resource*> loaded = caors::load_into(cache, loader, test_guid_a);
+
+  caors::serialization::resource_dependency_list dependencies;
+  caors::serialization::resource_dependency_collector collector = dependencies.collector();
+  caors::serialization::context dependency_context{};
+  dependency_context.resources.dependencies = &collector;
+
+  const serialized_resource_ref_holder holder{
+      caors::resource_ref<serialized_resource>{test_guid_a},
+  };
+  const caors::serialization::serialization_text_result encoded =
+      caors::serialize_json(holder, dependency_context);
+
+  REQUIRE(encoded.succeeded());
+  REQUIRE(dependencies.size() == 1);
+  CHECK(dependencies.entries()[0].guid == test_guid_a);
+  CHECK(dependencies.entries()[0].type == caors::meta::id_of<serialized_resource>());
+
+  caors::result<serialized_resource*> loaded =
+      caors::load_into(cache, loader, dependencies.entries()[0].guid);
 
   REQUIRE(loaded.succeeded());
   REQUIRE(loaded.value != nullptr);

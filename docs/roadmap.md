@@ -110,6 +110,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 增加 JSON writer、JSON DOM parser 和 `serialize_json()` / `deserialize_json()`。
 - [x] 为文本和 JSON writer 增加外部输出 buffer / `serialize_*_to()` 入口，允许调用方复用
   `caors::string` 并减少结果拷贝，后续可接入指定 `memory_resource`。
+- [ ] 扩展 JSON parser-side options，例如最大嵌套深度、重复 key 策略、尾随逗号开关和完整
+  Unicode 转义处理；当前 `json_options` 只影响 writer 格式化。
 - [x] 增加 `variant::dictionary` 和 `caors::hash_map<K, V>` 字典 codec。
 - [x] 抽出基于 `traits::sequence_traits<T>` 和 `traits::associative_traits<T>` 的通用容器 codec。
 - [x] 支持基于 `traits::set_traits<T>` 的 `caors::hash_set<T>` 集合 codec。
@@ -150,6 +152,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 支持 `resources::ref<T>` 通过序列化 codec 按稳定 `resource_guid` 读写，读回后可由 manager/cache 显式解析，也可通过序列化 context resolver 按策略解析。
 - [x] 设计 `resources::loader<T>` / `resources::saver<T>` 接口，并提供基于 serialization reader/writer 的最小读写 helper。
 - [x] 支持序列化遍历收集 `resource_ref<T>` 资源依赖，用于后续预加载、打包、热更新和资源数据库。
+- [x] 打通资源依赖收集到 manifest / provider / loader / cache 预加载，再由序列化 resolver 解析
+  `resource_ref<T>` 的同步链路。
 - [ ] 扩展资源加载、卸载和失效处理策略，并明确生命周期与线程安全边界。
 - [x] 提供 `core::locator<T>` 可选全局服务定位器，用于定位默认资源管理器、文件系统、配置服务等进程级服务，并明确注册、重置和测试隔离规则。
 - [x] 设计底层 `io::file_system` 字节来源抽象，统一本地文件、内存文件、资源包和远程网络资源访问的接口边界。

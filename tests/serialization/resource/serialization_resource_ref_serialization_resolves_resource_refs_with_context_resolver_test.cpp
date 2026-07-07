@@ -12,11 +12,16 @@ TEST_CASE("serialization - resource ref can resolve through context resolver", "
   caors::resource_cache<serialized_texture_resource> cache;
   serialized_texture_resource* texture = cache.create(texture_guid);
   REQUIRE(texture != nullptr);
+  caors::resource_cache<serialized_texture_resource> missing_cache;
 
   const caors::serialization::resource_resolver resolver =
       caors::serialization::make_resource_resolver(cache);
+  const caors::serialization::resource_resolver missing_resolver =
+      caors::serialization::make_resource_resolver(missing_cache);
 
   caors::serialization::context context{};
+  context.resource_resolver = &missing_resolver;
+  context.resource_resolution = caors::serialization::resource_ref_resolution::require_resolved;
   context.resources.resolver = &resolver;
   context.resources.resolution = caors::serialization::resource_ref_resolution::resolve_if_present;
 
@@ -28,4 +33,19 @@ TEST_CASE("serialization - resource ref can resolve through context resolver", "
   CHECK(decoded.texture.guid() == texture_guid);
   CHECK(decoded.texture.resolved());
   CHECK(decoded.texture.get() == texture);
+
+  caors::serialization::context unresolved_context{};
+  unresolved_context.resource_resolver = &missing_resolver;
+  unresolved_context.resource_resolution =
+      caors::serialization::resource_ref_resolution::require_resolved;
+  unresolved_context.resources.resolution =
+      caors::serialization::resource_ref_resolution::keep_unresolved;
+
+  resource_ref_actor unresolved{};
+  const caors::error unresolved_status = caors::deserialize_json(
+      unresolved, R"({"texture":"6cd2da3d-b549-4756-8b8b-0c84293af410"})", unresolved_context);
+
+  REQUIRE(unresolved_status.succeeded());
+  CHECK(unresolved.texture.guid() == texture_guid);
+  CHECK_FALSE(unresolved.texture.resolved());
 }

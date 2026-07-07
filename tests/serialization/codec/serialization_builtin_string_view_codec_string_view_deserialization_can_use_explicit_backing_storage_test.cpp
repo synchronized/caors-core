@@ -16,13 +16,16 @@ TEST_CASE("serialization - string view deserialization can use explicit backing 
   REQUIRE(serialization_result_ok(caors::serialization::register_type<codec_string_view_actor>()));
 
   codec_string_view_actor actor{std::string_view{"original"}};
+  caors::serialization::string_storage legacy_storage;
   caors::serialization::string_storage storage;
   caors::serialization::context context{};
+  context.string_view_storage = &legacy_storage;
   context.storage.string_view_storage = &storage;
 
   const caors::error result = caors::deserialize_json(actor, R"({"name":"Ada"})", context);
 
   REQUIRE(result.succeeded());
+  CHECK(legacy_storage.empty());
   REQUIRE(storage.size() == 1);
   CHECK(actor.name == "Ada");
 }

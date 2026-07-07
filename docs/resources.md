@@ -220,6 +220,9 @@ caors::serialize_json(material_value, context);
 ```
 
 依赖条目包含 `resource_guid` 和资源声明类型的 `type_id`。这可用于后续预加载、打包、热更新和资源数据库。
+依赖收集器本身不加载资源，也不改变引用的 resolved 状态。常见同步使用方式是：先从对象或存档中收集
+`resource_ref<T>` 依赖，再按 GUID 查询 manifest / provider，使用匹配的 loader 预加载到 `cache<T>`，
+最后把 cache 适配成 `serialization::resource_resolver`，让反序列化阶段按策略解析引用。
 
 ## manager
 
@@ -475,6 +478,15 @@ auto loaded = caors::load_into(cache, loader, texture_id);
 4. `resources::loader<T>` 负责把字节解码为资源对象。
 5. `load_into(cache, loader, guid)` 把加载结果转入拥有式 cache。
 6. `serialization::resource_resolver` 从 manager/cache 查询已加载资源，用于解析 `resource_ref<T>`。
+
+如果对象存档中包含资源引用，推荐在读回前先做一遍依赖收集和预加载：
+
+1. 用 `serialization::resource_dependency_list` 收集所有 `resource_ref<T>` 依赖。
+2. 通过 manifest 查找每个 GUID 对应的资源位置、类型和版本信息。
+3. 通过 provider 读取资源字节，并用对应 loader 解码。
+4. 使用 `load_into(cache, loader, guid)` 把资源放入 cache。
+5. 反序列化对象时把 cache resolver 挂到 `context.resources.resolver`，按
+   `resolve_if_present` 或 `require_resolved` 决定缺资源策略。
 
 provider 本身不直接作为 `resource_ref<T>` resolver，因为它只知道字节位置，不知道如何构造具体 `T`。
 如果需要“缺失时自动加载”，应在上层实现一个自定义 resolver：内部先查询 cache，未命中时通过

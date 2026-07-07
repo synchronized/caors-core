@@ -81,6 +81,34 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 `src/caors/serialization/`。共享的字段校验、schema version 过滤和内部调度声明保留在私有
 `src/caors/serialization/detail/internal.h` 和 `src/caors/serialization/detail/helpers.h`。
 
+### API 速查
+
+| API / 配置 | 用途 | 备注 |
+| --- | --- | --- |
+| `serialize(object, writer)` | 写入任意 writer 后端 | 适合自定义格式后端 |
+| `deserialize(object, reader)` | 从任意 reader 后端读入 | 适合 DOM 或自定义 reader |
+| `to_serialization_value(object)` | 生成 `variant` DOM 中间值 | 方便工具、调试和多格式转换 |
+| `write_variant(writer, value)` | 把 `variant` DOM 写入 writer | 不依赖 C++ 对象实例 |
+| `serialize_text()` / `serialize_text_to()` | 输出调试用简单文本格式 | `_to` 版本复用调用方 buffer |
+| `serialize_json()` / `serialize_json_to()` | 输出 JSON 文本 | 支持 `json_options` 控制格式化 |
+| `parse_json()` | 解析 JSON 文本为 `variant` DOM | 当前 parser 选项暂不改变解析行为 |
+| `deserialize_json()` | 从 JSON 文本读回对象 | 先解析 DOM，再复用普通反序列化调度 |
+| `serialization::context` | 单次读写上下文 | 推荐使用分组字段，不再新增旧式扁平字段 |
+| `context.fields` | schema version 字段过滤 | 新字段优先于兼容字段 `schema_version` |
+| `context.references` | `objects::ptr<T>` 引用 resolver | 新字段优先于兼容字段 `reference_resolver` |
+| `context.resources` | `resource_ref<T>` resolver、解析策略和依赖收集 | 新字段优先于兼容字段 `resource_resolver`、`resource_resolution` 和 `resource_dependencies` |
+| `context.objects` | 多态 object 新建时使用的 manager | 新字段优先于兼容字段 `object_manager` |
+| `context.memory` | 多态值、空 wrapper 和容器新增元素的运行期构造资源 | 新字段优先于兼容字段 `memory_resource` |
+| `context.storage` | 借用视图读回所需外部存储 | 新字段优先于兼容字段 `string_view_storage` |
+| `context.polymorphic` | 多态 envelope 字段名和调试 type name | 默认字段名为 `$type` / `$value` |
+| `json_options` | JSON 格式层选项 | 当前控制 writer 的 `pretty` 和 `indent` |
+
+`serialization::context` 当前保留旧式扁平字段是为了兼容已有调用点。新代码应只写
+`context.fields`、`context.references`、`context.resources`、`context.objects`、`context.memory`
+和 `context.storage` 等分组字段。内部 `effective_*()` 访问器会优先使用分组字段，只有分组字段未设置时才回退到旧字段。
+其中 `context.resources.resolution` 使用可选值表示“是否显式设置”，因此可以明确覆盖旧字段为
+`keep_unresolved`。
+
 ### 多态 object
 
 普通序列化入口默认支持 `objects::object` 的运行期真实类型。写出时，调度层读取对象的
@@ -411,6 +439,11 @@ caors::error status = caors::deserialize_json(instance, text);
 字符串支持常见转义和 ASCII 范围内的 `\u00XX`；非 ASCII `\uXXXX` 暂返回 `errc::unsupported`。
 字段 id 无法从 JSON 对象名表达，因此 JSON 读入主要按字段名匹配。
 
+`json_options` 当前只影响 JSON writer：`pretty` 控制是否输出换行和缩进，`indent` 控制每层空格数。
+`parse_json(text, options)` 和带 `json_options` 的 `deserialize_json()` 入口暂时保留为 API 对称和后续扩展点，
+当前不会因为 `options` 改变解析规则。后续 parser 侧选项可继续扩展最大嵌套深度、重复 key 策略、
+是否允许尾随逗号和更完整的 Unicode 转义处理。
+
 ### object pointers
 
 `caors::objects::ptr<T>` 是非拥有对象引用。序列化层不会自行管理对象生命周期，也不会假设
@@ -518,6 +551,18 @@ caors::serialize_json(material_value, context);
 
 依赖收集不加载资源，也不改变 `resource_ref<T>` 的 resolved 状态。它主要服务于预加载、打包、
 热更新和资源数据库。
+
+推荐的同步预加载链路是：
+
+1. 先用带 `context.resources.dependencies` 的序列化或反序列化遍历收集所有资源 GUID。
+2. 按依赖条目中的 `guid` 和声明 `type_id` 查询 manifest 或资源数据库，确定资源位置和 loader。
+3. 通过 `resources::provider` 读取字节，再由匹配的 `resources::loader<T>` 解码资源。
+4. 使用 `resources::load_into(cache, loader, guid)` 把资源放入拥有式 cache。
+5. 创建 `serialization::make_resource_resolver(cache)`，并在后续反序列化 context 中设置
+   `resources.resolver` 和 `resources.resolution`。
+
+依赖收集器只提供“需要哪些资源”的事实，不决定加载顺序、缺资源策略或异步调度。资源缺失是否报错由后续解析阶段的
+`resources.resolution` 决定。
 
 ### object handles
 
