@@ -344,6 +344,7 @@ graph.add(material_id, normal_texture_id);
 
 caors::vector<caors::resource_guid> dependencies = graph.dependencies(material_id);
 caors::vector<caors::resource_guid> affected = graph.affected_by(albedo_texture_id);
+caors::vector<caors::resource_guid> affected_all = graph.affected_closure(albedo_texture_id);
 ```
 
 需要注意：
@@ -353,6 +354,9 @@ caors::vector<caors::resource_guid> affected = graph.affected_by(albedo_texture_
 - `dependents(resource)` 返回直接依赖该资源的 GUID 列表，适合 reload 后查询哪些资源需要重新处理。
 - `affected_by(resource)` 是面向 reload 的语义别名，当前等价于 `dependents(resource)`，表示该资源变化后
   直接受影响的资源。
+- `affected_closure(resource)` 沿反向依赖递归展开，返回所有直接或间接受影响的资源。结果会去重，循环依赖不会
+  死循环，并且不会包含传入的 `resource` 自身。该查询适合 reload 级联刷新、预加载、打包和资源数据库分析。
+- 依赖查询结果当前不保证稳定顺序；调用方不应依赖返回列表顺序表达优先级。
 - `serialization::replace_resource_dependencies(graph, resource, dependencies)` 可以把一次序列化遍历收集到的
   `resource_dependency_list` 写入依赖图。依赖条目中的 `type_id` 仍保留给 manifest、资源数据库或调试诊断使用；
   `dependency_graph` 当前只保存 GUID 关系。
@@ -652,7 +656,8 @@ auto loaded = caors::load_into(cache, loader, texture_id);
 3. 调用 `reload_into(cache, loader, guid)` 或 `reload_and_notify(cache, loader, guid, signal)`
    重新读取 provider、解码资源并替换 cache 中旧资源。
 4. 如果重载失败，`reload_into()` 保留 cache 中旧资源，调用方可以继续使用旧资源并返回诊断错误。
-5. 替换成功后，可以用 `dependency_graph.affected_by(guid)` 查询直接受影响的资源。
+5. 替换成功后，可以用 `dependency_graph.affected_by(guid)` 查询直接受影响的资源，或用
+   `dependency_graph.affected_closure(guid)` 查询递归受影响的资源。
 6. 调用方需要重新解析相关 `resource_ref<T>`，或在上层系统里发出资源失效/重载通知。
 
 provider 本身不直接作为 `resource_ref<T>` resolver，因为它只知道字节位置，不知道如何构造具体 `T`。

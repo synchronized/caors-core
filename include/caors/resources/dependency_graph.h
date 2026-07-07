@@ -148,6 +148,29 @@ public:
   /** @brief 获取 resource 变化后可能直接受影响的资源 GUID 列表。 */
   [[nodiscard]] guid_list affected_by(resource_guid resource) const { return dependents(resource); }
 
+  /**
+   * @brief 获取 resource 变化后递归受影响的资源 GUID 列表。
+   *
+   * 该查询会沿反向依赖图递归展开，并对结果去重。循环依赖不会导致死循环，返回结果不包含
+   * `resource` 自身。
+   */
+  [[nodiscard]] guid_list affected_closure(resource_guid resource) const {
+    guid_list result = make_list();
+    if (!resource) {
+      return result;
+    }
+
+    guid_set visited = make_set();
+    visited.insert(resource);
+
+    append_unvisited_dependents(resource, visited, result);
+    for (std::size_t index = 0; index < result.size(); ++index) {
+      append_unvisited_dependents(result[index], visited, result);
+    }
+
+    return result;
+  }
+
 private:
   using guid_map = core::hash_map<resource_guid, guid_set, resource_guid_hash>;
   using guid_map_iterator = typename guid_map::iterator;
@@ -183,6 +206,21 @@ private:
   [[nodiscard]] guid_list lookup_copy(const guid_map& map, resource_guid guid) const {
     const auto position = map.find(guid);
     return position != map.end() ? copy_set(position->second) : make_list();
+  }
+
+  void append_unvisited_dependents(resource_guid resource, guid_set& visited,
+                                   guid_list& result) const {
+    const auto position = dependents_by_resource_.find(resource);
+    if (position == dependents_by_resource_.end()) {
+      return;
+    }
+
+    for (resource_guid dependent : position->second) {
+      const auto [_, inserted] = visited.insert(dependent);
+      if (inserted) {
+        result.push_back(dependent);
+      }
+    }
   }
 
   memory_resource* resource_ = nullptr;
