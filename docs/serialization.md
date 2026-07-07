@@ -545,18 +545,25 @@ caors::serialization::context context{};
 context.resources.dependencies = &collector;
 
 caors::serialize_json(material_value, context);
+
+caors::resource_dependency_graph graph;
+caors::serialization::replace_resource_dependencies(graph, material_resource_guid, dependencies);
 ```
 
 依赖收集不加载资源，也不改变 `resource_ref<T>` 的 resolved 状态。它主要服务于预加载、打包、
-热更新和资源数据库。
+热更新和资源数据库。`resource_dependency_list` 是一次遍历得到的依赖事实列表；`resources::dependency_graph`
+是运行期资源数据库里的关系索引。需要把事实写入索引时，应显式调用
+`serialization::add_resource_dependencies()` 或 `serialization::replace_resource_dependencies()`。
 
 推荐的同步预加载链路是：
 
 1. 先用带 `context.resources.dependencies` 的序列化或反序列化遍历收集所有资源 GUID。
-2. 按依赖条目中的 `guid` 和声明 `type_id` 查询 manifest 或资源数据库，确定资源位置和 loader。
-3. 通过 `resources::provider` 读取字节，再由匹配的 `resources::loader<T>` 解码资源。
-4. 使用 `resources::load_into(cache, loader, guid)` 把资源放入拥有式 cache。
-5. 创建 `serialization::make_resource_resolver(cache)`，并在后续反序列化 context 中设置
+2. 如果当前遍历对象本身是资源，调用 `replace_resource_dependencies(graph, resource_guid, dependencies)`
+   刷新依赖图。
+3. 按依赖条目中的 `guid` 和声明 `type_id` 查询 manifest 或资源数据库，确定资源位置和 loader。
+4. 通过 `resources::provider` 读取字节，再由匹配的 `resources::loader<T>` 解码资源。
+5. 使用 `resources::load_into(cache, loader, guid)` 把资源放入拥有式 cache。
+6. 创建 `serialization::make_resource_resolver(cache)`，并在后续反序列化 context 中设置
    `resources.resolver` 和 `resources.resolution`。
 
 依赖收集器只提供“需要哪些资源”的事实，不决定加载顺序、缺资源策略或异步调度。资源缺失是否报错由后续解析阶段的

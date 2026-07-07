@@ -40,6 +40,10 @@ TEST_CASE("resources - dependency graph tracks resource dependencies", "[resourc
   caors::vector<caors::resource_guid> dependents = graph.dependents(test_guid_b);
   REQUIRE(dependents.size() == 1);
   CHECK(dependents[0] == test_guid_a);
+
+  caors::vector<caors::resource_guid> affected = graph.affected_by(test_guid_b);
+  REQUIRE(affected.size() == 1);
+  CHECK(affected[0] == test_guid_a);
 }
 
 TEST_CASE("resources - dependency graph removes forward and reverse edges", "[resources]") {

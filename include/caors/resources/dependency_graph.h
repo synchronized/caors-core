@@ -145,6 +145,9 @@ public:
     return lookup_copy(dependents_by_resource_, resource);
   }
 
+  /** @brief 获取 resource 变化后可能直接受影响的资源 GUID 列表。 */
+  [[nodiscard]] guid_list affected_by(resource_guid resource) const { return dependents(resource); }
+
 private:
   using guid_map = core::hash_map<resource_guid, guid_set, resource_guid_hash>;
   using guid_map_iterator = typename guid_map::iterator;

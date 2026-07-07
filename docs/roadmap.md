@@ -155,6 +155,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 支持 `resources::ref<T>` 通过序列化 codec 按稳定 `resource_guid` 读写，读回后可由 manager/cache 显式解析，也可通过序列化 context resolver 按策略解析。
 - [x] 设计 `resources::loader<T>` / `resources::saver<T>` 接口，并提供基于 serialization reader/writer 的最小读写 helper。
 - [x] 支持序列化遍历收集 `resource_ref<T>` 资源依赖，用于后续预加载、打包、热更新和资源数据库。
+- [x] 提供 `serialization::add_resource_dependencies()` / `replace_resource_dependencies()`，把
+  `resource_dependency_list` 写入 `resources::dependency_graph`。
 - [x] 打通资源依赖收集到 manifest / provider / loader / cache 预加载，再由序列化 resolver 解析
   `resource_ref<T>` 的同步链路。
 - [x] 扩展资源加载、卸载和失效处理策略，并明确生命周期与线程安全边界。
@@ -186,6 +188,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 定义 reload 后 handle 语义：cache 指向新资源，旧 `resource_handle<T>` 保留旧资源直到最后一个强引用释放。
 - [x] 设计资源重载通知事件，reload 完成后可通知材质、场景对象、编辑器面板或上层系统重新解析引用。
 - [x] 实现第一版资源依赖图，记录资源 GUID 之间的依赖和反向依赖，用于预加载、打包、热更新和级联刷新。
+- [x] 提供 `dependency_graph::affected_by()` 作为 reload 影响范围的直接依赖查询入口。
 - [ ] 扩展资源依赖图到对象、场景和资源包层级，并定义跨层级 reload 影响范围计算。
 - [ ] 后续评估调试 fileserver、资源包、远程资源、导入管线、资源数据库和编辑器工具层；当这些能力需要独立
   生命周期、后台任务或 UI/工具协议时，再考虑拆出独立资源工具链主题。

@@ -343,7 +343,7 @@ graph.add(material_id, albedo_texture_id);
 graph.add(material_id, normal_texture_id);
 
 caors::vector<caors::resource_guid> dependencies = graph.dependencies(material_id);
-caors::vector<caors::resource_guid> affected = graph.dependents(albedo_texture_id);
+caors::vector<caors::resource_guid> affected = graph.affected_by(albedo_texture_id);
 ```
 
 需要注意：
@@ -351,6 +351,11 @@ caors::vector<caors::resource_guid> affected = graph.dependents(albedo_texture_i
 - `dependency_graph` 只保存 GUID 关系，不加载资源、不拥有资源对象，也不访问 cache 或 provider。
 - `dependencies(resource)` 返回资源直接依赖的 GUID 列表。
 - `dependents(resource)` 返回直接依赖该资源的 GUID 列表，适合 reload 后查询哪些资源需要重新处理。
+- `affected_by(resource)` 是面向 reload 的语义别名，当前等价于 `dependents(resource)`，表示该资源变化后
+  直接受影响的资源。
+- `serialization::replace_resource_dependencies(graph, resource, dependencies)` 可以把一次序列化遍历收集到的
+  `resource_dependency_list` 写入依赖图。依赖条目中的 `type_id` 仍保留给 manifest、资源数据库或调试诊断使用；
+  `dependency_graph` 当前只保存 GUID 关系。
 - 当前第一版只建模资源到资源的直接依赖。对象、场景、资源包和编辑器导入任务可以在上层资源数据库中继续扩展。
 
 ## reload 策略现状
@@ -632,10 +637,12 @@ auto loaded = caors::load_into(cache, loader, texture_id);
 如果对象存档中包含资源引用，推荐在读回前先做一遍依赖收集和预加载：
 
 1. 用 `serialization::resource_dependency_list` 收集所有 `resource_ref<T>` 依赖。
-2. 通过 manifest 查找每个 GUID 对应的资源位置、类型和版本信息。
-3. 通过 provider 读取资源字节，并用对应 loader 解码。
-4. 使用 `load_into(cache, loader, guid)` 把资源放入 cache。
-5. 反序列化对象时把 cache resolver 挂到 `context.resources.resolver`，按
+2. 对资源对象本身做依赖索引时，调用
+   `serialization::replace_resource_dependencies(graph, current_resource_guid, dependencies)` 写入依赖图。
+3. 通过 manifest 查找每个 GUID 对应的资源位置、类型和版本信息。
+4. 通过 provider 读取资源字节，并用对应 loader 解码。
+5. 使用 `load_into(cache, loader, guid)` 把资源放入 cache。
+6. 反序列化对象时把 cache resolver 挂到 `context.resources.resolver`，按
    `resolve_if_present` 或 `require_resolved` 决定缺资源策略。
 
 同步重载推荐流程：
@@ -645,7 +652,8 @@ auto loaded = caors::load_into(cache, loader, texture_id);
 3. 调用 `reload_into(cache, loader, guid)` 或 `reload_and_notify(cache, loader, guid, signal)`
    重新读取 provider、解码资源并替换 cache 中旧资源。
 4. 如果重载失败，`reload_into()` 保留 cache 中旧资源，调用方可以继续使用旧资源并返回诊断错误。
-5. 替换成功后，调用方需要重新解析相关 `resource_ref<T>`，或在上层系统里发出资源失效/重载通知。
+5. 替换成功后，可以用 `dependency_graph.affected_by(guid)` 查询直接受影响的资源。
+6. 调用方需要重新解析相关 `resource_ref<T>`，或在上层系统里发出资源失效/重载通知。
 
 provider 本身不直接作为 `resource_ref<T>` resolver，因为它只知道字节位置，不知道如何构造具体 `T`。
 如果需要“缺失时自动加载”，应在上层实现一个自定义 resolver：内部先查询 cache，未命中时通过

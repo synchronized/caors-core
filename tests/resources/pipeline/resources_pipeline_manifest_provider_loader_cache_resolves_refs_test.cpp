@@ -31,6 +31,17 @@ void require_serialized_resource_ref_holder_metadata() {
       caors::serialization::register_type<serialized_resource_ref_holder>()));
 }
 
+[[nodiscard]] bool contains_guid(const caors::vector<caors::resource_guid>& values,
+                                 caors::resource_guid guid) {
+  for (caors::resource_guid value : values) {
+    if (value == guid) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 } // namespace
 
 TEST_CASE("resources - manifest provider loader cache can resolve serialized resource refs",
@@ -67,6 +78,11 @@ TEST_CASE("resources - manifest provider loader cache can resolve serialized res
   CHECK(dependencies.entries()[0].guid == test_guid_a);
   CHECK(dependencies.entries()[0].type == caors::meta::id_of<serialized_resource>());
 
+  caors::resource_dependency_graph graph;
+  CHECK(caors::serialization::replace_resource_dependencies(graph, test_guid_b, dependencies) == 1);
+  CHECK(graph.contains(test_guid_b, test_guid_a));
+  CHECK(contains_guid(graph.dependencies(test_guid_b), test_guid_a));
+
   caors::result<serialized_resource*> loaded =
       caors::load_into(cache, loader, dependencies.entries()[0].guid);
 
@@ -100,6 +116,10 @@ TEST_CASE("resources - manifest provider loader cache can resolve serialized res
   REQUIRE(reloaded.value != nullptr);
   CHECK(reloaded.value->width == 1024);
   CHECK(cache.find(test_guid_a) == reloaded.value);
+
+  caors::vector<caors::resource_guid> affected = graph.affected_by(test_guid_a);
+  REQUIRE(affected.size() == 1);
+  CHECK(affected[0] == test_guid_b);
 
   REQUIRE(cache.resolve(decoded.resource));
   CHECK(decoded.resource.get() == reloaded.value);
