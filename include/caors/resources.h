@@ -5,6 +5,7 @@
 #define CAORS_RESOURCES_H_
 
 #include "caors/resources/cache.h"
+#include "caors/resources/database.h"
 #include "caors/resources/dependency_graph.h"
 #include "caors/resources/handle.h"
 #include "caors/resources/id.h"

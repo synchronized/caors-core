@@ -5,8 +5,8 @@
 
 本文档说明 CAORS 资源系统的当前设计边界。资源系统仍处于基础阶段，当前提供资源身份、轻量引用模型、
 运行期共享 handle、非拥有资源索引、引用计数缓存、资源依赖图、资源清单、字节来源 provider、
-加载/保存接口、同步 reload、显式 reload 通知、最小序列化读写 helper 和序列化资源引用 resolver；
-异步加载和资源包后续再补。
+加载/保存接口、非拥有资源 database 编排入口、同步 reload、显式 reload 通知、最小序列化读写 helper
+和序列化资源引用 resolver；异步加载和资源包后续再补。
 
 ## 设计目标
 
@@ -22,6 +22,7 @@
 - 资源清单可以把稳定 GUID 映射到资源位置、类型、版本和 hash。
 - 资源 provider 可以把稳定 GUID 映射到字节来源和位置，作为资源数据库或调试 fileserver 的运行期读取入口。
 - 资源加载器和保存器先只定义类型化接口，不绑定路径、文件系统或异步框架。
+- 资源 database 可以把 manifest、provider、cache、loader、依赖图和序列化 resolver 串成一条主流程。
 - 底层资源模型不绑定具体引擎、文件系统、异步加载框架或编辑器管线。
 
 当前不会实现：
@@ -48,6 +49,7 @@
 - `resources::manager`
 - `resources::cache<T>`
 - `resources::dependency_graph`
+- `resources::database`
 - `resources::manifest`
 - `resources::manifest_entry`
 - `resources::source`
@@ -71,6 +73,7 @@
 - `caors::resource_manager`
 - `caors::resource_cache<T>`
 - `caors::resource_dependency_graph`
+- `caors::resource_database`
 - `caors::resource_manifest`
 - `caors::resource_manifest_entry`
 - `caors::resource_source`
@@ -359,6 +362,58 @@ caors::vector<caors::resource_guid> affected_all = graph.affected_closure(albedo
   `resource_dependency_list` 写入依赖图。依赖条目中的 `type_id` 仍保留给 manifest、资源数据库或调试诊断使用；
   `dependency_graph` 当前只保存 GUID 关系。
 - 当前第一版只建模资源到资源的直接依赖。对象、场景、资源包和编辑器导入任务可以在上层资源数据库中继续扩展。
+
+## database
+
+`resources::database` 是非拥有的资源编排入口。它不会创建全局单例，也不会拥有 manifest、provider、
+cache、loader 或 dependency graph；调用方把这些组件挂进去后，database 只负责把常见同步流程串起来：
+
+```cpp
+caors::resource_manifest manifest;
+caors::resource_provider provider;
+caors::resource_dependency_graph graph;
+
+caors::resource_database database;
+database.set_manifest(manifest);
+database.set_provider(provider);
+database.set_dependency_graph(graph);
+
+database.sync_manifest(source);
+
+caors::resource_cache<texture> cache;
+caors::resource_json_loader<texture> loader{provider};
+database.register_type(cache, loader);
+
+auto loaded = database.load<texture>(texture_id);
+auto resolver = database.resolver();
+```
+
+常用入口：
+
+- `set_manifest()` / `set_provider()` / `set_dependency_graph()`：挂接外部组件，不接管生命周期。
+- `bind_manifest(source)` / `sync_manifest(source)` / `replace_manifest(source)`：把当前 manifest 同步到当前
+  provider。
+- `register_cache<T>()` / `register_loader<T>()` / `register_type<T>()`：按已注册 meta 类型挂接类型化
+  cache 和 loader。
+- `load<T>(guid)` / `load_handle<T>(guid)`：通过已注册 loader 加载资源并转入对应 cache。
+- `reload<T>(guid)` / `reload_handle<T>(guid)`：重新加载并替换对应 cache 中已有资源；失败时仍保留旧资源。
+- `find<T>(guid)` / `find(guid)`：查询已注册 cache 中的资源。
+- `resolve(ref<T>&)` / `is_current(ref<T>)`：通过已注册 cache 解析资源引用并检查 generation 是否仍当前。
+- `resolver()`：生成 `serialization::resource_resolver`，可挂到 `serialization::context` 中解析
+  `resource_ref<T>`。
+- `replace_dependencies()` / `affected_by()` / `affected_closure()`：把依赖收集结果写入当前依赖图，并查询
+  reload 影响范围。
+
+需要注意：
+
+- `database` 是编排器，不是拥有式全局资源缓存。资源生命周期仍由 `cache<T>` / `handle<T>` 决定。
+- `database` 不会根据 manifest 的 `type` 字符串自动选择 loader；第一版仍要求调用方显式
+  `register_type<T>(cache, loader)`。
+- `database.resolver()` 只能返回 `resource*`；`resource_ref<T>` 的类型兼容检查仍由序列化层的
+  `dynamic_cast<T*>` 完成。
+- 如果希望 `resource_ref<T>` 记录 cache generation，应在读回后调用 `database.resolve(ref)` 或
+  `cache.resolve(ref)`；序列化 resolver 本身只负责把 GUID 解析为资源对象。
+- 跨线程修改 database、cache、provider 或 manifest 时，调用方需要自行同步。
 
 ## reload 策略现状
 
