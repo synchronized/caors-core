@@ -48,15 +48,6 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
   REQUIRE(text_v3.succeeded());
   CHECK(text_v3.value == R"({"id":1,"current":20,"future":30})");
 
-  caors::serialization::context mixed_context{};
-  mixed_context.schema_version = 2;
-  mixed_context.fields.schema_version = 3;
-  const caors::serialization::serialization_text_result mixed_text =
-      caors::serialize_text(actor, mixed_context);
-
-  REQUIRE(mixed_text.succeeded());
-  CHECK(mixed_text.value == R"({"id":1,"current":20,"future":30})");
-
   caors::variant::object_type members;
   members.push_back(caors::value::variant_member{
       caors::string_name{"id"},

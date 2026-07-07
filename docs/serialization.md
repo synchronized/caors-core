@@ -93,21 +93,19 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 | `serialize_json()` / `serialize_json_to()` | 输出 JSON 文本 | 支持 `json_options` 控制格式化 |
 | `parse_json()` | 解析 JSON 文本为 `variant` DOM | 当前 parser 选项暂不改变解析行为 |
 | `deserialize_json()` | 从 JSON 文本读回对象 | 先解析 DOM，再复用普通反序列化调度 |
-| `serialization::context` | 单次读写上下文 | 推荐使用分组字段，不再新增旧式扁平字段 |
-| `context.fields` | schema version 字段过滤 | 新字段优先于兼容字段 `schema_version` |
-| `context.references` | `objects::ptr<T>` 引用 resolver | 新字段优先于兼容字段 `reference_resolver` |
-| `context.resources` | `resource_ref<T>` resolver、解析策略和依赖收集 | 新字段优先于兼容字段 `resource_resolver`、`resource_resolution` 和 `resource_dependencies` |
-| `context.objects` | 多态 object 新建时使用的 manager | 新字段优先于兼容字段 `object_manager` |
-| `context.memory` | 多态值、空 wrapper 和容器新增元素的运行期构造资源 | 新字段优先于兼容字段 `memory_resource` |
-| `context.storage` | 借用视图读回所需外部存储 | 新字段优先于兼容字段 `string_view_storage` |
+| `serialization::context` | 单次读写上下文 | 按职责使用分组字段配置 |
+| `context.fields` | schema version 字段过滤 | `0` 表示不启用版本过滤 |
+| `context.references` | `objects::ptr<T>` 引用 resolver | 只影响对象指针引用字段 |
+| `context.resources` | `resource_ref<T>` resolver、解析策略和依赖收集 | 默认只恢复 GUID，不解析资源 |
+| `context.objects` | 多态 object 新建时使用的 manager | 只在需要从 envelope 创建对象时使用 |
+| `context.memory` | 多态值、空 wrapper 和容器新增元素的运行期构造资源 | 不强行替换已有容器 allocator |
+| `context.storage` | 借用视图读回所需外部存储 | 主要用于 `std::string_view` |
 | `context.polymorphic` | 多态 envelope 字段名和调试 type name | 默认字段名为 `$type` / `$value` |
 | `json_options` | JSON 格式层选项 | 当前控制 writer 的 `pretty` 和 `indent` |
 
-`serialization::context` 当前保留旧式扁平字段是为了兼容已有调用点。新代码应只写
+`serialization::context` 不再提供旧式扁平配置字段。调用方应按职责写入
 `context.fields`、`context.references`、`context.resources`、`context.objects`、`context.memory`
-和 `context.storage` 等分组字段。内部 `effective_*()` 访问器会优先使用分组字段，只有分组字段未设置时才回退到旧字段。
-其中 `context.resources.resolution` 使用可选值表示“是否显式设置”，因此可以明确覆盖旧字段为
-`keep_unresolved`。
+和 `context.storage` 等分组字段。
 
 ### 多态 object
 

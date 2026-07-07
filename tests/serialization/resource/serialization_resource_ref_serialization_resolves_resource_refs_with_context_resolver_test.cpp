@@ -20,8 +20,6 @@ TEST_CASE("serialization - resource ref can resolve through context resolver", "
       caors::serialization::make_resource_resolver(missing_cache);
 
   caors::serialization::context context{};
-  context.resource_resolver = &missing_resolver;
-  context.resource_resolution = caors::serialization::resource_ref_resolution::require_resolved;
   context.resources.resolver = &resolver;
   context.resources.resolution = caors::serialization::resource_ref_resolution::resolve_if_present;
 
@@ -35,9 +33,7 @@ TEST_CASE("serialization - resource ref can resolve through context resolver", "
   CHECK(decoded.texture.get() == texture);
 
   caors::serialization::context unresolved_context{};
-  unresolved_context.resource_resolver = &missing_resolver;
-  unresolved_context.resource_resolution =
-      caors::serialization::resource_ref_resolution::require_resolved;
+  unresolved_context.resources.resolver = &missing_resolver;
   unresolved_context.resources.resolution =
       caors::serialization::resource_ref_resolution::keep_unresolved;
 

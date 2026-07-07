@@ -17,7 +17,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <optional>
 #include <string_view>
 #include <utility>
 
@@ -157,13 +156,7 @@ struct resource_dependency_collector {
 struct resource_options {
   const resource_resolver* resolver = nullptr;
   const resource_dependency_collector* dependencies = nullptr;
-  /**
-   * @brief 资源引用解析策略。
-   *
-   * 空值表示未在分组字段中显式配置，此时兼容旧字段 `context::resource_resolution`。如果需要明确
-   * 覆盖旧字段为“不解析”，应设置为 `resource_ref_resolution::keep_unresolved`。
-   */
-  std::optional<resource_ref_resolution> resolution{};
+  resource_ref_resolution resolution = resource_ref_resolution::keep_unresolved;
 };
 
 /** @brief 对象生命周期管理相关的序列化语义选项。 */
@@ -317,78 +310,39 @@ struct context {
   storage_options storage{};
   polymorphic_options polymorphic{};
 
-  /**
-   * @brief 兼容字段：旧 API 的 schema version。
-   *
-   * 新代码优先使用 `fields.schema_version`。内部逻辑通过 `effective_schema_version()`
-   * 同时兼容新旧字段。
-   */
-  std::uint32_t schema_version = 0;
-  /** @brief 兼容字段：旧 API 的对象引用 resolver。新代码优先使用 `references.object_resolver`。 */
-  const reference_resolver* reference_resolver = nullptr;
-  /** @brief 兼容字段：旧 API 的资源引用 resolver。新代码优先使用 `resources.resolver`。 */
-  const resource_resolver* resource_resolver = nullptr;
-  /** @brief 兼容字段：旧 API 的资源依赖收集器。新代码优先使用 `resources.dependencies`。 */
-  const resource_dependency_collector* resource_dependencies = nullptr;
-  /** @brief 兼容字段：旧 API 的资源解析策略。新代码优先使用 `resources.resolution`。 */
-  resource_ref_resolution resource_resolution = resource_ref_resolution::keep_unresolved;
-  /**
-   * @brief `std::string_view` 反序列化使用的外部多段字符串存储。
-   *
-   * 默认保持 `nullptr`，此时读回 `std::string_view` 会返回 `errc::unsupported`，避免指向临时
-   * 字符串。调用方如果能保证该存储的生命周期长于目标对象，可以传入一个 storage；读入时会把文本
-   * 追加到 storage，再让目标 `std::string_view` 指向其中一段字符串。
-   */
-  string_storage* string_view_storage = nullptr;
-  /**
-   * @brief 多态对象反序列化使用的对象生命周期管理器。
-   *
-   * `deserialize_polymorphic_object()` 会通过该 manager 创建动态对象。manager 持有的
-   * `memory_resource` 负责实际分配，对象生命周期也由 manager 接管。
-   */
-  objects::manager* object_manager = nullptr;
-  /**
-   * @brief 普通 C++ 多态值反序列化时可选的内存资源。
-   *
-   * 只有目标 wrapper 能保存匹配销毁回调时，反序列化才会用该资源构造动态对象。否则保持标准
-   * `new` / `delete` 语义，避免默认 deleter 与自定义资源释放策略不匹配。
-   */
-  memory::memory_resource* memory_resource = nullptr;
-
   [[nodiscard]] std::uint32_t effective_schema_version() const noexcept {
-    return fields.schema_version != 0 ? fields.schema_version : schema_version;
+    return fields.schema_version;
   }
 
   [[nodiscard]] const serialization::reference_resolver*
   effective_reference_resolver() const noexcept {
-    return references.object_resolver != nullptr ? references.object_resolver : reference_resolver;
+    return references.object_resolver;
   }
 
   [[nodiscard]] const serialization::resource_resolver*
   effective_resource_resolver() const noexcept {
-    return resources.resolver != nullptr ? resources.resolver : resource_resolver;
+    return resources.resolver;
   }
 
   [[nodiscard]] const serialization::resource_dependency_collector*
   effective_resource_dependencies() const noexcept {
-    return resources.dependencies != nullptr ? resources.dependencies : resource_dependencies;
+    return resources.dependencies;
   }
 
   [[nodiscard]] resource_ref_resolution effective_resource_resolution() const noexcept {
-    return resources.resolution.has_value() ? *resources.resolution : resource_resolution;
+    return resources.resolution;
   }
 
   [[nodiscard]] string_storage* effective_string_view_storage() const noexcept {
-    return storage.string_view_storage != nullptr ? storage.string_view_storage
-                                                  : string_view_storage;
+    return storage.string_view_storage;
   }
 
   [[nodiscard]] objects::manager* effective_object_manager() const noexcept {
-    return objects.manager != nullptr ? objects.manager : object_manager;
+    return objects.manager;
   }
 
   [[nodiscard]] memory::memory_resource* effective_memory_resource() const noexcept {
-    return memory.resource != nullptr ? memory.resource : memory_resource;
+    return memory.resource;
   }
 };
 
