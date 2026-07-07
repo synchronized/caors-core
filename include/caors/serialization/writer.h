@@ -107,7 +107,9 @@ private:
 class CAORS_API json_writer final : public writer {
 public:
   json_writer() noexcept;
+  explicit json_writer(json_options options) noexcept;
   explicit json_writer(string& output);
+  json_writer(string& output, json_options options);
 
   [[nodiscard]] format_features features() const noexcept override;
   [[nodiscard]] error begin_object(const type_data& type) override;
@@ -150,7 +152,9 @@ private:
   [[nodiscard]] error prepare_value();
   void mark_value_written() noexcept;
   [[nodiscard]] string& output() noexcept { return *text_; }
+  void write_newline_and_indent(std::size_t depth);
 
+  json_options options_{};
   string owned_text_{};
   string* text_ = nullptr;
   vector<context> contexts_{};

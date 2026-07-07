@@ -15,7 +15,8 @@ TEST_CASE("serialization - serializes object pointers through resolver", "[seria
       &resolve_object,
       &resolver_data,
   };
-  const caors::serialization::context context{0, &resolver};
+  caors::serialization::context context{};
+  context.references.object_resolver = &resolver;
   const object_ptr_actor actor{caors::object_ptr<object_ptr_target>{&target}};
 
   const caors::serialization::serialization_text_result text =

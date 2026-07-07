@@ -59,8 +59,8 @@ TEST_CASE("resources - manifest provider loader cache can resolve serialized res
   const caors::serialization::resource_resolver resolver =
       caors::serialization::make_resource_resolver(cache);
   caors::serialization::context context{};
-  context.resource_resolver = &resolver;
-  context.resource_resolution = caors::serialization::resource_ref_resolution::require_resolved;
+  context.resources.resolver = &resolver;
+  context.resources.resolution = caors::serialization::resource_ref_resolution::require_resolved;
 
   serialized_resource_ref_holder decoded{};
   const caors::error status = caors::deserialize_json(

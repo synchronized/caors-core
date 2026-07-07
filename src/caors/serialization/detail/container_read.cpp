@@ -55,7 +55,7 @@ associative_data_of(const any_ref& target) noexcept {
     return status;
   }
 
-  if (!view.clear() || !view.resize(size, context.memory_resource)) {
+  if (!view.clear() || !view.resize(size, context.effective_memory_resource())) {
     return sequence_resize_failure(sequence, size);
   }
 
@@ -463,7 +463,7 @@ associative_data_of(const any_ref& target) noexcept {
     return status;
   }
 
-  if (!view.emplace(active, context.memory_resource)) {
+  if (!view.emplace(active, context.effective_memory_resource())) {
     return {error_domain::serialization, errc::invalid_type};
   }
 

@@ -58,7 +58,7 @@ TEST_CASE("serialization - propagates context resource through allocator aware v
 
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
   caors::serialization::context context{};
-  context.memory_resource = &tracking;
+  context.memory.resource = &tracking;
 
   struct holder_deleter {
     caors::memory_resource* resource = nullptr;

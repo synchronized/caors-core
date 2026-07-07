@@ -21,7 +21,8 @@ TEST_CASE("serialization - object manager can resolve persistent object guid ref
 
   const caors::serialization::reference_resolver resolver =
       caors::serialization::make_persistent_reference_resolver(manager);
-  const caors::serialization::context context{0, &resolver};
+  caors::serialization::context context{};
+  context.references.object_resolver = &resolver;
   const object_ptr_actor actor{caors::object_ptr<object_ptr_target>{target}};
 
   const caors::serialization::serialization_text_result json =

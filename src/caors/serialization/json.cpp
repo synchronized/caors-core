@@ -65,7 +65,15 @@ void append_text(core::string& output, std::string_view value) {
 
 serialization::json_writer::json_writer() noexcept : text_(&owned_text_) {}
 
-serialization::json_writer::json_writer(string& output) : text_(&output) { reset(); }
+serialization::json_writer::json_writer(json_options options) noexcept
+    : options_(options), text_(&owned_text_) {}
+
+serialization::json_writer::json_writer(string& output) : json_writer(output, json_options{}) {}
+
+serialization::json_writer::json_writer(string& output, json_options options)
+    : options_(options), text_(&output) {
+  reset();
+}
 
 serialization::format_features serialization::json_writer::features() const noexcept {
   return serialization::format_features::named_fields |
@@ -100,8 +108,12 @@ error serialization::json_writer::begin_field(const serialization::field_data& f
     output().push_back(',');
   }
 
+  write_newline_and_indent(contexts_.size());
   append_json_string(output(), name.view());
   output().push_back(':');
+  if (options_.pretty) {
+    output().push_back(' ');
+  }
   current.first = false;
   expecting_value_ = true;
   return {};
@@ -129,6 +141,7 @@ error serialization::json_writer::begin_element(std::size_t) {
     output().push_back(',');
   }
 
+  write_newline_and_indent(contexts_.size());
   current.first = false;
   expecting_value_ = true;
   return {};
@@ -249,6 +262,10 @@ error serialization::json_writer::end_array() {
     return {error_domain::serialization, errc::invalid_argument};
   }
 
+  const context current = contexts_.back();
+  if (!current.first) {
+    write_newline_and_indent(contexts_.size() - 1);
+  }
   output().push_back(']');
   contexts_.pop_back();
   return {};
@@ -267,6 +284,10 @@ error serialization::json_writer::end_object() {
     return {error_domain::serialization, errc::invalid_argument};
   }
 
+  const context current = contexts_.back();
+  if (!current.first) {
+    write_newline_and_indent(contexts_.size() - 1);
+  }
   output().push_back('}');
   contexts_.pop_back();
   return {};
@@ -304,6 +325,18 @@ void serialization::json_writer::mark_value_written() noexcept {
   expecting_value_ = false;
 }
 
+void serialization::json_writer::write_newline_and_indent(std::size_t depth) {
+  if (!options_.pretty) {
+    return;
+  }
+
+  output().push_back('\n');
+  const std::size_t spaces = depth * static_cast<std::size_t>(options_.indent);
+  for (std::size_t index = 0; index < spaces; ++index) {
+    output().push_back(' ');
+  }
+}
+
 namespace detail {
 
 serialization_text_result serialize_json(const reflection::type& type, const void* object) {
@@ -338,6 +371,10 @@ serialization_text_result serialize_json(type_id id, const void* object,
 
 } // namespace detail
 
-variant_result parse_json(std::string_view text) { return detail::parse_json_value(text); }
+variant_result parse_json(std::string_view text) { return parse_json(text, json_options{}); }
+
+variant_result parse_json(std::string_view text, json_options) {
+  return detail::parse_json_value(text);
+}
 
 } // namespace caors::serialization

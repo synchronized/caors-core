@@ -15,7 +15,8 @@ TEST_CASE("serialization - object manager can resolve object pointers", "[serial
   const caors::object_id target_id = target->id();
   const caors::serialization::reference_resolver resolver =
       caors::serialization::make_reference_resolver(manager);
-  const caors::serialization::context context{0, &resolver};
+  caors::serialization::context context{};
+  context.references.object_resolver = &resolver;
   const object_ptr_actor actor{caors::object_ptr<object_ptr_target>{target}};
 
   const caors::serialization::serialization_text_result json =

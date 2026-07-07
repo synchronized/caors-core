@@ -15,10 +15,11 @@ TEST_CASE("serialization - deserializes object pointers inside vectors", "[seria
       &resolve_object,
       &resolver_data,
   };
+  caors::serialization::context context{};
+  context.references.object_resolver = &resolver;
 
   object_ptr_vector_actor actor{};
-  const caors::error result = caors::deserialize_json(actor, R"({"targets":[88,0]})",
-                                                      caors::serialization::context{0, &resolver});
+  const caors::error result = caors::deserialize_json(actor, R"({"targets":[88,0]})", context);
 
   REQUIRE(result.succeeded());
   REQUIRE(actor.targets.size() == 2);

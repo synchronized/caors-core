@@ -32,7 +32,7 @@ TEST_CASE("serialization - polymorphic object requires manager and rolls back fa
 
   caors::objects::manager manager;
   caors::serialization::context context{};
-  context.object_manager = &manager;
+  context.objects.manager = &manager;
 
   const caors::result<actor*> failed =
       caors::serialization::deserialize_polymorphic_object<actor>(value.value, context);

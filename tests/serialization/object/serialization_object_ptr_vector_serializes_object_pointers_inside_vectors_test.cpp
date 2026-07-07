@@ -15,7 +15,8 @@ TEST_CASE("serialization - serializes object pointers inside vectors", "[seriali
       &resolve_object,
       &resolver_data,
   };
-  const caors::serialization::context context{0, &resolver};
+  caors::serialization::context context{};
+  context.references.object_resolver = &resolver;
 
   object_ptr_vector_actor actor{};
   actor.targets.push_back(caors::object_ptr<object_ptr_target>{&target});

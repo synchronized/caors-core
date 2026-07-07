@@ -12,7 +12,7 @@ TEST_CASE("serialization - context memory resource constructs empty wrapper valu
 
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
   caors::serialization::context context{};
-  context.memory_resource = &tracking;
+  context.memory.resource = &tracking;
 
   std::size_t allocation_count = 0;
   {

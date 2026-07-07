@@ -51,9 +51,9 @@ template <typename T> [[nodiscard]] inline type_id resource_type_id() noexcept {
 /** @brief 向上下文依赖收集器记录一个资源引用。 */
 inline void collect_resource_dependency(const serialization::context& context,
                                         resources::resource_guid guid, type_id type) {
-  if (context.resource_dependencies != nullptr && context.resource_dependencies->can_collect() &&
-      guid) {
-    context.resource_dependencies->collect(guid, type, context.resource_dependencies->user_data);
+  const resource_dependency_collector* collector = context.effective_resource_dependencies();
+  if (collector != nullptr && collector->can_collect() && guid) {
+    collector->collect(guid, type, collector->user_data);
   }
 }
 
@@ -61,22 +61,22 @@ inline void collect_resource_dependency(const serialization::context& context,
 template <typename T>
 [[nodiscard]] inline error resolve_resource_reference(resources::ref<T>& value,
                                                       const serialization::context& context) {
-  if (!value.has_guid() ||
-      context.resource_resolution == resource_ref_resolution::keep_unresolved) {
+  const resource_ref_resolution resolution = context.effective_resource_resolution();
+  if (!value.has_guid() || resolution == resource_ref_resolution::keep_unresolved) {
     return {};
   }
 
-  if (context.resource_resolver == nullptr || !context.resource_resolver->can_resolve()) {
-    return context.resource_resolution == resource_ref_resolution::require_resolved
+  const resource_resolver* resolver = context.effective_resource_resolver();
+  if (resolver == nullptr || !resolver->can_resolve()) {
+    return resolution == resource_ref_resolution::require_resolved
                ? error{error_domain::serialization, errc::invalid_argument}
                : error{};
   }
 
-  resources::resource* resolved =
-      context.resource_resolver->resolve(value.guid(), context.resource_resolver->user_data);
+  resources::resource* resolved = resolver->resolve(value.guid(), resolver->user_data);
   if (resolved == nullptr) {
     value.unresolve();
-    return context.resource_resolution == resource_ref_resolution::require_resolved
+    return resolution == resource_ref_resolution::require_resolved
                ? error{error_domain::resources, errc::not_found}
                : error{};
   }

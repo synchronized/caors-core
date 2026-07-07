@@ -159,7 +159,8 @@ result<objects::object*> deserialize_polymorphic_object(objects::object_type_id 
     return {{}, nullptr};
   }
 
-  if (context.object_manager == nullptr) {
+  objects::manager* manager = context.effective_object_manager();
+  if (manager == nullptr) {
     return {{error_domain::serialization, errc::invalid_argument}, nullptr};
   }
 
@@ -173,7 +174,7 @@ result<objects::object*> deserialize_polymorphic_object(objects::object_type_id 
     return {{error_domain::serialization, errc::not_found}, nullptr};
   }
 
-  objects::object* instance = context.object_manager->create(dynamic_type.value.id());
+  objects::object* instance = manager->create(dynamic_type.value.id());
   if (instance == nullptr) {
     return {{error_domain::serialization, errc::unsupported}, nullptr};
   }
@@ -181,7 +182,7 @@ result<objects::object*> deserialize_polymorphic_object(objects::object_type_id 
   variant_reader reader{*stored_value};
   const error status = detail::deserialize(dynamic_type.value.id(), instance, reader, context);
   if (status) {
-    (void)context.object_manager->destroy(instance);
+    (void)manager->destroy(instance);
     return {status, nullptr};
   }
 

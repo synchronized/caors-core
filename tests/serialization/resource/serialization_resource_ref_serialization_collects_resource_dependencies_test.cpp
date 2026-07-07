@@ -13,7 +13,7 @@ TEST_CASE("serialization - resource refs are collected as dependencies", "[seria
   caors::serialization::resource_dependency_collector collector = dependencies.collector();
 
   caors::serialization::context context{};
-  context.resource_dependencies = &collector;
+  context.resources.dependencies = &collector;
 
   const resource_ref_actor actor{caors::resource_ref<serialized_texture_resource>{texture_guid}};
   const caors::serialization::serialization_text_result json =

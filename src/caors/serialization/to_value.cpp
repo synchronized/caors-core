@@ -18,7 +18,8 @@ namespace {
 [[nodiscard]] variant_result
 object_ptr_to_serialization_value(const reflection::field& field, const void* object,
                                   const serialization::context& context) {
-  if (context.reference_resolver == nullptr || !context.reference_resolver->can_write()) {
+  const reference_resolver* resolver = context.effective_reference_resolver();
+  if (resolver == nullptr || !resolver->can_write()) {
     return {{error_domain::serialization, errc::invalid_argument}, {}};
   }
 

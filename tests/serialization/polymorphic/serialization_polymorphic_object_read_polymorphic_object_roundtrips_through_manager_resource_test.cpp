@@ -11,7 +11,7 @@ TEST_CASE("serialization - polymorphic object roundtrips through manager resourc
 
   caors::objects::manager manager;
   caors::serialization::context context{};
-  context.object_manager = &manager;
+  context.objects.manager = &manager;
 
   player player_value{};
   player_value.level = 9;

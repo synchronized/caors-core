@@ -17,8 +17,8 @@ TEST_CASE("serialization - resource ref can resolve through context resolver", "
       caors::serialization::make_resource_resolver(cache);
 
   caors::serialization::context context{};
-  context.resource_resolver = &resolver;
-  context.resource_resolution = caors::serialization::resource_ref_resolution::resolve_if_present;
+  context.resources.resolver = &resolver;
+  context.resources.resolution = caors::serialization::resource_ref_resolution::resolve_if_present;
 
   resource_ref_actor decoded{};
   const caors::error status = caors::deserialize_json(

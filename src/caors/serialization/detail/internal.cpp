@@ -112,16 +112,16 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
     const value::indirect_view& indirect, const serialization::context& context) {
   const meta::detail::value_factory_ops registered_factory =
       meta::get_registry().find_type_factory(dynamic_type.id());
+  memory::memory_resource* resource = context.effective_memory_resource();
 
-  if (context.memory_resource != nullptr && indirect.can_set_value_with_context()) {
+  if (resource != nullptr && indirect.can_set_value_with_context()) {
     if (registered_factory.valid()) {
-      return {registered_factory.construct(context.memory_resource), context.memory_resource,
-              registered_factory.destroy, true};
+      return {registered_factory.construct(resource), resource, registered_factory.destroy, true};
     }
 
     if (descriptor.ops.resource_construct != nullptr &&
         descriptor.ops.resource_destroy != nullptr) {
-      return {descriptor.ops.resource_construct(context.memory_resource), context.memory_resource,
+      return {descriptor.ops.resource_construct(resource), resource,
               descriptor.ops.resource_destroy, true};
     }
   }
@@ -355,11 +355,12 @@ descriptor_of_value(const any_ref& value) noexcept {
 
 [[nodiscard]] variant_result make_object_ptr_identity_value(const object* referenced,
                                                             const serialization::context& context) {
-  if (context.reference_resolver == nullptr || !context.reference_resolver->can_write()) {
+  const reference_resolver* active_resolver = context.effective_reference_resolver();
+  if (active_resolver == nullptr || !active_resolver->can_write()) {
     return {{error_domain::serialization, errc::invalid_argument}, {}};
   }
 
-  const reference_resolver& resolver = *context.reference_resolver;
+  const reference_resolver& resolver = *active_resolver;
   if (resolver.uses_persistent_guid()) {
     if (referenced == nullptr) {
       return {{}, variant::null()};
@@ -385,11 +386,12 @@ descriptor_of_value(const any_ref& value) noexcept {
 
 [[nodiscard]] error write_object_ptr_identity(writer& writer, const object* referenced,
                                               const serialization::context& context) {
-  if (context.reference_resolver == nullptr || !context.reference_resolver->can_write()) {
+  const reference_resolver* active_resolver = context.effective_reference_resolver();
+  if (active_resolver == nullptr || !active_resolver->can_write()) {
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  const reference_resolver& resolver = *context.reference_resolver;
+  const reference_resolver& resolver = *active_resolver;
   if (resolver.uses_persistent_guid()) {
     if (referenced == nullptr) {
       return writer.write_null();
@@ -416,11 +418,12 @@ descriptor_of_value(const any_ref& value) noexcept {
 [[nodiscard]] error read_object_ptr_identity(reader& reader, const serialization::context& context,
                                              object*& referenced) {
   referenced = nullptr;
-  if (context.reference_resolver == nullptr || !context.reference_resolver->can_read()) {
+  const reference_resolver* active_resolver = context.effective_reference_resolver();
+  if (active_resolver == nullptr || !active_resolver->can_read()) {
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  const reference_resolver& resolver = *context.reference_resolver;
+  const reference_resolver& resolver = *active_resolver;
   if (resolver.uses_persistent_guid()) {
     if (reader.is_null()) {
       return {};
@@ -677,21 +680,26 @@ make_polymorphic_indirect_value(const value::indirect_view& indirect,
   }
 
   if (instance.uses_resource_destroy()) {
-    void* context_storage = context.memory_resource->try_allocate(
-        sizeof(polymorphic_destroy_context), alignof(polymorphic_destroy_context));
+    memory::memory_resource* resource = context.effective_memory_resource();
+    if (resource == nullptr) {
+      return {error_domain::serialization, errc::invalid_argument};
+    }
+
+    void* context_storage = resource->try_allocate(sizeof(polymorphic_destroy_context),
+                                                   alignof(polymorphic_destroy_context));
     if (context_storage == nullptr) {
       return {error_domain::serialization, errc::unsupported};
     }
 
     auto* destroy_context = ::new (context_storage) polymorphic_destroy_context{
-        context.memory_resource,
+        resource,
         instance.resource,
         instance.resource_destroy,
     };
     const traits::wrapper_set_context set_context{
         destroy_context,
         &destroy_polymorphic_constructed_value,
-        context.memory_resource,
+        resource,
     };
     if (!indirect.set_value(dynamic_type.value.id(), instance.value, set_context)) {
       memory::destroy(destroy_context, destroy_context->allocation_resource);
@@ -783,7 +791,7 @@ make_polymorphic_indirect_value(const value::indirect_view& indirect,
     return read_polymorphic_indirect_value(*current, indirect, context);
   }
 
-  if (!indirect.has_value() && !indirect.ensure_value(context.memory_resource)) {
+  if (!indirect.has_value() && !indirect.ensure_value(context.effective_memory_resource())) {
     if (indirect.can_set_value() || indirect.can_set_value_with_context()) {
       return {error_domain::serialization, errc::invalid_type};
     }

@@ -61,7 +61,8 @@ int main() {
 
   const caors::serialization::reference_resolver resolver =
       caors::serialization::make_persistent_reference_resolver(manager);
-  const caors::serialization::context context{0, &resolver};
+  caors::serialization::context context{};
+  context.references.object_resolver = &resolver;
 
   const party_slot slot{caors::object_ptr<persistent_player>{player}};
   const caors::serialization::serialization_text_result json = caors::serialize_json(slot, context);

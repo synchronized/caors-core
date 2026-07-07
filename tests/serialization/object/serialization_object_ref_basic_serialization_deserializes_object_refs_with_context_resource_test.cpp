@@ -10,7 +10,7 @@ TEST_CASE("serialization - deserializes object refs with context resource", "[se
 
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
   caors::serialization::context context{};
-  context.memory_resource = &tracking;
+  context.memory.resource = &tracking;
 
   object_ref_owner_actor actor{};
   const caors::error result = caors::deserialize_json(actor, R"({"owner":{"value":17}})", context);

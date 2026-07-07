@@ -22,7 +22,7 @@ TEST_CASE("serialization - polymorphic value factory uses memory resource for un
 
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
   caors::serialization::context context{};
-  context.memory_resource = &tracking;
+  context.memory.resource = &tracking;
 
   polymorphic_factory_unique_holder decoded{};
   const caors::error status = caors::deserialize_json(decoded, json.value, context);

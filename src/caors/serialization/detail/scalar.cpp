@@ -111,7 +111,8 @@ template <typename T>
 
 [[nodiscard]] bool try_read_string_view_value(reader& reader, const any_ref& target,
                                               const serialization::context& context) {
-  if (context.string_view_storage == nullptr || !target.matches_type<std::string_view>()) {
+  string_storage* storage = context.effective_string_view_storage();
+  if (storage == nullptr || !target.matches_type<std::string_view>()) {
     return false;
   }
 
@@ -120,7 +121,7 @@ template <typename T>
     return false;
   }
 
-  return target.try_set<std::string_view>(context.string_view_storage->store(std::move(value)));
+  return target.try_set<std::string_view>(storage->store(std::move(value)));
 }
 
 } // namespace

@@ -18,7 +18,7 @@ TEST_CASE("serialization - string view deserialization can use explicit backing 
   codec_string_view_actor actor{std::string_view{"original"}};
   caors::serialization::string_storage storage;
   caors::serialization::context context{};
-  context.string_view_storage = &storage;
+  context.storage.string_view_storage = &storage;
 
   const caors::error result = caors::deserialize_json(actor, R"({"name":"Ada"})", context);
 

@@ -56,6 +56,24 @@ struct polymorphic_options {
   bool write_type_name = false;
 };
 
+/** @brief JSON writer / reader 的格式层选项。 */
+struct json_options {
+  /** @brief 是否输出换行和缩进；默认输出紧凑 JSON。 */
+  bool pretty = false;
+  /** @brief `pretty` 开启时每一层使用的空格数。 */
+  std::uint32_t indent = 2;
+};
+
+/** @brief 字段和 schema 相关的序列化语义选项。 */
+struct field_options {
+  /**
+   * @brief 当前读写使用的 schema version。
+   *
+   * `0` 表示不启用字段版本过滤。传入非 0 版本时，调度层只处理当前版本可见的字段。
+   */
+  std::uint32_t schema_version = 0;
+};
+
 /**
  * @brief `std::string_view` 反序列化使用的多段字符串存储。
  *
@@ -107,6 +125,11 @@ struct reference_resolver {
   }
 };
 
+/** @brief 对象引用相关的序列化语义选项。 */
+struct reference_options {
+  const reference_resolver* object_resolver = nullptr;
+};
+
 /** @brief 资源引用解析器。 */
 struct resource_resolver {
   resource_resolve_fn resolve = nullptr;
@@ -127,6 +150,28 @@ struct resource_dependency_collector {
   void* user_data = nullptr;
 
   [[nodiscard]] constexpr bool can_collect() const noexcept { return collect != nullptr; }
+};
+
+/** @brief 资源引用和资源依赖相关的序列化语义选项。 */
+struct resource_options {
+  const resource_resolver* resolver = nullptr;
+  const resource_dependency_collector* dependencies = nullptr;
+  resource_ref_resolution resolution = resource_ref_resolution::keep_unresolved;
+};
+
+/** @brief 对象生命周期管理相关的序列化语义选项。 */
+struct object_options {
+  objects::manager* manager = nullptr;
+};
+
+/** @brief 运行期构造和销毁相关的序列化语义选项。 */
+struct memory_options {
+  memory::memory_resource* resource = nullptr;
+};
+
+/** @brief 借用视图反序列化相关的外部存储选项。 */
+struct storage_options {
+  string_storage* string_view_storage = nullptr;
 };
 
 /** @brief 保存一次序列化遍历收集到的资源依赖。 */
@@ -257,12 +302,29 @@ template <typename T>
  * 字段。
  */
 struct context {
-  std::uint32_t schema_version = 0;
-  const reference_resolver* reference_resolver = nullptr;
-  const resource_resolver* resource_resolver = nullptr;
-  const resource_dependency_collector* resource_dependencies = nullptr;
-  resource_ref_resolution resource_resolution = resource_ref_resolution::keep_unresolved;
+  field_options fields{};
+  reference_options references{};
+  resource_options resources{};
+  object_options objects{};
+  memory_options memory{};
+  storage_options storage{};
   polymorphic_options polymorphic{};
+
+  /**
+   * @brief 兼容字段：旧 API 的 schema version。
+   *
+   * 新代码优先使用 `fields.schema_version`。内部逻辑通过 `effective_schema_version()`
+   * 同时兼容新旧字段。
+   */
+  std::uint32_t schema_version = 0;
+  /** @brief 兼容字段：旧 API 的对象引用 resolver。新代码优先使用 `references.object_resolver`。 */
+  const reference_resolver* reference_resolver = nullptr;
+  /** @brief 兼容字段：旧 API 的资源引用 resolver。新代码优先使用 `resources.resolver`。 */
+  const resource_resolver* resource_resolver = nullptr;
+  /** @brief 兼容字段：旧 API 的资源依赖收集器。新代码优先使用 `resources.dependencies`。 */
+  const resource_dependency_collector* resource_dependencies = nullptr;
+  /** @brief 兼容字段：旧 API 的资源解析策略。新代码优先使用 `resources.resolution`。 */
+  resource_ref_resolution resource_resolution = resource_ref_resolution::keep_unresolved;
   /**
    * @brief `std::string_view` 反序列化使用的外部多段字符串存储。
    *
@@ -285,6 +347,43 @@ struct context {
    * `new` / `delete` 语义，避免默认 deleter 与自定义资源释放策略不匹配。
    */
   memory::memory_resource* memory_resource = nullptr;
+
+  [[nodiscard]] std::uint32_t effective_schema_version() const noexcept {
+    return fields.schema_version != 0 ? fields.schema_version : schema_version;
+  }
+
+  [[nodiscard]] const serialization::reference_resolver*
+  effective_reference_resolver() const noexcept {
+    return references.object_resolver != nullptr ? references.object_resolver : reference_resolver;
+  }
+
+  [[nodiscard]] const serialization::resource_resolver*
+  effective_resource_resolver() const noexcept {
+    return resources.resolver != nullptr ? resources.resolver : resource_resolver;
+  }
+
+  [[nodiscard]] const serialization::resource_dependency_collector*
+  effective_resource_dependencies() const noexcept {
+    return resources.dependencies != nullptr ? resources.dependencies : resource_dependencies;
+  }
+
+  [[nodiscard]] resource_ref_resolution effective_resource_resolution() const noexcept {
+    return resources.resolution != resource_ref_resolution::keep_unresolved ? resources.resolution
+                                                                            : resource_resolution;
+  }
+
+  [[nodiscard]] string_storage* effective_string_view_storage() const noexcept {
+    return storage.string_view_storage != nullptr ? storage.string_view_storage
+                                                  : string_view_storage;
+  }
+
+  [[nodiscard]] objects::manager* effective_object_manager() const noexcept {
+    return objects.manager != nullptr ? objects.manager : object_manager;
+  }
+
+  [[nodiscard]] memory::memory_resource* effective_memory_resource() const noexcept {
+    return memory.resource != nullptr ? memory.resource : memory_resource;
+  }
 };
 
 /** @brief 文本序列化结果。 */

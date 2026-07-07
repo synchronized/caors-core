@@ -32,14 +32,18 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
   })));
 
   const versioned_actor actor{1, 10, 20, 30};
+  caors::serialization::context context_v2{};
+  context_v2.fields.schema_version = 2;
   const caors::serialization::serialization_text_result text_v2 =
-      caors::serialize_text(actor, caors::serialization::context{2});
+      caors::serialize_text(actor, context_v2);
 
   REQUIRE(text_v2.succeeded());
   CHECK(text_v2.value == R"({"id":1,"current":20})");
 
+  caors::serialization::context context_v3{};
+  context_v3.fields.schema_version = 3;
   const caors::serialization::serialization_text_result text_v3 =
-      caors::serialize_text(actor, caors::serialization::context{3});
+      caors::serialize_text(actor, context_v3);
 
   REQUIRE(text_v3.succeeded());
   CHECK(text_v3.value == R"({"id":1,"current":20,"future":30})");
@@ -57,8 +61,8 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
   });
 
   versioned_actor deserialized{};
-  const caors::error result = caors::deserialize(
-      deserialized, caors::variant::object(std::move(members)), caors::serialization::context{2});
+  const caors::error result =
+      caors::deserialize(deserialized, caors::variant::object(std::move(members)), context_v2);
 
   REQUIRE(result.succeeded());
   CHECK(deserialized.id == 2);
@@ -89,8 +93,8 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
   });
 
   versioned_actor filtered{0, 10, 0, 30};
-  const caors::error filtered_result = caors::deserialize(
-      filtered, caors::variant::object(std::move(extra_members)), caors::serialization::context{2});
+  const caors::error filtered_result =
+      caors::deserialize(filtered, caors::variant::object(std::move(extra_members)), context_v2);
 
   REQUIRE(filtered_result.succeeded());
   CHECK(filtered.id == 3);
@@ -112,8 +116,7 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
 
   versioned_actor missing_required{};
   const caors::error missing_required_result = caors::deserialize(
-      missing_required, caors::variant::object(std::move(missing_required_members)),
-      caors::serialization::context{3});
+      missing_required, caors::variant::object(std::move(missing_required_members)), context_v3);
 
   CHECK(missing_required_result.failed());
   CHECK(missing_required_result.domain() == caors::error_domain::serialization);

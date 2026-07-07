@@ -191,8 +191,8 @@ caors::serialization::resource_resolver resolver =
     caors::serialization::make_resource_resolver(cache);
 
 caors::serialization::context context{};
-context.resource_resolver = &resolver;
-context.resource_resolution =
+context.resources.resolver = &resolver;
+context.resources.resolution =
     caors::serialization::resource_ref_resolution::resolve_if_present;
 
 material decoded{};
@@ -201,7 +201,7 @@ caors::deserialize_json(decoded,
                         context);
 ```
 
-`context.resource_resolution` 的策略：
+`context.resources.resolution` 的策略：
 
 - `keep_unresolved`：默认策略，只恢复 GUID，不解析资源。
 - `resolve_if_present`：如果 resolver 能找到同 GUID 且类型兼容的资源，则写入已解析指针；缺资源仍保持 unresolved。
@@ -214,7 +214,7 @@ caors::serialization::resource_dependency_list dependencies;
 caors::serialization::resource_dependency_collector collector = dependencies.collector();
 
 caors::serialization::context context{};
-context.resource_dependencies = &collector;
+context.resources.dependencies = &collector;
 
 caors::serialize_json(material_value, context);
 ```

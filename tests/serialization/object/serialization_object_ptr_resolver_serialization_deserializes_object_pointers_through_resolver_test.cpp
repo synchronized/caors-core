@@ -15,6 +15,8 @@ TEST_CASE("serialization - deserializes object pointers through resolver", "[ser
       &resolve_object,
       &resolver_data,
   };
+  caors::serialization::context context{};
+  context.references.object_resolver = &resolver;
 
   caors::variant::object_type members;
   members.push_back(caors::value::variant_member{
@@ -24,15 +26,14 @@ TEST_CASE("serialization - deserializes object pointers through resolver", "[ser
   });
 
   object_ptr_actor actor{};
-  const caors::error result = caors::deserialize(actor, caors::variant::object(std::move(members)),
-                                                 caors::serialization::context{0, &resolver});
+  const caors::error result =
+      caors::deserialize(actor, caors::variant::object(std::move(members)), context);
 
   REQUIRE(result.succeeded());
   CHECK(actor.target.get() == &target);
 
   object_ptr_actor from_json{};
-  const caors::error json_result = caors::deserialize_json(
-      from_json, R"({"target":88})", caors::serialization::context{0, &resolver});
+  const caors::error json_result = caors::deserialize_json(from_json, R"({"target":88})", context);
   REQUIRE(json_result.succeeded());
   CHECK(from_json.target.get() == &target);
 }

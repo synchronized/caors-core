@@ -9,7 +9,8 @@ namespace caors::serialization::detail {
                                            const void* object,
                                            const serialization::field_data& field_data,
                                            const serialization::context& context) {
-  if (context.reference_resolver == nullptr || !context.reference_resolver->can_write()) {
+  const reference_resolver* resolver = context.effective_reference_resolver();
+  if (resolver == nullptr || !resolver->can_write()) {
     return {error_domain::serialization, errc::invalid_argument};
   }
 
@@ -34,7 +35,8 @@ namespace caors::serialization::detail {
 [[nodiscard]] error read_object_ptr_field(reader& reader, const reflection::field& field,
                                           void* object, const serialization::field_data& field_data,
                                           const serialization::context& context) {
-  if (context.reference_resolver == nullptr || !context.reference_resolver->can_read()) {
+  const reference_resolver* resolver = context.effective_reference_resolver();
+  if (resolver == nullptr || !resolver->can_read()) {
     return {error_domain::serialization, errc::invalid_argument};
   }
 

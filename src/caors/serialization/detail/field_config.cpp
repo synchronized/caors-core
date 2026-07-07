@@ -11,15 +11,16 @@ core::string_name serialized_field_name(const serialization::field_data& data) n
 
 bool field_visible_in_context(const serialization::field_data& field,
                               const serialization::context& context) noexcept {
-  if (context.schema_version == 0) {
+  const std::uint32_t schema_version = context.effective_schema_version();
+  if (schema_version == 0) {
     return true;
   }
 
-  if (field.version_added != 0 && context.schema_version < field.version_added) {
+  if (field.version_added != 0 && schema_version < field.version_added) {
     return false;
   }
 
-  if (field.version_removed != 0 && context.schema_version >= field.version_removed) {
+  if (field.version_removed != 0 && schema_version >= field.version_removed) {
     return false;
   }
 

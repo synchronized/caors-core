@@ -21,7 +21,8 @@ TEST_CASE("serialization - roundtrips object pointer graphs through runtime ids"
   const caors::object_id secondary_id = secondary->id();
   const caors::serialization::reference_resolver resolver =
       caors::serialization::make_reference_resolver(manager);
-  const caors::serialization::context context{0, &resolver};
+  caors::serialization::context context{};
+  context.references.object_resolver = &resolver;
 
   object_ptr_graph_actor graph{};
   graph.primary.reset(primary);

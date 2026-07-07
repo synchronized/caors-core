@@ -20,7 +20,7 @@ TEST_CASE("serialization - string view storage keeps multiple deserialized strin
   codec_string_view_pair_actor actor{};
   caors::serialization::string_storage storage;
   caors::serialization::context context{};
-  context.string_view_storage = &storage;
+  context.storage.string_view_storage = &storage;
 
   const caors::error result =
       caors::deserialize_json(actor, R"({"first":"Ada","second":"Mina"})", context);

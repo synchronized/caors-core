@@ -59,6 +59,9 @@ template <typename T>
 /** @brief 解析 JSON 文本为序列化中间值。 */
 [[nodiscard]] CAORS_API variant_result parse_json(std::string_view text);
 
+/** @brief 按格式选项解析 JSON 文本为序列化中间值。 */
+[[nodiscard]] CAORS_API variant_result parse_json(std::string_view text, json_options options);
+
 /** @brief 把已注册序列化和反射信息的 C++ 对象从指定后端读入。 */
 template <typename T> [[nodiscard]] error deserialize(T& object, reader& reader) {
   const meta::type type = caors::meta::find<T>();
@@ -115,11 +118,34 @@ template <typename T> [[nodiscard]] error deserialize_json(T& object, std::strin
   return deserialize(object, value.value);
 }
 
+/** @brief 按 JSON 格式选项从 JSON 文本反序列化到对象。 */
+template <typename T>
+[[nodiscard]] error deserialize_json(T& object, std::string_view text, json_options options) {
+  variant_result value = parse_json(text, options);
+  if (value.failed()) {
+    return value.status;
+  }
+
+  return deserialize(object, value.value);
+}
+
 /** @brief 按上下文从 JSON 文本反序列化到对象。 */
 template <typename T>
 [[nodiscard]] error deserialize_json(T& object, std::string_view text,
                                      const serialization::context& context) {
   variant_result value = parse_json(text);
+  if (value.failed()) {
+    return value.status;
+  }
+
+  return deserialize(object, value.value, context);
+}
+
+/** @brief 按上下文和 JSON 格式选项从 JSON 文本反序列化到对象。 */
+template <typename T>
+[[nodiscard]] error deserialize_json(T& object, std::string_view text,
+                                     const serialization::context& context, json_options options) {
+  variant_result value = parse_json(text, options);
   if (value.failed()) {
     return value.status;
   }
@@ -205,8 +231,14 @@ template <typename T>
 /** @brief 把已注册序列化和反射信息的 C++ 对象序列化到外部 JSON buffer。 */
 template <typename T> [[nodiscard]] error serialize_json_to(const T& object, string& output) {
   serialization::json_writer writer{output};
-  const error status = serialize(object, writer);
-  return status;
+  return serialize(object, writer);
+}
+
+/** @brief 按 JSON 格式选项把已注册序列化和反射信息的 C++ 对象序列化到外部 JSON buffer。 */
+template <typename T>
+[[nodiscard]] error serialize_json_to(const T& object, string& output, json_options options) {
+  serialization::json_writer writer{output, options};
+  return serialize(object, writer);
 }
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象按上下文序列化到外部 JSON buffer。 */
@@ -214,14 +246,33 @@ template <typename T>
 [[nodiscard]] error serialize_json_to(const T& object, string& output,
                                       const serialization::context& context) {
   serialization::json_writer writer{output};
-  const error status = serialize(object, writer, context);
-  return status;
+  return serialize(object, writer, context);
+}
+
+/** @brief 按上下文和 JSON 格式选项序列化到外部 JSON buffer。 */
+template <typename T>
+[[nodiscard]] error serialize_json_to(const T& object, string& output,
+                                      const serialization::context& context, json_options options) {
+  serialization::json_writer writer{output, options};
+  return serialize(object, writer, context);
 }
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象序列化为 JSON。 */
 template <typename T> [[nodiscard]] serialization_text_result serialize_json(const T& object) {
   string output;
   const error status = serialize_json_to(object, output);
+  if (status) {
+    return {status, {}};
+  }
+
+  return {{}, std::move(output)};
+}
+
+/** @brief 按 JSON 格式选项把已注册序列化和反射信息的 C++ 对象序列化为 JSON。 */
+template <typename T>
+[[nodiscard]] serialization_text_result serialize_json(const T& object, json_options options) {
+  string output;
+  const error status = serialize_json_to(object, output, options);
   if (status) {
     return {status, {}};
   }
@@ -242,6 +293,19 @@ template <typename T>
   return {{}, std::move(output)};
 }
 
+/** @brief 按上下文和 JSON 格式选项把已注册序列化和反射信息的 C++ 对象序列化为 JSON。 */
+template <typename T>
+[[nodiscard]] serialization_text_result
+serialize_json(const T& object, const serialization::context& context, json_options options) {
+  string output;
+  const error status = serialize_json_to(object, output, context, options);
+  if (status) {
+    return {status, {}};
+  }
+
+  return {{}, std::move(output)};
+}
+
 /** @brief 兼容入口：把对象按真实运行期类型序列化为多态 DOM envelope。 */
 [[nodiscard]] CAORS_API variant_result to_polymorphic_serialization_value(
     const objects::object& object, const serialization::context& context = {});
@@ -254,7 +318,7 @@ template <typename T>
  * @brief 兼容入口：从多态 DOM envelope 构造对象。
  *
  * `declared_base` 是字段或调用点声明的对象基类类型。动态类型必须继承自该类型。成功返回的对象由
- * `context.object_manager` 拥有；缺少 manager、类型不匹配或反序列化失败时返回错误。
+ * `context.objects.manager` 拥有；缺少 manager、类型不匹配或反序列化失败时返回错误。
  */
 [[nodiscard]] CAORS_API result<objects::object*>
 deserialize_polymorphic_object(objects::object_type_id declared_base, const variant& value,
@@ -278,8 +342,8 @@ template <typename Base>
 
   Base* typed = dynamic_cast<Base*>(object.value);
   if (typed == nullptr) {
-    if (context.object_manager != nullptr) {
-      (void)context.object_manager->destroy(object.value);
+    if (objects::manager* manager = context.effective_object_manager()) {
+      (void)manager->destroy(object.value);
     }
     return {{error_domain::serialization, errc::invalid_type}, nullptr};
   }

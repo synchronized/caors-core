@@ -21,6 +21,8 @@ TEST_CASE("serialization - object pointer resolver failures are reported", "[ser
       &resolve_object,
       &resolver_data,
   };
+  caors::serialization::context context{};
+  context.references.object_resolver = &resolver;
 
   caors::variant::object_type members;
   members.push_back(caors::value::variant_member{
@@ -31,8 +33,7 @@ TEST_CASE("serialization - object pointer resolver failures are reported", "[ser
 
   object_ptr_actor decoded{};
   const caors::error missing_object =
-      caors::deserialize(decoded, caors::variant::object(std::move(members)),
-                         caors::serialization::context{0, &resolver});
+      caors::deserialize(decoded, caors::variant::object(std::move(members)), context);
   CHECK(missing_object.failed());
   CHECK(missing_object.value() == caors::errc::not_found);
 
@@ -43,6 +44,8 @@ TEST_CASE("serialization - object pointer resolver failures are reported", "[ser
       &resolve_object,
       &wrong_type_data,
   };
+  caors::serialization::context wrong_type_context{};
+  wrong_type_context.references.object_resolver = &wrong_type_resolver;
 
   caors::variant::object_type wrong_type_members;
   wrong_type_members.push_back(caors::value::variant_member{
@@ -51,9 +54,8 @@ TEST_CASE("serialization - object pointer resolver failures are reported", "[ser
       caors::variant::from(std::uint64_t{100}),
   });
 
-  const caors::error wrong_type =
-      caors::deserialize(decoded, caors::variant::object(std::move(wrong_type_members)),
-                         caors::serialization::context{0, &wrong_type_resolver});
+  const caors::error wrong_type = caors::deserialize(
+      decoded, caors::variant::object(std::move(wrong_type_members)), wrong_type_context);
   CHECK(wrong_type.failed());
   CHECK(wrong_type.value() == caors::errc::invalid_type);
 }
