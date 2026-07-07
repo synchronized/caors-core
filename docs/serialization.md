@@ -3,12 +3,13 @@
 
 # Serialization
 
-本文档说明 CAORS 序列化层的当前 MVP。当前实现提供基于反射字段的简单文本序列化、DOM 中间对象和
-基础 DOM 反序列化，用于验证 `meta::registry`、反射字段访问和统一错误模型之间的协作边界。
+本文档说明 CAORS 序列化层的当前实现边界。当前实现提供基于反射字段的文本/JSON 读写、`variant`
+DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，用于连接 `meta::registry`、反射字段访问、
+运行期值系统、资源系统和统一错误模型。
 
 ## 设计目标
 
-第一阶段解决几件事：
+当前已覆盖：
 
 - 用 `serialization::type_data` 表示类型的序列化元信息。
 - 用 `serialization::field_data` 表示字段级序列化配置，例如字段别名、稳定字段 id、跳过和版本信息。
@@ -17,7 +18,7 @@
 - 提供 `serialization::writer` 后端接口，让不同格式复用同一套字段遍历逻辑。
 - 提供 `serialization::reader` 后端接口，让不同格式复用同一套字段读入逻辑。
 - 提供 `variant` 中间对象树，方便工具、调试和多格式转换。
-- 提供 `serialization::text_writer` 和 `serialize_text()`，通过反射字段读取对象并输出简单文本结构。
+- 提供 `serialization::text_writer` 和 `serialize_text()`，通过反射字段读取对象并输出调试用简单文本结构。
 - 提供 `serialization::json_writer`、`serialize_json()`、`parse_json()` 和 `deserialize_json()`。
 - 提供 `serialization::variant_reader` 和 `deserialize()`，通过 DOM 中间对象写回基础反射字段。
 - 提供 `serialization::context`，支持按 schema version 过滤字段、配置多态 envelope 字段名、传递运行期资源、
@@ -31,7 +32,7 @@
   `std::shared_ptr<Base>` 和 `objects::ref<Base>` 字段持有派生类对象，并支持显式 factory 构造策略。
 - 用 `caors::error` 和 `caors::result<T>` 表达失败状态和携带值的返回结果。
 
-当前不会包含：
+当前仍不会包含：
 
 - 内置二进制格式。
 - 版本迁移和默认值恢复。
@@ -837,7 +838,7 @@ caors::serialization::serialization_text_result result = caors::serialize_text(i
 caors::string text = result.value;
 ```
 
-输出格式是 MVP 内部简单文本格式，例如：
+输出格式是内部简单文本格式，例如：
 
 ```text
 {"id":7,"health":95.5}
