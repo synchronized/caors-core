@@ -4,8 +4,8 @@
 # Tasks
 
 本文档说明 CAORS 任务调度模块的当前边界。任务系统第一阶段只提供最小公共底座：move-only
-`task`、executor 抽象、同步 `inline_executor` 和主线程 `completion_queue`。它用于后续资源异步加载、
-资源导入、后台序列化和跨线程完成回调。
+`task`、executor 抽象、同步 `inline_executor`、固定线程数 `thread_pool_executor` 和主线程
+`completion_queue`。它用于后续资源异步加载、资源导入、后台序列化和跨线程完成回调。
 
 ## 设计目标
 
@@ -15,15 +15,15 @@
   `caors::error`。
 - `tasks::executor`：最小提交抽象，只定义 `submit(task)`。
 - `tasks::inline_executor`：提交后在调用线程立即执行，用于测试、确定性执行和同步 fallback。
+- `tasks::thread_pool_executor`：固定线程数后台执行器，析构默认 drain 已入队任务。
 - `tasks::completion_queue`：线程安全完成回调队列，适合后台任务完成后把 commit 阶段交给主线程。
 - `task` 和 `completion_queue` 可传入 `memory_resource`，内部动态存储使用对应资源。
 
 当前不会包含：
 
-- 线程池。
 - work stealing、fiber、协程 scheduler、任务图或平台异步 IO。
 - 优先级、取消传播、进度和 request 状态对象。
-- 自动捕获 callable 异常。
+- 任务异常诊断保存。
 - 聚合 `completion_queue::drain()` 中每个任务返回的错误。
 
 这些能力会在资源异步加载和资源热更新流程落地后继续扩展。
@@ -35,6 +35,8 @@
 - `tasks::task`
 - `tasks::executor`
 - `tasks::inline_executor`
+- `tasks::thread_pool_executor`
+- `tasks::shutdown_mode`
 - `tasks::completion_queue`
 
 根命名空间保留常用别名：
@@ -42,6 +44,7 @@
 - `caors::task`
 - `caors::task_executor`
 - `caors::inline_task_executor`
+- `caors::thread_pool_task_executor`
 - `caors::task_completion_queue`
 
 公共头文件：
@@ -49,6 +52,7 @@
 - `caors/tasks/task.h`
 - `caors/tasks/executor.h`
 - `caors/tasks/inline_executor.h`
+- `caors/tasks/thread_pool_executor.h`
 - `caors/tasks/completion_queue.h`
 - `caors/tasks.h`
 
@@ -109,6 +113,37 @@ auto status = executor.submit(caors::tasks::task{[] {
 ```
 
 后续 `thread_pool_executor` 会复用同一个提交接口，但会补充停止、析构、drain、取消和线程安全边界。
+
+## thread_pool_executor
+
+`thread_pool_executor` 是固定线程数后台执行器：
+
+```cpp
+caors::tasks::thread_pool_executor executor{2};
+
+executor.submit(caors::tasks::task{[] {
+  // 在后台 worker 中执行。
+}});
+
+executor.shutdown(caors::tasks::shutdown_mode::drain);
+```
+
+常用入口：
+
+- `thread_pool_executor(thread_count, resource)`：创建固定数量 worker。`thread_count == 0` 时使用默认线程数。
+- `submit(task)`：提交后台任务。空任务返回 `errc::invalid_argument`，关闭后返回 `errc::frozen`。
+- `shutdown(shutdown_mode::drain)`：停止接收新任务，执行完已经入队的任务后退出 worker。
+- `shutdown(shutdown_mode::cancel)`：停止接收新任务，丢弃尚未开始执行的任务，当前正在执行的任务继续完成。
+- `pending()`：查询尚未开始执行的任务数量。
+- `thread_count()`：查询 worker 数量。
+
+需要注意：
+
+- 析构会自动执行 `shutdown(shutdown_mode::drain)`。
+- `thread_pool_executor` 不保存每个任务的返回错误；任务应把错误写入外部 request 状态或完成队列回调。
+- 当启用异常时，worker 会捕获逃逸异常以避免后台线程终止进程，但当前不会保存异常信息。
+- `shutdown(cancel)` 不是强制中断；已经开始执行的任务仍会跑完。
+- 资源 cache、manifest、provider 和对象状态仍不应在后台 worker 中被隐式修改。
 
 ## completion_queue
 

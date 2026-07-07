@@ -8,5 +8,6 @@
 #include "caors/tasks/executor.h"
 #include "caors/tasks/inline_executor.h"
 #include "caors/tasks/task.h"
+#include "caors/tasks/thread_pool_executor.h"
 
 #endif
