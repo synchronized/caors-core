@@ -5,8 +5,8 @@
 
 本文档说明 CAORS 资源系统的当前设计边界。资源系统仍处于基础阶段，当前提供资源身份、轻量引用模型、
 运行期共享 handle、非拥有资源索引、引用计数缓存、资源依赖图、资源清单、字节来源 provider、
-加载/保存接口、非拥有资源 database 编排入口、同步 reload、显式 reload 通知、最小序列化读写 helper
-和序列化资源引用 resolver；异步加载和资源包后续再补。
+加载/保存接口、非拥有资源 database 编排入口、同步 reload、显式 reload 通知、最小序列化读写 helper、
+序列化资源引用 resolver 和第一版异步加载请求；资源包后续再补。
 
 ## 设计目标
 
@@ -23,6 +23,7 @@
 - 资源 provider 可以把稳定 GUID 映射到字节来源和位置，作为资源数据库或调试 fileserver 的运行期读取入口。
 - 资源加载器和保存器先只定义类型化接口，不绑定路径、文件系统或异步框架。
 - 资源 database 可以把 manifest、provider、cache、loader、依赖图和序列化 resolver 串成一条主流程。
+- 异步加载请求可以把后台 loader 阶段和主线程 cache commit 阶段分开。
 - 底层资源模型不绑定具体引擎、文件系统、异步加载框架或编辑器管线。
 
 当前不会实现：
@@ -32,6 +33,7 @@
 - cache 级自动淘汰、后台释放或跨 cache 生命周期协调。
 - 完整热重载系统。
 - 资源导入管线。
+- 请求取消传播、优先级、进度聚合和同 GUID 请求合并。
 - 与对象系统的场景树生命周期绑定。
 
 这些能力后续应建立在 `io::file_system`、`resources::provider`、`resources::manager`、
@@ -59,6 +61,10 @@
 - `resources::json_loader<T>`
 - `resources::saver<T>`
 - `resources::json_saver<T>`
+- `resources::request_status`
+- `resources::load_request<T>`
+- `resources::request_load_into()`
+- `resources::request_reload_into()`
 - `resources::reload_event<T>`
 - `resources::reload_signal<T>`
 
@@ -85,6 +91,8 @@
 - `caors::resource_json_loader<T>`
 - `caors::resource_saver<T>`
 - `caors::resource_json_saver<T>`
+- `caors::resource_request_status`
+- `caors::resource_load_request<T>`
 - `caors::resource_reload_event<T>`
 - `caors::resource_reload_signal<T>`
 - `caors::bind_manifest()`
@@ -98,6 +106,8 @@
 - `caors::replace_manifest()`
 - `caors::reload_and_notify()`
 - `caors::reload_handle_into()`
+- `caors::request_load_into()`
+- `caors::request_reload_into()`
 - `caors::save_from()`
 - `caors::save_serialized()`
 - `caors::sync_manifest()`
@@ -192,6 +202,70 @@ if (auto locked = weak.lock()) {
   `resource_guid` / `resource_ref<T>`。
 - `cache<T>` 内部持有强 handle。`erase()`、`clear()` 或 `replace()` 只释放 cache 自己的强引用；
   如果外部仍持有 `resource_handle<T>`，旧资源会继续存活到最后一个强引用释放。
+
+## 异步加载请求
+
+第一版异步资源 API 只拆分两个阶段：
+
+- 后台阶段：通过 `tasks::executor` 调用 `loader<T>::load()`，读取 provider、解码数据并构造资源对象。
+- 主线程阶段：通过 `tasks::completion_queue` 把加载结果提交到 `cache<T>`，执行 insert 或 replace。
+
+直接使用 cache 和 loader：
+
+```cpp
+caors::resource_cache<texture> cache;
+caors::resource_json_loader<texture> loader{provider};
+caors::tasks::thread_pool_executor executor{2};
+caors::tasks::completion_queue completions;
+
+auto request = caors::request_load_into(cache, loader, texture_id, executor, completions);
+
+// 后台任务完成后，在主线程明确时机提交 cache 修改。
+completions.drain();
+
+if (request.loaded()) {
+  caors::resource_handle<texture> texture = request.get();
+}
+```
+
+通过 database 使用已注册 cache/loader：
+
+```cpp
+caors::resource_database database;
+database.register_type(cache, loader);
+
+auto request = database.request_load<texture>(texture_id, executor, completions);
+```
+
+重载使用 `request_reload_into()` 或 `database.request_reload<T>()`。重载成功时 cache 指向新资源；旧
+`resource_handle<T>` 仍继续持有旧资源。重载失败时旧资源保持不变。
+
+`load_request<T>` 状态：
+
+- `queued`：请求已创建，但后台任务尚未开始。
+- `loading`：后台任务正在加载，或加载完成后等待主线程 commit。
+- `loaded`：主线程 commit 成功，`get()` 返回结果 handle。
+- `failed`：请求失败，`error()` 返回失败原因。
+- `cancelled`：预留状态；第一版尚未实现取消传播。
+
+失败策略：
+
+- nil GUID：立即进入 `failed / resources::invalid_argument`。
+- database 未注册对应 cache 或 loader：立即进入 `failed / resources::not_found`。
+- loader 返回失败：进入 `failed`，错误原样保留。
+- loader 返回空资源：进入 `failed / resources::backend_failure`。
+- 新资源 GUID 与请求 GUID 不一致：进入 `failed / resources::inconsistent_type`。
+- load commit 时 cache 已被其它路径插入同 GUID：进入 `failed / resources::already_exists`。
+- reload commit 失败：进入 `failed / resources::backend_failure`，旧资源保持不变。
+- executor 拒绝提交：进入 `failed`，错误来自 executor，例如 `core / frozen`。
+
+线程边界：
+
+- `cache<T>`、`manager`、manifest、对象状态和运行期场景状态只能在主线程 commit 阶段修改。
+- 后台任务可以调用 loader，但 loader、provider、source 和 memory_resource 是否能跨线程使用由调用方保证。
+- `load_request<T>` 自身状态查询是线程安全的。
+- `completion_queue::drain()` 应在拥有 cache 的线程调用。
+- 第一版 `load_request<T>::get()` 不阻塞；未完成或失败时返回空 handle。
 
 ## 序列化
 

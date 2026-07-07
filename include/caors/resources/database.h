@@ -4,6 +4,7 @@
 #ifndef CAORS_RESOURCES_DATABASE_H_
 #define CAORS_RESOURCES_DATABASE_H_
 
+#include "caors/resources/async.h"
 #include "caors/resources/dependency_graph.h"
 #include "caors/resources/io.h"
 #include "caors/serialization/types.h"
@@ -208,6 +209,34 @@ public:
   template <typename T> [[nodiscard]] result<T*> reload(resource_guid guid) {
     handle_result<T> reloaded = reload_handle<T>(guid);
     return {reloaded.status, reloaded.value.get()};
+  }
+
+  /** @brief 异步加载资源，并在 completion queue 中提交到对应 cache。 */
+  template <typename T>
+  [[nodiscard]] load_request<T> request_load(resource_guid guid, tasks::executor& executor,
+                                             tasks::completion_queue& completions) {
+    type_entry* entry = find_entry<T>();
+    if (entry == nullptr || entry->cache == nullptr || entry->loader == nullptr) {
+      return load_request<T>::failed({error_domain::resources, errc::not_found}, resource_);
+    }
+
+    return resources::request_load_into(*static_cast<resources::cache<T>*>(entry->cache),
+                                        *static_cast<resources::loader<T>*>(entry->loader), guid,
+                                        executor, completions);
+  }
+
+  /** @brief 异步重载资源，并在 completion queue 中替换对应 cache 绑定。 */
+  template <typename T>
+  [[nodiscard]] load_request<T> request_reload(resource_guid guid, tasks::executor& executor,
+                                               tasks::completion_queue& completions) {
+    type_entry* entry = find_entry<T>();
+    if (entry == nullptr || entry->cache == nullptr || entry->loader == nullptr) {
+      return load_request<T>::failed({error_domain::resources, errc::not_found}, resource_);
+    }
+
+    return resources::request_reload_into(*static_cast<resources::cache<T>*>(entry->cache),
+                                          *static_cast<resources::loader<T>*>(entry->loader), guid,
+                                          executor, completions);
   }
 
   /** @brief 用已注册 cache 解析资源引用。未命中时保留 GUID 并清除已解析指针。 */

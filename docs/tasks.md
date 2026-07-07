@@ -172,6 +172,6 @@ std::size_t count = completions.drain();
 
 - 后台阶段：通过 executor 读取 provider、调用 loader、构造资源对象。
 - 主线程阶段：通过 completion queue 把成功结果插入 cache、替换资源、更新 generation，并发送 reload 通知。
-- 请求状态：后续资源层会定义 `load_request` 保存 queued/loading/loaded/failed/cancelled、错误和可选进度。
+- 请求状态：资源层使用 `resources::load_request<T>` 保存 queued/loading/loaded/failed/cancelled、错误和结果 handle。
 
 第一阶段不会让资源 cache、manifest、provider 或对象系统在后台线程被隐式修改。

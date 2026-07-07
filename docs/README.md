@@ -25,7 +25,7 @@
 - [object.md](object.md)：对象基类、对象注册表和对象创建销毁入口。
 - [reflection.md](reflection.md)：反射类型、字段元信息和手写注册入口。
 - [resources.md](resources.md)：资源身份、资源引用、运行期 handle、manager/cache、依赖图、manifest、
-  provider、loader/saver、非拥有 database 编排入口、同步 reload 通知和资源引用 resolver。
+  provider、loader/saver、非拥有 database 编排入口、同步 reload 通知、异步加载请求和资源引用 resolver。
 - [serialization.md](serialization.md)：序列化元信息、注册表、JSON/文本读写、codec、资源引用和多态读写边界。
 - [tasks.md](tasks.md)：move-only task、executor 抽象、同步 inline executor、固定线程池和主线程 completion queue。
 - [value.md](value.md)：`any`、`any_ref`、运行期 view、细粒度头文件边界和 `variant` 数据 DOM。
