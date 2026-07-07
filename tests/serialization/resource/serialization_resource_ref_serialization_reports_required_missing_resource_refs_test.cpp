@@ -23,6 +23,6 @@ TEST_CASE("serialization - required resource ref resolution reports missing reso
       decoded, R"({"texture":"6cd2da3d-b549-4756-8b8b-0c84293af410"})", context);
 
   CHECK(status == caors::error{caors::error_domain::resources, caors::errc::not_found});
-  CHECK(decoded.texture.guid() == texture_guid);
+  CHECK_FALSE(decoded.texture.has_guid());
   CHECK_FALSE(decoded.texture.resolved());
 }
