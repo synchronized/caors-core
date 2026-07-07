@@ -34,7 +34,8 @@ CAORS 目前更偏底层库和实验性基础设施，而不是完整引擎或�
 - 基础内存资源 API：`caors/memory.h`。
 - 基础对象系统 API：`caors/object.h`。
 - 基础反射 API：`caors/reflection.h`。
-- 资源 API：`caors/resources.h`，包含资源身份、引用、缓存、清单、loader/saver 和字节来源 provider。
+- 资源 API：`caors/resources.h`，包含资源身份、引用、缓存、清单、loader/saver、同步 reload
+  通知和字节来源 provider。
 - 运行期值 API：`caors/value.h`，包含 `any`、`any_ref`、运行期 view 和 `variant` 数据 DOM。
 - 序列化 API：`caors/serialization.h`，提供基于反射字段的文本/JSON 读写、DOM、codec、资源引用和多态读写入口。
 - `examples/` 可运行示例。

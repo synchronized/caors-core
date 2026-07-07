@@ -10,6 +10,7 @@
 #include "caors/resources/manifest.h"
 #include "caors/resources/manager.h"
 #include "caors/resources/ref.h"
+#include "caors/resources/reload.h"
 #include "caors/resources/resource.h"
 #include "caors/resources/source.h"
 

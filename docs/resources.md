@@ -4,8 +4,8 @@
 # Resources
 
 本文档说明 CAORS 资源系统的当前设计边界。资源系统仍处于基础阶段，当前提供资源身份、轻量引用模型、
-非拥有资源索引、拥有式缓存、资源清单、字节来源 provider、加载/保存接口、最小序列化读写 helper
-和序列化资源引用 resolver；异步加载和资源包后续再补。
+非拥有资源索引、拥有式缓存、资源清单、字节来源 provider、加载/保存接口、同步 reload、显式 reload
+通知、最小序列化读写 helper 和序列化资源引用 resolver；异步加载和资源包后续再补。
 
 ## 设计目标
 
@@ -26,7 +26,7 @@
 - 资源包或网络加载后端。
 - 拥有式全局资源缓存。
 - 自动引用计数。
-- 热重载。
+- 完整热重载系统。
 - 资源导入管线。
 - 与对象系统的场景树生命周期绑定。
 
@@ -51,6 +51,8 @@
 - `resources::json_loader<T>`
 - `resources::saver<T>`
 - `resources::json_saver<T>`
+- `resources::reload_event<T>`
+- `resources::reload_signal<T>`
 
 根命名空间保留常用别名：
 
@@ -70,12 +72,15 @@
 - `caors::resource_json_loader<T>`
 - `caors::resource_saver<T>`
 - `caors::resource_json_saver<T>`
+- `caors::resource_reload_event<T>`
+- `caors::resource_reload_signal<T>`
 - `caors::bind_manifest()`
 - `caors::load_into()`
 - `caors::load_manifest()`
 - `caors::load_manifest_json()`
 - `caors::load_serialized()`
 - `caors::replace_manifest()`
+- `caors::reload_and_notify()`
 - `caors::save_from()`
 - `caors::save_serialized()`
 - `caors::sync_manifest()`
@@ -287,6 +292,8 @@ if (cache.resolve(reference)) {
 - `resources::cache<T>` 拥有资源对象，并维护 GUID 到资源指针的索引。
 - `resources::manifest` / `resources::provider` / `resources::loader<T>` 负责定位和重新加载资源内容。
 - `resources::reload_into(cache, loader, guid)` 只负责“重新加载已有资源并替换 cache 中的对象”。
+- `resources::reload_and_notify(cache, loader, guid, signal)` 在 `reload_into()` 之后同步广播
+  `reload_event<T>`，让上层决定是否刷新引用或记录错误。
 
 当前方案优点：
 
@@ -298,7 +305,7 @@ if (cache.resolve(reference)) {
 当前方案限制：
 
 - `resource_ref<T>` 已解析后保存的是普通指针；`cache.replace()` 销毁旧资源后，旧指针不会自动置空。
-- 调用方需要在 reload 成功后重新解析引用，或由上层系统统一广播资源失效/重载事件。
+- 调用方需要在 reload 成功后重新解析引用；可以使用 `reload_and_notify()` 显式广播资源失效/重载事件。
 - 当前没有 generation / version 检测，旧引用无法自行判断是否过期。
 - 当前没有依赖图，不会自动知道哪些材质、场景或资源需要跟随刷新。
 - 当前没有文件监听、异步加载和后台任务队列。
@@ -312,8 +319,8 @@ if (cache.resolve(reference)) {
 5. reload 成功后广播资源更新事件，让使用方主动刷新运行期状态。
 6. 维护资源依赖图，用于预加载、打包、热更新和级联刷新。
 
-因此当前方案适合作为 CAORS 资源系统第一层：它先保证同步加载、替换和失败保留语义明确；完整热重载、
-自动失效检测和级联刷新应在后续的事件系统、资源句柄 generation 和资源依赖图上继续扩展。
+因此当前方案适合作为 CAORS 资源系统第一层：它先保证同步加载、替换、失败保留和显式通知语义明确；
+完整热重载、自动失效检测和级联刷新应在后续的资源句柄 generation 和资源依赖图上继续扩展。
 
 ## manifest
 
@@ -487,6 +494,23 @@ caors::error saved = caors::save_from(cache, saver, id);
 - 替换成功后旧资源会被销毁，但外部已解析到旧资源的 `resource_ref<T>` 或裸指针不会自动置空。
   使用方应重新调用 `cache.resolve(ref)` 或由上层资源系统统一处理引用失效通知。
 
+如果需要同步通知，可以使用 `reload_and_notify()`：
+
+```cpp
+caors::resource_reload_signal<texture> reloaded;
+
+auto connection = reloaded.connect(listener);
+auto result = caors::reload_and_notify(cache, loader, texture_id, reloaded);
+```
+
+`reload_and_notify()` 的规则：
+
+- 内部先调用 `reload_into()`，然后无论成功或失败都会发出一次 `resource_reload_event<T>`。
+- `event.status` 表示本次 reload 结果；`event.succeeded()` 为 true 时 `event.resource` 指向 cache
+  中的新资源。
+- 失败时 `event.resource` 为 `nullptr`，cache 中旧资源保持不变。
+- 通知是同步的，不做线程切换，也不会自动刷新外部 `resource_ref<T>`。
+
 `save_from()` 的规则：
 
 - GUID 为 nil 时返回 `errc::invalid_argument`。
@@ -540,7 +564,8 @@ auto loaded = caors::load_into(cache, loader, texture_id);
 
 1. 更新 manifest 条目的 `location`、`hash` 或 `version`。
 2. 使用 `sync_manifest(provider, source, manifest)` 更新 provider 中的 GUID 到位置映射。
-3. 调用 `reload_into(cache, loader, guid)` 重新读取 provider、解码资源并替换 cache 中旧资源。
+3. 调用 `reload_into(cache, loader, guid)` 或 `reload_and_notify(cache, loader, guid, signal)`
+   重新读取 provider、解码资源并替换 cache 中旧资源。
 4. 如果重载失败，`reload_into()` 保留 cache 中旧资源，调用方可以继续使用旧资源并返回诊断错误。
 5. 替换成功后，调用方需要重新解析相关 `resource_ref<T>`，或在上层系统里发出资源失效/重载通知。
 

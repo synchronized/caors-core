@@ -142,13 +142,15 @@ changed.emit(20); // listener 已断开。
 
 ## 与资源系统的关系
 
-资源系统后续可以在当前事件层上增加重载通知，例如：
+资源系统已经可以在当前事件层上显式发出重载通知，例如：
 
 ```cpp
-caors::events::signal<void(caors::resource_guid)> reloaded;
+caors::resource_reload_signal<texture> reloaded;
+auto result = caors::reload_and_notify(cache, loader, texture_id, reloaded);
 ```
 
-第一阶段资源 cache 仍只负责加载、替换和失败保留，不会隐式广播。是否通知、通知哪些上层对象、是否级联刷新
-应由后续资源管理器、资源依赖图或编辑器工具层显式接入。
+第一阶段资源 cache 仍只负责加载、替换和失败保留，不会隐式广播。`reload_and_notify()` 只是显式 helper：
+调用方传入 signal，成功或失败都会收到一次同步事件。是否刷新对象、重新解析引用、级联刷新依赖资源，
+仍由资源管理器、资源依赖图或编辑器工具层决定。
 
 相关测试位于 `tests/events/`，测试组织规则见 [tests/README.md](../tests/README.md)。
