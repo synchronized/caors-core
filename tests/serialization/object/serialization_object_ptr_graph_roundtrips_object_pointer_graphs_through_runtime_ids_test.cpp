@@ -33,7 +33,7 @@ TEST_CASE("serialization - roundtrips object pointer graphs through runtime ids"
   graph.related.push_back(caors::object_ptr<object_ptr_target>{});
 
   const caors::serialization::serialization_text_result json =
-      caors::serialize_json(graph, context);
+      caors::serialize_json(context, graph);
   REQUIRE(json.succeeded());
   const std::string expected_json = "{\"primary\":" + std::to_string(primary_id.value()) +
                                     ",\"secondary\":" + std::to_string(secondary_id.value()) +
@@ -43,7 +43,7 @@ TEST_CASE("serialization - roundtrips object pointer graphs through runtime ids"
   CHECK(std::string_view{json.value.data(), json.value.size()} == std::string_view{expected_json});
 
   object_ptr_graph_actor decoded{};
-  const caors::error result = caors::deserialize_json(decoded, json.value, context);
+  const caors::error result = caors::deserialize_json(context, decoded, json.value);
   REQUIRE(result.succeeded());
   CHECK(decoded.primary.get() == primary);
   CHECK(decoded.secondary.get() == secondary);
@@ -56,7 +56,7 @@ TEST_CASE("serialization - roundtrips object pointer graphs through runtime ids"
   REQUIRE(manager.destroy(secondary_id));
 
   object_ptr_graph_actor missing{};
-  const caors::error missing_result = caors::deserialize_json(missing, json.value, context);
+  const caors::error missing_result = caors::deserialize_json(context, missing, json.value);
   CHECK(missing_result.failed());
   CHECK(missing_result.value() == caors::errc::not_found);
 }

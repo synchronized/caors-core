@@ -20,11 +20,11 @@ TEST_CASE("serialization - serializes object pointers through resolver", "[seria
   const object_ptr_actor actor{caors::object_ptr<object_ptr_target>{&target}};
 
   const caors::serialization::serialization_text_result text =
-      caors::serialize_text(actor, context);
+      caors::serialize_text(context, actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"target":77})");
 
-  const caors::serialization::variant_result value = caors::to_serialization_value(actor, context);
+  const caors::serialization::variant_result value = caors::to_serialization_value(context, actor);
   REQUIRE(value.succeeded());
   const caors::value::variant_member* target_member =
       value.value.find_member(caors::string_name{"target"});
@@ -33,7 +33,7 @@ TEST_CASE("serialization - serializes object pointers through resolver", "[seria
   CHECK(target_member->value.as_u64() == 77);
 
   const caors::serialization::serialization_text_result json =
-      caors::serialize_json(actor, context);
+      caors::serialize_json(context, actor);
   REQUIRE(json.succeeded());
   CHECK(json.value == R"({"target":77})");
 }

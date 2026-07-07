@@ -19,7 +19,7 @@ TEST_CASE("serialization - deserializes object pointers inside vectors", "[seria
   context.references.object_resolver = &resolver;
 
   object_ptr_vector_actor actor{};
-  const caors::error result = caors::deserialize_json(actor, R"({"targets":[88,0]})", context);
+  const caors::error result = caors::deserialize_json(context, actor, R"({"targets":[88,0]})");
 
   REQUIRE(result.succeeded());
   REQUIRE(actor.targets.size() == 2);

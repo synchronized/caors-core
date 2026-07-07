@@ -20,8 +20,8 @@ TEST_CASE("serialization - polymorphic object rejects wrong declared base", "[se
   context.objects.manager = &manager;
 
   const caors::result<caors::objects::object*> decoded =
-      caors::serialization::deserialize_polymorphic_object(enemy::static_type_id(), value.value,
-                                                           context);
+      caors::serialization::deserialize_polymorphic_object(context, enemy::static_type_id(),
+                                                           value.value);
   CHECK(decoded.failed());
   CHECK(decoded.status.value() == caors::errc::invalid_type);
   CHECK(manager.empty());

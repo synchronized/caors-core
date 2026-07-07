@@ -23,11 +23,11 @@ TEST_CASE("serialization - serializes object pointers inside vectors", "[seriali
   actor.targets.push_back(caors::object_ptr<object_ptr_target>{});
 
   const caors::serialization::serialization_text_result text =
-      caors::serialize_json(actor, context);
+      caors::serialize_json(context, actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"targets":[77,0]})");
 
-  const caors::serialization::variant_result value = caors::to_serialization_value(actor, context);
+  const caors::serialization::variant_result value = caors::to_serialization_value(context, actor);
   REQUIRE(value.succeeded());
   const caors::value::variant_member* targets =
       value.value.find_member(caors::string_name{"targets"});

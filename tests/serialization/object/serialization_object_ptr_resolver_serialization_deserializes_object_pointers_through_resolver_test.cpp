@@ -27,13 +27,13 @@ TEST_CASE("serialization - deserializes object pointers through resolver", "[ser
 
   object_ptr_actor actor{};
   const caors::error result =
-      caors::deserialize(actor, caors::variant::object(std::move(members)), context);
+      caors::deserialize(context, actor, caors::variant::object(std::move(members)));
 
   REQUIRE(result.succeeded());
   CHECK(actor.target.get() == &target);
 
   object_ptr_actor from_json{};
-  const caors::error json_result = caors::deserialize_json(from_json, R"({"target":88})", context);
+  const caors::error json_result = caors::deserialize_json(context, from_json, R"({"target":88})");
   REQUIRE(json_result.succeeded());
   CHECK(from_json.target.get() == &target);
 }

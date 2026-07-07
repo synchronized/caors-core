@@ -33,7 +33,7 @@ TEST_CASE("serialization - object pointer resolver failures are reported", "[ser
 
   object_ptr_actor decoded{};
   const caors::error missing_object =
-      caors::deserialize(decoded, caors::variant::object(std::move(members)), context);
+      caors::deserialize(context, decoded, caors::variant::object(std::move(members)));
   CHECK(missing_object.failed());
   CHECK(missing_object.value() == caors::errc::not_found);
 
@@ -55,7 +55,7 @@ TEST_CASE("serialization - object pointer resolver failures are reported", "[ser
   });
 
   const caors::error wrong_type = caors::deserialize(
-      decoded, caors::variant::object(std::move(wrong_type_members)), wrong_type_context);
+      wrong_type_context, decoded, caors::variant::object(std::move(wrong_type_members)));
   CHECK(wrong_type.failed());
   CHECK(wrong_type.value() == caors::errc::invalid_type);
 }

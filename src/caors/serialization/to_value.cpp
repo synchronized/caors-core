@@ -77,11 +77,11 @@ variant_result to_variant(const any_ref& data) {
 namespace detail {
 
 variant_result to_serialization_value(const reflection::type& type, const void* object) {
-  return to_serialization_value(type, object, serialization::context{});
+  return to_serialization_value(serialization::context{}, type, object);
 }
 
-variant_result to_serialization_value(const reflection::type& type, const void* object,
-                                      const serialization::context& context) {
+variant_result to_serialization_value(const serialization::context& context,
+                                      const reflection::type& type, const void* object) {
   if (!type.valid()) {
     return {{error_domain::serialization, errc::invalid_type}, {}};
   }
@@ -150,11 +150,11 @@ variant_result to_serialization_value(const reflection::type& type, const void* 
 }
 
 variant_result to_serialization_value(type_id id, const void* object) {
-  return to_serialization_value(id, object, serialization::context{});
+  return to_serialization_value(serialization::context{}, id, object);
 }
 
-variant_result to_serialization_value(type_id id, const void* object,
-                                      const serialization::context& context) {
+variant_result to_serialization_value(const serialization::context& context, type_id id,
+                                      const void* object) {
   if (!id) {
     return {{error_domain::serialization, errc::invalid_type}, {}};
   }
@@ -168,7 +168,7 @@ variant_result to_serialization_value(type_id id, const void* object,
     return {{error_domain::serialization, errc::not_found}, {}};
   }
 
-  return to_serialization_value(type, object, context);
+  return to_serialization_value(context, type, object);
 }
 
 } // namespace detail

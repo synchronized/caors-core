@@ -243,9 +243,7 @@ context.resources.resolution =
     caors::serialization::resource_ref_resolution::resolve_if_present;
 
 material decoded{};
-caors::deserialize_json(decoded,
-                        R"({"albedo":"6cd2da3d-b549-4756-8b8b-0c84293af410"})",
-                        context);
+caors::deserialize_json(context, decoded, R"({"albedo":"6cd2da3d-b549-4756-8b8b-0c84293af410"})");
 ```
 
 `context.resources.resolution` 的策略：
@@ -263,7 +261,7 @@ caors::serialization::resource_dependency_collector collector = dependencies.col
 caors::serialization::context context{};
 context.resources.dependencies = &collector;
 
-caors::serialize_json(material_value, context);
+caors::serialize_json(context, material_value);
 ```
 
 依赖条目包含 `resource_guid` 和资源声明类型的 `type_id`。这可用于后续预加载、打包、热更新和资源数据库。
@@ -613,6 +611,13 @@ auto loaded = caors::load_serialized<texture>(id, reader);
 
 caors::serialization::json_writer writer;
 caors::save_serialized(*loaded.value, writer);
+```
+
+需要传入序列化上下文时使用 context-first 形式：
+
+```cpp
+auto loaded_with_context = caors::load_serialized<texture>(context, id, reader);
+caors::save_serialized(context, *loaded_with_context.value, writer);
 ```
 
 `resources::json_loader<T>` 是 provider 到资源对象的第一版桥接。它按 GUID 从 provider 读取 JSON

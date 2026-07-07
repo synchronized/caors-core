@@ -17,7 +17,7 @@ TEST_CASE("serialization - resource refs are collected as dependencies", "[seria
 
   const resource_ref_actor actor{caors::resource_ref<serialized_texture_resource>{texture_guid}};
   const caors::serialization::serialization_text_result json =
-      caors::serialize_json(actor, context);
+      caors::serialize_json(context, actor);
 
   REQUIRE(json.succeeded());
   REQUIRE(dependencies.size() == 1);
@@ -27,7 +27,7 @@ TEST_CASE("serialization - resource refs are collected as dependencies", "[seria
   dependencies.clear();
   resource_ref_actor decoded{};
   const caors::error status = caors::deserialize_json(
-      decoded, R"({"texture":"6cd2da3d-b549-4756-8b8b-0c84293af410"})", context);
+      context, decoded, R"({"texture":"6cd2da3d-b549-4756-8b8b-0c84293af410"})");
 
   REQUIRE(status.succeeded());
   REQUIRE(dependencies.size() == 1);

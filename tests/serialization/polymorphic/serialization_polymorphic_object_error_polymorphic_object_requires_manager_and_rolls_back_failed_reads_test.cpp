@@ -18,7 +18,7 @@ TEST_CASE("serialization - polymorphic object requires manager and rolls back fa
 
   caors::serialization::context missing_manager{};
   const caors::result<actor*> missing =
-      caors::serialization::deserialize_polymorphic_object<actor>(value.value, missing_manager);
+      caors::serialization::deserialize_polymorphic_object<actor>(missing_manager, value.value);
   CHECK(missing.failed());
   CHECK(missing.status.value() == caors::errc::invalid_argument);
 
@@ -35,7 +35,7 @@ TEST_CASE("serialization - polymorphic object requires manager and rolls back fa
   context.objects.manager = &manager;
 
   const caors::result<actor*> failed =
-      caors::serialization::deserialize_polymorphic_object<actor>(value.value, context);
+      caors::serialization::deserialize_polymorphic_object<actor>(context, value.value);
   CHECK(failed.failed());
   CHECK(manager.empty());
 }

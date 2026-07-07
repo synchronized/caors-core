@@ -23,7 +23,7 @@ TEST_CASE("serialization - polymorphic value factory uses memory resource", "[se
   context.memory.resource = &tracking;
 
   polymorphic_factory_holder decoded{};
-  const caors::error status = caors::deserialize_json(decoded, json.value, context);
+  const caors::error status = caors::deserialize_json(context, decoded, json.value);
   REQUIRE(status.succeeded());
 
   auto* decoded_shared = dynamic_cast<polymorphic_factory_player*>(decoded.shared.get());

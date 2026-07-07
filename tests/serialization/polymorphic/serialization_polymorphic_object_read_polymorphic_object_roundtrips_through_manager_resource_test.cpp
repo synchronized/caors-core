@@ -18,11 +18,11 @@ TEST_CASE("serialization - polymorphic object roundtrips through manager resourc
   player_value.name = "Mina";
 
   const caors::serialization::serialization_text_result json =
-      caors::serialization::serialize_polymorphic_json(player_value, context);
+      caors::serialization::serialize_polymorphic_json(context, player_value);
   REQUIRE(json.succeeded());
 
   const caors::result<actor*> decoded =
-      caors::serialization::deserialize_polymorphic_json<actor>(json.value, context);
+      caors::serialization::deserialize_polymorphic_json<actor>(context, json.value);
   REQUIRE(decoded.succeeded());
   REQUIRE(decoded.value != nullptr);
   CHECK(manager.find(decoded.value->id()) == decoded.value);

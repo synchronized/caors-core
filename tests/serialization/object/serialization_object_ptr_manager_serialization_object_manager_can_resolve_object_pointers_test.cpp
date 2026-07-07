@@ -20,20 +20,20 @@ TEST_CASE("serialization - object manager can resolve object pointers", "[serial
   const object_ptr_actor actor{caors::object_ptr<object_ptr_target>{target}};
 
   const caors::serialization::serialization_text_result json =
-      caors::serialize_json(actor, context);
+      caors::serialize_json(context, actor);
   REQUIRE(json.succeeded());
   const std::string expected_json = "{\"target\":" + std::to_string(target_id.value()) + "}";
   CHECK(std::string_view{json.value.data(), json.value.size()} == std::string_view{expected_json});
 
   object_ptr_actor decoded{};
-  const caors::error result = caors::deserialize_json(decoded, json.value, context);
+  const caors::error result = caors::deserialize_json(context, decoded, json.value);
   REQUIRE(result.succeeded());
   CHECK(decoded.target.get() == target);
 
   REQUIRE(manager.destroy(target_id));
 
   object_ptr_actor missing{};
-  const caors::error missing_result = caors::deserialize_json(missing, json.value, context);
+  const caors::error missing_result = caors::deserialize_json(context, missing, json.value);
   CHECK(missing_result.failed());
   CHECK(missing_result.value() == caors::errc::not_found);
 }

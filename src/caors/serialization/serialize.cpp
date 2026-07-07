@@ -10,11 +10,11 @@
 namespace caors::serialization::detail {
 
 error serialize(const reflection::type& type, const void* object, writer& writer) {
-  return serialize(type, object, writer, serialization::context{});
+  return serialize(serialization::context{}, type, object, writer);
 }
 
-error serialize(const reflection::type& type, const void* object, writer& writer,
-                const serialization::context& context) {
+error serialize(const serialization::context& context, const reflection::type& type,
+                const void* object, writer& writer) {
   if (!type.valid()) {
     return {error_domain::serialization, errc::invalid_type};
   }
@@ -73,11 +73,11 @@ error serialize(const reflection::type& type, const void* object, writer& writer
 }
 
 error serialize(type_id id, const void* object, writer& writer) {
-  return serialize(id, object, writer, serialization::context{});
+  return serialize(serialization::context{}, id, object, writer);
 }
 
-error serialize(type_id id, const void* object, writer& writer,
-                const serialization::context& context) {
+error serialize(const serialization::context& context, type_id id, const void* object,
+                writer& writer) {
   if (!id) {
     return {error_domain::serialization, errc::invalid_type};
   }
@@ -91,7 +91,7 @@ error serialize(type_id id, const void* object, writer& writer,
     return {error_domain::serialization, errc::not_found};
   }
 
-  return serialize(type, object, writer, context);
+  return serialize(context, type, object, writer);
 }
 
 } // namespace caors::serialization::detail

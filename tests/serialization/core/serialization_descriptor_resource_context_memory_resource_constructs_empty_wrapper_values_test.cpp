@@ -18,9 +18,8 @@ TEST_CASE("serialization - context memory resource constructs empty wrapper valu
   {
     context_resource_holder decoded{};
     const caors::error status = caors::deserialize_json(
-        decoded,
-        R"({"unique":{"value":7},"shared":{"value":9},"names":["Ada","Grace"],"maybe":"present","choice":[1,"variant"]})",
-        context);
+        context, decoded,
+        R"({"unique":{"value":7},"shared":{"value":9},"names":["Ada","Grace"],"maybe":"present","choice":[1,"variant"]})");
     REQUIRE(status.succeeded());
 
     REQUIRE(decoded.unique != nullptr);

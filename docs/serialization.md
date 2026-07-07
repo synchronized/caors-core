@@ -134,7 +134,7 @@ context.polymorphic.value_field = caors::string_name{"data"};
 context.polymorphic.type_name_field = caors::string_name{"debug_type"};
 context.polymorphic.write_type_name = true;
 
-caors::serialization::serialization_text_result json = caors::serialize_json(base, context);
+caors::serialization::serialization_text_result json = caors::serialize_json(context, base);
 ```
 
 读写双方需要使用一致的字段名配置。普通反序列化入口读到配置后的 type/value envelope 时，会先校验动态类型是声明基类的派生类型。如果目标对象
@@ -148,7 +148,7 @@ caors::serialization::context context{};
 context.objects.manager = &manager;
 
 caors::result<actor*> decoded =
-    caors::serialization::deserialize_polymorphic_json<actor>(json.value, context);
+    caors::serialization::deserialize_polymorphic_json<actor>(context, json.value);
 ```
 
 读入流程：
@@ -258,7 +258,7 @@ caors::tracking_resource tracking(&caors::get_system_memory_resource());
 caors::serialization::context context{};
 context.memory.resource = &tracking;
 
-caors::error status = caors::deserialize_json(holder, json, context);
+caors::error status = caors::deserialize_json(context, holder, json);
 ```
 
 资源构造只会在目标 wrapper 能保存匹配销毁回调时启用。当前 `std::shared_ptr<Base>`、
@@ -379,11 +379,12 @@ caors::serialization::serialization_text_result text =
     caors::serialize_json(instance, options);
 
 caors::string output;
-caors::error status = caors::serialize_json_to(instance, output, context, options);
+caors::error status = caors::serialize_json_to(context, instance, output, options);
 ```
 
-`serialize_text()` 和 `serialize_json()` 是高频格式的便捷封装；核心序列化入口仍是
-`serialize(object, writer, context)`。
+`serialize_text()` 和 `serialize_json()` 是高频格式的便捷封装；核心序列化入口使用
+context-first 形式：`serialize(context, object, writer)`。没有额外上下文时仍可使用
+`serialize(object, writer)` 便捷重载。
 
 ### serialization::reader
 
@@ -519,7 +520,7 @@ context.resources.resolution =
     caors::serialization::resource_ref_resolution::resolve_if_present;
 
 material decoded{};
-caors::deserialize_json(decoded, json_text, context);
+caors::deserialize_json(context, decoded, json_text);
 ```
 
 当前内置 resolver 创建入口：
@@ -544,7 +545,7 @@ caors::serialization::resource_dependency_collector collector = dependencies.col
 caors::serialization::context context{};
 context.resources.dependencies = &collector;
 
-caors::serialize_json(material_value, context);
+caors::serialize_json(context, material_value);
 
 caors::resource_dependency_graph graph;
 caors::serialization::replace_resource_dependencies(graph, material_resource_guid, dependencies);

@@ -10,11 +10,11 @@
 namespace caors::serialization::detail {
 
 error deserialize(const reflection::type& type, void* object, reader& reader) {
-  return deserialize(type, object, reader, serialization::context{});
+  return deserialize(serialization::context{}, type, object, reader);
 }
 
-error deserialize(const reflection::type& type, void* object, reader& reader,
-                  const serialization::context& context) {
+error deserialize(const serialization::context& context, const reflection::type& type, void* object,
+                  reader& reader) {
   if (!type.valid()) {
     return {error_domain::serialization, errc::invalid_type};
   }
@@ -74,10 +74,10 @@ error deserialize(const reflection::type& type, void* object, reader& reader,
 }
 
 error deserialize(type_id id, void* object, reader& reader) {
-  return deserialize(id, object, reader, serialization::context{});
+  return deserialize(serialization::context{}, id, object, reader);
 }
 
-error deserialize(type_id id, void* object, reader& reader, const serialization::context& context) {
+error deserialize(const serialization::context& context, type_id id, void* object, reader& reader) {
   if (!id) {
     return {error_domain::serialization, errc::invalid_type};
   }
@@ -91,7 +91,7 @@ error deserialize(type_id id, void* object, reader& reader, const serialization:
     return {error_domain::serialization, errc::not_found};
   }
 
-  return deserialize(type, object, reader, context);
+  return deserialize(context, type, object, reader);
 }
 
 } // namespace caors::serialization::detail

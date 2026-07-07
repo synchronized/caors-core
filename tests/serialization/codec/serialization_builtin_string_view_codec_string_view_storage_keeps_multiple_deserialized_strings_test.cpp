@@ -23,7 +23,7 @@ TEST_CASE("serialization - string view storage keeps multiple deserialized strin
   context.storage.string_view_storage = &storage;
 
   const caors::error result =
-      caors::deserialize_json(actor, R"({"first":"Ada","second":"Mina"})", context);
+      caors::deserialize_json(context, actor, R"({"first":"Ada","second":"Mina"})");
 
   REQUIRE(result.succeeded());
   CHECK(actor.first == "Ada");

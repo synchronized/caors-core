@@ -20,7 +20,7 @@ TEST_CASE("serialization - string view deserialization can use explicit backing 
   caors::serialization::context context{};
   context.storage.string_view_storage = &storage;
 
-  const caors::error result = caors::deserialize_json(actor, R"({"name":"Ada"})", context);
+  const caors::error result = caors::deserialize_json(context, actor, R"({"name":"Ada"})");
 
   REQUIRE(result.succeeded());
   REQUIRE(storage.size() == 1);

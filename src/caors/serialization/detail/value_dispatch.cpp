@@ -168,7 +168,7 @@ variant_result make_serialized_value(const any_ref& value, const serialization::
 
   const reflection::type nested_type = reflection::find(value.type());
   if (nested_type && serialization::contains(value.type())) {
-    return to_serialization_value(nested_type, value.data(), context);
+    return to_serialization_value(context, nested_type, value.data());
   }
 
   any copied = value.to_any();
@@ -252,7 +252,7 @@ error write_serialized_value(writer& writer, const any_ref& value,
 
   const reflection::type nested_type = reflection::find(value.type());
   if (nested_type && serialization::contains(value.type())) {
-    return serialize(nested_type, value.data(), writer, context);
+    return serialize(context, nested_type, value.data(), writer);
   }
 
   any copied = value.to_any();
@@ -324,7 +324,7 @@ error read_serialized_value(reader& reader, const any_ref& target,
 
   const reflection::type nested_type = reflection::find(target.type());
   if (nested_type && serialization::contains(target.type())) {
-    return deserialize(nested_type, target.mutable_data(), reader, context);
+    return deserialize(context, nested_type, target.mutable_data(), reader);
   }
 
   return read_scalar_value(reader, target, context);

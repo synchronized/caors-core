@@ -25,7 +25,7 @@ TEST_CASE("serialization - polymorphic object refs roundtrip derived values", "[
   context.memory.resource = &tracking;
 
   polymorphic_object_ref_holder decoded{};
-  const caors::error status = caors::deserialize_json(decoded, json.value, context);
+  const caors::error status = caors::deserialize_json(context, decoded, json.value);
 
   REQUIRE(status.succeeded());
   REQUIRE(decoded.owner);

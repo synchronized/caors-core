@@ -26,12 +26,12 @@ TEST_CASE("serialization - object manager can resolve persistent object guid ref
   const object_ptr_actor actor{caors::object_ptr<object_ptr_target>{target}};
 
   const caors::serialization::serialization_text_result json =
-      caors::serialize_json(actor, context);
+      caors::serialize_json(context, actor);
   REQUIRE(json.succeeded());
   const std::string expected_json = "{\"target\":\"" + target_guid_text + "\"}";
   CHECK(std::string_view{json.value.data(), json.value.size()} == std::string_view{expected_json});
 
-  const caors::serialization::variant_result value = caors::to_serialization_value(actor, context);
+  const caors::serialization::variant_result value = caors::to_serialization_value(context, actor);
   REQUIRE(value.succeeded());
   const caors::value::variant_member* target_member =
       value.value.find_member(caors::string_name{"target"});
@@ -42,19 +42,19 @@ TEST_CASE("serialization - object manager can resolve persistent object guid ref
         std::string_view{target_guid_text});
 
   object_ptr_actor decoded{};
-  const caors::error result = caors::deserialize_json(decoded, json.value, context);
+  const caors::error result = caors::deserialize_json(context, decoded, json.value);
   REQUIRE(result.succeeded());
   CHECK(decoded.target.get() == target);
 
   object_ptr_actor cleared{caors::object_ptr<object_ptr_target>{target}};
-  const caors::error null_result = caors::deserialize_json(cleared, R"({"target":null})", context);
+  const caors::error null_result = caors::deserialize_json(context, cleared, R"({"target":null})");
   REQUIRE(null_result.succeeded());
   CHECK(cleared.target.get() == nullptr);
 
   REQUIRE(manager.destroy(target->id()));
 
   object_ptr_actor missing{};
-  const caors::error missing_result = caors::deserialize_json(missing, json.value, context);
+  const caors::error missing_result = caors::deserialize_json(context, missing, json.value);
   CHECK(missing_result.failed());
   CHECK(missing_result.value() == caors::errc::not_found);
 }

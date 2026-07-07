@@ -25,7 +25,7 @@ TEST_CASE("serialization - resource ref can resolve through context resolver", "
 
   resource_ref_actor decoded{};
   const caors::error status = caors::deserialize_json(
-      decoded, R"({"texture":"6cd2da3d-b549-4756-8b8b-0c84293af410"})", context);
+      context, decoded, R"({"texture":"6cd2da3d-b549-4756-8b8b-0c84293af410"})");
 
   REQUIRE(status.succeeded());
   CHECK(decoded.texture.guid() == texture_guid);
@@ -39,7 +39,7 @@ TEST_CASE("serialization - resource ref can resolve through context resolver", "
 
   resource_ref_actor unresolved{};
   const caors::error unresolved_status = caors::deserialize_json(
-      unresolved, R"({"texture":"6cd2da3d-b549-4756-8b8b-0c84293af410"})", unresolved_context);
+      unresolved_context, unresolved, R"({"texture":"6cd2da3d-b549-4756-8b8b-0c84293af410"})");
 
   REQUIRE(unresolved_status.succeeded());
   CHECK(unresolved.texture.guid() == texture_guid);

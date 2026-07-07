@@ -71,7 +71,7 @@ TEST_CASE("resources - manifest provider loader cache can resolve serialized res
       caors::resource_ref<serialized_resource>{test_guid_a},
   };
   const caors::serialization::serialization_text_result encoded =
-      caors::serialize_json(holder, dependency_context);
+      caors::serialize_json(dependency_context, holder);
 
   REQUIRE(encoded.succeeded());
   REQUIRE(dependencies.size() == 1);
@@ -98,7 +98,7 @@ TEST_CASE("resources - manifest provider loader cache can resolve serialized res
 
   serialized_resource_ref_holder decoded{};
   const caors::error status = caors::deserialize_json(
-      decoded, R"({"resource":"6cd2da3d-b549-4756-8b8b-0c84293af410"})", context);
+      context, decoded, R"({"resource":"6cd2da3d-b549-4756-8b8b-0c84293af410"})");
 
   REQUIRE(status.succeeded());
   CHECK(decoded.resource.guid() == test_guid_a);

@@ -131,7 +131,7 @@ int main() {
   context.memory.resource = &tracking;
 
   scene decoded{};
-  const caors::error status = caors::deserialize_json(decoded, json.value, context);
+  const caors::error status = caors::deserialize_json(context, decoded, json.value);
   if (status) {
     std::cerr << "failed to deserialize: " << static_cast<int>(status.value()) << '\n';
     return 1;

@@ -65,13 +65,13 @@ int main() {
   context.references.object_resolver = &resolver;
 
   const party_slot slot{caors::object_ptr<persistent_player>{player}};
-  const caors::serialization::serialization_text_result json = caors::serialize_json(slot, context);
+  const caors::serialization::serialization_text_result json = caors::serialize_json(context, slot);
   if (json.failed()) {
     return 1;
   }
 
   party_slot decoded{};
-  if (caors::deserialize_json(decoded, json.value, context)) {
+  if (caors::deserialize_json(context, decoded, json.value)) {
     return 1;
   }
 

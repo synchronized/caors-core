@@ -211,9 +211,20 @@ template <typename T>
  * `loader<T>`。
  */
 template <typename T>
+[[nodiscard]] load_result<T> load_serialized(const serialization::context& context,
+                                             resource_guid guid, serialization::reader& reader,
+                                             memory_resource* resource = nullptr);
+
+template <typename T>
 [[nodiscard]] load_result<T> load_serialized(resource_guid guid, serialization::reader& reader,
-                                             const serialization::context& context = {},
                                              memory_resource* resource = nullptr) {
+  return load_serialized<T>(serialization::context{}, guid, reader, resource);
+}
+
+template <typename T>
+[[nodiscard]] load_result<T> load_serialized(const serialization::context& context,
+                                             resource_guid guid, serialization::reader& reader,
+                                             memory_resource* resource) {
   static_assert(std::is_base_of_v<resources::resource, T>,
                 "T must derive from caors::resources::resource");
   static_assert(std::is_default_constructible_v<T>,
@@ -235,7 +246,7 @@ template <typename T>
     value->set_guid(guid);
   }
 
-  const error status = serialization::deserialize(*value, reader, context);
+  const error status = serialization::deserialize(context, *value, reader);
   if (status) {
     return {status, {}};
   }
@@ -275,7 +286,7 @@ public:
     }
 
     serialization::variant_reader reader{parsed.value};
-    return load_serialized<resource_type>(guid, reader, context_, resource);
+    return load_serialized<resource_type>(context_, guid, reader, resource);
   }
 
 private:
@@ -290,8 +301,17 @@ private:
  * 维护。
  */
 template <typename T>
-[[nodiscard]] error save_serialized(const T& value, serialization::writer& writer,
-                                    const serialization::context& context = {}) {
+[[nodiscard]] error save_serialized(const serialization::context& context, const T& value,
+                                    serialization::writer& writer);
+
+template <typename T>
+[[nodiscard]] error save_serialized(const T& value, serialization::writer& writer) {
+  return save_serialized(serialization::context{}, value, writer);
+}
+
+template <typename T>
+[[nodiscard]] error save_serialized(const serialization::context& context, const T& value,
+                                    serialization::writer& writer) {
   static_assert(std::is_base_of_v<resources::resource, T>,
                 "T must derive from caors::resources::resource");
 
@@ -299,7 +319,7 @@ template <typename T>
     return {error_domain::resources, errc::invalid_argument};
   }
 
-  return serialization::serialize(value, writer, context);
+  return serialization::serialize(context, value, writer);
 }
 
 /**
@@ -322,7 +342,7 @@ public:
   [[nodiscard]] error save(const resource_type& value) override {
     core::string output{allocator<char>{provider_->resource()}};
     serialization::json_writer writer{output};
-    const error status = save_serialized(value, writer, context_);
+    const error status = save_serialized(context_, value, writer);
     if (status) {
       return status;
     }

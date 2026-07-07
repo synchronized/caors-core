@@ -55,16 +55,16 @@ bool object_requires_polymorphic_envelope(type_id declared_id,
   return declared_id && dynamic_id && dynamic_id != declared_id;
 }
 
-variant_result to_polymorphic_object_serialization_value(type_id declared_id,
-                                                         const objects::object& object,
-                                                         const serialization::context& context) {
+variant_result to_polymorphic_object_serialization_value(const serialization::context& context,
+                                                         type_id declared_id,
+                                                         const objects::object& object) {
   const objects::object_type_id dynamic_id = object.type_id();
   if (!declared_id || !dynamic_id) {
     return {{error_domain::serialization, errc::invalid_type}, {}};
   }
 
   if (dynamic_id == declared_id) {
-    return to_serialization_value(declared_id, &object, context);
+    return to_serialization_value(context, declared_id, &object);
   }
 
   if (!objects::is_a(dynamic_id, declared_id)) {
@@ -76,7 +76,7 @@ variant_result to_polymorphic_object_serialization_value(type_id declared_id,
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
 
-  variant_result value = to_serialization_value(dynamic_type.id(), &object, context);
+  variant_result value = to_serialization_value(context, dynamic_type.id(), &object);
   if (value.failed()) {
     return value;
   }
@@ -85,9 +85,9 @@ variant_result to_polymorphic_object_serialization_value(type_id declared_id,
                                    context);
 }
 
-error serialize_polymorphic_object(type_id declared_id, const objects::object& object,
-                                   writer& writer, const serialization::context& context) {
-  variant_result value = to_polymorphic_object_serialization_value(declared_id, object, context);
+error serialize_polymorphic_object(const serialization::context& context, type_id declared_id,
+                                   const objects::object& object, writer& writer) {
+  variant_result value = to_polymorphic_object_serialization_value(context, declared_id, object);
   if (value.failed()) {
     return value.status;
   }
@@ -95,13 +95,13 @@ error serialize_polymorphic_object(type_id declared_id, const objects::object& o
   return serialization::write_variant(writer, value.value);
 }
 
-bool is_polymorphic_value(const variant& value, const serialization::context& context) noexcept {
+bool is_polymorphic_value(const serialization::context& context, const variant& value) noexcept {
   return is_polymorphic_envelope(value, context);
 }
 
-error deserialize_polymorphic_object_into(type_id declared_id, objects::object& object,
-                                          const variant& value,
-                                          const serialization::context& context) {
+error deserialize_polymorphic_object_into(const serialization::context& context,
+                                          type_id declared_id, objects::object& object,
+                                          const variant& value) {
   result<meta::type> dynamic_type = resolve_polymorphic_meta_type(declared_id, value, context);
   if (dynamic_type.failed()) {
     return dynamic_type.status;
@@ -117,13 +117,17 @@ error deserialize_polymorphic_object_into(type_id declared_id, objects::object& 
   }
 
   variant_reader reader{*stored_value};
-  return deserialize(dynamic_type.value.id(), &object, reader, context);
+  return deserialize(context, dynamic_type.value.id(), &object, reader);
 }
 
 } // namespace detail
 
-variant_result to_polymorphic_serialization_value(const objects::object& object,
-                                                  const serialization::context& context) {
+variant_result to_polymorphic_serialization_value(const objects::object& object) {
+  return to_polymorphic_serialization_value(serialization::context{}, object);
+}
+
+variant_result to_polymorphic_serialization_value(const serialization::context& context,
+                                                  const objects::object& object) {
   const objects::object_type_id dynamic_id = object.type_id();
   if (!dynamic_id) {
     return {{error_domain::serialization, errc::invalid_type}, {}};
@@ -134,7 +138,7 @@ variant_result to_polymorphic_serialization_value(const objects::object& object,
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
 
-  variant_result value = detail::to_serialization_value(dynamic_type.id(), &object, context);
+  variant_result value = detail::to_serialization_value(context, dynamic_type.id(), &object);
   if (value.failed()) {
     return value;
   }
@@ -143,18 +147,22 @@ variant_result to_polymorphic_serialization_value(const objects::object& object,
                                            std::move(value.value), context);
 }
 
-variant_result to_polymorphic_serialization_value(const objects::object* object,
-                                                  const serialization::context& context) {
+variant_result to_polymorphic_serialization_value(const objects::object* object) {
+  return to_polymorphic_serialization_value(serialization::context{}, object);
+}
+
+variant_result to_polymorphic_serialization_value(const serialization::context& context,
+                                                  const objects::object* object) {
   if (object == nullptr) {
     return {{}, variant::null()};
   }
 
-  return to_polymorphic_serialization_value(*object, context);
+  return to_polymorphic_serialization_value(context, *object);
 }
 
-result<objects::object*> deserialize_polymorphic_object(objects::object_type_id declared_base,
-                                                        const variant& value,
-                                                        const serialization::context& context) {
+result<objects::object*> deserialize_polymorphic_object(const serialization::context& context,
+                                                        objects::object_type_id declared_base,
+                                                        const variant& value) {
   if (value.is_null()) {
     return {{}, nullptr};
   }
@@ -180,7 +188,7 @@ result<objects::object*> deserialize_polymorphic_object(objects::object_type_id 
   }
 
   variant_reader reader{*stored_value};
-  const error status = detail::deserialize(dynamic_type.value.id(), instance, reader, context);
+  const error status = detail::deserialize(context, dynamic_type.value.id(), instance, reader);
   if (status) {
     (void)manager->destroy(instance);
     return {status, nullptr};
@@ -189,9 +197,13 @@ result<objects::object*> deserialize_polymorphic_object(objects::object_type_id 
   return {{}, instance};
 }
 
-serialization_text_result serialize_polymorphic_json(const objects::object& object,
-                                                     const serialization::context& context) {
-  variant_result value = to_polymorphic_serialization_value(object, context);
+serialization_text_result serialize_polymorphic_json(const objects::object& object) {
+  return serialize_polymorphic_json(serialization::context{}, object);
+}
+
+serialization_text_result serialize_polymorphic_json(const serialization::context& context,
+                                                     const objects::object& object) {
+  variant_result value = to_polymorphic_serialization_value(context, object);
   if (value.failed()) {
     return {value.status, {}};
   }
@@ -205,15 +217,15 @@ serialization_text_result serialize_polymorphic_json(const objects::object& obje
   return {{}, writer.text()};
 }
 
-result<objects::object*> deserialize_polymorphic_json(objects::object_type_id declared_base,
-                                                      std::string_view text,
-                                                      const serialization::context& context) {
+result<objects::object*> deserialize_polymorphic_json(const serialization::context& context,
+                                                      objects::object_type_id declared_base,
+                                                      std::string_view text) {
   variant_result value = parse_json(text);
   if (value.failed()) {
     return {value.status, nullptr};
   }
 
-  return deserialize_polymorphic_object(declared_base, value.value, context);
+  return deserialize_polymorphic_object(context, declared_base, value.value);
 }
 
 } // namespace caors::serialization

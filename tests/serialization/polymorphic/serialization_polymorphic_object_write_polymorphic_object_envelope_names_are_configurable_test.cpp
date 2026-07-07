@@ -20,7 +20,7 @@ TEST_CASE("serialization - polymorphic object envelope names are configurable", 
   const actor& actor_value = player_value;
 
   const caors::serialization::variant_result value =
-      caors::to_serialization_value(actor_value, context);
+      caors::to_serialization_value(context, actor_value);
   REQUIRE(value.succeeded());
   REQUIRE(value.value.is_object());
 
@@ -50,7 +50,7 @@ TEST_CASE("serialization - polymorphic object envelope names are configurable", 
   CHECK(stored_value->value.find_member(caors::string_name{"name"}) != nullptr);
 
   const caors::serialization::serialization_text_result json =
-      caors::serialize_json(actor_value, context);
+      caors::serialize_json(context, actor_value);
   REQUIRE(json.succeeded());
   CHECK(json.value.find("kind") != caors::string::npos);
   CHECK(json.value.find("data") != caors::string::npos);
@@ -58,7 +58,7 @@ TEST_CASE("serialization - polymorphic object envelope names are configurable", 
 
   player target{};
   actor& target_actor = target;
-  const caors::error status = caors::deserialize_json(target_actor, json.value, context);
+  const caors::error status = caors::deserialize_json(context, target_actor, json.value);
   REQUIRE(status.succeeded());
   CHECK(target.level == 13);
   CHECK(target.name == "Kai");
