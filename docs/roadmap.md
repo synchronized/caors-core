@@ -147,6 +147,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 
 - [x] 建立 engine-agnostic 资源核心层文档边界：资源表示可持久化、可缓存、可复用资产，对象表示当前运行期实例。
 - [x] 定义 `resources::resource`、`resource_guid` 和 `resources::ref<T>` 基础身份与轻量引用模型。
+- [x] 增加 `resources::handle<T>` / `weak_handle<T>` 运行期引用计数句柄，和稳定 GUID 引用保持分离。
 - [x] 提供非拥有 `resources::manager` 资源索引，支持按 `resource_guid` 绑定、查找、解绑、清空和解析 `resources::ref<T>`。
 - [x] 提供 `resources::cache<T>` 拥有式资源缓存，支持按 `resource_guid` 创建、持有、释放、销毁和解析资源引用。
 - [x] 支持 `resources::ref<T>` 通过序列化 codec 按稳定 `resource_guid` 读写，读回后可由 manager/cache 显式解析，也可通过序列化 context resolver 按策略解析。
@@ -180,6 +181,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   可通过 `resources::reload_and_notify()` 显式接入 `events::signal` 或上层编辑器通知。
 - [x] 设计资源句柄 generation 机制，让已解析资源引用能够检测 cache 替换后的过期状态。
 - [ ] 后续评估资源引用控制块或跨 cache/version 机制，支持更强的自动失效、弱引用和调试诊断能力。
+- [ ] 评估将 `cache<T>` 内部升级为控制块缓存，让加载结果返回 `resource_handle<T>`，并定义 reload 后旧
+  handle 的保留、失效或原地刷新策略。
 - [x] 设计资源重载通知事件，reload 完成后可通知材质、场景对象、编辑器面板或上层系统重新解析引用。
 - [ ] 设计资源依赖图，记录资源、对象、场景和包之间的依赖关系，用于预加载、打包、热更新和级联刷新。
 - [ ] 后续评估调试 fileserver、资源包、远程资源、导入管线、资源数据库和编辑器工具层；当这些能力需要独立

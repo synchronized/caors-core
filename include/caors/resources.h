@@ -5,10 +5,11 @@
 #define CAORS_RESOURCES_H_
 
 #include "caors/resources/cache.h"
+#include "caors/resources/handle.h"
 #include "caors/resources/id.h"
 #include "caors/resources/io.h"
-#include "caors/resources/manifest.h"
 #include "caors/resources/manager.h"
+#include "caors/resources/manifest.h"
 #include "caors/resources/ref.h"
 #include "caors/resources/reload.h"
 #include "caors/resources/resource.h"

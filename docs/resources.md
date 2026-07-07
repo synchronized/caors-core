@@ -4,8 +4,8 @@
 # Resources
 
 本文档说明 CAORS 资源系统的当前设计边界。资源系统仍处于基础阶段，当前提供资源身份、轻量引用模型、
-非拥有资源索引、拥有式缓存、资源清单、字节来源 provider、加载/保存接口、同步 reload、显式 reload
-通知、最小序列化读写 helper 和序列化资源引用 resolver；异步加载和资源包后续再补。
+运行期共享 handle、非拥有资源索引、拥有式缓存、资源清单、字节来源 provider、加载/保存接口、同步
+reload、显式 reload 通知、最小序列化读写 helper 和序列化资源引用 resolver；异步加载和资源包后续再补。
 
 ## 设计目标
 
@@ -14,6 +14,7 @@
 - 资源有跨进程、跨存档稳定的 `resource_guid`。
 - 资源对象可以保存自己的稳定身份。
 - 资源引用可以先保存 GUID，在资源加载后再解析成实际资源指针。
+- 运行期资源 handle 可以用引用计数共享资源对象生命周期。
 - 资源管理器可以保存非拥有索引，用 GUID 定位已经存在的资源对象。
 - 资源缓存可以按 GUID 拥有资源对象，并复用 manager 做查找和引用解析。
 - 资源清单可以把稳定 GUID 映射到资源位置、类型、版本和 hash。
@@ -25,7 +26,7 @@
 
 - 资源包或网络加载后端。
 - 拥有式全局资源缓存。
-- 自动引用计数。
+- cache 级自动引用计数。
 - 完整热重载系统。
 - 资源导入管线。
 - 与对象系统的场景树生命周期绑定。
@@ -40,6 +41,8 @@
 - `resources::resource_guid`
 - `resources::resource`
 - `resources::ref<T>`
+- `resources::handle<T>`
+- `resources::weak_handle<T>`
 - `resources::manager`
 - `resources::cache<T>`
 - `resources::manifest`
@@ -60,6 +63,8 @@
 - `caors::resource_guid_hash`
 - `caors::resource`
 - `caors::resource_ref<T>`
+- `caors::resource_handle<T>`
+- `caors::resource_weak_handle<T>`
 - `caors::resource_manager`
 - `caors::resource_cache<T>`
 - `caors::resource_manifest`
@@ -79,6 +84,7 @@
 - `caors::load_manifest()`
 - `caors::load_manifest_json()`
 - `caors::load_serialized()`
+- `caors::make_handle()`
 - `caors::replace_manifest()`
 - `caors::reload_and_notify()`
 - `caors::save_from()`
@@ -150,6 +156,30 @@ if (reference.resolve(&value)) {
 - `manager.is_current(ref)` / `cache.is_current(ref)` 可用于判断已解析引用是否仍指向当前索引中的同一绑定版本。
 - `unresolve()` 只清除资源指针，保留 GUID，适合资源卸载或缓存失效后继续保留引用身份。
 - `resource_generation` 是当前进程内 manager/cache 的运行期版本，不会被序列化，也不能作为跨进程稳定身份。
+
+## handle
+
+`resources::handle<T>` 是运行期资源强引用句柄，`resources::weak_handle<T>` 是弱引用句柄：
+
+```cpp
+caors::resource_handle<texture> texture =
+    caors::make_handle<texture>(texture_id);
+
+caors::resource_weak_handle<texture> weak = texture;
+if (auto locked = weak.lock()) {
+  texture* current = locked.get();
+}
+```
+
+需要注意：
+
+- `handle<T>` 通过独立控制块拥有资源对象；最后一个强 handle 释放时销毁资源。
+- `weak_handle<T>` 不延长资源生命周期，资源销毁后 `lock()` 返回空 handle。
+- `make_handle<T>(resource, args...)` 会使用指定 `memory_resource` 构造资源对象和控制块。
+- `handle<T>` 是运行期所有权工具，不是稳定资源引用；序列化、依赖收集和资源数据库仍应使用
+  `resource_guid` / `resource_ref<T>`。
+- 当前 `cache<T>` 仍使用 `memory::unique_ptr<T>` 拥有资源。把 cache 内部升级为控制块缓存、让
+  `load_into()` 返回 handle、以及定义 reload 后旧 handle 的保留或失效策略，是后续工作。
 
 ## 序列化
 

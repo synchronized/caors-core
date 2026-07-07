@@ -752,6 +752,8 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
   `resource_generation` 不写入存档。调用方可以后续按 GUID 使用
   `resources::manager::resolve()` 或 `resources::cache<T>::resolve()` 绑定实际资源对象，也可以在
   `serialization::context` 中设置 `resources.resolver` 和 `resources.resolution` 让读入过程立即解析。
+- `resource_handle<T>` / `resource_weak_handle<T>` 是运行期所有权句柄，当前不作为默认序列化 codec。
+  需要持久化资源关系时应序列化 `resource_ref<T>` 或稳定 `resource_guid`。
 - `std::weak_ptr<T>` 和 `objects::weak_ref<T>` 默认不展开内部值；如果需要弱引用序列化，应通过对象句柄、资源 id 或
   `objects::ptr<T>` 类似的显式引用语义处理。
 - 裸指针、普通智能指针和 `objects::ref<T>` 按 inline value 处理，不保留对象身份、共享关系或对象图引用；
