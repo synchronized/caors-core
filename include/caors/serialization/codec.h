@@ -14,6 +14,8 @@
 
 namespace caors::serialization {
 
+struct context;
+
 /** @brief 可特化的类型序列化 codec。 */
 template <typename T> struct codec {
   static constexpr bool can_write = false;
@@ -35,19 +37,33 @@ template <typename T> [[nodiscard]] error register_codec();
 namespace caors::serialization::detail {
 
 using codec_write_fn = error (*)(writer& writer, const any& data);
+using codec_context_write_fn = error (*)(writer& writer, const any& data,
+                                         const serialization::context& context);
 using codec_read_fn = error (*)(reader& reader, const reflection::field& field, void* object);
+using codec_context_read_fn = error (*)(reader& reader, const reflection::field& field,
+                                        void* object, const serialization::context& context);
 using codec_read_value_fn = error (*)(reader& reader, const any_ref& target);
+using codec_context_read_value_fn = error (*)(reader& reader, const any_ref& target,
+                                              const serialization::context& context);
 using codec_value_fn = variant_result (*)(const any& data);
+using codec_context_value_fn = variant_result (*)(const any& data,
+                                                  const serialization::context& context);
 
 /** @brief 单个类型的序列化 codec 函数集合。 */
 struct codec_data {
   codec_write_fn write = nullptr;
+  codec_context_write_fn write_context = nullptr;
   codec_read_fn read = nullptr;
+  codec_context_read_fn read_context = nullptr;
   codec_read_value_fn read_value = nullptr;
+  codec_context_read_value_fn read_value_context = nullptr;
   codec_value_fn make_value = nullptr;
+  codec_context_value_fn make_value_context = nullptr;
 
   [[nodiscard]] constexpr bool valid() const noexcept {
-    return write != nullptr || read != nullptr || read_value != nullptr || make_value != nullptr;
+    return write != nullptr || write_context != nullptr || read != nullptr ||
+           read_context != nullptr || read_value != nullptr || read_value_context != nullptr ||
+           make_value != nullptr || make_value_context != nullptr;
   }
 };
 
@@ -91,6 +107,21 @@ template <typename Codec, typename T> [[nodiscard]] codec_data make_codec_data_f
 
       return Codec::write(writer, *stored);
     };
+
+    if constexpr (requires(serialization::writer& writer, const type& value,
+                           const serialization::context& context) {
+                    Codec::write(writer, value, context);
+                  }) {
+      data.write_context = [](serialization::writer& writer, const any& value,
+                              const serialization::context& context) -> error {
+        const type* stored = value.try_get<type>();
+        if (stored == nullptr) {
+          return {error_domain::serialization, errc::invalid_type};
+        }
+
+        return Codec::write(writer, *stored, context);
+      };
+    }
   }
 
   if constexpr (Codec::can_read) {
@@ -109,6 +140,26 @@ template <typename Codec, typename T> [[nodiscard]] codec_data make_codec_data_f
       return {};
     };
 
+    if constexpr (requires(serialization::reader& reader, type& value,
+                           const serialization::context& context) {
+                    Codec::read(reader, value, context);
+                  }) {
+      data.read_context = [](serialization::reader& reader, const reflection::field& field,
+                             void* object, const serialization::context& context) -> error {
+        type decoded{};
+        error status = Codec::read(reader, decoded, context);
+        if (status) {
+          return status;
+        }
+
+        if (!field.try_set<type>(object, decoded)) {
+          return {error_domain::serialization, errc::unsupported};
+        }
+
+        return {};
+      };
+    }
+
     data.read_value = [](serialization::reader& reader, const any_ref& target) -> error {
       type decoded{};
       error status = Codec::read(reader, decoded);
@@ -122,6 +173,26 @@ template <typename Codec, typename T> [[nodiscard]] codec_data make_codec_data_f
 
       return {};
     };
+
+    if constexpr (requires(serialization::reader& reader, type& value,
+                           const serialization::context& context) {
+                    Codec::read(reader, value, context);
+                  }) {
+      data.read_value_context = [](serialization::reader& reader, const any_ref& target,
+                                   const serialization::context& context) -> error {
+        type decoded{};
+        error status = Codec::read(reader, decoded, context);
+        if (status) {
+          return status;
+        }
+
+        if (!target.try_set<type>(decoded)) {
+          return {error_domain::serialization, errc::unsupported};
+        }
+
+        return {};
+      };
+    }
   }
 
   if constexpr (Codec::can_make_value) {
@@ -133,6 +204,20 @@ template <typename Codec, typename T> [[nodiscard]] codec_data make_codec_data_f
 
       return Codec::make_value(*stored);
     };
+
+    if constexpr (requires(const type& value, const serialization::context& context) {
+                    Codec::make_value(value, context);
+                  }) {
+      data.make_value_context = [](const any& value,
+                                   const serialization::context& context) -> variant_result {
+        const type* stored = value.try_get<type>();
+        if (stored == nullptr) {
+          return {{error_domain::serialization, errc::invalid_type}, {}};
+        }
+
+        return Codec::make_value(*stored, context);
+      };
+    }
   }
 
   return data;

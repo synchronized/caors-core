@@ -4,8 +4,8 @@
 # Resources
 
 本文档说明 CAORS 资源系统的当前设计边界。资源系统仍处于基础阶段，当前提供资源身份、轻量引用模型、
-非拥有资源索引、拥有式缓存、资源清单、字节来源 provider、加载/保存接口和最小序列化读写 helper；异步加载、
-资源包和序列化 resolver 后续再补。
+非拥有资源索引、拥有式缓存、资源清单、字节来源 provider、加载/保存接口、最小序列化读写 helper
+和序列化资源引用 resolver；异步加载和资源包后续再补。
 
 ## 设计目标
 
@@ -71,7 +71,14 @@
 - `caors::resource_saver<T>`
 - `caors::resource_json_saver<T>`
 - `caors::bind_manifest()`
+- `caors::load_into()`
+- `caors::load_manifest()`
+- `caors::load_manifest_json()`
+- `caors::load_serialized()`
+- `caors::replace_manifest()`
 - `caors::save_from()`
+- `caors::save_serialized()`
+- `caors::sync_manifest()`
 
 ## resource_guid
 
@@ -160,7 +167,7 @@ caors::serialization::register_codec<caors::resource_ref<texture>>();
 
 - `null` 会清空引用。
 - GUID 字符串会读回为未解析的 `resource_ref<T>`。
-- 读回不会访问全局 manager、cache 或 locator，避免序列化层隐式决定资源生命周期。
+- 默认读回不会访问全局 manager、cache 或 locator，避免序列化层隐式决定资源生命周期。
 
 资源加载完成后再显式解析：
 
@@ -172,6 +179,47 @@ caors::resource_cache<texture> cache;
 // cache 创建或加载同 GUID 的资源后：
 cache.resolve(decoded.albedo);
 ```
+
+也可以通过 `serialization::context` 为本次反序列化挂一个资源 resolver。resolver 可以从
+`resources::manager` 或 `resources::cache<T>` 创建：
+
+```cpp
+caors::resource_cache<texture> cache;
+texture* loaded = cache.create(texture_id);
+
+caors::serialization::resource_resolver resolver =
+    caors::serialization::make_resource_resolver(cache);
+
+caors::serialization::context context{};
+context.resource_resolver = &resolver;
+context.resource_resolution =
+    caors::serialization::resource_ref_resolution::resolve_if_present;
+
+material decoded{};
+caors::deserialize_json(decoded,
+                        R"({"albedo":"6cd2da3d-b549-4756-8b8b-0c84293af410"})",
+                        context);
+```
+
+`context.resource_resolution` 的策略：
+
+- `keep_unresolved`：默认策略，只恢复 GUID，不解析资源。
+- `resolve_if_present`：如果 resolver 能找到同 GUID 且类型兼容的资源，则写入已解析指针；缺资源仍保持 unresolved。
+- `require_resolved`：必须解析成功；resolver 缺失返回 `serialization / invalid_argument`，资源缺失返回 `resources / not_found`，类型不匹配返回 `resources / invalid_type`。
+
+序列化和反序列化遍历 `resource_ref<T>` 时还可以收集资源依赖：
+
+```cpp
+caors::serialization::resource_dependency_list dependencies;
+caors::serialization::resource_dependency_collector collector = dependencies.collector();
+
+caors::serialization::context context{};
+context.resource_dependencies = &collector;
+
+caors::serialize_json(material_value, context);
+```
+
+依赖条目包含 `resource_guid` 和资源声明类型的 `type_id`。这可用于后续预加载、打包、热更新和资源数据库。
 
 ## manager
 
@@ -418,6 +466,19 @@ caors::resource_cache<texture> cache;
 
 auto loaded = caors::load_into(cache, loader, texture_id);
 ```
+
+推荐同步加载链路是：
+
+1. `resources::manifest` 保存 `resource_guid -> location/type/hash/version`。
+2. `bind_manifest()` / `sync_manifest()` / `replace_manifest()` 把 manifest 批量绑定到 provider。
+3. `resources::provider` 只负责按 GUID 定位并读取字节。
+4. `resources::loader<T>` 负责把字节解码为资源对象。
+5. `load_into(cache, loader, guid)` 把加载结果转入拥有式 cache。
+6. `serialization::resource_resolver` 从 manager/cache 查询已加载资源，用于解析 `resource_ref<T>`。
+
+provider 本身不直接作为 `resource_ref<T>` resolver，因为它只知道字节位置，不知道如何构造具体 `T`。
+如果需要“缺失时自动加载”，应在上层实现一个自定义 resolver：内部先查询 cache，未命中时通过
+provider + loader 加载，再把结果插入 cache。
 
 `resources::json_saver<T>` 是资源对象到 provider 的同步 JSON 保存桥接。它会把资源对象字段序列化为
 JSON 文本，再按资源 GUID 写回 provider 已绑定的位置：

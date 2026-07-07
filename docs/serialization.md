@@ -20,7 +20,8 @@
 - 提供 `serialization::text_writer` 和 `serialize_text()`，通过反射字段读取对象并输出简单文本结构。
 - 提供 `serialization::json_writer`、`serialize_json()`、`parse_json()` 和 `deserialize_json()`。
 - 提供 `serialization::variant_reader` 和 `deserialize()`，通过 DOM 中间对象写回基础反射字段。
-- 提供 `serialization::context`，支持按 schema version 过滤字段、配置多态 envelope 字段名和传递运行期资源。
+- 提供 `serialization::context`，支持按 schema version 过滤字段、配置多态 envelope 字段名、传递运行期资源、
+  解析资源引用和收集资源依赖。
 - 提供 `serialization::codec<T>` 和 `register_codec<T>()`，允许把特定 C++ 类型作为原子序列化值读写。
 - 支持已注册反射和序列化元信息的值类型结构体字段递归序列化和 DOM 反序列化。
 - 提供基于 traits 的顺序容器、集合容器、关联容器、pair、tuple 和 variant 访问，支持标量、wrapper、对象引用和已注册结构体元素。
@@ -57,7 +58,7 @@
 序列化模块按职责拆分公共头文件：
 
 - `caors/serialization/type_data.h`：后端能力、字段配置和类型序列化组件数据。
-- `caors/serialization/types.h`：引用 resolver、单次调度上下文和结果类型。
+- `caors/serialization/types.h`：对象引用 resolver、资源引用 resolver、资源依赖收集器、单次调度上下文和结果类型。
 - `caors/serialization/registry.h`：序列化组件注册表和链式注册入口。
 - `caors/serialization/writer.h`：`serialization::writer`、`serialization::text_writer` 和
   `serialization::json_writer`。
@@ -452,6 +453,53 @@ caors::serialization::context context{0, &resolver};
 - 非空引用写出时无法映射到 id，或读入 id 找不到对象时返回 `errc::not_found`。
 - 读入对象不能转换为 `T*` 时返回 `errc::invalid_type`。
 
+### 资源引用 resolver
+
+`caors::resource_ref<T>` 默认只按稳定 `resource_guid` 读写，不展开资源对象。需要反序列化时立即解析
+资源引用时，可以在 `serialization::context` 中挂资源 resolver：
+
+```cpp
+caors::resource_cache<texture> cache;
+caors::serialization::resource_resolver resolver =
+    caors::serialization::make_resource_resolver(cache);
+
+caors::serialization::context context{};
+context.resource_resolver = &resolver;
+context.resource_resolution =
+    caors::serialization::resource_ref_resolution::resolve_if_present;
+
+material decoded{};
+caors::deserialize_json(decoded, json_text, context);
+```
+
+当前内置 resolver 创建入口：
+
+- `make_resource_resolver(resources::manager&)`：从非拥有资源索引查找已存在资源。
+- `make_resource_resolver(resources::cache<T>&)`：从拥有式 cache 查找已加载资源。
+
+解析策略：
+
+- `keep_unresolved`：默认策略，只恢复 GUID。
+- `resolve_if_present`：尽量解析；缺资源时保持 unresolved 并返回成功。
+- `require_resolved`：必须解析成功；缺少 resolver 返回 `serialization / invalid_argument`，缺资源返回
+  `resources / not_found`，类型不匹配返回 `resources / invalid_type`。
+
+资源依赖收集通过 `context.resource_dependencies` 完成。序列化和反序列化遍历到非空 `resource_ref<T>`
+时会记录 `{resource_guid, type_id}`：
+
+```cpp
+caors::serialization::resource_dependency_list dependencies;
+caors::serialization::resource_dependency_collector collector = dependencies.collector();
+
+caors::serialization::context context{};
+context.resource_dependencies = &collector;
+
+caors::serialize_json(material_value, context);
+```
+
+依赖收集不加载资源，也不改变 `resource_ref<T>` 的 resolved 状态。它主要服务于预加载、打包、
+热更新和资源数据库。
+
 ### object handles
 
 `caors::objects::handle` 和 `caors::objects::typed_handle<T>` 表达已经存在的对象身份，而不是对象地址。
@@ -513,7 +561,8 @@ codec 和 meta descriptor 的边界：
 - `caors::guid`：按标准 UUID/GUID 字符串读写。
 - `caors::type_guid`：按内部 `guid` 的标准字符串读写。
 - `caors::resource_guid`：按标准 UUID/GUID 字符串读写。
-- `caors::resource_ref<T>`：非空引用按 `resource_guid` 字符串读写；空引用写 `null`，读回后只恢复 GUID，不自动解析运行期资源指针。
+- `caors::resource_ref<T>`：非空引用按 `resource_guid` 字符串读写；空引用写 `null`，默认读回后只恢复 GUID。
+  如果 `serialization::context` 配置了资源 resolver，也可以按策略立即解析到 manager/cache 中已有资源。
 - `caors::vector<T>` / `std::vector<T>`：通过 `serialization::sequence_codec<T>` 输出为数组。
 - `caors::list<T>` / `std::list<T>`：通过 `serialization::sequence_codec<T>` 输出为数组。
 - `std::forward_list<T>`：通过 `serialization::sequence_codec<T>` 输出为数组；反射随机访问需要线性遍历。
@@ -620,7 +669,7 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 | `std::filesystem::path` | 作为普通值类型 | 支持，按通用路径字符串写出 | 支持，从字符串构造 path |
 | `std::chrono` duration / `system_clock::time_point` | 作为普通值类型 | 支持，按整数写出 | 支持，从整数构造 |
 | `guid`、`type_guid`、`resource_guid` | 作为普通值类型 | 支持，按字符串写出 | 支持，从字符串解析 |
-| `resource_ref<T>` | 保存稳定资源 GUID 和可选已解析资源指针；序列化层只处理 GUID | 空值写 `null`，非空写 `resource_guid` 字符串，不展开资源对象 | `null` 会清空引用；非空字符串只恢复未解析 GUID，后续由 `resources::manager` 或 `resources::cache<T>` 显式解析 |
+| `resource_ref<T>` | 保存稳定资源 GUID 和可选已解析资源指针；序列化层只处理 GUID | 空值写 `null`，非空写 `resource_guid` 字符串，不展开资源对象；可收集依赖 | `null` 会清空引用；非空字符串默认只恢复未解析 GUID，也可通过 `context.resource_resolver` 按策略解析 |
 | 裸指针 `T*` | 通过 `indirect_view` 访问已指向的 `T` | 空值写 `null`，非空展开内部值 | `null` 可重置；非空要求目标已经指向有效对象 |
 | `std::unique_ptr<T>`、`caors::memory::unique_ptr<T>`、`std::shared_ptr<T>`、`std::optional<T>` | 通过 `indirect_view` 访问内部 `T` | 空值写 `null`，非空展开内部值；拥有型智能指针可写出普通类多态 envelope | `null` 可重置；非空可在 `T` 默认可构造时创建内部值；拥有型智能指针可按 envelope 和可用 factory 构造派生对象；空 wrapper 读入非空值但 `T` 不可构造时返回 `errc::invalid_type`；需要 `memory_resource` 托管 unique pointer 时使用 `caors::memory::unique_ptr<T>` |
 | `objects::ref<T>` | 通过 `indirect_view` 访问引用计数对象内部 `T` | 空值写 `null`，非空展开内部值，不写引用计数；`ref<Base>` 持有派生对象时可写出多态 envelope | `null` 可重置；普通非空值可在 `T` 默认可构造时通过 `objects::make_ref<T>(context.memory_resource)` 创建对象；多态 envelope 可构造真实派生对象并接管匹配销毁回调 |
@@ -636,8 +685,9 @@ writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认�
 - `std::string_view` 默认拒绝反序列化写回，避免把临时字符串读入成悬空引用。调用方如果提供
   `serialization::context::string_view_storage`，序列化层会把每个读入文本追加为独立字符串，再让字段
   view 指向对应字符串；调用方必须保证该 storage 生命周期长于目标对象或目标字段。
-- `resource_ref<T>` 不拥有资源，也不保留已解析指针；反序列化完成后调用方应按 GUID 使用
-  `resources::manager::resolve()` 或 `resources::cache<T>::resolve()` 绑定实际资源对象。
+- `resource_ref<T>` 不拥有资源，也不延长资源生命周期。默认反序列化只恢复 GUID；调用方可以后续按 GUID 使用
+  `resources::manager::resolve()` 或 `resources::cache<T>::resolve()` 绑定实际资源对象，也可以在
+  `serialization::context` 中设置 `resource_resolver` 和 `resource_resolution` 让读入过程立即解析。
 - `std::weak_ptr<T>` 和 `objects::weak_ref<T>` 默认不展开内部值；如果需要弱引用序列化，应通过对象句柄、资源 id 或
   `objects::ptr<T>` 类似的显式引用语义处理。
 - 裸指针、普通智能指针和 `objects::ref<T>` 按 inline value 处理，不保留对象身份、共享关系或对象图引用；
@@ -813,8 +863,10 @@ caors::string text = result.value;
 - `serialization::field_data`：字段级序列化配置。
 - `serialization::writer`：格式后端接口。
 - `serialization::reader`：格式读入后端接口。
-- `serialization::context`：单次序列化/反序列化上下文，支持 schema version 字段过滤、多态 envelope 字段名配置、引用 resolver 和运行期资源传递。
+- `serialization::context`：单次序列化/反序列化上下文，支持 schema version 字段过滤、多态 envelope 字段名配置、对象引用 resolver、资源引用 resolver、资源依赖收集和运行期资源传递。
 - `serialization::string_storage`：`std::string_view` 反序列化使用的多段字符串存储。
+- `serialization::resource_resolver`：`resource_ref<T>` 反序列化可选的资源引用解析器。
+- `serialization::resource_dependency_list`：序列化遍历过程中收集到的资源依赖列表。
 - `serialization::codec<T>`：类型级 codec 特化入口，配合 `serialization::register_codec<T>()` 使用。
 - `serialization::register_codec<T>()`：注册已特化的类型级 codec。
 - `serialization::text_writer`：简单文本格式后端。

@@ -123,7 +123,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 将 `serialization::context::string_view_storage` 从单个字符串存储升级为多段
   `string_storage` / `string_buffer`，支持同一对象内多个 `std::string_view` 字段安全读回。
 - [x] 为 `std::weak_ptr<T>`、对象句柄和资源引用设计稳定引用语义。
-- [x] 支持 `resource_guid` 和 `resource_ref<T>` 按稳定 GUID 读写；反序列化后资源引用保持未解析状态。
+- [x] 支持 `resource_guid` 和 `resource_ref<T>` 按稳定 GUID 读写；默认反序列化后资源引用保持未解析状态，也可通过 context resolver 立即解析。
 - [x] 支持多态对象的动态类型记录、manager 构造和安全下转型。
 - [x] 支持普通 C++ 类在 `std::unique_ptr<Base>` / `caors::memory::unique_ptr<Base>` /
   `std::shared_ptr<Base>` 字段中的动态类型记录、默认构造和安全下转型。
@@ -140,9 +140,10 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 定义 `resources::resource`、`resource_guid` 和 `resources::ref<T>` 基础身份与轻量引用模型。
 - [x] 提供非拥有 `resources::manager` 资源索引，支持按 `resource_guid` 绑定、查找、解绑、清空和解析 `resources::ref<T>`。
 - [x] 提供 `resources::cache<T>` 拥有式资源缓存，支持按 `resource_guid` 创建、持有、释放、销毁和解析资源引用。
-- [x] 支持 `resources::ref<T>` 通过序列化 codec 按稳定 `resource_guid` 读写，读回后由 manager/cache 显式解析。
+- [x] 支持 `resources::ref<T>` 通过序列化 codec 按稳定 `resource_guid` 读写，读回后可由 manager/cache 显式解析，也可通过序列化 context resolver 按策略解析。
 - [x] 设计 `resources::loader<T>` / `resources::saver<T>` 接口，并提供基于 serialization reader/writer 的最小读写 helper。
-- [ ] 扩展资源加载、卸载、依赖关系和失效处理策略，并明确生命周期与线程安全边界。
+- [x] 支持序列化遍历收集 `resource_ref<T>` 资源依赖，用于后续预加载、打包、热更新和资源数据库。
+- [ ] 扩展资源加载、卸载和失效处理策略，并明确生命周期与线程安全边界。
 - [x] 提供 `core::locator<T>` 可选全局服务定位器，用于定位默认资源管理器、文件系统、配置服务等进程级服务，并明确注册、重置和测试隔离规则。
 - [x] 设计底层 `io::file_system` 字节来源抽象，统一本地文件、内存文件、资源包和远程网络资源访问的接口边界。
 - [x] 设计资源层 `resources::source` / `resources::provider`，负责从 `resource_guid` 或资源位置解析到统一数据流，再交给 loader 解码。
@@ -158,7 +159,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 实现 `resources::json_saver<T>`，打通 `resource -> JSON -> provider -> source` 的同步保存链路。
 - [x] 提供 `resources::save_from()`，把 cache 中指定 GUID 的资源交给 saver 保存。
 - [ ] 实现资源包、远程资源或异步 loader/saver 后端。
-- [ ] 打通资源引用序列化 resolver，支持反序列化后自动解析资源依赖关系和稳定 GUID 引用。
+- [x] 打通资源引用序列化 resolver，支持反序列化后按策略解析稳定 GUID 引用。
 - [ ] 后续评估热重载、导入管线、资源数据库和编辑器工具层；这些能力不进入第一阶段底层 API。
 
 ## 7. 事件与委托
