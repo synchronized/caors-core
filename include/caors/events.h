@@ -6,6 +6,8 @@
 
 #include "caors/events/connection.h"
 #include "caors/events/delegate.h"
+#include "caors/events/dispatcher.h"
 #include "caors/events/signal.h"
+#include "caors/events/sink.h"
 
 #endif
