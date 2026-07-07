@@ -103,6 +103,35 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 | `context.polymorphic` | 多态 envelope 字段名和调试 type name | 默认字段名为 `$type` / `$value` |
 | `json_options` | JSON 格式层选项 | 当前控制 writer 的 `pretty` 和 `indent` |
 
+公开序列化入口保留无 context 便捷重载；一旦需要上下文，统一把
+`serialization::context` 放在第一个参数：
+
+```cpp
+caors::serialize(object, writer);
+caors::serialize(context, object, writer);
+
+caors::deserialize(object, reader);
+caors::deserialize(context, object, reader);
+
+caors::deserialize(object, value);
+caors::deserialize(context, object, value);
+
+caors::to_serialization_value(object);
+caors::to_serialization_value(context, object);
+
+caors::serialize_text(object);
+caors::serialize_text(context, object);
+
+caors::serialize_json(object);
+caors::serialize_json(context, object);
+
+caors::serialize_json_to(object, output);
+caors::serialize_json_to(context, object, output);
+
+caors::deserialize_json(object, text);
+caors::deserialize_json(context, object, text);
+```
+
 `serialization::context` 不再提供旧式扁平配置字段。调用方应按职责写入
 `context.fields`、`context.references`、`context.resources`、`context.objects`、`context.memory`
 和 `context.storage` 等分组字段。
@@ -692,6 +721,29 @@ DOM reader 同时接受 `variant::dictionary` 和 pair 数组形态。普通 `st
 调用前必须已经通过 `meta::type_<T>("name")` 注册对应 C++ 类型；codec 注册不会隐式创建 meta 类型。底层按
 `type_id` 注册 codec 函数表的入口属于内部实现，普通代码不直接调用。codec 可以分别提供
 writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认逻辑或返回不支持。
+带 context 的 codec 扩展点同样使用 context-first 形式；如果 codec 只需要上下文路径，可以只提供
+context-first 版本：
+
+```cpp
+namespace caors::serialization {
+
+template <> struct codec<custom_value> {
+  static constexpr bool can_write = true;
+  static constexpr bool can_read = true;
+  static constexpr bool can_make_value = true;
+
+  static caors::error write(const serialization::context& context,
+                            writer& writer,
+                            const custom_value& value);
+  static caors::error read(const serialization::context& context,
+                           reader& reader,
+                           custom_value& value);
+  static variant_result make_value(const serialization::context& context,
+                                   const custom_value& value);
+};
+
+}
+```
 
 ### 指针和 wrapper 字段
 

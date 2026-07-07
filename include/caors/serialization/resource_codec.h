@@ -131,8 +131,8 @@ template <typename T> struct codec<resources::ref<T>> {
     return detail::write_resource_guid(writer, value.guid());
   }
 
-  [[nodiscard]] static error write(writer& writer, const resources::ref<T>& value,
-                                   const serialization::context& context) {
+  [[nodiscard]] static error write(const serialization::context& context, writer& writer,
+                                   const resources::ref<T>& value) {
     if (value.has_guid()) {
       detail::collect_resource_dependency(context, value.guid(), detail::resource_type_id<T>());
     }
@@ -156,8 +156,8 @@ template <typename T> struct codec<resources::ref<T>> {
     return {};
   }
 
-  [[nodiscard]] static error read(reader& reader, resources::ref<T>& value,
-                                  const serialization::context& context) {
+  [[nodiscard]] static error read(const serialization::context& context, reader& reader,
+                                  resources::ref<T>& value) {
     const error status = read(reader, value);
     if (status || !value.has_guid()) {
       return status;
@@ -175,8 +175,8 @@ template <typename T> struct codec<resources::ref<T>> {
     return {{}, detail::make_resource_guid_value(value.guid())};
   }
 
-  [[nodiscard]] static variant_result make_value(const resources::ref<T>& value,
-                                                 const serialization::context& context) {
+  [[nodiscard]] static variant_result make_value(const serialization::context& context,
+                                                 const resources::ref<T>& value) {
     if (value.has_guid()) {
       detail::collect_resource_dependency(context, value.guid(), detail::resource_type_id<T>());
     }

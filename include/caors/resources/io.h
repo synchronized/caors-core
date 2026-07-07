@@ -267,8 +267,9 @@ template <typename T> class json_loader final : public loader<T> {
 public:
   using resource_type = T;
 
-  explicit json_loader(const provider& provider,
-                       serialization::context context = serialization::context{})
+  explicit json_loader(const provider& provider) : provider_(&provider) {}
+
+  json_loader(const serialization::context& context, const provider& provider)
       : provider_(&provider), context_(context) {}
 
   [[nodiscard]] load_result<resource_type> load(resource_guid guid,
@@ -335,8 +336,9 @@ template <typename T> class json_saver final : public saver<T> {
 public:
   using resource_type = T;
 
-  explicit json_saver(const provider& provider,
-                      serialization::context context = serialization::context{})
+  explicit json_saver(const provider& provider) : provider_(&provider) {}
+
+  json_saver(const serialization::context& context, const provider& provider)
       : provider_(&provider), context_(context) {}
 
   [[nodiscard]] error save(const resource_type& value) override {

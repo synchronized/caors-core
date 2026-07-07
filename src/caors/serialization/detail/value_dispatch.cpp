@@ -155,7 +155,7 @@ variant_result make_serialized_value(const any_ref& value, const serialization::
       return {{error_domain::serialization, errc::unsupported}, {}};
     }
 
-    return codec->make_value_context(copied, context);
+    return codec->make_value_context(context, copied);
   }
   if (codec.has_value() && codec->make_value != nullptr) {
     any copied = value.to_any();
@@ -239,7 +239,7 @@ error write_serialized_value(writer& writer, const any_ref& value,
       return {error_domain::serialization, errc::unsupported};
     }
 
-    return codec->write_context(writer, copied, context);
+    return codec->write_context(context, writer, copied);
   }
   if (codec.has_value() && codec->write != nullptr) {
     any copied = value.to_any();
@@ -316,7 +316,7 @@ error read_serialized_value(reader& reader, const any_ref& target,
 
   const std::optional<codec_data> codec = get_codec_registry().find_codec(target.type());
   if (codec.has_value() && codec->read_value_context != nullptr) {
-    return codec->read_value_context(reader, target, context);
+    return codec->read_value_context(context, reader, target);
   }
   if (codec.has_value() && codec->read_value != nullptr) {
     return codec->read_value(reader, target);
@@ -436,7 +436,7 @@ error read_field(reader& reader, const reflection::field& field, void* object,
       return {error_domain::serialization, errc::unsupported};
     }
 
-    status = codec->read_context != nullptr ? codec->read_context(reader, field, object, context)
+    status = codec->read_context != nullptr ? codec->read_context(context, reader, field, object)
                                             : codec->read(reader, field, object);
     if (status) {
       return status;

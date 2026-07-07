@@ -628,7 +628,9 @@ caors::resource_file_source source{file_system};
 caors::resource_provider provider;
 provider.bind(texture_id, source, "assets/texture.json");
 
+caors::serialization::context context{};
 caors::resource_json_loader<texture> loader{provider};
+caors::resource_json_loader<texture> loader_with_context{context, provider};
 caors::resource_cache<texture> cache;
 
 auto loaded = caors::load_into(cache, loader, texture_id);
@@ -673,7 +675,9 @@ provider + loader 加载，再把结果插入 cache。
 JSON 文本，再按资源 GUID 写回 provider 已绑定的位置：
 
 ```cpp
+caors::serialization::context context{};
 caors::resource_json_saver<texture> saver{provider};
+caors::resource_json_saver<texture> saver_with_context{context, provider};
 caors::error saved = saver.save(*loaded.value);
 ```
 
