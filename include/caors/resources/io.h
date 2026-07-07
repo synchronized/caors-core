@@ -108,6 +108,47 @@ template <typename T>
 }
 
 /**
+ * @brief 重新加载并替换 cache 中已有资源。
+ *
+ * 该函数只处理已存在资源的同步重载：cache 未包含该 GUID 时返回 `errc::not_found`。加载、解析或
+ * 身份校验失败时不会修改 cache 中旧资源；只有新资源完整加载并通过 GUID 校验后才替换旧资源。
+ * 已解析到旧资源对象的外部引用不会自动失效，调用方应在重载后重新解析相关 `resource_ref<T>`。
+ */
+template <typename T>
+[[nodiscard]] result<T*> reload_into(cache<T>& target, loader<T>& source, resource_guid guid) {
+  if (!guid) {
+    return {{error_domain::resources, errc::invalid_argument}, nullptr};
+  }
+
+  if (!target.contains(guid)) {
+    return {{error_domain::resources, errc::not_found}, nullptr};
+  }
+
+  load_result<T> loaded = source.load(guid, target.resource());
+  if (loaded.failed()) {
+    return {loaded.status, nullptr};
+  }
+
+  if (loaded.value == nullptr) {
+    return {{error_domain::resources, errc::backend_failure}, nullptr};
+  }
+
+  if (!loaded.value->has_guid()) {
+    loaded.value->set_guid(guid);
+  }
+  if (loaded.value->guid() != guid) {
+    return {{error_domain::resources, errc::inconsistent_type}, nullptr};
+  }
+
+  T* stored = loaded.value.get();
+  if (!target.replace(std::move(loaded.value))) {
+    return {{error_domain::resources, errc::backend_failure}, nullptr};
+  }
+
+  return {{}, stored};
+}
+
+/**
  * @brief 使用保存器保存 cache 中的指定资源。
  *
  * 如果 cache 未包含该 GUID，返回 `errc::not_found`。保存目标、格式和覆盖策略由 saver 实现决定。
@@ -283,6 +324,7 @@ using resources::load_into;
 using resources::load_manifest;
 using resources::load_manifest_json;
 using resources::load_serialized;
+using resources::reload_into;
 using resources::save_from;
 using resources::save_serialized;
 

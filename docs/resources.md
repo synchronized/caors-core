@@ -270,11 +270,14 @@ if (cache.resolve(reference)) {
 
 - `cache<T>` 拥有它创建的资源，`erase()` 和 `clear()` 会销毁资源。
 - `insert()` 可以接收已经构造好的 `memory::unique_ptr<T>`，适合 loader 把资源所有权转入缓存。
+- `replace()` 可以替换同 GUID 的已有资源，适合同步 reload 成功后把新资源放入 cache。
 - `release()` 会从缓存和索引中移除资源，并把所有权交给调用方。
 - `create(guid, args...)` 会使用缓存的 `memory_resource` 构造资源；nil GUID、重复 GUID 或构造后资源
   GUID 与传入 GUID 不一致都会失败。
 - `cache<T>` 当前不负责从磁盘、网络或资源包加载内容；loader 层会决定如何构造资源。
 - `cache<T>` 不提供内部线程同步；跨线程访问时调用方需要自行加锁。
+- `erase()`、`release()`、`clear()` 和 `replace()` 不会通知外部已解析的 `resource_ref<T>` 或裸指针。
+  已解析引用可能继续保存旧资源地址；调用方应在资源卸载或替换后重新解析引用，或由上层系统广播失效事件。
 
 ## manifest
 
@@ -439,6 +442,15 @@ caors::error saved = caors::save_from(cache, saver, id);
 - loader 返回的资源如果携带不同 GUID，会返回 `errc::inconsistent_type`。
 - 成功后资源所有权转入 cache，后续由 cache 销毁或 `release()` 转移。
 
+`reload_into()` 用于同步重载 cache 中已经存在的资源：
+
+- GUID 为 nil 时返回 `resources / invalid_argument`。
+- cache 未包含该 GUID 时返回 `resources / not_found`；首次加载应继续使用 `load_into()`。
+- loader 加载失败、返回空指针或返回不同 GUID 时，不修改 cache 中旧资源。
+- 只有新资源完整加载且身份校验通过后，才通过 `cache.replace()` 替换旧资源。
+- 替换成功后旧资源会被销毁，但外部已解析到旧资源的 `resource_ref<T>` 或裸指针不会自动置空。
+  使用方应重新调用 `cache.resolve(ref)` 或由上层资源系统统一处理引用失效通知。
+
 `save_from()` 的规则：
 
 - GUID 为 nil 时返回 `errc::invalid_argument`。
@@ -487,6 +499,14 @@ auto loaded = caors::load_into(cache, loader, texture_id);
 4. 使用 `load_into(cache, loader, guid)` 把资源放入 cache。
 5. 反序列化对象时把 cache resolver 挂到 `context.resources.resolver`，按
    `resolve_if_present` 或 `require_resolved` 决定缺资源策略。
+
+同步重载推荐流程：
+
+1. 更新 manifest 条目的 `location`、`hash` 或 `version`。
+2. 使用 `sync_manifest(provider, source, manifest)` 更新 provider 中的 GUID 到位置映射。
+3. 调用 `reload_into(cache, loader, guid)` 重新读取 provider、解码资源并替换 cache 中旧资源。
+4. 如果重载失败，`reload_into()` 保留 cache 中旧资源，调用方可以继续使用旧资源并返回诊断错误。
+5. 替换成功后，调用方需要重新解析相关 `resource_ref<T>`，或在上层系统里发出资源失效/重载通知。
 
 provider 本身不直接作为 `resource_ref<T>` resolver，因为它只知道字节位置，不知道如何构造具体 `T`。
 如果需要“缺失时自动加载”，应在上层实现一个自定义 resolver：内部先查询 cache，未命中时通过

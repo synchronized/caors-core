@@ -119,6 +119,38 @@ public:
   }
 
   /**
+   * @brief 替换已经存在的资源并转移所有权。
+   *
+   * 传入资源必须携带非 nil GUID，且缓存中已经存在同 GUID 资源。替换成功后旧资源会被销毁，
+   * 内部索引指向新资源。已有外部裸指针或已解析 `resource_ref<T>` 不会自动失效，调用方应避免继续
+   * 使用旧指针，并在需要时重新解析引用。
+   */
+  bool replace(memory::unique_ptr<resource_type> owned) {
+    if (owned == nullptr || !owned->has_guid()) {
+      return false;
+    }
+
+    const resource_guid guid = owned->guid();
+    const auto position = resources_by_guid_.find(guid);
+    if (position == resources_by_guid_.end()) {
+      return false;
+    }
+
+    resource_type* stored = owned.get();
+    if (!index_.unbind(guid)) {
+      return false;
+    }
+
+    if (!index_.bind(guid, stored)) {
+      (void)index_.bind(guid, position->second.get());
+      return false;
+    }
+
+    position->second = std::move(owned);
+    return true;
+  }
+
+  /**
    * @brief 从缓存中移除并销毁资源。
    *
    * 成功移除时返回 true。已有外部裸指针或已解析 `resource_ref<T>` 不会自动置空。

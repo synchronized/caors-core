@@ -88,4 +88,29 @@ TEST_CASE("resources - manifest provider loader cache can resolve serialized res
   CHECK(decoded.resource.guid() == test_guid_a);
   CHECK(decoded.resource.resolved());
   CHECK(decoded.resource.get() == loaded.value);
+
+  REQUIRE(files.write_all("assets/resource-v2.json", std::string_view{R"({"width":1024})"})
+              .succeeded());
+  REQUIRE(manifest.set(test_guid_a, "assets/resource-v2.json").succeeded());
+  REQUIRE(caors::sync_manifest(provider, source, manifest).succeeded());
+
+  caors::result<serialized_resource*> reloaded = caors::reload_into(cache, loader, test_guid_a);
+
+  REQUIRE(reloaded.succeeded());
+  REQUIRE(reloaded.value != nullptr);
+  CHECK(reloaded.value->width == 1024);
+  CHECK(cache.find(test_guid_a) == reloaded.value);
+
+  REQUIRE(cache.resolve(decoded.resource));
+  CHECK(decoded.resource.get() == reloaded.value);
+
+  REQUIRE(manifest.set(test_guid_a, "assets/missing.json").succeeded());
+  REQUIRE(caors::sync_manifest(provider, source, manifest).succeeded());
+
+  caors::result<serialized_resource*> failed_reload =
+      caors::reload_into(cache, loader, test_guid_a);
+
+  CHECK(failed_reload.failed());
+  CHECK(cache.find(test_guid_a) == reloaded.value);
+  CHECK(cache.find(test_guid_a)->width == 1024);
 }
