@@ -208,7 +208,19 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [ ] 后续评估调试 fileserver、资源包、远程资源、导入管线、资源数据库和编辑器工具层；当这些能力需要独立
   生命周期、后台任务或 UI/工具协议时，再考虑拆出独立资源工具链主题。
 
-## 7. 事件与委托
+## 7. 任务调度
+
+- [ ] 建立 `tasks` 主题，第一阶段只依赖 C++20 STL，不引入第三方任务库。
+- [ ] 定义最小 `tasks::executor` 抽象，用于资源异步加载、资源导入管线、后台序列化和跨线程事件投递等模块提交任务。
+- [ ] 提供 `tasks::inline_executor`，用于测试和确定性执行；提交的任务在调用线程立即运行。
+- [ ] 提供 `tasks::thread_pool_executor`，基于 `std::jthread` / `std::mutex` / `std::condition_variable`
+  实现固定线程池，支持安全停止和析构前 drain / cancel 边界。
+- [ ] 提供轻量 move-only task wrapper，避免把任务系统核心 API 绑定到 `std::function` 的可拷贝要求。
+- [ ] 设计 `tasks::completion_queue` 或主线程回调队列，用于后台任务完成后把结果交给主线程 commit。
+- [ ] 定义基础任务状态和结果语义，先覆盖 queued/running/completed/failed/cancelled，后续再评估进度、优先级和取消传播。
+- [ ] 明确任务调度边界：第一阶段不做 work stealing、fiber、协程 scheduler、任务图和平台异步 IO；这些能力后续按需求评估。
+
+## 8. 事件与委托
 
 - [x] 设计类似 EnTT 的轻量 `events::delegate`，支持自由函数、成员函数、lambda / 函数对象绑定，并明确所有权和生命周期限制。
 - [x] 设计 `events::signal`，支持类型安全订阅、取消订阅和同步触发。
