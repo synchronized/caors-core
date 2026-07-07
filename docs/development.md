@@ -58,12 +58,27 @@ clang-tidy src/caors/version.cpp -p build
 
 `include/caors/version.h.in` 包含 CMake 占位符，不直接使用 `clang-format` 格式化；需要检查时以生成后的 `version.h` 为准。
 
+## 测试目录规则
+
+`tests/` 采用“叶子目录生成测试可执行文件”的组织方式：
+
+- 每个叶子测试目录自动生成一个测试目标和一个 CTest 用例。例如
+  `tests/serialization/resource/` 会生成 `caors_serialization_resource_test`，CTest 名称为
+  `caors.serialization.resource`。
+- 非叶子分组目录不直接放置 `.cpp` 文件；如果一个目录还有子目录，测试源文件应移动到更具体的叶子目录。
+- 叶子目录可以包含多个同主题测试源文件，适合把一个主题下的不同用例拆成多个 `.cpp`。
+- 模块共享的测试辅助头文件可以放在模块根目录，例如 `tests/serialization/serialization_test_support.h`；
+  测试目标会包含叶子目录及其父级测试目录。
+- 需要特殊构建规则的测试目录可以提供自己的 `CMakeLists.txt`，根测试脚本会改用
+  `add_subdirectory()` 交给该目录自行处理。
+- 新增测试时优先新增或复用合适的叶子主题目录，避免把大量不相关测试继续塞进单个大目标。
+
 ## 新增模块
 
 新增主题模块时建议同步处理：
 
 - 公共 API 放入 `include/caors/` 或对应主题子目录。
 - 实现放入 `src/caors/`。
-- 行为测试放入 `tests/<topic>/`。
+- 行为测试放入 `tests/<topic>/<leaf-topic>/`，遵循“叶子目录生成测试可执行文件”的规则。
 - 示例放入 `examples/<topic>/`，规则见 [examples/README.md](../examples/README.md)。
 - 专题文档放入 `docs/<topic>.md`，并在 [docs/README.md](README.md) 中挂入口。
