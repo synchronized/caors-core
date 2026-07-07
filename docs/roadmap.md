@@ -210,13 +210,13 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 
 ## 7. 任务调度
 
-- [ ] 建立 `tasks` 主题，第一阶段只依赖 C++20 STL，不引入第三方任务库。
-- [ ] 定义最小 `tasks::executor` 抽象，用于资源异步加载、资源导入管线、后台序列化和跨线程事件投递等模块提交任务。
-- [ ] 提供 `tasks::inline_executor`，用于测试和确定性执行；提交的任务在调用线程立即运行。
+- [x] 建立 `tasks` 主题，第一阶段只依赖 C++20 STL，不引入第三方任务库。
+- [x] 定义最小 `tasks::executor` 抽象，用于资源异步加载、资源导入管线、后台序列化和跨线程事件投递等模块提交任务。
+- [x] 提供 `tasks::inline_executor`，用于测试和确定性执行；提交的任务在调用线程立即运行。
 - [ ] 提供 `tasks::thread_pool_executor`，基于 `std::jthread` / `std::mutex` / `std::condition_variable`
   实现固定线程池，支持安全停止和析构前 drain / cancel 边界。
-- [ ] 提供轻量 move-only task wrapper，避免把任务系统核心 API 绑定到 `std::function` 的可拷贝要求。
-- [ ] 设计 `tasks::completion_queue` 或主线程回调队列，用于后台任务完成后把结果交给主线程 commit。
+- [x] 提供轻量 move-only task wrapper，避免把任务系统核心 API 绑定到 `std::function` 的可拷贝要求。
+- [x] 提供 `tasks::completion_queue` 主线程回调队列，用于后台任务完成后把结果交给主线程 commit。
 - [ ] 定义基础任务状态和结果语义，先覆盖 queued/running/completed/failed/cancelled，后续再评估进度、优先级和取消传播。
 - [ ] 明确任务调度边界：第一阶段不做 work stealing、fiber、协程 scheduler、任务图和平台异步 IO；这些能力后续按需求评估。
 

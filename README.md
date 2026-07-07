@@ -30,6 +30,7 @@ CAORS 目前更偏底层库和实验性基础设施，而不是完整引擎或�
   `caors/core/containers.h` 和 `caors/core/locator.h`。
 - 基础 IO API：`caors/io.h`，包含虚拟路径、同步字节流、文件系统抽象、本地文件系统、内存文件系统和挂载文件系统。
 - 事件 API：`caors/events.h`，包含轻量 delegate、同步 signal、连接视图、连接句柄和同步 dispatcher。
+- 任务 API：`caors/tasks.h`，包含 move-only task、executor 抽象、同步 inline executor 和主线程 completion queue。
 - 类型元数据 API：`caors/meta.h`，包含运行期 `type_id` 和稳定 `type_guid`。
 - 基础内存资源 API：`caors/memory.h`。
 - 基础对象系统 API：`caors/object.h`。
@@ -74,6 +75,7 @@ ctest --preset windows-clang-debug
 - [docs/roadmap.md](docs/roadmap.md)：项目路线图。
 - [docs/registration.md](docs/registration.md)：类型、对象、反射和序列化的注册顺序与初始化策略。
 - [docs/serialization.md](docs/serialization.md)：序列化元信息、文本/JSON 读写、codec、资源引用和多态读写边界。
+- [docs/tasks.md](docs/tasks.md)：任务包装器、executor 抽象和主线程完成队列。
 - [docs/value.md](docs/value.md)：`any`、`any_ref`、运行期 view 和 `variant` 数据 DOM。
 - [examples/README.md](examples/README.md)：示例构建、运行和新增规则。
 - [tests/README.md](tests/README.md)：测试组织、运行和新增规则。
