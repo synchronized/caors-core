@@ -5,6 +5,7 @@
 #define CAORS_RESOURCES_HANDLE_H_
 
 #include "caors/memory/resource.h"
+#include "caors/memory/unique_ptr.h"
 #include "caors/resources/resource.h"
 
 #include <atomic>
@@ -20,25 +21,34 @@ template <typename T> class weak_handle;
 template <typename T, typename... Args>
 [[nodiscard]] handle<T> make_handle(memory_resource* resource, Args&&... args);
 
+template <typename T>
+[[nodiscard]] handle<T> adopt_handle(memory::unique_ptr<T> owned,
+                                     memory_resource* control_resource = nullptr);
+
 namespace detail {
 
-using handle_destroy_fn = void (*)(void* instance, memory_resource* resource) noexcept;
+using handle_destroy_fn = void (*)(void* user_data, void* instance) noexcept;
+
+template <typename T> void delete_handle_instance(void*, void* instance) noexcept {
+  delete static_cast<T*>(instance);
+}
 
 struct handle_control_block {
-  handle_control_block(memory_resource* object_resource, memory_resource* control_resource,
+  handle_control_block(void* destroy_user_data, memory_resource* control_resource,
                        handle_destroy_fn destroy) noexcept
-      : object_resource(object_resource), control_resource(control_resource), destroy(destroy) {}
+      : destroy_user_data(destroy_user_data), control_resource(control_resource), destroy(destroy) {
+  }
 
   std::atomic<std::size_t> strong_count{0};
   std::atomic<std::size_t> weak_count{1};
-  memory_resource* object_resource = nullptr;
+  void* destroy_user_data = nullptr;
   memory_resource* control_resource = nullptr;
   handle_destroy_fn destroy = nullptr;
   void* instance = nullptr;
 };
 
 [[nodiscard]] inline handle_control_block*
-try_make_handle_control_block(memory_resource* object_resource, memory_resource* control_resource,
+try_make_handle_control_block(void* destroy_user_data, memory_resource* control_resource,
                               handle_destroy_fn destroy) noexcept {
   memory_resource* resolved =
       control_resource != nullptr ? control_resource : get_default_memory_resource();
@@ -48,7 +58,7 @@ try_make_handle_control_block(memory_resource* object_resource, memory_resource*
     return nullptr;
   }
 
-  return ::new (storage) handle_control_block{object_resource, resolved, destroy};
+  return ::new (storage) handle_control_block{destroy_user_data, resolved, destroy};
 }
 
 inline void destroy_handle_control_block(handle_control_block* control) noexcept {
@@ -98,9 +108,8 @@ inline void release_weak_handle_ref(handle_control_block* control) noexcept {
   return control != nullptr ? control->strong_count.load(std::memory_order_acquire) : 0;
 }
 
-template <typename T>
-void destroy_handle_instance(void* instance, memory_resource* resource) noexcept {
-  caors::destroy(static_cast<T*>(instance), resource);
+template <typename T> void destroy_handle_instance(void* resource, void* instance) noexcept {
+  caors::destroy(static_cast<T*>(instance), static_cast<memory_resource*>(resource));
 }
 
 } // namespace detail
@@ -237,6 +246,8 @@ private:
   template <typename U> friend class weak_handle;
   template <typename U, typename... Args>
   friend handle<U> make_handle(memory_resource* resource, Args&&... args);
+  template <typename U>
+  friend handle<U> adopt_handle(memory::unique_ptr<U> owned, memory_resource* control_resource);
 
   struct adopt_tag {};
   struct retained_tag {};
@@ -264,7 +275,7 @@ private:
     if (control != nullptr && detail::release_handle_ref(control)) {
       void* stored_instance = control->instance != nullptr ? control->instance : instance;
       control->instance = nullptr;
-      control->destroy(stored_instance, control->object_resource);
+      control->destroy(control->destroy_user_data, stored_instance);
       detail::release_weak_handle_ref(control);
     }
   }
@@ -485,6 +496,41 @@ template <typename T, typename... Args>
   return {};
 }
 
+/** @brief 接管已有资源对象所有权并返回强引用句柄。 */
+template <typename T>
+[[nodiscard]] handle<T> adopt_handle(memory::unique_ptr<T> owned,
+                                     memory_resource* control_resource) {
+  static_assert(std::is_base_of_v<resources::resource, T>,
+                "T must derive from caors::resources::resource");
+
+  if (owned == nullptr) {
+    return {};
+  }
+
+  const auto deleter = owned.get_deleter();
+  detail::handle_destroy_fn destroy = nullptr;
+  void* destroy_user_data = nullptr;
+  if (deleter.destroy_function() != nullptr) {
+    destroy = deleter.destroy_function();
+    destroy_user_data = deleter.user_data();
+  } else {
+    destroy = &detail::delete_handle_instance<T>;
+  }
+
+  memory_resource* resolved_control =
+      control_resource != nullptr ? control_resource : get_default_memory_resource();
+  auto* control =
+      detail::try_make_handle_control_block(destroy_user_data, resolved_control, destroy);
+  if (control == nullptr) {
+    return {};
+  }
+
+  T* instance = owned.release();
+  control->destroy_user_data = destroy_user_data;
+  control->instance = instance;
+  return handle<T>{instance, control, typename handle<T>::adopt_tag{}};
+}
+
 /** @brief 使用默认内存资源创建资源对象并返回强引用句柄。 */
 template <typename T> [[nodiscard]] handle<T> make_handle() {
   return make_handle<T>(static_cast<memory_resource*>(nullptr));
@@ -505,6 +551,7 @@ namespace caors {
 template <typename T> using resource_handle = resources::handle<T>;
 template <typename T> using resource_weak_handle = resources::weak_handle<T>;
 
+using resources::adopt_handle;
 using resources::make_handle;
 
 } // namespace caors

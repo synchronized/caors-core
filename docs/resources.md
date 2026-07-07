@@ -4,8 +4,9 @@
 # Resources
 
 本文档说明 CAORS 资源系统的当前设计边界。资源系统仍处于基础阶段，当前提供资源身份、轻量引用模型、
-运行期共享 handle、非拥有资源索引、拥有式缓存、资源清单、字节来源 provider、加载/保存接口、同步
-reload、显式 reload 通知、最小序列化读写 helper 和序列化资源引用 resolver；异步加载和资源包后续再补。
+运行期共享 handle、非拥有资源索引、引用计数缓存、资源依赖图、资源清单、字节来源 provider、
+加载/保存接口、同步 reload、显式 reload 通知、最小序列化读写 helper 和序列化资源引用 resolver；
+异步加载和资源包后续再补。
 
 ## 设计目标
 
@@ -16,7 +17,8 @@ reload、显式 reload 通知、最小序列化读写 helper 和序列化资源�
 - 资源引用可以先保存 GUID，在资源加载后再解析成实际资源指针。
 - 运行期资源 handle 可以用引用计数共享资源对象生命周期。
 - 资源管理器可以保存非拥有索引，用 GUID 定位已经存在的资源对象。
-- 资源缓存可以按 GUID 拥有资源对象，并复用 manager 做查找和引用解析。
+- 资源缓存可以按 GUID 持有强 handle，并复用 manager 做查找和引用解析。
+- 资源依赖图可以记录资源 GUID 之间的依赖和反向依赖。
 - 资源清单可以把稳定 GUID 映射到资源位置、类型、版本和 hash。
 - 资源 provider 可以把稳定 GUID 映射到字节来源和位置，作为资源数据库或调试 fileserver 的运行期读取入口。
 - 资源加载器和保存器先只定义类型化接口，不绑定路径、文件系统或异步框架。
@@ -26,7 +28,7 @@ reload、显式 reload 通知、最小序列化读写 helper 和序列化资源�
 
 - 资源包或网络加载后端。
 - 拥有式全局资源缓存。
-- cache 级自动引用计数。
+- cache 级自动淘汰、后台释放或跨 cache 生命周期协调。
 - 完整热重载系统。
 - 资源导入管线。
 - 与对象系统的场景树生命周期绑定。
@@ -45,6 +47,7 @@ reload、显式 reload 通知、最小序列化读写 helper 和序列化资源�
 - `resources::weak_handle<T>`
 - `resources::manager`
 - `resources::cache<T>`
+- `resources::dependency_graph`
 - `resources::manifest`
 - `resources::manifest_entry`
 - `resources::source`
@@ -67,12 +70,14 @@ reload、显式 reload 通知、最小序列化读写 helper 和序列化资源�
 - `caors::resource_weak_handle<T>`
 - `caors::resource_manager`
 - `caors::resource_cache<T>`
+- `caors::resource_dependency_graph`
 - `caors::resource_manifest`
 - `caors::resource_manifest_entry`
 - `caors::resource_source`
 - `caors::resource_file_source`
 - `caors::resource_provider`
 - `caors::resource_load_result<T>`
+- `caors::resource_handle_result<T>`
 - `caors::resource_loader<T>`
 - `caors::resource_json_loader<T>`
 - `caors::resource_saver<T>`
@@ -80,13 +85,16 @@ reload、显式 reload 通知、最小序列化读写 helper 和序列化资源�
 - `caors::resource_reload_event<T>`
 - `caors::resource_reload_signal<T>`
 - `caors::bind_manifest()`
+- `caors::adopt_handle()`
 - `caors::load_into()`
+- `caors::load_handle_into()`
 - `caors::load_manifest()`
 - `caors::load_manifest_json()`
 - `caors::load_serialized()`
 - `caors::make_handle()`
 - `caors::replace_manifest()`
 - `caors::reload_and_notify()`
+- `caors::reload_handle_into()`
 - `caors::save_from()`
 - `caors::save_serialized()`
 - `caors::sync_manifest()`
@@ -176,10 +184,11 @@ if (auto locked = weak.lock()) {
 - `handle<T>` 通过独立控制块拥有资源对象；最后一个强 handle 释放时销毁资源。
 - `weak_handle<T>` 不延长资源生命周期，资源销毁后 `lock()` 返回空 handle。
 - `make_handle<T>(resource, args...)` 会使用指定 `memory_resource` 构造资源对象和控制块。
+- `adopt_handle<T>(unique_ptr, resource)` 可以把 loader 返回的 `memory::unique_ptr<T>` 转成强 handle。
 - `handle<T>` 是运行期所有权工具，不是稳定资源引用；序列化、依赖收集和资源数据库仍应使用
   `resource_guid` / `resource_ref<T>`。
-- 当前 `cache<T>` 仍使用 `memory::unique_ptr<T>` 拥有资源。把 cache 内部升级为控制块缓存、让
-  `load_into()` 返回 handle、以及定义 reload 后旧 handle 的保留或失效策略，是后续工作。
+- `cache<T>` 内部持有强 handle。`erase()`、`clear()` 或 `replace()` 只释放 cache 自己的强引用；
+  如果外部仍持有 `resource_handle<T>`，旧资源会继续存活到最后一个强引用释放。
 
 ## 序列化
 
@@ -290,13 +299,14 @@ if (manager.resolve(reference)) {
 
 ## cache
 
-`resources::cache<T>` 是拥有式资源缓存。它按 `resource_guid` 创建并持有 `T` 资源对象，同时维护一个
-内部 `resources::manager` 作为非拥有索引：
+`resources::cache<T>` 是拥有式资源缓存。它按 `resource_guid` 创建并持有 `resources::handle<T>`，
+同时维护一个内部 `resources::manager` 作为非拥有索引：
 
 ```cpp
 caors::resource_cache<texture> cache;
 
 texture* value = cache.create(id);
+caors::resource_handle<texture> held = cache.find_handle(id);
 caors::resource_ref<texture> reference{id};
 
 if (cache.resolve(reference)) {
@@ -306,24 +316,49 @@ if (cache.resolve(reference)) {
 
 需要注意：
 
-- `cache<T>` 拥有它创建的资源，`erase()` 和 `clear()` 会销毁资源。
-- `insert()` 可以接收已经构造好的 `memory::unique_ptr<T>`，适合 loader 把资源所有权转入缓存。
-- `replace()` 可以替换同 GUID 的已有资源，适合同步 reload 成功后把新资源放入 cache。
-- `release()` 会从缓存和索引中移除资源，并把所有权交给调用方。
-- `create(guid, args...)` 会使用缓存的 `memory_resource` 构造资源；nil GUID、重复 GUID 或构造后资源
-  GUID 与传入 GUID 不一致都会失败。
+- `cache<T>` 内部保存强 handle。`create_handle()`、`find_handle()` 和 `release()` 返回强 handle；
+  `create()`、`find()` 和 `load_into()` 只是返回非拥有裸指针视图。
+- `insert()` 可以接收已经构造好的 `memory::unique_ptr<T>` 或 `resource_handle<T>`，适合 loader
+  把资源所有权转入缓存。
+- `replace()` 可以替换同 GUID 的已有资源，适合同步 reload 成功后把新资源放入 cache。旧资源会在
+  最后一个外部强 handle 释放后销毁。
+- `release()` 会从缓存和索引中移除资源，并把强 handle 交给调用方。
+- `create_handle(guid, args...)` 会使用缓存的 `memory_resource` 构造资源；nil GUID、重复 GUID
+  或构造后资源 GUID 与传入 GUID 不一致都会失败。
 - `cache<T>` 当前不负责从磁盘、网络或资源包加载内容；loader 层会决定如何构造资源。
 - `cache<T>` 不提供内部线程同步；跨线程访问时调用方需要自行加锁。
 - `erase()`、`release()`、`clear()` 和 `replace()` 不会通知外部已解析的 `resource_ref<T>` 或裸指针。
   已解析引用可能继续保存旧资源地址；调用方可以用 `cache.is_current(ref)` 检测是否仍为当前版本，并在资源
-  卸载或替换后重新解析引用，或由上层系统广播失效事件。
+  卸载或替换后重新解析引用，或由上层系统广播失效事件。需要保证旧资源存活时，应保存
+  `resource_handle<T>`，不要只保存裸指针。
+
+## dependency_graph
+
+`resources::dependency_graph` 记录资源 GUID 之间的依赖和反向依赖关系：
+
+```cpp
+caors::resource_dependency_graph graph;
+
+graph.add(material_id, albedo_texture_id);
+graph.add(material_id, normal_texture_id);
+
+caors::vector<caors::resource_guid> dependencies = graph.dependencies(material_id);
+caors::vector<caors::resource_guid> affected = graph.dependents(albedo_texture_id);
+```
+
+需要注意：
+
+- `dependency_graph` 只保存 GUID 关系，不加载资源、不拥有资源对象，也不访问 cache 或 provider。
+- `dependencies(resource)` 返回资源直接依赖的 GUID 列表。
+- `dependents(resource)` 返回直接依赖该资源的 GUID 列表，适合 reload 后查询哪些资源需要重新处理。
+- 当前第一版只建模资源到资源的直接依赖。对象、场景、资源包和编辑器导入任务可以在上层资源数据库中继续扩展。
 
 ## reload 策略现状
 
 当前资源 reload 是一套底层同步方案，而不是完整热重载系统。它的职责划分如下：
 
 - `resource_ref<T>` 保存稳定 `resource_guid`、可选已解析 `T*` 和运行期 generation，不拥有资源。
-- `resources::cache<T>` 拥有资源对象，并维护 GUID 到资源指针的索引。
+- `resources::cache<T>` 持有资源强 handle，并维护 GUID 到资源指针的索引。
 - `resources::manifest` / `resources::provider` / `resources::loader<T>` 负责定位和重新加载资源内容。
 - `resources::reload_into(cache, loader, guid)` 只负责“重新加载已有资源并替换 cache 中的对象”。
 - `resources::reload_and_notify(cache, loader, guid, signal)` 在 `reload_into()` 之后同步广播
@@ -338,12 +373,13 @@ if (cache.resolve(reference)) {
 
 当前方案限制：
 
-- `resource_ref<T>` 已解析后保存的是普通指针；`cache.replace()` 销毁旧资源后，旧指针不会自动置空。
-  调用方可以用 `cache.is_current(ref)` 检测该引用是否已经过期，但不能继续解引用旧指针。
+- `resource_ref<T>` 已解析后保存的是普通指针；`cache.replace()` 切换到新资源后，旧指针不会自动置空。
+  如果没有外部 `resource_handle<T>` 持有旧资源，旧指针会悬空。调用方可以用 `cache.is_current(ref)`
+  检测该引用是否已经过期，但不能继续解引用旧指针。
 - 调用方需要在 reload 成功后重新解析引用；可以使用 `reload_and_notify()` 显式广播资源失效/重载事件。
 - 当前 generation 只能判断同一个 manager/cache 内的运行期绑定是否仍当前，不解决跨进程版本、资源依赖或
   自动刷新。
-- 当前没有依赖图，不会自动知道哪些材质、场景或资源需要跟随刷新。
+- 当前依赖图只记录资源 GUID 之间的关系；材质、场景或对象如何跟随刷新仍由上层资源数据库或运行期系统决定。
 - 当前没有文件监听、异步加载和后台任务队列。
 
 主流资源系统通常会在这个基础上继续补几层能力：
@@ -356,7 +392,7 @@ if (cache.resolve(reference)) {
 6. 维护资源依赖图，用于预加载、打包、热更新和级联刷新。
 
 因此当前方案适合作为 CAORS 资源系统第一层：它先保证同步加载、替换、失败保留和显式通知语义明确；
-完整热重载、自动刷新和级联刷新应在后续的资源依赖图、文件监听和资源数据库上继续扩展。
+完整热重载、自动刷新和级联刷新应在后续的文件监听、资源数据库和上层运行期系统中继续扩展。
 
 ## manifest
 
@@ -498,12 +534,15 @@ public:
 ```
 
 加载结果使用 `resource_load_result<T>`，内部是 `result<memory::unique_ptr<T>>`。加载器返回所有权后，
-可以通过 `load_into()` 转入 `resources::cache<T>`：
+可以通过 `load_handle_into()` 转入 `resources::cache<T>` 并拿到强 handle；如果只需要临时访问，
+也可以使用兼容入口 `load_into()` 返回裸指针：
 
 ```cpp
 caors::resource_cache<texture> cache;
 texture_loader loader;
 
+caors::resource_handle_result<texture> held =
+    caors::load_handle_into(cache, loader, id);
 caors::result<texture*> value = caors::load_into(cache, loader, id);
 ```
 
@@ -514,22 +553,23 @@ texture_saver saver;
 caors::error saved = caors::save_from(cache, saver, id);
 ```
 
-`load_into()` 的规则：
+`load_handle_into()` / `load_into()` 的规则：
 
 - cache 已经有同 GUID 资源时直接返回已有对象，不再次调用 loader。
 - loader 返回的资源如果没有 GUID，会写入请求 GUID。
 - loader 返回的资源如果携带不同 GUID，会返回 `errc::inconsistent_type`。
-- 成功后资源所有权转入 cache，后续由 cache 销毁或 `release()` 转移。
+- 成功后资源所有权转入 cache。`load_handle_into()` 返回强 handle；`load_into()` 返回非拥有裸指针。
 
-`reload_into()` 用于同步重载 cache 中已经存在的资源：
+`reload_handle_into()` / `reload_into()` 用于同步重载 cache 中已经存在的资源：
 
 - GUID 为 nil 时返回 `resources / invalid_argument`。
 - cache 未包含该 GUID 时返回 `resources / not_found`；首次加载应继续使用 `load_into()`。
 - loader 加载失败、返回空指针或返回不同 GUID 时，不修改 cache 中旧资源。
 - 只有新资源完整加载且身份校验通过后，才通过 `cache.replace()` 替换旧资源。
-- 替换成功后旧资源会被销毁，但外部已解析到旧资源的 `resource_ref<T>` 或裸指针不会自动置空。
-  使用方可以先通过 `cache.is_current(ref)` 判断引用是否过期，再重新调用 `cache.resolve(ref)`，或由上层资源
-  系统统一处理引用失效通知。
+- 替换成功后 cache 指向新资源；外部旧 `resource_handle<T>` 会继续持有旧资源，直到最后一个强引用释放。
+- 外部已解析到旧资源的 `resource_ref<T>` 或裸指针不会自动置空。使用方可以先通过
+  `cache.is_current(ref)` 判断引用是否过期，再重新调用 `cache.resolve(ref)`，或由上层资源系统统一处理
+  引用失效通知。
 
 如果需要同步通知，可以使用 `reload_and_notify()`：
 

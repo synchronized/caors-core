@@ -55,6 +55,12 @@ public:
 
   [[nodiscard]] bool custom() const noexcept { return destroy_ != nullptr; }
 
+  /** @brief 查询自定义销毁回调的用户数据。仅用于把所有权转交给其它 CAORS 运行期句柄。 */
+  [[nodiscard]] void* user_data() const noexcept { return user_data_; }
+
+  /** @brief 查询自定义销毁回调。为空时表示使用普通 delete。 */
+  [[nodiscard]] destroy_fn destroy_function() const noexcept { return destroy_; }
+
 private:
   void* user_data_ = nullptr;
   destroy_fn destroy_ = nullptr;

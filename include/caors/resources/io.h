@@ -17,12 +17,14 @@
 namespace caors::resources {
 
 template <typename T> using load_result = result<memory::unique_ptr<T>>;
+template <typename T> using handle_result = result<handle<T>>;
 
 /**
  * @brief 指定资源类型的加载器接口。
  *
  * `loader<T>` 不绑定文件路径、资源包或异步系统。实现类只需要按 GUID 构造资源并返回所有权；
- * 调用方可选择直接持有结果，或通过 `load_into()` 转入 `resources::cache<T>`。
+ * 调用方可选择直接持有结果，或通过 `load_handle_into()` / `load_into()` 转入
+ * `resources::cache<T>`。
  */
 template <typename T> class loader {
   static_assert(std::is_base_of_v<resources::resource, T>,
@@ -71,40 +73,57 @@ public:
 /**
  * @brief 使用加载器把资源加载进 cache。
  *
- * 如果 cache 已包含该 GUID，直接返回已有对象。否则调用 loader 加载资源并把所有权转入 cache。
+ * 如果 cache 已包含该 GUID，直接返回已有强 handle。否则调用 loader 加载资源并把所有权转入 cache。
  */
 template <typename T>
-[[nodiscard]] result<T*> load_into(cache<T>& target, loader<T>& source, resource_guid guid) {
+[[nodiscard]] handle_result<T> load_handle_into(cache<T>& target, loader<T>& source,
+                                                resource_guid guid) {
   if (!guid) {
-    return {{error_domain::resources, errc::invalid_argument}, nullptr};
+    return {{error_domain::resources, errc::invalid_argument}, {}};
   }
 
-  if (T* existing = target.find(guid)) {
+  if (handle<T> existing = target.find_handle(guid)) {
     return {{}, existing};
   }
 
   load_result<T> loaded = source.load(guid, target.resource());
   if (loaded.failed()) {
-    return {loaded.status, nullptr};
+    return {loaded.status, {}};
   }
 
   if (loaded.value == nullptr) {
-    return {{error_domain::resources, errc::backend_failure}, nullptr};
+    return {{error_domain::resources, errc::backend_failure}, {}};
   }
 
-  if (!loaded.value->has_guid()) {
-    loaded.value->set_guid(guid);
-  }
-  if (loaded.value->guid() != guid) {
-    return {{error_domain::resources, errc::inconsistent_type}, nullptr};
+  handle<T> loaded_handle = adopt_handle(std::move(loaded.value), target.resource());
+  if (!loaded_handle) {
+    return {{error_domain::resources, errc::out_of_memory}, {}};
   }
 
-  T* stored = loaded.value.get();
-  if (!target.insert(std::move(loaded.value))) {
-    return {{error_domain::resources, errc::already_exists}, nullptr};
+  if (!loaded_handle->has_guid()) {
+    loaded_handle->set_guid(guid);
+  }
+  if (loaded_handle->guid() != guid) {
+    return {{error_domain::resources, errc::inconsistent_type}, {}};
   }
 
-  return {{}, stored};
+  if (!target.insert(loaded_handle)) {
+    return {{error_domain::resources, errc::already_exists}, {}};
+  }
+
+  return {{}, loaded_handle};
+}
+
+/**
+ * @brief 使用加载器把资源加载进 cache。
+ *
+ * 如果 cache 已包含该 GUID，直接返回已有对象。否则调用 loader 加载资源并把所有权转入 cache。
+ * 返回值是非拥有裸指针；需要延长资源生命周期时应使用 `load_handle_into()`。
+ */
+template <typename T>
+[[nodiscard]] result<T*> load_into(cache<T>& target, loader<T>& source, resource_guid guid) {
+  handle_result<T> loaded = load_handle_into(target, source, guid);
+  return {loaded.status, loaded.value.get()};
 }
 
 /**
@@ -112,40 +131,57 @@ template <typename T>
  *
  * 该函数只处理已存在资源的同步重载：cache 未包含该 GUID 时返回 `errc::not_found`。加载、解析或
  * 身份校验失败时不会修改 cache 中旧资源；只有新资源完整加载并通过 GUID 校验后才替换旧资源。
- * 已解析到旧资源对象的外部引用不会自动失效，调用方应在重载后重新解析相关 `resource_ref<T>`。
+ * 外部旧强 handle 会继续持有旧资源；已解析到旧资源对象的外部引用不会自动失效，调用方应在重载后
+ * 重新解析相关 `resource_ref<T>`。
  */
 template <typename T>
-[[nodiscard]] result<T*> reload_into(cache<T>& target, loader<T>& source, resource_guid guid) {
+[[nodiscard]] handle_result<T> reload_handle_into(cache<T>& target, loader<T>& source,
+                                                  resource_guid guid) {
   if (!guid) {
-    return {{error_domain::resources, errc::invalid_argument}, nullptr};
+    return {{error_domain::resources, errc::invalid_argument}, {}};
   }
 
   if (!target.contains(guid)) {
-    return {{error_domain::resources, errc::not_found}, nullptr};
+    return {{error_domain::resources, errc::not_found}, {}};
   }
 
   load_result<T> loaded = source.load(guid, target.resource());
   if (loaded.failed()) {
-    return {loaded.status, nullptr};
+    return {loaded.status, {}};
   }
 
   if (loaded.value == nullptr) {
-    return {{error_domain::resources, errc::backend_failure}, nullptr};
+    return {{error_domain::resources, errc::backend_failure}, {}};
   }
 
-  if (!loaded.value->has_guid()) {
-    loaded.value->set_guid(guid);
-  }
-  if (loaded.value->guid() != guid) {
-    return {{error_domain::resources, errc::inconsistent_type}, nullptr};
+  handle<T> loaded_handle = adopt_handle(std::move(loaded.value), target.resource());
+  if (!loaded_handle) {
+    return {{error_domain::resources, errc::out_of_memory}, {}};
   }
 
-  T* stored = loaded.value.get();
-  if (!target.replace(std::move(loaded.value))) {
-    return {{error_domain::resources, errc::backend_failure}, nullptr};
+  if (!loaded_handle->has_guid()) {
+    loaded_handle->set_guid(guid);
+  }
+  if (loaded_handle->guid() != guid) {
+    return {{error_domain::resources, errc::inconsistent_type}, {}};
   }
 
-  return {{}, stored};
+  if (!target.replace(loaded_handle)) {
+    return {{error_domain::resources, errc::backend_failure}, {}};
+  }
+
+  return {{}, loaded_handle};
+}
+
+/**
+ * @brief 重新加载并替换 cache 中已有资源。
+ *
+ * 该函数返回非拥有裸指针；需要在 reload 后继续持有新资源时应使用 `reload_handle_into()`。
+ */
+template <typename T>
+[[nodiscard]] result<T*> reload_into(cache<T>& target, loader<T>& source, resource_guid guid) {
+  handle_result<T> reloaded = reload_handle_into(target, source, guid);
+  return {reloaded.status, reloaded.value.get()};
 }
 
 /**
@@ -315,15 +351,18 @@ private:
 namespace caors {
 
 template <typename T> using resource_load_result = resources::load_result<T>;
+template <typename T> using resource_handle_result = resources::handle_result<T>;
 template <typename T> using resource_json_loader = resources::json_loader<T>;
 template <typename T> using resource_json_saver = resources::json_saver<T>;
 template <typename T> using resource_loader = resources::loader<T>;
 template <typename T> using resource_saver = resources::saver<T>;
 
+using resources::load_handle_into;
 using resources::load_into;
 using resources::load_manifest;
 using resources::load_manifest_json;
 using resources::load_serialized;
+using resources::reload_handle_into;
 using resources::reload_into;
 using resources::save_from;
 using resources::save_serialized;

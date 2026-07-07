@@ -6,6 +6,7 @@
 
 #include "caors/core/containers.h"
 #include "caors/memory/unique_ptr.h"
+#include "caors/resources/handle.h"
 #include "caors/resources/manager.h"
 
 #include <cstddef>
@@ -60,6 +61,12 @@ public:
     return position != resources_by_guid_.end() ? position->second.get() : nullptr;
   }
 
+  /** @brief 按 GUID 查找资源强引用。未命中时返回空 handle。 */
+  [[nodiscard]] handle<resource_type> find_handle(resource_guid guid) const {
+    const auto position = resources_by_guid_.find(guid);
+    return position != resources_by_guid_.end() ? position->second : handle<resource_type>{};
+  }
+
   /** @brief 按 GUID 查找可转换的资源类型。类型不匹配时返回 `nullptr`。 */
   template <typename U> [[nodiscard]] U* find_as(resource_guid guid) const {
     static_assert(std::is_base_of_v<resources::resource, U>,
@@ -75,14 +82,30 @@ public:
    */
   template <typename... Args>
   [[nodiscard]] resource_type* create(resource_guid guid, Args&&... args) {
+    return create_handle(guid, std::forward<Args>(args)...).get();
+  }
+
+  /**
+   * @brief 构造并插入一个资源，返回缓存持有的强引用句柄。
+   *
+   * nil GUID 或重复 GUID 会失败并返回空 handle。若构造出的资源已经有非 nil GUID，必须和传入 GUID
+   * 一致；若资源 GUID 为 nil，则会写入传入 GUID。
+   */
+  template <typename... Args>
+  [[nodiscard]] handle<resource_type> create_handle(resource_guid guid, Args&&... args) {
     if (!guid || contains(guid)) {
-      return nullptr;
+      return {};
     }
 
-    auto owned = memory::make_unique<resource_type>(resource_, std::forward<Args>(args)...);
+    handle<resource_type> owned =
+        make_handle<resource_type>(resource_, std::forward<Args>(args)...);
+    if (!owned) {
+      return {};
+    }
+
     const resource_guid owned_guid = owned->guid();
     if (owned_guid && owned_guid != guid) {
-      return nullptr;
+      return {};
     }
 
     if (!owned_guid) {
@@ -91,20 +114,37 @@ public:
 
     resource_type* stored = owned.get();
     if (!index_.bind(guid, stored)) {
-      return nullptr;
+      return {};
     }
 
-    resources_by_guid_.emplace(guid, std::move(owned));
-    return stored;
+    const auto [_, inserted] = resources_by_guid_.emplace(guid, owned);
+    if (!inserted) {
+      index_.unbind(guid);
+      return {};
+    }
+
+    return owned;
   }
 
   /**
-   * @brief 插入已经构造好的资源并转移所有权。
+   * @brief 插入已经构造好的资源并转移到强 handle。
    *
-   * 传入资源必须携带非 nil GUID，且该 GUID 尚未存在于缓存中。成功后缓存接管资源生命周期。
+   * 传入资源必须携带非 nil GUID，且该 GUID 尚未存在于缓存中。成功后缓存持有一份强引用。
    */
   bool insert(memory::unique_ptr<resource_type> owned) {
-    if (owned == nullptr || !owned->has_guid() || contains(owned->guid())) {
+    return insert(adopt_handle(std::move(owned), resource_));
+  }
+
+  /** @brief 空资源不能插入缓存。 */
+  bool insert(std::nullptr_t) noexcept { return false; }
+
+  /**
+   * @brief 插入已经构造好的资源强引用。
+   *
+   * 传入资源必须携带非 nil GUID，且该 GUID 尚未存在于缓存中。成功后缓存持有一份强引用。
+   */
+  bool insert(handle<resource_type> owned) {
+    if (!owned || !owned->has_guid() || contains(owned->guid())) {
       return false;
     }
 
@@ -124,14 +164,27 @@ public:
   }
 
   /**
-   * @brief 替换已经存在的资源并转移所有权。
+   * @brief 替换已经存在的资源并转移到强 handle。
    *
-   * 传入资源必须携带非 nil GUID，且缓存中已经存在同 GUID 资源。替换成功后旧资源会被销毁，
-   * 内部索引指向新资源。已有外部裸指针或已解析 `resource_ref<T>` 不会自动失效，调用方应避免继续
-   * 使用旧指针，并在需要时重新解析引用。
+   * 传入资源必须携带非 nil GUID，且缓存中已经存在同 GUID 资源。替换成功后缓存索引指向新资源。
+   * 旧资源会在最后一个外部强引用释放后销毁。已有外部裸指针或已解析 `resource_ref<T>`
+   * 不会自动失效，调用方应避免继续使用旧指针，并在需要时重新解析引用。
    */
   bool replace(memory::unique_ptr<resource_type> owned) {
-    if (owned == nullptr || !owned->has_guid()) {
+    return replace(adopt_handle(std::move(owned), resource_));
+  }
+
+  /** @brief 空资源不能替换缓存中的资源。 */
+  bool replace(std::nullptr_t) noexcept { return false; }
+
+  /**
+   * @brief 替换已经存在的资源强引用。
+   *
+   * 传入资源必须携带非 nil GUID，且缓存中已经存在同 GUID 资源。替换成功后缓存指向新资源。
+   * 旧资源会在最后一个外部强引用释放后销毁。
+   */
+  bool replace(handle<resource_type> owned) {
+    if (!owned || !owned->has_guid()) {
       return false;
     }
 
@@ -156,9 +209,10 @@ public:
   }
 
   /**
-   * @brief 从缓存中移除并销毁资源。
+   * @brief 从缓存中移除资源。
    *
-   * 成功移除时返回 true。已有外部裸指针或已解析 `resource_ref<T>` 不会自动置空。
+   * 成功移除时返回 true。若外部仍持有强 handle，资源会继续存活。已有外部裸指针或已解析
+   * `resource_ref<T>` 不会自动置空。
    */
   bool erase(resource_guid guid) {
     const auto position = resources_by_guid_.find(guid);
@@ -172,23 +226,23 @@ public:
   }
 
   /**
-   * @brief 从缓存中移除资源并把所有权交给调用方。
+   * @brief 从缓存中移除资源并把强引用交给调用方。
    *
    * 返回的资源仍保留自身 GUID，但不再能通过当前缓存或内部索引查找。
    */
-  [[nodiscard]] memory::unique_ptr<resource_type> release(resource_guid guid) {
+  [[nodiscard]] handle<resource_type> release(resource_guid guid) {
     const auto position = resources_by_guid_.find(guid);
     if (position == resources_by_guid_.end()) {
       return {};
     }
 
     index_.unbind(guid);
-    memory::unique_ptr<resource_type> owned = std::move(position->second);
+    handle<resource_type> owned = std::move(position->second);
     resources_by_guid_.erase(position);
     return owned;
   }
 
-  /** @brief 清空缓存并销毁全部资源。 */
+  /** @brief 清空缓存并释放全部缓存强引用。 */
   void clear() noexcept {
     index_.clear();
     resources_by_guid_.clear();
@@ -205,8 +259,7 @@ public:
   }
 
 private:
-  using resource_map =
-      core::hash_map<resource_guid, memory::unique_ptr<resource_type>, resource_guid_hash>;
+  using resource_map = core::hash_map<resource_guid, handle<resource_type>, resource_guid_hash>;
 
   memory_resource* resource_ = nullptr;
   manager index_;
