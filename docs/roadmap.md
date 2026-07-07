@@ -28,6 +28,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 补充反射和序列化组件的跨模块查询测试。
 - [x] 增加组件 `try_emplace` / `ensure` 语义和组件状态诊断 API。
 - [ ] 设计开放 runtime capability / poly concept table，用于外挂用户自定义运行期访问能力，并与内置 `type_descriptor` capability 并行。
+- [ ] 梳理 `type_descriptor`、serialization codec 和 runtime capability / poly concept table 的职责边界：
+  descriptor 保留内置布局、构造、容器和 wrapper 能力，codec 负责格式读写，runtime capability 作为用户扩展能力入口。
 - [ ] 评估组件替换和批量注册 API。
 
 ## 2. 定制化分配器
@@ -128,8 +130,13 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 支持普通 C++ 类在 `std::unique_ptr<Base>` / `caors::memory::unique_ptr<Base>` /
   `std::shared_ptr<Base>` 字段中的动态类型记录、默认构造和安全下转型。
 - [x] 为普通类多态值补充显式 factory 和可选 `memory_resource` 构造策略。
-- [ ] 为容器元素、`optional`、`variant` 切换等路径设计 placement 构造或字段级构造策略。
-- [ ] 评估是否放宽多层指针 / 多层 wrapper 限制，或提供清晰诊断与显式适配点。
+- [ ] 设计字段级构造策略，覆盖容器新增元素、空 `optional<T>`、`variant` 候选切换和不可默认构造类型；
+  优先使用 `serialization::context::memory_resource`、meta factory 和字段策略，失败时返回明确诊断。
+- [ ] 放宽多层指针 / 多层 wrapper 限制，采用逐层 indirect descriptor 展开；默认设置合理最大深度，
+  并对空中间层、不可写引用和所有权不明确的组合返回清晰诊断。
+- [ ] 设计 schema 策略，覆盖版本迁移、默认值恢复、未知字段保留、严格模式和字段重命名 / 删除策略。
+- [ ] 设计弱引用序列化策略，默认继续不展开 `std::weak_ptr<T>` / `objects::weak_ref<T>`，
+  提供基于 `objects::handle`、`resource_guid` 或自定义 resolver 的显式弱引用策略。
 - [ ] 增加紧凑二进制和 msgpack 等二进制后端。
 - [x] 增加版本兼容、缺失字段和未知字段基础测试。
 - [ ] 增加跨平台字节序测试。
