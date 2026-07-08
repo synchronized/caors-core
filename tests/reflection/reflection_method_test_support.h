@@ -41,7 +41,7 @@ struct duplicate_method_actor {
 }
 
 [[nodiscard]] inline caors::reflection::method require_method(const caors::reflection::type& type,
-                                                       std::string_view name) {
+                                                              std::string_view name) {
   auto method = type.find_method(name);
   REQUIRE(method);
   return method;

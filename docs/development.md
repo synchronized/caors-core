@@ -72,7 +72,13 @@ clang-tidy src/caors/version.cpp -p build
   `tests/serialization/resource/` 会生成 `caors_serialization_resource_test`，CTest 名称为
   `caors.serialization.resource`。
 - 非叶子分组目录不直接放置 `.cpp` 文件；如果一个目录还有子目录，测试源文件应移动到更具体的叶子目录。
-- 叶子目录可以包含多个同主题测试源文件，适合把一个主题下的不同用例拆成多个 `.cpp`。
+- 叶子目录可以包含多个同主题测试源文件，但不采用“一个用例一个超长 `.cpp` 文件”的规则。
+- 测试源文件按小主题命名，例如 `vector_test.cpp`、`registration_test.cpp`、`object_ref_test.cpp`；
+  详细场景写在 `TEST_CASE` 名称中，不重复写进文件名。
+- 文件名不重复父目录已有信息。例如位于 `tests/serialization/container/` 下时，文件名不再添加
+  `serialization_container_` 前缀。
+- 单个主题文件可以包含多个相关 `TEST_CASE`；当文件明显过大或 helper 名称冲突时，再拆成更具体的短主题文件。
+- 测试文件名应保持简短，避免 Windows + CMake + Ninja 生成对象文件路径时触发路径长度限制。
 - 模块共享的测试辅助头文件可以放在模块根目录，例如 `tests/serialization/serialization_test_support.h`；
   测试目标会包含叶子目录及其父级测试目录。
 - 需要特殊构建规则的测试目录可以提供自己的 `CMakeLists.txt`，根测试脚本会改用

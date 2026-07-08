@@ -7,7 +7,6 @@
 
 #include <limits>
 
-
 namespace caors::tests::serialization {
 
 struct policy_custom_codec_value {

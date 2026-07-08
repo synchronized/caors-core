@@ -31,7 +31,7 @@ inline void require_object_handle_target_metadata() {
 }
 
 inline void require_handle_value(const caors::variant& value, caors::object_id id,
-                          caors::object_type_id type) {
+                                 caors::object_type_id type) {
   REQUIRE(value.is_object());
 
   const caors::value::variant_member* id_member = value.find_member(caors::string_name{"id"});
