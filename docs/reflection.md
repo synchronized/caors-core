@@ -477,13 +477,20 @@ damage.invoke(&instance, args);
 `reflection::field` 当前提供：
 
 - `valid()`：判断视图是否仍有效。
-- `name()` / `type()` / `type_name()`：查询字段声明类型信息。
-- `value_type()`：查询统一 value 类型。对普通值是字段自身类型；对指针和 wrapper 是内部值类型；对 sequence/set 是元素类型；对 associative 是 mapped/value 类型；对 pair 是 second 类型。
-- `element_type()` / `element_type_name()`：查询 sequence/set 字段的元素类型信息，是 `value_type()` 的语义别名。
-- `key_type()` / `key_type_name()`：查询 associative 字段的 key 类型信息；pair 字段内部也复用它保存 first 类型。
-- `first_type()` / `first_type_name()`：查询 pair 字段的 first 类型信息。
-- `mapped_type()` / `mapped_type_name()`：查询 associative 字段的 mapped/value 类型信息，是 `value_type()` 的语义别名。
-- `second_type()` / `second_type_name()`：查询 pair 字段的 second 类型信息，是 `value_type()` 的语义别名。
+- `name()` / `get_type()` / `type()` / `type_name()`：查询字段声明类型信息。`get_type()` 返回
+  descriptor-backed `meta::type`，`type()` 返回 `type_id`。
+- `get_value_type()` / `value_type()`：查询统一 value 类型。对普通值是字段自身类型；对指针和 wrapper
+  是内部值类型；对 sequence/set 是元素类型；对 associative 是 mapped/value 类型；对 pair 是
+  second 类型。
+- `get_element_type()` / `element_type()` / `element_type_name()`：查询 sequence/set 字段的元素类型信息，是
+  `get_value_type()` / `value_type()` 的语义别名。
+- `get_key_type()` / `key_type()` / `key_type_name()`：查询 associative 字段的 key 类型信息；pair
+  字段内部也复用它保存 first 类型。
+- `get_first_type()` / `first_type()` / `first_type_name()`：查询 pair 字段的 first 类型信息。
+- `get_mapped_type()` / `mapped_type()` / `mapped_type_name()`：查询 associative 字段的 mapped/value
+  类型信息，是 `get_value_type()` / `value_type()` 的语义别名。
+- `get_second_type()` / `second_type()` / `second_type_name()`：查询 pair 字段的 second 类型信息，是
+  `get_value_type()` / `value_type()` 的语义别名。
 - `kind()` / `wrapper_semantics()` / `indirect()` / `nullable()`：查询字段形态语义。
 - `offset()` / `size()` / `alignment()` / `writable()`：查询字段布局和可写性。
 - `try_get<T>()` / `try_set<T>()`：按静态类型读写字段。
@@ -510,24 +517,28 @@ damage.invoke(&instance, args);
 `sequence_view` 当前提供：
 
 - `valid()` / `writable()`：判断视图有效性和是否允许修改。
-- `value_type()` / `value_type_name()`：查询元素类型信息。
-- `element_type()` / `element_type_name()`：查询元素类型信息，是 `value_type()` 的语义别名。
+- `get_value_type()` / `value_type()` / `value_type_name()`：查询元素类型信息。
+- `get_element_type()` / `element_type()` / `element_type_name()`：查询元素类型信息，是
+  `get_value_type()` / `value_type()` 的语义别名。
 - `size()` / `element_ref()` / `begin()` / `end()`：查询和访问顺序容器元素。可写视图返回的元素引用也可写。
 - `clear()` / `resize()` / `append_value()`：通过 `traits::sequence_traits` 修改顺序容器。只有可写视图允许修改。
 
 `set_view` 当前提供：
 
 - `valid()` / `writable()`：判断视图有效性和是否允许修改。
-- `value_type()` / `value_type_name()`：查询元素类型信息。
-- `element_type()` / `element_type_name()`：查询元素类型信息，是 `value_type()` 的语义别名。
+- `get_value_type()` / `value_type()` / `value_type_name()`：查询元素类型信息。
+- `get_element_type()` / `element_type()` / `element_type_name()`：查询元素类型信息，是
+  `get_value_type()` / `value_type()` 的语义别名。
 - `size()` / `begin()` / `end()` / `for_each_ref()`：查询和遍历集合。集合元素按 key 语义暴露为只读 `any_ref`。
 - `clear()` / `insert_value()`：通过 `traits::set_traits` 修改集合。只有可写视图允许修改。
 
 `associative_view` 当前提供：
 
 - `valid()` / `writable()`：判断视图有效性和是否允许修改。
-- `key_type()` / `key_type_name()` / `value_type()` / `value_type_name()`：查询 key/value 类型信息。
-- `mapped_type()` / `mapped_type_name()`：查询 mapped/value 类型信息，是 `value_type()` 的语义别名。
+- `get_key_type()` / `key_type()` / `key_type_name()` / `get_value_type()` / `value_type()` /
+  `value_type_name()`：查询 key/value 类型信息。
+- `get_mapped_type()` / `mapped_type()` / `mapped_type_name()`：查询 mapped/value 类型信息，是
+  `get_value_type()` / `value_type()` 的语义别名。
 - `size()` / `begin()` / `end()` / `for_each_ref()`：查询和遍历关联容器。iterator 解引用返回 `associative_entry_ref`，其中 key/value 都是只读 `any_ref`。
 - `clear()` / `insert_value()`：通过 `traits::associative_traits` 修改关联容器。只有可写视图允许修改；插入时
   key 和 value 必须与类型级关联容器 metadata 记录的 `type_id` 一致。
@@ -538,9 +549,10 @@ damage.invoke(&instance, args);
 `pair_view` 当前提供：
 
 - `valid()` / `writable()`：判断视图有效性和是否允许修改。
-- `first_type()` / `first_type_name()`：查询 first 类型信息。
-- `value_type()` / `value_type_name()`：查询 second 的统一 value 类型信息。
-- `second_type()` / `second_type_name()`：查询 second 类型信息，是 `value_type()` 的语义别名。
+- `get_first_type()` / `first_type()` / `first_type_name()`：查询 first 类型信息。
+- `get_value_type()` / `value_type()` / `value_type_name()`：查询 second 的统一 value 类型信息。
+- `get_second_type()` / `second_type()` / `second_type_name()`：查询 second 类型信息，是
+  `get_value_type()` / `value_type()` 的语义别名。
 - `first_ref()` / `second_ref()` / `value_ref()`：获取 first 或 second 的 `any_ref`。只读视图返回只读引用；可写视图在 traits 支持时返回可写引用。
 - `set_first()` / `set_second()`：用同类型 `any` 写入 first 或 second。只有可写视图允许修改。
 
@@ -548,7 +560,7 @@ damage.invoke(&instance, args);
 
 - `valid()` / `writable()`：判断视图有效性和是否允许修改。
 - `size()`：查询 tuple 元素数量。
-- `element_type(index)` / `element_type_name(index)`：查询指定下标的元素类型信息。
+- `get_element_type(index)` / `element_type(index)` / `element_type_name(index)`：查询指定下标的元素类型信息。
 - `element_ref(index)`：获取指定元素的 `any_ref`。只读视图返回只读引用；可写视图在 traits 支持时返回可写引用。
 - `set_element(index, value)`：用同类型 `any` 写入指定元素。只有可写视图允许修改。
 
@@ -557,8 +569,8 @@ damage.invoke(&instance, args);
 - `valid()` / `writable()`：判断视图有效性和是否允许修改。
 - `size()`：查询候选类型数量。
 - `index()`：查询当前候选下标；如果底层 variant 处于无值状态则返回空。
-- `alternative_type(index)` / `alternative_type_name(index)`：查询指定候选类型信息。
-- `value_type()` / `value_type_name()`：查询当前候选值类型信息。
+- `get_alternative_type(index)` / `alternative_type(index)` / `alternative_type_name(index)`：查询指定候选类型信息。
+- `get_value_type()` / `value_type()` / `value_type_name()`：查询当前候选值类型信息。
 - `value_ref()`：获取当前候选值的 `any_ref`。只读视图返回只读引用；可写视图在 traits 支持时返回可写引用。
 - `emplace(index)`：切换当前候选。只有可写视图允许修改，目标候选需要支持默认构造。
 - `set_value(value)`：用同类型 `any` 写入当前候选值。只有可写视图允许修改。
@@ -566,7 +578,9 @@ damage.invoke(&instance, args);
 `indirect_view` 当前提供：
 
 - `valid()` / `writable()`：判断视图有效性和是否允许修改。
-- `value_type()` / `value_type_name()`：查询内部值类型。
+- `get_value_type()` / `value_type()` / `value_type_name()`：查询内部值类型。
+- `get_dynamic_value_type()` / `dynamic_value_type()`：查询内部值的真实运行期类型；普通非多态值返回声明的
+  value 类型。
 - `has_value()`：判断指针或 wrapper 当前是否持有内部值。
 - `value_ref()`：获取内部值 `any_ref`。只读视图返回只读引用；可写视图在 wrapper 支持时返回可写引用。
 - `reset()`：把裸指针或 nullable wrapper 置空。只有可写视图允许重置。
@@ -575,8 +589,8 @@ damage.invoke(&instance, args);
 指向对象的引用；调用方需要保证引用使用期间对象仍然有效。
 
 内部容器 descriptor 的固定运行期能力集合保存 value/key、元素或候选类型的 `type_id`、子类型 descriptor
-以及容器操作函数。value/key 的名称仍通过 meta 注册表查询；如果子类型本身没有注册到
-meta，名称查询会返回空，但嵌套视图仍可依靠 descriptor 继续访问。
+以及容器操作函数。`get_*_type()` 会优先返回已注册 meta 类型，未注册时返回 descriptor-backed
+`meta::type`；名称查询也会回退到 descriptor 默认名。
 
 容器、指针、wrapper、pair、tuple 和 variant 这类结构类型不要求自身注册到 `meta::registry`。
 业务对象、枚举、标量命名类型等需要被名称、GUID、反射字段或多态构造策略稳定识别的类型仍应显式注册。

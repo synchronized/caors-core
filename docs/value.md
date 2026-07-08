@@ -121,7 +121,9 @@ caors::any value = caors::any::from(7);
 - `tuple_view`：访问 tuple-like 类型。
 - `variant_view`：访问 variant-like 类型。
 
-这些 view 通过 `meta::detail::type_descriptor` 保存的类型能力工作，不要求容器类型本身一定注册到全局 meta registry。需要名称、GUID、反射字段、序列化策略或多态构造的业务类型仍应显式注册。
+这些 view 通过 `meta::detail::type_descriptor` 保存的类型能力工作，不要求容器类型本身一定注册到全局 meta
+registry。`get_*_type()` 系列接口返回 descriptor-backed `meta::type`，旧的 `*_type()` 系列接口保留为
+`type_id` 快捷查询。需要稳定名称、GUID、反射字段、序列化策略或多态构造的业务类型仍应显式注册。
 
 集合和关联容器的 erased iterator 是 value/meta 内部临时对象，使用 CAORS 内部资源策略分配，并在 iterator
 视图析构时自动释放。它不使用用户容器的 allocator，也不会延长底层容器元素生命周期。

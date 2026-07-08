@@ -43,6 +43,8 @@ TEST_CASE("reflection - field view describes field layout", "[reflection]") {
 
   CHECK(field.valid());
   CHECK(field.name() == "health");
+  CHECK(field.get_type().id() == registered_type_id("float"));
+  CHECK(field.get_type().name() == "float");
   CHECK(field.type() == registered_type_id("float"));
   CHECK(field.offset() == offsetof(field_layout_actor, health));
   CHECK(field.writable());
@@ -140,6 +142,8 @@ TEST_CASE("reflection - field view describes sequence traits", "[reflection]") {
 
   const caors::reflection::field sequence = require_field(reflected, "sequence");
   CHECK(sequence.kind() == caors::meta::type_kind::sequence);
+  CHECK(sequence.get_value_type().id() == registered_type_id("int"));
+  CHECK(sequence.get_element_type().id() == registered_type_id("int"));
   CHECK(sequence.value_type() == registered_type_id("int"));
 
   const caors::reflection::field span = require_field(reflected, "span");
@@ -159,6 +163,7 @@ TEST_CASE("reflection - field view describes value and enum traits", "[reflectio
   const caors::reflection::field value = require_field(reflected, "value");
   CHECK(value.kind() == caors::meta::type_kind::value);
   CHECK(value.wrapper_semantics() == caors::meta::wrapper_semantics::none);
+  CHECK(value.get_value_type().id() == registered_type_id("int"));
   CHECK(value.value_type() == registered_type_id("int"));
   CHECK_FALSE(value.indirect());
   CHECK_FALSE(value.nullable());

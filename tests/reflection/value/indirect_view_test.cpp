@@ -33,6 +33,8 @@ TEST_CASE("reflection any_ref - creates indirect views for pointer and wrappers"
   REQUIRE(pointer.valid());
   CHECK(pointer.writable());
   CHECK(pointer.value_type() == caors::any::from(0).type());
+  CHECK(pointer.get_value_type().id() == caors::any::from(0).type());
+  CHECK(pointer.get_dynamic_value_type().id() == caors::any::from(0).type());
   CHECK(pointer.value_type_name() == "int");
   CHECK(pointer.has_value());
   caors::any_ref pointer_value = pointer.value_ref();

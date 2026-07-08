@@ -29,6 +29,9 @@ namespace detail {
 
 struct type_descriptor;
 
+/** @brief 从类型 id 和 descriptor 构造类型视图。内部用于字段和运行期值视图。 */
+[[nodiscard]] CAORS_API type make_type_view(type_id id, const type_descriptor* descriptor) noexcept;
+
 } // namespace detail
 
 /** @brief 类型运行期形态。 */
@@ -257,6 +260,7 @@ private:
   friend detail::value_clone_fn detail::get_clone_value_fn(const type&) noexcept;
   friend detail::value_destroy_fn detail::get_destroy_value_fn(const type&) noexcept;
   friend detail::value_assign_fn detail::get_assign_value_fn(const type&) noexcept;
+  friend type detail::make_type_view(type_id, const detail::type_descriptor*) noexcept;
 
   constexpr type(const registry* registry, const detail::type_data* data,
                  const detail::type_descriptor* descriptor) noexcept

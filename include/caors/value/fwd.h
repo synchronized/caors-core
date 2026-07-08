@@ -5,6 +5,7 @@
 #define CAORS_VALUE_FWD_H_
 
 #include "caors/core/string_name.h"
+#include "caors/meta/type.h"
 #include "caors/meta/type_id.h"
 
 #include <cstddef>

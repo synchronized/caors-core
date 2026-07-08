@@ -29,12 +29,15 @@ public:
   [[nodiscard]] std::optional<std::size_t> index() const noexcept;
 
   /** @brief 查询指定候选类型。 */
+  [[nodiscard]] std::optional<meta::type>
+  get_alternative_type(std::size_t alternative) const noexcept;
   [[nodiscard]] std::optional<type_id> alternative_type(std::size_t alternative) const noexcept;
 
   /** @brief 查询指定候选类型名。 */
   [[nodiscard]] string_name alternative_type_name(std::size_t alternative) const noexcept;
 
   /** @brief 查询当前值类型。 */
+  [[nodiscard]] meta::type get_value_type() const noexcept;
   [[nodiscard]] type_id value_type() const noexcept;
 
   /** @brief 查询当前值类型名。 */

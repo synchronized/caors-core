@@ -26,6 +26,7 @@ public:
   [[nodiscard]] std::size_t size() const noexcept;
 
   /** @brief 查询指定元素类型。 */
+  [[nodiscard]] std::optional<meta::type> get_element_type(std::size_t index) const noexcept;
   [[nodiscard]] std::optional<type_id> element_type(std::size_t index) const noexcept;
 
   /** @brief 查询指定元素类型名。 */

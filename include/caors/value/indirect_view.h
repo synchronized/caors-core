@@ -23,6 +23,7 @@ public:
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
   [[nodiscard]] bool writable() const noexcept { return valid() && writable_; }
+  [[nodiscard]] meta::type get_value_type() const noexcept;
   [[nodiscard]] type_id value_type() const noexcept;
   [[nodiscard]] string_name value_type_name() const noexcept;
 
@@ -33,6 +34,7 @@ public:
   [[nodiscard]] any_ref value_ref() const;
 
   /** @brief 获取内部值的真实运行期类型。普通非多态值返回声明的 value 类型。 */
+  [[nodiscard]] meta::type get_dynamic_value_type() const noexcept;
   [[nodiscard]] type_id dynamic_value_type() const noexcept;
 
   /** @brief 按真实运行期类型获取内部值引用。 */

@@ -19,6 +19,8 @@ TEST_CASE("reflection any_ref - creates pair views from descriptor values", "[re
   REQUIRE(pair.valid());
   CHECK(pair.writable());
   const caors::type_id int_type = caors::any::from(0).type();
+  CHECK(pair.get_first_type().id() == int_type);
+  CHECK(pair.get_second_type().id() == int_type);
   CHECK(pair.first_type() == int_type);
   CHECK(pair.second_type() == int_type);
 
@@ -52,6 +54,7 @@ TEST_CASE("reflection any_ref - creates sequence views from descriptor span valu
   caors::value::sequence_view sequence = reference.create_sequence_view();
   REQUIRE(sequence.valid());
   CHECK(sequence.writable());
+  CHECK(sequence.get_value_type().id() == caors::any::from(0).type());
   CHECK(sequence.value_type() == caors::any::from(0).type());
 
   const std::optional<std::size_t> size = sequence.size();
@@ -85,6 +88,8 @@ TEST_CASE("reflection any_ref - creates tuple views from descriptor values", "[r
   CHECK(tuple.writable());
   CHECK(tuple.size() == 3);
   REQUIRE(tuple.element_type(0).has_value());
+  REQUIRE(tuple.get_element_type(0).has_value());
+  CHECK(tuple.get_element_type(0)->id() == caors::any::from(0).type());
   CHECK(*tuple.element_type(0) == caors::any::from(0).type());
   CHECK(tuple.element_type_name(2) == "caors.string");
 
@@ -124,6 +129,8 @@ TEST_CASE("reflection any_ref - creates variant views from descriptor values", "
   REQUIRE(variant.index().has_value());
   CHECK(*variant.index() == 0);
   REQUIRE(variant.alternative_type(1).has_value());
+  REQUIRE(variant.get_alternative_type(1).has_value());
+  CHECK(variant.get_alternative_type(1)->id() == caors::any::from(caors::string{}).type());
   CHECK(*variant.alternative_type(1) == caors::any::from(caors::string{}).type());
 
   caors::any_ref active = variant.value_ref();
@@ -132,6 +139,7 @@ TEST_CASE("reflection any_ref - creates variant views from descriptor values", "
   CHECK(std::get<int>(value) == 7);
 
   REQUIRE(variant.emplace(1));
+  CHECK(variant.get_value_type().id() == caors::any::from(caors::string{}).type());
   CHECK(variant.value_type_name() == "caors.string");
   active = variant.value_ref();
   REQUIRE(active.valid());
