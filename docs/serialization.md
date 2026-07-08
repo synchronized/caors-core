@@ -632,8 +632,9 @@ if (player* current = manager.find(target)) {
 ### serialization codec
 
 `serialization::codec_traits<T>` 是类型级扩展点。编译期已知 `T` 时可以通过 `serialization::codec_of<T>()`
-直接取得静态 codec 视图；运行期只剩 `type_id` 时，调度层会通过 `meta::capabilities`
-运行期索引查询 codec 能力，命中后由 codec 直接处理该值，未命中时再回退到内置标量探测。这样 `guid`、`type_guid` 这类语义上是
+直接取得静态 codec 视图；运行期拿得到 `type_descriptor` 时，调度层会先通过 descriptor
+静态能力查询延迟 codec 能力，命中后由 codec 直接处理该值；如果没有 descriptor 或静态能力未命中，
+才会通过 `meta::capabilities` 运行期索引按 `type_id` 查询 codec 能力，最后再回退到内置标量探测。这样 `guid`、`type_guid` 这类语义上是
 原子值的类型，不需要暴露内部字段结构。容器、pair、tuple、variant、裸指针和普通 wrapper 字段优先通过
 `meta::detail::type_descriptor` 生成的视图递归处理内部值，因此这类字段通常不需要显式注册
 `serialization::codec_traits<T>`。
@@ -643,9 +644,13 @@ codec 和 meta descriptor 的边界：
 - `meta::detail::type_descriptor` 描述 C++ 值本身的基础能力，例如布局、构造、销毁、枚举、容器和 wrapper
   访问。
 - `serialization::detail::codec_descriptor` 描述序列化专用能力，例如写入 writer、从 reader 读回和构造
-  `variant` 中间值。它不写入 `type_descriptor`，而是作为 serialization 模块 capability 挂到独立运行期索引。
+  `variant` 中间值。它本身不写入 `type_descriptor`；descriptor 静态表保存的是延迟
+  `codec_capability`，用于在需要时取得实际 `codec_descriptor`。
 - 编译期已知 `T` 时，内部可以从 `serialization::codec_traits<T>` 静态生成一份 `codec_descriptor` 函数表，
   不依赖运行期注册表。
+- `any`、`any_ref` 和反射字段这类携带 descriptor 的路径会先查询 descriptor 静态 codec 能力，
+  因此只要 `codec_traits<T>` 特化在生成该 descriptor 的翻译单元可见，通常不需要显式
+  `register_codec<T>()`。
 - 运行期只剩 `type_id` 时，`serialization::find_codec()` 会查询 `meta::capabilities` 中的
   `type_id -> codec_descriptor` 索引。
 - `serialization::register_codec<T>()` 不创建 meta 类型，只把 `type_id` 和对应静态 codec descriptor
@@ -686,7 +691,9 @@ codec 和 meta descriptor 的边界：
 内置标量 codec 按 type descriptor id 懒加载补齐，不要求内置类型显式 meta 注册。内置 codec 和外部
 `serialization::codec_traits<T>` 特化都通过同一套函数表构造逻辑生成 `codec_descriptor`；区别只是内置
 codec 由库内部按需放入运行期索引，外部自定义 codec 可以直接通过 `serialization::codec_of<T>()`
-取得静态视图，只有运行期只剩 `type_id` 查询时才需要显式调用 `serialization::register_codec<T>()`。
+取得静态视图。携带 descriptor 的 `any` / `any_ref` / 反射字段路径会优先使用 descriptor
+静态 codec 能力；只有运行期只剩 `type_id` 查询，或者 descriptor 生成时没有看到对应
+`codec_traits<T>` 特化时，才需要显式调用 `serialization::register_codec<T>()`。
 
 反射字段中的容器、pair、tuple、variant、裸指针和普通 wrapper 不要求显式调用
 `serialization::register_codec<T>()`，

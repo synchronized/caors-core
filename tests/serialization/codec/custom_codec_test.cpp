@@ -49,6 +49,42 @@ TEST_CASE("serialization - custom codec specialization registers one runtime tab
   CHECK(decoded.value.value == 7);
 }
 
+TEST_CASE("serialization - descriptor static codec handles erased values without registration",
+          "[serialization]") {
+  CHECK_FALSE(
+      caors::serialization::find_codec(caors::meta::type_of<descriptor_static_codec_value>()));
+
+  const descriptor_static_codec_value value{9};
+  const caors::serialization::variant_result erased =
+      caors::serialization::to_variant(caors::any::from(value));
+  REQUIRE(erased.succeeded());
+  REQUIRE(erased.value.try_as_i64() != nullptr);
+  CHECK(*erased.value.try_as_i64() == 209);
+
+  require_registered_type<descriptor_static_codec_value>(
+      "caors.test.serialization.descriptor_static_codec_value");
+  REQUIRE(reflection_result_ok(caors::reflection::class_<descriptor_static_codec_actor>(
+                                   "caors.test.serialization.descriptor_static_codec_actor")
+                                   .field("value", &descriptor_static_codec_actor::value)
+                                   .commit()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::register_type<descriptor_static_codec_actor>()));
+
+  const descriptor_static_codec_actor actor{{11}};
+  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
+
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"value":211})");
+
+  descriptor_static_codec_actor decoded{};
+  const caors::error result = caors::deserialize_json(decoded, R"({"value":207})");
+
+  REQUIRE(result.succeeded());
+  CHECK(decoded.value.value == 7);
+  CHECK_FALSE(
+      caors::serialization::find_codec(caors::meta::type_of<descriptor_static_codec_value>()));
+}
+
 // 原测试文件：serialization_custom_codec_serialization_writer_features_validate_required_field_identifiers_test.cpp
 
 #include "serialization_custom_codec_test_support.h"

@@ -57,14 +57,54 @@ template <typename Capability, typename T> struct static_capability {
  */
 template <typename... Types> struct type_list {};
 
+namespace list_detail {
+
+template <typename... Lists> struct concat_type_lists;
+
+template <> struct concat_type_lists<> {
+  using type = type_list<>;
+};
+
+template <typename... Types> struct concat_type_lists<type_list<Types...>> {
+  using type = type_list<Types...>;
+};
+
+template <typename... Lhs, typename... Rhs, typename... Rest>
+struct concat_type_lists<type_list<Lhs...>, type_list<Rhs...>, Rest...>
+    : concat_type_lists<type_list<Lhs..., Rhs...>, Rest...> {};
+
+template <typename... Lists>
+using concat_type_lists_t = typename concat_type_lists<Lists...>::type;
+
+} // namespace list_detail
+
+/** @brief object 模块的 descriptor 静态能力贡献 tag。 */
+struct object_static_capability_module {};
+
+/** @brief serialization 模块的 descriptor 静态能力贡献 tag。 */
+struct serialization_static_capability_module {};
+
+/** @brief 用户或外部模块的 descriptor 静态能力贡献 tag。 */
+struct custom_static_capability_module {};
+
+/** @brief 指定模块对某个 C++ 类型贡献的 descriptor 级静态能力列表。 */
+template <typename Module, typename T> struct module_static_capability_list {
+  using type = type_list<>;
+};
+
 /**
- * @brief C++ 类型静态能力列表扩展点。
+ * @brief C++ 类型静态能力聚合列表。
  *
- * 模块可特化该模板，把某个 C++ 类型拥有的静态能力声明给 `type_descriptor`。
- * 默认表示没有 descriptor 级静态能力。
+ * 各模块应优先特化自己的 `module_static_capability_list<Module, T>`，避免多个模块直接特化
+ * 该聚合模板时互相覆盖。
  */
 template <typename T> struct static_capability_list {
-  using type = type_list<>;
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  using type = list_detail::concat_type_lists_t<
+      typename module_static_capability_list<object_static_capability_module, value_type>::type,
+      typename module_static_capability_list<serialization_static_capability_module,
+                                             value_type>::type,
+      typename module_static_capability_list<custom_static_capability_module, value_type>::type>;
 };
 
 /** @brief 按 C++ 类型查询静态能力。 */

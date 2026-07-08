@@ -13,6 +13,34 @@
 
 namespace caors::serialization::detail {
 
+namespace {
+
+[[nodiscard]] const codec_descriptor*
+static_codec_descriptor(const meta::detail::type_descriptor* descriptor) {
+  const auto* capability =
+      meta::detail::descriptor_static_capability<codec_capability>(descriptor);
+  return capability != nullptr ? capability->get() : nullptr;
+}
+
+[[nodiscard]] const codec_descriptor*
+find_codec_descriptor(const meta::detail::type_descriptor* descriptor, type_id id) {
+  if (const codec_descriptor* codec = static_codec_descriptor(descriptor); codec != nullptr) {
+    return codec;
+  }
+
+  return descriptor_of(serialization::find_codec(id));
+}
+
+[[nodiscard]] const codec_descriptor* find_codec_descriptor(const any& data) {
+  return find_codec_descriptor(value::detail::descriptor_of(data), data.get_type().id());
+}
+
+[[nodiscard]] const codec_descriptor* find_codec_descriptor(const any_ref& value) {
+  return find_codec_descriptor(value::detail::descriptor_of(value), value.get_type().id());
+}
+
+} // namespace
+
 variant_result make_serialized_value(const any& data) {
   if (!data.valid()) {
     return {{error_domain::serialization, errc::unsupported}, {}};
@@ -33,7 +61,7 @@ variant_result make_serialized_value(const any& data) {
     }
   }
 
-  const codec_descriptor* codec = descriptor_of(serialization::find_codec(data.get_type().id()));
+  const codec_descriptor* codec = find_codec_descriptor(data);
   if (codec != nullptr && codec->make_value != nullptr) {
     return codec->make_value(data);
   }
@@ -151,7 +179,7 @@ variant_result make_serialized_value(const any_ref& value, const serialization::
   }
 
   const type_id value_type = value.get_type().id();
-  const codec_descriptor* codec = descriptor_of(serialization::find_codec(value_type));
+  const codec_descriptor* codec = find_codec_descriptor(value);
   if (codec != nullptr && codec->make_value_context != nullptr) {
     any copied = value.to_any();
     if (!copied.valid()) {
@@ -236,7 +264,7 @@ error write_serialized_value(writer& writer, const any_ref& value,
   }
 
   const type_id value_type = value.get_type().id();
-  const codec_descriptor* codec = descriptor_of(serialization::find_codec(value_type));
+  const codec_descriptor* codec = find_codec_descriptor(value);
   if (codec != nullptr && codec->write_context != nullptr) {
     any copied = value.to_any();
     if (!copied.valid()) {
@@ -319,7 +347,7 @@ error read_serialized_value(reader& reader, const any_ref& target,
   }
 
   const type_id target_type = target.get_type().id();
-  const codec_descriptor* codec = descriptor_of(serialization::find_codec(target_type));
+  const codec_descriptor* codec = find_codec_descriptor(target);
   if (codec != nullptr && codec->read_value_context != nullptr) {
     return codec->read_value_context(context, reader, target);
   }
@@ -406,11 +434,11 @@ error read_field(reader& reader, const reflection::field& field, void* object,
   any_ref target{};
   bool use_legacy_codec_read = false;
   if (field_uses_direct_value(field)) {
-    const codec_descriptor* codec = descriptor_of(serialization::find_codec(field.get_type().id()));
+    target = field.get_ref(object);
+    const codec_descriptor* codec = target.valid() ? find_codec_descriptor(target) : nullptr;
     use_legacy_codec_read = codec != nullptr &&
                             (codec->read != nullptr || codec->read_context != nullptr) &&
                             codec->read_value == nullptr && codec->read_value_context == nullptr;
-    target = field.get_ref(object);
   } else if (!uses_indirect_value) {
     return {error_domain::serialization, errc::unsupported};
   }
@@ -436,7 +464,7 @@ error read_field(reader& reader, const reflection::field& field, void* object,
   }
 
   if (use_legacy_codec_read) {
-    const codec_descriptor* codec = descriptor_of(serialization::find_codec(field.get_type().id()));
+    const codec_descriptor* codec = find_codec_descriptor(target);
     if (codec == nullptr || (codec->read == nullptr && codec->read_context == nullptr)) {
       return {error_domain::serialization, errc::unsupported};
     }

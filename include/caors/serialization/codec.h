@@ -284,6 +284,21 @@ template <typename T> struct static_capability<serialization::detail::codec_desc
   }
 };
 
+/** @brief descriptor 静态表使用的延迟 codec 能力，避免构建 descriptor 时递归构造 codec。 */
+template <typename T> struct static_capability<serialization::detail::codec_capability, T> {
+  [[nodiscard]] static const serialization::detail::codec_capability* get() {
+    using type = std::remove_cv_t<std::remove_reference_t<T>>;
+    static const serialization::detail::codec_capability data{
+        &serialization::detail::codec_descriptor_ptr_of<type>};
+    return &data;
+  }
+};
+
+template <typename T>
+struct module_static_capability_list<serialization_static_capability_module, T> {
+  using type = type_list<serialization::detail::codec_capability>;
+};
+
 } // namespace caors::meta::capabilities
 
 namespace caors::serialization {

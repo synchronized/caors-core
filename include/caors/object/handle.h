@@ -170,7 +170,9 @@ template <typename T> struct static_capability<objects::detail::handle_data, T> 
   }
 };
 
-template <typename T> struct static_capability_list<objects::detail::basic_handle<T>> {
+template <typename T>
+struct module_static_capability_list<object_static_capability_module,
+                                     objects::detail::basic_handle<T>> {
   using type = type_list<objects::detail::handle_data>;
 };
 

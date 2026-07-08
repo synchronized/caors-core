@@ -64,6 +64,19 @@ struct codec_descriptor {
   }
 };
 
+using codec_descriptor_provider_fn = const codec_descriptor* (*)();
+
+/** @brief descriptor 级静态 codec 能力，延迟取得实际 codec 函数表。 */
+struct codec_capability {
+  codec_descriptor_provider_fn descriptor = nullptr;
+
+  [[nodiscard]] const codec_descriptor* get() const {
+    return descriptor != nullptr ? descriptor() : nullptr;
+  }
+
+  [[nodiscard]] bool valid() const { return get() != nullptr; }
+};
+
 } // namespace caors::serialization::detail
 
 #endif

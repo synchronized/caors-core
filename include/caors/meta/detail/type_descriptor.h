@@ -127,7 +127,7 @@ descriptor_static_capability(const type_descriptor& descriptor) noexcept {
   const capability_key key = capability_key_of<Capability>();
   for (std::size_t index = 0; index < descriptor.static_capability_count; ++index) {
     const capability_entry& entry = descriptor.static_capabilities[index];
-    if (entry.key == key) {
+    if (entry.key == key && entry.data != nullptr) {
       return static_cast<const Capability*>(entry.data);
     }
   }

@@ -127,7 +127,8 @@ template <typename T> struct static_capability<objects::detail::ptr_data, T> {
   }
 };
 
-template <typename T> struct static_capability_list<objects::ptr<T>> {
+template <typename T>
+struct module_static_capability_list<object_static_capability_module, objects::ptr<T>> {
   using type = type_list<objects::detail::ptr_data>;
 };
 
