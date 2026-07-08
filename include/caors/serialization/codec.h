@@ -114,7 +114,6 @@ template <typename Codec, typename T> [[nodiscard]] codec_descriptor make_codec_
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   codec_descriptor data{};
   data.type = meta::detail::descriptor_type_id<type>();
-  data.value_type = meta::detail::descriptor_ptr_of<type>();
 
   if constexpr (Codec::can_write) {
     if constexpr (requires(serialization::writer& writer, const type& value) {

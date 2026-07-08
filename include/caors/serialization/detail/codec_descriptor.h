@@ -9,10 +9,6 @@
 #include "caors/result.h"
 #include "caors/value/variant.h"
 
-namespace caors::meta::detail {
-struct type_descriptor;
-} // namespace caors::meta::detail
-
 namespace caors::reflection {
 class field;
 } // namespace caors::reflection
@@ -46,7 +42,6 @@ using codec_context_value_fn = result<variant> (*)(const serialization::context&
 /** @brief 单个类型的序列化 codec 能力描述。 */
 struct codec_descriptor {
   type_id type{};
-  const meta::detail::type_descriptor* value_type = nullptr;
   codec_write_fn write = nullptr;
   codec_context_write_fn write_context = nullptr;
   codec_read_fn read = nullptr;
@@ -57,7 +52,7 @@ struct codec_descriptor {
   codec_context_value_fn make_value_context = nullptr;
 
   [[nodiscard]] constexpr bool valid() const noexcept {
-    return type && value_type != nullptr &&
+    return type &&
            (write != nullptr || write_context != nullptr || read != nullptr ||
             read_context != nullptr || read_value != nullptr || read_value_context != nullptr ||
             make_value != nullptr || make_value_context != nullptr);
