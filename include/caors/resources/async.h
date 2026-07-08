@@ -27,7 +27,7 @@ enum class request_status {
   loaded,
   /** @brief 请求失败，`error()` 保存失败原因。 */
   failed,
-  /** @brief 请求被取消。第一版只保留状态值，尚未实现取消传播。 */
+  /** @brief 请求被取消。已经开始的后台任务不会被强制中断，但不会再提交 cache。 */
   cancelled,
 };
 
@@ -140,6 +140,20 @@ public:
   /** @brief 查询请求是否被取消。 */
   [[nodiscard]] bool cancelled() const { return status() == request_status::cancelled; }
 
+  /**
+   * @brief 请求取消。
+   *
+   * 只有 queued/loading 状态可以取消。取消不会强制中断已经开始执行的 loader，但会阻止后续
+   * completion queue commit 写入 cache。请求已经 loaded、failed 或 cancelled 时返回 false。
+   */
+  [[nodiscard]] bool cancel() const {
+    if (state_ == nullptr) {
+      return false;
+    }
+
+    return detail::load_request_access<T>::cancel(*this);
+  }
+
   /** @brief 返回加载完成后的强 handle。未完成或失败时返回空 handle。 */
   [[nodiscard]] handle<T> get() const {
     if (state_ == nullptr) {
@@ -148,6 +162,35 @@ public:
 
     std::lock_guard lock{state_->mutex};
     return state_->value;
+  }
+
+  /**
+   * @brief 返回当前请求结果。
+   *
+   * loaded 时返回成功和结果 handle；queued/loading 时返回 `errc::pending`；cancelled 时返回
+   * `errc::cancelled`；failed 时返回原始错误。
+   */
+  [[nodiscard]] handle_result<T> result() const {
+    if (state_ == nullptr) {
+      return {{error_domain::resources, errc::invalid_argument}, {}};
+    }
+
+    std::lock_guard lock{state_->mutex};
+    switch (state_->status) {
+    case request_status::loaded:
+      return {{}, state_->value};
+    case request_status::failed:
+      return {state_->status_error ? state_->status_error
+                                   : caors::error{error_domain::resources, errc::backend_failure},
+              {}};
+    case request_status::cancelled:
+      return {{error_domain::resources, errc::cancelled}, {}};
+    case request_status::queued:
+    case request_status::loading:
+      return {{error_domain::resources, errc::pending}, {}};
+    }
+
+    return {{error_domain::resources, errc::backend_failure}, {}};
   }
 
 private:
@@ -185,30 +228,44 @@ public:
     return request.state_;
   }
 
-  static void loading(const std::shared_ptr<state_type>& state) {
+  [[nodiscard]] static bool loading(const std::shared_ptr<state_type>& state) {
     if (state == nullptr) {
-      return;
+      return false;
     }
 
     std::lock_guard lock{state->mutex};
+    if (state->status == request_status::cancelled) {
+      return false;
+    }
+    if (state->status == request_status::loaded || state->status == request_status::failed) {
+      return false;
+    }
+
     state->status = request_status::loading;
     state->status_error = {};
     state->value = {};
+    return true;
   }
 
   static void complete(const request_type& request, handle<T> value) {
-    complete(request.state_, std::move(value));
+    (void)complete(request.state_, std::move(value));
   }
 
-  static void complete(const std::shared_ptr<state_type>& state, handle<T> value) {
+  [[nodiscard]] static bool complete(const std::shared_ptr<state_type>& state, handle<T> value) {
     if (state == nullptr) {
-      return;
+      return false;
     }
 
     std::lock_guard lock{state->mutex};
+    if (state->status == request_status::cancelled || state->status == request_status::failed ||
+        state->status == request_status::loaded) {
+      return false;
+    }
+
     state->status = request_status::loaded;
     state->status_error = {};
     state->value = std::move(value);
+    return true;
   }
 
   static void fail(const request_type& request, caors::error status) {
@@ -221,10 +278,41 @@ public:
     }
 
     std::lock_guard lock{state->mutex};
+    if (state->status == request_status::cancelled || state->status == request_status::loaded) {
+      return;
+    }
+
     state->status = request_status::failed;
     state->status_error =
         status ? status : caors::error{error_domain::resources, errc::backend_failure};
     state->value = {};
+  }
+
+  [[nodiscard]] static bool cancel(const request_type& request) { return cancel(request.state_); }
+
+  [[nodiscard]] static bool cancel(const std::shared_ptr<state_type>& state) {
+    if (state == nullptr) {
+      return false;
+    }
+
+    std::lock_guard lock{state->mutex};
+    if (state->status != request_status::queued && state->status != request_status::loading) {
+      return false;
+    }
+
+    state->status = request_status::cancelled;
+    state->status_error = {error_domain::resources, errc::cancelled};
+    state->value = {};
+    return true;
+  }
+
+  [[nodiscard]] static bool is_cancelled(const std::shared_ptr<state_type>& state) {
+    if (state == nullptr) {
+      return true;
+    }
+
+    std::lock_guard lock{state->mutex};
+    return state->status == request_status::cancelled;
   }
 };
 
@@ -232,7 +320,9 @@ template <typename T, typename StatePtr>
 void load_resource_in_background(const StatePtr& state, cache<T>& target, loader<T>& source,
                                  resource_guid guid, tasks::completion_queue& completions,
                                  bool replace) {
-  load_request_access<T>::loading(state);
+  if (!load_request_access<T>::loading(state)) {
+    return;
+  }
 
 #if CAORS_HAS_EXCEPTIONS
   try {
@@ -243,9 +333,17 @@ void load_resource_in_background(const StatePtr& state, cache<T>& target, loader
       return;
     }
 
+    if (load_request_access<T>::is_cancelled(state)) {
+      return;
+    }
+
     error push_status = completions.push(tasks::task{
         target.resource(),
         [state, &target, guid, replace, loaded_resource = std::move(loaded.value)]() mutable {
+          if (load_request_access<T>::is_cancelled(state)) {
+            return error{};
+          }
+
           handle<T> committed;
           const error status =
               commit_loaded_resource(target, guid, std::move(loaded_resource), replace, committed);

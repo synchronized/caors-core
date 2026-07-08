@@ -226,6 +226,11 @@ completions.drain();
 if (request.loaded()) {
   caors::resource_handle<texture> texture = request.get();
 }
+
+auto result = request.result();
+if (result.failed()) {
+  caors::error status = result.status;
+}
 ```
 
 通过 database 使用已注册 cache/loader：
@@ -246,7 +251,16 @@ auto request = database.request_load<texture>(texture_id, executor, completions)
 - `loading`：后台任务正在加载，或加载完成后等待主线程 commit。
 - `loaded`：主线程 commit 成功，`get()` 返回结果 handle。
 - `failed`：请求失败，`error()` 返回失败原因。
-- `cancelled`：预留状态；第一版尚未实现取消传播。
+- `cancelled`：请求已取消。已经开始的后台 loader 不会被强制中断，但后续 completion queue commit 会跳过，
+  不再写入 cache。
+
+常用查询：
+
+- `cancel()`：queued/loading 状态可取消；loaded/failed/cancelled 状态返回 false。
+- `done()`：loaded、failed 或 cancelled 时返回 true。
+- `get()`：非阻塞；loaded 时返回结果 handle，未完成、失败或取消时返回空 handle。
+- `result()`：非阻塞；loaded 返回成功和结果 handle，queued/loading 返回 `resources / pending`，
+  cancelled 返回 `resources / cancelled`，failed 返回原始错误。
 
 失败策略：
 
@@ -258,6 +272,8 @@ auto request = database.request_load<texture>(texture_id, executor, completions)
 - load commit 时 cache 已被其它路径插入同 GUID：进入 `failed / resources::already_exists`。
 - reload commit 失败：进入 `failed / resources::backend_failure`，旧资源保持不变。
 - executor 拒绝提交：进入 `failed`，错误来自 executor，例如 `core / frozen`。
+- 调用方取消请求：进入 `cancelled / resources::cancelled`。若后台已经加载完成但主线程尚未 drain，
+  completion 回调会释放加载结果并跳过 cache commit。
 
 线程边界：
 
@@ -265,7 +281,7 @@ auto request = database.request_load<texture>(texture_id, executor, completions)
 - 后台任务可以调用 loader，但 loader、provider、source 和 memory_resource 是否能跨线程使用由调用方保证。
 - `load_request<T>` 自身状态查询是线程安全的。
 - `completion_queue::drain()` 应在拥有 cache 的线程调用。
-- 第一版 `load_request<T>::get()` 不阻塞；未完成或失败时返回空 handle。
+- 第一版 `load_request<T>::get()` 和 `result()` 都不阻塞；等待、批量轮询和进度聚合后续再补。
 
 ## 序列化
 

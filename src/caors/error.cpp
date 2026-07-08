@@ -46,6 +46,10 @@ public:
       return "missing parent";
     case errc::frozen:
       return "frozen";
+    case errc::pending:
+      return "pending";
+    case errc::cancelled:
+      return "cancelled";
     case errc::unsupported:
       return "unsupported";
     case errc::out_of_memory:

@@ -26,4 +26,12 @@ TEST_CASE("error - errc converts to std error code", "[error]") {
   const std::error_code duplicate_method = caors::errc::duplicate_method;
   CHECK(duplicate_method);
   CHECK(duplicate_method.message() == "duplicate method");
+
+  const std::error_code pending = caors::errc::pending;
+  CHECK(pending);
+  CHECK(pending.message() == "pending");
+
+  const std::error_code cancelled = caors::errc::cancelled;
+  CHECK(cancelled);
+  CHECK(cancelled.message() == "cancelled");
 }

@@ -30,6 +30,8 @@ enum class errc {
   inconsistent_type,
   missing_parent,
   frozen,
+  pending,
+  cancelled,
   unsupported,
   out_of_memory,
   backend_failure,

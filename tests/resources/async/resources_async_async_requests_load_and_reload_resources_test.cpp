@@ -38,6 +38,29 @@ public:
   bool fail_next = false;
 };
 
+class holding_executor final : public caors::tasks::executor {
+public:
+  [[nodiscard]] caors::error submit(caors::tasks::task next) override {
+    if (!next) {
+      return {caors::error_domain::core, caors::errc::invalid_argument};
+    }
+
+    queued = std::move(next);
+    return {};
+  }
+
+  [[nodiscard]] caors::error run_once() {
+    caors::tasks::task current = std::move(queued);
+    if (!current) {
+      return {caors::error_domain::core, caors::errc::invalid_argument};
+    }
+
+    return current.run();
+  }
+
+  caors::tasks::task queued{};
+};
+
 [[nodiscard]] bool meta_result_ok(caors::error result) noexcept {
   return result.succeeded() || result.value() == caors::errc::duplicate_id;
 }
@@ -67,10 +90,15 @@ TEST_CASE("resources - async load commits loaded resource through completion que
 
   REQUIRE(request.loaded());
   REQUIRE(request.get());
+  caors::resource_handle_result<async_resource> loaded = request.result();
+  REQUIRE(loaded.succeeded());
+  REQUIRE(loaded.value);
+  CHECK(loaded.value.get() == request.get().get());
   CHECK(request.get()->guid() == test_guid_a);
   CHECK(request.get()->value == 7);
   CHECK(cache.find(test_guid_a) == request.get().get());
   CHECK(loader.load_count.load() == 1);
+  CHECK_FALSE(request.cancel());
 }
 
 TEST_CASE("resources - async load returns cached resource immediately", "[resources]") {
@@ -135,9 +163,63 @@ TEST_CASE("resources - async reload failure keeps existing resource", "[resource
 
   CHECK(request.failed());
   CHECK(request.error() == caors::error{caors::error_domain::resources, caors::errc::not_found});
+  CHECK(request.result().status ==
+        caors::error{caors::error_domain::resources, caors::errc::not_found});
+  CHECK_FALSE(request.cancel());
   CHECK(cache.find(test_guid_a) == initial);
   CHECK(cache.find(test_guid_a)->value == 3);
   CHECK(completions.empty());
+}
+
+TEST_CASE("resources - async load can be cancelled before background starts", "[resources]") {
+  caors::resource_cache<async_resource> cache;
+  async_loader loader;
+  holding_executor executor;
+  caors::tasks::completion_queue completions;
+
+  caors::resource_load_request<async_resource> request =
+      caors::request_load_into(cache, loader, test_guid_a, executor, completions);
+
+  CHECK(request.status() == caors::resource_request_status::queued);
+  CHECK(request.result().status ==
+        caors::error{caors::error_domain::resources, caors::errc::pending});
+
+  REQUIRE(request.cancel());
+  CHECK(request.cancelled());
+  CHECK(request.done());
+  CHECK(request.result().status ==
+        caors::error{caors::error_domain::resources, caors::errc::cancelled});
+
+  CHECK_FALSE(executor.run_once());
+  CHECK(loader.load_count.load() == 0);
+  CHECK(completions.empty());
+  CHECK_FALSE(cache.contains(test_guid_a));
+  CHECK_FALSE(request.cancel());
+}
+
+TEST_CASE("resources - async load cancellation prevents queued commit", "[resources]") {
+  caors::resource_cache<async_resource> cache;
+  async_loader loader;
+  loader.next_value = 17;
+  caors::tasks::inline_executor executor;
+  caors::tasks::completion_queue completions;
+
+  caors::resource_load_request<async_resource> request =
+      caors::request_load_into(cache, loader, test_guid_a, executor, completions);
+
+  CHECK(request.status() == caors::resource_request_status::loading);
+  CHECK(loader.load_count.load() == 1);
+  CHECK(completions.size() == 1);
+
+  REQUIRE(request.cancel());
+  CHECK(request.cancelled());
+  CHECK(request.get() == nullptr);
+  CHECK(request.result().status ==
+        caors::error{caors::error_domain::resources, caors::errc::cancelled});
+
+  CHECK(completions.drain() == 1);
+  CHECK_FALSE(cache.contains(test_guid_a));
+  CHECK(request.cancelled());
 }
 
 TEST_CASE("resources - database async load uses registered cache and loader", "[resources]") {

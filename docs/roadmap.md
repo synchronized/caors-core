@@ -182,13 +182,15 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   匹配 loader/cache。
 - [x] 设计 Godot 风格的异步资源加载 API：`request_load<T>()` / `request_reload<T>()` 提交后台任务，
   `load_request` 保存 queued/loading/loaded/failed/cancelled 状态、错误和结果 handle，调用方跨帧查询状态后再获取结果。
+- [x] 补充异步资源请求的基础取消语义：queued/loading 可取消，已开始的 loader 不强制中断，但取消后不再提交
+  cache commit。
 - [ ] 扩展异步资源请求进度语义，支持 loader 报告可选进度和阶段文本。
 - [x] 实现资源异步执行器和后台任务队列：后台阶段只做 provider 读取、loader 解码和资源对象构造，不直接修改
   `cache<T>`、manifest 或运行期对象状态。
 - [x] 实现主线程 commit 阶段：第一版通过 `tasks::completion_queue::drain()` 将已完成异步结果插入或替换 cache，
   失败时保留旧资源；完成、失败和 reload 通知后续再接入 events/signal 或 dispatcher。
 - [ ] 设计异步加载请求合并和生命周期策略：同 GUID 重复请求复用同一 request，已缓存资源可立即完成，
-  后续再评估取消、优先级、依赖批量预加载和进度聚合。
+  后续再评估优先级、依赖批量预加载、等待 API 和进度聚合。
 - [x] 明确异步资源系统线程安全边界：哪些 `source` / `provider` / `memory_resource` 可跨线程访问，
   cache 修改必须在哪个线程执行，未完成 request 的 `get()` 是阻塞、返回错误还是禁止调用。
 - [x] 打通资源引用序列化 resolver，支持反序列化后按策略解析稳定 GUID 引用。

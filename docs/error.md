@@ -84,6 +84,16 @@ caors::error status = caors::meta::type_<actor>("game.actor").result();
 // status.value() == caors::errc::frozen
 ```
 
+异步或跨阶段 API 可以用 `errc::pending` 表示结果尚未完成，用 `errc::cancelled`
+表示调用方已取消请求：
+
+```cpp
+auto result = request.result();
+if (result.status.value() == caors::errc::pending) {
+  // 稍后再查询。
+}
+```
+
 ### rethrow_as
 
 跨模块 API 边界可以用 `rethrow_as()` 保留底层错误码，并替换为当前模块的错误来源域：
