@@ -20,18 +20,18 @@ struct capability_owner {
 } // namespace
 
 TEST_CASE("object - pointer and handle expose static meta capabilities", "[object]") {
-  const auto* pointer = caors::meta::capabilities::get<caors::objects::detail::ptr_data,
+  const auto* pointer = caors::meta::capabilities::get<caors::objects::detail::ptr_ops,
                                                        caors::object_ptr<capability_target>>();
   REQUIRE(pointer != nullptr);
   CHECK(pointer->valid());
 
   const auto* handle =
-      caors::meta::capabilities::get<caors::objects::detail::handle_data, caors::object_handle>();
+      caors::meta::capabilities::get<caors::objects::detail::handle_ops, caors::object_handle>();
   REQUIRE(handle != nullptr);
   CHECK(handle->valid());
 
   const auto* typed_handle =
-      caors::meta::capabilities::get<caors::objects::detail::handle_data,
+      caors::meta::capabilities::get<caors::objects::detail::handle_ops,
                                      caors::typed_object_handle<capability_target>>();
   REQUIRE(typed_handle != nullptr);
   CHECK(typed_handle->valid());
@@ -41,13 +41,13 @@ TEST_CASE("object - descriptor exposes object capabilities", "[object]") {
   caors::object_ptr<capability_target> pointer{};
   const caors::any_ref pointer_ref = caors::any_ref::from(pointer);
   const auto* pointer_descriptor = caors::value::detail::descriptor_of(pointer_ref);
-  CHECK(caors::meta::detail::descriptor_static_capability<caors::objects::detail::ptr_data>(
+  CHECK(caors::meta::detail::descriptor_static_capability<caors::objects::detail::ptr_ops>(
             pointer_descriptor) != nullptr);
 
   caors::typed_object_handle<capability_target> handle{};
   const caors::any_ref handle_ref = caors::any_ref::from(handle);
   const auto* handle_descriptor = caors::value::detail::descriptor_of(handle_ref);
-  CHECK(caors::meta::detail::descriptor_static_capability<caors::objects::detail::handle_data>(
+  CHECK(caors::meta::detail::descriptor_static_capability<caors::objects::detail::handle_ops>(
             handle_descriptor) != nullptr);
 }
 

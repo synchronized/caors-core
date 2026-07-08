@@ -138,7 +138,7 @@ const void* registry::upcast(type_id id, type_id base_id, const void* value) con
       return nullptr;
     }
 
-    const detail::parent_cast_data* cast = detail::find_parent_cast(*state_, current_id);
+    const detail::parent_cast_ops* cast = detail::find_parent_cast(*state_, current_id);
     if (cast == nullptr || cast->parent != parent_id || cast->const_upcast == nullptr) {
       return nullptr;
     }
@@ -181,7 +181,7 @@ void* registry::upcast(type_id id, type_id base_id, void* value) const {
       return nullptr;
     }
 
-    const detail::parent_cast_data* cast = detail::find_parent_cast(*state_, current_id);
+    const detail::parent_cast_ops* cast = detail::find_parent_cast(*state_, current_id);
     if (cast == nullptr || cast->parent != parent_id || cast->mutable_upcast == nullptr) {
       return nullptr;
     }

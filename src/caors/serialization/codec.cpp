@@ -15,26 +15,24 @@
 
 namespace caors::serialization {
 
-bool codec::valid() const noexcept { return descriptor_ != nullptr && descriptor_->valid(); }
+bool codec::valid() const noexcept { return ops_ != nullptr && ops_->valid(); }
 
 type_id codec::type() const noexcept {
-  return descriptor_ != nullptr ? descriptor_->type : type_id::invalid();
+  return ops_ != nullptr ? ops_->type : type_id::invalid();
 }
 
 bool codec::can_write() const noexcept {
-  return descriptor_ != nullptr &&
-         (descriptor_->write != nullptr || descriptor_->write_context != nullptr);
+  return ops_ != nullptr && (ops_->write != nullptr || ops_->write_context != nullptr);
 }
 
 bool codec::can_read() const noexcept {
-  return descriptor_ != nullptr &&
-         (descriptor_->read != nullptr || descriptor_->read_context != nullptr ||
-          descriptor_->read_value != nullptr || descriptor_->read_value_context != nullptr);
+  return ops_ != nullptr &&
+         (ops_->read != nullptr || ops_->read_context != nullptr ||
+          ops_->read_value != nullptr || ops_->read_value_context != nullptr);
 }
 
 bool codec::can_make_value() const noexcept {
-  return descriptor_ != nullptr &&
-         (descriptor_->make_value != nullptr || descriptor_->make_value_context != nullptr);
+  return ops_ != nullptr && (ops_->make_value != nullptr || ops_->make_value_context != nullptr);
 }
 
 codec find_codec(type_id id) {
@@ -51,7 +49,7 @@ codec find_codec(meta::type type) { return type ? find_codec(type.id()) : codec{
 
 namespace caors::serialization::detail {
 
-const codec_descriptor* descriptor_of(codec view) noexcept { return view.descriptor_; }
+const codec_ops* ops_of(codec view) noexcept { return view.ops_; }
 
 namespace {
 
@@ -330,15 +328,15 @@ template <> struct builtin_codec<std::chrono::system_clock::time_point> {
   }
 };
 
-template <typename T> [[nodiscard]] const codec_descriptor* builtin_codec_descriptor_ptr_of() {
+template <typename T> [[nodiscard]] const codec_ops* builtin_codec_ops_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  static const codec_descriptor data = make_codec_descriptor_from<builtin_codec<type>, type>();
+  static const codec_ops data = make_codec_ops_from<builtin_codec<type>, type>();
   return data.valid() ? &data : nullptr;
 }
 
 template <typename T> void register_builtin_codec() {
   const type_id id = registered_codec_type_id<T>();
-  const codec_descriptor* codec = builtin_codec_descriptor_ptr_of<T>();
+  const codec_ops* codec = builtin_codec_ops_ptr_of<T>();
   if (id && codec != nullptr) {
     static_cast<void>(codec_registry::instance().register_codec(id, *codec));
   }
@@ -369,7 +367,7 @@ codec_registry& codec_registry::instance() noexcept {
   return registry;
 }
 
-error codec_registry::register_codec(type_id id, const codec_descriptor& codec) {
+error codec_registry::register_codec(type_id id, const codec_ops& codec) {
   if (!id) {
     return {error_domain::serialization, errc::invalid_type};
   }
@@ -378,7 +376,7 @@ error codec_registry::register_codec(type_id id, const codec_descriptor& codec) 
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  return rethrow_as(meta::capabilities::register_for<codec_descriptor>(id, &codec),
+  return rethrow_as(meta::capabilities::register_for<codec_ops>(id, &codec),
                     error_domain::serialization);
 }
 
@@ -388,7 +386,7 @@ codec codec_registry::find_codec(type_id id) const {
   }
 
   ensure_builtin_codecs_registered();
-  return codec{meta::capabilities::find<codec_descriptor>(id)};
+  return codec{meta::capabilities::find<codec_ops>(id)};
 }
 
 bool codec_registry::contains(type_id id) const {
@@ -397,12 +395,12 @@ bool codec_registry::contains(type_id id) const {
   }
 
   ensure_builtin_codecs_registered();
-  return meta::capabilities::contains<codec_descriptor>(id);
+  return meta::capabilities::contains<codec_ops>(id);
 }
 
 std::size_t codec_registry::size() const noexcept {
   ensure_builtin_codecs_registered();
-  return meta::capabilities::size<codec_descriptor>();
+  return meta::capabilities::size<codec_ops>();
 }
 
 codec_registry& get_codec_registry() noexcept {
@@ -410,7 +408,7 @@ codec_registry& get_codec_registry() noexcept {
   return codec_registry::instance();
 }
 
-error register_serialization_codec(type_id id, const codec_descriptor& codec) {
+error register_serialization_codec(type_id id, const codec_ops& codec) {
   return get_codec_registry().register_codec(id, codec);
 }
 

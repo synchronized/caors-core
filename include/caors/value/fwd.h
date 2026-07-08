@@ -15,13 +15,13 @@
 namespace caors::meta::detail {
 
 struct type_descriptor;
-struct indirect_data;
-struct sequence_data;
-struct set_data;
-struct associative_data;
-struct pair_data;
-struct tuple_data;
-struct variant_data;
+struct indirect_ops;
+struct sequence_ops;
+struct set_ops;
+struct associative_ops;
+struct pair_ops;
+struct tuple_ops;
+struct variant_ops;
 
 } // namespace caors::meta::detail
 

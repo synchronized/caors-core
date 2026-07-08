@@ -33,7 +33,7 @@ using parent_const_upcast_fn = const void* (*)(const void*) noexcept;
 using parent_mutable_upcast_fn = void* (*)(void*) noexcept;
 
 /** @brief 指针或 wrapper 的内部值访问函数表。 */
-struct indirect_data {
+struct indirect_ops {
   indirect_const_value_fn value = nullptr;
   indirect_mutable_value_fn mutable_value = nullptr;
   indirect_dynamic_type_fn dynamic_type = nullptr;
@@ -55,7 +55,7 @@ struct indirect_data {
 };
 
 /** @brief 枚举类型和整数之间的转换函数表。 */
-struct enum_data {
+struct enum_ops {
   enum_to_i64_fn to_i64 = nullptr;
   enum_to_u64_fn to_u64 = nullptr;
   enum_from_i64_fn from_i64 = nullptr;
@@ -68,7 +68,7 @@ struct enum_data {
 };
 
 /** @brief 子类型到直接父类型的安全 upcast 函数表。 */
-struct parent_cast_data {
+struct parent_cast_ops {
   type_id parent{};
   parent_const_upcast_fn const_upcast = nullptr;
   parent_mutable_upcast_fn mutable_upcast = nullptr;

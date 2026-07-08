@@ -223,9 +223,9 @@ descriptor 内部按职责拆分：
 对象引用、pair、tuple 和 variant 访问能力。当前 descriptor 内置能力由 CAORS 定义，并且同一类型只会持有一个内置能力；查询入口仍是内部
 `descriptor_capability<T>()`：
 
-- `meta::detail::indirect_data`：裸指针或 wrapper 的内部值访问、持值检测、重置和确保持值函数。
-- `meta::detail::enum_data`：枚举类型和整数之间的转换函数。
-- `meta::detail::sequence_data` / `set_data` / `associative_data` / `pair_data` / `tuple_data` / `variant_data`：容器、二元组、tuple-like 和 variant-like 的运行期访问函数。
+- `meta::detail::indirect_ops`：裸指针或 wrapper 的内部值访问、持值检测、重置和确保持值函数。
+- `meta::detail::enum_ops`：枚举类型和整数之间的转换函数。
+- `meta::detail::sequence_ops` / `set_ops` / `associative_ops` / `pair_ops` / `tuple_ops` / `variant_ops`：容器、二元组、tuple-like 和 variant-like 的运行期访问函数。
 
 模块静态能力通过 `meta::capabilities::module_static_capability_list<Module, T>` 声明。
 `meta::capabilities::static_capability_list<T>` 是聚合入口，会把 object、serialization 和外部模块
@@ -243,7 +243,7 @@ serialization codec 当前使用这套 descriptor 静态能力机制。
 descriptor 自身的 `type_id`；裸指针、wrapper、容器、pair、tuple 和 variant 的子类型信息由对应
 访问函数表保存，并通过 `field`、`sequence_view`、`pair_view` 等公开视图查询。
 
-类型形态和通用类型关系只从 descriptor 查询，不再把语义数据、枚举数据、容器数据或间接访问数据作为
+类型形态和通用类型关系只从 descriptor 查询，不再把语义数据、枚举 ops、容器 ops 或间接访问 ops 作为
 独立 meta 组件挂载到注册表。反射字段会保存声明类型的 `type_id` 和 descriptor，因此
 `std::vector<T>`、`std::optional<T>`、`std::tuple<...>` 这类结构类型不要求
 自身注册为 meta 类型。未注册类型不会拥有 GUID、反射字段、对象工厂或序列化组件；如果 descriptor

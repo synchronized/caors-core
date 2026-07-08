@@ -49,10 +49,10 @@ public:
 private:
   friend handle_view handle_view_of(value::any_ref source) noexcept;
 
-  handle_view(const detail::handle_data* data, const void* storage, bool writable) noexcept
+  handle_view(const detail::handle_ops* data, const void* storage, bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
 
-  const detail::handle_data* data_ = nullptr;
+  const detail::handle_ops* data_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };
@@ -64,10 +64,10 @@ private:
   }
 
   const meta::detail::type_descriptor* descriptor = value::detail::descriptor_of(source);
-  const detail::handle_data* data =
-      meta::detail::descriptor_static_capability<detail::handle_data>(descriptor);
+  const detail::handle_ops* data =
+      meta::detail::descriptor_static_capability<detail::handle_ops>(descriptor);
   if (data == nullptr) {
-    data = meta::capabilities::find<detail::handle_data>(source.get_type().id());
+    data = meta::capabilities::find<detail::handle_ops>(source.get_type().id());
   }
   if (data == nullptr) {
     return {};

@@ -60,9 +60,9 @@ struct type_semantics {
 
 /** @brief 类型的内置互斥运行期能力。 */
 using builtin_type_capability =
-    std::variant<std::monostate, const enum_data*, const indirect_data*, const sequence_data*,
-                 const set_data*, const associative_data*, const pair_data*, const tuple_data*,
-                 const variant_data*>;
+    std::variant<std::monostate, const enum_ops*, const indirect_ops*, const sequence_ops*,
+                 const set_ops*, const associative_ops*, const pair_ops*, const tuple_ops*,
+                 const variant_ops*>;
 
 [[nodiscard]] inline bool
 builtin_type_capability_valid(const builtin_type_capability& capability) noexcept {
@@ -112,12 +112,12 @@ template <typename T> inline constexpr bool always_false_v = false;
 template <typename Capability>
 [[nodiscard]] inline const Capability*
 descriptor_capability(const type_descriptor& descriptor) noexcept {
-  if constexpr (std::is_same_v<Capability, enum_data> ||
-                std::is_same_v<Capability, indirect_data> ||
-                std::is_same_v<Capability, sequence_data> || std::is_same_v<Capability, set_data> ||
-                std::is_same_v<Capability, associative_data> ||
-                std::is_same_v<Capability, pair_data> || std::is_same_v<Capability, tuple_data> ||
-                std::is_same_v<Capability, variant_data>) {
+  if constexpr (std::is_same_v<Capability, enum_ops> ||
+                std::is_same_v<Capability, indirect_ops> ||
+                std::is_same_v<Capability, sequence_ops> || std::is_same_v<Capability, set_ops> ||
+                std::is_same_v<Capability, associative_ops> ||
+                std::is_same_v<Capability, pair_ops> || std::is_same_v<Capability, tuple_ops> ||
+                std::is_same_v<Capability, variant_ops>) {
     const auto* value = std::get_if<const Capability*>(&descriptor.builtin_capability);
     return value != nullptr ? *value : nullptr;
   } else {
@@ -175,25 +175,25 @@ descriptor_wrapper_semantics(const type_descriptor& descriptor) noexcept {
     return descriptor.type;
   case type_kind::raw_pointer:
   case type_kind::wrapper: {
-    const auto* indirect = descriptor_capability<indirect_data>(descriptor);
+    const auto* indirect = descriptor_capability<indirect_ops>(descriptor);
     return indirect != nullptr && indirect->value_descriptor != nullptr
                ? indirect->value_descriptor->type
                : type_id{};
   }
   case type_kind::sequence: {
-    const auto* sequence = descriptor_capability<sequence_data>(descriptor);
+    const auto* sequence = descriptor_capability<sequence_ops>(descriptor);
     return sequence != nullptr ? sequence->value_type : type_id{};
   }
   case type_kind::set: {
-    const auto* set = descriptor_capability<set_data>(descriptor);
+    const auto* set = descriptor_capability<set_ops>(descriptor);
     return set != nullptr ? set->value_type : type_id{};
   }
   case type_kind::associative: {
-    const auto* associative = descriptor_capability<associative_data>(descriptor);
+    const auto* associative = descriptor_capability<associative_ops>(descriptor);
     return associative != nullptr ? associative->value_type : type_id{};
   }
   case type_kind::pair: {
-    const auto* pair = descriptor_capability<pair_data>(descriptor);
+    const auto* pair = descriptor_capability<pair_ops>(descriptor);
     return pair != nullptr ? pair->value_type : type_id{};
   }
   case type_kind::tuple:
@@ -207,11 +207,11 @@ descriptor_wrapper_semantics(const type_descriptor& descriptor) noexcept {
 [[nodiscard]] inline type_id descriptor_key_type(const type_descriptor& descriptor) noexcept {
   switch (descriptor_kind(descriptor)) {
   case type_kind::associative: {
-    const auto* associative = descriptor_capability<associative_data>(descriptor);
+    const auto* associative = descriptor_capability<associative_ops>(descriptor);
     return associative != nullptr ? associative->key_type : type_id{};
   }
   case type_kind::pair: {
-    const auto* pair = descriptor_capability<pair_data>(descriptor);
+    const auto* pair = descriptor_capability<pair_ops>(descriptor);
     return pair != nullptr ? pair->key_type : type_id{};
   }
   case type_kind::value:
@@ -477,22 +477,22 @@ template <typename T> void fill_descriptor_semantics(type_descriptor& descriptor
   }
 }
 
-template <typename T> [[nodiscard]] const enum_data* enum_data_ptr_of() {
+template <typename T> [[nodiscard]] const enum_ops* enum_ops_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (std::is_enum_v<type>) {
-    static const enum_data data = make_enum_data<type>();
+    static const enum_ops data = make_enum_ops<type>();
     return data.valid() ? &data : nullptr;
   } else {
     return nullptr;
   }
 }
 
-template <typename T> [[nodiscard]] const indirect_data* indirect_data_ptr_of() {
+template <typename T> [[nodiscard]] const indirect_ops* indirect_ops_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (std::is_pointer_v<type>) {
     using value_type = std::remove_pointer_t<type>;
-    static const indirect_data data = [] {
-      indirect_data result = make_indirect_data<type>();
+    static const indirect_ops data = [] {
+      indirect_ops result = make_indirect_ops<type>();
       result.value_descriptor = descriptor_ptr_of<std::remove_cv_t<value_type>>();
       return result;
     }();
@@ -500,10 +500,10 @@ template <typename T> [[nodiscard]] const indirect_data* indirect_data_ptr_of() 
     return data.valid() ? &data : nullptr;
   } else if constexpr (traits::wrapper_traits<type>::is_wrapper) {
     using value_type = std::remove_cv_t<typename traits::wrapper_traits<type>::wrapped_type>;
-    static const indirect_data data = [] {
-      indirect_data result{};
+    static const indirect_ops data = [] {
+      indirect_ops result{};
       if constexpr (traits::wrapper_traits<type>::semantics != wrapper_semantics::unsupported) {
-        result = make_indirect_data<type>();
+        result = make_indirect_ops<type>();
       }
       result.value_descriptor = descriptor_ptr_of<value_type>();
       return result;
@@ -515,12 +515,12 @@ template <typename T> [[nodiscard]] const indirect_data* indirect_data_ptr_of() 
   }
 }
 
-template <typename T> [[nodiscard]] const sequence_data* sequence_data_ptr_of() {
+template <typename T> [[nodiscard]] const sequence_ops* sequence_ops_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (traits::sequence_traits<type>::is_sequence) {
     using element_type = typename traits::sequence_traits<type>::element_type;
-    static const sequence_data data = [] {
-      sequence_data result{
+    static const sequence_ops data = [] {
+      sequence_ops result{
           descriptor_type_id<element_type>(),
           [](const void* storage) noexcept -> std::size_t {
             if (storage == nullptr) {
@@ -598,12 +598,12 @@ template <typename T> [[nodiscard]] const sequence_data* sequence_data_ptr_of() 
   }
 }
 
-template <typename T> [[nodiscard]] const set_data* set_data_ptr_of() {
+template <typename T> [[nodiscard]] const set_ops* set_ops_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (traits::set_traits<type>::is_set) {
     using element_type = typename traits::set_traits<type>::element_type;
-    static const set_data data = [] {
-      set_data result{
+    static const set_ops data = [] {
+      set_ops result{
           descriptor_type_id<element_type>(),
           [](const void* storage) noexcept -> std::size_t {
             if (storage == nullptr) {
@@ -665,13 +665,13 @@ template <typename T> [[nodiscard]] const set_data* set_data_ptr_of() {
   }
 }
 
-template <typename T> [[nodiscard]] const associative_data* associative_data_ptr_of() {
+template <typename T> [[nodiscard]] const associative_ops* associative_ops_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (traits::associative_traits<type>::is_associative) {
     using key_type = typename traits::associative_traits<type>::key_type;
     using mapped_type = typename traits::associative_traits<type>::mapped_type;
-    static const associative_data data = [] {
-      associative_data result{
+    static const associative_ops data = [] {
+      associative_ops result{
           descriptor_type_id<key_type>(),
           descriptor_type_id<mapped_type>(),
           [](const void* storage) noexcept -> std::size_t {
@@ -738,13 +738,13 @@ template <typename T> [[nodiscard]] const associative_data* associative_data_ptr
   }
 }
 
-template <typename T> [[nodiscard]] const pair_data* pair_data_ptr_of() {
+template <typename T> [[nodiscard]] const pair_ops* pair_ops_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (traits::pair_traits<type>::is_pair) {
     using first_type = typename traits::pair_traits<type>::first_type;
     using second_type = typename traits::pair_traits<type>::second_type;
-    static const pair_data data = [] {
-      pair_data result{
+    static const pair_ops data = [] {
+      pair_ops result{
           descriptor_type_id<first_type>(),
           descriptor_type_id<second_type>(),
           [](const void* storage) noexcept -> const void* {
@@ -789,11 +789,11 @@ template <typename T> [[nodiscard]] const pair_data* pair_data_ptr_of() {
 }
 
 template <typename Tuple, std::size_t Index>
-[[nodiscard]] tuple_element_data make_tuple_element_descriptor_data() {
+[[nodiscard]] tuple_element_ops make_tuple_element_ops() {
   using type = std::remove_cv_t<std::remove_reference_t<Tuple>>;
   using element_type = typename traits::tuple_traits<type>::template element_type<Index>;
 
-  return tuple_element_data{
+  return tuple_element_ops{
       descriptor_type_id<element_type>(),
       [](const void* storage) noexcept -> const void* {
         if (storage == nullptr) {
@@ -816,17 +816,17 @@ template <typename Tuple, std::size_t Index>
 }
 
 template <typename Tuple, std::size_t... Indices>
-[[nodiscard]] tuple_data make_tuple_descriptor_data(std::index_sequence<Indices...>) {
-  tuple_data data{};
+[[nodiscard]] tuple_ops make_tuple_ops(std::index_sequence<Indices...>) {
+  tuple_ops data{};
   data.elements.reserve(sizeof...(Indices));
-  (data.elements.push_back(make_tuple_element_descriptor_data<Tuple, Indices>()), ...);
+  (data.elements.push_back(make_tuple_element_ops<Tuple, Indices>()), ...);
   return data;
 }
 
-template <typename T> [[nodiscard]] const tuple_data* tuple_data_ptr_of() {
+template <typename T> [[nodiscard]] const tuple_ops* tuple_ops_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (traits::tuple_traits<type>::is_tuple) {
-    static const tuple_data data = make_tuple_descriptor_data<type>(
+    static const tuple_ops data = make_tuple_ops<type>(
         std::make_index_sequence<traits::tuple_traits<type>::size>{});
     return data.valid() ? &data : nullptr;
   } else {
@@ -835,11 +835,11 @@ template <typename T> [[nodiscard]] const tuple_data* tuple_data_ptr_of() {
 }
 
 template <typename Variant, std::size_t Index>
-[[nodiscard]] variant_alternative_data make_variant_alternative_descriptor_data() {
+[[nodiscard]] variant_alternative_ops make_variant_alternative_ops() {
   using type = std::remove_cv_t<std::remove_reference_t<Variant>>;
   using alternative_type = typename traits::variant_traits<type>::template alternative_type<Index>;
 
-  return variant_alternative_data{
+  return variant_alternative_ops{
       descriptor_type_id<alternative_type>(),
       [](const void* storage) noexcept -> const void* {
         if (storage == nullptr) {
@@ -879,12 +879,12 @@ template <typename Variant, std::size_t Index>
 }
 
 template <typename Variant, std::size_t... Indices>
-[[nodiscard]] variant_data make_variant_descriptor_data(std::index_sequence<Indices...>) {
+[[nodiscard]] variant_ops make_variant_ops(std::index_sequence<Indices...>) {
   using type = std::remove_cv_t<std::remove_reference_t<Variant>>;
 
-  variant_data data{};
+  variant_ops data{};
   data.alternatives.reserve(sizeof...(Indices));
-  (data.alternatives.push_back(make_variant_alternative_descriptor_data<type, Indices>()), ...);
+  (data.alternatives.push_back(make_variant_alternative_ops<type, Indices>()), ...);
   data.index = [](const void* storage) noexcept -> std::size_t {
     if (storage == nullptr) {
       return static_cast<std::size_t>(-1);
@@ -895,10 +895,10 @@ template <typename Variant, std::size_t... Indices>
   return data;
 }
 
-template <typename T> [[nodiscard]] const variant_data* variant_data_ptr_of() {
+template <typename T> [[nodiscard]] const variant_ops* variant_ops_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (traits::variant_traits<type>::is_variant) {
-    static const variant_data data = make_variant_descriptor_data<type>(
+    static const variant_ops data = make_variant_ops<type>(
         std::make_index_sequence<traits::variant_traits<type>::size>{});
     return data.valid() ? &data : nullptr;
   } else {
@@ -910,23 +910,23 @@ template <typename T> [[nodiscard]] builtin_type_capability builtin_type_capabil
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
 
   if constexpr (std::is_pointer_v<type>) {
-    return indirect_data_ptr_of<type>();
+    return indirect_ops_ptr_of<type>();
   } else if constexpr (traits::sequence_traits<type>::is_sequence) {
-    return sequence_data_ptr_of<type>();
+    return sequence_ops_ptr_of<type>();
   } else if constexpr (traits::set_traits<type>::is_set) {
-    return set_data_ptr_of<type>();
+    return set_ops_ptr_of<type>();
   } else if constexpr (traits::associative_traits<type>::is_associative) {
-    return associative_data_ptr_of<type>();
+    return associative_ops_ptr_of<type>();
   } else if constexpr (traits::pair_traits<type>::is_pair) {
-    return pair_data_ptr_of<type>();
+    return pair_ops_ptr_of<type>();
   } else if constexpr (traits::tuple_traits<type>::is_tuple) {
-    return tuple_data_ptr_of<type>();
+    return tuple_ops_ptr_of<type>();
   } else if constexpr (traits::variant_traits<type>::is_variant) {
-    return variant_data_ptr_of<type>();
+    return variant_ops_ptr_of<type>();
   } else if constexpr (traits::wrapper_traits<type>::is_wrapper) {
-    return indirect_data_ptr_of<type>();
+    return indirect_ops_ptr_of<type>();
   } else if constexpr (std::is_enum_v<type>) {
-    return enum_data_ptr_of<type>();
+    return enum_ops_ptr_of<type>();
   } else {
     return std::monostate{};
   }

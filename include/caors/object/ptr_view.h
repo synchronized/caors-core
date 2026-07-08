@@ -49,10 +49,10 @@ public:
 private:
   friend ptr_view ptr_view_of(value::any_ref source) noexcept;
 
-  ptr_view(const detail::ptr_data* data, const void* storage, bool writable) noexcept
+  ptr_view(const detail::ptr_ops* data, const void* storage, bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
 
-  const detail::ptr_data* data_ = nullptr;
+  const detail::ptr_ops* data_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };
@@ -64,10 +64,10 @@ private:
   }
 
   const meta::detail::type_descriptor* descriptor = value::detail::descriptor_of(source);
-  const detail::ptr_data* data =
-      meta::detail::descriptor_static_capability<detail::ptr_data>(descriptor);
+  const detail::ptr_ops* data =
+      meta::detail::descriptor_static_capability<detail::ptr_ops>(descriptor);
   if (data == nullptr) {
-    data = meta::capabilities::find<detail::ptr_data>(source.get_type().id());
+    data = meta::capabilities::find<detail::ptr_ops>(source.get_type().id());
   }
   if (data == nullptr) {
     return {};

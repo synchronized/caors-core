@@ -90,7 +90,7 @@ using handle_get_fn = basic_handle<untyped_handle_tag> (*)(const void*) noexcept
 using handle_set_fn = bool (*)(void*, basic_handle<untyped_handle_tag>) noexcept;
 
 /** @brief 对象身份句柄类型和统一身份句柄之间的访问函数表。 */
-struct handle_data {
+struct handle_ops {
   handle_get_fn get = nullptr;
   handle_set_fn set = nullptr;
 
@@ -115,10 +115,10 @@ to_untyped_handle(basic_handle<T> source) noexcept {
   }
 }
 
-template <typename T> [[nodiscard]] const handle_data* handle_data_ptr_of() {
+template <typename T> [[nodiscard]] const handle_ops* handle_ops_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (handle_traits<type>::is_handle) {
-    static const handle_data data{
+    static const handle_ops data{
         [](const void* storage) noexcept -> basic_handle<untyped_handle_tag> {
           if (storage == nullptr) {
             return {};
@@ -164,16 +164,16 @@ template <typename T> using typed_handle = detail::basic_handle<T>;
 
 namespace caors::meta::capabilities {
 
-template <typename T> struct static_capability<objects::detail::handle_data, T> {
-  [[nodiscard]] static const objects::detail::handle_data* get() {
-    return objects::detail::handle_data_ptr_of<T>();
+template <typename T> struct static_capability<objects::detail::handle_ops, T> {
+  [[nodiscard]] static const objects::detail::handle_ops* get() {
+    return objects::detail::handle_ops_ptr_of<T>();
   }
 };
 
 template <typename T>
 struct module_static_capability_list<object_static_capability_module,
                                      objects::detail::basic_handle<T>> {
-  using type = type_list<objects::detail::handle_data>;
+  using type = type_list<objects::detail::handle_ops>;
 };
 
 } // namespace caors::meta::capabilities

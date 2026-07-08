@@ -26,7 +26,7 @@ public:
             core::hash_map<std::uint64_t, const type_descriptor*>::allocator_type{resource}),
         factories(core::hash_map<std::uint64_t, value_factory_ops>::allocator_type{resource}),
         cpp_type_ids(core::hash_map<std::type_index, type_id>::allocator_type{resource}),
-        parent_casts(core::hash_map<std::uint64_t, parent_cast_data>::allocator_type{resource}),
+        parent_casts(core::hash_map<std::uint64_t, parent_cast_ops>::allocator_type{resource}),
         names(core::hash_map<core::string_name, type_id>::allocator_type{resource}),
         guids(core::hash_map<core::guid, type_id, core::guid_hash>::allocator_type{resource}),
         components(core::hash_map<meta_component_key,
@@ -42,7 +42,7 @@ public:
   core::hash_map<std::uint64_t, const type_descriptor*> descriptors;
   core::hash_map<std::uint64_t, value_factory_ops> factories;
   core::hash_map<std::type_index, type_id> cpp_type_ids;
-  core::hash_map<std::uint64_t, parent_cast_data> parent_casts;
+  core::hash_map<std::uint64_t, parent_cast_ops> parent_casts;
   core::hash_map<core::string_name, type_id> names;
   core::hash_map<core::guid, type_id, core::guid_hash> guids;
   core::hash_map<meta_component_key, memory::unique_ptr<meta_component_storage_base>> components;
@@ -52,7 +52,7 @@ public:
 [[nodiscard]] const type_data* find_type_data(const registry_state& state, type_id id);
 [[nodiscard]] const type_descriptor* find_type_descriptor(const registry_state& state, type_id id);
 [[nodiscard]] value_factory_ops find_type_factory(const registry_state& state, type_id id);
-[[nodiscard]] const parent_cast_data* find_parent_cast(const registry_state& state, type_id id);
+[[nodiscard]] const parent_cast_ops* find_parent_cast(const registry_state& state, type_id id);
 [[nodiscard]] std::optional<type_id> find_existing_type_id(const registry_state& state,
                                                            const type_data& type, error& conflict);
 [[nodiscard]] error duplicate_identity_error(const registry_state& state, const type_data& type,

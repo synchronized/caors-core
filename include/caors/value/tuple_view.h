@@ -41,7 +41,7 @@ private:
   tuple_view(const meta::detail::type_descriptor* descriptor, const void* storage,
              bool writable) noexcept;
 
-  [[nodiscard]] const meta::detail::tuple_data* data() const noexcept;
+  [[nodiscard]] const meta::detail::tuple_ops* data() const noexcept;
 
   const meta::detail::type_descriptor* descriptor_ = nullptr;
   const void* storage_ = nullptr;

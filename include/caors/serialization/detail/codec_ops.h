@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_SERIALIZATION_DETAIL_CODEC_DESCRIPTOR_H_
-#define CAORS_SERIALIZATION_DETAIL_CODEC_DESCRIPTOR_H_
+#ifndef CAORS_SERIALIZATION_DETAIL_CODEC_OPS_H_
+#define CAORS_SERIALIZATION_DETAIL_CODEC_OPS_H_
 
 #include "caors/error.h"
 #include "caors/meta/type_id.h"
@@ -39,8 +39,8 @@ using codec_value_fn = result<variant> (*)(const value::any& data);
 using codec_context_value_fn = result<variant> (*)(const serialization::context& context,
                                                    const value::any& data);
 
-/** @brief 单个类型的序列化 codec 能力描述。 */
-struct codec_descriptor {
+/** @brief 单个类型的序列化 codec 操作表。 */
+struct codec_ops {
   type_id type{};
   codec_write_fn write = nullptr;
   codec_context_write_fn write_context = nullptr;

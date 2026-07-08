@@ -254,7 +254,7 @@ private:
 
   [[nodiscard]] error set_type_guid(type_id id, type_guid guid);
   [[nodiscard]] error set_type_parent(type_id id, type_id parent_id);
-  [[nodiscard]] error set_type_parent(type_id id, type_id parent_id, detail::parent_cast_data cast);
+  [[nodiscard]] error set_type_parent(type_id id, type_id parent_id, detail::parent_cast_ops cast);
   [[nodiscard]] error set_type_factory(type_id id, detail::value_factory_ops factory);
 
   template <typename Child, typename Parent> [[nodiscard]] error set_type_parent_for() {
@@ -265,7 +265,7 @@ private:
 
     return set_type_parent(
         detail::type_id_of_cpp_type<child_type>(), detail::type_id_of_cpp_type<parent_type>(),
-        detail::parent_cast_data{
+        detail::parent_cast_ops{
             detail::type_id_of_cpp_type<parent_type>(),
             [](const void* value) noexcept -> const void* {
               return value != nullptr

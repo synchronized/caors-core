@@ -54,7 +54,7 @@ private:
   variant_view(const meta::detail::type_descriptor* descriptor, const void* storage,
                bool writable) noexcept;
 
-  [[nodiscard]] const meta::detail::variant_data* data() const noexcept;
+  [[nodiscard]] const meta::detail::variant_ops* data() const noexcept;
 
   const meta::detail::type_descriptor* descriptor_ = nullptr;
   const void* storage_ = nullptr;

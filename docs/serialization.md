@@ -643,16 +643,16 @@ codec 和 meta descriptor 的边界：
 
 - `meta::detail::type_descriptor` 描述 C++ 值本身的基础能力，例如布局、构造、销毁、枚举、容器和 wrapper
   访问。
-- `serialization::detail::codec_descriptor` 描述序列化专用能力，例如写入 writer、从 reader 读回和构造
+- `serialization::detail::codec_ops` 描述序列化专用能力，例如写入 writer、从 reader 读回和构造
   `variant` 中间值。它作为 serialization 模块静态能力挂到 descriptor 静态表中。
-- 编译期已知 `T` 时，内部可以从 `serialization::codec_traits<T>` 静态生成一份 `codec_descriptor` 函数表，
+- 编译期已知 `T` 时，内部可以从 `serialization::codec_traits<T>` 静态生成一份 `codec_ops` 函数表，
   不依赖运行期注册表。
 - `any`、`any_ref` 和反射字段这类携带 descriptor 的路径会先查询 descriptor 静态 codec 能力，
   因此只要 `codec_traits<T>` 特化在生成该 descriptor 的翻译单元可见，通常不需要显式
   `register_codec<T>()`。
 - 运行期只剩 `type_id` 时，`serialization::find_codec()` 会查询 `meta::capabilities` 中的
-  `type_id -> codec_descriptor` 索引。
-- `serialization::register_codec<T>()` 不创建 meta 类型，只把 `type_id` 和对应静态 codec descriptor
+  `type_id -> codec_ops` 索引。
+- `serialization::register_codec<T>()` 不创建 meta 类型，只把 `type_id` 和对应静态 codec 操作表
   放入运行期索引；`T` 不要求已经显式 meta 注册。
 
 内置 codec 和默认 traits 处理：
@@ -688,7 +688,7 @@ codec 和 meta descriptor 的边界：
 `caors/adapters/stl.h`，该头不会拉入序列化 codec。
 
 内置标量 codec 按 type descriptor id 懒加载补齐，不要求内置类型显式 meta 注册。内置 codec 和外部
-`serialization::codec_traits<T>` 特化都通过同一套函数表构造逻辑生成 `codec_descriptor`；区别只是内置
+`serialization::codec_traits<T>` 特化都通过同一套函数表构造逻辑生成 `codec_ops`；区别只是内置
 codec 由库内部按需放入运行期索引，外部自定义 codec 可以直接通过 `serialization::codec_of<T>()`
 取得静态视图。携带 descriptor 的 `any` / `any_ref` / 反射字段路径会优先使用 descriptor
 静态 codec 能力；只有运行期只剩 `type_id` 查询，或者 descriptor 生成时没有看到对应

@@ -46,7 +46,7 @@ using ptr_get_fn = object* (*)(const void*) noexcept;
 using ptr_set_fn = bool (*)(void*, object*) noexcept;
 
 /** @brief 对象指针类型和对象指针之间的访问函数表。 */
-struct ptr_data {
+struct ptr_ops {
   ptr_get_fn get = nullptr;
   ptr_set_fn set = nullptr;
 
@@ -89,10 +89,10 @@ template <typename T> struct ptr_access<ptr<T>> {
   }
 };
 
-template <typename T> [[nodiscard]] const ptr_data* ptr_data_ptr_of() {
+template <typename T> [[nodiscard]] const ptr_ops* ptr_ops_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (ptr_traits<type>::is_ptr) {
-    static const ptr_data data{
+    static const ptr_ops data{
         [](const void* storage) noexcept -> object* {
           if (storage == nullptr) {
             return nullptr;
@@ -121,15 +121,15 @@ template <typename T> [[nodiscard]] const ptr_data* ptr_data_ptr_of() {
 
 namespace caors::meta::capabilities {
 
-template <typename T> struct static_capability<objects::detail::ptr_data, T> {
-  [[nodiscard]] static const objects::detail::ptr_data* get() {
-    return objects::detail::ptr_data_ptr_of<T>();
+template <typename T> struct static_capability<objects::detail::ptr_ops, T> {
+  [[nodiscard]] static const objects::detail::ptr_ops* get() {
+    return objects::detail::ptr_ops_ptr_of<T>();
   }
 };
 
 template <typename T>
 struct module_static_capability_list<object_static_capability_module, objects::ptr<T>> {
-  using type = type_list<objects::detail::ptr_data>;
+  using type = type_list<objects::detail::ptr_ops>;
 };
 
 } // namespace caors::meta::capabilities

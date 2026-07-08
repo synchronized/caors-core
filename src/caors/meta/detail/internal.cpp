@@ -43,7 +43,7 @@ value_factory_ops find_type_factory(const registry_state& state, type_id id) {
   return position->second;
 }
 
-const parent_cast_data* find_parent_cast(const registry_state& state, type_id id) {
+const parent_cast_ops* find_parent_cast(const registry_state& state, type_id id) {
   const auto position = state.parent_casts.find(id.value());
   if (position == state.parent_casts.end()) {
     return nullptr;

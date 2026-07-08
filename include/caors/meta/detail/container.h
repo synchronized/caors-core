@@ -54,8 +54,8 @@ using variant_const_alternative_fn = const void* (*)(const void*) noexcept;
 using variant_mutable_alternative_fn = void* (*)(void*) noexcept;
 using variant_emplace_fn = bool (*)(void*, memory::memory_resource*);
 
-/** @brief 顺序容器运行期访问数据。 */
-struct sequence_data {
+/** @brief 顺序容器运行期访问操作表。 */
+struct sequence_ops {
   type_id value_type{};
   sequence_size_fn size = nullptr;
   sequence_const_element_fn element = nullptr;
@@ -73,8 +73,8 @@ struct sequence_data {
   }
 };
 
-/** @brief 集合容器运行期访问数据。 */
-struct set_data {
+/** @brief 集合容器运行期访问操作表。 */
+struct set_ops {
   type_id value_type{};
   set_size_fn size = nullptr;
   set_visit_fn visit = nullptr;
@@ -94,8 +94,8 @@ struct set_data {
   }
 };
 
-/** @brief 关联容器运行期访问数据。 */
-struct associative_data {
+/** @brief 关联容器运行期访问操作表。 */
+struct associative_ops {
   type_id key_type{};
   type_id value_type{};
   associative_size_fn size = nullptr;
@@ -118,8 +118,8 @@ struct associative_data {
   }
 };
 
-/** @brief 二元组运行期访问数据。 */
-struct pair_data {
+/** @brief 二元组运行期访问操作表。 */
+struct pair_ops {
   type_id key_type{};
   type_id value_type{};
   pair_const_value_fn first = nullptr;
@@ -134,8 +134,8 @@ struct pair_data {
   }
 };
 
-/** @brief tuple-like 单个元素运行期访问数据。 */
-struct tuple_element_data {
+/** @brief tuple-like 单个元素运行期访问操作表。 */
+struct tuple_element_ops {
   type_id value_type{};
   tuple_const_element_fn element = nullptr;
   tuple_mutable_element_fn mutable_element = nullptr;
@@ -144,12 +144,12 @@ struct tuple_element_data {
   [[nodiscard]] bool valid() const noexcept { return value_type && element != nullptr; }
 };
 
-/** @brief tuple-like 运行期访问数据。 */
-struct tuple_data {
-  vector<tuple_element_data> elements{};
+/** @brief tuple-like 运行期访问操作表。 */
+struct tuple_ops {
+  vector<tuple_element_ops> elements{};
 
   [[nodiscard]] bool valid() const noexcept {
-    for (const tuple_element_data& element : elements) {
+    for (const tuple_element_ops& element : elements) {
       if (!element.valid()) {
         return false;
       }
@@ -159,8 +159,8 @@ struct tuple_data {
   }
 };
 
-/** @brief variant-like 单个候选类型运行期访问数据。 */
-struct variant_alternative_data {
+/** @brief variant-like 单个候选类型运行期访问操作表。 */
+struct variant_alternative_ops {
   type_id value_type{};
   variant_const_alternative_fn alternative = nullptr;
   variant_mutable_alternative_fn mutable_alternative = nullptr;
@@ -170,9 +170,9 @@ struct variant_alternative_data {
   [[nodiscard]] bool valid() const noexcept { return value_type && alternative != nullptr; }
 };
 
-/** @brief variant-like 运行期访问数据。 */
-struct variant_data {
-  vector<variant_alternative_data> alternatives{};
+/** @brief variant-like 运行期访问操作表。 */
+struct variant_ops {
+  vector<variant_alternative_ops> alternatives{};
   variant_index_fn index = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
@@ -180,7 +180,7 @@ struct variant_data {
       return false;
     }
 
-    for (const variant_alternative_data& alternative : alternatives) {
+    for (const variant_alternative_ops& alternative : alternatives) {
       if (!alternative.valid()) {
         return false;
       }

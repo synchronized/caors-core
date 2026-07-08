@@ -49,7 +49,7 @@ TEST_CASE("serialization - context memory resource constructs empty wrapper valu
   CHECK(tracking.statistics().bytes_in_use == 0);
 }
 
-// 原测试文件：serialization_descriptor_resource_descriptor_enum_data_handles_unregistered_enum_values_test.cpp
+// 原测试文件：serialization_descriptor_resource_descriptor_enum_ops_handles_unregistered_enum_values_test.cpp
 
 #include "serialization_descriptor_resource_test_support.h"
 

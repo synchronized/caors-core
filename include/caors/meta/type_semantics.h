@@ -286,11 +286,11 @@ template <typename Enum>
   return true;
 }
 
-template <typename T> [[nodiscard]] indirect_data make_indirect_data() {
+template <typename T> [[nodiscard]] indirect_ops make_indirect_ops() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (std::is_pointer_v<type>) {
     using value_type = std::remove_pointer_t<type>;
-    indirect_data data{};
+    indirect_ops data{};
     data.value = &raw_pointer_value<value_type>;
     data.mutable_value = &raw_pointer_mutable_value<value_type>;
     data.dynamic_type = &raw_pointer_dynamic_type<value_type>;
@@ -303,7 +303,7 @@ template <typename T> [[nodiscard]] indirect_data make_indirect_data() {
   } else if constexpr (traits::wrapper_traits<type>::is_wrapper &&
                        traits::wrapper_traits<type>::semantics !=
                            traits::wrapper_semantics::unsupported) {
-    indirect_data data{};
+    indirect_ops data{};
     data.value = &wrapper_indirect_value<type>;
     data.mutable_value = &wrapper_mutable_indirect_value<type>;
     data.dynamic_type = &wrapper_dynamic_indirect_type<type>;
@@ -320,11 +320,11 @@ template <typename T> [[nodiscard]] indirect_data make_indirect_data() {
   }
 }
 
-template <typename T> [[nodiscard]] enum_data make_enum_data() {
+template <typename T> [[nodiscard]] enum_ops make_enum_ops() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (std::is_enum_v<type>) {
     using underlying_type = std::underlying_type_t<type>;
-    return enum_data{
+    return enum_ops{
         &enum_to_i64<type>,
         &enum_to_u64<type>,
         &enum_from_i64<type>,

@@ -15,26 +15,26 @@ namespace caors::serialization::detail {
 
 namespace {
 
-[[nodiscard]] const codec_descriptor*
-static_codec_descriptor(const meta::detail::type_descriptor* descriptor) {
-  return meta::detail::descriptor_static_capability<codec_descriptor>(descriptor);
+[[nodiscard]] const codec_ops*
+static_codec_ops(const meta::detail::type_descriptor* descriptor) {
+  return meta::detail::descriptor_static_capability<codec_ops>(descriptor);
 }
 
-[[nodiscard]] const codec_descriptor*
-find_codec_descriptor(const meta::detail::type_descriptor* descriptor, type_id id) {
-  if (const codec_descriptor* codec = static_codec_descriptor(descriptor); codec != nullptr) {
+[[nodiscard]] const codec_ops*
+find_codec_ops(const meta::detail::type_descriptor* descriptor, type_id id) {
+  if (const codec_ops* codec = static_codec_ops(descriptor); codec != nullptr) {
     return codec;
   }
 
-  return descriptor_of(serialization::find_codec(id));
+  return ops_of(serialization::find_codec(id));
 }
 
-[[nodiscard]] const codec_descriptor* find_codec_descriptor(const any& data) {
-  return find_codec_descriptor(value::detail::descriptor_of(data), data.get_type().id());
+[[nodiscard]] const codec_ops* find_codec_ops(const any& data) {
+  return find_codec_ops(value::detail::descriptor_of(data), data.get_type().id());
 }
 
-[[nodiscard]] const codec_descriptor* find_codec_descriptor(const any_ref& value) {
-  return find_codec_descriptor(value::detail::descriptor_of(value), value.get_type().id());
+[[nodiscard]] const codec_ops* find_codec_ops(const any_ref& value) {
+  return find_codec_ops(value::detail::descriptor_of(value), value.get_type().id());
 }
 
 } // namespace
@@ -59,7 +59,7 @@ variant_result make_serialized_value(const any& data) {
     }
   }
 
-  const codec_descriptor* codec = find_codec_descriptor(data);
+  const codec_ops* codec = find_codec_ops(data);
   if (codec != nullptr && codec->make_value != nullptr) {
     return codec->make_value(data);
   }
@@ -177,7 +177,7 @@ variant_result make_serialized_value(const any_ref& value, const serialization::
   }
 
   const type_id value_type = value.get_type().id();
-  const codec_descriptor* codec = find_codec_descriptor(value);
+  const codec_ops* codec = find_codec_ops(value);
   if (codec != nullptr && codec->make_value_context != nullptr) {
     any copied = value.to_any();
     if (!copied.valid()) {
@@ -262,7 +262,7 @@ error write_serialized_value(writer& writer, const any_ref& value,
   }
 
   const type_id value_type = value.get_type().id();
-  const codec_descriptor* codec = find_codec_descriptor(value);
+  const codec_ops* codec = find_codec_ops(value);
   if (codec != nullptr && codec->write_context != nullptr) {
     any copied = value.to_any();
     if (!copied.valid()) {
@@ -345,7 +345,7 @@ error read_serialized_value(reader& reader, const any_ref& target,
   }
 
   const type_id target_type = target.get_type().id();
-  const codec_descriptor* codec = find_codec_descriptor(target);
+  const codec_ops* codec = find_codec_ops(target);
   if (codec != nullptr && codec->read_value_context != nullptr) {
     return codec->read_value_context(context, reader, target);
   }
@@ -433,7 +433,7 @@ error read_field(reader& reader, const reflection::field& field, void* object,
   bool use_legacy_codec_read = false;
   if (field_uses_direct_value(field)) {
     target = field.get_ref(object);
-    const codec_descriptor* codec = target.valid() ? find_codec_descriptor(target) : nullptr;
+    const codec_ops* codec = target.valid() ? find_codec_ops(target) : nullptr;
     use_legacy_codec_read = codec != nullptr &&
                             (codec->read != nullptr || codec->read_context != nullptr) &&
                             codec->read_value == nullptr && codec->read_value_context == nullptr;
@@ -462,7 +462,7 @@ error read_field(reader& reader, const reflection::field& field, void* object,
   }
 
   if (use_legacy_codec_read) {
-    const codec_descriptor* codec = find_codec_descriptor(target);
+    const codec_ops* codec = find_codec_ops(target);
     if (codec == nullptr || (codec->read == nullptr && codec->read_context == nullptr)) {
       return {error_domain::serialization, errc::unsupported};
     }

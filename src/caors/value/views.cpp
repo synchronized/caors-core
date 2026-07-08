@@ -20,8 +20,8 @@ template <typename Capability>
 
 [[nodiscard]] bool
 has_indirect_capability(const meta::detail::type_descriptor* descriptor) noexcept {
-  const meta::detail::indirect_data* indirect =
-      meta::detail::descriptor_capability<meta::detail::indirect_data>(descriptor);
+  const meta::detail::indirect_ops* indirect =
+      meta::detail::descriptor_capability<meta::detail::indirect_ops>(descriptor);
   return descriptor != nullptr && meta::detail::descriptor_indirect(*descriptor) &&
          indirect != nullptr && indirect->valid();
 }
@@ -34,7 +34,7 @@ has_indirect_capability(const meta::detail::type_descriptor* descriptor) noexcep
 } // namespace
 
 bool indirect_view::valid() const noexcept {
-  const meta::detail::indirect_data* info = data();
+  const meta::detail::indirect_ops* info = data();
   if (descriptor_ == nullptr || info == nullptr || storage_ == nullptr ||
       !meta::detail::descriptor_value_type(*descriptor_)) {
     return false;
@@ -54,7 +54,7 @@ bool indirect_view::valid() const noexcept {
 }
 
 meta::type indirect_view::get_value_type() const noexcept {
-  const meta::detail::indirect_data* info = data();
+  const meta::detail::indirect_ops* info = data();
   const type_id value_type =
       valid() ? meta::detail::descriptor_value_type(*descriptor_) : type_id{};
   return valid() ? type_view_of(value_type, info != nullptr ? info->value_descriptor : nullptr)
@@ -62,7 +62,7 @@ meta::type indirect_view::get_value_type() const noexcept {
 }
 
 bool indirect_view::has_value() const noexcept {
-  const meta::detail::indirect_data* info = data();
+  const meta::detail::indirect_ops* info = data();
   if (!valid() || info->has_value == nullptr) {
     return false;
   }
@@ -71,7 +71,7 @@ bool indirect_view::has_value() const noexcept {
 }
 
 any_ref indirect_view::value_ref() const {
-  const meta::detail::indirect_data* info = data();
+  const meta::detail::indirect_ops* info = data();
   if (!valid() || info->value == nullptr) {
     return {};
   }
@@ -93,7 +93,7 @@ any_ref indirect_view::value_ref() const {
 }
 
 meta::type indirect_view::get_dynamic_value_type() const noexcept {
-  const meta::detail::indirect_data* info = data();
+  const meta::detail::indirect_ops* info = data();
   const type_id declared_type = get_value_type().id();
   const type_id dynamic_type = !valid() || info == nullptr || info->dynamic_type == nullptr
                                    ? declared_type
@@ -108,7 +108,7 @@ meta::type indirect_view::get_dynamic_value_type() const noexcept {
 }
 
 any_ref indirect_view::dynamic_value_ref() const {
-  const meta::detail::indirect_data* info = data();
+  const meta::detail::indirect_ops* info = data();
   if (!valid()) {
     return {};
   }
@@ -143,17 +143,17 @@ any_ref indirect_view::dynamic_value_ref() const {
 }
 
 bool indirect_view::can_set_value() const noexcept {
-  const meta::detail::indirect_data* info = data();
+  const meta::detail::indirect_ops* info = data();
   return valid() && info->set_value != nullptr;
 }
 
 bool indirect_view::can_set_value_with_context() const noexcept {
-  const meta::detail::indirect_data* info = data();
+  const meta::detail::indirect_ops* info = data();
   return valid() && info->set_value_with_context != nullptr;
 }
 
 bool indirect_view::set_value(type_id dynamic_type, void* value) const {
-  const meta::detail::indirect_data* info = data();
+  const meta::detail::indirect_ops* info = data();
   if (!writable() || info->set_value == nullptr || value == nullptr || !dynamic_type) {
     return false;
   }
@@ -168,7 +168,7 @@ bool indirect_view::set_value(type_id dynamic_type, void* value) const {
 
 bool indirect_view::set_value(type_id dynamic_type, void* value,
                               const traits::wrapper_set_context& context) const {
-  const meta::detail::indirect_data* info = data();
+  const meta::detail::indirect_ops* info = data();
   if (!writable() || info->set_value_with_context == nullptr || value == nullptr || !dynamic_type ||
       !context.valid()) {
     return false;
@@ -183,7 +183,7 @@ bool indirect_view::set_value(type_id dynamic_type, void* value,
 }
 
 bool indirect_view::reset() const {
-  const meta::detail::indirect_data* info = data();
+  const meta::detail::indirect_ops* info = data();
   if (!writable() || info->reset == nullptr) {
     return false;
   }
@@ -194,7 +194,7 @@ bool indirect_view::reset() const {
 bool indirect_view::ensure_value() const { return ensure_value(nullptr); }
 
 bool indirect_view::ensure_value(memory::memory_resource* resource) const {
-  const meta::detail::indirect_data* info = data();
+  const meta::detail::indirect_ops* info = data();
   if (!writable() || info->ensure_value == nullptr) {
     return false;
   }
@@ -206,27 +206,27 @@ indirect_view::indirect_view(const meta::detail::type_descriptor* descriptor, co
                              bool writable) noexcept
     : descriptor_(descriptor), storage_(storage), writable_(writable) {}
 
-const meta::detail::indirect_data* indirect_view::data() const noexcept {
-  return meta::detail::descriptor_capability<meta::detail::indirect_data>(descriptor_);
+const meta::detail::indirect_ops* indirect_view::data() const noexcept {
+  return meta::detail::descriptor_capability<meta::detail::indirect_ops>(descriptor_);
 }
 
 bool pair_view::valid() const noexcept {
-  const meta::detail::pair_data* info = data();
+  const meta::detail::pair_ops* info = data();
   return info != nullptr && info->valid() && storage_ != nullptr;
 }
 
 meta::type pair_view::get_first_type() const noexcept {
-  const meta::detail::pair_data* info = data();
+  const meta::detail::pair_ops* info = data();
   return valid() ? type_view_of(info->key_type, info->key_descriptor) : meta::type{};
 }
 
 meta::type pair_view::get_value_type() const noexcept {
-  const meta::detail::pair_data* info = data();
+  const meta::detail::pair_ops* info = data();
   return valid() ? type_view_of(info->value_type, info->value_descriptor) : meta::type{};
 }
 
 any_ref pair_view::first_ref() const {
-  const meta::detail::pair_data* info = data();
+  const meta::detail::pair_ops* info = data();
   if (!valid() || info->first == nullptr) {
     return {};
   }
@@ -248,7 +248,7 @@ any_ref pair_view::first_ref() const {
 }
 
 any_ref pair_view::second_ref() const {
-  const meta::detail::pair_data* info = data();
+  const meta::detail::pair_ops* info = data();
   if (!valid() || info->second == nullptr) {
     return {};
   }
@@ -272,7 +272,7 @@ any_ref pair_view::second_ref() const {
 any_ref pair_view::value_ref() const { return second_ref(); }
 
 bool pair_view::set_first(const any& value) const {
-  const meta::detail::pair_data* info = data();
+  const meta::detail::pair_ops* info = data();
   if (!writable() || !value.valid() || value.get_type().id() != info->key_type) {
     return false;
   }
@@ -282,7 +282,7 @@ bool pair_view::set_first(const any& value) const {
 }
 
 bool pair_view::set_second(const any& value) const {
-  const meta::detail::pair_data* info = data();
+  const meta::detail::pair_ops* info = data();
   if (!writable() || !value.valid() || value.get_type().id() != info->value_type) {
     return false;
   }
@@ -295,27 +295,27 @@ pair_view::pair_view(const meta::detail::type_descriptor* descriptor, const void
                      bool writable) noexcept
     : descriptor_(descriptor), storage_(storage), writable_(writable) {}
 
-const meta::detail::pair_data* pair_view::data() const noexcept {
-  return meta::detail::descriptor_capability<meta::detail::pair_data>(descriptor_);
+const meta::detail::pair_ops* pair_view::data() const noexcept {
+  return meta::detail::descriptor_capability<meta::detail::pair_ops>(descriptor_);
 }
 
 bool tuple_view::valid() const noexcept {
-  const meta::detail::tuple_data* info = data();
+  const meta::detail::tuple_ops* info = data();
   return info != nullptr && info->valid() && storage_ != nullptr;
 }
 
 std::size_t tuple_view::size() const noexcept {
-  const meta::detail::tuple_data* info = data();
+  const meta::detail::tuple_ops* info = data();
   return valid() ? info->elements.size() : 0;
 }
 
 std::optional<meta::type> tuple_view::get_element_type(std::size_t index) const noexcept {
-  const meta::detail::tuple_data* info = data();
+  const meta::detail::tuple_ops* info = data();
   if (!valid() || index >= info->elements.size()) {
     return std::nullopt;
   }
 
-  const meta::detail::tuple_element_data& element = info->elements[index];
+  const meta::detail::tuple_element_ops& element = info->elements[index];
   meta::type type = type_view_of(element.value_type, element.value_descriptor);
   if (!type) {
     return std::nullopt;
@@ -325,12 +325,12 @@ std::optional<meta::type> tuple_view::get_element_type(std::size_t index) const 
 }
 
 any_ref tuple_view::element_ref(std::size_t index) const {
-  const meta::detail::tuple_data* info = data();
+  const meta::detail::tuple_ops* info = data();
   if (!valid() || index >= info->elements.size()) {
     return {};
   }
 
-  const meta::detail::tuple_element_data& element_data = info->elements[index];
+  const meta::detail::tuple_element_ops& element_data = info->elements[index];
   const void* value = nullptr;
   bool value_writable = false;
   if (writable() && element_data.mutable_element != nullptr) {
@@ -363,22 +363,22 @@ tuple_view::tuple_view(const meta::detail::type_descriptor* descriptor, const vo
                        bool writable) noexcept
     : descriptor_(descriptor), storage_(storage), writable_(writable) {}
 
-const meta::detail::tuple_data* tuple_view::data() const noexcept {
-  return meta::detail::descriptor_capability<meta::detail::tuple_data>(descriptor_);
+const meta::detail::tuple_ops* tuple_view::data() const noexcept {
+  return meta::detail::descriptor_capability<meta::detail::tuple_ops>(descriptor_);
 }
 
 bool variant_view::valid() const noexcept {
-  const meta::detail::variant_data* info = data();
+  const meta::detail::variant_ops* info = data();
   return info != nullptr && info->valid() && storage_ != nullptr;
 }
 
 std::size_t variant_view::size() const noexcept {
-  const meta::detail::variant_data* info = data();
+  const meta::detail::variant_ops* info = data();
   return valid() ? info->alternatives.size() : 0;
 }
 
 std::optional<std::size_t> variant_view::index() const noexcept {
-  const meta::detail::variant_data* info = data();
+  const meta::detail::variant_ops* info = data();
   if (!valid() || info->index == nullptr) {
     return std::nullopt;
   }
@@ -393,12 +393,12 @@ std::optional<std::size_t> variant_view::index() const noexcept {
 
 std::optional<meta::type>
 variant_view::get_alternative_type(std::size_t alternative) const noexcept {
-  const meta::detail::variant_data* info = data();
+  const meta::detail::variant_ops* info = data();
   if (!valid() || alternative >= info->alternatives.size()) {
     return std::nullopt;
   }
 
-  const meta::detail::variant_alternative_data& data = info->alternatives[alternative];
+  const meta::detail::variant_alternative_ops& data = info->alternatives[alternative];
   meta::type type = type_view_of(data.value_type, data.value_descriptor);
   if (!type) {
     return std::nullopt;
@@ -409,12 +409,12 @@ variant_view::get_alternative_type(std::size_t alternative) const noexcept {
 
 meta::type variant_view::get_value_type() const noexcept {
   const std::optional<std::size_t> active = index();
-  const meta::detail::variant_data* info = data();
+  const meta::detail::variant_ops* info = data();
   if (!active.has_value() || info == nullptr || *active >= info->alternatives.size()) {
     return {};
   }
 
-  const meta::detail::variant_alternative_data& alternative = info->alternatives[*active];
+  const meta::detail::variant_alternative_ops& alternative = info->alternatives[*active];
   return type_view_of(alternative.value_type, alternative.value_descriptor);
 }
 
@@ -424,7 +424,7 @@ any_ref variant_view::value_ref() const {
     return {};
   }
 
-  const meta::detail::variant_alternative_data& alternative_data = data()->alternatives[*active];
+  const meta::detail::variant_alternative_ops& alternative_data = data()->alternatives[*active];
   const void* value = nullptr;
   bool value_writable = false;
   if (writable() && alternative_data.mutable_alternative != nullptr) {
@@ -445,7 +445,7 @@ any_ref variant_view::value_ref() const {
 bool variant_view::emplace(std::size_t alternative) const { return emplace(alternative, nullptr); }
 
 bool variant_view::emplace(std::size_t alternative, memory::memory_resource* resource) const {
-  const meta::detail::variant_data* info = data();
+  const meta::detail::variant_ops* info = data();
   if (!writable() || alternative >= info->alternatives.size()) {
     return false;
   }
@@ -455,7 +455,7 @@ bool variant_view::emplace(std::size_t alternative, memory::memory_resource* res
     return true;
   }
 
-  const meta::detail::variant_alternative_data& alternative_data = info->alternatives[alternative];
+  const meta::detail::variant_alternative_ops& alternative_data = info->alternatives[alternative];
   if (alternative_data.emplace == nullptr) {
     return false;
   }
@@ -477,8 +477,8 @@ variant_view::variant_view(const meta::detail::type_descriptor* descriptor, cons
                            bool writable) noexcept
     : descriptor_(descriptor), storage_(storage), writable_(writable) {}
 
-const meta::detail::variant_data* variant_view::data() const noexcept {
-  return meta::detail::descriptor_capability<meta::detail::variant_data>(descriptor_);
+const meta::detail::variant_ops* variant_view::data() const noexcept {
+  return meta::detail::descriptor_capability<meta::detail::variant_ops>(descriptor_);
 }
 
 any_ref sequence_view::iterator::operator*() const {
@@ -508,17 +508,17 @@ sequence_view::iterator::iterator(const sequence_view* view, std::size_t index) 
     : view_(view), index_(index) {}
 
 bool sequence_view::valid() const noexcept {
-  const meta::detail::sequence_data* info = data();
+  const meta::detail::sequence_ops* info = data();
   return info != nullptr && info->valid() && storage_ != nullptr;
 }
 
 meta::type sequence_view::get_value_type() const noexcept {
-  const meta::detail::sequence_data* info = data();
+  const meta::detail::sequence_ops* info = data();
   return valid() ? type_view_of(info->value_type, info->value_descriptor) : meta::type{};
 }
 
 std::optional<std::size_t> sequence_view::size() const {
-  const meta::detail::sequence_data* info = data();
+  const meta::detail::sequence_ops* info = data();
   if (!valid() || info->size == nullptr) {
     return std::nullopt;
   }
@@ -536,7 +536,7 @@ sequence_view::iterator sequence_view::end() const {
 }
 
 any_ref sequence_view::element_ref(std::size_t index) const {
-  const meta::detail::sequence_data* info = data();
+  const meta::detail::sequence_ops* info = data();
   if (!valid() || info->element == nullptr) {
     return {};
   }
@@ -558,7 +558,7 @@ any_ref sequence_view::element_ref(std::size_t index) const {
 }
 
 bool sequence_view::clear() const {
-  const meta::detail::sequence_data* info = data();
+  const meta::detail::sequence_ops* info = data();
   if (!writable() || info->clear == nullptr) {
     return false;
   }
@@ -570,7 +570,7 @@ bool sequence_view::clear() const {
 bool sequence_view::resize(std::size_t size) const { return resize(size, nullptr); }
 
 bool sequence_view::resize(std::size_t size, memory::memory_resource* resource) const {
-  const meta::detail::sequence_data* info = data();
+  const meta::detail::sequence_ops* info = data();
   if (!writable() || info->resize == nullptr) {
     return false;
   }
@@ -579,7 +579,7 @@ bool sequence_view::resize(std::size_t size, memory::memory_resource* resource) 
 }
 
 bool sequence_view::append_value(const any& value) const {
-  const meta::detail::sequence_data* info = data();
+  const meta::detail::sequence_ops* info = data();
   if (!writable() || info->append == nullptr || !value.valid() ||
       value.get_type().id() != info->value_type) {
     return false;
@@ -592,12 +592,12 @@ sequence_view::sequence_view(const meta::detail::type_descriptor* descriptor, co
                              bool writable) noexcept
     : descriptor_(descriptor), storage_(storage), writable_(writable) {}
 
-const meta::detail::sequence_data* sequence_view::data() const noexcept {
-  return meta::detail::descriptor_capability<meta::detail::sequence_data>(descriptor_);
+const meta::detail::sequence_ops* sequence_view::data() const noexcept {
+  return meta::detail::descriptor_capability<meta::detail::sequence_ops>(descriptor_);
 }
 
 set_view::iterator::iterator(const iterator& other) : view_(other.view_) {
-  const meta::detail::set_data* info = view_ != nullptr ? view_->data() : nullptr;
+  const meta::detail::set_ops* info = view_ != nullptr ? view_->data() : nullptr;
   if (other.iterator_ != nullptr && info != nullptr && info->iterator_clone != nullptr) {
     iterator_ = info->iterator_clone(other.iterator_);
   }
@@ -635,7 +635,7 @@ set_view::iterator& set_view::iterator::operator=(iterator&& other) noexcept {
 }
 
 any_ref set_view::iterator::operator*() const {
-  const meta::detail::set_data* info = view_ != nullptr ? view_->data() : nullptr;
+  const meta::detail::set_ops* info = view_ != nullptr ? view_->data() : nullptr;
   if (info == nullptr || iterator_ == nullptr || info->iterator_value == nullptr) {
     return {};
   }
@@ -645,7 +645,7 @@ any_ref set_view::iterator::operator*() const {
 }
 
 set_view::iterator& set_view::iterator::operator++() noexcept {
-  const meta::detail::set_data* info = view_ != nullptr ? view_->data() : nullptr;
+  const meta::detail::set_ops* info = view_ != nullptr ? view_->data() : nullptr;
   if (info != nullptr && iterator_ != nullptr && info->iterator_advance != nullptr) {
     info->iterator_advance(iterator_);
   }
@@ -668,7 +668,7 @@ bool operator==(const set_view::iterator& lhs, const set_view::iterator& rhs) no
     return true;
   }
 
-  const meta::detail::set_data* info = lhs.view_ != nullptr ? lhs.view_->data() : nullptr;
+  const meta::detail::set_ops* info = lhs.view_ != nullptr ? lhs.view_->data() : nullptr;
   if (info == nullptr || info->iterator_equal == nullptr) {
     return false;
   }
@@ -690,7 +690,7 @@ void set_view::iterator::swap(iterator& other) noexcept {
 }
 
 void set_view::iterator::reset() noexcept {
-  const meta::detail::set_data* info = view_ != nullptr ? view_->data() : nullptr;
+  const meta::detail::set_ops* info = view_ != nullptr ? view_->data() : nullptr;
   if (info != nullptr && iterator_ != nullptr && info->iterator_destroy != nullptr) {
     info->iterator_destroy(iterator_);
   }
@@ -700,17 +700,17 @@ void set_view::iterator::reset() noexcept {
 }
 
 bool set_view::valid() const noexcept {
-  const meta::detail::set_data* info = data();
+  const meta::detail::set_ops* info = data();
   return info != nullptr && info->valid() && storage_ != nullptr;
 }
 
 meta::type set_view::get_value_type() const noexcept {
-  const meta::detail::set_data* info = data();
+  const meta::detail::set_ops* info = data();
   return valid() ? type_view_of(info->value_type, info->value_descriptor) : meta::type{};
 }
 
 std::optional<std::size_t> set_view::size() const {
-  const meta::detail::set_data* info = data();
+  const meta::detail::set_ops* info = data();
   if (!valid() || info->size == nullptr) {
     return std::nullopt;
   }
@@ -735,13 +735,13 @@ set_view::iterator set_view::end() const {
 }
 
 bool set_view::for_each_ref(set_element_visitor visitor, void* user_data) const {
-  const meta::detail::set_data* info = data();
+  const meta::detail::set_ops* info = data();
   if (!valid() || info->visit == nullptr || visitor == nullptr) {
     return false;
   }
 
   struct visit_context {
-    const meta::detail::set_data* data = nullptr;
+    const meta::detail::set_ops* data = nullptr;
     set_element_visitor visitor = nullptr;
     void* user_data = nullptr;
   };
@@ -751,7 +751,7 @@ bool set_view::for_each_ref(set_element_visitor visitor, void* user_data) const 
       storage_,
       [](const void* element, void* raw_context) -> bool {
         auto* context = static_cast<visit_context*>(raw_context);
-        const meta::detail::set_data* data = context->data;
+        const meta::detail::set_ops* data = context->data;
         any_ref element_ref =
             any_ref::from_raw(data->value_type, data->value_descriptor, element, false);
 
@@ -761,7 +761,7 @@ bool set_view::for_each_ref(set_element_visitor visitor, void* user_data) const 
 }
 
 bool set_view::clear() const {
-  const meta::detail::set_data* info = data();
+  const meta::detail::set_ops* info = data();
   if (!writable() || info->clear == nullptr) {
     return false;
   }
@@ -771,7 +771,7 @@ bool set_view::clear() const {
 }
 
 bool set_view::insert_value(const any& value) const {
-  const meta::detail::set_data* info = data();
+  const meta::detail::set_ops* info = data();
   if (!writable() || info->insert == nullptr || !value.valid() ||
       value.get_type().id() != info->value_type) {
     return false;
@@ -785,19 +785,19 @@ set_view::set_view(const meta::detail::type_descriptor* descriptor, const void* 
     : descriptor_(descriptor), storage_(storage), writable_(writable) {}
 
 bool set_view::has_iterator_support() const noexcept {
-  const meta::detail::set_data* info = data();
+  const meta::detail::set_ops* info = data();
   return valid() && info->begin != nullptr && info->end != nullptr &&
          info->iterator_clone != nullptr && info->iterator_destroy != nullptr &&
          info->iterator_advance != nullptr && info->iterator_equal != nullptr &&
          info->iterator_value != nullptr;
 }
 
-const meta::detail::set_data* set_view::data() const noexcept {
-  return meta::detail::descriptor_capability<meta::detail::set_data>(descriptor_);
+const meta::detail::set_ops* set_view::data() const noexcept {
+  return meta::detail::descriptor_capability<meta::detail::set_ops>(descriptor_);
 }
 
 associative_view::iterator::iterator(const iterator& other) : view_(other.view_) {
-  const meta::detail::associative_data* info = view_ != nullptr ? view_->data() : nullptr;
+  const meta::detail::associative_ops* info = view_ != nullptr ? view_->data() : nullptr;
   if (other.iterator_ != nullptr && info != nullptr && info->iterator_clone != nullptr) {
     iterator_ = info->iterator_clone(other.iterator_);
   }
@@ -835,7 +835,7 @@ associative_view::iterator& associative_view::iterator::operator=(iterator&& oth
 }
 
 associative_entry_ref associative_view::iterator::operator*() const {
-  const meta::detail::associative_data* info = view_ != nullptr ? view_->data() : nullptr;
+  const meta::detail::associative_ops* info = view_ != nullptr ? view_->data() : nullptr;
   if (info == nullptr || iterator_ == nullptr || info->iterator_key == nullptr ||
       info->iterator_value == nullptr) {
     return {};
@@ -850,7 +850,7 @@ associative_entry_ref associative_view::iterator::operator*() const {
 }
 
 associative_view::iterator& associative_view::iterator::operator++() noexcept {
-  const meta::detail::associative_data* info = view_ != nullptr ? view_->data() : nullptr;
+  const meta::detail::associative_ops* info = view_ != nullptr ? view_->data() : nullptr;
   if (info != nullptr && iterator_ != nullptr && info->iterator_advance != nullptr) {
     info->iterator_advance(iterator_);
   }
@@ -874,7 +874,7 @@ bool operator==(const associative_view::iterator& lhs,
     return true;
   }
 
-  const meta::detail::associative_data* info = lhs.view_ != nullptr ? lhs.view_->data() : nullptr;
+  const meta::detail::associative_ops* info = lhs.view_ != nullptr ? lhs.view_->data() : nullptr;
   if (info == nullptr || info->iterator_equal == nullptr) {
     return false;
   }
@@ -897,7 +897,7 @@ void associative_view::iterator::swap(iterator& other) noexcept {
 }
 
 void associative_view::iterator::reset() noexcept {
-  const meta::detail::associative_data* info = view_ != nullptr ? view_->data() : nullptr;
+  const meta::detail::associative_ops* info = view_ != nullptr ? view_->data() : nullptr;
   if (info != nullptr && iterator_ != nullptr && info->iterator_destroy != nullptr) {
     info->iterator_destroy(iterator_);
   }
@@ -907,22 +907,22 @@ void associative_view::iterator::reset() noexcept {
 }
 
 bool associative_view::valid() const noexcept {
-  const meta::detail::associative_data* info = data();
+  const meta::detail::associative_ops* info = data();
   return info != nullptr && info->valid() && storage_ != nullptr;
 }
 
 meta::type associative_view::get_key_type() const noexcept {
-  const meta::detail::associative_data* info = data();
+  const meta::detail::associative_ops* info = data();
   return valid() ? type_view_of(info->key_type, info->key_descriptor) : meta::type{};
 }
 
 meta::type associative_view::get_value_type() const noexcept {
-  const meta::detail::associative_data* info = data();
+  const meta::detail::associative_ops* info = data();
   return valid() ? type_view_of(info->value_type, info->value_descriptor) : meta::type{};
 }
 
 std::optional<std::size_t> associative_view::size() const {
-  const meta::detail::associative_data* info = data();
+  const meta::detail::associative_ops* info = data();
   if (!valid() || info->size == nullptr) {
     return std::nullopt;
   }
@@ -947,13 +947,13 @@ associative_view::iterator associative_view::end() const {
 }
 
 bool associative_view::for_each_ref(associative_entry_visitor visitor, void* user_data) const {
-  const meta::detail::associative_data* info = data();
+  const meta::detail::associative_ops* info = data();
   if (!valid() || info->visit == nullptr || visitor == nullptr) {
     return false;
   }
 
   struct visit_context {
-    const meta::detail::associative_data* data = nullptr;
+    const meta::detail::associative_ops* data = nullptr;
     associative_entry_visitor visitor = nullptr;
     void* user_data = nullptr;
   };
@@ -963,7 +963,7 @@ bool associative_view::for_each_ref(associative_entry_visitor visitor, void* use
       storage_,
       [](const void* key, const void* mapped, void* raw_context) -> bool {
         auto* context = static_cast<visit_context*>(raw_context);
-        const meta::detail::associative_data* data = context->data;
+        const meta::detail::associative_ops* data = context->data;
         any_ref key_ref = any_ref::from_raw(data->key_type, data->key_descriptor, key, false);
         any_ref mapped_ref =
             any_ref::from_raw(data->value_type, data->value_descriptor, mapped, false);
@@ -974,7 +974,7 @@ bool associative_view::for_each_ref(associative_entry_visitor visitor, void* use
 }
 
 bool associative_view::clear() const {
-  const meta::detail::associative_data* info = data();
+  const meta::detail::associative_ops* info = data();
   if (!writable() || info->clear == nullptr) {
     return false;
   }
@@ -984,7 +984,7 @@ bool associative_view::clear() const {
 }
 
 bool associative_view::insert_value(const any& key, const any& mapped) const {
-  const meta::detail::associative_data* info = data();
+  const meta::detail::associative_ops* info = data();
   if (!writable() || info->insert == nullptr || !key.valid() || !mapped.valid() ||
       key.get_type().id() != info->key_type || mapped.get_type().id() != info->value_type) {
     return false;
@@ -998,19 +998,19 @@ associative_view::associative_view(const meta::detail::type_descriptor* descript
     : descriptor_(descriptor), storage_(storage), writable_(writable) {}
 
 bool associative_view::has_iterator_support() const noexcept {
-  const meta::detail::associative_data* info = data();
+  const meta::detail::associative_ops* info = data();
   return valid() && info->begin != nullptr && info->end != nullptr &&
          info->iterator_clone != nullptr && info->iterator_destroy != nullptr &&
          info->iterator_advance != nullptr && info->iterator_equal != nullptr &&
          info->iterator_key != nullptr && info->iterator_value != nullptr;
 }
 
-const meta::detail::associative_data* associative_view::data() const noexcept {
-  return meta::detail::descriptor_capability<meta::detail::associative_data>(descriptor_);
+const meta::detail::associative_ops* associative_view::data() const noexcept {
+  return meta::detail::descriptor_capability<meta::detail::associative_ops>(descriptor_);
 }
 
 associative_view any::create_associative_view() {
-  if (!valid() || !has_capability<meta::detail::associative_data>(descriptor_)) {
+  if (!valid() || !has_capability<meta::detail::associative_ops>(descriptor_)) {
     return {};
   }
 
@@ -1018,7 +1018,7 @@ associative_view any::create_associative_view() {
 }
 
 associative_view any::create_associative_view() const {
-  if (!valid() || !has_capability<meta::detail::associative_data>(descriptor_)) {
+  if (!valid() || !has_capability<meta::detail::associative_ops>(descriptor_)) {
     return {};
   }
 
@@ -1026,7 +1026,7 @@ associative_view any::create_associative_view() const {
 }
 
 associative_view any_ref::create_associative_view() const {
-  if (!valid() || !has_capability<meta::detail::associative_data>(descriptor_)) {
+  if (!valid() || !has_capability<meta::detail::associative_ops>(descriptor_)) {
     return {};
   }
 
@@ -1034,7 +1034,7 @@ associative_view any_ref::create_associative_view() const {
 }
 
 pair_view any::create_pair_view() {
-  if (!valid() || !has_capability<meta::detail::pair_data>(descriptor_)) {
+  if (!valid() || !has_capability<meta::detail::pair_ops>(descriptor_)) {
     return {};
   }
 
@@ -1042,7 +1042,7 @@ pair_view any::create_pair_view() {
 }
 
 pair_view any::create_pair_view() const {
-  if (!valid() || !has_capability<meta::detail::pair_data>(descriptor_)) {
+  if (!valid() || !has_capability<meta::detail::pair_ops>(descriptor_)) {
     return {};
   }
 
@@ -1050,7 +1050,7 @@ pair_view any::create_pair_view() const {
 }
 
 pair_view any_ref::create_pair_view() const {
-  if (!valid() || !has_capability<meta::detail::pair_data>(descriptor_)) {
+  if (!valid() || !has_capability<meta::detail::pair_ops>(descriptor_)) {
     return {};
   }
 
@@ -1058,7 +1058,7 @@ pair_view any_ref::create_pair_view() const {
 }
 
 tuple_view any::create_tuple_view() {
-  if (!valid() || !has_capability<meta::detail::tuple_data>(descriptor_)) {
+  if (!valid() || !has_capability<meta::detail::tuple_ops>(descriptor_)) {
     return {};
   }
 
@@ -1066,7 +1066,7 @@ tuple_view any::create_tuple_view() {
 }
 
 tuple_view any::create_tuple_view() const {
-  if (!valid() || !has_capability<meta::detail::tuple_data>(descriptor_)) {
+  if (!valid() || !has_capability<meta::detail::tuple_ops>(descriptor_)) {
     return {};
   }
 
@@ -1074,7 +1074,7 @@ tuple_view any::create_tuple_view() const {
 }
 
 tuple_view any_ref::create_tuple_view() const {
-  if (!valid() || !has_capability<meta::detail::tuple_data>(descriptor_)) {
+  if (!valid() || !has_capability<meta::detail::tuple_ops>(descriptor_)) {
     return {};
   }
 
@@ -1082,7 +1082,7 @@ tuple_view any_ref::create_tuple_view() const {
 }
 
 variant_view any::create_variant_view() {
-  if (!valid() || !has_capability<meta::detail::variant_data>(descriptor_)) {
+  if (!valid() || !has_capability<meta::detail::variant_ops>(descriptor_)) {
     return {};
   }
 
@@ -1090,7 +1090,7 @@ variant_view any::create_variant_view() {
 }
 
 variant_view any::create_variant_view() const {
-  if (!valid() || !has_capability<meta::detail::variant_data>(descriptor_)) {
+  if (!valid() || !has_capability<meta::detail::variant_ops>(descriptor_)) {
     return {};
   }
 
@@ -1098,7 +1098,7 @@ variant_view any::create_variant_view() const {
 }
 
 variant_view any_ref::create_variant_view() const {
-  if (!valid() || !has_capability<meta::detail::variant_data>(descriptor_)) {
+  if (!valid() || !has_capability<meta::detail::variant_ops>(descriptor_)) {
     return {};
   }
 
@@ -1130,7 +1130,7 @@ indirect_view any_ref::create_indirect_view() const {
 }
 
 sequence_view any::create_sequence_view() {
-  if (!valid() || !has_capability<meta::detail::sequence_data>(descriptor_)) {
+  if (!valid() || !has_capability<meta::detail::sequence_ops>(descriptor_)) {
     return {};
   }
 
@@ -1138,7 +1138,7 @@ sequence_view any::create_sequence_view() {
 }
 
 sequence_view any::create_sequence_view() const {
-  if (!valid() || !has_capability<meta::detail::sequence_data>(descriptor_)) {
+  if (!valid() || !has_capability<meta::detail::sequence_ops>(descriptor_)) {
     return {};
   }
 
@@ -1146,7 +1146,7 @@ sequence_view any::create_sequence_view() const {
 }
 
 sequence_view any_ref::create_sequence_view() const {
-  if (!valid() || !has_capability<meta::detail::sequence_data>(descriptor_)) {
+  if (!valid() || !has_capability<meta::detail::sequence_ops>(descriptor_)) {
     return {};
   }
 
@@ -1154,7 +1154,7 @@ sequence_view any_ref::create_sequence_view() const {
 }
 
 set_view any::create_set_view() {
-  if (!valid() || !has_capability<meta::detail::set_data>(descriptor_)) {
+  if (!valid() || !has_capability<meta::detail::set_ops>(descriptor_)) {
     return {};
   }
 
@@ -1162,7 +1162,7 @@ set_view any::create_set_view() {
 }
 
 set_view any::create_set_view() const {
-  if (!valid() || !has_capability<meta::detail::set_data>(descriptor_)) {
+  if (!valid() || !has_capability<meta::detail::set_ops>(descriptor_)) {
     return {};
   }
 
@@ -1170,7 +1170,7 @@ set_view any::create_set_view() const {
 }
 
 set_view any_ref::create_set_view() const {
-  if (!valid() || !has_capability<meta::detail::set_data>(descriptor_)) {
+  if (!valid() || !has_capability<meta::detail::set_ops>(descriptor_)) {
     return {};
   }
 

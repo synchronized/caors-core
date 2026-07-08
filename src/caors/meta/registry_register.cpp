@@ -133,7 +133,7 @@ error registry::set_type_parent(type_id id, type_id parent_id) {
   return set_type_parent(id, parent_id, {});
 }
 
-error registry::set_type_parent(type_id id, type_id parent_id, detail::parent_cast_data cast) {
+error registry::set_type_parent(type_id id, type_id parent_id, detail::parent_cast_ops cast) {
   if (!id) {
     return {error_domain::meta, errc::invalid_type};
   }
