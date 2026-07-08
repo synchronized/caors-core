@@ -50,6 +50,8 @@ public:
       return "pending";
     case errc::cancelled:
       return "cancelled";
+    case errc::cycle_detected:
+      return "cycle detected";
     case errc::unsupported:
       return "unsupported";
     case errc::out_of_memory:

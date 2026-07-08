@@ -207,6 +207,10 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 实现第一版资源依赖图，记录资源 GUID 之间的依赖和反向依赖，用于预加载、打包、热更新和级联刷新。
 - [x] 提供 `dependency_graph::affected_by()` 作为 reload 影响范围的直接依赖查询入口。
 - [x] 提供 `dependency_graph::affected_closure()` 作为 reload 影响范围的递归查询入口，覆盖循环依赖和去重边界。
+- [x] 提供 `dependency_graph::has_cycle()` / `find_cycle()`，让预加载、打包和拓扑排序流程可以显式拒绝循环依赖。
+- [x] 提供 `resources::preload_plan` / `preload_result`，记录依赖优先的加载顺序、已缓存资源、缺失 manifest
+  条目和循环依赖路径。
+- [x] 提供 `resources::database::plan_preload<T>()` / `preload<T>()`，第一版支持同一资源类型的同步依赖闭包预加载。
 - [ ] 扩展资源依赖图到对象、场景和资源包层级，并定义跨层级 reload 影响范围计算。
 - [ ] 后续评估调试 fileserver、资源包、远程资源、导入管线、资源数据库和编辑器工具层；当这些能力需要独立
   生命周期、后台任务或 UI/工具协议时，再考虑拆出独立资源工具链主题。

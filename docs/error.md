@@ -94,6 +94,16 @@ if (result.status.value() == caors::errc::pending) {
 }
 ```
 
+依赖图、预加载、打包等需要拓扑顺序的流程可以用 `errc::cycle_detected`
+表示发现循环依赖：
+
+```cpp
+auto plan = database.plan_preload<texture>(texture_id);
+if (plan.status.value() == caors::errc::cycle_detected) {
+  // plan.cycle 保存一个闭合依赖路径。
+}
+```
+
 ### rethrow_as
 
 跨模块 API 边界可以用 `rethrow_as()` 保留底层错误码，并替换为当前模块的错误来源域：

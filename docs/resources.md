@@ -6,7 +6,7 @@
 本文档说明 CAORS 资源系统的当前设计边界。资源系统仍处于基础阶段，当前提供资源身份、轻量引用模型、
 运行期共享 handle、非拥有资源索引、引用计数缓存、资源依赖图、资源清单、字节来源 provider、
 加载/保存接口、非拥有资源 database 编排入口、同步 reload、显式 reload 通知、最小序列化读写 helper、
-序列化资源引用 resolver 和第一版异步加载请求；资源包后续再补。
+同步预加载计划、序列化资源引用 resolver 和第一版异步加载请求；资源包后续再补。
 
 ## 设计目标
 
@@ -23,6 +23,7 @@
 - 资源 provider 可以把稳定 GUID 映射到字节来源和位置，作为资源数据库或调试 fileserver 的运行期读取入口。
 - 资源加载器和保存器先只定义类型化接口，不绑定路径、文件系统或异步框架。
 - 资源 database 可以把 manifest、provider、cache、loader、依赖图和序列化 resolver 串成一条主流程。
+- 同步预加载计划可以按依赖图计算依赖优先的加载顺序，并在需要拓扑顺序的流程中检测循环依赖。
 - 异步加载请求可以把后台 loader 阶段和主线程 cache commit 阶段分开。
 - 底层资源模型不绑定具体引擎、文件系统、异步加载框架或编辑器管线。
 
@@ -33,7 +34,8 @@
 - cache 级自动淘汰、后台释放或跨 cache 生命周期协调。
 - 完整热重载系统。
 - 资源导入管线。
-- 请求取消传播、优先级、进度聚合和同 GUID 请求合并。
+- 跨资源类型自动预加载分派。
+- 请求优先级、进度聚合和同 GUID 请求合并。
 - 与对象系统的场景树生命周期绑定。
 
 这些能力后续应建立在 `io::file_system`、`resources::provider`、`resources::manager`、
@@ -63,6 +65,8 @@
 - `resources::json_saver<T>`
 - `resources::request_status`
 - `resources::load_request<T>`
+- `resources::preload_plan`
+- `resources::preload_result`
 - `resources::request_load_into()`
 - `resources::request_reload_into()`
 - `resources::reload_event<T>`
@@ -93,6 +97,8 @@
 - `caors::resource_json_saver<T>`
 - `caors::resource_request_status`
 - `caors::resource_load_request<T>`
+- `caors::resource_preload_plan`
+- `caors::resource_preload_result`
 - `caors::resource_reload_event<T>`
 - `caors::resource_reload_signal<T>`
 - `caors::bind_manifest()`
@@ -202,6 +208,47 @@ if (auto locked = weak.lock()) {
   `resource_guid` / `resource_ref<T>`。
 - `cache<T>` 内部持有强 handle。`erase()`、`clear()` 或 `replace()` 只释放 cache 自己的强引用；
   如果外部仍持有 `resource_handle<T>`，旧资源会继续存活到最后一个强引用释放。
+
+## 同步预加载
+
+`resources::dependency_graph` 记录资源 GUID 之间的依赖边：`resource -> dependency`。资源引用关系可以
+出现循环，但打包、预加载和拓扑排序这类“需要依赖先于使用者”的流程必须显式检测环：
+
+```cpp
+caors::resource_dependency_graph graph;
+graph.add(material_id, texture_id);
+
+if (graph.has_cycle(material_id)) {
+  auto cycle = graph.find_cycle(material_id);
+}
+```
+
+`resources::database` 提供第一版同步预加载入口：
+
+```cpp
+caors::resource_preload_plan plan =
+    database.plan_preload<texture>(texture_id);
+
+if (plan.succeeded()) {
+  caors::resource_preload_result result =
+      database.preload<texture>(texture_id);
+}
+```
+
+当前语义：
+
+- `plan_preload<T>(root)` 从 `root` 出发遍历依赖闭包，生成依赖优先的 `load_order`。
+- 已经在已注册 `cache<T>` 中的资源会进入 `already_loaded`，不会重复加载。
+- 如果 database 设置了 manifest，缺失清单条目会进入 `missing_manifest`，计划返回
+  `resources / not_found`。
+- 如果依赖闭包中存在环，`cycle` 保存一个闭合路径，计划返回 `resources / cycle_detected`。
+- `preload<T>(root)` 会先生成计划，再按 `load_order` 调用已注册 `loader<T>` 和 `cache<T>`。
+
+当前限制：
+
+- 第一版假定依赖闭包内资源都由同一个 `T` 类型的 cache/loader 处理。
+- 不会根据 manifest `type`、`type_guid` 或外部资源数据库自动选择不同资源类型。
+- 不会自动递归解析对象、场景或资源包层级的依赖；这些能力后续建立在当前计划结构之上。
 
 ## 异步加载请求
 

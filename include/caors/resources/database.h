@@ -7,6 +7,7 @@
 #include "caors/resources/async.h"
 #include "caors/resources/dependency_graph.h"
 #include "caors/resources/io.h"
+#include "caors/resources/preload.h"
 #include "caors/serialization/types.h"
 
 #include <cstdint>
@@ -211,6 +212,78 @@ public:
     return {reloaded.status, reloaded.value.get()};
   }
 
+  /**
+   * @brief 为指定根资源生成同步预加载计划。
+   *
+   * 第一版按当前 `dependency_graph` 展开 GUID 依赖闭包，并假定该闭包内资源都由同一个 `T`
+   * 类型的 cache/loader 处理。若当前 database 设置了 manifest，缺失清单条目会让计划失败。
+   */
+  template <typename T> [[nodiscard]] preload_plan plan_preload(resource_guid root) const {
+    static_assert(std::is_base_of_v<resources::resource, T>,
+                  "T must derive from caors::resources::resource");
+
+    preload_plan plan{resource_};
+    if (!root) {
+      plan.status = {error_domain::resources, errc::invalid_argument};
+      return plan;
+    }
+
+    if (dependency_graph_ != nullptr) {
+      plan.cycle = dependency_graph_->find_cycle(root);
+      if (!plan.cycle.empty()) {
+        plan.status = {error_domain::resources, errc::cycle_detected};
+        return plan;
+      }
+    }
+
+    dependency_graph::guid_set visited{
+        typename dependency_graph::guid_set::allocator_type{resource_}};
+    append_preload_guid<T>(root, visited, plan);
+    if (plan.status.succeeded() && !plan.missing_manifest.empty()) {
+      plan.status = {error_domain::resources, errc::not_found};
+    }
+
+    return plan;
+  }
+
+  /**
+   * @brief 按依赖顺序同步预加载资源。
+   *
+   * 该函数先生成 `plan_preload<T>()`，再按计划中的 `load_order` 调用已注册 loader/cache。
+   * 已缓存资源不会重复加载。第一版不根据 manifest type 自动选择不同资源类型。
+   */
+  template <typename T> [[nodiscard]] preload_result preload(resource_guid root) {
+    static_assert(std::is_base_of_v<resources::resource, T>,
+                  "T must derive from caors::resources::resource");
+
+    preload_result result{resource_};
+    result.plan = plan_preload<T>(root);
+    if (result.plan.failed()) {
+      result.status = result.plan.status;
+      return result;
+    }
+
+    type_entry* entry = find_entry<T>();
+    if (entry == nullptr || entry->cache == nullptr || entry->loader == nullptr) {
+      result.status = {error_domain::resources, errc::not_found};
+      return result;
+    }
+
+    auto& target = *static_cast<resources::cache<T>*>(entry->cache);
+    auto& source = *static_cast<resources::loader<T>*>(entry->loader);
+    for (resource_guid guid : result.plan.load_order) {
+      handle_result<T> loaded = resources::load_handle_into(target, source, guid);
+      if (loaded.failed()) {
+        result.status = loaded.status;
+        return result;
+      }
+
+      result.loaded.push_back(guid);
+    }
+
+    return result;
+  }
+
   /** @brief 异步加载资源，并在 completion queue 中提交到对应 cache。 */
   template <typename T>
   [[nodiscard]] load_request<T> request_load(resource_guid guid, tasks::executor& executor,
@@ -372,6 +445,41 @@ private:
   [[nodiscard]] static bool is_current_in_cache(void* cache, const void* reference) {
     return static_cast<resources::cache<T>*>(cache)->is_current(
         *static_cast<const resources::ref<T>*>(reference));
+  }
+
+  template <typename T>
+  void append_preload_guid(resource_guid guid, dependency_graph::guid_set& visited,
+                           preload_plan& plan) const {
+    if (!guid) {
+      plan.status = {error_domain::resources, errc::invalid_argument};
+      return;
+    }
+
+    const auto [_, inserted] = visited.insert(guid);
+    if (!inserted) {
+      return;
+    }
+
+    if (dependency_graph_ != nullptr) {
+      for (resource_guid dependency : dependency_graph_->dependencies(guid)) {
+        append_preload_guid<T>(dependency, visited, plan);
+        if (plan.status.failed()) {
+          return;
+        }
+      }
+    }
+
+    if (manifest_ != nullptr && !manifest_->contains(guid)) {
+      plan.missing_manifest.push_back(guid);
+      return;
+    }
+
+    if (find<T>(guid) != nullptr) {
+      plan.already_loaded.push_back(guid);
+      return;
+    }
+
+    plan.load_order.push_back(guid);
   }
 
   [[nodiscard]] dependency_graph::guid_list make_guid_list() const {

@@ -7,6 +7,7 @@
 #include "caors/core/containers.h"
 #include "caors/resources/id.h"
 
+#include <algorithm>
 #include <cstddef>
 
 namespace caors::resources {
@@ -148,6 +149,53 @@ public:
   /** @brief 获取 resource 变化后可能直接受影响的资源 GUID 列表。 */
   [[nodiscard]] guid_list affected_by(resource_guid resource) const { return dependents(resource); }
 
+  /** @brief 判断整张依赖图中是否存在循环依赖。 */
+  [[nodiscard]] bool has_cycle() const { return !find_cycle().empty(); }
+
+  /** @brief 判断从指定资源出发的依赖闭包中是否存在循环依赖。 */
+  [[nodiscard]] bool has_cycle(resource_guid resource) const {
+    return !find_cycle(resource).empty();
+  }
+
+  /**
+   * @brief 查找整张依赖图中的一个循环依赖。
+   *
+   * 返回列表为空表示没有环；非空时列表会重复最后一个节点，用于表达闭合路径，例如
+   * `A -> B -> C -> A`。
+   */
+  [[nodiscard]] guid_list find_cycle() const {
+    guid_list result = make_list();
+    guid_set visiting = make_set();
+    guid_set visited = make_set();
+    guid_list stack = make_list();
+
+    for (const auto& pair : dependencies_by_resource_) {
+      if (find_cycle_from(pair.first, visiting, visited, stack, result)) {
+        return result;
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * @brief 查找从指定资源出发的依赖闭包中的一个循环依赖。
+   *
+   * 返回列表为空表示没有环；非空时列表会重复最后一个节点，用于表达闭合路径。
+   */
+  [[nodiscard]] guid_list find_cycle(resource_guid resource) const {
+    guid_list result = make_list();
+    if (!resource) {
+      return result;
+    }
+
+    guid_set visiting = make_set();
+    guid_set visited = make_set();
+    guid_list stack = make_list();
+    (void)find_cycle_from(resource, visiting, visited, stack, result);
+    return result;
+  }
+
   /**
    * @brief 获取 resource 变化后递归受影响的资源 GUID 列表。
    *
@@ -221,6 +269,47 @@ private:
         result.push_back(dependent);
       }
     }
+  }
+
+  void copy_cycle(resource_guid repeated, const guid_list& stack, guid_list& result) const {
+    const auto begin = std::find(stack.begin(), stack.end(), repeated);
+    if (begin == stack.end()) {
+      return;
+    }
+
+    for (auto current = begin; current != stack.end(); ++current) {
+      result.push_back(*current);
+    }
+    result.push_back(repeated);
+  }
+
+  [[nodiscard]] bool find_cycle_from(resource_guid resource, guid_set& visiting, guid_set& visited,
+                                     guid_list& stack, guid_list& result) const {
+    if (visited.find(resource) != visited.end()) {
+      return false;
+    }
+
+    if (visiting.find(resource) != visiting.end()) {
+      copy_cycle(resource, stack, result);
+      return !result.empty();
+    }
+
+    visiting.insert(resource);
+    stack.push_back(resource);
+
+    const auto position = dependencies_by_resource_.find(resource);
+    if (position != dependencies_by_resource_.end()) {
+      for (resource_guid dependency : position->second) {
+        if (find_cycle_from(dependency, visiting, visited, stack, result)) {
+          return true;
+        }
+      }
+    }
+
+    stack.pop_back();
+    visiting.erase(resource);
+    visited.insert(resource);
+    return false;
   }
 
   memory_resource* resource_ = nullptr;

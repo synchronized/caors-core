@@ -32,6 +32,7 @@ enum class errc {
   frozen,
   pending,
   cancelled,
+  cycle_detected,
   unsupported,
   out_of_memory,
   backend_failure,

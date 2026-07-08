@@ -133,6 +133,25 @@ TEST_CASE("resources - dependency graph handles cycles in affected closure", "[r
   CHECK_FALSE(contains_guid(affected, test_guid_a));
 }
 
+TEST_CASE("resources - dependency graph reports dependency cycles", "[resources]") {
+  caors::resource_dependency_graph graph;
+
+  REQUIRE(graph.add(test_guid_a, test_guid_b));
+  REQUIRE(graph.add(test_guid_b, test_guid_c));
+  REQUIRE(graph.add(test_guid_c, test_guid_a));
+
+  CHECK(graph.has_cycle());
+  CHECK(graph.has_cycle(test_guid_a));
+  CHECK_FALSE(graph.has_cycle(test_guid_d));
+
+  caors::vector<caors::resource_guid> cycle = graph.find_cycle(test_guid_a);
+  REQUIRE(cycle.size() == 4);
+  CHECK(cycle.front() == cycle.back());
+  CHECK(contains_guid(cycle, test_guid_a));
+  CHECK(contains_guid(cycle, test_guid_b));
+  CHECK(contains_guid(cycle, test_guid_c));
+}
+
 TEST_CASE("resources - dependency graph updates affected closure after clear", "[resources]") {
   caors::resource_dependency_graph graph;
 
