@@ -26,7 +26,8 @@ class database final {
 public:
   explicit database(memory_resource* resource = nullptr)
       : resource_(resource != nullptr ? resource : get_default_memory_resource()),
-        entries_(typename entry_map::allocator_type{resource_}) {}
+        entries_(typename entry_map::allocator_type{resource_}),
+        entries_by_resource_type_(typename resource_type_map::allocator_type{resource_}) {}
 
   database(const database&) = delete;
   database& operator=(const database&) = delete;
@@ -103,7 +104,19 @@ public:
     entry->find = &find_in_cache<T>;
     entry->resolve = &resolve_in_cache<T>;
     entry->is_current = &is_current_in_cache<T>;
+    entry->load = &load_in_cache<T>;
     return {};
+  }
+
+  /** @brief 注册某个资源类型的拥有式 cache，并绑定 manifest type。 */
+  template <typename T>
+  [[nodiscard]] error register_cache(resources::cache<T>& target, core::string_name resource_type) {
+    error status = register_cache(target);
+    if (status) {
+      return status;
+    }
+
+    return bind_resource_type<T>(resource_type);
   }
 
   /** @brief 注册某个资源类型的加载器。 */
@@ -122,7 +135,20 @@ public:
     }
 
     entry->loader = &source;
+    entry->load = &load_in_cache<T>;
     return {};
+  }
+
+  /** @brief 注册某个资源类型的加载器，并绑定 manifest type。 */
+  template <typename T>
+  [[nodiscard]] error register_loader(resources::loader<T>& source,
+                                      core::string_name resource_type) {
+    error status = register_loader(source);
+    if (status) {
+      return status;
+    }
+
+    return bind_resource_type<T>(resource_type);
   }
 
   /** @brief 同时注册某个资源类型的 cache 和 loader。 */
@@ -134,6 +160,18 @@ public:
     }
 
     return register_loader(source);
+  }
+
+  /** @brief 同时注册某个资源类型的 cache、loader 和 manifest type。 */
+  template <typename T>
+  [[nodiscard]] error register_type(resources::cache<T>& target, resources::loader<T>& source,
+                                    core::string_name resource_type) {
+    error status = register_type(target, source);
+    if (status) {
+      return status;
+    }
+
+    return bind_resource_type<T>(resource_type);
   }
 
   /** @brief 按资源类型和 GUID 查询已缓存资源。 */
@@ -247,6 +285,39 @@ public:
   }
 
   /**
+   * @brief 按 manifest type 为指定根资源生成跨类型同步预加载计划。
+   *
+   * 该重载要求 database 设置 manifest。每个资源 GUID 会从 manifest 条目读取 type，再映射到
+   * `register_type(cache, loader, type)` 绑定的 cache/loader。
+   */
+  [[nodiscard]] preload_plan plan_preload(resource_guid root) const {
+    preload_plan plan{resource_};
+    if (!root) {
+      plan.status = {error_domain::resources, errc::invalid_argument};
+      return plan;
+    }
+
+    if (manifest_ == nullptr) {
+      plan.status = {error_domain::resources, errc::invalid_argument};
+      return plan;
+    }
+
+    if (dependency_graph_ != nullptr) {
+      plan.cycle = dependency_graph_->find_cycle(root);
+      if (!plan.cycle.empty()) {
+        plan.status = {error_domain::resources, errc::cycle_detected};
+        return plan;
+      }
+    }
+
+    dependency_graph::guid_set visited{
+        typename dependency_graph::guid_set::allocator_type{resource_}};
+    append_dispatched_preload_guid(root, visited, plan);
+    finalize_preload_status(plan);
+    return plan;
+  }
+
+  /**
    * @brief 按依赖顺序同步预加载资源。
    *
    * 该函数先生成 `plan_preload<T>()`，再按计划中的 `load_order` 调用已注册 loader/cache。
@@ -269,16 +340,50 @@ public:
       return result;
     }
 
-    auto& target = *static_cast<resources::cache<T>*>(entry->cache);
-    auto& source = *static_cast<resources::loader<T>*>(entry->loader);
-    for (resource_guid guid : result.plan.load_order) {
-      handle_result<T> loaded = resources::load_handle_into(target, source, guid);
+    for (const preload_item& item : result.plan.load_order) {
+      handle_result<T> loaded = resources::load_handle_into(
+          *static_cast<resources::cache<T>*>(entry->cache),
+          *static_cast<resources::loader<T>*>(entry->loader), item.guid);
       if (loaded.failed()) {
         result.status = loaded.status;
         return result;
       }
 
-      result.loaded.push_back(guid);
+      result.loaded.push_back(item);
+    }
+
+    return result;
+  }
+
+  /**
+   * @brief 按 manifest type 同步预加载资源。
+   *
+   * 该重载支持依赖闭包中存在不同资源类型。每个资源项会按 manifest type 分派到对应已注册
+   * cache/loader。
+   */
+  [[nodiscard]] preload_result preload(resource_guid root) {
+    preload_result result{resource_};
+    result.plan = plan_preload(root);
+    if (result.plan.failed()) {
+      result.status = result.plan.status;
+      return result;
+    }
+
+    for (const preload_item& item : result.plan.load_order) {
+      type_entry* entry = find_entry(item.type);
+      if (entry == nullptr || entry->cache == nullptr || entry->loader == nullptr ||
+          entry->load == nullptr) {
+        result.status = {error_domain::resources, errc::not_found};
+        return result;
+      }
+
+      const error status = entry->load(entry->cache, entry->loader, item.guid);
+      if (status) {
+        result.status = status;
+        return result;
+      }
+
+      result.loaded.push_back(item);
     }
 
     return result;
@@ -378,19 +483,23 @@ public:
 
 private:
   using find_fn = resources::resource* (*)(void* cache, resource_guid guid);
+  using load_fn = error (*)(void* cache, void* loader, resource_guid guid);
   using resolve_fn = bool (*)(void* cache, void* reference);
   using is_current_fn = bool (*)(void* cache, const void* reference);
 
   struct type_entry {
     type_id id{};
+    core::string_name resource_type{};
     void* cache = nullptr;
     void* loader = nullptr;
     find_fn find = nullptr;
+    load_fn load = nullptr;
     resolve_fn resolve = nullptr;
     is_current_fn is_current = nullptr;
   };
 
   using entry_map = core::hash_map<std::uint64_t, type_entry>;
+  using resource_type_map = core::hash_map<core::string_name, std::uint64_t>;
 
   template <typename T> [[nodiscard]] error ensure_entry(type_entry*& entry) {
     const type_id id = meta::id_of<T>();
@@ -408,6 +517,39 @@ private:
     created.id = id;
     const auto [inserted, _] = entries_.emplace(id.value(), created);
     entry = &inserted->second;
+    return {};
+  }
+
+  template <typename T> [[nodiscard]] error bind_resource_type(core::string_name resource_type) {
+    if (!resource_type) {
+      return {error_domain::resources, errc::invalid_argument};
+    }
+
+    type_entry* entry = nullptr;
+    const error status = ensure_entry<T>(entry);
+    if (status) {
+      return status;
+    }
+
+    return bind_entry_resource_type(*entry, resource_type);
+  }
+
+  [[nodiscard]] error bind_entry_resource_type(type_entry& entry, core::string_name resource_type) {
+    if (!resource_type || !entry.id) {
+      return {error_domain::resources, errc::invalid_argument};
+    }
+
+    if (entry.resource_type && entry.resource_type != resource_type) {
+      return {error_domain::resources, errc::already_exists};
+    }
+
+    const auto position = entries_by_resource_type_.find(resource_type);
+    if (position != entries_by_resource_type_.end() && position->second != entry.id.value()) {
+      return {error_domain::resources, errc::already_exists};
+    }
+
+    entry.resource_type = resource_type;
+    entries_by_resource_type_[resource_type] = entry.id.value();
     return {};
   }
 
@@ -431,9 +573,45 @@ private:
     return position != entries_.end() ? &position->second : nullptr;
   }
 
+  [[nodiscard]] type_entry* find_entry(core::string_name resource_type) {
+    if (!resource_type) {
+      return nullptr;
+    }
+
+    const auto type_position = entries_by_resource_type_.find(resource_type);
+    if (type_position == entries_by_resource_type_.end()) {
+      return nullptr;
+    }
+
+    const auto position = entries_.find(type_position->second);
+    return position != entries_.end() ? &position->second : nullptr;
+  }
+
+  [[nodiscard]] const type_entry* find_entry(core::string_name resource_type) const {
+    if (!resource_type) {
+      return nullptr;
+    }
+
+    const auto type_position = entries_by_resource_type_.find(resource_type);
+    if (type_position == entries_by_resource_type_.end()) {
+      return nullptr;
+    }
+
+    const auto position = entries_.find(type_position->second);
+    return position != entries_.end() ? &position->second : nullptr;
+  }
+
   template <typename T>
   [[nodiscard]] static resources::resource* find_in_cache(void* cache, resource_guid guid) {
     return static_cast<resources::cache<T>*>(cache)->find(guid);
+  }
+
+  template <typename T>
+  [[nodiscard]] static error load_in_cache(void* cache, void* loader, resource_guid guid) {
+    handle_result<T> loaded =
+        resources::load_handle_into(*static_cast<resources::cache<T>*>(cache),
+                                    *static_cast<resources::loader<T>*>(loader), guid);
+    return loaded.status;
   }
 
   template <typename T> [[nodiscard]] static bool resolve_in_cache(void* cache, void* reference) {
@@ -474,12 +652,83 @@ private:
       return;
     }
 
+    const type_entry* entry = find_entry<T>();
+    const core::string_name resource_type =
+        entry != nullptr ? entry->resource_type : core::string_name{};
     if (find<T>(guid) != nullptr) {
-      plan.already_loaded.push_back(guid);
+      plan.already_loaded.push_back(preload_item{guid, resource_type});
       return;
     }
 
-    plan.load_order.push_back(guid);
+    plan.load_order.push_back(preload_item{guid, resource_type});
+  }
+
+  void append_dispatched_preload_guid(resource_guid guid, dependency_graph::guid_set& visited,
+                                      preload_plan& plan) const {
+    if (!guid) {
+      plan.status = {error_domain::resources, errc::invalid_argument};
+      return;
+    }
+
+    const auto [_, inserted] = visited.insert(guid);
+    if (!inserted) {
+      return;
+    }
+
+    if (dependency_graph_ != nullptr) {
+      for (resource_guid dependency : dependency_graph_->dependencies(guid)) {
+        append_dispatched_preload_guid(dependency, visited, plan);
+        if (plan.status.failed()) {
+          return;
+        }
+      }
+    }
+
+    const manifest_entry* entry_data = manifest_->find(guid);
+    if (entry_data == nullptr) {
+      plan.missing_manifest.push_back(guid);
+      return;
+    }
+
+    if (!entry_data->type) {
+      plan.missing_type.push_back(guid);
+      return;
+    }
+
+    const preload_item item{guid, entry_data->type};
+    const type_entry* entry = find_entry(entry_data->type);
+    if (entry == nullptr || entry->cache == nullptr || entry->find == nullptr) {
+      plan.missing_cache.push_back(item);
+    } else if (entry->find(entry->cache, guid) != nullptr) {
+      plan.already_loaded.push_back(item);
+      return;
+    }
+
+    if (entry == nullptr || entry->loader == nullptr || entry->load == nullptr) {
+      plan.missing_loader.push_back(item);
+    }
+
+    if (entry != nullptr && entry->cache != nullptr && entry->find != nullptr &&
+        entry->loader != nullptr && entry->load != nullptr) {
+      plan.load_order.push_back(item);
+    }
+  }
+
+  static void finalize_preload_status(preload_plan& plan) {
+    if (!plan.cycle.empty()) {
+      plan.status = {error_domain::resources, errc::cycle_detected};
+      return;
+    }
+
+    if (!plan.missing_manifest.empty() || !plan.missing_cache.empty() ||
+        !plan.missing_loader.empty()) {
+      plan.status = {error_domain::resources, errc::not_found};
+      return;
+    }
+
+    if (!plan.missing_type.empty()) {
+      plan.status = {error_domain::resources, errc::missing_type};
+    }
   }
 
   [[nodiscard]] dependency_graph::guid_list make_guid_list() const {
@@ -498,6 +747,7 @@ private:
   resources::provider* provider_ = nullptr;
   resources::dependency_graph* dependency_graph_ = nullptr;
   entry_map entries_;
+  resource_type_map entries_by_resource_type_;
 };
 
 } // namespace caors::resources

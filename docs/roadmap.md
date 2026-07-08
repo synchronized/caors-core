@@ -178,8 +178,9 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 提供 `resources::save_from()`，把 cache 中指定 GUID 的资源交给 saver 保存。
 - [x] 提供 `resources::reload_into()` 和 `cache<T>::replace()`，支持同步重载成功替换、失败保留旧资源。
 - [ ] 实现资源包、远程资源或异步 loader/saver 后端。
-- [ ] 扩展 `resources::database` 的资源类型选择策略，例如按 manifest type、type_guid 或外部资源数据库选择
-  匹配 loader/cache。
+- [x] 扩展 `resources::database` 的同步预加载类型选择策略，支持按 manifest type 分派到匹配 loader/cache。
+- [ ] 扩展 `resources::database` 的资源类型选择策略，后续支持按 type_guid 或外部资源数据库选择匹配
+  loader/cache。
 - [x] 设计 Godot 风格的异步资源加载 API：`request_load<T>()` / `request_reload<T>()` 提交后台任务，
   `load_request` 保存 queued/loading/loaded/failed/cancelled 状态、错误和结果 handle，调用方跨帧查询状态后再获取结果。
 - [x] 补充异步资源请求的基础取消语义：queued/loading 可取消，已开始的 loader 不强制中断，但取消后不再提交
@@ -211,6 +212,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 提供 `resources::preload_plan` / `preload_result`，记录依赖优先的加载顺序、已缓存资源、缺失 manifest
   条目和循环依赖路径。
 - [x] 提供 `resources::database::plan_preload<T>()` / `preload<T>()`，第一版支持同一资源类型的同步依赖闭包预加载。
+- [x] 提供 `resources::database::plan_preload()` / `preload()`，支持跨资源类型依赖闭包按 manifest type
+  同步预加载。
 - [ ] 扩展资源依赖图到对象、场景和资源包层级，并定义跨层级 reload 影响范围计算。
 - [ ] 后续评估调试 fileserver、资源包、远程资源、导入管线、资源数据库和编辑器工具层；当这些能力需要独立
   生命周期、后台任务或 UI/工具协议时，再考虑拆出独立资源工具链主题。

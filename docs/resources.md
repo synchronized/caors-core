@@ -65,6 +65,7 @@
 - `resources::json_saver<T>`
 - `resources::request_status`
 - `resources::load_request<T>`
+- `resources::preload_item`
 - `resources::preload_plan`
 - `resources::preload_result`
 - `resources::request_load_into()`
@@ -97,6 +98,7 @@
 - `caors::resource_json_saver<T>`
 - `caors::resource_request_status`
 - `caors::resource_load_request<T>`
+- `caors::resource_preload_item`
 - `caors::resource_preload_plan`
 - `caors::resource_preload_result`
 - `caors::resource_reload_event<T>`
@@ -223,7 +225,9 @@ if (graph.has_cycle(material_id)) {
 }
 ```
 
-`resources::database` 提供第一版同步预加载入口：
+`resources::database` 提供两类同步预加载入口。
+
+明确知道整个依赖闭包都由同一个资源类型处理时，可以使用模板入口：
 
 ```cpp
 caors::resource_preload_plan plan =
@@ -235,19 +239,41 @@ if (plan.succeeded()) {
 }
 ```
 
+如果依赖闭包中存在不同资源类型，可以把 manifest type 绑定到对应 cache/loader，然后使用无模板入口：
+
+```cpp
+caors::string_name texture_type{"game.texture"};
+caors::string_name material_type{"game.material"};
+
+manifest.bind(texture_id, "textures/albedo.json", texture_type);
+manifest.bind(material_id, "materials/body.json", material_type);
+
+database.register_type(texture_cache, texture_loader, texture_type);
+database.register_type(material_cache, material_loader, material_type);
+
+caors::resource_preload_result result = database.preload(material_id);
+```
+
 当前语义：
 
 - `plan_preload<T>(root)` 从 `root` 出发遍历依赖闭包，生成依赖优先的 `load_order`。
-- 已经在已注册 `cache<T>` 中的资源会进入 `already_loaded`，不会重复加载。
+- `plan_preload(root)` 要求 database 已设置 manifest，会从每个 manifest 条目读取 `type` 并按
+  `register_type(cache, loader, type)` 绑定分派。
+- `load_order` 和 `already_loaded` 保存 `resource_preload_item{guid, type}`，跨类型预加载时 type
+  就是 manifest type。
+- 已经在对应已注册 cache 中的资源会进入 `already_loaded`，不会重复加载。
 - 如果 database 设置了 manifest，缺失清单条目会进入 `missing_manifest`，计划返回
+  `resources / not_found`。
+- 如果 manifest 条目缺失 type，会进入 `missing_type`，计划返回 `resources / missing_type`。
+- 如果 manifest type 没有对应 cache 或 loader，会进入 `missing_cache` / `missing_loader`，计划返回
   `resources / not_found`。
 - 如果依赖闭包中存在环，`cycle` 保存一个闭合路径，计划返回 `resources / cycle_detected`。
 - `preload<T>(root)` 会先生成计划，再按 `load_order` 调用已注册 `loader<T>` 和 `cache<T>`。
+- `preload(root)` 会先生成跨类型计划，再逐项按 manifest type 分派到对应 loader/cache。
 
 当前限制：
 
-- 第一版假定依赖闭包内资源都由同一个 `T` 类型的 cache/loader 处理。
-- 不会根据 manifest `type`、`type_guid` 或外部资源数据库自动选择不同资源类型。
+- 跨类型入口只按 manifest `type` 分派，不会按 `type_guid` 或外部资源数据库自动选择资源类型。
 - 不会自动递归解析对象、场景或资源包层级的依赖；这些能力后续建立在当前计划结构之上。
 
 ## 异步加载请求
