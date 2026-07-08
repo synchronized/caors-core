@@ -6,7 +6,8 @@
 本文档说明 CAORS 资源系统的当前设计边界。资源系统仍处于基础阶段，当前提供资源身份、轻量引用模型、
 运行期共享 handle、非拥有资源索引、引用计数缓存、资源依赖图、资源清单、字节来源 provider、
 加载/保存接口、非拥有资源 database 编排入口、同步 reload、显式 reload 通知、最小序列化读写 helper、
-同步预加载计划、序列化资源引用 resolver 和第一版异步加载请求；资源包后续再补。
+同步预加载计划、序列化资源引用 resolver、第一版异步加载请求、工程资源配置描述和第一版
+`asset_manager`；资源包后续再补。
 
 ## 设计目标
 
@@ -23,6 +24,8 @@
 - 资源 provider 可以把稳定 GUID 映射到字节来源和位置，作为资源数据库或调试 fileserver 的运行期读取入口。
 - 资源加载器和保存器先只定义类型化接口，不绑定路径、文件系统或异步框架。
 - 资源 database 可以把 manifest、provider、cache、loader、依赖图和序列化 resolver 串成一条主流程。
+- 工程资源配置可以描述 source、manifest 条目、资源类型策略名、依赖边和预加载根资源。
+- `asset_manager` 可以拥有 manifest、provider、dependency graph 和 database，减少手动拼装时的生命周期错误。
 - 同步预加载计划可以按依赖图计算依赖优先的加载顺序，并在需要拓扑顺序的流程中检测循环依赖。
 - 异步加载请求可以把后台 loader 阶段和主线程 cache commit 阶段分开。
 - 底层资源模型不绑定具体引擎、文件系统、异步加载框架或编辑器管线。
@@ -34,7 +37,7 @@
 - cache 级自动淘汰、后台释放或跨 cache 生命周期协调。
 - 完整热重载系统。
 - 资源导入管线。
-- 跨资源类型自动预加载分派。
+- 自动创建任意 C++ 类型的 cache / loader。
 - 请求优先级、进度聚合和同 GUID 请求合并。
 - 与对象系统的场景树生命周期绑定。
 
@@ -59,6 +62,12 @@
 - `resources::source`
 - `resources::file_source`
 - `resources::provider`
+- `resources::project_config`
+- `resources::project_source_config`
+- `resources::project_resource_config`
+- `resources::project_resource_type_config`
+- `resources::project_dependency_config`
+- `resources::asset_manager`
 - `resources::loader<T>`
 - `resources::json_loader<T>`
 - `resources::saver<T>`
@@ -71,6 +80,8 @@
 - `resources::preload_result`
 - `resources::request_load_into()`
 - `resources::request_reload_into()`
+- `resources::load_project_config()`
+- `resources::load_project_config_json()`
 - `resources::reload_event<T>`
 - `resources::reload_signal<T>`
 
@@ -91,6 +102,12 @@
 - `caors::resource_source`
 - `caors::resource_file_source`
 - `caors::resource_provider`
+- `caors::resource_project_config`
+- `caors::resource_project_source_config`
+- `caors::resource_project_resource_config`
+- `caors::resource_project_resource_type_config`
+- `caors::resource_project_dependency_config`
+- `caors::resource_asset_manager`
 - `caors::resource_load_result<T>`
 - `caors::resource_handle_result<T>`
 - `caors::resource_loader<T>`
@@ -111,6 +128,8 @@
 - `caors::load_handle_into()`
 - `caors::load_manifest()`
 - `caors::load_manifest_json()`
+- `caors::load_project_config()`
+- `caors::load_project_config_json()`
 - `caors::load_serialized()`
 - `caors::make_handle()`
 - `caors::replace_manifest()`
@@ -609,13 +628,85 @@ auto resolver = database.resolver();
 需要注意：
 
 - `database` 是编排器，不是拥有式全局资源缓存。资源生命周期仍由 `cache<T>` / `handle<T>` 决定。
-- `database` 不会根据 manifest 的 `type` 字符串自动选择 loader；第一版仍要求调用方显式
-  `register_type<T>(cache, loader)`。
+- 普通 `load<T>()` 不会根据 manifest 的 `type` 字符串自动选择 loader；调用方仍需要明确使用模板类型。
+  跨类型预加载入口会按 `register_type<T>(cache, loader, type)` 的 manifest type 绑定分派。
 - `database.resolver()` 只能返回 `resource*`；`resource_ref<T>` 的类型兼容检查仍由序列化层的
   `dynamic_cast<T*>` 完成。
 - 如果希望 `resource_ref<T>` 记录 cache generation，应在读回后调用 `database.resolve(ref)` 或
   `cache.resolve(ref)`；序列化 resolver 本身只负责把 GUID 解析为资源对象。
 - 跨线程修改 database、cache、provider 或 manifest 时，调用方需要自行同步。
+
+## project_config / asset_manager
+
+`resources::project_config` 是工程资源系统的可反序列化描述对象。它只保存数据，不拥有运行期
+`source`、`provider`、`cache`、`loader` 或 `database`：
+
+```cpp
+caors::resource_project_config config;
+caors::load_project_config_json(config, R"({
+  "sources": [
+    { "name": "assets", "type": "memory_file_system", "root": "/" }
+  ],
+  "resource_types": [
+    { "type": "game.texture", "loader": "json", "cache": "memory" }
+  ],
+  "resources": [
+    {
+      "guid": "6cd2da3d-b549-4756-8b8b-0c84293af410",
+      "source": "assets",
+      "location": "textures/albedo.json",
+      "type": "game.texture",
+      "hash": "content-hash",
+      "version": 1
+    }
+  ],
+  "dependencies": [
+    {
+      "resource": "0c2f82f8-2b3e-4f77-965c-4f2d1c4a907a",
+      "dependency": "6cd2da3d-b549-4756-8b8b-0c84293af410"
+    }
+  ],
+  "preload": [
+    "0c2f82f8-2b3e-4f77-965c-4f2d1c4a907a"
+  ]
+})");
+```
+
+`resources::asset_manager` 是第一版拥有式运行期外壳。它持有 `manifest`、`provider`、
+`dependency_graph` 和 `database`，并把这些对象在构造时挂接到内部 database：
+
+```cpp
+caors::memory_file_system files;
+caors::resource_file_source source{files};
+
+caors::resource_asset_manager assets;
+assets.bind_source(caors::string_name{"assets"}, source);
+assets.build(config);
+
+caors::resource_cache<texture> cache;
+caors::resource_json_loader<texture> loader{assets.provider()};
+assets.register_type(cache, loader, caors::string_name{"game.texture"});
+
+caors::resource_preload_result result = assets.preload(texture_id);
+auto resolver = assets.resolver();
+```
+
+当前语义：
+
+- `project_config.sources` 描述 source 名称和策略名，但不会自动创建 `source` 对象。
+- `project_config.resources` 描述 `guid -> source/location/type/hash/version`，会被
+  `asset_manager::build()` 写入内部 manifest 和 provider。
+- `project_config.resource_types` 只保存资源类型到 loader/cache 策略名的描述；第一版不会根据这些字符串
+  自动创建 C++ cache 或 loader。
+- `project_config.dependencies` 会写入内部 `dependency_graph`。
+- `project_config.preload_roots` 只保存建议预加载入口；调用方决定何时调用 `preload()` 或异步预加载。
+- `asset_manager::bind_source(name, source)` 不接管 source 生命周期；调用方必须保证 source 存活时间长于
+  `asset_manager` 对它的使用。
+- `asset_manager::build(config)` 会清空内部 manifest、provider 和 dependency graph，再按配置重建。
+- 资源条目未显式写 `source` 时，如果配置中只有一个 source 或 asset_manager 只绑定了一个 source，会使用该
+  唯一 source；否则返回 `resources / not_found`。
+- cache/loader 仍通过 `register_type<T>(cache, loader, type)` 显式绑定。后续再通过工厂注册机制把配置中的
+  `"json"`、`"memory"`、`"native_file_system"`、`"remote"` 等策略名映射到运行期对象构造。
 
 ## reload 策略现状
 
@@ -644,7 +735,8 @@ auto resolver = database.resolver();
 - 当前 generation 只能判断同一个 manager/cache 内的运行期绑定是否仍当前，不解决跨进程版本、资源依赖或
   自动刷新。
 - 当前依赖图只记录资源 GUID 之间的关系；材质、场景或对象如何跟随刷新仍由上层资源数据库或运行期系统决定。
-- 当前没有文件监听、异步加载和后台任务队列。
+- 当前没有文件监听、完整热重载调度器和自动级联刷新；异步加载请求只覆盖 loader 后台执行和主线程
+  cache commit。
 
 主流资源系统通常会在这个基础上继续补几层能力：
 

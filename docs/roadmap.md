@@ -173,12 +173,14 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 支持从 JSON 文本或 `resources::source` 导入资源 manifest，作为本地资源数据库和调试 fileserver 清单入口。
 - [x] 支持 manifest 条目更新和 provider 批量同步，方便调试 fileserver 或资源数据库刷新已有资源位置。
 - [x] 支持 manifest 全量替换 provider 绑定，方便完整资源清单刷新时移除旧资源位置。
-- [ ] 设计工程/场景资源配置描述格式，用于声明 source/provider、manifest、资源类型、loader/cache
+- [x] 设计工程/场景资源配置描述格式，用于声明 source/provider、manifest、资源类型、loader/cache
   绑定、预加载根资源和资源解析策略。
-- [ ] 提供配置反序列化入口，先把 JSON/DOM 读成 `resources::project_config` 或类似描述对象，不直接反序列化
+- [x] 提供配置反序列化入口，先把 JSON/DOM 读成 `resources::project_config` 或类似描述对象，不直接反序列化
   运行期 `provider` / `database` / `cache` / `loader` 指针对象。
-- [ ] 设计拥有式 `resources::asset_manager` 或资源运行期 builder，持有 manifest、provider、dependency graph、
-  cache/loader 实例和非拥有 `database`，统一保证生命周期。
+- [x] 设计拥有式 `resources::asset_manager` 或资源运行期 builder，持有 manifest、provider、dependency graph
+  和非拥有 `database`，统一保证核心资源运行期对象生命周期。
+- [x] 提供 `resources::asset_manager` 第一版，拥有 manifest、provider、dependency graph 和 database，并可从
+  `project_config` 构建运行期资源定位与依赖图。
 - [ ] 提供 loader/source/cache 工厂注册机制，把配置中的 `"json"`、`"native_file_system"`、`"memory"`、
   `"remote"` 等策略名映射到运行期对象构造。
 - [x] 支持 `resources::provider` 通过可写 source 按 GUID 写回字节，为后续 saver 和热更新回写提供基础。
