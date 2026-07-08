@@ -92,6 +92,16 @@ TEST_CASE("serialization - built in codecs survive late meta type registration",
   const std::optional<caors::guid> id = caors::guid::parse("2f6d1f64-7a3a-4db2-9a2d-123456789abc");
   REQUIRE(id.has_value());
 
+  const caors::serialization::codec_view seconds_codec =
+      caors::serialization::codec_of<std::chrono::seconds>();
+  REQUIRE(seconds_codec);
+  CHECK(seconds_codec.type() == caors::meta::id_of<std::chrono::seconds>());
+  CHECK(seconds_codec.can_write());
+  CHECK(seconds_codec.can_read());
+  CHECK(seconds_codec.can_make_value());
+  CHECK(caors::serialization::find_codec(caors::meta::type_of<std::chrono::seconds>()));
+  CHECK_FALSE(caors::meta::find<std::chrono::seconds>().registered());
+
   const caors::serialization::variant_result probe =
       caors::serialization::to_variant(caors::any::from(*id));
   REQUIRE(probe.succeeded());

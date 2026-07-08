@@ -8,14 +8,24 @@
 using namespace caors::tests::serialization;
 TEST_CASE("serialization - custom codec specialization registers one runtime table",
           "[serialization]") {
+  const caors::serialization::codec_view codec =
+      caors::serialization::codec_of<policy_custom_codec_value>();
+  REQUIRE(codec);
+  CHECK(codec.type() == caors::meta::id_of<policy_custom_codec_value>());
+  CHECK(codec.can_write());
+  CHECK(codec.can_read());
+  CHECK(codec.can_make_value());
+  CHECK_FALSE(caors::meta::find<policy_custom_codec_value>().registered());
+  REQUIRE(
+      serialization_result_ok(caors::serialization::register_codec<policy_custom_codec_value>()));
+  CHECK(caors::serialization::find_codec(caors::meta::type_of<policy_custom_codec_value>()));
+
   require_registered_type<policy_custom_codec_value>(
       "caors.test.serialization.policy_custom_codec_value");
   REQUIRE(reflection_result_ok(caors::reflection::class_<policy_custom_codec_actor>(
                                    "caors.test.serialization.policy_custom_codec_actor")
                                    .field("value", &policy_custom_codec_actor::value)
                                    .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::register_codec<policy_custom_codec_value>()));
   REQUIRE(
       serialization_result_ok(caors::serialization::register_type<policy_custom_codec_actor>()));
 

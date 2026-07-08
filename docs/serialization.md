@@ -631,7 +631,8 @@ if (player* current = manager.find(target)) {
 
 ### serialization codec
 
-`serialization::codec<T>` 是类型级扩展点。调度层读写非容器普通值时会按类型查询内部 codec 注册表；命中后
+`serialization::codec<T>` 是类型级扩展点。编译期已知 `T` 时可以通过 `serialization::codec_of<T>()`
+直接取得静态 codec 视图；运行期只剩 `type_id` 时，调度层会按类型查询内部 codec 索引，命中后
 由 codec 直接处理该值，未命中时再回退到内置标量探测。这样 `guid`、`type_guid` 这类语义上是
 原子值的类型，不需要暴露内部字段结构。容器、pair、tuple、variant、裸指针和普通 wrapper 字段优先通过
 `meta::detail::type_descriptor` 生成的视图递归处理内部值，因此这类字段通常不需要显式注册
@@ -641,11 +642,12 @@ codec 和 meta descriptor 的边界：
 
 - `meta::detail::type_descriptor` 描述 C++ 值本身的基础能力，例如布局、构造、销毁、枚举、容器和 wrapper
   访问。
-- `serialization::detail::codec_data` 描述序列化专用能力，例如写入 writer、从 reader 读回和构造
+- `serialization::detail::codec_descriptor` 描述序列化专用能力，例如写入 writer、从 reader 读回和构造
   `variant` 中间值。
-- 编译期已知 `T` 时，内部可以从 `serialization::codec<T>` 静态生成一份 `codec_data` 函数表。
-- 运行期只剩 `type_id` 时，序列化调度只能通过 codec registry 查询 `type_id -> codec_data`。
-- `serialization::register_codec<T>()` 不创建 meta 类型，只把已经注册的 `type_id` 和对应 codec 函数表绑定。
+- 编译期已知 `T` 时，内部可以从 `serialization::codec<T>` 静态生成一份 `codec_descriptor` 函数表。
+- 运行期只剩 `type_id` 时，序列化调度只能通过 codec registry 查询 `type_id -> codec_descriptor`。
+- `serialization::register_codec<T>()` 不创建 meta 类型，只把 `type_id` 和对应静态 codec descriptor
+  放入运行期索引；`T` 不要求已经显式 meta 注册。
 
 内置 codec 和默认 traits 处理：
 
@@ -679,10 +681,10 @@ codec 和 meta descriptor 的边界：
 因此既有代码不需要额外 include。如果只需要反射 traits 或 wrapper 语义，可以包含
 `caors/adapters/stl.h`，该头不会拉入序列化 codec。
 
-内置标量 codec 按当前已注册的 meta 类型懒加载补齐，不要求所有内置类型都在第一次查询 codec
-注册表前完成注册。内置 codec 和外部 `serialization::codec<T>` 特化都通过同一套函数表构造逻辑生成
-`codec_data`；区别只是内置 codec 由库内部按需注册，外部自定义 codec 仍需要在对应类型注册后显式调用
-`serialization::register_codec<T>()`。
+内置标量 codec 按 type descriptor id 懒加载补齐，不要求内置类型显式 meta 注册。内置 codec 和外部
+`serialization::codec<T>` 特化都通过同一套函数表构造逻辑生成 `codec_descriptor`；区别只是内置
+codec 由库内部按需放入运行期索引，外部自定义 codec 可以直接通过 `serialization::codec_of<T>()`
+取得静态视图，只有运行期只剩 `type_id` 查询时才需要显式调用 `serialization::register_codec<T>()`。
 
 反射字段中的容器、pair、tuple、variant、裸指针和普通 wrapper 不要求显式调用
 `serialization::register_codec<T>()`，
@@ -992,8 +994,10 @@ caors::string text = result.value;
 - `serialization::string_storage`：`std::string_view` 反序列化使用的多段字符串存储。
 - `serialization::resource_resolver`：`resource_ref<T>` 反序列化可选的资源引用解析器。
 - `serialization::resource_dependency_list`：序列化遍历过程中收集到的资源依赖列表。
-- `serialization::codec<T>`：类型级 codec 特化入口，配合 `serialization::register_codec<T>()` 使用。
-- `serialization::register_codec<T>()`：注册已特化的类型级 codec。
+- `serialization::codec<T>`：类型级 codec 特化入口。
+- `serialization::codec_of<T>()`：按 C++ 类型查询静态 codec 视图；类型不要求已经显式 meta 注册。
+- `serialization::find_codec()`：按运行期类型查询已索引的 codec 视图。
+- `serialization::register_codec<T>()`：把已特化的类型级 codec 放入运行期索引。
 - `serialization::text_writer`：简单文本格式后端。
 - `variant`：序列化 DOM 中间对象。
 - `serialization::to_variant()`：把运行期 `any` / `any_ref` 转换为 `variant`。

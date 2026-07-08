@@ -31,8 +31,8 @@ variant_result make_serialized_value(const any& data) {
     }
   }
 
-  const std::optional<codec_data> codec = get_codec_registry().find_codec(data.type());
-  if (codec.has_value() && codec->make_value != nullptr) {
+  const codec_descriptor* codec = descriptor_of(get_codec_registry().find_codec(data.type()));
+  if (codec != nullptr && codec->make_value != nullptr) {
     return codec->make_value(data);
   }
 
@@ -148,8 +148,8 @@ variant_result make_serialized_value(const any_ref& value, const serialization::
     return make_variant_value(variant, context);
   }
 
-  const std::optional<codec_data> codec = get_codec_registry().find_codec(value.type());
-  if (codec.has_value() && codec->make_value_context != nullptr) {
+  const codec_descriptor* codec = descriptor_of(get_codec_registry().find_codec(value.type()));
+  if (codec != nullptr && codec->make_value_context != nullptr) {
     any copied = value.to_any();
     if (!copied.valid()) {
       return {{error_domain::serialization, errc::unsupported}, {}};
@@ -157,7 +157,7 @@ variant_result make_serialized_value(const any_ref& value, const serialization::
 
     return codec->make_value_context(context, copied);
   }
-  if (codec.has_value() && codec->make_value != nullptr) {
+  if (codec != nullptr && codec->make_value != nullptr) {
     any copied = value.to_any();
     if (!copied.valid()) {
       return {{error_domain::serialization, errc::unsupported}, {}};
@@ -232,8 +232,8 @@ error write_serialized_value(writer& writer, const any_ref& value,
     return write_variant_value(writer, variant, context);
   }
 
-  const std::optional<codec_data> codec = get_codec_registry().find_codec(value.type());
-  if (codec.has_value() && codec->write_context != nullptr) {
+  const codec_descriptor* codec = descriptor_of(get_codec_registry().find_codec(value.type()));
+  if (codec != nullptr && codec->write_context != nullptr) {
     any copied = value.to_any();
     if (!copied.valid()) {
       return {error_domain::serialization, errc::unsupported};
@@ -241,7 +241,7 @@ error write_serialized_value(writer& writer, const any_ref& value,
 
     return codec->write_context(context, writer, copied);
   }
-  if (codec.has_value() && codec->write != nullptr) {
+  if (codec != nullptr && codec->write != nullptr) {
     any copied = value.to_any();
     if (!copied.valid()) {
       return {error_domain::serialization, errc::unsupported};
@@ -314,11 +314,11 @@ error read_serialized_value(reader& reader, const any_ref& target,
     return read_variant_value(reader, target, context);
   }
 
-  const std::optional<codec_data> codec = get_codec_registry().find_codec(target.type());
-  if (codec.has_value() && codec->read_value_context != nullptr) {
+  const codec_descriptor* codec = descriptor_of(get_codec_registry().find_codec(target.type()));
+  if (codec != nullptr && codec->read_value_context != nullptr) {
     return codec->read_value_context(context, reader, target);
   }
-  if (codec.has_value() && codec->read_value != nullptr) {
+  if (codec != nullptr && codec->read_value != nullptr) {
     return codec->read_value(reader, target);
   }
 
@@ -401,8 +401,8 @@ error read_field(reader& reader, const reflection::field& field, void* object,
   any_ref target{};
   bool use_legacy_codec_read = false;
   if (field_uses_direct_value(field)) {
-    const std::optional<codec_data> codec = get_codec_registry().find_codec(field.type());
-    use_legacy_codec_read = codec.has_value() &&
+    const codec_descriptor* codec = descriptor_of(get_codec_registry().find_codec(field.type()));
+    use_legacy_codec_read = codec != nullptr &&
                             (codec->read != nullptr || codec->read_context != nullptr) &&
                             codec->read_value == nullptr && codec->read_value_context == nullptr;
     target = field.get_ref(object);
@@ -431,8 +431,8 @@ error read_field(reader& reader, const reflection::field& field, void* object,
   }
 
   if (use_legacy_codec_read) {
-    const std::optional<codec_data> codec = get_codec_registry().find_codec(field.type());
-    if (!codec.has_value() || (codec->read == nullptr && codec->read_context == nullptr)) {
+    const codec_descriptor* codec = descriptor_of(get_codec_registry().find_codec(field.type()));
+    if (codec == nullptr || (codec->read == nullptr && codec->read_context == nullptr)) {
       return {error_domain::serialization, errc::unsupported};
     }
 

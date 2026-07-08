@@ -12,12 +12,45 @@
 #include <string_view>
 #include <type_traits>
 
+namespace caors::serialization {
+
+bool codec_view::valid() const noexcept { return descriptor_ != nullptr && descriptor_->valid(); }
+
+type_id codec_view::type() const noexcept {
+  return descriptor_ != nullptr ? descriptor_->type : type_id::invalid();
+}
+
+bool codec_view::can_write() const noexcept {
+  return descriptor_ != nullptr &&
+         (descriptor_->write != nullptr || descriptor_->write_context != nullptr);
+}
+
+bool codec_view::can_read() const noexcept {
+  return descriptor_ != nullptr &&
+         (descriptor_->read != nullptr || descriptor_->read_context != nullptr ||
+          descriptor_->read_value != nullptr || descriptor_->read_value_context != nullptr);
+}
+
+bool codec_view::can_make_value() const noexcept {
+  return descriptor_ != nullptr &&
+         (descriptor_->make_value != nullptr || descriptor_->make_value_context != nullptr);
+}
+
+codec_view find_codec(type_id id) { return detail::get_codec_registry().find_codec(id); }
+
+codec_view find_codec(meta::type type) { return type ? find_codec(type.id()) : codec_view{}; }
+
+} // namespace caors::serialization
+
 namespace caors::serialization::detail {
+
+const codec_descriptor* descriptor_of(codec_view view) noexcept { return view.descriptor_; }
+
 namespace {
 
 struct codec_registry_state {
   mutable std::mutex mutex;
-  core::hash_map<std::uint64_t, codec_data> codecs;
+  core::hash_map<std::uint64_t, const codec_descriptor*> codecs;
 };
 
 [[nodiscard]] codec_registry_state& codec_state() {
@@ -300,15 +333,15 @@ template <> struct builtin_codec<std::chrono::system_clock::time_point> {
   }
 };
 
-template <typename T> [[nodiscard]] const codec_data* builtin_codec_data_ptr_of() {
+template <typename T> [[nodiscard]] const codec_descriptor* builtin_codec_descriptor_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  static const codec_data data = make_codec_data_from<builtin_codec<type>, type>();
+  static const codec_descriptor data = make_codec_descriptor_from<builtin_codec<type>, type>();
   return data.valid() ? &data : nullptr;
 }
 
 template <typename T> void register_builtin_codec() {
   const type_id id = registered_codec_type_id<T>();
-  const codec_data* codec = builtin_codec_data_ptr_of<T>();
+  const codec_descriptor* codec = builtin_codec_descriptor_ptr_of<T>();
   if (id && codec != nullptr) {
     static_cast<void>(codec_registry::instance().register_codec(id, *codec));
   }
@@ -339,7 +372,7 @@ codec_registry& codec_registry::instance() noexcept {
   return registry;
 }
 
-error codec_registry::register_codec(type_id id, codec_data codec) {
+error codec_registry::register_codec(type_id id, const codec_descriptor& codec) {
   if (!id) {
     return {error_domain::serialization, errc::invalid_type};
   }
@@ -350,7 +383,7 @@ error codec_registry::register_codec(type_id id, codec_data codec) {
 
   codec_registry_state& state = codec_state();
   std::lock_guard lock(state.mutex);
-  const auto [_, inserted] = state.codecs.emplace(id.value(), codec);
+  const auto [_, inserted] = state.codecs.emplace(id.value(), &codec);
   if (!inserted) {
     return {error_domain::serialization, errc::duplicate_component};
   }
@@ -358,9 +391,9 @@ error codec_registry::register_codec(type_id id, codec_data codec) {
   return {};
 }
 
-std::optional<codec_data> codec_registry::find_codec(type_id id) const {
+codec_view codec_registry::find_codec(type_id id) const {
   if (!id) {
-    return std::nullopt;
+    return {};
   }
 
   ensure_builtin_codecs_registered();
@@ -369,10 +402,10 @@ std::optional<codec_data> codec_registry::find_codec(type_id id) const {
   std::lock_guard lock(state.mutex);
   const auto position = state.codecs.find(id.value());
   if (position == state.codecs.end()) {
-    return std::nullopt;
+    return {};
   }
 
-  return position->second;
+  return codec_view{position->second};
 }
 
 bool codec_registry::contains(type_id id) const {
@@ -400,7 +433,7 @@ codec_registry& get_codec_registry() noexcept {
   return codec_registry::instance();
 }
 
-error register_serialization_codec(type_id id, codec_data codec) {
+error register_serialization_codec(type_id id, const codec_descriptor& codec) {
   return get_codec_registry().register_codec(id, codec);
 }
 
