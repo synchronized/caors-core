@@ -17,9 +17,7 @@ namespace {
 
 [[nodiscard]] const codec_descriptor*
 static_codec_descriptor(const meta::detail::type_descriptor* descriptor) {
-  const auto* capability =
-      meta::detail::descriptor_static_capability<codec_capability>(descriptor);
-  return capability != nullptr ? capability->get() : nullptr;
+  return meta::detail::descriptor_static_capability<codec_descriptor>(descriptor);
 }
 
 [[nodiscard]] const codec_descriptor*

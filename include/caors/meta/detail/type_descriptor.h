@@ -93,7 +93,17 @@ struct type_descriptor {
   [[nodiscard]] bool valid() const noexcept { return type && layout.valid(); }
 
   [[nodiscard]] bool has_view_capability() const noexcept {
-    return builtin_type_capability_valid(builtin_capability) || static_capability_count > 0;
+    if (builtin_type_capability_valid(builtin_capability)) {
+      return true;
+    }
+
+    for (std::size_t index = 0; index < static_capability_count; ++index) {
+      if (static_capabilities != nullptr && static_capabilities[index].valid()) {
+        return true;
+      }
+    }
+
+    return false;
   }
 };
 

@@ -209,8 +209,8 @@ descriptor 内部按职责拆分：
 - `value_ops`：保存默认构造、复制、析构和赋值的类型擦除函数。
 - `type_semantics`：保存该类型在反射、序列化和 value 模块中的运行期形态。
 - `builtin_capability`：保存一个固定内置互斥能力，例如枚举、间接值、顺序容器、集合、关联容器、pair、tuple 或 variant。
-- `static_capabilities`：保存模块声明的静态能力表，例如对象指针、对象句柄访问函数表和延迟
-  serialization codec 查询能力。
+- `static_capabilities`：保存模块声明的静态能力表，例如对象指针、对象句柄访问函数表和
+  serialization codec 函数表。
 
 `type_semantics` 描述以下语义：
 
@@ -236,7 +236,7 @@ serialization codec 当前使用这套 descriptor 静态能力机制。
 
 动态扩展能力仍通过 `meta::capabilities` 按 `type_id + capability_key` 挂接到独立运行期索引；
 拿得到 C++ 类型 `T` 时，也可以通过 `meta::capabilities::get<Capability, T>()`
-直接查询静态能力。serialization codec 会以延迟静态能力挂到 descriptor 上；当运行期只剩
+直接查询静态能力。serialization codec 会作为静态能力挂到 descriptor 上；当运行期只剩
 `type_id`、没有 descriptor 可用时，仍通过动态 capability 索引查询显式注册的 codec。
 
 统一 `value_type` / `key_type` 不再作为 `type_descriptor` 顶层字段保存。普通值和枚举直接使用
