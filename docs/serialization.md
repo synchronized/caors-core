@@ -632,9 +632,10 @@ if (player* current = manager.find(target)) {
 ### serialization codec
 
 `serialization::codec_traits<T>` 是类型级扩展点。编译期已知 `T` 时可以通过 `serialization::codec_of<T>()`
-直接取得静态 codec 视图；运行期拿得到 `type_descriptor` 时，调度层会先通过 descriptor
-静态能力查询 codec 函数表，命中后由 codec 直接处理该值；如果没有 descriptor 或静态能力未命中，
-才会通过 `meta::capabilities` 运行期索引按 `type_id` 查询 codec 能力，最后再回退到内置标量探测。这样 `guid`、`type_guid` 这类语义上是
+直接取得静态 codec 视图；运行期拿得到 `meta::type` 视图时，调度层会通过
+`meta::type::get_capability<serialization::detail::codec_ops>()` 查询 codec 函数表。该入口先查询
+descriptor 静态能力，未命中时再回退到 `meta::capabilities` 运行期索引；最后才回退到内置标量探测。
+这样 `guid`、`type_guid` 这类语义上是
 原子值的类型，不需要暴露内部字段结构。容器、pair、tuple、variant、裸指针和普通 wrapper 字段优先通过
 `meta::detail::type_descriptor` 生成的视图递归处理内部值，因此这类字段通常不需要显式注册
 `serialization::codec_traits<T>`。
@@ -647,7 +648,7 @@ codec 和 meta descriptor 的边界：
   `variant` 中间值。它作为 serialization 模块静态能力挂到 descriptor 静态表中。
 - 编译期已知 `T` 时，内部可以从 `serialization::codec_traits<T>` 静态生成一份 `codec_ops` 函数表，
   不依赖运行期注册表。
-- `any`、`any_ref` 和反射字段这类携带 descriptor 的路径会先查询 descriptor 静态 codec 能力，
+- `any`、`any_ref` 和反射字段这类携带 `meta::type` 视图的路径会先查询 descriptor 静态 codec 能力，
   因此只要 `codec_traits<T>` 特化在生成该 descriptor 的翻译单元可见，通常不需要显式
   `register_codec<T>()`。
 - 运行期只剩 `type_id` 时，`serialization::find_codec()` 会查询 `meta::capabilities` 中的

@@ -248,6 +248,24 @@ capability 索引。内部仍保留 `descriptor_static_capability<T>()` 给 desc
 直接查询静态能力。serialization codec 会作为静态能力挂到 descriptor 上；当运行期只剩
 `type_id`、没有 descriptor 可用时，仍通过动态 capability 索引查询显式注册的 codec。
 
+capability 和 registry 的边界：
+
+- `type_descriptor` 静态能力适合“编译期已知 C++ 类型即可生成”的只读函数表，例如对象指针访问函数、
+  句柄访问函数和 `codec_traits<T>` 生成的 codec 操作表。
+- `meta::capabilities` 运行期索引适合“只剩 `type_id`，但仍需要查询某种模块能力”的场景，例如
+  `serialization::find_codec(type_id)`。
+- 普通调用方优先使用 `meta::type::get_capability<T>()`。该入口统一处理 descriptor 静态能力和运行期
+  索引 fallback，避免业务代码分别理解两套存储位置。
+- capability 不是 meta 组件。它不拥有类型注册数据，也不表示该 C++ 类型已经注册到
+  `meta::registry`。需要稳定名称、GUID、父类型、反射字段、序列化字段配置或对象工厂时，仍应显式注册
+  meta 类型和对应模块组件。
+- 当前 `capability_key` 是进程内模板静态地址，只适合当前进程内查询，不承诺跨动态库 ABI、跨进程或
+  存档稳定。后续如果需要插件协议、脚本模块或工具链发现能力，应为 capability 增加稳定 name/guid
+  元信息，并明确冲突和版本策略。
+- 多模块静态能力当前通过固定聚合槽位收集 object、serialization 和 custom 贡献。第三方模块可以先使用
+  `custom_static_capability_module`；如果多个独立模块都需要贡献能力，后续应设计更开放的模块能力列表聚合
+  或显式注册宏，避免不同模块互相覆盖同一个 custom 特化点。
+
 统一 `value_type` / `key_type` 不再作为 `type_descriptor` 顶层字段保存。普通值和枚举直接使用
 descriptor 自身的 `type_id`；裸指针、wrapper、容器、pair、tuple 和 variant 的子类型信息由对应
 访问函数表保存，并通过 `field`、`sequence_view`、`pair_view` 等公开视图查询。
@@ -274,6 +292,21 @@ caors::error result = caors::meta::type_<actor>("game.actor").result();
 统一查询。注册表是 append-only：meta 类型注册后不可清理或撤销，重复注册相同类型会返回重复结果。
 当前组件同样按 append-only 方式挂载：同一类型的同类组件注册后不可替换。反射和序列化这类组件
 反射字段数据也按“注册后冻结”处理，外部视图只在该约束下承诺进程生命周期内稳定。
+
+registry 使用边界：
+
+- 用 registry：需要全局稳定查询、按名称或 GUID 查找、跨模块组件查询、父类型关系、对象工厂、
+  反射字段列表、序列化字段配置或多态构造。
+- 不用 registry：只需要当前 C++ 类型的布局、构造/析构、容器视图、wrapper 视图、枚举转换、
+  descriptor 静态 capability 或 `any` / `any_ref` 的局部值访问。
+- 模块注册入口应接收已经存在的 `meta::type`，或者由调用方先显式 `meta::type_<T>("name")` 注册业务
+  类型。反射和序列化模块不应为了挂载组件隐式创建业务类型注册记录。
+- `meta::find<T>()` / `meta::type_of<T>()` 返回 descriptor-backed 类型视图，未注册类型也可能有效；
+  `registered()` 才表示 registry 中已经存在稳定注册数据。
+- `meta::find(name)` 和 `meta::find(type_guid)` 只查询已注册类型；未注册 descriptor 没有稳定 name/guid
+  索引。
+- registry 写入推荐集中在启动期、模块加载期或测试初始化阶段，之后调用 `meta::freeze_registry()`；
+  冻结后业务主循环和工作线程只做只读查询。
 
 推荐生命周期：
 
