@@ -8,8 +8,10 @@
 #include "caors/error.h"
 #include "caors/memory/resource.h"
 #include "caors/resources/io.h"
+#include "caors/resources/preload.h"
 #include "caors/tasks.h"
 
+#include <cstddef>
 #include <memory>
 #include <mutex>
 #include <type_traits>
@@ -32,10 +34,26 @@ enum class request_status {
 };
 
 template <typename T> class load_request;
+class preload_request;
 
 namespace detail {
 
 template <typename T> class load_request_access;
+class preload_request_access;
+
+struct preload_request_state {
+  explicit preload_request_state(memory_resource* memory)
+      : resource(memory != nullptr ? memory : get_default_memory_resource()), result(resource) {}
+
+  memory_resource* resource = nullptr;
+  mutable std::mutex mutex{};
+  request_status status = request_status::queued;
+  caors::error status_error{};
+  preload_result result;
+  std::size_t total = 0;
+  std::size_t loaded = 0;
+  std::size_t failed = 0;
+};
 
 template <typename T>
 [[nodiscard]] error commit_loaded_resource(cache<T>& target, resource_guid guid,
@@ -211,6 +229,173 @@ private:
   std::shared_ptr<state_type> state_{};
 };
 
+/**
+ * @brief 异步依赖预加载请求视图。
+ *
+ * `preload_request` 是跨资源类型的聚合请求。它保存一次 `preload_plan`、已完成项数量和最终状态；
+ * 具体资源 handle 仍由各自 `cache<T>` 持有，调用方通过 cache 或 database 查询已加载资源。
+ */
+class preload_request {
+public:
+  preload_request() noexcept = default;
+
+  /** @brief 创建一个立即失败的预加载请求。 */
+  [[nodiscard]] static preload_request failed(caors::error status,
+                                              memory_resource* resource = nullptr);
+
+  /** @brief 根据预加载计划创建请求；失败计划会直接生成 failed 请求。 */
+  [[nodiscard]] static preload_request from_plan(preload_plan plan,
+                                                 memory_resource* resource = nullptr);
+
+  /** @brief 判断当前句柄是否引用一个请求状态。 */
+  [[nodiscard]] bool valid() const noexcept { return state_ != nullptr; }
+  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
+
+  /** @brief 查询请求状态。空请求返回 `cancelled`。 */
+  [[nodiscard]] request_status status() const {
+    if (state_ == nullptr) {
+      return request_status::cancelled;
+    }
+
+    std::lock_guard lock{state_->mutex};
+    return state_->status;
+  }
+
+  /** @brief 查询失败原因。非失败请求返回成功状态；空请求返回 `invalid_argument`。 */
+  [[nodiscard]] caors::error error() const {
+    if (state_ == nullptr) {
+      return {error_domain::resources, errc::invalid_argument};
+    }
+
+    std::lock_guard lock{state_->mutex};
+    return state_->status_error;
+  }
+
+  /** @brief 查询请求是否已经结束。 */
+  [[nodiscard]] bool done() const {
+    const request_status current = status();
+    return current == request_status::loaded || current == request_status::failed ||
+           current == request_status::cancelled;
+  }
+
+  /** @brief 查询请求是否加载成功。 */
+  [[nodiscard]] bool loaded() const { return status() == request_status::loaded; }
+
+  /** @brief 查询请求是否失败。 */
+  [[nodiscard]] bool failed() const { return status() == request_status::failed; }
+
+  /** @brief 查询请求是否被取消。 */
+  [[nodiscard]] bool cancelled() const { return status() == request_status::cancelled; }
+
+  /**
+   * @brief 请求取消。
+   *
+   * 取消不会强制中断已经开始执行的 loader，但会阻止后续 completion queue commit 写入 cache。
+   */
+  [[nodiscard]] bool cancel() const;
+
+  /** @brief 返回本次预加载计划和当前已完成项。未完成时 `status` 为 `resources / pending`。 */
+  [[nodiscard]] preload_result result() const {
+    if (state_ == nullptr) {
+      preload_result result;
+      result.status = {error_domain::resources, errc::invalid_argument};
+      return result;
+    }
+
+    std::lock_guard lock{state_->mutex};
+    preload_result result = state_->result;
+    switch (state_->status) {
+    case request_status::loaded:
+      result.status = {};
+      break;
+    case request_status::failed:
+      result.status = state_->status_error
+                          ? state_->status_error
+                          : caors::error{error_domain::resources, errc::backend_failure};
+      break;
+    case request_status::cancelled:
+      result.status = {error_domain::resources, errc::cancelled};
+      break;
+    case request_status::queued:
+    case request_status::loading:
+      result.status = {error_domain::resources, errc::pending};
+      break;
+    }
+
+    return result;
+  }
+
+  /** @brief 计划中需要实际提交异步加载的资源数量。 */
+  [[nodiscard]] std::size_t total_count() const {
+    if (state_ == nullptr) {
+      return 0;
+    }
+
+    std::lock_guard lock{state_->mutex};
+    return state_->total;
+  }
+
+  /** @brief 已成功提交到 cache 的资源数量。 */
+  [[nodiscard]] std::size_t loaded_count() const {
+    if (state_ == nullptr) {
+      return 0;
+    }
+
+    std::lock_guard lock{state_->mutex};
+    return state_->loaded;
+  }
+
+  /** @brief 已失败的资源数量。 */
+  [[nodiscard]] std::size_t failed_count() const {
+    if (state_ == nullptr) {
+      return 0;
+    }
+
+    std::lock_guard lock{state_->mutex};
+    return state_->failed;
+  }
+
+  /** @brief 尚未完成的资源数量。取消后返回 0。 */
+  [[nodiscard]] std::size_t pending_count() const {
+    if (state_ == nullptr) {
+      return 0;
+    }
+
+    std::lock_guard lock{state_->mutex};
+    if (state_->status == request_status::loaded || state_->status == request_status::failed ||
+        state_->status == request_status::cancelled ||
+        state_->loaded + state_->failed >= state_->total) {
+      return 0;
+    }
+
+    return state_->total - state_->loaded - state_->failed;
+  }
+
+  /** @brief 返回 0.0 到 1.0 的非阻塞聚合进度。 */
+  [[nodiscard]] double progress() const {
+    if (state_ == nullptr) {
+      return 0.0;
+    }
+
+    std::lock_guard lock{state_->mutex};
+    if (state_->total == 0 || state_->status == request_status::loaded ||
+        state_->status == request_status::failed || state_->status == request_status::cancelled) {
+      return 1.0;
+    }
+
+    return static_cast<double>(state_->loaded + state_->failed) /
+           static_cast<double>(state_->total);
+  }
+
+private:
+  friend class detail::preload_request_access;
+
+  explicit preload_request(std::shared_ptr<detail::preload_request_state> state) noexcept
+      : state_(std::move(state)) {}
+
+  std::shared_ptr<detail::preload_request_state> state_{};
+};
+
 namespace detail {
 
 template <typename T> class load_request_access {
@@ -316,6 +501,182 @@ public:
   }
 };
 
+class preload_request_access {
+public:
+  using request_type = preload_request;
+  using state_type = preload_request_state;
+
+  [[nodiscard]] static request_type make(memory_resource* resource = nullptr) {
+    memory_resource* resolved = resource != nullptr ? resource : get_default_memory_resource();
+    return request_type{
+        std::allocate_shared<state_type>(allocator<state_type>{resolved}, resolved)};
+  }
+
+  [[nodiscard]] static std::shared_ptr<state_type> state(const request_type& request) noexcept {
+    return request.state_;
+  }
+
+  static void set_plan(const request_type& request, preload_plan plan) {
+    if (request.state_ == nullptr) {
+      return;
+    }
+
+    std::lock_guard lock{request.state_->mutex};
+    request.state_->result.plan = std::move(plan);
+    request.state_->result.loaded.clear();
+    request.state_->result.status = {};
+    request.state_->total = request.state_->result.plan.load_order.size();
+    request.state_->loaded = 0;
+    request.state_->failed = 0;
+    request.state_->status_error = {};
+
+    if (request.state_->result.plan.failed()) {
+      request.state_->status = request_status::failed;
+      request.state_->status_error = request.state_->result.plan.status;
+      request.state_->result.status = request.state_->status_error;
+      return;
+    }
+
+    request.state_->status =
+        request.state_->total == 0 ? request_status::loaded : request_status::queued;
+  }
+
+  [[nodiscard]] static bool loading(const std::shared_ptr<state_type>& state) {
+    if (state == nullptr) {
+      return false;
+    }
+
+    std::lock_guard lock{state->mutex};
+    if (state->status == request_status::cancelled || state->status == request_status::failed ||
+        state->status == request_status::loaded) {
+      return false;
+    }
+
+    if (state->total == 0) {
+      state->status = request_status::loaded;
+      state->result.status = {};
+      return false;
+    }
+
+    state->status = request_status::loading;
+    state->status_error = {};
+    state->result.status = {error_domain::resources, errc::pending};
+    return true;
+  }
+
+  static void complete_item(const std::shared_ptr<state_type>& state, preload_item item) {
+    if (state == nullptr) {
+      return;
+    }
+
+    std::lock_guard lock{state->mutex};
+    if (state->status == request_status::cancelled || state->status == request_status::failed ||
+        state->status == request_status::loaded) {
+      return;
+    }
+
+    state->result.loaded.push_back(item);
+    ++state->loaded;
+    if (state->loaded + state->failed >= state->total) {
+      state->status = request_status::loaded;
+      state->status_error = {};
+      state->result.status = {};
+    }
+  }
+
+  static void fail(const request_type& request, caors::error status) {
+    fail(request.state_, status);
+  }
+
+  static void fail(const std::shared_ptr<state_type>& state, caors::error status) {
+    if (state == nullptr) {
+      return;
+    }
+
+    std::lock_guard lock{state->mutex};
+    if (state->status == request_status::cancelled || state->status == request_status::loaded) {
+      return;
+    }
+
+    state->status = request_status::failed;
+    state->status_error =
+        status ? status : caors::error{error_domain::resources, errc::backend_failure};
+    state->result.status = state->status_error;
+  }
+
+  static void fail_item(const std::shared_ptr<state_type>& state, preload_item item,
+                        caors::error status) {
+    (void)item;
+    if (state == nullptr) {
+      return;
+    }
+
+    std::lock_guard lock{state->mutex};
+    if (state->status == request_status::cancelled || state->status == request_status::loaded) {
+      return;
+    }
+
+    ++state->failed;
+    state->status = request_status::failed;
+    state->status_error =
+        status ? status : caors::error{error_domain::resources, errc::backend_failure};
+    state->result.status = state->status_error;
+  }
+
+  [[nodiscard]] static bool cancel(const request_type& request) { return cancel(request.state_); }
+
+  [[nodiscard]] static bool cancel(const std::shared_ptr<state_type>& state) {
+    if (state == nullptr) {
+      return false;
+    }
+
+    std::lock_guard lock{state->mutex};
+    if (state->status != request_status::queued && state->status != request_status::loading) {
+      return false;
+    }
+
+    state->status = request_status::cancelled;
+    state->status_error = {error_domain::resources, errc::cancelled};
+    state->result.status = state->status_error;
+    return true;
+  }
+
+  [[nodiscard]] static bool should_continue(const std::shared_ptr<state_type>& state) {
+    if (state == nullptr) {
+      return false;
+    }
+
+    std::lock_guard lock{state->mutex};
+    return state->status != request_status::cancelled && state->status != request_status::failed &&
+           state->status != request_status::loaded;
+  }
+};
+
+} // namespace detail
+
+inline preload_request preload_request::failed(caors::error status, memory_resource* resource) {
+  preload_request request = detail::preload_request_access::make(resource);
+  detail::preload_request_access::fail(request, status);
+  return request;
+}
+
+inline preload_request preload_request::from_plan(preload_plan plan, memory_resource* resource) {
+  preload_request request =
+      detail::preload_request_access::make(resource != nullptr ? resource : plan.resource);
+  detail::preload_request_access::set_plan(request, std::move(plan));
+  return request;
+}
+
+inline bool preload_request::cancel() const {
+  if (state_ == nullptr) {
+    return false;
+  }
+
+  return detail::preload_request_access::cancel(*this);
+}
+
+namespace detail {
+
 template <typename T, typename StatePtr>
 void load_resource_in_background(const StatePtr& state, cache<T>& target, loader<T>& source,
                                  resource_guid guid, tasks::completion_queue& completions,
@@ -352,7 +713,7 @@ void load_resource_in_background(const StatePtr& state, cache<T>& target, loader
             return status;
           }
 
-          load_request_access<T>::complete(state, std::move(committed));
+          (void)load_request_access<T>::complete(state, std::move(committed));
           return error{};
         }});
     if (push_status) {
@@ -361,6 +722,55 @@ void load_resource_in_background(const StatePtr& state, cache<T>& target, loader
 #if CAORS_HAS_EXCEPTIONS
   } catch (...) {
     load_request_access<T>::fail(state, {error_domain::resources, errc::backend_failure});
+  }
+#endif
+}
+
+template <typename T, typename StatePtr>
+void preload_resource_in_background(const StatePtr& state, cache<T>& target, loader<T>& source,
+                                    preload_item item, tasks::completion_queue& completions) {
+  if (!preload_request_access::should_continue(state)) {
+    return;
+  }
+
+#if CAORS_HAS_EXCEPTIONS
+  try {
+#endif
+    load_result<T> loaded = source.load(item.guid, target.resource());
+    if (loaded.failed()) {
+      preload_request_access::fail_item(state, item, loaded.status);
+      return;
+    }
+
+    if (!preload_request_access::should_continue(state)) {
+      return;
+    }
+
+    error push_status = completions.push(
+        tasks::task{target.resource(),
+                    [state, &target, item, loaded_resource = std::move(loaded.value)]() mutable {
+                      if (!preload_request_access::should_continue(state)) {
+                        return error{};
+                      }
+
+                      handle<T> committed;
+                      const error status = commit_loaded_resource(
+                          target, item.guid, std::move(loaded_resource), false, committed);
+                      if (status) {
+                        preload_request_access::fail_item(state, item, status);
+                        return status;
+                      }
+
+                      preload_request_access::complete_item(state, item);
+                      return error{};
+                    }});
+    if (push_status) {
+      preload_request_access::fail_item(state, item, push_status);
+    }
+#if CAORS_HAS_EXCEPTIONS
+  } catch (...) {
+    preload_request_access::fail_item(state, item,
+                                      {error_domain::resources, errc::backend_failure});
   }
 #endif
 }
@@ -438,6 +848,7 @@ namespace caors {
 
 using resource_request_status = resources::request_status;
 template <typename T> using resource_load_request = resources::load_request<T>;
+using resource_preload_request = resources::preload_request;
 using resources::request_load_into;
 using resources::request_reload_into;
 

@@ -11,6 +11,7 @@
 #include "caors/serialization/types.h"
 
 #include <cstdint>
+#include <memory>
 #include <type_traits>
 
 namespace caors::resources {
@@ -105,6 +106,7 @@ public:
     entry->resolve = &resolve_in_cache<T>;
     entry->is_current = &is_current_in_cache<T>;
     entry->load = &load_in_cache<T>;
+    entry->request_load = &request_load_in_cache<T>;
     return {};
   }
 
@@ -136,6 +138,7 @@ public:
 
     entry->loader = &source;
     entry->load = &load_in_cache<T>;
+    entry->request_load = &request_load_in_cache<T>;
     return {};
   }
 
@@ -417,6 +420,76 @@ public:
                                           executor, completions);
   }
 
+  /**
+   * @brief 按同一资源类型异步预加载依赖闭包。
+   *
+   * 该函数先生成 `plan_preload<T>()`，再把计划中的每个资源提交到 executor。后台任务只执行
+   * loader 阶段，cache 写入会延迟到 completion queue drain。
+   */
+  template <typename T>
+  [[nodiscard]] preload_request request_preload(resource_guid root, tasks::executor& executor,
+                                                tasks::completion_queue& completions) {
+    static_assert(std::is_base_of_v<resources::resource, T>,
+                  "T must derive from caors::resources::resource");
+
+    preload_plan plan = plan_preload<T>(root);
+    preload_request request = preload_request::from_plan(plan, resource_);
+    auto state = detail::preload_request_access::state(request);
+    if (!detail::preload_request_access::loading(state)) {
+      return request;
+    }
+
+    type_entry* entry = find_entry<T>();
+    if (entry == nullptr || entry->cache == nullptr || entry->loader == nullptr ||
+        entry->request_load == nullptr) {
+      detail::preload_request_access::fail(state, {error_domain::resources, errc::not_found});
+      return request;
+    }
+
+    for (const preload_item& item : plan.load_order) {
+      const error status =
+          entry->request_load(entry->cache, entry->loader, item, executor, completions, state);
+      if (status) {
+        return request;
+      }
+    }
+
+    return request;
+  }
+
+  /**
+   * @brief 按 manifest type 异步预加载跨类型依赖闭包。
+   *
+   * 该重载要求 database 设置 manifest，并把每个资源项按 manifest type 分派到对应 cache/loader。
+   */
+  [[nodiscard]] preload_request request_preload(resource_guid root, tasks::executor& executor,
+                                                tasks::completion_queue& completions) {
+    preload_plan plan = plan_preload(root);
+    preload_request request = preload_request::from_plan(plan, resource_);
+    auto state = detail::preload_request_access::state(request);
+    if (!detail::preload_request_access::loading(state)) {
+      return request;
+    }
+
+    for (const preload_item& item : plan.load_order) {
+      type_entry* entry = find_entry(item.type);
+      if (entry == nullptr || entry->cache == nullptr || entry->loader == nullptr ||
+          entry->request_load == nullptr) {
+        detail::preload_request_access::fail_item(state, item,
+                                                  {error_domain::resources, errc::not_found});
+        return request;
+      }
+
+      const error status =
+          entry->request_load(entry->cache, entry->loader, item, executor, completions, state);
+      if (status) {
+        return request;
+      }
+    }
+
+    return request;
+  }
+
   /** @brief 用已注册 cache 解析资源引用。未命中时保留 GUID 并清除已解析指针。 */
   template <typename T> [[nodiscard]] bool resolve(resources::ref<T>& reference) const {
     static_assert(std::is_base_of_v<resources::resource, T>,
@@ -484,6 +557,9 @@ public:
 private:
   using find_fn = resources::resource* (*)(void* cache, resource_guid guid);
   using load_fn = error (*)(void* cache, void* loader, resource_guid guid);
+  using request_load_fn = error (*)(void* cache, void* loader, preload_item item,
+                                    tasks::executor& executor, tasks::completion_queue& completions,
+                                    const std::shared_ptr<detail::preload_request_state>& state);
   using resolve_fn = bool (*)(void* cache, void* reference);
   using is_current_fn = bool (*)(void* cache, const void* reference);
 
@@ -494,6 +570,7 @@ private:
     void* loader = nullptr;
     find_fn find = nullptr;
     load_fn load = nullptr;
+    request_load_fn request_load = nullptr;
     resolve_fn resolve = nullptr;
     is_current_fn is_current = nullptr;
   };
@@ -612,6 +689,35 @@ private:
         resources::load_handle_into(*static_cast<resources::cache<T>*>(cache),
                                     *static_cast<resources::loader<T>*>(loader), guid);
     return loaded.status;
+  }
+
+  template <typename T>
+  [[nodiscard]] static error
+  request_load_in_cache(void* cache, void* loader, preload_item item, tasks::executor& executor,
+                        tasks::completion_queue& completions,
+                        const std::shared_ptr<detail::preload_request_state>& state) {
+    auto& target = *static_cast<resources::cache<T>*>(cache);
+    auto& source = *static_cast<resources::loader<T>*>(loader);
+    if (!item.guid) {
+      const error status{error_domain::resources, errc::invalid_argument};
+      detail::preload_request_access::fail_item(state, item, status);
+      return status;
+    }
+
+    if (target.find(item.guid) != nullptr) {
+      detail::preload_request_access::complete_item(state, item);
+      return {};
+    }
+
+    const error status = executor.submit(tasks::task{
+        target.resource(), [state, &target, &source, item, &completions]() mutable {
+          detail::preload_resource_in_background(state, target, source, item, completions);
+        }});
+    if (status) {
+      detail::preload_request_access::fail_item(state, item, status);
+    }
+
+    return status;
   }
 
   template <typename T> [[nodiscard]] static bool resolve_in_cache(void* cache, void* reference) {

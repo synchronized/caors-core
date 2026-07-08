@@ -190,8 +190,10 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `cache<T>`、manifest 或运行期对象状态。
 - [x] 实现主线程 commit 阶段：第一版通过 `tasks::completion_queue::drain()` 将已完成异步结果插入或替换 cache，
   失败时保留旧资源；完成、失败和 reload 通知后续再接入 events/signal 或 dispatcher。
+- [x] 提供 `resources::database::request_preload<T>()` / `request_preload()`，支持把依赖闭包提交为
+  `preload_request`，并在 completion queue 中按 cache 所属线程提交资源。
 - [ ] 设计异步加载请求合并和生命周期策略：同 GUID 重复请求复用同一 request，已缓存资源可立即完成，
-  后续再评估优先级、依赖批量预加载、等待 API 和进度聚合。
+  后续再评估优先级、等待 API、分层依赖调度和细粒度进度聚合。
 - [x] 明确异步资源系统线程安全边界：哪些 `source` / `provider` / `memory_resource` 可跨线程访问，
   cache 修改必须在哪个线程执行，未完成 request 的 `get()` 是阻塞、返回错误还是禁止调用。
 - [x] 打通资源引用序列化 resolver，支持反序列化后按策略解析稳定 GUID 引用。

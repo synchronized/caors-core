@@ -5,6 +5,7 @@
 
 #include "caors/tasks.h"
 
+#include <algorithm>
 #include <atomic>
 
 using namespace caors::tests::resources;
@@ -38,6 +39,36 @@ public:
   bool fail_next = false;
 };
 
+class async_material_resource final : public caors::resource {
+public:
+  using caors::resource::resource;
+};
+
+class async_material_loader final : public caors::resource_loader<async_material_resource> {
+public:
+  [[nodiscard]] caors::resource_load_result<async_material_resource>
+  load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {
+    ++load_count;
+    if (status.failed()) {
+      return {status, {}};
+    }
+
+    auto loaded = caors::memory::make_unique<async_material_resource>(resource, guid);
+    return {{}, std::move(loaded)};
+  }
+
+  int load_count = 0;
+  caors::error status{};
+};
+
+[[nodiscard]] caors::string_name texture_manifest_type() {
+  return caors::string_name{"caors.test.resources.async_texture"};
+}
+
+[[nodiscard]] caors::string_name material_manifest_type() {
+  return caors::string_name{"caors.test.resources.async_material"};
+}
+
 class holding_executor final : public caors::tasks::executor {
 public:
   [[nodiscard]] caors::error submit(caors::tasks::task next) override {
@@ -68,6 +99,20 @@ public:
 void require_async_resource_metadata() {
   REQUIRE(meta_result_ok(
       caors::meta::type_<async_resource>("caors.test.resources.async_resource").result()));
+}
+
+void require_async_preload_metadata() {
+  REQUIRE(meta_result_ok(
+      caors::meta::type_<texture_resource>("caors.test.resources.texture_resource").result()));
+  REQUIRE(meta_result_ok(
+      caors::meta::type_<async_material_resource>("caors.test.resources.async_material_resource")
+          .result()));
+}
+
+[[nodiscard]] bool contains_item(const caors::resource_preload_plan::item_list& values,
+                                 caors::resource_guid guid, caors::string_name type) {
+  return std::find(values.begin(), values.end(), caors::resource_preload_item{guid, type}) !=
+         values.end();
 }
 
 } // namespace
@@ -271,4 +316,140 @@ TEST_CASE("resources - async load can run background stage on thread pool", "[re
   REQUIRE(request.loaded());
   CHECK(request.get()->value == 13);
   CHECK(cache.find(test_guid_a) == request.get().get());
+}
+
+TEST_CASE("resources - database async preload dispatches manifest types", "[resources]") {
+  require_async_preload_metadata();
+
+  caors::resource_manifest manifest;
+  REQUIRE(manifest.bind(test_guid_a, "materials/body.json", material_manifest_type()).succeeded());
+  REQUIRE(manifest.bind(test_guid_b, "textures/albedo.json", texture_manifest_type()).succeeded());
+
+  caors::resource_dependency_graph graph;
+  REQUIRE(graph.add(test_guid_a, test_guid_b));
+
+  caors::resource_cache<texture_resource> texture_cache;
+  counting_texture_loader texture_loader;
+  caors::resource_cache<async_material_resource> material_cache;
+  async_material_loader material_loader;
+
+  caors::resource_database database;
+  database.set_manifest(manifest);
+  database.set_dependency_graph(graph);
+  REQUIRE(
+      database.register_type(texture_cache, texture_loader, texture_manifest_type()).succeeded());
+  REQUIRE(database.register_type(material_cache, material_loader, material_manifest_type())
+              .succeeded());
+
+  caors::tasks::inline_executor executor;
+  caors::tasks::completion_queue completions;
+
+  caors::resource_preload_request request =
+      database.request_preload(test_guid_a, executor, completions);
+
+  CHECK(request.status() == caors::resource_request_status::loading);
+  CHECK(request.total_count() == 2);
+  CHECK(request.loaded_count() == 0);
+  CHECK(request.pending_count() == 2);
+  CHECK(completions.size() == 2);
+
+  CHECK(completions.drain() == 2);
+
+  REQUIRE(request.loaded());
+  CHECK(request.loaded_count() == 2);
+  CHECK(request.failed_count() == 0);
+  CHECK(request.pending_count() == 0);
+  CHECK(request.progress() == 1.0);
+  CHECK(texture_cache.contains(test_guid_b));
+  CHECK(material_cache.contains(test_guid_a));
+  CHECK(texture_loader.load_count == 1);
+  CHECK(material_loader.load_count == 1);
+
+  caors::resource_preload_result result = request.result();
+  REQUIRE(result.succeeded());
+  CHECK(contains_item(result.loaded, test_guid_b, texture_manifest_type()));
+  CHECK(contains_item(result.loaded, test_guid_a, material_manifest_type()));
+}
+
+TEST_CASE("resources - database async preload cancellation skips queued commits", "[resources]") {
+  require_async_preload_metadata();
+
+  caors::resource_manifest manifest;
+  REQUIRE(manifest.bind(test_guid_a, "materials/body.json", material_manifest_type()).succeeded());
+  REQUIRE(manifest.bind(test_guid_b, "textures/albedo.json", texture_manifest_type()).succeeded());
+
+  caors::resource_dependency_graph graph;
+  REQUIRE(graph.add(test_guid_a, test_guid_b));
+
+  caors::resource_cache<texture_resource> texture_cache;
+  counting_texture_loader texture_loader;
+  caors::resource_cache<async_material_resource> material_cache;
+  async_material_loader material_loader;
+
+  caors::resource_database database;
+  database.set_manifest(manifest);
+  database.set_dependency_graph(graph);
+  REQUIRE(
+      database.register_type(texture_cache, texture_loader, texture_manifest_type()).succeeded());
+  REQUIRE(database.register_type(material_cache, material_loader, material_manifest_type())
+              .succeeded());
+
+  caors::tasks::inline_executor executor;
+  caors::tasks::completion_queue completions;
+
+  caors::resource_preload_request request =
+      database.request_preload(test_guid_a, executor, completions);
+
+  REQUIRE(request.cancel());
+  CHECK(request.cancelled());
+  CHECK(request.result().status ==
+        caors::error{caors::error_domain::resources, caors::errc::cancelled});
+
+  CHECK(completions.drain() == 2);
+  CHECK_FALSE(texture_cache.contains(test_guid_b));
+  CHECK_FALSE(material_cache.contains(test_guid_a));
+  CHECK(request.pending_count() == 0);
+  CHECK(request.progress() == 1.0);
+}
+
+TEST_CASE("resources - database async preload fails the batch when one item fails", "[resources]") {
+  require_async_preload_metadata();
+
+  caors::resource_manifest manifest;
+  REQUIRE(manifest.bind(test_guid_a, "materials/body.json", material_manifest_type()).succeeded());
+  REQUIRE(manifest.bind(test_guid_b, "textures/albedo.json", texture_manifest_type()).succeeded());
+
+  caors::resource_dependency_graph graph;
+  REQUIRE(graph.add(test_guid_a, test_guid_b));
+
+  caors::resource_cache<texture_resource> texture_cache;
+  counting_texture_loader texture_loader;
+  caors::resource_cache<async_material_resource> material_cache;
+  async_material_loader material_loader;
+  material_loader.status = {caors::error_domain::resources, caors::errc::not_found};
+
+  caors::resource_database database;
+  database.set_manifest(manifest);
+  database.set_dependency_graph(graph);
+  REQUIRE(
+      database.register_type(texture_cache, texture_loader, texture_manifest_type()).succeeded());
+  REQUIRE(database.register_type(material_cache, material_loader, material_manifest_type())
+              .succeeded());
+
+  caors::tasks::inline_executor executor;
+  caors::tasks::completion_queue completions;
+
+  caors::resource_preload_request request =
+      database.request_preload(test_guid_a, executor, completions);
+
+  REQUIRE(request.failed());
+  CHECK(request.error() == caors::error{caors::error_domain::resources, caors::errc::not_found});
+  CHECK(request.failed_count() == 1);
+  CHECK(request.pending_count() == 0);
+
+  CHECK(completions.drain() == 1);
+  CHECK_FALSE(texture_cache.contains(test_guid_b));
+  CHECK_FALSE(material_cache.contains(test_guid_a));
+  CHECK(request.result().status ==
+        caors::error{caors::error_domain::resources, caors::errc::not_found});
 }

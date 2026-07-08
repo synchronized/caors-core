@@ -65,6 +65,7 @@
 - `resources::json_saver<T>`
 - `resources::request_status`
 - `resources::load_request<T>`
+- `resources::preload_request`
 - `resources::preload_item`
 - `resources::preload_plan`
 - `resources::preload_result`
@@ -100,6 +101,7 @@
 - `caors::resource_load_request<T>`
 - `caors::resource_preload_item`
 - `caors::resource_preload_plan`
+- `caors::resource_preload_request`
 - `caors::resource_preload_result`
 - `caors::resource_reload_event<T>`
 - `caors::resource_reload_signal<T>`
@@ -315,6 +317,27 @@ database.register_type(cache, loader);
 auto request = database.request_load<texture>(texture_id, executor, completions);
 ```
 
+依赖预加载也可以异步提交。模板入口适合同一资源类型闭包；无模板入口会先读取 manifest type，
+再按 `register_type(cache, loader, type)` 的绑定跨类型分派：
+
+```cpp
+caors::resource_database database;
+database.set_manifest(manifest);
+database.set_dependency_graph(graph);
+database.register_type(texture_cache, texture_loader, texture_type);
+database.register_type(material_cache, material_loader, material_type);
+
+caors::resource_preload_request request =
+    database.request_preload(material_id, executor, completions);
+
+// 后台 loader 完成后，在主线程提交各个 cache 修改。
+completions.drain();
+
+if (request.loaded()) {
+  caors::resource_preload_result result = request.result();
+}
+```
+
 重载使用 `request_reload_into()` 或 `database.request_reload<T>()`。重载成功时 cache 指向新资源；旧
 `resource_handle<T>` 仍继续持有旧资源。重载失败时旧资源保持不变。
 
@@ -335,6 +358,17 @@ auto request = database.request_load<texture>(texture_id, executor, completions)
 - `result()`：非阻塞；loaded 返回成功和结果 handle，queued/loading 返回 `resources / pending`，
   cancelled 返回 `resources / cancelled`，failed 返回原始错误。
 
+`preload_request` 是批量请求句柄，不直接保存每个资源的强 handle；成功加载的资源由对应 `cache<T>`
+持有，调用方可通过 cache 或 database 查询。它额外提供：
+
+- `total_count()`：计划中本次需要异步加载的资源数量；已缓存资源不计入。
+- `loaded_count()`：已经在 completion queue drain 阶段成功提交到 cache 的资源数量。
+- `failed_count()`：已经失败的资源数量。
+- `pending_count()`：还未结束的资源数量；请求进入 loaded、failed 或 cancelled 后返回 0。
+- `progress()`：非阻塞聚合进度。第一版只统计已结束项，不读取 loader 内部阶段进度。
+- `result()`：返回本次 `preload_plan` 和已经成功提交的 `loaded` 列表；queued/loading 时
+  `status` 为 `resources / pending`。
+
 失败策略：
 
 - nil GUID：立即进入 `failed / resources::invalid_argument`。
@@ -347,14 +381,19 @@ auto request = database.request_load<texture>(texture_id, executor, completions)
 - executor 拒绝提交：进入 `failed`，错误来自 executor，例如 `core / frozen`。
 - 调用方取消请求：进入 `cancelled / resources::cancelled`。若后台已经加载完成但主线程尚未 drain，
   completion 回调会释放加载结果并跳过 cache commit。
+- 异步预加载中任一资源加载或 commit 失败，整个 `preload_request` 进入 failed；已提交成功的资源保留在
+  cache 中，尚未 commit 的 completion 会跳过写入。
 
 线程边界：
 
 - `cache<T>`、`manager`、manifest、对象状态和运行期场景状态只能在主线程 commit 阶段修改。
 - 后台任务可以调用 loader，但 loader、provider、source 和 memory_resource 是否能跨线程使用由调用方保证。
 - `load_request<T>` 自身状态查询是线程安全的。
+- `preload_request` 自身状态查询是线程安全的。
 - `completion_queue::drain()` 应在拥有 cache 的线程调用。
 - 第一版 `load_request<T>::get()` 和 `result()` 都不阻塞；等待、批量轮询和进度聚合后续再补。
+- 第一版异步预加载只做批量提交和聚合状态，不做同 GUID 请求合并、优先级、分层依赖等待或 loader
+  内部进度上报。
 
 ## 序列化
 
