@@ -219,6 +219,8 @@ descriptor 内部按职责拆分：
   `sequence_ops`、`ptr_ops`、`handle_ops` 和 `codec_ops`。
 - `*_data` 保留给注册表组件、配置数据或纯元数据结构，不用于命名一组运行期分发函数。
 - `*_ops` 不是 C++ ABI 层面的虚函数表，不依赖继承；它只是 CAORS 内部统一的函数表命名。
+- `capability_info` 保存 capability 的进程内 key、可选稳定名称、可选稳定 GUID 和版本号。`capability_key`
+  仍是当前进程内查询 key，稳定元信息只用于诊断、工具链和未来插件协议协商。
 
 `type_semantics` 描述以下语义：
 
@@ -236,8 +238,9 @@ descriptor 内部按职责拆分：
 - `meta::detail::sequence_ops` / `set_ops` / `associative_ops` / `pair_ops` / `tuple_ops` / `variant_ops`：容器、二元组、tuple-like 和 variant-like 的运行期访问函数。
 
 模块静态能力通过 `meta::capabilities::module_static_capability_list<Module, T>` 声明。
-`meta::capabilities::static_capability_list<T>` 是聚合入口，会把 object、serialization 和外部模块
-贡献的 `type_list<Capability...>` 合并；descriptor 生成时会把这些能力整理成一张静态
+`meta::capabilities::static_capability_modules<T>` 是模块 tag 聚合入口，默认包含 object、serialization
+和 custom 三个模块 tag；外部模块可以特化 `extension_static_capability_modules<T>` 追加自己的 module tag，
+再由 `static_capability_list<T>` 合并所有模块贡献的 `type_list<Capability...>`。descriptor 生成时会把这些能力整理成一张静态
 `capability_entry` 表。公开查询优先使用 `meta::type::get_capability<T>()` 或
 `meta::type::has_capability<T>()`；该入口会先查询 descriptor 静态能力，再回退到运行期
 capability 索引。内部仍保留 `descriptor_static_capability<T>()` 给 descriptor 层实现使用。
@@ -260,11 +263,11 @@ capability 和 registry 的边界：
   `meta::registry`。需要稳定名称、GUID、父类型、反射字段、序列化字段配置或对象工厂时，仍应显式注册
   meta 类型和对应模块组件。
 - 当前 `capability_key` 是进程内模板静态地址，只适合当前进程内查询，不承诺跨动态库 ABI、跨进程或
-  存档稳定。后续如果需要插件协议、脚本模块或工具链发现能力，应为 capability 增加稳定 name/guid
-  元信息，并明确冲突和版本策略。
-- 多模块静态能力当前通过固定聚合槽位收集 object、serialization 和 custom 贡献。第三方模块可以先使用
-  `custom_static_capability_module`；如果多个独立模块都需要贡献能力，后续应设计更开放的模块能力列表聚合
-  或显式注册宏，避免不同模块互相覆盖同一个 custom 特化点。
+  存档稳定。需要插件协议、脚本模块或工具链发现能力时，应特化 `capability_traits<T>` 提供稳定
+  name/guid/version，并在协议层处理冲突和版本兼容。
+- 多模块静态能力不应都挤到 `custom_static_capability_module`。外部模块应定义自己的 module tag，特化
+  `module_static_capability_list<Module, T>` 贡献能力，再通过 `extension_static_capability_modules<T>`
+  把 module tag 加入指定 C++ 类型的静态能力聚合列表。
 
 统一 `value_type` / `key_type` 不再作为 `type_descriptor` 顶层字段保存。普通值和枚举直接使用
 descriptor 自身的 `type_id`；裸指针、wrapper、容器、pair、tuple 和 variant 的子类型信息由对应

@@ -36,10 +36,11 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [ ] 设计开放 owned runtime capability / poly concept table，用于外挂用户自定义运行期访问能力。
 - [ ] 梳理开放 runtime capability / poly concept table 的最终 API；descriptor 保留内置布局、构造、容器和
   wrapper 能力，codec 作为 serialization 模块 capability 负责格式读写，runtime capability 作为用户扩展能力入口。
-- [ ] 评估 capability 稳定元信息，例如 capability name / guid / version，用于插件、工具链诊断和跨模块协议；
-  当前 `capability_key` 仍只是进程内模板静态 key。
-- [ ] 设计多模块静态 capability 扩展机制，避免多个第三方模块只能共享
-  `custom_static_capability_module` 造成特化覆盖；候选方案包括显式模块 tag 注册、聚合宏或生成式能力列表。
+- [x] 增加 capability 稳定元信息扩展点，例如 capability name / guid / version，用于插件、工具链诊断和
+  跨模块协议；当前 `capability_key` 仍只是进程内模板静态 key。
+- [x] 增加多模块静态 capability 扩展机制，外部模块可通过 module tag 和
+  `extension_static_capability_modules<T>` 追加能力贡献，避免多个第三方模块只能共享
+  `custom_static_capability_module` 造成特化覆盖。
 - [ ] 评估组件替换和批量注册 API。
 
 ## 2. 定制化分配器
