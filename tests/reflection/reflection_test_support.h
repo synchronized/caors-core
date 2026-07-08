@@ -5,6 +5,7 @@
 #define CAORS_TESTS_REFLECTION_TEST_SUPPORT_H_
 #include "caors/adapters/stl.h"
 #include "caors/object/base.h"
+#include "caors/object/ptr.h"
 #include "caors/reflection.h"
 #include "caors/traits/type_name.h"
 

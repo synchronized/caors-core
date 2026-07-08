@@ -208,7 +208,7 @@ descriptor 内部按职责拆分：
 - `type_layout`：保存 `size` 和 `alignment`。
 - `value_ops`：保存默认构造、复制、析构和赋值的类型擦除函数。
 - `type_semantics`：保存该类型在反射、序列化和 value 模块中的运行期形态。
-- `type_capabilities`：保存固定内置能力集合，例如枚举、间接值、顺序容器、集合、关联容器、pair、tuple 或 variant。
+- `builtin_capability`：保存一个固定内置互斥能力，例如枚举、间接值、顺序容器、集合、关联容器、pair、tuple 或 variant。
 - `static_capabilities`：保存模块声明的静态能力表，例如对象指针和对象句柄访问函数表。
 
 `type_semantics` 描述以下语义：
@@ -218,8 +218,8 @@ descriptor 内部按职责拆分：
 - `indirect`：该类型是否具备一层间接值语义，例如裸指针或 wrapper。
 - `nullable`：运行期值是否可能为空。
 
-具体访问函数表由 `type_capabilities` 或模块 capability 持有，用来描述枚举转换、容器、指针、wrapper、
-对象引用、pair、tuple 和 variant 访问能力。当前 descriptor 固定能力集合由 CAORS 定义，查询入口仍是内部
+具体访问函数表由 `builtin_capability` 或模块 capability 持有，用来描述枚举转换、容器、指针、wrapper、
+对象引用、pair、tuple 和 variant 访问能力。当前 descriptor 内置能力由 CAORS 定义，并且同一类型只会持有一个内置能力；查询入口仍是内部
 `descriptor_capability<T>()`：
 
 - `meta::detail::indirect_data`：裸指针或 wrapper 的内部值访问、持值检测、重置和确保持值函数。

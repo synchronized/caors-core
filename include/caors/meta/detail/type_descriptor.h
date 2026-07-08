@@ -16,6 +16,7 @@
 #include <string_view>
 #include <type_traits>
 #include <utility>
+#include <variant>
 
 namespace caors::meta::detail {
 
@@ -56,25 +57,25 @@ struct type_semantics {
   bool nullable = false;
 };
 
-/** @brief 类型的固定运行期能力集合。 */
-struct type_capabilities {
-  const enum_data* enumeration = nullptr;
-  const indirect_data* indirect = nullptr;
-  const sequence_data* sequence = nullptr;
-  const set_data* set = nullptr;
-  const associative_data* associative = nullptr;
-  const pair_data* pair = nullptr;
-  const tuple_data* tuple = nullptr;
-  const variant_data* variant = nullptr;
+/** @brief 类型的内置互斥运行期能力。 */
+using builtin_type_capability =
+    std::variant<std::monostate, const enum_data*, const indirect_data*, const sequence_data*,
+                 const set_data*, const associative_data*, const pair_data*, const tuple_data*,
+                 const variant_data*>;
 
-  [[nodiscard]] bool valid() const noexcept {
-    return (enumeration != nullptr && enumeration->valid()) ||
-           (indirect != nullptr && indirect->valid()) ||
-           (sequence != nullptr && sequence->valid()) || (set != nullptr && set->valid()) ||
-           (associative != nullptr && associative->valid()) || (pair != nullptr && pair->valid()) ||
-           (tuple != nullptr && tuple->valid()) || (variant != nullptr && variant->valid());
-  }
-};
+[[nodiscard]] inline bool
+builtin_type_capability_valid(const builtin_type_capability& capability) noexcept {
+  return std::visit(
+      [](auto value) noexcept {
+        using value_type = std::remove_cv_t<std::remove_reference_t<decltype(value)>>;
+        if constexpr (std::is_same_v<value_type, std::monostate>) {
+          return false;
+        } else {
+          return value != nullptr && value->valid();
+        }
+      },
+      capability);
+}
 
 /** @brief meta 内部类型描述符，保存布局、值操作和运行期视图能力。 */
 struct type_descriptor {
@@ -84,14 +85,14 @@ struct type_descriptor {
   value_ops ops{};
   value_traits traits{};
   type_semantics semantics{};
-  type_capabilities capabilities{};
+  builtin_type_capability builtin_capability{};
   const capability_entry* static_capabilities = nullptr;
   std::size_t static_capability_count = 0;
 
   [[nodiscard]] bool valid() const noexcept { return type && layout.valid(); }
 
   [[nodiscard]] bool has_view_capability() const noexcept {
-    return capabilities.valid() || static_capability_count > 0;
+    return builtin_type_capability_valid(builtin_capability) || static_capability_count > 0;
   }
 };
 
@@ -100,22 +101,14 @@ template <typename T> inline constexpr bool always_false_v = false;
 template <typename Capability>
 [[nodiscard]] inline const Capability*
 descriptor_capability(const type_descriptor& descriptor) noexcept {
-  if constexpr (std::is_same_v<Capability, enum_data>) {
-    return descriptor.capabilities.enumeration;
-  } else if constexpr (std::is_same_v<Capability, indirect_data>) {
-    return descriptor.capabilities.indirect;
-  } else if constexpr (std::is_same_v<Capability, sequence_data>) {
-    return descriptor.capabilities.sequence;
-  } else if constexpr (std::is_same_v<Capability, set_data>) {
-    return descriptor.capabilities.set;
-  } else if constexpr (std::is_same_v<Capability, associative_data>) {
-    return descriptor.capabilities.associative;
-  } else if constexpr (std::is_same_v<Capability, pair_data>) {
-    return descriptor.capabilities.pair;
-  } else if constexpr (std::is_same_v<Capability, tuple_data>) {
-    return descriptor.capabilities.tuple;
-  } else if constexpr (std::is_same_v<Capability, variant_data>) {
-    return descriptor.capabilities.variant;
+  if constexpr (std::is_same_v<Capability, enum_data> ||
+                std::is_same_v<Capability, indirect_data> ||
+                std::is_same_v<Capability, sequence_data> || std::is_same_v<Capability, set_data> ||
+                std::is_same_v<Capability, associative_data> ||
+                std::is_same_v<Capability, pair_data> || std::is_same_v<Capability, tuple_data> ||
+                std::is_same_v<Capability, variant_data>) {
+    const auto* value = std::get_if<const Capability*>(&descriptor.builtin_capability);
+    return value != nullptr ? *value : nullptr;
   } else {
     static_assert(always_false_v<Capability>, "Unsupported CAORS type capability");
   }
@@ -902,43 +895,30 @@ template <typename T> [[nodiscard]] const variant_data* variant_data_ptr_of() {
   }
 }
 
-template <typename T> [[nodiscard]] type_capabilities type_capabilities_of() {
+template <typename T> [[nodiscard]] builtin_type_capability builtin_type_capability_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  type_capabilities capabilities{};
 
-  if constexpr (std::is_enum_v<type>) {
-    capabilities.enumeration = enum_data_ptr_of<type>();
+  if constexpr (std::is_pointer_v<type>) {
+    return indirect_data_ptr_of<type>();
+  } else if constexpr (traits::sequence_traits<type>::is_sequence) {
+    return sequence_data_ptr_of<type>();
+  } else if constexpr (traits::set_traits<type>::is_set) {
+    return set_data_ptr_of<type>();
+  } else if constexpr (traits::associative_traits<type>::is_associative) {
+    return associative_data_ptr_of<type>();
+  } else if constexpr (traits::pair_traits<type>::is_pair) {
+    return pair_data_ptr_of<type>();
+  } else if constexpr (traits::tuple_traits<type>::is_tuple) {
+    return tuple_data_ptr_of<type>();
+  } else if constexpr (traits::variant_traits<type>::is_variant) {
+    return variant_data_ptr_of<type>();
+  } else if constexpr (traits::wrapper_traits<type>::is_wrapper) {
+    return indirect_data_ptr_of<type>();
+  } else if constexpr (std::is_enum_v<type>) {
+    return enum_data_ptr_of<type>();
+  } else {
+    return std::monostate{};
   }
-
-  if constexpr (std::is_pointer_v<type> || traits::wrapper_traits<type>::is_wrapper) {
-    capabilities.indirect = indirect_data_ptr_of<type>();
-  }
-
-  if constexpr (traits::sequence_traits<type>::is_sequence) {
-    capabilities.sequence = sequence_data_ptr_of<type>();
-  }
-
-  if constexpr (traits::set_traits<type>::is_set) {
-    capabilities.set = set_data_ptr_of<type>();
-  }
-
-  if constexpr (traits::associative_traits<type>::is_associative) {
-    capabilities.associative = associative_data_ptr_of<type>();
-  }
-
-  if constexpr (traits::pair_traits<type>::is_pair) {
-    capabilities.pair = pair_data_ptr_of<type>();
-  }
-
-  if constexpr (traits::tuple_traits<type>::is_tuple) {
-    capabilities.tuple = tuple_data_ptr_of<type>();
-  }
-
-  if constexpr (traits::variant_traits<type>::is_variant) {
-    capabilities.variant = variant_data_ptr_of<type>();
-  }
-
-  return capabilities;
 }
 
 template <typename T> struct descriptor_holder {
@@ -963,7 +943,7 @@ template <typename T> struct descriptor_holder {
         std::is_trivially_default_constructible_v<type>,
     };
     fill_descriptor_semantics<type>(descriptor);
-    descriptor.capabilities = type_capabilities_of<type>();
+    descriptor.builtin_capability = builtin_type_capability_of<type>();
     descriptor.static_capabilities = meta::capabilities::static_capabilities_data<type>();
     descriptor.static_capability_count = meta::capabilities::static_capabilities_size<type>();
     return descriptor;
