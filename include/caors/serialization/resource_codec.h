@@ -45,7 +45,7 @@ namespace caors::serialization::detail {
 /** @brief 查询资源类型对应的运行期类型 id；类型未注册时返回 invalid。 */
 template <typename T> [[nodiscard]] inline type_id resource_type_id() noexcept {
   const meta::type type = meta::find<T>();
-  return type ? type.id() : type_id::invalid();
+  return type.registered() ? type.id() : type_id::invalid();
 }
 
 /** @brief 向上下文依赖收集器记录一个资源引用。 */

@@ -95,7 +95,7 @@ TEST_CASE("serialization - built in codecs survive late meta type registration",
   const caors::serialization::variant_result probe =
       caors::serialization::to_variant(caors::any::from(*id));
   REQUIRE(probe.succeeded());
-  CHECK_FALSE(caors::meta::find<std::chrono::seconds>());
+  CHECK_FALSE(caors::meta::find<std::chrono::seconds>().registered());
 
   require_registered_type<std::chrono::seconds>("std.chrono.seconds");
   REQUIRE(reflection_result_ok(caors::reflection::class_<late_builtin_codec_actor>(

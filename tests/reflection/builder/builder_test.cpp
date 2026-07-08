@@ -23,7 +23,7 @@ TEST_CASE("reflection - class builder accepts fields with descriptor-only types"
   auto field = reflected.find_field("field");
   REQUIRE(field);
   CHECK(field.type_name().empty());
-  CHECK_FALSE(caors::meta::find(field.type()));
+  CHECK_FALSE(caors::meta::find(field.type()).registered());
   CHECK(field.value_type() == field.type());
   CHECK_FALSE(field.indirect());
 

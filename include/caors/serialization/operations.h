@@ -20,7 +20,7 @@ namespace caors::serialization {
 template <typename T> [[nodiscard]] error serialize(const T& object, writer& writer) {
   serialization::context context{};
   const meta::type type = caors::meta::find<T>();
-  if (!type) {
+  if (!type.registered()) {
     return {error_domain::serialization, errc::missing_type};
   }
 
@@ -39,7 +39,7 @@ template <typename T>
 [[nodiscard]] error serialize(const serialization::context& context, const T& object,
                               writer& writer) {
   const meta::type type = caors::meta::find<T>();
-  if (!type) {
+  if (!type.registered()) {
     return {error_domain::serialization, errc::missing_type};
   }
 
@@ -65,7 +65,7 @@ template <typename T>
 /** @brief 把已注册序列化和反射信息的 C++ 对象从指定后端读入。 */
 template <typename T> [[nodiscard]] error deserialize(T& object, reader& reader) {
   const meta::type type = caors::meta::find<T>();
-  if (!type) {
+  if (!type.registered()) {
     return {error_domain::serialization, errc::missing_type};
   }
 
@@ -76,7 +76,7 @@ template <typename T> [[nodiscard]] error deserialize(T& object, reader& reader)
 template <typename T>
 [[nodiscard]] error deserialize(const serialization::context& context, T& object, reader& reader) {
   const meta::type type = caors::meta::find<T>();
-  if (!type) {
+  if (!type.registered()) {
     return {error_domain::serialization, errc::missing_type};
   }
 
@@ -96,7 +96,7 @@ template <typename T>
   if constexpr (std::is_base_of_v<objects::object, value_type>) {
     if (detail::is_polymorphic_value(context, value)) {
       const meta::type type = caors::meta::find<value_type>();
-      if (!type) {
+      if (!type.registered()) {
         return {error_domain::serialization, errc::missing_type};
       }
 
@@ -157,7 +157,7 @@ template <typename T>
 template <typename T> [[nodiscard]] variant_result to_serialization_value(const T& object) {
   serialization::context context{};
   const meta::type type = caors::meta::find<T>();
-  if (!type) {
+  if (!type.registered()) {
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
 
@@ -176,7 +176,7 @@ template <typename T>
 [[nodiscard]] variant_result to_serialization_value(const serialization::context& context,
                                                     const T& object) {
   const meta::type type = caors::meta::find<T>();
-  if (!type) {
+  if (!type.registered()) {
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
 

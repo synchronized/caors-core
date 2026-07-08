@@ -66,7 +66,7 @@ public:
     static_assert(std::is_copy_constructible_v<type>, "any requires copy constructible types");
 
     const meta::type registered = caors::meta::find<type>();
-    if (!registered || registered.name().empty() || registered.name() != name) {
+    if (!registered.registered() || registered.name().empty() || registered.name() != name) {
       return {};
     }
 

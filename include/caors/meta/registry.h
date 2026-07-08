@@ -81,12 +81,9 @@ public:
       return type_info_status;
     }
 
-    const meta::type registered = find_type(expected_id);
-    if (registered) {
-      const error descriptor_status = detail::ensure_type_descriptor_for<value_type>();
-      if (descriptor_status) {
-        return descriptor_status;
-      }
+    const error descriptor_status = detail::ensure_type_descriptor_for<value_type>();
+    if (descriptor_status) {
+      return descriptor_status;
     }
 
     return status;
@@ -94,7 +91,14 @@ public:
 
   [[nodiscard]] bool contains(type_id id) const;
   template <typename T> [[nodiscard]] type find_type() const {
-    return find_type(detail::type_id_of_cpp_type<T>());
+    using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+    const type_id id = detail::type_id_of_cpp_type<value_type>();
+    if (!id) {
+      return {};
+    }
+
+    (void)detail::ensure_type_descriptor_for<value_type>();
+    return find_type(id);
   }
 
   [[nodiscard]] type find_type(type_id id) const;

@@ -27,7 +27,7 @@ error registry::register_type(type_id id, type_data data) {
 }
 
 error registry::register_type(meta::type type, type_data data) {
-  if (!type.valid()) {
+  if (!type.registered()) {
     return {error_domain::serialization, errc::invalid_type};
   }
 
@@ -47,12 +47,12 @@ registry& get_registry() noexcept { return registry::instance(); }
 std::optional<type_data> find(type_id id) { return get_registry().find_type(id); }
 
 std::optional<type_data> find(meta::type type) {
-  return type.valid() ? get_registry().find_type(type.id()) : std::nullopt;
+  return type.registered() ? get_registry().find_type(type.id()) : std::nullopt;
 }
 
 bool contains(type_id id) { return get_registry().contains(id); }
 
-bool contains(meta::type type) { return type.valid() && contains(type.id()); }
+bool contains(meta::type type) { return type.registered() && contains(type.id()); }
 
 std::size_t size() noexcept { return get_registry().size(); }
 

@@ -217,10 +217,6 @@ error store_type_descriptor(registry_state& state, const type_descriptor& descri
     return {error_domain::meta, errc::invalid_type};
   }
 
-  if (!state.types.contains(descriptor.type.value())) {
-    return {error_domain::meta, errc::missing_type};
-  }
-
   const auto position = state.descriptors.find(descriptor.type.value());
   if (position != state.descriptors.end()) {
     const type_descriptor* existing = position->second;
@@ -265,10 +261,6 @@ error validate_registry_for_freeze(const registry_state& state) {
   for (const auto& [raw_id, descriptor] : state.descriptors) {
     if (descriptor == nullptr || !descriptor->valid() || descriptor->type.value() != raw_id) {
       return {error_domain::meta, errc::invalid_type};
-    }
-
-    if (!state.types.contains(raw_id)) {
-      return {error_domain::meta, errc::missing_type};
     }
   }
 

@@ -37,8 +37,8 @@ TEST_CASE("meta type - builder without name does not register type", "[meta]") {
   const auto builder = caors::meta::type_<lazy_meta_builder_type>();
 
   CHECK_FALSE(builder.get());
-  CHECK_FALSE(caors::meta::find<lazy_meta_builder_type>());
-  CHECK_FALSE(caors::meta::find<lazy_meta_builder_type>());
+  CHECK(caors::meta::find<lazy_meta_builder_type>());
+  CHECK_FALSE(caors::meta::find<lazy_meta_builder_type>().registered());
 }
 
 // 鍘熸祴璇曟枃浠讹細meta_type_builder_meta_type_explicit_type_access_does_not_create_missing_types_test.cpp
@@ -46,15 +46,19 @@ TEST_CASE("meta type - builder without name does not register type", "[meta]") {
 #include "meta_type_builder_test_support.h"
 
 using namespace caors::tests::meta_type_builder;
-TEST_CASE("meta type - explicit type access does not create missing types", "[meta]") {
-  CHECK_FALSE(caors::meta::find<missing_find_type>());
+TEST_CASE("meta type - explicit type access creates descriptor-only views", "[meta]") {
+  const caors::meta::type missing = caors::meta::find<missing_find_type>();
+  REQUIRE(missing);
+  CHECK_FALSE(missing.registered());
 
   const caors::meta::type type =
       caors::meta::type_<explicit_find_type>("caors.test.type.explicit_find").get();
   REQUIRE(type.valid());
+  CHECK(type.registered());
 
   const caors::meta::type found = caors::meta::find<explicit_find_type>();
   REQUIRE(found.valid());
+  CHECK(found.registered());
   CHECK(found.id() == type.id());
 }
 

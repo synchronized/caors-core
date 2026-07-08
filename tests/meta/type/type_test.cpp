@@ -17,10 +17,14 @@ TEST_CASE("meta type - built-in C++ types have default names", "[meta]") {
 #include "meta_type_basic_test_support.h"
 
 using namespace caors::tests::meta_type_basic;
-TEST_CASE("meta type - type id is allocated by explicit registration", "[meta]") {
+TEST_CASE("meta type - descriptor id is available before explicit registration", "[meta]") {
   CHECK_FALSE(caors::meta::id("caors.test.type.unregistered_name"));
-  CHECK_FALSE(caors::meta::id_of<anonymous_cpp_type>());
-  CHECK_FALSE(caors::meta::find<anonymous_cpp_type>());
+  const caors::meta::type descriptor = caors::meta::find<anonymous_cpp_type>();
+  REQUIRE(descriptor);
+  CHECK_FALSE(descriptor.registered());
+  CHECK(caors::meta::id_of<anonymous_cpp_type>() == descriptor.id());
+  CHECK(descriptor.size() == sizeof(anonymous_cpp_type));
+  CHECK(descriptor.alignment() == alignof(anonymous_cpp_type));
 
   REQUIRE(caors::meta::type_<anonymous_cpp_type>("caors.test.type.anonymous_cpp").result() ==
           caors::error{});
@@ -30,9 +34,11 @@ TEST_CASE("meta type - type id is allocated by explicit registration", "[meta]")
 
   CHECK(first);
   CHECK(first == second);
+  CHECK(first == descriptor.id());
 
   auto named = caors::meta::find("caors.test.type.anonymous_cpp");
   REQUIRE(named);
+  CHECK(named.registered());
   CHECK(named.id() == first);
   CHECK(caors::meta::find<anonymous_cpp_type>().id() == first);
   CHECK(caors::any::default_construct(named.id()).valid());

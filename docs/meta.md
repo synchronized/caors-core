@@ -114,11 +114,11 @@ meta 类型记录由全局注册表内部保存，普通代码不直接构造或
 - `alignment`
 - `parent_id`
 
-注册时会记录该 C++ 类型的运行期 `type_id`。`size()` / `alignment()` 不来自 meta 类型记录本身，
-而是从同一 `type_id` 挂载的内部 `meta::detail::type_descriptor` 查询；默认构造、复制、析构和赋值函数
-也保存在该 descriptor 中。普通代码不应直接修改或依赖 descriptor 的具体布局。
-`meta::id_of<T>()` 只查询已经注册的 C++ 类型，不会创建匿名类型记录；普通代码应在启动注册阶段直接使用
-`meta::type_<T>("name")`。
+`meta::type` 以 C++ 类型 descriptor 为基础：`meta::type_of<T>()`、`meta::find<T>()` 和
+`meta::id_of<T>()` 可以为未显式注册的 C++ 类型返回 descriptor 视图和运行期 `type_id`。
+`size()` / `alignment()`、默认构造、复制、析构和赋值函数都来自 descriptor。
+`registered()` 表示该类型是否已经通过 `meta::type_<T>("name")` 写入稳定注册数据；只有已注册类型
+才有稳定注册名、GUID、父类型和可挂载组件。
 `meta::type_<T>()` 链式 builder 会原地更新全局注册表中已经保存的类型数据；已有 `meta::type`
 视图只引用这份稳定数据，不会因为后续 `.guid()` 或 `.parent()` 调用而失效。
 
@@ -133,8 +133,8 @@ if (type) {
 }
 ```
 
-`meta::type` 不拥有数据，内部引用全局 append-only 注册表中的 meta 类型记录。需要查询类型信息时
-使用 `meta::type`。
+`meta::type` 不拥有数据，内部引用静态 descriptor；类型已注册时还会引用全局 append-only 注册表中的
+meta 类型记录。需要查询类型信息时使用 `meta::type`。
 
 ### traits::type_name<T>
 
@@ -190,13 +190,15 @@ caors::meta::type_<player>("game.player")
 `.factory()` 无参数重载使用 `memory::make<T>()` / `memory::destroy<T>()` 注册默认构造策略，要求 `T`
 可默认构造。带函数指针的重载用于不可默认构造类型，`destroy` 必须匹配 `construct` 的分配策略。
 
-`caors::meta::find(...)` 和 `caors::meta::find<T>()` 只查询已经注册的类型，不会创建临时记录；
-不存在时返回无效 `meta::type`。普通类型应通过 `caors::meta::type_<T>("name")` 显式注册。
-`meta::id_of<T>()` 同样只查询已注册类型，不会触发运行期隐式注册。
+`caors::meta::find<T>()` 是 C++ 类型到 descriptor 视图的入口；类型未显式注册时仍可能返回有效
+`meta::type`，但 `registered()` 为 false。`caors::meta::find(id/name/guid)` 是运行期查询入口：
+按 `name` / `guid` 只能找到已注册类型，按 `id` 可以找到已缓存的 descriptor 视图或已注册类型。
+普通业务类型仍应通过 `caors::meta::type_<T>("name")` 显式注册，再把得到的 `meta::type` 交给
+对象、反射或序列化模块挂载组件。
 
 ### meta::detail::type_descriptor
 
-`meta::detail::type_descriptor` 是已注册 C++ 类型的内部能力描述。注册表按 `type_id`
+`meta::detail::type_descriptor` 是 C++ 类型的内部能力描述。注册表按 `type_id`
 保存指向静态 descriptor 的指针，不把 descriptor 当作普通 generic component 复制存储。descriptor
 由布局、值操作、类型语义、固定运行期能力集合和对象指针能力几部分组成；未注册结构类型也可以通过 `any`、
 `any_ref` 或反射字段携带的静态 descriptor 访问同一套能力。
@@ -373,13 +375,15 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 - `type_id`：运行期类型标识。
 - `type_guid`：稳定类型标识。
 - `string_name`：运行期 interned 名称，定义在 `caors/core/string_name.h`。
-- `meta::id_of<T>()`：查询已注册 C++ 类型的运行期类型 id；未注册时返回无效 id。
+- `meta::type_of<T>()` / `meta::find<T>()`：查询 C++ 类型 descriptor 视图；未注册类型也可返回有效视图。
+- `meta::type::registered()`：判断 descriptor 视图是否带有稳定注册数据。
+- `meta::id_of<T>()`：查询 C++ 类型的运行期类型 id；类型不要求已经显式注册。
 - `meta::id()`：根据已注册类型名查询运行期类型标识。
 - `traits::type_name<T>`：基础 C++ 类型到 CAORS 类型名的默认映射。
 - `meta::detail::type_descriptor`：布局、值操作、类型语义、固定运行期能力集合和对象指针能力。
 - `traits::wrapper_traits<T>` / `traits::wrapper_access<T>`：wrapper 类型语义和内部值访问扩展点。
 - `traits::sequence_traits<T>` / `traits::set_traits<T>` / `traits::associative_traits<T>` / `traits::pair_traits<T>` / `traits::tuple_traits<T>` / `traits::variant_traits<T>`：容器、二元组、tuple-like 和 variant-like 类型语义扩展点。
-- `meta::type`：全局注册表中的类型只读视图。
+- `meta::type`：descriptor-backed 类型只读视图，注册数据可选。
 - `meta::type_<T>()`：RTTR 风格的链式元类型注册入口；默认不注册类型，需要继续调用 `.type("name")`。
 - `meta::type_<T>("name")`：推荐的显式命名注册入口。
 - `meta::type_<T>().parent<Base>()`：保存 C++ 父类型关系和安全 upcast 回调。

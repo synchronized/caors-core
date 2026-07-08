@@ -231,8 +231,8 @@ using type_factory_destroy_fn = detail::value_resource_destroy_fn;
 /**
  * @brief 元类型只读视图。
  *
- * `meta::type` 不拥有类型数据，只引用全局 `meta::registry` 中 append-only 保存的
- * 内部类型数据。视图复制成本低，适合作为对外查询结果。
+ * `meta::type` 不拥有类型数据，只引用编译期生成的 type descriptor，并在类型已注册时额外引用
+ * 全局 `meta::registry` 中 append-only 保存的注册数据。视图复制成本低，适合作为对外查询结果。
  */
 class CAORS_API type {
 public:
@@ -240,6 +240,7 @@ public:
 
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
+  [[nodiscard]] bool registered() const noexcept;
 
   [[nodiscard]] type_id id() const noexcept;
   [[nodiscard]] string_name name() const noexcept;
@@ -257,11 +258,13 @@ private:
   friend detail::value_destroy_fn detail::get_destroy_value_fn(const type&) noexcept;
   friend detail::value_assign_fn detail::get_assign_value_fn(const type&) noexcept;
 
-  constexpr type(const registry* registry, const detail::type_data* data) noexcept
-      : registry_(registry), data_(data) {}
+  constexpr type(const registry* registry, const detail::type_data* data,
+                 const detail::type_descriptor* descriptor) noexcept
+      : registry_(registry), data_(data), descriptor_(descriptor) {}
 
   const registry* registry_ = nullptr;
   const detail::type_data* data_ = nullptr;
+  const detail::type_descriptor* descriptor_ = nullptr;
 };
 
 } // namespace caors::meta

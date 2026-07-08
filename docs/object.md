@@ -342,8 +342,9 @@ public:
 
 `object_type_guid` 是可选静态成员。运行期临时对象可以不声明，`meta::type::guid()` 会保持 nil；可序列化、可反射或跨插件暴露的对象类型建议显式声明稳定 GUID。
 
-`static_type_id()` 只查询已经注册的对象类型；对象类型尚未通过 `objects::class_<T>().commit()`
-注册时返回无效 id。类型名、GUID 和父类型关系应在启动注册阶段一次性写入全局元数据注册表。
+`static_type_id()` 返回 C++ 类型 descriptor id；对象类型尚未通过 `objects::class_<T>().commit()`
+注册时，`objects::find<T>()`、对象工厂、类型名、GUID 和父类型关系仍不可用。对象类型应在启动注册阶段
+一次性写入全局元数据注册表。
 
 这样通过基类引用也能查询真实类型：
 

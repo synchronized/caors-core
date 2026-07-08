@@ -29,7 +29,7 @@ public:
   template <typename T> [[nodiscard]] static any_ref from(T& source, std::string_view name) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
     const meta::type registered = caors::meta::find<type>();
-    if (!registered || registered.name().empty() || registered.name() != name) {
+    if (!registered.registered() || registered.name().empty() || registered.name() != name) {
       return {};
     }
 
@@ -49,7 +49,7 @@ public:
   [[nodiscard]] static any_ref from_const(const T& source, std::string_view name) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
     const meta::type registered = caors::meta::find<type>();
-    if (!registered || registered.name().empty() || registered.name() != name) {
+    if (!registered.registered() || registered.name().empty() || registered.name() != name) {
       return {};
     }
 

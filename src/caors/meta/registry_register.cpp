@@ -65,10 +65,6 @@ error registry::ensure_type_descriptor(const detail::type_descriptor& descriptor
     return detail::store_type_descriptor(*state_, descriptor);
   }
 
-  if (state_->frozen) {
-    return {error_domain::meta, errc::frozen};
-  }
-
   return detail::store_type_descriptor(*state_, descriptor);
 }
 

@@ -48,7 +48,7 @@ private:
 
   template <typename T> [[nodiscard]] error register_type_for(type_data data = type_data{}) {
     const meta::type type = meta::get_registry().find_type<T>();
-    if (!type) {
+    if (!type.registered()) {
       return {error_domain::serialization, errc::invalid_type};
     }
 
@@ -98,7 +98,7 @@ template <typename T> [[nodiscard]] error register_type(std::initializer_list<fi
 class class_builder {
 public:
   explicit class_builder(meta::type type) : type_(type) {
-    if (!type.valid()) {
+    if (!type.registered()) {
       status_ = {error_domain::serialization, errc::invalid_type};
     }
   }

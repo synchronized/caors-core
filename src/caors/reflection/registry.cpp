@@ -174,7 +174,7 @@ error registry::register_type(type_id id, const detail::type_data& reflection) {
 }
 
 error registry::register_type(meta::type type, const detail::type_data& reflection) {
-  if (!type.valid()) {
+  if (!type.registered()) {
     return {error_domain::reflection, errc::invalid_type};
   }
 

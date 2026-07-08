@@ -28,7 +28,7 @@ public:
       : type_(meta::detail::make_type_data<Class>(name, guid, parent_id)) {}
 
   explicit class_builder(meta::type type) : existing_type_(type) {
-    if (!type.valid()) {
+    if (!type.registered()) {
       pending_status_ = {error_domain::reflection, errc::invalid_type};
     }
   }

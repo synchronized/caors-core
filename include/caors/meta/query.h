@@ -29,7 +29,7 @@ public:
   }
 
   type_builder& guid(type_guid guid_value) {
-    if (!type_) {
+    if (!type_.registered()) {
       status_ = {error_domain::meta, errc::invalid_type};
       return *this;
     }
@@ -42,7 +42,7 @@ public:
   type_builder& guid(caors::guid guid_value) { return guid(type_guid{guid_value}); }
 
   type_builder& parent(type_id parent_id) {
-    if (!type_) {
+    if (!type_.registered()) {
       status_ = {error_domain::meta, errc::invalid_type};
       return *this;
     }
@@ -54,7 +54,7 @@ public:
 
   /** @brief 设置 C++ 父类型，并保存安全 upcast 信息供普通类多态使用。 */
   template <typename Parent> type_builder& parent() {
-    if (!type_) {
+    if (!type_.registered()) {
       status_ = {error_domain::meta, errc::invalid_type};
       return *this;
     }
@@ -81,7 +81,7 @@ public:
    * `construct` 可使用传入的 `memory_resource` 分配并构造对象；`destroy` 必须用匹配策略销毁对象。
    */
   type_builder& factory(type_factory_construct_fn construct, type_factory_destroy_fn destroy) {
-    if (!type_) {
+    if (!type_.registered()) {
       status_ = {error_domain::meta, errc::invalid_type};
       return *this;
     }
@@ -103,7 +103,7 @@ public:
 private:
   void refresh() {
     ::caors::meta::type refreshed = get_registry().find_type<T>();
-    if (refreshed) {
+    if (refreshed.registered()) {
       type_ = refreshed;
     }
   }
@@ -120,8 +120,11 @@ template <typename T> [[nodiscard]] type_builder<T> type_(std::string_view name)
   return type_builder<T>{}.type(name);
 }
 
-/** @brief 按 C++ 类型查找基础类型。 */
-template <typename T> [[nodiscard]] type find() { return get_registry().find_type<T>(); }
+/** @brief 获取 C++ 类型 descriptor 视图；类型不要求已经显式注册。 */
+template <typename T> [[nodiscard]] type type_of() { return get_registry().find_type<T>(); }
+
+/** @brief 按 C++ 类型查找基础类型 descriptor 视图；类型不要求已经显式注册。 */
+template <typename T> [[nodiscard]] type find() { return type_of<T>(); }
 
 /** @brief 按类型 id 查找基础类型。 */
 [[nodiscard]] CAORS_API type find(type_id id);
@@ -135,7 +138,7 @@ template <typename T> [[nodiscard]] type find() { return get_registry().find_typ
 /** @brief 按类型名查找基础类型。 */
 [[nodiscard]] CAORS_API type find(string_name name);
 
-/** @brief 获取已注册 C++ 类型的运行期类型 id；未注册时返回无效 id。 */
+/** @brief 获取 C++ 类型的运行期类型 id；类型不要求已经显式注册。 */
 template <typename T> [[nodiscard]] type_id id_of() {
   const type stored = find<T>();
   return stored ? stored.id() : type_id::invalid();

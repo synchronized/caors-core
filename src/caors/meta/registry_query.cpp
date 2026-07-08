@@ -16,11 +16,12 @@ bool registry::contains(type_id id) const {
 type registry::find_type(type_id id) const {
   std::lock_guard lock(state_->mutex);
   const detail::type_data* type_data = detail::find_type_data(*state_, id);
-  if (type_data == nullptr) {
+  const detail::type_descriptor* descriptor = detail::find_type_descriptor(*state_, id);
+  if (type_data == nullptr && descriptor == nullptr) {
     return {};
   }
 
-  return type{this, type_data};
+  return type{this, type_data, descriptor};
 }
 
 type registry::find_type(core::type_guid guid) const {
@@ -39,7 +40,7 @@ type registry::find_type(core::type_guid guid) const {
     return {};
   }
 
-  return type{this, type_data};
+  return type{this, type_data, detail::find_type_descriptor(*state_, type_data->id())};
 }
 
 type registry::find_type(const std::type_info& info) const {
@@ -54,7 +55,7 @@ type registry::find_type(const std::type_info& info) const {
     return {};
   }
 
-  return type{this, type_data};
+  return type{this, type_data, detail::find_type_descriptor(*state_, type_data->id())};
 }
 
 type registry::find_type(std::string_view name) const {
@@ -78,7 +79,7 @@ type registry::find_type(core::string_name name) const {
     return {};
   }
 
-  return type{this, type_data};
+  return type{this, type_data, detail::find_type_descriptor(*state_, type_data->id())};
 }
 
 const detail::type_descriptor* registry::find_type_descriptor(type_id id) const {
