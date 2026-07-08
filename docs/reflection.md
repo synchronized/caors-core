@@ -92,8 +92,8 @@ caors::reflection::class_<actor>("game.actor")
   `traits::wrapper_semantics` 为 `inline_value`。
 - `std::reference_wrapper<T>`：`meta::type_kind::wrapper`，`value_type` 为 `T`，不表示空值，
   `traits::wrapper_semantics` 为 `inline_value`。
-- `caors::objects::ptr<T>`：`meta::type_kind::value`，对象指针能力通过 descriptor 上的
-  `objects::detail::ptr_data` 暴露，并使用 `objects::ptr_view_of(any_ref)` 查询。
+- `caors::objects::ptr<T>`：`meta::type_kind::value`，对象指针能力通过 `meta::capabilities`
+  挂到运行期索引，并使用 `objects::ptr_view_of(any_ref)` 查询。
 - `traits::sequence_traits<T>` 顺序容器：`meta::type_kind::sequence`，value 类型为元素类型；`get_element_type()`
   是对外语义别名。字段视图可以查询元素数量、访问元素引用，并在 traits 支持时执行清空、调整大小和追加元素。内置 `caors::vector<T>` 会生成
   `caors.vector<T>` 类型名。
@@ -660,7 +660,7 @@ auto reflected = caors::reflection::find("game.actor");
 - `any`：运行期 C++ 类型值拷贝。
 - `any_ref`：运行期 C++ 类型非拥有引用。
 - `sequence_view` / `set_view` / `associative_view` / `pair_view` / `tuple_view` / `variant_view`：容器、二元组、tuple-like 和 variant-like 类型的运行期视图。
-- `meta::detail::type_descriptor`：字段声明类型的布局、值操作、类型语义、固定运行期能力集合和对象指针能力。
+- `meta::detail::type_descriptor`：字段声明类型的布局、值操作、类型语义和固定运行期能力集合。
 - `reflection::type` / `reflection::field` / `reflection::method`：全局反射数据的推荐查询入口。
 - `reflection::registry`：全局反射注册表 facade。
 - `reflection::class_<T>()`：RTTR 风格链式注册入口。

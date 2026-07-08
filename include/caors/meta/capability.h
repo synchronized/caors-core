@@ -44,6 +44,19 @@ template <typename Capability, typename T> struct static_capability {
   [[nodiscard]] static const Capability* get() { return nullptr; }
 };
 
+/**
+ * @brief C++ 类型静态能力的运行期注册扩展点。
+ *
+ * 模块可特化该模板，把某个 C++ 类型拥有的静态能力挂入运行期索引。默认表示该类型
+ * 没有需要自动注册的模块能力。
+ */
+template <typename T> struct static_capability_registrar {
+  [[nodiscard]] static error register_for(type_id id) {
+    (void)id;
+    return {error_domain::meta, errc::unsupported};
+  }
+};
+
 /** @brief 按 C++ 类型查询静态能力。 */
 template <typename Capability, typename T> [[nodiscard]] const Capability* get() {
   using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
@@ -68,6 +81,12 @@ template <typename Capability, typename T> [[nodiscard]] error register_for() {
   }
 
   return register_for<capability_type>(detail::type_id_of_cpp_type<value_type>(), capability);
+}
+
+/** @brief 把某个 C++ 类型的所有模块静态能力挂入运行期索引。 */
+template <typename T> [[nodiscard]] error register_static_for(type_id id) {
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  return static_capability_registrar<value_type>::register_for(id);
 }
 
 /** @brief 按运行期类型 id 查询已注册能力。 */

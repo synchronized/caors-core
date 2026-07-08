@@ -5,6 +5,8 @@
 #define CAORS_REFLECTION_DETAIL_FIELD_DATA_H_
 
 #include "caors/meta.h"
+#include "caors/object/handle.h"
+#include "caors/object/ptr.h"
 #include "caors/traits/container.h"
 #include "caors/value/any_ref.h"
 
@@ -24,6 +26,23 @@ template <typename T> [[nodiscard]] type_id find_field_type_id(std::string_view 
   }
 
   return registered.id();
+}
+
+template <typename Field> void register_field_object_capabilities(type_id id) {
+  using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
+  if (!id) {
+    return;
+  }
+
+  if (const auto* data = meta::capabilities::get<objects::detail::ptr_data, field_type>();
+      data != nullptr) {
+    (void)meta::capabilities::register_for<objects::detail::ptr_data>(id, data);
+  }
+
+  if (const auto* data = meta::capabilities::get<objects::detail::handle_data, field_type>();
+      data != nullptr) {
+    (void)meta::capabilities::register_for<objects::detail::handle_data>(id, data);
+  }
 }
 
 /**
@@ -182,6 +201,7 @@ template <typename Field>
   if (!type_name.empty()) {
     field_type_id = detail::find_field_type_id<field_type>(type_name);
   }
+  detail::register_field_object_capabilities<field_type>(field_type_id);
 
   field_data field{
       string_name{name}, field_type_id, descriptor, offset, !std::is_const_v<Field>,

@@ -4,12 +4,11 @@
 #ifndef CAORS_META_DETAIL_TYPE_DESCRIPTOR_H_
 #define CAORS_META_DETAIL_TYPE_DESCRIPTOR_H_
 
+#include "caors/meta/capability.h"
 #include "caors/meta/detail/container.h"
 #include "caors/meta/detail/container_iterators.h"
 #include "caors/meta/type.h"
 #include "caors/meta/type_semantics.h"
-#include "caors/object/handle.h"
-#include "caors/object/ptr.h"
 #include "caors/traits/type_name.h"
 
 #include <cstddef>
@@ -86,18 +85,10 @@ struct type_descriptor {
   value_traits traits{};
   type_semantics semantics{};
   type_capabilities capabilities{};
-  const objects::detail::handle_data* object_handle = nullptr;
-  const objects::detail::ptr_data* object_ptr = nullptr;
 
   [[nodiscard]] bool valid() const noexcept { return type && layout.valid(); }
 
-  [[nodiscard]] bool has_view_capability() const noexcept {
-    if (object_handle != nullptr || object_ptr != nullptr) {
-      return true;
-    }
-
-    return capabilities.valid();
-  }
+  [[nodiscard]] bool has_view_capability() const noexcept { return capabilities.valid(); }
 };
 
 template <typename T> inline constexpr bool always_false_v = false;
@@ -494,16 +485,6 @@ template <typename T> [[nodiscard]] const indirect_data* indirect_data_ptr_of() 
   } else {
     return nullptr;
   }
-}
-
-template <typename T> [[nodiscard]] const objects::detail::ptr_data* ptr_data_ptr_of() {
-  using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  return objects::detail::ptr_data_ptr_of<type>();
-}
-
-template <typename T> [[nodiscard]] const objects::detail::handle_data* handle_data_ptr_of() {
-  using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  return objects::detail::handle_data_ptr_of<type>();
 }
 
 template <typename T> [[nodiscard]] const sequence_data* sequence_data_ptr_of() {
@@ -959,8 +940,7 @@ template <typename T> struct descriptor_holder {
     };
     fill_descriptor_semantics<type>(descriptor);
     descriptor.capabilities = type_capabilities_of<type>();
-    descriptor.object_handle = handle_data_ptr_of<type>();
-    descriptor.object_ptr = ptr_data_ptr_of<type>();
+    (void)capabilities::register_static_for<type>(descriptor.type);
     return descriptor;
   }();
 };

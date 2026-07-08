@@ -29,6 +29,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 增加组件 `try_emplace` / `ensure` 语义和组件状态诊断 API。
 - [x] 增加轻量动态 capability 运行期索引，支持 `type_id + capability_key` 挂接模块能力。
 - [x] 将 serialization codec 接入动态 capability 索引；编译期已知 `T` 时仍直接查询静态 codec 能力。
+- [x] 将对象指针和对象句柄运行期访问迁移到动态 capability 索引，避免 `type_descriptor` 直接依赖 object 模块。
 - [ ] 设计开放 owned runtime capability / poly concept table，用于外挂用户自定义运行期访问能力。
 - [ ] 梳理开放 runtime capability / poly concept table 的最终 API；descriptor 保留内置布局、构造、容器和
   wrapper 能力，codec 作为 serialization 模块 capability 负责格式读写，runtime capability 作为用户扩展能力入口。

@@ -25,6 +25,8 @@ namespace caors::meta {
 class registry;
 class type;
 
+[[nodiscard]] CAORS_API registry& get_registry() noexcept;
+
 namespace detail {
 
 struct type_descriptor;
@@ -75,31 +77,81 @@ get_default_construct_value_fn(const meta::type& type) noexcept;
 [[nodiscard]] CAORS_API value_destroy_fn get_destroy_value_fn(const meta::type& type) noexcept;
 [[nodiscard]] CAORS_API value_assign_fn get_assign_value_fn(const meta::type& type) noexcept;
 
+template <typename T> struct meta_copy_constructible;
+
+template <typename T, bool = traits::sequence_traits<T>::is_sequence>
+struct sequence_meta_copy_constructible {
+  static constexpr bool value = false;
+};
+
+template <typename T> struct sequence_meta_copy_constructible<T, true> {
+  static constexpr bool value =
+      meta_copy_constructible<typename traits::sequence_traits<T>::element_type>::value;
+};
+
+template <typename T, bool = traits::set_traits<T>::is_set> struct set_meta_copy_constructible {
+  static constexpr bool value = false;
+};
+
+template <typename T> struct set_meta_copy_constructible<T, true> {
+  static constexpr bool value =
+      meta_copy_constructible<typename traits::set_traits<T>::element_type>::value;
+};
+
+template <typename T, bool = traits::associative_traits<T>::is_associative>
+struct associative_meta_copy_constructible {
+  static constexpr bool value = false;
+};
+
+template <typename T> struct associative_meta_copy_constructible<T, true> {
+  static constexpr bool value =
+      meta_copy_constructible<typename traits::associative_traits<T>::key_type>::value &&
+      meta_copy_constructible<typename traits::associative_traits<T>::mapped_type>::value;
+};
+
+template <typename T, bool = traits::pair_traits<T>::is_pair> struct pair_meta_copy_constructible {
+  static constexpr bool value = false;
+};
+
+template <typename T> struct pair_meta_copy_constructible<T, true> {
+  static constexpr bool value =
+      meta_copy_constructible<typename traits::pair_traits<T>::first_type>::value &&
+      meta_copy_constructible<typename traits::pair_traits<T>::second_type>::value;
+};
+
+template <typename T, bool = traits::variant_traits<T>::is_variant>
+struct variant_meta_copy_constructible {
+  static constexpr bool value = false;
+};
+
+template <typename T> struct variant_meta_copy_constructible<T, true> {
+  static constexpr bool value = []<std::size_t... Indices>(std::index_sequence<Indices...>) {
+    return (meta_copy_constructible<
+                typename traits::variant_traits<T>::template alternative_type<Indices>>::value &&
+            ... && true);
+  }(std::make_index_sequence<traits::variant_traits<T>::size>{});
+};
+
+template <typename T> [[nodiscard]] consteval bool meta_copy_constructible_value() {
+  if constexpr (traits::sequence_traits<T>::is_sequence) {
+    return sequence_meta_copy_constructible<T>::value;
+  } else if constexpr (traits::set_traits<T>::is_set) {
+    return set_meta_copy_constructible<T>::value;
+  } else if constexpr (traits::associative_traits<T>::is_associative) {
+    return associative_meta_copy_constructible<T>::value;
+  } else if constexpr (traits::pair_traits<T>::is_pair) {
+    return pair_meta_copy_constructible<T>::value;
+  } else if constexpr (traits::variant_traits<T>::is_variant) {
+    return variant_meta_copy_constructible<T>::value;
+  } else {
+    return std::is_copy_constructible_v<T>;
+  }
+}
+
 template <typename T> struct meta_copy_constructible {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
 
-  static constexpr bool value = [] {
-    if constexpr (traits::sequence_traits<type>::is_sequence) {
-      return meta_copy_constructible<typename traits::sequence_traits<type>::element_type>::value;
-    } else if constexpr (traits::set_traits<type>::is_set) {
-      return meta_copy_constructible<typename traits::set_traits<type>::element_type>::value;
-    } else if constexpr (traits::associative_traits<type>::is_associative) {
-      return meta_copy_constructible<typename traits::associative_traits<type>::key_type>::value &&
-             meta_copy_constructible<typename traits::associative_traits<type>::mapped_type>::value;
-    } else if constexpr (traits::pair_traits<type>::is_pair) {
-      return meta_copy_constructible<typename traits::pair_traits<type>::first_type>::value &&
-             meta_copy_constructible<typename traits::pair_traits<type>::second_type>::value;
-    } else if constexpr (traits::variant_traits<type>::is_variant) {
-      return []<std::size_t... Indices>(std::index_sequence<Indices...>) {
-        return (
-            meta_copy_constructible<
-                typename traits::variant_traits<type>::template alternative_type<Indices>>::value &&
-            ... && true);
-      }(std::make_index_sequence<traits::variant_traits<type>::size>{});
-    } else {
-      return std::is_copy_constructible_v<type>;
-    }
-  }();
+  static constexpr bool value = meta_copy_constructible_value<type>();
 };
 
 template <typename T> struct meta_copy_assignable {

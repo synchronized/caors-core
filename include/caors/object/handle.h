@@ -4,6 +4,7 @@
 #ifndef CAORS_OBJECT_HANDLE_H_
 #define CAORS_OBJECT_HANDLE_H_
 
+#include "caors/meta/capability.h"
 #include "caors/object/id.h"
 
 #include <cstddef>
@@ -160,6 +161,33 @@ using handle = detail::basic_handle<detail::untyped_handle_tag>;
 template <typename T> using typed_handle = detail::basic_handle<T>;
 
 } // namespace caors::objects
+
+namespace caors::meta::capabilities {
+
+template <typename T> struct static_capability<objects::detail::handle_data, T> {
+  [[nodiscard]] static const objects::detail::handle_data* get() {
+    return objects::detail::handle_data_ptr_of<T>();
+  }
+};
+
+template <typename T> struct static_capability_registrar<objects::detail::basic_handle<T>> {
+  [[nodiscard]] static error register_for(type_id id) {
+    using capability_type = objects::detail::handle_data;
+    const capability_type* capability = get<capability_type, objects::detail::basic_handle<T>>();
+    if (capability == nullptr) {
+      return {error_domain::meta, errc::unsupported};
+    }
+
+    if (contains<capability_type>(id)) {
+      return {};
+    }
+
+    const error status = caors::meta::capabilities::register_for<capability_type>(id, capability);
+    return status.value() == errc::duplicate_component ? error{} : status;
+  }
+};
+
+} // namespace caors::meta::capabilities
 
 namespace caors {
 

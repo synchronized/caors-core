@@ -4,6 +4,7 @@
 #ifndef CAORS_OBJECT_PTR_H_
 #define CAORS_OBJECT_PTR_H_
 
+#include "caors/meta/capability.h"
 #include "caors/object/id.h"
 
 #include <type_traits>
@@ -117,6 +118,33 @@ template <typename T> [[nodiscard]] const ptr_data* ptr_data_ptr_of() {
 } // namespace detail
 
 } // namespace caors::objects
+
+namespace caors::meta::capabilities {
+
+template <typename T> struct static_capability<objects::detail::ptr_data, T> {
+  [[nodiscard]] static const objects::detail::ptr_data* get() {
+    return objects::detail::ptr_data_ptr_of<T>();
+  }
+};
+
+template <typename T> struct static_capability_registrar<objects::ptr<T>> {
+  [[nodiscard]] static error register_for(type_id id) {
+    using capability_type = objects::detail::ptr_data;
+    const capability_type* capability = get<capability_type, objects::ptr<T>>();
+    if (capability == nullptr) {
+      return {error_domain::meta, errc::unsupported};
+    }
+
+    if (contains<capability_type>(id)) {
+      return {};
+    }
+
+    const error status = caors::meta::capabilities::register_for<capability_type>(id, capability);
+    return status.value() == errc::duplicate_component ? error{} : status;
+  }
+};
+
+} // namespace caors::meta::capabilities
 
 namespace caors {
 

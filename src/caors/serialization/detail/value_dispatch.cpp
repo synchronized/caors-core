@@ -3,6 +3,7 @@
 
 #include "helpers.h"
 
+#include "caors/object/handle_view.h"
 #include "caors/object/ptr_view.h"
 #include "caors/reflection/registry.h"
 
@@ -21,13 +22,14 @@ variant_result make_serialized_value(const any& data) {
       caors::value::detail::descriptor_of(data);
   if (descriptor != nullptr) {
     const meta::type_kind kind = meta::detail::descriptor_kind(*descriptor);
-    if (descriptor->object_handle != nullptr || descriptor->object_ptr != nullptr ||
+    const any_ref ref = data.ref();
+    if (type_uses_object_handle(ref) || type_uses_object_ptr(ref) ||
         kind == meta::type_kind::raw_pointer || kind == meta::type_kind::wrapper ||
         kind == meta::type_kind::enumeration || kind == meta::type_kind::sequence ||
         kind == meta::type_kind::set || kind == meta::type_kind::associative ||
         kind == meta::type_kind::pair || kind == meta::type_kind::tuple ||
         kind == meta::type_kind::variant) {
-      return make_serialized_value(data.ref(), serialization::context{});
+      return make_serialized_value(ref, serialization::context{});
     }
   }
 

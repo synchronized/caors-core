@@ -4,6 +4,7 @@
 #ifndef CAORS_OBJECT_PTR_VIEW_H_
 #define CAORS_OBJECT_PTR_VIEW_H_
 
+#include "caors/meta/capability.h"
 #include "caors/object/ptr.h"
 #include "caors/value/any_ref.h"
 
@@ -61,8 +62,7 @@ private:
     return {};
   }
 
-  const meta::detail::type_descriptor* descriptor = value::detail::descriptor_of(source);
-  const detail::ptr_data* data = descriptor != nullptr ? descriptor->object_ptr : nullptr;
+  const detail::ptr_data* data = meta::capabilities::find<detail::ptr_data>(source.get_type().id());
   if (data == nullptr) {
     return {};
   }

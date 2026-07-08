@@ -41,6 +41,10 @@ CAORS 对象系统第一阶段只解决几件事：
 `caors::typed_object_handle<T>`、`caors::object_ref<T>`、`caors::object_weak_ref<T>` 和
 `caors::object_manager`。新代码在对象模块内部实现和低频辅助类型上优先使用 `caors::objects::*`。
 
+`objects::ptr<T>`、`objects::handle` 和 `objects::typed_handle<T>` 的运行期读写函数表作为
+`meta::capabilities` 模块能力保存，不进入 `meta::detail::type_descriptor`。拿得到 C++ 类型时可直接查询
+静态能力；通过反射字段或 `any_ref::from(T&)` 等公开入口产生运行期值时，对应能力会挂到运行期索引。
+
 ### object_id
 
 `object_id` 是运行期对象实例标识。`0` 保留为无效值。普通对象构造时会通过
@@ -146,6 +150,9 @@ if (ptr) {
   caors::object* object = ptr.get();
 }
 ```
+
+如果 `objects::ptr<T>` / `objects::handle` 作为反射字段或容器元素使用，descriptor 和字段构建过程会把
+对应能力挂到运行期索引，字段读写和序列化路径不需要手动调用 `register_for()`。
 
 它表达的是“当前已经拿到了对象地址”。如果对象由 `objects::manager`、场景树或其他上层容器拥有，
 调用方必须保证 `ptr<T>` 的使用时间不超过对象生命周期；对象销毁后已有 `ptr<T>` 不会自动置空。
