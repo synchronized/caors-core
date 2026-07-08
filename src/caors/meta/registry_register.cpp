@@ -68,6 +68,14 @@ error registry::ensure_type_descriptor(const detail::type_descriptor& descriptor
   return detail::store_type_descriptor(*state_, descriptor);
 }
 
+namespace detail {
+
+error ensure_type_descriptor_registered(const type_descriptor& descriptor) {
+  return get_registry().ensure_type_descriptor(descriptor);
+}
+
+} // namespace detail
+
 error registry::set_type_guid(type_id id, type_guid guid) {
   if (!id) {
     return {error_domain::meta, errc::invalid_type};

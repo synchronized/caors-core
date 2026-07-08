@@ -23,6 +23,7 @@ namespace caors::meta::detail {
 struct type_descriptor;
 
 template <typename T> [[nodiscard]] const type_descriptor* descriptor_ptr_of() noexcept;
+[[nodiscard]] CAORS_API error ensure_type_descriptor_registered(const type_descriptor& descriptor);
 
 /** @brief C++ 类型布局信息。 */
 struct type_layout {
@@ -961,7 +962,7 @@ template <typename T> [[nodiscard]] error ensure_type_descriptor_for() {
     return {error_domain::meta, errc::invalid_type};
   }
 
-  return get_registry().ensure_type_descriptor(*descriptor);
+  return ensure_type_descriptor_registered(*descriptor);
 }
 
 } // namespace caors::meta::detail
