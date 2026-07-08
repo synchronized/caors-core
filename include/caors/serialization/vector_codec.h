@@ -289,23 +289,24 @@ template <typename Sequence> struct sequence_codec {
 
 /** @brief `std::vector` / `caors::vector` 的数组序列化 codec。 */
 template <typename T, typename Allocator>
-struct codec<std::vector<T, Allocator>> : sequence_codec<std::vector<T, Allocator>> {};
+struct codec_traits<std::vector<T, Allocator>> : sequence_codec<std::vector<T, Allocator>> {};
 
 /** @brief `std::array` 的固定长度数组序列化 codec。 */
 template <typename T, std::size_t Size>
-struct codec<std::array<T, Size>> : sequence_codec<std::array<T, Size>> {};
+struct codec_traits<std::array<T, Size>> : sequence_codec<std::array<T, Size>> {};
 
 /** @brief `std::deque` 的数组序列化 codec。 */
 template <typename T, typename Allocator>
-struct codec<std::deque<T, Allocator>> : sequence_codec<std::deque<T, Allocator>> {};
+struct codec_traits<std::deque<T, Allocator>> : sequence_codec<std::deque<T, Allocator>> {};
 
 /** @brief `std::list` / `caors::list` 的数组序列化 codec。 */
 template <typename T, typename Allocator>
-struct codec<std::list<T, Allocator>> : sequence_codec<std::list<T, Allocator>> {};
+struct codec_traits<std::list<T, Allocator>> : sequence_codec<std::list<T, Allocator>> {};
 
 /** @brief `std::forward_list` 的数组序列化 codec。 */
 template <typename T, typename Allocator>
-struct codec<std::forward_list<T, Allocator>> : sequence_codec<std::forward_list<T, Allocator>> {};
+struct codec_traits<std::forward_list<T, Allocator>>
+    : sequence_codec<std::forward_list<T, Allocator>> {};
 
 } // namespace caors::serialization
 

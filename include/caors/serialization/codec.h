@@ -16,25 +16,25 @@ namespace caors::serialization {
 
 struct context;
 
-class codec_view;
+class codec;
 
 namespace detail {
 struct codec_descriptor;
 class codec_registry;
-[[nodiscard]] CAORS_API const codec_descriptor* descriptor_of(codec_view view) noexcept;
+[[nodiscard]] CAORS_API const codec_descriptor* descriptor_of(codec view) noexcept;
 } // namespace detail
 
 /** @brief 可特化的类型序列化 codec。 */
-template <typename T> struct codec {
+template <typename T> struct codec_traits {
   static constexpr bool can_write = false;
   static constexpr bool can_read = false;
   static constexpr bool can_make_value = false;
 };
 
 /** @brief 序列化 codec 只读视图。 */
-class CAORS_API codec_view final {
+class CAORS_API codec final {
 public:
-  constexpr codec_view() noexcept = default;
+  constexpr codec() noexcept = default;
 
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
@@ -45,11 +45,11 @@ public:
   [[nodiscard]] bool can_make_value() const noexcept;
 
 private:
-  template <typename T> friend codec_view codec_of();
+  template <typename T> friend codec codec_of();
   friend class detail::codec_registry;
-  friend const detail::codec_descriptor* detail::descriptor_of(codec_view) noexcept;
+  friend const detail::codec_descriptor* detail::descriptor_of(codec) noexcept;
 
-  constexpr explicit codec_view(const detail::codec_descriptor* descriptor) noexcept
+  constexpr explicit codec(const detail::codec_descriptor* descriptor) noexcept
       : descriptor_(descriptor) {}
 
   const detail::codec_descriptor* descriptor_ = nullptr;
@@ -62,13 +62,13 @@ private:
 [[nodiscard]] CAORS_API variant_result to_variant(const any_ref& data);
 
 /** @brief 按类型 id 查询已索引的 codec 视图。 */
-[[nodiscard]] CAORS_API codec_view find_codec(type_id id);
+[[nodiscard]] CAORS_API codec find_codec(type_id id);
 
 /** @brief 按 meta 类型查询已索引的 codec 视图。 */
-[[nodiscard]] CAORS_API codec_view find_codec(meta::type type);
+[[nodiscard]] CAORS_API codec find_codec(meta::type type);
 
 /** @brief 按 C++ 类型查询静态 codec 视图；类型不要求已经显式注册。 */
-template <typename T> [[nodiscard]] codec_view codec_of();
+template <typename T> [[nodiscard]] codec codec_of();
 
 /** @brief 按 C++ 类型注册已特化的序列化 codec。 */
 template <typename T> [[nodiscard]] error register_codec();
@@ -121,7 +121,7 @@ public:
   codec_registry& operator=(const codec_registry&) = delete;
 
   [[nodiscard]] error register_codec(type_id id, const codec_descriptor& codec);
-  [[nodiscard]] codec_view find_codec(type_id id) const;
+  [[nodiscard]] codec find_codec(type_id id) const;
   [[nodiscard]] bool contains(type_id id) const;
   [[nodiscard]] std::size_t size() const noexcept;
 
@@ -139,7 +139,7 @@ private:
                                                            const codec_descriptor& codec);
 
 /** @brief 从 codec 视图取回内部 descriptor。 */
-[[nodiscard]] CAORS_API const codec_descriptor* descriptor_of(codec_view view) noexcept;
+[[nodiscard]] CAORS_API const codec_descriptor* descriptor_of(codec view) noexcept;
 
 /** @brief 从 codec 策略类型构造类型擦除函数表。 */
 template <typename Codec, typename T> [[nodiscard]] codec_descriptor make_codec_descriptor_from() {
@@ -281,10 +281,10 @@ template <typename Codec, typename T> [[nodiscard]] codec_descriptor make_codec_
   return data;
 }
 
-/** @brief 从公开 `serialization::codec<T>` 特化构造类型擦除函数表。 */
+/** @brief 从公开 `serialization::codec_traits<T>` 特化构造类型擦除函数表。 */
 template <typename T> [[nodiscard]] codec_descriptor make_codec_descriptor() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  return make_codec_descriptor_from<serialization::codec<type>, type>();
+  return make_codec_descriptor_from<serialization::codec_traits<type>, type>();
 }
 
 /** @brief 查询公开 codec 特化对应的静态 descriptor。 */
@@ -309,11 +309,11 @@ template <typename T> [[nodiscard]] error register_serialization_codec() {
 
 namespace caors::serialization {
 
-template <typename T> [[nodiscard]] codec_view codec_of() {
+template <typename T> [[nodiscard]] codec codec_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if (const detail::codec_descriptor* descriptor = detail::codec_descriptor_ptr_of<type>();
       descriptor != nullptr) {
-    return codec_view{descriptor};
+    return codec{descriptor};
   }
 
   return find_codec(meta::type_of<type>());

@@ -8,7 +8,7 @@
 using namespace caors::tests::serialization;
 TEST_CASE("serialization - custom codec specialization registers one runtime table",
           "[serialization]") {
-  const caors::serialization::codec_view codec =
+  const caors::serialization::codec codec =
       caors::serialization::codec_of<policy_custom_codec_value>();
   REQUIRE(codec);
   CHECK(codec.type() == caors::meta::id_of<policy_custom_codec_value>());

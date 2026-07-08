@@ -23,7 +23,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 - 提供 `serialization::variant_reader` 和 `deserialize()`，通过 DOM 中间对象写回基础反射字段。
 - 提供 `serialization::context`，支持按 schema version 过滤字段、配置多态 envelope 字段名、传递运行期资源、
   解析资源引用和收集资源依赖。
-- 提供 `serialization::codec<T>` 和 `register_codec<T>()`，允许把特定 C++ 类型作为原子序列化值读写。
+- 提供 `serialization::codec_traits<T>` 和 `register_codec<T>()`，允许把特定 C++ 类型作为原子序列化值读写。
 - 支持已注册反射和序列化元信息的值类型结构体字段递归序列化和 DOM 反序列化。
 - 提供基于 traits 的顺序容器、集合容器、关联容器、pair、tuple 和 variant 访问，支持标量、wrapper、对象引用和已注册结构体元素。
 - 通过 `serialization::reference_resolver` 支持 `caors::objects::ptr<T>` 对象指针字段。
@@ -50,7 +50,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 序列化模块的推荐类型名位于 `caors::serialization` 命名空间，例如
 `serialization::type_data`、`serialization::field_data`、`serialization::context`、
 `serialization::writer`、`serialization::reader`、`serialization::text_writer`、
-`serialization::json_writer`、`serialization::variant_reader` 和 `serialization::codec<T>`。
+`serialization::json_writer`、`serialization::variant_reader` 和 `serialization::codec_traits<T>`。
 根命名空间只保留高频操作函数别名；reader、writer、result
 等类型使用 `serialization::` 下的短名称。
 
@@ -631,12 +631,12 @@ if (player* current = manager.find(target)) {
 
 ### serialization codec
 
-`serialization::codec<T>` 是类型级扩展点。编译期已知 `T` 时可以通过 `serialization::codec_of<T>()`
+`serialization::codec_traits<T>` 是类型级扩展点。编译期已知 `T` 时可以通过 `serialization::codec_of<T>()`
 直接取得静态 codec 视图；运行期只剩 `type_id` 时，调度层会按类型查询内部 codec 索引，命中后
 由 codec 直接处理该值，未命中时再回退到内置标量探测。这样 `guid`、`type_guid` 这类语义上是
 原子值的类型，不需要暴露内部字段结构。容器、pair、tuple、variant、裸指针和普通 wrapper 字段优先通过
 `meta::detail::type_descriptor` 生成的视图递归处理内部值，因此这类字段通常不需要显式注册
-`serialization::codec<T>`。
+`serialization::codec_traits<T>`。
 
 codec 和 meta descriptor 的边界：
 
@@ -644,7 +644,7 @@ codec 和 meta descriptor 的边界：
   访问。
 - `serialization::detail::codec_descriptor` 描述序列化专用能力，例如写入 writer、从 reader 读回和构造
   `variant` 中间值。
-- 编译期已知 `T` 时，内部可以从 `serialization::codec<T>` 静态生成一份 `codec_descriptor` 函数表。
+- 编译期已知 `T` 时，内部可以从 `serialization::codec_traits<T>` 静态生成一份 `codec_descriptor` 函数表。
 - 运行期只剩 `type_id` 时，序列化调度只能通过 codec registry 查询 `type_id -> codec_descriptor`。
 - `serialization::register_codec<T>()` 不创建 meta 类型，只把 `type_id` 和对应静态 codec descriptor
   放入运行期索引；`T` 不要求已经显式 meta 注册。
@@ -682,7 +682,7 @@ codec 和 meta descriptor 的边界：
 `caors/adapters/stl.h`，该头不会拉入序列化 codec。
 
 内置标量 codec 按 type descriptor id 懒加载补齐，不要求内置类型显式 meta 注册。内置 codec 和外部
-`serialization::codec<T>` 特化都通过同一套函数表构造逻辑生成 `codec_descriptor`；区别只是内置
+`serialization::codec_traits<T>` 特化都通过同一套函数表构造逻辑生成 `codec_descriptor`；区别只是内置
 codec 由库内部按需放入运行期索引，外部自定义 codec 可以直接通过 `serialization::codec_of<T>()`
 取得静态视图，只有运行期只剩 `type_id` 查询时才需要显式调用 `serialization::register_codec<T>()`。
 
@@ -695,19 +695,19 @@ codec 由库内部按需放入运行期索引，外部自定义 codec 可以直�
 `meta::type_<T>("name")` 显式注册。`serialization::sequence_codec<T>`、
 `serialization::set_codec<T>` 和 `serialization::associative_codec<T>`
 仍保留给显式 codec 注册、独立 `any` / `type_id` 运行期转换和外部复用。自定义容器通常只需要特化 traits；如果还需要作为 codec
-单独注册，可以让自己的 `serialization::codec<T>` 继承通用 codec：
+单独注册，可以让自己的 `serialization::codec_traits<T>` 继承通用 codec：
 
 ```cpp
 namespace caors::serialization {
 
 template <typename T>
-struct codec<my_sequence<T>> : sequence_codec<my_sequence<T>> {};
+struct codec_traits<my_sequence<T>> : sequence_codec<my_sequence<T>> {};
 
 template <typename T>
-struct codec<my_set<T>> : set_codec<my_set<T>> {};
+struct codec_traits<my_set<T>> : set_codec<my_set<T>> {};
 
 template <typename K, typename V>
-struct codec<my_map<K, V>> : associative_codec<my_map<K, V>> {};
+struct codec_traits<my_map<K, V>> : associative_codec<my_map<K, V>> {};
 
 }
 ```
@@ -719,7 +719,7 @@ DOM reader 同时接受 `variant::dictionary` 和 pair 数组形态。普通 `st
 普通 `std::variant<Ts...>` 字段会写成 `[index, value]`，`index` 是当前候选下标；读入时数组长度必须等于 2，
 `index` 必须在候选范围内。目标对象已经处于相同候选时会更新已有值；切换到其他候选时，该候选类型需要支持默认构造。
 
-外部类型可以通过特化 `serialization::codec<T>` 并调用 `serialization::register_codec<T>()` 注册。
+外部类型可以通过特化 `serialization::codec_traits<T>` 并调用 `serialization::register_codec<T>()` 注册。
 调用前必须已经通过 `meta::type_<T>("name")` 注册对应 C++ 类型；codec 注册不会隐式创建 meta 类型。底层按
 `type_id` 注册 codec 函数表的入口属于内部实现，普通代码不直接调用。codec 可以分别提供
 writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认逻辑或返回不支持。
@@ -729,7 +729,7 @@ context-first 版本：
 ```cpp
 namespace caors::serialization {
 
-template <> struct codec<custom_value> {
+template <> struct codec_traits<custom_value> {
   static constexpr bool can_write = true;
   static constexpr bool can_read = true;
   static constexpr bool can_make_value = true;
@@ -994,7 +994,7 @@ caors::string text = result.value;
 - `serialization::string_storage`：`std::string_view` 反序列化使用的多段字符串存储。
 - `serialization::resource_resolver`：`resource_ref<T>` 反序列化可选的资源引用解析器。
 - `serialization::resource_dependency_list`：序列化遍历过程中收集到的资源依赖列表。
-- `serialization::codec<T>`：类型级 codec 特化入口。
+- `serialization::codec_traits<T>`：类型级 codec 特化入口。
 - `serialization::codec_of<T>()`：按 C++ 类型查询静态 codec 视图；类型不要求已经显式 meta 注册。
 - `serialization::find_codec()`：按运行期类型查询已索引的 codec 视图。
 - `serialization::register_codec<T>()`：把已特化的类型级 codec 放入运行期索引。

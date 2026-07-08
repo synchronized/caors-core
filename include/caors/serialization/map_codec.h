@@ -199,12 +199,12 @@ template <typename Associative> struct associative_codec {
 
 /** @brief `std::unordered_map` / `caors::hash_map` 的字典序列化 codec。 */
 template <typename K, typename V, typename Hash, typename Equal, typename Allocator>
-struct codec<std::unordered_map<K, V, Hash, Equal, Allocator>>
+struct codec_traits<std::unordered_map<K, V, Hash, Equal, Allocator>>
     : associative_codec<std::unordered_map<K, V, Hash, Equal, Allocator>> {};
 
 /** @brief `std::map` 的字典序列化 codec。 */
 template <typename K, typename V, typename Compare, typename Allocator>
-struct codec<std::map<K, V, Compare, Allocator>>
+struct codec_traits<std::map<K, V, Compare, Allocator>>
     : associative_codec<std::map<K, V, Compare, Allocator>> {};
 
 } // namespace caors::serialization

@@ -21,7 +21,7 @@ struct policy_custom_codec_actor {
 
 namespace caors::serialization {
 
-template <> struct codec<caors::tests::serialization::policy_custom_codec_value> {
+template <> struct codec_traits<caors::tests::serialization::policy_custom_codec_value> {
   using value_type = caors::tests::serialization::policy_custom_codec_value;
 
   static constexpr bool can_write = true;

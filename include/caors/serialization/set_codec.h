@@ -133,12 +133,13 @@ template <typename Set> struct set_codec {
 
 /** @brief `std::unordered_set` / `caors::hash_set` 的数组序列化 codec。 */
 template <typename T, typename Hash, typename Equal, typename Allocator>
-struct codec<std::unordered_set<T, Hash, Equal, Allocator>>
+struct codec_traits<std::unordered_set<T, Hash, Equal, Allocator>>
     : set_codec<std::unordered_set<T, Hash, Equal, Allocator>> {};
 
 /** @brief `std::set` 的数组序列化 codec。 */
 template <typename T, typename Compare, typename Allocator>
-struct codec<std::set<T, Compare, Allocator>> : set_codec<std::set<T, Compare, Allocator>> {};
+struct codec_traits<std::set<T, Compare, Allocator>> : set_codec<std::set<T, Compare, Allocator>> {
+};
 
 } // namespace caors::serialization
 

@@ -99,7 +99,7 @@ template <typename T>
 namespace caors::serialization {
 
 /** @brief `resource_guid` 的字符串 GUID 序列化 codec。 */
-template <> struct codec<resources::resource_guid> {
+template <> struct codec_traits<resources::resource_guid> {
   static constexpr bool can_write = true;
   static constexpr bool can_read = true;
   static constexpr bool can_make_value = true;
@@ -118,7 +118,7 @@ template <> struct codec<resources::resource_guid> {
 };
 
 /** @brief 资源引用按稳定 `resource_guid` 序列化，不序列化运行期资源指针。 */
-template <typename T> struct codec<resources::ref<T>> {
+template <typename T> struct codec_traits<resources::ref<T>> {
   static constexpr bool can_write = true;
   static constexpr bool can_read = true;
   static constexpr bool can_make_value = true;

@@ -14,37 +14,37 @@
 
 namespace caors::serialization {
 
-bool codec_view::valid() const noexcept { return descriptor_ != nullptr && descriptor_->valid(); }
+bool codec::valid() const noexcept { return descriptor_ != nullptr && descriptor_->valid(); }
 
-type_id codec_view::type() const noexcept {
+type_id codec::type() const noexcept {
   return descriptor_ != nullptr ? descriptor_->type : type_id::invalid();
 }
 
-bool codec_view::can_write() const noexcept {
+bool codec::can_write() const noexcept {
   return descriptor_ != nullptr &&
          (descriptor_->write != nullptr || descriptor_->write_context != nullptr);
 }
 
-bool codec_view::can_read() const noexcept {
+bool codec::can_read() const noexcept {
   return descriptor_ != nullptr &&
          (descriptor_->read != nullptr || descriptor_->read_context != nullptr ||
           descriptor_->read_value != nullptr || descriptor_->read_value_context != nullptr);
 }
 
-bool codec_view::can_make_value() const noexcept {
+bool codec::can_make_value() const noexcept {
   return descriptor_ != nullptr &&
          (descriptor_->make_value != nullptr || descriptor_->make_value_context != nullptr);
 }
 
-codec_view find_codec(type_id id) { return detail::get_codec_registry().find_codec(id); }
+codec find_codec(type_id id) { return detail::get_codec_registry().find_codec(id); }
 
-codec_view find_codec(meta::type type) { return type ? find_codec(type.id()) : codec_view{}; }
+codec find_codec(meta::type type) { return type ? find_codec(type.id()) : codec{}; }
 
 } // namespace caors::serialization
 
 namespace caors::serialization::detail {
 
-const codec_descriptor* descriptor_of(codec_view view) noexcept { return view.descriptor_; }
+const codec_descriptor* descriptor_of(codec view) noexcept { return view.descriptor_; }
 
 namespace {
 
@@ -391,7 +391,7 @@ error codec_registry::register_codec(type_id id, const codec_descriptor& codec) 
   return {};
 }
 
-codec_view codec_registry::find_codec(type_id id) const {
+codec codec_registry::find_codec(type_id id) const {
   if (!id) {
     return {};
   }
@@ -405,7 +405,7 @@ codec_view codec_registry::find_codec(type_id id) const {
     return {};
   }
 
-  return codec_view{position->second};
+  return codec{position->second};
 }
 
 bool codec_registry::contains(type_id id) const {

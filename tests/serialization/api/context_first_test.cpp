@@ -57,7 +57,7 @@ void require_context_resource_metadata() {
 
 namespace caors::serialization {
 
-template <> struct codec<caors::tests::serialization::api::context_codec_value> {
+template <> struct codec_traits<caors::tests::serialization::api::context_codec_value> {
   using value_type = caors::tests::serialization::api::context_codec_value;
 
   static constexpr bool can_write = true;

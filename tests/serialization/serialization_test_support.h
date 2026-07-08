@@ -562,11 +562,11 @@ struct associative_traits<caors::tests::serialization::custom_codec_map<K, V>> {
 namespace caors::serialization {
 
 template <typename T>
-struct codec<caors::tests::serialization::custom_codec_sequence<T>>
+struct codec_traits<caors::tests::serialization::custom_codec_sequence<T>>
     : sequence_codec<caors::tests::serialization::custom_codec_sequence<T>> {};
 
 template <typename K, typename V>
-struct codec<caors::tests::serialization::custom_codec_map<K, V>>
+struct codec_traits<caors::tests::serialization::custom_codec_map<K, V>>
     : associative_codec<caors::tests::serialization::custom_codec_map<K, V>> {};
 
 } // namespace caors::serialization
