@@ -64,7 +64,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 - `caors/serialization/writer.h`：`serialization::writer`、`serialization::text_writer` 和
   `serialization::json_writer`。
 - `caors/serialization/reader.h`：`serialization::reader`。
-- `caors/serialization/codec.h`：类型级 codec 扩展点和 codec 注册表。
+- `caors/serialization/codec.h`：类型级 codec 扩展点，以及接入 `meta::capabilities` 的运行期能力索引包装。
 - `caors/serialization/dom_reader.h`：从 `variant` DOM 读入的 reader 后端。
 - `caors/serialization/operations.h`：`serialize()`、`deserialize()`、`to_serialization_value()`、`serialize_text()`、`write_variant()` 等调度入口。
 - `caors/serialization/resource_codec.h`：资源 GUID 和资源引用的稳定标识 codec。
@@ -632,8 +632,8 @@ if (player* current = manager.find(target)) {
 ### serialization codec
 
 `serialization::codec_traits<T>` 是类型级扩展点。编译期已知 `T` 时可以通过 `serialization::codec_of<T>()`
-直接取得静态 codec 视图；运行期只剩 `type_id` 时，调度层会按类型查询内部 codec 索引，命中后
-由 codec 直接处理该值，未命中时再回退到内置标量探测。这样 `guid`、`type_guid` 这类语义上是
+直接取得静态 codec 视图；运行期只剩 `type_id` 时，调度层会通过 `meta::capabilities`
+运行期索引查询 codec 能力，命中后由 codec 直接处理该值，未命中时再回退到内置标量探测。这样 `guid`、`type_guid` 这类语义上是
 原子值的类型，不需要暴露内部字段结构。容器、pair、tuple、variant、裸指针和普通 wrapper 字段优先通过
 `meta::detail::type_descriptor` 生成的视图递归处理内部值，因此这类字段通常不需要显式注册
 `serialization::codec_traits<T>`。
@@ -643,9 +643,11 @@ codec 和 meta descriptor 的边界：
 - `meta::detail::type_descriptor` 描述 C++ 值本身的基础能力，例如布局、构造、销毁、枚举、容器和 wrapper
   访问。
 - `serialization::detail::codec_descriptor` 描述序列化专用能力，例如写入 writer、从 reader 读回和构造
-  `variant` 中间值。
-- 编译期已知 `T` 时，内部可以从 `serialization::codec_traits<T>` 静态生成一份 `codec_descriptor` 函数表。
-- 运行期只剩 `type_id` 时，序列化调度只能通过 codec registry 查询 `type_id -> codec_descriptor`。
+  `variant` 中间值。它不写入 `type_descriptor`，而是作为 serialization 模块 capability 挂到独立运行期索引。
+- 编译期已知 `T` 时，内部可以从 `serialization::codec_traits<T>` 静态生成一份 `codec_descriptor` 函数表，
+  不依赖运行期注册表。
+- 运行期只剩 `type_id` 时，`serialization::find_codec()` 会查询 `meta::capabilities` 中的
+  `type_id -> codec_descriptor` 索引。
 - `serialization::register_codec<T>()` 不创建 meta 类型，只把 `type_id` 和对应静态 codec descriptor
   放入运行期索引；`T` 不要求已经显式 meta 注册。
 

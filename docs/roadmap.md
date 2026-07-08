@@ -27,9 +27,11 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 提供 `meta::view<T...>()`，查询同时拥有指定元数据组件的类型。
 - [x] 补充反射和序列化组件的跨模块查询测试。
 - [x] 增加组件 `try_emplace` / `ensure` 语义和组件状态诊断 API。
-- [ ] 设计开放 runtime capability / poly concept table，用于外挂用户自定义运行期访问能力，并与内置 `type_descriptor` capability 并行。
-- [ ] 梳理 `type_descriptor`、serialization codec 和 runtime capability / poly concept table 的职责边界：
-  descriptor 保留内置布局、构造、容器和 wrapper 能力，codec 负责格式读写，runtime capability 作为用户扩展能力入口。
+- [x] 增加轻量动态 capability 运行期索引，支持 `type_id + capability_key` 挂接模块能力。
+- [x] 将 serialization codec 接入动态 capability 索引；编译期已知 `T` 时仍直接查询静态 codec 能力。
+- [ ] 设计开放 owned runtime capability / poly concept table，用于外挂用户自定义运行期访问能力。
+- [ ] 梳理开放 runtime capability / poly concept table 的最终 API；descriptor 保留内置布局、构造、容器和
+  wrapper 能力，codec 作为 serialization 模块 capability 负责格式读写，runtime capability 作为用户扩展能力入口。
 - [ ] 评估组件替换和批量注册 API。
 
 ## 2. 定制化分配器

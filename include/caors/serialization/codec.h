@@ -4,7 +4,9 @@
 #ifndef CAORS_SERIALIZATION_CODEC_H_
 #define CAORS_SERIALIZATION_CODEC_H_
 
+#include "caors/meta/capability.h"
 #include "caors/reflection/field.h"
+#include "caors/serialization/detail/codec_descriptor.h"
 #include "caors/serialization/reader.h"
 #include "caors/serialization/writer.h"
 #include "caors/value/any_ref.h"
@@ -77,41 +79,7 @@ template <typename T> [[nodiscard]] error register_codec();
 
 namespace caors::serialization::detail {
 
-using codec_write_fn = error (*)(writer& writer, const any& data);
-using codec_context_write_fn = error (*)(const serialization::context& context, writer& writer,
-                                         const any& data);
-using codec_read_fn = error (*)(reader& reader, const reflection::field& field, void* object);
-using codec_context_read_fn = error (*)(const serialization::context& context, reader& reader,
-                                        const reflection::field& field, void* object);
-using codec_read_value_fn = error (*)(reader& reader, const any_ref& target);
-using codec_context_read_value_fn = error (*)(const serialization::context& context, reader& reader,
-                                              const any_ref& target);
-using codec_value_fn = variant_result (*)(const any& data);
-using codec_context_value_fn = variant_result (*)(const serialization::context& context,
-                                                  const any& data);
-
-/** @brief 单个类型的静态序列化 codec 描述。 */
-struct codec_descriptor {
-  type_id type{};
-  const meta::detail::type_descriptor* value_type = nullptr;
-  codec_write_fn write = nullptr;
-  codec_context_write_fn write_context = nullptr;
-  codec_read_fn read = nullptr;
-  codec_context_read_fn read_context = nullptr;
-  codec_read_value_fn read_value = nullptr;
-  codec_context_read_value_fn read_value_context = nullptr;
-  codec_value_fn make_value = nullptr;
-  codec_context_value_fn make_value_context = nullptr;
-
-  [[nodiscard]] constexpr bool valid() const noexcept {
-    return type && value_type != nullptr &&
-           (write != nullptr || write_context != nullptr || read != nullptr ||
-            read_context != nullptr || read_value != nullptr || read_value_context != nullptr ||
-            make_value != nullptr || make_value_context != nullptr);
-  }
-};
-
-/** @brief 运行期序列化 codec 注册表。内部入口，公开代码优先使用
+/** @brief 运行期序列化 codec 能力索引包装。内部入口，公开代码优先使用
  * `serialization::register_codec<T>()`。 */
 class CAORS_API codec_registry final {
 public:
@@ -130,7 +98,7 @@ private:
   ~codec_registry() = default;
 };
 
-/** @brief 获取进程内全局序列化 codec 注册表。内部入口。 */
+/** @brief 获取进程内全局序列化 codec 能力索引包装。内部入口。 */
 [[nodiscard]] CAORS_API codec_registry& get_codec_registry() noexcept;
 
 /** @brief 按类型 id 注册序列化 codec。内部入口，公开代码优先使用
@@ -307,16 +275,28 @@ template <typename T> [[nodiscard]] error register_serialization_codec() {
 
 } // namespace caors::serialization::detail
 
+namespace caors::meta::capabilities {
+
+/** @brief 让 `codec_traits<T>` 成为序列化 codec 的静态能力提供者。 */
+template <typename T> struct static_capability<serialization::detail::codec_descriptor, T> {
+  [[nodiscard]] static const serialization::detail::codec_descriptor* get() {
+    return serialization::detail::codec_descriptor_ptr_of<T>();
+  }
+};
+
+} // namespace caors::meta::capabilities
+
 namespace caors::serialization {
 
 template <typename T> [[nodiscard]] codec codec_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if (const detail::codec_descriptor* descriptor = detail::codec_descriptor_ptr_of<type>();
+  if (const detail::codec_descriptor* descriptor =
+          meta::capabilities::get<detail::codec_descriptor, type>();
       descriptor != nullptr) {
     return codec{descriptor};
   }
 
-  return find_codec(meta::type_of<type>());
+  return find_codec(meta::detail::type_id_of_cpp_type<type>());
 }
 
 /** @brief 按 C++ 类型注册已特化的序列化 codec。 */

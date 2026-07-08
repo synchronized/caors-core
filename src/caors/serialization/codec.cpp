@@ -3,10 +3,11 @@
 
 #include "caors/serialization/codec.h"
 
+#include "caors/meta/capability.h"
+
 #include <chrono>
 #include <filesystem>
 #include <limits>
-#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -36,7 +37,13 @@ bool codec::can_make_value() const noexcept {
          (descriptor_->make_value != nullptr || descriptor_->make_value_context != nullptr);
 }
 
-codec find_codec(type_id id) { return detail::get_codec_registry().find_codec(id); }
+codec find_codec(type_id id) {
+  if (!id) {
+    return {};
+  }
+
+  return detail::get_codec_registry().find_codec(id);
+}
 
 codec find_codec(meta::type type) { return type ? find_codec(type.id()) : codec{}; }
 
@@ -47,16 +54,6 @@ namespace caors::serialization::detail {
 const codec_descriptor* descriptor_of(codec view) noexcept { return view.descriptor_; }
 
 namespace {
-
-struct codec_registry_state {
-  mutable std::mutex mutex;
-  core::hash_map<std::uint64_t, const codec_descriptor*> codecs;
-};
-
-[[nodiscard]] codec_registry_state& codec_state() {
-  static codec_registry_state state;
-  return state;
-}
 
 template <typename T> [[nodiscard]] type_id registered_codec_type_id() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
@@ -381,14 +378,8 @@ error codec_registry::register_codec(type_id id, const codec_descriptor& codec) 
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  codec_registry_state& state = codec_state();
-  std::lock_guard lock(state.mutex);
-  const auto [_, inserted] = state.codecs.emplace(id.value(), &codec);
-  if (!inserted) {
-    return {error_domain::serialization, errc::duplicate_component};
-  }
-
-  return {};
+  return rethrow_as(meta::capabilities::register_for<codec_descriptor>(id, &codec),
+                    error_domain::serialization);
 }
 
 codec codec_registry::find_codec(type_id id) const {
@@ -397,15 +388,7 @@ codec codec_registry::find_codec(type_id id) const {
   }
 
   ensure_builtin_codecs_registered();
-
-  codec_registry_state& state = codec_state();
-  std::lock_guard lock(state.mutex);
-  const auto position = state.codecs.find(id.value());
-  if (position == state.codecs.end()) {
-    return {};
-  }
-
-  return codec{position->second};
+  return codec{meta::capabilities::find<codec_descriptor>(id)};
 }
 
 bool codec_registry::contains(type_id id) const {
@@ -414,18 +397,12 @@ bool codec_registry::contains(type_id id) const {
   }
 
   ensure_builtin_codecs_registered();
-
-  codec_registry_state& state = codec_state();
-  std::lock_guard lock(state.mutex);
-  return state.codecs.contains(id.value());
+  return meta::capabilities::contains<codec_descriptor>(id);
 }
 
 std::size_t codec_registry::size() const noexcept {
   ensure_builtin_codecs_registered();
-
-  codec_registry_state& state = codec_state();
-  std::lock_guard lock(state.mutex);
-  return state.codecs.size();
+  return meta::capabilities::size<codec_descriptor>();
 }
 
 codec_registry& get_codec_registry() noexcept {

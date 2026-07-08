@@ -218,14 +218,18 @@ descriptor 内部按职责拆分：
 - `indirect`：该类型是否具备一层间接值语义，例如裸指针或 wrapper。
 - `nullable`：运行期值是否可能为空。
 
-具体访问函数表由 `type_capabilities` 或对象指针能力持有，用来描述枚举转换、容器、指针、wrapper、对象引用、
-pair、tuple 和 variant 访问能力。当前能力集合由 CAORS 固定定义，查询入口仍是内部
-`descriptor_capability<T>()`；后续如果需要用户扩展自定义运行期能力，再在此基础上外挂 poly / concept table：
+具体访问函数表由 `type_capabilities` 或对象指针能力持有，用来描述枚举转换、容器、指针、wrapper、
+对象引用、pair、tuple 和 variant 访问能力。当前 descriptor 固定能力集合由 CAORS 定义，查询入口仍是内部
+`descriptor_capability<T>()`：
 
 - `meta::detail::indirect_data`：裸指针或 wrapper 的内部值访问、持值检测、重置和确保持值函数。
 - `meta::detail::enum_data`：枚举类型和整数之间的转换函数。
 - `objects::detail::ptr_data`：对象指针类型和对象指针之间的读写函数，和 `type_capabilities` 独立保存。
 - `meta::detail::sequence_data` / `set_data` / `associative_data` / `pair_data` / `tuple_data` / `variant_data`：容器、二元组、tuple-like 和 variant-like 的运行期访问函数。
+
+模块扩展能力不进入 `type_descriptor`。这类能力通过 `meta::capabilities` 按 `type_id + capability_key`
+挂接到独立运行期索引；拿得到 C++ 类型 `T` 时，也可以通过 `meta::capabilities::get<Capability, T>()`
+直接查询静态能力。serialization codec 当前就是这套动态 capability 机制的第一个使用者。
 
 统一 `value_type` / `key_type` 不再作为 `type_descriptor` 顶层字段保存。普通值和枚举直接使用
 descriptor 自身的 `type_id`；裸指针、wrapper、容器、pair、tuple 和 variant 的子类型信息由对应
