@@ -212,6 +212,14 @@ descriptor 内部按职责拆分：
 - `static_capabilities`：保存模块声明的静态能力表，例如对象指针、对象句柄访问函数表和
   serialization codec 函数表。
 
+术语约定：
+
+- `capability` 表示能力槽位或可查询能力，例如“这个类型是否具备序列化 codec 能力”。
+- `*_ops` 表示某个 capability 的具体类型擦除操作表，通常由函数指针和少量只读元数据组成，例如
+  `sequence_ops`、`ptr_ops`、`handle_ops` 和 `codec_ops`。
+- `*_data` 保留给注册表组件、配置数据或纯元数据结构，不用于命名一组运行期分发函数。
+- `*_ops` 不是 C++ ABI 层面的虚函数表，不依赖继承；它只是 CAORS 内部统一的函数表命名。
+
 `type_semantics` 描述以下语义：
 
 - `kind`：值、枚举、裸指针、wrapper、顺序容器、集合容器、关联容器、二元组、tuple-like 或 variant-like 类型。
