@@ -27,10 +27,6 @@ public:
 
   /** @brief 查询指定元素类型。 */
   [[nodiscard]] std::optional<meta::type> get_element_type(std::size_t index) const noexcept;
-  [[nodiscard]] std::optional<type_id> element_type(std::size_t index) const noexcept;
-
-  /** @brief 查询指定元素类型名。 */
-  [[nodiscard]] string_name element_type_name(std::size_t index) const noexcept;
 
   /** @brief 获取指定元素引用。 */
   [[nodiscard]] any_ref element_ref(std::size_t index) const;

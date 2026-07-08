@@ -55,20 +55,18 @@ bool any::valid() const noexcept {
   return descriptor_ != nullptr && descriptor_->valid() && data_ != nullptr;
 }
 
-type_id any::type() const noexcept { return get_type_id(); }
-
-string_name any::type_name() const noexcept {
-  const meta::type meta = caors::meta::find(get_type_id());
-  return meta ? meta.name() : (descriptor_ != nullptr ? descriptor_->name : string_name{});
+meta::type any::get_type() const noexcept {
+  return meta::detail::make_type_view(descriptor_ != nullptr ? descriptor_->type : type_id{},
+                                      descriptor_);
 }
 
 const void* any::data() const noexcept { return valid() ? data_ : nullptr; }
 
 void* any::mutable_data() noexcept { return valid() ? data_ : nullptr; }
 
-any_ref any::ref() { return any_ref::from_raw(get_type_id(), descriptor_, data_, true); }
+any_ref any::ref() { return any_ref::from_raw(get_type().id(), descriptor_, data_, true); }
 
-any_ref any::ref() const { return any_ref::from_raw(get_type_id(), descriptor_, data_, false); }
+any_ref any::ref() const { return any_ref::from_raw(get_type().id(), descriptor_, data_, false); }
 
 std::size_t any::size() const noexcept {
   return descriptor_ != nullptr ? descriptor_->layout.size : 0;
@@ -107,7 +105,7 @@ void any::swap(any& other) noexcept {
 }
 
 bool any::matches_type(const any& other) const noexcept {
-  return valid() && other.valid() && get_type_id() == other.get_type_id() &&
+  return valid() && other.valid() && get_type().id() == other.get_type().id() &&
          size() == other.size() && alignment() == other.alignment();
 }
 
@@ -160,7 +158,7 @@ void any::copy_from(const any& other) {
     return;
   }
 
-  *this = copy_from_raw(other.get_type_id(), other.descriptor_, other.data_);
+  *this = copy_from_raw(other.get_type().id(), other.descriptor_, other.data_);
 }
 
 void any::move_from(any& other) noexcept {
@@ -183,10 +181,6 @@ void any::move_from(any& other) noexcept {
   other.mode_ = storage_mode::empty;
 }
 
-type_id any::get_type_id() const noexcept {
-  return descriptor_ != nullptr ? descriptor_->type : type_id{};
-}
-
 bool any::can_store_inline(const meta::detail::type_descriptor* descriptor) noexcept {
   return descriptor != nullptr && descriptor->valid() &&
          descriptor->layout.size <= inline_storage_size &&
@@ -206,11 +200,9 @@ bool any_ref::valid() const noexcept {
   return descriptor_ != nullptr && descriptor_->valid() && data_ != nullptr;
 }
 
-type_id any_ref::type() const noexcept { return get_type_id(); }
-
-string_name any_ref::type_name() const noexcept {
-  const meta::type meta = caors::meta::find(get_type_id());
-  return meta ? meta.name() : (descriptor_ != nullptr ? descriptor_->name : string_name{});
+meta::type any_ref::get_type() const noexcept {
+  return meta::detail::make_type_view(descriptor_ != nullptr ? descriptor_->type : type_id{},
+                                      descriptor_);
 }
 
 const void* any_ref::data() const noexcept { return valid() ? data_ : nullptr; }
@@ -230,12 +222,12 @@ std::size_t any_ref::alignment() const noexcept {
 bool any_ref::writable() const noexcept { return valid() && writable_; }
 
 bool any_ref::matches_type(const any& other) const noexcept {
-  return valid() && other.valid() && get_type_id() == other.type() && size() == other.size() &&
-         alignment() == other.alignment();
+  return valid() && other.valid() && get_type().id() == other.get_type().id() &&
+         size() == other.size() && alignment() == other.alignment();
 }
 
 bool any_ref::matches_type(const any_ref& other) const noexcept {
-  return valid() && other.valid() && get_type_id() == other.get_type_id() &&
+  return valid() && other.valid() && get_type().id() == other.get_type().id() &&
          size() == other.size() && alignment() == other.alignment();
 }
 
@@ -257,7 +249,7 @@ bool any_ref::try_set(const any_ref& source) const {
   return assign(const_cast<void*>(data_), source.data_);
 }
 
-any any_ref::to_any() const { return any::copy_from_raw(get_type_id(), descriptor_, data_); }
+any any_ref::to_any() const { return any::copy_from_raw(get_type().id(), descriptor_, data_); }
 
 any_ref any_ref::from_raw(type_id type, const meta::detail::type_descriptor* descriptor,
                           const void* data, bool writable) noexcept {
@@ -270,10 +262,6 @@ any_ref any_ref::from_raw(type_id type, const meta::detail::type_descriptor* des
   result.data_ = data;
   result.writable_ = writable;
   return result;
-}
-
-type_id any_ref::get_type_id() const noexcept {
-  return descriptor_ != nullptr ? descriptor_->type : type_id{};
 }
 
 namespace detail {

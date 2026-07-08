@@ -219,13 +219,13 @@ TEST_CASE("reflection any_ref - creates descriptor views for unregistered nested
 
   caors::any_ref reference = caors::any_ref::from(values);
   REQUIRE(reference.valid());
-  CHECK(reference.type_name() == "std.vector<std.vector<int>>");
+  CHECK(reference.get_type().name() == "std.vector<std.vector<int>>");
 
   caors::value::sequence_view outer = reference.create_sequence_view();
   REQUIRE(outer.valid());
   CHECK(outer.writable());
-  CHECK(static_cast<bool>(outer.value_type()));
-  CHECK_FALSE(caors::meta::find(outer.value_type()).registered());
+  CHECK(static_cast<bool>(outer.get_value_type().id()));
+  CHECK_FALSE(caors::meta::find(outer.get_value_type().id()).registered());
   CHECK(outer.get_value_type());
   CHECK_FALSE(outer.get_value_type().registered());
   CHECK(outer.get_value_type().name() == "std.vector<int>");
@@ -234,7 +234,7 @@ TEST_CASE("reflection any_ref - creates descriptor views for unregistered nested
   REQUIRE(first_row.valid());
   caors::value::sequence_view inner = first_row.create_sequence_view();
   REQUIRE(inner.valid());
-  CHECK(inner.value_type() == caors::any::from(0).type());
+  CHECK(inner.get_value_type().id() == caors::any::from(0).get_type().id());
 
   caors::any_ref second = inner.element_ref(1);
   REQUIRE(second.valid());
@@ -266,12 +266,12 @@ TEST_CASE("reflection any - descriptor fields do not require container type regi
   REQUIRE(reflected);
   auto values_field = reflected.find_field("values");
   REQUIRE(values_field);
-  CHECK(values_field.type_name() == "std.vector<std.vector<int>>");
+  CHECK(values_field.get_type().name() == "std.vector<std.vector<int>>");
   CHECK(values_field.size() == sizeof(std::vector<std::vector<int>>));
   CHECK(values_field.alignment() == alignof(std::vector<std::vector<int>>));
   CHECK(values_field.kind() == caors::meta::type_kind::sequence);
-  CHECK(static_cast<bool>(values_field.value_type()));
-  CHECK_FALSE(caors::meta::find(values_field.value_type()).registered());
+  CHECK(static_cast<bool>(values_field.get_value_type().id()));
+  CHECK_FALSE(caors::meta::find(values_field.get_value_type().id()).registered());
   CHECK(values_field.get_type());
   CHECK_FALSE(values_field.get_type().registered());
   CHECK(values_field.get_value_type());
@@ -285,7 +285,7 @@ TEST_CASE("reflection any - descriptor fields do not require container type regi
 
   caors::value::sequence_view inner = outer.element_ref(0).create_sequence_view();
   REQUIRE(inner.valid());
-  CHECK(inner.element_type() == caors::any::from(0).type());
+  CHECK(inner.get_element_type().id() == caors::any::from(0).get_type().id());
   CHECK(inner.element_ref(0).try_set(5));
   CHECK(holder.values[0][0] == 5);
 }
@@ -347,8 +347,8 @@ TEST_CASE("reflection any - stores copied values", "[reflection]") {
   caors::any stored = caors::any::from(source);
 
   CHECK(stored.valid());
-  CHECK(stored.type() == caors::any::from(0).type());
-  CHECK(stored.type_name() == "int");
+  CHECK(stored.get_type().id() == caors::any::from(0).get_type().id());
+  CHECK(stored.get_type().name() == "int");
   CHECK(stored.matches_type<int>());
   CHECK(stored.size() == sizeof(int));
   CHECK(stored.alignment() == alignof(int));

@@ -609,8 +609,8 @@ make_polymorphic_indirect_value(const value::indirect_view& indirect,
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
-  const type_id declared_type = indirect.value_type();
-  const type_id dynamic_type_id = indirect.dynamic_value_type();
+  const type_id declared_type = indirect.get_value_type().id();
+  const type_id dynamic_type_id = indirect.get_dynamic_value_type().id();
   if (!declared_type) {
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
@@ -631,7 +631,7 @@ make_polymorphic_indirect_value(const value::indirect_view& indirect,
   }
 
   const any_ref dynamic_value = indirect.dynamic_value_ref();
-  if (!dynamic_value.valid() || dynamic_value.type() != dynamic_type_id) {
+  if (!dynamic_value.valid() || dynamic_value.get_type().id() != dynamic_type_id) {
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
@@ -651,7 +651,7 @@ make_polymorphic_indirect_value(const value::indirect_view& indirect,
   }
 
   result<meta::type> dynamic_type =
-      resolve_polymorphic_meta_type(indirect.value_type(), envelope, context);
+      resolve_polymorphic_meta_type(indirect.get_value_type().id(), envelope, context);
   if (dynamic_type.failed()) {
     return dynamic_type.status;
   }

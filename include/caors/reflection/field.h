@@ -45,47 +45,24 @@ public:
   [[nodiscard]] string_name name() const noexcept;
   /** @brief 查询字段声明类型视图。 */
   [[nodiscard]] meta::type get_type() const noexcept;
-  [[nodiscard]] type_id type() const noexcept;
-  [[nodiscard]] string_name type_name() const noexcept;
 
   /** @brief 查询统一 value 类型。容器字段返回元素或 mapped/value 类型。 */
   [[nodiscard]] meta::type get_value_type() const noexcept;
-  [[nodiscard]] type_id value_type() const noexcept;
 
-  /** @brief 查询 sequence/set 字段的元素类型，等价于对应语义下的 `value_type()`。 */
+  /** @brief 查询 sequence/set 字段的元素类型，等价于对应语义下的 `get_value_type()`。 */
   [[nodiscard]] meta::type get_element_type() const noexcept;
-  [[nodiscard]] type_id element_type() const noexcept;
-
-  /** @brief 查询 sequence/set 字段的元素类型名。 */
-  [[nodiscard]] string_name element_type_name() const noexcept;
 
   /** @brief 查询 associative 字段的 key 类型。 */
   [[nodiscard]] meta::type get_key_type() const noexcept;
-  [[nodiscard]] type_id key_type() const noexcept;
 
-  /** @brief 查询 associative 字段的 key 类型名。 */
-  [[nodiscard]] string_name key_type_name() const noexcept;
-
-  /** @brief 查询 pair 字段的 first 类型，当前等价于对应语义下的 `key_type()`。 */
+  /** @brief 查询 pair 字段的 first 类型，当前等价于对应语义下的 `get_key_type()`。 */
   [[nodiscard]] meta::type get_first_type() const noexcept;
-  [[nodiscard]] type_id first_type() const noexcept;
 
-  /** @brief 查询 pair 字段的 first 类型名。 */
-  [[nodiscard]] string_name first_type_name() const noexcept;
-
-  /** @brief 查询 associative 字段的 mapped/value 类型，等价于 `value_type()`。 */
+  /** @brief 查询 associative 字段的 mapped/value 类型，等价于 `get_value_type()`。 */
   [[nodiscard]] meta::type get_mapped_type() const noexcept;
-  [[nodiscard]] type_id mapped_type() const noexcept;
 
-  /** @brief 查询 associative 字段的 mapped/value 类型名。 */
-  [[nodiscard]] string_name mapped_type_name() const noexcept;
-
-  /** @brief 查询 pair 字段的 second 类型，当前等价于对应语义下的 `value_type()`。 */
+  /** @brief 查询 pair 字段的 second 类型，当前等价于对应语义下的 `get_value_type()`。 */
   [[nodiscard]] meta::type get_second_type() const noexcept;
-  [[nodiscard]] type_id second_type() const noexcept;
-
-  /** @brief 查询 pair 字段的 second 类型名。 */
-  [[nodiscard]] string_name second_type_name() const noexcept;
 
   [[nodiscard]] meta::type_kind kind() const noexcept;
   [[nodiscard]] meta::wrapper_semantics wrapper_semantics() const noexcept;

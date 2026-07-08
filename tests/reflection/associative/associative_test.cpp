@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 鍘熸祴璇曟枃浠讹細reflection_associative_associative_field_view_exposes_key_and_value_metadata_test.cpp
+// 原测试文件：reflection_associative_associative_field_view_exposes_key_and_value_metadata_test.cpp
 
 #include "reflection_test_support.h"
 
@@ -23,15 +23,15 @@ TEST_CASE("reflection - associative field view exposes key and value metadata", 
   REQUIRE(values);
   CHECK(values.kind() == caors::meta::type_kind::associative);
   CHECK(values.is_associative());
-  CHECK(values.type_name() == "caors.hash_map<int,int>");
-  CHECK(values.key_type() == registered_type_id("int"));
-  CHECK(values.key_type_name() == "int");
-  CHECK(values.value_type() == registered_type_id("int"));
-  CHECK(values.mapped_type() == registered_type_id("int"));
-  CHECK(values.mapped_type_name() == "int");
+  CHECK(values.get_type().name() == "caors.hash_map<int,int>");
+  CHECK(values.get_key_type().id() == registered_type_id("int"));
+  CHECK(values.get_key_type().name() == "int");
+  CHECK(values.get_value_type().id() == registered_type_id("int"));
+  CHECK(values.get_mapped_type().id() == registered_type_id("int"));
+  CHECK(values.get_mapped_type().name() == "int");
 }
 
-// 鍘熸祴璇曟枃浠讹細reflection_associative_associative_field_view_supports_dynamic_operations_test.cpp
+// 原测试文件：reflection_associative_associative_field_view_supports_dynamic_operations_test.cpp
 
 #include "reflection_test_support.h"
 
@@ -57,12 +57,12 @@ TEST_CASE("reflection - associative field view supports dynamic operations", "[r
   caors::value::associative_view map = values.get_ref(&instance).create_associative_view();
   CHECK(map.valid());
   CHECK(map.writable());
-  CHECK(map.key_type() == registered_type_id("int"));
-  CHECK(map.key_type_name() == "int");
-  CHECK(map.value_type() == registered_type_id("int"));
-  CHECK(map.value_type_name() == "int");
-  CHECK(map.mapped_type() == registered_type_id("int"));
-  CHECK(map.mapped_type_name() == "int");
+  CHECK(map.get_key_type().id() == registered_type_id("int"));
+  CHECK(map.get_key_type().name() == "int");
+  CHECK(map.get_value_type().id() == registered_type_id("int"));
+  CHECK(map.get_value_type().name() == "int");
+  CHECK(map.get_mapped_type().id() == registered_type_id("int"));
+  CHECK(map.get_mapped_type().name() == "int");
 
   CHECK(map.insert_value(caors::any::from(7), caors::any::from(70)));
   CHECK_FALSE(map.insert_value(caors::any::from(7), caors::any::from(700)));
@@ -127,7 +127,7 @@ TEST_CASE("reflection - associative field view supports dynamic operations", "[r
   CHECK(instance.values.empty());
 }
 
-// 鍘熸祴璇曟枃浠讹細reflection_associative_set_field_view_exposes_element_metadata_test.cpp
+// 原测试文件：reflection_associative_set_field_view_exposes_element_metadata_test.cpp
 
 #include "reflection_test_support.h"
 
@@ -149,19 +149,19 @@ TEST_CASE("reflection - set field view exposes element metadata", "[reflection]"
   REQUIRE(values);
   CHECK(values.kind() == caors::meta::type_kind::set);
   CHECK(values.is_set());
-  CHECK(values.type_name() == "caors.hash_set<int>");
-  CHECK(values.value_type() == registered_type_id("int"));
-  CHECK(values.element_type() == registered_type_id("int"));
-  CHECK(values.element_type_name() == "int");
+  CHECK(values.get_type().name() == "caors.hash_set<int>");
+  CHECK(values.get_value_type().id() == registered_type_id("int"));
+  CHECK(values.get_element_type().id() == registered_type_id("int"));
+  CHECK(values.get_element_type().name() == "int");
 
   hash_set_holder instance{};
   caors::value::set_view set = values.get_ref(&instance).create_set_view();
   CHECK(set.valid());
   CHECK(set.writable());
-  CHECK(set.value_type() == registered_type_id("int"));
-  CHECK(set.value_type_name() == "int");
-  CHECK(set.element_type() == registered_type_id("int"));
-  CHECK(set.element_type_name() == "int");
+  CHECK(set.get_value_type().id() == registered_type_id("int"));
+  CHECK(set.get_value_type().name() == "int");
+  CHECK(set.get_element_type().id() == registered_type_id("int"));
+  CHECK(set.get_element_type().name() == "int");
   CHECK(set.insert_value(caors::any::from(11)));
   CHECK_FALSE(set.insert_value(caors::any::from(11)));
   CHECK_FALSE(set.insert_value(caors::any::from(2.0F)));

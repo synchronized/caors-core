@@ -24,24 +24,12 @@ public:
 
   /** @brief 查询 first 类型。 */
   [[nodiscard]] meta::type get_first_type() const noexcept;
-  [[nodiscard]] type_id first_type() const noexcept;
-
-  /** @brief 查询 first 类型名。 */
-  [[nodiscard]] string_name first_type_name() const noexcept;
 
   /** @brief 查询 second 的统一 value 类型。 */
   [[nodiscard]] meta::type get_value_type() const noexcept;
-  [[nodiscard]] type_id value_type() const noexcept;
 
-  /** @brief 查询 second 的统一 value 类型名。 */
-  [[nodiscard]] string_name value_type_name() const noexcept;
-
-  /** @brief 查询 second 类型，等价于 `value_type()`。 */
+  /** @brief 查询 second 类型，等价于 `get_value_type()`。 */
   [[nodiscard]] meta::type get_second_type() const noexcept { return get_value_type(); }
-  [[nodiscard]] type_id second_type() const noexcept { return value_type(); }
-
-  /** @brief 查询 second 类型名，等价于 `value_type_name()`。 */
-  [[nodiscard]] string_name second_type_name() const noexcept { return value_type_name(); }
 
   /** @brief 获取 first 引用。 */
   [[nodiscard]] any_ref first_ref() const;

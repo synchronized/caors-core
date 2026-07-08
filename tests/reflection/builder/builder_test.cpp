@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 鍘熸祴璇曟枃浠讹細reflection_builder_class_builder_accepts_fields_with_descriptor_only_types_test.cpp
+// 原测试文件：reflection_builder_class_builder_accepts_fields_with_descriptor_only_types_test.cpp
 
 #include "reflection_test_support.h"
 
@@ -22,16 +22,16 @@ TEST_CASE("reflection - class builder accepts fields with descriptor-only types"
 
   auto field = reflected.find_field("field");
   REQUIRE(field);
-  CHECK(field.type_name().empty());
-  CHECK_FALSE(caors::meta::find(field.type()).registered());
-  CHECK(field.value_type() == field.type());
+  CHECK(field.get_type().name().empty());
+  CHECK_FALSE(caors::meta::find(field.get_type().id()).registered());
+  CHECK(field.get_value_type().id() == field.get_type().id());
   CHECK_FALSE(field.indirect());
 
   owner instance{};
   CHECK(field.try_get<unregistered_field>(&instance).has_value());
 }
 
-// 鍘熸祴璇曟枃浠讹細reflection_builder_class_builder_infers_built_in_field_types_test.cpp
+// 原测试文件：reflection_builder_class_builder_infers_built_in_field_types_test.cpp
 
 #include "reflection_test_support.h"
 
@@ -51,13 +51,13 @@ TEST_CASE("reflection - class builder infers built-in field types", "[reflection
 
   auto id = reflected.find_field("id");
   REQUIRE(id);
-  CHECK(id.type_name() == "int");
-  CHECK(id.type() == registered_type_id("int"));
+  CHECK(id.get_type().name() == "int");
+  CHECK(id.get_type().id() == registered_type_id("int"));
 
   auto health = reflected.find_field("health");
   REQUIRE(health);
-  CHECK(health.type_name() == "float");
-  CHECK(health.type() == registered_type_id("float"));
+  CHECK(health.get_type().name() == "float");
+  CHECK(health.get_type().id() == registered_type_id("float"));
 
   builder_actor instance{3, 80.0F};
   CHECK(id.try_set<int>(&instance, 10));
@@ -66,7 +66,7 @@ TEST_CASE("reflection - class builder infers built-in field types", "[reflection
   CHECK(instance.health == 20.0F);
 }
 
-// 鍘熸祴璇曟枃浠讹細reflection_builder_class_builder_resolves_explicitly_registered_c_field_type_test.cpp
+// 原测试文件：reflection_builder_class_builder_resolves_explicitly_registered_c_field_type_test.cpp
 
 #include "reflection_test_support.h"
 
@@ -91,11 +91,11 @@ TEST_CASE("reflection - class builder resolves explicitly registered C++ field t
 
   auto value = reflected.find_field("value");
   REQUIRE(value);
-  CHECK(value.type_name() == "caors.test.reflection.named_field_value");
-  CHECK(value.type() == value_type.id());
+  CHECK(value.get_type().name() == "caors.test.reflection.named_field_value");
+  CHECK(value.get_type().id() == value_type.id());
 }
 
-// 鍘熸祴璇曟枃浠讹細reflection_builder_class_builder_resolves_registered_c_field_types_test.cpp
+// 原测试文件：reflection_builder_class_builder_resolves_registered_c_field_types_test.cpp
 
 #include "reflection_test_support.h"
 
@@ -115,6 +115,6 @@ TEST_CASE("reflection - class builder resolves registered C++ field types", "[re
 
   auto items = reflected.find_field("items");
   REQUIRE(items);
-  CHECK(items.type_name() == "caors.test.reflection.inventory");
-  CHECK(items.type() == registered_type_id("caors.test.reflection.inventory"));
+  CHECK(items.get_type().name() == "caors.test.reflection.inventory");
+  CHECK(items.get_type().id() == registered_type_id("caors.test.reflection.inventory"));
 }

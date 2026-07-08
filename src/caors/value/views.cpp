@@ -53,19 +53,12 @@ bool indirect_view::valid() const noexcept {
   return info->valid();
 }
 
-type_id indirect_view::value_type() const noexcept {
-  return valid() ? meta::detail::descriptor_value_type(*descriptor_) : type_id{};
-}
-
 meta::type indirect_view::get_value_type() const noexcept {
   const meta::detail::indirect_data* info = data();
-  return valid() ? type_view_of(value_type(), info != nullptr ? info->value_descriptor : nullptr)
+  const type_id value_type =
+      valid() ? meta::detail::descriptor_value_type(*descriptor_) : type_id{};
+  return valid() ? type_view_of(value_type, info != nullptr ? info->value_descriptor : nullptr)
                  : meta::type{};
-}
-
-string_name indirect_view::value_type_name() const noexcept {
-  const meta::type type = get_value_type();
-  return type ? type.name() : string_name{};
 }
 
 bool indirect_view::has_value() const noexcept {
@@ -96,24 +89,18 @@ any_ref indirect_view::value_ref() const {
     return {};
   }
 
-  return any_ref::from_raw(value_type(), info->value_descriptor, value, value_writable);
-}
-
-type_id indirect_view::dynamic_value_type() const noexcept {
-  const meta::detail::indirect_data* info = data();
-  if (!valid() || info->dynamic_type == nullptr) {
-    return value_type();
-  }
-
-  return info->dynamic_type(storage_);
+  return any_ref::from_raw(get_value_type().id(), info->value_descriptor, value, value_writable);
 }
 
 meta::type indirect_view::get_dynamic_value_type() const noexcept {
-  const type_id dynamic_type = dynamic_value_type();
   const meta::detail::indirect_data* info = data();
+  const type_id declared_type = get_value_type().id();
+  const type_id dynamic_type = !valid() || info == nullptr || info->dynamic_type == nullptr
+                                   ? declared_type
+                                   : info->dynamic_type(storage_);
   const meta::detail::type_descriptor* descriptor =
       caors::meta::get_registry().find_type_descriptor(dynamic_type);
-  if (descriptor == nullptr && dynamic_type == value_type() && info != nullptr) {
+  if (descriptor == nullptr && dynamic_type == declared_type && info != nullptr) {
     descriptor = info->value_descriptor;
   }
 
@@ -126,7 +113,7 @@ any_ref indirect_view::dynamic_value_ref() const {
     return {};
   }
 
-  const type_id dynamic_type = dynamic_value_type();
+  const type_id dynamic_type = get_dynamic_value_type().id();
   if (!dynamic_type) {
     return {};
   }
@@ -149,7 +136,7 @@ any_ref indirect_view::dynamic_value_ref() const {
   const meta::detail::type_descriptor* descriptor =
       caors::meta::get_registry().find_type_descriptor(dynamic_type);
   if (descriptor == nullptr) {
-    descriptor = dynamic_type == value_type() ? info->value_descriptor : nullptr;
+    descriptor = dynamic_type == get_value_type().id() ? info->value_descriptor : nullptr;
   }
 
   return any_ref::from_raw(dynamic_type, descriptor, value, value_writable);
@@ -171,7 +158,7 @@ bool indirect_view::set_value(type_id dynamic_type, void* value) const {
     return false;
   }
 
-  void* adjusted = caors::meta::get_registry().upcast(dynamic_type, value_type(), value);
+  void* adjusted = caors::meta::get_registry().upcast(dynamic_type, get_value_type().id(), value);
   if (adjusted == nullptr) {
     return false;
   }
@@ -187,7 +174,7 @@ bool indirect_view::set_value(type_id dynamic_type, void* value,
     return false;
   }
 
-  void* adjusted = caors::meta::get_registry().upcast(dynamic_type, value_type(), value);
+  void* adjusted = caors::meta::get_registry().upcast(dynamic_type, get_value_type().id(), value);
   if (adjusted == nullptr) {
     return false;
   }
@@ -228,34 +215,14 @@ bool pair_view::valid() const noexcept {
   return info != nullptr && info->valid() && storage_ != nullptr;
 }
 
-type_id pair_view::first_type() const noexcept {
-  const meta::detail::pair_data* info = data();
-  return valid() ? info->key_type : type_id{};
-}
-
 meta::type pair_view::get_first_type() const noexcept {
   const meta::detail::pair_data* info = data();
   return valid() ? type_view_of(info->key_type, info->key_descriptor) : meta::type{};
 }
 
-string_name pair_view::first_type_name() const noexcept {
-  const meta::type type = get_first_type();
-  return type ? type.name() : string_name{};
-}
-
-type_id pair_view::value_type() const noexcept {
-  const meta::detail::pair_data* info = data();
-  return valid() ? info->value_type : type_id{};
-}
-
 meta::type pair_view::get_value_type() const noexcept {
   const meta::detail::pair_data* info = data();
   return valid() ? type_view_of(info->value_type, info->value_descriptor) : meta::type{};
-}
-
-string_name pair_view::value_type_name() const noexcept {
-  const meta::type type = get_value_type();
-  return type ? type.name() : string_name{};
 }
 
 any_ref pair_view::first_ref() const {
@@ -306,7 +273,7 @@ any_ref pair_view::value_ref() const { return second_ref(); }
 
 bool pair_view::set_first(const any& value) const {
   const meta::detail::pair_data* info = data();
-  if (!writable() || !value.valid() || value.type() != info->key_type) {
+  if (!writable() || !value.valid() || value.get_type().id() != info->key_type) {
     return false;
   }
 
@@ -316,7 +283,7 @@ bool pair_view::set_first(const any& value) const {
 
 bool pair_view::set_second(const any& value) const {
   const meta::detail::pair_data* info = data();
-  if (!writable() || !value.valid() || value.type() != info->value_type) {
+  if (!writable() || !value.valid() || value.get_type().id() != info->value_type) {
     return false;
   }
 
@@ -342,15 +309,6 @@ std::size_t tuple_view::size() const noexcept {
   return valid() ? info->elements.size() : 0;
 }
 
-std::optional<type_id> tuple_view::element_type(std::size_t index) const noexcept {
-  const meta::detail::tuple_data* info = data();
-  if (!valid() || index >= info->elements.size()) {
-    return std::nullopt;
-  }
-
-  return info->elements[index].value_type;
-}
-
 std::optional<meta::type> tuple_view::get_element_type(std::size_t index) const noexcept {
   const meta::detail::tuple_data* info = data();
   if (!valid() || index >= info->elements.size()) {
@@ -364,15 +322,6 @@ std::optional<meta::type> tuple_view::get_element_type(std::size_t index) const 
   }
 
   return type;
-}
-
-string_name tuple_view::element_type_name(std::size_t index) const noexcept {
-  const std::optional<meta::type> type = get_element_type(index);
-  if (!type.has_value()) {
-    return {};
-  }
-
-  return type->name();
 }
 
 any_ref tuple_view::element_ref(std::size_t index) const {
@@ -400,8 +349,9 @@ any_ref tuple_view::element_ref(std::size_t index) const {
 }
 
 bool tuple_view::set_element(std::size_t index, const any& value) const {
-  const std::optional<type_id> expected = element_type(index);
-  if (!writable() || !expected.has_value() || !value.valid() || value.type() != *expected) {
+  const std::optional<meta::type> expected = get_element_type(index);
+  if (!writable() || !expected.has_value() || !value.valid() ||
+      value.get_type().id() != expected->id()) {
     return false;
   }
 
@@ -441,15 +391,6 @@ std::optional<std::size_t> variant_view::index() const noexcept {
   return active;
 }
 
-std::optional<type_id> variant_view::alternative_type(std::size_t alternative) const noexcept {
-  const meta::detail::variant_data* info = data();
-  if (!valid() || alternative >= info->alternatives.size()) {
-    return std::nullopt;
-  }
-
-  return info->alternatives[alternative].value_type;
-}
-
 std::optional<meta::type>
 variant_view::get_alternative_type(std::size_t alternative) const noexcept {
   const meta::detail::variant_data* info = data();
@@ -466,24 +407,6 @@ variant_view::get_alternative_type(std::size_t alternative) const noexcept {
   return type;
 }
 
-string_name variant_view::alternative_type_name(std::size_t alternative) const noexcept {
-  const std::optional<meta::type> type = get_alternative_type(alternative);
-  if (!type.has_value()) {
-    return {};
-  }
-
-  return type->name();
-}
-
-type_id variant_view::value_type() const noexcept {
-  const std::optional<std::size_t> active = index();
-  if (!active.has_value()) {
-    return {};
-  }
-
-  return data()->alternatives[*active].value_type;
-}
-
 meta::type variant_view::get_value_type() const noexcept {
   const std::optional<std::size_t> active = index();
   const meta::detail::variant_data* info = data();
@@ -493,11 +416,6 @@ meta::type variant_view::get_value_type() const noexcept {
 
   const meta::detail::variant_alternative_data& alternative = info->alternatives[*active];
   return type_view_of(alternative.value_type, alternative.value_descriptor);
-}
-
-string_name variant_view::value_type_name() const noexcept {
-  const meta::type type = get_value_type();
-  return type ? type.name() : string_name{};
 }
 
 any_ref variant_view::value_ref() const {
@@ -546,8 +464,8 @@ bool variant_view::emplace(std::size_t alternative, memory::memory_resource* res
 }
 
 bool variant_view::set_value(const any& value) const {
-  const type_id expected = value_type();
-  if (!writable() || !expected || !value.valid() || value.type() != expected) {
+  const type_id expected = get_value_type().id();
+  if (!writable() || !expected || !value.valid() || value.get_type().id() != expected) {
     return false;
   }
 
@@ -594,19 +512,9 @@ bool sequence_view::valid() const noexcept {
   return info != nullptr && info->valid() && storage_ != nullptr;
 }
 
-type_id sequence_view::value_type() const noexcept {
-  const meta::detail::sequence_data* info = data();
-  return valid() ? info->value_type : type_id{};
-}
-
 meta::type sequence_view::get_value_type() const noexcept {
   const meta::detail::sequence_data* info = data();
   return valid() ? type_view_of(info->value_type, info->value_descriptor) : meta::type{};
-}
-
-string_name sequence_view::value_type_name() const noexcept {
-  const meta::type type = get_value_type();
-  return type ? type.name() : string_name{};
 }
 
 std::optional<std::size_t> sequence_view::size() const {
@@ -673,7 +581,7 @@ bool sequence_view::resize(std::size_t size, memory::memory_resource* resource) 
 bool sequence_view::append_value(const any& value) const {
   const meta::detail::sequence_data* info = data();
   if (!writable() || info->append == nullptr || !value.valid() ||
-      value.type() != info->value_type) {
+      value.get_type().id() != info->value_type) {
     return false;
   }
 
@@ -796,19 +704,9 @@ bool set_view::valid() const noexcept {
   return info != nullptr && info->valid() && storage_ != nullptr;
 }
 
-type_id set_view::value_type() const noexcept {
-  const meta::detail::set_data* info = data();
-  return valid() ? info->value_type : type_id{};
-}
-
 meta::type set_view::get_value_type() const noexcept {
   const meta::detail::set_data* info = data();
   return valid() ? type_view_of(info->value_type, info->value_descriptor) : meta::type{};
-}
-
-string_name set_view::value_type_name() const noexcept {
-  const meta::type type = get_value_type();
-  return type ? type.name() : string_name{};
 }
 
 std::optional<std::size_t> set_view::size() const {
@@ -875,7 +773,7 @@ bool set_view::clear() const {
 bool set_view::insert_value(const any& value) const {
   const meta::detail::set_data* info = data();
   if (!writable() || info->insert == nullptr || !value.valid() ||
-      value.type() != info->value_type) {
+      value.get_type().id() != info->value_type) {
     return false;
   }
 
@@ -1013,34 +911,14 @@ bool associative_view::valid() const noexcept {
   return info != nullptr && info->valid() && storage_ != nullptr;
 }
 
-type_id associative_view::key_type() const noexcept {
-  const meta::detail::associative_data* info = data();
-  return valid() ? info->key_type : type_id{};
-}
-
 meta::type associative_view::get_key_type() const noexcept {
   const meta::detail::associative_data* info = data();
   return valid() ? type_view_of(info->key_type, info->key_descriptor) : meta::type{};
 }
 
-string_name associative_view::key_type_name() const noexcept {
-  const meta::type type = get_key_type();
-  return type ? type.name() : string_name{};
-}
-
-type_id associative_view::value_type() const noexcept {
-  const meta::detail::associative_data* info = data();
-  return valid() ? info->value_type : type_id{};
-}
-
 meta::type associative_view::get_value_type() const noexcept {
   const meta::detail::associative_data* info = data();
   return valid() ? type_view_of(info->value_type, info->value_descriptor) : meta::type{};
-}
-
-string_name associative_view::value_type_name() const noexcept {
-  const meta::type type = get_value_type();
-  return type ? type.name() : string_name{};
 }
 
 std::optional<std::size_t> associative_view::size() const {
@@ -1108,7 +986,7 @@ bool associative_view::clear() const {
 bool associative_view::insert_value(const any& key, const any& mapped) const {
   const meta::detail::associative_data* info = data();
   if (!writable() || info->insert == nullptr || !key.valid() || !mapped.valid() ||
-      key.type() != info->key_type || mapped.type() != info->value_type) {
+      key.get_type().id() != info->key_type || mapped.get_type().id() != info->value_type) {
     return false;
   }
 

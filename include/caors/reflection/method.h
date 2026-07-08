@@ -36,11 +36,9 @@ public:
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
 
   [[nodiscard]] string_name name() const noexcept;
-  [[nodiscard]] type_id return_type() const noexcept;
-  [[nodiscard]] string_name return_type_name() const noexcept;
+  [[nodiscard]] meta::type get_return_type() const noexcept;
   [[nodiscard]] std::size_t parameter_count() const noexcept;
-  [[nodiscard]] type_id parameter_type(std::size_t index) const noexcept;
-  [[nodiscard]] string_name parameter_type_name(std::size_t index) const noexcept;
+  [[nodiscard]] std::optional<meta::type> get_parameter_type(std::size_t index) const noexcept;
   [[nodiscard]] bool const_method() const noexcept;
 
   /** @brief 在可写对象上调用方法。 */

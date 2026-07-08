@@ -32,10 +32,10 @@ TEST_CASE("reflection any_ref - creates indirect views for pointer and wrappers"
   caors::value::indirect_view pointer = pointer_field.get_ref(&holder).create_indirect_view();
   REQUIRE(pointer.valid());
   CHECK(pointer.writable());
-  CHECK(pointer.value_type() == caors::any::from(0).type());
-  CHECK(pointer.get_value_type().id() == caors::any::from(0).type());
-  CHECK(pointer.get_dynamic_value_type().id() == caors::any::from(0).type());
-  CHECK(pointer.value_type_name() == "int");
+  CHECK(pointer.get_value_type().id() == caors::any::from(0).get_type().id());
+  CHECK(pointer.get_value_type().id() == caors::any::from(0).get_type().id());
+  CHECK(pointer.get_dynamic_value_type().id() == caors::any::from(0).get_type().id());
+  CHECK(pointer.get_value_type().name() == "int");
   CHECK(pointer.has_value());
   caors::any_ref pointer_value = pointer.value_ref();
   REQUIRE(pointer_value.valid());
@@ -96,7 +96,7 @@ TEST_CASE("reflection any_ref - creates indirect views from descriptor wrapper v
   caors::value::indirect_view indirect = reference.create_indirect_view();
   REQUIRE(indirect.valid());
   CHECK(indirect.has_value());
-  CHECK(indirect.value_type() == caors::any::from(0).type());
+  CHECK(indirect.get_value_type().id() == caors::any::from(0).get_type().id());
 
   caors::any_ref inner = indirect.value_ref();
   REQUIRE(inner.valid());

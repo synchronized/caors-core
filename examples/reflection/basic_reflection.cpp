@@ -34,7 +34,7 @@ int main() {
       continue;
     }
 
-    std::cout << "field: " << field.name().view() << ", type: " << field.type_name().view()
+    std::cout << "field: " << field.name().view() << ", type: " << field.get_type().name().view()
               << ", offset: " << field.offset() << '\n';
   }
 

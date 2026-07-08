@@ -29,7 +29,7 @@ associative_data_of(const any_ref& target) noexcept {
     return descriptor->ops.assign;
   }
 
-  return caors::meta::detail::get_assign_value_fn(caors::meta::find(target.type()));
+  return caors::meta::detail::get_assign_value_fn(target.get_type());
 }
 
 [[nodiscard]] error sequence_resize_failure(const meta::detail::sequence_data* sequence,
@@ -137,7 +137,7 @@ associative_data_of(const any_ref& target) noexcept {
 
     const meta::detail::type_descriptor* value_descriptor =
         set != nullptr ? set->value_descriptor : nullptr;
-    any element = default_construct_value(view.value_type(), value_descriptor, context);
+    any element = default_construct_value(view.get_value_type().id(), value_descriptor, context);
     if (!element.valid()) {
       return {error_domain::serialization, errc::invalid_type};
     }
@@ -210,8 +210,8 @@ associative_data_of(const any_ref& target) noexcept {
         associative != nullptr ? associative->key_descriptor : nullptr;
     const meta::detail::type_descriptor* value_descriptor =
         associative != nullptr ? associative->value_descriptor : nullptr;
-    any key = default_construct_value(view.key_type(), key_descriptor, context);
-    any value = default_construct_value(view.value_type(), value_descriptor, context);
+    any key = default_construct_value(view.get_key_type().id(), key_descriptor, context);
+    any value = default_construct_value(view.get_value_type().id(), value_descriptor, context);
     if (!key.valid() || !value.valid()) {
       return {error_domain::serialization, errc::invalid_type};
     }

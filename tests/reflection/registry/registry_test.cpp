@@ -124,8 +124,8 @@ TEST_CASE("reflection - registry returns type and field views", "[reflection]") 
   REQUIRE(id);
   CHECK(id.valid());
   CHECK(id.name() == "id");
-  CHECK(id.type_name() == "int");
-  CHECK(id.value_type() == registered_type_id("int"));
+  CHECK(id.get_type().name() == "int");
+  CHECK(id.get_value_type().id() == registered_type_id("int"));
   CHECK_FALSE(reflected.field_at(99));
 
   auto health = reflected.find_field("health");

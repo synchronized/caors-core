@@ -25,7 +25,8 @@ namespace caors::serialization::detail {
 /** @brief 为目标引用构造一个可写的同类型临时值。 */
 [[nodiscard]] inline any default_construct_for(const any_ref& target,
                                                const serialization::context& context) {
-  return default_construct_value(target.type(), value::detail::descriptor_of(target), context);
+  return default_construct_value(target.get_type().id(), value::detail::descriptor_of(target),
+                                 context);
 }
 
 } // namespace caors::serialization::detail

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 鍘熸祴璇曟枃浠讹細reflection_tuple_variant_view_std_pair_field_view_exposes_first_and_second_values_test.cpp
+// 原测试文件：reflection_tuple_variant_view_std_pair_field_view_exposes_first_and_second_values_test.cpp
 
 #include "reflection_test_support.h"
 
@@ -23,19 +23,19 @@ TEST_CASE("reflection - std pair field view exposes first and second values", "[
   REQUIRE(value);
   CHECK(value.kind() == caors::meta::type_kind::pair);
   CHECK(value.is_pair());
-  CHECK(value.type_name() == "std.pair<int,caors.string>");
-  CHECK(value.first_type() == registered_type_id("int"));
-  CHECK(value.first_type_name() == "int");
-  CHECK(value.second_type() == registered_type_id("caors.string"));
-  CHECK(value.second_type_name() == "caors.string");
-  CHECK(value.value_type() == registered_type_id("caors.string"));
+  CHECK(value.get_type().name() == "std.pair<int,caors.string>");
+  CHECK(value.get_first_type().id() == registered_type_id("int"));
+  CHECK(value.get_first_type().name() == "int");
+  CHECK(value.get_second_type().id() == registered_type_id("caors.string"));
+  CHECK(value.get_second_type().name() == "caors.string");
+  CHECK(value.get_value_type().id() == registered_type_id("caors.string"));
 
   pair_holder instance{{7, caors::string{"seven"}}};
   caors::value::pair_view pair = value.get_ref(&instance).create_pair_view();
   REQUIRE(pair.valid());
   CHECK(pair.writable());
-  CHECK(pair.first_type() == registered_type_id("int"));
-  CHECK(pair.second_type() == registered_type_id("caors.string"));
+  CHECK(pair.get_first_type().id() == registered_type_id("int"));
+  CHECK(pair.get_second_type().id() == registered_type_id("caors.string"));
 
   caors::any_ref first = pair.first_ref();
   REQUIRE(first.valid());
@@ -49,7 +49,7 @@ TEST_CASE("reflection - std pair field view exposes first and second values", "[
   CHECK(instance.value.second == "nine");
 }
 
-// 鍘熸祴璇曟枃浠讹細reflection_tuple_variant_view_std_tuple_field_view_exposes_indexed_elements_test.cpp
+// 原测试文件：reflection_tuple_variant_view_std_tuple_field_view_exposes_indexed_elements_test.cpp
 
 #include "reflection_test_support.h"
 
@@ -71,7 +71,7 @@ TEST_CASE("reflection - std tuple field view exposes indexed elements", "[reflec
   REQUIRE(value);
   CHECK(value.kind() == caors::meta::type_kind::tuple);
   CHECK(value.is_tuple());
-  CHECK(value.type_name() == "std.tuple<int,caors.string,float>");
+  CHECK(value.get_type().name() == "std.tuple<int,caors.string,float>");
 
   tuple_holder instance{std::tuple<int, caors::string, float>{7, caors::string{"seven"}, 1.5F}};
   caors::value::tuple_view tuple = value.get_ref(&instance).create_tuple_view();
@@ -79,13 +79,13 @@ TEST_CASE("reflection - std tuple field view exposes indexed elements", "[reflec
   CHECK(tuple.writable());
   CHECK(tuple.size() == 3);
 
-  REQUIRE(tuple.element_type(0).has_value());
-  REQUIRE(tuple.element_type(1).has_value());
-  REQUIRE(tuple.element_type(2).has_value());
-  CHECK(*tuple.element_type(0) == registered_type_id("int"));
-  CHECK(*tuple.element_type(1) == registered_type_id("caors.string"));
-  CHECK(*tuple.element_type(2) == registered_type_id("float"));
-  CHECK(tuple.element_type_name(1) == "caors.string");
+  REQUIRE(tuple.get_element_type(0).has_value());
+  REQUIRE(tuple.get_element_type(1).has_value());
+  REQUIRE(tuple.get_element_type(2).has_value());
+  CHECK(tuple.get_element_type(0)->id() == registered_type_id("int"));
+  CHECK(tuple.get_element_type(1)->id() == registered_type_id("caors.string"));
+  CHECK(tuple.get_element_type(2)->id() == registered_type_id("float"));
+  CHECK(tuple.get_element_type(1)->name() == "caors.string");
 
   caors::any_ref first = tuple.element_ref(0);
   caors::any_ref second = tuple.element_ref(1);
@@ -103,7 +103,7 @@ TEST_CASE("reflection - std tuple field view exposes indexed elements", "[reflec
   CHECK(std::get<2>(instance.value) == 2.5F);
 }
 
-// 鍘熸祴璇曟枃浠讹細reflection_tuple_variant_view_std_variant_field_view_exposes_active_alternative_test.cpp
+// 原测试文件：reflection_tuple_variant_view_std_variant_field_view_exposes_active_alternative_test.cpp
 
 #include "reflection_test_support.h"
 
@@ -125,7 +125,7 @@ TEST_CASE("reflection - std variant field view exposes active alternative", "[re
   REQUIRE(value);
   CHECK(value.kind() == caors::meta::type_kind::variant);
   CHECK(value.is_variant());
-  CHECK(value.type_name() == "std.variant<int,caors.string,float>");
+  CHECK(value.get_type().name() == "std.variant<int,caors.string,float>");
 
   variant_holder instance{std::variant<int, caors::string, float>{7}};
   caors::value::variant_view variant = value.get_ref(&instance).create_variant_view();
@@ -135,14 +135,14 @@ TEST_CASE("reflection - std variant field view exposes active alternative", "[re
 
   REQUIRE(variant.index().has_value());
   CHECK(*variant.index() == 0);
-  REQUIRE(variant.alternative_type(0).has_value());
-  REQUIRE(variant.alternative_type(1).has_value());
-  REQUIRE(variant.alternative_type(2).has_value());
-  CHECK(*variant.alternative_type(0) == registered_type_id("int"));
-  CHECK(*variant.alternative_type(1) == registered_type_id("caors.string"));
-  CHECK(*variant.alternative_type(2) == registered_type_id("float"));
-  CHECK(variant.alternative_type_name(1) == "caors.string");
-  CHECK(variant.value_type() == registered_type_id("int"));
+  REQUIRE(variant.get_alternative_type(0).has_value());
+  REQUIRE(variant.get_alternative_type(1).has_value());
+  REQUIRE(variant.get_alternative_type(2).has_value());
+  CHECK(variant.get_alternative_type(0)->id() == registered_type_id("int"));
+  CHECK(variant.get_alternative_type(1)->id() == registered_type_id("caors.string"));
+  CHECK(variant.get_alternative_type(2)->id() == registered_type_id("float"));
+  CHECK(variant.get_alternative_type(1)->name() == "caors.string");
+  CHECK(variant.get_value_type().id() == registered_type_id("int"));
 
   caors::any_ref active = variant.value_ref();
   REQUIRE(active.valid());
@@ -152,7 +152,7 @@ TEST_CASE("reflection - std variant field view exposes active alternative", "[re
   REQUIRE(variant.emplace(1));
   REQUIRE(variant.index().has_value());
   CHECK(*variant.index() == 1);
-  CHECK(variant.value_type_name() == "caors.string");
+  CHECK(variant.get_value_type().name() == "caors.string");
 
   active = variant.value_ref();
   REQUIRE(active.valid());

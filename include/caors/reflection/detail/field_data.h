@@ -117,7 +117,7 @@ struct field_data {
     const std::size_t expected_size = descriptor != nullptr ? descriptor->layout.size : meta.size();
     const std::size_t expected_alignment =
         descriptor != nullptr ? descriptor->layout.alignment : meta.alignment();
-    if (!source.valid() || source.type() != type || source.size() != expected_size ||
+    if (!source.valid() || source.get_type().id() != type || source.size() != expected_size ||
         source.alignment() != expected_alignment || assign == nullptr) {
       return false;
     }

@@ -6,16 +6,6 @@
 #include "caors/reflection/detail/method_data.h"
 
 namespace caors::reflection {
-namespace {
-
-[[nodiscard]] core::string_name
-type_name_of(type_id id, const meta::detail::type_descriptor* descriptor) noexcept {
-  const meta::type type = caors::meta::find(id);
-  return type ? type.name() : (descriptor != nullptr ? descriptor->name : core::string_name{});
-}
-
-} // namespace
-
 method::method(meta::type owner, const detail::method_data* method) noexcept
     : owner_(owner), method_(method) {}
 
@@ -28,15 +18,11 @@ core::string_name method::name() const noexcept {
   return method != nullptr ? method->name : core::string_name{};
 }
 
-type_id method::return_type() const noexcept {
+meta::type method::get_return_type() const noexcept {
   const detail::method_data* method = info();
-  return method != nullptr ? method->return_type : type_id{};
-}
-
-core::string_name method::return_type_name() const noexcept {
-  const detail::method_data* method = info();
-  return method != nullptr ? type_name_of(method->return_type, method->return_descriptor)
-                           : core::string_name{};
+  return method != nullptr
+             ? meta::detail::make_type_view(method->return_type, method->return_descriptor)
+             : meta::type{};
 }
 
 std::size_t method::parameter_count() const noexcept {
@@ -44,22 +30,19 @@ std::size_t method::parameter_count() const noexcept {
   return method != nullptr ? method->parameter_types.size() : 0;
 }
 
-type_id method::parameter_type(std::size_t index) const noexcept {
-  const detail::method_data* method = info();
-  if (method == nullptr || index >= method->parameter_types.size()) {
-    return type_id{};
-  }
-
-  return method->parameter_types[index];
-}
-
-core::string_name method::parameter_type_name(std::size_t index) const noexcept {
+std::optional<meta::type> method::get_parameter_type(std::size_t index) const noexcept {
   const detail::method_data* method = info();
   if (method == nullptr || index >= method->parameter_descriptors.size()) {
-    return {};
+    return std::nullopt;
   }
 
-  return type_name_of(parameter_type(index), method->parameter_descriptors[index]);
+  meta::type parameter = meta::detail::make_type_view(method->parameter_types[index],
+                                                      method->parameter_descriptors[index]);
+  if (!parameter) {
+    return std::nullopt;
+  }
+
+  return parameter;
 }
 
 bool method::const_method() const noexcept {

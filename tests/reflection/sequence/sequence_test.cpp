@@ -23,9 +23,9 @@ TEST_CASE("reflection - custom sequence traits expose field view", "[reflection]
   auto values = reflected.find_field("values");
   REQUIRE(values);
   CHECK(values.kind() == caors::meta::type_kind::sequence);
-  CHECK(values.type_name() == "test.custom_sequence<int>");
-  CHECK(values.element_type() == registered_type_id("int"));
-  CHECK(values.element_type_name() == "int");
+  CHECK(values.get_type().name() == "test.custom_sequence<int>");
+  CHECK(values.get_element_type().id() == registered_type_id("int"));
+  CHECK(values.get_element_type().name() == "int");
 
   custom_sequence_holder instance{};
   caors::value::sequence_view sequence = values.get_ref(&instance).create_sequence_view();
@@ -69,8 +69,8 @@ TEST_CASE("reflection - fixed std span field name includes extent", "[reflection
   auto values = reflected.find_field("values");
   REQUIRE(values);
   CHECK(values.kind() == caors::meta::type_kind::sequence);
-  CHECK(values.type_name() == "std.span<int,3>");
-  CHECK(values.element_type() == registered_type_id("int"));
+  CHECK(values.get_type().name() == "std.span<int,3>");
+  CHECK(values.get_element_type().id() == registered_type_id("int"));
 }
 
 // 原测试文件：reflection_sequence_list_field_view_uses_sequence_traits_test.cpp
@@ -94,8 +94,8 @@ TEST_CASE("reflection - list field view uses sequence traits", "[reflection]") {
   auto values = reflected.find_field("values");
   REQUIRE(values);
   CHECK(values.kind() == caors::meta::type_kind::sequence);
-  CHECK(values.type_name() == "caors.list<int>");
-  CHECK(values.element_type() == registered_type_id("int"));
+  CHECK(values.get_type().name() == "caors.list<int>");
+  CHECK(values.get_element_type().id() == registered_type_id("int"));
 
   list_holder instance{};
   instance.values.push_back(3);
@@ -139,9 +139,9 @@ TEST_CASE("reflection - sequence field view exposes element metadata", "[reflect
   REQUIRE(values);
   CHECK(values.kind() == caors::meta::type_kind::sequence);
   CHECK(values.is_sequence());
-  CHECK(values.value_type() == registered_type_id("int"));
-  CHECK(values.element_type() == registered_type_id("int"));
-  CHECK(values.element_type_name() == "int");
+  CHECK(values.get_value_type().id() == registered_type_id("int"));
+  CHECK(values.get_element_type().id() == registered_type_id("int"));
+  CHECK(values.get_element_type().name() == "int");
 
   vector_holder instance{};
   instance.values.push_back(3);
@@ -150,10 +150,10 @@ TEST_CASE("reflection - sequence field view exposes element metadata", "[reflect
   caors::value::sequence_view sequence = values.get_ref(&instance).create_sequence_view();
   CHECK(sequence.valid());
   CHECK(sequence.writable());
-  CHECK(sequence.value_type() == registered_type_id("int"));
-  CHECK(sequence.value_type_name() == "int");
-  CHECK(sequence.element_type() == registered_type_id("int"));
-  CHECK(sequence.element_type_name() == "int");
+  CHECK(sequence.get_value_type().id() == registered_type_id("int"));
+  CHECK(sequence.get_value_type().name() == "int");
+  CHECK(sequence.get_element_type().id() == registered_type_id("int"));
+  CHECK(sequence.get_element_type().name() == "int");
 
   int sequence_sum = 0;
   for (caors::any_ref value : sequence) {
@@ -219,8 +219,8 @@ TEST_CASE("reflection - std array field view uses fixed sequence traits", "[refl
   auto values = reflected.find_field("values");
   REQUIRE(values);
   CHECK(values.kind() == caors::meta::type_kind::sequence);
-  CHECK(values.type_name() == "std.array<int,3>");
-  CHECK(values.element_type() == registered_type_id("int"));
+  CHECK(values.get_type().name() == "std.array<int,3>");
+  CHECK(values.get_element_type().id() == registered_type_id("int"));
 
   array_holder instance{{1, 2, 3}};
   caors::value::sequence_view sequence = values.get_ref(&instance).create_sequence_view();
@@ -262,8 +262,8 @@ TEST_CASE("reflection - std span field view is borrowed sequence", "[reflection]
   auto values = reflected.find_field("values");
   REQUIRE(values);
   CHECK(values.kind() == caors::meta::type_kind::sequence);
-  CHECK(values.type_name() == "std.span<int>");
-  CHECK(values.element_type() == registered_type_id("int"));
+  CHECK(values.get_type().name() == "std.span<int>");
+  CHECK(values.get_element_type().id() == registered_type_id("int"));
 
   std::array<int, 3> storage{1, 2, 3};
   span_holder instance{std::span<int>{storage}};

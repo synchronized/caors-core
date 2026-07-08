@@ -12,18 +12,18 @@ TEST_CASE("reflection - field view describes composite traits", "[reflection]") 
 
   const caors::reflection::field pair = require_field(reflected, "pair");
   CHECK(pair.kind() == caors::meta::type_kind::pair);
-  CHECK(pair.key_type() == registered_type_id("int"));
-  CHECK(pair.value_type() == registered_type_id("caors.string"));
+  CHECK(pair.get_key_type().id() == registered_type_id("int"));
+  CHECK(pair.get_value_type().id() == registered_type_id("caors.string"));
 
   const caors::reflection::field tuple = require_field(reflected, "tuple");
   CHECK(tuple.kind() == caors::meta::type_kind::tuple);
-  CHECK_FALSE(static_cast<bool>(tuple.key_type()));
-  CHECK_FALSE(static_cast<bool>(tuple.value_type()));
+  CHECK_FALSE(static_cast<bool>(tuple.get_key_type().id()));
+  CHECK_FALSE(static_cast<bool>(tuple.get_value_type().id()));
 
   const caors::reflection::field variant = require_field(reflected, "variant");
   CHECK(variant.kind() == caors::meta::type_kind::variant);
-  CHECK_FALSE(static_cast<bool>(variant.key_type()));
-  CHECK_FALSE(static_cast<bool>(variant.value_type()));
+  CHECK_FALSE(static_cast<bool>(variant.get_key_type().id()));
+  CHECK_FALSE(static_cast<bool>(variant.get_value_type().id()));
 }
 
 // 原测试文件：reflection_field_field_view_describes_field_layout_test.cpp
@@ -45,10 +45,10 @@ TEST_CASE("reflection - field view describes field layout", "[reflection]") {
   CHECK(field.name() == "health");
   CHECK(field.get_type().id() == registered_type_id("float"));
   CHECK(field.get_type().name() == "float");
-  CHECK(field.type() == registered_type_id("float"));
+  CHECK(field.get_type().id() == registered_type_id("float"));
   CHECK(field.offset() == offsetof(field_layout_actor, health));
   CHECK(field.writable());
-  CHECK(field.type_name() == "float");
+  CHECK(field.get_type().name() == "float");
   CHECK(field.size() == sizeof(float));
   CHECK(field.alignment() == alignof(float));
 }
@@ -65,44 +65,44 @@ TEST_CASE("reflection - field view describes indirect wrapper traits", "[reflect
   const caors::reflection::field raw = require_field(reflected, "raw");
   CHECK(raw.kind() == caors::meta::type_kind::raw_pointer);
   CHECK(raw.wrapper_semantics() == caors::meta::wrapper_semantics::inline_value);
-  CHECK(raw.value_type() == registered_type_id("int"));
+  CHECK(raw.get_value_type().id() == registered_type_id("int"));
   CHECK(raw.indirect());
   CHECK(raw.nullable());
 
   const caors::reflection::field unique = require_field(reflected, "unique");
   CHECK(unique.kind() == caors::meta::type_kind::wrapper);
   CHECK(unique.wrapper_semantics() == caors::meta::wrapper_semantics::inline_value);
-  CHECK(unique.value_type() == registered_type_id("int"));
+  CHECK(unique.get_value_type().id() == registered_type_id("int"));
   CHECK(unique.nullable());
 
   const caors::reflection::field shared = require_field(reflected, "shared");
   CHECK(shared.kind() == caors::meta::type_kind::wrapper);
   CHECK(shared.wrapper_semantics() == caors::meta::wrapper_semantics::inline_value);
-  CHECK(shared.value_type() == registered_type_id("int"));
+  CHECK(shared.get_value_type().id() == registered_type_id("int"));
   CHECK(shared.nullable());
 
   const caors::reflection::field weak = require_field(reflected, "weak");
   CHECK(weak.kind() == caors::meta::type_kind::wrapper);
   CHECK(weak.wrapper_semantics() == caors::meta::wrapper_semantics::unsupported);
-  CHECK(weak.value_type() == registered_type_id("int"));
+  CHECK(weak.get_value_type().id() == registered_type_id("int"));
   CHECK(weak.nullable());
 
   const caors::reflection::field optional = require_field(reflected, "optional");
   CHECK(optional.kind() == caors::meta::type_kind::wrapper);
   CHECK(optional.wrapper_semantics() == caors::meta::wrapper_semantics::inline_value);
-  CHECK(optional.value_type() == registered_type_id("int"));
+  CHECK(optional.get_value_type().id() == registered_type_id("int"));
   CHECK(optional.nullable());
 
   const caors::reflection::field wrapper = require_field(reflected, "wrapper");
   CHECK(wrapper.kind() == caors::meta::type_kind::wrapper);
   CHECK(wrapper.wrapper_semantics() == caors::meta::wrapper_semantics::inline_value);
-  CHECK(wrapper.value_type() == registered_type_id("int"));
+  CHECK(wrapper.get_value_type().id() == registered_type_id("int"));
   CHECK_FALSE(wrapper.nullable());
 
   const caors::reflection::field custom_inline = require_field(reflected, "custom_inline");
   CHECK(custom_inline.kind() == caors::meta::type_kind::wrapper);
   CHECK(custom_inline.wrapper_semantics() == caors::meta::wrapper_semantics::inline_value);
-  CHECK(custom_inline.value_type() == registered_type_id("int"));
+  CHECK(custom_inline.get_value_type().id() == registered_type_id("int"));
   CHECK_FALSE(custom_inline.nullable());
 }
 
@@ -118,7 +118,7 @@ TEST_CASE("reflection - field view describes object ptr traits", "[reflection]")
 
   CHECK(object_ptr.kind() == caors::meta::type_kind::value);
   CHECK(object_ptr.wrapper_semantics() == caors::meta::wrapper_semantics::none);
-  CHECK(object_ptr.value_type() ==
+  CHECK(object_ptr.get_value_type().id() ==
         registered_type_id("caors.object_ptr<caors.test.reflection.reflected_object_ptr_target>"));
   CHECK_FALSE(object_ptr.nullable());
 
@@ -144,11 +144,11 @@ TEST_CASE("reflection - field view describes sequence traits", "[reflection]") {
   CHECK(sequence.kind() == caors::meta::type_kind::sequence);
   CHECK(sequence.get_value_type().id() == registered_type_id("int"));
   CHECK(sequence.get_element_type().id() == registered_type_id("int"));
-  CHECK(sequence.value_type() == registered_type_id("int"));
+  CHECK(sequence.get_value_type().id() == registered_type_id("int"));
 
   const caors::reflection::field span = require_field(reflected, "span");
   CHECK(span.kind() == caors::meta::type_kind::sequence);
-  CHECK(span.value_type() == registered_type_id("int"));
+  CHECK(span.get_value_type().id() == registered_type_id("int"));
 }
 
 // 原测试文件：reflection_field_field_view_describes_value_and_enum_traits_test.cpp
@@ -164,13 +164,13 @@ TEST_CASE("reflection - field view describes value and enum traits", "[reflectio
   CHECK(value.kind() == caors::meta::type_kind::value);
   CHECK(value.wrapper_semantics() == caors::meta::wrapper_semantics::none);
   CHECK(value.get_value_type().id() == registered_type_id("int"));
-  CHECK(value.value_type() == registered_type_id("int"));
+  CHECK(value.get_value_type().id() == registered_type_id("int"));
   CHECK_FALSE(value.indirect());
   CHECK_FALSE(value.nullable());
 
   const caors::reflection::field enumeration = require_field(reflected, "color");
   CHECK(enumeration.kind() == caors::meta::type_kind::enumeration);
-  CHECK(enumeration.value_type() == registered_type_id("caors.test.reflection.color"));
+  CHECK(enumeration.get_value_type().id() == registered_type_id("caors.test.reflection.color"));
   CHECK_FALSE(enumeration.nullable());
 }
 
@@ -257,6 +257,6 @@ TEST_CASE("reflection - type view stores and finds fields", "[reflection]") {
 
   auto health = type.find_field("health");
   REQUIRE(health);
-  CHECK(health.type_name() == "float");
+  CHECK(health.get_type().name() == "float");
   CHECK_FALSE(type.find_field("missing"));
 }

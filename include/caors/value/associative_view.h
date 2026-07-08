@@ -59,22 +59,12 @@ public:
   [[nodiscard]] bool writable() const noexcept { return valid() && writable_; }
 
   [[nodiscard]] meta::type get_key_type() const noexcept;
-  [[nodiscard]] type_id key_type() const noexcept;
-  [[nodiscard]] string_name key_type_name() const noexcept;
 
   /** @brief 查询关联容器 value 类型。 */
   [[nodiscard]] meta::type get_value_type() const noexcept;
-  [[nodiscard]] type_id value_type() const noexcept;
 
-  /** @brief 查询关联容器 value 类型名。 */
-  [[nodiscard]] string_name value_type_name() const noexcept;
-
-  /** @brief 查询关联容器 mapped 类型，等价于 `value_type()`。 */
+  /** @brief 查询关联容器 mapped 类型，等价于 `get_value_type()`。 */
   [[nodiscard]] meta::type get_mapped_type() const noexcept { return get_value_type(); }
-  [[nodiscard]] type_id mapped_type() const noexcept { return value_type(); }
-
-  /** @brief 查询关联容器 mapped 类型名，等价于 `value_type_name()`。 */
-  [[nodiscard]] string_name mapped_type_name() const noexcept { return value_type_name(); }
 
   /** @brief 获取关联容器元素数量。 */
   [[nodiscard]] std::optional<std::size_t> size() const;

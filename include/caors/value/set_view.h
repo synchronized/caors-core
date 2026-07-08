@@ -60,17 +60,9 @@ public:
 
   /** @brief 查询集合元素的统一 value 类型。 */
   [[nodiscard]] meta::type get_value_type() const noexcept;
-  [[nodiscard]] type_id value_type() const noexcept;
 
-  /** @brief 查询集合元素的统一 value 类型名。 */
-  [[nodiscard]] string_name value_type_name() const noexcept;
-
-  /** @brief 查询集合元素类型，等价于 `value_type()`。 */
+  /** @brief 查询集合元素类型，等价于 `get_value_type()`。 */
   [[nodiscard]] meta::type get_element_type() const noexcept { return get_value_type(); }
-  [[nodiscard]] type_id element_type() const noexcept { return value_type(); }
-
-  /** @brief 查询集合元素类型名，等价于 `value_type_name()`。 */
-  [[nodiscard]] string_name element_type_name() const noexcept { return value_type_name(); }
 
   /** @brief 获取集合元素数量。 */
   [[nodiscard]] std::optional<std::size_t> size() const;

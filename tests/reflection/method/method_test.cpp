@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 鍘熸祴璇曟枃浠讹細reflection_method_reflection_class_builder_rejects_duplicate_method_names_test.cpp
+// 原测试文件：reflection_method_reflection_class_builder_rejects_duplicate_method_names_test.cpp
 
 #include "reflection_method_test_support.h"
 
@@ -15,7 +15,7 @@ TEST_CASE("reflection - class builder rejects duplicate method names", "[reflect
             .commit() == reflection_error(caors::errc::duplicate_method));
 }
 
-// 鍘熸祴璇曟枃浠讹細reflection_method_reflection_method_view_describes_member_function_signatures_test.cpp
+// 原测试文件：reflection_method_reflection_method_view_describes_member_function_signatures_test.cpp
 
 #include "reflection_method_test_support.h"
 
@@ -29,23 +29,24 @@ TEST_CASE("reflection - method view describes member function signatures", "[ref
   const caors::reflection::method add = require_method(reflected, "add");
   CHECK(add.name() == "add");
   CHECK_FALSE(add.const_method());
-  CHECK_FALSE(static_cast<bool>(add.return_type()));
+  CHECK_FALSE(add.get_return_type());
   REQUIRE(add.parameter_count() == 1);
-  CHECK(add.parameter_type(0) == registered_type_id("int"));
-  CHECK(add.parameter_type_name(0) == "int");
+  REQUIRE(add.get_parameter_type(0).has_value());
+  CHECK(add.get_parameter_type(0)->id() == registered_type_id("int"));
+  CHECK(add.get_parameter_type(0)->name() == "int");
 
   const caors::reflection::method score = require_method(reflected, "score");
   CHECK(score.name() == "score");
   CHECK(score.const_method());
-  CHECK(score.return_type() == registered_type_id("int"));
-  CHECK(score.return_type_name() == "int");
+  CHECK(score.get_return_type().id() == registered_type_id("int"));
+  CHECK(score.get_return_type().name() == "int");
   CHECK(score.parameter_count() == 0);
 
   CHECK_FALSE(reflected.method_at(100));
   CHECK_FALSE(reflected.find_method("missing"));
 }
 
-// 鍘熸祴璇曟枃浠讹細reflection_method_reflection_method_view_invokes_mutable_and_const_member_functions_test.cpp
+// 原测试文件：reflection_method_reflection_method_view_invokes_mutable_and_const_member_functions_test.cpp
 
 #include "reflection_method_test_support.h"
 
@@ -75,7 +76,7 @@ TEST_CASE("reflection - method view invokes mutable and const member functions",
   CHECK(*const_result == 14);
 }
 
-// 鍘熸祴璇曟枃浠讹細reflection_method_reflection_method_view_rejects_invalid_calls_test.cpp
+// 原测试文件：reflection_method_reflection_method_view_rejects_invalid_calls_test.cpp
 
 #include "reflection_method_test_support.h"
 

@@ -87,8 +87,7 @@ public:
 
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
-  [[nodiscard]] type_id type() const noexcept;
-  [[nodiscard]] string_name type_name() const noexcept;
+  [[nodiscard]] meta::type get_type() const noexcept;
   [[nodiscard]] const void* data() const noexcept;
   [[nodiscard]] void* mutable_data() noexcept;
   [[nodiscard]] any_ref ref();
@@ -119,7 +118,7 @@ public:
   /** @brief 判断当前值是否匹配指定 C++ 类型。 */
   template <typename T> [[nodiscard]] bool matches_type() const noexcept {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    return valid() && get_type_id() == meta::detail::type_id_of_cpp_type<type>() &&
+    return valid() && get_type().id() == meta::detail::type_id_of_cpp_type<type>() &&
            size() == sizeof(type) && alignment() == alignof(type);
   }
 
@@ -195,7 +194,6 @@ private:
   [[nodiscard]] void* inline_data() noexcept;
   [[nodiscard]] const void* inline_data() const noexcept;
   [[nodiscard]] bool stores_inline() const noexcept { return mode_ == storage_mode::inline_value; }
-  [[nodiscard]] type_id get_type_id() const noexcept;
 
   const meta::detail::type_descriptor* descriptor_ = nullptr;
   void* data_ = nullptr;
