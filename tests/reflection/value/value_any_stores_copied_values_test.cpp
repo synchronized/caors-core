@@ -12,9 +12,7 @@ TEST_CASE("reflection any - stores copied values", "[reflection]") {
   caors::any stored = caors::any::from(source);
 
   CHECK(stored.valid());
-  const auto int_type = caors::meta::find("int");
-  REQUIRE(int_type);
-  CHECK(stored.type() == int_type.id());
+  CHECK(stored.type() == caors::any::from(0).type());
   CHECK(stored.type_name() == "int");
   CHECK(stored.matches_type<int>());
   CHECK(stored.size() == sizeof(int));

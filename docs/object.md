@@ -90,9 +90,9 @@ nil GUID 和无效 `object_id` 不能绑定。索引不提供内部同步，跨�
 因此对象系统不会维护全局对象实例表，也不会在 `objects::ptr<T>` 或 `objects::handle` 中自动解引用全局状态。需要跨线程共享对象时，
 建议在上层 manager、场景数据库或资源系统外包一层同步和生命周期策略。
 
-### 基础类型信息
+### meta 类型信息
 
-基础类型信息由全局 `meta::registry` 内部保存，并通过 `meta::type` 对外查询，包含：
+meta 类型信息由全局 `meta::registry` 内部保存，并通过 `meta::type` 对外查询，包含：
 
 - `id`
 - `name`
@@ -101,7 +101,7 @@ nil GUID 和无效 `object_id` 不能绑定。索引不提供内部同步，跨�
 - `alignment`
 - `parent_id`
 
-其中名称、GUID 和父类型属于基础类型数据；大小、对齐和默认值操作函数来自同一 `type_id`
+其中名称、GUID 和父类型属于 meta 类型记录；大小、对齐和默认值操作函数来自同一 `type_id`
 挂载的内部 `meta::detail::type_descriptor`。对象模块只通过 `meta::type` 查询这些信息，不直接暴露
 descriptor。
 
@@ -452,7 +452,7 @@ manager.destroy(instance);
 - `object_type_id`：运行期对象类型标识。
 - `object`：基础对象身份和类型查询入口。
 - `object_base<Derived, Base>`：CRTP 类型查询辅助。
-- `meta::type` / `meta::registry`：对象系统和反射系统共享的全局基础类型视图和元数据注册表。
+- `meta::type` / `meta::registry`：对象系统和反射系统共享的全局 meta 类型视图和元数据注册表。
 - `objects::detail::type_data`：内部对象元数据组件，保存默认构造、创建和销毁函数。
 - `objects::type`：对象类型只读视图，组合 `meta::type` 和内部 `objects::detail::type_data`。
 - `caors::error`：明确对象类型注册失败原因和错误来源域。

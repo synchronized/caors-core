@@ -8,7 +8,7 @@ using namespace caors::tests::serialization;
 TEST_CASE("serialization - rejects weak pointer deserialization", "[serialization]") {
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<weak_ptr_actor>("caors.test.serialization.weak_ptr_actor")
-          .field("value", &weak_ptr_actor::value, "std.weak_ptr<int>")
+          .field("value", &weak_ptr_actor::value)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::register_type<weak_ptr_actor>()));
 

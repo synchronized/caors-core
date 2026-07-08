@@ -6,8 +6,6 @@
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - roundtrips std deque fields", "[serialization]") {
-  using scores_type = std::deque<int>;
-  require_registered_type<scores_type>("std.deque<int>");
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<deque_actor>("caors.test.serialization.deque_actor")
           .field("scores", &deque_actor::scores)

@@ -283,8 +283,55 @@ constexpr caors::type_guid view_actor_guid{caors::guid::from_bytes(
 
 [[nodiscard]] inline caors::type_id registered_type_id(std::string_view name) {
   const auto type = caors::meta::find(name);
-  REQUIRE(type);
-  return type.id();
+  if (type) {
+    return type.id();
+  }
+
+  if (name == "int") {
+    return caors::meta::detail::type_id_of_cpp_type<int>();
+  }
+  if (name == "float") {
+    return caors::meta::detail::type_id_of_cpp_type<float>();
+  }
+  if (name == "caors.string") {
+    return caors::meta::detail::type_id_of_cpp_type<caors::string>();
+  }
+  if (name == "caors.vector<int>") {
+    return caors::meta::detail::type_id_of_cpp_type<caors::vector<int>>();
+  }
+  if (name == "caors.list<int>") {
+    return caors::meta::detail::type_id_of_cpp_type<caors::list<int>>();
+  }
+  if (name == "std.array<int,3>") {
+    return caors::meta::detail::type_id_of_cpp_type<std::array<int, 3>>();
+  }
+  if (name == "std.span<int>") {
+    return caors::meta::detail::type_id_of_cpp_type<std::span<int>>();
+  }
+  if (name == "std.span<int,3>") {
+    return caors::meta::detail::type_id_of_cpp_type<std::span<int, 3>>();
+  }
+  if (name == "std.pair<int,caors.string>") {
+    return caors::meta::detail::type_id_of_cpp_type<std::pair<int, caors::string>>();
+  }
+  if (name == "std.tuple<int,caors.string,float>") {
+    return caors::meta::detail::type_id_of_cpp_type<std::tuple<int, caors::string, float>>();
+  }
+  if (name == "std.variant<int,caors.string,float>") {
+    return caors::meta::detail::type_id_of_cpp_type<std::variant<int, caors::string, float>>();
+  }
+  if (name == "test.custom_sequence<int>") {
+    return caors::meta::detail::type_id_of_cpp_type<test_reflection::custom_sequence<int>>();
+  }
+  if (name == "caors.hash_map<int,int>") {
+    return caors::meta::detail::type_id_of_cpp_type<caors::hash_map<int, int>>();
+  }
+  if (name == "caors.hash_set<int>") {
+    return caors::meta::detail::type_id_of_cpp_type<caors::hash_set<int>>();
+  }
+
+  FAIL("unknown test type name");
+  return caors::type_id::invalid();
 }
 
 [[nodiscard]] constexpr caors::error reflection_error(caors::errc code) noexcept {
@@ -331,33 +378,11 @@ template <typename T> void register_common_type(std::string_view name) {
 }
 
 [[maybe_unused]] const bool common_reflection_types_registered = [] {
-  register_common_type<int>("int");
-  register_common_type<float>("float");
-  register_common_type<caors::string>("caors.string");
   register_common_type<reflected_color>("caors.test.reflection.color");
-  register_common_type<int*>("int*");
-  register_common_type<std::unique_ptr<int>>("std.unique_ptr<int>");
-  register_common_type<std::shared_ptr<int>>("std.shared_ptr<int>");
-  register_common_type<std::weak_ptr<int>>("std.weak_ptr<int>");
-  register_common_type<std::optional<int>>("std.optional<int>");
-  register_common_type<std::reference_wrapper<int>>("std.reference_wrapper<int>");
-  register_common_type<custom_inline_wrapper<int>>("custom.inline<int>");
   register_common_type<reflected_object_ptr_target>(
       "caors.test.reflection.reflected_object_ptr_target");
   register_common_type<caors::object_ptr<reflected_object_ptr_target>>(
       "caors.object_ptr<caors.test.reflection.reflected_object_ptr_target>");
-  register_common_type<caors::vector<int>>("caors.vector<int>");
-  register_common_type<caors::list<int>>("caors.list<int>");
-  register_common_type<std::array<int, 3>>("std.array<int,3>");
-  register_common_type<std::span<int>>("std.span<int>");
-  register_common_type<std::span<int, 3>>("std.span<int,3>");
-  register_common_type<std::pair<int, caors::string>>("std.pair<int,caors.string>");
-  register_common_type<std::tuple<int, caors::string, float>>("std.tuple<int,caors.string,float>");
-  register_common_type<std::variant<int, caors::string, float>>(
-      "std.variant<int,caors.string,float>");
-  register_common_type<test_reflection::custom_sequence<int>>("test.custom_sequence<int>");
-  register_common_type<caors::hash_map<int, int>>("caors.hash_map<int,int>");
-  register_common_type<caors::hash_set<int>>("caors.hash_set<int>");
   register_common_type<inventory>("caors.test.reflection.inventory");
   return true;
 }();

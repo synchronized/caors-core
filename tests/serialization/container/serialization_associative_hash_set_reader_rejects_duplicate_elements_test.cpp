@@ -6,8 +6,6 @@
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - hash set reader rejects duplicate elements", "[serialization]") {
-  using ids_type = caors::hash_set<int>;
-  require_registered_type<ids_type>("caors.hash_set<int>");
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<set_actor>("caors.test.serialization.set_actor")
           .field("ids", &set_actor::ids)

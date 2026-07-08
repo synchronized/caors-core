@@ -5,19 +5,20 @@
 
 using namespace caors::tests::reflection;
 
-TEST_CASE("reflection any_ref - creates pair views for registered pair values", "[reflection]") {
+TEST_CASE("reflection any_ref - creates pair views from descriptor values", "[reflection]") {
   require_value_test_meta();
 
   std::pair<int, int> value{3, 5};
 
-  caors::any_ref reference = caors::any_ref::from(value, "std.pair<int,int>");
+  caors::any_ref reference = caors::any_ref::from(value);
   REQUIRE(reference.valid());
 
   caors::value::pair_view pair = reference.create_pair_view();
   REQUIRE(pair.valid());
   CHECK(pair.writable());
-  CHECK(pair.first_type() == caors::meta::id("int"));
-  CHECK(pair.second_type() == caors::meta::id("int"));
+  const caors::type_id int_type = caors::any::from(0).type();
+  CHECK(pair.first_type() == int_type);
+  CHECK(pair.second_type() == int_type);
 
   caors::any_ref first = pair.first_ref();
   caors::any_ref second = pair.second_ref();

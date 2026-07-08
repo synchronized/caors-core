@@ -6,8 +6,6 @@
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - roundtrips std map fields", "[serialization]") {
-  using labels_type = std::map<int, caors::string>;
-  require_registered_type<labels_type>("std.map<int,caors.string>");
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<ordered_map_actor>("caors.test.serialization.ordered_map_actor")
           .field("labels", &ordered_map_actor::labels)

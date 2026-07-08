@@ -13,7 +13,7 @@ TEST_CASE("reflection any_ref - creates descriptor views for unregistered nested
 
   caors::any_ref reference = caors::any_ref::from(values);
   REQUIRE(reference.valid());
-  CHECK(reference.type_name().empty());
+  CHECK(reference.type_name() == "std.vector<std.vector<int>>");
 
   caors::value::sequence_view outer = reference.create_sequence_view();
   REQUIRE(outer.valid());
@@ -25,7 +25,7 @@ TEST_CASE("reflection any_ref - creates descriptor views for unregistered nested
   REQUIRE(first_row.valid());
   caors::value::sequence_view inner = first_row.create_sequence_view();
   REQUIRE(inner.valid());
-  CHECK(inner.value_type() == caors::meta::id("int"));
+  CHECK(inner.value_type() == caors::any::from(0).type());
 
   caors::any_ref second = inner.element_ref(1);
   REQUIRE(second.valid());

@@ -6,7 +6,6 @@
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - serializes list fields as arrays", "[serialization]") {
-  require_registered_type<caors::list<int>>("caors.list<int>");
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<list_actor>("caors.test.serialization.list_actor")
           .field("scores", &list_actor::scores)

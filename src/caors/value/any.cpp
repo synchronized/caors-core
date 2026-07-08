@@ -59,7 +59,7 @@ type_id any::type() const noexcept { return get_type_id(); }
 
 string_name any::type_name() const noexcept {
   const meta::type meta = caors::meta::find(get_type_id());
-  return meta ? meta.name() : string_name{};
+  return meta ? meta.name() : (descriptor_ != nullptr ? descriptor_->name : string_name{});
 }
 
 const void* any::data() const noexcept { return valid() ? data_ : nullptr; }
@@ -210,7 +210,7 @@ type_id any_ref::type() const noexcept { return get_type_id(); }
 
 string_name any_ref::type_name() const noexcept {
   const meta::type meta = caors::meta::find(get_type_id());
-  return meta ? meta.name() : string_name{};
+  return meta ? meta.name() : (descriptor_ != nullptr ? descriptor_->name : string_name{});
 }
 
 const void* any_ref::data() const noexcept { return valid() ? data_ : nullptr; }

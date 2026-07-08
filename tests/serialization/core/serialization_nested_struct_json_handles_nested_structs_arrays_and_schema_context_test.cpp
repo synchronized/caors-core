@@ -13,8 +13,6 @@ TEST_CASE("serialization - json handles nested structs arrays and schema context
           .field("score", &nested_stats::score)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::register_type<nested_stats>()));
-  require_registered_type<caors::vector<nested_stats>>(
-      "caors.vector<caors.test.serialization.nested_stats>");
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<nested_vector_actor>("caors.test.serialization.nested_vector_actor")
           .field("stats", &nested_vector_actor::stats)

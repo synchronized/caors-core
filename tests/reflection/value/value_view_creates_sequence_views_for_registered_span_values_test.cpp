@@ -5,20 +5,20 @@
 
 using namespace caors::tests::reflection;
 
-TEST_CASE("reflection any_ref - creates sequence views for registered span values",
+TEST_CASE("reflection any_ref - creates sequence views from descriptor span values",
           "[reflection]") {
   require_value_test_meta();
 
   std::array<int, 3> storage{3, 5, 8};
   std::span<int> value{storage};
 
-  caors::any_ref reference = caors::any_ref::from(value, "std.span<int>");
+  caors::any_ref reference = caors::any_ref::from(value);
   REQUIRE(reference.valid());
 
   caors::value::sequence_view sequence = reference.create_sequence_view();
   REQUIRE(sequence.valid());
   CHECK(sequence.writable());
-  CHECK(sequence.value_type() == caors::meta::id("int"));
+  CHECK(sequence.value_type() == caors::any::from(0).type());
 
   const std::optional<std::size_t> size = sequence.size();
   REQUIRE(size.has_value());

@@ -5,19 +5,19 @@
 
 using namespace caors::tests::reflection;
 
-TEST_CASE("reflection any_ref - creates indirect views for registered wrapper values",
+TEST_CASE("reflection any_ref - creates indirect views from descriptor wrapper values",
           "[reflection]") {
   require_value_test_meta();
 
   std::optional<int> value = 41;
 
-  caors::any_ref reference = caors::any_ref::from(value, "std.optional<int>");
+  caors::any_ref reference = caors::any_ref::from(value);
   REQUIRE(reference.valid());
 
   caors::value::indirect_view indirect = reference.create_indirect_view();
   REQUIRE(indirect.valid());
   CHECK(indirect.has_value());
-  CHECK(indirect.value_type() == caors::meta::id("int"));
+  CHECK(indirect.value_type() == caors::any::from(0).type());
 
   caors::any_ref inner = indirect.value_ref();
   REQUIRE(inner.valid());

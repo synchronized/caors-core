@@ -9,7 +9,7 @@
 
 一个类型如果要参与对象、反射和序列化，推荐按以下顺序注册：
 
-1. 注册基础 meta 类型。
+1. 注册需要稳定名称、GUID、父类型或 factory 的业务 meta 类型。
 2. 如有对象能力，注册 object 组件。
 3. 注册字段反射。
 4. 注册序列化组件。
@@ -20,8 +20,6 @@
 
 ```cpp
 void register_actor() {
-  caors::meta::type_<int>("int");
-
   caors::meta::type actor_type =
       caors::meta::type_<actor>("game.actor")
           .guid(caors::type_guid{actor_guid})
@@ -37,7 +35,10 @@ void register_actor() {
 }
 ```
 
-字段声明类型必须先完成 `meta::type_<T>("name")` 注册。反射 builder 不会为字段类型隐式创建 meta 类型，序列化 codec 注册也不会隐式创建 meta 类型。
+字段声明类型不要求全部完成 `meta::type_<T>("name")` 注册。基础标量、字符串、容器、指针、
+wrapper、pair、tuple 和 variant 可以通过内部 descriptor 参与反射和序列化。只有需要稳定名称、
+GUID、对象工厂、反射根类型、多态身份或按名称查询的业务类型，才应显式注册到 meta。
+反射 builder 不会为字段类型隐式创建 meta 类型，序列化 codec 注册也不会隐式创建 meta 类型。
 
 ## 显式初始化
 
@@ -80,7 +81,7 @@ CAORS_META_REGISTRATION(register_actor) {
 - 校验 meta 层基础索引和父类型关系。
 - 将全局注册表切换为只读。
 
-冻结后，基础类型注册和组件挂载都会返回 `errc::frozen`。查询接口仍可继续使用。是否冻结由应用决定；库内部不强制自动冻结。
+冻结后，meta 类型注册和组件挂载都会返回 `errc::frozen`。查询接口仍可继续使用。是否冻结由应用决定；库内部不强制自动冻结。
 
 ## 注册失败处理
 

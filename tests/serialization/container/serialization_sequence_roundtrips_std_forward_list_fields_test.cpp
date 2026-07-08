@@ -6,8 +6,6 @@
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - roundtrips std forward list fields", "[serialization]") {
-  using scores_type = std::forward_list<int>;
-  require_registered_type<scores_type>("std.forward_list<int>");
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<forward_list_actor>("caors.test.serialization.forward_list_actor")
           .field("scores", &forward_list_actor::scores)

@@ -93,14 +93,12 @@ inline void require_polymorphic_factory_metadata() {
   REQUIRE(caors::tests::serialization::reflection_result_ok(
       caors::reflection::class_<polymorphic_factory_holder>(
           "caors.test.serialization.poly_factory.holder")
-          .field("shared", &polymorphic_factory_holder::shared,
-                 "std.shared_ptr<caors.test.serialization.poly_factory.actor>")
+          .field("shared", &polymorphic_factory_holder::shared)
           .commit()));
   REQUIRE(caors::tests::serialization::reflection_result_ok(
       caors::reflection::class_<polymorphic_factory_unique_holder>(
           "caors.test.serialization.poly_factory.unique_holder")
-          .field("owner", &polymorphic_factory_unique_holder::owner,
-                 "caors.memory.unique_ptr<caors.test.serialization.poly_factory.actor>")
+          .field("owner", &polymorphic_factory_unique_holder::owner)
           .commit()));
 
   REQUIRE(caors::tests::serialization::serialization_result_ok(

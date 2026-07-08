@@ -86,10 +86,8 @@ inline void require_polymorphic_value_metadata() {
   REQUIRE(caors::tests::serialization::reflection_result_ok(
       caors::reflection::class_<polymorphic_value_holder>(
           "caors.test.serialization.poly_value.holder")
-          .field("owner", &polymorphic_value_holder::owner,
-                 "std.unique_ptr<caors.test.serialization.poly_value.actor>")
-          .field("shared", &polymorphic_value_holder::shared,
-                 "std.shared_ptr<caors.test.serialization.poly_value.actor>")
+          .field("owner", &polymorphic_value_holder::owner)
+          .field("shared", &polymorphic_value_holder::shared)
           .commit()));
 
   REQUIRE(caors::tests::serialization::serialization_result_ok(

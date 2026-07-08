@@ -30,9 +30,82 @@ field_descriptor(const detail::field_data* field) noexcept {
   return descriptor != nullptr ? meta::detail::descriptor_key_type(*descriptor) : type_id{};
 }
 
-[[nodiscard]] core::string_name type_name_of(type_id id) noexcept {
+[[nodiscard]] const meta::detail::type_descriptor*
+field_value_descriptor(const meta::detail::type_descriptor* descriptor) noexcept {
+  if (descriptor == nullptr) {
+    return nullptr;
+  }
+
+  switch (meta::detail::descriptor_kind(*descriptor)) {
+  case meta::type_kind::raw_pointer:
+  case meta::type_kind::wrapper: {
+    const auto* indirect =
+        meta::detail::descriptor_capability<meta::detail::indirect_data>(descriptor);
+    return indirect != nullptr ? indirect->value_descriptor : nullptr;
+  }
+  case meta::type_kind::sequence: {
+    const auto* sequence =
+        meta::detail::descriptor_capability<meta::detail::sequence_data>(descriptor);
+    return sequence != nullptr ? sequence->value_descriptor : nullptr;
+  }
+  case meta::type_kind::set: {
+    const auto* set = meta::detail::descriptor_capability<meta::detail::set_data>(descriptor);
+    return set != nullptr ? set->value_descriptor : nullptr;
+  }
+  case meta::type_kind::associative: {
+    const auto* associative =
+        meta::detail::descriptor_capability<meta::detail::associative_data>(descriptor);
+    return associative != nullptr ? associative->value_descriptor : nullptr;
+  }
+  case meta::type_kind::pair: {
+    const auto* pair = meta::detail::descriptor_capability<meta::detail::pair_data>(descriptor);
+    return pair != nullptr ? pair->value_descriptor : nullptr;
+  }
+  case meta::type_kind::value:
+  case meta::type_kind::enumeration:
+    return descriptor;
+  case meta::type_kind::tuple:
+  case meta::type_kind::variant:
+    return nullptr;
+  }
+
+  return nullptr;
+}
+
+[[nodiscard]] const meta::detail::type_descriptor*
+field_key_descriptor(const meta::detail::type_descriptor* descriptor) noexcept {
+  if (descriptor == nullptr) {
+    return nullptr;
+  }
+
+  switch (meta::detail::descriptor_kind(*descriptor)) {
+  case meta::type_kind::associative: {
+    const auto* associative =
+        meta::detail::descriptor_capability<meta::detail::associative_data>(descriptor);
+    return associative != nullptr ? associative->key_descriptor : nullptr;
+  }
+  case meta::type_kind::pair: {
+    const auto* pair = meta::detail::descriptor_capability<meta::detail::pair_data>(descriptor);
+    return pair != nullptr ? pair->key_descriptor : nullptr;
+  }
+  case meta::type_kind::value:
+  case meta::type_kind::enumeration:
+  case meta::type_kind::raw_pointer:
+  case meta::type_kind::wrapper:
+  case meta::type_kind::sequence:
+  case meta::type_kind::set:
+  case meta::type_kind::tuple:
+  case meta::type_kind::variant:
+    return nullptr;
+  }
+
+  return nullptr;
+}
+
+[[nodiscard]] core::string_name
+type_name_of(type_id id, const meta::detail::type_descriptor* descriptor) noexcept {
   const meta::type type = caors::meta::find(id);
-  return type ? type.name() : core::string_name{};
+  return type ? type.name() : (descriptor != nullptr ? descriptor->name : core::string_name{});
 }
 
 } // namespace
@@ -55,8 +128,11 @@ type_id field::type() const noexcept {
 }
 
 core::string_name field::type_name() const noexcept {
-  const meta::type meta = field_meta(info());
-  return meta ? meta.name() : core::string_name{};
+  const detail::field_data* field = info();
+  const meta::type meta = field_meta(field);
+  return meta ? meta.name()
+              : (field != nullptr && field->descriptor != nullptr ? field->descriptor->name
+                                                                  : core::string_name{});
 }
 
 type_id field::value_type() const noexcept {
@@ -69,29 +145,44 @@ type_id field::element_type() const noexcept {
   return field_value_type(descriptor);
 }
 
-core::string_name field::element_type_name() const noexcept { return type_name_of(element_type()); }
+core::string_name field::element_type_name() const noexcept {
+  const meta::detail::type_descriptor* descriptor = field_descriptor(info());
+  return type_name_of(element_type(), field_value_descriptor(descriptor));
+}
 
 type_id field::key_type() const noexcept {
   const meta::detail::type_descriptor* descriptor = field_descriptor(info());
   return field_key_type(descriptor);
 }
 
-core::string_name field::key_type_name() const noexcept { return type_name_of(key_type()); }
+core::string_name field::key_type_name() const noexcept {
+  const meta::detail::type_descriptor* descriptor = field_descriptor(info());
+  return type_name_of(key_type(), field_key_descriptor(descriptor));
+}
 
 type_id field::first_type() const noexcept { return key_type(); }
 
-core::string_name field::first_type_name() const noexcept { return type_name_of(first_type()); }
+core::string_name field::first_type_name() const noexcept {
+  const meta::detail::type_descriptor* descriptor = field_descriptor(info());
+  return type_name_of(first_type(), field_key_descriptor(descriptor));
+}
 
 type_id field::mapped_type() const noexcept {
   const meta::detail::type_descriptor* descriptor = field_descriptor(info());
   return field_value_type(descriptor);
 }
 
-core::string_name field::mapped_type_name() const noexcept { return type_name_of(mapped_type()); }
+core::string_name field::mapped_type_name() const noexcept {
+  const meta::detail::type_descriptor* descriptor = field_descriptor(info());
+  return type_name_of(mapped_type(), field_value_descriptor(descriptor));
+}
 
 type_id field::second_type() const noexcept { return value_type(); }
 
-core::string_name field::second_type_name() const noexcept { return type_name_of(second_type()); }
+core::string_name field::second_type_name() const noexcept {
+  const meta::detail::type_descriptor* descriptor = field_descriptor(info());
+  return type_name_of(second_type(), field_value_descriptor(descriptor));
+}
 
 meta::type_kind field::kind() const noexcept {
   const meta::detail::type_descriptor* descriptor = field_descriptor(info());

@@ -15,12 +15,12 @@
 - 用 `string_name` 保存运行期去重后的类型名。
 - 用 `type_id` 表示由 C++ 类型运行期 key 派生的进程内类型句柄。
 - 用 `type_guid` 保存可选的稳定类型标识。
-- 用注册表内部基础类型数据保存类型名、稳定 GUID 和父类型。
+- 用注册表内部 meta 类型记录保存类型名、稳定 GUID 和父类型。
 - 用内部 type descriptor 保存 C++ 类型布局、默认构造、复制、析构、赋值和运行期视图能力。
 - 用内部 type descriptor 保存类型形态、通用类型关系和具体访问函数表。
 - 用可选 type factory 保存资源感知构造策略，供普通类多态反序列化等需要运行期创建值的路径使用。
 - 用 `meta::type` 作为对外只读类型视图，避免直接暴露注册表内部数据。
-- 用全局 `meta::registry` 集中处理基础类型注册、查找和继承关系判断。
+- 用全局 `meta::registry` 集中处理 meta 类型注册、查找和继承关系判断。
 - 用全局 `meta::registry` 在同一个 `type_id` 上挂载不同主题的元数据组件。
 - 避免对象系统、反射系统和序列化系统各自重复实现类型注册逻辑。
 
@@ -104,7 +104,7 @@ caors::meta::type_<player>("game.player")
 
 ### meta::type
 
-基础类型数据由全局注册表内部保存，普通代码不直接构造或修改。对外查询统一返回
+meta 类型记录由全局注册表内部保存，普通代码不直接构造或修改。对外查询统一返回
 `meta::type`，它提供以下只读信息：
 
 - `id`
@@ -114,7 +114,7 @@ caors::meta::type_<player>("game.player")
 - `alignment`
 - `parent_id`
 
-注册时会记录该 C++ 类型的运行期 `type_id`。`size()` / `alignment()` 不来自基础类型数据本身，
+注册时会记录该 C++ 类型的运行期 `type_id`。`size()` / `alignment()` 不来自 meta 类型记录本身，
 而是从同一 `type_id` 挂载的内部 `meta::detail::type_descriptor` 查询；默认构造、复制、析构和赋值函数
 也保存在该 descriptor 中。普通代码不应直接修改或依赖 descriptor 的具体布局。
 `meta::id_of<T>()` 只查询已经注册的 C++ 类型，不会创建匿名类型记录；普通代码应在启动注册阶段直接使用
@@ -133,7 +133,7 @@ if (type) {
 }
 ```
 
-`meta::type` 不拥有数据，内部引用全局 append-only 注册表中的基础类型数据。需要查询类型信息时
+`meta::type` 不拥有数据，内部引用全局 append-only 注册表中的 meta 类型记录。需要查询类型信息时
 使用 `meta::type`。
 
 ### traits::type_name<T>
@@ -145,8 +145,10 @@ caors::traits::type_name<int>::value;   // "int"
 caors::traits::type_name<float>::value; // "float"
 ```
 
-用户类型可以通过特化 `traits::type_name<T>` 提供默认名称，也可以直接通过 `meta::type_<T>("name")`
-显式注册。模板注册入口会把 C++ 类型和注册后的 `meta::type` 绑定起来，后续可以用 C++ 类型查询：
+用户类型可以通过特化 `traits::type_name<T>` 提供 descriptor 默认显示名，也可以直接通过
+`meta::type_<T>("name")` 显式注册。默认显示名只用于字段、`any` 和容器视图的调试/展示回退，
+不等价于 meta 注册；模板注册入口会把 C++ 类型和注册后的 `meta::type` 绑定起来，后续可以用
+C++ 类型查询：
 
 ```cpp
 caors::meta::type_<actor>("game.actor");
@@ -230,22 +232,23 @@ descriptor 自身的 `type_id`；裸指针、wrapper、容器、pair、tuple 和
 类型形态和通用类型关系只从 descriptor 查询，不再把语义数据、枚举数据、容器数据或间接访问数据作为
 独立 meta 组件挂载到注册表。反射字段会保存声明类型的 `type_id` 和 descriptor，因此
 `std::vector<T>`、`std::optional<T>`、`std::tuple<...>` 这类结构类型不要求
-自身注册为 meta 类型。未注册类型不会拥有类型名、GUID、反射字段或序列化组件，但仍可通过
-字段、`any` / `any_ref` 或嵌套容器元素携带的 descriptor 使用布局、值操作和运行期视图能力。
+自身注册为 meta 类型。未注册类型不会拥有 GUID、反射字段、对象工厂或序列化组件；如果 descriptor
+能通过 traits 推导默认显示名，`type_name()` 仍可返回该名称。无默认显示名的未注册业务类型名称为空，
+但仍可通过字段、`any` / `any_ref` 或嵌套容器元素携带的 descriptor 使用布局、值操作和运行期视图能力。
 
 meta 不会因为存在 `traits::type_name<T>` 就在运行期隐式创建业务类型。需要稳定名称、GUID、对象工厂、
 反射字段列表或多态序列化身份的 C++ 类型仍应通过 `meta::type_<T>("name")` 显式注册。
 
 ### meta::registry
 
-`meta::registry` 是进程级全局类型元数据注册表。它直接管理基础类型信息，并允许在同一个 `type_id` 上挂载对象、反射、序列化等元数据组件。普通代码不需要创建 registry 对象：
+`meta::registry` 是进程级全局类型元数据注册表。它直接管理 meta 类型记录，并允许在同一个 `type_id` 上挂载对象、反射、序列化等元数据组件。普通代码不需要创建 registry 对象：
 
 ```cpp
 caors::error result = caors::meta::type_<actor>("game.actor").result();
 ```
 
 注册表只面向 C++ 类型。脚本或动态类型不应直接写入当前注册表，后续应放到独立系统，再由上层 resolver
-统一查询。注册表是 append-only：基础类型注册后不可清理或撤销，重复注册相同类型会返回重复结果。
+统一查询。注册表是 append-only：meta 类型注册后不可清理或撤销，重复注册相同类型会返回重复结果。
 当前组件同样按 append-only 方式挂载：同一类型的同类组件注册后不可替换。反射和序列化这类组件
 反射字段数据也按“注册后冻结”处理，外部视图只在该约束下承诺进程生命周期内稳定。
 
@@ -253,7 +256,6 @@ caors::error result = caors::meta::type_<actor>("game.actor").result();
 
 ```cpp
 void register_game_types() {
-  caors::meta::type_<int>("int");
   caors::meta::type_<actor>("game.actor");
   caors::reflection::class_<actor>(caors::meta::find<actor>())
       .field("id", &actor::id)
@@ -271,7 +273,6 @@ int main() {
 
 ```cpp
 CAORS_META_REGISTRATION(register_actor_meta) {
-  caors::meta::type_<int>("int");
   caors::meta::type_<actor>("game.actor");
 
   return caors::reflection::class_<actor>(caors::meta::find<actor>())
@@ -281,7 +282,7 @@ CAORS_META_REGISTRATION(register_actor_meta) {
 ```
 
 `meta::freeze_registry()` 会先执行所有通过 `CAORS_META_REGISTRATION` 或内部延迟注册入口收集到的注册函数，
-再校验 meta 层索引和父类型关系，最后把注册表切换为只读。冻结后，基础类型注册、组件挂载都会失败；
+再校验 meta 层索引和父类型关系，最后把注册表切换为只读。冻结后，meta 类型注册、组件挂载都会失败；
 查询接口仍可使用。
 
 `CAORS_META_REGISTRATION(name)` 只是便利入口，不建议作为唯一主流程。它依赖静态对象把函数加入列表：
@@ -290,7 +291,7 @@ CAORS_META_REGISTRATION(register_actor_meta) {
 
 注册表维护几类索引：
 
-- `type_id -> 内部基础类型数据`：运行期主索引，只保存身份类信息。
+- `type_id -> 内部 meta 类型记录`：运行期主索引，只保存身份类信息。
 - `type_id -> const meta::detail::type_descriptor*`：布局、值操作、类型语义、固定运行期能力集合和对象指针能力。
 - `type_id -> type factory`：可选资源感知构造/销毁函数表。
 - `typeid(T) -> type_id`：当前进程内 RTTI 查询索引，用于普通 C++ 多态辅助。
@@ -307,7 +308,7 @@ CAORS_META_REGISTRATION(register_actor_meta) {
 - `errc::missing_parent`：父类型未注册。
 - `errc::frozen`：注册表已冻结，不能继续注册类型或挂载组件。
 
-使用方式是先注册基础类型，再给该类型挂载组件：
+使用方式是先注册业务 meta 类型，再给该类型挂载组件：
 
 ```cpp
 struct object_factory_meta {
@@ -359,8 +360,8 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 
 全局 `meta::registry` 是共享元数据层：
 
-- `objects::registry` 复用全局基础类型信息，再给同一个 `type_id` 挂载 `objects::detail::type_data` 组件，并对外返回 `objects::type` 视图。
-- 全局反射注册表复用基础类型信息，再挂载内部反射组件，并通过 `reflection::type` / `reflection::field` 对外查询。
+- `objects::registry` 复用全局 meta 类型记录，再给同一个 `type_id` 挂载 `objects::detail::type_data` 组件，并对外返回 `objects::type` 视图。
+- 全局反射注册表复用 meta 类型记录，再挂载内部反射组件，并通过 `reflection::type` / `reflection::field` 对外查询。
 - 后续 `serialization::registry` 可以挂载序列化相关组件。
 
 这样对象、反射和序列化的全局注册入口不需要重复处理重名、重复 GUID、不一致类型描述和父类型缺失。
@@ -383,7 +384,7 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 - `meta::type_<T>("name")`：推荐的显式命名注册入口。
 - `meta::type_<T>().parent<Base>()`：保存 C++ 父类型关系和安全 upcast 回调。
 - `meta::type_<T>().factory()` / `.factory(construct, destroy)`：保存运行期值构造和销毁策略。
-- `meta::registry`：全局基础类型注册、按 id/name/guid 或 C++ 类型查询、继承关系判断和组件式元数据挂载。
+- `meta::registry`：全局 meta 类型注册、按 id/name/guid 或 C++ 类型查询、继承关系判断和组件式元数据挂载。
 - `meta::view<T...>`：按组件集合查询类型。
 - `meta::run_registrations()`：执行已收集的延迟元数据注册函数。
 - `CAORS_META_REGISTRATION(name)`：定义一个延迟注册函数，函数体需要返回 `caors::error`。

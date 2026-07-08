@@ -5,12 +5,12 @@
 
 using namespace caors::tests::reflection;
 
-TEST_CASE("reflection any_ref - creates tuple views for registered tuple values", "[reflection]") {
+TEST_CASE("reflection any_ref - creates tuple views from descriptor values", "[reflection]") {
   require_value_test_meta();
 
   std::tuple<int, int, caors::string> value{3, 5, caors::string{"five"}};
 
-  caors::any_ref reference = caors::any_ref::from(value, "std.tuple<int,int,caors.string>");
+  caors::any_ref reference = caors::any_ref::from(value);
   REQUIRE(reference.valid());
 
   caors::value::tuple_view tuple = reference.create_tuple_view();
@@ -18,7 +18,7 @@ TEST_CASE("reflection any_ref - creates tuple views for registered tuple values"
   CHECK(tuple.writable());
   CHECK(tuple.size() == 3);
   REQUIRE(tuple.element_type(0).has_value());
-  CHECK(*tuple.element_type(0) == caors::meta::id("int"));
+  CHECK(*tuple.element_type(0) == caors::any::from(0).type());
   CHECK(tuple.element_type_name(2) == "caors.string");
 
   caors::any_ref first = tuple.element_ref(0);

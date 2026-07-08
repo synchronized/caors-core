@@ -30,7 +30,7 @@ TEST_CASE("reflection any_ref - creates indirect views for pointer and wrappers"
   caors::value::indirect_view pointer = pointer_field.get_ref(&holder).create_indirect_view();
   REQUIRE(pointer.valid());
   CHECK(pointer.writable());
-  CHECK(pointer.value_type() == caors::meta::id("int"));
+  CHECK(pointer.value_type() == caors::any::from(0).type());
   CHECK(pointer.value_type_name() == "int");
   CHECK(pointer.has_value());
   caors::any_ref pointer_value = pointer.value_ref();

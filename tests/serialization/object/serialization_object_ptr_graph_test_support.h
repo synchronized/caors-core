@@ -24,10 +24,6 @@ inline void require_object_ptr_target_class_metadata() {
 }
 
 inline void require_object_ptr_graph_metadata() {
-  require_registered_type<caors::object_ptr<object_ptr_target>>(
-      "caors.object_ptr<caors.test.serialization.object_ptr_target>");
-  require_registered_type<caors::vector<caors::object_ptr<object_ptr_target>>>(
-      "caors.vector<caors.object_ptr<caors.test.serialization.object_ptr_target>>");
   REQUIRE(reflection_result_ok(caors::reflection::class_<object_ptr_graph_actor>(
                                    "caors.test.serialization.object_ptr_graph_actor")
                                    .field("primary", &object_ptr_graph_actor::primary)

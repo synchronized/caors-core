@@ -15,9 +15,6 @@ inline void require_object_ptr_actor_metadata() {
       caors::objects::class_<object_ptr_target>("caors.test.serialization.object_ptr_target")
           .commit();
   REQUIRE((object_status == caors::error{} || object_status.value() == caors::errc::duplicate_id));
-  REQUIRE(type_result_ok(caors::meta::type_<caors::object_ptr<object_ptr_target>>(
-                             "caors.object_ptr<caors.test.serialization.object_ptr_target>")
-                             .result()));
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<object_ptr_actor>("caors.test.serialization.object_ptr_actor")
           .field("target", &object_ptr_actor::target)

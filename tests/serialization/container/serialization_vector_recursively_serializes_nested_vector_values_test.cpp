@@ -6,13 +6,10 @@
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - recursively serializes nested vector values", "[serialization]") {
-  require_registered_type<caors::vector<int>>("caors.vector<int>");
-  require_registered_type<caors::vector<caors::vector<int>>>("caors.vector<caors.vector<int>>");
-  REQUIRE(reflection_result_ok(
-      caors::reflection::class_<nested_vector_values_actor>(
-          "caors.test.serialization.nested_vector_values_actor")
-          .field("groups", &nested_vector_values_actor::groups, "caors.vector<caors.vector<int>>")
-          .commit()));
+  REQUIRE(reflection_result_ok(caors::reflection::class_<nested_vector_values_actor>(
+                                   "caors.test.serialization.nested_vector_values_actor")
+                                   .field("groups", &nested_vector_values_actor::groups)
+                                   .commit()));
   REQUIRE(
       serialization_result_ok(caors::serialization::register_type<nested_vector_values_actor>()));
 

@@ -8,7 +8,7 @@ using namespace caors::tests::serialization;
 TEST_CASE("serialization - recursively serializes codec values inside vectors", "[serialization]") {
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<guid_vector_actor>("caors.test.serialization.guid_vector_actor")
-          .field("ids", &guid_vector_actor::ids, "caors.vector<guid>")
+          .field("ids", &guid_vector_actor::ids)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::register_type<guid_vector_actor>()));
 

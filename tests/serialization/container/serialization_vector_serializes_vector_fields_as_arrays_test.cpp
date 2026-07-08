@@ -6,7 +6,6 @@
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - serializes vector fields as arrays", "[serialization]") {
-  require_registered_type<caors::vector<int>>("caors.vector<int>");
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<vector_actor>("caors.test.serialization.vector_actor")
           .field("scores", &vector_actor::scores)

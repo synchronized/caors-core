@@ -8,9 +8,6 @@
 namespace caors::tests::serialization::object_ptr_resolver {
 
 inline void require_object_ptr_actor_metadata() {
-  REQUIRE(type_result_ok(caors::meta::type_<caors::object_ptr<object_ptr_target>>(
-                             "caors.object_ptr<caors.test.serialization.object_ptr_target>")
-                             .result()));
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<object_ptr_actor>("caors.test.serialization.object_ptr_actor")
           .field("target", &object_ptr_actor::target)

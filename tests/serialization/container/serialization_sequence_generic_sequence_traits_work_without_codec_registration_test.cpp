@@ -7,8 +7,6 @@ using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - generic sequence traits work without codec registration",
           "[serialization]") {
-  using scores_type = custom_codec_sequence<int>;
-  require_registered_type<scores_type>("caors.test.serialization.custom_sequence<int>");
   REQUIRE(reflection_result_ok(caors::reflection::class_<custom_codec_sequence_actor>(
                                    "caors.test.serialization.custom_codec_sequence_actor")
                                    .field("scores", &custom_codec_sequence_actor::scores)

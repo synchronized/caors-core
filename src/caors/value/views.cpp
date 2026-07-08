@@ -26,6 +26,12 @@ has_indirect_capability(const meta::detail::type_descriptor* descriptor) noexcep
          indirect != nullptr && indirect->valid();
 }
 
+[[nodiscard]] string_name type_name_of(type_id id,
+                                       const meta::detail::type_descriptor* descriptor) noexcept {
+  const meta::type meta = caors::meta::find(id);
+  return meta ? meta.name() : (descriptor != nullptr ? descriptor->name : string_name{});
+}
+
 } // namespace
 
 bool indirect_view::valid() const noexcept {
@@ -53,8 +59,9 @@ type_id indirect_view::value_type() const noexcept {
 }
 
 string_name indirect_view::value_type_name() const noexcept {
-  const meta::type meta = valid() ? caors::meta::find(value_type()) : meta::type{};
-  return meta ? meta.name() : string_name{};
+  const meta::detail::indirect_data* info = data();
+  return valid() ? type_name_of(value_type(), info != nullptr ? info->value_descriptor : nullptr)
+                 : string_name{};
 }
 
 bool indirect_view::has_value() const noexcept {
@@ -211,8 +218,8 @@ type_id pair_view::first_type() const noexcept {
 }
 
 string_name pair_view::first_type_name() const noexcept {
-  const meta::type meta = valid() ? caors::meta::find(data()->key_type) : meta::type{};
-  return meta ? meta.name() : string_name{};
+  const meta::detail::pair_data* info = data();
+  return valid() ? type_name_of(info->key_type, info->key_descriptor) : string_name{};
 }
 
 type_id pair_view::value_type() const noexcept {
@@ -221,8 +228,8 @@ type_id pair_view::value_type() const noexcept {
 }
 
 string_name pair_view::value_type_name() const noexcept {
-  const meta::type meta = valid() ? caors::meta::find(data()->value_type) : meta::type{};
-  return meta ? meta.name() : string_name{};
+  const meta::detail::pair_data* info = data();
+  return valid() ? type_name_of(info->value_type, info->value_descriptor) : string_name{};
 }
 
 any_ref pair_view::first_ref() const {
@@ -320,8 +327,12 @@ std::optional<type_id> tuple_view::element_type(std::size_t index) const noexcep
 
 string_name tuple_view::element_type_name(std::size_t index) const noexcept {
   const std::optional<type_id> id = element_type(index);
-  const meta::type meta = id.has_value() ? caors::meta::find(*id) : meta::type{};
-  return meta ? meta.name() : string_name{};
+  const meta::detail::tuple_data* info = data();
+  if (!id.has_value() || info == nullptr || index >= info->elements.size()) {
+    return {};
+  }
+
+  return type_name_of(*id, info->elements[index].value_descriptor);
 }
 
 any_ref tuple_view::element_ref(std::size_t index) const {
@@ -401,8 +412,12 @@ std::optional<type_id> variant_view::alternative_type(std::size_t alternative) c
 
 string_name variant_view::alternative_type_name(std::size_t alternative) const noexcept {
   const std::optional<type_id> id = alternative_type(alternative);
-  const meta::type meta = id.has_value() ? caors::meta::find(*id) : meta::type{};
-  return meta ? meta.name() : string_name{};
+  const meta::detail::variant_data* info = data();
+  if (!id.has_value() || info == nullptr || alternative >= info->alternatives.size()) {
+    return {};
+  }
+
+  return type_name_of(*id, info->alternatives[alternative].value_descriptor);
 }
 
 type_id variant_view::value_type() const noexcept {
@@ -415,8 +430,14 @@ type_id variant_view::value_type() const noexcept {
 }
 
 string_name variant_view::value_type_name() const noexcept {
-  const meta::type meta = caors::meta::find(value_type());
-  return meta ? meta.name() : string_name{};
+  const std::optional<std::size_t> active = index();
+  const meta::detail::variant_data* info = data();
+  if (!active.has_value() || info == nullptr || *active >= info->alternatives.size()) {
+    return {};
+  }
+
+  const meta::detail::variant_alternative_data& alternative = info->alternatives[*active];
+  return type_name_of(alternative.value_type, alternative.value_descriptor);
 }
 
 any_ref variant_view::value_ref() const {
@@ -519,8 +540,8 @@ type_id sequence_view::value_type() const noexcept {
 }
 
 string_name sequence_view::value_type_name() const noexcept {
-  const meta::type meta = valid() ? caors::meta::find(data()->value_type) : meta::type{};
-  return meta ? meta.name() : string_name{};
+  const meta::detail::sequence_data* info = data();
+  return valid() ? type_name_of(info->value_type, info->value_descriptor) : string_name{};
 }
 
 std::optional<std::size_t> sequence_view::size() const {
@@ -716,8 +737,8 @@ type_id set_view::value_type() const noexcept {
 }
 
 string_name set_view::value_type_name() const noexcept {
-  const meta::type meta = valid() ? caors::meta::find(data()->value_type) : meta::type{};
-  return meta ? meta.name() : string_name{};
+  const meta::detail::set_data* info = data();
+  return valid() ? type_name_of(info->value_type, info->value_descriptor) : string_name{};
 }
 
 std::optional<std::size_t> set_view::size() const {
@@ -928,8 +949,8 @@ type_id associative_view::key_type() const noexcept {
 }
 
 string_name associative_view::key_type_name() const noexcept {
-  const meta::type meta = valid() ? caors::meta::find(data()->key_type) : meta::type{};
-  return meta ? meta.name() : string_name{};
+  const meta::detail::associative_data* info = data();
+  return valid() ? type_name_of(info->key_type, info->key_descriptor) : string_name{};
 }
 
 type_id associative_view::value_type() const noexcept {
@@ -938,8 +959,8 @@ type_id associative_view::value_type() const noexcept {
 }
 
 string_name associative_view::value_type_name() const noexcept {
-  const meta::type meta = valid() ? caors::meta::find(data()->value_type) : meta::type{};
-  return meta ? meta.name() : string_name{};
+  const meta::detail::associative_data* info = data();
+  return valid() ? type_name_of(info->value_type, info->value_descriptor) : string_name{};
 }
 
 std::optional<std::size_t> associative_view::size() const {

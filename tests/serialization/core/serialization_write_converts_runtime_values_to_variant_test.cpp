@@ -6,10 +6,6 @@
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - converts runtime values to variant", "[serialization]") {
-  require_registered_type<int>("int");
-  require_registered_type<caors::string>("caors.string");
-  require_registered_type<caors::guid>("caors.guid");
-
   caors::any number = caors::any::from(42);
   caors::serialization::variant_result number_result = caors::serialization::to_variant(number);
   REQUIRE(number_result.succeeded());

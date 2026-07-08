@@ -45,7 +45,7 @@ std::error_code code = caors::errc::invalid_type;
 caors::error error{caors::error_domain::reflection, caors::errc::invalid_field};
 ```
 
-同一个通用错误码在不同模块可能有不同含义。比如 `duplicate_name` 可能来自基础类型注册，也可能
+同一个通用错误码在不同模块可能有不同含义。比如 `duplicate_name` 可能来自 meta 类型注册，也可能
 来自对象类型或反射类型注册。`error_domain` 用来保留这层边界。
 
 ### error
@@ -71,7 +71,7 @@ caors::error status = caors::meta::type_<actor>("game.actor").result();
 
 if (status.domain() == caors::error_domain::meta &&
     status.value() == caors::errc::duplicate_name) {
-  // 处理基础类型重名。
+  // 处理 meta 类型重名。
 }
 ```
 

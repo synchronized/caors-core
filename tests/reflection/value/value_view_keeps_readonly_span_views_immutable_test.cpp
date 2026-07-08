@@ -11,7 +11,7 @@ TEST_CASE("reflection any_ref - keeps readonly span views immutable", "[reflecti
   std::array<int, 3> storage{3, 5, 8};
   std::span<int> value{storage};
 
-  caors::any_ref reference = caors::any_ref::from_const(value, "std.span<int>");
+  caors::any_ref reference = caors::any_ref::from_const(value);
   REQUIRE(reference.valid());
   CHECK_FALSE(reference.writable());
 

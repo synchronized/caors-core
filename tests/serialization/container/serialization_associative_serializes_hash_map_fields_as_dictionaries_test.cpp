@@ -6,8 +6,6 @@
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - serializes hash map fields as dictionaries", "[serialization]") {
-  using labels_type = caors::hash_map<int, caors::string>;
-  require_registered_type<labels_type>("caors.hash_map<int,caors.string>");
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<map_actor>("caors.test.serialization.map_actor")
           .field("labels", &map_actor::labels)

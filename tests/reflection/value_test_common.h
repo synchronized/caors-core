@@ -93,16 +93,6 @@ template <typename T> void require_registered_type(std::string_view name) {
 }
 
 inline void require_value_test_meta() {
-  require_registered_type<int>("int");
-  require_registered_type<float>("float");
-  require_registered_type<caors::string>("caors.string");
-  require_registered_type<std::unique_ptr<int>>("std.unique_ptr<int>");
-  require_registered_type<std::weak_ptr<int>>("std.weak_ptr<int>");
-  require_registered_type<std::optional<int>>("std.optional<int>");
-  require_registered_type<std::pair<int, int>>("std.pair<int,int>");
-  require_registered_type<std::tuple<int, int, caors::string>>("std.tuple<int,int,caors.string>");
-  require_registered_type<std::span<int>>("std.span<int>");
-  require_registered_type<std::variant<int, caors::string>>("std.variant<int,caors.string>");
   require_registered_type<any_resource_value>("caors.test.reflection.any_resource_value");
 }
 

@@ -27,25 +27,14 @@ struct resource_propagation_holder {
 };
 
 void require_resource_propagation_holder_metadata() {
-  require_registered_type<caors::vector<caors::string>>("caors.vector<caors.string>");
-  require_registered_type<caors::vector<caors::vector<int>>>("caors.vector<caors.vector<int>>");
-  require_registered_type<caors::hash_map<caors::string, caors::string>>(
-      "caors.hash_map<caors.string,caors.string>");
-  require_registered_type<std::optional<caors::string>>("std.optional<caors.string>");
-  require_registered_type<std::variant<int, caors::string, caors::vector<int>>>(
-      "std.variant<int,caors.string,caors.vector<int>>");
-
-  REQUIRE(reflection_result_ok(
-      caors::reflection::class_<resource_propagation_holder>(
-          "caors.test.serialization.resource_propagation_holder")
-          .field("names", &resource_propagation_holder::names, "caors.vector<caors.string>")
-          .field("groups", &resource_propagation_holder::groups, "caors.vector<caors.vector<int>>")
-          .field("labels", &resource_propagation_holder::labels,
-                 "caors.hash_map<caors.string,caors.string>")
-          .field("maybe", &resource_propagation_holder::maybe, "std.optional<caors.string>")
-          .field("choice", &resource_propagation_holder::choice,
-                 "std.variant<int,caors.string,caors.vector<int>>")
-          .commit()));
+  REQUIRE(reflection_result_ok(caors::reflection::class_<resource_propagation_holder>(
+                                   "caors.test.serialization.resource_propagation_holder")
+                                   .field("names", &resource_propagation_holder::names)
+                                   .field("groups", &resource_propagation_holder::groups)
+                                   .field("labels", &resource_propagation_holder::labels)
+                                   .field("maybe", &resource_propagation_holder::maybe)
+                                   .field("choice", &resource_propagation_holder::choice)
+                                   .commit()));
   REQUIRE(
       serialization_result_ok(caors::serialization::register_type<resource_propagation_holder>()));
 }

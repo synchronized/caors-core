@@ -8,9 +8,10 @@
 namespace caors::reflection {
 namespace {
 
-[[nodiscard]] core::string_name type_name_of(type_id id) noexcept {
+[[nodiscard]] core::string_name
+type_name_of(type_id id, const meta::detail::type_descriptor* descriptor) noexcept {
   const meta::type type = caors::meta::find(id);
-  return type ? type.name() : core::string_name{};
+  return type ? type.name() : (descriptor != nullptr ? descriptor->name : core::string_name{});
 }
 
 } // namespace
@@ -32,7 +33,11 @@ type_id method::return_type() const noexcept {
   return method != nullptr ? method->return_type : type_id{};
 }
 
-core::string_name method::return_type_name() const noexcept { return type_name_of(return_type()); }
+core::string_name method::return_type_name() const noexcept {
+  const detail::method_data* method = info();
+  return method != nullptr ? type_name_of(method->return_type, method->return_descriptor)
+                           : core::string_name{};
+}
 
 std::size_t method::parameter_count() const noexcept {
   const detail::method_data* method = info();
@@ -49,7 +54,12 @@ type_id method::parameter_type(std::size_t index) const noexcept {
 }
 
 core::string_name method::parameter_type_name(std::size_t index) const noexcept {
-  return type_name_of(parameter_type(index));
+  const detail::method_data* method = info();
+  if (method == nullptr || index >= method->parameter_descriptors.size()) {
+    return {};
+  }
+
+  return type_name_of(parameter_type(index), method->parameter_descriptors[index]);
 }
 
 bool method::const_method() const noexcept {

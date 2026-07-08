@@ -7,8 +7,6 @@ using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - generic associative traits work without codec registration",
           "[serialization]") {
-  using labels_type = custom_codec_map<int, caors::string>;
-  require_registered_type<labels_type>("caors.test.serialization.custom_map<int,caors.string>");
   REQUIRE(reflection_result_ok(caors::reflection::class_<custom_codec_map_actor>(
                                    "caors.test.serialization.custom_codec_map_actor")
                                    .field("labels", &custom_codec_map_actor::labels)

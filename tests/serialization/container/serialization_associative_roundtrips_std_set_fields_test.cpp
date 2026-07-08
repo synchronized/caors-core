@@ -6,8 +6,6 @@
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - roundtrips std set fields", "[serialization]") {
-  using ids_type = std::set<int>;
-  require_registered_type<ids_type>("std.set<int>");
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<ordered_set_actor>("caors.test.serialization.ordered_set_actor")
           .field("ids", &ordered_set_actor::ids)

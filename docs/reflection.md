@@ -44,9 +44,6 @@ struct actor {
   float health = 100.0F;
 };
 
-caors::meta::type_<int>("int");
-caors::meta::type_<float>("float");
-
 caors::reflection::class_<actor>("game.actor")
     .field("id", &actor::id)
     .field("health", &actor::health)
@@ -58,6 +55,8 @@ caors::reflection::class_<actor>("game.actor")
 - 普通业务字段如果需要稳定名称、GUID、对象工厂、反射身份或多态序列化身份，应先通过
   `meta::type_<Field>("name")` 显式注册。未注册字段不会拥有这些元信息，但只要能生成有效
   descriptor，仍可作为字段注册，并通过 `any_ref` 使用布局、值操作和运行期视图能力。
+- 对内置基础类型和能由 traits 推导名称的结构类型，`field::type_name()` 会在没有 meta 注册时
+  回退到 descriptor 默认显示名；这只是调试/展示名称，不等价于该类型已经注册到 meta。
 - 容器、指针、wrapper、pair、tuple 和 variant 等结构类型可以由内部 descriptor 描述，不要求每一种
   模板组合都显式注册到 meta。
 - 如果字段类型满足 `traits::sequence_traits<T>::is_sequence`，字段 descriptor 会同步记录元素类型语义。
@@ -378,8 +377,6 @@ value.try_set(7);
 可以从同类型 `any` 显式写回字段：
 
 ```cpp
-caors::meta::type_<int>("int");
-
 int source = 42;
 id.try_set_value(&instance, caors::any::from(source));
 ```
@@ -405,7 +402,7 @@ ref.try_set(9);
 `any` 是运行期 C++ 类型值拷贝，保存运行期类型 id、对象拷贝和内部 meta descriptor。
 descriptor 通过 layout、value ops、type semantics 和固定运行期能力集合记录大小、对齐、默认构造、复制、析构、
 赋值和可创建的运行期视图；如果值来自只按 `type_id` 构造的已注册业务类型，则会回退到同一 `type_id`
-的基础类型信息。
+的 meta 类型信息。
 它不引用原对象，因此可以安全地脱离字段所属对象生命周期使用。
 
 `any` 当前提供：
@@ -613,7 +610,6 @@ for (caors::value::associative_entry_ref entry : map) {
 访问它，不需要创建 registry 对象：
 
 ```cpp
-caors::meta::type_<int>("int");
 caors::meta::type type = caors::meta::type_<actor>("game.actor").get();
 
 caors::error result =
@@ -624,15 +620,15 @@ caors::error result =
 auto reflected = caors::reflection::find("game.actor");
 ```
 
-推荐先通过 `meta::type_<T>("name")` 注册基础类型，再把 `caors::meta::find<T>()` 或保存下来的 `meta::type` 传给
-`reflection::class_<T>(meta::type)`。这条路径只向已注册类型挂载反射组件，不会创建或修改
-基础类型记录；传入无效 `meta::type` 会返回 `errc::invalid_type`，传入不存在的 `type_id` 会返回
+推荐先通过 `meta::type_<T>("name")` 注册业务 meta 类型，再把 `caors::meta::find<T>()` 或保存下来的
+`meta::type` 传给 `reflection::class_<T>(meta::type)`。这条路径只向已注册类型挂载反射组件，不会创建或修改
+基础 meta 记录；传入无效 `meta::type` 会返回 `errc::invalid_type`，传入不存在的 `type_id` 会返回
 `errc::missing_type`。低层反射组件注册函数属于内部实现入口，普通代码不直接调用。
 
 反射注册应在 `meta::freeze_registry()` 前完成。全局 meta 注册表冻结后，继续注册反射组件会返回
 `errc::frozen`。
 
-`reflection::registry` 仍作为实现 facade 存在，并复用 `meta::registry` 保存基础类型信息，再把
+`reflection::registry` 仍作为实现 facade 存在，并复用 `meta::registry` 保存 meta 类型信息，再把
 内部反射组件挂载到同一个 `type_id` 上。注册表构造由库内部管理；注册后不提供
 清理和撤销入口。
 
@@ -646,12 +642,12 @@ auto reflected = caors::reflection::find("game.actor");
 - `errc::duplicate_field`：同一个类型内存在重复字段名。
 - `errc::duplicate_method`：同一个类型内存在重复方法名。
 - `errc::duplicate_reflection`：目标类型已经挂载反射组件。
-- `errc::inconsistent_type`：目标类型已存在，但基础类型信息不一致。
+- `errc::inconsistent_type`：目标类型已存在，但 meta 类型信息不一致。
 - `errc::missing_parent`：父类型未注册。
 - `errc::frozen`：全局 meta 注册表已冻结。
 
-重复注册同一个类型时，如果基础类型信息一致且已经挂载反射组件，会返回 `duplicate_reflection`；
-如果同名、同 GUID 或同运行期类型 id 对应的基础类型信息不一致，会返回
+重复注册同一个类型时，如果 meta 类型信息一致且已经挂载反射组件，会返回 `duplicate_reflection`；
+如果同名、同 GUID 或同运行期类型 id 对应的 meta 类型信息不一致，会返回
 `inconsistent_type` 或对应的重复错误。
 
 ## 当前已实现能力

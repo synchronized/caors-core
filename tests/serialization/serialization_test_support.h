@@ -325,11 +325,6 @@ template <typename T> void require_registered_type(std::string_view name) {
   REQUIRE(type_result_ok(caors::meta::type_<T>(name).result()));
 }
 
-template <typename T> void register_common_type(std::string_view name) {
-  const caors::error status = caors::meta::type_<T>(name).result();
-  (void)status;
-}
-
 inline void require_pointer_actor_metadata() {
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<nested_stats>("caors.test.serialization.nested_stats")
@@ -338,22 +333,21 @@ inline void require_pointer_actor_metadata() {
           .commit()));
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<pointer_actor>("caors.test.serialization.pointer_actor")
-          .field("raw", &pointer_actor::raw, "int*")
-          .field("shared", &pointer_actor::shared, "std.shared_ptr<int>")
-          .field("unique", &pointer_actor::unique, "std.unique_ptr<int>")
-          .field("optional", &pointer_actor::optional, "std.optional<int>")
-          .field("stats", &pointer_actor::stats, "caors.test.serialization.nested_stats*")
+          .field("raw", &pointer_actor::raw)
+          .field("shared", &pointer_actor::shared)
+          .field("unique", &pointer_actor::unique)
+          .field("optional", &pointer_actor::optional)
+          .field("stats", &pointer_actor::stats)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::register_type<nested_stats>()));
   REQUIRE(serialization_result_ok(caors::serialization::register_type<pointer_actor>()));
 }
 
 inline void require_reference_wrapper_actor_metadata() {
-  REQUIRE(reflection_result_ok(
-      caors::reflection::class_<reference_wrapper_actor>(
-          "caors.test.serialization.reference_wrapper_actor")
-          .field("value", &reference_wrapper_actor::value, "std.reference_wrapper<int>")
-          .commit()));
+  REQUIRE(reflection_result_ok(caors::reflection::class_<reference_wrapper_actor>(
+                                   "caors.test.serialization.reference_wrapper_actor")
+                                   .field("value", &reference_wrapper_actor::value)
+                                   .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::register_type<reference_wrapper_actor>()));
 }
 
@@ -370,12 +364,10 @@ inline void require_non_default_value_metadata() {
                                    "caors.test.serialization.non_default_vector_actor")
                                    .field("values", &non_default_vector_actor::values)
                                    .commit()));
-  REQUIRE(
-      reflection_result_ok(caors::reflection::class_<non_default_unique_ptr_actor>(
-                               "caors.test.serialization.non_default_unique_ptr_actor")
-                               .field("value", &non_default_unique_ptr_actor::value,
-                                      "std.unique_ptr<caors.test.serialization.non_default_value>")
-                               .commit()));
+  REQUIRE(reflection_result_ok(caors::reflection::class_<non_default_unique_ptr_actor>(
+                                   "caors.test.serialization.non_default_unique_ptr_actor")
+                                   .field("value", &non_default_unique_ptr_actor::value)
+                                   .commit()));
   REQUIRE(reflection_result_ok(caors::reflection::class_<non_default_variant_actor>(
                                    "caors.test.serialization.non_default_variant_actor")
                                    .field("value", &non_default_variant_actor::value)
@@ -390,7 +382,6 @@ inline void require_non_default_value_metadata() {
 }
 
 inline void require_unique_ptr_vector_actor_metadata() {
-  require_registered_type<std::unique_ptr<int>>("std.unique_ptr<int>");
   REQUIRE(reflection_result_ok(caors::reflection::class_<unique_ptr_vector_actor>(
                                    "caors.test.serialization.unique_ptr_vector_actor")
                                    .field("values", &unique_ptr_vector_actor::values)
@@ -402,15 +393,13 @@ inline void require_scalar_actor_metadata() {
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<scalar_actor>("caors.test.serialization.scalar_actor")
           .field("code", &scalar_actor::code)
-          .field("color", &scalar_actor::color, "caors.test.serialization.scalar_color")
-          .field("state", &scalar_actor::state, "caors.test.serialization.scalar_state")
+          .field("color", &scalar_actor::color)
+          .field("state", &scalar_actor::state)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::register_type<scalar_actor>()));
 }
 
 inline void require_object_ptr_vector_actor_metadata() {
-  require_registered_type<caors::object_ptr<object_ptr_target>>(
-      "caors.object_ptr<caors.test.serialization.object_ptr_target>");
   REQUIRE(reflection_result_ok(caors::reflection::class_<object_ptr_vector_actor>(
                                    "caors.test.serialization.object_ptr_vector_actor")
                                    .field("targets", &object_ptr_vector_actor::targets)
@@ -582,66 +571,4 @@ struct codec<caors::tests::serialization::custom_codec_map<K, V>>
 
 } // namespace caors::serialization
 
-namespace caors::tests::serialization {
-
-[[maybe_unused]] inline const bool common_serialization_types_registered = [] {
-  register_common_type<bool>("bool");
-  register_common_type<char>("char");
-  register_common_type<int>("int");
-  register_common_type<float>("float");
-  register_common_type<caors::string>("caors.string");
-  register_common_type<std::string>("std.string");
-  register_common_type<std::string_view>("std.string_view");
-  register_common_type<caors::guid>("caors.guid");
-  register_common_type<caors::type_guid>("caors.type_guid");
-  register_common_type<std::filesystem::path>("std.filesystem.path");
-  register_common_type<std::chrono::milliseconds>("std.chrono.milliseconds");
-  register_common_type<std::chrono::system_clock::time_point>("std.chrono.system_clock.time_point");
-  register_common_type<scalar_color>("caors.test.serialization.scalar_color");
-  register_common_type<scalar_state>("caors.test.serialization.scalar_state");
-  register_common_type<unsupported_field_value>("caors.test.serialization.unsupported_value");
-  register_common_type<nested_stats>("caors.test.serialization.nested_stats");
-  register_common_type<non_default_value>("caors.test.serialization.non_default_value");
-  register_common_type<int*>("int*");
-  register_common_type<nested_stats*>("caors.test.serialization.nested_stats*");
-  register_common_type<std::shared_ptr<int>>("std.shared_ptr<int>");
-  register_common_type<std::unique_ptr<int>>("std.unique_ptr<int>");
-  register_common_type<std::weak_ptr<int>>("std.weak_ptr<int>");
-  register_common_type<std::optional<int>>("std.optional<int>");
-  register_common_type<std::reference_wrapper<int>>("std.reference_wrapper<int>");
-  register_common_type<std::unique_ptr<non_default_value>>(
-      "std.unique_ptr<caors.test.serialization.non_default_value>");
-  register_common_type<caors::vector<int>>("caors.vector<int>");
-  register_common_type<caors::vector<caors::vector<int>>>("caors.vector<caors.vector<int>>");
-  register_common_type<caors::vector<std::unique_ptr<int>>>("caors.vector<std.unique_ptr<int>>");
-  register_common_type<caors::vector<caors::guid>>("caors.vector<guid>");
-  register_common_type<caors::vector<non_default_value>>(
-      "caors.vector<caors.test.serialization.non_default_value>");
-  register_common_type<caors::vector<nested_stats>>(
-      "caors.vector<caors.test.serialization.nested_stats>");
-  register_common_type<caors::vector<caors::object_ptr<object_ptr_target>>>(
-      "caors.vector<caors.object_ptr<caors.test.serialization.object_ptr_target>>");
-  register_common_type<caors::list<int>>("caors.list<int>");
-  register_common_type<std::forward_list<int>>("std.forward_list<int>");
-  register_common_type<std::deque<int>>("std.deque<int>");
-  register_common_type<std::array<int, 3>>("std.array<int,3>");
-  register_common_type<std::span<int>>("std.span<int>");
-  register_common_type<std::pair<int, caors::string>>("std.pair<int,caors.string>");
-  register_common_type<std::tuple<int, caors::string, float>>("std.tuple<int,caors.string,float>");
-  register_common_type<std::variant<int, caors::string, float>>(
-      "std.variant<int,caors.string,float>");
-  register_common_type<std::variant<int, non_default_value>>(
-      "std.variant<int,caors.test.serialization.non_default_value>");
-  register_common_type<caors::hash_map<int, caors::string>>("caors.hash_map<int,caors.string>");
-  register_common_type<std::map<int, caors::string>>("std.map<int,caors.string>");
-  register_common_type<caors::hash_set<int>>("caors.hash_set<int>");
-  register_common_type<std::set<int>>("std.set<int>");
-  register_common_type<custom_codec_sequence<int>>("caors.test.serialization.custom_sequence<int>");
-  register_common_type<custom_codec_map<int, caors::string>>(
-      "caors.test.serialization.custom_map<int,caors.string>");
-  register_common_type<caors::object_ptr<object_ptr_target>>(
-      "caors.object_ptr<caors.test.serialization.object_ptr_target>");
-  return true;
-}();
-
-} // namespace caors::tests::serialization
+namespace caors::tests::serialization {} // namespace caors::tests::serialization

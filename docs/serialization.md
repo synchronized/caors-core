@@ -904,12 +904,11 @@ DOM 是可选路径，适合工具、编辑器、测试对比和格式转换。�
 运行期 C++ 值可以显式转换为 `variant`：
 
 ```cpp
-caors::meta::type_<int>("int");
-
 caors::serialization::variant_result value = caors::serialization::to_variant(caors::any::from(42));
 ```
 
-`serialization::to_variant(any)` 会先查询 serialization codec，再回退到内置标量和字符串转换。`serialization::to_variant(any_ref)`
+`serialization::to_variant(any)` 不要求基础标量或字符串预先注册到 meta；它会先查询 serialization codec，
+再回退到内置标量和字符串转换。`serialization::to_variant(any_ref)`
 会先尝试复制引用指向的对象；不可拷贝引用会返回 `errc::unsupported`。
 
 ### serialization::registry
@@ -932,8 +931,8 @@ if (status) {
 auto serialization_type = caors::serialization::find(type);
 ```
 
-推荐由 meta 层先注册基础类型，再使用 `serialization::class_(meta::type)` 挂载序列化组件。这条路径不会
-创建或修改基础类型记录；无效 `meta::type` 返回 `errc::invalid_type`，不存在的 `type_id` 返回
+推荐由 meta 层先注册业务 meta 类型，再使用 `serialization::class_(meta::type)` 挂载序列化组件。这条路径不会
+创建或修改 meta 类型记录；无效 `meta::type` 返回 `errc::invalid_type`，不存在的 `type_id` 返回
 `errc::missing_type`。简单场景也可以使用公开便捷入口 `serialization::register_type<T>()` 或
 `serialization::register_type<T>({ ... })`。查询序列化组件时使用 `serialization::find()` 或
 `serialization::contains()`。低层 detail 组件注册函数属于内部实现入口，普通代码不直接调用。

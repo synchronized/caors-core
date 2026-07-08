@@ -27,8 +27,7 @@ struct codec_registry_state {
 
 template <typename T> [[nodiscard]] type_id registered_codec_type_id() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  const meta::type meta_type = meta::get_registry().find_type<type>();
-  return meta_type ? meta_type.id() : type_id::invalid();
+  return meta::detail::type_id_of_cpp_type<type>();
 }
 
 [[nodiscard]] error read_caors_string(reader& reader, core::string& value) {

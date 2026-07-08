@@ -6,8 +6,6 @@
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - rejects std array length mismatch", "[serialization]") {
-  using scores_type = std::array<int, 3>;
-  require_registered_type<scores_type>("std.array<int,3>");
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<array_actor>("caors.test.serialization.array_actor")
           .field("scores", &array_actor::scores)

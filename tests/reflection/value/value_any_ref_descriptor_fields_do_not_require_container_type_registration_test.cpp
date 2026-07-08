@@ -19,7 +19,7 @@ TEST_CASE("reflection any - descriptor fields do not require container type regi
   REQUIRE(reflected);
   auto values_field = reflected.find_field("values");
   REQUIRE(values_field);
-  CHECK(values_field.type_name().empty());
+  CHECK(values_field.type_name() == "std.vector<std.vector<int>>");
   CHECK(values_field.size() == sizeof(std::vector<std::vector<int>>));
   CHECK(values_field.alignment() == alignof(std::vector<std::vector<int>>));
   CHECK(values_field.kind() == caors::meta::type_kind::sequence);
@@ -34,7 +34,7 @@ TEST_CASE("reflection any - descriptor fields do not require container type regi
 
   caors::value::sequence_view inner = outer.element_ref(0).create_sequence_view();
   REQUIRE(inner.valid());
-  CHECK(inner.element_type() == caors::meta::id("int"));
+  CHECK(inner.element_type() == caors::any::from(0).type());
   CHECK(inner.element_ref(0).try_set(5));
   CHECK(holder.values[0][0] == 5);
 }
