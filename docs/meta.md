@@ -209,6 +209,7 @@ descriptor 内部按职责拆分：
 - `value_ops`：保存默认构造、复制、析构和赋值的类型擦除函数。
 - `type_semantics`：保存该类型在反射、序列化和 value 模块中的运行期形态。
 - `type_capabilities`：保存固定内置能力集合，例如枚举、间接值、顺序容器、集合、关联容器、pair、tuple 或 variant。
+- `static_capabilities`：保存模块声明的静态能力表，例如对象指针和对象句柄访问函数表。
 
 `type_semantics` 描述以下语义：
 
@@ -225,13 +226,15 @@ descriptor 内部按职责拆分：
 - `meta::detail::enum_data`：枚举类型和整数之间的转换函数。
 - `meta::detail::sequence_data` / `set_data` / `associative_data` / `pair_data` / `tuple_data` / `variant_data`：容器、二元组、tuple-like 和 variant-like 的运行期访问函数。
 
-模块扩展能力不进入 `type_descriptor`。这类能力通过 `meta::capabilities` 按 `type_id + capability_key`
-挂接到独立运行期索引；拿得到 C++ 类型 `T` 时，也可以通过 `meta::capabilities::get<Capability, T>()`
-直接查询静态能力。模块可特化 `meta::capabilities::static_capability_registrar<T>`，在 descriptor
-生成时把某个 C++ 类型的静态能力自动挂入运行期索引。serialization codec、`objects::ptr<T>` 和
-`objects::handle` 当前都使用这套动态 capability 机制；反射字段注册和 `any_ref::from(T&)`
-等公开入口会让对象指针和对象句柄能力进入运行期索引，供 `objects::ptr_view_of(any_ref)` /
-`objects::handle_view_of(any_ref)` 查询。
+模块静态能力通过 `meta::capabilities::static_capability_list<T>` 声明。该模板返回
+`type_list<Capability...>`，descriptor 生成时会把这些能力整理成一张静态 `capability_entry`
+表；拿得到 descriptor 的路径可以通过内部 `descriptor_static_capability<T>()` 直接查询。
+`objects::ptr<T>` 和 `objects::handle` 当前使用这套 descriptor 静态能力机制。
+
+动态扩展能力仍通过 `meta::capabilities` 按 `type_id + capability_key` 挂接到独立运行期索引；
+拿得到 C++ 类型 `T` 时，也可以通过 `meta::capabilities::get<Capability, T>()`
+直接查询静态能力。serialization codec 当前使用动态 capability 机制，因为 codec 是序列化模块的可注册扩展，
+不属于所有类型都天然拥有的 descriptor 基础能力。
 
 统一 `value_type` / `key_type` 不再作为 `type_descriptor` 顶层字段保存。普通值和枚举直接使用
 descriptor 自身的 `type_id`；裸指针、wrapper、容器、pair、tuple 和 variant 的子类型信息由对应

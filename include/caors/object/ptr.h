@@ -127,21 +127,8 @@ template <typename T> struct static_capability<objects::detail::ptr_data, T> {
   }
 };
 
-template <typename T> struct static_capability_registrar<objects::ptr<T>> {
-  [[nodiscard]] static error register_for(type_id id) {
-    using capability_type = objects::detail::ptr_data;
-    const capability_type* capability = get<capability_type, objects::ptr<T>>();
-    if (capability == nullptr) {
-      return {error_domain::meta, errc::unsupported};
-    }
-
-    if (contains<capability_type>(id)) {
-      return {};
-    }
-
-    const error status = caors::meta::capabilities::register_for<capability_type>(id, capability);
-    return status.value() == errc::duplicate_component ? error{} : status;
-  }
+template <typename T> struct static_capability_list<objects::ptr<T>> {
+  using type = type_list<objects::detail::ptr_data>;
 };
 
 } // namespace caors::meta::capabilities

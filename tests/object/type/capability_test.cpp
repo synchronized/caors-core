@@ -37,7 +37,21 @@ TEST_CASE("object - pointer and handle expose static meta capabilities", "[objec
   CHECK(typed_handle->valid());
 }
 
-TEST_CASE("object - reflected fields register object capabilities by type id", "[object]") {
+TEST_CASE("object - descriptor exposes object capabilities", "[object]") {
+  caors::object_ptr<capability_target> pointer{};
+  const caors::any_ref pointer_ref = caors::any_ref::from(pointer);
+  const auto* pointer_descriptor = caors::value::detail::descriptor_of(pointer_ref);
+  CHECK(caors::meta::detail::descriptor_static_capability<caors::objects::detail::ptr_data>(
+            pointer_descriptor) != nullptr);
+
+  caors::typed_object_handle<capability_target> handle{};
+  const caors::any_ref handle_ref = caors::any_ref::from(handle);
+  const auto* handle_descriptor = caors::value::detail::descriptor_of(handle_ref);
+  CHECK(caors::meta::detail::descriptor_static_capability<caors::objects::detail::handle_data>(
+            handle_descriptor) != nullptr);
+}
+
+TEST_CASE("object - reflected fields use descriptor object capabilities", "[object]") {
   REQUIRE(caors::reflection::class_<capability_owner>("caors.test.object.capability_owner")
               .field("pointer", &capability_owner::pointer)
               .field("handle", &capability_owner::handle)
@@ -45,19 +59,18 @@ TEST_CASE("object - reflected fields register object capabilities by type id", "
               .commit()
               .succeeded());
 
-  const auto pointer_type = caors::meta::id_of<caors::object_ptr<capability_target>>();
-  CHECK(caors::meta::capabilities::contains<caors::objects::detail::ptr_data>(pointer_type));
+  auto reflected = caors::reflection::find("caors.test.object.capability_owner");
+  REQUIRE(reflected);
 
-  const auto handle_type = caors::meta::id_of<caors::object_handle>();
-  CHECK(caors::meta::capabilities::contains<caors::objects::detail::handle_data>(handle_type));
-
-  const auto typed_handle_type =
-      caors::meta::id_of<caors::typed_object_handle<capability_target>>();
-  CHECK(
-      caors::meta::capabilities::contains<caors::objects::detail::handle_data>(typed_handle_type));
+  capability_owner owner{};
+  capability_target target{};
+  caors::reflection::field pointer = reflected.find_field("pointer");
+  REQUIRE(pointer);
+  CHECK(pointer.try_set_object_ptr(&owner, &target));
+  CHECK(owner.pointer.get() == &target);
 }
 
-TEST_CASE("object - any_ref resolves object capabilities through runtime index", "[object]") {
+TEST_CASE("object - any_ref resolves object capabilities through descriptor", "[object]") {
   caors::object_ptr<capability_target> pointer{};
   const caors::any_ref pointer_ref = caors::any_ref::from(pointer);
   const caors::objects::ptr_view pointer_view = caors::objects::ptr_view_of(pointer_ref);

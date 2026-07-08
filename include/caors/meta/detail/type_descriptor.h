@@ -85,10 +85,14 @@ struct type_descriptor {
   value_traits traits{};
   type_semantics semantics{};
   type_capabilities capabilities{};
+  const capability_entry* static_capabilities = nullptr;
+  std::size_t static_capability_count = 0;
 
   [[nodiscard]] bool valid() const noexcept { return type && layout.valid(); }
 
-  [[nodiscard]] bool has_view_capability() const noexcept { return capabilities.valid(); }
+  [[nodiscard]] bool has_view_capability() const noexcept {
+    return capabilities.valid() || static_capability_count > 0;
+  }
 };
 
 template <typename T> inline constexpr bool always_false_v = false;
@@ -121,6 +125,26 @@ template <typename Capability>
 [[nodiscard]] inline const Capability*
 descriptor_capability(const type_descriptor* descriptor) noexcept {
   return descriptor != nullptr ? descriptor_capability<Capability>(*descriptor) : nullptr;
+}
+
+template <typename Capability>
+[[nodiscard]] inline const Capability*
+descriptor_static_capability(const type_descriptor& descriptor) noexcept {
+  const capability_key key = capability_key_of<Capability>();
+  for (std::size_t index = 0; index < descriptor.static_capability_count; ++index) {
+    const capability_entry& entry = descriptor.static_capabilities[index];
+    if (entry.key == key) {
+      return static_cast<const Capability*>(entry.data);
+    }
+  }
+
+  return nullptr;
+}
+
+template <typename Capability>
+[[nodiscard]] inline const Capability*
+descriptor_static_capability(const type_descriptor* descriptor) noexcept {
+  return descriptor != nullptr ? descriptor_static_capability<Capability>(*descriptor) : nullptr;
 }
 
 [[nodiscard]] inline type_kind descriptor_kind(const type_descriptor& descriptor) noexcept {
@@ -940,7 +964,8 @@ template <typename T> struct descriptor_holder {
     };
     fill_descriptor_semantics<type>(descriptor);
     descriptor.capabilities = type_capabilities_of<type>();
-    (void)capabilities::register_static_for<type>(descriptor.type);
+    descriptor.static_capabilities = meta::capabilities::static_capabilities_data<type>();
+    descriptor.static_capability_count = meta::capabilities::static_capabilities_size<type>();
     return descriptor;
   }();
 };

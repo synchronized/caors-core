@@ -16,6 +16,14 @@ namespace caors::meta {
 /** @brief 运行期能力类型的唯一 key。 */
 using capability_key = const void*;
 
+/** @brief 一条静态能力记录。 */
+struct capability_entry {
+  capability_key key = nullptr;
+  const void* data = nullptr;
+
+  [[nodiscard]] bool valid() const noexcept { return key != nullptr && data != nullptr; }
+};
+
 /** @brief 返回能力类型在当前进程内的唯一 key。 */
 template <typename Capability> [[nodiscard]] capability_key capability_key_of() noexcept {
   static const int key = 0;
@@ -45,16 +53,18 @@ template <typename Capability, typename T> struct static_capability {
 };
 
 /**
- * @brief C++ 类型静态能力的运行期注册扩展点。
- *
- * 模块可特化该模板，把某个 C++ 类型拥有的静态能力挂入运行期索引。默认表示该类型
- * 没有需要自动注册的模块能力。
+ * @brief 轻量类型列表，用于声明某个 C++ 类型具备哪些静态能力。
  */
-template <typename T> struct static_capability_registrar {
-  [[nodiscard]] static error register_for(type_id id) {
-    (void)id;
-    return {error_domain::meta, errc::unsupported};
-  }
+template <typename... Types> struct type_list {};
+
+/**
+ * @brief C++ 类型静态能力列表扩展点。
+ *
+ * 模块可特化该模板，把某个 C++ 类型拥有的静态能力声明给 `type_descriptor`。
+ * 默认表示没有 descriptor 级静态能力。
+ */
+template <typename T> struct static_capability_list {
+  using type = type_list<>;
 };
 
 /** @brief 按 C++ 类型查询静态能力。 */
@@ -62,6 +72,39 @@ template <typename Capability, typename T> [[nodiscard]] const Capability* get()
   using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
   return static_capability<capability_type, value_type>::get();
+}
+
+template <typename T, typename List> struct static_capability_entries;
+
+template <typename T> struct static_capability_entries<T, type_list<>> {
+  [[nodiscard]] static constexpr const capability_entry* data() noexcept { return nullptr; }
+  [[nodiscard]] static constexpr std::size_t size() noexcept { return 0; }
+};
+
+template <typename T, typename... Capabilities>
+struct static_capability_entries<T, type_list<Capabilities...>> {
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+
+  inline static const capability_entry values[sizeof...(Capabilities)] = {capability_entry{
+      capability_key_of<std::remove_cv_t<std::remove_reference_t<Capabilities>>>(),
+      get<std::remove_cv_t<std::remove_reference_t<Capabilities>>, value_type>()}...};
+
+  [[nodiscard]] static const capability_entry* data() noexcept { return values; }
+  [[nodiscard]] static constexpr std::size_t size() noexcept { return sizeof...(Capabilities); }
+};
+
+/** @brief 返回某个 C++ 类型声明的 descriptor 级静态能力记录。 */
+template <typename T> [[nodiscard]] const capability_entry* static_capabilities_data() noexcept {
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  using list_type = typename static_capability_list<value_type>::type;
+  return static_capability_entries<value_type, list_type>::data();
+}
+
+/** @brief 返回某个 C++ 类型声明的 descriptor 级静态能力数量。 */
+template <typename T> [[nodiscard]] constexpr std::size_t static_capabilities_size() noexcept {
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  using list_type = typename static_capability_list<value_type>::type;
+  return static_capability_entries<value_type, list_type>::size();
 }
 
 /** @brief 把一份稳定生命周期的能力指针挂到运行期索引。 */
@@ -81,12 +124,6 @@ template <typename Capability, typename T> [[nodiscard]] error register_for() {
   }
 
   return register_for<capability_type>(detail::type_id_of_cpp_type<value_type>(), capability);
-}
-
-/** @brief 把某个 C++ 类型的所有模块静态能力挂入运行期索引。 */
-template <typename T> [[nodiscard]] error register_static_for(type_id id) {
-  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-  return static_capability_registrar<value_type>::register_for(id);
 }
 
 /** @brief 按运行期类型 id 查询已注册能力。 */

@@ -92,8 +92,8 @@ caors::reflection::class_<actor>("game.actor")
   `traits::wrapper_semantics` 为 `inline_value`。
 - `std::reference_wrapper<T>`：`meta::type_kind::wrapper`，`value_type` 为 `T`，不表示空值，
   `traits::wrapper_semantics` 为 `inline_value`。
-- `caors::objects::ptr<T>`：`meta::type_kind::value`，对象指针能力通过 `meta::capabilities`
-  挂到运行期索引，并使用 `objects::ptr_view_of(any_ref)` 查询。
+- `caors::objects::ptr<T>`：`meta::type_kind::value`，对象指针能力通过 descriptor 静态能力表保存，
+  并使用 `objects::ptr_view_of(any_ref)` 查询。
 - `traits::sequence_traits<T>` 顺序容器：`meta::type_kind::sequence`，value 类型为元素类型；`get_element_type()`
   是对外语义别名。字段视图可以查询元素数量、访问元素引用，并在 traits 支持时执行清空、调整大小和追加元素。内置 `caors::vector<T>` 会生成
   `caors.vector<T>` 类型名。
