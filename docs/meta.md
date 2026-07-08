@@ -238,9 +238,10 @@ descriptor 内部按职责拆分：
 模块静态能力通过 `meta::capabilities::module_static_capability_list<Module, T>` 声明。
 `meta::capabilities::static_capability_list<T>` 是聚合入口，会把 object、serialization 和外部模块
 贡献的 `type_list<Capability...>` 合并；descriptor 生成时会把这些能力整理成一张静态
-`capability_entry` 表；拿得到 descriptor 的路径可以通过内部
-`descriptor_static_capability<T>()` 直接查询。`objects::ptr<T>`、`objects::handle` 和
-serialization codec 当前使用这套 descriptor 静态能力机制。
+`capability_entry` 表。公开查询优先使用 `meta::type::get_capability<T>()` 或
+`meta::type::has_capability<T>()`；该入口会先查询 descriptor 静态能力，再回退到运行期
+capability 索引。内部仍保留 `descriptor_static_capability<T>()` 给 descriptor 层实现使用。
+`objects::ptr<T>`、`objects::handle` 和 serialization codec 都通过 `meta::type` 的统一入口查询能力。
 
 动态扩展能力仍通过 `meta::capabilities` 按 `type_id + capability_key` 挂接到独立运行期索引；
 拿得到 C++ 类型 `T` 时，也可以通过 `meta::capabilities::get<Capability, T>()`

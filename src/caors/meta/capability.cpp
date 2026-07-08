@@ -4,6 +4,8 @@
 #include "caors/meta/capability.h"
 
 #include "caors/core/containers.h"
+#include "caors/meta/detail/type_descriptor.h"
+#include "caors/meta/type.h"
 
 #include <cstdint>
 #include <mutex>
@@ -68,6 +70,23 @@ const void* find_capability(type_id id, capability_key key) noexcept {
   }
 
   return capability_position->second;
+}
+
+const void* find_type_capability(const meta::type& type, capability_key key) noexcept {
+  if (!type || key == nullptr) {
+    return nullptr;
+  }
+
+  if (type.descriptor_ != nullptr) {
+    for (std::size_t index = 0; index < type.descriptor_->static_capability_count; ++index) {
+      const capability_entry& entry = type.descriptor_->static_capabilities[index];
+      if (entry.key == key && entry.data != nullptr) {
+        return entry.data;
+      }
+    }
+  }
+
+  return find_capability(type.id(), key);
 }
 
 bool contains_capability(type_id id, capability_key key) noexcept {

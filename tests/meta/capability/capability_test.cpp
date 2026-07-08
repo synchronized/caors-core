@@ -30,6 +30,11 @@ template <> struct static_capability<static_capability_data, static_capability_t
   }
 };
 
+template <>
+struct module_static_capability_list<custom_static_capability_module, static_capability_type> {
+  using type = type_list<static_capability_data>;
+};
+
 } // namespace caors::meta::capabilities
 
 TEST_CASE("meta - capability registry stores runtime capabilities by type id", "[meta]") {
@@ -44,6 +49,10 @@ TEST_CASE("meta - capability registry stores runtime capabilities by type id", "
   CHECK(found == &capability);
   CHECK(found->value == 7);
   CHECK(caors::meta::capabilities::contains<runtime_capability>(id));
+
+  const caors::meta::type type = caors::meta::find<runtime_capability_type>();
+  CHECK(type.get_capability<runtime_capability>() == &capability);
+  CHECK(type.has_capability<runtime_capability>());
 }
 
 TEST_CASE("meta - capability static provider can be registered into runtime index", "[meta]") {
@@ -59,4 +68,12 @@ TEST_CASE("meta - capability static provider can be registered into runtime inde
       caors::meta::id_of<static_capability_type>());
   REQUIRE(found != nullptr);
   CHECK(found == capability);
+}
+
+TEST_CASE("meta - type view resolves descriptor static capabilities", "[meta]") {
+  const caors::meta::type type = caors::meta::find<static_capability_type>();
+  const static_capability_data* found = type.get_capability<static_capability_data>();
+  REQUIRE(found != nullptr);
+  CHECK(found->value == 42);
+  CHECK(type.has_capability<static_capability_data>());
 }

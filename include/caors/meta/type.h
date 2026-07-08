@@ -8,6 +8,7 @@
 #include "caors/error.h"
 #include "caors/export.h"
 #include "caors/memory/resource.h"
+#include "caors/meta/capability.h"
 #include "caors/meta/detail/type_data.h"
 #include "caors/meta/type_id.h"
 #include "caors/traits/container.h"
@@ -305,6 +306,18 @@ public:
   [[nodiscard]] type_id parent_id() const noexcept;
   [[nodiscard]] type parent() const noexcept;
 
+  /** @brief 查询该类型视图具备的能力；优先使用 descriptor 静态能力，再回退到运行期索引。 */
+  template <typename Capability> [[nodiscard]] const Capability* get_capability() const noexcept {
+    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+    return static_cast<const capability_type*>(
+        detail::find_type_capability(*this, capability_key_of<capability_type>()));
+  }
+
+  /** @brief 判断该类型视图是否具备指定能力。 */
+  template <typename Capability> [[nodiscard]] bool has_capability() const noexcept {
+    return get_capability<Capability>() != nullptr;
+  }
+
 private:
   friend class registry;
   friend detail::value_default_construct_fn
@@ -313,6 +326,7 @@ private:
   friend detail::value_destroy_fn detail::get_destroy_value_fn(const type&) noexcept;
   friend detail::value_assign_fn detail::get_assign_value_fn(const type&) noexcept;
   friend type detail::make_type_view(type_id, const detail::type_descriptor*) noexcept;
+  friend const void* detail::find_type_capability(const type&, capability_key) noexcept;
 
   constexpr type(const registry* registry, const detail::type_data* data,
                  const detail::type_descriptor* descriptor) noexcept

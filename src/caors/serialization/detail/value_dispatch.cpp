@@ -15,26 +15,12 @@ namespace caors::serialization::detail {
 
 namespace {
 
-[[nodiscard]] const codec_ops*
-static_codec_ops(const meta::detail::type_descriptor* descriptor) {
-  return meta::detail::descriptor_static_capability<codec_ops>(descriptor);
-}
-
-[[nodiscard]] const codec_ops*
-find_codec_ops(const meta::detail::type_descriptor* descriptor, type_id id) {
-  if (const codec_ops* codec = static_codec_ops(descriptor); codec != nullptr) {
-    return codec;
-  }
-
-  return ops_of(serialization::find_codec(id));
-}
-
 [[nodiscard]] const codec_ops* find_codec_ops(const any& data) {
-  return find_codec_ops(value::detail::descriptor_of(data), data.get_type().id());
+  return ops_of(serialization::find_codec(data.get_type()));
 }
 
 [[nodiscard]] const codec_ops* find_codec_ops(const any_ref& value) {
-  return find_codec_ops(value::detail::descriptor_of(value), value.get_type().id());
+  return ops_of(serialization::find_codec(value.get_type()));
 }
 
 } // namespace

@@ -13,6 +13,8 @@
 
 namespace caors::meta {
 
+class type;
+
 /** @brief 运行期能力类型的唯一 key。 */
 using capability_key = const void*;
 
@@ -35,6 +37,8 @@ namespace detail {
 [[nodiscard]] CAORS_API error register_capability(type_id id, capability_key key,
                                                   const void* capability);
 [[nodiscard]] CAORS_API const void* find_capability(type_id id, capability_key key) noexcept;
+[[nodiscard]] CAORS_API const void* find_type_capability(const meta::type& type,
+                                                         capability_key key) noexcept;
 [[nodiscard]] CAORS_API bool contains_capability(type_id id, capability_key key) noexcept;
 [[nodiscard]] CAORS_API std::size_t capability_count(capability_key key) noexcept;
 
@@ -73,8 +77,7 @@ template <typename... Lhs, typename... Rhs, typename... Rest>
 struct concat_type_lists<type_list<Lhs...>, type_list<Rhs...>, Rest...>
     : concat_type_lists<type_list<Lhs..., Rhs...>, Rest...> {};
 
-template <typename... Lists>
-using concat_type_lists_t = typename concat_type_lists<Lists...>::type;
+template <typename... Lists> using concat_type_lists_t = typename concat_type_lists<Lists...>::type;
 
 } // namespace list_detail
 

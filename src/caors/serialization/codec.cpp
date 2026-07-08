@@ -4,6 +4,7 @@
 #include "caors/serialization/codec.h"
 
 #include "caors/meta/capability.h"
+#include "caors/meta/type.h"
 
 #include <chrono>
 #include <filesystem>
@@ -43,7 +44,14 @@ codec find_codec(type_id id) {
   return detail::get_codec_registry().find_codec(id);
 }
 
-codec find_codec(meta::type type) { return type ? find_codec(type.id()) : codec{}; }
+codec find_codec(meta::type type) {
+  if (!type) {
+    return {};
+  }
+
+  static_cast<void>(detail::get_codec_registry());
+  return codec{type.get_capability<detail::codec_ops>()};
+}
 
 } // namespace caors::serialization
 

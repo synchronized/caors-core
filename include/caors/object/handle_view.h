@@ -4,8 +4,6 @@
 #ifndef CAORS_OBJECT_HANDLE_VIEW_H_
 #define CAORS_OBJECT_HANDLE_VIEW_H_
 
-#include "caors/meta/capability.h"
-#include "caors/meta/detail/type_descriptor.h"
 #include "caors/object/handle.h"
 #include "caors/value/any_ref.h"
 
@@ -63,12 +61,7 @@ private:
     return {};
   }
 
-  const meta::detail::type_descriptor* descriptor = value::detail::descriptor_of(source);
-  const detail::handle_ops* data =
-      meta::detail::descriptor_static_capability<detail::handle_ops>(descriptor);
-  if (data == nullptr) {
-    data = meta::capabilities::find<detail::handle_ops>(source.get_type().id());
-  }
+  const detail::handle_ops* data = source.get_type().get_capability<detail::handle_ops>();
   if (data == nullptr) {
     return {};
   }

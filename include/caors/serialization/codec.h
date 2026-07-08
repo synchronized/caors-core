@@ -48,6 +48,7 @@ public:
 
 private:
   template <typename T> friend codec codec_of();
+  friend codec find_codec(meta::type type);
   friend class detail::codec_registry;
   friend const detail::codec_ops* detail::ops_of(codec) noexcept;
 
