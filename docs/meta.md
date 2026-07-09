@@ -212,6 +212,10 @@ descriptor 内部按职责拆分：
 - `static_capabilities`：保存模块声明的静态能力表，例如对象指针、对象句柄访问函数表和
   serialization codec 函数表。
 
+内部文件边界上，`meta/detail/type_descriptor.h` 只保存 descriptor 结构、查询 helper 和 descriptor
+holder；`meta/detail/builtin_ops_model.h` 负责内置能力的 `*_ops_model<T>` 生成；`meta/type_semantics.h`
+只保留类型语义判断 helper。
+
 术语约定：
 
 - `capability` 表示能力槽位或可查询能力，例如“这个类型是否具备序列化 codec 能力”。
