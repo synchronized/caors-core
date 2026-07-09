@@ -125,7 +125,9 @@ TEST_CASE("meta - capability registry stores runtime capabilities by type id", "
   const caors::type_id id = caors::meta::id_of<runtime_capability_type>();
 
   CHECK(caors::meta::capabilities::find<runtime_capability>(id) == nullptr);
-  REQUIRE(caors::meta::capabilities::register_for<runtime_capability>(id, &capability).succeeded());
+  REQUIRE(caors::meta::type_<runtime_capability_type>()
+              .capability<runtime_capability>(&capability)
+              .succeeded());
 
   const runtime_capability* found = caors::meta::capabilities::find<runtime_capability>(id);
   REQUIRE(found != nullptr);
@@ -144,7 +146,8 @@ TEST_CASE("meta - capability static provider can be registered into runtime inde
   REQUIRE(capability != nullptr);
   CHECK(capability->value == 42);
 
-  REQUIRE(caors::meta::capabilities::register_for<static_capability_data, static_capability_type>()
+  REQUIRE(caors::meta::type_<static_capability_type>()
+              .capability<static_capability_data>()
               .succeeded());
 
   const static_capability_data* found = caors::meta::capabilities::find<static_capability_data>(

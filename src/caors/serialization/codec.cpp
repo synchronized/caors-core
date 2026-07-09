@@ -384,7 +384,7 @@ error codec_registry::register_codec(type_id id, const codec_ops& codec) {
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  return rethrow_as(meta::capabilities::register_for<codec_ops>(id, &codec),
+  return rethrow_as(meta::detail::register_capability_for<codec_ops>(id, &codec),
                     error_domain::serialization);
 }
 

@@ -94,6 +94,31 @@ public:
     return *this;
   }
 
+  /**
+   * @brief 为当前 C++ 类型挂接一份运行期 capability 指针。
+   *
+   * `capability` 必须在运行期索引可访问期间保持有效；普通查询优先使用
+   * `meta::type::get_capability<Capability>()`。
+   */
+  template <typename Capability> type_builder& capability(const Capability* capability) {
+    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+    status_ = detail::register_capability_for_type<capability_type, T>(capability);
+    refresh();
+    return *this;
+  }
+
+  /**
+   * @brief 把 `static_capability<Capability, T>` 提供的静态能力挂接到运行期索引。
+   *
+   * 该入口适合只剩 `type_id` 的运行期查询路径；携带 descriptor 的路径无需显式挂接。
+   */
+  template <typename Capability> type_builder& capability() {
+    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+    status_ = detail::register_static_capability_for<capability_type, T>();
+    refresh();
+    return *this;
+  }
+
   [[nodiscard]] ::caors::meta::type get() const noexcept { return type_; }
   [[nodiscard]] error result() const noexcept { return status_; }
   [[nodiscard]] bool succeeded() const noexcept {

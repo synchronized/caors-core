@@ -246,10 +246,11 @@ descriptor 内部按职责拆分：
 capability 索引。内部仍保留 `descriptor_static_capability<T>()` 给 descriptor 层实现使用。
 `objects::ptr<T>`、`objects::handle` 和 serialization codec 都通过 `meta::type` 的统一入口查询能力。
 
-动态扩展能力仍通过 `meta::capabilities` 按 `type_id + capability_key` 挂接到独立运行期索引；
-拿得到 C++ 类型 `T` 时，也可以通过 `meta::capabilities::get<Capability, T>()`
-直接查询静态能力。serialization codec 会作为静态能力挂到 descriptor 上；当运行期只剩
-`type_id`、没有 descriptor 可用时，仍通过动态 capability 索引查询显式注册的 codec。
+动态扩展能力通过 `meta::type_<T>().capability<Capability>()` 或
+`meta::type_<T>().capability<Capability>(&ops)` 挂接到独立运行期索引；`meta::capabilities`
+命名空间只保留静态能力提供者、运行期查询和诊断工具。拿得到 C++ 类型 `T` 时，也可以通过
+`meta::capabilities::get<Capability, T>()` 直接查询静态能力。serialization codec 会作为静态能力挂到
+descriptor 上；当运行期只剩 `type_id`、没有 descriptor 可用时，仍通过动态 capability 索引查询显式注册的 codec。
 
 capability 和 registry 的边界：
 
@@ -257,6 +258,8 @@ capability 和 registry 的边界：
   句柄访问函数和 `codec_traits<T>` 生成的 codec 操作表。
 - `meta::capabilities` 运行期索引适合“只剩 `type_id`，但仍需要查询某种模块能力”的场景，例如
   `serialization::find_codec(type_id)`。
+- 公开写入运行期索引时使用 `meta::type_<T>().capability<Capability>(&ops)`；如果能力来自
+  `static_capability<Capability, T>`，可以使用 `meta::type_<T>().capability<Capability>()`。
 - 普通调用方优先使用 `meta::type::get_capability<T>()`。该入口统一处理 descriptor 静态能力和运行期
   索引 fallback，避免业务代码分别理解两套存储位置。
 - capability 不是 meta 组件。它不拥有类型注册数据，也不表示该 C++ 类型已经注册到
@@ -378,6 +381,26 @@ caors::meta::type_<actor>("game.actor");
 
 caors::type_id actor_id = caors::meta::find<actor>().id();
 caors::meta::get_registry().emplace<object_factory_meta>(actor_id, true);
+```
+
+运行期 capability 不是普通 meta 组件，公开写入入口挂在类型 builder 上：
+
+```cpp
+struct my_ops {
+  int value = 0;
+};
+
+static const my_ops ops{42};
+
+caors::meta::type_<actor>("game.actor")
+    .capability<my_ops>(&ops);
+```
+
+如果能力由 `static_capability<Capability, T>` 提供，也可以只声明能力类型：
+
+```cpp
+caors::meta::type_<actor>()
+    .capability<my_ops>();
 ```
 
 组件 API：

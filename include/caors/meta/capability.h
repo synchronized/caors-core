@@ -174,6 +174,41 @@ template <typename Capability, typename T> [[nodiscard]] const Capability* get()
   return static_capability<capability_type, value_type>::get();
 }
 
+} // namespace capabilities
+
+namespace detail {
+
+/** @brief 把一份稳定生命周期的能力指针挂到运行期索引。内部入口。 */
+template <typename Capability>
+[[nodiscard]] error register_capability_for(type_id id, const Capability* capability) {
+  using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+  return register_capability(id, capability_key_of<capability_type>(), capability);
+}
+
+/** @brief 按 C++ 类型把一份稳定生命周期的能力指针挂到运行期索引。内部入口。 */
+template <typename Capability, typename T>
+[[nodiscard]] error register_capability_for_type(const Capability* capability) {
+  using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  return register_capability_for<capability_type>(type_id_of_cpp_type<value_type>(), capability);
+}
+
+/** @brief 把 C++ 类型的静态能力挂到运行期索引。内部入口。 */
+template <typename Capability, typename T> [[nodiscard]] error register_static_capability_for() {
+  using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  const capability_type* capability = capabilities::get<capability_type, value_type>();
+  if (capability == nullptr) {
+    return {error_domain::meta, errc::unsupported};
+  }
+
+  return register_capability_for_type<capability_type, value_type>(capability);
+}
+
+} // namespace detail
+
+namespace capabilities {
+
 template <typename T, typename List> struct static_capability_entries;
 
 template <typename T> struct static_capability_entries<T, type_list<>> {
@@ -205,25 +240,6 @@ template <typename T> [[nodiscard]] constexpr std::size_t static_capabilities_si
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
   using list_type = typename static_capability_list<value_type>::type;
   return static_capability_entries<value_type, list_type>::size();
-}
-
-/** @brief 把一份稳定生命周期的能力指针挂到运行期索引。 */
-template <typename Capability>
-[[nodiscard]] error register_for(type_id id, const Capability* capability) {
-  using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
-  return detail::register_capability(id, capability_key_of<capability_type>(), capability);
-}
-
-/** @brief 把 C++ 类型的静态能力挂到运行期索引。 */
-template <typename Capability, typename T> [[nodiscard]] error register_for() {
-  using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
-  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-  const capability_type* capability = get<capability_type, value_type>();
-  if (capability == nullptr) {
-    return {error_domain::meta, errc::unsupported};
-  }
-
-  return register_for<capability_type>(detail::type_id_of_cpp_type<value_type>(), capability);
 }
 
 /** @brief 按运行期类型 id 查询已注册能力。 */

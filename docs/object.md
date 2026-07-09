@@ -153,7 +153,7 @@ if (ptr) {
 ```
 
 如果 `objects::ptr<T>` / `objects::handle` 作为反射字段或容器元素使用，字段和容器元素 `any_ref`
-会携带声明类型的 descriptor，字段读写和序列化路径不需要手动调用 `register_for()`。
+会携带声明类型的 descriptor，字段读写和序列化路径不需要手动注册运行期 capability。
 
 它表达的是“当前已经拿到了对象地址”。如果对象由 `objects::manager`、场景树或其他上层容器拥有，
 调用方必须保证 `ptr<T>` 的使用时间不超过对象生命周期；对象销毁后已有 `ptr<T>` 不会自动置空。
