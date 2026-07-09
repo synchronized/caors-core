@@ -123,15 +123,10 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `caors::string` 并减少结果拷贝，后续可接入指定 `memory_resource`。
 - [ ] 扩展 JSON parser-side options，例如最大嵌套深度、重复 key 策略、尾随逗号开关和完整
   Unicode 转义处理；当前 `json_options` 只影响 writer 格式化。
-- [x] 增加 `variant::dictionary` 和 `caors::hash_map<K, V>` 字典 codec。
-- [x] 抽出基于 `traits::sequence_traits<T>` 和 `traits::associative_traits<T>` 的通用容器 codec。
-- [x] 支持基于 `traits::set_traits<T>` 的 `caors::hash_set<T>` 集合 codec。
-- [x] 支持基于 `traits::sequence_traits<T>` 的 `caors::list<T>` 数组 codec。
-- [ ] 增加 context-first 的 view-based 序列化 helper，例如 `write_value(context, writer, any_ref)`、
-  `read_value(context, reader, any_ref)` 和 `make_value(context, any_ref)`，让通用容器 codec 复用
-  `sequence_view` / `set_view` / `associative_view` / `pair_view` / `tuple_view` / `variant_view`
-  调度路径，逐步收缩 `write_vector_element`、`read_vector_element` 和 `make_vector_element_value`
-  这类重复递归逻辑。
+- [x] 增加 `variant::dictionary` 和 `caors::hash_map<K, V>` 字典写出/读回。
+- [x] 将容器序列化统一到 descriptor + `sequence_view` / `set_view` / `associative_view` 路径，删除独立通用容器 codec 递归实现。
+- [x] 支持基于 `traits::set_traits<T>` 的 `caors::hash_set<T>` 集合写出/读回。
+- [x] 支持基于 `traits::sequence_traits<T>` 的 `caors::list<T>` 数组写出/读回。
 - [x] 支持裸指针、普通 wrapper、`objects::ptr<T>` 和 `null` 边界处理。
 - [x] 支持 `objects::ptr<T>` 通过持久 `object_guid` resolver 写出和读回。
 - [x] 支持 `std::array<T,N>`、`std::deque<T>`、`std::forward_list<T>`、`std::set<T>` 和 `std::map<K,V>` 的默认序列化适配。

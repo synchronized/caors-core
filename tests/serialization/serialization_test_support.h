@@ -272,20 +272,20 @@ struct ordered_map_actor {
   std::map<int, caors::string> labels{};
 };
 
-template <typename T> struct custom_codec_sequence {
+template <typename T> struct custom_sequence {
   caors::vector<T> values{};
 };
 
-struct custom_codec_sequence_actor {
-  caors::tests::serialization::custom_codec_sequence<int> scores{};
+struct custom_sequence_actor {
+  caors::tests::serialization::custom_sequence<int> scores{};
 };
 
-template <typename K, typename V> struct custom_codec_map {
+template <typename K, typename V> struct custom_map {
   caors::hash_map<K, V> values{};
 };
 
-struct custom_codec_map_actor {
-  caors::tests::serialization::custom_codec_map<int, caors::string> labels{};
+struct custom_map_actor {
+  caors::tests::serialization::custom_map<int, caors::string> labels{};
 };
 
 struct nested_vector_actor {
@@ -486,8 +486,7 @@ template <> struct type_name<caors::tests::serialization::nested_stats> {
 
 namespace caors::traits {
 
-template <typename T>
-struct sequence_traits<caors::tests::serialization::custom_codec_sequence<T>> {
+template <typename T> struct sequence_traits<caors::tests::serialization::custom_sequence<T>> {
   static constexpr bool is_sequence = true;
   using element_type = std::remove_cv_t<T>;
 
@@ -496,33 +495,33 @@ struct sequence_traits<caors::tests::serialization::custom_codec_sequence<T>> {
   }
 
   [[nodiscard]] static std::size_t
-  size(const caors::tests::serialization::custom_codec_sequence<T>& values) noexcept {
+  size(const caors::tests::serialization::custom_sequence<T>& values) noexcept {
     return values.values.size();
   }
 
   [[nodiscard]] static const element_type*
-  element(const caors::tests::serialization::custom_codec_sequence<T>& values,
+  element(const caors::tests::serialization::custom_sequence<T>& values,
           std::size_t index) noexcept {
     return index < values.values.size() ? &values.values[index] : nullptr;
   }
 
   [[nodiscard]] static element_type*
-  mutable_element(caors::tests::serialization::custom_codec_sequence<T>& values,
+  mutable_element(caors::tests::serialization::custom_sequence<T>& values,
                   std::size_t index) noexcept {
     return index < values.values.size() ? &values.values[index] : nullptr;
   }
 
-  static void clear(caors::tests::serialization::custom_codec_sequence<T>& values) {
+  static void clear(caors::tests::serialization::custom_sequence<T>& values) {
     values.values.clear();
   }
 
-  [[nodiscard]] static bool resize(caors::tests::serialization::custom_codec_sequence<T>& values,
+  [[nodiscard]] static bool resize(caors::tests::serialization::custom_sequence<T>& values,
                                    std::size_t size) {
     values.values.resize(size);
     return true;
   }
 
-  [[nodiscard]] static bool append(caors::tests::serialization::custom_codec_sequence<T>& values,
+  [[nodiscard]] static bool append(caors::tests::serialization::custom_sequence<T>& values,
                                    const element_type& value) {
     values.values.push_back(value);
     return true;
@@ -530,11 +529,11 @@ struct sequence_traits<caors::tests::serialization::custom_codec_sequence<T>> {
 };
 
 template <typename K, typename V>
-struct associative_traits<caors::tests::serialization::custom_codec_map<K, V>> {
+struct associative_traits<caors::tests::serialization::custom_map<K, V>> {
   static constexpr bool is_associative = true;
   using key_type = std::remove_cv_t<K>;
   using mapped_type = std::remove_cv_t<V>;
-  using map_type = caors::tests::serialization::custom_codec_map<K, V>;
+  using map_type = caors::tests::serialization::custom_map<K, V>;
 
   [[nodiscard]] static constexpr std::string_view type_name_prefix() noexcept {
     return "caors.test.serialization.custom_map";
@@ -558,17 +557,5 @@ struct associative_traits<caors::tests::serialization::custom_codec_map<K, V>> {
 };
 
 } // namespace caors::traits
-
-namespace caors::serialization {
-
-template <typename T>
-struct codec_traits<caors::tests::serialization::custom_codec_sequence<T>>
-    : sequence_codec<caors::tests::serialization::custom_codec_sequence<T>> {};
-
-template <typename K, typename V>
-struct codec_traits<caors::tests::serialization::custom_codec_map<K, V>>
-    : associative_codec<caors::tests::serialization::custom_codec_map<K, V>> {};
-
-} // namespace caors::serialization
 
 namespace caors::tests::serialization {} // namespace caors::tests::serialization

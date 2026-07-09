@@ -68,13 +68,9 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 - `caors/serialization/dom_reader.h`：从 `variant` DOM 读入的 reader 后端。
 - `caors/serialization/operations.h`：`serialize()`、`deserialize()`、`to_serialization_value()`、`serialize_text()`、`write_variant()` 等调度入口。
 - `caors/serialization/resource_codec.h`：资源 GUID 和资源引用的稳定标识 codec。
-- `caors/serialization/vector_codec.h`：基于 `traits::sequence_traits<T>` 的通用数组 codec，以及顺序容器默认适配。
-- `caors/serialization/set_codec.h`：基于 `traits::set_traits<T>` 的通用集合 codec，以及集合容器默认适配。
-- `caors/serialization/map_codec.h`：基于 `traits::associative_traits<T>` 的通用字典 codec，以及关联容器默认适配。
-- `caors/serialization/stl_codecs.h`：STL/CAORS 容器 codec 聚合入口。
-- `caors/serialization.h`：兼容用聚合头，包含以上所有入口。
+- `caors/serialization.h`：兼容用聚合头，包含序列化入口和 STL 容器 traits 适配。
 - `caors/traits/*.h`：类型名、wrapper 和容器类扩展点主模板。
-- `caors/adapters/stl.h`：STL/CAORS 容器、wrapper 和反射 traits 的适配聚合入口；不包含序列化 codec。
+- `caors/adapters/stl.h`：STL/CAORS 容器、wrapper 和反射 traits 的适配聚合入口。
 
 实现文件按 registry、codec、text writer、JSON writer/parser、DOM/value、writer 接口、DOM
 写出、对象序列化、对象反序列化、字段读写、容器读写、中间值构造和文本便捷入口拆分在
@@ -672,21 +668,21 @@ codec 和 meta descriptor 的边界：
 - `caors::resource_guid`：按标准 UUID/GUID 字符串读写。
 - `caors::resource_ref<T>`：非空引用按 `resource_guid` 字符串读写；空引用写 `null`，默认读回后只恢复 GUID。
   如果 `serialization::context` 配置了资源 resolver，也可以按策略立即解析到 manager/cache 中已有资源。
-- `caors::vector<T>` / `std::vector<T>`：通过 `serialization::sequence_codec<T>` 输出为数组。
-- `caors::list<T>` / `std::list<T>`：通过 `serialization::sequence_codec<T>` 输出为数组。
-- `std::forward_list<T>`：通过 `serialization::sequence_codec<T>` 输出为数组；反射随机访问需要线性遍历。
-- `std::deque<T>`：通过 `serialization::sequence_codec<T>` 输出为数组。
-- `std::array<T, N>`：通过 `serialization::sequence_codec<T>` 输出为数组；读入长度必须等于 `N`。
+- `caors::vector<T>` / `std::vector<T>`：通过 `traits::sequence_traits<T>` 和 `sequence_view` 输出为数组。
+- `caors::list<T>` / `std::list<T>`：通过 `traits::sequence_traits<T>` 和 `sequence_view` 输出为数组。
+- `std::forward_list<T>`：通过 `traits::sequence_traits<T>` 和 `sequence_view` 输出为数组；反射随机访问需要线性遍历。
+- `std::deque<T>`：通过 `traits::sequence_traits<T>` 和 `sequence_view` 输出为数组。
+- `std::array<T, N>`：通过 `traits::sequence_traits<T>` 和 `sequence_view` 输出为数组；读入长度必须等于 `N`。
 - `std::span<T>` / `std::span<T, N>`：通过 `traits::sequence_traits<T>` 输出为数组；它是借用视图，默认不支持反序列化读回。
-- `caors::hash_set<T>` / `std::unordered_set<T>` / `std::set<T>`：通过 `serialization::set_codec<T>`
+- `caors::hash_set<T>` / `std::unordered_set<T>` / `std::set<T>`：通过 `traits::set_traits<T>` 和 `set_view`
   输出为数组，读入时拒绝重复元素。
 - `caors::hash_map<K, V>` / `std::unordered_map<K, V>` / `std::map<K, V>`：通过
-  `serialization::associative_codec<T>` 输出为字典 pair 数组。
+  `traits::associative_traits<T>` 和 `associative_view` 输出为字典 pair 数组。
 - `std::variant<Ts...>`：通过 `traits::variant_traits<T>` 输出为 tagged union 数组 `[index, value]`。
 
-`caors/serialization/stl_codecs.h` 聚合了当前内置容器 codec。`caors/serialization.h` 会继续包含它，
-因此既有代码不需要额外 include。如果只需要反射 traits 或 wrapper 语义，可以包含
-`caors/adapters/stl.h`，该头不会拉入序列化 codec。
+`caors/serialization.h` 会包含 STL 容器 traits 适配，常见容器字段不需要额外 include。自定义容器只需要在
+`caors::traits` 命名空间特化对应容器 traits；序列化层不再提供 `sequence_codec`、`set_codec`
+或 `associative_codec` 这类容器级 codec 基类，避免容器递归和 descriptor/view 路径重复实现。
 
 内置标量 codec 按 type descriptor id 懒加载补齐，不要求内置类型显式 meta 注册。内置 codec 和外部
 `serialization::codec_traits<T>` 特化都通过同一套函数表构造逻辑生成 `codec_ops`；区别只是内置
@@ -701,22 +697,23 @@ codec 由库内部按需放入运行期索引，外部自定义 codec 可以直�
 `traits::sequence_traits<T>`、`traits::set_traits<T>`、`traits::associative_traits<T>`、`traits::pair_traits<T>`、`traits::tuple_traits<T>` 或
 `traits::variant_traits<T>` 生成运行期访问能力，序列化层随后按元素、key、first、候选下标和 value 递归处理。
 递归用到的业务类型如果需要稳定名称、GUID、反射字段、多态构造或对象工厂，仍应通过
-`meta::type_<T>("name")` 显式注册。`serialization::sequence_codec<T>`、
-`serialization::set_codec<T>` 和 `serialization::associative_codec<T>`
-仍保留给显式 codec 注册、独立 `any` / `type_id` 运行期转换和外部复用。自定义容器通常只需要特化 traits；如果还需要作为 codec
-单独注册，可以让自己的 `serialization::codec_traits<T>` 继承通用 codec：
+`meta::type_<T>("name")` 显式注册。自定义容器扩展示例：
 
 ```cpp
-namespace caors::serialization {
+namespace caors::traits {
 
 template <typename T>
-struct codec_traits<my_sequence<T>> : sequence_codec<my_sequence<T>> {};
+struct sequence_traits<my_sequence<T>> {
+  static constexpr bool is_sequence = true;
+  using element_type = T;
 
-template <typename T>
-struct codec_traits<my_set<T>> : set_codec<my_set<T>> {};
-
-template <typename K, typename V>
-struct codec_traits<my_map<K, V>> : associative_codec<my_map<K, V>> {};
+  static std::size_t size(const my_sequence<T>& values) noexcept;
+  static const element_type* element(const my_sequence<T>& values, std::size_t index) noexcept;
+  static element_type* mutable_element(my_sequence<T>& values, std::size_t index) noexcept;
+  static void clear(my_sequence<T>& values);
+  static bool resize(my_sequence<T>& values, std::size_t size);
+  static bool append(my_sequence<T>& values, const element_type& value);
+};
 
 }
 ```

@@ -4,13 +4,13 @@
 #ifndef CAORS_SERIALIZATION_H_
 #define CAORS_SERIALIZATION_H_
 
+#include "caors/adapters/stl_traits.h"
 #include "caors/serialization/codec.h"
 #include "caors/serialization/dom_reader.h"
 #include "caors/serialization/operations.h"
 #include "caors/serialization/reader.h"
 #include "caors/serialization/registry.h"
 #include "caors/serialization/resource_codec.h"
-#include "caors/serialization/stl_codecs.h"
 #include "caors/serialization/types.h"
 #include "caors/serialization/writer.h"
 

@@ -98,21 +98,21 @@ TEST_CASE("serialization - deserializes hash set fields from arrays", "[serializ
   CHECK(actor.ids.contains(2));
 }
 
-// 原测试文件：serialization_associative_generic_associative_traits_work_without_codec_registration_test.cpp
+// 原测试文件：serialization_associative_generic_associative_traits_work_without_type_registration_test.cpp
 
 #include "serialization_test_support.h"
 
 using namespace caors::tests::serialization;
 
-TEST_CASE("serialization - generic associative traits work without codec registration",
+TEST_CASE("serialization - generic associative traits work without type registration",
           "[serialization]") {
-  REQUIRE(reflection_result_ok(caors::reflection::class_<custom_codec_map_actor>(
-                                   "caors.test.serialization.custom_codec_map_actor")
-                                   .field("labels", &custom_codec_map_actor::labels)
-                                   .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<custom_codec_map_actor>()));
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<custom_map_actor>("caors.test.serialization.custom_map_actor")
+          .field("labels", &custom_map_actor::labels)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<custom_map_actor>()));
 
-  custom_codec_map_actor actor{};
+  custom_map_actor actor{};
   actor.labels.values.emplace(6, caors::string{"six"});
 
   const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
@@ -132,7 +132,7 @@ TEST_CASE("serialization - generic associative traits work without codec registr
       caors::variant::dictionary(std::move(entries)),
   });
 
-  custom_codec_map_actor decoded{};
+  custom_map_actor decoded{};
   const caors::error result =
       caors::deserialize(decoded, caors::variant::object(std::move(members)));
 

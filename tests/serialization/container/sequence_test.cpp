@@ -36,22 +36,21 @@ TEST_CASE("serialization - deserializes list fields from arrays", "[serializatio
   CHECK(*iterator == 6);
 }
 
-// 原测试文件：serialization_sequence_generic_sequence_traits_work_without_codec_registration_test.cpp
+// 原测试文件：serialization_sequence_generic_sequence_traits_work_without_type_registration_test.cpp
 
 #include "serialization_test_support.h"
 
 using namespace caors::tests::serialization;
 
-TEST_CASE("serialization - generic sequence traits work without codec registration",
+TEST_CASE("serialization - generic sequence traits work without type registration",
           "[serialization]") {
-  REQUIRE(reflection_result_ok(caors::reflection::class_<custom_codec_sequence_actor>(
-                                   "caors.test.serialization.custom_codec_sequence_actor")
-                                   .field("scores", &custom_codec_sequence_actor::scores)
+  REQUIRE(reflection_result_ok(caors::reflection::class_<custom_sequence_actor>(
+                                   "caors.test.serialization.custom_sequence_actor")
+                                   .field("scores", &custom_sequence_actor::scores)
                                    .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::register_type<custom_codec_sequence_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::register_type<custom_sequence_actor>()));
 
-  custom_codec_sequence_actor actor{};
+  custom_sequence_actor actor{};
   actor.scores.values.push_back(4);
   actor.scores.values.push_back(5);
 
@@ -70,7 +69,7 @@ TEST_CASE("serialization - generic sequence traits work without codec registrati
       caors::variant::array(std::move(values)),
   });
 
-  custom_codec_sequence_actor decoded{};
+  custom_sequence_actor decoded{};
   const caors::error result =
       caors::deserialize(decoded, caors::variant::object(std::move(members)));
 
