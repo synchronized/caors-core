@@ -9,10 +9,6 @@
 
 namespace caors::serialization::detail {
 
-error serialize(const reflection::type& type, const void* object, writer& writer) {
-  return serialize(serialization::context{}, type, object, writer);
-}
-
 error serialize(const serialization::context& context, const reflection::type& type,
                 const void* object, writer& writer) {
   if (!type.valid()) {
@@ -70,28 +66,6 @@ error serialize(const serialization::context& context, const reflection::type& t
   }
 
   return writer.end_object();
-}
-
-error serialize(type_id id, const void* object, writer& writer) {
-  return serialize(serialization::context{}, id, object, writer);
-}
-
-error serialize(const serialization::context& context, type_id id, const void* object,
-                writer& writer) {
-  if (!id) {
-    return {error_domain::serialization, errc::invalid_type};
-  }
-
-  if (!serialization::contains(id)) {
-    return {error_domain::serialization, errc::missing_type};
-  }
-
-  const reflection::type type = reflection::find(id);
-  if (!type) {
-    return {error_domain::serialization, errc::not_found};
-  }
-
-  return serialize(context, type, object, writer);
 }
 
 } // namespace caors::serialization::detail

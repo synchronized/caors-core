@@ -64,7 +64,12 @@ variant_result to_polymorphic_object_serialization_value(const serialization::co
   }
 
   if (dynamic_id == declared_id) {
-    return to_serialization_value(context, declared_id, &object);
+    const reflection::type declared_type = reflection::find(declared_id);
+    if (!declared_type) {
+      return {{error_domain::serialization, errc::not_found}, {}};
+    }
+
+    return to_serialization_value(context, declared_type, &object);
   }
 
   if (!objects::is_a(dynamic_id, declared_id)) {
@@ -76,7 +81,12 @@ variant_result to_polymorphic_object_serialization_value(const serialization::co
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
 
-  variant_result value = to_serialization_value(context, dynamic_type.id(), &object);
+  const reflection::type reflected_dynamic_type = reflection::find(dynamic_type.id());
+  if (!reflected_dynamic_type) {
+    return {{error_domain::serialization, errc::not_found}, {}};
+  }
+
+  variant_result value = to_serialization_value(context, reflected_dynamic_type, &object);
   if (value.failed()) {
     return value;
   }
@@ -117,7 +127,12 @@ error deserialize_polymorphic_object_into(const serialization::context& context,
   }
 
   variant_reader reader{*stored_value};
-  return deserialize(context, dynamic_type.value.id(), &object, reader);
+  const reflection::type reflected_dynamic_type = reflection::find(dynamic_type.value.id());
+  if (!reflected_dynamic_type) {
+    return {error_domain::serialization, errc::not_found};
+  }
+
+  return deserialize(context, reflected_dynamic_type, &object, reader);
 }
 
 } // namespace detail
@@ -138,7 +153,12 @@ variant_result to_polymorphic_serialization_value(const serialization::context& 
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
 
-  variant_result value = detail::to_serialization_value(context, dynamic_type.id(), &object);
+  const reflection::type reflected_dynamic_type = reflection::find(dynamic_type.id());
+  if (!reflected_dynamic_type) {
+    return {{error_domain::serialization, errc::not_found}, {}};
+  }
+
+  variant_result value = detail::to_serialization_value(context, reflected_dynamic_type, &object);
   if (value.failed()) {
     return value;
   }
@@ -188,7 +208,13 @@ result<objects::object*> deserialize_polymorphic_object(const serialization::con
   }
 
   variant_reader reader{*stored_value};
-  const error status = detail::deserialize(context, dynamic_type.value.id(), instance, reader);
+  const reflection::type reflected_dynamic_type = reflection::find(dynamic_type.value.id());
+  if (!reflected_dynamic_type) {
+    (void)manager->destroy(instance);
+    return {{error_domain::serialization, errc::not_found}, nullptr};
+  }
+
+  const error status = detail::deserialize(context, reflected_dynamic_type, instance, reader);
   if (status) {
     (void)manager->destroy(instance);
     return {status, nullptr};

@@ -4,6 +4,7 @@
 #ifndef CAORS_SERIALIZATION_OPERATIONS_H_
 #define CAORS_SERIALIZATION_OPERATIONS_H_
 
+#include "caors/reflection/registry.h"
 #include "caors/serialization/codec.h"
 #include "caors/serialization/detail/operations.h"
 #include "caors/serialization/dom_reader.h"
@@ -31,7 +32,12 @@ template <typename T> [[nodiscard]] error serialize(const T& object, writer& wri
     }
   }
 
-  return detail::serialize(context, type.id(), &object, writer);
+  const reflection::type reflection_type = reflection::find(type.id());
+  if (!reflection_type) {
+    return {error_domain::serialization, errc::not_found};
+  }
+
+  return detail::serialize(context, reflection_type, &object, writer);
 }
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象按上下文写入指定后端。 */
@@ -50,7 +56,12 @@ template <typename T>
     }
   }
 
-  return detail::serialize(context, type.id(), &object, writer);
+  const reflection::type reflection_type = reflection::find(type.id());
+  if (!reflection_type) {
+    return {error_domain::serialization, errc::not_found};
+  }
+
+  return detail::serialize(context, reflection_type, &object, writer);
 }
 
 /** @brief 将序列化中间值写入指定后端。 */
@@ -69,7 +80,12 @@ template <typename T> [[nodiscard]] error deserialize(T& object, reader& reader)
     return {error_domain::serialization, errc::missing_type};
   }
 
-  return detail::deserialize(serialization::context{}, type.id(), &object, reader);
+  const reflection::type reflection_type = reflection::find(type.id());
+  if (!reflection_type) {
+    return {error_domain::serialization, errc::not_found};
+  }
+
+  return detail::deserialize(serialization::context{}, reflection_type, &object, reader);
 }
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象按上下文从指定后端读入。 */
@@ -80,7 +96,12 @@ template <typename T>
     return {error_domain::serialization, errc::missing_type};
   }
 
-  return detail::deserialize(context, type.id(), &object, reader);
+  const reflection::type reflection_type = reflection::find(type.id());
+  if (!reflection_type) {
+    return {error_domain::serialization, errc::not_found};
+  }
+
+  return detail::deserialize(context, reflection_type, &object, reader);
 }
 
 /** @brief 从序列化 DOM 中间对象反序列化到对象。 */
@@ -168,7 +189,12 @@ template <typename T> [[nodiscard]] variant_result to_serialization_value(const 
     }
   }
 
-  return detail::to_serialization_value(context, type.id(), &object);
+  const reflection::type reflection_type = reflection::find(type.id());
+  if (!reflection_type) {
+    return {{error_domain::serialization, errc::not_found}, {}};
+  }
+
+  return detail::to_serialization_value(context, reflection_type, &object);
 }
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象按上下文转换为序列化中间值。 */
@@ -187,7 +213,12 @@ template <typename T>
     }
   }
 
-  return detail::to_serialization_value(context, type.id(), &object);
+  const reflection::type reflection_type = reflection::find(type.id());
+  if (!reflection_type) {
+    return {{error_domain::serialization, errc::not_found}, {}};
+  }
+
+  return detail::to_serialization_value(context, reflection_type, &object);
 }
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象序列化到外部简单文本 buffer。 */

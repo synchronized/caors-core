@@ -76,10 +76,6 @@ variant_result to_variant(const any_ref& data) {
 
 namespace detail {
 
-variant_result to_serialization_value(const reflection::type& type, const void* object) {
-  return to_serialization_value(serialization::context{}, type, object);
-}
-
 variant_result to_serialization_value(const serialization::context& context,
                                       const reflection::type& type, const void* object) {
   if (!type.valid()) {
@@ -147,28 +143,6 @@ variant_result to_serialization_value(const serialization::context& context,
   }
 
   return {{}, variant::object(std::move(members))};
-}
-
-variant_result to_serialization_value(type_id id, const void* object) {
-  return to_serialization_value(serialization::context{}, id, object);
-}
-
-variant_result to_serialization_value(const serialization::context& context, type_id id,
-                                      const void* object) {
-  if (!id) {
-    return {{error_domain::serialization, errc::invalid_type}, {}};
-  }
-
-  if (!serialization::contains(id)) {
-    return {{error_domain::serialization, errc::missing_type}, {}};
-  }
-
-  const reflection::type type = reflection::find(id);
-  if (!type) {
-    return {{error_domain::serialization, errc::not_found}, {}};
-  }
-
-  return to_serialization_value(context, type, object);
 }
 
 } // namespace detail

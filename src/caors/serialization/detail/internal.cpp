@@ -674,7 +674,12 @@ make_polymorphic_indirect_value(const value::indirect_view& indirect,
   }
 
   variant_reader value_reader{*stored_value};
-  error status = deserialize(context, dynamic_type.value.id(), instance.value, value_reader);
+  const reflection::type reflected_dynamic_type = reflection::find(dynamic_type.value.id());
+  if (!reflected_dynamic_type) {
+    return {error_domain::serialization, errc::not_found};
+  }
+
+  error status = deserialize(context, reflected_dynamic_type, instance.value, value_reader);
   if (status) {
     return status;
   }
