@@ -46,24 +46,27 @@ template <typename Tuple, std::size_t Index> struct tuple_element_ops_model {
   using type = std::remove_cv_t<std::remove_reference_t<Tuple>>;
   using element_type = typename traits::tuple_traits<type>::template element_type<Index>;
 
+  [[nodiscard]] static const void* element(const void* storage) noexcept {
+    if (storage == nullptr) {
+      return nullptr;
+    }
+
+    return traits::tuple_traits<type>::template element<Index>(*static_cast<const type*>(storage));
+  }
+
+  [[nodiscard]] static void* mutable_element(void* storage) noexcept {
+    if (storage == nullptr) {
+      return nullptr;
+    }
+
+    return traits::tuple_traits<type>::template mutable_element<Index>(
+        *static_cast<type*>(storage));
+  }
+
   inline static const tuple_element_ops value{
       descriptor_type_id<element_type>(),
-      [](const void* storage) noexcept -> const void* {
-        if (storage == nullptr) {
-          return nullptr;
-        }
-
-        return traits::tuple_traits<type>::template element<Index>(
-            *static_cast<const type*>(storage));
-      },
-      [](void* storage) noexcept -> void* {
-        if (storage == nullptr) {
-          return nullptr;
-        }
-
-        return traits::tuple_traits<type>::template mutable_element<Index>(
-            *static_cast<type*>(storage));
-      },
+      &element,
+      &mutable_element,
       descriptor_ptr_of<element_type>(),
   };
 };

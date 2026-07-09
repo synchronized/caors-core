@@ -47,281 +47,266 @@ struct indirect_ops {
   }
 };
 
-template <typename T> [[nodiscard]] const void* raw_pointer_value(const void* storage) noexcept {
-  if (storage == nullptr) {
-    return nullptr;
-  }
+template <typename T> struct raw_pointer_ops_model {
+  using value_type = T;
+  using non_cv_value_type = std::remove_cv_t<value_type>;
 
-  return *static_cast<T* const*>(storage);
-}
-
-template <typename T> [[nodiscard]] void* raw_pointer_mutable_value(void* storage) noexcept {
-  if (storage == nullptr) {
-    return nullptr;
-  }
-
-  if constexpr (std::is_const_v<T>) {
-    return nullptr;
-  } else {
-    return *static_cast<T**>(storage);
-  }
-}
-
-template <typename T> [[nodiscard]] bool raw_pointer_has_value(const void* storage) noexcept {
-  return raw_pointer_value<T>(storage) != nullptr;
-}
-
-template <typename T> [[nodiscard]] type_id raw_pointer_dynamic_type(const void* storage) noexcept {
-  using value_type = std::remove_cv_t<T>;
-  const auto* value = static_cast<const value_type*>(raw_pointer_value<T>(storage));
-  if (value == nullptr) {
-    return type_id::invalid();
-  }
-
-  if constexpr (std::is_polymorphic_v<value_type>) {
-    return type_id_of_cpp_type_info(typeid(*value));
-  } else {
-    return type_id_of_cpp_type<value_type>();
-  }
-}
-
-template <typename T>
-[[nodiscard]] const void* raw_pointer_dynamic_value(const void* storage) noexcept {
-  const T* value = static_cast<const T*>(raw_pointer_value<T>(storage));
-  if (value == nullptr) {
-    return nullptr;
-  }
-
-  if constexpr (std::is_polymorphic_v<std::remove_cv_t<T>>) {
-    return dynamic_cast<const void*>(value);
-  } else {
-    return value;
-  }
-}
-
-template <typename T>
-[[nodiscard]] void* raw_pointer_mutable_dynamic_value(void* storage) noexcept {
-  if constexpr (std::is_const_v<T>) {
-    return nullptr;
-  } else {
-    T* value = static_cast<T*>(raw_pointer_mutable_value<T>(storage));
-    if (value == nullptr) {
+  [[nodiscard]] static const void* value(const void* storage) noexcept {
+    if (storage == nullptr) {
       return nullptr;
     }
 
-    if constexpr (std::is_polymorphic_v<std::remove_cv_t<T>>) {
-      return dynamic_cast<void*>(value);
+    return *static_cast<value_type* const*>(storage);
+  }
+
+  [[nodiscard]] static void* mutable_value(void* storage) noexcept {
+    if (storage == nullptr) {
+      return nullptr;
+    }
+
+    if constexpr (std::is_const_v<value_type>) {
+      return nullptr;
     } else {
-      return value;
+      return *static_cast<value_type**>(storage);
     }
   }
-}
 
-template <typename T> bool raw_pointer_reset(void* storage) noexcept {
-  if (storage == nullptr) {
-    return false;
+  [[nodiscard]] static bool has_value(const void* storage) noexcept {
+    return value(storage) != nullptr;
   }
 
-  *static_cast<T**>(storage) = nullptr;
-  return true;
-}
+  [[nodiscard]] static type_id dynamic_type(const void* storage) noexcept {
+    const auto* object = static_cast<const non_cv_value_type*>(value(storage));
+    if (object == nullptr) {
+      return type_id::invalid();
+    }
 
-template <typename T> bool raw_pointer_ensure_value(void*, memory::memory_resource*) {
-  return false;
-}
-
-template <typename Wrapper>
-[[nodiscard]] const void* wrapper_indirect_value(const void* storage) noexcept {
-  if (storage == nullptr) {
-    return nullptr;
+    if constexpr (std::is_polymorphic_v<non_cv_value_type>) {
+      return type_id_of_cpp_type_info(typeid(*object));
+    } else {
+      return type_id_of_cpp_type<non_cv_value_type>();
+    }
   }
 
-  return traits::wrapper_access<Wrapper>::value(*static_cast<const Wrapper*>(storage));
-}
+  [[nodiscard]] static const void* dynamic_value(const void* storage) noexcept {
+    const value_type* object = static_cast<const value_type*>(value(storage));
+    if (object == nullptr) {
+      return nullptr;
+    }
 
-template <typename Wrapper>
-[[nodiscard]] void* wrapper_mutable_indirect_value(void* storage) noexcept {
-  if (storage == nullptr) {
-    return nullptr;
+    if constexpr (std::is_polymorphic_v<non_cv_value_type>) {
+      return dynamic_cast<const void*>(object);
+    } else {
+      return object;
+    }
   }
 
-  return traits::wrapper_access<Wrapper>::mutable_value(*static_cast<Wrapper*>(storage));
-}
+  [[nodiscard]] static void* mutable_dynamic_value(void* storage) noexcept {
+    if constexpr (std::is_const_v<value_type>) {
+      return nullptr;
+    } else {
+      value_type* object = static_cast<value_type*>(mutable_value(storage));
+      if (object == nullptr) {
+        return nullptr;
+      }
 
-template <typename Wrapper>
-[[nodiscard]] bool wrapper_has_indirect_value(const void* storage) noexcept {
-  if (storage == nullptr) {
-    return false;
+      if constexpr (std::is_polymorphic_v<non_cv_value_type>) {
+        return dynamic_cast<void*>(object);
+      } else {
+        return object;
+      }
+    }
   }
 
-  return traits::wrapper_access<Wrapper>::has_value(*static_cast<const Wrapper*>(storage));
-}
+  static bool reset(void* storage) noexcept {
+    if (storage == nullptr) {
+      return false;
+    }
 
-template <typename Wrapper>
-[[nodiscard]] type_id wrapper_dynamic_indirect_type(const void* storage) noexcept {
-  using value_type = std::remove_cv_t<typename traits::wrapper_traits<Wrapper>::wrapped_type>;
-  const auto* value = static_cast<const value_type*>(wrapper_indirect_value<Wrapper>(storage));
-  if (value == nullptr) {
-    return type_id::invalid();
+    *static_cast<value_type**>(storage) = nullptr;
+    return true;
   }
 
-  if constexpr (std::is_polymorphic_v<value_type>) {
-    return type_id_of_cpp_type_info(typeid(*value));
-  } else {
-    return type_id_of_cpp_type<value_type>();
-  }
-}
+  static bool ensure_value(void*, memory::memory_resource*) { return false; }
 
-template <typename Wrapper>
-[[nodiscard]] const void* wrapper_dynamic_indirect_value(const void* storage) noexcept {
-  using value_type = std::remove_cv_t<typename traits::wrapper_traits<Wrapper>::wrapped_type>;
-  const auto* value = static_cast<const value_type*>(wrapper_indirect_value<Wrapper>(storage));
-  if (value == nullptr) {
-    return nullptr;
-  }
+  inline static const indirect_ops value_ops{
+      &value,
+      &mutable_value,
+      &dynamic_type,
+      &dynamic_value,
+      &mutable_dynamic_value,
+      &has_value,
+      &reset,
+      &ensure_value,
+      nullptr,
+      nullptr,
+      descriptor_ptr_of<non_cv_value_type>(),
+  };
+};
 
-  if constexpr (std::is_polymorphic_v<value_type>) {
-    return dynamic_cast<const void*>(value);
-  } else {
-    return value;
-  }
-}
+template <typename Wrapper> struct wrapper_ops_model {
+  using type = std::remove_cv_t<std::remove_reference_t<Wrapper>>;
+  using value_type = std::remove_cv_t<typename traits::wrapper_traits<type>::wrapped_type>;
 
-template <typename Wrapper>
-[[nodiscard]] void* wrapper_mutable_dynamic_indirect_value(void* storage) noexcept {
-  using value_type = std::remove_cv_t<typename traits::wrapper_traits<Wrapper>::wrapped_type>;
-  auto* value = static_cast<value_type*>(wrapper_mutable_indirect_value<Wrapper>(storage));
-  if (value == nullptr) {
-    return nullptr;
-  }
+  [[nodiscard]] static const void* value(const void* storage) noexcept {
+    if (storage == nullptr) {
+      return nullptr;
+    }
 
-  if constexpr (std::is_polymorphic_v<value_type>) {
-    return dynamic_cast<void*>(value);
-  } else {
-    return value;
-  }
-}
-
-template <typename Wrapper> bool wrapper_reset_indirect_value(void* storage) noexcept {
-  if (storage == nullptr) {
-    return false;
+    return traits::wrapper_access<type>::value(*static_cast<const type*>(storage));
   }
 
-  return traits::wrapper_access<Wrapper>::reset(*static_cast<Wrapper*>(storage));
-}
+  [[nodiscard]] static void* mutable_value(void* storage) noexcept {
+    if (storage == nullptr) {
+      return nullptr;
+    }
 
-template <typename Wrapper>
-bool wrapper_ensure_indirect_value(void* storage, memory::memory_resource* resource) {
-  if (storage == nullptr) {
-    return false;
+    return traits::wrapper_access<type>::mutable_value(*static_cast<type*>(storage));
   }
 
-  if constexpr (requires(Wrapper& source, memory::memory_resource* value_resource) {
-                  traits::wrapper_access<Wrapper>::ensure_value(source, value_resource);
-                }) {
-    return traits::wrapper_access<Wrapper>::ensure_value(*static_cast<Wrapper*>(storage), resource);
-  } else if constexpr (requires(Wrapper& source) {
-                         traits::wrapper_access<Wrapper>::ensure_value(source);
-                       }) {
-    return traits::wrapper_access<Wrapper>::ensure_value(*static_cast<Wrapper*>(storage));
-  } else {
-    return false;
-  }
-}
+  [[nodiscard]] static bool has_value(const void* storage) noexcept {
+    if (storage == nullptr) {
+      return false;
+    }
 
-template <typename Wrapper> bool wrapper_set_indirect_value(void* storage, void* value) noexcept {
-  if (storage == nullptr || value == nullptr) {
-    return false;
+    return traits::wrapper_access<type>::has_value(*static_cast<const type*>(storage));
   }
 
-  using value_type = std::remove_cv_t<typename traits::wrapper_traits<Wrapper>::wrapped_type>;
-  if constexpr (requires(Wrapper& source, value_type* stored) {
-                  traits::wrapper_access<Wrapper>::set_value(source, stored);
-                }) {
-    return traits::wrapper_access<Wrapper>::set_value(*static_cast<Wrapper*>(storage),
-                                                      static_cast<value_type*>(value));
-  } else {
-    return false;
-  }
-}
+  [[nodiscard]] static type_id dynamic_type(const void* storage) noexcept {
+    const auto* object = static_cast<const value_type*>(value(storage));
+    if (object == nullptr) {
+      return type_id::invalid();
+    }
 
-template <typename Wrapper>
-bool wrapper_set_indirect_value_with_context(void* storage, void* value,
-                                             const traits::wrapper_set_context& context) noexcept {
-  if (storage == nullptr || value == nullptr) {
-    return false;
+    if constexpr (std::is_polymorphic_v<value_type>) {
+      return type_id_of_cpp_type_info(typeid(*object));
+    } else {
+      return type_id_of_cpp_type<value_type>();
+    }
   }
 
-  using value_type = std::remove_cv_t<typename traits::wrapper_traits<Wrapper>::wrapped_type>;
-  if constexpr (requires(Wrapper& source, value_type* stored,
-                         const traits::wrapper_set_context& set_context) {
-                  traits::wrapper_access<Wrapper>::set_value(source, stored, set_context);
-                }) {
-    return traits::wrapper_access<Wrapper>::set_value(*static_cast<Wrapper*>(storage),
-                                                      static_cast<value_type*>(value), context);
-  } else {
-    return false;
-  }
-}
+  [[nodiscard]] static const void* dynamic_value(const void* storage) noexcept {
+    const auto* object = static_cast<const value_type*>(value(storage));
+    if (object == nullptr) {
+      return nullptr;
+    }
 
-template <typename T> [[nodiscard]] indirect_ops make_indirect_ops() {
-  using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (std::is_pointer_v<type>) {
-    using value_type = std::remove_pointer_t<type>;
-    indirect_ops data{};
-    data.value = &raw_pointer_value<value_type>;
-    data.mutable_value = &raw_pointer_mutable_value<value_type>;
-    data.dynamic_type = &raw_pointer_dynamic_type<value_type>;
-    data.dynamic_value = &raw_pointer_dynamic_value<value_type>;
-    data.mutable_dynamic_value = &raw_pointer_mutable_dynamic_value<value_type>;
-    data.has_value = &raw_pointer_has_value<value_type>;
-    data.reset = &raw_pointer_reset<value_type>;
-    data.ensure_value = &raw_pointer_ensure_value<value_type>;
-    return data;
-  } else if constexpr (traits::wrapper_traits<type>::is_wrapper &&
-                       traits::wrapper_traits<type>::semantics !=
-                           traits::wrapper_semantics::unsupported) {
-    indirect_ops data{};
-    data.value = &wrapper_indirect_value<type>;
-    data.mutable_value = &wrapper_mutable_indirect_value<type>;
-    data.dynamic_type = &wrapper_dynamic_indirect_type<type>;
-    data.dynamic_value = &wrapper_dynamic_indirect_value<type>;
-    data.mutable_dynamic_value = &wrapper_mutable_dynamic_indirect_value<type>;
-    data.has_value = &wrapper_has_indirect_value<type>;
-    data.reset = &wrapper_reset_indirect_value<type>;
-    data.ensure_value = &wrapper_ensure_indirect_value<type>;
-    data.set_value = &wrapper_set_indirect_value<type>;
-    data.set_value_with_context = &wrapper_set_indirect_value_with_context<type>;
-    return data;
-  } else {
-    return {};
+    if constexpr (std::is_polymorphic_v<value_type>) {
+      return dynamic_cast<const void*>(object);
+    } else {
+      return object;
+    }
   }
-}
+
+  [[nodiscard]] static void* mutable_dynamic_value(void* storage) noexcept {
+    auto* object = static_cast<value_type*>(mutable_value(storage));
+    if (object == nullptr) {
+      return nullptr;
+    }
+
+    if constexpr (std::is_polymorphic_v<value_type>) {
+      return dynamic_cast<void*>(object);
+    } else {
+      return object;
+    }
+  }
+
+  static bool reset(void* storage) noexcept {
+    if (storage == nullptr) {
+      return false;
+    }
+
+    return traits::wrapper_access<type>::reset(*static_cast<type*>(storage));
+  }
+
+  static bool ensure_value(void* storage, memory::memory_resource* resource) {
+    if (storage == nullptr) {
+      return false;
+    }
+
+    if constexpr (requires(type& source, memory::memory_resource* value_resource) {
+                    traits::wrapper_access<type>::ensure_value(source, value_resource);
+                  }) {
+      return traits::wrapper_access<type>::ensure_value(*static_cast<type*>(storage), resource);
+    } else if constexpr (requires(type& source) {
+                           traits::wrapper_access<type>::ensure_value(source);
+                         }) {
+      return traits::wrapper_access<type>::ensure_value(*static_cast<type*>(storage));
+    } else {
+      return false;
+    }
+  }
+
+  static bool set_value(void* storage, void* object) noexcept {
+    if (storage == nullptr || object == nullptr) {
+      return false;
+    }
+
+    if constexpr (requires(type& source, value_type* stored) {
+                    traits::wrapper_access<type>::set_value(source, stored);
+                  }) {
+      return traits::wrapper_access<type>::set_value(*static_cast<type*>(storage),
+                                                     static_cast<value_type*>(object));
+    } else {
+      return false;
+    }
+  }
+
+  static bool set_value_with_context(void* storage, void* object,
+                                     const traits::wrapper_set_context& context) noexcept {
+    if (storage == nullptr || object == nullptr) {
+      return false;
+    }
+
+    if constexpr (requires(type& source, value_type* stored,
+                           const traits::wrapper_set_context& set_context) {
+                    traits::wrapper_access<type>::set_value(source, stored, set_context);
+                  }) {
+      return traits::wrapper_access<type>::set_value(*static_cast<type*>(storage),
+                                                     static_cast<value_type*>(object), context);
+    } else {
+      return false;
+    }
+  }
+
+  [[nodiscard]] static indirect_ops make() {
+    indirect_ops result{};
+    if constexpr (traits::wrapper_traits<type>::semantics !=
+                  traits::wrapper_semantics::unsupported) {
+      result.value = &value;
+      result.mutable_value = &mutable_value;
+      result.dynamic_type = &dynamic_type;
+      result.dynamic_value = &dynamic_value;
+      result.mutable_dynamic_value = &mutable_dynamic_value;
+      result.has_value = &has_value;
+      result.reset = &reset;
+      result.ensure_value = &ensure_value;
+      result.set_value = &set_value;
+      result.set_value_with_context = &set_value_with_context;
+    }
+
+    result.value_descriptor = descriptor_ptr_of<value_type>();
+    return result;
+  }
+
+  inline static const indirect_ops value_ops = make();
+};
 
 template <typename T> struct indirect_ops_model {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
 
-  inline static const indirect_ops value = [] {
+  [[nodiscard]] static indirect_ops make() {
     if constexpr (std::is_pointer_v<type>) {
       using value_type = std::remove_pointer_t<type>;
-
-      indirect_ops result = make_indirect_ops<type>();
-      result.value_descriptor = descriptor_ptr_of<std::remove_cv_t<value_type>>();
-      return result;
+      return raw_pointer_ops_model<value_type>::value_ops;
     } else if constexpr (traits::wrapper_traits<type>::is_wrapper) {
-      using value_type = std::remove_cv_t<typename traits::wrapper_traits<type>::wrapped_type>;
-
-      indirect_ops result{};
-      if constexpr (traits::wrapper_traits<type>::semantics !=
-                    traits::wrapper_semantics::unsupported) {
-        result = make_indirect_ops<type>();
-      }
-      result.value_descriptor = descriptor_ptr_of<value_type>();
-      return result;
+      return wrapper_ops_model<type>::value_ops;
     } else {
-      return indirect_ops{};
+      return {};
     }
-  }();
+  }
+
+  inline static const indirect_ops value = make();
 };
 
 template <typename T> [[nodiscard]] const indirect_ops* indirect_ops_ptr_of() {

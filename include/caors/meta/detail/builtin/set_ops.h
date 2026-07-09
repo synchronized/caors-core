@@ -47,62 +47,72 @@ template <typename T> struct set_ops_model {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   using element_type = typename traits::set_traits<type>::element_type;
 
-  inline static const set_ops value = [] {
+  [[nodiscard]] static std::size_t size(const void* storage) noexcept {
+    if (storage == nullptr) {
+      return 0;
+    }
+
+    return traits::set_traits<type>::size(*static_cast<const type*>(storage));
+  }
+
+  static bool visit(const void* storage, set_raw_visitor visitor, void* user_data) {
+    if (storage == nullptr || visitor == nullptr) {
+      return false;
+    }
+
+    bool keep_going = true;
+    traits::set_traits<type>::for_each(*static_cast<const type*>(storage),
+                                       [&](const element_type& element) {
+                                         if (!keep_going) {
+                                           return;
+                                         }
+
+                                         keep_going = visitor(&element, user_data);
+                                       });
+
+    return keep_going;
+  }
+
+  static void clear(void* storage) noexcept {
+    if (storage != nullptr) {
+      traits::set_traits<type>::clear(*static_cast<type*>(storage));
+    }
+  }
+
+  static bool insert(void* storage, const void* element) {
+    if (storage == nullptr || element == nullptr) {
+      return false;
+    }
+
+    return traits::set_traits<type>::insert(*static_cast<type*>(storage),
+                                            *static_cast<const element_type*>(element));
+  }
+
+  template <typename Iterator> static void fill_iterator_ops(set_ops& result) noexcept {
+    result.begin = &begin_container_iterator<type>;
+    result.end = &end_container_iterator<type>;
+    result.iterator_clone = &clone_container_iterator<Iterator>;
+    result.iterator_destroy = &destroy_container_iterator<Iterator>;
+    result.iterator_advance = &advance_container_iterator<Iterator>;
+    result.iterator_equal = &equal_container_iterator<Iterator>;
+    result.iterator_value = &set_iterator_value<Iterator>;
+  }
+
+  [[nodiscard]] static set_ops make() {
     set_ops result{
-        descriptor_type_id<element_type>(),
-        [](const void* storage) noexcept -> std::size_t {
-          if (storage == nullptr) {
-            return 0;
-          }
-
-          return traits::set_traits<type>::size(*static_cast<const type*>(storage));
-        },
-        [](const void* storage, set_raw_visitor visitor, void* user_data) -> bool {
-          if (storage == nullptr || visitor == nullptr) {
-            return false;
-          }
-
-          bool keep_going = true;
-          traits::set_traits<type>::for_each(*static_cast<const type*>(storage),
-                                             [&](const element_type& element) {
-                                               if (!keep_going) {
-                                                 return;
-                                               }
-
-                                               keep_going = visitor(&element, user_data);
-                                             });
-
-          return keep_going;
-        },
-        [](void* storage) noexcept {
-          if (storage != nullptr) {
-            traits::set_traits<type>::clear(*static_cast<type*>(storage));
-          }
-        },
-        [](void* storage, const void* element) -> bool {
-          if (storage == nullptr || element == nullptr) {
-            return false;
-          }
-
-          return traits::set_traits<type>::insert(*static_cast<type*>(storage),
-                                                  *static_cast<const element_type*>(element));
-        },
+        descriptor_type_id<element_type>(), &size, &visit, &clear, &insert,
     };
 
     if constexpr (has_const_container_iterator_v<type>) {
       using iterator_type = decltype(std::declval<const type&>().begin());
-      result.begin = &begin_container_iterator<type>;
-      result.end = &end_container_iterator<type>;
-      result.iterator_clone = &clone_container_iterator<iterator_type>;
-      result.iterator_destroy = &destroy_container_iterator<iterator_type>;
-      result.iterator_advance = &advance_container_iterator<iterator_type>;
-      result.iterator_equal = &equal_container_iterator<iterator_type>;
-      result.iterator_value = &set_iterator_value<iterator_type>;
+      fill_iterator_ops<iterator_type>(result);
     }
 
     result.value_descriptor = descriptor_ptr_of<element_type>();
     return result;
-  }();
+  }
+
+  inline static const set_ops value = make();
 };
 
 template <typename T> [[nodiscard]] const set_ops* set_ops_ptr_of() {

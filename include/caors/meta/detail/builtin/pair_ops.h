@@ -35,44 +35,54 @@ template <typename T> struct pair_ops_model {
   using first_type = typename traits::pair_traits<type>::first_type;
   using second_type = typename traits::pair_traits<type>::second_type;
 
-  inline static const pair_ops value = [] {
+  [[nodiscard]] static const void* first(const void* storage) noexcept {
+    if (storage == nullptr) {
+      return nullptr;
+    }
+
+    return traits::pair_traits<type>::first(*static_cast<const type*>(storage));
+  }
+
+  [[nodiscard]] static void* mutable_first(void* storage) noexcept {
+    if (storage == nullptr) {
+      return nullptr;
+    }
+
+    return traits::pair_traits<type>::mutable_first(*static_cast<type*>(storage));
+  }
+
+  [[nodiscard]] static const void* second(const void* storage) noexcept {
+    if (storage == nullptr) {
+      return nullptr;
+    }
+
+    return traits::pair_traits<type>::second(*static_cast<const type*>(storage));
+  }
+
+  [[nodiscard]] static void* mutable_second(void* storage) noexcept {
+    if (storage == nullptr) {
+      return nullptr;
+    }
+
+    return traits::pair_traits<type>::mutable_second(*static_cast<type*>(storage));
+  }
+
+  [[nodiscard]] static pair_ops make() {
     pair_ops result{
         descriptor_type_id<first_type>(),
         descriptor_type_id<second_type>(),
-        [](const void* storage) noexcept -> const void* {
-          if (storage == nullptr) {
-            return nullptr;
-          }
-
-          return traits::pair_traits<type>::first(*static_cast<const type*>(storage));
-        },
-        [](void* storage) noexcept -> void* {
-          if (storage == nullptr) {
-            return nullptr;
-          }
-
-          return traits::pair_traits<type>::mutable_first(*static_cast<type*>(storage));
-        },
-        [](const void* storage) noexcept -> const void* {
-          if (storage == nullptr) {
-            return nullptr;
-          }
-
-          return traits::pair_traits<type>::second(*static_cast<const type*>(storage));
-        },
-        [](void* storage) noexcept -> void* {
-          if (storage == nullptr) {
-            return nullptr;
-          }
-
-          return traits::pair_traits<type>::mutable_second(*static_cast<type*>(storage));
-        },
+        &first,
+        &mutable_first,
+        &second,
+        &mutable_second,
     };
 
     result.key_descriptor = descriptor_ptr_of<first_type>();
     result.value_descriptor = descriptor_ptr_of<second_type>();
     return result;
-  }();
+  }
+
+  inline static const pair_ops value = make();
 };
 
 template <typename T> [[nodiscard]] const pair_ops* pair_ops_ptr_of() {

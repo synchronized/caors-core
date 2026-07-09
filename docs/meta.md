@@ -217,7 +217,7 @@ holder；`meta/detail/builtin_ops_model.h` 作为内置能力聚合入口，只�
 `meta/detail/builtin/*.h` 并选择当前类型的内置能力；`builtin/enum_ops.h`、
 `builtin/indirect_ops.h`、`builtin/sequence_ops.h`、`builtin/set_ops.h`、
 `builtin/associative_ops.h`、`builtin/pair_ops.h`、`builtin/tuple_ops.h` 和
-`builtin/variant_ops.h` 分别负责对应能力的 `*_ops` 函数表、函数指针类型、辅助函数和
+`builtin/variant_ops.h` 分别负责对应能力的 `*_ops` 函数表、函数指针类型、具名 static 回调和
 `*_ops_model<T>` 生成；`builtin/container_iterators.h` 只服务 set / associative 的类型擦除迭代器；
 `meta/detail/container.h` 只保留为容器类 builtin ops 的兼容聚合入口；`meta/detail/type_capabilities.h`
 只保留类型层级 parent cast 能力；`meta/type_semantics.h` 只保留类型语义判断 helper。
@@ -230,6 +230,9 @@ holder；`meta/detail/builtin_ops_model.h` 作为内置能力聚合入口，只�
 - `*_ops_model<T>` 表示针对具体 C++ 类型 `T` 生成 `*_ops` 的 model 层。model 负责把 `T`
   的成员函数、traits 或 codec 策略转换成稳定生命周期的静态 `*_ops` 表；`*_ops_ptr_of<T>()`
   只作为内部取表入口。
+- `*_ops_model<T>` 内部优先使用具名 static 回调组装函数表，避免把类型擦除回调散落在匿名 lambda
+  或临时初始化表达式里。局部遍历适配可以使用短 lambda，但对外保存到 `*_ops` 的函数指针应来自
+  明确命名的 model 回调。
 - descriptor 内置能力同样遵循这套规则：`enum_ops_model<T>`、`indirect_ops_model<T>`、
   `sequence_ops_model<T>`、`set_ops_model<T>`、`associative_ops_model<T>`、`pair_ops_model<T>`、
   `tuple_ops_model<T>` 和 `variant_ops_model<T>` 负责生成内置访问函数表；tuple 和 variant 会再用

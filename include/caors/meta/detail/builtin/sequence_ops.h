@@ -46,60 +46,70 @@ template <typename T> struct sequence_ops_model {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   using element_type = typename traits::sequence_traits<type>::element_type;
 
-  inline static const sequence_ops value = [] {
+  [[nodiscard]] static std::size_t size(const void* storage) noexcept {
+    if (storage == nullptr) {
+      return 0;
+    }
+
+    return traits::sequence_traits<type>::size(*static_cast<const type*>(storage));
+  }
+
+  [[nodiscard]] static const void* element(const void* storage, std::size_t index) noexcept {
+    if (storage == nullptr) {
+      return nullptr;
+    }
+
+    return traits::sequence_traits<type>::element(*static_cast<const type*>(storage), index);
+  }
+
+  [[nodiscard]] static void* mutable_element(void* storage, std::size_t index) noexcept {
+    if (storage == nullptr) {
+      return nullptr;
+    }
+
+    return traits::sequence_traits<type>::mutable_element(*static_cast<type*>(storage), index);
+  }
+
+  static void clear(void* storage) noexcept {
+    if (storage != nullptr) {
+      traits::sequence_traits<type>::clear(*static_cast<type*>(storage));
+    }
+  }
+
+  static bool resize(void* storage, std::size_t size, memory::memory_resource* resource) {
+    if (storage == nullptr) {
+      return false;
+    }
+
+    if constexpr (requires(type& values, std::size_t count,
+                           memory::memory_resource* resize_resource) {
+                    traits::sequence_traits<type>::resize(values, count, resize_resource);
+                  }) {
+      return traits::sequence_traits<type>::resize(*static_cast<type*>(storage), size, resource);
+    } else {
+      (void)resource;
+      return traits::sequence_traits<type>::resize(*static_cast<type*>(storage), size);
+    }
+  }
+
+  static bool append(void* storage, const void* element) {
+    if (storage == nullptr || element == nullptr) {
+      return false;
+    }
+
+    return traits::sequence_traits<type>::append(*static_cast<type*>(storage),
+                                                 *static_cast<const element_type*>(element));
+  }
+
+  [[nodiscard]] static sequence_ops make() {
     sequence_ops result{
         descriptor_type_id<element_type>(),
-        [](const void* storage) noexcept -> std::size_t {
-          if (storage == nullptr) {
-            return 0;
-          }
-
-          return traits::sequence_traits<type>::size(*static_cast<const type*>(storage));
-        },
-        [](const void* storage, std::size_t index) noexcept -> const void* {
-          if (storage == nullptr) {
-            return nullptr;
-          }
-
-          return traits::sequence_traits<type>::element(*static_cast<const type*>(storage), index);
-        },
-        [](void* storage, std::size_t index) noexcept -> void* {
-          if (storage == nullptr) {
-            return nullptr;
-          }
-
-          return traits::sequence_traits<type>::mutable_element(*static_cast<type*>(storage),
-                                                                index);
-        },
-        [](void* storage) noexcept {
-          if (storage != nullptr) {
-            traits::sequence_traits<type>::clear(*static_cast<type*>(storage));
-          }
-        },
-        [](void* storage, std::size_t size, memory::memory_resource* resource) -> bool {
-          if (storage == nullptr) {
-            return false;
-          }
-
-          if constexpr (requires(type& values, std::size_t count,
-                                 memory::memory_resource* resize_resource) {
-                          traits::sequence_traits<type>::resize(values, count, resize_resource);
-                        }) {
-            return traits::sequence_traits<type>::resize(*static_cast<type*>(storage), size,
-                                                         resource);
-          } else {
-            (void)resource;
-            return traits::sequence_traits<type>::resize(*static_cast<type*>(storage), size);
-          }
-        },
-        [](void* storage, const void* element) -> bool {
-          if (storage == nullptr || element == nullptr) {
-            return false;
-          }
-
-          return traits::sequence_traits<type>::append(*static_cast<type*>(storage),
-                                                       *static_cast<const element_type*>(element));
-        },
+        &size,
+        &element,
+        &mutable_element,
+        &clear,
+        &resize,
+        &append,
     };
 
     if constexpr (requires { traits::sequence_traits<type>::read_in_place; }) {
@@ -116,7 +126,9 @@ template <typename T> struct sequence_ops_model {
 
     result.value_descriptor = descriptor_ptr_of<element_type>();
     return result;
-  }();
+  }
+
+  inline static const sequence_ops value = make();
 };
 
 template <typename T> [[nodiscard]] const sequence_ops* sequence_ops_ptr_of() {

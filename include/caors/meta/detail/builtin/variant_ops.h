@@ -55,41 +55,42 @@ template <typename Variant, std::size_t Index> struct variant_alternative_ops_mo
   using type = std::remove_cv_t<std::remove_reference_t<Variant>>;
   using alternative_type = typename traits::variant_traits<type>::template alternative_type<Index>;
 
+  [[nodiscard]] static const void* alternative(const void* storage) noexcept {
+    if (storage == nullptr) {
+      return nullptr;
+    }
+
+    return traits::variant_traits<type>::template alternative<Index>(
+        *static_cast<const type*>(storage));
+  }
+
+  [[nodiscard]] static void* mutable_alternative(void* storage) noexcept {
+    if (storage == nullptr) {
+      return nullptr;
+    }
+
+    return traits::variant_traits<type>::template mutable_alternative<Index>(
+        *static_cast<type*>(storage));
+  }
+
+  static bool emplace(void* storage, memory::memory_resource* resource) {
+    if (storage == nullptr) {
+      return false;
+    }
+
+    if constexpr (requires(type& values, memory::memory_resource* emplace_resource) {
+                    traits::variant_traits<type>::template emplace<Index>(values, emplace_resource);
+                  }) {
+      return traits::variant_traits<type>::template emplace<Index>(*static_cast<type*>(storage),
+                                                                   resource);
+    } else {
+      (void)resource;
+      return traits::variant_traits<type>::template emplace<Index>(*static_cast<type*>(storage));
+    }
+  }
+
   inline static const variant_alternative_ops value{
-      descriptor_type_id<alternative_type>(),
-      [](const void* storage) noexcept -> const void* {
-        if (storage == nullptr) {
-          return nullptr;
-        }
-
-        return traits::variant_traits<type>::template alternative<Index>(
-            *static_cast<const type*>(storage));
-      },
-      [](void* storage) noexcept -> void* {
-        if (storage == nullptr) {
-          return nullptr;
-        }
-
-        return traits::variant_traits<type>::template mutable_alternative<Index>(
-            *static_cast<type*>(storage));
-      },
-      [](void* storage, memory::memory_resource* resource) -> bool {
-        if (storage == nullptr) {
-          return false;
-        }
-
-        if constexpr (requires(type& values, memory::memory_resource* emplace_resource) {
-                        traits::variant_traits<type>::template emplace<Index>(values,
-                                                                              emplace_resource);
-                      }) {
-          return traits::variant_traits<type>::template emplace<Index>(*static_cast<type*>(storage),
-                                                                       resource);
-        } else {
-          (void)resource;
-          return traits::variant_traits<type>::template emplace<Index>(
-              *static_cast<type*>(storage));
-        }
-      },
+      descriptor_type_id<alternative_type>(), &alternative, &mutable_alternative, &emplace,
       descriptor_ptr_of<alternative_type>(),
   };
 };
@@ -97,18 +98,20 @@ template <typename Variant, std::size_t Index> struct variant_alternative_ops_mo
 template <typename T> struct variant_ops_model {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
 
+  [[nodiscard]] static std::size_t index(const void* storage) noexcept {
+    if (storage == nullptr) {
+      return static_cast<std::size_t>(-1);
+    }
+
+    return traits::variant_traits<type>::index(*static_cast<const type*>(storage));
+  }
+
   template <std::size_t... Indices>
   [[nodiscard]] static variant_ops make(std::index_sequence<Indices...>) {
     variant_ops data{};
     data.alternatives.reserve(sizeof...(Indices));
     (data.alternatives.push_back(variant_alternative_ops_model<type, Indices>::value), ...);
-    data.index = [](const void* storage) noexcept -> std::size_t {
-      if (storage == nullptr) {
-        return static_cast<std::size_t>(-1);
-      }
-
-      return traits::variant_traits<type>::index(*static_cast<const type*>(storage));
-    };
+    data.index = &index;
     return data;
   }
 
