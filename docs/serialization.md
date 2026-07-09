@@ -630,7 +630,7 @@ if (player* current = manager.find(target)) {
 `serialization::codec_traits<T>` 是类型级扩展点。编译期已知 `T` 时可以通过 `serialization::codec_of<T>()`
 直接取得静态 codec 视图；运行期拿得到 `meta::type` 视图时，调度层会通过
 `meta::type::get_capability<serialization::detail::codec_ops>()` 查询 codec 函数表。该入口先查询
-descriptor 静态能力，未命中时再回退到 `meta::capabilities` 运行期索引；最后才回退到内置标量探测。
+descriptor 静态能力，未命中时再回退到 `meta::capabilities` 运行期索引；最后才回退到基础标量探测。
 这样 `guid`、`type_guid` 这类语义上是
 原子值的类型，不需要暴露内部字段结构。容器、pair、tuple、variant、裸指针和普通 wrapper 字段优先通过
 `meta::detail::type_descriptor` 生成的视图递归处理内部值，因此这类字段通常不需要显式注册
@@ -650,7 +650,8 @@ codec 和 meta descriptor 的边界：
 - 运行期只剩 `type_id` 时，`serialization::find_codec()` 会查询 `meta::capabilities` 中的
   `type_id -> codec_ops` 索引。
 - `serialization::register_codec<T>()` 不创建 meta 类型，只把 `type_id` 和对应静态 codec 操作表
-  放入运行期索引；`T` 不要求已经显式 meta 注册。
+  放入运行期索引；这只用于运行期只剩 `type_id` 的动态查询场景，普通 `any`、`any_ref`、反射字段
+  和编译期已知 `T` 的路径不需要调用它。
 
 内置 codec 和默认 traits 处理：
 
@@ -684,12 +685,11 @@ codec 和 meta descriptor 的边界：
 `caors::traits` 命名空间特化对应容器 traits；序列化层不再提供 `sequence_codec`、`set_codec`
 或 `associative_codec` 这类容器级 codec 基类，避免容器递归和 descriptor/view 路径重复实现。
 
-内置标量 codec 按 type descriptor id 懒加载补齐，不要求内置类型显式 meta 注册。内置 codec 和外部
-`serialization::codec_traits<T>` 特化都通过同一套函数表构造逻辑生成 `codec_ops`；区别只是内置
-codec 由库内部按需放入运行期索引，外部自定义 codec 可以直接通过 `serialization::codec_of<T>()`
-取得静态视图。携带 descriptor 的 `any` / `any_ref` / 反射字段路径会优先使用 descriptor
-静态 codec 能力；只有运行期只剩 `type_id` 查询，或者 descriptor 生成时没有看到对应
-`codec_traits<T>` 特化时，才需要显式调用 `serialization::register_codec<T>()`。
+内置原子 codec 也是 `serialization::codec_traits<T>` 特化，不要求内置类型显式 meta 注册，也不会通过
+`register_builtin_codec()` 懒加载到运行期索引。内置 codec 和外部自定义 codec 都通过同一套函数表构造逻辑生成
+`codec_ops`，并作为 descriptor 静态能力参与查询。携带 descriptor 的 `any` / `any_ref` / 反射字段路径会优先使用
+descriptor 静态 codec 能力；只有运行期只剩 `type_id` 查询，并且调用方确实需要按 `type_id` 找到某个自定义 codec
+时，才需要显式调用 `serialization::register_codec<T>()`。
 
 反射字段中的容器、pair、tuple、variant、裸指针和普通 wrapper 不要求显式调用
 `serialization::register_codec<T>()`，
