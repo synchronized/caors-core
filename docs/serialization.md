@@ -628,9 +628,11 @@ if (player* current = manager.find(target)) {
 ### serialization codec
 
 `serialization::codec_traits<T>` 是类型级扩展点。编译期已知 `T` 时可以通过 `serialization::codec_of<T>()`
-直接取得静态 codec 视图；运行期值如果携带 `meta::type_descriptor`，调度层会先通过
-`serialization::find_codec(descriptor)` 查询 descriptor 静态 codec 能力。只有缺少 descriptor
-时才回退到 `meta::type` / `type_id` 查询，未命中时继续走基础标量探测。
+直接取得静态 codec 视图；运行期拿得到 `meta::type` 视图时可以通过
+`serialization::find_codec(meta::type)` 或 `meta::type::get_capability<serialization::codec_ops>()`
+查询 codec 能力。`any` / `any_ref` 等内部调度路径如果已经携带 descriptor，会在 detail
+层直接查询 descriptor 静态 codec 能力；公开 API 不要求也不鼓励用户直接传递 descriptor。
+未命中时继续走基础标量探测。
 这样 `guid`、`type_guid` 这类语义上是
 原子值的类型，不需要暴露内部字段结构。容器、pair、tuple、variant、裸指针和普通 wrapper 字段优先通过
 `meta::type_descriptor` 生成的视图递归处理内部值，因此这类字段通常不需要显式注册
@@ -644,7 +646,7 @@ codec 和 meta descriptor 的边界：
   `variant` 中间值。它作为 serialization 模块静态能力挂到 descriptor 静态表中。
 - 编译期已知 `T` 时，内部可以从 `serialization::codec_traits<T>` 静态生成一份 `codec_ops` 函数表，
   并挂到 type descriptor 静态能力表中。
-- `any`、`any_ref` 和反射字段这类携带 descriptor 的路径会先查询 descriptor 静态 codec 能力，
+- `any`、`any_ref` 和反射字段这类内部携带 descriptor 的路径会先查询 descriptor 静态 codec 能力，
   因此只要 `codec_traits<T>` 特化在生成该 descriptor 的翻译单元可见，就不需要额外注册 codec。
 - 运行期只剩 `type_id` 时，`serialization::find_codec(type_id)` 会先通过全局 meta registry 查询对应
   `meta::type` 视图，再从该视图的 descriptor 静态能力中取得 codec。因此需要按 `type_id` 查 codec 的类型，
@@ -997,7 +999,7 @@ caors::string text = result.value;
 - `serialization::resource_dependency_list`：序列化遍历过程中收集到的资源依赖列表。
 - `serialization::codec_traits<T>`：类型级 codec 特化入口。
 - `serialization::codec_of<T>()`：按 C++ 类型查询 descriptor 静态 codec 视图；类型不要求已经显式 meta 注册。
-- `serialization::find_codec()`：按 descriptor、meta 类型或类型 id 查询 descriptor 静态 codec 视图。
+- `serialization::find_codec()`：按 meta 类型或类型 id 查询 descriptor 静态 codec 视图。
 - `serialization::text_writer`：简单文本格式后端。
 - `variant`：序列化 DOM 中间对象。
 - `serialization::to_variant()`：把运行期 `any` / `any_ref` 转换为 `variant`。

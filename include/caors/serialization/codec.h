@@ -5,8 +5,7 @@
 #define CAORS_SERIALIZATION_CODEC_H_
 
 #include "caors/meta/capability.h"
-#include "caors/meta/type.h"
-#include "caors/meta/type_descriptor_model.h"
+#include "caors/meta/query.h"
 #include "caors/serialization/codec_ops.h"
 #include "caors/serialization/reader.h"
 #include "caors/serialization/writer.h"
@@ -328,7 +327,6 @@ public:
 
 private:
   template <typename T> friend codec codec_of();
-  friend codec find_codec(const meta::type_descriptor* descriptor);
   friend codec find_codec(meta::type type);
   friend const codec_ops* detail::ops_of(codec) noexcept;
 
@@ -346,9 +344,6 @@ private:
 
 /** @brief 按类型 id 查询已注册 meta 类型的 codec 视图。 */
 [[nodiscard]] CAORS_API codec find_codec(type_id id);
-
-/** @brief 按类型 descriptor 查询静态 codec 视图；不要求类型已显式注册。 */
-[[nodiscard]] CAORS_API codec find_codec(const meta::type_descriptor* descriptor);
 
 /** @brief 按 meta 类型查询已索引的 codec 视图。 */
 [[nodiscard]] CAORS_API codec find_codec(meta::type type);
@@ -517,7 +512,7 @@ namespace caors::serialization {
 
 template <typename T> [[nodiscard]] codec codec_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  return find_codec(meta::descriptor_of<type>());
+  return find_codec(meta::type_of<type>());
 }
 
 } // namespace caors::serialization

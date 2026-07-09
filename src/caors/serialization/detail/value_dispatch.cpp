@@ -3,6 +3,7 @@
 
 #include "helpers.h"
 
+#include "caors/meta/type_descriptor.h"
 #include "caors/object/handle_view.h"
 #include "caors/object/ptr_view.h"
 #include "caors/reflection/registry.h"
@@ -15,9 +16,14 @@ namespace caors::serialization::detail {
 
 namespace {
 
+[[nodiscard]] const codec_ops*
+codec_ops_of_descriptor(const meta::type_descriptor* descriptor) noexcept {
+  return meta::descriptor_static_capability<codec_ops>(descriptor);
+}
+
 [[nodiscard]] const codec_ops* find_codec_ops(const any& data) {
   if (const auto* descriptor = caors::value::detail::descriptor_of(data); descriptor != nullptr) {
-    return ops_of(serialization::find_codec(descriptor));
+    return codec_ops_of_descriptor(descriptor);
   }
 
   return ops_of(serialization::find_codec(data.get_type()));
@@ -25,7 +31,7 @@ namespace {
 
 [[nodiscard]] const codec_ops* find_codec_ops(const any_ref& value) {
   if (const auto* descriptor = caors::value::detail::descriptor_of(value); descriptor != nullptr) {
-    return ops_of(serialization::find_codec(descriptor));
+    return codec_ops_of_descriptor(descriptor);
   }
 
   return ops_of(serialization::find_codec(value.get_type()));
