@@ -234,14 +234,15 @@ runtime capability。普通调用方应使用这个统一入口，不直接关�
 descriptor 内部按职责拆分：
 
 - `type_layout`：保存 `size` 和 `alignment`。
-- `value_ops`：保存默认构造、复制、析构和赋值的类型擦除函数。
+- `value_ops`：保存默认构造、复制、析构和赋值的类型擦除函数；相关底层函数表定义在
+  `meta/value_ops.h`。
 - `type_semantics`：保存该类型在反射、序列化和 value 模块中的运行期形态。
 - `builtin_capability`：保存一个固定内置互斥能力，例如枚举、间接值、顺序容器、集合、关联容器、pair、tuple 或 variant。
 - `static_capabilities`：保存模块声明的静态能力表，例如对象指针、对象句柄访问函数表和
   serialization codec 函数表。
 
 文件边界上，`meta/type_descriptor.h` 保存公开稳定的 descriptor 结构和查询 helper；
-`meta/detail/type_descriptor.h` 只保留内部生成入口和向后兼容转发；
+`meta/detail/type_descriptor.h` 只保留内部 descriptor 生成和注册桥接声明；
 `meta/detail/type_descriptor_name.h` 负责 descriptor 默认显示名生成；
 `meta/detail/type_descriptor_model.h` 负责 descriptor holder、语义填充和构建入口；
 `meta/detail/builtin_ops_model.h` 作为内置能力聚合入口，只负责引入

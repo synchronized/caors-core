@@ -9,17 +9,17 @@ namespace caors::serialization::detail {
 
 [[nodiscard]] const meta::sequence_ops* sequence_ops_of(const any_ref& target) noexcept {
   const meta::type_descriptor* descriptor = value::detail::descriptor_of(target);
-  return meta::detail::descriptor_capability<meta::sequence_ops>(descriptor);
+  return meta::descriptor_capability<meta::sequence_ops>(descriptor);
 }
 
 [[nodiscard]] const meta::set_ops* set_ops_of(const any_ref& target) noexcept {
   const meta::type_descriptor* descriptor = value::detail::descriptor_of(target);
-  return meta::detail::descriptor_capability<meta::set_ops>(descriptor);
+  return meta::descriptor_capability<meta::set_ops>(descriptor);
 }
 
 [[nodiscard]] const meta::associative_ops* associative_ops_of(const any_ref& target) noexcept {
   const meta::type_descriptor* descriptor = value::detail::descriptor_of(target);
-  return meta::detail::descriptor_capability<meta::associative_ops>(descriptor);
+  return meta::descriptor_capability<meta::associative_ops>(descriptor);
 }
 
 [[nodiscard]] meta::detail::value_assign_fn assign_fn_of(const any_ref& target) noexcept {

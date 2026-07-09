@@ -20,9 +20,8 @@ core::string_name method::name() const noexcept {
 
 meta::type method::get_return_type() const noexcept {
   const detail::method_data* method = info();
-  return method != nullptr
-             ? meta::detail::make_type_view(method->return_type, method->return_descriptor)
-             : meta::type{};
+  return method != nullptr ? meta::make_type_view(method->return_type, method->return_descriptor)
+                           : meta::type{};
 }
 
 std::size_t method::parameter_count() const noexcept {
@@ -36,8 +35,8 @@ std::optional<meta::type> method::get_parameter_type(std::size_t index) const no
     return std::nullopt;
   }
 
-  meta::type parameter = meta::detail::make_type_view(method->parameter_types[index],
-                                                      method->parameter_descriptors[index]);
+  meta::type parameter =
+      meta::make_type_view(method->parameter_types[index], method->parameter_descriptors[index]);
   if (!parameter) {
     return std::nullopt;
   }

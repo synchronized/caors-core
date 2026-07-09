@@ -4,7 +4,7 @@
 #include "helpers.h"
 #include "polymorphic.h"
 
-#include "caors/meta/detail/type_descriptor.h"
+#include "caors/meta/type_descriptor.h"
 #include "caors/object/handle_view.h"
 #include "caors/object/ptr_view.h"
 #include "caors/reflection/registry.h"
@@ -225,22 +225,21 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
 
 [[nodiscard]] const meta::enum_ops* enum_ops(const any_ref& value) noexcept {
   const caors::meta::type_descriptor* descriptor = descriptor_of_value(value);
-  return meta::detail::descriptor_capability<meta::enum_ops>(descriptor);
+  return meta::descriptor_capability<meta::enum_ops>(descriptor);
 }
 
 [[nodiscard]] bool type_uses_inline_indirect_value(const any_ref& value) noexcept {
   const meta::type_descriptor* descriptor = descriptor_of_value(value);
   return descriptor != nullptr &&
-         (meta::detail::descriptor_kind(*descriptor) == meta::type_kind::raw_pointer ||
-          meta::detail::descriptor_kind(*descriptor) == meta::type_kind::wrapper) &&
-         meta::detail::descriptor_wrapper_semantics(*descriptor) ==
-             meta::wrapper_semantics::inline_value;
+         (meta::descriptor_kind(*descriptor) == meta::type_kind::raw_pointer ||
+          meta::descriptor_kind(*descriptor) == meta::type_kind::wrapper) &&
+         meta::descriptor_wrapper_semantics(*descriptor) == meta::wrapper_semantics::inline_value;
 }
 
 [[nodiscard]] bool type_is_enumeration(const any_ref& value) noexcept {
   const meta::type_descriptor* descriptor = descriptor_of_value(value);
   return descriptor != nullptr &&
-         meta::detail::descriptor_kind(*descriptor) == meta::type_kind::enumeration;
+         meta::descriptor_kind(*descriptor) == meta::type_kind::enumeration;
 }
 
 [[nodiscard]] bool type_uses_object_handle(const any_ref& value) noexcept {
@@ -512,8 +511,7 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
 [[nodiscard]] variant_result make_enum_value(const any_ref& value) {
   const meta::type_descriptor* descriptor = descriptor_of_value(value);
   const meta::enum_ops* data = enum_ops(value);
-  if (descriptor == nullptr ||
-      meta::detail::descriptor_kind(*descriptor) != meta::type_kind::enumeration ||
+  if (descriptor == nullptr || meta::descriptor_kind(*descriptor) != meta::type_kind::enumeration ||
       data == nullptr || value.data() == nullptr) {
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
@@ -536,8 +534,7 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
 [[nodiscard]] error write_enum_value(writer& writer, const any_ref& value) {
   const meta::type_descriptor* descriptor = descriptor_of_value(value);
   const meta::enum_ops* data = enum_ops(value);
-  if (descriptor == nullptr ||
-      meta::detail::descriptor_kind(*descriptor) != meta::type_kind::enumeration ||
+  if (descriptor == nullptr || meta::descriptor_kind(*descriptor) != meta::type_kind::enumeration ||
       data == nullptr || value.data() == nullptr) {
     return {error_domain::serialization, errc::unsupported};
   }
@@ -560,8 +557,7 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
 [[nodiscard]] error read_enum_value(reader& reader, const any_ref& target) {
   const meta::type_descriptor* descriptor = descriptor_of_value(target);
   const meta::enum_ops* data = enum_ops(target);
-  if (descriptor == nullptr ||
-      meta::detail::descriptor_kind(*descriptor) != meta::type_kind::enumeration ||
+  if (descriptor == nullptr || meta::descriptor_kind(*descriptor) != meta::type_kind::enumeration ||
       data == nullptr || target.mutable_data() == nullptr || data->from_i64 == nullptr ||
       data->from_u64 == nullptr) {
     return {error_domain::serialization, errc::unsupported};

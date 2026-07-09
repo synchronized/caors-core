@@ -49,8 +49,6 @@ type type::parent() const noexcept {
   return registry_->find_type(parent_id());
 }
 
-namespace detail {
-
 type make_type_view(type_id id, const type_descriptor* descriptor) noexcept {
   if (id) {
     meta::type registered = get_registry().find_type(id);
@@ -65,6 +63,8 @@ type make_type_view(type_id id, const type_descriptor* descriptor) noexcept {
 
   return meta::type{&get_registry(), nullptr, descriptor};
 }
+
+namespace detail {
 
 value_default_construct_fn get_default_construct_value_fn(const meta::type& type) noexcept {
   return type.descriptor_ != nullptr ? type.descriptor_->ops.default_construct : nullptr;

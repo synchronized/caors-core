@@ -32,7 +32,7 @@ variant_result make_serialized_value(const any& data) {
 
   const caors::meta::type_descriptor* descriptor = caors::value::detail::descriptor_of(data);
   if (descriptor != nullptr) {
-    const meta::type_kind kind = meta::detail::descriptor_kind(*descriptor);
+    const meta::type_kind kind = meta::descriptor_kind(*descriptor);
     const any_ref ref = data.ref();
     if (type_uses_object_handle(ref) || type_uses_object_ptr(ref) ||
         kind == meta::type_kind::raw_pointer || kind == meta::type_kind::wrapper ||

@@ -15,13 +15,13 @@
 
 namespace caors::meta::detail {
 
-template <typename T> void fill_descriptor_semantics(type_descriptor& descriptor) {
+template <typename T> void fill_descriptor_semantics(meta::type_descriptor& descriptor) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
 
   if constexpr (std::is_pointer_v<type>) {
     using value_type = std::remove_cv_t<std::remove_pointer_t<type>>;
 
-    static_assert(!is_nested_type_indirection_v<value_type>,
+    static_assert(!meta::is_nested_type_indirection_v<value_type>,
                   "CAORS value supports at most one pointer or wrapper level");
 
     descriptor.semantics.kind = type_kind::raw_pointer;
@@ -44,7 +44,7 @@ template <typename T> void fill_descriptor_semantics(type_descriptor& descriptor
     using wrapped_type = typename traits::wrapper_traits<type>::wrapped_type;
     using value_type = std::remove_cv_t<wrapped_type>;
 
-    static_assert(!is_nested_type_indirection_v<value_type>,
+    static_assert(!meta::is_nested_type_indirection_v<value_type>,
                   "CAORS value supports at most one pointer or wrapper level");
 
     descriptor.semantics.kind = type_kind::wrapper;
@@ -63,12 +63,12 @@ template <typename T> void fill_descriptor_semantics(type_descriptor& descriptor
 template <typename T> struct descriptor_holder {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
 
-  inline static const type_descriptor value = [] {
-    type_descriptor descriptor{};
+  inline static const meta::type_descriptor value = [] {
+    meta::type_descriptor descriptor{};
     descriptor.type = descriptor_type_id<type>();
     descriptor.name = descriptor_type_name<type>();
-    descriptor.layout = type_layout{sizeof(type), alignof(type)};
-    descriptor.ops = value_ops{
+    descriptor.layout = meta::type_layout{sizeof(type), alignof(type)};
+    descriptor.ops = meta::value_ops{
         default_construct_fn_of<type>(),
         value_clone_fn_of<type>(),
         value_destroy_fn_of<type>(),
@@ -76,7 +76,7 @@ template <typename T> struct descriptor_holder {
         resource_default_construct_fn_of<type>(),
         resource_destroy_fn_of<type>(),
     };
-    descriptor.traits = value_traits{
+    descriptor.traits = meta::value_traits{
         std::is_trivially_copyable_v<type>,
         std::is_trivially_destructible_v<type>,
         std::is_trivially_default_constructible_v<type>,
@@ -89,13 +89,13 @@ template <typename T> struct descriptor_holder {
   }();
 };
 
-template <typename T> [[nodiscard]] const type_descriptor* descriptor_ptr_of() noexcept {
+template <typename T> [[nodiscard]] const meta::type_descriptor* descriptor_ptr_of() noexcept {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   return &descriptor_holder<type>::value;
 }
 
 template <typename T> [[nodiscard]] error ensure_type_descriptor_for() {
-  const type_descriptor* descriptor = descriptor_ptr_of<T>();
+  const meta::type_descriptor* descriptor = descriptor_ptr_of<T>();
   if (descriptor == nullptr || !descriptor->valid()) {
     return {error_domain::meta, errc::invalid_type};
   }

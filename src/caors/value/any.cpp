@@ -3,8 +3,8 @@
 
 #include "caors/value/any_ref.h"
 
-#include "caors/meta/detail/type_descriptor.h"
 #include "caors/meta/query.h"
+#include "caors/meta/type_descriptor.h"
 
 #include <cstring>
 #include <utility>
@@ -56,8 +56,7 @@ bool any::valid() const noexcept {
 }
 
 meta::type any::get_type() const noexcept {
-  return meta::detail::make_type_view(descriptor_ != nullptr ? descriptor_->type : type_id{},
-                                      descriptor_);
+  return meta::make_type_view(descriptor_ != nullptr ? descriptor_->type : type_id{}, descriptor_);
 }
 
 const void* any::data() const noexcept { return valid() ? data_ : nullptr; }
@@ -200,8 +199,7 @@ bool any_ref::valid() const noexcept {
 }
 
 meta::type any_ref::get_type() const noexcept {
-  return meta::detail::make_type_view(descriptor_ != nullptr ? descriptor_->type : type_id{},
-                                      descriptor_);
+  return meta::make_type_view(descriptor_ != nullptr ? descriptor_->type : type_id{}, descriptor_);
 }
 
 const void* any_ref::data() const noexcept { return valid() ? data_ : nullptr; }

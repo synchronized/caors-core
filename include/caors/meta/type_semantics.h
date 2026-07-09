@@ -8,7 +8,7 @@
 
 #include <type_traits>
 
-namespace caors::meta::detail {
+namespace caors::meta {
 
 template <typename T>
 inline constexpr bool is_supported_wrapper_v =
@@ -18,6 +18,6 @@ template <typename T>
 inline constexpr bool is_nested_type_indirection_v =
     std::is_pointer_v<std::remove_cv_t<T>> || is_supported_wrapper_v<T>;
 
-} // namespace caors::meta::detail
+} // namespace caors::meta
 
 #endif
