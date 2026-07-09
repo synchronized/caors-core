@@ -4,14 +4,21 @@
 #ifndef CAORS_META_DETAIL_BUILTIN_CAPABILITY_H_
 #define CAORS_META_DETAIL_BUILTIN_CAPABILITY_H_
 
-#include "caors/meta/detail/container.h"
-#include "caors/meta/detail/type_capabilities.h"
+#include "caors/meta/type_id.h"
 
 #include <variant>
 
 namespace caors::meta::detail {
 
 struct type_descriptor;
+struct enum_ops;
+struct indirect_ops;
+struct sequence_ops;
+struct set_ops;
+struct associative_ops;
+struct pair_ops;
+struct tuple_ops;
+struct variant_ops;
 
 template <typename T> [[nodiscard]] const type_descriptor* descriptor_ptr_of() noexcept;
 template <typename T> [[nodiscard]] type_id descriptor_type_id() noexcept;

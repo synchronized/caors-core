@@ -12,6 +12,24 @@
 
 namespace caors::meta::detail {
 
+using enum_to_i64_fn = std::int64_t (*)(const void*) noexcept;
+using enum_to_u64_fn = std::uint64_t (*)(const void*) noexcept;
+using enum_from_i64_fn = bool (*)(void*, std::int64_t) noexcept;
+using enum_from_u64_fn = bool (*)(void*, std::uint64_t) noexcept;
+
+/** @brief 枚举类型和整数之间的转换函数表。 */
+struct enum_ops {
+  enum_to_i64_fn to_i64 = nullptr;
+  enum_to_u64_fn to_u64 = nullptr;
+  enum_from_i64_fn from_i64 = nullptr;
+  enum_from_u64_fn from_u64 = nullptr;
+  bool is_signed = false;
+
+  [[nodiscard]] bool valid() const noexcept {
+    return to_i64 != nullptr && to_u64 != nullptr && from_i64 != nullptr && from_u64 != nullptr;
+  }
+};
+
 template <typename Enum> [[nodiscard]] std::int64_t enum_to_i64(const void* storage) noexcept {
   using underlying_type = std::underlying_type_t<Enum>;
   return static_cast<std::int64_t>(

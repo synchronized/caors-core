@@ -4,6 +4,8 @@
 #ifndef CAORS_META_DETAIL_BUILTIN_VARIANT_OPS_H_
 #define CAORS_META_DETAIL_BUILTIN_VARIANT_OPS_H_
 
+#include "caors/core/containers.h"
+#include "caors/memory/resource.h"
 #include "caors/meta/detail/builtin/capability.h"
 #include "caors/traits/container.h"
 
@@ -12,6 +14,42 @@
 #include <utility>
 
 namespace caors::meta::detail {
+
+using variant_index_fn = std::size_t (*)(const void*) noexcept;
+using variant_const_alternative_fn = const void* (*)(const void*) noexcept;
+using variant_mutable_alternative_fn = void* (*)(void*) noexcept;
+using variant_emplace_fn = bool (*)(void*, memory::memory_resource*);
+
+/** @brief variant-like 单个候选类型运行期访问操作表。 */
+struct variant_alternative_ops {
+  type_id value_type{};
+  variant_const_alternative_fn alternative = nullptr;
+  variant_mutable_alternative_fn mutable_alternative = nullptr;
+  variant_emplace_fn emplace = nullptr;
+  const type_descriptor* value_descriptor = nullptr;
+
+  [[nodiscard]] bool valid() const noexcept { return value_type && alternative != nullptr; }
+};
+
+/** @brief variant-like 运行期访问操作表。 */
+struct variant_ops {
+  vector<variant_alternative_ops> alternatives{};
+  variant_index_fn index = nullptr;
+
+  [[nodiscard]] bool valid() const noexcept {
+    if (index == nullptr || alternatives.empty()) {
+      return false;
+    }
+
+    for (const variant_alternative_ops& alternative : alternatives) {
+      if (!alternative.valid()) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+};
 
 template <typename Variant, std::size_t Index> struct variant_alternative_ops_model {
   using type = std::remove_cv_t<std::remove_reference_t<Variant>>;

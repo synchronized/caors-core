@@ -22,6 +22,12 @@ struct has_const_container_iterator<T, std::void_t<decltype(std::declval<const T
 template <typename T>
 inline constexpr bool has_const_container_iterator_v = has_const_container_iterator<T>::value;
 
+using container_iterator_create_fn = void* (*)(const void*) noexcept;
+using container_iterator_clone_fn = void* (*)(const void*) noexcept;
+using container_iterator_destroy_fn = void (*)(void*) noexcept;
+using container_iterator_advance_fn = void (*)(void*) noexcept;
+using container_iterator_equal_fn = bool (*)(const void*, const void*) noexcept;
+
 template <typename Iterator> struct container_iterator_holder {
   template <typename... Args>
   explicit container_iterator_holder(memory::memory_resource* iterator_resource, Args&&... args)

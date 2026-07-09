@@ -8,10 +8,40 @@
 #include "caors/meta/detail/container_iterators.h"
 #include "caors/traits/container.h"
 
+#include <cstddef>
 #include <type_traits>
 #include <utility>
 
 namespace caors::meta::detail {
+
+using set_raw_visitor = bool (*)(const void*, void*);
+
+using set_size_fn = std::size_t (*)(const void*) noexcept;
+using set_visit_fn = bool (*)(const void*, set_raw_visitor, void*);
+using set_clear_fn = void (*)(void*) noexcept;
+using set_insert_fn = bool (*)(void*, const void*);
+using set_iterator_value_fn = const void* (*)(const void*) noexcept;
+
+/** @brief 集合容器运行期访问操作表。 */
+struct set_ops {
+  type_id value_type{};
+  set_size_fn size = nullptr;
+  set_visit_fn visit = nullptr;
+  set_clear_fn clear = nullptr;
+  set_insert_fn insert = nullptr;
+  container_iterator_create_fn begin = nullptr;
+  container_iterator_create_fn end = nullptr;
+  container_iterator_clone_fn iterator_clone = nullptr;
+  container_iterator_destroy_fn iterator_destroy = nullptr;
+  container_iterator_advance_fn iterator_advance = nullptr;
+  container_iterator_equal_fn iterator_equal = nullptr;
+  set_iterator_value_fn iterator_value = nullptr;
+  const type_descriptor* value_descriptor = nullptr;
+
+  [[nodiscard]] bool valid() const noexcept {
+    return value_type && size != nullptr && visit != nullptr;
+  }
+};
 
 template <typename T> struct set_ops_model {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;

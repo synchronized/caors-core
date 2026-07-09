@@ -4,7 +4,7 @@
 #include "helpers.h"
 #include "polymorphic.h"
 
-#include "caors/meta/detail/type_capabilities.h"
+#include "caors/meta/detail/type_descriptor.h"
 #include "caors/object/handle_view.h"
 #include "caors/object/ptr_view.h"
 #include "caors/reflection/registry.h"

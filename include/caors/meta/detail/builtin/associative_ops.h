@@ -8,10 +8,44 @@
 #include "caors/meta/detail/container_iterators.h"
 #include "caors/traits/container.h"
 
+#include <cstddef>
 #include <type_traits>
 #include <utility>
 
 namespace caors::meta::detail {
+
+using associative_raw_visitor = bool (*)(const void*, const void*, void*);
+
+using associative_size_fn = std::size_t (*)(const void*) noexcept;
+using associative_visit_fn = bool (*)(const void*, associative_raw_visitor, void*);
+using associative_clear_fn = void (*)(void*) noexcept;
+using associative_insert_fn = bool (*)(void*, const void*, const void*);
+using associative_iterator_key_fn = const void* (*)(const void*) noexcept;
+using associative_iterator_value_fn = const void* (*)(const void*) noexcept;
+
+/** @brief 关联容器运行期访问操作表。 */
+struct associative_ops {
+  type_id key_type{};
+  type_id value_type{};
+  associative_size_fn size = nullptr;
+  associative_visit_fn visit = nullptr;
+  associative_clear_fn clear = nullptr;
+  associative_insert_fn insert = nullptr;
+  container_iterator_create_fn begin = nullptr;
+  container_iterator_create_fn end = nullptr;
+  container_iterator_clone_fn iterator_clone = nullptr;
+  container_iterator_destroy_fn iterator_destroy = nullptr;
+  container_iterator_advance_fn iterator_advance = nullptr;
+  container_iterator_equal_fn iterator_equal = nullptr;
+  associative_iterator_key_fn iterator_key = nullptr;
+  associative_iterator_value_fn iterator_value = nullptr;
+  const type_descriptor* key_descriptor = nullptr;
+  const type_descriptor* value_descriptor = nullptr;
+
+  [[nodiscard]] bool valid() const noexcept {
+    return key_type && value_type && size != nullptr && visit != nullptr;
+  }
+};
 
 template <typename T> struct associative_ops_model {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
