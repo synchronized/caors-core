@@ -26,14 +26,6 @@ namespace caors::serialization::detail {
                                                               const reflection::type& type,
                                                               const void* object);
 
-/** @brief 通过反射类型视图和上下文把对象序列化为简单文本格式。 */
-[[nodiscard]] CAORS_API serialization_text_result serialize_text(
-    const serialization::context& context, const reflection::type& type, const void* object);
-
-/** @brief 通过反射类型视图和上下文把对象序列化为 JSON。 */
-[[nodiscard]] CAORS_API serialization_text_result serialize_json(
-    const serialization::context& context, const reflection::type& type, const void* object);
-
 /** @brief 判断对象运行期类型是否需要写出多态 envelope。 */
 [[nodiscard]] CAORS_API bool
 object_requires_polymorphic_envelope(type_id declared_id, const objects::object& object) noexcept;

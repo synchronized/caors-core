@@ -5,7 +5,6 @@
 #define CAORS_SERIALIZATION_CODEC_H_
 
 #include "caors/meta/capability.h"
-#include "caors/reflection/field.h"
 #include "caors/serialization/detail/codec_ops.h"
 #include "caors/serialization/reader.h"
 #include "caors/serialization/writer.h"

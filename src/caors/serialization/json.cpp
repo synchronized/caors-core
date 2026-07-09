@@ -337,21 +337,6 @@ void serialization::json_writer::write_newline_and_indent(std::size_t depth) {
   }
 }
 
-namespace detail {
-
-serialization_text_result serialize_json(const serialization::context& context,
-                                         const reflection::type& type, const void* object) {
-  serialization::json_writer writer;
-  const error status = serialize(context, type, object, writer);
-  if (status) {
-    return {status, {}};
-  }
-
-  return {status, writer.text()};
-}
-
-} // namespace detail
-
 variant_result parse_json(std::string_view text) { return parse_json(text, json_options{}); }
 
 variant_result parse_json(std::string_view text, json_options) {
