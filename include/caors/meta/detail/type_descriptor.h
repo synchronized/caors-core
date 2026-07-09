@@ -98,8 +98,7 @@ template <typename T> inline constexpr bool always_false_v = false;
 template <typename Capability>
 [[nodiscard]] inline const Capability*
 descriptor_capability(const type_descriptor& descriptor) noexcept {
-  if constexpr (std::is_same_v<Capability, enum_ops> ||
-                std::is_same_v<Capability, indirect_ops> ||
+  if constexpr (std::is_same_v<Capability, enum_ops> || std::is_same_v<Capability, indirect_ops> ||
                 std::is_same_v<Capability, sequence_ops> || std::is_same_v<Capability, set_ops> ||
                 std::is_same_v<Capability, associative_ops> ||
                 std::is_same_v<Capability, pair_ops> || std::is_same_v<Capability, tuple_ops> ||
@@ -453,323 +452,353 @@ template <typename T> void fill_descriptor_semantics(type_descriptor& descriptor
   }
 }
 
+template <typename T> struct enum_ops_model {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+
+  inline static const enum_ops value = make_enum_ops<type>();
+};
+
 template <typename T> [[nodiscard]] const enum_ops* enum_ops_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (std::is_enum_v<type>) {
-    static const enum_ops data = make_enum_ops<type>();
-    return data.valid() ? &data : nullptr;
+    return enum_ops_model<type>::value.valid() ? &enum_ops_model<type>::value : nullptr;
   } else {
     return nullptr;
   }
 }
 
-template <typename T> [[nodiscard]] const indirect_ops* indirect_ops_ptr_of() {
+template <typename T> struct indirect_ops_model {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (std::is_pointer_v<type>) {
-    using value_type = std::remove_pointer_t<type>;
-    static const indirect_ops data = [] {
+
+  inline static const indirect_ops value = [] {
+    if constexpr (std::is_pointer_v<type>) {
+      using value_type = std::remove_pointer_t<type>;
+
       indirect_ops result = make_indirect_ops<type>();
       result.value_descriptor = descriptor_ptr_of<std::remove_cv_t<value_type>>();
       return result;
-    }();
+    } else if constexpr (traits::wrapper_traits<type>::is_wrapper) {
+      using value_type = std::remove_cv_t<typename traits::wrapper_traits<type>::wrapped_type>;
 
-    return data.valid() ? &data : nullptr;
-  } else if constexpr (traits::wrapper_traits<type>::is_wrapper) {
-    using value_type = std::remove_cv_t<typename traits::wrapper_traits<type>::wrapped_type>;
-    static const indirect_ops data = [] {
       indirect_ops result{};
       if constexpr (traits::wrapper_traits<type>::semantics != wrapper_semantics::unsupported) {
         result = make_indirect_ops<type>();
       }
       result.value_descriptor = descriptor_ptr_of<value_type>();
       return result;
-    }();
+    } else {
+      return indirect_ops{};
+    }
+  }();
+};
 
-    return data.value_descriptor != nullptr ? &data : nullptr;
+template <typename T> [[nodiscard]] const indirect_ops* indirect_ops_ptr_of() {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (std::is_pointer_v<type>) {
+    return indirect_ops_model<type>::value.valid() ? &indirect_ops_model<type>::value : nullptr;
+  } else if constexpr (traits::wrapper_traits<type>::is_wrapper) {
+    return indirect_ops_model<type>::value.value_descriptor != nullptr
+               ? &indirect_ops_model<type>::value
+               : nullptr;
   } else {
     return nullptr;
   }
 }
+
+template <typename T> struct sequence_ops_model {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  using element_type = typename traits::sequence_traits<type>::element_type;
+
+  inline static const sequence_ops value = [] {
+    sequence_ops result{
+        descriptor_type_id<element_type>(),
+        [](const void* storage) noexcept -> std::size_t {
+          if (storage == nullptr) {
+            return 0;
+          }
+
+          return traits::sequence_traits<type>::size(*static_cast<const type*>(storage));
+        },
+        [](const void* storage, std::size_t index) noexcept -> const void* {
+          if (storage == nullptr) {
+            return nullptr;
+          }
+
+          return traits::sequence_traits<type>::element(*static_cast<const type*>(storage), index);
+        },
+        [](void* storage, std::size_t index) noexcept -> void* {
+          if (storage == nullptr) {
+            return nullptr;
+          }
+
+          return traits::sequence_traits<type>::mutable_element(*static_cast<type*>(storage),
+                                                                index);
+        },
+        [](void* storage) noexcept {
+          if (storage != nullptr) {
+            traits::sequence_traits<type>::clear(*static_cast<type*>(storage));
+          }
+        },
+        [](void* storage, std::size_t size, memory::memory_resource* resource) -> bool {
+          if (storage == nullptr) {
+            return false;
+          }
+
+          if constexpr (requires(type& values, std::size_t count,
+                                 memory::memory_resource* resize_resource) {
+                          traits::sequence_traits<type>::resize(values, count, resize_resource);
+                        }) {
+            return traits::sequence_traits<type>::resize(*static_cast<type*>(storage), size,
+                                                         resource);
+          } else {
+            (void)resource;
+            return traits::sequence_traits<type>::resize(*static_cast<type*>(storage), size);
+          }
+        },
+        [](void* storage, const void* element) -> bool {
+          if (storage == nullptr || element == nullptr) {
+            return false;
+          }
+
+          return traits::sequence_traits<type>::append(*static_cast<type*>(storage),
+                                                       *static_cast<const element_type*>(element));
+        },
+    };
+
+    if constexpr (requires { traits::sequence_traits<type>::read_in_place; }) {
+      result.read_in_place = traits::sequence_traits<type>::read_in_place;
+    }
+
+    if constexpr (requires { traits::sequence_traits<type>::can_read; }) {
+      result.can_read = traits::sequence_traits<type>::can_read;
+    }
+
+    if constexpr (requires { traits::sequence_traits<type>::fixed_size; }) {
+      result.fixed_size = traits::sequence_traits<type>::fixed_size;
+    }
+
+    result.value_descriptor = descriptor_ptr_of<element_type>();
+    return result;
+  }();
+};
 
 template <typename T> [[nodiscard]] const sequence_ops* sequence_ops_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (traits::sequence_traits<type>::is_sequence) {
-    using element_type = typename traits::sequence_traits<type>::element_type;
-    static const sequence_ops data = [] {
-      sequence_ops result{
-          descriptor_type_id<element_type>(),
-          [](const void* storage) noexcept -> std::size_t {
-            if (storage == nullptr) {
-              return 0;
-            }
-
-            return traits::sequence_traits<type>::size(*static_cast<const type*>(storage));
-          },
-          [](const void* storage, std::size_t index) noexcept -> const void* {
-            if (storage == nullptr) {
-              return nullptr;
-            }
-
-            return traits::sequence_traits<type>::element(*static_cast<const type*>(storage),
-                                                          index);
-          },
-          [](void* storage, std::size_t index) noexcept -> void* {
-            if (storage == nullptr) {
-              return nullptr;
-            }
-
-            return traits::sequence_traits<type>::mutable_element(*static_cast<type*>(storage),
-                                                                  index);
-          },
-          [](void* storage) noexcept {
-            if (storage != nullptr) {
-              traits::sequence_traits<type>::clear(*static_cast<type*>(storage));
-            }
-          },
-          [](void* storage, std::size_t size, memory::memory_resource* resource) -> bool {
-            if (storage == nullptr) {
-              return false;
-            }
-
-            if constexpr (requires(type& values, std::size_t count,
-                                   memory::memory_resource* resize_resource) {
-                            traits::sequence_traits<type>::resize(values, count, resize_resource);
-                          }) {
-              return traits::sequence_traits<type>::resize(*static_cast<type*>(storage), size,
-                                                           resource);
-            } else {
-              (void)resource;
-              return traits::sequence_traits<type>::resize(*static_cast<type*>(storage), size);
-            }
-          },
-          [](void* storage, const void* element) -> bool {
-            if (storage == nullptr || element == nullptr) {
-              return false;
-            }
-
-            return traits::sequence_traits<type>::append(
-                *static_cast<type*>(storage), *static_cast<const element_type*>(element));
-          },
-      };
-
-      if constexpr (requires { traits::sequence_traits<type>::read_in_place; }) {
-        result.read_in_place = traits::sequence_traits<type>::read_in_place;
-      }
-
-      if constexpr (requires { traits::sequence_traits<type>::can_read; }) {
-        result.can_read = traits::sequence_traits<type>::can_read;
-      }
-
-      if constexpr (requires { traits::sequence_traits<type>::fixed_size; }) {
-        result.fixed_size = traits::sequence_traits<type>::fixed_size;
-      }
-
-      result.value_descriptor = descriptor_ptr_of<element_type>();
-      return result;
-    }();
-
-    return data.valid() ? &data : nullptr;
+    return sequence_ops_model<type>::value.valid() ? &sequence_ops_model<type>::value : nullptr;
   } else {
     return nullptr;
   }
 }
+
+template <typename T> struct set_ops_model {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  using element_type = typename traits::set_traits<type>::element_type;
+
+  inline static const set_ops value = [] {
+    set_ops result{
+        descriptor_type_id<element_type>(),
+        [](const void* storage) noexcept -> std::size_t {
+          if (storage == nullptr) {
+            return 0;
+          }
+
+          return traits::set_traits<type>::size(*static_cast<const type*>(storage));
+        },
+        [](const void* storage, set_raw_visitor visitor, void* user_data) -> bool {
+          if (storage == nullptr || visitor == nullptr) {
+            return false;
+          }
+
+          bool keep_going = true;
+          traits::set_traits<type>::for_each(*static_cast<const type*>(storage),
+                                             [&](const element_type& element) {
+                                               if (!keep_going) {
+                                                 return;
+                                               }
+
+                                               keep_going = visitor(&element, user_data);
+                                             });
+
+          return keep_going;
+        },
+        [](void* storage) noexcept {
+          if (storage != nullptr) {
+            traits::set_traits<type>::clear(*static_cast<type*>(storage));
+          }
+        },
+        [](void* storage, const void* element) -> bool {
+          if (storage == nullptr || element == nullptr) {
+            return false;
+          }
+
+          return traits::set_traits<type>::insert(*static_cast<type*>(storage),
+                                                  *static_cast<const element_type*>(element));
+        },
+    };
+
+    if constexpr (has_const_container_iterator_v<type>) {
+      using iterator_type = decltype(std::declval<const type&>().begin());
+      result.begin = &begin_container_iterator<type>;
+      result.end = &end_container_iterator<type>;
+      result.iterator_clone = &clone_container_iterator<iterator_type>;
+      result.iterator_destroy = &destroy_container_iterator<iterator_type>;
+      result.iterator_advance = &advance_container_iterator<iterator_type>;
+      result.iterator_equal = &equal_container_iterator<iterator_type>;
+      result.iterator_value = &set_iterator_value<iterator_type>;
+    }
+
+    result.value_descriptor = descriptor_ptr_of<element_type>();
+    return result;
+  }();
+};
 
 template <typename T> [[nodiscard]] const set_ops* set_ops_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (traits::set_traits<type>::is_set) {
-    using element_type = typename traits::set_traits<type>::element_type;
-    static const set_ops data = [] {
-      set_ops result{
-          descriptor_type_id<element_type>(),
-          [](const void* storage) noexcept -> std::size_t {
-            if (storage == nullptr) {
-              return 0;
-            }
-
-            return traits::set_traits<type>::size(*static_cast<const type*>(storage));
-          },
-          [](const void* storage, set_raw_visitor visitor, void* user_data) -> bool {
-            if (storage == nullptr || visitor == nullptr) {
-              return false;
-            }
-
-            bool keep_going = true;
-            traits::set_traits<type>::for_each(*static_cast<const type*>(storage),
-                                               [&](const element_type& value) {
-                                                 if (!keep_going) {
-                                                   return;
-                                                 }
-
-                                                 keep_going = visitor(&value, user_data);
-                                               });
-
-            return keep_going;
-          },
-          [](void* storage) noexcept {
-            if (storage != nullptr) {
-              traits::set_traits<type>::clear(*static_cast<type*>(storage));
-            }
-          },
-          [](void* storage, const void* element) -> bool {
-            if (storage == nullptr || element == nullptr) {
-              return false;
-            }
-
-            return traits::set_traits<type>::insert(*static_cast<type*>(storage),
-                                                    *static_cast<const element_type*>(element));
-          },
-      };
-
-      if constexpr (has_const_container_iterator_v<type>) {
-        using iterator_type = decltype(std::declval<const type&>().begin());
-        result.begin = &begin_container_iterator<type>;
-        result.end = &end_container_iterator<type>;
-        result.iterator_clone = &clone_container_iterator<iterator_type>;
-        result.iterator_destroy = &destroy_container_iterator<iterator_type>;
-        result.iterator_advance = &advance_container_iterator<iterator_type>;
-        result.iterator_equal = &equal_container_iterator<iterator_type>;
-        result.iterator_value = &set_iterator_value<iterator_type>;
-      }
-
-      result.value_descriptor = descriptor_ptr_of<element_type>();
-      return result;
-    }();
-
-    return data.valid() ? &data : nullptr;
+    return set_ops_model<type>::value.valid() ? &set_ops_model<type>::value : nullptr;
   } else {
     return nullptr;
   }
 }
+
+template <typename T> struct associative_ops_model {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  using key_type = typename traits::associative_traits<type>::key_type;
+  using mapped_type = typename traits::associative_traits<type>::mapped_type;
+
+  inline static const associative_ops value = [] {
+    associative_ops result{
+        descriptor_type_id<key_type>(),
+        descriptor_type_id<mapped_type>(),
+        [](const void* storage) noexcept -> std::size_t {
+          if (storage == nullptr) {
+            return 0;
+          }
+
+          return traits::associative_traits<type>::size(*static_cast<const type*>(storage));
+        },
+        [](const void* storage, associative_raw_visitor visitor, void* user_data) -> bool {
+          if (storage == nullptr || visitor == nullptr) {
+            return false;
+          }
+
+          bool keep_going = true;
+          traits::associative_traits<type>::for_each(
+              *static_cast<const type*>(storage),
+              [&](const key_type& key, const mapped_type& mapped) {
+                if (!keep_going) {
+                  return;
+                }
+
+                keep_going = visitor(&key, &mapped, user_data);
+              });
+
+          return keep_going;
+        },
+        [](void* storage) noexcept {
+          if (storage != nullptr) {
+            traits::associative_traits<type>::clear(*static_cast<type*>(storage));
+          }
+        },
+        [](void* storage, const void* key, const void* mapped) -> bool {
+          if (storage == nullptr || key == nullptr || mapped == nullptr) {
+            return false;
+          }
+
+          return traits::associative_traits<type>::insert(*static_cast<type*>(storage),
+                                                          *static_cast<const key_type*>(key),
+                                                          *static_cast<const mapped_type*>(mapped));
+        },
+    };
+
+    if constexpr (has_const_container_iterator_v<type>) {
+      using iterator_type = decltype(std::declval<const type&>().begin());
+      result.begin = &begin_container_iterator<type>;
+      result.end = &end_container_iterator<type>;
+      result.iterator_clone = &clone_container_iterator<iterator_type>;
+      result.iterator_destroy = &destroy_container_iterator<iterator_type>;
+      result.iterator_advance = &advance_container_iterator<iterator_type>;
+      result.iterator_equal = &equal_container_iterator<iterator_type>;
+      result.iterator_key = &associative_iterator_key<iterator_type>;
+      result.iterator_value = &associative_iterator_value<iterator_type>;
+    }
+
+    result.key_descriptor = descriptor_ptr_of<key_type>();
+    result.value_descriptor = descriptor_ptr_of<mapped_type>();
+    return result;
+  }();
+};
 
 template <typename T> [[nodiscard]] const associative_ops* associative_ops_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (traits::associative_traits<type>::is_associative) {
-    using key_type = typename traits::associative_traits<type>::key_type;
-    using mapped_type = typename traits::associative_traits<type>::mapped_type;
-    static const associative_ops data = [] {
-      associative_ops result{
-          descriptor_type_id<key_type>(),
-          descriptor_type_id<mapped_type>(),
-          [](const void* storage) noexcept -> std::size_t {
-            if (storage == nullptr) {
-              return 0;
-            }
-
-            return traits::associative_traits<type>::size(*static_cast<const type*>(storage));
-          },
-          [](const void* storage, associative_raw_visitor visitor, void* user_data) -> bool {
-            if (storage == nullptr || visitor == nullptr) {
-              return false;
-            }
-
-            bool keep_going = true;
-            traits::associative_traits<type>::for_each(
-                *static_cast<const type*>(storage),
-                [&](const key_type& key, const mapped_type& mapped) {
-                  if (!keep_going) {
-                    return;
-                  }
-
-                  keep_going = visitor(&key, &mapped, user_data);
-                });
-
-            return keep_going;
-          },
-          [](void* storage) noexcept {
-            if (storage != nullptr) {
-              traits::associative_traits<type>::clear(*static_cast<type*>(storage));
-            }
-          },
-          [](void* storage, const void* key, const void* mapped) -> bool {
-            if (storage == nullptr || key == nullptr || mapped == nullptr) {
-              return false;
-            }
-
-            return traits::associative_traits<type>::insert(
-                *static_cast<type*>(storage), *static_cast<const key_type*>(key),
-                *static_cast<const mapped_type*>(mapped));
-          },
-      };
-
-      if constexpr (has_const_container_iterator_v<type>) {
-        using iterator_type = decltype(std::declval<const type&>().begin());
-        result.begin = &begin_container_iterator<type>;
-        result.end = &end_container_iterator<type>;
-        result.iterator_clone = &clone_container_iterator<iterator_type>;
-        result.iterator_destroy = &destroy_container_iterator<iterator_type>;
-        result.iterator_advance = &advance_container_iterator<iterator_type>;
-        result.iterator_equal = &equal_container_iterator<iterator_type>;
-        result.iterator_key = &associative_iterator_key<iterator_type>;
-        result.iterator_value = &associative_iterator_value<iterator_type>;
-      }
-
-      result.key_descriptor = descriptor_ptr_of<key_type>();
-      result.value_descriptor = descriptor_ptr_of<mapped_type>();
-      return result;
-    }();
-
-    return data.valid() ? &data : nullptr;
+    return associative_ops_model<type>::value.valid() ? &associative_ops_model<type>::value
+                                                      : nullptr;
   } else {
     return nullptr;
   }
 }
+
+template <typename T> struct pair_ops_model {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  using first_type = typename traits::pair_traits<type>::first_type;
+  using second_type = typename traits::pair_traits<type>::second_type;
+
+  inline static const pair_ops value = [] {
+    pair_ops result{
+        descriptor_type_id<first_type>(),
+        descriptor_type_id<second_type>(),
+        [](const void* storage) noexcept -> const void* {
+          if (storage == nullptr) {
+            return nullptr;
+          }
+
+          return traits::pair_traits<type>::first(*static_cast<const type*>(storage));
+        },
+        [](void* storage) noexcept -> void* {
+          if (storage == nullptr) {
+            return nullptr;
+          }
+
+          return traits::pair_traits<type>::mutable_first(*static_cast<type*>(storage));
+        },
+        [](const void* storage) noexcept -> const void* {
+          if (storage == nullptr) {
+            return nullptr;
+          }
+
+          return traits::pair_traits<type>::second(*static_cast<const type*>(storage));
+        },
+        [](void* storage) noexcept -> void* {
+          if (storage == nullptr) {
+            return nullptr;
+          }
+
+          return traits::pair_traits<type>::mutable_second(*static_cast<type*>(storage));
+        },
+    };
+
+    result.key_descriptor = descriptor_ptr_of<first_type>();
+    result.value_descriptor = descriptor_ptr_of<second_type>();
+    return result;
+  }();
+};
 
 template <typename T> [[nodiscard]] const pair_ops* pair_ops_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (traits::pair_traits<type>::is_pair) {
-    using first_type = typename traits::pair_traits<type>::first_type;
-    using second_type = typename traits::pair_traits<type>::second_type;
-    static const pair_ops data = [] {
-      pair_ops result{
-          descriptor_type_id<first_type>(),
-          descriptor_type_id<second_type>(),
-          [](const void* storage) noexcept -> const void* {
-            if (storage == nullptr) {
-              return nullptr;
-            }
-
-            return traits::pair_traits<type>::first(*static_cast<const type*>(storage));
-          },
-          [](void* storage) noexcept -> void* {
-            if (storage == nullptr) {
-              return nullptr;
-            }
-
-            return traits::pair_traits<type>::mutable_first(*static_cast<type*>(storage));
-          },
-          [](const void* storage) noexcept -> const void* {
-            if (storage == nullptr) {
-              return nullptr;
-            }
-
-            return traits::pair_traits<type>::second(*static_cast<const type*>(storage));
-          },
-          [](void* storage) noexcept -> void* {
-            if (storage == nullptr) {
-              return nullptr;
-            }
-
-            return traits::pair_traits<type>::mutable_second(*static_cast<type*>(storage));
-          },
-      };
-
-      result.key_descriptor = descriptor_ptr_of<first_type>();
-      result.value_descriptor = descriptor_ptr_of<second_type>();
-      return result;
-    }();
-
-    return data.valid() ? &data : nullptr;
+    return pair_ops_model<type>::value.valid() ? &pair_ops_model<type>::value : nullptr;
   } else {
     return nullptr;
   }
 }
 
-template <typename Tuple, std::size_t Index>
-[[nodiscard]] tuple_element_ops make_tuple_element_ops() {
+template <typename Tuple, std::size_t Index> struct tuple_element_ops_model {
   using type = std::remove_cv_t<std::remove_reference_t<Tuple>>;
   using element_type = typename traits::tuple_traits<type>::template element_type<Index>;
 
-  return tuple_element_ops{
+  inline static const tuple_element_ops value{
       descriptor_type_id<element_type>(),
       [](const void* storage) noexcept -> const void* {
         if (storage == nullptr) {
@@ -789,33 +818,37 @@ template <typename Tuple, std::size_t Index>
       },
       descriptor_ptr_of<element_type>(),
   };
-}
+};
 
-template <typename Tuple, std::size_t... Indices>
-[[nodiscard]] tuple_ops make_tuple_ops(std::index_sequence<Indices...>) {
-  tuple_ops data{};
-  data.elements.reserve(sizeof...(Indices));
-  (data.elements.push_back(make_tuple_element_ops<Tuple, Indices>()), ...);
-  return data;
-}
+template <typename T> struct tuple_ops_model {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+
+  template <std::size_t... Indices>
+  [[nodiscard]] static tuple_ops make(std::index_sequence<Indices...>) {
+    tuple_ops data{};
+    data.elements.reserve(sizeof...(Indices));
+    (data.elements.push_back(tuple_element_ops_model<type, Indices>::value), ...);
+    return data;
+  }
+
+  inline static const tuple_ops value =
+      make(std::make_index_sequence<traits::tuple_traits<type>::size>{});
+};
 
 template <typename T> [[nodiscard]] const tuple_ops* tuple_ops_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (traits::tuple_traits<type>::is_tuple) {
-    static const tuple_ops data = make_tuple_ops<type>(
-        std::make_index_sequence<traits::tuple_traits<type>::size>{});
-    return data.valid() ? &data : nullptr;
+    return tuple_ops_model<type>::value.valid() ? &tuple_ops_model<type>::value : nullptr;
   } else {
     return nullptr;
   }
 }
 
-template <typename Variant, std::size_t Index>
-[[nodiscard]] variant_alternative_ops make_variant_alternative_ops() {
+template <typename Variant, std::size_t Index> struct variant_alternative_ops_model {
   using type = std::remove_cv_t<std::remove_reference_t<Variant>>;
   using alternative_type = typename traits::variant_traits<type>::template alternative_type<Index>;
 
-  return variant_alternative_ops{
+  inline static const variant_alternative_ops value{
       descriptor_type_id<alternative_type>(),
       [](const void* storage) noexcept -> const void* {
         if (storage == nullptr) {
@@ -852,31 +885,34 @@ template <typename Variant, std::size_t Index>
       },
       descriptor_ptr_of<alternative_type>(),
   };
-}
+};
 
-template <typename Variant, std::size_t... Indices>
-[[nodiscard]] variant_ops make_variant_ops(std::index_sequence<Indices...>) {
-  using type = std::remove_cv_t<std::remove_reference_t<Variant>>;
+template <typename T> struct variant_ops_model {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
 
-  variant_ops data{};
-  data.alternatives.reserve(sizeof...(Indices));
-  (data.alternatives.push_back(make_variant_alternative_ops<type, Indices>()), ...);
-  data.index = [](const void* storage) noexcept -> std::size_t {
-    if (storage == nullptr) {
-      return static_cast<std::size_t>(-1);
-    }
+  template <std::size_t... Indices>
+  [[nodiscard]] static variant_ops make(std::index_sequence<Indices...>) {
+    variant_ops data{};
+    data.alternatives.reserve(sizeof...(Indices));
+    (data.alternatives.push_back(variant_alternative_ops_model<type, Indices>::value), ...);
+    data.index = [](const void* storage) noexcept -> std::size_t {
+      if (storage == nullptr) {
+        return static_cast<std::size_t>(-1);
+      }
 
-    return traits::variant_traits<type>::index(*static_cast<const type*>(storage));
-  };
-  return data;
-}
+      return traits::variant_traits<type>::index(*static_cast<const type*>(storage));
+    };
+    return data;
+  }
+
+  inline static const variant_ops value =
+      make(std::make_index_sequence<traits::variant_traits<type>::size>{});
+};
 
 template <typename T> [[nodiscard]] const variant_ops* variant_ops_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (traits::variant_traits<type>::is_variant) {
-    static const variant_ops data = make_variant_ops<type>(
-        std::make_index_sequence<traits::variant_traits<type>::size>{});
-    return data.valid() ? &data : nullptr;
+    return variant_ops_model<type>::value.valid() ? &variant_ops_model<type>::value : nullptr;
   } else {
     return nullptr;
   }

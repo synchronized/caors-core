@@ -220,6 +220,10 @@ descriptor 内部按职责拆分：
 - `*_ops_model<T>` 表示针对具体 C++ 类型 `T` 生成 `*_ops` 的 model 层。model 负责把 `T`
   的成员函数、traits 或 codec 策略转换成稳定生命周期的静态 `*_ops` 表；`*_ops_ptr_of<T>()`
   只作为内部取表入口。
+- descriptor 内置能力同样遵循这套规则：`enum_ops_model<T>`、`indirect_ops_model<T>`、
+  `sequence_ops_model<T>`、`set_ops_model<T>`、`associative_ops_model<T>`、`pair_ops_model<T>`、
+  `tuple_ops_model<T>` 和 `variant_ops_model<T>` 负责生成内置访问函数表；tuple 和 variant 会再用
+  按索引展开的 element / alternative model 生成每个元素或候选类型的函数表。
 - `*_data` 保留给注册表组件、配置数据或纯元数据结构，不用于命名一组运行期分发函数。
 - `*_ops` 不是 C++ ABI 层面的虚函数表，不依赖继承；它只是 CAORS 内部统一的函数表命名。
 - `capability_info` 保存 capability 的进程内 key、可选稳定名称、可选稳定 GUID 和版本号。`capability_key`
