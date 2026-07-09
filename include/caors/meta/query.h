@@ -103,6 +103,22 @@ public:
   }
 
   /**
+   * @brief 为当前 C++ 类型挂接一份由运行期索引拥有的 capability 对象。
+   *
+   * 该入口适合用户自定义 poly / concept table。能力对象会复制或移动到运行期索引内部，
+   * 查询得到的指针在进程内 append-only 注册表生命周期内保持稳定。
+   */
+  template <typename Capability>
+    requires(!std::is_pointer_v<std::remove_reference_t<Capability>>)
+  type_builder& capability(Capability&& capability) {
+    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+    status_ = detail::register_owned_capability_for_type<capability_type, T>(
+        capability_type{std::forward<Capability>(capability)});
+    refresh();
+    return *this;
+  }
+
+  /**
    * @brief 把 `static_capability<Capability, T>` 提供的静态能力挂接到运行期索引。
    *
    * 该入口适合只剩 `type_id` 的运行期查询路径；携带 descriptor 的路径无需显式挂接。

@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <mutex>
+#include <utility>
 
 namespace caors::meta::detail {
 
@@ -22,7 +23,12 @@ using stored_capability_key = std::uintptr_t;
 
 struct capability_registry_state {
   mutable std::mutex mutex;
-  core::hash_map<std::uint64_t, core::hash_map<stored_capability_key, const void*>> capabilities;
+  struct entry {
+    const void* data = nullptr;
+    memory::unique_ptr<owned_capability_base> owned{};
+  };
+
+  core::hash_map<std::uint64_t, core::hash_map<stored_capability_key, entry>> capabilities;
 };
 
 [[nodiscard]] capability_registry_state& capability_state() {
@@ -44,7 +50,33 @@ error register_capability(type_id id, capability_key key, const void* capability
   capability_registry_state& state = capability_state();
   std::lock_guard lock(state.mutex);
   auto type_entry = state.capabilities.try_emplace(id.value());
-  auto capability_entry = type_entry.first->second.emplace(store_key(key), capability);
+  capability_registry_state::entry entry{};
+  entry.data = capability;
+  auto capability_entry = type_entry.first->second.emplace(store_key(key), std::move(entry));
+  if (!capability_entry.second) {
+    return {error_domain::meta, errc::duplicate_component};
+  }
+
+  return {};
+}
+
+error register_owned_capability(type_id id, capability_key key,
+                                memory::unique_ptr<owned_capability_base> capability) {
+  if (!id) {
+    return {error_domain::meta, errc::invalid_type};
+  }
+
+  if (key == nullptr || capability == nullptr || capability->data() == nullptr) {
+    return {error_domain::meta, errc::invalid_argument};
+  }
+
+  capability_registry_state& state = capability_state();
+  std::lock_guard lock(state.mutex);
+  auto type_entry = state.capabilities.try_emplace(id.value());
+  capability_registry_state::entry entry{};
+  entry.data = capability->data();
+  entry.owned = std::move(capability);
+  auto capability_entry = type_entry.first->second.emplace(store_key(key), std::move(entry));
   if (!capability_entry.second) {
     return {error_domain::meta, errc::duplicate_component};
   }
@@ -69,7 +101,7 @@ const void* find_capability(type_id id, capability_key key) noexcept {
     return nullptr;
   }
 
-  return capability_position->second;
+  return capability_position->second.data;
 }
 
 const void* find_type_capability(const meta::type& type, capability_key key) noexcept {

@@ -16,6 +16,17 @@ struct runtime_capability {
 
 struct runtime_capability_type {};
 
+struct owned_matrix {
+  int values[4]{};
+};
+
+struct matrix_capability {
+  std::size_t (*rows)(const void*) = nullptr;
+  std::size_t (*columns)(const void*) = nullptr;
+  int (*get)(const void*, std::size_t, std::size_t) = nullptr;
+  void (*set)(void*, std::size_t, std::size_t, int) = nullptr;
+};
+
 struct static_capability_data {
   int value = 0;
 };
@@ -33,6 +44,20 @@ struct second_extension_capability {
 };
 
 struct extension_capability_type {};
+
+[[nodiscard]] std::size_t matrix_rows(const void*) { return 2; }
+
+[[nodiscard]] std::size_t matrix_columns(const void*) { return 2; }
+
+[[nodiscard]] int matrix_get(const void* object, std::size_t row, std::size_t column) {
+  const auto* matrix = static_cast<const owned_matrix*>(object);
+  return matrix->values[row * 2 + column];
+}
+
+void matrix_set(void* object, std::size_t row, std::size_t column, int value) {
+  auto* matrix = static_cast<owned_matrix*>(object);
+  matrix->values[row * 2 + column] = value;
+}
 
 } // namespace
 
@@ -138,6 +163,35 @@ TEST_CASE("meta - capability registry stores runtime capabilities by type id", "
   const caors::meta::type type = caors::meta::find<runtime_capability_type>();
   CHECK(type.get_capability<runtime_capability>() == &capability);
   CHECK(type.has_capability<runtime_capability>());
+}
+
+TEST_CASE("meta - type builder stores owned runtime concept table", "[meta]") {
+  matrix_capability local_capability{
+      &matrix_rows,
+      &matrix_columns,
+      &matrix_get,
+      &matrix_set,
+  };
+
+  REQUIRE(caors::meta::type_<owned_matrix>().capability(local_capability).succeeded());
+
+  const caors::type_id id = caors::meta::id_of<owned_matrix>();
+  const matrix_capability* found = caors::meta::capabilities::find<matrix_capability>(id);
+  REQUIRE(found != nullptr);
+  CHECK(found != &local_capability);
+  CHECK(found->rows != nullptr);
+  CHECK(found->columns != nullptr);
+  CHECK(found->get != nullptr);
+  CHECK(found->set != nullptr);
+
+  const caors::meta::type type = caors::meta::find<owned_matrix>();
+  CHECK(type.get_capability<matrix_capability>() == found);
+
+  owned_matrix matrix{};
+  found->set(&matrix, 1, 0, 17);
+  CHECK(found->rows(&matrix) == 2);
+  CHECK(found->columns(&matrix) == 2);
+  CHECK(found->get(&matrix, 1, 0) == 17);
 }
 
 TEST_CASE("meta - capability static provider can be registered into runtime index", "[meta]") {
