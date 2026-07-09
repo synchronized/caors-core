@@ -16,7 +16,7 @@ class registry;
 
 namespace detail {
 
-struct type_data;
+struct object_factory_ops;
 
 } // namespace detail
 
@@ -40,11 +40,11 @@ public:
 private:
   friend class registry;
 
-  type(meta::type info, const detail::type_data* data) noexcept;
-  [[nodiscard]] const detail::type_data* data() const noexcept;
+  type(meta::type info, const detail::object_factory_ops* factory) noexcept;
+  [[nodiscard]] const detail::object_factory_ops* factory() const noexcept;
 
   meta::type type_{};
-  const detail::type_data* data_ = nullptr;
+  const detail::object_factory_ops* factory_ = nullptr;
 };
 
 } // namespace caors::objects

@@ -11,6 +11,18 @@ namespace {
 
 struct capability_target : caors::object {};
 
+class capability_registered_object : public caors::object_base<capability_registered_object> {
+public:
+  static constexpr std::string_view object_type_name =
+      "caors.test.object.capability_registered_object";
+};
+
+class capability_meta_only_object : public caors::object_base<capability_meta_only_object> {
+public:
+  static constexpr std::string_view object_type_name =
+      "caors.test.object.capability_meta_only_object";
+};
+
 struct capability_owner {
   caors::object_ptr<capability_target> pointer{};
   caors::object_handle handle{};
@@ -35,6 +47,26 @@ TEST_CASE("object - pointer and handle expose static meta capabilities", "[objec
                                      caors::typed_object_handle<capability_target>>();
   REQUIRE(typed_handle != nullptr);
   CHECK(typed_handle->valid());
+}
+
+TEST_CASE("object - factory ops are exposed as object capabilities", "[object]") {
+  const auto* factory =
+      caors::meta::capabilities::get<caors::objects::detail::object_factory_ops,
+                                     capability_registered_object>();
+  REQUIRE(factory != nullptr);
+  CHECK(factory->constructible());
+
+  const caors::meta::type meta = caors::meta::type_of<capability_registered_object>();
+  CHECK(meta.get_capability<caors::objects::detail::object_factory_ops>() != nullptr);
+}
+
+TEST_CASE("object - static factory capability does not imply object registry membership",
+          "[object]") {
+  const caors::meta::type meta = caors::meta::type_of<capability_meta_only_object>();
+  REQUIRE(meta.get_capability<caors::objects::detail::object_factory_ops>() != nullptr);
+
+  CHECK_FALSE(caors::objects::contains(meta.id()));
+  CHECK_FALSE(caors::objects::find<capability_meta_only_object>());
 }
 
 TEST_CASE("object - descriptor exposes object capabilities", "[object]") {

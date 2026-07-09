@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_OBJECT_DETAIL_TYPE_DATA_H_
-#define CAORS_OBJECT_DETAIL_TYPE_DATA_H_
+#ifndef CAORS_OBJECT_DETAIL_FACTORY_OPS_H_
+#define CAORS_OBJECT_DETAIL_FACTORY_OPS_H_
 
 #include "caors/memory/resource.h"
 
@@ -12,12 +12,12 @@ class object;
 
 namespace detail {
 
-using try_create_fn = object* (*)(memory_resource * resource) noexcept;
-using create_fn = object* (*)(memory_resource * resource);
+using try_create_fn = object* (*)(memory_resource* resource) noexcept;
+using create_fn = object* (*)(memory_resource* resource);
 using destroy_fn = void (*)(object* instance, memory_resource* resource) noexcept;
 
-/** @brief 对象类型内部工厂数据。 */
-struct type_data {
+/** @brief 对象默认构造、创建和销毁的类型擦除操作表。 */
+struct object_factory_ops {
   try_create_fn try_create = nullptr;
   create_fn create = nullptr;
   destroy_fn destroy = nullptr;

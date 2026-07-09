@@ -244,7 +244,8 @@ descriptor 内部按职责拆分：
 `capability_entry` 表。公开查询优先使用 `meta::type::get_capability<T>()` 或
 `meta::type::has_capability<T>()`；该入口会先查询 descriptor 静态能力，再回退到运行期
 capability 索引。内部仍保留 `descriptor_static_capability<T>()` 给 descriptor 层实现使用。
-`objects::ptr<T>`、`objects::handle` 和 serialization codec 都通过 `meta::type` 的统一入口查询能力。
+`objects::ptr<T>`、`objects::handle`、`objects::detail::object_factory_ops` 和 serialization codec 都通过
+`meta::type` 的统一入口查询能力。
 
 动态扩展能力通过 `meta::type_<T>().capability<Capability>()` 或
 `meta::type_<T>().capability<Capability>(&ops)` 挂接到独立运行期索引；`meta::capabilities`
@@ -442,7 +443,8 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 
 全局 `meta::registry` 是共享元数据层：
 
-- `objects::registry` 复用全局 meta 类型记录，再给同一个 `type_id` 挂载 `objects::detail::type_data` 组件，并对外返回 `objects::type` 视图。
+- `objects::registry` 复用全局 meta 类型记录，再给同一个 `type_id` 挂载
+  `objects::detail::object_factory_ops` capability，并对外返回 `objects::type` 视图。
 - 全局反射注册表复用 meta 类型记录，再挂载内部反射组件，并通过 `reflection::type` / `reflection::field` 对外查询。
 - 后续 `serialization::registry` 可以挂载序列化相关组件。
 

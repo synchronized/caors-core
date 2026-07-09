@@ -11,18 +11,18 @@ namespace {
                                               object_type_id::invalid());
 }
 
-[[nodiscard]] detail::type_data make_root_object_type_data() { return {}; }
-
 } // namespace
 
 registry::registry() {
-  (void)register_type_for<object>(make_root_object_meta_type_data(), make_root_object_type_data());
+  (void)register_type_for<object>(
+      make_root_object_meta_type_data(),
+      meta::capabilities::get<detail::object_factory_ops, object>());
 }
 
 registry::~registry() = default;
 
 error registry::register_type(const meta::detail::type_data& type,
-                              const detail::type_data& object) {
+                              const detail::object_factory_ops* factory) {
   const error type_status = meta::get_registry().register_type(type);
   if (type_status && type_status.value() != errc::duplicate_id) {
     return rethrow_as(type_status, error_domain::object);
@@ -33,16 +33,21 @@ error registry::register_type(const meta::detail::type_data& type,
     return {error_domain::object, errc::invalid_type};
   }
 
-  return rethrow_as(meta::get_registry().emplace<detail::type_data>(stored_meta.id(), object),
+  if (factory == nullptr) {
+    return {error_domain::object, errc::invalid_type};
+  }
+
+  return rethrow_as(meta::detail::register_capability_for<detail::object_factory_ops>(
+                        stored_meta.id(), factory),
                     error_domain::object, errc::duplicate_component, errc::duplicate_id);
 }
 
 bool registry::contains(object_type_id id) const {
-  return meta::get_registry().has<detail::type_data>(id);
+  return meta::capabilities::contains<detail::object_factory_ops>(id);
 }
 
-const detail::type_data* registry::find_type_data(object_type_id id) const {
-  return meta::get_registry().find_ptr<detail::type_data>(id);
+const detail::object_factory_ops* registry::find_factory_ops(object_type_id id) const {
+  return meta::capabilities::find<detail::object_factory_ops>(id);
 }
 
 type registry::find_type(object_type_id id) const {
@@ -51,12 +56,12 @@ type registry::find_type(object_type_id id) const {
     return {};
   }
 
-  const detail::type_data* data = find_type_data(id);
-  if (data == nullptr) {
+  const detail::object_factory_ops* factory = find_factory_ops(id);
+  if (factory == nullptr) {
     return {};
   }
 
-  return type{stored_meta, data};
+  return type{stored_meta, factory};
 }
 
 type registry::find_type(std::string_view name) const {
@@ -73,20 +78,20 @@ bool registry::is_a(object_type_id type_id, object_type_id base_type_id) const {
 }
 
 std::size_t registry::size() const noexcept {
-  return meta::get_registry().count<detail::type_data>();
+  return meta::capabilities::size<detail::object_factory_ops>();
 }
 
 object* registry::try_create(object_type_id id, memory_resource* resource) const noexcept {
-  const detail::type_data* type = find_type_data(id);
-  if (type == nullptr) {
+  const detail::object_factory_ops* factory = find_factory_ops(id);
+  if (factory == nullptr) {
     return nullptr;
   }
 
-  if (type->try_create == nullptr) {
+  if (factory->try_create == nullptr) {
     return nullptr;
   }
 
-  return type->try_create(resource);
+  return factory->try_create(resource);
 }
 
 object* registry::try_create(std::string_view name, memory_resource* resource) const noexcept {
@@ -99,16 +104,16 @@ object* registry::try_create(std::string_view name, memory_resource* resource) c
 }
 
 object* registry::create(object_type_id id, memory_resource* resource) const {
-  const detail::type_data* type = find_type_data(id);
-  if (type == nullptr) {
+  const detail::object_factory_ops* factory = find_factory_ops(id);
+  if (factory == nullptr) {
     return nullptr;
   }
 
-  if (type->create == nullptr) {
+  if (factory->create == nullptr) {
     return nullptr;
   }
 
-  return type->create(resource);
+  return factory->create(resource);
 }
 
 object* registry::create(std::string_view name, memory_resource* resource) const {
@@ -131,12 +136,12 @@ bool registry::destroy(object_type_id id, object* instance,
     return false;
   }
 
-  const detail::type_data* data = object_type.data();
-  if (data == nullptr || data->destroy == nullptr) {
+  const detail::object_factory_ops* factory = object_type.factory();
+  if (factory == nullptr || factory->destroy == nullptr) {
     return false;
   }
 
-  data->destroy(instance, resource);
+  factory->destroy(instance, resource);
   return true;
 }
 

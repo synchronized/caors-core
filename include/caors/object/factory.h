@@ -6,7 +6,7 @@
 
 #include "caors/memory.h"
 #include "caors/object/base.h"
-#include "caors/object/detail/type_data.h"
+#include "caors/object/detail/factory_ops.h"
 #include "caors/object/type.h"
 
 #include <type_traits>
@@ -52,19 +52,50 @@ void destroy_object_instance(object* instance, memory_resource* resource) noexce
 }
 
 /** @brief 创建对象类型内部工厂数据。 */
-template <typename T> [[nodiscard]] type_data make_type_data() noexcept {
+template <typename T> [[nodiscard]] object_factory_ops make_object_factory_ops() noexcept {
   static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
 
-  type_data data{nullptr, nullptr, &destroy_object_instance<T>};
-  if constexpr (std::is_default_constructible_v<T>) {
-    data.try_create = &try_create_object_instance<T>;
-    data.create = &create_object_instance<T>;
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  object_factory_ops data{};
+  if constexpr (!std::is_same_v<type, object>) {
+    data.destroy = &destroy_object_instance<type>;
+    if constexpr (std::is_default_constructible_v<type>) {
+      data.try_create = &try_create_object_instance<type>;
+      data.create = &create_object_instance<type>;
+    }
   }
 
   return data;
 }
 
+/** @brief 返回指定对象类型的稳定工厂操作表。 */
+template <typename T> [[nodiscard]] const object_factory_ops* object_factory_ops_ptr_of() noexcept {
+  static const object_factory_ops ops = make_object_factory_ops<T>();
+  return &ops;
+}
+
 } // namespace caors::objects::detail
+
+namespace caors::meta::capabilities {
+
+template <typename T> struct static_capability<objects::detail::object_factory_ops, T> {
+  [[nodiscard]] static const objects::detail::object_factory_ops* get() {
+    using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+    if constexpr (std::is_base_of_v<objects::object, value_type>) {
+      return objects::detail::object_factory_ops_ptr_of<value_type>();
+    } else {
+      return nullptr;
+    }
+  }
+};
+
+template <typename T>
+  requires std::is_base_of_v<objects::object, std::remove_cv_t<std::remove_reference_t<T>>>
+struct module_static_capability_list<object_static_capability_module, T> {
+  using type = type_list<objects::detail::object_factory_ops>;
+};
+
+} // namespace caors::meta::capabilities
 
 namespace caors::objects {
 
