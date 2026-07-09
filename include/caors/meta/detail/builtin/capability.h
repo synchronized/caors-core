@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_META_DETAIL_BUILTIN_TYPE_CAPABILITY_H_
-#define CAORS_META_DETAIL_BUILTIN_TYPE_CAPABILITY_H_
+#ifndef CAORS_META_DETAIL_BUILTIN_CAPABILITY_H_
+#define CAORS_META_DETAIL_BUILTIN_CAPABILITY_H_
 
 #include "caors/meta/detail/container.h"
 #include "caors/meta/detail/type_capabilities.h"

@@ -36,8 +36,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 将 descriptor 内置能力生成统一到 `*_ops_model<T>` 结构，保持 `*_ops_ptr_of<T>()` 作为内部取表入口。
 - [x] 拆分 descriptor 内置能力实现边界，`type_descriptor.h` 保留 descriptor 本体，内置能力生成移动到
   `builtin_ops_model.h`。
-- [x] 将各类 descriptor 内置能力继续拆到独立 `builtin_type_*.h`，`builtin_ops_model.h` 只保留聚合和
-  分发入口。
+- [x] 将各类 descriptor 内置能力继续拆到 `meta/detail/builtin/xxx_ops.h`，`builtin_ops_model.h`
+  只保留聚合和分发入口。
 - [ ] 设计开放 owned runtime capability / poly concept table，用于外挂用户自定义运行期访问能力。
 - [ ] 梳理开放 runtime capability / poly concept table 的最终 API；descriptor 保留内置布局、构造、容器和
   wrapper 能力，codec 作为 serialization 模块 capability 负责格式读写，runtime capability 作为用户扩展能力入口。

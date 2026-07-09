@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_META_DETAIL_BUILTIN_TYPE_INDIRECT_H_
-#define CAORS_META_DETAIL_BUILTIN_TYPE_INDIRECT_H_
+#ifndef CAORS_META_DETAIL_BUILTIN_INDIRECT_OPS_H_
+#define CAORS_META_DETAIL_BUILTIN_INDIRECT_OPS_H_
 
-#include "caors/meta/detail/builtin_type_capability.h"
+#include "caors/meta/detail/builtin/capability.h"
 #include "caors/traits/wrapper.h"
 
 #include <type_traits>

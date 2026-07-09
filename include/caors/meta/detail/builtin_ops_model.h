@@ -4,14 +4,14 @@
 #ifndef CAORS_META_DETAIL_BUILTIN_OPS_MODEL_H_
 #define CAORS_META_DETAIL_BUILTIN_OPS_MODEL_H_
 
-#include "caors/meta/detail/builtin_type_associative.h"
-#include "caors/meta/detail/builtin_type_enum.h"
-#include "caors/meta/detail/builtin_type_indirect.h"
-#include "caors/meta/detail/builtin_type_pair.h"
-#include "caors/meta/detail/builtin_type_sequence.h"
-#include "caors/meta/detail/builtin_type_set.h"
-#include "caors/meta/detail/builtin_type_tuple.h"
-#include "caors/meta/detail/builtin_type_variant.h"
+#include "caors/meta/detail/builtin/associative_ops.h"
+#include "caors/meta/detail/builtin/enum_ops.h"
+#include "caors/meta/detail/builtin/indirect_ops.h"
+#include "caors/meta/detail/builtin/pair_ops.h"
+#include "caors/meta/detail/builtin/sequence_ops.h"
+#include "caors/meta/detail/builtin/set_ops.h"
+#include "caors/meta/detail/builtin/tuple_ops.h"
+#include "caors/meta/detail/builtin/variant_ops.h"
 
 #include "caors/traits/container.h"
 #include "caors/traits/wrapper.h"
