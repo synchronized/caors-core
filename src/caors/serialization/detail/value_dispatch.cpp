@@ -47,7 +47,7 @@ variant_result make_serialized_value(const any& data) {
 
   const codec_ops* codec = find_codec_ops(data);
   if (codec != nullptr && codec->make_value != nullptr) {
-    return codec->make_value(data);
+    return codec->make_value(serialization::context{}, data);
   }
 
   if (const bool* stored = data.try_get<bool>()) {
@@ -164,21 +164,13 @@ variant_result make_serialized_value(const any_ref& value, const serialization::
 
   const type_id value_type = value.get_type().id();
   const codec_ops* codec = find_codec_ops(value);
-  if (codec != nullptr && codec->make_value_context != nullptr) {
-    any copied = value.to_any();
-    if (!copied.valid()) {
-      return {{error_domain::serialization, errc::unsupported}, {}};
-    }
-
-    return codec->make_value_context(context, copied);
-  }
   if (codec != nullptr && codec->make_value != nullptr) {
     any copied = value.to_any();
     if (!copied.valid()) {
       return {{error_domain::serialization, errc::unsupported}, {}};
     }
 
-    return codec->make_value(copied);
+    return codec->make_value(context, copied);
   }
 
   const reflection::type nested_type = reflection::find(value_type);
@@ -249,21 +241,13 @@ error write_serialized_value(writer& writer, const any_ref& value,
 
   const type_id value_type = value.get_type().id();
   const codec_ops* codec = find_codec_ops(value);
-  if (codec != nullptr && codec->write_context != nullptr) {
-    any copied = value.to_any();
-    if (!copied.valid()) {
-      return {error_domain::serialization, errc::unsupported};
-    }
-
-    return codec->write_context(context, writer, copied);
-  }
   if (codec != nullptr && codec->write != nullptr) {
     any copied = value.to_any();
     if (!copied.valid()) {
       return {error_domain::serialization, errc::unsupported};
     }
 
-    return codec->write(writer, copied);
+    return codec->write(context, writer, copied);
   }
 
   const reflection::type nested_type = reflection::find(value_type);
@@ -332,11 +316,8 @@ error read_serialized_value(reader& reader, const any_ref& target,
 
   const type_id target_type = target.get_type().id();
   const codec_ops* codec = find_codec_ops(target);
-  if (codec != nullptr && codec->read_value_context != nullptr) {
-    return codec->read_value_context(context, reader, target);
-  }
   if (codec != nullptr && codec->read_value != nullptr) {
-    return codec->read_value(reader, target);
+    return codec->read_value(context, reader, target);
   }
 
   const reflection::type nested_type = reflection::find(target_type);
@@ -420,9 +401,8 @@ error read_field(reader& reader, const reflection::field& field, void* object,
   if (field_uses_direct_value(field)) {
     target = field.get_ref(object);
     const codec_ops* codec = target.valid() ? find_codec_ops(target) : nullptr;
-    use_legacy_codec_read = codec != nullptr &&
-                            (codec->read != nullptr || codec->read_context != nullptr) &&
-                            codec->read_value == nullptr && codec->read_value_context == nullptr;
+    use_legacy_codec_read =
+        codec != nullptr && codec->read != nullptr && codec->read_value == nullptr;
   } else if (!uses_indirect_value) {
     return {error_domain::serialization, errc::unsupported};
   }
@@ -449,12 +429,11 @@ error read_field(reader& reader, const reflection::field& field, void* object,
 
   if (use_legacy_codec_read) {
     const codec_ops* codec = find_codec_ops(target);
-    if (codec == nullptr || (codec->read == nullptr && codec->read_context == nullptr)) {
+    if (codec == nullptr || codec->read == nullptr) {
       return {error_domain::serialization, errc::unsupported};
     }
 
-    status = codec->read_context != nullptr ? codec->read_context(context, reader, field, object)
-                                            : codec->read(reader, field, object);
+    status = codec->read(context, reader, field, object);
     if (status) {
       return status;
     }

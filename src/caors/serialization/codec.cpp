@@ -13,17 +13,14 @@ bool codec::valid() const noexcept { return ops_ != nullptr && ops_->valid(); }
 
 type_id codec::type() const noexcept { return ops_ != nullptr ? ops_->type : type_id::invalid(); }
 
-bool codec::can_write() const noexcept {
-  return ops_ != nullptr && (ops_->write != nullptr || ops_->write_context != nullptr);
-}
+bool codec::can_write() const noexcept { return ops_ != nullptr && ops_->write != nullptr; }
 
 bool codec::can_read() const noexcept {
-  return ops_ != nullptr && (ops_->read != nullptr || ops_->read_context != nullptr ||
-                             ops_->read_value != nullptr || ops_->read_value_context != nullptr);
+  return ops_ != nullptr && (ops_->read != nullptr || ops_->read_value != nullptr);
 }
 
 bool codec::can_make_value() const noexcept {
-  return ops_ != nullptr && (ops_->make_value != nullptr || ops_->make_value_context != nullptr);
+  return ops_ != nullptr && ops_->make_value != nullptr;
 }
 
 codec find_codec(type_id id) {
