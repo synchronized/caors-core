@@ -14,32 +14,8 @@
 
 namespace caors::meta::detail {
 
-inline constexpr std::size_t dynamic_sequence_size = std::numeric_limits<std::size_t>::max();
-
-using sequence_size_fn = std::size_t (*)(const void*) noexcept;
-using sequence_const_element_fn = const void* (*)(const void*, std::size_t) noexcept;
-using sequence_mutable_element_fn = void* (*)(void*, std::size_t) noexcept;
-using sequence_clear_fn = void (*)(void*) noexcept;
-using sequence_resize_fn = bool (*)(void*, std::size_t, memory::memory_resource*);
-using sequence_append_fn = bool (*)(void*, const void*);
-
-/** @brief 顺序容器运行期访问操作表。 */
-struct sequence_ops {
-  sequence_size_fn size = nullptr;
-  sequence_const_element_fn element = nullptr;
-  sequence_mutable_element_fn mutable_element = nullptr;
-  sequence_clear_fn clear = nullptr;
-  sequence_resize_fn resize = nullptr;
-  sequence_append_fn append = nullptr;
-  bool can_read = true;
-  bool read_in_place = false;
-  const type_descriptor* value_descriptor = nullptr;
-  std::size_t fixed_size = dynamic_sequence_size;
-
-  [[nodiscard]] bool valid() const noexcept {
-    return value_descriptor != nullptr && size != nullptr && element != nullptr;
-  }
-};
+using meta::dynamic_sequence_size;
+using meta::sequence_ops;
 
 template <typename T> struct sequence_ops_model {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;

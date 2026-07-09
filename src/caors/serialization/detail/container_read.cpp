@@ -7,20 +7,19 @@
 
 namespace caors::serialization::detail {
 
-[[nodiscard]] const meta::detail::sequence_ops* sequence_ops_of(const any_ref& target) noexcept {
+[[nodiscard]] const meta::sequence_ops* sequence_ops_of(const any_ref& target) noexcept {
   const meta::type_descriptor* descriptor = value::detail::descriptor_of(target);
-  return meta::detail::descriptor_capability<meta::detail::sequence_ops>(descriptor);
+  return meta::detail::descriptor_capability<meta::sequence_ops>(descriptor);
 }
 
-[[nodiscard]] const meta::detail::set_ops* set_ops_of(const any_ref& target) noexcept {
+[[nodiscard]] const meta::set_ops* set_ops_of(const any_ref& target) noexcept {
   const meta::type_descriptor* descriptor = value::detail::descriptor_of(target);
-  return meta::detail::descriptor_capability<meta::detail::set_ops>(descriptor);
+  return meta::detail::descriptor_capability<meta::set_ops>(descriptor);
 }
 
-[[nodiscard]] const meta::detail::associative_ops*
-associative_ops_of(const any_ref& target) noexcept {
+[[nodiscard]] const meta::associative_ops* associative_ops_of(const any_ref& target) noexcept {
   const meta::type_descriptor* descriptor = value::detail::descriptor_of(target);
-  return meta::detail::descriptor_capability<meta::detail::associative_ops>(descriptor);
+  return meta::detail::descriptor_capability<meta::associative_ops>(descriptor);
 }
 
 [[nodiscard]] meta::detail::value_assign_fn assign_fn_of(const any_ref& target) noexcept {
@@ -32,9 +31,9 @@ associative_ops_of(const any_ref& target) noexcept {
   return caors::meta::detail::get_assign_value_fn(target.get_type());
 }
 
-[[nodiscard]] error sequence_resize_failure(const meta::detail::sequence_ops* sequence,
+[[nodiscard]] error sequence_resize_failure(const meta::sequence_ops* sequence,
                                             std::size_t size) noexcept {
-  if (sequence != nullptr && sequence->fixed_size != meta::detail::dynamic_sequence_size &&
+  if (sequence != nullptr && sequence->fixed_size != meta::dynamic_sequence_size &&
       sequence->fixed_size != size) {
     return {error_domain::serialization, errc::invalid_argument};
   }
@@ -43,7 +42,7 @@ associative_ops_of(const any_ref& target) noexcept {
 }
 
 [[nodiscard]] error read_sequence_into_view(reader& reader, const value::sequence_view& view,
-                                            const meta::detail::sequence_ops* sequence,
+                                            const meta::sequence_ops* sequence,
                                             const serialization::context& context) {
   if (!view.valid() || !view.writable()) {
     return {error_domain::serialization, errc::invalid_field};
@@ -86,7 +85,7 @@ associative_ops_of(const any_ref& target) noexcept {
 
 [[nodiscard]] error read_sequence_value(reader& reader, const any_ref& target,
                                         const serialization::context& context) {
-  const meta::detail::sequence_ops* sequence = sequence_ops_of(target);
+  const meta::sequence_ops* sequence = sequence_ops_of(target);
   if (sequence != nullptr && !sequence->can_read) {
     return {error_domain::serialization, errc::unsupported};
   }
@@ -113,7 +112,7 @@ associative_ops_of(const any_ref& target) noexcept {
 }
 
 [[nodiscard]] error read_set_into_view(reader& reader, const value::set_view& view,
-                                       const meta::detail::set_ops* set,
+                                       const meta::set_ops* set,
                                        const serialization::context& context) {
   if (!view.valid() || !view.writable()) {
     return {error_domain::serialization, errc::invalid_field};
@@ -162,7 +161,7 @@ associative_ops_of(const any_ref& target) noexcept {
 
 [[nodiscard]] error read_set_value(reader& reader, const any_ref& target,
                                    const serialization::context& context) {
-  const meta::detail::set_ops* set = set_ops_of(target);
+  const meta::set_ops* set = set_ops_of(target);
   const auto assign = assign_fn_of(target);
   if (assign != nullptr) {
     any decoded = default_construct_for(target, context);
@@ -184,7 +183,7 @@ associative_ops_of(const any_ref& target) noexcept {
 }
 
 [[nodiscard]] error read_associative_into_view(reader& reader, const value::associative_view& view,
-                                               const meta::detail::associative_ops* associative,
+                                               const meta::associative_ops* associative,
                                                const serialization::context& context) {
   if (!view.valid() || !view.writable()) {
     return {error_domain::serialization, errc::invalid_field};
@@ -261,7 +260,7 @@ associative_ops_of(const any_ref& target) noexcept {
 
 [[nodiscard]] error read_associative_value(reader& reader, const any_ref& target,
                                            const serialization::context& context) {
-  const meta::detail::associative_ops* associative = associative_ops_of(target);
+  const meta::associative_ops* associative = associative_ops_of(target);
   const auto assign = assign_fn_of(target);
   if (assign != nullptr) {
     any decoded = default_construct_for(target, context);

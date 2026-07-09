@@ -88,7 +88,7 @@ private:
   set_view(const meta::type_descriptor* descriptor, const void* storage, bool writable) noexcept;
 
   [[nodiscard]] bool has_iterator_support() const noexcept;
-  [[nodiscard]] const meta::detail::set_ops* data() const noexcept;
+  [[nodiscard]] const meta::set_ops* data() const noexcept;
 
   const meta::type_descriptor* descriptor_ = nullptr;
   const void* storage_ = nullptr;

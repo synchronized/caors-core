@@ -11,23 +11,7 @@
 
 namespace caors::meta::detail {
 
-using pair_const_value_fn = const void* (*)(const void*) noexcept;
-using pair_mutable_value_fn = void* (*)(void*) noexcept;
-
-/** @brief 二元组运行期访问操作表。 */
-struct pair_ops {
-  pair_const_value_fn first = nullptr;
-  pair_mutable_value_fn mutable_first = nullptr;
-  pair_const_value_fn second = nullptr;
-  pair_mutable_value_fn mutable_second = nullptr;
-  const type_descriptor* key_descriptor = nullptr;
-  const type_descriptor* value_descriptor = nullptr;
-
-  [[nodiscard]] bool valid() const noexcept {
-    return key_descriptor != nullptr && value_descriptor != nullptr && first != nullptr &&
-           second != nullptr;
-  }
-};
+using meta::pair_ops;
 
 template <typename T> struct pair_ops_model {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;

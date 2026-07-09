@@ -47,10 +47,10 @@ public:
 private:
   friend handle_view handle_view_of(value::any_ref source) noexcept;
 
-  handle_view(const detail::handle_ops* data, const void* storage, bool writable) noexcept
+  handle_view(const handle_ops* data, const void* storage, bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
 
-  const detail::handle_ops* data_ = nullptr;
+  const handle_ops* data_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };
@@ -61,7 +61,7 @@ private:
     return {};
   }
 
-  const detail::handle_ops* data = source.get_type().get_capability<detail::handle_ops>();
+  const handle_ops* data = source.get_type().get_capability<handle_ops>();
   if (data == nullptr) {
     return {};
   }

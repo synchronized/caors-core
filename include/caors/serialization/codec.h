@@ -6,7 +6,7 @@
 
 #include "caors/meta/capability.h"
 #include "caors/meta/type.h"
-#include "caors/serialization/detail/codec_ops.h"
+#include "caors/serialization/codec_ops.h"
 #include "caors/serialization/reader.h"
 #include "caors/serialization/writer.h"
 #include "caors/value/any_ref.h"
@@ -26,8 +26,7 @@ struct context;
 class codec;
 
 namespace detail {
-struct codec_ops;
-[[nodiscard]] CAORS_API const codec_ops* ops_of(codec view) noexcept;
+[[nodiscard]] CAORS_API const serialization::codec_ops* ops_of(codec view) noexcept;
 } // namespace detail
 
 /** @brief 可特化的类型序列化 codec。 */
@@ -329,13 +328,12 @@ public:
 private:
   template <typename T> friend codec codec_of();
   friend codec find_codec(meta::type type);
-  friend const detail::codec_ops* detail::ops_of(codec) noexcept;
+  friend const codec_ops* detail::ops_of(codec) noexcept;
 
-  constexpr codec(meta::type type, const detail::codec_ops* ops) noexcept
-      : type_(type), ops_(ops) {}
+  constexpr codec(meta::type type, const codec_ops* ops) noexcept : type_(type), ops_(ops) {}
 
   meta::type type_{};
-  const detail::codec_ops* ops_ = nullptr;
+  const codec_ops* ops_ = nullptr;
 };
 
 /** @brief 把运行期 C++ 值转换为序列化中间值。 */
@@ -358,7 +356,7 @@ template <typename T> [[nodiscard]] codec codec_of();
 namespace caors::serialization::detail {
 
 /** @brief 从 codec 视图取回内部操作表。 */
-[[nodiscard]] CAORS_API const codec_ops* ops_of(codec view) noexcept;
+[[nodiscard]] CAORS_API const serialization::codec_ops* ops_of(codec view) noexcept;
 
 /** @brief 从 codec 策略类型生成类型擦除函数表的 model。 */
 template <typename Codec, typename T> struct codec_ops_model_from {
@@ -497,15 +495,15 @@ template <typename T> [[nodiscard]] const codec_ops* codec_ops_ptr_of() noexcept
 namespace caors::meta::capabilities {
 
 /** @brief 让 `codec_traits<T>` 成为序列化 codec 的静态能力提供者。 */
-template <typename T> struct static_capability<serialization::detail::codec_ops, T> {
-  [[nodiscard]] static const serialization::detail::codec_ops* get() {
+template <typename T> struct static_capability<serialization::codec_ops, T> {
+  [[nodiscard]] static const serialization::codec_ops* get() {
     return serialization::detail::codec_ops_ptr_of<T>();
   }
 };
 
 template <typename T>
 struct module_static_capability_list<serialization_static_capability_module, T> {
-  using type = type_list<serialization::detail::codec_ops>;
+  using type = type_list<serialization::codec_ops>;
 };
 
 } // namespace caors::meta::capabilities

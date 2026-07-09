@@ -47,10 +47,10 @@ public:
 private:
   friend ptr_view ptr_view_of(value::any_ref source) noexcept;
 
-  ptr_view(const detail::ptr_ops* data, const void* storage, bool writable) noexcept
+  ptr_view(const ptr_ops* data, const void* storage, bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
 
-  const detail::ptr_ops* data_ = nullptr;
+  const ptr_ops* data_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };
@@ -61,7 +61,7 @@ private:
     return {};
   }
 
-  const detail::ptr_ops* data = source.get_type().get_capability<detail::ptr_ops>();
+  const ptr_ops* data = source.get_type().get_capability<ptr_ops>();
   if (data == nullptr) {
     return {};
   }

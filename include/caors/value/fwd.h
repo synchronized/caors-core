@@ -15,9 +15,6 @@
 namespace caors::meta {
 
 struct type_descriptor;
-
-namespace detail {
-
 struct indirect_ops;
 struct sequence_ops;
 struct set_ops;
@@ -25,8 +22,6 @@ struct associative_ops;
 struct pair_ops;
 struct tuple_ops;
 struct variant_ops;
-
-} // namespace detail
 
 } // namespace caors::meta
 

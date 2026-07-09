@@ -14,15 +14,14 @@ namespace {
 } // namespace
 
 registry::registry() {
-  (void)register_type_for<object>(
-      make_root_object_meta_type_data(),
-      meta::capabilities::get<detail::object_factory_ops, object>());
+  (void)register_type_for<object>(make_root_object_meta_type_data(),
+                                  meta::capabilities::get<object_factory_ops, object>());
 }
 
 registry::~registry() = default;
 
 error registry::register_type(const meta::detail::type_data& type,
-                              const detail::object_factory_ops* factory) {
+                              const object_factory_ops* factory) {
   const error type_status = meta::get_registry().register_type(type);
   if (type_status && type_status.value() != errc::duplicate_id) {
     return rethrow_as(type_status, error_domain::object);
@@ -37,17 +36,17 @@ error registry::register_type(const meta::detail::type_data& type,
     return {error_domain::object, errc::invalid_type};
   }
 
-  return rethrow_as(meta::detail::register_capability_for<detail::object_factory_ops>(
-                        stored_meta.id(), factory),
-                    error_domain::object, errc::duplicate_component, errc::duplicate_id);
+  return rethrow_as(
+      meta::detail::register_capability_for<object_factory_ops>(stored_meta.id(), factory),
+      error_domain::object, errc::duplicate_component, errc::duplicate_id);
 }
 
 bool registry::contains(object_type_id id) const {
-  return meta::capabilities::contains<detail::object_factory_ops>(id);
+  return meta::capabilities::contains<object_factory_ops>(id);
 }
 
-const detail::object_factory_ops* registry::find_factory_ops(object_type_id id) const {
-  return meta::capabilities::find<detail::object_factory_ops>(id);
+const object_factory_ops* registry::find_factory_ops(object_type_id id) const {
+  return meta::capabilities::find<object_factory_ops>(id);
 }
 
 type registry::find_type(object_type_id id) const {
@@ -56,7 +55,7 @@ type registry::find_type(object_type_id id) const {
     return {};
   }
 
-  const detail::object_factory_ops* factory = find_factory_ops(id);
+  const object_factory_ops* factory = find_factory_ops(id);
   if (factory == nullptr) {
     return {};
   }
@@ -78,11 +77,11 @@ bool registry::is_a(object_type_id type_id, object_type_id base_type_id) const {
 }
 
 std::size_t registry::size() const noexcept {
-  return meta::capabilities::size<detail::object_factory_ops>();
+  return meta::capabilities::size<object_factory_ops>();
 }
 
 object* registry::try_create(object_type_id id, memory_resource* resource) const noexcept {
-  const detail::object_factory_ops* factory = find_factory_ops(id);
+  const object_factory_ops* factory = find_factory_ops(id);
   if (factory == nullptr) {
     return nullptr;
   }
@@ -104,7 +103,7 @@ object* registry::try_create(std::string_view name, memory_resource* resource) c
 }
 
 object* registry::create(object_type_id id, memory_resource* resource) const {
-  const detail::object_factory_ops* factory = find_factory_ops(id);
+  const object_factory_ops* factory = find_factory_ops(id);
   if (factory == nullptr) {
     return nullptr;
   }
@@ -136,7 +135,7 @@ bool registry::destroy(object_type_id id, object* instance,
     return false;
   }
 
-  const detail::object_factory_ops* factory = object_type.factory();
+  const object_factory_ops* factory = object_type.factory();
   if (factory == nullptr || factory->destroy == nullptr) {
     return false;
   }

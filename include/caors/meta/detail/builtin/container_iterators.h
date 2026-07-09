@@ -37,26 +37,7 @@ template <typename Traits, typename Container>
 inline constexpr bool has_traits_const_iterator_v =
     has_traits_const_iterator<Traits, Container>::value;
 
-using container_iterator_create_fn = void* (*)(const void*) noexcept;
-using container_iterator_clone_fn = void* (*)(const void*) noexcept;
-using container_iterator_destroy_fn = void (*)(void*) noexcept;
-using container_iterator_advance_fn = void (*)(void*) noexcept;
-using container_iterator_equal_fn = bool (*)(const void*, const void*) noexcept;
-
-/** @brief 容器只读迭代器的类型擦除操作表。 */
-struct container_iterator_ops {
-  container_iterator_create_fn begin = nullptr;
-  container_iterator_create_fn end = nullptr;
-  container_iterator_clone_fn clone = nullptr;
-  container_iterator_destroy_fn destroy = nullptr;
-  container_iterator_advance_fn advance = nullptr;
-  container_iterator_equal_fn equal = nullptr;
-
-  [[nodiscard]] bool valid() const noexcept {
-    return begin != nullptr && end != nullptr && clone != nullptr && destroy != nullptr &&
-           advance != nullptr && equal != nullptr;
-  }
-};
+using meta::container_iterator_ops;
 
 template <typename Iterator> struct container_iterator_holder {
   template <typename... Args>

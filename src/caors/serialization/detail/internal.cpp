@@ -223,9 +223,9 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
   return caors::value::detail::descriptor_of(value);
 }
 
-[[nodiscard]] const meta::detail::enum_ops* enum_ops(const any_ref& value) noexcept {
+[[nodiscard]] const meta::enum_ops* enum_ops(const any_ref& value) noexcept {
   const caors::meta::type_descriptor* descriptor = descriptor_of_value(value);
-  return meta::detail::descriptor_capability<meta::detail::enum_ops>(descriptor);
+  return meta::detail::descriptor_capability<meta::enum_ops>(descriptor);
 }
 
 [[nodiscard]] bool type_uses_inline_indirect_value(const any_ref& value) noexcept {
@@ -511,7 +511,7 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
 
 [[nodiscard]] variant_result make_enum_value(const any_ref& value) {
   const meta::type_descriptor* descriptor = descriptor_of_value(value);
-  const meta::detail::enum_ops* data = enum_ops(value);
+  const meta::enum_ops* data = enum_ops(value);
   if (descriptor == nullptr ||
       meta::detail::descriptor_kind(*descriptor) != meta::type_kind::enumeration ||
       data == nullptr || value.data() == nullptr) {
@@ -535,7 +535,7 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
 
 [[nodiscard]] error write_enum_value(writer& writer, const any_ref& value) {
   const meta::type_descriptor* descriptor = descriptor_of_value(value);
-  const meta::detail::enum_ops* data = enum_ops(value);
+  const meta::enum_ops* data = enum_ops(value);
   if (descriptor == nullptr ||
       meta::detail::descriptor_kind(*descriptor) != meta::type_kind::enumeration ||
       data == nullptr || value.data() == nullptr) {
@@ -559,7 +559,7 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
 
 [[nodiscard]] error read_enum_value(reader& reader, const any_ref& target) {
   const meta::type_descriptor* descriptor = descriptor_of_value(target);
-  const meta::detail::enum_ops* data = enum_ops(target);
+  const meta::enum_ops* data = enum_ops(target);
   if (descriptor == nullptr ||
       meta::detail::descriptor_kind(*descriptor) != meta::type_kind::enumeration ||
       data == nullptr || target.mutable_data() == nullptr || data->from_i64 == nullptr ||

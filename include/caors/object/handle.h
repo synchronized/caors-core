@@ -149,6 +149,10 @@ template <typename T> [[nodiscard]] const handle_ops* handle_ops_ptr_of() noexce
 
 } // namespace detail
 
+using handle_get_fn = detail::handle_get_fn;
+using handle_set_fn = detail::handle_set_fn;
+using handle_ops = detail::handle_ops;
+
 /**
  * @brief 不拥有对象的运行期身份句柄。
  *
@@ -169,8 +173,8 @@ template <typename T> using typed_handle = detail::basic_handle<T>;
 
 namespace caors::meta::capabilities {
 
-template <typename T> struct static_capability<objects::detail::handle_ops, T> {
-  [[nodiscard]] static const objects::detail::handle_ops* get() {
+template <typename T> struct static_capability<objects::handle_ops, T> {
+  [[nodiscard]] static const objects::handle_ops* get() {
     return objects::detail::handle_ops_ptr_of<T>();
   }
 };
@@ -178,7 +182,7 @@ template <typename T> struct static_capability<objects::detail::handle_ops, T> {
 template <typename T>
 struct module_static_capability_list<object_static_capability_module,
                                      objects::detail::basic_handle<T>> {
-  using type = type_list<objects::detail::handle_ops>;
+  using type = type_list<objects::handle_ops>;
 };
 
 } // namespace caors::meta::capabilities

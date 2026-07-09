@@ -7,7 +7,7 @@
 
 namespace caors::objects {
 
-type::type(meta::type type, const detail::object_factory_ops* factory) noexcept
+type::type(meta::type type, const object_factory_ops* factory) noexcept
     : type_(type), factory_(factory) {}
 
 bool type::valid() const noexcept { return type_.valid() && factory_ != nullptr; }
@@ -30,8 +30,6 @@ bool type::constructible() const noexcept {
   return factory_ != nullptr && factory_->constructible();
 }
 
-const detail::object_factory_ops* type::factory() const noexcept {
-  return valid() ? factory_ : nullptr;
-}
+const object_factory_ops* type::factory() const noexcept { return valid() ? factory_ : nullptr; }
 
 } // namespace caors::objects

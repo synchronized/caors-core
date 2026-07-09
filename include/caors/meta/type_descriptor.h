@@ -4,15 +4,9 @@
 #ifndef CAORS_META_TYPE_DESCRIPTOR_H_
 #define CAORS_META_TYPE_DESCRIPTOR_H_
 
-#include "caors/meta/detail/builtin/associative_ops.h"
-#include "caors/meta/detail/builtin/enum_ops.h"
-#include "caors/meta/detail/builtin/indirect_ops.h"
-#include "caors/meta/detail/builtin/pair_ops.h"
-#include "caors/meta/detail/builtin/sequence_ops.h"
-#include "caors/meta/detail/builtin/set_ops.h"
-#include "caors/meta/detail/builtin/tuple_ops.h"
-#include "caors/meta/detail/builtin/variant_ops.h"
+#include "caors/meta/detail/builtin/capability.h"
 #include "caors/meta/type.h"
+#include "caors/meta/type_ops.h"
 
 #include <cstddef>
 #include <type_traits>
@@ -78,19 +72,15 @@ template <typename T> inline constexpr bool descriptor_always_false_v = false;
 template <typename Capability>
 [[nodiscard]] inline const Capability*
 descriptor_capability(const type_descriptor& descriptor) noexcept {
-  if constexpr (std::is_same_v<Capability, detail::enum_ops> ||
-                std::is_same_v<Capability, detail::indirect_ops> ||
-                std::is_same_v<Capability, detail::sequence_ops> ||
-                std::is_same_v<Capability, detail::set_ops> ||
-                std::is_same_v<Capability, detail::associative_ops> ||
-                std::is_same_v<Capability, detail::pair_ops> ||
-                std::is_same_v<Capability, detail::tuple_ops> ||
-                std::is_same_v<Capability, detail::variant_ops>) {
+  if constexpr (std::is_same_v<Capability, enum_ops> || std::is_same_v<Capability, indirect_ops> ||
+                std::is_same_v<Capability, sequence_ops> || std::is_same_v<Capability, set_ops> ||
+                std::is_same_v<Capability, associative_ops> ||
+                std::is_same_v<Capability, pair_ops> || std::is_same_v<Capability, tuple_ops> ||
+                std::is_same_v<Capability, variant_ops>) {
     const auto* value = std::get_if<const Capability*>(&descriptor.builtin_capability);
     return value != nullptr ? *value : nullptr;
   } else {
-    static_assert(descriptor_always_false_v<Capability>,
-                  "Unsupported CAORS type capability");
+    static_assert(descriptor_always_false_v<Capability>, "Unsupported CAORS type capability");
   }
 }
 
@@ -144,30 +134,30 @@ descriptor_wrapper_semantics(const type_descriptor& descriptor) noexcept {
     return descriptor.type;
   case type_kind::raw_pointer:
   case type_kind::wrapper: {
-    const auto* indirect = descriptor_capability<detail::indirect_ops>(descriptor);
+    const auto* indirect = descriptor_capability<indirect_ops>(descriptor);
     return indirect != nullptr && indirect->value_descriptor != nullptr
                ? indirect->value_descriptor->type
                : type_id{};
   }
   case type_kind::sequence: {
-    const auto* sequence = descriptor_capability<detail::sequence_ops>(descriptor);
+    const auto* sequence = descriptor_capability<sequence_ops>(descriptor);
     return sequence != nullptr && sequence->value_descriptor != nullptr
                ? sequence->value_descriptor->type
                : type_id{};
   }
   case type_kind::set: {
-    const auto* set = descriptor_capability<detail::set_ops>(descriptor);
+    const auto* set = descriptor_capability<set_ops>(descriptor);
     return set != nullptr && set->value_descriptor != nullptr ? set->value_descriptor->type
                                                               : type_id{};
   }
   case type_kind::associative: {
-    const auto* associative = descriptor_capability<detail::associative_ops>(descriptor);
+    const auto* associative = descriptor_capability<associative_ops>(descriptor);
     return associative != nullptr && associative->value_descriptor != nullptr
                ? associative->value_descriptor->type
                : type_id{};
   }
   case type_kind::pair: {
-    const auto* pair = descriptor_capability<detail::pair_ops>(descriptor);
+    const auto* pair = descriptor_capability<pair_ops>(descriptor);
     return pair != nullptr && pair->value_descriptor != nullptr ? pair->value_descriptor->type
                                                                 : type_id{};
   }
@@ -182,13 +172,13 @@ descriptor_wrapper_semantics(const type_descriptor& descriptor) noexcept {
 [[nodiscard]] inline type_id descriptor_key_type(const type_descriptor& descriptor) noexcept {
   switch (descriptor_kind(descriptor)) {
   case type_kind::associative: {
-    const auto* associative = descriptor_capability<detail::associative_ops>(descriptor);
+    const auto* associative = descriptor_capability<associative_ops>(descriptor);
     return associative != nullptr && associative->key_descriptor != nullptr
                ? associative->key_descriptor->type
                : type_id{};
   }
   case type_kind::pair: {
-    const auto* pair = descriptor_capability<detail::pair_ops>(descriptor);
+    const auto* pair = descriptor_capability<pair_ops>(descriptor);
     return pair != nullptr && pair->key_descriptor != nullptr ? pair->key_descriptor->type
                                                               : type_id{};
   }

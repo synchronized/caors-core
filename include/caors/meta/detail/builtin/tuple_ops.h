@@ -14,34 +14,8 @@
 
 namespace caors::meta::detail {
 
-using tuple_const_element_fn = const void* (*)(const void*) noexcept;
-using tuple_mutable_element_fn = void* (*)(void*) noexcept;
-
-/** @brief tuple-like 单个元素运行期访问操作表。 */
-struct tuple_element_ops {
-  tuple_const_element_fn element = nullptr;
-  tuple_mutable_element_fn mutable_element = nullptr;
-  const type_descriptor* value_descriptor = nullptr;
-
-  [[nodiscard]] bool valid() const noexcept {
-    return value_descriptor != nullptr && element != nullptr;
-  }
-};
-
-/** @brief tuple-like 运行期访问操作表。 */
-struct tuple_ops {
-  vector<tuple_element_ops> elements{};
-
-  [[nodiscard]] bool valid() const noexcept {
-    for (const tuple_element_ops& element : elements) {
-      if (!element.valid()) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-};
+using meta::tuple_element_ops;
+using meta::tuple_ops;
 
 template <typename Tuple, std::size_t Index> struct tuple_element_ops_model {
   using type = std::remove_cv_t<std::remove_reference_t<Tuple>>;

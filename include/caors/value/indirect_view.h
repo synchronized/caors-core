@@ -66,7 +66,7 @@ private:
   indirect_view(const meta::type_descriptor* descriptor, const void* storage,
                 bool writable) noexcept;
 
-  [[nodiscard]] const meta::detail::indirect_ops* data() const noexcept;
+  [[nodiscard]] const meta::indirect_ops* data() const noexcept;
 
   const meta::type_descriptor* descriptor_ = nullptr;
   const void* storage_ = nullptr;

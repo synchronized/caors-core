@@ -14,28 +14,7 @@
 
 namespace caors::meta::detail {
 
-using associative_size_fn = std::size_t (*)(const void*) noexcept;
-using associative_clear_fn = void (*)(void*) noexcept;
-using associative_insert_fn = bool (*)(void*, const void*, const void*);
-using associative_iterator_key_fn = const void* (*)(const void*) noexcept;
-using associative_iterator_value_fn = const void* (*)(const void*) noexcept;
-
-/** @brief 关联容器运行期访问操作表。 */
-struct associative_ops {
-  associative_size_fn size = nullptr;
-  associative_clear_fn clear = nullptr;
-  associative_insert_fn insert = nullptr;
-  container_iterator_ops iterator{};
-  associative_iterator_key_fn iterator_key = nullptr;
-  associative_iterator_value_fn iterator_value = nullptr;
-  const type_descriptor* key_descriptor = nullptr;
-  const type_descriptor* value_descriptor = nullptr;
-
-  [[nodiscard]] bool valid() const noexcept {
-    return key_descriptor != nullptr && value_descriptor != nullptr && size != nullptr &&
-           iterator.valid() && iterator_key != nullptr && iterator_value != nullptr;
-  }
-};
+using meta::associative_ops;
 
 template <typename T> struct associative_ops_model {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;

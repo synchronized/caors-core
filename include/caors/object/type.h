@@ -14,11 +14,7 @@ class object;
 
 class registry;
 
-namespace detail {
-
 struct object_factory_ops;
-
-} // namespace detail
 
 /** @brief 对象类型只读视图。 */
 class CAORS_API type final {
@@ -40,11 +36,11 @@ public:
 private:
   friend class registry;
 
-  type(meta::type info, const detail::object_factory_ops* factory) noexcept;
-  [[nodiscard]] const detail::object_factory_ops* factory() const noexcept;
+  type(meta::type info, const object_factory_ops* factory) noexcept;
+  [[nodiscard]] const object_factory_ops* factory() const noexcept;
 
   meta::type type_{};
-  const detail::object_factory_ops* factory_ = nullptr;
+  const object_factory_ops* factory_ = nullptr;
 };
 
 } // namespace caors::objects

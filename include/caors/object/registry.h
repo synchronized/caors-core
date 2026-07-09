@@ -61,7 +61,7 @@ namespace caors::objects {
  * @brief 全局对象类型注册表 facade 和默认构造工厂。
  *
  * `objects::registry` 不表示彼此隔离的注册表实例。它复用全局 `meta::registry`
- * 管理基础类型信息，并把 `objects::detail::object_factory_ops` 作为 capability 挂载到同一个 `type_id`
+ * 管理基础类型信息，并把 `objects::object_factory_ops` 作为 capability 挂载到同一个 `type_id`
  * 上。普通代码应通过 `objects::class_<T>()`、`objects::get_registry()` 和查询接口访问它。
  */
 class CAORS_API registry final {
@@ -122,10 +122,10 @@ private:
   ~registry();
 
   [[nodiscard]] error register_type(const meta::detail::type_data& type,
-                                    const detail::object_factory_ops* factory);
+                                    const object_factory_ops* factory);
   template <typename T>
   [[nodiscard]] error register_type_for(const meta::detail::type_data& type,
-                                        const detail::object_factory_ops* factory) {
+                                        const object_factory_ops* factory) {
     using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
     const type_id expected_id = meta::detail::type_id_of_cpp_type<value_type>();
     if (type.id() && type.id() != expected_id) {
@@ -149,18 +149,18 @@ private:
     }
 
     if (factory == nullptr) {
-      factory = meta::capabilities::get<detail::object_factory_ops, value_type>();
+      factory = meta::capabilities::get<object_factory_ops, value_type>();
     }
     if (factory == nullptr) {
       return {error_domain::object, errc::invalid_type};
     }
 
-    return rethrow_as(meta::detail::register_capability_for<detail::object_factory_ops>(
-                          stored_meta.id(), factory),
-                      error_domain::object, errc::duplicate_component, errc::duplicate_id);
+    return rethrow_as(
+        meta::detail::register_capability_for<object_factory_ops>(stored_meta.id(), factory),
+        error_domain::object, errc::duplicate_component, errc::duplicate_id);
   }
 
-  [[nodiscard]] const detail::object_factory_ops* find_factory_ops(object_type_id id) const;
+  [[nodiscard]] const object_factory_ops* find_factory_ops(object_type_id id) const;
 };
 
 } // namespace caors::objects
@@ -179,9 +179,8 @@ template <typename T>
     }
   }
 
-  return registry.register_type_for<T>(
-      objects::detail::make_meta_type_data<T>(name, parent_id),
-      meta::capabilities::get<objects::detail::object_factory_ops, T>());
+  return registry.register_type_for<T>(objects::detail::make_meta_type_data<T>(name, parent_id),
+                                       meta::capabilities::get<objects::object_factory_ops, T>());
 }
 
 } // namespace caors::objects::detail

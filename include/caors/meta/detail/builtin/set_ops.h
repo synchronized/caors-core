@@ -14,25 +14,7 @@
 
 namespace caors::meta::detail {
 
-using set_size_fn = std::size_t (*)(const void*) noexcept;
-using set_clear_fn = void (*)(void*) noexcept;
-using set_insert_fn = bool (*)(void*, const void*);
-using set_iterator_value_fn = const void* (*)(const void*) noexcept;
-
-/** @brief 集合容器运行期访问操作表。 */
-struct set_ops {
-  set_size_fn size = nullptr;
-  set_clear_fn clear = nullptr;
-  set_insert_fn insert = nullptr;
-  container_iterator_ops iterator{};
-  set_iterator_value_fn iterator_value = nullptr;
-  const type_descriptor* value_descriptor = nullptr;
-
-  [[nodiscard]] bool valid() const noexcept {
-    return value_descriptor != nullptr && size != nullptr && iterator.valid() &&
-           iterator_value != nullptr;
-  }
-};
+using meta::set_ops;
 
 template <typename T> struct set_ops_model {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;

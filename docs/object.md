@@ -462,8 +462,8 @@ manager.destroy(instance);
 - `object`：基础对象身份和类型查询入口。
 - `object_base<Derived, Base>`：CRTP 类型查询辅助。
 - `meta::type` / `meta::registry`：对象系统和反射系统共享的全局 meta 类型视图和元数据注册表。
-- `objects::detail::object_factory_ops`：内部对象工厂 capability，保存默认构造、创建和销毁函数。
-- `objects::type`：对象类型只读视图，组合 `meta::type` 和内部对象工厂 capability。
+- `objects::object_factory_ops`：对象工厂 capability 函数表，保存默认构造、创建和销毁函数。
+- `objects::type`：对象类型只读视图，组合 `meta::type` 和对象工厂 capability。
 - `caors::error`：明确对象类型注册失败原因和错误来源域。
 - `objects::registry`：类型注册、查询、继承关系判断、默认构造工厂。
 - `objects::manager`：对象实例生命周期管理器，持有对象、按 `object_id` 查找和销毁对象，可选同步
@@ -489,7 +489,7 @@ manager.destroy(instance);
 - [x] 增加持久对象 GUID 语义别名和 `object_index` 双向映射。
 - [x] 对象类型 id、名称、大小、对齐和父类型。
 - [x] 复用全局 `meta::registry`。
-- [x] 将 `objects::detail::object_factory_ops` 作为对象工厂 capability 挂载，并通过 `objects::type` 视图对外查询。
+- [x] 将 `objects::object_factory_ops` 作为对象工厂 capability 挂载，并通过 `objects::type` 视图对外查询。
 - [x] 注册错误状态和不一致类型描述检测。
 - [x] 默认构造工厂。
 - [x] 接入 `memory_resource`。

@@ -39,26 +39,24 @@ field_value_descriptor(const meta::type_descriptor* descriptor) noexcept {
   switch (meta::detail::descriptor_kind(*descriptor)) {
   case meta::type_kind::raw_pointer:
   case meta::type_kind::wrapper: {
-    const auto* indirect =
-        meta::detail::descriptor_capability<meta::detail::indirect_ops>(descriptor);
+    const auto* indirect = meta::detail::descriptor_capability<meta::indirect_ops>(descriptor);
     return indirect != nullptr ? indirect->value_descriptor : nullptr;
   }
   case meta::type_kind::sequence: {
-    const auto* sequence =
-        meta::detail::descriptor_capability<meta::detail::sequence_ops>(descriptor);
+    const auto* sequence = meta::detail::descriptor_capability<meta::sequence_ops>(descriptor);
     return sequence != nullptr ? sequence->value_descriptor : nullptr;
   }
   case meta::type_kind::set: {
-    const auto* set = meta::detail::descriptor_capability<meta::detail::set_ops>(descriptor);
+    const auto* set = meta::detail::descriptor_capability<meta::set_ops>(descriptor);
     return set != nullptr ? set->value_descriptor : nullptr;
   }
   case meta::type_kind::associative: {
     const auto* associative =
-        meta::detail::descriptor_capability<meta::detail::associative_ops>(descriptor);
+        meta::detail::descriptor_capability<meta::associative_ops>(descriptor);
     return associative != nullptr ? associative->value_descriptor : nullptr;
   }
   case meta::type_kind::pair: {
-    const auto* pair = meta::detail::descriptor_capability<meta::detail::pair_ops>(descriptor);
+    const auto* pair = meta::detail::descriptor_capability<meta::pair_ops>(descriptor);
     return pair != nullptr ? pair->value_descriptor : nullptr;
   }
   case meta::type_kind::value:
@@ -81,11 +79,11 @@ field_key_descriptor(const meta::type_descriptor* descriptor) noexcept {
   switch (meta::detail::descriptor_kind(*descriptor)) {
   case meta::type_kind::associative: {
     const auto* associative =
-        meta::detail::descriptor_capability<meta::detail::associative_ops>(descriptor);
+        meta::detail::descriptor_capability<meta::associative_ops>(descriptor);
     return associative != nullptr ? associative->key_descriptor : nullptr;
   }
   case meta::type_kind::pair: {
-    const auto* pair = meta::detail::descriptor_capability<meta::detail::pair_ops>(descriptor);
+    const auto* pair = meta::detail::descriptor_capability<meta::pair_ops>(descriptor);
     return pair != nullptr ? pair->key_descriptor : nullptr;
   }
   case meta::type_kind::value:

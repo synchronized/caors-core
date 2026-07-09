@@ -10,10 +10,8 @@ namespace caors::objects {
 
 class object;
 
-namespace detail {
-
-using try_create_fn = object* (*)(memory_resource* resource) noexcept;
-using create_fn = object* (*)(memory_resource* resource);
+using try_create_fn = object* (*)(memory_resource*) noexcept;
+using create_fn = object* (*)(memory_resource*);
 using destroy_fn = void (*)(object* instance, memory_resource* resource) noexcept;
 
 /** @brief 对象默认构造、创建和销毁的类型擦除操作表。 */
@@ -26,6 +24,13 @@ struct object_factory_ops {
     return try_create != nullptr && create != nullptr;
   }
 };
+
+namespace detail {
+
+using objects::create_fn;
+using objects::destroy_fn;
+using objects::object_factory_ops;
+using objects::try_create_fn;
 
 } // namespace detail
 
