@@ -395,21 +395,7 @@ template <typename Codec, typename T> [[nodiscard]] codec_ops make_codec_ops_fro
     if constexpr (requires(const serialization::context& context, serialization::reader& reader,
                            type& value) { Codec::read(context, reader, value); }) {
       data.read = [](const serialization::context& context, serialization::reader& reader,
-                     const reflection::field& field, void* object) -> error {
-        type decoded{};
-        error status = Codec::read(context, reader, decoded);
-        if (status) {
-          return status;
-        }
-
-        if (!field.try_set<type>(object, decoded)) {
-          return {error_domain::serialization, errc::unsupported};
-        }
-
-        return {};
-      };
-      data.read_value = [](const serialization::context& context, serialization::reader& reader,
-                           const any_ref& target) -> error {
+                     const any_ref& target) -> error {
         type decoded{};
         error status = Codec::read(context, reader, decoded);
         if (status) {
@@ -426,21 +412,7 @@ template <typename Codec, typename T> [[nodiscard]] codec_ops make_codec_ops_fro
                            Codec::read(reader, value);
                          }) {
       data.read = [](const serialization::context&, serialization::reader& reader,
-                     const reflection::field& field, void* object) -> error {
-        type decoded{};
-        error status = Codec::read(reader, decoded);
-        if (status) {
-          return status;
-        }
-
-        if (!field.try_set<type>(object, decoded)) {
-          return {error_domain::serialization, errc::unsupported};
-        }
-
-        return {};
-      };
-      data.read_value = [](const serialization::context&, serialization::reader& reader,
-                           const any_ref& target) -> error {
+                     const any_ref& target) -> error {
         type decoded{};
         error status = Codec::read(reader, decoded);
         if (status) {

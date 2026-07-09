@@ -15,9 +15,7 @@ type_id codec::type() const noexcept { return ops_ != nullptr ? ops_->type : typ
 
 bool codec::can_write() const noexcept { return ops_ != nullptr && ops_->write != nullptr; }
 
-bool codec::can_read() const noexcept {
-  return ops_ != nullptr && (ops_->read != nullptr || ops_->read_value != nullptr);
-}
+bool codec::can_read() const noexcept { return ops_ != nullptr && ops_->read != nullptr; }
 
 bool codec::can_make_value() const noexcept {
   return ops_ != nullptr && ops_->make_value != nullptr;

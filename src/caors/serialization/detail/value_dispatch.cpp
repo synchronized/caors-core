@@ -316,8 +316,8 @@ error read_serialized_value(reader& reader, const any_ref& target,
 
   const type_id target_type = target.get_type().id();
   const codec_ops* codec = find_codec_ops(target);
-  if (codec != nullptr && codec->read_value != nullptr) {
-    return codec->read_value(context, reader, target);
+  if (codec != nullptr && codec->read != nullptr) {
+    return codec->read(context, reader, target);
   }
 
   const reflection::type nested_type = reflection::find(target_type);
@@ -397,17 +397,13 @@ error read_field(reader& reader, const reflection::field& field, void* object,
 
   const bool uses_indirect_value = field_uses_inline_indirect_value(field);
   any_ref target{};
-  bool use_legacy_codec_read = false;
   if (field_uses_direct_value(field)) {
     target = field.get_ref(object);
-    const codec_ops* codec = target.valid() ? find_codec_ops(target) : nullptr;
-    use_legacy_codec_read =
-        codec != nullptr && codec->read != nullptr && codec->read_value == nullptr;
   } else if (!uses_indirect_value) {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  if (!uses_indirect_value && !use_legacy_codec_read &&
+  if (!uses_indirect_value &&
       (!target.valid() || !target.writable() || target.mutable_data() == nullptr)) {
     return {error_domain::serialization, errc::invalid_field};
   }
@@ -420,20 +416,6 @@ error read_field(reader& reader, const reflection::field& field, void* object,
   if (uses_indirect_value) {
     status = read_indirect_serialized_value(reader, field.get_ref(object).create_indirect_view(),
                                             context);
-    if (status) {
-      return status;
-    }
-
-    return reader.end_field();
-  }
-
-  if (use_legacy_codec_read) {
-    const codec_ops* codec = find_codec_ops(target);
-    if (codec == nullptr || codec->read == nullptr) {
-      return {error_domain::serialization, errc::unsupported};
-    }
-
-    status = codec->read(context, reader, field, object);
     if (status) {
       return status;
     }
