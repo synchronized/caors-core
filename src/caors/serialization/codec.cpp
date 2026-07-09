@@ -11,7 +11,7 @@ namespace caors::serialization {
 
 bool codec::valid() const noexcept { return ops_ != nullptr && ops_->valid(); }
 
-type_id codec::type() const noexcept { return ops_ != nullptr ? ops_->type : type_id::invalid(); }
+type_id codec::type() const noexcept { return valid() ? type_.id() : type_id::invalid(); }
 
 bool codec::can_write() const noexcept { return ops_ != nullptr && ops_->write != nullptr; }
 
@@ -34,7 +34,7 @@ codec find_codec(meta::type type) {
     return {};
   }
 
-  return codec{type.get_capability<detail::codec_ops>()};
+  return codec{type, type.get_capability<detail::codec_ops>()};
 }
 
 } // namespace caors::serialization

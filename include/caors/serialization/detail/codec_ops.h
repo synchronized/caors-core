@@ -5,7 +5,6 @@
 #define CAORS_SERIALIZATION_DETAIL_CODEC_OPS_H_
 
 #include "caors/error.h"
-#include "caors/meta/type_id.h"
 #include "caors/result.h"
 #include "caors/value/variant.h"
 
@@ -31,13 +30,12 @@ using codec_value_fn = result<variant> (*)(const serialization::context& context
 
 /** @brief 单个类型的序列化 codec 操作表。 */
 struct codec_ops {
-  type_id type{};
   codec_write_fn write = nullptr;
   codec_read_fn read = nullptr;
   codec_value_fn make_value = nullptr;
 
   [[nodiscard]] constexpr bool valid() const noexcept {
-    return type && (write != nullptr || read != nullptr || make_value != nullptr);
+    return write != nullptr || read != nullptr || make_value != nullptr;
   }
 };
 

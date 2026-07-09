@@ -5,6 +5,7 @@
 #define CAORS_SERIALIZATION_CODEC_H_
 
 #include "caors/meta/capability.h"
+#include "caors/meta/type.h"
 #include "caors/serialization/detail/codec_ops.h"
 #include "caors/serialization/reader.h"
 #include "caors/serialization/writer.h"
@@ -330,8 +331,10 @@ private:
   friend codec find_codec(meta::type type);
   friend const detail::codec_ops* detail::ops_of(codec) noexcept;
 
-  constexpr explicit codec(const detail::codec_ops* ops) noexcept : ops_(ops) {}
+  constexpr codec(meta::type type, const detail::codec_ops* ops) noexcept
+      : type_(type), ops_(ops) {}
 
+  meta::type type_{};
   const detail::codec_ops* ops_ = nullptr;
 };
 
@@ -436,7 +439,6 @@ template <typename Codec, typename T> struct codec_ops_model_from {
 
   [[nodiscard]] static codec_ops make() {
     codec_ops data{};
-    data.type = meta::detail::descriptor_type_id<type>();
 
     if constexpr (Codec::can_write) {
       if constexpr (requires(const serialization::context& context, serialization::writer& writer,
