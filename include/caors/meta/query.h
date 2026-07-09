@@ -6,11 +6,6 @@
 
 #include "caors/meta/registry.h"
 
-// clang-format off
-#include "caors/meta/type_semantics.h"
-#include "caors/meta/detail/type_descriptor.h"
-// clang-format on
-
 #include <optional>
 #include <string_view>
 #include <type_traits>

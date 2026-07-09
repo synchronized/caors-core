@@ -40,6 +40,9 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   只保留聚合和分发入口。
 - [x] 将 descriptor 内置能力的 `*_ops` 函数表、函数指针类型和辅助函数移动到对应
   `meta/detail/builtin/xxx_ops.h`，旧 `container.h` / `type_capabilities.h` 不再保存这些内置能力定义。
+- [x] 删除旧 `meta/detail/container.h` 聚合头，并将 `type_capabilities.h` 精确改名为
+  `parent_cast_ops.h`。
+- [x] 将 `type_descriptor.h` 拆分为 descriptor 数据结构、默认名称生成和 descriptor model 构建三个边界。
 - [x] 将 set / associative 容器使用的类型擦除迭代器辅助实现移动到 `meta/detail/builtin/container_iterators.h`。
 - [x] 将 set / associative 共用的迭代器生命周期操作抽成 `container_iterator_ops` 和
   `container_iterator_ops_model<T>`，容器专属取值逻辑继续保留在各自 builtin ops 中。

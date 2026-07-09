@@ -6,6 +6,7 @@
 
 #include "caors/core/containers.h"
 #include "caors/meta.h"
+#include "caors/meta/detail/type_descriptor_model.h"
 #include "caors/value/any_ref.h"
 
 #include <array>

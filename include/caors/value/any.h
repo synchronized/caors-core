@@ -6,7 +6,7 @@
 
 #include "caors/memory/resource.h"
 #include "caors/meta.h"
-#include "caors/meta/detail/type_descriptor.h"
+#include "caors/meta/detail/type_descriptor_model.h"
 #include "caors/value/fwd.h"
 
 #include <cstddef>

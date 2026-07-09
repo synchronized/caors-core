@@ -7,7 +7,7 @@
 #include "caors/memory/detail/internal_resource.h"
 #include "caors/memory/unique_ptr.h"
 #include "caors/meta.h"
-#include "caors/meta/detail/type_capabilities.h"
+#include "caors/meta/detail/parent_cast_ops.h"
 
 #include <mutex>
 #include <typeindex>

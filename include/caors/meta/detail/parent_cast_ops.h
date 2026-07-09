@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_META_DETAIL_TYPE_CAPABILITIES_H_
-#define CAORS_META_DETAIL_TYPE_CAPABILITIES_H_
+#ifndef CAORS_META_DETAIL_PARENT_CAST_OPS_H_
+#define CAORS_META_DETAIL_PARENT_CAST_OPS_H_
 
 #include "caors/meta/type_id.h"
 

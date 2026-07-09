@@ -3,7 +3,7 @@
 
 #include "caors/adapters/stl_traits.h"
 #include "caors/adapters/stl_wrapper.h"
-#include "caors/meta/detail/type_descriptor.h"
+#include "caors/meta/detail/type_descriptor_model.h"
 
 #include <catch2/catch_all.hpp>
 

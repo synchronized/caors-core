@@ -5,6 +5,7 @@
 #define CAORS_REFLECTION_DETAIL_FIELD_DATA_H_
 
 #include "caors/meta.h"
+#include "caors/meta/detail/type_descriptor_model.h"
 #include "caors/traits/container.h"
 #include "caors/value/any_ref.h"
 

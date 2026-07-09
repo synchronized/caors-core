@@ -4,6 +4,7 @@
 #ifndef CAORS_REFLECTION_BUILDER_H_
 #define CAORS_REFLECTION_BUILDER_H_
 
+#include "caors/meta/detail/type_descriptor_model.h"
 #include "caors/reflection/registry.h"
 
 #include <optional>
