@@ -190,13 +190,6 @@ template <typename Field>
   return field;
 }
 
-template <typename Member> struct member_pointer_traits;
-
-template <typename Class, typename Field> struct member_pointer_traits<Field Class::*> {
-  using class_type = Class;
-  using field_type = Field;
-};
-
 template <typename Class, typename Field>
 [[nodiscard]] std::size_t member_offset(Field Class::* member) noexcept {
   const auto* object = reinterpret_cast<const volatile Class*>(0x1000);

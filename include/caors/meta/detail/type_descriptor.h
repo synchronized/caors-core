@@ -91,20 +91,6 @@ struct type_descriptor {
   std::size_t static_capability_count = 0;
 
   [[nodiscard]] bool valid() const noexcept { return type && layout.valid(); }
-
-  [[nodiscard]] bool has_view_capability() const noexcept {
-    if (builtin_type_capability_valid(builtin_capability)) {
-      return true;
-    }
-
-    for (std::size_t index = 0; index < static_capability_count; ++index) {
-      if (static_capabilities != nullptr && static_capabilities[index].valid()) {
-        return true;
-      }
-    }
-
-    return false;
-  }
 };
 
 template <typename T> inline constexpr bool always_false_v = false;
@@ -233,16 +219,6 @@ template <typename T> [[nodiscard]] type_id descriptor_type_id() noexcept {
 }
 
 template <typename T> [[nodiscard]] std::string descriptor_type_name_text();
-
-template <typename T> [[nodiscard]] bool append_descriptor_type_name(std::string& text) {
-  std::string name = descriptor_type_name_text<T>();
-  if (name.empty()) {
-    return false;
-  }
-
-  text += name;
-  return true;
-}
 
 template <typename T> [[nodiscard]] std::string descriptor_sequence_type_name_text() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
