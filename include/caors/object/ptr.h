@@ -6,6 +6,7 @@
 
 #include "caors/meta/capability.h"
 #include "caors/object/id.h"
+#include "caors/traits/object_ptr.h"
 
 #include <type_traits>
 
@@ -53,27 +54,52 @@ struct ptr_ops {
   [[nodiscard]] bool valid() const noexcept { return get != nullptr && set != nullptr; }
 };
 
-template <typename T> struct ptr_traits {
-  static constexpr bool is_ptr = false;
-  using object_type = void;
-};
+template <typename T> [[nodiscard]] const ptr_ops* ptr_ops_ptr_of() {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (caors::traits::object_ptr_traits<type>::is_object_ptr) {
+    static const ptr_ops data{
+        [](const void* storage) noexcept -> object* {
+          if (storage == nullptr) {
+            return nullptr;
+          }
 
-template <typename T> struct ptr_traits<ptr<T>> {
-  static constexpr bool is_ptr = true;
+          return caors::traits::object_ptr_access<type>::get(*static_cast<const type*>(storage));
+        },
+        [](void* storage, object* instance) noexcept -> bool {
+          if (storage == nullptr) {
+            return false;
+          }
+
+          return caors::traits::object_ptr_access<type>::set(*static_cast<type*>(storage),
+                                                             instance);
+        },
+    };
+
+    return data.valid() ? &data : nullptr;
+  } else {
+    return nullptr;
+  }
+}
+
+} // namespace detail
+
+} // namespace caors::objects
+
+namespace caors::traits {
+
+template <typename T> struct object_ptr_traits<objects::ptr<T>> {
+  static constexpr bool is_object_ptr = true;
   using object_type = T;
 };
 
-template <typename T> struct ptr_access {
-  [[nodiscard]] static object* get(const T&) noexcept { return nullptr; }
-  static bool set(T&, object*) noexcept { return false; }
-};
-
-template <typename T> struct ptr_access<ptr<T>> {
+template <typename T> struct object_ptr_access<objects::ptr<T>> {
   using object_type = T;
 
-  [[nodiscard]] static object* get(const ptr<T>& source) noexcept { return source.get(); }
+  [[nodiscard]] static objects::object* get(const objects::ptr<T>& source) noexcept {
+    return source.get();
+  }
 
-  static bool set(ptr<T>& source, object* instance) noexcept {
+  static bool set(objects::ptr<T>& source, objects::object* instance) noexcept {
     if (instance == nullptr) {
       source.reset();
       return true;
@@ -89,35 +115,7 @@ template <typename T> struct ptr_access<ptr<T>> {
   }
 };
 
-template <typename T> [[nodiscard]] const ptr_ops* ptr_ops_ptr_of() {
-  using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (ptr_traits<type>::is_ptr) {
-    static const ptr_ops data{
-        [](const void* storage) noexcept -> object* {
-          if (storage == nullptr) {
-            return nullptr;
-          }
-
-          return ptr_access<type>::get(*static_cast<const type*>(storage));
-        },
-        [](void* storage, object* instance) noexcept -> bool {
-          if (storage == nullptr) {
-            return false;
-          }
-
-          return ptr_access<type>::set(*static_cast<type*>(storage), instance);
-        },
-    };
-
-    return data.valid() ? &data : nullptr;
-  } else {
-    return nullptr;
-  }
-}
-
-} // namespace detail
-
-} // namespace caors::objects
+} // namespace caors::traits
 
 namespace caors::meta::capabilities {
 
