@@ -41,7 +41,6 @@ void require_context_codec_metadata() {
                                    "caors.test.serialization.api.context_codec_actor")
                                    .field("value", &context_codec_actor::value)
                                    .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_codec<context_codec_value>()));
   REQUIRE(serialization_result_ok(caors::serialization::register_type<context_codec_actor>()));
 }
 

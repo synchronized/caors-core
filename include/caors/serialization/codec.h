@@ -27,7 +27,6 @@ class codec;
 
 namespace detail {
 struct codec_ops;
-class codec_registry;
 [[nodiscard]] CAORS_API const codec_ops* ops_of(codec view) noexcept;
 } // namespace detail
 
@@ -330,7 +329,6 @@ public:
 private:
   template <typename T> friend codec codec_of();
   friend codec find_codec(meta::type type);
-  friend class detail::codec_registry;
   friend const detail::codec_ops* detail::ops_of(codec) noexcept;
 
   constexpr explicit codec(const detail::codec_ops* ops) noexcept : ops_(ops) {}
@@ -344,7 +342,7 @@ private:
 /** @brief 把运行期 C++ 引用转换为序列化中间值。不可拷贝引用会返回不支持。 */
 [[nodiscard]] CAORS_API variant_result to_variant(const any_ref& data);
 
-/** @brief 按类型 id 查询已索引的 codec 视图。 */
+/** @brief 按类型 id 查询已注册 meta 类型的 codec 视图。 */
 [[nodiscard]] CAORS_API codec find_codec(type_id id);
 
 /** @brief 按 meta 类型查询已索引的 codec 视图。 */
@@ -353,38 +351,9 @@ private:
 /** @brief 按 C++ 类型查询静态 codec 视图；类型不要求已经显式注册。 */
 template <typename T> [[nodiscard]] codec codec_of();
 
-/** @brief 按 C++ 类型注册已特化的序列化 codec。 */
-template <typename T> [[nodiscard]] error register_codec();
-
 } // namespace caors::serialization
 
 namespace caors::serialization::detail {
-
-/** @brief 运行期序列化 codec 能力索引包装。内部入口，公开代码优先使用
- * `serialization::register_codec<T>()`。 */
-class CAORS_API codec_registry final {
-public:
-  [[nodiscard]] static codec_registry& instance() noexcept;
-
-  codec_registry(const codec_registry&) = delete;
-  codec_registry& operator=(const codec_registry&) = delete;
-
-  [[nodiscard]] error register_codec(type_id id, const codec_ops& codec);
-  [[nodiscard]] codec find_codec(type_id id) const;
-  [[nodiscard]] bool contains(type_id id) const;
-  [[nodiscard]] std::size_t size() const noexcept;
-
-private:
-  codec_registry() = default;
-  ~codec_registry() = default;
-};
-
-/** @brief 获取进程内全局序列化 codec 能力索引包装。内部入口。 */
-[[nodiscard]] CAORS_API codec_registry& get_codec_registry() noexcept;
-
-/** @brief 按类型 id 注册序列化 codec。内部入口，公开代码优先使用
- * `serialization::register_codec<T>()`。 */
-[[nodiscard]] CAORS_API error register_serialization_codec(type_id id, const codec_ops& codec);
 
 /** @brief 从 codec 视图取回内部操作表。 */
 [[nodiscard]] CAORS_API const codec_ops* ops_of(codec view) noexcept;
@@ -541,17 +510,6 @@ template <typename T> [[nodiscard]] const codec_ops* codec_ops_ptr_of() {
   return data.valid() ? &data : nullptr;
 }
 
-/** @brief 按 C++ 类型注册已特化的序列化 codec。内部入口。 */
-template <typename T> [[nodiscard]] error register_serialization_codec() {
-  using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  const codec_ops* codec = codec_ops_ptr_of<type>();
-  if (codec == nullptr) {
-    return {error_domain::serialization, errc::unsupported};
-  }
-
-  return register_serialization_codec(codec->type, *codec);
-}
-
 } // namespace caors::serialization::detail
 
 namespace caors::meta::capabilities {
@@ -574,17 +532,7 @@ namespace caors::serialization {
 
 template <typename T> [[nodiscard]] codec codec_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if (const detail::codec_ops* ops = meta::capabilities::get<detail::codec_ops, type>();
-      ops != nullptr) {
-    return codec{ops};
-  }
-
-  return find_codec(meta::detail::type_id_of_cpp_type<type>());
-}
-
-/** @brief 按 C++ 类型注册已特化的序列化 codec。 */
-template <typename T> [[nodiscard]] error register_codec() {
-  return detail::register_serialization_codec<T>();
+  return find_codec(meta::type_of<type>());
 }
 
 } // namespace caors::serialization

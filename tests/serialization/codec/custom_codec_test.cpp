@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 原测试文件：serialization_custom_codec_serialization_custom_codec_specialization_registers_one_runtime_table_test.cpp
+// 原测试文件：serialization_custom_codec_serialization_custom_codec_specialization_uses_descriptor_capability_test.cpp
 
 #include "serialization_custom_codec_test_support.h"
 
 using namespace caors::tests::serialization;
-TEST_CASE("serialization - custom codec specialization registers one runtime table",
+TEST_CASE("serialization - custom codec specialization uses descriptor capability",
           "[serialization]") {
   const caors::serialization::codec codec =
       caors::serialization::codec_of<policy_custom_codec_value>();
@@ -16,12 +16,11 @@ TEST_CASE("serialization - custom codec specialization registers one runtime tab
   CHECK(codec.can_read());
   CHECK(codec.can_make_value());
   CHECK_FALSE(caors::meta::find<policy_custom_codec_value>().registered());
-  REQUIRE(
-      serialization_result_ok(caors::serialization::register_codec<policy_custom_codec_value>()));
-  CHECK(caors::serialization::find_codec(caors::meta::type_of<policy_custom_codec_value>()));
+  CHECK(caors::serialization::find_codec(caors::meta::id_of<policy_custom_codec_value>()));
 
   require_registered_type<policy_custom_codec_value>(
       "caors.test.serialization.policy_custom_codec_value");
+  CHECK(caors::serialization::find_codec(caors::meta::id_of<policy_custom_codec_value>()));
   REQUIRE(reflection_result_ok(caors::reflection::class_<policy_custom_codec_actor>(
                                    "caors.test.serialization.policy_custom_codec_actor")
                                    .field("value", &policy_custom_codec_actor::value)

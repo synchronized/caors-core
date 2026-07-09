@@ -250,14 +250,14 @@ capability 索引。内部仍保留 `descriptor_static_capability<T>()` 给 desc
 `meta::type_<T>().capability<Capability>(&ops)` 挂接到独立运行期索引；`meta::capabilities`
 命名空间只保留静态能力提供者、运行期查询和诊断工具。拿得到 C++ 类型 `T` 时，也可以通过
 `meta::capabilities::get<Capability, T>()` 直接查询静态能力。serialization codec 会作为静态能力挂到
-descriptor 上；当运行期只剩 `type_id`、没有 descriptor 可用时，仍通过动态 capability 索引查询显式注册的 codec。
+descriptor 上；当运行期只剩 `type_id` 时，应先通过 meta registry 找回携带 descriptor 的 `meta::type`。
 
 capability 和 registry 的边界：
 
 - `type_descriptor` 静态能力适合“编译期已知 C++ 类型即可生成”的只读函数表，例如对象指针访问函数、
   句柄访问函数和 `codec_traits<T>` 生成的 codec 操作表。
-- `meta::capabilities` 运行期索引适合“只剩 `type_id`，但仍需要查询某种模块能力”的场景，例如
-  `serialization::find_codec(type_id)`。
+- `meta::capabilities` 运行期索引适合“只剩 `type_id`，但仍需要查询某种用户外挂运行期能力”的场景；
+  内置 object / serialization 能力优先通过 type descriptor 静态能力查询。
 - 公开写入运行期索引时使用 `meta::type_<T>().capability<Capability>(&ops)`；如果能力来自
   `static_capability<Capability, T>`，可以使用 `meta::type_<T>().capability<Capability>()`。
 - 普通调用方优先使用 `meta::type::get_capability<T>()`。该入口统一处理 descriptor 静态能力和运行期

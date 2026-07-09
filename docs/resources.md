@@ -425,7 +425,6 @@ struct material {
 };
 
 caors::meta::type_<caors::resource_ref<texture>>("game.resource_ref<game.texture>");
-caors::serialization::register_codec<caors::resource_ref<texture>>();
 ```
 
 写出规则：
