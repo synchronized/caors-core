@@ -51,27 +51,31 @@ void destroy_object_instance(object* instance, memory_resource* resource) noexce
   caors::destroy(static_cast<T*>(instance), resource);
 }
 
-/** @brief 创建对象类型内部工厂数据。 */
-template <typename T> [[nodiscard]] object_factory_ops make_object_factory_ops() noexcept {
+template <typename T> struct object_factory_ops_model {
   static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
 
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  object_factory_ops data{};
-  if constexpr (!std::is_same_v<type, object>) {
-    data.destroy = &destroy_object_instance<type>;
-    if constexpr (std::is_default_constructible_v<type>) {
-      data.try_create = &try_create_object_instance<type>;
-      data.create = &create_object_instance<type>;
+
+  [[nodiscard]] static object_factory_ops make() noexcept {
+    object_factory_ops data{};
+    if constexpr (!std::is_same_v<type, object>) {
+      data.destroy = &destroy_object_instance<type>;
+      if constexpr (std::is_default_constructible_v<type>) {
+        data.try_create = &try_create_object_instance<type>;
+        data.create = &create_object_instance<type>;
+      }
     }
+
+    return data;
   }
 
-  return data;
-}
+  inline static const object_factory_ops value = make();
+};
 
 /** @brief 返回指定对象类型的稳定工厂操作表。 */
 template <typename T> [[nodiscard]] const object_factory_ops* object_factory_ops_ptr_of() noexcept {
-  static const object_factory_ops ops = make_object_factory_ops<T>();
-  return &ops;
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  return &object_factory_ops_model<type>::value;
 }
 
 } // namespace caors::objects::detail

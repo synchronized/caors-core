@@ -50,9 +50,8 @@ TEST_CASE("object - pointer and handle expose static meta capabilities", "[objec
 }
 
 TEST_CASE("object - factory ops are exposed as object capabilities", "[object]") {
-  const auto* factory =
-      caors::meta::capabilities::get<caors::objects::detail::object_factory_ops,
-                                     capability_registered_object>();
+  const auto* factory = caors::meta::capabilities::get<caors::objects::detail::object_factory_ops,
+                                                       capability_registered_object>();
   REQUIRE(factory != nullptr);
   CHECK(factory->constructible());
 

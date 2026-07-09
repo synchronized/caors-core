@@ -358,115 +358,137 @@ namespace caors::serialization::detail {
 /** @brief 从 codec 视图取回内部操作表。 */
 [[nodiscard]] CAORS_API const codec_ops* ops_of(codec view) noexcept;
 
-/** @brief 从 codec 策略类型构造类型擦除函数表。 */
-template <typename Codec, typename T> [[nodiscard]] codec_ops make_codec_ops_from() {
+/** @brief 从 codec 策略类型生成类型擦除函数表的 model。 */
+template <typename Codec, typename T> struct codec_ops_model_from {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  codec_ops data{};
-  data.type = meta::detail::descriptor_type_id<type>();
 
-  if constexpr (Codec::can_write) {
-    if constexpr (requires(const serialization::context& context, serialization::writer& writer,
-                           const type& value) { Codec::write(context, writer, value); }) {
-      data.write = [](const serialization::context& context, serialization::writer& writer,
-                      const any& value) -> error {
-        const type* stored = value.try_get<type>();
-        if (stored == nullptr) {
-          return {error_domain::serialization, errc::invalid_type};
-        }
-
-        return Codec::write(context, writer, *stored);
-      };
-    } else if constexpr (requires(serialization::writer& writer, const type& value) {
-                           Codec::write(writer, value);
-                         }) {
-      data.write = [](const serialization::context&, serialization::writer& writer,
-                      const any& value) -> error {
-        const type* stored = value.try_get<type>();
-        if (stored == nullptr) {
-          return {error_domain::serialization, errc::invalid_type};
-        }
-
-        return Codec::write(writer, *stored);
-      };
+  [[nodiscard]] static error write_with_context(const serialization::context& context,
+                                                serialization::writer& writer, const any& value) {
+    const type* stored = value.try_get<type>();
+    if (stored == nullptr) {
+      return {error_domain::serialization, errc::invalid_type};
     }
+
+    return Codec::write(context, writer, *stored);
   }
 
-  if constexpr (Codec::can_read) {
-    if constexpr (requires(const serialization::context& context, serialization::reader& reader,
-                           type& value) { Codec::read(context, reader, value); }) {
-      data.read = [](const serialization::context& context, serialization::reader& reader,
-                     const any_ref& target) -> error {
-        type decoded{};
-        error status = Codec::read(context, reader, decoded);
-        if (status) {
-          return status;
-        }
-
-        if (!target.try_set<type>(decoded)) {
-          return {error_domain::serialization, errc::unsupported};
-        }
-
-        return {};
-      };
-    } else if constexpr (requires(serialization::reader& reader, type& value) {
-                           Codec::read(reader, value);
-                         }) {
-      data.read = [](const serialization::context&, serialization::reader& reader,
-                     const any_ref& target) -> error {
-        type decoded{};
-        error status = Codec::read(reader, decoded);
-        if (status) {
-          return status;
-        }
-
-        if (!target.try_set<type>(decoded)) {
-          return {error_domain::serialization, errc::unsupported};
-        }
-
-        return {};
-      };
+  [[nodiscard]] static error write_without_context(const serialization::context&,
+                                                   serialization::writer& writer,
+                                                   const any& value) {
+    const type* stored = value.try_get<type>();
+    if (stored == nullptr) {
+      return {error_domain::serialization, errc::invalid_type};
     }
+
+    return Codec::write(writer, *stored);
   }
 
-  if constexpr (Codec::can_make_value) {
-    if constexpr (requires(const serialization::context& context, const type& value) {
-                    Codec::make_value(context, value);
-                  }) {
-      data.make_value = [](const serialization::context& context,
-                           const any& value) -> variant_result {
-        const type* stored = value.try_get<type>();
-        if (stored == nullptr) {
-          return {{error_domain::serialization, errc::invalid_type}, {}};
-        }
-
-        return Codec::make_value(context, *stored);
-      };
-    } else if constexpr (requires(const type& value) { Codec::make_value(value); }) {
-      data.make_value = [](const serialization::context&, const any& value) -> variant_result {
-        const type* stored = value.try_get<type>();
-        if (stored == nullptr) {
-          return {{error_domain::serialization, errc::invalid_type}, {}};
-        }
-
-        return Codec::make_value(*stored);
-      };
+  [[nodiscard]] static error read_with_context(const serialization::context& context,
+                                               serialization::reader& reader,
+                                               const any_ref& target) {
+    type decoded{};
+    error status = Codec::read(context, reader, decoded);
+    if (status) {
+      return status;
     }
+
+    if (!target.try_set<type>(decoded)) {
+      return {error_domain::serialization, errc::unsupported};
+    }
+
+    return {};
   }
 
-  return data;
-}
+  [[nodiscard]] static error read_without_context(const serialization::context&,
+                                                  serialization::reader& reader,
+                                                  const any_ref& target) {
+    type decoded{};
+    error status = Codec::read(reader, decoded);
+    if (status) {
+      return status;
+    }
 
-/** @brief 从公开 `serialization::codec_traits<T>` 特化构造类型擦除函数表。 */
-template <typename T> [[nodiscard]] codec_ops make_codec_ops() {
+    if (!target.try_set<type>(decoded)) {
+      return {error_domain::serialization, errc::unsupported};
+    }
+
+    return {};
+  }
+
+  [[nodiscard]] static variant_result make_value_with_context(const serialization::context& context,
+                                                              const any& value) {
+    const type* stored = value.try_get<type>();
+    if (stored == nullptr) {
+      return {{error_domain::serialization, errc::invalid_type}, {}};
+    }
+
+    return Codec::make_value(context, *stored);
+  }
+
+  [[nodiscard]] static variant_result make_value_without_context(const serialization::context&,
+                                                                 const any& value) {
+    const type* stored = value.try_get<type>();
+    if (stored == nullptr) {
+      return {{error_domain::serialization, errc::invalid_type}, {}};
+    }
+
+    return Codec::make_value(*stored);
+  }
+
+  [[nodiscard]] static codec_ops make() {
+    codec_ops data{};
+    data.type = meta::detail::descriptor_type_id<type>();
+
+    if constexpr (Codec::can_write) {
+      if constexpr (requires(const serialization::context& context, serialization::writer& writer,
+                             const type& value) { Codec::write(context, writer, value); }) {
+        data.write = &write_with_context;
+      } else if constexpr (requires(serialization::writer& writer, const type& value) {
+                             Codec::write(writer, value);
+                           }) {
+        data.write = &write_without_context;
+      }
+    }
+
+    if constexpr (Codec::can_read) {
+      if constexpr (requires(const serialization::context& context, serialization::reader& reader,
+                             type& value) { Codec::read(context, reader, value); }) {
+        data.read = &read_with_context;
+      } else if constexpr (requires(serialization::reader& reader, type& value) {
+                             Codec::read(reader, value);
+                           }) {
+        data.read = &read_without_context;
+      }
+    }
+
+    if constexpr (Codec::can_make_value) {
+      if constexpr (requires(const serialization::context& context, const type& value) {
+                      Codec::make_value(context, value);
+                    }) {
+        data.make_value = &make_value_with_context;
+      } else if constexpr (requires(const type& value) { Codec::make_value(value); }) {
+        data.make_value = &make_value_without_context;
+      }
+    }
+
+    return data;
+  }
+
+  inline static const codec_ops value = make();
+};
+
+/** @brief 从公开 `serialization::codec_traits<T>` 特化生成类型擦除函数表。 */
+template <typename T> struct codec_ops_model {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  return make_codec_ops_from<serialization::codec_traits<type>, type>();
-}
+  using codec_type = serialization::codec_traits<type>;
+
+  inline static const codec_ops value = codec_ops_model_from<codec_type, type>::value;
+};
 
 /** @brief 查询公开 codec 特化对应的静态操作表。 */
-template <typename T> [[nodiscard]] const codec_ops* codec_ops_ptr_of() {
+template <typename T> [[nodiscard]] const codec_ops* codec_ops_ptr_of() noexcept {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  static const codec_ops data = make_codec_ops<type>();
-  return data.valid() ? &data : nullptr;
+  return codec_ops_model<type>::value.valid() ? &codec_ops_model<type>::value : nullptr;
 }
 
 } // namespace caors::serialization::detail

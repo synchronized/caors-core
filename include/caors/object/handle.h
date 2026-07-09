@@ -115,28 +115,33 @@ to_untyped_handle(basic_handle<T> source) noexcept {
   }
 }
 
-template <typename T> [[nodiscard]] const handle_ops* handle_ops_ptr_of() {
+template <typename T> struct handle_ops_model {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+
+  [[nodiscard]] static basic_handle<untyped_handle_tag> get(const void* storage) noexcept {
+    if (storage == nullptr) {
+      return {};
+    }
+
+    return to_untyped_handle(*static_cast<const type*>(storage));
+  }
+
+  static bool set(void* storage, basic_handle<untyped_handle_tag> value) noexcept {
+    if (storage == nullptr) {
+      return false;
+    }
+
+    static_cast<type*>(storage)->reset(value);
+    return true;
+  }
+
+  inline static const handle_ops value{&get, &set};
+};
+
+template <typename T> [[nodiscard]] const handle_ops* handle_ops_ptr_of() noexcept {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (handle_traits<type>::is_handle) {
-    static const handle_ops data{
-        [](const void* storage) noexcept -> basic_handle<untyped_handle_tag> {
-          if (storage == nullptr) {
-            return {};
-          }
-
-          return to_untyped_handle(*static_cast<const type*>(storage));
-        },
-        [](void* storage, basic_handle<untyped_handle_tag> value) noexcept -> bool {
-          if (storage == nullptr) {
-            return false;
-          }
-
-          static_cast<type*>(storage)->reset(value);
-          return true;
-        },
-    };
-
-    return data.valid() ? &data : nullptr;
+    return handle_ops_model<type>::value.valid() ? &handle_ops_model<type>::value : nullptr;
   } else {
     return nullptr;
   }

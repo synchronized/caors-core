@@ -54,28 +54,32 @@ struct ptr_ops {
   [[nodiscard]] bool valid() const noexcept { return get != nullptr && set != nullptr; }
 };
 
-template <typename T> [[nodiscard]] const ptr_ops* ptr_ops_ptr_of() {
+template <typename T> struct ptr_ops_model {
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+
+  [[nodiscard]] static object* get(const void* storage) noexcept {
+    if (storage == nullptr) {
+      return nullptr;
+    }
+
+    return caors::traits::object_ptr_access<type>::get(*static_cast<const type*>(storage));
+  }
+
+  static bool set(void* storage, object* instance) noexcept {
+    if (storage == nullptr) {
+      return false;
+    }
+
+    return caors::traits::object_ptr_access<type>::set(*static_cast<type*>(storage), instance);
+  }
+
+  inline static const ptr_ops value{&get, &set};
+};
+
+template <typename T> [[nodiscard]] const ptr_ops* ptr_ops_ptr_of() noexcept {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (caors::traits::object_ptr_traits<type>::is_object_ptr) {
-    static const ptr_ops data{
-        [](const void* storage) noexcept -> object* {
-          if (storage == nullptr) {
-            return nullptr;
-          }
-
-          return caors::traits::object_ptr_access<type>::get(*static_cast<const type*>(storage));
-        },
-        [](void* storage, object* instance) noexcept -> bool {
-          if (storage == nullptr) {
-            return false;
-          }
-
-          return caors::traits::object_ptr_access<type>::set(*static_cast<type*>(storage),
-                                                             instance);
-        },
-    };
-
-    return data.valid() ? &data : nullptr;
+    return ptr_ops_model<type>::value.valid() ? &ptr_ops_model<type>::value : nullptr;
   } else {
     return nullptr;
   }
