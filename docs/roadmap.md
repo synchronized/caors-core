@@ -42,6 +42,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `meta/detail/builtin/xxx_ops.h`，旧 `container.h` / `type_capabilities.h` 不再保存这些内置能力定义。
 - [x] 删除旧 `meta/detail/container.h` 聚合头，并将 `type_capabilities.h` 精确改名为
   `parent_cast_ops.h`。
+- [x] 将 value 操作函数指针和 `get_*_value_fn()` 查询入口提升到 `meta/value_ops.h` 公共低层边界，
+  避免 object / reflection / serialization 横向依赖 `meta::detail`。
 - [x] 将 `type_descriptor.h` 拆分为 descriptor 数据结构、默认名称生成和 descriptor model 构建三个边界。
 - [x] 将 set / associative 容器使用的类型擦除迭代器辅助实现移动到 `meta/detail/builtin/container_iterators.h`。
 - [x] 将 set / associative 共用的迭代器生命周期操作抽成 `container_iterator_ops` 和
@@ -156,6 +158,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 支持普通 C++ 类在 `std::unique_ptr<Base>` / `caors::memory::unique_ptr<Base>` /
   `std::shared_ptr<Base>` 字段中的动态类型记录、默认构造和安全下转型。
 - [x] 为普通类多态值补充显式 factory 和可选 `memory_resource` 构造策略。
+- [x] 增加 `serialization/detail/value_access.h` 内部桥接层，集中访问 `any` / `any_ref` 携带的
+  descriptor 和默认构造能力，避免 serialization detail 文件散落依赖 `value::detail`。
 - [ ] 设计字段级构造策略，覆盖容器新增元素、空 `optional<T>`、`variant` 候选切换和不可默认构造类型；
   优先使用 `serialization::context::memory_resource`、meta factory 和字段策略，失败时返回明确诊断。
 - [ ] 放宽多层指针 / 多层 wrapper 限制，采用逐层 indirect descriptor 展开；默认设置合理最大深度，

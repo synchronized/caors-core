@@ -3,6 +3,7 @@
 
 #include "helpers.h"
 #include "polymorphic.h"
+#include "value_access.h"
 
 #include "caors/meta/type_descriptor.h"
 #include "caors/object/handle_view.h"
@@ -20,18 +21,18 @@ namespace {
 struct constructed_value {
   void* value = nullptr;
   memory::memory_resource* resource = nullptr;
-  meta::detail::value_resource_destroy_fn resource_destroy = nullptr;
-  meta::detail::value_destroy_fn default_destroy = nullptr;
+  meta::value_resource_destroy_fn resource_destroy = nullptr;
+  meta::value_destroy_fn default_destroy = nullptr;
   bool transfer_destroy_context = false;
 
   constructed_value() = default;
 
   constructed_value(void* constructed, memory::memory_resource* memory,
-                    meta::detail::value_resource_destroy_fn destroy, bool transfer_context) noexcept
+                    meta::value_resource_destroy_fn destroy, bool transfer_context) noexcept
       : value(constructed), resource(memory), resource_destroy(destroy),
         transfer_destroy_context(transfer_context) {}
 
-  constructed_value(void* constructed, meta::detail::value_destroy_fn destroy) noexcept
+  constructed_value(void* constructed, meta::value_destroy_fn destroy) noexcept
       : value(constructed), default_destroy(destroy) {}
 
   constructed_value(const constructed_value&) = delete;
@@ -91,7 +92,7 @@ struct constructed_value {
 struct polymorphic_destroy_context {
   memory::memory_resource* allocation_resource = nullptr;
   memory::memory_resource* value_resource = nullptr;
-  meta::detail::value_resource_destroy_fn destroy = nullptr;
+  meta::value_resource_destroy_fn destroy = nullptr;
 };
 
 void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcept {
@@ -220,7 +221,7 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
 }
 
 [[nodiscard]] const meta::type_descriptor* descriptor_of_value(const any_ref& value) noexcept {
-  return caors::value::detail::descriptor_of(value);
+  return descriptor_of(value);
 }
 
 [[nodiscard]] const meta::enum_ops* enum_ops(const any_ref& value) noexcept {

@@ -290,7 +290,7 @@ any default_construct(type_id type, const meta::type_descriptor* descriptor,
   }
 
   void* value = nullptr;
-  meta::detail::value_resource_destroy_fn resource_destroy = nullptr;
+  meta::value_resource_destroy_fn resource_destroy = nullptr;
   if (resource != nullptr && descriptor->ops.resource_construct != nullptr &&
       descriptor->ops.resource_destroy != nullptr) {
     value = descriptor->ops.resource_construct(resource);

@@ -194,7 +194,7 @@ private:
   const meta::type_descriptor* descriptor_ = nullptr;
   void* data_ = nullptr;
   memory::memory_resource* resource_ = nullptr;
-  meta::detail::value_resource_destroy_fn resource_destroy_ = nullptr;
+  meta::value_resource_destroy_fn resource_destroy_ = nullptr;
   storage_mode mode_ = storage_mode::empty;
   alignas(std::max_align_t) unsigned char inline_storage_[inline_storage_size]{};
 };

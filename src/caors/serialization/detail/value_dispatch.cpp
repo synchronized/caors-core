@@ -2,6 +2,7 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "helpers.h"
+#include "value_access.h"
 
 #include "caors/meta/type_descriptor.h"
 #include "caors/object/handle_view.h"
@@ -22,7 +23,7 @@ codec_ops_of_descriptor(const meta::type_descriptor* descriptor) noexcept {
 }
 
 [[nodiscard]] const codec_ops* find_codec_ops(const any& data) {
-  if (const auto* descriptor = caors::value::detail::descriptor_of(data); descriptor != nullptr) {
+  if (const auto* descriptor = descriptor_of(data); descriptor != nullptr) {
     return codec_ops_of_descriptor(descriptor);
   }
 
@@ -30,7 +31,7 @@ codec_ops_of_descriptor(const meta::type_descriptor* descriptor) noexcept {
 }
 
 [[nodiscard]] const codec_ops* find_codec_ops(const any_ref& value) {
-  if (const auto* descriptor = caors::value::detail::descriptor_of(value); descriptor != nullptr) {
+  if (const auto* descriptor = descriptor_of(value); descriptor != nullptr) {
     return codec_ops_of_descriptor(descriptor);
   }
 
@@ -44,7 +45,7 @@ variant_result make_serialized_value(const any& data) {
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
-  const caors::meta::type_descriptor* descriptor = caors::value::detail::descriptor_of(data);
+  const caors::meta::type_descriptor* descriptor = descriptor_of(data);
   if (descriptor != nullptr) {
     const meta::type_kind kind = meta::descriptor_kind(*descriptor);
     const any_ref ref = data.ref();

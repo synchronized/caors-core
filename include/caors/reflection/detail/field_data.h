@@ -113,8 +113,8 @@ struct field_data {
   /** @brief 从运行期值写入字段。 */
   bool try_set_value(void* object, const any& source) const {
     const meta::type meta = caors::meta::find(type);
-    const auto assign = descriptor != nullptr ? descriptor->ops.assign
-                                              : caors::meta::detail::get_assign_value_fn(meta);
+    const auto assign =
+        descriptor != nullptr ? descriptor->ops.assign : caors::meta::get_assign_value_fn(meta);
     const std::size_t expected_size = descriptor != nullptr ? descriptor->layout.size : meta.size();
     const std::size_t expected_alignment =
         descriptor != nullptr ? descriptor->layout.alignment : meta.alignment();

@@ -64,8 +64,6 @@ type make_type_view(type_id id, const type_descriptor* descriptor) noexcept {
   return meta::type{&get_registry(), nullptr, descriptor};
 }
 
-namespace detail {
-
 value_default_construct_fn get_default_construct_value_fn(const meta::type& type) noexcept {
   return type.descriptor_ != nullptr ? type.descriptor_->ops.default_construct : nullptr;
 }
@@ -81,7 +79,5 @@ value_destroy_fn get_destroy_value_fn(const meta::type& type) noexcept {
 value_assign_fn get_assign_value_fn(const meta::type& type) noexcept {
   return type.descriptor_ != nullptr ? type.descriptor_->ops.assign : nullptr;
 }
-
-} // namespace detail
 
 } // namespace caors::meta
