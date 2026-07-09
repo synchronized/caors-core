@@ -598,8 +598,8 @@ const meta::detail::sequence_ops* sequence_view::data() const noexcept {
 
 set_view::iterator::iterator(const iterator& other) : view_(other.view_) {
   const meta::detail::set_ops* info = view_ != nullptr ? view_->data() : nullptr;
-  if (other.iterator_ != nullptr && info != nullptr && info->iterator_clone != nullptr) {
-    iterator_ = info->iterator_clone(other.iterator_);
+  if (other.iterator_ != nullptr && info != nullptr && info->iterator.clone != nullptr) {
+    iterator_ = info->iterator.clone(other.iterator_);
   }
 }
 
@@ -646,8 +646,8 @@ any_ref set_view::iterator::operator*() const {
 
 set_view::iterator& set_view::iterator::operator++() noexcept {
   const meta::detail::set_ops* info = view_ != nullptr ? view_->data() : nullptr;
-  if (info != nullptr && iterator_ != nullptr && info->iterator_advance != nullptr) {
-    info->iterator_advance(iterator_);
+  if (info != nullptr && iterator_ != nullptr && info->iterator.advance != nullptr) {
+    info->iterator.advance(iterator_);
   }
 
   return *this;
@@ -669,11 +669,11 @@ bool operator==(const set_view::iterator& lhs, const set_view::iterator& rhs) no
   }
 
   const meta::detail::set_ops* info = lhs.view_ != nullptr ? lhs.view_->data() : nullptr;
-  if (info == nullptr || info->iterator_equal == nullptr) {
+  if (info == nullptr || info->iterator.equal == nullptr) {
     return false;
   }
 
-  return info->iterator_equal(lhs.iterator_, rhs.iterator_);
+  return info->iterator.equal(lhs.iterator_, rhs.iterator_);
 }
 
 bool operator!=(const set_view::iterator& lhs, const set_view::iterator& rhs) noexcept {
@@ -691,8 +691,8 @@ void set_view::iterator::swap(iterator& other) noexcept {
 
 void set_view::iterator::reset() noexcept {
   const meta::detail::set_ops* info = view_ != nullptr ? view_->data() : nullptr;
-  if (info != nullptr && iterator_ != nullptr && info->iterator_destroy != nullptr) {
-    info->iterator_destroy(iterator_);
+  if (info != nullptr && iterator_ != nullptr && info->iterator.destroy != nullptr) {
+    info->iterator.destroy(iterator_);
   }
 
   view_ = nullptr;
@@ -723,7 +723,7 @@ set_view::iterator set_view::begin() const {
     return {};
   }
 
-  return iterator{this, data()->begin(storage_)};
+  return iterator{this, data()->iterator.begin(storage_)};
 }
 
 set_view::iterator set_view::end() const {
@@ -731,7 +731,7 @@ set_view::iterator set_view::end() const {
     return {};
   }
 
-  return iterator{this, data()->end(storage_)};
+  return iterator{this, data()->iterator.end(storage_)};
 }
 
 bool set_view::for_each_ref(set_element_visitor visitor, void* user_data) const {
@@ -786,10 +786,7 @@ set_view::set_view(const meta::detail::type_descriptor* descriptor, const void* 
 
 bool set_view::has_iterator_support() const noexcept {
   const meta::detail::set_ops* info = data();
-  return valid() && info->begin != nullptr && info->end != nullptr &&
-         info->iterator_clone != nullptr && info->iterator_destroy != nullptr &&
-         info->iterator_advance != nullptr && info->iterator_equal != nullptr &&
-         info->iterator_value != nullptr;
+  return valid() && info->iterator.valid() && info->iterator_value != nullptr;
 }
 
 const meta::detail::set_ops* set_view::data() const noexcept {
@@ -798,8 +795,8 @@ const meta::detail::set_ops* set_view::data() const noexcept {
 
 associative_view::iterator::iterator(const iterator& other) : view_(other.view_) {
   const meta::detail::associative_ops* info = view_ != nullptr ? view_->data() : nullptr;
-  if (other.iterator_ != nullptr && info != nullptr && info->iterator_clone != nullptr) {
-    iterator_ = info->iterator_clone(other.iterator_);
+  if (other.iterator_ != nullptr && info != nullptr && info->iterator.clone != nullptr) {
+    iterator_ = info->iterator.clone(other.iterator_);
   }
 }
 
@@ -851,8 +848,8 @@ associative_entry_ref associative_view::iterator::operator*() const {
 
 associative_view::iterator& associative_view::iterator::operator++() noexcept {
   const meta::detail::associative_ops* info = view_ != nullptr ? view_->data() : nullptr;
-  if (info != nullptr && iterator_ != nullptr && info->iterator_advance != nullptr) {
-    info->iterator_advance(iterator_);
+  if (info != nullptr && iterator_ != nullptr && info->iterator.advance != nullptr) {
+    info->iterator.advance(iterator_);
   }
 
   return *this;
@@ -875,11 +872,11 @@ bool operator==(const associative_view::iterator& lhs,
   }
 
   const meta::detail::associative_ops* info = lhs.view_ != nullptr ? lhs.view_->data() : nullptr;
-  if (info == nullptr || info->iterator_equal == nullptr) {
+  if (info == nullptr || info->iterator.equal == nullptr) {
     return false;
   }
 
-  return info->iterator_equal(lhs.iterator_, rhs.iterator_);
+  return info->iterator.equal(lhs.iterator_, rhs.iterator_);
 }
 
 bool operator!=(const associative_view::iterator& lhs,
@@ -898,8 +895,8 @@ void associative_view::iterator::swap(iterator& other) noexcept {
 
 void associative_view::iterator::reset() noexcept {
   const meta::detail::associative_ops* info = view_ != nullptr ? view_->data() : nullptr;
-  if (info != nullptr && iterator_ != nullptr && info->iterator_destroy != nullptr) {
-    info->iterator_destroy(iterator_);
+  if (info != nullptr && iterator_ != nullptr && info->iterator.destroy != nullptr) {
+    info->iterator.destroy(iterator_);
   }
 
   view_ = nullptr;
@@ -935,7 +932,7 @@ associative_view::iterator associative_view::begin() const {
     return {};
   }
 
-  return iterator{this, data()->begin(storage_)};
+  return iterator{this, data()->iterator.begin(storage_)};
 }
 
 associative_view::iterator associative_view::end() const {
@@ -943,7 +940,7 @@ associative_view::iterator associative_view::end() const {
     return {};
   }
 
-  return iterator{this, data()->end(storage_)};
+  return iterator{this, data()->iterator.end(storage_)};
 }
 
 bool associative_view::for_each_ref(associative_entry_visitor visitor, void* user_data) const {
@@ -999,10 +996,8 @@ associative_view::associative_view(const meta::detail::type_descriptor* descript
 
 bool associative_view::has_iterator_support() const noexcept {
   const meta::detail::associative_ops* info = data();
-  return valid() && info->begin != nullptr && info->end != nullptr &&
-         info->iterator_clone != nullptr && info->iterator_destroy != nullptr &&
-         info->iterator_advance != nullptr && info->iterator_equal != nullptr &&
-         info->iterator_key != nullptr && info->iterator_value != nullptr;
+  return valid() && info->iterator.valid() && info->iterator_key != nullptr &&
+         info->iterator_value != nullptr;
 }
 
 const meta::detail::associative_ops* associative_view::data() const noexcept {

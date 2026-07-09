@@ -31,12 +31,7 @@ struct associative_ops {
   associative_visit_fn visit = nullptr;
   associative_clear_fn clear = nullptr;
   associative_insert_fn insert = nullptr;
-  container_iterator_create_fn begin = nullptr;
-  container_iterator_create_fn end = nullptr;
-  container_iterator_clone_fn iterator_clone = nullptr;
-  container_iterator_destroy_fn iterator_destroy = nullptr;
-  container_iterator_advance_fn iterator_advance = nullptr;
-  container_iterator_equal_fn iterator_equal = nullptr;
+  container_iterator_ops iterator{};
   associative_iterator_key_fn iterator_key = nullptr;
   associative_iterator_value_fn iterator_value = nullptr;
   const type_descriptor* key_descriptor = nullptr;
@@ -94,15 +89,13 @@ template <typename T> struct associative_ops_model {
                                                     *static_cast<const mapped_type*>(mapped));
   }
 
-  template <typename Iterator> static void fill_iterator_ops(associative_ops& result) noexcept {
-    result.begin = &begin_container_iterator<type>;
-    result.end = &end_container_iterator<type>;
-    result.iterator_clone = &clone_container_iterator<Iterator>;
-    result.iterator_destroy = &destroy_container_iterator<Iterator>;
-    result.iterator_advance = &advance_container_iterator<Iterator>;
-    result.iterator_equal = &equal_container_iterator<Iterator>;
-    result.iterator_key = &associative_iterator_key<Iterator>;
-    result.iterator_value = &associative_iterator_value<Iterator>;
+  static void fill_iterator_ops(associative_ops& result) noexcept {
+    if (const auto* iterator = container_iterator_ops_ptr_of<type>(); iterator != nullptr) {
+      result.iterator = *iterator;
+      using iterator_type = decltype(std::declval<const type&>().begin());
+      result.iterator_key = &associative_iterator_key<iterator_type>;
+      result.iterator_value = &associative_iterator_value<iterator_type>;
+    }
   }
 
   [[nodiscard]] static associative_ops make() {
@@ -116,8 +109,7 @@ template <typename T> struct associative_ops_model {
     };
 
     if constexpr (has_const_container_iterator_v<type>) {
-      using iterator_type = decltype(std::declval<const type&>().begin());
-      fill_iterator_ops<iterator_type>(result);
+      fill_iterator_ops(result);
     }
 
     result.key_descriptor = descriptor_ptr_of<key_type>();

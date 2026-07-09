@@ -28,6 +28,21 @@ using container_iterator_destroy_fn = void (*)(void*) noexcept;
 using container_iterator_advance_fn = void (*)(void*) noexcept;
 using container_iterator_equal_fn = bool (*)(const void*, const void*) noexcept;
 
+/** @brief 容器只读迭代器的类型擦除操作表。 */
+struct container_iterator_ops {
+  container_iterator_create_fn begin = nullptr;
+  container_iterator_create_fn end = nullptr;
+  container_iterator_clone_fn clone = nullptr;
+  container_iterator_destroy_fn destroy = nullptr;
+  container_iterator_advance_fn advance = nullptr;
+  container_iterator_equal_fn equal = nullptr;
+
+  [[nodiscard]] bool valid() const noexcept {
+    return begin != nullptr && end != nullptr && clone != nullptr && destroy != nullptr &&
+           advance != nullptr && equal != nullptr;
+  }
+};
+
 template <typename Iterator> struct container_iterator_holder {
   template <typename... Args>
   explicit container_iterator_holder(memory::memory_resource* iterator_resource, Args&&... args)
@@ -102,6 +117,38 @@ template <typename Iterator>
   const auto* left = static_cast<const container_iterator_holder<Iterator>*>(lhs);
   const auto* right = static_cast<const container_iterator_holder<Iterator>*>(rhs);
   return left->iterator == right->iterator;
+}
+
+template <typename Container>
+[[nodiscard]] void* begin_container_iterator(const void* storage) noexcept;
+
+template <typename Container>
+[[nodiscard]] void* end_container_iterator(const void* storage) noexcept;
+
+template <typename Container> struct container_iterator_ops_model {
+  using type = std::remove_cv_t<std::remove_reference_t<Container>>;
+  using iterator_type = decltype(std::declval<const type&>().begin());
+
+  inline static const container_iterator_ops value{
+      &begin_container_iterator<type>,
+      &end_container_iterator<type>,
+      &clone_container_iterator<iterator_type>,
+      &destroy_container_iterator<iterator_type>,
+      &advance_container_iterator<iterator_type>,
+      &equal_container_iterator<iterator_type>,
+  };
+};
+
+template <typename Container>
+[[nodiscard]] const container_iterator_ops* container_iterator_ops_ptr_of() {
+  using type = std::remove_cv_t<std::remove_reference_t<Container>>;
+  if constexpr (has_const_container_iterator_v<type>) {
+    return container_iterator_ops_model<type>::value.valid()
+               ? &container_iterator_ops_model<type>::value
+               : nullptr;
+  } else {
+    return nullptr;
+  }
 }
 
 template <typename Container>

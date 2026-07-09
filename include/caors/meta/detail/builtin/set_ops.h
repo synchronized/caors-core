@@ -29,12 +29,7 @@ struct set_ops {
   set_visit_fn visit = nullptr;
   set_clear_fn clear = nullptr;
   set_insert_fn insert = nullptr;
-  container_iterator_create_fn begin = nullptr;
-  container_iterator_create_fn end = nullptr;
-  container_iterator_clone_fn iterator_clone = nullptr;
-  container_iterator_destroy_fn iterator_destroy = nullptr;
-  container_iterator_advance_fn iterator_advance = nullptr;
-  container_iterator_equal_fn iterator_equal = nullptr;
+  container_iterator_ops iterator{};
   set_iterator_value_fn iterator_value = nullptr;
   const type_descriptor* value_descriptor = nullptr;
 
@@ -88,14 +83,12 @@ template <typename T> struct set_ops_model {
                                             *static_cast<const element_type*>(element));
   }
 
-  template <typename Iterator> static void fill_iterator_ops(set_ops& result) noexcept {
-    result.begin = &begin_container_iterator<type>;
-    result.end = &end_container_iterator<type>;
-    result.iterator_clone = &clone_container_iterator<Iterator>;
-    result.iterator_destroy = &destroy_container_iterator<Iterator>;
-    result.iterator_advance = &advance_container_iterator<Iterator>;
-    result.iterator_equal = &equal_container_iterator<Iterator>;
-    result.iterator_value = &set_iterator_value<Iterator>;
+  static void fill_iterator_ops(set_ops& result) noexcept {
+    if (const auto* iterator = container_iterator_ops_ptr_of<type>(); iterator != nullptr) {
+      result.iterator = *iterator;
+      using iterator_type = decltype(std::declval<const type&>().begin());
+      result.iterator_value = &set_iterator_value<iterator_type>;
+    }
   }
 
   [[nodiscard]] static set_ops make() {
@@ -104,8 +97,7 @@ template <typename T> struct set_ops_model {
     };
 
     if constexpr (has_const_container_iterator_v<type>) {
-      using iterator_type = decltype(std::declval<const type&>().begin());
-      fill_iterator_ops<iterator_type>(result);
+      fill_iterator_ops(result);
     }
 
     result.value_descriptor = descriptor_ptr_of<element_type>();

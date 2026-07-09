@@ -218,7 +218,8 @@ holder；`meta/detail/builtin_ops_model.h` 作为内置能力聚合入口，只�
 `builtin/indirect_ops.h`、`builtin/sequence_ops.h`、`builtin/set_ops.h`、
 `builtin/associative_ops.h`、`builtin/pair_ops.h`、`builtin/tuple_ops.h` 和
 `builtin/variant_ops.h` 分别负责对应能力的 `*_ops` 函数表、函数指针类型、具名 static 回调和
-`*_ops_model<T>` 生成；`builtin/container_iterators.h` 只服务 set / associative 的类型擦除迭代器；
+`*_ops_model<T>` 生成；`builtin/container_iterators.h` 提供通用 `container_iterator_ops`、
+`container_iterator_ops_model<T>` 和 set / associative 复用的类型擦除迭代器 holder；
 `meta/detail/container.h` 只保留为容器类 builtin ops 的兼容聚合入口；`meta/detail/type_capabilities.h`
 只保留类型层级 parent cast 能力；`meta/type_semantics.h` 只保留类型语义判断 helper。
 

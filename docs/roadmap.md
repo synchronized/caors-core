@@ -41,6 +41,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 将 descriptor 内置能力的 `*_ops` 函数表、函数指针类型和辅助函数移动到对应
   `meta/detail/builtin/xxx_ops.h`，旧 `container.h` / `type_capabilities.h` 不再保存这些内置能力定义。
 - [x] 将 set / associative 容器使用的类型擦除迭代器辅助实现移动到 `meta/detail/builtin/container_iterators.h`。
+- [x] 将 set / associative 共用的迭代器生命周期操作抽成 `container_iterator_ops` 和
+  `container_iterator_ops_model<T>`，容器专属取值逻辑继续保留在各自 builtin ops 中。
 - [ ] 设计开放 owned runtime capability / poly concept table，用于外挂用户自定义运行期访问能力。
 - [ ] 梳理开放 runtime capability / poly concept table 的最终 API；descriptor 保留内置布局、构造、容器和
   wrapper 能力，codec 作为 serialization 模块 capability 负责格式读写，runtime capability 作为用户扩展能力入口。
