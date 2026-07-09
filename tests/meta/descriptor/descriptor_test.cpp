@@ -82,7 +82,7 @@ TEST_CASE("meta descriptor - sequence set and associative capabilities describe 
   const auto* sequence_ops = capability_of<caors::meta::detail::sequence_ops, std::vector<int>>();
   REQUIRE(sequence_ops != nullptr);
   REQUIRE(sequence_ops->value_descriptor != nullptr);
-  CHECK(sequence_ops->value_type == caors::meta::detail::descriptor_type_id<int>());
+  CHECK(sequence_ops->value_descriptor->type == caors::meta::detail::descriptor_type_id<int>());
 
   std::vector<int> values{1, 2, 3};
   CHECK(sequence_ops->size(&values) == 3);
@@ -92,7 +92,7 @@ TEST_CASE("meta descriptor - sequence set and associative capabilities describe 
   const auto* set_ops = capability_of<caors::meta::detail::set_ops, std::set<int>>();
   REQUIRE(set_ops != nullptr);
   REQUIRE(set_ops->value_descriptor != nullptr);
-  CHECK(set_ops->value_type == caors::meta::detail::descriptor_type_id<int>());
+  CHECK(set_ops->value_descriptor->type == caors::meta::detail::descriptor_type_id<int>());
 
   std::set<int> set_values{4, 5};
   CHECK(set_ops->size(&set_values) == 2);
@@ -102,8 +102,9 @@ TEST_CASE("meta descriptor - sequence set and associative capabilities describe 
   REQUIRE(associative_ops != nullptr);
   REQUIRE(associative_ops->key_descriptor != nullptr);
   REQUIRE(associative_ops->value_descriptor != nullptr);
-  CHECK(associative_ops->key_type == caors::meta::detail::descriptor_type_id<int>());
-  CHECK(associative_ops->value_type == caors::meta::detail::descriptor_type_id<std::string>());
+  CHECK(associative_ops->key_descriptor->type == caors::meta::detail::descriptor_type_id<int>());
+  CHECK(associative_ops->value_descriptor->type ==
+        caors::meta::detail::descriptor_type_id<std::string>());
 
   std::map<int, std::string> map_values{{7, "seven"}};
   CHECK(associative_ops->size(&map_values) == 1);
@@ -116,8 +117,8 @@ TEST_CASE("meta descriptor - pair tuple and variant capabilities describe hetero
   REQUIRE(pair_ops != nullptr);
   REQUIRE(pair_ops->key_descriptor != nullptr);
   REQUIRE(pair_ops->value_descriptor != nullptr);
-  CHECK(pair_ops->key_type == caors::meta::detail::descriptor_type_id<int>());
-  CHECK(pair_ops->value_type == caors::meta::detail::descriptor_type_id<std::string>());
+  CHECK(pair_ops->key_descriptor->type == caors::meta::detail::descriptor_type_id<int>());
+  CHECK(pair_ops->value_descriptor->type == caors::meta::detail::descriptor_type_id<std::string>());
 
   pair_type pair{3, "three"};
   CHECK(*static_cast<const int*>(pair_ops->first(&pair)) == 3);
@@ -127,10 +128,15 @@ TEST_CASE("meta descriptor - pair tuple and variant capabilities describe hetero
   const auto* tuple_ops = capability_of<caors::meta::detail::tuple_ops, tuple_type>();
   REQUIRE(tuple_ops != nullptr);
   REQUIRE(tuple_ops->elements.size() == 3);
-  CHECK(tuple_ops->elements[0].value_type == caors::meta::detail::descriptor_type_id<int>());
-  CHECK(tuple_ops->elements[1].value_type ==
+  REQUIRE(tuple_ops->elements[0].value_descriptor != nullptr);
+  REQUIRE(tuple_ops->elements[1].value_descriptor != nullptr);
+  REQUIRE(tuple_ops->elements[2].value_descriptor != nullptr);
+  CHECK(tuple_ops->elements[0].value_descriptor->type ==
+        caors::meta::detail::descriptor_type_id<int>());
+  CHECK(tuple_ops->elements[1].value_descriptor->type ==
         caors::meta::detail::descriptor_type_id<std::string>());
-  CHECK(tuple_ops->elements[2].value_type == caors::meta::detail::descriptor_type_id<double>());
+  CHECK(tuple_ops->elements[2].value_descriptor->type ==
+        caors::meta::detail::descriptor_type_id<double>());
 
   tuple_type tuple{1, "one", 1.5};
   CHECK(*static_cast<const int*>(tuple_ops->elements[0].element(&tuple)) == 1);
@@ -140,8 +146,11 @@ TEST_CASE("meta descriptor - pair tuple and variant capabilities describe hetero
   const auto* variant_ops = capability_of<caors::meta::detail::variant_ops, variant_type>();
   REQUIRE(variant_ops != nullptr);
   REQUIRE(variant_ops->alternatives.size() == 2);
-  CHECK(variant_ops->alternatives[0].value_type == caors::meta::detail::descriptor_type_id<int>());
-  CHECK(variant_ops->alternatives[1].value_type ==
+  REQUIRE(variant_ops->alternatives[0].value_descriptor != nullptr);
+  REQUIRE(variant_ops->alternatives[1].value_descriptor != nullptr);
+  CHECK(variant_ops->alternatives[0].value_descriptor->type ==
+        caors::meta::detail::descriptor_type_id<int>());
+  CHECK(variant_ops->alternatives[1].value_descriptor->type ==
         caors::meta::detail::descriptor_type_id<std::string>());
 
   variant_type variant{std::string{"text"}};

@@ -16,8 +16,6 @@ using pair_mutable_value_fn = void* (*)(void*) noexcept;
 
 /** @brief 二元组运行期访问操作表。 */
 struct pair_ops {
-  type_id key_type{};
-  type_id value_type{};
   pair_const_value_fn first = nullptr;
   pair_mutable_value_fn mutable_first = nullptr;
   pair_const_value_fn second = nullptr;
@@ -26,7 +24,8 @@ struct pair_ops {
   const type_descriptor* value_descriptor = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
-    return key_type && value_type && first != nullptr && second != nullptr;
+    return key_descriptor != nullptr && value_descriptor != nullptr && first != nullptr &&
+           second != nullptr;
   }
 };
 
@@ -69,8 +68,6 @@ template <typename T> struct pair_ops_model {
 
   [[nodiscard]] static pair_ops make() {
     pair_ops result{
-        descriptor_type_id<first_type>(),
-        descriptor_type_id<second_type>(),
         &first,
         &mutable_first,
         &second,

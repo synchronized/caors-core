@@ -19,12 +19,13 @@ using tuple_mutable_element_fn = void* (*)(void*) noexcept;
 
 /** @brief tuple-like 单个元素运行期访问操作表。 */
 struct tuple_element_ops {
-  type_id value_type{};
   tuple_const_element_fn element = nullptr;
   tuple_mutable_element_fn mutable_element = nullptr;
   const type_descriptor* value_descriptor = nullptr;
 
-  [[nodiscard]] bool valid() const noexcept { return value_type && element != nullptr; }
+  [[nodiscard]] bool valid() const noexcept {
+    return value_descriptor != nullptr && element != nullptr;
+  }
 };
 
 /** @brief tuple-like 运行期访问操作表。 */
@@ -64,7 +65,6 @@ template <typename Tuple, std::size_t Index> struct tuple_element_ops_model {
   }
 
   inline static const tuple_element_ops value{
-      descriptor_type_id<element_type>(),
       &element,
       &mutable_element,
       descriptor_ptr_of<element_type>(),

@@ -25,8 +25,6 @@ using associative_iterator_value_fn = const void* (*)(const void*) noexcept;
 
 /** @brief 关联容器运行期访问操作表。 */
 struct associative_ops {
-  type_id key_type{};
-  type_id value_type{};
   associative_size_fn size = nullptr;
   associative_visit_fn visit = nullptr;
   associative_clear_fn clear = nullptr;
@@ -38,7 +36,8 @@ struct associative_ops {
   const type_descriptor* value_descriptor = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
-    return key_type && value_type && size != nullptr && visit != nullptr;
+    return key_descriptor != nullptr && value_descriptor != nullptr && size != nullptr &&
+           visit != nullptr;
   }
 };
 
@@ -100,8 +99,6 @@ template <typename T> struct associative_ops_model {
 
   [[nodiscard]] static associative_ops make() {
     associative_ops result{
-        descriptor_type_id<key_type>(),
-        descriptor_type_id<mapped_type>(),
         &size,
         &visit,
         &clear,

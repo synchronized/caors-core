@@ -22,13 +22,14 @@ using variant_emplace_fn = bool (*)(void*, memory::memory_resource*);
 
 /** @brief variant-like 单个候选类型运行期访问操作表。 */
 struct variant_alternative_ops {
-  type_id value_type{};
   variant_const_alternative_fn alternative = nullptr;
   variant_mutable_alternative_fn mutable_alternative = nullptr;
   variant_emplace_fn emplace = nullptr;
   const type_descriptor* value_descriptor = nullptr;
 
-  [[nodiscard]] bool valid() const noexcept { return value_type && alternative != nullptr; }
+  [[nodiscard]] bool valid() const noexcept {
+    return value_descriptor != nullptr && alternative != nullptr;
+  }
 };
 
 /** @brief variant-like 运行期访问操作表。 */
@@ -90,7 +91,9 @@ template <typename Variant, std::size_t Index> struct variant_alternative_ops_mo
   }
 
   inline static const variant_alternative_ops value{
-      descriptor_type_id<alternative_type>(), &alternative, &mutable_alternative, &emplace,
+      &alternative,
+      &mutable_alternative,
+      &emplace,
       descriptor_ptr_of<alternative_type>(),
   };
 };

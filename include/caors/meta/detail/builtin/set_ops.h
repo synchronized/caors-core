@@ -24,7 +24,6 @@ using set_iterator_value_fn = const void* (*)(const void*) noexcept;
 
 /** @brief 集合容器运行期访问操作表。 */
 struct set_ops {
-  type_id value_type{};
   set_size_fn size = nullptr;
   set_visit_fn visit = nullptr;
   set_clear_fn clear = nullptr;
@@ -34,7 +33,7 @@ struct set_ops {
   const type_descriptor* value_descriptor = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
-    return value_type && size != nullptr && visit != nullptr;
+    return value_descriptor != nullptr && size != nullptr && visit != nullptr;
   }
 };
 
@@ -93,7 +92,10 @@ template <typename T> struct set_ops_model {
 
   [[nodiscard]] static set_ops make() {
     set_ops result{
-        descriptor_type_id<element_type>(), &size, &visit, &clear, &insert,
+        &size,
+        &visit,
+        &clear,
+        &insert,
     };
 
     if constexpr (has_const_container_iterator_v<type>) {

@@ -25,7 +25,6 @@ using sequence_append_fn = bool (*)(void*, const void*);
 
 /** @brief 顺序容器运行期访问操作表。 */
 struct sequence_ops {
-  type_id value_type{};
   sequence_size_fn size = nullptr;
   sequence_const_element_fn element = nullptr;
   sequence_mutable_element_fn mutable_element = nullptr;
@@ -38,7 +37,7 @@ struct sequence_ops {
   std::size_t fixed_size = dynamic_sequence_size;
 
   [[nodiscard]] bool valid() const noexcept {
-    return value_type && size != nullptr && element != nullptr;
+    return value_descriptor != nullptr && size != nullptr && element != nullptr;
   }
 };
 
@@ -103,13 +102,7 @@ template <typename T> struct sequence_ops_model {
 
   [[nodiscard]] static sequence_ops make() {
     sequence_ops result{
-        descriptor_type_id<element_type>(),
-        &size,
-        &element,
-        &mutable_element,
-        &clear,
-        &resize,
-        &append,
+        &size, &element, &mutable_element, &clear, &resize, &append,
     };
 
     if constexpr (requires { traits::sequence_traits<type>::read_in_place; }) {

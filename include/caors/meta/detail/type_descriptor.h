@@ -147,19 +147,25 @@ descriptor_wrapper_semantics(const type_descriptor& descriptor) noexcept {
   }
   case type_kind::sequence: {
     const auto* sequence = descriptor_capability<sequence_ops>(descriptor);
-    return sequence != nullptr ? sequence->value_type : type_id{};
+    return sequence != nullptr && sequence->value_descriptor != nullptr
+               ? sequence->value_descriptor->type
+               : type_id{};
   }
   case type_kind::set: {
     const auto* set = descriptor_capability<set_ops>(descriptor);
-    return set != nullptr ? set->value_type : type_id{};
+    return set != nullptr && set->value_descriptor != nullptr ? set->value_descriptor->type
+                                                              : type_id{};
   }
   case type_kind::associative: {
     const auto* associative = descriptor_capability<associative_ops>(descriptor);
-    return associative != nullptr ? associative->value_type : type_id{};
+    return associative != nullptr && associative->value_descriptor != nullptr
+               ? associative->value_descriptor->type
+               : type_id{};
   }
   case type_kind::pair: {
     const auto* pair = descriptor_capability<pair_ops>(descriptor);
-    return pair != nullptr ? pair->value_type : type_id{};
+    return pair != nullptr && pair->value_descriptor != nullptr ? pair->value_descriptor->type
+                                                                : type_id{};
   }
   case type_kind::tuple:
   case type_kind::variant:
@@ -173,11 +179,14 @@ descriptor_wrapper_semantics(const type_descriptor& descriptor) noexcept {
   switch (descriptor_kind(descriptor)) {
   case type_kind::associative: {
     const auto* associative = descriptor_capability<associative_ops>(descriptor);
-    return associative != nullptr ? associative->key_type : type_id{};
+    return associative != nullptr && associative->key_descriptor != nullptr
+               ? associative->key_descriptor->type
+               : type_id{};
   }
   case type_kind::pair: {
     const auto* pair = descriptor_capability<pair_ops>(descriptor);
-    return pair != nullptr ? pair->key_type : type_id{};
+    return pair != nullptr && pair->key_descriptor != nullptr ? pair->key_descriptor->type
+                                                              : type_id{};
   }
   case type_kind::value:
   case type_kind::enumeration:
