@@ -19,7 +19,7 @@ format_features variant_reader::features() const noexcept {
          format_features::self_describing;
 }
 
-error variant_reader::begin_object(const type_data&) {
+error variant_reader::begin_object(const type_schema&) {
   const variant* object = object_stack_.empty() ? root_ : current_value();
   if (object == nullptr || object->kind() != value::variant_kind::object) {
     return {error_domain::serialization, errc::invalid_argument};

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_SERIALIZATION_TYPE_DATA_H_
-#define CAORS_SERIALIZATION_TYPE_DATA_H_
+#ifndef CAORS_SERIALIZATION_TYPE_SCHEMA_H_
+#define CAORS_SERIALIZATION_TYPE_SCHEMA_H_
 
 #include "caors/core/containers.h"
 #include "caors/core/string_name.h"
@@ -59,7 +59,7 @@ struct field_data {
  * 字段配置按字段名引用反射字段。注册序列化组件时不要求反射字段已经注册，实际序列化时再解析
  * 字段配置和反射字段。
  */
-struct type_data {
+struct type_schema {
   vector<field_data> fields{};
 
   [[nodiscard]] bool valid() const noexcept {
@@ -89,8 +89,8 @@ struct type_data {
 }
 
 /** @brief 创建类型序列化配置。 */
-[[nodiscard]] inline type_data make_type_data(std::initializer_list<field_data> fields) {
-  return type_data{vector<field_data>{fields}};
+[[nodiscard]] inline type_schema make_type_schema(std::initializer_list<field_data> fields) {
+  return type_schema{vector<field_data>{fields}};
 }
 
 } // namespace caors::serialization

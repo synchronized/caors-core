@@ -4,6 +4,7 @@
 #include "caors/serialization/codec.h"
 
 #include "caors/meta/type.h"
+#include "caors/meta/type_descriptor.h"
 
 #include <type_traits>
 
@@ -27,6 +28,15 @@ codec find_codec(type_id id) {
   }
 
   return find_codec(meta::find(id));
+}
+
+codec find_codec(const meta::type_descriptor* descriptor) {
+  if (descriptor == nullptr) {
+    return {};
+  }
+
+  return codec{meta::make_type_view(descriptor->type, descriptor),
+               meta::descriptor_static_capability<codec_ops>(descriptor)};
 }
 
 codec find_codec(meta::type type) {

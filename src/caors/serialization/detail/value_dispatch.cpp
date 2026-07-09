@@ -16,10 +16,18 @@ namespace caors::serialization::detail {
 namespace {
 
 [[nodiscard]] const codec_ops* find_codec_ops(const any& data) {
+  if (const auto* descriptor = caors::value::detail::descriptor_of(data); descriptor != nullptr) {
+    return ops_of(serialization::find_codec(descriptor));
+  }
+
   return ops_of(serialization::find_codec(data.get_type()));
 }
 
 [[nodiscard]] const codec_ops* find_codec_ops(const any_ref& value) {
+  if (const auto* descriptor = caors::value::detail::descriptor_of(value); descriptor != nullptr) {
+    return ops_of(serialization::find_codec(descriptor));
+  }
+
   return ops_of(serialization::find_codec(value.get_type()));
 }
 

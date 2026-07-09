@@ -103,10 +103,10 @@ error write_variant(writer& writer, const variant& value) {
     return writer.end_dictionary();
   }
   case value::variant_kind::object: {
-    serialization::type_data type_data;
-    type_data.fields.reserve(value.as_object().size());
+    serialization::type_schema type_schema;
+    type_schema.fields.reserve(value.as_object().size());
     for (const value::variant_member& member : value.as_object()) {
-      type_data.fields.push_back(serialization::field_data{
+      type_schema.fields.push_back(serialization::field_data{
           member.name,
           member.name,
           member.field_id,
@@ -117,20 +117,20 @@ error write_variant(writer& writer, const variant& value) {
       });
     }
 
-    error status = writer.begin_object(type_data);
+    error status = writer.begin_object(type_schema);
     if (status) {
       return status;
     }
 
     for (std::size_t index = 0; index < value.as_object().size(); ++index) {
       const value::variant_member& member = value.as_object()[index];
-      status = serialization::detail::validate_field_for_writer(type_data.fields[index],
+      status = serialization::detail::validate_field_for_writer(type_schema.fields[index],
                                                                 writer.features());
       if (status) {
         return status;
       }
 
-      status = writer.begin_field(type_data.fields[index]);
+      status = writer.begin_field(type_schema.fields[index]);
       if (status) {
         return status;
       }

@@ -90,7 +90,8 @@ variant_result to_serialization_value(const serialization::context& context,
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
 
-  const std::optional<serialization::type_data> serialization_data = serialization::find(type.id());
+  const std::optional<serialization::type_schema> serialization_data =
+      serialization::find(type.id());
   if (!serialization_data.has_value() || !serialization_data->valid()) {
     return {{error_domain::serialization, errc::invalid_type}, {}};
   }

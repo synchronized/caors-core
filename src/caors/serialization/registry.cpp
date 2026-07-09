@@ -10,7 +10,7 @@ registry& registry::instance() noexcept {
   return registry;
 }
 
-error registry::register_type(type_id id, type_data data) {
+error registry::register_type(type_id id, type_schema data) {
   if (!id) {
     return {error_domain::serialization, errc::invalid_type};
   }
@@ -23,10 +23,11 @@ error registry::register_type(type_id id, type_data data) {
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  return rethrow_as(meta::get_registry().emplace<type_data>(id, data), error_domain::serialization);
+  return rethrow_as(meta::get_registry().emplace<type_schema>(id, data),
+                    error_domain::serialization);
 }
 
-error registry::register_type(meta::type type, type_data data) {
+error registry::register_type(meta::type type, type_schema data) {
   if (!type.registered()) {
     return {error_domain::serialization, errc::invalid_type};
   }
@@ -34,19 +35,19 @@ error registry::register_type(meta::type type, type_data data) {
   return register_type(type.id(), data);
 }
 
-bool registry::contains(type_id id) const { return meta::get_registry().has<type_data>(id); }
+bool registry::contains(type_id id) const { return meta::get_registry().has<type_schema>(id); }
 
-std::optional<type_data> registry::find_type(type_id id) const {
-  return meta::get_registry().find<type_data>(id);
+std::optional<type_schema> registry::find_type(type_id id) const {
+  return meta::get_registry().find<type_schema>(id);
 }
 
-std::size_t registry::size() const noexcept { return meta::get_registry().count<type_data>(); }
+std::size_t registry::size() const noexcept { return meta::get_registry().count<type_schema>(); }
 
 registry& get_registry() noexcept { return registry::instance(); }
 
-std::optional<type_data> find(type_id id) { return get_registry().find_type(id); }
+std::optional<type_schema> find(type_id id) { return get_registry().find_type(id); }
 
-std::optional<type_data> find(meta::type type) {
+std::optional<type_schema> find(meta::type type) {
   return type.registered() ? get_registry().find_type(type.id()) : std::nullopt;
 }
 

@@ -24,7 +24,7 @@ public:
   writer& operator=(writer&&) = delete;
 
   [[nodiscard]] virtual format_features features() const noexcept = 0;
-  [[nodiscard]] virtual error begin_object(const type_data& type) = 0;
+  [[nodiscard]] virtual error begin_object(const type_schema& type) = 0;
   [[nodiscard]] virtual error begin_field(const field_data& field) = 0;
   [[nodiscard]] virtual error begin_array(std::size_t size) = 0;
   [[nodiscard]] virtual error begin_element(std::size_t index) = 0;
@@ -55,7 +55,7 @@ public:
   explicit text_writer(string& output);
 
   [[nodiscard]] format_features features() const noexcept override;
-  [[nodiscard]] error begin_object(const type_data& type) override;
+  [[nodiscard]] error begin_object(const type_schema& type) override;
   [[nodiscard]] error begin_field(const field_data& field) override;
   [[nodiscard]] error begin_array(std::size_t size) override;
   [[nodiscard]] error begin_element(std::size_t index) override;
@@ -112,7 +112,7 @@ public:
   json_writer(string& output, json_options options);
 
   [[nodiscard]] format_features features() const noexcept override;
-  [[nodiscard]] error begin_object(const type_data& type) override;
+  [[nodiscard]] error begin_object(const type_schema& type) override;
   [[nodiscard]] error begin_field(const field_data& field) override;
   [[nodiscard]] error begin_array(std::size_t size) override;
   [[nodiscard]] error begin_element(std::size_t index) override;

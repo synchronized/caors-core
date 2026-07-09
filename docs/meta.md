@@ -528,7 +528,7 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 
 这样对象、反射和序列化的全局注册入口不需要重复处理重名、重复 GUID、不一致类型描述和父类型缺失。
 跨模块查询可以通过 `meta::view<T...>()` 完成。反射这类内部组件应通过对应模块 API 返回稳定只读视图；
-序列化等公开组件仍可通过 `meta::view<serialization::type_data>()` 查询。
+序列化等公开组件仍可通过 `meta::view<serialization::type_schema>()` 查询。
 
 ## 当前已实现能力
 

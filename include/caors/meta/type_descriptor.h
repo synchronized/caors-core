@@ -110,6 +110,11 @@ descriptor_static_capability(const type_descriptor* descriptor) noexcept {
   return descriptor != nullptr ? descriptor_static_capability<Capability>(*descriptor) : nullptr;
 }
 
+/** @brief 从 descriptor 指针取得类型 id，空指针返回无效 id。 */
+[[nodiscard]] inline type_id descriptor_id(const type_descriptor* descriptor) noexcept {
+  return descriptor != nullptr ? descriptor->type : type_id{};
+}
+
 [[nodiscard]] inline type_kind descriptor_kind(const type_descriptor& descriptor) noexcept {
   return descriptor.semantics.kind;
 }

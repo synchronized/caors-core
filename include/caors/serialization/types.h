@@ -13,7 +13,7 @@
 #include "caors/resources/dependency_graph.h"
 #include "caors/resources/manager.h"
 #include "caors/result.h"
-#include "caors/serialization/type_data.h"
+#include "caors/serialization/type_schema.h"
 #include "caors/value/variant.h"
 
 #include <cstddef>

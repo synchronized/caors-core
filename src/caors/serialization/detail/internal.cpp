@@ -146,8 +146,8 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
   return serialization::make_field("type", {}, false, 2);
 }
 
-[[nodiscard]] type_data object_handle_type_data() {
-  type_data data{};
+[[nodiscard]] type_schema object_handle_type_schema() {
+  type_schema data{};
   data.fields.reserve(2);
   data.fields.push_back(object_handle_id_field());
   data.fields.push_back(object_handle_type_field());
@@ -268,7 +268,7 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
 }
 
 [[nodiscard]] error write_object_handle_identity(writer& writer, objects::handle value) {
-  const type_data type = object_handle_type_data();
+  const type_schema type = object_handle_type_schema();
   error status = writer.begin_object(type);
   if (status) {
     return status;
@@ -288,7 +288,7 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
 }
 
 [[nodiscard]] error read_object_handle_identity(reader& reader, objects::handle& value) {
-  const type_data type = object_handle_type_data();
+  const type_schema type = object_handle_type_schema();
   error status = reader.begin_object(type);
   if (status) {
     return status;

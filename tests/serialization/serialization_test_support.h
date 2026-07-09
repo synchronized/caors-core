@@ -432,7 +432,7 @@ public:
     return caors::serialization::format_features::numeric_fields;
   }
 
-  [[nodiscard]] caors::error begin_object(const caors::serialization::type_data&) override {
+  [[nodiscard]] caors::error begin_object(const caors::serialization::type_schema&) override {
     object_open = true;
     return {};
   }

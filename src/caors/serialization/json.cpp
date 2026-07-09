@@ -81,7 +81,7 @@ serialization::format_features serialization::json_writer::features() const noex
          serialization::format_features::self_describing;
 }
 
-error serialization::json_writer::begin_object(const serialization::type_data&) {
+error serialization::json_writer::begin_object(const serialization::type_schema&) {
   error status = prepare_value();
   if (status) {
     return status;

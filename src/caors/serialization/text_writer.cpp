@@ -56,7 +56,7 @@ format_features text_writer::features() const noexcept {
          format_features::self_describing;
 }
 
-error text_writer::begin_object(const type_data&) {
+error text_writer::begin_object(const type_schema&) {
   error status = prepare_value();
   if (status) {
     return status;

@@ -14,7 +14,7 @@ public:
   explicit variant_reader(const variant& value) noexcept;
 
   [[nodiscard]] format_features features() const noexcept override;
-  [[nodiscard]] error begin_object(const type_data& type) override;
+  [[nodiscard]] error begin_object(const type_schema& type) override;
   [[nodiscard]] error begin_field(const field_data& field) override;
   [[nodiscard]] error begin_array(std::size_t& size) override;
   [[nodiscard]] error begin_element(std::size_t index) override;

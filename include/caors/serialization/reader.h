@@ -22,7 +22,7 @@ public:
   reader& operator=(reader&&) = delete;
 
   [[nodiscard]] virtual format_features features() const noexcept = 0;
-  [[nodiscard]] virtual error begin_object(const type_data& type) = 0;
+  [[nodiscard]] virtual error begin_object(const type_schema& type) = 0;
   [[nodiscard]] virtual error begin_field(const field_data& field) = 0;
   [[nodiscard]] virtual error begin_array(std::size_t& size) = 0;
   [[nodiscard]] virtual error begin_element(std::size_t index) = 0;

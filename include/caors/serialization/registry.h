@@ -13,14 +13,14 @@
 namespace caors::serialization {
 
 class class_builder;
-[[nodiscard]] inline error register_type(type_id id, type_data data = type_data{});
-[[nodiscard]] inline error register_type(meta::type type, type_data data = type_data{});
-template <typename T> [[nodiscard]] error register_type(type_data data = type_data{});
+[[nodiscard]] inline error register_type(type_id id, type_schema data = type_schema{});
+[[nodiscard]] inline error register_type(meta::type type, type_schema data = type_schema{});
+template <typename T> [[nodiscard]] error register_type(type_schema data = type_schema{});
 
 /**
  * @brief 底层全局序列化注册表。
  *
- * 注册表复用全局 `meta::registry`，把 `serialization::type_data` 作为组件挂载到同一个
+ * 注册表复用全局 `meta::registry`，把 `serialization::type_schema` 作为组件挂载到同一个
  * `type_id` 上。当前序列化实现依赖反射字段信息读取对象数据。
  */
 class CAORS_API registry final {
@@ -31,22 +31,22 @@ public:
   registry& operator=(const registry&) = delete;
 
   [[nodiscard]] bool contains(type_id id) const;
-  [[nodiscard]] std::optional<type_data> find_type(type_id id) const;
+  [[nodiscard]] std::optional<type_schema> find_type(type_id id) const;
   [[nodiscard]] std::size_t size() const noexcept;
 
 private:
   friend class class_builder;
-  friend error register_type(type_id id, type_data data);
-  friend error register_type(meta::type type, type_data data);
-  template <typename T> friend error register_type(type_data data);
+  friend error register_type(type_id id, type_schema data);
+  friend error register_type(meta::type type, type_schema data);
+  template <typename T> friend error register_type(type_schema data);
 
   registry() = default;
   ~registry() = default;
 
-  [[nodiscard]] error register_type(type_id id, type_data data = type_data{});
-  [[nodiscard]] error register_type(meta::type type, type_data data = type_data{});
+  [[nodiscard]] error register_type(type_id id, type_schema data = type_schema{});
+  [[nodiscard]] error register_type(meta::type type, type_schema data = type_schema{});
 
-  template <typename T> [[nodiscard]] error register_type_for(type_data data = type_data{}) {
+  template <typename T> [[nodiscard]] error register_type_for(type_schema data = type_schema{}) {
     const meta::type type = meta::get_registry().find_type<T>();
     if (!type.registered()) {
       return {error_domain::serialization, errc::invalid_type};
@@ -60,10 +60,10 @@ private:
 [[nodiscard]] CAORS_API registry& get_registry() noexcept;
 
 /** @brief 查找指定类型的序列化组件。 */
-[[nodiscard]] CAORS_API std::optional<type_data> find(type_id id);
+[[nodiscard]] CAORS_API std::optional<type_schema> find(type_id id);
 
 /** @brief 查找指定元类型的序列化组件。 */
-[[nodiscard]] CAORS_API std::optional<type_data> find(meta::type type);
+[[nodiscard]] CAORS_API std::optional<type_schema> find(meta::type type);
 
 /** @brief 判断指定类型是否挂载了序列化组件。 */
 [[nodiscard]] CAORS_API bool contains(type_id id);
@@ -75,23 +75,23 @@ private:
 [[nodiscard]] CAORS_API std::size_t size() noexcept;
 
 /** @brief 向全局序列化注册表注册指定类型 id。 */
-[[nodiscard]] inline error register_type(type_id id, type_data data) {
+[[nodiscard]] inline error register_type(type_id id, type_schema data) {
   return get_registry().register_type(id, std::move(data));
 }
 
 /** @brief 向已注册元类型挂载序列化组件，不会创建或修改基础类型记录。 */
-[[nodiscard]] inline error register_type(meta::type type, type_data data) {
+[[nodiscard]] inline error register_type(meta::type type, type_schema data) {
   return get_registry().register_type(type, std::move(data));
 }
 
 /** @brief 向全局序列化注册表注册指定 C++ 类型。 */
-template <typename T> [[nodiscard]] error register_type(type_data data) {
+template <typename T> [[nodiscard]] error register_type(type_schema data) {
   return get_registry().register_type_for<T>(std::move(data));
 }
 
 /** @brief 向全局序列化注册表注册指定 C++ 类型和字段配置。 */
 template <typename T> [[nodiscard]] error register_type(std::initializer_list<field_data> fields) {
-  return register_type<T>(make_type_data(fields));
+  return register_type<T>(make_type_schema(fields));
 }
 
 /** @brief 已注册元类型的序列化配置构建器。 */
@@ -121,11 +121,11 @@ public:
     return register_type(type_, data_);
   }
 
-  [[nodiscard]] const type_data& serialization_data() const noexcept { return data_; }
+  [[nodiscard]] const type_schema& serialization_data() const noexcept { return data_; }
 
 private:
   meta::type type_{};
-  type_data data_{};
+  type_schema data_{};
   error status_{};
 };
 

@@ -29,12 +29,8 @@ template <typename Capability>
   return meta::make_type_view(id, descriptor);
 }
 
-[[nodiscard]] type_id descriptor_type_id(const meta::type_descriptor* descriptor) noexcept {
-  return descriptor != nullptr ? descriptor->type : type_id{};
-}
-
 [[nodiscard]] meta::type type_view_of(const meta::type_descriptor* descriptor) noexcept {
-  return type_view_of(descriptor_type_id(descriptor), descriptor);
+  return type_view_of(meta::descriptor_id(descriptor), descriptor);
 }
 
 } // namespace
@@ -248,7 +244,7 @@ any_ref pair_view::first_ref() const {
     return {};
   }
 
-  return any_ref::from_raw(descriptor_type_id(info->key_descriptor), info->key_descriptor, value,
+  return any_ref::from_raw(meta::descriptor_id(info->key_descriptor), info->key_descriptor, value,
                            value_writable);
 }
 
@@ -271,7 +267,7 @@ any_ref pair_view::second_ref() const {
     return {};
   }
 
-  return any_ref::from_raw(descriptor_type_id(info->value_descriptor), info->value_descriptor,
+  return any_ref::from_raw(meta::descriptor_id(info->value_descriptor), info->value_descriptor,
                            value, value_writable);
 }
 
@@ -280,7 +276,7 @@ any_ref pair_view::value_ref() const { return second_ref(); }
 bool pair_view::set_first(const any& value) const {
   const meta::pair_ops* info = data();
   if (!writable() || !value.valid() ||
-      value.get_type().id() != descriptor_type_id(info->key_descriptor)) {
+      value.get_type().id() != (meta::descriptor_id(info->key_descriptor))) {
     return false;
   }
 
@@ -291,7 +287,7 @@ bool pair_view::set_first(const any& value) const {
 bool pair_view::set_second(const any& value) const {
   const meta::pair_ops* info = data();
   if (!writable() || !value.valid() ||
-      value.get_type().id() != descriptor_type_id(info->value_descriptor)) {
+      value.get_type().id() != (meta::descriptor_id(info->value_descriptor))) {
     return false;
   }
 
@@ -352,7 +348,7 @@ any_ref tuple_view::element_ref(std::size_t index) const {
     return {};
   }
 
-  return any_ref::from_raw(descriptor_type_id(element_data.value_descriptor),
+  return any_ref::from_raw(meta::descriptor_id(element_data.value_descriptor),
                            element_data.value_descriptor, value, value_writable);
 }
 
@@ -446,7 +442,7 @@ any_ref variant_view::value_ref() const {
     return {};
   }
 
-  return any_ref::from_raw(descriptor_type_id(alternative_data.value_descriptor),
+  return any_ref::from_raw(meta::descriptor_id(alternative_data.value_descriptor),
                            alternative_data.value_descriptor, value, value_writable);
 }
 
@@ -562,7 +558,7 @@ any_ref sequence_view::element_ref(std::size_t index) const {
     return {};
   }
 
-  return any_ref::from_raw(descriptor_type_id(info->value_descriptor), info->value_descriptor,
+  return any_ref::from_raw(meta::descriptor_id(info->value_descriptor), info->value_descriptor,
                            element, element_writable);
 }
 
@@ -590,7 +586,7 @@ bool sequence_view::resize(std::size_t size, memory::memory_resource* resource) 
 bool sequence_view::append_value(const any& value) const {
   const meta::sequence_ops* info = data();
   if (!writable() || info->append == nullptr || !value.valid() ||
-      value.get_type().id() != descriptor_type_id(info->value_descriptor)) {
+      value.get_type().id() != (meta::descriptor_id(info->value_descriptor))) {
     return false;
   }
 
@@ -650,7 +646,7 @@ any_ref set_view::iterator::operator*() const {
   }
 
   const void* value = info->iterator_value(iterator_);
-  return any_ref::from_raw(descriptor_type_id(info->value_descriptor), info->value_descriptor,
+  return any_ref::from_raw(meta::descriptor_id(info->value_descriptor), info->value_descriptor,
                            value, false);
 }
 
@@ -771,7 +767,7 @@ bool set_view::clear() const {
 bool set_view::insert_value(const any& value) const {
   const meta::set_ops* info = data();
   if (!writable() || info->insert == nullptr || !value.valid() ||
-      value.get_type().id() != descriptor_type_id(info->value_descriptor)) {
+      value.get_type().id() != (meta::descriptor_id(info->value_descriptor))) {
     return false;
   }
 
@@ -839,8 +835,9 @@ associative_entry_ref associative_view::iterator::operator*() const {
   const void* key = info->iterator_key(iterator_);
   const void* value = info->iterator_value(iterator_);
   return associative_entry_ref{
-      any_ref::from_raw(descriptor_type_id(info->key_descriptor), info->key_descriptor, key, false),
-      any_ref::from_raw(descriptor_type_id(info->value_descriptor), info->value_descriptor, value,
+      any_ref::from_raw(meta::descriptor_id(info->key_descriptor), info->key_descriptor, key,
+                        false),
+      any_ref::from_raw(meta::descriptor_id(info->value_descriptor), info->value_descriptor, value,
                         false),
   };
 }
@@ -970,8 +967,8 @@ bool associative_view::clear() const {
 bool associative_view::insert_value(const any& key, const any& mapped) const {
   const meta::associative_ops* info = data();
   if (!writable() || info->insert == nullptr || !key.valid() || !mapped.valid() ||
-      key.get_type().id() != descriptor_type_id(info->key_descriptor) ||
-      mapped.get_type().id() != descriptor_type_id(info->value_descriptor)) {
+      key.get_type().id() != (meta::descriptor_id(info->key_descriptor)) ||
+      mapped.get_type().id() != (meta::descriptor_id(info->value_descriptor))) {
     return false;
   }
 

@@ -16,6 +16,7 @@ TEST_CASE("serialization - custom codec specialization uses descriptor capabilit
   CHECK(codec.can_read());
   CHECK(codec.can_make_value());
   CHECK_FALSE(caors::meta::find<policy_custom_codec_value>().registered());
+  CHECK(caors::serialization::find_codec(caors::meta::descriptor_of<policy_custom_codec_value>()));
   CHECK(caors::serialization::find_codec(caors::meta::id_of<policy_custom_codec_value>()));
 
   require_registered_type<policy_custom_codec_value>(
@@ -50,6 +51,8 @@ TEST_CASE("serialization - custom codec specialization uses descriptor capabilit
 
 TEST_CASE("serialization - descriptor static codec handles erased values without registration",
           "[serialization]") {
+  CHECK(caors::serialization::find_codec(
+      caors::meta::descriptor_of<descriptor_static_codec_value>()));
   CHECK(caors::serialization::find_codec(caors::meta::type_of<descriptor_static_codec_value>()));
 
   const descriptor_static_codec_value value{9};
