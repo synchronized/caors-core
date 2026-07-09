@@ -19,17 +19,17 @@ struct type_descriptor;
 
 inline constexpr std::size_t dynamic_sequence_size = std::numeric_limits<std::size_t>::max();
 
-using enum_to_i64_fn = std::int64_t (*)(const void*) noexcept;
-using enum_to_u64_fn = std::uint64_t (*)(const void*) noexcept;
-using enum_from_i64_fn = bool (*)(void*, std::int64_t) noexcept;
-using enum_from_u64_fn = bool (*)(void*, std::uint64_t) noexcept;
-
 /** @brief 枚举类型和整数之间的转换函数表。 */
 struct enum_ops {
-  enum_to_i64_fn to_i64 = nullptr;
-  enum_to_u64_fn to_u64 = nullptr;
-  enum_from_i64_fn from_i64 = nullptr;
-  enum_from_u64_fn from_u64 = nullptr;
+  using to_i64_fn = std::int64_t (*)(const void*) noexcept;
+  using to_u64_fn = std::uint64_t (*)(const void*) noexcept;
+  using from_i64_fn = bool (*)(void*, std::int64_t) noexcept;
+  using from_u64_fn = bool (*)(void*, std::uint64_t) noexcept;
+
+  to_i64_fn to_i64 = nullptr;
+  to_u64_fn to_u64 = nullptr;
+  from_i64_fn from_i64 = nullptr;
+  from_u64_fn from_u64 = nullptr;
   bool is_signed = false;
 
   [[nodiscard]] bool valid() const noexcept {
@@ -37,30 +37,30 @@ struct enum_ops {
   }
 };
 
-using indirect_const_value_fn = const void* (*)(const void*) noexcept;
-using indirect_mutable_value_fn = void* (*)(void*) noexcept;
-using indirect_dynamic_type_fn = type_id (*)(const void*) noexcept;
-using indirect_dynamic_value_fn = const void* (*)(const void*) noexcept;
-using indirect_mutable_dynamic_value_fn = void* (*)(void*) noexcept;
-using indirect_has_value_fn = bool (*)(const void*) noexcept;
-using indirect_reset_fn = bool (*)(void*) noexcept;
-using indirect_ensure_value_fn = bool (*)(void*, memory::memory_resource*);
-using indirect_set_value_fn = bool (*)(void*, void*) noexcept;
-using indirect_set_value_with_context_fn = bool (*)(void*, void*,
-                                                    const traits::wrapper_set_context&) noexcept;
-
 /** @brief 指针或 wrapper 的内部值访问函数表。 */
 struct indirect_ops {
-  indirect_const_value_fn value = nullptr;
-  indirect_mutable_value_fn mutable_value = nullptr;
-  indirect_dynamic_type_fn dynamic_type = nullptr;
-  indirect_dynamic_value_fn dynamic_value = nullptr;
-  indirect_mutable_dynamic_value_fn mutable_dynamic_value = nullptr;
-  indirect_has_value_fn has_value = nullptr;
-  indirect_reset_fn reset = nullptr;
-  indirect_ensure_value_fn ensure_value = nullptr;
-  indirect_set_value_fn set_value = nullptr;
-  indirect_set_value_with_context_fn set_value_with_context = nullptr;
+  using const_value_fn = const void* (*)(const void*) noexcept;
+  using mutable_value_fn = void* (*)(void*) noexcept;
+  using dynamic_type_fn = type_id (*)(const void*) noexcept;
+  using dynamic_value_fn = const void* (*)(const void*) noexcept;
+  using mutable_dynamic_value_fn = void* (*)(void*) noexcept;
+  using has_value_fn = bool (*)(const void*) noexcept;
+  using reset_fn = bool (*)(void*) noexcept;
+  using ensure_value_fn = bool (*)(void*, memory::memory_resource*);
+  using set_value_fn = bool (*)(void*, void*) noexcept;
+  using set_value_with_context_fn = bool (*)(void*, void*,
+                                             const traits::wrapper_set_context&) noexcept;
+
+  const_value_fn value = nullptr;
+  mutable_value_fn mutable_value = nullptr;
+  dynamic_type_fn dynamic_type = nullptr;
+  dynamic_value_fn dynamic_value = nullptr;
+  mutable_dynamic_value_fn mutable_dynamic_value = nullptr;
+  has_value_fn has_value = nullptr;
+  reset_fn reset = nullptr;
+  ensure_value_fn ensure_value = nullptr;
+  set_value_fn set_value = nullptr;
+  set_value_with_context_fn set_value_with_context = nullptr;
   const type_descriptor* value_descriptor = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
@@ -71,20 +71,20 @@ struct indirect_ops {
   }
 };
 
-using container_iterator_create_fn = void* (*)(const void*) noexcept;
-using container_iterator_clone_fn = void* (*)(const void*) noexcept;
-using container_iterator_destroy_fn = void (*)(void*) noexcept;
-using container_iterator_advance_fn = void (*)(void*) noexcept;
-using container_iterator_equal_fn = bool (*)(const void*, const void*) noexcept;
-
 /** @brief 容器只读迭代器的类型擦除操作表。 */
 struct container_iterator_ops {
-  container_iterator_create_fn begin = nullptr;
-  container_iterator_create_fn end = nullptr;
-  container_iterator_clone_fn clone = nullptr;
-  container_iterator_destroy_fn destroy = nullptr;
-  container_iterator_advance_fn advance = nullptr;
-  container_iterator_equal_fn equal = nullptr;
+  using create_fn = void* (*)(const void*) noexcept;
+  using clone_fn = void* (*)(const void*) noexcept;
+  using destroy_fn = void (*)(void*) noexcept;
+  using advance_fn = void (*)(void*) noexcept;
+  using equal_fn = bool (*)(const void*, const void*) noexcept;
+
+  create_fn begin = nullptr;
+  create_fn end = nullptr;
+  clone_fn clone = nullptr;
+  destroy_fn destroy = nullptr;
+  advance_fn advance = nullptr;
+  equal_fn equal = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
     return begin != nullptr && end != nullptr && clone != nullptr && destroy != nullptr &&
@@ -92,21 +92,21 @@ struct container_iterator_ops {
   }
 };
 
-using sequence_size_fn = std::size_t (*)(const void*) noexcept;
-using sequence_const_element_fn = const void* (*)(const void*, std::size_t) noexcept;
-using sequence_mutable_element_fn = void* (*)(void*, std::size_t) noexcept;
-using sequence_clear_fn = void (*)(void*) noexcept;
-using sequence_resize_fn = bool (*)(void*, std::size_t, memory::memory_resource*);
-using sequence_append_fn = bool (*)(void*, const void*);
-
 /** @brief 顺序容器运行期访问操作表。 */
 struct sequence_ops {
-  sequence_size_fn size = nullptr;
-  sequence_const_element_fn element = nullptr;
-  sequence_mutable_element_fn mutable_element = nullptr;
-  sequence_clear_fn clear = nullptr;
-  sequence_resize_fn resize = nullptr;
-  sequence_append_fn append = nullptr;
+  using size_fn = std::size_t (*)(const void*) noexcept;
+  using const_element_fn = const void* (*)(const void*, std::size_t) noexcept;
+  using mutable_element_fn = void* (*)(void*, std::size_t) noexcept;
+  using clear_fn = void (*)(void*) noexcept;
+  using resize_fn = bool (*)(void*, std::size_t, memory::memory_resource*);
+  using append_fn = bool (*)(void*, const void*);
+
+  size_fn size = nullptr;
+  const_element_fn element = nullptr;
+  mutable_element_fn mutable_element = nullptr;
+  clear_fn clear = nullptr;
+  resize_fn resize = nullptr;
+  append_fn append = nullptr;
   bool can_read = true;
   bool read_in_place = false;
   const type_descriptor* value_descriptor = nullptr;
@@ -117,18 +117,18 @@ struct sequence_ops {
   }
 };
 
-using set_size_fn = std::size_t (*)(const void*) noexcept;
-using set_clear_fn = void (*)(void*) noexcept;
-using set_insert_fn = bool (*)(void*, const void*);
-using set_iterator_value_fn = const void* (*)(const void*) noexcept;
-
 /** @brief 集合容器运行期访问操作表。 */
 struct set_ops {
-  set_size_fn size = nullptr;
-  set_clear_fn clear = nullptr;
-  set_insert_fn insert = nullptr;
+  using size_fn = std::size_t (*)(const void*) noexcept;
+  using clear_fn = void (*)(void*) noexcept;
+  using insert_fn = bool (*)(void*, const void*);
+  using iterator_value_fn = const void* (*)(const void*) noexcept;
+
+  size_fn size = nullptr;
+  clear_fn clear = nullptr;
+  insert_fn insert = nullptr;
   container_iterator_ops iterator{};
-  set_iterator_value_fn iterator_value = nullptr;
+  iterator_value_fn iterator_value = nullptr;
   const type_descriptor* value_descriptor = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
@@ -137,20 +137,20 @@ struct set_ops {
   }
 };
 
-using associative_size_fn = std::size_t (*)(const void*) noexcept;
-using associative_clear_fn = void (*)(void*) noexcept;
-using associative_insert_fn = bool (*)(void*, const void*, const void*);
-using associative_iterator_key_fn = const void* (*)(const void*) noexcept;
-using associative_iterator_value_fn = const void* (*)(const void*) noexcept;
-
 /** @brief 关联容器运行期访问操作表。 */
 struct associative_ops {
-  associative_size_fn size = nullptr;
-  associative_clear_fn clear = nullptr;
-  associative_insert_fn insert = nullptr;
+  using size_fn = std::size_t (*)(const void*) noexcept;
+  using clear_fn = void (*)(void*) noexcept;
+  using insert_fn = bool (*)(void*, const void*, const void*);
+  using iterator_key_fn = const void* (*)(const void*) noexcept;
+  using iterator_value_fn = const void* (*)(const void*) noexcept;
+
+  size_fn size = nullptr;
+  clear_fn clear = nullptr;
+  insert_fn insert = nullptr;
   container_iterator_ops iterator{};
-  associative_iterator_key_fn iterator_key = nullptr;
-  associative_iterator_value_fn iterator_value = nullptr;
+  iterator_key_fn iterator_key = nullptr;
+  iterator_value_fn iterator_value = nullptr;
   const type_descriptor* key_descriptor = nullptr;
   const type_descriptor* value_descriptor = nullptr;
 
@@ -160,15 +160,15 @@ struct associative_ops {
   }
 };
 
-using pair_const_value_fn = const void* (*)(const void*) noexcept;
-using pair_mutable_value_fn = void* (*)(void*) noexcept;
-
 /** @brief 二元组运行期访问操作表。 */
 struct pair_ops {
-  pair_const_value_fn first = nullptr;
-  pair_mutable_value_fn mutable_first = nullptr;
-  pair_const_value_fn second = nullptr;
-  pair_mutable_value_fn mutable_second = nullptr;
+  using const_value_fn = const void* (*)(const void*) noexcept;
+  using mutable_value_fn = void* (*)(void*) noexcept;
+
+  const_value_fn first = nullptr;
+  mutable_value_fn mutable_first = nullptr;
+  const_value_fn second = nullptr;
+  mutable_value_fn mutable_second = nullptr;
   const type_descriptor* key_descriptor = nullptr;
   const type_descriptor* value_descriptor = nullptr;
 
@@ -178,13 +178,13 @@ struct pair_ops {
   }
 };
 
-using tuple_const_element_fn = const void* (*)(const void*) noexcept;
-using tuple_mutable_element_fn = void* (*)(void*) noexcept;
-
 /** @brief tuple-like 单个元素运行期访问操作表。 */
 struct tuple_element_ops {
-  tuple_const_element_fn element = nullptr;
-  tuple_mutable_element_fn mutable_element = nullptr;
+  using const_element_fn = const void* (*)(const void*) noexcept;
+  using mutable_element_fn = void* (*)(void*) noexcept;
+
+  const_element_fn element = nullptr;
+  mutable_element_fn mutable_element = nullptr;
   const type_descriptor* value_descriptor = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
@@ -207,16 +207,15 @@ struct tuple_ops {
   }
 };
 
-using variant_index_fn = std::size_t (*)(const void*) noexcept;
-using variant_const_alternative_fn = const void* (*)(const void*) noexcept;
-using variant_mutable_alternative_fn = void* (*)(void*) noexcept;
-using variant_emplace_fn = bool (*)(void*, memory::memory_resource*);
-
 /** @brief variant-like 单个候选类型运行期访问操作表。 */
 struct variant_alternative_ops {
-  variant_const_alternative_fn alternative = nullptr;
-  variant_mutable_alternative_fn mutable_alternative = nullptr;
-  variant_emplace_fn emplace = nullptr;
+  using const_alternative_fn = const void* (*)(const void*) noexcept;
+  using mutable_alternative_fn = void* (*)(void*) noexcept;
+  using emplace_fn = bool (*)(void*, memory::memory_resource*);
+
+  const_alternative_fn alternative = nullptr;
+  mutable_alternative_fn mutable_alternative = nullptr;
+  emplace_fn emplace = nullptr;
   const type_descriptor* value_descriptor = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
@@ -226,8 +225,10 @@ struct variant_alternative_ops {
 
 /** @brief variant-like 运行期访问操作表。 */
 struct variant_ops {
+  using index_fn = std::size_t (*)(const void*) noexcept;
+
   vector<variant_alternative_ops> alternatives{};
-  variant_index_fn index = nullptr;
+  index_fn index = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
     if (index == nullptr || alternatives.empty()) {
