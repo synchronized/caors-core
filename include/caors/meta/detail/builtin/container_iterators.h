@@ -6,6 +6,7 @@
 
 #include "caors/config.h"
 #include "caors/memory/detail/internal_resource.h"
+#include "caors/traits/container.h"
 
 #include <new>
 #include <type_traits>
@@ -21,6 +22,20 @@ struct has_const_container_iterator<T, std::void_t<decltype(std::declval<const T
 
 template <typename T>
 inline constexpr bool has_const_container_iterator_v = has_const_container_iterator<T>::value;
+
+template <typename Traits, typename Container, typename = void>
+struct has_traits_const_iterator : std::false_type {};
+
+template <typename Traits, typename Container>
+struct has_traits_const_iterator<
+    Traits, Container,
+    std::void_t<typename Traits::const_iterator,
+                decltype(Traits::begin(std::declval<const Container&>())),
+                decltype(Traits::end(std::declval<const Container&>()))>> : std::true_type {};
+
+template <typename Traits, typename Container>
+inline constexpr bool has_traits_const_iterator_v =
+    has_traits_const_iterator<Traits, Container>::value;
 
 using container_iterator_create_fn = void* (*)(const void*) noexcept;
 using container_iterator_clone_fn = void* (*)(const void*) noexcept;
@@ -139,12 +154,41 @@ template <typename Container> struct container_iterator_ops_model {
   };
 };
 
+template <typename Container, typename Traits>
+[[nodiscard]] void* begin_traits_container_iterator(const void* storage) noexcept;
+
+template <typename Container, typename Traits>
+[[nodiscard]] void* end_traits_container_iterator(const void* storage) noexcept;
+
+template <typename Container, typename Traits> struct traits_container_iterator_ops_model {
+  using type = std::remove_cv_t<std::remove_reference_t<Container>>;
+  using iterator_type = typename Traits::const_iterator;
+
+  inline static const container_iterator_ops value{
+      &begin_traits_container_iterator<type, Traits>, &end_traits_container_iterator<type, Traits>,
+      &clone_container_iterator<iterator_type>,       &destroy_container_iterator<iterator_type>,
+      &advance_container_iterator<iterator_type>,     &equal_container_iterator<iterator_type>,
+  };
+};
+
 template <typename Container>
 [[nodiscard]] const container_iterator_ops* container_iterator_ops_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<Container>>;
   if constexpr (has_const_container_iterator_v<type>) {
     return container_iterator_ops_model<type>::value.valid()
                ? &container_iterator_ops_model<type>::value
+               : nullptr;
+  } else {
+    return nullptr;
+  }
+}
+
+template <typename Container, typename Traits>
+[[nodiscard]] const container_iterator_ops* traits_container_iterator_ops_ptr_of() {
+  using type = std::remove_cv_t<std::remove_reference_t<Container>>;
+  if constexpr (has_traits_const_iterator_v<Traits, type>) {
+    return traits_container_iterator_ops_model<type, Traits>::value.valid()
+               ? &traits_container_iterator_ops_model<type, Traits>::value
                : nullptr;
   } else {
     return nullptr;
@@ -171,6 +215,28 @@ template <typename Container>
   return make_container_iterator<iterator_type>(static_cast<const Container*>(storage)->end());
 }
 
+template <typename Container, typename Traits>
+[[nodiscard]] void* begin_traits_container_iterator(const void* storage) noexcept {
+  if (storage == nullptr) {
+    return nullptr;
+  }
+
+  using iterator_type = typename Traits::const_iterator;
+  return make_container_iterator<iterator_type>(
+      Traits::begin(*static_cast<const Container*>(storage)));
+}
+
+template <typename Container, typename Traits>
+[[nodiscard]] void* end_traits_container_iterator(const void* storage) noexcept {
+  if (storage == nullptr) {
+    return nullptr;
+  }
+
+  using iterator_type = typename Traits::const_iterator;
+  return make_container_iterator<iterator_type>(
+      Traits::end(*static_cast<const Container*>(storage)));
+}
+
 template <typename Iterator>
 [[nodiscard]] const void* set_iterator_value(const void* iterator) noexcept {
   if (iterator == nullptr) {
@@ -179,6 +245,21 @@ template <typename Iterator>
 
   const auto* holder = static_cast<const container_iterator_holder<Iterator>*>(iterator);
   return &*holder->iterator;
+}
+
+template <typename Container, typename Iterator>
+[[nodiscard]] const void* set_traits_iterator_value(const void* iterator) noexcept {
+  if (iterator == nullptr) {
+    return nullptr;
+  }
+
+  using traits_type = traits::set_traits<Container>;
+  const auto* holder = static_cast<const container_iterator_holder<Iterator>*>(iterator);
+  if constexpr (requires(const Iterator& current) { traits_type::value(current); }) {
+    return traits_type::value(holder->iterator);
+  } else {
+    return &*holder->iterator;
+  }
 }
 
 template <typename Iterator>
@@ -199,6 +280,36 @@ template <typename Iterator>
 
   const auto* holder = static_cast<const container_iterator_holder<Iterator>*>(iterator);
   return &holder->iterator->second;
+}
+
+template <typename Container, typename Iterator>
+[[nodiscard]] const void* associative_traits_iterator_key(const void* iterator) noexcept {
+  if (iterator == nullptr) {
+    return nullptr;
+  }
+
+  using traits_type = traits::associative_traits<Container>;
+  const auto* holder = static_cast<const container_iterator_holder<Iterator>*>(iterator);
+  if constexpr (requires(const Iterator& current) { traits_type::key(current); }) {
+    return traits_type::key(holder->iterator);
+  } else {
+    return &holder->iterator->first;
+  }
+}
+
+template <typename Container, typename Iterator>
+[[nodiscard]] const void* associative_traits_iterator_value(const void* iterator) noexcept {
+  if (iterator == nullptr) {
+    return nullptr;
+  }
+
+  using traits_type = traits::associative_traits<Container>;
+  const auto* holder = static_cast<const container_iterator_holder<Iterator>*>(iterator);
+  if constexpr (requires(const Iterator& current) { traits_type::mapped(current); }) {
+    return traits_type::mapped(holder->iterator);
+  } else {
+    return &holder->iterator->second;
+  }
 }
 
 } // namespace caors::meta::detail

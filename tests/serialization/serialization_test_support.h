@@ -534,6 +534,7 @@ struct associative_traits<caors::tests::serialization::custom_map<K, V>> {
   using key_type = std::remove_cv_t<K>;
   using mapped_type = std::remove_cv_t<V>;
   using map_type = caors::tests::serialization::custom_map<K, V>;
+  using const_iterator = typename caors::hash_map<K, V>::const_iterator;
 
   [[nodiscard]] static constexpr std::string_view type_name_prefix() noexcept {
     return "caors.test.serialization.custom_map";
@@ -543,10 +544,20 @@ struct associative_traits<caors::tests::serialization::custom_map<K, V>> {
     return values.values.size();
   }
 
-  template <typename Visitor> static void for_each(const map_type& values, Visitor&& visitor) {
-    for (const auto& [key, value] : values.values) {
-      visitor(key, value);
-    }
+  [[nodiscard]] static const_iterator begin(const map_type& values) noexcept {
+    return values.values.begin();
+  }
+
+  [[nodiscard]] static const_iterator end(const map_type& values) noexcept {
+    return values.values.end();
+  }
+
+  [[nodiscard]] static const key_type* key(const const_iterator& iterator) noexcept {
+    return &iterator->first;
+  }
+
+  [[nodiscard]] static const mapped_type* mapped(const const_iterator& iterator) noexcept {
+    return &iterator->second;
   }
 
   static void clear(map_type& values) { values.values.clear(); }

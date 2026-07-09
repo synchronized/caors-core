@@ -14,10 +14,7 @@
 
 namespace caors::meta::detail {
 
-using set_raw_visitor = bool (*)(const void*, void*);
-
 using set_size_fn = std::size_t (*)(const void*) noexcept;
-using set_visit_fn = bool (*)(const void*, set_raw_visitor, void*);
 using set_clear_fn = void (*)(void*) noexcept;
 using set_insert_fn = bool (*)(void*, const void*);
 using set_iterator_value_fn = const void* (*)(const void*) noexcept;
@@ -25,7 +22,6 @@ using set_iterator_value_fn = const void* (*)(const void*) noexcept;
 /** @brief 集合容器运行期访问操作表。 */
 struct set_ops {
   set_size_fn size = nullptr;
-  set_visit_fn visit = nullptr;
   set_clear_fn clear = nullptr;
   set_insert_fn insert = nullptr;
   container_iterator_ops iterator{};
@@ -33,7 +29,8 @@ struct set_ops {
   const type_descriptor* value_descriptor = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
-    return value_descriptor != nullptr && size != nullptr && visit != nullptr;
+    return value_descriptor != nullptr && size != nullptr && iterator.valid() &&
+           iterator_value != nullptr;
   }
 };
 
@@ -47,24 +44,6 @@ template <typename T> struct set_ops_model {
     }
 
     return traits::set_traits<type>::size(*static_cast<const type*>(storage));
-  }
-
-  static bool visit(const void* storage, set_raw_visitor visitor, void* user_data) {
-    if (storage == nullptr || visitor == nullptr) {
-      return false;
-    }
-
-    bool keep_going = true;
-    traits::set_traits<type>::for_each(*static_cast<const type*>(storage),
-                                       [&](const element_type& element) {
-                                         if (!keep_going) {
-                                           return;
-                                         }
-
-                                         keep_going = visitor(&element, user_data);
-                                       });
-
-    return keep_going;
   }
 
   static void clear(void* storage) noexcept {
@@ -83,22 +62,30 @@ template <typename T> struct set_ops_model {
   }
 
   static void fill_iterator_ops(set_ops& result) noexcept {
-    if (const auto* iterator = container_iterator_ops_ptr_of<type>(); iterator != nullptr) {
+    using traits_type = traits::set_traits<type>;
+    if constexpr (has_traits_const_iterator_v<traits_type, type>) {
+      const auto* iterator = traits_container_iterator_ops_ptr_of<type, traits_type>();
       result.iterator = *iterator;
-      using iterator_type = decltype(std::declval<const type&>().begin());
-      result.iterator_value = &set_iterator_value<iterator_type>;
+      using iterator_type = typename traits_type::const_iterator;
+      result.iterator_value = &set_traits_iterator_value<type, iterator_type>;
+    } else if constexpr (has_const_container_iterator_v<type>) {
+      if (const auto* iterator = container_iterator_ops_ptr_of<type>(); iterator != nullptr) {
+        result.iterator = *iterator;
+        using iterator_type = decltype(std::declval<const type&>().begin());
+        result.iterator_value = &set_iterator_value<iterator_type>;
+      }
     }
   }
 
   [[nodiscard]] static set_ops make() {
     set_ops result{
         &size,
-        &visit,
         &clear,
         &insert,
     };
 
-    if constexpr (has_const_container_iterator_v<type>) {
+    if constexpr (has_traits_const_iterator_v<traits::set_traits<type>, type> ||
+                  has_const_container_iterator_v<type>) {
       fill_iterator_ops(result);
     }
 

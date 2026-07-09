@@ -166,6 +166,52 @@ static bool resize(my_sequence& values, std::size_t size, caors::memory_resource
 `std::vector`、`std::deque`、`std::list` 和 `std::forward_list` 适配会用该资源构造新增的
 allocator-aware 元素。该资源不会替换已经存在的容器 allocator，也不会改变已有元素的分配来源。
 
+集合和关联容器的只读遍历统一通过 iterator 暴露。标准容器会自动使用成员 `begin()` / `end()`；
+自定义 traits 如果包装了内部容器或没有公开成员迭代器，应在 traits 中显式声明 iterator 入口。
+`for_each` 不再作为 set / associative 运行期 ops 的主遍历协议。
+
+集合 traits 示例：
+
+```cpp
+template <>
+struct caors::traits::set_traits<my_set> {
+  static constexpr bool is_set = true;
+  using element_type = int;
+  using const_iterator = my_set::const_iterator;
+
+  static std::size_t size(const my_set& values) noexcept;
+  static const_iterator begin(const my_set& values) noexcept;
+  static const_iterator end(const my_set& values) noexcept;
+  static const element_type* value(const const_iterator& iterator) noexcept;
+  static void clear(my_set& values);
+  static bool insert(my_set& values, element_type value);
+};
+```
+
+如果 `*iterator` 本身就是 `const element_type&`，`value(iterator)` 可以省略。
+
+关联容器 traits 示例：
+
+```cpp
+template <>
+struct caors::traits::associative_traits<my_map> {
+  static constexpr bool is_associative = true;
+  using key_type = int;
+  using mapped_type = caors::string;
+  using const_iterator = my_map::const_iterator;
+
+  static std::size_t size(const my_map& values) noexcept;
+  static const_iterator begin(const my_map& values) noexcept;
+  static const_iterator end(const my_map& values) noexcept;
+  static const key_type* key(const const_iterator& iterator) noexcept;
+  static const mapped_type* mapped(const const_iterator& iterator) noexcept;
+  static void clear(my_map& values);
+  static bool insert(my_map& values, key_type key, mapped_type value);
+};
+```
+
+如果 iterator 解引用后提供 `first` / `second`，`key(iterator)` 和 `mapped(iterator)` 可以省略。
+
 ## 模块依赖方向
 
 推荐依赖方向：

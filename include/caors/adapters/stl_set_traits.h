@@ -31,12 +31,6 @@ struct set_traits<std::unordered_set<T, Hash, Equal, Allocator>> {
 
   [[nodiscard]] static std::size_t size(const set_type& values) noexcept { return values.size(); }
 
-  template <typename Visitor> static void for_each(const set_type& values, Visitor&& visitor) {
-    for (const element_type& value : values) {
-      visitor(value);
-    }
-  }
-
   static void clear(set_type& values) { values.clear(); }
 
   [[nodiscard]] static bool insert(set_type& values, element_type value) {
@@ -54,12 +48,6 @@ struct set_traits<std::set<T, Compare, Allocator>> {
   [[nodiscard]] static constexpr std::string_view type_name_prefix() noexcept { return "std.set"; }
 
   [[nodiscard]] static std::size_t size(const set_type& values) noexcept { return values.size(); }
-
-  template <typename Visitor> static void for_each(const set_type& values, Visitor&& visitor) {
-    for (const element_type& value : values) {
-      visitor(value);
-    }
-  }
 
   static void clear(set_type& values) { values.clear(); }
 

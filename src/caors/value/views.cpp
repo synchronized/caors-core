@@ -749,29 +749,17 @@ set_view::iterator set_view::end() const {
 }
 
 bool set_view::for_each_ref(set_element_visitor visitor, void* user_data) const {
-  const meta::detail::set_ops* info = data();
-  if (!valid() || info->visit == nullptr || visitor == nullptr) {
+  if (!valid() || !has_iterator_support() || visitor == nullptr) {
     return false;
   }
 
-  struct visit_context {
-    const meta::detail::set_ops* data = nullptr;
-    set_element_visitor visitor = nullptr;
-    void* user_data = nullptr;
-  };
+  for (iterator current = begin(), last = end(); current != last; ++current) {
+    if (!visitor(*current, user_data)) {
+      return false;
+    }
+  }
 
-  visit_context context{info, visitor, user_data};
-  return info->visit(
-      storage_,
-      [](const void* element, void* raw_context) -> bool {
-        auto* context = static_cast<visit_context*>(raw_context);
-        const meta::detail::set_ops* data = context->data;
-        any_ref element_ref = any_ref::from_raw(descriptor_type_id(data->value_descriptor),
-                                                data->value_descriptor, element, false);
-
-        return context->visitor(element_ref, context->user_data);
-      },
-      &context);
+  return true;
 }
 
 bool set_view::clear() const {
@@ -959,31 +947,18 @@ associative_view::iterator associative_view::end() const {
 }
 
 bool associative_view::for_each_ref(associative_entry_visitor visitor, void* user_data) const {
-  const meta::detail::associative_ops* info = data();
-  if (!valid() || info->visit == nullptr || visitor == nullptr) {
+  if (!valid() || !has_iterator_support() || visitor == nullptr) {
     return false;
   }
 
-  struct visit_context {
-    const meta::detail::associative_ops* data = nullptr;
-    associative_entry_visitor visitor = nullptr;
-    void* user_data = nullptr;
-  };
+  for (iterator current = begin(), last = end(); current != last; ++current) {
+    const associative_entry_ref entry = *current;
+    if (!visitor(entry.key(), entry.value(), user_data)) {
+      return false;
+    }
+  }
 
-  visit_context context{info, visitor, user_data};
-  return info->visit(
-      storage_,
-      [](const void* key, const void* mapped, void* raw_context) -> bool {
-        auto* context = static_cast<visit_context*>(raw_context);
-        const meta::detail::associative_ops* data = context->data;
-        any_ref key_ref = any_ref::from_raw(descriptor_type_id(data->key_descriptor),
-                                            data->key_descriptor, key, false);
-        any_ref mapped_ref = any_ref::from_raw(descriptor_type_id(data->value_descriptor),
-                                               data->value_descriptor, mapped, false);
-
-        return context->visitor(key_ref, mapped_ref, context->user_data);
-      },
-      &context);
+  return true;
 }
 
 bool associative_view::clear() const {

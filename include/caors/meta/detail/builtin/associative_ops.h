@@ -14,10 +14,7 @@
 
 namespace caors::meta::detail {
 
-using associative_raw_visitor = bool (*)(const void*, const void*, void*);
-
 using associative_size_fn = std::size_t (*)(const void*) noexcept;
-using associative_visit_fn = bool (*)(const void*, associative_raw_visitor, void*);
 using associative_clear_fn = void (*)(void*) noexcept;
 using associative_insert_fn = bool (*)(void*, const void*, const void*);
 using associative_iterator_key_fn = const void* (*)(const void*) noexcept;
@@ -26,7 +23,6 @@ using associative_iterator_value_fn = const void* (*)(const void*) noexcept;
 /** @brief 关联容器运行期访问操作表。 */
 struct associative_ops {
   associative_size_fn size = nullptr;
-  associative_visit_fn visit = nullptr;
   associative_clear_fn clear = nullptr;
   associative_insert_fn insert = nullptr;
   container_iterator_ops iterator{};
@@ -37,7 +33,7 @@ struct associative_ops {
 
   [[nodiscard]] bool valid() const noexcept {
     return key_descriptor != nullptr && value_descriptor != nullptr && size != nullptr &&
-           visit != nullptr;
+           iterator.valid() && iterator_key != nullptr && iterator_value != nullptr;
   }
 };
 
@@ -52,24 +48,6 @@ template <typename T> struct associative_ops_model {
     }
 
     return traits::associative_traits<type>::size(*static_cast<const type*>(storage));
-  }
-
-  static bool visit(const void* storage, associative_raw_visitor visitor, void* user_data) {
-    if (storage == nullptr || visitor == nullptr) {
-      return false;
-    }
-
-    bool keep_going = true;
-    traits::associative_traits<type>::for_each(*static_cast<const type*>(storage),
-                                               [&](const key_type& key, const mapped_type& mapped) {
-                                                 if (!keep_going) {
-                                                   return;
-                                                 }
-
-                                                 keep_going = visitor(&key, &mapped, user_data);
-                                               });
-
-    return keep_going;
   }
 
   static void clear(void* storage) noexcept {
@@ -89,23 +67,32 @@ template <typename T> struct associative_ops_model {
   }
 
   static void fill_iterator_ops(associative_ops& result) noexcept {
-    if (const auto* iterator = container_iterator_ops_ptr_of<type>(); iterator != nullptr) {
+    using traits_type = traits::associative_traits<type>;
+    if constexpr (has_traits_const_iterator_v<traits_type, type>) {
+      const auto* iterator = traits_container_iterator_ops_ptr_of<type, traits_type>();
       result.iterator = *iterator;
-      using iterator_type = decltype(std::declval<const type&>().begin());
-      result.iterator_key = &associative_iterator_key<iterator_type>;
-      result.iterator_value = &associative_iterator_value<iterator_type>;
+      using iterator_type = typename traits_type::const_iterator;
+      result.iterator_key = &associative_traits_iterator_key<type, iterator_type>;
+      result.iterator_value = &associative_traits_iterator_value<type, iterator_type>;
+    } else if constexpr (has_const_container_iterator_v<type>) {
+      if (const auto* iterator = container_iterator_ops_ptr_of<type>(); iterator != nullptr) {
+        result.iterator = *iterator;
+        using iterator_type = decltype(std::declval<const type&>().begin());
+        result.iterator_key = &associative_iterator_key<iterator_type>;
+        result.iterator_value = &associative_iterator_value<iterator_type>;
+      }
     }
   }
 
   [[nodiscard]] static associative_ops make() {
     associative_ops result{
         &size,
-        &visit,
         &clear,
         &insert,
     };
 
-    if constexpr (has_const_container_iterator_v<type>) {
+    if constexpr (has_traits_const_iterator_v<traits::associative_traits<type>, type> ||
+                  has_const_container_iterator_v<type>) {
       fill_iterator_ops(result);
     }
 

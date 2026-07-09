@@ -32,12 +32,6 @@ struct associative_traits<std::unordered_map<K, V, Hash, Equal, Allocator>> {
 
   [[nodiscard]] static std::size_t size(const map_type& values) noexcept { return values.size(); }
 
-  template <typename Visitor> static void for_each(const map_type& values, Visitor&& visitor) {
-    for (const auto& [key, value] : values) {
-      visitor(key, value);
-    }
-  }
-
   static void clear(map_type& values) { values.clear(); }
 
   [[nodiscard]] static bool insert(map_type& values, key_type key, mapped_type value) {
@@ -56,12 +50,6 @@ struct associative_traits<std::map<K, V, Compare, Allocator>> {
   [[nodiscard]] static constexpr std::string_view type_name_prefix() noexcept { return "std.map"; }
 
   [[nodiscard]] static std::size_t size(const map_type& values) noexcept { return values.size(); }
-
-  template <typename Visitor> static void for_each(const map_type& values, Visitor&& visitor) {
-    for (const auto& [key, value] : values) {
-      visitor(key, value);
-    }
-  }
 
   static void clear(map_type& values) { values.clear(); }
 
