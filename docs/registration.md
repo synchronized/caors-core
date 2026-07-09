@@ -13,7 +13,7 @@
 2. 如有对象能力，注册 object 组件。
 3. 注册字段反射。
 4. 注册序列化组件。
-5. 可选：注册类型级 codec。
+5. 可选：挂接用户或插件的 runtime capability。
 6. 可选：在启动阶段最后调用 `meta::freeze_registry()`。
 
 示例：
@@ -39,6 +39,15 @@ void register_actor() {
 wrapper、pair、tuple 和 variant 可以通过内部 descriptor 参与反射和序列化。只有需要稳定名称、
 GUID、对象工厂、反射根类型、多态身份或按名称查询的业务类型，才应显式注册到 meta。
 反射 builder 不会为字段类型隐式创建 meta 类型，序列化 codec 注册也不会隐式创建 meta 类型。
+
+descriptor、registry 和 capability 的边界如下：
+
+- descriptor 是编译期 C++ 类型描述和内置能力入口，未注册类型也可能拥有有效 descriptor。
+- registry 只保存显式注册后的稳定元数据和模块组件，例如名称、GUID、父类型、factory、反射和序列化组件。
+- descriptor static capability 用于类型固有能力，例如对象指针、对象句柄和 `codec_traits<T>` 生成的
+  codec 函数表，不需要单独注册 codec。
+- runtime capability 用于用户或插件扩展能力，通过 `meta::type_<T>().capability(ops)` 挂到运行期索引；
+  它不是 registry 组件，也不替代业务 meta 类型注册。
 
 ## 显式初始化
 

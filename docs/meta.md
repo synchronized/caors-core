@@ -196,6 +196,34 @@ caors::meta::type_<player>("game.player")
 普通业务类型仍应通过 `caors::meta::type_<T>("name")` 显式注册，再把得到的 `meta::type` 交给
 对象、反射或序列化模块挂载组件。
 
+### descriptor / registry / capability 边界
+
+当前 meta 层按四个边界分工：
+
+- `type_descriptor` 是编译期 C++ 类型描述。它描述某个 `T` 的 `type_id`、默认显示名、布局、构造 /
+  析构 / 复制 / 赋值、类型语义，以及 CAORS 内置运行期访问能力。它不表示类型已经完成业务注册。
+- `meta::registry` 是注册后元数据和模块组件索引。只有显式 `meta::type_<T>("name")` 注册后的类型，
+  才拥有稳定名称、GUID、父类型关系、factory、对象组件、反射组件和序列化组件等全局可查询数据。
+- descriptor static capability 用于类型固有能力。能力由模块在编译期按 `T` 生成，例如
+  `objects::ptr<T>` 访问函数、对象 handle 函数表和 `codec_traits<T>` 生成的 codec 函数表。
+  它们随 descriptor 一起查询，不要求类型先注册到 registry。
+- runtime capability 用于用户或插件扩展能力。它挂在 `type_id + capability_key` 的运行期索引上，
+  适合矩阵、图、脚本桥接、编辑器扩展等 CAORS 不内置的 concept table。公开写入入口是
+  `meta::type_<T>().capability(ops)`，由 CAORS 持有 `ops` 生命周期。
+
+默认查询顺序是：`meta::type::get_capability<C>()` 先查 descriptor static capability，再回退到
+runtime capability。普通调用方应使用这个统一入口，不直接关心能力来自 descriptor 还是运行期索引。
+如果只剩 `type_id`，应先通过 `meta::find(id)` 找回 `meta::type` 视图；只有确实需要直接查运行期扩展时，
+才使用 `meta::capabilities::find<C>(id)`。
+
+设计约束：
+
+- descriptor 只保存 C++ 类型事实和可由 `T` 推导的能力，不保存反射字段、序列化字段配置或对象注册数据。
+- registry 保存注册后事实和模块组件，不复制 descriptor 的布局、子类型和内置 ops 数据。
+- static capability 不应承担用户插件协议；它适合编译期可见、进程内静态生命周期的模块能力。
+- runtime capability 不是 meta 组件，也不替代业务类型注册；需要稳定名称、GUID 或跨模块组件查询时仍要注册
+  meta 类型。
+
 ### meta::detail::type_descriptor
 
 `meta::detail::type_descriptor` 是 C++ 类型的内部能力描述。注册表按 `type_id`
