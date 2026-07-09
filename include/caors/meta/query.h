@@ -5,6 +5,7 @@
 #define CAORS_META_QUERY_H_
 
 #include "caors/meta/registry.h"
+#include "caors/meta/type_descriptor_model.h"
 
 #include <optional>
 #include <string_view>
@@ -18,7 +19,7 @@ public:
   type_builder() = default;
 
   type_builder& type(std::string_view name) {
-    status_ = get_registry().register_type_for<T>(detail::make_type_data<T>(name));
+    status_ = get_registry().register_type_for<T>(make_type_registration_data<T>(name));
     refresh();
     return *this;
   }
@@ -81,7 +82,7 @@ public:
       return *this;
     }
 
-    status_ = get_registry().set_type_factory(type_.id(), detail::value_factory_ops{
+    status_ = get_registry().set_type_factory(type_.id(), value_factory_ops{
                                                               construct,
                                                               destroy,
                                                           });
@@ -194,14 +195,14 @@ namespace detail {
 /** @brief 向全局元数据注册表注册基础类型。内部入口，公开代码优先使用 `meta::type_<T>()`。 */
 template <typename T>
 [[nodiscard]] error register_type(string_name name, type_id parent_id = type_id::invalid()) {
-  return get_registry().register_type_for<T>(make_type_data<T>(name, parent_id));
+  return get_registry().register_type_for<T>(make_type_registration_data<T>(name, parent_id));
 }
 
 /** @brief 向全局元数据注册表注册带稳定 GUID 的基础类型。内部入口。 */
 template <typename T>
 [[nodiscard]] error register_type(string_name name, type_guid guid,
                                   type_id parent_id = type_id::invalid()) {
-  return get_registry().register_type_for<T>(make_type_data<T>(name, guid, parent_id));
+  return get_registry().register_type_for<T>(make_type_registration_data<T>(name, guid, parent_id));
 }
 
 /** @brief 向全局元数据注册表注册基础类型。内部入口。 */
@@ -218,6 +219,69 @@ template <typename T>
 }
 
 } // namespace detail
+
+template <typename T>
+[[nodiscard]] error registry::register_type_for(const type_registration_data& data) {
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  const type_id expected_id = descriptor_id_of<value_type>();
+  if ((data.id() && data.id() != expected_id) || !expected_id) {
+    return {error_domain::meta, errc::invalid_type};
+  }
+
+  type_registration_data stored_type = data;
+  if (!stored_type.id()) {
+    stored_type.set_id(expected_id);
+  }
+
+  const error status = register_type(stored_type);
+  if (status && status.value() != errc::duplicate_id) {
+    return status;
+  }
+
+  const error type_info_status = register_cpp_type_info(typeid(value_type), expected_id);
+  if (type_info_status) {
+    return type_info_status;
+  }
+
+  const error descriptor_status = detail::ensure_type_descriptor_for<value_type>();
+  if (descriptor_status) {
+    return descriptor_status;
+  }
+
+  return status;
+}
+
+template <typename T> [[nodiscard]] type registry::find_type() const {
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  const type_id id = descriptor_id_of<value_type>();
+  if (!id) {
+    return {};
+  }
+
+  (void)detail::ensure_type_descriptor_for<value_type>();
+  return find_type(id);
+}
+
+template <typename Child, typename Parent> [[nodiscard]] error registry::set_type_parent_for() {
+  using child_type = std::remove_cv_t<std::remove_reference_t<Child>>;
+  using parent_type = std::remove_cv_t<std::remove_reference_t<Parent>>;
+  static_assert(std::is_base_of_v<parent_type, child_type>, "Parent must be a base class of Child");
+
+  return set_type_parent(
+      descriptor_id_of<child_type>(), descriptor_id_of<parent_type>(),
+      detail::parent_cast_ops{
+          descriptor_id_of<parent_type>(),
+          [](const void* value) noexcept -> const void* {
+            return value != nullptr
+                       ? static_cast<const parent_type*>(static_cast<const child_type*>(value))
+                       : nullptr;
+          },
+          [](void* value) noexcept -> void* {
+            return value != nullptr ? static_cast<parent_type*>(static_cast<child_type*>(value))
+                                    : nullptr;
+          },
+      });
+}
 
 template <typename... Components>
 template <typename Component>

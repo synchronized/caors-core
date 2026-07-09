@@ -5,7 +5,7 @@
 #define CAORS_REFLECTION_DETAIL_FIELD_DATA_H_
 
 #include "caors/meta.h"
-#include "caors/meta/detail/type_descriptor_model.h"
+#include "caors/meta/type_descriptor_model.h"
 #include "caors/traits/container.h"
 #include "caors/value/any_ref.h"
 
@@ -51,12 +51,12 @@ struct field_data {
     const std::size_t size = descriptor != nullptr ? descriptor->layout.size : 0;
     const std::size_t alignment = descriptor != nullptr ? descriptor->layout.alignment : 0;
     if (descriptor != nullptr) {
-      return descriptor->type == caors::meta::detail::type_id_of_cpp_type<field_type>() &&
+      return descriptor->type == caors::meta::descriptor_id_of<field_type>() &&
              size == sizeof(field_type) && alignment == alignof(field_type);
     }
 
     const meta::type meta = caors::meta::find(type);
-    return meta && meta.id() == caors::meta::detail::type_id_of_cpp_type<field_type>() &&
+    return meta && meta.id() == caors::meta::descriptor_id_of<field_type>() &&
            meta.size() == sizeof(field_type) && meta.alignment() == alignof(field_type);
   }
 
@@ -178,7 +178,7 @@ template <typename Field>
 [[nodiscard]] field_data make_field_data(std::string_view name, std::string_view type_name,
                                          std::size_t offset) {
   using field_type = std::remove_cv_t<Field>;
-  const meta::type_descriptor* descriptor = meta::detail::descriptor_ptr_of<field_type>();
+  const meta::type_descriptor* descriptor = meta::descriptor_of<field_type>();
   type_id field_type_id = descriptor->type;
   if (!type_name.empty()) {
     field_type_id = detail::find_field_type_id<field_type>(type_name);

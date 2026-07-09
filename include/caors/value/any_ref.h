@@ -21,8 +21,8 @@ public:
   /** @brief 从可写 C++ 对象创建引用。 */
   template <typename T> [[nodiscard]] static any_ref from(T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    return from_raw(meta::detail::descriptor_type_id<type>(),
-                    meta::detail::descriptor_ptr_of<type>(), &source, !std::is_const_v<T>);
+    return from_raw(meta::descriptor_id_of<type>(), meta::descriptor_of<type>(), &source,
+                    !std::is_const_v<T>);
   }
 
   /** @brief 从可写 C++ 对象和显式类型名创建引用；类型名必须已经注册并匹配该 C++ 类型。 */
@@ -33,15 +33,13 @@ public:
       return {};
     }
 
-    return from_raw(registered.id(), meta::detail::descriptor_ptr_of<type>(), &source,
-                    !std::is_const_v<T>);
+    return from_raw(registered.id(), meta::descriptor_of<type>(), &source, !std::is_const_v<T>);
   }
 
   /** @brief 从只读 C++ 对象创建引用。 */
   template <typename T> [[nodiscard]] static any_ref from_const(const T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    return from_raw(meta::detail::descriptor_type_id<type>(),
-                    meta::detail::descriptor_ptr_of<type>(), &source, false);
+    return from_raw(meta::descriptor_id_of<type>(), meta::descriptor_of<type>(), &source, false);
   }
 
   /** @brief 从只读 C++ 对象和显式类型名创建引用；类型名必须已经注册并匹配该 C++ 类型。 */
@@ -53,7 +51,7 @@ public:
       return {};
     }
 
-    return from_raw(registered.id(), meta::detail::descriptor_ptr_of<type>(), &source, false);
+    return from_raw(registered.id(), meta::descriptor_of<type>(), &source, false);
   }
 
   [[nodiscard]] bool valid() const noexcept;
@@ -77,8 +75,8 @@ public:
   /** @brief 判断当前引用是否匹配指定 C++ 类型。 */
   template <typename T> [[nodiscard]] bool matches_type() const noexcept {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    return valid() && get_type().id() == meta::detail::type_id_of_cpp_type<type>() &&
-           size() == sizeof(type) && alignment() == alignof(type);
+    return valid() && get_type().id() == meta::descriptor_id_of<type>() && size() == sizeof(type) &&
+           alignment() == alignof(type);
   }
 
   /** @brief 判断两个运行期值是否具有相同 C++ 类型。 */

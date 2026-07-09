@@ -6,7 +6,8 @@
 namespace caors::reflection {
 namespace {
 
-[[nodiscard]] bool same_type_data(meta::type lhs, const meta::detail::type_data& rhs) noexcept {
+[[nodiscard]] bool same_type_data(meta::type lhs,
+                                  const meta::type_registration_data& rhs) noexcept {
   return lhs.id() == rhs.id() && lhs.name() == rhs.name() && lhs.guid() == rhs.guid() &&
          lhs.parent_id() == rhs.parent_id();
 }
@@ -78,7 +79,7 @@ registry& registry::instance() noexcept {
   return registry;
 }
 
-error registry::register_type(const meta::detail::type_data& type,
+error registry::register_type(const meta::type_registration_data& type,
                               const detail::type_data& reflection) {
   if (!type.valid() || !type.id()) {
     return {error_domain::reflection, errc::invalid_type};

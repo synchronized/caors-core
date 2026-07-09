@@ -4,7 +4,6 @@
 #ifndef CAORS_REFLECTION_BUILDER_H_
 #define CAORS_REFLECTION_BUILDER_H_
 
-#include "caors/meta/detail/type_descriptor_model.h"
 #include "caors/reflection/registry.h"
 
 #include <optional>
@@ -23,10 +22,10 @@ namespace caors::reflection {
 template <typename Class> class class_builder {
 public:
   explicit class_builder(std::string_view name, type_id parent_id = type_id::invalid())
-      : type_(meta::detail::make_type_data<Class>(name, parent_id)) {}
+      : type_(meta::make_type_registration_data<Class>(name, parent_id)) {}
 
   class_builder(std::string_view name, type_guid guid, type_id parent_id = type_id::invalid())
-      : type_(meta::detail::make_type_data<Class>(name, guid, parent_id)) {}
+      : type_(meta::make_type_registration_data<Class>(name, guid, parent_id)) {}
 
   explicit class_builder(meta::type type) : existing_type_(type) {
     if (!type.registered()) {
@@ -42,7 +41,7 @@ public:
     }
 
     const meta::type resolved_type = caors::meta::find<field_type>();
-    const meta::type_descriptor* descriptor = meta::detail::descriptor_ptr_of<field_type>();
+    const meta::type_descriptor* descriptor = meta::descriptor_of<field_type>();
     if ((!resolved_type || resolved_type.name().empty()) &&
         (descriptor == nullptr || !descriptor->valid())) {
       pending_status_ = {error_domain::reflection, errc::invalid_field};
@@ -125,7 +124,7 @@ public:
   }
 
 private:
-  meta::detail::type_data type_{};
+  meta::type_registration_data type_{};
   meta::type existing_type_{};
   detail::type_data reflection_{};
   error pending_status_{};

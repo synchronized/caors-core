@@ -51,7 +51,7 @@ namespace {
 
 } // namespace
 
-error registry::register_type(const detail::type_data& type) {
+error registry::register_type(const type_registration_data& type) {
   return register_type_impl(*state_, type);
 }
 
@@ -187,7 +187,7 @@ error registry::set_type_parent(type_id id, type_id parent_id, detail::parent_ca
   return changed ? error{} : error{error_domain::meta, errc::duplicate_id};
 }
 
-error registry::set_type_factory(type_id id, detail::value_factory_ops factory) {
+error registry::set_type_factory(type_id id, value_factory_ops factory) {
   if (!id || !factory.valid()) {
     return {error_domain::meta, errc::invalid_type};
   }

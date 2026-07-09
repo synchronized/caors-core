@@ -46,11 +46,12 @@ template <typename T>
 
 /** @brief 创建对象类型基础元信息。 */
 template <typename T>
-[[nodiscard]] meta::detail::type_data
+[[nodiscard]] meta::type_registration_data
 make_meta_type_data(std::string_view name,
                     object_type_id parent_id = object::static_type_id()) noexcept {
   static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
-  return caors::meta::detail::make_type_data<T>(name, detail::object_type_guid_of<T>(), parent_id);
+  return caors::meta::make_type_registration_data<T>(name, detail::object_type_guid_of<T>(),
+                                                     parent_id);
 }
 
 } // namespace caors::objects::detail
@@ -121,18 +122,18 @@ private:
   registry();
   ~registry();
 
-  [[nodiscard]] error register_type(const meta::detail::type_data& type,
+  [[nodiscard]] error register_type(const meta::type_registration_data& type,
                                     const object_factory_ops* factory);
   template <typename T>
-  [[nodiscard]] error register_type_for(const meta::detail::type_data& type,
+  [[nodiscard]] error register_type_for(const meta::type_registration_data& type,
                                         const object_factory_ops* factory) {
     using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const type_id expected_id = meta::detail::type_id_of_cpp_type<value_type>();
+    const type_id expected_id = meta::descriptor_id_of<value_type>();
     if (type.id() && type.id() != expected_id) {
       return {error_domain::object, errc::invalid_type};
     }
 
-    meta::detail::type_data stored_type = type;
+    meta::type_registration_data stored_type = type;
     if (!stored_type.id()) {
       stored_type.set_id(expected_id);
     }

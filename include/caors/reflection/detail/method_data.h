@@ -6,7 +6,7 @@
 
 #include "caors/core/containers.h"
 #include "caors/meta.h"
-#include "caors/meta/detail/type_descriptor_model.h"
+#include "caors/meta/type_descriptor_model.h"
 #include "caors/value/any_ref.h"
 
 #include <array>
@@ -165,7 +165,7 @@ template <typename Return>
   if constexpr (std::is_void_v<method_value_type<Return>>) {
     return nullptr;
   } else {
-    return meta::detail::descriptor_ptr_of<method_value_type<Return>>();
+    return meta::descriptor_of<method_value_type<Return>>();
   }
 }
 
@@ -173,7 +173,7 @@ template <typename Return> [[nodiscard]] type_id return_type_id() noexcept {
   if constexpr (std::is_void_v<method_value_type<Return>>) {
     return type_id::invalid();
   } else {
-    return meta::detail::descriptor_type_id<method_value_type<Return>>();
+    return meta::descriptor_id_of<method_value_type<Return>>();
   }
 }
 
@@ -184,9 +184,8 @@ template <typename Class, typename Return, typename... Arguments>
       string_name{name},
       return_type_id<Return>(),
       return_descriptor_ptr<Return>(),
-      vector<type_id>{meta::detail::descriptor_type_id<method_value_type<Arguments>>()...},
-      vector<const meta::type_descriptor*>{
-          meta::detail::descriptor_ptr_of<method_value_type<Arguments>>()...},
+      vector<type_id>{meta::descriptor_id_of<method_value_type<Arguments>>()...},
+      vector<const meta::type_descriptor*>{meta::descriptor_of<method_value_type<Arguments>>()...},
       {},
       &invoke_member_method<Class, Return, Arguments...>,
       false,
@@ -202,9 +201,8 @@ template <typename Class, typename Return, typename... Arguments>
       string_name{name},
       return_type_id<Return>(),
       return_descriptor_ptr<Return>(),
-      vector<type_id>{meta::detail::descriptor_type_id<method_value_type<Arguments>>()...},
-      vector<const meta::type_descriptor*>{
-          meta::detail::descriptor_ptr_of<method_value_type<Arguments>>()...},
+      vector<type_id>{meta::descriptor_id_of<method_value_type<Arguments>>()...},
+      vector<const meta::type_descriptor*>{meta::descriptor_of<method_value_type<Arguments>>()...},
       {},
       &invoke_const_member_method<Class, Return, Arguments...>,
       true,

@@ -26,7 +26,7 @@ TEST_CASE("meta type - factory registers custom construction strategy", "[meta]"
                      .factory(&construct_custom_factory_type, &destroy_custom_factory_type);
   CHECK(builder.succeeded());
 
-  const caors::meta::detail::value_factory_ops factory =
+  const caors::meta::value_factory_ops factory =
       caors::meta::get_registry().find_type_factory(builder.get().id());
   REQUIRE(factory.valid());
 
@@ -54,7 +54,7 @@ TEST_CASE("meta type - factory registers resource-aware default construction", "
   const caors::meta::type type = builder.get();
   REQUIRE(type.valid());
 
-  const caors::meta::detail::value_factory_ops factory =
+  const caors::meta::value_factory_ops factory =
       caors::meta::get_registry().find_type_factory(type.id());
   REQUIRE(factory.valid());
 

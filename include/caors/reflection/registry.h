@@ -6,6 +6,7 @@
 
 #include "caors/error.h"
 #include "caors/export.h"
+#include "caors/meta/type_descriptor_model.h"
 #include "caors/reflection/detail/type_data.h"
 #include "caors/reflection/type.h"
 
@@ -49,20 +50,20 @@ private:
   registry();
   ~registry();
 
-  [[nodiscard]] error register_type(const meta::detail::type_data& type,
+  [[nodiscard]] error register_type(const meta::type_registration_data& type,
                                     const detail::type_data& reflection);
   [[nodiscard]] error register_type(type_id id, const detail::type_data& reflection);
   [[nodiscard]] error register_type(meta::type type, const detail::type_data& reflection);
   template <typename T>
-  [[nodiscard]] error register_type_for(const meta::detail::type_data& type,
+  [[nodiscard]] error register_type_for(const meta::type_registration_data& type,
                                         const detail::type_data& reflection) {
     using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const type_id expected_id = meta::detail::type_id_of_cpp_type<value_type>();
+    const type_id expected_id = meta::descriptor_id_of<value_type>();
     if (type.id() && type.id() != expected_id) {
       return {error_domain::reflection, errc::invalid_type};
     }
 
-    meta::detail::type_data stored_type = type;
+    meta::type_registration_data stored_type = type;
     if (!stored_type.id()) {
       stored_type.set_id(expected_id);
     }

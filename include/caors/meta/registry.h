@@ -10,10 +10,10 @@
 #include "caors/meta/component_storage.h"
 #include "caors/meta/detail/component_storage.h"
 #include "caors/meta/detail/parent_cast_ops.h"
-#include "caors/meta/detail/type_descriptor_model.h"
 #include "caors/meta/registration.h"
 #include "caors/meta/type.h"
 #include "caors/meta/type_descriptor.h"
+#include "caors/meta/type_registration.h"
 #include "caors/meta/view.h"
 
 #include <cstddef>
@@ -53,54 +53,17 @@ public:
   registry(const registry&) = delete;
   registry& operator=(const registry&) = delete;
 
-  [[nodiscard]] error register_type(const detail::type_data& type);
+  [[nodiscard]] error register_type(const type_registration_data& type);
   [[nodiscard]] error ensure_type_descriptor(const type_descriptor& descriptor);
   [[nodiscard]] error add_registration(registration_fn fn);
   [[nodiscard]] error run_registrations();
   [[nodiscard]] error freeze();
   [[nodiscard]] bool is_frozen() const noexcept;
 
-  template <typename T> [[nodiscard]] error register_type_for(const detail::type_data& data) {
-    using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const type_id expected_id = detail::type_id_of_cpp_type<value_type>();
-    if ((data.id() && data.id() != expected_id) || !expected_id) {
-      return {error_domain::meta, errc::invalid_type};
-    }
-
-    detail::type_data stored_type = data;
-    if (!stored_type.id()) {
-      stored_type.set_id(expected_id);
-    }
-
-    const error status = register_type(stored_type);
-    if (status && status.value() != errc::duplicate_id) {
-      return status;
-    }
-
-    const error type_info_status = register_cpp_type_info(typeid(value_type), expected_id);
-    if (type_info_status) {
-      return type_info_status;
-    }
-
-    const error descriptor_status = detail::ensure_type_descriptor_for<value_type>();
-    if (descriptor_status) {
-      return descriptor_status;
-    }
-
-    return status;
-  }
+  template <typename T> [[nodiscard]] error register_type_for(const type_registration_data& data);
 
   [[nodiscard]] bool contains(type_id id) const;
-  template <typename T> [[nodiscard]] type find_type() const {
-    using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const type_id id = detail::type_id_of_cpp_type<value_type>();
-    if (!id) {
-      return {};
-    }
-
-    (void)detail::ensure_type_descriptor_for<value_type>();
-    return find_type(id);
-  }
+  template <typename T> [[nodiscard]] type find_type() const;
 
   [[nodiscard]] type find_type(type_id id) const;
   [[nodiscard]] type find_type(type_guid guid) const;
@@ -108,7 +71,7 @@ public:
   [[nodiscard]] type find_type(std::string_view name) const;
   [[nodiscard]] type find_type(string_name name) const;
   [[nodiscard]] const type_descriptor* find_type_descriptor(type_id id) const;
-  [[nodiscard]] detail::value_factory_ops find_type_factory(type_id id) const;
+  [[nodiscard]] value_factory_ops find_type_factory(type_id id) const;
   [[nodiscard]] bool is_a(type_id id, type_id base_id) const;
   [[nodiscard]] const void* upcast(type_id id, type_id base_id, const void* value) const;
   [[nodiscard]] void* upcast(type_id id, type_id base_id, void* value) const;
@@ -256,29 +219,9 @@ private:
   [[nodiscard]] error set_type_guid(type_id id, type_guid guid);
   [[nodiscard]] error set_type_parent(type_id id, type_id parent_id);
   [[nodiscard]] error set_type_parent(type_id id, type_id parent_id, detail::parent_cast_ops cast);
-  [[nodiscard]] error set_type_factory(type_id id, detail::value_factory_ops factory);
+  [[nodiscard]] error set_type_factory(type_id id, value_factory_ops factory);
 
-  template <typename Child, typename Parent> [[nodiscard]] error set_type_parent_for() {
-    using child_type = std::remove_cv_t<std::remove_reference_t<Child>>;
-    using parent_type = std::remove_cv_t<std::remove_reference_t<Parent>>;
-    static_assert(std::is_base_of_v<parent_type, child_type>,
-                  "Parent must be a base class of Child");
-
-    return set_type_parent(
-        detail::type_id_of_cpp_type<child_type>(), detail::type_id_of_cpp_type<parent_type>(),
-        detail::parent_cast_ops{
-            detail::type_id_of_cpp_type<parent_type>(),
-            [](const void* value) noexcept -> const void* {
-              return value != nullptr
-                         ? static_cast<const parent_type*>(static_cast<const child_type*>(value))
-                         : nullptr;
-            },
-            [](void* value) noexcept -> void* {
-              return value != nullptr ? static_cast<parent_type*>(static_cast<child_type*>(value))
-                                      : nullptr;
-            },
-        });
-  }
+  template <typename Child, typename Parent> [[nodiscard]] error set_type_parent_for();
 
   [[nodiscard]] error register_cpp_type_info(const std::type_info& info, type_id id);
 

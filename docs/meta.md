@@ -242,9 +242,12 @@ descriptor 内部按职责拆分：
   serialization codec 函数表。
 
 文件边界上，`meta/type_descriptor.h` 保存公开稳定的 descriptor 结构和查询 helper；
+`meta/type_descriptor_model.h` 提供公开 `descriptor_of<T>()` / `descriptor_id_of<T>()`
+入口，并隔离 descriptor model 实现；
+`meta/type_registration.h` 保存公开注册输入描述 `type_registration_data`；
 `meta/detail/type_descriptor.h` 只保留内部 descriptor 生成和注册桥接声明；
 `meta/detail/type_descriptor_name.h` 负责 descriptor 默认显示名生成；
-`meta/detail/type_descriptor_model.h` 负责 descriptor holder、语义填充和构建入口；
+`meta/detail/type_descriptor_model.h` 负责 descriptor holder、语义填充和构建实现；
 `meta/detail/builtin_ops_model.h` 作为内置能力聚合入口，只负责引入
 `meta/detail/builtin/*.h` 并选择当前类型的内置能力；`builtin/enum_ops.h`、
 `builtin/indirect_ops.h`、`builtin/sequence_ops.h`、`builtin/set_ops.h`、

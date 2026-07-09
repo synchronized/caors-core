@@ -6,7 +6,7 @@
 
 #include "caors/memory/resource.h"
 #include "caors/meta.h"
-#include "caors/meta/detail/type_descriptor_model.h"
+#include "caors/meta/type_descriptor_model.h"
 #include "caors/value/fwd.h"
 
 #include <cstddef>
@@ -56,8 +56,7 @@ public:
   template <typename T> [[nodiscard]] static any from(const T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
     static_assert(std::is_copy_constructible_v<type>, "any requires copy constructible types");
-    return copy_from_raw(meta::detail::descriptor_type_id<type>(),
-                         meta::detail::descriptor_ptr_of<type>(), &source);
+    return copy_from_raw(meta::descriptor_id_of<type>(), meta::descriptor_of<type>(), &source);
   }
 
   /** @brief 从 C++ 值和显式类型名创建运行期值；类型名必须已经注册并匹配该 C++ 类型。 */
@@ -70,7 +69,7 @@ public:
       return {};
     }
 
-    return copy_from_raw(registered.id(), meta::detail::descriptor_ptr_of<type>(), &source);
+    return copy_from_raw(registered.id(), meta::descriptor_of<type>(), &source);
   }
 
   /** @brief 按运行期类型 id 默认构造一个值。不可默认构造类型会返回无效 `any`。 */
@@ -118,8 +117,8 @@ public:
   /** @brief 判断当前值是否匹配指定 C++ 类型。 */
   template <typename T> [[nodiscard]] bool matches_type() const noexcept {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    return valid() && get_type().id() == meta::detail::type_id_of_cpp_type<type>() &&
-           size() == sizeof(type) && alignment() == alignof(type);
+    return valid() && get_type().id() == meta::descriptor_id_of<type>() && size() == sizeof(type) &&
+           alignment() == alignof(type);
   }
 
   /** @brief 判断两个运行期值是否具有相同 C++ 类型。 */

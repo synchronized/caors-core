@@ -24,12 +24,12 @@ struct type_layout {
 
 /** @brief C++ 值的类型擦除操作函数表。 */
 struct value_ops {
-  detail::value_default_construct_fn default_construct = nullptr;
-  detail::value_clone_fn clone = nullptr;
-  detail::value_destroy_fn destroy = nullptr;
-  detail::value_assign_fn assign = nullptr;
-  detail::value_resource_construct_fn resource_construct = nullptr;
-  detail::value_resource_destroy_fn resource_destroy = nullptr;
+  value_default_construct_fn default_construct = nullptr;
+  value_clone_fn clone = nullptr;
+  value_destroy_fn destroy = nullptr;
+  value_assign_fn assign = nullptr;
+  value_resource_construct_fn resource_construct = nullptr;
+  value_resource_destroy_fn resource_destroy = nullptr;
 };
 
 /** @brief C++ 值的编译期特征摘要。 */

@@ -111,7 +111,7 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
                                                             const meta::type_descriptor& descriptor,
                                                             const value::indirect_view& indirect,
                                                             const serialization::context& context) {
-  const meta::detail::value_factory_ops registered_factory =
+  const meta::value_factory_ops registered_factory =
       meta::get_registry().find_type_factory(dynamic_type.id());
   memory::memory_resource* resource = context.effective_memory_resource();
 

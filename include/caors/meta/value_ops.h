@@ -16,8 +16,6 @@ namespace caors::meta {
 
 class type;
 
-namespace detail {
-
 using value_default_construct_fn = void* (*)();
 using value_clone_fn = void* (*)(const void*);
 using value_destroy_fn = void (*)(void*) noexcept;
@@ -34,6 +32,16 @@ struct value_factory_ops {
     return construct != nullptr && destroy != nullptr;
   }
 };
+
+namespace detail {
+
+using meta::value_assign_fn;
+using meta::value_clone_fn;
+using meta::value_default_construct_fn;
+using meta::value_destroy_fn;
+using meta::value_factory_ops;
+using meta::value_resource_construct_fn;
+using meta::value_resource_destroy_fn;
 
 [[nodiscard]] CAORS_API value_default_construct_fn
 get_default_construct_value_fn(const meta::type& type) noexcept;
@@ -242,10 +250,10 @@ template <typename T> [[nodiscard]] value_resource_destroy_fn resource_destroy_f
 } // namespace detail
 
 /** @brief 自定义类型工厂构造函数；可选择使用传入的内存资源。 */
-using type_factory_construct_fn = detail::value_resource_construct_fn;
+using type_factory_construct_fn = value_resource_construct_fn;
 
 /** @brief 自定义类型工厂销毁函数；必须匹配对应构造函数的分配策略。 */
-using type_factory_destroy_fn = detail::value_resource_destroy_fn;
+using type_factory_destroy_fn = value_resource_destroy_fn;
 
 } // namespace caors::meta
 
