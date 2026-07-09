@@ -213,8 +213,11 @@ descriptor 内部按职责拆分：
   serialization codec 函数表。
 
 内部文件边界上，`meta/detail/type_descriptor.h` 只保存 descriptor 结构、查询 helper 和 descriptor
-holder；`meta/detail/builtin_ops_model.h` 负责内置能力的 `*_ops_model<T>` 生成；`meta/type_semantics.h`
-只保留类型语义判断 helper。
+holder；`meta/detail/builtin_ops_model.h` 作为内置能力聚合入口，只负责引入各个
+`builtin_type_*.h` 并选择当前类型的内置能力；`builtin_type_enum.h`、`builtin_type_indirect.h`、
+`builtin_type_sequence.h`、`builtin_type_set.h`、`builtin_type_associative.h`、`builtin_type_pair.h`、
+`builtin_type_tuple.h` 和 `builtin_type_variant.h` 分别负责对应能力的 `*_ops_model<T>` 生成；
+`meta/type_semantics.h` 只保留类型语义判断 helper。
 
 术语约定：
 
