@@ -107,9 +107,10 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
   memory::destroy(context, context->allocation_resource);
 }
 
-[[nodiscard]] constructed_value construct_polymorphic_value(
-    const meta::type& dynamic_type, const meta::detail::type_descriptor& descriptor,
-    const value::indirect_view& indirect, const serialization::context& context) {
+[[nodiscard]] constructed_value construct_polymorphic_value(const meta::type& dynamic_type,
+                                                            const meta::type_descriptor& descriptor,
+                                                            const value::indirect_view& indirect,
+                                                            const serialization::context& context) {
   const meta::detail::value_factory_ops registered_factory =
       meta::get_registry().find_type_factory(dynamic_type.id());
   memory::memory_resource* resource = context.effective_memory_resource();
@@ -218,18 +219,17 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
          field.kind() == meta::type_kind::tuple || field.kind() == meta::type_kind::variant;
 }
 
-[[nodiscard]] const meta::detail::type_descriptor*
-descriptor_of_value(const any_ref& value) noexcept {
+[[nodiscard]] const meta::type_descriptor* descriptor_of_value(const any_ref& value) noexcept {
   return caors::value::detail::descriptor_of(value);
 }
 
 [[nodiscard]] const meta::detail::enum_ops* enum_ops(const any_ref& value) noexcept {
-  const caors::meta::detail::type_descriptor* descriptor = descriptor_of_value(value);
+  const caors::meta::type_descriptor* descriptor = descriptor_of_value(value);
   return meta::detail::descriptor_capability<meta::detail::enum_ops>(descriptor);
 }
 
 [[nodiscard]] bool type_uses_inline_indirect_value(const any_ref& value) noexcept {
-  const meta::detail::type_descriptor* descriptor = descriptor_of_value(value);
+  const meta::type_descriptor* descriptor = descriptor_of_value(value);
   return descriptor != nullptr &&
          (meta::detail::descriptor_kind(*descriptor) == meta::type_kind::raw_pointer ||
           meta::detail::descriptor_kind(*descriptor) == meta::type_kind::wrapper) &&
@@ -238,7 +238,7 @@ descriptor_of_value(const any_ref& value) noexcept {
 }
 
 [[nodiscard]] bool type_is_enumeration(const any_ref& value) noexcept {
-  const meta::detail::type_descriptor* descriptor = descriptor_of_value(value);
+  const meta::type_descriptor* descriptor = descriptor_of_value(value);
   return descriptor != nullptr &&
          meta::detail::descriptor_kind(*descriptor) == meta::type_kind::enumeration;
 }
@@ -510,7 +510,7 @@ descriptor_of_value(const any_ref& value) noexcept {
 }
 
 [[nodiscard]] variant_result make_enum_value(const any_ref& value) {
-  const meta::detail::type_descriptor* descriptor = descriptor_of_value(value);
+  const meta::type_descriptor* descriptor = descriptor_of_value(value);
   const meta::detail::enum_ops* data = enum_ops(value);
   if (descriptor == nullptr ||
       meta::detail::descriptor_kind(*descriptor) != meta::type_kind::enumeration ||
@@ -534,7 +534,7 @@ descriptor_of_value(const any_ref& value) noexcept {
 }
 
 [[nodiscard]] error write_enum_value(writer& writer, const any_ref& value) {
-  const meta::detail::type_descriptor* descriptor = descriptor_of_value(value);
+  const meta::type_descriptor* descriptor = descriptor_of_value(value);
   const meta::detail::enum_ops* data = enum_ops(value);
   if (descriptor == nullptr ||
       meta::detail::descriptor_kind(*descriptor) != meta::type_kind::enumeration ||
@@ -558,7 +558,7 @@ descriptor_of_value(const any_ref& value) noexcept {
 }
 
 [[nodiscard]] error read_enum_value(reader& reader, const any_ref& target) {
-  const meta::detail::type_descriptor* descriptor = descriptor_of_value(target);
+  const meta::type_descriptor* descriptor = descriptor_of_value(target);
   const meta::detail::enum_ops* data = enum_ops(target);
   if (descriptor == nullptr ||
       meta::detail::descriptor_kind(*descriptor) != meta::type_kind::enumeration ||
@@ -661,7 +661,7 @@ make_polymorphic_indirect_value(const value::indirect_view& indirect,
     return {error_domain::serialization, errc::not_found};
   }
 
-  const meta::detail::type_descriptor* descriptor =
+  const meta::type_descriptor* descriptor =
       meta::get_registry().find_type_descriptor(dynamic_type.value.id());
   if (descriptor == nullptr) {
     return {error_domain::serialization, errc::unsupported};

@@ -8,23 +8,23 @@
 namespace caors::serialization::detail {
 
 [[nodiscard]] const meta::detail::sequence_ops* sequence_ops_of(const any_ref& target) noexcept {
-  const meta::detail::type_descriptor* descriptor = value::detail::descriptor_of(target);
+  const meta::type_descriptor* descriptor = value::detail::descriptor_of(target);
   return meta::detail::descriptor_capability<meta::detail::sequence_ops>(descriptor);
 }
 
 [[nodiscard]] const meta::detail::set_ops* set_ops_of(const any_ref& target) noexcept {
-  const meta::detail::type_descriptor* descriptor = value::detail::descriptor_of(target);
+  const meta::type_descriptor* descriptor = value::detail::descriptor_of(target);
   return meta::detail::descriptor_capability<meta::detail::set_ops>(descriptor);
 }
 
 [[nodiscard]] const meta::detail::associative_ops*
 associative_ops_of(const any_ref& target) noexcept {
-  const meta::detail::type_descriptor* descriptor = value::detail::descriptor_of(target);
+  const meta::type_descriptor* descriptor = value::detail::descriptor_of(target);
   return meta::detail::descriptor_capability<meta::detail::associative_ops>(descriptor);
 }
 
 [[nodiscard]] meta::detail::value_assign_fn assign_fn_of(const any_ref& target) noexcept {
-  const meta::detail::type_descriptor* descriptor = value::detail::descriptor_of(target);
+  const meta::type_descriptor* descriptor = value::detail::descriptor_of(target);
   if (descriptor != nullptr && descriptor->ops.assign != nullptr) {
     return descriptor->ops.assign;
   }
@@ -135,7 +135,7 @@ associative_ops_of(const any_ref& target) noexcept {
       return status;
     }
 
-    const meta::detail::type_descriptor* value_descriptor =
+    const meta::type_descriptor* value_descriptor =
         set != nullptr ? set->value_descriptor : nullptr;
     any element = default_construct_value(view.get_value_type().id(), value_descriptor, context);
     if (!element.valid()) {
@@ -206,9 +206,9 @@ associative_ops_of(const any_ref& target) noexcept {
       return status;
     }
 
-    const meta::detail::type_descriptor* key_descriptor =
+    const meta::type_descriptor* key_descriptor =
         associative != nullptr ? associative->key_descriptor : nullptr;
-    const meta::detail::type_descriptor* value_descriptor =
+    const meta::type_descriptor* value_descriptor =
         associative != nullptr ? associative->value_descriptor : nullptr;
     any key = default_construct_value(view.get_key_type().id(), key_descriptor, context);
     any value = default_construct_value(view.get_value_type().id(), value_descriptor, context);

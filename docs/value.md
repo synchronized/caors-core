@@ -121,7 +121,7 @@ caors::any value = caors::any::from(7);
 - `tuple_view`：访问 tuple-like 类型。
 - `variant_view`：访问 variant-like 类型。
 
-这些 view 通过 `meta::detail::type_descriptor` 保存的类型能力工作，不要求容器类型本身一定注册到全局 meta
+这些 view 通过 `meta::type_descriptor` 保存的类型能力工作，不要求容器类型本身一定注册到全局 meta
 registry。`get_*_type()` 系列接口返回 descriptor-backed `meta::type`；调用方需要 `type_id` 或名称时，
 直接读取返回视图的 `id()` / `name()`。需要稳定名称、GUID、反射字段、序列化策略或多态构造的业务类型仍应显式注册。
 

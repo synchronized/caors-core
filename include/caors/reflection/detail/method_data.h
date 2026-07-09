@@ -36,9 +36,9 @@ struct method_data {
 
   string_name name{};
   type_id return_type{};
-  const meta::detail::type_descriptor* return_descriptor = nullptr;
+  const meta::type_descriptor* return_descriptor = nullptr;
   vector<type_id> parameter_types{};
-  vector<const meta::detail::type_descriptor*> parameter_descriptors{};
+  vector<const meta::type_descriptor*> parameter_descriptors{};
   alignas(std::max_align_t) std::array<std::byte, storage_size> storage{};
   method_invoke_fn invoke = nullptr;
   bool const_method = false;
@@ -161,7 +161,7 @@ template <typename Class, typename Return, typename... Arguments>
 }
 
 template <typename Return>
-[[nodiscard]] const meta::detail::type_descriptor* return_descriptor_ptr() noexcept {
+[[nodiscard]] const meta::type_descriptor* return_descriptor_ptr() noexcept {
   if constexpr (std::is_void_v<method_value_type<Return>>) {
     return nullptr;
   } else {
@@ -185,7 +185,7 @@ template <typename Class, typename Return, typename... Arguments>
       return_type_id<Return>(),
       return_descriptor_ptr<Return>(),
       vector<type_id>{meta::detail::descriptor_type_id<method_value_type<Arguments>>()...},
-      vector<const meta::detail::type_descriptor*>{
+      vector<const meta::type_descriptor*>{
           meta::detail::descriptor_ptr_of<method_value_type<Arguments>>()...},
       {},
       &invoke_member_method<Class, Return, Arguments...>,
@@ -203,7 +203,7 @@ template <typename Class, typename Return, typename... Arguments>
       return_type_id<Return>(),
       return_descriptor_ptr<Return>(),
       vector<type_id>{meta::detail::descriptor_type_id<method_value_type<Arguments>>()...},
-      vector<const meta::detail::type_descriptor*>{
+      vector<const meta::type_descriptor*>{
           meta::detail::descriptor_ptr_of<method_value_type<Arguments>>()...},
       {},
       &invoke_const_member_method<Class, Return, Arguments...>,

@@ -23,8 +23,7 @@ enum class descriptor_enum : int {
 };
 
 template <typename Capability, typename T> [[nodiscard]] const Capability* capability_of() {
-  const caors::meta::detail::type_descriptor* descriptor =
-      caors::meta::detail::descriptor_ptr_of<T>();
+  const caors::meta::type_descriptor* descriptor = caors::meta::detail::descriptor_ptr_of<T>();
   REQUIRE(descriptor != nullptr);
   REQUIRE(descriptor->valid());
   return caors::meta::detail::descriptor_capability<Capability>(*descriptor);

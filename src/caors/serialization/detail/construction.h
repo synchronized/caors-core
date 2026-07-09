@@ -11,7 +11,7 @@ namespace caors::serialization::detail {
 
 /** @brief 按 descriptor 和序列化上下文默认构造临时运行期值。 */
 [[nodiscard]] inline any default_construct_value(type_id type,
-                                                 const meta::detail::type_descriptor* descriptor,
+                                                 const meta::type_descriptor* descriptor,
                                                  const serialization::context& context) {
   memory::memory_resource* resource = context.effective_memory_resource();
   any decoded = value::detail::default_construct(type, descriptor, resource);

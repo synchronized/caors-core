@@ -633,12 +633,12 @@ if (player* current = manager.find(target)) {
 type descriptor 静态能力为主；未命中时才回退到基础标量探测。
 这样 `guid`、`type_guid` 这类语义上是
 原子值的类型，不需要暴露内部字段结构。容器、pair、tuple、variant、裸指针和普通 wrapper 字段优先通过
-`meta::detail::type_descriptor` 生成的视图递归处理内部值，因此这类字段通常不需要显式注册
+`meta::type_descriptor` 生成的视图递归处理内部值，因此这类字段通常不需要显式注册
 `serialization::codec_traits<T>`。
 
 codec 和 meta descriptor 的边界：
 
-- `meta::detail::type_descriptor` 描述 C++ 值本身的基础能力，例如布局、构造、销毁、枚举、容器和 wrapper
+- `meta::type_descriptor` 描述 C++ 值本身的基础能力，例如布局、构造、销毁、枚举、容器和 wrapper
   访问。
 - `serialization::detail::codec_ops` 描述序列化专用能力，例如写入 writer、从 reader 读回和构造
   `variant` 中间值。它作为 serialization 模块静态能力挂到 descriptor 静态表中。

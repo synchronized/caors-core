@@ -38,12 +38,11 @@ private:
   friend class any;
   friend class any_ref;
 
-  tuple_view(const meta::detail::type_descriptor* descriptor, const void* storage,
-             bool writable) noexcept;
+  tuple_view(const meta::type_descriptor* descriptor, const void* storage, bool writable) noexcept;
 
   [[nodiscard]] const meta::detail::tuple_ops* data() const noexcept;
 
-  const meta::detail::type_descriptor* descriptor_ = nullptr;
+  const meta::type_descriptor* descriptor_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };

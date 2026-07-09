@@ -14,12 +14,11 @@ namespace caors::value {
 namespace {
 
 template <typename Capability>
-[[nodiscard]] bool has_capability(const meta::detail::type_descriptor* descriptor) noexcept {
+[[nodiscard]] bool has_capability(const meta::type_descriptor* descriptor) noexcept {
   return meta::detail::descriptor_capability<Capability>(descriptor) != nullptr;
 }
 
-[[nodiscard]] bool
-has_indirect_capability(const meta::detail::type_descriptor* descriptor) noexcept {
+[[nodiscard]] bool has_indirect_capability(const meta::type_descriptor* descriptor) noexcept {
   const meta::detail::indirect_ops* indirect =
       meta::detail::descriptor_capability<meta::detail::indirect_ops>(descriptor);
   return descriptor != nullptr && meta::detail::descriptor_indirect(*descriptor) &&
@@ -27,15 +26,15 @@ has_indirect_capability(const meta::detail::type_descriptor* descriptor) noexcep
 }
 
 [[nodiscard]] meta::type type_view_of(type_id id,
-                                      const meta::detail::type_descriptor* descriptor) noexcept {
+                                      const meta::type_descriptor* descriptor) noexcept {
   return meta::detail::make_type_view(id, descriptor);
 }
 
-[[nodiscard]] type_id descriptor_type_id(const meta::detail::type_descriptor* descriptor) noexcept {
+[[nodiscard]] type_id descriptor_type_id(const meta::type_descriptor* descriptor) noexcept {
   return descriptor != nullptr ? descriptor->type : type_id{};
 }
 
-[[nodiscard]] meta::type type_view_of(const meta::detail::type_descriptor* descriptor) noexcept {
+[[nodiscard]] meta::type type_view_of(const meta::type_descriptor* descriptor) noexcept {
   return type_view_of(descriptor_type_id(descriptor), descriptor);
 }
 
@@ -106,7 +105,7 @@ meta::type indirect_view::get_dynamic_value_type() const noexcept {
   const type_id dynamic_type = !valid() || info == nullptr || info->dynamic_type == nullptr
                                    ? declared_type
                                    : info->dynamic_type(storage_);
-  const meta::detail::type_descriptor* descriptor =
+  const meta::type_descriptor* descriptor =
       caors::meta::get_registry().find_type_descriptor(dynamic_type);
   if (descriptor == nullptr && dynamic_type == declared_type && info != nullptr) {
     descriptor = info->value_descriptor;
@@ -141,7 +140,7 @@ any_ref indirect_view::dynamic_value_ref() const {
     return {};
   }
 
-  const meta::detail::type_descriptor* descriptor =
+  const meta::type_descriptor* descriptor =
       caors::meta::get_registry().find_type_descriptor(dynamic_type);
   if (descriptor == nullptr) {
     descriptor = dynamic_type == get_value_type().id() ? info->value_descriptor : nullptr;
@@ -210,7 +209,7 @@ bool indirect_view::ensure_value(memory::memory_resource* resource) const {
   return info->ensure_value(const_cast<void*>(storage_), resource);
 }
 
-indirect_view::indirect_view(const meta::detail::type_descriptor* descriptor, const void* storage,
+indirect_view::indirect_view(const meta::type_descriptor* descriptor, const void* storage,
                              bool writable) noexcept
     : descriptor_(descriptor), storage_(storage), writable_(writable) {}
 
@@ -303,7 +302,7 @@ bool pair_view::set_second(const any& value) const {
   return target.valid() && target.try_set(value);
 }
 
-pair_view::pair_view(const meta::detail::type_descriptor* descriptor, const void* storage,
+pair_view::pair_view(const meta::type_descriptor* descriptor, const void* storage,
                      bool writable) noexcept
     : descriptor_(descriptor), storage_(storage), writable_(writable) {}
 
@@ -371,7 +370,7 @@ bool tuple_view::set_element(std::size_t index, const any& value) const {
   return target.valid() && target.try_set(value);
 }
 
-tuple_view::tuple_view(const meta::detail::type_descriptor* descriptor, const void* storage,
+tuple_view::tuple_view(const meta::type_descriptor* descriptor, const void* storage,
                        bool writable) noexcept
     : descriptor_(descriptor), storage_(storage), writable_(writable) {}
 
@@ -485,7 +484,7 @@ bool variant_view::set_value(const any& value) const {
   return target.valid() && target.try_set(value);
 }
 
-variant_view::variant_view(const meta::detail::type_descriptor* descriptor, const void* storage,
+variant_view::variant_view(const meta::type_descriptor* descriptor, const void* storage,
                            bool writable) noexcept
     : descriptor_(descriptor), storage_(storage), writable_(writable) {}
 
@@ -601,7 +600,7 @@ bool sequence_view::append_value(const any& value) const {
   return info->append(const_cast<void*>(storage_), value.data());
 }
 
-sequence_view::sequence_view(const meta::detail::type_descriptor* descriptor, const void* storage,
+sequence_view::sequence_view(const meta::type_descriptor* descriptor, const void* storage,
                              bool writable) noexcept
     : descriptor_(descriptor), storage_(storage), writable_(writable) {}
 
@@ -782,7 +781,7 @@ bool set_view::insert_value(const any& value) const {
   return info->insert(const_cast<void*>(storage_), value.data());
 }
 
-set_view::set_view(const meta::detail::type_descriptor* descriptor, const void* storage,
+set_view::set_view(const meta::type_descriptor* descriptor, const void* storage,
                    bool writable) noexcept
     : descriptor_(descriptor), storage_(storage), writable_(writable) {}
 
@@ -982,8 +981,8 @@ bool associative_view::insert_value(const any& key, const any& mapped) const {
   return info->insert(const_cast<void*>(storage_), key.data(), mapped.data());
 }
 
-associative_view::associative_view(const meta::detail::type_descriptor* descriptor,
-                                   const void* storage, bool writable) noexcept
+associative_view::associative_view(const meta::type_descriptor* descriptor, const void* storage,
+                                   bool writable) noexcept
     : descriptor_(descriptor), storage_(storage), writable_(writable) {}
 
 bool associative_view::has_iterator_support() const noexcept {

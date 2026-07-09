@@ -39,14 +39,14 @@ any& any::operator=(any&& other) noexcept {
 
 any any::default_construct(type_id type) {
   const meta::type meta = caors::meta::find(type);
-  const meta::detail::type_descriptor* descriptor =
+  const meta::type_descriptor* descriptor =
       meta ? caors::meta::get_registry().find_type_descriptor(meta.id()) : nullptr;
   return meta.valid() ? detail::default_construct(type, descriptor) : any{};
 }
 
 any any::default_construct(type_id type, memory::memory_resource* resource) {
   const meta::type meta = caors::meta::find(type);
-  const meta::detail::type_descriptor* descriptor =
+  const meta::type_descriptor* descriptor =
       meta ? caors::meta::get_registry().find_type_descriptor(meta.id()) : nullptr;
   return meta.valid() ? detail::default_construct(type, descriptor, resource) : any{};
 }
@@ -118,8 +118,7 @@ bool any::try_set(const any& source) {
   return assign(data_, source.data_);
 }
 
-any any::copy_from_raw(type_id type, const meta::detail::type_descriptor* descriptor,
-                       const void* source) {
+any any::copy_from_raw(type_id type, const meta::type_descriptor* descriptor, const void* source) {
   if (descriptor == nullptr || descriptor->type != type) {
     return {};
   }
@@ -181,14 +180,14 @@ void any::move_from(any& other) noexcept {
   other.mode_ = storage_mode::empty;
 }
 
-bool any::can_store_inline(const meta::detail::type_descriptor* descriptor) noexcept {
+bool any::can_store_inline(const meta::type_descriptor* descriptor) noexcept {
   return descriptor != nullptr && descriptor->valid() &&
          descriptor->layout.size <= inline_storage_size &&
          descriptor->layout.alignment <= inline_storage_alignment &&
          descriptor->traits.trivially_copyable && descriptor->traits.trivially_destructible;
 }
 
-bool any::can_default_construct_inline(const meta::detail::type_descriptor* descriptor) noexcept {
+bool any::can_default_construct_inline(const meta::type_descriptor* descriptor) noexcept {
   return can_store_inline(descriptor) && descriptor->traits.trivially_default_constructible;
 }
 
@@ -251,8 +250,8 @@ bool any_ref::try_set(const any_ref& source) const {
 
 any any_ref::to_any() const { return any::copy_from_raw(get_type().id(), descriptor_, data_); }
 
-any_ref any_ref::from_raw(type_id type, const meta::detail::type_descriptor* descriptor,
-                          const void* data, bool writable) noexcept {
+any_ref any_ref::from_raw(type_id type, const meta::type_descriptor* descriptor, const void* data,
+                          bool writable) noexcept {
   if (data == nullptr || descriptor == nullptr || descriptor->type != type) {
     return {};
   }
@@ -266,19 +265,17 @@ any_ref any_ref::from_raw(type_id type, const meta::detail::type_descriptor* des
 
 namespace detail {
 
-const meta::detail::type_descriptor* descriptor_of(const any& value) noexcept {
+const meta::type_descriptor* descriptor_of(const any& value) noexcept { return value.descriptor_; }
+
+const meta::type_descriptor* descriptor_of(const any_ref& value) noexcept {
   return value.descriptor_;
 }
 
-const meta::detail::type_descriptor* descriptor_of(const any_ref& value) noexcept {
-  return value.descriptor_;
-}
-
-any default_construct(type_id type, const meta::detail::type_descriptor* descriptor) {
+any default_construct(type_id type, const meta::type_descriptor* descriptor) {
   return default_construct(type, descriptor, nullptr);
 }
 
-any default_construct(type_id type, const meta::detail::type_descriptor* descriptor,
+any default_construct(type_id type, const meta::type_descriptor* descriptor,
                       memory::memory_resource* resource) {
   if (descriptor == nullptr || descriptor->type != type ||
       descriptor->ops.default_construct == nullptr || descriptor->ops.destroy == nullptr) {

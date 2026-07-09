@@ -12,9 +12,12 @@
 #include <iterator>
 #include <optional>
 
-namespace caors::meta::detail {
+namespace caors::meta {
 
 struct type_descriptor;
+
+namespace detail {
+
 struct indirect_ops;
 struct sequence_ops;
 struct set_ops;
@@ -23,7 +26,9 @@ struct pair_ops;
 struct tuple_ops;
 struct variant_ops;
 
-} // namespace caors::meta::detail
+} // namespace detail
+
+} // namespace caors::meta
 
 namespace caors::memory {
 

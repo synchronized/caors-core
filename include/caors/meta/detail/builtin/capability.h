@@ -8,9 +8,11 @@
 
 #include <variant>
 
-namespace caors::meta::detail {
+namespace caors::meta {
 
 struct type_descriptor;
+
+namespace detail {
 struct enum_ops;
 struct indirect_ops;
 struct sequence_ops;
@@ -20,7 +22,7 @@ struct pair_ops;
 struct tuple_ops;
 struct variant_ops;
 
-template <typename T> [[nodiscard]] const type_descriptor* descriptor_ptr_of() noexcept;
+template <typename T> [[nodiscard]] const meta::type_descriptor* descriptor_ptr_of() noexcept;
 template <typename T> [[nodiscard]] type_id descriptor_type_id() noexcept;
 
 /** @brief 类型的内置互斥运行期能力。 */
@@ -29,6 +31,8 @@ using builtin_type_capability =
                  const set_ops*, const associative_ops*, const pair_ops*, const tuple_ops*,
                  const variant_ops*>;
 
-} // namespace caors::meta::detail
+} // namespace detail
+
+} // namespace caors::meta
 
 #endif

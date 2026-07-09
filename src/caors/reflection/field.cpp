@@ -17,21 +17,21 @@ namespace {
   return meta::detail::make_type_view(field->type, field->descriptor);
 }
 
-[[nodiscard]] const meta::detail::type_descriptor*
+[[nodiscard]] const meta::type_descriptor*
 field_descriptor(const detail::field_data* field) noexcept {
   return field != nullptr && field->type ? field->descriptor : nullptr;
 }
 
-[[nodiscard]] type_id field_value_type(const meta::detail::type_descriptor* descriptor) noexcept {
+[[nodiscard]] type_id field_value_type(const meta::type_descriptor* descriptor) noexcept {
   return descriptor != nullptr ? meta::detail::descriptor_value_type(*descriptor) : type_id{};
 }
 
-[[nodiscard]] type_id field_key_type(const meta::detail::type_descriptor* descriptor) noexcept {
+[[nodiscard]] type_id field_key_type(const meta::type_descriptor* descriptor) noexcept {
   return descriptor != nullptr ? meta::detail::descriptor_key_type(*descriptor) : type_id{};
 }
 
-[[nodiscard]] const meta::detail::type_descriptor*
-field_value_descriptor(const meta::detail::type_descriptor* descriptor) noexcept {
+[[nodiscard]] const meta::type_descriptor*
+field_value_descriptor(const meta::type_descriptor* descriptor) noexcept {
   if (descriptor == nullptr) {
     return nullptr;
   }
@@ -72,8 +72,8 @@ field_value_descriptor(const meta::detail::type_descriptor* descriptor) noexcept
   return nullptr;
 }
 
-[[nodiscard]] const meta::detail::type_descriptor*
-field_key_descriptor(const meta::detail::type_descriptor* descriptor) noexcept {
+[[nodiscard]] const meta::type_descriptor*
+field_key_descriptor(const meta::type_descriptor* descriptor) noexcept {
   if (descriptor == nullptr) {
     return nullptr;
   }
@@ -119,7 +119,7 @@ core::string_name field::name() const noexcept {
 meta::type field::get_type() const noexcept { return field_meta(info()); }
 
 meta::type field::get_value_type() const noexcept {
-  const meta::detail::type_descriptor* descriptor = field_descriptor(info());
+  const meta::type_descriptor* descriptor = field_descriptor(info());
   return meta::detail::make_type_view(field_value_type(descriptor),
                                       field_value_descriptor(descriptor));
 }
@@ -127,7 +127,7 @@ meta::type field::get_value_type() const noexcept {
 meta::type field::get_element_type() const noexcept { return get_value_type(); }
 
 meta::type field::get_key_type() const noexcept {
-  const meta::detail::type_descriptor* descriptor = field_descriptor(info());
+  const meta::type_descriptor* descriptor = field_descriptor(info());
   return meta::detail::make_type_view(field_key_type(descriptor), field_key_descriptor(descriptor));
 }
 
@@ -138,24 +138,24 @@ meta::type field::get_mapped_type() const noexcept { return get_value_type(); }
 meta::type field::get_second_type() const noexcept { return get_value_type(); }
 
 meta::type_kind field::kind() const noexcept {
-  const meta::detail::type_descriptor* descriptor = field_descriptor(info());
+  const meta::type_descriptor* descriptor = field_descriptor(info());
   return descriptor != nullptr ? meta::detail::descriptor_kind(*descriptor)
                                : meta::type_kind::value;
 }
 
 meta::wrapper_semantics field::wrapper_semantics() const noexcept {
-  const meta::detail::type_descriptor* descriptor = field_descriptor(info());
+  const meta::type_descriptor* descriptor = field_descriptor(info());
   return descriptor != nullptr ? meta::detail::descriptor_wrapper_semantics(*descriptor)
                                : meta::wrapper_semantics::none;
 }
 
 bool field::indirect() const noexcept {
-  const meta::detail::type_descriptor* descriptor = field_descriptor(info());
+  const meta::type_descriptor* descriptor = field_descriptor(info());
   return descriptor != nullptr && meta::detail::descriptor_indirect(*descriptor);
 }
 
 bool field::nullable() const noexcept {
-  const meta::detail::type_descriptor* descriptor = field_descriptor(info());
+  const meta::type_descriptor* descriptor = field_descriptor(info());
   return descriptor != nullptr && meta::detail::descriptor_nullable(*descriptor);
 }
 

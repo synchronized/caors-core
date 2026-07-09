@@ -6,5 +6,6 @@
 
 #include "caors/meta/capability.h"
 #include "caors/meta/registry.h"
+#include "caors/meta/type_descriptor.h"
 
 #endif

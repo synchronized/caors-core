@@ -30,8 +30,7 @@ variant_result make_serialized_value(const any& data) {
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
-  const caors::meta::detail::type_descriptor* descriptor =
-      caors::value::detail::descriptor_of(data);
+  const caors::meta::type_descriptor* descriptor = caors::value::detail::descriptor_of(data);
   if (descriptor != nullptr) {
     const meta::type_kind kind = meta::detail::descriptor_kind(*descriptor);
     const any_ref ref = data.ref();

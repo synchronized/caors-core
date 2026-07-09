@@ -42,7 +42,7 @@ public:
     }
 
     const meta::type resolved_type = caors::meta::find<field_type>();
-    const meta::detail::type_descriptor* descriptor = meta::detail::descriptor_ptr_of<field_type>();
+    const meta::type_descriptor* descriptor = meta::detail::descriptor_ptr_of<field_type>();
     if ((!resolved_type || resolved_type.name().empty()) &&
         (descriptor == nullptr || !descriptor->valid())) {
       pending_status_ = {error_domain::reflection, errc::invalid_field};

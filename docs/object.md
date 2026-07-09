@@ -42,7 +42,7 @@ CAORS 对象系统第一阶段只解决几件事：
 `caors::object_manager`。新代码在对象模块内部实现和低频辅助类型上优先使用 `caors::objects::*`。
 
 `objects::ptr<T>`、`objects::handle` 和 `objects::typed_handle<T>` 的运行期读写函数表作为
-`meta::capabilities` 模块静态能力声明，并保存到 `meta::detail::type_descriptor`
+`meta::capabilities` 模块静态能力声明，并保存到 `meta::type_descriptor`
 的静态能力表中。拿得到 C++ 类型时可直接查询静态能力；拿到 `any_ref` 时，对象模块会从
 `any_ref` 携带的 descriptor 查询对应能力。
 
@@ -107,7 +107,7 @@ meta 类型信息由全局 `meta::registry` 内部保存，并通过 `meta::type
 - `parent_id`
 
 其中名称、GUID 和父类型属于 meta 类型记录；大小、对齐和默认值操作函数来自同一 `type_id`
-挂载的内部 `meta::detail::type_descriptor`。对象模块只通过 `meta::type` 查询这些信息，不直接暴露
+挂载的内部 `meta::type_descriptor`。对象模块只通过 `meta::type` 查询这些信息，不直接暴露
 descriptor。
 
 `object_type_id` 是 `type_id` 在对象系统里的别名。它由 C++ 对象类型的运行期 key 派生，不由对象类型名派生：

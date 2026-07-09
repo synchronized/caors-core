@@ -139,13 +139,12 @@ private:
   friend class tuple_view;
   friend class variant_view;
   friend struct reflection::detail::field_data;
-  friend const meta::detail::type_descriptor* detail::descriptor_of(const any_ref& value) noexcept;
+  friend const meta::type_descriptor* detail::descriptor_of(const any_ref& value) noexcept;
 
-  [[nodiscard]] static any_ref from_raw(type_id type,
-                                        const meta::detail::type_descriptor* descriptor,
+  [[nodiscard]] static any_ref from_raw(type_id type, const meta::type_descriptor* descriptor,
                                         const void* data, bool writable) noexcept;
 
-  const meta::detail::type_descriptor* descriptor_ = nullptr;
+  const meta::type_descriptor* descriptor_ = nullptr;
   const void* data_ = nullptr;
   bool writable_ = false;
 };

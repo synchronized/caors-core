@@ -16,7 +16,7 @@ bool registry::contains(type_id id) const {
 type registry::find_type(type_id id) const {
   std::lock_guard lock(state_->mutex);
   const detail::type_data* type_data = detail::find_type_data(*state_, id);
-  const detail::type_descriptor* descriptor = detail::find_type_descriptor(*state_, id);
+  const type_descriptor* descriptor = detail::find_type_descriptor(*state_, id);
   if (type_data == nullptr && descriptor == nullptr) {
     return {};
   }
@@ -82,7 +82,7 @@ type registry::find_type(core::string_name name) const {
   return type{this, type_data, detail::find_type_descriptor(*state_, type_data->id())};
 }
 
-const detail::type_descriptor* registry::find_type_descriptor(type_id id) const {
+const type_descriptor* registry::find_type_descriptor(type_id id) const {
   std::lock_guard lock(state_->mutex);
   return detail::find_type_descriptor(*state_, id);
 }

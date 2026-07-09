@@ -660,7 +660,7 @@ auto reflected = caors::reflection::find("game.actor");
 - `any`：运行期 C++ 类型值拷贝。
 - `any_ref`：运行期 C++ 类型非拥有引用。
 - `sequence_view` / `set_view` / `associative_view` / `pair_view` / `tuple_view` / `variant_view`：容器、二元组、tuple-like 和 variant-like 类型的运行期视图。
-- `meta::detail::type_descriptor`：字段声明类型的布局、值操作、类型语义和固定运行期能力集合。
+- `meta::type_descriptor`：字段声明类型的布局、值操作、类型语义和固定运行期能力集合。
 - `reflection::type` / `reflection::field` / `reflection::method`：全局反射数据的推荐查询入口。
 - `reflection::registry`：全局反射注册表 facade。
 - `reflection::class_<T>()`：RTTR 风格链式注册入口。

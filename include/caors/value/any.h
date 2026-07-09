@@ -23,10 +23,10 @@ namespace caors::value {
 
 namespace detail {
 
-[[nodiscard]] const meta::detail::type_descriptor* descriptor_of(const any& value) noexcept;
-[[nodiscard]] const meta::detail::type_descriptor* descriptor_of(const any_ref& value) noexcept;
-[[nodiscard]] any default_construct(type_id type, const meta::detail::type_descriptor* descriptor);
-[[nodiscard]] any default_construct(type_id type, const meta::detail::type_descriptor* descriptor,
+[[nodiscard]] const meta::type_descriptor* descriptor_of(const any& value) noexcept;
+[[nodiscard]] const meta::type_descriptor* descriptor_of(const any_ref& value) noexcept;
+[[nodiscard]] any default_construct(type_id type, const meta::type_descriptor* descriptor);
+[[nodiscard]] any default_construct(type_id type, const meta::type_descriptor* descriptor,
                                     memory::memory_resource* resource);
 
 } // namespace detail
@@ -164,15 +164,13 @@ public:
 private:
   friend class any_ref;
   friend struct reflection::detail::field_data;
-  friend const meta::detail::type_descriptor* detail::descriptor_of(const any& value) noexcept;
-  friend any detail::default_construct(type_id type,
-                                       const meta::detail::type_descriptor* descriptor);
-  friend any detail::default_construct(type_id type,
-                                       const meta::detail::type_descriptor* descriptor,
+  friend const meta::type_descriptor* detail::descriptor_of(const any& value) noexcept;
+  friend any detail::default_construct(type_id type, const meta::type_descriptor* descriptor);
+  friend any detail::default_construct(type_id type, const meta::type_descriptor* descriptor,
                                        memory::memory_resource* resource);
 
-  [[nodiscard]] static any
-  copy_from_raw(type_id type, const meta::detail::type_descriptor* descriptor, const void* source);
+  [[nodiscard]] static any copy_from_raw(type_id type, const meta::type_descriptor* descriptor,
+                                         const void* source);
 
   enum class storage_mode : unsigned char {
     empty,
@@ -184,10 +182,9 @@ private:
   static constexpr std::size_t inline_storage_size = sizeof(void*) * 3;
   static constexpr std::size_t inline_storage_alignment = alignof(std::max_align_t);
 
+  [[nodiscard]] static bool can_store_inline(const meta::type_descriptor* descriptor) noexcept;
   [[nodiscard]] static bool
-  can_store_inline(const meta::detail::type_descriptor* descriptor) noexcept;
-  [[nodiscard]] static bool
-  can_default_construct_inline(const meta::detail::type_descriptor* descriptor) noexcept;
+  can_default_construct_inline(const meta::type_descriptor* descriptor) noexcept;
 
   void copy_from(const any& other);
   void move_from(any& other) noexcept;
@@ -195,7 +192,7 @@ private:
   [[nodiscard]] const void* inline_data() const noexcept;
   [[nodiscard]] bool stores_inline() const noexcept { return mode_ == storage_mode::inline_value; }
 
-  const meta::detail::type_descriptor* descriptor_ = nullptr;
+  const meta::type_descriptor* descriptor_ = nullptr;
   void* data_ = nullptr;
   memory::memory_resource* resource_ = nullptr;
   meta::detail::value_resource_destroy_fn resource_destroy_ = nullptr;

@@ -55,7 +55,7 @@ error registry::register_type(const detail::type_data& type) {
   return register_type_impl(*state_, type);
 }
 
-error registry::ensure_type_descriptor(const detail::type_descriptor& descriptor) {
+error registry::ensure_type_descriptor(const type_descriptor& descriptor) {
   std::lock_guard lock(state_->mutex);
   if (!descriptor.valid() || !descriptor.type) {
     return {error_domain::meta, errc::invalid_type};
@@ -70,7 +70,7 @@ error registry::ensure_type_descriptor(const detail::type_descriptor& descriptor
 
 namespace detail {
 
-error ensure_type_descriptor_registered(const type_descriptor& descriptor) {
+error ensure_type_descriptor_registered(const meta::type_descriptor& descriptor) {
   return get_registry().ensure_type_descriptor(descriptor);
 }
 

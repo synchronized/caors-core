@@ -224,9 +224,9 @@ runtime capability。普通调用方应使用这个统一入口，不直接关�
 - runtime capability 不是 meta 组件，也不替代业务类型注册；需要稳定名称、GUID 或跨模块组件查询时仍要注册
   meta 类型。
 
-### meta::detail::type_descriptor
+### meta::type_descriptor
 
-`meta::detail::type_descriptor` 是 C++ 类型的内部能力描述。注册表按 `type_id`
+`meta::type_descriptor` 是 C++ 类型的内部能力描述。注册表按 `type_id`
 保存指向静态 descriptor 的指针，不把 descriptor 当作普通 generic component 复制存储。descriptor
 由布局、值操作、类型语义和固定运行期能力集合几部分组成；未注册结构类型也可以通过 `any`、
 `any_ref` 或反射字段携带的静态 descriptor 访问同一套能力。
@@ -240,7 +240,8 @@ descriptor 内部按职责拆分：
 - `static_capabilities`：保存模块声明的静态能力表，例如对象指针、对象句柄访问函数表和
   serialization codec 函数表。
 
-内部文件边界上，`meta/detail/type_descriptor.h` 只保存 descriptor 结构和查询 helper；
+文件边界上，`meta/type_descriptor.h` 保存公开稳定的 descriptor 结构和查询 helper；
+`meta/detail/type_descriptor.h` 只保留内部生成入口和向后兼容转发；
 `meta/detail/type_descriptor_name.h` 负责 descriptor 默认显示名生成；
 `meta/detail/type_descriptor_model.h` 负责 descriptor holder、语义填充和构建入口；
 `meta/detail/builtin_ops_model.h` 作为内置能力聚合入口，只负责引入
@@ -409,7 +410,7 @@ CAORS_META_REGISTRATION(register_actor_meta) {
 注册表维护几类索引：
 
 - `type_id -> 内部 meta 类型记录`：运行期主索引，只保存身份类信息。
-- `type_id -> const meta::detail::type_descriptor*`：布局、值操作、类型语义和固定运行期能力集合。
+- `type_id -> const meta::type_descriptor*`：布局、值操作、类型语义和固定运行期能力集合。
 - `type_id -> type factory`：可选资源感知构造/销毁函数表。
 - `typeid(T) -> type_id`：当前进程内 RTTI 查询索引，用于普通 C++ 多态辅助。
 - `type_id -> parent upcast`：typed parent 注册保存的直接父类 upcast 回调。
@@ -535,7 +536,7 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 - `meta::id_of<T>()`：查询 C++ 类型的运行期类型 id；类型不要求已经显式注册。
 - `meta::id()`：根据已注册类型名查询运行期类型标识。
 - `traits::type_name<T>`：基础 C++ 类型到 CAORS 类型名的默认映射。
-- `meta::detail::type_descriptor`：布局、值操作、类型语义和固定运行期能力集合。
+- `meta::type_descriptor`：布局、值操作、类型语义和固定运行期能力集合。
 - `traits::wrapper_traits<T>` / `traits::wrapper_access<T>`：wrapper 类型语义和内部值访问扩展点。
 - `traits::sequence_traits<T>` / `traits::set_traits<T>` / `traits::associative_traits<T>` / `traits::pair_traits<T>` / `traits::tuple_traits<T>` / `traits::variant_traits<T>`：容器、二元组、tuple-like 和 variant-like 类型语义扩展点。
 - `meta::type`：descriptor-backed 类型只读视图，注册数据可选。

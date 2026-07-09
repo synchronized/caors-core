@@ -37,7 +37,7 @@ template <typename T> [[nodiscard]] type_id find_field_type_id(std::string_view 
 struct field_data {
   string_name name{};
   type_id type{};
-  const meta::detail::type_descriptor* descriptor = nullptr;
+  const meta::type_descriptor* descriptor = nullptr;
   std::size_t offset = 0;
   bool writable = true;
 
@@ -178,7 +178,7 @@ template <typename Field>
 [[nodiscard]] field_data make_field_data(std::string_view name, std::string_view type_name,
                                          std::size_t offset) {
   using field_type = std::remove_cv_t<Field>;
-  const meta::detail::type_descriptor* descriptor = meta::detail::descriptor_ptr_of<field_type>();
+  const meta::type_descriptor* descriptor = meta::detail::descriptor_ptr_of<field_type>();
   type_id field_type_id = descriptor->type;
   if (!type_name.empty()) {
     field_type_id = detail::find_field_type_id<field_type>(type_name);
