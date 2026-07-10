@@ -21,6 +21,11 @@ template <typename T> struct sequence_ops_model {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   using element_type = typename traits::sequence_traits<type>::element_type;
 
+  [[nodiscard]] static meta::type get_value_type() noexcept {
+    return meta::make_type_view(descriptor_type_id<element_type>(),
+                                descriptor_ptr_of<element_type>());
+  }
+
   [[nodiscard]] static std::size_t size(const void* storage) noexcept {
     if (storage == nullptr) {
       return 0;
@@ -93,7 +98,7 @@ template <typename T> struct sequence_ops_model {
       result.fixed_size = traits::sequence_traits<type>::fixed_size;
     }
 
-    result.value_descriptor = descriptor_ptr_of<element_type>();
+    result.get_value_type = &get_value_type;
     return result;
   }
 

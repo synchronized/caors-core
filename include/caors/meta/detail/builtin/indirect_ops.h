@@ -19,6 +19,11 @@ template <typename T> struct raw_pointer_ops_model {
   using value_type = T;
   using non_cv_value_type = std::remove_cv_t<value_type>;
 
+  [[nodiscard]] static meta::type get_value_type() noexcept {
+    return meta::make_type_view(descriptor_type_id<non_cv_value_type>(),
+                                descriptor_ptr_of<non_cv_value_type>());
+  }
+
   [[nodiscard]] static const void* value(const void* storage) noexcept {
     if (storage == nullptr) {
       return nullptr;
@@ -98,23 +103,18 @@ template <typename T> struct raw_pointer_ops_model {
   static bool ensure_value(void*, memory::memory_resource*) { return false; }
 
   inline static const indirect_ops value_ops{
-      &value,
-      &mutable_value,
-      &dynamic_type,
-      &dynamic_value,
-      &mutable_dynamic_value,
-      &has_value,
-      &reset,
-      &ensure_value,
-      nullptr,
-      nullptr,
-      descriptor_ptr_of<non_cv_value_type>(),
+      &value, &mutable_value, &dynamic_type, &dynamic_value, &mutable_dynamic_value, &has_value,
+      &reset, &ensure_value,  nullptr,       nullptr,        &get_value_type,
   };
 };
 
 template <typename Wrapper> struct wrapper_ops_model {
   using type = std::remove_cv_t<std::remove_reference_t<Wrapper>>;
   using value_type = std::remove_cv_t<typename traits::wrapper_traits<type>::wrapped_type>;
+
+  [[nodiscard]] static meta::type get_value_type() noexcept {
+    return meta::make_type_view(descriptor_type_id<value_type>(), descriptor_ptr_of<value_type>());
+  }
 
   [[nodiscard]] static const void* value(const void* storage) noexcept {
     if (storage == nullptr) {
@@ -253,7 +253,7 @@ template <typename Wrapper> struct wrapper_ops_model {
       result.set_value_with_context = &set_value_with_context;
     }
 
-    result.value_descriptor = descriptor_ptr_of<value_type>();
+    result.get_value_type = &get_value_type;
     return result;
   }
 
@@ -282,7 +282,7 @@ template <typename T> [[nodiscard]] const indirect_ops* indirect_ops_ptr_of() {
   if constexpr (std::is_pointer_v<type>) {
     return indirect_ops_model<type>::value.valid() ? &indirect_ops_model<type>::value : nullptr;
   } else if constexpr (traits::wrapper_traits<type>::is_wrapper) {
-    return indirect_ops_model<type>::value.value_descriptor != nullptr
+    return indirect_ops_model<type>::value.get_value_type != nullptr
                ? &indirect_ops_model<type>::value
                : nullptr;
   } else {

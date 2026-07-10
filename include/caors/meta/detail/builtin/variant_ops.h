@@ -22,6 +22,11 @@ template <typename Variant, std::size_t Index> struct variant_alternative_ops_mo
   using type = std::remove_cv_t<std::remove_reference_t<Variant>>;
   using alternative_type = typename traits::variant_traits<type>::template alternative_type<Index>;
 
+  [[nodiscard]] static meta::type get_value_type() noexcept {
+    return meta::make_type_view(descriptor_type_id<alternative_type>(),
+                                descriptor_ptr_of<alternative_type>());
+  }
+
   [[nodiscard]] static const void* alternative(const void* storage) noexcept {
     if (storage == nullptr) {
       return nullptr;
@@ -60,7 +65,7 @@ template <typename Variant, std::size_t Index> struct variant_alternative_ops_mo
       &alternative,
       &mutable_alternative,
       &emplace,
-      descriptor_ptr_of<alternative_type>(),
+      &get_value_type,
   };
 };
 

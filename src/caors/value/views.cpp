@@ -4,7 +4,6 @@
 #include "caors/value/view_factory.h"
 
 #include "caors/meta/query.h"
-#include "caors/meta/type_descriptor.h"
 #include "caors/value/any_ref.h"
 #include "caors/value/associative_entry_ref.h"
 
@@ -20,15 +19,6 @@ template <typename Capability> [[nodiscard]] bool has_capability(meta::type type
 [[nodiscard]] bool has_indirect_capability(meta::type type) noexcept {
   const meta::indirect_ops* indirect = type.get_capability<meta::indirect_ops>();
   return type.indirect() && indirect != nullptr && indirect->valid();
-}
-
-[[nodiscard]] meta::type type_view_of(type_id id,
-                                      const meta::type_descriptor* descriptor) noexcept {
-  return meta::make_type_view(id, descriptor);
-}
-
-[[nodiscard]] meta::type type_view_of(const meta::type_descriptor* descriptor) noexcept {
-  return type_view_of(meta::descriptor_id(descriptor), descriptor);
 }
 
 } // namespace
@@ -203,12 +193,12 @@ bool pair_view::valid() const noexcept {
 
 meta::type pair_view::get_first_type() const noexcept {
   const meta::pair_ops* info = data();
-  return valid() ? type_view_of(info->key_descriptor) : meta::type{};
+  return valid() && info->get_key_type != nullptr ? info->get_key_type() : meta::type{};
 }
 
 meta::type pair_view::get_value_type() const noexcept {
   const meta::pair_ops* info = data();
-  return valid() ? type_view_of(info->value_descriptor) : meta::type{};
+  return valid() && info->get_value_type != nullptr ? info->get_value_type() : meta::type{};
 }
 
 any_ref pair_view::first_ref() const {
@@ -230,7 +220,7 @@ any_ref pair_view::first_ref() const {
     return {};
   }
 
-  return any_ref::from_raw(type_view_of(info->key_descriptor), value, value_writable);
+  return any_ref::from_raw(get_first_type(), value, value_writable);
 }
 
 any_ref pair_view::second_ref() const {
@@ -252,7 +242,7 @@ any_ref pair_view::second_ref() const {
     return {};
   }
 
-  return any_ref::from_raw(type_view_of(info->value_descriptor), value, value_writable);
+  return any_ref::from_raw(get_value_type(), value, value_writable);
 }
 
 any_ref pair_view::value_ref() const { return second_ref(); }
@@ -299,7 +289,7 @@ std::optional<meta::type> tuple_view::get_element_type(std::size_t index) const 
   }
 
   const meta::tuple_element_ops& element = info->elements[index];
-  meta::type type = type_view_of(element.value_descriptor);
+  meta::type type = element.get_value_type != nullptr ? element.get_value_type() : meta::type{};
   if (!type) {
     return std::nullopt;
   }
@@ -327,7 +317,9 @@ any_ref tuple_view::element_ref(std::size_t index) const {
     return {};
   }
 
-  return any_ref::from_raw(type_view_of(element_data.value_descriptor), value, value_writable);
+  const meta::type element_type =
+      element_data.get_value_type != nullptr ? element_data.get_value_type() : meta::type{};
+  return any_ref::from_raw(element_type, value, value_writable);
 }
 
 bool tuple_view::set_element(std::size_t index, const any& value) const {
@@ -380,7 +372,7 @@ variant_view::get_alternative_type(std::size_t alternative) const noexcept {
   }
 
   const meta::variant_alternative_ops& data = info->alternatives[alternative];
-  meta::type type = type_view_of(data.value_descriptor);
+  meta::type type = data.get_value_type != nullptr ? data.get_value_type() : meta::type{};
   if (!type) {
     return std::nullopt;
   }
@@ -396,7 +388,7 @@ meta::type variant_view::get_value_type() const noexcept {
   }
 
   const meta::variant_alternative_ops& alternative = info->alternatives[*active];
-  return type_view_of(alternative.value_descriptor);
+  return alternative.get_value_type != nullptr ? alternative.get_value_type() : meta::type{};
 }
 
 any_ref variant_view::value_ref() const {
@@ -419,7 +411,9 @@ any_ref variant_view::value_ref() const {
     return {};
   }
 
-  return any_ref::from_raw(type_view_of(alternative_data.value_descriptor), value, value_writable);
+  const meta::type value_type =
+      alternative_data.get_value_type != nullptr ? alternative_data.get_value_type() : meta::type{};
+  return any_ref::from_raw(value_type, value, value_writable);
 }
 
 bool variant_view::emplace(std::size_t alternative) const { return emplace(alternative, nullptr); }
@@ -493,7 +487,7 @@ bool sequence_view::valid() const noexcept {
 
 meta::type sequence_view::get_value_type() const noexcept {
   const meta::sequence_ops* info = data();
-  return valid() ? type_view_of(info->value_descriptor) : meta::type{};
+  return valid() && info->get_value_type != nullptr ? info->get_value_type() : meta::type{};
 }
 
 std::optional<std::size_t> sequence_view::size() const {
@@ -533,7 +527,7 @@ any_ref sequence_view::element_ref(std::size_t index) const {
     return {};
   }
 
-  return any_ref::from_raw(type_view_of(info->value_descriptor), element, element_writable);
+  return any_ref::from_raw(get_value_type(), element, element_writable);
 }
 
 bool sequence_view::clear() const {
@@ -619,7 +613,9 @@ any_ref set_view::iterator::operator*() const {
   }
 
   const void* value = info->iterator_value(iterator_);
-  return any_ref::from_raw(type_view_of(info->value_descriptor), value, false);
+  const meta::type value_type =
+      info->get_value_type != nullptr ? info->get_value_type() : meta::type{};
+  return any_ref::from_raw(value_type, value, false);
 }
 
 set_view::iterator& set_view::iterator::operator++() noexcept {
@@ -684,7 +680,7 @@ bool set_view::valid() const noexcept {
 
 meta::type set_view::get_value_type() const noexcept {
   const meta::set_ops* info = data();
-  return valid() ? type_view_of(info->value_descriptor) : meta::type{};
+  return valid() && info->get_value_type != nullptr ? info->get_value_type() : meta::type{};
 }
 
 std::optional<std::size_t> set_view::size() const {
@@ -806,8 +802,10 @@ associative_entry_ref associative_view::iterator::operator*() const {
   const void* key = info->iterator_key(iterator_);
   const void* value = info->iterator_value(iterator_);
   return associative_entry_ref{
-      any_ref::from_raw(type_view_of(info->key_descriptor), key, false),
-      any_ref::from_raw(type_view_of(info->value_descriptor), value, false),
+      any_ref::from_raw(info->get_key_type != nullptr ? info->get_key_type() : meta::type{}, key,
+                        false),
+      any_ref::from_raw(info->get_value_type != nullptr ? info->get_value_type() : meta::type{},
+                        value, false),
   };
 }
 
@@ -875,12 +873,12 @@ bool associative_view::valid() const noexcept {
 
 meta::type associative_view::get_key_type() const noexcept {
   const meta::associative_ops* info = data();
-  return valid() ? type_view_of(info->key_descriptor) : meta::type{};
+  return valid() && info->get_key_type != nullptr ? info->get_key_type() : meta::type{};
 }
 
 meta::type associative_view::get_value_type() const noexcept {
   const meta::associative_ops* info = data();
-  return valid() ? type_view_of(info->value_descriptor) : meta::type{};
+  return valid() && info->get_value_type != nullptr ? info->get_value_type() : meta::type{};
 }
 
 std::optional<std::size_t> associative_view::size() const {

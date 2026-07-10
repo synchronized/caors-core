@@ -21,6 +21,15 @@ template <typename T> struct associative_ops_model {
   using key_type = typename traits::associative_traits<type>::key_type;
   using mapped_type = typename traits::associative_traits<type>::mapped_type;
 
+  [[nodiscard]] static meta::type get_key_type() noexcept {
+    return meta::make_type_view(descriptor_type_id<key_type>(), descriptor_ptr_of<key_type>());
+  }
+
+  [[nodiscard]] static meta::type get_value_type() noexcept {
+    return meta::make_type_view(descriptor_type_id<mapped_type>(),
+                                descriptor_ptr_of<mapped_type>());
+  }
+
   [[nodiscard]] static std::size_t size(const void* storage) noexcept {
     if (storage == nullptr) {
       return 0;
@@ -75,8 +84,8 @@ template <typename T> struct associative_ops_model {
       fill_iterator_ops(result);
     }
 
-    result.key_descriptor = descriptor_ptr_of<key_type>();
-    result.value_descriptor = descriptor_ptr_of<mapped_type>();
+    result.get_key_type = &get_key_type;
+    result.get_value_type = &get_value_type;
     return result;
   }
 

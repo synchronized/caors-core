@@ -6,6 +6,7 @@
 
 #include "caors/core/containers.h"
 #include "caors/memory/resource.h"
+#include "caors/meta/type.h"
 #include "caors/meta/type_id.h"
 #include "caors/traits/wrapper.h"
 
@@ -14,8 +15,6 @@
 #include <limits>
 
 namespace caors::meta {
-
-struct type_descriptor;
 
 inline constexpr std::size_t dynamic_sequence_size = std::numeric_limits<std::size_t>::max();
 
@@ -39,6 +38,7 @@ struct enum_ops {
 
 /** @brief 指针或 wrapper 的内部值访问函数表。 */
 struct indirect_ops {
+  using get_value_type_fn = type (*)() noexcept;
   using const_value_fn = const void* (*)(const void*) noexcept;
   using mutable_value_fn = void* (*)(void*) noexcept;
   using dynamic_type_fn = type_id (*)(const void*) noexcept;
@@ -61,7 +61,7 @@ struct indirect_ops {
   ensure_value_fn ensure_value = nullptr;
   set_value_fn set_value = nullptr;
   set_value_with_context_fn set_value_with_context = nullptr;
-  const type_descriptor* value_descriptor = nullptr;
+  get_value_type_fn get_value_type = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
     return value != nullptr || mutable_value != nullptr || has_value != nullptr ||
@@ -94,6 +94,7 @@ struct container_iterator_ops {
 
 /** @brief 顺序容器运行期访问操作表。 */
 struct sequence_ops {
+  using get_value_type_fn = type (*)() noexcept;
   using size_fn = std::size_t (*)(const void*) noexcept;
   using const_element_fn = const void* (*)(const void*, std::size_t) noexcept;
   using mutable_element_fn = void* (*)(void*, std::size_t) noexcept;
@@ -109,16 +110,17 @@ struct sequence_ops {
   append_fn append = nullptr;
   bool can_read = true;
   bool read_in_place = false;
-  const type_descriptor* value_descriptor = nullptr;
+  get_value_type_fn get_value_type = nullptr;
   std::size_t fixed_size = dynamic_sequence_size;
 
   [[nodiscard]] bool valid() const noexcept {
-    return value_descriptor != nullptr && size != nullptr && element != nullptr;
+    return get_value_type != nullptr && size != nullptr && element != nullptr;
   }
 };
 
 /** @brief 集合容器运行期访问操作表。 */
 struct set_ops {
+  using get_value_type_fn = type (*)() noexcept;
   using size_fn = std::size_t (*)(const void*) noexcept;
   using clear_fn = void (*)(void*) noexcept;
   using insert_fn = bool (*)(void*, const void*);
@@ -129,16 +131,18 @@ struct set_ops {
   insert_fn insert = nullptr;
   container_iterator_ops iterator{};
   iterator_value_fn iterator_value = nullptr;
-  const type_descriptor* value_descriptor = nullptr;
+  get_value_type_fn get_value_type = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
-    return value_descriptor != nullptr && size != nullptr && iterator.valid() &&
+    return get_value_type != nullptr && size != nullptr && iterator.valid() &&
            iterator_value != nullptr;
   }
 };
 
 /** @brief 关联容器运行期访问操作表。 */
 struct associative_ops {
+  using get_key_type_fn = type (*)() noexcept;
+  using get_value_type_fn = type (*)() noexcept;
   using size_fn = std::size_t (*)(const void*) noexcept;
   using clear_fn = void (*)(void*) noexcept;
   using insert_fn = bool (*)(void*, const void*, const void*);
@@ -151,17 +155,19 @@ struct associative_ops {
   container_iterator_ops iterator{};
   iterator_key_fn iterator_key = nullptr;
   iterator_value_fn iterator_value = nullptr;
-  const type_descriptor* key_descriptor = nullptr;
-  const type_descriptor* value_descriptor = nullptr;
+  get_key_type_fn get_key_type = nullptr;
+  get_value_type_fn get_value_type = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
-    return key_descriptor != nullptr && value_descriptor != nullptr && size != nullptr &&
+    return get_key_type != nullptr && get_value_type != nullptr && size != nullptr &&
            iterator.valid() && iterator_key != nullptr && iterator_value != nullptr;
   }
 };
 
 /** @brief 二元组运行期访问操作表。 */
 struct pair_ops {
+  using get_key_type_fn = type (*)() noexcept;
+  using get_value_type_fn = type (*)() noexcept;
   using const_value_fn = const void* (*)(const void*) noexcept;
   using mutable_value_fn = void* (*)(void*) noexcept;
 
@@ -169,26 +175,27 @@ struct pair_ops {
   mutable_value_fn mutable_first = nullptr;
   const_value_fn second = nullptr;
   mutable_value_fn mutable_second = nullptr;
-  const type_descriptor* key_descriptor = nullptr;
-  const type_descriptor* value_descriptor = nullptr;
+  get_key_type_fn get_key_type = nullptr;
+  get_value_type_fn get_value_type = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
-    return key_descriptor != nullptr && value_descriptor != nullptr && first != nullptr &&
+    return get_key_type != nullptr && get_value_type != nullptr && first != nullptr &&
            second != nullptr;
   }
 };
 
 /** @brief tuple-like 单个元素运行期访问操作表。 */
 struct tuple_element_ops {
+  using get_value_type_fn = type (*)() noexcept;
   using const_element_fn = const void* (*)(const void*) noexcept;
   using mutable_element_fn = void* (*)(void*) noexcept;
 
   const_element_fn element = nullptr;
   mutable_element_fn mutable_element = nullptr;
-  const type_descriptor* value_descriptor = nullptr;
+  get_value_type_fn get_value_type = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
-    return value_descriptor != nullptr && element != nullptr;
+    return get_value_type != nullptr && element != nullptr;
   }
 };
 
@@ -209,6 +216,7 @@ struct tuple_ops {
 
 /** @brief variant-like 单个候选类型运行期访问操作表。 */
 struct variant_alternative_ops {
+  using get_value_type_fn = type (*)() noexcept;
   using const_alternative_fn = const void* (*)(const void*) noexcept;
   using mutable_alternative_fn = void* (*)(void*) noexcept;
   using emplace_fn = bool (*)(void*, memory::memory_resource*);
@@ -216,10 +224,10 @@ struct variant_alternative_ops {
   const_alternative_fn alternative = nullptr;
   mutable_alternative_fn mutable_alternative = nullptr;
   emplace_fn emplace = nullptr;
-  const type_descriptor* value_descriptor = nullptr;
+  get_value_type_fn get_value_type = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
-    return value_descriptor != nullptr && alternative != nullptr;
+    return get_value_type != nullptr && alternative != nullptr;
   }
 };
 

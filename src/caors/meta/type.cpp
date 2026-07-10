@@ -64,36 +64,39 @@ type type::get_value_type() const noexcept {
   }
 
   const type_id value_type = descriptor_value_type(*descriptor_);
-  const type_descriptor* value_descriptor = nullptr;
+  meta::type value = {};
   switch (descriptor_kind(*descriptor_)) {
   case type_kind::value:
   case type_kind::enumeration:
-    value_descriptor = descriptor_;
+    value = *this;
     break;
   case type_kind::raw_pointer:
   case type_kind::wrapper:
     if (const auto* indirect_ops = get_capability<meta::indirect_ops>()) {
-      value_descriptor = indirect_ops->value_descriptor;
+      value =
+          indirect_ops->get_value_type != nullptr ? indirect_ops->get_value_type() : meta::type{};
     }
     break;
   case type_kind::sequence:
     if (const auto* sequence_ops = get_capability<meta::sequence_ops>()) {
-      value_descriptor = sequence_ops->value_descriptor;
+      value =
+          sequence_ops->get_value_type != nullptr ? sequence_ops->get_value_type() : meta::type{};
     }
     break;
   case type_kind::set:
     if (const auto* set_ops = get_capability<meta::set_ops>()) {
-      value_descriptor = set_ops->value_descriptor;
+      value = set_ops->get_value_type != nullptr ? set_ops->get_value_type() : meta::type{};
     }
     break;
   case type_kind::associative:
     if (const auto* associative_ops = get_capability<meta::associative_ops>()) {
-      value_descriptor = associative_ops->value_descriptor;
+      value = associative_ops->get_value_type != nullptr ? associative_ops->get_value_type()
+                                                         : meta::type{};
     }
     break;
   case type_kind::pair:
     if (const auto* pair_ops = get_capability<meta::pair_ops>()) {
-      value_descriptor = pair_ops->value_descriptor;
+      value = pair_ops->get_value_type != nullptr ? pair_ops->get_value_type() : meta::type{};
     }
     break;
   case type_kind::tuple:
@@ -101,7 +104,7 @@ type type::get_value_type() const noexcept {
     break;
   }
 
-  return make_type_view(value_type, value_descriptor);
+  return value && value.id() == value_type ? value : meta::type{};
 }
 
 type type::get_key_type() const noexcept {
@@ -110,18 +113,19 @@ type type::get_key_type() const noexcept {
   }
 
   type_id key_type{};
-  const type_descriptor* key_descriptor = nullptr;
+  meta::type key = {};
   switch (descriptor_kind(*descriptor_)) {
   case type_kind::associative:
     if (const auto* associative_ops = get_capability<meta::associative_ops>()) {
       key_type = descriptor_key_type(*descriptor_);
-      key_descriptor = associative_ops->key_descriptor;
+      key =
+          associative_ops->get_key_type != nullptr ? associative_ops->get_key_type() : meta::type{};
     }
     break;
   case type_kind::pair:
     if (const auto* pair_ops = get_capability<meta::pair_ops>()) {
       key_type = descriptor_key_type(*descriptor_);
-      key_descriptor = pair_ops->key_descriptor;
+      key = pair_ops->get_key_type != nullptr ? pair_ops->get_key_type() : meta::type{};
     }
     break;
   case type_kind::value:
@@ -135,7 +139,7 @@ type type::get_key_type() const noexcept {
     break;
   }
 
-  return make_type_view(key_type, key_descriptor);
+  return key && key.id() == key_type ? key : meta::type{};
 }
 
 type make_type_view(type_id id, const type_descriptor* descriptor) noexcept {

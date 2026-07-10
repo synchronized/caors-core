@@ -18,6 +18,15 @@ template <typename T> struct pair_ops_model {
   using first_type = typename traits::pair_traits<type>::first_type;
   using second_type = typename traits::pair_traits<type>::second_type;
 
+  [[nodiscard]] static meta::type get_key_type() noexcept {
+    return meta::make_type_view(descriptor_type_id<first_type>(), descriptor_ptr_of<first_type>());
+  }
+
+  [[nodiscard]] static meta::type get_value_type() noexcept {
+    return meta::make_type_view(descriptor_type_id<second_type>(),
+                                descriptor_ptr_of<second_type>());
+  }
+
   [[nodiscard]] static const void* first(const void* storage) noexcept {
     if (storage == nullptr) {
       return nullptr;
@@ -58,8 +67,8 @@ template <typename T> struct pair_ops_model {
         &mutable_second,
     };
 
-    result.key_descriptor = descriptor_ptr_of<first_type>();
-    result.value_descriptor = descriptor_ptr_of<second_type>();
+    result.get_key_type = &get_key_type;
+    result.get_value_type = &get_value_type;
     return result;
   }
 

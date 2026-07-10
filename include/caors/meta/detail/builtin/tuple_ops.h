@@ -21,6 +21,11 @@ template <typename Tuple, std::size_t Index> struct tuple_element_ops_model {
   using type = std::remove_cv_t<std::remove_reference_t<Tuple>>;
   using element_type = typename traits::tuple_traits<type>::template element_type<Index>;
 
+  [[nodiscard]] static meta::type get_value_type() noexcept {
+    return meta::make_type_view(descriptor_type_id<element_type>(),
+                                descriptor_ptr_of<element_type>());
+  }
+
   [[nodiscard]] static const void* element(const void* storage) noexcept {
     if (storage == nullptr) {
       return nullptr;
@@ -41,7 +46,7 @@ template <typename Tuple, std::size_t Index> struct tuple_element_ops_model {
   inline static const tuple_element_ops value{
       &element,
       &mutable_element,
-      descriptor_ptr_of<element_type>(),
+      &get_value_type,
   };
 };
 

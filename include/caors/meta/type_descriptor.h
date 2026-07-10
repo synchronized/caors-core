@@ -158,31 +158,36 @@ descriptor_wrapper_semantics(const type_descriptor& descriptor) noexcept {
   case type_kind::raw_pointer:
   case type_kind::wrapper: {
     const auto* indirect = descriptor_capability<indirect_ops>(descriptor);
-    return indirect != nullptr && indirect->value_descriptor != nullptr
-               ? indirect->value_descriptor->type
-               : type_id{};
+    const meta::type value = indirect != nullptr && indirect->get_value_type != nullptr
+                                 ? indirect->get_value_type()
+                                 : meta::type{};
+    return value ? value.id() : type_id{};
   }
   case type_kind::sequence: {
     const auto* sequence = descriptor_capability<sequence_ops>(descriptor);
-    return sequence != nullptr && sequence->value_descriptor != nullptr
-               ? sequence->value_descriptor->type
-               : type_id{};
+    const meta::type value = sequence != nullptr && sequence->get_value_type != nullptr
+                                 ? sequence->get_value_type()
+                                 : meta::type{};
+    return value ? value.id() : type_id{};
   }
   case type_kind::set: {
     const auto* set = descriptor_capability<set_ops>(descriptor);
-    return set != nullptr && set->value_descriptor != nullptr ? set->value_descriptor->type
-                                                              : type_id{};
+    const meta::type value =
+        set != nullptr && set->get_value_type != nullptr ? set->get_value_type() : meta::type{};
+    return value ? value.id() : type_id{};
   }
   case type_kind::associative: {
     const auto* associative = descriptor_capability<associative_ops>(descriptor);
-    return associative != nullptr && associative->value_descriptor != nullptr
-               ? associative->value_descriptor->type
-               : type_id{};
+    const meta::type value = associative != nullptr && associative->get_value_type != nullptr
+                                 ? associative->get_value_type()
+                                 : meta::type{};
+    return value ? value.id() : type_id{};
   }
   case type_kind::pair: {
     const auto* pair = descriptor_capability<pair_ops>(descriptor);
-    return pair != nullptr && pair->value_descriptor != nullptr ? pair->value_descriptor->type
-                                                                : type_id{};
+    const meta::type value =
+        pair != nullptr && pair->get_value_type != nullptr ? pair->get_value_type() : meta::type{};
+    return value ? value.id() : type_id{};
   }
   case type_kind::tuple:
   case type_kind::variant:
@@ -196,14 +201,16 @@ descriptor_wrapper_semantics(const type_descriptor& descriptor) noexcept {
   switch (descriptor_kind(descriptor)) {
   case type_kind::associative: {
     const auto* associative = descriptor_capability<associative_ops>(descriptor);
-    return associative != nullptr && associative->key_descriptor != nullptr
-               ? associative->key_descriptor->type
-               : type_id{};
+    const meta::type key = associative != nullptr && associative->get_key_type != nullptr
+                               ? associative->get_key_type()
+                               : meta::type{};
+    return key ? key.id() : type_id{};
   }
   case type_kind::pair: {
     const auto* pair = descriptor_capability<pair_ops>(descriptor);
-    return pair != nullptr && pair->key_descriptor != nullptr ? pair->key_descriptor->type
-                                                              : type_id{};
+    const meta::type key =
+        pair != nullptr && pair->get_key_type != nullptr ? pair->get_key_type() : meta::type{};
+    return key ? key.id() : type_id{};
   }
   case type_kind::value:
   case type_kind::enumeration:
