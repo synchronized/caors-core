@@ -14,7 +14,8 @@ TEST_CASE("meta type - builder updates registered data in place", "[meta]") {
   const caors::meta::type before = builder.get();
   REQUIRE(before);
   CHECK_FALSE(before.guid());
-  const caors::meta::value_storage_ops* before_value = caors::meta::get_value_storage_ops(before);
+  const caors::meta::value_storage_ops* before_value =
+      before.get_capability<caors::meta::value_storage_ops>();
   REQUIRE(before_value != nullptr);
   CHECK(before_value->layout.size == sizeof(stable_builder_type));
   CHECK(before_value->layout.alignment == alignof(stable_builder_type));
@@ -24,7 +25,8 @@ TEST_CASE("meta type - builder updates registered data in place", "[meta]") {
   REQUIRE(after);
 
   CHECK(before.id() == after.id());
-  const caors::meta::value_storage_ops* after_value = caors::meta::get_value_storage_ops(after);
+  const caors::meta::value_storage_ops* after_value =
+      after.get_capability<caors::meta::value_storage_ops>();
   REQUIRE(after_value != nullptr);
   CHECK(after_value->layout.size == sizeof(stable_builder_type));
   CHECK(after_value->layout.alignment == alignof(stable_builder_type));

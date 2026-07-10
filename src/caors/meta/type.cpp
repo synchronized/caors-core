@@ -179,8 +179,4 @@ value_resource_destroy_fn get_resource_destroy_value_fn(const meta::type& type) 
   return type.descriptor_ != nullptr ? type.descriptor_->value.ops.resource_destroy : nullptr;
 }
 
-const value_storage_ops* get_value_storage_ops(const meta::type& type) noexcept {
-  return type.descriptor_ != nullptr ? &type.descriptor_->value : nullptr;
-}
-
 } // namespace caors::meta

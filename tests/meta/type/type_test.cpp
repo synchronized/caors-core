@@ -25,7 +25,7 @@ TEST_CASE("meta type - descriptor id is available before explicit registration",
   CHECK_FALSE(caors::meta::find<anonymous_cpp_type>());
   CHECK(caors::meta::id_of<anonymous_cpp_type>() == descriptor.id());
   const caors::meta::value_storage_ops* descriptor_value =
-      caors::meta::get_value_storage_ops(descriptor);
+      descriptor.get_capability<caors::meta::value_storage_ops>();
   REQUIRE(descriptor_value != nullptr);
   CHECK(descriptor_value->layout.size == sizeof(anonymous_cpp_type));
   CHECK(descriptor_value->layout.alignment == alignof(anonymous_cpp_type));
@@ -63,7 +63,8 @@ TEST_CASE("meta type view - describes layout", "[meta]") {
   CHECK(type.id());
   CHECK(type.name() == name);
   CHECK_FALSE(type.guid());
-  const caors::meta::value_storage_ops* type_value = caors::meta::get_value_storage_ops(type);
+  const caors::meta::value_storage_ops* type_value =
+      type.get_capability<caors::meta::value_storage_ops>();
   REQUIRE(type_value != nullptr);
   CHECK(type_value->layout.size == sizeof(sample_type));
   CHECK(type_value->layout.alignment == alignof(sample_type));

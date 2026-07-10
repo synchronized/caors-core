@@ -24,7 +24,7 @@ namespace {
 }
 
 [[nodiscard]] meta::type_layout layout_of(meta::type type) noexcept {
-  const meta::value_storage_ops* value_ops = caors::meta::get_value_storage_ops(type);
+  const meta::value_storage_ops* value_ops = type.get_capability<meta::value_storage_ops>();
   return value_ops != nullptr ? value_ops->layout : meta::type_layout{};
 }
 
@@ -125,7 +125,7 @@ bool any::try_set(const any& source) {
 }
 
 any any::copy_from_raw(meta::type type, const void* source) {
-  const meta::value_storage_ops* value_ops = caors::meta::get_value_storage_ops(type);
+  const meta::value_storage_ops* value_ops = type.get_capability<meta::value_storage_ops>();
   if (!type || value_ops == nullptr) {
     return {};
   }
@@ -254,7 +254,7 @@ namespace detail {
 any default_construct(meta::type type) { return default_construct(type, nullptr); }
 
 any default_construct(meta::type type, memory::memory_resource* resource) {
-  const meta::value_storage_ops* value_ops = caors::meta::get_value_storage_ops(type);
+  const meta::value_storage_ops* value_ops = type.get_capability<meta::value_storage_ops>();
   if (!type || value_ops == nullptr || value_ops->ops.default_construct == nullptr ||
       value_ops->ops.destroy == nullptr) {
     return {};

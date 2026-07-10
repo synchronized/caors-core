@@ -95,7 +95,8 @@ public:
     using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
     const meta::type actual = get_type();
     const meta::type expected = caors::meta::resolve<field_type>();
-    const meta::value_storage_ops* actual_storage = caors::meta::get_value_storage_ops(actual);
+    const meta::value_storage_ops* actual_storage =
+        actual.get_capability<meta::value_storage_ops>();
     return actual && expected && actual.id() == expected.id() && actual_storage != nullptr &&
            actual_storage->layout.size == sizeof(field_type) &&
            actual_storage->layout.alignment == alignof(field_type);
@@ -155,7 +156,8 @@ public:
   bool member_try_set_value(void* object, const any& source) const {
     const meta::type expected = get_type();
     const auto assign = caors::meta::get_assign_value_fn(expected);
-    const meta::value_storage_ops* expected_storage = caors::meta::get_value_storage_ops(expected);
+    const meta::value_storage_ops* expected_storage =
+        expected.get_capability<meta::value_storage_ops>();
     if (!source.valid() || source.get_type().id() != expected.id() || expected_storage == nullptr ||
         source.size() != expected_storage->layout.size ||
         source.alignment() != expected_storage->layout.alignment || assign == nullptr) {

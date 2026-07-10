@@ -98,7 +98,6 @@ private:
   friend value_assign_fn get_assign_value_fn(const type&) noexcept;
   friend value_resource_construct_fn get_resource_construct_value_fn(const type&) noexcept;
   friend value_resource_destroy_fn get_resource_destroy_value_fn(const type&) noexcept;
-  friend const value_storage_ops* get_value_storage_ops(const type&) noexcept;
   friend type make_type_view(type_id, const meta::type_descriptor*) noexcept;
   friend const meta::type_descriptor* descriptor_of(const type&) noexcept;
   friend const void* detail::find_type_capability(const type&, capability_key) noexcept;

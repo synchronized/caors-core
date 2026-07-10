@@ -45,11 +45,16 @@ template <typename T> inline constexpr bool descriptor_always_false_v = false;
 template <typename Capability>
 [[nodiscard]] inline const Capability*
 descriptor_capability(const type_descriptor& descriptor) noexcept {
-  if constexpr (std::is_same_v<Capability, enum_ops> || std::is_same_v<Capability, indirect_ops> ||
-                std::is_same_v<Capability, sequence_ops> || std::is_same_v<Capability, set_ops> ||
-                std::is_same_v<Capability, associative_ops> ||
-                std::is_same_v<Capability, pair_ops> || std::is_same_v<Capability, tuple_ops> ||
-                std::is_same_v<Capability, variant_ops>) {
+  if constexpr (std::is_same_v<Capability, value_storage_ops>) {
+    return descriptor.value.valid() ? &descriptor.value : nullptr;
+  } else if constexpr (std::is_same_v<Capability, enum_ops> ||
+                       std::is_same_v<Capability, indirect_ops> ||
+                       std::is_same_v<Capability, sequence_ops> ||
+                       std::is_same_v<Capability, set_ops> ||
+                       std::is_same_v<Capability, associative_ops> ||
+                       std::is_same_v<Capability, pair_ops> ||
+                       std::is_same_v<Capability, tuple_ops> ||
+                       std::is_same_v<Capability, variant_ops>) {
     const auto* value = std::get_if<const Capability*>(&descriptor.builtin_capability);
     return value != nullptr ? *value : nullptr;
   } else {
@@ -66,6 +71,9 @@ descriptor_capability(const type_descriptor* descriptor) noexcept {
 /** @brief 按 capability key 查询 descriptor 内建能力。 */
 [[nodiscard]] inline const void* descriptor_builtin_capability(const type_descriptor& descriptor,
                                                                capability_key key) noexcept {
+  if (key == capability_key_of<value_storage_ops>()) {
+    return descriptor.value.valid() ? &descriptor.value : nullptr;
+  }
   if (key == capability_key_of<enum_ops>()) {
     return descriptor_capability<enum_ops>(descriptor);
   }
