@@ -70,6 +70,12 @@ public:
   [[nodiscard]] std::size_t alignment() const noexcept;
   [[nodiscard]] type_id parent_id() const noexcept;
   [[nodiscard]] type parent() const noexcept;
+  [[nodiscard]] type_kind kind() const noexcept;
+  [[nodiscard]] wrapper_semantics wrapper() const noexcept;
+  [[nodiscard]] bool indirect() const noexcept;
+  [[nodiscard]] bool nullable() const noexcept;
+  [[nodiscard]] type get_value_type() const noexcept;
+  [[nodiscard]] type get_key_type() const noexcept;
 
   /** @brief 查询该类型视图具备的能力；优先使用 descriptor 静态能力，再回退到运行期索引。 */
   template <typename Capability> [[nodiscard]] const Capability* get_capability() const noexcept {
@@ -89,6 +95,8 @@ private:
   friend value_clone_fn get_clone_value_fn(const type&) noexcept;
   friend value_destroy_fn get_destroy_value_fn(const type&) noexcept;
   friend value_assign_fn get_assign_value_fn(const type&) noexcept;
+  friend value_resource_construct_fn get_resource_construct_value_fn(const type&) noexcept;
+  friend value_resource_destroy_fn get_resource_destroy_value_fn(const type&) noexcept;
   friend type make_type_view(type_id, const meta::type_descriptor*) noexcept;
   friend const void* detail::find_type_capability(const type&, capability_key) noexcept;
 

@@ -4,31 +4,22 @@
 #include "helpers.h"
 
 #include "construction.h"
-#include "value_access.h"
 
 namespace caors::serialization::detail {
 
 [[nodiscard]] const meta::sequence_ops* sequence_ops_of(const any_ref& target) noexcept {
-  const meta::type_descriptor* descriptor = descriptor_of(target);
-  return meta::descriptor_capability<meta::sequence_ops>(descriptor);
+  return target.get_type().get_capability<meta::sequence_ops>();
 }
 
 [[nodiscard]] const meta::set_ops* set_ops_of(const any_ref& target) noexcept {
-  const meta::type_descriptor* descriptor = descriptor_of(target);
-  return meta::descriptor_capability<meta::set_ops>(descriptor);
+  return target.get_type().get_capability<meta::set_ops>();
 }
 
 [[nodiscard]] const meta::associative_ops* associative_ops_of(const any_ref& target) noexcept {
-  const meta::type_descriptor* descriptor = descriptor_of(target);
-  return meta::descriptor_capability<meta::associative_ops>(descriptor);
+  return target.get_type().get_capability<meta::associative_ops>();
 }
 
 [[nodiscard]] meta::value_assign_fn assign_fn_of(const any_ref& target) noexcept {
-  const meta::type_descriptor* descriptor = descriptor_of(target);
-  if (descriptor != nullptr && descriptor->ops.assign != nullptr) {
-    return descriptor->ops.assign;
-  }
-
   return caors::meta::get_assign_value_fn(target.get_type());
 }
 

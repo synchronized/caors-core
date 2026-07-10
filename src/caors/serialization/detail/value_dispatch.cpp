@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "helpers.h"
-#include "value_access.h"
-
-#include "caors/meta/type_descriptor.h"
 #include "caors/object/handle_view.h"
 #include "caors/object/ptr_view.h"
 #include "caors/reflection/registry.h"
+#include "helpers.h"
 
 #include <limits>
 #include <string>
@@ -17,25 +14,12 @@ namespace caors::serialization::detail {
 
 namespace {
 
-[[nodiscard]] const codec_ops*
-codec_ops_of_descriptor(const meta::type_descriptor* descriptor) noexcept {
-  return meta::descriptor_static_capability<codec_ops>(descriptor);
-}
-
-[[nodiscard]] const codec_ops* find_codec_ops(const any& data) {
-  if (const auto* descriptor = descriptor_of(data); descriptor != nullptr) {
-    return codec_ops_of_descriptor(descriptor);
+[[nodiscard]] const codec_ops* find_codec_ops(const meta::type& type) {
+  if (const codec_ops* ops = type.get_capability<codec_ops>()) {
+    return ops;
   }
 
-  return ops_of(serialization::find_codec(data.get_type()));
-}
-
-[[nodiscard]] const codec_ops* find_codec_ops(const any_ref& value) {
-  if (const auto* descriptor = descriptor_of(value); descriptor != nullptr) {
-    return codec_ops_of_descriptor(descriptor);
-  }
-
-  return ops_of(serialization::find_codec(value.get_type()));
+  return ops_of(serialization::find_codec(type));
 }
 
 } // namespace
@@ -45,9 +29,9 @@ variant_result make_serialized_value(const any& data) {
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
-  const caors::meta::type_descriptor* descriptor = descriptor_of(data);
-  if (descriptor != nullptr) {
-    const meta::type_kind kind = meta::descriptor_kind(*descriptor);
+  const meta::type type = data.get_type();
+  if (type) {
+    const meta::type_kind kind = type.kind();
     const any_ref ref = data.ref();
     if (type_uses_object_handle(ref) || type_uses_object_ptr(ref) ||
         kind == meta::type_kind::raw_pointer || kind == meta::type_kind::wrapper ||
@@ -59,7 +43,7 @@ variant_result make_serialized_value(const any& data) {
     }
   }
 
-  const codec_ops* codec = find_codec_ops(data);
+  const codec_ops* codec = find_codec_ops(data.get_type());
   if (codec != nullptr && codec->make_value != nullptr) {
     return codec->make_value(serialization::context{}, data);
   }
@@ -177,7 +161,7 @@ variant_result make_serialized_value(const any_ref& value, const serialization::
   }
 
   const type_id value_type = value.get_type().id();
-  const codec_ops* codec = find_codec_ops(value);
+  const codec_ops* codec = find_codec_ops(value.get_type());
   if (codec != nullptr && codec->make_value != nullptr) {
     any copied = value.to_any();
     if (!copied.valid()) {
@@ -254,7 +238,7 @@ error write_serialized_value(writer& writer, const any_ref& value,
   }
 
   const type_id value_type = value.get_type().id();
-  const codec_ops* codec = find_codec_ops(value);
+  const codec_ops* codec = find_codec_ops(value.get_type());
   if (codec != nullptr && codec->write != nullptr) {
     any copied = value.to_any();
     if (!copied.valid()) {
@@ -329,7 +313,7 @@ error read_serialized_value(reader& reader, const any_ref& target,
   }
 
   const type_id target_type = target.get_type().id();
-  const codec_ops* codec = find_codec_ops(target);
+  const codec_ops* codec = find_codec_ops(target.get_type());
   if (codec != nullptr && codec->read != nullptr) {
     return codec->read(context, reader, target);
   }

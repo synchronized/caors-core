@@ -38,6 +38,10 @@ get_default_construct_value_fn(const meta::type& type) noexcept;
 [[nodiscard]] CAORS_API value_clone_fn get_clone_value_fn(const meta::type& type) noexcept;
 [[nodiscard]] CAORS_API value_destroy_fn get_destroy_value_fn(const meta::type& type) noexcept;
 [[nodiscard]] CAORS_API value_assign_fn get_assign_value_fn(const meta::type& type) noexcept;
+[[nodiscard]] CAORS_API value_resource_construct_fn
+get_resource_construct_value_fn(const meta::type& type) noexcept;
+[[nodiscard]] CAORS_API value_resource_destroy_fn
+get_resource_destroy_value_fn(const meta::type& type) noexcept;
 
 namespace detail {
 
@@ -45,6 +49,8 @@ using meta::get_assign_value_fn;
 using meta::get_clone_value_fn;
 using meta::get_default_construct_value_fn;
 using meta::get_destroy_value_fn;
+using meta::get_resource_construct_value_fn;
+using meta::get_resource_destroy_value_fn;
 using meta::value_assign_fn;
 using meta::value_clone_fn;
 using meta::value_default_construct_fn;

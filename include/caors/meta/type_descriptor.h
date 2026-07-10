@@ -90,6 +90,43 @@ descriptor_capability(const type_descriptor* descriptor) noexcept {
   return descriptor != nullptr ? descriptor_capability<Capability>(*descriptor) : nullptr;
 }
 
+/** @brief 按 capability key 查询 descriptor 内建能力。 */
+[[nodiscard]] inline const void* descriptor_builtin_capability(const type_descriptor& descriptor,
+                                                               capability_key key) noexcept {
+  if (key == capability_key_of<enum_ops>()) {
+    return descriptor_capability<enum_ops>(descriptor);
+  }
+  if (key == capability_key_of<indirect_ops>()) {
+    return descriptor_capability<indirect_ops>(descriptor);
+  }
+  if (key == capability_key_of<sequence_ops>()) {
+    return descriptor_capability<sequence_ops>(descriptor);
+  }
+  if (key == capability_key_of<set_ops>()) {
+    return descriptor_capability<set_ops>(descriptor);
+  }
+  if (key == capability_key_of<associative_ops>()) {
+    return descriptor_capability<associative_ops>(descriptor);
+  }
+  if (key == capability_key_of<pair_ops>()) {
+    return descriptor_capability<pair_ops>(descriptor);
+  }
+  if (key == capability_key_of<tuple_ops>()) {
+    return descriptor_capability<tuple_ops>(descriptor);
+  }
+  if (key == capability_key_of<variant_ops>()) {
+    return descriptor_capability<variant_ops>(descriptor);
+  }
+
+  return nullptr;
+}
+
+/** @brief 按 capability key 查询 descriptor 内建能力，空指针返回空。 */
+[[nodiscard]] inline const void* descriptor_builtin_capability(const type_descriptor* descriptor,
+                                                               capability_key key) noexcept {
+  return descriptor != nullptr ? descriptor_builtin_capability(*descriptor, key) : nullptr;
+}
+
 template <typename Capability>
 [[nodiscard]] inline const Capability*
 descriptor_static_capability(const type_descriptor& descriptor) noexcept {

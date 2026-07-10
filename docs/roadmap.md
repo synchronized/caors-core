@@ -44,6 +44,9 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `parent_cast_ops.h`。
 - [x] 将 value 操作函数指针和 `get_*_value_fn()` 查询入口提升到 `meta/value_ops.h` 公共低层边界，
   避免 object / reflection / serialization 横向依赖 `meta::detail`。
+- [x] 将 descriptor 内建能力纳入 `meta::type::get_capability<T>()` 查询链路，并补充 `meta::type`
+  的 kind、wrapper、nullable、value type 和 key type 查询，使 reflection / serialization 优先使用
+  `meta::type` 作为能力 API。
 - [x] 将 `type_descriptor.h` 拆分为 descriptor 数据结构、默认名称生成和 descriptor model 构建三个边界。
 - [x] 将 set / associative 容器使用的类型擦除迭代器辅助实现移动到 `meta/detail/builtin/container_iterators.h`。
 - [x] 将 set / associative 共用的迭代器生命周期操作抽成 `container_iterator_ops` 和

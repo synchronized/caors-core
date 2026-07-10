@@ -110,6 +110,11 @@ const void* find_type_capability(const meta::type& type, capability_key key) noe
   }
 
   if (type.descriptor_ != nullptr) {
+    if (const void* builtin = descriptor_builtin_capability(type.descriptor_, key);
+        builtin != nullptr) {
+      return builtin;
+    }
+
     for (std::size_t index = 0; index < type.descriptor_->static_capability_count; ++index) {
       const capability_entry& entry = type.descriptor_->static_capabilities[index];
       if (entry.key == key && entry.data != nullptr) {
