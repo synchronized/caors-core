@@ -6,7 +6,7 @@
 
 #include "caors/error.h"
 #include "caors/export.h"
-#include "caors/meta/type_descriptor_model.h"
+#include "caors/meta.h"
 #include "caors/reflection/detail/type_data.h"
 #include "caors/reflection/type.h"
 
@@ -58,7 +58,8 @@ private:
   [[nodiscard]] error register_type_for(const meta::type_registration_data& type,
                                         const detail::type_data& reflection) {
     using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const type_id expected_id = meta::descriptor_id_of<value_type>();
+    const meta::type expected = meta::resolve<value_type>();
+    const type_id expected_id = expected.id();
     if (type.id() && type.id() != expected_id) {
       return {error_domain::reflection, errc::invalid_type};
     }

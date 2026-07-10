@@ -5,7 +5,6 @@
 #define CAORS_REFLECTION_DETAIL_FIELD_WRAPPER_H_
 
 #include "caors/meta.h"
-#include "caors/meta/type_descriptor_model.h"
 #include "caors/traits/container.h"
 #include "caors/value/any_ref.h"
 
@@ -94,9 +93,10 @@ public:
   /** @brief 判断字段是否匹配指定 C++ 类型。 */
   template <typename Field> [[nodiscard]] bool matches_type() const noexcept {
     using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
-    const meta::type meta = get_type();
-    return meta && meta.id() == caors::meta::descriptor_id_of<field_type>() &&
-           meta.size() == sizeof(field_type) && meta.alignment() == alignof(field_type);
+    const meta::type actual = get_type();
+    const meta::type expected = caors::meta::resolve<field_type>();
+    return actual && expected && actual.id() == expected.id() &&
+           actual.size() == sizeof(field_type) && actual.alignment() == alignof(field_type);
   }
 
   /** @brief 获取字段在对象内的只读地址。 */

@@ -128,7 +128,8 @@ private:
   [[nodiscard]] error register_type_for(const meta::type_registration_data& type,
                                         const object_factory_ops* factory) {
     using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const type_id expected_id = meta::descriptor_id_of<value_type>();
+    const meta::type expected = meta::resolve<value_type>();
+    const type_id expected_id = expected.id();
     if (type.id() && type.id() != expected_id) {
       return {error_domain::object, errc::invalid_type};
     }
