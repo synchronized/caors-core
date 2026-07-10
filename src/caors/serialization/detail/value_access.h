@@ -9,16 +9,6 @@
 
 namespace caors::serialization::detail {
 
-/** @brief 集中访问 `any` 携带的内部类型 descriptor。 */
-[[nodiscard]] inline const meta::type_descriptor* descriptor_of(const any& value) noexcept {
-  return value::detail::descriptor_of(value);
-}
-
-/** @brief 集中访问 `any_ref` 携带的内部类型 descriptor。 */
-[[nodiscard]] inline const meta::type_descriptor* descriptor_of(const any_ref& value) noexcept {
-  return value::detail::descriptor_of(value);
-}
-
 /** @brief 按类型视图和序列化上下文默认构造临时运行期值。 */
 [[nodiscard]] inline any default_construct_value(meta::type type,
                                                  const serialization::context& context) {

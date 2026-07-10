@@ -243,14 +243,6 @@ any_ref any_ref::from_raw(meta::type type, const void* data, bool writable) noex
 
 namespace detail {
 
-const meta::type_descriptor* descriptor_of(const any& value) noexcept {
-  return caors::meta::descriptor_of(value.type_);
-}
-
-const meta::type_descriptor* descriptor_of(const any_ref& value) noexcept {
-  return caors::meta::descriptor_of(value.type_);
-}
-
 any default_construct(meta::type type) { return default_construct(type, nullptr); }
 
 any default_construct(meta::type type, memory::memory_resource* resource) {

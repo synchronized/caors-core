@@ -14,7 +14,6 @@
 
 namespace caors::meta {
 
-struct type_descriptor;
 struct indirect_ops;
 struct sequence_ops;
 struct set_ops;

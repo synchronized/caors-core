@@ -23,8 +23,6 @@ namespace caors::value {
 
 namespace detail {
 
-[[nodiscard]] const meta::type_descriptor* descriptor_of(const any& value) noexcept;
-[[nodiscard]] const meta::type_descriptor* descriptor_of(const any_ref& value) noexcept;
 [[nodiscard]] any default_construct(meta::type type);
 [[nodiscard]] any default_construct(meta::type type, memory::memory_resource* resource);
 
@@ -162,7 +160,6 @@ public:
 private:
   friend class any_ref;
   friend class reflection::detail::field_wrapper;
-  friend const meta::type_descriptor* detail::descriptor_of(const any& value) noexcept;
   friend any detail::default_construct(meta::type type);
   friend any detail::default_construct(meta::type type, memory::memory_resource* resource);
 

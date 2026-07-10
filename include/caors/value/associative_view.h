@@ -87,13 +87,12 @@ private:
   friend bool operator==(const iterator& lhs, const iterator& rhs) noexcept;
   friend bool operator!=(const iterator& lhs, const iterator& rhs) noexcept;
 
-  associative_view(const meta::type_descriptor* descriptor, const void* storage,
-                   bool writable) noexcept;
+  associative_view(meta::type type, const void* storage, bool writable) noexcept;
 
   [[nodiscard]] bool has_iterator_support() const noexcept;
   [[nodiscard]] const meta::associative_ops* data() const noexcept;
 
-  const meta::type_descriptor* descriptor_ = nullptr;
+  meta::type type_{};
   const void* storage_ = nullptr;
   bool writable_ = false;
 };

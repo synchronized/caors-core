@@ -63,12 +63,11 @@ private:
   friend class any;
   friend class any_ref;
 
-  indirect_view(const meta::type_descriptor* descriptor, const void* storage,
-                bool writable) noexcept;
+  indirect_view(meta::type type, const void* storage, bool writable) noexcept;
 
   [[nodiscard]] const meta::indirect_ops* data() const noexcept;
 
-  const meta::type_descriptor* descriptor_ = nullptr;
+  meta::type type_{};
   const void* storage_ = nullptr;
   bool writable_ = false;
 };
