@@ -12,6 +12,20 @@ namespace {
          lhs.parent_id() == rhs.parent_id();
 }
 
+[[nodiscard]] error validate_reflection_type(type_id id,
+                                             const detail::type_data& reflection) noexcept {
+  if (!id) {
+    return {error_domain::reflection, errc::invalid_type};
+  }
+
+  const meta::type reflected_type = reflection.get_type();
+  if (!reflected_type || reflected_type.id() != id) {
+    return {error_domain::reflection, errc::invalid_type};
+  }
+
+  return {};
+}
+
 [[nodiscard]] bool resolve_field_type(meta::registry& registry, detail::field_wrapper& field) {
   if (!field.valid()) {
     return false;
@@ -90,6 +104,11 @@ error registry::register_type(const meta::type_registration_data& type,
     return {error_domain::reflection, errc::invalid_field};
   }
 
+  const error reflected_type_status = validate_reflection_type(type.id(), reflection);
+  if (reflected_type_status) {
+    return reflected_type_status;
+  }
+
   meta::type existing;
   if (type.id()) {
     existing = meta::get_registry().find_type(type.id());
@@ -151,6 +170,11 @@ error registry::register_type(type_id id, const detail::type_data& reflection) {
 
   if (!reflection.valid()) {
     return {error_domain::reflection, errc::invalid_field};
+  }
+
+  const error reflected_type_status = validate_reflection_type(id, reflection);
+  if (reflected_type_status) {
+    return reflected_type_status;
   }
 
   detail::type_data stored_reflection = reflection;

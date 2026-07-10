@@ -42,6 +42,19 @@ TEST_CASE("reflection - class builder reports invalid explicit meta type", "[ref
   CHECK(status.value() == caors::errc::invalid_type);
 }
 
+TEST_CASE("reflection - class builder rejects mismatched explicit meta type", "[reflection]") {
+  const caors::meta::type type =
+      caors::meta::type_<explicit_meta_actor>("caors.test.reflection.explicit_meta_mismatch").get();
+  REQUIRE(type.valid());
+
+  const caors::error status =
+      caors::reflection::class_<registry_actor>(type).field("id", &registry_actor::id).commit();
+
+  CHECK(status.failed());
+  CHECK(status.domain() == caors::error_domain::reflection);
+  CHECK(status.value() == caors::errc::invalid_type);
+}
+
 // 原测试文件：reflection_registry_registry_registers_and_finds_types_test.cpp
 
 #include "reflection_registry_test_support.h"

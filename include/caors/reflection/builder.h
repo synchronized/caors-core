@@ -22,12 +22,17 @@ namespace caors::reflection {
 template <typename Class> class class_builder {
 public:
   explicit class_builder(std::string_view name, type_id parent_id = type_id::invalid())
-      : type_(meta::make_type_registration_data<Class>(name, parent_id)) {}
+      : type_(meta::make_type_registration_data<Class>(name, parent_id)) {
+    reflection_.ops = detail::make_type_ops<Class>();
+  }
 
   class_builder(std::string_view name, type_guid guid, type_id parent_id = type_id::invalid())
-      : type_(meta::make_type_registration_data<Class>(name, guid, parent_id)) {}
+      : type_(meta::make_type_registration_data<Class>(name, guid, parent_id)) {
+    reflection_.ops = detail::make_type_ops<Class>();
+  }
 
   explicit class_builder(meta::type type) : existing_type_(type) {
+    reflection_.ops = detail::make_type_ops<Class>();
     if (!type.registered()) {
       pending_status_ = {error_domain::reflection, errc::invalid_type};
     }

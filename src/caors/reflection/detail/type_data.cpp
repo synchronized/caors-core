@@ -6,6 +6,10 @@
 namespace caors::reflection::detail {
 
 bool type_data::valid() const noexcept {
+  if (!ops.valid() || !get_type()) {
+    return false;
+  }
+
   for (const field_wrapper& field : fields) {
     if (!field.valid()) {
       return false;
@@ -19,6 +23,10 @@ bool type_data::valid() const noexcept {
   }
 
   return true;
+}
+
+meta::type type_data::get_type() const noexcept {
+  return ops.get_type != nullptr ? ops.get_type() : meta::type{};
 }
 
 std::optional<field_wrapper> type_data::find_field(core::string_name name) const {

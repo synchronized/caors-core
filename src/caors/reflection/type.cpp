@@ -9,7 +9,14 @@ namespace caors::reflection {
 
 type::type(meta::type type, const detail::type_data* data) noexcept : type_(type), data_(data) {}
 
-bool type::valid() const noexcept { return type_.valid() && data_ != nullptr && data_->valid(); }
+bool type::valid() const noexcept {
+  if (!type_.valid() || data_ == nullptr || !data_->valid()) {
+    return false;
+  }
+
+  const meta::type reflected_type = data_->get_type();
+  return reflected_type && reflected_type.id() == type_.id();
+}
 
 meta::type type::info() const noexcept { return valid() ? type_ : meta::type{}; }
 
