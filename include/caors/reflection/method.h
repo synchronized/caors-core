@@ -18,7 +18,7 @@ namespace caors::reflection {
 
 namespace detail {
 
-struct method_data;
+class method_wrapper;
 
 } // namespace detail
 
@@ -85,10 +85,10 @@ public:
 private:
   friend class type;
 
-  explicit method(const detail::method_data* reflected_method) noexcept;
-  [[nodiscard]] const detail::method_data* info() const noexcept;
+  explicit method(const detail::method_wrapper* reflected_method) noexcept;
+  [[nodiscard]] const detail::method_wrapper* info() const noexcept;
 
-  const detail::method_data* method_ = nullptr;
+  const detail::method_wrapper* method_ = nullptr;
 };
 
 } // namespace caors::reflection

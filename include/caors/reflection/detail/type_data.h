@@ -6,7 +6,7 @@
 
 #include "caors/core/containers.h"
 #include "caors/reflection/detail/field_wrapper.h"
-#include "caors/reflection/detail/method_data.h"
+#include "caors/reflection/detail/method_wrapper.h"
 
 #include <initializer_list>
 #include <optional>
@@ -22,13 +22,13 @@ namespace caors::reflection::detail {
  */
 struct type_data {
   vector<field_wrapper> fields{};
-  vector<method_data> methods{};
+  vector<method_wrapper> methods{};
 
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] std::optional<field_wrapper> find_field(string_name name) const;
   [[nodiscard]] std::optional<field_wrapper> find_field(std::string_view name) const;
-  [[nodiscard]] std::optional<method_data> find_method(string_name name) const;
-  [[nodiscard]] std::optional<method_data> find_method(std::string_view name) const;
+  [[nodiscard]] std::optional<method_wrapper> find_method(string_name name) const;
+  [[nodiscard]] std::optional<method_wrapper> find_method(std::string_view name) const;
 };
 
 /** @brief 创建类型反射底层数据。 */

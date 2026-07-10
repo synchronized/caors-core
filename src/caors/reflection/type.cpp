@@ -78,7 +78,7 @@ method type::find_method(core::string_name name) const {
   }
 
   for (std::size_t index = 0; index < reflected->methods.size(); ++index) {
-    if (reflected->methods[index].name == name) {
+    if (reflected->methods[index].name() == name) {
       return method_at(index);
     }
   }

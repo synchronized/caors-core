@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_REFLECTION_DETAIL_METHOD_DATA_H_
-#define CAORS_REFLECTION_DETAIL_METHOD_DATA_H_
+#ifndef CAORS_REFLECTION_DETAIL_METHOD_WRAPPER_H_
+#define CAORS_REFLECTION_DETAIL_METHOD_WRAPPER_H_
 
 #include "caors/core/containers.h"
 #include "caors/meta.h"
-#include "caors/meta/type_descriptor_model.h"
 #include "caors/value/any_ref.h"
 
 #include <array>
@@ -20,14 +19,14 @@
 
 namespace caors::reflection::detail {
 
-struct method_data;
+class method_wrapper;
 
-using method_type_fn = meta::type (*)(const method_data& method) noexcept;
-using method_parameter_count_fn = std::size_t (*)(const method_data& method) noexcept;
-using method_parameter_type_fn = std::optional<meta::type> (*)(const method_data& method,
+using method_type_fn = meta::type (*)(const method_wrapper& method) noexcept;
+using method_parameter_count_fn = std::size_t (*)(const method_wrapper& method) noexcept;
+using method_parameter_type_fn = std::optional<meta::type> (*)(const method_wrapper& method,
                                                                std::size_t index) noexcept;
-using method_invoke_fn = any (*)(const method_data& method, const void* object, bool mutable_object,
-                                 std::span<const any_ref> arguments);
+using method_invoke_fn = any (*)(const method_wrapper& method, const void* object,
+                                 bool mutable_object, std::span<const any_ref> arguments);
 
 /** @brief 方法访问函数表，负责返回类型信息并执行底层成员函数调用。 */
 struct method_ops {
@@ -49,28 +48,52 @@ struct method_ops {
  * 方法调用只支持已注册的成员函数指针。参数通过 `any_ref` 传入，返回值通过 `any`
  * 拷贝返回；`void` 返回值会得到无效 `any`。
  */
-struct method_data {
+class method_wrapper final {
+public:
   static constexpr std::size_t storage_size = sizeof(void*) * 4U;
 
-  string_name name{};
-  alignas(std::max_align_t) std::array<std::byte, storage_size> storage{};
-  method_ops ops{};
-  bool const_method = false;
+  method_wrapper() noexcept = default;
 
-  [[nodiscard]] bool valid() const noexcept { return !name.empty() && ops.valid(); }
+  method_wrapper(string_name method_name, method_ops method_operations,
+                 bool is_const_method) noexcept
+      : name_(method_name), ops_(method_operations), const_method_(is_const_method) {}
 
-  [[nodiscard]] meta::type get_owner_type() const noexcept { return ops.get_owner_type(*this); }
-  [[nodiscard]] meta::type get_return_type() const noexcept { return ops.get_return_type(*this); }
-  [[nodiscard]] std::size_t parameter_count() const noexcept { return ops.parameter_count(*this); }
+  [[nodiscard]] bool valid() const noexcept { return !name_.empty() && ops_.valid(); }
+
+  [[nodiscard]] string_name name() const noexcept { return name_; }
+  [[nodiscard]] bool const_method() const noexcept { return const_method_; }
+  [[nodiscard]] meta::type get_owner_type() const noexcept { return ops_.get_owner_type(*this); }
+  [[nodiscard]] meta::type get_return_type() const noexcept { return ops_.get_return_type(*this); }
+  [[nodiscard]] std::size_t parameter_count() const noexcept { return ops_.parameter_count(*this); }
 
   [[nodiscard]] std::optional<meta::type> get_parameter_type(std::size_t index) const noexcept {
-    return ops.get_parameter_type(*this, index);
+    return ops_.get_parameter_type(*this, index);
   }
 
   [[nodiscard]] any invoke(const void* object, bool mutable_object,
                            std::span<const any_ref> arguments) const {
-    return ops.invoke(*this, object, mutable_object, arguments);
+    return ops_.invoke(*this, object, mutable_object, arguments);
   }
+
+  template <typename Member> [[nodiscard]] Member load_member_pointer() const noexcept {
+    Member member{};
+    std::memcpy(&member, storage_.data(), sizeof(Member));
+    return member;
+  }
+
+  template <typename Member> void store_member_pointer(Member member) noexcept {
+    static_assert(std::is_trivially_copyable_v<Member>,
+                  "Member pointers must be trivially copyable");
+    static_assert(sizeof(Member) <= storage_size,
+                  "Member pointer is too large for reflection method storage");
+    std::memcpy(storage_.data(), &member, sizeof(Member));
+  }
+
+private:
+  string_name name_{};
+  alignas(std::max_align_t) std::array<std::byte, storage_size> storage_{};
+  method_ops ops_{};
+  bool const_method_ = false;
 };
 
 template <typename T> using method_value_type = std::remove_cv_t<std::remove_reference_t<T>>;
@@ -109,20 +132,6 @@ template <typename... Arguments>
   return ((argument_matches<Arguments>(arguments[index++])) && ...);
 }
 
-template <typename Member>
-[[nodiscard]] Member load_member_pointer(const method_data& method) noexcept {
-  Member member{};
-  std::memcpy(&member, method.storage.data(), sizeof(Member));
-  return member;
-}
-
-template <typename Member> void store_member_pointer(method_data& method, Member member) noexcept {
-  static_assert(std::is_trivially_copyable_v<Member>, "Member pointers must be trivially copyable");
-  static_assert(sizeof(Member) <= method_data::storage_size,
-                "Member pointer is too large for reflection method storage");
-  std::memcpy(method.storage.data(), &member, sizeof(Member));
-}
-
 template <typename Class, typename Return, typename... Arguments, std::size_t... Index>
 [[nodiscard]] any invoke_member_impl(Return (Class::*member)(Arguments...), Class& object,
                                      std::span<const any_ref> arguments,
@@ -156,7 +165,7 @@ template <typename Class, typename Return, typename... Arguments, std::size_t...
 }
 
 template <typename Class, typename Return, typename... Arguments>
-[[nodiscard]] any invoke_member_method(const method_data& method, const void* object,
+[[nodiscard]] any invoke_member_method(const method_wrapper& method, const void* object,
                                        bool mutable_object, std::span<const any_ref> arguments) {
   static_assert((!std::is_rvalue_reference_v<Arguments> && ...),
                 "Reflected method rvalue reference parameters are not supported");
@@ -164,13 +173,13 @@ template <typename Class, typename Return, typename... Arguments>
     return {};
   }
 
-  auto member = load_member_pointer<Return (Class::*)(Arguments...)>(method);
+  auto member = method.template load_member_pointer<Return (Class::*)(Arguments...)>();
   auto* instance = const_cast<Class*>(static_cast<const Class*>(object));
   return invoke_member_impl(member, *instance, arguments, std::index_sequence_for<Arguments...>{});
 }
 
 template <typename Class, typename Return, typename... Arguments>
-[[nodiscard]] any invoke_const_member_method(const method_data& method, const void* object,
+[[nodiscard]] any invoke_const_member_method(const method_wrapper& method, const void* object,
                                              bool /*mutable_object*/,
                                              std::span<const any_ref> arguments) {
   static_assert((!std::is_rvalue_reference_v<Arguments> && ...),
@@ -179,17 +188,18 @@ template <typename Class, typename Return, typename... Arguments>
     return {};
   }
 
-  auto member = load_member_pointer<Return (Class::*)(Arguments...) const>(method);
+  auto member = method.template load_member_pointer<Return (Class::*)(Arguments...) const>();
   const auto* instance = static_cast<const Class*>(object);
   return invoke_member_impl(member, *instance, arguments, std::index_sequence_for<Arguments...>{});
 }
 
-template <typename Class> [[nodiscard]] meta::type method_owner_type(const method_data&) noexcept {
+template <typename Class>
+[[nodiscard]] meta::type method_owner_type(const method_wrapper&) noexcept {
   return meta::resolve<Class>();
 }
 
 template <typename Return>
-[[nodiscard]] meta::type method_return_type(const method_data&) noexcept {
+[[nodiscard]] meta::type method_return_type(const method_wrapper&) noexcept {
   if constexpr (std::is_void_v<method_value_type<Return>>) {
     return {};
   } else {
@@ -198,12 +208,12 @@ template <typename Return>
 }
 
 template <typename... Arguments>
-[[nodiscard]] std::size_t method_parameter_count(const method_data&) noexcept {
+[[nodiscard]] std::size_t method_parameter_count(const method_wrapper&) noexcept {
   return sizeof...(Arguments);
 }
 
 template <typename... Arguments>
-[[nodiscard]] std::optional<meta::type> method_parameter_type(const method_data&,
+[[nodiscard]] std::optional<meta::type> method_parameter_type(const method_wrapper&,
                                                               std::size_t index) noexcept {
   if constexpr (sizeof...(Arguments) == 0) {
     return std::nullopt;
@@ -245,28 +255,26 @@ template <typename Class, typename Return, typename... Arguments>
 }
 
 template <typename Class, typename Return, typename... Arguments>
-[[nodiscard]] method_data make_method_data(std::string_view name,
-                                           Return (Class::*member)(Arguments...)) {
-  method_data method{
+[[nodiscard]] method_wrapper make_method_wrapper(std::string_view name,
+                                                 Return (Class::*member)(Arguments...)) {
+  method_wrapper method{
       string_name{name},
-      {},
       member_method_ops<Class, Return, Arguments...>(),
       false,
   };
-  store_member_pointer(method, member);
+  method.store_member_pointer(member);
   return method;
 }
 
 template <typename Class, typename Return, typename... Arguments>
-[[nodiscard]] method_data make_method_data(std::string_view name,
-                                           Return (Class::*member)(Arguments...) const) {
-  method_data method{
+[[nodiscard]] method_wrapper make_method_wrapper(std::string_view name,
+                                                 Return (Class::*member)(Arguments...) const) {
+  method_wrapper method{
       string_name{name},
-      {},
       const_member_method_ops<Class, Return, Arguments...>(),
       true,
   };
-  store_member_pointer(method, member);
+  method.store_member_pointer(member);
   return method;
 }
 

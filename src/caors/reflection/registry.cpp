@@ -56,12 +56,12 @@ namespace {
   core::hash_set<core::string_name> names;
   names.reserve(reflection.methods.size());
 
-  for (const detail::method_data& method : reflection.methods) {
+  for (const detail::method_wrapper& method : reflection.methods) {
     if (!method.valid()) {
       return {error_domain::reflection, errc::invalid_field};
     }
 
-    if (!names.insert(method.name).second) {
+    if (!names.insert(method.name()).second) {
       return {error_domain::reflection, errc::duplicate_method};
     }
   }

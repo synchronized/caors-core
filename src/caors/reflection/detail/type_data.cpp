@@ -12,7 +12,7 @@ bool type_data::valid() const noexcept {
     }
   }
 
-  for (const method_data& method : methods) {
+  for (const method_wrapper& method : methods) {
     if (!method.valid()) {
       return false;
     }
@@ -44,13 +44,13 @@ std::optional<field_wrapper> type_data::find_field(std::string_view name) const 
   return find_field(*interned_name);
 }
 
-std::optional<method_data> type_data::find_method(core::string_name name) const {
+std::optional<method_wrapper> type_data::find_method(core::string_name name) const {
   if (!name) {
     return std::nullopt;
   }
 
-  for (const method_data& method : methods) {
-    if (method.name == name) {
+  for (const method_wrapper& method : methods) {
+    if (method.name() == name) {
       return method;
     }
   }
@@ -58,7 +58,7 @@ std::optional<method_data> type_data::find_method(core::string_name name) const 
   return std::nullopt;
 }
 
-std::optional<method_data> type_data::find_method(std::string_view name) const {
+std::optional<method_wrapper> type_data::find_method(std::string_view name) const {
   const std::optional<core::string_name> interned_name = core::string_name::find(name);
   if (!interned_name.has_value()) {
     return std::nullopt;

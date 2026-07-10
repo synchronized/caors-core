@@ -79,7 +79,7 @@ public:
       return *this;
     }
 
-    detail::method_data method = detail::make_method_data<Class>(name, member);
+    detail::method_wrapper method = detail::make_method_wrapper<Class>(name, member);
     if (!method.valid()) {
       pending_status_ = {error_domain::reflection, errc::invalid_field};
       return *this;
@@ -95,7 +95,7 @@ public:
       return *this;
     }
 
-    detail::method_data method = detail::make_method_data<Class>(name, member);
+    detail::method_wrapper method = detail::make_method_wrapper<Class>(name, member);
     if (!method.valid()) {
       pending_status_ = {error_domain::reflection, errc::invalid_field};
       return *this;
