@@ -23,8 +23,9 @@ void require_serialized_resource_ref_holder_metadata() {
   REQUIRE(type_result_ok(caors::meta::type_<caors::resource_ref<serialized_resource>>(
                              "caors.resource_ref<caors.test.resources.serialized_resource>")
                              .result()));
-  REQUIRE(reflection_result_ok(caors::reflection::class_<serialized_resource_ref_holder>(
-                                   "caors.test.resources.serialized_resource_ref_holder")
+  REQUIRE(reflection_result_ok(((void)caors::meta::type_<serialized_resource_ref_holder>(
+                                    "caors.test.resources.serialized_resource_ref_holder"),
+                                caors::reflection::class_<serialized_resource_ref_holder>())
                                    .field("resource", &serialized_resource_ref_holder::resource)
                                    .commit()));
   REQUIRE(serialization_result_ok(

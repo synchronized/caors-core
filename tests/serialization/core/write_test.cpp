@@ -9,7 +9,8 @@ using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - builds variant from reflected object", "[serialization]") {
   REQUIRE(reflection_result_ok(
-      caors::reflection::class_<dom_actor>("caors.test.serialization.dom_actor")
+      ((void)caors::meta::type_<dom_actor>("caors.test.serialization.dom_actor"),
+       caors::reflection::class_<dom_actor>())
           .field("id", &dom_actor::id)
           .commit()));
   REQUIRE(
@@ -76,7 +77,8 @@ using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - generic writer backend serializes fields", "[serialization]") {
   REQUIRE(reflection_result_ok(
-      caors::reflection::class_<writer_actor>("caors.test.serialization.writer_actor")
+      ((void)caors::meta::type_<writer_actor>("caors.test.serialization.writer_actor"),
+       caors::reflection::class_<writer_actor>())
           .field("id", &writer_actor::id)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<writer_actor>(
@@ -112,7 +114,8 @@ struct json_options_actor {
 
 TEST_CASE("serialization - json options can pretty print json", "[serialization]") {
   REQUIRE(reflection_result_ok(
-      caors::reflection::class_<json_options_actor>("caors.test.serialization.json_options_actor")
+      ((void)caors::meta::type_<json_options_actor>("caors.test.serialization.json_options_actor"),
+       caors::reflection::class_<json_options_actor>())
           .field("id", &json_options_actor::id)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<json_options_actor>().commit()));
@@ -137,7 +140,8 @@ using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - serializes json to caller provided buffer", "[serialization]") {
   REQUIRE(reflection_result_ok(
-      caors::reflection::class_<serializable_actor>("caors.test.serialization.actor")
+      ((void)caors::meta::type_<serializable_actor>("caors.test.serialization.actor"),
+       caors::reflection::class_<serializable_actor>())
           .field("id", &serializable_actor::id)
           .field("health", &serializable_actor::health)
           .field("active", &serializable_actor::active)
@@ -168,7 +172,8 @@ using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - serializes reflected struct fields to json", "[serialization]") {
   REQUIRE(reflection_result_ok(
-      caors::reflection::class_<serializable_actor>("caors.test.serialization.actor")
+      ((void)caors::meta::type_<serializable_actor>("caors.test.serialization.actor"),
+       caors::reflection::class_<serializable_actor>())
           .field("id", &serializable_actor::id)
           .field("health", &serializable_actor::health)
           .field("active", &serializable_actor::active)
@@ -193,7 +198,8 @@ using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - serializes reflected struct fields to text", "[serialization]") {
   REQUIRE(reflection_result_ok(
-      caors::reflection::class_<serializable_actor>("caors.test.serialization.actor")
+      ((void)caors::meta::type_<serializable_actor>("caors.test.serialization.actor"),
+       caors::reflection::class_<serializable_actor>())
           .field("id", &serializable_actor::id)
           .field("health", &serializable_actor::health)
           .field("active", &serializable_actor::active)

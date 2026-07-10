@@ -77,8 +77,9 @@ void require_database_resource_ref_metadata() {
   REQUIRE(type_result_ok(caors::meta::type_<caors::resource_ref<serialized_resource>>(
                              "caors.resource_ref<caors.test.resources.serialized_resource>")
                              .result()));
-  REQUIRE(reflection_result_ok(caors::reflection::class_<database_resource_ref_holder>(
-                                   "caors.test.resources.database_resource_ref_holder")
+  REQUIRE(reflection_result_ok(((void)caors::meta::type_<database_resource_ref_holder>(
+                                    "caors.test.resources.database_resource_ref_holder"),
+                                caors::reflection::class_<database_resource_ref_holder>())
                                    .field("resource", &database_resource_ref_holder::resource)
                                    .commit()));
   REQUIRE(serialization_result_ok(

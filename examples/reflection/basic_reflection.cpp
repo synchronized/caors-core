@@ -13,10 +13,11 @@ struct actor {
 };
 
 int main() {
-  const caors::error result = caors::reflection::class_<actor>("example.actor")
-                                  .field("id", &actor::id)
-                                  .field("health", &actor::health)
-                                  .commit();
+  const caors::error result =
+      ((void)caors::meta::type_<actor>("example.actor"), caors::reflection::class_<actor>())
+          .field("id", &actor::id)
+          .field("health", &actor::health)
+          .commit();
 
   if (result) {
     return 1;

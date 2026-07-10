@@ -118,7 +118,8 @@ public:
 
 inline void require_serialized_resource_metadata() {
   REQUIRE(reflection_result_ok(
-      caors::reflection::class_<serialized_resource>("caors.test.resources.serialized_resource")
+      ((void)caors::meta::type_<serialized_resource>("caors.test.resources.serialized_resource"),
+       caors::reflection::class_<serialized_resource>())
           .field("width", &serialized_resource::width)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<serialized_resource>().commit()));

@@ -351,7 +351,8 @@ constexpr caors::type_guid view_actor_guid{caors::guid::from_bytes(
 
 [[nodiscard]] inline caors::reflection::type require_field_traits_owner_reflection() {
   const caors::error status =
-      caors::reflection::class_<field_traits_owner>("caors.test.reflection.field_traits_owner")
+      ((void)caors::meta::type_<field_traits_owner>("caors.test.reflection.field_traits_owner"),
+       caors::reflection::class_<field_traits_owner>())
           .field("value", &field_traits_owner::value)
           .field("color", &field_traits_owner::color)
           .field("raw", &field_traits_owner::raw)

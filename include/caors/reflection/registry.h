@@ -50,38 +50,7 @@ private:
   registry();
   ~registry();
 
-  [[nodiscard]] error register_type(const meta::type_registration_data& type,
-                                    const detail::type_data& reflection);
-  [[nodiscard]] error register_type(type_id id, const detail::type_data& reflection);
-  [[nodiscard]] error register_type(meta::type type, const detail::type_data& reflection);
-  template <typename T>
-  [[nodiscard]] error register_type_for(const meta::type_registration_data& type,
-                                        const detail::type_data& reflection) {
-    using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const meta::type expected = meta::resolve<value_type>();
-    const type_id expected_id = expected.id();
-    if (type.id() && type.id() != expected_id) {
-      return {error_domain::reflection, errc::invalid_type};
-    }
-
-    meta::type_registration_data stored_type = type;
-    if (!stored_type.id()) {
-      stored_type.set_id(expected_id);
-    }
-
-    const error type_status =
-        meta::get_registry().template register_type_for<value_type>(stored_type);
-    if (type_status && type_status.value() != errc::duplicate_id) {
-      return rethrow_as(type_status, error_domain::reflection);
-    }
-
-    const meta::type stored_meta = meta::get_registry().find_type(expected_id);
-    if (!stored_meta) {
-      return {error_domain::reflection, errc::invalid_type};
-    }
-
-    return register_type(stored_meta.id(), reflection);
-  }
+  [[nodiscard]] error attach_type(meta::type type, const detail::type_data& reflection);
 
   [[nodiscard]] const detail::type_data* find_reflection_data(type_id id) const;
 };

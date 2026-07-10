@@ -6,12 +6,6 @@
 namespace caors::reflection {
 namespace {
 
-[[nodiscard]] bool same_type_data(meta::type lhs,
-                                  const meta::type_registration_data& rhs) noexcept {
-  return lhs.id() == rhs.id() && lhs.name() == rhs.name() && lhs.guid() == rhs.guid() &&
-         lhs.parent_id() == rhs.parent_id();
-}
-
 [[nodiscard]] error validate_reflection_type(type_id id,
                                              const detail::type_data& reflection) noexcept {
   if (!id) {
@@ -94,9 +88,8 @@ registry& registry::instance() noexcept {
   return registry;
 }
 
-error registry::register_type(const meta::type_registration_data& type,
-                              const detail::type_data& reflection) {
-  if (!type.valid() || !type.id()) {
+error registry::attach_type(meta::type type, const detail::type_data& reflection) {
+  if (!type.registered()) {
     return {error_domain::reflection, errc::invalid_type};
   }
 
@@ -109,33 +102,6 @@ error registry::register_type(const meta::type_registration_data& type,
     return reflected_type_status;
   }
 
-  meta::type existing;
-  if (type.id()) {
-    existing = meta::get_registry().find_type(type.id());
-  }
-  if (!existing) {
-    existing = meta::get_registry().find_type(type.name());
-  }
-  if (!existing && type.guid()) {
-    existing = meta::get_registry().find_type(type.guid());
-  }
-
-  if (existing) {
-    if (!same_type_data(existing, type)) {
-      return {error_domain::reflection, errc::inconsistent_type};
-    }
-  }
-
-  const error type_status = meta::get_registry().register_type(type);
-  if (type_status && type_status.value() != errc::duplicate_id) {
-    return rethrow_as(type_status, error_domain::reflection);
-  }
-
-  const meta::type stored_meta = meta::get_registry().find_type(type.id());
-  if (!stored_meta) {
-    return {error_domain::reflection, errc::invalid_type};
-  }
-
   detail::type_data stored_reflection = reflection;
 
   const error field_status = resolve_fields(meta::get_registry(), stored_reflection);
@@ -153,58 +119,9 @@ error registry::register_type(const meta::type_registration_data& type,
     return method_status;
   }
 
-  return rethrow_as(
-      meta::get_registry().emplace<detail::type_data>(stored_meta.id(), stored_reflection),
-      error_domain::reflection, errc::duplicate_component, errc::duplicate_reflection);
-}
-
-error registry::register_type(type_id id, const detail::type_data& reflection) {
-  if (!id) {
-    return {error_domain::reflection, errc::invalid_type};
-  }
-
-  const meta::type stored_meta = meta::get_registry().find_type(id);
-  if (!stored_meta) {
-    return {error_domain::reflection, errc::missing_type};
-  }
-
-  if (!reflection.valid()) {
-    return {error_domain::reflection, errc::invalid_field};
-  }
-
-  const error reflected_type_status = validate_reflection_type(id, reflection);
-  if (reflected_type_status) {
-    return reflected_type_status;
-  }
-
-  detail::type_data stored_reflection = reflection;
-
-  const error field_status = resolve_fields(meta::get_registry(), stored_reflection);
-  if (field_status) {
-    return field_status;
-  }
-
-  const error validation_status = validate_registered_fields(stored_reflection);
-  if (validation_status) {
-    return validation_status;
-  }
-
-  const error method_status = validate_registered_methods(stored_reflection);
-  if (method_status) {
-    return method_status;
-  }
-
-  return rethrow_as(meta::get_registry().emplace<detail::type_data>(id, stored_reflection),
+  return rethrow_as(meta::get_registry().emplace<detail::type_data>(type.id(), stored_reflection),
                     error_domain::reflection, errc::duplicate_component,
                     errc::duplicate_reflection);
-}
-
-error registry::register_type(meta::type type, const detail::type_data& reflection) {
-  if (!type.registered()) {
-    return {error_domain::reflection, errc::invalid_type};
-  }
-
-  return register_type(type.id(), reflection);
 }
 
 bool registry::contains(type_id id) const {

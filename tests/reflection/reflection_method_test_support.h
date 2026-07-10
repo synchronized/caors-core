@@ -26,7 +26,8 @@ struct duplicate_method_actor {
 
 [[nodiscard]] inline caors::reflection::type require_method_type() {
   const caors::error result =
-      caors::reflection::class_<method_actor>("caors.test.reflection.method_actor")
+      ((void)caors::meta::type_<method_actor>("caors.test.reflection.method_actor"),
+       caors::reflection::class_<method_actor>())
           .field("value", &method_actor::value)
           .method("add", &method_actor::add)
           .method("add_to", &method_actor::add_to)

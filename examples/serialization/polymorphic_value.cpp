@@ -84,19 +84,17 @@ bool register_types() {
     return false;
   }
 
-  if (!check(caors::reflection::class_<actor>(caors::meta::find<actor>()).commit(),
-             "reflection actor")) {
+  if (!check(caors::reflection::class_<actor>().commit(), "reflection actor")) {
     return false;
   }
 
-  if (!check(caors::reflection::class_<player>(caors::meta::find<player>())
-                 .field("level", &player::level)
-                 .commit(),
+  if (!check(caors::reflection::class_<player>().field("level", &player::level).commit(),
              "reflection player")) {
     return false;
   }
 
-  if (!check(caors::reflection::class_<scene>("example.serialization.scene")
+  if (!check(((void)caors::meta::type_<scene>("example.serialization.scene"),
+              caors::reflection::class_<scene>())
                  .field("owner", &scene::owner, "std.shared_ptr<example.serialization.actor>")
                  .commit(),
              "reflection scene")) {

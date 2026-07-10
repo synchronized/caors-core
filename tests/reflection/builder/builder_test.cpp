@@ -13,7 +13,8 @@ TEST_CASE("reflection - class builder accepts fields with descriptor-only types"
     unregistered_field field{};
   };
 
-  REQUIRE(caors::reflection::class_<owner>("caors.test.reflection.owner")
+  REQUIRE(((void)caors::meta::type_<owner>("caors.test.reflection.owner"),
+           caors::reflection::class_<owner>())
               .field("field", &owner::field)
               .commit() == caors::error{});
 
@@ -39,7 +40,8 @@ using namespace test_reflection;
 
 TEST_CASE("reflection - class builder infers built-in field types", "[reflection]") {
   const caors::error result =
-      caors::reflection::class_<builder_actor>("caors.test.reflection.builder_actor")
+      ((void)caors::meta::type_<builder_actor>("caors.test.reflection.builder_actor"),
+       caors::reflection::class_<builder_actor>())
           .field("id", &builder_actor::id)
           .field("health", &builder_actor::health)
           .commit();
@@ -77,8 +79,9 @@ TEST_CASE("reflection - class builder resolves explicitly registered C++ field t
   require_registered_type<test_reflection::named_field_value>(
       "caors.test.reflection.named_field_value");
 
-  REQUIRE(caors::reflection::class_<test_reflection::named_field_owner>(
-              "caors.test.reflection.named_field_owner")
+  REQUIRE(((void)caors::meta::type_<test_reflection::named_field_owner>(
+               "caors.test.reflection.named_field_owner"),
+           caors::reflection::class_<test_reflection::named_field_owner>())
               .field("value", &test_reflection::named_field_owner::value)
               .commit() == caors::error{});
 
@@ -102,11 +105,13 @@ TEST_CASE("reflection - class builder resolves explicitly registered C++ field t
 using namespace test_reflection;
 
 TEST_CASE("reflection - class builder resolves registered C++ field types", "[reflection]") {
-  REQUIRE(caors::reflection::class_<inventory>("caors.test.reflection.inventory")
+  REQUIRE(((void)caors::meta::type_<inventory>("caors.test.reflection.inventory"),
+           caors::reflection::class_<inventory>())
               .field("count", &inventory::count)
               .commit() == caors::error{});
 
-  REQUIRE(caors::reflection::class_<inventory_holder>("caors.test.reflection.inventory_holder")
+  REQUIRE(((void)caors::meta::type_<inventory_holder>("caors.test.reflection.inventory_holder"),
+           caors::reflection::class_<inventory_holder>())
               .field("items", &inventory_holder::items)
               .commit() == caors::error{});
 

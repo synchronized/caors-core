@@ -28,7 +28,8 @@ inline void require_object_ref_target_metadata() {
   REQUIRE((object_status == caors::error{} || object_status.value() == caors::errc::duplicate_id));
 
   REQUIRE(reflection_result_ok(
-      caors::reflection::class_<object_ref_target>(object_ref_target::object_type_name)
+      ((void)caors::meta::type_<object_ref_target>(object_ref_target::object_type_name),
+       caors::reflection::class_<object_ref_target>())
           .field("value", &object_ref_target::value)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<object_ref_target>().commit()));
@@ -37,8 +38,9 @@ inline void require_object_ref_target_metadata() {
 inline void require_object_ref_owner_actor_metadata() {
   require_object_ref_target_metadata();
 
-  REQUIRE(reflection_result_ok(caors::reflection::class_<object_ref_owner_actor>(
-                                   "caors.test.serialization.object_ref_owner_actor")
+  REQUIRE(reflection_result_ok(((void)caors::meta::type_<object_ref_owner_actor>(
+                                    "caors.test.serialization.object_ref_owner_actor"),
+                                caors::reflection::class_<object_ref_owner_actor>())
                                    .field("owner", &object_ref_owner_actor::owner)
                                    .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<object_ref_owner_actor>().commit()));

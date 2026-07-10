@@ -10,8 +10,9 @@ using namespace caors::tests::reflection;
 TEST_CASE("reflection any_ref - creates indirect views for pointer and wrappers", "[reflection]") {
   require_value_test_meta();
 
-  REQUIRE(caors::reflection::class_<indirect_value_holder>(
-              "caors.test.reflection.indirect_value_holder")
+  REQUIRE(((void)caors::meta::type_<indirect_value_holder>(
+               "caors.test.reflection.indirect_value_holder"),
+           caors::reflection::class_<indirect_value_holder>())
               .field("pointer", &indirect_value_holder::pointer)
               .field("optional", &indirect_value_holder::optional)
               .field("unique", &indirect_value_holder::unique)

@@ -33,7 +33,8 @@ TEST_CASE("reflection - field view describes composite traits", "[reflection]") 
 using namespace test_reflection;
 
 TEST_CASE("reflection - field view describes field layout", "[reflection]") {
-  REQUIRE(caors::reflection::class_<field_layout_actor>("caors.test.reflection.field_layout_actor")
+  REQUIRE(((void)caors::meta::type_<field_layout_actor>("caors.test.reflection.field_layout_actor"),
+           caors::reflection::class_<field_layout_actor>())
               .field("health", &field_layout_actor::health)
               .commit() == caors::error{});
 
@@ -181,7 +182,8 @@ TEST_CASE("reflection - field view describes value and enum traits", "[reflectio
 using namespace test_reflection;
 
 TEST_CASE("reflection - field view reads and writes field values", "[reflection]") {
-  REQUIRE(caors::reflection::class_<read_write_actor>("caors.test.reflection.read_write_actor")
+  REQUIRE(((void)caors::meta::type_<read_write_actor>("caors.test.reflection.read_write_actor"),
+           caors::reflection::class_<read_write_actor>())
               .field("id", &read_write_actor::id)
               .field("health", &read_write_actor::health)
               .commit() == caors::error{});
@@ -220,7 +222,8 @@ TEST_CASE("reflection - field view reads and writes field values", "[reflection]
 using namespace test_reflection;
 
 TEST_CASE("reflection - field view rejects writes to readonly fields", "[reflection]") {
-  REQUIRE(caors::reflection::class_<readonly_actor>("caors.test.reflection.readonly_actor")
+  REQUIRE(((void)caors::meta::type_<readonly_actor>("caors.test.reflection.readonly_actor"),
+           caors::reflection::class_<readonly_actor>())
               .field("id", &readonly_actor::id)
               .commit() == caors::error{});
 
@@ -244,7 +247,8 @@ using namespace test_reflection;
 
 TEST_CASE("reflection - type view stores and finds fields", "[reflection]") {
   REQUIRE(
-      caors::reflection::class_<stored_fields_actor>("caors.test.reflection.stored_fields_actor")
+      ((void)caors::meta::type_<stored_fields_actor>("caors.test.reflection.stored_fields_actor"),
+       caors::reflection::class_<stored_fields_actor>())
           .field("id", &stored_fields_actor::id)
           .field("health", &stored_fields_actor::health)
           .commit() == caors::error{});

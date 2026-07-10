@@ -11,7 +11,8 @@
 using namespace test_reflection;
 
 TEST_CASE("reflection - std pair field view exposes first and second values", "[reflection]") {
-  REQUIRE(caors::reflection::class_<pair_holder>("caors.test.reflection.pair_holder")
+  REQUIRE(((void)caors::meta::type_<pair_holder>("caors.test.reflection.pair_holder"),
+           caors::reflection::class_<pair_holder>())
               .field("value", &pair_holder::value)
               .commit()
               .succeeded());
@@ -59,7 +60,8 @@ TEST_CASE("reflection - std pair field view exposes first and second values", "[
 using namespace test_reflection;
 
 TEST_CASE("reflection - std tuple field view exposes indexed elements", "[reflection]") {
-  REQUIRE(caors::reflection::class_<tuple_holder>("caors.test.reflection.tuple_holder")
+  REQUIRE(((void)caors::meta::type_<tuple_holder>("caors.test.reflection.tuple_holder"),
+           caors::reflection::class_<tuple_holder>())
               .field("value", &tuple_holder::value)
               .commit()
               .succeeded());
@@ -113,7 +115,8 @@ TEST_CASE("reflection - std tuple field view exposes indexed elements", "[reflec
 using namespace test_reflection;
 
 TEST_CASE("reflection - std variant field view exposes active alternative", "[reflection]") {
-  REQUIRE(caors::reflection::class_<variant_holder>("caors.test.reflection.variant_holder")
+  REQUIRE(((void)caors::meta::type_<variant_holder>("caors.test.reflection.variant_holder"),
+           caors::reflection::class_<variant_holder>())
               .field("value", &variant_holder::value)
               .commit()
               .succeeded());

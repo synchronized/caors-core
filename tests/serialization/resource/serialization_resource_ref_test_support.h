@@ -32,7 +32,8 @@ inline void require_resource_ref_actor_metadata() {
                          .result()));
 
   REQUIRE(reflection_result_ok(
-      caors::reflection::class_<resource_ref_actor>("caors.test.serialization.resource_ref_actor")
+      ((void)caors::meta::type_<resource_ref_actor>("caors.test.serialization.resource_ref_actor"),
+       caors::reflection::class_<resource_ref_actor>())
           .field("texture", &resource_ref_actor::texture)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<resource_ref_actor>().commit()));

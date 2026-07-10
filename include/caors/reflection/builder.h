@@ -6,7 +6,6 @@
 
 #include "caors/reflection/registry.h"
 
-#include <optional>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -24,23 +23,6 @@ public:
   class_builder() : existing_type_(meta::find<Class>()) {
     reflection_.ops = detail::make_type_ops<Class>();
     if (!existing_type_.registered()) {
-      pending_status_ = {error_domain::reflection, errc::invalid_type};
-    }
-  }
-
-  explicit class_builder(std::string_view name, type_id parent_id = type_id::invalid())
-      : type_(meta::make_type_registration_data<Class>(name, parent_id)) {
-    reflection_.ops = detail::make_type_ops<Class>();
-  }
-
-  class_builder(std::string_view name, type_guid guid, type_id parent_id = type_id::invalid())
-      : type_(meta::make_type_registration_data<Class>(name, guid, parent_id)) {
-    reflection_.ops = detail::make_type_ops<Class>();
-  }
-
-  explicit class_builder(meta::type type) : existing_type_(type) {
-    reflection_.ops = detail::make_type_ops<Class>();
-    if (!type.registered()) {
       pending_status_ = {error_domain::reflection, errc::invalid_type};
     }
   }
@@ -122,15 +104,10 @@ public:
       return pending_status_;
     }
 
-    if (existing_type_.valid()) {
-      return get_registry().register_type(existing_type_, reflection_);
-    }
-
-    return get_registry().template register_type_for<Class>(type_, reflection_);
+    return get_registry().attach_type(existing_type_, reflection_);
   }
 
 private:
-  meta::type_registration_data type_{};
   meta::type existing_type_{};
   detail::type_data reflection_{};
   error pending_status_{};
@@ -139,25 +116,6 @@ private:
 /** @brief 为已注册元类型创建反射注册构建器，不会创建或修改基础类型记录。 */
 template <typename Class> [[nodiscard]] class_builder<Class> class_() {
   return class_builder<Class>{};
-}
-
-/** @brief 创建反射注册构建器。 */
-template <typename Class>
-[[nodiscard]] class_builder<Class> class_(std::string_view name,
-                                          type_id parent_id = type_id::invalid()) {
-  return class_builder<Class>{name, parent_id};
-}
-
-/** @brief 创建带稳定 GUID 的反射注册构建器。 */
-template <typename Class>
-[[nodiscard]] class_builder<Class> class_(std::string_view name, type_guid guid,
-                                          type_id parent_id = type_id::invalid()) {
-  return class_builder<Class>{name, guid, parent_id};
-}
-
-/** @brief 为已注册元类型创建反射注册构建器，不会创建或修改基础类型记录。 */
-template <typename Class> [[nodiscard]] class_builder<Class> class_(meta::type type) {
-  return class_builder<Class>{type};
 }
 
 } // namespace caors::reflection

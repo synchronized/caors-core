@@ -37,7 +37,8 @@ int main() {
     return 1;
   }
 
-  if (caors::reflection::class_<party_slot>("example.party_slot")
+  if (((void)caors::meta::type_<party_slot>("example.party_slot"),
+       caors::reflection::class_<party_slot>())
           .field("leader", &party_slot::leader)
           .commit()) {
     return 1;

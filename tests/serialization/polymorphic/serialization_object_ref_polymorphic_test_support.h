@@ -73,20 +73,17 @@ inline void require_polymorphic_object_ref_metadata() {
                              .guid(polymorphic_object_ref_enemy_guid)
                              .result()));
 
-  REQUIRE(reflection_result_ok(caors::reflection::class_<polymorphic_object_ref_actor>(
-                                   caors::meta::find<polymorphic_object_ref_actor>())
-                                   .commit()));
-  REQUIRE(reflection_result_ok(caors::reflection::class_<polymorphic_object_ref_player>(
-                                   caors::meta::find<polymorphic_object_ref_player>())
+  REQUIRE(reflection_result_ok(caors::reflection::class_<polymorphic_object_ref_actor>().commit()));
+  REQUIRE(reflection_result_ok(caors::reflection::class_<polymorphic_object_ref_player>()
                                    .field("level", &polymorphic_object_ref_player::level)
                                    .field("name", &polymorphic_object_ref_player::name)
                                    .commit()));
-  REQUIRE(reflection_result_ok(caors::reflection::class_<polymorphic_object_ref_enemy>(
-                                   caors::meta::find<polymorphic_object_ref_enemy>())
+  REQUIRE(reflection_result_ok(caors::reflection::class_<polymorphic_object_ref_enemy>()
                                    .field("danger", &polymorphic_object_ref_enemy::danger)
                                    .commit()));
-  REQUIRE(reflection_result_ok(caors::reflection::class_<polymorphic_object_ref_holder>(
-                                   "caors.test.serialization.polymorphic_object_ref.holder")
+  REQUIRE(reflection_result_ok(((void)caors::meta::type_<polymorphic_object_ref_holder>(
+                                    "caors.test.serialization.polymorphic_object_ref.holder"),
+                                caors::reflection::class_<polymorphic_object_ref_holder>())
                                    .field("owner", &polymorphic_object_ref_holder::owner)
                                    .commit()));
 

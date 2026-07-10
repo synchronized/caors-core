@@ -48,16 +48,13 @@ inline void require_metadata() {
   REQUIRE(object_result_ok(caors::objects::class_<enemy>().commit()));
 
   REQUIRE(caors::tests::serialization::reflection_result_ok(
-      caors::reflection::class_<actor>(caors::meta::find<actor>()).commit()));
+      caors::reflection::class_<actor>().commit()));
+  REQUIRE(caors::tests::serialization::reflection_result_ok(caors::reflection::class_<player>()
+                                                                .field("level", &player::level)
+                                                                .field("name", &player::name)
+                                                                .commit()));
   REQUIRE(caors::tests::serialization::reflection_result_ok(
-      caors::reflection::class_<player>(caors::meta::find<player>())
-          .field("level", &player::level)
-          .field("name", &player::name)
-          .commit()));
-  REQUIRE(caors::tests::serialization::reflection_result_ok(
-      caors::reflection::class_<enemy>(caors::meta::find<enemy>())
-          .field("danger", &enemy::danger)
-          .commit()));
+      caors::reflection::class_<enemy>().field("danger", &enemy::danger).commit()));
 
   REQUIRE(caors::tests::serialization::serialization_result_ok(
       caors::serialization::class_<actor>().commit()));

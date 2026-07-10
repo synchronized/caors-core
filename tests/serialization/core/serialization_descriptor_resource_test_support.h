@@ -37,12 +37,14 @@ inline void require_context_resource_holder_metadata() {
       caors::meta::type_<context_resource_value>("caors.test.serialization.context_resource_value")
           .result()));
 
-  REQUIRE(reflection_result_ok(caors::reflection::class_<context_resource_value>(
-                                   "caors.test.serialization.context_resource_value")
+  REQUIRE(reflection_result_ok(((void)caors::meta::type_<context_resource_value>(
+                                    "caors.test.serialization.context_resource_value"),
+                                caors::reflection::class_<context_resource_value>())
                                    .field("value", &context_resource_value::value)
                                    .commit()));
-  REQUIRE(reflection_result_ok(caors::reflection::class_<context_resource_holder>(
-                                   "caors.test.serialization.context_resource_holder")
+  REQUIRE(reflection_result_ok(((void)caors::meta::type_<context_resource_holder>(
+                                    "caors.test.serialization.context_resource_holder"),
+                                caors::reflection::class_<context_resource_holder>())
                                    .field("unique", &context_resource_holder::unique)
                                    .field("shared", &context_resource_holder::shared)
                                    .field("names", &context_resource_holder::names)

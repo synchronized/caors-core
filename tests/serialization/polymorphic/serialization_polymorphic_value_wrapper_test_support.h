@@ -69,23 +69,20 @@ inline void require_polymorphic_value_metadata() {
                              .result()));
 
   REQUIRE(caors::tests::serialization::reflection_result_ok(
-      caors::reflection::class_<polymorphic_value_actor>(
-          caors::meta::find<polymorphic_value_actor>())
-          .commit()));
+      caors::reflection::class_<polymorphic_value_actor>().commit()));
   REQUIRE(caors::tests::serialization::reflection_result_ok(
-      caors::reflection::class_<polymorphic_value_player>(
-          caors::meta::find<polymorphic_value_player>())
+      caors::reflection::class_<polymorphic_value_player>()
           .field("level", &polymorphic_value_player::level)
           .field("name", &polymorphic_value_player::name)
           .commit()));
   REQUIRE(caors::tests::serialization::reflection_result_ok(
-      caors::reflection::class_<polymorphic_value_enemy>(
-          caors::meta::find<polymorphic_value_enemy>())
+      caors::reflection::class_<polymorphic_value_enemy>()
           .field("danger", &polymorphic_value_enemy::danger)
           .commit()));
   REQUIRE(caors::tests::serialization::reflection_result_ok(
-      caors::reflection::class_<polymorphic_value_holder>(
-          "caors.test.serialization.poly_value.holder")
+      ((void)caors::meta::type_<polymorphic_value_holder>(
+           "caors.test.serialization.poly_value.holder"),
+       caors::reflection::class_<polymorphic_value_holder>())
           .field("owner", &polymorphic_value_holder::owner)
           .field("shared", &polymorphic_value_holder::shared)
           .commit()));
