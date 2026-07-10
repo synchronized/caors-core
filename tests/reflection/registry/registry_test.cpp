@@ -26,6 +26,35 @@ TEST_CASE("reflection - class builder can attach to explicit meta type", "[refle
   CHECK(reflected.find_field("id"));
 }
 
+TEST_CASE("reflection - class builder uses registered meta type without arguments",
+          "[reflection]") {
+  const caors::meta::type type =
+      caors::meta::type_<builder_actor>("caors.test.reflection.builder_actor.no_args").get();
+  REQUIRE(type.valid());
+
+  const caors::error status =
+      caors::reflection::class_<builder_actor>().field("id", &builder_actor::id).commit();
+
+  REQUIRE(
+      (status == caors::error{} || status == reflection_error(caors::errc::duplicate_reflection)));
+
+  auto reflected = caors::reflection::find(type.id());
+  REQUIRE(reflected);
+  CHECK(reflected.info().id() == type.id());
+  CHECK(reflected.find_field("id"));
+}
+
+TEST_CASE("reflection - class builder without arguments requires registered meta type",
+          "[reflection]") {
+  const caors::error status = caors::reflection::class_<invalid_field_owner>()
+                                  .field("id", &invalid_field_owner::id)
+                                  .commit();
+
+  CHECK(status.failed());
+  CHECK(status.domain() == caors::error_domain::reflection);
+  CHECK(status.value() == caors::errc::invalid_type);
+}
+
 // 原测试文件：reflection_registry_class_builder_reports_invalid_explicit_meta_type_test.cpp
 
 #include "reflection_registry_test_support.h"

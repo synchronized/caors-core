@@ -21,6 +21,13 @@ namespace caors::reflection {
  */
 template <typename Class> class class_builder {
 public:
+  class_builder() : existing_type_(meta::find<Class>()) {
+    reflection_.ops = detail::make_type_ops<Class>();
+    if (!existing_type_.registered()) {
+      pending_status_ = {error_domain::reflection, errc::invalid_type};
+    }
+  }
+
   explicit class_builder(std::string_view name, type_id parent_id = type_id::invalid())
       : type_(meta::make_type_registration_data<Class>(name, parent_id)) {
     reflection_.ops = detail::make_type_ops<Class>();
@@ -128,6 +135,11 @@ private:
   detail::type_data reflection_{};
   error pending_status_{};
 };
+
+/** @brief 为已注册元类型创建反射注册构建器，不会创建或修改基础类型记录。 */
+template <typename Class> [[nodiscard]] class_builder<Class> class_() {
+  return class_builder<Class>{};
+}
 
 /** @brief 创建反射注册构建器。 */
 template <typename Class>
