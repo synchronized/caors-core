@@ -203,36 +203,6 @@ template <typename T> [[nodiscard]] type_id id_of() {
 /** @brief 在全局元数据注册表中判断类型继承关系。 */
 [[nodiscard]] CAORS_API bool is_a(type_id id, type_id base_id);
 
-namespace detail {
-
-/** @brief 向全局元数据注册表注册基础类型。内部入口，公开代码优先使用 `meta::type_<T>()`。 */
-template <typename T>
-[[nodiscard]] error register_type(string_name name, type_id parent_id = type_id::invalid()) {
-  return get_registry().register_type_for<T>(make_type_registration_data<T>(name, parent_id));
-}
-
-/** @brief 向全局元数据注册表注册带稳定 GUID 的基础类型。内部入口。 */
-template <typename T>
-[[nodiscard]] error register_type(string_name name, type_guid guid,
-                                  type_id parent_id = type_id::invalid()) {
-  return get_registry().register_type_for<T>(make_type_registration_data<T>(name, guid, parent_id));
-}
-
-/** @brief 向全局元数据注册表注册基础类型。内部入口。 */
-template <typename T>
-[[nodiscard]] error register_type(std::string_view name, type_id parent_id = type_id::invalid()) {
-  return register_type<T>(string_name{name}, parent_id);
-}
-
-/** @brief 向全局元数据注册表注册带稳定 GUID 的基础类型。内部入口。 */
-template <typename T>
-[[nodiscard]] error register_type(std::string_view name, type_guid guid,
-                                  type_id parent_id = type_id::invalid()) {
-  return register_type<T>(string_name{name}, guid, parent_id);
-}
-
-} // namespace detail
-
 template <typename T>
 [[nodiscard]] error registry::register_type_for(const type_registration_data& data) {
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;

@@ -7,7 +7,6 @@
 #include "caors/error.h"
 #include "caors/export.h"
 #include "caors/meta.h"
-#include "caors/reflection/detail/type_data.h"
 #include "caors/reflection/type.h"
 
 #include <initializer_list>
@@ -50,9 +49,9 @@ private:
   registry();
   ~registry();
 
-  [[nodiscard]] error attach_type(meta::type type, const detail::type_data& reflection);
+  [[nodiscard]] error attach_type(meta::type type, const void* reflection);
 
-  [[nodiscard]] const detail::type_data* find_reflection_data(type_id id) const;
+  [[nodiscard]] const void* find_reflection_data(type_id id) const;
 };
 
 /** @brief 获取进程内全局反射注册表。 */

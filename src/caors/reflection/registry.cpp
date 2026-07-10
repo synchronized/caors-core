@@ -77,6 +77,10 @@ namespace {
   return {};
 }
 
+[[nodiscard]] const detail::type_data* as_type_data(const void* reflection) noexcept {
+  return static_cast<const detail::type_data*>(reflection);
+}
+
 } // namespace
 
 registry::registry() = default;
@@ -88,21 +92,22 @@ registry& registry::instance() noexcept {
   return registry;
 }
 
-error registry::attach_type(meta::type type, const detail::type_data& reflection) {
+error registry::attach_type(meta::type type, const void* reflection) {
   if (!type.registered()) {
     return {error_domain::reflection, errc::invalid_type};
   }
 
-  if (!reflection.valid()) {
+  const detail::type_data* reflection_data = as_type_data(reflection);
+  if (reflection_data == nullptr || !reflection_data->valid()) {
     return {error_domain::reflection, errc::invalid_field};
   }
 
-  const error reflected_type_status = validate_reflection_type(type.id(), reflection);
+  const error reflected_type_status = validate_reflection_type(type.id(), *reflection_data);
   if (reflected_type_status) {
     return reflected_type_status;
   }
 
-  detail::type_data stored_reflection = reflection;
+  detail::type_data stored_reflection = *reflection_data;
 
   const error field_status = resolve_fields(meta::get_registry(), stored_reflection);
   if (field_status) {
@@ -128,7 +133,7 @@ bool registry::contains(type_id id) const {
   return meta::get_registry().has<detail::type_data>(id);
 }
 
-const detail::type_data* registry::find_reflection_data(type_id id) const {
+const void* registry::find_reflection_data(type_id id) const {
   return meta::get_registry().find_ptr<detail::type_data>(id);
 }
 
@@ -138,7 +143,7 @@ type registry::find_type(type_id id) const {
     return {};
   }
 
-  const detail::type_data* reflection = find_reflection_data(id);
+  const detail::type_data* reflection = as_type_data(find_reflection_data(id));
   if (reflection == nullptr) {
     return {};
   }

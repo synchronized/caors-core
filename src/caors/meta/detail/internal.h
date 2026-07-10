@@ -4,7 +4,7 @@
 #ifndef CAORS_META_DETAIL_INTERNAL_H_
 #define CAORS_META_DETAIL_INTERNAL_H_
 
-#include "caors/memory/detail/internal_resource.h"
+#include "caors/memory/resource.h"
 #include "caors/memory/unique_ptr.h"
 #include "caors/meta.h"
 #include "caors/meta/detail/parent_cast_ops.h"
@@ -17,8 +17,7 @@ namespace caors::meta::detail {
 class registry_state {
 public:
   explicit registry_state(memory::memory_resource* internal_resource = nullptr)
-      : resource(internal_resource != nullptr ? internal_resource
-                                              : &memory::detail::internal_resource()),
+      : resource(internal_resource != nullptr ? internal_resource : &memory::library_resource()),
         registrations(core::vector<registration_fn>::allocator_type{resource}),
         types(
             core::hash_map<std::uint64_t, memory::unique_ptr<type_data>>::allocator_type{resource}),

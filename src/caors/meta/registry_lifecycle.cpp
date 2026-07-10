@@ -6,7 +6,7 @@
 namespace caors::meta {
 
 registry::registry()
-    : state_resource_(&memory::detail::internal_resource()),
+    : state_resource_(&memory::library_resource()),
       state_(memory::make<detail::registry_state>(state_resource_, state_resource_)) {}
 
 registry::~registry() { memory::destroy(state_, state_resource_); }

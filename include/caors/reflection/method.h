@@ -16,12 +16,6 @@
 
 namespace caors::reflection {
 
-namespace detail {
-
-class method_wrapper;
-
-} // namespace detail
-
 /**
  * @brief 成员方法反射只读视图。
  *
@@ -85,10 +79,10 @@ public:
 private:
   friend class type;
 
-  explicit method(const detail::method_wrapper* reflected_method) noexcept;
-  [[nodiscard]] const detail::method_wrapper* info() const noexcept;
+  explicit method(const void* reflected_method) noexcept;
+  [[nodiscard]] const void* info() const noexcept;
 
-  const detail::method_wrapper* method_ = nullptr;
+  const void* method_ = nullptr;
 };
 
 } // namespace caors::reflection

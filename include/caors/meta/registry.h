@@ -53,13 +53,10 @@ public:
   registry(const registry&) = delete;
   registry& operator=(const registry&) = delete;
 
-  [[nodiscard]] error register_type(const type_registration_data& type);
   [[nodiscard]] error add_registration(registration_fn fn);
   [[nodiscard]] error run_registrations();
   [[nodiscard]] error freeze();
   [[nodiscard]] bool is_frozen() const noexcept;
-
-  template <typename T> [[nodiscard]] error register_type_for(const type_registration_data& data);
 
   [[nodiscard]] bool contains(type_id id) const;
   template <typename T> [[nodiscard]] type find_type() const;
@@ -215,6 +212,8 @@ private:
   template <typename T> friend class type_builder;
   friend error detail::ensure_type_descriptor_registered(const meta::type_descriptor& descriptor);
 
+  [[nodiscard]] error register_type(const type_registration_data& type);
+  template <typename T> [[nodiscard]] error register_type_for(const type_registration_data& data);
   [[nodiscard]] error ensure_type_descriptor(const type_descriptor& descriptor);
   [[nodiscard]] error set_type_guid(type_id id, type_guid guid);
   [[nodiscard]] error set_type_parent(type_id id, type_id parent_id);

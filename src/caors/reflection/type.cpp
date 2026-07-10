@@ -6,15 +6,23 @@
 #include "caors/reflection/detail/type_data.h"
 
 namespace caors::reflection {
+namespace {
 
-type::type(meta::type type, const detail::type_data* data) noexcept : type_(type), data_(data) {}
+[[nodiscard]] const detail::type_data* as_type_data(const void* data) noexcept {
+  return static_cast<const detail::type_data*>(data);
+}
+
+} // namespace
+
+type::type(meta::type type, const void* data) noexcept : type_(type), data_(data) {}
 
 bool type::valid() const noexcept {
-  if (!type_.valid() || data_ == nullptr || !data_->valid()) {
+  const detail::type_data* reflected = as_type_data(data_);
+  if (!type_.valid() || reflected == nullptr || !reflected->valid()) {
     return false;
   }
 
-  const meta::type reflected_type = data_->get_type();
+  const meta::type reflected_type = reflected->get_type();
   return reflected_type && reflected_type.id() == type_.id();
 }
 
@@ -27,12 +35,12 @@ core::string_name type::name() const noexcept { return type_.name(); }
 core::type_guid type::guid() const noexcept { return type_.guid(); }
 
 std::size_t type::field_count() const noexcept {
-  const detail::type_data* reflected = data();
+  const detail::type_data* reflected = as_type_data(data());
   return reflected != nullptr ? reflected->fields.size() : 0;
 }
 
 field type::field_at(std::size_t index) const {
-  const detail::type_data* reflected = data();
+  const detail::type_data* reflected = as_type_data(data());
   if (reflected == nullptr || index >= reflected->fields.size()) {
     return {};
   }
@@ -41,7 +49,7 @@ field type::field_at(std::size_t index) const {
 }
 
 field type::find_field(core::string_name name) const {
-  const detail::type_data* reflected = data();
+  const detail::type_data* reflected = as_type_data(data());
   if (reflected == nullptr || !name) {
     return {};
   }
@@ -65,12 +73,12 @@ field type::find_field(std::string_view name) const {
 }
 
 std::size_t type::method_count() const noexcept {
-  const detail::type_data* reflected = data();
+  const detail::type_data* reflected = as_type_data(data());
   return reflected != nullptr ? reflected->methods.size() : 0;
 }
 
 method type::method_at(std::size_t index) const {
-  const detail::type_data* reflected = data();
+  const detail::type_data* reflected = as_type_data(data());
   if (reflected == nullptr || index >= reflected->methods.size()) {
     return {};
   }
@@ -79,7 +87,7 @@ method type::method_at(std::size_t index) const {
 }
 
 method type::find_method(core::string_name name) const {
-  const detail::type_data* reflected = data();
+  const detail::type_data* reflected = as_type_data(data());
   if (reflected == nullptr || !name) {
     return {};
   }
@@ -102,7 +110,7 @@ method type::find_method(std::string_view name) const {
   return find_method(*interned_name);
 }
 
-const detail::type_data* type::data() const noexcept {
+const void* type::data() const noexcept {
   if (!valid()) {
     return nullptr;
   }

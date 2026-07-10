@@ -4,6 +4,7 @@
 #ifndef CAORS_REFLECTION_BUILDER_H_
 #define CAORS_REFLECTION_BUILDER_H_
 
+#include "caors/reflection/detail/type_data.h"
 #include "caors/reflection/registry.h"
 
 #include <string_view>
@@ -104,7 +105,7 @@ public:
       return pending_status_;
     }
 
-    return get_registry().attach_type(existing_type_, reflection_);
+    return get_registry().attach_type(existing_type_, &reflection_);
   }
 
 private:

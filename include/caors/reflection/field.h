@@ -23,12 +23,6 @@ namespace caors::reflection {
 
 class type;
 
-namespace detail {
-
-class field_wrapper;
-
-} // namespace detail
-
 /**
  * @brief 字段反射只读视图。
  *
@@ -137,10 +131,10 @@ public:
 private:
   friend class type;
 
-  explicit field(const detail::field_wrapper* reflected_field) noexcept;
-  [[nodiscard]] const detail::field_wrapper* info() const noexcept;
+  explicit field(const void* reflected_field) noexcept;
+  [[nodiscard]] const void* info() const noexcept;
 
-  const detail::field_wrapper* field_ = nullptr;
+  const void* field_ = nullptr;
 };
 
 } // namespace caors::reflection

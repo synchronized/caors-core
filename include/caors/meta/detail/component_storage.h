@@ -5,7 +5,7 @@
 #define CAORS_META_DETAIL_COMPONENT_STORAGE_H_
 
 #include "caors/core/containers.h"
-#include "caors/memory/detail/internal_resource.h"
+#include "caors/memory/resource.h"
 #include "caors/memory/unique_ptr.h"
 #include "caors/meta/type.h"
 
@@ -41,7 +41,7 @@ public:
                 "Meta components must be copy constructible");
 
   explicit meta_component_storage(memory::memory_resource* resource = nullptr)
-      : resource_(resource != nullptr ? resource : &memory::detail::internal_resource()),
+      : resource_(resource != nullptr ? resource : &memory::library_resource()),
         components_(typename hash_map<std::uint64_t, memory::unique_ptr<Component>>::allocator_type{
             resource_}) {}
 
@@ -102,8 +102,7 @@ private:
 template <typename Component>
 [[nodiscard]] memory::unique_ptr<meta_component_storage_base>
 make_meta_component_storage(memory::memory_resource* resource = nullptr) {
-  memory::memory_resource* resolved =
-      resource != nullptr ? resource : &memory::detail::internal_resource();
+  memory::memory_resource* resolved = resource != nullptr ? resource : &memory::library_resource();
   using storage_type = meta_component_storage<Component>;
   auto* storage = memory::make<storage_type>(resolved, resolved);
   memory::unique_ptr<meta_component_storage_base> result{storage};

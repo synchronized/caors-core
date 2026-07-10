@@ -3,7 +3,7 @@
 
 #include "caors/core/string_name.h"
 
-#include "caors/memory/detail/internal_resource.h"
+#include "caors/memory/resource.h"
 #include "caors/memory/unique_ptr.h"
 
 #include <mutex>
@@ -28,7 +28,7 @@ namespace {
 class string_name_table {
 public:
   string_name_table()
-      : resource_(&memory::detail::internal_resource()),
+      : resource_(&memory::library_resource()),
         entries_by_text_(
             hash_map<string, memory::unique_ptr<detail::string_name_entry>>::allocator_type{
                 resource_}) {}

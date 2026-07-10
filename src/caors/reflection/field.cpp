@@ -7,22 +7,33 @@
 #include "caors/reflection/detail/field_wrapper.h"
 
 namespace caors::reflection {
-field::field(const detail::field_wrapper* field) noexcept : field_(field) {}
+namespace {
 
-bool field::valid() const noexcept { return field_ != nullptr && field_->valid(); }
+[[nodiscard]] const detail::field_wrapper* as_field_wrapper(const void* field) noexcept {
+  return static_cast<const detail::field_wrapper*>(field);
+}
+
+} // namespace
+
+field::field(const void* field) noexcept : field_(field) {}
+
+bool field::valid() const noexcept {
+  const detail::field_wrapper* field = as_field_wrapper(field_);
+  return field != nullptr && field->valid();
+}
 
 core::string_name field::name() const noexcept {
-  const detail::field_wrapper* field = info();
+  const detail::field_wrapper* field = as_field_wrapper(info());
   return field != nullptr ? field->name() : core::string_name{};
 }
 
 meta::type field::get_owner_type() const noexcept {
-  const detail::field_wrapper* field = info();
+  const detail::field_wrapper* field = as_field_wrapper(info());
   return field != nullptr ? field->get_owner_type() : meta::type{};
 }
 
 meta::type field::get_type() const noexcept {
-  const detail::field_wrapper* field = info();
+  const detail::field_wrapper* field = as_field_wrapper(info());
   return field != nullptr ? field->get_type() : meta::type{};
 }
 
@@ -47,12 +58,12 @@ bool field::indirect() const noexcept { return get_type().indirect(); }
 bool field::nullable() const noexcept { return get_type().nullable(); }
 
 bool field::writable() const noexcept {
-  const detail::field_wrapper* field = info();
+  const detail::field_wrapper* field = as_field_wrapper(info());
   return field != nullptr && field->writable();
 }
 
 std::size_t field::offset() const noexcept {
-  const detail::field_wrapper* field = info();
+  const detail::field_wrapper* field = as_field_wrapper(info());
   return field != nullptr ? field->offset() : 0;
 }
 
@@ -68,7 +79,7 @@ std::size_t field::alignment() const noexcept {
   return value_ops != nullptr ? value_ops->layout.alignment : 0;
 }
 
-const detail::field_wrapper* field::info() const noexcept {
+const void* field::info() const noexcept {
   if (!valid()) {
     return nullptr;
   }
@@ -77,7 +88,7 @@ const detail::field_wrapper* field::info() const noexcept {
 }
 
 any field::get_value(const void* object) const {
-  const detail::field_wrapper* field = info();
+  const detail::field_wrapper* field = as_field_wrapper(info());
   if (field == nullptr) {
     return {};
   }
@@ -86,7 +97,7 @@ any field::get_value(const void* object) const {
 }
 
 any_ref field::get_ref(const void* object) const {
-  const detail::field_wrapper* field = info();
+  const detail::field_wrapper* field = as_field_wrapper(info());
   if (field == nullptr) {
     return {};
   }
@@ -95,7 +106,7 @@ any_ref field::get_ref(const void* object) const {
 }
 
 any_ref field::get_ref(void* object) const {
-  const detail::field_wrapper* field = info();
+  const detail::field_wrapper* field = as_field_wrapper(info());
   if (field == nullptr) {
     return {};
   }
@@ -104,7 +115,7 @@ any_ref field::get_ref(void* object) const {
 }
 
 bool field::try_set_value(void* object, const any& source) const {
-  const detail::field_wrapper* field = info();
+  const detail::field_wrapper* field = as_field_wrapper(info());
   if (field == nullptr) {
     return false;
   }

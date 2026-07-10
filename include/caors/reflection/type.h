@@ -14,12 +14,6 @@ namespace caors::reflection {
 
 class registry;
 
-namespace detail {
-
-struct type_data;
-
-} // namespace detail
-
 /**
  * @brief 类型反射只读视图。
  *
@@ -49,11 +43,11 @@ public:
 private:
   friend class registry;
 
-  type(meta::type info, const detail::type_data* data) noexcept;
-  [[nodiscard]] const detail::type_data* data() const noexcept;
+  type(meta::type info, const void* data) noexcept;
+  [[nodiscard]] const void* data() const noexcept;
 
   meta::type type_{};
-  const detail::type_data* data_ = nullptr;
+  const void* data_ = nullptr;
 };
 
 } // namespace caors::reflection

@@ -133,10 +133,34 @@ private:
       stored_type.set_id(expected_id);
     }
 
-    const error type_status =
-        meta::get_registry().template register_type_for<value_type>(stored_type);
-    if (type_status && type_status.value() != errc::duplicate_id) {
-      return rethrow_as(type_status, error_domain::object);
+    if (stored_type.parent_id() && !meta::find(stored_type.parent_id())) {
+      return {error_domain::object, errc::missing_parent};
+    }
+
+    if (stored_type.guid()) {
+      const meta::type existing_guid = meta::find(stored_type.guid());
+      if (existing_guid && existing_guid.id() != expected_id) {
+        return {error_domain::object, errc::duplicate_guid};
+      }
+    }
+
+    meta::type_builder<value_type> builder = meta::type_<value_type>(stored_type.name().view());
+    if (builder.result() && builder.result().value() != errc::duplicate_id) {
+      return rethrow_as(builder.result(), error_domain::object);
+    }
+
+    if (stored_type.guid()) {
+      builder.guid(stored_type.guid());
+      if (builder.result() && builder.result().value() != errc::duplicate_id) {
+        return rethrow_as(builder.result(), error_domain::object);
+      }
+    }
+
+    if (stored_type.parent_id()) {
+      builder.parent(stored_type.parent_id());
+      if (builder.result()) {
+        return rethrow_as(builder.result(), error_domain::object);
+      }
     }
 
     const meta::type stored_meta = meta::get_registry().find_type(expected_id);
@@ -151,7 +175,6 @@ private:
       return {error_domain::object, errc::invalid_type};
     }
 
-    meta::type_builder<value_type> builder = meta::type_<value_type>();
     builder.template capability<object_factory_ops>(factory);
     return rethrow_as(builder.result(), error_domain::object, errc::duplicate_component,
                       errc::duplicate_id);
