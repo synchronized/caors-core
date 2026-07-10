@@ -25,9 +25,8 @@ namespace detail {
 
 [[nodiscard]] const meta::type_descriptor* descriptor_of(const any& value) noexcept;
 [[nodiscard]] const meta::type_descriptor* descriptor_of(const any_ref& value) noexcept;
-[[nodiscard]] any default_construct(type_id type, const meta::type_descriptor* descriptor);
-[[nodiscard]] any default_construct(type_id type, const meta::type_descriptor* descriptor,
-                                    memory::memory_resource* resource);
+[[nodiscard]] any default_construct(meta::type type);
+[[nodiscard]] any default_construct(meta::type type, memory::memory_resource* resource);
 
 } // namespace detail
 
@@ -56,7 +55,7 @@ public:
   template <typename T> [[nodiscard]] static any from(const T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
     static_assert(std::is_copy_constructible_v<type>, "any requires copy constructible types");
-    return copy_from_raw(meta::descriptor_id_of<type>(), meta::descriptor_of<type>(), &source);
+    return copy_from_raw(meta::resolve<type>(), &source);
   }
 
   /** @brief 从 C++ 值和显式类型名创建运行期值；类型名必须已经注册并匹配该 C++ 类型。 */
@@ -69,7 +68,7 @@ public:
       return {};
     }
 
-    return copy_from_raw(registered.id(), meta::descriptor_of<type>(), &source);
+    return copy_from_raw(registered, &source);
   }
 
   /** @brief 按运行期类型 id 默认构造一个值。不可默认构造类型会返回无效 `any`。 */
@@ -149,7 +148,7 @@ public:
   /** @brief 从同类型 C++ 值写入当前值。 */
   template <typename T> bool try_set(const T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const auto assign = descriptor_ != nullptr ? descriptor_->ops.assign : nullptr;
+    const auto assign = caors::meta::get_assign_value_fn(type_);
     if (!matches_type<type>() || assign == nullptr) {
       return false;
     }
@@ -164,12 +163,10 @@ private:
   friend class any_ref;
   friend class reflection::detail::field_wrapper;
   friend const meta::type_descriptor* detail::descriptor_of(const any& value) noexcept;
-  friend any detail::default_construct(type_id type, const meta::type_descriptor* descriptor);
-  friend any detail::default_construct(type_id type, const meta::type_descriptor* descriptor,
-                                       memory::memory_resource* resource);
+  friend any detail::default_construct(meta::type type);
+  friend any detail::default_construct(meta::type type, memory::memory_resource* resource);
 
-  [[nodiscard]] static any copy_from_raw(type_id type, const meta::type_descriptor* descriptor,
-                                         const void* source);
+  [[nodiscard]] static any copy_from_raw(meta::type type, const void* source);
 
   enum class storage_mode : unsigned char {
     empty,
@@ -191,7 +188,7 @@ private:
   [[nodiscard]] const void* inline_data() const noexcept;
   [[nodiscard]] bool stores_inline() const noexcept { return mode_ == storage_mode::inline_value; }
 
-  const meta::type_descriptor* descriptor_ = nullptr;
+  meta::type type_{};
   void* data_ = nullptr;
   memory::memory_resource* resource_ = nullptr;
   meta::value_resource_destroy_fn resource_destroy_ = nullptr;

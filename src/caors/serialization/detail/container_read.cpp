@@ -104,7 +104,6 @@ namespace caors::serialization::detail {
 }
 
 [[nodiscard]] error read_set_into_view(reader& reader, const value::set_view& view,
-                                       const meta::set_ops* set,
                                        const serialization::context& context) {
   if (!view.valid() || !view.writable()) {
     return {error_domain::serialization, errc::invalid_field};
@@ -126,9 +125,7 @@ namespace caors::serialization::detail {
       return status;
     }
 
-    const meta::type_descriptor* value_descriptor =
-        set != nullptr ? set->value_descriptor : nullptr;
-    any element = default_construct_value(view.get_value_type().id(), value_descriptor, context);
+    any element = default_construct_value(view.get_value_type(), context);
     if (!element.valid()) {
       return {error_domain::serialization, errc::invalid_type};
     }
@@ -153,12 +150,11 @@ namespace caors::serialization::detail {
 
 [[nodiscard]] error read_set_value(reader& reader, const any_ref& target,
                                    const serialization::context& context) {
-  const meta::set_ops* set = set_ops_of(target);
   const auto assign = assign_fn_of(target);
   if (assign != nullptr) {
     any decoded = default_construct_for(target, context);
     if (decoded.valid()) {
-      error status = read_set_into_view(reader, decoded.create_set_view(), set, context);
+      error status = read_set_into_view(reader, decoded.create_set_view(), context);
       if (status) {
         return status;
       }
@@ -171,11 +167,10 @@ namespace caors::serialization::detail {
     }
   }
 
-  return read_set_into_view(reader, target.create_set_view(), set, context);
+  return read_set_into_view(reader, target.create_set_view(), context);
 }
 
 [[nodiscard]] error read_associative_into_view(reader& reader, const value::associative_view& view,
-                                               const meta::associative_ops* associative,
                                                const serialization::context& context) {
   if (!view.valid() || !view.writable()) {
     return {error_domain::serialization, errc::invalid_field};
@@ -197,12 +192,8 @@ namespace caors::serialization::detail {
       return status;
     }
 
-    const meta::type_descriptor* key_descriptor =
-        associative != nullptr ? associative->key_descriptor : nullptr;
-    const meta::type_descriptor* value_descriptor =
-        associative != nullptr ? associative->value_descriptor : nullptr;
-    any key = default_construct_value(view.get_key_type().id(), key_descriptor, context);
-    any value = default_construct_value(view.get_value_type().id(), value_descriptor, context);
+    any key = default_construct_value(view.get_key_type(), context);
+    any value = default_construct_value(view.get_value_type(), context);
     if (!key.valid() || !value.valid()) {
       return {error_domain::serialization, errc::invalid_type};
     }
@@ -252,13 +243,11 @@ namespace caors::serialization::detail {
 
 [[nodiscard]] error read_associative_value(reader& reader, const any_ref& target,
                                            const serialization::context& context) {
-  const meta::associative_ops* associative = associative_ops_of(target);
   const auto assign = assign_fn_of(target);
   if (assign != nullptr) {
     any decoded = default_construct_for(target, context);
     if (decoded.valid()) {
-      error status = read_associative_into_view(reader, decoded.create_associative_view(),
-                                                associative, context);
+      error status = read_associative_into_view(reader, decoded.create_associative_view(), context);
       if (status) {
         return status;
       }
@@ -271,7 +260,7 @@ namespace caors::serialization::detail {
     }
   }
 
-  return read_associative_into_view(reader, target.create_associative_view(), associative, context);
+  return read_associative_into_view(reader, target.create_associative_view(), context);
 }
 
 [[nodiscard]] error read_pair_into_view(reader& reader, const value::pair_view& view,

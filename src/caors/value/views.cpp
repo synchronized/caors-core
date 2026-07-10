@@ -33,6 +33,14 @@ template <typename Capability>
   return type_view_of(meta::descriptor_id(descriptor), descriptor);
 }
 
+[[nodiscard]] const meta::type_descriptor* runtime_descriptor_of(const any& value) noexcept {
+  return detail::descriptor_of(value);
+}
+
+[[nodiscard]] const meta::type_descriptor* runtime_descriptor_of(const any_ref& value) noexcept {
+  return detail::descriptor_of(value);
+}
+
 } // namespace
 
 bool indirect_view::valid() const noexcept {
@@ -89,7 +97,7 @@ any_ref indirect_view::value_ref() const {
     return {};
   }
 
-  return any_ref::from_raw(get_value_type().id(), info->value_descriptor, value, value_writable);
+  return any_ref::from_raw(get_value_type(), value, value_writable);
 }
 
 meta::type indirect_view::get_dynamic_value_type() const noexcept {
@@ -139,7 +147,7 @@ any_ref indirect_view::dynamic_value_ref() const {
     descriptor = dynamic_type == get_value_type().id() ? info->value_descriptor : nullptr;
   }
 
-  return any_ref::from_raw(dynamic_type, descriptor, value, value_writable);
+  return any_ref::from_raw(type_view_of(descriptor), value, value_writable);
 }
 
 bool indirect_view::can_set_value() const noexcept {
@@ -244,8 +252,7 @@ any_ref pair_view::first_ref() const {
     return {};
   }
 
-  return any_ref::from_raw(meta::descriptor_id(info->key_descriptor), info->key_descriptor, value,
-                           value_writable);
+  return any_ref::from_raw(type_view_of(info->key_descriptor), value, value_writable);
 }
 
 any_ref pair_view::second_ref() const {
@@ -267,8 +274,7 @@ any_ref pair_view::second_ref() const {
     return {};
   }
 
-  return any_ref::from_raw(meta::descriptor_id(info->value_descriptor), info->value_descriptor,
-                           value, value_writable);
+  return any_ref::from_raw(type_view_of(info->value_descriptor), value, value_writable);
 }
 
 any_ref pair_view::value_ref() const { return second_ref(); }
@@ -348,8 +354,7 @@ any_ref tuple_view::element_ref(std::size_t index) const {
     return {};
   }
 
-  return any_ref::from_raw(meta::descriptor_id(element_data.value_descriptor),
-                           element_data.value_descriptor, value, value_writable);
+  return any_ref::from_raw(type_view_of(element_data.value_descriptor), value, value_writable);
 }
 
 bool tuple_view::set_element(std::size_t index, const any& value) const {
@@ -442,8 +447,7 @@ any_ref variant_view::value_ref() const {
     return {};
   }
 
-  return any_ref::from_raw(meta::descriptor_id(alternative_data.value_descriptor),
-                           alternative_data.value_descriptor, value, value_writable);
+  return any_ref::from_raw(type_view_of(alternative_data.value_descriptor), value, value_writable);
 }
 
 bool variant_view::emplace(std::size_t alternative) const { return emplace(alternative, nullptr); }
@@ -558,8 +562,7 @@ any_ref sequence_view::element_ref(std::size_t index) const {
     return {};
   }
 
-  return any_ref::from_raw(meta::descriptor_id(info->value_descriptor), info->value_descriptor,
-                           element, element_writable);
+  return any_ref::from_raw(type_view_of(info->value_descriptor), element, element_writable);
 }
 
 bool sequence_view::clear() const {
@@ -646,8 +649,7 @@ any_ref set_view::iterator::operator*() const {
   }
 
   const void* value = info->iterator_value(iterator_);
-  return any_ref::from_raw(meta::descriptor_id(info->value_descriptor), info->value_descriptor,
-                           value, false);
+  return any_ref::from_raw(type_view_of(info->value_descriptor), value, false);
 }
 
 set_view::iterator& set_view::iterator::operator++() noexcept {
@@ -835,10 +837,8 @@ associative_entry_ref associative_view::iterator::operator*() const {
   const void* key = info->iterator_key(iterator_);
   const void* value = info->iterator_value(iterator_);
   return associative_entry_ref{
-      any_ref::from_raw(meta::descriptor_id(info->key_descriptor), info->key_descriptor, key,
-                        false),
-      any_ref::from_raw(meta::descriptor_id(info->value_descriptor), info->value_descriptor, value,
-                        false),
+      any_ref::from_raw(type_view_of(info->key_descriptor), key, false),
+      any_ref::from_raw(type_view_of(info->value_descriptor), value, false),
   };
 }
 
@@ -990,171 +990,192 @@ const meta::associative_ops* associative_view::data() const noexcept {
 }
 
 associative_view any::create_associative_view() {
-  if (!valid() || !has_capability<meta::associative_ops>(descriptor_)) {
+  const meta::type_descriptor* descriptor = runtime_descriptor_of(*this);
+  if (!valid() || !has_capability<meta::associative_ops>(descriptor)) {
     return {};
   }
 
-  return associative_view{descriptor_, mutable_data(), true};
+  return associative_view{descriptor, mutable_data(), true};
 }
 
 associative_view any::create_associative_view() const {
-  if (!valid() || !has_capability<meta::associative_ops>(descriptor_)) {
+  const meta::type_descriptor* descriptor = runtime_descriptor_of(*this);
+  if (!valid() || !has_capability<meta::associative_ops>(descriptor)) {
     return {};
   }
 
-  return associative_view{descriptor_, data_, false};
+  return associative_view{descriptor, data_, false};
 }
 
 associative_view any_ref::create_associative_view() const {
-  if (!valid() || !has_capability<meta::associative_ops>(descriptor_)) {
+  const meta::type_descriptor* descriptor = runtime_descriptor_of(*this);
+  if (!valid() || !has_capability<meta::associative_ops>(descriptor)) {
     return {};
   }
 
-  return associative_view{descriptor_, data_, writable_};
+  return associative_view{descriptor, data_, writable_};
 }
 
 pair_view any::create_pair_view() {
-  if (!valid() || !has_capability<meta::pair_ops>(descriptor_)) {
+  const meta::type_descriptor* descriptor = runtime_descriptor_of(*this);
+  if (!valid() || !has_capability<meta::pair_ops>(descriptor)) {
     return {};
   }
 
-  return pair_view{descriptor_, mutable_data(), true};
+  return pair_view{descriptor, mutable_data(), true};
 }
 
 pair_view any::create_pair_view() const {
-  if (!valid() || !has_capability<meta::pair_ops>(descriptor_)) {
+  const meta::type_descriptor* descriptor = runtime_descriptor_of(*this);
+  if (!valid() || !has_capability<meta::pair_ops>(descriptor)) {
     return {};
   }
 
-  return pair_view{descriptor_, data_, false};
+  return pair_view{descriptor, data_, false};
 }
 
 pair_view any_ref::create_pair_view() const {
-  if (!valid() || !has_capability<meta::pair_ops>(descriptor_)) {
+  const meta::type_descriptor* descriptor = runtime_descriptor_of(*this);
+  if (!valid() || !has_capability<meta::pair_ops>(descriptor)) {
     return {};
   }
 
-  return pair_view{descriptor_, data_, writable_};
+  return pair_view{descriptor, data_, writable_};
 }
 
 tuple_view any::create_tuple_view() {
-  if (!valid() || !has_capability<meta::tuple_ops>(descriptor_)) {
+  const meta::type_descriptor* descriptor = runtime_descriptor_of(*this);
+  if (!valid() || !has_capability<meta::tuple_ops>(descriptor)) {
     return {};
   }
 
-  return tuple_view{descriptor_, mutable_data(), true};
+  return tuple_view{descriptor, mutable_data(), true};
 }
 
 tuple_view any::create_tuple_view() const {
-  if (!valid() || !has_capability<meta::tuple_ops>(descriptor_)) {
+  const meta::type_descriptor* descriptor = runtime_descriptor_of(*this);
+  if (!valid() || !has_capability<meta::tuple_ops>(descriptor)) {
     return {};
   }
 
-  return tuple_view{descriptor_, data_, false};
+  return tuple_view{descriptor, data_, false};
 }
 
 tuple_view any_ref::create_tuple_view() const {
-  if (!valid() || !has_capability<meta::tuple_ops>(descriptor_)) {
+  const meta::type_descriptor* descriptor = runtime_descriptor_of(*this);
+  if (!valid() || !has_capability<meta::tuple_ops>(descriptor)) {
     return {};
   }
 
-  return tuple_view{descriptor_, data_, writable_};
+  return tuple_view{descriptor, data_, writable_};
 }
 
 variant_view any::create_variant_view() {
-  if (!valid() || !has_capability<meta::variant_ops>(descriptor_)) {
+  const meta::type_descriptor* descriptor = runtime_descriptor_of(*this);
+  if (!valid() || !has_capability<meta::variant_ops>(descriptor)) {
     return {};
   }
 
-  return variant_view{descriptor_, mutable_data(), true};
+  return variant_view{descriptor, mutable_data(), true};
 }
 
 variant_view any::create_variant_view() const {
-  if (!valid() || !has_capability<meta::variant_ops>(descriptor_)) {
+  const meta::type_descriptor* descriptor = runtime_descriptor_of(*this);
+  if (!valid() || !has_capability<meta::variant_ops>(descriptor)) {
     return {};
   }
 
-  return variant_view{descriptor_, data_, false};
+  return variant_view{descriptor, data_, false};
 }
 
 variant_view any_ref::create_variant_view() const {
-  if (!valid() || !has_capability<meta::variant_ops>(descriptor_)) {
+  const meta::type_descriptor* descriptor = runtime_descriptor_of(*this);
+  if (!valid() || !has_capability<meta::variant_ops>(descriptor)) {
     return {};
   }
 
-  return variant_view{descriptor_, data_, writable_};
+  return variant_view{descriptor, data_, writable_};
 }
 
 indirect_view any::create_indirect_view() {
-  if (!valid() || !has_indirect_capability(descriptor_)) {
+  const meta::type_descriptor* descriptor = runtime_descriptor_of(*this);
+  if (!valid() || !has_indirect_capability(descriptor)) {
     return {};
   }
 
-  return indirect_view{descriptor_, mutable_data(), true};
+  return indirect_view{descriptor, mutable_data(), true};
 }
 
 indirect_view any::create_indirect_view() const {
-  if (!valid() || !has_indirect_capability(descriptor_)) {
+  const meta::type_descriptor* descriptor = runtime_descriptor_of(*this);
+  if (!valid() || !has_indirect_capability(descriptor)) {
     return {};
   }
 
-  return indirect_view{descriptor_, data_, false};
+  return indirect_view{descriptor, data_, false};
 }
 
 indirect_view any_ref::create_indirect_view() const {
-  if (!valid() || !has_indirect_capability(descriptor_)) {
+  const meta::type_descriptor* descriptor = runtime_descriptor_of(*this);
+  if (!valid() || !has_indirect_capability(descriptor)) {
     return {};
   }
 
-  return indirect_view{descriptor_, data_, writable_};
+  return indirect_view{descriptor, data_, writable_};
 }
 
 sequence_view any::create_sequence_view() {
-  if (!valid() || !has_capability<meta::sequence_ops>(descriptor_)) {
+  const meta::type_descriptor* descriptor = runtime_descriptor_of(*this);
+  if (!valid() || !has_capability<meta::sequence_ops>(descriptor)) {
     return {};
   }
 
-  return sequence_view{descriptor_, mutable_data(), true};
+  return sequence_view{descriptor, mutable_data(), true};
 }
 
 sequence_view any::create_sequence_view() const {
-  if (!valid() || !has_capability<meta::sequence_ops>(descriptor_)) {
+  const meta::type_descriptor* descriptor = runtime_descriptor_of(*this);
+  if (!valid() || !has_capability<meta::sequence_ops>(descriptor)) {
     return {};
   }
 
-  return sequence_view{descriptor_, data_, false};
+  return sequence_view{descriptor, data_, false};
 }
 
 sequence_view any_ref::create_sequence_view() const {
-  if (!valid() || !has_capability<meta::sequence_ops>(descriptor_)) {
+  const meta::type_descriptor* descriptor = runtime_descriptor_of(*this);
+  if (!valid() || !has_capability<meta::sequence_ops>(descriptor)) {
     return {};
   }
 
-  return sequence_view{descriptor_, data_, writable_};
+  return sequence_view{descriptor, data_, writable_};
 }
 
 set_view any::create_set_view() {
-  if (!valid() || !has_capability<meta::set_ops>(descriptor_)) {
+  const meta::type_descriptor* descriptor = runtime_descriptor_of(*this);
+  if (!valid() || !has_capability<meta::set_ops>(descriptor)) {
     return {};
   }
 
-  return set_view{descriptor_, mutable_data(), true};
+  return set_view{descriptor, mutable_data(), true};
 }
 
 set_view any::create_set_view() const {
-  if (!valid() || !has_capability<meta::set_ops>(descriptor_)) {
+  const meta::type_descriptor* descriptor = runtime_descriptor_of(*this);
+  if (!valid() || !has_capability<meta::set_ops>(descriptor)) {
     return {};
   }
 
-  return set_view{descriptor_, data_, false};
+  return set_view{descriptor, data_, false};
 }
 
 set_view any_ref::create_set_view() const {
-  if (!valid() || !has_capability<meta::set_ops>(descriptor_)) {
+  const meta::type_descriptor* descriptor = runtime_descriptor_of(*this);
+  if (!valid() || !has_capability<meta::set_ops>(descriptor)) {
     return {};
   }
 
-  return set_view{descriptor_, data_, writable_};
+  return set_view{descriptor, data_, writable_};
 }
 
 } // namespace caors::value

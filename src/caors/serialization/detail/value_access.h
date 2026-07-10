@@ -19,14 +19,13 @@ namespace caors::serialization::detail {
   return value::detail::descriptor_of(value);
 }
 
-/** @brief 按 descriptor 和序列化上下文默认构造临时运行期值。 */
-[[nodiscard]] inline any default_construct_value(type_id type,
-                                                 const meta::type_descriptor* descriptor,
+/** @brief 按类型视图和序列化上下文默认构造临时运行期值。 */
+[[nodiscard]] inline any default_construct_value(meta::type type,
                                                  const serialization::context& context) {
   memory::memory_resource* resource = context.effective_memory_resource();
-  any decoded = value::detail::default_construct(type, descriptor, resource);
+  any decoded = value::detail::default_construct(type, resource);
   if (!decoded.valid()) {
-    decoded = any::default_construct(type, resource);
+    decoded = any::default_construct(type.id(), resource);
   }
 
   return decoded;

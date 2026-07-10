@@ -33,6 +33,9 @@ struct type_descriptor;
 [[nodiscard]] CAORS_API type make_type_view(type_id id,
                                             const meta::type_descriptor* descriptor) noexcept;
 
+/** @brief 查询类型视图携带的底层 descriptor；普通模块优先使用 `meta::type` 成员函数和能力查询。 */
+[[nodiscard]] CAORS_API const meta::type_descriptor* descriptor_of(const type& type) noexcept;
+
 /** @brief 类型运行期形态。 */
 enum class type_kind {
   value,
@@ -98,6 +101,7 @@ private:
   friend value_resource_construct_fn get_resource_construct_value_fn(const type&) noexcept;
   friend value_resource_destroy_fn get_resource_destroy_value_fn(const type&) noexcept;
   friend type make_type_view(type_id, const meta::type_descriptor*) noexcept;
+  friend const meta::type_descriptor* descriptor_of(const type&) noexcept;
   friend const void* detail::find_type_capability(const type&, capability_key) noexcept;
 
   constexpr type(const registry* registry, const detail::type_data* data,

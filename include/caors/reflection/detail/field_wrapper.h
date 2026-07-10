@@ -120,36 +120,33 @@ public:
   }
 
   /** @brief 获取成员字段值的运行期拷贝。 */
-  [[nodiscard]] any member_get_value(type_id type, const meta::type_descriptor* descriptor,
-                                     const void* object) const {
+  [[nodiscard]] any member_get_value(meta::type type, const void* object) const {
     const void* field_value = member_data(object);
     if (field_value == nullptr) {
       return {};
     }
 
-    return any::copy_from_raw(type, descriptor, field_value);
+    return any::copy_from_raw(type, field_value);
   }
 
   /** @brief 获取成员字段值的只读运行期引用。 */
-  [[nodiscard]] any_ref member_get_ref(type_id type, const meta::type_descriptor* descriptor,
-                                       const void* object) const {
+  [[nodiscard]] any_ref member_get_ref(meta::type type, const void* object) const {
     const void* field_value = member_data(object);
     if (field_value == nullptr) {
       return {};
     }
 
-    return any_ref::from_raw(type, descriptor, field_value, false);
+    return any_ref::from_raw(type, field_value, false);
   }
 
   /** @brief 获取成员字段值的可写运行期引用。 */
-  [[nodiscard]] any_ref member_get_ref(type_id type, const meta::type_descriptor* descriptor,
-                                       void* object) const {
+  [[nodiscard]] any_ref member_get_ref(meta::type type, void* object) const {
     void* field_value = member_mutable_data(object);
     if (field_value == nullptr) {
       return {};
     }
 
-    return any_ref::from_raw(type, descriptor, field_value, true);
+    return any_ref::from_raw(type, field_value, true);
   }
 
   /** @brief 从运行期值写入成员字段。 */
@@ -272,22 +269,19 @@ template <typename Field>
 template <typename Field>
 [[nodiscard]] any member_field_get_value(const field_wrapper& field, const void* object) {
   using field_type = std::remove_cv_t<Field>;
-  return field.member_get_value(meta::descriptor_id_of<field_type>(),
-                                meta::descriptor_of<field_type>(), object);
+  return field.member_get_value(meta::resolve<field_type>(), object);
 }
 
 template <typename Field>
 [[nodiscard]] any_ref member_field_get_const_ref(const field_wrapper& field, const void* object) {
   using field_type = std::remove_cv_t<Field>;
-  return field.member_get_ref(meta::descriptor_id_of<field_type>(),
-                              meta::descriptor_of<field_type>(), object);
+  return field.member_get_ref(meta::resolve<field_type>(), object);
 }
 
 template <typename Field>
 [[nodiscard]] any_ref member_field_get_mutable_ref(const field_wrapper& field, void* object) {
   using field_type = std::remove_cv_t<Field>;
-  return field.member_get_ref(meta::descriptor_id_of<field_type>(),
-                              meta::descriptor_of<field_type>(), object);
+  return field.member_get_ref(meta::resolve<field_type>(), object);
 }
 
 template <typename Field>

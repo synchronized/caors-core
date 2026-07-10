@@ -21,8 +21,7 @@ public:
   /** @brief 从可写 C++ 对象创建引用。 */
   template <typename T> [[nodiscard]] static any_ref from(T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    return from_raw(meta::descriptor_id_of<type>(), meta::descriptor_of<type>(), &source,
-                    !std::is_const_v<T>);
+    return from_raw(meta::resolve<type>(), &source, !std::is_const_v<T>);
   }
 
   /** @brief 从可写 C++ 对象和显式类型名创建引用；类型名必须已经注册并匹配该 C++ 类型。 */
@@ -33,13 +32,13 @@ public:
       return {};
     }
 
-    return from_raw(registered.id(), meta::descriptor_of<type>(), &source, !std::is_const_v<T>);
+    return from_raw(registered, &source, !std::is_const_v<T>);
   }
 
   /** @brief 从只读 C++ 对象创建引用。 */
   template <typename T> [[nodiscard]] static any_ref from_const(const T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    return from_raw(meta::descriptor_id_of<type>(), meta::descriptor_of<type>(), &source, false);
+    return from_raw(meta::resolve<type>(), &source, false);
   }
 
   /** @brief 从只读 C++ 对象和显式类型名创建引用；类型名必须已经注册并匹配该 C++ 类型。 */
@@ -51,7 +50,7 @@ public:
       return {};
     }
 
-    return from_raw(registered.id(), meta::descriptor_of<type>(), &source, false);
+    return from_raw(registered, &source, false);
   }
 
   [[nodiscard]] bool valid() const noexcept;
@@ -110,7 +109,7 @@ public:
   /** @brief 从同类型 C++ 值写入当前引用指向的对象。 */
   template <typename T> bool try_set(const T& source) const {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const auto assign = descriptor_ != nullptr ? descriptor_->ops.assign : nullptr;
+    const auto assign = caors::meta::get_assign_value_fn(type_);
     if (!matches_type<type>() || !writable_ || assign == nullptr) {
       return false;
     }
@@ -139,10 +138,9 @@ private:
   friend class reflection::detail::field_wrapper;
   friend const meta::type_descriptor* detail::descriptor_of(const any_ref& value) noexcept;
 
-  [[nodiscard]] static any_ref from_raw(type_id type, const meta::type_descriptor* descriptor,
-                                        const void* data, bool writable) noexcept;
+  [[nodiscard]] static any_ref from_raw(meta::type type, const void* data, bool writable) noexcept;
 
-  const meta::type_descriptor* descriptor_ = nullptr;
+  meta::type type_{};
   const void* data_ = nullptr;
   bool writable_ = false;
 };
