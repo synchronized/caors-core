@@ -127,6 +127,13 @@ public:
   /** @brief 尝试复制引用指向的对象。不可拷贝对象会返回无效 `any`。 */
   [[nodiscard]] any to_any() const;
 
+  /**
+   * @brief 从运行期类型视图和原始地址创建引用。
+   *
+   * 调用方必须保证 `data` 指向与 `type` 匹配的有效对象，并且对象生命周期覆盖返回引用的使用期。
+   */
+  [[nodiscard]] static any_ref from_raw(meta::type type, const void* data, bool writable) noexcept;
+
 private:
   friend class any;
   friend class indirect_view;
@@ -136,16 +143,11 @@ private:
   friend class pair_view;
   friend class tuple_view;
   friend class variant_view;
-  friend class reflection::detail::field_wrapper;
-
-  [[nodiscard]] static any_ref from_raw(meta::type type, const void* data, bool writable) noexcept;
 
   meta::type type_{};
   const void* data_ = nullptr;
   bool writable_ = false;
 };
-
-namespace detail {} // namespace detail
 
 } // namespace caors::value
 

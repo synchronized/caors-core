@@ -14,18 +14,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace caors::reflection::detail {
-class field_wrapper;
-} // namespace caors::reflection::detail
-
 namespace caors::value {
-
-namespace detail {
-
-[[nodiscard]] any default_construct(meta::type type);
-[[nodiscard]] any default_construct(meta::type type, memory::memory_resource* resource);
-
-} // namespace detail
 
 /**
  * @brief 运行期 C++ 类型值。
@@ -71,6 +60,9 @@ public:
   /** @brief 按运行期类型 id 默认构造一个值。不可默认构造类型会返回无效 `any`。 */
   [[nodiscard]] static any default_construct(type_id type);
 
+  /** @brief 按运行期类型视图默认构造一个值。不可默认构造类型会返回无效 `any`。 */
+  [[nodiscard]] static any default_construct(meta::type type);
+
   /**
    * @brief 按运行期类型 id 用指定内存资源默认构造一个值。
    *
@@ -79,6 +71,21 @@ public:
    * 会回退到普通默认构造。
    */
   [[nodiscard]] static any default_construct(type_id type, memory::memory_resource* resource);
+
+  /**
+   * @brief 按运行期类型视图用指定内存资源默认构造一个值。
+   *
+   * `type` 可以是已注册类型，也可以是 `meta::resolve<T>()` 返回的 descriptor 视图。
+   */
+  [[nodiscard]] static any default_construct(meta::type type, memory::memory_resource* resource);
+
+  /**
+   * @brief 从原始地址复制构造运行期值。
+   *
+   * 调用方必须保证 `source` 指向与 `type` 匹配的有效对象；类型不可复制或地址为空时返回无效
+   * `any`。
+   */
+  [[nodiscard]] static any copy_from_raw(meta::type type, const void* source);
 
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
@@ -159,11 +166,6 @@ public:
 
 private:
   friend class any_ref;
-  friend class reflection::detail::field_wrapper;
-  friend any detail::default_construct(meta::type type);
-  friend any detail::default_construct(meta::type type, memory::memory_resource* resource);
-
-  [[nodiscard]] static any copy_from_raw(meta::type type, const void* source);
 
   enum class storage_mode : unsigned char {
     empty,

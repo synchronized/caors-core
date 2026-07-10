@@ -58,12 +58,14 @@ any& any::operator=(any&& other) noexcept {
 
 any any::default_construct(type_id type) {
   const meta::type meta = caors::meta::find(type);
-  return meta.valid() ? detail::default_construct(meta) : any{};
+  return meta.valid() ? default_construct(meta) : any{};
 }
+
+any any::default_construct(meta::type type) { return default_construct(type, nullptr); }
 
 any any::default_construct(type_id type, memory::memory_resource* resource) {
   const meta::type meta = caors::meta::find(type);
-  return meta.valid() ? detail::default_construct(meta, resource) : any{};
+  return meta.valid() ? default_construct(meta, resource) : any{};
 }
 
 bool any::valid() const noexcept { return type_.valid() && data_ != nullptr; }
@@ -249,11 +251,7 @@ any_ref any_ref::from_raw(meta::type type, const void* data, bool writable) noex
   return result;
 }
 
-namespace detail {
-
-any default_construct(meta::type type) { return default_construct(type, nullptr); }
-
-any default_construct(meta::type type, memory::memory_resource* resource) {
+any any::default_construct(meta::type type, memory::memory_resource* resource) {
   const meta::value_storage_ops* value_ops = type.get_capability<meta::value_storage_ops>();
   if (!type || value_ops == nullptr || value_ops->ops.default_construct == nullptr ||
       value_ops->ops.destroy == nullptr) {
@@ -292,8 +290,6 @@ any default_construct(meta::type type, memory::memory_resource* resource) {
                                              : any::storage_mode::heap_value;
   return result;
 }
-
-} // namespace detail
 
 void swap(any& lhs, any& rhs) noexcept { lhs.swap(rhs); }
 

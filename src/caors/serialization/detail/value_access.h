@@ -13,7 +13,7 @@ namespace caors::serialization::detail {
 [[nodiscard]] inline any default_construct_value(meta::type type,
                                                  const serialization::context& context) {
   memory::memory_resource* resource = context.effective_memory_resource();
-  any decoded = value::detail::default_construct(type, resource);
+  any decoded = any::default_construct(type, resource);
   if (!decoded.valid()) {
     decoded = any::default_construct(type.id(), resource);
   }
