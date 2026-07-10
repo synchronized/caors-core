@@ -330,6 +330,12 @@ constexpr caors::type_guid view_actor_guid{caors::guid::from_bytes(
   if (name == "caors.hash_set<int>") {
     return caors::meta::descriptor_id_of<caors::hash_set<int>>();
   }
+  if (name == "caors.test.reflection.color") {
+    return caors::meta::descriptor_id_of<reflected_color>();
+  }
+  if (name == "caors.object_ptr<caors.test.reflection.reflected_object_ptr_target>") {
+    return caors::meta::descriptor_id_of<caors::object_ptr<reflected_object_ptr_target>>();
+  }
 
   FAIL("unknown test type name");
   return caors::type_id::invalid();

@@ -160,7 +160,7 @@ TEST_CASE("meta - capability registry stores runtime capabilities by type id", "
   CHECK(found->value == 7);
   CHECK(caors::meta::capabilities::contains<runtime_capability>(id));
 
-  const caors::meta::type type = caors::meta::find<runtime_capability_type>();
+  const caors::meta::type type = caors::meta::resolve<runtime_capability_type>();
   CHECK(type.get_capability<runtime_capability>() == &capability);
   CHECK(type.has_capability<runtime_capability>());
 }
@@ -184,7 +184,7 @@ TEST_CASE("meta - type builder stores owned runtime concept table", "[meta]") {
   CHECK(found->get != nullptr);
   CHECK(found->set != nullptr);
 
-  const caors::meta::type type = caors::meta::find<owned_matrix>();
+  const caors::meta::type type = caors::meta::resolve<owned_matrix>();
   CHECK(type.get_capability<matrix_capability>() == found);
 
   owned_matrix matrix{};
@@ -211,7 +211,7 @@ TEST_CASE("meta - capability static provider can be registered into runtime inde
 }
 
 TEST_CASE("meta - type view resolves descriptor static capabilities", "[meta]") {
-  const caors::meta::type type = caors::meta::find<static_capability_type>();
+  const caors::meta::type type = caors::meta::resolve<static_capability_type>();
   const static_capability_data* found = type.get_capability<static_capability_data>();
   REQUIRE(found != nullptr);
   CHECK(found->value == 42);
@@ -219,7 +219,7 @@ TEST_CASE("meta - type view resolves descriptor static capabilities", "[meta]") 
 }
 
 TEST_CASE("meta - static capability modules can be extended by module tag list", "[meta]") {
-  const caors::meta::type type = caors::meta::find<extension_capability_type>();
+  const caors::meta::type type = caors::meta::resolve<extension_capability_type>();
 
   const first_extension_capability* first = type.get_capability<first_extension_capability>();
   REQUIRE(first != nullptr);

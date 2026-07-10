@@ -7,16 +7,18 @@
 #include "caors/reflection/detail/field_wrapper.h"
 
 namespace caors::reflection {
-field::field(meta::type owner, const detail::field_wrapper* field) noexcept
-    : owner_(owner), field_(field) {}
+field::field(const detail::field_wrapper* field) noexcept : field_(field) {}
 
-bool field::valid() const noexcept {
-  return owner_.valid() && field_ != nullptr && field_->valid();
-}
+bool field::valid() const noexcept { return field_ != nullptr && field_->valid(); }
 
 core::string_name field::name() const noexcept {
   const detail::field_wrapper* field = info();
   return field != nullptr ? field->name() : core::string_name{};
+}
+
+meta::type field::get_owner_type() const noexcept {
+  const detail::field_wrapper* field = info();
+  return field != nullptr ? field->get_owner_type() : meta::type{};
 }
 
 meta::type field::get_type() const noexcept {

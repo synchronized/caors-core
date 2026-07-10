@@ -40,19 +40,13 @@ public:
       return *this;
     }
 
-    const meta::type resolved_type = caors::meta::find<field_type>();
-    const meta::type_descriptor* descriptor = meta::descriptor_of<field_type>();
-    if ((!resolved_type || resolved_type.name().empty()) &&
-        (descriptor == nullptr || !descriptor->valid())) {
+    if (!caors::meta::resolve<field_type>()) {
       pending_status_ = {error_domain::reflection, errc::invalid_field};
       return *this;
     }
 
-    const std::string_view resolved_name = resolved_type && !resolved_type.name().empty()
-                                               ? resolved_type.name().view()
-                                               : std::string_view{};
-    detail::field_wrapper field =
-        detail::make_field_wrapper<Field>(name, resolved_name, detail::member_offset(member));
+    detail::field_wrapper field = detail::make_field_wrapper<Class, Field>(
+        name, std::string_view{}, detail::member_offset(member));
     if (!field.valid()) {
       pending_status_ = {error_domain::reflection, errc::invalid_field};
       return *this;
@@ -69,7 +63,7 @@ public:
     }
 
     detail::field_wrapper field =
-        detail::make_field_wrapper<Field>(name, type_name, detail::member_offset(member));
+        detail::make_field_wrapper<Class, Field>(name, type_name, detail::member_offset(member));
     if (!field.valid()) {
       pending_status_ = {error_domain::reflection, errc::invalid_field};
       return *this;

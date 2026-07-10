@@ -18,7 +18,6 @@
 namespace caors::reflection::detail {
 
 class field_wrapper;
-[[nodiscard]] meta::type member_field_type(const field_wrapper& field) noexcept;
 
 using field_type_fn = meta::type (*)(const field_wrapper& field) noexcept;
 using field_const_data_fn = const void* (*)(const field_wrapper& field,
@@ -31,6 +30,7 @@ using field_set_value_fn = bool (*)(const field_wrapper& field, void* object, co
 
 /** @brief 字段访问函数表，负责把字段底层存储转换成运行期值和引用。 */
 struct field_ops {
+  field_type_fn get_owner_type = nullptr;
   field_type_fn get_type = nullptr;
   field_const_data_fn data = nullptr;
   field_mutable_data_fn mutable_data = nullptr;
@@ -40,47 +40,50 @@ struct field_ops {
   field_set_value_fn set_value = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
-    return get_type != nullptr && data != nullptr && mutable_data != nullptr &&
-           get_value != nullptr && get_const_ref != nullptr && get_mutable_ref != nullptr &&
-           set_value != nullptr;
+    return get_owner_type != nullptr && get_type != nullptr && data != nullptr &&
+           mutable_data != nullptr && get_value != nullptr && get_const_ref != nullptr &&
+           get_mutable_ref != nullptr && set_value != nullptr;
   }
 };
 
-template <typename T> [[nodiscard]] type_id find_field_type_id(std::string_view name) {
+template <typename T> [[nodiscard]] bool field_type_matches_name(std::string_view name) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   const meta::type registered = caors::meta::find<type>();
-  if (!registered || registered.name().empty() || registered.name() != name) {
-    return type_id::invalid();
-  }
-
-  return registered.id();
+  return registered && !registered.name().empty() && registered.name() == name;
 }
 
 /**
  * @brief 底层字段反射包装器。
  *
- * 字段访问通过 `field_ops` 函数表完成。当前成员字段 wrapper 仍缓存 offset、类型 id 和 descriptor，
- * 但调用方应通过成员方法访问字段能力，不直接解释这些缓存。常规查询优先使用 `reflection::field`。
+ * 字段访问通过 `field_ops` 函数表完成。wrapper 只保存字段名、成员偏移和可写标记；字段所有者和值类型
+ * 由对应 ops 模型通过 `meta::resolve<T>()` 返回，避免字段数据重复缓存 descriptor。
  */
 class field_wrapper final {
 public:
   field_wrapper() noexcept = default;
 
-  field_wrapper(string_name field_name, type_id field_type,
-                const meta::type_descriptor* field_descriptor, std::size_t field_offset,
-                bool field_writable, field_ops field_operations) noexcept
-      : name_(field_name), type_(field_type), descriptor_(field_descriptor), offset_(field_offset),
-        writable_(field_writable), ops_(field_operations) {}
+  field_wrapper(string_name field_name, std::size_t field_offset, bool field_writable,
+                field_ops field_operations) noexcept
+      : name_(field_name), offset_(field_offset), writable_(field_writable),
+        ops_(field_operations) {}
 
-  [[nodiscard]] constexpr bool valid() const noexcept {
-    return !name_.empty() && static_cast<bool>(type_) && ops_.valid();
+  [[nodiscard]] bool valid() const noexcept {
+    const meta::type type = get_type();
+    return !name_.empty() && type.valid() && ops_.valid();
   }
 
   /** @brief 查询字段名称。 */
   [[nodiscard]] string_name name() const noexcept { return name_; }
 
+  /** @brief 查询字段所有者类型视图。 */
+  [[nodiscard]] meta::type get_owner_type() const noexcept {
+    return ops_.get_owner_type != nullptr ? ops_.get_owner_type(*this) : meta::type{};
+  }
+
   /** @brief 查询字段值类型。 */
-  [[nodiscard]] meta::type get_type() const noexcept { return ops_.get_type(*this); }
+  [[nodiscard]] meta::type get_type() const noexcept {
+    return ops_.get_type != nullptr ? ops_.get_type(*this) : meta::type{};
+  }
 
   /** @brief 查询字段是否可写。 */
   [[nodiscard]] bool writable() const noexcept { return writable_; }
@@ -98,7 +101,7 @@ public:
 
   /** @brief 获取字段在对象内的只读地址。 */
   [[nodiscard]] const void* member_data(const void* object) const noexcept {
-    if (object == nullptr || !type_) {
+    if (object == nullptr) {
       return nullptr;
     }
 
@@ -108,7 +111,7 @@ public:
 
   /** @brief 获取成员字段在对象内的可写地址。 */
   [[nodiscard]] void* member_mutable_data(void* object) const noexcept {
-    if (object == nullptr || !type_ || !writable_) {
+    if (object == nullptr || !writable_) {
       return nullptr;
     }
 
@@ -117,33 +120,36 @@ public:
   }
 
   /** @brief 获取成员字段值的运行期拷贝。 */
-  [[nodiscard]] any member_get_value(const void* object) const {
+  [[nodiscard]] any member_get_value(type_id type, const meta::type_descriptor* descriptor,
+                                     const void* object) const {
     const void* field_value = member_data(object);
     if (field_value == nullptr) {
       return {};
     }
 
-    return any::copy_from_raw(type_, descriptor_, field_value);
+    return any::copy_from_raw(type, descriptor, field_value);
   }
 
   /** @brief 获取成员字段值的只读运行期引用。 */
-  [[nodiscard]] any_ref member_get_ref(const void* object) const {
+  [[nodiscard]] any_ref member_get_ref(type_id type, const meta::type_descriptor* descriptor,
+                                       const void* object) const {
     const void* field_value = member_data(object);
     if (field_value == nullptr) {
       return {};
     }
 
-    return any_ref::from_raw(type_, descriptor_, field_value, false);
+    return any_ref::from_raw(type, descriptor, field_value, false);
   }
 
   /** @brief 获取成员字段值的可写运行期引用。 */
-  [[nodiscard]] any_ref member_get_ref(void* object) const {
+  [[nodiscard]] any_ref member_get_ref(type_id type, const meta::type_descriptor* descriptor,
+                                       void* object) const {
     void* field_value = member_mutable_data(object);
     if (field_value == nullptr) {
       return {};
     }
 
-    return any_ref::from_raw(type_, descriptor_, field_value, true);
+    return any_ref::from_raw(type, descriptor, field_value, true);
   }
 
   /** @brief 从运行期值写入成员字段。 */
@@ -236,18 +242,21 @@ public:
   }
 
 private:
-  friend meta::type member_field_type(const field_wrapper& field) noexcept;
-
   string_name name_{};
-  type_id type_{};
-  const meta::type_descriptor* descriptor_ = nullptr;
   std::size_t offset_ = 0;
   bool writable_ = true;
   field_ops ops_{};
 };
 
-[[nodiscard]] inline meta::type member_field_type(const field_wrapper& field) noexcept {
-  return meta::make_type_view(field.type_, field.descriptor_);
+template <typename Class>
+[[nodiscard]] meta::type member_field_owner_type(const field_wrapper&) noexcept {
+  return meta::resolve<Class>();
+}
+
+template <typename Field>
+[[nodiscard]] meta::type member_field_type(const field_wrapper&) noexcept {
+  using field_type = std::remove_cv_t<Field>;
+  return meta::resolve<field_type>();
 }
 
 [[nodiscard]] inline const void* member_field_data(const field_wrapper& field,
@@ -260,46 +269,63 @@ private:
   return field.member_mutable_data(object);
 }
 
-[[nodiscard]] inline any member_field_get_value(const field_wrapper& field, const void* object) {
-  return field.member_get_value(object);
+template <typename Field>
+[[nodiscard]] any member_field_get_value(const field_wrapper& field, const void* object) {
+  using field_type = std::remove_cv_t<Field>;
+  return field.member_get_value(meta::descriptor_id_of<field_type>(),
+                                meta::descriptor_of<field_type>(), object);
 }
 
-[[nodiscard]] inline any_ref member_field_get_const_ref(const field_wrapper& field,
-                                                        const void* object) {
-  return field.member_get_ref(object);
+template <typename Field>
+[[nodiscard]] any_ref member_field_get_const_ref(const field_wrapper& field, const void* object) {
+  using field_type = std::remove_cv_t<Field>;
+  return field.member_get_ref(meta::descriptor_id_of<field_type>(),
+                              meta::descriptor_of<field_type>(), object);
 }
 
-[[nodiscard]] inline any_ref member_field_get_mutable_ref(const field_wrapper& field,
-                                                          void* object) {
-  return field.member_get_ref(object);
+template <typename Field>
+[[nodiscard]] any_ref member_field_get_mutable_ref(const field_wrapper& field, void* object) {
+  using field_type = std::remove_cv_t<Field>;
+  return field.member_get_ref(meta::descriptor_id_of<field_type>(),
+                              meta::descriptor_of<field_type>(), object);
 }
 
-inline bool member_field_set_value(const field_wrapper& field, void* object, const any& source) {
+template <typename Field>
+bool member_field_set_value(const field_wrapper& field, void* object, const any& source) {
   return field.member_try_set_value(object, source);
 }
 
-[[nodiscard]] inline field_ops member_field_ops() noexcept {
+template <typename Class, typename Field> [[nodiscard]] field_ops member_field_ops() noexcept {
   return field_ops{
-      &member_field_type,      &member_field_data,          &member_field_mutable_data,
-      &member_field_get_value, &member_field_get_const_ref, &member_field_get_mutable_ref,
-      &member_field_set_value,
+      &member_field_owner_type<Class>,
+      &member_field_type<Field>,
+      &member_field_data,
+      &member_field_mutable_data,
+      &member_field_get_value<Field>,
+      &member_field_get_const_ref<Field>,
+      &member_field_get_mutable_ref<Field>,
+      &member_field_set_value<Field>,
   };
 }
 
 /** @brief 创建字段反射元信息。 */
-template <typename Field>
+template <typename Class, typename Field>
 [[nodiscard]] field_wrapper make_field_wrapper(std::string_view name, std::string_view type_name,
                                                std::size_t offset) {
   using field_type = std::remove_cv_t<Field>;
-  const meta::type_descriptor* descriptor = meta::descriptor_of<field_type>();
-  type_id field_type_id = descriptor->type;
-  if (!type_name.empty()) {
-    field_type_id = detail::find_field_type_id<field_type>(type_name);
+  if (!meta::resolve<field_type>()) {
+    return {};
+  }
+
+  if (!type_name.empty() && !detail::field_type_matches_name<field_type>(type_name)) {
+    return {};
   }
 
   field_wrapper field{
-      string_name{name},       field_type_id,      descriptor, offset,
-      !std::is_const_v<Field>, member_field_ops(),
+      string_name{name},
+      offset,
+      !std::is_const_v<Field>,
+      member_field_ops<Class, Field>(),
   };
 
   return field;

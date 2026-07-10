@@ -512,7 +512,7 @@ namespace caors::serialization {
 
 template <typename T> [[nodiscard]] codec codec_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  return find_codec(meta::type_of<type>());
+  return find_codec(meta::resolve<type>());
 }
 
 } // namespace caors::serialization

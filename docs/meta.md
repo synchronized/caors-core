@@ -114,18 +114,19 @@ meta 类型记录由全局注册表内部保存，普通代码不直接构造或
 - `alignment`
 - `parent_id`
 
-`meta::type` 以 C++ 类型 descriptor 为基础：`meta::type_of<T>()`、`meta::find<T>()` 和
-`meta::id_of<T>()` 可以为未显式注册的 C++ 类型返回 descriptor 视图和运行期 `type_id`。
+`meta::type` 以 C++ 类型 descriptor 为基础：`meta::resolve<T>()` 和 `meta::id_of<T>()`
+可以为未显式注册的 C++ 类型返回 descriptor 视图和运行期 `type_id`。
 `size()` / `alignment()`、默认构造、复制、析构和赋值函数都来自 descriptor。
 `registered()` 表示该类型是否已经通过 `meta::type_<T>("name")` 写入稳定注册数据；只有已注册类型
 才有稳定注册名、GUID、父类型和可挂载组件。
+`meta::find<T>()` 只查询已经注册的 C++ 类型；未注册类型即使能解析 descriptor，也会返回空视图。
 `meta::type_<T>()` 链式 builder 会原地更新全局注册表中已经保存的类型数据；已有 `meta::type`
 视图只引用这份稳定数据，不会因为后续 `.guid()` 或 `.parent()` 调用而失效。
 
 `meta::type` 是对外查询返回的只读视图：
 
 ```cpp
-caors::meta::type type = caors::meta::find<player>();
+caors::meta::type type = caors::meta::resolve<player>();
 
 if (type) {
   caors::type_id id = type.id();
@@ -135,6 +136,14 @@ if (type) {
 
 `meta::type` 不拥有数据，内部引用静态 descriptor；类型已注册时还会引用全局 append-only 注册表中的
 meta 类型记录。需要查询类型信息时使用 `meta::type`。
+
+类型查询按用途分为两条路径：
+
+- `meta::resolve<T>()`：解析 C++ 类型视图，优先返回已注册 `meta::type`；没有注册时退回
+  descriptor-only 视图。反射、序列化、value 和对象模块在只需要布局、类型形态、内置 ops、
+  static capability 或 codec 时统一使用这个入口。
+- `meta::find<T>()` / `meta::find(name/guid)`：查询已注册类型。需要稳定名称、GUID、父类型、
+  factory 或模块组件索引时使用这个入口；未注册 C++ 类型返回空视图。
 
 ### traits::type_name<T>
 
@@ -190,9 +199,10 @@ caors::meta::type_<player>("game.player")
 `.factory()` 无参数重载使用 `memory::make<T>()` / `memory::destroy<T>()` 注册默认构造策略，要求 `T`
 可默认构造。带函数指针的重载用于不可默认构造类型，`destroy` 必须匹配 `construct` 的分配策略。
 
-`caors::meta::find<T>()` 是 C++ 类型到 descriptor 视图的入口；类型未显式注册时仍可能返回有效
-`meta::type`，但 `registered()` 为 false。`caors::meta::find(id/name/guid)` 是运行期查询入口：
-按 `name` / `guid` 只能找到已注册类型，按 `id` 可以找到已缓存的 descriptor 视图或已注册类型。
+`caors::meta::resolve<T>()` 是 C++ 类型到 descriptor 视图的入口；类型未显式注册时仍可能返回有效
+`meta::type`，但 `registered()` 为 false。`caors::meta::find<T>()` 是 C++ 类型到已注册类型的入口，
+未注册时返回空视图。`caors::meta::find(id/name/guid)` 是运行期查询入口：按 `name` / `guid`
+只能找到已注册类型，按 `id` 可以找到已缓存的 descriptor 视图或已注册类型。
 普通业务类型仍应通过 `caors::meta::type_<T>("name")` 显式注册，再把得到的 `meta::type` 交给
 对象、反射或序列化模块挂载组件。
 
@@ -367,8 +377,9 @@ registry 使用边界：
   descriptor 静态 capability 或 `any` / `any_ref` 的局部值访问。
 - 模块注册入口应接收已经存在的 `meta::type`，或者由调用方先显式 `meta::type_<T>("name")` 注册业务
   类型。反射和序列化模块不应为了挂载组件隐式创建业务类型注册记录。
-- `meta::find<T>()` / `meta::type_of<T>()` 返回 descriptor-backed 类型视图，未注册类型也可能有效；
-  `registered()` 才表示 registry 中已经存在稳定注册数据。
+- `meta::resolve<T>()` 返回 descriptor-backed 类型视图，未注册类型也可能有效；`registered()` 才表示
+  registry 中已经存在稳定注册数据。
+- `meta::find<T>()` 只查询已注册 C++ 类型；未注册类型返回空视图。
 - `meta::find(name)` 和 `meta::find(type_guid)` 只查询已注册类型；未注册 descriptor 没有稳定 name/guid
   索引。
 - registry 写入推荐集中在启动期、模块加载期或测试初始化阶段，之后调用 `meta::freeze_registry()`；
@@ -535,7 +546,8 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 - `type_id`：运行期类型标识。
 - `type_guid`：稳定类型标识。
 - `string_name`：运行期 interned 名称，定义在 `caors/core/string_name.h`。
-- `meta::type_of<T>()` / `meta::find<T>()`：查询 C++ 类型 descriptor 视图；未注册类型也可返回有效视图。
+- `meta::resolve<T>()`：查询 C++ 类型 descriptor 视图；未注册类型也可返回有效视图。
+- `meta::find<T>()`：查询已注册 C++ 类型；未注册类型返回空视图。
 - `meta::type::registered()`：判断 descriptor 视图是否带有稳定注册数据。
 - `meta::id_of<T>()`：查询 C++ 类型的运行期类型 id；类型不要求已经显式注册。
 - `meta::id()`：根据已注册类型名查询运行期类型标识。

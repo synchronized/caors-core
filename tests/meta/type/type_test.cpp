@@ -19,9 +19,10 @@ TEST_CASE("meta type - built-in C++ types have default names", "[meta]") {
 using namespace caors::tests::meta_type_basic;
 TEST_CASE("meta type - descriptor id is available before explicit registration", "[meta]") {
   CHECK_FALSE(caors::meta::id("caors.test.type.unregistered_name"));
-  const caors::meta::type descriptor = caors::meta::find<anonymous_cpp_type>();
+  const caors::meta::type descriptor = caors::meta::resolve<anonymous_cpp_type>();
   REQUIRE(descriptor);
   CHECK_FALSE(descriptor.registered());
+  CHECK_FALSE(caors::meta::find<anonymous_cpp_type>());
   CHECK(caors::meta::id_of<anonymous_cpp_type>() == descriptor.id());
   CHECK(descriptor.size() == sizeof(anonymous_cpp_type));
   CHECK(descriptor.alignment() == alignof(anonymous_cpp_type));

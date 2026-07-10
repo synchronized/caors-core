@@ -43,6 +43,8 @@ public:
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
 
   [[nodiscard]] string_name name() const noexcept;
+  /** @brief 查询字段所属类型视图。 */
+  [[nodiscard]] meta::type get_owner_type() const noexcept;
   /** @brief 查询字段声明类型视图。 */
   [[nodiscard]] meta::type get_type() const noexcept;
 
@@ -135,10 +137,9 @@ public:
 private:
   friend class type;
 
-  field(meta::type owner, const detail::field_wrapper* reflected_field) noexcept;
+  explicit field(const detail::field_wrapper* reflected_field) noexcept;
   [[nodiscard]] const detail::field_wrapper* info() const noexcept;
 
-  meta::type owner_{};
   const detail::field_wrapper* field_ = nullptr;
 };
 

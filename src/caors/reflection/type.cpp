@@ -30,7 +30,7 @@ field type::field_at(std::size_t index) const {
     return {};
   }
 
-  return field{type_, &reflected->fields[index]};
+  return field{&reflected->fields[index]};
 }
 
 field type::find_field(core::string_name name) const {

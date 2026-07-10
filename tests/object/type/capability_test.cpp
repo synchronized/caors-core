@@ -55,13 +55,13 @@ TEST_CASE("object - factory ops are exposed as object capabilities", "[object]")
   REQUIRE(factory != nullptr);
   CHECK(factory->constructible());
 
-  const caors::meta::type meta = caors::meta::type_of<capability_registered_object>();
+  const caors::meta::type meta = caors::meta::resolve<capability_registered_object>();
   CHECK(meta.get_capability<caors::objects::object_factory_ops>() != nullptr);
 }
 
 TEST_CASE("object - static factory capability does not imply object registry membership",
           "[object]") {
-  const caors::meta::type meta = caors::meta::type_of<capability_meta_only_object>();
+  const caors::meta::type meta = caors::meta::resolve<capability_meta_only_object>();
   REQUIRE(meta.get_capability<caors::objects::object_factory_ops>() != nullptr);
 
   CHECK_FALSE(caors::objects::contains(meta.id()));

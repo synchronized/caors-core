@@ -15,12 +15,12 @@ TEST_CASE("serialization - custom codec specialization uses descriptor capabilit
   CHECK(codec.can_write());
   CHECK(codec.can_read());
   CHECK(codec.can_make_value());
-  CHECK_FALSE(caors::meta::find<policy_custom_codec_value>().registered());
-  CHECK(caors::serialization::find_codec(caors::meta::id_of<policy_custom_codec_value>()));
+  CHECK_FALSE(caors::meta::find<policy_custom_codec_value>());
+  CHECK(caors::serialization::find_codec(caors::meta::resolve<policy_custom_codec_value>()));
 
   require_registered_type<policy_custom_codec_value>(
       "caors.test.serialization.policy_custom_codec_value");
-  CHECK(caors::serialization::find_codec(caors::meta::id_of<policy_custom_codec_value>()));
+  CHECK(caors::serialization::find_codec(caors::meta::resolve<policy_custom_codec_value>()));
   REQUIRE(reflection_result_ok(caors::reflection::class_<policy_custom_codec_actor>(
                                    "caors.test.serialization.policy_custom_codec_actor")
                                    .field("value", &policy_custom_codec_actor::value)
@@ -50,7 +50,7 @@ TEST_CASE("serialization - custom codec specialization uses descriptor capabilit
 
 TEST_CASE("serialization - descriptor static codec handles erased values without registration",
           "[serialization]") {
-  CHECK(caors::serialization::find_codec(caors::meta::type_of<descriptor_static_codec_value>()));
+  CHECK(caors::serialization::find_codec(caors::meta::resolve<descriptor_static_codec_value>()));
 
   const descriptor_static_codec_value value{9};
   const caors::serialization::variant_result erased =
@@ -79,7 +79,7 @@ TEST_CASE("serialization - descriptor static codec handles erased values without
 
   REQUIRE(result.succeeded());
   CHECK(decoded.value.value == 7);
-  CHECK(caors::serialization::find_codec(caors::meta::type_of<descriptor_static_codec_value>()));
+  CHECK(caors::serialization::find_codec(caors::meta::resolve<descriptor_static_codec_value>()));
 }
 
 // 原测试文件：serialization_custom_codec_serialization_writer_features_validate_required_field_identifiers_test.cpp

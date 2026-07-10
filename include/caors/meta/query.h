@@ -157,11 +157,23 @@ template <typename T> [[nodiscard]] type_builder<T> type_(std::string_view name)
   return type_builder<T>{}.type(name);
 }
 
-/** @brief 获取 C++ 类型 descriptor 视图；类型不要求已经显式注册。 */
-template <typename T> [[nodiscard]] type type_of() { return get_registry().find_type<T>(); }
+/**
+ * @brief 解析 C++ 类型 descriptor 视图；类型不要求已经显式注册。
+ *
+ * `resolve<T>()` 优先返回已注册 `meta::type`；类型尚未注册时退回 descriptor-only 视图。
+ * 需要强制判断是否存在稳定名称、GUID、父类型或模块注册组件时，应使用 `find<T>()` 查询已注册类型。
+ */
+template <typename T> [[nodiscard]] type resolve() {
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  return make_type_view(descriptor_id_of<value_type>(), descriptor_of<value_type>());
+}
 
-/** @brief 按 C++ 类型查找基础类型 descriptor 视图；类型不要求已经显式注册。 */
-template <typename T> [[nodiscard]] type find() { return type_of<T>(); }
+/** @brief 按 C++ 类型查找已注册基础类型；类型未显式注册时返回空视图。 */
+template <typename T> [[nodiscard]] type find() {
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  const type stored = get_registry().find_type(descriptor_id_of<value_type>());
+  return stored.registered() ? stored : type{};
+}
 
 /** @brief 按类型 id 查找基础类型。 */
 [[nodiscard]] CAORS_API type find(type_id id);
@@ -177,7 +189,7 @@ template <typename T> [[nodiscard]] type find() { return type_of<T>(); }
 
 /** @brief 获取 C++ 类型的运行期类型 id；类型不要求已经显式注册。 */
 template <typename T> [[nodiscard]] type_id id_of() {
-  const type stored = find<T>();
+  const type stored = resolve<T>();
   return stored ? stored.id() : type_id::invalid();
 }
 
