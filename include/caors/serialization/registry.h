@@ -13,9 +13,6 @@
 namespace caors::serialization {
 
 class class_builder;
-[[nodiscard]] inline error register_type(type_id id, type_schema data = type_schema{});
-[[nodiscard]] inline error register_type(meta::type type, type_schema data = type_schema{});
-template <typename T> [[nodiscard]] error register_type(type_schema data = type_schema{});
 
 /**
  * @brief 底层全局序列化注册表。
@@ -36,24 +33,12 @@ public:
 
 private:
   friend class class_builder;
-  friend error register_type(type_id id, type_schema data);
-  friend error register_type(meta::type type, type_schema data);
-  template <typename T> friend error register_type(type_schema data);
 
   registry() = default;
   ~registry() = default;
 
   [[nodiscard]] error register_type(type_id id, type_schema data = type_schema{});
   [[nodiscard]] error register_type(meta::type type, type_schema data = type_schema{});
-
-  template <typename T> [[nodiscard]] error register_type_for(type_schema data = type_schema{}) {
-    const meta::type type = meta::get_registry().find_type<T>();
-    if (!type.registered()) {
-      return {error_domain::serialization, errc::invalid_type};
-    }
-
-    return register_type(type.id(), data);
-  }
 };
 
 /** @brief 获取进程内全局序列化注册表。 */
@@ -74,26 +59,6 @@ private:
 /** @brief 获取当前序列化组件数量。 */
 [[nodiscard]] CAORS_API std::size_t size() noexcept;
 
-/** @brief 向全局序列化注册表注册指定类型 id。 */
-[[nodiscard]] inline error register_type(type_id id, type_schema data) {
-  return get_registry().register_type(id, std::move(data));
-}
-
-/** @brief 向已注册元类型挂载序列化组件，不会创建或修改基础类型记录。 */
-[[nodiscard]] inline error register_type(meta::type type, type_schema data) {
-  return get_registry().register_type(type, std::move(data));
-}
-
-/** @brief 向全局序列化注册表注册指定 C++ 类型。 */
-template <typename T> [[nodiscard]] error register_type(type_schema data) {
-  return get_registry().register_type_for<T>(std::move(data));
-}
-
-/** @brief 向全局序列化注册表注册指定 C++ 类型和字段配置。 */
-template <typename T> [[nodiscard]] error register_type(std::initializer_list<field_data> fields) {
-  return register_type<T>(make_type_schema(fields));
-}
-
 /** @brief 已注册元类型的序列化配置构建器。 */
 class class_builder {
 public:
@@ -101,6 +66,10 @@ public:
     if (!type.registered()) {
       status_ = {error_domain::serialization, errc::invalid_type};
     }
+  }
+
+  class_builder(meta::type type, type_schema data) : class_builder(type) {
+    data_ = std::move(data);
   }
 
   class_builder& field(std::string_view field_name, std::string_view serialized_name = {},
@@ -118,7 +87,8 @@ public:
       return status_;
     }
 
-    return register_type(type_, data_);
+    status_ = get_registry().register_type(type_, data_);
+    return status_;
   }
 
   [[nodiscard]] const type_schema& serialization_data() const noexcept { return data_; }
@@ -131,6 +101,21 @@ private:
 
 /** @brief 为已注册元类型创建序列化配置构建器。 */
 [[nodiscard]] inline class_builder class_(meta::type type) { return class_builder{type}; }
+
+/** @brief 为已注册 C++ 类型创建序列化配置构建器。 */
+template <typename T> [[nodiscard]] class_builder class_() {
+  return class_builder{meta::find<T>()};
+}
+
+/** @brief 为已注册 C++ 类型和完整 schema 创建序列化配置构建器。 */
+template <typename T> [[nodiscard]] class_builder class_(type_schema data) {
+  return class_builder{meta::find<T>(), std::move(data)};
+}
+
+/** @brief 为已注册 C++ 类型和字段配置创建序列化配置构建器。 */
+template <typename T> [[nodiscard]] class_builder class_(std::initializer_list<field_data> fields) {
+  return class_<T>(make_type_schema(fields));
+}
 
 } // namespace caors::serialization
 

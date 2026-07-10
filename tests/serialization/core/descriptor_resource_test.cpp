@@ -76,7 +76,7 @@ TEST_CASE("serialization - descriptor enum data handles unregistered enum values
                                    "caors.test.serialization.descriptor_enum_actor")
                                    .field("colors", &descriptor_enum_actor::colors)
                                    .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<descriptor_enum_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<descriptor_enum_actor>().commit()));
 
   const descriptor_enum_actor actor{{descriptor_enum_color::blue, descriptor_enum_color::red}};
   const caors::serialization::serialization_text_result text = caors::serialize_json(actor);

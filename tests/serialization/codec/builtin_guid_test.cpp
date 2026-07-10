@@ -17,7 +17,7 @@ TEST_CASE("serialization - built in codecs deserialize guid and type guid from s
           .field("id", &codec_guid_actor::id)
           .field("type", &codec_guid_actor::type)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<codec_guid_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<codec_guid_actor>().commit()));
 
   caors::variant::object_type members;
   members.push_back(caors::value::variant_member{
@@ -54,7 +54,7 @@ TEST_CASE("serialization - built in codecs reject invalid guid text", "[serializ
           .field("id", &codec_guid_actor::id)
           .field("type", &codec_guid_actor::type)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<codec_guid_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<codec_guid_actor>().commit()));
 
   caors::variant::object_type members;
   members.push_back(caors::value::variant_member{
@@ -93,7 +93,7 @@ TEST_CASE("serialization - built in codecs serialize guid and type guid as scala
           .field("id", &codec_guid_actor::id)
           .field("type", &codec_guid_actor::type)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<codec_guid_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<codec_guid_actor>().commit()));
 
   const codec_guid_actor actor{*id, caors::type_guid{*type}};
   const caors::serialization::serialization_text_result text = caors::serialize_text(actor);

@@ -49,8 +49,9 @@ inline void require_context_resource_holder_metadata() {
                                    .field("maybe", &context_resource_holder::maybe)
                                    .field("choice", &context_resource_holder::choice)
                                    .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<context_resource_value>()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<context_resource_holder>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<context_resource_value>().commit()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::class_<context_resource_holder>().commit()));
 }
 
 } // namespace caors::tests::serialization::descriptor_resource

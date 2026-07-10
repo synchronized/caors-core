@@ -14,12 +14,12 @@ TEST_CASE("serialization - json handles nested structs arrays and schema context
           .field("level", &nested_stats::level)
           .field("score", &nested_stats::score)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<nested_stats>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<nested_stats>().commit()));
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<nested_vector_actor>("caors.test.serialization.nested_vector_actor")
           .field("stats", &nested_vector_actor::stats)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<nested_vector_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<nested_vector_actor>().commit()));
 
   nested_vector_actor actor{};
   actor.stats.push_back(nested_stats{1, 2.5F});
@@ -47,8 +47,8 @@ TEST_CASE("serialization - recursively deserializes nested reflected structs", "
           .field("id", &nested_actor::id)
           .field("stats", &nested_actor::stats)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<nested_stats>()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<nested_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<nested_stats>().commit()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<nested_actor>().commit()));
 
   caors::variant::object_type stats_members;
   stats_members.push_back(caors::value::variant_member{
@@ -101,8 +101,8 @@ TEST_CASE("serialization - recursively serializes nested reflected structs", "[s
           .field("id", &nested_actor::id)
           .field("stats", &nested_actor::stats)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<nested_stats>()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<nested_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<nested_stats>().commit()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<nested_actor>().commit()));
 
   const nested_actor actor{7, nested_stats{3, 12.5F}};
   const caors::serialization::serialization_text_result text = caors::serialize_text(actor);

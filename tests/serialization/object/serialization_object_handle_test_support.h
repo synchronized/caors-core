@@ -20,7 +20,7 @@ inline void require_object_handle_actor_metadata() {
           .field("target", &object_handle_actor::target)
           .field("typed", &object_handle_actor::typed)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<object_handle_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<object_handle_actor>().commit()));
 }
 
 inline void require_object_handle_target_metadata() {

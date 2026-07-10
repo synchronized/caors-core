@@ -103,9 +103,9 @@ bool register_types() {
     return false;
   }
 
-  return check(caors::serialization::register_type<actor>(), "serialization actor") &&
-         check(caors::serialization::register_type<player>(), "serialization player") &&
-         check(caors::serialization::register_type<scene>(), "serialization scene");
+  return check(caors::serialization::class_<actor>().commit(), "serialization actor") &&
+         check(caors::serialization::class_<player>().commit(), "serialization player") &&
+         check(caors::serialization::class_<scene>().commit(), "serialization scene");
 }
 
 } // namespace

@@ -43,7 +43,7 @@ int main() {
     return 1;
   }
 
-  if (caors::serialization::register_type<party_slot>()) {
+  if (caors::serialization::class_<party_slot>().commit()) {
     return 1;
   }
 

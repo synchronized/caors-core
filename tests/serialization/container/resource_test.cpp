@@ -37,8 +37,8 @@ void require_resource_propagation_holder_metadata() {
                                    .field("maybe", &resource_propagation_holder::maybe)
                                    .field("choice", &resource_propagation_holder::choice)
                                    .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::register_type<resource_propagation_holder>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::class_<resource_propagation_holder>().commit()));
 }
 
 } // namespace

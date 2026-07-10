@@ -12,7 +12,7 @@ TEST_CASE("serialization - rejects std pair length mismatch", "[serialization]")
       caors::reflection::class_<pair_actor>("caors.test.serialization.pair_actor")
           .field("entry", &pair_actor::entry)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<pair_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<pair_actor>().commit()));
 
   pair_actor actor{{7, caors::string{"seven"}}};
   const caors::error result = caors::deserialize_json(actor, R"({"entry":[9]})");
@@ -35,7 +35,7 @@ TEST_CASE("serialization - rejects std tuple length mismatch", "[serialization]"
       caors::reflection::class_<tuple_actor>("caors.test.serialization.tuple_actor")
           .field("entry", &tuple_actor::entry)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<tuple_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<tuple_actor>().commit()));
 
   tuple_actor actor{{7, caors::string{"seven"}, 1.5F}};
   const caors::error result = caors::deserialize_json(actor, R"({"entry":[9,"nine"]})");
@@ -59,7 +59,7 @@ TEST_CASE("serialization - rejects std variant invalid data", "[serialization]")
       caors::reflection::class_<variant_actor>("caors.test.serialization.variant_actor")
           .field("entry", &variant_actor::entry)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<variant_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<variant_actor>().commit()));
 
   variant_actor actor{};
   actor.entry = caors::string{"seven"};
@@ -91,7 +91,7 @@ TEST_CASE("serialization - roundtrips std pair fields", "[serialization]") {
       caors::reflection::class_<pair_actor>("caors.test.serialization.pair_actor")
           .field("entry", &pair_actor::entry)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<pair_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<pair_actor>().commit()));
 
   pair_actor actor{{7, caors::string{"seven"}}};
 
@@ -127,7 +127,7 @@ TEST_CASE("serialization - roundtrips std tuple fields", "[serialization]") {
       caors::reflection::class_<tuple_actor>("caors.test.serialization.tuple_actor")
           .field("entry", &tuple_actor::entry)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<tuple_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<tuple_actor>().commit()));
 
   tuple_actor actor{{7, caors::string{"seven"}, 1.5F}};
 
@@ -165,7 +165,7 @@ TEST_CASE("serialization - roundtrips std variant fields", "[serialization]") {
       caors::reflection::class_<variant_actor>("caors.test.serialization.variant_actor")
           .field("entry", &variant_actor::entry)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<variant_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<variant_actor>().commit()));
 
   variant_actor actor{};
   actor.entry = caors::string{"seven"};

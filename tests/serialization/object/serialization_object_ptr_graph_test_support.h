@@ -30,7 +30,7 @@ inline void require_object_ptr_graph_metadata() {
                                    .field("secondary", &object_ptr_graph_actor::secondary)
                                    .field("related", &object_ptr_graph_actor::related)
                                    .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<object_ptr_graph_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<object_ptr_graph_actor>().commit()));
 }
 
 } // namespace caors::tests::serialization::object_ptr_graph

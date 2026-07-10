@@ -339,8 +339,8 @@ inline void require_pointer_actor_metadata() {
           .field("optional", &pointer_actor::optional)
           .field("stats", &pointer_actor::stats)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<nested_stats>()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<pointer_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<nested_stats>().commit()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<pointer_actor>().commit()));
 }
 
 inline void require_reference_wrapper_actor_metadata() {
@@ -348,7 +348,8 @@ inline void require_reference_wrapper_actor_metadata() {
                                    "caors.test.serialization.reference_wrapper_actor")
                                    .field("value", &reference_wrapper_actor::value)
                                    .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<reference_wrapper_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::class_<reference_wrapper_actor>().commit()));
 }
 
 inline void require_non_default_value_metadata() {
@@ -372,13 +373,15 @@ inline void require_non_default_value_metadata() {
                                    "caors.test.serialization.non_default_variant_actor")
                                    .field("value", &non_default_variant_actor::value)
                                    .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<non_default_value>()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<non_default_field_actor>()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<non_default_vector_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<non_default_value>().commit()));
   REQUIRE(
-      serialization_result_ok(caors::serialization::register_type<non_default_unique_ptr_actor>()));
+      serialization_result_ok(caors::serialization::class_<non_default_field_actor>().commit()));
   REQUIRE(
-      serialization_result_ok(caors::serialization::register_type<non_default_variant_actor>()));
+      serialization_result_ok(caors::serialization::class_<non_default_vector_actor>().commit()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::class_<non_default_unique_ptr_actor>().commit()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::class_<non_default_variant_actor>().commit()));
 }
 
 inline void require_unique_ptr_vector_actor_metadata() {
@@ -386,7 +389,8 @@ inline void require_unique_ptr_vector_actor_metadata() {
                                    "caors.test.serialization.unique_ptr_vector_actor")
                                    .field("values", &unique_ptr_vector_actor::values)
                                    .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<unique_ptr_vector_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::class_<unique_ptr_vector_actor>().commit()));
 }
 
 inline void require_scalar_actor_metadata() {
@@ -396,7 +400,7 @@ inline void require_scalar_actor_metadata() {
           .field("color", &scalar_actor::color)
           .field("state", &scalar_actor::state)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<scalar_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<scalar_actor>().commit()));
 }
 
 inline void require_object_ptr_vector_actor_metadata() {
@@ -404,7 +408,8 @@ inline void require_object_ptr_vector_actor_metadata() {
                                    "caors.test.serialization.object_ptr_vector_actor")
                                    .field("targets", &object_ptr_vector_actor::targets)
                                    .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<object_ptr_vector_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::class_<object_ptr_vector_actor>().commit()));
 }
 
 [[nodiscard]] inline caors::object_id resolve_object_id(const caors::object* instance,

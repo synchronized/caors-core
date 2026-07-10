@@ -91,13 +91,13 @@ inline void require_polymorphic_value_metadata() {
           .commit()));
 
   REQUIRE(caors::tests::serialization::serialization_result_ok(
-      caors::serialization::register_type<polymorphic_value_actor>()));
+      caors::serialization::class_<polymorphic_value_actor>().commit()));
   REQUIRE(caors::tests::serialization::serialization_result_ok(
-      caors::serialization::register_type<polymorphic_value_player>()));
+      caors::serialization::class_<polymorphic_value_player>().commit()));
   REQUIRE(caors::tests::serialization::serialization_result_ok(
-      caors::serialization::register_type<polymorphic_value_enemy>()));
+      caors::serialization::class_<polymorphic_value_enemy>().commit()));
   REQUIRE(caors::tests::serialization::serialization_result_ok(
-      caors::serialization::register_type<polymorphic_value_holder>()));
+      caors::serialization::class_<polymorphic_value_holder>().commit()));
 }
 
 } // namespace caors::tests::serialization::polymorphic_value_wrapper

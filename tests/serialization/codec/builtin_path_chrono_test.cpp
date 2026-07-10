@@ -14,7 +14,7 @@ TEST_CASE("serialization - built in codecs roundtrip chrono values as integers",
           .field("timeout", &codec_chrono_actor::timeout)
           .field("timestamp", &codec_chrono_actor::timestamp)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<codec_chrono_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<codec_chrono_actor>().commit()));
 
   codec_chrono_actor actor{
       std::chrono::milliseconds{2500},
@@ -59,7 +59,7 @@ TEST_CASE("serialization - built in codecs roundtrip filesystem paths as strings
       caors::reflection::class_<codec_path_actor>("caors.test.serialization.codec_path_actor")
           .field("path", &codec_path_actor::path)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<codec_path_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<codec_path_actor>().commit()));
 
   codec_path_actor actor{std::filesystem::path{"assets/textures/albedo.png"}};
 
@@ -112,7 +112,8 @@ TEST_CASE("serialization - built in codecs survive late meta type registration",
                                    "caors.test.serialization.late_builtin_codec_actor")
                                    .field("timeout", &late_builtin_codec_actor::timeout)
                                    .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<late_builtin_codec_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::class_<late_builtin_codec_actor>().commit()));
 
   const late_builtin_codec_actor actor{std::chrono::seconds{42}};
   const caors::serialization::serialization_text_result text = caors::serialize_text(actor);

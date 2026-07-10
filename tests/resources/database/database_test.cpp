@@ -81,8 +81,8 @@ void require_database_resource_ref_metadata() {
                                    "caors.test.resources.database_resource_ref_holder")
                                    .field("resource", &database_resource_ref_holder::resource)
                                    .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::register_type<database_resource_ref_holder>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::class_<database_resource_ref_holder>().commit()));
 }
 
 } // namespace

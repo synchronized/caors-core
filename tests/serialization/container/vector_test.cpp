@@ -12,7 +12,7 @@ TEST_CASE("serialization - deserializes vector fields from arrays", "[serializat
       caors::reflection::class_<vector_actor>("caors.test.serialization.vector_actor")
           .field("scores", &vector_actor::scores)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<vector_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<vector_actor>().commit()));
 
   caors::variant::array_type scores;
   scores.push_back(caors::variant::from(std::int64_t{5}));
@@ -45,7 +45,7 @@ TEST_CASE("serialization - recursively serializes codec values inside vectors", 
       caors::reflection::class_<guid_vector_actor>("caors.test.serialization.guid_vector_actor")
           .field("ids", &guid_vector_actor::ids)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<guid_vector_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<guid_vector_actor>().commit()));
 
   const std::optional<caors::guid> first =
       caors::guid::parse("2f6d1f64-7a3a-4db2-9a2d-123456789abc");
@@ -87,7 +87,7 @@ TEST_CASE("serialization - recursively serializes nested vector values", "[seria
                                    .field("groups", &nested_vector_values_actor::groups)
                                    .commit()));
   REQUIRE(
-      serialization_result_ok(caors::serialization::register_type<nested_vector_values_actor>()));
+      serialization_result_ok(caors::serialization::class_<nested_vector_values_actor>().commit()));
 
   nested_vector_values_actor actor{};
   actor.groups.push_back(caors::vector<int>{1, 2});
@@ -129,12 +129,12 @@ TEST_CASE("serialization - recursively serializes vector struct elements", "[ser
           .field("level", &nested_stats::level)
           .field("score", &nested_stats::score)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<nested_stats>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<nested_stats>().commit()));
   REQUIRE(reflection_result_ok(
       caors::reflection::class_<nested_vector_actor>("caors.test.serialization.nested_vector_actor")
           .field("stats", &nested_vector_actor::stats)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<nested_vector_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<nested_vector_actor>().commit()));
 
   nested_vector_actor actor{};
   actor.stats.push_back(nested_stats{1, 2.5F});
@@ -227,7 +227,7 @@ TEST_CASE("serialization - serializes vector fields as arrays", "[serialization]
       caors::reflection::class_<vector_actor>("caors.test.serialization.vector_actor")
           .field("scores", &vector_actor::scores)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<vector_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<vector_actor>().commit()));
 
   vector_actor actor{};
   actor.scores.push_back(1);

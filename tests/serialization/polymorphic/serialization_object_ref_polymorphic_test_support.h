@@ -90,14 +90,14 @@ inline void require_polymorphic_object_ref_metadata() {
                                    .field("owner", &polymorphic_object_ref_holder::owner)
                                    .commit()));
 
-  REQUIRE(
-      serialization_result_ok(caors::serialization::register_type<polymorphic_object_ref_actor>()));
   REQUIRE(serialization_result_ok(
-      caors::serialization::register_type<polymorphic_object_ref_player>()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::register_type<polymorphic_object_ref_enemy>()));
+      caors::serialization::class_<polymorphic_object_ref_actor>().commit()));
   REQUIRE(serialization_result_ok(
-      caors::serialization::register_type<polymorphic_object_ref_holder>()));
+      caors::serialization::class_<polymorphic_object_ref_player>().commit()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::class_<polymorphic_object_ref_enemy>().commit()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::class_<polymorphic_object_ref_holder>().commit()));
 }
 
 } // namespace caors::tests::serialization::object_ref_polymorphic

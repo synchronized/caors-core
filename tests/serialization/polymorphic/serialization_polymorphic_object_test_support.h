@@ -60,11 +60,11 @@ inline void require_metadata() {
           .commit()));
 
   REQUIRE(caors::tests::serialization::serialization_result_ok(
-      caors::serialization::register_type<actor>()));
+      caors::serialization::class_<actor>().commit()));
   REQUIRE(caors::tests::serialization::serialization_result_ok(
-      caors::serialization::register_type<player>()));
+      caors::serialization::class_<player>().commit()));
   REQUIRE(caors::tests::serialization::serialization_result_ok(
-      caors::serialization::register_type<enemy>()));
+      caors::serialization::class_<enemy>().commit()));
 }
 
 } // namespace caors::tests::serialization::polymorphic_object

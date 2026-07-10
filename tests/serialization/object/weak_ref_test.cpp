@@ -34,7 +34,7 @@ void require_weak_object_ref_target_metadata() {
       caors::reflection::class_<weak_object_ref_target>(weak_object_ref_target::object_type_name)
           .field("value", &weak_object_ref_target::value)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<weak_object_ref_target>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<weak_object_ref_target>().commit()));
 }
 
 void require_object_weak_ref_actor_metadata() {
@@ -44,7 +44,7 @@ void require_object_weak_ref_actor_metadata() {
                                    "caors.test.serialization.object_weak_ref_actor")
                                    .field("observer", &object_weak_ref_actor::observer)
                                    .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<object_weak_ref_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<object_weak_ref_actor>().commit()));
 }
 
 } // namespace

@@ -12,9 +12,12 @@ TEST_CASE("serialization - builds variant from reflected object", "[serializatio
       caors::reflection::class_<dom_actor>("caors.test.serialization.dom_actor")
           .field("id", &dom_actor::id)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<dom_actor>({
-      caors::serialization::make_field("id", "actor_id", false, 7),
-  })));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::class_<dom_actor>(
+                                  {
+                                      caors::serialization::make_field("id", "actor_id", false, 7),
+                                  })
+                                  .commit()));
 
   const dom_actor actor{42};
   const caors::serialization::variant_result result = caors::to_serialization_value(actor);
@@ -76,9 +79,11 @@ TEST_CASE("serialization - generic writer backend serializes fields", "[serializ
       caors::reflection::class_<writer_actor>("caors.test.serialization.writer_actor")
           .field("id", &writer_actor::id)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<writer_actor>({
-      caors::serialization::make_field("id", {}, false, 7),
-  })));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<writer_actor>(
+                                      {
+                                          caors::serialization::make_field("id", {}, false, 7),
+                                      })
+                                      .commit()));
 
   numeric_field_writer writer;
   const writer_actor actor{42};
@@ -110,7 +115,7 @@ TEST_CASE("serialization - json options can pretty print json", "[serialization]
       caors::reflection::class_<json_options_actor>("caors.test.serialization.json_options_actor")
           .field("id", &json_options_actor::id)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<json_options_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<json_options_actor>().commit()));
 
   caors::serialization::json_options options{};
   options.pretty = true;
@@ -139,7 +144,7 @@ TEST_CASE("serialization - serializes json to caller provided buffer", "[seriali
           .field("name", &serializable_actor::name)
           .commit()));
 
-  const caors::error register_status = caors::serialization::register_type<serializable_actor>();
+  const caors::error register_status = caors::serialization::class_<serializable_actor>().commit();
   REQUIRE(serialization_result_ok(register_status));
 
   const serializable_actor actor{3, 10.5F, false, "Lin"};
@@ -170,7 +175,7 @@ TEST_CASE("serialization - serializes reflected struct fields to json", "[serial
           .field("name", &serializable_actor::name)
           .commit()));
 
-  const caors::error register_status = caors::serialization::register_type<serializable_actor>();
+  const caors::error register_status = caors::serialization::class_<serializable_actor>().commit();
   REQUIRE(serialization_result_ok(register_status));
 
   const serializable_actor actor{7, 95.5F, true, "Ada\nLovelace"};
@@ -195,7 +200,7 @@ TEST_CASE("serialization - serializes reflected struct fields to text", "[serial
           .field("name", &serializable_actor::name)
           .commit()));
 
-  const caors::error register_status = caors::serialization::register_type<serializable_actor>();
+  const caors::error register_status = caors::serialization::class_<serializable_actor>().commit();
   REQUIRE(serialization_result_ok(register_status));
 
   const serializable_actor actor{7, 95.5F, true, "Ada"};

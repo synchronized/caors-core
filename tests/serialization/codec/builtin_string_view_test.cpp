@@ -14,7 +14,8 @@ TEST_CASE("serialization - built in codecs reject string view deserialization", 
                                    "caors.test.serialization.codec_string_view_actor")
                                    .field("name", &codec_string_view_actor::name)
                                    .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<codec_string_view_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::class_<codec_string_view_actor>().commit()));
 
   codec_string_view_actor actor{std::string_view{"original"}};
   const caors::error result = caors::deserialize_json(actor, R"({"name":"Ada"})");
@@ -38,7 +39,8 @@ TEST_CASE("serialization - built in codecs serialize string view fields", "[seri
                                    "caors.test.serialization.codec_string_view_actor")
                                    .field("name", &codec_string_view_actor::name)
                                    .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<codec_string_view_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::class_<codec_string_view_actor>().commit()));
 
   const codec_string_view_actor actor{std::string_view{"Ada"}};
   const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
@@ -61,7 +63,8 @@ TEST_CASE("serialization - string view deserialization can use explicit backing 
                                    "caors.test.serialization.codec_string_view_actor")
                                    .field("name", &codec_string_view_actor::name)
                                    .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<codec_string_view_actor>()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::class_<codec_string_view_actor>().commit()));
 
   codec_string_view_actor actor{std::string_view{"original"}};
   caors::serialization::string_storage storage;
@@ -90,8 +93,8 @@ TEST_CASE("serialization - string view storage keeps multiple deserialized strin
                                    .field("first", &codec_string_view_pair_actor::first)
                                    .field("second", &codec_string_view_pair_actor::second)
                                    .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::register_type<codec_string_view_pair_actor>()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::class_<codec_string_view_pair_actor>().commit()));
 
   codec_string_view_pair_actor actor{};
   caors::serialization::string_storage storage;

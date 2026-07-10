@@ -12,7 +12,7 @@ inline void require_object_ptr_actor_metadata() {
       caors::reflection::class_<object_ptr_actor>("caors.test.serialization.object_ptr_actor")
           .field("target", &object_ptr_actor::target)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<object_ptr_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<object_ptr_actor>().commit()));
 }
 
 } // namespace caors::tests::serialization::object_ptr_resolver

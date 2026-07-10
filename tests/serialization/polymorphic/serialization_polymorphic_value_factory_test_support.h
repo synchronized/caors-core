@@ -102,13 +102,13 @@ inline void require_polymorphic_factory_metadata() {
           .commit()));
 
   REQUIRE(caors::tests::serialization::serialization_result_ok(
-      caors::serialization::register_type<polymorphic_factory_actor>()));
+      caors::serialization::class_<polymorphic_factory_actor>().commit()));
   REQUIRE(caors::tests::serialization::serialization_result_ok(
-      caors::serialization::register_type<polymorphic_factory_player>()));
+      caors::serialization::class_<polymorphic_factory_player>().commit()));
   REQUIRE(caors::tests::serialization::serialization_result_ok(
-      caors::serialization::register_type<polymorphic_factory_holder>()));
+      caors::serialization::class_<polymorphic_factory_holder>().commit()));
   REQUIRE(caors::tests::serialization::serialization_result_ok(
-      caors::serialization::register_type<polymorphic_factory_unique_holder>()));
+      caors::serialization::class_<polymorphic_factory_unique_holder>().commit()));
 }
 
 } // namespace caors::tests::serialization::polymorphic_value_factory

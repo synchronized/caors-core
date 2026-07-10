@@ -28,7 +28,7 @@ void require_serialized_resource_ref_holder_metadata() {
                                    .field("resource", &serialized_resource_ref_holder::resource)
                                    .commit()));
   REQUIRE(serialization_result_ok(
-      caors::serialization::register_type<serialized_resource_ref_holder>()));
+      caors::serialization::class_<serialized_resource_ref_holder>().commit()));
 }
 
 [[nodiscard]] bool contains_guid(const caors::vector<caors::resource_guid>& values,

@@ -16,6 +16,7 @@
 namespace caors::objects {
 
 class registry;
+template <typename T> class class_builder;
 
 /** @brief 获取进程内默认对象类型注册表。 */
 [[nodiscard]] CAORS_API registry& get_registry() noexcept;
@@ -39,10 +40,6 @@ struct object_type_name_traits<T, std::void_t<decltype(T::object_type_name)>> {
 
   [[nodiscard]] static constexpr std::string_view get() noexcept { return T::object_type_name; }
 };
-
-template <typename T>
-[[nodiscard]] error register_object_type(std::string_view name,
-                                         object_type_id parent_id = object_type_id::invalid());
 
 /** @brief 创建对象类型基础元信息。 */
 template <typename T>
@@ -116,8 +113,7 @@ public:
 
 private:
   friend registry& get_registry() noexcept;
-  template <typename T>
-  friend error detail::register_object_type(std::string_view name, object_type_id parent_id);
+  template <typename T> friend class class_builder;
 
   registry();
   ~registry();
@@ -166,26 +162,6 @@ private:
 
 } // namespace caors::objects
 
-namespace caors::objects::detail {
-
-/** @brief 向全局对象注册表注册对象类型。内部入口，公开代码优先使用 `objects::class_<T>()`。 */
-template <typename T>
-[[nodiscard]] error register_object_type(std::string_view name, object_type_id parent_id) {
-  objects::registry& registry = objects::get_registry();
-  if (!parent_id) {
-    using base_type = typename object_base_type_traits<T>::type;
-    const objects::type base = registry.find_type<base_type>();
-    if (base) {
-      parent_id = base.id();
-    }
-  }
-
-  return registry.register_type_for<T>(objects::detail::make_meta_type_data<T>(name, parent_id),
-                                       meta::capabilities::get<objects::object_factory_ops, T>());
-}
-
-} // namespace caors::objects::detail
-
 namespace caors::objects {
 
 /** @brief 根据已注册对象类型名查询对象类型标识。 */
@@ -222,7 +198,18 @@ public:
   }
 
   [[nodiscard]] error commit() {
-    status_ = detail::register_object_type<T>(name_, parent_id_);
+    object_type_id parent_id = parent_id_;
+    if (!parent_id) {
+      using base_type = typename detail::object_base_type_traits<T>::type;
+      const objects::type base = get_registry().find_type<base_type>();
+      if (base) {
+        parent_id = base.id();
+      }
+    }
+
+    status_ = get_registry().template register_type_for<T>(
+        detail::make_meta_type_data<T>(name_, parent_id),
+        meta::capabilities::get<objects::object_factory_ops, T>());
     refresh();
     return status_;
   }

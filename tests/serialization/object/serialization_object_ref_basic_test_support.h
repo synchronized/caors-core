@@ -31,7 +31,7 @@ inline void require_object_ref_target_metadata() {
       caors::reflection::class_<object_ref_target>(object_ref_target::object_type_name)
           .field("value", &object_ref_target::value)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<object_ref_target>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<object_ref_target>().commit()));
 }
 
 inline void require_object_ref_owner_actor_metadata() {
@@ -41,7 +41,7 @@ inline void require_object_ref_owner_actor_metadata() {
                                    "caors.test.serialization.object_ref_owner_actor")
                                    .field("owner", &object_ref_owner_actor::owner)
                                    .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::register_type<object_ref_owner_actor>()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<object_ref_owner_actor>().commit()));
 }
 
 } // namespace caors::tests::serialization::object_ref_basic
