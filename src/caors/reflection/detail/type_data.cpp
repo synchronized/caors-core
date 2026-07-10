@@ -6,7 +6,7 @@
 namespace caors::reflection::detail {
 
 bool type_data::valid() const noexcept {
-  for (const field_data& field : fields) {
+  for (const field_wrapper& field : fields) {
     if (!field.valid()) {
       return false;
     }
@@ -21,13 +21,13 @@ bool type_data::valid() const noexcept {
   return true;
 }
 
-std::optional<field_data> type_data::find_field(core::string_name name) const {
+std::optional<field_wrapper> type_data::find_field(core::string_name name) const {
   if (!name) {
     return std::nullopt;
   }
 
-  for (const field_data& field : fields) {
-    if (field.name == name) {
+  for (const field_wrapper& field : fields) {
+    if (field.name() == name) {
       return field;
     }
   }
@@ -35,7 +35,7 @@ std::optional<field_data> type_data::find_field(core::string_name name) const {
   return std::nullopt;
 }
 
-std::optional<field_data> type_data::find_field(std::string_view name) const {
+std::optional<field_wrapper> type_data::find_field(std::string_view name) const {
   const std::optional<core::string_name> interned_name = core::string_name::find(name);
   if (!interned_name.has_value()) {
     return std::nullopt;

@@ -25,7 +25,7 @@ class type;
 
 namespace detail {
 
-struct field_data;
+class field_wrapper;
 
 } // namespace detail
 
@@ -135,11 +135,11 @@ public:
 private:
   friend class type;
 
-  field(meta::type owner, const detail::field_data* reflected_field) noexcept;
-  [[nodiscard]] const detail::field_data* info() const noexcept;
+  field(meta::type owner, const detail::field_wrapper* reflected_field) noexcept;
+  [[nodiscard]] const detail::field_wrapper* info() const noexcept;
 
   meta::type owner_{};
-  const detail::field_data* field_ = nullptr;
+  const detail::field_wrapper* field_ = nullptr;
 };
 
 } // namespace caors::reflection

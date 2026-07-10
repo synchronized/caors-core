@@ -47,8 +47,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 将 descriptor 内建能力纳入 `meta::type::get_capability<T>()` 查询链路，并补充 `meta::type`
   的 kind、wrapper、nullable、value type 和 key type 查询，使 reflection / serialization 优先使用
   `meta::type` 作为能力 API。
-- [x] 将 reflection 字段访问收敛为 `field_ops` 函数表，`field_data` 作为 property/concept-table
-  数据承载字段类型、取值、引用和写入能力，调用侧不再直接解释 descriptor 缓存。
+- [x] 将 reflection 字段访问收敛为 `field_ops` 函数表，`field_wrapper` 作为 property/concept-table
+  包装器承载字段类型、取值、引用和写入能力，调用侧不再直接解释 descriptor 缓存。
 - [x] 将 `type_descriptor.h` 拆分为 descriptor 数据结构、默认名称生成和 descriptor model 构建三个边界。
 - [x] 将 set / associative 容器使用的类型擦除迭代器辅助实现移动到 `meta/detail/builtin/container_iterators.h`。
 - [x] 将 set / associative 共用的迭代器生命周期操作抽成 `container_iterator_ops` 和

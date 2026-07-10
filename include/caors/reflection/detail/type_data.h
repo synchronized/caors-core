@@ -5,7 +5,7 @@
 #define CAORS_REFLECTION_DETAIL_TYPE_DATA_H_
 
 #include "caors/core/containers.h"
-#include "caors/reflection/detail/field_data.h"
+#include "caors/reflection/detail/field_wrapper.h"
 #include "caors/reflection/detail/method_data.h"
 
 #include <initializer_list>
@@ -21,20 +21,20 @@ namespace caors::reflection::detail {
  * 统一表达。外部查询优先使用 `reflection::type` 只读视图。
  */
 struct type_data {
-  vector<field_data> fields{};
+  vector<field_wrapper> fields{};
   vector<method_data> methods{};
 
   [[nodiscard]] bool valid() const noexcept;
-  [[nodiscard]] std::optional<field_data> find_field(string_name name) const;
-  [[nodiscard]] std::optional<field_data> find_field(std::string_view name) const;
+  [[nodiscard]] std::optional<field_wrapper> find_field(string_name name) const;
+  [[nodiscard]] std::optional<field_wrapper> find_field(std::string_view name) const;
   [[nodiscard]] std::optional<method_data> find_method(string_name name) const;
   [[nodiscard]] std::optional<method_data> find_method(std::string_view name) const;
 };
 
 /** @brief 创建类型反射底层数据。 */
-[[nodiscard]] inline type_data make_type_data(std::initializer_list<field_data> fields) {
+[[nodiscard]] inline type_data make_type_data(std::initializer_list<field_wrapper> fields) {
   type_data data{};
-  data.fields = vector<field_data>{fields};
+  data.fields = vector<field_wrapper>{fields};
   return data;
 }
 

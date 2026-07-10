@@ -40,7 +40,7 @@ field type::find_field(core::string_name name) const {
   }
 
   for (std::size_t index = 0; index < reflected->fields.size(); ++index) {
-    if (reflected->fields[index].name == name) {
+    if (reflected->fields[index].name() == name) {
       return field_at(index);
     }
   }

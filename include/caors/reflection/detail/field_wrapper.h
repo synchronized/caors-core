@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_REFLECTION_DETAIL_FIELD_DATA_H_
-#define CAORS_REFLECTION_DETAIL_FIELD_DATA_H_
+#ifndef CAORS_REFLECTION_DETAIL_FIELD_WRAPPER_H_
+#define CAORS_REFLECTION_DETAIL_FIELD_WRAPPER_H_
 
 #include "caors/meta.h"
 #include "caors/meta/type_descriptor_model.h"
@@ -17,20 +17,22 @@
 
 namespace caors::reflection::detail {
 
-struct field_data;
+class field_wrapper;
+[[nodiscard]] meta::type member_field_type(const field_wrapper& field) noexcept;
 
-using field_type_fn = meta::type (*)(const field_data& field) noexcept;
-using field_data_fn = const void* (*)(const field_data& field, const void* object) noexcept;
-using field_mutable_data_fn = void* (*)(const field_data& field, void* object) noexcept;
-using field_get_value_fn = any (*)(const field_data& field, const void* object);
-using field_get_const_ref_fn = any_ref (*)(const field_data& field, const void* object);
-using field_get_mutable_ref_fn = any_ref (*)(const field_data& field, void* object);
-using field_set_value_fn = bool (*)(const field_data& field, void* object, const any& source);
+using field_type_fn = meta::type (*)(const field_wrapper& field) noexcept;
+using field_const_data_fn = const void* (*)(const field_wrapper& field,
+                                            const void* object) noexcept;
+using field_mutable_data_fn = void* (*)(const field_wrapper& field, void* object) noexcept;
+using field_get_value_fn = any (*)(const field_wrapper& field, const void* object);
+using field_get_const_ref_fn = any_ref (*)(const field_wrapper& field, const void* object);
+using field_get_mutable_ref_fn = any_ref (*)(const field_wrapper& field, void* object);
+using field_set_value_fn = bool (*)(const field_wrapper& field, void* object, const any& source);
 
 /** @brief 字段访问函数表，负责把字段底层存储转换成运行期值和引用。 */
 struct field_ops {
   field_type_fn get_type = nullptr;
-  field_data_fn data = nullptr;
+  field_const_data_fn data = nullptr;
   field_mutable_data_fn mutable_data = nullptr;
   field_get_value_fn get_value = nullptr;
   field_get_const_ref_fn get_const_ref = nullptr;
@@ -55,26 +57,36 @@ template <typename T> [[nodiscard]] type_id find_field_type_id(std::string_view 
 }
 
 /**
- * @brief 底层字段反射元信息。
+ * @brief 底层字段反射包装器。
  *
- * 字段访问基于注册时记录的 offset 和运行期类型 id。调用方需要传入该字段所属对象的地址；
- * 类型不匹配、对象为空或字段不可写时会返回失败，不抛出异常。常规查询优先使用 `reflection::field`，
- * 该结构主要作为注册表内部存储和底层注册入口。
+ * 字段访问通过 `field_ops` 函数表完成。当前成员字段 wrapper 仍缓存 offset、类型 id 和 descriptor，
+ * 但调用方应通过成员方法访问字段能力，不直接解释这些缓存。常规查询优先使用 `reflection::field`。
  */
-struct field_data {
-  string_name name{};
-  type_id type{};
-  const meta::type_descriptor* descriptor = nullptr;
-  std::size_t offset = 0;
-  bool writable = true;
-  field_ops ops{};
+class field_wrapper final {
+public:
+  field_wrapper() noexcept = default;
+
+  field_wrapper(string_name field_name, type_id field_type,
+                const meta::type_descriptor* field_descriptor, std::size_t field_offset,
+                bool field_writable, field_ops field_operations) noexcept
+      : name_(field_name), type_(field_type), descriptor_(field_descriptor), offset_(field_offset),
+        writable_(field_writable), ops_(field_operations) {}
 
   [[nodiscard]] constexpr bool valid() const noexcept {
-    return !name.empty() && static_cast<bool>(type) && ops.valid();
+    return !name_.empty() && static_cast<bool>(type_) && ops_.valid();
   }
 
+  /** @brief 查询字段名称。 */
+  [[nodiscard]] string_name name() const noexcept { return name_; }
+
   /** @brief 查询字段值类型。 */
-  [[nodiscard]] meta::type get_type() const noexcept { return ops.get_type(*this); }
+  [[nodiscard]] meta::type get_type() const noexcept { return ops_.get_type(*this); }
+
+  /** @brief 查询字段是否可写。 */
+  [[nodiscard]] bool writable() const noexcept { return writable_; }
+
+  /** @brief 查询成员字段偏移。非成员字段 wrapper 返回注册时保存的偏移值。 */
+  [[nodiscard]] std::size_t offset() const noexcept { return offset_; }
 
   /** @brief 判断字段是否匹配指定 C++ 类型。 */
   template <typename Field> [[nodiscard]] bool matches_type() const noexcept {
@@ -86,22 +98,22 @@ struct field_data {
 
   /** @brief 获取字段在对象内的只读地址。 */
   [[nodiscard]] const void* member_data(const void* object) const noexcept {
-    if (object == nullptr || !type) {
+    if (object == nullptr || !type_) {
       return nullptr;
     }
 
     const auto* bytes = static_cast<const unsigned char*>(object);
-    return bytes + offset;
+    return bytes + offset_;
   }
 
   /** @brief 获取成员字段在对象内的可写地址。 */
   [[nodiscard]] void* member_mutable_data(void* object) const noexcept {
-    if (object == nullptr || !type || !writable) {
+    if (object == nullptr || !type_ || !writable_) {
       return nullptr;
     }
 
     auto* bytes = static_cast<unsigned char*>(object);
-    return bytes + offset;
+    return bytes + offset_;
   }
 
   /** @brief 获取成员字段值的运行期拷贝。 */
@@ -111,7 +123,7 @@ struct field_data {
       return {};
     }
 
-    return any::copy_from_raw(type, descriptor, field_value);
+    return any::copy_from_raw(type_, descriptor_, field_value);
   }
 
   /** @brief 获取成员字段值的只读运行期引用。 */
@@ -121,7 +133,7 @@ struct field_data {
       return {};
     }
 
-    return any_ref::from_raw(type, descriptor, field_value, false);
+    return any_ref::from_raw(type_, descriptor_, field_value, false);
   }
 
   /** @brief 获取成员字段值的可写运行期引用。 */
@@ -131,7 +143,7 @@ struct field_data {
       return {};
     }
 
-    return any_ref::from_raw(type, descriptor, field_value, true);
+    return any_ref::from_raw(type_, descriptor_, field_value, true);
   }
 
   /** @brief 从运行期值写入成员字段。 */
@@ -154,32 +166,32 @@ struct field_data {
 
   /** @brief 获取字段在对象内的只读地址。 */
   [[nodiscard]] const void* data(const void* object) const noexcept {
-    return valid() ? ops.data(*this, object) : nullptr;
+    return valid() ? ops_.data(*this, object) : nullptr;
   }
 
   /** @brief 获取字段在对象内的可写地址。 */
   [[nodiscard]] void* mutable_data(void* object) const noexcept {
-    return valid() ? ops.mutable_data(*this, object) : nullptr;
+    return valid() ? ops_.mutable_data(*this, object) : nullptr;
   }
 
   /** @brief 获取字段值的运行期拷贝。 */
   [[nodiscard]] any get_value(const void* object) const {
-    return valid() ? ops.get_value(*this, object) : any{};
+    return valid() ? ops_.get_value(*this, object) : any{};
   }
 
   /** @brief 获取字段值的只读运行期引用。 */
   [[nodiscard]] any_ref get_ref(const void* object) const {
-    return valid() ? ops.get_const_ref(*this, object) : any_ref{};
+    return valid() ? ops_.get_const_ref(*this, object) : any_ref{};
   }
 
   /** @brief 获取字段值的可写运行期引用。 */
   [[nodiscard]] any_ref get_ref(void* object) const {
-    return valid() ? ops.get_mutable_ref(*this, object) : any_ref{};
+    return valid() ? ops_.get_mutable_ref(*this, object) : any_ref{};
   }
 
   /** @brief 从运行期值写入字段。 */
   bool try_set_value(void* object, const any& source) const {
-    return valid() && ops.set_value(*this, object, source);
+    return valid() && ops_.set_value(*this, object, source);
   }
 
   /** @brief 按指定类型读取字段值。 */
@@ -222,36 +234,47 @@ struct field_data {
       return false;
     }
   }
+
+private:
+  friend meta::type member_field_type(const field_wrapper& field) noexcept;
+
+  string_name name_{};
+  type_id type_{};
+  const meta::type_descriptor* descriptor_ = nullptr;
+  std::size_t offset_ = 0;
+  bool writable_ = true;
+  field_ops ops_{};
 };
 
-[[nodiscard]] inline meta::type member_field_type(const field_data& field) noexcept {
-  return meta::make_type_view(field.type, field.descriptor);
+[[nodiscard]] inline meta::type member_field_type(const field_wrapper& field) noexcept {
+  return meta::make_type_view(field.type_, field.descriptor_);
 }
 
-[[nodiscard]] inline const void* member_field_data(const field_data& field,
+[[nodiscard]] inline const void* member_field_data(const field_wrapper& field,
                                                    const void* object) noexcept {
   return field.member_data(object);
 }
 
-[[nodiscard]] inline void* member_field_mutable_data(const field_data& field,
+[[nodiscard]] inline void* member_field_mutable_data(const field_wrapper& field,
                                                      void* object) noexcept {
   return field.member_mutable_data(object);
 }
 
-[[nodiscard]] inline any member_field_get_value(const field_data& field, const void* object) {
+[[nodiscard]] inline any member_field_get_value(const field_wrapper& field, const void* object) {
   return field.member_get_value(object);
 }
 
-[[nodiscard]] inline any_ref member_field_get_const_ref(const field_data& field,
+[[nodiscard]] inline any_ref member_field_get_const_ref(const field_wrapper& field,
                                                         const void* object) {
   return field.member_get_ref(object);
 }
 
-[[nodiscard]] inline any_ref member_field_get_mutable_ref(const field_data& field, void* object) {
+[[nodiscard]] inline any_ref member_field_get_mutable_ref(const field_wrapper& field,
+                                                          void* object) {
   return field.member_get_ref(object);
 }
 
-inline bool member_field_set_value(const field_data& field, void* object, const any& source) {
+inline bool member_field_set_value(const field_wrapper& field, void* object, const any& source) {
   return field.member_try_set_value(object, source);
 }
 
@@ -265,8 +288,8 @@ inline bool member_field_set_value(const field_data& field, void* object, const 
 
 /** @brief 创建字段反射元信息。 */
 template <typename Field>
-[[nodiscard]] field_data make_field_data(std::string_view name, std::string_view type_name,
-                                         std::size_t offset) {
+[[nodiscard]] field_wrapper make_field_wrapper(std::string_view name, std::string_view type_name,
+                                               std::size_t offset) {
   using field_type = std::remove_cv_t<Field>;
   const meta::type_descriptor* descriptor = meta::descriptor_of<field_type>();
   type_id field_type_id = descriptor->type;
@@ -274,7 +297,7 @@ template <typename Field>
     field_type_id = detail::find_field_type_id<field_type>(type_name);
   }
 
-  field_data field{
+  field_wrapper field{
       string_name{name},       field_type_id,      descriptor, offset,
       !std::is_const_v<Field>, member_field_ops(),
   };

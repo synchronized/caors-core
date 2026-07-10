@@ -4,10 +4,10 @@
 #include "caors/reflection.h"
 
 #include "caors/object/ptr_view.h"
-#include "caors/reflection/detail/field_data.h"
+#include "caors/reflection/detail/field_wrapper.h"
 
 namespace caors::reflection {
-field::field(meta::type owner, const detail::field_data* field) noexcept
+field::field(meta::type owner, const detail::field_wrapper* field) noexcept
     : owner_(owner), field_(field) {}
 
 bool field::valid() const noexcept {
@@ -15,12 +15,12 @@ bool field::valid() const noexcept {
 }
 
 core::string_name field::name() const noexcept {
-  const detail::field_data* field = info();
-  return field != nullptr ? field->name : core::string_name{};
+  const detail::field_wrapper* field = info();
+  return field != nullptr ? field->name() : core::string_name{};
 }
 
 meta::type field::get_type() const noexcept {
-  const detail::field_data* field = info();
+  const detail::field_wrapper* field = info();
   return field != nullptr ? field->get_type() : meta::type{};
 }
 
@@ -45,13 +45,13 @@ bool field::indirect() const noexcept { return get_type().indirect(); }
 bool field::nullable() const noexcept { return get_type().nullable(); }
 
 bool field::writable() const noexcept {
-  const detail::field_data* field = info();
-  return field != nullptr && field->writable;
+  const detail::field_wrapper* field = info();
+  return field != nullptr && field->writable();
 }
 
 std::size_t field::offset() const noexcept {
-  const detail::field_data* field = info();
-  return field != nullptr ? field->offset : 0;
+  const detail::field_wrapper* field = info();
+  return field != nullptr ? field->offset() : 0;
 }
 
 std::size_t field::size() const noexcept {
@@ -64,7 +64,7 @@ std::size_t field::alignment() const noexcept {
   return meta ? meta.alignment() : 0;
 }
 
-const detail::field_data* field::info() const noexcept {
+const detail::field_wrapper* field::info() const noexcept {
   if (!valid()) {
     return nullptr;
   }
@@ -73,7 +73,7 @@ const detail::field_data* field::info() const noexcept {
 }
 
 any field::get_value(const void* object) const {
-  const detail::field_data* field = info();
+  const detail::field_wrapper* field = info();
   if (field == nullptr) {
     return {};
   }
@@ -82,7 +82,7 @@ any field::get_value(const void* object) const {
 }
 
 any_ref field::get_ref(const void* object) const {
-  const detail::field_data* field = info();
+  const detail::field_wrapper* field = info();
   if (field == nullptr) {
     return {};
   }
@@ -91,7 +91,7 @@ any_ref field::get_ref(const void* object) const {
 }
 
 any_ref field::get_ref(void* object) const {
-  const detail::field_data* field = info();
+  const detail::field_wrapper* field = info();
   if (field == nullptr) {
     return {};
   }
@@ -100,7 +100,7 @@ any_ref field::get_ref(void* object) const {
 }
 
 bool field::try_set_value(void* object, const any& source) const {
-  const detail::field_data* field = info();
+  const detail::field_wrapper* field = info();
   if (field == nullptr) {
     return false;
   }

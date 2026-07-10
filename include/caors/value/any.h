@@ -16,7 +16,7 @@
 #include <utility>
 
 namespace caors::reflection::detail {
-struct field_data;
+class field_wrapper;
 } // namespace caors::reflection::detail
 
 namespace caors::value {
@@ -162,7 +162,7 @@ public:
 
 private:
   friend class any_ref;
-  friend struct reflection::detail::field_data;
+  friend class reflection::detail::field_wrapper;
   friend const meta::type_descriptor* detail::descriptor_of(const any& value) noexcept;
   friend any detail::default_construct(type_id type, const meta::type_descriptor* descriptor);
   friend any detail::default_construct(type_id type, const meta::type_descriptor* descriptor,

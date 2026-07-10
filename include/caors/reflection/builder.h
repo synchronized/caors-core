@@ -51,8 +51,8 @@ public:
     const std::string_view resolved_name = resolved_type && !resolved_type.name().empty()
                                                ? resolved_type.name().view()
                                                : std::string_view{};
-    detail::field_data field =
-        detail::make_field_data<Field>(name, resolved_name, detail::member_offset(member));
+    detail::field_wrapper field =
+        detail::make_field_wrapper<Field>(name, resolved_name, detail::member_offset(member));
     if (!field.valid()) {
       pending_status_ = {error_domain::reflection, errc::invalid_field};
       return *this;
@@ -68,8 +68,8 @@ public:
       return *this;
     }
 
-    detail::field_data field =
-        detail::make_field_data<Field>(name, type_name, detail::member_offset(member));
+    detail::field_wrapper field =
+        detail::make_field_wrapper<Field>(name, type_name, detail::member_offset(member));
     if (!field.valid()) {
       pending_status_ = {error_domain::reflection, errc::invalid_field};
       return *this;

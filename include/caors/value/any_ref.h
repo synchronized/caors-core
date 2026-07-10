@@ -136,7 +136,7 @@ private:
   friend class pair_view;
   friend class tuple_view;
   friend class variant_view;
-  friend struct reflection::detail::field_data;
+  friend class reflection::detail::field_wrapper;
   friend const meta::type_descriptor* detail::descriptor_of(const any_ref& value) noexcept;
 
   [[nodiscard]] static any_ref from_raw(type_id type, const meta::type_descriptor* descriptor,

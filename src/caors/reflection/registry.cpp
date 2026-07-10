@@ -12,7 +12,7 @@ namespace {
          lhs.parent_id() == rhs.parent_id();
 }
 
-[[nodiscard]] bool resolve_field_type(meta::registry& registry, detail::field_data& field) {
+[[nodiscard]] bool resolve_field_type(meta::registry& registry, detail::field_wrapper& field) {
   if (!field.valid()) {
     return false;
   }
@@ -26,7 +26,7 @@ namespace {
 }
 
 [[nodiscard]] error resolve_fields(meta::registry& meta, detail::type_data& reflection) {
-  for (detail::field_data& field : reflection.fields) {
+  for (detail::field_wrapper& field : reflection.fields) {
     if (!resolve_field_type(meta, field)) {
       return {error_domain::reflection, errc::invalid_field};
     }
@@ -39,12 +39,12 @@ namespace {
   core::hash_set<core::string_name> names;
   names.reserve(reflection.fields.size());
 
-  for (const detail::field_data& field : reflection.fields) {
+  for (const detail::field_wrapper& field : reflection.fields) {
     if (!field.valid() || !field.get_type()) {
       return {error_domain::reflection, errc::invalid_field};
     }
 
-    if (!names.insert(field.name).second) {
+    if (!names.insert(field.name()).second) {
       return {error_domain::reflection, errc::duplicate_field};
     }
   }
