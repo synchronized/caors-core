@@ -6,42 +6,33 @@
 #include "caors/reflection/detail/method_data.h"
 
 namespace caors::reflection {
-method::method(meta::type owner, const detail::method_data* method) noexcept
-    : owner_(owner), method_(method) {}
+method::method(const detail::method_data* method) noexcept : method_(method) {}
 
-bool method::valid() const noexcept {
-  return owner_.valid() && method_ != nullptr && method_->valid();
-}
+bool method::valid() const noexcept { return method_ != nullptr && method_->valid(); }
 
 core::string_name method::name() const noexcept {
   const detail::method_data* method = info();
   return method != nullptr ? method->name : core::string_name{};
 }
 
+meta::type method::get_owner_type() const noexcept {
+  const detail::method_data* method = info();
+  return method != nullptr ? method->get_owner_type() : meta::type{};
+}
+
 meta::type method::get_return_type() const noexcept {
   const detail::method_data* method = info();
-  return method != nullptr ? meta::make_type_view(method->return_type, method->return_descriptor)
-                           : meta::type{};
+  return method != nullptr ? method->get_return_type() : meta::type{};
 }
 
 std::size_t method::parameter_count() const noexcept {
   const detail::method_data* method = info();
-  return method != nullptr ? method->parameter_types.size() : 0;
+  return method != nullptr ? method->parameter_count() : 0;
 }
 
 std::optional<meta::type> method::get_parameter_type(std::size_t index) const noexcept {
   const detail::method_data* method = info();
-  if (method == nullptr || index >= method->parameter_descriptors.size()) {
-    return std::nullopt;
-  }
-
-  meta::type parameter =
-      meta::make_type_view(method->parameter_types[index], method->parameter_descriptors[index]);
-  if (!parameter) {
-    return std::nullopt;
-  }
-
-  return parameter;
+  return method != nullptr ? method->get_parameter_type(index) : std::nullopt;
 }
 
 bool method::const_method() const noexcept {
@@ -51,20 +42,20 @@ bool method::const_method() const noexcept {
 
 any method::invoke(void* object, std::span<const any_ref> arguments) const {
   const detail::method_data* method = info();
-  if (method == nullptr || method->invoke == nullptr) {
+  if (method == nullptr) {
     return {};
   }
 
-  return method->invoke(*method, object, true, arguments);
+  return method->invoke(object, true, arguments);
 }
 
 any method::invoke(const void* object, std::span<const any_ref> arguments) const {
   const detail::method_data* method = info();
-  if (method == nullptr || method->invoke == nullptr) {
+  if (method == nullptr) {
     return {};
   }
 
-  return method->invoke(*method, object, false, arguments);
+  return method->invoke(object, false, arguments);
 }
 
 const detail::method_data* method::info() const noexcept {

@@ -22,8 +22,26 @@ namespace caors::reflection::detail {
 
 struct method_data;
 
+using method_type_fn = meta::type (*)(const method_data& method) noexcept;
+using method_parameter_count_fn = std::size_t (*)(const method_data& method) noexcept;
+using method_parameter_type_fn = std::optional<meta::type> (*)(const method_data& method,
+                                                               std::size_t index) noexcept;
 using method_invoke_fn = any (*)(const method_data& method, const void* object, bool mutable_object,
                                  std::span<const any_ref> arguments);
+
+/** @brief 方法访问函数表，负责返回类型信息并执行底层成员函数调用。 */
+struct method_ops {
+  method_type_fn get_owner_type = nullptr;
+  method_type_fn get_return_type = nullptr;
+  method_parameter_count_fn parameter_count = nullptr;
+  method_parameter_type_fn get_parameter_type = nullptr;
+  method_invoke_fn invoke = nullptr;
+
+  [[nodiscard]] bool valid() const noexcept {
+    return get_owner_type != nullptr && get_return_type != nullptr && parameter_count != nullptr &&
+           get_parameter_type != nullptr && invoke != nullptr;
+  }
+};
 
 /**
  * @brief 底层成员方法反射元信息。
@@ -35,17 +53,23 @@ struct method_data {
   static constexpr std::size_t storage_size = sizeof(void*) * 4U;
 
   string_name name{};
-  type_id return_type{};
-  const meta::type_descriptor* return_descriptor = nullptr;
-  vector<type_id> parameter_types{};
-  vector<const meta::type_descriptor*> parameter_descriptors{};
   alignas(std::max_align_t) std::array<std::byte, storage_size> storage{};
-  method_invoke_fn invoke = nullptr;
+  method_ops ops{};
   bool const_method = false;
 
-  [[nodiscard]] bool valid() const noexcept {
-    return !name.empty() && invoke != nullptr &&
-           parameter_types.size() == parameter_descriptors.size();
+  [[nodiscard]] bool valid() const noexcept { return !name.empty() && ops.valid(); }
+
+  [[nodiscard]] meta::type get_owner_type() const noexcept { return ops.get_owner_type(*this); }
+  [[nodiscard]] meta::type get_return_type() const noexcept { return ops.get_return_type(*this); }
+  [[nodiscard]] std::size_t parameter_count() const noexcept { return ops.parameter_count(*this); }
+
+  [[nodiscard]] std::optional<meta::type> get_parameter_type(std::size_t index) const noexcept {
+    return ops.get_parameter_type(*this, index);
+  }
+
+  [[nodiscard]] any invoke(const void* object, bool mutable_object,
+                           std::span<const any_ref> arguments) const {
+    return ops.invoke(*this, object, mutable_object, arguments);
   }
 };
 
@@ -160,21 +184,64 @@ template <typename Class, typename Return, typename... Arguments>
   return invoke_member_impl(member, *instance, arguments, std::index_sequence_for<Arguments...>{});
 }
 
+template <typename Class> [[nodiscard]] meta::type method_owner_type(const method_data&) noexcept {
+  return meta::resolve<Class>();
+}
+
 template <typename Return>
-[[nodiscard]] const meta::type_descriptor* return_descriptor_ptr() noexcept {
+[[nodiscard]] meta::type method_return_type(const method_data&) noexcept {
   if constexpr (std::is_void_v<method_value_type<Return>>) {
-    return nullptr;
+    return {};
   } else {
-    return meta::descriptor_of<method_value_type<Return>>();
+    return meta::resolve<method_value_type<Return>>();
   }
 }
 
-template <typename Return> [[nodiscard]] type_id return_type_id() noexcept {
-  if constexpr (std::is_void_v<method_value_type<Return>>) {
-    return type_id::invalid();
+template <typename... Arguments>
+[[nodiscard]] std::size_t method_parameter_count(const method_data&) noexcept {
+  return sizeof...(Arguments);
+}
+
+template <typename... Arguments>
+[[nodiscard]] std::optional<meta::type> method_parameter_type(const method_data&,
+                                                              std::size_t index) noexcept {
+  if constexpr (sizeof...(Arguments) == 0) {
+    return std::nullopt;
   } else {
-    return meta::descriptor_id_of<method_value_type<Return>>();
+    if (index >= sizeof...(Arguments)) {
+      return std::nullopt;
+    }
+
+    std::array<meta::type, sizeof...(Arguments)> types{
+        meta::resolve<method_value_type<Arguments>>()...};
+    if (!types[index]) {
+      return std::nullopt;
+    }
+
+    return types[index];
   }
+}
+
+template <typename Class, typename Return, typename... Arguments>
+[[nodiscard]] method_ops member_method_ops() noexcept {
+  return method_ops{
+      &method_owner_type<Class>,
+      &method_return_type<Return>,
+      &method_parameter_count<Arguments...>,
+      &method_parameter_type<Arguments...>,
+      &invoke_member_method<Class, Return, Arguments...>,
+  };
+}
+
+template <typename Class, typename Return, typename... Arguments>
+[[nodiscard]] method_ops const_member_method_ops() noexcept {
+  return method_ops{
+      &method_owner_type<Class>,
+      &method_return_type<Return>,
+      &method_parameter_count<Arguments...>,
+      &method_parameter_type<Arguments...>,
+      &invoke_const_member_method<Class, Return, Arguments...>,
+  };
 }
 
 template <typename Class, typename Return, typename... Arguments>
@@ -182,12 +249,8 @@ template <typename Class, typename Return, typename... Arguments>
                                            Return (Class::*member)(Arguments...)) {
   method_data method{
       string_name{name},
-      return_type_id<Return>(),
-      return_descriptor_ptr<Return>(),
-      vector<type_id>{meta::descriptor_id_of<method_value_type<Arguments>>()...},
-      vector<const meta::type_descriptor*>{meta::descriptor_of<method_value_type<Arguments>>()...},
       {},
-      &invoke_member_method<Class, Return, Arguments...>,
+      member_method_ops<Class, Return, Arguments...>(),
       false,
   };
   store_member_pointer(method, member);
@@ -199,12 +262,8 @@ template <typename Class, typename Return, typename... Arguments>
                                            Return (Class::*member)(Arguments...) const) {
   method_data method{
       string_name{name},
-      return_type_id<Return>(),
-      return_descriptor_ptr<Return>(),
-      vector<type_id>{meta::descriptor_id_of<method_value_type<Arguments>>()...},
-      vector<const meta::type_descriptor*>{meta::descriptor_of<method_value_type<Arguments>>()...},
       {},
-      &invoke_const_member_method<Class, Return, Arguments...>,
+      const_member_method_ops<Class, Return, Arguments...>(),
       true,
   };
   store_member_pointer(method, member);

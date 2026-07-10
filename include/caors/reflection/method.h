@@ -36,6 +36,7 @@ public:
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
 
   [[nodiscard]] string_name name() const noexcept;
+  [[nodiscard]] meta::type get_owner_type() const noexcept;
   [[nodiscard]] meta::type get_return_type() const noexcept;
   [[nodiscard]] std::size_t parameter_count() const noexcept;
   [[nodiscard]] std::optional<meta::type> get_parameter_type(std::size_t index) const noexcept;
@@ -84,10 +85,9 @@ public:
 private:
   friend class type;
 
-  method(meta::type owner, const detail::method_data* reflected_method) noexcept;
+  explicit method(const detail::method_data* reflected_method) noexcept;
   [[nodiscard]] const detail::method_data* info() const noexcept;
 
-  meta::type owner_{};
   const detail::method_data* method_ = nullptr;
 };
 

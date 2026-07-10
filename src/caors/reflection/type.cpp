@@ -68,7 +68,7 @@ method type::method_at(std::size_t index) const {
     return {};
   }
 
-  return method{type_, &reflected->methods[index]};
+  return method{&reflected->methods[index]};
 }
 
 method type::find_method(core::string_name name) const {
