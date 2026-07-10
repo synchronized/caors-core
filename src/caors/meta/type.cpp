@@ -142,6 +142,8 @@ type type::get_key_type() const noexcept {
   return key && key.id() == key_type ? key : meta::type{};
 }
 
+namespace detail {
+
 type make_type_view(type_id id, const type_descriptor* descriptor) noexcept {
   if (id) {
     meta::type registered = get_registry().find_type(id);
@@ -158,6 +160,8 @@ type make_type_view(type_id id, const type_descriptor* descriptor) noexcept {
 }
 
 const type_descriptor* descriptor_of(const meta::type& type) noexcept { return type.descriptor_; }
+
+} // namespace detail
 
 value_default_construct_fn get_default_construct_value_fn(const meta::type& type) noexcept {
   return type.descriptor_ != nullptr ? type.descriptor_->value.ops.default_construct : nullptr;

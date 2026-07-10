@@ -3,7 +3,8 @@
 
 #include "caors/adapters/stl_traits.h"
 #include "caors/adapters/stl_wrapper.h"
-#include "caors/meta/type_descriptor_model.h"
+#include "caors/meta/detail/type_descriptor_model.h"
+#include "caors/meta/query.h"
 
 #include <catch2/catch_all.hpp>
 
@@ -23,16 +24,20 @@ enum class descriptor_enum : int {
 };
 
 template <typename Capability, typename T> [[nodiscard]] const Capability* capability_of() {
-  const caors::meta::type_descriptor* descriptor = caors::meta::descriptor_of<T>();
+  const caors::meta::type_descriptor* descriptor = caors::meta::detail::descriptor_ptr_of<T>();
   REQUIRE(descriptor != nullptr);
   REQUIRE(descriptor->valid());
   return caors::meta::descriptor_capability<Capability>(*descriptor);
 }
 
+template <typename T> [[nodiscard]] caors::type_id type_id_of() {
+  return caors::meta::resolve<T>().id();
+}
+
 } // namespace
 
 TEST_CASE("meta descriptor - enum capability describes integer conversion", "[meta]") {
-  const auto* descriptor = caors::meta::descriptor_of<descriptor_enum>();
+  const auto* descriptor = caors::meta::detail::descriptor_ptr_of<descriptor_enum>();
   REQUIRE(descriptor != nullptr);
   CHECK(caors::meta::descriptor_kind(*descriptor) == caors::meta::type_kind::enumeration);
 
@@ -50,26 +55,26 @@ TEST_CASE("meta descriptor - indirect capability describes raw pointers and wrap
   int value = 42;
   int* pointer = &value;
 
-  const auto* pointer_descriptor = caors::meta::descriptor_of<int*>();
+  const auto* pointer_descriptor = caors::meta::detail::descriptor_ptr_of<int*>();
   REQUIRE(pointer_descriptor != nullptr);
   CHECK(caors::meta::descriptor_kind(*pointer_descriptor) == caors::meta::type_kind::raw_pointer);
 
   const auto* pointer_ops = capability_of<caors::meta::indirect_ops, int*>();
   REQUIRE(pointer_ops != nullptr);
   REQUIRE(pointer_ops->get_value_type != nullptr);
-  CHECK(pointer_ops->get_value_type().id() == caors::meta::descriptor_id_of<int>());
+  CHECK(pointer_ops->get_value_type().id() == type_id_of<int>());
   CHECK(pointer_ops->has_value(&pointer));
   CHECK(pointer_ops->value(&pointer) == &value);
 
   std::optional<int> optional{9};
-  const auto* optional_descriptor = caors::meta::descriptor_of<std::optional<int>>();
+  const auto* optional_descriptor = caors::meta::detail::descriptor_ptr_of<std::optional<int>>();
   REQUIRE(optional_descriptor != nullptr);
   CHECK(caors::meta::descriptor_kind(*optional_descriptor) == caors::meta::type_kind::wrapper);
 
   const auto* optional_ops = capability_of<caors::meta::indirect_ops, std::optional<int>>();
   REQUIRE(optional_ops != nullptr);
   REQUIRE(optional_ops->get_value_type != nullptr);
-  CHECK(optional_ops->get_value_type().id() == caors::meta::descriptor_id_of<int>());
+  CHECK(optional_ops->get_value_type().id() == type_id_of<int>());
   CHECK(optional_ops->has_value(&optional));
   CHECK(*static_cast<const int*>(optional_ops->value(&optional)) == 9);
 }
@@ -79,7 +84,7 @@ TEST_CASE("meta descriptor - sequence set and associative capabilities describe 
   const auto* sequence_ops = capability_of<caors::meta::sequence_ops, std::vector<int>>();
   REQUIRE(sequence_ops != nullptr);
   REQUIRE(sequence_ops->get_value_type != nullptr);
-  CHECK(sequence_ops->get_value_type().id() == caors::meta::descriptor_id_of<int>());
+  CHECK(sequence_ops->get_value_type().id() == type_id_of<int>());
 
   std::vector<int> values{1, 2, 3};
   CHECK(sequence_ops->size(&values) == 3);
@@ -89,7 +94,7 @@ TEST_CASE("meta descriptor - sequence set and associative capabilities describe 
   const auto* set_ops = capability_of<caors::meta::set_ops, std::set<int>>();
   REQUIRE(set_ops != nullptr);
   REQUIRE(set_ops->get_value_type != nullptr);
-  CHECK(set_ops->get_value_type().id() == caors::meta::descriptor_id_of<int>());
+  CHECK(set_ops->get_value_type().id() == type_id_of<int>());
 
   std::set<int> set_values{4, 5};
   CHECK(set_ops->size(&set_values) == 2);
@@ -99,8 +104,8 @@ TEST_CASE("meta descriptor - sequence set and associative capabilities describe 
   REQUIRE(associative_ops != nullptr);
   REQUIRE(associative_ops->get_key_type != nullptr);
   REQUIRE(associative_ops->get_value_type != nullptr);
-  CHECK(associative_ops->get_key_type().id() == caors::meta::descriptor_id_of<int>());
-  CHECK(associative_ops->get_value_type().id() == caors::meta::descriptor_id_of<std::string>());
+  CHECK(associative_ops->get_key_type().id() == type_id_of<int>());
+  CHECK(associative_ops->get_value_type().id() == type_id_of<std::string>());
 
   std::map<int, std::string> map_values{{7, "seven"}};
   CHECK(associative_ops->size(&map_values) == 1);
@@ -113,8 +118,8 @@ TEST_CASE("meta descriptor - pair tuple and variant capabilities describe hetero
   REQUIRE(pair_ops != nullptr);
   REQUIRE(pair_ops->get_key_type != nullptr);
   REQUIRE(pair_ops->get_value_type != nullptr);
-  CHECK(pair_ops->get_key_type().id() == caors::meta::descriptor_id_of<int>());
-  CHECK(pair_ops->get_value_type().id() == caors::meta::descriptor_id_of<std::string>());
+  CHECK(pair_ops->get_key_type().id() == type_id_of<int>());
+  CHECK(pair_ops->get_value_type().id() == type_id_of<std::string>());
 
   pair_type pair{3, "three"};
   CHECK(*static_cast<const int*>(pair_ops->first(&pair)) == 3);
@@ -127,10 +132,9 @@ TEST_CASE("meta descriptor - pair tuple and variant capabilities describe hetero
   REQUIRE(tuple_ops->elements[0].get_value_type != nullptr);
   REQUIRE(tuple_ops->elements[1].get_value_type != nullptr);
   REQUIRE(tuple_ops->elements[2].get_value_type != nullptr);
-  CHECK(tuple_ops->elements[0].get_value_type().id() == caors::meta::descriptor_id_of<int>());
-  CHECK(tuple_ops->elements[1].get_value_type().id() ==
-        caors::meta::descriptor_id_of<std::string>());
-  CHECK(tuple_ops->elements[2].get_value_type().id() == caors::meta::descriptor_id_of<double>());
+  CHECK(tuple_ops->elements[0].get_value_type().id() == type_id_of<int>());
+  CHECK(tuple_ops->elements[1].get_value_type().id() == type_id_of<std::string>());
+  CHECK(tuple_ops->elements[2].get_value_type().id() == type_id_of<double>());
 
   tuple_type tuple{1, "one", 1.5};
   CHECK(*static_cast<const int*>(tuple_ops->elements[0].element(&tuple)) == 1);
@@ -142,9 +146,8 @@ TEST_CASE("meta descriptor - pair tuple and variant capabilities describe hetero
   REQUIRE(variant_ops->alternatives.size() == 2);
   REQUIRE(variant_ops->alternatives[0].get_value_type != nullptr);
   REQUIRE(variant_ops->alternatives[1].get_value_type != nullptr);
-  CHECK(variant_ops->alternatives[0].get_value_type().id() == caors::meta::descriptor_id_of<int>());
-  CHECK(variant_ops->alternatives[1].get_value_type().id() ==
-        caors::meta::descriptor_id_of<std::string>());
+  CHECK(variant_ops->alternatives[0].get_value_type().id() == type_id_of<int>());
+  CHECK(variant_ops->alternatives[1].get_value_type().id() == type_id_of<std::string>());
 
   variant_type variant{std::string{"text"}};
   CHECK(variant_ops->index(&variant) == 1);

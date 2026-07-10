@@ -12,7 +12,6 @@
 #include "caors/meta/detail/parent_cast_ops.h"
 #include "caors/meta/registration.h"
 #include "caors/meta/type.h"
-#include "caors/meta/type_descriptor.h"
 #include "caors/meta/type_registration.h"
 #include "caors/meta/view.h"
 

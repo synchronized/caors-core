@@ -22,8 +22,7 @@ template <typename T> struct sequence_ops_model {
   using element_type = typename traits::sequence_traits<type>::element_type;
 
   [[nodiscard]] static meta::type get_value_type() noexcept {
-    return meta::make_type_view(descriptor_type_id<element_type>(),
-                                descriptor_ptr_of<element_type>());
+    return make_type_view(descriptor_type_id<element_type>(), descriptor_ptr_of<element_type>());
   }
 
   [[nodiscard]] static std::size_t size(const void* storage) noexcept {

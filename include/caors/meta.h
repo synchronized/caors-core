@@ -6,8 +6,6 @@
 
 #include "caors/meta/capability.h"
 #include "caors/meta/registry.h"
-#include "caors/meta/type_descriptor.h"
-#include "caors/meta/type_descriptor_model.h"
 #include "caors/meta/type_ops.h"
 #include "caors/meta/type_registration.h"
 #include "caors/meta/type_semantics.h"

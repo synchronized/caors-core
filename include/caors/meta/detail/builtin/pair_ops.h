@@ -19,12 +19,11 @@ template <typename T> struct pair_ops_model {
   using second_type = typename traits::pair_traits<type>::second_type;
 
   [[nodiscard]] static meta::type get_key_type() noexcept {
-    return meta::make_type_view(descriptor_type_id<first_type>(), descriptor_ptr_of<first_type>());
+    return make_type_view(descriptor_type_id<first_type>(), descriptor_ptr_of<first_type>());
   }
 
   [[nodiscard]] static meta::type get_value_type() noexcept {
-    return meta::make_type_view(descriptor_type_id<second_type>(),
-                                descriptor_ptr_of<second_type>());
+    return make_type_view(descriptor_type_id<second_type>(), descriptor_ptr_of<second_type>());
   }
 
   [[nodiscard]] static const void* first(const void* storage) noexcept {

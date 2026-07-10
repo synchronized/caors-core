@@ -289,52 +289,52 @@ constexpr caors::type_guid view_actor_guid{caors::guid::from_bytes(
   }
 
   if (name == "int") {
-    return caors::meta::descriptor_id_of<int>();
+    return caors::meta::resolve<int>().id();
   }
   if (name == "float") {
-    return caors::meta::descriptor_id_of<float>();
+    return caors::meta::resolve<float>().id();
   }
   if (name == "caors.string") {
-    return caors::meta::descriptor_id_of<caors::string>();
+    return caors::meta::resolve<caors::string>().id();
   }
   if (name == "caors.vector<int>") {
-    return caors::meta::descriptor_id_of<caors::vector<int>>();
+    return caors::meta::resolve<caors::vector<int>>().id();
   }
   if (name == "caors.list<int>") {
-    return caors::meta::descriptor_id_of<caors::list<int>>();
+    return caors::meta::resolve<caors::list<int>>().id();
   }
   if (name == "std.array<int,3>") {
-    return caors::meta::descriptor_id_of<std::array<int, 3>>();
+    return caors::meta::resolve<std::array<int, 3>>().id();
   }
   if (name == "std.span<int>") {
-    return caors::meta::descriptor_id_of<std::span<int>>();
+    return caors::meta::resolve<std::span<int>>().id();
   }
   if (name == "std.span<int,3>") {
-    return caors::meta::descriptor_id_of<std::span<int, 3>>();
+    return caors::meta::resolve<std::span<int, 3>>().id();
   }
   if (name == "std.pair<int,caors.string>") {
-    return caors::meta::descriptor_id_of<std::pair<int, caors::string>>();
+    return caors::meta::resolve<std::pair<int, caors::string>>().id();
   }
   if (name == "std.tuple<int,caors.string,float>") {
-    return caors::meta::descriptor_id_of<std::tuple<int, caors::string, float>>();
+    return caors::meta::resolve<std::tuple<int, caors::string, float>>().id();
   }
   if (name == "std.variant<int,caors.string,float>") {
-    return caors::meta::descriptor_id_of<std::variant<int, caors::string, float>>();
+    return caors::meta::resolve<std::variant<int, caors::string, float>>().id();
   }
   if (name == "test.custom_sequence<int>") {
-    return caors::meta::descriptor_id_of<test_reflection::custom_sequence<int>>();
+    return caors::meta::resolve<test_reflection::custom_sequence<int>>().id();
   }
   if (name == "caors.hash_map<int,int>") {
-    return caors::meta::descriptor_id_of<caors::hash_map<int, int>>();
+    return caors::meta::resolve<caors::hash_map<int, int>>().id();
   }
   if (name == "caors.hash_set<int>") {
-    return caors::meta::descriptor_id_of<caors::hash_set<int>>();
+    return caors::meta::resolve<caors::hash_set<int>>().id();
   }
   if (name == "caors.test.reflection.color") {
-    return caors::meta::descriptor_id_of<reflected_color>();
+    return caors::meta::resolve<reflected_color>().id();
   }
   if (name == "caors.object_ptr<caors.test.reflection.reflected_object_ptr_target>") {
-    return caors::meta::descriptor_id_of<caors::object_ptr<reflected_object_ptr_target>>();
+    return caors::meta::resolve<caors::object_ptr<reflected_object_ptr_target>>().id();
   }
 
   FAIL("unknown test type name");

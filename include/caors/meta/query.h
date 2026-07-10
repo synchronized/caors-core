@@ -4,8 +4,8 @@
 #ifndef CAORS_META_QUERY_H_
 #define CAORS_META_QUERY_H_
 
+#include "caors/meta/detail/type_descriptor_model.h"
 #include "caors/meta/registry.h"
-#include "caors/meta/type_descriptor_model.h"
 
 #include <optional>
 #include <string_view>
@@ -165,13 +165,14 @@ template <typename T> [[nodiscard]] type_builder<T> type_(std::string_view name)
  */
 template <typename T> [[nodiscard]] type resolve() {
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-  return make_type_view(descriptor_id_of<value_type>(), descriptor_of<value_type>());
+  return detail::make_type_view(detail::descriptor_type_id<value_type>(),
+                                detail::descriptor_ptr_of<value_type>());
 }
 
 /** @brief 按 C++ 类型查找已注册基础类型；类型未显式注册时返回空视图。 */
 template <typename T> [[nodiscard]] type find() {
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-  const type stored = get_registry().find_type(descriptor_id_of<value_type>());
+  const type stored = get_registry().find_type(detail::descriptor_type_id<value_type>());
   return stored.registered() ? stored : type{};
 }
 
@@ -235,7 +236,7 @@ template <typename T>
 template <typename T>
 [[nodiscard]] error registry::register_type_for(const type_registration_data& data) {
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-  const type_id expected_id = descriptor_id_of<value_type>();
+  const type_id expected_id = detail::descriptor_type_id<value_type>();
   if ((data.id() && data.id() != expected_id) || !expected_id) {
     return {error_domain::meta, errc::invalid_type};
   }
@@ -265,7 +266,7 @@ template <typename T>
 
 template <typename T> [[nodiscard]] type registry::find_type() const {
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-  const type_id id = descriptor_id_of<value_type>();
+  const type_id id = detail::descriptor_type_id<value_type>();
   if (!id) {
     return {};
   }
@@ -280,9 +281,9 @@ template <typename Child, typename Parent> [[nodiscard]] error registry::set_typ
   static_assert(std::is_base_of_v<parent_type, child_type>, "Parent must be a base class of Child");
 
   return set_type_parent(
-      descriptor_id_of<child_type>(), descriptor_id_of<parent_type>(),
+      detail::descriptor_type_id<child_type>(), detail::descriptor_type_id<parent_type>(),
       detail::parent_cast_ops{
-          descriptor_id_of<parent_type>(),
+          detail::descriptor_type_id<parent_type>(),
           [](const void* value) noexcept -> const void* {
             return value != nullptr
                        ? static_cast<const parent_type*>(static_cast<const child_type*>(value))

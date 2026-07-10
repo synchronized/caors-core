@@ -23,8 +23,8 @@ template <typename Variant, std::size_t Index> struct variant_alternative_ops_mo
   using alternative_type = typename traits::variant_traits<type>::template alternative_type<Index>;
 
   [[nodiscard]] static meta::type get_value_type() noexcept {
-    return meta::make_type_view(descriptor_type_id<alternative_type>(),
-                                descriptor_ptr_of<alternative_type>());
+    return make_type_view(descriptor_type_id<alternative_type>(),
+                          descriptor_ptr_of<alternative_type>());
   }
 
   [[nodiscard]] static const void* alternative(const void* storage) noexcept {
