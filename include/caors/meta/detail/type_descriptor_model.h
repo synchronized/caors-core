@@ -67,19 +67,21 @@ template <typename T> struct descriptor_holder {
     meta::type_descriptor descriptor{};
     descriptor.type = descriptor_type_id<type>();
     descriptor.name = descriptor_type_name<type>();
-    descriptor.layout = meta::type_layout{sizeof(type), alignof(type)};
-    descriptor.ops = meta::value_ops{
-        default_construct_fn_of<type>(),
-        value_clone_fn_of<type>(),
-        value_destroy_fn_of<type>(),
-        value_assign_fn_of<type>(),
-        resource_default_construct_fn_of<type>(),
-        resource_destroy_fn_of<type>(),
-    };
-    descriptor.traits = meta::value_traits{
-        std::is_trivially_copyable_v<type>,
-        std::is_trivially_destructible_v<type>,
-        std::is_trivially_default_constructible_v<type>,
+    descriptor.value = meta::value_storage_ops{
+        meta::type_layout{sizeof(type), alignof(type)},
+        meta::value_ops{
+            default_construct_fn_of<type>(),
+            value_clone_fn_of<type>(),
+            value_destroy_fn_of<type>(),
+            value_assign_fn_of<type>(),
+            resource_default_construct_fn_of<type>(),
+            resource_destroy_fn_of<type>(),
+        },
+        meta::value_traits{
+            std::is_trivially_copyable_v<type>,
+            std::is_trivially_destructible_v<type>,
+            std::is_trivially_default_constructible_v<type>,
+        },
     };
     fill_descriptor_semantics<type>(descriptor);
     descriptor.builtin_capability = builtin_type_capability_of<type>();

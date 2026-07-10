@@ -4,7 +4,6 @@
 #include "caors/value/any_ref.h"
 
 #include "caors/meta/query.h"
-#include "caors/meta/type_descriptor.h"
 
 #include <cstring>
 #include <utility>
@@ -12,17 +11,16 @@
 namespace caors::value {
 namespace {
 
-[[nodiscard]] bool can_store_inline(const meta::type_descriptor* descriptor) noexcept {
+[[nodiscard]] bool can_store_inline(const meta::value_storage_ops& value) noexcept {
   constexpr std::size_t inline_storage_size = sizeof(void*) * 3;
   constexpr std::size_t inline_storage_alignment = alignof(std::max_align_t);
-  return descriptor != nullptr && descriptor->valid() &&
-         descriptor->layout.size <= inline_storage_size &&
-         descriptor->layout.alignment <= inline_storage_alignment &&
-         descriptor->traits.trivially_copyable && descriptor->traits.trivially_destructible;
+  return value.valid() && value.layout.size <= inline_storage_size &&
+         value.layout.alignment <= inline_storage_alignment && value.traits.trivially_copyable &&
+         value.traits.trivially_destructible;
 }
 
-[[nodiscard]] bool can_default_construct_inline(const meta::type_descriptor* descriptor) noexcept {
-  return can_store_inline(descriptor) && descriptor->traits.trivially_default_constructible;
+[[nodiscard]] bool can_default_construct_inline(const meta::value_storage_ops& value) noexcept {
+  return can_store_inline(value) && value.traits.trivially_default_constructible;
 }
 
 } // namespace
@@ -122,29 +120,29 @@ bool any::try_set(const any& source) {
 }
 
 any any::copy_from_raw(meta::type type, const void* source) {
-  const meta::type_descriptor* descriptor = caors::meta::descriptor_of(type);
-  if (!type || descriptor == nullptr || descriptor->type != type.id()) {
+  const meta::value_storage_ops* value_ops = caors::meta::get_value_storage_ops(type);
+  if (!type || value_ops == nullptr) {
     return {};
   }
 
-  if (source == nullptr || descriptor->ops.clone == nullptr || descriptor->ops.destroy == nullptr) {
+  if (source == nullptr || value_ops->ops.clone == nullptr || value_ops->ops.destroy == nullptr) {
     return {};
   }
 
-  if (can_store_inline(descriptor)) {
+  if (can_store_inline(*value_ops)) {
     any result;
     result.type_ = type;
     result.data_ = result.inline_data();
     result.mode_ = storage_mode::inline_value;
-    std::memcpy(result.data_, source, descriptor->layout.size);
+    std::memcpy(result.data_, source, value_ops->layout.size);
     return result;
   }
 
-  if (descriptor->ops.clone == nullptr || descriptor->ops.destroy == nullptr) {
+  if (value_ops->ops.clone == nullptr || value_ops->ops.destroy == nullptr) {
     return {};
   }
 
-  void* copy = descriptor->ops.clone(source);
+  void* copy = value_ops->ops.clone(source);
   if (copy == nullptr) {
     return {};
   }
@@ -251,30 +249,29 @@ namespace detail {
 any default_construct(meta::type type) { return default_construct(type, nullptr); }
 
 any default_construct(meta::type type, memory::memory_resource* resource) {
-  const meta::type_descriptor* descriptor = caors::meta::descriptor_of(type);
-  if (!type || descriptor == nullptr || descriptor->type != type.id() ||
-      caors::meta::get_default_construct_value_fn(type) == nullptr ||
-      caors::meta::get_destroy_value_fn(type) == nullptr) {
+  const meta::value_storage_ops* value_ops = caors::meta::get_value_storage_ops(type);
+  if (!type || value_ops == nullptr || value_ops->ops.default_construct == nullptr ||
+      value_ops->ops.destroy == nullptr) {
     return {};
   }
 
-  if (resource == nullptr && can_default_construct_inline(descriptor)) {
+  if (resource == nullptr && can_default_construct_inline(*value_ops)) {
     any result;
     result.type_ = type;
     result.data_ = result.inline_data();
     result.mode_ = any::storage_mode::inline_value;
-    std::memset(result.data_, 0, descriptor->layout.size);
+    std::memset(result.data_, 0, value_ops->layout.size);
     return result;
   }
 
   void* value = nullptr;
   meta::value_resource_destroy_fn resource_destroy = nullptr;
-  if (resource != nullptr && descriptor->ops.resource_construct != nullptr &&
-      descriptor->ops.resource_destroy != nullptr) {
-    value = descriptor->ops.resource_construct(resource);
-    resource_destroy = descriptor->ops.resource_destroy;
+  if (resource != nullptr && value_ops->ops.resource_construct != nullptr &&
+      value_ops->ops.resource_destroy != nullptr) {
+    value = value_ops->ops.resource_construct(resource);
+    resource_destroy = value_ops->ops.resource_destroy;
   } else {
-    value = descriptor->ops.default_construct();
+    value = value_ops->ops.default_construct();
   }
 
   if (value == nullptr) {

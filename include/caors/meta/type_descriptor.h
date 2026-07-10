@@ -14,31 +14,6 @@
 
 namespace caors::meta {
 
-/** @brief C++ 类型布局信息。 */
-struct type_layout {
-  std::size_t size = 0;
-  std::size_t alignment = 0;
-
-  [[nodiscard]] bool valid() const noexcept { return size > 0 && alignment > 0; }
-};
-
-/** @brief C++ 值的类型擦除操作函数表。 */
-struct value_ops {
-  value_default_construct_fn default_construct = nullptr;
-  value_clone_fn clone = nullptr;
-  value_destroy_fn destroy = nullptr;
-  value_assign_fn assign = nullptr;
-  value_resource_construct_fn resource_construct = nullptr;
-  value_resource_destroy_fn resource_destroy = nullptr;
-};
-
-/** @brief C++ 值的编译期特征摘要。 */
-struct value_traits {
-  bool trivially_copyable = false;
-  bool trivially_destructible = false;
-  bool trivially_default_constructible = false;
-};
-
 /** @brief C++ 类型的运行期语义摘要。 */
 struct type_semantics {
   type_kind kind = type_kind::value;
@@ -56,15 +31,13 @@ struct type_semantics {
 struct type_descriptor {
   type_id type{};
   string_name name{};
-  type_layout layout{};
-  value_ops ops{};
-  value_traits traits{};
+  value_storage_ops value{};
   type_semantics semantics{};
   detail::builtin_type_capability builtin_capability{};
   const capability_entry* static_capabilities = nullptr;
   std::size_t static_capability_count = 0;
 
-  [[nodiscard]] bool valid() const noexcept { return type && layout.valid(); }
+  [[nodiscard]] bool valid() const noexcept { return type && value.valid(); }
 };
 
 template <typename T> inline constexpr bool descriptor_always_false_v = false;

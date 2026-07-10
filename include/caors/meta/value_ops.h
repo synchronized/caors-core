@@ -23,6 +23,40 @@ using value_assign_fn = bool (*)(void*, const void*);
 using value_resource_construct_fn = void* (*)(memory::memory_resource*);
 using value_resource_destroy_fn = void (*)(memory::memory_resource*, void*) noexcept;
 
+/** @brief C++ 类型布局信息。 */
+struct type_layout {
+  std::size_t size = 0;
+  std::size_t alignment = 0;
+
+  [[nodiscard]] bool valid() const noexcept { return size > 0 && alignment > 0; }
+};
+
+/** @brief C++ 值的类型擦除操作函数表。 */
+struct value_ops {
+  value_default_construct_fn default_construct = nullptr;
+  value_clone_fn clone = nullptr;
+  value_destroy_fn destroy = nullptr;
+  value_assign_fn assign = nullptr;
+  value_resource_construct_fn resource_construct = nullptr;
+  value_resource_destroy_fn resource_destroy = nullptr;
+};
+
+/** @brief C++ 值的编译期特征摘要。 */
+struct value_traits {
+  bool trivially_copyable = false;
+  bool trivially_destructible = false;
+  bool trivially_default_constructible = false;
+};
+
+/** @brief C++ 值的布局、生命周期和存储相关操作。 */
+struct value_storage_ops {
+  type_layout layout{};
+  value_ops ops{};
+  value_traits traits{};
+
+  [[nodiscard]] bool valid() const noexcept { return layout.valid(); }
+};
+
 /** @brief C++ 值的可选资源感知构造策略。 */
 struct value_factory_ops {
   value_resource_construct_fn construct = nullptr;
@@ -42,6 +76,8 @@ get_default_construct_value_fn(const meta::type& type) noexcept;
 get_resource_construct_value_fn(const meta::type& type) noexcept;
 [[nodiscard]] CAORS_API value_resource_destroy_fn
 get_resource_destroy_value_fn(const meta::type& type) noexcept;
+[[nodiscard]] CAORS_API const value_storage_ops*
+get_value_storage_ops(const meta::type& type) noexcept;
 
 namespace detail {
 
@@ -51,6 +87,7 @@ using meta::get_default_construct_value_fn;
 using meta::get_destroy_value_fn;
 using meta::get_resource_construct_value_fn;
 using meta::get_resource_destroy_value_fn;
+using meta::get_value_storage_ops;
 using meta::value_assign_fn;
 using meta::value_clone_fn;
 using meta::value_default_construct_fn;
@@ -58,6 +95,7 @@ using meta::value_destroy_fn;
 using meta::value_factory_ops;
 using meta::value_resource_construct_fn;
 using meta::value_resource_destroy_fn;
+using meta::value_storage_ops;
 
 template <typename T> struct meta_copy_constructible;
 

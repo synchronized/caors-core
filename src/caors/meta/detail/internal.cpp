@@ -221,8 +221,8 @@ error store_type_descriptor(registry_state& state, const type_descriptor& descri
   if (position != state.descriptors.end()) {
     const type_descriptor* existing = position->second;
     if (existing == nullptr || existing->type != descriptor.type ||
-        existing->layout.size != descriptor.layout.size ||
-        existing->layout.alignment != descriptor.layout.alignment) {
+        existing->value.layout.size != descriptor.value.layout.size ||
+        existing->value.layout.alignment != descriptor.value.layout.alignment) {
       return {error_domain::meta, errc::invalid_type};
     }
 
