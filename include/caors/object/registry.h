@@ -122,8 +122,6 @@ private:
   registry();
   ~registry();
 
-  [[nodiscard]] error register_type(const meta::type_registration_data& type,
-                                    const object_factory_ops* factory);
   template <typename T>
   [[nodiscard]] error register_type_for(const meta::type_registration_data& type,
                                         const object_factory_ops* factory) {
@@ -157,9 +155,10 @@ private:
       return {error_domain::object, errc::invalid_type};
     }
 
-    return rethrow_as(
-        meta::detail::register_capability_for<object_factory_ops>(stored_meta.id(), factory),
-        error_domain::object, errc::duplicate_component, errc::duplicate_id);
+    meta::type_builder<value_type> builder = meta::type_<value_type>();
+    builder.template capability<object_factory_ops>(factory);
+    return rethrow_as(builder.result(), error_domain::object, errc::duplicate_component,
+                      errc::duplicate_id);
   }
 
   [[nodiscard]] const object_factory_ops* find_factory_ops(object_type_id id) const;

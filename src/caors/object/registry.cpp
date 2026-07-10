@@ -20,27 +20,6 @@ registry::registry() {
 
 registry::~registry() = default;
 
-error registry::register_type(const meta::type_registration_data& type,
-                              const object_factory_ops* factory) {
-  const error type_status = meta::get_registry().register_type(type);
-  if (type_status && type_status.value() != errc::duplicate_id) {
-    return rethrow_as(type_status, error_domain::object);
-  }
-
-  const meta::type stored_meta = meta::get_registry().find_type(type.id());
-  if (!stored_meta) {
-    return {error_domain::object, errc::invalid_type};
-  }
-
-  if (factory == nullptr) {
-    return {error_domain::object, errc::invalid_type};
-  }
-
-  return rethrow_as(
-      meta::detail::register_capability_for<object_factory_ops>(stored_meta.id(), factory),
-      error_domain::object, errc::duplicate_component, errc::duplicate_id);
-}
-
 bool registry::contains(object_type_id id) const {
   return meta::capabilities::contains<object_factory_ops>(id);
 }
