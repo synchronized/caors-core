@@ -88,17 +88,16 @@ any_ref indirect_view::value_ref() const {
 
 meta::type indirect_view::get_dynamic_value_type() const noexcept {
   const meta::indirect_ops* info = data();
-  const type_id declared_type = get_value_type().id();
+  const meta::type declared_type = get_value_type();
   const type_id dynamic_type = !valid() || info == nullptr || info->dynamic_type == nullptr
-                                   ? declared_type
+                                   ? declared_type.id()
                                    : info->dynamic_type(storage_);
-  const meta::type_descriptor* descriptor =
-      caors::meta::get_registry().find_type_descriptor(dynamic_type);
-  if (descriptor == nullptr && dynamic_type == declared_type && info != nullptr) {
-    descriptor = info->value_descriptor;
+
+  if (dynamic_type == declared_type.id()) {
+    return declared_type;
   }
 
-  return type_view_of(dynamic_type, descriptor);
+  return caors::meta::find(dynamic_type);
 }
 
 any_ref indirect_view::dynamic_value_ref() const {
@@ -127,13 +126,7 @@ any_ref indirect_view::dynamic_value_ref() const {
     return {};
   }
 
-  const meta::type_descriptor* descriptor =
-      caors::meta::get_registry().find_type_descriptor(dynamic_type);
-  if (descriptor == nullptr) {
-    descriptor = dynamic_type == get_value_type().id() ? info->value_descriptor : nullptr;
-  }
-
-  return any_ref::from_raw(type_view_of(descriptor), value, value_writable);
+  return any_ref::from_raw(get_dynamic_value_type(), value, value_writable);
 }
 
 bool indirect_view::can_set_value() const noexcept {
@@ -265,9 +258,7 @@ any_ref pair_view::second_ref() const {
 any_ref pair_view::value_ref() const { return second_ref(); }
 
 bool pair_view::set_first(const any& value) const {
-  const meta::pair_ops* info = data();
-  if (!writable() || !value.valid() ||
-      value.get_type().id() != (meta::descriptor_id(info->key_descriptor))) {
+  if (!writable() || !value.valid() || value.get_type().id() != get_first_type().id()) {
     return false;
   }
 
@@ -276,9 +267,7 @@ bool pair_view::set_first(const any& value) const {
 }
 
 bool pair_view::set_second(const any& value) const {
-  const meta::pair_ops* info = data();
-  if (!writable() || !value.valid() ||
-      value.get_type().id() != (meta::descriptor_id(info->value_descriptor))) {
+  if (!writable() || !value.valid() || value.get_type().id() != get_value_type().id()) {
     return false;
   }
 
@@ -571,7 +560,7 @@ bool sequence_view::resize(std::size_t size, memory::memory_resource* resource) 
 bool sequence_view::append_value(const any& value) const {
   const meta::sequence_ops* info = data();
   if (!writable() || info->append == nullptr || !value.valid() ||
-      value.get_type().id() != (meta::descriptor_id(info->value_descriptor))) {
+      value.get_type().id() != get_value_type().id()) {
     return false;
   }
 
@@ -750,7 +739,7 @@ bool set_view::clear() const {
 bool set_view::insert_value(const any& value) const {
   const meta::set_ops* info = data();
   if (!writable() || info->insert == nullptr || !value.valid() ||
-      value.get_type().id() != (meta::descriptor_id(info->value_descriptor))) {
+      value.get_type().id() != get_value_type().id()) {
     return false;
   }
 
@@ -947,8 +936,8 @@ bool associative_view::clear() const {
 bool associative_view::insert_value(const any& key, const any& mapped) const {
   const meta::associative_ops* info = data();
   if (!writable() || info->insert == nullptr || !key.valid() || !mapped.valid() ||
-      key.get_type().id() != (meta::descriptor_id(info->key_descriptor)) ||
-      mapped.get_type().id() != (meta::descriptor_id(info->value_descriptor))) {
+      key.get_type().id() != get_key_type().id() ||
+      mapped.get_type().id() != get_value_type().id()) {
     return false;
   }
 

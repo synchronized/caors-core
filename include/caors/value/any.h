@@ -6,7 +6,6 @@
 
 #include "caors/memory/resource.h"
 #include "caors/meta.h"
-#include "caors/meta/type_descriptor_model.h"
 #include "caors/value/fwd.h"
 
 #include <cstddef>
@@ -114,7 +113,8 @@ public:
   /** @brief 判断当前值是否匹配指定 C++ 类型。 */
   template <typename T> [[nodiscard]] bool matches_type() const noexcept {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    return valid() && get_type().id() == meta::descriptor_id_of<type>() && size() == sizeof(type) &&
+    const meta::type expected = caors::meta::resolve<type>();
+    return valid() && expected && get_type().id() == expected.id() && size() == sizeof(type) &&
            alignment() == alignof(type);
   }
 
@@ -174,10 +174,6 @@ private:
 
   static constexpr std::size_t inline_storage_size = sizeof(void*) * 3;
   static constexpr std::size_t inline_storage_alignment = alignof(std::max_align_t);
-
-  [[nodiscard]] static bool can_store_inline(const meta::type_descriptor* descriptor) noexcept;
-  [[nodiscard]] static bool
-  can_default_construct_inline(const meta::type_descriptor* descriptor) noexcept;
 
   void copy_from(const any& other);
   void move_from(any& other) noexcept;

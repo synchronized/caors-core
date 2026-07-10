@@ -10,6 +10,22 @@
 #include <utility>
 
 namespace caors::value {
+namespace {
+
+[[nodiscard]] bool can_store_inline(const meta::type_descriptor* descriptor) noexcept {
+  constexpr std::size_t inline_storage_size = sizeof(void*) * 3;
+  constexpr std::size_t inline_storage_alignment = alignof(std::max_align_t);
+  return descriptor != nullptr && descriptor->valid() &&
+         descriptor->layout.size <= inline_storage_size &&
+         descriptor->layout.alignment <= inline_storage_alignment &&
+         descriptor->traits.trivially_copyable && descriptor->traits.trivially_destructible;
+}
+
+[[nodiscard]] bool can_default_construct_inline(const meta::type_descriptor* descriptor) noexcept {
+  return can_store_inline(descriptor) && descriptor->traits.trivially_default_constructible;
+}
+
+} // namespace
 
 any::~any() { reset(); }
 
@@ -168,17 +184,6 @@ void any::move_from(any& other) noexcept {
   other.mode_ = storage_mode::empty;
 }
 
-bool any::can_store_inline(const meta::type_descriptor* descriptor) noexcept {
-  return descriptor != nullptr && descriptor->valid() &&
-         descriptor->layout.size <= inline_storage_size &&
-         descriptor->layout.alignment <= inline_storage_alignment &&
-         descriptor->traits.trivially_copyable && descriptor->traits.trivially_destructible;
-}
-
-bool any::can_default_construct_inline(const meta::type_descriptor* descriptor) noexcept {
-  return can_store_inline(descriptor) && descriptor->traits.trivially_default_constructible;
-}
-
 void* any::inline_data() noexcept { return static_cast<void*>(inline_storage_); }
 
 const void* any::inline_data() const noexcept { return static_cast<const void*>(inline_storage_); }
@@ -253,7 +258,7 @@ any default_construct(meta::type type, memory::memory_resource* resource) {
     return {};
   }
 
-  if (resource == nullptr && any::can_default_construct_inline(descriptor)) {
+  if (resource == nullptr && can_default_construct_inline(descriptor)) {
     any result;
     result.type_ = type;
     result.data_ = result.inline_data();

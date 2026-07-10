@@ -32,6 +32,7 @@ namespace caors::meta::detail {
 
 class registry_state;
 template <typename T> [[nodiscard]] error ensure_type_descriptor_for();
+[[nodiscard]] error ensure_type_descriptor_registered(const meta::type_descriptor& descriptor);
 
 } // namespace caors::meta::detail
 
@@ -54,7 +55,6 @@ public:
   registry& operator=(const registry&) = delete;
 
   [[nodiscard]] error register_type(const type_registration_data& type);
-  [[nodiscard]] error ensure_type_descriptor(const type_descriptor& descriptor);
   [[nodiscard]] error add_registration(registration_fn fn);
   [[nodiscard]] error run_registrations();
   [[nodiscard]] error freeze();
@@ -70,7 +70,6 @@ public:
   [[nodiscard]] type find_type(const std::type_info& info) const;
   [[nodiscard]] type find_type(std::string_view name) const;
   [[nodiscard]] type find_type(string_name name) const;
-  [[nodiscard]] const type_descriptor* find_type_descriptor(type_id id) const;
   [[nodiscard]] value_factory_ops find_type_factory(type_id id) const;
   [[nodiscard]] bool is_a(type_id id, type_id base_id) const;
   [[nodiscard]] const void* upcast(type_id id, type_id base_id, const void* value) const;
@@ -215,7 +214,9 @@ private:
   ~registry();
 
   template <typename T> friend class type_builder;
+  friend error detail::ensure_type_descriptor_registered(const meta::type_descriptor& descriptor);
 
+  [[nodiscard]] error ensure_type_descriptor(const type_descriptor& descriptor);
   [[nodiscard]] error set_type_guid(type_id id, type_guid guid);
   [[nodiscard]] error set_type_parent(type_id id, type_id parent_id);
   [[nodiscard]] error set_type_parent(type_id id, type_id parent_id, detail::parent_cast_ops cast);
@@ -224,6 +225,7 @@ private:
   template <typename Child, typename Parent> [[nodiscard]] error set_type_parent_for();
 
   [[nodiscard]] error register_cpp_type_info(const std::type_info& info, type_id id);
+  [[nodiscard]] const type_descriptor* find_type_descriptor(type_id id) const;
 
   [[nodiscard]] detail::meta_component_storage_base*
   find_component_storage(detail::meta_component_key key);
