@@ -23,6 +23,11 @@ namespace {
   return can_store_inline(value) && value.traits.trivially_default_constructible;
 }
 
+[[nodiscard]] meta::type_layout layout_of(meta::type type) noexcept {
+  const meta::value_storage_ops* value_ops = caors::meta::get_value_storage_ops(type);
+  return value_ops != nullptr ? value_ops->layout : meta::type_layout{};
+}
+
 } // namespace
 
 any::~any() { reset(); }
@@ -73,9 +78,9 @@ any_ref any::ref() { return any_ref::from_raw(get_type(), data_, true); }
 
 any_ref any::ref() const { return any_ref::from_raw(get_type(), data_, false); }
 
-std::size_t any::size() const noexcept { return type_.size(); }
+std::size_t any::size() const noexcept { return layout_of(type_).size; }
 
-std::size_t any::alignment() const noexcept { return type_.alignment(); }
+std::size_t any::alignment() const noexcept { return layout_of(type_).alignment; }
 
 void any::reset() noexcept {
   if (data_ != nullptr) {
@@ -196,9 +201,9 @@ void* any_ref::mutable_data() const noexcept {
   return valid() && writable_ ? const_cast<void*>(data_) : nullptr;
 }
 
-std::size_t any_ref::size() const noexcept { return type_.size(); }
+std::size_t any_ref::size() const noexcept { return layout_of(type_).size; }
 
-std::size_t any_ref::alignment() const noexcept { return type_.alignment(); }
+std::size_t any_ref::alignment() const noexcept { return layout_of(type_).alignment; }
 
 bool any_ref::writable() const noexcept { return valid() && writable_; }
 

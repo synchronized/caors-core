@@ -26,8 +26,10 @@ TEST_CASE("meta - global registry stores base type information", "[meta]") {
   auto type = caors::meta::find("caors.test.meta.base_actor");
   REQUIRE(type);
   CHECK(type.name() == "caors.test.meta.base_actor");
-  CHECK(type.size() == sizeof(base_actor_type));
-  CHECK(type.alignment() == alignof(base_actor_type));
+  const caors::meta::value_storage_ops* value = caors::meta::get_value_storage_ops(type);
+  REQUIRE(value != nullptr);
+  CHECK(value->layout.size == sizeof(base_actor_type));
+  CHECK(value->layout.alignment == alignof(base_actor_type));
 }
 
 // 原测试文件：meta_meta_global_registry_stores_components_by_type_id_test.cpp

@@ -29,14 +29,6 @@ core::type_guid type::guid() const noexcept {
   return data_ != nullptr ? data_->guid() : core::type_guid::nil();
 }
 
-std::size_t type::size() const noexcept {
-  return descriptor_ != nullptr ? descriptor_->value.layout.size : 0;
-}
-
-std::size_t type::alignment() const noexcept {
-  return descriptor_ != nullptr ? descriptor_->value.layout.alignment : 0;
-}
-
 type_id type::parent_id() const noexcept {
   return data_ != nullptr ? data_->parent_id() : type_id::invalid();
 }

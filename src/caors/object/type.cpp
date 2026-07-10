@@ -20,9 +20,15 @@ core::string_name type::name() const noexcept { return type_.name(); }
 
 core::type_guid type::guid() const noexcept { return type_.guid(); }
 
-std::size_t type::size() const noexcept { return type_.size(); }
+std::size_t type::size() const noexcept {
+  const meta::value_storage_ops* value_ops = meta::get_value_storage_ops(type_);
+  return value_ops != nullptr ? value_ops->layout.size : 0;
+}
 
-std::size_t type::alignment() const noexcept { return type_.alignment(); }
+std::size_t type::alignment() const noexcept {
+  const meta::value_storage_ops* value_ops = meta::get_value_storage_ops(type_);
+  return value_ops != nullptr ? value_ops->layout.alignment : 0;
+}
 
 object_type_id type::parent_id() const noexcept { return type_.parent_id(); }
 

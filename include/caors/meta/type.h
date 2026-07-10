@@ -69,8 +69,6 @@ public:
   [[nodiscard]] type_id id() const noexcept;
   [[nodiscard]] string_name name() const noexcept;
   [[nodiscard]] type_guid guid() const noexcept;
-  [[nodiscard]] std::size_t size() const noexcept;
-  [[nodiscard]] std::size_t alignment() const noexcept;
   [[nodiscard]] type_id parent_id() const noexcept;
   [[nodiscard]] type parent() const noexcept;
   [[nodiscard]] type_kind kind() const noexcept;
