@@ -12,16 +12,17 @@ namespace {
          lhs.parent_id() == rhs.parent_id();
 }
 
-[[nodiscard]] bool resolve_field_type(meta::registry& meta, detail::field_data& field) {
+[[nodiscard]] bool resolve_field_type(meta::registry& registry, detail::field_data& field) {
   if (!field.valid()) {
     return false;
   }
 
-  if (field.type && meta.contains(field.type)) {
+  const meta::type type = field.get_type();
+  if (type && type.registered() && registry.contains(type.id())) {
     return true;
   }
 
-  return field.descriptor != nullptr && field.descriptor->valid();
+  return static_cast<bool>(type);
 }
 
 [[nodiscard]] error resolve_fields(meta::registry& meta, detail::type_data& reflection) {
@@ -39,7 +40,7 @@ namespace {
   names.reserve(reflection.fields.size());
 
   for (const detail::field_data& field : reflection.fields) {
-    if (!field.valid() || !field.type) {
+    if (!field.valid() || !field.get_type()) {
       return {error_domain::reflection, errc::invalid_field};
     }
 

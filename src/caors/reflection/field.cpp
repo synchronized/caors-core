@@ -7,18 +7,6 @@
 #include "caors/reflection/detail/field_data.h"
 
 namespace caors::reflection {
-namespace {
-
-[[nodiscard]] meta::type field_meta(const detail::field_data* field) {
-  if (field == nullptr || !field->type) {
-    return {};
-  }
-
-  return meta::make_type_view(field->type, field->descriptor);
-}
-
-} // namespace
-
 field::field(meta::type owner, const detail::field_data* field) noexcept
     : owner_(owner), field_(field) {}
 
@@ -31,7 +19,10 @@ core::string_name field::name() const noexcept {
   return field != nullptr ? field->name : core::string_name{};
 }
 
-meta::type field::get_type() const noexcept { return field_meta(info()); }
+meta::type field::get_type() const noexcept {
+  const detail::field_data* field = info();
+  return field != nullptr ? field->get_type() : meta::type{};
+}
 
 meta::type field::get_value_type() const noexcept { return get_type().get_value_type(); }
 
@@ -64,22 +55,12 @@ std::size_t field::offset() const noexcept {
 }
 
 std::size_t field::size() const noexcept {
-  const detail::field_data* field = info();
-  if (field != nullptr && field->descriptor != nullptr) {
-    return field->descriptor->layout.size;
-  }
-
-  const meta::type meta = field_meta(info());
+  const meta::type meta = get_type();
   return meta ? meta.size() : 0;
 }
 
 std::size_t field::alignment() const noexcept {
-  const detail::field_data* field = info();
-  if (field != nullptr && field->descriptor != nullptr) {
-    return field->descriptor->layout.alignment;
-  }
-
-  const meta::type meta = field_meta(info());
+  const meta::type meta = get_type();
   return meta ? meta.alignment() : 0;
 }
 
