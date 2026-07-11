@@ -30,8 +30,9 @@
 namespace caors::meta::detail {
 
 class registry_state;
+struct type_descriptor;
 template <typename T> [[nodiscard]] error ensure_type_descriptor_for();
-[[nodiscard]] error ensure_type_descriptor_registered(const meta::type_descriptor& descriptor);
+[[nodiscard]] error ensure_type_descriptor_registered(const type_descriptor& descriptor);
 
 } // namespace caors::meta::detail
 
@@ -210,11 +211,11 @@ private:
   ~registry();
 
   template <typename T> friend class type_builder;
-  friend error detail::ensure_type_descriptor_registered(const meta::type_descriptor& descriptor);
+  friend error detail::ensure_type_descriptor_registered(const detail::type_descriptor& descriptor);
 
   [[nodiscard]] error register_type(const type_registration_data& type);
   template <typename T> [[nodiscard]] error register_type_for(const type_registration_data& data);
-  [[nodiscard]] error ensure_type_descriptor(const type_descriptor& descriptor);
+  [[nodiscard]] error ensure_type_descriptor(const detail::type_descriptor& descriptor);
   [[nodiscard]] error set_type_guid(type_id id, type_guid guid);
   [[nodiscard]] error set_type_parent(type_id id, type_id parent_id);
   [[nodiscard]] error set_type_parent(type_id id, type_id parent_id, detail::parent_cast_ops cast);
@@ -223,7 +224,7 @@ private:
   template <typename Child, typename Parent> [[nodiscard]] error set_type_parent_for();
 
   [[nodiscard]] error register_cpp_type_info(const std::type_info& info, type_id id);
-  [[nodiscard]] const type_descriptor* find_type_descriptor(type_id id) const;
+  [[nodiscard]] const detail::type_descriptor* find_type_descriptor(type_id id) const;
 
   [[nodiscard]] detail::meta_component_storage_base*
   find_component_storage(detail::meta_component_key key);

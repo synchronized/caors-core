@@ -15,7 +15,7 @@
 
 namespace caors::meta::detail {
 
-template <typename T> void fill_descriptor_semantics(meta::type_descriptor& descriptor) {
+template <typename T> void fill_descriptor_semantics(type_descriptor& descriptor) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
 
   if constexpr (std::is_pointer_v<type>) {
@@ -63,8 +63,8 @@ template <typename T> void fill_descriptor_semantics(meta::type_descriptor& desc
 template <typename T> struct descriptor_holder {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
 
-  inline static const meta::type_descriptor value = [] {
-    meta::type_descriptor descriptor{};
+  inline static const type_descriptor value = [] {
+    type_descriptor descriptor{};
     descriptor.type = descriptor_type_id<type>();
     descriptor.name = descriptor_type_name<type>();
     descriptor.value = meta::value_storage_ops{
@@ -91,13 +91,13 @@ template <typename T> struct descriptor_holder {
   }();
 };
 
-template <typename T> [[nodiscard]] const meta::type_descriptor* descriptor_ptr_of() noexcept {
+template <typename T> [[nodiscard]] const type_descriptor* descriptor_ptr_of() noexcept {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   return &descriptor_holder<type>::value;
 }
 
 template <typename T> [[nodiscard]] error ensure_type_descriptor_for() {
-  const meta::type_descriptor* descriptor = descriptor_ptr_of<T>();
+  const type_descriptor* descriptor = descriptor_ptr_of<T>();
   if (descriptor == nullptr || !descriptor->valid()) {
     return {error_domain::meta, errc::invalid_type};
   }

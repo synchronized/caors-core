@@ -14,6 +14,8 @@
 
 namespace caors::meta::detail {
 
+struct type_descriptor;
+
 class registry_state {
 public:
   explicit registry_state(memory::memory_resource* internal_resource = nullptr)

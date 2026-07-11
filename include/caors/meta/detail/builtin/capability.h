@@ -12,7 +12,9 @@ namespace caors::meta {
 
 namespace detail {
 
-template <typename T> [[nodiscard]] const meta::type_descriptor* descriptor_ptr_of() noexcept;
+struct type_descriptor;
+
+template <typename T> [[nodiscard]] const type_descriptor* descriptor_ptr_of() noexcept;
 template <typename T> [[nodiscard]] type_id descriptor_type_id() noexcept;
 
 /** @brief 类型的内置互斥运行期能力。 */

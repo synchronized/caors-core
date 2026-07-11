@@ -3,6 +3,8 @@
 
 #include "caors/meta.h"
 
+#include "caors/meta/detail/type_descriptor.h"
+
 namespace caors::meta {
 
 bool type::valid() const noexcept { return descriptor_ != nullptr && descriptor_->valid(); }
@@ -42,20 +44,20 @@ type type::parent() const noexcept {
 }
 
 type_kind type::kind() const noexcept {
-  return descriptor_ != nullptr ? descriptor_kind(*descriptor_) : type_kind::value;
+  return descriptor_ != nullptr ? detail::descriptor_kind(*descriptor_) : type_kind::value;
 }
 
 wrapper_semantics type::wrapper() const noexcept {
-  return descriptor_ != nullptr ? descriptor_wrapper_semantics(*descriptor_)
+  return descriptor_ != nullptr ? detail::descriptor_wrapper_semantics(*descriptor_)
                                 : wrapper_semantics::none;
 }
 
 bool type::indirect() const noexcept {
-  return descriptor_ != nullptr && descriptor_indirect(*descriptor_);
+  return descriptor_ != nullptr && detail::descriptor_indirect(*descriptor_);
 }
 
 bool type::nullable() const noexcept {
-  return descriptor_ != nullptr && descriptor_nullable(*descriptor_);
+  return descriptor_ != nullptr && detail::descriptor_nullable(*descriptor_);
 }
 
 type type::get_value_type() const noexcept {
@@ -63,9 +65,9 @@ type type::get_value_type() const noexcept {
     return {};
   }
 
-  const type_id value_type = descriptor_value_type(*descriptor_);
+  const type_id value_type = detail::descriptor_value_type(*descriptor_);
   meta::type value = {};
-  switch (descriptor_kind(*descriptor_)) {
+  switch (detail::descriptor_kind(*descriptor_)) {
   case type_kind::value:
   case type_kind::enumeration:
     value = *this;
@@ -114,17 +116,17 @@ type type::get_key_type() const noexcept {
 
   type_id key_type{};
   meta::type key = {};
-  switch (descriptor_kind(*descriptor_)) {
+  switch (detail::descriptor_kind(*descriptor_)) {
   case type_kind::associative:
     if (const auto* associative_ops = get_capability<meta::associative_ops>()) {
-      key_type = descriptor_key_type(*descriptor_);
+      key_type = detail::descriptor_key_type(*descriptor_);
       key =
           associative_ops->get_key_type != nullptr ? associative_ops->get_key_type() : meta::type{};
     }
     break;
   case type_kind::pair:
     if (const auto* pair_ops = get_capability<meta::pair_ops>()) {
-      key_type = descriptor_key_type(*descriptor_);
+      key_type = detail::descriptor_key_type(*descriptor_);
       key = pair_ops->get_key_type != nullptr ? pair_ops->get_key_type() : meta::type{};
     }
     break;

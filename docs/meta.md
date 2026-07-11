@@ -210,7 +210,7 @@ caors::meta::type_<player>("game.player")
 
 当前 meta 层按四个边界分工：
 
-- `type_descriptor` 是编译期 C++ 类型描述。它描述某个 `T` 的 `type_id`、默认显示名、布局、构造 /
+- 内部 descriptor 是编译期 C++ 类型描述。它描述某个 `T` 的 `type_id`、默认显示名、布局、构造 /
   析构 / 复制 / 赋值、类型语义，以及 CAORS 内置运行期访问能力。它不表示类型已经完成业务注册。
 - `meta::registry` 是注册后元数据和模块组件索引。只有显式 `meta::type_<T>("name")` 注册后的类型，
   才拥有稳定名称、GUID、父类型关系、factory、对象组件、反射组件和序列化组件等全局可查询数据。
@@ -234,12 +234,14 @@ runtime capability。普通调用方应使用这个统一入口，不直接关�
 - runtime capability 不是 meta 组件，也不替代业务类型注册；需要稳定名称、GUID 或跨模块组件查询时仍要注册
   meta 类型。
 
-### meta::type_descriptor
+### 内部 descriptor
 
-`meta::type_descriptor` 是 C++ 类型的内部能力描述。注册表按 `type_id`
+内部 descriptor 是 C++ 类型的内部能力描述。注册表按 `type_id`
 保存指向静态 descriptor 的指针，不把 descriptor 当作普通 generic component 复制存储。descriptor
 由布局、值操作、类型语义和固定运行期能力集合几部分组成；未注册结构类型也可以通过 `any`、
 `any_ref` 或反射字段携带的静态 descriptor 访问同一套能力。
+descriptor 位于 `meta::detail`，不属于公开 API；普通用户应通过 `meta::type`、`meta::resolve<T>()`
+和 `meta::type::get_capability<T>()` 查询这些能力。
 
 descriptor 内部按职责拆分：
 
@@ -251,11 +253,8 @@ descriptor 内部按职责拆分：
 - `static_capabilities`：保存模块声明的静态能力表，例如对象指针、对象句柄访问函数表和
   serialization codec 函数表。
 
-文件边界上，`meta/type_descriptor.h` 保存公开稳定的 descriptor 结构和查询 helper；
-`meta/type_descriptor_model.h` 提供公开 `descriptor_of<T>()` / `descriptor_id_of<T>()`
-入口，并隔离 descriptor model 实现；
+文件边界上，`meta/detail/type_descriptor.h` 保存内部 descriptor 结构和查询 helper；
 `meta/type_registration.h` 保存公开注册输入描述 `type_registration_data`；
-`meta/detail/type_descriptor.h` 只保留内部 descriptor 生成和注册桥接声明；
 `meta/detail/type_descriptor_name.h` 负责 descriptor 默认显示名生成；
 `meta/detail/type_descriptor_model.h` 负责 descriptor holder、语义填充和构建实现；
 `meta/detail/builtin_ops_model.h` 作为内置能力聚合入口，只负责引入
@@ -323,7 +322,7 @@ descriptor 上；当运行期只剩 `type_id` 时，应先通过 meta registry �
 
 capability 和 registry 的边界：
 
-- `type_descriptor` 静态能力适合“编译期已知 C++ 类型即可生成”的只读函数表，例如对象指针访问函数、
+- descriptor 静态能力适合“编译期已知 C++ 类型即可生成”的只读函数表，例如对象指针访问函数、
   句柄访问函数和 `codec_traits<T>` 生成的 codec 操作表。
 - `meta::capabilities` 运行期索引适合“只剩 `type_id`，但仍需要查询某种用户外挂运行期能力”的场景；
   内置 object / serialization 能力优先通过 type descriptor 静态能力查询。
@@ -342,7 +341,7 @@ capability 和 registry 的边界：
   `module_static_capability_list<Module, T>` 贡献能力，再通过 `extension_static_capability_modules<T>`
   把 module tag 加入指定 C++ 类型的静态能力聚合列表。
 
-统一 `value_type` / `key_type` 不再作为 `type_descriptor` 顶层字段保存。普通值和枚举直接使用
+统一 `value_type` / `key_type` 不再作为 descriptor 顶层字段保存。普通值和枚举直接使用
 descriptor 自身的 `type_id`；裸指针、wrapper、容器、pair、tuple 和 variant 的子类型信息由对应
 访问函数表保存，并通过 `field`、`sequence_view`、`pair_view` 等公开视图查询。
 
@@ -425,7 +424,7 @@ CAORS_META_REGISTRATION(register_actor_meta) {
 注册表维护几类索引：
 
 - `type_id -> 内部 meta 类型记录`：运行期主索引，只保存身份类信息。
-- `type_id -> const meta::type_descriptor*`：布局、值操作、类型语义和固定运行期能力集合。
+- `type_id -> const meta::detail::type_descriptor*`：布局、值操作、类型语义和固定运行期能力集合。
 - `type_id -> type factory`：可选资源感知构造/销毁函数表。
 - `typeid(T) -> type_id`：当前进程内 RTTI 查询索引，用于普通 C++ 多态辅助。
 - `type_id -> parent upcast`：typed parent 注册保存的直接父类 upcast 回调。
@@ -552,7 +551,7 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 - `meta::id_of<T>()`：查询 C++ 类型的运行期类型 id；类型不要求已经显式注册。
 - `meta::id()`：根据已注册类型名查询运行期类型标识。
 - `traits::type_name<T>`：基础 C++ 类型到 CAORS 类型名的默认映射。
-- `meta::type_descriptor`：布局、值操作、类型语义和固定运行期能力集合。
+- 内部 descriptor：布局、值操作、类型语义和固定运行期能力集合，不属于公开 API。
 - `traits::wrapper_traits<T>` / `traits::wrapper_access<T>`：wrapper 类型语义和内部值访问扩展点。
 - `traits::sequence_traits<T>` / `traits::set_traits<T>` / `traits::associative_traits<T>` / `traits::pair_traits<T>` / `traits::tuple_traits<T>` / `traits::variant_traits<T>`：容器、二元组、tuple-like 和 variant-like 类型语义扩展点。
 - `meta::type`：descriptor-backed 类型只读视图，注册数据可选。

@@ -34,7 +34,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 将 descriptor 内置运行期能力收敛为互斥 `builtin_capability` variant，避免同一类型同时保存多套
   内置能力指针。
 - [x] 将 descriptor 内置能力生成统一到 `*_ops_model<T>` 结构，保持 `*_ops_ptr_of<T>()` 作为内部取表入口。
-- [x] 拆分 descriptor 内置能力实现边界，`type_descriptor.h` 保留 descriptor 本体，内置能力生成移动到
+- [x] 拆分 descriptor 内置能力实现边界，内部 `type_descriptor.h` 保留 descriptor 本体，内置能力生成移动到
   `builtin_ops_model.h`。
 - [x] 将各类 descriptor 内置能力继续拆到 `meta/detail/builtin/xxx_ops.h`，`builtin_ops_model.h`
   只保留聚合和分发入口。
@@ -50,6 +50,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 将 reflection 字段访问收敛为 `field_ops` 函数表，`field_wrapper` 作为 property/concept-table
   包装器承载字段类型、取值、引用和写入能力，调用侧不再直接解释 descriptor 缓存。
 - [x] 将 `type_descriptor.h` 拆分为 descriptor 数据结构、默认名称生成和 descriptor model 构建三个边界。
+- [x] 将 descriptor 本体收进 `meta::detail`，公开 API 只通过 `meta::type` 暴露类型视图和能力查询。
 - [x] 将 set / associative 容器使用的类型擦除迭代器辅助实现移动到 `meta/detail/builtin/container_iterators.h`。
 - [x] 将 set / associative 共用的迭代器生命周期操作抽成 `container_iterator_ops` 和
   `container_iterator_ops_model<T>`，容器专属取值逻辑继续保留在各自 builtin ops 中。
