@@ -15,7 +15,7 @@ public:
 
   [[nodiscard]] format_features features() const noexcept override;
   [[nodiscard]] error begin_object(const type_schema& type) override;
-  [[nodiscard]] error begin_field(const field_data& field) override;
+  [[nodiscard]] error begin_field(const field_schema& field) override;
   [[nodiscard]] error begin_array(std::size_t& size) override;
   [[nodiscard]] error begin_element(std::size_t index) override;
   [[nodiscard]] error begin_dictionary(std::size_t& size) override;
@@ -39,7 +39,7 @@ public:
   [[nodiscard]] error end_object() override;
 
 private:
-  [[nodiscard]] const value::variant_member* find_member(const field_data& field) const;
+  [[nodiscard]] const value::variant_member* find_member(const field_schema& field) const;
   [[nodiscard]] const variant* current_value() const noexcept;
 
   struct dictionary_context {

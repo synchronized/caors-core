@@ -327,14 +327,14 @@ error read_serialized_value(reader& reader, const any_ref& target,
 }
 
 error write_field(writer& writer, const reflection::field& field, const void* object,
-                  const serialization::field_data& field_data,
+                  const serialization::field_schema& field_schema,
                   const serialization::context& context) {
   if (!field.valid()) {
     return {error_domain::serialization, errc::invalid_field};
   }
 
   if (objects::is_ptr(field.get_ref(object))) {
-    return write_object_ptr_field(writer, field, object, field_data, context);
+    return write_object_ptr_field(writer, field, object, field_schema, context);
   }
 
   const bool uses_indirect_value = field_uses_inline_indirect_value(field);
@@ -349,12 +349,12 @@ error write_field(writer& writer, const reflection::field& field, const void* ob
     return {error_domain::serialization, errc::unsupported};
   }
 
-  error status = validate_field_for_writer(field_data, writer.features());
+  error status = validate_field_for_writer(field_schema, writer.features());
   if (status) {
     return status;
   }
 
-  status = writer.begin_field(field_data);
+  status = writer.begin_field(field_schema);
   if (status) {
     return status;
   }
@@ -374,7 +374,7 @@ error write_field(writer& writer, const reflection::field& field, const void* ob
 }
 
 error read_field(reader& reader, const reflection::field& field, void* object,
-                 const serialization::field_data& field_data,
+                 const serialization::field_schema& field_schema,
                  const serialization::context& context) {
   if (!field.valid()) {
     return {error_domain::serialization, errc::invalid_field};
@@ -385,10 +385,10 @@ error read_field(reader& reader, const reflection::field& field, void* object,
   }
 
   if (objects::is_ptr(field.get_ref(object))) {
-    return read_object_ptr_field(reader, field, object, field_data, context);
+    return read_object_ptr_field(reader, field, object, field_schema, context);
   }
 
-  error status = validate_field_for_reader(field_data, reader.features());
+  error status = validate_field_for_reader(field_schema, reader.features());
   if (status) {
     return status;
   }
@@ -406,7 +406,7 @@ error read_field(reader& reader, const reflection::field& field, void* object,
     return {error_domain::serialization, errc::invalid_field};
   }
 
-  status = reader.begin_field(field_data);
+  status = reader.begin_field(field_schema);
   if (status) {
     return status;
   }
@@ -430,10 +430,10 @@ error read_field(reader& reader, const reflection::field& field, void* object,
 }
 
 error read_configured_field(reader& reader, const reflection::field& field, void* object,
-                            const serialization::field_data& field_data,
+                            const serialization::field_schema& field_schema,
                             const serialization::context& context) {
-  const error status = read_field(reader, field, object, field_data, context);
-  if (status.value() == errc::not_found && !field_data.required) {
+  const error status = read_field(reader, field, object, field_schema, context);
+  if (status.value() == errc::not_found && !field_schema.required) {
     return {};
   }
 

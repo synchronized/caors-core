@@ -9,12 +9,12 @@
 namespace caors::serialization::detail {
 
 [[nodiscard]] core::string_name
-serialized_field_name(const serialization::field_data& data) noexcept;
-[[nodiscard]] bool field_visible_in_context(const serialization::field_data& field,
+serialized_field_name(const serialization::field_schema& data) noexcept;
+[[nodiscard]] bool field_visible_in_context(const serialization::field_schema& field,
                                             const serialization::context& context) noexcept;
-[[nodiscard]] error validate_field_for_writer(const serialization::field_data& field,
+[[nodiscard]] error validate_field_for_writer(const serialization::field_schema& field,
                                               serialization::format_features features);
-[[nodiscard]] error validate_field_for_reader(const serialization::field_data& field,
+[[nodiscard]] error validate_field_for_reader(const serialization::field_schema& field,
                                               serialization::format_features features);
 [[nodiscard]] bool try_write_scalar_value(writer& writer, const any& data);
 [[nodiscard]] error read_scalar_value(reader& reader, const any_ref& target,
@@ -28,13 +28,14 @@ serialized_field_name(const serialization::field_data& data) noexcept;
 [[nodiscard]] error read_serialized_value(reader& reader, const any_ref& target,
                                           const serialization::context& context);
 [[nodiscard]] error write_field(writer& writer, const reflection::field& field, const void* object,
-                                const serialization::field_data& field_data,
+                                const serialization::field_schema& field_schema,
                                 const serialization::context& context);
 [[nodiscard]] error read_field(reader& reader, const reflection::field& field, void* object,
-                               const serialization::field_data& field_data,
+                               const serialization::field_schema& field_schema,
                                const serialization::context& context);
 [[nodiscard]] error read_configured_field(reader& reader, const reflection::field& field,
-                                          void* object, const serialization::field_data& field_data,
+                                          void* object,
+                                          const serialization::field_schema& field_schema,
                                           const serialization::context& context);
 
 } // namespace caors::serialization::detail

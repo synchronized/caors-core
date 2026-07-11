@@ -449,7 +449,7 @@ public:
     return {};
   }
 
-  [[nodiscard]] caors::error begin_field(const caors::serialization::field_data& field) override {
+  [[nodiscard]] caors::error begin_field(const caors::serialization::field_schema& field) override {
     if (field.field_id == 0) {
       return {caors::error_domain::serialization, caors::errc::invalid_field};
     }

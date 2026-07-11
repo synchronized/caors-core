@@ -10,7 +10,7 @@
 namespace caors::serialization {
 namespace {
 
-[[nodiscard]] core::string_name serialized_field_name(const field_data& data) noexcept {
+[[nodiscard]] core::string_name serialized_field_name(const field_schema& data) noexcept {
   return data.serialized_name.empty() ? data.field_name : data.serialized_name;
 }
 
@@ -68,7 +68,7 @@ error text_writer::begin_object(const type_schema&) {
   return {};
 }
 
-error text_writer::begin_field(const field_data& field) {
+error text_writer::begin_field(const field_schema& field) {
   if (contexts_.empty() || contexts_.back().kind != context_kind::object || expecting_value_) {
     return {error_domain::serialization, errc::invalid_argument};
   }

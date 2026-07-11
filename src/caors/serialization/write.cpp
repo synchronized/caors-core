@@ -106,7 +106,7 @@ error write_variant(writer& writer, const variant& value) {
     serialization::type_schema type_schema;
     type_schema.fields.reserve(value.as_object().size());
     for (const value::variant_member& member : value.as_object()) {
-      type_schema.fields.push_back(serialization::field_data{
+      type_schema.fields.push_back(serialization::field_schema{
           member.name,
           member.name,
           member.field_id,

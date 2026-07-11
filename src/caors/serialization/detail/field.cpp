@@ -7,19 +7,19 @@ namespace caors::serialization::detail {
 
 [[nodiscard]] error write_object_ptr_field(writer& writer, const reflection::field& field,
                                            const void* object,
-                                           const serialization::field_data& field_data,
+                                           const serialization::field_schema& field_schema,
                                            const serialization::context& context) {
   const reference_resolver* resolver = context.effective_reference_resolver();
   if (resolver == nullptr || !resolver->can_write()) {
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  error status = validate_field_for_writer(field_data, writer.features());
+  error status = validate_field_for_writer(field_schema, writer.features());
   if (status) {
     return status;
   }
 
-  status = writer.begin_field(field_data);
+  status = writer.begin_field(field_schema);
   if (status) {
     return status;
   }
@@ -33,19 +33,20 @@ namespace caors::serialization::detail {
 }
 
 [[nodiscard]] error read_object_ptr_field(reader& reader, const reflection::field& field,
-                                          void* object, const serialization::field_data& field_data,
+                                          void* object,
+                                          const serialization::field_schema& field_schema,
                                           const serialization::context& context) {
   const reference_resolver* resolver = context.effective_reference_resolver();
   if (resolver == nullptr || !resolver->can_read()) {
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  error status = validate_field_for_reader(field_data, reader.features());
+  error status = validate_field_for_reader(field_schema, reader.features());
   if (status) {
     return status;
   }
 
-  status = reader.begin_field(field_data);
+  status = reader.begin_field(field_schema);
   if (status) {
     return status;
   }

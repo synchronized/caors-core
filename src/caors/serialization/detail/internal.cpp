@@ -138,11 +138,11 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
   return {default_construct(), destroy};
 }
 
-[[nodiscard]] field_data object_handle_id_field() {
+[[nodiscard]] field_schema object_handle_id_field() {
   return serialization::make_field("id", {}, false, 1);
 }
 
-[[nodiscard]] field_data object_handle_type_field() {
+[[nodiscard]] field_schema object_handle_type_field() {
   return serialization::make_field("type", {}, false, 2);
 }
 
@@ -154,7 +154,8 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
   return data;
 }
 
-[[nodiscard]] error write_u64_field(writer& writer, const field_data& field, std::uint64_t value) {
+[[nodiscard]] error write_u64_field(writer& writer, const field_schema& field,
+                                    std::uint64_t value) {
   error status = writer.begin_field(field);
   if (status) {
     return status;
@@ -168,7 +169,8 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
   return writer.end_field();
 }
 
-[[nodiscard]] error read_u64_field(reader& reader, const field_data& field, std::uint64_t& value) {
+[[nodiscard]] error read_u64_field(reader& reader, const field_schema& field,
+                                   std::uint64_t& value) {
   error status = reader.begin_field(field);
   if (status) {
     return status;

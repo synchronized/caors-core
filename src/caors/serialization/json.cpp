@@ -93,7 +93,7 @@ error serialization::json_writer::begin_object(const serialization::type_schema&
   return {};
 }
 
-error serialization::json_writer::begin_field(const serialization::field_data& field) {
+error serialization::json_writer::begin_field(const serialization::field_schema& field) {
   if (contexts_.empty() || contexts_.back().kind != context_kind::object || expecting_value_) {
     return {error_domain::serialization, errc::invalid_argument};
   }

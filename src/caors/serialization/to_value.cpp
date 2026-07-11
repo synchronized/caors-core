@@ -100,13 +100,13 @@ variant_result to_serialization_value(const serialization::context& context,
 
   if (!serialization_data->fields.empty()) {
     members.reserve(serialization_data->fields.size());
-    for (const serialization::field_data& field_data : serialization_data->fields) {
-      if (field_data.skipped ||
-          !serialization::detail::field_visible_in_context(field_data, context)) {
+    for (const serialization::field_schema& field_schema : serialization_data->fields) {
+      if (field_schema.skipped ||
+          !serialization::detail::field_visible_in_context(field_schema, context)) {
         continue;
       }
 
-      const reflection::field field = type.find_field(field_data.field_name);
+      const reflection::field field = type.find_field(field_schema.field_name);
       if (!field) {
         return {{error_domain::serialization, errc::not_found}, {}};
       }
@@ -117,8 +117,8 @@ variant_result to_serialization_value(const serialization::context& context,
       }
 
       members.push_back(value::variant_member{
-          serialization::detail::serialized_field_name(field_data),
-          field_data.field_id,
+          serialization::detail::serialized_field_name(field_schema),
+          field_schema.field_id,
           std::move(serialized.value),
       });
     }

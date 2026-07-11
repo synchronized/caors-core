@@ -25,7 +25,7 @@ public:
 
   [[nodiscard]] virtual format_features features() const noexcept = 0;
   [[nodiscard]] virtual error begin_object(const type_schema& type) = 0;
-  [[nodiscard]] virtual error begin_field(const field_data& field) = 0;
+  [[nodiscard]] virtual error begin_field(const field_schema& field) = 0;
   [[nodiscard]] virtual error begin_array(std::size_t size) = 0;
   [[nodiscard]] virtual error begin_element(std::size_t index) = 0;
   [[nodiscard]] virtual error begin_dictionary(std::size_t size);
@@ -56,7 +56,7 @@ public:
 
   [[nodiscard]] format_features features() const noexcept override;
   [[nodiscard]] error begin_object(const type_schema& type) override;
-  [[nodiscard]] error begin_field(const field_data& field) override;
+  [[nodiscard]] error begin_field(const field_schema& field) override;
   [[nodiscard]] error begin_array(std::size_t size) override;
   [[nodiscard]] error begin_element(std::size_t index) override;
   [[nodiscard]] error begin_dictionary(std::size_t size) override;
@@ -113,7 +113,7 @@ public:
 
   [[nodiscard]] format_features features() const noexcept override;
   [[nodiscard]] error begin_object(const type_schema& type) override;
-  [[nodiscard]] error begin_field(const field_data& field) override;
+  [[nodiscard]] error begin_field(const field_schema& field) override;
   [[nodiscard]] error begin_array(std::size_t size) override;
   [[nodiscard]] error begin_element(std::size_t index) override;
   [[nodiscard]] error begin_dictionary(std::size_t size) override;

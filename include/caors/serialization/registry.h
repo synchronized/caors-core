@@ -91,7 +91,7 @@ public:
     return status_;
   }
 
-  [[nodiscard]] const type_schema& serialization_data() const noexcept { return data_; }
+  [[nodiscard]] const type_schema& schema() const noexcept { return data_; }
 
 private:
   meta::type type_{};
@@ -113,7 +113,8 @@ template <typename T> [[nodiscard]] class_builder class_(type_schema data) {
 }
 
 /** @brief 为已注册 C++ 类型和字段配置创建序列化配置构建器。 */
-template <typename T> [[nodiscard]] class_builder class_(std::initializer_list<field_data> fields) {
+template <typename T>
+[[nodiscard]] class_builder class_(std::initializer_list<field_schema> fields) {
   return class_<T>(make_type_schema(fields));
 }
 

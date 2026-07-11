@@ -5,11 +5,11 @@
 
 namespace caors::serialization::detail {
 
-core::string_name serialized_field_name(const serialization::field_data& data) noexcept {
+core::string_name serialized_field_name(const serialization::field_schema& data) noexcept {
   return data.serialized_name.empty() ? data.field_name : data.serialized_name;
 }
 
-bool field_visible_in_context(const serialization::field_data& field,
+bool field_visible_in_context(const serialization::field_schema& field,
                               const serialization::context& context) noexcept {
   const std::uint32_t schema_version = context.effective_schema_version();
   if (schema_version == 0) {
@@ -27,7 +27,7 @@ bool field_visible_in_context(const serialization::field_data& field,
   return true;
 }
 
-error validate_field_for_writer(const serialization::field_data& field,
+error validate_field_for_writer(const serialization::field_schema& field,
                                 serialization::format_features features) {
   if (serialization::has_feature(features, serialization::format_features::named_fields) &&
       serialized_field_name(field).empty()) {
@@ -42,7 +42,7 @@ error validate_field_for_writer(const serialization::field_data& field,
   return {};
 }
 
-error validate_field_for_reader(const serialization::field_data& field,
+error validate_field_for_reader(const serialization::field_schema& field,
                                 serialization::format_features features) {
   const bool can_use_name =
       serialization::has_feature(features, serialization::format_features::named_fields) &&

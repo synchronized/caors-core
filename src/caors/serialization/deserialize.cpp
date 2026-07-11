@@ -35,19 +35,19 @@ error deserialize(const serialization::context& context, const reflection::type&
   }
 
   if (!serialization_data->fields.empty()) {
-    for (const serialization::field_data& field_data : serialization_data->fields) {
-      if (field_data.skipped ||
-          !serialization::detail::field_visible_in_context(field_data, context)) {
+    for (const serialization::field_schema& field_schema : serialization_data->fields) {
+      if (field_schema.skipped ||
+          !serialization::detail::field_visible_in_context(field_schema, context)) {
         continue;
       }
 
-      const reflection::field field = type.find_field(field_data.field_name);
+      const reflection::field field = type.find_field(field_schema.field_name);
       if (!field) {
         return {error_domain::serialization, errc::not_found};
       }
 
-      status =
-          serialization::detail::read_configured_field(reader, field, object, field_data, context);
+      status = serialization::detail::read_configured_field(reader, field, object, field_schema,
+                                                            context);
       if (status) {
         return status;
       }
@@ -59,8 +59,8 @@ error deserialize(const serialization::context& context, const reflection::type&
         return {error_domain::serialization, errc::invalid_field};
       }
 
-      serialization::field_data field_data = serialization::make_field(field.name().view());
-      status = serialization::detail::read_field(reader, field, object, field_data, context);
+      serialization::field_schema field_schema = serialization::make_field(field.name().view());
+      status = serialization::detail::read_field(reader, field, object, field_schema, context);
       if (status) {
         return status;
       }

@@ -92,10 +92,11 @@ namespace caors::serialization::detail {
 
 [[nodiscard]] error write_object_ptr_field(writer& writer, const reflection::field& field,
                                            const void* object,
-                                           const serialization::field_data& field_data,
+                                           const serialization::field_schema& field_schema,
                                            const serialization::context& context);
 [[nodiscard]] error read_object_ptr_field(reader& reader, const reflection::field& field,
-                                          void* object, const serialization::field_data& field_data,
+                                          void* object,
+                                          const serialization::field_schema& field_schema,
                                           const serialization::context& context);
 
 } // namespace caors::serialization::detail

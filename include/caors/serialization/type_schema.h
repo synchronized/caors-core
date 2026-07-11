@@ -41,7 +41,7 @@ enum class format_features : std::uint32_t {
 }
 
 /** @brief 单个字段的序列化配置。 */
-struct field_data {
+struct field_schema {
   string_name field_name{};
   string_name serialized_name{};
   std::uint32_t field_id = 0;
@@ -60,10 +60,10 @@ struct field_data {
  * 字段配置和反射字段。
  */
 struct type_schema {
-  vector<field_data> fields{};
+  vector<field_schema> fields{};
 
   [[nodiscard]] bool valid() const noexcept {
-    for (const field_data& field : fields) {
+    for (const field_schema& field : fields) {
       if (!field.valid()) {
         return false;
       }
@@ -74,10 +74,10 @@ struct type_schema {
 };
 
 /** @brief 创建字段序列化配置。 */
-[[nodiscard]] inline field_data make_field(std::string_view field_name,
-                                           std::string_view serialized_name = {},
-                                           bool skipped = false, std::uint32_t field_id = 0) {
-  return field_data{
+[[nodiscard]] inline field_schema make_field(std::string_view field_name,
+                                             std::string_view serialized_name = {},
+                                             bool skipped = false, std::uint32_t field_id = 0) {
+  return field_schema{
       string_name{field_name},
       serialized_name.empty() ? string_name{field_name} : string_name{serialized_name},
       field_id,
@@ -89,8 +89,8 @@ struct type_schema {
 }
 
 /** @brief 创建类型序列化配置。 */
-[[nodiscard]] inline type_schema make_type_schema(std::initializer_list<field_data> fields) {
-  return type_schema{vector<field_data>{fields}};
+[[nodiscard]] inline type_schema make_type_schema(std::initializer_list<field_schema> fields) {
+  return type_schema{vector<field_schema>{fields}};
 }
 
 } // namespace caors::serialization

@@ -6,7 +6,7 @@
 namespace caors::serialization {
 namespace {
 
-[[nodiscard]] core::string_name serialized_field_name(const field_data& data) noexcept {
+[[nodiscard]] core::string_name serialized_field_name(const field_schema& data) noexcept {
   return data.serialized_name.empty() ? data.field_name : data.serialized_name;
 }
 
@@ -30,7 +30,7 @@ error variant_reader::begin_object(const type_schema&) {
   return {};
 }
 
-const value::variant_member* variant_reader::find_member(const field_data& field) const {
+const value::variant_member* variant_reader::find_member(const field_schema& field) const {
   if (object_stack_.empty()) {
     return nullptr;
   }
@@ -75,7 +75,7 @@ const variant* variant_reader::current_value() const noexcept {
   return nullptr;
 }
 
-error variant_reader::begin_field(const field_data& field) {
+error variant_reader::begin_field(const field_schema& field) {
   if (object_stack_.empty() || current_members_.empty() || current_members_.back() != nullptr) {
     return {error_domain::serialization, errc::invalid_argument};
   }

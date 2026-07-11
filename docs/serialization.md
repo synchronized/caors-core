@@ -12,7 +12,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 当前已覆盖：
 
 - 用 `serialization::type_schema` 表示类型的序列化元信息。
-- 用 `serialization::field_data` 表示字段级序列化配置，例如字段别名、稳定字段 id、跳过和版本信息。
+- 用 `serialization::field_schema` 表示字段级序列化配置，例如字段别名、稳定字段 id、跳过和版本信息。
 - 基于全局 `meta::registry` 挂载序列化组件，避免单独维护类型索引。
 - 提供 `serialization::registry` 和 `serialization::class_(meta::type)` 链式注册入口。
 - 提供 `serialization::writer` 后端接口，让不同格式复用同一套字段遍历逻辑。
@@ -48,7 +48,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 ### 命名空间
 
 序列化模块的推荐类型名位于 `caors::serialization` 命名空间，例如
-`serialization::type_schema`、`serialization::field_data`、`serialization::context`、
+`serialization::type_schema`、`serialization::field_schema`、`serialization::context`、
 `serialization::writer`、`serialization::reader`、`serialization::text_writer`、
 `serialization::json_writer`、`serialization::variant_reader` 和 `serialization::codec_traits<T>`。
 根命名空间只保留高频操作函数别名；reader、writer、result
@@ -342,9 +342,9 @@ caors::serialization::class_(type)
 
 如果 `serialization::type_schema::fields` 为空，`serialize_text()` 会回退到输出全部反射字段。
 
-### serialization::field_data
+### serialization::field_schema
 
-`serialization::field_data` 描述单个字段的序列化规则：
+`serialization::field_schema` 描述单个字段的序列化规则：
 
 - `field_name`：反射字段名。
 - `serialized_name`：输出字段名；为空时使用 `field_name`。
@@ -376,7 +376,7 @@ writer 通过 `serialization::format_features` 声明能力：
 - `schema_required`：格式需要外部 schema 才能解释。
 
 调度层会根据 writer 能力检查字段配置。例如 writer 声明 `numeric_fields` 时，
-`serialization::field_data::field_id` 必须非 0；writer 声明 `named_fields` 时会使用
+`serialization::field_schema::field_id` 必须非 0；writer 声明 `named_fields` 时会使用
 `serialized_name` 或 `field_name`。
 
 当前内置后端：
@@ -992,7 +992,7 @@ caors::string text = result.value;
 ## 当前已实现能力
 
 - `serialization::type_schema`：序列化组件数据。
-- `serialization::field_data`：字段级序列化配置。
+- `serialization::field_schema`：字段级序列化配置。
 - `serialization::writer`：格式后端接口。
 - `serialization::reader`：格式读入后端接口。
 - `serialization::context`：单次序列化/反序列化上下文，支持 schema version 字段过滤、多态 envelope 字段名配置、对象引用 resolver、资源引用 resolver、资源依赖收集和运行期资源传递。
