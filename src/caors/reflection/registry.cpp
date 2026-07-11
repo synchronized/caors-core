@@ -7,7 +7,7 @@ namespace caors::reflection {
 namespace {
 
 [[nodiscard]] error validate_reflection_type(type_id id,
-                                             const detail::type_data& reflection) noexcept {
+                                             const detail::type_wrapper& reflection) noexcept {
   if (!id) {
     return {error_domain::reflection, errc::invalid_type};
   }
@@ -33,9 +33,14 @@ namespace {
   return static_cast<bool>(type);
 }
 
-[[nodiscard]] error resolve_fields(meta::registry& meta, detail::type_data& reflection) {
-  for (detail::field_wrapper& field : reflection.fields) {
-    if (!resolve_field_type(meta, field)) {
+[[nodiscard]] error resolve_fields(meta::registry& meta, detail::type_wrapper& reflection) {
+  for (std::size_t index = 0; index < reflection.field_count(); ++index) {
+    detail::field_wrapper* field = reflection.mutable_field_at(index);
+    if (field == nullptr) {
+      return {error_domain::reflection, errc::invalid_field};
+    }
+
+    if (!resolve_field_type(meta, *field)) {
       return {error_domain::reflection, errc::invalid_field};
     }
   }
@@ -43,16 +48,17 @@ namespace {
   return {};
 }
 
-[[nodiscard]] error validate_registered_fields(const detail::type_data& reflection) {
+[[nodiscard]] error validate_registered_fields(const detail::type_wrapper& reflection) {
   core::hash_set<core::string_name> names;
-  names.reserve(reflection.fields.size());
+  names.reserve(reflection.field_count());
 
-  for (const detail::field_wrapper& field : reflection.fields) {
-    if (!field.valid() || !field.get_type()) {
+  for (std::size_t index = 0; index < reflection.field_count(); ++index) {
+    const detail::field_wrapper* field = reflection.field_at(index);
+    if (field == nullptr || !field->valid() || !field->get_type()) {
       return {error_domain::reflection, errc::invalid_field};
     }
 
-    if (!names.insert(field.name()).second) {
+    if (!names.insert(field->name()).second) {
       return {error_domain::reflection, errc::duplicate_field};
     }
   }
@@ -60,16 +66,17 @@ namespace {
   return {};
 }
 
-[[nodiscard]] error validate_registered_methods(const detail::type_data& reflection) {
+[[nodiscard]] error validate_registered_methods(const detail::type_wrapper& reflection) {
   core::hash_set<core::string_name> names;
-  names.reserve(reflection.methods.size());
+  names.reserve(reflection.method_count());
 
-  for (const detail::method_wrapper& method : reflection.methods) {
-    if (!method.valid()) {
+  for (std::size_t index = 0; index < reflection.method_count(); ++index) {
+    const detail::method_wrapper* method = reflection.method_at(index);
+    if (method == nullptr || !method->valid()) {
       return {error_domain::reflection, errc::invalid_field};
     }
 
-    if (!names.insert(method.name()).second) {
+    if (!names.insert(method->name()).second) {
       return {error_domain::reflection, errc::duplicate_method};
     }
   }
@@ -77,8 +84,8 @@ namespace {
   return {};
 }
 
-[[nodiscard]] const detail::type_data* as_type_data(const void* reflection) noexcept {
-  return static_cast<const detail::type_data*>(reflection);
+[[nodiscard]] const detail::type_wrapper* as_type_wrapper(const void* reflection) noexcept {
+  return static_cast<const detail::type_wrapper*>(reflection);
 }
 
 } // namespace
@@ -97,7 +104,7 @@ error registry::attach_type(meta::type type, const void* reflection) {
     return {error_domain::reflection, errc::invalid_type};
   }
 
-  const detail::type_data* reflection_data = as_type_data(reflection);
+  const detail::type_wrapper* reflection_data = as_type_wrapper(reflection);
   if (reflection_data == nullptr || !reflection_data->valid()) {
     return {error_domain::reflection, errc::invalid_field};
   }
@@ -107,7 +114,7 @@ error registry::attach_type(meta::type type, const void* reflection) {
     return reflected_type_status;
   }
 
-  detail::type_data stored_reflection = *reflection_data;
+  detail::type_wrapper stored_reflection = *reflection_data;
 
   const error field_status = resolve_fields(meta::get_registry(), stored_reflection);
   if (field_status) {
@@ -124,17 +131,17 @@ error registry::attach_type(meta::type type, const void* reflection) {
     return method_status;
   }
 
-  return rethrow_as(meta::get_registry().emplace<detail::type_data>(type.id(), stored_reflection),
-                    error_domain::reflection, errc::duplicate_component,
-                    errc::duplicate_reflection);
+  return rethrow_as(
+      meta::get_registry().emplace<detail::type_wrapper>(type.id(), stored_reflection),
+      error_domain::reflection, errc::duplicate_component, errc::duplicate_reflection);
 }
 
 bool registry::contains(type_id id) const {
-  return meta::get_registry().has<detail::type_data>(id);
+  return meta::get_registry().has<detail::type_wrapper>(id);
 }
 
 const void* registry::find_reflection_data(type_id id) const {
-  return meta::get_registry().find_ptr<detail::type_data>(id);
+  return meta::get_registry().find_ptr<detail::type_wrapper>(id);
 }
 
 type registry::find_type(type_id id) const {
@@ -143,7 +150,7 @@ type registry::find_type(type_id id) const {
     return {};
   }
 
-  const detail::type_data* reflection = as_type_data(find_reflection_data(id));
+  const detail::type_wrapper* reflection = as_type_wrapper(find_reflection_data(id));
   if (reflection == nullptr) {
     return {};
   }
@@ -179,7 +186,7 @@ type registry::find_type(core::string_name name) const {
 }
 
 std::size_t registry::size() const noexcept {
-  return meta::get_registry().count<detail::type_data>();
+  return meta::get_registry().count<detail::type_wrapper>();
 }
 
 registry& get_registry() noexcept { return registry::instance(); }

@@ -4,7 +4,7 @@
 #ifndef CAORS_REFLECTION_BUILDER_H_
 #define CAORS_REFLECTION_BUILDER_H_
 
-#include "caors/reflection/detail/type_data.h"
+#include "caors/reflection/detail/type_wrapper.h"
 #include "caors/reflection/registry.h"
 
 #include <string_view>
@@ -21,8 +21,8 @@ namespace caors::reflection {
  */
 template <typename Class> class class_builder {
 public:
-  class_builder() : existing_type_(meta::find<Class>()) {
-    reflection_.ops = detail::make_type_ops<Class>();
+  class_builder()
+      : existing_type_(meta::find<Class>()), reflection_(detail::make_type_ops<Class>()) {
     if (!existing_type_.registered()) {
       pending_status_ = {error_domain::reflection, errc::invalid_type};
     }
@@ -47,7 +47,7 @@ public:
       return *this;
     }
 
-    reflection_.fields.push_back(field);
+    reflection_.add_field(field);
     return *this;
   }
 
@@ -64,7 +64,7 @@ public:
       return *this;
     }
 
-    reflection_.fields.push_back(field);
+    reflection_.add_field(field);
     return *this;
   }
 
@@ -80,7 +80,7 @@ public:
       return *this;
     }
 
-    reflection_.methods.push_back(method);
+    reflection_.add_method(method);
     return *this;
   }
 
@@ -96,7 +96,7 @@ public:
       return *this;
     }
 
-    reflection_.methods.push_back(method);
+    reflection_.add_method(method);
     return *this;
   }
 
@@ -110,7 +110,7 @@ public:
 
 private:
   meta::type existing_type_{};
-  detail::type_data reflection_{};
+  detail::type_wrapper reflection_{};
   error pending_status_{};
 };
 

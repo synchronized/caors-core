@@ -3,13 +3,13 @@
 
 #include "caors/reflection.h"
 
-#include "caors/reflection/detail/type_data.h"
+#include "caors/reflection/detail/type_wrapper.h"
 
 namespace caors::reflection {
 namespace {
 
-[[nodiscard]] const detail::type_data* as_type_data(const void* data) noexcept {
-  return static_cast<const detail::type_data*>(data);
+[[nodiscard]] const detail::type_wrapper* as_type_wrapper(const void* data) noexcept {
+  return static_cast<const detail::type_wrapper*>(data);
 }
 
 } // namespace
@@ -17,7 +17,7 @@ namespace {
 type::type(meta::type type, const void* data) noexcept : type_(type), data_(data) {}
 
 bool type::valid() const noexcept {
-  const detail::type_data* reflected = as_type_data(data_);
+  const detail::type_wrapper* reflected = as_type_wrapper(data_);
   if (!type_.valid() || reflected == nullptr || !reflected->valid()) {
     return false;
   }
@@ -35,32 +35,26 @@ core::string_name type::name() const noexcept { return type_.name(); }
 core::type_guid type::guid() const noexcept { return type_.guid(); }
 
 std::size_t type::field_count() const noexcept {
-  const detail::type_data* reflected = as_type_data(data());
-  return reflected != nullptr ? reflected->fields.size() : 0;
+  const detail::type_wrapper* reflected = as_type_wrapper(data());
+  return reflected != nullptr ? reflected->field_count() : 0;
 }
 
 field type::field_at(std::size_t index) const {
-  const detail::type_data* reflected = as_type_data(data());
-  if (reflected == nullptr || index >= reflected->fields.size()) {
+  const detail::type_wrapper* reflected = as_type_wrapper(data());
+  if (reflected == nullptr) {
     return {};
   }
 
-  return field{&reflected->fields[index]};
+  return field{reflected->field_at(index)};
 }
 
 field type::find_field(core::string_name name) const {
-  const detail::type_data* reflected = as_type_data(data());
+  const detail::type_wrapper* reflected = as_type_wrapper(data());
   if (reflected == nullptr || !name) {
     return {};
   }
 
-  for (std::size_t index = 0; index < reflected->fields.size(); ++index) {
-    if (reflected->fields[index].name() == name) {
-      return field_at(index);
-    }
-  }
-
-  return {};
+  return field{reflected->find_field_ptr(name)};
 }
 
 field type::find_field(std::string_view name) const {
@@ -73,32 +67,26 @@ field type::find_field(std::string_view name) const {
 }
 
 std::size_t type::method_count() const noexcept {
-  const detail::type_data* reflected = as_type_data(data());
-  return reflected != nullptr ? reflected->methods.size() : 0;
+  const detail::type_wrapper* reflected = as_type_wrapper(data());
+  return reflected != nullptr ? reflected->method_count() : 0;
 }
 
 method type::method_at(std::size_t index) const {
-  const detail::type_data* reflected = as_type_data(data());
-  if (reflected == nullptr || index >= reflected->methods.size()) {
+  const detail::type_wrapper* reflected = as_type_wrapper(data());
+  if (reflected == nullptr) {
     return {};
   }
 
-  return method{&reflected->methods[index]};
+  return method{reflected->method_at(index)};
 }
 
 method type::find_method(core::string_name name) const {
-  const detail::type_data* reflected = as_type_data(data());
+  const detail::type_wrapper* reflected = as_type_wrapper(data());
   if (reflected == nullptr || !name) {
     return {};
   }
 
-  for (std::size_t index = 0; index < reflected->methods.size(); ++index) {
-    if (reflected->methods[index].name() == name) {
-      return method_at(index);
-    }
-  }
-
-  return {};
+  return method{reflected->find_method_ptr(name)};
 }
 
 method type::find_method(std::string_view name) const {
