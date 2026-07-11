@@ -4,6 +4,7 @@
 #include "caors/meta/capability.h"
 
 #include "caors/core/containers.h"
+#include "caors/meta/detail/capability_registry.h"
 #include "caors/meta/type.h"
 #include "caors/meta/type_descriptor.h"
 

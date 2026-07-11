@@ -10,7 +10,7 @@ registry& registry::instance() noexcept {
   return registry;
 }
 
-error registry::register_type(type_id id, type_schema data) {
+error registry::attach_schema(type_id id, type_schema data) {
   if (!id) {
     return {error_domain::serialization, errc::invalid_type};
   }
@@ -27,12 +27,12 @@ error registry::register_type(type_id id, type_schema data) {
                     error_domain::serialization);
 }
 
-error registry::register_type(meta::type type, type_schema data) {
+error registry::attach_schema(meta::type type, type_schema data) {
   if (!type.registered()) {
     return {error_domain::serialization, errc::invalid_type};
   }
 
-  return register_type(type.id(), data);
+  return attach_schema(type.id(), data);
 }
 
 bool registry::contains(type_id id) const { return meta::get_registry().has<type_schema>(id); }

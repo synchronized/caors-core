@@ -119,8 +119,8 @@ private:
   ~registry();
 
   template <typename T>
-  [[nodiscard]] error register_type_for(const meta::type_registration_data& type,
-                                        const object_factory_ops* factory) {
+  [[nodiscard]] error attach_object_type(const meta::type_registration_data& type,
+                                         const object_factory_ops* factory) {
     using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
     const meta::type expected = meta::resolve<value_type>();
     const type_id expected_id = expected.id();
@@ -230,7 +230,7 @@ public:
       }
     }
 
-    status_ = get_registry().template register_type_for<T>(
+    status_ = get_registry().template attach_object_type<T>(
         detail::make_meta_type_data<T>(name_, parent_id),
         meta::capabilities::get<objects::object_factory_ops, T>());
     refresh();

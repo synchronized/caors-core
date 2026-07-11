@@ -227,18 +227,20 @@ caors::meta::type_<player>("game.player")
     .guid(player_guid)
     .parent<actor>();
 
-caors::reflection::class_<player>(caors::meta::find<player>())
+caors::reflection::class_<player>()
     .field("level", &player::level)
     .commit();
 
 caors::meta::type_<caors::memory::unique_ptr<actor>>("caors.memory.unique_ptr<game.actor>");
 
-caors::reflection::class_<holder>("game.holder")
-    .field("owner", &holder::owner, "caors.memory.unique_ptr<game.actor>")
+caors::meta::type_<holder>("game.holder");
+
+caors::reflection::class_<holder>()
+    .field("owner", &holder::owner)
     .commit();
 
-caors::serialization::register_type<player>();
-caors::serialization::register_type<holder>();
+caors::serialization::class_<player>().commit();
+caors::serialization::class_<holder>().commit();
 ```
 
 字段写出格式和多态 object 相同，默认字段名如下：
@@ -936,11 +938,11 @@ if (status) {
 auto serialization_type = caors::serialization::find(type);
 ```
 
-推荐由 meta 层先注册业务 meta 类型，再使用 `serialization::class_(meta::type)` 挂载序列化组件。这条路径不会
-创建或修改 meta 类型记录；无效 `meta::type` 返回 `errc::invalid_type`，不存在的 `type_id` 返回
-`errc::missing_type`。简单场景也可以使用公开便捷入口 `serialization::register_type<T>()` 或
-`serialization::register_type<T>({ ... })`。查询序列化组件时使用 `serialization::find()` 或
-`serialization::contains()`。低层 detail 组件注册函数属于内部实现入口，普通代码不直接调用。
+推荐由 meta 层先注册业务 meta 类型，再使用 `serialization::class_<T>()` 或
+`serialization::class_(meta::type)` 挂载序列化组件。这条路径不会创建或修改 meta 类型记录；
+无效 `meta::type` 返回 `errc::invalid_type`，不存在的 `type_id` 返回 `errc::missing_type`。
+查询序列化组件时使用 `serialization::find()` 或 `serialization::contains()`。
+低层 schema 挂载函数属于内部实现入口，普通代码不直接调用。
 
 重复注册同一个类型会返回 `errc::duplicate_component`，错误来源域为
 `error_domain::serialization`。全局 meta 注册表冻结后继续注册序列化组件会返回 `errc::frozen`。

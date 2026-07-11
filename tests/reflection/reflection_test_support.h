@@ -349,10 +349,17 @@ constexpr caors::type_guid view_actor_guid{caors::guid::from_bytes(
   return {caors::error_domain::meta, code};
 }
 
+template <typename T>
+[[nodiscard]] caors::reflection::class_builder<T>
+registered_reflection_class(std::string_view name) {
+  const caors::error status = caors::meta::type_<T>(name).result();
+  REQUIRE((status == caors::error{} || status == meta_error(caors::errc::duplicate_id)));
+  return caors::reflection::class_<T>();
+}
+
 [[nodiscard]] inline caors::reflection::type require_field_traits_owner_reflection() {
   const caors::error status =
-      ((void)caors::meta::type_<field_traits_owner>("caors.test.reflection.field_traits_owner"),
-       caors::reflection::class_<field_traits_owner>())
+      registered_reflection_class<field_traits_owner>("caors.test.reflection.field_traits_owner")
           .field("value", &field_traits_owner::value)
           .field("color", &field_traits_owner::color)
           .field("raw", &field_traits_owner::raw)

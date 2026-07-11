@@ -390,7 +390,7 @@ registry 使用边界：
 ```cpp
 void register_game_types() {
   caors::meta::type_<actor>("game.actor");
-  caors::reflection::class_<actor>(caors::meta::find<actor>())
+  caors::reflection::class_<actor>()
       .field("id", &actor::id)
       .commit();
 }
@@ -408,7 +408,7 @@ int main() {
 CAORS_META_REGISTRATION(register_actor_meta) {
   caors::meta::type_<actor>("game.actor");
 
-  return caors::reflection::class_<actor>(caors::meta::find<actor>())
+  return caors::reflection::class_<actor>()
       .field("id", &actor::id)
       .commit();
 }

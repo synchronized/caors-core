@@ -20,16 +20,14 @@
 
 ```cpp
 void register_actor() {
-  caors::meta::type actor_type =
-      caors::meta::type_<actor>("game.actor")
-          .guid(caors::type_guid{actor_guid})
-          .get();
+  caors::meta::type_<actor>("game.actor")
+      .guid(caors::type_guid{actor_guid});
 
-  caors::reflection::class_<actor>(actor_type)
+  caors::reflection::class_<actor>()
       .field("id", &actor::id)
       .commit();
 
-  caors::serialization::class_(actor_type)
+  caors::serialization::class_<actor>()
       .field("id")
       .commit();
 }
@@ -103,4 +101,4 @@ CAORS_META_REGISTRATION(register_actor) {
 - `errc::invalid_field`：反射字段描述无效、字段名冲突，或字段类型无法生成有效 descriptor。
 - `errc::frozen`：注册表已冻结。
 
-公共测试和用户代码应使用 `meta::type_<T>()`、`objects::class_<T>()`、`reflection::class_<T>()`、`serialization::class_()`、`serialization::register_type()` 等公开入口，不直接调用各模块的 `detail` 命名空间函数。
+公共测试和用户代码应使用 `meta::type_<T>()`、`objects::class_<T>()`、`reflection::class_<T>()`、`serialization::class_()` 等公开入口，不直接调用各模块的 `detail` 命名空间函数。

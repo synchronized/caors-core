@@ -44,7 +44,9 @@ struct actor {
   float health = 100.0F;
 };
 
-caors::reflection::class_<actor>("game.actor")
+caors::meta::type_<actor>("game.actor");
+
+caors::reflection::class_<actor>()
     .field("id", &actor::id)
     .field("health", &actor::health)
     .commit();
@@ -125,7 +127,9 @@ struct actor {
   int score() const { return health * 2; }
 };
 
-caors::reflection::class_<actor>("game.actor")
+caors::meta::type_<actor>("game.actor");
+
+caors::reflection::class_<actor>()
     .field("health", &actor::health)
     .method("damage", &actor::damage)
     .method("score", &actor::score)
@@ -615,20 +619,19 @@ for (caors::value::associative_entry_ref entry : map) {
 访问它，不需要创建 registry 对象：
 
 ```cpp
-caors::meta::type type = caors::meta::type_<actor>("game.actor").get();
+caors::meta::type_<actor>("game.actor");
 
 caors::error result =
-    caors::reflection::class_<actor>(type)
+    caors::reflection::class_<actor>()
         .field("id", &actor::id)
         .commit();
 
 auto reflected = caors::reflection::find("game.actor");
 ```
 
-推荐先通过 `meta::type_<T>("name")` 注册业务 meta 类型，再把 `caors::meta::find<T>()` 或保存下来的
-`meta::type` 传给 `reflection::class_<T>(meta::type)`。这条路径只向已注册类型挂载反射组件，不会创建或修改
-基础 meta 记录；传入无效 `meta::type` 会返回 `errc::invalid_type`，传入不存在的 `type_id` 会返回
-`errc::missing_type`。低层反射组件注册函数属于内部实现入口，普通代码不直接调用。
+推荐先通过 `meta::type_<T>("name")` 注册业务 meta 类型，再调用 `reflection::class_<T>()`
+挂载反射组件。`reflection::class_<T>()` 不创建或修改基础 meta 记录；如果 `T` 尚未完成 meta 注册，
+`commit()` 会返回 `errc::missing_type`。低层反射组件挂载函数属于内部实现入口，普通代码不直接调用。
 
 反射注册应在 `meta::freeze_registry()` 前完成。全局 meta 注册表冻结后，继续注册反射组件会返回
 `errc::frozen`。
@@ -660,11 +663,10 @@ auto reflected = caors::reflection::find("game.actor");
 - `any`：运行期 C++ 类型值拷贝。
 - `any_ref`：运行期 C++ 类型非拥有引用。
 - `sequence_view` / `set_view` / `associative_view` / `pair_view` / `tuple_view` / `variant_view`：容器、二元组、tuple-like 和 variant-like 类型的运行期视图。
-- `meta::type_descriptor`：字段声明类型的布局、值操作、类型语义和固定运行期能力集合。
+- 字段声明类型的布局、值操作、类型语义和固定运行期能力集合由 meta 内部 descriptor 提供。
 - `reflection::type` / `reflection::field` / `reflection::method`：全局反射数据的推荐查询入口。
 - `reflection::registry`：全局反射注册表 facade。
 - `reflection::class_<T>()`：RTTR 风格链式注册入口。
-- `reflection::class_<T>(meta::type)`：推荐的显式 meta 注册入口，只挂载反射组件。
 - `reflection::find()` / `reflection::contains()`：反射组件查询入口。
 
 ## 相关入口

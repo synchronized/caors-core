@@ -37,8 +37,8 @@ private:
   registry() = default;
   ~registry() = default;
 
-  [[nodiscard]] error register_type(type_id id, type_schema data = type_schema{});
-  [[nodiscard]] error register_type(meta::type type, type_schema data = type_schema{});
+  [[nodiscard]] error attach_schema(type_id id, type_schema data = type_schema{});
+  [[nodiscard]] error attach_schema(meta::type type, type_schema data = type_schema{});
 };
 
 /** @brief 获取进程内全局序列化注册表。 */
@@ -87,7 +87,7 @@ public:
       return status_;
     }
 
-    status_ = get_registry().register_type(type_, data_);
+    status_ = get_registry().attach_schema(type_, data_);
     return status_;
   }
 

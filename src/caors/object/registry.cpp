@@ -14,8 +14,8 @@ namespace {
 } // namespace
 
 registry::registry() {
-  (void)register_type_for<object>(make_root_object_meta_type_data(),
-                                  meta::capabilities::get<object_factory_ops, object>());
+  (void)attach_object_type<object>(make_root_object_meta_type_data(),
+                                   meta::capabilities::get<object_factory_ops, object>());
 }
 
 registry::~registry() = default;
