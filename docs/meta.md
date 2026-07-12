@@ -424,7 +424,7 @@ CAORS_META_REGISTRATION(register_actor_meta) {
 注册表维护几类索引：
 
 - `type_id -> 内部 meta 类型记录`：运行期主索引，只保存身份类信息。
-- `type_id -> const meta::detail::type_descriptor*`：布局、值操作、类型语义和固定运行期能力集合。
+- `type_id -> 内部类型 descriptor`：布局、值操作、类型语义和固定运行期能力集合。
 - `type_id -> type factory`：可选资源感知构造/销毁函数表。
 - `typeid(T) -> type_id`：当前进程内 RTTI 查询索引，用于普通 C++ 多态辅助。
 - `type_id -> parent upcast`：typed parent 注册保存的直接父类 upcast 回调。

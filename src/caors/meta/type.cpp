@@ -161,8 +161,6 @@ type make_type_view(type_id id, const type_descriptor* descriptor) noexcept {
   return meta::type{&get_registry(), nullptr, descriptor};
 }
 
-const type_descriptor* descriptor_of(const meta::type& type) noexcept { return type.descriptor_; }
-
 } // namespace detail
 
 value_default_construct_fn get_default_construct_value_fn(const meta::type& type) noexcept {

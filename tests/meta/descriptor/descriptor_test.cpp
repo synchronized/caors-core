@@ -3,7 +3,6 @@
 
 #include "caors/adapters/stl_traits.h"
 #include "caors/adapters/stl_wrapper.h"
-#include "caors/meta/detail/type_descriptor_model.h"
 #include "caors/meta/query.h"
 
 #include <catch2/catch_all.hpp>
@@ -24,11 +23,9 @@ enum class descriptor_enum : int {
 };
 
 template <typename Capability, typename T> [[nodiscard]] const Capability* capability_of() {
-  const caors::meta::detail::type_descriptor* descriptor =
-      caors::meta::detail::descriptor_ptr_of<T>();
-  REQUIRE(descriptor != nullptr);
-  REQUIRE(descriptor->valid());
-  return caors::meta::detail::descriptor_capability<Capability>(*descriptor);
+  const caors::meta::type type = caors::meta::resolve<T>();
+  REQUIRE(type.valid());
+  return type.get_capability<Capability>();
 }
 
 template <typename T> [[nodiscard]] caors::type_id type_id_of() {
@@ -38,9 +35,9 @@ template <typename T> [[nodiscard]] caors::type_id type_id_of() {
 } // namespace
 
 TEST_CASE("meta descriptor - enum capability describes integer conversion", "[meta]") {
-  const auto* descriptor = caors::meta::detail::descriptor_ptr_of<descriptor_enum>();
-  REQUIRE(descriptor != nullptr);
-  CHECK(caors::meta::detail::descriptor_kind(*descriptor) == caors::meta::type_kind::enumeration);
+  const caors::meta::type type = caors::meta::resolve<descriptor_enum>();
+  REQUIRE(type.valid());
+  CHECK(type.kind() == caors::meta::type_kind::enumeration);
 
   const auto* ops = capability_of<caors::meta::enum_ops, descriptor_enum>();
   REQUIRE(ops != nullptr);
@@ -56,10 +53,9 @@ TEST_CASE("meta descriptor - indirect capability describes raw pointers and wrap
   int value = 42;
   int* pointer = &value;
 
-  const auto* pointer_descriptor = caors::meta::detail::descriptor_ptr_of<int*>();
-  REQUIRE(pointer_descriptor != nullptr);
-  CHECK(caors::meta::detail::descriptor_kind(*pointer_descriptor) ==
-        caors::meta::type_kind::raw_pointer);
+  const caors::meta::type pointer_type = caors::meta::resolve<int*>();
+  REQUIRE(pointer_type.valid());
+  CHECK(pointer_type.kind() == caors::meta::type_kind::raw_pointer);
 
   const auto* pointer_ops = capability_of<caors::meta::indirect_ops, int*>();
   REQUIRE(pointer_ops != nullptr);
@@ -69,10 +65,9 @@ TEST_CASE("meta descriptor - indirect capability describes raw pointers and wrap
   CHECK(pointer_ops->value(&pointer) == &value);
 
   std::optional<int> optional{9};
-  const auto* optional_descriptor = caors::meta::detail::descriptor_ptr_of<std::optional<int>>();
-  REQUIRE(optional_descriptor != nullptr);
-  CHECK(caors::meta::detail::descriptor_kind(*optional_descriptor) ==
-        caors::meta::type_kind::wrapper);
+  const caors::meta::type optional_type = caors::meta::resolve<std::optional<int>>();
+  REQUIRE(optional_type.valid());
+  CHECK(optional_type.kind() == caors::meta::type_kind::wrapper);
 
   const auto* optional_ops = capability_of<caors::meta::indirect_ops, std::optional<int>>();
   REQUIRE(optional_ops != nullptr);

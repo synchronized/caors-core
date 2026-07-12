@@ -224,7 +224,6 @@ private:
   template <typename Child, typename Parent> [[nodiscard]] error set_type_parent_for();
 
   [[nodiscard]] error register_cpp_type_info(const std::type_info& info, type_id id);
-  [[nodiscard]] const detail::type_descriptor* find_type_descriptor(type_id id) const;
 
   [[nodiscard]] detail::meta_component_storage_base*
   find_component_storage(detail::meta_component_key key);
