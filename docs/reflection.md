@@ -503,6 +503,8 @@ damage.invoke(&instance, args);
 - `get_ref(const void*)` / `get_ref(void*)`：按运行期 `any_ref` 引用字段，权限由传入对象地址的 constness 决定。
 - 对象指针字段不在 `reflection::field` 上提供专用 `get/set` 接口。需要按对象语义访问时，使用
   `runtime::object` 或 `objects::ptr_view_of(field.get_ref(...))`。
+- `reflection::field` 不负责对象生命周期、对象身份解析或对象引用计数。对象关系、资源引用和其他领域语义
+  应由 `runtime`、`objects`、`resources` 或序列化上下文中的 resolver 处理。
 - `is_sequence()`：判断字段是否是顺序容器字段。
 - `is_set()`：判断字段是否是集合容器字段。
 - `is_associative()`：判断字段是否是关联容器字段。

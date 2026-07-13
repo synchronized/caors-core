@@ -47,6 +47,19 @@ instance.set("health", 120);
 caors::any result = instance.call("add_health", 5);
 ```
 
+`runtime::instance` 是非拥有视图，只保存 `value::any_ref`：
+
+- `runtime::view(value)` 创建可写实例视图。
+- `runtime::view_const(value)` 创建只读实例视图。
+- `get()` 返回字段值拷贝，字段不存在或值不可拷贝时返回无效 `any`。
+- `get_ref()` 返回字段引用；只读实例返回只读 `any_ref`。
+- `set()` 只在实例可写、字段存在并且类型匹配时成功。
+- `call()` 按反射方法调用；只读实例只能调用 `const` 成员函数，非 const 成员函数会返回无效 `any`。
+- 无效实例、未注册反射类型、字段/方法未命中时，查询返回空视图、空值或 `false`。
+
+`fields()` 和 `methods()` 当前返回字段/方法视图的 `core::vector` 快照，适合简单遍历。它不表达成员生命周期所有权；
+字段和方法视图仍引用全局 append-only 反射注册表。后续如果需要零分配遍历，可以再增加 range view。
+
 对象指针字段属于对象系统语义，不直接放在 `reflection::field` 上。需要按对象关系读写时，使用
 `runtime::object` 适配视图：
 
@@ -55,6 +68,17 @@ auto object = caors::runtime::object_view(actor_object);
 object.set_ptr("target", &target_object);
 caors::object* target = object.get_ptr("target");
 ```
+
+`runtime::object` 也是非拥有视图：
+
+- `runtime::object_view(T&)` 要求 `T` 派生自 `objects::object`，会显式保存当前对象指针，`ptr()` 返回该指针。
+- `runtime::object_view(instance)` 只包装已有实例视图，不会从类型擦除的派生对象自动推导
+  `objects::object*`；没有显式对象指针时 `ptr()` 可能返回 `nullptr`。
+- `get_ptr(name)` / `set_ptr(name, ptr)` 只处理字段类型具备 `objects::ptr<T>` 语义的字段；
+  普通裸指针、普通字段或不存在字段会返回 `nullptr` / `false`。
+- `runtime::object` 不管理对象生命周期，也不解析 `objects::handle`、`objects::typed_handle<T>`、
+  `objects::ref<T>` 或 `objects::weak_ref<T>`。这些所有权或身份策略应继续由对象系统、manager、
+  场景树或上层 runtime 适配层处理。
 
 枚举类型可以通过 `runtime::enum_<T>()` 注册：
 
@@ -79,6 +103,8 @@ caors::runtime::type state_type = caors::runtime::find<actor_state>();
 - `runtime` 只负责把这些能力组合成更直接的用户入口。
 - object/resource 等领域专用便利能力放在 `runtime` 或对应适配层，不反向塞进 `reflection::field`
   这类底层通用视图。
+- `runtime::object` 当前只收口对象指针字段访问和当前对象指针查询，不替代对象 manager、handle、
+  引用计数或资源引用 resolver。
 - 具体模块仍保留高级入口，例如 `meta::class_<T>()`、`meta::enum_<T>()`、
   `reflection::class_<T>()` 和 `serialization::class_<T>()`，用于更细粒度地控制注册顺序和模块依赖。
 
