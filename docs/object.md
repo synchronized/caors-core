@@ -152,6 +152,16 @@ if (ptr) {
 }
 ```
 
+如果对象指针来自反射字段，推荐通过 `runtime::object` 在组合层读写：
+
+```cpp
+auto object = caors::runtime::object_view(owner);
+object.set_ptr("target", &target);
+caors::object* target = object.get_ptr("target");
+```
+
+`reflection::field` 只保留通用字段读写能力，不直接暴露对象专用 `get/set` 接口。
+
 如果 `objects::ptr<T>` / `objects::handle` 作为反射字段或容器元素使用，字段和容器元素 `any_ref`
 会携带声明类型的 descriptor，字段读写和序列化路径不需要手动注册运行期 capability。
 

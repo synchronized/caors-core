@@ -33,10 +33,11 @@ TEST_CASE("reflection - field view describes composite traits", "[reflection]") 
 using namespace test_reflection;
 
 TEST_CASE("reflection - field view describes field layout", "[reflection]") {
-  REQUIRE(((void)caors::meta::class_<field_layout_actor>("caors.test.reflection.field_layout_actor"),
-           caors::reflection::class_<field_layout_actor>())
-              .field("health", &field_layout_actor::health)
-              .commit() == caors::error{});
+  REQUIRE(
+      ((void)caors::meta::class_<field_layout_actor>("caors.test.reflection.field_layout_actor"),
+       caors::reflection::class_<field_layout_actor>())
+          .field("health", &field_layout_actor::health)
+          .commit() == caors::error{});
 
   const caors::reflection::type reflected =
       require_reflected("caors.test.reflection.field_layout_actor");
@@ -122,14 +123,6 @@ TEST_CASE("reflection - field view describes object ptr traits", "[reflection]")
   CHECK(object_ptr.get_value_type().id() ==
         registered_type_id("caors.object_ptr<caors.test.reflection.reflected_object_ptr_target>"));
   CHECK_FALSE(object_ptr.nullable());
-
-  field_traits_owner owner{};
-  reflected_object_ptr_target target{};
-  owner.object_ptr.reset(&target);
-  CHECK(object_ptr.get_object_ptr(&owner) == &target);
-  owner.object_ptr.reset();
-  CHECK(object_ptr.try_set_object_ptr(&owner, &target));
-  CHECK(owner.object_ptr.get() == &target);
 }
 
 // 原测试文件：reflection_field_field_view_describes_sequence_traits_test.cpp

@@ -5,6 +5,7 @@
 #define CAORS_RUNTIME_H_
 
 #include "caors/runtime/builder.h"
+#include "caors/runtime/instance.h"
 #include "caors/runtime/query.h"
 #include "caors/runtime/type.h"
 

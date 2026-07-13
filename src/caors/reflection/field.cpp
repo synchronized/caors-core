@@ -3,7 +3,6 @@
 
 #include "caors/reflection.h"
 
-#include "caors/object/ptr_view.h"
 #include "caors/reflection/detail/field_wrapper.h"
 
 namespace caors::reflection {
@@ -121,26 +120,6 @@ bool field::try_set_value(void* object, const any& source) const {
   }
 
   return field->try_set_value(object, source);
-}
-
-objects::object* field::get_object_ptr(const void* object) const {
-  const any_ref ref = get_ref(object);
-  const objects::ptr_view object_ptr = objects::ptr_view_of(ref);
-  if (!object_ptr) {
-    return nullptr;
-  }
-
-  return object_ptr.get();
-}
-
-bool field::try_set_object_ptr(void* object, objects::object* instance) const {
-  const any_ref ref = get_ref(object);
-  const objects::ptr_view object_ptr = objects::ptr_view_of(ref);
-  if (!object_ptr) {
-    return false;
-  }
-
-  return object_ptr.set(instance);
 }
 
 bool field::is_sequence() const noexcept { return kind() == meta::type_kind::sequence; }

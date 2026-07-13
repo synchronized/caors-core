@@ -92,9 +92,12 @@ TEST_CASE("object - reflected fields use descriptor object capabilities", "[obje
 
   capability_owner owner{};
   capability_target target{};
-  caors::reflection::field pointer = reflected.find_field("pointer");
+  const caors::reflection::field pointer = reflected.find_field("pointer");
   REQUIRE(pointer);
-  CHECK(pointer.try_set_object_ptr(&owner, &target));
+  const caors::objects::ptr_view pointer_view =
+      caors::objects::ptr_view_of(pointer.get_ref(&owner));
+  REQUIRE(pointer_view);
+  CHECK(pointer_view.set(&target));
   CHECK(owner.pointer.get() == &target);
 }
 

@@ -16,6 +16,7 @@
 - 提供全局 append-only 注册表，以及稳定的类型、字段和方法视图。
 - 提供字段基础读写入口和运行期值拷贝。
 - 提供成员方法基础调用入口。
+- 保持字段和方法视图为通用反射能力；对象指针、资源引用等领域专用访问放在 `runtime` 或对应模块适配层。
 
 当前不会包含：
 
@@ -499,7 +500,9 @@ damage.invoke(&instance, args);
 - `offset()` / `size()` / `alignment()` / `writable()`：查询字段布局和可写性。
 - `try_get<T>()` / `try_set<T>()`：按静态类型读写字段。
 - `get_value()` / `try_set_value()`：按运行期 `any` 读写字段。
-- `get_ref(const void*)` / `get_ref(void*)`：按运行期 `any_ref` 引用字段，权限由对象指针的 constness 决定。
+- `get_ref(const void*)` / `get_ref(void*)`：按运行期 `any_ref` 引用字段，权限由传入对象地址的 constness 决定。
+- 对象指针字段不在 `reflection::field` 上提供专用 `get/set` 接口。需要按对象语义访问时，使用
+  `runtime::object` 或 `objects::ptr_view_of(field.get_ref(...))`。
 - `is_sequence()`：判断字段是否是顺序容器字段。
 - `is_set()`：判断字段是否是集合容器字段。
 - `is_associative()`：判断字段是否是关联容器字段。

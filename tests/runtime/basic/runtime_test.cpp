@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
+#include "caors/object.h"
 #include "caors/runtime.h"
 
 #include <catch2/catch_all.hpp>
@@ -16,6 +17,27 @@ struct runtime_actor {
     health += delta;
     return health;
   }
+};
+
+struct runtime_target : caors::object {};
+
+class runtime_instance_owner : public caors::object_base<runtime_instance_owner> {
+public:
+  static constexpr std::string_view object_type_name = "caors.test.runtime.instance_owner";
+
+  int health = 7;
+
+  int add_health(int delta) {
+    health += delta;
+    return health;
+  }
+};
+
+class runtime_object_owner : public caors::object_base<runtime_object_owner> {
+public:
+  static constexpr std::string_view object_type_name = "caors.test.runtime.object_owner";
+
+  caors::object_ptr<runtime_target> target{};
 };
 
 enum class runtime_state {
@@ -77,4 +99,55 @@ TEST_CASE("runtime facade - enum builder registers meta enum", "[runtime]") {
   REQUIRE(type.valid());
   CHECK(type.name() == "caors.test.runtime.state");
   CHECK(type.kind() == caors::meta::type_kind::enumeration);
+}
+
+TEST_CASE("runtime facade - instance reads writes and calls reflected members", "[runtime]") {
+  const caors::error status =
+      caors::runtime::class_<runtime_instance_owner>(runtime_instance_owner::object_type_name)
+          .field("health", &runtime_instance_owner::health)
+          .method("add_health", &runtime_instance_owner::add_health)
+          .commit();
+  CHECK_FALSE(status);
+
+  runtime_instance_owner owner{};
+  caors::runtime::instance instance = caors::runtime::view(owner);
+  REQUIRE(instance);
+  CHECK(instance.type().name() == runtime_instance_owner::object_type_name);
+  CHECK(instance.field_count() == 1);
+  CHECK(instance.method_count() == 1);
+  CHECK(instance.fields().size() == 1);
+  CHECK(instance.methods().size() == 1);
+
+  const caors::any health = instance.get("health");
+  REQUIRE(health.valid());
+  REQUIRE(health.try_get<int>() != nullptr);
+  CHECK(*health.try_get<int>() == 7);
+
+  CHECK(instance.set("health", 11));
+  CHECK(owner.health == 11);
+
+  caors::any result = instance.call("add_health", 5);
+  REQUIRE(result.valid());
+  REQUIRE(result.try_get<int>() != nullptr);
+  CHECK(*result.try_get<int>() == 16);
+  CHECK(owner.health == 16);
+}
+
+TEST_CASE("runtime facade - object view reads and writes object pointer fields", "[runtime]") {
+  const caors::error status =
+      caors::runtime::class_<runtime_object_owner>(runtime_object_owner::object_type_name)
+          .field("target", &runtime_object_owner::target)
+          .commit();
+  CHECK_FALSE(status);
+
+  runtime_object_owner owner{};
+  runtime_target target{};
+
+  caors::runtime::object object = caors::runtime::object_view(owner);
+  REQUIRE(object);
+  CHECK(object.ptr() == &owner);
+  CHECK(object.get_ptr("target") == nullptr);
+  CHECK(object.set_ptr("target", &target));
+  CHECK(owner.target.get() == &target);
+  CHECK(object.get_ptr("target") == &target);
 }
