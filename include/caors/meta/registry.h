@@ -76,7 +76,7 @@ public:
 
   /** @brief 给已注册类型挂载一个元数据组件。 */
   template <typename Component, typename... Args>
-  [[nodiscard]] error emplace(type_id id, Args&&... args) {
+  [[nodiscard]] error emplace_component(type_id id, Args&&... args) {
     using component_type = std::decay_t<Component>;
 
     if (is_frozen()) {
@@ -115,20 +115,20 @@ public:
    */
   template <typename Component, typename... Args>
   [[nodiscard]] const Component* ensure_component(type_id id, Args&&... args) {
-    if (const Component* existing = find_ptr<Component>(id); existing != nullptr) {
+    if (const Component* existing = find_component_ptr<Component>(id); existing != nullptr) {
       return existing;
     }
 
-    const error status = emplace<Component>(id, std::forward<Args>(args)...);
+    const error status = emplace_component<Component>(id, std::forward<Args>(args)...);
     if (status && status.value() != errc::duplicate_component) {
       return nullptr;
     }
 
-    return find_ptr<Component>(id);
+    return find_component_ptr<Component>(id);
   }
 
   /** @brief 判断指定类型是否挂载了某个元数据组件。 */
-  template <typename Component> [[nodiscard]] bool has(type_id id) const {
+  template <typename Component> [[nodiscard]] bool has_component(type_id id) const {
     using component_type = std::decay_t<Component>;
     const detail::meta_component_storage_base* storage_base =
         find_component_storage(detail::meta_component_key_of<component_type>());
@@ -140,7 +140,8 @@ public:
   }
 
   /** @brief 获取指定类型上的元数据组件副本。 */
-  template <typename Component> [[nodiscard]] std::optional<Component> find(type_id id) const {
+  template <typename Component>
+  [[nodiscard]] std::optional<Component> find_component(type_id id) const {
     using component_type = std::decay_t<Component>;
     const detail::meta_component_storage_base* storage_base =
         find_component_storage(detail::meta_component_key_of<component_type>());
@@ -159,7 +160,8 @@ public:
    * 组件由全局注册表以 append-only 方式保存。返回指针不拥有对象，只要组件已注册且进程未退出，
    * 指针地址保持稳定。
    */
-  template <typename Component> [[nodiscard]] const Component* find_ptr(type_id id) const {
+  template <typename Component>
+  [[nodiscard]] const Component* find_component_ptr(type_id id) const {
     using component_type = std::decay_t<Component>;
     const detail::meta_component_storage_base* storage_base =
         find_component_storage(detail::meta_component_key_of<component_type>());
@@ -173,7 +175,7 @@ public:
   }
 
   /** @brief 统计挂载了指定组件的类型数量。 */
-  template <typename Component> [[nodiscard]] std::size_t count() const noexcept {
+  template <typename Component> [[nodiscard]] std::size_t component_count() const noexcept {
     using component_type = std::decay_t<Component>;
     const detail::meta_component_storage_base* storage_base =
         find_component_storage(detail::meta_component_key_of<component_type>());
@@ -205,7 +207,7 @@ public:
   }
 
   /** @brief 查询同时拥有指定组件集合的类型。 */
-  template <typename... Components> [[nodiscard]] view<Components...> view() const;
+  template <typename... Components> [[nodiscard]] view<Components...> component_view() const;
 
 private:
   registry();

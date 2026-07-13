@@ -23,7 +23,7 @@ error registry::attach_schema(type_id id, type_schema data) {
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  return rethrow_as(meta::get_registry().emplace<type_schema>(id, data),
+  return rethrow_as(meta::get_registry().emplace_component<type_schema>(id, data),
                     error_domain::serialization);
 }
 
@@ -35,13 +35,17 @@ error registry::attach_schema(meta::type type, type_schema data) {
   return attach_schema(type.id(), data);
 }
 
-bool registry::contains(type_id id) const { return meta::get_registry().has<type_schema>(id); }
-
-std::optional<type_schema> registry::find_type(type_id id) const {
-  return meta::get_registry().find<type_schema>(id);
+bool registry::contains(type_id id) const {
+  return meta::get_registry().has_component<type_schema>(id);
 }
 
-std::size_t registry::size() const noexcept { return meta::get_registry().count<type_schema>(); }
+std::optional<type_schema> registry::find_type(type_id id) const {
+  return meta::get_registry().find_component<type_schema>(id);
+}
+
+std::size_t registry::size() const noexcept {
+  return meta::get_registry().component_count<type_schema>();
+}
 
 registry& get_registry() noexcept { return registry::instance(); }
 

@@ -132,16 +132,16 @@ error registry::attach_type(meta::type type, const void* reflection) {
   }
 
   return rethrow_as(
-      meta::get_registry().emplace<detail::type_wrapper>(type.id(), stored_reflection),
+      meta::get_registry().emplace_component<detail::type_wrapper>(type.id(), stored_reflection),
       error_domain::reflection, errc::duplicate_component, errc::duplicate_reflection);
 }
 
 bool registry::contains(type_id id) const {
-  return meta::get_registry().has<detail::type_wrapper>(id);
+  return meta::get_registry().has_component<detail::type_wrapper>(id);
 }
 
 const void* registry::find_reflection_data(type_id id) const {
-  return meta::get_registry().find_ptr<detail::type_wrapper>(id);
+  return meta::get_registry().find_component_ptr<detail::type_wrapper>(id);
 }
 
 type registry::find_type(type_id id) const {
@@ -186,7 +186,7 @@ type registry::find_type(core::string_name name) const {
 }
 
 std::size_t registry::size() const noexcept {
-  return meta::get_registry().count<detail::type_wrapper>();
+  return meta::get_registry().component_count<detail::type_wrapper>();
 }
 
 registry& get_registry() noexcept { return registry::instance(); }

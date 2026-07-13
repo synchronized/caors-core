@@ -28,7 +28,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 定义 `type_id`、`meta::type` 和 meta 类型注册错误状态。
 - [x] 在 `meta::registry` 中集中处理运行期类型索引、重名、重复 GUID、不一致类型描述和父类型缺失。
 - [x] 提供 `meta::registry`，允许围绕同一个 `type_id` 挂载对象、反射、序列化等元数据组件。
-- [x] 提供 `meta::view<T...>()`，查询同时拥有指定元数据组件的类型。
+- [x] 提供 `meta::registry::component_view<T...>()`，查询同时拥有指定元数据组件的类型。
 - [x] 补充反射和序列化组件的跨模块查询测试。
 - [x] 增加组件 `try_emplace` / `ensure` 语义和组件状态诊断 API。
 - [x] 增加轻量动态 capability 运行期索引，支持 `type_id + capability_key` 挂接模块能力。

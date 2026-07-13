@@ -450,7 +450,7 @@ struct object_factory_meta {
 caors::meta::class_<actor>("game.actor");
 
 caors::type_id actor_id = caors::meta::find<actor>().id();
-caors::meta::get_registry().emplace<object_factory_meta>(actor_id, true);
+caors::meta::get_registry().emplace_component<object_factory_meta>(actor_id, true);
 ```
 
 运行期 capability 不是普通 meta 组件，公开写入入口挂在类型 builder 上：
@@ -494,15 +494,16 @@ caors::meta::class_<actor>()
 
 组件 API：
 
-- `emplace<T>(type_id, args...)`：给已注册类型挂载组件。
-- `has<T>(type_id)`：判断类型是否拥有组件。
-- `find<T>(type_id)`：获取组件副本。
-- `find_ptr<T>(type_id)`：获取组件只读指针。组件由注册表以 `unique_ptr` 保存，地址在 append-only
+- `emplace_component<T>(type_id, args...)`：给已注册类型挂载组件。
+- `has_component<T>(type_id)`：判断类型是否拥有组件。
+- `find_component<T>(type_id)`：获取组件副本。
+- `find_component_ptr<T>(type_id)`：获取组件只读指针。组件由注册表以 `unique_ptr` 保存，地址在 append-only
   注册表生命周期内保持稳定。
 - `ensure_component<T>(type_id, args...)`：按需组件创建 helper，组件已存在时返回现有指针，不存在时创建并返回
   新组件指针。
 - `component_status<T>(type_id)`：查询组件诊断状态，区分无效类型、未注册类型、缺失组件和已挂载组件。
-- `view<T...>()`：查询同时拥有指定组件集合的类型。
+- `component_count<T>()`：统计拥有指定组件的类型数量。
+- `component_view<T...>()`：查询同时拥有指定组件集合的类型。
 
 容器 descriptor 会在具体容器支持 `begin()` / `end()` 时额外保存类型擦除 iterator 函数，用于
 `set_view` 和 `associative_view` 的 range-for 遍历。只提供 traits callback 的自定义容器仍可通过
@@ -537,8 +538,9 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 - 后续 `serialization::registry` 可以挂载序列化相关组件。
 
 这样对象、反射和序列化的全局注册入口不需要重复处理重名、重复 GUID、不一致类型描述和父类型缺失。
-跨模块查询可以通过 `meta::view<T...>()` 完成。反射这类内部组件应通过对应模块 API 返回稳定只读视图；
-序列化等公开组件仍可通过 `meta::view<serialization::type_schema>()` 查询。
+跨模块查询可以通过 `meta::registry::component_view<T...>()` 完成。反射这类内部组件应通过对应模块 API
+返回稳定只读视图；序列化等公开组件仍可通过
+`meta::get_registry().component_view<serialization::type_schema>()` 查询。
 
 ## 当前已实现能力
 
@@ -563,7 +565,7 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 - `meta::class_<T>().parent<Base>()`：保存 C++ 父类型关系和安全 upcast 回调。
 - `meta::class_<T>().factory()` / `.factory(construct, destroy)`：保存运行期值构造和销毁策略。
 - `meta::registry`：全局 meta 类型注册、按 id/name/guid 或 C++ 类型查询、继承关系判断和组件式元数据挂载。
-- `meta::view<T...>`：按组件集合查询类型。
+- `meta::registry::component_view<T...>`：按组件集合查询类型。
 - `meta::run_registrations()`：执行已收集的延迟元数据注册函数。
 - `CAORS_META_REGISTRATION(name)`：定义一个延迟注册函数，函数体需要返回 `caors::error`。
 - `meta::get_registry()`：进程内全局元数据注册表。

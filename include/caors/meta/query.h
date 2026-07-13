@@ -351,10 +351,11 @@ template <typename Component>
     return std::nullopt;
   }
 
-  return registry_->template find<Component>(id);
+  return registry_->template find_component<Component>(id);
 }
 
-template <typename... Components> [[nodiscard]] view<Components...> registry::view() const {
+template <typename... Components>
+[[nodiscard]] view<Components...> registry::component_view() const {
   static_assert(sizeof...(Components) > 0, "Meta view requires at least one component type");
 
   detail::meta_component_key keys[] = {
