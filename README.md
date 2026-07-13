@@ -35,6 +35,7 @@ CAORS 目前更偏底层库和实验性基础设施，而不是完整引擎或�
 - 基础内存资源 API：`caors/memory.h`。
 - 基础对象系统 API：`caors/object.h`。
 - 基础反射 API：`caors/reflection.h`。
+- 运行时组合 API：`caors/runtime.h`，提供 `meta`、`reflection` 和 `value` 的用户友好 facade。
 - 资源 API：`caors/resources.h`，包含资源身份、引用、运行期 handle、引用计数缓存、依赖图、清单、
   字节来源 provider、loader/saver、同步 reload 通知、异步加载请求和非拥有资源 database 编排入口。
 - 运行期值 API：`caors/value.h`，包含 `any`、`any_ref`、运行期 view 和 `variant` 数据 DOM。
@@ -74,6 +75,7 @@ ctest --preset windows-clang-debug
 - [docs/io.md](docs/io.md)：同步字节流、文件系统抽象和本地文件系统实现。
 - [docs/roadmap.md](docs/roadmap.md)：项目路线图。
 - [docs/registration.md](docs/registration.md)：类型、对象、反射和序列化的注册顺序与初始化策略。
+- [docs/runtime.md](docs/runtime.md)：运行时组合 facade，统一查询类型、字段、方法和值构造能力。
 - [docs/serialization.md](docs/serialization.md)：序列化元信息、文本/JSON 读写、codec、资源引用和多态读写边界。
 - [docs/tasks.md](docs/tasks.md)：任务包装器、executor 抽象和主线程完成队列。
 - [docs/value.md](docs/value.md)：`any`、`any_ref`、运行期 view 和 `variant` 数据 DOM。

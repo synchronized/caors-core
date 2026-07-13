@@ -62,6 +62,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 增加多模块静态 capability 扩展机制，外部模块可通过 module tag 和
   `extension_static_capability_modules<T>` 追加能力贡献，避免多个第三方模块只能共享
   `custom_static_capability_module` 造成特化覆盖。
+- [x] 增加 `runtime` facade，组合 `meta::type`、反射字段/方法和值构造能力，提供更直接的用户入口。
 - [ ] 评估组件替换和批量注册 API。
 
 ## 2. 定制化分配器

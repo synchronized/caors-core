@@ -1,0 +1,69 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 CAORS contributors
+
+#ifndef CAORS_RUNTIME_TYPE_H_
+#define CAORS_RUNTIME_TYPE_H_
+
+#include "caors/export.h"
+#include "caors/memory/resource.h"
+#include "caors/meta/type.h"
+#include "caors/reflection/type.h"
+#include "caors/value/any.h"
+
+#include <cstddef>
+#include <string_view>
+
+namespace caors::runtime {
+
+using field = reflection::field;
+using method = reflection::method;
+
+/**
+ * @brief 运行时类型组合视图。
+ *
+ * `runtime::type` 是用户友好的 facade，不拥有任何类型数据。它以 `meta::type` 为主视图，
+ * 并按需查询反射组件。缺少反射组件时，字段和方法查询返回空视图。
+ */
+class CAORS_API type final {
+public:
+  type() noexcept = default;
+  explicit type(meta::type meta_type) noexcept;
+
+  [[nodiscard]] bool valid() const noexcept;
+  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
+
+  [[nodiscard]] meta::type meta() const noexcept;
+  [[nodiscard]] reflection::type reflection() const noexcept;
+  [[nodiscard]] bool reflectable() const noexcept;
+
+  [[nodiscard]] type_id id() const noexcept;
+  [[nodiscard]] string_name name() const noexcept;
+  [[nodiscard]] type_guid guid() const noexcept;
+  [[nodiscard]] type parent() const noexcept;
+  [[nodiscard]] meta::type_kind kind() const noexcept;
+  [[nodiscard]] meta::wrapper_semantics wrapper() const noexcept;
+  [[nodiscard]] bool indirect() const noexcept;
+  [[nodiscard]] bool nullable() const noexcept;
+  [[nodiscard]] std::size_t size() const noexcept;
+  [[nodiscard]] std::size_t alignment() const noexcept;
+
+  [[nodiscard]] bool value_constructible() const noexcept;
+  [[nodiscard]] any create_value(memory::memory_resource* resource = nullptr) const;
+
+  [[nodiscard]] std::size_t field_count() const noexcept;
+  [[nodiscard]] field field_at(std::size_t index) const;
+  [[nodiscard]] field find_field(string_name name) const;
+  [[nodiscard]] field find_field(std::string_view name) const;
+
+  [[nodiscard]] std::size_t method_count() const noexcept;
+  [[nodiscard]] method method_at(std::size_t index) const;
+  [[nodiscard]] method find_method(string_name name) const;
+  [[nodiscard]] method find_method(std::string_view name) const;
+
+private:
+  meta::type meta_{};
+};
+
+} // namespace caors::runtime
+
+#endif
