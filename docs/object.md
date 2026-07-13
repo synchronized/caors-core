@@ -138,9 +138,9 @@ caors::objects::ptr<actor> ptr{&instance};
 caors::object_id id = ptr.id();
 ```
 
-它适合表达运行期对象关系。序列化时需要通过 `serialization::reference_resolver` 把对象指针转换为
-`object_id`，反序列化时再把 `object_id` 解析回对象指针。`object_id` 本身仍是运行期标识，跨存档稳定
-引用应由上层资源或对象数据库提供稳定 id 映射。
+它适合表达运行期对象关系。序列化时需要通过 `objects::object_ref_resolver` 把对象指针转换为
+`object_id` 或 `object_guid`，反序列化时再解析回对象指针。`object_id` 本身仍是运行期标识，跨存档稳定
+引用应使用 `object_guid`。
 
 运行期值可以通过对象模块入口查询对象指针能力：
 
@@ -168,7 +168,7 @@ caors::objects::handle handle{instance.id(), instance.type_id()};
 
 `objects::typed_handle<T>` 是类型化身份句柄，内部同样只保存 `objects::handle`。它不会延长对象生命周期，
 也不会隐式查询全局对象表；需要解析时应显式传给 `objects::manager` 或上层对象数据库。当前阶段如果需要把对象关系序列化为运行期对象 id，可以使用 `objects::ptr<T>` 和
-`serialization::reference_resolver`，也可以从 `objects::manager` 创建 resolver。
+`objects::object_ref_resolver`，也可以从 `objects::manager` 创建 resolver。
 
 两者共享同一个内部句柄实现：`objects::handle` 是非类型化身份，`objects::typed_handle<T>` 是带
 C++ 编译期类型约束的身份视图。类型化句柄可以从非类型化句柄构造，也可以通过 `.handle()` 取回
@@ -477,10 +477,12 @@ manager.destroy(instance);
   `objects::type`。
 - `objects::get_registry()`：进程内默认对象注册表。
 - `objects::create<T>()` / `objects::destroy<T>()`：接入 `memory_resource` 的直接对象创建和销毁入口。
-- `serialization::make_reference_resolver(objects::manager&)`：为对象引用序列化创建基于运行期
-  `object_id` 的 manager resolver。
-- `serialization::make_persistent_reference_resolver(objects::manager&)`：为对象引用序列化创建基于
+- `objects::make_object_ref_resolver(objects::manager&)`：为对象引用序列化创建基于运行期
+  `object_id` 的 manager resolver，并挂到 `serialization::context::external_refs`。
+- `objects::make_persistent_object_ref_resolver(objects::manager&)`：为对象引用序列化创建基于
   `object_guid` 的 manager resolver，需要 manager 关联 `object_index`。
+- `objects::make_object_factory(objects::manager&)`：为多态对象反序列化创建通用对象工厂，并挂到
+  `serialization::context::factories`。
 
 ## 后续路线图
 

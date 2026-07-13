@@ -60,10 +60,10 @@ int main() {
     return 1;
   }
 
-  const caors::serialization::reference_resolver resolver =
-      caors::serialization::make_persistent_reference_resolver(manager);
+  const caors::object_ref_resolver resolver =
+      caors::make_persistent_object_ref_resolver(manager);
   caors::serialization::context context{};
-  context.references.object_resolver = &resolver;
+  context.external_refs.resolver = &resolver;
 
   const party_slot slot{caors::object_ptr<persistent_player>{player}};
   const caors::serialization::serialization_text_result json = caors::serialize_json(context, slot);

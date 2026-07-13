@@ -15,30 +15,6 @@ namespace caors::serialization::detail {
 [[nodiscard]] bool field_uses_direct_value(const reflection::field& field) noexcept;
 [[nodiscard]] bool type_uses_inline_indirect_value(const any_ref& value) noexcept;
 [[nodiscard]] bool type_is_enumeration(const any_ref& value) noexcept;
-[[nodiscard]] bool type_uses_object_handle(const any_ref& value) noexcept;
-[[nodiscard]] bool type_uses_object_ptr(const any_ref& value) noexcept;
-
-[[nodiscard]] variant_result make_object_handle_identity_value(objects::handle value);
-[[nodiscard]] error write_object_handle_identity(writer& writer, objects::handle value);
-[[nodiscard]] error read_object_handle_identity(reader& reader, objects::handle& value);
-
-[[nodiscard]] variant_result make_object_handle_value(const any_ref& value);
-[[nodiscard]] error write_object_handle_value(writer& writer, const any_ref& value);
-[[nodiscard]] error read_object_handle_value(reader& reader, const any_ref& target);
-
-[[nodiscard]] variant_result make_object_ptr_identity_value(const object* referenced,
-                                                            const serialization::context& context);
-[[nodiscard]] error write_object_ptr_identity(writer& writer, const object* referenced,
-                                              const serialization::context& context);
-[[nodiscard]] error read_object_ptr_identity(reader& reader, const serialization::context& context,
-                                             object*& referenced);
-
-[[nodiscard]] variant_result make_object_ptr_value(const any_ref& value,
-                                                   const serialization::context& context);
-[[nodiscard]] error write_object_ptr_value(writer& writer, const any_ref& value,
-                                           const serialization::context& context);
-[[nodiscard]] error read_object_ptr_value(reader& reader, const any_ref& target,
-                                          const serialization::context& context);
 [[nodiscard]] variant_result make_enum_value(const any_ref& value);
 [[nodiscard]] error write_enum_value(writer& writer, const any_ref& value);
 [[nodiscard]] error read_enum_value(reader& reader, const any_ref& target);
@@ -89,15 +65,6 @@ namespace caors::serialization::detail {
                                               const serialization::context& context);
 [[nodiscard]] variant_result make_variant_value(const value::variant_view& view,
                                                 const serialization::context& context);
-
-[[nodiscard]] error write_object_ptr_field(writer& writer, const reflection::field& field,
-                                           const void* object,
-                                           const serialization::field_schema& field_schema,
-                                           const serialization::context& context);
-[[nodiscard]] error read_object_ptr_field(reader& reader, const reflection::field& field,
-                                          void* object,
-                                          const serialization::field_schema& field_schema,
-                                          const serialization::context& context);
 
 } // namespace caors::serialization::detail
 

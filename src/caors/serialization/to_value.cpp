@@ -3,7 +3,6 @@
 
 #include "caors/serialization/operations.h"
 
-#include "caors/object/ptr_view.h"
 #include "caors/reflection/registry.h"
 #include "caors/value/indirect_view.h"
 
@@ -14,18 +13,6 @@
 
 namespace caors::serialization {
 namespace {
-
-[[nodiscard]] variant_result
-object_ptr_to_serialization_value(const reflection::field& field, const void* object,
-                                  const serialization::context& context) {
-  const reference_resolver* resolver = context.effective_reference_resolver();
-  if (resolver == nullptr || !resolver->can_write()) {
-    return {{error_domain::serialization, errc::invalid_argument}, {}};
-  }
-
-  return serialization::detail::make_object_ptr_identity_value(field.get_object_ptr(object),
-                                                               context);
-}
 
 [[nodiscard]] bool field_uses_inline_indirect_value(const reflection::field& field) noexcept {
   return (field.kind() == meta::type_kind::raw_pointer ||
@@ -39,12 +26,8 @@ value_ref_to_serialization_value(const any_ref& value, const serialization::cont
 }
 
 [[nodiscard]] variant_result field_to_serialization_value(const reflection::field& field,
-                                                          const void* object,
+  const void* object,
                                                           const serialization::context& context) {
-  if (objects::is_ptr(field.get_ref(object))) {
-    return object_ptr_to_serialization_value(field, object, context);
-  }
-
   any_ref field_ref{};
   if (field_uses_inline_indirect_value(field)) {
     const value::indirect_view indirect = field.get_ref(object).create_indirect_view();

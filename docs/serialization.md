@@ -26,7 +26,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 - 提供 `serialization::codec_traits<T>` 和 descriptor 静态能力，允许把特定 C++ 类型作为原子序列化值读写。
 - 支持已注册反射和序列化元信息的值类型结构体字段递归序列化和 DOM 反序列化。
 - 提供基于 traits 的顺序容器、集合容器、关联容器、pair、tuple 和 variant 访问，支持标量、wrapper、对象引用和已注册结构体元素。
-- 通过 `serialization::reference_resolver` 支持 `caors::objects::ptr<T>` 对象指针字段。
+- 通过 `objects::object_ref_resolver` 支持 `caors::objects::ptr<T>` 对象指针字段。
 - 普通序列化入口会在 `caors::objects::object` 派生对象的运行期类型不同于声明类型时自动写出多态 envelope。
 - 通过默认 `$type` / `$value` envelope 支持 `std::unique_ptr<Base>`、`caors::memory::unique_ptr<Base>`、
   `std::shared_ptr<Base>` 和 `objects::ref<Base>` 字段持有派生类对象，并支持显式 factory 构造策略。
@@ -60,7 +60,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 
 - `caors/serialization/type_schema.h`：后端能力、字段配置和类型序列化组件数据。
 - `caors/serialization/external_ref.h`：通用外部引用、函数表 resolver/collector 和继承接口适配器。
-- `caors/serialization/types.h`：对象引用 resolver、通用外部引用选项、单次调度上下文和结果类型。
+- `caors/serialization/types.h`：通用外部引用选项、对象工厂函数表、单次调度上下文和结果类型。
 - `caors/serialization/registry.h`：序列化组件注册表和链式注册入口。
 - `caors/serialization/writer.h`：`serialization::writer`、`serialization::text_writer` 和
   `serialization::json_writer`。
@@ -69,6 +69,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 - `caors/serialization/dom_reader.h`：从 `variant` DOM 读入的 reader 后端。
 - `caors/serialization/operations.h`：`serialize()`、`deserialize()`、`to_serialization_value()`、`serialize_text()`、`write_variant()` 等调度入口。
 - `caors/serialization.h`：兼容用聚合头，包含序列化入口和 STL 容器 traits 适配。
+- `caors/object/serialization.h`：对象指针、对象句柄、对象工厂和对象引用 resolver 的序列化适配。
 - `caors/resources/serialization.h`：资源 GUID、资源引用、资源依赖收集和资源 resolver 的序列化适配。
 - `caors/traits/*.h`：类型名、wrapper 和容器类扩展点主模板。
 - `caors/adapters/stl.h`：STL/CAORS 容器、wrapper 和反射 traits 的适配聚合入口。
@@ -92,9 +93,8 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 | `deserialize_json()` | 从 JSON 文本读回对象 | 先解析 DOM，再复用普通反序列化调度 |
 | `serialization::context` | 单次读写上下文 | 按职责使用分组字段配置 |
 | `context.fields` | schema version 字段过滤 | `0` 表示不启用版本过滤 |
-| `context.references` | `objects::ptr<T>` 引用 resolver | 只影响对象指针引用字段 |
 | `context.external_refs` | 通用外部引用 resolver、解析策略和依赖收集 | 资源、对象等上层引用可共享该入口 |
-| `context.objects` | 多态 object 新建时使用的 manager | 只在需要从 envelope 创建对象时使用 |
+| `context.factories` | 多态 object 新建时使用的通用对象工厂 | 只在需要从 envelope 创建对象时使用 |
 | `context.memory` | 多态值、空 wrapper 和容器新增元素的运行期构造资源 | 不强行替换已有容器 allocator |
 | `context.storage` | 借用视图读回所需外部存储 | 主要用于 `std::string_view` |
 | `context.polymorphic` | 多态 envelope 字段名和调试 type name | 默认字段名为 `$type` / `$value` |
@@ -130,7 +130,7 @@ caors::deserialize_json(context, object, text);
 ```
 
 `serialization::context` 不再提供旧式扁平配置字段。调用方应按职责写入
-`context.fields`、`context.references`、`context.external_refs`、`context.objects`、`context.memory`
+`context.fields`、`context.external_refs`、`context.factories`、`context.memory`
 和 `context.storage` 等分组字段。
 
 ### 多态 object
@@ -165,13 +165,15 @@ caors::serialization::serialization_text_result json = caors::serialize_json(con
 
 读写双方需要使用一致的字段名配置。普通反序列化入口读到配置后的 type/value envelope 时，会先校验动态类型是声明基类的派生类型。如果目标对象
 当前运行期类型和 type 字段一致，则把 value 字段写入这个已有对象；如果没有 type 字段，则按普通声明类型
-读入。需要从 envelope 新建对象时，仍需使用 manager 创建路径，`context.objects.manager`
-负责分配和销毁：
+读入。需要从 envelope 新建对象时，应在对象模块创建通用对象工厂并写入
+`context.factories.object_factory`，由工厂负责分配和销毁：
 
 ```cpp
 caors::objects::manager manager;
+caors::object_factory factory = caors::make_object_factory(manager);
+
 caors::serialization::context context{};
-context.objects.manager = &manager;
+context.factories.object_factory = &factory;
 
 caors::result<actor*> decoded =
     caors::serialization::deserialize_polymorphic_json<actor>(context, json.value);
@@ -182,14 +184,14 @@ caors::result<actor*> decoded =
 1. 读取 type 字段并用 `type_guid` 查找动态类型。
 2. 校验动态类型是调用点声明基类的派生类型。
 3. 已有对象读入时，要求目标对象当前 `type_id()` 和 type 字段对应的动态类型一致。
-4. 新建对象读入时，通过 `context.objects.manager->create(dynamic_type_id)` 默认构造对象。
+4. 新建对象读入时，通过 `context.factories.object_factory` 按动态类型默认构造对象。
 5. 用 value 字段按动态类型反序列化字段。
 6. 如果新建对象字段读入失败，自动通过 manager 销毁刚创建的对象并返回错误。
 
 当前边界：
 
 - 只支持 `objects::object` 派生类型。
-- 只有新建对象读入需要动态类型可由 `objects::manager` 默认构造；写入已有对象不需要 manager。
+- 只有新建对象读入需要动态类型可由对象工厂默认构造；写入已有对象不需要对象工厂。
 - 类型身份只写稳定 `type_guid`，不写运行期 `type_id`。
 - 不自动接管裸指针、`std::shared_ptr<Base>` 等字段的所有权；这类字段仍按现有指针/wrapper 规则处理。
 - 不保留对象图中的共享实例身份和循环引用；需要对象引用时继续使用 `objects::ptr<T>` 和 resolver。
@@ -475,20 +477,17 @@ caors::error status = caors::deserialize_json(instance, text);
 
 `caors::objects::ptr<T>` 是非拥有对象引用。序列化层不会自行管理对象生命周期，也不会假设
 `object_id` 可以跨存档稳定使用。调用方需要在 `serialization::context` 中提供
-`serialization::reference_resolver`：
+对象引用 resolver，并挂到通用外部引用入口：
 
 ```cpp
-caors::serialization::reference_resolver resolver{
-    &object_to_id,
-    &id_to_object,
-    user_data,
-};
+caors::object_ref_resolver resolver = make_custom_object_ref_resolver(...);
 caors::serialization::context context{};
-context.references.object_resolver = &resolver;
+context.external_refs.resolver = &resolver;
 ```
 
-写出时，resolver 把 `object*` 转换为 `object_id`，输出为无符号整数；空引用输出 `0`。读入时，
-resolver 把非 0 `object_id` 转换回对象指针，再写入 `objects::ptr<T>` 字段。
+运行期 resolver 写出时把 `object*` 转换为 `object_id`，输出为无符号整数；空引用输出 `0`。读入时，
+resolver 把非 0 `object_id` 转换回对象指针，再写入 `objects::ptr<T>` 字段。持久 resolver 写出
+`object_guid` 字符串，空引用写出 `null`。
 
 对象图中的共享关系应通过 `objects::ptr<T>` 表达。序列化层只写出引用身份，不展开被引用对象本体；
 同一个对象被多个字段或容器元素引用时会重复写出同一个 id / GUID，读回后 resolver 会把它们解析回同一个
@@ -498,10 +497,9 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `objects::ptr<T>
 
 ```cpp
 caors::objects::manager manager;
-caors::serialization::reference_resolver resolver =
-    caors::serialization::make_reference_resolver(manager);
+caors::object_ref_resolver resolver = caors::make_object_ref_resolver(manager);
 caors::serialization::context context{};
-context.references.object_resolver = &resolver;
+context.external_refs.resolver = &resolver;
 ```
 
 该 resolver 只解析 manager 当前仍持有的对象。对象销毁后，同一个 `object_id` 会解析失败并返回
@@ -516,10 +514,9 @@ caors::objects::manager manager(index);
 
 player* instance = manager.create_with_guid<player>(persistent_guid);
 
-caors::serialization::reference_resolver resolver =
-    caors::serialization::make_persistent_reference_resolver(manager);
+caors::object_ref_resolver resolver = caors::make_persistent_object_ref_resolver(manager);
 caors::serialization::context context{};
-context.references.object_resolver = &resolver;
+context.external_refs.resolver = &resolver;
 ```
 
 持久 resolver 写出时通过 `manager.guid_of(instance->id())` 查找 `object_guid`，读入时通过
@@ -600,7 +597,7 @@ caors::replace_resource_dependencies(graph, material_resource_guid, dependencies
 ### object handles
 
 `caors::objects::handle` 和 `caors::objects::typed_handle<T>` 表达已经存在的对象身份，而不是对象地址。
-它们序列化时不需要 `reference_resolver`，因为句柄本身已经保存 `object_id` 和 `object_type_id`：
+它们序列化时不需要对象引用 resolver，因为句柄本身已经保存 `object_id` 和 `object_type_id`：
 
 ```json
 {
@@ -770,7 +767,7 @@ template <> struct codec_traits<custom_value> {
   和需要新增元素的容器不会隐式构造 `T`。
 - `std::weak_ptr<T>` 和 `objects::weak_ref<T>` 明确标记为不支持的 wrapper，无法稳定暴露可写内部值，
   当前不作为普通 value 序列化或反序列化。
-- `caors::objects::ptr<T>` 不走内部 value 语义，仍通过 `serialization::reference_resolver` 写出和读入对象 id 或持久 GUID。
+- `caors::objects::ptr<T>` 不走内部 value 语义，仍通过 `objects::object_ref_resolver` 写出和读入对象 id 或持久 GUID。
 - 当 `std::unique_ptr<Base>`、`caors::memory::unique_ptr<Base>`、`std::shared_ptr<Base>`
   或 `objects::ref<Base>`
   实际持有已注册派生类对象时，序列化层会写出多态 envelope，默认字段名为 `$type` / `$value`。读回时要求派生类型可默认构造，
@@ -995,7 +992,7 @@ caors::string text = result.value;
 - `serialization::field_schema`：字段级序列化配置。
 - `serialization::writer`：格式后端接口。
 - `serialization::reader`：格式读入后端接口。
-- `serialization::context`：单次序列化/反序列化上下文，支持 schema version 字段过滤、多态 envelope 字段名配置、对象引用 resolver、通用外部引用 resolver/collector 和运行期资源传递。
+- `serialization::context`：单次序列化/反序列化上下文，支持 schema version 字段过滤、多态 envelope 字段名配置、通用外部引用 resolver/collector、对象工厂和运行期资源传递。
 - `serialization::string_storage`：`std::string_view` 反序列化使用的多段字符串存储。
 - `serialization::external_ref_resolver`：通用外部引用解析函数表，资源模块通过 adapter 接入。
 - `serialization::external_ref_collector`：通用外部引用收集函数表，资源模块用它收集资源依赖。
@@ -1017,7 +1014,7 @@ caors::string text = result.value;
 - `to_serialization_value()`：通过反射和序列化元信息构造中间对象树。
 - `serialize_text_to()` / `serialize_json_to()`：把对象写入调用方提供的 `caors::string` buffer。
 - `to_polymorphic_serialization_value()`：兼容入口，显式按对象真实运行期类型构造多态 envelope，默认字段名为 `$type` / `$value`。
-- `deserialize_polymorphic_object()`：兼容入口，通过 `context.objects.manager` 构造并读入多态对象。
+- `deserialize_polymorphic_object()`：兼容入口，通过 `context.factories.object_factory` 构造并读入多态对象。
 - `serialize_polymorphic_json()` / `deserialize_polymorphic_json()`：兼容入口，JSON 形式的多态对象 envelope。
 - `serialization::write_variant()`：把中间对象树写入指定 writer。
 - `serialization_text_result`：`caors::result<caors::string>` 文本序列化结果。

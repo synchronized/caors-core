@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "caors/object/handle_view.h"
-#include "caors/object/ptr_view.h"
 #include "caors/reflection/registry.h"
 #include "helpers.h"
 
@@ -33,8 +31,7 @@ variant_result make_serialized_value(const any& data) {
   if (type) {
     const meta::type_kind kind = type.kind();
     const any_ref ref = data.ref();
-    if (type_uses_object_handle(ref) || type_uses_object_ptr(ref) ||
-        kind == meta::type_kind::raw_pointer || kind == meta::type_kind::wrapper ||
+    if (kind == meta::type_kind::raw_pointer || kind == meta::type_kind::wrapper ||
         kind == meta::type_kind::enumeration || kind == meta::type_kind::sequence ||
         kind == meta::type_kind::set || kind == meta::type_kind::associative ||
         kind == meta::type_kind::pair || kind == meta::type_kind::tuple ||
@@ -113,14 +110,6 @@ variant_result make_serialized_value(const any_ref& value, const serialization::
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
-  if (type_uses_object_handle(value)) {
-    return make_object_handle_value(value);
-  }
-
-  if (type_uses_object_ptr(value)) {
-    return make_object_ptr_value(value, context);
-  }
-
   if (type_uses_inline_indirect_value(value)) {
     const value::indirect_view indirect = value.create_indirect_view();
     return make_indirect_serialized_value(indirect, context);
@@ -188,14 +177,6 @@ error write_serialized_value(writer& writer, const any_ref& value,
                              const serialization::context& context) {
   if (!value.valid()) {
     return {error_domain::serialization, errc::unsupported};
-  }
-
-  if (type_uses_object_handle(value)) {
-    return write_object_handle_value(writer, value);
-  }
-
-  if (type_uses_object_ptr(value)) {
-    return write_object_ptr_value(writer, value, context);
   }
 
   if (type_uses_inline_indirect_value(value)) {
@@ -271,14 +252,6 @@ error read_serialized_value(reader& reader, const any_ref& target,
     return {error_domain::serialization, errc::invalid_field};
   }
 
-  if (type_uses_object_handle(target)) {
-    return read_object_handle_value(reader, target);
-  }
-
-  if (type_uses_object_ptr(target)) {
-    return read_object_ptr_value(reader, target, context);
-  }
-
   if (type_uses_inline_indirect_value(target)) {
     const value::indirect_view indirect = target.create_indirect_view();
     return read_indirect_serialized_value(reader, indirect, context);
@@ -333,10 +306,6 @@ error write_field(writer& writer, const reflection::field& field, const void* ob
     return {error_domain::serialization, errc::invalid_field};
   }
 
-  if (objects::is_ptr(field.get_ref(object))) {
-    return write_object_ptr_field(writer, field, object, field_schema, context);
-  }
-
   const bool uses_indirect_value = field_uses_inline_indirect_value(field);
   any_ref field_value{};
   if (field_uses_direct_value(field)) {
@@ -382,10 +351,6 @@ error read_field(reader& reader, const reflection::field& field, void* object,
 
   if (!field.writable()) {
     return {error_domain::serialization, errc::invalid_field};
-  }
-
-  if (objects::is_ptr(field.get_ref(object))) {
-    return read_object_ptr_field(reader, field, object, field_schema, context);
   }
 
   error status = validate_field_for_reader(field_schema, reader.features());

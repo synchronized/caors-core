@@ -4,6 +4,7 @@
 #ifndef CAORS_SERIALIZATION_OPERATIONS_H_
 #define CAORS_SERIALIZATION_OPERATIONS_H_
 
+#include "caors/object.h"
 #include "caors/reflection/registry.h"
 #include "caors/serialization/codec.h"
 #include "caors/serialization/detail/operations.h"
@@ -357,7 +358,7 @@ to_polymorphic_serialization_value(const objects::object* object);
  * @brief 兼容入口：从多态 DOM envelope 构造对象。
  *
  * `declared_base` 是字段或调用点声明的对象基类类型。动态类型必须继承自该类型。成功返回的对象由
- * `context.objects.manager` 拥有；缺少 manager、类型不匹配或反序列化失败时返回错误。
+ * `context.factories.object_factory` 拥有；缺少对象工厂、类型不匹配或反序列化失败时返回错误。
  */
 [[nodiscard]] CAORS_API result<objects::object*>
 deserialize_polymorphic_object(const serialization::context& context,
@@ -381,8 +382,8 @@ template <typename Base>
 
   Base* typed = dynamic_cast<Base*>(object.value);
   if (typed == nullptr) {
-    if (objects::manager* manager = context.effective_object_manager()) {
-      (void)manager->destroy(object.value);
+    if (const serialization::object_factory* factory = context.effective_object_factory()) {
+      factory->destroy_object(object.value);
     }
     return {{error_domain::serialization, errc::invalid_type}, nullptr};
   }

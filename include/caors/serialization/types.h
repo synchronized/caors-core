@@ -8,7 +8,6 @@
 #include "caors/error.h"
 #include "caors/memory/resource.h"
 #include "caors/meta.h"
-#include "caors/object.h"
 #include "caors/result.h"
 #include "caors/serialization/external_ref.h"
 #include "caors/serialization/type_schema.h"
@@ -21,15 +20,32 @@
 
 namespace caors::serialization {
 
-enum class reference_identity {
-  runtime_id,
-  persistent_guid,
-};
+using object_create_fn = void* (*)(type_id type, memory::memory_resource* resource,
+                                   void* user_data);
+using object_destroy_fn = void (*)(void* instance, void* user_data) noexcept;
 
-using object_to_id_fn = object_id (*)(const object* instance, void* user_data);
-using id_to_object_fn = object* (*)(object_id id, void* user_data);
-using object_to_guid_fn = object_guid (*)(const object* instance, void* user_data);
-using guid_to_object_fn = object* (*)(object_guid guid, void* user_data);
+/** @brief 运行期对象构造和销毁函数表。 */
+struct object_factory {
+  object_create_fn create = nullptr;
+  object_destroy_fn destroy = nullptr;
+  void* user_data = nullptr;
+
+  [[nodiscard]] constexpr bool can_create() const noexcept { return create != nullptr; }
+  [[nodiscard]] constexpr bool can_destroy() const noexcept { return destroy != nullptr; }
+  [[nodiscard]] constexpr bool valid() const noexcept {
+    return can_create() && can_destroy();
+  }
+
+  [[nodiscard]] void* create_object(type_id type, memory::memory_resource* resource) const {
+    return create != nullptr ? create(type, resource, user_data) : nullptr;
+  }
+
+  void destroy_object(void* instance) const noexcept {
+    if (destroy != nullptr && instance != nullptr) {
+      destroy(instance, user_data);
+    }
+  }
+};
 
 /**
  * @brief 多态对象和值 wrapper 的 envelope 输出配置。
@@ -87,40 +103,9 @@ private:
   list<string> values_;
 };
 
-/** @brief 对象引用解析器。 */
-struct reference_resolver {
-  object_to_id_fn object_to_id = nullptr;
-  id_to_object_fn id_to_object = nullptr;
-  void* user_data = nullptr;
-  reference_identity identity = reference_identity::runtime_id;
-  object_to_guid_fn object_to_guid = nullptr;
-  guid_to_object_fn guid_to_object = nullptr;
-
-  [[nodiscard]] constexpr bool uses_runtime_id() const noexcept {
-    return identity == reference_identity::runtime_id;
-  }
-
-  [[nodiscard]] constexpr bool uses_persistent_guid() const noexcept {
-    return identity == reference_identity::persistent_guid;
-  }
-
-  [[nodiscard]] constexpr bool can_write() const noexcept {
-    return uses_runtime_id() ? object_to_id != nullptr : object_to_guid != nullptr;
-  }
-
-  [[nodiscard]] constexpr bool can_read() const noexcept {
-    return uses_runtime_id() ? id_to_object != nullptr : guid_to_object != nullptr;
-  }
-};
-
-/** @brief 对象引用相关的序列化语义选项。 */
-struct reference_options {
-  const reference_resolver* object_resolver = nullptr;
-};
-
-/** @brief 对象生命周期管理相关的序列化语义选项。 */
-struct object_options {
-  objects::manager* manager = nullptr;
+/** @brief 运行期工厂相关的序列化语义选项。 */
+struct factory_options {
+  const object_factory* object_factory = nullptr;
 };
 
 /** @brief 运行期构造和销毁相关的序列化语义选项。 */
@@ -133,66 +118,6 @@ struct storage_options {
   string_storage* string_view_storage = nullptr;
 };
 
-namespace detail {
-
-[[nodiscard]] inline object_id manager_object_to_id(const object* instance,
-                                                    void* user_data) noexcept {
-  auto* manager = static_cast<objects::manager*>(user_data);
-  if (manager == nullptr || instance == nullptr || manager->find(instance->id()) != instance) {
-    return object_id::invalid();
-  }
-
-  return instance->id();
-}
-
-[[nodiscard]] inline object* manager_id_to_object(object_id id, void* user_data) noexcept {
-  auto* manager = static_cast<objects::manager*>(user_data);
-  return manager != nullptr ? manager->find(id) : nullptr;
-}
-
-[[nodiscard]] inline object_guid manager_object_to_guid(const object* instance,
-                                                        void* user_data) noexcept {
-  auto* manager = static_cast<objects::manager*>(user_data);
-  if (manager == nullptr || instance == nullptr || manager->find(instance->id()) != instance) {
-    return object_guid::nil();
-  }
-
-  return manager->guid_of(instance->id());
-}
-
-[[nodiscard]] inline object* manager_guid_to_object(object_guid guid, void* user_data) noexcept {
-  auto* manager = static_cast<objects::manager*>(user_data);
-  return manager != nullptr ? manager->find(guid) : nullptr;
-}
-
-} // namespace detail
-
-/** @brief 使用对象生命周期管理器创建对象引用 resolver。 */
-[[nodiscard]] inline reference_resolver
-make_reference_resolver(objects::manager& manager) noexcept {
-  return reference_resolver{
-      &detail::manager_object_to_id,
-      &detail::manager_id_to_object,
-      &manager,
-      reference_identity::runtime_id,
-      nullptr,
-      nullptr,
-  };
-}
-
-/** @brief 使用对象生命周期管理器和对象索引创建持久对象引用 resolver。 */
-[[nodiscard]] inline reference_resolver
-make_persistent_reference_resolver(objects::manager& manager) noexcept {
-  return reference_resolver{
-      nullptr,
-      nullptr,
-      &manager,
-      reference_identity::persistent_guid,
-      &detail::manager_object_to_guid,
-      &detail::manager_guid_to_object,
-  };
-}
-
 /**
  * @brief 单次序列化调度上下文。
  *
@@ -201,20 +126,14 @@ make_persistent_reference_resolver(objects::manager& manager) noexcept {
  */
 struct context {
   field_options fields{};
-  reference_options references{};
   external_ref_options external_refs{};
-  object_options objects{};
+  factory_options factories{};
   memory_options memory{};
   storage_options storage{};
   polymorphic_options polymorphic{};
 
   [[nodiscard]] std::uint32_t effective_schema_version() const noexcept {
     return fields.schema_version;
-  }
-
-  [[nodiscard]] const serialization::reference_resolver*
-  effective_reference_resolver() const noexcept {
-    return references.object_resolver;
   }
 
   [[nodiscard]] const serialization::external_ref_resolver*
@@ -235,8 +154,8 @@ struct context {
     return storage.string_view_storage;
   }
 
-  [[nodiscard]] objects::manager* effective_object_manager() const noexcept {
-    return objects.manager;
+  [[nodiscard]] const serialization::object_factory* effective_object_factory() const noexcept {
+    return factories.object_factory;
   }
 
   [[nodiscard]] memory::memory_resource* effective_memory_resource() const noexcept {

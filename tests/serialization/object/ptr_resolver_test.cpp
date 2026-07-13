@@ -12,13 +12,9 @@ TEST_CASE("serialization - deserializes object pointers through resolver", "[ser
 
   object_ptr_target target;
   object_ptr_resolver_data resolver_data{caors::object_id{88}, &target};
-  const caors::serialization::reference_resolver resolver{
-      &resolve_object_id,
-      &resolve_object,
-      &resolver_data,
-  };
+  const caors::object_ref_resolver resolver = make_test_object_ref_resolver(resolver_data);
   caors::serialization::context context{};
-  context.references.object_resolver = &resolver;
+  context.external_refs.resolver = &resolver;
 
   caors::variant::object_type members;
   members.push_back(caors::value::variant_member{
@@ -57,13 +53,9 @@ TEST_CASE("serialization - object pointer resolver failures are reported", "[ser
   CHECK(missing_resolver.status.value() == caors::errc::invalid_argument);
 
   object_ptr_resolver_data resolver_data{caors::object_id{99}, nullptr};
-  const caors::serialization::reference_resolver resolver{
-      &resolve_object_id,
-      &resolve_object,
-      &resolver_data,
-  };
+  const caors::object_ref_resolver resolver = make_test_object_ref_resolver(resolver_data);
   caors::serialization::context context{};
-  context.references.object_resolver = &resolver;
+  context.external_refs.resolver = &resolver;
 
   caors::variant::object_type members;
   members.push_back(caors::value::variant_member{
@@ -80,13 +72,10 @@ TEST_CASE("serialization - object pointer resolver failures are reported", "[ser
 
   other_object_ptr_target other;
   object_ptr_resolver_data wrong_type_data{caors::object_id{100}, &other};
-  const caors::serialization::reference_resolver wrong_type_resolver{
-      &resolve_object_id,
-      &resolve_object,
-      &wrong_type_data,
-  };
+  const caors::object_ref_resolver wrong_type_resolver =
+      make_test_object_ref_resolver(wrong_type_data);
   caors::serialization::context wrong_type_context{};
-  wrong_type_context.references.object_resolver = &wrong_type_resolver;
+  wrong_type_context.external_refs.resolver = &wrong_type_resolver;
 
   caors::variant::object_type wrong_type_members;
   wrong_type_members.push_back(caors::value::variant_member{
@@ -112,13 +101,9 @@ TEST_CASE("serialization - serializes object pointers through resolver", "[seria
 
   object_ptr_target target;
   object_ptr_resolver_data resolver_data{caors::object_id{77}, &target};
-  const caors::serialization::reference_resolver resolver{
-      &resolve_object_id,
-      &resolve_object,
-      &resolver_data,
-  };
+  const caors::object_ref_resolver resolver = make_test_object_ref_resolver(resolver_data);
   caors::serialization::context context{};
-  context.references.object_resolver = &resolver;
+  context.external_refs.resolver = &resolver;
   const object_ptr_actor actor{caors::object_ptr<object_ptr_target>{&target}};
 
   const caors::serialization::serialization_text_result text =

@@ -12,13 +12,9 @@ TEST_CASE("serialization - deserializes object pointers inside vectors", "[seria
 
   object_ptr_target target;
   object_ptr_resolver_data resolver_data{caors::object_id{88}, &target};
-  const caors::serialization::reference_resolver resolver{
-      &resolve_object_id,
-      &resolve_object,
-      &resolver_data,
-  };
+  const caors::object_ref_resolver resolver = make_test_object_ref_resolver(resolver_data);
   caors::serialization::context context{};
-  context.references.object_resolver = &resolver;
+  context.external_refs.resolver = &resolver;
 
   object_ptr_vector_actor actor{};
   const caors::error result = caors::deserialize_json(context, actor, R"({"targets":[88,0]})");
@@ -40,13 +36,9 @@ TEST_CASE("serialization - serializes object pointers inside vectors", "[seriali
 
   object_ptr_target target;
   object_ptr_resolver_data resolver_data{caors::object_id{77}, &target};
-  const caors::serialization::reference_resolver resolver{
-      &resolve_object_id,
-      &resolve_object,
-      &resolver_data,
-  };
+  const caors::object_ref_resolver resolver = make_test_object_ref_resolver(resolver_data);
   caors::serialization::context context{};
-  context.references.object_resolver = &resolver;
+  context.external_refs.resolver = &resolver;
 
   object_ptr_vector_actor actor{};
   actor.targets.push_back(caors::object_ptr<object_ptr_target>{&target});

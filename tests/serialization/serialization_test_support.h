@@ -438,6 +438,45 @@ inline void require_object_ptr_vector_actor_metadata() {
   return data->instance;
 }
 
+[[nodiscard]] inline bool encode_object_ref(const void* instance, caors::type_id type,
+                                            caors::serialization::external_ref& ref,
+                                            void* user_data) {
+  const auto* data = static_cast<const object_ptr_resolver_data*>(user_data);
+  ref = caors::objects::make_object_external_ref(caors::object_id{}, type);
+  if (instance == nullptr) {
+    return true;
+  }
+
+  if (data == nullptr || instance != data->instance) {
+    return false;
+  }
+
+  ref = caors::objects::make_object_external_ref(data->id, type);
+  return true;
+}
+
+[[nodiscard]] inline void* resolve_object_ref(const caors::serialization::external_ref& ref,
+                                              void* user_data) {
+  const auto* data = static_cast<const object_ptr_resolver_data*>(user_data);
+  if (data == nullptr || ref.domain != caors::objects::object_ref_domain() ||
+      ref.identity != caors::serialization::external_ref_identity::integer ||
+      caors::object_id{ref.integer_id} != data->id) {
+    return nullptr;
+  }
+
+  return data->instance;
+}
+
+[[nodiscard]] inline caors::object_ref_resolver
+make_test_object_ref_resolver(object_ptr_resolver_data& data) {
+  return caors::object_ref_resolver{
+      &resolve_object_ref,
+      &data,
+      caors::serialization::external_ref_identity::integer,
+      &encode_object_ref,
+  };
+}
+
 class numeric_field_writer final : public caors::serialization::writer {
 public:
   [[nodiscard]] caors::serialization::format_features features() const noexcept override {

@@ -17,9 +17,8 @@ class object;
 /**
  * @brief 非拥有对象指针。
  *
- * `objects::ptr<T>` 只保存对象指针，不延长对象生命周期。序列化时它通过
- * `serialization::reference_resolver` 转换为 `object_id`，反序列化时再从 `object_id`
- * 解析回对象指针。
+ * `objects::ptr<T>` 只保存对象指针，不延长对象生命周期。序列化时它通过对象引用 resolver
+ * 转换为 `object_id` 或 `object_guid`，反序列化时再解析回对象指针。
  */
 template <typename T> class ptr {
   static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");

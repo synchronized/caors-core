@@ -29,10 +29,10 @@ TEST_CASE("serialization - roundtrips object pointer graphs through persistent g
   REQUIRE(primary != nullptr);
   REQUIRE(secondary != nullptr);
 
-  const caors::serialization::reference_resolver resolver =
-      caors::serialization::make_persistent_reference_resolver(manager);
+  const caors::object_ref_resolver resolver =
+      caors::make_persistent_object_ref_resolver(manager);
   caors::serialization::context context{};
-  context.references.object_resolver = &resolver;
+  context.external_refs.resolver = &resolver;
 
   object_ptr_graph_actor graph{};
   graph.primary.reset(primary);
@@ -87,10 +87,10 @@ TEST_CASE("serialization - roundtrips object pointer graphs through runtime ids"
 
   const caors::object_id primary_id = primary->id();
   const caors::object_id secondary_id = secondary->id();
-  const caors::serialization::reference_resolver resolver =
-      caors::serialization::make_reference_resolver(manager);
+  const caors::object_ref_resolver resolver =
+      caors::make_object_ref_resolver(manager);
   caors::serialization::context context{};
-  context.references.object_resolver = &resolver;
+  context.external_refs.resolver = &resolver;
 
   object_ptr_graph_actor graph{};
   graph.primary.reset(primary);

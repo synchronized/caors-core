@@ -38,10 +38,14 @@ int main() {
     return 1;
   }
 
-  const caors::serialization::reference_resolver resolver =
-      caors::serialization::make_reference_resolver(manager);
-  const caors::object_id id = resolver.object_to_id(player, resolver.user_data);
-  caors::object* resolved = resolver.id_to_object(id, resolver.user_data);
+  const caors::object_ref_resolver resolver = caors::make_object_ref_resolver(manager);
+  caors::serialization::external_ref ref{};
+  if (!resolver.encode_ref(player, player->type_id(), ref)) {
+    return 1;
+  }
+
+  const caors::object_id id{ref.integer_id};
+  auto* resolved = static_cast<caors::object*>(resolver(ref));
 
   std::cout << "managed object id: " << id.value() << '\n';
   std::cout << "typed handle alive: " << (manager.find(typed) != nullptr) << '\n';

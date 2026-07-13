@@ -18,8 +18,9 @@ TEST_CASE("serialization - polymorphic object rejects wrong declared base", "[se
   REQUIRE(value.succeeded());
 
   caors::objects::manager manager;
+  const caors::object_factory factory = caors::make_object_factory(manager);
   caors::serialization::context context{};
-  context.objects.manager = &manager;
+  context.factories.object_factory = &factory;
 
   const caors::result<caors::objects::object*> decoded =
       caors::serialization::deserialize_polymorphic_object(context, enemy::static_type_id(),
@@ -61,8 +62,9 @@ TEST_CASE("serialization - polymorphic object requires manager and rolls back fa
   level->value = caors::variant::from("not an integer");
 
   caors::objects::manager manager;
+  const caors::object_factory factory = caors::make_object_factory(manager);
   caors::serialization::context context{};
-  context.objects.manager = &manager;
+  context.factories.object_factory = &factory;
 
   const caors::result<actor*> failed =
       caors::serialization::deserialize_polymorphic_object<actor>(context, value.value);
@@ -111,8 +113,9 @@ TEST_CASE("serialization - polymorphic object roundtrips through manager resourc
   require_metadata();
 
   caors::objects::manager manager;
+  const caors::object_factory factory = caors::make_object_factory(manager);
   caors::serialization::context context{};
-  context.objects.manager = &manager;
+  context.factories.object_factory = &factory;
 
   player player_value{};
   player_value.level = 9;

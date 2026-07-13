@@ -8,18 +8,29 @@
 #include "caors/core/string_name.h"
 #include "caors/meta/type_id.h"
 
+#include <cstdint>
+
 namespace caors::serialization {
 
+/** @brief 外部引用使用的身份值种类。 */
+enum class external_ref_identity {
+  guid,
+  integer,
+};
+
 /**
- * @brief 外部稳定引用。
+ * @brief 外部引用。
  *
- * 序列化核心只理解“某个引用域中的稳定 GUID”。具体域由上层模块解释，例如资源模块使用
- * `domain == "resource"`，对象系统后续可使用 `domain == "object"`。
+ * 序列化核心只理解“某个引用域中的身份值”。具体域由上层模块解释，例如资源模块使用
+ * `domain == "resource"` 和稳定 GUID，对象系统可以使用 `domain == "object"` 并按上下文选择
+ * 运行期整数 id 或持久 GUID。
  */
 struct external_ref {
   string_name domain{};
   guid id{};
   type_id type{};
+  std::uint64_t integer_id = 0;
+  external_ref_identity identity = external_ref_identity::guid;
 };
 
 /** @brief 外部引用读回后的解析策略。 */
@@ -30,17 +41,26 @@ enum class external_ref_resolution {
 };
 
 using external_ref_resolve_fn = void* (*)(const external_ref& ref, void* user_data);
+using external_ref_encode_fn = bool (*)(const void* instance, type_id type, external_ref& ref,
+                                        void* user_data);
 using external_ref_collect_fn = void (*)(const external_ref& ref, void* user_data);
 
 /** @brief 外部引用解析函数表。 */
 struct external_ref_resolver {
   external_ref_resolve_fn resolve = nullptr;
   void* user_data = nullptr;
+  external_ref_identity identity = external_ref_identity::guid;
+  external_ref_encode_fn encode = nullptr;
 
   [[nodiscard]] constexpr bool can_resolve() const noexcept { return resolve != nullptr; }
+  [[nodiscard]] constexpr bool can_encode() const noexcept { return encode != nullptr; }
 
   [[nodiscard]] void* operator()(const external_ref& ref) const {
     return resolve != nullptr ? resolve(ref, user_data) : nullptr;
+  }
+
+  [[nodiscard]] bool encode_ref(const void* instance, type_id type, external_ref& ref) const {
+    return encode != nullptr && encode(instance, type, ref, user_data);
   }
 };
 
