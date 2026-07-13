@@ -9,7 +9,7 @@ using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - deserializes vector fields from arrays", "[serialization]") {
   REQUIRE(reflection_result_ok(
-      ((void)caors::meta::type_<vector_actor>("caors.test.serialization.vector_actor"),
+      ((void)caors::meta::class_<vector_actor>("caors.test.serialization.vector_actor"),
        caors::reflection::class_<vector_actor>())
           .field("scores", &vector_actor::scores)
           .commit()));
@@ -43,7 +43,7 @@ using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - recursively serializes codec values inside vectors", "[serialization]") {
   REQUIRE(reflection_result_ok(
-      ((void)caors::meta::type_<guid_vector_actor>("caors.test.serialization.guid_vector_actor"),
+      ((void)caors::meta::class_<guid_vector_actor>("caors.test.serialization.guid_vector_actor"),
        caors::reflection::class_<guid_vector_actor>())
           .field("ids", &guid_vector_actor::ids)
           .commit()));
@@ -84,7 +84,7 @@ TEST_CASE("serialization - recursively serializes codec values inside vectors", 
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - recursively serializes nested vector values", "[serialization]") {
-  REQUIRE(reflection_result_ok(((void)caors::meta::type_<nested_vector_values_actor>(
+  REQUIRE(reflection_result_ok(((void)caors::meta::class_<nested_vector_values_actor>(
                                     "caors.test.serialization.nested_vector_values_actor"),
                                 caors::reflection::class_<nested_vector_values_actor>())
                                    .field("groups", &nested_vector_values_actor::groups)
@@ -128,13 +128,13 @@ using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - recursively serializes vector struct elements", "[serialization]") {
   REQUIRE(reflection_result_ok(
-      ((void)caors::meta::type_<nested_stats>("caors.test.serialization.nested_stats"),
+      ((void)caors::meta::class_<nested_stats>("caors.test.serialization.nested_stats"),
        caors::reflection::class_<nested_stats>())
           .field("level", &nested_stats::level)
           .field("score", &nested_stats::score)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<nested_stats>().commit()));
-  REQUIRE(reflection_result_ok(((void)caors::meta::type_<nested_vector_actor>(
+  REQUIRE(reflection_result_ok(((void)caors::meta::class_<nested_vector_actor>(
                                     "caors.test.serialization.nested_vector_actor"),
                                 caors::reflection::class_<nested_vector_actor>())
                                    .field("stats", &nested_vector_actor::stats)
@@ -229,7 +229,7 @@ using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - serializes vector fields as arrays", "[serialization]") {
   REQUIRE(reflection_result_ok(
-      ((void)caors::meta::type_<vector_actor>("caors.test.serialization.vector_actor"),
+      ((void)caors::meta::class_<vector_actor>("caors.test.serialization.vector_actor"),
        caors::reflection::class_<vector_actor>())
           .field("scores", &vector_actor::scores)
           .commit()));

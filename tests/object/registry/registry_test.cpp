@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 鍘熸祴璇曟枃浠讹細object_registry_direct_creation_supports_constructor_arguments_test.cpp
+// 原测试文件：object_registry_direct_creation_supports_constructor_arguments_test.cpp
 
 #include "object_test_common.h"
 
@@ -20,7 +20,7 @@ TEST_CASE("object - direct creation supports constructor arguments", "[object]")
   CHECK(tracking.statistics().bytes_in_use == 0);
 }
 
-// 鍘熸祴璇曟枃浠讹細object_registry_non_default_constructible_types_can_be_described_but_not_factory_created_test.cpp
+// 原测试文件：object_registry_non_default_constructible_types_can_be_described_but_not_factory_created_test.cpp
 
 #include "object_test_common.h"
 
@@ -39,7 +39,7 @@ TEST_CASE("object - non default constructible types can be described but not fac
   CHECK(registry.create<registered_non_default_object>() == nullptr);
 }
 
-// 鍘熸祴璇曟枃浠讹細object_registry_registry_checks_parent_relationship_test.cpp
+// 原测试文件：object_registry_registry_checks_parent_relationship_test.cpp
 
 #include "object_test_common.h"
 
@@ -62,7 +62,7 @@ TEST_CASE("object - registry checks parent relationship", "[object]") {
   CHECK_FALSE(caors::objects::is_a(actor_type.id(), player_type.id()));
 }
 
-// 鍘熸祴璇曟枃浠讹細object_registry_registry_creates_and_destroys_registered_objects_test.cpp
+// 原测试文件：object_registry_registry_creates_and_destroys_registered_objects_test.cpp
 
 #include "object_test_common.h"
 
@@ -88,7 +88,7 @@ TEST_CASE("object - registry creates and destroys registered objects", "[object]
   CHECK(tracking.statistics().bytes_in_use == 0);
 }
 
-// 鍘熸祴璇曟枃浠讹細object_registry_registry_registers_and_finds_types_test.cpp
+// 原测试文件：object_registry_registry_registers_and_finds_types_test.cpp
 
 #include "object_test_common.h"
 
@@ -112,7 +112,7 @@ TEST_CASE("object - registry registers and finds types", "[object]") {
   CHECK(by_name.id() == registry_actor::static_type_id());
 }
 
-// 鍘熸祴璇曟枃浠讹細object_registry_registry_reports_duplicate_type_guid_test.cpp
+// 原测试文件：object_registry_registry_reports_duplicate_type_guid_test.cpp
 
 #include "object_test_common.h"
 
@@ -125,7 +125,7 @@ TEST_CASE("object - registry reports duplicate type guid", "[object]") {
         object_error(caors::errc::duplicate_guid));
 }
 
-// 鍘熸祴璇曟枃浠讹細object_registry_registry_reports_registration_errors_test.cpp
+// 原测试文件：object_registry_registry_reports_registration_errors_test.cpp
 
 #include "object_test_common.h"
 
@@ -142,7 +142,7 @@ TEST_CASE("object - registry reports registration errors", "[object]") {
         object_error(caors::errc::duplicate_name));
 }
 
-// 鍘熸祴璇曟枃浠讹細object_registry_type_guid_can_be_provided_by_object_subclass_test.cpp
+// 原测试文件：object_registry_type_guid_can_be_provided_by_object_subclass_test.cpp
 
 #include "object_test_common.h"
 

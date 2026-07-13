@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 鍘熸祴璇曟枃浠讹細object_manager_basic_manager_clear_releases_objects_and_invalidates_handles_test.cpp
+// 原测试文件：object_manager_basic_manager_clear_releases_objects_and_invalidates_handles_test.cpp
 
 #include "object_test_common.h"
 
@@ -44,7 +44,7 @@ TEST_CASE("object - manager clear releases objects and invalidates handles", "[o
   CHECK(tracking.statistics().bytes_in_use == 0);
 }
 
-// 鍘熸祴璇曟枃浠讹細object_manager_basic_manager_owns_objects_and_resolves_handles_test.cpp
+// 原测试文件：object_manager_basic_manager_owns_objects_and_resolves_handles_test.cpp
 
 #include "object_test_common.h"
 
@@ -90,7 +90,7 @@ TEST_CASE("object - manager owns objects and resolves handles", "[object]") {
   CHECK(tracking.statistics().bytes_in_use == 0);
 }
 
-// 鍘熸祴璇曟枃浠讹細object_manager_basic_manager_rejects_unregistered_and_foreign_objects_test.cpp
+// 原测试文件：object_manager_basic_manager_rejects_unregistered_and_foreign_objects_test.cpp
 
 #include "object_test_common.h"
 
@@ -111,7 +111,7 @@ TEST_CASE("object - manager rejects unregistered and foreign objects", "[object]
   CHECK(manager.find(external.id()) == nullptr);
 }
 
-// 鍘熸祴璇曟枃浠讹細object_manager_basic_manager_supports_registered_non_default_constructible_objects_test.cpp
+// 原测试文件：object_manager_basic_manager_supports_registered_non_default_constructible_objects_test.cpp
 
 #include "object_test_common.h"
 

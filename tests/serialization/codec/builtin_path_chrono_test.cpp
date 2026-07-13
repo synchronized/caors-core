@@ -10,7 +10,7 @@ using namespace caors::tests::serialization::builtin_path_chrono;
 TEST_CASE("serialization - built in codecs roundtrip chrono values as integers",
           "[serialization]") {
   REQUIRE(reflection_result_ok(
-      ((void)caors::meta::type_<codec_chrono_actor>("caors.test.serialization.codec_chrono_actor"),
+      ((void)caors::meta::class_<codec_chrono_actor>("caors.test.serialization.codec_chrono_actor"),
        caors::reflection::class_<codec_chrono_actor>())
           .field("timeout", &codec_chrono_actor::timeout)
           .field("timestamp", &codec_chrono_actor::timestamp)
@@ -57,7 +57,7 @@ using namespace caors::tests::serialization::builtin_path_chrono;
 TEST_CASE("serialization - built in codecs roundtrip filesystem paths as strings",
           "[serialization]") {
   REQUIRE(reflection_result_ok(
-      ((void)caors::meta::type_<codec_path_actor>("caors.test.serialization.codec_path_actor"),
+      ((void)caors::meta::class_<codec_path_actor>("caors.test.serialization.codec_path_actor"),
        caors::reflection::class_<codec_path_actor>())
           .field("path", &codec_path_actor::path)
           .commit()));
@@ -110,7 +110,7 @@ TEST_CASE("serialization - built in codecs survive late meta type registration",
   CHECK_FALSE(caors::meta::find<std::chrono::seconds>());
 
   require_registered_type<std::chrono::seconds>("std.chrono.seconds");
-  REQUIRE(reflection_result_ok(((void)caors::meta::type_<late_builtin_codec_actor>(
+  REQUIRE(reflection_result_ok(((void)caors::meta::class_<late_builtin_codec_actor>(
                                     "caors.test.serialization.late_builtin_codec_actor"),
                                 caors::reflection::class_<late_builtin_codec_actor>())
                                    .field("timeout", &late_builtin_codec_actor::timeout)

@@ -228,10 +228,10 @@ struct holder {
   caors::memory::unique_ptr<actor> owner;
 };
 
-caors::meta::type_<actor>("game.actor")
+caors::meta::class_<actor>("game.actor")
     .guid(actor_guid);
 
-caors::meta::type_<player>("game.player")
+caors::meta::class_<player>("game.player")
     .guid(player_guid)
     .parent<actor>();
 
@@ -239,9 +239,9 @@ caors::reflection::class_<player>()
     .field("level", &player::level)
     .commit();
 
-caors::meta::type_<caors::memory::unique_ptr<actor>>("caors.memory.unique_ptr<game.actor>");
+caors::meta::class_<caors::memory::unique_ptr<actor>>("caors.memory.unique_ptr<game.actor>");
 
-caors::meta::type_<holder>("game.holder");
+caors::meta::class_<holder>("game.holder");
 
 caors::reflection::class_<holder>()
     .field("owner", &holder::owner)
@@ -279,7 +279,7 @@ caors::serialization::class_<holder>().commit();
 void* construct_player(caors::memory_resource* resource);
 void destroy_player(caors::memory_resource* resource, void* value) noexcept;
 
-caors::meta::type_<player>("game.player")
+caors::meta::class_<player>("game.player")
     .guid(player_guid)
     .parent<actor>()
     .factory(&construct_player, &destroy_player);
@@ -654,7 +654,7 @@ codec 和 meta descriptor 的边界：
   因此只要 `codec_traits<T>` 特化在生成该 descriptor 的翻译单元可见，就不需要额外注册 codec。
 - 运行期只剩 `type_id` 时，`serialization::find_codec(type_id)` 会先通过全局 meta registry 查询对应
   `meta::type` 视图，再从该视图的 descriptor 静态能力中取得 codec。因此需要按 `type_id` 查 codec 的类型，
-  应先通过 `meta::type_<T>("name")` 注册或确保 descriptor 已进入 meta registry。
+  应先通过 `meta::class_<T>("name")` 注册或确保 descriptor 已进入 meta registry。
 
 内置 codec 和默认 traits 处理：
 
@@ -698,7 +698,7 @@ descriptor 静态 codec 能力；运行期只剩 `type_id` 时也会先回到 me
 `traits::sequence_traits<T>`、`traits::set_traits<T>`、`traits::associative_traits<T>`、`traits::pair_traits<T>`、`traits::tuple_traits<T>` 或
 `traits::variant_traits<T>` 生成运行期访问能力，序列化层随后按元素、key、first、候选下标和 value 递归处理。
 递归用到的业务类型如果需要稳定名称、GUID、反射字段、多态构造或对象工厂，仍应通过
-`meta::type_<T>("name")` 显式注册。自定义容器扩展示例：
+`meta::class_<T>("name")` 显式注册。自定义容器扩展示例：
 
 ```cpp
 namespace caors::traits {
@@ -728,7 +728,7 @@ DOM reader 同时接受 `variant::dictionary` 和 pair 数组形态。普通 `st
 
 外部类型可以通过特化 `serialization::codec_traits<T>` 把某个类型作为原子值处理。编译期已知 `T`
 时可直接使用 `serialization::codec_of<T>()`；需要按 `type_id` 查询时，应先通过
-`meta::type_<T>("name")` 注册对应 C++ 类型，让 meta registry 能从 `type_id` 找到携带 descriptor
+`meta::class_<T>("name")` 注册对应 C++ 类型，让 meta registry 能从 `type_id` 找到携带 descriptor
 静态能力的 `meta::type`。codec 可以分别提供 writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认逻辑或返回不支持。
 带 context 的 codec 扩展点同样使用 context-first 形式；如果 codec 只需要上下文路径，可以只提供
 context-first 版本：
@@ -779,7 +779,7 @@ template <> struct codec_traits<custom_value> {
 - 当 `std::unique_ptr<Base>`、`caors::memory::unique_ptr<Base>`、`std::shared_ptr<Base>`
   或 `objects::ref<Base>`
   实际持有已注册派生类对象时，序列化层会写出多态 envelope，默认字段名为 `$type` / `$value`。读回时要求派生类型可默认构造，
-  或已通过 `meta::type_<T>().factory()` 注册构造策略，并通过 wrapper 接管新对象。
+  或已通过 `meta::class_<T>().factory()` 注册构造策略，并通过 wrapper 接管新对象。
 - 如果反序列化上下文提供 `memory.resource`，`std::shared_ptr<T>`、
   `caors::memory::unique_ptr<T>` 和 `objects::ref<T>` 可以保存运行期销毁回调，让资源分配和释放匹配。普通
   `std::unique_ptr<T>` 使用标准 deleter，不能安全接管资源构造出的运行期派生对象，因此会回退到
@@ -843,7 +843,7 @@ template <> struct codec_traits<custom_value> {
 - `std::span<T>` / `std::span<T, N>` 已支持按借用数组视图写出和反射访问；默认不支持反序列化写回，
   避免序列化层隐式决定 backing storage 的分配、长度调整和生命周期。
 - 不可默认构造类型可以作为已有直接字段、已持有 wrapper 内部值或 `variant` 当前候选被写入；普通类多态
-  智能指针读回可以通过 `meta::type_<T>().factory()` 显式构造派生对象。其他需要序列化层自动实例化对象的路径
+  智能指针读回可以通过 `meta::class_<T>().factory()` 显式构造派生对象。其他需要序列化层自动实例化对象的路径
   会返回 `errc::invalid_type`，例如容器新增元素、空 `optional` 读入非空值、`variant`
   切换到不可默认构造候选。
 - `serialization::context::memory.resource` 会用于资源感知 `any` 默认构造、空 `std::shared_ptr<T>`、
@@ -959,7 +959,7 @@ auto serialization_type = caors::serialization::find(type);
 `serialize_text()` 使用已注册的反射字段读取对象：
 
 ```cpp
-caors::meta::type type = caors::meta::type_<actor>("game.actor").get();
+caors::meta::type type = caors::meta::class_<actor>("game.actor").get();
 
 caors::reflection::class_<actor>(type)
     .field("id", &actor::id)

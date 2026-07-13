@@ -18,6 +18,11 @@ struct runtime_actor {
   }
 };
 
+enum class runtime_state {
+  idle,
+  running,
+};
+
 } // namespace
 
 TEST_CASE("runtime facade - class builder registers meta and reflection", "[runtime]") {
@@ -61,4 +66,15 @@ TEST_CASE("runtime facade - class builder registers meta and reflection", "[runt
   auto* constructed = value.try_get_mutable<runtime_actor>();
   REQUIRE(constructed != nullptr);
   CHECK(constructed->health == 7);
+}
+
+TEST_CASE("runtime facade - enum builder registers meta enum", "[runtime]") {
+  const caors::error status =
+      caors::runtime::enum_<runtime_state>("caors.test.runtime.state").commit();
+  CHECK_FALSE(status);
+
+  caors::runtime::type type = caors::runtime::find<runtime_state>();
+  REQUIRE(type.valid());
+  CHECK(type.name() == "caors.test.runtime.state");
+  CHECK(type.kind() == caors::meta::type_kind::enumeration);
 }

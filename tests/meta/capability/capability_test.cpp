@@ -150,7 +150,7 @@ TEST_CASE("meta - capability registry stores runtime capabilities by type id", "
   const caors::type_id id = caors::meta::id_of<runtime_capability_type>();
 
   CHECK(caors::meta::capabilities::find<runtime_capability>(id) == nullptr);
-  REQUIRE(caors::meta::type_<runtime_capability_type>()
+  REQUIRE(caors::meta::class_<runtime_capability_type>()
               .capability<runtime_capability>(&capability)
               .succeeded());
 
@@ -173,7 +173,7 @@ TEST_CASE("meta - type builder stores owned runtime concept table", "[meta]") {
       &matrix_set,
   };
 
-  REQUIRE(caors::meta::type_<owned_matrix>().capability(local_capability).succeeded());
+  REQUIRE(caors::meta::class_<owned_matrix>().capability(local_capability).succeeded());
 
   const caors::type_id id = caors::meta::id_of<owned_matrix>();
   const matrix_capability* found = caors::meta::capabilities::find<matrix_capability>(id);
@@ -200,7 +200,7 @@ TEST_CASE("meta - capability static provider can be registered into runtime inde
   REQUIRE(capability != nullptr);
   CHECK(capability->value == 42);
 
-  REQUIRE(caors::meta::type_<static_capability_type>()
+  REQUIRE(caors::meta::class_<static_capability_type>()
               .capability<static_capability_data>()
               .succeeded());
 

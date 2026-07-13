@@ -79,7 +79,7 @@ TEST_CASE("object - descriptor exposes object capabilities", "[object]") {
 }
 
 TEST_CASE("object - reflected fields use descriptor object capabilities", "[object]") {
-  REQUIRE(((void)caors::meta::type_<capability_owner>("caors.test.object.capability_owner"),
+  REQUIRE(((void)caors::meta::class_<capability_owner>("caors.test.object.capability_owner"),
            caors::reflection::class_<capability_owner>())
               .field("pointer", &capability_owner::pointer)
               .field("handle", &capability_owner::handle)

@@ -11,7 +11,7 @@
 using namespace test_reflection;
 
 TEST_CASE("reflection - associative field view exposes key and value metadata", "[reflection]") {
-  REQUIRE(((void)caors::meta::type_<hash_map_holder>("caors.test.reflection.hash_map_holder"),
+  REQUIRE(((void)caors::meta::class_<hash_map_holder>("caors.test.reflection.hash_map_holder"),
            caors::reflection::class_<hash_map_holder>())
               .field("values", &hash_map_holder::values)
               .commit()
@@ -43,7 +43,7 @@ using namespace test_reflection;
 
 TEST_CASE("reflection - associative field view supports dynamic operations", "[reflection]") {
   REQUIRE(
-      ((void)caors::meta::type_<hash_map_ops_holder>("caors.test.reflection.hash_map_ops_holder"),
+      ((void)caors::meta::class_<hash_map_ops_holder>("caors.test.reflection.hash_map_ops_holder"),
        caors::reflection::class_<hash_map_ops_holder>())
           .field("values", &hash_map_ops_holder::values)
           .commit()
@@ -139,7 +139,7 @@ TEST_CASE("reflection - associative field view supports dynamic operations", "[r
 using namespace test_reflection;
 
 TEST_CASE("reflection - set field view exposes element metadata", "[reflection]") {
-  REQUIRE(((void)caors::meta::type_<hash_set_holder>("caors.test.reflection.hash_set_holder"),
+  REQUIRE(((void)caors::meta::class_<hash_set_holder>("caors.test.reflection.hash_set_holder"),
            caors::reflection::class_<hash_set_holder>())
               .field("values", &hash_set_holder::values)
               .commit()

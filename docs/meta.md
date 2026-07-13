@@ -65,14 +65,14 @@ std::string_view view = name.view();
 只保证当前进程内可用于注册表索引，不承诺跨进程、跨版本或跨动态库边界稳定。
 
 ```cpp
-caors::meta::type_<player>("game.player");
+caors::meta::class_<player>("game.player");
 caors::type_id id = caors::meta::id_of<player>();
 ```
 
 类型注册后，也可以通过名称查询当前进程内的运行期 id：
 
 ```cpp
-caors::meta::type_<player>("game.player");
+caors::meta::class_<player>("game.player");
 caors::type_id id = caors::meta::id("game.player");
 ```
 
@@ -92,7 +92,7 @@ caors::type_id id = caors::meta::id("game.player");
 
 ```cpp
 auto guid = caors::guid::parse("5ed39a97-7b20-4d87-86ac-e62a4a615b10");
-caors::meta::type_<player>("game.player")
+caors::meta::class_<player>("game.player")
     .guid(caors::type_guid{*guid});
 ```
 
@@ -117,10 +117,10 @@ meta 类型记录由全局注册表内部保存，普通代码不直接构造或
 `meta::type` 以 C++ 类型 descriptor 为基础：`meta::resolve<T>()` 和 `meta::id_of<T>()`
 可以为未显式注册的 C++ 类型返回 descriptor 视图和运行期 `type_id`。
 `size()` / `alignment()`、默认构造、复制、析构和赋值函数都来自 descriptor。
-`registered()` 表示该类型是否已经通过 `meta::type_<T>("name")` 写入稳定注册数据；只有已注册类型
+`registered()` 表示该类型是否已经通过 `meta::class_<T>("name")` 写入稳定注册数据；只有已注册类型
 才有稳定注册名、GUID、父类型和可挂载组件。
 `meta::find<T>()` 只查询已经注册的 C++ 类型；未注册类型即使能解析 descriptor，也会返回空视图。
-`meta::type_<T>()` 链式 builder 会原地更新全局注册表中已经保存的类型数据；已有 `meta::type`
+`meta::class_<T>()` 链式 builder 会原地更新全局注册表中已经保存的类型数据；已有 `meta::type`
 视图只引用这份稳定数据，不会因为后续 `.guid()` 或 `.parent()` 调用而失效。
 
 `meta::type` 是对外查询返回的只读视图：
@@ -155,12 +155,12 @@ caors::traits::type_name<float>::value; // "float"
 ```
 
 用户类型可以通过特化 `traits::type_name<T>` 提供 descriptor 默认显示名，也可以直接通过
-`meta::type_<T>("name")` 显式注册。默认显示名只用于字段、`any` 和容器视图的调试/展示回退，
+`meta::class_<T>("name")` 显式注册。默认显示名只用于字段、`any` 和容器视图的调试/展示回退，
 不等价于 meta 注册；模板注册入口会把 C++ 类型和注册后的 `meta::type` 绑定起来，后续可以用
 C++ 类型查询：
 
 ```cpp
-caors::meta::type_<actor>("game.actor");
+caors::meta::class_<actor>("game.actor");
 
 auto type = caors::meta::find<actor>();
 ```
@@ -168,14 +168,14 @@ auto type = caors::meta::find<actor>();
 也可以使用 RTTR 风格入口：
 
 ```cpp
-caors::meta::type_<actor>("game.actor")
+caors::meta::class_<actor>("game.actor")
     .guid(caors::type_guid{*guid});
 ```
 
 如果类型需要表达 C++ 继承关系，推荐使用 typed parent 注册：
 
 ```cpp
-caors::meta::type_<player>("game.player")
+caors::meta::class_<player>("game.player")
     .parent<actor>();
 ```
 
@@ -190,7 +190,7 @@ typed upcast 能力。
 void* construct_player(caors::memory_resource* resource);
 void destroy_player(caors::memory_resource* resource, void* value) noexcept;
 
-caors::meta::type_<player>("game.player")
+caors::meta::class_<player>("game.player")
     .guid(player_guid)
     .parent<actor>()
     .factory(&construct_player, &destroy_player);
@@ -203,7 +203,7 @@ caors::meta::type_<player>("game.player")
 `meta::type`，但 `registered()` 为 false。`caors::meta::find<T>()` 是 C++ 类型到已注册类型的入口，
 未注册时返回空视图。`caors::meta::find(id/name/guid)` 是运行期查询入口：按 `name` / `guid`
 只能找到已注册类型，按 `id` 可以找到已缓存的 descriptor 视图或已注册类型。
-普通业务类型仍应通过 `caors::meta::type_<T>("name")` 显式注册，再把得到的 `meta::type` 交给
+普通业务类型仍应通过 `caors::meta::class_<T>("name")` 显式注册，再把得到的 `meta::type` 交给
 对象、反射或序列化模块挂载组件。
 
 ### descriptor / registry / capability 边界
@@ -212,14 +212,14 @@ caors::meta::type_<player>("game.player")
 
 - 内部 descriptor 是编译期 C++ 类型描述。它描述某个 `T` 的 `type_id`、默认显示名、布局、构造 /
   析构 / 复制 / 赋值、类型语义，以及 CAORS 内置运行期访问能力。它不表示类型已经完成业务注册。
-- `meta::registry` 是注册后元数据和模块组件索引。只有显式 `meta::type_<T>("name")` 注册后的类型，
+- `meta::registry` 是注册后元数据和模块组件索引。只有显式 `meta::class_<T>("name")` 注册后的类型，
   才拥有稳定名称、GUID、父类型关系、factory、对象组件、反射组件和序列化组件等全局可查询数据。
 - descriptor static capability 用于类型固有能力。能力由模块在编译期按 `T` 生成，例如
   `objects::ptr<T>` 访问函数、对象 handle 函数表和 `codec_traits<T>` 生成的 codec 函数表。
   它们随 descriptor 一起查询，不要求类型先注册到 registry。
 - runtime capability 用于用户或插件扩展能力。它挂在 `type_id + capability_key` 的运行期索引上，
   适合矩阵、图、脚本桥接、编辑器扩展等 CAORS 不内置的 concept table。公开写入入口是
-  `meta::type_<T>().capability(ops)`，由 CAORS 持有 `ops` 生命周期。
+  `meta::class_<T>().capability(ops)`，由 CAORS 持有 `ops` 生命周期。
 
 默认查询顺序是：`meta::type::get_capability<C>()` 先查 descriptor static capability，再回退到
 runtime capability。普通调用方应使用这个统一入口，不直接关心能力来自 descriptor 还是运行期索引。
@@ -312,7 +312,7 @@ capability 索引。内部仍保留 `descriptor_static_capability<T>()` 给 desc
 `objects::ptr<T>`、`objects::handle`、`objects::object_factory_ops` 和 serialization codec 都通过
 `meta::type` 的统一入口查询能力。
 
-动态扩展能力通过 `meta::type_<T>().capability(ops)`、`meta::type_<T>().capability<Capability>()`
+动态扩展能力通过 `meta::class_<T>().capability(ops)`、`meta::class_<T>().capability<Capability>()`
 或内部稳定指针入口挂接到独立运行期索引；`meta::capabilities` 命名空间只保留静态能力提供者、
 运行期查询和诊断工具。`capability(ops)` 会把一份用户自定义 concept table 复制或移动到运行期索引中，
 由 CAORS 持有其生命周期；查询仍通过 `meta::type::get_capability<Capability>()` 或
@@ -326,9 +326,9 @@ capability 和 registry 的边界：
   句柄访问函数和 `codec_traits<T>` 生成的 codec 操作表。
 - `meta::capabilities` 运行期索引适合“只剩 `type_id`，但仍需要查询某种用户外挂运行期能力”的场景；
   内置 object / serialization 能力优先通过 type descriptor 静态能力查询。
-- 公开写入运行期索引时优先使用 `meta::type_<T>().capability(ops)`，让 CAORS 持有用户自定义
+- 公开写入运行期索引时优先使用 `meta::class_<T>().capability(ops)`，让 CAORS 持有用户自定义
   concept table。内部模块如果已经拥有进程生命周期的静态函数表，可以使用指针注册入口。
-  如果能力来自 `static_capability<Capability, T>`，可以使用 `meta::type_<T>().capability<Capability>()`。
+  如果能力来自 `static_capability<Capability, T>`，可以使用 `meta::class_<T>().capability<Capability>()`。
 - 普通调用方优先使用 `meta::type::get_capability<T>()`。该入口统一处理 descriptor 静态能力和运行期
   索引 fallback，避免业务代码分别理解两套存储位置。
 - capability 不是 meta 组件。它不拥有类型注册数据，也不表示该 C++ 类型已经注册到
@@ -353,14 +353,14 @@ descriptor 自身的 `type_id`；裸指针、wrapper、容器、pair、tuple 和
 但仍可通过字段、`any` / `any_ref` 或嵌套容器元素携带的 descriptor 使用布局、值操作和运行期视图能力。
 
 meta 不会因为存在 `traits::type_name<T>` 就在运行期隐式创建业务类型。需要稳定名称、GUID、对象工厂、
-反射字段列表或多态序列化身份的 C++ 类型仍应通过 `meta::type_<T>("name")` 显式注册。
+反射字段列表或多态序列化身份的 C++ 类型仍应通过 `meta::class_<T>("name")` 显式注册。
 
 ### meta::registry
 
 `meta::registry` 是进程级全局类型元数据注册表。它直接管理 meta 类型记录，并允许在同一个 `type_id` 上挂载对象、反射、序列化等元数据组件。普通代码不需要创建 registry 对象：
 
 ```cpp
-caors::error result = caors::meta::type_<actor>("game.actor").result();
+caors::error result = caors::meta::class_<actor>("game.actor").result();
 ```
 
 注册表只面向 C++ 类型。脚本或动态类型不应直接写入当前注册表，后续应放到独立系统，再由上层 resolver
@@ -374,7 +374,7 @@ registry 使用边界：
   反射字段列表、序列化字段配置或多态构造。
 - 不用 registry：只需要当前 C++ 类型的布局、构造/析构、容器视图、wrapper 视图、枚举转换、
   descriptor 静态 capability 或 `any` / `any_ref` 的局部值访问。
-- 模块注册入口应接收已经存在的 `meta::type`，或者由调用方先显式 `meta::type_<T>("name")` 注册业务
+- 模块注册入口应接收已经存在的 `meta::type`，或者由调用方先显式 `meta::class_<T>("name")` 注册业务
   类型。反射和序列化模块不应为了挂载组件隐式创建业务类型注册记录。
 - `meta::resolve<T>()` 返回 descriptor-backed 类型视图，未注册类型也可能有效；`registered()` 才表示
   registry 中已经存在稳定注册数据。
@@ -388,7 +388,7 @@ registry 使用边界：
 
 ```cpp
 void register_game_types() {
-  caors::meta::type_<actor>("game.actor");
+  caors::meta::class_<actor>("game.actor");
   caors::reflection::class_<actor>()
       .field("id", &actor::id)
       .commit();
@@ -405,7 +405,7 @@ int main() {
 
 ```cpp
 CAORS_META_REGISTRATION(register_actor_meta) {
-  caors::meta::type_<actor>("game.actor");
+  caors::meta::class_<actor>("game.actor");
 
   return caors::reflection::class_<actor>()
       .field("id", &actor::id)
@@ -447,7 +447,7 @@ struct object_factory_meta {
   bool constructible = false;
 };
 
-caors::meta::type_<actor>("game.actor");
+caors::meta::class_<actor>("game.actor");
 
 caors::type_id actor_id = caors::meta::find<actor>().id();
 caors::meta::get_registry().emplace<object_factory_meta>(actor_id, true);
@@ -460,7 +460,7 @@ struct my_ops {
   int value = 0;
 };
 
-caors::meta::type_<actor>("game.actor")
+caors::meta::class_<actor>("game.actor")
     .capability(my_ops{42});
 ```
 
@@ -473,7 +473,7 @@ struct matrix_ops {
   value::any_ref (*element)(void*, std::size_t, std::size_t) = nullptr;
 };
 
-caors::meta::type_<matrix>("math.matrix")
+caors::meta::class_<matrix>("math.matrix")
     .capability(matrix_ops{
         &matrix_rows,
         &matrix_columns,
@@ -488,7 +488,7 @@ if (const matrix_ops* ops = caors::meta::find<matrix>().get_capability<matrix_op
 如果能力由 `static_capability<Capability, T>` 提供，也可以只声明能力类型：
 
 ```cpp
-caors::meta::type_<actor>()
+caors::meta::class_<actor>()
     .capability<my_ops>();
 ```
 
@@ -555,10 +555,13 @@ append-only 语义，不支持组件替换；如果后续支持热重载，应�
 - `traits::wrapper_traits<T>` / `traits::wrapper_access<T>`：wrapper 类型语义和内部值访问扩展点。
 - `traits::sequence_traits<T>` / `traits::set_traits<T>` / `traits::associative_traits<T>` / `traits::pair_traits<T>` / `traits::tuple_traits<T>` / `traits::variant_traits<T>`：容器、二元组、tuple-like 和 variant-like 类型语义扩展点。
 - `meta::type`：descriptor-backed 类型只读视图，注册数据可选。
-- `meta::type_<T>()`：RTTR 风格的链式元类型注册入口；默认不注册类型，需要继续调用 `.type("name")`。
-- `meta::type_<T>("name")`：推荐的显式命名注册入口。
-- `meta::type_<T>().parent<Base>()`：保存 C++ 父类型关系和安全 upcast 回调。
-- `meta::type_<T>().factory()` / `.factory(construct, destroy)`：保存运行期值构造和销毁策略。
+- `meta::class_<T>()`：RTTR 风格的链式元类型注册入口；默认不注册类型，需要继续调用 `.type("name")`。
+- `meta::class_<T>("name")`：推荐的显式命名注册入口。
+- `meta::enum_<T>()`：RTTR 风格的枚举类型注册入口；默认不注册类型，需要继续调用 `.type("name")`。
+- `meta::enum_<T>("name")`：显式注册枚举类型，注册后 `meta::type::kind()` 为
+  `meta::type_kind::enumeration`。
+- `meta::class_<T>().parent<Base>()`：保存 C++ 父类型关系和安全 upcast 回调。
+- `meta::class_<T>().factory()` / `.factory(construct, destroy)`：保存运行期值构造和销毁策略。
 - `meta::registry`：全局 meta 类型注册、按 id/name/guid 或 C++ 类型查询、继承关系判断和组件式元数据挂载。
 - `meta::view<T...>`：按组件集合查询类型。
 - `meta::run_registrations()`：执行已收集的延迟元数据注册函数。

@@ -93,7 +93,7 @@ template <typename T>
  * @brief 异步资源加载请求视图。
  *
  * `load_request<T>` 是可拷贝的轻量句柄，多个副本共享同一个线程安全状态。后台任务会把加载结果提交到
- * `tasks::completion_queue`，调用方在主线程 drain 后再通过 `status()`、`error()` 和 `get()`
+ * `tasks::completion_queue`，调用方在主线程 drain 后再通过 `status()`、`error()` 和 `try_get()`
  * 查询结果。
  */
 template <typename T> class load_request {
@@ -174,8 +174,8 @@ public:
     return detail::load_request_access<T>::cancel(*this);
   }
 
-  /** @brief 返回加载完成后的强 handle。未完成或失败时返回空 handle。 */
-  [[nodiscard]] handle<T> get() const {
+  /** @brief 非阻塞尝试返回加载完成后的强 handle。未完成或失败时返回空 handle。 */
+  [[nodiscard]] handle<T> try_get() const {
     if (state_ == nullptr) {
       return {};
     }

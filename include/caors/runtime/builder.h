@@ -24,7 +24,7 @@ namespace caors::runtime {
 template <typename Class> class class_builder {
 public:
   explicit class_builder(std::string_view name)
-      : meta_builder_(meta::type_<Class>(name)), reflection_builder_(reflection::class_<Class>()) {
+      : meta_builder_(meta::class_<Class>(name)), reflection_builder_(reflection::class_<Class>()) {
     update_meta_status();
   }
 
@@ -115,7 +115,7 @@ private:
     }
   }
 
-  meta::type_builder<Class> meta_builder_;
+  meta::class_builder<Class> meta_builder_;
   reflection::class_builder<Class> reflection_builder_;
   error status_{};
 };
@@ -123,6 +123,47 @@ private:
 /** @brief 注册并描述一个 C++ 运行时类型。 */
 template <typename Class> [[nodiscard]] class_builder<Class> class_(std::string_view name) {
   return class_builder<Class>{name};
+}
+
+/** @brief 组合式运行时枚举注册构建器。 */
+template <typename Enum> class enum_builder {
+  static_assert(std::is_enum_v<std::remove_cv_t<std::remove_reference_t<Enum>>>,
+                "Enum must be an enum type");
+
+public:
+  explicit enum_builder(std::string_view name) : meta_builder_(meta::enum_<Enum>(name)) {
+    update_meta_status();
+  }
+
+  enum_builder& guid(type_guid guid_value) {
+    meta_builder_.guid(guid_value);
+    update_meta_status();
+    return *this;
+  }
+
+  enum_builder& guid(caors::guid guid_value) { return guid(type_guid{guid_value}); }
+
+  /** @brief 提交枚举注册；meta 类型在构造 builder 时已经注册。 */
+  [[nodiscard]] error commit() const noexcept { return status_; }
+
+  [[nodiscard]] runtime::type get() const noexcept { return runtime::type{meta_builder_.get()}; }
+  [[nodiscard]] error result() const noexcept { return status_; }
+  [[nodiscard]] bool succeeded() const noexcept { return !status_; }
+
+private:
+  void update_meta_status() {
+    if (!meta_builder_.succeeded()) {
+      status_ = meta_builder_.result();
+    }
+  }
+
+  meta::enum_builder<Enum> meta_builder_;
+  error status_{};
+};
+
+/** @brief 注册并描述一个 C++ 运行时枚举类型。 */
+template <typename Enum> [[nodiscard]] enum_builder<Enum> enum_(std::string_view name) {
+  return enum_builder<Enum>{name};
 }
 
 } // namespace caors::runtime

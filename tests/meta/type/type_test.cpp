@@ -30,7 +30,7 @@ TEST_CASE("meta type - descriptor id is available before explicit registration",
   CHECK(descriptor_value->layout.size == sizeof(anonymous_cpp_type));
   CHECK(descriptor_value->layout.alignment == alignof(anonymous_cpp_type));
 
-  REQUIRE(caors::meta::type_<anonymous_cpp_type>("caors.test.type.anonymous_cpp").result() ==
+  REQUIRE(caors::meta::class_<anonymous_cpp_type>("caors.test.type.anonymous_cpp").result() ==
           caors::error{});
 
   const caors::type_id first = caors::meta::id_of<anonymous_cpp_type>();
@@ -57,7 +57,7 @@ TEST_CASE("meta type - descriptor id is available before explicit registration",
 using namespace caors::tests::meta_type_basic;
 TEST_CASE("meta type view - describes layout", "[meta]") {
   constexpr std::string_view name = "caors.test.sample";
-  const caors::meta::type type = caors::meta::type_<sample_type>(name).get();
+  const caors::meta::type type = caors::meta::class_<sample_type>(name).get();
 
   CHECK(type.valid());
   CHECK(type.id());
@@ -87,7 +87,7 @@ TEST_CASE("meta type view - describes stable type guid", "[meta]") {
   const auto guid = caors::guid::parse("5ed39a97-7b20-4d87-86ac-e62a4a615b10");
   REQUIRE(guid.has_value());
 
-  const caors::meta::type type = caors::meta::type_<guid_sample_type>("caors.test.guid.sample")
+  const caors::meta::type type = caors::meta::class_<guid_sample_type>("caors.test.guid.sample")
                                      .guid(caors::type_guid{*guid})
                                      .get();
 
@@ -95,4 +95,19 @@ TEST_CASE("meta type view - describes stable type guid", "[meta]") {
   CHECK(type.id());
   CHECK(type.guid() == caors::type_guid{*guid});
   CHECK(type.guid().value.string() == "5ed39a97-7b20-4d87-86ac-e62a4a615b10");
+}
+
+enum class registered_enum_type {
+  first = 1,
+  second = 2,
+};
+
+TEST_CASE("meta enum - enum builder registers enum type", "[meta]") {
+  const caors::meta::type type =
+      caors::meta::enum_<registered_enum_type>("caors.test.enum.registered").get();
+
+  REQUIRE(type.valid());
+  CHECK(type.registered());
+  CHECK(type.kind() == caors::meta::type_kind::enumeration);
+  CHECK(type.name() == "caors.test.enum.registered");
 }

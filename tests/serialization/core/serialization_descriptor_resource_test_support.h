@@ -34,15 +34,15 @@ struct context_resource_holder {
 
 inline void require_context_resource_holder_metadata() {
   REQUIRE(type_result_ok(
-      caors::meta::type_<context_resource_value>("caors.test.serialization.context_resource_value")
+      caors::meta::class_<context_resource_value>("caors.test.serialization.context_resource_value")
           .result()));
 
-  REQUIRE(reflection_result_ok(((void)caors::meta::type_<context_resource_value>(
+  REQUIRE(reflection_result_ok(((void)caors::meta::class_<context_resource_value>(
                                     "caors.test.serialization.context_resource_value"),
                                 caors::reflection::class_<context_resource_value>())
                                    .field("value", &context_resource_value::value)
                                    .commit()));
-  REQUIRE(reflection_result_ok(((void)caors::meta::type_<context_resource_holder>(
+  REQUIRE(reflection_result_ok(((void)caors::meta::class_<context_resource_holder>(
                                     "caors.test.serialization.context_resource_holder"),
                                 caors::reflection::class_<context_resource_holder>())
                                    .field("unique", &context_resource_holder::unique)

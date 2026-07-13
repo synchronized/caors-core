@@ -318,7 +318,7 @@ auto request = caors::request_load_into(cache, loader, texture_id, executor, com
 completions.drain();
 
 if (request.loaded()) {
-  caors::resource_handle<texture> texture = request.get();
+  caors::resource_handle<texture> texture = request.try_get();
 }
 
 auto result = request.result();
@@ -373,7 +373,7 @@ if (request.loaded()) {
 
 - `queued`：请求已创建，但后台任务尚未开始。
 - `loading`：后台任务正在加载，或加载完成后等待主线程 commit。
-- `loaded`：主线程 commit 成功，`get()` 返回结果 handle。
+- `loaded`：主线程 commit 成功，`try_get()` 返回结果 handle。
 - `failed`：请求失败，`error()` 返回失败原因。
 - `cancelled`：请求已取消。已经开始的后台 loader 不会被强制中断，但后续 completion queue commit 会跳过，
   不再写入 cache。
@@ -382,7 +382,7 @@ if (request.loaded()) {
 
 - `cancel()`：queued/loading 状态可取消；loaded/failed/cancelled 状态返回 false。
 - `done()`：loaded、failed 或 cancelled 时返回 true。
-- `get()`：非阻塞；loaded 时返回结果 handle，未完成、失败或取消时返回空 handle。
+- `try_get()`：非阻塞；loaded 时返回结果 handle，未完成、失败或取消时返回空 handle。
 - `result()`：非阻塞；loaded 返回成功和结果 handle，queued/loading 返回 `resources / pending`，
   cancelled 返回 `resources / cancelled`，failed 返回原始错误。
 
@@ -419,7 +419,7 @@ if (request.loaded()) {
 - `load_request<T>` 自身状态查询是线程安全的。
 - `preload_request` 自身状态查询是线程安全的。
 - `completion_queue::drain()` 应在拥有 cache 的线程调用。
-- 第一版 `load_request<T>::get()` 和 `result()` 都不阻塞；等待、批量轮询和进度聚合后续再补。
+- 第一版 `load_request<T>::try_get()` 和 `result()` 都不阻塞；等待、批量轮询和进度聚合后续再补。
 - 第一版异步预加载只做批量提交和聚合状态，不做预加载内部同 GUID 请求合并、优先级、分层依赖等待或 loader
   内部进度上报。
 
@@ -433,7 +433,7 @@ struct material {
   caors::resource_ref<texture> albedo;
 };
 
-caors::meta::type_<caors::resource_ref<texture>>("game.resource_ref<game.texture>");
+caors::meta::class_<caors::resource_ref<texture>>("game.resource_ref<game.texture>");
 ```
 
 写出规则：

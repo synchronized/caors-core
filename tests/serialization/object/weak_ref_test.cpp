@@ -31,7 +31,7 @@ void require_weak_object_ref_target_metadata() {
   REQUIRE((object_status == caors::error{} || object_status.value() == caors::errc::duplicate_id));
 
   REQUIRE(reflection_result_ok(
-      ((void)caors::meta::type_<weak_object_ref_target>(weak_object_ref_target::object_type_name),
+      ((void)caors::meta::class_<weak_object_ref_target>(weak_object_ref_target::object_type_name),
        caors::reflection::class_<weak_object_ref_target>())
           .field("value", &weak_object_ref_target::value)
           .commit()));
@@ -41,7 +41,7 @@ void require_weak_object_ref_target_metadata() {
 void require_object_weak_ref_actor_metadata() {
   require_weak_object_ref_target_metadata();
 
-  REQUIRE(reflection_result_ok(((void)caors::meta::type_<object_weak_ref_actor>(
+  REQUIRE(reflection_result_ok(((void)caors::meta::class_<object_weak_ref_actor>(
                                     "caors.test.serialization.object_weak_ref_actor"),
                                 caors::reflection::class_<object_weak_ref_actor>())
                                    .field("observer", &object_weak_ref_actor::observer)

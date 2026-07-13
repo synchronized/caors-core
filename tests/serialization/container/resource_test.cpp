@@ -29,7 +29,7 @@ struct resource_propagation_holder {
 };
 
 void require_resource_propagation_holder_metadata() {
-  REQUIRE(reflection_result_ok(((void)caors::meta::type_<resource_propagation_holder>(
+  REQUIRE(reflection_result_ok(((void)caors::meta::class_<resource_propagation_holder>(
                                     "caors.test.serialization.resource_propagation_holder"),
                                 caors::reflection::class_<resource_propagation_holder>())
                                    .field("names", &resource_propagation_holder::names)

@@ -98,14 +98,14 @@ public:
 
 void require_async_resource_metadata() {
   REQUIRE(meta_result_ok(
-      caors::meta::type_<async_resource>("caors.test.resources.async_resource").result()));
+      caors::meta::class_<async_resource>("caors.test.resources.async_resource").result()));
 }
 
 void require_async_preload_metadata() {
   REQUIRE(meta_result_ok(
-      caors::meta::type_<texture_resource>("caors.test.resources.texture_resource").result()));
+      caors::meta::class_<texture_resource>("caors.test.resources.texture_resource").result()));
   REQUIRE(meta_result_ok(
-      caors::meta::type_<async_material_resource>("caors.test.resources.async_material_resource")
+      caors::meta::class_<async_material_resource>("caors.test.resources.async_material_resource")
           .result()));
 }
 
@@ -134,14 +134,14 @@ TEST_CASE("resources - async load commits loaded resource through completion que
   CHECK(completions.drain() == 1);
 
   REQUIRE(request.loaded());
-  REQUIRE(request.get());
+  REQUIRE(request.try_get());
   caors::resource_handle_result<async_resource> loaded = request.result();
   REQUIRE(loaded.succeeded());
   REQUIRE(loaded.value);
-  CHECK(loaded.value.get() == request.get().get());
-  CHECK(request.get()->guid() == test_guid_a);
-  CHECK(request.get()->value == 7);
-  CHECK(cache.find(test_guid_a) == request.get().get());
+  CHECK(loaded.value.get() == request.try_get().get());
+  CHECK(request.try_get()->guid() == test_guid_a);
+  CHECK(request.try_get()->value == 7);
+  CHECK(cache.find(test_guid_a) == request.try_get().get());
   CHECK(loader.load_count.load() == 1);
   CHECK_FALSE(request.cancel());
 }
@@ -160,8 +160,8 @@ TEST_CASE("resources - async load returns cached resource immediately", "[resour
       caors::request_load_into(cache, loader, test_guid_a, executor, completions);
 
   CHECK(request.loaded());
-  REQUIRE(request.get());
-  CHECK(request.get().get() == existing);
+  REQUIRE(request.try_get());
+  CHECK(request.try_get().get() == existing);
   CHECK(completions.empty());
   CHECK(loader.load_count.load() == 0);
 }
@@ -185,11 +185,11 @@ TEST_CASE("resources - async reload replaces cache and keeps old handle alive", 
   CHECK(completions.drain() == 1);
 
   REQUIRE(request.loaded());
-  REQUIRE(request.get());
-  CHECK(request.get().get() == cache.find(test_guid_a));
-  CHECK(request.get()->value == 2);
+  REQUIRE(request.try_get());
+  CHECK(request.try_get().get() == cache.find(test_guid_a));
+  CHECK(request.try_get()->value == 2);
   CHECK(old_handle->value == 1);
-  CHECK(old_handle.get() != request.get().get());
+  CHECK(old_handle.get() != request.try_get().get());
 }
 
 TEST_CASE("resources - async reload failure keeps existing resource", "[resources]") {
@@ -258,7 +258,7 @@ TEST_CASE("resources - async load cancellation prevents queued commit", "[resour
 
   REQUIRE(request.cancel());
   CHECK(request.cancelled());
-  CHECK(request.get() == nullptr);
+  CHECK(request.try_get() == nullptr);
   CHECK(request.result().status ==
         caors::error{caors::error_domain::resources, caors::errc::cancelled});
 
@@ -284,8 +284,8 @@ TEST_CASE("resources - database async load uses registered cache and loader", "[
   CHECK(request.status() == caors::resource_request_status::loading);
   CHECK(completions.drain() == 1);
   REQUIRE(request.loaded());
-  CHECK(database.find<async_resource>(test_guid_a) == request.get().get());
-  CHECK(request.get()->value == 9);
+  CHECK(database.find<async_resource>(test_guid_a) == request.try_get().get());
+  CHECK(request.try_get()->value == 9);
 }
 
 TEST_CASE("resources - database async load reuses pending request for same guid", "[resources]") {
@@ -313,15 +313,15 @@ TEST_CASE("resources - database async load reuses pending request for same guid"
 
   REQUIRE(first.loaded());
   REQUIRE(second.loaded());
-  REQUIRE(first.get());
-  CHECK(first.get().get() == second.get().get());
-  CHECK(first.get()->value == 21);
+  REQUIRE(first.try_get());
+  CHECK(first.try_get().get() == second.try_get().get());
+  CHECK(first.try_get()->value == 21);
   CHECK(loader.load_count.load() == 1);
 
   caors::resource_load_request<async_resource> cached =
       database.request_load<async_resource>(test_guid_a, executor, completions);
   REQUIRE(cached.loaded());
-  CHECK(cached.get().get() == first.get().get());
+  CHECK(cached.try_get().get() == first.try_get().get());
   CHECK(loader.load_count.load() == 1);
 }
 
@@ -412,10 +412,10 @@ TEST_CASE("resources - database async reload reuses pending request for same gui
 
   REQUIRE(first.loaded());
   REQUIRE(second.loaded());
-  REQUIRE(first.get());
-  CHECK(first.get().get() == second.get().get());
-  CHECK(first.get()->value == 22);
-  CHECK(first.get().get() == cache.find(test_guid_a));
+  REQUIRE(first.try_get());
+  CHECK(first.try_get().get() == second.try_get().get());
+  CHECK(first.try_get()->value == 22);
+  CHECK(first.try_get().get() == cache.find(test_guid_a));
   CHECK(loader.load_count.load() == 1);
 }
 
@@ -445,8 +445,8 @@ TEST_CASE("resources - async load can run background stage on thread pool", "[re
   CHECK(completions.drain() == 1);
 
   REQUIRE(request.loaded());
-  CHECK(request.get()->value == 13);
-  CHECK(cache.find(test_guid_a) == request.get().get());
+  CHECK(request.try_get()->value == 13);
+  CHECK(cache.find(test_guid_a) == request.try_get().get());
 }
 
 TEST_CASE("resources - database async preload dispatches manifest types", "[resources]") {

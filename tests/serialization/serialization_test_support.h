@@ -327,13 +327,13 @@ struct object_ptr_resolver_data {
 }
 
 template <typename T> void require_registered_type(std::string_view name) {
-  REQUIRE(type_result_ok(caors::meta::type_<T>(name).result()));
+  REQUIRE(type_result_ok(caors::meta::class_<T>(name).result()));
 }
 
 template <typename T>
 [[nodiscard]] caors::reflection::class_builder<T>
 registered_reflection_class(std::string_view name) {
-  REQUIRE(type_result_ok(caors::meta::type_<T>(name).result()));
+  REQUIRE(type_result_ok(caors::meta::class_<T>(name).result()));
   return caors::reflection::class_<T>();
 }
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 鍘熸祴璇曟枃浠讹細object_manager_guid_manager_binds_persistent_object_guids_through_index_test.cpp
+// 原测试文件：object_manager_guid_manager_binds_persistent_object_guids_through_index_test.cpp
 
 #include "object_test_common.h"
 
@@ -30,7 +30,7 @@ TEST_CASE("object - manager binds persistent object guids through index", "[obje
   CHECK(manager.find(test_object_guid_a) == nullptr);
 }
 
-// 鍘熸祴璇曟枃浠讹細object_manager_guid_manager_clear_unbinds_persistent_object_guids_test.cpp
+// 原测试文件：object_manager_guid_manager_clear_unbinds_persistent_object_guids_test.cpp
 
 #include "object_test_common.h"
 
@@ -61,7 +61,7 @@ TEST_CASE("object - manager clear unbinds persistent object guids", "[object]") 
   CHECK(manager.find(test_object_guid_b) == nullptr);
 }
 
-// 鍘熸祴璇曟枃浠讹細object_manager_guid_manager_rejects_duplicate_persistent_guid_bindings_test.cpp
+// 原测试文件：object_manager_guid_manager_rejects_duplicate_persistent_guid_bindings_test.cpp
 
 #include "object_test_common.h"
 
@@ -96,7 +96,7 @@ TEST_CASE("object - manager rejects duplicate persistent guid bindings", "[objec
   CHECK(index.empty());
 }
 
-// 鍘熸祴璇曟枃浠讹細object_manager_guid_manager_rejects_persistent_guid_operations_without_index_test.cpp
+// 原测试文件：object_manager_guid_manager_rejects_persistent_guid_operations_without_index_test.cpp
 
 #include "object_test_common.h"
 

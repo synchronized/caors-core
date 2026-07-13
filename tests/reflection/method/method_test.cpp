@@ -8,7 +8,7 @@
 using namespace test_reflection;
 using namespace caors::tests::reflection_method;
 TEST_CASE("reflection - class builder rejects duplicate method names", "[reflection]") {
-  CHECK(((void)caors::meta::type_<duplicate_method_actor>(
+  CHECK(((void)caors::meta::class_<duplicate_method_actor>(
              "caors.test.reflection.duplicate_method_actor"),
          caors::reflection::class_<duplicate_method_actor>())
             .method("update", &duplicate_method_actor::first)

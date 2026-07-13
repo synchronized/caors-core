@@ -63,12 +63,12 @@ void destroy_player(caors::memory_resource* resource, void* value) noexcept {
 }
 
 bool register_types() {
-  if (!check(caors::meta::type_<actor>("example.serialization.actor").guid(actor_guid).result(),
+  if (!check(caors::meta::class_<actor>("example.serialization.actor").guid(actor_guid).result(),
              "meta actor")) {
     return false;
   }
 
-  if (!check(caors::meta::type_<player>("example.serialization.player")
+  if (!check(caors::meta::class_<player>("example.serialization.player")
                  .guid(player_guid)
                  .parent<actor>()
                  .factory(&construct_player, &destroy_player)
@@ -78,7 +78,7 @@ bool register_types() {
   }
 
   if (!check(
-          caors::meta::type_<std::shared_ptr<actor>>("std.shared_ptr<example.serialization.actor>")
+          caors::meta::class_<std::shared_ptr<actor>>("std.shared_ptr<example.serialization.actor>")
               .result(),
           "meta shared_ptr")) {
     return false;
@@ -93,7 +93,7 @@ bool register_types() {
     return false;
   }
 
-  if (!check(((void)caors::meta::type_<scene>("example.serialization.scene"),
+  if (!check(((void)caors::meta::class_<scene>("example.serialization.scene"),
               caors::reflection::class_<scene>())
                  .field("owner", &scene::owner, "std.shared_ptr<example.serialization.actor>")
                  .commit(),

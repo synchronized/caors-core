@@ -9,7 +9,7 @@ using namespace test_reflection;
 
 TEST_CASE("reflection - class builder can attach to explicit meta type", "[reflection]") {
   const caors::meta::type type =
-      caors::meta::type_<explicit_meta_actor>("caors.test.reflection.explicit_meta_actor").get();
+      caors::meta::class_<explicit_meta_actor>("caors.test.reflection.explicit_meta_actor").get();
   REQUIRE(type.valid());
   CHECK(caors::meta::find<explicit_meta_actor>().id() == type.id());
 
@@ -29,7 +29,7 @@ TEST_CASE("reflection - class builder can attach to explicit meta type", "[refle
 TEST_CASE("reflection - class builder uses registered meta type without arguments",
           "[reflection]") {
   const caors::meta::type type =
-      caors::meta::type_<builder_actor>("caors.test.reflection.builder_actor.no_args").get();
+      caors::meta::class_<builder_actor>("caors.test.reflection.builder_actor.no_args").get();
   REQUIRE(type.valid());
 
   const caors::error status =
@@ -83,14 +83,14 @@ TEST_CASE("reflection - registry registers and finds types", "[reflection]") {
 using namespace test_reflection;
 
 TEST_CASE("reflection - registry registers child type with parent", "[reflection]") {
-  REQUIRE(((void)caors::meta::type_<parent_actor>("caors.test.reflection.parent_actor"),
+  REQUIRE(((void)caors::meta::class_<parent_actor>("caors.test.reflection.parent_actor"),
            caors::reflection::class_<parent_actor>())
               .field("id", &parent_actor::id)
               .commit() == caors::error{});
   const auto reflected_actor = caors::reflection::find("caors.test.reflection.parent_actor");
   REQUIRE(reflected_actor);
 
-  REQUIRE(((void)caors::meta::type_<child_player>("caors.test.reflection.child_player")
+  REQUIRE(((void)caors::meta::class_<child_player>("caors.test.reflection.child_player")
                .parent(reflected_actor.id()),
            caors::reflection::class_<child_player>())
               .field("level", &child_player::level)
@@ -108,11 +108,11 @@ TEST_CASE("reflection - registry registers child type with parent", "[reflection
 using namespace test_reflection;
 
 TEST_CASE("reflection - registry reports duplicate reflection", "[reflection]") {
-  REQUIRE(((void)caors::meta::type_<duplicate_actor>("caors.test.reflection.duplicate_actor"),
+  REQUIRE(((void)caors::meta::class_<duplicate_actor>("caors.test.reflection.duplicate_actor"),
            caors::reflection::class_<duplicate_actor>())
               .field("id", &duplicate_actor::id)
               .commit() == caors::error{});
-  CHECK(((void)caors::meta::type_<duplicate_actor>("caors.test.reflection.duplicate_actor"),
+  CHECK(((void)caors::meta::class_<duplicate_actor>("caors.test.reflection.duplicate_actor"),
          caors::reflection::class_<duplicate_actor>())
             .field("id", &duplicate_actor::id)
             .commit() == reflection_error(caors::errc::duplicate_reflection));
@@ -179,7 +179,7 @@ TEST_CASE("reflection - registry returns type and field views", "[reflection]") 
 using namespace test_reflection;
 
 TEST_CASE("reflection - registry validates duplicate fields", "[reflection]") {
-  CHECK(((void)caors::meta::type_<duplicate_field_owner>("caors.test.reflection.duplicate_field"),
+  CHECK(((void)caors::meta::class_<duplicate_field_owner>("caors.test.reflection.duplicate_field"),
          caors::reflection::class_<duplicate_field_owner>())
             .field("id", &duplicate_field_owner::id)
             .field("id", &duplicate_field_owner::health)

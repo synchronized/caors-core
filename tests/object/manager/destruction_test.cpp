@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 鍘熸祴璇曟枃浠讹細object_manager_destruction_manager_clear_releases_live_and_delayed_objects_test.cpp
+// 原测试文件：object_manager_destruction_manager_clear_releases_live_and_delayed_objects_test.cpp
 
 #include "object_test_common.h"
 
@@ -48,7 +48,7 @@ TEST_CASE("object - manager clear releases live and delayed objects", "[object]"
   CHECK(statistics.allocation_count == statistics.deallocation_count);
 }
 
-// 鍘熸祴璇曟枃浠讹細object_manager_destruction_manager_destroy_later_invalidates_lookup_before_releasing_object_test.cpp
+// 原测试文件：object_manager_destruction_manager_destroy_later_invalidates_lookup_before_releasing_object_test.cpp
 
 #include "object_test_common.h"
 
@@ -104,7 +104,7 @@ TEST_CASE("object - manager destroy_later invalidates lookup before releasing ob
   CHECK(statistics.allocation_count == statistics.deallocation_count);
 }
 
-// 鍘熸祴璇曟枃浠讹細object_manager_destruction_manager_rejects_duplicate_delayed_destruction_requests_test.cpp
+// 原测试文件：object_manager_destruction_manager_rejects_duplicate_delayed_destruction_requests_test.cpp
 
 #include "object_test_common.h"
 
@@ -135,7 +135,7 @@ TEST_CASE("object - manager rejects duplicate delayed destruction requests", "[o
   CHECK(manager.pending_destroy_count() == 0);
 }
 
-// 鍘熸祴璇曟枃浠讹細object_manager_destruction_manager_removes_lookup_entry_before_destruction_test.cpp
+// 原测试文件：object_manager_destruction_manager_removes_lookup_entry_before_destruction_test.cpp
 
 #include "object_test_common.h"
 

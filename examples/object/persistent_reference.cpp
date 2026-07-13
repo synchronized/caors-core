@@ -31,13 +31,13 @@ int main() {
     return 1;
   }
 
-  if (caors::meta::type_<caors::object_ptr<persistent_player>>(
+  if (caors::meta::class_<caors::object_ptr<persistent_player>>(
           "caors.object_ptr<example.persistent_player>")
           .result()) {
     return 1;
   }
 
-  if (((void)caors::meta::type_<party_slot>("example.party_slot"),
+  if (((void)caors::meta::class_<party_slot>("example.party_slot"),
        caors::reflection::class_<party_slot>())
           .field("leader", &party_slot::leader)
           .commit()) {

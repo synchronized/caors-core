@@ -44,7 +44,7 @@ struct actor {
   float health = 100.0F;
 };
 
-caors::meta::type_<actor>("game.actor");
+caors::meta::class_<actor>("game.actor");
 
 caors::reflection::class_<actor>()
     .field("id", &actor::id)
@@ -55,7 +55,7 @@ caors::reflection::class_<actor>()
 字段类型推导规则：
 
 - 普通业务字段如果需要稳定名称、GUID、对象工厂、反射身份或多态序列化身份，应先通过
-  `meta::type_<Field>("name")` 显式注册。未注册字段不会拥有这些元信息，但只要能生成有效
+  `meta::class_<Field>("name")` 显式注册。未注册字段不会拥有这些元信息，但只要能生成有效
   descriptor，仍可作为字段注册，并通过 `any_ref` 使用布局、值操作和运行期视图能力。
 - 对内置基础类型和能由 traits 推导名称的结构类型，`field::get_type().name()` 会在没有 meta 注册时
   回退到 descriptor 默认显示名；这只是调试/展示名称，不等价于该类型已经注册到 meta。
@@ -131,7 +131,7 @@ struct actor {
   int score() const { return health * 2; }
 };
 
-caors::meta::type_<actor>("game.actor");
+caors::meta::class_<actor>("game.actor");
 
 caors::reflection::class_<actor>()
     .field("health", &actor::health)
@@ -623,7 +623,7 @@ for (caors::value::associative_entry_ref entry : map) {
 访问它，不需要创建 registry 对象：
 
 ```cpp
-caors::meta::type_<actor>("game.actor");
+caors::meta::class_<actor>("game.actor");
 
 caors::error result =
     caors::reflection::class_<actor>()
@@ -633,7 +633,7 @@ caors::error result =
 auto reflected = caors::reflection::find("game.actor");
 ```
 
-推荐先通过 `meta::type_<T>("name")` 注册业务 meta 类型，再调用 `reflection::class_<T>()`
+推荐先通过 `meta::class_<T>("name")` 注册业务 meta 类型，再调用 `reflection::class_<T>()`
 挂载反射组件。`reflection::class_<T>()` 不创建或修改基础 meta 记录；如果 `T` 尚未完成 meta 注册，
 `commit()` 会返回 `errc::missing_type`。低层反射组件挂载函数属于内部实现入口，普通代码不直接调用。
 

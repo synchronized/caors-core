@@ -49,22 +49,22 @@ constexpr caors::type_guid enemy_guid{caors::guid::from_bytes(
 
 inline void require_polymorphic_value_metadata() {
   REQUIRE(type_result_ok(
-      caors::meta::type_<polymorphic_value_actor>("caors.test.serialization.poly_value.actor")
+      caors::meta::class_<polymorphic_value_actor>("caors.test.serialization.poly_value.actor")
           .guid(actor_guid)
           .result()));
   REQUIRE(type_result_ok(
-      caors::meta::type_<polymorphic_value_player>("caors.test.serialization.poly_value.player")
+      caors::meta::class_<polymorphic_value_player>("caors.test.serialization.poly_value.player")
           .guid(player_guid)
           .parent<polymorphic_value_actor>()
           .result()));
   REQUIRE(type_result_ok(
-      caors::meta::type_<polymorphic_value_enemy>("caors.test.serialization.poly_value.enemy")
+      caors::meta::class_<polymorphic_value_enemy>("caors.test.serialization.poly_value.enemy")
           .guid(enemy_guid)
           .result()));
-  REQUIRE(type_result_ok(caors::meta::type_<std::unique_ptr<polymorphic_value_actor>>(
+  REQUIRE(type_result_ok(caors::meta::class_<std::unique_ptr<polymorphic_value_actor>>(
                              "std.unique_ptr<caors.test.serialization.poly_value.actor>")
                              .result()));
-  REQUIRE(type_result_ok(caors::meta::type_<std::shared_ptr<polymorphic_value_actor>>(
+  REQUIRE(type_result_ok(caors::meta::class_<std::shared_ptr<polymorphic_value_actor>>(
                              "std.shared_ptr<caors.test.serialization.poly_value.actor>")
                              .result()));
 
@@ -80,7 +80,7 @@ inline void require_polymorphic_value_metadata() {
           .field("danger", &polymorphic_value_enemy::danger)
           .commit()));
   REQUIRE(caors::tests::serialization::reflection_result_ok(
-      ((void)caors::meta::type_<polymorphic_value_holder>(
+      ((void)caors::meta::class_<polymorphic_value_holder>(
            "caors.test.serialization.poly_value.holder"),
        caors::reflection::class_<polymorphic_value_holder>())
           .field("owner", &polymorphic_value_holder::owner)

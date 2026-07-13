@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 鍘熸祴璇曟枃浠讹細cross_module_meta_cross_module_view_supports_serialization_registered_before_reflection_test.cpp
+// 原测试文件：cross_module_meta_cross_module_view_supports_serialization_registered_before_reflection_test.cpp
 
 #include "cross_module_test_support.h"
 
 using namespace caors::tests::cross_module;
 TEST_CASE("meta - cross module view supports serialization registered before reflection",
           "[meta]") {
-  const caors::meta::type type = caors::meta::type_<cross_module_serialization_first>(
+  const caors::meta::type type = caors::meta::class_<cross_module_serialization_first>(
                                      "caors.test.meta.cross_module_serialization_first")
                                      .get();
   REQUIRE(type.valid());
@@ -18,7 +18,7 @@ TEST_CASE("meta - cross module view supports serialization registered before ref
                                           caors::serialization::make_field("id", "actor_id"),
                                       })
                                       .commit()));
-  REQUIRE(reflection_result_ok(((void)caors::meta::type_<cross_module_serialization_first>(
+  REQUIRE(reflection_result_ok(((void)caors::meta::class_<cross_module_serialization_first>(
                                     "caors.test.meta.cross_module_serialization_first"),
                                 caors::reflection::class_<cross_module_serialization_first>())
                                    .field("id", &cross_module_serialization_first::id)
@@ -33,14 +33,14 @@ TEST_CASE("meta - cross module view supports serialization registered before ref
   CHECK(result.value == R"({"actor_id":42})");
 }
 
-// 鍘熸祴璇曟枃浠讹細cross_module_meta_view_finds_types_with_reflection_and_serialization_components_test.cpp
+// 原测试文件：cross_module_meta_view_finds_types_with_reflection_and_serialization_components_test.cpp
 
 #include "cross_module_test_support.h"
 
 using namespace caors::tests::cross_module;
 TEST_CASE("meta - view finds types with reflection and serialization components", "[meta]") {
   REQUIRE(reflection_result_ok(
-      ((void)caors::meta::type_<cross_module_actor>("caors.test.meta.cross_module_actor"),
+      ((void)caors::meta::class_<cross_module_actor>("caors.test.meta.cross_module_actor"),
        caors::reflection::class_<cross_module_actor>())
           .field("id", &cross_module_actor::id)
           .field("health", &cross_module_actor::health)
@@ -67,14 +67,14 @@ TEST_CASE("meta - view finds types with reflection and serialization components"
   CHECK(serialization->fields.size() == 2);
 }
 
-// 鍘熸祴璇曟枃浠讹細cross_module_reflection_field_handles_remain_valid_after_later_registrations_test.cpp
+// 原测试文件：cross_module_reflection_field_handles_remain_valid_after_later_registrations_test.cpp
 
 #include "cross_module_test_support.h"
 
 using namespace caors::tests::cross_module;
 TEST_CASE("reflection - field handles remain valid after later registrations", "[reflection]") {
   REQUIRE(reflection_result_ok(
-      ((void)caors::meta::type_<cross_module_actor>("caors.test.meta.cross_module_actor"),
+      ((void)caors::meta::class_<cross_module_actor>("caors.test.meta.cross_module_actor"),
        caors::reflection::class_<cross_module_actor>())
           .field("id", &cross_module_actor::id)
           .field("health", &cross_module_actor::health)
@@ -87,7 +87,7 @@ TEST_CASE("reflection - field handles remain valid after later registrations", "
   REQUIRE(id);
   REQUIRE(id.valid());
 
-  REQUIRE(reflection_result_ok(((void)caors::meta::type_<cross_module_late_registered>(
+  REQUIRE(reflection_result_ok(((void)caors::meta::class_<cross_module_late_registered>(
                                     "caors.test.meta.cross_module_late_registered"),
                                 caors::reflection::class_<cross_module_late_registered>())
                                    .field("value", &cross_module_late_registered::value)

@@ -10,21 +10,22 @@
 #include <optional>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 
 namespace caors::meta {
 
-/** @brief RTTR 风格的元类型注册构建器。 */
-template <typename T> class type_builder {
+/** @brief RTTR 风格的类/普通值类型注册构建器。 */
+template <typename T> class class_builder {
 public:
-  type_builder() = default;
+  class_builder() = default;
 
-  type_builder& type(std::string_view name) {
+  class_builder& type(std::string_view name) {
     status_ = get_registry().register_type_for<T>(make_type_registration_data<T>(name));
     refresh();
     return *this;
   }
 
-  type_builder& guid(type_guid guid_value) {
+  class_builder& guid(type_guid guid_value) {
     if (!type_.registered()) {
       status_ = {error_domain::meta, errc::invalid_type};
       return *this;
@@ -35,9 +36,9 @@ public:
     return *this;
   }
 
-  type_builder& guid(caors::guid guid_value) { return guid(type_guid{guid_value}); }
+  class_builder& guid(caors::guid guid_value) { return guid(type_guid{guid_value}); }
 
-  type_builder& parent(type_id parent_id) {
+  class_builder& parent(type_id parent_id) {
     if (!type_.registered()) {
       status_ = {error_domain::meta, errc::invalid_type};
       return *this;
@@ -49,7 +50,7 @@ public:
   }
 
   /** @brief 设置 C++ 父类型，并保存安全 upcast 信息供普通类多态使用。 */
-  template <typename Parent> type_builder& parent() {
+  template <typename Parent> class_builder& parent() {
     if (!type_.registered()) {
       status_ = {error_domain::meta, errc::invalid_type};
       return *this;
@@ -66,7 +67,7 @@ public:
    * 该工厂使用 `memory::make<T>()` / `memory::destroy<T>()`，适合默认可构造类型。非默认可构造
    * 类型应使用带函数指针的 `factory()` 重载。
    */
-  type_builder& factory() {
+  class_builder& factory() {
     return factory(detail::resource_default_construct_fn_of<T>(),
                    detail::resource_destroy_fn_of<T>());
   }
@@ -76,7 +77,7 @@ public:
    *
    * `construct` 可使用传入的 `memory_resource` 分配并构造对象；`destroy` 必须用匹配策略销毁对象。
    */
-  type_builder& factory(type_factory_construct_fn construct, type_factory_destroy_fn destroy) {
+  class_builder& factory(type_factory_construct_fn construct, type_factory_destroy_fn destroy) {
     if (!type_.registered()) {
       status_ = {error_domain::meta, errc::invalid_type};
       return *this;
@@ -96,7 +97,7 @@ public:
    * `capability` 必须在运行期索引可访问期间保持有效；普通查询优先使用
    * `meta::type::get_capability<Capability>()`。
    */
-  template <typename Capability> type_builder& capability(const Capability* capability) {
+  template <typename Capability> class_builder& capability(const Capability* capability) {
     using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
     status_ = detail::register_capability_for_type<capability_type, T>(capability);
     refresh();
@@ -111,7 +112,7 @@ public:
    */
   template <typename Capability>
     requires(!std::is_pointer_v<std::remove_reference_t<Capability>>)
-  type_builder& capability(Capability&& capability) {
+  class_builder& capability(Capability&& capability) {
     using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
     status_ = detail::register_owned_capability_for_type<capability_type, T>(
         capability_type{std::forward<Capability>(capability)});
@@ -124,7 +125,7 @@ public:
    *
    * 该入口适合只剩 `type_id` 的运行期查询路径；携带 descriptor 的路径无需显式挂接。
    */
-  template <typename Capability> type_builder& capability() {
+  template <typename Capability> class_builder& capability() {
     using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
     status_ = detail::register_static_capability_for<capability_type, T>();
     refresh();
@@ -149,12 +150,89 @@ private:
   error status_{};
 };
 
-/** @brief 获取指定 C++ 类型的元类型注册构建器；默认不注册类型。 */
-template <typename T> [[nodiscard]] type_builder<T> type_() { return type_builder<T>{}; }
+/** @brief RTTR 风格的枚举类型注册构建器。 */
+template <typename T> class enum_builder {
+  static_assert(std::is_enum_v<std::remove_cv_t<std::remove_reference_t<T>>>,
+                "T must be an enum type");
 
-/** @brief 显式注册指定 C++ 类型并设置类型名。 */
-template <typename T> [[nodiscard]] type_builder<T> type_(std::string_view name) {
-  return type_builder<T>{}.type(name);
+public:
+  enum_builder() = default;
+
+  enum_builder& type(std::string_view name) {
+    status_ = get_registry().register_type_for<T>(make_type_registration_data<T>(name));
+    refresh();
+    return *this;
+  }
+
+  enum_builder& guid(type_guid guid_value) {
+    if (!type_.registered()) {
+      status_ = {error_domain::meta, errc::invalid_type};
+      return *this;
+    }
+
+    status_ = get_registry().set_type_guid(type_.id(), guid_value);
+    refresh();
+    return *this;
+  }
+
+  enum_builder& guid(caors::guid guid_value) { return guid(type_guid{guid_value}); }
+
+  template <typename Capability> enum_builder& capability(const Capability* capability) {
+    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+    status_ = detail::register_capability_for_type<capability_type, T>(capability);
+    refresh();
+    return *this;
+  }
+
+  template <typename Capability>
+    requires(!std::is_pointer_v<std::remove_reference_t<Capability>>)
+  enum_builder& capability(Capability&& capability) {
+    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+    status_ = detail::register_owned_capability_for_type<capability_type, T>(
+        capability_type{std::forward<Capability>(capability)});
+    refresh();
+    return *this;
+  }
+
+  template <typename Capability> enum_builder& capability() {
+    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+    status_ = detail::register_static_capability_for<capability_type, T>();
+    refresh();
+    return *this;
+  }
+
+  [[nodiscard]] ::caors::meta::type get() const noexcept { return type_; }
+  [[nodiscard]] error result() const noexcept { return status_; }
+  [[nodiscard]] bool succeeded() const noexcept {
+    return status_.succeeded() || status_.value() == errc::duplicate_id;
+  }
+
+private:
+  void refresh() {
+    ::caors::meta::type refreshed = get_registry().find_type<T>();
+    if (refreshed.registered()) {
+      type_ = refreshed;
+    }
+  }
+
+  ::caors::meta::type type_{};
+  error status_{};
+};
+
+/** @brief 获取指定 C++ 类/普通值类型的元类型注册构建器；默认不注册类型。 */
+template <typename T> [[nodiscard]] class_builder<T> class_() { return class_builder<T>{}; }
+
+/** @brief 显式注册指定 C++ 类/普通值类型并设置类型名。 */
+template <typename T> [[nodiscard]] class_builder<T> class_(std::string_view name) {
+  return class_builder<T>{}.type(name);
+}
+
+/** @brief 获取指定 C++ 枚举类型的元类型注册构建器；默认不注册类型。 */
+template <typename T> [[nodiscard]] enum_builder<T> enum_() { return enum_builder<T>{}; }
+
+/** @brief 显式注册指定 C++ 枚举类型并设置类型名。 */
+template <typename T> [[nodiscard]] enum_builder<T> enum_(std::string_view name) {
+  return enum_builder<T>{}.type(name);
 }
 
 /**

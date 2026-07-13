@@ -8,7 +8,7 @@
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - class builder can attach to explicit meta type", "[serialization]") {
-  const caors::meta::type type = caors::meta::type_<explicit_meta_serialization_actor>(
+  const caors::meta::type type = caors::meta::class_<explicit_meta_serialization_actor>(
                                      "caors.test.serialization.explicit_meta_actor")
                                      .get();
   REQUIRE(type.valid());
@@ -35,7 +35,7 @@ TEST_CASE("serialization - class builder can attach to explicit meta type", "[se
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - registration can happen before reflection fields", "[serialization]") {
-  const caors::meta::type type = caors::meta::type_<serialization_first_actor>(
+  const caors::meta::type type = caors::meta::class_<serialization_first_actor>(
                                      "caors.test.serialization.serialization_first_actor")
                                      .get();
   REQUIRE(type.valid());
@@ -47,7 +47,7 @@ TEST_CASE("serialization - registration can happen before reflection fields", "[
               .commit()
               .succeeded());
 
-  REQUIRE(reflection_result_ok(((void)caors::meta::type_<serialization_first_actor>(
+  REQUIRE(reflection_result_ok(((void)caors::meta::class_<serialization_first_actor>(
                                     "caors.test.serialization.serialization_first_actor"),
                                 caors::reflection::class_<serialization_first_actor>())
                                    .field("id", &serialization_first_actor::id)
@@ -68,7 +68,7 @@ using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - rejects weak pointer deserialization", "[serialization]") {
   REQUIRE(reflection_result_ok(
-      ((void)caors::meta::type_<weak_ptr_actor>("caors.test.serialization.weak_ptr_actor"),
+      ((void)caors::meta::class_<weak_ptr_actor>("caors.test.serialization.weak_ptr_actor"),
        caors::reflection::class_<weak_ptr_actor>())
           .field("value", &weak_ptr_actor::value)
           .commit()));
@@ -91,7 +91,7 @@ using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - reports missing configured reflection field", "[serialization]") {
   REQUIRE(reflection_result_ok(
-      ((void)caors::meta::type_<missing_field_actor>("caors.test.serialization.missing_field"),
+      ((void)caors::meta::class_<missing_field_actor>("caors.test.serialization.missing_field"),
        caors::reflection::class_<missing_field_actor>())
           .field("id", &missing_field_actor::id)
           .commit()));
@@ -118,7 +118,7 @@ using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - reports missing serialization metadata", "[serialization]") {
   REQUIRE(reflection_result_ok(
-      ((void)caors::meta::type_<reflected_only_actor>("caors.test.serialization.reflected_only"),
+      ((void)caors::meta::class_<reflected_only_actor>("caors.test.serialization.reflected_only"),
        caors::reflection::class_<reflected_only_actor>())
           .field("id", &reflected_only_actor::id)
           .commit()));
@@ -139,7 +139,7 @@ TEST_CASE("serialization - reports missing serialization metadata", "[serializat
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - reports unsupported reflected field kind", "[serialization]") {
-  REQUIRE(reflection_result_ok(((void)caors::meta::type_<unsupported_field_actor>(
+  REQUIRE(reflection_result_ok(((void)caors::meta::class_<unsupported_field_actor>(
                                     "caors.test.serialization.unsupported_field"),
                                 caors::reflection::class_<unsupported_field_actor>())
                                    .field("value", &unsupported_field_actor::value)
@@ -163,7 +163,7 @@ using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - reports unsupported weak pointer fields", "[serialization]") {
   REQUIRE(reflection_result_ok(
-      ((void)caors::meta::type_<weak_ptr_actor>("caors.test.serialization.weak_ptr_actor"),
+      ((void)caors::meta::class_<weak_ptr_actor>("caors.test.serialization.weak_ptr_actor"),
        caors::reflection::class_<weak_ptr_actor>())
           .field("value", &weak_ptr_actor::value)
           .commit()));
@@ -200,7 +200,7 @@ using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - field metadata renames and skips fields", "[serialization]") {
   REQUIRE(reflection_result_ok(
-      ((void)caors::meta::type_<configured_actor>("caors.test.serialization.configured_actor"),
+      ((void)caors::meta::class_<configured_actor>("caors.test.serialization.configured_actor"),
        caors::reflection::class_<configured_actor>())
           .field("id", &configured_actor::id)
           .field("health", &configured_actor::health)
@@ -231,7 +231,7 @@ using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - registers type metadata component", "[serialization]") {
   REQUIRE(reflection_result_ok(
-      ((void)caors::meta::type_<serializable_actor>("caors.test.serialization.actor"),
+      ((void)caors::meta::class_<serializable_actor>("caors.test.serialization.actor"),
        caors::reflection::class_<serializable_actor>())
           .field("id", &serializable_actor::id)
           .field("health", &serializable_actor::health)

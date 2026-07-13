@@ -21,7 +21,7 @@ TEST_CASE("serialization - custom codec specialization uses descriptor capabilit
   require_registered_type<policy_custom_codec_value>(
       "caors.test.serialization.policy_custom_codec_value");
   CHECK(caors::serialization::find_codec(caors::meta::resolve<policy_custom_codec_value>()));
-  REQUIRE(reflection_result_ok(((void)caors::meta::type_<policy_custom_codec_actor>(
+  REQUIRE(reflection_result_ok(((void)caors::meta::class_<policy_custom_codec_actor>(
                                     "caors.test.serialization.policy_custom_codec_actor"),
                                 caors::reflection::class_<policy_custom_codec_actor>())
                                    .field("value", &policy_custom_codec_actor::value)
@@ -62,7 +62,7 @@ TEST_CASE("serialization - descriptor static codec handles erased values without
 
   require_registered_type<descriptor_static_codec_value>(
       "caors.test.serialization.descriptor_static_codec_value");
-  REQUIRE(reflection_result_ok(((void)caors::meta::type_<descriptor_static_codec_actor>(
+  REQUIRE(reflection_result_ok(((void)caors::meta::class_<descriptor_static_codec_actor>(
                                     "caors.test.serialization.descriptor_static_codec_actor"),
                                 caors::reflection::class_<descriptor_static_codec_actor>())
                                    .field("value", &descriptor_static_codec_actor::value)
@@ -91,7 +91,7 @@ TEST_CASE("serialization - descriptor static codec handles erased values without
 using namespace caors::tests::serialization;
 TEST_CASE("serialization - writer features validate required field identifiers",
           "[serialization]") {
-  REQUIRE(reflection_result_ok(((void)caors::meta::type_<numeric_writer_actor>(
+  REQUIRE(reflection_result_ok(((void)caors::meta::class_<numeric_writer_actor>(
                                     "caors.test.serialization.numeric_writer_actor"),
                                 caors::reflection::class_<numeric_writer_actor>())
                                    .field("id", &numeric_writer_actor::id)

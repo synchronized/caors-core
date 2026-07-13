@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 鍘熸祴璇曟枃浠讹細meta_type_factory_meta_type_default_factory_rejects_non_default_constructible_types_test.cpp
+// 原测试文件：meta_type_factory_meta_type_default_factory_rejects_non_default_constructible_types_test.cpp
 
 #include "meta_type_factory_test_support.h"
 
 using namespace caors::tests::meta_type_factory;
 TEST_CASE("meta type - default factory rejects non-default-constructible types", "[meta]") {
   auto builder =
-      caors::meta::type_<missing_default_factory_type>("caors.test.type.factory_missing_default")
+      caors::meta::class_<missing_default_factory_type>("caors.test.type.factory_missing_default")
           .factory();
 
   CHECK(builder.result() == meta_error(caors::errc::invalid_type));
@@ -16,13 +16,13 @@ TEST_CASE("meta type - default factory rejects non-default-constructible types",
   CHECK_FALSE(caors::meta::get_registry().find_type_factory(builder.get().id()).valid());
 }
 
-// 鍘熸祴璇曟枃浠讹細meta_type_factory_meta_type_factory_registers_custom_construction_strategy_test.cpp
+// 原测试文件：meta_type_factory_meta_type_factory_registers_custom_construction_strategy_test.cpp
 
 #include "meta_type_factory_test_support.h"
 
 using namespace caors::tests::meta_type_factory;
 TEST_CASE("meta type - factory registers custom construction strategy", "[meta]") {
-  auto builder = caors::meta::type_<custom_factory_type>("caors.test.type.factory_custom")
+  auto builder = caors::meta::class_<custom_factory_type>("caors.test.type.factory_custom")
                      .factory(&construct_custom_factory_type, &destroy_custom_factory_type);
   CHECK(builder.succeeded());
 
@@ -35,20 +35,20 @@ TEST_CASE("meta type - factory registers custom construction strategy", "[meta]"
   CHECK(value->value == 23);
   factory.destroy(nullptr, value);
 
-  auto duplicate = caors::meta::type_<custom_factory_type>("caors.test.type.factory_custom")
+  auto duplicate = caors::meta::class_<custom_factory_type>("caors.test.type.factory_custom")
                        .factory(&construct_custom_factory_type, &destroy_custom_factory_type);
   CHECK(duplicate.result() == meta_error(caors::errc::duplicate_id));
   CHECK(duplicate.succeeded());
 }
 
-// 鍘熸祴璇曟枃浠讹細meta_type_factory_meta_type_factory_registers_resource_aware_default_construction_test.cpp
+// 原测试文件：meta_type_factory_meta_type_factory_registers_resource_aware_default_construction_test.cpp
 
 #include "meta_type_factory_test_support.h"
 
 using namespace caors::tests::meta_type_factory;
 TEST_CASE("meta type - factory registers resource-aware default construction", "[meta]") {
   auto builder =
-      caors::meta::type_<default_factory_type>("caors.test.type.factory_default").factory();
+      caors::meta::class_<default_factory_type>("caors.test.type.factory_default").factory();
   CHECK(builder.succeeded());
 
   const caors::meta::type type = builder.get();
@@ -70,7 +70,7 @@ TEST_CASE("meta type - factory registers resource-aware default construction", "
   CHECK(tracking.statistics().bytes_in_use == 0);
 }
 
-// 鍘熸祴璇曟枃浠讹細meta_type_factory_meta_type_resource_default_construction_propagates_allocator_test.cpp
+// 原测试文件：meta_type_factory_meta_type_resource_default_construction_propagates_allocator_test.cpp
 
 #include "meta_type_factory_test_support.h"
 
@@ -79,7 +79,7 @@ TEST_CASE("meta type - resource default construction propagates allocator", "[me
   using value_type = caors::vector<int>;
 
   const caors::meta::type type =
-      caors::meta::type_<value_type>("caors.test.type.resource_vector").get();
+      caors::meta::class_<value_type>("caors.test.type.resource_vector").get();
   REQUIRE(type.valid());
 
   caors::tracking_resource tracking(&caors::get_system_memory_resource());

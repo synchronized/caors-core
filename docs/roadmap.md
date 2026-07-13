@@ -17,6 +17,9 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 建立 `io` 主题，提供同步字节流、文件系统抽象和本地文件系统实现。
 - [x] 增加 `io::path_view` / `io::path`，明确虚拟路径和宿主文件系统路径的边界。
 - [x] 为 `io::native_file_system` 增加可选 root 目录，使 mount 层只负责虚拟路径分发和可选子路径重映射。
+- [ ] 将 `result<T>` 逐步收敛为更接近 `expected<T, error>` 的语义，减少 `value/error/status`
+  之间的重复表达。
+- [ ] 清理根命名空间下不常用或不推荐继续使用的别名，只保留高频便捷别名，降低 API 表面噪声。
 - [ ] 在 core 主题下逐步补充 small_vector、stable_vector 等基础容器。
 
 ## 1. 类型元数据底座
@@ -63,6 +66,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `extension_static_capability_modules<T>` 追加能力贡献，避免多个第三方模块只能共享
   `custom_static_capability_module` 造成特化覆盖。
 - [x] 增加 `runtime` facade，组合 `meta::type`、反射字段/方法和值构造能力，提供更直接的用户入口。
+- [x] 将 `runtime` 确认为推荐主入口，具体模块保留高级入口；`meta::type_<T>()` 改为
+  `meta::class_<T>()`，并增加 `meta::enum_<T>()` / `runtime::enum_<T>()`。
 - [ ] 评估组件替换和批量注册 API。
 
 ## 2. 定制化分配器
@@ -167,6 +172,9 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 为普通类多态值补充显式 factory 和可选 `memory_resource` 构造策略。
 - [x] 增加 `serialization/detail/value_access.h` 内部桥接层，集中访问 `any` / `any_ref` 携带的
   descriptor 和默认构造能力，避免 serialization detail 文件散落依赖 `value::detail`。
+- [ ] 简化序列化公开 API，保留 `serialize` / `deserialize` / `to_value` / `to_string` 等主路径，
+  逐步移除多态兼容入口和重复包装函数。
+- [ ] 拆分 `serialization::context` 的运行期状态、策略配置和 resolver 适配器，减少上下文字段膨胀。
 - [ ] 设计字段级构造策略，覆盖容器新增元素、空 `optional<T>`、`variant` 候选切换和不可默认构造类型；
   优先使用 `serialization::context::memory_resource`、meta factory 和字段策略，失败时返回明确诊断。
 - [ ] 放宽多层指针 / 多层 wrapper 限制，采用逐层 indirect descriptor 展开；默认设置合理最大深度，
@@ -218,6 +226,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `project_config` 构建运行期资源定位与依赖图。
 - [x] 提供第一版 loader/source/cache 工厂注册机制，把配置中的 `"json"`、`"native_file_system"`、
   `"memory"` 等策略名映射到运行期 source、cache 和 loader 构造；`"remote"`、资源包和专用缓存后续扩展。
+- [ ] 继续收敛资源公开主入口，以 `resources::asset_manager` / 运行期 builder 作为用户优先入口，
+  `database`、`provider`、`cache<T>` 和 `loader<T>` 作为高级组合入口。
 - [x] 支持 `resources::provider` 通过可写 source 按 GUID 写回字节，为后续 saver 和热更新回写提供基础。
 - [x] 实现 `resources::json_saver<T>`，打通 `resource -> JSON -> provider -> source` 的同步保存链路。
 - [x] 提供 `resources::save_from()`，把 cache 中指定 GUID 的资源交给 saver 保存。
@@ -241,7 +251,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   load/reload 重复请求复用同一 request，已缓存资源可立即完成，取消、完成和失败后会从请求表移除。
 - [ ] 扩展异步预加载内部请求合并和调度策略，后续再评估优先级、等待 API、分层依赖调度和细粒度进度聚合。
 - [x] 明确异步资源系统线程安全边界：哪些 `source` / `provider` / `memory_resource` 可跨线程访问，
-  cache 修改必须在哪个线程执行，未完成 request 的 `get()` 是阻塞、返回错误还是禁止调用。
+  cache 修改必须在哪个线程执行，未完成 request 的 `try_get()` 是阻塞、返回错误还是禁止调用。
 - [x] 打通资源引用序列化 resolver，支持反序列化后按策略解析稳定 GUID 引用。
 - [x] 设计资源热重载边界：第一阶段放在资源系统主题内，不新增独立主题；热重载只负责发现资源描述或字节内容变化、
   刷新 manifest / provider / cache，并返回 reload 结果，不隐式修改对象、场景树或运行期业务状态。

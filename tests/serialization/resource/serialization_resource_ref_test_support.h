@@ -23,16 +23,16 @@ struct resource_ref_actor {
 };
 
 inline void require_resource_ref_actor_metadata() {
-  REQUIRE(type_result_ok(caors::meta::type_<serialized_texture_resource>(
+  REQUIRE(type_result_ok(caors::meta::class_<serialized_texture_resource>(
                              "caors.test.serialization.serialized_texture_resource")
                              .result()));
   REQUIRE(
-      type_result_ok(caors::meta::type_<caors::resource_ref<serialized_texture_resource>>(
+      type_result_ok(caors::meta::class_<caors::resource_ref<serialized_texture_resource>>(
                          "caors.resource_ref<caors.test.serialization.serialized_texture_resource>")
                          .result()));
 
   REQUIRE(reflection_result_ok(
-      ((void)caors::meta::type_<resource_ref_actor>("caors.test.serialization.resource_ref_actor"),
+      ((void)caors::meta::class_<resource_ref_actor>("caors.test.serialization.resource_ref_actor"),
        caors::reflection::class_<resource_ref_actor>())
           .field("texture", &resource_ref_actor::texture)
           .commit()));

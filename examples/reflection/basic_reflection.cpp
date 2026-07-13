@@ -14,7 +14,7 @@ struct actor {
 
 int main() {
   const caors::error result =
-      ((void)caors::meta::type_<actor>("example.actor"), caors::reflection::class_<actor>())
+      ((void)caors::meta::class_<actor>("example.actor"), caors::reflection::class_<actor>())
           .field("id", &actor::id)
           .field("health", &actor::health)
           .commit();

@@ -144,7 +144,7 @@ private:
       }
     }
 
-    meta::type_builder<value_type> builder = meta::type_<value_type>(stored_type.name().view());
+    meta::class_builder<value_type> builder = meta::class_<value_type>(stored_type.name().view());
     if (builder.result() && builder.result().value() != errc::duplicate_id) {
       return rethrow_as(builder.result(), error_domain::object);
     }

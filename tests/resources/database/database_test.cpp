@@ -63,21 +63,21 @@ struct database_resource_ref_holder {
 
 void require_texture_resource_type() {
   REQUIRE(type_result_ok(
-      caors::meta::type_<texture_resource>("caors.test.resources.texture_resource").result()));
+      caors::meta::class_<texture_resource>("caors.test.resources.texture_resource").result()));
 }
 
 void require_material_resource_type() {
   REQUIRE(type_result_ok(
-      caors::meta::type_<material_resource>("caors.test.resources.material_resource").result()));
+      caors::meta::class_<material_resource>("caors.test.resources.material_resource").result()));
 }
 
 void require_database_resource_ref_metadata() {
   require_serialized_resource_metadata();
 
-  REQUIRE(type_result_ok(caors::meta::type_<caors::resource_ref<serialized_resource>>(
+  REQUIRE(type_result_ok(caors::meta::class_<caors::resource_ref<serialized_resource>>(
                              "caors.resource_ref<caors.test.resources.serialized_resource>")
                              .result()));
-  REQUIRE(reflection_result_ok(((void)caors::meta::type_<database_resource_ref_holder>(
+  REQUIRE(reflection_result_ok(((void)caors::meta::class_<database_resource_ref_holder>(
                                     "caors.test.resources.database_resource_ref_holder"),
                                 caors::reflection::class_<database_resource_ref_holder>())
                                    .field("resource", &database_resource_ref_holder::resource)

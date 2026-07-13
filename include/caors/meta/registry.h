@@ -38,13 +38,14 @@ template <typename T> [[nodiscard]] error ensure_type_descriptor_for();
 
 namespace caors::meta {
 
-template <typename T> class type_builder;
+template <typename T> class class_builder;
+template <typename T> class enum_builder;
 
 /**
  * @brief 底层全局类型元数据注册表。
  *
  * `meta::registry` 以 `type_id` 为 key，先注册内部基础类型数据，再按类型挂载对象工厂、
- * 反射描述、序列化描述等元数据组件。普通代码应使用 `meta::type_<T>()`、`meta::resolve<T>()`、
+ * 反射描述、序列化描述等元数据组件。普通代码应使用 `meta::class_<T>()`、`meta::resolve<T>()`、
  * `meta::find<T>()` 和 `meta::find()` 入口，不要创建或管理注册表实例。
  */
 class CAORS_API registry final {
@@ -210,7 +211,8 @@ private:
   registry();
   ~registry();
 
-  template <typename T> friend class type_builder;
+  template <typename T> friend class class_builder;
+  template <typename T> friend class enum_builder;
   friend error detail::ensure_type_descriptor_registered(const detail::type_descriptor& descriptor);
 
   [[nodiscard]] error register_type(const type_registration_data& type);

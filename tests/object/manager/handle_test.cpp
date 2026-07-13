@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 鍘熸祴璇曟枃浠讹細object_manager_handle_manager_rejects_mismatched_typed_lookups_test.cpp
+// 原测试文件：object_manager_handle_manager_rejects_mismatched_typed_lookups_test.cpp
 
 #include "object_test_common.h"
 
@@ -24,7 +24,7 @@ TEST_CASE("object - manager rejects mismatched typed lookups", "[object]") {
                                             managed_other_actor::static_type_id()}) == nullptr);
 }
 
-// 鍘熸祴璇曟枃浠讹細object_manager_handle_manager_resolves_typed_object_handles_and_inheritance_test.cpp
+// 原测试文件：object_manager_handle_manager_resolves_typed_object_handles_and_inheritance_test.cpp
 
 #include "object_test_common.h"
 

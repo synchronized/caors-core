@@ -59,16 +59,16 @@ constexpr caors::type_guid polymorphic_object_ref_enemy_guid{caors::guid::from_b
                             0xd5, 0x84, 0x10, 0x03})};
 
 inline void require_polymorphic_object_ref_metadata() {
-  REQUIRE(type_result_ok(caors::meta::type_<polymorphic_object_ref_actor>(
+  REQUIRE(type_result_ok(caors::meta::class_<polymorphic_object_ref_actor>(
                              polymorphic_object_ref_actor::object_type_name)
                              .guid(polymorphic_object_ref_actor_guid)
                              .result()));
-  REQUIRE(type_result_ok(caors::meta::type_<polymorphic_object_ref_player>(
+  REQUIRE(type_result_ok(caors::meta::class_<polymorphic_object_ref_player>(
                              polymorphic_object_ref_player::object_type_name)
                              .guid(polymorphic_object_ref_player_guid)
                              .parent<polymorphic_object_ref_actor>()
                              .result()));
-  REQUIRE(type_result_ok(caors::meta::type_<polymorphic_object_ref_enemy>(
+  REQUIRE(type_result_ok(caors::meta::class_<polymorphic_object_ref_enemy>(
                              polymorphic_object_ref_enemy::object_type_name)
                              .guid(polymorphic_object_ref_enemy_guid)
                              .result()));
@@ -81,7 +81,7 @@ inline void require_polymorphic_object_ref_metadata() {
   REQUIRE(reflection_result_ok(caors::reflection::class_<polymorphic_object_ref_enemy>()
                                    .field("danger", &polymorphic_object_ref_enemy::danger)
                                    .commit()));
-  REQUIRE(reflection_result_ok(((void)caors::meta::type_<polymorphic_object_ref_holder>(
+  REQUIRE(reflection_result_ok(((void)caors::meta::class_<polymorphic_object_ref_holder>(
                                     "caors.test.serialization.polymorphic_object_ref.holder"),
                                 caors::reflection::class_<polymorphic_object_ref_holder>())
                                    .field("owner", &polymorphic_object_ref_holder::owner)

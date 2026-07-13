@@ -11,7 +11,7 @@
 using namespace test_reflection;
 
 TEST_CASE("reflection - custom sequence traits expose field view", "[reflection]") {
-  REQUIRE(((void)caors::meta::type_<custom_sequence_holder>(
+  REQUIRE(((void)caors::meta::class_<custom_sequence_holder>(
                "caors.test.reflection.custom_sequence_holder"),
            caors::reflection::class_<custom_sequence_holder>())
               .field("values", &custom_sequence_holder::values)
@@ -59,7 +59,7 @@ TEST_CASE("reflection - custom sequence traits expose field view", "[reflection]
 using namespace test_reflection;
 
 TEST_CASE("reflection - fixed std span field name includes extent", "[reflection]") {
-  REQUIRE(((void)caors::meta::type_<fixed_span_holder>("caors.test.reflection.fixed_span_holder"),
+  REQUIRE(((void)caors::meta::class_<fixed_span_holder>("caors.test.reflection.fixed_span_holder"),
            caors::reflection::class_<fixed_span_holder>())
               .field("values", &fixed_span_holder::values)
               .commit()
@@ -85,7 +85,7 @@ TEST_CASE("reflection - fixed std span field name includes extent", "[reflection
 using namespace test_reflection;
 
 TEST_CASE("reflection - list field view uses sequence traits", "[reflection]") {
-  REQUIRE(((void)caors::meta::type_<list_holder>("caors.test.reflection.list_holder"),
+  REQUIRE(((void)caors::meta::class_<list_holder>("caors.test.reflection.list_holder"),
            caors::reflection::class_<list_holder>())
               .field("values", &list_holder::values)
               .commit()
@@ -130,7 +130,7 @@ TEST_CASE("reflection - list field view uses sequence traits", "[reflection]") {
 using namespace test_reflection;
 
 TEST_CASE("reflection - sequence field view exposes element metadata", "[reflection]") {
-  REQUIRE(((void)caors::meta::type_<vector_holder>("caors.test.reflection.vector_holder"),
+  REQUIRE(((void)caors::meta::class_<vector_holder>("caors.test.reflection.vector_holder"),
            caors::reflection::class_<vector_holder>())
               .field("values", &vector_holder::values)
               .commit()
@@ -212,7 +212,7 @@ TEST_CASE("reflection - sequence field view exposes element metadata", "[reflect
 using namespace test_reflection;
 
 TEST_CASE("reflection - std array field view uses fixed sequence traits", "[reflection]") {
-  REQUIRE(((void)caors::meta::type_<array_holder>("caors.test.reflection.array_holder"),
+  REQUIRE(((void)caors::meta::class_<array_holder>("caors.test.reflection.array_holder"),
            caors::reflection::class_<array_holder>())
               .field("values", &array_holder::values)
               .commit()
@@ -256,7 +256,7 @@ TEST_CASE("reflection - std array field view uses fixed sequence traits", "[refl
 using namespace test_reflection;
 
 TEST_CASE("reflection - std span field view is borrowed sequence", "[reflection]") {
-  REQUIRE(((void)caors::meta::type_<span_holder>("caors.test.reflection.span_holder"),
+  REQUIRE(((void)caors::meta::class_<span_holder>("caors.test.reflection.span_holder"),
            caors::reflection::class_<span_holder>())
               .field("values", &span_holder::values)
               .commit()
