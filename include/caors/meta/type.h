@@ -5,26 +5,19 @@
 #define CAORS_META_TYPE_H_
 
 #include "caors/core/string_name.h"
-#include "caors/error.h"
 #include "caors/export.h"
-#include "caors/memory/resource.h"
 #include "caors/meta/capability.h"
-#include "caors/meta/detail/type_data.h"
 #include "caors/meta/type_id.h"
 #include "caors/meta/value_ops.h"
 #include "caors/traits/wrapper.h"
 
-#include <cstddef>
-#include <cstdint>
-#include <new>
-#include <string_view>
 #include <type_traits>
-#include <utility>
 
 namespace caors::meta {
 
 class registry;
 class type;
+class type_registration_data;
 
 [[nodiscard]] CAORS_API registry& get_registry() noexcept;
 
@@ -101,12 +94,12 @@ private:
   friend type detail::make_type_view(type_id, const detail::type_descriptor*) noexcept;
   friend const void* detail::find_type_capability(const type&, capability_key) noexcept;
 
-  constexpr type(const registry* registry, const detail::type_data* data,
+  constexpr type(const registry* registry, const type_registration_data* data,
                  const detail::type_descriptor* descriptor) noexcept
       : registry_(registry), data_(data), descriptor_(descriptor) {}
 
   const registry* registry_ = nullptr;
-  const detail::type_data* data_ = nullptr;
+  const type_registration_data* data_ = nullptr;
   const detail::type_descriptor* descriptor_ = nullptr;
 };
 

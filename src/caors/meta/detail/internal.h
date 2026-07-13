@@ -8,6 +8,7 @@
 #include "caors/memory/unique_ptr.h"
 #include "caors/meta.h"
 #include "caors/meta/detail/parent_cast_ops.h"
+#include "caors/meta/detail/type_data.h"
 
 #include <mutex>
 #include <typeindex>
