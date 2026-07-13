@@ -481,8 +481,8 @@ manager.destroy(instance);
   `object_id` 的 manager resolver，并挂到 `serialization::context::external_refs`。
 - `objects::make_persistent_object_ref_resolver(objects::manager&)`：为对象引用序列化创建基于
   `object_guid` 的 manager resolver，需要 manager 关联 `object_index`。
-- `objects::make_object_factory(objects::manager&)`：为多态对象反序列化创建通用对象工厂，并挂到
-  `serialization::context::factories`。
+- `objects::make_object_factory(objects::manager&)`：为多态对象反序列化创建通用类型工厂，并挂到
+  `serialization::context::factories.type_factory`。
 
 ## 后续路线图
 

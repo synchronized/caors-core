@@ -187,7 +187,7 @@ result<objects::object*> deserialize_polymorphic_object(const serialization::con
     return {{}, nullptr};
   }
 
-  const serialization::object_factory* factory = context.effective_object_factory();
+  const serialization::type_factory* factory = context.effective_type_factory();
   if (factory == nullptr || !factory->valid()) {
     return {{error_domain::serialization, errc::invalid_argument}, nullptr};
   }
@@ -202,8 +202,7 @@ result<objects::object*> deserialize_polymorphic_object(const serialization::con
     return {{error_domain::serialization, errc::not_found}, nullptr};
   }
 
-  void* created = factory->create_object(dynamic_type.value.id(),
-                                         context.effective_memory_resource());
+  void* created = factory->create_type(dynamic_type.value.id(), context.effective_memory_resource());
   auto* instance = static_cast<objects::object*>(created);
   if (instance == nullptr) {
     return {{error_domain::serialization, errc::unsupported}, nullptr};
@@ -212,13 +211,13 @@ result<objects::object*> deserialize_polymorphic_object(const serialization::con
   variant_reader reader{*stored_value};
   const reflection::type reflected_dynamic_type = reflection::find(dynamic_type.value.id());
   if (!reflected_dynamic_type) {
-    factory->destroy_object(instance);
+    factory->destroy_type(instance);
     return {{error_domain::serialization, errc::not_found}, nullptr};
   }
 
   const error status = detail::deserialize(context, reflected_dynamic_type, instance, reader);
   if (status) {
-    factory->destroy_object(instance);
+    factory->destroy_type(instance);
     return {status, nullptr};
   }
 

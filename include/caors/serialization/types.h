@@ -20,14 +20,14 @@
 
 namespace caors::serialization {
 
-using object_create_fn = void* (*)(type_id type, memory::memory_resource* resource,
-                                   void* user_data);
-using object_destroy_fn = void (*)(void* instance, void* user_data) noexcept;
+using type_create_fn = void* (*)(type_id type, memory::memory_resource* resource,
+                                 void* user_data);
+using type_destroy_fn = void (*)(void* instance, void* user_data) noexcept;
 
-/** @brief 运行期对象构造和销毁函数表。 */
-struct object_factory {
-  object_create_fn create = nullptr;
-  object_destroy_fn destroy = nullptr;
+/** @brief 按运行期类型构造和销毁实例的函数表。 */
+struct type_factory {
+  type_create_fn create = nullptr;
+  type_destroy_fn destroy = nullptr;
   void* user_data = nullptr;
 
   [[nodiscard]] constexpr bool can_create() const noexcept { return create != nullptr; }
@@ -36,11 +36,11 @@ struct object_factory {
     return can_create() && can_destroy();
   }
 
-  [[nodiscard]] void* create_object(type_id type, memory::memory_resource* resource) const {
+  [[nodiscard]] void* create_type(type_id type, memory::memory_resource* resource) const {
     return create != nullptr ? create(type, resource, user_data) : nullptr;
   }
 
-  void destroy_object(void* instance) const noexcept {
+  void destroy_type(void* instance) const noexcept {
     if (destroy != nullptr && instance != nullptr) {
       destroy(instance, user_data);
     }
@@ -105,7 +105,7 @@ private:
 
 /** @brief 运行期工厂相关的序列化语义选项。 */
 struct factory_options {
-  const object_factory* object_factory = nullptr;
+  const type_factory* type_factory = nullptr;
 };
 
 /** @brief 运行期构造和销毁相关的序列化语义选项。 */
@@ -154,8 +154,8 @@ struct context {
     return storage.string_view_storage;
   }
 
-  [[nodiscard]] const serialization::object_factory* effective_object_factory() const noexcept {
-    return factories.object_factory;
+  [[nodiscard]] const serialization::type_factory* effective_type_factory() const noexcept {
+    return factories.type_factory;
   }
 
   [[nodiscard]] memory::memory_resource* effective_memory_resource() const noexcept {
@@ -170,5 +170,11 @@ using serialization_text_result = result<string>;
 using variant_result = result<variant>;
 
 } // namespace caors::serialization
+
+namespace caors {
+
+using type_factory = serialization::type_factory;
+
+} // namespace caors
 
 #endif

@@ -16,7 +16,6 @@
 
 namespace caors::objects {
 
-using object_factory = serialization::object_factory;
 using object_ref_resolver = serialization::external_ref_resolver;
 
 /** @brief 对象引用在通用外部引用系统中的 domain。 */
@@ -386,9 +385,11 @@ make_persistent_object_ref_resolver(objects::manager& manager) {
   };
 }
 
-/** @brief 使用对象生命周期管理器创建通用对象工厂。 */
-[[nodiscard]] inline object_factory make_object_factory(objects::manager& manager) noexcept {
-  return object_factory{&detail::manager_object_create, &detail::manager_object_destroy, &manager};
+/** @brief 使用对象生命周期管理器创建通用运行期类型工厂。 */
+[[nodiscard]] inline serialization::type_factory
+make_object_factory(objects::manager& manager) noexcept {
+  return serialization::type_factory{&detail::manager_object_create,
+                                     &detail::manager_object_destroy, &manager};
 }
 
 } // namespace caors::objects
@@ -449,7 +450,6 @@ template <typename T> struct codec_traits<objects::detail::basic_handle<T>> {
 
 namespace caors {
 
-using object_factory = serialization::object_factory;
 using object_ref_resolver = objects::object_ref_resolver;
 using objects::make_object_factory;
 using objects::make_object_ref_resolver;

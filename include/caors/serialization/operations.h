@@ -358,7 +358,7 @@ to_polymorphic_serialization_value(const objects::object* object);
  * @brief 兼容入口：从多态 DOM envelope 构造对象。
  *
  * `declared_base` 是字段或调用点声明的对象基类类型。动态类型必须继承自该类型。成功返回的对象由
- * `context.factories.object_factory` 拥有；缺少对象工厂、类型不匹配或反序列化失败时返回错误。
+ * `context.factories.type_factory` 拥有；缺少类型工厂、类型不匹配或反序列化失败时返回错误。
  */
 [[nodiscard]] CAORS_API result<objects::object*>
 deserialize_polymorphic_object(const serialization::context& context,
@@ -382,8 +382,8 @@ template <typename Base>
 
   Base* typed = dynamic_cast<Base*>(object.value);
   if (typed == nullptr) {
-    if (const serialization::object_factory* factory = context.effective_object_factory()) {
-      factory->destroy_object(object.value);
+    if (const serialization::type_factory* factory = context.effective_type_factory()) {
+      factory->destroy_type(object.value);
     }
     return {{error_domain::serialization, errc::invalid_type}, nullptr};
   }
