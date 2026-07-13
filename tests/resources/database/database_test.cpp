@@ -126,10 +126,10 @@ TEST_CASE("resources - database orchestrates manifest provider loader cache and 
   REQUIRE(loaded_again.succeeded());
   CHECK(loaded_again.value.get() == loaded.value);
 
-  caors::serialization::resource_dependency_list dependencies;
-  caors::serialization::resource_dependency_collector collector = dependencies.collector();
+  caors::resource_dependency_list dependencies;
+  caors::resource_dependency_collector collector = dependencies.collector();
   caors::serialization::context dependency_context{};
-  dependency_context.resources.dependencies = &collector;
+  dependency_context.external_refs.collector = &collector;
 
   const database_resource_ref_holder holder{
       caors::resource_ref<serialized_resource>{test_guid_a},
@@ -143,10 +143,10 @@ TEST_CASE("resources - database orchestrates manifest provider loader cache and 
   CHECK(database.replace_dependencies(test_guid_b, dependencies) == 1);
   CHECK(graph.contains(test_guid_b, test_guid_a));
 
-  const caors::serialization::resource_resolver resolver = database.resolver();
+  const caors::resource_resolver resolver = database.resolver();
   caors::serialization::context context{};
-  context.resources.resolver = &resolver;
-  context.resources.resolution = caors::serialization::resource_ref_resolution::require_resolved;
+  context.external_refs.resolver = &resolver;
+  context.external_refs.resolution = caors::resource_ref_resolution::require_resolved;
 
   database_resource_ref_holder decoded{};
   const caors::error status = caors::deserialize_json(

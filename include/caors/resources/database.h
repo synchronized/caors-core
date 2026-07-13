@@ -8,7 +8,7 @@
 #include "caors/resources/dependency_graph.h"
 #include "caors/resources/io.h"
 #include "caors/resources/preload.h"
-#include "caors/serialization/types.h"
+#include "caors/resources/serialization.h"
 
 #include <cstdint>
 #include <memory>
@@ -522,17 +522,17 @@ public:
   /** @brief 把依赖收集结果追加写入当前依赖图。未设置依赖图时返回 0。 */
   [[nodiscard]] std::size_t
   add_dependencies(resource_guid resource,
-                   const serialization::resource_dependency_list& dependencies) {
-    return dependency_graph_ != nullptr ? serialization::add_resource_dependencies(
-                                              *dependency_graph_, resource, dependencies)
-                                        : 0;
+                   const resources::resource_dependency_list& dependencies) {
+    return dependency_graph_ != nullptr
+               ? resources::add_resource_dependencies(*dependency_graph_, resource, dependencies)
+               : 0;
   }
 
   /** @brief 用依赖收集结果替换当前依赖图中某个资源的直接依赖。未设置依赖图时返回 0。 */
   [[nodiscard]] std::size_t
   replace_dependencies(resource_guid resource,
-                       const serialization::resource_dependency_list& dependencies) {
-    return dependency_graph_ != nullptr ? serialization::replace_resource_dependencies(
+                       const resources::resource_dependency_list& dependencies) {
+    return dependency_graph_ != nullptr ? resources::replace_resource_dependencies(
                                               *dependency_graph_, resource, dependencies)
                                         : 0;
   }
@@ -549,9 +549,9 @@ public:
                                         : make_guid_list();
   }
 
-  /** @brief 创建可挂到 `serialization::context` 的资源引用 resolver。 */
-  [[nodiscard]] serialization::resource_resolver resolver() noexcept {
-    return serialization::resource_resolver{&database_resource_resolve, this};
+  /** @brief 创建可挂到 `serialization::context` 的外部引用 resolver。 */
+  [[nodiscard]] resources::resource_resolver resolver() noexcept {
+    return resources::resource_resolver{&database_resource_resolve, this};
   }
 
 private:
@@ -842,10 +842,14 @@ private:
         typename dependency_graph::guid_list::allocator_type{resource_}};
   }
 
-  [[nodiscard]] static resources::resource* database_resource_resolve(resource_guid guid,
-                                                                      void* user_data) noexcept {
+  [[nodiscard]] static void* database_resource_resolve(const serialization::external_ref& ref,
+                                                       void* user_data) noexcept {
+    if (ref.domain != resources::resource_ref_domain()) {
+      return nullptr;
+    }
+
     auto* database = static_cast<resources::database*>(user_data);
-    return database != nullptr ? database->find(guid) : nullptr;
+    return database != nullptr ? database->find(resource_guid{ref.id}) : nullptr;
   }
 
   memory_resource* resource_ = nullptr;

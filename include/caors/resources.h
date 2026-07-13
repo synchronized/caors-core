@@ -19,6 +19,7 @@
 #include "caors/resources/ref.h"
 #include "caors/resources/reload.h"
 #include "caors/resources/resource.h"
+#include "caors/resources/serialization.h"
 #include "caors/resources/source.h"
 
 #endif

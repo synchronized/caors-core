@@ -95,10 +95,8 @@ public:
   /** @brief 按 manifest type 同步预加载资源。 */
   [[nodiscard]] preload_result preload(resource_guid root) { return database_.preload(root); }
 
-  /** @brief 创建可挂到 serialization::context 的资源 resolver。 */
-  [[nodiscard]] serialization::resource_resolver resolver() noexcept {
-    return database_.resolver();
-  }
+  /** @brief 创建可挂到 serialization::context 的外部引用 resolver。 */
+  [[nodiscard]] resources::resource_resolver resolver() noexcept { return database_.resolver(); }
 
 private:
   using source_map = core::hash_map<core::string_name, resources::source*>;

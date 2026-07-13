@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 鍘熸祴璇曟枃浠讹細serialization_resource_ref_serialization_collects_resource_dependencies_test.cpp
+// 原测试文件：serialization_resource_ref_serialization_collects_resource_dependencies_test.cpp
 
 #include "serialization_resource_ref_test_support.h"
 
@@ -11,11 +11,11 @@ using namespace caors::tests::serialization::resource_ref_codec;
 TEST_CASE("serialization - resource refs are collected as dependencies", "[serialization]") {
   require_resource_ref_actor_metadata();
 
-  caors::serialization::resource_dependency_list dependencies;
-  caors::serialization::resource_dependency_collector collector = dependencies.collector();
+  caors::resource_dependency_list dependencies;
+  caors::resource_dependency_collector collector = dependencies.collector();
 
   caors::serialization::context context{};
-  context.resources.dependencies = &collector;
+  context.external_refs.collector = &collector;
 
   const resource_ref_actor actor{caors::resource_ref<serialized_texture_resource>{texture_guid}};
   const caors::serialization::serialization_text_result json =
@@ -37,7 +37,7 @@ TEST_CASE("serialization - resource refs are collected as dependencies", "[seria
   CHECK(dependencies.entries()[0].type == caors::meta::id_of<serialized_texture_resource>());
 }
 
-// 鍘熸祴璇曟枃浠讹細serialization_resource_ref_serialization_deserializes_resource_refs_as_unresolved_guids_test.cpp
+// 原测试文件：serialization_resource_ref_serialization_deserializes_resource_refs_as_unresolved_guids_test.cpp
 
 #include "serialization_resource_ref_test_support.h"
 
@@ -64,7 +64,7 @@ TEST_CASE("serialization - deserializes resource refs as unresolved guids", "[se
   CHECK(decoded.texture.get() == texture);
 }
 
-// 鍘熸祴璇曟枃浠讹細serialization_resource_ref_serialization_rejects_invalid_resource_ref_guids_test.cpp
+// 原测试文件：serialization_resource_ref_serialization_rejects_invalid_resource_ref_guids_test.cpp
 
 #include "serialization_resource_ref_test_support.h"
 
@@ -81,7 +81,7 @@ TEST_CASE("serialization - rejects invalid resource ref guids", "[serialization]
   CHECK(status.value() == caors::errc::invalid_argument);
 }
 
-// 鍘熸祴璇曟枃浠讹細serialization_resource_ref_serialization_reports_required_missing_resource_refs_test.cpp
+// 原测试文件：serialization_resource_ref_serialization_reports_required_missing_resource_refs_test.cpp
 
 #include "serialization_resource_ref_test_support.h"
 
@@ -93,12 +93,11 @@ TEST_CASE("serialization - required resource ref resolution reports missing reso
   require_resource_ref_actor_metadata();
 
   caors::resource_cache<serialized_texture_resource> cache;
-  const caors::serialization::resource_resolver resolver =
-      caors::serialization::make_resource_resolver(cache);
+  const caors::resource_resolver resolver = caors::make_resource_resolver(cache);
 
   caors::serialization::context context{};
-  context.resources.resolver = &resolver;
-  context.resources.resolution = caors::serialization::resource_ref_resolution::require_resolved;
+  context.external_refs.resolver = &resolver;
+  context.external_refs.resolution = caors::resource_ref_resolution::require_resolved;
 
   resource_ref_actor decoded{};
   const caors::error status = caors::deserialize_json(
@@ -109,7 +108,7 @@ TEST_CASE("serialization - required resource ref resolution reports missing reso
   CHECK_FALSE(decoded.texture.resolved());
 }
 
-// 鍘熸祴璇曟枃浠讹細serialization_resource_ref_serialization_resolves_resource_refs_with_context_resolver_test.cpp
+// 原测试文件：serialization_resource_ref_serialization_resolves_resource_refs_with_context_resolver_test.cpp
 
 #include "serialization_resource_ref_test_support.h"
 
@@ -124,14 +123,12 @@ TEST_CASE("serialization - resource ref can resolve through context resolver", "
   REQUIRE(texture != nullptr);
   caors::resource_cache<serialized_texture_resource> missing_cache;
 
-  const caors::serialization::resource_resolver resolver =
-      caors::serialization::make_resource_resolver(cache);
-  const caors::serialization::resource_resolver missing_resolver =
-      caors::serialization::make_resource_resolver(missing_cache);
+  const caors::resource_resolver resolver = caors::make_resource_resolver(cache);
+  const caors::resource_resolver missing_resolver = caors::make_resource_resolver(missing_cache);
 
   caors::serialization::context context{};
-  context.resources.resolver = &resolver;
-  context.resources.resolution = caors::serialization::resource_ref_resolution::resolve_if_present;
+  context.external_refs.resolver = &resolver;
+  context.external_refs.resolution = caors::resource_ref_resolution::resolve_if_present;
 
   resource_ref_actor decoded{};
   const caors::error status = caors::deserialize_json(
@@ -143,9 +140,8 @@ TEST_CASE("serialization - resource ref can resolve through context resolver", "
   CHECK(decoded.texture.get() == texture);
 
   caors::serialization::context unresolved_context{};
-  unresolved_context.resources.resolver = &missing_resolver;
-  unresolved_context.resources.resolution =
-      caors::serialization::resource_ref_resolution::keep_unresolved;
+  unresolved_context.external_refs.resolver = &missing_resolver;
+  unresolved_context.external_refs.resolution = caors::resource_ref_resolution::keep_unresolved;
 
   resource_ref_actor unresolved{};
   const caors::error unresolved_status = caors::deserialize_json(
@@ -156,7 +152,75 @@ TEST_CASE("serialization - resource ref can resolve through context resolver", "
   CHECK_FALSE(unresolved.texture.resolved());
 }
 
-// 鍘熸祴璇曟枃浠讹細serialization_resource_ref_serialization_serializes_empty_resource_refs_as_null_test.cpp
+TEST_CASE("serialization - external ref interfaces adapt resource refs", "[serialization]") {
+  require_resource_ref_actor_metadata();
+
+  class test_collector final : public caors::serialization::external_ref_collector_interface {
+  public:
+    void collect(const caors::serialization::external_ref& ref) override {
+      ++count;
+      last = ref;
+    }
+
+    int count = 0;
+    caors::serialization::external_ref last{};
+  };
+
+  class test_resolver final : public caors::serialization::external_ref_resolver_interface {
+  public:
+    explicit test_resolver(caors::resource_cache<serialized_texture_resource>& source)
+        : source_(&source) {}
+
+    [[nodiscard]] void* resolve(const caors::serialization::external_ref& ref) override {
+      if (ref.domain != caors::resources::resource_ref_domain()) {
+        return nullptr;
+      }
+
+      return source_->find(caors::resource_guid{ref.id});
+    }
+
+  private:
+    caors::resource_cache<serialized_texture_resource>* source_ = nullptr;
+  };
+
+  test_collector collector_interface;
+  const caors::serialization::external_ref_collector collector =
+      caors::serialization::make_external_ref_collector(collector_interface);
+
+  caors::serialization::context collect_context{};
+  collect_context.external_refs.collector = &collector;
+
+  const resource_ref_actor actor{caors::resource_ref<serialized_texture_resource>{texture_guid}};
+  const caors::serialization::serialization_text_result json =
+      caors::serialize_json(collect_context, actor);
+
+  REQUIRE(json.succeeded());
+  CHECK(collector_interface.count == 1);
+  CHECK(collector_interface.last.domain == caors::resources::resource_ref_domain());
+  CHECK(collector_interface.last.id == texture_guid.value);
+  CHECK(collector_interface.last.type == caors::meta::id_of<serialized_texture_resource>());
+
+  caors::resource_cache<serialized_texture_resource> cache;
+  serialized_texture_resource* texture = cache.create(texture_guid);
+  REQUIRE(texture != nullptr);
+
+  test_resolver resolver_interface{cache};
+  const caors::serialization::external_ref_resolver resolver =
+      caors::serialization::make_external_ref_resolver(resolver_interface);
+
+  caors::serialization::context resolve_context{};
+  resolve_context.external_refs.resolver = &resolver;
+  resolve_context.external_refs.resolution = caors::resource_ref_resolution::require_resolved;
+
+  resource_ref_actor decoded{};
+  const caors::error status = caors::deserialize_json(resolve_context, decoded, json.value);
+
+  REQUIRE(status.succeeded());
+  CHECK(decoded.texture.resolved());
+  CHECK(decoded.texture.get() == texture);
+}
+
+// 原测试文件：serialization_resource_ref_serialization_serializes_empty_resource_refs_as_null_test.cpp
 
 #include "serialization_resource_ref_test_support.h"
 
@@ -180,7 +244,7 @@ TEST_CASE("serialization - serializes empty resource refs as null", "[serializat
   CHECK_FALSE(decoded.texture.resolved());
 }
 
-// 鍘熸祴璇曟枃浠讹細serialization_resource_ref_serialization_serializes_resource_refs_as_stable_guids_test.cpp
+// 原测试文件：serialization_resource_ref_serialization_serializes_resource_refs_as_stable_guids_test.cpp
 
 #include "serialization_resource_ref_test_support.h"
 

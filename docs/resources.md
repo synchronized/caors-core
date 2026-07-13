@@ -450,26 +450,24 @@ caors::resource_cache<texture> cache;
 cache.resolve(decoded.albedo);
 ```
 
-也可以通过 `serialization::context` 为本次反序列化挂一个资源 resolver。resolver 可以从
-`resources::manager` 或 `resources::cache<T>` 创建：
+也可以通过 `serialization::context` 为本次反序列化挂一个通用外部引用 resolver。资源模块提供
+`resources::make_resource_resolver()` 适配 `resources::manager` 或 `resources::cache<T>`：
 
 ```cpp
 caors::resource_cache<texture> cache;
 texture* loaded = cache.create(texture_id);
 
-caors::serialization::resource_resolver resolver =
-    caors::serialization::make_resource_resolver(cache);
+caors::resource_resolver resolver = caors::make_resource_resolver(cache);
 
 caors::serialization::context context{};
-context.resources.resolver = &resolver;
-context.resources.resolution =
-    caors::serialization::resource_ref_resolution::resolve_if_present;
+context.external_refs.resolver = &resolver;
+context.external_refs.resolution = caors::resource_ref_resolution::resolve_if_present;
 
 material decoded{};
 caors::deserialize_json(context, decoded, R"({"albedo":"6cd2da3d-b549-4756-8b8b-0c84293af410"})");
 ```
 
-`context.resources.resolution` 的策略：
+`context.external_refs.resolution` 的策略：
 
 - `keep_unresolved`：默认策略，只恢复 GUID，不解析资源。
 - `resolve_if_present`：如果 resolver 能找到同 GUID 且类型兼容的资源，则写入已解析指针；缺资源仍保持 unresolved。
@@ -478,11 +476,11 @@ caors::deserialize_json(context, decoded, R"({"albedo":"6cd2da3d-b549-4756-8b8b-
 序列化和反序列化遍历 `resource_ref<T>` 时还可以收集资源依赖：
 
 ```cpp
-caors::serialization::resource_dependency_list dependencies;
-caors::serialization::resource_dependency_collector collector = dependencies.collector();
+caors::resource_dependency_list dependencies;
+caors::resource_dependency_collector collector = dependencies.collector();
 
 caors::serialization::context context{};
-context.resources.dependencies = &collector;
+context.external_refs.collector = &collector;
 
 caors::serialize_json(context, material_value);
 ```
@@ -490,7 +488,7 @@ caors::serialize_json(context, material_value);
 依赖条目包含 `resource_guid` 和资源声明类型的 `type_id`。这可用于后续预加载、打包、热更新和资源数据库。
 依赖收集器本身不加载资源，也不改变引用的 resolved 状态。常见同步使用方式是：先从对象或存档中收集
 `resource_ref<T>` 依赖，再按 GUID 查询 manifest / provider，使用匹配的 loader 预加载到 `cache<T>`，
-最后把 cache 适配成 `serialization::resource_resolver`，让反序列化阶段按策略解析引用。
+最后把 cache 适配成 `resource_resolver`，让反序列化阶段按策略解析引用。
 
 ## manager
 
@@ -578,7 +576,7 @@ caors::vector<caors::resource_guid> affected_all = graph.affected_closure(albedo
 - `affected_closure(resource)` 沿反向依赖递归展开，返回所有直接或间接受影响的资源。结果会去重，循环依赖不会
   死循环，并且不会包含传入的 `resource` 自身。该查询适合 reload 级联刷新、预加载、打包和资源数据库分析。
 - 依赖查询结果当前不保证稳定顺序；调用方不应依赖返回列表顺序表达优先级。
-- `serialization::replace_resource_dependencies(graph, resource, dependencies)` 可以把一次序列化遍历收集到的
+- `resources::replace_resource_dependencies(graph, resource, dependencies)` 可以把一次序列化遍历收集到的
   `resource_dependency_list` 写入依赖图。依赖条目中的 `type_id` 仍保留给 manifest、资源数据库或调试诊断使用；
   `dependency_graph` 当前只保存 GUID 关系。
 - 当前第一版只建模资源到资源的直接依赖。对象、场景、资源包和编辑器导入任务可以在上层资源数据库中继续扩展。
@@ -619,7 +617,7 @@ auto resolver = database.resolver();
 - `reload<T>(guid)` / `reload_handle<T>(guid)`：重新加载并替换对应 cache 中已有资源；失败时仍保留旧资源。
 - `find<T>(guid)` / `find(guid)`：查询已注册 cache 中的资源。
 - `resolve(ref<T>&)` / `is_current(ref<T>)`：通过已注册 cache 解析资源引用并检查 generation 是否仍当前。
-- `resolver()`：生成 `serialization::resource_resolver`，可挂到 `serialization::context` 中解析
+- `resolver()`：生成 `resources::resource_resolver`，可挂到 `serialization::context` 中解析
   `resource_ref<T>`。
 - `replace_dependencies()` / `affected_by()` / `affected_closure()`：把依赖收集结果写入当前依赖图，并查询
   reload 影响范围。
@@ -991,17 +989,17 @@ auto loaded = caors::load_into(cache, loader, texture_id);
 3. `resources::provider` 只负责按 GUID 定位并读取字节。
 4. `resources::loader<T>` 负责把字节解码为资源对象。
 5. `load_into(cache, loader, guid)` 把加载结果转入拥有式 cache。
-6. `serialization::resource_resolver` 从 manager/cache 查询已加载资源，用于解析 `resource_ref<T>`。
+6. `resources::resource_resolver` 从 manager/cache 查询已加载资源，用于解析 `resource_ref<T>`。
 
 如果对象存档中包含资源引用，推荐在读回前先做一遍依赖收集和预加载：
 
-1. 用 `serialization::resource_dependency_list` 收集所有 `resource_ref<T>` 依赖。
+1. 用 `resources::resource_dependency_list` 收集所有 `resource_ref<T>` 依赖。
 2. 对资源对象本身做依赖索引时，调用
-   `serialization::replace_resource_dependencies(graph, current_resource_guid, dependencies)` 写入依赖图。
+   `resources::replace_resource_dependencies(graph, current_resource_guid, dependencies)` 写入依赖图。
 3. 通过 manifest 查找每个 GUID 对应的资源位置、类型和版本信息。
 4. 通过 provider 读取资源字节，并用对应 loader 解码。
 5. 使用 `load_into(cache, loader, guid)` 把资源放入 cache。
-6. 反序列化对象时把 cache resolver 挂到 `context.resources.resolver`，按
+6. 反序列化对象时把 cache resolver 挂到 `context.external_refs.resolver`，按
    `resolve_if_present` 或 `require_resolved` 决定缺资源策略。
 
 同步重载推荐流程：

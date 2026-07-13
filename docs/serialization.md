@@ -59,7 +59,8 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 序列化模块按职责拆分公共头文件：
 
 - `caors/serialization/type_schema.h`：后端能力、字段配置和类型序列化组件数据。
-- `caors/serialization/types.h`：对象引用 resolver、资源引用 resolver、资源依赖收集器、单次调度上下文和结果类型。
+- `caors/serialization/external_ref.h`：通用外部引用、函数表 resolver/collector 和继承接口适配器。
+- `caors/serialization/types.h`：对象引用 resolver、通用外部引用选项、单次调度上下文和结果类型。
 - `caors/serialization/registry.h`：序列化组件注册表和链式注册入口。
 - `caors/serialization/writer.h`：`serialization::writer`、`serialization::text_writer` 和
   `serialization::json_writer`。
@@ -67,8 +68,8 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 - `caors/serialization/codec.h`：类型级 codec 扩展点，以及接入 `meta::capabilities` 的运行期能力索引包装。
 - `caors/serialization/dom_reader.h`：从 `variant` DOM 读入的 reader 后端。
 - `caors/serialization/operations.h`：`serialize()`、`deserialize()`、`to_serialization_value()`、`serialize_text()`、`write_variant()` 等调度入口。
-- `caors/serialization/resource_codec.h`：资源 GUID 和资源引用的稳定标识 codec。
 - `caors/serialization.h`：兼容用聚合头，包含序列化入口和 STL 容器 traits 适配。
+- `caors/resources/serialization.h`：资源 GUID、资源引用、资源依赖收集和资源 resolver 的序列化适配。
 - `caors/traits/*.h`：类型名、wrapper 和容器类扩展点主模板。
 - `caors/adapters/stl.h`：STL/CAORS 容器、wrapper 和反射 traits 的适配聚合入口。
 
@@ -92,7 +93,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 | `serialization::context` | 单次读写上下文 | 按职责使用分组字段配置 |
 | `context.fields` | schema version 字段过滤 | `0` 表示不启用版本过滤 |
 | `context.references` | `objects::ptr<T>` 引用 resolver | 只影响对象指针引用字段 |
-| `context.resources` | `resource_ref<T>` resolver、解析策略和依赖收集 | 默认只恢复 GUID，不解析资源 |
+| `context.external_refs` | 通用外部引用 resolver、解析策略和依赖收集 | 资源、对象等上层引用可共享该入口 |
 | `context.objects` | 多态 object 新建时使用的 manager | 只在需要从 envelope 创建对象时使用 |
 | `context.memory` | 多态值、空 wrapper 和容器新增元素的运行期构造资源 | 不强行替换已有容器 allocator |
 | `context.storage` | 借用视图读回所需外部存储 | 主要用于 `std::string_view` |
@@ -129,7 +130,7 @@ caors::deserialize_json(context, object, text);
 ```
 
 `serialization::context` 不再提供旧式扁平配置字段。调用方应按职责写入
-`context.fields`、`context.references`、`context.resources`、`context.objects`、`context.memory`
+`context.fields`、`context.references`、`context.external_refs`、`context.objects`、`context.memory`
 和 `context.storage` 等分组字段。
 
 ### 多态 object
@@ -534,17 +535,16 @@ context.references.object_resolver = &resolver;
 ### 资源引用 resolver
 
 `caors::resource_ref<T>` 默认只按稳定 `resource_guid` 读写，不展开资源对象。需要反序列化时立即解析
-资源引用时，可以在 `serialization::context` 中挂资源 resolver：
+资源引用时，需要包含 `caors/resources/serialization.h` 或 `caors/resources.h`，并在
+`serialization::context` 中挂通用外部引用 resolver：
 
 ```cpp
 caors::resource_cache<texture> cache;
-caors::serialization::resource_resolver resolver =
-    caors::serialization::make_resource_resolver(cache);
+caors::resource_resolver resolver = caors::make_resource_resolver(cache);
 
 caors::serialization::context context{};
-context.resources.resolver = &resolver;
-context.resources.resolution =
-    caors::serialization::resource_ref_resolution::resolve_if_present;
+context.external_refs.resolver = &resolver;
+context.external_refs.resolution = caors::resource_ref_resolution::resolve_if_present;
 
 material decoded{};
 caors::deserialize_json(context, decoded, json_text);
@@ -562,40 +562,40 @@ caors::deserialize_json(context, decoded, json_text);
 - `require_resolved`：必须解析成功；缺少 resolver 返回 `serialization / invalid_argument`，缺资源返回
   `resources / not_found`，类型不匹配返回 `resources / invalid_type`。
 
-资源依赖收集通过 `context.resources.dependencies` 完成。序列化和反序列化遍历到非空 `resource_ref<T>`
+资源依赖收集通过 `context.external_refs.collector` 完成。序列化和反序列化遍历到非空 `resource_ref<T>`
 时会记录 `{resource_guid, type_id}`：
 
 ```cpp
-caors::serialization::resource_dependency_list dependencies;
-caors::serialization::resource_dependency_collector collector = dependencies.collector();
+caors::resource_dependency_list dependencies;
+caors::resource_dependency_collector collector = dependencies.collector();
 
 caors::serialization::context context{};
-context.resources.dependencies = &collector;
+context.external_refs.collector = &collector;
 
 caors::serialize_json(context, material_value);
 
 caors::resource_dependency_graph graph;
-caors::serialization::replace_resource_dependencies(graph, material_resource_guid, dependencies);
+caors::replace_resource_dependencies(graph, material_resource_guid, dependencies);
 ```
 
 依赖收集不加载资源，也不改变 `resource_ref<T>` 的 resolved 状态。它主要服务于预加载、打包、
 热更新和资源数据库。`resource_dependency_list` 是一次遍历得到的依赖事实列表；`resources::dependency_graph`
 是运行期资源数据库里的关系索引。需要把事实写入索引时，应显式调用
-`serialization::add_resource_dependencies()` 或 `serialization::replace_resource_dependencies()`。
+`resources::add_resource_dependencies()` 或 `resources::replace_resource_dependencies()`。
 
 推荐的同步预加载链路是：
 
-1. 先用带 `context.resources.dependencies` 的序列化或反序列化遍历收集所有资源 GUID。
+1. 先用带 `context.external_refs.collector` 的序列化或反序列化遍历收集所有资源 GUID。
 2. 如果当前遍历对象本身是资源，调用 `replace_resource_dependencies(graph, resource_guid, dependencies)`
    刷新依赖图。
 3. 按依赖条目中的 `guid` 和声明 `type_id` 查询 manifest 或资源数据库，确定资源位置和 loader。
 4. 通过 `resources::provider` 读取字节，再由匹配的 `resources::loader<T>` 解码资源。
 5. 使用 `resources::load_into(cache, loader, guid)` 把资源放入拥有式 cache。
-6. 创建 `serialization::make_resource_resolver(cache)`，并在后续反序列化 context 中设置
-   `resources.resolver` 和 `resources.resolution`。
+6. 创建 `resources::make_resource_resolver(cache)`，并在后续反序列化 context 中设置
+   `external_refs.resolver` 和 `external_refs.resolution`。
 
 依赖收集器只提供“需要哪些资源”的事实，不决定加载顺序、缺资源策略或异步调度。资源缺失是否报错由后续解析阶段的
-`resources.resolution` 决定。
+`external_refs.resolution` 决定。
 
 ### object handles
 
@@ -799,7 +799,7 @@ template <> struct codec_traits<custom_value> {
 | `std::filesystem::path` | 作为普通值类型 | 支持，按通用路径字符串写出 | 支持，从字符串构造 path |
 | `std::chrono` duration / `system_clock::time_point` | 作为普通值类型 | 支持，按整数写出 | 支持，从整数构造 |
 | `guid`、`type_guid`、`resource_guid` | 作为普通值类型 | 支持，按字符串写出 | 支持，从字符串解析 |
-| `resource_ref<T>` | 保存稳定资源 GUID 和可选已解析资源指针；序列化层只处理 GUID | 空值写 `null`，非空写 `resource_guid` 字符串，不展开资源对象；可收集依赖 | `null` 会清空引用；非空字符串默认只恢复未解析 GUID，也可通过 `context.resources.resolver` 按策略解析 |
+| `resource_ref<T>` | 保存稳定资源 GUID 和可选已解析资源指针；资源序列化适配只处理 GUID | 空值写 `null`，非空写 `resource_guid` 字符串，不展开资源对象；可收集依赖 | `null` 会清空引用；非空字符串默认只恢复未解析 GUID，也可通过 `context.external_refs.resolver` 按策略解析 |
 | 裸指针 `T*` | 通过 `indirect_view` 访问已指向的 `T` | 空值写 `null`，非空展开内部值 | `null` 可重置；非空要求目标已经指向有效对象 |
 | `std::unique_ptr<T>`、`caors::memory::unique_ptr<T>`、`std::shared_ptr<T>`、`std::optional<T>` | 通过 `indirect_view` 访问内部 `T` | 空值写 `null`，非空展开内部值；拥有型智能指针可写出普通类多态 envelope | `null` 可重置；非空可在 `T` 默认可构造时创建内部值；拥有型智能指针可按 envelope 和可用 factory 构造派生对象；空 wrapper 读入非空值但 `T` 不可构造时返回 `errc::invalid_type`；需要 `memory_resource` 托管 unique pointer 时使用 `caors::memory::unique_ptr<T>` |
 | `objects::ref<T>` | 通过 `indirect_view` 访问引用计数对象内部 `T` | 空值写 `null`，非空展开内部值，不写引用计数；`ref<Base>` 持有派生对象时可写出多态 envelope | `null` 可重置；普通非空值可在 `T` 默认可构造时通过 `objects::make_ref<T>(context.memory.resource)` 创建对象；多态 envelope 可构造真实派生对象并接管匹配销毁回调 |
@@ -818,7 +818,7 @@ template <> struct codec_traits<custom_value> {
 - `resource_ref<T>` 不拥有资源，也不延长资源生命周期。默认反序列化只恢复 GUID；运行期
   `resource_generation` 不写入存档。调用方可以后续按 GUID 使用
   `resources::manager::resolve()` 或 `resources::cache<T>::resolve()` 绑定实际资源对象，也可以在
-  `serialization::context` 中设置 `resources.resolver` 和 `resources.resolution` 让读入过程立即解析。
+  `serialization::context` 中设置 `external_refs.resolver` 和 `external_refs.resolution` 让读入过程立即解析。
 - `resource_handle<T>` / `resource_weak_handle<T>` 是运行期所有权句柄，当前不作为默认序列化 codec。
   需要持久化资源关系时应序列化 `resource_ref<T>` 或稳定 `resource_guid`。
 - `std::weak_ptr<T>` 和 `objects::weak_ref<T>` 默认不展开内部值；如果需要弱引用序列化，应通过对象句柄、资源 id 或
@@ -995,10 +995,10 @@ caors::string text = result.value;
 - `serialization::field_schema`：字段级序列化配置。
 - `serialization::writer`：格式后端接口。
 - `serialization::reader`：格式读入后端接口。
-- `serialization::context`：单次序列化/反序列化上下文，支持 schema version 字段过滤、多态 envelope 字段名配置、对象引用 resolver、资源引用 resolver、资源依赖收集和运行期资源传递。
+- `serialization::context`：单次序列化/反序列化上下文，支持 schema version 字段过滤、多态 envelope 字段名配置、对象引用 resolver、通用外部引用 resolver/collector 和运行期资源传递。
 - `serialization::string_storage`：`std::string_view` 反序列化使用的多段字符串存储。
-- `serialization::resource_resolver`：`resource_ref<T>` 反序列化可选的资源引用解析器。
-- `serialization::resource_dependency_list`：序列化遍历过程中收集到的资源依赖列表。
+- `serialization::external_ref_resolver`：通用外部引用解析函数表，资源模块通过 adapter 接入。
+- `serialization::external_ref_collector`：通用外部引用收集函数表，资源模块用它收集资源依赖。
 - `serialization::codec_traits<T>`：类型级 codec 特化入口。
 - `serialization::codec_of<T>()`：按 C++ 类型查询 descriptor 静态 codec 视图；类型不要求已经显式 meta 注册。
 - `serialization::find_codec()`：按 meta 类型或类型 id 查询 descriptor 静态 codec 视图。

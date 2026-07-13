@@ -190,7 +190,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 支持 `resources::ref<T>` 通过序列化 codec 按稳定 `resource_guid` 读写，读回后可由 manager/cache 显式解析，也可通过序列化 context resolver 按策略解析。
 - [x] 设计 `resources::loader<T>` / `resources::saver<T>` 接口，并提供基于 serialization reader/writer 的最小读写 helper。
 - [x] 支持序列化遍历收集 `resource_ref<T>` 资源依赖，用于后续预加载、打包、热更新和资源数据库。
-- [x] 提供 `serialization::add_resource_dependencies()` / `replace_resource_dependencies()`，把
+- [x] 提供 `resources::add_resource_dependencies()` / `replace_resource_dependencies()`，把
   `resource_dependency_list` 写入 `resources::dependency_graph`。
 - [x] 打通资源依赖收集到 manifest / provider / loader / cache 预加载，再由序列化 resolver 解析
   `resource_ref<T>` 的同步链路。
