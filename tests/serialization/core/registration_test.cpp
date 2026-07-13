@@ -22,7 +22,8 @@ TEST_CASE("serialization - class builder can attach to explicit meta type", "[se
   REQUIRE(serialization_result_ok(status));
 
   const explicit_meta_serialization_actor actor{42};
-  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text =
+      caors::serialization::serialize_text(actor);
 
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"id":42})");
@@ -54,7 +55,8 @@ TEST_CASE("serialization - registration can happen before reflection fields", "[
                                    .commit()));
 
   const serialization_first_actor actor{9};
-  const caors::serialization::serialization_text_result result = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result result =
+      caors::serialization::serialize_text(actor);
 
   REQUIRE(result.succeeded());
   CHECK(result.value == R"({"actor_id":9})");
@@ -75,7 +77,7 @@ TEST_CASE("serialization - rejects weak pointer deserialization", "[serializatio
   REQUIRE(serialization_result_ok(caors::serialization::class_<weak_ptr_actor>().commit()));
 
   weak_ptr_actor actor{};
-  const caors::error result = caors::deserialize_json(actor, R"({"value":7})");
+  const caors::error result = caors::deserialize(actor, R"({"value":7})");
 
   CHECK(result.failed());
   CHECK(result.domain() == caors::error_domain::serialization);
@@ -103,7 +105,8 @@ TEST_CASE("serialization - reports missing configured reflection field", "[seria
               .succeeded());
 
   const missing_field_actor actor{3};
-  const caors::serialization::serialization_text_result result = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result result =
+      caors::serialization::serialize_text(actor);
 
   CHECK(result.failed());
   CHECK(result.status.domain() == caors::error_domain::serialization);
@@ -124,7 +127,8 @@ TEST_CASE("serialization - reports missing serialization metadata", "[serializat
           .commit()));
 
   const reflected_only_actor actor{3};
-  const caors::serialization::serialization_text_result result = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result result =
+      caors::serialization::serialize_text(actor);
 
   CHECK(result.failed());
   CHECK(result.status.domain() == caors::error_domain::serialization);
@@ -148,7 +152,8 @@ TEST_CASE("serialization - reports unsupported reflected field kind", "[serializ
       serialization_result_ok(caors::serialization::class_<unsupported_field_actor>().commit()));
 
   const unsupported_field_actor actor{{1}};
-  const caors::serialization::serialization_text_result result = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result result =
+      caors::serialization::serialize_text(actor);
 
   CHECK(result.failed());
   CHECK(result.status.domain() == caors::error_domain::serialization);
@@ -171,7 +176,8 @@ TEST_CASE("serialization - reports unsupported weak pointer fields", "[serializa
 
   const std::shared_ptr<int> value = std::make_shared<int>(7);
   const weak_ptr_actor actor{value};
-  const caors::serialization::serialization_text_result result = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result result =
+      caors::serialization::serialize_text(actor);
 
   CHECK(result.failed());
   CHECK(result.status.domain() == caors::error_domain::serialization);
@@ -217,7 +223,8 @@ TEST_CASE("serialization - field metadata renames and skips fields", "[serializa
               .succeeded());
 
   const configured_actor actor{7, 42.5F, true};
-  const caors::serialization::serialization_text_result result = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result result =
+      caors::serialization::serialize_text(actor);
 
   REQUIRE(result.succeeded());
   CHECK(result.value == R"({"hp":42.5,"id":7})");

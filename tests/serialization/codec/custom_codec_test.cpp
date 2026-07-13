@@ -30,7 +30,8 @@ TEST_CASE("serialization - custom codec specialization uses descriptor capabilit
       serialization_result_ok(caors::serialization::class_<policy_custom_codec_actor>().commit()));
 
   const policy_custom_codec_actor actor{{42}};
-  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text =
+      caors::serialization::serialize_text(actor);
 
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"value":142})");
@@ -43,7 +44,7 @@ TEST_CASE("serialization - custom codec specialization uses descriptor capabilit
   CHECK(*value.value.try_as_i64() == 142);
 
   policy_custom_codec_actor decoded{};
-  const caors::error result = caors::deserialize_json(decoded, R"({"value":107})");
+  const caors::error result = caors::deserialize(decoded, R"({"value":107})");
 
   REQUIRE(result.succeeded());
   CHECK(decoded.value.value == 7);
@@ -71,13 +72,14 @@ TEST_CASE("serialization - descriptor static codec handles erased values without
       caors::serialization::class_<descriptor_static_codec_actor>().commit()));
 
   const descriptor_static_codec_actor actor{{11}};
-  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text =
+      caors::serialization::serialize_text(actor);
 
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"value":211})");
 
   descriptor_static_codec_actor decoded{};
-  const caors::error result = caors::deserialize_json(decoded, R"({"value":207})");
+  const caors::error result = caors::deserialize(decoded, R"({"value":207})");
 
   REQUIRE(result.succeeded());
   CHECK(decoded.value.value == 7);

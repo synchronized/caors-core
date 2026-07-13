@@ -109,9 +109,9 @@ if (plan.status.value() == caors::errc::cycle_detected) {
 
 ```cpp
 caors::serialization::context context{};
-context.limits.max_depth = 8;
+context.config.limits.max_depth = 8;
 
-auto result = caors::serialize_json(context, node);
+auto result = caors::to_string(context, node);
 if (result.status.value() == caors::errc::recursion_limit) {
   // 检查是否存在自环、父指针或过深嵌套。
 }
@@ -140,7 +140,7 @@ return caors::rethrow_as(status,
 需要同时返回错误状态和值的 API 可以使用 `caors::result<T>`：
 
 ```cpp
-caors::result<caors::string> result = caors::serialize_text(instance);
+caors::result<caors::string> result = caors::serialization::serialize_text(instance);
 
 if (result) {
   caors::string text = result.value;

@@ -125,55 +125,72 @@ struct storage_options {
   string_storage* string_view_storage = nullptr;
 };
 
+/** @brief 单次序列化调度的策略配置。 */
+struct context_config {
+  field_options fields{};
+  limit_options limits{};
+  polymorphic_options polymorphic{};
+  json_options json{};
+};
+
+/** @brief 单次序列化调度可使用的外部服务和解析器。 */
+struct context_resolvers {
+  external_ref_options external_refs{};
+  factory_options factories{};
+  memory_options memory{};
+};
+
+/** @brief 单次序列化调度的可变运行期状态。 */
+struct context_state {
+  storage_options storage{};
+  std::uint32_t current_depth = 0;
+};
+
 /**
  * @brief 单次序列化调度上下文。
  *
- * `schema_version == 0` 表示不启用字段版本过滤。传入非 0 版本时，调度层只处理当前版本可见的
- * 字段。
+ * `config.fields.schema_version == 0` 表示不启用字段版本过滤。传入非 0 版本时，调度层只处理当前
+ * 版本可见的字段。
  */
 struct context {
-  field_options fields{};
-  external_ref_options external_refs{};
-  factory_options factories{};
-  limit_options limits{};
-  memory_options memory{};
-  storage_options storage{};
-  polymorphic_options polymorphic{};
+  context_config config{};
+  context_resolvers resolvers{};
+  context_state state{};
 
   [[nodiscard]] std::uint32_t effective_schema_version() const noexcept {
-    return fields.schema_version;
+    return config.fields.schema_version;
   }
 
   [[nodiscard]] const serialization::external_ref_resolver*
   effective_external_ref_resolver() const noexcept {
-    return external_refs.resolver;
+    return resolvers.external_refs.resolver;
   }
 
   [[nodiscard]] const serialization::external_ref_collector*
   effective_external_ref_collector() const noexcept {
-    return external_refs.collector;
+    return resolvers.external_refs.collector;
   }
 
   [[nodiscard]] external_ref_resolution effective_external_ref_resolution() const noexcept {
-    return external_refs.resolution;
+    return resolvers.external_refs.resolution;
   }
 
   [[nodiscard]] string_storage* effective_string_view_storage() const noexcept {
-    return storage.string_view_storage;
+    return state.storage.string_view_storage;
   }
 
   [[nodiscard]] const serialization::type_factory* effective_type_factory() const noexcept {
-    return factories.type_factory;
+    return resolvers.factories.type_factory;
   }
 
   [[nodiscard]] memory::memory_resource* effective_memory_resource() const noexcept {
-    return memory.resource;
+    return resolvers.memory.resource;
   }
 
-  [[nodiscard]] std::uint32_t current_depth() const noexcept { return current_depth_; }
+  [[nodiscard]] std::uint32_t current_depth() const noexcept { return state.current_depth; }
 
   [[nodiscard]] bool at_depth_limit() const noexcept {
-    return limits.max_depth != 0 && current_depth_ >= limits.max_depth;
+    return config.limits.max_depth != 0 && state.current_depth >= config.limits.max_depth;
   }
 
   [[nodiscard]] result<context> enter_nested_value() const noexcept {
@@ -182,12 +199,9 @@ struct context {
     }
 
     context nested = *this;
-    ++nested.current_depth_;
+    ++nested.state.current_depth;
     return {{}, nested};
   }
-
-private:
-  std::uint32_t current_depth_ = 0;
 };
 
 /** @brief 文本序列化结果。 */

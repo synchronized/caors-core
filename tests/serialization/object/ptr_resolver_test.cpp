@@ -14,7 +14,7 @@ TEST_CASE("serialization - deserializes object pointers through resolver", "[ser
   object_ptr_resolver_data resolver_data{caors::object_id{88}, &target};
   const caors::object_ref_resolver resolver = make_test_object_ref_resolver(resolver_data);
   caors::serialization::context context{};
-  context.external_refs.resolver = &resolver;
+  context.resolvers.external_refs.resolver = &resolver;
 
   caors::variant::object_type members;
   members.push_back(caors::value::variant_member{
@@ -31,7 +31,7 @@ TEST_CASE("serialization - deserializes object pointers through resolver", "[ser
   CHECK(actor.target.get() == &target);
 
   object_ptr_actor from_json{};
-  const caors::error json_result = caors::deserialize_json(context, from_json, R"({"target":88})");
+  const caors::error json_result = caors::deserialize(context, from_json, R"({"target":88})");
   REQUIRE(json_result.succeeded());
   CHECK(from_json.target.get() == &target);
 }
@@ -48,14 +48,14 @@ TEST_CASE("serialization - object pointer resolver failures are reported", "[ser
   object_ptr_target target;
   const object_ptr_actor actor{caors::object_ptr<object_ptr_target>{&target}};
   const caors::serialization::serialization_text_result missing_resolver =
-      caors::serialize_text(actor);
+      caors::serialization::serialize_text(actor);
   CHECK(missing_resolver.failed());
   CHECK(missing_resolver.status.value() == caors::errc::invalid_argument);
 
   object_ptr_resolver_data resolver_data{caors::object_id{99}, nullptr};
   const caors::object_ref_resolver resolver = make_test_object_ref_resolver(resolver_data);
   caors::serialization::context context{};
-  context.external_refs.resolver = &resolver;
+  context.resolvers.external_refs.resolver = &resolver;
 
   caors::variant::object_type members;
   members.push_back(caors::value::variant_member{
@@ -75,7 +75,7 @@ TEST_CASE("serialization - object pointer resolver failures are reported", "[ser
   const caors::object_ref_resolver wrong_type_resolver =
       make_test_object_ref_resolver(wrong_type_data);
   caors::serialization::context wrong_type_context{};
-  wrong_type_context.external_refs.resolver = &wrong_type_resolver;
+  wrong_type_context.resolvers.external_refs.resolver = &wrong_type_resolver;
 
   caors::variant::object_type wrong_type_members;
   wrong_type_members.push_back(caors::value::variant_member{
@@ -103,15 +103,15 @@ TEST_CASE("serialization - serializes object pointers through resolver", "[seria
   object_ptr_resolver_data resolver_data{caors::object_id{77}, &target};
   const caors::object_ref_resolver resolver = make_test_object_ref_resolver(resolver_data);
   caors::serialization::context context{};
-  context.external_refs.resolver = &resolver;
+  context.resolvers.external_refs.resolver = &resolver;
   const object_ptr_actor actor{caors::object_ptr<object_ptr_target>{&target}};
 
   const caors::serialization::serialization_text_result text =
-      caors::serialize_text(context, actor);
+      caors::serialization::serialize_text(context, actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"target":77})");
 
-  const caors::serialization::variant_result value = caors::to_serialization_value(context, actor);
+  const caors::serialization::variant_result value = caors::to_value(context, actor);
   REQUIRE(value.succeeded());
   const caors::value::variant_member* target_member =
       value.value.find_member(caors::string_name{"target"});
@@ -119,8 +119,7 @@ TEST_CASE("serialization - serializes object pointers through resolver", "[seria
   CHECK(target_member->value.is_u64());
   CHECK(target_member->value.as_u64() == 77);
 
-  const caors::serialization::serialization_text_result json =
-      caors::serialize_json(context, actor);
+  const caors::serialization::serialization_text_result json = caors::to_string(context, actor);
   REQUIRE(json.succeeded());
   CHECK(json.value == R"({"target":77})");
 }

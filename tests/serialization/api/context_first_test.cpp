@@ -32,7 +32,7 @@ constexpr caors::resource_guid resource_guid{caors::guid::from_bytes(
                             0x6d, 0x9f, 0x5a, 0x20})};
 
 [[nodiscard]] std::int64_t context_offset(const caors::serialization::context& context) noexcept {
-  return static_cast<std::int64_t>(context.fields.schema_version) * 100;
+  return static_cast<std::int64_t>(context.config.fields.schema_version) * 100;
 }
 
 void require_context_codec_metadata() {
@@ -112,23 +112,24 @@ TEST_CASE("serialization - public context overloads are context-first", "[serial
   require_context_codec_metadata();
 
   caors::serialization::context context{};
-  context.fields.schema_version = 5;
+  context.config.fields.schema_version = 5;
 
   const context_codec_actor actor{{7}};
 
   caors::string json_output;
-  REQUIRE(caors::serialize_json_to(context, actor, json_output).succeeded());
+  REQUIRE(caors::serialization::serialize_json_to(context, actor, json_output).succeeded());
   CHECK(json_output == R"({"value":507})");
 
-  caors::serialization::serialization_text_result json = caors::serialize_json(context, actor);
+  caors::serialization::serialization_text_result json = caors::to_string(context, actor);
   REQUIRE(json.succeeded());
   CHECK(json.value == R"({"value":507})");
 
-  caors::serialization::serialization_text_result text = caors::serialize_text(context, actor);
+  caors::serialization::serialization_text_result text =
+      caors::serialization::serialize_text(context, actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"value":507})");
 
-  caors::serialization::variant_result value = caors::to_serialization_value(context, actor);
+  caors::serialization::variant_result value = caors::to_value(context, actor);
   REQUIRE(value.succeeded());
   const caors::value::variant_member* member = value.value.find_member(caors::string_name{"value"});
   REQUIRE(member != nullptr);
@@ -140,7 +141,7 @@ TEST_CASE("serialization - public context overloads are context-first", "[serial
   CHECK(writer.text() == R"({"value":507})");
 
   context_codec_actor decoded{};
-  REQUIRE(caors::deserialize_json(context, decoded, R"({"value":512})").succeeded());
+  REQUIRE(caors::deserialize(context, decoded, R"({"value":512})").succeeded());
   CHECK(decoded.value.value == 12);
 
   caors::variant::object_type members;

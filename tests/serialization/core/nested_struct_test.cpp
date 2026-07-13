@@ -27,7 +27,7 @@ TEST_CASE("serialization - json handles nested structs arrays and schema context
   actor.stats.push_back(nested_stats{1, 2.5F});
   actor.stats.push_back(nested_stats{3, 4.5F});
 
-  const caors::serialization::serialization_text_result json = caors::serialize_json(actor);
+  const caors::serialization::serialization_text_result json = caors::to_string(actor);
   REQUIRE(json.succeeded());
   CHECK(json.value == R"({"stats":[{"level":1,"score":2.5},{"level":3,"score":4.5}]})");
 }
@@ -111,12 +111,13 @@ TEST_CASE("serialization - recursively serializes nested reflected structs", "[s
   REQUIRE(serialization_result_ok(caors::serialization::class_<nested_actor>().commit()));
 
   const nested_actor actor{7, nested_stats{3, 12.5F}};
-  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text =
+      caors::serialization::serialize_text(actor);
 
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"id":7,"stats":{"level":3,"score":12.5}})");
 
-  const caors::serialization::variant_result value = caors::to_serialization_value(actor);
+  const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
   REQUIRE(value.value.is_object());
   const caors::value::variant_member* stats = value.value.find_member(caors::string_name{"stats"});

@@ -66,13 +66,13 @@ TEST_CASE("resources - manifest provider loader cache can resolve serialized res
   caors::resource_dependency_list dependencies;
   caors::resource_dependency_collector collector = dependencies.collector();
   caors::serialization::context dependency_context{};
-  dependency_context.external_refs.collector = &collector;
+  dependency_context.resolvers.external_refs.collector = &collector;
 
   const serialized_resource_ref_holder holder{
       caors::resource_ref<serialized_resource>{test_guid_a},
   };
   const caors::serialization::serialization_text_result encoded =
-      caors::serialize_json(dependency_context, holder);
+      caors::to_string(dependency_context, holder);
 
   REQUIRE(encoded.succeeded());
   REQUIRE(dependencies.size() == 1);
@@ -93,11 +93,11 @@ TEST_CASE("resources - manifest provider loader cache can resolve serialized res
 
   const caors::resource_resolver resolver = caors::make_resource_resolver(cache);
   caors::serialization::context context{};
-  context.external_refs.resolver = &resolver;
-  context.external_refs.resolution = caors::resource_ref_resolution::require_resolved;
+  context.resolvers.external_refs.resolver = &resolver;
+  context.resolvers.external_refs.resolution = caors::resource_ref_resolution::require_resolved;
 
   serialized_resource_ref_holder decoded{};
-  const caors::error status = caors::deserialize_json(
+  const caors::error status = caors::deserialize(
       context, decoded, R"({"resource":"6cd2da3d-b549-4756-8b8b-0c84293af410"})");
 
   REQUIRE(status.succeeded());

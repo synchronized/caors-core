@@ -14,12 +14,12 @@ TEST_CASE("serialization - context memory resource constructs empty wrapper valu
 
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
   caors::serialization::context context{};
-  context.memory.resource = &tracking;
+  context.resolvers.memory.resource = &tracking;
 
   std::size_t allocation_count = 0;
   {
     context_resource_holder decoded{};
-    const caors::error status = caors::deserialize_json(
+    const caors::error status = caors::deserialize(
         context, decoded,
         R"({"unique":{"value":7},"shared":{"value":9},"names":["Ada","Grace"],"maybe":"present","choice":[1,"variant"]})");
     REQUIRE(status.succeeded());
@@ -80,12 +80,12 @@ TEST_CASE("serialization - descriptor enum data handles unregistered enum values
   REQUIRE(serialization_result_ok(caors::serialization::class_<descriptor_enum_actor>().commit()));
 
   const descriptor_enum_actor actor{{descriptor_enum_color::blue, descriptor_enum_color::red}};
-  const caors::serialization::serialization_text_result text = caors::serialize_json(actor);
+  const caors::serialization::serialization_text_result text = caors::to_string(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"colors":[2,1]})");
 
   descriptor_enum_actor decoded{};
-  const caors::error result = caors::deserialize_json(decoded, R"({"colors":[1,2]})");
+  const caors::error result = caors::deserialize(decoded, R"({"colors":[1,2]})");
   REQUIRE(result.succeeded());
   REQUIRE(decoded.colors.size() == 2);
   CHECK(decoded.colors[0] == descriptor_enum_color::red);

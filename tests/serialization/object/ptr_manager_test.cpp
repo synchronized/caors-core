@@ -15,27 +15,25 @@ TEST_CASE("serialization - object manager can resolve object pointers", "[serial
   REQUIRE(target != nullptr);
 
   const caors::object_id target_id = target->id();
-  const caors::object_ref_resolver resolver =
-      caors::make_object_ref_resolver(manager);
+  const caors::object_ref_resolver resolver = caors::make_object_ref_resolver(manager);
   caors::serialization::context context{};
-  context.external_refs.resolver = &resolver;
+  context.resolvers.external_refs.resolver = &resolver;
   const object_ptr_actor actor{caors::object_ptr<object_ptr_target>{target}};
 
-  const caors::serialization::serialization_text_result json =
-      caors::serialize_json(context, actor);
+  const caors::serialization::serialization_text_result json = caors::to_string(context, actor);
   REQUIRE(json.succeeded());
   const std::string expected_json = "{\"target\":" + std::to_string(target_id.value()) + "}";
   CHECK(std::string_view{json.value.data(), json.value.size()} == std::string_view{expected_json});
 
   object_ptr_actor decoded{};
-  const caors::error result = caors::deserialize_json(context, decoded, json.value);
+  const caors::error result = caors::deserialize(context, decoded, json.value);
   REQUIRE(result.succeeded());
   CHECK(decoded.target.get() == target);
 
   REQUIRE(manager.destroy(target_id));
 
   object_ptr_actor missing{};
-  const caors::error missing_result = caors::deserialize_json(context, missing, json.value);
+  const caors::error missing_result = caors::deserialize(context, missing, json.value);
   CHECK(missing_result.failed());
   CHECK(missing_result.value() == caors::errc::not_found);
 }
@@ -60,19 +58,17 @@ TEST_CASE("serialization - object manager can resolve persistent object guid ref
   object_ptr_target* target = manager.create_with_guid<object_ptr_target>(target_guid);
   REQUIRE(target != nullptr);
 
-  const caors::object_ref_resolver resolver =
-      caors::make_persistent_object_ref_resolver(manager);
+  const caors::object_ref_resolver resolver = caors::make_persistent_object_ref_resolver(manager);
   caors::serialization::context context{};
-  context.external_refs.resolver = &resolver;
+  context.resolvers.external_refs.resolver = &resolver;
   const object_ptr_actor actor{caors::object_ptr<object_ptr_target>{target}};
 
-  const caors::serialization::serialization_text_result json =
-      caors::serialize_json(context, actor);
+  const caors::serialization::serialization_text_result json = caors::to_string(context, actor);
   REQUIRE(json.succeeded());
   const std::string expected_json = "{\"target\":\"" + target_guid_text + "\"}";
   CHECK(std::string_view{json.value.data(), json.value.size()} == std::string_view{expected_json});
 
-  const caors::serialization::variant_result value = caors::to_serialization_value(context, actor);
+  const caors::serialization::variant_result value = caors::to_value(context, actor);
   REQUIRE(value.succeeded());
   const caors::value::variant_member* target_member =
       value.value.find_member(caors::string_name{"target"});
@@ -83,19 +79,19 @@ TEST_CASE("serialization - object manager can resolve persistent object guid ref
         std::string_view{target_guid_text});
 
   object_ptr_actor decoded{};
-  const caors::error result = caors::deserialize_json(context, decoded, json.value);
+  const caors::error result = caors::deserialize(context, decoded, json.value);
   REQUIRE(result.succeeded());
   CHECK(decoded.target.get() == target);
 
   object_ptr_actor cleared{caors::object_ptr<object_ptr_target>{target}};
-  const caors::error null_result = caors::deserialize_json(context, cleared, R"({"target":null})");
+  const caors::error null_result = caors::deserialize(context, cleared, R"({"target":null})");
   REQUIRE(null_result.succeeded());
   CHECK(cleared.target.get() == nullptr);
 
   REQUIRE(manager.destroy(target->id()));
 
   object_ptr_actor missing{};
-  const caors::error missing_result = caors::deserialize_json(context, missing, json.value);
+  const caors::error missing_result = caors::deserialize(context, missing, json.value);
   CHECK(missing_result.failed());
   CHECK(missing_result.value() == caors::errc::not_found);
 }

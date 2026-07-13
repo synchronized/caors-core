@@ -12,8 +12,8 @@ TEST_CASE("serialization - deserializes object handles without resolving objects
   require_object_handle_actor_metadata();
 
   object_handle_actor actor{};
-  const caors::error result = caors::deserialize_json(
-      actor, R"({"target":{"id":77,"type":99},"typed":{"id":88,"type":111}})");
+  const caors::error result =
+      caors::deserialize(actor, R"({"target":{"id":77,"type":99},"typed":{"id":88,"type":111}})");
 
   REQUIRE(result.succeeded());
   CHECK(actor.target == caors::object_handle{caors::object_id{77}, caors::object_type_id{99}});
@@ -41,11 +41,11 @@ TEST_CASE("serialization - object manager resolves deserialized typed handles", 
   REQUIRE(actor.target);
   REQUIRE(actor.typed);
 
-  const caors::serialization::serialization_text_result json = caors::serialize_json(actor);
+  const caors::serialization::serialization_text_result json = caors::to_string(actor);
   REQUIRE(json.succeeded());
 
   object_handle_actor decoded{};
-  const caors::error result = caors::deserialize_json(decoded, json.value);
+  const caors::error result = caors::deserialize(decoded, json.value);
   REQUIRE(result.succeeded());
 
   CHECK(decoded.target == actor.target);
@@ -78,11 +78,11 @@ TEST_CASE("serialization - serializes object handles as identity objects", "[ser
       caors::typed_object_handle<object_ptr_target>{handle},
   };
 
-  const caors::serialization::serialization_text_result json = caors::serialize_json(actor);
+  const caors::serialization::serialization_text_result json = caors::to_string(actor);
   REQUIRE(json.succeeded());
   CHECK(json.value == R"({"target":{"id":42,"type":84},"typed":{"id":42,"type":84}})");
 
-  const caors::serialization::variant_result value = caors::to_serialization_value(actor);
+  const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
   REQUIRE(value.value.is_object());
 

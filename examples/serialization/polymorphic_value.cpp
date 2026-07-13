@@ -118,7 +118,7 @@ int main() {
   owner->level = 12;
   source.owner = std::move(owner);
 
-  const caors::serialization::serialization_text_result json = caors::serialize_json(source);
+  const caors::serialization::serialization_text_result json = caors::to_string(source);
   if (json.failed()) {
     std::cerr << "failed to serialize: " << static_cast<int>(json.status.value()) << '\n';
     return 1;
@@ -126,10 +126,10 @@ int main() {
 
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
   caors::serialization::context context{};
-  context.memory.resource = &tracking;
+  context.resolvers.memory.resource = &tracking;
 
   scene decoded{};
-  const caors::error status = caors::deserialize_json(context, decoded, json.value);
+  const caors::error status = caors::deserialize(context, decoded, json.value);
   if (status) {
     std::cerr << "failed to deserialize: " << static_cast<int>(status.value()) << '\n';
     return 1;

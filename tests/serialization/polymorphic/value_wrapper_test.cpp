@@ -12,10 +12,10 @@ TEST_CASE("serialization - polymorphic value envelope names are configurable", "
   require_polymorphic_value_metadata();
 
   caors::serialization::context context{};
-  context.polymorphic.type_field = caors::string_name{"kind"};
-  context.polymorphic.value_field = caors::string_name{"data"};
-  context.polymorphic.type_name_field = caors::string_name{"debug_type"};
-  context.polymorphic.write_type_name = true;
+  context.config.polymorphic.type_field = caors::string_name{"kind"};
+  context.config.polymorphic.value_field = caors::string_name{"data"};
+  context.config.polymorphic.type_name_field = caors::string_name{"debug_type"};
+  context.config.polymorphic.write_type_name = true;
 
   polymorphic_value_holder holder{};
   auto owner = std::make_unique<polymorphic_value_player>();
@@ -23,7 +23,7 @@ TEST_CASE("serialization - polymorphic value envelope names are configurable", "
   owner->name = "Uma";
   holder.owner = std::move(owner);
 
-  const caors::serialization::variant_result value = caors::to_serialization_value(context, holder);
+  const caors::serialization::variant_result value = caors::to_value(context, holder);
   REQUIRE(value.succeeded());
   REQUIRE(value.value.is_object());
 
@@ -42,15 +42,14 @@ TEST_CASE("serialization - polymorphic value envelope names are configurable", "
   REQUIRE(stored_value != nullptr);
   REQUIRE(stored_value->value.is_object());
 
-  const caors::serialization::serialization_text_result json =
-      caors::serialize_json(context, holder);
+  const caors::serialization::serialization_text_result json = caors::to_string(context, holder);
   REQUIRE(json.succeeded());
   CHECK(json.value.find("kind") != caors::string::npos);
   CHECK(json.value.find("data") != caors::string::npos);
   CHECK(json.value.find("debug_type") != caors::string::npos);
 
   polymorphic_value_holder decoded{};
-  const caors::error status = caors::deserialize_json(context, decoded, json.value);
+  const caors::error status = caors::deserialize(context, decoded, json.value);
   REQUIRE(status.succeeded());
 
   auto* decoded_owner = dynamic_cast<polymorphic_value_player*>(decoded.owner.get());
@@ -127,11 +126,11 @@ TEST_CASE("serialization - polymorphic value wrappers roundtrip derived values",
   shared->name = "Nia";
   holder.shared = std::move(shared);
 
-  const caors::serialization::serialization_text_result json = caors::serialize_json(holder);
+  const caors::serialization::serialization_text_result json = caors::to_string(holder);
   REQUIRE(json.succeeded());
 
   polymorphic_value_holder decoded{};
-  const caors::error status = caors::deserialize_json(decoded, json.value);
+  const caors::error status = caors::deserialize(decoded, json.value);
   REQUIRE(status.succeeded());
 
   auto* decoded_owner = dynamic_cast<polymorphic_value_player*>(decoded.owner.get());
@@ -166,7 +165,7 @@ TEST_CASE("serialization - polymorphic value wrappers write type envelopes", "[s
   shared->name = "Mina";
   holder.shared = std::move(shared);
 
-  const caors::serialization::variant_result value = caors::to_serialization_value(holder);
+  const caors::serialization::variant_result value = caors::to_value(holder);
   REQUIRE(value.succeeded());
   REQUIRE(value.value.is_object());
 

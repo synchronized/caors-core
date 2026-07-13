@@ -56,7 +56,8 @@ TEST_CASE("serialization - generic sequence traits work without type registratio
   actor.scores.values.push_back(4);
   actor.scores.values.push_back(5);
 
-  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text =
+      caors::serialization::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"scores":[4,5]})");
 
@@ -96,7 +97,7 @@ TEST_CASE("serialization - rejects std array length mismatch", "[serialization]"
   REQUIRE(serialization_result_ok(caors::serialization::class_<array_actor>().commit()));
 
   array_actor actor{{1, 2, 3}};
-  const caors::error result = caors::deserialize_json(actor, R"({"scores":[5,6]})");
+  const caors::error result = caors::deserialize(actor, R"({"scores":[5,6]})");
 
   CHECK(result.failed());
   CHECK(result.domain() == caors::error_domain::serialization);
@@ -121,7 +122,7 @@ TEST_CASE("serialization - rejects std span deserialization by default", "[seria
   std::array<int, 3> storage{1, 2, 3};
   span_actor actor{std::span<int>{storage}};
 
-  const caors::error result = caors::deserialize_json(actor, R"({"scores":[5,6,7]})");
+  const caors::error result = caors::deserialize(actor, R"({"scores":[5,6,7]})");
 
   CHECK(result.failed());
   CHECK(result.domain() == caors::error_domain::serialization);
@@ -146,7 +147,7 @@ TEST_CASE("serialization - rejects std span length mismatch without writing stor
 
   std::array<int, 3> storage{1, 2, 3};
   span_actor actor{std::span<int>{storage}};
-  const caors::error result = caors::deserialize_json(actor, R"({"scores":[5,6]})");
+  const caors::error result = caors::deserialize(actor, R"({"scores":[5,6]})");
 
   CHECK(result.failed());
   CHECK(result.domain() == caors::error_domain::serialization);
@@ -170,12 +171,13 @@ TEST_CASE("serialization - roundtrips std array fields", "[serialization]") {
 
   array_actor actor{{1, 2, 3}};
 
-  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text =
+      caors::serialization::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"scores":[1,2,3]})");
 
   array_actor decoded{};
-  const caors::error result = caors::deserialize_json(decoded, R"({"scores":[5,6,7]})");
+  const caors::error result = caors::deserialize(decoded, R"({"scores":[5,6,7]})");
 
   REQUIRE(result.succeeded());
   CHECK(decoded.scores == std::array<int, 3>{5, 6, 7});
@@ -200,12 +202,13 @@ TEST_CASE("serialization - roundtrips std deque fields", "[serialization]") {
   actor.scores.push_back(2);
   actor.scores.push_back(3);
 
-  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text =
+      caors::serialization::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"scores":[1,2,3]})");
 
   deque_actor decoded{};
-  const caors::error result = caors::deserialize_json(decoded, R"({"scores":[5,6]})");
+  const caors::error result = caors::deserialize(decoded, R"({"scores":[5,6]})");
 
   REQUIRE(result.succeeded());
   REQUIRE(decoded.scores.size() == 2);
@@ -230,12 +233,13 @@ TEST_CASE("serialization - roundtrips std forward list fields", "[serialization]
   forward_list_actor actor{};
   actor.scores.assign({1, 2, 3});
 
-  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text =
+      caors::serialization::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"scores":[1,2,3]})");
 
   forward_list_actor decoded{};
-  const caors::error result = caors::deserialize_json(decoded, R"({"scores":[5,6]})");
+  const caors::error result = caors::deserialize(decoded, R"({"scores":[5,6]})");
 
   REQUIRE(result.succeeded());
   auto iterator = decoded.scores.begin();
@@ -267,11 +271,12 @@ TEST_CASE("serialization - serializes list fields as arrays", "[serialization]")
   actor.scores.push_back(2);
   actor.scores.push_back(3);
 
-  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text =
+      caors::serialization::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"scores":[1,2,3]})");
 
-  const caors::serialization::variant_result value = caors::to_serialization_value(actor);
+  const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
   const caors::value::variant_member* scores =
       value.value.find_member(caors::string_name{"scores"});
@@ -298,7 +303,8 @@ TEST_CASE("serialization - serializes std span fields as borrowed views", "[seri
   std::array<int, 3> storage{1, 2, 3};
   span_actor actor{std::span<int>{storage}};
 
-  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text =
+      caors::serialization::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"scores":[1,2,3]})");
 }

@@ -20,7 +20,7 @@ TEST_CASE("serialization - polymorphic object rejects wrong declared base", "[se
   caors::objects::manager manager;
   const caors::type_factory factory = caors::make_object_factory(manager);
   caors::serialization::context context{};
-  context.factories.type_factory = &factory;
+  context.resolvers.factories.type_factory = &factory;
 
   const caors::result<caors::objects::object*> decoded =
       caors::serialization::deserialize_polymorphic_object(context, enemy::static_type_id(),
@@ -64,7 +64,7 @@ TEST_CASE("serialization - polymorphic object requires manager and rolls back fa
   caors::objects::manager manager;
   const caors::type_factory factory = caors::make_object_factory(manager);
   caors::serialization::context context{};
-  context.factories.type_factory = &factory;
+  context.resolvers.factories.type_factory = &factory;
 
   const caors::result<actor*> failed =
       caors::serialization::deserialize_polymorphic_object<actor>(context, value.value);
@@ -86,18 +86,18 @@ TEST_CASE("serialization - ordinary object API reads runtime type envelopes", "[
   source.name = "Ren";
   const actor& source_actor = source;
 
-  const caors::serialization::serialization_text_result json = caors::serialize_json(source_actor);
+  const caors::serialization::serialization_text_result json = caors::to_string(source_actor);
   REQUIRE(json.succeeded());
 
   player target{};
   actor& target_actor = target;
-  const caors::error status = caors::deserialize_json(target_actor, json.value);
+  const caors::error status = caors::deserialize(target_actor, json.value);
   REQUIRE(status.succeeded());
   CHECK(target.level == 11);
   CHECK(target.name == "Ren");
 
   actor wrong_target{};
-  const caors::error wrong_status = caors::deserialize_json(wrong_target, json.value);
+  const caors::error wrong_status = caors::deserialize(wrong_target, json.value);
   CHECK(wrong_status.failed());
   CHECK(wrong_status.value() == caors::errc::invalid_type);
 }
@@ -115,7 +115,7 @@ TEST_CASE("serialization - polymorphic object roundtrips through manager resourc
   caors::objects::manager manager;
   const caors::type_factory factory = caors::make_object_factory(manager);
   caors::serialization::context context{};
-  context.factories.type_factory = &factory;
+  context.resolvers.factories.type_factory = &factory;
 
   player player_value{};
   player_value.level = 9;
@@ -155,7 +155,7 @@ TEST_CASE("serialization - ordinary object API writes runtime type envelopes", "
   player_value.name = "Ira";
   const actor& actor_value = player_value;
 
-  const caors::serialization::variant_result value = caors::to_serialization_value(actor_value);
+  const caors::serialization::variant_result value = caors::to_value(actor_value);
   REQUIRE(value.succeeded());
   REQUIRE(value.value.is_object());
 
@@ -174,7 +174,7 @@ TEST_CASE("serialization - ordinary object API writes runtime type envelopes", "
   CHECK(stored_value->value.find_member(caors::string_name{"level"}) != nullptr);
   CHECK(stored_value->value.find_member(caors::string_name{"name"}) != nullptr);
 
-  const caors::serialization::serialization_text_result json = caors::serialize_json(actor_value);
+  const caors::serialization::serialization_text_result json = caors::to_string(actor_value);
   REQUIRE(json.succeeded());
   CHECK(json.value.find("$type") != caors::string::npos);
   CHECK(json.value.find("$value") != caors::string::npos);
@@ -191,18 +191,17 @@ TEST_CASE("serialization - polymorphic object envelope names are configurable", 
   require_metadata();
 
   caors::serialization::context context{};
-  context.polymorphic.type_field = caors::string_name{"kind"};
-  context.polymorphic.value_field = caors::string_name{"data"};
-  context.polymorphic.type_name_field = caors::string_name{"debug_type"};
-  context.polymorphic.write_type_name = true;
+  context.config.polymorphic.type_field = caors::string_name{"kind"};
+  context.config.polymorphic.value_field = caors::string_name{"data"};
+  context.config.polymorphic.type_name_field = caors::string_name{"debug_type"};
+  context.config.polymorphic.write_type_name = true;
 
   player player_value{};
   player_value.level = 13;
   player_value.name = "Kai";
   const actor& actor_value = player_value;
 
-  const caors::serialization::variant_result value =
-      caors::to_serialization_value(context, actor_value);
+  const caors::serialization::variant_result value = caors::to_value(context, actor_value);
   REQUIRE(value.succeeded());
   REQUIRE(value.value.is_object());
 
@@ -232,7 +231,7 @@ TEST_CASE("serialization - polymorphic object envelope names are configurable", 
   CHECK(stored_value->value.find_member(caors::string_name{"name"}) != nullptr);
 
   const caors::serialization::serialization_text_result json =
-      caors::serialize_json(context, actor_value);
+      caors::to_string(context, actor_value);
   REQUIRE(json.succeeded());
   CHECK(json.value.find("kind") != caors::string::npos);
   CHECK(json.value.find("data") != caors::string::npos);
@@ -240,7 +239,7 @@ TEST_CASE("serialization - polymorphic object envelope names are configurable", 
 
   player target{};
   actor& target_actor = target;
-  const caors::error status = caors::deserialize_json(context, target_actor, json.value);
+  const caors::error status = caors::deserialize(context, target_actor, json.value);
   REQUIRE(status.succeeded());
   CHECK(target.level == 13);
   CHECK(target.name == "Kai");

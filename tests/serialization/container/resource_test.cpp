@@ -50,7 +50,7 @@ TEST_CASE("serialization - propagates context resource through allocator aware v
 
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
   caors::serialization::context context{};
-  context.memory.resource = &tracking;
+  context.resolvers.memory.resource = &tracking;
 
   struct holder_deleter {
     caors::memory_resource* resource = nullptr;
@@ -66,7 +66,7 @@ TEST_CASE("serialization - propagates context resource through allocator aware v
   };
   REQUIRE(decoded != nullptr);
 
-  const caors::error result = caors::deserialize_json(
+  const caors::error result = caors::deserialize(
       context, *decoded,
       R"({"names":["Ada","Grace"],"groups":[[1,2],[3]],"labels":[["role","engineer"]],"maybe":"present","choice":[1,"variant"]})");
 

@@ -60,19 +60,18 @@ int main() {
     return 1;
   }
 
-  const caors::object_ref_resolver resolver =
-      caors::make_persistent_object_ref_resolver(manager);
+  const caors::object_ref_resolver resolver = caors::make_persistent_object_ref_resolver(manager);
   caors::serialization::context context{};
-  context.external_refs.resolver = &resolver;
+  context.resolvers.external_refs.resolver = &resolver;
 
   const party_slot slot{caors::object_ptr<persistent_player>{player}};
-  const caors::serialization::serialization_text_result json = caors::serialize_json(context, slot);
+  const caors::serialization::serialization_text_result json = caors::to_string(context, slot);
   if (json.failed()) {
     return 1;
   }
 
   party_slot decoded{};
-  if (caors::deserialize_json(context, decoded, json.value)) {
+  if (caors::deserialize(context, decoded, json.value)) {
     return 1;
   }
 

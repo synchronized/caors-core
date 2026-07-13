@@ -452,7 +452,7 @@ caors::meta::class_<caors::resource_ref<texture>>("game.resource_ref<game.textur
 
 ```cpp
 material decoded{};
-caors::deserialize_json(decoded, R"({"albedo":"6cd2da3d-b549-4756-8b8b-0c84293af410"})");
+caors::deserialize(decoded, R"({"albedo":"6cd2da3d-b549-4756-8b8b-0c84293af410"})");
 
 caors::resource_cache<texture> cache;
 // cache 创建或加载同 GUID 的资源后：
@@ -469,14 +469,14 @@ texture* loaded = cache.create(texture_id);
 caors::resource_resolver resolver = caors::make_resource_resolver(cache);
 
 caors::serialization::context context{};
-context.external_refs.resolver = &resolver;
-context.external_refs.resolution = caors::resource_ref_resolution::resolve_if_present;
+context.resolvers.external_refs.resolver = &resolver;
+context.resolvers.external_refs.resolution = caors::resource_ref_resolution::resolve_if_present;
 
 material decoded{};
-caors::deserialize_json(context, decoded, R"({"albedo":"6cd2da3d-b549-4756-8b8b-0c84293af410"})");
+caors::deserialize(context, decoded, R"({"albedo":"6cd2da3d-b549-4756-8b8b-0c84293af410"})");
 ```
 
-`context.external_refs.resolution` 的策略：
+`context.resolvers.external_refs.resolution` 的策略：
 
 - `keep_unresolved`：默认策略，只恢复 GUID，不解析资源。
 - `resolve_if_present`：如果 resolver 能找到同 GUID 且类型兼容的资源，则写入已解析指针；缺资源仍保持 unresolved。
@@ -489,9 +489,9 @@ caors::resource_dependency_list dependencies;
 caors::resource_dependency_collector collector = dependencies.collector();
 
 caors::serialization::context context{};
-context.external_refs.collector = &collector;
+context.resolvers.external_refs.collector = &collector;
 
-caors::serialize_json(context, material_value);
+caors::to_string(context, material_value);
 ```
 
 依赖条目包含 `resource_guid` 和资源声明类型的 `type_id`。这可用于后续预加载、打包、热更新和资源数据库。
@@ -1010,7 +1010,7 @@ auto loaded = caors::load_into(cache, loader, texture_id);
 3. 通过 manifest 查找每个 GUID 对应的资源位置、类型和版本信息。
 4. 通过 provider 读取资源字节，并用对应 loader 解码。
 5. 使用 `load_into(cache, loader, guid)` 把资源放入 cache。
-6. 反序列化对象时把 cache resolver 挂到 `context.external_refs.resolver`，按
+6. 反序列化对象时把 cache resolver 挂到 `context.resolvers.external_refs.resolver`，按
    `resolve_if_present` 或 `require_resolved` 决定缺资源策略。
 
 同步重载推荐流程：

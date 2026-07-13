@@ -16,14 +16,14 @@ class polymorphic_object_ref_actor : public caors::object_base<polymorphic_objec
                                      public caors::objects::ref_counted {
 public:
   static constexpr std::string_view object_type_name =
-      "caors.test.serialization.polymorphic_object_ref.actor";
+      "caors.test.serialization.config.polymorphic_object_ref.actor";
 };
 
 class polymorphic_object_ref_player
     : public caors::object_base<polymorphic_object_ref_player, polymorphic_object_ref_actor> {
 public:
   static constexpr std::string_view object_type_name =
-      "caors.test.serialization.polymorphic_object_ref.player";
+      "caors.test.serialization.config.polymorphic_object_ref.player";
 
   ~polymorphic_object_ref_player() override { ++destroyed_count; }
 
@@ -37,7 +37,7 @@ class polymorphic_object_ref_enemy : public caors::object_base<polymorphic_objec
                                      public caors::objects::ref_counted {
 public:
   static constexpr std::string_view object_type_name =
-      "caors.test.serialization.polymorphic_object_ref.enemy";
+      "caors.test.serialization.config.polymorphic_object_ref.enemy";
 
   int danger = 0;
 };
@@ -81,11 +81,12 @@ inline void require_polymorphic_object_ref_metadata() {
   REQUIRE(reflection_result_ok(caors::reflection::class_<polymorphic_object_ref_enemy>()
                                    .field("danger", &polymorphic_object_ref_enemy::danger)
                                    .commit()));
-  REQUIRE(reflection_result_ok(((void)caors::meta::class_<polymorphic_object_ref_holder>(
-                                    "caors.test.serialization.polymorphic_object_ref.holder"),
-                                caors::reflection::class_<polymorphic_object_ref_holder>())
-                                   .field("owner", &polymorphic_object_ref_holder::owner)
-                                   .commit()));
+  REQUIRE(
+      reflection_result_ok(((void)caors::meta::class_<polymorphic_object_ref_holder>(
+                                "caors.test.serialization.config.polymorphic_object_ref.holder"),
+                            caors::reflection::class_<polymorphic_object_ref_holder>())
+                               .field("owner", &polymorphic_object_ref_holder::owner)
+                               .commit()));
 
   REQUIRE(serialization_result_ok(
       caors::serialization::class_<polymorphic_object_ref_actor>().commit()));

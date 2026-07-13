@@ -19,7 +19,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 为 `io::native_file_system` 增加可选 root 目录，使 mount 层只负责虚拟路径分发和可选子路径重映射。
 - [ ] 将 `result<T>` 逐步收敛为更接近 `expected<T, error>` 的语义，减少 `value/error/status`
   之间的重复表达。
-- [ ] 清理根命名空间下不常用或不推荐继续使用的别名，只保留高频便捷别名，降低 API 表面噪声。
+- [ ] 清理根命名空间下不常用或不推荐继续使用的别名，只保留高频便捷别名，降低 API 表面噪声；
+  序列化模块已先行收敛到 `serialize` / `deserialize` / `to_value` / `to_string`。
 - [ ] 在 core 主题下逐步补充 small_vector、stable_vector 等基础容器。
 
 ## 1. 类型元数据底座
@@ -162,7 +163,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 支持 `std::variant<Ts...>` 按 `[index, value]` tagged union 序列化和反序列化。
 - [x] 支持 `std::span<T>` / `std::span<T,N>` 作为借用数组视图反射访问和序列化写出，默认禁止反序列化写回。
 - [x] 为 `std::string_view` 设计安全反序列化策略，避免悬空引用。
-- [x] 将 `serialization::context::string_view_storage` 从单个字符串存储升级为多段
+- [x] 将 `serialization::context::state.storage.string_view_storage` 从单个字符串存储升级为多段
   `string_storage` / `string_buffer`，支持同一对象内多个 `std::string_view` 字段安全读回。
 - [x] 为 `std::weak_ptr<T>`、对象句柄和资源引用设计稳定引用语义。
 - [x] 支持 `resource_guid` 和 `resource_ref<T>` 按稳定 GUID 读写；默认反序列化后资源引用保持未解析状态，也可通过 context resolver 立即解析。
@@ -172,11 +173,11 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 为普通类多态值补充显式 factory 和可选 `memory_resource` 构造策略。
 - [x] 增加 `serialization/detail/value_access.h` 内部桥接层，集中访问 `any` / `any_ref` 携带的
   descriptor 和默认构造能力，避免 serialization detail 文件散落依赖 `value::detail`。
-- [ ] 简化序列化公开 API，保留 `serialize` / `deserialize` / `to_value` / `to_string` 等主路径，
-  逐步移除多态兼容入口和重复包装函数。
-- [ ] 拆分 `serialization::context` 的运行期状态、策略配置和 resolver 适配器，减少上下文字段膨胀。
+- [x] 简化序列化公开 API，保留 `serialize` / `deserialize` / `to_value` / `to_string` 等主路径，
+  将低频 JSON/text buffer 入口收敛到 `serialization::` 模块命名空间。
+- [x] 拆分 `serialization::context` 的运行期状态、策略配置和 resolver 适配器，减少上下文字段膨胀。
 - [ ] 设计字段级构造策略，覆盖容器新增元素、空 `optional<T>`、`variant` 候选切换和不可默认构造类型；
-  优先使用 `serialization::context::memory_resource`、meta factory 和字段策略，失败时返回明确诊断。
+  优先使用 `serialization::context::resolvers.memory.resource`、meta factory 和字段策略，失败时返回明确诊断。
 - [ ] 放宽多层指针 / 多层 wrapper 限制，采用逐层 indirect descriptor 展开；默认设置合理最大深度，
   并对空中间层、不可写引用和所有权不明确的组合返回清晰诊断。
 - [ ] 设计 schema 策略，覆盖版本迁移、默认值恢复、未知字段保留、严格模式和字段重命名 / 删除策略。

@@ -65,15 +65,15 @@ TEST_CASE("serialization - polymorphic object refs roundtrip derived values", "[
   player->name = "Mina";
   holder.owner = player;
 
-  const caors::serialization::serialization_text_result json = caors::serialize_json(holder);
+  const caors::serialization::serialization_text_result json = caors::to_string(holder);
   REQUIRE(json.succeeded());
 
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
   caors::serialization::context context{};
-  context.memory.resource = &tracking;
+  context.resolvers.memory.resource = &tracking;
 
   polymorphic_object_ref_holder decoded{};
-  const caors::error status = caors::deserialize_json(context, decoded, json.value);
+  const caors::error status = caors::deserialize(context, decoded, json.value);
 
   REQUIRE(status.succeeded());
   REQUIRE(decoded.owner);
@@ -110,7 +110,7 @@ TEST_CASE("serialization - polymorphic object refs write type envelopes", "[seri
   polymorphic_object_ref_holder holder{};
   holder.owner = player;
 
-  const caors::serialization::variant_result value = caors::to_serialization_value(holder);
+  const caors::serialization::variant_result value = caors::to_value(holder);
 
   REQUIRE(value.succeeded());
   REQUIRE(value.value.is_object());

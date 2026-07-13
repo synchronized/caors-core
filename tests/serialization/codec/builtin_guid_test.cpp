@@ -99,14 +99,15 @@ TEST_CASE("serialization - built in codecs serialize guid and type guid as scala
   REQUIRE(serialization_result_ok(caors::serialization::class_<codec_guid_actor>().commit()));
 
   const codec_guid_actor actor{*id, caors::type_guid{*type}};
-  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text =
+      caors::serialization::serialize_text(actor);
 
   REQUIRE(text.succeeded());
   CHECK(
       text.value ==
       R"({"id":"2f6d1f64-7a3a-4db2-9a2d-123456789abc","type":"5ed39a97-7b20-4d87-86ac-e62a4a615b10"})");
 
-  const caors::serialization::variant_result value = caors::to_serialization_value(actor);
+  const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
   REQUIRE(value.value.as_object().size() == 2);
   CHECK(value.value.as_object()[0].value.kind() == caors::value::variant_kind::string);

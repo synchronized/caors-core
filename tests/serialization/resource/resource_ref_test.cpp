@@ -15,11 +15,10 @@ TEST_CASE("serialization - resource refs are collected as dependencies", "[seria
   caors::resource_dependency_collector collector = dependencies.collector();
 
   caors::serialization::context context{};
-  context.external_refs.collector = &collector;
+  context.resolvers.external_refs.collector = &collector;
 
   const resource_ref_actor actor{caors::resource_ref<serialized_texture_resource>{texture_guid}};
-  const caors::serialization::serialization_text_result json =
-      caors::serialize_json(context, actor);
+  const caors::serialization::serialization_text_result json = caors::to_string(context, actor);
 
   REQUIRE(json.succeeded());
   REQUIRE(dependencies.size() == 1);
@@ -28,8 +27,8 @@ TEST_CASE("serialization - resource refs are collected as dependencies", "[seria
 
   dependencies.clear();
   resource_ref_actor decoded{};
-  const caors::error status = caors::deserialize_json(
-      context, decoded, R"({"texture":"6cd2da3d-b549-4756-8b8b-0c84293af410"})");
+  const caors::error status =
+      caors::deserialize(context, decoded, R"({"texture":"6cd2da3d-b549-4756-8b8b-0c84293af410"})");
 
   REQUIRE(status.succeeded());
   REQUIRE(dependencies.size() == 1);
@@ -48,7 +47,7 @@ TEST_CASE("serialization - deserializes resource refs as unresolved guids", "[se
 
   resource_ref_actor decoded{};
   const caors::error status =
-      caors::deserialize_json(decoded, R"({"texture":"6cd2da3d-b549-4756-8b8b-0c84293af410"})");
+      caors::deserialize(decoded, R"({"texture":"6cd2da3d-b549-4756-8b8b-0c84293af410"})");
 
   REQUIRE(status.succeeded());
   CHECK(decoded.texture.guid() == texture_guid);
@@ -74,7 +73,7 @@ TEST_CASE("serialization - rejects invalid resource ref guids", "[serialization]
   require_resource_ref_actor_metadata();
 
   resource_ref_actor decoded{};
-  const caors::error status = caors::deserialize_json(decoded, R"({"texture":"not-a-guid"})");
+  const caors::error status = caors::deserialize(decoded, R"({"texture":"not-a-guid"})");
 
   REQUIRE(status.failed());
   CHECK(status.domain() == caors::error_domain::serialization);
@@ -96,12 +95,12 @@ TEST_CASE("serialization - required resource ref resolution reports missing reso
   const caors::resource_resolver resolver = caors::make_resource_resolver(cache);
 
   caors::serialization::context context{};
-  context.external_refs.resolver = &resolver;
-  context.external_refs.resolution = caors::resource_ref_resolution::require_resolved;
+  context.resolvers.external_refs.resolver = &resolver;
+  context.resolvers.external_refs.resolution = caors::resource_ref_resolution::require_resolved;
 
   resource_ref_actor decoded{};
-  const caors::error status = caors::deserialize_json(
-      context, decoded, R"({"texture":"6cd2da3d-b549-4756-8b8b-0c84293af410"})");
+  const caors::error status =
+      caors::deserialize(context, decoded, R"({"texture":"6cd2da3d-b549-4756-8b8b-0c84293af410"})");
 
   CHECK(status == caors::error{caors::error_domain::resources, caors::errc::not_found});
   CHECK_FALSE(decoded.texture.has_guid());
@@ -127,12 +126,12 @@ TEST_CASE("serialization - resource ref can resolve through context resolver", "
   const caors::resource_resolver missing_resolver = caors::make_resource_resolver(missing_cache);
 
   caors::serialization::context context{};
-  context.external_refs.resolver = &resolver;
-  context.external_refs.resolution = caors::resource_ref_resolution::resolve_if_present;
+  context.resolvers.external_refs.resolver = &resolver;
+  context.resolvers.external_refs.resolution = caors::resource_ref_resolution::resolve_if_present;
 
   resource_ref_actor decoded{};
-  const caors::error status = caors::deserialize_json(
-      context, decoded, R"({"texture":"6cd2da3d-b549-4756-8b8b-0c84293af410"})");
+  const caors::error status =
+      caors::deserialize(context, decoded, R"({"texture":"6cd2da3d-b549-4756-8b8b-0c84293af410"})");
 
   REQUIRE(status.succeeded());
   CHECK(decoded.texture.guid() == texture_guid);
@@ -140,11 +139,12 @@ TEST_CASE("serialization - resource ref can resolve through context resolver", "
   CHECK(decoded.texture.get() == texture);
 
   caors::serialization::context unresolved_context{};
-  unresolved_context.external_refs.resolver = &missing_resolver;
-  unresolved_context.external_refs.resolution = caors::resource_ref_resolution::keep_unresolved;
+  unresolved_context.resolvers.external_refs.resolver = &missing_resolver;
+  unresolved_context.resolvers.external_refs.resolution =
+      caors::resource_ref_resolution::keep_unresolved;
 
   resource_ref_actor unresolved{};
-  const caors::error unresolved_status = caors::deserialize_json(
+  const caors::error unresolved_status = caors::deserialize(
       unresolved_context, unresolved, R"({"texture":"6cd2da3d-b549-4756-8b8b-0c84293af410"})");
 
   REQUIRE(unresolved_status.succeeded());
@@ -188,11 +188,11 @@ TEST_CASE("serialization - external ref interfaces adapt resource refs", "[seria
       caors::serialization::make_external_ref_collector(collector_interface);
 
   caors::serialization::context collect_context{};
-  collect_context.external_refs.collector = &collector;
+  collect_context.resolvers.external_refs.collector = &collector;
 
   const resource_ref_actor actor{caors::resource_ref<serialized_texture_resource>{texture_guid}};
   const caors::serialization::serialization_text_result json =
-      caors::serialize_json(collect_context, actor);
+      caors::to_string(collect_context, actor);
 
   REQUIRE(json.succeeded());
   CHECK(collector_interface.count == 1);
@@ -209,11 +209,12 @@ TEST_CASE("serialization - external ref interfaces adapt resource refs", "[seria
       caors::serialization::make_external_ref_resolver(resolver_interface);
 
   caors::serialization::context resolve_context{};
-  resolve_context.external_refs.resolver = &resolver;
-  resolve_context.external_refs.resolution = caors::resource_ref_resolution::require_resolved;
+  resolve_context.resolvers.external_refs.resolver = &resolver;
+  resolve_context.resolvers.external_refs.resolution =
+      caors::resource_ref_resolution::require_resolved;
 
   resource_ref_actor decoded{};
-  const caors::error status = caors::deserialize_json(resolve_context, decoded, json.value);
+  const caors::error status = caors::deserialize(resolve_context, decoded, json.value);
 
   REQUIRE(status.succeeded());
   CHECK(decoded.texture.resolved());
@@ -230,13 +231,13 @@ TEST_CASE("serialization - serializes empty resource refs as null", "[serializat
   require_resource_ref_actor_metadata();
 
   const resource_ref_actor actor{};
-  const caors::serialization::serialization_text_result json = caors::serialize_json(actor);
+  const caors::serialization::serialization_text_result json = caors::to_string(actor);
 
   REQUIRE(json.succeeded());
   CHECK(json.value == R"({"texture":null})");
 
   resource_ref_actor decoded{caors::resource_ref<serialized_texture_resource>{texture_guid}};
-  const caors::error status = caors::deserialize_json(decoded, R"({"texture":null})");
+  const caors::error status = caors::deserialize(decoded, R"({"texture":null})");
 
   REQUIRE(status.succeeded());
   CHECK_FALSE(decoded.texture);
@@ -254,12 +255,12 @@ TEST_CASE("serialization - serializes resource refs as stable guids", "[serializ
   require_resource_ref_actor_metadata();
 
   const resource_ref_actor actor{caors::resource_ref<serialized_texture_resource>{texture_guid}};
-  const caors::serialization::serialization_text_result json = caors::serialize_json(actor);
+  const caors::serialization::serialization_text_result json = caors::to_string(actor);
 
   REQUIRE(json.succeeded());
   CHECK(json.value == R"({"texture":"6cd2da3d-b549-4756-8b8b-0c84293af410"})");
 
-  const caors::serialization::variant_result value = caors::to_serialization_value(actor);
+  const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
   REQUIRE(value.value.is_object());
 

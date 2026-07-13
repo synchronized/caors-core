@@ -21,7 +21,7 @@ TEST_CASE("serialization - builds variant from reflected object", "[serializatio
                                   .commit()));
 
   const dom_actor actor{42};
-  const caors::serialization::variant_result result = caors::to_serialization_value(actor);
+  const caors::serialization::variant_result result = caors::to_value(actor);
 
   REQUIRE(result.succeeded());
   CHECK(result.value.kind() == caors::value::variant_kind::object);
@@ -125,8 +125,7 @@ TEST_CASE("serialization - json options can pretty print json", "[serialization]
   options.indent = 2;
 
   const json_options_actor actor{7};
-  const caors::serialization::serialization_text_result result =
-      caors::serialize_json(actor, options);
+  const caors::serialization::serialization_text_result result = caors::to_string(actor, options);
 
   REQUIRE(result.succeeded());
   CHECK(result.value == "{\n  \"id\": 7\n}");
@@ -153,13 +152,13 @@ TEST_CASE("serialization - serializes json to caller provided buffer", "[seriali
 
   const serializable_actor actor{3, 10.5F, false, "Lin"};
   caors::string output = "previous";
-  const caors::error status = caors::serialize_json_to(actor, output);
+  const caors::error status = caors::serialization::serialize_json_to(actor, output);
 
   REQUIRE(status.succeeded());
   CHECK(output == R"({"id":3,"health":10.5,"active":false,"name":"Lin"})");
 
   output = "previous";
-  const caors::error text_status = caors::serialize_text_to(actor, output);
+  const caors::error text_status = caors::serialization::serialize_text_to(actor, output);
   REQUIRE(text_status.succeeded());
   CHECK(output == R"({"id":3,"health":10.5,"active":false,"name":"Lin"})");
 }
@@ -184,7 +183,7 @@ TEST_CASE("serialization - serializes reflected struct fields to json", "[serial
   REQUIRE(serialization_result_ok(register_status));
 
   const serializable_actor actor{7, 95.5F, true, "Ada\nLovelace"};
-  const caors::serialization::serialization_text_result result = caors::serialize_json(actor);
+  const caors::serialization::serialization_text_result result = caors::to_string(actor);
 
   REQUIRE(result.succeeded());
   CHECK(result.value == R"({"id":7,"health":95.5,"active":true,"name":"Ada\nLovelace"})");
@@ -210,7 +209,8 @@ TEST_CASE("serialization - serializes reflected struct fields to text", "[serial
   REQUIRE(serialization_result_ok(register_status));
 
   const serializable_actor actor{7, 95.5F, true, "Ada"};
-  const caors::serialization::serialization_text_result result = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result result =
+      caors::serialization::serialize_text(actor);
 
   REQUIRE(result.succeeded());
   CHECK(result.value == R"({"id":7,"health":95.5,"active":true,"name":"Ada"})");

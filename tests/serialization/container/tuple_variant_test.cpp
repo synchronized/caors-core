@@ -16,7 +16,7 @@ TEST_CASE("serialization - rejects std pair length mismatch", "[serialization]")
   REQUIRE(serialization_result_ok(caors::serialization::class_<pair_actor>().commit()));
 
   pair_actor actor{{7, caors::string{"seven"}}};
-  const caors::error result = caors::deserialize_json(actor, R"({"entry":[9]})");
+  const caors::error result = caors::deserialize(actor, R"({"entry":[9]})");
 
   CHECK(result.failed());
   CHECK(result.domain() == caors::error_domain::serialization);
@@ -40,7 +40,7 @@ TEST_CASE("serialization - rejects std tuple length mismatch", "[serialization]"
   REQUIRE(serialization_result_ok(caors::serialization::class_<tuple_actor>().commit()));
 
   tuple_actor actor{{7, caors::string{"seven"}, 1.5F}};
-  const caors::error result = caors::deserialize_json(actor, R"({"entry":[9,"nine"]})");
+  const caors::error result = caors::deserialize(actor, R"({"entry":[9,"nine"]})");
 
   CHECK(result.failed());
   CHECK(result.domain() == caors::error_domain::serialization);
@@ -66,7 +66,7 @@ TEST_CASE("serialization - rejects std variant invalid data", "[serialization]")
 
   variant_actor actor{};
   actor.entry = caors::string{"seven"};
-  const caors::error invalid_index = caors::deserialize_json(actor, R"({"entry":[9,"bad"]})");
+  const caors::error invalid_index = caors::deserialize(actor, R"({"entry":[9,"bad"]})");
 
   CHECK(invalid_index.failed());
   CHECK(invalid_index.domain() == caors::error_domain::serialization);
@@ -74,7 +74,7 @@ TEST_CASE("serialization - rejects std variant invalid data", "[serialization]")
   REQUIRE(std::holds_alternative<caors::string>(actor.entry));
   CHECK(std::get<caors::string>(actor.entry) == "seven");
 
-  const caors::error invalid_length = caors::deserialize_json(actor, R"({"entry":[1]})");
+  const caors::error invalid_length = caors::deserialize(actor, R"({"entry":[1]})");
 
   CHECK(invalid_length.failed());
   CHECK(invalid_length.domain() == caors::error_domain::serialization);
@@ -99,18 +99,19 @@ TEST_CASE("serialization - roundtrips std pair fields", "[serialization]") {
 
   pair_actor actor{{7, caors::string{"seven"}}};
 
-  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text =
+      caors::serialization::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"entry":[7,"seven"]})");
 
   pair_actor decoded{};
-  const caors::error result = caors::deserialize_json(decoded, R"({"entry":[9,"nine"]})");
+  const caors::error result = caors::deserialize(decoded, R"({"entry":[9,"nine"]})");
 
   REQUIRE(result.succeeded());
   CHECK(decoded.entry.first == 9);
   CHECK(decoded.entry.second == "nine");
 
-  const caors::serialization::variant_result value = caors::to_serialization_value(actor);
+  const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
   const caors::value::variant_member* entry = value.value.find_member(caors::string_name{"entry"});
   REQUIRE(entry != nullptr);
@@ -136,19 +137,20 @@ TEST_CASE("serialization - roundtrips std tuple fields", "[serialization]") {
 
   tuple_actor actor{{7, caors::string{"seven"}, 1.5F}};
 
-  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text =
+      caors::serialization::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"entry":[7,"seven",1.5]})");
 
   tuple_actor decoded{};
-  const caors::error result = caors::deserialize_json(decoded, R"({"entry":[9,"nine",2.5]})");
+  const caors::error result = caors::deserialize(decoded, R"({"entry":[9,"nine",2.5]})");
 
   REQUIRE(result.succeeded());
   CHECK(std::get<0>(decoded.entry) == 9);
   CHECK(std::get<1>(decoded.entry) == "nine");
   CHECK(std::get<2>(decoded.entry) == 2.5F);
 
-  const caors::serialization::variant_result value = caors::to_serialization_value(actor);
+  const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
   const caors::value::variant_member* entry = value.value.find_member(caors::string_name{"entry"});
   REQUIRE(entry != nullptr);
@@ -176,18 +178,19 @@ TEST_CASE("serialization - roundtrips std variant fields", "[serialization]") {
   variant_actor actor{};
   actor.entry = caors::string{"seven"};
 
-  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text =
+      caors::serialization::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"entry":[1,"seven"]})");
 
   variant_actor decoded{};
-  const caors::error result = caors::deserialize_json(decoded, R"({"entry":[2,2.5]})");
+  const caors::error result = caors::deserialize(decoded, R"({"entry":[2,2.5]})");
 
   REQUIRE(result.succeeded());
   REQUIRE(std::holds_alternative<float>(decoded.entry));
   CHECK(std::get<float>(decoded.entry) == 2.5F);
 
-  const caors::serialization::variant_result value = caors::to_serialization_value(actor);
+  const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
   const caors::value::variant_member* entry = value.value.find_member(caors::string_name{"entry"});
   REQUIRE(entry != nullptr);

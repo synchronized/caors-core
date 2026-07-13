@@ -56,7 +56,7 @@ TEST_CASE("serialization - deserializes hash map fields from pair arrays", "[ser
   REQUIRE(serialization_result_ok(caors::serialization::class_<map_actor>().commit()));
 
   const caors::serialization::variant_result parsed =
-      caors::parse_json(R"({"labels":[[3,"three"]]})");
+      caors::serialization::parse_json(R"({"labels":[[3,"three"]]})");
   REQUIRE(parsed.succeeded());
 
   map_actor actor{};
@@ -119,7 +119,8 @@ TEST_CASE("serialization - generic associative traits work without type registra
   custom_map_actor actor{};
   actor.labels.values.emplace(6, caors::string{"six"});
 
-  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text =
+      caors::serialization::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"labels":[[6,"six"]]})");
 
@@ -196,13 +197,13 @@ TEST_CASE("serialization - roundtrips std map fields", "[serialization]") {
   actor.labels.emplace(2, caors::string{"two"});
   actor.labels.emplace(1, caors::string{"one"});
 
-  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text =
+      caors::serialization::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"labels":[[1,"one"],[2,"two"]]})");
 
   ordered_map_actor decoded{};
-  const caors::error result =
-      caors::deserialize_json(decoded, R"({"labels":[[3,"three"],[4,"four"]]})");
+  const caors::error result = caors::deserialize(decoded, R"({"labels":[[3,"three"],[4,"four"]]})");
 
   REQUIRE(result.succeeded());
   REQUIRE(decoded.labels.size() == 2);
@@ -228,12 +229,13 @@ TEST_CASE("serialization - roundtrips std set fields", "[serialization]") {
   actor.ids.emplace(3);
   actor.ids.emplace(1);
 
-  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text =
+      caors::serialization::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"ids":[1,3]})");
 
   ordered_set_actor decoded{};
-  const caors::error result = caors::deserialize_json(decoded, R"({"ids":[2,4]})");
+  const caors::error result = caors::deserialize(decoded, R"({"ids":[2,4]})");
 
   REQUIRE(result.succeeded());
   REQUIRE(decoded.ids.size() == 2);
@@ -258,11 +260,12 @@ TEST_CASE("serialization - serializes hash map fields as dictionaries", "[serial
   map_actor actor{};
   actor.labels.emplace(7, caors::string{"seven"});
 
-  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text =
+      caors::serialization::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"labels":[[7,"seven"]]})");
 
-  const caors::serialization::variant_result value = caors::to_serialization_value(actor);
+  const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
   const caors::value::variant_member* labels =
       value.value.find_member(caors::string_name{"labels"});
@@ -290,11 +293,12 @@ TEST_CASE("serialization - serializes hash set fields as arrays", "[serializatio
   set_actor actor{};
   actor.ids.emplace(7);
 
-  const caors::serialization::serialization_text_result text = caors::serialize_text(actor);
+  const caors::serialization::serialization_text_result text =
+      caors::serialization::serialize_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"ids":[7]})");
 
-  const caors::serialization::variant_result value = caors::to_serialization_value(actor);
+  const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
   const caors::value::variant_member* ids = value.value.find_member(caors::string_name{"ids"});
   REQUIRE(ids != nullptr);

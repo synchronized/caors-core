@@ -10,7 +10,8 @@ using namespace caors::tests::resources;
 TEST_CASE("resources - serialized helpers load and save resources", "[resources]") {
   require_serialized_resource_metadata();
 
-  const caors::serialization::variant_result parsed = caors::parse_json(R"({"width":256})");
+  const caors::serialization::variant_result parsed =
+      caors::serialization::parse_json(R"({"width":256})");
   REQUIRE(parsed.succeeded());
 
   caors::serialization::variant_reader reader{parsed.value};
@@ -39,7 +40,8 @@ using namespace caors::tests::resources;
 TEST_CASE("resources - serialized helpers reject invalid resource identity", "[resources]") {
   require_serialized_resource_metadata();
 
-  const caors::serialization::variant_result parsed = caors::parse_json(R"({"width":256})");
+  const caors::serialization::variant_result parsed =
+      caors::serialization::parse_json(R"({"width":256})");
   REQUIRE(parsed.succeeded());
 
   caors::serialization::variant_reader reader{parsed.value};

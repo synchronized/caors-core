@@ -59,7 +59,7 @@ TEST_CASE("serialization - rejects object weak refs", "[serialization]") {
   object_weak_ref_actor actor{};
   actor.observer = owner;
 
-  const caors::serialization::serialization_text_result json = caors::serialize_json(actor);
+  const caors::serialization::serialization_text_result json = caors::to_string(actor);
 
   CHECK(json.failed());
   CHECK(json.status.domain() == caors::error_domain::serialization);

@@ -28,18 +28,18 @@ namespace {
 } // namespace
 
 core::string_name polymorphic_type_field(const serialization::context& context) {
-  return context.polymorphic.type_field ? context.polymorphic.type_field
-                                        : default_polymorphic_type_field();
+  return context.config.polymorphic.type_field ? context.config.polymorphic.type_field
+                                               : default_polymorphic_type_field();
 }
 
 core::string_name polymorphic_value_field(const serialization::context& context) {
-  return context.polymorphic.value_field ? context.polymorphic.value_field
-                                         : default_polymorphic_value_field();
+  return context.config.polymorphic.value_field ? context.config.polymorphic.value_field
+                                                : default_polymorphic_value_field();
 }
 
 core::string_name polymorphic_type_name_field(const serialization::context& context) {
-  return context.polymorphic.type_name_field ? context.polymorphic.type_name_field
-                                             : default_polymorphic_type_name_field();
+  return context.config.polymorphic.type_name_field ? context.config.polymorphic.type_name_field
+                                                    : default_polymorphic_type_name_field();
 }
 
 const value::variant_member* find_variant_member(const variant& source,
@@ -119,13 +119,13 @@ variant_result make_polymorphic_envelope(type_guid guid, core::string_name type_
   }
 
   variant::object_type members;
-  members.reserve(context.polymorphic.write_type_name && type_name ? 3 : 2);
+  members.reserve(context.config.polymorphic.write_type_name && type_name ? 3 : 2);
   members.push_back(value::variant_member{
       polymorphic_type_field(context),
       0,
       variant::from(guid.value.string()),
   });
-  if (context.polymorphic.write_type_name && type_name) {
+  if (context.config.polymorphic.write_type_name && type_name) {
     members.push_back(value::variant_member{
         polymorphic_type_name_field(context),
         0,
