@@ -149,9 +149,59 @@ TEST_CASE("resources - asset_manager builds provider manifest and dependency gra
   CHECK(resource_b->width == 1024);
 }
 
+TEST_CASE("resources - asset_manager creates configured source cache and loader from factories",
+          "[resources]") {
+  require_serialized_resource_metadata();
+
+  caors::resource_project_config config;
+  REQUIRE(caors::load_project_config_json(config, make_project_config_json()).succeeded());
+
+  caors::resource_asset_manager assets;
+  REQUIRE(
+      assets.register_type_factory<serialized_resource>(serialized_manifest_type()).succeeded());
+  REQUIRE(assets.build(config).succeeded());
+
+  auto* source =
+      dynamic_cast<caors::resource_file_source*>(assets.find_source(caors::string_name{"assets"}));
+  REQUIRE(source != nullptr);
+
+  auto* files = dynamic_cast<caors::memory_file_system*>(&source->file_system());
+  REQUIRE(files != nullptr);
+  REQUIRE(
+      files->write_all("assets/resource-a.json", std::string_view{R"({"width":512})"}).succeeded());
+  REQUIRE(files->write_all("assets/resource-b.json", std::string_view{R"({"width":1024})"})
+              .succeeded());
+
+  caors::resource_preload_result loaded = assets.preload(test_guid_b);
+  REQUIRE(loaded.succeeded());
+  CHECK(loaded.loaded.size() == 2);
+
+  const serialized_resource* resource_a = assets.database().find<serialized_resource>(test_guid_a);
+  const serialized_resource* resource_b = assets.database().find<serialized_resource>(test_guid_b);
+  REQUIRE(resource_a != nullptr);
+  REQUIRE(resource_b != nullptr);
+  CHECK(resource_a->width == 512);
+  CHECK(resource_b->width == 1024);
+}
+
+TEST_CASE("resources - asset_manager reports unsupported configured runtime strategy",
+          "[resources]") {
+  caors::resource_project_config config;
+  REQUIRE(caors::load_project_config_json(config, make_project_config_json()).succeeded());
+  config.resource_types[0].loader = caors::string_name{"binary"};
+
+  caors::resource_asset_manager assets;
+  REQUIRE(
+      assets.register_type_factory<serialized_resource>(serialized_manifest_type()).succeeded());
+
+  const caors::error status = assets.build(config);
+  CHECK(status == caors::error{caors::error_domain::resources, caors::errc::unsupported});
+}
+
 TEST_CASE("resources - asset_manager reports missing configured sources", "[resources]") {
   caors::resource_project_config config;
   REQUIRE(caors::load_project_config_json(config, make_project_config_json()).succeeded());
+  config.sources[0].type = caors::string_name{"unknown_source"};
 
   caors::resource_asset_manager assets;
   const caors::error status = assets.build(config);

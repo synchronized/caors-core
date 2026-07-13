@@ -17,7 +17,7 @@
 
 namespace caors::resources {
 
-/** @brief 工程资源来源描述。运行期 source 对象由上层或后续工厂创建。 */
+/** @brief 工程资源来源描述。运行期 source 对象由 asset_manager 工厂或上层代码创建。 */
 struct project_source_config {
   explicit project_source_config(memory_resource* resource = nullptr) : root(resource) {}
 
@@ -39,7 +39,7 @@ struct project_resource_config {
   std::uint64_t version = 0;
 };
 
-/** @brief 资源类型到运行期加载/缓存策略名的描述。第一版只保存描述，不自动创建 C++ 对象。 */
+/** @brief 资源类型到运行期加载/缓存策略名的描述。 */
 struct project_resource_type_config {
   core::string_name type{};
   core::string_name loader{};

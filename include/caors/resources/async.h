@@ -5,6 +5,7 @@
 #define CAORS_RESOURCES_ASYNC_H_
 
 #include "caors/config.h"
+#include "caors/core/containers.h"
 #include "caors/error.h"
 #include "caors/memory/resource.h"
 #include "caors/resources/io.h"
@@ -34,6 +35,7 @@ enum class request_status {
 };
 
 template <typename T> class load_request;
+template <typename T> class load_request_table;
 class preload_request;
 
 namespace detail {
@@ -213,6 +215,11 @@ public:
 
 private:
   friend class detail::load_request_access<T>;
+  friend class load_request_table<T>;
+
+  [[nodiscard]] bool shares_state(const load_request& other) const noexcept {
+    return state_ == other.state_;
+  }
 
   struct state_type {
     explicit state_type(memory_resource* resource) noexcept : resource(resource) {}
@@ -227,6 +234,92 @@ private:
   explicit load_request(std::shared_ptr<state_type> state) noexcept : state_(std::move(state)) {}
 
   std::shared_ptr<state_type> state_{};
+};
+
+/**
+ * @brief 按 GUID 复用进行中的异步加载请求。
+ *
+ * 该表只保存 queued/loading 请求。完成、失败或取消的请求会在下一次查询或提交阶段被移除，
+ * 因此不会阻止后续重新加载同一个 GUID。
+ */
+template <typename T> class load_request_table {
+  static_assert(std::is_base_of_v<resources::resource, T>,
+                "T must derive from caors::resources::resource");
+
+public:
+  explicit load_request_table(memory_resource* resource = nullptr)
+      : resource_(resource != nullptr ? resource : get_default_memory_resource()),
+        requests_(typename request_map::allocator_type{resource_}) {}
+
+  load_request_table(const load_request_table&) = delete;
+  load_request_table& operator=(const load_request_table&) = delete;
+  load_request_table(load_request_table&&) = delete;
+  load_request_table& operator=(load_request_table&&) = delete;
+
+  /** @brief 查询进行中的请求；如果旧请求已经结束，会顺手清理并返回空请求。 */
+  [[nodiscard]] load_request<T> find_pending(resource_guid guid) {
+    if (!guid) {
+      return {};
+    }
+
+    load_request<T> request;
+    {
+      std::lock_guard lock{mutex_};
+      const auto position = requests_.find(guid);
+      if (position == requests_.end()) {
+        return {};
+      }
+
+      request = position->second;
+    }
+
+    const request_status status = request.status();
+    if (status == request_status::queued || status == request_status::loading) {
+      return request;
+    }
+
+    {
+      std::lock_guard lock{mutex_};
+      const auto position = requests_.find(guid);
+      if (position != requests_.end() && position->second.shares_state(request)) {
+        requests_.erase(position);
+      }
+    }
+
+    return {};
+  }
+
+  /** @brief 保存进行中的请求。 */
+  void store(resource_guid guid, load_request<T> request) {
+    if (!guid || !request) {
+      return;
+    }
+
+    std::lock_guard lock{mutex_};
+    requests_[guid] = std::move(request);
+  }
+
+  /** @brief 移除 GUID 对应请求。 */
+  void erase(resource_guid guid, const load_request<T>& request) {
+    std::lock_guard lock{mutex_};
+    const auto position = requests_.find(guid);
+    if (position != requests_.end() && position->second.shares_state(request)) {
+      requests_.erase(position);
+    }
+  }
+
+  /** @brief 当前保存的进行中请求数量。 */
+  [[nodiscard]] std::size_t size() const {
+    std::lock_guard lock{mutex_};
+    return requests_.size();
+  }
+
+private:
+  using request_map = core::hash_map<resource_guid, load_request<T>, resource_guid_hash>;
+
+  memory_resource* resource_ = nullptr;
+  mutable std::mutex mutex_{};
+  request_map requests_;
 };
 
 /**
@@ -680,8 +773,12 @@ namespace detail {
 template <typename T, typename StatePtr>
 void load_resource_in_background(const StatePtr& state, cache<T>& target, loader<T>& source,
                                  resource_guid guid, tasks::completion_queue& completions,
-                                 bool replace) {
+                                 bool replace, load_request_table<T>* requests = nullptr,
+                                 load_request<T> request = {}) {
   if (!load_request_access<T>::loading(state)) {
+    if (requests != nullptr) {
+      requests->erase(guid, request);
+    }
     return;
   }
 
@@ -691,17 +788,26 @@ void load_resource_in_background(const StatePtr& state, cache<T>& target, loader
     load_result<T> loaded = source.load(guid, target.resource());
     if (loaded.failed()) {
       load_request_access<T>::fail(state, loaded.status);
+      if (requests != nullptr) {
+        requests->erase(guid, request);
+      }
       return;
     }
 
     if (load_request_access<T>::is_cancelled(state)) {
+      if (requests != nullptr) {
+        requests->erase(guid, request);
+      }
       return;
     }
 
     error push_status = completions.push(tasks::task{
-        target.resource(),
-        [state, &target, guid, replace, loaded_resource = std::move(loaded.value)]() mutable {
+        target.resource(), [state, &target, guid, replace, requests, request,
+                            loaded_resource = std::move(loaded.value)]() mutable {
           if (load_request_access<T>::is_cancelled(state)) {
+            if (requests != nullptr) {
+              requests->erase(guid, request);
+            }
             return error{};
           }
 
@@ -710,18 +816,30 @@ void load_resource_in_background(const StatePtr& state, cache<T>& target, loader
               commit_loaded_resource(target, guid, std::move(loaded_resource), replace, committed);
           if (status) {
             load_request_access<T>::fail(state, status);
+            if (requests != nullptr) {
+              requests->erase(guid, request);
+            }
             return status;
           }
 
           (void)load_request_access<T>::complete(state, std::move(committed));
+          if (requests != nullptr) {
+            requests->erase(guid, request);
+          }
           return error{};
         }});
     if (push_status) {
       load_request_access<T>::fail(state, push_status);
+      if (requests != nullptr) {
+        requests->erase(guid, request);
+      }
     }
 #if CAORS_HAS_EXCEPTIONS
   } catch (...) {
     load_request_access<T>::fail(state, {error_domain::resources, errc::backend_failure});
+    if (requests != nullptr) {
+      requests->erase(guid, request);
+    }
   }
 #endif
 }
@@ -775,6 +893,90 @@ void preload_resource_in_background(const StatePtr& state, cache<T>& target, loa
 #endif
 }
 
+template <typename T>
+[[nodiscard]] load_request<T> request_load_into_impl(cache<T>& target, loader<T>& source,
+                                                     resource_guid guid, tasks::executor& executor,
+                                                     tasks::completion_queue& completions,
+                                                     load_request_table<T>* requests) {
+  if (!guid) {
+    return load_request<T>::failed({error_domain::resources, errc::invalid_argument},
+                                   target.resource());
+  }
+
+  if (handle<T> existing = target.find_handle(guid)) {
+    return load_request<T>::completed(std::move(existing), target.resource());
+  }
+
+  if (requests != nullptr) {
+    if (load_request<T> pending = requests->find_pending(guid)) {
+      return pending;
+    }
+  }
+
+  load_request<T> request = load_request_access<T>::make(target.resource());
+  auto state = load_request_access<T>::state(request);
+  if (requests != nullptr) {
+    requests->store(guid, request);
+  }
+
+  error submit_status = executor.submit(
+      tasks::task{target.resource(),
+                  [state, request, &target, &source, guid, &completions, requests]() mutable {
+                    load_resource_in_background(state, target, source, guid, completions, false,
+                                                requests, request);
+                  }});
+  if (submit_status) {
+    load_request_access<T>::fail(state, submit_status);
+    if (requests != nullptr) {
+      requests->erase(guid, request);
+    }
+  }
+
+  return request;
+}
+
+template <typename T>
+[[nodiscard]] load_request<T>
+request_reload_into_impl(cache<T>& target, loader<T>& source, resource_guid guid,
+                         tasks::executor& executor, tasks::completion_queue& completions,
+                         load_request_table<T>* requests) {
+  if (!guid) {
+    return load_request<T>::failed({error_domain::resources, errc::invalid_argument},
+                                   target.resource());
+  }
+
+  if (!target.contains(guid)) {
+    return load_request<T>::failed({error_domain::resources, errc::not_found}, target.resource());
+  }
+
+  if (requests != nullptr) {
+    if (load_request<T> pending = requests->find_pending(guid)) {
+      return pending;
+    }
+  }
+
+  load_request<T> request = load_request_access<T>::make(target.resource());
+  auto state = load_request_access<T>::state(request);
+  if (requests != nullptr) {
+    requests->store(guid, request);
+  }
+
+  error submit_status = executor.submit(
+      tasks::task{target.resource(),
+                  [state, request, &target, &source, guid, &completions, requests]() mutable {
+                    load_resource_in_background(state, target, source, guid, completions, true,
+                                                requests, request);
+                  }});
+  if (submit_status) {
+    load_request_access<T>::fail(state, submit_status);
+    if (requests != nullptr) {
+      requests->erase(guid, request);
+    }
+  }
+
+  return request;
+}
+
 } // namespace detail
 
 /**
@@ -787,27 +989,19 @@ template <typename T>
 [[nodiscard]] load_request<T> request_load_into(cache<T>& target, loader<T>& source,
                                                 resource_guid guid, tasks::executor& executor,
                                                 tasks::completion_queue& completions) {
-  if (!guid) {
-    return load_request<T>::failed({error_domain::resources, errc::invalid_argument},
-                                   target.resource());
-  }
+  return detail::request_load_into_impl<T>(target, source, guid, executor, completions,
+                                           static_cast<load_request_table<T>*>(nullptr));
+}
 
-  if (handle<T> existing = target.find_handle(guid)) {
-    return load_request<T>::completed(std::move(existing), target.resource());
-  }
-
-  load_request<T> request = detail::load_request_access<T>::make(target.resource());
-  auto state = detail::load_request_access<T>::state(request);
-
-  error submit_status = executor.submit(tasks::task{
-      target.resource(), [state, &target, &source, guid, &completions]() mutable {
-        detail::load_resource_in_background(state, target, source, guid, completions, false);
-      }});
-  if (submit_status) {
-    detail::load_request_access<T>::fail(state, submit_status);
-  }
-
-  return request;
+/**
+ * @brief 异步加载资源并复用同 GUID 的进行中请求。
+ */
+template <typename T>
+[[nodiscard]] load_request<T> request_load_into(cache<T>& target, loader<T>& source,
+                                                resource_guid guid, tasks::executor& executor,
+                                                tasks::completion_queue& completions,
+                                                load_request_table<T>& requests) {
+  return detail::request_load_into_impl(target, source, guid, executor, completions, &requests);
 }
 
 /**
@@ -819,27 +1013,19 @@ template <typename T>
 [[nodiscard]] load_request<T> request_reload_into(cache<T>& target, loader<T>& source,
                                                   resource_guid guid, tasks::executor& executor,
                                                   tasks::completion_queue& completions) {
-  if (!guid) {
-    return load_request<T>::failed({error_domain::resources, errc::invalid_argument},
-                                   target.resource());
-  }
+  return detail::request_reload_into_impl<T>(target, source, guid, executor, completions,
+                                             static_cast<load_request_table<T>*>(nullptr));
+}
 
-  if (!target.contains(guid)) {
-    return load_request<T>::failed({error_domain::resources, errc::not_found}, target.resource());
-  }
-
-  load_request<T> request = detail::load_request_access<T>::make(target.resource());
-  auto state = detail::load_request_access<T>::state(request);
-
-  error submit_status = executor.submit(tasks::task{
-      target.resource(), [state, &target, &source, guid, &completions]() mutable {
-        detail::load_resource_in_background(state, target, source, guid, completions, true);
-      }});
-  if (submit_status) {
-    detail::load_request_access<T>::fail(state, submit_status);
-  }
-
-  return request;
+/**
+ * @brief 异步重载资源并复用同 GUID 的进行中重载请求。
+ */
+template <typename T>
+[[nodiscard]] load_request<T> request_reload_into(cache<T>& target, loader<T>& source,
+                                                  resource_guid guid, tasks::executor& executor,
+                                                  tasks::completion_queue& completions,
+                                                  load_request_table<T>& requests) {
+  return detail::request_reload_into_impl(target, source, guid, executor, completions, &requests);
 }
 
 } // namespace caors::resources
@@ -848,6 +1034,7 @@ namespace caors {
 
 using resource_request_status = resources::request_status;
 template <typename T> using resource_load_request = resources::load_request<T>;
+template <typename T> using resource_load_request_table = resources::load_request_table<T>;
 using resource_preload_request = resources::preload_request;
 using resources::request_load_into;
 using resources::request_reload_into;

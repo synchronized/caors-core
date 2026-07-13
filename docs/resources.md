@@ -6,8 +6,8 @@
 本文档说明 CAORS 资源系统的当前设计边界。资源系统仍处于基础阶段，当前提供资源身份、轻量引用模型、
 运行期共享 handle、非拥有资源索引、引用计数缓存、资源依赖图、资源清单、字节来源 provider、
 加载/保存接口、非拥有资源 database 编排入口、同步 reload、显式 reload 通知、最小序列化读写 helper、
-同步预加载计划、序列化资源引用 resolver、第一版异步加载请求、工程资源配置描述和第一版
-`asset_manager`；资源包后续再补。
+同步预加载计划、序列化资源引用 resolver、第一版异步加载请求、工程资源配置描述、资源运行期工厂和
+第一版 `asset_manager`；资源包后续再补。
 
 ## 设计目标
 
@@ -37,8 +37,8 @@
 - cache 级自动淘汰、后台释放或跨 cache 生命周期协调。
 - 完整热重载系统。
 - 资源导入管线。
-- 自动创建任意 C++ 类型的 cache / loader。
-- 请求优先级、进度聚合和同 GUID 请求合并。
+- 自动创建未注册资源类型的 cache / loader。
+- 请求优先级、细粒度进度聚合和异步预加载级别的同 GUID 请求合并。
 - 与对象系统的场景树生命周期绑定。
 
 这些能力后续应建立在 `io::file_system`、`resources::provider`、`resources::manager`、
@@ -336,6 +336,15 @@ database.register_type(cache, loader);
 auto request = database.request_load<texture>(texture_id, executor, completions);
 ```
 
+`database.request_load<T>()` 和 `database.request_reload<T>()` 会按资源类型和 GUID 复用进行中的请求：
+
+- cache 已经有同 GUID 资源时，`request_load<T>()` 立即返回 loaded 请求，不提交后台任务。
+- 同一个资源类型、同一个 GUID 的 queued/loading load 请求会返回同一个 `load_request<T>` 状态。
+- 同一个资源类型、同一个 GUID 的 queued/loading reload 请求会返回同一个 `load_request<T>` 状态。
+- load 和 reload 使用独立请求表；同 GUID 的首次加载和重载不会互相复用。
+- 复用请求的任意一个句柄调用 `cancel()` 都会取消共享状态；后续同一请求句柄都会观察到 cancelled。
+- 请求 loaded、failed 或 cancelled 后会从请求表移除，后续同 GUID 请求可以重新提交。
+
 依赖预加载也可以异步提交。模板入口适合同一资源类型闭包；无模板入口会先读取 manifest type，
 再按 `register_type(cache, loader, type)` 的绑定跨类型分派：
 
@@ -411,7 +420,7 @@ if (request.loaded()) {
 - `preload_request` 自身状态查询是线程安全的。
 - `completion_queue::drain()` 应在拥有 cache 的线程调用。
 - 第一版 `load_request<T>::get()` 和 `result()` 都不阻塞；等待、批量轮询和进度聚合后续再补。
-- 第一版异步预加载只做批量提交和聚合状态，不做同 GUID 请求合并、优先级、分层依赖等待或 loader
+- 第一版异步预加载只做批量提交和聚合状态，不做预加载内部同 GUID 请求合并、优先级、分层依赖等待或 loader
   内部进度上报。
 
 ## 序列化
@@ -673,16 +682,13 @@ caors::load_project_config_json(config, R"({
 `dependency_graph` 和 `database`，并把这些对象在构造时挂接到内部 database：
 
 ```cpp
-caors::memory_file_system files;
-caors::resource_file_source source{files};
-
 caors::resource_asset_manager assets;
-assets.bind_source(caors::string_name{"assets"}, source);
-assets.build(config);
+assets.register_type_factory<texture>(caors::string_name{"game.texture"});
 
-caors::resource_cache<texture> cache;
-caors::resource_json_loader<texture> loader{assets.provider()};
-assets.register_type(cache, loader, caors::string_name{"game.texture"});
+caors::error built = assets.build(config);
+if (built) {
+  // 处理配置或运行期对象创建错误。
+}
 
 caors::resource_preload_result result = assets.preload(texture_id);
 auto resolver = assets.resolver();
@@ -690,20 +696,25 @@ auto resolver = assets.resolver();
 
 当前语义：
 
-- `project_config.sources` 描述 source 名称和策略名，但不会自动创建 `source` 对象。
+- `project_config.sources` 描述 source 名称和策略名。`asset_manager` 内置支持
+  `"memory_file_system"` / `"memory"` 和 `"native_file_system"` / `"native"`，会在 build
+  阶段创建并拥有对应 `file_source`。
 - `project_config.resources` 描述 `guid -> source/location/type/hash/version`，会被
   `asset_manager::build()` 写入内部 manifest 和 provider。
-- `project_config.resource_types` 只保存资源类型到 loader/cache 策略名的描述；第一版不会根据这些字符串
-  自动创建 C++ cache 或 loader。
+- `project_config.resource_types` 保存资源类型到 loader/cache 策略名的描述。调用
+  `asset_manager::register_type_factory<T>(type)` 后，`build()` 会在遇到同名资源类型时创建并拥有
+  `cache<T>` 和 `json_loader<T>`。默认类型工厂第一版支持 `cache = "memory"`、`loader = "json"`。
 - `project_config.dependencies` 会写入内部 `dependency_graph`。
 - `project_config.preload_roots` 只保存建议预加载入口；调用方决定何时调用 `preload()` 或异步预加载。
 - `asset_manager::bind_source(name, source)` 不接管 source 生命周期；调用方必须保证 source 存活时间长于
-  `asset_manager` 对它的使用。
+  `asset_manager` 对它的使用。手动绑定的 source 会覆盖同名配置 source 的自动创建。
 - `asset_manager::build(config)` 会清空内部 manifest、provider 和 dependency graph，再按配置重建。
 - 资源条目未显式写 `source` 时，如果配置中只有一个 source 或 asset_manager 只绑定了一个 source，会使用该
   唯一 source；否则返回 `resources / not_found`。
-- cache/loader 仍通过 `register_type<T>(cache, loader, type)` 显式绑定。后续再通过工厂注册机制把配置中的
-  `"json"`、`"memory"`、`"native_file_system"`、`"remote"` 等策略名映射到运行期对象构造。
+- 没有注册类型工厂的 `resource_types` 会被跳过，保留 `register_type<T>(cache, loader, type)` 手动绑定路径。
+  已注册类型工厂但配置的 cache/loader 策略不支持时，会返回 `resources / unsupported`。
+- `register_source_factory()` 和 `register_type_factory()` 可扩展自定义策略名；内置实现只覆盖内存/本地
+  source 和 JSON + memory cache 的常见调试路径。网络、资源包、专用缓存等策略后续再补。
 
 ## reload 策略现状
 

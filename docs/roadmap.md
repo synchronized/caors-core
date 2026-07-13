@@ -216,8 +216,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   和非拥有 `database`，统一保证核心资源运行期对象生命周期。
 - [x] 提供 `resources::asset_manager` 第一版，拥有 manifest、provider、dependency graph 和 database，并可从
   `project_config` 构建运行期资源定位与依赖图。
-- [ ] 提供 loader/source/cache 工厂注册机制，把配置中的 `"json"`、`"native_file_system"`、`"memory"`、
-  `"remote"` 等策略名映射到运行期对象构造。
+- [x] 提供第一版 loader/source/cache 工厂注册机制，把配置中的 `"json"`、`"native_file_system"`、
+  `"memory"` 等策略名映射到运行期 source、cache 和 loader 构造；`"remote"`、资源包和专用缓存后续扩展。
 - [x] 支持 `resources::provider` 通过可写 source 按 GUID 写回字节，为后续 saver 和热更新回写提供基础。
 - [x] 实现 `resources::json_saver<T>`，打通 `resource -> JSON -> provider -> source` 的同步保存链路。
 - [x] 提供 `resources::save_from()`，把 cache 中指定 GUID 的资源交给 saver 保存。
@@ -237,8 +237,9 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   失败时保留旧资源；完成、失败和 reload 通知后续再接入 events/signal 或 dispatcher。
 - [x] 提供 `resources::database::request_preload<T>()` / `request_preload()`，支持把依赖闭包提交为
   `preload_request`，并在 completion queue 中按 cache 所属线程提交资源。
-- [ ] 设计异步加载请求合并和生命周期策略：同 GUID 重复请求复用同一 request，已缓存资源可立即完成，
-  后续再评估优先级、等待 API、分层依赖调度和细粒度进度聚合。
+- [x] 设计并实现 database 级异步单资源请求合并和生命周期策略：同资源类型、同 GUID 的 direct
+  load/reload 重复请求复用同一 request，已缓存资源可立即完成，取消、完成和失败后会从请求表移除。
+- [ ] 扩展异步预加载内部请求合并和调度策略，后续再评估优先级、等待 API、分层依赖调度和细粒度进度聚合。
 - [x] 明确异步资源系统线程安全边界：哪些 `source` / `provider` / `memory_resource` 可跨线程访问，
   cache 修改必须在哪个线程执行，未完成 request 的 `get()` 是阻塞、返回错误还是禁止调用。
 - [x] 打通资源引用序列化 resolver，支持反序列化后按策略解析稳定 GUID 引用。

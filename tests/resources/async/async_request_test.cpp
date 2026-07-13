@@ -288,6 +288,137 @@ TEST_CASE("resources - database async load uses registered cache and loader", "[
   CHECK(request.get()->value == 9);
 }
 
+TEST_CASE("resources - database async load reuses pending request for same guid", "[resources]") {
+  require_async_resource_metadata();
+
+  caors::resource_cache<async_resource> cache;
+  async_loader loader;
+  loader.next_value = 21;
+  caors::resource_database database;
+  REQUIRE(database.register_type(cache, loader).succeeded());
+  caors::tasks::inline_executor executor;
+  caors::tasks::completion_queue completions;
+
+  caors::resource_load_request<async_resource> first =
+      database.request_load<async_resource>(test_guid_a, executor, completions);
+  caors::resource_load_request<async_resource> second =
+      database.request_load<async_resource>(test_guid_a, executor, completions);
+
+  CHECK(first.status() == caors::resource_request_status::loading);
+  CHECK(second.status() == caors::resource_request_status::loading);
+  CHECK(loader.load_count.load() == 1);
+  CHECK(completions.size() == 1);
+
+  CHECK(completions.drain() == 1);
+
+  REQUIRE(first.loaded());
+  REQUIRE(second.loaded());
+  REQUIRE(first.get());
+  CHECK(first.get().get() == second.get().get());
+  CHECK(first.get()->value == 21);
+  CHECK(loader.load_count.load() == 1);
+
+  caors::resource_load_request<async_resource> cached =
+      database.request_load<async_resource>(test_guid_a, executor, completions);
+  REQUIRE(cached.loaded());
+  CHECK(cached.get().get() == first.get().get());
+  CHECK(loader.load_count.load() == 1);
+}
+
+TEST_CASE("resources - database async load cancellation is shared by reused requests",
+          "[resources]") {
+  require_async_resource_metadata();
+
+  caors::resource_cache<async_resource> cache;
+  async_loader loader;
+  caors::resource_database database;
+  REQUIRE(database.register_type(cache, loader).succeeded());
+  holding_executor executor;
+  caors::tasks::completion_queue completions;
+
+  caors::resource_load_request<async_resource> first =
+      database.request_load<async_resource>(test_guid_a, executor, completions);
+  caors::resource_load_request<async_resource> second =
+      database.request_load<async_resource>(test_guid_a, executor, completions);
+
+  CHECK(first.status() == caors::resource_request_status::queued);
+  CHECK(second.status() == caors::resource_request_status::queued);
+  REQUIRE(first.cancel());
+  CHECK(second.cancelled());
+  CHECK_FALSE(second.cancel());
+
+  CHECK_FALSE(executor.run_once());
+  CHECK(loader.load_count.load() == 0);
+  CHECK_FALSE(cache.contains(test_guid_a));
+}
+
+TEST_CASE("resources - database async load keeps newer request after cancelled task exits",
+          "[resources]") {
+  require_async_resource_metadata();
+
+  caors::resource_cache<async_resource> cache;
+  async_loader loader;
+  caors::resource_database database;
+  REQUIRE(database.register_type(cache, loader).succeeded());
+  holding_executor executor;
+  caors::tasks::completion_queue completions;
+
+  caors::resource_load_request<async_resource> first =
+      database.request_load<async_resource>(test_guid_a, executor, completions);
+  REQUIRE(first.cancel());
+
+  caors::tasks::task cancelled_task = std::move(executor.queued);
+
+  caors::resource_load_request<async_resource> second =
+      database.request_load<async_resource>(test_guid_a, executor, completions);
+  CHECK(second.status() == caors::resource_request_status::queued);
+
+  CHECK_FALSE(cancelled_task.run());
+  CHECK(loader.load_count.load() == 0);
+
+  caors::resource_load_request<async_resource> third =
+      database.request_load<async_resource>(test_guid_a, executor, completions);
+
+  REQUIRE(second.cancel());
+  CHECK(third.cancelled());
+}
+
+TEST_CASE("resources - database async reload reuses pending request for same guid", "[resources]") {
+  require_async_resource_metadata();
+
+  caors::resource_cache<async_resource> cache;
+  async_resource* initial = cache.create(test_guid_a);
+  REQUIRE(initial != nullptr);
+  initial->value = 1;
+
+  async_loader loader;
+  loader.next_value = 22;
+  caors::resource_database database;
+  REQUIRE(database.register_type(cache, loader).succeeded());
+  caors::tasks::inline_executor executor;
+  caors::tasks::completion_queue completions;
+
+  caors::resource_load_request<async_resource> first =
+      database.request_reload<async_resource>(test_guid_a, executor, completions);
+  caors::resource_load_request<async_resource> second =
+      database.request_reload<async_resource>(test_guid_a, executor, completions);
+
+  CHECK(first.status() == caors::resource_request_status::loading);
+  CHECK(second.status() == caors::resource_request_status::loading);
+  CHECK(loader.load_count.load() == 1);
+  CHECK(completions.size() == 1);
+
+  CHECK(completions.drain() == 1);
+
+  REQUIRE(first.loaded());
+  REQUIRE(second.loaded());
+  REQUIRE(first.get());
+  CHECK(first.get().get() == second.get().get());
+  CHECK(first.get()->value == 22);
+  CHECK(first.get().get() == cache.find(test_guid_a));
+  CHECK(loader.load_count.load() == 1);
+}
+
 TEST_CASE("resources - database async load reports missing registration", "[resources]") {
   caors::resource_database database;
   caors::tasks::inline_executor executor;

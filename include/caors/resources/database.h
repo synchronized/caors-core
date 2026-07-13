@@ -401,9 +401,14 @@ public:
       return load_request<T>::failed({error_domain::resources, errc::not_found}, resource_);
     }
 
+    auto* requests = static_cast<resources::load_request_table<T>*>(entry->load_requests.get());
+    if (requests == nullptr) {
+      return load_request<T>::failed({error_domain::resources, errc::backend_failure}, resource_);
+    }
+
     return resources::request_load_into(*static_cast<resources::cache<T>*>(entry->cache),
                                         *static_cast<resources::loader<T>*>(entry->loader), guid,
-                                        executor, completions);
+                                        executor, completions, *requests);
   }
 
   /** @brief 异步重载资源，并在 completion queue 中替换对应 cache 绑定。 */
@@ -415,9 +420,14 @@ public:
       return load_request<T>::failed({error_domain::resources, errc::not_found}, resource_);
     }
 
+    auto* requests = static_cast<resources::load_request_table<T>*>(entry->reload_requests.get());
+    if (requests == nullptr) {
+      return load_request<T>::failed({error_domain::resources, errc::backend_failure}, resource_);
+    }
+
     return resources::request_reload_into(*static_cast<resources::cache<T>*>(entry->cache),
                                           *static_cast<resources::loader<T>*>(entry->loader), guid,
-                                          executor, completions);
+                                          executor, completions, *requests);
   }
 
   /**
@@ -568,6 +578,8 @@ private:
     core::string_name resource_type{};
     void* cache = nullptr;
     void* loader = nullptr;
+    std::shared_ptr<void> load_requests{};
+    std::shared_ptr<void> reload_requests{};
     find_fn find = nullptr;
     load_fn load = nullptr;
     request_load_fn request_load = nullptr;
@@ -592,6 +604,10 @@ private:
 
     type_entry created{};
     created.id = id;
+    created.load_requests = std::allocate_shared<resources::load_request_table<T>>(
+        allocator<resources::load_request_table<T>>{resource_}, resource_);
+    created.reload_requests = std::allocate_shared<resources::load_request_table<T>>(
+        allocator<resources::load_request_table<T>>{resource_}, resource_);
     const auto [inserted, _] = entries_.emplace(id.value(), created);
     entry = &inserted->second;
     return {};
