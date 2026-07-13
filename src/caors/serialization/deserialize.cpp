@@ -46,8 +46,13 @@ error deserialize(const serialization::context& context, const reflection::type&
         return {error_domain::serialization, errc::not_found};
       }
 
+      result<serialization::context> nested_context = context.enter_nested_value();
+      if (nested_context.failed()) {
+        return nested_context.status;
+      }
+
       status = serialization::detail::read_configured_field(reader, field, object, field_schema,
-                                                            context);
+                                                            nested_context.value);
       if (status) {
         return status;
       }
@@ -60,7 +65,13 @@ error deserialize(const serialization::context& context, const reflection::type&
       }
 
       serialization::field_schema field_schema = serialization::make_field(field.name().view());
-      status = serialization::detail::read_field(reader, field, object, field_schema, context);
+      result<serialization::context> nested_context = context.enter_nested_value();
+      if (nested_context.failed()) {
+        return nested_context.status;
+      }
+
+      status = serialization::detail::read_field(reader, field, object, field_schema,
+                                                 nested_context.value);
       if (status) {
         return status;
       }

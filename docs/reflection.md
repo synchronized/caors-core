@@ -111,6 +111,10 @@ caors::reflection::class_<actor>()
   `variant_view::get_alternative_type(index)` 查询，当前值类型由 `variant_view::get_value_type()` 查询。
   内置 `std::variant<Ts...>` 会生成 `std.variant<Ts...>` 类型名。
 
+`inline_value` 只表示运行期可以通过字段 view 访问内部 `T`，不表示序列化层拥有对象图身份信息。
+序列化裸指针、引用 wrapper 或普通 wrapper 时会按内部值递归展开；父指针、自环和共享对象图需要调用方
+跳过对应字段，或改用对象/资源引用语义。
+
 STL 智能指针和裸指针只作为外部字段类型被反射系统描述。CAORS 不根据这些字段接管对象生命周期；
 用户如果直接使用这些类型，需要自行保证释放、引用有效性和线程安全。后续 CAORS 自身的对象句柄、
 引用计数或分配器类型会作为独立 wrapper 接入反射规则。

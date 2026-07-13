@@ -20,7 +20,12 @@ namespace caors::serialization::detail {
       return {{error_domain::serialization, errc::unsupported}, {}};
     }
 
-    variant_result encoded = make_serialized_value(element, context);
+    result<serialization::context> nested_context = context.enter_nested_value();
+    if (nested_context.failed()) {
+      return {nested_context.status, {}};
+    }
+
+    variant_result encoded = make_serialized_value(element, nested_context.value);
     if (encoded.failed()) {
       return encoded;
     }
@@ -50,7 +55,13 @@ namespace caors::serialization::detail {
   const bool completed = view.for_each_ref(
       [](any_ref element, void* user_data) -> bool {
         auto* visitor = static_cast<visitor_context*>(user_data);
-        variant_result encoded = make_serialized_value(element, *visitor->context);
+        result<serialization::context> nested_context = visitor->context->enter_nested_value();
+        if (nested_context.failed()) {
+          visitor->result = {nested_context.status, {}};
+          return false;
+        }
+
+        variant_result encoded = make_serialized_value(element, nested_context.value);
         if (encoded.failed()) {
           visitor->result = encoded;
           return false;
@@ -89,13 +100,19 @@ namespace caors::serialization::detail {
   const bool completed = view.for_each_ref(
       [](any_ref key, any_ref value, void* user_data) -> bool {
         auto* visitor = static_cast<visitor_context*>(user_data);
-        variant_result encoded_key = make_serialized_value(key, *visitor->context);
+        result<serialization::context> nested_context = visitor->context->enter_nested_value();
+        if (nested_context.failed()) {
+          visitor->result = {nested_context.status, {}};
+          return false;
+        }
+
+        variant_result encoded_key = make_serialized_value(key, nested_context.value);
         if (encoded_key.failed()) {
           visitor->result = encoded_key;
           return false;
         }
 
-        variant_result encoded_value = make_serialized_value(value, *visitor->context);
+        variant_result encoded_value = make_serialized_value(value, nested_context.value);
         if (encoded_value.failed()) {
           visitor->result = encoded_value;
           return false;
@@ -128,12 +145,17 @@ namespace caors::serialization::detail {
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
-  variant_result encoded_first = make_serialized_value(first, context);
+  result<serialization::context> nested_context = context.enter_nested_value();
+  if (nested_context.failed()) {
+    return {nested_context.status, {}};
+  }
+
+  variant_result encoded_first = make_serialized_value(first, nested_context.value);
   if (encoded_first.failed()) {
     return encoded_first;
   }
 
-  variant_result encoded_second = make_serialized_value(second, context);
+  variant_result encoded_second = make_serialized_value(second, nested_context.value);
   if (encoded_second.failed()) {
     return encoded_second;
   }
@@ -161,7 +183,12 @@ namespace caors::serialization::detail {
       return {{error_domain::serialization, errc::unsupported}, {}};
     }
 
-    variant_result encoded = make_serialized_value(element, context);
+    result<serialization::context> nested_context = context.enter_nested_value();
+    if (nested_context.failed()) {
+      return {nested_context.status, {}};
+    }
+
+    variant_result encoded = make_serialized_value(element, nested_context.value);
     if (encoded.failed()) {
       return encoded;
     }
@@ -184,7 +211,12 @@ namespace caors::serialization::detail {
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
-  variant_result encoded = make_serialized_value(value, context);
+  result<serialization::context> nested_context = context.enter_nested_value();
+  if (nested_context.failed()) {
+    return {nested_context.status, {}};
+  }
+
+  variant_result encoded = make_serialized_value(value, nested_context.value);
   if (encoded.failed()) {
     return encoded;
   }

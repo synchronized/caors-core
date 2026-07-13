@@ -20,8 +20,7 @@
 
 namespace caors::serialization {
 
-using type_create_fn = void* (*)(type_id type, memory::memory_resource* resource,
-                                 void* user_data);
+using type_create_fn = void* (*)(type_id type, memory::memory_resource* resource, void* user_data);
 using type_destroy_fn = void (*)(void* instance, void* user_data) noexcept;
 
 /** @brief 按运行期类型构造和销毁实例的函数表。 */
@@ -32,9 +31,7 @@ struct type_factory {
 
   [[nodiscard]] constexpr bool can_create() const noexcept { return create != nullptr; }
   [[nodiscard]] constexpr bool can_destroy() const noexcept { return destroy != nullptr; }
-  [[nodiscard]] constexpr bool valid() const noexcept {
-    return can_create() && can_destroy();
-  }
+  [[nodiscard]] constexpr bool valid() const noexcept { return can_create() && can_destroy(); }
 
   [[nodiscard]] void* create_type(type_id type, memory::memory_resource* resource) const {
     return create != nullptr ? create(type, resource, user_data) : nullptr;
@@ -108,6 +105,16 @@ struct factory_options {
   const type_factory* type_factory = nullptr;
 };
 
+/** @brief 递归和输入规模相关的序列化限制。 */
+struct limit_options {
+  /**
+   * @brief 最大嵌套深度。
+   *
+   * 默认值用于防止裸指针、wrapper、容器或对象图意外形成无限递归。`0` 表示不限制深度。
+   */
+  std::uint32_t max_depth = 64;
+};
+
 /** @brief 运行期构造和销毁相关的序列化语义选项。 */
 struct memory_options {
   memory::memory_resource* resource = nullptr;
@@ -128,6 +135,7 @@ struct context {
   field_options fields{};
   external_ref_options external_refs{};
   factory_options factories{};
+  limit_options limits{};
   memory_options memory{};
   storage_options storage{};
   polymorphic_options polymorphic{};
@@ -161,6 +169,25 @@ struct context {
   [[nodiscard]] memory::memory_resource* effective_memory_resource() const noexcept {
     return memory.resource;
   }
+
+  [[nodiscard]] std::uint32_t current_depth() const noexcept { return current_depth_; }
+
+  [[nodiscard]] bool at_depth_limit() const noexcept {
+    return limits.max_depth != 0 && current_depth_ >= limits.max_depth;
+  }
+
+  [[nodiscard]] result<context> enter_nested_value() const noexcept {
+    if (at_depth_limit()) {
+      return {{error_domain::serialization, errc::recursion_limit}, {}};
+    }
+
+    context nested = *this;
+    ++nested.current_depth_;
+    return {{}, nested};
+  }
+
+private:
+  std::uint32_t current_depth_ = 0;
 };
 
 /** @brief 文本序列化结果。 */

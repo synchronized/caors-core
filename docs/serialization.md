@@ -98,6 +98,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 | `context.memory` | 多态值、空 wrapper 和容器新增元素的运行期构造资源 | 不强行替换已有容器 allocator |
 | `context.storage` | 借用视图读回所需外部存储 | 主要用于 `std::string_view` |
 | `context.polymorphic` | 多态 envelope 字段名和调试 type name | 默认字段名为 `$type` / `$value` |
+| `context.limits` | 递归深度等安全限制 | `max_depth = 0` 表示关闭递归深度限制 |
 | `json_options` | JSON 格式层选项 | 当前控制 writer 的 `pretty` 和 `indent` |
 
 公开序列化入口保留无 context 便捷重载；一旦需要上下文，统一把
@@ -131,7 +132,11 @@ caors::deserialize_json(context, object, text);
 
 `serialization::context` 不再提供旧式扁平配置字段。调用方应按职责写入
 `context.fields`、`context.external_refs`、`context.factories`、`context.memory`
-和 `context.storage` 等分组字段。
+、`context.storage` 和 `context.limits` 等分组字段。
+
+`context.limits.max_depth` 限制对象字段、容器元素、指针和 wrapper 内部值的递归展开深度，
+默认值为 `64`。超过限制时返回 `errc::recursion_limit`；设置为 `0` 表示关闭该保护。
+这个限制只是防止意外无限递归的安全网，不提供对象图身份追踪、共享实例去重或循环引用恢复。
 
 ### 多态 object
 
@@ -765,6 +770,9 @@ template <> struct codec_traits<custom_value> {
   会写入已经绑定的对象。
 - 如果 `T` 不支持默认构造，已经存在的 `T` 对象仍可被字段反序列化写入；但空智能指针、空 `optional`
   和需要新增元素的容器不会隐式构造 `T`。
+- 裸指针、`std::reference_wrapper<T>` 和普通 inline wrapper 都按借用值递归处理。字段形成父指针、
+  双向链表、自环或共享对象图时，调用方应跳过反向字段或改用显式引用；`context.limits.max_depth`
+  只负责在递归过深时返回 `errc::recursion_limit`。
 - `std::weak_ptr<T>` 和 `objects::weak_ref<T>` 明确标记为不支持的 wrapper，无法稳定暴露可写内部值，
   当前不作为普通 value 序列化或反序列化。
 - `caors::objects::ptr<T>` 不走内部 value 语义，仍通过 `objects::object_ref_resolver` 写出和读入对象 id 或持久 GUID。
@@ -821,7 +829,9 @@ template <> struct codec_traits<custom_value> {
 - `std::weak_ptr<T>` 和 `objects::weak_ref<T>` 默认不展开内部值；如果需要弱引用序列化，应通过对象句柄、资源 id 或
   `objects::ptr<T>` 类似的显式引用语义处理。
 - 裸指针、普通智能指针和 `objects::ref<T>` 按 inline value 处理，不保留对象身份、共享关系或对象图引用；
-  需要身份保持时使用 `caors::objects::ptr<T>`、`caors::objects::handle` 或 `caors::objects::typed_handle<T>`。
+  字段存在回边或自环时应由调用方跳过对应字段，或改用显式引用类型。`context.limits.max_depth`
+  会阻止无限展开，但不会把对象图转换为引用图；需要身份保持时使用 `caors::objects::ptr<T>`、
+  `caors::objects::handle` 或 `caors::objects::typed_handle<T>`。
 - 未注册枚举可以通过 meta descriptor 在字段、`any` / `any_ref` 和容器元素路径上按底层整数读写；如果枚举需要稳定名称、GUID 或多态身份，仍应显式注册。
 - 容器、指针、wrapper、pair、tuple 和 variant 通过 meta descriptor 生成运行期视图，不要求每一种
   `std::vector<T>`、`std::map<K, V>` 或嵌套组合都注册为 meta 类型。元素或候选值如果需要稳定名称、

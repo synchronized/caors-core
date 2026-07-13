@@ -26,12 +26,17 @@ value_ref_to_serialization_value(const any_ref& value, const serialization::cont
 }
 
 [[nodiscard]] variant_result field_to_serialization_value(const reflection::field& field,
-  const void* object,
+                                                          const void* object,
                                                           const serialization::context& context) {
+  result<serialization::context> nested_context = context.enter_nested_value();
+  if (nested_context.failed()) {
+    return {nested_context.status, {}};
+  }
+
   any_ref field_ref{};
   if (field_uses_inline_indirect_value(field)) {
     const value::indirect_view indirect = field.get_ref(object).create_indirect_view();
-    return serialization::detail::make_indirect_serialized_value(indirect, context);
+    return serialization::detail::make_indirect_serialized_value(indirect, nested_context.value);
   } else {
     field_ref = field.get_ref(object);
   }
@@ -40,7 +45,7 @@ value_ref_to_serialization_value(const any_ref& value, const serialization::cont
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
-  return value_ref_to_serialization_value(field_ref, context);
+  return value_ref_to_serialization_value(field_ref, nested_context.value);
 }
 
 } // namespace

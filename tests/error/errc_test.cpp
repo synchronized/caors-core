@@ -38,4 +38,8 @@ TEST_CASE("error - errc converts to std error code", "[error]") {
   const std::error_code cycle_detected = caors::errc::cycle_detected;
   CHECK(cycle_detected);
   CHECK(cycle_detected.message() == "cycle detected");
+
+  const std::error_code recursion_limit = caors::errc::recursion_limit;
+  CHECK(recursion_limit);
+  CHECK(recursion_limit.message() == "recursion limit");
 }

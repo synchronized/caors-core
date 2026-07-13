@@ -194,6 +194,11 @@ struct pointer_actor {
   nested_stats* stats = nullptr;
 };
 
+struct recursive_node {
+  int value = 0;
+  recursive_node* next = nullptr;
+};
+
 struct reference_wrapper_actor {
   reference_wrapper_actor() : value(storage) {}
   explicit reference_wrapper_actor(int initial) : storage(initial), value(storage) {}
@@ -348,6 +353,15 @@ inline void require_pointer_actor_metadata() {
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<nested_stats>().commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<pointer_actor>().commit()));
+}
+
+inline void require_recursive_node_metadata() {
+  REQUIRE(reflection_result_ok(
+      registered_reflection_class<recursive_node>("caors.test.serialization.recursive_node")
+          .field("value", &recursive_node::value)
+          .field("next", &recursive_node::next)
+          .commit()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<recursive_node>().commit()));
 }
 
 inline void require_reference_wrapper_actor_metadata() {

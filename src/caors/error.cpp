@@ -52,6 +52,8 @@ public:
       return "cancelled";
     case errc::cycle_detected:
       return "cycle detected";
+    case errc::recursion_limit:
+      return "recursion limit";
     case errc::unsupported:
       return "unsupported";
     case errc::out_of_memory:

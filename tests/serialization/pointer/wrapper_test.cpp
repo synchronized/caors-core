@@ -303,3 +303,56 @@ TEST_CASE("serialization - serializes pointer and wrapper fields as inline value
   REQUIRE(level != nullptr);
   CHECK(level->value.as_i64() == 2);
 }
+
+TEST_CASE("serialization - stops raw pointer inline recursion at configured depth",
+          "[serialization]") {
+  require_recursive_node_metadata();
+
+  recursive_node node{1, nullptr};
+  node.next = &node;
+
+  caors::serialization::context context{};
+  context.limits.max_depth = 2;
+
+  const caors::serialization::serialization_text_result text = caors::serialize_text(context, node);
+
+  REQUIRE(text.failed());
+  CHECK(text.status.domain() == caors::error_domain::serialization);
+  CHECK(text.status.value() == caors::errc::recursion_limit);
+}
+
+TEST_CASE("serialization - stops raw pointer deserialization recursion at configured depth",
+          "[serialization]") {
+  require_recursive_node_metadata();
+
+  recursive_node root{};
+  recursive_node child{};
+  recursive_node grandchild{};
+  root.next = &child;
+  child.next = &grandchild;
+
+  caors::serialization::context context{};
+  context.limits.max_depth = 2;
+
+  const caors::error result = caors::deserialize_json(
+      context, root, R"({"value":1,"next":{"value":2,"next":{"value":3,"next":null}}})");
+
+  REQUIRE(result.failed());
+  CHECK(result.domain() == caors::error_domain::serialization);
+  CHECK(result.value() == caors::errc::recursion_limit);
+}
+
+TEST_CASE("serialization - can disable inline recursion depth limit", "[serialization]") {
+  require_recursive_node_metadata();
+
+  recursive_node child{2, nullptr};
+  recursive_node root{1, &child};
+
+  caors::serialization::context context{};
+  context.limits.max_depth = 0;
+
+  const caors::serialization::serialization_text_result text = caors::serialize_text(context, root);
+
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"value":1,"next":{"value":2,"next":null}})");
+}

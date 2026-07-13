@@ -61,7 +61,12 @@ namespace caors::serialization::detail {
       return {error_domain::serialization, errc::invalid_field};
     }
 
-    status = read_serialized_value(reader, element, context);
+    result<serialization::context> nested_context = context.enter_nested_value();
+    if (nested_context.failed()) {
+      return nested_context.status;
+    }
+
+    status = read_serialized_value(reader, element, nested_context.value);
     if (status) {
       return status;
     }
@@ -130,7 +135,12 @@ namespace caors::serialization::detail {
       return {error_domain::serialization, errc::invalid_type};
     }
 
-    status = read_serialized_value(reader, element.ref(), context);
+    result<serialization::context> nested_context = context.enter_nested_value();
+    if (nested_context.failed()) {
+      return nested_context.status;
+    }
+
+    status = read_serialized_value(reader, element.ref(), nested_context.value);
     if (status) {
       return status;
     }
@@ -203,7 +213,12 @@ namespace caors::serialization::detail {
       return status;
     }
 
-    status = read_serialized_value(reader, key.ref(), context);
+    result<serialization::context> nested_context = context.enter_nested_value();
+    if (nested_context.failed()) {
+      return nested_context.status;
+    }
+
+    status = read_serialized_value(reader, key.ref(), nested_context.value);
     if (status) {
       return status;
     }
@@ -218,7 +233,7 @@ namespace caors::serialization::detail {
       return status;
     }
 
-    status = read_serialized_value(reader, value.ref(), context);
+    status = read_serialized_value(reader, value.ref(), nested_context.value);
     if (status) {
       return status;
     }
@@ -289,7 +304,12 @@ namespace caors::serialization::detail {
     return {error_domain::serialization, errc::invalid_field};
   }
 
-  status = read_serialized_value(reader, first, context);
+  result<serialization::context> nested_context = context.enter_nested_value();
+  if (nested_context.failed()) {
+    return nested_context.status;
+  }
+
+  status = read_serialized_value(reader, first, nested_context.value);
   if (status) {
     return status;
   }
@@ -309,7 +329,7 @@ namespace caors::serialization::detail {
     return {error_domain::serialization, errc::invalid_field};
   }
 
-  status = read_serialized_value(reader, second, context);
+  status = read_serialized_value(reader, second, nested_context.value);
   if (status) {
     return status;
   }
@@ -371,7 +391,12 @@ namespace caors::serialization::detail {
       return {error_domain::serialization, errc::invalid_field};
     }
 
-    status = read_serialized_value(reader, element, context);
+    result<serialization::context> nested_context = context.enter_nested_value();
+    if (nested_context.failed()) {
+      return nested_context.status;
+    }
+
+    status = read_serialized_value(reader, element, nested_context.value);
     if (status) {
       return status;
     }
@@ -457,7 +482,12 @@ namespace caors::serialization::detail {
     return {error_domain::serialization, errc::invalid_field};
   }
 
-  status = read_serialized_value(reader, value, context);
+  result<serialization::context> nested_context = context.enter_nested_value();
+  if (nested_context.failed()) {
+    return nested_context.status;
+  }
+
+  status = read_serialized_value(reader, value, nested_context.value);
   if (status) {
     return status;
   }

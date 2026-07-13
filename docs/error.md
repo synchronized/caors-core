@@ -104,6 +104,19 @@ if (plan.status.value() == caors::errc::cycle_detected) {
 }
 ```
 
+序列化按 inline value 展开对象、容器、指针和 wrapper 时，如果超过
+`serialization::context::limits.max_depth`，会返回 `errc::recursion_limit`：
+
+```cpp
+caors::serialization::context context{};
+context.limits.max_depth = 8;
+
+auto result = caors::serialize_json(context, node);
+if (result.status.value() == caors::errc::recursion_limit) {
+  // 检查是否存在自环、父指针或过深嵌套。
+}
+```
+
 ### rethrow_as
 
 跨模块 API 边界可以用 `rethrow_as()` 保留底层错误码，并替换为当前模块的错误来源域：

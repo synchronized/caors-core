@@ -402,7 +402,12 @@ make_polymorphic_indirect_value(const value::indirect_view& indirect,
     return {{}, variant::null()};
   }
 
-  variant_result polymorphic = make_polymorphic_indirect_value(indirect, context);
+  result<serialization::context> nested_context = context.enter_nested_value();
+  if (nested_context.failed()) {
+    return {nested_context.status, {}};
+  }
+
+  variant_result polymorphic = make_polymorphic_indirect_value(indirect, nested_context.value);
   if (polymorphic.succeeded()) {
     return polymorphic;
   }
@@ -415,7 +420,7 @@ make_polymorphic_indirect_value(const value::indirect_view& indirect,
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
-  return make_serialized_value(value, context);
+  return make_serialized_value(value, nested_context.value);
 }
 
 [[nodiscard]] error write_indirect_serialized_value(writer& writer,
@@ -429,7 +434,12 @@ make_polymorphic_indirect_value(const value::indirect_view& indirect,
     return writer.write_null();
   }
 
-  variant_result polymorphic = make_polymorphic_indirect_value(indirect, context);
+  result<serialization::context> nested_context = context.enter_nested_value();
+  if (nested_context.failed()) {
+    return nested_context.status;
+  }
+
+  variant_result polymorphic = make_polymorphic_indirect_value(indirect, nested_context.value);
   if (polymorphic.succeeded()) {
     return serialization::write_variant(writer, polymorphic.value);
   }
@@ -442,7 +452,7 @@ make_polymorphic_indirect_value(const value::indirect_view& indirect,
     return {error_domain::serialization, errc::unsupported};
   }
 
-  return write_serialized_value(writer, value, context);
+  return write_serialized_value(writer, value, nested_context.value);
 }
 
 [[nodiscard]] error read_indirect_serialized_value(reader& reader,
@@ -460,9 +470,14 @@ make_polymorphic_indirect_value(const value::indirect_view& indirect,
     return {};
   }
 
+  result<serialization::context> nested_context = context.enter_nested_value();
+  if (nested_context.failed()) {
+    return nested_context.status;
+  }
+
   if (const variant* current = reader.current_variant();
       current != nullptr && is_polymorphic_envelope(*current, context)) {
-    return read_polymorphic_indirect_value(*current, indirect, context);
+    return read_polymorphic_indirect_value(*current, indirect, nested_context.value);
   }
 
   if (!indirect.has_value() && !indirect.ensure_value(context.effective_memory_resource())) {
@@ -478,7 +493,7 @@ make_polymorphic_indirect_value(const value::indirect_view& indirect,
     return {error_domain::serialization, errc::invalid_field};
   }
 
-  return read_serialized_value(reader, value, context);
+  return read_serialized_value(reader, value, nested_context.value);
 }
 
 } // namespace caors::serialization::detail

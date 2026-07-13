@@ -28,7 +28,12 @@ namespace caors::serialization::detail {
       return {error_domain::serialization, errc::unsupported};
     }
 
-    status = write_serialized_value(writer, element, context);
+    result<serialization::context> nested_context = context.enter_nested_value();
+    if (nested_context.failed()) {
+      return nested_context.status;
+    }
+
+    status = write_serialized_value(writer, element, nested_context.value);
     if (status) {
       return status;
     }
@@ -69,7 +74,13 @@ namespace caors::serialization::detail {
           return false;
         }
 
-        visitor->status = write_serialized_value(*visitor->writer, element, *visitor->context);
+        result<serialization::context> nested_context = visitor->context->enter_nested_value();
+        if (nested_context.failed()) {
+          visitor->status = nested_context.status;
+          return false;
+        }
+
+        visitor->status = write_serialized_value(*visitor->writer, element, nested_context.value);
         if (visitor->status) {
           return false;
         }
@@ -123,7 +134,13 @@ namespace caors::serialization::detail {
           return false;
         }
 
-        visitor->status = write_serialized_value(*visitor->writer, key, *visitor->context);
+        result<serialization::context> nested_context = visitor->context->enter_nested_value();
+        if (nested_context.failed()) {
+          visitor->status = nested_context.status;
+          return false;
+        }
+
+        visitor->status = write_serialized_value(*visitor->writer, key, nested_context.value);
         if (visitor->status) {
           return false;
         }
@@ -138,7 +155,7 @@ namespace caors::serialization::detail {
           return false;
         }
 
-        visitor->status = write_serialized_value(*visitor->writer, value, *visitor->context);
+        visitor->status = write_serialized_value(*visitor->writer, value, nested_context.value);
         if (visitor->status) {
           return false;
         }
@@ -186,7 +203,12 @@ namespace caors::serialization::detail {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  status = write_serialized_value(writer, first, context);
+  result<serialization::context> nested_context = context.enter_nested_value();
+  if (nested_context.failed()) {
+    return nested_context.status;
+  }
+
+  status = write_serialized_value(writer, first, nested_context.value);
   if (status) {
     return status;
   }
@@ -206,7 +228,7 @@ namespace caors::serialization::detail {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  status = write_serialized_value(writer, second, context);
+  status = write_serialized_value(writer, second, nested_context.value);
   if (status) {
     return status;
   }
@@ -242,7 +264,12 @@ namespace caors::serialization::detail {
       return {error_domain::serialization, errc::unsupported};
     }
 
-    status = write_serialized_value(writer, element, context);
+    result<serialization::context> nested_context = context.enter_nested_value();
+    if (nested_context.failed()) {
+      return nested_context.status;
+    }
+
+    status = write_serialized_value(writer, element, nested_context.value);
     if (status) {
       return status;
     }
@@ -293,7 +320,12 @@ namespace caors::serialization::detail {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  status = write_serialized_value(writer, value, context);
+  result<serialization::context> nested_context = context.enter_nested_value();
+  if (nested_context.failed()) {
+    return nested_context.status;
+  }
+
+  status = write_serialized_value(writer, value, nested_context.value);
   if (status) {
     return status;
   }

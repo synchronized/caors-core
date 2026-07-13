@@ -46,7 +46,13 @@ error serialize(const serialization::context& context, const reflection::type& t
         return {error_domain::serialization, errc::not_found};
       }
 
-      status = serialization::detail::write_field(writer, field, object, field_schema, context);
+      result<serialization::context> nested_context = context.enter_nested_value();
+      if (nested_context.failed()) {
+        return nested_context.status;
+      }
+
+      status = serialization::detail::write_field(writer, field, object, field_schema,
+                                                  nested_context.value);
       if (status) {
         return status;
       }
@@ -59,7 +65,13 @@ error serialize(const serialization::context& context, const reflection::type& t
       }
 
       serialization::field_schema field_schema = serialization::make_field(field.name().view());
-      status = serialization::detail::write_field(writer, field, object, field_schema, context);
+      result<serialization::context> nested_context = context.enter_nested_value();
+      if (nested_context.failed()) {
+        return nested_context.status;
+      }
+
+      status = serialization::detail::write_field(writer, field, object, field_schema,
+                                                  nested_context.value);
       if (status) {
         return status;
       }
