@@ -107,13 +107,17 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
 [[nodiscard]] constructed_value construct_polymorphic_value(const meta::type& dynamic_type,
                                                             const value::indirect_view& indirect,
                                                             const serialization::context& context) {
-  const meta::value_factory_ops registered_factory =
-      meta::get_registry().find_type_factory(dynamic_type.id());
+  const meta::factory_ops* registered_factory = dynamic_type.get_capability<meta::factory_ops>();
   memory::memory_resource* resource = context.effective_memory_resource();
 
   if (resource != nullptr && indirect.can_set_value_with_context()) {
-    if (registered_factory.valid()) {
-      return {registered_factory.construct(resource), resource, registered_factory.destroy, true};
+    if (registered_factory != nullptr && registered_factory->valid()) {
+      return {
+          registered_factory->construct(resource),
+          resource,
+          registered_factory->destroy,
+          true,
+      };
     }
 
     const auto resource_construct = meta::get_resource_construct_value_fn(dynamic_type);
@@ -123,8 +127,13 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
     }
   }
 
-  if (registered_factory.valid()) {
-    return {registered_factory.construct(nullptr), nullptr, registered_factory.destroy, false};
+  if (registered_factory != nullptr && registered_factory->valid()) {
+    return {
+        registered_factory->construct(nullptr),
+        nullptr,
+        registered_factory->destroy,
+        false,
+    };
   }
 
   const auto default_construct = meta::get_default_construct_value_fn(dynamic_type);

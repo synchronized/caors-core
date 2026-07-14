@@ -53,14 +53,14 @@ public:
   /**
    * @brief 创建运行期值。
    *
-   * 优先使用已注册的 meta factory；没有 factory 时回退到 descriptor 默认构造。
+   * 优先使用已注册的 `meta::factory_ops`；没有 factory 时回退到 descriptor 默认构造。
    */
   [[nodiscard]] any create(memory::memory_resource* resource = nullptr) const;
 
   /** @brief 查询 descriptor 低层默认构造能力。 */
   [[nodiscard]] bool value_constructible() const noexcept;
 
-  /** @brief 使用 descriptor 低层默认构造创建运行期值，不查询 meta factory。 */
+  /** @brief 使用 descriptor 低层默认构造创建运行期值，不查询 `meta::factory_ops`。 */
   [[nodiscard]] any create_value(memory::memory_resource* resource = nullptr) const;
 
   [[nodiscard]] std::size_t field_count() const noexcept;

@@ -69,7 +69,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 增加 `runtime` facade，组合 `meta::type`、反射字段/方法和值构造能力，提供更直接的用户入口。
 - [x] 将 `runtime` 确认为推荐主入口，具体模块保留高级入口；`meta::type_<T>()` 改为
   `meta::class_<T>()`，并增加 `meta::enum_<T>()` / `runtime::enum_<T>()`。
-- [x] 将 `runtime::type::create()` 统一为高层创建入口，优先使用 meta factory，再回退到 descriptor
+- [x] 将 `runtime::type::create()` 统一为高层创建入口，优先使用 `meta::factory_ops`，再回退到 descriptor
   默认构造；`create_value()` 保留为低层默认构造入口。
 - [ ] 评估组件替换和批量注册 API。
 
@@ -180,7 +180,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   将低频 JSON/text buffer 入口收敛到 `serialization::` 模块命名空间。
 - [x] 拆分 `serialization::context` 的运行期状态、策略配置和 resolver 适配器，减少上下文字段膨胀。
 - [ ] 设计字段级构造策略，覆盖容器新增元素、空 `optional<T>`、`variant` 候选切换和不可默认构造类型；
-  优先使用 `serialization::context::resolvers.memory.resource`、meta factory 和字段策略，失败时返回明确诊断。
+  优先使用 `serialization::context::resolvers.memory.resource`、`meta::factory_ops` 和字段策略，失败时返回明确诊断。
 - [ ] 放宽多层指针 / 多层 wrapper 限制，采用逐层 indirect descriptor 展开；默认设置合理最大深度，
   并对空中间层、不可写引用和所有权不明确的组合返回清晰诊断。
 - [ ] 设计 schema 策略，覆盖版本迁移、默认值恢复、未知字段保留、严格模式和字段重命名 / 删除策略。

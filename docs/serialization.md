@@ -780,7 +780,7 @@ template <> struct codec_traits<custom_value> {
 - 当 `std::unique_ptr<Base>`、`caors::memory::unique_ptr<Base>`、`std::shared_ptr<Base>`
   或 `objects::ref<Base>`
   实际持有已注册派生类对象时，序列化层会写出多态 envelope，默认字段名为 `$type` / `$value`。读回时要求派生类型可默认构造，
-  或已通过 `meta::class_<T>().factory()` 注册构造策略，并通过 wrapper 接管新对象。
+  或已通过 `meta::class_<T>().factory()` 注册 `factory_ops` 构造策略，并通过 wrapper 接管新对象。
 - 如果反序列化上下文提供 `context.resolvers.memory.resource`，`std::shared_ptr<T>`、
   `caors::memory::unique_ptr<T>` 和 `objects::ref<T>` 可以保存运行期销毁回调，让资源分配和释放匹配。普通
   `std::unique_ptr<T>` 使用标准 deleter，不能安全接管资源构造出的运行期派生对象，因此会回退到
@@ -845,7 +845,7 @@ template <> struct codec_traits<custom_value> {
 - `std::span<T>` / `std::span<T, N>` 已支持按借用数组视图写出和反射访问；默认不支持反序列化写回，
   避免序列化层隐式决定 backing storage 的分配、长度调整和生命周期。
 - 不可默认构造类型可以作为已有直接字段、已持有 wrapper 内部值或 `variant` 当前候选被写入；普通类多态
-  智能指针读回可以通过 `meta::class_<T>().factory()` 显式构造派生对象。其他需要序列化层自动实例化对象的路径
+  智能指针读回可以通过 `meta::class_<T>().factory()` 显式注册 `factory_ops` 构造派生对象。其他需要序列化层自动实例化对象的路径
   会返回 `errc::invalid_type`，例如容器新增元素、空 `optional` 读入非空值、`variant`
   切换到不可默认构造候选。
 - `serialization::context::resolvers.memory.resource` 会用于资源感知 `any` 默认构造、空 `std::shared_ptr<T>`、

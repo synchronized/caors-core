@@ -18,7 +18,7 @@
 - 用注册表内部 meta 类型记录保存类型名、稳定 GUID 和父类型。
 - 用内部 type descriptor 保存 C++ 类型布局、默认构造、复制、析构、赋值和运行期视图能力。
 - 用内部 type descriptor 保存类型形态、通用类型关系和具体访问函数表。
-- 用可选 type factory 保存资源感知构造策略，供普通类多态反序列化等需要运行期创建值的路径使用。
+- 用可选 `factory_ops` capability 保存资源感知构造策略，供普通类多态反序列化等需要运行期创建值的路径使用。
 - 用 `meta::type` 作为对外只读类型视图，避免直接暴露注册表内部数据。
 - 用全局 `meta::registry` 集中处理 meta 类型注册、查找和继承关系判断。
 - 用全局 `meta::registry` 在同一个 `type_id` 上挂载不同主题的元数据组件。
@@ -198,9 +198,9 @@ caors::meta::class_<player>("game.player")
 
 `.factory()` 无参数重载使用 `memory::make<T>()` / `memory::destroy<T>()` 注册默认构造策略，要求 `T`
 可默认构造。带函数指针的重载用于不可默认构造类型，`destroy` 必须匹配 `construct` 的分配策略。
-应用层需要创建运行期值时优先使用 `runtime::type::create()`，它会先查询这里注册的 factory，再回退到
-descriptor 默认构造。`any::default_construct()` 只表达 descriptor 低层默认构造能力，不查询 registry
-中的 factory。
+应用层需要创建运行期值时优先使用 `runtime::type::create()`，它会先查询这里注册的 `factory_ops`
+capability，再回退到 descriptor 默认构造。`any::default_construct()` 只表达 descriptor
+低层默认构造能力，不查询 `factory_ops`。
 
 `caors::meta::resolve<T>()` 是 C++ 类型到 descriptor 视图的入口；类型未显式注册时仍可能返回有效
 `meta::type`，但 `registered()` 为 false。`caors::meta::find<T>()` 是 C++ 类型到已注册类型的入口，
@@ -216,13 +216,14 @@ descriptor 默认构造。`any::default_construct()` 只表达 descriptor 低层
 - 内部 descriptor 是编译期 C++ 类型描述。它描述某个 `T` 的 `type_id`、默认显示名、布局、构造 /
   析构 / 复制 / 赋值、类型语义，以及 CAORS 内置运行期访问能力。它不表示类型已经完成业务注册。
 - `meta::registry` 是注册后元数据和模块组件索引。只有显式 `meta::class_<T>("name")` 注册后的类型，
-  才拥有稳定名称、GUID、父类型关系、factory、对象组件、反射组件和序列化组件等全局可查询数据。
+  才拥有稳定名称、GUID、父类型关系、对象组件、反射组件和序列化组件等全局可查询数据。
 - descriptor static capability 用于类型固有能力。能力由模块在编译期按 `T` 生成，例如
   `objects::ptr<T>` 访问函数、对象 handle 函数表和 `codec_traits<T>` 生成的 codec 函数表。
   它们随 descriptor 一起查询，不要求类型先注册到 registry。
 - runtime capability 用于用户或插件扩展能力。它挂在 `type_id + capability_key` 的运行期索引上，
   适合矩阵、图、脚本桥接、编辑器扩展等 CAORS 不内置的 concept table。公开写入入口是
   `meta::class_<T>().capability(ops)`，由 CAORS 持有 `ops` 生命周期。
+  `meta::class_<T>().factory()` 也是该机制的高级封装，会把构造策略注册为 `meta::factory_ops`。
 
 默认查询顺序是：`meta::type::get_capability<C>()` 先查 descriptor static capability，再回退到
 runtime capability。普通调用方应使用这个统一入口，不直接关心能力来自 descriptor 还是运行期索引。
@@ -428,7 +429,6 @@ CAORS_META_REGISTRATION(register_actor_meta) {
 
 - `type_id -> 内部 meta 类型记录`：运行期主索引，只保存身份类信息。
 - `type_id -> 内部类型 descriptor`：布局、值操作、类型语义和固定运行期能力集合。
-- `type_id -> type factory`：可选资源感知构造/销毁函数表。
 - `typeid(T) -> type_id`：当前进程内 RTTI 查询索引，用于普通 C++ 多态辅助。
 - `type_id -> parent upcast`：typed parent 注册保存的直接父类 upcast 回调。
 - `type_name -> type_id`：名称查询索引，可选。
@@ -564,7 +564,7 @@ meta 组件。
 - `meta::enum_<T>("name")`：显式注册枚举类型，注册后 `meta::type::kind()` 为
   `meta::type_kind::enumeration`。
 - `meta::class_<T>().parent<Base>()`：保存 C++ 父类型关系和安全 upcast 回调。
-- `meta::class_<T>().factory()` / `.factory(construct, destroy)`：保存运行期值构造和销毁策略。
+- `meta::class_<T>().factory()` / `.factory(construct, destroy)`：注册 `factory_ops` 运行期能力，保存运行期值构造和销毁策略。
 - `meta::registry`：全局 meta 类型注册、按 id/name/guid 或 C++ 类型查询、继承关系判断和组件式元数据挂载。
 - `meta::registry::component_view<T...>`：按组件集合查询类型。
 - `meta::run_registrations()`：执行已收集的延迟元数据注册函数。

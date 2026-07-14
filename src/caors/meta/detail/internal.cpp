@@ -34,15 +34,6 @@ const type_descriptor* find_type_descriptor(const registry_state& state, type_id
   return position->second;
 }
 
-value_factory_ops find_type_factory(const registry_state& state, type_id id) {
-  const auto position = state.factories.find(id.value());
-  if (position == state.factories.end()) {
-    return {};
-  }
-
-  return position->second;
-}
-
 const parent_cast_ops* find_parent_cast(const registry_state& state, type_id id) {
   const auto position = state.parent_casts.find(id.value());
   if (position == state.parent_casts.end()) {
@@ -260,12 +251,6 @@ error validate_registry_for_freeze(const registry_state& state) {
 
   for (const auto& [raw_id, descriptor] : state.descriptors) {
     if (descriptor == nullptr || !descriptor->valid() || descriptor->type.value() != raw_id) {
-      return {error_domain::meta, errc::invalid_type};
-    }
-  }
-
-  for (const auto& [raw_id, factory] : state.factories) {
-    if (!factory.valid() || !state.types.contains(raw_id)) {
       return {error_domain::meta, errc::invalid_type};
     }
   }

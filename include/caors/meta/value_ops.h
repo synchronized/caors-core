@@ -57,8 +57,8 @@ struct value_storage_ops {
   [[nodiscard]] bool valid() const noexcept { return layout.valid(); }
 };
 
-/** @brief C++ 值的可选资源感知构造策略。 */
-struct value_factory_ops {
+/** @brief 类型运行期创建能力，负责按资源构造并销毁对象。 */
+struct factory_ops {
   value_resource_construct_fn construct = nullptr;
   value_resource_destroy_fn destroy = nullptr;
 
@@ -89,7 +89,6 @@ using meta::value_assign_fn;
 using meta::value_clone_fn;
 using meta::value_default_construct_fn;
 using meta::value_destroy_fn;
-using meta::value_factory_ops;
 using meta::value_resource_construct_fn;
 using meta::value_resource_destroy_fn;
 using meta::value_storage_ops;
@@ -293,12 +292,6 @@ template <typename T> [[nodiscard]] value_resource_destroy_fn resource_destroy_f
 }
 
 } // namespace detail
-
-/** @brief 自定义类型工厂构造函数；可选择使用传入的内存资源。 */
-using type_factory_construct_fn = value_resource_construct_fn;
-
-/** @brief 自定义类型工厂销毁函数；必须匹配对应构造函数的分配策略。 */
-using type_factory_destroy_fn = value_resource_destroy_fn;
 
 } // namespace caors::meta
 

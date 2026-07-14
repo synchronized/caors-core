@@ -43,7 +43,7 @@ template <typename T> class enum_builder;
 /**
  * @brief 底层全局类型元数据注册表。
  *
- * `meta::registry` 以 `type_id` 为 key，先注册内部基础类型数据，再按类型挂载对象工厂、
+ * `meta::registry` 以 `type_id` 为 key，先注册内部基础类型数据，再按类型挂载父类、
  * 反射描述、序列化描述等元数据组件。普通代码应使用 `meta::class_<T>()`、`meta::resolve<T>()`、
  * `meta::find<T>()` 和 `meta::find()` 入口，不要创建或管理注册表实例。
  */
@@ -67,7 +67,6 @@ public:
   [[nodiscard]] type find_type(const std::type_info& info) const;
   [[nodiscard]] type find_type(std::string_view name) const;
   [[nodiscard]] type find_type(string_name name) const;
-  [[nodiscard]] value_factory_ops find_type_factory(type_id id) const;
   [[nodiscard]] bool is_a(type_id id, type_id base_id) const;
   [[nodiscard]] const void* upcast(type_id id, type_id base_id, const void* value) const;
   [[nodiscard]] void* upcast(type_id id, type_id base_id, void* value) const;
@@ -202,8 +201,6 @@ private:
   [[nodiscard]] error set_type_guid(type_id id, type_guid guid);
   [[nodiscard]] error set_type_parent(type_id id, type_id parent_id);
   [[nodiscard]] error set_type_parent(type_id id, type_id parent_id, detail::parent_cast_ops cast);
-  [[nodiscard]] error set_type_factory(type_id id, value_factory_ops factory);
-
   template <typename Child, typename Parent> [[nodiscard]] error set_type_parent_for();
 
   [[nodiscard]] error register_cpp_type_info(const std::type_info& info, type_id id);

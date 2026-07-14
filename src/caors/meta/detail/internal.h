@@ -26,7 +26,6 @@ public:
             core::hash_map<std::uint64_t, memory::unique_ptr<type_data>>::allocator_type{resource}),
         descriptors(
             core::hash_map<std::uint64_t, const type_descriptor*>::allocator_type{resource}),
-        factories(core::hash_map<std::uint64_t, value_factory_ops>::allocator_type{resource}),
         cpp_type_ids(core::hash_map<std::type_index, type_id>::allocator_type{resource}),
         parent_casts(core::hash_map<std::uint64_t, parent_cast_ops>::allocator_type{resource}),
         names(core::hash_map<core::string_name, type_id>::allocator_type{resource}),
@@ -42,7 +41,6 @@ public:
   core::vector<registration_fn> registrations;
   core::hash_map<std::uint64_t, memory::unique_ptr<type_data>> types;
   core::hash_map<std::uint64_t, const type_descriptor*> descriptors;
-  core::hash_map<std::uint64_t, value_factory_ops> factories;
   core::hash_map<std::type_index, type_id> cpp_type_ids;
   core::hash_map<std::uint64_t, parent_cast_ops> parent_casts;
   core::hash_map<core::string_name, type_id> names;
@@ -53,7 +51,6 @@ public:
 [[nodiscard]] type_data* find_type_data(registry_state& state, type_id id);
 [[nodiscard]] const type_data* find_type_data(const registry_state& state, type_id id);
 [[nodiscard]] const type_descriptor* find_type_descriptor(const registry_state& state, type_id id);
-[[nodiscard]] value_factory_ops find_type_factory(const registry_state& state, type_id id);
 [[nodiscard]] const parent_cast_ops* find_parent_cast(const registry_state& state, type_id id);
 [[nodiscard]] std::optional<type_id> find_existing_type_id(const registry_state& state,
                                                            const type_data& type, error& conflict);

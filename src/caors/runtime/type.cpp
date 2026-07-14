@@ -57,7 +57,8 @@ bool type::constructible() const noexcept {
     return false;
   }
 
-  if (meta::get_registry().find_type_factory(id()).valid()) {
+  const meta::factory_ops* factory = meta_.get_capability<meta::factory_ops>();
+  if (factory != nullptr && factory->valid()) {
     return true;
   }
 
@@ -69,11 +70,11 @@ any type::create(memory::memory_resource* resource) const {
     return {};
   }
 
-  const meta::value_factory_ops factory = meta::get_registry().find_type_factory(id());
-  if (factory.valid()) {
-    void* value = factory.construct(resource);
+  const meta::factory_ops* factory = meta_.get_capability<meta::factory_ops>();
+  if (factory != nullptr && factory->valid()) {
+    void* value = factory->construct(resource);
     if (value != nullptr) {
-      return any::take_ownership(meta_, value, resource, factory.destroy);
+      return any::take_ownership(meta_, value, resource, factory->destroy);
     }
   }
 

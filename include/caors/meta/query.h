@@ -77,16 +77,35 @@ public:
    *
    * `construct` 可使用传入的 `memory_resource` 分配并构造对象；`destroy` 必须用匹配策略销毁对象。
    */
-  class_builder& factory(type_factory_construct_fn construct, type_factory_destroy_fn destroy) {
+  class_builder& factory(value_resource_construct_fn construct, value_resource_destroy_fn destroy) {
     if (!type_.registered()) {
       status_ = {error_domain::meta, errc::invalid_type};
       return *this;
     }
 
-    status_ = get_registry().set_type_factory(type_.id(), value_factory_ops{
-                                                              construct,
-                                                              destroy,
-                                                          });
+    if (get_registry().is_frozen()) {
+      status_ = {error_domain::meta, errc::frozen};
+      return *this;
+    }
+
+    const factory_ops ops{
+        construct,
+        destroy,
+    };
+    if (!ops.valid()) {
+      status_ = {error_domain::meta, errc::invalid_type};
+      return *this;
+    }
+
+    const factory_ops* existing = type_.get_capability<factory_ops>();
+    if (existing != nullptr) {
+      status_ = existing->construct == ops.construct && existing->destroy == ops.destroy
+                    ? error{error_domain::meta, errc::duplicate_id}
+                    : error{error_domain::meta, errc::invalid_type};
+      return *this;
+    }
+
+    status_ = detail::register_owned_capability_for_type<factory_ops, T>(ops);
     refresh();
     return *this;
   }

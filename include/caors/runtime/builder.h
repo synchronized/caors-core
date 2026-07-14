@@ -54,8 +54,8 @@ public:
     return *this;
   }
 
-  class_builder& factory(meta::type_factory_construct_fn construct,
-                         meta::type_factory_destroy_fn destroy) {
+  class_builder& factory(meta::value_resource_construct_fn construct,
+                         meta::value_resource_destroy_fn destroy) {
     meta_builder_.factory(construct, destroy);
     update_meta_status();
     return *this;
