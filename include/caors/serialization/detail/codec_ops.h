@@ -9,9 +9,6 @@
 namespace caors::serialization::detail {
 
 using serialization::codec_ops;
-using serialization::codec_read_fn;
-using serialization::codec_value_fn;
-using serialization::codec_write_fn;
 
 } // namespace caors::serialization::detail
 

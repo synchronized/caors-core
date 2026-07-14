@@ -40,22 +40,20 @@ private:
   T* instance_ = nullptr;
 };
 
-using ptr_get_fn = object* (*)(const void*) noexcept;
-using ptr_set_fn = bool (*)(void*, object*) noexcept;
-
 /** @brief 对象指针类型和对象指针之间的访问函数表。 */
 struct ptr_ops {
-  ptr_get_fn get = nullptr;
-  ptr_set_fn set = nullptr;
+  using get_fn = object* (*)(const void*) noexcept;
+  using set_fn = bool (*)(void*, object*) noexcept;
+
+  get_fn get = nullptr;
+  set_fn set = nullptr;
 
   [[nodiscard]] bool valid() const noexcept { return get != nullptr && set != nullptr; }
 };
 
 namespace detail {
 
-using objects::ptr_get_fn;
 using objects::ptr_ops;
-using objects::ptr_set_fn;
 
 template <typename T> struct ptr_ops_model {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;

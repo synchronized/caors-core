@@ -86,13 +86,13 @@ template <typename Lhs, typename Rhs>
   return !(lhs == rhs);
 }
 
-using handle_get_fn = basic_handle<untyped_handle_tag> (*)(const void*) noexcept;
-using handle_set_fn = bool (*)(void*, basic_handle<untyped_handle_tag>) noexcept;
-
 /** @brief 对象身份句柄类型和统一身份句柄之间的访问函数表。 */
 struct handle_ops {
-  handle_get_fn get = nullptr;
-  handle_set_fn set = nullptr;
+  using get_fn = basic_handle<untyped_handle_tag> (*)(const void*) noexcept;
+  using set_fn = bool (*)(void*, basic_handle<untyped_handle_tag>) noexcept;
+
+  get_fn get = nullptr;
+  set_fn set = nullptr;
 
   [[nodiscard]] bool valid() const noexcept { return get != nullptr && set != nullptr; }
 };
@@ -149,8 +149,6 @@ template <typename T> [[nodiscard]] const handle_ops* handle_ops_ptr_of() noexce
 
 } // namespace detail
 
-using handle_get_fn = detail::handle_get_fn;
-using handle_set_fn = detail::handle_set_fn;
 using handle_ops = detail::handle_ops;
 
 /**

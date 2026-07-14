@@ -276,9 +276,9 @@ descriptor 内部按职责拆分：
 - `capability` 表示能力槽位或可查询能力，例如“这个类型是否具备序列化 codec 能力”。
 - `*_ops` 表示某个 capability 的具体类型擦除操作表，通常由函数指针和少量只读元数据组成，例如
   `sequence_ops`、`ptr_ops`、`handle_ops` 和 `codec_ops`。
-- `*_fn` 类型别名应尽量嵌套在对应 `*_ops` 内，例如 `value_ops::assign_fn` 和
-  `factory_ops::construct_fn`；除 `registration_fn` 这类独立回调外，不在 `caors::meta`
-  顶层继续暴露函数指针别名。
+- `*_fn` 类型别名应尽量嵌套在对应 `*_ops` 内，例如 `value_ops::assign_fn`、
+  `factory_ops::construct_fn`、`codec_ops::write_fn` 和 `ptr_ops::get_fn`；除
+  `registration_fn` 这类独立回调外，不在模块命名空间顶层继续暴露函数指针别名。
 - `*_ops_model<T>` 表示针对具体 C++ 类型 `T` 生成 `*_ops` 的 model 层。model 负责把 `T`
   的成员函数、traits 或 codec 策略转换成稳定生命周期的静态 `*_ops` 表；`*_ops_ptr_of<T>()`
   只作为内部取表入口。
