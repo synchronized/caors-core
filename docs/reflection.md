@@ -177,7 +177,7 @@ struct wrapper_access<my_box<T>> {
 ```
 
 `traits::wrapper_access<T>` 是可选扩展点。只需要识别 wrapper 形态时可以只特化 `traits::wrapper_traits<T>`；如果希望
-`any_ref::create_indirect_view()` 能访问内部值，则需要同时特化
+`any_ref::get_capability<meta::indirect_view>()` 能访问内部值，则需要同时特化
 `traits::wrapper_access<T>`。内置适配支持裸指针、`std::unique_ptr<T>`、`caors::memory::unique_ptr<T>`、
 `std::shared_ptr<T>`、`std::optional<T>` 和 `std::reference_wrapper<T>` 的内部值访问；`std::weak_ptr<T>` 只提供 unsupported
 wrapper 语义，当前没有默认内部值访问，避免返回可能悬空的引用。`caors::objects::ptr<T>` 通过
@@ -423,10 +423,10 @@ descriptor 通过 layout、value ops、type semantics 和固定运行期能力�
 - `try_get_mutable<T>()`：获取可写指针。
 - `try_set<T>()`：从同类型 C++ 值写入当前 `any`。
 - `try_set(any)`：从同类型运行期值写入当前 `any`。
-- `create_sequence_view()`：如果 descriptor 描述了顺序容器，则创建顺序容器视图。
-- `create_set_view()`：如果 descriptor 描述了集合容器，则创建集合容器视图。
-- `create_associative_view()`：如果 descriptor 描述了关联容器，则创建可写或只读关联容器视图。
-- `create_indirect_view()`：如果 descriptor 描述了指针或 wrapper，则创建内部值视图。
+- `get_capability<meta::sequence_view>()`：如果 descriptor 描述了顺序容器，则创建顺序容器视图。
+- `get_capability<meta::set_view>()`：如果 descriptor 描述了集合容器，则创建集合容器视图。
+- `get_capability<meta::associative_view>()`：如果 descriptor 描述了关联容器，则创建可写或只读关联容器视图。
+- `get_capability<meta::indirect_view>()`：如果 descriptor 描述了指针或 wrapper，则创建内部值视图。
 
 第一版 `any` 只支持可拷贝类型；不可拷贝字段调用 `get_value()` 会返回无效 `any`。
 
@@ -445,10 +445,10 @@ descriptor 通过 layout、value ops、type semantics 和固定运行期能力�
 - `try_get<T>()`：获取只读指针。
 - `try_get_mutable<T>()`：获取可写指针；只读引用会返回 `nullptr`。
 - `try_set<T>()` / `try_set(any)` / `try_set(any_ref)`：从同类型值或引用写入当前引用指向的对象。
-- `create_sequence_view()`：如果 descriptor 描述了顺序容器，则创建顺序容器视图。
-- `create_set_view()`：如果 descriptor 描述了集合容器，则创建集合容器视图。
-- `create_associative_view()`：如果 descriptor 描述了关联容器，则创建关联容器视图。
-- `create_indirect_view()`：如果 descriptor 描述了指针或 wrapper，则创建内部值视图。
+- `get_capability<meta::sequence_view>()`：如果 descriptor 描述了顺序容器，则创建顺序容器视图。
+- `get_capability<meta::set_view>()`：如果 descriptor 描述了集合容器，则创建集合容器视图。
+- `get_capability<meta::associative_view>()`：如果 descriptor 描述了关联容器，则创建关联容器视图。
+- `get_capability<meta::indirect_view>()`：如果 descriptor 描述了指针或 wrapper，则创建内部值视图。
 
 ### reflection::type、reflection::field 和 reflection::method
 
@@ -607,13 +607,13 @@ damage.invoke(&instance, args);
 
 ```cpp
 caors::meta::sequence_view field_sequence =
-    field.get_ref(&instance).create_sequence_view();
+    field.get_ref(&instance).get_capability<caors::meta::sequence_view>();
 caors::meta::associative_view field_map =
-    field.get_ref(&instance).create_associative_view();
+    field.get_ref(&instance).get_capability<caors::meta::associative_view>();
 
 caors::hash_map<int, int> values;
 caors::any_ref ref = caors::any_ref::from(values);
-caors::meta::associative_view map = ref.create_associative_view();
+caors::meta::associative_view map = ref.get_capability<caors::meta::associative_view>();
 map.insert_value(caors::any::from(1), caors::any::from(2));
 
 for (caors::meta::associative_entry_ref entry : map) {

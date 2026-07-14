@@ -7,7 +7,6 @@
 
 #include "caors/meta/value/associative_entry_ref.h"
 #include "caors/meta/value/capability_view.h"
-#include "caors/meta/value/view_factory.h"
 
 using namespace test_reflection;
 
@@ -31,7 +30,7 @@ TEST_CASE("reflection - container views can be created from any_ref", "[reflecti
   caors::any_ref ids_ref = caors::any_ref::from(ids);
   REQUIRE(ids_ref.valid());
 
-  caors::meta::set_view set = ids_ref.create_set_view();
+  caors::meta::set_view set = ids_ref.get_capability<caors::meta::set_view>();
   CHECK(set.valid());
   CHECK(set.writable());
   CHECK(set.insert_value(caors::any::from(3)));
@@ -48,7 +47,8 @@ TEST_CASE("reflection - container views can be created from any_ref", "[reflecti
   CHECK(values.at(3) == 30);
 
   const caors::any_ref readonly_ref = caors::any_ref::from_const(values);
-  caors::meta::associative_view readonly_map = readonly_ref.create_associative_view();
+  caors::meta::associative_view readonly_map =
+      readonly_ref.get_capability<caors::meta::associative_view>();
   CHECK(readonly_map.valid());
   CHECK_FALSE(readonly_map.writable());
   CHECK_FALSE(readonly_map.insert_value(caors::any::from(4), caors::any::from(40)));
