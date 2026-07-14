@@ -8,6 +8,7 @@
 #include "caors/value/any_ref.h"
 #include "caors/value/associative_entry_ref.h"
 #include "caors/value/associative_view.h"
+#include "caors/value/capability_view.h"
 #include "caors/value/indirect_view.h"
 #include "caors/value/pair_view.h"
 #include "caors/value/sequence_view.h"

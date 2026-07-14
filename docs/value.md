@@ -19,6 +19,7 @@ value 模块提供细粒度头和完整聚合头。细粒度头不再依赖 `any
 | `caors/value/any.h` | `caors::value::any`、`caors::any` | 只需要拥有式运行期 C++ 值。 |
 | `caors/value/any_ref.h` | `caors::value::any_ref`、`caors::any_ref` | 需要引用外部 C++ 对象或反射字段。 |
 | `caors/value/view_factory.h` | 所有具体 view 类型 | 需要把 `any` / `any_ref` 创建成容器、wrapper、tuple 等运行期视图。 |
+| `caors/value/capability_view.h` | `any` / `any_ref` 的 `get_capability<View>()` 视图绑定适配 | 推荐的统一运行期视图查询入口。 |
 | `caors/value/associative_entry_ref.h` | `associative_entry_ref` | 需要按值使用关联容器迭代条目。 |
 | `caors/value/variant.h` | `caors::value::variant`、`caors::variant` | 需要序列化 DOM 或数据中间表示。 |
 | `caors/value.h` | value 模块完整公共入口 | 应用层或示例代码需要完整 value 能力。 |
@@ -51,12 +52,13 @@ ref.try_set(2);
 ```cpp
 #include <caors/core/containers.h>
 #include <caors/value/any_ref.h>
-#include <caors/value/view_factory.h>
+#include <caors/value/capability_view.h>
 
 caors::vector<int> numbers{1, 2, 3};
 caors::any_ref ref = caors::any_ref::from(numbers);
 
-caors::value::sequence_view view = ref.create_sequence_view();
+caors::value::sequence_view view =
+    ref.get_capability<caors::value::sequence_view>();
 for (caors::any_ref element : view) {
   element.try_set(0);
 }
@@ -123,6 +125,18 @@ caors::any value = caors::any::from(7);
 - `pair_view`：访问 pair-like 类型。
 - `tuple_view`：访问 tuple-like 类型。
 - `variant_view`：访问 variant-like 类型。
+
+推荐通过 `any` / `any_ref` 的统一能力入口创建运行期视图：
+
+```cpp
+caors::value::sequence_view sequence =
+    ref.get_capability<caors::value::sequence_view>();
+caors::value::indirect_view indirect =
+    ref.get_capability<caors::value::indirect_view>();
+```
+
+旧的 `create_sequence_view()`、`create_indirect_view()` 等函数暂时保留，语义等价于对应
+`get_capability<View>()`，用于兼容已有代码。
 
 这些 view 通过 meta 内部 descriptor 保存的类型能力工作，不要求容器类型本身一定注册到全局 meta
 registry。`get_*_type()` 系列接口返回 descriptor-backed `meta::type`；调用方需要 `type_id` 或名称时，

@@ -6,6 +6,7 @@
 #include "reflection_test_support.h"
 
 #include "caors/value/associative_entry_ref.h"
+#include "caors/value/capability_view.h"
 #include "caors/value/view_factory.h"
 
 using namespace test_reflection;
@@ -15,7 +16,7 @@ TEST_CASE("reflection - container views can be created from any_ref", "[reflecti
   caors::any_ref scores_ref = caors::any_ref::from(scores);
   REQUIRE(scores_ref.valid());
 
-  caors::value::sequence_view sequence = scores_ref.create_sequence_view();
+  caors::value::sequence_view sequence = scores_ref.get_capability<caors::value::sequence_view>();
   CHECK(sequence.valid());
   CHECK(sequence.writable());
   CHECK(sequence.append_value(caors::any::from(10)));
@@ -40,7 +41,7 @@ TEST_CASE("reflection - container views can be created from any_ref", "[reflecti
   caors::any_ref ref = caors::any_ref::from(values);
   REQUIRE(ref.valid());
 
-  caors::value::associative_view map = ref.create_associative_view();
+  caors::value::associative_view map = ref.get_capability<caors::value::associative_view>();
   CHECK(map.valid());
   CHECK(map.writable());
   CHECK(map.insert_value(caors::any::from(3), caors::any::from(30)));
@@ -53,7 +54,8 @@ TEST_CASE("reflection - container views can be created from any_ref", "[reflecti
   CHECK_FALSE(readonly_map.insert_value(caors::any::from(4), caors::any::from(40)));
 
   caors::any copied = caors::any::from(values);
-  caors::value::associative_view copied_map = copied.create_associative_view();
+  caors::value::associative_view copied_map =
+      copied.get_capability<caors::value::associative_view>();
   CHECK(copied_map.valid());
   CHECK(copied_map.writable());
   CHECK(copied_map.insert_value(caors::any::from(5), caors::any::from(50)));

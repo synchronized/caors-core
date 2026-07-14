@@ -276,6 +276,9 @@ descriptor 内部按职责拆分：
 - `capability` 表示能力槽位或可查询能力，例如“这个类型是否具备序列化 codec 能力”。
 - `*_ops` 表示某个 capability 的具体类型擦除操作表，通常由函数指针和少量只读元数据组成，例如
   `sequence_ops`、`ptr_ops`、`handle_ops` 和 `codec_ops`。
+- 外部实例访问优先使用绑定后的 `*_view`，例如
+  `any_ref.get_capability<value::sequence_view>()` 或
+  `any_ref.get_capability<objects::ptr_view>()`；`*_ops` 是底层函数表，不作为普通业务代码的首选入口。
 - `*_fn` 类型别名应尽量嵌套在对应 `*_ops` 内，例如 `value_ops::assign_fn`、
   `factory_ops::construct_fn`、`codec_ops::write_fn` 和 `ptr_ops::get_fn`；除
   `registration_fn` 这类独立回调外，不在模块命名空间顶层继续暴露函数指针别名。

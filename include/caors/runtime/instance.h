@@ -34,6 +34,11 @@ public:
   [[nodiscard]] runtime::type type() const noexcept;
   [[nodiscard]] reflection::type reflection() const noexcept;
 
+  /** @brief 查询并绑定当前实例的运行期能力视图。 */
+  template <typename View> [[nodiscard]] View get_capability() const {
+    return value_.template get_capability<View>();
+  }
+
   [[nodiscard]] std::size_t field_count() const noexcept;
   [[nodiscard]] field field_at(std::size_t index) const;
   [[nodiscard]] field find_field(string_name name) const;
@@ -102,6 +107,11 @@ public:
   [[nodiscard]] instance as_instance() const noexcept;
   [[nodiscard]] value::any_ref value() const noexcept;
   [[nodiscard]] runtime::type type() const noexcept;
+
+  /** @brief 查询并绑定当前对象实例的运行期能力视图。 */
+  template <typename View> [[nodiscard]] View get_capability() const {
+    return instance_.template get_capability<View>();
+  }
 
   [[nodiscard]] any get(std::string_view name) const;
   [[nodiscard]] any_ref get_ref(std::string_view name) const;

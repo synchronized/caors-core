@@ -146,7 +146,7 @@ caors::object_id id = ptr.id();
 
 ```cpp
 caors::any_ref value = caors::any_ref::from(ptr);
-auto ptr = caors::objects::ptr_view_of(value);
+auto ptr = value.get_capability<caors::objects::ptr_view>();
 if (ptr) {
   caors::object* object = ptr.get();
 }

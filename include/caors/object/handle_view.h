@@ -76,4 +76,16 @@ private:
 
 } // namespace caors::objects
 
+namespace caors::meta {
+
+template <> struct capability_view_traits<objects::handle_view> {
+  static constexpr bool supported = true;
+
+  [[nodiscard]] static objects::handle_view bind(value::any_ref source) noexcept {
+    return objects::handle_view_of(source);
+  }
+};
+
+} // namespace caors::meta
+
 #endif

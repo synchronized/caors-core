@@ -76,4 +76,16 @@ private:
 
 } // namespace caors::objects
 
+namespace caors::meta {
+
+template <> struct capability_view_traits<objects::ptr_view> {
+  static constexpr bool supported = true;
+
+  [[nodiscard]] static objects::ptr_view bind(value::any_ref source) noexcept {
+    return objects::ptr_view_of(source);
+  }
+};
+
+} // namespace caors::meta
+
 #endif

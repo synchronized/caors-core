@@ -71,6 +71,14 @@ public:
   [[nodiscard]] variant_view create_variant_view() const;
   [[nodiscard]] indirect_view create_indirect_view() const;
 
+  /** @brief 查询并绑定运行期实例能力视图。 */
+  template <typename View> [[nodiscard]] View get_capability() const {
+    using view_type = std::remove_cv_t<std::remove_reference_t<View>>;
+    static_assert(meta::capability_view_traits<view_type>::supported,
+                  "Unsupported CAORS capability view");
+    return meta::capability_view_traits<view_type>::bind(*this);
+  }
+
   /** @brief 判断当前引用是否匹配指定 C++ 类型。 */
   template <typename T> [[nodiscard]] bool matches_type() const noexcept {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
@@ -149,6 +157,18 @@ private:
   const void* data_ = nullptr;
   bool writable_ = false;
 };
+
+} // namespace caors::value
+
+namespace caors::value {
+
+template <typename View> [[nodiscard]] View any::get_capability() {
+  return ref().template get_capability<View>();
+}
+
+template <typename View> [[nodiscard]] View any::get_capability() const {
+  return ref().template get_capability<View>();
+}
 
 } // namespace caors::value
 
