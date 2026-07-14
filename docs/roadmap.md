@@ -46,8 +46,9 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `meta/detail/builtin/xxx_ops.h`，旧 `container.h` / `type_capabilities.h` 不再保存这些内置能力定义。
 - [x] 删除旧 `meta/detail/container.h` 聚合头，并将 `type_capabilities.h` 精确改名为
   `parent_cast_ops.h`。
-- [x] 将 value 操作函数指针和 `get_*_value_fn()` 查询入口提升到 `meta/value_ops.h` 公共低层边界，
-  避免 object / reflection / serialization 横向依赖 `meta::detail`。
+- [x] 将 value 操作函数指针收进 `meta::value_ops` / `meta::factory_ops`，公开层通过
+  `meta::type::get_capability<meta::value_storage_ops>()` 查询，避免 object / reflection /
+  serialization 横向依赖 `meta::detail`。
 - [x] 将 descriptor 内建能力纳入 `meta::type::get_capability<T>()` 查询链路，并补充 `meta::type`
   的 kind、wrapper、nullable、value type 和 key type 查询，使 reflection / serialization 优先使用
   `meta::type` 作为能力 API。

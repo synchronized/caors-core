@@ -4,7 +4,6 @@
 #ifndef CAORS_META_VALUE_OPS_H_
 #define CAORS_META_VALUE_OPS_H_
 
-#include "caors/export.h"
 #include "caors/memory/resource.h"
 #include "caors/traits/container.h"
 
@@ -16,13 +15,6 @@ namespace caors::meta {
 
 class type;
 
-using value_default_construct_fn = void* (*)();
-using value_clone_fn = void* (*)(const void*);
-using value_destroy_fn = void (*)(void*) noexcept;
-using value_assign_fn = bool (*)(void*, const void*);
-using value_resource_construct_fn = void* (*)(memory::memory_resource*);
-using value_resource_destroy_fn = void (*)(memory::memory_resource*, void*) noexcept;
-
 /** @brief C++ 类型布局信息。 */
 struct type_layout {
   std::size_t size = 0;
@@ -33,12 +25,19 @@ struct type_layout {
 
 /** @brief C++ 值的类型擦除操作函数表。 */
 struct value_ops {
-  value_default_construct_fn default_construct = nullptr;
-  value_clone_fn clone = nullptr;
-  value_destroy_fn destroy = nullptr;
-  value_assign_fn assign = nullptr;
-  value_resource_construct_fn resource_construct = nullptr;
-  value_resource_destroy_fn resource_destroy = nullptr;
+  using default_construct_fn = void* (*)();
+  using clone_fn = void* (*)(const void*);
+  using destroy_fn = void (*)(void*) noexcept;
+  using assign_fn = bool (*)(void*, const void*);
+  using resource_construct_fn = void* (*)(memory::memory_resource*);
+  using resource_destroy_fn = void (*)(memory::memory_resource*, void*) noexcept;
+
+  default_construct_fn default_construct = nullptr;
+  clone_fn clone = nullptr;
+  destroy_fn destroy = nullptr;
+  assign_fn assign = nullptr;
+  resource_construct_fn resource_construct = nullptr;
+  resource_destroy_fn resource_destroy = nullptr;
 };
 
 /** @brief C++ 值的编译期特征摘要。 */
@@ -59,38 +58,19 @@ struct value_storage_ops {
 
 /** @brief 类型运行期创建能力，负责按资源构造并销毁对象。 */
 struct factory_ops {
-  value_resource_construct_fn construct = nullptr;
-  value_resource_destroy_fn destroy = nullptr;
+  using construct_fn = value_ops::resource_construct_fn;
+  using destroy_fn = value_ops::resource_destroy_fn;
+
+  construct_fn construct = nullptr;
+  destroy_fn destroy = nullptr;
 
   [[nodiscard]] constexpr bool valid() const noexcept {
     return construct != nullptr && destroy != nullptr;
   }
 };
 
-[[nodiscard]] CAORS_API value_default_construct_fn
-get_default_construct_value_fn(const meta::type& type) noexcept;
-[[nodiscard]] CAORS_API value_clone_fn get_clone_value_fn(const meta::type& type) noexcept;
-[[nodiscard]] CAORS_API value_destroy_fn get_destroy_value_fn(const meta::type& type) noexcept;
-[[nodiscard]] CAORS_API value_assign_fn get_assign_value_fn(const meta::type& type) noexcept;
-[[nodiscard]] CAORS_API value_resource_construct_fn
-get_resource_construct_value_fn(const meta::type& type) noexcept;
-[[nodiscard]] CAORS_API value_resource_destroy_fn
-get_resource_destroy_value_fn(const meta::type& type) noexcept;
-
 namespace detail {
 
-using meta::get_assign_value_fn;
-using meta::get_clone_value_fn;
-using meta::get_default_construct_value_fn;
-using meta::get_destroy_value_fn;
-using meta::get_resource_construct_value_fn;
-using meta::get_resource_destroy_value_fn;
-using meta::value_assign_fn;
-using meta::value_clone_fn;
-using meta::value_default_construct_fn;
-using meta::value_destroy_fn;
-using meta::value_resource_construct_fn;
-using meta::value_resource_destroy_fn;
 using meta::value_storage_ops;
 
 template <typename T> struct meta_copy_constructible;
@@ -236,7 +216,8 @@ template <typename T> bool assign_value(void* target, const void* source) {
   }
 }
 
-template <typename T> [[nodiscard]] value_default_construct_fn default_construct_fn_of() noexcept {
+template <typename T>
+[[nodiscard]] value_ops::default_construct_fn default_construct_fn_of() noexcept {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (std::is_default_constructible_v<type>) {
     return &default_construct_value<type>;
@@ -245,7 +226,7 @@ template <typename T> [[nodiscard]] value_default_construct_fn default_construct
   }
 }
 
-template <typename T> [[nodiscard]] value_clone_fn value_clone_fn_of() noexcept {
+template <typename T> [[nodiscard]] value_ops::clone_fn value_clone_fn_of() noexcept {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (meta_copy_constructible<type>::value) {
     return &clone_value<type>;
@@ -254,7 +235,7 @@ template <typename T> [[nodiscard]] value_clone_fn value_clone_fn_of() noexcept 
   }
 }
 
-template <typename T> [[nodiscard]] value_destroy_fn value_destroy_fn_of() noexcept {
+template <typename T> [[nodiscard]] value_ops::destroy_fn value_destroy_fn_of() noexcept {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (std::is_destructible_v<type>) {
     return &destroy_value<type>;
@@ -263,7 +244,7 @@ template <typename T> [[nodiscard]] value_destroy_fn value_destroy_fn_of() noexc
   }
 }
 
-template <typename T> [[nodiscard]] value_assign_fn value_assign_fn_of() noexcept {
+template <typename T> [[nodiscard]] value_ops::assign_fn value_assign_fn_of() noexcept {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (meta_copy_assignable<type>::value) {
     return &assign_value<type>;
@@ -273,7 +254,7 @@ template <typename T> [[nodiscard]] value_assign_fn value_assign_fn_of() noexcep
 }
 
 template <typename T>
-[[nodiscard]] value_resource_construct_fn resource_default_construct_fn_of() noexcept {
+[[nodiscard]] value_ops::resource_construct_fn resource_default_construct_fn_of() noexcept {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (std::is_default_constructible_v<type>) {
     return &resource_default_construct_value<type>;
@@ -282,7 +263,8 @@ template <typename T>
   }
 }
 
-template <typename T> [[nodiscard]] value_resource_destroy_fn resource_destroy_fn_of() noexcept {
+template <typename T>
+[[nodiscard]] value_ops::resource_destroy_fn resource_destroy_fn_of() noexcept {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (std::is_destructible_v<type>) {
     return &resource_destroy_value<type>;

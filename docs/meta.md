@@ -250,8 +250,8 @@ descriptor 位于 `meta::detail`，不属于公开 API；普通用户应通过 `
 descriptor 内部按职责拆分：
 
 - `type_layout`：保存 `size` 和 `alignment`。
-- `value_ops`：保存默认构造、复制、析构和赋值的类型擦除函数；相关底层函数表定义在
-  `meta/value_ops.h`。
+- `value_ops`：保存默认构造、复制、析构和赋值的类型擦除函数；相关函数指针类型嵌套在
+  `value_ops` / `factory_ops` 内部，定义在 `meta/value_ops.h`。
 - `type_semantics`：保存该类型在反射、序列化和 value 模块中的运行期形态。
 - `builtin_capability`：保存一个固定内置互斥能力，例如枚举、间接值、顺序容器、集合、关联容器、pair、tuple 或 variant。
 - `static_capabilities`：保存模块声明的静态能力表，例如对象指针、对象句柄访问函数表和
@@ -276,6 +276,9 @@ descriptor 内部按职责拆分：
 - `capability` 表示能力槽位或可查询能力，例如“这个类型是否具备序列化 codec 能力”。
 - `*_ops` 表示某个 capability 的具体类型擦除操作表，通常由函数指针和少量只读元数据组成，例如
   `sequence_ops`、`ptr_ops`、`handle_ops` 和 `codec_ops`。
+- `*_fn` 类型别名应尽量嵌套在对应 `*_ops` 内，例如 `value_ops::assign_fn` 和
+  `factory_ops::construct_fn`；除 `registration_fn` 这类独立回调外，不在 `caors::meta`
+  顶层继续暴露函数指针别名。
 - `*_ops_model<T>` 表示针对具体 C++ 类型 `T` 生成 `*_ops` 的 model 层。model 负责把 `T`
   的成员函数、traits 或 codec 策略转换成稳定生命周期的静态 `*_ops` 表；`*_ops_ptr_of<T>()`
   只作为内部取表入口。

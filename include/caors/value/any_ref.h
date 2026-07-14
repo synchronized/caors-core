@@ -110,12 +110,13 @@ public:
   /** @brief 从同类型 C++ 值写入当前引用指向的对象。 */
   template <typename T> bool try_set(const T& source) const {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const auto assign = caors::meta::get_assign_value_fn(type_);
-    if (!matches_type<type>() || !writable_ || assign == nullptr) {
+    const meta::value_storage_ops* storage = type_.get_capability<meta::value_storage_ops>();
+    if (!matches_type<type>() || !writable_ || storage == nullptr ||
+        storage->ops.assign == nullptr) {
       return false;
     }
 
-    return assign(const_cast<void*>(data_), &source);
+    return storage->ops.assign(const_cast<void*>(data_), &source);
   }
 
   /** @brief 从同类型运行期值写入当前引用指向的对象。 */

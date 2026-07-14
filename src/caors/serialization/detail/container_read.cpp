@@ -19,8 +19,10 @@ namespace caors::serialization::detail {
   return target.get_type().get_capability<meta::associative_ops>();
 }
 
-[[nodiscard]] meta::value_assign_fn assign_fn_of(const any_ref& target) noexcept {
-  return caors::meta::get_assign_value_fn(target.get_type());
+[[nodiscard]] meta::value_ops::assign_fn assign_fn_of(const any_ref& target) noexcept {
+  const meta::value_storage_ops* storage =
+      target.get_type().get_capability<meta::value_storage_ops>();
+  return storage != nullptr ? storage->ops.assign : nullptr;
 }
 
 [[nodiscard]] error sequence_resize_failure(const meta::sequence_ops* sequence,

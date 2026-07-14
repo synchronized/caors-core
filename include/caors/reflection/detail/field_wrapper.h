@@ -155,12 +155,12 @@ public:
   /** @brief 从运行期值写入成员字段。 */
   bool member_try_set_value(void* object, const any& source) const {
     const meta::type expected = get_type();
-    const auto assign = caors::meta::get_assign_value_fn(expected);
     const meta::value_storage_ops* expected_storage =
         expected.get_capability<meta::value_storage_ops>();
     if (!source.valid() || source.get_type().id() != expected.id() || expected_storage == nullptr ||
         source.size() != expected_storage->layout.size ||
-        source.alignment() != expected_storage->layout.alignment || assign == nullptr) {
+        source.alignment() != expected_storage->layout.alignment ||
+        expected_storage->ops.assign == nullptr) {
       return false;
     }
 
@@ -169,7 +169,7 @@ public:
       return false;
     }
 
-    return assign(storage, source.data());
+    return expected_storage->ops.assign(storage, source.data());
   }
 
   /** @brief 获取字段在对象内的只读地址。 */

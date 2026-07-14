@@ -28,6 +28,11 @@ namespace {
   return value_ops != nullptr ? value_ops->layout : meta::type_layout{};
 }
 
+[[nodiscard]] const meta::value_ops* value_ops_of(meta::type type) noexcept {
+  const meta::value_storage_ops* storage = type.get_capability<meta::value_storage_ops>();
+  return storage != nullptr ? &storage->ops : nullptr;
+}
+
 } // namespace
 
 any::~any() { reset(); }
@@ -90,8 +95,9 @@ void any::reset() noexcept {
       // 内联路径只接收平凡析构类型，不需要调用销毁函数。
     } else if (resource_destroy_ != nullptr) {
       resource_destroy_(resource_, data_);
-    } else if (const auto destroy = caors::meta::get_destroy_value_fn(type_); destroy != nullptr) {
-      destroy(data_);
+    } else if (const meta::value_ops* ops = value_ops_of(type_);
+               ops != nullptr && ops->destroy != nullptr) {
+      ops->destroy(data_);
     }
   }
 
@@ -118,12 +124,12 @@ bool any::matches_type(const any& other) const noexcept {
 }
 
 bool any::try_set(const any& source) {
-  const auto assign = caors::meta::get_assign_value_fn(type_);
-  if (!matches_type(source) || assign == nullptr) {
+  const meta::value_ops* ops = value_ops_of(type_);
+  if (!matches_type(source) || ops == nullptr || ops->assign == nullptr) {
     return false;
   }
 
-  return assign(data_, source.data_);
+  return ops->assign(data_, source.data_);
 }
 
 any any::copy_from_raw(meta::type type, const void* source) {
@@ -162,7 +168,7 @@ any any::copy_from_raw(meta::type type, const void* source) {
 }
 
 any any::take_ownership(meta::type type, void* value, memory::memory_resource* resource,
-                        meta::value_resource_destroy_fn destroy) {
+                        meta::factory_ops::destroy_fn destroy) {
   const meta::value_storage_ops* value_ops = type.get_capability<meta::value_storage_ops>();
   if (!type || value_ops == nullptr || value == nullptr || destroy == nullptr) {
     return {};
@@ -236,21 +242,21 @@ bool any_ref::matches_type(const any_ref& other) const noexcept {
 }
 
 bool any_ref::try_set(const any& source) const {
-  const auto assign = caors::meta::get_assign_value_fn(type_);
-  if (!matches_type(source) || !writable_ || assign == nullptr) {
+  const meta::value_ops* ops = value_ops_of(type_);
+  if (!matches_type(source) || !writable_ || ops == nullptr || ops->assign == nullptr) {
     return false;
   }
 
-  return assign(const_cast<void*>(data_), source.data());
+  return ops->assign(const_cast<void*>(data_), source.data());
 }
 
 bool any_ref::try_set(const any_ref& source) const {
-  const auto assign = caors::meta::get_assign_value_fn(type_);
-  if (!matches_type(source) || !writable_ || assign == nullptr) {
+  const meta::value_ops* ops = value_ops_of(type_);
+  if (!matches_type(source) || !writable_ || ops == nullptr || ops->assign == nullptr) {
     return false;
   }
 
-  return assign(const_cast<void*>(data_), source.data_);
+  return ops->assign(const_cast<void*>(data_), source.data_);
 }
 
 any any_ref::to_any() const { return any::copy_from_raw(get_type(), data_); }
@@ -284,7 +290,7 @@ any any::default_construct(meta::type type, memory::memory_resource* resource) {
   }
 
   void* value = nullptr;
-  meta::value_resource_destroy_fn resource_destroy = nullptr;
+  meta::value_ops::resource_destroy_fn resource_destroy = nullptr;
   if (resource != nullptr && value_ops->ops.resource_construct != nullptr &&
       value_ops->ops.resource_destroy != nullptr) {
     value = value_ops->ops.resource_construct(resource);

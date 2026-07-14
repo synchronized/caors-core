@@ -77,7 +77,7 @@ public:
    *
    * `construct` 可使用传入的 `memory_resource` 分配并构造对象；`destroy` 必须用匹配策略销毁对象。
    */
-  class_builder& factory(value_resource_construct_fn construct, value_resource_destroy_fn destroy) {
+  class_builder& factory(factory_ops::construct_fn construct, factory_ops::destroy_fn destroy) {
     if (!type_.registered()) {
       status_ = {error_domain::meta, errc::invalid_type};
       return *this;

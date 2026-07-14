@@ -163,28 +163,4 @@ type make_type_view(type_id id, const type_descriptor* descriptor) noexcept {
 
 } // namespace detail
 
-value_default_construct_fn get_default_construct_value_fn(const meta::type& type) noexcept {
-  return type.descriptor_ != nullptr ? type.descriptor_->value.ops.default_construct : nullptr;
-}
-
-value_clone_fn get_clone_value_fn(const meta::type& type) noexcept {
-  return type.descriptor_ != nullptr ? type.descriptor_->value.ops.clone : nullptr;
-}
-
-value_destroy_fn get_destroy_value_fn(const meta::type& type) noexcept {
-  return type.descriptor_ != nullptr ? type.descriptor_->value.ops.destroy : nullptr;
-}
-
-value_assign_fn get_assign_value_fn(const meta::type& type) noexcept {
-  return type.descriptor_ != nullptr ? type.descriptor_->value.ops.assign : nullptr;
-}
-
-value_resource_construct_fn get_resource_construct_value_fn(const meta::type& type) noexcept {
-  return type.descriptor_ != nullptr ? type.descriptor_->value.ops.resource_construct : nullptr;
-}
-
-value_resource_destroy_fn get_resource_destroy_value_fn(const meta::type& type) noexcept {
-  return type.descriptor_ != nullptr ? type.descriptor_->value.ops.resource_destroy : nullptr;
-}
-
 } // namespace caors::meta

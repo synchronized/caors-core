@@ -95,7 +95,7 @@ public:
    */
   [[nodiscard]] static any take_ownership(meta::type type, void* value,
                                           memory::memory_resource* resource,
-                                          meta::value_resource_destroy_fn destroy);
+                                          meta::factory_ops::destroy_fn destroy);
 
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
@@ -163,12 +163,12 @@ public:
   /** @brief 从同类型 C++ 值写入当前值。 */
   template <typename T> bool try_set(const T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const auto assign = caors::meta::get_assign_value_fn(type_);
-    if (!matches_type<type>() || assign == nullptr) {
+    const meta::value_storage_ops* storage = type_.get_capability<meta::value_storage_ops>();
+    if (!matches_type<type>() || storage == nullptr || storage->ops.assign == nullptr) {
       return false;
     }
 
-    return assign(data_, &source);
+    return storage->ops.assign(data_, &source);
   }
 
   /** @brief 从同类型运行期值写入当前值。 */
@@ -196,7 +196,7 @@ private:
   meta::type type_{};
   void* data_ = nullptr;
   memory::memory_resource* resource_ = nullptr;
-  meta::value_resource_destroy_fn resource_destroy_ = nullptr;
+  meta::value_ops::resource_destroy_fn resource_destroy_ = nullptr;
   storage_mode mode_ = storage_mode::empty;
   alignas(std::max_align_t) unsigned char inline_storage_[inline_storage_size]{};
 };

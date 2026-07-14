@@ -85,12 +85,6 @@ public:
 
 private:
   friend class registry;
-  friend value_default_construct_fn get_default_construct_value_fn(const type&) noexcept;
-  friend value_clone_fn get_clone_value_fn(const type&) noexcept;
-  friend value_destroy_fn get_destroy_value_fn(const type&) noexcept;
-  friend value_assign_fn get_assign_value_fn(const type&) noexcept;
-  friend value_resource_construct_fn get_resource_construct_value_fn(const type&) noexcept;
-  friend value_resource_destroy_fn get_resource_destroy_value_fn(const type&) noexcept;
   friend type detail::make_type_view(type_id, const detail::type_descriptor*) noexcept;
   friend const void* detail::find_type_capability(const type&, capability_key) noexcept;
 

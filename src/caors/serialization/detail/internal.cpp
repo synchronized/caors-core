@@ -17,18 +17,18 @@ namespace {
 struct constructed_value {
   void* value = nullptr;
   memory::memory_resource* resource = nullptr;
-  meta::value_resource_destroy_fn resource_destroy = nullptr;
-  meta::value_destroy_fn default_destroy = nullptr;
+  meta::value_ops::resource_destroy_fn resource_destroy = nullptr;
+  meta::value_ops::destroy_fn default_destroy = nullptr;
   bool transfer_destroy_context = false;
 
   constructed_value() = default;
 
   constructed_value(void* constructed, memory::memory_resource* memory,
-                    meta::value_resource_destroy_fn destroy, bool transfer_context) noexcept
+                    meta::value_ops::resource_destroy_fn destroy, bool transfer_context) noexcept
       : value(constructed), resource(memory), resource_destroy(destroy),
         transfer_destroy_context(transfer_context) {}
 
-  constructed_value(void* constructed, meta::value_destroy_fn destroy) noexcept
+  constructed_value(void* constructed, meta::value_ops::destroy_fn destroy) noexcept
       : value(constructed), default_destroy(destroy) {}
 
   constructed_value(const constructed_value&) = delete;
@@ -88,7 +88,7 @@ struct constructed_value {
 struct polymorphic_destroy_context {
   memory::memory_resource* allocation_resource = nullptr;
   memory::memory_resource* value_resource = nullptr;
-  meta::value_resource_destroy_fn destroy = nullptr;
+  meta::value_ops::resource_destroy_fn destroy = nullptr;
 };
 
 void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcept {
@@ -120,10 +120,15 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
       };
     }
 
-    const auto resource_construct = meta::get_resource_construct_value_fn(dynamic_type);
-    const auto resource_destroy = meta::get_resource_destroy_value_fn(dynamic_type);
-    if (resource_construct != nullptr && resource_destroy != nullptr) {
-      return {resource_construct(resource), resource, resource_destroy, true};
+    const meta::value_storage_ops* storage = dynamic_type.get_capability<meta::value_storage_ops>();
+    if (storage != nullptr && storage->ops.resource_construct != nullptr &&
+        storage->ops.resource_destroy != nullptr) {
+      return {
+          storage->ops.resource_construct(resource),
+          resource,
+          storage->ops.resource_destroy,
+          true,
+      };
     }
   }
 
@@ -136,13 +141,13 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
     };
   }
 
-  const auto default_construct = meta::get_default_construct_value_fn(dynamic_type);
-  const auto destroy = meta::get_destroy_value_fn(dynamic_type);
-  if (default_construct == nullptr || destroy == nullptr) {
+  const meta::value_storage_ops* storage = dynamic_type.get_capability<meta::value_storage_ops>();
+  if (storage == nullptr || storage->ops.default_construct == nullptr ||
+      storage->ops.destroy == nullptr) {
     return {};
   }
 
-  return {default_construct(), destroy};
+  return {storage->ops.default_construct(), storage->ops.destroy};
 }
 
 } // namespace
