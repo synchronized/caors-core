@@ -32,7 +32,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 补充反射和序列化组件的跨模块查询测试。
 - [x] 增加组件 `try_emplace` / `ensure` 语义和组件状态诊断 API。
 - [x] 增加轻量动态 capability 运行期索引，支持 `type_id + capability_key` 挂接模块能力。
-- [x] 将 serialization codec 接入动态 capability 索引；编译期已知 `T` 时仍直接查询静态 codec 能力。
+- [x] 将 serialization codec 接入 descriptor 静态 capability；编译期已知 `T` 或携带 descriptor 的
+  `any` / `any_ref` 路径都可直接查询静态 codec 能力。
 - [x] 将对象指针和对象句柄运行期访问迁移到 descriptor 静态 capability 表，避免 `type_descriptor`
   直接依赖 object 模块字段。
 - [x] 将 descriptor 内置运行期函数表收敛为互斥 `builtin_ops` variant，避免同一类型同时保存多套
@@ -67,6 +68,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 增加多模块静态 capability 扩展机制，外部模块可通过 module tag 和
   `extension_static_capability_modules<T>` 追加能力贡献，避免多个第三方模块只能共享
   `custom_static_capability_module` 造成特化覆盖。
+- [x] 增加类型级 capability facade 查询：用户自定义能力默认返回只读 concept table 指针，内置能力可通过
+  `type_capability_traits` 返回 `sequence_capability`、`ptr_capability`、`codec_capability` 等轻量对象。
 - [x] 增加 `runtime` facade，组合 `meta::type`、反射字段/方法和值构造能力，提供更直接的用户入口。
 - [x] 将 `runtime` 确认为推荐主入口，具体模块保留高级入口；`meta::type_<T>()` 改为
   `meta::class_<T>()`，并增加 `meta::enum_<T>()` / `runtime::enum_<T>()`。

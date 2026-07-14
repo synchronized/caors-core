@@ -71,16 +71,21 @@ public:
   [[nodiscard]] type get_value_type() const noexcept;
   [[nodiscard]] type get_key_type() const noexcept;
 
-  /** @brief 查询该类型视图具备的能力；优先使用 descriptor 静态能力，再回退到运行期索引。 */
-  template <typename Capability> [[nodiscard]] const Capability* get_capability() const noexcept {
+  /**
+   * @brief 查询该类型视图具备的能力。
+   *
+   * 默认返回 `const Capability*`；公开 facade 可通过 `type_capability_traits`
+   * 特化返回轻量能力对象。
+   */
+  template <typename Capability> [[nodiscard]] auto get_capability() const noexcept {
     using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
-    return static_cast<const capability_type*>(
-        detail::find_type_capability(*this, capability_key_of<capability_type>()));
+    return type_capability_traits<capability_type>::get(*this);
   }
 
   /** @brief 判断该类型视图是否具备指定能力。 */
   template <typename Capability> [[nodiscard]] bool has_capability() const noexcept {
-    return get_capability<Capability>() != nullptr;
+    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+    return type_capability_traits<capability_type>::has(*this);
   }
 
   /**
@@ -90,7 +95,8 @@ public:
    * `any_ref::get_capability<View>()` 获取绑定后的 view。
    */
   template <typename Ops> [[nodiscard]] const Ops* get_ops() const noexcept {
-    return get_capability<Ops>();
+    using ops_type = std::remove_cv_t<std::remove_reference_t<Ops>>;
+    return type_capability_traits<ops_type>::get_raw(*this);
   }
 
   /** @brief 判断该类型视图是否具备指定低层函数表。 */

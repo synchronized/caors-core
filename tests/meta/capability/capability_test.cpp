@@ -3,10 +3,14 @@
 
 #include "caors/meta.h"
 
+#include "caors/adapters/stl_traits.h"
+
 #include <catch2/catch_all.hpp>
 
 #include <cstdint>
+#include <optional>
 #include <string_view>
+#include <vector>
 
 namespace {
 
@@ -20,11 +24,40 @@ struct owned_matrix {
   int values[4]{};
 };
 
+enum class facade_enum : int {
+  low = -1,
+  high = 9,
+};
+
 struct matrix_capability {
   std::size_t (*rows)(const void*) = nullptr;
   std::size_t (*columns)(const void*) = nullptr;
   int (*get)(const void*, std::size_t, std::size_t) = nullptr;
   void (*set)(void*, std::size_t, std::size_t, int) = nullptr;
+};
+
+class matrix_view {
+public:
+  matrix_view() noexcept = default;
+  matrix_view(const matrix_capability* capability, owned_matrix* matrix) noexcept
+      : capability_(capability), matrix_(matrix) {}
+
+  [[nodiscard]] explicit operator bool() const noexcept {
+    return capability_ != nullptr && matrix_ != nullptr;
+  }
+
+  [[nodiscard]] std::size_t rows() const noexcept { return capability_->rows(matrix_); }
+  [[nodiscard]] std::size_t columns() const noexcept { return capability_->columns(matrix_); }
+  [[nodiscard]] int get(std::size_t row, std::size_t column) const {
+    return capability_->get(matrix_, row, column);
+  }
+  void set(std::size_t row, std::size_t column, int value) const {
+    capability_->set(matrix_, row, column, value);
+  }
+
+private:
+  const matrix_capability* capability_ = nullptr;
+  owned_matrix* matrix_ = nullptr;
 };
 
 struct static_capability_data {
@@ -84,6 +117,17 @@ template <> struct capability_traits<named_capability> {
       0x31,
   });
   static constexpr std::uint32_t version = 3;
+};
+
+template <> struct capability_view_traits<matrix_view> {
+  static constexpr bool supported = true;
+
+  [[nodiscard]] static matrix_view bind(any_ref source) noexcept {
+    return matrix_view{
+        source.get_type().get_capability<::matrix_capability>(),
+        source.try_get_mutable<::owned_matrix>(),
+    };
+  }
 };
 
 } // namespace caors::meta
@@ -188,10 +232,54 @@ TEST_CASE("meta - type builder stores owned runtime concept table", "[meta]") {
   CHECK(type.get_capability<matrix_capability>() == found);
 
   owned_matrix matrix{};
-  found->set(&matrix, 1, 0, 17);
+  caors::meta::any_ref matrix_ref = caors::meta::any_ref::from(matrix);
+  const matrix_view view = matrix_ref.get_capability<matrix_view>();
+  REQUIRE(view);
+  view.set(1, 0, 17);
   CHECK(found->rows(&matrix) == 2);
   CHECK(found->columns(&matrix) == 2);
+  CHECK(view.rows() == 2);
+  CHECK(view.columns() == 2);
   CHECK(found->get(&matrix, 1, 0) == 17);
+  CHECK(view.get(1, 0) == 17);
+}
+
+TEST_CASE("meta - type capability facade binds built in value views", "[meta]") {
+  std::vector<int> values{1, 2, 3};
+  const caors::meta::type sequence_type = caors::meta::resolve<std::vector<int>>();
+
+  const caors::meta::sequence_capability sequence =
+      sequence_type.get_capability<caors::meta::sequence_capability>();
+  REQUIRE(sequence);
+  CHECK(sequence_type.has_capability<caors::meta::sequence_capability>());
+  CHECK(sequence.get_value_type().id() == caors::meta::resolve<int>().id());
+
+  const caors::meta::sequence_view view = sequence.bind(caors::meta::any_ref::from(values));
+  REQUIRE(view);
+  REQUIRE(view.size().has_value());
+  CHECK(*view.size() == 3);
+
+  int wrong_value = 0;
+  CHECK_FALSE(sequence.bind(caors::meta::any_ref::from(wrong_value)));
+  CHECK_FALSE(caors::meta::resolve<int>().has_capability<caors::meta::sequence_capability>());
+}
+
+TEST_CASE("meta - enum type capability facade converts bound enum values", "[meta]") {
+  facade_enum value = facade_enum::high;
+  const caors::meta::type type = caors::meta::resolve<facade_enum>();
+
+  const caors::meta::enum_capability capability =
+      type.get_capability<caors::meta::enum_capability>();
+  REQUIRE(capability);
+  CHECK(capability.is_signed());
+
+  caors::meta::any_ref ref = caors::meta::any_ref::from(value);
+  const std::optional<std::int64_t> encoded = capability.to_i64(ref);
+  REQUIRE(encoded.has_value());
+  CHECK(*encoded == 9);
+
+  CHECK(capability.from_i64(ref, -1));
+  CHECK(value == facade_enum::low);
 }
 
 TEST_CASE("meta - capability static provider can be registered into runtime index", "[meta]") {

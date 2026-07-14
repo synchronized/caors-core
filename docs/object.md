@@ -43,8 +43,9 @@ CAORS 对象系统第一阶段只解决几件事：
 
 `objects::ptr<T>`、`objects::handle` 和 `objects::typed_handle<T>` 的运行期读写函数表作为
 `meta::capabilities` 模块静态能力声明，并保存到 meta 内部 descriptor
-的静态能力表中。拿得到 C++ 类型时可直接查询静态能力；拿到 `any_ref` 时，对象模块会从
-`any_ref` 携带的 descriptor 查询对应能力。
+的静态能力表中。拿得到 `meta::type` 时可通过 `objects::ptr_capability` 或
+`objects::handle_capability` 查询类型级能力；拿到 `any_ref` 时，对象模块会从
+`any_ref` 携带的 descriptor 查询并绑定为 `ptr_view` 或 `handle_view`。
 
 ### object_id
 
@@ -150,6 +151,15 @@ auto ptr = value.get_capability<caors::objects::ptr_view>();
 if (ptr) {
   caors::object* object = ptr.get();
 }
+```
+
+如果只拿到类型视图，可以先查询类型级能力，再绑定到实例：
+
+```cpp
+auto capability =
+    caors::meta::resolve<caors::objects::ptr<actor>>()
+        .get_capability<caors::objects::ptr_capability>();
+auto view = capability.bind(caors::any_ref::from(ptr));
 ```
 
 如果对象指针来自反射字段，推荐通过 `runtime::object` 在组合层读写：

@@ -71,6 +71,26 @@ template <typename CapabilityView> struct capability_view_traits {
   static constexpr bool supported = false;
 };
 
+/**
+ * @brief 类型级 capability 查询扩展点。
+ *
+ * 默认情况下，`meta::type::get_capability<T>()` 返回 `const T*`，用于用户自定义
+ * concept table 或模块静态能力。内置公开 facade 可以特化该模板，让查询返回可直接调用的轻量对象。
+ */
+template <typename Capability> struct type_capability_traits {
+  using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+  using result_type = const capability_type*;
+
+  [[nodiscard]] static result_type get(const type& source) noexcept { return get_raw(source); }
+
+  [[nodiscard]] static result_type get_raw(const type& source) noexcept {
+    return static_cast<const capability_type*>(
+        detail::find_type_capability(source, capability_key_of<capability_type>()));
+  }
+
+  [[nodiscard]] static bool has(const type& source) noexcept { return get_raw(source) != nullptr; }
+};
+
 /** @brief 返回能力类型的查询 key 和可选稳定描述信息。 */
 template <typename Capability> [[nodiscard]] capability_info capability_info_of() noexcept {
   using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;

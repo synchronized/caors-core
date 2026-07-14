@@ -9,6 +9,11 @@
 
 namespace caors::objects {
 
+class ptr_view;
+
+/** @brief 如果运行期引用具备对象指针语义，则创建对象指针视图。 */
+[[nodiscard]] ptr_view ptr_view_of(meta::any_ref source) noexcept;
+
 /**
  * @brief 对象指针运行期视图。
  *
@@ -55,7 +60,29 @@ private:
   bool writable_ = false;
 };
 
-/** @brief 如果运行期引用具备对象指针语义，则创建对象指针视图。 */
+/** @brief 对象指针类型级能力 facade。 */
+class ptr_capability final {
+public:
+  ptr_capability() noexcept = default;
+  explicit ptr_capability(meta::type type) noexcept : type_(type), ops_(type.get_ops<ptr_ops>()) {}
+
+  [[nodiscard]] bool valid() const noexcept { return type_ && ops_ != nullptr && ops_->valid(); }
+  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
+  [[nodiscard]] meta::type get_type() const noexcept { return valid() ? type_ : meta::type{}; }
+
+  [[nodiscard]] ptr_view bind(meta::any_ref source) const noexcept {
+    if (!valid() || !source.valid() || source.get_type().id() != type_.id()) {
+      return {};
+    }
+
+    return ptr_view_of(source);
+  }
+
+private:
+  meta::type type_{};
+  const ptr_ops* ops_ = nullptr;
+};
+
 [[nodiscard]] inline ptr_view ptr_view_of(meta::any_ref source) noexcept {
   if (!source.valid()) {
     return {};
@@ -83,6 +110,18 @@ template <> struct capability_view_traits<objects::ptr_view> {
 
   [[nodiscard]] static objects::ptr_view bind(meta::any_ref source) noexcept {
     return objects::ptr_view_of(source);
+  }
+};
+
+template <> struct type_capability_traits<objects::ptr_capability> {
+  using result_type = objects::ptr_capability;
+
+  [[nodiscard]] static result_type get(const type& source) noexcept {
+    return objects::ptr_capability{source};
+  }
+
+  [[nodiscard]] static bool has(const type& source) noexcept {
+    return objects::ptr_capability{source}.valid();
   }
 };
 

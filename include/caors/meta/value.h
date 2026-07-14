@@ -16,6 +16,7 @@
 #include "caors/meta/value/sequence_view.h"
 #include "caors/meta/value/set_view.h"
 #include "caors/meta/value/tuple_view.h"
+#include "caors/meta/value/type_capability.h"
 #include "caors/meta/value/variant.h"
 #include "caors/meta/value/variant_view.h"
 

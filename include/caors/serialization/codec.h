@@ -336,6 +336,9 @@ private:
   const codec_ops* ops_ = nullptr;
 };
 
+/** @brief 序列化 codec 的类型级能力 facade。 */
+using codec_capability = codec;
+
 /** @brief 把运行期 C++ 值转换为序列化中间值。 */
 [[nodiscard]] CAORS_API variant_result to_variant(const any& data);
 
@@ -352,6 +355,22 @@ private:
 template <typename T> [[nodiscard]] codec codec_of();
 
 } // namespace caors::serialization
+
+namespace caors::meta {
+
+template <> struct type_capability_traits<serialization::codec_capability> {
+  using result_type = serialization::codec_capability;
+
+  [[nodiscard]] static result_type get(const type& source) {
+    return serialization::find_codec(source);
+  }
+
+  [[nodiscard]] static bool has(const type& source) {
+    return serialization::find_codec(source).valid();
+  }
+};
+
+} // namespace caors::meta
 
 namespace caors::serialization::detail {
 

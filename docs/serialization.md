@@ -634,8 +634,9 @@ if (player* current = manager.find(target)) {
 
 `serialization::codec_traits<T>` 是类型级扩展点。编译期已知 `T` 时可以通过 `serialization::codec_of<T>()`
 直接取得静态 codec 视图；运行期拿得到 `meta::type` 视图时可以通过
-`serialization::find_codec(meta::type)` 或 `meta::type::get_ops<serialization::codec_ops>()`
-查询 codec 能力。`any` / `any_ref` 等内部调度路径如果已经携带 descriptor，会在 detail
+`serialization::find_codec(meta::type)` 或
+`meta::type::get_capability<serialization::codec_capability>()` 查询 codec 能力。`any` / `any_ref`
+等内部调度路径如果已经携带 descriptor，会在 detail
 层直接查询 descriptor 静态 codec 能力；公开 API 不要求也不鼓励用户直接传递 descriptor。
 未命中时继续走基础标量探测。
 这样 `guid`、`type_guid` 这类语义上是
@@ -648,7 +649,8 @@ codec 和 meta descriptor 的边界：
 - meta 内部 descriptor 描述 C++ 值本身的基础能力，例如布局、构造、销毁、枚举、容器和 wrapper
   访问。
 - `serialization::codec_ops` 描述序列化专用能力，例如写入 writer、从 reader 读回和构造
-  `variant` 中间值。它作为 serialization 模块静态能力挂到 descriptor 静态表中。
+  `variant` 中间值。它作为 serialization 模块静态能力挂到 descriptor 静态表中，并通过
+  `serialization::codec_capability` facade 对外查询。
 - 编译期已知 `T` 时，内部可以从 `serialization::codec_traits<T>` 静态生成一份 `codec_ops` 函数表，
   并挂到 type descriptor 静态能力表中。
 - `any`、`any_ref` 和反射字段这类内部携带 descriptor 的路径会先查询 descriptor 静态 codec 能力，

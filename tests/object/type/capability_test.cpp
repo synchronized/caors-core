@@ -72,11 +72,19 @@ TEST_CASE("object - descriptor exposes object capabilities", "[object]") {
   caors::object_ptr<capability_target> pointer{};
   const caors::any_ref pointer_ref = caors::any_ref::from(pointer);
   CHECK(pointer_ref.get_type().get_ops<caors::objects::ptr_ops>() != nullptr);
+  const caors::objects::ptr_capability pointer_capability =
+      pointer_ref.get_type().get_capability<caors::objects::ptr_capability>();
+  REQUIRE(pointer_capability);
+  CHECK(pointer_capability.bind(pointer_ref));
   CHECK(pointer_ref.get_capability<caors::objects::ptr_view>());
 
   caors::typed_object_handle<capability_target> handle{};
   const caors::any_ref handle_ref = caors::any_ref::from(handle);
   CHECK(handle_ref.get_type().get_ops<caors::objects::handle_ops>() != nullptr);
+  const caors::objects::handle_capability handle_capability =
+      handle_ref.get_type().get_capability<caors::objects::handle_capability>();
+  REQUIRE(handle_capability);
+  CHECK(handle_capability.bind(handle_ref));
   CHECK(handle_ref.get_capability<caors::objects::handle_view>());
 }
 

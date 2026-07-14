@@ -15,6 +15,15 @@ TEST_CASE("serialization - custom codec specialization uses descriptor capabilit
   CHECK(codec.can_write());
   CHECK(codec.can_read());
   CHECK(codec.can_make_value());
+
+  const caors::serialization::codec_capability capability =
+      caors::meta::resolve<policy_custom_codec_value>()
+          .get_capability<caors::serialization::codec_capability>();
+  REQUIRE(capability);
+  CHECK(capability.can_write());
+  CHECK(capability.can_read());
+  CHECK(capability.can_make_value());
+
   CHECK_FALSE(caors::meta::find<policy_custom_codec_value>());
   CHECK(caors::serialization::find_codec(caors::meta::resolve<policy_custom_codec_value>()));
 

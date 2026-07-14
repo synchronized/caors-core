@@ -9,6 +9,11 @@
 
 namespace caors::objects {
 
+class handle_view;
+
+/** @brief 如果运行期引用具备对象身份句柄语义，则创建句柄视图。 */
+[[nodiscard]] handle_view handle_view_of(meta::any_ref source) noexcept;
+
 /**
  * @brief 对象身份句柄运行期视图。
  *
@@ -55,7 +60,30 @@ private:
   bool writable_ = false;
 };
 
-/** @brief 如果运行期引用具备对象身份句柄语义，则创建句柄视图。 */
+/** @brief 对象身份句柄类型级能力 facade。 */
+class handle_capability final {
+public:
+  handle_capability() noexcept = default;
+  explicit handle_capability(meta::type type) noexcept
+      : type_(type), ops_(type.get_ops<handle_ops>()) {}
+
+  [[nodiscard]] bool valid() const noexcept { return type_ && ops_ != nullptr && ops_->valid(); }
+  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
+  [[nodiscard]] meta::type get_type() const noexcept { return valid() ? type_ : meta::type{}; }
+
+  [[nodiscard]] handle_view bind(meta::any_ref source) const noexcept {
+    if (!valid() || !source.valid() || source.get_type().id() != type_.id()) {
+      return {};
+    }
+
+    return handle_view_of(source);
+  }
+
+private:
+  meta::type type_{};
+  const handle_ops* ops_ = nullptr;
+};
+
 [[nodiscard]] inline handle_view handle_view_of(meta::any_ref source) noexcept {
   if (!source.valid()) {
     return {};
@@ -83,6 +111,18 @@ template <> struct capability_view_traits<objects::handle_view> {
 
   [[nodiscard]] static objects::handle_view bind(meta::any_ref source) noexcept {
     return objects::handle_view_of(source);
+  }
+};
+
+template <> struct type_capability_traits<objects::handle_capability> {
+  using result_type = objects::handle_capability;
+
+  [[nodiscard]] static result_type get(const type& source) noexcept {
+    return objects::handle_capability{source};
+  }
+
+  [[nodiscard]] static bool has(const type& source) noexcept {
+    return objects::handle_capability{source}.valid();
   }
 };
 

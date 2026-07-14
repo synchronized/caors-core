@@ -245,7 +245,8 @@ runtime capability。普通调用方应使用这个统一入口，不直接关�
 由布局、值操作、类型语义、内置 ops 和静态能力表几部分组成；未注册结构类型也可以通过 `any`、
 `any_ref` 或反射字段携带的静态 descriptor 访问同一套能力。
 descriptor 位于 `meta::detail`，不属于公开 API；普通用户应通过 `meta::type`、`meta::resolve<T>()`
-和 `meta::type::get_capability<T>()` / `get_ops<T>()` 查询这些能力。
+和 `meta::type::get_capability<T>()` 查询公开能力；确实在实现层需要低层函数表时再使用
+`get_ops<T>()`。
 
 descriptor 内部按职责拆分：
 
@@ -276,6 +277,9 @@ descriptor 内部按职责拆分：
 - `capability` 表示能力槽位或可查询能力，例如“这个类型是否具备序列化 codec 能力”。
 - `*_ops` 表示某个 capability 的具体类型擦除操作表，通常由函数指针和少量只读元数据组成，例如
   `sequence_ops`、`ptr_ops`、`handle_ops` 和 `codec_ops`。
+- `*_capability` 表示类型级公开 facade，封装 `meta::type` 和内部 `*_ops`，提供更适合用户代码调用的
+  方法。例如 `meta::sequence_capability` 可以绑定 `any_ref` 后得到 `sequence_view`，
+  `serialization::codec_capability` 可以直接读写序列化数据。
 - 外部实例访问优先使用绑定后的 `*_view`，例如
   `any_ref.get_capability<meta::sequence_view>()` 或
   `any_ref.get_capability<objects::ptr_view>()`；`*_ops` 是底层函数表，不作为普通业务代码的首选入口。
@@ -319,16 +323,18 @@ descriptor 内部按职责拆分：
 `capability_entry` 表。公开查询优先使用 `meta::type::get_capability<T>()` 或
 `meta::type::has_capability<T>()`；该入口会先查询 descriptor 静态能力，再回退到运行期
 capability 索引。内部仍保留 `descriptor_static_capability<T>()` 给 descriptor 层实现使用。
-`objects::ptr<T>`、`objects::handle`、`objects::object_factory_ops` 和 serialization codec 都通过
-`meta::type` 的统一入口查询能力。
+对象指针、对象句柄和 serialization codec 都通过 `meta::type` 的统一入口查询公开 facade；
+内部 `ptr_ops`、`handle_ops` 和 `codec_ops` 只作为实现细节保留。
 
 动态扩展能力通过 `meta::class_<T>().capability(ops)`、`meta::class_<T>().capability<Capability>()`
 或内部稳定指针入口挂接到独立运行期索引；`meta::capabilities` 命名空间只保留静态能力提供者、
 运行期查询和诊断工具。`capability(ops)` 会把一份用户自定义 concept table 复制或移动到运行期索引中，
 由 CAORS 持有其生命周期；查询仍通过 `meta::type::get_capability<Capability>()` 或
-`meta::capabilities::find<Capability>(type_id)` 返回只读指针。拿得到 C++ 类型 `T` 时，也可以通过
+`meta::capabilities::find<Capability>(type_id)` 查询。默认用户 capability 返回只读指针；内置公开
+facade 可以通过 `type_capability_traits` 返回轻量对象。拿得到 C++ 类型 `T` 时，也可以通过
 `meta::capabilities::get<Capability, T>()` 直接查询静态能力。serialization codec 会作为静态能力挂到
-descriptor 上；当运行期只剩 `type_id` 时，应先通过 meta registry 找回携带 descriptor 的 `meta::type`。
+descriptor 上，并通过 `serialization::codec_capability` facade 暴露；当运行期只剩 `type_id` 时，应先通过
+meta registry 找回携带 descriptor 的 `meta::type`。
 
 capability 和 registry 的边界：
 
@@ -489,17 +495,30 @@ caors::meta::class_<matrix>("math.matrix")
         &matrix_element,
     });
 
-if (const matrix_ops* ops = caors::meta::find<matrix>().get_ops<matrix_ops>()) {
+if (const matrix_ops* ops = caors::meta::find<matrix>().get_capability<matrix_ops>()) {
   // 调用方把对象地址交给 concept table，具体类型仍由注册时的 model 负责解释。
 }
 ```
 
-普通 capability 和低层 ops 的查询入口刻意分开：
+普通 capability、公开 facade 和低层 ops 的查询入口刻意分开：
 
-- `meta::type::get_capability<T>()` / `has_capability<T>()`：面向普通运行期扩展能力。
+- `meta::type::get_capability<T>()` / `has_capability<T>()`：面向普通运行期扩展能力。默认返回
+  `const T*`，内置公开 facade 可特化为直接返回能力对象。
+- `meta::type::get_capability<meta::sequence_capability>()`、`get_capability<objects::ptr_capability>()`
+  和 `get_capability<serialization::codec_capability>()`：面向类型级公开 facade。
 - `meta::type::get_ops<T>()` / `has_ops<T>()`：面向 `*_ops` 这类类型擦除函数表。调用点应明确知道自己正在触碰低层表。
 - 实例级访问优先使用绑定后的 view，例如 `any_ref::get_capability<meta::sequence_view>()` 或
   `any_ref::get_capability<objects::ptr_view>()`，避免业务代码直接传递 `void*`。
+
+类型级 facade 可以再绑定到具体实例：
+
+```cpp
+std::vector<int> values{1, 2, 3};
+
+auto sequence =
+    caors::meta::resolve<std::vector<int>>().get_capability<caors::meta::sequence_capability>();
+auto view = sequence.bind(caors::meta::any_ref::from(values));
+```
 
 如果能力由 `static_capability<Capability, T>` 提供，也可以只声明能力类型：
 
