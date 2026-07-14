@@ -55,24 +55,24 @@ TEST_CASE("serialization - recursively deserializes nested reflected structs", "
   REQUIRE(serialization_result_ok(caors::serialization::class_<nested_actor>().commit()));
 
   caors::variant::object_type stats_members;
-  stats_members.push_back(caors::value::variant_member{
+  stats_members.push_back(caors::meta::variant_member{
       caors::string_name{"level"},
       0,
       caors::variant::from(std::int64_t{4}),
   });
-  stats_members.push_back(caors::value::variant_member{
+  stats_members.push_back(caors::meta::variant_member{
       caors::string_name{"score"},
       0,
       caors::variant::from(15.25),
   });
 
   caors::variant::object_type actor_members;
-  actor_members.push_back(caors::value::variant_member{
+  actor_members.push_back(caors::meta::variant_member{
       caors::string_name{"id"},
       0,
       caors::variant::from(std::int64_t{9}),
   });
-  actor_members.push_back(caors::value::variant_member{
+  actor_members.push_back(caors::meta::variant_member{
       caors::string_name{"stats"},
       0,
       caors::variant::object(std::move(stats_members)),
@@ -120,10 +120,10 @@ TEST_CASE("serialization - recursively serializes nested reflected structs", "[s
   const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
   REQUIRE(value.value.is_object());
-  const caors::value::variant_member* stats = value.value.find_member(caors::string_name{"stats"});
+  const caors::meta::variant_member* stats = value.value.find_member(caors::string_name{"stats"});
   REQUIRE(stats != nullptr);
   REQUIRE(stats->value.is_object());
-  const caors::value::variant_member* level = stats->value.find_member(caors::string_name{"level"});
+  const caors::meta::variant_member* level = stats->value.find_member(caors::string_name{"level"});
   REQUIRE(level != nullptr);
   CHECK(level->value.as_i64() == 3);
 }

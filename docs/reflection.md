@@ -603,20 +603,20 @@ damage.invoke(&instance, args);
 再调用对应的 `create_*_view()`；普通 `any` / `any_ref` 也可以直接创建视图：
 
 如果只包含细粒度 value 头文件，并且需要按值使用 `associative_entry_ref`，应显式包含
-`caors/value/associative_entry_ref.h`；包含总入口 `caors/value.h` 时不需要额外处理。
+`caors/meta/value/associative_entry_ref.h`；包含总入口 `caors/meta/value.h` 时不需要额外处理。
 
 ```cpp
-caors::value::sequence_view field_sequence =
+caors::meta::sequence_view field_sequence =
     field.get_ref(&instance).create_sequence_view();
-caors::value::associative_view field_map =
+caors::meta::associative_view field_map =
     field.get_ref(&instance).create_associative_view();
 
 caors::hash_map<int, int> values;
 caors::any_ref ref = caors::any_ref::from(values);
-caors::value::associative_view map = ref.create_associative_view();
+caors::meta::associative_view map = ref.create_associative_view();
 map.insert_value(caors::any::from(1), caors::any::from(2));
 
-for (caors::value::associative_entry_ref entry : map) {
+for (caors::meta::associative_entry_ref entry : map) {
   caors::any_ref key = entry.key();
   caors::any_ref value = entry.value();
 }
@@ -694,7 +694,7 @@ auto reflected = caors::reflection::find("game.actor");
 - `include/caors/adapters/stl_traits.h` 和 `include/caors/adapters/stl_wrapper.h` 提供 `std::vector`、`std::deque`、`std::list`、`std::forward_list`、`std::array`、`std::span`、
   `std::pair`、`std::tuple`、`std::variant`、`std::set`、`std::unordered_set`、`std::map`、`std::unordered_map` 以及 CAORS 容器别名的默认 traits 特化。
 - `include/caors/adapters/stl.h` 是 STL/CAORS 容器、wrapper 和反射 traits 适配的聚合入口，不包含序列化 codec。
-- `include/caors/value.h` 是 value 模块 umbrella 头，提供 `any`、各类运行期 view 和
-  `caors::variant` DOM 值；具体 view 头位于 `include/caors/value/`。
+- `include/caors/meta/value.h` 是 meta value umbrella 头，提供 `any`、各类运行期 view 和
+  `caors::variant` DOM 值；具体 view 头位于 `include/caors/meta/value/`。
 - 可运行示例位于 `examples/reflection/`，示例组织规则见 [examples/README.md](../examples/README.md)。
 - 行为测试位于 `tests/reflection/`，测试组织规则见 [tests/README.md](../tests/README.md)。

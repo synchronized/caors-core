@@ -264,7 +264,7 @@ TEST_CASE("serialization - serializes resource refs as stable guids", "[serializ
   REQUIRE(value.succeeded());
   REQUIRE(value.value.is_object());
 
-  const caors::value::variant_member* texture =
+  const caors::meta::variant_member* texture =
       value.value.find_member(caors::string_name{"texture"});
   REQUIRE(texture != nullptr);
   REQUIRE(texture->value.is_string());

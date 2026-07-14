@@ -16,17 +16,17 @@ TEST_CASE("serialization - deserializes hash map fields from dictionaries", "[se
   REQUIRE(serialization_result_ok(caors::serialization::class_<map_actor>().commit()));
 
   caors::variant::dictionary_type entries;
-  entries.push_back(caors::value::variant_entry{
+  entries.push_back(caors::meta::variant_entry{
       caors::variant::from(std::int64_t{1}),
       caors::variant::from(std::string_view{"one"}),
   });
-  entries.push_back(caors::value::variant_entry{
+  entries.push_back(caors::meta::variant_entry{
       caors::variant::from(std::int64_t{2}),
       caors::variant::from(std::string_view{"two"}),
   });
 
   caors::variant::object_type members;
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"labels"},
       0,
       caors::variant::dictionary(std::move(entries)),
@@ -86,7 +86,7 @@ TEST_CASE("serialization - deserializes hash set fields from arrays", "[serializ
   ids.push_back(caors::variant::from(std::int64_t{2}));
 
   caors::variant::object_type members;
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"ids"},
       0,
       caors::variant::array(std::move(ids)),
@@ -125,13 +125,13 @@ TEST_CASE("serialization - generic associative traits work without type registra
   CHECK(text.value == R"({"labels":[[6,"six"]]})");
 
   caors::variant::dictionary_type entries;
-  entries.push_back(caors::value::variant_entry{
+  entries.push_back(caors::meta::variant_entry{
       caors::variant::from(std::int64_t{10}),
       caors::variant::from(std::string_view{"ten"}),
   });
 
   caors::variant::object_type members;
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"labels"},
       0,
       caors::variant::dictionary(std::move(entries)),
@@ -165,7 +165,7 @@ TEST_CASE("serialization - hash set reader rejects duplicate elements", "[serial
   ids.push_back(caors::variant::from(std::int64_t{1}));
 
   caors::variant::object_type members;
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"ids"},
       0,
       caors::variant::array(std::move(ids)),
@@ -267,8 +267,7 @@ TEST_CASE("serialization - serializes hash map fields as dictionaries", "[serial
 
   const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
-  const caors::value::variant_member* labels =
-      value.value.find_member(caors::string_name{"labels"});
+  const caors::meta::variant_member* labels = value.value.find_member(caors::string_name{"labels"});
   REQUIRE(labels != nullptr);
   REQUIRE(labels->value.is_dictionary());
   REQUIRE(labels->value.as_dictionary().size() == 1);
@@ -300,7 +299,7 @@ TEST_CASE("serialization - serializes hash set fields as arrays", "[serializatio
 
   const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
-  const caors::value::variant_member* ids = value.value.find_member(caors::string_name{"ids"});
+  const caors::meta::variant_member* ids = value.value.find_member(caors::string_name{"ids"});
   REQUIRE(ids != nullptr);
   REQUIRE(ids->value.is_array());
   REQUIRE(ids->value.as_array().size() == 1);

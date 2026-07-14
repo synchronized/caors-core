@@ -1,37 +1,41 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (c) 2026 CAORS contributors -->
 
-# Value
+# Meta Value
 
-value 模块负责运行期值访问和数据中间表示，主要包含四类能力：
+meta value 子模块负责运行期值访问和数据中间表示，是 `meta` 的一部分，主要包含四类能力：
 
 - `any`：拥有一份 C++ 对象拷贝，保留运行期类型描述。
 - `any_ref`：非拥有 C++ 对象引用，用于字段、容器元素和外部对象的零拷贝访问。
 - 各类 view：把指针、wrapper、sequence、set、associative、pair、tuple 和 variant-like 类型按统一接口访问。
 - `variant`：脱离精确 C++ 类型的数据 DOM，主要用于序列化、配置和跨格式转换。
 
+旧的 `caors/value*.h` 头文件和 `caors::value::*` 命名空间暂时作为兼容层保留；新代码应优先使用
+`caors/meta/value*.h` 和 `caors::meta::*`。
+
 ## 头文件边界
 
-value 模块提供细粒度头和完整聚合头。细粒度头不再依赖 `any.h` 间接带出其它能力，调用方需要按实际使用显式包含。
+meta value 提供细粒度头和完整聚合头。细粒度头不再依赖 `any.h`
+间接带出其它能力，调用方需要按实际使用显式包含。
 
 | 头文件 | 提供内容 | 适用场景 |
 | --- | --- | --- |
-| `caors/value/any.h` | `caors::value::any`、`caors::any` | 只需要拥有式运行期 C++ 值。 |
-| `caors/value/any_ref.h` | `caors::value::any_ref`、`caors::any_ref` | 需要引用外部 C++ 对象或反射字段。 |
-| `caors/value/view_factory.h` | 所有具体 view 类型 | 需要把 `any` / `any_ref` 创建成容器、wrapper、tuple 等运行期视图。 |
-| `caors/value/capability_view.h` | `any` / `any_ref` 的 `get_capability<View>()` 视图绑定适配 | 推荐的统一运行期视图查询入口。 |
-| `caors/value/associative_entry_ref.h` | `associative_entry_ref` | 需要按值使用关联容器迭代条目。 |
-| `caors/value/variant.h` | `caors::value::variant`、`caors::variant` | 需要序列化 DOM 或数据中间表示。 |
-| `caors/value.h` | value 模块完整公共入口 | 应用层或示例代码需要完整 value 能力。 |
+| `caors/meta/value/any.h` | `caors::meta::any`、`caors::any` | 只需要拥有式运行期 C++ 值。 |
+| `caors/meta/value/any_ref.h` | `caors::meta::any_ref`、`caors::any_ref` | 需要引用外部 C++ 对象或反射字段。 |
+| `caors/meta/value/view_factory.h` | 所有具体 view 类型 | 需要把 `any` / `any_ref` 创建成容器、wrapper、tuple 等运行期视图。 |
+| `caors/meta/value/capability_view.h` | `any` / `any_ref` 的 `get_capability<View>()` 视图绑定适配 | 推荐的统一运行期视图查询入口。 |
+| `caors/meta/value/associative_entry_ref.h` | `associative_entry_ref` | 需要按值使用关联容器迭代条目。 |
+| `caors/meta/value/variant.h` | `caors::meta::variant`、`caors::variant` | 需要序列化 DOM 或数据中间表示。 |
+| `caors/meta/value.h` | meta value 完整公共入口 | 应用层或示例代码需要完整运行期值能力。 |
 
-`any.h` 和 `any_ref.h` 中会声明 `create_*_view()`，但不会提供具体 view 的完整定义。只保存返回值、调用 view 成员函数或按值声明 view 类型时，应额外包含 `caors/value/view_factory.h` 或对应具体 view 头。
+`any.h` 和 `any_ref.h` 中会声明 `create_*_view()`，但不会提供具体 view 的完整定义。只保存返回值、调用 view 成员函数或按值声明 view 类型时，应额外包含 `caors/meta/value/view_factory.h` 或对应具体 view 头。
 
 ## 基本用法
 
 只使用拥有式值：
 
 ```cpp
-#include <caors/value/any.h>
+#include <caors/meta/value/any.h>
 
 caors::any value = caors::any::from(42);
 const int* stored = value.try_get<int>();
@@ -40,7 +44,7 @@ const int* stored = value.try_get<int>();
 引用外部对象：
 
 ```cpp
-#include <caors/value/any_ref.h>
+#include <caors/meta/value/any_ref.h>
 
 int number = 1;
 caors::any_ref ref = caors::any_ref::from(number);
@@ -51,14 +55,14 @@ ref.try_set(2);
 
 ```cpp
 #include <caors/core/containers.h>
-#include <caors/value/any_ref.h>
-#include <caors/value/capability_view.h>
+#include <caors/meta/value/any_ref.h>
+#include <caors/meta/value/capability_view.h>
 
 caors::vector<int> numbers{1, 2, 3};
 caors::any_ref ref = caors::any_ref::from(numbers);
 
-caors::value::sequence_view view =
-    ref.get_capability<caors::value::sequence_view>();
+caors::meta::sequence_view view =
+    ref.get_capability<caors::meta::sequence_view>();
 for (caors::any_ref element : view) {
   element.try_set(0);
 }
@@ -67,7 +71,7 @@ for (caors::any_ref element : view) {
 应用层如果不关心编译边界，可以直接使用完整入口：
 
 ```cpp
-#include <caors/value.h>
+#include <caors/meta/value.h>
 
 caors::variant data = caors::variant::object({});
 caors::any value = caors::any::from(7);
@@ -129,10 +133,10 @@ caors::any value = caors::any::from(7);
 推荐通过 `any` / `any_ref` 的统一能力入口创建运行期视图：
 
 ```cpp
-caors::value::sequence_view sequence =
-    ref.get_capability<caors::value::sequence_view>();
-caors::value::indirect_view indirect =
-    ref.get_capability<caors::value::indirect_view>();
+caors::meta::sequence_view sequence =
+    ref.get_capability<caors::meta::sequence_view>();
+caors::meta::indirect_view indirect =
+    ref.get_capability<caors::meta::indirect_view>();
 ```
 
 旧的 `create_sequence_view()`、`create_indirect_view()` 等函数暂时保留，语义等价于对应
@@ -142,7 +146,7 @@ caors::value::indirect_view indirect =
 registry。`get_*_type()` 系列接口返回 descriptor-backed `meta::type`；调用方需要 `type_id` 或名称时，
 直接读取返回视图的 `id()` / `name()`。需要稳定名称、GUID、反射字段、序列化策略或多态构造的业务类型仍应显式注册。
 
-集合和关联容器的 erased iterator 是 value/meta 内部临时对象，使用 CAORS 内部资源策略分配，并在 iterator
+集合和关联容器的 erased iterator 是 meta value 内部临时对象，使用 CAORS 内部资源策略分配，并在 iterator
 视图析构时自动释放。它不使用用户容器的 allocator，也不会延长底层容器元素生命周期。
 
 ## variant

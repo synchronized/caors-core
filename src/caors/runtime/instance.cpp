@@ -7,11 +7,11 @@
 
 namespace caors::runtime {
 
-instance::instance(value::any_ref value) noexcept : value_(value) {}
+instance::instance(meta::any_ref value) noexcept : value_(value) {}
 
 bool instance::valid() const noexcept { return value_.valid(); }
 
-value::any_ref instance::value() const noexcept { return value_; }
+meta::any_ref instance::value() const noexcept { return value_; }
 
 runtime::type instance::type() const noexcept {
   return valid() ? runtime::type{value_.get_type()} : runtime::type{};
@@ -115,7 +115,7 @@ bool object::valid() const noexcept { return instance_.valid(); }
 
 instance object::as_instance() const noexcept { return instance_; }
 
-value::any_ref object::value() const noexcept { return instance_.value(); }
+meta::any_ref object::value() const noexcept { return instance_.value(); }
 
 runtime::type object::type() const noexcept { return instance_.type(); }
 
@@ -136,7 +136,7 @@ objects::object* object::ptr() const noexcept {
     return pointer_;
   }
 
-  value::any_ref ref = instance_.value();
+  meta::any_ref ref = instance_.value();
   if (!ref) {
     return nullptr;
   }

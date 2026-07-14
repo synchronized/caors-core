@@ -5,8 +5,8 @@
 
 #include "reflection_test_support.h"
 
-#include "caors/value/associative_entry_ref.h"
-#include "caors/value/view_factory.h"
+#include "caors/meta/value/associative_entry_ref.h"
+#include "caors/meta/value/view_factory.h"
 
 using namespace test_reflection;
 
@@ -36,8 +36,8 @@ TEST_CASE("reflection - associative field view exposes key and value metadata", 
 
 #include "reflection_test_support.h"
 
-#include "caors/value/associative_entry_ref.h"
-#include "caors/value/view_factory.h"
+#include "caors/meta/value/associative_entry_ref.h"
+#include "caors/meta/value/view_factory.h"
 
 using namespace test_reflection;
 
@@ -56,7 +56,7 @@ TEST_CASE("reflection - associative field view supports dynamic operations", "[r
   REQUIRE(values);
 
   hash_map_ops_holder instance{};
-  caors::value::associative_view map = values.get_ref(&instance).create_associative_view();
+  caors::meta::associative_view map = values.get_ref(&instance).create_associative_view();
   CHECK(map.valid());
   CHECK(map.writable());
   CHECK(map.get_key_type().id() == registered_type_id("int"));
@@ -72,7 +72,7 @@ TEST_CASE("reflection - associative field view supports dynamic operations", "[r
 
   int key_sum = 0;
   int value_sum = 0;
-  for (caors::value::associative_entry_ref entry : map) {
+  for (caors::meta::associative_entry_ref entry : map) {
     const int* key = entry.key().try_get<int>();
     const int* value = entry.value().try_get<int>();
     REQUIRE(key != nullptr);
@@ -88,7 +88,7 @@ TEST_CASE("reflection - associative field view supports dynamic operations", "[r
   CHECK(*size == 1);
 
   const hash_map_ops_holder& readonly_instance = instance;
-  caors::value::associative_view readonly_map =
+  caors::meta::associative_view readonly_map =
       values.get_ref(&readonly_instance).create_associative_view();
   CHECK(readonly_map.valid());
   CHECK_FALSE(readonly_map.writable());
@@ -133,8 +133,8 @@ TEST_CASE("reflection - associative field view supports dynamic operations", "[r
 
 #include "reflection_test_support.h"
 
-#include "caors/value/associative_entry_ref.h"
-#include "caors/value/view_factory.h"
+#include "caors/meta/value/associative_entry_ref.h"
+#include "caors/meta/value/view_factory.h"
 
 using namespace test_reflection;
 
@@ -158,7 +158,7 @@ TEST_CASE("reflection - set field view exposes element metadata", "[reflection]"
   CHECK(values.get_element_type().name() == "int");
 
   hash_set_holder instance{};
-  caors::value::set_view set = values.get_ref(&instance).create_set_view();
+  caors::meta::set_view set = values.get_ref(&instance).create_set_view();
   CHECK(set.valid());
   CHECK(set.writable());
   CHECK(set.get_value_type().id() == registered_type_id("int"));
@@ -182,7 +182,7 @@ TEST_CASE("reflection - set field view exposes element metadata", "[reflection]"
   CHECK(*size == 1);
 
   const hash_set_holder& readonly_instance = instance;
-  caors::value::set_view readonly_set = values.get_ref(&readonly_instance).create_set_view();
+  caors::meta::set_view readonly_set = values.get_ref(&readonly_instance).create_set_view();
   CHECK(readonly_set.valid());
   CHECK_FALSE(readonly_set.writable());
   CHECK_FALSE(readonly_set.insert_value(caors::any::from(12)));

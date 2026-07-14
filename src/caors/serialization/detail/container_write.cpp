@@ -5,7 +5,7 @@
 
 namespace caors::serialization::detail {
 
-[[nodiscard]] error write_sequence_value(writer& writer, const value::sequence_view& view,
+[[nodiscard]] error write_sequence_value(writer& writer, const meta::sequence_view& view,
                                          const serialization::context& context) {
   const std::optional<std::size_t> size = view.size();
   if (!view.valid() || !size.has_value()) {
@@ -47,7 +47,7 @@ namespace caors::serialization::detail {
   return writer.end_array();
 }
 
-[[nodiscard]] error write_set_value(writer& output, const value::set_view& view,
+[[nodiscard]] error write_set_value(writer& output, const meta::set_view& view,
                                     const serialization::context& context) {
   const std::optional<std::size_t> size = view.size();
   if (!view.valid() || !size.has_value()) {
@@ -102,7 +102,7 @@ namespace caors::serialization::detail {
   return output.end_array();
 }
 
-[[nodiscard]] error write_associative_value(writer& output, const value::associative_view& view,
+[[nodiscard]] error write_associative_value(writer& output, const meta::associative_view& view,
                                             const serialization::context& context) {
   const std::optional<std::size_t> size = view.size();
   if (!view.valid() || !size.has_value()) {
@@ -182,7 +182,7 @@ namespace caors::serialization::detail {
   return output.end_dictionary();
 }
 
-[[nodiscard]] error write_pair_value(writer& writer, const value::pair_view& view,
+[[nodiscard]] error write_pair_value(writer& writer, const meta::pair_view& view,
                                      const serialization::context& context) {
   if (!view.valid()) {
     return {error_domain::serialization, errc::unsupported};
@@ -241,7 +241,7 @@ namespace caors::serialization::detail {
   return writer.end_array();
 }
 
-[[nodiscard]] error write_tuple_value(writer& writer, const value::tuple_view& view,
+[[nodiscard]] error write_tuple_value(writer& writer, const meta::tuple_view& view,
                                       const serialization::context& context) {
   if (!view.valid()) {
     return {error_domain::serialization, errc::unsupported};
@@ -283,7 +283,7 @@ namespace caors::serialization::detail {
   return writer.end_array();
 }
 
-[[nodiscard]] error write_variant_value(writer& writer, const value::variant_view& view,
+[[nodiscard]] error write_variant_value(writer& writer, const meta::variant_view& view,
                                         const serialization::context& context) {
   const std::optional<std::size_t> active = view.index();
   if (!view.valid() || !active.has_value()) {

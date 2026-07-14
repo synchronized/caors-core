@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "caors/value/variant.h"
+#include "caors/meta/value/variant.h"
 
 #include <utility>
 
-namespace caors::value {
+namespace caors::meta {
 
 variant::variant() = default;
 
@@ -140,4 +140,4 @@ variant_member* variant::find_member(std::uint32_t field_id) noexcept {
   return const_cast<variant_member*>(std::as_const(*this).find_member(field_id));
 }
 
-} // namespace caors::value
+} // namespace caors::meta

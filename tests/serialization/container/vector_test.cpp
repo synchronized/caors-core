@@ -20,7 +20,7 @@ TEST_CASE("serialization - deserializes vector fields from arrays", "[serializat
   scores.push_back(caors::variant::from(std::int64_t{6}));
 
   caors::variant::object_type members;
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"scores"},
       0,
       caors::variant::array(std::move(scores)),
@@ -104,8 +104,7 @@ TEST_CASE("serialization - recursively serializes nested vector values", "[seria
 
   const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
-  const caors::value::variant_member* groups =
-      value.value.find_member(caors::string_name{"groups"});
+  const caors::meta::variant_member* groups = value.value.find_member(caors::string_name{"groups"});
   REQUIRE(groups != nullptr);
   REQUIRE(groups->value.is_array());
   REQUIRE(groups->value.as_array().size() == 2);
@@ -153,12 +152,12 @@ TEST_CASE("serialization - recursively serializes vector struct elements", "[ser
   CHECK(text.value == R"({"stats":[{"level":1,"score":2.5},{"level":3,"score":4.5}]})");
 
   caors::variant::object_type first_stats;
-  first_stats.push_back(caors::value::variant_member{
+  first_stats.push_back(caors::meta::variant_member{
       caors::string_name{"level"},
       0,
       caors::variant::from(std::int64_t{7}),
   });
-  first_stats.push_back(caors::value::variant_member{
+  first_stats.push_back(caors::meta::variant_member{
       caors::string_name{"score"},
       0,
       caors::variant::from(8.5),
@@ -168,7 +167,7 @@ TEST_CASE("serialization - recursively serializes vector struct elements", "[ser
   stats_array.push_back(caors::variant::object(std::move(first_stats)));
 
   caors::variant::object_type members;
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"stats"},
       0,
       caors::variant::array(std::move(stats_array)),
@@ -204,8 +203,7 @@ TEST_CASE("serialization - roundtrips unique pointer vectors", "[serialization]"
 
   const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
-  const caors::value::variant_member* values =
-      value.value.find_member(caors::string_name{"values"});
+  const caors::meta::variant_member* values = value.value.find_member(caors::string_name{"values"});
   REQUIRE(values != nullptr);
   REQUIRE(values->value.is_array());
   REQUIRE(values->value.as_array().size() == 3);
@@ -250,8 +248,7 @@ TEST_CASE("serialization - serializes vector fields as arrays", "[serialization]
 
   const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
-  const caors::value::variant_member* scores =
-      value.value.find_member(caors::string_name{"scores"});
+  const caors::meta::variant_member* scores = value.value.find_member(caors::string_name{"scores"});
   REQUIRE(scores != nullptr);
   REQUIRE(scores->value.is_array());
   REQUIRE(scores->value.as_array().size() == 3);

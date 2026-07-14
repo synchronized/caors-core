@@ -105,7 +105,7 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
 }
 
 [[nodiscard]] constructed_value construct_polymorphic_value(const meta::type& dynamic_type,
-                                                            const value::indirect_view& indirect,
+                                                            const meta::indirect_view& indirect,
                                                             const serialization::context& context) {
   const meta::factory_ops* registered_factory = dynamic_type.get_capability<meta::factory_ops>();
   memory::memory_resource* resource = context.effective_memory_resource();
@@ -289,7 +289,7 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
 }
 
 [[nodiscard]] variant_result
-make_polymorphic_indirect_value(const value::indirect_view& indirect,
+make_polymorphic_indirect_value(const meta::indirect_view& indirect,
                                 const serialization::context& context) {
   if (!indirect.valid() || !indirect.has_value() || !indirect.can_set_value()) {
     return {{error_domain::serialization, errc::unsupported}, {}};
@@ -330,7 +330,7 @@ make_polymorphic_indirect_value(const value::indirect_view& indirect,
 }
 
 [[nodiscard]] error read_polymorphic_indirect_value(const variant& envelope,
-                                                    const value::indirect_view& indirect,
+                                                    const meta::indirect_view& indirect,
                                                     const serialization::context& context) {
   if (!indirect.valid() || !indirect.writable() || !indirect.can_set_value()) {
     return {error_domain::serialization, errc::unsupported};
@@ -406,7 +406,7 @@ make_polymorphic_indirect_value(const value::indirect_view& indirect,
   return {};
 }
 
-[[nodiscard]] variant_result make_indirect_serialized_value(const value::indirect_view& indirect,
+[[nodiscard]] variant_result make_indirect_serialized_value(const meta::indirect_view& indirect,
                                                             const serialization::context& context) {
   if (!indirect.valid()) {
     return {{error_domain::serialization, errc::unsupported}, {}};
@@ -438,7 +438,7 @@ make_polymorphic_indirect_value(const value::indirect_view& indirect,
 }
 
 [[nodiscard]] error write_indirect_serialized_value(writer& writer,
-                                                    const value::indirect_view& indirect,
+                                                    const meta::indirect_view& indirect,
                                                     const serialization::context& context) {
   if (!indirect.valid()) {
     return {error_domain::serialization, errc::unsupported};
@@ -470,7 +470,7 @@ make_polymorphic_indirect_value(const value::indirect_view& indirect,
 }
 
 [[nodiscard]] error read_indirect_serialized_value(reader& reader,
-                                                   const value::indirect_view& indirect,
+                                                   const meta::indirect_view& indirect,
                                                    const serialization::context& context) {
   if (!indirect.valid() || !indirect.writable()) {
     return {error_domain::serialization, errc::invalid_field};

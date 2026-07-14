@@ -4,8 +4,8 @@
 #ifndef CAORS_SERIALIZATION_DETAIL_VALUE_ACCESS_H_
 #define CAORS_SERIALIZATION_DETAIL_VALUE_ACCESS_H_
 
+#include "caors/meta/value/any_ref.h"
 #include "caors/serialization/types.h"
-#include "caors/value/any_ref.h"
 
 namespace caors::serialization::detail {
 

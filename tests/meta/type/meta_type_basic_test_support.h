@@ -4,8 +4,8 @@
 #pragma once
 
 #include "caors/meta.h"
+#include "caors/meta/value.h"
 #include "caors/traits/type_name.h"
-#include "caors/value.h"
 
 #include <catch2/catch_all.hpp>
 

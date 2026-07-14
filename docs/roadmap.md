@@ -139,9 +139,9 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 与反射系统打通，实现基于元信息的基础字段文本序列化。
 - [x] 增加 `variant` 中间对象树，支持对象、数组、标量和字段 id/name，并保留 streaming writer 快路径。
 - [x] 补充 `variant` 安全访问器、数组/对象 helper 和 `any` / `any_ref` 到 `variant` 的转换入口。
-- [x] 拆出 `value` 模块，提供 `any` C++ 类型值和 `variant` 数据值。
+- [x] 将运行期值能力纳入 `meta/value`，提供 `any` C++ 类型值和 `variant` 数据值。
 - [x] 增加 `any_ref`，支持反射字段零拷贝引用访问和不可拷贝字段读取。
-- [x] 为 `value::any` 评估并实现小对象优化，优先减少标量、小型平凡对象和常见临时值的堆分配，同时保持
+- [x] 为 `meta::any` 评估并实现小对象优化，优先减少标量、小型平凡对象和常见临时值的堆分配，同时保持
   `memory_resource` 构造和销毁语义一致。
 - [x] 增加 `serialization::reader` 后端接口和 DOM reader，支持基础字段反序列化。
 - [x] 增加反序列化缺失字段策略、未知字段默认忽略和基础 schema version 字段过滤。
@@ -176,7 +176,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `std::shared_ptr<Base>` 字段中的动态类型记录、默认构造和安全下转型。
 - [x] 为普通类多态值补充显式 factory 和可选 `memory_resource` 构造策略。
 - [x] 增加 `serialization/detail/value_access.h` 内部桥接层，集中访问 `any` / `any_ref` 携带的
-  descriptor 和默认构造能力，避免 serialization detail 文件散落依赖 `value::detail`。
+  descriptor 和默认构造能力，避免 serialization detail 文件散落依赖 meta value 内部细节。
 - [x] 简化序列化公开 API，保留 `serialize` / `deserialize` / `to_value` / `to_string` 等主路径，
   将低频 JSON/text buffer 入口收敛到 `serialization::` 模块命名空间。
 - [x] 拆分 `serialization::context` 的运行期状态、策略配置和 resolver 适配器，减少上下文字段膨胀。

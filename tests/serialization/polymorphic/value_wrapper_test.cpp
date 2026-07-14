@@ -27,7 +27,7 @@ TEST_CASE("serialization - polymorphic value envelope names are configurable", "
   REQUIRE(value.succeeded());
   REQUIRE(value.value.is_object());
 
-  const caors::value::variant_member* owner_member =
+  const caors::meta::variant_member* owner_member =
       value.value.find_member(caors::string_name{"owner"});
   REQUIRE(owner_member != nullptr);
   REQUIRE(owner_member->value.is_object());
@@ -37,7 +37,7 @@ TEST_CASE("serialization - polymorphic value envelope names are configurable", "
   CHECK(owner_member->value.find_member(caors::string_name{"kind"}) != nullptr);
   CHECK(owner_member->value.find_member(caors::string_name{"debug_type"}) != nullptr);
 
-  const caors::value::variant_member* stored_value =
+  const caors::meta::variant_member* stored_value =
       owner_member->value.find_member(caors::string_name{"data"});
   REQUIRE(stored_value != nullptr);
   REQUIRE(stored_value->value.is_object());
@@ -70,26 +70,26 @@ TEST_CASE("serialization - polymorphic value wrappers reject unrelated dynamic t
   require_polymorphic_value_metadata();
 
   caors::variant::object_type enemy_fields;
-  enemy_fields.push_back(caors::value::variant_member{
+  enemy_fields.push_back(caors::meta::variant_member{
       caors::string_name{"danger"},
       0,
       caors::variant::from(std::int64_t{9}),
   });
 
   caors::variant::object_type owner_envelope;
-  owner_envelope.push_back(caors::value::variant_member{
+  owner_envelope.push_back(caors::meta::variant_member{
       caors::string_name{"$type"},
       0,
       caors::variant::from(enemy_guid.value.string()),
   });
-  owner_envelope.push_back(caors::value::variant_member{
+  owner_envelope.push_back(caors::meta::variant_member{
       caors::string_name{"$value"},
       0,
       caors::variant::object(std::move(enemy_fields)),
   });
 
   caors::variant::object_type holder_fields;
-  holder_fields.push_back(caors::value::variant_member{
+  holder_fields.push_back(caors::meta::variant_member{
       caors::string_name{"owner"},
       0,
       caors::variant::object(std::move(owner_envelope)),
@@ -169,12 +169,12 @@ TEST_CASE("serialization - polymorphic value wrappers write type envelopes", "[s
   REQUIRE(value.succeeded());
   REQUIRE(value.value.is_object());
 
-  const caors::value::variant_member* owner_member =
+  const caors::meta::variant_member* owner_member =
       value.value.find_member(caors::string_name{"owner"});
   REQUIRE(owner_member != nullptr);
   REQUIRE(owner_member->value.is_object());
 
-  const caors::value::variant_member* type_member =
+  const caors::meta::variant_member* type_member =
       owner_member->value.find_member(caors::string_name{"$type"});
   REQUIRE(type_member != nullptr);
   REQUIRE(type_member->value.is_string());
@@ -182,7 +182,7 @@ TEST_CASE("serialization - polymorphic value wrappers write type envelopes", "[s
                          type_member->value.as_string().size()} ==
         std::string_view{player_guid.value.string()});
 
-  const caors::value::variant_member* stored_value =
+  const caors::meta::variant_member* stored_value =
       owner_member->value.find_member(caors::string_name{"$value"});
   REQUIRE(stored_value != nullptr);
   REQUIRE(stored_value->value.is_object());

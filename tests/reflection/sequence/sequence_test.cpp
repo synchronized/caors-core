@@ -5,8 +5,8 @@
 
 #include "reflection_test_support.h"
 
-#include "caors/value/associative_entry_ref.h"
-#include "caors/value/view_factory.h"
+#include "caors/meta/value/associative_entry_ref.h"
+#include "caors/meta/value/view_factory.h"
 
 using namespace test_reflection;
 
@@ -29,7 +29,7 @@ TEST_CASE("reflection - custom sequence traits expose field view", "[reflection]
   CHECK(values.get_element_type().name() == "int");
 
   custom_sequence_holder instance{};
-  caors::value::sequence_view sequence = values.get_ref(&instance).create_sequence_view();
+  caors::meta::sequence_view sequence = values.get_ref(&instance).create_sequence_view();
   CHECK(sequence.append_value(caors::any::from(21)));
   CHECK(sequence.append_value(caors::any::from(34)));
 
@@ -53,8 +53,8 @@ TEST_CASE("reflection - custom sequence traits expose field view", "[reflection]
 
 #include "reflection_test_support.h"
 
-#include "caors/value/associative_entry_ref.h"
-#include "caors/value/view_factory.h"
+#include "caors/meta/value/associative_entry_ref.h"
+#include "caors/meta/value/view_factory.h"
 
 using namespace test_reflection;
 
@@ -79,8 +79,8 @@ TEST_CASE("reflection - fixed std span field name includes extent", "[reflection
 
 #include "reflection_test_support.h"
 
-#include "caors/value/associative_entry_ref.h"
-#include "caors/value/view_factory.h"
+#include "caors/meta/value/associative_entry_ref.h"
+#include "caors/meta/value/view_factory.h"
 
 using namespace test_reflection;
 
@@ -104,7 +104,7 @@ TEST_CASE("reflection - list field view uses sequence traits", "[reflection]") {
   instance.values.push_back(3);
   instance.values.push_back(5);
 
-  caors::value::sequence_view sequence = values.get_ref(&instance).create_sequence_view();
+  caors::meta::sequence_view sequence = values.get_ref(&instance).create_sequence_view();
   CHECK(sequence.valid());
   CHECK(sequence.writable());
 
@@ -124,8 +124,8 @@ TEST_CASE("reflection - list field view uses sequence traits", "[reflection]") {
 
 #include "reflection_test_support.h"
 
-#include "caors/value/associative_entry_ref.h"
-#include "caors/value/view_factory.h"
+#include "caors/meta/value/associative_entry_ref.h"
+#include "caors/meta/value/view_factory.h"
 
 using namespace test_reflection;
 
@@ -151,7 +151,7 @@ TEST_CASE("reflection - sequence field view exposes element metadata", "[reflect
   instance.values.push_back(3);
   instance.values.push_back(5);
 
-  caors::value::sequence_view sequence = values.get_ref(&instance).create_sequence_view();
+  caors::meta::sequence_view sequence = values.get_ref(&instance).create_sequence_view();
   CHECK(sequence.valid());
   CHECK(sequence.writable());
   CHECK(sequence.get_value_type().id() == registered_type_id("int"));
@@ -172,7 +172,7 @@ TEST_CASE("reflection - sequence field view exposes element metadata", "[reflect
   CHECK(*size == 2);
 
   const vector_holder& readonly_instance = instance;
-  caors::value::sequence_view readonly_sequence =
+  caors::meta::sequence_view readonly_sequence =
       values.get_ref(&readonly_instance).create_sequence_view();
   CHECK(readonly_sequence.valid());
   CHECK_FALSE(readonly_sequence.writable());
@@ -206,8 +206,8 @@ TEST_CASE("reflection - sequence field view exposes element metadata", "[reflect
 
 #include "reflection_test_support.h"
 
-#include "caors/value/associative_entry_ref.h"
-#include "caors/value/view_factory.h"
+#include "caors/meta/value/associative_entry_ref.h"
+#include "caors/meta/value/view_factory.h"
 
 using namespace test_reflection;
 
@@ -228,7 +228,7 @@ TEST_CASE("reflection - std array field view uses fixed sequence traits", "[refl
   CHECK(values.get_element_type().id() == registered_type_id("int"));
 
   array_holder instance{{1, 2, 3}};
-  caors::value::sequence_view sequence = values.get_ref(&instance).create_sequence_view();
+  caors::meta::sequence_view sequence = values.get_ref(&instance).create_sequence_view();
   REQUIRE(sequence.valid());
   CHECK(sequence.writable());
 
@@ -250,8 +250,8 @@ TEST_CASE("reflection - std array field view uses fixed sequence traits", "[refl
 
 #include "reflection_test_support.h"
 
-#include "caors/value/associative_entry_ref.h"
-#include "caors/value/view_factory.h"
+#include "caors/meta/value/associative_entry_ref.h"
+#include "caors/meta/value/view_factory.h"
 
 using namespace test_reflection;
 
@@ -273,7 +273,7 @@ TEST_CASE("reflection - std span field view is borrowed sequence", "[reflection]
 
   std::array<int, 3> storage{1, 2, 3};
   span_holder instance{std::span<int>{storage}};
-  caors::value::sequence_view sequence = values.get_ref(&instance).create_sequence_view();
+  caors::meta::sequence_view sequence = values.get_ref(&instance).create_sequence_view();
   REQUIRE(sequence.valid());
   CHECK(sequence.writable());
 

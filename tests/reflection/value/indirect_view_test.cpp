@@ -30,7 +30,7 @@ TEST_CASE("reflection any_ref - creates indirect views for pointer and wrappers"
   const caors::reflection::field weak_field =
       require_reflected_field("caors.test.reflection.indirect_value_holder", "weak");
 
-  caors::value::indirect_view pointer = pointer_field.get_ref(&holder).create_indirect_view();
+  caors::meta::indirect_view pointer = pointer_field.get_ref(&holder).create_indirect_view();
   REQUIRE(pointer.valid());
   CHECK(pointer.writable());
   CHECK(pointer.get_value_type().id() == caors::any::from(0).get_type().id());
@@ -48,7 +48,7 @@ TEST_CASE("reflection any_ref - creates indirect views for pointer and wrappers"
   CHECK_FALSE(pointer.has_value());
   CHECK_FALSE(pointer.value_ref().valid());
 
-  caors::value::indirect_view optional = optional_field.get_ref(&holder).create_indirect_view();
+  caors::meta::indirect_view optional = optional_field.get_ref(&holder).create_indirect_view();
   REQUIRE(optional.valid());
   REQUIRE(optional.value_ref().try_get_mutable<int>() != nullptr);
   CHECK(*optional.value_ref().try_get_mutable<int>() == 11);
@@ -58,7 +58,7 @@ TEST_CASE("reflection any_ref - creates indirect views for pointer and wrappers"
   CHECK_FALSE(holder.optional.has_value());
   CHECK_FALSE(optional.has_value());
 
-  caors::value::indirect_view unique = unique_field.get_ref(&holder).create_indirect_view();
+  caors::meta::indirect_view unique = unique_field.get_ref(&holder).create_indirect_view();
   REQUIRE(unique.valid());
   REQUIRE(unique.value_ref().try_get_mutable<int>() != nullptr);
   CHECK(*unique.value_ref().try_get_mutable<int>() == 13);
@@ -67,7 +67,7 @@ TEST_CASE("reflection any_ref - creates indirect views for pointer and wrappers"
   CHECK(*holder.unique == 37);
 
   const indirect_value_holder& readonly_holder = holder;
-  caors::value::indirect_view readonly_unique =
+  caors::meta::indirect_view readonly_unique =
       unique_field.get_ref(&readonly_holder).create_indirect_view();
   REQUIRE(readonly_unique.valid());
   CHECK_FALSE(readonly_unique.writable());
@@ -94,7 +94,7 @@ TEST_CASE("reflection any_ref - creates indirect views from descriptor wrapper v
   caors::any_ref reference = caors::any_ref::from(value);
   REQUIRE(reference.valid());
 
-  caors::value::indirect_view indirect = reference.create_indirect_view();
+  caors::meta::indirect_view indirect = reference.create_indirect_view();
   REQUIRE(indirect.valid());
   CHECK(indirect.has_value());
   CHECK(indirect.get_value_type().id() == caors::any::from(0).get_type().id());

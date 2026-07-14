@@ -131,7 +131,7 @@ TEST_CASE("serialization - public context overloads are context-first", "[serial
 
   caors::serialization::variant_result value = caors::to_value(context, actor);
   REQUIRE(value.succeeded());
-  const caors::value::variant_member* member = value.value.find_member(caors::string_name{"value"});
+  const caors::meta::variant_member* member = value.value.find_member(caors::string_name{"value"});
   REQUIRE(member != nullptr);
   REQUIRE(member->value.try_as_i64() != nullptr);
   CHECK(*member->value.try_as_i64() == 507);
@@ -145,7 +145,7 @@ TEST_CASE("serialization - public context overloads are context-first", "[serial
   CHECK(decoded.value.value == 12);
 
   caors::variant::object_type members;
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"value"},
       0,
       caors::variant::from(std::int64_t{515}),

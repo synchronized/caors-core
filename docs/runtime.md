@@ -5,17 +5,17 @@
 
 `runtime` 主题提供面向用户的一站式运行时类型 facade，是普通用户优先使用的注册和查询入口。
 它不引入新的类型注册表，
-而是组合现有 `meta`、`reflection` 和 `value` 能力：
+而是组合现有 `meta`、`reflection` 和 meta value 能力：
 
 - `runtime::type` 内部持有 `meta::type`，按需查询反射组件。
 - `runtime::class_<T>("name")` 先注册 meta 类/普通值类型，再把字段和方法挂到 reflection 组件上。
 - `runtime::enum_<T>("name")` 注册枚举 meta 类型，适合只需要稳定类型身份、GUID 和枚举值转换能力的场景。
-- `runtime::instance` 组合 `value::any_ref`、`runtime::type`、`reflection::field` 和 `reflection::method`，
+- `runtime::instance` 组合 `meta::any_ref`、`runtime::type`、`reflection::field` 和 `reflection::method`，
   提供面向实例的字段读写和方法调用入口。
 - `runtime::object` 是对象系统适配视图，用于处理 `objects::ptr<T>` 这类对象指针字段。
 - `runtime::type::create()` 是运行期值创建的高层入口，优先使用 `meta::factory_ops`，最后才回退到
   descriptor 默认构造。
-- `runtime::type::create_value()` 只使用 `value::any` 的低层 descriptor 默认构造能力，不查询 factory。
+- `runtime::type::create_value()` 只使用 `meta::any` 的低层 descriptor 默认构造能力，不查询 factory。
 
 ## 基本使用
 
@@ -89,7 +89,7 @@ instance.set("health", 120);
 caors::any result = instance.call("add_health", 5);
 ```
 
-`runtime::instance` 是非拥有视图，只保存 `value::any_ref`：
+`runtime::instance` 是非拥有视图，只保存 `meta::any_ref`：
 
 - `runtime::view(value)` 创建可写实例视图。
 - `runtime::view_const(value)` 创建只读实例视图。

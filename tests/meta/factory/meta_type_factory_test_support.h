@@ -6,7 +6,7 @@
 #include "caors/core/containers.h"
 #include "caors/memory.h"
 #include "caors/meta.h"
-#include "caors/value.h"
+#include "caors/meta/value.h"
 
 #include <catch2/catch_all.hpp>
 

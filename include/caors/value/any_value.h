@@ -4,6 +4,7 @@
 #ifndef CAORS_VALUE_ANY_VALUE_H_
 #define CAORS_VALUE_ANY_VALUE_H_
 
+#include "caors/meta/value/any_value.h"
 #include "caors/value/any_ref.h"
 
 #endif

@@ -8,9 +8,9 @@
 #include "caors/core/string_name.h"
 #include "caors/error.h"
 #include "caors/io/path.h"
+#include "caors/meta/value/variant.h"
 #include "caors/resources/id.h"
 #include "caors/resources/source.h"
-#include "caors/value/variant.h"
 
 #include <cstdint>
 #include <string_view>

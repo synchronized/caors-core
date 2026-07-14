@@ -4,8 +4,8 @@
 #ifndef CAORS_OBJECT_PTR_VIEW_H_
 #define CAORS_OBJECT_PTR_VIEW_H_
 
+#include "caors/meta/value/any_ref.h"
 #include "caors/object/ptr.h"
-#include "caors/value/any_ref.h"
 
 namespace caors::objects {
 
@@ -45,7 +45,7 @@ public:
   }
 
 private:
-  friend ptr_view ptr_view_of(value::any_ref source) noexcept;
+  friend ptr_view ptr_view_of(meta::any_ref source) noexcept;
 
   ptr_view(const ptr_ops* data, const void* storage, bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
@@ -56,7 +56,7 @@ private:
 };
 
 /** @brief 如果运行期引用具备对象指针语义，则创建对象指针视图。 */
-[[nodiscard]] inline ptr_view ptr_view_of(value::any_ref source) noexcept {
+[[nodiscard]] inline ptr_view ptr_view_of(meta::any_ref source) noexcept {
   if (!source.valid()) {
     return {};
   }
@@ -70,7 +70,7 @@ private:
 }
 
 /** @brief 判断运行期引用是否具备对象指针语义。 */
-[[nodiscard]] inline bool is_ptr(value::any_ref source) noexcept {
+[[nodiscard]] inline bool is_ptr(meta::any_ref source) noexcept {
   return static_cast<bool>(ptr_view_of(source));
 }
 
@@ -81,7 +81,7 @@ namespace caors::meta {
 template <> struct capability_view_traits<objects::ptr_view> {
   static constexpr bool supported = true;
 
-  [[nodiscard]] static objects::ptr_view bind(value::any_ref source) noexcept {
+  [[nodiscard]] static objects::ptr_view bind(meta::any_ref source) noexcept {
     return objects::ptr_view_of(source);
   }
 };

@@ -277,7 +277,7 @@ descriptor 内部按职责拆分：
 - `*_ops` 表示某个 capability 的具体类型擦除操作表，通常由函数指针和少量只读元数据组成，例如
   `sequence_ops`、`ptr_ops`、`handle_ops` 和 `codec_ops`。
 - 外部实例访问优先使用绑定后的 `*_view`，例如
-  `any_ref.get_capability<value::sequence_view>()` 或
+  `any_ref.get_capability<meta::sequence_view>()` 或
   `any_ref.get_capability<objects::ptr_view>()`；`*_ops` 是底层函数表，不作为普通业务代码的首选入口。
 - `*_fn` 类型别名应尽量嵌套在对应 `*_ops` 内，例如 `value_ops::assign_fn`、
   `factory_ops::construct_fn`、`codec_ops::write_fn` 和 `ptr_ops::get_fn`；除
@@ -479,7 +479,7 @@ caors::meta::class_<actor>("game.actor")
 struct matrix_ops {
   std::size_t (*rows)(const void*) = nullptr;
   std::size_t (*columns)(const void*) = nullptr;
-  value::any_ref (*element)(void*, std::size_t, std::size_t) = nullptr;
+  meta::any_ref (*element)(void*, std::size_t, std::size_t) = nullptr;
 };
 
 caors::meta::class_<matrix>("math.matrix")

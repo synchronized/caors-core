@@ -80,39 +80,39 @@ TEST_CASE("serialization - deserializes pointer and wrapper fields into existing
   require_pointer_actor_metadata();
 
   caors::variant::object_type stats_members;
-  stats_members.push_back(caors::value::variant_member{
+  stats_members.push_back(caors::meta::variant_member{
       caors::string_name{"level"},
       0,
       caors::variant::from(std::int64_t{4}),
   });
-  stats_members.push_back(caors::value::variant_member{
+  stats_members.push_back(caors::meta::variant_member{
       caors::string_name{"score"},
       0,
       caors::variant::from(5.5),
   });
 
   caors::variant::object_type members;
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"raw"},
       0,
       caors::variant::from(std::int64_t{70}),
   });
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"shared"},
       0,
       caors::variant::from(std::int64_t{80}),
   });
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"unique"},
       0,
       caors::variant::from(std::int64_t{90}),
   });
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"optional"},
       0,
       caors::variant::from(std::int64_t{100}),
   });
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"stats"},
       0,
       caors::variant::object(std::move(stats_members)),
@@ -244,14 +244,12 @@ TEST_CASE("serialization - serializes empty pointer and wrapper fields as null",
   const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
 
-  const caors::value::variant_member* raw = value.value.find_member(caors::string_name{"raw"});
-  const caors::value::variant_member* shared =
-      value.value.find_member(caors::string_name{"shared"});
-  const caors::value::variant_member* unique =
-      value.value.find_member(caors::string_name{"unique"});
-  const caors::value::variant_member* optional =
+  const caors::meta::variant_member* raw = value.value.find_member(caors::string_name{"raw"});
+  const caors::meta::variant_member* shared = value.value.find_member(caors::string_name{"shared"});
+  const caors::meta::variant_member* unique = value.value.find_member(caors::string_name{"unique"});
+  const caors::meta::variant_member* optional =
       value.value.find_member(caors::string_name{"optional"});
-  const caors::value::variant_member* stats = value.value.find_member(caors::string_name{"stats"});
+  const caors::meta::variant_member* stats = value.value.find_member(caors::string_name{"stats"});
   REQUIRE(raw != nullptr);
   REQUIRE(shared != nullptr);
   REQUIRE(unique != nullptr);
@@ -293,16 +291,14 @@ TEST_CASE("serialization - serializes pointer and wrapper fields as inline value
 
   const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
-  const caors::value::variant_member* shared =
-      value.value.find_member(caors::string_name{"shared"});
+  const caors::meta::variant_member* shared = value.value.find_member(caors::string_name{"shared"});
   REQUIRE(shared != nullptr);
   CHECK(shared->value.as_i64() == 8);
 
-  const caors::value::variant_member* nested = value.value.find_member(caors::string_name{"stats"});
+  const caors::meta::variant_member* nested = value.value.find_member(caors::string_name{"stats"});
   REQUIRE(nested != nullptr);
   REQUIRE(nested->value.is_object());
-  const caors::value::variant_member* level =
-      nested->value.find_member(caors::string_name{"level"});
+  const caors::meta::variant_member* level = nested->value.find_member(caors::string_name{"level"});
   REQUIRE(level != nullptr);
   CHECK(level->value.as_i64() == 2);
 }

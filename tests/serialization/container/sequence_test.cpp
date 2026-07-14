@@ -20,7 +20,7 @@ TEST_CASE("serialization - deserializes list fields from arrays", "[serializatio
   scores.push_back(caors::variant::from(std::int64_t{6}));
 
   caors::variant::object_type members;
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"scores"},
       0,
       caors::variant::array(std::move(scores)),
@@ -66,7 +66,7 @@ TEST_CASE("serialization - generic sequence traits work without type registratio
   values.push_back(caors::variant::from(std::int64_t{9}));
 
   caors::variant::object_type members;
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"scores"},
       0,
       caors::variant::array(std::move(values)),
@@ -278,8 +278,7 @@ TEST_CASE("serialization - serializes list fields as arrays", "[serialization]")
 
   const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
-  const caors::value::variant_member* scores =
-      value.value.find_member(caors::string_name{"scores"});
+  const caors::meta::variant_member* scores = value.value.find_member(caors::string_name{"scores"});
   REQUIRE(scores != nullptr);
   REQUIRE(scores->value.is_array());
   REQUIRE(scores->value.as_array().size() == 3);

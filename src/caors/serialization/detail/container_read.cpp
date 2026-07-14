@@ -35,7 +35,7 @@ namespace caors::serialization::detail {
   return {error_domain::serialization, errc::invalid_type};
 }
 
-[[nodiscard]] error read_sequence_into_view(reader& reader, const value::sequence_view& view,
+[[nodiscard]] error read_sequence_into_view(reader& reader, const meta::sequence_view& view,
                                             const meta::sequence_ops* sequence,
                                             const serialization::context& context) {
   if (!view.valid() || !view.writable()) {
@@ -110,7 +110,7 @@ namespace caors::serialization::detail {
   return read_sequence_into_view(reader, target.create_sequence_view(), sequence, context);
 }
 
-[[nodiscard]] error read_set_into_view(reader& reader, const value::set_view& view,
+[[nodiscard]] error read_set_into_view(reader& reader, const meta::set_view& view,
                                        const serialization::context& context) {
   if (!view.valid() || !view.writable()) {
     return {error_domain::serialization, errc::invalid_field};
@@ -182,7 +182,7 @@ namespace caors::serialization::detail {
   return read_set_into_view(reader, target.create_set_view(), context);
 }
 
-[[nodiscard]] error read_associative_into_view(reader& reader, const value::associative_view& view,
+[[nodiscard]] error read_associative_into_view(reader& reader, const meta::associative_view& view,
                                                const serialization::context& context) {
   if (!view.valid() || !view.writable()) {
     return {error_domain::serialization, errc::invalid_field};
@@ -280,7 +280,7 @@ namespace caors::serialization::detail {
   return read_associative_into_view(reader, target.create_associative_view(), context);
 }
 
-[[nodiscard]] error read_pair_into_view(reader& reader, const value::pair_view& view,
+[[nodiscard]] error read_pair_into_view(reader& reader, const meta::pair_view& view,
                                         const serialization::context& context) {
   if (!view.valid() || !view.writable()) {
     return {error_domain::serialization, errc::invalid_field};
@@ -366,7 +366,7 @@ namespace caors::serialization::detail {
   return read_pair_into_view(reader, target.create_pair_view(), context);
 }
 
-[[nodiscard]] error read_tuple_into_view(reader& reader, const value::tuple_view& view,
+[[nodiscard]] error read_tuple_into_view(reader& reader, const meta::tuple_view& view,
                                          const serialization::context& context) {
   if (!view.valid() || !view.writable()) {
     return {error_domain::serialization, errc::invalid_field};
@@ -434,7 +434,7 @@ namespace caors::serialization::detail {
   return read_tuple_into_view(reader, target.create_tuple_view(), context);
 }
 
-[[nodiscard]] error read_variant_into_view(reader& reader, const value::variant_view& view,
+[[nodiscard]] error read_variant_into_view(reader& reader, const meta::variant_view& view,
                                            const serialization::context& context) {
   if (!view.valid() || !view.writable()) {
     return {error_domain::serialization, errc::invalid_field};

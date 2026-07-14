@@ -8,10 +8,10 @@
 #include "caors/error.h"
 #include "caors/memory/resource.h"
 #include "caors/meta.h"
+#include "caors/meta/value/variant.h"
 #include "caors/result.h"
 #include "caors/serialization/external_ref.h"
 #include "caors/serialization/type_schema.h"
-#include "caors/value/variant.h"
 
 #include <cstddef>
 #include <cstdint>

@@ -9,19 +9,19 @@ namespace caors::serialization {
 
 error write_variant(writer& writer, const variant& value) {
   switch (value.kind()) {
-  case value::variant_kind::null:
+  case meta::variant_kind::null:
     return writer.write_null();
-  case value::variant_kind::boolean:
+  case meta::variant_kind::boolean:
     return writer.write_bool(value.as_bool());
-  case value::variant_kind::signed_integer:
+  case meta::variant_kind::signed_integer:
     return writer.write_i64(value.as_i64());
-  case value::variant_kind::unsigned_integer:
+  case meta::variant_kind::unsigned_integer:
     return writer.write_u64(value.as_u64());
-  case value::variant_kind::floating:
+  case meta::variant_kind::floating:
     return writer.write_f64(value.as_f64());
-  case value::variant_kind::string:
+  case meta::variant_kind::string:
     return writer.write_string(value.as_string());
-  case value::variant_kind::array: {
+  case meta::variant_kind::array: {
     error status = writer.begin_array(value.as_array().size());
     if (status) {
       return status;
@@ -49,14 +49,14 @@ error write_variant(writer& writer, const variant& value) {
 
     return writer.end_array();
   }
-  case value::variant_kind::dictionary: {
+  case meta::variant_kind::dictionary: {
     error status = writer.begin_dictionary(value.as_dictionary().size());
     if (status) {
       return status;
     }
 
     std::size_t index = 0;
-    for (const value::variant_entry& entry : value.as_dictionary()) {
+    for (const meta::variant_entry& entry : value.as_dictionary()) {
       status = writer.begin_entry(index);
       if (status) {
         return status;
@@ -102,10 +102,10 @@ error write_variant(writer& writer, const variant& value) {
 
     return writer.end_dictionary();
   }
-  case value::variant_kind::object: {
+  case meta::variant_kind::object: {
     serialization::type_schema type_schema;
     type_schema.fields.reserve(value.as_object().size());
-    for (const value::variant_member& member : value.as_object()) {
+    for (const meta::variant_member& member : value.as_object()) {
       type_schema.fields.push_back(serialization::field_schema{
           member.name,
           member.name,
@@ -123,7 +123,7 @@ error write_variant(writer& writer, const variant& value) {
     }
 
     for (std::size_t index = 0; index < value.as_object().size(); ++index) {
-      const value::variant_member& member = value.as_object()[index];
+      const meta::variant_member& member = value.as_object()[index];
       status = serialization::detail::validate_field_for_writer(type_schema.fields[index],
                                                                 writer.features());
       if (status) {

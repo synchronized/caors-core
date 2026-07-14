@@ -24,11 +24,11 @@ TEST_CASE("serialization - builds variant from reflected object", "[serializatio
   const caors::serialization::variant_result result = caors::to_value(actor);
 
   REQUIRE(result.succeeded());
-  CHECK(result.value.kind() == caors::value::variant_kind::object);
+  CHECK(result.value.kind() == caors::meta::variant_kind::object);
   REQUIRE(result.value.as_object().size() == 1);
   CHECK(result.value.as_object()[0].name == "actor_id");
   CHECK(result.value.as_object()[0].field_id == 7);
-  CHECK(result.value.as_object()[0].value.kind() == caors::value::variant_kind::signed_integer);
+  CHECK(result.value.as_object()[0].value.kind() == caors::meta::variant_kind::signed_integer);
   CHECK(result.value.as_object()[0].value.as_i64() == 42);
 }
 
@@ -263,7 +263,7 @@ TEST_CASE("serialization - writes intermediate arrays and objects through text w
   items.push_back(caors::variant::from(std::int64_t{2}));
 
   caors::variant::object_type members;
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"items"},
       1,
       caors::variant::array(std::move(items)),

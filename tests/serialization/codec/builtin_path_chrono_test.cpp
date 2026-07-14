@@ -29,9 +29,9 @@ TEST_CASE("serialization - built in codecs roundtrip chrono values as integers",
 
   const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
-  const caors::value::variant_member* timeout =
+  const caors::meta::variant_member* timeout =
       value.value.find_member(caors::string_name{"timeout"});
-  const caors::value::variant_member* timestamp =
+  const caors::meta::variant_member* timestamp =
       value.value.find_member(caors::string_name{"timestamp"});
   REQUIRE(timeout != nullptr);
   REQUIRE(timestamp != nullptr);
@@ -73,7 +73,7 @@ TEST_CASE("serialization - built in codecs roundtrip filesystem paths as strings
 
   const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
-  const caors::value::variant_member* path = value.value.find_member(caors::string_name{"path"});
+  const caors::meta::variant_member* path = value.value.find_member(caors::string_name{"path"});
   REQUIRE(path != nullptr);
   REQUIRE(path->value.try_as_string() != nullptr);
   CHECK(*path->value.try_as_string() == "assets/textures/albedo.png");

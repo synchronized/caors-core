@@ -12,8 +12,8 @@ namespace caors::serialization::detail {
 [[nodiscard]] core::string_name polymorphic_type_field(const serialization::context& context);
 [[nodiscard]] core::string_name polymorphic_value_field(const serialization::context& context);
 [[nodiscard]] core::string_name polymorphic_type_name_field(const serialization::context& context);
-[[nodiscard]] const value::variant_member* find_variant_member(const variant& source,
-                                                               core::string_name name) noexcept;
+[[nodiscard]] const meta::variant_member* find_variant_member(const variant& source,
+                                                              core::string_name name) noexcept;
 [[nodiscard]] bool is_polymorphic_envelope(const variant& source,
                                            const serialization::context& context) noexcept;
 [[nodiscard]] result<type_guid> read_polymorphic_type_guid(const variant& envelope,

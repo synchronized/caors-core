@@ -23,7 +23,7 @@ TEST_CASE("serialization - parses json and deserializes reflected struct fields"
       R"({"id":7,"health":95.5,"active":true,"name":"Ada\nLovelace"})");
   REQUIRE(parsed.succeeded());
   REQUIRE(parsed.value.is_object());
-  const caors::value::variant_member* name = parsed.value.find_member(caors::string_name{"name"});
+  const caors::meta::variant_member* name = parsed.value.find_member(caors::string_name{"name"});
   REQUIRE(name != nullptr);
   REQUIRE(name->value.is_string());
   CHECK(name->value.as_string() == "Ada\nLovelace");
@@ -98,9 +98,9 @@ TEST_CASE("serialization - roundtrips char and enum fields", "[serialization]") 
   const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
 
-  const caors::value::variant_member* code = value.value.find_member(caors::string_name{"code"});
-  const caors::value::variant_member* color = value.value.find_member(caors::string_name{"color"});
-  const caors::value::variant_member* state = value.value.find_member(caors::string_name{"state"});
+  const caors::meta::variant_member* code = value.value.find_member(caors::string_name{"code"});
+  const caors::meta::variant_member* color = value.value.find_member(caors::string_name{"color"});
+  const caors::meta::variant_member* state = value.value.find_member(caors::string_name{"state"});
   REQUIRE(code != nullptr);
   REQUIRE(color != nullptr);
   REQUIRE(state != nullptr);
@@ -138,22 +138,22 @@ TEST_CASE("serialization - variant reader deserializes reflected struct fields",
   REQUIRE(serialization_result_ok(caors::serialization::class_<reader_actor>().commit()));
 
   caors::variant::object_type members;
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"id"},
       0,
       caors::variant::from(std::int64_t{7}),
   });
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"health"},
       0,
       caors::variant::from(95.5),
   });
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"active"},
       0,
       caors::variant::from(true),
   });
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"name"},
       0,
       caors::variant::from(std::string_view{"Ada"}),
@@ -221,12 +221,12 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
   CHECK(text_v3.value == R"({"id":1,"current":20,"future":30})");
 
   caors::variant::object_type members;
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"id"},
       0,
       caors::variant::from(std::int64_t{2}),
   });
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"current"},
       0,
       caors::variant::from(std::int64_t{22}),
@@ -243,22 +243,22 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
   CHECK(deserialized.future == 0);
 
   caors::variant::object_type extra_members;
-  extra_members.push_back(caors::value::variant_member{
+  extra_members.push_back(caors::meta::variant_member{
       caors::string_name{"id"},
       0,
       caors::variant::from(std::int64_t{3}),
   });
-  extra_members.push_back(caors::value::variant_member{
+  extra_members.push_back(caors::meta::variant_member{
       caors::string_name{"legacy"},
       0,
       caors::variant::from(std::int64_t{33}),
   });
-  extra_members.push_back(caors::value::variant_member{
+  extra_members.push_back(caors::meta::variant_member{
       caors::string_name{"current"},
       0,
       caors::variant::from(std::int64_t{44}),
   });
-  extra_members.push_back(caors::value::variant_member{
+  extra_members.push_back(caors::meta::variant_member{
       caors::string_name{"future"},
       0,
       caors::variant::from(std::int64_t{55}),
@@ -275,12 +275,12 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
   CHECK(filtered.future == 30);
 
   caors::variant::object_type missing_required_members;
-  missing_required_members.push_back(caors::value::variant_member{
+  missing_required_members.push_back(caors::meta::variant_member{
       caors::string_name{"id"},
       0,
       caors::variant::from(std::int64_t{4}),
   });
-  missing_required_members.push_back(caors::value::variant_member{
+  missing_required_members.push_back(caors::meta::variant_member{
       caors::string_name{"current"},
       0,
       caors::variant::from(std::int64_t{55}),
@@ -329,17 +329,17 @@ TEST_CASE("serialization - variant reader applies required optional and skipped 
                                   .commit()));
 
   caors::variant::object_type members;
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"id"},
       0,
       caors::variant::from(std::int64_t{1}),
   });
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"required"},
       0,
       caors::variant::from(std::int64_t{3}),
   });
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"skipped"},
       0,
       caors::variant::from(std::int64_t{4}),
@@ -374,12 +374,12 @@ TEST_CASE("serialization - variant reader ignores unknown object members", "[ser
                                       .commit()));
 
   caors::variant::object_type members;
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"id"},
       0,
       caors::variant::from(std::int64_t{7}),
   });
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"extra"},
       0,
       caors::variant::from(std::int64_t{99}),
@@ -412,7 +412,7 @@ TEST_CASE("serialization - variant reader matches fields by stable field id", "[
                                   .commit()));
 
   caors::variant::object_type members;
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"legacy_id"},
       7,
       caors::variant::from(std::int64_t{42}),

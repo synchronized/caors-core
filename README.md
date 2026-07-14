@@ -35,10 +35,10 @@ CAORS 目前更偏底层库和实验性基础设施，而不是完整引擎或�
 - 基础内存资源 API：`caors/memory.h`。
 - 基础对象系统 API：`caors/object.h`。
 - 基础反射 API：`caors/reflection.h`。
-- 运行时组合 API：`caors/runtime.h`，提供 `meta`、`reflection` 和 `value` 的用户友好 facade。
+- 运行时组合 API：`caors/runtime.h`，提供 `meta`、`reflection` 和运行期值能力的用户友好 facade。
 - 资源 API：`caors/resources.h`，包含资源身份、引用、运行期 handle、引用计数缓存、依赖图、清单、
   字节来源 provider、loader/saver、同步 reload 通知、异步加载请求和非拥有资源 database 编排入口。
-- 运行期值 API：`caors/value.h`，包含 `any`、`any_ref`、运行期 view 和 `variant` 数据 DOM。
+- Meta value API：`caors/meta/value.h`，包含 `any`、`any_ref`、运行期 view 和 `variant` 数据 DOM。
 - 序列化 API：`caors/serialization.h`，提供基于反射字段的文本/JSON 读写、DOM、codec、资源引用和多态读写入口。
 - `examples/` 可运行示例。
 - Catch2 测试骨架，测试目录按叶子主题自动生成独立测试目标。
@@ -78,7 +78,7 @@ ctest --preset windows-clang-debug
 - [docs/runtime.md](docs/runtime.md)：运行时组合 facade，统一查询类型、字段、方法和值构造能力。
 - [docs/serialization.md](docs/serialization.md)：序列化元信息、文本/JSON 读写、codec、资源引用和多态读写边界。
 - [docs/tasks.md](docs/tasks.md)：任务包装器、executor 抽象和主线程完成队列。
-- [docs/value.md](docs/value.md)：`any`、`any_ref`、运行期 view 和 `variant` 数据 DOM。
+- [docs/value.md](docs/value.md)：meta value 子模块，包含 `any`、`any_ref`、运行期 view 和 `variant` 数据 DOM。
 - [examples/README.md](examples/README.md)：示例构建、运行和新增规则。
 - [tests/README.md](tests/README.md)：测试组织、运行和新增规则。
 

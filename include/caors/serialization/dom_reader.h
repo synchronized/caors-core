@@ -39,19 +39,19 @@ public:
   [[nodiscard]] error end_object() override;
 
 private:
-  [[nodiscard]] const value::variant_member* find_member(const field_schema& field) const;
+  [[nodiscard]] const meta::variant_member* find_member(const field_schema& field) const;
   [[nodiscard]] const variant* current_value() const noexcept;
 
   struct dictionary_context {
     const variant* source = nullptr;
-    const value::variant_entry* entry = nullptr;
+    const meta::variant_entry* entry = nullptr;
     const variant* pair = nullptr;
     const variant* current = nullptr;
   };
 
   const variant* root_ = nullptr;
   vector<const variant*> object_stack_{};
-  vector<const value::variant_member*> current_members_{};
+  vector<const meta::variant_member*> current_members_{};
   vector<const variant*> array_stack_{};
   vector<const variant*> current_elements_{};
   vector<dictionary_context> dictionary_stack_{};

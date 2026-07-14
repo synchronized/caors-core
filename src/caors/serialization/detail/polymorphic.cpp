@@ -42,16 +42,16 @@ core::string_name polymorphic_type_name_field(const serialization::context& cont
                                                     : default_polymorphic_type_name_field();
 }
 
-const value::variant_member* find_variant_member(const variant& source,
-                                                 core::string_name name) noexcept {
+const meta::variant_member* find_variant_member(const variant& source,
+                                                core::string_name name) noexcept {
   return source.is_object() ? source.find_member(name) : nullptr;
 }
 
 bool is_polymorphic_envelope(const variant& source,
                              const serialization::context& context) noexcept {
-  const value::variant_member* type_member =
+  const meta::variant_member* type_member =
       find_variant_member(source, polymorphic_type_field(context));
-  const value::variant_member* value_member =
+  const meta::variant_member* value_member =
       find_variant_member(source, polymorphic_value_field(context));
   return type_member != nullptr && type_member->value.is_string() && value_member != nullptr;
 }
@@ -62,7 +62,7 @@ result<type_guid> read_polymorphic_type_guid(const variant& envelope,
     return {{error_domain::serialization, errc::invalid_argument}, {}};
   }
 
-  const value::variant_member* type_member = envelope.find_member(polymorphic_type_field(context));
+  const meta::variant_member* type_member = envelope.find_member(polymorphic_type_field(context));
   if (type_member == nullptr || !type_member->value.is_string()) {
     return {{error_domain::serialization, errc::not_found}, {}};
   }
@@ -83,7 +83,7 @@ result<type_guid> read_polymorphic_type_guid(const variant& envelope,
 
 const variant* read_polymorphic_value(const variant& envelope,
                                       const serialization::context& context) noexcept {
-  const value::variant_member* value_member =
+  const meta::variant_member* value_member =
       find_variant_member(envelope, polymorphic_value_field(context));
   return value_member != nullptr ? &value_member->value : nullptr;
 }
@@ -120,19 +120,19 @@ variant_result make_polymorphic_envelope(type_guid guid, core::string_name type_
 
   variant::object_type members;
   members.reserve(context.config.polymorphic.write_type_name && type_name ? 3 : 2);
-  members.push_back(value::variant_member{
+  members.push_back(meta::variant_member{
       polymorphic_type_field(context),
       0,
       variant::from(guid.value.string()),
   });
   if (context.config.polymorphic.write_type_name && type_name) {
-    members.push_back(value::variant_member{
+    members.push_back(meta::variant_member{
         polymorphic_type_name_field(context),
         0,
         variant::from(type_name.view()),
     });
   }
-  members.push_back(value::variant_member{
+  members.push_back(meta::variant_member{
       polymorphic_value_field(context),
       0,
       std::move(stored_value),

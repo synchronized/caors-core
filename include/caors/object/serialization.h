@@ -25,11 +25,7 @@ using object_ref_resolver = serialization::external_ref_resolver;
 [[nodiscard]] inline serialization::external_ref make_object_external_ref(object_id id,
                                                                           object_type_id type) {
   return serialization::external_ref{
-      object_ref_domain(),
-      {},
-      type,
-      id.value(),
-      serialization::external_ref_identity::integer,
+      object_ref_domain(), {}, type, id.value(), serialization::external_ref_identity::integer,
   };
 }
 
@@ -37,11 +33,7 @@ using object_ref_resolver = serialization::external_ref_resolver;
 [[nodiscard]] inline serialization::external_ref make_object_external_ref(object_guid guid,
                                                                           object_type_id type) {
   return serialization::external_ref{
-      object_ref_domain(),
-      guid,
-      type,
-      0,
-      serialization::external_ref_identity::guid,
+      object_ref_domain(), guid, type, 0, serialization::external_ref_identity::guid,
   };
 }
 
@@ -124,8 +116,8 @@ active_object_ref_resolver(const serialization::context& context) noexcept {
   return context.effective_external_ref_resolver();
 }
 
-[[nodiscard]] inline serialization::external_ref
-read_runtime_object_ref(std::uint64_t encoded_id, type_id type) noexcept {
+[[nodiscard]] inline serialization::external_ref read_runtime_object_ref(std::uint64_t encoded_id,
+                                                                         type_id type) noexcept {
   return objects::make_object_external_ref(object_id{encoded_id}, type);
 }
 
@@ -151,12 +143,12 @@ read_persistent_object_ref(std::string_view encoded_guid, type_id type, error& s
 [[nodiscard]] inline serialization::variant_result make_object_handle_value(objects::handle value) {
   variant::object_type members;
   members.reserve(2);
-  members.push_back(value::variant_member{
+  members.push_back(meta::variant_member{
       core::string_name{"id"},
       1,
       variant::from(value.id().value()),
   });
-  members.push_back(value::variant_member{
+  members.push_back(meta::variant_member{
       core::string_name{"type"},
       2,
       variant::from(value.type().value()),

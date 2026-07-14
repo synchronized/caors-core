@@ -17,7 +17,7 @@ TEST_CASE("serialization - deserializes object pointers through resolver", "[ser
   context.resolvers.external_refs.resolver = &resolver;
 
   caors::variant::object_type members;
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"target"},
       0,
       caors::variant::from(std::uint64_t{88}),
@@ -58,7 +58,7 @@ TEST_CASE("serialization - object pointer resolver failures are reported", "[ser
   context.resolvers.external_refs.resolver = &resolver;
 
   caors::variant::object_type members;
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"target"},
       0,
       caors::variant::from(std::uint64_t{99}),
@@ -78,7 +78,7 @@ TEST_CASE("serialization - object pointer resolver failures are reported", "[ser
   wrong_type_context.resolvers.external_refs.resolver = &wrong_type_resolver;
 
   caors::variant::object_type wrong_type_members;
-  wrong_type_members.push_back(caors::value::variant_member{
+  wrong_type_members.push_back(caors::meta::variant_member{
       caors::string_name{"target"},
       0,
       caors::variant::from(std::uint64_t{100}),
@@ -113,7 +113,7 @@ TEST_CASE("serialization - serializes object pointers through resolver", "[seria
 
   const caors::serialization::variant_result value = caors::to_value(context, actor);
   REQUIRE(value.succeeded());
-  const caors::value::variant_member* target_member =
+  const caors::meta::variant_member* target_member =
       value.value.find_member(caors::string_name{"target"});
   REQUIRE(target_member != nullptr);
   CHECK(target_member->value.is_u64());

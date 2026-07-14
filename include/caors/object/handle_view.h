@@ -4,8 +4,8 @@
 #ifndef CAORS_OBJECT_HANDLE_VIEW_H_
 #define CAORS_OBJECT_HANDLE_VIEW_H_
 
+#include "caors/meta/value/any_ref.h"
 #include "caors/object/handle.h"
-#include "caors/value/any_ref.h"
 
 namespace caors::objects {
 
@@ -45,7 +45,7 @@ public:
   }
 
 private:
-  friend handle_view handle_view_of(value::any_ref source) noexcept;
+  friend handle_view handle_view_of(meta::any_ref source) noexcept;
 
   handle_view(const handle_ops* data, const void* storage, bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
@@ -56,7 +56,7 @@ private:
 };
 
 /** @brief 如果运行期引用具备对象身份句柄语义，则创建句柄视图。 */
-[[nodiscard]] inline handle_view handle_view_of(value::any_ref source) noexcept {
+[[nodiscard]] inline handle_view handle_view_of(meta::any_ref source) noexcept {
   if (!source.valid()) {
     return {};
   }
@@ -70,7 +70,7 @@ private:
 }
 
 /** @brief 判断运行期引用是否具备对象身份句柄语义。 */
-[[nodiscard]] inline bool is_handle(value::any_ref source) noexcept {
+[[nodiscard]] inline bool is_handle(meta::any_ref source) noexcept {
   return static_cast<bool>(handle_view_of(source));
 }
 
@@ -81,7 +81,7 @@ namespace caors::meta {
 template <> struct capability_view_traits<objects::handle_view> {
   static constexpr bool supported = true;
 
-  [[nodiscard]] static objects::handle_view bind(value::any_ref source) noexcept {
+  [[nodiscard]] static objects::handle_view bind(meta::any_ref source) noexcept {
     return objects::handle_view_of(source);
   }
 };

@@ -5,9 +5,9 @@
 #define CAORS_RUNTIME_INSTANCE_H_
 
 #include "caors/core/containers.h"
+#include "caors/meta/value/any_ref.h"
 #include "caors/object/base.h"
 #include "caors/runtime/type.h"
-#include "caors/value/any_ref.h"
 
 #include <array>
 #include <span>
@@ -19,18 +19,18 @@ namespace caors::runtime {
 /**
  * @brief 运行期实例反射访问门面。
  *
- * `runtime::instance` 不拥有对象，只保存外部实例的 `value::any_ref`。它负责把运行期值、类型视图和
+ * `runtime::instance` 不拥有对象，只保存外部实例的 `meta::any_ref`。它负责把运行期值、类型视图和
  * 反射字段/方法组合起来，适合实现编辑器、调试面板和脚本桥接等高层访问入口。
  */
 class CAORS_API instance final {
 public:
   instance() noexcept = default;
-  explicit instance(value::any_ref value) noexcept;
+  explicit instance(meta::any_ref value) noexcept;
 
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
 
-  [[nodiscard]] value::any_ref value() const noexcept;
+  [[nodiscard]] meta::any_ref value() const noexcept;
   [[nodiscard]] runtime::type type() const noexcept;
   [[nodiscard]] reflection::type reflection() const noexcept;
 
@@ -86,7 +86,7 @@ public:
   }
 
 private:
-  value::any_ref value_{};
+  meta::any_ref value_{};
 };
 
 /**
@@ -105,7 +105,7 @@ public:
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
 
   [[nodiscard]] instance as_instance() const noexcept;
-  [[nodiscard]] value::any_ref value() const noexcept;
+  [[nodiscard]] meta::any_ref value() const noexcept;
   [[nodiscard]] runtime::type type() const noexcept;
 
   /** @brief 查询并绑定当前对象实例的运行期能力视图。 */
@@ -137,16 +137,16 @@ private:
 };
 
 /** @brief 从运行期引用创建实例视图。 */
-[[nodiscard]] inline instance view(value::any_ref value) noexcept { return instance{value}; }
+[[nodiscard]] inline instance view(meta::any_ref value) noexcept { return instance{value}; }
 
 /** @brief 从 C++ 对象创建实例视图。 */
 template <typename T> [[nodiscard]] instance view(T& value) {
-  return instance{value::any_ref::from(value)};
+  return instance{meta::any_ref::from(value)};
 }
 
 /** @brief 从只读 C++ 对象创建实例视图。 */
 template <typename T> [[nodiscard]] instance view_const(const T& value) {
-  return instance{value::any_ref::from_const(value)};
+  return instance{meta::any_ref::from_const(value)};
 }
 
 /** @brief 从实例视图创建对象适配视图；不会从类型擦除的派生对象自动推导对象指针。 */

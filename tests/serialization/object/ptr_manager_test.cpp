@@ -70,7 +70,7 @@ TEST_CASE("serialization - object manager can resolve persistent object guid ref
 
   const caors::serialization::variant_result value = caors::to_value(context, actor);
   REQUIRE(value.succeeded());
-  const caors::value::variant_member* target_member =
+  const caors::meta::variant_member* target_member =
       value.value.find_member(caors::string_name{"target"});
   REQUIRE(target_member != nullptr);
   CHECK(target_member->value.is_string());

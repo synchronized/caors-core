@@ -3,8 +3,8 @@
 
 #include "caors/serialization/operations.h"
 
+#include "caors/meta/value/indirect_view.h"
 #include "caors/reflection/registry.h"
-#include "caors/value/indirect_view.h"
 
 #include "detail/helpers.h"
 #include "detail/internal.h"
@@ -35,7 +35,7 @@ value_ref_to_serialization_value(const any_ref& value, const serialization::cont
 
   any_ref field_ref{};
   if (field_uses_inline_indirect_value(field)) {
-    const value::indirect_view indirect = field.get_ref(object).create_indirect_view();
+    const meta::indirect_view indirect = field.get_ref(object).create_indirect_view();
     return serialization::detail::make_indirect_serialized_value(indirect, nested_context.value);
   } else {
     field_ref = field.get_ref(object);
@@ -104,7 +104,7 @@ variant_result to_serialization_value(const serialization::context& context,
         return serialized;
       }
 
-      members.push_back(value::variant_member{
+      members.push_back(meta::variant_member{
           serialization::detail::serialized_field_name(field_schema),
           field_schema.field_id,
           std::move(serialized.value),
@@ -123,7 +123,7 @@ variant_result to_serialization_value(const serialization::context& context,
         return serialized;
       }
 
-      members.push_back(value::variant_member{
+      members.push_back(meta::variant_member{
           field.name(),
           0,
           std::move(serialized.value),

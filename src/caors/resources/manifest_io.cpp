@@ -14,7 +14,7 @@ namespace {
     return nullptr;
   }
 
-  const value::variant_member* member = object.find_member(core::string_name{name});
+  const meta::variant_member* member = object.find_member(core::string_name{name});
   return member != nullptr ? &member->value : nullptr;
 }
 

@@ -113,7 +113,7 @@ TEST_CASE("serialization - roundtrips std pair fields", "[serialization]") {
 
   const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
-  const caors::value::variant_member* entry = value.value.find_member(caors::string_name{"entry"});
+  const caors::meta::variant_member* entry = value.value.find_member(caors::string_name{"entry"});
   REQUIRE(entry != nullptr);
   REQUIRE(entry->value.is_array());
   REQUIRE(entry->value.as_array().size() == 2);
@@ -152,7 +152,7 @@ TEST_CASE("serialization - roundtrips std tuple fields", "[serialization]") {
 
   const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
-  const caors::value::variant_member* entry = value.value.find_member(caors::string_name{"entry"});
+  const caors::meta::variant_member* entry = value.value.find_member(caors::string_name{"entry"});
   REQUIRE(entry != nullptr);
   REQUIRE(entry->value.is_array());
   REQUIRE(entry->value.as_array().size() == 3);
@@ -192,7 +192,7 @@ TEST_CASE("serialization - roundtrips std variant fields", "[serialization]") {
 
   const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
-  const caors::value::variant_member* entry = value.value.find_member(caors::string_name{"entry"});
+  const caors::meta::variant_member* entry = value.value.find_member(caors::string_name{"entry"});
   REQUIRE(entry != nullptr);
   REQUIRE(entry->value.is_array());
   REQUIRE(entry->value.as_array().size() == 2);

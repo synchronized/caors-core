@@ -13,26 +13,26 @@ TEST_CASE("serialization - polymorphic object refs reject unrelated dynamic type
   require_polymorphic_object_ref_metadata();
 
   caors::variant::object_type enemy_fields;
-  enemy_fields.push_back(caors::value::variant_member{
+  enemy_fields.push_back(caors::meta::variant_member{
       caors::string_name{"danger"},
       0,
       caors::variant::from(std::int64_t{9}),
   });
 
   caors::variant::object_type envelope;
-  envelope.push_back(caors::value::variant_member{
+  envelope.push_back(caors::meta::variant_member{
       caors::string_name{"$type"},
       0,
       caors::variant::from(polymorphic_object_ref_enemy_guid.value.string()),
   });
-  envelope.push_back(caors::value::variant_member{
+  envelope.push_back(caors::meta::variant_member{
       caors::string_name{"$value"},
       0,
       caors::variant::object(std::move(enemy_fields)),
   });
 
   caors::variant::object_type holder_fields;
-  holder_fields.push_back(caors::value::variant_member{
+  holder_fields.push_back(caors::meta::variant_member{
       caors::string_name{"owner"},
       0,
       caors::variant::object(std::move(envelope)),
@@ -115,17 +115,17 @@ TEST_CASE("serialization - polymorphic object refs write type envelopes", "[seri
   REQUIRE(value.succeeded());
   REQUIRE(value.value.is_object());
 
-  const caors::value::variant_member* owner = value.value.find_member(caors::string_name{"owner"});
+  const caors::meta::variant_member* owner = value.value.find_member(caors::string_name{"owner"});
   REQUIRE(owner != nullptr);
   REQUIRE(owner->value.is_object());
 
-  const caors::value::variant_member* type = owner->value.find_member(caors::string_name{"$type"});
+  const caors::meta::variant_member* type = owner->value.find_member(caors::string_name{"$type"});
   REQUIRE(type != nullptr);
   REQUIRE(type->value.is_string());
   CHECK(std::string_view{type->value.as_string().data(), type->value.as_string().size()} ==
         std::string_view{polymorphic_object_ref_player_guid.value.string()});
 
-  const caors::value::variant_member* stored =
+  const caors::meta::variant_member* stored =
       owner->value.find_member(caors::string_name{"$value"});
   REQUIRE(stored != nullptr);
   REQUIRE(stored->value.is_object());

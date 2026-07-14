@@ -6,10 +6,10 @@
 
 #include "caors/meta/capability.h"
 #include "caors/meta/query.h"
+#include "caors/meta/value/any_ref.h"
 #include "caors/serialization/codec_ops.h"
 #include "caors/serialization/reader.h"
 #include "caors/serialization/writer.h"
-#include "caors/value/any_ref.h"
 
 #include <chrono>
 #include <filesystem>

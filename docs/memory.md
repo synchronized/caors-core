@@ -141,7 +141,7 @@ caors::set_default_memory_resource(&resource);
   `caors::make<T>(&resource)` 和 `caors::destroy(ptr, &resource)`，或使用 `memory::make_unique()` 保存匹配销毁回调。
 - 通过 `caors::allocate()` 分配的裸内存也应在释放时传回同一个资源、大小和对齐。不要依赖切换后的默认资源释放旧分配。
 - 不要把栈上的临时 `memory_resource` 设置成长期默认资源。`allocator<T>`、`object_manager`、`memory::unique_ptr`
-  和 `value::any` 等类型可能保存 `memory_resource*`，它们不拥有资源对象，调用方必须保证资源生命周期更长。
+  和 `meta::any` 等类型可能保存 `memory_resource*`，它们不拥有资源对象，调用方必须保证资源生命周期更长。
 - 多线程运行中不应切换默认资源。默认资源指针使用原子变量只能避免数据竞争，不能保证同一块内存的分配和释放走同一个资源。
   需要切换时，应在明确的停机点完成，并保证没有跨越切换点存活的默认资源分配。
 

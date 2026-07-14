@@ -134,7 +134,7 @@ private:
         return value;
       }
 
-      members.push_back(value::variant_member{core::string_name{name}, 0, std::move(value.value)});
+      members.push_back(meta::variant_member{core::string_name{name}, 0, std::move(value.value)});
       skip_space();
       if (consume('}')) {
         break;

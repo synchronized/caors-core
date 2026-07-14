@@ -111,7 +111,7 @@ variant_result make_serialized_value(const any_ref& value, const serialization::
   }
 
   if (type_uses_inline_indirect_value(value)) {
-    const value::indirect_view indirect = value.create_indirect_view();
+    const meta::indirect_view indirect = value.create_indirect_view();
     return make_indirect_serialized_value(indirect, context);
   }
 
@@ -119,32 +119,32 @@ variant_result make_serialized_value(const any_ref& value, const serialization::
     return make_enum_value(value);
   }
 
-  value::sequence_view sequence = value.create_sequence_view();
+  meta::sequence_view sequence = value.create_sequence_view();
   if (sequence.valid()) {
     return make_sequence_value(sequence, context);
   }
 
-  value::set_view set = value.create_set_view();
+  meta::set_view set = value.create_set_view();
   if (set.valid()) {
     return make_set_value(set, context);
   }
 
-  value::associative_view associative = value.create_associative_view();
+  meta::associative_view associative = value.create_associative_view();
   if (associative.valid()) {
     return make_associative_value(associative, context);
   }
 
-  value::pair_view pair = value.create_pair_view();
+  meta::pair_view pair = value.create_pair_view();
   if (pair.valid()) {
     return make_pair_value(pair, context);
   }
 
-  value::tuple_view tuple = value.create_tuple_view();
+  meta::tuple_view tuple = value.create_tuple_view();
   if (tuple.valid()) {
     return make_tuple_value(tuple, context);
   }
 
-  value::variant_view variant = value.create_variant_view();
+  meta::variant_view variant = value.create_variant_view();
   if (variant.valid()) {
     return make_variant_value(variant, context);
   }
@@ -180,7 +180,7 @@ error write_serialized_value(writer& writer, const any_ref& value,
   }
 
   if (type_uses_inline_indirect_value(value)) {
-    const value::indirect_view indirect = value.create_indirect_view();
+    const meta::indirect_view indirect = value.create_indirect_view();
     return write_indirect_serialized_value(writer, indirect, context);
   }
 
@@ -188,32 +188,32 @@ error write_serialized_value(writer& writer, const any_ref& value,
     return write_enum_value(writer, value);
   }
 
-  value::sequence_view sequence = value.create_sequence_view();
+  meta::sequence_view sequence = value.create_sequence_view();
   if (sequence.valid()) {
     return write_sequence_value(writer, sequence, context);
   }
 
-  value::set_view set = value.create_set_view();
+  meta::set_view set = value.create_set_view();
   if (set.valid()) {
     return write_set_value(writer, set, context);
   }
 
-  value::associative_view associative = value.create_associative_view();
+  meta::associative_view associative = value.create_associative_view();
   if (associative.valid()) {
     return write_associative_value(writer, associative, context);
   }
 
-  value::pair_view pair = value.create_pair_view();
+  meta::pair_view pair = value.create_pair_view();
   if (pair.valid()) {
     return write_pair_value(writer, pair, context);
   }
 
-  value::tuple_view tuple = value.create_tuple_view();
+  meta::tuple_view tuple = value.create_tuple_view();
   if (tuple.valid()) {
     return write_tuple_value(writer, tuple, context);
   }
 
-  value::variant_view variant = value.create_variant_view();
+  meta::variant_view variant = value.create_variant_view();
   if (variant.valid()) {
     return write_variant_value(writer, variant, context);
   }
@@ -253,7 +253,7 @@ error read_serialized_value(reader& reader, const any_ref& target,
   }
 
   if (type_uses_inline_indirect_value(target)) {
-    const value::indirect_view indirect = target.create_indirect_view();
+    const meta::indirect_view indirect = target.create_indirect_view();
     return read_indirect_serialized_value(reader, indirect, context);
   }
 

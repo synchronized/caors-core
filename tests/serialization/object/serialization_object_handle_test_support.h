@@ -35,8 +35,8 @@ inline void require_handle_value(const caors::variant& value, caors::object_id i
                                  caors::object_type_id type) {
   REQUIRE(value.is_object());
 
-  const caors::value::variant_member* id_member = value.find_member(caors::string_name{"id"});
-  const caors::value::variant_member* type_member = value.find_member(caors::string_name{"type"});
+  const caors::meta::variant_member* id_member = value.find_member(caors::string_name{"id"});
+  const caors::meta::variant_member* type_member = value.find_member(caors::string_name{"type"});
 
   REQUIRE(id_member != nullptr);
   REQUIRE(type_member != nullptr);

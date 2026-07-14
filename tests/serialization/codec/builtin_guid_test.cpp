@@ -21,12 +21,12 @@ TEST_CASE("serialization - built in codecs deserialize guid and type guid from s
   REQUIRE(serialization_result_ok(caors::serialization::class_<codec_guid_actor>().commit()));
 
   caors::variant::object_type members;
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"id"},
       0,
       caors::variant::from(std::string_view{"2f6d1f64-7a3a-4db2-9a2d-123456789abc"}),
   });
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"type"},
       0,
       caors::variant::from(std::string_view{"5ed39a97-7b20-4d87-86ac-e62a4a615b10"}),
@@ -59,7 +59,7 @@ TEST_CASE("serialization - built in codecs reject invalid guid text", "[serializ
   REQUIRE(serialization_result_ok(caors::serialization::class_<codec_guid_actor>().commit()));
 
   caors::variant::object_type members;
-  members.push_back(caors::value::variant_member{
+  members.push_back(caors::meta::variant_member{
       caors::string_name{"id"},
       0,
       caors::variant::from(std::string_view{"invalid-guid"}),
@@ -110,8 +110,8 @@ TEST_CASE("serialization - built in codecs serialize guid and type guid as scala
   const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
   REQUIRE(value.value.as_object().size() == 2);
-  CHECK(value.value.as_object()[0].value.kind() == caors::value::variant_kind::string);
+  CHECK(value.value.as_object()[0].value.kind() == caors::meta::variant_kind::string);
   CHECK(value.value.as_object()[0].value.as_string() == "2f6d1f64-7a3a-4db2-9a2d-123456789abc");
-  CHECK(value.value.as_object()[1].value.kind() == caors::value::variant_kind::string);
+  CHECK(value.value.as_object()[1].value.kind() == caors::meta::variant_kind::string);
   CHECK(value.value.as_object()[1].value.as_string() == "5ed39a97-7b20-4d87-86ac-e62a4a615b10");
 }

@@ -86,9 +86,8 @@ TEST_CASE("serialization - serializes object handles as identity objects", "[ser
   REQUIRE(value.succeeded());
   REQUIRE(value.value.is_object());
 
-  const caors::value::variant_member* target =
-      value.value.find_member(caors::string_name{"target"});
-  const caors::value::variant_member* typed = value.value.find_member(caors::string_name{"typed"});
+  const caors::meta::variant_member* target = value.value.find_member(caors::string_name{"target"});
+  const caors::meta::variant_member* typed = value.value.find_member(caors::string_name{"typed"});
   REQUIRE(target != nullptr);
   REQUIRE(typed != nullptr);
   require_handle_value(target->value, handle.id(), handle.type());

@@ -50,7 +50,7 @@ TEST_CASE("serialization - serializes object pointers inside vectors", "[seriali
 
   const caors::serialization::variant_result value = caors::to_value(context, actor);
   REQUIRE(value.succeeded());
-  const caors::value::variant_member* targets =
+  const caors::meta::variant_member* targets =
       value.value.find_member(caors::string_name{"targets"});
   REQUIRE(targets != nullptr);
   REQUIRE(targets->value.is_array());

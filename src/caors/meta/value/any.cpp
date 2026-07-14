@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "caors/value/any_ref.h"
+#include "caors/meta/value/any_ref.h"
 
 #include "caors/meta/query.h"
 
 #include <cstring>
 #include <utility>
 
-namespace caors::value {
+namespace caors::meta {
 namespace {
 
 [[nodiscard]] bool can_store_inline(const meta::value_storage_ops& value) noexcept {
@@ -315,4 +315,4 @@ any any::default_construct(meta::type type, memory::memory_resource* resource) {
 
 void swap(any& lhs, any& rhs) noexcept { lhs.swap(rhs); }
 
-} // namespace caors::value
+} // namespace caors::meta

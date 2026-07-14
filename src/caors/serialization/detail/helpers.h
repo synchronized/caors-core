@@ -6,7 +6,7 @@
 
 #include "internal.h"
 
-#include "caors/value/view_factory.h"
+#include "caors/meta/value/view_factory.h"
 
 namespace caors::serialization::detail {
 
@@ -18,26 +18,26 @@ namespace caors::serialization::detail {
 [[nodiscard]] variant_result make_enum_value(const any_ref& value);
 [[nodiscard]] error write_enum_value(writer& writer, const any_ref& value);
 [[nodiscard]] error read_enum_value(reader& reader, const any_ref& target);
-[[nodiscard]] variant_result make_indirect_serialized_value(const value::indirect_view& indirect,
+[[nodiscard]] variant_result make_indirect_serialized_value(const meta::indirect_view& indirect,
                                                             const serialization::context& context);
 [[nodiscard]] error write_indirect_serialized_value(writer& writer,
-                                                    const value::indirect_view& indirect,
+                                                    const meta::indirect_view& indirect,
                                                     const serialization::context& context);
 [[nodiscard]] error read_indirect_serialized_value(reader& reader,
-                                                   const value::indirect_view& indirect,
+                                                   const meta::indirect_view& indirect,
                                                    const serialization::context& context);
 
-[[nodiscard]] error write_sequence_value(writer& writer, const value::sequence_view& view,
+[[nodiscard]] error write_sequence_value(writer& writer, const meta::sequence_view& view,
                                          const serialization::context& context);
-[[nodiscard]] error write_set_value(writer& writer, const value::set_view& view,
+[[nodiscard]] error write_set_value(writer& writer, const meta::set_view& view,
                                     const serialization::context& context);
-[[nodiscard]] error write_associative_value(writer& writer, const value::associative_view& view,
+[[nodiscard]] error write_associative_value(writer& writer, const meta::associative_view& view,
                                             const serialization::context& context);
-[[nodiscard]] error write_pair_value(writer& writer, const value::pair_view& view,
+[[nodiscard]] error write_pair_value(writer& writer, const meta::pair_view& view,
                                      const serialization::context& context);
-[[nodiscard]] error write_tuple_value(writer& writer, const value::tuple_view& view,
+[[nodiscard]] error write_tuple_value(writer& writer, const meta::tuple_view& view,
                                       const serialization::context& context);
-[[nodiscard]] error write_variant_value(writer& writer, const value::variant_view& view,
+[[nodiscard]] error write_variant_value(writer& writer, const meta::variant_view& view,
                                         const serialization::context& context);
 
 [[nodiscard]] error read_sequence_value(reader& reader, const any_ref& target,
@@ -53,17 +53,17 @@ namespace caors::serialization::detail {
 [[nodiscard]] error read_variant_value(reader& reader, const any_ref& target,
                                        const serialization::context& context);
 
-[[nodiscard]] variant_result make_sequence_value(const value::sequence_view& view,
+[[nodiscard]] variant_result make_sequence_value(const meta::sequence_view& view,
                                                  const serialization::context& context);
-[[nodiscard]] variant_result make_set_value(const value::set_view& view,
+[[nodiscard]] variant_result make_set_value(const meta::set_view& view,
                                             const serialization::context& context);
-[[nodiscard]] variant_result make_associative_value(const value::associative_view& view,
+[[nodiscard]] variant_result make_associative_value(const meta::associative_view& view,
                                                     const serialization::context& context);
-[[nodiscard]] variant_result make_pair_value(const value::pair_view& view,
+[[nodiscard]] variant_result make_pair_value(const meta::pair_view& view,
                                              const serialization::context& context);
-[[nodiscard]] variant_result make_tuple_value(const value::tuple_view& view,
+[[nodiscard]] variant_result make_tuple_value(const meta::tuple_view& view,
                                               const serialization::context& context);
-[[nodiscard]] variant_result make_variant_value(const value::variant_view& view,
+[[nodiscard]] variant_result make_variant_value(const meta::variant_view& view,
                                                 const serialization::context& context);
 
 } // namespace caors::serialization::detail

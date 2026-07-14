@@ -64,7 +64,7 @@ template <typename Capability> struct capability_traits {
  * @brief 运行期实例能力视图的绑定扩展点。
  *
  * `CapabilityView` 是绑定到具体 `any_ref` 后可直接调用的轻量视图，例如
- * `value::sequence_view` 或 `objects::ptr_view`。默认表示该视图不支持通过
+ * `meta::sequence_view` 或 `objects::ptr_view`。默认表示该视图不支持通过
  * `any_ref::get_capability<View>()` 查询。
  */
 template <typename CapabilityView> struct capability_view_traits {

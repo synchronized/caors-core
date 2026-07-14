@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "caors/value/view_factory.h"
+#include "caors/meta/value/view_factory.h"
 
 #include "caors/meta/query.h"
-#include "caors/value/any_ref.h"
-#include "caors/value/associative_entry_ref.h"
+#include "caors/meta/value/any_ref.h"
+#include "caors/meta/value/associative_entry_ref.h"
 
 #include <utility>
 
-namespace caors::value {
+namespace caors::meta {
 namespace {
 
 template <typename Capability> [[nodiscard]] bool has_capability(meta::type type) noexcept {
@@ -1144,4 +1144,4 @@ set_view any_ref::create_set_view() const {
   return set_view{type, data_, writable_};
 }
 
-} // namespace caors::value
+} // namespace caors::meta
