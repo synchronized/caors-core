@@ -118,6 +118,20 @@ private:
   const detail::type_descriptor* descriptor_ = nullptr;
 };
 
+template <> struct type_capability_traits<factory_capability> {
+  using result_type = factory_capability;
+
+  [[nodiscard]] static result_type get(const type& source) noexcept {
+    return factory_capability{source.get_ops<factory_ops>()};
+  }
+
+  [[nodiscard]] static const factory_ops* get_raw(const type& source) noexcept {
+    return type_capability_traits<factory_ops>::get_raw(source);
+  }
+
+  [[nodiscard]] static bool has(const type& source) noexcept { return get(source).valid(); }
+};
+
 } // namespace caors::meta
 
 #endif

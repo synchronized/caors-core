@@ -107,15 +107,16 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
 [[nodiscard]] constructed_value construct_polymorphic_value(const meta::type& dynamic_type,
                                                             const meta::indirect_view& indirect,
                                                             const serialization::context& context) {
-  const meta::factory_ops* registered_factory = dynamic_type.get_ops<meta::factory_ops>();
+  const meta::factory_capability registered_factory =
+      dynamic_type.get_capability<meta::factory_capability>();
   memory::memory_resource* resource = context.effective_memory_resource();
 
   if (resource != nullptr && indirect.can_set_value_with_context()) {
-    if (registered_factory != nullptr && registered_factory->valid()) {
+    if (registered_factory) {
       return {
-          registered_factory->construct(resource),
+          registered_factory.construct(resource),
           resource,
-          registered_factory->destroy,
+          registered_factory.destroy_fn(),
           true,
       };
     }
@@ -132,11 +133,11 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
     }
   }
 
-  if (registered_factory != nullptr && registered_factory->valid()) {
+  if (registered_factory) {
     return {
-        registered_factory->construct(nullptr),
+        registered_factory.construct(nullptr),
         nullptr,
-        registered_factory->destroy,
+        registered_factory.destroy_fn(),
         false,
     };
   }

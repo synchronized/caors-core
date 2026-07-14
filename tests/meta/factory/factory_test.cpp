@@ -13,7 +13,7 @@ TEST_CASE("meta type - default factory rejects non-default-constructible types",
 
   CHECK(builder.result() == meta_error(caors::errc::invalid_type));
   REQUIRE(builder.get().valid());
-  CHECK(builder.get().get_ops<caors::meta::factory_ops>() == nullptr);
+  CHECK_FALSE(builder.get().get_capability<caors::meta::factory_capability>());
 }
 
 // 原测试文件：meta_type_factory_meta_type_factory_registers_custom_construction_strategy_test.cpp
@@ -26,14 +26,15 @@ TEST_CASE("meta type - factory registers custom construction strategy", "[meta]"
                      .factory(&construct_custom_factory_type, &destroy_custom_factory_type);
   CHECK(builder.succeeded());
 
-  const caors::meta::factory_ops* factory = builder.get().get_ops<caors::meta::factory_ops>();
-  REQUIRE(factory != nullptr);
-  REQUIRE(factory->valid());
+  const caors::meta::factory_capability factory =
+      builder.get().get_capability<caors::meta::factory_capability>();
+  REQUIRE(factory);
+  REQUIRE(factory.valid());
 
-  auto* value = static_cast<custom_factory_type*>(factory->construct(nullptr));
+  auto* value = static_cast<custom_factory_type*>(factory.construct(nullptr));
   REQUIRE(value != nullptr);
   CHECK(value->value == 23);
-  factory->destroy(nullptr, value);
+  factory.destroy(nullptr, value);
 
   auto duplicate = caors::meta::class_<custom_factory_type>("caors.test.type.factory_custom")
                        .factory(&construct_custom_factory_type, &destroy_custom_factory_type);
@@ -54,18 +55,19 @@ TEST_CASE("meta type - factory registers resource-aware default construction", "
   const caors::meta::type type = builder.get();
   REQUIRE(type.valid());
 
-  const caors::meta::factory_ops* factory = type.get_ops<caors::meta::factory_ops>();
-  REQUIRE(factory != nullptr);
-  REQUIRE(factory->valid());
+  const caors::meta::factory_capability factory =
+      type.get_capability<caors::meta::factory_capability>();
+  REQUIRE(factory);
+  REQUIRE(factory.valid());
 
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
-  auto* value = static_cast<default_factory_type*>(factory->construct(&tracking));
+  auto* value = static_cast<default_factory_type*>(factory.construct(&tracking));
   REQUIRE(value != nullptr);
   CHECK(value->value == 11);
   CHECK(tracking.statistics().allocation_count == 1);
   CHECK(tracking.statistics().bytes_in_use >= sizeof(default_factory_type));
 
-  factory->destroy(&tracking, value);
+  factory.destroy(&tracking, value);
   CHECK(tracking.statistics().deallocation_count == 1);
   CHECK(tracking.statistics().bytes_in_use == 0);
 }

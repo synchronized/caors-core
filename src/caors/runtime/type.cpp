@@ -57,8 +57,8 @@ bool type::constructible() const noexcept {
     return false;
   }
 
-  const meta::factory_ops* factory = meta_.get_ops<meta::factory_ops>();
-  if (factory != nullptr && factory->valid()) {
+  const meta::factory_capability factory = meta_.get_capability<meta::factory_capability>();
+  if (factory) {
     return true;
   }
 
@@ -70,11 +70,11 @@ any type::create(memory::memory_resource* resource) const {
     return {};
   }
 
-  const meta::factory_ops* factory = meta_.get_ops<meta::factory_ops>();
-  if (factory != nullptr && factory->valid()) {
-    void* value = factory->construct(resource);
+  const meta::factory_capability factory = meta_.get_capability<meta::factory_capability>();
+  if (factory) {
+    void* value = factory.construct(resource);
     if (value != nullptr) {
-      return any::take_ownership(meta_, value, resource, factory->destroy);
+      return any::take_ownership(meta_, value, resource, factory.destroy_fn());
     }
   }
 

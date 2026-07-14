@@ -18,7 +18,7 @@
 - 用注册表内部 meta 类型记录保存类型名、稳定 GUID 和父类型。
 - 用内部 type descriptor 保存 C++ 类型布局、默认构造、复制、析构、赋值和运行期视图能力。
 - 用内部 type descriptor 保存类型形态、通用类型关系和具体访问函数表。
-- 用可选 `factory_ops` capability 保存资源感知构造策略，供普通类多态反序列化等需要运行期创建值的路径使用。
+- 用可选 factory capability 保存资源感知构造策略，供普通类多态反序列化等需要运行期创建值的路径使用。
 - 用 `meta::type` 作为对外只读类型视图，避免直接暴露注册表内部数据。
 - 用全局 `meta::registry` 集中处理 meta 类型注册、查找和继承关系判断。
 - 用全局 `meta::registry` 在同一个 `type_id` 上挂载不同主题的元数据组件。
@@ -198,9 +198,9 @@ caors::meta::class_<player>("game.player")
 
 `.factory()` 无参数重载使用 `memory::make<T>()` / `memory::destroy<T>()` 注册默认构造策略，要求 `T`
 可默认构造。带函数指针的重载用于不可默认构造类型，`destroy` 必须匹配 `construct` 的分配策略。
-应用层需要创建运行期值时优先使用 `runtime::type::create()`，它会先查询这里注册的 `factory_ops`
-capability，再回退到 descriptor 默认构造。`any::default_construct()` 只表达 descriptor
-低层默认构造能力，不查询 `factory_ops`。
+应用层需要创建运行期值时优先使用 `runtime::type::create()`，它会先通过
+`meta::type::get_capability<meta::factory_capability>()` 查询这里注册的 factory，再回退到 descriptor
+默认构造。`any::default_construct()` 只表达 descriptor 低层默认构造能力，不查询 factory。
 
 `caors::meta::resolve<T>()` 是 C++ 类型到 descriptor 视图的入口；类型未显式注册时仍可能返回有效
 `meta::type`，但 `registered()` 为 false。`caors::meta::find<T>()` 是 C++ 类型到已注册类型的入口，
@@ -223,7 +223,8 @@ capability，再回退到 descriptor 默认构造。`any::default_construct()` �
 - runtime capability 用于用户或插件扩展能力。它挂在 `type_id + capability_key` 的运行期索引上，
   适合矩阵、图、脚本桥接、编辑器扩展等 CAORS 不内置的 concept table。公开写入入口是
   `meta::class_<T>().capability(ops)`，由 CAORS 持有 `ops` 生命周期。
-  `meta::class_<T>().factory()` 也是该机制的高级封装，会把构造策略注册为 `meta::factory_ops`。
+  `meta::class_<T>().factory()` 也是该机制的高级封装，会把构造策略注册为底层
+  `meta::factory_ops`，公开查询时返回 `meta::factory_capability`。
 
 默认查询顺序是：`meta::type::get_capability<C>()` 先查 descriptor static capability，再回退到
 runtime capability。普通调用方应使用这个统一入口，不直接关心能力来自 descriptor 还是运行期索引。
@@ -252,7 +253,8 @@ descriptor 内部按职责拆分：
 
 - `type_layout`：保存 `size` 和 `alignment`。
 - `value_ops`：保存默认构造、复制、析构和赋值的类型擦除函数；相关函数指针类型嵌套在
-  `value_ops` / `factory_ops` 内部，定义在 `meta/value_ops.h`。
+  `value_ops` / `factory_ops` 内部，定义在 `meta/value_ops.h`，公开 factory 查询使用
+  `factory_capability`。
 - `type_semantics`：保存该类型在反射、序列化和 value 模块中的运行期形态。
 - `builtin_ops`：保存一个固定内置互斥函数表，例如枚举、间接值、顺序容器、集合、关联容器、pair、tuple 或 variant。
 - `static_capabilities`：保存模块声明的静态能力表，例如对象指针、对象句柄访问函数表和
@@ -643,7 +645,7 @@ meta 组件。
 - `meta::enum_<T>("name")`：显式注册枚举类型，注册后 `meta::type::kind()` 为
   `meta::type_kind::enumeration`。
 - `meta::class_<T>().parent<Base>()`：保存 C++ 父类型关系和安全 upcast 回调。
-- `meta::class_<T>().factory()` / `.factory(construct, destroy)`：注册 `factory_ops` 运行期能力，保存运行期值构造和销毁策略。
+- `meta::class_<T>().factory()` / `.factory(construct, destroy)`：注册运行期 factory，保存运行期值构造和销毁策略；查询时使用 `meta::type::get_capability<meta::factory_capability>()`。
 - `meta::registry`：全局 meta 类型注册、按 id/name/guid 或 C++ 类型查询、继承关系判断和组件式元数据挂载。
 - `meta::registry::component_view<T...>`：按组件集合查询类型。
 - `meta::run_registrations()`：执行已收集的延迟元数据注册函数。
