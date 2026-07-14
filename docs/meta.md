@@ -520,6 +520,53 @@ auto sequence =
 auto view = sequence.bind(caors::meta::any_ref::from(values));
 ```
 
+用户自定义 capability 默认直接返回 `const Capability*`。如果希望对外也像内置能力一样返回 facade，
+可以保留底层 `*_ops` 函数表，再为公开 facade 特化 `type_capability_traits`：
+
+```cpp
+struct matrix_ops {
+  std::size_t (*rows)(const void*) = nullptr;
+  std::size_t (*columns)(const void*) = nullptr;
+};
+
+class matrix_capability {
+public:
+  explicit matrix_capability(caors::meta::type type) noexcept
+      : type_(type), ops_(type.get_capability<matrix_ops>()) {}
+
+  [[nodiscard]] explicit operator bool() const noexcept {
+    return type_ && ops_ != nullptr;
+  }
+
+  [[nodiscard]] matrix_view bind(caors::meta::any_ref source) const noexcept;
+
+private:
+  caors::meta::type type_{};
+  const matrix_ops* ops_ = nullptr;
+};
+
+namespace caors::meta {
+
+template <> struct type_capability_traits<matrix_capability> {
+  using result_type = matrix_capability;
+
+  [[nodiscard]] static result_type get(const type& source) noexcept {
+    return matrix_capability{source};
+  }
+
+  [[nodiscard]] static bool has(const type& source) noexcept {
+    return static_cast<bool>(matrix_capability{source});
+  }
+};
+
+} // namespace caors::meta
+```
+
+如果还需要 `any_ref.get_capability<matrix_view>()` 这种实例级入口，再特化
+`capability_view_traits<matrix_view>`，内部从 `source.get_type()` 查询 `matrix_capability`
+并绑定当前 `any_ref`。这样用户代码不需要直接传递 `void*`，而底层仍可以复用稳定生命周期的
+`matrix_ops` 函数表。
+
 如果能力由 `static_capability<Capability, T>` 提供，也可以只声明能力类型：
 
 ```cpp

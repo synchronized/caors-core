@@ -24,6 +24,7 @@ meta value 提供细粒度头和完整聚合头。细粒度头不再依赖 `any.
 | `caors/meta/value/any_ref.h` | `caors::meta::any_ref`、`caors::any_ref` | 需要引用外部 C++ 对象或反射字段。 |
 | `caors/meta/value/view_factory.h` | 所有具体 view 类型 | 需要把 `any` / `any_ref` 创建成容器、wrapper、tuple 等运行期视图。 |
 | `caors/meta/value/capability_view.h` | `any` / `any_ref` 的 `get_capability<View>()` 视图绑定适配 | 推荐的统一运行期视图查询入口。 |
+| `caors/meta/value/type_capability.h` | 类型级 `*_capability` facade | 需要先从 `meta::type` 查询能力，再绑定到具体 `any_ref`。 |
 | `caors/meta/value/associative_entry_ref.h` | `associative_entry_ref` | 需要按值使用关联容器迭代条目。 |
 | `caors/meta/value/variant.h` | `caors::meta::variant`、`caors::variant` | 需要序列化 DOM 或数据中间表示。 |
 | `caors/meta/value.h` | meta value 完整公共入口 | 应用层或示例代码需要完整运行期值能力。 |
@@ -139,6 +140,27 @@ caors::meta::indirect_view indirect =
     ref.get_capability<caors::meta::indirect_view>();
 ```
 
+如果调用方先拿到的是类型视图，可以使用类型级 `*_capability` facade，再把它绑定到具体实例：
+
+```cpp
+#include <caors/adapters/stl_traits.h>
+#include <caors/meta/value.h>
+
+#include <vector>
+
+std::vector<int> values{1, 2, 3};
+
+caors::meta::sequence_capability sequence =
+    caors::meta::resolve<std::vector<int>>()
+        .get_capability<caors::meta::sequence_capability>();
+
+caors::meta::sequence_view view =
+    sequence.bind(caors::meta::any_ref::from(values));
+```
+
+类型级 facade 不拥有类型数据，也不拥有实例。它只是把 `meta::type`
+和内部函数表包装成更适合公开 API 使用的对象；实例访问仍由绑定后的 `*_view` 完成。
+
 旧的 `create_sequence_view()`、`create_indirect_view()` 等函数暂时保留，语义等价于对应
 `get_capability<View>()`，用于兼容已有代码。
 
@@ -162,5 +184,5 @@ registry。`get_*_type()` 系列接口返回 descriptor-backed `meta::type`；�
 ## 后续规划
 
 - 评估是否把 `any` / `any_ref` 上的 `create_*_view()` 迁移为外部 view 工厂函数，进一步减小类型本身的公开接口。
-- 评估轻量 capability / poly 机制，让用户在不修改核心源码的情况下扩展运行期能力。
+- 继续收敛 `caors/value*.h` 兼容转发层；新代码、测试和示例统一使用 `caors/meta/value*.h`。
 - 持续补充细粒度 include 边界测试，避免公共头重新形成隐式依赖。

@@ -32,6 +32,7 @@ cmake --build --preset windows-clang-debug --target caors_example_version_basic
 
 - `version/`：版本信息 API。
 - `memory/`：内存资源、分配器、策略资源和调试跟踪。
+- `meta/`：类型级 capability facade、运行期值和 descriptor-backed 能力查询。
 - `object/`：对象注册、对象创建、生命周期管理器和销毁。
 - `reflection/`：反射类型和字段元信息注册。
 - `serialization/`：反射序列化、普通类多态 wrapper、factory 和内存资源上下文。
