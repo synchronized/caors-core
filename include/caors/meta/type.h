@@ -83,6 +83,21 @@ public:
     return get_capability<Capability>() != nullptr;
   }
 
+  /**
+   * @brief 查询该类型视图具备的低层函数表。
+   *
+   * `*_ops` 是 CAORS 内部和高级模块使用的类型擦除函数表。普通实例访问应优先通过
+   * `any_ref::get_capability<View>()` 获取绑定后的 view。
+   */
+  template <typename Ops> [[nodiscard]] const Ops* get_ops() const noexcept {
+    return get_capability<Ops>();
+  }
+
+  /** @brief 判断该类型视图是否具备指定低层函数表。 */
+  template <typename Ops> [[nodiscard]] bool has_ops() const noexcept {
+    return get_ops<Ops>() != nullptr;
+  }
+
 private:
   friend class registry;
   friend type detail::make_type_view(type_id, const detail::type_descriptor*) noexcept;

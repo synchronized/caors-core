@@ -12,12 +12,12 @@
 namespace caors::meta {
 namespace {
 
-template <typename Capability> [[nodiscard]] bool has_capability(meta::type type) noexcept {
-  return type.get_capability<Capability>() != nullptr;
+template <typename Ops> [[nodiscard]] bool has_ops(meta::type type) noexcept {
+  return type.get_ops<Ops>() != nullptr;
 }
 
-[[nodiscard]] bool has_indirect_capability(meta::type type) noexcept {
-  const meta::indirect_ops* indirect = type.get_capability<meta::indirect_ops>();
+[[nodiscard]] bool has_indirect_ops(meta::type type) noexcept {
+  const meta::indirect_ops* indirect = type.get_ops<meta::indirect_ops>();
   return type.indirect() && indirect != nullptr && indirect->valid();
 }
 
@@ -183,7 +183,7 @@ indirect_view::indirect_view(meta::type type, const void* storage, bool writable
     : type_(type), storage_(storage), writable_(writable) {}
 
 const meta::indirect_ops* indirect_view::data() const noexcept {
-  return type_.get_capability<meta::indirect_ops>();
+  return type_.get_ops<meta::indirect_ops>();
 }
 
 bool pair_view::valid() const noexcept {
@@ -268,9 +268,7 @@ bool pair_view::set_second(const any& value) const {
 pair_view::pair_view(meta::type type, const void* storage, bool writable) noexcept
     : type_(type), storage_(storage), writable_(writable) {}
 
-const meta::pair_ops* pair_view::data() const noexcept {
-  return type_.get_capability<meta::pair_ops>();
-}
+const meta::pair_ops* pair_view::data() const noexcept { return type_.get_ops<meta::pair_ops>(); }
 
 bool tuple_view::valid() const noexcept {
   const meta::tuple_ops* info = data();
@@ -337,7 +335,7 @@ tuple_view::tuple_view(meta::type type, const void* storage, bool writable) noex
     : type_(type), storage_(storage), writable_(writable) {}
 
 const meta::tuple_ops* tuple_view::data() const noexcept {
-  return type_.get_capability<meta::tuple_ops>();
+  return type_.get_ops<meta::tuple_ops>();
 }
 
 bool variant_view::valid() const noexcept {
@@ -451,7 +449,7 @@ variant_view::variant_view(meta::type type, const void* storage, bool writable) 
     : type_(type), storage_(storage), writable_(writable) {}
 
 const meta::variant_ops* variant_view::data() const noexcept {
-  return type_.get_capability<meta::variant_ops>();
+  return type_.get_ops<meta::variant_ops>();
 }
 
 any_ref sequence_view::iterator::operator*() const {
@@ -565,7 +563,7 @@ sequence_view::sequence_view(meta::type type, const void* storage, bool writable
     : type_(type), storage_(storage), writable_(writable) {}
 
 const meta::sequence_ops* sequence_view::data() const noexcept {
-  return type_.get_capability<meta::sequence_ops>();
+  return type_.get_ops<meta::sequence_ops>();
 }
 
 set_view::iterator::iterator(const iterator& other) : view_(other.view_) {
@@ -750,9 +748,7 @@ bool set_view::has_iterator_support() const noexcept {
   return valid() && info->iterator.valid() && info->iterator_value != nullptr;
 }
 
-const meta::set_ops* set_view::data() const noexcept {
-  return type_.get_capability<meta::set_ops>();
-}
+const meta::set_ops* set_view::data() const noexcept { return type_.get_ops<meta::set_ops>(); }
 
 associative_view::iterator::iterator(const iterator& other) : view_(other.view_) {
   const meta::associative_ops* info = view_ != nullptr ? view_->data() : nullptr;
@@ -952,12 +948,12 @@ bool associative_view::has_iterator_support() const noexcept {
 }
 
 const meta::associative_ops* associative_view::data() const noexcept {
-  return type_.get_capability<meta::associative_ops>();
+  return type_.get_ops<meta::associative_ops>();
 }
 
 associative_view any::create_associative_view() {
   const meta::type type = get_type();
-  if (!valid() || !has_capability<meta::associative_ops>(type)) {
+  if (!valid() || !has_ops<meta::associative_ops>(type)) {
     return {};
   }
 
@@ -966,7 +962,7 @@ associative_view any::create_associative_view() {
 
 associative_view any::create_associative_view() const {
   const meta::type type = get_type();
-  if (!valid() || !has_capability<meta::associative_ops>(type)) {
+  if (!valid() || !has_ops<meta::associative_ops>(type)) {
     return {};
   }
 
@@ -975,7 +971,7 @@ associative_view any::create_associative_view() const {
 
 associative_view any_ref::create_associative_view() const {
   const meta::type type = get_type();
-  if (!valid() || !has_capability<meta::associative_ops>(type)) {
+  if (!valid() || !has_ops<meta::associative_ops>(type)) {
     return {};
   }
 
@@ -984,7 +980,7 @@ associative_view any_ref::create_associative_view() const {
 
 pair_view any::create_pair_view() {
   const meta::type type = get_type();
-  if (!valid() || !has_capability<meta::pair_ops>(type)) {
+  if (!valid() || !has_ops<meta::pair_ops>(type)) {
     return {};
   }
 
@@ -993,7 +989,7 @@ pair_view any::create_pair_view() {
 
 pair_view any::create_pair_view() const {
   const meta::type type = get_type();
-  if (!valid() || !has_capability<meta::pair_ops>(type)) {
+  if (!valid() || !has_ops<meta::pair_ops>(type)) {
     return {};
   }
 
@@ -1002,7 +998,7 @@ pair_view any::create_pair_view() const {
 
 pair_view any_ref::create_pair_view() const {
   const meta::type type = get_type();
-  if (!valid() || !has_capability<meta::pair_ops>(type)) {
+  if (!valid() || !has_ops<meta::pair_ops>(type)) {
     return {};
   }
 
@@ -1011,7 +1007,7 @@ pair_view any_ref::create_pair_view() const {
 
 tuple_view any::create_tuple_view() {
   const meta::type type = get_type();
-  if (!valid() || !has_capability<meta::tuple_ops>(type)) {
+  if (!valid() || !has_ops<meta::tuple_ops>(type)) {
     return {};
   }
 
@@ -1020,7 +1016,7 @@ tuple_view any::create_tuple_view() {
 
 tuple_view any::create_tuple_view() const {
   const meta::type type = get_type();
-  if (!valid() || !has_capability<meta::tuple_ops>(type)) {
+  if (!valid() || !has_ops<meta::tuple_ops>(type)) {
     return {};
   }
 
@@ -1029,7 +1025,7 @@ tuple_view any::create_tuple_view() const {
 
 tuple_view any_ref::create_tuple_view() const {
   const meta::type type = get_type();
-  if (!valid() || !has_capability<meta::tuple_ops>(type)) {
+  if (!valid() || !has_ops<meta::tuple_ops>(type)) {
     return {};
   }
 
@@ -1038,7 +1034,7 @@ tuple_view any_ref::create_tuple_view() const {
 
 variant_view any::create_variant_view() {
   const meta::type type = get_type();
-  if (!valid() || !has_capability<meta::variant_ops>(type)) {
+  if (!valid() || !has_ops<meta::variant_ops>(type)) {
     return {};
   }
 
@@ -1047,7 +1043,7 @@ variant_view any::create_variant_view() {
 
 variant_view any::create_variant_view() const {
   const meta::type type = get_type();
-  if (!valid() || !has_capability<meta::variant_ops>(type)) {
+  if (!valid() || !has_ops<meta::variant_ops>(type)) {
     return {};
   }
 
@@ -1056,7 +1052,7 @@ variant_view any::create_variant_view() const {
 
 variant_view any_ref::create_variant_view() const {
   const meta::type type = get_type();
-  if (!valid() || !has_capability<meta::variant_ops>(type)) {
+  if (!valid() || !has_ops<meta::variant_ops>(type)) {
     return {};
   }
 
@@ -1065,7 +1061,7 @@ variant_view any_ref::create_variant_view() const {
 
 indirect_view any::create_indirect_view() {
   const meta::type type = get_type();
-  if (!valid() || !has_indirect_capability(type)) {
+  if (!valid() || !has_indirect_ops(type)) {
     return {};
   }
 
@@ -1074,7 +1070,7 @@ indirect_view any::create_indirect_view() {
 
 indirect_view any::create_indirect_view() const {
   const meta::type type = get_type();
-  if (!valid() || !has_indirect_capability(type)) {
+  if (!valid() || !has_indirect_ops(type)) {
     return {};
   }
 
@@ -1083,7 +1079,7 @@ indirect_view any::create_indirect_view() const {
 
 indirect_view any_ref::create_indirect_view() const {
   const meta::type type = get_type();
-  if (!valid() || !has_indirect_capability(type)) {
+  if (!valid() || !has_indirect_ops(type)) {
     return {};
   }
 
@@ -1092,7 +1088,7 @@ indirect_view any_ref::create_indirect_view() const {
 
 sequence_view any::create_sequence_view() {
   const meta::type type = get_type();
-  if (!valid() || !has_capability<meta::sequence_ops>(type)) {
+  if (!valid() || !has_ops<meta::sequence_ops>(type)) {
     return {};
   }
 
@@ -1101,7 +1097,7 @@ sequence_view any::create_sequence_view() {
 
 sequence_view any::create_sequence_view() const {
   const meta::type type = get_type();
-  if (!valid() || !has_capability<meta::sequence_ops>(type)) {
+  if (!valid() || !has_ops<meta::sequence_ops>(type)) {
     return {};
   }
 
@@ -1110,7 +1106,7 @@ sequence_view any::create_sequence_view() const {
 
 sequence_view any_ref::create_sequence_view() const {
   const meta::type type = get_type();
-  if (!valid() || !has_capability<meta::sequence_ops>(type)) {
+  if (!valid() || !has_ops<meta::sequence_ops>(type)) {
     return {};
   }
 
@@ -1119,7 +1115,7 @@ sequence_view any_ref::create_sequence_view() const {
 
 set_view any::create_set_view() {
   const meta::type type = get_type();
-  if (!valid() || !has_capability<meta::set_ops>(type)) {
+  if (!valid() || !has_ops<meta::set_ops>(type)) {
     return {};
   }
 
@@ -1128,7 +1124,7 @@ set_view any::create_set_view() {
 
 set_view any::create_set_view() const {
   const meta::type type = get_type();
-  if (!valid() || !has_capability<meta::set_ops>(type)) {
+  if (!valid() || !has_ops<meta::set_ops>(type)) {
     return {};
   }
 
@@ -1137,7 +1133,7 @@ set_view any::create_set_view() const {
 
 set_view any_ref::create_set_view() const {
   const meta::type type = get_type();
-  if (!valid() || !has_capability<meta::set_ops>(type)) {
+  if (!valid() || !has_ops<meta::set_ops>(type)) {
     return {};
   }
 

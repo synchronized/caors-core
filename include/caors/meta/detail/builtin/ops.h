@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_META_DETAIL_BUILTIN_CAPABILITY_H_
-#define CAORS_META_DETAIL_BUILTIN_CAPABILITY_H_
+#ifndef CAORS_META_DETAIL_BUILTIN_OPS_H_
+#define CAORS_META_DETAIL_BUILTIN_OPS_H_
 
 #include "caors/meta/type_ops.h"
 
@@ -17,8 +17,8 @@ struct type_descriptor;
 template <typename T> [[nodiscard]] const type_descriptor* descriptor_ptr_of() noexcept;
 template <typename T> [[nodiscard]] type_id descriptor_type_id() noexcept;
 
-/** @brief 类型的内置互斥运行期能力。 */
-using builtin_type_capability =
+/** @brief 类型的内置互斥运行期函数表。 */
+using builtin_ops =
     std::variant<std::monostate, const meta::enum_ops*, const meta::indirect_ops*,
                  const meta::sequence_ops*, const meta::set_ops*, const meta::associative_ops*,
                  const meta::pair_ops*, const meta::tuple_ops*, const meta::variant_ops*>;

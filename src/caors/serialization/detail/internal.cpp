@@ -107,7 +107,7 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
 [[nodiscard]] constructed_value construct_polymorphic_value(const meta::type& dynamic_type,
                                                             const meta::indirect_view& indirect,
                                                             const serialization::context& context) {
-  const meta::factory_ops* registered_factory = dynamic_type.get_capability<meta::factory_ops>();
+  const meta::factory_ops* registered_factory = dynamic_type.get_ops<meta::factory_ops>();
   memory::memory_resource* resource = context.effective_memory_resource();
 
   if (resource != nullptr && indirect.can_set_value_with_context()) {
@@ -120,7 +120,7 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
       };
     }
 
-    const meta::value_storage_ops* storage = dynamic_type.get_capability<meta::value_storage_ops>();
+    const meta::value_storage_ops* storage = dynamic_type.get_ops<meta::value_storage_ops>();
     if (storage != nullptr && storage->ops.resource_construct != nullptr &&
         storage->ops.resource_destroy != nullptr) {
       return {
@@ -141,7 +141,7 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
     };
   }
 
-  const meta::value_storage_ops* storage = dynamic_type.get_capability<meta::value_storage_ops>();
+  const meta::value_storage_ops* storage = dynamic_type.get_ops<meta::value_storage_ops>();
   if (storage == nullptr || storage->ops.default_construct == nullptr ||
       storage->ops.destroy == nullptr) {
     return {};
@@ -188,7 +188,7 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
 }
 
 [[nodiscard]] const meta::enum_ops* enum_ops(const any_ref& value) noexcept {
-  return value.get_type().get_capability<meta::enum_ops>();
+  return value.get_type().get_ops<meta::enum_ops>();
 }
 
 [[nodiscard]] bool type_uses_inline_indirect_value(const any_ref& value) noexcept {

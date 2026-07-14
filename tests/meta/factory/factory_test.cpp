@@ -13,7 +13,7 @@ TEST_CASE("meta type - default factory rejects non-default-constructible types",
 
   CHECK(builder.result() == meta_error(caors::errc::invalid_type));
   REQUIRE(builder.get().valid());
-  CHECK(builder.get().get_capability<caors::meta::factory_ops>() == nullptr);
+  CHECK(builder.get().get_ops<caors::meta::factory_ops>() == nullptr);
 }
 
 // 原测试文件：meta_type_factory_meta_type_factory_registers_custom_construction_strategy_test.cpp
@@ -26,8 +26,7 @@ TEST_CASE("meta type - factory registers custom construction strategy", "[meta]"
                      .factory(&construct_custom_factory_type, &destroy_custom_factory_type);
   CHECK(builder.succeeded());
 
-  const caors::meta::factory_ops* factory =
-      builder.get().get_capability<caors::meta::factory_ops>();
+  const caors::meta::factory_ops* factory = builder.get().get_ops<caors::meta::factory_ops>();
   REQUIRE(factory != nullptr);
   REQUIRE(factory->valid());
 
@@ -55,7 +54,7 @@ TEST_CASE("meta type - factory registers resource-aware default construction", "
   const caors::meta::type type = builder.get();
   REQUIRE(type.valid());
 
-  const caors::meta::factory_ops* factory = type.get_capability<caors::meta::factory_ops>();
+  const caors::meta::factory_ops* factory = type.get_ops<caors::meta::factory_ops>();
   REQUIRE(factory != nullptr);
   REQUIRE(factory->valid());
 

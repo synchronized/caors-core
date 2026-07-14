@@ -61,7 +61,7 @@ private:
     return {};
   }
 
-  const handle_ops* data = source.get_type().get_capability<handle_ops>();
+  const handle_ops* data = source.get_type().get_ops<handle_ops>();
   if (data == nullptr) {
     return {};
   }

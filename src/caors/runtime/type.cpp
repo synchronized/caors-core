@@ -37,17 +37,17 @@ bool type::indirect() const noexcept { return meta_.indirect(); }
 bool type::nullable() const noexcept { return meta_.nullable(); }
 
 std::size_t type::size() const noexcept {
-  const meta::value_storage_ops* storage = meta_.get_capability<meta::value_storage_ops>();
+  const meta::value_storage_ops* storage = meta_.get_ops<meta::value_storage_ops>();
   return storage != nullptr ? storage->layout.size : 0;
 }
 
 std::size_t type::alignment() const noexcept {
-  const meta::value_storage_ops* storage = meta_.get_capability<meta::value_storage_ops>();
+  const meta::value_storage_ops* storage = meta_.get_ops<meta::value_storage_ops>();
   return storage != nullptr ? storage->layout.alignment : 0;
 }
 
 bool type::value_constructible() const noexcept {
-  const meta::value_storage_ops* storage = meta_.get_capability<meta::value_storage_ops>();
+  const meta::value_storage_ops* storage = meta_.get_ops<meta::value_storage_ops>();
   return storage != nullptr && storage->ops.default_construct != nullptr &&
          storage->ops.destroy != nullptr;
 }
@@ -57,7 +57,7 @@ bool type::constructible() const noexcept {
     return false;
   }
 
-  const meta::factory_ops* factory = meta_.get_capability<meta::factory_ops>();
+  const meta::factory_ops* factory = meta_.get_ops<meta::factory_ops>();
   if (factory != nullptr && factory->valid()) {
     return true;
   }
@@ -70,7 +70,7 @@ any type::create(memory::memory_resource* resource) const {
     return {};
   }
 
-  const meta::factory_ops* factory = meta_.get_capability<meta::factory_ops>();
+  const meta::factory_ops* factory = meta_.get_ops<meta::factory_ops>();
   if (factory != nullptr && factory->valid()) {
     void* value = factory->construct(resource);
     if (value != nullptr) {

@@ -634,7 +634,7 @@ if (player* current = manager.find(target)) {
 
 `serialization::codec_traits<T>` 是类型级扩展点。编译期已知 `T` 时可以通过 `serialization::codec_of<T>()`
 直接取得静态 codec 视图；运行期拿得到 `meta::type` 视图时可以通过
-`serialization::find_codec(meta::type)` 或 `meta::type::get_capability<serialization::codec_ops>()`
+`serialization::find_codec(meta::type)` 或 `meta::type::get_ops<serialization::codec_ops>()`
 查询 codec 能力。`any` / `any_ref` 等内部调度路径如果已经携带 descriptor，会在 detail
 层直接查询 descriptor 静态 codec 能力；公开 API 不要求也不鼓励用户直接传递 descriptor。
 未命中时继续走基础标量探测。

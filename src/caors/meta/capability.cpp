@@ -111,8 +111,7 @@ const void* find_type_capability(const meta::type& type, capability_key key) noe
   }
 
   if (type.descriptor_ != nullptr) {
-    if (const void* builtin = descriptor_builtin_capability(type.descriptor_, key);
-        builtin != nullptr) {
+    if (const void* builtin = descriptor_builtin_ops(type.descriptor_, key); builtin != nullptr) {
       return builtin;
     }
 

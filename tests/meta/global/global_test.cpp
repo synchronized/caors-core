@@ -26,8 +26,7 @@ TEST_CASE("meta - global registry stores base type information", "[meta]") {
   auto type = caors::meta::find("caors.test.meta.base_actor");
   REQUIRE(type);
   CHECK(type.name() == "caors.test.meta.base_actor");
-  const caors::meta::value_storage_ops* value =
-      type.get_capability<caors::meta::value_storage_ops>();
+  const caors::meta::value_storage_ops* value = type.get_ops<caors::meta::value_storage_ops>();
   REQUIRE(value != nullptr);
   CHECK(value->layout.size == sizeof(base_actor_type));
   CHECK(value->layout.alignment == alignof(base_actor_type));

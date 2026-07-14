@@ -13,7 +13,7 @@ namespace caors::serialization::detail {
 namespace {
 
 [[nodiscard]] const codec_ops* find_codec_ops(const meta::type& type) {
-  if (const codec_ops* ops = type.get_capability<codec_ops>()) {
+  if (const codec_ops* ops = type.get_ops<codec_ops>()) {
     return ops;
   }
 

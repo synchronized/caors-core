@@ -84,7 +84,7 @@ template <typename T> struct descriptor_holder {
         },
     };
     fill_descriptor_semantics<type>(descriptor);
-    descriptor.builtin_capability = builtin_type_capability_of<type>();
+    descriptor.builtin = builtin_ops_of<type>();
     descriptor.static_capabilities = meta::capabilities::static_capabilities_data<type>();
     descriptor.static_capability_count = meta::capabilities::static_capabilities_size<type>();
     return descriptor;

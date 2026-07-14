@@ -165,7 +165,7 @@ public:
   /** @brief 从同类型 C++ 值写入当前值。 */
   template <typename T> bool try_set(const T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const meta::value_storage_ops* storage = type_.get_capability<meta::value_storage_ops>();
+    const meta::value_storage_ops* storage = type_.get_ops<meta::value_storage_ops>();
     if (!matches_type<type>() || storage == nullptr || storage->ops.assign == nullptr) {
       return false;
     }

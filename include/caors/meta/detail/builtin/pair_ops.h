@@ -4,7 +4,7 @@
 #ifndef CAORS_META_DETAIL_BUILTIN_PAIR_OPS_H_
 #define CAORS_META_DETAIL_BUILTIN_PAIR_OPS_H_
 
-#include "caors/meta/detail/builtin/capability.h"
+#include "caors/meta/detail/builtin/ops.h"
 #include "caors/traits/container.h"
 
 #include <type_traits>

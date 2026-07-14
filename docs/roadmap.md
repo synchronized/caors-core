@@ -35,21 +35,21 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 将 serialization codec 接入动态 capability 索引；编译期已知 `T` 时仍直接查询静态 codec 能力。
 - [x] 将对象指针和对象句柄运行期访问迁移到 descriptor 静态 capability 表，避免 `type_descriptor`
   直接依赖 object 模块字段。
-- [x] 将 descriptor 内置运行期能力收敛为互斥 `builtin_capability` variant，避免同一类型同时保存多套
-  内置能力指针。
-- [x] 将 descriptor 内置能力生成统一到 `*_ops_model<T>` 结构，保持 `*_ops_ptr_of<T>()` 作为内部取表入口。
-- [x] 拆分 descriptor 内置能力实现边界，内部 `type_descriptor.h` 保留 descriptor 本体，内置能力生成移动到
+- [x] 将 descriptor 内置运行期函数表收敛为互斥 `builtin_ops` variant，避免同一类型同时保存多套
+  内置 ops 指针。
+- [x] 将 descriptor 内置 ops 生成统一到 `*_ops_model<T>` 结构，保持 `*_ops_ptr_of<T>()` 作为内部取表入口。
+- [x] 拆分 descriptor 内置 ops 实现边界，内部 `type_descriptor.h` 保留 descriptor 本体，内置 ops 生成移动到
   `builtin_ops_model.h`。
-- [x] 将各类 descriptor 内置能力继续拆到 `meta/detail/builtin/xxx_ops.h`，`builtin_ops_model.h`
+- [x] 将各类 descriptor 内置 ops 继续拆到 `meta/detail/builtin/xxx_ops.h`，`builtin_ops_model.h`
   只保留聚合和分发入口。
-- [x] 将 descriptor 内置能力的 `*_ops` 函数表、函数指针类型和辅助函数移动到对应
-  `meta/detail/builtin/xxx_ops.h`，旧 `container.h` / `type_capabilities.h` 不再保存这些内置能力定义。
+- [x] 将 descriptor 内置 ops 的 `*_ops` 函数表、函数指针类型和辅助函数移动到对应
+  `meta/detail/builtin/xxx_ops.h`，旧 `container.h` / `type_capabilities.h` 不再保存这些内置 ops 定义。
 - [x] 删除旧 `meta/detail/container.h` 聚合头，并将 `type_capabilities.h` 精确改名为
   `parent_cast_ops.h`。
 - [x] 将 value 操作函数指针收进 `meta::value_ops` / `meta::factory_ops`，公开层通过
-  `meta::type::get_capability<meta::value_storage_ops>()` 查询，避免 object / reflection /
+  `meta::type::get_ops<meta::value_storage_ops>()` 查询，避免 object / reflection /
   serialization 横向依赖 `meta::detail`。
-- [x] 将 descriptor 内建能力纳入 `meta::type::get_capability<T>()` 查询链路，并补充 `meta::type`
+- [x] 将 descriptor 内建 ops 和静态能力纳入 `meta::type` 的 capability / ops 查询链路，并补充 `meta::type`
   的 kind、wrapper、nullable、value type 和 key type 查询，使 reflection / serialization 优先使用
   `meta::type` 作为能力 API。
 - [x] 将 reflection 字段访问收敛为 `field_ops` 函数表，`field_wrapper` 作为 property/concept-table

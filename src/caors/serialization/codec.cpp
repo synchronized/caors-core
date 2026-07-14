@@ -34,7 +34,7 @@ codec find_codec(meta::type type) {
     return {};
   }
 
-  return codec{type, type.get_capability<codec_ops>()};
+  return codec{type, type.get_ops<codec_ops>()};
 }
 
 } // namespace caors::serialization

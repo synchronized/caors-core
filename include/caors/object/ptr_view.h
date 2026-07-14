@@ -61,7 +61,7 @@ private:
     return {};
   }
 
-  const ptr_ops* data = source.get_type().get_capability<ptr_ops>();
+  const ptr_ops* data = source.get_type().get_ops<ptr_ops>();
   if (data == nullptr) {
     return {};
   }

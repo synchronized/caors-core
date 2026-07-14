@@ -24,12 +24,12 @@ namespace {
 }
 
 [[nodiscard]] meta::type_layout layout_of(meta::type type) noexcept {
-  const meta::value_storage_ops* value_ops = type.get_capability<meta::value_storage_ops>();
+  const meta::value_storage_ops* value_ops = type.get_ops<meta::value_storage_ops>();
   return value_ops != nullptr ? value_ops->layout : meta::type_layout{};
 }
 
 [[nodiscard]] const meta::value_ops* value_ops_of(meta::type type) noexcept {
-  const meta::value_storage_ops* storage = type.get_capability<meta::value_storage_ops>();
+  const meta::value_storage_ops* storage = type.get_ops<meta::value_storage_ops>();
   return storage != nullptr ? &storage->ops : nullptr;
 }
 
@@ -133,7 +133,7 @@ bool any::try_set(const any& source) {
 }
 
 any any::copy_from_raw(meta::type type, const void* source) {
-  const meta::value_storage_ops* value_ops = type.get_capability<meta::value_storage_ops>();
+  const meta::value_storage_ops* value_ops = type.get_ops<meta::value_storage_ops>();
   if (!type || value_ops == nullptr) {
     return {};
   }
@@ -169,7 +169,7 @@ any any::copy_from_raw(meta::type type, const void* source) {
 
 any any::take_ownership(meta::type type, void* value, memory::memory_resource* resource,
                         meta::factory_ops::destroy_fn destroy) {
-  const meta::value_storage_ops* value_ops = type.get_capability<meta::value_storage_ops>();
+  const meta::value_storage_ops* value_ops = type.get_ops<meta::value_storage_ops>();
   if (!type || value_ops == nullptr || value == nullptr || destroy == nullptr) {
     return {};
   }
@@ -274,7 +274,7 @@ any_ref any_ref::from_raw(meta::type type, const void* data, bool writable) noex
 }
 
 any any::default_construct(meta::type type, memory::memory_resource* resource) {
-  const meta::value_storage_ops* value_ops = type.get_capability<meta::value_storage_ops>();
+  const meta::value_storage_ops* value_ops = type.get_ops<meta::value_storage_ops>();
   if (!type || value_ops == nullptr || value_ops->ops.default_construct == nullptr ||
       value_ops->ops.destroy == nullptr) {
     return {};

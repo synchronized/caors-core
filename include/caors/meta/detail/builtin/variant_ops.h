@@ -6,7 +6,7 @@
 
 #include "caors/core/containers.h"
 #include "caors/memory/resource.h"
-#include "caors/meta/detail/builtin/capability.h"
+#include "caors/meta/detail/builtin/ops.h"
 #include "caors/traits/container.h"
 
 #include <cstddef>

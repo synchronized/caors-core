@@ -74,30 +74,30 @@ type type::get_value_type() const noexcept {
     break;
   case type_kind::raw_pointer:
   case type_kind::wrapper:
-    if (const auto* indirect_ops = get_capability<meta::indirect_ops>()) {
+    if (const auto* indirect_ops = get_ops<meta::indirect_ops>()) {
       value =
           indirect_ops->get_value_type != nullptr ? indirect_ops->get_value_type() : meta::type{};
     }
     break;
   case type_kind::sequence:
-    if (const auto* sequence_ops = get_capability<meta::sequence_ops>()) {
+    if (const auto* sequence_ops = get_ops<meta::sequence_ops>()) {
       value =
           sequence_ops->get_value_type != nullptr ? sequence_ops->get_value_type() : meta::type{};
     }
     break;
   case type_kind::set:
-    if (const auto* set_ops = get_capability<meta::set_ops>()) {
+    if (const auto* set_ops = get_ops<meta::set_ops>()) {
       value = set_ops->get_value_type != nullptr ? set_ops->get_value_type() : meta::type{};
     }
     break;
   case type_kind::associative:
-    if (const auto* associative_ops = get_capability<meta::associative_ops>()) {
+    if (const auto* associative_ops = get_ops<meta::associative_ops>()) {
       value = associative_ops->get_value_type != nullptr ? associative_ops->get_value_type()
                                                          : meta::type{};
     }
     break;
   case type_kind::pair:
-    if (const auto* pair_ops = get_capability<meta::pair_ops>()) {
+    if (const auto* pair_ops = get_ops<meta::pair_ops>()) {
       value = pair_ops->get_value_type != nullptr ? pair_ops->get_value_type() : meta::type{};
     }
     break;
@@ -118,14 +118,14 @@ type type::get_key_type() const noexcept {
   meta::type key = {};
   switch (detail::descriptor_kind(*descriptor_)) {
   case type_kind::associative:
-    if (const auto* associative_ops = get_capability<meta::associative_ops>()) {
+    if (const auto* associative_ops = get_ops<meta::associative_ops>()) {
       key_type = detail::descriptor_key_type(*descriptor_);
       key =
           associative_ops->get_key_type != nullptr ? associative_ops->get_key_type() : meta::type{};
     }
     break;
   case type_kind::pair:
-    if (const auto* pair_ops = get_capability<meta::pair_ops>()) {
+    if (const auto* pair_ops = get_ops<meta::pair_ops>()) {
       key_type = detail::descriptor_key_type(*descriptor_);
       key = pair_ops->get_key_type != nullptr ? pair_ops->get_key_type() : meta::type{};
     }

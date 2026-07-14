@@ -8,20 +8,19 @@
 namespace caors::serialization::detail {
 
 [[nodiscard]] const meta::sequence_ops* sequence_ops_of(const any_ref& target) noexcept {
-  return target.get_type().get_capability<meta::sequence_ops>();
+  return target.get_type().get_ops<meta::sequence_ops>();
 }
 
 [[nodiscard]] const meta::set_ops* set_ops_of(const any_ref& target) noexcept {
-  return target.get_type().get_capability<meta::set_ops>();
+  return target.get_type().get_ops<meta::set_ops>();
 }
 
 [[nodiscard]] const meta::associative_ops* associative_ops_of(const any_ref& target) noexcept {
-  return target.get_type().get_capability<meta::associative_ops>();
+  return target.get_type().get_ops<meta::associative_ops>();
 }
 
 [[nodiscard]] meta::value_ops::assign_fn assign_fn_of(const any_ref& target) noexcept {
-  const meta::value_storage_ops* storage =
-      target.get_type().get_capability<meta::value_storage_ops>();
+  const meta::value_storage_ops* storage = target.get_type().get_ops<meta::value_storage_ops>();
   return storage != nullptr ? storage->ops.assign : nullptr;
 }
 

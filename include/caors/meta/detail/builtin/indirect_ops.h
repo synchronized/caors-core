@@ -5,7 +5,7 @@
 #define CAORS_META_DETAIL_BUILTIN_INDIRECT_OPS_H_
 
 #include "caors/memory/resource.h"
-#include "caors/meta/detail/builtin/capability.h"
+#include "caors/meta/detail/builtin/ops.h"
 #include "caors/traits/wrapper.h"
 
 #include <type_traits>

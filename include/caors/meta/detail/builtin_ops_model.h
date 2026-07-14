@@ -21,7 +21,7 @@
 
 namespace caors::meta::detail {
 
-template <typename T> [[nodiscard]] builtin_type_capability builtin_type_capability_of() {
+template <typename T> [[nodiscard]] builtin_ops builtin_ops_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
 
   if constexpr (std::is_pointer_v<type>) {

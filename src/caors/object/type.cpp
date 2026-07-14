@@ -21,12 +21,12 @@ core::string_name type::name() const noexcept { return type_.name(); }
 core::type_guid type::guid() const noexcept { return type_.guid(); }
 
 std::size_t type::size() const noexcept {
-  const meta::value_storage_ops* value_ops = type_.get_capability<meta::value_storage_ops>();
+  const meta::value_storage_ops* value_ops = type_.get_ops<meta::value_storage_ops>();
   return value_ops != nullptr ? value_ops->layout.size : 0;
 }
 
 std::size_t type::alignment() const noexcept {
-  const meta::value_storage_ops* value_ops = type_.get_capability<meta::value_storage_ops>();
+  const meta::value_storage_ops* value_ops = type_.get_ops<meta::value_storage_ops>();
   return value_ops != nullptr ? value_ops->layout.alignment : 0;
 }
 

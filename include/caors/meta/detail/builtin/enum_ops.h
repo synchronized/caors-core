@@ -4,7 +4,7 @@
 #ifndef CAORS_META_DETAIL_BUILTIN_ENUM_OPS_H_
 #define CAORS_META_DETAIL_BUILTIN_ENUM_OPS_H_
 
-#include "caors/meta/detail/builtin/capability.h"
+#include "caors/meta/detail/builtin/ops.h"
 
 #include <cstdint>
 #include <limits>

@@ -242,10 +242,10 @@ runtime capability。普通调用方应使用这个统一入口，不直接关�
 
 内部 descriptor 是 C++ 类型的内部能力描述。注册表按 `type_id`
 保存指向静态 descriptor 的指针，不把 descriptor 当作普通 generic component 复制存储。descriptor
-由布局、值操作、类型语义和固定运行期能力集合几部分组成；未注册结构类型也可以通过 `any`、
+由布局、值操作、类型语义、内置 ops 和静态能力表几部分组成；未注册结构类型也可以通过 `any`、
 `any_ref` 或反射字段携带的静态 descriptor 访问同一套能力。
 descriptor 位于 `meta::detail`，不属于公开 API；普通用户应通过 `meta::type`、`meta::resolve<T>()`
-和 `meta::type::get_capability<T>()` 查询这些能力。
+和 `meta::type::get_capability<T>()` / `get_ops<T>()` 查询这些能力。
 
 descriptor 内部按职责拆分：
 
@@ -253,7 +253,7 @@ descriptor 内部按职责拆分：
 - `value_ops`：保存默认构造、复制、析构和赋值的类型擦除函数；相关函数指针类型嵌套在
   `value_ops` / `factory_ops` 内部，定义在 `meta/value_ops.h`。
 - `type_semantics`：保存该类型在反射、序列化和 value 模块中的运行期形态。
-- `builtin_capability`：保存一个固定内置互斥能力，例如枚举、间接值、顺序容器、集合、关联容器、pair、tuple 或 variant。
+- `builtin_ops`：保存一个固定内置互斥函数表，例如枚举、间接值、顺序容器、集合、关联容器、pair、tuple 或 variant。
 - `static_capabilities`：保存模块声明的静态能力表，例如对象指针、对象句柄访问函数表和
   serialization codec 函数表。
 
@@ -261,8 +261,8 @@ descriptor 内部按职责拆分：
 `meta/type_registration.h` 保存公开注册输入描述 `type_registration_data`；
 `meta/detail/type_descriptor_name.h` 负责 descriptor 默认显示名生成；
 `meta/detail/type_descriptor_model.h` 负责 descriptor holder、语义填充和构建实现；
-`meta/detail/builtin_ops_model.h` 作为内置能力聚合入口，只负责引入
-`meta/detail/builtin/*.h` 并选择当前类型的内置能力；`builtin/enum_ops.h`、
+`meta/detail/builtin_ops_model.h` 作为内置 ops 聚合入口，只负责引入
+`meta/detail/builtin/*.h` 并选择当前类型的内置 ops；`builtin/enum_ops.h`、
 `builtin/indirect_ops.h`、`builtin/sequence_ops.h`、`builtin/set_ops.h`、
 `builtin/associative_ops.h`、`builtin/pair_ops.h`、`builtin/tuple_ops.h` 和
 `builtin/variant_ops.h` 分别负责对应能力的 `*_ops` 函数表、函数指针类型、具名 static 回调和
@@ -288,7 +288,7 @@ descriptor 内部按职责拆分：
 - `*_ops_model<T>` 内部优先使用具名 static 回调组装函数表，避免把类型擦除回调散落在匿名 lambda
   或临时初始化表达式里。局部遍历适配可以使用短 lambda，但对外保存到 `*_ops` 的函数指针应来自
   明确命名的 model 回调。
-- descriptor 内置能力同样遵循这套规则：`enum_ops_model<T>`、`indirect_ops_model<T>`、
+- descriptor 内置 ops 同样遵循这套规则：`enum_ops_model<T>`、`indirect_ops_model<T>`、
   `sequence_ops_model<T>`、`set_ops_model<T>`、`associative_ops_model<T>`、`pair_ops_model<T>`、
   `tuple_ops_model<T>` 和 `variant_ops_model<T>` 负责生成内置访问函数表；tuple 和 variant 会再用
   按索引展开的 element / alternative model 生成每个元素或候选类型的函数表。
@@ -304,9 +304,9 @@ descriptor 内部按职责拆分：
 - `indirect`：该类型是否具备一层间接值语义，例如裸指针或 wrapper。
 - `nullable`：运行期值是否可能为空。
 
-具体访问函数表由 `builtin_capability` 或模块 capability 持有，用来描述枚举转换、容器、指针、wrapper、
-对象引用、pair、tuple 和 variant 访问能力。当前 descriptor 内置能力由 CAORS 定义，并且同一类型只会持有一个内置能力；查询入口仍是内部
-`descriptor_capability<T>()`：
+具体访问函数表由 `builtin_ops` 或模块 ops 持有，用来描述枚举转换、容器、指针、wrapper、
+对象引用、pair、tuple 和 variant 访问能力。当前 descriptor 内置 ops 由 CAORS 定义，并且同一类型只会持有一个内置 ops；查询入口仍是内部
+`descriptor_ops<T>()`：
 
 - `meta::indirect_ops`：裸指针或 wrapper 的内部值访问、持值检测、重置和确保持值函数。
 - `meta::enum_ops`：枚举类型和整数之间的转换函数。
@@ -434,7 +434,7 @@ CAORS_META_REGISTRATION(register_actor_meta) {
 注册表维护几类索引：
 
 - `type_id -> 内部 meta 类型记录`：运行期主索引，只保存身份类信息。
-- `type_id -> 内部类型 descriptor`：布局、值操作、类型语义和固定运行期能力集合。
+- `type_id -> 内部类型 descriptor`：布局、值操作、类型语义、内置 ops 和静态能力表。
 - `typeid(T) -> type_id`：当前进程内 RTTI 查询索引，用于普通 C++ 多态辅助。
 - `type_id -> parent upcast`：typed parent 注册保存的直接父类 upcast 回调。
 - `type_name -> type_id`：名称查询索引，可选。
@@ -489,10 +489,17 @@ caors::meta::class_<matrix>("math.matrix")
         &matrix_element,
     });
 
-if (const matrix_ops* ops = caors::meta::find<matrix>().get_capability<matrix_ops>()) {
+if (const matrix_ops* ops = caors::meta::find<matrix>().get_ops<matrix_ops>()) {
   // 调用方把对象地址交给 concept table，具体类型仍由注册时的 model 负责解释。
 }
 ```
+
+普通 capability 和低层 ops 的查询入口刻意分开：
+
+- `meta::type::get_capability<T>()` / `has_capability<T>()`：面向普通运行期扩展能力。
+- `meta::type::get_ops<T>()` / `has_ops<T>()`：面向 `*_ops` 这类类型擦除函数表。调用点应明确知道自己正在触碰低层表。
+- 实例级访问优先使用绑定后的 view，例如 `any_ref::get_capability<meta::sequence_view>()` 或
+  `any_ref::get_capability<objects::ptr_view>()`，避免业务代码直接传递 `void*`。
 
 如果能力由 `static_capability<Capability, T>` 提供，也可以只声明能力类型：
 
@@ -540,7 +547,7 @@ meta 组件。
 全局 `meta::registry` 是共享元数据层：
 
 - `objects::registry` 复用全局 meta 类型记录，再给同一个 `type_id` 挂载
-  `objects::object_factory_ops` capability，并对外返回 `objects::type` 视图。
+  `objects::object_factory_ops` ops，并对外返回 `objects::type` 视图。
 - 全局反射注册表复用 meta 类型记录，再挂载内部反射组件，并通过 `reflection::type` / `reflection::field` 对外查询。
 - 后续 `serialization::registry` 可以挂载序列化相关组件。
 
@@ -560,7 +567,7 @@ meta 组件。
 - `meta::id_of<T>()`：查询 C++ 类型的运行期类型 id；类型不要求已经显式注册。
 - `meta::id()`：根据已注册类型名查询运行期类型标识。
 - `traits::type_name<T>`：基础 C++ 类型到 CAORS 类型名的默认映射。
-- 内部 descriptor：布局、值操作、类型语义和固定运行期能力集合，不属于公开 API。
+- 内部 descriptor：布局、值操作、类型语义、内置 ops 和静态能力表，不属于公开 API。
 - `traits::wrapper_traits<T>` / `traits::wrapper_access<T>`：wrapper 类型语义和内部值访问扩展点。
 - `traits::sequence_traits<T>` / `traits::set_traits<T>` / `traits::associative_traits<T>` / `traits::pair_traits<T>` / `traits::tuple_traits<T>` / `traits::variant_traits<T>`：容器、二元组、tuple-like 和 variant-like 类型语义扩展点。
 - `meta::type`：descriptor-backed 类型只读视图，注册数据可选。

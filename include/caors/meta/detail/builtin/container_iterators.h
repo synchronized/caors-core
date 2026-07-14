@@ -6,6 +6,7 @@
 
 #include "caors/config.h"
 #include "caors/memory/resource.h"
+#include "caors/meta/type_ops.h"
 #include "caors/traits/container.h"
 
 #include <new>

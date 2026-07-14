@@ -5,7 +5,7 @@
 #define CAORS_META_DETAIL_BUILTIN_SEQUENCE_OPS_H_
 
 #include "caors/memory/resource.h"
-#include "caors/meta/detail/builtin/capability.h"
+#include "caors/meta/detail/builtin/ops.h"
 #include "caors/traits/container.h"
 
 #include <cstddef>
