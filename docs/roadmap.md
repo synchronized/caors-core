@@ -69,6 +69,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 增加 `runtime` facade，组合 `meta::type`、反射字段/方法和值构造能力，提供更直接的用户入口。
 - [x] 将 `runtime` 确认为推荐主入口，具体模块保留高级入口；`meta::type_<T>()` 改为
   `meta::class_<T>()`，并增加 `meta::enum_<T>()` / `runtime::enum_<T>()`。
+- [x] 将 `runtime::type::create()` 统一为高层创建入口，优先使用 meta factory，再回退到 descriptor
+  默认构造；`create_value()` 保留为低层默认构造入口。
 - [ ] 评估组件替换和批量注册 API。
 
 ## 2. 定制化分配器
@@ -123,6 +125,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 支持 `std::tuple<Ts...>` 的 tuple-like 字段描述、元素类型查询和基础修改入口。
 - [x] 定义成员方法元信息模型；字段继续承担数据属性反射。
 - [x] 提供成员方法调用入口。
+- [ ] 设计独立 constructor / 带参构造函数注册组件，并接入 `runtime::type::create()` 的统一创建策略。
 - [ ] 扩展属性别名、访问控制、重载选择和类型转换测试。
 
 ## 5. 序列化

@@ -161,6 +161,22 @@ any any::copy_from_raw(meta::type type, const void* source) {
   return result;
 }
 
+any any::take_ownership(meta::type type, void* value, memory::memory_resource* resource,
+                        meta::value_resource_destroy_fn destroy) {
+  const meta::value_storage_ops* value_ops = type.get_capability<meta::value_storage_ops>();
+  if (!type || value_ops == nullptr || value == nullptr || destroy == nullptr) {
+    return {};
+  }
+
+  any result;
+  result.type_ = type;
+  result.data_ = value;
+  result.resource_ = resource;
+  result.resource_destroy_ = destroy;
+  result.mode_ = any::storage_mode::resource_value;
+  return result;
+}
+
 void any::copy_from(const any& other) {
   if (!other.valid()) {
     return;

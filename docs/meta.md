@@ -198,6 +198,9 @@ caors::meta::class_<player>("game.player")
 
 `.factory()` 无参数重载使用 `memory::make<T>()` / `memory::destroy<T>()` 注册默认构造策略，要求 `T`
 可默认构造。带函数指针的重载用于不可默认构造类型，`destroy` 必须匹配 `construct` 的分配策略。
+应用层需要创建运行期值时优先使用 `runtime::type::create()`，它会先查询这里注册的 factory，再回退到
+descriptor 默认构造。`any::default_construct()` 只表达 descriptor 低层默认构造能力，不查询 registry
+中的 factory。
 
 `caors::meta::resolve<T>()` 是 C++ 类型到 descriptor 视图的入口；类型未显式注册时仍可能返回有效
 `meta::type`，但 `registered()` 为 false。`caors::meta::find<T>()` 是 C++ 类型到已注册类型的入口，
@@ -501,7 +504,6 @@ caors::meta::class_<actor>()
   注册表生命周期内保持稳定。
 - `ensure_component<T>(type_id, args...)`：按需组件创建 helper，组件已存在时返回现有指针，不存在时创建并返回
   新组件指针。
-- `component_status<T>(type_id)`：查询组件诊断状态，区分无效类型、未注册类型、缺失组件和已挂载组件。
 - `component_count<T>()`：统计拥有指定组件的类型数量。
 - `component_view<T...>()`：查询同时拥有指定组件集合的类型。
 
@@ -517,8 +519,7 @@ meta 组件。
 - `errc::duplicate_component`：目标类型已经挂载同类组件。
 - `errc::frozen`：注册表已冻结。
 
-`component_status<T>()` 不修改注册表，适合在模块重复注册、热加载诊断或报错前检查当前状态。当前注册表仍是
-append-only 语义，不支持组件替换；如果后续支持热重载，应在替换 API 上显式处理旧组件生命周期和读者同步。
+当前注册表仍是 append-only 语义，不支持组件替换；如果后续支持热重载，应在替换 API 上显式处理旧组件生命周期和读者同步。
 
 ## 线程安全边界
 

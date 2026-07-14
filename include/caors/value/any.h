@@ -87,6 +87,16 @@ public:
    */
   [[nodiscard]] static any copy_from_raw(meta::type type, const void* source);
 
+  /**
+   * @brief 接管由外部工厂创建的运行期对象。
+   *
+   * `value` 必须指向与 `type` 匹配的对象，`destroy` 必须能用同一个 `resource` 正确销毁该对象。
+   * 该入口主要供 runtime factory、序列化多态创建等低层路径使用。
+   */
+  [[nodiscard]] static any take_ownership(meta::type type, void* value,
+                                          memory::memory_resource* resource,
+                                          meta::value_resource_destroy_fn destroy);
+
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
   [[nodiscard]] meta::type get_type() const noexcept;

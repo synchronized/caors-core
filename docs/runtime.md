@@ -13,7 +13,9 @@
 - `runtime::instance` 组合 `value::any_ref`、`runtime::type`、`reflection::field` 和 `reflection::method`，
   提供面向实例的字段读写和方法调用入口。
 - `runtime::object` 是对象系统适配视图，用于处理 `objects::ptr<T>` 这类对象指针字段。
-- `runtime::type::create_value()` 仍使用 `value::any` 的低层值构造能力，不等价于对象系统 factory。
+- `runtime::type::create()` 是运行期值创建的高层入口，优先使用 meta factory，最后才回退到
+  descriptor 默认构造。
+- `runtime::type::create_value()` 只使用 `value::any` 的低层 descriptor 默认构造能力，不查询 factory。
 
 ## 基本使用
 
@@ -35,6 +37,46 @@ caors::runtime::class_<actor>("game.actor")
 caors::runtime::type type = caors::runtime::find<actor>();
 caors::runtime::field field = type.find_field("health");
 ```
+
+## 创建值
+
+`runtime::type::create()` 是普通代码优先使用的运行期创建入口：
+
+```cpp
+caors::runtime::type type = caors::runtime::find<actor>();
+caors::any value = type.create();
+```
+
+当前创建优先级是：
+
+1. 如果类型注册了 `meta` factory，使用 factory 构造对象，并让返回的 `any` 记住匹配的销毁函数。
+2. 如果没有 factory，回退到 descriptor 默认构造，也就是 `any::default_construct()`。
+3. 两者都不可用时返回无效 `any`。
+
+需要指定分配器时，把 `memory_resource` 传给 `create()`：
+
+```cpp
+caors::tracking_resource tracking{&caors::get_system_memory_resource()};
+caors::any value = type.create(&tracking);
+```
+
+`create_value()` 是低层兜底入口，只表达“这个 C++ 类型能否默认构造为一个值”。它不会查询
+`meta` factory，因此不适合作为多态反序列化、编辑器创建对象或资源配置加载的首选入口。
+
+注册自定义构造策略时，使用 `runtime::class_<T>().factory()`：
+
+```cpp
+void* construct_actor(caors::memory_resource* resource);
+void destroy_actor(caors::memory_resource* resource, void* value) noexcept;
+
+caors::runtime::class_<actor>("game.actor")
+    .factory(&construct_actor, &destroy_actor)
+    .field("health", &actor::health)
+    .commit();
+```
+
+独立的“反射构造函数/带参 constructor 注册”尚未实现。后续如果引入 constructor 组件，`create()`
+会继续作为统一入口，在 factory 和 descriptor 默认构造之间加入对应策略。
 
 已注册反射字段和方法后，可以通过 `runtime::instance` 访问具体实例：
 

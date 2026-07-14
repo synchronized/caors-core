@@ -3,6 +3,7 @@
 
 #include "caors/runtime/type.h"
 
+#include "caors/meta/registry.h"
 #include "caors/reflection/registry.h"
 
 namespace caors::runtime {
@@ -49,6 +50,34 @@ bool type::value_constructible() const noexcept {
   const meta::value_storage_ops* storage = meta_.get_capability<meta::value_storage_ops>();
   return storage != nullptr && storage->ops.default_construct != nullptr &&
          storage->ops.destroy != nullptr;
+}
+
+bool type::constructible() const noexcept {
+  if (!valid()) {
+    return false;
+  }
+
+  if (meta::get_registry().find_type_factory(id()).valid()) {
+    return true;
+  }
+
+  return value_constructible();
+}
+
+any type::create(memory::memory_resource* resource) const {
+  if (!valid()) {
+    return {};
+  }
+
+  const meta::value_factory_ops factory = meta::get_registry().find_type_factory(id());
+  if (factory.valid()) {
+    void* value = factory.construct(resource);
+    if (value != nullptr) {
+      return any::take_ownership(meta_, value, resource, factory.destroy);
+    }
+  }
+
+  return create_value(resource);
 }
 
 any type::create_value(memory::memory_resource* resource) const {

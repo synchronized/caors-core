@@ -7,7 +7,6 @@
 #include "caors/adapters/stl_wrapper.h"
 #include "caors/error.h"
 #include "caors/export.h"
-#include "caors/meta/component_storage.h"
 #include "caors/meta/detail/component_storage.h"
 #include "caors/meta/detail/parent_cast_ops.h"
 #include "caors/meta/registration.h"
@@ -184,26 +183,6 @@ public:
     }
 
     return storage_base->size();
-  }
-
-  /** @brief 查询指定类型上的组件状态，用于重复注册和缺失组件诊断。 */
-  template <typename Component> [[nodiscard]] component_status component_status(type_id id) const {
-    using component_type = std::decay_t<Component>;
-    if (!id) {
-      return component_status::invalid_type;
-    }
-
-    if (!contains(id)) {
-      return component_status::missing_type;
-    }
-
-    const detail::meta_component_storage_base* storage_base =
-        find_component_storage(detail::meta_component_key_of<component_type>());
-    if (storage_base == nullptr || !storage_base->contains(id)) {
-      return component_status::missing_component;
-    }
-
-    return component_status::present;
   }
 
   /** @brief 查询同时拥有指定组件集合的类型。 */

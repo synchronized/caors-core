@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
+#include "caors/memory.h"
 #include "caors/object.h"
 #include "caors/runtime.h"
 
@@ -25,6 +26,29 @@ struct runtime_target : caors::object {};
 
 struct runtime_plain_owner {
   int health = 7;
+};
+
+struct runtime_default_create_type {
+  int value = 11;
+};
+
+struct runtime_factory_create_type {
+  runtime_factory_create_type() = default;
+  explicit runtime_factory_create_type(int input) : value(input) {}
+
+  int value = 1;
+};
+
+struct runtime_resource_factory_create_type {
+  explicit runtime_resource_factory_create_type(int input) : value(input) {}
+
+  int value = 0;
+};
+
+struct runtime_missing_create_type {
+  explicit runtime_missing_create_type(int input) : value(input) {}
+
+  int value = 0;
 };
 
 class runtime_instance_owner : public caors::object_base<runtime_instance_owner> {
@@ -63,6 +87,43 @@ enum class runtime_state {
   idle,
   running,
 };
+
+void* construct_runtime_factory_create_type(caors::memory_resource* resource) {
+  if (resource != nullptr) {
+    return caors::memory::make<runtime_factory_create_type>(resource, 42);
+  }
+
+  return new runtime_factory_create_type(42);
+}
+
+void destroy_runtime_factory_create_type(caors::memory_resource* resource, void* value) noexcept {
+  auto* typed = static_cast<runtime_factory_create_type*>(value);
+  if (resource != nullptr) {
+    caors::memory::destroy(typed, resource);
+    return;
+  }
+
+  delete typed;
+}
+
+void* construct_runtime_resource_factory_create_type(caors::memory_resource* resource) {
+  if (resource != nullptr) {
+    return caors::memory::make<runtime_resource_factory_create_type>(resource, 43);
+  }
+
+  return new runtime_resource_factory_create_type(43);
+}
+
+void destroy_runtime_resource_factory_create_type(caors::memory_resource* resource,
+                                                  void* value) noexcept {
+  auto* typed = static_cast<runtime_resource_factory_create_type*>(value);
+  if (resource != nullptr) {
+    caors::memory::destroy(typed, resource);
+    return;
+  }
+
+  delete typed;
+}
 
 } // namespace
 
@@ -107,6 +168,92 @@ TEST_CASE("runtime facade - class builder registers meta and reflection", "[runt
   auto* constructed = value.try_get_mutable<runtime_actor>();
   REQUIRE(constructed != nullptr);
   CHECK(constructed->health == 7);
+}
+
+TEST_CASE("runtime facade - create uses registered factory before default construction",
+          "[runtime]") {
+  const caors::error status =
+      caors::runtime::class_<runtime_factory_create_type>("caors.test.runtime.factory_create")
+          .factory(&construct_runtime_factory_create_type, &destroy_runtime_factory_create_type)
+          .commit();
+  CHECK_FALSE(status);
+
+  caors::runtime::type type = caors::runtime::find<runtime_factory_create_type>();
+  REQUIRE(type.valid());
+  CHECK(type.constructible());
+  CHECK(type.value_constructible());
+
+  caors::any value = type.create();
+  REQUIRE(value.valid());
+  auto* created = value.try_get_mutable<runtime_factory_create_type>();
+  REQUIRE(created != nullptr);
+  CHECK(created->value == 42);
+
+  caors::any default_value = type.create_value();
+  REQUIRE(default_value.valid());
+  auto* default_created = default_value.try_get_mutable<runtime_factory_create_type>();
+  REQUIRE(default_created != nullptr);
+  CHECK(default_created->value == 1);
+}
+
+TEST_CASE("runtime facade - create falls back to descriptor default construction", "[runtime]") {
+  const caors::error status =
+      caors::runtime::class_<runtime_default_create_type>("caors.test.runtime.default_create")
+          .commit();
+  CHECK_FALSE(status);
+
+  caors::runtime::type type = caors::runtime::find<runtime_default_create_type>();
+  REQUIRE(type.valid());
+  CHECK(type.constructible());
+  CHECK(type.value_constructible());
+
+  caors::any value = type.create();
+  REQUIRE(value.valid());
+  auto* created = value.try_get_mutable<runtime_default_create_type>();
+  REQUIRE(created != nullptr);
+  CHECK(created->value == 11);
+}
+
+TEST_CASE("runtime facade - create reports non constructible types", "[runtime]") {
+  const caors::error status =
+      caors::runtime::class_<runtime_missing_create_type>("caors.test.runtime.missing_create")
+          .commit();
+  CHECK_FALSE(status);
+
+  caors::runtime::type type = caors::runtime::find<runtime_missing_create_type>();
+  REQUIRE(type.valid());
+  CHECK_FALSE(type.constructible());
+  CHECK_FALSE(type.value_constructible());
+  CHECK_FALSE(type.create());
+  CHECK_FALSE(type.create_value());
+}
+
+TEST_CASE("runtime facade - create keeps factory resource ownership", "[runtime]") {
+  const caors::error status = caors::runtime::class_<runtime_resource_factory_create_type>(
+                                  "caors.test.runtime.resource_factory_create")
+                                  .factory(&construct_runtime_resource_factory_create_type,
+                                           &destroy_runtime_resource_factory_create_type)
+                                  .commit();
+  CHECK_FALSE(status);
+
+  caors::runtime::type type = caors::runtime::find<runtime_resource_factory_create_type>();
+  REQUIRE(type.valid());
+  CHECK(type.constructible());
+  CHECK_FALSE(type.value_constructible());
+
+  caors::tracking_resource tracking{&caors::get_system_memory_resource()};
+
+  caors::any value = type.create(&tracking);
+  REQUIRE(value.valid());
+  auto* created = value.try_get_mutable<runtime_resource_factory_create_type>();
+  REQUIRE(created != nullptr);
+  CHECK(created->value == 43);
+  CHECK(tracking.statistics().allocation_count == 1);
+  CHECK(tracking.statistics().bytes_in_use >= sizeof(runtime_resource_factory_create_type));
+
+  value.reset();
+  CHECK(tracking.statistics().deallocation_count == 1);
+  CHECK(tracking.statistics().bytes_in_use == 0);
 }
 
 TEST_CASE("runtime facade - enum builder registers meta enum", "[runtime]") {
