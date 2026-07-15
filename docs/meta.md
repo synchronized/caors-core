@@ -653,15 +653,21 @@ CAORS_META_DEF_MEM_DISPATCH(matrix_rows, rows);
 CAORS_META_DEF_MEM_DISPATCH(matrix_columns, columns);
 CAORS_META_DEF_MEM_DISPATCH(matrix_get, get);
 CAORS_META_DEF_MEM_DISPATCH(matrix_set, set);
+CAORS_META_DEF_TYPE_DISPATCH(matrix_create, create);
 
 using matrix_capability =
     caors::meta::capability_builder::add_convention<matrix_rows, std::size_t() noexcept>::
         add_convention<matrix_columns, std::size_t() noexcept>::
             add_convention<matrix_get, int(std::size_t, std::size_t)>::
-                add_convention<matrix_set, void(std::size_t, std::size_t, int)>::build;
+                add_convention<matrix_set, void(std::size_t, std::size_t, int)>::
+                    add_type_convention<matrix_create, matrix()>::build;
 
 caors::meta::class_<matrix>()
     .capability<matrix_capability>();
+
+auto type = caors::meta::resolve<matrix>();
+auto capability = type.get_capability<matrix_capability>();
+auto created = capability.create();
 
 matrix value{};
 auto view = caors::meta::any_ref::from(value)
@@ -673,8 +679,11 @@ view.set(1, 1, 42);
 `CAORS_META_DEF_MEM_DISPATCH(dispatch_type, member_name)` 会定义一个 dispatch 类型。`add_convention`
 使用该 dispatch 和 `R(Args...)` / `R(Args...) noexcept` 签名生成 capability。注册时如果目标
 C++ 类型存在同名成员函数，`meta::class_<T>().capability<Capability>()` 会自动生成并注册
-对应 ops；实例访问时 `any_ref::get_capability<Capability>()` 返回绑定后的 view。当前版本不处理
-重载自动选择，遇到重载成员时仍需要后续更完整的 Proxy DSL 或显式 model。
+对应 ops；实例访问时 `any_ref::get_capability<Capability>()` 返回绑定后的 view。
+
+`CAORS_META_DEF_TYPE_DISPATCH(dispatch_type, member_name)` 定义类型级 dispatch。`add_type_convention`
+会把同名静态成员函数接到类型级 facade 上，适合 `create()`、固定形状、类型级配置查询这类不需要绑定实例的能力。
+当前版本不处理重载自动选择，遇到重载成员时仍需要后续更完整的 Proxy DSL 或显式 model。
 
 旧的 X-macro 入口仍可用于需要强控制 `ops/view/capability` 生成形态的高级场景。实例能力使用
 `CAORS_META_PROXY_CAPABILITY`：方法列表宏接收两个参数，分别表示只读方法和可写方法；每个方法项格式是

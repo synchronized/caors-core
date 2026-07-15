@@ -76,6 +76,12 @@ struct macro_proxy_matrix {
 struct builder_proxy_matrix {
   int values[4]{};
 
+  [[nodiscard]] static builder_proxy_matrix create() {
+    builder_proxy_matrix matrix{};
+    matrix.values[0] = 5;
+    return matrix;
+  }
+
   [[nodiscard]] std::size_t rows() const noexcept { return 2; }
   [[nodiscard]] std::size_t columns() const noexcept { return 2; }
   [[nodiscard]] int get(std::size_t row, std::size_t column) const {
@@ -175,12 +181,14 @@ CAORS_META_DEF_MEM_DISPATCH(test_builder_rows, rows);
 CAORS_META_DEF_MEM_DISPATCH(test_builder_columns, columns);
 CAORS_META_DEF_MEM_DISPATCH(test_builder_get, get);
 CAORS_META_DEF_MEM_DISPATCH(test_builder_set, set);
+CAORS_META_DEF_TYPE_DISPATCH(test_builder_create, create);
 
 using builder_matrix_capability =
     caors::meta::capability_builder::add_convention<test_builder_rows, std::size_t() noexcept>::
         add_convention<test_builder_columns, std::size_t() noexcept>::
             add_convention<test_builder_get, int(std::size_t, std::size_t)>::add_convention<
-                test_builder_set, void(std::size_t, std::size_t, int)>::build;
+                test_builder_set, void(std::size_t, std::size_t, int)>::
+                add_type_convention<test_builder_create, builder_proxy_matrix()>::build;
 
 } // namespace
 
@@ -426,6 +434,8 @@ TEST_CASE("meta - proxy capability builder generates convention facade", "[meta]
   const caors::meta::type type = caors::meta::resolve<builder_proxy_matrix>();
   const builder_matrix_capability capability = type.get_capability<builder_matrix_capability>();
   REQUIRE(capability);
+  const builder_proxy_matrix created = capability.create();
+  CHECK(created.values[0] == 5);
 
   builder_proxy_matrix matrix{};
   auto view = caors::meta::any_ref::from(matrix).get_capability<builder_matrix_capability>();

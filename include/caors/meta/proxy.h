@@ -32,6 +32,11 @@ template <typename Dispatch, typename Signature> struct convention {
   using signature_type = Signature;
 };
 
+template <typename Dispatch, typename Signature> struct type_convention {
+  using dispatch_type = Dispatch;
+  using signature_type = Signature;
+};
+
 namespace detail {
 
 template <typename MemberPointer> struct member_object_pointer_traits;
@@ -178,6 +183,24 @@ template <typename R, typename... Args> struct convention_slot<R(Args...) noexce
   }
 };
 
+template <typename Signature> struct type_convention_slot;
+
+template <typename R, typename... Args> struct type_convention_slot<R(Args...)> {
+  using function_type = R (*)(Args...);
+
+  function_type call = nullptr;
+
+  [[nodiscard]] bool valid() const noexcept { return call != nullptr; }
+};
+
+template <typename R, typename... Args> struct type_convention_slot<R(Args...) noexcept> {
+  using function_type = R (*)(Args...) noexcept;
+
+  function_type call = nullptr;
+
+  [[nodiscard]] bool valid() const noexcept { return call != nullptr; }
+};
+
 template <std::size_t Index, typename Dispatch, typename Signature> struct indexed_convention {
   static constexpr std::size_t index = Index;
   static constexpr bool is_noexcept = false;
@@ -193,9 +216,36 @@ struct indexed_convention<Index, Dispatch, R(Args...) noexcept> {
   using signature_type = R(Args...) noexcept;
 };
 
+template <std::size_t Index, typename Dispatch, typename Signature> struct indexed_type_convention {
+  static constexpr std::size_t index = Index;
+  static constexpr bool is_noexcept = false;
+  using dispatch_type = Dispatch;
+  using signature_type = Signature;
+};
+
+template <std::size_t Index, typename Dispatch, typename R, typename... Args>
+struct indexed_type_convention<Index, Dispatch, R(Args...) noexcept> {
+  static constexpr std::size_t index = Index;
+  static constexpr bool is_noexcept = true;
+  using dispatch_type = Dispatch;
+  using signature_type = R(Args...) noexcept;
+};
+
+template <typename IndexedConvention> struct convention_slot_for;
+
+template <std::size_t Index, typename Dispatch, typename Signature>
+struct convention_slot_for<indexed_convention<Index, Dispatch, Signature>> {
+  using type = convention_slot<Signature>;
+};
+
+template <std::size_t Index, typename Dispatch, typename Signature>
+struct convention_slot_for<indexed_type_convention<Index, Dispatch, Signature>> {
+  using type = type_convention_slot<Signature>;
+};
+
 template <typename... Conventions> class convention_ops {
 public:
-  using storage_type = std::tuple<convention_slot<typename Conventions::signature_type>...>;
+  using storage_type = std::tuple<typename convention_slot_for<Conventions>::type...>;
 
   template <std::size_t Index> using slot_type = std::tuple_element_t<Index, storage_type>;
 
@@ -242,6 +292,7 @@ struct member_function_pointer_traits<R (Class::*)(Args...) const noexcept> {
 };
 
 template <typename IndexedConvention, typename T> struct convention_callback;
+template <typename IndexedConvention, typename T> struct type_convention_callback;
 
 template <std::size_t Index, typename Dispatch, typename R, typename... Args, typename T>
 struct convention_callback<indexed_convention<Index, Dispatch, R(Args...)>, T> {
@@ -333,8 +384,47 @@ struct convention_callback<indexed_convention<Index, Dispatch, R(Args...) noexce
   }
 };
 
+template <std::size_t Index, typename Dispatch, typename R, typename... Args, typename T>
+struct type_convention_callback<indexed_type_convention<Index, Dispatch, R(Args...)>, T> {
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  using function_type = R (*)(Args...);
+
+  static constexpr auto member = Dispatch::template member<value_type>;
+
+  static_assert(std::is_convertible_v<std::remove_cv_t<decltype(member)>, function_type>,
+                "proxy type convention dispatch requires a static function with a matching "
+                "signature");
+
+  template <typename Slot> static void apply(Slot& slot) { slot.call = member; }
+};
+
+template <std::size_t Index, typename Dispatch, typename R, typename... Args, typename T>
+struct type_convention_callback<indexed_type_convention<Index, Dispatch, R(Args...) noexcept>, T> {
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  using function_type = R (*)(Args...) noexcept;
+
+  static constexpr auto member = Dispatch::template member<value_type>;
+
+  static_assert(std::is_convertible_v<std::remove_cv_t<decltype(member)>, function_type>,
+                "noexcept proxy type convention requires a noexcept static function with a "
+                "matching signature");
+
+  template <typename Slot> static void apply(Slot& slot) { slot.call = member; }
+};
+
+template <typename IndexedConvention> struct is_indexed_type_convention : std::false_type {};
+
+template <std::size_t Index, typename Dispatch, typename Signature>
+struct is_indexed_type_convention<indexed_type_convention<Index, Dispatch, Signature>>
+    : std::true_type {};
+
 template <typename T, typename Ops, typename IndexedConvention> void apply_convention(Ops& ops) {
-  convention_callback<IndexedConvention, T>::apply(ops.template get<IndexedConvention::index>());
+  if constexpr (is_indexed_type_convention<IndexedConvention>::value) {
+    type_convention_callback<IndexedConvention, T>::apply(
+        ops.template get<IndexedConvention::index>());
+  } else {
+    convention_callback<IndexedConvention, T>::apply(ops.template get<IndexedConvention::index>());
+  }
 }
 
 template <typename T, typename Ops, typename... IndexedConventions>
@@ -342,10 +432,16 @@ void apply_conventions(Ops& ops) {
   (apply_convention<T, Ops, IndexedConventions>(ops), ...);
 }
 
+template <typename IndexedConvention, typename View> struct view_mixin_for {};
+
+template <std::size_t Index, typename Dispatch, typename Signature, typename View>
+struct view_mixin_for<indexed_convention<Index, Dispatch, Signature>, View>
+    : Dispatch::template view_mixin<indexed_convention<Index, Dispatch, Signature>, View> {};
+
 template <typename Ops, typename... IndexedConventions>
-class convention_view : public meta::capability_view_base<Ops>,
-                        public IndexedConventions::dispatch_type::template view_mixin<
-                            IndexedConventions, convention_view<Ops, IndexedConventions...>>... {
+class convention_view
+    : public meta::capability_view_base<Ops>,
+      public view_mixin_for<IndexedConventions, convention_view<Ops, IndexedConventions...>>... {
 public:
   using base_type = meta::capability_view_base<Ops>;
   using base_type::base_type;
@@ -382,6 +478,13 @@ public:
   }
 };
 
+template <typename IndexedConvention, typename Facade> struct type_facade_mixin_for {};
+
+template <std::size_t Index, typename Dispatch, typename Signature, typename Facade>
+struct type_facade_mixin_for<indexed_type_convention<Index, Dispatch, Signature>, Facade>
+    : Dispatch::template facade_mixin<indexed_type_convention<Index, Dispatch, Signature>, Facade> {
+};
+
 template <typename Capability, typename T> struct convention_model {
   using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
@@ -402,7 +505,9 @@ template <typename... IndexedConventions>
 class convention_capability final
     : public meta::type_capability_base<
           convention_ops<IndexedConventions...>,
-          convention_view<convention_ops<IndexedConventions...>, IndexedConventions...>> {
+          convention_view<convention_ops<IndexedConventions...>, IndexedConventions...>>,
+      public type_facade_mixin_for<IndexedConventions,
+                                   convention_capability<IndexedConventions...>>... {
 public:
   using ops_type = convention_ops<IndexedConventions...>;
   using view_type = convention_view<ops_type, IndexedConventions...>;
@@ -416,6 +521,28 @@ public:
   template <typename T> static void apply_conventions(ops_type& ops) {
     caors::meta::proxy::apply_conventions<T, ops_type, IndexedConventions...>(ops);
   }
+
+  template <typename Convention, typename R, typename... Args>
+  R invoke_type(Args&&... args) const noexcept(Convention::is_noexcept) {
+    if (!this->valid()) {
+      if constexpr (!std::is_void_v<R>) {
+        return R{};
+      }
+    } else {
+      const auto& slot = this->ops_->template get<Convention::index>();
+      if (slot.call != nullptr) {
+        if constexpr (std::is_void_v<R>) {
+          slot.call(std::forward<Args>(args)...);
+        } else {
+          return slot.call(std::forward<Args>(args)...);
+        }
+      }
+    }
+
+    if constexpr (!std::is_void_v<R>) {
+      return R{};
+    }
+  }
 };
 
 template <typename... Conventions> struct capability_builder_state;
@@ -425,6 +552,11 @@ template <std::size_t Index, typename Convention> struct index_convention;
 template <std::size_t Index, typename Dispatch, typename Signature>
 struct index_convention<Index, convention<Dispatch, Signature>> {
   using type = indexed_convention<Index, Dispatch, Signature>;
+};
+
+template <std::size_t Index, typename Dispatch, typename Signature>
+struct index_convention<Index, type_convention<Dispatch, Signature>> {
+  using type = indexed_type_convention<Index, Dispatch, Signature>;
 };
 
 template <typename Sequence, typename... Conventions> struct build_convention_capability;
@@ -437,6 +569,10 @@ struct build_convention_capability<std::index_sequence<Indexes...>, Conventions.
 template <typename... Conventions> struct capability_builder_state {
   template <typename Dispatch, typename Signature>
   using add_convention = capability_builder_state<Conventions..., convention<Dispatch, Signature>>;
+
+  template <typename Dispatch, typename Signature>
+  using add_type_convention =
+      capability_builder_state<Conventions..., type_convention<Dispatch, Signature>>;
 
   using build =
       typename build_convention_capability<std::make_index_sequence<sizeof...(Conventions)>,
@@ -475,6 +611,10 @@ class capability_builder {
 public:
   template <typename Dispatch, typename Signature>
   using add_convention = proxy::capability_builder_state<proxy::convention<Dispatch, Signature>>;
+
+  template <typename Dispatch, typename Signature>
+  using add_type_convention =
+      proxy::capability_builder_state<proxy::type_convention<Dispatch, Signature>>;
 };
 
 namespace detail {
@@ -610,6 +750,37 @@ template <typename Capability, typename T, typename... Bindings>
             ->template invoke<                                                                     \
                 caors::meta::proxy::indexed_convention<Index, dispatch_name, R(Args...) noexcept>, \
                 R>(std::forward<Args>(args)...);                                                   \
+      }                                                                                            \
+    };                                                                                             \
+  }
+
+#define CAORS_META_DEF_TYPE_DISPATCH(dispatch_name, member_name)                                   \
+  struct dispatch_name {                                                                           \
+    template <typename T>                                                                          \
+    static constexpr auto member = &std::remove_cv_t<std::remove_reference_t<T>>::member_name;     \
+                                                                                                   \
+    template <typename Convention, typename Facade> struct facade_mixin;                           \
+                                                                                                   \
+    template <std::size_t Index, typename R, typename... Args, typename Facade>                    \
+    struct facade_mixin<                                                                           \
+        caors::meta::proxy::indexed_type_convention<Index, dispatch_name, R(Args...)>, Facade> {   \
+      R member_name(Args... args) const {                                                          \
+        return static_cast<const Facade*>(this)                                                    \
+            ->template invoke_type<                                                                \
+                caors::meta::proxy::indexed_type_convention<Index, dispatch_name, R(Args...)>, R>( \
+                std::forward<Args>(args)...);                                                      \
+      }                                                                                            \
+    };                                                                                             \
+                                                                                                   \
+    template <std::size_t Index, typename R, typename... Args, typename Facade>                    \
+    struct facade_mixin<                                                                           \
+        caors::meta::proxy::indexed_type_convention<Index, dispatch_name, R(Args...) noexcept>,    \
+        Facade> {                                                                                  \
+      R member_name(Args... args) const noexcept {                                                 \
+        return static_cast<const Facade*>(this)                                                    \
+            ->template invoke_type<caors::meta::proxy::indexed_type_convention<                    \
+                                       Index, dispatch_name, R(Args...) noexcept>,                 \
+                                   R>(std::forward<Args>(args)...);                                \
       }                                                                                            \
     };                                                                                             \
   }

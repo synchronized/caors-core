@@ -77,8 +77,9 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 优化 Proxy 宏 DSL 的参数声明格式，使用 `(param_type, param_name)` pair 自动生成声明和调用实参，
   避免用户同时维护参数声明和调用参数列表。
 - [x] 增加 Proxy 风格 convention builder，支持
-  `CAORS_META_DEF_MEM_DISPATCH + capability_builder::add_convention<Dispatch, Signature>::build`
-  自动生成 capability，并通过成员函数名和函数签名接入自动 model。
+  `CAORS_META_DEF_MEM_DISPATCH + capability_builder::add_convention<Dispatch, Signature>` 和
+  `CAORS_META_DEF_TYPE_DISPATCH + add_type_convention<Dispatch, Signature>` 自动生成 capability，
+  并通过成员函数名、静态成员函数名和函数签名接入自动 model。
 - [ ] 扩展完整 Proxy DSL，进一步减少用户自定义 capability 的 `ops` / `view` / `model` 样板代码。
 - [ ] 支持 Proxy 模板方法代理。
 - [ ] 支持 Proxy 重载自动选择。
