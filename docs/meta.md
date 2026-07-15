@@ -641,10 +641,32 @@ auto rows = view.rows();
 auto direct_view = caors::meta::any_ref::from(value).get_capability<matrix_capability>();
 ```
 
-这个小版 helper 不会自动生成函数表；`*_ops` 和把具体 `T` 适配到 `*_ops` 的 model 仍由能力作者提供。
-它解决的是重复编写 `type_capability_traits<Facade>`、`capability_view_traits<Capability>` 和基础存储的问题。
+这个 helper 解决的是重复编写 `type_capability_traits<Facade>`、`capability_view_traits<Capability>` 和基础存储的问题。
 直接使用 `any_ref::get_capability<View>()` 仍可用于兼容旧代码或高级适配，但普通 API 应优先传入
 capability 类型。
+
+简单成员函数映射可以使用 `meta::proxy::model` 生成 `ops`，避免手写完整 `*_ops_model<T>`：
+
+```cpp
+struct matrix {
+  std::size_t rows() const noexcept;
+  std::size_t columns() const noexcept;
+};
+
+template <>
+struct caors::meta::capability_model<matrix_capability, matrix>
+    : caors::meta::proxy::model<
+          matrix_capability,
+          matrix,
+          caors::meta::proxy::method<&matrix_ops::rows, &matrix::rows>,
+          caors::meta::proxy::method<&matrix_ops::columns, &matrix::columns>> {};
+
+caors::meta::class_<matrix>()
+    .capability<matrix_capability>();
+```
+
+`proxy::method` 只负责把一个 `ops` 函数字段映射到一个成员函数；复杂适配、额外状态、错误策略或非成员函数回调仍建议手写
+`*_ops_model<T>` 或直接注册一份 `ops`。
 
 如果能力由 `static_capability<Capability, T>` 提供，也可以只声明能力类型：
 

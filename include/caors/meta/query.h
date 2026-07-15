@@ -5,6 +5,7 @@
 #define CAORS_META_QUERY_H_
 
 #include "caors/meta/detail/type_descriptor_model.h"
+#include "caors/meta/proxy.h"
 #include "caors/meta/registry.h"
 
 #include <optional>
@@ -140,13 +141,19 @@ public:
   }
 
   /**
-   * @brief 把 `static_capability<Capability, T>` 提供的静态能力挂接到运行期索引。
+   * @brief 把 `capability_model<Capability, T>` 或静态能力挂接到运行期索引。
    *
-   * 该入口适合只剩 `type_id` 的运行期查询路径；携带 descriptor 的路径无需显式挂接。
+   * 如果存在 `capability_model<Capability, T>`，优先注册 model 生成的 `Capability::ops_type`；
+   * 否则回退到 `static_capability<Capability, T>`。该入口适合只剩 `type_id` 的运行期查询路径；
+   * 携带 descriptor 的路径无需显式挂接。
    */
   template <typename Capability> class_builder& capability() {
     using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
-    status_ = detail::register_static_capability_for<capability_type, T>();
+    if constexpr (detail::has_capability_model_v<capability_type, T>) {
+      status_ = detail::register_capability_model_for<capability_type, T>();
+    } else {
+      status_ = detail::register_static_capability_for<capability_type, T>();
+    }
     refresh();
     return *this;
   }

@@ -40,6 +40,17 @@ struct owned_matrix {
   int values[4]{};
 };
 
+struct proxy_matrix {
+  int values[4]{};
+
+  [[nodiscard]] std::size_t rows() const noexcept { return 2; }
+  [[nodiscard]] std::size_t columns() const noexcept { return 2; }
+  [[nodiscard]] int get(std::size_t row, std::size_t column) const {
+    return values[row * 2 + column];
+  }
+  void set(std::size_t row, std::size_t column, int value) { values[row * 2 + column] = value; }
+};
+
 enum class facade_enum : int {
   low = -1,
   high = 9,
@@ -141,6 +152,14 @@ template <> struct capability_traits<named_capability> {
   });
   static constexpr std::uint32_t version = 3;
 };
+
+template <>
+struct capability_model<matrix_capability, proxy_matrix>
+    : proxy::model<matrix_capability, proxy_matrix,
+                   proxy::method<&matrix_ops::rows, &proxy_matrix::rows>,
+                   proxy::method<&matrix_ops::columns, &proxy_matrix::columns>,
+                   proxy::method<&matrix_ops::get, &proxy_matrix::get>,
+                   proxy::method<&matrix_ops::set, &proxy_matrix::set>> {};
 
 } // namespace caors::meta
 
@@ -281,6 +300,25 @@ TEST_CASE("meta - type capability base auto exposes custom type facade", "[meta]
   CHECK(capability.get_type().id() == type.id());
   CHECK(capability.value() == 31);
   CHECK(type.has_capability<creator_capability>());
+}
+
+TEST_CASE("meta - proxy model generates capability ops from member bindings", "[meta]") {
+  REQUIRE(caors::meta::class_<proxy_matrix>().capability<matrix_capability>().succeeded());
+
+  const caors::meta::type type = caors::meta::resolve<proxy_matrix>();
+  const matrix_capability capability = type.get_capability<matrix_capability>();
+  REQUIRE(capability);
+
+  proxy_matrix matrix{};
+  caors::meta::any_ref ref = caors::meta::any_ref::from(matrix);
+  const matrix_view view = ref.get_capability<matrix_capability>();
+  REQUIRE(view);
+
+  CHECK(view.rows() == 2);
+  CHECK(view.columns() == 2);
+  view.set(1, 1, 29);
+  CHECK(view.get(1, 1) == 29);
+  CHECK(matrix.values[3] == 29);
 }
 
 TEST_CASE("meta - type capability facade binds built in value views", "[meta]") {
