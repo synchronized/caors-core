@@ -149,12 +149,12 @@ objects::object* object::ptr() const noexcept {
 }
 
 objects::object* object::get_ptr(std::string_view name) const {
-  const objects::ptr_view pointer = objects::ptr_view_of(instance_.get_ref(name));
+  const objects::ptr_view pointer = objects::make_ptr_view(instance_.get_ref(name));
   return pointer ? pointer.get() : nullptr;
 }
 
 bool object::set_ptr(std::string_view name, objects::object* pointer) const {
-  const objects::ptr_view object_pointer = objects::ptr_view_of(instance_.get_ref(name));
+  const objects::ptr_view object_pointer = objects::make_ptr_view(instance_.get_ref(name));
   return object_pointer && object_pointer.set(pointer);
 }
 

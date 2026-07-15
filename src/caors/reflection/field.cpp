@@ -68,13 +68,13 @@ std::size_t field::offset() const noexcept {
 
 std::size_t field::size() const noexcept {
   const meta::type meta = get_type();
-  const meta::value_storage_ops* value_ops = meta.get_ops<meta::value_storage_ops>();
+  const meta::value_storage_ops* value_ops = meta.get_raw_ops<meta::value_storage_ops>();
   return value_ops != nullptr ? value_ops->layout.size : 0;
 }
 
 std::size_t field::alignment() const noexcept {
   const meta::type meta = get_type();
-  const meta::value_storage_ops* value_ops = meta.get_ops<meta::value_storage_ops>();
+  const meta::value_storage_ops* value_ops = meta.get_raw_ops<meta::value_storage_ops>();
   return value_ops != nullptr ? value_ops->layout.alignment : 0;
 }
 

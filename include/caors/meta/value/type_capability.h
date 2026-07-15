@@ -18,18 +18,39 @@ namespace detail {
   return expected && source.valid() && source.get_type().id() == expected.id();
 }
 
-} // namespace detail
-
-/** @brief 枚举类型的类型级能力 facade。 */
-class enum_capability final {
+template <typename Ops> class type_capability_base {
 public:
-  enum_capability() noexcept = default;
-  explicit enum_capability(meta::type type) noexcept
-      : type_(type), ops_(type.get_ops<enum_ops>()) {}
+  type_capability_base() noexcept = default;
+  explicit type_capability_base(meta::type type) noexcept
+      : type_(type), ops_(type.get_raw_ops<Ops>()) {}
 
   [[nodiscard]] bool valid() const noexcept { return type_ && ops_ != nullptr && ops_->valid(); }
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
   [[nodiscard]] meta::type get_type() const noexcept { return valid() ? type_ : meta::type{}; }
+
+protected:
+  meta::type type_{};
+  const Ops* ops_ = nullptr;
+};
+
+template <typename Capability> struct facade_type_capability_traits {
+  using result_type = Capability;
+
+  [[nodiscard]] static result_type get(const type& source) noexcept { return Capability{source}; }
+
+  [[nodiscard]] static bool has(const type& source) noexcept { return Capability{source}.valid(); }
+};
+
+} // namespace detail
+
+/** @brief 枚举类型的类型级能力 facade。 */
+class enum_capability final : public detail::type_capability_base<enum_ops> {
+public:
+  using base_type = detail::type_capability_base<enum_ops>;
+
+  enum_capability() noexcept = default;
+  explicit enum_capability(meta::type type) noexcept : base_type(type) {}
+
   [[nodiscard]] bool is_signed() const noexcept { return valid() && ops_->is_signed; }
 
   [[nodiscard]] std::optional<std::int64_t> to_i64(any_ref source) const noexcept {
@@ -67,22 +88,16 @@ public:
 
     return ops_->from_u64(source.mutable_data(), value);
   }
-
-private:
-  meta::type type_{};
-  const enum_ops* ops_ = nullptr;
 };
 
 /** @brief 指针和 wrapper 的类型级能力 facade。 */
-class indirect_capability final {
+class indirect_capability final : public detail::type_capability_base<indirect_ops> {
 public:
-  indirect_capability() noexcept = default;
-  explicit indirect_capability(meta::type type) noexcept
-      : type_(type), ops_(type.get_ops<indirect_ops>()) {}
+  using base_type = detail::type_capability_base<indirect_ops>;
 
-  [[nodiscard]] bool valid() const noexcept { return type_ && ops_ != nullptr && ops_->valid(); }
-  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
-  [[nodiscard]] meta::type get_type() const noexcept { return valid() ? type_ : meta::type{}; }
+  indirect_capability() noexcept = default;
+  explicit indirect_capability(meta::type type) noexcept : base_type(type) {}
+
   [[nodiscard]] meta::type get_value_type() const noexcept {
     return valid() ? type_.get_value_type() : meta::type{};
   }
@@ -91,22 +106,16 @@ public:
     return detail::can_bind_capability_source(type_, source) ? make_indirect_view(source)
                                                              : indirect_view{};
   }
-
-private:
-  meta::type type_{};
-  const indirect_ops* ops_ = nullptr;
 };
 
 /** @brief 顺序容器的类型级能力 facade。 */
-class sequence_capability final {
+class sequence_capability final : public detail::type_capability_base<sequence_ops> {
 public:
-  sequence_capability() noexcept = default;
-  explicit sequence_capability(meta::type type) noexcept
-      : type_(type), ops_(type.get_ops<sequence_ops>()) {}
+  using base_type = detail::type_capability_base<sequence_ops>;
 
-  [[nodiscard]] bool valid() const noexcept { return type_ && ops_ != nullptr && ops_->valid(); }
-  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
-  [[nodiscard]] meta::type get_type() const noexcept { return valid() ? type_ : meta::type{}; }
+  sequence_capability() noexcept = default;
+  explicit sequence_capability(meta::type type) noexcept : base_type(type) {}
+
   [[nodiscard]] meta::type get_value_type() const noexcept {
     return valid() ? type_.get_value_type() : meta::type{};
   }
@@ -115,21 +124,16 @@ public:
     return detail::can_bind_capability_source(type_, source) ? make_sequence_view(source)
                                                              : sequence_view{};
   }
-
-private:
-  meta::type type_{};
-  const sequence_ops* ops_ = nullptr;
 };
 
 /** @brief 集合容器的类型级能力 facade。 */
-class set_capability final {
+class set_capability final : public detail::type_capability_base<set_ops> {
 public:
-  set_capability() noexcept = default;
-  explicit set_capability(meta::type type) noexcept : type_(type), ops_(type.get_ops<set_ops>()) {}
+  using base_type = detail::type_capability_base<set_ops>;
 
-  [[nodiscard]] bool valid() const noexcept { return type_ && ops_ != nullptr && ops_->valid(); }
-  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
-  [[nodiscard]] meta::type get_type() const noexcept { return valid() ? type_ : meta::type{}; }
+  set_capability() noexcept = default;
+  explicit set_capability(meta::type type) noexcept : base_type(type) {}
+
   [[nodiscard]] meta::type get_value_type() const noexcept {
     return valid() ? type_.get_value_type() : meta::type{};
   }
@@ -137,22 +141,16 @@ public:
   [[nodiscard]] set_view bind(any_ref source) const {
     return detail::can_bind_capability_source(type_, source) ? make_set_view(source) : set_view{};
   }
-
-private:
-  meta::type type_{};
-  const set_ops* ops_ = nullptr;
 };
 
 /** @brief 关联容器的类型级能力 facade。 */
-class associative_capability final {
+class associative_capability final : public detail::type_capability_base<associative_ops> {
 public:
-  associative_capability() noexcept = default;
-  explicit associative_capability(meta::type type) noexcept
-      : type_(type), ops_(type.get_ops<associative_ops>()) {}
+  using base_type = detail::type_capability_base<associative_ops>;
 
-  [[nodiscard]] bool valid() const noexcept { return type_ && ops_ != nullptr && ops_->valid(); }
-  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
-  [[nodiscard]] meta::type get_type() const noexcept { return valid() ? type_ : meta::type{}; }
+  associative_capability() noexcept = default;
+  explicit associative_capability(meta::type type) noexcept : base_type(type) {}
+
   [[nodiscard]] meta::type get_key_type() const noexcept {
     return valid() ? type_.get_key_type() : meta::type{};
   }
@@ -164,22 +162,16 @@ public:
     return detail::can_bind_capability_source(type_, source) ? make_associative_view(source)
                                                              : associative_view{};
   }
-
-private:
-  meta::type type_{};
-  const associative_ops* ops_ = nullptr;
 };
 
 /** @brief pair-like 类型的类型级能力 facade。 */
-class pair_capability final {
+class pair_capability final : public detail::type_capability_base<pair_ops> {
 public:
-  pair_capability() noexcept = default;
-  explicit pair_capability(meta::type type) noexcept
-      : type_(type), ops_(type.get_ops<pair_ops>()) {}
+  using base_type = detail::type_capability_base<pair_ops>;
 
-  [[nodiscard]] bool valid() const noexcept { return type_ && ops_ != nullptr && ops_->valid(); }
-  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
-  [[nodiscard]] meta::type get_type() const noexcept { return valid() ? type_ : meta::type{}; }
+  pair_capability() noexcept = default;
+  explicit pair_capability(meta::type type) noexcept : base_type(type) {}
+
   [[nodiscard]] meta::type get_key_type() const noexcept {
     return valid() ? type_.get_key_type() : meta::type{};
   }
@@ -190,149 +182,67 @@ public:
   [[nodiscard]] pair_view bind(any_ref source) const {
     return detail::can_bind_capability_source(type_, source) ? make_pair_view(source) : pair_view{};
   }
-
-private:
-  meta::type type_{};
-  const pair_ops* ops_ = nullptr;
 };
 
 /** @brief tuple-like 类型的类型级能力 facade。 */
-class tuple_capability final {
+class tuple_capability final : public detail::type_capability_base<tuple_ops> {
 public:
-  tuple_capability() noexcept = default;
-  explicit tuple_capability(meta::type type) noexcept
-      : type_(type), ops_(type.get_ops<tuple_ops>()) {}
+  using base_type = detail::type_capability_base<tuple_ops>;
 
-  [[nodiscard]] bool valid() const noexcept { return type_ && ops_ != nullptr && ops_->valid(); }
-  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
-  [[nodiscard]] meta::type get_type() const noexcept { return valid() ? type_ : meta::type{}; }
+  tuple_capability() noexcept = default;
+  explicit tuple_capability(meta::type type) noexcept : base_type(type) {}
 
   [[nodiscard]] tuple_view bind(any_ref source) const {
     return detail::can_bind_capability_source(type_, source) ? make_tuple_view(source)
                                                              : tuple_view{};
   }
-
-private:
-  meta::type type_{};
-  const tuple_ops* ops_ = nullptr;
 };
 
 /** @brief variant-like 类型的类型级能力 facade。 */
-class variant_capability final {
+class variant_capability final : public detail::type_capability_base<variant_ops> {
 public:
-  variant_capability() noexcept = default;
-  explicit variant_capability(meta::type type) noexcept
-      : type_(type), ops_(type.get_ops<variant_ops>()) {}
+  using base_type = detail::type_capability_base<variant_ops>;
 
-  [[nodiscard]] bool valid() const noexcept { return type_ && ops_ != nullptr && ops_->valid(); }
-  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
-  [[nodiscard]] meta::type get_type() const noexcept { return valid() ? type_ : meta::type{}; }
+  variant_capability() noexcept = default;
+  explicit variant_capability(meta::type type) noexcept : base_type(type) {}
 
   [[nodiscard]] variant_view bind(any_ref source) const {
     return detail::can_bind_capability_source(type_, source) ? make_variant_view(source)
                                                              : variant_view{};
   }
-
-private:
-  meta::type type_{};
-  const variant_ops* ops_ = nullptr;
 };
 
-template <> struct type_capability_traits<enum_capability> {
-  using result_type = enum_capability;
+template <>
+struct type_capability_traits<enum_capability>
+    : detail::facade_type_capability_traits<enum_capability> {};
 
-  [[nodiscard]] static result_type get(const type& source) noexcept {
-    return enum_capability{source};
-  }
+template <>
+struct type_capability_traits<indirect_capability>
+    : detail::facade_type_capability_traits<indirect_capability> {};
 
-  [[nodiscard]] static bool has(const type& source) noexcept {
-    return enum_capability{source}.valid();
-  }
-};
+template <>
+struct type_capability_traits<sequence_capability>
+    : detail::facade_type_capability_traits<sequence_capability> {};
 
-template <> struct type_capability_traits<indirect_capability> {
-  using result_type = indirect_capability;
+template <>
+struct type_capability_traits<set_capability>
+    : detail::facade_type_capability_traits<set_capability> {};
 
-  [[nodiscard]] static result_type get(const type& source) noexcept {
-    return indirect_capability{source};
-  }
+template <>
+struct type_capability_traits<associative_capability>
+    : detail::facade_type_capability_traits<associative_capability> {};
 
-  [[nodiscard]] static bool has(const type& source) noexcept {
-    return indirect_capability{source}.valid();
-  }
-};
+template <>
+struct type_capability_traits<pair_capability>
+    : detail::facade_type_capability_traits<pair_capability> {};
 
-template <> struct type_capability_traits<sequence_capability> {
-  using result_type = sequence_capability;
+template <>
+struct type_capability_traits<tuple_capability>
+    : detail::facade_type_capability_traits<tuple_capability> {};
 
-  [[nodiscard]] static result_type get(const type& source) noexcept {
-    return sequence_capability{source};
-  }
-
-  [[nodiscard]] static bool has(const type& source) noexcept {
-    return sequence_capability{source}.valid();
-  }
-};
-
-template <> struct type_capability_traits<set_capability> {
-  using result_type = set_capability;
-
-  [[nodiscard]] static result_type get(const type& source) noexcept {
-    return set_capability{source};
-  }
-
-  [[nodiscard]] static bool has(const type& source) noexcept {
-    return set_capability{source}.valid();
-  }
-};
-
-template <> struct type_capability_traits<associative_capability> {
-  using result_type = associative_capability;
-
-  [[nodiscard]] static result_type get(const type& source) noexcept {
-    return associative_capability{source};
-  }
-
-  [[nodiscard]] static bool has(const type& source) noexcept {
-    return associative_capability{source}.valid();
-  }
-};
-
-template <> struct type_capability_traits<pair_capability> {
-  using result_type = pair_capability;
-
-  [[nodiscard]] static result_type get(const type& source) noexcept {
-    return pair_capability{source};
-  }
-
-  [[nodiscard]] static bool has(const type& source) noexcept {
-    return pair_capability{source}.valid();
-  }
-};
-
-template <> struct type_capability_traits<tuple_capability> {
-  using result_type = tuple_capability;
-
-  [[nodiscard]] static result_type get(const type& source) noexcept {
-    return tuple_capability{source};
-  }
-
-  [[nodiscard]] static bool has(const type& source) noexcept {
-    return tuple_capability{source}.valid();
-  }
-};
-
-template <> struct type_capability_traits<variant_capability> {
-  using result_type = variant_capability;
-
-  [[nodiscard]] static result_type get(const type& source) noexcept {
-    return variant_capability{source};
-  }
-
-  [[nodiscard]] static bool has(const type& source) noexcept {
-    return variant_capability{source}.valid();
-  }
-};
+template <>
+struct type_capability_traits<variant_capability>
+    : detail::facade_type_capability_traits<variant_capability> {};
 
 } // namespace caors::meta
 

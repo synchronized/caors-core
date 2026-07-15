@@ -95,7 +95,7 @@ public:
     using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
     const meta::type actual = get_type();
     const meta::type expected = caors::meta::resolve<field_type>();
-    const meta::value_storage_ops* actual_storage = actual.get_ops<meta::value_storage_ops>();
+    const meta::value_storage_ops* actual_storage = actual.get_raw_ops<meta::value_storage_ops>();
     return actual && expected && actual.id() == expected.id() && actual_storage != nullptr &&
            actual_storage->layout.size == sizeof(field_type) &&
            actual_storage->layout.alignment == alignof(field_type);
@@ -154,7 +154,8 @@ public:
   /** @brief 从运行期值写入成员字段。 */
   bool member_try_set_value(void* object, const any& source) const {
     const meta::type expected = get_type();
-    const meta::value_storage_ops* expected_storage = expected.get_ops<meta::value_storage_ops>();
+    const meta::value_storage_ops* expected_storage =
+        expected.get_raw_ops<meta::value_storage_ops>();
     if (!source.valid() || source.get_type().id() != expected.id() || expected_storage == nullptr ||
         source.size() != expected_storage->layout.size ||
         source.alignment() != expected_storage->layout.alignment ||

@@ -108,20 +108,33 @@ public:
   template <typename View> [[nodiscard]] View get_capability() const;
   [[nodiscard]] std::size_t size() const noexcept;
   [[nodiscard]] std::size_t alignment() const noexcept;
-  [[nodiscard]] sequence_view create_sequence_view();
-  [[nodiscard]] sequence_view create_sequence_view() const;
-  [[nodiscard]] set_view create_set_view();
-  [[nodiscard]] set_view create_set_view() const;
-  [[nodiscard]] associative_view create_associative_view();
-  [[nodiscard]] associative_view create_associative_view() const;
-  [[nodiscard]] pair_view create_pair_view();
-  [[nodiscard]] pair_view create_pair_view() const;
-  [[nodiscard]] tuple_view create_tuple_view();
-  [[nodiscard]] tuple_view create_tuple_view() const;
-  [[nodiscard]] variant_view create_variant_view();
-  [[nodiscard]] variant_view create_variant_view() const;
-  [[nodiscard]] indirect_view create_indirect_view();
-  [[nodiscard]] indirect_view create_indirect_view() const;
+  [[nodiscard]] [[deprecated("use get_capability<meta::sequence_view>()")]] sequence_view
+  create_sequence_view();
+  [[nodiscard]] [[deprecated("use get_capability<meta::sequence_view>()")]] sequence_view
+  create_sequence_view() const;
+  [[nodiscard]] [[deprecated("use get_capability<meta::set_view>()")]] set_view create_set_view();
+  [[nodiscard]] [[deprecated("use get_capability<meta::set_view>()")]] set_view
+  create_set_view() const;
+  [[nodiscard]] [[deprecated("use get_capability<meta::associative_view>()")]] associative_view
+  create_associative_view();
+  [[nodiscard]] [[deprecated("use get_capability<meta::associative_view>()")]] associative_view
+  create_associative_view() const;
+  [[nodiscard]] [[deprecated("use get_capability<meta::pair_view>()")]] pair_view
+  create_pair_view();
+  [[nodiscard]] [[deprecated("use get_capability<meta::pair_view>()")]] pair_view
+  create_pair_view() const;
+  [[nodiscard]] [[deprecated("use get_capability<meta::tuple_view>()")]] tuple_view
+  create_tuple_view();
+  [[nodiscard]] [[deprecated("use get_capability<meta::tuple_view>()")]] tuple_view
+  create_tuple_view() const;
+  [[nodiscard]] [[deprecated("use get_capability<meta::variant_view>()")]] variant_view
+  create_variant_view();
+  [[nodiscard]] [[deprecated("use get_capability<meta::variant_view>()")]] variant_view
+  create_variant_view() const;
+  [[nodiscard]] [[deprecated("use get_capability<meta::indirect_view>()")]] indirect_view
+  create_indirect_view();
+  [[nodiscard]] [[deprecated("use get_capability<meta::indirect_view>()")]] indirect_view
+  create_indirect_view() const;
 
   /** @brief 清空当前值。 */
   void reset() noexcept;
@@ -165,7 +178,7 @@ public:
   /** @brief 从同类型 C++ 值写入当前值。 */
   template <typename T> bool try_set(const T& source) {
     using type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const meta::value_storage_ops* storage = type_.get_ops<meta::value_storage_ops>();
+    const meta::value_storage_ops* storage = type_.get_raw_ops<meta::value_storage_ops>();
     if (!matches_type<type>() || storage == nullptr || storage->ops.assign == nullptr) {
       return false;
     }

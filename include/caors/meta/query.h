@@ -97,7 +97,7 @@ public:
       return *this;
     }
 
-    const factory_ops* existing = type_.get_ops<factory_ops>();
+    const factory_ops* existing = type_.get_raw_ops<factory_ops>();
     if (existing != nullptr) {
       status_ = existing->construct == ops.construct && existing->destroy == ops.destroy
                     ? error{error_domain::meta, errc::duplicate_id}

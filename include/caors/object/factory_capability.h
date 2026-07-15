@@ -55,7 +55,7 @@ template <> struct type_capability_traits<objects::factory_capability> {
   using result_type = objects::factory_capability;
 
   [[nodiscard]] static result_type get(const type& source) noexcept {
-    return objects::factory_capability{source.get_ops<objects::object_factory_ops>()};
+    return objects::factory_capability{source.get_raw_ops<objects::object_factory_ops>()};
   }
 
   [[nodiscard]] static const objects::object_factory_ops* get_raw(const type& source) noexcept {

@@ -25,7 +25,7 @@ enum class descriptor_enum : int {
 template <typename Ops, typename T> [[nodiscard]] const Ops* ops_of() {
   const caors::meta::type type = caors::meta::resolve<T>();
   REQUIRE(type.valid());
-  return type.get_ops<Ops>();
+  return type.get_raw_ops<Ops>();
 }
 
 template <typename T> [[nodiscard]] caors::type_id type_id_of() {

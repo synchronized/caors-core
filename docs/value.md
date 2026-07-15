@@ -29,7 +29,7 @@ meta value 提供细粒度头和完整聚合头。细粒度头不再依赖 `any.
 | `caors/meta/value/variant.h` | `caors::meta::variant`、`caors::variant` | 需要序列化 DOM 或数据中间表示。 |
 | `caors/meta/value.h` | meta value 完整公共入口 | 应用层或示例代码需要完整运行期值能力。 |
 
-`any.h` 和 `any_ref.h` 中会声明 `create_*_view()`，但不会提供具体 view 的完整定义。只保存返回值、调用 view 成员函数或按值声明 view 类型时，应额外包含 `caors/meta/value/view_factory.h` 或对应具体 view 头。
+`any.h` 和 `any_ref.h` 中会声明 deprecated 的 `create_*_view()` 兼容入口，但不会提供具体 view 的完整定义。新代码应使用 `get_capability<View>()`；只保存返回值、调用 view 成员函数或按值声明 view 类型时，应额外包含 `caors/meta/value/view_factory.h` 或对应具体 view 头。
 
 ## 基本用法
 
@@ -161,8 +161,8 @@ caors::meta::sequence_view view =
 类型级 facade 不拥有类型数据，也不拥有实例。它只是把 `meta::type`
 和内部函数表包装成更适合公开 API 使用的对象；实例访问仍由绑定后的 `*_view` 完成。
 
-旧的 `create_sequence_view()`、`create_indirect_view()` 等函数暂时保留，语义等价于对应
-`get_capability<View>()`，用于兼容已有代码。
+旧的 `create_sequence_view()`、`create_indirect_view()` 等函数暂时保留为 deprecated 兼容入口，语义等价于对应
+`get_capability<View>()`；新代码应统一使用 `get_capability<View>()`。
 
 这些 view 通过 meta 内部 descriptor 保存的类型能力工作，不要求容器类型本身一定注册到全局 meta
 registry。`get_*_type()` 系列接口返回 descriptor-backed `meta::type`；调用方需要 `type_id` 或名称时，
@@ -183,6 +183,6 @@ registry。`get_*_type()` 系列接口返回 descriptor-backed `meta::type`；�
 
 ## 后续规划
 
-- 评估是否把 `any` / `any_ref` 上的 `create_*_view()` 迁移为外部 view 工厂函数，进一步减小类型本身的公开接口。
+- 后续评估是否删除 `any` / `any_ref` 上 deprecated 的 `create_*_view()` 兼容入口，进一步减小类型本身的公开接口。
 - 继续收敛 `caors/value*.h` 兼容转发层；新代码、测试和示例统一使用 `caors/meta/value*.h`。
 - 持续补充细粒度 include 边界测试，避免公共头重新形成隐式依赖。

@@ -247,7 +247,7 @@ runtime capability。普通调用方应使用这个统一入口，不直接关�
 `any_ref` 或反射字段携带的静态 descriptor 访问同一套能力。
 descriptor 位于 `meta::detail`，不属于公开 API；普通用户应通过 `meta::type`、`meta::resolve<T>()`
 和 `meta::type::get_capability<T>()` 查询公开能力；确实在实现层需要低层函数表时再使用
-`get_ops<T>()`。
+`get_raw_ops<T>()`。
 
 descriptor 内部按职责拆分：
 
@@ -508,7 +508,7 @@ if (const matrix_ops* ops = caors::meta::find<matrix>().get_capability<matrix_op
   `const T*`，内置公开 facade 可特化为直接返回能力对象。
 - `meta::type::get_capability<meta::sequence_capability>()`、`get_capability<objects::ptr_capability>()`
   和 `get_capability<serialization::codec_capability>()`：面向类型级公开 facade。
-- `meta::type::get_ops<T>()` / `has_ops<T>()`：面向 `*_ops` 这类类型擦除函数表。调用点应明确知道自己正在触碰低层表。
+- `meta::type::get_raw_ops<T>()` / `has_raw_ops<T>()`：面向 `*_ops` 这类类型擦除函数表。调用点应明确知道自己正在触碰低层表。
 - 实例级访问优先使用绑定后的 view，例如 `any_ref::get_capability<meta::sequence_view>()` 或
   `any_ref::get_capability<objects::ptr_view>()`，避免业务代码直接传递 `void*`。
 
@@ -534,7 +534,7 @@ struct matrix_ops {
 class matrix_capability {
 public:
   explicit matrix_capability(caors::meta::type type) noexcept
-      : type_(type), ops_(type.get_capability<matrix_ops>()) {}
+      : type_(type), ops_(type.get_raw_ops<matrix_ops>()) {}
 
   [[nodiscard]] explicit operator bool() const noexcept {
     return type_ && ops_ != nullptr;

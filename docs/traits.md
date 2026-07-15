@@ -104,7 +104,7 @@ struct wrapper_access<game::box<T>> {
 
 对象引用不再作为 `wrapper_semantics` 的一种。需要按对象 id 序列化的引用类型应适配
 `traits::object_ptr_traits<T>` 和 `traits::object_ptr_access<T>`，然后通过
-`objects::ptr_view_of(any_ref)` 查询对象指针视图。
+`objects::make_ptr_view(any_ref)` 查询对象指针视图。
 
 ## object_ptr_traits<T>
 

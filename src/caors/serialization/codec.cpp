@@ -22,7 +22,7 @@ bool codec::can_make_value() const noexcept {
 }
 
 codec_capability::codec_capability(meta::type type) noexcept
-    : type_(type), ops_(type ? type.get_ops<codec_ops>() : nullptr) {}
+    : type_(type), ops_(type ? type.get_raw_ops<codec_ops>() : nullptr) {}
 
 bool codec_capability::valid() const noexcept { return type_ && ops_ != nullptr && ops_->valid(); }
 
@@ -84,7 +84,7 @@ codec find_codec(meta::type type) {
     return {};
   }
 
-  return codec{type, type.get_ops<codec_ops>()};
+  return codec{type, type.get_raw_ops<codec_ops>()};
 }
 
 } // namespace caors::serialization

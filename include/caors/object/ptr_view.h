@@ -12,7 +12,11 @@ namespace caors::objects {
 class ptr_view;
 
 /** @brief 如果运行期引用具备对象指针语义，则创建对象指针视图。 */
-[[nodiscard]] ptr_view ptr_view_of(meta::any_ref source) noexcept;
+[[nodiscard]] ptr_view make_ptr_view(meta::any_ref source) noexcept;
+
+/** @brief 兼容旧入口；新代码应使用 `make_ptr_view()`。 */
+[[nodiscard]] [[deprecated("use make_ptr_view()")]] ptr_view
+ptr_view_of(meta::any_ref source) noexcept;
 
 /**
  * @brief 对象指针运行期视图。
@@ -50,7 +54,7 @@ public:
   }
 
 private:
-  friend ptr_view ptr_view_of(meta::any_ref source) noexcept;
+  friend ptr_view make_ptr_view(meta::any_ref source) noexcept;
 
   ptr_view(const ptr_ops* data, const void* storage, bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
@@ -64,7 +68,8 @@ private:
 class ptr_capability final {
 public:
   ptr_capability() noexcept = default;
-  explicit ptr_capability(meta::type type) noexcept : type_(type), ops_(type.get_ops<ptr_ops>()) {}
+  explicit ptr_capability(meta::type type) noexcept
+      : type_(type), ops_(type.get_raw_ops<ptr_ops>()) {}
 
   [[nodiscard]] bool valid() const noexcept { return type_ && ops_ != nullptr && ops_->valid(); }
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
@@ -75,7 +80,7 @@ public:
       return {};
     }
 
-    return ptr_view_of(source);
+    return make_ptr_view(source);
   }
 
 private:
@@ -83,12 +88,12 @@ private:
   const ptr_ops* ops_ = nullptr;
 };
 
-[[nodiscard]] inline ptr_view ptr_view_of(meta::any_ref source) noexcept {
+[[nodiscard]] inline ptr_view make_ptr_view(meta::any_ref source) noexcept {
   if (!source.valid()) {
     return {};
   }
 
-  const ptr_ops* data = source.get_type().get_ops<ptr_ops>();
+  const ptr_ops* data = source.get_type().get_raw_ops<ptr_ops>();
   if (data == nullptr) {
     return {};
   }
@@ -96,9 +101,14 @@ private:
   return ptr_view{data, source.data(), source.writable()};
 }
 
+[[nodiscard]] [[deprecated("use make_ptr_view()")]] inline ptr_view
+ptr_view_of(meta::any_ref source) noexcept {
+  return make_ptr_view(source);
+}
+
 /** @brief 判断运行期引用是否具备对象指针语义。 */
 [[nodiscard]] inline bool is_ptr(meta::any_ref source) noexcept {
-  return static_cast<bool>(ptr_view_of(source));
+  return static_cast<bool>(make_ptr_view(source));
 }
 
 } // namespace caors::objects
@@ -109,7 +119,7 @@ template <> struct capability_view_traits<objects::ptr_view> {
   static constexpr bool supported = true;
 
   [[nodiscard]] static objects::ptr_view bind(meta::any_ref source) noexcept {
-    return objects::ptr_view_of(source);
+    return objects::make_ptr_view(source);
   }
 };
 

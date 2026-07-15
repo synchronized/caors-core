@@ -94,14 +94,26 @@ public:
    * `*_ops` 是 CAORS 内部和高级模块使用的类型擦除函数表。普通实例访问应优先通过
    * `any_ref::get_capability<View>()` 获取绑定后的 view。
    */
-  template <typename Ops> [[nodiscard]] const Ops* get_ops() const noexcept {
+  template <typename Ops> [[nodiscard]] const Ops* get_raw_ops() const noexcept {
     using ops_type = std::remove_cv_t<std::remove_reference_t<Ops>>;
     return type_capability_traits<ops_type>::get_raw(*this);
   }
 
   /** @brief 判断该类型视图是否具备指定低层函数表。 */
-  template <typename Ops> [[nodiscard]] bool has_ops() const noexcept {
-    return get_ops<Ops>() != nullptr;
+  template <typename Ops> [[nodiscard]] bool has_raw_ops() const noexcept {
+    return get_raw_ops<Ops>() != nullptr;
+  }
+
+  /** @brief 兼容旧入口；新代码应使用 `get_raw_ops<T>()`。 */
+  template <typename Ops>
+  [[nodiscard]] [[deprecated("use get_raw_ops<T>()")]] const Ops* get_ops() const noexcept {
+    return get_raw_ops<Ops>();
+  }
+
+  /** @brief 兼容旧入口；新代码应使用 `has_raw_ops<T>()`。 */
+  template <typename Ops>
+  [[nodiscard]] [[deprecated("use has_raw_ops<T>()")]] bool has_ops() const noexcept {
+    return has_raw_ops<Ops>();
   }
 
 private:
@@ -122,7 +134,7 @@ template <> struct type_capability_traits<factory_capability> {
   using result_type = factory_capability;
 
   [[nodiscard]] static result_type get(const type& source) noexcept {
-    return factory_capability{source.get_ops<factory_ops>()};
+    return factory_capability{source.get_raw_ops<factory_ops>()};
   }
 
   [[nodiscard]] static const factory_ops* get_raw(const type& source) noexcept {

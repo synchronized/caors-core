@@ -153,6 +153,10 @@ if (ptr) {
 }
 ```
 
+如果需要直接从 `any_ref` 创建对象语义视图，可使用 `objects::make_ptr_view(any_ref)` 和
+`objects::make_handle_view(any_ref)`。旧的 `ptr_view_of()` / `handle_view_of()` 只作为 deprecated
+兼容入口保留。
+
 如果只拿到类型视图，可以先查询类型级能力，再绑定到实例：
 
 ```cpp

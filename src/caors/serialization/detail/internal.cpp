@@ -121,7 +121,7 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
       };
     }
 
-    const meta::value_storage_ops* storage = dynamic_type.get_ops<meta::value_storage_ops>();
+    const meta::value_storage_ops* storage = dynamic_type.get_raw_ops<meta::value_storage_ops>();
     if (storage != nullptr && storage->ops.resource_construct != nullptr &&
         storage->ops.resource_destroy != nullptr) {
       return {
@@ -142,7 +142,7 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
     };
   }
 
-  const meta::value_storage_ops* storage = dynamic_type.get_ops<meta::value_storage_ops>();
+  const meta::value_storage_ops* storage = dynamic_type.get_raw_ops<meta::value_storage_ops>();
   if (storage == nullptr || storage->ops.default_construct == nullptr ||
       storage->ops.destroy == nullptr) {
     return {};
@@ -189,7 +189,7 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
 }
 
 [[nodiscard]] const meta::enum_ops* enum_ops(const any_ref& value) noexcept {
-  return value.get_type().get_ops<meta::enum_ops>();
+  return value.get_type().get_raw_ops<meta::enum_ops>();
 }
 
 [[nodiscard]] bool type_uses_inline_indirect_value(const any_ref& value) noexcept {

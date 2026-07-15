@@ -12,7 +12,11 @@ namespace caors::objects {
 class handle_view;
 
 /** @brief 如果运行期引用具备对象身份句柄语义，则创建句柄视图。 */
-[[nodiscard]] handle_view handle_view_of(meta::any_ref source) noexcept;
+[[nodiscard]] handle_view make_handle_view(meta::any_ref source) noexcept;
+
+/** @brief 兼容旧入口；新代码应使用 `make_handle_view()`。 */
+[[nodiscard]] [[deprecated("use make_handle_view()")]] handle_view
+handle_view_of(meta::any_ref source) noexcept;
 
 /**
  * @brief 对象身份句柄运行期视图。
@@ -50,7 +54,7 @@ public:
   }
 
 private:
-  friend handle_view handle_view_of(meta::any_ref source) noexcept;
+  friend handle_view make_handle_view(meta::any_ref source) noexcept;
 
   handle_view(const handle_ops* data, const void* storage, bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
@@ -65,7 +69,7 @@ class handle_capability final {
 public:
   handle_capability() noexcept = default;
   explicit handle_capability(meta::type type) noexcept
-      : type_(type), ops_(type.get_ops<handle_ops>()) {}
+      : type_(type), ops_(type.get_raw_ops<handle_ops>()) {}
 
   [[nodiscard]] bool valid() const noexcept { return type_ && ops_ != nullptr && ops_->valid(); }
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
@@ -76,7 +80,7 @@ public:
       return {};
     }
 
-    return handle_view_of(source);
+    return make_handle_view(source);
   }
 
 private:
@@ -84,12 +88,12 @@ private:
   const handle_ops* ops_ = nullptr;
 };
 
-[[nodiscard]] inline handle_view handle_view_of(meta::any_ref source) noexcept {
+[[nodiscard]] inline handle_view make_handle_view(meta::any_ref source) noexcept {
   if (!source.valid()) {
     return {};
   }
 
-  const handle_ops* data = source.get_type().get_ops<handle_ops>();
+  const handle_ops* data = source.get_type().get_raw_ops<handle_ops>();
   if (data == nullptr) {
     return {};
   }
@@ -97,9 +101,14 @@ private:
   return handle_view{data, source.data(), source.writable()};
 }
 
+[[nodiscard]] [[deprecated("use make_handle_view()")]] inline handle_view
+handle_view_of(meta::any_ref source) noexcept {
+  return make_handle_view(source);
+}
+
 /** @brief 判断运行期引用是否具备对象身份句柄语义。 */
 [[nodiscard]] inline bool is_handle(meta::any_ref source) noexcept {
-  return static_cast<bool>(handle_view_of(source));
+  return static_cast<bool>(make_handle_view(source));
 }
 
 } // namespace caors::objects
@@ -110,7 +119,7 @@ template <> struct capability_view_traits<objects::handle_view> {
   static constexpr bool supported = true;
 
   [[nodiscard]] static objects::handle_view bind(meta::any_ref source) noexcept {
-    return objects::handle_view_of(source);
+    return objects::make_handle_view(source);
   }
 };
 
