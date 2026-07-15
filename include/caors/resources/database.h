@@ -6,6 +6,7 @@
 
 #include "caors/resources/async.h"
 #include "caors/resources/dependency_graph.h"
+#include "caors/resources/detail/type_entry_ops.h"
 #include "caors/resources/io.h"
 #include "caors/resources/preload.h"
 #include "caors/resources/serialization.h"
@@ -565,23 +566,6 @@ public:
   }
 
 private:
-  struct type_entry_ops {
-    using find_fn = resources::resource* (*)(void* cache, resource_guid guid);
-    using load_fn = error (*)(void* cache, void* loader, resource_guid guid);
-    using request_load_fn = error (*)(
-        void* cache, void* loader, preload_item item, tasks::executor& executor,
-        tasks::completion_queue& completions,
-        const std::shared_ptr<detail::preload_request_state>& state);
-    using resolve_fn = bool (*)(void* cache, void* reference);
-    using is_current_fn = bool (*)(void* cache, const void* reference);
-
-    find_fn find = nullptr;
-    load_fn load = nullptr;
-    request_load_fn request_load = nullptr;
-    resolve_fn resolve = nullptr;
-    is_current_fn is_current = nullptr;
-  };
-
   struct type_entry {
     type_id id{};
     core::string_name resource_type{};
@@ -589,7 +573,7 @@ private:
     void* loader = nullptr;
     std::shared_ptr<void> load_requests{};
     std::shared_ptr<void> reload_requests{};
-    type_entry_ops ops{};
+    detail::type_entry_ops ops{};
   };
 
   using entry_map = core::hash_map<std::uint64_t, type_entry>;

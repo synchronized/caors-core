@@ -548,6 +548,21 @@ bool sequence_view::valid() const noexcept {
   return info != nullptr && info->valid() && storage_ != nullptr;
 }
 
+bool sequence_view::can_read() const noexcept {
+  const meta::sequence_ops* info = data();
+  return valid() && info->can_read;
+}
+
+bool sequence_view::read_in_place() const noexcept {
+  const meta::sequence_ops* info = data();
+  return valid() && info->read_in_place;
+}
+
+std::size_t sequence_view::fixed_size() const noexcept {
+  const meta::sequence_ops* info = data();
+  return valid() ? info->fixed_size : meta::dynamic_sequence_size;
+}
+
 meta::type sequence_view::get_value_type() const noexcept {
   const meta::sequence_ops* info = data();
   return valid() && info->get_value_type != nullptr ? info->get_value_type() : meta::type{};

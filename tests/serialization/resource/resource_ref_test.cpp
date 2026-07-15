@@ -184,7 +184,7 @@ TEST_CASE("serialization - external ref interfaces adapt resource refs", "[seria
   };
 
   test_collector collector_interface;
-  const caors::serialization::external_ref_collector collector =
+  const caors::serialization::external_ref_collector_ops collector =
       caors::serialization::make_external_ref_collector(collector_interface);
 
   caors::serialization::context collect_context{};
@@ -205,7 +205,7 @@ TEST_CASE("serialization - external ref interfaces adapt resource refs", "[seria
   REQUIRE(texture != nullptr);
 
   test_resolver resolver_interface{cache};
-  const caors::serialization::external_ref_resolver resolver =
+  const caors::serialization::external_ref_resolver_ops resolver =
       caors::serialization::make_external_ref_resolver(resolver_interface);
 
   caors::serialization::context resolve_context{};

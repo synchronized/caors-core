@@ -21,7 +21,7 @@
 namespace caors::serialization {
 
 /** @brief 按运行期类型构造和销毁实例的函数表。 */
-struct type_factory {
+struct polymorphic_factory_ops {
   using create_fn = void* (*)(type_id type, memory::memory_resource* resource, void* user_data);
   using destroy_fn = void (*)(void* instance, void* user_data) noexcept;
 
@@ -102,7 +102,7 @@ private:
 
 /** @brief 运行期工厂相关的序列化语义选项。 */
 struct factory_options {
-  const type_factory* type_factory = nullptr;
+  const polymorphic_factory_ops* polymorphic_factory = nullptr;
 };
 
 /** @brief 递归和输入规模相关的序列化限制。 */
@@ -161,12 +161,12 @@ struct context {
     return config.fields.schema_version;
   }
 
-  [[nodiscard]] const serialization::external_ref_resolver*
+  [[nodiscard]] const serialization::external_ref_resolver_ops*
   effective_external_ref_resolver() const noexcept {
     return resolvers.external_refs.resolver;
   }
 
-  [[nodiscard]] const serialization::external_ref_collector*
+  [[nodiscard]] const serialization::external_ref_collector_ops*
   effective_external_ref_collector() const noexcept {
     return resolvers.external_refs.collector;
   }
@@ -179,8 +179,9 @@ struct context {
     return state.storage.string_view_storage;
   }
 
-  [[nodiscard]] const serialization::type_factory* effective_type_factory() const noexcept {
-    return resolvers.factories.type_factory;
+  [[nodiscard]] const serialization::polymorphic_factory_ops*
+  effective_polymorphic_factory() const noexcept {
+    return resolvers.factories.polymorphic_factory;
   }
 
   [[nodiscard]] memory::memory_resource* effective_memory_resource() const noexcept {
@@ -214,7 +215,7 @@ using variant_result = result<variant>;
 
 namespace caors {
 
-using type_factory = serialization::type_factory;
+using polymorphic_factory_ops = serialization::polymorphic_factory_ops;
 
 } // namespace caors
 

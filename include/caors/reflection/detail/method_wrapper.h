@@ -21,20 +21,20 @@ namespace caors::reflection::detail {
 
 class method_wrapper;
 
-using method_type_fn = meta::type (*)(const method_wrapper& method) noexcept;
-using method_parameter_count_fn = std::size_t (*)(const method_wrapper& method) noexcept;
-using method_parameter_type_fn = std::optional<meta::type> (*)(const method_wrapper& method,
-                                                               std::size_t index) noexcept;
-using method_invoke_fn = any (*)(const method_wrapper& method, const void* object,
-                                 bool mutable_object, std::span<const any_ref> arguments);
-
 /** @brief 方法访问函数表，负责返回类型信息并执行底层成员函数调用。 */
 struct method_ops {
-  method_type_fn get_owner_type = nullptr;
-  method_type_fn get_return_type = nullptr;
-  method_parameter_count_fn parameter_count = nullptr;
-  method_parameter_type_fn get_parameter_type = nullptr;
-  method_invoke_fn invoke = nullptr;
+  using type_fn = meta::type (*)(const method_wrapper& method) noexcept;
+  using parameter_count_fn = std::size_t (*)(const method_wrapper& method) noexcept;
+  using parameter_type_fn = std::optional<meta::type> (*)(const method_wrapper& method,
+                                                          std::size_t index) noexcept;
+  using invoke_fn = any (*)(const method_wrapper& method, const void* object, bool mutable_object,
+                            std::span<const any_ref> arguments);
+
+  type_fn get_owner_type = nullptr;
+  type_fn get_return_type = nullptr;
+  parameter_count_fn parameter_count = nullptr;
+  parameter_type_fn get_parameter_type = nullptr;
+  invoke_fn invoke = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
     return get_owner_type != nullptr && get_return_type != nullptr && parameter_count != nullptr &&

@@ -48,6 +48,9 @@ public:
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
   [[nodiscard]] bool writable() const noexcept { return valid() && writable_; }
+  [[nodiscard]] bool can_read() const noexcept;
+  [[nodiscard]] bool read_in_place() const noexcept;
+  [[nodiscard]] std::size_t fixed_size() const noexcept;
 
   /** @brief 查询顺序容器元素的统一 value 类型。 */
   [[nodiscard]] meta::type get_value_type() const noexcept;

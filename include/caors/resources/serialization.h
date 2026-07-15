@@ -17,8 +17,8 @@
 namespace caors::resources {
 
 using resource_ref_resolution = serialization::external_ref_resolution;
-using resource_resolver = serialization::external_ref_resolver;
-using resource_dependency_collector = serialization::external_ref_collector;
+using resource_resolver = serialization::external_ref_resolver_ops;
+using resource_dependency_collector = serialization::external_ref_collector_ops;
 
 /** @brief 资源引用在通用外部引用系统中的 domain。 */
 [[nodiscard]] inline string_name resource_ref_domain() { return string_name{"resource"}; }
@@ -199,7 +199,7 @@ template <typename T> [[nodiscard]] inline type_id resource_type_id() noexcept {
 /** @brief 向上下文外部引用收集器记录一个资源引用。 */
 inline void collect_resource_dependency(const serialization::context& context,
                                         resources::resource_guid guid, type_id type) {
-  const external_ref_collector* collector = context.effective_external_ref_collector();
+  const external_ref_collector_ops* collector = context.effective_external_ref_collector();
   if (collector != nullptr && collector->can_collect() && guid) {
     (*collector)(resources::make_resource_external_ref(guid, type));
   }
@@ -214,7 +214,7 @@ template <typename T>
     return {};
   }
 
-  const external_ref_resolver* resolver = context.effective_external_ref_resolver();
+  const external_ref_resolver_ops* resolver = context.effective_external_ref_resolver();
   if (resolver == nullptr || !resolver->can_resolve()) {
     return resolution == external_ref_resolution::require_resolved
                ? error{error_domain::serialization, errc::invalid_argument}

@@ -231,6 +231,11 @@ std::size_t any_ref::alignment() const noexcept { return layout_of(type_).alignm
 
 bool any_ref::writable() const noexcept { return valid() && writable_; }
 
+bool any_ref::assignable() const noexcept {
+  const meta::value_ops* ops = value_ops_of(type_);
+  return writable() && ops != nullptr && ops->assign != nullptr;
+}
+
 bool any_ref::matches_type(const any& other) const noexcept {
   return valid() && other.valid() && get_type().id() == other.get_type().id() &&
          size() == other.size() && alignment() == other.alignment();

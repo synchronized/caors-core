@@ -173,7 +173,7 @@ caors::serialization::serialization_text_result json = caors::to_string(context,
 当前运行期类型和 type 字段一致，则把 value 字段写入这个已有对象；如果没有 type 字段，则按普通声明类型读入。
 
 当前不再提供单独的 `deserialize_polymorphic_*` 兼容入口。需要从 envelope 新建对象的场景应走更高层的
-runtime、对象或智能指针 codec 路径，由对应模块在内部使用 `context.resolvers.factories.type_factory`
+runtime、对象或智能指针 codec 路径，由对应模块在内部使用 `context.resolvers.factories.polymorphic_factory`
 负责分配和销毁。
 
 读入流程：
@@ -1003,8 +1003,8 @@ caors::string text = result.value;
 - `serialization::reader`：格式读入后端接口。
 - `serialization::context`：单次序列化/反序列化上下文，支持 schema version 字段过滤、多态 envelope 字段名配置、通用外部引用 resolver/collector、对象工厂和运行期资源传递。
 - `serialization::string_storage`：`std::string_view` 反序列化使用的多段字符串存储。
-- `serialization::external_ref_resolver`：通用外部引用解析函数表，资源模块通过 adapter 接入。
-- `serialization::external_ref_collector`：通用外部引用收集函数表，资源模块用它收集资源依赖。
+- `serialization::external_ref_resolver_ops`：通用外部引用解析函数表，资源模块通过 adapter 接入。
+- `serialization::external_ref_collector_ops`：通用外部引用收集函数表，资源模块用它收集资源依赖。
 - `serialization::codec_traits<T>`：类型级 codec 特化入口。
 - `serialization::codec_of<T>()`：按 C++ 类型查询 descriptor 静态 codec 视图；类型不要求已经显式 meta 注册。
 - `serialization::find_codec()`：按 meta 类型或类型 id 查询 descriptor 静态 codec 视图。

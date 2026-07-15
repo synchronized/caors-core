@@ -16,11 +16,11 @@
 
 namespace caors::reflection::detail {
 
-using type_get_type_fn = meta::type (*)() noexcept;
-
 /** @brief 类型反射函数表，保存由原始 C++ 类型生成的类型级操作。 */
 struct type_ops {
-  type_get_type_fn get_type = nullptr;
+  using get_type_fn = meta::type (*)() noexcept;
+
+  get_type_fn get_type = nullptr;
 
   [[nodiscard]] bool valid() const noexcept { return get_type != nullptr; }
 };

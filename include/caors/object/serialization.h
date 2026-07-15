@@ -16,7 +16,7 @@
 
 namespace caors::objects {
 
-using object_ref_resolver = serialization::external_ref_resolver;
+using object_ref_resolver = serialization::external_ref_resolver_ops;
 
 /** @brief 对象引用在通用外部引用系统中的 domain。 */
 [[nodiscard]] inline string_name object_ref_domain() { return string_name{"object"}; }
@@ -111,7 +111,7 @@ inline void manager_object_destroy(void* instance, void* user_data) noexcept {
   }
 }
 
-[[nodiscard]] inline const serialization::external_ref_resolver*
+[[nodiscard]] inline const serialization::external_ref_resolver_ops*
 active_object_ref_resolver(const serialization::context& context) noexcept {
   return context.effective_external_ref_resolver();
 }
@@ -242,7 +242,7 @@ read_persistent_object_ref(std::string_view encoded_guid, type_id type, error& s
 template <typename T>
 [[nodiscard]] serialization::variant_result
 make_object_ptr_value(const serialization::context& context, const objects::ptr<T>& value) {
-  const serialization::external_ref_resolver* resolver = active_object_ref_resolver(context);
+  const serialization::external_ref_resolver_ops* resolver = active_object_ref_resolver(context);
   if (resolver == nullptr || !resolver->can_encode()) {
     return {{error_domain::serialization, errc::invalid_argument}, {}};
   }
@@ -267,7 +267,7 @@ make_object_ptr_value(const serialization::context& context, const objects::ptr<
 template <typename T>
 [[nodiscard]] error write_object_ptr(const serialization::context& context,
                                      serialization::writer& writer, const objects::ptr<T>& value) {
-  const serialization::external_ref_resolver* resolver = active_object_ref_resolver(context);
+  const serialization::external_ref_resolver_ops* resolver = active_object_ref_resolver(context);
   if (resolver == nullptr || !resolver->can_encode()) {
     return {error_domain::serialization, errc::invalid_argument};
   }
@@ -292,7 +292,7 @@ template <typename T>
 template <typename T>
 [[nodiscard]] error read_object_ptr(const serialization::context& context,
                                     serialization::reader& reader, objects::ptr<T>& value) {
-  const serialization::external_ref_resolver* resolver = active_object_ref_resolver(context);
+  const serialization::external_ref_resolver_ops* resolver = active_object_ref_resolver(context);
   if (resolver == nullptr || !resolver->can_resolve()) {
     return {error_domain::serialization, errc::invalid_argument};
   }
@@ -378,10 +378,10 @@ make_persistent_object_ref_resolver(objects::manager& manager) {
 }
 
 /** @brief 使用对象生命周期管理器创建通用运行期类型工厂。 */
-[[nodiscard]] inline serialization::type_factory
+[[nodiscard]] inline serialization::polymorphic_factory_ops
 make_object_factory(objects::manager& manager) noexcept {
-  return serialization::type_factory{&detail::manager_object_create,
-                                     &detail::manager_object_destroy, &manager};
+  return serialization::polymorphic_factory_ops{&detail::manager_object_create,
+                                                &detail::manager_object_destroy, &manager};
 }
 
 } // namespace caors::objects

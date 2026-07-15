@@ -18,25 +18,24 @@ namespace caors::reflection::detail {
 
 class field_wrapper;
 
-using field_type_fn = meta::type (*)(const field_wrapper& field) noexcept;
-using field_const_data_fn = const void* (*)(const field_wrapper& field,
-                                            const void* object) noexcept;
-using field_mutable_data_fn = void* (*)(const field_wrapper& field, void* object) noexcept;
-using field_get_value_fn = any (*)(const field_wrapper& field, const void* object);
-using field_get_const_ref_fn = any_ref (*)(const field_wrapper& field, const void* object);
-using field_get_mutable_ref_fn = any_ref (*)(const field_wrapper& field, void* object);
-using field_set_value_fn = bool (*)(const field_wrapper& field, void* object, const any& source);
-
 /** @brief 字段访问函数表，负责把字段底层存储转换成运行期值和引用。 */
 struct field_ops {
-  field_type_fn get_owner_type = nullptr;
-  field_type_fn get_type = nullptr;
-  field_const_data_fn data = nullptr;
-  field_mutable_data_fn mutable_data = nullptr;
-  field_get_value_fn get_value = nullptr;
-  field_get_const_ref_fn get_const_ref = nullptr;
-  field_get_mutable_ref_fn get_mutable_ref = nullptr;
-  field_set_value_fn set_value = nullptr;
+  using type_fn = meta::type (*)(const field_wrapper& field) noexcept;
+  using const_data_fn = const void* (*)(const field_wrapper& field, const void* object) noexcept;
+  using mutable_data_fn = void* (*)(const field_wrapper& field, void* object) noexcept;
+  using get_value_fn = any (*)(const field_wrapper& field, const void* object);
+  using get_const_ref_fn = any_ref (*)(const field_wrapper& field, const void* object);
+  using get_mutable_ref_fn = any_ref (*)(const field_wrapper& field, void* object);
+  using set_value_fn = bool (*)(const field_wrapper& field, void* object, const any& source);
+
+  type_fn get_owner_type = nullptr;
+  type_fn get_type = nullptr;
+  const_data_fn data = nullptr;
+  mutable_data_fn mutable_data = nullptr;
+  get_value_fn get_value = nullptr;
+  get_const_ref_fn get_const_ref = nullptr;
+  get_mutable_ref_fn get_mutable_ref = nullptr;
+  set_value_fn set_value = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
     return get_owner_type != nullptr && get_type != nullptr && data != nullptr &&

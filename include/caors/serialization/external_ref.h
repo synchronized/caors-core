@@ -41,7 +41,7 @@ enum class external_ref_resolution {
 };
 
 /** @brief 外部引用解析函数表。 */
-struct external_ref_resolver {
+struct external_ref_resolver_ops {
   using resolve_fn = void* (*)(const external_ref& ref, void* user_data);
   using encode_fn = bool (*)(const void* instance, type_id type, external_ref& ref,
                              void* user_data);
@@ -64,7 +64,7 @@ struct external_ref_resolver {
 };
 
 /** @brief 外部引用收集函数表。 */
-struct external_ref_collector {
+struct external_ref_collector_ops {
   using collect_fn = void (*)(const external_ref& ref, void* user_data);
 
   collect_fn collect = nullptr;
@@ -81,8 +81,8 @@ struct external_ref_collector {
 
 /** @brief 外部引用相关的序列化语义选项。 */
 struct external_ref_options {
-  const external_ref_resolver* resolver = nullptr;
-  const external_ref_collector* collector = nullptr;
+  const external_ref_resolver_ops* resolver = nullptr;
+  const external_ref_collector_ops* collector = nullptr;
   external_ref_resolution resolution = external_ref_resolution::keep_unresolved;
 };
 
@@ -122,9 +122,9 @@ public:
 };
 
 /** @brief 把继承式 resolver 适配为 context 使用的函数表。 */
-[[nodiscard]] inline external_ref_resolver
+[[nodiscard]] inline external_ref_resolver_ops
 make_external_ref_resolver(external_ref_resolver_interface& resolver) noexcept {
-  return external_ref_resolver{
+  return external_ref_resolver_ops{
       [](const external_ref& ref, void* user_data) -> void* {
         auto* target = static_cast<external_ref_resolver_interface*>(user_data);
         return target != nullptr ? target->resolve(ref) : nullptr;
@@ -134,9 +134,9 @@ make_external_ref_resolver(external_ref_resolver_interface& resolver) noexcept {
 }
 
 /** @brief 把继承式 collector 适配为 context 使用的函数表。 */
-[[nodiscard]] inline external_ref_collector
+[[nodiscard]] inline external_ref_collector_ops
 make_external_ref_collector(external_ref_collector_interface& collector) noexcept {
-  return external_ref_collector{
+  return external_ref_collector_ops{
       [](const external_ref& ref, void* user_data) {
         auto* target = static_cast<external_ref_collector_interface*>(user_data);
         if (target != nullptr) {

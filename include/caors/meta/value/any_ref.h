@@ -63,6 +63,7 @@ public:
   [[nodiscard]] std::size_t size() const noexcept;
   [[nodiscard]] std::size_t alignment() const noexcept;
   [[nodiscard]] bool writable() const noexcept;
+  [[nodiscard]] bool assignable() const noexcept;
 
   /** @brief 查询并绑定运行期实例能力视图。 */
   template <typename View> [[nodiscard]] View get_capability() const {

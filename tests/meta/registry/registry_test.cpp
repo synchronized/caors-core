@@ -75,10 +75,10 @@ TEST_CASE("meta type - global registry registers and finds types", "[meta]") {
   REQUIRE(type);
   CHECK(type.id());
   CHECK(type.name() == "caors.test.type.registry_parent");
-  const caors::meta::value_storage_ops* value = type.get_raw_ops<caors::meta::value_storage_ops>();
-  REQUIRE(value != nullptr);
-  CHECK(value->layout.size == sizeof(registry_parent_type));
-  CHECK(value->layout.alignment == alignof(registry_parent_type));
+  const caors::any value = caors::any::default_construct(type);
+  REQUIRE(value.valid());
+  CHECK(value.size() == sizeof(registry_parent_type));
+  CHECK(value.alignment() == alignof(registry_parent_type));
 
   auto by_name = caors::meta::find("caors.test.type.registry_parent");
   REQUIRE(by_name);

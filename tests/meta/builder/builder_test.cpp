@@ -14,22 +14,20 @@ TEST_CASE("meta type - builder updates registered data in place", "[meta]") {
   const caors::meta::type before = builder.get();
   REQUIRE(before);
   CHECK_FALSE(before.guid());
-  const caors::meta::value_storage_ops* before_value =
-      before.get_raw_ops<caors::meta::value_storage_ops>();
-  REQUIRE(before_value != nullptr);
-  CHECK(before_value->layout.size == sizeof(stable_builder_type));
-  CHECK(before_value->layout.alignment == alignof(stable_builder_type));
+  const caors::any before_value = caors::any::default_construct(before);
+  REQUIRE(before_value.valid());
+  CHECK(before_value.size() == sizeof(stable_builder_type));
+  CHECK(before_value.alignment() == alignof(stable_builder_type));
 
   REQUIRE(builder.guid(caors::type_guid{*guid}).result() == caors::error{});
   const caors::meta::type after = builder.get();
   REQUIRE(after);
 
   CHECK(before.id() == after.id());
-  const caors::meta::value_storage_ops* after_value =
-      after.get_raw_ops<caors::meta::value_storage_ops>();
-  REQUIRE(after_value != nullptr);
-  CHECK(after_value->layout.size == sizeof(stable_builder_type));
-  CHECK(after_value->layout.alignment == alignof(stable_builder_type));
+  const caors::any after_value = caors::any::default_construct(after);
+  REQUIRE(after_value.valid());
+  CHECK(after_value.size() == sizeof(stable_builder_type));
+  CHECK(after_value.alignment() == alignof(stable_builder_type));
   CHECK(before.guid() == caors::type_guid{*guid});
   CHECK(after.guid() == caors::type_guid{*guid});
 }
