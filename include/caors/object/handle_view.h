@@ -61,22 +61,32 @@ private:
   bool writable_ = false;
 };
 
+} // namespace caors::objects
+
+namespace caors::meta {
+
+template <> struct capability_bind_traits<objects::handle_view> {
+  using view_type = objects::handle_view;
+
+  static constexpr bool supported = true;
+
+  [[nodiscard]] static view_type bind(meta::type, const objects::handle_ops*,
+                                      meta::any_ref source) noexcept {
+    return objects::make_handle_view(source);
+  }
+};
+
+} // namespace caors::meta
+
+namespace caors::objects {
+
 /** @brief 对象身份句柄类型级能力 facade。 */
-class handle_capability final : public meta::type_capability_base<handle_ops> {
+class handle_capability final : public meta::type_capability_base<handle_ops, handle_view> {
 public:
-  using base_type = meta::type_capability_base<handle_ops>;
-  using view_type = handle_view;
+  using base_type = meta::type_capability_base<handle_ops, handle_view>;
 
   handle_capability() noexcept = default;
   explicit handle_capability(meta::type type) noexcept : base_type(type) {}
-
-  [[nodiscard]] handle_view bind(meta::any_ref source) const noexcept {
-    if (!valid() || !source.valid() || source.get_type().id() != type_.id()) {
-      return {};
-    }
-
-    return make_handle_view(source);
-  }
 };
 
 [[nodiscard]] inline handle_view make_handle_view(meta::any_ref source) noexcept {

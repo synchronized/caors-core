@@ -73,21 +73,12 @@ public:
   }
 };
 
-class matrix_capability final : public caors::meta::type_capability_base<matrix_ops> {
+class matrix_capability final : public caors::meta::type_capability_base<matrix_ops, matrix_view> {
 public:
-  using base_type = caors::meta::type_capability_base<matrix_ops>;
-  using view_type = matrix_view;
+  using base_type = caors::meta::type_capability_base<matrix_ops, matrix_view>;
 
   matrix_capability() noexcept = default;
   explicit matrix_capability(caors::meta::type type) noexcept : base_type(type) {}
-
-  [[nodiscard]] matrix_view bind(caors::meta::any_ref source) const noexcept {
-    if (!valid() || !source.valid() || source.get_type().id() != type_.id()) {
-      return {};
-    }
-
-    return matrix_view{type_, ops_, source};
-  }
 };
 
 struct static_capability_data {

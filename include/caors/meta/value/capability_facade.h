@@ -50,6 +50,19 @@ inline constexpr bool is_bindable_type_capability_v =
 } // namespace detail
 
 /**
+ * @brief capability 绑定策略。
+ *
+ * 自定义 view 如果继承 `capability_view_base<Ops>`，默认策略会直接使用
+ * `(meta::type, const Ops*, any_ref)` 构造 view。现有内置 view 可以特化该模板，复用自己的
+ * `make_*_view()` 工厂。
+ */
+template <typename View, typename = void> struct capability_bind_traits {
+  using view_type = std::remove_cv_t<std::remove_reference_t<View>>;
+
+  static constexpr bool supported = false;
+};
+
+/**
  * @brief 自定义 capability view 的通用基类。
  *
  * `Ops` 是类型擦除函数表。派生 view 只需要声明 `using ops_type = Ops`，并通过继承构造函数接收
@@ -93,29 +106,47 @@ private:
   any_ref source_{};
 };
 
+template <typename View>
+struct capability_bind_traits<View, std::enable_if_t<detail::is_auto_capability_view_v<View>>> {
+  using view_type = std::remove_cv_t<std::remove_reference_t<View>>;
+  using ops_type = typename view_type::ops_type;
+
+  static constexpr bool supported = true;
+
+  [[nodiscard]] static view_type bind(meta::type type, const ops_type* ops,
+                                      any_ref source) noexcept {
+    if (!type || !source.valid() || source.get_type().id() != type.id() ||
+        !detail::capability_ops_valid(ops)) {
+      return {};
+    }
+
+    return view_type{type, ops, source};
+  }
+};
+
+template <typename Ops, typename View>
+[[nodiscard]] typename type_capability_base<Ops, View>::view_type
+type_capability_base<Ops, View>::bind(any_ref source) const {
+  static_assert(capability_bind_traits<view_type>::supported,
+                "Unsupported CAORS capability bind view");
+  return capability_bind_traits<view_type>::bind(this->type_, this->ops_, source);
+}
+
 /**
  * @brief 类型级 capability facade，负责把类型能力延后绑定到具体 `any_ref`。
  */
 template <typename View>
-class type_capability_view
-    : public type_capability_base<
-          typename std::remove_cv_t<std::remove_reference_t<View>>::ops_type> {
+class type_capability_view : public type_capability_base<
+                                 typename std::remove_cv_t<std::remove_reference_t<View>>::ops_type,
+                                 std::remove_cv_t<std::remove_reference_t<View>>> {
 public:
   using view_type = std::remove_cv_t<std::remove_reference_t<View>>;
   using ops_type = typename view_type::ops_type;
-  using base_type = type_capability_base<ops_type>;
+  using base_type = type_capability_base<ops_type, view_type>;
 
   type_capability_view() noexcept = default;
 
   explicit type_capability_view(meta::type type) noexcept : base_type(type) {}
-
-  [[nodiscard]] view_type bind(any_ref source) const noexcept {
-    if (!this->valid() || !source.valid() || source.get_type().id() != this->type_.id()) {
-      return {};
-    }
-
-    return view_type{this->type_, this->ops_, source};
-  }
 };
 
 template <typename View>

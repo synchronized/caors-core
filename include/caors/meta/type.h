@@ -17,6 +17,7 @@ namespace caors::meta {
 
 class registry;
 class type;
+class any_ref;
 class type_registration_data;
 
 [[nodiscard]] CAORS_API registry& get_registry() noexcept;
@@ -123,8 +124,12 @@ private:
  *
  * `Ops` 是类型擦除函数表。派生类型只需要继承该基类并实现自己的类型级行为，即可复用
  * `type`、`ops` 保存、有效性判断和 `get_type()`。
+ * 需要绑定实例 view 时使用 `type_capability_base<Ops, View>`，基类会自动提供 `view_type` 和
+ * `bind(any_ref)`。
  */
-template <typename Ops> class type_capability_base {
+template <typename Ops, typename View = void> class type_capability_base;
+
+template <typename Ops> class type_capability_base<Ops, void> {
 public:
   using ops_type = std::remove_cv_t<std::remove_reference_t<Ops>>;
 
@@ -142,6 +147,18 @@ public:
 protected:
   meta::type type_{};
   const ops_type* ops_ = nullptr;
+};
+
+template <typename Ops, typename View>
+class type_capability_base : public type_capability_base<Ops, void> {
+public:
+  using base_type = type_capability_base<Ops, void>;
+  using ops_type = typename base_type::ops_type;
+  using view_type = std::remove_cv_t<std::remove_reference_t<View>>;
+
+  using base_type::base_type;
+
+  [[nodiscard]] view_type bind(any_ref source) const;
 };
 
 namespace detail {

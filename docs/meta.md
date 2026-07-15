@@ -595,9 +595,9 @@ matrix* value = factory.create();
 ```
 
 实例级能力推荐同时提供类型级 facade 和实例级 view：定义 `*_ops` 函数表，让 view 继承
-`meta::capability_view_base<Ops>`，再让 capability 继承 `meta::type_capability_base<Ops>` 并声明
-`using view_type = ...`。这样 `meta::type::get_capability<Capability>()` 返回类型级 facade，
-`any_ref::get_capability<Capability>()` 返回绑定后的实例 view。
+`meta::capability_view_base<Ops>`，再让 capability 继承 `meta::type_capability_base<Ops, View>`。
+这样 `meta::type::get_capability<Capability>()` 返回类型级 facade，
+`any_ref::get_capability<Capability>()` 返回绑定后的实例 view，并且不需要手写 `view_type` 和 `bind()`。
 
 ```cpp
 struct matrix_ops {
@@ -618,17 +618,10 @@ public:
   [[nodiscard]] std::size_t columns() const noexcept { return ops()->columns(data()); }
 };
 
-class matrix_capability : public caors::meta::type_capability_base<matrix_ops> {
+class matrix_capability : public caors::meta::type_capability_base<matrix_ops, matrix_view> {
 public:
-  using base_type = caors::meta::type_capability_base<matrix_ops>;
-  using view_type = matrix_view;
+  using base_type = caors::meta::type_capability_base<matrix_ops, matrix_view>;
   using base_type::base_type;
-
-  [[nodiscard]] matrix_view bind(caors::meta::any_ref source) const noexcept {
-    return valid() && source.valid() && source.get_type().id() == type_.id()
-               ? matrix_view{type_, ops_, source}
-               : matrix_view{};
-  }
 };
 ```
 

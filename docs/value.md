@@ -23,7 +23,7 @@ meta value 提供细粒度头和完整聚合头。细粒度头不再依赖 `any.
 | `caors/meta/value/any.h` | `caors::meta::any`、`caors::any` | 只需要拥有式运行期 C++ 值。 |
 | `caors/meta/value/any_ref.h` | `caors::meta::any_ref`、`caors::any_ref` | 需要引用外部 C++ 对象或反射字段。 |
 | `caors/meta/value/view_factory.h` | 所有具体 view 类型和显式 `make_*_view()` 工厂 | 高级代码或内部适配层需要显式创建具体 view。 |
-| `caors/meta/value/capability_facade.h` | 自定义 capability facade/view 的轻量 helper | 用 `type_capability_base<Ops>`、`capability_view_base<Ops>` 和自动 traits 减少样板代码。 |
+| `caors/meta/value/capability_facade.h` | 自定义 capability facade/view 的轻量 helper | 用 `type_capability_base<Ops, View>`、`capability_view_base<Ops>` 和自动 traits 减少样板代码。 |
 | `caors/meta/value/capability_view.h` | `any` / `any_ref` 的 `get_capability<Capability>()` 视图绑定适配 | 推荐的统一运行期视图查询入口。 |
 | `caors/meta/value/type_capability.h` | 类型级 `*_capability` facade | 需要先从 `meta::type` 查询能力，再绑定到具体 `any_ref`。 |
 | `caors/meta/value/associative_entry_ref.h` | `associative_entry_ref` | 需要按值使用关联容器迭代条目。 |
