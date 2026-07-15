@@ -209,7 +209,21 @@ caors::meta::class_<player>("game.player")
 普通业务类型仍应通过 `caors::meta::class_<T>("name")` 显式注册，再把得到的 `meta::type` 交给
 对象、反射或序列化模块挂载组件。
 
-### descriptor / registry / capability 边界
+### 普通入口：facade 和 view
+
+普通业务代码优先使用公开 facade，而不是直接操作内部 descriptor 或 raw ops：
+
+- 类型查询使用 `meta::resolve<T>()` 或 `meta::find<T>()`。
+- 类型级能力使用 `meta::type::get_capability<Capability>()`，例如
+  `get_capability<meta::sequence_capability>()`。
+- 实例级能力使用 `meta::any_ref::get_capability<View>()`，例如
+  `get_capability<meta::sequence_view>()` 或 `get_capability<objects::ptr_view>()`。
+- 跨 meta / reflection / object 的高层访问优先使用 `runtime::type` 和 `runtime::instance`。
+
+只有实现新的 capability facade、调试工具、序列化桥接或性能敏感适配层时，才直接使用
+`meta::type::get_raw_ops<Ops>()`。
+
+### 分层边界：descriptor、registry、capability
 
 当前 meta 层按四个边界分工：
 
@@ -239,7 +253,7 @@ runtime capability。普通调用方应使用这个统一入口，不直接关�
 - runtime capability 不是 meta 组件，也不替代业务类型注册；需要稳定名称、GUID 或跨模块组件查询时仍要注册
   meta 类型。
 
-### 内部 descriptor
+### 内部结构：descriptor 和 ops
 
 内部 descriptor 是 C++ 类型的内部能力描述。注册表按 `type_id`
 保存指向静态 descriptor 的指针，不把 descriptor 当作普通 generic component 复制存储。descriptor
@@ -274,7 +288,7 @@ descriptor 内部按职责拆分：
 `meta/detail/parent_cast_ops.h` 只保留类型层级 parent cast 能力；`meta/type_semantics.h`
 只保留类型语义判断 helper。
 
-术语约定：
+#### ops / capability 术语约定
 
 - `capability` 表示能力槽位或可查询能力，例如“这个类型是否具备序列化 codec 能力”。
 - `*_ops` 表示某个 capability 的具体类型擦除操作表，通常由函数指针和少量只读元数据组成，例如
@@ -471,7 +485,9 @@ caors::type_id actor_id = caors::meta::find<actor>().id();
 caors::meta::get_registry().emplace_component<object_factory_meta>(actor_id, true);
 ```
 
-### 高级用法：自定义 capability
+## 高级扩展
+
+### 自定义 capability
 
 运行期 capability 是高级扩展接口，不是普通 meta 组件。公开写入入口挂在类型 builder 上：
 
@@ -516,7 +532,7 @@ if (const matrix_ops* ops = caors::meta::find<matrix>().get_capability<matrix_op
 - 实例级访问优先使用绑定后的 view，例如 `any_ref::get_capability<meta::sequence_view>()` 或
   `any_ref::get_capability<objects::ptr_view>()`，避免业务代码直接传递 `void*`。
 
-### 高级用法：raw ops
+### raw ops
 
 `meta::type::get_raw_ops<Ops>()` 返回类型擦除函数表指针，适合实现公开 capability facade、序列化或
 编辑器适配器、调试工具，以及极少数需要绕过 facade 的性能敏感路径。它不是临时兼容入口，也不是废弃
@@ -597,7 +613,7 @@ caors::meta::class_<actor>()
     .capability<my_ops>();
 ```
 
-组件 API：
+### registry 组件 API
 
 - `emplace_component<T>(type_id, args...)`：给已注册类型挂载组件。
 - `has_component<T>(type_id)`：判断类型是否拥有组件。

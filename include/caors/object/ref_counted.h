@@ -22,29 +22,39 @@ template <typename T, typename... Args>
 
 namespace detail {
 
-using ref_destroy_fn = void (*)(void* instance, memory_resource* resource,
-                                const traits::wrapper_set_context& context) noexcept;
+struct ref_lifetime_ops {
+  using destroy_fn = void (*)(void* instance, memory_resource* resource,
+                              const traits::wrapper_set_context& context) noexcept;
+
+  destroy_fn destroy = nullptr;
+
+  [[nodiscard]] constexpr bool valid() const noexcept { return destroy != nullptr; }
+};
 
 struct ref_control_block {
   ref_control_block(memory_resource* object_resource, memory_resource* control_resource,
-                    ref_destroy_fn destroy,
+                    ref_lifetime_ops ops,
                     traits::wrapper_set_context destroy_context = {}) noexcept
-      : object_resource(object_resource), control_resource(control_resource), destroy(destroy),
+      : object_resource(object_resource), control_resource(control_resource), ops(ops),
         destroy_context(destroy_context) {}
 
   std::atomic<std::size_t> strong_count{0};
   std::atomic<std::size_t> weak_count{1};
   memory_resource* object_resource = nullptr;
   memory_resource* control_resource = nullptr;
-  ref_destroy_fn destroy = nullptr;
+  ref_lifetime_ops ops{};
   traits::wrapper_set_context destroy_context{};
   void* instance = nullptr;
 };
 
 [[nodiscard]] inline ref_control_block*
 try_make_ref_control_block(memory_resource* object_resource, memory_resource* control_resource,
-                           ref_destroy_fn destroy,
+                           ref_lifetime_ops ops,
                            traits::wrapper_set_context destroy_context = {}) noexcept {
+  if (!ops.valid()) {
+    return nullptr;
+  }
+
   memory_resource* resolved =
       control_resource != nullptr ? control_resource : get_default_memory_resource();
   void* storage = resolved->try_allocate(sizeof(ref_control_block), alignof(ref_control_block));
@@ -52,7 +62,7 @@ try_make_ref_control_block(memory_resource* object_resource, memory_resource* co
     return nullptr;
   }
 
-  return ::new (storage) ref_control_block{object_resource, resolved, destroy, destroy_context};
+  return ::new (storage) ref_control_block{object_resource, resolved, ops, destroy_context};
 }
 
 inline void destroy_ref_control_block(ref_control_block* control) noexcept {
@@ -331,7 +341,7 @@ private:
     if (control != nullptr && detail::release_ref(control)) {
       void* stored_instance = control->instance != nullptr ? control->instance : instance;
       control->instance = nullptr;
-      control->destroy(stored_instance, control->object_resource, control->destroy_context);
+      control->ops.destroy(stored_instance, control->object_resource, control->destroy_context);
       detail::release_weak_ref(control);
     }
   }
@@ -522,8 +532,9 @@ template <typename T, typename... Args>
                 "T must derive from caors::objects::ref_counted");
 
   memory_resource* resolved = resource != nullptr ? resource : get_default_memory_resource();
-  auto* control = caors::make<detail::ref_control_block>(resolved, resolved, resolved,
-                                                         &detail::destroy_ref_counted_instance<T>);
+  auto* control = caors::make<detail::ref_control_block>(
+      resolved, resolved, resolved,
+      detail::ref_lifetime_ops{&detail::destroy_ref_counted_instance<T>});
 
 #if CAORS_HAS_EXCEPTIONS
   try {
@@ -653,7 +664,8 @@ template <typename T> struct wrapper_access<caors::objects::ref<T>> {
     caors::memory::memory_resource* control_resource = caors::get_default_memory_resource();
     auto* control = caors::objects::detail::try_make_ref_control_block(
         nullptr, control_resource,
-        &caors::objects::detail::delete_ref_counted_instance<wrapped_type>);
+        caors::objects::detail::ref_lifetime_ops{
+            &caors::objects::detail::delete_ref_counted_instance<wrapped_type>});
     if (control == nullptr) {
       return false;
     }
@@ -677,7 +689,9 @@ template <typename T> struct wrapper_access<caors::objects::ref<T>> {
         context.resource != nullptr ? context.resource : caors::get_default_memory_resource();
     auto* control = caors::objects::detail::try_make_ref_control_block(
         nullptr, control_resource,
-        &caors::objects::detail::destroy_ref_counted_context_instance<wrapped_type>, context);
+        caors::objects::detail::ref_lifetime_ops{
+            &caors::objects::detail::destroy_ref_counted_context_instance<wrapped_type>},
+        context);
     if (control == nullptr) {
       return false;
     }

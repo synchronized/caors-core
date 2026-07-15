@@ -27,7 +27,13 @@ template <typename T>
 
 namespace detail {
 
-using handle_destroy_fn = void (*)(void* user_data, void* instance) noexcept;
+struct handle_lifetime_ops {
+  using destroy_fn = void (*)(void* user_data, void* instance) noexcept;
+
+  destroy_fn destroy = nullptr;
+
+  [[nodiscard]] constexpr bool valid() const noexcept { return destroy != nullptr; }
+};
 
 template <typename T> void delete_handle_instance(void*, void* instance) noexcept {
   delete static_cast<T*>(instance);
@@ -35,21 +41,25 @@ template <typename T> void delete_handle_instance(void*, void* instance) noexcep
 
 struct handle_control_block {
   handle_control_block(void* destroy_user_data, memory_resource* control_resource,
-                       handle_destroy_fn destroy) noexcept
-      : destroy_user_data(destroy_user_data), control_resource(control_resource), destroy(destroy) {
+                       handle_lifetime_ops ops) noexcept
+      : destroy_user_data(destroy_user_data), control_resource(control_resource), ops(ops) {
   }
 
   std::atomic<std::size_t> strong_count{0};
   std::atomic<std::size_t> weak_count{1};
   void* destroy_user_data = nullptr;
   memory_resource* control_resource = nullptr;
-  handle_destroy_fn destroy = nullptr;
+  handle_lifetime_ops ops{};
   void* instance = nullptr;
 };
 
 [[nodiscard]] inline handle_control_block*
 try_make_handle_control_block(void* destroy_user_data, memory_resource* control_resource,
-                              handle_destroy_fn destroy) noexcept {
+                              handle_lifetime_ops ops) noexcept {
+  if (!ops.valid()) {
+    return nullptr;
+  }
+
   memory_resource* resolved =
       control_resource != nullptr ? control_resource : get_default_memory_resource();
   void* storage =
@@ -58,7 +68,7 @@ try_make_handle_control_block(void* destroy_user_data, memory_resource* control_
     return nullptr;
   }
 
-  return ::new (storage) handle_control_block{destroy_user_data, resolved, destroy};
+  return ::new (storage) handle_control_block{destroy_user_data, resolved, ops};
 }
 
 inline void destroy_handle_control_block(handle_control_block* control) noexcept {
@@ -275,7 +285,7 @@ private:
     if (control != nullptr && detail::release_handle_ref(control)) {
       void* stored_instance = control->instance != nullptr ? control->instance : instance;
       control->instance = nullptr;
-      control->destroy(control->destroy_user_data, stored_instance);
+      control->ops.destroy(control->destroy_user_data, stored_instance);
       detail::release_weak_handle_ref(control);
     }
   }
@@ -474,8 +484,8 @@ template <typename T, typename... Args>
                 "T must derive from caors::resources::resource");
 
   memory_resource* resolved = resource != nullptr ? resource : get_default_memory_resource();
-  auto* control = detail::try_make_handle_control_block(resolved, resolved,
-                                                        &detail::destroy_handle_instance<T>);
+  auto* control = detail::try_make_handle_control_block(
+      resolved, resolved, detail::handle_lifetime_ops{&detail::destroy_handle_instance<T>});
   if (control == nullptr) {
     return {};
   }
@@ -508,19 +518,19 @@ template <typename T>
   }
 
   const auto deleter = owned.get_deleter();
-  detail::handle_destroy_fn destroy = nullptr;
+  detail::handle_lifetime_ops ops{};
   void* destroy_user_data = nullptr;
   if (deleter.destroy_function() != nullptr) {
-    destroy = deleter.destroy_function();
+    ops.destroy = deleter.destroy_function();
     destroy_user_data = deleter.user_data();
   } else {
-    destroy = &detail::delete_handle_instance<T>;
+    ops.destroy = &detail::delete_handle_instance<T>;
   }
 
   memory_resource* resolved_control =
       control_resource != nullptr ? control_resource : get_default_memory_resource();
   auto* control =
-      detail::try_make_handle_control_block(destroy_user_data, resolved_control, destroy);
+      detail::try_make_handle_control_block(destroy_user_data, resolved_control, ops);
   if (control == nullptr) {
     return {};
   }

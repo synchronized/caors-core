@@ -102,11 +102,11 @@ public:
     }
 
     entry->cache = &target;
-    entry->find = &find_in_cache<T>;
-    entry->resolve = &resolve_in_cache<T>;
-    entry->is_current = &is_current_in_cache<T>;
-    entry->load = &load_in_cache<T>;
-    entry->request_load = &request_load_in_cache<T>;
+    entry->ops.find = &find_in_cache<T>;
+    entry->ops.resolve = &resolve_in_cache<T>;
+    entry->ops.is_current = &is_current_in_cache<T>;
+    entry->ops.load = &load_in_cache<T>;
+    entry->ops.request_load = &request_load_in_cache<T>;
     return {};
   }
 
@@ -137,8 +137,8 @@ public:
     }
 
     entry->loader = &source;
-    entry->load = &load_in_cache<T>;
-    entry->request_load = &request_load_in_cache<T>;
+    entry->ops.load = &load_in_cache<T>;
+    entry->ops.request_load = &request_load_in_cache<T>;
     return {};
   }
 
@@ -198,11 +198,11 @@ public:
 
     for (const auto& pair : entries_) {
       const type_entry& entry = pair.second;
-      if (entry.cache == nullptr || entry.find == nullptr) {
+      if (entry.cache == nullptr || entry.ops.find == nullptr) {
         continue;
       }
 
-      resources::resource* value = entry.find(entry.cache, guid);
+      resources::resource* value = entry.ops.find(entry.cache, guid);
       if (value != nullptr) {
         return value;
       }
@@ -375,12 +375,12 @@ public:
     for (const preload_item& item : result.plan.load_order) {
       type_entry* entry = find_entry(item.type);
       if (entry == nullptr || entry->cache == nullptr || entry->loader == nullptr ||
-          entry->load == nullptr) {
+          entry->ops.load == nullptr) {
         result.status = {error_domain::resources, errc::not_found};
         return result;
       }
 
-      const error status = entry->load(entry->cache, entry->loader, item.guid);
+      const error status = entry->ops.load(entry->cache, entry->loader, item.guid);
       if (status) {
         result.status = status;
         return result;
@@ -451,14 +451,14 @@ public:
 
     type_entry* entry = find_entry<T>();
     if (entry == nullptr || entry->cache == nullptr || entry->loader == nullptr ||
-        entry->request_load == nullptr) {
+        entry->ops.request_load == nullptr) {
       detail::preload_request_access::fail(state, {error_domain::resources, errc::not_found});
       return request;
     }
 
     for (const preload_item& item : plan.load_order) {
       const error status =
-          entry->request_load(entry->cache, entry->loader, item, executor, completions, state);
+          entry->ops.request_load(entry->cache, entry->loader, item, executor, completions, state);
       if (status) {
         return request;
       }
@@ -484,14 +484,14 @@ public:
     for (const preload_item& item : plan.load_order) {
       type_entry* entry = find_entry(item.type);
       if (entry == nullptr || entry->cache == nullptr || entry->loader == nullptr ||
-          entry->request_load == nullptr) {
+          entry->ops.request_load == nullptr) {
         detail::preload_request_access::fail_item(state, item,
                                                   {error_domain::resources, errc::not_found});
         return request;
       }
 
       const error status =
-          entry->request_load(entry->cache, entry->loader, item, executor, completions, state);
+          entry->ops.request_load(entry->cache, entry->loader, item, executor, completions, state);
       if (status) {
         return request;
       }
@@ -506,8 +506,8 @@ public:
                   "T must derive from caors::resources::resource");
 
     const type_entry* entry = find_entry<T>();
-    if (entry != nullptr && entry->cache != nullptr && entry->resolve != nullptr) {
-      return entry->resolve(entry->cache, &reference);
+    if (entry != nullptr && entry->cache != nullptr && entry->ops.resolve != nullptr) {
+      return entry->ops.resolve(entry->cache, &reference);
     }
 
     T* value = dynamic_cast<T*>(find(reference.guid()));
@@ -525,8 +525,8 @@ public:
                   "T must derive from caors::resources::resource");
 
     const type_entry* entry = find_entry<T>();
-    return entry != nullptr && entry->cache != nullptr && entry->is_current != nullptr &&
-           entry->is_current(entry->cache, &reference);
+    return entry != nullptr && entry->cache != nullptr && entry->ops.is_current != nullptr &&
+           entry->ops.is_current(entry->cache, &reference);
   }
 
   /** @brief 把依赖收集结果追加写入当前依赖图。未设置依赖图时返回 0。 */
@@ -565,13 +565,22 @@ public:
   }
 
 private:
-  using find_fn = resources::resource* (*)(void* cache, resource_guid guid);
-  using load_fn = error (*)(void* cache, void* loader, resource_guid guid);
-  using request_load_fn = error (*)(void* cache, void* loader, preload_item item,
-                                    tasks::executor& executor, tasks::completion_queue& completions,
-                                    const std::shared_ptr<detail::preload_request_state>& state);
-  using resolve_fn = bool (*)(void* cache, void* reference);
-  using is_current_fn = bool (*)(void* cache, const void* reference);
+  struct type_entry_ops {
+    using find_fn = resources::resource* (*)(void* cache, resource_guid guid);
+    using load_fn = error (*)(void* cache, void* loader, resource_guid guid);
+    using request_load_fn = error (*)(
+        void* cache, void* loader, preload_item item, tasks::executor& executor,
+        tasks::completion_queue& completions,
+        const std::shared_ptr<detail::preload_request_state>& state);
+    using resolve_fn = bool (*)(void* cache, void* reference);
+    using is_current_fn = bool (*)(void* cache, const void* reference);
+
+    find_fn find = nullptr;
+    load_fn load = nullptr;
+    request_load_fn request_load = nullptr;
+    resolve_fn resolve = nullptr;
+    is_current_fn is_current = nullptr;
+  };
 
   struct type_entry {
     type_id id{};
@@ -580,11 +589,7 @@ private:
     void* loader = nullptr;
     std::shared_ptr<void> load_requests{};
     std::shared_ptr<void> reload_requests{};
-    find_fn find = nullptr;
-    load_fn load = nullptr;
-    request_load_fn request_load = nullptr;
-    resolve_fn resolve = nullptr;
-    is_current_fn is_current = nullptr;
+    type_entry_ops ops{};
   };
 
   using entry_map = core::hash_map<std::uint64_t, type_entry>;
@@ -819,19 +824,19 @@ private:
 
     const preload_item item{guid, entry_data->type};
     const type_entry* entry = find_entry(entry_data->type);
-    if (entry == nullptr || entry->cache == nullptr || entry->find == nullptr) {
+    if (entry == nullptr || entry->cache == nullptr || entry->ops.find == nullptr) {
       plan.missing_cache.push_back(item);
-    } else if (entry->find(entry->cache, guid) != nullptr) {
+    } else if (entry->ops.find(entry->cache, guid) != nullptr) {
       plan.already_loaded.push_back(item);
       return;
     }
 
-    if (entry == nullptr || entry->loader == nullptr || entry->load == nullptr) {
+    if (entry == nullptr || entry->loader == nullptr || entry->ops.load == nullptr) {
       plan.missing_loader.push_back(item);
     }
 
-    if (entry != nullptr && entry->cache != nullptr && entry->find != nullptr &&
-        entry->loader != nullptr && entry->load != nullptr) {
+    if (entry != nullptr && entry->cache != nullptr && entry->ops.find != nullptr &&
+        entry->loader != nullptr && entry->ops.load != nullptr) {
       plan.load_order.push_back(item);
     }
   }

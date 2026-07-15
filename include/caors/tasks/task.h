@@ -21,8 +21,15 @@ concept task_callable =
     std::invocable<Callable&> && (std::same_as<std::invoke_result_t<Callable&>, void> ||
                                   std::same_as<std::invoke_result_t<Callable&>, error>);
 
-using task_run_fn = error (*)(void*);
-using task_destroy_fn = void (*)(memory_resource*, void*) noexcept;
+struct task_ops {
+  using run_fn = error (*)(void*);
+  using destroy_fn = void (*)(memory_resource*, void*) noexcept;
+
+  run_fn run = nullptr;
+  destroy_fn destroy = nullptr;
+
+  [[nodiscard]] constexpr bool valid() const noexcept { return run != nullptr; }
+};
 
 template <typename Callable> [[nodiscard]] error run_task_callable(void* object) {
   auto& callable = *static_cast<Callable*>(object);
@@ -92,11 +99,11 @@ public:
    * `caors::error`，该错误会原样返回。
    */
   [[nodiscard]] error run() {
-    if (object_ == nullptr || run_ == nullptr) {
+    if (object_ == nullptr || !ops_.valid()) {
       return {error_domain::core, errc::invalid_argument};
     }
 
-    return run_(object_);
+    return ops_.run(object_);
   }
 
   /** @brief 等价于 `run()`。 */
@@ -104,14 +111,13 @@ public:
 
   /** @brief 释放当前 callable，让任务变为空。 */
   void reset() noexcept {
-    if (object_ != nullptr && destroy_ != nullptr) {
-      destroy_(resource_, object_);
+    if (object_ != nullptr && ops_.destroy != nullptr) {
+      ops_.destroy(resource_, object_);
     }
 
     object_ = nullptr;
     resource_ = nullptr;
-    run_ = nullptr;
-    destroy_ = nullptr;
+    ops_ = {};
   }
 
   /** @brief 替换当前 callable。 */
@@ -124,8 +130,10 @@ public:
     memory_resource* resolved = resource != nullptr ? resource : get_default_memory_resource();
     object_ = caors::make<stored_type>(resolved, std::forward<Callable>(callable));
     resource_ = resolved;
-    run_ = &detail::run_task_callable<stored_type>;
-    destroy_ = &detail::destroy_task_callable<stored_type>;
+    ops_ = detail::task_ops{
+        &detail::run_task_callable<stored_type>,
+        &detail::destroy_task_callable<stored_type>,
+    };
   }
 
   /** @brief 交换两个任务。 */
@@ -133,22 +141,19 @@ public:
     using std::swap;
     swap(object_, other.object_);
     swap(resource_, other.resource_);
-    swap(run_, other.run_);
-    swap(destroy_, other.destroy_);
+    swap(ops_, other.ops_);
   }
 
 private:
   void move_from(task& other) noexcept {
     object_ = std::exchange(other.object_, nullptr);
     resource_ = std::exchange(other.resource_, nullptr);
-    run_ = std::exchange(other.run_, nullptr);
-    destroy_ = std::exchange(other.destroy_, nullptr);
+    ops_ = std::exchange(other.ops_, {});
   }
 
   void* object_ = nullptr;
   memory_resource* resource_ = nullptr;
-  detail::task_run_fn run_ = nullptr;
-  detail::task_destroy_fn destroy_ = nullptr;
+  detail::task_ops ops_{};
 };
 
 inline void swap(task& lhs, task& rhs) noexcept { lhs.swap(rhs); }

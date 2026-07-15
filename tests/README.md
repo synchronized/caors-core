@@ -66,6 +66,9 @@ include 路径。
 - 新主题直接新增 `tests/<topic>/`，简单主题可以把它作为叶子目录。
 - 大主题优先拆成 `tests/<topic>/<leaf>/`，避免单个测试目标过大导致链接变慢。
 - 测试文件使用 Catch2，优先覆盖公共 API 的行为、错误路径和边界条件。
+- 普通行为测试应优先使用公开 facade，例如 `runtime`、`meta::type::get_capability<T>()`
+  和 `any_ref::get_capability<View>()`。直接使用 `get_raw_ops()`、`get_registry()` 组件 API
+  或 detail 辅助类型的测试应集中在对应的 meta/registry/descriptor 高级主题中。
 - 新增功能时优先补充对应叶子主题测试，避免把无关测试塞进已有文件。
 
 ## 头文件测试
