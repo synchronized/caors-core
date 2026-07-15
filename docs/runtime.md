@@ -13,8 +13,8 @@
 - `runtime::instance` 组合 `meta::any_ref`、`runtime::type`、`reflection::field` 和 `reflection::method`，
   提供面向实例的字段读写和方法调用入口。
 - `runtime::object` 是对象系统适配视图，用于处理 `objects::ptr<T>` 这类对象指针字段。
-- `runtime::type::create()` 是运行期值创建的高层入口，优先使用 `meta::factory_capability`，最后才回退到
-  descriptor 默认构造。
+- `runtime::type::create()` 是运行期值创建的高层入口，优先使用 `meta::factory_capability`，再使用
+  `meta::constructor_capability` 匹配运行期参数列表，最后才回退到 descriptor 默认构造。
 - `runtime::type::create_value()` 是高级默认构造入口，只使用 `meta::any` 的 descriptor 默认构造能力，
   不查询 factory。
 
@@ -51,8 +51,10 @@ caors::any value = type.create();
 当前创建优先级是：
 
 1. 如果类型注册了 `meta` factory，使用 factory 构造对象，并让返回的 `any` 记住匹配的销毁函数。
-2. 如果没有 factory，回退到 descriptor 默认构造，也就是 `any::default_construct()`。
-3. 两者都不可用时返回无效 `any`。
+2. 如果传入运行期参数列表，使用已注册 constructor capability 精确匹配参数数量和参数类型。
+3. 如果没有参数且没有可用 factory / constructor，回退到 descriptor 默认构造，也就是
+   `any::default_construct()`。
+4. 没有匹配构造策略时返回无效 `any`。
 
 需要指定分配器时，把 `memory_resource` 传给 `create()`：
 
@@ -60,6 +62,30 @@ caors::any value = type.create();
 caors::tracking_resource tracking{&caors::get_system_memory_resource()};
 caors::any value = type.create(&tracking);
 ```
+
+需要按运行期参数构造时，先注册 constructor，再把参数包装成 `any_ref` 列表传给 `create()`：
+
+```cpp
+struct actor {
+  explicit actor(int health) : health(health) {}
+  int health = 0;
+};
+
+caors::runtime::class_<actor>("game.actor")
+    .constructor<int>()
+    .commit();
+
+int health = 100;
+std::array<caors::any_ref, 1> args{caors::any_ref::from(health)};
+
+caors::runtime::type type = caors::runtime::find<actor>();
+caors::any value =
+    type.create(std::span<const caors::any_ref>{args.data(), args.size()});
+```
+
+constructor 参数采用保守匹配策略：参数数量必须一致，参数类型必须和注册的 `Args...`
+去 cv/ref 后精确匹配；非 const 左值引用参数要求传入可写 `any_ref`。当前版本只支持一个 constructor
+能力；右值引用参数和 move-only by-value 参数暂不支持。构造函数重载选择、默认参数和隐式类型转换后续再扩展。
 
 ### 高级用法：值构造与所有权接管
 
@@ -74,7 +100,7 @@ caors::any value = type.create(&tracking);
   销毁函数和 `memory_resource` 完全匹配。
 - 普通业务、编辑器创建、多态反序列化和资源配置加载应优先通过 `runtime::type::create()` 统一调度。
 
-注册自定义构造策略时，使用 `runtime::class_<T>().factory()`：
+注册自定义无参构造策略时，使用 `runtime::class_<T>().factory()`：
 
 ```cpp
 void* construct_actor(caors::memory_resource* resource);
@@ -86,8 +112,9 @@ caors::runtime::class_<actor>("game.actor")
     .commit();
 ```
 
-独立的“反射构造函数/带参 constructor 注册”尚未实现。后续如果引入 constructor 组件，`create()`
-会继续作为统一入口，在 factory capability 和 descriptor 默认构造之间加入对应策略。
+`factory()` 适合自定义无参创建、对象池、外部分配策略或多态反序列化；`constructor<Args...>()`
+适合编辑器、脚本桥接和工具层按运行期参数创建值。两者同时存在时，无参 `create()` 优先使用
+factory；带参数 `create(arguments)` 只匹配 constructor。
 
 已注册反射字段和方法后，可以通过 `runtime::instance` 访问具体实例：
 

@@ -70,8 +70,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `custom_static_capability_module` 造成特化覆盖。
 - [x] 增加类型级 capability facade 查询：用户自定义能力默认返回只读 concept table 指针，内置能力可通过
   `type_capability_traits` 返回 `sequence_capability`、`ptr_capability`、`codec_capability` 等轻量对象。
-- [x] 增加第一版 proxy capability helper，支持把 `ops` 字段声明式映射到 C++ 成员函数，并允许
-  `meta::class_<T>().capability<Capability>(bindings...)` 直接注册简单成员函数能力。
+- [x] 增加第一版 proxy capability helper，支持把 `ops` 字段声明式映射到 C++ 成员函数，并通过
+  `CAORS_META_DEF_MEM_DISPATCH + capability_builder::add_convention<Dispatch, Signature>` 等入口直接注册简单成员函数能力。
 - [x] 增加第一版 Proxy 宏 DSL，支持生成实例级 `ops/view/capability` 和纯类型级 `ops/capability`
   样板；实例级宏可通过同名成员自动 model 接入 `meta::class_<T>().capability<Capability>()`。
 - [x] 优化 Proxy 宏 DSL 的参数声明格式，使用 `(param_type, param_name)` pair 自动生成声明和调用实参，
@@ -90,8 +90,9 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 增加 `runtime` facade，组合 `meta::type`、反射字段/方法和值构造能力，提供更直接的用户入口。
 - [x] 将 `runtime` 确认为推荐主入口，具体模块保留高级入口；`meta::type_<T>()` 改为
   `meta::class_<T>()`，并增加 `meta::enum_<T>()` / `runtime::enum_<T>()`。
-- [x] 将 `runtime::type::create()` 统一为高层创建入口，优先使用 `meta::factory_capability`，再回退到 descriptor
-  默认构造；`create_value()` 保留为高级默认构造入口。
+- [x] 将 `runtime::type::create()` 统一为高层创建入口，优先使用 `meta::factory_capability`，再使用
+  `meta::constructor_capability` 匹配运行期参数列表，最后回退到 descriptor 默认构造；`create_value()`
+  保留为高级默认构造入口。
 - [ ] 评估组件替换和批量注册 API。
 
 ## 2. 定制化分配器
@@ -147,7 +148,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 支持 `std::tuple<Ts...>` 的 tuple-like 字段描述、元素类型查询和基础修改入口。
 - [x] 定义成员方法元信息模型；字段继续承担数据属性反射。
 - [x] 提供成员方法调用入口。
-- [ ] 设计独立 constructor / 带参构造函数注册组件，并接入 `runtime::type::create()` 的统一创建策略。
+- [x] 设计独立 constructor / 带参构造函数注册组件，并接入 `runtime::type::create()` 的统一创建策略。
 - [ ] 扩展属性别名、访问控制、重载选择和类型转换测试。
 
 ## 5. 序列化

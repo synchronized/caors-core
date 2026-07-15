@@ -45,6 +45,18 @@ struct runtime_resource_factory_create_type {
   int value = 0;
 };
 
+struct runtime_constructor_create_type {
+  explicit runtime_constructor_create_type(int input) : value(input) {}
+
+  int value = 0;
+};
+
+struct runtime_factory_constructor_priority_type {
+  runtime_factory_constructor_priority_type() = default;
+
+  int value = 3;
+};
+
 struct runtime_missing_create_type {
   explicit runtime_missing_create_type(int input) : value(input) {}
 
@@ -123,6 +135,19 @@ void destroy_runtime_resource_factory_create_type(caors::memory_resource* resour
   }
 
   delete typed;
+}
+
+void* construct_runtime_factory_constructor_priority_type(caors::memory_resource* resource) {
+  auto* value = caors::memory::make<runtime_factory_constructor_priority_type>(resource);
+  if (value != nullptr) {
+    value->value = 44;
+  }
+  return value;
+}
+
+void destroy_runtime_factory_constructor_priority_type(caors::memory_resource* resource,
+                                                       void* value) noexcept {
+  caors::memory::destroy(static_cast<runtime_factory_constructor_priority_type*>(value), resource);
 }
 
 } // namespace
@@ -254,6 +279,56 @@ TEST_CASE("runtime facade - create keeps factory resource ownership", "[runtime]
   value.reset();
   CHECK(tracking.statistics().deallocation_count == 1);
   CHECK(tracking.statistics().bytes_in_use == 0);
+}
+
+TEST_CASE("runtime facade - create uses registered constructor arguments", "[runtime]") {
+  const caors::error status = caors::runtime::class_<runtime_constructor_create_type>(
+                                  "caors.test.runtime.constructor_create")
+                                  .constructor<int>()
+                                  .commit();
+  CHECK_FALSE(status);
+
+  caors::runtime::type type = caors::runtime::find<runtime_constructor_create_type>();
+  REQUIRE(type.valid());
+  CHECK_FALSE(type.constructible());
+  CHECK(type.constructible(1));
+  CHECK_FALSE(type.value_constructible());
+  CHECK_FALSE(type.create());
+
+  int input = 37;
+  std::array<caors::any_ref, 1> arguments{caors::any_ref::from(input)};
+  caors::any value =
+      type.create(std::span<const caors::any_ref>{arguments.data(), arguments.size()});
+  REQUIRE(value.valid());
+  auto* created = value.try_get_mutable<runtime_constructor_create_type>();
+  REQUIRE(created != nullptr);
+  CHECK(created->value == 37);
+
+  float wrong = 3.0F;
+  std::array<caors::any_ref, 1> wrong_arguments{caors::any_ref::from(wrong)};
+  CHECK_FALSE(
+      type.create(std::span<const caors::any_ref>{wrong_arguments.data(), wrong_arguments.size()}));
+}
+
+TEST_CASE("runtime facade - create keeps factory before zero argument constructor", "[runtime]") {
+  const caors::error status = caors::runtime::class_<runtime_factory_constructor_priority_type>(
+                                  "caors.test.runtime.factory_constructor_priority")
+                                  .factory(&construct_runtime_factory_constructor_priority_type,
+                                           &destroy_runtime_factory_constructor_priority_type)
+                                  .constructor<>()
+                                  .commit();
+  CHECK_FALSE(status);
+
+  caors::runtime::type type = caors::runtime::find<runtime_factory_constructor_priority_type>();
+  REQUIRE(type.valid());
+  CHECK(type.constructible());
+  CHECK(type.constructible(0));
+
+  caors::any value = type.create();
+  REQUIRE(value.valid());
+  auto* created = value.try_get_mutable<runtime_factory_constructor_priority_type>();
+  REQUIRE(created != nullptr);
+  CHECK(created->value == 44);
 }
 
 TEST_CASE("runtime facade - enum builder registers meta enum", "[runtime]") {

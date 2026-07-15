@@ -52,33 +52,59 @@ bool type::value_constructible() const noexcept {
          storage->ops.destroy != nullptr;
 }
 
-bool type::constructible() const noexcept {
+bool type::constructible() const noexcept { return constructible(0); }
+
+bool type::constructible(std::size_t argument_count) const noexcept {
   if (!valid()) {
     return false;
   }
 
-  const meta::factory_capability factory = meta_.get_capability<meta::factory_capability>();
-  if (factory) {
+  if (argument_count == 0) {
+    const meta::factory_capability factory = meta_.get_capability<meta::factory_capability>();
+    if (factory) {
+      return true;
+    }
+  }
+
+  const meta::constructor_capability constructor =
+      meta_.get_capability<meta::constructor_capability>();
+  if (constructor.matches(argument_count)) {
     return true;
   }
 
-  return value_constructible();
+  return argument_count == 0 && value_constructible();
 }
 
 any type::create(memory::memory_resource* resource) const {
+  return create(std::span<const meta::any_ref>{}, resource);
+}
+
+any type::create(std::span<const meta::any_ref> arguments,
+                 memory::memory_resource* resource) const {
   if (!valid()) {
     return {};
   }
 
-  const meta::factory_capability factory = meta_.get_capability<meta::factory_capability>();
-  if (factory) {
-    void* value = factory.construct(resource);
-    if (value != nullptr) {
-      return any::take_ownership(meta_, value, resource, factory.destroy_fn());
+  if (arguments.empty()) {
+    const meta::factory_capability factory = meta_.get_capability<meta::factory_capability>();
+    if (factory) {
+      void* value = factory.construct(resource);
+      if (value != nullptr) {
+        return any::take_ownership(meta_, value, resource, factory.destroy_fn());
+      }
     }
   }
 
-  return create_value(resource);
+  const meta::constructor_capability constructor =
+      meta_.get_capability<meta::constructor_capability>();
+  if (constructor.matches(arguments.size())) {
+    void* value = constructor.construct(resource, arguments);
+    if (value != nullptr) {
+      return any::take_ownership(meta_, value, resource, constructor.destroy_fn());
+    }
+  }
+
+  return arguments.empty() ? create_value(resource) : any{};
 }
 
 any type::create_value(memory::memory_resource* resource) const {

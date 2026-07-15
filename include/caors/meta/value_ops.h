@@ -8,12 +8,14 @@
 #include "caors/traits/container.h"
 
 #include <cstddef>
+#include <span>
 #include <type_traits>
 #include <utility>
 
 namespace caors::meta {
 
 class type;
+class any_ref;
 
 /** @brief C++ 类型布局信息。 */
 struct type_layout {
@@ -63,6 +65,20 @@ struct factory_ops {
 
   construct_fn construct = nullptr;
   destroy_fn destroy = nullptr;
+
+  [[nodiscard]] constexpr bool valid() const noexcept {
+    return construct != nullptr && destroy != nullptr;
+  }
+};
+
+/** @brief 带参数运行期构造能力，负责按 `any_ref` 参数列表构造并销毁对象。 */
+struct constructor_ops {
+  using construct_fn = void* (*)(memory::memory_resource*, std::span<const any_ref>);
+  using destroy_fn = value_ops::resource_destroy_fn;
+
+  construct_fn construct = nullptr;
+  destroy_fn destroy = nullptr;
+  std::size_t argument_count = 0;
 
   [[nodiscard]] constexpr bool valid() const noexcept {
     return construct != nullptr && destroy != nullptr;

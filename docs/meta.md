@@ -202,6 +202,24 @@ caors::meta::class_<player>("game.player")
 `meta::type::get_capability<meta::factory_capability>()` 查询这里注册的 factory，再回退到 descriptor
 默认构造。`any::default_construct()` 只表达 descriptor 默认构造能力，不查询 factory。
 
+如果类型需要按运行期参数列表构造，可以注册 constructor capability：
+
+```cpp
+struct actor {
+  explicit actor(int health) : health(health) {}
+  int health = 0;
+};
+
+caors::meta::class_<actor>("game.actor")
+    .constructor<int>();
+```
+
+`constructor<Args...>()` 使用 `std::span<const meta::any_ref>` 参数列表做精确匹配：参数数量必须一致，
+参数类型必须和 `Args...` 去 cv/ref 后一致；非 const 左值引用参数要求传入可写 `any_ref`。
+`runtime::type::create(arguments)` 会在 factory 之后查询 constructor，构造成功后同样由 `any`
+保存匹配的销毁函数。当前版本只支持一个 constructor 能力，右值引用参数和 move-only by-value 参数暂不支持；
+构造函数重载、默认参数和隐式类型转换后续再扩展。
+
 `caors::meta::resolve<T>()` 是 C++ 类型到 descriptor 视图的入口；类型未显式注册时仍可能返回有效
 `meta::type`，但 `registered()` 为 false。`caors::meta::find<T>()` 是 C++ 类型到已注册类型的入口，
 未注册时返回空视图。`caors::meta::find(id/name/guid)` 是运行期查询入口：按 `name` / `guid`
@@ -822,6 +840,9 @@ descriptor，不再为了创建 view 把每一种容器组合额外挂载为 met
   `meta::type_kind::enumeration`。
 - `meta::class_<T>().parent<Base>()`：保存 C++ 父类型关系和安全 upcast 回调。
 - `meta::class_<T>().factory()` / `.factory(construct, destroy)`：注册运行期 factory，保存运行期值构造和销毁策略；查询时使用 `meta::type::get_capability<meta::factory_capability>()`。
+- `meta::class_<T>().constructor<Args...>()`：注册运行期参数构造策略；查询时使用
+  `meta::type::get_capability<meta::constructor_capability>()`，普通调用优先走
+  `runtime::type::create(arguments)`。
 - `meta::registry`：全局 meta 类型注册、按 id/name/guid 或 C++ 类型查询、继承关系判断和组件式元数据挂载。
 - `meta::registry::component_view<T...>`：按组件集合查询类型。
 - `meta::run_registrations()`：执行已收集的延迟元数据注册函数。

@@ -11,6 +11,7 @@
 #include "caors/meta/value_ops.h"
 #include "caors/traits/wrapper.h"
 
+#include <span>
 #include <type_traits>
 
 namespace caors::meta {
@@ -219,6 +220,43 @@ public:
 
   /** @brief 返回销毁函数，供高级所有权接管路径保存销毁策略。 */
   [[nodiscard]] factory_ops::destroy_fn destroy_fn() const noexcept {
+    return valid() ? ops_->destroy : nullptr;
+  }
+};
+
+/** @brief 类型运行期带参构造能力的公开 facade。 */
+class constructor_capability final : public type_capability_base<constructor_ops> {
+public:
+  using base_type = type_capability_base<constructor_ops>;
+
+  constructor_capability() noexcept = default;
+  explicit constructor_capability(meta::type type) noexcept : base_type(type) {}
+
+  /** @brief 返回当前构造函数接受的参数数量。 */
+  [[nodiscard]] std::size_t argument_count() const noexcept {
+    return valid() ? ops_->argument_count : 0;
+  }
+
+  /** @brief 判断给定参数数量是否匹配当前构造函数。 */
+  [[nodiscard]] bool matches(std::size_t count) const noexcept {
+    return valid() && ops_->argument_count == count;
+  }
+
+  /** @brief 使用注册构造函数创建对象；能力无效、参数不匹配或构造失败时返回空指针。 */
+  [[nodiscard]] void* construct(memory::memory_resource* resource,
+                                std::span<const any_ref> arguments) const {
+    return matches(arguments.size()) ? ops_->construct(resource, arguments) : nullptr;
+  }
+
+  /** @brief 使用注册构造函数对应的销毁策略销毁对象；空对象或能力无效时不做操作。 */
+  void destroy(memory::memory_resource* resource, void* value) const noexcept {
+    if (valid() && value != nullptr) {
+      ops_->destroy(resource, value);
+    }
+  }
+
+  /** @brief 返回销毁函数，供高级所有权接管路径保存销毁策略。 */
+  [[nodiscard]] constructor_ops::destroy_fn destroy_fn() const noexcept {
     return valid() ? ops_->destroy : nullptr;
   }
 };

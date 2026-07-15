@@ -5,6 +5,7 @@
 #define CAORS_RUNTIME_BUILDER_H_
 
 #include "caors/error.h"
+#include "caors/meta/constructor.h"
 #include "caors/meta/query.h"
 #include "caors/reflection/builder.h"
 #include "caors/runtime/query.h"
@@ -57,6 +58,13 @@ public:
   class_builder& factory(meta::factory_ops::construct_fn construct,
                          meta::factory_ops::destroy_fn destroy) {
     meta_builder_.factory(construct, destroy);
+    update_meta_status();
+    return *this;
+  }
+
+  /** @brief 注册一组运行期构造参数，供 `runtime::type::create(arguments)` 使用。 */
+  template <typename... Arguments> class_builder& constructor() {
+    meta_builder_.template constructor<Arguments...>();
     update_meta_status();
     return *this;
   }

@@ -8,9 +8,11 @@
 #include "caors/memory/resource.h"
 #include "caors/meta/type.h"
 #include "caors/meta/value/any.h"
+#include "caors/meta/value/any_ref.h"
 #include "caors/reflection/type.h"
 
 #include <cstddef>
+#include <span>
 #include <string_view>
 
 namespace caors::runtime {
@@ -50,12 +52,23 @@ public:
   /** @brief 查询该类型是否能通过 runtime 高层创建入口构造运行期值。 */
   [[nodiscard]] bool constructible() const noexcept;
 
+  /** @brief 查询该类型是否能使用指定参数数量通过 runtime 高层创建入口构造运行期值。 */
+  [[nodiscard]] bool constructible(std::size_t argument_count) const noexcept;
+
   /**
    * @brief 创建运行期值。
    *
    * 优先使用已注册的 `meta::factory_capability`；没有 factory 时回退到 descriptor 默认构造。
    */
   [[nodiscard]] any create(memory::memory_resource* resource = nullptr) const;
+
+  /**
+   * @brief 使用运行期参数列表创建运行期值。
+   *
+   * 空参数列表保持无参 `create()` 语义；非空参数列表只查询已注册的 constructor capability。
+   */
+  [[nodiscard]] any create(std::span<const meta::any_ref> arguments,
+                           memory::memory_resource* resource = nullptr) const;
 
   /** @brief 查询 descriptor 默认构造能力。 */
   [[nodiscard]] bool value_constructible() const noexcept;
