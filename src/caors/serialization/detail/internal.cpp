@@ -228,22 +228,24 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
   return make_polymorphic_envelope(dynamic_type, std::move(value.value), context);
 }
 
-[[nodiscard]] error read_polymorphic_indirect_value(const variant& envelope,
+[[nodiscard]] error read_polymorphic_indirect_value(reader& reader,
                                                     const meta::indirect_view& indirect,
                                                     const serialization::context& context) {
-  if (!indirect.valid() || !indirect.writable() || !indirect.can_set_value()) {
+  if (!indirect.valid() || !indirect.writable() ||
+      (!indirect.can_set_value() && !indirect.can_set_value_with_context())) {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  result<meta::type> dynamic_type =
-      resolve_polymorphic_meta_type(indirect.get_value_type().id(), envelope, context);
-  if (dynamic_type.failed()) {
-    return dynamic_type.status;
+  type_guid dynamic_guid{};
+  error status = reader.read_polymorphic_type_guid(context, dynamic_guid);
+  if (status) {
+    return status;
   }
 
-  const variant* stored_value = read_polymorphic_value(envelope, context);
-  if (stored_value == nullptr) {
-    return {error_domain::serialization, errc::not_found};
+  result<meta::type> dynamic_type =
+      resolve_polymorphic_meta_type(indirect.get_value_type().id(), dynamic_guid);
+  if (dynamic_type.failed()) {
+    return dynamic_type.status;
   }
 
   if (!dynamic_type.value) {
@@ -256,15 +258,41 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
     return {error_domain::serialization, errc::unsupported};
   }
 
-  variant_reader value_reader{*stored_value};
   const reflection::type reflected_dynamic_type = reflection::find(dynamic_type.value.id());
   if (!reflected_dynamic_type) {
     return {error_domain::serialization, errc::not_found};
   }
 
-  error status = deserialize(context, reflected_dynamic_type, instance.value, value_reader);
-  if (status) {
-    return status;
+  status = reader.begin_polymorphic_value(context);
+  if (status.value() == errc::unsupported) {
+    const variant* current = reader.current_variant();
+    if (current == nullptr || !is_polymorphic_envelope(*current, context)) {
+      return status;
+    }
+
+    const variant* stored_value = read_polymorphic_value(*current, context);
+    if (stored_value == nullptr) {
+      return {error_domain::serialization, errc::not_found};
+    }
+
+    variant_reader value_reader{*stored_value};
+    status = deserialize(context, reflected_dynamic_type, instance.value, value_reader);
+    if (status) {
+      return status;
+    }
+  } else {
+    if (status) {
+      return status;
+    }
+
+    status = deserialize(context, reflected_dynamic_type, instance.value, reader);
+    const error end_status = reader.end_polymorphic_value();
+    if (status) {
+      return status;
+    }
+    if (end_status) {
+      return end_status;
+    }
   }
 
   if (instance.uses_resource_destroy()) {
@@ -310,14 +338,16 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
                                                     const meta::indirect_view& indirect,
                                                     const serialization::context& context) {
   const meta::type value_type = indirect.get_value_type();
-  if (!value_type || (!indirect.can_set_value() && !indirect.can_set_value_with_context())) {
+  if (!value_type || (!indirect.can_emplace_value() && !indirect.can_set_value() &&
+                      !indirect.can_set_value_with_context())) {
     return {error_domain::serialization, errc::invalid_type};
   }
 
   serialization::context construction_context = context;
+  const bool can_emplace_constructed_value = indirect.can_emplace_value();
   const bool can_transfer_destroy_context =
       context.effective_memory_resource() != nullptr && indirect.can_set_value_with_context();
-  if (!can_transfer_destroy_context) {
+  if (!can_transfer_destroy_context && !can_emplace_constructed_value) {
     construction_context.resolvers.memory.resource = nullptr;
   }
 
@@ -366,6 +396,14 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
     }
 
     instance.release();
+    return {};
+  }
+
+  if (indirect.can_emplace_value()) {
+    if (!indirect.emplace_value(value_type.id(), instance.value)) {
+      return {error_domain::serialization, errc::invalid_field};
+    }
+
     return {};
   }
 
@@ -460,13 +498,13 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
     return nested_context.status;
   }
 
-  if (const variant* current = reader.current_variant();
-      current != nullptr && is_polymorphic_envelope(*current, context)) {
-    return read_polymorphic_indirect_value(*current, indirect, nested_context.value);
+  if (reader.is_polymorphic_envelope(context)) {
+    return read_polymorphic_indirect_value(reader, indirect, nested_context.value);
   }
 
   if (!indirect.has_value() && !indirect.ensure_value(context.effective_memory_resource())) {
-    if (indirect.can_set_value() || indirect.can_set_value_with_context()) {
+    if (indirect.can_emplace_value() || indirect.can_set_value() ||
+        indirect.can_set_value_with_context()) {
       return read_constructed_indirect_value(reader, indirect, nested_context.value);
     }
 

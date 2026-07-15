@@ -41,6 +41,12 @@ public:
   [[nodiscard]] virtual error read_string(string& value) = 0;
   [[nodiscard]] virtual bool is_null() const noexcept;
   [[nodiscard]] virtual const variant* current_variant() const noexcept;
+  [[nodiscard]] virtual bool
+  is_polymorphic_envelope(const serialization::context& context) const noexcept;
+  [[nodiscard]] virtual error read_polymorphic_type_guid(const serialization::context& context,
+                                                         type_guid& value);
+  [[nodiscard]] virtual error begin_polymorphic_value(const serialization::context& context);
+  [[nodiscard]] virtual error end_polymorphic_value();
   [[nodiscard]] virtual error end_element() = 0;
   [[nodiscard]] virtual error end_array() = 0;
   [[nodiscard]] virtual error end_field() = 0;

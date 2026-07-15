@@ -3,6 +3,8 @@
 
 #include "caors/serialization/dom_reader.h"
 
+#include "detail/polymorphic.h"
+
 namespace caors::serialization {
 namespace {
 
@@ -20,7 +22,10 @@ format_features variant_reader::features() const noexcept {
 }
 
 error variant_reader::begin_object(const type_schema&) {
-  const variant* object = object_stack_.empty() ? root_ : current_value();
+  const variant* object = current_value();
+  if (object == nullptr && object_stack_.empty()) {
+    object = root_;
+  }
   if (object == nullptr || object->kind() != meta::variant_kind::object) {
     return {error_domain::serialization, errc::invalid_argument};
   }
@@ -59,6 +64,10 @@ const variant* variant_reader::current_value() const noexcept {
     return dictionary_stack_.back().current;
   }
 
+  if (!polymorphic_values_.empty() && object_stack_.size() == polymorphic_object_depths_.back()) {
+    return polymorphic_values_.back();
+  }
+
   if (!current_members_.empty() && current_members_.back() != nullptr &&
       object_stack_.size() > array_stack_.size()) {
     return &current_members_.back()->value;
@@ -70,6 +79,10 @@ const variant* variant_reader::current_value() const noexcept {
 
   if (!current_members_.empty() && current_members_.back() != nullptr) {
     return &current_members_.back()->value;
+  }
+
+  if (!polymorphic_values_.empty()) {
+    return polymorphic_values_.back();
   }
 
   return nullptr;
@@ -291,6 +304,53 @@ bool variant_reader::is_null() const noexcept {
 }
 
 const variant* variant_reader::current_variant() const noexcept { return current_value(); }
+
+bool variant_reader::is_polymorphic_envelope(const serialization::context& context) const noexcept {
+  const variant* current = current_value();
+  return current != nullptr && detail::is_polymorphic_envelope(*current, context);
+}
+
+error variant_reader::read_polymorphic_type_guid(const serialization::context& context,
+                                                 type_guid& value) {
+  const variant* current = current_value();
+  if (current == nullptr) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  result<type_guid> parsed = detail::read_polymorphic_type_guid(*current, context);
+  if (parsed.failed()) {
+    return parsed.status;
+  }
+
+  value = parsed.value;
+  return {};
+}
+
+error variant_reader::begin_polymorphic_value(const serialization::context& context) {
+  const variant* current = current_value();
+  if (current == nullptr || !detail::is_polymorphic_envelope(*current, context)) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  const variant* value = detail::read_polymorphic_value(*current, context);
+  if (value == nullptr) {
+    return {error_domain::serialization, errc::not_found};
+  }
+
+  polymorphic_values_.push_back(value);
+  polymorphic_object_depths_.push_back(object_stack_.size());
+  return {};
+}
+
+error variant_reader::end_polymorphic_value() {
+  if (polymorphic_values_.empty() || polymorphic_object_depths_.empty()) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  polymorphic_values_.pop_back();
+  polymorphic_object_depths_.pop_back();
+  return {};
+}
 
 error variant_reader::end_element() {
   if (current_elements_.empty() || current_elements_.back() == nullptr) {

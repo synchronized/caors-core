@@ -192,6 +192,25 @@ bool indirect_view::can_set_value_with_context() const noexcept {
   return valid() && info->set_value_with_context != nullptr;
 }
 
+bool indirect_view::can_emplace_value() const noexcept {
+  const meta::indirect_ops* info = data();
+  return valid() && info->emplace_value != nullptr;
+}
+
+bool indirect_view::emplace_value(type_id dynamic_type, void* value) const {
+  const meta::indirect_ops* info = data();
+  if (!writable() || info->emplace_value == nullptr || value == nullptr || !dynamic_type) {
+    return false;
+  }
+
+  void* adjusted = caors::meta::get_registry().upcast(dynamic_type, get_value_type().id(), value);
+  if (adjusted == nullptr) {
+    return false;
+  }
+
+  return info->emplace_value(const_cast<void*>(storage_), adjusted);
+}
+
 bool indirect_view::set_value(type_id dynamic_type, void* value) const {
   const meta::indirect_ops* info = data();
   if (!writable() || info->set_value == nullptr || value == nullptr || !dynamic_type) {

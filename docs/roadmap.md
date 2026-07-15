@@ -205,12 +205,12 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 设计字段级构造策略，覆盖容器新增元素、拥有型智能指针 wrapper、`variant` 候选切换和不可默认构造类型；
   优先使用 `serialization::context::resolvers.construction`、`memory_resource`、meta factory / constructor
   capability 和 descriptor 默认构造，失败时返回明确诊断。
-- [ ] 扩展空 `optional<T>` 读入非空值时的安全构造和写入策略，避免把拥有型 wrapper 的接管语义误用于
+- [x] 扩展空 `optional<T>` 读入非空值时的安全构造和写入策略，避免把拥有型 wrapper 的接管语义误用于
   `optional` 的按值存储语义。
 - [ ] 放宽多层指针 / 多层 wrapper 限制，采用逐层 indirect descriptor 展开；默认设置合理最大深度，
   并对空中间层、不可写引用和所有权不明确的组合返回清晰诊断。
-- [ ] 扩展普通类多态 envelope 的 reader 抽象，使自定义流式 reader 也能提供 type/value envelope
-  读入能力；当前 DOM/JSON reader 可通过中间 `variant` 路径处理，其他 reader 后续按同一语义补齐。
+- [x] 扩展普通类多态 envelope 的 reader 抽象，使自定义流式 reader 也能提供 type/value envelope
+  读入能力；DOM/JSON reader 通过内置 hook 接入，自定义 reader 可不暴露 `current_variant()`。
 - [ ] 设计 schema 策略，覆盖版本迁移、默认值恢复、未知字段保留、严格模式和字段重命名 / 删除策略。
 - [ ] 设计弱引用序列化策略，默认继续不展开 `std::weak_ptr<T>` / `objects::weak_ref<T>`，
   提供基于 `objects::handle`、`resource_guid` 或自定义 resolver 的显式弱引用策略。

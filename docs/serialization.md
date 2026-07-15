@@ -221,7 +221,9 @@ runtime、对象或智能指针 codec 路径，由对应模块在内部使用 `c
 - 写出时通过 RTTI 查询真实动态类型，动态类型必须已经注册到 `meta::registry`。
 - 派生类必须通过 typed parent 注册，例如 `.parent<Base>()`，这样注册表同时保存继承关系和安全 upcast 回调。
 - 动态类型必须拥有稳定 `type_guid`，并完成 reflection 和 serialization 注册。
-- 读入时只支持 DOM/JSON 路径；自定义流式 reader 如果不暴露 `current_variant()`，暂时不能读入普通类多态 envelope。
+- 读入时优先走 `reader` 的多态 envelope 接口；DOM/JSON 路径由 `variant_reader` 内置支持。自定义 reader
+  如果不暴露 `current_variant()`，也可以通过重写 `is_polymorphic_envelope()`、`read_polymorphic_type_guid()`、
+  `begin_polymorphic_value()` 和 `end_polymorphic_value()` 接入同一语义。
 
 示例：
 
@@ -442,6 +444,14 @@ caors::error status = caors::serialization::serialize_json_to(context, instance,
 
 - `serialization::variant_reader`：从 `variant` 对象树读取字段，声明
   `named_fields | numeric_fields | self_describing`。
+
+reader 还可以选择支持多态 envelope 读入。默认实现会尝试通过 `current_variant()` 识别 DOM envelope；
+如果 reader 只暴露 `current_variant()`，序列化层仍可回退到临时 `variant_reader` 读取 `$value`。
+真正的流式 reader 可以不暴露 DOM，只重写以下接口：
+
+- `is_polymorphic_envelope(context)`：判断当前位置是否是 `$type/$value` 结构。
+- `read_polymorphic_type_guid(context, guid)`：读取动态类型 GUID。
+- `begin_polymorphic_value(context)` / `end_polymorphic_value()`：进入和离开 `$value` 子值。
 
 可以直接从 DOM 中间对象反序列化到已注册反射和序列化元信息的对象：
 
@@ -784,10 +794,10 @@ template <> struct codec_traits<custom_value> {
   和 `objects::ref<T>`；写入 `std::reference_wrapper<T>` 时返回 `errc::invalid_field`。
 - 读入非空值时，裸指针要求目标指针已经指向有效对象，不会自动分配内存。
 - 读入非空值时，`std::unique_ptr<T>`、`std::shared_ptr<T>` 和 `objects::ref<T>` 会在内部为空时尝试使用上下文构造策略、factory、
-  constructor 或默认构造创建 `T`；`std::optional<T>` 目前仍只走 optional traits 的默认构造或 allocator-aware
-  构造；`std::reference_wrapper<T>` 会写入已经绑定的对象。
+  constructor 或默认构造创建 `T` 并让 wrapper 接管新对象；`std::optional<T>` 会按同一构造策略创建临时
+  `T`，再按值 move/copy 到 optional 内部，临时对象仍由序列化层销毁；`std::reference_wrapper<T>` 会写入已经绑定的对象。
 - 如果 `T` 不支持默认构造，已经存在的 `T` 对象仍可被字段反序列化写入；空智能指针和需要新增元素的容器只有在上下文构造策略或已注册
-  factory / constructor 能创建 `T` 时才会读回成功；空 `optional<T>` 读入不可默认构造 `T` 仍是后续扩展项。
+  factory / constructor 能创建 `T` 时才会读回成功；空 `optional<T>` 读入不可默认构造 `T` 也遵循同一规则。
 - 裸指针、`std::reference_wrapper<T>` 和普通 inline wrapper 都按借用值递归处理。字段形成父指针、
   双向链表、自环或共享对象图时，调用方应跳过反向字段或改用显式引用；`context.config.limits.max_depth`
   只负责在递归过深时返回 `errc::recursion_limit`。
@@ -802,8 +812,8 @@ template <> struct codec_traits<custom_value> {
   `caors::memory::unique_ptr<T>` 和 `objects::ref<T>` 可以保存运行期销毁回调，让资源分配和释放匹配。普通
   `std::unique_ptr<T>` 使用标准 deleter，不能安全接管资源构造出的运行期派生对象，因此会回退到
   默认 `new/delete` 或非资源 factory 路径。
-- `std::optional<T>` 在读入非空值且内部为空时会优先尝试 allocator-aware 构造内部 `T`；如果 `T`
-  不支持 allocator-aware 构造，则回退到普通默认构造。
+- `std::optional<T>` 在读入非空值且内部为空时不会接管外部分配出的指针，只会从临时 `T`
+  按值写入自身；如果 move/copy 到 optional 失败，原临时对象会被匹配销毁函数清理。
 - `objects::ref<T>` 读入非空普通值且内部为空时会通过
   `objects::make_ref<T>(context.resolvers.memory.resource)` 创建对象；引用计数本身不写入存档。
   读入多态 envelope 时会按 `$type` 构造真实派生对象，并让 `objects::ref<Base>` 接管对应控制块和销毁回调。
@@ -824,7 +834,7 @@ template <> struct codec_traits<custom_value> {
 | `guid`、`type_guid`、`resource_guid` | 作为普通值类型 | 支持，按字符串写出 | 支持，从字符串解析 |
 | `resource_ref<T>` | 保存稳定资源 GUID 和可选已解析资源指针；资源序列化适配只处理 GUID | 空值写 `null`，非空写 `resource_guid` 字符串，不展开资源对象；可收集依赖 | `null` 会清空引用；非空字符串默认只恢复未解析 GUID，也可通过 `context.resolvers.external_refs.resolver` 按策略解析 |
 | 裸指针 `T*` | 通过 `indirect_view` 访问已指向的 `T` | 空值写 `null`，非空展开内部值 | `null` 可重置；非空要求目标已经指向有效对象 |
-| `std::unique_ptr<T>`、`caors::memory::unique_ptr<T>`、`std::shared_ptr<T>`、`std::optional<T>` | 通过 `indirect_view` 访问内部 `T` | 空值写 `null`，非空展开内部值；拥有型智能指针可写出普通类多态 envelope | `null` 可重置；拥有型智能指针非空读入可通过上下文构造策略、factory、空参数 constructor 或默认构造创建内部值；`std::optional<T>` 目前只支持默认构造或 allocator-aware 构造内部值；空 wrapper 读入非空值但 `T` 不可构造时返回错误；需要 `memory_resource` 托管 unique pointer 时使用 `caors::memory::unique_ptr<T>` |
+| `std::unique_ptr<T>`、`caors::memory::unique_ptr<T>`、`std::shared_ptr<T>`、`std::optional<T>` | 通过 `indirect_view` 访问内部 `T` | 空值写 `null`，非空展开内部值；拥有型智能指针可写出普通类多态 envelope | `null` 可重置；拥有型智能指针非空读入可通过上下文构造策略、factory、空参数 constructor 或默认构造创建内部值并接管所有权；`std::optional<T>` 非空读入会用同一构造策略创建临时值，再按值 move/copy 到 optional；空 wrapper 读入非空值但 `T` 不可构造时返回错误；需要 `memory_resource` 托管 unique pointer 时使用 `caors::memory::unique_ptr<T>` |
 | `objects::ref<T>` | 通过 `indirect_view` 访问引用计数对象内部 `T` | 空值写 `null`，非空展开内部值，不写引用计数；`ref<Base>` 持有派生对象时可写出多态 envelope | `null` 可重置；普通非空值可在 `T` 默认可构造时通过 `objects::make_ref<T>(context.resolvers.memory.resource)` 创建对象；多态 envelope 可构造真实派生对象并接管匹配销毁回调 |
 | `std::reference_wrapper<T>` | 通过 `indirect_view` 访问已绑定的 `T` | 按内部 `T` 写出 | 只能写入已绑定对象，不能置空或重绑定 |
 | `std::weak_ptr<T>`、`objects::weak_ref<T>` | 只标记为不支持 wrapper，不展开 | 不支持 | 不支持 |

@@ -47,6 +47,7 @@ struct indirect_ops {
   using has_value_fn = bool (*)(const void*) noexcept;
   using reset_fn = bool (*)(void*) noexcept;
   using ensure_value_fn = bool (*)(void*, memory::memory_resource*);
+  using emplace_value_fn = bool (*)(void*, void*);
   using set_value_fn = bool (*)(void*, void*) noexcept;
   using set_value_with_context_fn = bool (*)(void*, void*,
                                              const traits::wrapper_set_context&) noexcept;
@@ -59,14 +60,16 @@ struct indirect_ops {
   has_value_fn has_value = nullptr;
   reset_fn reset = nullptr;
   ensure_value_fn ensure_value = nullptr;
+  emplace_value_fn emplace_value = nullptr;
   set_value_fn set_value = nullptr;
   set_value_with_context_fn set_value_with_context = nullptr;
   get_value_type_fn get_value_type = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
     return value != nullptr || mutable_value != nullptr || has_value != nullptr ||
-           reset != nullptr || ensure_value != nullptr || dynamic_type != nullptr ||
-           dynamic_value != nullptr || mutable_dynamic_value != nullptr || set_value != nullptr ||
+           reset != nullptr || ensure_value != nullptr || emplace_value != nullptr ||
+           dynamic_type != nullptr || dynamic_value != nullptr ||
+           mutable_dynamic_value != nullptr || set_value != nullptr ||
            set_value_with_context != nullptr;
   }
 };

@@ -43,6 +43,12 @@ public:
   /** @brief 判断该 wrapper 是否能接管需要自定义销毁回调的内部值。 */
   [[nodiscard]] bool can_set_value_with_context() const noexcept;
 
+  /** @brief 判断该 wrapper 是否能从临时内部值按值构造自身。 */
+  [[nodiscard]] bool can_emplace_value() const noexcept;
+
+  /** @brief 从临时内部值按值写入 wrapper；调用方仍负责销毁传入对象。 */
+  bool emplace_value(type_id dynamic_type, void* value) const;
+
   /** @brief 让 wrapper 接管一个按真实类型构造出的内部值。 */
   bool set_value(type_id dynamic_type, void* value) const;
 

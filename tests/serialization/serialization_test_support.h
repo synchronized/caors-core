@@ -182,6 +182,10 @@ struct non_default_unique_ptr_actor {
   std::unique_ptr<non_default_value> value{};
 };
 
+struct non_default_optional_actor {
+  std::optional<non_default_value> value{};
+};
+
 struct non_default_variant_actor {
   std::variant<int, non_default_value> value{0};
 };
@@ -394,6 +398,10 @@ inline void require_non_default_value_metadata() {
                                    "caors.test.serialization.non_default_unique_ptr_actor")
                                    .field("value", &non_default_unique_ptr_actor::value)
                                    .commit()));
+  REQUIRE(reflection_result_ok(registered_reflection_class<non_default_optional_actor>(
+                                   "caors.test.serialization.non_default_optional_actor")
+                                   .field("value", &non_default_optional_actor::value)
+                                   .commit()));
   REQUIRE(reflection_result_ok(registered_reflection_class<non_default_variant_actor>(
                                    "caors.test.serialization.non_default_variant_actor")
                                    .field("value", &non_default_variant_actor::value)
@@ -405,6 +413,8 @@ inline void require_non_default_value_metadata() {
       serialization_result_ok(caors::serialization::class_<non_default_vector_actor>().commit()));
   REQUIRE(serialization_result_ok(
       caors::serialization::class_<non_default_unique_ptr_actor>().commit()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::class_<non_default_optional_actor>().commit()));
   REQUIRE(
       serialization_result_ok(caors::serialization::class_<non_default_variant_actor>().commit()));
 }

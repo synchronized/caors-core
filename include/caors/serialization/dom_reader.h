@@ -33,6 +33,12 @@ public:
   [[nodiscard]] error read_string(string& value) override;
   [[nodiscard]] bool is_null() const noexcept override;
   [[nodiscard]] const variant* current_variant() const noexcept override;
+  [[nodiscard]] bool
+  is_polymorphic_envelope(const serialization::context& context) const noexcept override;
+  [[nodiscard]] error read_polymorphic_type_guid(const serialization::context& context,
+                                                 type_guid& value) override;
+  [[nodiscard]] error begin_polymorphic_value(const serialization::context& context) override;
+  [[nodiscard]] error end_polymorphic_value() override;
   [[nodiscard]] error end_element() override;
   [[nodiscard]] error end_array() override;
   [[nodiscard]] error end_field() override;
@@ -55,6 +61,8 @@ private:
   vector<const variant*> array_stack_{};
   vector<const variant*> current_elements_{};
   vector<dictionary_context> dictionary_stack_{};
+  vector<const variant*> polymorphic_values_{};
+  vector<std::size_t> polymorphic_object_depths_{};
 };
 
 } // namespace caors::serialization

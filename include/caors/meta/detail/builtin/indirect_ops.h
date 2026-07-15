@@ -103,8 +103,9 @@ template <typename T> struct raw_pointer_ops_model {
   static bool ensure_value(void*, memory::memory_resource*) { return false; }
 
   inline static const indirect_ops value_ops{
-      &value, &mutable_value, &dynamic_type, &dynamic_value, &mutable_dynamic_value, &has_value,
-      &reset, &ensure_value,  nullptr,       nullptr,        &get_value_type,
+      &value,     &mutable_value,  &dynamic_type, &dynamic_value, &mutable_dynamic_value,
+      &has_value, &reset,          &ensure_value, nullptr,        nullptr,
+      nullptr,    &get_value_type,
   };
 };
 
@@ -220,6 +221,21 @@ template <typename Wrapper> struct wrapper_ops_model {
     }
   }
 
+  static bool emplace_value(void* storage, void* object) {
+    if (storage == nullptr || object == nullptr) {
+      return false;
+    }
+
+    if constexpr (requires(type& source, value_type* stored) {
+                    traits::wrapper_access<type>::emplace_value(source, stored);
+                  }) {
+      return traits::wrapper_access<type>::emplace_value(*static_cast<type*>(storage),
+                                                         static_cast<value_type*>(object));
+    } else {
+      return false;
+    }
+  }
+
   static bool set_value_with_context(void* storage, void* object,
                                      const traits::wrapper_set_context& context) noexcept {
     if (storage == nullptr || object == nullptr) {
@@ -249,6 +265,11 @@ template <typename Wrapper> struct wrapper_ops_model {
       result.has_value = &has_value;
       result.reset = &reset;
       result.ensure_value = &ensure_value;
+      if constexpr (requires(type& source, value_type* stored) {
+                      traits::wrapper_access<type>::emplace_value(source, stored);
+                    }) {
+        result.emplace_value = &emplace_value;
+      }
       result.set_value = &set_value;
       result.set_value_with_context = &set_value_with_context;
     }

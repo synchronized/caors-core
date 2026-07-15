@@ -38,6 +38,34 @@ TEST_CASE("serialization - constructs empty non default unique pointers with con
   CHECK(actor.value->value == 7);
 }
 
+TEST_CASE("serialization - rejects empty non default optional values without construction strategy",
+          "[serialization]") {
+  require_non_default_value_metadata();
+
+  non_default_optional_actor actor{};
+
+  const caors::error result = caors::deserialize(actor, R"({"value":{"value":7}})");
+
+  CHECK(result.failed());
+  CHECK(result.domain() == caors::error_domain::serialization);
+  CHECK(result.value() == caors::errc::invalid_type);
+  CHECK_FALSE(actor.value.has_value());
+}
+
+TEST_CASE("serialization - constructs empty non default optional values with context strategy",
+          "[serialization]") {
+  require_non_default_value_metadata();
+
+  non_default_optional_actor actor{};
+  caors::serialization::context context = non_default_construction_context();
+
+  const caors::error result = caors::deserialize(context, actor, R"({"value":{"value":7}})");
+
+  REQUIRE(result.succeeded());
+  REQUIRE(actor.value.has_value());
+  CHECK(actor.value->value == 7);
+}
+
 // 原测试文件：serialization_non_default_value_rejects_non_default_constructible_sequence_elements_test.cpp
 
 #include "serialization_test_support.h"

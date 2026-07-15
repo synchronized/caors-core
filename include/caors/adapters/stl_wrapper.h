@@ -15,6 +15,7 @@
 #include <optional>
 #include <tuple>
 #include <type_traits>
+#include <utility>
 
 namespace caors::traits {
 
@@ -416,6 +417,46 @@ template <typename T> struct wrapper_access<std::optional<T>> {
 #endif
     } else {
       return ensure_value(source);
+    }
+  }
+
+  static bool emplace_value(std::optional<T>& source, wrapped_type* value) {
+    if (value == nullptr) {
+      return false;
+    }
+
+    if constexpr (std::is_move_constructible_v<wrapped_type>) {
+#if CAORS_HAS_EXCEPTIONS
+      try {
+        source.emplace(std::move(*value));
+      } catch (...) {
+        return false;
+      }
+#else
+      if constexpr (!std::is_nothrow_move_constructible_v<wrapped_type>) {
+        return false;
+      } else {
+        source.emplace(std::move(*value));
+      }
+#endif
+      return source.has_value();
+    } else if constexpr (std::is_copy_constructible_v<wrapped_type>) {
+#if CAORS_HAS_EXCEPTIONS
+      try {
+        source.emplace(*value);
+      } catch (...) {
+        return false;
+      }
+#else
+      if constexpr (!std::is_nothrow_copy_constructible_v<wrapped_type>) {
+        return false;
+      } else {
+        source.emplace(*value);
+      }
+#endif
+      return source.has_value();
+    } else {
+      return false;
     }
   }
 };

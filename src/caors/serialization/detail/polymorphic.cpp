@@ -99,7 +99,15 @@ result<meta::type> resolve_polymorphic_meta_type(type_id declared_base, const va
     return {guid.status, {}};
   }
 
-  const meta::type dynamic_type = meta::find(guid.value);
+  return resolve_polymorphic_meta_type(declared_base, guid.value);
+}
+
+result<meta::type> resolve_polymorphic_meta_type(type_id declared_base, type_guid dynamic_guid) {
+  if (!declared_base || !dynamic_guid) {
+    return {{error_domain::serialization, errc::invalid_type}, {}};
+  }
+
+  const meta::type dynamic_type = meta::find(dynamic_guid);
   if (!dynamic_type) {
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
