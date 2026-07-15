@@ -51,6 +51,17 @@ struct proxy_matrix {
   void set(std::size_t row, std::size_t column, int value) { values[row * 2 + column] = value; }
 };
 
+struct inline_proxy_matrix {
+  int values[4]{};
+
+  [[nodiscard]] std::size_t rows() const noexcept { return 2; }
+  [[nodiscard]] std::size_t columns() const noexcept { return 2; }
+  [[nodiscard]] int get(std::size_t row, std::size_t column) const {
+    return values[row * 2 + column];
+  }
+  void set(std::size_t row, std::size_t column, int value) { values[row * 2 + column] = value; }
+};
+
 enum class facade_enum : int {
   low = -1,
   high = 9,
@@ -319,6 +330,27 @@ TEST_CASE("meta - proxy model generates capability ops from member bindings", "[
   view.set(1, 1, 29);
   CHECK(view.get(1, 1) == 29);
   CHECK(matrix.values[3] == 29);
+}
+
+TEST_CASE("meta - proxy bindings can be registered inline", "[meta]") {
+  REQUIRE(caors::meta::class_<inline_proxy_matrix>()
+              .capability<matrix_capability>(
+                  caors::meta::proxy::method<&matrix_ops::rows, &inline_proxy_matrix::rows>{},
+                  caors::meta::proxy::method<&matrix_ops::columns, &inline_proxy_matrix::columns>{},
+                  caors::meta::proxy::method<&matrix_ops::get, &inline_proxy_matrix::get>{},
+                  caors::meta::proxy::method<&matrix_ops::set, &inline_proxy_matrix::set>{})
+              .succeeded());
+
+  inline_proxy_matrix matrix{};
+  caors::meta::any_ref ref = caors::meta::any_ref::from(matrix);
+  const matrix_view view = ref.get_capability<matrix_capability>();
+  REQUIRE(view);
+
+  view.set(0, 1, 43);
+  CHECK(view.rows() == 2);
+  CHECK(view.columns() == 2);
+  CHECK(view.get(0, 1) == 43);
+  CHECK(matrix.values[1] == 43);
 }
 
 TEST_CASE("meta - type capability facade binds built in value views", "[meta]") {

@@ -204,6 +204,26 @@ template <typename Capability, typename T> [[nodiscard]] error register_capabili
   return register_capability_for_type<ops_type, value_type>(ops);
 }
 
+/** @brief 用调用点传入的 proxy 绑定生成 ops 并挂到运行期索引。内部入口。 */
+template <typename Capability, typename T, typename... Bindings>
+[[nodiscard]] error register_proxy_model_for() {
+  using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  using model_type = proxy::model<capability_type, value_type,
+                                  std::remove_cv_t<std::remove_reference_t<Bindings>>...>;
+  using ops_type = typename model_type::ops_type;
+
+  static_assert(std::is_same_v<ops_type, typename capability_type::ops_type>,
+                "proxy model ops_type must match Capability::ops_type");
+
+  const ops_type* ops = model_type::get();
+  if (ops == nullptr) {
+    return {error_domain::meta, errc::unsupported};
+  }
+
+  return register_capability_for_type<ops_type, value_type>(ops);
+}
+
 } // namespace detail
 
 } // namespace caors::meta

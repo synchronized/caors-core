@@ -645,7 +645,8 @@ auto direct_view = caors::meta::any_ref::from(value).get_capability<matrix_capab
 直接使用 `any_ref::get_capability<View>()` 仍可用于兼容旧代码或高级适配，但普通 API 应优先传入
 capability 类型。
 
-简单成员函数映射可以使用 `meta::proxy::model` 生成 `ops`，避免手写完整 `*_ops_model<T>`：
+简单成员函数映射可以直接在类型 builder 上使用 `meta::proxy::method` 生成并注册 `ops`，避免手写完整
+`*_ops_model<T>` 或 `capability_model<Capability, T>` 特化：
 
 ```cpp
 struct matrix {
@@ -653,6 +654,16 @@ struct matrix {
   std::size_t columns() const noexcept;
 };
 
+caors::meta::class_<matrix>()
+    .capability<matrix_capability>(
+        caors::meta::proxy::method<&matrix_ops::rows, &matrix::rows>{},
+        caors::meta::proxy::method<&matrix_ops::columns, &matrix::columns>{});
+```
+
+如果同一个 `Capability + T` 映射需要跨多个注册点复用，也可以把绑定写成 `capability_model`
+特化：
+
+```cpp
 template <>
 struct caors::meta::capability_model<matrix_capability, matrix>
     : caors::meta::proxy::model<
@@ -666,7 +677,8 @@ caors::meta::class_<matrix>()
 ```
 
 `proxy::method` 只负责把一个 `ops` 函数字段映射到一个成员函数；复杂适配、额外状态、错误策略或非成员函数回调仍建议手写
-`*_ops_model<T>` 或直接注册一份 `ops`。
+`*_ops_model<T>` 或直接注册一份 `ops`。完整 Proxy DSL 后续会继续减少 `ops` / `view` / `capability`
+样板代码。
 
 如果能力由 `static_capability<Capability, T>` 提供，也可以只声明能力类型：
 

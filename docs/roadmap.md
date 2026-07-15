@@ -70,6 +70,15 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `custom_static_capability_module` 造成特化覆盖。
 - [x] 增加类型级 capability facade 查询：用户自定义能力默认返回只读 concept table 指针，内置能力可通过
   `type_capability_traits` 返回 `sequence_capability`、`ptr_capability`、`codec_capability` 等轻量对象。
+- [x] 增加第一版 proxy capability helper，支持把 `ops` 字段声明式映射到 C++ 成员函数，并允许
+  `meta::class_<T>().capability<Capability>(bindings...)` 直接注册简单成员函数能力。
+- [ ] 扩展完整 Proxy DSL，进一步减少用户自定义 capability 的 `ops` / `view` / `model` 样板代码。
+- [ ] 支持 Proxy 模板方法代理。
+- [ ] 支持 Proxy 重载自动选择。
+- [ ] 支持 Proxy 返回引用、借用值和生命周期策略。
+- [ ] 设计跨 DLL / 插件边界的 capability 稳定协议。
+- [ ] 评估完全无宏 Proxy DSL，降低宏接口对诊断和工具链的影响。
+- [ ] 评估基于未来静态反射或代码生成的成员自动发现。
 - [x] 增加 `runtime` facade，组合 `meta::type`、反射字段/方法和值构造能力，提供更直接的用户入口。
 - [x] 将 `runtime` 确认为推荐主入口，具体模块保留高级入口；`meta::type_<T>()` 改为
   `meta::class_<T>()`，并增加 `meta::enum_<T>()` / `runtime::enum_<T>()`。
