@@ -695,7 +695,7 @@ C++ 类型存在同名成员函数，`meta::class_<T>().capability<Capability>()
 方法，普通用户优先使用宏。
 当前版本不处理重载自动选择，遇到重载成员时仍需要后续更完整的 Proxy DSL 或显式 model。
 
-旧的 X-macro 入口仍可用于需要强控制 `ops/view/capability` 生成形态的高级场景。实例能力使用
+具名 X-macro 入口可用于需要强控制 `ops/view/capability` 生成形态的高级场景。实例能力使用
 `CAORS_META_PROXY_CAPABILITY`：方法列表宏接收两个参数，分别表示只读方法和可写方法；每个方法项格式是
 `METHOD(name, result_type, noexcept_or_empty, (param_type, param_name)...)`。零参数方法不需要额外写 `()`；
 有参数时使用 `(类型, 名字)` pair，宏会自动生成函数声明和调用实参。
@@ -737,12 +737,12 @@ caors::meta::class_<creator_type>()
     .capability(ops);
 ```
 
-这种形式适合 factory、codec、编辑器 schema 这类不绑定具体对象实例的能力。第一版类型级宏不自动生成
+这种形式适合 factory、codec、编辑器 schema 这类不绑定具体对象实例的能力。当前类型级宏不自动生成
 `Capability::model<T>`；需要自动映射时后续再扩展，或者继续手写 `ops` / model。
 
-旧的 inline `proxy::method` 绑定入口已经移除。简单成员函数映射统一使用
-`CAORS_META_DEF_MEM_DISPATCH + capability_builder::add_convention`；需要稳定具名 `ops/view/capability`
-类型时使用 `CAORS_META_PROXY_CAPABILITY`；复杂适配、额外状态、错误策略或特殊生命周期仍建议手写
+简单成员函数映射统一使用
+`CAORS_META_DEF_MEM_DISPATCH + capability_builder::add_convention`。需要稳定具名 `ops/view/capability`
+类型时使用 `CAORS_META_PROXY_CAPABILITY`。复杂适配、额外状态、错误策略或特殊生命周期仍建议手写
 `*_ops_model<T>` 或直接注册一份 `ops`。
 
 如果能力由 `static_capability<Capability, T>` 提供，也可以只声明能力类型：

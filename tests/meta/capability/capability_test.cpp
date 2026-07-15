@@ -40,28 +40,6 @@ struct owned_matrix {
   int values[4]{};
 };
 
-struct proxy_matrix {
-  int values[4]{};
-
-  [[nodiscard]] std::size_t rows() const noexcept { return 2; }
-  [[nodiscard]] std::size_t columns() const noexcept { return 2; }
-  [[nodiscard]] int get(std::size_t row, std::size_t column) const {
-    return values[row * 2 + column];
-  }
-  void set(std::size_t row, std::size_t column, int value) { values[row * 2 + column] = value; }
-};
-
-struct inline_proxy_matrix {
-  int values[4]{};
-
-  [[nodiscard]] std::size_t rows() const noexcept { return 2; }
-  [[nodiscard]] std::size_t columns() const noexcept { return 2; }
-  [[nodiscard]] int get(std::size_t row, std::size_t column) const {
-    return values[row * 2 + column];
-  }
-  void set(std::size_t row, std::size_t column, int value) { values[row * 2 + column] = value; }
-};
-
 struct macro_proxy_matrix {
   int values[4]{};
 

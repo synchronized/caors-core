@@ -847,8 +847,8 @@ template <typename Capability, typename T>
 /**
  * @brief 定义纯类型级 proxy capability。
  *
- * `methods` 需要接受一个宏参数，方法项格式同 `CAORS_META_PROXY_CAPABILITY`。第一版只生成
- * `ops` 和类型级 facade；函数表仍通过现有 `.capability(ops)` 或后续 model 扩展注册。
+ * `methods` 需要接受一个宏参数，方法项格式同 `CAORS_META_PROXY_CAPABILITY`。该宏只生成
+ * `ops` 和类型级 facade；函数表通过 `.capability(ops)` 或能力 model 注册。
  */
 #define CAORS_META_PROXY_TYPE_CAPABILITY(capability_name, methods)                                 \
   struct capability_name##_ops {                                                                   \
