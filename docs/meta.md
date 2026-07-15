@@ -246,8 +246,8 @@ runtime capability。普通调用方应使用这个统一入口，不直接关�
 由布局、值操作、类型语义、内置 ops 和静态能力表几部分组成；未注册结构类型也可以通过 `any`、
 `any_ref` 或反射字段携带的静态 descriptor 访问同一套能力。
 descriptor 位于 `meta::detail`，不属于公开 API；普通用户应通过 `meta::type`、`meta::resolve<T>()`
-和 `meta::type::get_capability<T>()` 查询公开能力；确实在实现层需要低层函数表时再使用
-`get_raw_ops<T>()`。
+和 `meta::type::get_capability<T>()` 查询公开能力；需要实现自定义 facade、序列化桥接、编辑器适配或
+性能敏感路径时，可以使用高级扩展入口 `get_raw_ops<T>()` 查询 raw ops 函数表。
 
 descriptor 内部按职责拆分：
 
@@ -284,7 +284,8 @@ descriptor 内部按职责拆分：
   `serialization::codec_capability` 可以直接读写序列化数据。
 - 外部实例访问优先使用绑定后的 `*_view`，例如
   `any_ref.get_capability<meta::sequence_view>()` 或
-  `any_ref.get_capability<objects::ptr_view>()`；`*_ops` 是底层函数表，不作为普通业务代码的首选入口。
+  `any_ref.get_capability<objects::ptr_view>()`；`*_ops` 是 raw ops 函数表，面向高级扩展与内部适配，
+  不作为普通业务代码的首选入口。
 - `*_fn` 类型别名应尽量嵌套在对应 `*_ops` 内，例如 `value_ops::assign_fn`、
   `factory_ops::construct_fn`、`codec_ops::write_fn` 和 `ptr_ops::get_fn`；除
   `registration_fn` 这类独立回调外，不在模块命名空间顶层继续暴露函数指针别名。
@@ -502,15 +503,33 @@ if (const matrix_ops* ops = caors::meta::find<matrix>().get_capability<matrix_op
 }
 ```
 
-普通 capability、公开 facade 和低层 ops 的查询入口刻意分开：
+普通 capability、公开 facade 和 raw ops 的查询入口刻意分开：
 
 - `meta::type::get_capability<T>()` / `has_capability<T>()`：面向普通运行期扩展能力。默认返回
   `const T*`，内置公开 facade 可特化为直接返回能力对象。
 - `meta::type::get_capability<meta::sequence_capability>()`、`get_capability<objects::ptr_capability>()`
   和 `get_capability<serialization::codec_capability>()`：面向类型级公开 facade。
-- `meta::type::get_raw_ops<T>()` / `has_raw_ops<T>()`：面向 `*_ops` 这类类型擦除函数表。调用点应明确知道自己正在触碰低层表。
+- `meta::type::get_raw_ops<T>()` / `has_raw_ops<T>()`：面向 `*_ops` 这类类型擦除函数表。调用点需要自行处理
+  空指针、对象绑定和类型匹配。
 - 实例级访问优先使用绑定后的 view，例如 `any_ref::get_capability<meta::sequence_view>()` 或
   `any_ref::get_capability<objects::ptr_view>()`，避免业务代码直接传递 `void*`。
+
+### 高级用法：raw ops
+
+`meta::type::get_raw_ops<Ops>()` 返回类型擦除函数表指针，适合实现公开 capability facade、序列化或
+编辑器适配器、调试工具，以及极少数需要绕过 facade 的性能敏感路径。它不是临时兼容入口，也不是废弃
+API；它的约束是更接近 concept table，需要调用方明确绑定对象并保证类型匹配。
+
+使用 raw ops 时应遵守以下边界：
+
+- 返回值可能为空，调用前需要检查。
+- raw ops 只描述类型能力，不绑定具体对象实例。
+- 传入 `void*` / `const void*` 时，调用方必须保证对象实际类型和 ops 对应类型一致。
+- 普通业务代码优先使用 `get_capability<Capability>()` 或 `any_ref::get_capability<View>()`。
+- 对外 API 如果需要暴露能力，优先包一层 `*_capability` 或 `*_view`，不要直接要求用户操作 raw ops。
+
+典型模式是把 raw ops 封装进一个类型级 facade，再由 facade 绑定到具体实例；完整示例见下方用户自定义
+capability 一节。
 
 类型级 facade 可以再绑定到具体实例：
 
