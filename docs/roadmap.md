@@ -74,6 +74,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `meta::class_<T>().capability<Capability>(bindings...)` 直接注册简单成员函数能力。
 - [x] 增加第一版 Proxy 宏 DSL，支持生成实例级 `ops/view/capability` 和纯类型级 `ops/capability`
   样板；实例级宏可通过同名成员自动 model 接入 `meta::class_<T>().capability<Capability>()`。
+- [x] 优化 Proxy 宏 DSL 的参数声明格式，使用 `(param_type, param_name)` pair 自动生成声明和调用实参，
+  避免用户同时维护参数声明和调用参数列表。
 - [ ] 扩展完整 Proxy DSL，进一步减少用户自定义 capability 的 `ops` / `view` / `model` 样板代码。
 - [ ] 支持 Proxy 模板方法代理。
 - [ ] 支持 Proxy 重载自动选择。

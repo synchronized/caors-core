@@ -149,14 +149,14 @@ void matrix_set(void* object, std::size_t row, std::size_t column, int value) {
 [[nodiscard]] int creator_value() noexcept { return 31; }
 
 #define TEST_MATRIX_PROXY_METHODS(CONST_METHOD, MUTABLE_METHOD)                                    \
-  CONST_METHOD(rows, std::size_t, (), noexcept)                                                    \
-  CONST_METHOD(columns, std::size_t, (), noexcept)                                                 \
-  CONST_METHOD(get, int, (row, column), , std::size_t row, std::size_t column)                     \
-  MUTABLE_METHOD(set, void, (row, column, value), , std::size_t row, std::size_t column, int value)
+  CONST_METHOD(rows, std::size_t, noexcept)                                                        \
+  CONST_METHOD(columns, std::size_t, noexcept)                                                     \
+  CONST_METHOD(get, int, , (std::size_t, row), (std::size_t, column))                              \
+  MUTABLE_METHOD(set, void, , (std::size_t, row), (std::size_t, column), (int, value))
 
 CAORS_META_PROXY_CAPABILITY(test_matrix_capability, TEST_MATRIX_PROXY_METHODS)
 
-#define TEST_TYPE_PROXY_METHODS(METHOD) METHOD(value, int, (), noexcept)
+#define TEST_TYPE_PROXY_METHODS(METHOD) METHOD(value, int, noexcept)
 
 CAORS_META_PROXY_TYPE_CAPABILITY(test_creator_capability, TEST_TYPE_PROXY_METHODS)
 

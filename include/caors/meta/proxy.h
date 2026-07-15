@@ -269,57 +269,99 @@ template <typename Capability, typename T, typename... Bindings>
 
 } // namespace caors::meta
 
-#define CAORS_META_PROXY_DETAIL_UNPAREN(...) __VA_ARGS__
+#define CAORS_META_PROXY_DETAIL_CAT_IMPL(lhs, rhs) lhs##rhs
+#define CAORS_META_PROXY_DETAIL_CAT(lhs, rhs) CAORS_META_PROXY_DETAIL_CAT_IMPL(lhs, rhs)
 
-#define CAORS_META_PROXY_DETAIL_CONST_OPS_FIELD(name, result_type, call_args, noex, ...)           \
-  result_type (*name)(const void* __VA_OPT__(, ) __VA_ARGS__) noex = nullptr;
+#define CAORS_META_PROXY_DETAIL_ARG_COUNT_IMPL(_1, _2, _3, _4, _5, _6, _7, _8, count, ...) count
+#define CAORS_META_PROXY_DETAIL_ARG_COUNT(...)                                                     \
+  CAORS_META_PROXY_DETAIL_ARG_COUNT_IMPL(__VA_ARGS__ __VA_OPT__(, ) 8, 7, 6, 5, 4, 3, 2, 1, 0)
 
-#define CAORS_META_PROXY_DETAIL_MUTABLE_OPS_FIELD(name, result_type, call_args, noex, ...)         \
-  result_type (*name)(void* __VA_OPT__(, ) __VA_ARGS__) noex = nullptr;
+#define CAORS_META_PROXY_DETAIL_PARAM_DECL(pair) CAORS_META_PROXY_DETAIL_PARAM_DECL_IMPL pair
+#define CAORS_META_PROXY_DETAIL_PARAM_DECL_IMPL(type, name) type name
 
-#define CAORS_META_PROXY_DETAIL_TYPE_OPS_FIELD(name, result_type, call_args, noex, ...)            \
-  result_type (*name)(__VA_ARGS__) noex = nullptr;
+#define CAORS_META_PROXY_DETAIL_PARAM_NAME(pair) CAORS_META_PROXY_DETAIL_PARAM_NAME_IMPL pair
+#define CAORS_META_PROXY_DETAIL_PARAM_NAME_IMPL(type, name) name
 
-#define CAORS_META_PROXY_DETAIL_OPS_VALID(name, result_type, call_args, noex, ...)                 \
-  (name != nullptr) &&
+#define CAORS_META_PROXY_DETAIL_COMMA_MAP_0(map)
+#define CAORS_META_PROXY_DETAIL_COMMA_MAP_1(map, value) map(value)
+#define CAORS_META_PROXY_DETAIL_COMMA_MAP_2(map, value, ...)                                       \
+  map(value), CAORS_META_PROXY_DETAIL_COMMA_MAP_1(map, __VA_ARGS__)
+#define CAORS_META_PROXY_DETAIL_COMMA_MAP_3(map, value, ...)                                       \
+  map(value), CAORS_META_PROXY_DETAIL_COMMA_MAP_2(map, __VA_ARGS__)
+#define CAORS_META_PROXY_DETAIL_COMMA_MAP_4(map, value, ...)                                       \
+  map(value), CAORS_META_PROXY_DETAIL_COMMA_MAP_3(map, __VA_ARGS__)
+#define CAORS_META_PROXY_DETAIL_COMMA_MAP_5(map, value, ...)                                       \
+  map(value), CAORS_META_PROXY_DETAIL_COMMA_MAP_4(map, __VA_ARGS__)
+#define CAORS_META_PROXY_DETAIL_COMMA_MAP_6(map, value, ...)                                       \
+  map(value), CAORS_META_PROXY_DETAIL_COMMA_MAP_5(map, __VA_ARGS__)
+#define CAORS_META_PROXY_DETAIL_COMMA_MAP_7(map, value, ...)                                       \
+  map(value), CAORS_META_PROXY_DETAIL_COMMA_MAP_6(map, __VA_ARGS__)
+#define CAORS_META_PROXY_DETAIL_COMMA_MAP_8(map, value, ...)                                       \
+  map(value), CAORS_META_PROXY_DETAIL_COMMA_MAP_7(map, __VA_ARGS__)
 
-#define CAORS_META_PROXY_DETAIL_CONST_VIEW_METHOD(name, result_type, call_args, noex, ...)         \
-  result_type name(__VA_ARGS__) const noex {                                                       \
+#define CAORS_META_PROXY_DETAIL_COMMA_MAP(map, ...)                                                \
+  CAORS_META_PROXY_DETAIL_CAT(CAORS_META_PROXY_DETAIL_COMMA_MAP_,                                  \
+                              CAORS_META_PROXY_DETAIL_ARG_COUNT(__VA_ARGS__))(map __VA_OPT__(, )   \
+                                                                                  __VA_ARGS__)
+
+#define CAORS_META_PROXY_DETAIL_PARAM_DECLS(...)                                                   \
+  CAORS_META_PROXY_DETAIL_COMMA_MAP(CAORS_META_PROXY_DETAIL_PARAM_DECL, __VA_ARGS__)
+
+#define CAORS_META_PROXY_DETAIL_PARAM_NAMES(...)                                                   \
+  CAORS_META_PROXY_DETAIL_COMMA_MAP(CAORS_META_PROXY_DETAIL_PARAM_NAME, __VA_ARGS__)
+
+#define CAORS_META_PROXY_DETAIL_CONST_OPS_FIELD(name, result_type, noex, ...)                      \
+  result_type (*name)(const void* __VA_OPT__(, ) CAORS_META_PROXY_DETAIL_PARAM_DECLS(__VA_ARGS__)) \
+      noex = nullptr;
+
+#define CAORS_META_PROXY_DETAIL_MUTABLE_OPS_FIELD(name, result_type, noex, ...)                    \
+  result_type (*name)(void* __VA_OPT__(, ) CAORS_META_PROXY_DETAIL_PARAM_DECLS(__VA_ARGS__))       \
+      noex = nullptr;
+
+#define CAORS_META_PROXY_DETAIL_TYPE_OPS_FIELD(name, result_type, noex, ...)                       \
+  result_type (*name)(CAORS_META_PROXY_DETAIL_PARAM_DECLS(__VA_ARGS__)) noex = nullptr;
+
+#define CAORS_META_PROXY_DETAIL_OPS_VALID(name, result_type, noex, ...) (name != nullptr) &&
+
+#define CAORS_META_PROXY_DETAIL_CONST_VIEW_METHOD(name, result_type, noex, ...)                    \
+  result_type name(CAORS_META_PROXY_DETAIL_PARAM_DECLS(__VA_ARGS__)) const noex {                  \
     if constexpr (std::is_void_v<result_type>) {                                                   \
-      ops()->name(data() __VA_OPT__(, ) CAORS_META_PROXY_DETAIL_UNPAREN call_args);                \
+      ops()->name(data() __VA_OPT__(, ) CAORS_META_PROXY_DETAIL_PARAM_NAMES(__VA_ARGS__));         \
     } else {                                                                                       \
-      return ops()->name(data() __VA_OPT__(, ) CAORS_META_PROXY_DETAIL_UNPAREN call_args);         \
+      return ops()->name(data() __VA_OPT__(, ) CAORS_META_PROXY_DETAIL_PARAM_NAMES(__VA_ARGS__));  \
     }                                                                                              \
   }
 
-#define CAORS_META_PROXY_DETAIL_MUTABLE_VIEW_METHOD(name, result_type, call_args, noex, ...)       \
-  result_type name(__VA_ARGS__) const noex {                                                       \
+#define CAORS_META_PROXY_DETAIL_MUTABLE_VIEW_METHOD(name, result_type, noex, ...)                  \
+  result_type name(CAORS_META_PROXY_DETAIL_PARAM_DECLS(__VA_ARGS__)) const noex {                  \
     if constexpr (std::is_void_v<result_type>) {                                                   \
-      ops()->name(mutable_data() __VA_OPT__(, ) CAORS_META_PROXY_DETAIL_UNPAREN call_args);        \
+      ops()->name(mutable_data() __VA_OPT__(, ) CAORS_META_PROXY_DETAIL_PARAM_NAMES(__VA_ARGS__)); \
     } else {                                                                                       \
-      return ops()->name(mutable_data() __VA_OPT__(, ) CAORS_META_PROXY_DETAIL_UNPAREN call_args); \
+      return ops()->name(mutable_data() __VA_OPT__(, )                                             \
+                             CAORS_META_PROXY_DETAIL_PARAM_NAMES(__VA_ARGS__));                    \
     }                                                                                              \
   }
 
-#define CAORS_META_PROXY_DETAIL_TYPE_FACADE_METHOD(name, result_type, call_args, noex, ...)        \
-  result_type name(__VA_ARGS__) const noex {                                                       \
+#define CAORS_META_PROXY_DETAIL_TYPE_FACADE_METHOD(name, result_type, noex, ...)                   \
+  result_type name(CAORS_META_PROXY_DETAIL_PARAM_DECLS(__VA_ARGS__)) const noex {                  \
     if constexpr (std::is_void_v<result_type>) {                                                   \
       if (valid()) {                                                                               \
-        ops_->name(CAORS_META_PROXY_DETAIL_UNPAREN call_args);                                     \
+        ops_->name(CAORS_META_PROXY_DETAIL_PARAM_NAMES(__VA_ARGS__));                              \
       }                                                                                            \
     } else {                                                                                       \
-      return valid() ? ops_->name(CAORS_META_PROXY_DETAIL_UNPAREN call_args) : result_type{};      \
+      return valid() ? ops_->name(CAORS_META_PROXY_DETAIL_PARAM_NAMES(__VA_ARGS__))                \
+                     : result_type{};                                                              \
     }                                                                                              \
   }
 
-#define CAORS_META_PROXY_DETAIL_MODEL_METHOD(name, result_type, call_args, noex, ...)              \
+#define CAORS_META_PROXY_DETAIL_MODEL_METHOD(name, result_type, noex, ...)                         \
   , caors::meta::proxy::method<&ops_type::name, &value_type::name>
 
 /**
  * @brief 定义可绑定实例的 proxy capability。
  *
  * `methods` 需要接受两个宏参数：第一个用于只读方法，第二个用于可写方法。方法项格式为
- * `METHOD(name, result_type, (call_args...), noexcept_or_empty, parameter_decls...)`。
+ * `METHOD(name, result_type, noexcept_or_empty, (param_type, param_name)...)`。
  */
 #define CAORS_META_PROXY_CAPABILITY(capability_name, methods)                                      \
   struct capability_name##_ops {                                                                   \

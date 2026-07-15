@@ -647,15 +647,15 @@ capability 类型。
 
 第一版完整 Proxy DSL 提供宏来生成 `ops`、`view` 和 `capability` 样板。实例能力使用
 `CAORS_META_PROXY_CAPABILITY`：方法列表宏接收两个参数，分别表示只读方法和可写方法；每个方法项格式是
-`METHOD(name, result_type, (call_args...), noexcept_or_empty, parameter_decls...)`。
+`METHOD(name, result_type, noexcept_or_empty, (param_type, param_name)...)`。零参数方法不需要额外写 `()`；
+有参数时使用 `(类型, 名字)` pair，宏会自动生成函数声明和调用实参。
 
 ```cpp
-#define MATRIX_METHODS(CONST_METHOD, MUTABLE_METHOD)                          \
-  CONST_METHOD(rows, std::size_t, (), noexcept)                               \
-  CONST_METHOD(columns, std::size_t, (), noexcept)                            \
-  CONST_METHOD(get, int, (row, column), , std::size_t row, std::size_t column) \
-  MUTABLE_METHOD(set, void, (row, column, value), , std::size_t row,           \
-                 std::size_t column, int value)
+#define MATRIX_METHODS(CONST_METHOD, MUTABLE_METHOD)             \
+  CONST_METHOD(rows, std::size_t, noexcept)                      \
+  CONST_METHOD(columns, std::size_t, noexcept)                   \
+  CONST_METHOD(get, int, , (std::size_t, row), (std::size_t, column)) \
+  MUTABLE_METHOD(set, void, , (std::size_t, row), (std::size_t, column), (int, value))
 
 CAORS_META_PROXY_CAPABILITY(matrix_capability, MATRIX_METHODS)
 ```
@@ -677,7 +677,7 @@ view.set(1, 1, 42);
 纯类型级能力使用 `CAORS_META_PROXY_TYPE_CAPABILITY`，它只生成 `ops` 和类型级 facade，不生成实例 view：
 
 ```cpp
-#define CREATOR_METHODS(METHOD) METHOD(value, int, (), noexcept)
+#define CREATOR_METHODS(METHOD) METHOD(value, int, noexcept)
 
 CAORS_META_PROXY_TYPE_CAPABILITY(creator_capability, CREATOR_METHODS)
 
