@@ -73,6 +73,23 @@ public:
   }
 };
 
+class matrix_capability final : public caors::meta::type_capability_base<matrix_ops> {
+public:
+  using base_type = caors::meta::type_capability_base<matrix_ops>;
+  using view_type = matrix_view;
+
+  matrix_capability() noexcept = default;
+  explicit matrix_capability(caors::meta::type type) noexcept : base_type(type) {}
+
+  [[nodiscard]] matrix_view bind(caors::meta::any_ref source) const noexcept {
+    if (!valid() || !source.valid() || source.get_type().id() != type_.id()) {
+      return {};
+    }
+
+    return matrix_view{type_, ops_, source};
+  }
+};
+
 struct static_capability_data {
   int value = 0;
 };
@@ -234,13 +251,12 @@ TEST_CASE("meta - type builder stores owned runtime concept table", "[meta]") {
 
   const caors::meta::type type = caors::meta::resolve<owned_matrix>();
   CHECK(type.get_capability<matrix_ops>() == found);
-  const caors::meta::type_capability_view<matrix_view> type_view =
-      type.get_capability<matrix_view>();
-  REQUIRE(type_view);
+  const matrix_capability capability = type.get_capability<matrix_capability>();
+  REQUIRE(capability);
 
   owned_matrix matrix{};
   caors::meta::any_ref matrix_ref = caors::meta::any_ref::from(matrix);
-  const matrix_view view = type_view.bind(matrix_ref);
+  const matrix_view view = capability.bind(matrix_ref);
   REQUIRE(view);
   view.set(1, 0, 17);
   CHECK(found->rows(&matrix) == 2);
@@ -254,8 +270,12 @@ TEST_CASE("meta - type builder stores owned runtime concept table", "[meta]") {
   REQUIRE(direct_view);
   CHECK(direct_view.get(1, 0) == 17);
 
+  const matrix_view capability_view = matrix_ref.get_capability<matrix_capability>();
+  REQUIRE(capability_view);
+  CHECK(capability_view.get(1, 0) == 17);
+
   int wrong_value = 0;
-  CHECK_FALSE(type_view.bind(caors::meta::any_ref::from(wrong_value)));
+  CHECK_FALSE(capability.bind(caors::meta::any_ref::from(wrong_value)));
 }
 
 TEST_CASE("meta - type capability base auto exposes custom type facade", "[meta]") {
@@ -286,6 +306,12 @@ TEST_CASE("meta - type capability facade binds built in value views", "[meta]") 
   REQUIRE(view);
   REQUIRE(view.size().has_value());
   CHECK(*view.size() == 3);
+
+  const caors::meta::sequence_view direct_view =
+      caors::meta::any_ref::from(values).get_capability<caors::meta::sequence_capability>();
+  REQUIRE(direct_view);
+  REQUIRE(direct_view.size().has_value());
+  CHECK(*direct_view.size() == 3);
 
   int wrong_value = 0;
   CHECK_FALSE(sequence.bind(caors::meta::any_ref::from(wrong_value)));

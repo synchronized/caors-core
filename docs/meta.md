@@ -216,8 +216,9 @@ caors::meta::class_<player>("game.player")
 - 类型查询使用 `meta::resolve<T>()` 或 `meta::find<T>()`。
 - 类型级能力使用 `meta::type::get_capability<Capability>()`，例如
   `get_capability<meta::sequence_capability>()`。
-- 实例级能力使用 `meta::any_ref::get_capability<View>()`，例如
-  `get_capability<meta::sequence_view>()` 或 `get_capability<objects::ptr_view>()`。
+- 实例级能力同样优先传入 capability 类型，例如
+  `any_ref.get_capability<meta::sequence_capability>()` 返回 `sequence_view`，
+  `any_ref.get_capability<objects::ptr_capability>()` 返回 `objects::ptr_view`。
 - 跨 meta / reflection / object 的高层访问优先使用 `runtime::type` 和 `runtime::instance`。
 
 只有实现新的 capability facade、调试工具、序列化桥接或性能敏感适配层时，才直接使用
@@ -294,12 +295,13 @@ descriptor 内部按职责拆分：
 - `*_ops` 表示某个 capability 的具体类型擦除操作表，通常由函数指针和少量只读元数据组成，例如
   `sequence_ops`、`ptr_ops`、`handle_ops` 和 `codec_ops`。
 - `*_capability` 表示类型级公开 facade，封装 `meta::type` 和内部 `*_ops`，提供更适合用户代码调用的
-  方法。例如 `meta::sequence_capability` 可以绑定 `any_ref` 后得到 `sequence_view`，
+  方法。可绑定的 capability 会声明 `view_type`；例如 `meta::sequence_capability`
+  可以绑定 `any_ref` 后得到 `sequence_view`，
   `serialization::codec_capability` 可以直接读写序列化数据。
 - 外部实例访问优先使用绑定后的 `*_view`，例如
-  `any_ref.get_capability<meta::sequence_view>()` 或
-  `any_ref.get_capability<objects::ptr_view>()`；`*_ops` 是 raw ops 函数表，面向高级扩展与内部适配，
-  不作为普通业务代码的首选入口。
+  `any_ref.get_capability<meta::sequence_capability>()` 或
+  `any_ref.get_capability<objects::ptr_capability>()`；直接用 `*_view` 查询仍可用于兼容和高级适配。
+  `*_ops` 是 raw ops 函数表，面向高级扩展与内部适配，不作为普通业务代码的首选入口。
 - `*_fn` 类型别名应尽量嵌套在对应 `*_ops` 内，例如 `value_ops::assign_fn`、
   `factory_ops::construct_fn`、`codec_ops::write_fn` 和 `ptr_ops::get_fn`；除
   `registration_fn` 这类独立回调外，不在模块命名空间顶层继续暴露函数指针别名。
@@ -529,8 +531,9 @@ if (const matrix_ops* ops = caors::meta::find<matrix>().get_capability<matrix_op
   和 `get_capability<serialization::codec_capability>()`：面向类型级公开 facade。
 - `meta::type::get_raw_ops<T>()` / `has_raw_ops<T>()`：面向 `*_ops` 这类类型擦除函数表。调用点需要自行处理
   空指针、对象绑定和类型匹配。
-- 实例级访问优先使用绑定后的 view，例如 `any_ref::get_capability<meta::sequence_view>()` 或
-  `any_ref::get_capability<objects::ptr_view>()`，避免业务代码直接传递 `void*`。
+- 实例级访问优先使用 capability 查询绑定后的 view，例如
+  `any_ref::get_capability<meta::sequence_capability>()` 或
+  `any_ref::get_capability<objects::ptr_capability>()`，避免业务代码直接传递 `void*`。
 
 ### raw ops
 
@@ -543,7 +546,8 @@ API；它的约束是更接近 concept table，需要调用方明确绑定对象
 - 返回值可能为空，调用前需要检查。
 - raw ops 只描述类型能力，不绑定具体对象实例。
 - 传入 `void*` / `const void*` 时，调用方必须保证对象实际类型和 ops 对应类型一致。
-- 普通业务代码优先使用 `get_capability<Capability>()` 或 `any_ref::get_capability<View>()`。
+- 普通业务代码优先使用 `get_capability<Capability>()` 或
+  `any_ref::get_capability<Capability>()`。
 - 对外 API 如果需要暴露能力，优先包一层 `*_capability` 或 `*_view`，不要直接要求用户操作 raw ops。
 
 典型模式是把 raw ops 封装进一个类型级 facade，再由 facade 绑定到具体实例；完整示例见下方用户自定义
@@ -590,10 +594,10 @@ auto factory = caors::meta::resolve<matrix>().get_capability<matrix_factory>();
 matrix* value = factory.create();
 ```
 
-实例级 view 推荐使用轻量 view helper：定义 `*_ops` 函数表，再让 view 继承
-`meta::capability_view_base<Ops>`。只要 view 声明了 `using ops_type = Ops`，并支持
-`(meta::type, const Ops*, meta::any_ref)` 构造，CAORS 会自动接入
-`meta::type::get_capability<View>()` 和 `any_ref::get_capability<View>()`。
+实例级能力推荐同时提供类型级 facade 和实例级 view：定义 `*_ops` 函数表，让 view 继承
+`meta::capability_view_base<Ops>`，再让 capability 继承 `meta::type_capability_base<Ops>` 并声明
+`using view_type = ...`。这样 `meta::type::get_capability<Capability>()` 返回类型级 facade，
+`any_ref::get_capability<Capability>()` 返回绑定后的实例 view。
 
 ```cpp
 struct matrix_ops {
@@ -613,6 +617,19 @@ public:
   [[nodiscard]] std::size_t rows() const noexcept { return ops()->rows(data()); }
   [[nodiscard]] std::size_t columns() const noexcept { return ops()->columns(data()); }
 };
+
+class matrix_capability : public caors::meta::type_capability_base<matrix_ops> {
+public:
+  using base_type = caors::meta::type_capability_base<matrix_ops>;
+  using view_type = matrix_view;
+  using base_type::base_type;
+
+  [[nodiscard]] matrix_view bind(caors::meta::any_ref source) const noexcept {
+    return valid() && source.valid() && source.get_type().id() == type_.id()
+               ? matrix_view{type_, ops_, source}
+               : matrix_view{};
+  }
+};
 ```
 
 注册后可以直接从类型或实例查询：
@@ -622,18 +639,19 @@ caors::meta::class_<matrix>()
     .capability(matrix_ops{&matrix_rows, &matrix_columns});
 
 auto matrix_type = caors::meta::resolve<matrix>();
-auto capability = matrix_type.get_capability<matrix_view>();
+auto capability = matrix_type.get_capability<matrix_capability>();
 
 matrix value{};
 auto view = capability.bind(caors::meta::any_ref::from(value));
 auto rows = view.rows();
 
-auto direct_view = caors::meta::any_ref::from(value).get_capability<matrix_view>();
+auto direct_view = caors::meta::any_ref::from(value).get_capability<matrix_capability>();
 ```
 
 这个小版 helper 不会自动生成函数表；`*_ops` 和把具体 `T` 适配到 `*_ops` 的 model 仍由能力作者提供。
-它解决的是重复编写 `type_capability_traits<Facade>`、`type_capability_traits<View>`、
-`capability_view_traits<View>` 和基础存储的问题。
+它解决的是重复编写 `type_capability_traits<Facade>`、`capability_view_traits<Capability>` 和基础存储的问题。
+直接使用 `any_ref::get_capability<View>()` 仍可用于兼容旧代码或高级适配，但普通 API 应优先传入
+capability 类型。
 
 如果能力由 `static_capability<Capability, T>` 提供，也可以只声明能力类型：
 

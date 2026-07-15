@@ -147,7 +147,7 @@ caors::object_id id = ptr.id();
 
 ```cpp
 caors::any_ref value = caors::any_ref::from(ptr);
-auto ptr = value.get_capability<caors::objects::ptr_view>();
+auto ptr = value.get_capability<caors::objects::ptr_capability>();
 if (ptr) {
   caors::object* object = ptr.get();
 }
@@ -157,7 +157,9 @@ if (ptr) {
 
 `objects::make_ptr_view(any_ref)` 和 `objects::make_handle_view(any_ref)` 是显式 view 工厂，
 主要服务 capability 绑定、runtime 组合层、自定义 `capability_view_traits` 和高级适配代码。普通用户应优先使用
-`any_ref::get_capability<objects::ptr_view>()` / `any_ref::get_capability<objects::handle_view>()`。
+`any_ref::get_capability<objects::ptr_capability>()` /
+`any_ref::get_capability<objects::handle_capability>()`。直接查询 `ptr_view` / `handle_view`
+仍可用于兼容旧代码和高级适配。
 
 如果只拿到类型视图，可以先查询类型级能力，再绑定到实例：
 

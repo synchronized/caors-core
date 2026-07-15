@@ -96,7 +96,7 @@ caors::reflection::class_<actor>()
 - `std::reference_wrapper<T>`：`meta::type_kind::wrapper`，`value_type` 为 `T`，不表示空值，
   `traits::wrapper_semantics` 为 `inline_value`。
 - `caors::objects::ptr<T>`：`meta::type_kind::value`，对象指针能力通过 descriptor 静态能力表保存，
-  并优先使用 `any_ref::get_capability<objects::ptr_view>()` 查询；`objects::make_ptr_view(any_ref)`
+  并优先使用 `any_ref::get_capability<objects::ptr_capability>()` 查询；`objects::make_ptr_view(any_ref)`
   是高级适配层使用的显式 view 工厂。
 - `traits::sequence_traits<T>` 顺序容器：`meta::type_kind::sequence`，value 类型为元素类型；`get_element_type()`
   是对外语义别名。字段视图可以查询元素数量、访问元素引用，并在 traits 支持时执行清空、调整大小和追加元素。内置 `caors::vector<T>` 会生成
@@ -178,11 +178,11 @@ struct wrapper_access<my_box<T>> {
 ```
 
 `traits::wrapper_access<T>` 是可选扩展点。只需要识别 wrapper 形态时可以只特化 `traits::wrapper_traits<T>`；如果希望
-`any_ref::get_capability<meta::indirect_view>()` 能访问内部值，则需要同时特化
+`any_ref::get_capability<meta::indirect_capability>()` 能访问内部值，则需要同时特化
 `traits::wrapper_access<T>`。内置适配支持裸指针、`std::unique_ptr<T>`、`caors::memory::unique_ptr<T>`、
 `std::shared_ptr<T>`、`std::optional<T>` 和 `std::reference_wrapper<T>` 的内部值访问；`std::weak_ptr<T>` 只提供 unsupported
 wrapper 语义，当前没有默认内部值访问，避免返回可能悬空的引用。`caors::objects::ptr<T>` 通过
-`any_ref::get_capability<objects::ptr_view>()` 按对象指针语义访问，不再作为 wrapper 语义处理。
+`any_ref::get_capability<objects::ptr_capability>()` 按对象指针语义访问，不再作为 wrapper 语义处理。
 
 顺序容器识别通过 `traits::sequence_traits<T>` 扩展。traits 需要提供元素类型、类型名前缀和基础元素访问函数：
 
@@ -424,10 +424,10 @@ descriptor 通过 layout、value ops、type semantics 和固定运行期能力�
 - `try_get_mutable<T>()`：获取可写指针。
 - `try_set<T>()`：从同类型 C++ 值写入当前 `any`。
 - `try_set(any)`：从同类型运行期值写入当前 `any`。
-- `get_capability<meta::sequence_view>()`：如果 descriptor 描述了顺序容器，则创建顺序容器视图。
-- `get_capability<meta::set_view>()`：如果 descriptor 描述了集合容器，则创建集合容器视图。
-- `get_capability<meta::associative_view>()`：如果 descriptor 描述了关联容器，则创建可写或只读关联容器视图。
-- `get_capability<meta::indirect_view>()`：如果 descriptor 描述了指针或 wrapper，则创建内部值视图。
+- `get_capability<meta::sequence_capability>()`：如果 descriptor 描述了顺序容器，则创建顺序容器视图。
+- `get_capability<meta::set_capability>()`：如果 descriptor 描述了集合容器，则创建集合容器视图。
+- `get_capability<meta::associative_capability>()`：如果 descriptor 描述了关联容器，则创建可写或只读关联容器视图。
+- `get_capability<meta::indirect_capability>()`：如果 descriptor 描述了指针或 wrapper，则创建内部值视图。
 
 第一版 `any` 只支持可拷贝类型；不可拷贝字段调用 `get_value()` 会返回无效 `any`。
 
@@ -446,10 +446,10 @@ descriptor 通过 layout、value ops、type semantics 和固定运行期能力�
 - `try_get<T>()`：获取只读指针。
 - `try_get_mutable<T>()`：获取可写指针；只读引用会返回 `nullptr`。
 - `try_set<T>()` / `try_set(any)` / `try_set(any_ref)`：从同类型值或引用写入当前引用指向的对象。
-- `get_capability<meta::sequence_view>()`：如果 descriptor 描述了顺序容器，则创建顺序容器视图。
-- `get_capability<meta::set_view>()`：如果 descriptor 描述了集合容器，则创建集合容器视图。
-- `get_capability<meta::associative_view>()`：如果 descriptor 描述了关联容器，则创建关联容器视图。
-- `get_capability<meta::indirect_view>()`：如果 descriptor 描述了指针或 wrapper，则创建内部值视图。
+- `get_capability<meta::sequence_capability>()`：如果 descriptor 描述了顺序容器，则创建顺序容器视图。
+- `get_capability<meta::set_capability>()`：如果 descriptor 描述了集合容器，则创建集合容器视图。
+- `get_capability<meta::associative_capability>()`：如果 descriptor 描述了关联容器，则创建关联容器视图。
+- `get_capability<meta::indirect_capability>()`：如果 descriptor 描述了指针或 wrapper，则创建内部值视图。
 
 ### reflection::type、reflection::field 和 reflection::method
 
@@ -503,7 +503,7 @@ damage.invoke(&instance, args);
 - `get_value()` / `try_set_value()`：按运行期 `any` 读写字段。
 - `get_ref(const void*)` / `get_ref(void*)`：按运行期 `any_ref` 引用字段，权限由传入对象地址的 constness 决定。
 - 对象指针字段不在 `reflection::field` 上提供专用 `get/set` 接口。需要按对象语义访问时，使用
-  `runtime::object` 或 `field.get_ref(...).get_capability<objects::ptr_view>()`。
+  `runtime::object` 或 `field.get_ref(...).get_capability<objects::ptr_capability>()`。
 - `reflection::field` 不负责对象生命周期、对象身份解析或对象引用计数。对象关系、资源引用和其他领域语义
   应由 `runtime`、`objects`、`resources` 或序列化上下文中的 resolver 处理。
 - `is_sequence()`：判断字段是否是顺序容器字段。
@@ -601,20 +601,20 @@ damage.invoke(&instance, args);
 业务对象、枚举、标量命名类型等需要被名称、GUID、反射字段或多态构造策略稳定识别的类型仍应显式注册。
 
 容器、pair、tuple 和 variant 视图不要求值一定来自反射字段。反射字段场景可以先通过 `get_ref()` 创建 `any_ref`，
-再调用对应的 `get_capability<View>()`；普通 `any` / `any_ref` 也可以直接创建视图：
+再调用对应的 `get_capability<Capability>()`；普通 `any` / `any_ref` 也可以直接创建视图：
 
 如果只包含细粒度 value 头文件，并且需要按值使用 `associative_entry_ref`，应显式包含
 `caors/meta/value/associative_entry_ref.h`；包含总入口 `caors/meta/value.h` 时不需要额外处理。
 
 ```cpp
 caors::meta::sequence_view field_sequence =
-    field.get_ref(&instance).get_capability<caors::meta::sequence_view>();
+    field.get_ref(&instance).get_capability<caors::meta::sequence_capability>();
 caors::meta::associative_view field_map =
-    field.get_ref(&instance).get_capability<caors::meta::associative_view>();
+    field.get_ref(&instance).get_capability<caors::meta::associative_capability>();
 
 caors::hash_map<int, int> values;
 caors::any_ref ref = caors::any_ref::from(values);
-caors::meta::associative_view map = ref.get_capability<caors::meta::associative_view>();
+caors::meta::associative_view map = ref.get_capability<caors::meta::associative_capability>();
 map.insert_value(caors::any::from(1), caors::any::from(2));
 
 for (caors::meta::associative_entry_ref entry : map) {
@@ -692,7 +692,7 @@ auto reflected = caors::reflection::find("game.actor");
 - `include/caors/traits/*.h` 提供 `type_name`、wrapper、容器、pair、tuple 和 variant 类型语义扩展点主模板。
 - `include/caors/object/ptr.h` 提供 `objects::ptr<T>` 和对象指针 trait；
   `include/caors/object/ptr_view.h` 提供 `objects::ptr_view` 和显式 `objects::make_ptr_view(any_ref)`
-  工厂；普通访问优先使用 `any_ref::get_capability<objects::ptr_view>()`。
+  工厂；普通访问优先使用 `any_ref::get_capability<objects::ptr_capability>()`。
 - `include/caors/adapters/stl_traits.h` 和 `include/caors/adapters/stl_wrapper.h` 提供 `std::vector`、`std::deque`、`std::list`、`std::forward_list`、`std::array`、`std::span`、
   `std::pair`、`std::tuple`、`std::variant`、`std::set`、`std::unordered_set`、`std::map`、`std::unordered_map` 以及 CAORS 容器别名的默认 traits 特化。
 - `include/caors/adapters/stl.h` 是 STL/CAORS 容器、wrapper 和反射 traits 适配的聚合入口，不包含序列化 codec。

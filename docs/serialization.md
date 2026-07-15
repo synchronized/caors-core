@@ -807,8 +807,8 @@ template <> struct codec_traits<custom_value> {
 | `objects::ref<T>` | 通过 `indirect_view` 访问引用计数对象内部 `T` | 空值写 `null`，非空展开内部值，不写引用计数；`ref<Base>` 持有派生对象时可写出多态 envelope | `null` 可重置；普通非空值可在 `T` 默认可构造时通过 `objects::make_ref<T>(context.resolvers.memory.resource)` 创建对象；多态 envelope 可构造真实派生对象并接管匹配销毁回调 |
 | `std::reference_wrapper<T>` | 通过 `indirect_view` 访问已绑定的 `T` | 按内部 `T` 写出 | 只能写入已绑定对象，不能置空或重绑定 |
 | `std::weak_ptr<T>`、`objects::weak_ref<T>` | 只标记为不支持 wrapper，不展开 | 不支持 | 不支持 |
-| `objects::ptr<T>` | 作为对象指针类型，可通过 `any_ref::get_capability<objects::ptr_view>()` 识别 | 通过 resolver 写出 `object_id` 或 `object_guid` | 通过 resolver 从 `object_id` 或 `object_guid` 写回引用 |
-| `objects::handle`、`objects::typed_handle<T>` | 作为对象身份句柄，可通过 `any_ref::get_capability<objects::handle_view>()` 识别 | 写出 `{id,type}`，不访问 resolver | 读回 `{id,type}`，只恢复身份，不自动解析对象 |
+| `objects::ptr<T>` | 作为对象指针类型，可通过 `any_ref::get_capability<objects::ptr_capability>()` 识别 | 通过 resolver 写出 `object_id` 或 `object_guid` | 通过 resolver 从 `object_id` 或 `object_guid` 写回引用 |
+| `objects::handle`、`objects::typed_handle<T>` | 作为对象身份句柄，可通过 `any_ref::get_capability<objects::handle_capability>()` 识别 | 写出 `{id,type}`，不访问 resolver | 读回 `{id,type}`，只恢复身份，不自动解析对象 |
 | 顺序容器、集合、关联容器 | 通过 `sequence_view`、`set_view`、`associative_view` 访问 | 支持已适配 traits 的类型 | 支持拥有型容器；新增元素或临时 key/value 不可构造时返回 `errc::invalid_type`；借用视图默认拒绝 |
 | `std::span<T>` / `std::span<T, N>` | 借用顺序视图，元素是否可写由 `T` 和字段可写性决定 | 支持，按数组写出 | 默认拒绝，避免决定 backing storage 生命周期 |
 | `std::array<T, N>` | 固定长度顺序视图 | 支持 | 支持，但输入长度必须等于 `N`；长度不匹配返回 `errc::invalid_argument` |

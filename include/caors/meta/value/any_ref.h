@@ -65,12 +65,19 @@ public:
   [[nodiscard]] bool writable() const noexcept;
   [[nodiscard]] bool assignable() const noexcept;
 
-  /** @brief 查询并绑定运行期实例能力视图。 */
-  template <typename View> [[nodiscard]] View get_capability() const {
-    using view_type = std::remove_cv_t<std::remove_reference_t<View>>;
-    static_assert(meta::capability_view_traits<view_type>::supported,
-                  "Unsupported CAORS capability view");
-    return meta::capability_view_traits<view_type>::bind(*this);
+  /**
+   * @brief 查询并绑定运行期实例能力。
+   *
+   * 推荐传入类型级 capability facade，例如 `sequence_capability`；返回类型由
+   * `capability_view_traits` 决定，通常是绑定到当前对象的实例 view。
+   */
+  template <typename Capability>
+  [[nodiscard]] auto get_capability() const -> typename meta::capability_view_traits<
+      std::remove_cv_t<std::remove_reference_t<Capability>>>::result_type {
+    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+    using traits_type = meta::capability_view_traits<capability_type>;
+    static_assert(traits_type::supported, "Unsupported CAORS capability view");
+    return traits_type::bind(*this);
   }
 
   /** @brief 判断当前引用是否匹配指定 C++ 类型。 */
@@ -156,12 +163,12 @@ private:
 
 namespace caors::meta {
 
-template <typename View> [[nodiscard]] View any::get_capability() {
-  return ref().template get_capability<View>();
+template <typename Capability> [[nodiscard]] auto any::get_capability() {
+  return ref().template get_capability<Capability>();
 }
 
-template <typename View> [[nodiscard]] View any::get_capability() const {
-  return ref().template get_capability<View>();
+template <typename Capability> [[nodiscard]] auto any::get_capability() const {
+  return ref().template get_capability<Capability>();
 }
 
 } // namespace caors::meta

@@ -5,6 +5,7 @@
 #define CAORS_OBJECT_HANDLE_VIEW_H_
 
 #include "caors/meta/value/any_ref.h"
+#include "caors/meta/value/capability_facade.h"
 #include "caors/object/handle.h"
 
 namespace caors::objects {
@@ -64,6 +65,7 @@ private:
 class handle_capability final : public meta::type_capability_base<handle_ops> {
 public:
   using base_type = meta::type_capability_base<handle_ops>;
+  using view_type = handle_view;
 
   handle_capability() noexcept = default;
   explicit handle_capability(meta::type type) noexcept : base_type(type) {}
@@ -100,6 +102,8 @@ public:
 namespace caors::meta {
 
 template <> struct capability_view_traits<objects::handle_view> {
+  using result_type = objects::handle_view;
+
   static constexpr bool supported = true;
 
   [[nodiscard]] static objects::handle_view bind(meta::any_ref source) noexcept {

@@ -72,6 +72,7 @@ public:
 class indirect_capability final : public type_capability_base<indirect_ops> {
 public:
   using base_type = type_capability_base<indirect_ops>;
+  using view_type = indirect_view;
 
   indirect_capability() noexcept = default;
   explicit indirect_capability(meta::type type) noexcept : base_type(type) {}
@@ -90,6 +91,7 @@ public:
 class sequence_capability final : public type_capability_base<sequence_ops> {
 public:
   using base_type = type_capability_base<sequence_ops>;
+  using view_type = sequence_view;
 
   sequence_capability() noexcept = default;
   explicit sequence_capability(meta::type type) noexcept : base_type(type) {}
@@ -108,6 +110,7 @@ public:
 class set_capability final : public type_capability_base<set_ops> {
 public:
   using base_type = type_capability_base<set_ops>;
+  using view_type = set_view;
 
   set_capability() noexcept = default;
   explicit set_capability(meta::type type) noexcept : base_type(type) {}
@@ -125,6 +128,7 @@ public:
 class associative_capability final : public type_capability_base<associative_ops> {
 public:
   using base_type = type_capability_base<associative_ops>;
+  using view_type = associative_view;
 
   associative_capability() noexcept = default;
   explicit associative_capability(meta::type type) noexcept : base_type(type) {}
@@ -146,6 +150,7 @@ public:
 class pair_capability final : public type_capability_base<pair_ops> {
 public:
   using base_type = type_capability_base<pair_ops>;
+  using view_type = pair_view;
 
   pair_capability() noexcept = default;
   explicit pair_capability(meta::type type) noexcept : base_type(type) {}
@@ -166,6 +171,7 @@ public:
 class tuple_capability final : public type_capability_base<tuple_ops> {
 public:
   using base_type = type_capability_base<tuple_ops>;
+  using view_type = tuple_view;
 
   tuple_capability() noexcept = default;
   explicit tuple_capability(meta::type type) noexcept : base_type(type) {}
@@ -180,6 +186,7 @@ public:
 class variant_capability final : public type_capability_base<variant_ops> {
 public:
   using base_type = type_capability_base<variant_ops>;
+  using view_type = variant_view;
 
   variant_capability() noexcept = default;
   explicit variant_capability(meta::type type) noexcept : base_type(type) {}

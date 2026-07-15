@@ -8,6 +8,7 @@
 #include "caors/meta/value/any_ref.h"
 
 #include <type_traits>
+#include <utility>
 
 namespace caors::meta {
 
@@ -24,6 +25,27 @@ struct is_auto_capability_view<
 
 template <typename View>
 inline constexpr bool is_auto_capability_view_v = is_auto_capability_view<View>::value;
+
+template <typename Capability, typename = void>
+struct is_bindable_type_capability : std::false_type {};
+
+template <typename Capability>
+struct is_bindable_type_capability<
+    Capability,
+    std::void_t<typename std::remove_cv_t<std::remove_reference_t<Capability>>::view_type,
+                decltype(std::declval<std::remove_cv_t<std::remove_reference_t<Capability>>>().bind(
+                    std::declval<any_ref>()))>> {
+  using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+  using view_type = typename capability_type::view_type;
+  using bind_result = decltype(std::declval<capability_type>().bind(std::declval<any_ref>()));
+
+  static constexpr bool value =
+      is_auto_type_capability_v<capability_type> && std::is_convertible_v<bind_result, view_type>;
+};
+
+template <typename Capability>
+inline constexpr bool is_bindable_type_capability_v =
+    is_bindable_type_capability<Capability>::value;
 
 } // namespace detail
 
@@ -113,14 +135,33 @@ struct type_capability_traits<View, std::enable_if_t<detail::is_auto_capability_
 
 template <typename View>
 struct capability_view_traits<View, std::enable_if_t<detail::is_auto_capability_view_v<View>>> {
+  using result_type = std::remove_cv_t<std::remove_reference_t<View>>;
+
   static constexpr bool supported = true;
 
-  [[nodiscard]] static View bind(any_ref source) noexcept {
+  [[nodiscard]] static result_type bind(any_ref source) noexcept {
     if (!source.valid()) {
       return {};
     }
 
-    return type_capability_view<View>{source.get_type()}.bind(source);
+    return type_capability_view<result_type>{source.get_type()}.bind(source);
+  }
+};
+
+template <typename Capability>
+struct capability_view_traits<Capability,
+                              std::enable_if_t<detail::is_bindable_type_capability_v<Capability>>> {
+  using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+  using result_type = typename capability_type::view_type;
+
+  static constexpr bool supported = true;
+
+  [[nodiscard]] static result_type bind(any_ref source) {
+    if (!source.valid()) {
+      return {};
+    }
+
+    return capability_type{source.get_type()}.bind(source);
   }
 };
 

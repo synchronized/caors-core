@@ -85,6 +85,8 @@ template <typename Ops> [[nodiscard]] bool capability_ops_valid(const Ops* ops) 
  * `any_ref::get_capability<View>()` 查询。
  */
 template <typename CapabilityView, typename = void> struct capability_view_traits {
+  using result_type = std::remove_cv_t<std::remove_reference_t<CapabilityView>>;
+
   static constexpr bool supported = false;
 };
 

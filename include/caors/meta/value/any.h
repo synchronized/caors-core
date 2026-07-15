@@ -104,8 +104,8 @@ public:
   [[nodiscard]] void* mutable_data() noexcept;
   [[nodiscard]] any_ref ref();
   [[nodiscard]] any_ref ref() const;
-  template <typename View> [[nodiscard]] View get_capability();
-  template <typename View> [[nodiscard]] View get_capability() const;
+  template <typename Capability> [[nodiscard]] auto get_capability();
+  template <typename Capability> [[nodiscard]] auto get_capability() const;
   [[nodiscard]] std::size_t size() const noexcept;
   [[nodiscard]] std::size_t alignment() const noexcept;
 
