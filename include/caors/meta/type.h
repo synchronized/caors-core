@@ -104,18 +104,6 @@ public:
     return get_raw_ops<Ops>() != nullptr;
   }
 
-  /** @brief 兼容旧入口；新代码应使用 `get_raw_ops<T>()`。 */
-  template <typename Ops>
-  [[nodiscard]] [[deprecated("use get_raw_ops<T>()")]] const Ops* get_ops() const noexcept {
-    return get_raw_ops<Ops>();
-  }
-
-  /** @brief 兼容旧入口；新代码应使用 `has_raw_ops<T>()`。 */
-  template <typename Ops>
-  [[nodiscard]] [[deprecated("use has_raw_ops<T>()")]] bool has_ops() const noexcept {
-    return has_raw_ops<Ops>();
-  }
-
 private:
   friend class registry;
   friend type detail::make_type_view(type_id, const detail::type_descriptor*) noexcept;

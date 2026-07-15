@@ -108,33 +108,6 @@ public:
   template <typename View> [[nodiscard]] View get_capability() const;
   [[nodiscard]] std::size_t size() const noexcept;
   [[nodiscard]] std::size_t alignment() const noexcept;
-  [[nodiscard]] [[deprecated("use get_capability<meta::sequence_view>()")]] sequence_view
-  create_sequence_view();
-  [[nodiscard]] [[deprecated("use get_capability<meta::sequence_view>()")]] sequence_view
-  create_sequence_view() const;
-  [[nodiscard]] [[deprecated("use get_capability<meta::set_view>()")]] set_view create_set_view();
-  [[nodiscard]] [[deprecated("use get_capability<meta::set_view>()")]] set_view
-  create_set_view() const;
-  [[nodiscard]] [[deprecated("use get_capability<meta::associative_view>()")]] associative_view
-  create_associative_view();
-  [[nodiscard]] [[deprecated("use get_capability<meta::associative_view>()")]] associative_view
-  create_associative_view() const;
-  [[nodiscard]] [[deprecated("use get_capability<meta::pair_view>()")]] pair_view
-  create_pair_view();
-  [[nodiscard]] [[deprecated("use get_capability<meta::pair_view>()")]] pair_view
-  create_pair_view() const;
-  [[nodiscard]] [[deprecated("use get_capability<meta::tuple_view>()")]] tuple_view
-  create_tuple_view();
-  [[nodiscard]] [[deprecated("use get_capability<meta::tuple_view>()")]] tuple_view
-  create_tuple_view() const;
-  [[nodiscard]] [[deprecated("use get_capability<meta::variant_view>()")]] variant_view
-  create_variant_view();
-  [[nodiscard]] [[deprecated("use get_capability<meta::variant_view>()")]] variant_view
-  create_variant_view() const;
-  [[nodiscard]] [[deprecated("use get_capability<meta::indirect_view>()")]] indirect_view
-  create_indirect_view();
-  [[nodiscard]] [[deprecated("use get_capability<meta::indirect_view>()")]] indirect_view
-  create_indirect_view() const;
 
   /** @brief 清空当前值。 */
   void reset() noexcept;

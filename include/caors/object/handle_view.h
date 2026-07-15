@@ -14,10 +14,6 @@ class handle_view;
 /** @brief 如果运行期引用具备对象身份句柄语义，则创建句柄视图。 */
 [[nodiscard]] handle_view make_handle_view(meta::any_ref source) noexcept;
 
-/** @brief 兼容旧入口；新代码应使用 `make_handle_view()`。 */
-[[nodiscard]] [[deprecated("use make_handle_view()")]] handle_view
-handle_view_of(meta::any_ref source) noexcept;
-
 /**
  * @brief 对象身份句柄运行期视图。
  *
@@ -99,11 +95,6 @@ private:
   }
 
   return handle_view{data, source.data(), source.writable()};
-}
-
-[[nodiscard]] [[deprecated("use make_handle_view()")]] inline handle_view
-handle_view_of(meta::any_ref source) noexcept {
-  return make_handle_view(source);
 }
 
 /** @brief 判断运行期引用是否具备对象身份句柄语义。 */

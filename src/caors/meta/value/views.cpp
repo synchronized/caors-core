@@ -1016,46 +1016,4 @@ const meta::associative_ops* associative_view::data() const noexcept {
   return type_.get_raw_ops<meta::associative_ops>();
 }
 
-associative_view any::create_associative_view() { return make_associative_view(ref()); }
-
-associative_view any::create_associative_view() const { return make_associative_view(ref()); }
-
-associative_view any_ref::create_associative_view() const { return make_associative_view(*this); }
-
-pair_view any::create_pair_view() { return make_pair_view(ref()); }
-
-pair_view any::create_pair_view() const { return make_pair_view(ref()); }
-
-pair_view any_ref::create_pair_view() const { return make_pair_view(*this); }
-
-tuple_view any::create_tuple_view() { return make_tuple_view(ref()); }
-
-tuple_view any::create_tuple_view() const { return make_tuple_view(ref()); }
-
-tuple_view any_ref::create_tuple_view() const { return make_tuple_view(*this); }
-
-variant_view any::create_variant_view() { return make_variant_view(ref()); }
-
-variant_view any::create_variant_view() const { return make_variant_view(ref()); }
-
-variant_view any_ref::create_variant_view() const { return make_variant_view(*this); }
-
-indirect_view any::create_indirect_view() { return make_indirect_view(ref()); }
-
-indirect_view any::create_indirect_view() const { return make_indirect_view(ref()); }
-
-indirect_view any_ref::create_indirect_view() const { return make_indirect_view(*this); }
-
-sequence_view any::create_sequence_view() { return make_sequence_view(ref()); }
-
-sequence_view any::create_sequence_view() const { return make_sequence_view(ref()); }
-
-sequence_view any_ref::create_sequence_view() const { return make_sequence_view(*this); }
-
-set_view any::create_set_view() { return make_set_view(ref()); }
-
-set_view any::create_set_view() const { return make_set_view(ref()); }
-
-set_view any_ref::create_set_view() const { return make_set_view(*this); }
-
 } // namespace caors::meta

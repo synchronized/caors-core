@@ -14,10 +14,6 @@ class ptr_view;
 /** @brief 如果运行期引用具备对象指针语义，则创建对象指针视图。 */
 [[nodiscard]] ptr_view make_ptr_view(meta::any_ref source) noexcept;
 
-/** @brief 兼容旧入口；新代码应使用 `make_ptr_view()`。 */
-[[nodiscard]] [[deprecated("use make_ptr_view()")]] ptr_view
-ptr_view_of(meta::any_ref source) noexcept;
-
 /**
  * @brief 对象指针运行期视图。
  *
@@ -99,11 +95,6 @@ private:
   }
 
   return ptr_view{data, source.data(), source.writable()};
-}
-
-[[nodiscard]] [[deprecated("use make_ptr_view()")]] inline ptr_view
-ptr_view_of(meta::any_ref source) noexcept {
-  return make_ptr_view(source);
 }
 
 /** @brief 判断运行期引用是否具备对象指针语义。 */
