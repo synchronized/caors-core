@@ -626,9 +626,9 @@ caors::meta::class_<actor>()
 - `component_view<T...>()`：查询同时拥有指定组件集合的类型。
 
 容器 descriptor 会在具体容器支持 `begin()` / `end()` 时额外保存类型擦除 iterator 函数，用于
-`set_view` 和 `associative_view` 的 range-for 遍历。只提供 traits callback 的自定义容器仍可通过
-`for_each_ref()` 遍历。容器 view 只依赖 descriptor，不再为了创建 view 把每一种容器组合额外挂载为
-meta 组件。
+`set_view` 和 `associative_view` 的 range-for 遍历。运行期遍历统一通过 iterator 完成；自定义容器如果
+需要暴露集合或关联容器遍历能力，应在对应 traits 中提供可适配的 iterator 操作。容器 view 只依赖
+descriptor，不再为了创建 view 把每一种容器组合额外挂载为 meta 组件。
 
 组件挂载同样返回 `caors::error`，`domain()` 为 `error_domain::meta`：
 

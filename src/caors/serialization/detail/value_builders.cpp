@@ -46,36 +46,29 @@ namespace caors::serialization::detail {
   variant::array_type elements;
   elements.reserve(*size);
 
-  struct visitor_context {
-    variant::array_type* elements = nullptr;
-    const serialization::context* context = nullptr;
-    variant_result result{};
-  } visitor{&elements, &context, {}};
+  auto current = view.begin();
+  auto last = view.end();
+  if (*size != 0 && current == last) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
+  }
 
-  const bool completed = view.for_each_ref(
-      [](any_ref element, void* user_data) -> bool {
-        auto* visitor = static_cast<visitor_context*>(user_data);
-        result<serialization::context> nested_context = visitor->context->enter_nested_value();
-        if (nested_context.failed()) {
-          visitor->result = {nested_context.status, {}};
-          return false;
-        }
+  for (; current != last; ++current) {
+    any_ref element = *current;
+    if (!element.valid()) {
+      return {{error_domain::serialization, errc::unsupported}, {}};
+    }
 
-        variant_result encoded = make_serialized_value(element, nested_context.value);
-        if (encoded.failed()) {
-          visitor->result = encoded;
-          return false;
-        }
+    result<serialization::context> nested_context = context.enter_nested_value();
+    if (nested_context.failed()) {
+      return {nested_context.status, {}};
+    }
 
-        visitor->elements->push_back(std::move(encoded.value));
-        return true;
-      },
-      &visitor);
+    variant_result encoded = make_serialized_value(element, nested_context.value);
+    if (encoded.failed()) {
+      return encoded;
+    }
 
-  if (!completed) {
-    return visitor.result.failed()
-               ? visitor.result
-               : variant_result{{error_domain::serialization, errc::unsupported}, {}};
+    elements.push_back(std::move(encoded.value));
   }
 
   return {{}, variant::array(std::move(elements))};
@@ -91,43 +84,37 @@ namespace caors::serialization::detail {
   variant::dictionary_type entries;
   entries.reserve(*size);
 
-  struct visitor_context {
-    variant::dictionary_type* entries = nullptr;
-    const serialization::context* context = nullptr;
-    variant_result result{};
-  } visitor{&entries, &context, {}};
+  auto current = view.begin();
+  auto last = view.end();
+  if (*size != 0 && current == last) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
+  }
 
-  const bool completed = view.for_each_ref(
-      [](any_ref key, any_ref value, void* user_data) -> bool {
-        auto* visitor = static_cast<visitor_context*>(user_data);
-        result<serialization::context> nested_context = visitor->context->enter_nested_value();
-        if (nested_context.failed()) {
-          visitor->result = {nested_context.status, {}};
-          return false;
-        }
+  for (; current != last; ++current) {
+    const meta::associative_entry_ref entry = *current;
+    any_ref key = entry.key();
+    any_ref value = entry.value();
+    if (!key.valid() || !value.valid()) {
+      return {{error_domain::serialization, errc::unsupported}, {}};
+    }
 
-        variant_result encoded_key = make_serialized_value(key, nested_context.value);
-        if (encoded_key.failed()) {
-          visitor->result = encoded_key;
-          return false;
-        }
+    result<serialization::context> nested_context = context.enter_nested_value();
+    if (nested_context.failed()) {
+      return {nested_context.status, {}};
+    }
 
-        variant_result encoded_value = make_serialized_value(value, nested_context.value);
-        if (encoded_value.failed()) {
-          visitor->result = encoded_value;
-          return false;
-        }
+    variant_result encoded_key = make_serialized_value(key, nested_context.value);
+    if (encoded_key.failed()) {
+      return encoded_key;
+    }
 
-        visitor->entries->push_back(
-            meta::variant_entry{std::move(encoded_key.value), std::move(encoded_value.value)});
-        return true;
-      },
-      &visitor);
+    variant_result encoded_value = make_serialized_value(value, nested_context.value);
+    if (encoded_value.failed()) {
+      return encoded_value;
+    }
 
-  if (!completed) {
-    return visitor.result.failed()
-               ? visitor.result
-               : variant_result{{error_domain::serialization, errc::unsupported}, {}};
+    entries.push_back(
+        meta::variant_entry{std::move(encoded_key.value), std::move(encoded_value.value)});
   }
 
   return {{}, variant::dictionary(std::move(entries))};

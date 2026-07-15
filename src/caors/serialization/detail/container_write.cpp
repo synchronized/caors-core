@@ -59,44 +59,40 @@ namespace caors::serialization::detail {
     return status;
   }
 
-  struct visitor_context {
-    writer* writer = nullptr;
-    const serialization::context* context = nullptr;
-    std::size_t index = 0;
-    error status{};
-  } visitor{&output, &context, 0, {}};
+  auto current = view.begin();
+  auto last = view.end();
+  if (*size != 0 && current == last) {
+    return {error_domain::serialization, errc::unsupported};
+  }
 
-  const bool completed = view.for_each_ref(
-      [](any_ref element, void* user_data) -> bool {
-        auto* visitor = static_cast<visitor_context*>(user_data);
-        visitor->status = visitor->writer->begin_element(visitor->index);
-        if (visitor->status) {
-          return false;
-        }
+  std::size_t index = 0;
+  for (; current != last; ++current) {
+    status = output.begin_element(index);
+    if (status) {
+      return status;
+    }
 
-        result<serialization::context> nested_context = visitor->context->enter_nested_value();
-        if (nested_context.failed()) {
-          visitor->status = nested_context.status;
-          return false;
-        }
+    any_ref element = *current;
+    if (!element.valid()) {
+      return {error_domain::serialization, errc::unsupported};
+    }
 
-        visitor->status = write_serialized_value(*visitor->writer, element, nested_context.value);
-        if (visitor->status) {
-          return false;
-        }
+    result<serialization::context> nested_context = context.enter_nested_value();
+    if (nested_context.failed()) {
+      return nested_context.status;
+    }
 
-        visitor->status = visitor->writer->end_element();
-        if (visitor->status) {
-          return false;
-        }
+    status = write_serialized_value(output, element, nested_context.value);
+    if (status) {
+      return status;
+    }
 
-        ++visitor->index;
-        return true;
-      },
-      &visitor);
+    status = output.end_element();
+    if (status) {
+      return status;
+    }
 
-  if (!completed) {
-    return visitor.status ? visitor.status : error{error_domain::serialization, errc::unsupported};
+    ++index;
   }
 
   return output.end_array();
@@ -114,69 +110,67 @@ namespace caors::serialization::detail {
     return status;
   }
 
-  struct visitor_context {
-    writer* writer = nullptr;
-    const serialization::context* context = nullptr;
-    std::size_t index = 0;
-    error status{};
-  } visitor{&output, &context, 0, {}};
+  auto current = view.begin();
+  auto last = view.end();
+  if (*size != 0 && current == last) {
+    return {error_domain::serialization, errc::unsupported};
+  }
 
-  const bool completed = view.for_each_ref(
-      [](any_ref key, any_ref value, void* user_data) -> bool {
-        auto* visitor = static_cast<visitor_context*>(user_data);
-        visitor->status = visitor->writer->begin_entry(visitor->index);
-        if (visitor->status) {
-          return false;
-        }
+  std::size_t index = 0;
+  for (; current != last; ++current) {
+    const meta::associative_entry_ref entry = *current;
+    any_ref key = entry.key();
+    any_ref value = entry.value();
+    if (!key.valid() || !value.valid()) {
+      return {error_domain::serialization, errc::unsupported};
+    }
 
-        visitor->status = visitor->writer->begin_key();
-        if (visitor->status) {
-          return false;
-        }
+    status = output.begin_entry(index);
+    if (status) {
+      return status;
+    }
 
-        result<serialization::context> nested_context = visitor->context->enter_nested_value();
-        if (nested_context.failed()) {
-          visitor->status = nested_context.status;
-          return false;
-        }
+    status = output.begin_key();
+    if (status) {
+      return status;
+    }
 
-        visitor->status = write_serialized_value(*visitor->writer, key, nested_context.value);
-        if (visitor->status) {
-          return false;
-        }
+    result<serialization::context> nested_context = context.enter_nested_value();
+    if (nested_context.failed()) {
+      return nested_context.status;
+    }
 
-        visitor->status = visitor->writer->end_key();
-        if (visitor->status) {
-          return false;
-        }
+    status = write_serialized_value(output, key, nested_context.value);
+    if (status) {
+      return status;
+    }
 
-        visitor->status = visitor->writer->begin_value();
-        if (visitor->status) {
-          return false;
-        }
+    status = output.end_key();
+    if (status) {
+      return status;
+    }
 
-        visitor->status = write_serialized_value(*visitor->writer, value, nested_context.value);
-        if (visitor->status) {
-          return false;
-        }
+    status = output.begin_value();
+    if (status) {
+      return status;
+    }
 
-        visitor->status = visitor->writer->end_value();
-        if (visitor->status) {
-          return false;
-        }
+    status = write_serialized_value(output, value, nested_context.value);
+    if (status) {
+      return status;
+    }
 
-        visitor->status = visitor->writer->end_entry();
-        if (visitor->status) {
-          return false;
-        }
+    status = output.end_value();
+    if (status) {
+      return status;
+    }
 
-        ++visitor->index;
-        return true;
-      },
-      &visitor);
+    status = output.end_entry();
+    if (status) {
+      return status;
+    }
 
-  if (!completed) {
-    return visitor.status ? visitor.status : error{error_domain::serialization, errc::unsupported};
+    ++index;
   }
 
   return output.end_dictionary();

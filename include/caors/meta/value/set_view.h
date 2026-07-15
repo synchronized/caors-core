@@ -70,9 +70,6 @@ public:
   [[nodiscard]] iterator begin() const;
   [[nodiscard]] iterator end() const;
 
-  /** @brief 遍历集合元素只读引用。 */
-  bool for_each_ref(set_element_visitor visitor, void* user_data = nullptr) const;
-
   /** @brief 清空集合。 */
   bool clear() const;
 

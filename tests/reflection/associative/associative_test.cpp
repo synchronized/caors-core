@@ -96,32 +96,22 @@ TEST_CASE("reflection - associative field view supports dynamic operations", "[r
   CHECK_FALSE(readonly_map.insert_value(caors::any::from(8), caors::any::from(80)));
   CHECK_FALSE(readonly_map.clear());
 
-  struct visit_state {
-    int key = 0;
-    int mapped = 0;
-    int count = 0;
-  };
+  int readonly_key = 0;
+  int readonly_mapped = 0;
+  int readonly_count = 0;
+  for (caors::meta::associative_entry_ref entry : readonly_map) {
+    const int* key = entry.key().try_get<int>();
+    const int* mapped = entry.value().try_get<int>();
+    REQUIRE(key != nullptr);
+    REQUIRE(mapped != nullptr);
+    readonly_key = *key;
+    readonly_mapped = *mapped;
+    ++readonly_count;
+  }
 
-  visit_state state{};
-  CHECK(readonly_map.for_each_ref(
-      [](caors::any_ref key, caors::any_ref mapped, void* user_data) {
-        auto* state = static_cast<visit_state*>(user_data);
-        const int* key_value = key.try_get<int>();
-        const int* mapped_value = mapped.try_get<int>();
-        if (key_value == nullptr || mapped_value == nullptr) {
-          return false;
-        }
-
-        state->key = *key_value;
-        state->mapped = *mapped_value;
-        ++state->count;
-        return true;
-      },
-      &state));
-
-  CHECK(state.count == 1);
-  CHECK(state.key == 7);
-  CHECK(state.mapped == 70);
+  CHECK(readonly_count == 1);
+  CHECK(readonly_key == 7);
+  CHECK(readonly_mapped == 70);
 
   CHECK(map.clear());
   const std::optional<std::size_t> empty_size = map.size();
@@ -191,18 +181,11 @@ TEST_CASE("reflection - set field view exposes element metadata", "[reflection]"
   CHECK_FALSE(readonly_set.clear());
 
   int visited = 0;
-  CHECK(readonly_set.for_each_ref(
-      [](caors::any_ref element, void* user_data) {
-        auto* visited = static_cast<int*>(user_data);
-        const int* value = element.try_get<int>();
-        if (value == nullptr) {
-          return false;
-        }
-
-        *visited = *value;
-        return true;
-      },
-      &visited));
+  for (caors::any_ref element : readonly_set) {
+    const int* value = element.try_get<int>();
+    REQUIRE(value != nullptr);
+    visited = *value;
+  }
   CHECK(visited == 11);
 
   CHECK(set.clear());

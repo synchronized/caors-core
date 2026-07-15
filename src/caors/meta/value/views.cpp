@@ -771,20 +771,6 @@ set_view::iterator set_view::end() const {
   return iterator{this, data()->iterator.end(storage_)};
 }
 
-bool set_view::for_each_ref(set_element_visitor visitor, void* user_data) const {
-  if (!valid() || !has_iterator_support() || visitor == nullptr) {
-    return false;
-  }
-
-  for (iterator current = begin(), last = end(); current != last; ++current) {
-    if (!visitor(*current, user_data)) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
 bool set_view::clear() const {
   const meta::set_ops* info = data();
   if (!writable() || info->clear == nullptr) {
@@ -965,21 +951,6 @@ associative_view::iterator associative_view::end() const {
   }
 
   return iterator{this, data()->iterator.end(storage_)};
-}
-
-bool associative_view::for_each_ref(associative_entry_visitor visitor, void* user_data) const {
-  if (!valid() || !has_iterator_support() || visitor == nullptr) {
-    return false;
-  }
-
-  for (iterator current = begin(), last = end(); current != last; ++current) {
-    const associative_entry_ref entry = *current;
-    if (!visitor(entry.key(), entry.value(), user_data)) {
-      return false;
-    }
-  }
-
-  return true;
 }
 
 bool associative_view::clear() const {

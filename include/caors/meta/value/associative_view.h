@@ -72,9 +72,6 @@ public:
   [[nodiscard]] iterator begin() const;
   [[nodiscard]] iterator end() const;
 
-  /** @brief 遍历关联容器 key/value 只读引用。 */
-  bool for_each_ref(associative_entry_visitor visitor, void* user_data = nullptr) const;
-
   /** @brief 清空关联容器。 */
   bool clear() const;
 

@@ -43,12 +43,6 @@ class pair_view;
 class tuple_view;
 class variant_view;
 
-/** @brief 集合元素访问回调。 */
-using set_element_visitor = bool (*)(any_ref element, void* user_data);
-
-/** @brief 关联容器 key/value 访问回调。 */
-using associative_entry_visitor = bool (*)(any_ref key, any_ref mapped, void* user_data);
-
 } // namespace caors::meta
 
 #endif

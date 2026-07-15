@@ -537,7 +537,7 @@ damage.invoke(&instance, args);
 - `valid()` / `writable()`：判断视图有效性和是否允许修改。
 - `get_value_type()`：查询元素类型信息。
 - `get_element_type()`：查询元素类型信息，是 `get_value_type()` 的语义别名。
-- `size()` / `begin()` / `end()` / `for_each_ref()`：查询和遍历集合。集合元素按 key 语义暴露为只读 `any_ref`。
+- `size()` / `begin()` / `end()`：查询和遍历集合。集合元素按 key 语义暴露为只读 `any_ref`。
 - `clear()` / `insert_value()`：通过 `traits::set_traits` 修改集合。只有可写视图允许修改。
 
 `associative_view` 当前提供：
@@ -545,7 +545,7 @@ damage.invoke(&instance, args);
 - `valid()` / `writable()`：判断视图有效性和是否允许修改。
 - `get_key_type()` / `get_value_type()`：查询 key/value 类型信息。
 - `get_mapped_type()`：查询 mapped/value 类型信息，是 `get_value_type()` 的语义别名。
-- `size()` / `begin()` / `end()` / `for_each_ref()`：查询和遍历关联容器。iterator 解引用返回 `associative_entry_ref`，其中 key/value 都是只读 `any_ref`。
+- `size()` / `begin()` / `end()`：查询和遍历关联容器。iterator 解引用返回 `associative_entry_ref`，其中 key/value 都是只读 `any_ref`。
 - `clear()` / `insert_value()`：通过 `traits::associative_traits` 修改关联容器。只有可写视图允许修改；插入时
   key 和 value 必须与类型级关联容器 metadata 记录的 `type_id` 一致。
 
