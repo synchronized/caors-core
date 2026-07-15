@@ -186,6 +186,28 @@ struct has_capability_model<
 template <typename Capability, typename T>
 inline constexpr bool has_capability_model_v = has_capability_model<Capability, T>::value;
 
+template <typename Capability, typename T, typename = void>
+struct has_capability_auto_model : std::false_type {};
+
+template <typename Capability, typename T>
+struct has_capability_auto_model<
+    Capability, T,
+    std::void_t<typename std::remove_cv_t<std::remove_reference_t<Capability>>::template model<
+                    std::remove_cv_t<std::remove_reference_t<T>>>::ops_type,
+                decltype(std::remove_cv_t<std::remove_reference_t<Capability>>::template model<
+                         std::remove_cv_t<std::remove_reference_t<T>>>::get())>> {
+  using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  using model_type = typename capability_type::template model<value_type>;
+  using ops_type = typename model_type::ops_type;
+
+  static constexpr bool value = std::is_same_v<ops_type, typename capability_type::ops_type> &&
+                                std::is_convertible_v<decltype(model_type::get()), const ops_type*>;
+};
+
+template <typename Capability, typename T>
+inline constexpr bool has_capability_auto_model_v = has_capability_auto_model<Capability, T>::value;
+
 /** @brief 把 `capability_model<Capability, T>` 生成的 ops 挂到运行期索引。内部入口。 */
 template <typename Capability, typename T> [[nodiscard]] error register_capability_model_for() {
   using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
@@ -195,6 +217,25 @@ template <typename Capability, typename T> [[nodiscard]] error register_capabili
 
   static_assert(std::is_same_v<ops_type, typename capability_type::ops_type>,
                 "capability_model ops_type must match Capability::ops_type");
+
+  const ops_type* ops = model_type::get();
+  if (ops == nullptr) {
+    return {error_domain::meta, errc::unsupported};
+  }
+
+  return register_capability_for_type<ops_type, value_type>(ops);
+}
+
+/** @brief 把 capability 自身声明的自动 model 生成的 ops 挂到运行期索引。内部入口。 */
+template <typename Capability, typename T>
+[[nodiscard]] error register_capability_auto_model_for() {
+  using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  using model_type = typename capability_type::template model<value_type>;
+  using ops_type = typename model_type::ops_type;
+
+  static_assert(std::is_same_v<ops_type, typename capability_type::ops_type>,
+                "capability auto model ops_type must match Capability::ops_type");
 
   const ops_type* ops = model_type::get();
   if (ops == nullptr) {
@@ -227,5 +268,121 @@ template <typename Capability, typename T, typename... Bindings>
 } // namespace detail
 
 } // namespace caors::meta
+
+#define CAORS_META_PROXY_DETAIL_UNPAREN(...) __VA_ARGS__
+
+#define CAORS_META_PROXY_DETAIL_CONST_OPS_FIELD(name, result_type, call_args, noex, ...)           \
+  result_type (*name)(const void* __VA_OPT__(, ) __VA_ARGS__) noex = nullptr;
+
+#define CAORS_META_PROXY_DETAIL_MUTABLE_OPS_FIELD(name, result_type, call_args, noex, ...)         \
+  result_type (*name)(void* __VA_OPT__(, ) __VA_ARGS__) noex = nullptr;
+
+#define CAORS_META_PROXY_DETAIL_TYPE_OPS_FIELD(name, result_type, call_args, noex, ...)            \
+  result_type (*name)(__VA_ARGS__) noex = nullptr;
+
+#define CAORS_META_PROXY_DETAIL_OPS_VALID(name, result_type, call_args, noex, ...)                 \
+  (name != nullptr) &&
+
+#define CAORS_META_PROXY_DETAIL_CONST_VIEW_METHOD(name, result_type, call_args, noex, ...)         \
+  result_type name(__VA_ARGS__) const noex {                                                       \
+    if constexpr (std::is_void_v<result_type>) {                                                   \
+      ops()->name(data() __VA_OPT__(, ) CAORS_META_PROXY_DETAIL_UNPAREN call_args);                \
+    } else {                                                                                       \
+      return ops()->name(data() __VA_OPT__(, ) CAORS_META_PROXY_DETAIL_UNPAREN call_args);         \
+    }                                                                                              \
+  }
+
+#define CAORS_META_PROXY_DETAIL_MUTABLE_VIEW_METHOD(name, result_type, call_args, noex, ...)       \
+  result_type name(__VA_ARGS__) const noex {                                                       \
+    if constexpr (std::is_void_v<result_type>) {                                                   \
+      ops()->name(mutable_data() __VA_OPT__(, ) CAORS_META_PROXY_DETAIL_UNPAREN call_args);        \
+    } else {                                                                                       \
+      return ops()->name(mutable_data() __VA_OPT__(, ) CAORS_META_PROXY_DETAIL_UNPAREN call_args); \
+    }                                                                                              \
+  }
+
+#define CAORS_META_PROXY_DETAIL_TYPE_FACADE_METHOD(name, result_type, call_args, noex, ...)        \
+  result_type name(__VA_ARGS__) const noex {                                                       \
+    if constexpr (std::is_void_v<result_type>) {                                                   \
+      if (valid()) {                                                                               \
+        ops_->name(CAORS_META_PROXY_DETAIL_UNPAREN call_args);                                     \
+      }                                                                                            \
+    } else {                                                                                       \
+      return valid() ? ops_->name(CAORS_META_PROXY_DETAIL_UNPAREN call_args) : result_type{};      \
+    }                                                                                              \
+  }
+
+#define CAORS_META_PROXY_DETAIL_MODEL_METHOD(name, result_type, call_args, noex, ...)              \
+  , caors::meta::proxy::method<&ops_type::name, &value_type::name>
+
+/**
+ * @brief 定义可绑定实例的 proxy capability。
+ *
+ * `methods` 需要接受两个宏参数：第一个用于只读方法，第二个用于可写方法。方法项格式为
+ * `METHOD(name, result_type, (call_args...), noexcept_or_empty, parameter_decls...)`。
+ */
+#define CAORS_META_PROXY_CAPABILITY(capability_name, methods)                                      \
+  struct capability_name##_ops {                                                                   \
+    methods(CAORS_META_PROXY_DETAIL_CONST_OPS_FIELD, CAORS_META_PROXY_DETAIL_MUTABLE_OPS_FIELD)    \
+        [[nodiscard]] bool valid() const noexcept {                                                \
+      return methods(CAORS_META_PROXY_DETAIL_OPS_VALID, CAORS_META_PROXY_DETAIL_OPS_VALID) true;   \
+    }                                                                                              \
+  };                                                                                               \
+  class capability_name##_view final                                                               \
+      : public caors::meta::capability_view_base<capability_name##_ops> {                          \
+  public:                                                                                          \
+    using base_type = caors::meta::capability_view_base<capability_name##_ops>;                    \
+    using base_type::base_type;                                                                    \
+                                                                                                   \
+    capability_name##_view() noexcept = default;                                                   \
+                                                                                                   \
+    methods(CAORS_META_PROXY_DETAIL_CONST_VIEW_METHOD,                                             \
+            CAORS_META_PROXY_DETAIL_MUTABLE_VIEW_METHOD)                                           \
+  };                                                                                               \
+  class capability_name final                                                                      \
+      : public caors::meta::type_capability_base<capability_name##_ops, capability_name##_view> {  \
+  public:                                                                                          \
+    using base_type =                                                                              \
+        caors::meta::type_capability_base<capability_name##_ops, capability_name##_view>;          \
+    using ops_type = capability_name##_ops;                                                        \
+    using view_type = capability_name##_view;                                                      \
+    using base_type::base_type;                                                                    \
+                                                                                                   \
+    capability_name() noexcept = default;                                                          \
+                                                                                                   \
+    template <typename T> struct model {                                                           \
+      using value_type = std::remove_cv_t<std::remove_reference_t<T>>;                             \
+      using proxy_model =                                                                          \
+          caors::meta::proxy::model<capability_name,                                               \
+                                    value_type methods(CAORS_META_PROXY_DETAIL_MODEL_METHOD,       \
+                                                       CAORS_META_PROXY_DETAIL_MODEL_METHOD)>;     \
+      using ops_type = typename proxy_model::ops_type;                                             \
+                                                                                                   \
+      [[nodiscard]] static const ops_type* get() noexcept { return proxy_model::get(); }           \
+    };                                                                                             \
+  };
+
+/**
+ * @brief 定义纯类型级 proxy capability。
+ *
+ * `methods` 需要接受一个宏参数，方法项格式同 `CAORS_META_PROXY_CAPABILITY`。第一版只生成
+ * `ops` 和类型级 facade；函数表仍通过现有 `.capability(ops)` 或后续 model 扩展注册。
+ */
+#define CAORS_META_PROXY_TYPE_CAPABILITY(capability_name, methods)                                 \
+  struct capability_name##_ops {                                                                   \
+    methods(CAORS_META_PROXY_DETAIL_TYPE_OPS_FIELD) [[nodiscard]] bool valid() const noexcept {    \
+      return methods(CAORS_META_PROXY_DETAIL_OPS_VALID) true;                                      \
+    }                                                                                              \
+  };                                                                                               \
+  class capability_name final : public caors::meta::type_capability_base<capability_name##_ops> {  \
+  public:                                                                                          \
+    using base_type = caors::meta::type_capability_base<capability_name##_ops>;                    \
+    using ops_type = capability_name##_ops;                                                        \
+    using base_type::base_type;                                                                    \
+                                                                                                   \
+    capability_name() noexcept = default;                                                          \
+                                                                                                   \
+    methods(CAORS_META_PROXY_DETAIL_TYPE_FACADE_METHOD)                                            \
+  };
 
 #endif
