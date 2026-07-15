@@ -4,8 +4,8 @@
 #ifndef CAORS_SERIALIZATION_CODEC_H_
 #define CAORS_SERIALIZATION_CODEC_H_
 
-#include "caors/meta/capability.h"
 #include "caors/meta/query.h"
+#include "caors/meta/type.h"
 #include "caors/meta/value/any_ref.h"
 #include "caors/serialization/codec_ops.h"
 #include "caors/serialization/reader.h"
@@ -333,15 +333,13 @@ private:
 };
 
 /** @brief 序列化 codec 的类型级能力 facade。 */
-class CAORS_API codec_capability final {
+class CAORS_API codec_capability final : public meta::type_capability_base<codec_ops> {
 public:
-  constexpr codec_capability() noexcept = default;
-  explicit codec_capability(meta::type type) noexcept;
+  using base_type = meta::type_capability_base<codec_ops>;
 
-  [[nodiscard]] bool valid() const noexcept;
-  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
+  codec_capability() noexcept = default;
+  explicit codec_capability(meta::type type) noexcept : base_type(type) {}
 
-  [[nodiscard]] meta::type get_type() const noexcept;
   [[nodiscard]] type_id type() const noexcept;
   [[nodiscard]] bool can_write() const noexcept;
   [[nodiscard]] bool can_read() const noexcept;
@@ -358,10 +356,6 @@ public:
   /** @brief 使用该 codec 构造序列化中间值。 */
   [[nodiscard]] variant_result make_value(const serialization::context& context,
                                           const any& data) const;
-
-private:
-  meta::type type_{};
-  const codec_ops* ops_ = nullptr;
 };
 
 /** @brief 把运行期 C++ 值转换为序列化中间值。 */
@@ -380,22 +374,6 @@ private:
 template <typename T> [[nodiscard]] codec codec_of();
 
 } // namespace caors::serialization
-
-namespace caors::meta {
-
-template <> struct type_capability_traits<serialization::codec_capability> {
-  using result_type = serialization::codec_capability;
-
-  [[nodiscard]] static result_type get(const type& source) noexcept {
-    return serialization::codec_capability{source};
-  }
-
-  [[nodiscard]] static bool has(const type& source) noexcept {
-    return serialization::codec_capability{source}.valid();
-  }
-};
-
-} // namespace caors::meta
 
 namespace caors::serialization::detail {
 

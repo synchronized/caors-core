@@ -13,18 +13,6 @@ namespace caors::meta {
 
 namespace detail {
 
-template <typename Ops> [[nodiscard]] bool capability_ops_valid(const Ops* ops) noexcept {
-  if (ops == nullptr) {
-    return false;
-  }
-
-  if constexpr (requires(const Ops& value) { value.valid(); }) {
-    return static_cast<bool>(ops->valid());
-  } else {
-    return true;
-  }
-}
-
 template <typename View, typename = void> struct is_auto_capability_view : std::false_type {};
 
 template <typename View>
@@ -86,33 +74,26 @@ private:
 /**
  * @brief 类型级 capability facade，负责把类型能力延后绑定到具体 `any_ref`。
  */
-template <typename View> class type_capability_view {
+template <typename View>
+class type_capability_view
+    : public type_capability_base<
+          typename std::remove_cv_t<std::remove_reference_t<View>>::ops_type> {
 public:
   using view_type = std::remove_cv_t<std::remove_reference_t<View>>;
   using ops_type = typename view_type::ops_type;
+  using base_type = type_capability_base<ops_type>;
 
   type_capability_view() noexcept = default;
 
-  explicit type_capability_view(meta::type type) noexcept
-      : type_(type), ops_(type.get_raw_ops<ops_type>()) {}
-
-  [[nodiscard]] bool valid() const noexcept { return type_ && detail::capability_ops_valid(ops_); }
-
-  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
-
-  [[nodiscard]] meta::type get_type() const noexcept { return valid() ? type_ : meta::type{}; }
+  explicit type_capability_view(meta::type type) noexcept : base_type(type) {}
 
   [[nodiscard]] view_type bind(any_ref source) const noexcept {
-    if (!valid() || !source.valid() || source.get_type().id() != type_.id()) {
+    if (!this->valid() || !source.valid() || source.get_type().id() != this->type_.id()) {
       return {};
     }
 
-    return view_type{type_, ops_, source};
+    return view_type{this->type_, this->ops_, source};
   }
-
-private:
-  meta::type type_{};
-  const ops_type* ops_ = nullptr;
 };
 
 template <typename View>

@@ -118,18 +118,92 @@ private:
   const detail::type_descriptor* descriptor_ = nullptr;
 };
 
-template <> struct type_capability_traits<factory_capability> {
-  using result_type = factory_capability;
+/**
+ * @brief 类型级 capability facade 的通用基类。
+ *
+ * `Ops` 是类型擦除函数表。派生类型只需要继承该基类并实现自己的类型级行为，即可复用
+ * `type`、`ops` 保存、有效性判断和 `get_type()`。
+ */
+template <typename Ops> class type_capability_base {
+public:
+  using ops_type = std::remove_cv_t<std::remove_reference_t<Ops>>;
 
-  [[nodiscard]] static result_type get(const type& source) noexcept {
-    return factory_capability{source.get_raw_ops<factory_ops>()};
-  }
+  type_capability_base() noexcept = default;
 
-  [[nodiscard]] static const factory_ops* get_raw(const type& source) noexcept {
-    return type_capability_traits<factory_ops>::get_raw(source);
+  explicit type_capability_base(meta::type type) noexcept
+      : type_(type), ops_(type.get_raw_ops<ops_type>()) {}
+
+  [[nodiscard]] bool valid() const noexcept { return type_ && detail::capability_ops_valid(ops_); }
+
+  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
+
+  [[nodiscard]] meta::type get_type() const noexcept { return valid() ? type_ : meta::type{}; }
+
+protected:
+  meta::type type_{};
+  const ops_type* ops_ = nullptr;
+};
+
+namespace detail {
+
+template <typename Capability, typename = void> struct is_auto_type_capability : std::false_type {};
+
+template <typename Capability>
+struct is_auto_type_capability<
+    Capability,
+    std::void_t<typename std::remove_cv_t<std::remove_reference_t<Capability>>::ops_type>>
+    : std::bool_constant<std::is_constructible_v<
+                             std::remove_cv_t<std::remove_reference_t<Capability>>, meta::type> &&
+                         std::is_base_of_v<type_capability_base<typename std::remove_cv_t<
+                                               std::remove_reference_t<Capability>>::ops_type>,
+                                           std::remove_cv_t<std::remove_reference_t<Capability>>>> {
+};
+
+template <typename Capability>
+inline constexpr bool is_auto_type_capability_v = is_auto_type_capability<Capability>::value;
+
+} // namespace detail
+
+template <typename Capability>
+struct type_capability_traits<Capability,
+                              std::enable_if_t<detail::is_auto_type_capability_v<Capability>>> {
+  using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+  using result_type = capability_type;
+  using ops_type = typename capability_type::ops_type;
+
+  [[nodiscard]] static result_type get(const type& source) noexcept { return result_type{source}; }
+
+  [[nodiscard]] static const ops_type* get_raw(const type& source) noexcept {
+    return type_capability_traits<ops_type>::get_raw(source);
   }
 
   [[nodiscard]] static bool has(const type& source) noexcept { return get(source).valid(); }
+};
+
+/** @brief 类型运行期创建能力的公开 facade。 */
+class factory_capability final : public type_capability_base<factory_ops> {
+public:
+  using base_type = type_capability_base<factory_ops>;
+
+  factory_capability() noexcept = default;
+  explicit factory_capability(meta::type type) noexcept : base_type(type) {}
+
+  /** @brief 使用注册工厂构造对象；能力无效或构造失败时返回空指针。 */
+  [[nodiscard]] void* construct(memory::memory_resource* resource) const {
+    return valid() ? ops_->construct(resource) : nullptr;
+  }
+
+  /** @brief 使用注册工厂销毁对象；空对象或能力无效时不做操作。 */
+  void destroy(memory::memory_resource* resource, void* value) const noexcept {
+    if (valid() && value != nullptr) {
+      ops_->destroy(resource, value);
+    }
+  }
+
+  /** @brief 返回销毁函数，供高级所有权接管路径保存销毁策略。 */
+  [[nodiscard]] factory_ops::destroy_fn destroy_fn() const noexcept {
+    return valid() ? ops_->destroy : nullptr;
+  }
 };
 
 } // namespace caors::meta

@@ -61,15 +61,12 @@ private:
 };
 
 /** @brief 对象身份句柄类型级能力 facade。 */
-class handle_capability final {
+class handle_capability final : public meta::type_capability_base<handle_ops> {
 public:
-  handle_capability() noexcept = default;
-  explicit handle_capability(meta::type type) noexcept
-      : type_(type), ops_(type.get_raw_ops<handle_ops>()) {}
+  using base_type = meta::type_capability_base<handle_ops>;
 
-  [[nodiscard]] bool valid() const noexcept { return type_ && ops_ != nullptr && ops_->valid(); }
-  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
-  [[nodiscard]] meta::type get_type() const noexcept { return valid() ? type_ : meta::type{}; }
+  handle_capability() noexcept = default;
+  explicit handle_capability(meta::type type) noexcept : base_type(type) {}
 
   [[nodiscard]] handle_view bind(meta::any_ref source) const noexcept {
     if (!valid() || !source.valid() || source.get_type().id() != type_.id()) {
@@ -78,10 +75,6 @@ public:
 
     return make_handle_view(source);
   }
-
-private:
-  meta::type type_{};
-  const handle_ops* ops_ = nullptr;
 };
 
 [[nodiscard]] inline handle_view make_handle_view(meta::any_ref source) noexcept {
@@ -111,18 +104,6 @@ template <> struct capability_view_traits<objects::handle_view> {
 
   [[nodiscard]] static objects::handle_view bind(meta::any_ref source) noexcept {
     return objects::make_handle_view(source);
-  }
-};
-
-template <> struct type_capability_traits<objects::handle_capability> {
-  using result_type = objects::handle_capability;
-
-  [[nodiscard]] static result_type get(const type& source) noexcept {
-    return objects::handle_capability{source};
-  }
-
-  [[nodiscard]] static bool has(const type& source) noexcept {
-    return objects::handle_capability{source}.valid();
   }
 };
 

@@ -559,8 +559,38 @@ auto sequence =
 auto view = sequence.bind(caors::meta::any_ref::from(values));
 ```
 
-用户自定义 capability 默认直接返回 `const Capability*`。如果希望对外也像内置能力一样返回可绑定的
-view，推荐使用轻量 view helper：定义 `*_ops` 函数表，再让 view 继承
+用户自定义 capability 默认直接返回 `const Capability*`。如果希望对外也像内置能力一样返回 facade，
+可以按能力形态分成两类：
+
+- 纯类型级能力继承 `meta::type_capability_base<Ops>`，例如 factory、codec 或编辑器元信息查询。
+- 绑定实例后使用的能力继承 `meta::capability_view_base<Ops>`，例如矩阵元素访问、容器视图或对象指针视图。
+
+纯类型级能力只需要定义 `*_ops` 和 facade 类，不需要手写 `type_capability_traits`：
+
+```cpp
+struct matrix_factory_ops {
+  matrix* (*create)() = nullptr;
+
+  [[nodiscard]] bool valid() const noexcept {
+    return create != nullptr;
+  }
+};
+
+class matrix_factory : public caors::meta::type_capability_base<matrix_factory_ops> {
+public:
+  using base_type = caors::meta::type_capability_base<matrix_factory_ops>;
+  using base_type::base_type;
+
+  [[nodiscard]] matrix* create() const {
+    return valid() ? ops_->create() : nullptr;
+  }
+};
+
+auto factory = caors::meta::resolve<matrix>().get_capability<matrix_factory>();
+matrix* value = factory.create();
+```
+
+实例级 view 推荐使用轻量 view helper：定义 `*_ops` 函数表，再让 view 继承
 `meta::capability_view_base<Ops>`。只要 view 声明了 `using ops_type = Ops`，并支持
 `(meta::type, const Ops*, meta::any_ref)` 构造，CAORS 会自动接入
 `meta::type::get_capability<View>()` 和 `any_ref::get_capability<View>()`。
@@ -602,7 +632,8 @@ auto direct_view = caors::meta::any_ref::from(value).get_capability<matrix_view>
 ```
 
 这个小版 helper 不会自动生成函数表；`*_ops` 和把具体 `T` 适配到 `*_ops` 的 model 仍由能力作者提供。
-它解决的是重复编写 `type_capability_traits<View>`、`capability_view_traits<View>` 和 view 基础存储的问题。
+它解决的是重复编写 `type_capability_traits<Facade>`、`type_capability_traits<View>`、
+`capability_view_traits<View>` 和基础存储的问题。
 
 如果能力由 `static_capability<Capability, T>` 提供，也可以只声明能力类型：
 

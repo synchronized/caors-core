@@ -10,17 +10,15 @@
 namespace caors::objects {
 
 /** @brief 对象默认创建和销毁能力的公开 facade。 */
-class object_factory_capability final {
+class object_factory_capability final : public meta::type_capability_base<object_factory_ops> {
 public:
-  constexpr object_factory_capability() noexcept = default;
-  explicit constexpr object_factory_capability(const object_factory_ops* ops) noexcept
-      : ops_(ops) {}
+  using base_type = meta::type_capability_base<object_factory_ops>;
 
-  [[nodiscard]] constexpr bool valid() const noexcept { return ops_ != nullptr; }
-  [[nodiscard]] constexpr explicit operator bool() const noexcept { return valid(); }
+  object_factory_capability() noexcept = default;
+  explicit object_factory_capability(meta::type type) noexcept : base_type(type) {}
 
   /** @brief 判断该对象类型是否支持默认构造。 */
-  [[nodiscard]] constexpr bool constructible() const noexcept {
+  [[nodiscard]] bool constructible() const noexcept {
     return ops_ != nullptr && ops_->constructible();
   }
 
@@ -43,29 +41,8 @@ public:
     ops_->destroy(instance, resource);
     return true;
   }
-
-private:
-  const object_factory_ops* ops_ = nullptr;
 };
 
 } // namespace caors::objects
-
-namespace caors::meta {
-
-template <> struct type_capability_traits<objects::object_factory_capability> {
-  using result_type = objects::object_factory_capability;
-
-  [[nodiscard]] static result_type get(const type& source) noexcept {
-    return objects::object_factory_capability{source.get_raw_ops<objects::object_factory_ops>()};
-  }
-
-  [[nodiscard]] static const objects::object_factory_ops* get_raw(const type& source) noexcept {
-    return type_capability_traits<objects::object_factory_ops>::get_raw(source);
-  }
-
-  [[nodiscard]] static bool has(const type& source) noexcept { return get(source).valid(); }
-};
-
-} // namespace caors::meta
 
 #endif

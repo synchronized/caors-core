@@ -60,6 +60,23 @@ template <typename Capability> struct capability_traits {
   static constexpr std::uint32_t version = 0;
 };
 
+namespace detail {
+
+/** @brief 判断 ops 函数表是否可用；有 `valid()` 时优先使用它。 */
+template <typename Ops> [[nodiscard]] bool capability_ops_valid(const Ops* ops) noexcept {
+  if (ops == nullptr) {
+    return false;
+  }
+
+  if constexpr (requires(const Ops& value) { value.valid(); }) {
+    return static_cast<bool>(ops->valid());
+  } else {
+    return true;
+  }
+}
+
+} // namespace detail
+
 /**
  * @brief 运行期实例能力视图的绑定扩展点。
  *

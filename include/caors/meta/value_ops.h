@@ -69,37 +69,6 @@ struct factory_ops {
   }
 };
 
-/** @brief 类型运行期创建能力的公开 facade。 */
-class factory_capability {
-public:
-  constexpr factory_capability() noexcept = default;
-  explicit constexpr factory_capability(const factory_ops* ops) noexcept : ops_(ops) {}
-
-  [[nodiscard]] constexpr bool valid() const noexcept { return ops_ != nullptr && ops_->valid(); }
-
-  [[nodiscard]] constexpr explicit operator bool() const noexcept { return valid(); }
-
-  /** @brief 使用注册工厂构造对象；能力无效或构造失败时返回空指针。 */
-  [[nodiscard]] void* construct(memory::memory_resource* resource) const {
-    return valid() ? ops_->construct(resource) : nullptr;
-  }
-
-  /** @brief 使用注册工厂销毁对象；空对象或能力无效时不做操作。 */
-  void destroy(memory::memory_resource* resource, void* value) const noexcept {
-    if (valid() && value != nullptr) {
-      ops_->destroy(resource, value);
-    }
-  }
-
-  /** @brief 返回销毁函数，供高级所有权接管路径保存销毁策略。 */
-  [[nodiscard]] factory_ops::destroy_fn destroy_fn() const noexcept {
-    return valid() ? ops_->destroy : nullptr;
-  }
-
-private:
-  const factory_ops* ops_ = nullptr;
-};
-
 namespace detail {
 
 using meta::value_storage_ops;

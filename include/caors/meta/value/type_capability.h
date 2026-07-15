@@ -5,6 +5,7 @@
 #define CAORS_META_VALUE_TYPE_CAPABILITY_H_
 
 #include "caors/meta/value/any_ref.h"
+#include "caors/meta/value/capability_facade.h"
 #include "caors/meta/value/view_factory.h"
 
 #include <cstdint>
@@ -18,35 +19,12 @@ namespace detail {
   return expected && source.valid() && source.get_type().id() == expected.id();
 }
 
-template <typename Ops> class type_capability_base {
-public:
-  type_capability_base() noexcept = default;
-  explicit type_capability_base(meta::type type) noexcept
-      : type_(type), ops_(type.get_raw_ops<Ops>()) {}
-
-  [[nodiscard]] bool valid() const noexcept { return type_ && ops_ != nullptr && ops_->valid(); }
-  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
-  [[nodiscard]] meta::type get_type() const noexcept { return valid() ? type_ : meta::type{}; }
-
-protected:
-  meta::type type_{};
-  const Ops* ops_ = nullptr;
-};
-
-template <typename Capability> struct facade_type_capability_traits {
-  using result_type = Capability;
-
-  [[nodiscard]] static result_type get(const type& source) noexcept { return Capability{source}; }
-
-  [[nodiscard]] static bool has(const type& source) noexcept { return Capability{source}.valid(); }
-};
-
 } // namespace detail
 
 /** @brief 枚举类型的类型级能力 facade。 */
-class enum_capability final : public detail::type_capability_base<enum_ops> {
+class enum_capability final : public type_capability_base<enum_ops> {
 public:
-  using base_type = detail::type_capability_base<enum_ops>;
+  using base_type = type_capability_base<enum_ops>;
 
   enum_capability() noexcept = default;
   explicit enum_capability(meta::type type) noexcept : base_type(type) {}
@@ -91,9 +69,9 @@ public:
 };
 
 /** @brief 指针和 wrapper 的类型级能力 facade。 */
-class indirect_capability final : public detail::type_capability_base<indirect_ops> {
+class indirect_capability final : public type_capability_base<indirect_ops> {
 public:
-  using base_type = detail::type_capability_base<indirect_ops>;
+  using base_type = type_capability_base<indirect_ops>;
 
   indirect_capability() noexcept = default;
   explicit indirect_capability(meta::type type) noexcept : base_type(type) {}
@@ -109,9 +87,9 @@ public:
 };
 
 /** @brief 顺序容器的类型级能力 facade。 */
-class sequence_capability final : public detail::type_capability_base<sequence_ops> {
+class sequence_capability final : public type_capability_base<sequence_ops> {
 public:
-  using base_type = detail::type_capability_base<sequence_ops>;
+  using base_type = type_capability_base<sequence_ops>;
 
   sequence_capability() noexcept = default;
   explicit sequence_capability(meta::type type) noexcept : base_type(type) {}
@@ -127,9 +105,9 @@ public:
 };
 
 /** @brief 集合容器的类型级能力 facade。 */
-class set_capability final : public detail::type_capability_base<set_ops> {
+class set_capability final : public type_capability_base<set_ops> {
 public:
-  using base_type = detail::type_capability_base<set_ops>;
+  using base_type = type_capability_base<set_ops>;
 
   set_capability() noexcept = default;
   explicit set_capability(meta::type type) noexcept : base_type(type) {}
@@ -144,9 +122,9 @@ public:
 };
 
 /** @brief 关联容器的类型级能力 facade。 */
-class associative_capability final : public detail::type_capability_base<associative_ops> {
+class associative_capability final : public type_capability_base<associative_ops> {
 public:
-  using base_type = detail::type_capability_base<associative_ops>;
+  using base_type = type_capability_base<associative_ops>;
 
   associative_capability() noexcept = default;
   explicit associative_capability(meta::type type) noexcept : base_type(type) {}
@@ -165,9 +143,9 @@ public:
 };
 
 /** @brief pair-like 类型的类型级能力 facade。 */
-class pair_capability final : public detail::type_capability_base<pair_ops> {
+class pair_capability final : public type_capability_base<pair_ops> {
 public:
-  using base_type = detail::type_capability_base<pair_ops>;
+  using base_type = type_capability_base<pair_ops>;
 
   pair_capability() noexcept = default;
   explicit pair_capability(meta::type type) noexcept : base_type(type) {}
@@ -185,9 +163,9 @@ public:
 };
 
 /** @brief tuple-like 类型的类型级能力 facade。 */
-class tuple_capability final : public detail::type_capability_base<tuple_ops> {
+class tuple_capability final : public type_capability_base<tuple_ops> {
 public:
-  using base_type = detail::type_capability_base<tuple_ops>;
+  using base_type = type_capability_base<tuple_ops>;
 
   tuple_capability() noexcept = default;
   explicit tuple_capability(meta::type type) noexcept : base_type(type) {}
@@ -199,9 +177,9 @@ public:
 };
 
 /** @brief variant-like 类型的类型级能力 facade。 */
-class variant_capability final : public detail::type_capability_base<variant_ops> {
+class variant_capability final : public type_capability_base<variant_ops> {
 public:
-  using base_type = detail::type_capability_base<variant_ops>;
+  using base_type = type_capability_base<variant_ops>;
 
   variant_capability() noexcept = default;
   explicit variant_capability(meta::type type) noexcept : base_type(type) {}
@@ -211,38 +189,6 @@ public:
                                                              : variant_view{};
   }
 };
-
-template <>
-struct type_capability_traits<enum_capability>
-    : detail::facade_type_capability_traits<enum_capability> {};
-
-template <>
-struct type_capability_traits<indirect_capability>
-    : detail::facade_type_capability_traits<indirect_capability> {};
-
-template <>
-struct type_capability_traits<sequence_capability>
-    : detail::facade_type_capability_traits<sequence_capability> {};
-
-template <>
-struct type_capability_traits<set_capability>
-    : detail::facade_type_capability_traits<set_capability> {};
-
-template <>
-struct type_capability_traits<associative_capability>
-    : detail::facade_type_capability_traits<associative_capability> {};
-
-template <>
-struct type_capability_traits<pair_capability>
-    : detail::facade_type_capability_traits<pair_capability> {};
-
-template <>
-struct type_capability_traits<tuple_capability>
-    : detail::facade_type_capability_traits<tuple_capability> {};
-
-template <>
-struct type_capability_traits<variant_capability>
-    : detail::facade_type_capability_traits<variant_capability> {};
 
 } // namespace caors::meta
 

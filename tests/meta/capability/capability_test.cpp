@@ -20,6 +20,22 @@ struct runtime_capability {
 
 struct runtime_capability_type {};
 
+struct creator_capability_type {};
+
+struct creator_ops {
+  int (*value)() = nullptr;
+
+  [[nodiscard]] bool valid() const noexcept { return value != nullptr; }
+};
+
+class creator_capability final : public caors::meta::type_capability_base<creator_ops> {
+public:
+  using base_type = caors::meta::type_capability_base<creator_ops>;
+  using base_type::base_type;
+
+  [[nodiscard]] int value() const noexcept { return valid() ? ops_->value() : 0; }
+};
+
 struct owned_matrix {
   int values[4]{};
 };
@@ -88,6 +104,8 @@ void matrix_set(void* object, std::size_t row, std::size_t column, int value) {
   auto* matrix = static_cast<owned_matrix*>(object);
   matrix->values[row * 2 + column] = value;
 }
+
+[[nodiscard]] int creator_value() noexcept { return 31; }
 
 } // namespace
 
@@ -238,6 +256,20 @@ TEST_CASE("meta - type builder stores owned runtime concept table", "[meta]") {
 
   int wrong_value = 0;
   CHECK_FALSE(type_view.bind(caors::meta::any_ref::from(wrong_value)));
+}
+
+TEST_CASE("meta - type capability base auto exposes custom type facade", "[meta]") {
+  creator_ops local_ops{&creator_value};
+
+  REQUIRE(caors::meta::class_<creator_capability_type>().capability(local_ops).succeeded());
+
+  const caors::meta::type type = caors::meta::resolve<creator_capability_type>();
+  const creator_capability capability = type.get_capability<creator_capability>();
+
+  REQUIRE(capability);
+  CHECK(capability.get_type().id() == type.id());
+  CHECK(capability.value() == 31);
+  CHECK(type.has_capability<creator_capability>());
 }
 
 TEST_CASE("meta - type capability facade binds built in value views", "[meta]") {

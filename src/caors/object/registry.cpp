@@ -39,7 +39,7 @@ type registry::find_type(object_type_id id) const {
     return {};
   }
 
-  return type{stored_meta, object_factory_capability{factory}};
+  return type{stored_meta, object_factory_capability{stored_meta}};
 }
 
 type registry::find_type(std::string_view name) const {

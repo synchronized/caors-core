@@ -61,15 +61,12 @@ private:
 };
 
 /** @brief 对象指针类型级能力 facade。 */
-class ptr_capability final {
+class ptr_capability final : public meta::type_capability_base<ptr_ops> {
 public:
-  ptr_capability() noexcept = default;
-  explicit ptr_capability(meta::type type) noexcept
-      : type_(type), ops_(type.get_raw_ops<ptr_ops>()) {}
+  using base_type = meta::type_capability_base<ptr_ops>;
 
-  [[nodiscard]] bool valid() const noexcept { return type_ && ops_ != nullptr && ops_->valid(); }
-  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
-  [[nodiscard]] meta::type get_type() const noexcept { return valid() ? type_ : meta::type{}; }
+  ptr_capability() noexcept = default;
+  explicit ptr_capability(meta::type type) noexcept : base_type(type) {}
 
   [[nodiscard]] ptr_view bind(meta::any_ref source) const noexcept {
     if (!valid() || !source.valid() || source.get_type().id() != type_.id()) {
@@ -78,10 +75,6 @@ public:
 
     return make_ptr_view(source);
   }
-
-private:
-  meta::type type_{};
-  const ptr_ops* ops_ = nullptr;
 };
 
 [[nodiscard]] inline ptr_view make_ptr_view(meta::any_ref source) noexcept {
@@ -111,18 +104,6 @@ template <> struct capability_view_traits<objects::ptr_view> {
 
   [[nodiscard]] static objects::ptr_view bind(meta::any_ref source) noexcept {
     return objects::make_ptr_view(source);
-  }
-};
-
-template <> struct type_capability_traits<objects::ptr_capability> {
-  using result_type = objects::ptr_capability;
-
-  [[nodiscard]] static result_type get(const type& source) noexcept {
-    return objects::ptr_capability{source};
-  }
-
-  [[nodiscard]] static bool has(const type& source) noexcept {
-    return objects::ptr_capability{source}.valid();
   }
 };
 
