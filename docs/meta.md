@@ -649,18 +649,22 @@ capability 类型。
 `ops`、`view`、调用参数名或 model：
 
 ```cpp
+matrix make_matrix();
+
 CAORS_META_DEF_MEM_DISPATCH(matrix_rows, rows);
 CAORS_META_DEF_MEM_DISPATCH(matrix_columns, columns);
 CAORS_META_DEF_MEM_DISPATCH(matrix_get, get);
 CAORS_META_DEF_MEM_DISPATCH(matrix_set, set);
 CAORS_META_DEF_TYPE_DISPATCH(matrix_create, create);
+CAORS_META_DEF_FREE_TYPE_DISPATCH(matrix_make, make, &make_matrix);
 
 using matrix_capability =
     caors::meta::capability_builder::add_convention<matrix_rows, std::size_t() noexcept>::
         add_convention<matrix_columns, std::size_t() noexcept>::
             add_convention<matrix_get, int(std::size_t, std::size_t)>::
                 add_convention<matrix_set, void(std::size_t, std::size_t, int)>::
-                    add_type_convention<matrix_create, matrix()>::build;
+                    add_type_convention<matrix_create, matrix()>::
+                        add_type_convention<matrix_make, matrix()>::build;
 
 caors::meta::class_<matrix>()
     .capability<matrix_capability>();
@@ -668,6 +672,7 @@ caors::meta::class_<matrix>()
 auto type = caors::meta::resolve<matrix>();
 auto capability = type.get_capability<matrix_capability>();
 auto created = capability.create();
+auto made = capability.make();
 
 matrix value{};
 auto view = caors::meta::any_ref::from(value)
@@ -683,6 +688,11 @@ C++ 类型存在同名成员函数，`meta::class_<T>().capability<Capability>()
 
 `CAORS_META_DEF_TYPE_DISPATCH(dispatch_type, member_name)` 定义类型级 dispatch。`add_type_convention`
 会把同名静态成员函数接到类型级 facade 上，适合 `create()`、固定形状、类型级配置查询这类不需要绑定实例的能力。
+如果类型级函数来自全局函数或自由函数，使用
+`CAORS_META_DEF_FREE_TYPE_DISPATCH(dispatch_type, facade_method, function_pointer)`，第三个参数通常写
+`&function_name`，生成的 facade 方法名由第二个参数决定。底层也提供
+`caors::meta::proxy::free_function_dispatch<&function_name>` 作为函数来源扩展点，但它本身不生成具名 facade
+方法，普通用户优先使用宏。
 当前版本不处理重载自动选择，遇到重载成员时仍需要后续更完整的 Proxy DSL 或显式 model。
 
 旧的 X-macro 入口仍可用于需要强控制 `ops/view/capability` 生成形态的高级场景。实例能力使用

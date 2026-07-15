@@ -37,6 +37,10 @@ template <typename Dispatch, typename Signature> struct type_convention {
   using signature_type = Signature;
 };
 
+template <auto Function> struct free_function_dispatch {
+  template <typename T> static constexpr auto member = Function;
+};
+
 namespace detail {
 
 template <typename MemberPointer> struct member_object_pointer_traits;
@@ -478,12 +482,21 @@ public:
   }
 };
 
+template <typename Dispatch, typename IndexedConvention, typename Facade, typename = void>
+struct type_facade_mixin_selector {};
+
+template <typename Dispatch, typename IndexedConvention, typename Facade>
+struct type_facade_mixin_selector<
+    Dispatch, IndexedConvention, Facade,
+    std::void_t<typename Dispatch::template facade_mixin<IndexedConvention, Facade>>>
+    : Dispatch::template facade_mixin<IndexedConvention, Facade> {};
+
 template <typename IndexedConvention, typename Facade> struct type_facade_mixin_for {};
 
 template <std::size_t Index, typename Dispatch, typename Signature, typename Facade>
 struct type_facade_mixin_for<indexed_type_convention<Index, Dispatch, Signature>, Facade>
-    : Dispatch::template facade_mixin<indexed_type_convention<Index, Dispatch, Signature>, Facade> {
-};
+    : type_facade_mixin_selector<Dispatch, indexed_type_convention<Index, Dispatch, Signature>,
+                                 Facade> {};
 
 template <typename Capability, typename T> struct convention_model {
   using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
@@ -758,6 +771,36 @@ template <typename Capability, typename T, typename... Bindings>
   struct dispatch_name {                                                                           \
     template <typename T>                                                                          \
     static constexpr auto member = &std::remove_cv_t<std::remove_reference_t<T>>::member_name;     \
+                                                                                                   \
+    template <typename Convention, typename Facade> struct facade_mixin;                           \
+                                                                                                   \
+    template <std::size_t Index, typename R, typename... Args, typename Facade>                    \
+    struct facade_mixin<                                                                           \
+        caors::meta::proxy::indexed_type_convention<Index, dispatch_name, R(Args...)>, Facade> {   \
+      R member_name(Args... args) const {                                                          \
+        return static_cast<const Facade*>(this)                                                    \
+            ->template invoke_type<                                                                \
+                caors::meta::proxy::indexed_type_convention<Index, dispatch_name, R(Args...)>, R>( \
+                std::forward<Args>(args)...);                                                      \
+      }                                                                                            \
+    };                                                                                             \
+                                                                                                   \
+    template <std::size_t Index, typename R, typename... Args, typename Facade>                    \
+    struct facade_mixin<                                                                           \
+        caors::meta::proxy::indexed_type_convention<Index, dispatch_name, R(Args...) noexcept>,    \
+        Facade> {                                                                                  \
+      R member_name(Args... args) const noexcept {                                                 \
+        return static_cast<const Facade*>(this)                                                    \
+            ->template invoke_type<caors::meta::proxy::indexed_type_convention<                    \
+                                       Index, dispatch_name, R(Args...) noexcept>,                 \
+                                   R>(std::forward<Args>(args)...);                                \
+      }                                                                                            \
+    };                                                                                             \
+  }
+
+#define CAORS_META_DEF_FREE_TYPE_DISPATCH(dispatch_name, member_name, function_value)              \
+  struct dispatch_name {                                                                           \
+    template <typename T> static constexpr auto member = function_value;                           \
                                                                                                    \
     template <typename Convention, typename Facade> struct facade_mixin;                           \
                                                                                                    \

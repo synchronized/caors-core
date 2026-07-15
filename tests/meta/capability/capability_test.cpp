@@ -165,6 +165,12 @@ void matrix_set(void* object, std::size_t row, std::size_t column, int value) {
 
 [[nodiscard]] int creator_value() noexcept { return 31; }
 
+[[nodiscard]] builder_proxy_matrix make_builder_proxy_matrix() {
+  builder_proxy_matrix matrix{};
+  matrix.values[1] = 9;
+  return matrix;
+}
+
 #define TEST_MATRIX_PROXY_METHODS(CONST_METHOD, MUTABLE_METHOD)                                    \
   CONST_METHOD(rows, std::size_t, noexcept)                                                        \
   CONST_METHOD(columns, std::size_t, noexcept)                                                     \
@@ -182,13 +188,16 @@ CAORS_META_DEF_MEM_DISPATCH(test_builder_columns, columns);
 CAORS_META_DEF_MEM_DISPATCH(test_builder_get, get);
 CAORS_META_DEF_MEM_DISPATCH(test_builder_set, set);
 CAORS_META_DEF_TYPE_DISPATCH(test_builder_create, create);
+CAORS_META_DEF_FREE_TYPE_DISPATCH(test_builder_make, make, &make_builder_proxy_matrix);
 
 using builder_matrix_capability =
     caors::meta::capability_builder::add_convention<test_builder_rows, std::size_t() noexcept>::
-        add_convention<test_builder_columns, std::size_t() noexcept>::
-            add_convention<test_builder_get, int(std::size_t, std::size_t)>::add_convention<
-                test_builder_set, void(std::size_t, std::size_t, int)>::
-                add_type_convention<test_builder_create, builder_proxy_matrix()>::build;
+        add_convention<test_builder_columns, std::size_t() noexcept>::add_convention<
+            test_builder_get,
+            int(std::size_t, std::size_t)>::add_convention<test_builder_set,
+                                                           void(std::size_t, std::size_t, int)>::
+            add_type_convention<test_builder_create, builder_proxy_matrix()>::add_type_convention<
+                test_builder_make, builder_proxy_matrix()>::build;
 
 } // namespace
 
@@ -436,6 +445,8 @@ TEST_CASE("meta - proxy capability builder generates convention facade", "[meta]
   REQUIRE(capability);
   const builder_proxy_matrix created = capability.create();
   CHECK(created.values[0] == 5);
+  const builder_proxy_matrix made = capability.make();
+  CHECK(made.values[1] == 9);
 
   builder_proxy_matrix matrix{};
   auto view = caors::meta::any_ref::from(matrix).get_capability<builder_matrix_capability>();

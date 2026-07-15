@@ -79,7 +79,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 增加 Proxy 风格 convention builder，支持
   `CAORS_META_DEF_MEM_DISPATCH + capability_builder::add_convention<Dispatch, Signature>` 和
   `CAORS_META_DEF_TYPE_DISPATCH + add_type_convention<Dispatch, Signature>` 自动生成 capability，
-  并通过成员函数名、静态成员函数名和函数签名接入自动 model。
+  并通过成员函数名、静态成员函数名、自由函数指针和函数签名接入自动 model。
 - [ ] 扩展完整 Proxy DSL，进一步减少用户自定义 capability 的 `ops` / `view` / `model` 样板代码。
 - [ ] 支持 Proxy 模板方法代理。
 - [ ] 支持 Proxy 重载自动选择。
