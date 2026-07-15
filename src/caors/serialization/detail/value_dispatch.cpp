@@ -12,12 +12,8 @@ namespace caors::serialization::detail {
 
 namespace {
 
-[[nodiscard]] const codec_ops* find_codec_ops(const meta::type& type) {
-  if (const codec_ops* ops = type.get_ops<codec_ops>()) {
-    return ops;
-  }
-
-  return ops_of(serialization::find_codec(type));
+[[nodiscard]] serialization::codec_capability find_codec_capability(const meta::type& type) {
+  return type.get_capability<serialization::codec_capability>();
 }
 
 } // namespace
@@ -40,9 +36,9 @@ variant_result make_serialized_value(const any& data) {
     }
   }
 
-  const codec_ops* codec = find_codec_ops(data.get_type());
-  if (codec != nullptr && codec->make_value != nullptr) {
-    return codec->make_value(serialization::context{}, data);
+  const serialization::codec_capability codec = find_codec_capability(data.get_type());
+  if (codec.can_make_value()) {
+    return codec.make_value(serialization::context{}, data);
   }
 
   if (const bool* stored = data.try_get<bool>()) {
@@ -150,14 +146,14 @@ variant_result make_serialized_value(const any_ref& value, const serialization::
   }
 
   const type_id value_type = value.get_type().id();
-  const codec_ops* codec = find_codec_ops(value.get_type());
-  if (codec != nullptr && codec->make_value != nullptr) {
+  const serialization::codec_capability codec = find_codec_capability(value.get_type());
+  if (codec.can_make_value()) {
     any copied = value.to_any();
     if (!copied.valid()) {
       return {{error_domain::serialization, errc::unsupported}, {}};
     }
 
-    return codec->make_value(context, copied);
+    return codec.make_value(context, copied);
   }
 
   const reflection::type nested_type = reflection::find(value_type);
@@ -219,14 +215,14 @@ error write_serialized_value(writer& writer, const any_ref& value,
   }
 
   const type_id value_type = value.get_type().id();
-  const codec_ops* codec = find_codec_ops(value.get_type());
-  if (codec != nullptr && codec->write != nullptr) {
+  const serialization::codec_capability codec = find_codec_capability(value.get_type());
+  if (codec.can_write()) {
     any copied = value.to_any();
     if (!copied.valid()) {
       return {error_domain::serialization, errc::unsupported};
     }
 
-    return codec->write(context, writer, copied);
+    return codec.write(context, writer, copied);
   }
 
   const reflection::type nested_type = reflection::find(value_type);
@@ -286,9 +282,9 @@ error read_serialized_value(reader& reader, const any_ref& target,
   }
 
   const type_id target_type = target.get_type().id();
-  const codec_ops* codec = find_codec_ops(target.get_type());
-  if (codec != nullptr && codec->read != nullptr) {
-    return codec->read(context, reader, target);
+  const serialization::codec_capability codec = find_codec_capability(target.get_type());
+  if (codec.can_read()) {
+    return codec.read(context, reader, target);
   }
 
   const reflection::type nested_type = reflection::find(target_type);

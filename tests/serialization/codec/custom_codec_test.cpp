@@ -20,9 +20,16 @@ TEST_CASE("serialization - custom codec specialization uses descriptor capabilit
       caors::meta::resolve<policy_custom_codec_value>()
           .get_capability<caors::serialization::codec_capability>();
   REQUIRE(capability);
+  CHECK(capability.type() == caors::meta::id_of<policy_custom_codec_value>());
   CHECK(capability.can_write());
   CHECK(capability.can_read());
   CHECK(capability.can_make_value());
+
+  const caors::serialization::variant_result capability_value = capability.make_value(
+      caors::serialization::context{}, caors::any::from(policy_custom_codec_value{5}));
+  REQUIRE(capability_value.succeeded());
+  REQUIRE(capability_value.value.try_as_i64() != nullptr);
+  CHECK(*capability_value.value.try_as_i64() == 105);
 
   CHECK_FALSE(caors::meta::find<policy_custom_codec_value>());
   CHECK(caors::serialization::find_codec(caors::meta::resolve<policy_custom_codec_value>()));

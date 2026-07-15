@@ -639,6 +639,10 @@ if (player* current = manager.find(target)) {
 等内部调度路径如果已经携带 descriptor，会在 detail
 层直接查询 descriptor 静态 codec 能力；公开 API 不要求也不鼓励用户直接传递 descriptor。
 未命中时继续走基础标量探测。
+`serialization::codec` 是 `codec_of<T>()` / `find_codec()` 返回的只读查询视图，适合检查某个类型是否有
+codec；`serialization::codec_capability` 是接入 `meta::type::get_capability<T>()` 的类型级 facade，
+可直接转发 `write()`、`read()` 和 `make_value()`。普通业务代码优先使用 capability facade；需要按
+C++ 类型或 `type_id` 查询时再使用 `codec_of<T>()` / `find_codec()`。
 这样 `guid`、`type_guid` 这类语义上是
 原子值的类型，不需要暴露内部字段结构。容器、pair、tuple、variant、裸指针和普通 wrapper 字段优先通过
 meta 内部 descriptor 生成的视图递归处理内部值，因此这类字段通常不需要显式注册
@@ -1013,6 +1017,7 @@ caors::string text = result.value;
 - `serialization::codec_traits<T>`：类型级 codec 特化入口。
 - `serialization::codec_of<T>()`：按 C++ 类型查询 descriptor 静态 codec 视图；类型不要求已经显式 meta 注册。
 - `serialization::find_codec()`：按 meta 类型或类型 id 查询 descriptor 静态 codec 视图。
+- `serialization::codec_capability`：通过 `meta::type::get_capability<T>()` 查询的可调用 codec facade。
 - `serialization::text_writer`：简单文本格式后端。
 - `variant`：序列化 DOM 中间对象。
 - `serialization::to_variant()`：把运行期 `any` / `any_ref` 转换为 `variant`。

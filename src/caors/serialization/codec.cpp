@@ -21,6 +21,56 @@ bool codec::can_make_value() const noexcept {
   return ops_ != nullptr && ops_->make_value != nullptr;
 }
 
+codec_capability::codec_capability(meta::type type) noexcept
+    : type_(type), ops_(type ? type.get_ops<codec_ops>() : nullptr) {}
+
+bool codec_capability::valid() const noexcept { return type_ && ops_ != nullptr && ops_->valid(); }
+
+meta::type codec_capability::get_type() const noexcept { return valid() ? type_ : meta::type{}; }
+
+type_id codec_capability::type() const noexcept {
+  return valid() ? type_.id() : type_id::invalid();
+}
+
+bool codec_capability::can_write() const noexcept {
+  return ops_ != nullptr && ops_->write != nullptr;
+}
+
+bool codec_capability::can_read() const noexcept {
+  return ops_ != nullptr && ops_->read != nullptr;
+}
+
+bool codec_capability::can_make_value() const noexcept {
+  return ops_ != nullptr && ops_->make_value != nullptr;
+}
+
+error codec_capability::write(const serialization::context& context, writer& writer,
+                              const any& data) const {
+  if (!valid() || ops_->write == nullptr) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  return ops_->write(context, writer, data);
+}
+
+error codec_capability::read(const serialization::context& context, reader& reader,
+                             const any_ref& target) const {
+  if (!valid() || ops_->read == nullptr) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  return ops_->read(context, reader, target);
+}
+
+variant_result codec_capability::make_value(const serialization::context& context,
+                                            const any& data) const {
+  if (!valid() || ops_->make_value == nullptr) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
+  }
+
+  return ops_->make_value(context, data);
+}
+
 codec find_codec(type_id id) {
   if (!id) {
     return {};
@@ -38,9 +88,3 @@ codec find_codec(meta::type type) {
 }
 
 } // namespace caors::serialization
-
-namespace caors::serialization::detail {
-
-const codec_ops* ops_of(codec view) noexcept { return view.ops_; }
-
-} // namespace caors::serialization::detail
