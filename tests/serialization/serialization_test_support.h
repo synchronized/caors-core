@@ -374,6 +374,10 @@ inline void require_reference_wrapper_actor_metadata() {
 }
 
 inline void require_non_default_value_metadata() {
+  REQUIRE(type_result_ok(
+      caors::meta::class_<non_default_value>("caors.test.serialization.non_default_value")
+          .constructor<int>()
+          .result()));
   REQUIRE(reflection_result_ok(
       registered_reflection_class<non_default_value>("caors.test.serialization.non_default_value")
           .field("value", &non_default_value::value)
@@ -403,6 +407,30 @@ inline void require_non_default_value_metadata() {
       caors::serialization::class_<non_default_unique_ptr_actor>().commit()));
   REQUIRE(
       serialization_result_ok(caors::serialization::class_<non_default_variant_actor>().commit()));
+}
+
+inline caors::serialization::construction_result construct_non_default_value_for_serialization(
+    const caors::serialization::construction_request& request,
+    const caors::serialization::context& context, void*) {
+  const caors::meta::type expected = caors::meta::resolve<non_default_value>();
+  if (!request.type || request.type.id() != expected.id()) {
+    return {};
+  }
+
+  caors::any initial = caors::any::from(0);
+  std::array<caors::any_ref, 1> arguments{initial.ref()};
+  const caors::meta::constructor_capability constructor =
+      request.type.get_capability<caors::meta::constructor_capability>();
+  void* value =
+      constructor.construct(context.effective_memory_resource(),
+                            std::span<const caors::any_ref>{arguments.data(), arguments.size()});
+  return {value, constructor.destroy_fn()};
+}
+
+inline caors::serialization::context non_default_construction_context() {
+  caors::serialization::context context{};
+  context.resolvers.construction.construct = &construct_non_default_value_for_serialization;
+  return context;
 }
 
 inline void require_unique_ptr_vector_actor_metadata() {

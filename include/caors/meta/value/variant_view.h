@@ -47,6 +47,9 @@ public:
   /** @brief 写入当前候选值。 */
   bool set_value(const any& value) const;
 
+  /** @brief 切换到指定候选并写入值。 */
+  bool set_value(std::size_t alternative, const any& value) const;
+
 private:
   friend class any;
   friend class any_ref;

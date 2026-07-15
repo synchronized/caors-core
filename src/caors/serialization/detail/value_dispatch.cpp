@@ -372,9 +372,16 @@ error read_field(reader& reader, const reflection::field& field, void* object,
     return status;
   }
 
+  serialization::context field_context = context;
+  field_context.state.construction.owner_type = field.get_owner_type();
+  field_context.state.construction.field_name = field.name();
+  field_context.state.construction.type = field.get_type();
+  field_context.state.construction.site = construction_site::field;
+  field_context.state.construction.index = construction_request_no_index;
+
   if (uses_indirect_value) {
     status = read_indirect_serialized_value(
-        reader, field.get_ref(object).get_capability<meta::indirect_view>(), context);
+        reader, field.get_ref(object).get_capability<meta::indirect_view>(), field_context);
     if (status) {
       return status;
     }
@@ -382,7 +389,7 @@ error read_field(reader& reader, const reflection::field& field, void* object,
     return reader.end_field();
   }
 
-  status = read_serialized_value(reader, target, context);
+  status = read_serialized_value(reader, target, field_context);
   if (status) {
     return status;
   }

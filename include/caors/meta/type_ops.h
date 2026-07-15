@@ -220,10 +220,12 @@ struct variant_alternative_ops {
   using const_alternative_fn = const void* (*)(const void*) noexcept;
   using mutable_alternative_fn = void* (*)(void*) noexcept;
   using emplace_fn = bool (*)(void*, memory::memory_resource*);
+  using set_fn = bool (*)(void*, const void*);
 
   const_alternative_fn alternative = nullptr;
   mutable_alternative_fn mutable_alternative = nullptr;
   emplace_fn emplace = nullptr;
+  set_fn set = nullptr;
   get_value_type_fn get_value_type = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {

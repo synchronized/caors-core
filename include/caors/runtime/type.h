@@ -58,7 +58,8 @@ public:
   /**
    * @brief 创建运行期值。
    *
-   * 优先使用已注册的 `meta::factory_capability`；没有 factory 时回退到 descriptor 默认构造。
+   * 优先使用已注册的 `meta::factory_capability`，再尝试无参 `meta::constructor_capability`，
+   * 最后回退到 descriptor 默认构造。
    */
   [[nodiscard]] any create(memory::memory_resource* resource = nullptr) const;
 

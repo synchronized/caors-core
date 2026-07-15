@@ -96,7 +96,8 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 | `context.config.fields` | schema version 字段过滤 | `0` 表示不启用版本过滤 |
 | `context.resolvers.external_refs` | 通用外部引用 resolver、解析策略和依赖收集 | 资源、对象等上层引用可共享该入口 |
 | `context.resolvers.factories` | 多态读入时使用的通用类型工厂 | 只在需要从 envelope 创建运行期实例时使用 |
-| `context.resolvers.memory` | 多态值、空 wrapper 和容器新增元素的运行期构造资源 | 不强行替换已有容器 allocator |
+| `context.resolvers.construction` | 反序列化新建运行期值时使用的构造策略 | 可按字段、容器元素、wrapper 内部值和 variant 候选定制 |
+| `context.resolvers.memory` | 多态值、空拥有型 wrapper 和容器新增元素的运行期构造资源 | 不强行替换已有容器 allocator |
 | `context.state.storage` | 借用视图读回所需外部存储 | 主要用于 `std::string_view` |
 | `context.config.polymorphic` | 多态 envelope 字段名和调试 type name | 默认字段名为 `$type` / `$value` |
 | `context.config.limits` | 递归深度等安全限制 | `max_depth = 0` 表示关闭递归深度限制 |
@@ -132,12 +133,30 @@ caors::deserialize(context, object, text);
 ```
 
 `serialization::context` 不再提供旧式扁平配置字段。调用方应按职责写入
-`context.config.fields`、`context.resolvers.external_refs`、`context.resolvers.factories`、`context.resolvers.memory`
-、`context.state.storage` 和 `context.config.limits` 等分组字段。
+`context.config.fields`、`context.resolvers.external_refs`、`context.resolvers.factories`、
+`context.resolvers.construction`、`context.resolvers.memory`、`context.state.storage` 和
+`context.config.limits` 等分组字段。
 
 `context.config.limits.max_depth` 限制对象字段、容器元素、指针和 wrapper 内部值的递归展开深度，
 默认值为 `64`。超过限制时返回 `errc::recursion_limit`；设置为 `0` 表示关闭该保护。
 这个限制只是防止意外无限递归的安全网，不提供对象图身份追踪、共享实例去重或循环引用恢复。
+
+### 运行期构造策略
+
+反序列化需要新建运行期值时，会按同一套构造顺序尝试：
+
+1. `context.resolvers.construction.construct` 自定义构造策略。
+2. 已注册的 `meta::factory_capability`。
+3. 已注册且匹配空参数列表的 `meta::constructor_capability`。
+4. descriptor 默认构造或资源感知默认构造。
+
+自定义构造策略会收到 `serialization::construction_request`，其中包含目标 `type`、所属
+`owner_type`、字段名 `field_name`、构造位置 `site` 和容器/tuple/variant 下标 `index`。它适合为不可默认构造
+类型提供字段级或容器元素级初始对象。返回的 `construction_result` 必须包含对象指针和匹配销毁函数；如果返回空结果，
+序列化层继续尝试后续 fallback。
+
+当前调用点包括：需要临时值的容器元素、集合元素、关联容器 key/value、空拥有型智能指针 wrapper 的内部值、variant
+候选切换、普通多态 wrapper 新建对象，以及字段整体临时值。裸指针仍表示借用，不会通过该策略自动分配内存。
 
 ### 多态 object
 
@@ -293,16 +312,18 @@ caors::error status = caors::deserialize(context, holder, json);
 `std::unique_ptr<Base>` 的 deleter 不能保存运行期销毁上下文，因此会回退到标准 `new` / `delete`
 或无资源 factory 路径。自定义 wrapper 或自定义 deleter 需要通过 wrapper traits 明确提供匹配的接管语义。
 
-同一个 `context.resolvers.memory.resource` 也会用于普通反序列化路径里需要临时默认构造的 `any`、空 wrapper
-读入非空值时创建内部 `T`、顺序容器 resize 时需要新增的 allocator-aware 元素，以及
+同一个 `context.resolvers.memory.resource` 也会用于普通反序列化路径里需要临时构造的 `any`、空拥有型智能指针 wrapper
+读入非空值时创建内部 `T`、顺序容器新增元素、关联容器 key/value 临时值，以及
 `std::variant` 切换候选时构造新的候选值。普通 `std::unique_ptr<T>` 没有可替换的资源释放语义，
-仍按自身默认构造规则处理。标准容器元素的实际存储由容器自身 allocator 决定，序列化上下文不会强行替换目标容器的 allocator。
+仍按标准 deleter 的边界处理。标准容器元素的实际存储由容器自身 allocator 决定，序列化上下文不会强行替换目标容器的 allocator。
 如果希望 `caors::vector<caors::string>`、嵌套容器或 `caors::hash_map` 的最终元素也使用某个资源，
 目标对象或字段容器本身需要用该资源构造。
 
-资源感知构造的优先级是：字段或 view 已持有目标值时直接写入已有对象；需要新建对象时，先使用
-descriptor 的资源构造能力或 traits 的资源重载；缺少资源重载时回退到普通默认构造。自定义顺序容器
-可以通过 `traits::sequence_traits<T>::resize(values, size, resource)` 接入同一策略。
+构造优先级是：字段或 view 已持有目标值时直接写入已有对象；需要新建对象时，先使用
+`context.resolvers.construction` 自定义构造策略，再使用 meta factory、空参数 constructor，最后回退到
+descriptor 默认构造或 traits 的资源重载。自定义顺序容器可以通过
+`traits::sequence_traits<T>::resize(values, size, resource)` 接入 resize 路径；如果 resize 无法创建默认元素，
+序列化层会尝试逐个构造临时元素并追加。
 
 构造失败和边界错误按以下语义返回：
 
@@ -310,7 +331,7 @@ descriptor 的资源构造能力或 traits 的资源重载；缺少资源重载�
   envelope 的数组长度不匹配，或者 variant 下标越界。
 - 目标字段不可写、裸指针为空且需要写入非空值、引用 wrapper 不能置空或重绑定时返回
   `errc::invalid_field`。
-- 需要序列化层创建新对象但目标类型不可默认构造、不可资源构造或容器新增元素无法构造时返回
+- 需要序列化层创建新对象但没有可用构造策略、factory、constructor 或默认构造能力时返回
   `errc::invalid_type`。
 - 借用视图、弱引用和当前刻意禁止的类型形态返回 `errc::unsupported`。
 
@@ -762,11 +783,11 @@ template <> struct codec_traits<custom_value> {
 - 读入 `null` 会重置裸指针、`std::unique_ptr<T>`、`std::shared_ptr<T>`、`std::optional<T>`
   和 `objects::ref<T>`；写入 `std::reference_wrapper<T>` 时返回 `errc::invalid_field`。
 - 读入非空值时，裸指针要求目标指针已经指向有效对象，不会自动分配内存。
-- 读入非空值时，`std::unique_ptr<T>`、`std::shared_ptr<T>`、`std::optional<T>` 和
-  `objects::ref<T>` 会在内部为空时尝试默认构造 `T`；`std::reference_wrapper<T>`
-  会写入已经绑定的对象。
-- 如果 `T` 不支持默认构造，已经存在的 `T` 对象仍可被字段反序列化写入；但空智能指针、空 `optional`
-  和需要新增元素的容器不会隐式构造 `T`。
+- 读入非空值时，`std::unique_ptr<T>`、`std::shared_ptr<T>` 和 `objects::ref<T>` 会在内部为空时尝试使用上下文构造策略、factory、
+  constructor 或默认构造创建 `T`；`std::optional<T>` 目前仍只走 optional traits 的默认构造或 allocator-aware
+  构造；`std::reference_wrapper<T>` 会写入已经绑定的对象。
+- 如果 `T` 不支持默认构造，已经存在的 `T` 对象仍可被字段反序列化写入；空智能指针和需要新增元素的容器只有在上下文构造策略或已注册
+  factory / constructor 能创建 `T` 时才会读回成功；空 `optional<T>` 读入不可默认构造 `T` 仍是后续扩展项。
 - 裸指针、`std::reference_wrapper<T>` 和普通 inline wrapper 都按借用值递归处理。字段形成父指针、
   双向链表、自环或共享对象图时，调用方应跳过反向字段或改用显式引用；`context.config.limits.max_depth`
   只负责在递归过深时返回 `errc::recursion_limit`。
@@ -775,14 +796,14 @@ template <> struct codec_traits<custom_value> {
 - `caors::objects::ptr<T>` 不走内部 value 语义，仍通过 `objects::object_ref_resolver_ops` 写出和读入对象 id 或持久 GUID。
 - 当 `std::unique_ptr<Base>`、`caors::memory::unique_ptr<Base>`、`std::shared_ptr<Base>`
   或 `objects::ref<Base>`
-  实际持有已注册派生类对象时，序列化层会写出多态 envelope，默认字段名为 `$type` / `$value`。读回时要求派生类型可默认构造，
-  或已通过 `meta::class_<T>().factory()` 注册 factory 构造策略，并通过 wrapper 接管新对象。
+  实际持有已注册派生类对象时，序列化层会写出多态 envelope，默认字段名为 `$type` / `$value`。读回时要求派生类型可通过
+  上下文构造策略、`meta::class_<T>().factory()`、空参数 constructor 或 descriptor 默认构造创建，并通过 wrapper 接管新对象。
 - 如果反序列化上下文提供 `context.resolvers.memory.resource`，`std::shared_ptr<T>`、
   `caors::memory::unique_ptr<T>` 和 `objects::ref<T>` 可以保存运行期销毁回调，让资源分配和释放匹配。普通
   `std::unique_ptr<T>` 使用标准 deleter，不能安全接管资源构造出的运行期派生对象，因此会回退到
   默认 `new/delete` 或非资源 factory 路径。
-- `std::optional<T>` 在读入非空值且内部为空时会优先尝试资源感知构造内部 `T`；如果 `T` 不支持
-  allocator-aware 构造，则回退到普通默认构造。
+- `std::optional<T>` 在读入非空值且内部为空时会优先尝试 allocator-aware 构造内部 `T`；如果 `T`
+  不支持 allocator-aware 构造，则回退到普通默认构造。
 - `objects::ref<T>` 读入非空普通值且内部为空时会通过
   `objects::make_ref<T>(context.resolvers.memory.resource)` 创建对象；引用计数本身不写入存档。
   读入多态 envelope 时会按 `$type` 构造真实派生对象，并让 `objects::ref<Base>` 接管对应控制块和销毁回调。
@@ -803,16 +824,16 @@ template <> struct codec_traits<custom_value> {
 | `guid`、`type_guid`、`resource_guid` | 作为普通值类型 | 支持，按字符串写出 | 支持，从字符串解析 |
 | `resource_ref<T>` | 保存稳定资源 GUID 和可选已解析资源指针；资源序列化适配只处理 GUID | 空值写 `null`，非空写 `resource_guid` 字符串，不展开资源对象；可收集依赖 | `null` 会清空引用；非空字符串默认只恢复未解析 GUID，也可通过 `context.resolvers.external_refs.resolver` 按策略解析 |
 | 裸指针 `T*` | 通过 `indirect_view` 访问已指向的 `T` | 空值写 `null`，非空展开内部值 | `null` 可重置；非空要求目标已经指向有效对象 |
-| `std::unique_ptr<T>`、`caors::memory::unique_ptr<T>`、`std::shared_ptr<T>`、`std::optional<T>` | 通过 `indirect_view` 访问内部 `T` | 空值写 `null`，非空展开内部值；拥有型智能指针可写出普通类多态 envelope | `null` 可重置；非空可在 `T` 默认可构造时创建内部值；拥有型智能指针可按 envelope 和可用 factory 构造派生对象；空 wrapper 读入非空值但 `T` 不可构造时返回 `errc::invalid_type`；需要 `memory_resource` 托管 unique pointer 时使用 `caors::memory::unique_ptr<T>` |
+| `std::unique_ptr<T>`、`caors::memory::unique_ptr<T>`、`std::shared_ptr<T>`、`std::optional<T>` | 通过 `indirect_view` 访问内部 `T` | 空值写 `null`，非空展开内部值；拥有型智能指针可写出普通类多态 envelope | `null` 可重置；拥有型智能指针非空读入可通过上下文构造策略、factory、空参数 constructor 或默认构造创建内部值；`std::optional<T>` 目前只支持默认构造或 allocator-aware 构造内部值；空 wrapper 读入非空值但 `T` 不可构造时返回错误；需要 `memory_resource` 托管 unique pointer 时使用 `caors::memory::unique_ptr<T>` |
 | `objects::ref<T>` | 通过 `indirect_view` 访问引用计数对象内部 `T` | 空值写 `null`，非空展开内部值，不写引用计数；`ref<Base>` 持有派生对象时可写出多态 envelope | `null` 可重置；普通非空值可在 `T` 默认可构造时通过 `objects::make_ref<T>(context.resolvers.memory.resource)` 创建对象；多态 envelope 可构造真实派生对象并接管匹配销毁回调 |
 | `std::reference_wrapper<T>` | 通过 `indirect_view` 访问已绑定的 `T` | 按内部 `T` 写出 | 只能写入已绑定对象，不能置空或重绑定 |
 | `std::weak_ptr<T>`、`objects::weak_ref<T>` | 只标记为不支持 wrapper，不展开 | 不支持 | 不支持 |
 | `objects::ptr<T>` | 作为对象指针类型，可通过 `any_ref::get_capability<objects::ptr_capability>()` 识别 | 通过 resolver 写出 `object_id` 或 `object_guid` | 通过 resolver 从 `object_id` 或 `object_guid` 写回引用 |
 | `objects::handle`、`objects::typed_handle<T>` | 作为对象身份句柄，可通过 `any_ref::get_capability<objects::handle_capability>()` 识别 | 写出 `{id,type}`，不访问 resolver | 读回 `{id,type}`，只恢复身份，不自动解析对象 |
-| 顺序容器、集合、关联容器 | 通过 `sequence_view`、`set_view`、`associative_view` 访问 | 支持已适配 traits 的类型 | 支持拥有型容器；新增元素或临时 key/value 不可构造时返回 `errc::invalid_type`；借用视图默认拒绝 |
+| 顺序容器、集合、关联容器 | 通过 `sequence_view`、`set_view`、`associative_view` 访问 | 支持已适配 traits 的类型 | 支持拥有型容器；新增元素或临时 key/value 可走上下文构造策略，仍不可构造时返回 `errc::invalid_type`；借用视图默认拒绝 |
 | `std::span<T>` / `std::span<T, N>` | 借用顺序视图，元素是否可写由 `T` 和字段可写性决定 | 支持，按数组写出 | 默认拒绝，避免决定 backing storage 生命周期 |
 | `std::array<T, N>` | 固定长度顺序视图 | 支持 | 支持，但输入长度必须等于 `N`；长度不匹配返回 `errc::invalid_argument` |
-| `std::pair`、`std::tuple`、`std::variant` | 通过 pair / tuple / variant 视图访问 | 支持 | 支持；pair / tuple 长度、variant envelope 长度或下标错误返回 `errc::invalid_argument`；切换 variant 候选时目标候选需要默认构造或资源构造 |
+| `std::pair`、`std::tuple`、`std::variant` | 通过 pair / tuple / variant 视图访问 | 支持 | 支持；pair / tuple 长度、variant envelope 长度或下标错误返回 `errc::invalid_argument`；切换 variant 候选时目标候选可走上下文构造策略、factory、constructor 或默认构造 |
 
 - `std::string_view` 默认拒绝反序列化写回，避免把临时字符串读入成悬空引用。调用方如果提供
   `serialization::context::state.storage.string_view_storage`，序列化层会把每个读入文本追加为独立字符串，再让字段
@@ -840,12 +861,11 @@ template <> struct codec_traits<custom_value> {
   `errc::invalid_argument`。
 - `std::span<T>` / `std::span<T, N>` 已支持按借用数组视图写出和反射访问；默认不支持反序列化写回，
   避免序列化层隐式决定 backing storage 的分配、长度调整和生命周期。
-- 不可默认构造类型可以作为已有直接字段、已持有 wrapper 内部值或 `variant` 当前候选被写入；普通类多态
-  智能指针读回可以通过 `meta::class_<T>().factory()` 显式注册 factory 构造派生对象。其他需要序列化层自动实例化对象的路径
-  会返回 `errc::invalid_type`，例如容器新增元素、空 `optional` 读入非空值、`variant`
-  切换到不可默认构造候选。
+- 不可默认构造类型可以作为已有直接字段、已持有 wrapper 内部值或 `variant` 当前候选被写入；需要序列化层自动实例化对象时，
+  可以通过 `context.resolvers.construction`、`meta::class_<T>().factory()` 或空参数
+  `meta::class_<T>().constructor<>()` 提供构造能力。没有可用构造策略时仍返回 `errc::invalid_type`。
 - `serialization::context::resolvers.memory.resource` 会用于资源感知 `any` 默认构造、空 `std::shared_ptr<T>`、
-  空 `caors::memory::unique_ptr<T>`、空 `std::optional<T>` 和空 `objects::ref<T>` 的内部值创建、顺序容器新增元素、
+  空 `caors::memory::unique_ptr<T>`、空 `objects::ref<T>` 的内部值创建、顺序容器新增元素、
   `std::variant` 切换候选、关联容器 key/value 临时值，以及普通类多态值 factory。容器最终存储仍由目标容器
   自身 allocator 管理；上下文不会替换已存在容器的 allocator。标准顺序容器适配会把该资源传给新增的
   allocator-aware 元素。
@@ -855,7 +875,8 @@ template <> struct codec_traits<custom_value> {
   元素数量，否则返回 `errc::invalid_argument`。
 - `std::variant<...>` 已支持按 tagged union 数组 `[index, value]` 读写；反序列化时数组长度必须等于 2，
   `index` 必须在候选范围内，否则返回 `errc::invalid_argument`。相同候选会更新已有值；切换候选时目标候选
-  需要支持默认构造或资源感知构造，否则返回 `errc::invalid_type`。处于无值状态的 variant 当前返回不支持。
+  需要可通过上下文构造策略、factory、空参数 constructor 或默认构造创建，否则返回
+  `errc::invalid_type`。处于无值状态的 variant 当前返回不支持。
 - 直接值字段仍按字段声明静态类型处理；运行期动态类型记录发生在 `objects::object`
   声明类型和真实类型不一致时，以及拥有型智能指针 wrapper envelope 上。
 - JSON reader 目前不完整支持非 ASCII `\uXXXX` 解码，二进制格式、版本迁移和默认值恢复也尚未实现。

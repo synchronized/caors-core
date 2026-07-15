@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
+#include "construction.h"
 #include "helpers.h"
 #include "polymorphic.h"
 
@@ -13,77 +14,6 @@
 
 namespace caors::serialization::detail {
 namespace {
-
-struct constructed_value {
-  void* value = nullptr;
-  memory::memory_resource* resource = nullptr;
-  meta::value_ops::resource_destroy_fn resource_destroy = nullptr;
-  meta::value_ops::destroy_fn default_destroy = nullptr;
-  bool transfer_destroy_context = false;
-
-  constructed_value() = default;
-
-  constructed_value(void* constructed, memory::memory_resource* memory,
-                    meta::value_ops::resource_destroy_fn destroy, bool transfer_context) noexcept
-      : value(constructed), resource(memory), resource_destroy(destroy),
-        transfer_destroy_context(transfer_context) {}
-
-  constructed_value(void* constructed, meta::value_ops::destroy_fn destroy) noexcept
-      : value(constructed), default_destroy(destroy) {}
-
-  constructed_value(const constructed_value&) = delete;
-  constructed_value& operator=(const constructed_value&) = delete;
-
-  constructed_value(constructed_value&& other) noexcept
-      : value(other.value), resource(other.resource), resource_destroy(other.resource_destroy),
-        default_destroy(other.default_destroy),
-        transfer_destroy_context(other.transfer_destroy_context) {
-    other.release();
-  }
-
-  constructed_value& operator=(constructed_value&& other) noexcept {
-    if (this != &other) {
-      reset();
-      value = other.value;
-      resource = other.resource;
-      resource_destroy = other.resource_destroy;
-      default_destroy = other.default_destroy;
-      transfer_destroy_context = other.transfer_destroy_context;
-      other.release();
-    }
-
-    return *this;
-  }
-
-  ~constructed_value() { reset(); }
-
-  [[nodiscard]] bool valid() const noexcept { return value != nullptr; }
-  [[nodiscard]] bool uses_resource_destroy() const noexcept {
-    return value != nullptr && resource_destroy != nullptr && transfer_destroy_context;
-  }
-
-  void release() noexcept {
-    value = nullptr;
-    resource = nullptr;
-    resource_destroy = nullptr;
-    default_destroy = nullptr;
-    transfer_destroy_context = false;
-  }
-
-  void reset() noexcept {
-    if (value == nullptr) {
-      return;
-    }
-
-    if (resource_destroy != nullptr) {
-      resource_destroy(resource, value);
-    } else if (default_destroy != nullptr) {
-      default_destroy(value);
-    }
-
-    release();
-  }
-};
 
 struct polymorphic_destroy_context {
   memory::memory_resource* allocation_resource = nullptr;
@@ -104,51 +34,19 @@ void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcep
   memory::destroy(context, context->allocation_resource);
 }
 
-[[nodiscard]] constructed_value construct_polymorphic_value(const meta::type& dynamic_type,
-                                                            const meta::indirect_view& indirect,
-                                                            const serialization::context& context) {
-  const meta::factory_capability registered_factory =
-      dynamic_type.get_capability<meta::factory_capability>();
-  memory::memory_resource* resource = context.effective_memory_resource();
-
-  if (resource != nullptr && indirect.can_set_value_with_context()) {
-    if (registered_factory) {
-      return {
-          registered_factory.construct(resource),
-          resource,
-          registered_factory.destroy_fn(),
-          true,
-      };
-    }
-
-    const meta::value_storage_ops* storage = dynamic_type.get_raw_ops<meta::value_storage_ops>();
-    if (storage != nullptr && storage->ops.resource_construct != nullptr &&
-        storage->ops.resource_destroy != nullptr) {
-      return {
-          storage->ops.resource_construct(resource),
-          resource,
-          storage->ops.resource_destroy,
-          true,
-      };
-    }
+[[nodiscard]] owned_constructed_value
+construct_polymorphic_value(const meta::type& dynamic_type, const meta::indirect_view& indirect,
+                            const serialization::context& context) {
+  serialization::context construction_context = context;
+  const bool can_transfer_destroy_context =
+      context.effective_memory_resource() != nullptr && indirect.can_set_value_with_context();
+  if (!can_transfer_destroy_context) {
+    construction_context.resolvers.memory.resource = nullptr;
   }
 
-  if (registered_factory) {
-    return {
-        registered_factory.construct(nullptr),
-        nullptr,
-        registered_factory.destroy_fn(),
-        false,
-    };
-  }
-
-  const meta::value_storage_ops* storage = dynamic_type.get_raw_ops<meta::value_storage_ops>();
-  if (storage == nullptr || storage->ops.default_construct == nullptr ||
-      storage->ops.destroy == nullptr) {
-    return {};
-  }
-
-  return {storage->ops.default_construct(), storage->ops.destroy};
+  return construct_owned_value(dynamic_type, construction_context,
+                               construction_site::polymorphic_value, construction_request_no_index,
+                               true, can_transfer_destroy_context);
 }
 
 } // namespace
@@ -352,7 +250,8 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
     return {error_domain::serialization, errc::unsupported};
   }
 
-  constructed_value instance = construct_polymorphic_value(dynamic_type.value, indirect, context);
+  owned_constructed_value instance =
+      construct_polymorphic_value(dynamic_type.value, indirect, context);
   if (!instance.valid()) {
     return {error_domain::serialization, errc::unsupported};
   }
@@ -400,6 +299,77 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
   }
 
   if (!indirect.set_value(dynamic_type.value.id(), instance.value)) {
+    return {error_domain::serialization, errc::invalid_field};
+  }
+
+  instance.release();
+  return {};
+}
+
+[[nodiscard]] error read_constructed_indirect_value(reader& reader,
+                                                    const meta::indirect_view& indirect,
+                                                    const serialization::context& context) {
+  const meta::type value_type = indirect.get_value_type();
+  if (!value_type || (!indirect.can_set_value() && !indirect.can_set_value_with_context())) {
+    return {error_domain::serialization, errc::invalid_type};
+  }
+
+  serialization::context construction_context = context;
+  const bool can_transfer_destroy_context =
+      context.effective_memory_resource() != nullptr && indirect.can_set_value_with_context();
+  if (!can_transfer_destroy_context) {
+    construction_context.resolvers.memory.resource = nullptr;
+  }
+
+  owned_constructed_value instance =
+      construct_owned_value(value_type, construction_context, construction_site::indirect_value,
+                            construction_request_no_index, true, can_transfer_destroy_context);
+  if (!instance.valid()) {
+    return {error_domain::serialization, errc::invalid_type};
+  }
+
+  any_ref value = any_ref::from_raw(value_type, instance.value, true);
+  if (!value.valid() || !value.writable()) {
+    return {error_domain::serialization, errc::invalid_field};
+  }
+
+  error status = read_serialized_value(reader, value, context);
+  if (status) {
+    return status;
+  }
+
+  if (instance.uses_resource_destroy()) {
+    memory::memory_resource* resource = context.effective_memory_resource();
+    if (resource == nullptr) {
+      return {error_domain::serialization, errc::invalid_argument};
+    }
+
+    void* context_storage = resource->try_allocate(sizeof(polymorphic_destroy_context),
+                                                   alignof(polymorphic_destroy_context));
+    if (context_storage == nullptr) {
+      return {error_domain::serialization, errc::unsupported};
+    }
+
+    auto* destroy_context = ::new (context_storage) polymorphic_destroy_context{
+        resource,
+        instance.resource,
+        instance.resource_destroy,
+    };
+    const traits::wrapper_set_context set_context{
+        destroy_context,
+        &destroy_polymorphic_constructed_value,
+        resource,
+    };
+    if (!indirect.set_value(value_type.id(), instance.value, set_context)) {
+      memory::destroy(destroy_context, destroy_context->allocation_resource);
+      return {error_domain::serialization, errc::invalid_field};
+    }
+
+    instance.release();
+    return {};
+  }
+
+  if (!indirect.set_value(value_type.id(), instance.value)) {
     return {error_domain::serialization, errc::invalid_field};
   }
 
@@ -497,7 +467,7 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
 
   if (!indirect.has_value() && !indirect.ensure_value(context.effective_memory_resource())) {
     if (indirect.can_set_value() || indirect.can_set_value_with_context()) {
-      return {error_domain::serialization, errc::invalid_type};
+      return read_constructed_indirect_value(reader, indirect, nested_context.value);
     }
 
     return {error_domain::serialization, errc::invalid_field};

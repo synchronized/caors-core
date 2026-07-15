@@ -510,6 +510,23 @@ bool variant_view::set_value(const any& value) const {
   return target.valid() && target.try_set(value);
 }
 
+bool variant_view::set_value(std::size_t alternative, const any& value) const {
+  const meta::variant_ops* info = data();
+  if (!writable() || info == nullptr || alternative >= info->alternatives.size() ||
+      !value.valid()) {
+    return false;
+  }
+
+  const meta::variant_alternative_ops& alternative_data = info->alternatives[alternative];
+  const meta::type expected =
+      alternative_data.get_value_type != nullptr ? alternative_data.get_value_type() : meta::type{};
+  if (!expected || value.get_type().id() != expected.id() || alternative_data.set == nullptr) {
+    return false;
+  }
+
+  return alternative_data.set(const_cast<void*>(storage_), value.data());
+}
+
 variant_view::variant_view(meta::type type, const void* storage, bool writable) noexcept
     : type_(type), storage_(storage), writable_(writable) {}
 

@@ -5,6 +5,8 @@
 
 #include "construction.h"
 
+#include <optional>
+
 namespace caors::serialization::detail {
 
 [[nodiscard]] error sequence_resize_failure(const meta::sequence_view& view,
@@ -29,8 +31,44 @@ namespace caors::serialization::detail {
     return status;
   }
 
-  if (!view.clear() || !view.resize(size, context.effective_memory_resource())) {
-    return sequence_resize_failure(view, size);
+  if (!view.clear()) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  if (view.resize(size, context.effective_memory_resource())) {
+    for (std::size_t index = 0; index < size; ++index) {
+      status = reader.begin_element(index);
+      if (status) {
+        return status;
+      }
+
+      any_ref element = view.element_ref(index);
+      if (!element.valid() || !element.writable()) {
+        return {error_domain::serialization, errc::invalid_field};
+      }
+
+      result<serialization::context> nested_context = context.enter_nested_value();
+      if (nested_context.failed()) {
+        return nested_context.status;
+      }
+
+      status = read_serialized_value(reader, element, nested_context.value);
+      if (status) {
+        return status;
+      }
+
+      status = reader.end_element();
+      if (status) {
+        return status;
+      }
+    }
+
+    return reader.end_array();
+  }
+
+  const error resize_error = sequence_resize_failure(view, size);
+  if (resize_error.value() == errc::invalid_argument) {
+    return resize_error;
   }
 
   for (std::size_t index = 0; index < size; ++index) {
@@ -39,9 +77,10 @@ namespace caors::serialization::detail {
       return status;
     }
 
-    any_ref element = view.element_ref(index);
-    if (!element.valid() || !element.writable()) {
-      return {error_domain::serialization, errc::invalid_field};
+    any element =
+        construct_value(view.get_value_type(), context, construction_site::sequence_element, index);
+    if (!element.valid()) {
+      return {error_domain::serialization, errc::invalid_type};
     }
 
     result<serialization::context> nested_context = context.enter_nested_value();
@@ -49,9 +88,13 @@ namespace caors::serialization::detail {
       return nested_context.status;
     }
 
-    status = read_serialized_value(reader, element, nested_context.value);
+    status = read_serialized_value(reader, element.ref(), nested_context.value);
     if (status) {
       return status;
+    }
+
+    if (!view.append_value(element)) {
+      return {error_domain::serialization, errc::invalid_field};
     }
 
     status = reader.end_element();
@@ -112,7 +155,8 @@ namespace caors::serialization::detail {
       return status;
     }
 
-    any element = default_construct_value(view.get_value_type(), context);
+    any element =
+        construct_value(view.get_value_type(), context, construction_site::set_element, index);
     if (!element.valid()) {
       return {error_domain::serialization, errc::invalid_type};
     }
@@ -183,8 +227,10 @@ namespace caors::serialization::detail {
       return status;
     }
 
-    any key = default_construct_value(view.get_key_type(), context);
-    any value = default_construct_value(view.get_value_type(), context);
+    any key =
+        construct_value(view.get_key_type(), context, construction_site::associative_key, index);
+    any value = construct_value(view.get_value_type(), context,
+                                construction_site::associative_value, index);
     if (!key.valid() || !value.valid()) {
       return {error_domain::serialization, errc::invalid_type};
     }
@@ -450,18 +496,9 @@ namespace caors::serialization::detail {
     return status;
   }
 
-  if (!view.emplace(active, context.effective_memory_resource())) {
-    return {error_domain::serialization, errc::invalid_type};
-  }
-
   status = reader.begin_element(1);
   if (status) {
     return status;
-  }
-
-  any_ref value = view.value_ref();
-  if (!value.valid() || !value.writable()) {
-    return {error_domain::serialization, errc::invalid_field};
   }
 
   result<serialization::context> nested_context = context.enter_nested_value();
@@ -469,9 +506,36 @@ namespace caors::serialization::detail {
     return nested_context.status;
   }
 
-  status = read_serialized_value(reader, value, nested_context.value);
-  if (status) {
-    return status;
+  if (view.emplace(active, context.effective_memory_resource())) {
+    any_ref value = view.value_ref();
+    if (!value.valid() || !value.writable()) {
+      return {error_domain::serialization, errc::invalid_field};
+    }
+
+    status = read_serialized_value(reader, value, nested_context.value);
+    if (status) {
+      return status;
+    }
+  } else {
+    const std::optional<meta::type> alternative_type = view.get_alternative_type(active);
+    if (!alternative_type.has_value()) {
+      return {error_domain::serialization, errc::invalid_argument};
+    }
+
+    any decoded =
+        construct_value(*alternative_type, context, construction_site::variant_alternative, active);
+    if (!decoded.valid()) {
+      return {error_domain::serialization, errc::invalid_type};
+    }
+
+    status = read_serialized_value(reader, decoded.ref(), nested_context.value);
+    if (status) {
+      return status;
+    }
+
+    if (!view.set_value(active, decoded)) {
+      return {error_domain::serialization, errc::invalid_field};
+    }
   }
 
   status = reader.end_element();

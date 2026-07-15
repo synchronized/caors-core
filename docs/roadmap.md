@@ -202,8 +202,11 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 简化序列化公开 API，保留 `serialize` / `deserialize` / `to_value` / `to_string` 等主路径，
   将低频 JSON/text buffer 入口收敛到 `serialization::` 模块命名空间。
 - [x] 拆分 `serialization::context` 的运行期状态、策略配置和 resolver 适配器，减少上下文字段膨胀。
-- [ ] 设计字段级构造策略，覆盖容器新增元素、空 `optional<T>`、`variant` 候选切换和不可默认构造类型；
-  优先使用 `serialization::context::resolvers.memory.resource`、meta factory capability 和字段策略，失败时返回明确诊断。
+- [x] 设计字段级构造策略，覆盖容器新增元素、拥有型智能指针 wrapper、`variant` 候选切换和不可默认构造类型；
+  优先使用 `serialization::context::resolvers.construction`、`memory_resource`、meta factory / constructor
+  capability 和 descriptor 默认构造，失败时返回明确诊断。
+- [ ] 扩展空 `optional<T>` 读入非空值时的安全构造和写入策略，避免把拥有型 wrapper 的接管语义误用于
+  `optional` 的按值存储语义。
 - [ ] 放宽多层指针 / 多层 wrapper 限制，采用逐层 indirect descriptor 展开；默认设置合理最大深度，
   并对空中间层、不可写引用和所有权不明确的组合返回清晰诊断。
 - [ ] 扩展普通类多态 envelope 的 reader 抽象，使自定义流式 reader 也能提供 type/value envelope

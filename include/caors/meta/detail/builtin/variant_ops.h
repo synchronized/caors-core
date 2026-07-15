@@ -61,11 +61,31 @@ template <typename Variant, std::size_t Index> struct variant_alternative_ops_mo
     }
   }
 
+  static bool set(void* storage, const void* value) {
+    if (storage == nullptr || value == nullptr) {
+      return false;
+    }
+
+    if constexpr (!std::is_copy_constructible_v<alternative_type>) {
+      return false;
+    } else if constexpr (requires(type& variant, const alternative_type& alternative) {
+                           traits::variant_traits<type>::template set<Index>(variant, alternative);
+                         }) {
+      return traits::variant_traits<type>::template set<Index>(
+          *static_cast<type*>(storage), *static_cast<const alternative_type*>(value));
+    } else if constexpr (requires(type& variant, const alternative_type& alternative) {
+                           variant.template emplace<Index>(alternative);
+                         }) {
+      static_cast<type*>(storage)->template emplace<Index>(
+          *static_cast<const alternative_type*>(value));
+      return true;
+    } else {
+      return false;
+    }
+  }
+
   inline static const variant_alternative_ops value{
-      &alternative,
-      &mutable_alternative,
-      &emplace,
-      &get_value_type,
+      &alternative, &mutable_alternative, &emplace, &set, &get_value_type,
   };
 };
 

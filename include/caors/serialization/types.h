@@ -20,6 +20,8 @@
 
 namespace caors::serialization {
 
+struct context;
+
 /** @brief 按运行期类型构造和销毁实例的函数表。 */
 struct polymorphic_factory_ops {
   using create_fn = void* (*)(type_id type, memory::memory_resource* resource, void* user_data);
@@ -41,6 +43,43 @@ struct polymorphic_factory_ops {
     if (destroy != nullptr && instance != nullptr) {
       destroy(instance, user_data);
     }
+  }
+};
+
+inline constexpr std::size_t construction_request_no_index = static_cast<std::size_t>(-1);
+
+/** @brief 序列化读入时需要新建运行期值的位置。 */
+enum class construction_site {
+  value,
+  field,
+  indirect_value,
+  sequence_element,
+  set_element,
+  associative_key,
+  associative_value,
+  pair_first,
+  pair_second,
+  tuple_element,
+  variant_alternative,
+  polymorphic_value,
+};
+
+/** @brief 序列化读入时传给自定义构造策略的上下文信息。 */
+struct construction_request {
+  meta::type type{};
+  meta::type owner_type{};
+  string_name field_name{};
+  construction_site site = construction_site::value;
+  std::size_t index = construction_request_no_index;
+};
+
+/** @brief 自定义构造策略返回的运行期对象和匹配销毁函数。 */
+struct construction_result {
+  void* value = nullptr;
+  meta::value_ops::resource_destroy_fn destroy = nullptr;
+
+  [[nodiscard]] constexpr bool valid() const noexcept {
+    return value != nullptr && destroy != nullptr;
   }
 };
 
@@ -105,6 +144,28 @@ struct factory_options {
   const polymorphic_factory_ops* polymorphic_factory = nullptr;
 };
 
+/** @brief 反序列化需要创建运行期值时使用的构造策略。 */
+struct construction_options {
+  using construct_fn = construction_result (*)(const construction_request& request,
+                                               const serialization::context& context,
+                                               void* user_data);
+
+  construct_fn construct = nullptr;
+  void* user_data = nullptr;
+  bool use_registered_factory = true;
+  bool use_registered_constructor = true;
+  bool use_descriptor_default = true;
+
+  [[nodiscard]] constexpr bool has_custom_construct() const noexcept {
+    return construct != nullptr;
+  }
+
+  [[nodiscard]] construction_result create(const construction_request& request,
+                                           const serialization::context& context) const {
+    return construct != nullptr ? construct(request, context, user_data) : construction_result{};
+  }
+};
+
 /** @brief 递归和输入规模相关的序列化限制。 */
 struct limit_options {
   /**
@@ -137,12 +198,14 @@ struct context_config {
 struct context_resolvers {
   external_ref_options external_refs{};
   factory_options factories{};
+  construction_options construction{};
   memory_options memory{};
 };
 
 /** @brief 单次序列化调度的可变运行期状态。 */
 struct context_state {
   storage_options storage{};
+  construction_request construction{};
   std::uint32_t current_depth = 0;
 };
 
@@ -186,6 +249,21 @@ struct context {
 
   [[nodiscard]] memory::memory_resource* effective_memory_resource() const noexcept {
     return resolvers.memory.resource;
+  }
+
+  [[nodiscard]] const serialization::construction_options&
+  effective_construction_options() const noexcept {
+    return resolvers.construction;
+  }
+
+  [[nodiscard]] construction_request
+  make_construction_request(meta::type type, construction_site site,
+                            std::size_t index = construction_request_no_index) const noexcept {
+    construction_request request = state.construction;
+    request.type = type;
+    request.site = site;
+    request.index = index;
+    return request;
   }
 
   [[nodiscard]] std::uint32_t current_depth() const noexcept { return state.current_depth; }

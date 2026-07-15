@@ -24,6 +24,20 @@ TEST_CASE("serialization - rejects empty non default constructible unique pointe
   CHECK(actor.value == nullptr);
 }
 
+TEST_CASE("serialization - constructs empty non default unique pointers with context strategy",
+          "[serialization]") {
+  require_non_default_value_metadata();
+
+  non_default_unique_ptr_actor actor{};
+  caors::serialization::context context = non_default_construction_context();
+
+  const caors::error result = caors::deserialize(context, actor, R"({"value":{"value":7}})");
+
+  REQUIRE(result.succeeded());
+  REQUIRE(actor.value != nullptr);
+  CHECK(actor.value->value == 7);
+}
+
 // 原测试文件：serialization_non_default_value_rejects_non_default_constructible_sequence_elements_test.cpp
 
 #include "serialization_test_support.h"
@@ -54,6 +68,21 @@ TEST_CASE("serialization - rejects non default constructible sequence elements",
   CHECK(actor.values[0].value == 1);
 }
 
+TEST_CASE("serialization - constructs non default sequence elements with context strategy",
+          "[serialization]") {
+  require_non_default_value_metadata();
+
+  non_default_vector_actor actor{};
+  actor.values.emplace_back(1);
+  caors::serialization::context context = non_default_construction_context();
+
+  const caors::error result = caors::deserialize(context, actor, R"({"values":[{"value":7}]})");
+
+  REQUIRE(result.succeeded());
+  REQUIRE(actor.values.size() == 1);
+  CHECK(actor.values[0].value == 7);
+}
+
 // 原测试文件：serialization_non_default_value_rejects_switching_to_non_default_constructible_variant_alternatives_test.cpp
 
 #include "serialization_test_support.h"
@@ -77,6 +106,21 @@ TEST_CASE("serialization - rejects switching to non default constructible varian
   CHECK(result.value() == caors::errc::invalid_type);
   REQUIRE(std::holds_alternative<int>(actor.value));
   CHECK(std::get<int>(actor.value) == 3);
+}
+
+TEST_CASE("serialization - constructs non default variant alternatives with context strategy",
+          "[serialization]") {
+  require_non_default_value_metadata();
+
+  non_default_variant_actor actor{};
+  actor.value = 3;
+  caors::serialization::context context = non_default_construction_context();
+
+  const caors::error result = caors::deserialize(context, actor, R"({"value":[1,{"value":7}]})");
+
+  REQUIRE(result.succeeded());
+  REQUIRE(std::holds_alternative<non_default_value>(actor.value));
+  CHECK(std::get<non_default_value>(actor.value).value == 7);
 }
 
 // 原测试文件：serialization_non_default_value_updates_existing_non_default_constructible_unique_pointers_test.cpp
