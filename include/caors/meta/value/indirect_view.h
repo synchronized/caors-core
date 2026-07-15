@@ -62,6 +62,7 @@ public:
 private:
   friend class any;
   friend class any_ref;
+  friend indirect_view make_indirect_view(any_ref source) noexcept;
 
   indirect_view(meta::type type, const void* storage, bool writable) noexcept;
 

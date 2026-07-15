@@ -50,6 +50,7 @@ public:
 private:
   friend class any;
   friend class any_ref;
+  friend variant_view make_variant_view(any_ref source) noexcept;
 
   variant_view(meta::type type, const void* storage, bool writable) noexcept;
 

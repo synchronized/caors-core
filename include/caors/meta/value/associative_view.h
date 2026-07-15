@@ -84,6 +84,7 @@ public:
 private:
   friend class any;
   friend class any_ref;
+  friend associative_view make_associative_view(any_ref source) noexcept;
   friend bool operator==(const iterator& lhs, const iterator& rhs) noexcept;
   friend bool operator!=(const iterator& lhs, const iterator& rhs) noexcept;
 

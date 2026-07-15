@@ -23,6 +23,69 @@ template <typename Ops> [[nodiscard]] bool has_ops(meta::type type) noexcept {
 
 } // namespace
 
+indirect_view make_indirect_view(any_ref source) noexcept {
+  const meta::type type = source.get_type();
+  if (!source.valid() || !has_indirect_ops(type)) {
+    return {};
+  }
+
+  return indirect_view{type, source.data(), source.writable()};
+}
+
+sequence_view make_sequence_view(any_ref source) noexcept {
+  const meta::type type = source.get_type();
+  if (!source.valid() || !has_ops<meta::sequence_ops>(type)) {
+    return {};
+  }
+
+  return sequence_view{type, source.data(), source.writable()};
+}
+
+set_view make_set_view(any_ref source) noexcept {
+  const meta::type type = source.get_type();
+  if (!source.valid() || !has_ops<meta::set_ops>(type)) {
+    return {};
+  }
+
+  return set_view{type, source.data(), source.writable()};
+}
+
+associative_view make_associative_view(any_ref source) noexcept {
+  const meta::type type = source.get_type();
+  if (!source.valid() || !has_ops<meta::associative_ops>(type)) {
+    return {};
+  }
+
+  return associative_view{type, source.data(), source.writable()};
+}
+
+pair_view make_pair_view(any_ref source) noexcept {
+  const meta::type type = source.get_type();
+  if (!source.valid() || !has_ops<meta::pair_ops>(type)) {
+    return {};
+  }
+
+  return pair_view{type, source.data(), source.writable()};
+}
+
+tuple_view make_tuple_view(any_ref source) noexcept {
+  const meta::type type = source.get_type();
+  if (!source.valid() || !has_ops<meta::tuple_ops>(type)) {
+    return {};
+  }
+
+  return tuple_view{type, source.data(), source.writable()};
+}
+
+variant_view make_variant_view(any_ref source) noexcept {
+  const meta::type type = source.get_type();
+  if (!source.valid() || !has_ops<meta::variant_ops>(type)) {
+    return {};
+  }
+
+  return variant_view{type, source.data(), source.writable()};
+}
+
 bool indirect_view::valid() const noexcept {
   const meta::indirect_ops* info = data();
   if (!type_ || info == nullptr || storage_ == nullptr || !type_.get_value_type()) {
@@ -951,193 +1014,46 @@ const meta::associative_ops* associative_view::data() const noexcept {
   return type_.get_ops<meta::associative_ops>();
 }
 
-associative_view any::create_associative_view() {
-  const meta::type type = get_type();
-  if (!valid() || !has_ops<meta::associative_ops>(type)) {
-    return {};
-  }
+associative_view any::create_associative_view() { return make_associative_view(ref()); }
 
-  return associative_view{type, mutable_data(), true};
-}
+associative_view any::create_associative_view() const { return make_associative_view(ref()); }
 
-associative_view any::create_associative_view() const {
-  const meta::type type = get_type();
-  if (!valid() || !has_ops<meta::associative_ops>(type)) {
-    return {};
-  }
+associative_view any_ref::create_associative_view() const { return make_associative_view(*this); }
 
-  return associative_view{type, data_, false};
-}
+pair_view any::create_pair_view() { return make_pair_view(ref()); }
 
-associative_view any_ref::create_associative_view() const {
-  const meta::type type = get_type();
-  if (!valid() || !has_ops<meta::associative_ops>(type)) {
-    return {};
-  }
+pair_view any::create_pair_view() const { return make_pair_view(ref()); }
 
-  return associative_view{type, data_, writable_};
-}
+pair_view any_ref::create_pair_view() const { return make_pair_view(*this); }
 
-pair_view any::create_pair_view() {
-  const meta::type type = get_type();
-  if (!valid() || !has_ops<meta::pair_ops>(type)) {
-    return {};
-  }
+tuple_view any::create_tuple_view() { return make_tuple_view(ref()); }
 
-  return pair_view{type, mutable_data(), true};
-}
+tuple_view any::create_tuple_view() const { return make_tuple_view(ref()); }
 
-pair_view any::create_pair_view() const {
-  const meta::type type = get_type();
-  if (!valid() || !has_ops<meta::pair_ops>(type)) {
-    return {};
-  }
+tuple_view any_ref::create_tuple_view() const { return make_tuple_view(*this); }
 
-  return pair_view{type, data_, false};
-}
+variant_view any::create_variant_view() { return make_variant_view(ref()); }
 
-pair_view any_ref::create_pair_view() const {
-  const meta::type type = get_type();
-  if (!valid() || !has_ops<meta::pair_ops>(type)) {
-    return {};
-  }
+variant_view any::create_variant_view() const { return make_variant_view(ref()); }
 
-  return pair_view{type, data_, writable_};
-}
+variant_view any_ref::create_variant_view() const { return make_variant_view(*this); }
 
-tuple_view any::create_tuple_view() {
-  const meta::type type = get_type();
-  if (!valid() || !has_ops<meta::tuple_ops>(type)) {
-    return {};
-  }
+indirect_view any::create_indirect_view() { return make_indirect_view(ref()); }
 
-  return tuple_view{type, mutable_data(), true};
-}
+indirect_view any::create_indirect_view() const { return make_indirect_view(ref()); }
 
-tuple_view any::create_tuple_view() const {
-  const meta::type type = get_type();
-  if (!valid() || !has_ops<meta::tuple_ops>(type)) {
-    return {};
-  }
+indirect_view any_ref::create_indirect_view() const { return make_indirect_view(*this); }
 
-  return tuple_view{type, data_, false};
-}
+sequence_view any::create_sequence_view() { return make_sequence_view(ref()); }
 
-tuple_view any_ref::create_tuple_view() const {
-  const meta::type type = get_type();
-  if (!valid() || !has_ops<meta::tuple_ops>(type)) {
-    return {};
-  }
+sequence_view any::create_sequence_view() const { return make_sequence_view(ref()); }
 
-  return tuple_view{type, data_, writable_};
-}
+sequence_view any_ref::create_sequence_view() const { return make_sequence_view(*this); }
 
-variant_view any::create_variant_view() {
-  const meta::type type = get_type();
-  if (!valid() || !has_ops<meta::variant_ops>(type)) {
-    return {};
-  }
+set_view any::create_set_view() { return make_set_view(ref()); }
 
-  return variant_view{type, mutable_data(), true};
-}
+set_view any::create_set_view() const { return make_set_view(ref()); }
 
-variant_view any::create_variant_view() const {
-  const meta::type type = get_type();
-  if (!valid() || !has_ops<meta::variant_ops>(type)) {
-    return {};
-  }
-
-  return variant_view{type, data_, false};
-}
-
-variant_view any_ref::create_variant_view() const {
-  const meta::type type = get_type();
-  if (!valid() || !has_ops<meta::variant_ops>(type)) {
-    return {};
-  }
-
-  return variant_view{type, data_, writable_};
-}
-
-indirect_view any::create_indirect_view() {
-  const meta::type type = get_type();
-  if (!valid() || !has_indirect_ops(type)) {
-    return {};
-  }
-
-  return indirect_view{type, mutable_data(), true};
-}
-
-indirect_view any::create_indirect_view() const {
-  const meta::type type = get_type();
-  if (!valid() || !has_indirect_ops(type)) {
-    return {};
-  }
-
-  return indirect_view{type, data_, false};
-}
-
-indirect_view any_ref::create_indirect_view() const {
-  const meta::type type = get_type();
-  if (!valid() || !has_indirect_ops(type)) {
-    return {};
-  }
-
-  return indirect_view{type, data_, writable_};
-}
-
-sequence_view any::create_sequence_view() {
-  const meta::type type = get_type();
-  if (!valid() || !has_ops<meta::sequence_ops>(type)) {
-    return {};
-  }
-
-  return sequence_view{type, mutable_data(), true};
-}
-
-sequence_view any::create_sequence_view() const {
-  const meta::type type = get_type();
-  if (!valid() || !has_ops<meta::sequence_ops>(type)) {
-    return {};
-  }
-
-  return sequence_view{type, data_, false};
-}
-
-sequence_view any_ref::create_sequence_view() const {
-  const meta::type type = get_type();
-  if (!valid() || !has_ops<meta::sequence_ops>(type)) {
-    return {};
-  }
-
-  return sequence_view{type, data_, writable_};
-}
-
-set_view any::create_set_view() {
-  const meta::type type = get_type();
-  if (!valid() || !has_ops<meta::set_ops>(type)) {
-    return {};
-  }
-
-  return set_view{type, mutable_data(), true};
-}
-
-set_view any::create_set_view() const {
-  const meta::type type = get_type();
-  if (!valid() || !has_ops<meta::set_ops>(type)) {
-    return {};
-  }
-
-  return set_view{type, data_, false};
-}
-
-set_view any_ref::create_set_view() const {
-  const meta::type type = get_type();
-  if (!valid() || !has_ops<meta::set_ops>(type)) {
-    return {};
-  }
-
-  return set_view{type, data_, writable_};
-}
+set_view any_ref::create_set_view() const { return make_set_view(*this); }
 
 } // namespace caors::meta

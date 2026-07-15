@@ -79,6 +79,7 @@ public:
 private:
   friend class any;
   friend class any_ref;
+  friend sequence_view make_sequence_view(any_ref source) noexcept;
 
   sequence_view(meta::type type, const void* storage, bool writable) noexcept;
 

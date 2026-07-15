@@ -6,7 +6,7 @@
 
 #include "internal.h"
 
-#include "caors/meta/value/view_factory.h"
+#include "caors/meta/value/capability_view.h"
 
 namespace caors::serialization::detail {
 

@@ -49,6 +49,7 @@ public:
 private:
   friend class any;
   friend class any_ref;
+  friend pair_view make_pair_view(any_ref source) noexcept;
 
   pair_view(meta::type type, const void* storage, bool writable) noexcept;
 

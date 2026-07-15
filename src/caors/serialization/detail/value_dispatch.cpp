@@ -111,7 +111,7 @@ variant_result make_serialized_value(const any_ref& value, const serialization::
   }
 
   if (type_uses_inline_indirect_value(value)) {
-    const meta::indirect_view indirect = value.create_indirect_view();
+    const meta::indirect_view indirect = value.get_capability<meta::indirect_view>();
     return make_indirect_serialized_value(indirect, context);
   }
 
@@ -119,32 +119,32 @@ variant_result make_serialized_value(const any_ref& value, const serialization::
     return make_enum_value(value);
   }
 
-  meta::sequence_view sequence = value.create_sequence_view();
+  meta::sequence_view sequence = value.get_capability<meta::sequence_view>();
   if (sequence.valid()) {
     return make_sequence_value(sequence, context);
   }
 
-  meta::set_view set = value.create_set_view();
+  meta::set_view set = value.get_capability<meta::set_view>();
   if (set.valid()) {
     return make_set_value(set, context);
   }
 
-  meta::associative_view associative = value.create_associative_view();
+  meta::associative_view associative = value.get_capability<meta::associative_view>();
   if (associative.valid()) {
     return make_associative_value(associative, context);
   }
 
-  meta::pair_view pair = value.create_pair_view();
+  meta::pair_view pair = value.get_capability<meta::pair_view>();
   if (pair.valid()) {
     return make_pair_value(pair, context);
   }
 
-  meta::tuple_view tuple = value.create_tuple_view();
+  meta::tuple_view tuple = value.get_capability<meta::tuple_view>();
   if (tuple.valid()) {
     return make_tuple_value(tuple, context);
   }
 
-  meta::variant_view variant = value.create_variant_view();
+  meta::variant_view variant = value.get_capability<meta::variant_view>();
   if (variant.valid()) {
     return make_variant_value(variant, context);
   }
@@ -180,7 +180,7 @@ error write_serialized_value(writer& writer, const any_ref& value,
   }
 
   if (type_uses_inline_indirect_value(value)) {
-    const meta::indirect_view indirect = value.create_indirect_view();
+    const meta::indirect_view indirect = value.get_capability<meta::indirect_view>();
     return write_indirect_serialized_value(writer, indirect, context);
   }
 
@@ -188,32 +188,32 @@ error write_serialized_value(writer& writer, const any_ref& value,
     return write_enum_value(writer, value);
   }
 
-  meta::sequence_view sequence = value.create_sequence_view();
+  meta::sequence_view sequence = value.get_capability<meta::sequence_view>();
   if (sequence.valid()) {
     return write_sequence_value(writer, sequence, context);
   }
 
-  meta::set_view set = value.create_set_view();
+  meta::set_view set = value.get_capability<meta::set_view>();
   if (set.valid()) {
     return write_set_value(writer, set, context);
   }
 
-  meta::associative_view associative = value.create_associative_view();
+  meta::associative_view associative = value.get_capability<meta::associative_view>();
   if (associative.valid()) {
     return write_associative_value(writer, associative, context);
   }
 
-  meta::pair_view pair = value.create_pair_view();
+  meta::pair_view pair = value.get_capability<meta::pair_view>();
   if (pair.valid()) {
     return write_pair_value(writer, pair, context);
   }
 
-  meta::tuple_view tuple = value.create_tuple_view();
+  meta::tuple_view tuple = value.get_capability<meta::tuple_view>();
   if (tuple.valid()) {
     return write_tuple_value(writer, tuple, context);
   }
 
-  meta::variant_view variant = value.create_variant_view();
+  meta::variant_view variant = value.get_capability<meta::variant_view>();
   if (variant.valid()) {
     return write_variant_value(writer, variant, context);
   }
@@ -253,7 +253,7 @@ error read_serialized_value(reader& reader, const any_ref& target,
   }
 
   if (type_uses_inline_indirect_value(target)) {
-    const meta::indirect_view indirect = target.create_indirect_view();
+    const meta::indirect_view indirect = target.get_capability<meta::indirect_view>();
     return read_indirect_serialized_value(reader, indirect, context);
   }
 
@@ -261,27 +261,27 @@ error read_serialized_value(reader& reader, const any_ref& target,
     return read_enum_value(reader, target);
   }
 
-  if (target.create_sequence_view().valid()) {
+  if (target.get_capability<meta::sequence_view>().valid()) {
     return read_sequence_value(reader, target, context);
   }
 
-  if (target.create_set_view().valid()) {
+  if (target.get_capability<meta::set_view>().valid()) {
     return read_set_value(reader, target, context);
   }
 
-  if (target.create_associative_view().valid()) {
+  if (target.get_capability<meta::associative_view>().valid()) {
     return read_associative_value(reader, target, context);
   }
 
-  if (target.create_pair_view().valid()) {
+  if (target.get_capability<meta::pair_view>().valid()) {
     return read_pair_value(reader, target, context);
   }
 
-  if (target.create_tuple_view().valid()) {
+  if (target.get_capability<meta::tuple_view>().valid()) {
     return read_tuple_value(reader, target, context);
   }
 
-  if (target.create_variant_view().valid()) {
+  if (target.get_capability<meta::variant_view>().valid()) {
     return read_variant_value(reader, target, context);
   }
 
@@ -329,8 +329,8 @@ error write_field(writer& writer, const reflection::field& field, const void* ob
   }
 
   if (uses_indirect_value) {
-    status = write_indirect_serialized_value(writer, field.get_ref(object).create_indirect_view(),
-                                             context);
+    status = write_indirect_serialized_value(
+        writer, field.get_ref(object).get_capability<meta::indirect_view>(), context);
   } else {
     status = write_serialized_value(writer, field_value, context);
   }
@@ -377,8 +377,8 @@ error read_field(reader& reader, const reflection::field& field, void* object,
   }
 
   if (uses_indirect_value) {
-    status = read_indirect_serialized_value(reader, field.get_ref(object).create_indirect_view(),
-                                            context);
+    status = read_indirect_serialized_value(
+        reader, field.get_ref(object).get_capability<meta::indirect_view>(), context);
     if (status) {
       return status;
     }

@@ -88,7 +88,7 @@ public:
   }
 
   [[nodiscard]] indirect_view bind(any_ref source) const {
-    return detail::can_bind_capability_source(type_, source) ? source.create_indirect_view()
+    return detail::can_bind_capability_source(type_, source) ? make_indirect_view(source)
                                                              : indirect_view{};
   }
 
@@ -112,7 +112,7 @@ public:
   }
 
   [[nodiscard]] sequence_view bind(any_ref source) const {
-    return detail::can_bind_capability_source(type_, source) ? source.create_sequence_view()
+    return detail::can_bind_capability_source(type_, source) ? make_sequence_view(source)
                                                              : sequence_view{};
   }
 
@@ -135,8 +135,7 @@ public:
   }
 
   [[nodiscard]] set_view bind(any_ref source) const {
-    return detail::can_bind_capability_source(type_, source) ? source.create_set_view()
-                                                             : set_view{};
+    return detail::can_bind_capability_source(type_, source) ? make_set_view(source) : set_view{};
   }
 
 private:
@@ -162,7 +161,7 @@ public:
   }
 
   [[nodiscard]] associative_view bind(any_ref source) const {
-    return detail::can_bind_capability_source(type_, source) ? source.create_associative_view()
+    return detail::can_bind_capability_source(type_, source) ? make_associative_view(source)
                                                              : associative_view{};
   }
 
@@ -189,8 +188,7 @@ public:
   }
 
   [[nodiscard]] pair_view bind(any_ref source) const {
-    return detail::can_bind_capability_source(type_, source) ? source.create_pair_view()
-                                                             : pair_view{};
+    return detail::can_bind_capability_source(type_, source) ? make_pair_view(source) : pair_view{};
   }
 
 private:
@@ -210,7 +208,7 @@ public:
   [[nodiscard]] meta::type get_type() const noexcept { return valid() ? type_ : meta::type{}; }
 
   [[nodiscard]] tuple_view bind(any_ref source) const {
-    return detail::can_bind_capability_source(type_, source) ? source.create_tuple_view()
+    return detail::can_bind_capability_source(type_, source) ? make_tuple_view(source)
                                                              : tuple_view{};
   }
 
@@ -231,7 +229,7 @@ public:
   [[nodiscard]] meta::type get_type() const noexcept { return valid() ? type_ : meta::type{}; }
 
   [[nodiscard]] variant_view bind(any_ref source) const {
-    return detail::can_bind_capability_source(type_, source) ? source.create_variant_view()
+    return detail::can_bind_capability_source(type_, source) ? make_variant_view(source)
                                                              : variant_view{};
   }
 

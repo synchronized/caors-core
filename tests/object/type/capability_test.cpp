@@ -74,7 +74,7 @@ TEST_CASE("object - static factory capability does not imply object registry mem
 TEST_CASE("object - descriptor exposes object capabilities", "[object]") {
   caors::object_ptr<capability_target> pointer{};
   const caors::any_ref pointer_ref = caors::any_ref::from(pointer);
-  CHECK(pointer_ref.get_type().get_ops<caors::objects::ptr_ops>() != nullptr);
+  CHECK(pointer_ref.get_type().has_capability<caors::objects::ptr_capability>());
   const caors::objects::ptr_capability pointer_capability =
       pointer_ref.get_type().get_capability<caors::objects::ptr_capability>();
   REQUIRE(pointer_capability);
@@ -83,7 +83,7 @@ TEST_CASE("object - descriptor exposes object capabilities", "[object]") {
 
   caors::typed_object_handle<capability_target> handle{};
   const caors::any_ref handle_ref = caors::any_ref::from(handle);
-  CHECK(handle_ref.get_type().get_ops<caors::objects::handle_ops>() != nullptr);
+  CHECK(handle_ref.get_type().has_capability<caors::objects::handle_capability>());
   const caors::objects::handle_capability handle_capability =
       handle_ref.get_type().get_capability<caors::objects::handle_capability>();
   REQUIRE(handle_capability);

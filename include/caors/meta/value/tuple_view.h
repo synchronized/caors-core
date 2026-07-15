@@ -37,6 +37,7 @@ public:
 private:
   friend class any;
   friend class any_ref;
+  friend tuple_view make_tuple_view(any_ref source) noexcept;
 
   tuple_view(meta::type type, const void* storage, bool writable) noexcept;
 
