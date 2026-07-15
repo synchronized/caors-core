@@ -645,7 +645,38 @@ auto direct_view = caors::meta::any_ref::from(value).get_capability<matrix_capab
 直接使用 `any_ref::get_capability<View>()` 仍可用于兼容旧代码或高级适配，但普通 API 应优先传入
 capability 类型。
 
-第一版完整 Proxy DSL 提供宏来生成 `ops`、`view` 和 `capability` 样板。实例能力使用
+推荐优先使用 Proxy 风格的 convention builder。它把“成员名”和“函数签名”分开描述，用户不需要手写
+`ops`、`view`、调用参数名或 model：
+
+```cpp
+CAORS_META_DEF_MEM_DISPATCH(matrix_rows, rows);
+CAORS_META_DEF_MEM_DISPATCH(matrix_columns, columns);
+CAORS_META_DEF_MEM_DISPATCH(matrix_get, get);
+CAORS_META_DEF_MEM_DISPATCH(matrix_set, set);
+
+using matrix_capability =
+    caors::meta::capability_builder::add_convention<matrix_rows, std::size_t() noexcept>::
+        add_convention<matrix_columns, std::size_t() noexcept>::
+            add_convention<matrix_get, int(std::size_t, std::size_t)>::
+                add_convention<matrix_set, void(std::size_t, std::size_t, int)>::build;
+
+caors::meta::class_<matrix>()
+    .capability<matrix_capability>();
+
+matrix value{};
+auto view = caors::meta::any_ref::from(value)
+    .get_capability<matrix_capability>();
+
+view.set(1, 1, 42);
+```
+
+`CAORS_META_DEF_MEM_DISPATCH(dispatch_type, member_name)` 会定义一个 dispatch 类型。`add_convention`
+使用该 dispatch 和 `R(Args...)` / `R(Args...) noexcept` 签名生成 capability。注册时如果目标
+C++ 类型存在同名成员函数，`meta::class_<T>().capability<Capability>()` 会自动生成并注册
+对应 ops；实例访问时 `any_ref::get_capability<Capability>()` 返回绑定后的 view。当前版本不处理
+重载自动选择，遇到重载成员时仍需要后续更完整的 Proxy DSL 或显式 model。
+
+旧的 X-macro 入口仍可用于需要强控制 `ops/view/capability` 生成形态的高级场景。实例能力使用
 `CAORS_META_PROXY_CAPABILITY`：方法列表宏接收两个参数，分别表示只读方法和可写方法；每个方法项格式是
 `METHOD(name, result_type, noexcept_or_empty, (param_type, param_name)...)`。零参数方法不需要额外写 `()`；
 有参数时使用 `(类型, 名字)` pair，宏会自动生成函数声明和调用实参。
