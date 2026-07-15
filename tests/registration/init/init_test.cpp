@@ -7,13 +7,13 @@
 
 namespace {
 
-struct freeze_actor {};
+struct init_actor {};
 
 struct macro_actor {};
 
 struct late_actor {};
 
-struct freeze_component {
+struct init_component {
   bool enabled = false;
 };
 
@@ -27,31 +27,32 @@ struct late_component {
 
 } // namespace
 
-CAORS_META_REGISTRATION(register_freeze_macro_actor) {
+CAORS_META_REGISTRATION(register_init_macro_actor) {
   const caors::meta::type type =
-      caors::meta::class_<macro_actor>("caors.test.freeze.macro_actor").get();
+      caors::meta::class_<macro_actor>("caors.test.init.macro_actor").get();
   return type.valid() ? caors::error{} : meta_error(caors::errc::invalid_type);
 }
 
-TEST_CASE("freeze - meta registry becomes read only", "[freeze]") {
+TEST_CASE("registration - meta registry init runs registrations without becoming read only",
+          "[registration]") {
   REQUIRE_FALSE(caors::meta::is_registry_frozen());
   CHECK_FALSE(caors::meta::find<macro_actor>());
 
-  const caors::meta::type type = caors::meta::class_<freeze_actor>("caors.test.freeze.actor").get();
+  const caors::meta::type type = caors::meta::class_<init_actor>("caors.test.init.actor").get();
   REQUIRE(type.valid());
-  REQUIRE(caors::meta::get_registry().emplace_component<freeze_component>(type.id(), true) ==
+  REQUIRE(caors::meta::get_registry().emplace_component<init_component>(type.id(), true) ==
           caors::error{});
 
-  CHECK(caors::meta::freeze_registry() == caors::error{});
-  CHECK(caors::meta::is_registry_frozen());
+  CHECK(caors::meta::init_registry() == caors::error{});
+  CHECK_FALSE(caors::meta::is_registry_frozen());
   CHECK(caors::meta::freeze_registry() == caors::error{});
   CHECK(caors::meta::find<macro_actor>().registered());
 
-  CHECK(caors::meta::class_<late_actor>("caors.test.freeze.late").result() ==
-        meta_error(caors::errc::frozen));
+  const caors::meta::type late_type = caors::meta::class_<late_actor>("caors.test.init.late").get();
+  REQUIRE(late_type.registered());
   CHECK(caors::meta::get_registry().emplace_component<late_component>(type.id(), true) ==
-        meta_error(caors::errc::frozen));
+        caors::error{});
 
-  CHECK_FALSE(caors::meta::find<late_actor>());
-  CHECK(caors::meta::find<freeze_actor>().id() == type.id());
+  CHECK(caors::meta::find<late_actor>().id() == late_type.id());
+  CHECK(caors::meta::find<init_actor>().id() == type.id());
 }

@@ -21,19 +21,20 @@ error registry::add_registration(registration_fn fn) {
     return {error_domain::meta, errc::invalid_argument};
   }
 
-  std::lock_guard lock(state_->mutex);
-  if (state_->frozen || state_->registrations_ran) {
-    return {error_domain::meta, errc::frozen};
-  }
-
-  for (const registration_fn existing : state_->registrations) {
-    if (existing == fn) {
-      return {error_domain::meta, errc::already_exists};
+  bool run_now = false;
+  {
+    std::lock_guard lock(state_->mutex);
+    for (const registration_fn existing : state_->registrations) {
+      if (existing == fn) {
+        return {error_domain::meta, errc::already_exists};
+      }
     }
+
+    state_->registrations.push_back(fn);
+    run_now = state_->registrations_ran;
   }
 
-  state_->registrations.push_back(fn);
-  return {};
+  return run_now ? fn() : error{};
 }
 
 error registry::run_registrations() {
@@ -62,29 +63,20 @@ error registry::run_registrations() {
   return {};
 }
 
-error registry::freeze() {
+error registry::init() {
   const error registration_status = run_registrations();
   if (registration_status) {
     return registration_status;
   }
 
-  std::lock_guard lock(state_->mutex);
-  if (state_->frozen) {
-    return {};
-  }
-
-  const error status = detail::validate_registry_for_freeze(*state_);
-  if (status) {
-    return status;
-  }
-
-  state_->frozen = true;
-  return {};
+  return validate();
 }
 
-bool registry::is_frozen() const noexcept {
+bool registry::is_frozen() const noexcept { return false; }
+
+error registry::validate() const {
   std::lock_guard lock(state_->mutex);
-  return state_->frozen;
+  return detail::validate_registry(*state_);
 }
 
 registry& get_registry() noexcept { return registry::instance(); }
@@ -97,7 +89,11 @@ error register_registration(registration_fn fn) { return get_registry().add_regi
 
 error run_registrations() { return get_registry().run_registrations(); }
 
-error freeze_registry() { return get_registry().freeze(); }
+error init_registry() { return get_registry().init(); }
+
+error validate_registry() { return get_registry().validate(); }
+
+error freeze_registry() { return init_registry(); }
 
 bool is_registry_frozen() noexcept { return get_registry().is_frozen(); }
 

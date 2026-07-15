@@ -982,7 +982,8 @@ auto serialization_type = caors::serialization::find(type);
 的类型。更细的 detail schema 挂载函数属于内部实现入口，普通代码不直接调用。
 
 重复注册同一个类型会返回 `errc::duplicate_component`，错误来源域为
-`error_domain::serialization`。全局 meta 注册表冻结后继续注册序列化组件会返回 `errc::frozen`。
+`error_domain::serialization`。序列化组件注册推荐在启动期或模块加载期完成；`meta::init_registry()`
+只执行延迟注册并校验注册表，不会阻止后续继续注册。
 
 ### serialize_text
 

@@ -75,13 +75,12 @@ if (status.domain() == caors::error_domain::meta &&
 }
 ```
 
-注册表冻结后继续注册类型或挂载组件会返回 `errc::frozen`：
+重复注册同一个稳定名称会返回 `errc::duplicate_name`：
 
 ```cpp
-caors::meta::freeze_registry();
-
-caors::error status = caors::meta::class_<actor>("game.actor").result();
-// status.value() == caors::errc::frozen
+caors::meta::class_<actor>("game.actor");
+caors::error status = caors::meta::class_<enemy>("game.actor").result();
+// status.value() == caors::errc::duplicate_name
 ```
 
 异步或跨阶段 API 可以用 `errc::pending` 表示结果尚未完成，用 `errc::cancelled`

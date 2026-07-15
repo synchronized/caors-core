@@ -419,7 +419,7 @@ caors::error result = caors::meta::class_<actor>("game.actor").result();
 注册表只面向 C++ 类型。脚本或动态类型不应直接写入当前注册表，后续应放到独立系统，再由上层 resolver
 统一查询。注册表是 append-only：meta 类型注册后不可清理或撤销，重复注册相同类型会返回重复结果。
 当前组件同样按 append-only 方式挂载：同一类型的同类组件注册后不可替换。反射和序列化这类组件
-反射字段数据也按“注册后冻结”处理，外部视图只在该约束下承诺进程生命周期内稳定。
+数据按“注册后不替换”处理，外部视图只在该约束下承诺进程生命周期内稳定。
 
 registry 使用边界：
 
@@ -434,8 +434,8 @@ registry 使用边界：
 - `meta::find<T>()` 只查询已注册 C++ 类型；未注册类型返回空视图。
 - `meta::find(name)` 和 `meta::find(type_guid)` 只查询已注册类型；未注册 descriptor 没有稳定 name/guid
   索引。
-- registry 写入推荐集中在启动期、模块加载期或测试初始化阶段，之后调用 `meta::freeze_registry()`；
-  冻结后业务主循环和工作线程只做只读查询。
+- registry 写入推荐集中在启动期、模块加载期或测试初始化阶段，之后调用 `meta::init_registry()` 做延迟注册和一致性校验；
+  进入业务主循环和工作线程后只做只读查询。
 
 推荐生命周期：
 
@@ -449,12 +449,12 @@ void register_game_types() {
 
 int main() {
   register_game_types();
-  caors::meta::freeze_registry();
+  caors::meta::init_registry();
   run_app();
 }
 ```
 
-也可以把局部注册函数挂到自动注册列表，由 `meta::freeze_registry()` 统一执行：
+也可以把局部注册函数挂到自动注册列表，由 `meta::init_registry()` 统一执行：
 
 ```cpp
 CAORS_META_REGISTRATION(register_actor_meta) {
@@ -466,9 +466,8 @@ CAORS_META_REGISTRATION(register_actor_meta) {
 }
 ```
 
-`meta::freeze_registry()` 会先执行所有通过 `CAORS_META_REGISTRATION` 或内部延迟注册入口收集到的注册函数，
-再校验 meta 层索引和父类型关系，最后把注册表切换为只读。冻结后，meta 类型注册、组件挂载都会失败；
-查询接口仍可使用。
+`meta::init_registry()` 会先执行所有通过 `CAORS_META_REGISTRATION` 或内部延迟注册入口收集到的注册函数，
+再校验 meta 层索引和父类型关系。它不会把注册表切换为只读；后续注册仍允许，但调用方需要自行保证不会和运行期查询形成业务竞态。
 
 `CAORS_META_REGISTRATION(name)` 只是便利入口，不建议作为唯一主流程。它依赖静态对象把函数加入列表：
 静态库中未被链接进最终程序的翻译单元不会执行注册；注册函数执行顺序也不应被依赖。需要精确控制初始化、
@@ -490,7 +489,6 @@ CAORS_META_REGISTRATION(register_actor_meta) {
 - `errc::duplicate_name`：同一个名称已注册。
 - `errc::duplicate_guid`：同一个非 nil 稳定 GUID 已注册。
 - `errc::missing_parent`：父类型未注册。
-- `errc::frozen`：注册表已冻结，不能继续注册类型或挂载组件。
 
 使用方式是先注册业务 meta 类型，再给该类型挂载组件：
 
@@ -792,17 +790,16 @@ descriptor，不再为了创建 view 把每一种容器组合额外挂载为 met
 - `errc::invalid_type`：传入无效 `type_id`。
 - `errc::missing_type`：目标类型尚未注册。
 - `errc::duplicate_component`：目标类型已经挂载同类组件。
-- `errc::frozen`：注册表已冻结。
 
 当前注册表仍是 append-only 语义，不支持组件替换；如果后续支持热重载，应在替换 API 上显式处理旧组件生命周期和读者同步。
 
 ## 线程安全边界
 
 `meta::registry` 的注册、查询和组件挂载入口内部仍会加锁，避免注册表容器自身出现 data race。推荐在启动期
-或模块加载期单线程完成注册，并调用 `meta::freeze_registry()`。冻结后的注册表只允许只读查询，返回的
-`meta::type` 和各模块视图是指向注册表内部数据的轻量只读视图，适合长期保存和并发读取。
+或模块加载期单线程完成注册，并调用 `meta::init_registry()` 做延迟注册和一致性校验。进入运行期后，业务主循环和工作线程应只做只读查询；
+返回的 `meta::type` 和各模块视图是指向注册表内部数据的轻量只读视图，适合长期保存和并发读取。
 
-当前不会支持运行期并发写注册表。脚本类型、异步加载、卸载和热重载应放到独立注册系统中处理。
+当前不会保证运行期并发写注册表的业务一致性。脚本类型、异步加载、卸载和热重载应放到独立注册系统中处理。
 
 ## 与对象和反射的关系
 
@@ -846,8 +843,10 @@ descriptor，不再为了创建 view 把每一种容器组合额外挂载为 met
 - `meta::registry`：全局 meta 类型注册、按 id/name/guid 或 C++ 类型查询、继承关系判断和组件式元数据挂载。
 - `meta::registry::component_view<T...>`：按组件集合查询类型。
 - `meta::run_registrations()`：执行已收集的延迟元数据注册函数。
+- `meta::init_registry()`：执行延迟元数据注册函数并校验注册表；不会阻止后续注册。
+- `meta::validate_registry()`：只校验注册表，不执行延迟注册函数。
 - `CAORS_META_REGISTRATION(name)`：定义一个延迟注册函数，函数体需要返回 `caors::error`。
 - `meta::get_registry()`：进程内全局元数据注册表。
-- `meta::freeze_registry()` / `meta::is_registry_frozen()`：执行延迟注册函数、冻结全局注册表并查询冻结状态。
+- `meta::freeze_registry()` / `meta::is_registry_frozen()`：兼容旧接口；前者等价于 `init_registry()`，后者始终返回 `false`。
 
 相关测试位于 `tests/meta/` 和 `tests/core/`，测试组织规则见 [tests/README.md](../tests/README.md)。

@@ -224,7 +224,7 @@ error store_type_descriptor(registry_state& state, const type_descriptor& descri
   return {};
 }
 
-error validate_registry_for_freeze(const registry_state& state) {
+error validate_registry(const registry_state& state) {
   for (const auto& [raw_id, stored] : state.types) {
     if (stored == nullptr || !stored->registered() || stored->id().value() != raw_id) {
       return {error_domain::meta, errc::invalid_type};

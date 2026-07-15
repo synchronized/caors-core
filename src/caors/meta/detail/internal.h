@@ -36,7 +36,6 @@ public:
 
   mutable std::mutex mutex;
   memory::memory_resource* resource = nullptr;
-  bool frozen = false;
   bool registrations_ran = false;
   core::vector<registration_fn> registrations;
   core::hash_map<std::uint64_t, memory::unique_ptr<type_data>> types;
@@ -61,7 +60,7 @@ public:
 [[nodiscard]] error store_new_type(registry_state& state, const type_data& incoming,
                                    type_id* stored_id = nullptr);
 [[nodiscard]] error store_type_descriptor(registry_state& state, const type_descriptor& descriptor);
-[[nodiscard]] error validate_registry_for_freeze(const registry_state& state);
+[[nodiscard]] error validate_registry(const registry_state& state);
 
 } // namespace caors::meta::detail
 

@@ -14,7 +14,7 @@
 3. 注册字段反射。
 4. 注册序列化组件。
 5. 可选：挂接用户或插件的 runtime capability。
-6. 可选：在启动阶段最后调用 `meta::freeze_registry()`。
+6. 可选：在启动阶段最后调用 `meta::init_registry()` 执行延迟注册函数并校验注册表。
 
 示例：
 
@@ -55,7 +55,7 @@ descriptor、registry 和 capability 的边界如下：
 int main() {
   register_core_types();
   register_game_types();
-  caors::meta::freeze_registry();
+  caors::meta::init_registry();
   run_app();
 }
 ```
@@ -64,7 +64,7 @@ int main() {
 
 ## 延迟注册函数
 
-`CAORS_META_REGISTRATION(name)` 可以把注册函数加入全局队列，`meta::freeze_registry()` 会先执行这些函数，再冻结注册表：
+`CAORS_META_REGISTRATION(name)` 可以把注册函数加入全局队列，`meta::init_registry()` 会执行这些函数并校验注册表：
 
 ```cpp
 CAORS_META_REGISTRATION(register_actor) {
@@ -77,18 +77,23 @@ CAORS_META_REGISTRATION(register_actor) {
 
 - 静态库中未被最终程序引用的翻译单元可能不会参与链接，因此注册函数也不会进入队列。
 - 多个翻译单元之间的注册函数执行顺序不应被依赖。
+- 如果 `init_registry()` 后又加载了带注册函数的模块，新注册函数会立即执行；调用方仍需保证此时没有其他线程并发读取依赖中的半成品类型。
 
 如果类型之间有明确依赖，优先使用显式 `register_all()`。
 
-## 冻结注册表
+## 初始化和校验
 
-`meta::freeze_registry()` 的语义是：
+`meta::init_registry()` 的语义是：
 
 - 执行已收集的延迟注册函数。
 - 校验 meta 层基础索引和父类型关系。
-- 将全局注册表切换为只读。
+- 不冻结注册表，也不阻止后续注册。
 
-冻结后，meta 类型注册和组件挂载都会返回 `errc::frozen`。查询接口仍可继续使用。是否冻结由应用决定；库内部不强制自动冻结。
+`meta::validate_registry()` 只做一致性校验，不执行延迟注册函数。`meta::freeze_registry()` 保留为兼容入口，
+当前等价于 `init_registry()`；`meta::is_registry_frozen()` 始终返回 `false`。
+
+注册表内部会对单次注册和查询加锁，但 CAORS 不保证“运行期一边读一边改注册表”的业务一致性。推荐由应用在启动期、
+模块加载期或测试初始化阶段完成注册；进入主循环后只做查询。如果需要脚本类型、插件热卸载或热重载注册，后续应使用独立的动态注册系统。
 
 ## 注册失败处理
 
@@ -99,6 +104,5 @@ CAORS_META_REGISTRATION(register_actor) {
 - `errc::missing_type`：给不存在的 `type_id` 挂载组件。
 - `errc::missing_parent`：父类型尚未注册。
 - `errc::invalid_field`：反射字段描述无效、字段名冲突，或字段类型无法生成有效 descriptor。
-- `errc::frozen`：注册表已冻结。
 
 公共测试和用户代码应使用 `meta::class_<T>()`、`objects::class_<T>()`、`reflection::class_<T>()`、`serialization::class_()` 等公开入口，不直接调用各模块的 `detail` 命名空间函数。

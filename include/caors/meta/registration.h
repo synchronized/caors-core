@@ -9,7 +9,7 @@
 
 namespace caors::meta {
 
-/** @brief 延迟到 `meta::run_registrations()` 前执行的元数据注册函数。 */
+/** @brief 延迟到 `meta::run_registrations()` / `meta::init_registry()` 时执行的元数据注册函数。 */
 using registration_fn = error (*)();
 
 namespace detail {
@@ -22,10 +22,16 @@ namespace detail {
 /** @brief 执行所有已收集的元数据注册函数；最多执行一次。 */
 [[nodiscard]] CAORS_API error run_registrations();
 
-/** @brief 冻结全局元数据注册表；冻结后只允许只读查询。 */
+/** @brief 执行延迟注册函数并校验全局元数据注册表；不会阻止后续注册。 */
+[[nodiscard]] CAORS_API error init_registry();
+
+/** @brief 校验全局元数据注册表的内部索引一致性。 */
+[[nodiscard]] CAORS_API error validate_registry();
+
+/** @brief 兼容旧接口：等价于 `init_registry()`，不再冻结注册表。 */
 [[nodiscard]] CAORS_API error freeze_registry();
 
-/** @brief 查询全局元数据注册表是否已经冻结。 */
+/** @brief 兼容旧接口：全局注册表不再支持硬性冻结，始终返回 false。 */
 [[nodiscard]] CAORS_API bool is_registry_frozen() noexcept;
 
 } // namespace caors::meta

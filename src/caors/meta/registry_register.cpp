@@ -18,10 +18,6 @@ namespace {
   }
 
   std::lock_guard lock(state.mutex);
-  if (state.frozen) {
-    return {error_domain::meta, errc::frozen};
-  }
-
   error conflict{};
   const std::optional<type_id> existing_id = detail::find_existing_type_id(state, type, conflict);
   if (conflict) {
@@ -82,10 +78,6 @@ error registry::set_type_guid(type_id id, type_guid guid) {
   }
 
   std::lock_guard lock(state_->mutex);
-  if (state_->frozen) {
-    return {error_domain::meta, errc::frozen};
-  }
-
   detail::type_data* stored = detail::find_type_data(*state_, id);
   if (stored == nullptr) {
     return {error_domain::meta, errc::invalid_type};
@@ -139,10 +131,6 @@ error registry::set_type_parent(type_id id, type_id parent_id, detail::parent_ca
   }
 
   std::lock_guard lock(state_->mutex);
-  if (state_->frozen) {
-    return {error_domain::meta, errc::frozen};
-  }
-
   detail::type_data* stored = detail::find_type_data(*state_, id);
   if (stored == nullptr) {
     return {error_domain::meta, errc::invalid_type};

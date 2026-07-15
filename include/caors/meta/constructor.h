@@ -110,11 +110,6 @@ class_builder<T>& class_builder<T>::constructor() {
     return *this;
   }
 
-  if (get_registry().is_frozen()) {
-    status_ = {error_domain::meta, errc::frozen};
-    return *this;
-  }
-
   const constructor_ops ops = detail::make_constructor_ops<T, Arguments...>();
   if (!ops.valid()) {
     status_ = {error_domain::meta, errc::invalid_type};

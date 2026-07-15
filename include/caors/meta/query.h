@@ -84,11 +84,6 @@ public:
       return *this;
     }
 
-    if (get_registry().is_frozen()) {
-      status_ = {error_domain::meta, errc::frozen};
-      return *this;
-    }
-
     const factory_ops ops{
         construct,
         destroy,

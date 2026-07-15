@@ -56,7 +56,8 @@ public:
 
   [[nodiscard]] error add_registration(registration_fn fn);
   [[nodiscard]] error run_registrations();
-  [[nodiscard]] error freeze();
+  [[nodiscard]] error init();
+  [[nodiscard]] error validate() const;
   [[nodiscard]] bool is_frozen() const noexcept;
 
   [[nodiscard]] bool contains(type_id id) const;
@@ -76,10 +77,6 @@ public:
   template <typename Component, typename... Args>
   [[nodiscard]] error emplace_component(type_id id, Args&&... args) {
     using component_type = std::decay_t<Component>;
-
-    if (is_frozen()) {
-      return {error_domain::meta, errc::frozen};
-    }
 
     if (!id) {
       return {error_domain::meta, errc::invalid_type};

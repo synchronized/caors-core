@@ -643,8 +643,8 @@ auto reflected = caors::reflection::find("game.actor");
 挂载反射组件。`reflection::class_<T>()` 不创建或修改基础 meta 记录；如果 `T` 尚未完成 meta 注册，
 `commit()` 会返回 `errc::missing_type`。detail 反射组件挂载函数属于内部实现入口，普通代码不直接调用。
 
-反射注册应在 `meta::freeze_registry()` 前完成。全局 meta 注册表冻结后，继续注册反射组件会返回
-`errc::frozen`。
+反射注册推荐在启动期或模块加载期完成，并在进入运行期前调用 `meta::init_registry()` 做延迟注册和一致性校验。
+`init_registry()` 不会冻结注册表；如果后续继续注册反射组件，调用方需要自行保证没有并发读取依赖中的半成品类型。
 
 `reflection::registry` 仍作为实现 facade 存在，并复用 `meta::registry` 保存 meta 类型信息，再把
 内部反射组件挂载到同一个 `type_id` 上。注册表构造由库内部管理；注册后不提供
@@ -662,7 +662,6 @@ auto reflected = caors::reflection::find("game.actor");
 - `errc::duplicate_reflection`：目标类型已经挂载反射组件。
 - `errc::inconsistent_type`：目标类型已存在，但 meta 类型信息不一致。
 - `errc::missing_parent`：父类型未注册。
-- `errc::frozen`：全局 meta 注册表已冻结。
 
 重复注册同一个类型时，如果 meta 类型信息一致且已经挂载反射组件，会返回 `duplicate_reflection`；
 如果同名、同 GUID 或同运行期类型 id 对应的 meta 类型信息不一致，会返回
