@@ -118,15 +118,16 @@ resources::source* asset_manager::find_source(core::string_name name) const {
   return position != sources_.end() ? position->second : nullptr;
 }
 
-error asset_manager::register_source_factory(core::string_name type, source_factory_fn factory) {
-  if (!type || factory == nullptr) {
+error asset_manager::register_source_factory(core::string_name type, source_factory_ops factory) {
+  if (!type || !factory.valid()) {
     return {error_domain::resources, errc::invalid_argument};
   }
 
   const auto position = source_factories_.find(type);
   if (position != source_factories_.end()) {
-    return position->second == factory ? error{}
-                                       : error{error_domain::resources, errc::already_exists};
+    return position->second.create == factory.create
+               ? error{}
+               : error{error_domain::resources, errc::already_exists};
   }
 
   source_factories_.emplace(type, factory);
@@ -134,15 +135,16 @@ error asset_manager::register_source_factory(core::string_name type, source_fact
 }
 
 error asset_manager::register_type_factory(core::string_name resource_type,
-                                           type_factory_fn factory) {
-  if (!resource_type || factory == nullptr) {
+                                           type_factory_ops factory) {
+  if (!resource_type || !factory.valid()) {
     return {error_domain::resources, errc::invalid_argument};
   }
 
   const auto position = type_factories_.find(resource_type);
   if (position != type_factories_.end()) {
-    return position->second == factory ? error{}
-                                       : error{error_domain::resources, errc::already_exists};
+    return position->second.create == factory.create
+               ? error{}
+               : error{error_domain::resources, errc::already_exists};
   }
 
   type_factories_.emplace(resource_type, factory);
@@ -232,26 +234,27 @@ error asset_manager::ensure_type_from_config(const project_resource_type_config&
 }
 
 error asset_manager::register_builtin_source_factories() {
-  error status = register_source_factory(core::string_name{"memory_file_system"},
-                                         &asset_manager::make_memory_file_source);
+  error status =
+      register_source_factory(core::string_name{"memory_file_system"},
+                              source_factory_ops{&asset_manager::make_memory_file_source});
   if (status) {
     return status;
   }
 
-  status =
-      register_source_factory(core::string_name{"memory"}, &asset_manager::make_memory_file_source);
+  status = register_source_factory(core::string_name{"memory"},
+                                   source_factory_ops{&asset_manager::make_memory_file_source});
   if (status) {
     return status;
   }
 
   status = register_source_factory(core::string_name{"native_file_system"},
-                                   &asset_manager::make_native_file_source);
+                                   source_factory_ops{&asset_manager::make_native_file_source});
   if (status) {
     return status;
   }
 
   return register_source_factory(core::string_name{"native"},
-                                 &asset_manager::make_native_file_source);
+                                 source_factory_ops{&asset_manager::make_native_file_source});
 }
 
 resources::source*

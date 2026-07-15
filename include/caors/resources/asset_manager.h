@@ -31,9 +31,35 @@ namespace caors::resources {
  */
 class asset_manager final {
 public:
-  using source_factory_fn = error (*)(asset_manager& manager, const project_source_config& config);
-  using type_factory_fn = error (*)(asset_manager& manager,
-                                    const project_resource_type_config& config);
+  struct source_factory_ops {
+    using create_fn = error (*)(asset_manager& manager, const project_source_config& config);
+
+    constexpr source_factory_ops() noexcept = default;
+    constexpr source_factory_ops(create_fn value) noexcept : create(value) {}
+
+    create_fn create = nullptr;
+
+    [[nodiscard]] constexpr bool valid() const noexcept { return create != nullptr; }
+    [[nodiscard]] error operator()(asset_manager& manager,
+                                   const project_source_config& config) const {
+      return create(manager, config);
+    }
+  };
+
+  struct type_factory_ops {
+    using create_fn = error (*)(asset_manager& manager, const project_resource_type_config& config);
+
+    constexpr type_factory_ops() noexcept = default;
+    constexpr type_factory_ops(create_fn value) noexcept : create(value) {}
+
+    create_fn create = nullptr;
+
+    [[nodiscard]] constexpr bool valid() const noexcept { return create != nullptr; }
+    [[nodiscard]] error operator()(asset_manager& manager,
+                                   const project_resource_type_config& config) const {
+      return create(manager, config);
+    }
+  };
 
   explicit asset_manager(memory_resource* resource = nullptr);
 
@@ -77,11 +103,11 @@ public:
   [[nodiscard]] std::size_t source_count() const noexcept { return sources_.size(); }
 
   /** @brief 注册 source 策略名到运行期 source 构造函数。 */
-  [[nodiscard]] error register_source_factory(core::string_name type, source_factory_fn factory);
+  [[nodiscard]] error register_source_factory(core::string_name type, source_factory_ops factory);
 
   /** @brief 注册 manifest 资源类型到运行期 cache/loader 构造函数。 */
   [[nodiscard]] error register_type_factory(core::string_name resource_type,
-                                            type_factory_fn factory);
+                                            type_factory_ops factory);
 
   /**
    * @brief 注册默认资源类型工厂。
@@ -92,7 +118,8 @@ public:
   template <typename T> [[nodiscard]] error register_type_factory(core::string_name resource_type) {
     static_assert(std::is_base_of_v<resources::resource, T>,
                   "T must derive from caors::resources::resource");
-    return register_type_factory(resource_type, &asset_manager::default_type_factory<T>);
+    return register_type_factory(resource_type,
+                                 type_factory_ops{&asset_manager::default_type_factory<T>});
   }
 
   /**
@@ -125,8 +152,8 @@ public:
 
 private:
   using source_map = core::hash_map<core::string_name, resources::source*>;
-  using source_factory_map = core::hash_map<core::string_name, source_factory_fn>;
-  using type_factory_map = core::hash_map<core::string_name, type_factory_fn>;
+  using source_factory_map = core::hash_map<core::string_name, source_factory_ops>;
+  using type_factory_map = core::hash_map<core::string_name, type_factory_ops>;
 
   struct owned_runtime_object {
     using destroy_fn = void (*)(memory_resource* resource, void* value) noexcept;

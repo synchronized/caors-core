@@ -49,6 +49,37 @@ TEST_CASE("object - pointer and handle expose static meta capabilities", "[objec
   CHECK(typed_handle->valid());
 }
 
+TEST_CASE("object - pointer and handle expose public capability facades", "[object]") {
+  caors::object_ptr<capability_target> pointer{};
+  capability_target target{};
+  const caors::meta::type pointer_type =
+      caors::meta::resolve<caors::object_ptr<capability_target>>();
+  const caors::objects::ptr_capability pointer_capability =
+      pointer_type.get_capability<caors::objects::ptr_capability>();
+  REQUIRE(pointer_capability);
+
+  const caors::objects::ptr_view pointer_view =
+      pointer_capability.bind(caors::any_ref::from(pointer));
+  REQUIRE(pointer_view);
+  CHECK(pointer_view.set(&target));
+  CHECK(pointer.get() == &target);
+
+  caors::object_handle handle{};
+  const caors::meta::type handle_type = caors::meta::resolve<caors::object_handle>();
+  const caors::objects::handle_capability handle_capability =
+      handle_type.get_capability<caors::objects::handle_capability>();
+  REQUIRE(handle_capability);
+  CHECK(handle_capability.bind(caors::any_ref::from(handle)));
+
+  caors::typed_object_handle<capability_target> typed_handle{};
+  const caors::meta::type typed_handle_type =
+      caors::meta::resolve<caors::typed_object_handle<capability_target>>();
+  const caors::objects::handle_capability typed_handle_capability =
+      typed_handle_type.get_capability<caors::objects::handle_capability>();
+  REQUIRE(typed_handle_capability);
+  CHECK(typed_handle_capability.bind(caors::any_ref::from(typed_handle)));
+}
+
 TEST_CASE("object - factory facade is exposed as object capability", "[object]") {
   const caors::meta::type meta = caors::meta::resolve<capability_registered_object>();
   const caors::objects::object_factory_capability factory =

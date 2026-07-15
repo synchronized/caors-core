@@ -188,6 +188,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   优先使用 `serialization::context::resolvers.memory.resource`、meta factory capability 和字段策略，失败时返回明确诊断。
 - [ ] 放宽多层指针 / 多层 wrapper 限制，采用逐层 indirect descriptor 展开；默认设置合理最大深度，
   并对空中间层、不可写引用和所有权不明确的组合返回清晰诊断。
+- [ ] 扩展普通类多态 envelope 的 reader 抽象，使自定义流式 reader 也能提供 type/value envelope
+  读入能力；当前 DOM/JSON reader 可通过中间 `variant` 路径处理，其他 reader 后续按同一语义补齐。
 - [ ] 设计 schema 策略，覆盖版本迁移、默认值恢复、未知字段保留、严格模式和字段重命名 / 删除策略。
 - [ ] 设计弱引用序列化策略，默认继续不展开 `std::weak_ptr<T>` / `objects::weak_ref<T>`，
   提供基于 `objects::handle`、`resource_guid` 或自定义 resolver 的显式弱引用策略。

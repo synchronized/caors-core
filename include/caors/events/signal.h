@@ -139,7 +139,7 @@ private:
   [[nodiscard]] connection add(delegate_type callback) {
     const id_type id = next_id_++;
     slots_.push_back(slot{id, std::move(callback), true});
-    return connection{this, id, &signal::disconnect_from_connection};
+    return connection{this, id, connection::connection_ops{&signal::disconnect_from_connection}};
   }
 
   static bool disconnect_from_connection(void* owner, id_type id) noexcept {

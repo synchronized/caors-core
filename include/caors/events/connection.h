@@ -18,11 +18,18 @@ namespace caors::events {
 class connection final {
 public:
   using id_type = std::uint64_t;
-  using disconnect_fn = bool (*)(void* owner, id_type id) noexcept;
+
+  struct connection_ops {
+    using disconnect_fn = bool (*)(void* owner, id_type id) noexcept;
+
+    disconnect_fn disconnect = nullptr;
+
+    [[nodiscard]] constexpr bool valid() const noexcept { return disconnect != nullptr; }
+  };
 
   constexpr connection() noexcept = default;
-  connection(void* owner, id_type id, disconnect_fn disconnect) noexcept
-      : owner_(owner), id_(id), disconnect_(disconnect) {}
+  connection(void* owner, id_type id, connection_ops ops) noexcept
+      : owner_(owner), id_(id), ops_(ops) {}
 
   connection(const connection&) = delete;
   connection& operator=(const connection&) = delete;
@@ -45,11 +52,11 @@ public:
 
   /** @brief 断开订阅。重复断开会返回 false。 */
   bool disconnect() noexcept {
-    if (owner_ == nullptr || disconnect_ == nullptr) {
+    if (owner_ == nullptr || !ops_.valid()) {
       return false;
     }
 
-    bool disconnected = disconnect_(owner_, id_);
+    bool disconnected = ops_.disconnect(owner_, id_);
     reset();
     return disconnected;
   }
@@ -61,18 +68,18 @@ private:
   void reset() noexcept {
     owner_ = nullptr;
     id_ = 0;
-    disconnect_ = nullptr;
+    ops_ = {};
   }
 
   void move_from(connection& other) noexcept {
     owner_ = std::exchange(other.owner_, nullptr);
     id_ = std::exchange(other.id_, 0);
-    disconnect_ = std::exchange(other.disconnect_, nullptr);
+    ops_ = std::exchange(other.ops_, {});
   }
 
   void* owner_ = nullptr;
   id_type id_ = 0;
-  disconnect_fn disconnect_ = nullptr;
+  connection_ops ops_{};
 };
 
 /**

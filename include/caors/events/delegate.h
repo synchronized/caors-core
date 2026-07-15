@@ -22,17 +22,24 @@ template <typename Signature> class delegate;
 template <typename Result, typename... Args> class delegate<Result(Args...)> final {
 public:
   using result_type = Result;
-  using invoke_fn = Result (*)(const void* payload, Args... args);
+
+  struct delegate_ops {
+    using invoke_fn = Result (*)(const void* payload, Args... args);
+
+    invoke_fn invoke = nullptr;
+
+    [[nodiscard]] constexpr bool valid() const noexcept { return invoke != nullptr; }
+  };
 
   constexpr delegate() noexcept = default;
 
   /** @brief 判断当前是否已经绑定可调用对象。 */
-  [[nodiscard]] explicit constexpr operator bool() const noexcept { return invoke_ != nullptr; }
+  [[nodiscard]] explicit constexpr operator bool() const noexcept { return ops_.valid(); }
 
   /** @brief 清空当前绑定。 */
   void reset() noexcept {
     payload_ = nullptr;
-    invoke_ = nullptr;
+    ops_ = {};
   }
 
   /** @brief 绑定编译期已知的自由函数、静态函数或无捕获 callable。 */
@@ -40,7 +47,7 @@ public:
     static_assert(std::is_invocable_r_v<Result, decltype(Candidate), Args...>,
                   "Candidate is not compatible with delegate signature");
     payload_ = nullptr;
-    invoke_ = [](const void*, Args... args) -> Result {
+    ops_.invoke = [](const void*, Args... args) -> Result {
       if constexpr (std::is_void_v<Result>) {
         (void)std::invoke(Candidate, std::forward<Args>(args)...);
       } else {
@@ -56,7 +63,7 @@ public:
     static_assert(std::is_invocable_r_v<Result, decltype(Member), Type&, Args...>,
                   "Member is not compatible with delegate signature");
     payload_ = instance;
-    invoke_ = [](const void* payload, Args... args) -> Result {
+    ops_.invoke = [](const void* payload, Args... args) -> Result {
       Type* object = static_cast<Type*>(const_cast<void*>(payload));
       if constexpr (std::is_void_v<Result>) {
         (void)std::invoke(Member, *object, std::forward<Args>(args)...);
@@ -73,7 +80,7 @@ public:
     static_assert(std::is_invocable_r_v<Result, decltype(Member), const Type&, Args...>,
                   "Member is not compatible with delegate signature");
     payload_ = instance;
-    invoke_ = [](const void* payload, Args... args) -> Result {
+    ops_.invoke = [](const void* payload, Args... args) -> Result {
       const Type* object = static_cast<const Type*>(payload);
       if constexpr (std::is_void_v<Result>) {
         (void)std::invoke(Member, *object, std::forward<Args>(args)...);
@@ -88,7 +95,7 @@ public:
     static_assert(std::is_invocable_r_v<Result, Callable&, Args...>,
                   "Callable is not compatible with delegate signature");
     payload_ = &callable;
-    invoke_ = [](const void* payload, Args... args) -> Result {
+    ops_.invoke = [](const void* payload, Args... args) -> Result {
       Callable* callable = static_cast<Callable*>(const_cast<void*>(payload));
       if constexpr (std::is_void_v<Result>) {
         (void)std::invoke(*callable, std::forward<Args>(args)...);
@@ -103,7 +110,7 @@ public:
     static_assert(std::is_invocable_r_v<Result, const Callable&, Args...>,
                   "Callable is not compatible with delegate signature");
     payload_ = &callable;
-    invoke_ = [](const void* payload, Args... args) -> Result {
+    ops_.invoke = [](const void* payload, Args... args) -> Result {
       const Callable* callable = static_cast<const Callable*>(payload);
       if constexpr (std::is_void_v<Result>) {
         (void)std::invoke(*callable, std::forward<Args>(args)...);
@@ -115,17 +122,17 @@ public:
 
   /** @brief 调用已绑定目标。未绑定时属于调用方错误，调试构建会触发断言。 */
   Result operator()(Args... args) const {
-    assert(invoke_ != nullptr);
+    assert(ops_.valid());
     if constexpr (std::is_void_v<Result>) {
-      invoke_(payload_, std::forward<Args>(args)...);
+      ops_.invoke(payload_, std::forward<Args>(args)...);
     } else {
-      return invoke_(payload_, std::forward<Args>(args)...);
+      return ops_.invoke(payload_, std::forward<Args>(args)...);
     }
   }
 
 private:
   const void* payload_ = nullptr;
-  invoke_fn invoke_ = nullptr;
+  delegate_ops ops_{};
 };
 
 } // namespace caors::events

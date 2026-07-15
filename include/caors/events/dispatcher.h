@@ -180,16 +180,22 @@ private:
   };
 
   struct queue_deleter {
-    using destroy_fn = void (*)(memory_resource* resource, queue_base* queue) noexcept;
+    struct lifetime_ops {
+      using destroy_fn = void (*)(memory_resource* resource, queue_base* queue) noexcept;
+
+      destroy_fn destroy = nullptr;
+
+      [[nodiscard]] constexpr bool valid() const noexcept { return destroy != nullptr; }
+    };
 
     void operator()(queue_base* queue) const noexcept {
-      if (queue != nullptr && destroy != nullptr) {
-        destroy(resource, queue);
+      if (queue != nullptr && ops.valid()) {
+        ops.destroy(resource, queue);
       }
     }
 
     memory_resource* resource = nullptr;
-    destroy_fn destroy = nullptr;
+    lifetime_ops ops{};
   };
 
   using queue_ptr = std::unique_ptr<queue_base, queue_deleter>;
@@ -199,7 +205,8 @@ private:
   template <typename Event>
   [[nodiscard]] static queue_ptr make_queue_ptr(memory_resource* resource) {
     auto* queue = make<event_queue<Event>>(resource, resource);
-    return queue_ptr{queue, queue_deleter{resource, &destroy_queue<Event>}};
+    return queue_ptr{queue,
+                     queue_deleter{resource, queue_deleter::lifetime_ops{&destroy_queue<Event>}}};
   }
 
   template <typename Event>
