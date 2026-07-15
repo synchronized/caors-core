@@ -97,7 +97,7 @@ caors::reflection::class_<actor>()
   `traits::wrapper_semantics` 为 `inline_value`。
 - `caors::objects::ptr<T>`：`meta::type_kind::value`，对象指针能力通过 descriptor 静态能力表保存，
   并优先使用 `any_ref::get_capability<objects::ptr_view>()` 查询；`objects::make_ptr_view(any_ref)`
-  是低层 view 工厂。
+  是高级适配层使用的显式 view 工厂。
 - `traits::sequence_traits<T>` 顺序容器：`meta::type_kind::sequence`，value 类型为元素类型；`get_element_type()`
   是对外语义别名。字段视图可以查询元素数量、访问元素引用，并在 traits 支持时执行清空、调整大小和追加元素。内置 `caors::vector<T>` 会生成
   `caors.vector<T>` 类型名。
@@ -641,7 +641,7 @@ auto reflected = caors::reflection::find("game.actor");
 
 推荐先通过 `meta::class_<T>("name")` 注册业务 meta 类型，再调用 `reflection::class_<T>()`
 挂载反射组件。`reflection::class_<T>()` 不创建或修改基础 meta 记录；如果 `T` 尚未完成 meta 注册，
-`commit()` 会返回 `errc::missing_type`。低层反射组件挂载函数属于内部实现入口，普通代码不直接调用。
+`commit()` 会返回 `errc::missing_type`。detail 反射组件挂载函数属于内部实现入口，普通代码不直接调用。
 
 反射注册应在 `meta::freeze_registry()` 前完成。全局 meta 注册表冻结后，继续注册反射组件会返回
 `errc::frozen`。
@@ -691,7 +691,7 @@ auto reflected = caors::reflection::find("game.actor");
 - `include/caors/reflection.h` 是 umbrella 头，继续提供完整反射 API。
 - `include/caors/traits/*.h` 提供 `type_name`、wrapper、容器、pair、tuple 和 variant 类型语义扩展点主模板。
 - `include/caors/object/ptr.h` 提供 `objects::ptr<T>` 和对象指针 trait；
-  `include/caors/object/ptr_view.h` 提供 `objects::ptr_view` 和低层 `objects::make_ptr_view(any_ref)`
+  `include/caors/object/ptr_view.h` 提供 `objects::ptr_view` 和显式 `objects::make_ptr_view(any_ref)`
   工厂；普通访问优先使用 `any_ref::get_capability<objects::ptr_view>()`。
 - `include/caors/adapters/stl_traits.h` 和 `include/caors/adapters/stl_wrapper.h` 提供 `std::vector`、`std::deque`、`std::list`、`std::forward_list`、`std::array`、`std::span`、
   `std::pair`、`std::tuple`、`std::variant`、`std::set`、`std::unordered_set`、`std::map`、`std::unordered_map` 以及 CAORS 容器别名的默认 traits 特化。

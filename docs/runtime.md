@@ -15,7 +15,8 @@
 - `runtime::object` 是对象系统适配视图，用于处理 `objects::ptr<T>` 这类对象指针字段。
 - `runtime::type::create()` 是运行期值创建的高层入口，优先使用 `meta::factory_capability`，最后才回退到
   descriptor 默认构造。
-- `runtime::type::create_value()` 只使用 `meta::any` 的低层 descriptor 默认构造能力，不查询 factory。
+- `runtime::type::create_value()` 是高级默认构造入口，只使用 `meta::any` 的 descriptor 默认构造能力，
+  不查询 factory。
 
 ## 基本使用
 
@@ -60,8 +61,18 @@ caors::tracking_resource tracking{&caors::get_system_memory_resource()};
 caors::any value = type.create(&tracking);
 ```
 
-`create_value()` 是低层兜底入口，只表达“这个 C++ 类型能否默认构造为一个值”。它不会查询
+### 高级用法：值构造与所有权接管
+
+`create_value()` 是高级默认构造入口，只表达“这个 C++ 类型能否默认构造为一个值”。它不会查询
 `meta::factory_capability`，因此不适合作为多态反序列化、编辑器创建对象或资源配置加载的首选入口。
+它适合测试、兜底构造、工具层显式绕过 factory 的场景。
+
+更底层的 `meta::any::default_construct()` 和 `meta::any::take_ownership()` 属于 meta value 的高级构造接口：
+
+- `default_construct(type, resource)` 只按 descriptor 默认构造值。
+- `take_ownership(type, value, resource, destroy)` 接管外部工厂创建的对象，调用方必须保证对象类型、
+  销毁函数和 `memory_resource` 完全匹配。
+- 普通业务、编辑器创建、多态反序列化和资源配置加载应优先通过 `runtime::type::create()` 统一调度。
 
 注册自定义构造策略时，使用 `runtime::class_<T>().factory()`：
 

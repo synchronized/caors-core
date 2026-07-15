@@ -91,7 +91,7 @@ public:
     }
   }
 
-  /** @brief 返回底层销毁函数，供低层所有权接管路径保存销毁策略。 */
+  /** @brief 返回销毁函数，供高级所有权接管路径保存销毁策略。 */
   [[nodiscard]] factory_ops::destroy_fn destroy_fn() const noexcept {
     return valid() ? ops_->destroy : nullptr;
   }

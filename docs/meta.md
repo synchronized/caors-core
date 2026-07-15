@@ -200,7 +200,7 @@ caors::meta::class_<player>("game.player")
 可默认构造。带函数指针的重载用于不可默认构造类型，`destroy` 必须匹配 `construct` 的分配策略。
 应用层需要创建运行期值时优先使用 `runtime::type::create()`，它会先通过
 `meta::type::get_capability<meta::factory_capability>()` 查询这里注册的 factory，再回退到 descriptor
-默认构造。`any::default_construct()` 只表达 descriptor 低层默认构造能力，不查询 factory。
+默认构造。`any::default_construct()` 只表达 descriptor 默认构造能力，不查询 factory。
 
 `caors::meta::resolve<T>()` 是 C++ 类型到 descriptor 视图的入口；类型未显式注册时仍可能返回有效
 `meta::type`，但 `registered()` 为 false。`caors::meta::find<T>()` 是 C++ 类型到已注册类型的入口，
@@ -223,7 +223,7 @@ caors::meta::class_<player>("game.player")
 - runtime capability 用于用户或插件扩展能力。它挂在 `type_id + capability_key` 的运行期索引上，
   适合矩阵、图、脚本桥接、编辑器扩展等 CAORS 不内置的 concept table。公开写入入口是
   `meta::class_<T>().capability(ops)`，由 CAORS 持有 `ops` 生命周期。
-  `meta::class_<T>().factory()` 也是该机制的高级封装，会把构造策略注册为底层
+  `meta::class_<T>().factory()` 也是该机制的高级封装，会把构造策略注册为内部
   `meta::factory_ops`，公开查询时返回 `meta::factory_capability`。
 
 默认查询顺序是：`meta::type::get_capability<C>()` 先查 descriptor static capability，再回退到
@@ -471,7 +471,9 @@ caors::type_id actor_id = caors::meta::find<actor>().id();
 caors::meta::get_registry().emplace_component<object_factory_meta>(actor_id, true);
 ```
 
-运行期 capability 不是普通 meta 组件，公开写入入口挂在类型 builder 上：
+### 高级用法：自定义 capability
+
+运行期 capability 是高级扩展接口，不是普通 meta 组件。公开写入入口挂在类型 builder 上：
 
 ```cpp
 struct my_ops {
@@ -542,7 +544,7 @@ auto view = sequence.bind(caors::meta::any_ref::from(values));
 ```
 
 用户自定义 capability 默认直接返回 `const Capability*`。如果希望对外也像内置能力一样返回 facade，
-可以保留底层 `*_ops` 函数表，再为公开 facade 特化 `type_capability_traits`：
+可以保留 raw ops 函数表，再为公开 facade 特化 `type_capability_traits`：
 
 ```cpp
 struct matrix_ops {

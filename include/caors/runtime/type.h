@@ -57,10 +57,10 @@ public:
    */
   [[nodiscard]] any create(memory::memory_resource* resource = nullptr) const;
 
-  /** @brief 查询 descriptor 低层默认构造能力。 */
+  /** @brief 查询 descriptor 默认构造能力。 */
   [[nodiscard]] bool value_constructible() const noexcept;
 
-  /** @brief 使用 descriptor 低层默认构造创建运行期值，不查询 factory capability。 */
+  /** @brief 使用 descriptor 默认构造创建运行期值，不查询 factory capability。 */
   [[nodiscard]] any create_value(memory::memory_resource* resource = nullptr) const;
 
   [[nodiscard]] std::size_t field_count() const noexcept;

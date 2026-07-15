@@ -153,8 +153,10 @@ if (ptr) {
 }
 ```
 
-`objects::make_ptr_view(any_ref)` 和 `objects::make_handle_view(any_ref)` 是低层 view 工厂，
-主要服务 capability 绑定、runtime 组合层和高级适配代码。普通用户应优先使用
+### 高级用法：对象 view 工厂
+
+`objects::make_ptr_view(any_ref)` 和 `objects::make_handle_view(any_ref)` 是显式 view 工厂，
+主要服务 capability 绑定、runtime 组合层、自定义 `capability_view_traits` 和高级适配代码。普通用户应优先使用
 `any_ref::get_capability<objects::ptr_view>()` / `any_ref::get_capability<objects::handle_view>()`。
 
 如果只拿到类型视图，可以先查询类型级能力，再绑定到实例：
@@ -492,7 +494,7 @@ manager.destroy(instance);
 - `object_base<Derived, Base>`：CRTP 类型查询辅助。
 - `meta::type` / `meta::registry`：对象系统和反射系统共享的全局 meta 类型视图和元数据注册表。
 - `objects::object_factory_capability`：对象工厂公开 facade，保存默认构造、创建和销毁能力。
-- `objects::object_factory_ops`：对象工厂底层函数表，由 registry 内部和 descriptor 静态能力使用。
+- `objects::object_factory_ops`：对象工厂 raw ops 函数表，由 registry 内部和 descriptor 静态能力使用。
 - `objects::type`：对象类型只读视图，组合 `meta::type` 和对象工厂 capability。
 - `caors::error`：明确对象类型注册失败原因和错误来源域。
 - `objects::registry`：类型注册、查询、继承关系判断、默认构造工厂。

@@ -22,7 +22,7 @@ meta value 提供细粒度头和完整聚合头。细粒度头不再依赖 `any.
 | --- | --- | --- |
 | `caors/meta/value/any.h` | `caors::meta::any`、`caors::any` | 只需要拥有式运行期 C++ 值。 |
 | `caors/meta/value/any_ref.h` | `caors::meta::any_ref`、`caors::any_ref` | 需要引用外部 C++ 对象或反射字段。 |
-| `caors/meta/value/view_factory.h` | 所有具体 view 类型和低层 `make_*_view()` 工厂 | 高级代码或内部适配层需要显式创建具体 view。 |
+| `caors/meta/value/view_factory.h` | 所有具体 view 类型和显式 `make_*_view()` 工厂 | 高级代码或内部适配层需要显式创建具体 view。 |
 | `caors/meta/value/capability_view.h` | `any` / `any_ref` 的 `get_capability<View>()` 视图绑定适配 | 推荐的统一运行期视图查询入口。 |
 | `caors/meta/value/type_capability.h` | 类型级 `*_capability` facade | 需要先从 `meta::type` 查询能力，再绑定到具体 `any_ref`。 |
 | `caors/meta/value/associative_entry_ref.h` | `associative_entry_ref` | 需要按值使用关联容器迭代条目。 |
@@ -95,7 +95,7 @@ caors::any value = caors::any::from(7);
   资源构造会使用标准 uses-allocator 规则，把同一个 `memory_resource` 传给对象内部 allocator。
 - 复制已有值生成 `any` 时会沿用当前存储策略：可内联的小型平凡值继续内联，其他值走 clone；需要指定资源创建空对象再读入数据时，应使用
   `any::default_construct(type_id, resource)`。
-- `any::take_ownership(type, value, resource, destroy)` 是低层工厂接管入口。调用方必须保证 `value`
+- `any::take_ownership(type, value, resource, destroy)` 是高级所有权接管入口。调用方必须保证 `value`
   指向与 `type` 匹配的对象，并且 `destroy` 与构造策略和 `resource` 配套。普通业务代码应优先使用
   `runtime::type::create()`，不要直接拼接裸指针生命周期。
 
@@ -140,8 +140,10 @@ caors::meta::indirect_view indirect =
     ref.get_capability<caors::meta::indirect_view>();
 ```
 
-`caors::meta::make_sequence_view()`、`make_indirect_view()` 等 `make_*_view()` 函数是低层 view
-工厂，主要服务 capability 绑定、测试边界和高级适配代码。普通用户应优先使用
+### 高级用法：显式 view 工厂
+
+`caors::meta::make_sequence_view()`、`make_indirect_view()` 等 `make_*_view()` 函数是显式 view
+工厂，主要服务 capability 绑定、测试边界、自定义 `capability_view_traits` 和高级适配代码。普通用户应优先使用
 `any_ref::get_capability<View>()`，这样调用点不需要直接关心底层 descriptor 和 source 绑定细节。
 
 如果调用方先拿到的是类型视图，可以使用类型级 `*_capability` facade，再把它绑定到具体实例：

@@ -48,7 +48,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 删除旧 `meta/detail/container.h` 聚合头，并将 `type_capabilities.h` 精确改名为
   `parent_cast_ops.h`。
 - [x] 将 value 操作函数指针收进 `meta::value_ops` / `meta::factory_ops`，公开层通过
-  `meta::factory_capability` 查询构造能力，内部通过 `value_storage_ops` 访问低层值操作，避免 object /
+  `meta::factory_capability` 查询构造能力，内部通过 `value_storage_ops` 访问内部值操作，避免 object /
   reflection / serialization 横向依赖 `meta::detail`。
 - [x] 将 descriptor 内建 ops 和静态能力纳入 `meta::type` 的 capability / ops 查询链路，并补充 `meta::type`
   的 kind、wrapper、nullable、value type 和 key type 查询，使 reflection / serialization 优先使用
@@ -74,7 +74,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 将 `runtime` 确认为推荐主入口，具体模块保留高级入口；`meta::type_<T>()` 改为
   `meta::class_<T>()`，并增加 `meta::enum_<T>()` / `runtime::enum_<T>()`。
 - [x] 将 `runtime::type::create()` 统一为高层创建入口，优先使用 `meta::factory_capability`，再回退到 descriptor
-  默认构造；`create_value()` 保留为低层默认构造入口。
+  默认构造；`create_value()` 保留为高级默认构造入口。
 - [ ] 评估组件替换和批量注册 API。
 
 ## 2. 定制化分配器

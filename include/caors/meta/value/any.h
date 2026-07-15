@@ -91,7 +91,7 @@ public:
    * @brief 接管由外部工厂创建的运行期对象。
    *
    * `value` 必须指向与 `type` 匹配的对象，`destroy` 必须能用同一个 `resource` 正确销毁该对象。
-   * 该入口主要供 runtime factory、序列化多态创建等低层路径使用。
+   * 该入口主要供 runtime factory、序列化多态创建等高级所有权接管路径使用。
    */
   [[nodiscard]] static any take_ownership(meta::type type, void* value,
                                           memory::memory_resource* resource,

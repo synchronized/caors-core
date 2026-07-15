@@ -923,7 +923,7 @@ caors::serialization::variant_result value = caors::serialization::to_variant(ca
 再回退到内置标量和字符串转换。`serialization::to_variant(any_ref)`
 会先尝试复制引用指向的对象；不可拷贝引用会返回 `errc::unsupported`。
 
-### serialization::registry
+### 高级用法：序列化 schema 注册
 
 `serialization::registry` 是全局序列化注册表，内部复用 `meta::registry`：
 
@@ -947,7 +947,8 @@ auto serialization_type = caors::serialization::find(type);
 `serialization::class_(meta::type)` 挂载序列化组件。这条路径不会创建或修改 meta 类型记录；
 无效 `meta::type` 返回 `errc::invalid_type`，不存在的 `type_id` 返回 `errc::missing_type`。
 查询序列化组件时使用 `serialization::find()` 或 `serialization::contains()`。
-低层 schema 挂载函数属于内部实现入口，普通代码不直接调用。
+这是公开的高级 schema 注册入口，适合需要手动控制字段顺序、别名、跳过策略和 schema version
+的类型。更细的 detail schema 挂载函数属于内部实现入口，普通代码不直接调用。
 
 重复注册同一个类型会返回 `errc::duplicate_component`，错误来源域为
 `error_domain::serialization`。全局 meta 注册表冻结后继续注册序列化组件会返回 `errc::frozen`。

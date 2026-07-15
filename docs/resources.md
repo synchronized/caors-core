@@ -590,10 +590,12 @@ caors::vector<caors::resource_guid> affected_all = graph.affected_closure(albedo
   `dependency_graph` 当前只保存 GUID 关系。
 - 当前第一版只建模资源到资源的直接依赖。对象、场景、资源包和编辑器导入任务可以在上层资源数据库中继续扩展。
 
-## database
+## 高级用法：手动组合资源管线
 
-`resources::database` 是非拥有的资源编排入口。它不会创建全局单例，也不会拥有 manifest、provider、
-cache、loader 或 dependency graph；调用方把这些组件挂进去后，database 只负责把常见同步流程串起来：
+普通项目入口优先使用 `resources::asset_manager`，由它持有 manifest、provider、dependency graph
+和内部 database。`resources::database` 是高级组合入口：它不会创建全局单例，也不会拥有
+manifest、provider、cache、loader 或 dependency graph；调用方把这些组件挂进去后，database
+只负责把常见同步流程串起来：
 
 ```cpp
 caors::resource_manifest manifest;
@@ -634,6 +636,8 @@ auto resolver = database.resolver();
 需要注意：
 
 - `database` 是编排器，不是拥有式全局资源缓存。资源生命周期仍由 `cache<T>` / `handle<T>` 决定。
+- 手动组合适合嵌入已有引擎资源系统、定制 cache/loader/provider、测试资源管线或需要绕过
+  `asset_manager` 工厂配置的场景。
 - 普通 `load<T>()` 不会根据 manifest 的 `type` 字符串自动选择 loader；调用方仍需要明确使用模板类型。
   跨类型预加载入口会按 `register_type<T>(cache, loader, type)` 的 manifest type 绑定分派。
 - `database.resolver()` 只能返回 `resource*`；`resource_ref<T>` 的类型兼容检查仍由序列化层的
