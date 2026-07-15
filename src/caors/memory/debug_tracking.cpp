@@ -4,7 +4,6 @@
 #include "caors/memory/debug_tracking.h"
 
 #include "caors/core/containers.h"
-#include "caors/memory/detail/internal_resource.h"
 #include "detail/internal.h"
 
 #include <mutex>
@@ -34,7 +33,7 @@ struct debug_tracking_state {
 
 debug_tracking_resource::debug_tracking_resource(memory_resource* upstream) : state_(nullptr) {
   memory_resource& resolved = detail::resolve_resource(upstream);
-  memory_resource& storage = detail::internal_resource();
+  memory_resource& storage = library_resource();
   state_ = make<debug_tracking_state>(&storage, &resolved, &storage);
 }
 

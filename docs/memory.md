@@ -47,7 +47,7 @@ meta / reflection / serialization / object
   `allocate_block()` / `try_allocate_block()`。
 - `caors/memory/unique_ptr.h`：可保存运行期销毁回调的 `erased_deleter<T>` 和
   `memory::unique_ptr<T>`。
-- `caors/memory.h`：兼容用聚合头，包含以上所有入口。
+- `caors/memory.h`：内存模块聚合入口，包含以上所有常用入口。
 
 实现文件也按相同职责拆分在 `src/caors/memory/`；共享的内部对齐、溢出检查、默认资源解析等工具保留在私有头 `src/caors/memory/detail/internal.h`。
 

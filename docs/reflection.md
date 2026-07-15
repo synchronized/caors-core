@@ -96,7 +96,8 @@ caors::reflection::class_<actor>()
 - `std::reference_wrapper<T>`：`meta::type_kind::wrapper`，`value_type` 为 `T`，不表示空值，
   `traits::wrapper_semantics` 为 `inline_value`。
 - `caors::objects::ptr<T>`：`meta::type_kind::value`，对象指针能力通过 descriptor 静态能力表保存，
-  并使用 `objects::make_ptr_view(any_ref)` 查询。
+  并优先使用 `any_ref::get_capability<objects::ptr_view>()` 查询；`objects::make_ptr_view(any_ref)`
+  是低层 view 工厂。
 - `traits::sequence_traits<T>` 顺序容器：`meta::type_kind::sequence`，value 类型为元素类型；`get_element_type()`
   是对外语义别名。字段视图可以查询元素数量、访问元素引用，并在 traits 支持时执行清空、调整大小和追加元素。内置 `caors::vector<T>` 会生成
   `caors.vector<T>` 类型名。
@@ -181,7 +182,7 @@ struct wrapper_access<my_box<T>> {
 `traits::wrapper_access<T>`。内置适配支持裸指针、`std::unique_ptr<T>`、`caors::memory::unique_ptr<T>`、
 `std::shared_ptr<T>`、`std::optional<T>` 和 `std::reference_wrapper<T>` 的内部值访问；`std::weak_ptr<T>` 只提供 unsupported
 wrapper 语义，当前没有默认内部值访问，避免返回可能悬空的引用。`caors::objects::ptr<T>` 通过
-`objects::make_ptr_view(any_ref)` 按对象指针语义访问，不再作为 wrapper 语义处理。
+`any_ref::get_capability<objects::ptr_view>()` 按对象指针语义访问，不再作为 wrapper 语义处理。
 
 顺序容器识别通过 `traits::sequence_traits<T>` 扩展。traits 需要提供元素类型、类型名前缀和基础元素访问函数：
 
@@ -502,7 +503,7 @@ damage.invoke(&instance, args);
 - `get_value()` / `try_set_value()`：按运行期 `any` 读写字段。
 - `get_ref(const void*)` / `get_ref(void*)`：按运行期 `any_ref` 引用字段，权限由传入对象地址的 constness 决定。
 - 对象指针字段不在 `reflection::field` 上提供专用 `get/set` 接口。需要按对象语义访问时，使用
-  `runtime::object` 或 `objects::make_ptr_view(field.get_ref(...))`。
+  `runtime::object` 或 `field.get_ref(...).get_capability<objects::ptr_view>()`。
 - `reflection::field` 不负责对象生命周期、对象身份解析或对象引用计数。对象关系、资源引用和其他领域语义
   应由 `runtime`、`objects`、`resources` 或序列化上下文中的 resolver 处理。
 - `is_sequence()`：判断字段是否是顺序容器字段。
@@ -690,7 +691,8 @@ auto reflected = caors::reflection::find("game.actor");
 - `include/caors/reflection.h` 是 umbrella 头，继续提供完整反射 API。
 - `include/caors/traits/*.h` 提供 `type_name`、wrapper、容器、pair、tuple 和 variant 类型语义扩展点主模板。
 - `include/caors/object/ptr.h` 提供 `objects::ptr<T>` 和对象指针 trait；
-  `include/caors/object/ptr_view.h` 提供 `objects::make_ptr_view(any_ref)` 运行期查询入口。
+  `include/caors/object/ptr_view.h` 提供 `objects::ptr_view` 和低层 `objects::make_ptr_view(any_ref)`
+  工厂；普通访问优先使用 `any_ref::get_capability<objects::ptr_view>()`。
 - `include/caors/adapters/stl_traits.h` 和 `include/caors/adapters/stl_wrapper.h` 提供 `std::vector`、`std::deque`、`std::list`、`std::forward_list`、`std::array`、`std::span`、
   `std::pair`、`std::tuple`、`std::variant`、`std::set`、`std::unordered_set`、`std::map`、`std::unordered_map` 以及 CAORS 容器别名的默认 traits 特化。
 - `include/caors/adapters/stl.h` 是 STL/CAORS 容器、wrapper 和反射 traits 适配的聚合入口，不包含序列化 codec。
