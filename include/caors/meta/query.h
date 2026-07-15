@@ -141,20 +141,6 @@ public:
   }
 
   /**
-   * @brief 用调用点提供的 proxy 绑定生成并注册 capability ops。
-   *
-   * 该入口适合简单成员函数映射，调用方不需要额外特化 `capability_model<Capability, T>`。
-   */
-  template <typename Capability, typename... Bindings>
-    requires(sizeof...(Bindings) > 0)
-  class_builder& capability(Bindings&&...) {
-    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
-    status_ = detail::register_proxy_model_for<capability_type, T, Bindings...>();
-    refresh();
-    return *this;
-  }
-
-  /**
    * @brief 把 `capability_model<Capability, T>` 或静态能力挂接到运行期索引。
    *
    * 如果存在 `capability_model<Capability, T>`，优先注册 model 生成的 `Capability::ops_type`；
@@ -232,15 +218,6 @@ public:
     using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
     status_ = detail::register_owned_capability_for_type<capability_type, T>(
         capability_type{std::forward<Capability>(capability)});
-    refresh();
-    return *this;
-  }
-
-  template <typename Capability, typename... Bindings>
-    requires(sizeof...(Bindings) > 0)
-  enum_builder& capability(Bindings&&...) {
-    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
-    status_ = detail::register_proxy_model_for<capability_type, T, Bindings...>();
     refresh();
     return *this;
   }

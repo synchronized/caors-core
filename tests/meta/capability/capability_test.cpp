@@ -226,14 +226,6 @@ template <> struct capability_traits<named_capability> {
   static constexpr std::uint32_t version = 3;
 };
 
-template <>
-struct capability_model<matrix_capability, proxy_matrix>
-    : proxy::model<matrix_capability, proxy_matrix,
-                   proxy::method<&matrix_ops::rows, &proxy_matrix::rows>,
-                   proxy::method<&matrix_ops::columns, &proxy_matrix::columns>,
-                   proxy::method<&matrix_ops::get, &proxy_matrix::get>,
-                   proxy::method<&matrix_ops::set, &proxy_matrix::set>> {};
-
 } // namespace caors::meta
 
 namespace caors::meta::capabilities {
@@ -373,46 +365,6 @@ TEST_CASE("meta - type capability base auto exposes custom type facade", "[meta]
   CHECK(capability.get_type().id() == type.id());
   CHECK(capability.value() == 31);
   CHECK(type.has_capability<creator_capability>());
-}
-
-TEST_CASE("meta - proxy model generates capability ops from member bindings", "[meta]") {
-  REQUIRE(caors::meta::class_<proxy_matrix>().capability<matrix_capability>().succeeded());
-
-  const caors::meta::type type = caors::meta::resolve<proxy_matrix>();
-  const matrix_capability capability = type.get_capability<matrix_capability>();
-  REQUIRE(capability);
-
-  proxy_matrix matrix{};
-  caors::meta::any_ref ref = caors::meta::any_ref::from(matrix);
-  const matrix_view view = ref.get_capability<matrix_capability>();
-  REQUIRE(view);
-
-  CHECK(view.rows() == 2);
-  CHECK(view.columns() == 2);
-  view.set(1, 1, 29);
-  CHECK(view.get(1, 1) == 29);
-  CHECK(matrix.values[3] == 29);
-}
-
-TEST_CASE("meta - proxy bindings can be registered inline", "[meta]") {
-  REQUIRE(caors::meta::class_<inline_proxy_matrix>()
-              .capability<matrix_capability>(
-                  caors::meta::proxy::method<&matrix_ops::rows, &inline_proxy_matrix::rows>{},
-                  caors::meta::proxy::method<&matrix_ops::columns, &inline_proxy_matrix::columns>{},
-                  caors::meta::proxy::method<&matrix_ops::get, &inline_proxy_matrix::get>{},
-                  caors::meta::proxy::method<&matrix_ops::set, &inline_proxy_matrix::set>{})
-              .succeeded());
-
-  inline_proxy_matrix matrix{};
-  caors::meta::any_ref ref = caors::meta::any_ref::from(matrix);
-  const matrix_view view = ref.get_capability<matrix_capability>();
-  REQUIRE(view);
-
-  view.set(0, 1, 43);
-  CHECK(view.rows() == 2);
-  CHECK(view.columns() == 2);
-  CHECK(view.get(0, 1) == 43);
-  CHECK(matrix.values[1] == 43);
 }
 
 TEST_CASE("meta - proxy capability macro generates ops view and auto model", "[meta]") {

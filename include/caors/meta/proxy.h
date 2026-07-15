@@ -20,8 +20,8 @@ template <typename Ops, typename View> class type_capability_base;
 /**
  * @brief C++ 类型到 capability ops 的声明式 model 扩展点。
  *
- * 默认没有 model。用户可以特化该模板，或继承 `meta::proxy::model`，让
- * `meta::class_<T>().capability<Capability>()` 自动注册对应 `ops`。
+ * 默认没有 model。用户可以特化该模板，让 `meta::class_<T>().capability<Capability>()`
+ * 自动注册对应 `ops`。
  */
 template <typename Capability, typename T> struct capability_model {};
 
@@ -39,126 +39,6 @@ template <typename Dispatch, typename Signature> struct type_convention {
 
 template <auto Function> struct free_function_dispatch {
   template <typename T> static constexpr auto member = Function;
-};
-
-namespace detail {
-
-template <typename MemberPointer> struct member_object_pointer_traits;
-
-template <typename Class, typename Member> struct member_object_pointer_traits<Member Class::*> {
-  using class_type = Class;
-  using value_type = Member;
-};
-
-template <auto Member, typename T, typename FunctionPointer> struct method_callback;
-
-template <auto Member, typename T, typename R, typename... Args>
-struct method_callback<Member, T, R (*)(const void*, Args...)> {
-  using type = std::remove_cv_t<std::remove_reference_t<T>>;
-
-  static_assert(std::is_member_function_pointer_v<decltype(Member)>,
-                "proxy::method requires a member function pointer");
-
-  [[nodiscard]] static R call(const void* object, Args... args) {
-    if constexpr (std::is_void_v<R>) {
-      if (object != nullptr) {
-        (static_cast<const type*>(object)->*Member)(std::forward<Args>(args)...);
-      }
-    } else {
-      if (object == nullptr) {
-        return R{};
-      }
-
-      return (static_cast<const type*>(object)->*Member)(std::forward<Args>(args)...);
-    }
-  }
-};
-
-template <auto Member, typename T, typename R, typename... Args>
-struct method_callback<Member, T, R (*)(void*, Args...)> {
-  using type = std::remove_cv_t<std::remove_reference_t<T>>;
-
-  static_assert(std::is_member_function_pointer_v<decltype(Member)>,
-                "proxy::method requires a member function pointer");
-
-  static R call(void* object, Args... args) {
-    if constexpr (std::is_void_v<R>) {
-      if (object != nullptr) {
-        (static_cast<type*>(object)->*Member)(std::forward<Args>(args)...);
-      }
-    } else {
-      if (object == nullptr) {
-        return R{};
-      }
-
-      return (static_cast<type*>(object)->*Member)(std::forward<Args>(args)...);
-    }
-  }
-};
-
-template <auto Member, typename T, typename R, typename... Args>
-struct method_callback<Member, T, R (*)(const void*, Args...) noexcept> {
-  using type = std::remove_cv_t<std::remove_reference_t<T>>;
-
-  static_assert(std::is_member_function_pointer_v<decltype(Member)>,
-                "proxy::method requires a member function pointer");
-
-  [[nodiscard]] static R call(const void* object, Args... args) noexcept {
-    if constexpr (std::is_void_v<R>) {
-      if (object != nullptr) {
-        (static_cast<const type*>(object)->*Member)(std::forward<Args>(args)...);
-      }
-    } else {
-      if (object == nullptr) {
-        return R{};
-      }
-
-      return (static_cast<const type*>(object)->*Member)(std::forward<Args>(args)...);
-    }
-  }
-};
-
-template <auto Member, typename T, typename R, typename... Args>
-struct method_callback<Member, T, R (*)(void*, Args...) noexcept> {
-  using type = std::remove_cv_t<std::remove_reference_t<T>>;
-
-  static_assert(std::is_member_function_pointer_v<decltype(Member)>,
-                "proxy::method requires a member function pointer");
-
-  static R call(void* object, Args... args) noexcept {
-    if constexpr (std::is_void_v<R>) {
-      if (object != nullptr) {
-        (static_cast<type*>(object)->*Member)(std::forward<Args>(args)...);
-      }
-    } else {
-      if (object == nullptr) {
-        return R{};
-      }
-
-      return (static_cast<type*>(object)->*Member)(std::forward<Args>(args)...);
-    }
-  }
-};
-
-} // namespace detail
-
-/**
- * @brief 把一个 `ops` 字段绑定到 C++ 类型的成员函数。
- *
- * `OpsMember` 是 `ops` 内部函数指针字段，例如 `&matrix_ops::rows`；
- * `Member` 是具体 C++ 类型成员函数，例如 `&matrix::rows`。
- */
-template <auto OpsMember, auto Member> struct method {
-  template <typename T, typename Ops> static void apply(Ops& ops) {
-    using ops_type = std::remove_cv_t<std::remove_reference_t<Ops>>;
-    using ops_member_traits = detail::member_object_pointer_traits<decltype(OpsMember)>;
-    using field_type = typename ops_member_traits::value_type;
-
-    static_assert(std::is_same_v<typename ops_member_traits::class_type, ops_type>,
-                  "proxy::method ops member does not belong to the target ops type");
-
-    ops.*OpsMember = &detail::method_callback<Member, T, field_type>::call;
-  }
 };
 
 template <typename Signature> struct convention_slot;
@@ -592,25 +472,6 @@ template <typename... Conventions> struct capability_builder_state {
                                            Conventions...>::type;
 };
 
-/**
- * @brief 用一组声明式绑定为 `Capability + T` 生成静态 ops。
- */
-template <typename Capability, typename T, typename... Bindings> struct model {
-  using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
-  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-  using ops_type = typename capability_type::ops_type;
-
-  inline static const ops_type value = [] {
-    ops_type ops{};
-    (Bindings::template apply<value_type>(ops), ...);
-    return ops;
-  }();
-
-  [[nodiscard]] static const ops_type* get() noexcept {
-    return meta::detail::capability_ops_valid(&value) ? &value : nullptr;
-  }
-};
-
 } // namespace proxy
 
 /**
@@ -704,26 +565,6 @@ template <typename Capability, typename T>
 
   static_assert(std::is_same_v<ops_type, typename capability_type::ops_type>,
                 "capability auto model ops_type must match Capability::ops_type");
-
-  const ops_type* ops = model_type::get();
-  if (ops == nullptr) {
-    return {error_domain::meta, errc::unsupported};
-  }
-
-  return register_capability_for_type<ops_type, value_type>(ops);
-}
-
-/** @brief 用调用点传入的 proxy 绑定生成 ops 并挂到运行期索引。内部入口。 */
-template <typename Capability, typename T, typename... Bindings>
-[[nodiscard]] error register_proxy_model_for() {
-  using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
-  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-  using model_type = proxy::model<capability_type, value_type,
-                                  std::remove_cv_t<std::remove_reference_t<Bindings>>...>;
-  using ops_type = typename model_type::ops_type;
-
-  static_assert(std::is_same_v<ops_type, typename capability_type::ops_type>,
-                "proxy model ops_type must match Capability::ops_type");
 
   const ops_type* ops = model_type::get();
   if (ops == nullptr) {
@@ -913,8 +754,41 @@ template <typename Capability, typename T, typename... Bindings>
     }                                                                                              \
   }
 
-#define CAORS_META_PROXY_DETAIL_MODEL_METHOD(name, result_type, noex, ...)                         \
-  , caors::meta::proxy::method<&ops_type::name, &value_type::name>
+#define CAORS_META_PROXY_DETAIL_CONST_MODEL_METHOD(name, result_type, noex, ...)                   \
+  static result_type name##_callback(const void* object __VA_OPT__(, )                             \
+                                         CAORS_META_PROXY_DETAIL_PARAM_DECLS(__VA_ARGS__)) noex {  \
+    if constexpr (std::is_void_v<result_type>) {                                                   \
+      if (object != nullptr) {                                                                     \
+        static_cast<const value_type*>(object)->name(                                              \
+            CAORS_META_PROXY_DETAIL_PARAM_NAMES(__VA_ARGS__));                                     \
+      }                                                                                            \
+    } else {                                                                                       \
+      if (object == nullptr) {                                                                     \
+        return result_type{};                                                                      \
+      }                                                                                            \
+      return static_cast<const value_type*>(object)->name(                                         \
+          CAORS_META_PROXY_DETAIL_PARAM_NAMES(__VA_ARGS__));                                       \
+    }                                                                                              \
+  }
+
+#define CAORS_META_PROXY_DETAIL_MUTABLE_MODEL_METHOD(name, result_type, noex, ...)                 \
+  static result_type name##_callback(void* object __VA_OPT__(, )                                   \
+                                         CAORS_META_PROXY_DETAIL_PARAM_DECLS(__VA_ARGS__)) noex {  \
+    if constexpr (std::is_void_v<result_type>) {                                                   \
+      if (object != nullptr) {                                                                     \
+        static_cast<value_type*>(object)->name(CAORS_META_PROXY_DETAIL_PARAM_NAMES(__VA_ARGS__));  \
+      }                                                                                            \
+    } else {                                                                                       \
+      if (object == nullptr) {                                                                     \
+        return result_type{};                                                                      \
+      }                                                                                            \
+      return static_cast<value_type*>(object)->name(                                               \
+          CAORS_META_PROXY_DETAIL_PARAM_NAMES(__VA_ARGS__));                                       \
+    }                                                                                              \
+  }
+
+#define CAORS_META_PROXY_DETAIL_MODEL_ASSIGN(name, result_type, noex, ...)                         \
+  ops.name = &name##_callback;
 
 /**
  * @brief 定义可绑定实例的 proxy capability。
@@ -953,13 +827,20 @@ template <typename Capability, typename T, typename... Bindings>
                                                                                                    \
     template <typename T> struct model {                                                           \
       using value_type = std::remove_cv_t<std::remove_reference_t<T>>;                             \
-      using proxy_model =                                                                          \
-          caors::meta::proxy::model<capability_name,                                               \
-                                    value_type methods(CAORS_META_PROXY_DETAIL_MODEL_METHOD,       \
-                                                       CAORS_META_PROXY_DETAIL_MODEL_METHOD)>;     \
-      using ops_type = typename proxy_model::ops_type;                                             \
+      using ops_type = capability_name##_ops;                                                      \
                                                                                                    \
-      [[nodiscard]] static const ops_type* get() noexcept { return proxy_model::get(); }           \
+      methods(CAORS_META_PROXY_DETAIL_CONST_MODEL_METHOD,                                          \
+              CAORS_META_PROXY_DETAIL_MUTABLE_MODEL_METHOD)                                        \
+                                                                                                   \
+          inline static const ops_type value = [] {                                                \
+            ops_type ops{};                                                                        \
+            methods(CAORS_META_PROXY_DETAIL_MODEL_ASSIGN,                                          \
+                    CAORS_META_PROXY_DETAIL_MODEL_ASSIGN) return ops;                              \
+          }();                                                                                     \
+                                                                                                   \
+      [[nodiscard]] static const ops_type* get() noexcept {                                        \
+        return caors::meta::detail::capability_ops_valid(&value) ? &value : nullptr;               \
+      }                                                                                            \
     };                                                                                             \
   };
 

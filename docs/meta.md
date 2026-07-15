@@ -740,40 +740,10 @@ caors::meta::class_<creator_type>()
 这种形式适合 factory、codec、编辑器 schema 这类不绑定具体对象实例的能力。第一版类型级宏不自动生成
 `Capability::model<T>`；需要自动映射时后续再扩展，或者继续手写 `ops` / model。
 
-简单成员函数映射可以直接在类型 builder 上使用 `meta::proxy::method` 生成并注册 `ops`，避免手写完整
-`*_ops_model<T>` 或 `capability_model<Capability, T>` 特化：
-
-```cpp
-struct matrix {
-  std::size_t rows() const noexcept;
-  std::size_t columns() const noexcept;
-};
-
-caors::meta::class_<matrix>()
-    .capability<matrix_capability>(
-        caors::meta::proxy::method<&matrix_ops::rows, &matrix::rows>{},
-        caors::meta::proxy::method<&matrix_ops::columns, &matrix::columns>{});
-```
-
-如果同一个 `Capability + T` 映射需要跨多个注册点复用，也可以把绑定写成 `capability_model`
-特化：
-
-```cpp
-template <>
-struct caors::meta::capability_model<matrix_capability, matrix>
-    : caors::meta::proxy::model<
-          matrix_capability,
-          matrix,
-          caors::meta::proxy::method<&matrix_ops::rows, &matrix::rows>,
-          caors::meta::proxy::method<&matrix_ops::columns, &matrix::columns>> {};
-
-caors::meta::class_<matrix>()
-    .capability<matrix_capability>();
-```
-
-`proxy::method` 只负责把一个 `ops` 函数字段映射到一个成员函数；复杂适配、额外状态、错误策略或非成员函数回调仍建议手写
-`*_ops_model<T>` 或直接注册一份 `ops`。完整 Proxy DSL 后续会继续减少 `ops` / `view` / `capability`
-样板代码。
+旧的 inline `proxy::method` 绑定入口已经移除。简单成员函数映射统一使用
+`CAORS_META_DEF_MEM_DISPATCH + capability_builder::add_convention`；需要稳定具名 `ops/view/capability`
+类型时使用 `CAORS_META_PROXY_CAPABILITY`；复杂适配、额外状态、错误策略或特殊生命周期仍建议手写
+`*_ops_model<T>` 或直接注册一份 `ops`。
 
 如果能力由 `static_capability<Capability, T>` 提供，也可以只声明能力类型：
 
