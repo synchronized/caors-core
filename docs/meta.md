@@ -559,52 +559,50 @@ auto sequence =
 auto view = sequence.bind(caors::meta::any_ref::from(values));
 ```
 
-用户自定义 capability 默认直接返回 `const Capability*`。如果希望对外也像内置能力一样返回 facade，
-可以保留 raw ops 函数表，再为公开 facade 特化 `type_capability_traits`：
+用户自定义 capability 默认直接返回 `const Capability*`。如果希望对外也像内置能力一样返回可绑定的
+view，推荐使用轻量 view helper：定义 `*_ops` 函数表，再让 view 继承
+`meta::capability_view_base<Ops>`。只要 view 声明了 `using ops_type = Ops`，并支持
+`(meta::type, const Ops*, meta::any_ref)` 构造，CAORS 会自动接入
+`meta::type::get_capability<View>()` 和 `any_ref::get_capability<View>()`。
 
 ```cpp
 struct matrix_ops {
   std::size_t (*rows)(const void*) = nullptr;
   std::size_t (*columns)(const void*) = nullptr;
+
+  [[nodiscard]] bool valid() const noexcept {
+    return rows != nullptr && columns != nullptr;
+  }
 };
 
-class matrix_capability {
+class matrix_view : public caors::meta::capability_view_base<matrix_ops> {
 public:
-  explicit matrix_capability(caors::meta::type type) noexcept
-      : type_(type), ops_(type.get_raw_ops<matrix_ops>()) {}
+  using base_type = caors::meta::capability_view_base<matrix_ops>;
+  using base_type::base_type;
 
-  [[nodiscard]] explicit operator bool() const noexcept {
-    return type_ && ops_ != nullptr;
-  }
-
-  [[nodiscard]] matrix_view bind(caors::meta::any_ref source) const noexcept;
-
-private:
-  caors::meta::type type_{};
-  const matrix_ops* ops_ = nullptr;
+  [[nodiscard]] std::size_t rows() const noexcept { return ops()->rows(data()); }
+  [[nodiscard]] std::size_t columns() const noexcept { return ops()->columns(data()); }
 };
-
-namespace caors::meta {
-
-template <> struct type_capability_traits<matrix_capability> {
-  using result_type = matrix_capability;
-
-  [[nodiscard]] static result_type get(const type& source) noexcept {
-    return matrix_capability{source};
-  }
-
-  [[nodiscard]] static bool has(const type& source) noexcept {
-    return static_cast<bool>(matrix_capability{source});
-  }
-};
-
-} // namespace caors::meta
 ```
 
-如果还需要 `any_ref.get_capability<matrix_view>()` 这种实例级入口，再特化
-`capability_view_traits<matrix_view>`，内部从 `source.get_type()` 查询 `matrix_capability`
-并绑定当前 `any_ref`。这样用户代码不需要直接传递 `void*`，而底层仍可以复用稳定生命周期的
-`matrix_ops` 函数表。
+注册后可以直接从类型或实例查询：
+
+```cpp
+caors::meta::class_<matrix>()
+    .capability(matrix_ops{&matrix_rows, &matrix_columns});
+
+auto matrix_type = caors::meta::resolve<matrix>();
+auto capability = matrix_type.get_capability<matrix_view>();
+
+matrix value{};
+auto view = capability.bind(caors::meta::any_ref::from(value));
+auto rows = view.rows();
+
+auto direct_view = caors::meta::any_ref::from(value).get_capability<matrix_view>();
+```
+
+这个小版 helper 不会自动生成函数表；`*_ops` 和把具体 `T` 适配到 `*_ops` 的 model 仍由能力作者提供。
+它解决的是重复编写 `type_capability_traits<View>`、`capability_view_traits<View>` 和 view 基础存储的问题。
 
 如果能力由 `static_capability<Capability, T>` 提供，也可以只声明能力类型：
 

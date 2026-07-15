@@ -67,7 +67,7 @@ template <typename Capability> struct capability_traits {
  * `meta::sequence_view` 或 `objects::ptr_view`。默认表示该视图不支持通过
  * `any_ref::get_capability<View>()` 查询。
  */
-template <typename CapabilityView> struct capability_view_traits {
+template <typename CapabilityView, typename = void> struct capability_view_traits {
   static constexpr bool supported = false;
 };
 
@@ -77,7 +77,7 @@ template <typename CapabilityView> struct capability_view_traits {
  * 默认情况下，`meta::type::get_capability<T>()` 返回 `const T*`，用于用户自定义
  * concept table 或模块静态能力。内置公开 facade 可以特化该模板，让查询返回可直接调用的轻量对象。
  */
-template <typename Capability> struct type_capability_traits {
+template <typename Capability, typename = void> struct type_capability_traits {
   using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
   using result_type = const capability_type*;
 

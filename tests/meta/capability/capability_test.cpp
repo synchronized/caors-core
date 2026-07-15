@@ -29,35 +29,32 @@ enum class facade_enum : int {
   high = 9,
 };
 
-struct matrix_capability {
+struct matrix_ops {
   std::size_t (*rows)(const void*) = nullptr;
   std::size_t (*columns)(const void*) = nullptr;
   int (*get)(const void*, std::size_t, std::size_t) = nullptr;
   void (*set)(void*, std::size_t, std::size_t, int) = nullptr;
+
+  [[nodiscard]] bool valid() const noexcept {
+    return rows != nullptr && columns != nullptr && get != nullptr && set != nullptr;
+  }
 };
 
-class matrix_view {
+class matrix_view final : public caors::meta::capability_view_base<matrix_ops> {
 public:
+  using base_type = caors::meta::capability_view_base<matrix_ops>;
+  using base_type::base_type;
+
   matrix_view() noexcept = default;
-  matrix_view(const matrix_capability* capability, owned_matrix* matrix) noexcept
-      : capability_(capability), matrix_(matrix) {}
 
-  [[nodiscard]] explicit operator bool() const noexcept {
-    return capability_ != nullptr && matrix_ != nullptr;
-  }
-
-  [[nodiscard]] std::size_t rows() const noexcept { return capability_->rows(matrix_); }
-  [[nodiscard]] std::size_t columns() const noexcept { return capability_->columns(matrix_); }
+  [[nodiscard]] std::size_t rows() const noexcept { return ops()->rows(data()); }
+  [[nodiscard]] std::size_t columns() const noexcept { return ops()->columns(data()); }
   [[nodiscard]] int get(std::size_t row, std::size_t column) const {
-    return capability_->get(matrix_, row, column);
+    return ops()->get(data(), row, column);
   }
   void set(std::size_t row, std::size_t column, int value) const {
-    capability_->set(matrix_, row, column, value);
+    ops()->set(mutable_data(), row, column, value);
   }
-
-private:
-  const matrix_capability* capability_ = nullptr;
-  owned_matrix* matrix_ = nullptr;
 };
 
 struct static_capability_data {
@@ -117,17 +114,6 @@ template <> struct capability_traits<named_capability> {
       0x31,
   });
   static constexpr std::uint32_t version = 3;
-};
-
-template <> struct capability_view_traits<matrix_view> {
-  static constexpr bool supported = true;
-
-  [[nodiscard]] static matrix_view bind(any_ref source) noexcept {
-    return matrix_view{
-        source.get_type().get_capability<::matrix_capability>(),
-        source.try_get_mutable<::owned_matrix>(),
-    };
-  }
 };
 
 } // namespace caors::meta
@@ -210,7 +196,7 @@ TEST_CASE("meta - capability registry stores runtime capabilities by type id", "
 }
 
 TEST_CASE("meta - type builder stores owned runtime concept table", "[meta]") {
-  matrix_capability local_capability{
+  matrix_ops local_capability{
       &matrix_rows,
       &matrix_columns,
       &matrix_get,
@@ -220,7 +206,7 @@ TEST_CASE("meta - type builder stores owned runtime concept table", "[meta]") {
   REQUIRE(caors::meta::class_<owned_matrix>().capability(local_capability).succeeded());
 
   const caors::type_id id = caors::meta::id_of<owned_matrix>();
-  const matrix_capability* found = caors::meta::capabilities::find<matrix_capability>(id);
+  const matrix_ops* found = caors::meta::capabilities::find<matrix_ops>(id);
   REQUIRE(found != nullptr);
   CHECK(found != &local_capability);
   CHECK(found->rows != nullptr);
@@ -229,11 +215,14 @@ TEST_CASE("meta - type builder stores owned runtime concept table", "[meta]") {
   CHECK(found->set != nullptr);
 
   const caors::meta::type type = caors::meta::resolve<owned_matrix>();
-  CHECK(type.get_capability<matrix_capability>() == found);
+  CHECK(type.get_capability<matrix_ops>() == found);
+  const caors::meta::type_capability_view<matrix_view> type_view =
+      type.get_capability<matrix_view>();
+  REQUIRE(type_view);
 
   owned_matrix matrix{};
   caors::meta::any_ref matrix_ref = caors::meta::any_ref::from(matrix);
-  const matrix_view view = matrix_ref.get_capability<matrix_view>();
+  const matrix_view view = type_view.bind(matrix_ref);
   REQUIRE(view);
   view.set(1, 0, 17);
   CHECK(found->rows(&matrix) == 2);
@@ -242,6 +231,13 @@ TEST_CASE("meta - type builder stores owned runtime concept table", "[meta]") {
   CHECK(view.columns() == 2);
   CHECK(found->get(&matrix, 1, 0) == 17);
   CHECK(view.get(1, 0) == 17);
+
+  const matrix_view direct_view = matrix_ref.get_capability<matrix_view>();
+  REQUIRE(direct_view);
+  CHECK(direct_view.get(1, 0) == 17);
+
+  int wrong_value = 0;
+  CHECK_FALSE(type_view.bind(caors::meta::any_ref::from(wrong_value)));
 }
 
 TEST_CASE("meta - type capability facade binds built in value views", "[meta]") {

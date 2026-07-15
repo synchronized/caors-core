@@ -10,6 +10,7 @@
 #include "caors/meta/value/any_value.h"
 #include "caors/meta/value/associative_entry_ref.h"
 #include "caors/meta/value/associative_view.h"
+#include "caors/meta/value/capability_facade.h"
 #include "caors/meta/value/capability_view.h"
 #include "caors/meta/value/indirect_view.h"
 #include "caors/meta/value/pair_view.h"
