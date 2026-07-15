@@ -213,10 +213,4 @@ using variant_result = result<variant>;
 
 } // namespace caors::serialization
 
-namespace caors {
-
-using polymorphic_factory_ops = serialization::polymorphic_factory_ops;
-
-} // namespace caors
-
 #endif

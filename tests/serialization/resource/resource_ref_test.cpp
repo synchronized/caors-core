@@ -12,7 +12,7 @@ TEST_CASE("serialization - resource refs are collected as dependencies", "[seria
   require_resource_ref_actor_metadata();
 
   caors::resource_dependency_list dependencies;
-  caors::resource_dependency_collector collector = dependencies.collector();
+  caors::resource_dependency_collector_ops collector = dependencies.collector();
 
   caors::serialization::context context{};
   context.resolvers.external_refs.collector = &collector;
@@ -92,7 +92,7 @@ TEST_CASE("serialization - required resource ref resolution reports missing reso
   require_resource_ref_actor_metadata();
 
   caors::resource_cache<serialized_texture_resource> cache;
-  const caors::resource_resolver resolver = caors::make_resource_resolver(cache);
+  const caors::resource_ref_resolver_ops resolver = caors::make_resource_resolver(cache);
 
   caors::serialization::context context{};
   context.resolvers.external_refs.resolver = &resolver;
@@ -122,8 +122,9 @@ TEST_CASE("serialization - resource ref can resolve through context resolver", "
   REQUIRE(texture != nullptr);
   caors::resource_cache<serialized_texture_resource> missing_cache;
 
-  const caors::resource_resolver resolver = caors::make_resource_resolver(cache);
-  const caors::resource_resolver missing_resolver = caors::make_resource_resolver(missing_cache);
+  const caors::resource_ref_resolver_ops resolver = caors::make_resource_resolver(cache);
+  const caors::resource_ref_resolver_ops missing_resolver =
+      caors::make_resource_resolver(missing_cache);
 
   caors::serialization::context context{};
   context.resolvers.external_refs.resolver = &resolver;

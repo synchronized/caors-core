@@ -16,7 +16,7 @@
 
 namespace caors::objects {
 
-using object_ref_resolver = serialization::external_ref_resolver_ops;
+using object_ref_resolver_ops = serialization::external_ref_resolver_ops;
 
 /** @brief 对象引用在通用外部引用系统中的 domain。 */
 [[nodiscard]] inline string_name object_ref_domain() { return string_name{"object"}; }
@@ -357,8 +357,8 @@ template <typename T>
 } // namespace detail
 
 /** @brief 使用对象生命周期管理器创建运行期 id 形式的对象引用 resolver。 */
-[[nodiscard]] inline object_ref_resolver make_object_ref_resolver(objects::manager& manager) {
-  return object_ref_resolver{
+[[nodiscard]] inline object_ref_resolver_ops make_object_ref_resolver(objects::manager& manager) {
+  return object_ref_resolver_ops{
       &detail::manager_object_ref_resolve,
       &manager,
       serialization::external_ref_identity::integer,
@@ -367,9 +367,9 @@ template <typename T>
 }
 
 /** @brief 使用对象生命周期管理器和对象索引创建持久 GUID 形式的对象引用 resolver。 */
-[[nodiscard]] inline object_ref_resolver
+[[nodiscard]] inline object_ref_resolver_ops
 make_persistent_object_ref_resolver(objects::manager& manager) {
-  return object_ref_resolver{
+  return object_ref_resolver_ops{
       &detail::manager_object_ref_resolve,
       &manager,
       serialization::external_ref_identity::guid,
@@ -442,7 +442,7 @@ template <typename T> struct codec_traits<objects::detail::basic_handle<T>> {
 
 namespace caors {
 
-using object_ref_resolver = objects::object_ref_resolver;
+using object_ref_resolver_ops = objects::object_ref_resolver_ops;
 using objects::make_object_factory;
 using objects::make_object_ref_resolver;
 using objects::make_persistent_object_ref_resolver;

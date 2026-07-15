@@ -561,8 +561,8 @@ public:
   }
 
   /** @brief 创建可挂到 `serialization::context` 的外部引用 resolver。 */
-  [[nodiscard]] resources::resource_resolver resolver() noexcept {
-    return resources::resource_resolver{&database_resource_resolve, this};
+  [[nodiscard]] resources::resource_ref_resolver_ops resolver() noexcept {
+    return resources::resource_ref_resolver_ops{&database_resource_resolve, this};
   }
 
 private:

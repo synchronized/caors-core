@@ -127,7 +127,7 @@ TEST_CASE("resources - database orchestrates manifest provider loader cache and 
   CHECK(loaded_again.value.get() == loaded.value);
 
   caors::resource_dependency_list dependencies;
-  caors::resource_dependency_collector collector = dependencies.collector();
+  caors::resource_dependency_collector_ops collector = dependencies.collector();
   caors::serialization::context dependency_context{};
   dependency_context.resolvers.external_refs.collector = &collector;
 
@@ -143,7 +143,7 @@ TEST_CASE("resources - database orchestrates manifest provider loader cache and 
   CHECK(database.replace_dependencies(test_guid_b, dependencies) == 1);
   CHECK(graph.contains(test_guid_b, test_guid_a));
 
-  const caors::resource_resolver resolver = database.resolver();
+  const caors::resource_ref_resolver_ops resolver = database.resolver();
   caors::serialization::context context{};
   context.resolvers.external_refs.resolver = &resolver;
   context.resolvers.external_refs.resolution = caors::resource_ref_resolution::require_resolved;

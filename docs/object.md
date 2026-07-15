@@ -139,7 +139,7 @@ caors::objects::ptr<actor> ptr{&instance};
 caors::object_id id = ptr.id();
 ```
 
-它适合表达运行期对象关系。序列化时需要通过 `objects::object_ref_resolver` 把对象指针转换为
+它适合表达运行期对象关系。序列化时需要通过 `objects::object_ref_resolver_ops` 把对象指针转换为
 `object_id` 或 `object_guid`，反序列化时再解析回对象指针。`object_id` 本身仍是运行期标识，跨存档稳定
 引用应使用 `object_guid`。
 
@@ -199,7 +199,7 @@ caors::objects::handle handle{instance.id(), instance.type_id()};
 
 `objects::typed_handle<T>` 是类型化身份句柄，内部同样只保存 `objects::handle`。它不会延长对象生命周期，
 也不会隐式查询全局对象表；需要解析时应显式传给 `objects::manager` 或上层对象数据库。当前阶段如果需要把对象关系序列化为运行期对象 id，可以使用 `objects::ptr<T>` 和
-`objects::object_ref_resolver`，也可以从 `objects::manager` 创建 resolver。
+`objects::object_ref_resolver_ops`，也可以从 `objects::manager` 创建 resolver。
 
 两者共享同一个内部句柄实现：`objects::handle` 是非类型化身份，`objects::typed_handle<T>` 是带
 C++ 编译期类型约束的身份视图。类型化句柄可以从非类型化句柄构造，也可以通过 `.handle()` 取回

@@ -17,8 +17,8 @@
 namespace caors::resources {
 
 using resource_ref_resolution = serialization::external_ref_resolution;
-using resource_resolver = serialization::external_ref_resolver_ops;
-using resource_dependency_collector = serialization::external_ref_collector_ops;
+using resource_ref_resolver_ops = serialization::external_ref_resolver_ops;
+using resource_dependency_collector_ops = serialization::external_ref_collector_ops;
 
 /** @brief 资源引用在通用外部引用系统中的 domain。 */
 [[nodiscard]] inline string_name resource_ref_domain() { return string_name{"resource"}; }
@@ -64,8 +64,8 @@ public:
     collect(resource_guid{ref.id}, ref.type);
   }
 
-  [[nodiscard]] resource_dependency_collector collector() noexcept {
-    return resource_dependency_collector{&resource_dependency_list::collect_dependency, this};
+  [[nodiscard]] resource_dependency_collector_ops collector() noexcept {
+    return resource_dependency_collector_ops{&resource_dependency_list::collect_dependency, this};
   }
 
 private:
@@ -146,15 +146,16 @@ template <typename T>
 } // namespace detail
 
 /** @brief 使用资源索引创建资源引用 resolver。 */
-[[nodiscard]] inline resource_resolver
+[[nodiscard]] inline resource_ref_resolver_ops
 make_resource_resolver(resources::manager& manager) noexcept {
-  return resource_resolver{&detail::manager_resource_resolve, &manager};
+  return resource_ref_resolver_ops{&detail::manager_resource_resolve, &manager};
 }
 
 /** @brief 使用资源缓存创建资源引用 resolver。 */
 template <typename T>
-[[nodiscard]] resource_resolver make_resource_resolver(resources::cache<T>& cache) noexcept {
-  return resource_resolver{&detail::cache_resource_resolve<T>, &cache};
+[[nodiscard]] resource_ref_resolver_ops
+make_resource_resolver(resources::cache<T>& cache) noexcept {
+  return resource_ref_resolver_ops{&detail::cache_resource_resolve<T>, &cache};
 }
 
 } // namespace caors::resources
@@ -343,10 +344,10 @@ using resources::add_resource_dependencies;
 using resources::make_resource_resolver;
 using resources::replace_resource_dependencies;
 using resource_dependency = resources::resource_dependency;
-using resource_dependency_collector = resources::resource_dependency_collector;
+using resource_dependency_collector_ops = resources::resource_dependency_collector_ops;
 using resource_dependency_list = resources::resource_dependency_list;
 using resource_ref_resolution = resources::resource_ref_resolution;
-using resource_resolver = resources::resource_resolver;
+using resource_ref_resolver_ops = resources::resource_ref_resolver_ops;
 
 } // namespace caors
 

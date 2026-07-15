@@ -15,7 +15,7 @@ TEST_CASE("serialization - object manager can resolve object pointers", "[serial
   REQUIRE(target != nullptr);
 
   const caors::object_id target_id = target->id();
-  const caors::object_ref_resolver resolver = caors::make_object_ref_resolver(manager);
+  const caors::object_ref_resolver_ops resolver = caors::make_object_ref_resolver(manager);
   caors::serialization::context context{};
   context.resolvers.external_refs.resolver = &resolver;
   const object_ptr_actor actor{caors::object_ptr<object_ptr_target>{target}};
@@ -58,7 +58,8 @@ TEST_CASE("serialization - object manager can resolve persistent object guid ref
   object_ptr_target* target = manager.create_with_guid<object_ptr_target>(target_guid);
   REQUIRE(target != nullptr);
 
-  const caors::object_ref_resolver resolver = caors::make_persistent_object_ref_resolver(manager);
+  const caors::object_ref_resolver_ops resolver =
+      caors::make_persistent_object_ref_resolver(manager);
   caors::serialization::context context{};
   context.resolvers.external_refs.resolver = &resolver;
   const object_ptr_actor actor{caors::object_ptr<object_ptr_target>{target}};

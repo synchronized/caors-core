@@ -481,9 +481,9 @@ inline void require_object_ptr_vector_actor_metadata() {
   return data->instance;
 }
 
-[[nodiscard]] inline caors::object_ref_resolver
+[[nodiscard]] inline caors::object_ref_resolver_ops
 make_test_object_ref_resolver(object_ptr_resolver_data& data) {
-  return caors::object_ref_resolver{
+  return caors::object_ref_resolver_ops{
       &resolve_object_ref,
       &data,
       caors::serialization::external_ref_identity::integer,

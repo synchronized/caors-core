@@ -64,7 +64,7 @@ TEST_CASE("resources - manifest provider loader cache can resolve serialized res
   caors::resource_cache<serialized_resource> cache;
 
   caors::resource_dependency_list dependencies;
-  caors::resource_dependency_collector collector = dependencies.collector();
+  caors::resource_dependency_collector_ops collector = dependencies.collector();
   caors::serialization::context dependency_context{};
   dependency_context.resolvers.external_refs.collector = &collector;
 
@@ -91,7 +91,7 @@ TEST_CASE("resources - manifest provider loader cache can resolve serialized res
   REQUIRE(loaded.value != nullptr);
   CHECK(loaded.value->width == 512);
 
-  const caors::resource_resolver resolver = caors::make_resource_resolver(cache);
+  const caors::resource_ref_resolver_ops resolver = caors::make_resource_resolver(cache);
   caors::serialization::context context{};
   context.resolvers.external_refs.resolver = &resolver;
   context.resolvers.external_refs.resolution = caors::resource_ref_resolution::require_resolved;

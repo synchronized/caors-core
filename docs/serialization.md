@@ -26,7 +26,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 - 提供 `serialization::codec_traits<T>` 和 descriptor 静态能力，允许把特定 C++ 类型作为原子序列化值读写。
 - 支持已注册反射和序列化元信息的值类型结构体字段递归序列化和 DOM 反序列化。
 - 提供基于 traits 的顺序容器、集合容器、关联容器、pair、tuple 和 variant 访问，支持标量、wrapper、对象引用和已注册结构体元素。
-- 通过 `objects::object_ref_resolver` 支持 `caors::objects::ptr<T>` 对象指针字段。
+- 通过 `objects::object_ref_resolver_ops` 支持 `caors::objects::ptr<T>` 对象指针字段。
 - 普通序列化入口会在 `caors::objects::object` 派生对象的运行期类型不同于声明类型时自动写出多态 envelope。
 - 通过默认 `$type` / `$value` envelope 支持 `std::unique_ptr<Base>`、`caors::memory::unique_ptr<Base>`、
   `std::shared_ptr<Base>` 和 `objects::ref<Base>` 字段持有派生类对象，并支持显式 factory 构造策略。
@@ -476,7 +476,7 @@ parser-side 行为选项集中记录在路线图。
 对象引用 resolver，并挂到通用外部引用入口：
 
 ```cpp
-caors::object_ref_resolver resolver = make_custom_object_ref_resolver(...);
+caors::object_ref_resolver_ops resolver = make_custom_object_ref_resolver(...);
 caors::serialization::context context{};
 context.resolvers.external_refs.resolver = &resolver;
 ```
@@ -493,7 +493,7 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `objects::ptr<T>
 
 ```cpp
 caors::objects::manager manager;
-caors::object_ref_resolver resolver = caors::make_object_ref_resolver(manager);
+caors::object_ref_resolver_ops resolver = caors::make_object_ref_resolver(manager);
 caors::serialization::context context{};
 context.resolvers.external_refs.resolver = &resolver;
 ```
@@ -510,7 +510,7 @@ caors::objects::manager manager(index);
 
 player* instance = manager.create_with_guid<player>(persistent_guid);
 
-caors::object_ref_resolver resolver = caors::make_persistent_object_ref_resolver(manager);
+caors::object_ref_resolver_ops resolver = caors::make_persistent_object_ref_resolver(manager);
 caors::serialization::context context{};
 context.resolvers.external_refs.resolver = &resolver;
 ```
@@ -533,7 +533,7 @@ context.resolvers.external_refs.resolver = &resolver;
 
 ```cpp
 caors::resource_cache<texture> cache;
-caors::resource_resolver resolver = caors::make_resource_resolver(cache);
+caors::resource_ref_resolver_ops resolver = caors::make_resource_resolver(cache);
 
 caors::serialization::context context{};
 context.resolvers.external_refs.resolver = &resolver;
@@ -560,7 +560,7 @@ caors::deserialize(context, decoded, json_text);
 
 ```cpp
 caors::resource_dependency_list dependencies;
-caors::resource_dependency_collector collector = dependencies.collector();
+caors::resource_dependency_collector_ops collector = dependencies.collector();
 
 caors::serialization::context context{};
 context.resolvers.external_refs.collector = &collector;
@@ -772,7 +772,7 @@ template <> struct codec_traits<custom_value> {
   只负责在递归过深时返回 `errc::recursion_limit`。
 - `std::weak_ptr<T>` 和 `objects::weak_ref<T>` 明确标记为不支持的 wrapper，无法稳定暴露可写内部值，
   当前不作为普通 value 序列化或反序列化。
-- `caors::objects::ptr<T>` 不走内部 value 语义，仍通过 `objects::object_ref_resolver` 写出和读入对象 id 或持久 GUID。
+- `caors::objects::ptr<T>` 不走内部 value 语义，仍通过 `objects::object_ref_resolver_ops` 写出和读入对象 id 或持久 GUID。
 - 当 `std::unique_ptr<Base>`、`caors::memory::unique_ptr<Base>`、`std::shared_ptr<Base>`
   或 `objects::ref<Base>`
   实际持有已注册派生类对象时，序列化层会写出多态 envelope，默认字段名为 `$type` / `$value`。读回时要求派生类型可默认构造，

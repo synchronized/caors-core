@@ -148,7 +148,9 @@ public:
   [[nodiscard]] preload_result preload(resource_guid root) { return database_.preload(root); }
 
   /** @brief 创建可挂到 serialization::context 的外部引用 resolver。 */
-  [[nodiscard]] resources::resource_resolver resolver() noexcept { return database_.resolver(); }
+  [[nodiscard]] resources::resource_ref_resolver_ops resolver() noexcept {
+    return database_.resolver();
+  }
 
 private:
   using source_map = core::hash_map<core::string_name, resources::source*>;

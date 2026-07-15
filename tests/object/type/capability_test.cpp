@@ -32,21 +32,18 @@ struct capability_owner {
 } // namespace
 
 TEST_CASE("object - pointer and handle expose static meta capabilities", "[object]") {
-  const auto* pointer = caors::meta::capabilities::get<caors::objects::ptr_ops,
-                                                       caors::object_ptr<capability_target>>();
-  REQUIRE(pointer != nullptr);
-  CHECK(pointer->valid());
+  const caors::meta::type pointer = caors::meta::resolve<caors::object_ptr<capability_target>>();
+  CHECK(pointer.has_capability<caors::objects::ptr_capability>());
+  CHECK(pointer.get_capability<caors::objects::ptr_capability>());
 
-  const auto* handle =
-      caors::meta::capabilities::get<caors::objects::handle_ops, caors::object_handle>();
-  REQUIRE(handle != nullptr);
-  CHECK(handle->valid());
+  const caors::meta::type handle = caors::meta::resolve<caors::object_handle>();
+  CHECK(handle.has_capability<caors::objects::handle_capability>());
+  CHECK(handle.get_capability<caors::objects::handle_capability>());
 
-  const auto* typed_handle =
-      caors::meta::capabilities::get<caors::objects::handle_ops,
-                                     caors::typed_object_handle<capability_target>>();
-  REQUIRE(typed_handle != nullptr);
-  CHECK(typed_handle->valid());
+  const caors::meta::type typed_handle =
+      caors::meta::resolve<caors::typed_object_handle<capability_target>>();
+  CHECK(typed_handle.has_capability<caors::objects::handle_capability>());
+  CHECK(typed_handle.get_capability<caors::objects::handle_capability>());
 }
 
 TEST_CASE("object - pointer and handle expose public capability facades", "[object]") {

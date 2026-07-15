@@ -466,7 +466,7 @@ cache.resolve(decoded.albedo);
 caors::resource_cache<texture> cache;
 texture* loaded = cache.create(texture_id);
 
-caors::resource_resolver resolver = caors::make_resource_resolver(cache);
+caors::resource_ref_resolver_ops resolver = caors::make_resource_resolver(cache);
 
 caors::serialization::context context{};
 context.resolvers.external_refs.resolver = &resolver;
@@ -486,7 +486,7 @@ caors::deserialize(context, decoded, R"({"albedo":"6cd2da3d-b549-4756-8b8b-0c842
 
 ```cpp
 caors::resource_dependency_list dependencies;
-caors::resource_dependency_collector collector = dependencies.collector();
+caors::resource_dependency_collector_ops collector = dependencies.collector();
 
 caors::serialization::context context{};
 context.resolvers.external_refs.collector = &collector;
@@ -497,7 +497,7 @@ caors::to_string(context, material_value);
 依赖条目包含 `resource_guid` 和资源声明类型的 `type_id`。这可用于后续预加载、打包、热更新和资源数据库。
 依赖收集器本身不加载资源，也不改变引用的 resolved 状态。常见同步使用方式是：先从对象或存档中收集
 `resource_ref<T>` 依赖，再按 GUID 查询 manifest / provider，使用匹配的 loader 预加载到 `cache<T>`，
-最后把 cache 适配成 `resource_resolver`，让反序列化阶段按策略解析引用。
+最后把 cache 适配成 `resource_ref_resolver_ops`，让反序列化阶段按策略解析引用。
 
 ## manager
 
@@ -628,7 +628,7 @@ auto resolver = database.resolver();
 - `reload<T>(guid)` / `reload_handle<T>(guid)`：重新加载并替换对应 cache 中已有资源；失败时仍保留旧资源。
 - `find<T>(guid)` / `find(guid)`：查询已注册 cache 中的资源。
 - `resolve(ref<T>&)` / `is_current(ref<T>)`：通过已注册 cache 解析资源引用并检查 generation 是否仍当前。
-- `resolver()`：生成 `resources::resource_resolver`，可挂到 `serialization::context` 中解析
+- `resolver()`：生成 `resources::resource_ref_resolver_ops`，可挂到 `serialization::context` 中解析
   `resource_ref<T>`。
 - `replace_dependencies()` / `affected_by()` / `affected_closure()`：把依赖收集结果写入当前依赖图，并查询
   reload 影响范围。
@@ -1004,7 +1004,7 @@ auto loaded = caors::load_into(cache, loader, texture_id);
 3. `resources::provider` 只负责按 GUID 定位并读取字节。
 4. `resources::loader<T>` 负责把字节解码为资源对象。
 5. `load_into(cache, loader, guid)` 把加载结果转入拥有式 cache。
-6. `resources::resource_resolver` 从 manager/cache 查询已加载资源，用于解析 `resource_ref<T>`。
+6. `resources::resource_ref_resolver_ops` 从 manager/cache 查询已加载资源，用于解析 `resource_ref<T>`。
 
 如果对象存档中包含资源引用，推荐在读回前先做一遍依赖收集和预加载：
 
