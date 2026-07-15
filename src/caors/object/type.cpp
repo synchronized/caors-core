@@ -3,14 +3,11 @@
 
 #include "caors/object/type.h"
 
-#include "caors/object/detail/factory_ops.h"
-
 namespace caors::objects {
 
-type::type(meta::type type, const object_factory_ops* factory) noexcept
-    : type_(type), factory_(factory) {}
+type::type(meta::type type, factory_capability factory) noexcept : type_(type), factory_(factory) {}
 
-bool type::valid() const noexcept { return type_.valid() && factory_ != nullptr; }
+bool type::valid() const noexcept { return type_.valid() && factory_.valid(); }
 
 meta::type type::info() const noexcept { return valid() ? type_ : meta::type{}; }
 
@@ -32,10 +29,10 @@ std::size_t type::alignment() const noexcept {
 
 object_type_id type::parent_id() const noexcept { return type_.parent_id(); }
 
-bool type::constructible() const noexcept {
-  return factory_ != nullptr && factory_->constructible();
-}
+bool type::constructible() const noexcept { return factory_.constructible(); }
 
-const object_factory_ops* type::factory() const noexcept { return valid() ? factory_ : nullptr; }
+factory_capability type::factory() const noexcept {
+  return valid() ? factory_ : factory_capability{};
+}
 
 } // namespace caors::objects

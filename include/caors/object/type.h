@@ -6,6 +6,7 @@
 
 #include "caors/export.h"
 #include "caors/meta/type.h"
+#include "caors/object/factory_capability.h"
 #include "caors/object/id.h"
 
 namespace caors::objects {
@@ -13,8 +14,6 @@ namespace caors::objects {
 class object;
 
 class registry;
-
-struct object_factory_ops;
 
 /** @brief 对象类型只读视图。 */
 class CAORS_API type final {
@@ -36,11 +35,11 @@ public:
 private:
   friend class registry;
 
-  type(meta::type info, const object_factory_ops* factory) noexcept;
-  [[nodiscard]] const object_factory_ops* factory() const noexcept;
+  type(meta::type info, factory_capability factory) noexcept;
+  [[nodiscard]] factory_capability factory() const noexcept;
 
   meta::type type_{};
-  const object_factory_ops* factory_ = nullptr;
+  factory_capability factory_{};
 };
 
 } // namespace caors::objects

@@ -615,7 +615,7 @@ meta 组件。
 全局 `meta::registry` 是共享元数据层：
 
 - `objects::registry` 复用全局 meta 类型记录，再给同一个 `type_id` 挂载
-  `objects::object_factory_ops` ops，并对外返回 `objects::type` 视图。
+  `objects::factory_capability`，并对外返回 `objects::type` 视图。
 - 全局反射注册表复用 meta 类型记录，再挂载内部反射组件，并通过 `reflection::type` / `reflection::field` 对外查询。
 - 后续 `serialization::registry` 可以挂载序列化相关组件。
 

@@ -39,7 +39,7 @@ type registry::find_type(object_type_id id) const {
     return {};
   }
 
-  return type{stored_meta, factory};
+  return type{stored_meta, factory_capability{factory}};
 }
 
 type registry::find_type(std::string_view name) const {
@@ -60,16 +60,12 @@ std::size_t registry::size() const noexcept {
 }
 
 object* registry::try_create(object_type_id id, memory_resource* resource) const noexcept {
-  const object_factory_ops* factory = find_factory_ops(id);
-  if (factory == nullptr) {
+  const type object_type = find_type(id);
+  if (!object_type) {
     return nullptr;
   }
 
-  if (factory->try_create == nullptr) {
-    return nullptr;
-  }
-
-  return factory->try_create(resource);
+  return object_type.factory().try_create(resource);
 }
 
 object* registry::try_create(std::string_view name, memory_resource* resource) const noexcept {
@@ -82,16 +78,12 @@ object* registry::try_create(std::string_view name, memory_resource* resource) c
 }
 
 object* registry::create(object_type_id id, memory_resource* resource) const {
-  const object_factory_ops* factory = find_factory_ops(id);
-  if (factory == nullptr) {
+  const type object_type = find_type(id);
+  if (!object_type) {
     return nullptr;
   }
 
-  if (factory->create == nullptr) {
-    return nullptr;
-  }
-
-  return factory->create(resource);
+  return object_type.factory().create(resource);
 }
 
 object* registry::create(std::string_view name, memory_resource* resource) const {
@@ -114,13 +106,7 @@ bool registry::destroy(object_type_id id, object* instance,
     return false;
   }
 
-  const object_factory_ops* factory = object_type.factory();
-  if (factory == nullptr || factory->destroy == nullptr) {
-    return false;
-  }
-
-  factory->destroy(instance, resource);
-  return true;
+  return object_type.factory().destroy(instance, resource);
 }
 
 bool registry::destroy(object* instance, memory_resource* resource) const noexcept {
