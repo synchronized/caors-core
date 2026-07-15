@@ -20,13 +20,13 @@
 
 namespace caors::serialization {
 
-using type_create_fn = void* (*)(type_id type, memory::memory_resource* resource, void* user_data);
-using type_destroy_fn = void (*)(void* instance, void* user_data) noexcept;
-
 /** @brief 按运行期类型构造和销毁实例的函数表。 */
 struct type_factory {
-  type_create_fn create = nullptr;
-  type_destroy_fn destroy = nullptr;
+  using create_fn = void* (*)(type_id type, memory::memory_resource* resource, void* user_data);
+  using destroy_fn = void (*)(void* instance, void* user_data) noexcept;
+
+  create_fn create = nullptr;
+  destroy_fn destroy = nullptr;
   void* user_data = nullptr;
 
   [[nodiscard]] constexpr bool can_create() const noexcept { return create != nullptr; }

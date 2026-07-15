@@ -62,20 +62,20 @@ bool system_memory_resource::do_is_equal(const memory_resource& other) const noe
   return dynamic_cast<const system_memory_resource*>(&other) != nullptr;
 }
 
-callback_memory_resource::callback_memory_resource(memory_allocate_fn allocate_fn,
-                                                   memory_deallocate_fn deallocate_fn,
-                                                   void* user_data)
+callback_memory_resource::callback_memory_resource(allocate_fn allocate_fn,
+                                                   deallocate_fn deallocate_fn, void* user_data)
     : allocate_fn_(allocate_fn), deallocate_fn_(deallocate_fn), user_data_(user_data) {
   if (allocate_fn_ == nullptr || deallocate_fn_ == nullptr) {
     detail::fail_invalid_argument("callback memory resource callbacks must not be null");
   }
 }
 
-memory_allocate_fn callback_memory_resource::allocate_callback() const noexcept {
+callback_memory_resource::allocate_fn callback_memory_resource::allocate_callback() const noexcept {
   return allocate_fn_;
 }
 
-memory_deallocate_fn callback_memory_resource::deallocate_callback() const noexcept {
+callback_memory_resource::deallocate_fn
+callback_memory_resource::deallocate_callback() const noexcept {
   return deallocate_fn_;
 }
 

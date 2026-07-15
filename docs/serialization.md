@@ -465,9 +465,9 @@ caors::error status = caors::deserialize(instance, text);
 字段 id 无法从 JSON 对象名表达，因此 JSON 读入主要按字段名匹配。
 
 `json_options` 当前只影响 JSON writer：`pretty` 控制是否输出换行和缩进，`indent` 控制每层空格数。
-`serialization::parse_json(text, options)` 和带 `json_options` 的 `serialization::deserialize_json()` 模块入口暂时保留为 API 对称和后续扩展点，
-当前不会因为 `options` 改变解析规则。后续 parser 侧选项可继续扩展最大嵌套深度、重复 key 策略、
-是否允许尾随逗号和更完整的 Unicode 转义处理。
+`serialization::parse_json(text, options)` 和带 `json_options` 的 `serialization::deserialize_json()`
+模块入口保留为 API 对称和 parser 侧扩展点；当前不会因为 `options` 改变解析规则。计划中的
+parser-side 行为选项集中记录在路线图。
 
 ### object pointers
 

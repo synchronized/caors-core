@@ -37,8 +37,6 @@ struct memory_debug_statistics {
   std::size_t mismatched_deallocation_count = 0;
 };
 
-using memory_debug_record_fn = void (*)(const memory_debug_record& record, void* user_data);
-
 struct debug_tracking_state;
 
 /**
@@ -48,6 +46,8 @@ struct debug_tracking_state;
  */
 class CAORS_API debug_tracking_resource final : public memory_resource {
 public:
+  using record_fn = void (*)(const memory_debug_record& record, void* user_data);
+
   explicit debug_tracking_resource(memory_resource* upstream = nullptr);
   ~debug_tracking_resource() override;
 
@@ -66,8 +66,7 @@ public:
    * 该入口不返回容器，避免 memory 层依赖 core 容器层。回调会在内部调试记录锁保护期间被调用，
    * 回调内不应再次调用同一个资源的会获取调试记录锁的接口。
    */
-  void for_each_live_allocation(memory_debug_record_fn callback,
-                                void* user_data = nullptr) const noexcept;
+  void for_each_live_allocation(record_fn callback, void* user_data = nullptr) const noexcept;
 
   /** @brief 分配内存并记录标签和调用位置，失败返回 `nullptr`。 */
   [[nodiscard]] void*

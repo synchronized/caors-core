@@ -37,10 +37,6 @@ private:
   virtual bool do_is_equal(const memory_resource& other) const noexcept = 0;
 };
 
-using memory_allocate_fn = void* (*)(std::size_t size, std::size_t alignment, void* user_data);
-using memory_deallocate_fn = void (*)(void* ptr, std::size_t size, std::size_t alignment,
-                                      void* user_data);
-
 class CAORS_API system_memory_resource final : public memory_resource {
 private:
   void* do_try_allocate(std::size_t size, std::size_t alignment) noexcept override;
@@ -50,11 +46,15 @@ private:
 
 class CAORS_API callback_memory_resource final : public memory_resource {
 public:
-  callback_memory_resource(memory_allocate_fn allocate_fn, memory_deallocate_fn deallocate_fn,
+  using allocate_fn = void* (*)(std::size_t size, std::size_t alignment, void* user_data);
+  using deallocate_fn = void (*)(void* ptr, std::size_t size, std::size_t alignment,
+                                 void* user_data);
+
+  callback_memory_resource(allocate_fn allocate, deallocate_fn deallocate,
                            void* user_data = nullptr);
 
-  [[nodiscard]] memory_allocate_fn allocate_callback() const noexcept;
-  [[nodiscard]] memory_deallocate_fn deallocate_callback() const noexcept;
+  [[nodiscard]] allocate_fn allocate_callback() const noexcept;
+  [[nodiscard]] deallocate_fn deallocate_callback() const noexcept;
   [[nodiscard]] void* user_data() const noexcept;
 
 private:
@@ -62,8 +62,8 @@ private:
   void do_deallocate(void* ptr, std::size_t size, std::size_t alignment) noexcept override;
   bool do_is_equal(const memory_resource& other) const noexcept override;
 
-  memory_allocate_fn allocate_fn_ = nullptr;
-  memory_deallocate_fn deallocate_fn_ = nullptr;
+  allocate_fn allocate_fn_ = nullptr;
+  deallocate_fn deallocate_fn_ = nullptr;
   void* user_data_ = nullptr;
 };
 

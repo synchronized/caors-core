@@ -40,17 +40,16 @@ enum class external_ref_resolution {
   require_resolved,
 };
 
-using external_ref_resolve_fn = void* (*)(const external_ref& ref, void* user_data);
-using external_ref_encode_fn = bool (*)(const void* instance, type_id type, external_ref& ref,
-                                        void* user_data);
-using external_ref_collect_fn = void (*)(const external_ref& ref, void* user_data);
-
 /** @brief 外部引用解析函数表。 */
 struct external_ref_resolver {
-  external_ref_resolve_fn resolve = nullptr;
+  using resolve_fn = void* (*)(const external_ref& ref, void* user_data);
+  using encode_fn = bool (*)(const void* instance, type_id type, external_ref& ref,
+                             void* user_data);
+
+  resolve_fn resolve = nullptr;
   void* user_data = nullptr;
   external_ref_identity identity = external_ref_identity::guid;
-  external_ref_encode_fn encode = nullptr;
+  encode_fn encode = nullptr;
 
   [[nodiscard]] constexpr bool can_resolve() const noexcept { return resolve != nullptr; }
   [[nodiscard]] constexpr bool can_encode() const noexcept { return encode != nullptr; }
@@ -66,7 +65,9 @@ struct external_ref_resolver {
 
 /** @brief 外部引用收集函数表。 */
 struct external_ref_collector {
-  external_ref_collect_fn collect = nullptr;
+  using collect_fn = void (*)(const external_ref& ref, void* user_data);
+
+  collect_fn collect = nullptr;
   void* user_data = nullptr;
 
   [[nodiscard]] constexpr bool can_collect() const noexcept { return collect != nullptr; }

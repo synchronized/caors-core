@@ -72,7 +72,7 @@ std::size_t debug_tracking_resource::live_bytes() const noexcept {
 
 bool debug_tracking_resource::has_leaks() const noexcept { return live_allocation_count() != 0; }
 
-void debug_tracking_resource::for_each_live_allocation(memory_debug_record_fn callback,
+void debug_tracking_resource::for_each_live_allocation(record_fn callback,
                                                        void* user_data) const noexcept {
   if (callback == nullptr) {
     return;

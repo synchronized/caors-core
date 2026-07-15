@@ -140,8 +140,8 @@ caors::meta::indirect_view indirect =
     ref.get_capability<caors::meta::indirect_view>();
 ```
 
-`caors::meta::make_sequence_view()`、`make_indirect_view()` 等 `make_*_view()` 函数暂时保留，
-但它们是低层 view 工厂，主要服务 capability 绑定、测试边界和高级适配代码。普通用户应优先使用
+`caors::meta::make_sequence_view()`、`make_indirect_view()` 等 `make_*_view()` 函数是低层 view
+工厂，主要服务 capability 绑定、测试边界和高级适配代码。普通用户应优先使用
 `any_ref::get_capability<View>()`，这样调用点不需要直接关心底层 descriptor 和 source 绑定细节。
 
 如果调用方先拿到的是类型视图，可以使用类型级 `*_capability` facade，再把它绑定到具体实例：
