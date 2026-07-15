@@ -6,8 +6,8 @@
 
 #include "caors/export.h"
 #include "caors/meta/type.h"
-#include "caors/object/factory_capability.h"
 #include "caors/object/id.h"
+#include "caors/object/object_factory_capability.h"
 
 namespace caors::objects {
 
@@ -35,11 +35,11 @@ public:
 private:
   friend class registry;
 
-  type(meta::type info, factory_capability factory) noexcept;
-  [[nodiscard]] factory_capability factory() const noexcept;
+  type(meta::type info, object_factory_capability factory) noexcept;
+  [[nodiscard]] object_factory_capability factory() const noexcept;
 
   meta::type type_{};
-  factory_capability factory_{};
+  object_factory_capability factory_{};
 };
 
 } // namespace caors::objects

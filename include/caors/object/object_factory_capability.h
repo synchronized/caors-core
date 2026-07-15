@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_OBJECT_FACTORY_CAPABILITY_H_
-#define CAORS_OBJECT_FACTORY_CAPABILITY_H_
+#ifndef CAORS_OBJECT_OBJECT_FACTORY_CAPABILITY_H_
+#define CAORS_OBJECT_OBJECT_FACTORY_CAPABILITY_H_
 
 #include "caors/meta/type.h"
 #include "caors/object/detail/factory_ops.h"
@@ -10,10 +10,11 @@
 namespace caors::objects {
 
 /** @brief 对象默认创建和销毁能力的公开 facade。 */
-class factory_capability final {
+class object_factory_capability final {
 public:
-  constexpr factory_capability() noexcept = default;
-  explicit constexpr factory_capability(const object_factory_ops* ops) noexcept : ops_(ops) {}
+  constexpr object_factory_capability() noexcept = default;
+  explicit constexpr object_factory_capability(const object_factory_ops* ops) noexcept
+      : ops_(ops) {}
 
   [[nodiscard]] constexpr bool valid() const noexcept { return ops_ != nullptr; }
   [[nodiscard]] constexpr explicit operator bool() const noexcept { return valid(); }
@@ -51,11 +52,11 @@ private:
 
 namespace caors::meta {
 
-template <> struct type_capability_traits<objects::factory_capability> {
-  using result_type = objects::factory_capability;
+template <> struct type_capability_traits<objects::object_factory_capability> {
+  using result_type = objects::object_factory_capability;
 
   [[nodiscard]] static result_type get(const type& source) noexcept {
-    return objects::factory_capability{source.get_raw_ops<objects::object_factory_ops>()};
+    return objects::object_factory_capability{source.get_raw_ops<objects::object_factory_ops>()};
   }
 
   [[nodiscard]] static const objects::object_factory_ops* get_raw(const type& source) noexcept {

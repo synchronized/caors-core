@@ -6,7 +6,7 @@
 
 #include "caors/object/base.h"
 #include "caors/object/factory.h"
-#include "caors/object/factory_capability.h"
+#include "caors/object/object_factory_capability.h"
 #include "caors/object/handle.h"
 #include "caors/object/handle_view.h"
 #include "caors/object/id.h"

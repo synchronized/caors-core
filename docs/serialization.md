@@ -170,34 +170,24 @@ caors::serialization::serialization_text_result json = caors::to_string(context,
 ```
 
 读写双方需要使用一致的字段名配置。普通反序列化入口读到配置后的 type/value envelope 时，会先校验动态类型是声明基类的派生类型。如果目标对象
-当前运行期类型和 type 字段一致，则把 value 字段写入这个已有对象；如果没有 type 字段，则按普通声明类型
-读入。需要从 envelope 新建对象时，应在对象模块创建通用类型工厂并写入
-`context.resolvers.factories.type_factory`，由工厂负责分配和销毁：
+当前运行期类型和 type 字段一致，则把 value 字段写入这个已有对象；如果没有 type 字段，则按普通声明类型读入。
 
-```cpp
-caors::objects::manager manager;
-caors::type_factory factory = caors::make_object_factory(manager);
-
-caors::serialization::context context{};
-context.resolvers.factories.type_factory = &factory;
-
-caors::result<actor*> decoded =
-    caors::serialization::deserialize_polymorphic_json<actor>(context, json.value);
-```
+当前不再提供单独的 `deserialize_polymorphic_*` 兼容入口。需要从 envelope 新建对象的场景应走更高层的
+runtime、对象或智能指针 codec 路径，由对应模块在内部使用 `context.resolvers.factories.type_factory`
+负责分配和销毁。
 
 读入流程：
 
 1. 读取 type 字段并用 `type_guid` 查找动态类型。
 2. 校验动态类型是调用点声明基类的派生类型。
 3. 已有对象读入时，要求目标对象当前 `type_id()` 和 type 字段对应的动态类型一致。
-4. 新建对象读入时，通过 `context.resolvers.factories.type_factory` 按动态类型默认构造对象。
-5. 用 value 字段按动态类型反序列化字段。
-6. 如果新建对象字段读入失败，自动通过 manager 销毁刚创建的对象并返回错误。
+4. 用 value 字段按动态类型反序列化字段。
+5. 如果更高层路径需要新建对象，应由该路径负责构造失败回滚和销毁。
 
 当前边界：
 
 - 只支持 `objects::object` 派生类型。
-- 只有新建对象读入需要动态类型可由对象工厂默认构造；写入已有对象不需要对象工厂。
+- 写入已有对象不需要对象工厂；需要新建对象的高层路径必须提供匹配的对象或类型工厂。
 - 类型身份只写稳定 `type_guid`，不写运行期 `type_id`。
 - 不自动接管裸指针、`std::shared_ptr<Base>` 等字段的所有权；这类字段仍按现有指针/wrapper 规则处理。
 - 不保留对象图中的共享实例身份和循环引用；需要对象引用时继续使用 `objects::ptr<T>` 和 resolver。
@@ -1032,9 +1022,6 @@ caors::string text = result.value;
 - `deserialize()`：通过指定 reader 后端反序列化对象。
 - `to_value()`：通过反射和序列化元信息构造中间对象树。
 - `serialization::serialize_text_to()` / `serialization::serialize_json_to()`：把对象写入调用方提供的 `caors::string` buffer。
-- `to_polymorphic_serialization_value()`：兼容入口，显式按对象真实运行期类型构造多态 envelope，默认字段名为 `$type` / `$value`。
-- `deserialize_polymorphic_object()`：兼容入口，通过 `context.resolvers.factories.type_factory` 构造并读入多态对象。
-- `serialize_polymorphic_json()` / `deserialize_polymorphic_json()`：兼容入口，JSON 形式的多态对象 envelope。
 - `serialization::write_variant()`：把中间对象树写入指定 writer。
 - `serialization_text_result`：`caors::result<caors::string>` 文本序列化结果。
 - `variant_result`：`caors::result<variant>` 中间值构造结果。

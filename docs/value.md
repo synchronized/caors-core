@@ -10,7 +10,7 @@ meta value 子模块负责运行期值访问和数据中间表示，是 `meta` �
 - 各类 view：把指针、wrapper、sequence、set、associative、pair、tuple 和 variant-like 类型按统一接口访问。
 - `variant`：脱离精确 C++ 类型的数据 DOM，主要用于序列化、配置和跨格式转换。
 
-旧的 `caors/value*.h` 头文件和 `caors::value::*` 命名空间暂时作为兼容层保留；新代码应优先使用
+旧的 `caors/value*.h` 头文件和 `caors::value::*` 命名空间兼容层已经删除；新代码统一使用
 `caors/meta/value*.h` 和 `caors::meta::*`。
 
 ## 头文件边界
@@ -22,7 +22,7 @@ meta value 提供细粒度头和完整聚合头。细粒度头不再依赖 `any.
 | --- | --- | --- |
 | `caors/meta/value/any.h` | `caors::meta::any`、`caors::any` | 只需要拥有式运行期 C++ 值。 |
 | `caors/meta/value/any_ref.h` | `caors::meta::any_ref`、`caors::any_ref` | 需要引用外部 C++ 对象或反射字段。 |
-| `caors/meta/value/view_factory.h` | 所有具体 view 类型 | 需要把 `any` / `any_ref` 创建成容器、wrapper、tuple 等运行期视图。 |
+| `caors/meta/value/view_factory.h` | 所有具体 view 类型和低层 `make_*_view()` 工厂 | 高级代码或内部适配层需要显式创建具体 view。 |
 | `caors/meta/value/capability_view.h` | `any` / `any_ref` 的 `get_capability<View>()` 视图绑定适配 | 推荐的统一运行期视图查询入口。 |
 | `caors/meta/value/type_capability.h` | 类型级 `*_capability` facade | 需要先从 `meta::type` 查询能力，再绑定到具体 `any_ref`。 |
 | `caors/meta/value/associative_entry_ref.h` | `associative_entry_ref` | 需要按值使用关联容器迭代条目。 |
@@ -140,6 +140,10 @@ caors::meta::indirect_view indirect =
     ref.get_capability<caors::meta::indirect_view>();
 ```
 
+`caors::meta::make_sequence_view()`、`make_indirect_view()` 等 `make_*_view()` 函数暂时保留，
+但它们是低层 view 工厂，主要服务 capability 绑定、测试边界和高级适配代码。普通用户应优先使用
+`any_ref::get_capability<View>()`，这样调用点不需要直接关心底层 descriptor 和 source 绑定细节。
+
 如果调用方先拿到的是类型视图，可以使用类型级 `*_capability` facade，再把它绑定到具体实例：
 
 ```cpp
@@ -180,5 +184,4 @@ registry。`get_*_type()` 系列接口返回 descriptor-backed `meta::type`；�
 
 ## 后续规划
 
-- 继续收敛 `caors/value*.h` 兼容转发层；新代码、测试和示例统一使用 `caors/meta/value*.h`。
 - 持续补充细粒度 include 边界测试，避免公共头重新形成隐式依赖。

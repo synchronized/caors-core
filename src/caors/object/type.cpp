@@ -5,7 +5,8 @@
 
 namespace caors::objects {
 
-type::type(meta::type type, factory_capability factory) noexcept : type_(type), factory_(factory) {}
+type::type(meta::type type, object_factory_capability factory) noexcept
+    : type_(type), factory_(factory) {}
 
 bool type::valid() const noexcept { return type_.valid() && factory_.valid(); }
 
@@ -31,8 +32,8 @@ object_type_id type::parent_id() const noexcept { return type_.parent_id(); }
 
 bool type::constructible() const noexcept { return factory_.constructible(); }
 
-factory_capability type::factory() const noexcept {
-  return valid() ? factory_ : factory_capability{};
+object_factory_capability type::factory() const noexcept {
+  return valid() ? factory_ : object_factory_capability{};
 }
 
 } // namespace caors::objects

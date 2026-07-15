@@ -51,8 +51,8 @@ TEST_CASE("object - pointer and handle expose static meta capabilities", "[objec
 
 TEST_CASE("object - factory facade is exposed as object capability", "[object]") {
   const caors::meta::type meta = caors::meta::resolve<capability_registered_object>();
-  const caors::objects::factory_capability factory =
-      meta.get_capability<caors::objects::factory_capability>();
+  const caors::objects::object_factory_capability factory =
+      meta.get_capability<caors::objects::object_factory_capability>();
   REQUIRE(factory);
   CHECK(factory.constructible());
 
@@ -65,7 +65,7 @@ TEST_CASE("object - factory facade is exposed as object capability", "[object]")
 TEST_CASE("object - static factory capability does not imply object registry membership",
           "[object]") {
   const caors::meta::type meta = caors::meta::resolve<capability_meta_only_object>();
-  REQUIRE(meta.get_capability<caors::objects::factory_capability>());
+  REQUIRE(meta.get_capability<caors::objects::object_factory_capability>());
 
   CHECK_FALSE(caors::objects::contains(meta.id()));
   CHECK_FALSE(caors::objects::find<capability_meta_only_object>());
