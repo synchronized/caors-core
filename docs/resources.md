@@ -697,6 +697,21 @@ caors::resource_preload_result result = assets.preload(texture_id);
 auto resolver = assets.resolver();
 ```
 
+推荐普通项目优先使用 `asset_manager` 的高层入口：
+
+- `build(config)`：根据 `project_config` 重建内部 manifest、provider 和 dependency graph，并按已注册工厂创建运行期 source、cache 和 loader。
+- `register_type_factory<T>(type)`：把配置里的资源类型名映射到默认 `memory` cache 和 `json` loader。
+- `find<T>(guid)` / `find(guid)`：查询内部已注册 cache 中的资源。
+- `load<T>(guid)` / `load_handle<T>(guid)`：通过内部 database 中已注册的 loader/cache 加载资源。
+- `reload<T>(guid)` / `reload_handle<T>(guid)`：重新加载并替换 cache 当前绑定；失败时保留旧资源。
+- `save<T>(guid)`：使用内部 provider 和 JSON saver 保存已缓存资源。它面向默认 JSON 资源路径；自定义格式或资源包保存应继续显式组合 `saver<T>`。
+- `plan_preload<T>(root)` / `preload<T>(root)`：按同一资源类型生成和执行依赖闭包预加载。
+- `plan_preload(root)` / `preload(root)`：按 manifest type 跨类型分派预加载。
+- `request_load<T>()` / `request_reload<T>()` / `request_preload()`：把资源加载提交到 executor，并在 completion queue 中完成 cache commit。
+- `resolve(ref<T>&)` / `is_current(ref<T>)`：通过内部 cache 解析资源引用并检查 generation 是否仍当前。
+- `resolver()`：生成可挂到 `serialization::context` 的资源引用 resolver。
+- `replace_dependencies()` / `affected_by()` / `affected_closure()`：维护和查询内部依赖图。
+
 当前语义：
 
 - `project_config.sources` 描述 source 名称和策略名。`asset_manager` 内置支持
@@ -718,6 +733,8 @@ auto resolver = assets.resolver();
   已注册类型工厂但配置的 cache/loader 策略不支持时，会返回 `resources / unsupported`。
 - `register_source_factory()` 和 `register_type_factory()` 可扩展自定义策略名；内置实现只覆盖内存/本地
   source 和 JSON + memory cache 的常见调试路径。网络、资源包、专用缓存等策略后续再补。
+- `database()` / `provider()` / `manifest()` / `dependency_graph()` 仍可用于调试和高级组合，但普通业务代码应优先使用
+  `asset_manager` 的高层入口，避免直接依赖内部对象生命周期。
 
 ## reload 策略现状
 

@@ -139,13 +139,159 @@ public:
     return database_.register_type(cache, loader, resource_type);
   }
 
+  /** @brief 按资源类型和 GUID 查询已缓存资源。 */
+  template <typename T> [[nodiscard]] T* find(resource_guid guid) const {
+    static_assert(std::is_base_of_v<resources::resource, T>,
+                  "T must derive from caors::resources::resource");
+    return database_.find<T>(guid);
+  }
+
+  /** @brief 按 GUID 在全部已注册 cache 中查询资源。 */
+  [[nodiscard]] resources::resource* find(resource_guid guid) const { return database_.find(guid); }
+
+  /** @brief 使用已注册 loader 把资源加载进对应 cache，并返回强 handle。 */
+  template <typename T> [[nodiscard]] handle_result<T> load_handle(resource_guid guid) {
+    static_assert(std::is_base_of_v<resources::resource, T>,
+                  "T must derive from caors::resources::resource");
+    return database_.load_handle<T>(guid);
+  }
+
+  /** @brief 使用已注册 loader 把资源加载进对应 cache，并返回非拥有指针。 */
+  template <typename T> [[nodiscard]] result<T*> load(resource_guid guid) {
+    static_assert(std::is_base_of_v<resources::resource, T>,
+                  "T must derive from caors::resources::resource");
+    return database_.load<T>(guid);
+  }
+
+  /** @brief 使用已注册 loader 重新加载并替换对应 cache 中已有资源。 */
+  template <typename T> [[nodiscard]] handle_result<T> reload_handle(resource_guid guid) {
+    static_assert(std::is_base_of_v<resources::resource, T>,
+                  "T must derive from caors::resources::resource");
+    return database_.reload_handle<T>(guid);
+  }
+
+  /** @brief 使用已注册 loader 重新加载并替换对应 cache 中已有资源。 */
+  template <typename T> [[nodiscard]] result<T*> reload(resource_guid guid) {
+    static_assert(std::is_base_of_v<resources::resource, T>,
+                  "T must derive from caors::resources::resource");
+    return database_.reload<T>(guid);
+  }
+
+  /**
+   * @brief 使用内部 provider 以 JSON 格式保存已缓存资源。
+   *
+   * 这是 `asset_manager` 第一版便捷保存入口，适配默认 `loader = "json"` / `cache = "memory"`
+   * 资源类型。需要二进制、资源包或自定义保存策略时，应继续使用显式 `saver<T>` 组合。
+   */
+  template <typename T> [[nodiscard]] error save(resource_guid guid) const {
+    static_assert(std::is_base_of_v<resources::resource, T>,
+                  "T must derive from caors::resources::resource");
+
+    if (!guid) {
+      return {error_domain::resources, errc::invalid_argument};
+    }
+
+    const T* value = database_.find<T>(guid);
+    if (value == nullptr) {
+      return {error_domain::resources, errc::not_found};
+    }
+
+    resources::json_saver<T> saver{provider_};
+    return saver.save(*value);
+  }
+
+  /** @brief 为指定根资源生成同类型预加载计划。 */
+  template <typename T> [[nodiscard]] preload_plan plan_preload(resource_guid root) const {
+    static_assert(std::is_base_of_v<resources::resource, T>,
+                  "T must derive from caors::resources::resource");
+    return database_.plan_preload<T>(root);
+  }
+
   /** @brief 生成跨类型预加载计划。 */
   [[nodiscard]] preload_plan plan_preload(resource_guid root) const {
     return database_.plan_preload(root);
   }
 
+  /** @brief 按同一资源类型同步预加载资源。 */
+  template <typename T> [[nodiscard]] preload_result preload(resource_guid root) {
+    static_assert(std::is_base_of_v<resources::resource, T>,
+                  "T must derive from caors::resources::resource");
+    return database_.preload<T>(root);
+  }
+
   /** @brief 按 manifest type 同步预加载资源。 */
   [[nodiscard]] preload_result preload(resource_guid root) { return database_.preload(root); }
+
+  /** @brief 异步加载资源，并在 completion queue 中提交到对应 cache。 */
+  template <typename T>
+  [[nodiscard]] load_request<T> request_load(resource_guid guid, tasks::executor& executor,
+                                             tasks::completion_queue& completions) {
+    static_assert(std::is_base_of_v<resources::resource, T>,
+                  "T must derive from caors::resources::resource");
+    return database_.request_load<T>(guid, executor, completions);
+  }
+
+  /** @brief 异步重载资源，并在 completion queue 中替换对应 cache 绑定。 */
+  template <typename T>
+  [[nodiscard]] load_request<T> request_reload(resource_guid guid, tasks::executor& executor,
+                                               tasks::completion_queue& completions) {
+    static_assert(std::is_base_of_v<resources::resource, T>,
+                  "T must derive from caors::resources::resource");
+    return database_.request_reload<T>(guid, executor, completions);
+  }
+
+  /** @brief 按同一资源类型异步预加载依赖闭包。 */
+  template <typename T>
+  [[nodiscard]] preload_request request_preload(resource_guid root, tasks::executor& executor,
+                                                tasks::completion_queue& completions) {
+    static_assert(std::is_base_of_v<resources::resource, T>,
+                  "T must derive from caors::resources::resource");
+    return database_.request_preload<T>(root, executor, completions);
+  }
+
+  /** @brief 按 manifest type 异步预加载跨类型依赖闭包。 */
+  [[nodiscard]] preload_request request_preload(resource_guid root, tasks::executor& executor,
+                                                tasks::completion_queue& completions) {
+    return database_.request_preload(root, executor, completions);
+  }
+
+  /** @brief 用已注册 cache 解析资源引用。未命中时保留 GUID 并清除已解析指针。 */
+  template <typename T> [[nodiscard]] bool resolve(resources::ref<T>& reference) const {
+    static_assert(std::is_base_of_v<resources::resource, T>,
+                  "T must derive from caors::resources::resource");
+    return database_.resolve(reference);
+  }
+
+  /** @brief 判断已解析引用是否仍指向对应 cache 当前绑定版本。 */
+  template <typename T> [[nodiscard]] bool is_current(const resources::ref<T>& reference) const {
+    static_assert(std::is_base_of_v<resources::resource, T>,
+                  "T must derive from caors::resources::resource");
+    return database_.is_current(reference);
+  }
+
+  /** @brief 把依赖收集结果追加写入内部依赖图。 */
+  [[nodiscard]] std::size_t
+  add_dependencies(resource_guid resource,
+                   const resources::resource_dependency_list& dependencies) {
+    return database_.add_dependencies(resource, dependencies);
+  }
+
+  /** @brief 用依赖收集结果替换内部依赖图中某个资源的直接依赖。 */
+  [[nodiscard]] std::size_t
+  replace_dependencies(resource_guid resource,
+                       const resources::resource_dependency_list& dependencies) {
+    return database_.replace_dependencies(resource, dependencies);
+  }
+
+  /** @brief 查询某个资源变化后直接受影响的资源。 */
+  [[nodiscard]] dependency_graph::guid_list affected_by(resource_guid resource) const {
+    return database_.affected_by(resource);
+  }
+
+  /** @brief 查询某个资源变化后递归受影响的资源。 */
+  [[nodiscard]] dependency_graph::guid_list affected_closure(resource_guid resource) const {
+    return database_.affected_closure(resource);
+  }
 
   /** @brief 创建可挂到 serialization::context 的外部引用 resolver。 */
   [[nodiscard]] resources::resource_ref_resolver_ops resolver() noexcept {

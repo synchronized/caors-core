@@ -5,6 +5,8 @@
 
 #include "resources_test_common.h"
 
+#include "caors/tasks.h"
+
 #include <string>
 #include <string_view>
 
@@ -182,6 +184,122 @@ TEST_CASE("resources - asset_manager creates configured source cache and loader 
   REQUIRE(resource_b != nullptr);
   CHECK(resource_a->width == 512);
   CHECK(resource_b->width == 1024);
+}
+
+TEST_CASE("resources - asset_manager exposes high level resource operations", "[resources]") {
+  require_serialized_resource_metadata();
+
+  caors::resource_project_config config;
+  REQUIRE(caors::load_project_config_json(config, make_project_config_json()).succeeded());
+
+  caors::resource_asset_manager assets;
+  REQUIRE(
+      assets.register_type_factory<serialized_resource>(serialized_manifest_type()).succeeded());
+  REQUIRE(assets.build(config).succeeded());
+
+  auto* source =
+      dynamic_cast<caors::resource_file_source*>(assets.find_source(caors::string_name{"assets"}));
+  REQUIRE(source != nullptr);
+
+  auto* files = dynamic_cast<caors::memory_file_system*>(&source->file_system());
+  REQUIRE(files != nullptr);
+  REQUIRE(
+      files->write_all("assets/resource-a.json", std::string_view{R"({"width":512})"}).succeeded());
+  REQUIRE(files->write_all("assets/resource-b.json", std::string_view{R"({"width":1024})"})
+              .succeeded());
+
+  caors::result<serialized_resource*> loaded = assets.load<serialized_resource>(test_guid_a);
+  REQUIRE(loaded.succeeded());
+  REQUIRE(loaded.value != nullptr);
+  CHECK(loaded.value->width == 512);
+  CHECK(assets.find<serialized_resource>(test_guid_a) == loaded.value);
+  CHECK(assets.find(test_guid_a) == loaded.value);
+
+  caors::resource_ref<serialized_resource> reference{test_guid_a};
+  REQUIRE(assets.resolve(reference));
+  CHECK(reference.get() == loaded.value);
+  CHECK(assets.is_current(reference));
+
+  REQUIRE(files->write_all("assets/resource-a.json", std::string_view{R"({"width":2048})"})
+              .succeeded());
+  caors::result<serialized_resource*> reloaded = assets.reload<serialized_resource>(test_guid_a);
+  REQUIRE(reloaded.succeeded());
+  REQUIRE(reloaded.value != nullptr);
+  CHECK(reloaded.value->width == 2048);
+  CHECK_FALSE(assets.is_current(reference));
+  REQUIRE(assets.resolve(reference));
+  CHECK(reference.get() == reloaded.value);
+
+  reloaded.value->width = 4096;
+  REQUIRE(assets.save<serialized_resource>(test_guid_a).succeeded());
+  caors::byte_buffer_result saved = files->read_all("assets/resource-a.json");
+  REQUIRE(saved.succeeded());
+  const std::string_view saved_text{reinterpret_cast<const char*>(saved.value.data()),
+                                    saved.value.size()};
+  CHECK(saved_text == std::string_view{R"({"width":4096})"});
+
+  caors::resource_dependency_list dependencies;
+  dependencies.collect(test_guid_b, caors::meta::id_of<serialized_resource>());
+  CHECK(assets.replace_dependencies(test_guid_a, dependencies) == 1);
+  caors::resource_dependency_graph::guid_list affected = assets.affected_by(test_guid_b);
+  REQUIRE(affected.size() == 1);
+  CHECK(affected[0] == test_guid_a);
+}
+
+TEST_CASE("resources - asset_manager forwards async requests", "[resources]") {
+  require_serialized_resource_metadata();
+
+  caors::resource_project_config config;
+  REQUIRE(caors::load_project_config_json(config, make_project_config_json()).succeeded());
+
+  caors::resource_asset_manager assets;
+  REQUIRE(
+      assets.register_type_factory<serialized_resource>(serialized_manifest_type()).succeeded());
+  REQUIRE(assets.build(config).succeeded());
+
+  auto* source =
+      dynamic_cast<caors::resource_file_source*>(assets.find_source(caors::string_name{"assets"}));
+  REQUIRE(source != nullptr);
+
+  auto* files = dynamic_cast<caors::memory_file_system*>(&source->file_system());
+  REQUIRE(files != nullptr);
+  REQUIRE(
+      files->write_all("assets/resource-a.json", std::string_view{R"({"width":512})"}).succeeded());
+  REQUIRE(files->write_all("assets/resource-b.json", std::string_view{R"({"width":1024})"})
+              .succeeded());
+
+  caors::inline_task_executor executor;
+  caors::task_completion_queue completions;
+
+  caors::resource_load_request<serialized_resource> loaded =
+      assets.request_load<serialized_resource>(test_guid_a, executor, completions);
+  REQUIRE(loaded);
+  CHECK(loaded.status() == caors::resource_request_status::loading);
+  CHECK(completions.drain() == 1);
+  REQUIRE(loaded.loaded());
+  REQUIRE(loaded.try_get());
+  CHECK(loaded.try_get()->width == 512);
+
+  REQUIRE(
+      files->write_all("assets/resource-a.json", std::string_view{R"({"width":256})"}).succeeded());
+  caors::resource_load_request<serialized_resource> reloaded =
+      assets.request_reload<serialized_resource>(test_guid_a, executor, completions);
+  REQUIRE(reloaded);
+  CHECK(reloaded.status() == caors::resource_request_status::loading);
+  CHECK(completions.drain() == 1);
+  REQUIRE(reloaded.loaded());
+  CHECK(reloaded.try_get()->width == 256);
+
+  caors::resource_preload_request preloaded =
+      assets.request_preload(test_guid_b, executor, completions);
+  REQUIRE(preloaded);
+  CHECK(completions.drain() == 1);
+  REQUIRE(preloaded.loaded());
+  caors::resource_preload_result result = preloaded.result();
+  REQUIRE(result.succeeded());
+  REQUIRE(result.loaded.size() == 1);
+  CHECK(result.loaded[0] == caors::resource_preload_item{test_guid_b, serialized_manifest_type()});
+  CHECK(assets.find<serialized_resource>(test_guid_b)->width == 1024);
 }
 
 TEST_CASE("resources - asset_manager reports unsupported configured runtime strategy",
