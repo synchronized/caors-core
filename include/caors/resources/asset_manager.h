@@ -31,33 +31,66 @@ namespace caors::resources {
  */
 class asset_manager final {
 public:
+  /** @brief source 工厂调用时收到的运行期上下文。 */
+  struct source_factory_context {
+    /** @brief 正在构建资源环境的 asset_manager。 */
+    asset_manager& manager;
+    /** @brief asset_manager 内部对象默认使用的内存资源。 */
+    memory_resource* resource = nullptr;
+  };
+
+  /** @brief 资源类型工厂调用时收到的运行期上下文。 */
+  struct type_factory_context {
+    /** @brief 正在构建资源环境的 asset_manager。 */
+    asset_manager& manager;
+    /** @brief asset_manager 内部对象默认使用的内存资源。 */
+    memory_resource* resource = nullptr;
+    /** @brief asset_manager 内部 provider，loader 通常需要保存它的引用或指针。 */
+    resources::provider& provider;
+    /** @brief asset_manager 内部 database，type factory 应把创建出的 cache/loader 注册到这里。 */
+    resources::database& database;
+  };
+
+  /** @brief source 策略名到运行期 source 构造逻辑的函数表。 */
   struct source_factory_ops {
-    using create_fn = error (*)(asset_manager& manager, const project_source_config& config);
+    using create_fn = error (*)(source_factory_context& context,
+                                const project_source_config& config, void* user_data);
 
     constexpr source_factory_ops() noexcept = default;
-    constexpr source_factory_ops(create_fn value) noexcept : create(value) {}
+    constexpr source_factory_ops(create_fn value, void* data = nullptr) noexcept
+        : create(value), user_data(data) {}
 
     create_fn create = nullptr;
+    /** @brief 传给 create 的外部状态；asset_manager 不拥有它。 */
+    void* user_data = nullptr;
 
     [[nodiscard]] constexpr bool valid() const noexcept { return create != nullptr; }
     [[nodiscard]] error operator()(asset_manager& manager,
                                    const project_source_config& config) const {
-      return create(manager, config);
+      source_factory_context context{manager, manager.resource()};
+      return create(context, config, user_data);
     }
   };
 
+  /** @brief manifest 资源类型到 cache/loader 构造逻辑的函数表。 */
   struct type_factory_ops {
-    using create_fn = error (*)(asset_manager& manager, const project_resource_type_config& config);
+    using create_fn = error (*)(type_factory_context& context,
+                                const project_resource_type_config& config, void* user_data);
 
     constexpr type_factory_ops() noexcept = default;
-    constexpr type_factory_ops(create_fn value) noexcept : create(value) {}
+    constexpr type_factory_ops(create_fn value, void* data = nullptr) noexcept
+        : create(value), user_data(data) {}
 
     create_fn create = nullptr;
+    /** @brief 传给 create 的外部状态；asset_manager 不拥有它。 */
+    void* user_data = nullptr;
 
     [[nodiscard]] constexpr bool valid() const noexcept { return create != nullptr; }
     [[nodiscard]] error operator()(asset_manager& manager,
                                    const project_resource_type_config& config) const {
-      return create(manager, config);
+      type_factory_context context{manager, manager.resource(), manager.provider(),
+                                   manager.database()};
+      return create(context, config, user_data);
     }
   };
 
@@ -106,10 +139,22 @@ public:
 
   /** @brief 注册 source 策略名到运行期 source 构造函数。 */
   [[nodiscard]] error register_source_factory(core::string_name type, source_factory_ops factory);
+  /** @brief 注册 source 策略名到运行期 source 构造函数和可选外部状态。 */
+  [[nodiscard]] error register_source_factory(core::string_name type,
+                                              source_factory_ops::create_fn create,
+                                              void* user_data = nullptr) {
+    return register_source_factory(type, source_factory_ops{create, user_data});
+  }
 
   /** @brief 注册 manifest 资源类型到运行期 cache/loader 构造函数。 */
   [[nodiscard]] error register_type_factory(core::string_name resource_type,
                                             type_factory_ops factory);
+  /** @brief 注册 manifest 资源类型到运行期 cache/loader 构造函数和可选外部状态。 */
+  [[nodiscard]] error register_type_factory(core::string_name resource_type,
+                                            type_factory_ops::create_fn create,
+                                            void* user_data = nullptr) {
+    return register_type_factory(resource_type, type_factory_ops{create, user_data});
+  }
 
   /**
    * @brief 注册默认资源类型工厂。
@@ -300,6 +345,22 @@ public:
     return database_.resolver();
   }
 
+  /**
+   * @brief 使用 asset_manager 的内存资源创建对象，并由 asset_manager 负责销毁。
+   *
+   * 该入口主要面向 source/type factory 扩展。返回对象会在 asset_manager 析构时统一释放，
+   * 调用方不应手动 delete。
+   */
+  template <typename T, typename... Args> [[nodiscard]] T* create_owned(Args&&... args) {
+    T* value = memory::make<T>(resource_, std::forward<Args>(args)...);
+    if (value == nullptr) {
+      return nullptr;
+    }
+
+    owned_objects_.emplace_back(resource_, value, &asset_manager::destroy_owned<T>);
+    return value;
+  }
+
 private:
   using source_map = core::hash_map<core::string_name, resources::source*>;
   using source_factory_map = core::hash_map<core::string_name, source_factory_ops>;
@@ -340,56 +401,51 @@ private:
   [[nodiscard]] error ensure_source_from_config(const project_source_config& config);
   [[nodiscard]] error ensure_type_from_config(const project_resource_type_config& config);
   [[nodiscard]] error register_builtin_source_factories();
-  [[nodiscard]] static error make_memory_file_source(asset_manager& manager,
-                                                     const project_source_config& config);
-  [[nodiscard]] static error make_native_file_source(asset_manager& manager,
-                                                     const project_source_config& config);
-
-  template <typename T, typename... Args> [[nodiscard]] T* make_owned(Args&&... args) {
-    T* value = memory::make<T>(resource_, std::forward<Args>(args)...);
-    if (value == nullptr) {
-      return nullptr;
-    }
-
-    owned_objects_.emplace_back(resource_, value, &asset_manager::destroy_owned<T>);
-    return value;
-  }
+  [[nodiscard]] static error make_memory_file_source(source_factory_context& context,
+                                                     const project_source_config& config,
+                                                     void* user_data);
+  [[nodiscard]] static error make_native_file_source(source_factory_context& context,
+                                                     const project_source_config& config,
+                                                     void* user_data);
 
   template <typename T> static void destroy_owned(memory_resource* resource, void* value) noexcept {
     memory::destroy(static_cast<T*>(value), resource);
   }
 
   template <typename T>
-  [[nodiscard]] static error default_type_factory(asset_manager& manager,
-                                                  const project_resource_type_config& config) {
+  [[nodiscard]] static error default_type_factory(type_factory_context& context,
+                                                  const project_resource_type_config& config,
+                                                  void* user_data) {
+    (void)user_data;
     if (!config.type || config.cache != core::string_name{"memory"} ||
         config.loader != core::string_name{"json"}) {
       return {error_domain::resources, errc::unsupported};
     }
 
-    const auto existing = manager.owned_types_.find(config.type);
-    if (existing != manager.owned_types_.end()) {
+    const auto existing = context.manager.owned_types_.find(config.type);
+    if (existing != context.manager.owned_types_.end()) {
       return existing->second.cache == config.cache && existing->second.loader == config.loader
                  ? error{}
                  : error{error_domain::resources, errc::already_exists};
     }
 
-    auto* cache = manager.make_owned<resources::cache<T>>(manager.resource_);
+    auto* cache = context.manager.create_owned<resources::cache<T>>(context.resource);
     if (cache == nullptr) {
       return {error_domain::resources, errc::out_of_memory};
     }
 
-    auto* loader = manager.make_owned<resources::json_loader<T>>(manager.provider_);
+    auto* loader = context.manager.create_owned<resources::json_loader<T>>(context.provider);
     if (loader == nullptr) {
       return {error_domain::resources, errc::out_of_memory};
     }
 
-    const error status = manager.database_.register_type(*cache, *loader, config.type);
+    const error status = context.database.register_type(*cache, *loader, config.type);
     if (status) {
       return status;
     }
 
-    manager.owned_types_.emplace(config.type, owned_type_binding{config.loader, config.cache});
+    context.manager.owned_types_.emplace(config.type,
+                                         owned_type_binding{config.loader, config.cache});
     return {};
   }
 

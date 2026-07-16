@@ -739,6 +739,46 @@ auto resolver = assets.resolver();
 - `resolver()`：生成可挂到 `serialization::context` 的资源引用 resolver。
 - `replace_dependencies()` / `affected_by()` / `affected_closure()`：维护和查询内部依赖图。
 
+外部扩展可以注册自己的 source/type factory。factory 会收到 context 和可选 `user_data`：
+
+```cpp
+struct pak_state {
+  pak_index* index = nullptr;
+};
+
+caors::error make_pak_source(caors::resources::asset_manager::source_factory_context& context,
+                             const caors::resources::project_source_config& config,
+                             void* user_data) {
+  auto* state = static_cast<pak_state*>(user_data);
+  auto* file_system = context.manager.create_owned<pak_file_system>(config.root, state->index);
+  auto* source = context.manager.create_owned<caors::resources::file_source>(*file_system);
+  return context.manager.bind_source(config.name, *source);
+}
+
+pak_state state{&index};
+assets.register_source_factory(caors::string_name{"pak"}, &make_pak_source, &state);
+```
+
+类型工厂同样可以创建 cache/loader，并把它们注册到内部 database：
+
+```cpp
+caors::error make_texture_runtime(
+    caors::resources::asset_manager::type_factory_context& context,
+    const caors::resources::project_resource_type_config& config,
+    void* user_data) {
+  (void)user_data;
+  auto* cache = context.manager.create_owned<caors::resources::cache<texture>>(context.resource);
+  auto* loader = context.manager.create_owned<pak_texture_loader>(context.provider);
+  return context.database.register_type(*cache, *loader, config.type);
+}
+
+assets.register_type_factory(caors::string_name{"game.texture"}, &make_texture_runtime);
+```
+
+`create_owned<T>()` 使用 asset_manager 的内存资源构造对象，并在 asset_manager 析构时统一释放。
+它适合由配置驱动创建的 source、cache、loader、文件系统或资源包索引对象。手动传入
+`bind_source()` / `register_type()` 的外部对象仍由调用方自己管理生命周期。
+
 当前语义：
 
 - `project_config.sources` 描述 source 名称和策略名。`asset_manager` 内置支持
@@ -758,8 +798,10 @@ auto resolver = assets.resolver();
   唯一 source；否则返回 `resources / not_found`。
 - 没有注册类型工厂的 `resource_types` 会被跳过，保留 `register_type<T>(cache, loader, type)` 手动绑定路径。
   已注册类型工厂但配置的 cache/loader 策略不支持时，会返回 `resources / unsupported`。
-- `register_source_factory()` 和 `register_type_factory()` 可扩展自定义策略名；内置实现只覆盖内存/本地
-  source 和 JSON + memory cache 的常见调试路径。网络、资源包、专用缓存等策略后续再补。
+- `register_source_factory()` 和 `register_type_factory()` 可扩展自定义策略名；factory 可以通过
+  context 访问 asset_manager、内部 provider/database 和内存资源，也可以通过 `user_data`
+  携带外部状态。内置实现只覆盖内存/本地 source 和 JSON + memory cache 的常见调试路径。
+  网络、资源包、专用缓存等策略后续再补。
 - `database()` / `provider()` / `manifest()` / `dependency_graph()` 仍可用于调试和高级组合，但普通业务代码应优先使用
   `asset_manager` 的高层入口，避免直接依赖内部对象生命周期。
 

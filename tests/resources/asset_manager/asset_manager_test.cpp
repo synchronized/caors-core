@@ -84,6 +84,75 @@ constexpr caors::resource_guid test_guid_c{caors::guid::from_bytes(
   return json;
 }
 
+struct external_source_factory_state {
+  int calls = 0;
+  caors::memory_resource* resource = nullptr;
+  caors::io::memory_file_system* file_system = nullptr;
+  caors::resources::file_source* source = nullptr;
+};
+
+struct external_type_factory_state {
+  int calls = 0;
+  caors::resources::cache<serialized_resource>* cache = nullptr;
+  caors::resources::json_loader<serialized_resource>* loader = nullptr;
+};
+
+[[nodiscard]] caors::error
+make_external_memory_source(caors::resources::asset_manager::source_factory_context& context,
+                            const caors::resources::project_source_config& config,
+                            void* user_data) {
+  if (user_data == nullptr) {
+    return {caors::error_domain::resources, caors::errc::invalid_argument};
+  }
+
+  auto& state = *static_cast<external_source_factory_state*>(user_data);
+  ++state.calls;
+  state.resource = context.resource;
+
+  state.file_system = context.manager.create_owned<caors::io::memory_file_system>(context.resource);
+  if (state.file_system == nullptr) {
+    return {caors::error_domain::resources, caors::errc::out_of_memory};
+  }
+
+  state.source = context.manager.create_owned<caors::resources::file_source>(*state.file_system);
+  if (state.source == nullptr) {
+    return {caors::error_domain::resources, caors::errc::out_of_memory};
+  }
+
+  return context.manager.bind_source(config.name, *state.source);
+}
+
+[[nodiscard]] caors::error
+make_external_serialized_type(caors::resources::asset_manager::type_factory_context& context,
+                              const caors::resources::project_resource_type_config& config,
+                              void* user_data) {
+  if (user_data == nullptr) {
+    return {caors::error_domain::resources, caors::errc::invalid_argument};
+  }
+
+  if (!config.type || config.cache != caors::string_name{"external_memory"} ||
+      config.loader != caors::string_name{"external_json"}) {
+    return {caors::error_domain::resources, caors::errc::unsupported};
+  }
+
+  auto& state = *static_cast<external_type_factory_state*>(user_data);
+  ++state.calls;
+
+  state.cache =
+      context.manager.create_owned<caors::resources::cache<serialized_resource>>(context.resource);
+  if (state.cache == nullptr) {
+    return {caors::error_domain::resources, caors::errc::out_of_memory};
+  }
+
+  state.loader = context.manager.create_owned<caors::resources::json_loader<serialized_resource>>(
+      context.provider);
+  if (state.loader == nullptr) {
+    return {caors::error_domain::resources, caors::errc::out_of_memory};
+  }
+
+  return context.database.register_type(*state.cache, *state.loader, config.type);
+}
+
 } // namespace
 
 TEST_CASE("resources - asset_manager builds provider manifest and dependency graph from config",
@@ -307,6 +376,78 @@ TEST_CASE("resources - asset_manager forwards async requests", "[resources]") {
   CHECK(result.loaded[0] ==
         caors::resources::preload_item{test_guid_b, serialized_manifest_type()});
   CHECK(assets.find<serialized_resource>(test_guid_b)->width == 1024);
+}
+
+TEST_CASE("resources - asset_manager accepts external source factory state", "[resources]") {
+  caors::resources::project_config config;
+  REQUIRE(
+      caors::resources::load_project_config_json(config, make_project_config_json()).succeeded());
+  config.sources[0].type = caors::string_name{"external_memory"};
+
+  external_source_factory_state state;
+  external_source_factory_state other_state;
+
+  caors::resource_asset_manager assets;
+  REQUIRE(assets
+              .register_source_factory(caors::string_name{"external_memory"},
+                                       &make_external_memory_source, &state)
+              .succeeded());
+  REQUIRE(assets
+              .register_source_factory(caors::string_name{"external_memory"},
+                                       &make_external_memory_source, &state)
+              .succeeded());
+  CHECK(assets.register_source_factory(caors::string_name{"external_memory"},
+                                       &make_external_memory_source, &other_state) ==
+        caors::error{caors::error_domain::resources, caors::errc::already_exists});
+
+  REQUIRE(assets.build(config).succeeded());
+  CHECK(state.calls == 1);
+  CHECK(state.resource == assets.resource());
+  REQUIRE(state.file_system != nullptr);
+  REQUIRE(state.source != nullptr);
+  CHECK(assets.find_source(caors::string_name{"assets"}) == state.source);
+}
+
+TEST_CASE("resources - asset_manager accepts external type factory state", "[resources]") {
+  require_serialized_resource_metadata();
+
+  caors::resources::project_config config;
+  REQUIRE(
+      caors::resources::load_project_config_json(config, make_project_config_json()).succeeded());
+  config.resource_types[0].cache = caors::string_name{"external_memory"};
+  config.resource_types[0].loader = caors::string_name{"external_json"};
+
+  external_type_factory_state state;
+
+  caors::resource_asset_manager assets;
+  REQUIRE(
+      assets
+          .register_type_factory(serialized_manifest_type(), &make_external_serialized_type, &state)
+          .succeeded());
+  REQUIRE(assets.build(config).succeeded());
+
+  CHECK(state.calls == 1);
+  REQUIRE(state.cache != nullptr);
+  REQUIRE(state.loader != nullptr);
+
+  auto* source = dynamic_cast<caors::resources::file_source*>(
+      assets.find_source(caors::string_name{"assets"}));
+  REQUIRE(source != nullptr);
+
+  auto* files = dynamic_cast<caors::io::memory_file_system*>(&source->file_system());
+  REQUIRE(files != nullptr);
+  REQUIRE(
+      files->write_all("assets/resource-a.json", std::string_view{R"({"width":128})"}).succeeded());
+  REQUIRE(
+      files->write_all("assets/resource-b.json", std::string_view{R"({"width":256})"}).succeeded());
+
+  caors::resources::preload_result loaded = assets.preload(test_guid_b);
+  REQUIRE(loaded.succeeded());
+  CHECK(loaded.loaded.size() == 2);
+  REQUIRE(state.cache->find(test_guid_a) != nullptr);
+  REQUIRE(state.cache->find(test_guid_b) != nullptr);
+  CHECK(state.cache->find(test_guid_a)->width == 128);
+  CHECK(state.cache->find(test_guid_b)->width == 256);
 }
 
 TEST_CASE("resources - asset_manager reports unsupported configured runtime strategy",

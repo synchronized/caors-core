@@ -8,37 +8,39 @@
 
 namespace caors::resources {
 
-error asset_manager::make_memory_file_source(asset_manager& manager,
-                                             const project_source_config& config) {
-  auto* file_system = manager.make_owned<io::memory_file_system>(manager.resource());
+error asset_manager::make_memory_file_source(source_factory_context& context,
+                                             const project_source_config& config, void* user_data) {
+  (void)user_data;
+  auto* file_system = context.manager.create_owned<io::memory_file_system>(context.resource);
   if (file_system == nullptr) {
     return {error_domain::resources, errc::out_of_memory};
   }
 
-  auto* source = manager.make_owned<resources::file_source>(*file_system);
+  auto* source = context.manager.create_owned<resources::file_source>(*file_system);
   if (source == nullptr) {
     return {error_domain::resources, errc::out_of_memory};
   }
 
-  return manager.bind_source(config.name, *source);
+  return context.manager.bind_source(config.name, *source);
 }
 
-error asset_manager::make_native_file_source(asset_manager& manager,
-                                             const project_source_config& config) {
+error asset_manager::make_native_file_source(source_factory_context& context,
+                                             const project_source_config& config, void* user_data) {
+  (void)user_data;
   auto* file_system =
       config.root.empty()
-          ? manager.make_owned<io::native_file_system>(manager.resource())
-          : manager.make_owned<io::native_file_system>(config.root, manager.resource());
+          ? context.manager.create_owned<io::native_file_system>(context.resource)
+          : context.manager.create_owned<io::native_file_system>(config.root, context.resource);
   if (file_system == nullptr) {
     return {error_domain::resources, errc::out_of_memory};
   }
 
-  auto* source = manager.make_owned<resources::file_source>(*file_system);
+  auto* source = context.manager.create_owned<resources::file_source>(*file_system);
   if (source == nullptr) {
     return {error_domain::resources, errc::out_of_memory};
   }
 
-  return manager.bind_source(config.name, *source);
+  return context.manager.bind_source(config.name, *source);
 }
 
 asset_manager::owned_runtime_object::owned_runtime_object(memory_resource* resource, void* value,
@@ -134,7 +136,8 @@ error asset_manager::register_source_factory(core::string_name type, source_fact
 
   const auto position = source_factories_.find(type);
   if (position != source_factories_.end()) {
-    return position->second.create == factory.create
+    return position->second.create == factory.create &&
+                   position->second.user_data == factory.user_data
                ? error{}
                : error{error_domain::resources, errc::already_exists};
   }
@@ -151,7 +154,8 @@ error asset_manager::register_type_factory(core::string_name resource_type,
 
   const auto position = type_factories_.find(resource_type);
   if (position != type_factories_.end()) {
-    return position->second.create == factory.create
+    return position->second.create == factory.create &&
+                   position->second.user_data == factory.user_data
                ? error{}
                : error{error_domain::resources, errc::already_exists};
   }
