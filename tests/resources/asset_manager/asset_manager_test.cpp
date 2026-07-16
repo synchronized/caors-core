@@ -479,15 +479,20 @@ TEST_CASE("resources - asset_manager accepts external source factory state", "[r
 
   external_source_factory_state state;
   external_source_factory_state other_state;
+  caors::resources::factory_option_schema schema;
+  schema.require(caors::string_name{"mount"}, caors::resources::factory_option_kind::string)
+      .optional(caors::string_name{"read_only"},
+                caors::resources::factory_option_kind::boolean);
+  schema.allow_unknown = false;
 
   caors::resource_asset_manager assets;
   REQUIRE(assets
               .register_source_factory(caors::string_name{"external_memory"},
-                                       &make_external_memory_source, &state)
+                                       &make_external_memory_source, &state, schema)
               .succeeded());
   REQUIRE(assets
               .register_source_factory(caors::string_name{"external_memory"},
-                                       &make_external_memory_source, &state)
+                                       &make_external_memory_source, &state, schema)
               .succeeded());
   CHECK(assets.register_source_factory(caors::string_name{"external_memory"},
                                        &make_external_memory_source, &other_state) ==
@@ -503,6 +508,38 @@ TEST_CASE("resources - asset_manager accepts external source factory state", "[r
   CHECK(assets.find_source(caors::string_name{"assets"}) == state.source);
 }
 
+TEST_CASE("resources - asset_manager validates source factory option schema", "[resources]") {
+  caors::resources::project_config config;
+  REQUIRE(caors::resources::load_project_config_json(
+              config,
+              R"({"sources":[{"name":"assets","type":"external_memory","options":{"read_only":true}}]})")
+              .succeeded());
+
+  caors::resources::factory_option_schema schema;
+  schema.require(caors::string_name{"mount"}, caors::resources::factory_option_kind::string)
+      .optional(caors::string_name{"read_only"},
+                caors::resources::factory_option_kind::boolean);
+  schema.allow_unknown = false;
+
+  external_source_factory_state state;
+  caors::resource_asset_manager assets;
+  REQUIRE(assets
+              .register_source_factory(caors::string_name{"external_memory"},
+                                       &make_external_memory_source, &state, schema)
+              .succeeded());
+
+  caors::resources::asset_build_result result = assets.build_detailed(config);
+  CHECK(result.status ==
+        caors::error{caors::error_domain::resources, caors::errc::invalid_argument});
+  CHECK(result.stage == caors::resources::asset_build_stage::source);
+  CHECK(result.index == 0);
+  CHECK(result.name == caors::string_name{"assets"});
+  CHECK(result.type == caors::string_name{"external_memory"});
+  REQUIRE_FALSE(result.reasons.empty());
+  CHECK(result.reasons.front().find("mount") != caors::string::npos);
+  CHECK(state.calls == 0);
+}
+
 TEST_CASE("resources - asset_manager accepts external type factory state", "[resources]") {
   require_serialized_resource_metadata();
 
@@ -513,11 +550,15 @@ TEST_CASE("resources - asset_manager accepts external type factory state", "[res
   config.resource_types[0].loader = caors::string_name{"external_json"};
 
   external_type_factory_state state;
+  caors::resources::factory_option_schema schema;
+  schema.require(caors::string_name{"format"}, caors::resources::factory_option_kind::string)
+      .optional(caors::string_name{"priority"});
 
   caors::resource_asset_manager assets;
   REQUIRE(
       assets
-          .register_type_factory(serialized_manifest_type(), &make_external_serialized_type, &state)
+          .register_type_factory(serialized_manifest_type(), &make_external_serialized_type, &state,
+                                 schema)
           .succeeded());
   REQUIRE(assets.build(config).succeeded());
 
@@ -545,6 +586,39 @@ TEST_CASE("resources - asset_manager accepts external type factory state", "[res
   REQUIRE(state.cache->find(test_guid_b) != nullptr);
   CHECK(state.cache->find(test_guid_a)->width == 128);
   CHECK(state.cache->find(test_guid_b)->width == 256);
+}
+
+TEST_CASE("resources - asset_manager validates type factory option schema", "[resources]") {
+  require_serialized_resource_metadata();
+
+  caors::resources::project_config config;
+  REQUIRE(caors::resources::load_project_config_json(
+              config,
+              R"({"resource_types":[{"type":"game.serialized","loader":"external_json","cache":"external_memory","options":{"priority":2}}]})")
+              .succeeded());
+
+  external_type_factory_state state;
+  caors::resources::factory_option_schema schema;
+  schema.require(caors::string_name{"format"}, caors::resources::factory_option_kind::string)
+      .optional(caors::string_name{"priority"});
+
+  caors::resource_asset_manager assets;
+  REQUIRE(
+      assets
+          .register_type_factory(serialized_manifest_type(), &make_external_serialized_type, &state,
+                                 schema)
+          .succeeded());
+
+  caors::resources::asset_build_result result = assets.build_detailed(config);
+  CHECK(result.status ==
+        caors::error{caors::error_domain::resources, caors::errc::invalid_argument});
+  CHECK(result.stage == caors::resources::asset_build_stage::resource_type);
+  CHECK(result.index == 0);
+  CHECK(result.name == serialized_manifest_type());
+  CHECK(result.type == serialized_manifest_type());
+  REQUIRE_FALSE(result.reasons.empty());
+  CHECK(result.reasons.front().find("format") != caors::string::npos);
+  CHECK(state.calls == 0);
 }
 
 TEST_CASE("resources - asset_manager rebuild clears config created runtime objects",
@@ -619,8 +693,13 @@ TEST_CASE("resources - asset_manager reports unsupported configured runtime stra
   REQUIRE(
       assets.register_type_factory<serialized_resource>(serialized_manifest_type()).succeeded());
 
-  const caors::error status = assets.build(config);
-  CHECK(status == caors::error{caors::error_domain::resources, caors::errc::unsupported});
+  const caors::resources::asset_build_result result = assets.build_detailed(config);
+  CHECK(result.status ==
+        caors::error{caors::error_domain::resources, caors::errc::unsupported});
+  CHECK(result.stage == caors::resources::asset_build_stage::resource_type);
+  CHECK(result.index == 0);
+  CHECK(result.name == serialized_manifest_type());
+  REQUIRE_FALSE(result.reasons.empty());
 }
 
 TEST_CASE("resources - asset_manager reports missing configured sources", "[resources]") {
@@ -630,8 +709,14 @@ TEST_CASE("resources - asset_manager reports missing configured sources", "[reso
   config.sources[0].type = caors::string_name{"unknown_source"};
 
   caors::resource_asset_manager assets;
-  const caors::error status = assets.build(config);
-  CHECK(status == caors::error{caors::error_domain::resources, caors::errc::not_found});
+  const caors::resources::asset_build_result result = assets.build_detailed(config);
+  CHECK(result.status ==
+        caors::error{caors::error_domain::resources, caors::errc::not_found});
+  CHECK(result.stage == caors::resources::asset_build_stage::source);
+  CHECK(result.index == 0);
+  CHECK(result.name == caors::string_name{"assets"});
+  CHECK(result.type == caors::string_name{"unknown_source"});
+  REQUIRE_FALSE(result.reasons.empty());
 }
 
 TEST_CASE("resources - project config validates schema and options", "[resources]") {

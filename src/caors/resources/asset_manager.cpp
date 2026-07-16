@@ -9,6 +9,177 @@
 #include <algorithm>
 
 namespace caors::resources {
+namespace {
+
+[[nodiscard]] std::string_view kind_name(factory_option_kind kind) noexcept {
+  switch (kind) {
+  case factory_option_kind::any:
+    return "any";
+  case factory_option_kind::boolean:
+    return "boolean";
+  case factory_option_kind::signed_integer:
+    return "signed_integer";
+  case factory_option_kind::unsigned_integer:
+    return "unsigned_integer";
+  case factory_option_kind::floating:
+    return "floating";
+  case factory_option_kind::string:
+    return "string";
+  case factory_option_kind::array:
+    return "array";
+  case factory_option_kind::dictionary:
+    return "dictionary";
+  case factory_option_kind::object:
+    return "object";
+  }
+
+  return "unknown";
+}
+
+[[nodiscard]] bool matches_kind(const variant& value, factory_option_kind kind) noexcept {
+  switch (kind) {
+  case factory_option_kind::any:
+    return true;
+  case factory_option_kind::boolean:
+    return value.is_bool();
+  case factory_option_kind::signed_integer:
+    return value.is_i64();
+  case factory_option_kind::unsigned_integer:
+    return value.is_u64();
+  case factory_option_kind::floating:
+    return value.is_f64();
+  case factory_option_kind::string:
+    return value.is_string();
+  case factory_option_kind::array:
+    return value.is_array();
+  case factory_option_kind::dictionary:
+    return value.is_dictionary();
+  case factory_option_kind::object:
+    return value.is_object();
+  }
+
+  return false;
+}
+
+[[nodiscard]] const factory_option_field*
+find_schema_field(const factory_option_schema& schema, core::string_name name) noexcept {
+  for (const factory_option_field& field : schema.fields) {
+    if (field.name == name) {
+      return &field;
+    }
+  }
+
+  return nullptr;
+}
+
+void assign_reason(core::string* reason, std::string_view text) {
+  if (reason != nullptr) {
+    reason->assign(text.begin(), text.end());
+  }
+}
+
+void append_name(core::string& text, core::string_name name) {
+  const std::string_view view = name.view();
+  text.append(view.begin(), view.end());
+}
+
+void assign_missing_option_reason(core::string* reason, core::string_name name) {
+  if (reason == nullptr) {
+    return;
+  }
+
+  reason->assign("缺少必填 options 字段：");
+  append_name(*reason, name);
+}
+
+void assign_invalid_option_reason(core::string* reason, core::string_name name,
+                                  factory_option_kind kind) {
+  if (reason == nullptr) {
+    return;
+  }
+
+  reason->assign("options 字段类型不匹配：");
+  append_name(*reason, name);
+  reason->append("，期望 ");
+  const std::string_view expected = kind_name(kind);
+  reason->append(expected.begin(), expected.end());
+}
+
+void assign_unknown_option_reason(core::string* reason, core::string_name name) {
+  if (reason == nullptr) {
+    return;
+  }
+
+  reason->assign("发现未声明的 options 字段：");
+  append_name(*reason, name);
+}
+
+[[nodiscard]] error validate_options(const factory_option_schema& schema, const variant& options,
+                                     core::string* reason) {
+  if (schema.fields.empty() && schema.allow_unknown) {
+    return {};
+  }
+
+  if (options.is_null()) {
+    for (const factory_option_field& field : schema.fields) {
+      if (field.required) {
+        assign_missing_option_reason(reason, field.name);
+        return {error_domain::resources, errc::invalid_argument};
+      }
+    }
+
+    return {};
+  }
+
+  if (!options.is_object()) {
+    assign_reason(reason, "options 必须是 object 或 null");
+    return {error_domain::resources, errc::invalid_argument};
+  }
+
+  for (const factory_option_field& field : schema.fields) {
+    const variant* value = options.find_member_variant(field.name);
+    if (value == nullptr || value->is_null()) {
+      if (field.required) {
+        assign_missing_option_reason(reason, field.name);
+        return {error_domain::resources, errc::invalid_argument};
+      }
+
+      continue;
+    }
+
+    if (!matches_kind(*value, field.kind)) {
+      assign_invalid_option_reason(reason, field.name, field.kind);
+      return {error_domain::resources, errc::invalid_argument};
+    }
+  }
+
+  if (!schema.allow_unknown) {
+    for (const auto& member : options.as_object()) {
+      if (find_schema_field(schema, member.name) == nullptr) {
+        assign_unknown_option_reason(reason, member.name);
+        return {error_domain::resources, errc::invalid_argument};
+      }
+    }
+  }
+
+  return {};
+}
+
+void set_build_failure(asset_build_result& result, asset_build_stage stage, std::size_t index,
+                       error status, core::string_name name, core::string_name type,
+                       resource_guid guid, std::string_view reason) {
+  result.status = status;
+  result.stage = stage;
+  result.index = index;
+  result.name = name;
+  result.type = type;
+  result.guid = guid;
+  if (!reason.empty()) {
+    result.add_reason(reason);
+  }
+}
+
+} // namespace
 
 error asset_manager::make_memory_file_source(source_factory_context& context,
                                              const project_source_config& config, void* user_data) {
@@ -176,37 +347,61 @@ error asset_manager::register_type_factory(core::string_name resource_type,
 }
 
 error asset_manager::build(const project_config& config) {
+  return build_detailed(config).status;
+}
+
+asset_build_result asset_manager::build_detailed(const project_config& config) {
+  asset_build_result result{resource_};
   error status = clear_config_runtime();
   if (status) {
-    return status;
+    set_build_failure(result, asset_build_stage::clear_runtime, asset_build_result::npos, status,
+                      {}, {}, {}, "清理上一轮配置运行期对象失败");
+    return result;
   }
 
   manifest_.clear();
   provider_.clear();
   dependency_graph_.clear();
 
-  for (const project_source_config& source_config : config.sources) {
-    status = ensure_source_from_config(source_config);
+  for (std::size_t index = 0; index < config.sources.size(); ++index) {
+    const project_source_config& source_config = config.sources[index];
+    core::string reason{allocator<char>{resource_}};
+    status = ensure_source_from_config(source_config, &reason);
     if (status) {
-      return status;
+      set_build_failure(result, asset_build_stage::source, index, status, source_config.name,
+                        source_config.type, {}, reason);
+      return result;
     }
   }
 
-  for (const project_resource_type_config& type_config : config.resource_types) {
-    status = ensure_type_from_config(type_config);
+  for (std::size_t index = 0; index < config.resource_types.size(); ++index) {
+    const project_resource_type_config& type_config = config.resource_types[index];
+    core::string reason{allocator<char>{resource_}};
+    status = ensure_type_from_config(type_config, &reason);
     if (status) {
-      return status;
+      set_build_failure(result, asset_build_stage::resource_type, index, status, type_config.type,
+                        type_config.type, {}, reason);
+      return result;
     }
   }
 
-  for (const project_resource_config& resource_config : config.resources) {
+  for (std::size_t index = 0; index < config.resources.size(); ++index) {
+    const project_resource_config& resource_config = config.resources[index];
     if (!resource_config.guid || resource_config.location.empty()) {
-      return {error_domain::resources, errc::invalid_argument};
+      set_build_failure(result, asset_build_stage::resource, index,
+                        {error_domain::resources, errc::invalid_argument},
+                        resource_config.source, resource_config.type, resource_config.guid,
+                        "resource 配置缺少 guid 或 location");
+      return result;
     }
 
     resources::source* source = resolve_resource_source(config, resource_config);
     if (source == nullptr) {
-      return {error_domain::resources, errc::not_found};
+      set_build_failure(result, asset_build_stage::resource, index,
+                        {error_domain::resources, errc::not_found}, resource_config.source,
+                        resource_config.type, resource_config.guid,
+                        "resource 配置无法解析 source");
+      return result;
     }
 
     status =
@@ -214,26 +409,36 @@ error asset_manager::build(const project_config& config) {
                       std::string_view{resource_config.hash.data(), resource_config.hash.size()},
                       resource_config.version);
     if (status) {
-      return status;
+      set_build_failure(result, asset_build_stage::resource, index, status, resource_config.source,
+                        resource_config.type, resource_config.guid, "写入 manifest 失败");
+      return result;
     }
 
     status = provider_.rebind(resource_config.guid, *source, resource_config.location);
     if (status) {
-      return status;
+      set_build_failure(result, asset_build_stage::resource, index, status, resource_config.source,
+                        resource_config.type, resource_config.guid, "绑定 provider source 失败");
+      return result;
     }
   }
 
-  for (const project_dependency_config& dependency : config.dependencies) {
+  for (std::size_t index = 0; index < config.dependencies.size(); ++index) {
+    const project_dependency_config& dependency = config.dependencies[index];
     if (!dependency_graph_.add(dependency.resource, dependency.dependency)) {
-      return {error_domain::resources, errc::invalid_argument};
+      set_build_failure(result, asset_build_stage::dependency, index,
+                        {error_domain::resources, errc::invalid_argument}, {}, {},
+                        dependency.resource, "dependency 配置无效或存在自依赖");
+      return result;
     }
   }
 
-  return {};
+  return result;
 }
 
-error asset_manager::ensure_source_from_config(const project_source_config& config) {
+error asset_manager::ensure_source_from_config(const project_source_config& config,
+                                               core::string* reason) {
   if (!config.name) {
+    assign_reason(reason, "source 配置缺少 name");
     return {error_domain::resources, errc::invalid_argument};
   }
 
@@ -243,18 +448,29 @@ error asset_manager::ensure_source_from_config(const project_source_config& conf
 
   const auto position = source_factories_.find(config.type);
   if (position == source_factories_.end()) {
+    assign_reason(reason, "source 配置没有匹配的 source factory");
     return {error_domain::resources, errc::not_found};
+  }
+
+  error status = validate_options(position->second.schema, config.options, reason);
+  if (status) {
+    return status;
   }
 
   const bool previous = building_config_runtime_;
   building_config_runtime_ = true;
-  const error status = position->second(*this, config);
+  status = position->second(*this, config);
   building_config_runtime_ = previous;
+  if (status && reason != nullptr && reason->empty()) {
+    assign_reason(reason, "source factory 返回错误");
+  }
   return status;
 }
 
-error asset_manager::ensure_type_from_config(const project_resource_type_config& config) {
+error asset_manager::ensure_type_from_config(const project_resource_type_config& config,
+                                             core::string* reason) {
   if (!config.type) {
+    assign_reason(reason, "resource type 配置缺少 type");
     return {error_domain::resources, errc::invalid_argument};
   }
 
@@ -263,10 +479,18 @@ error asset_manager::ensure_type_from_config(const project_resource_type_config&
     return {};
   }
 
+  error status = validate_options(position->second.schema, config.options, reason);
+  if (status) {
+    return status;
+  }
+
   const bool previous = building_config_runtime_;
   building_config_runtime_ = true;
-  const error status = position->second(*this, config);
+  status = position->second(*this, config);
   building_config_runtime_ = previous;
+  if (status && reason != nullptr && reason->empty()) {
+    assign_reason(reason, "resource type factory 返回错误");
+  }
   return status;
 }
 

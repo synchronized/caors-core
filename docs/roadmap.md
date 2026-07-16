@@ -256,6 +256,9 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `project_config` 构建运行期资源定位与依赖图。
 - [x] 提供第一版 loader/source/cache 工厂注册机制，把配置中的 `"json"`、`"native_file_system"`、
   `"memory"` 等策略名映射到运行期 source、cache 和 loader 构造；`"remote"`、资源包和专用缓存后续扩展。
+- [x] 为 `resources::asset_manager::build_detailed()` 增加构建阶段诊断，记录失败阶段、配置项索引、
+  source/type 名称、资源 GUID 和可读原因。
+- [x] 为资源配置 source/type factory 增加轻量 options schema，支持必填字段、字段值形态和未知字段策略校验。
 - [x] 继续收敛资源公开主入口，以 `resources::asset_manager` / 运行期 builder 作为用户优先入口，
   `database`、`provider`、`cache<T>` 和 `loader<T>` 作为高级组合入口。
 - [x] 支持 `resources::provider` 通过可写 source 按 GUID 写回字节，为后续 saver 和热更新回写提供基础。

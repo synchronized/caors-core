@@ -735,6 +735,11 @@ if (built) {
   // 处理配置或运行期对象创建错误。
 }
 
+caors::resources::asset_build_result detailed = assets.build_detailed(config);
+if (detailed.failed()) {
+  // detailed.stage / index / name / type / guid / reasons 可用于编辑器或工具层诊断。
+}
+
 caors::resources::preload_result result = assets.preload(texture_id);
 auto resolver = assets.resolver();
 ```
@@ -742,6 +747,7 @@ auto resolver = assets.resolver();
 推荐普通项目优先使用 `asset_manager` 的高层入口：
 
 - `build(config)`：根据 `project_config` 重建内部 manifest、provider 和 dependency graph，并按已注册工厂创建运行期 source、cache 和 loader；重复调用会先清理上一轮配置创建的运行期对象。
+- `build_detailed(config)`：执行同样构建流程，但返回 `asset_build_result`，用于定位失败阶段、配置项索引、source/type 名称、资源 GUID 和可读原因。
 - `register_type_factory<T>(type)`：把配置里的资源类型名映射到默认 `memory` cache 和 `json` loader。
 - `find<T>(guid)` / `find(guid)`：查询内部已注册 cache 中的资源。
 - `load<T>(guid)` / `load_handle<T>(guid)`：通过内部 database 中已注册的 loader/cache 加载资源。
@@ -774,7 +780,11 @@ caors::error make_pak_source(caors::resources::asset_manager::source_factory_con
 }
 
 pak_state state{&index};
-assets.register_source_factory(caors::string_name{"pak"}, &make_pak_source, &state);
+caors::resources::factory_option_schema pak_schema;
+pak_schema.optional(caors::string_name{"compression"},
+                    caors::resources::factory_option_kind::string);
+
+assets.register_source_factory(caors::string_name{"pak"}, &make_pak_source, &state, pak_schema);
 ```
 
 类型工厂同样可以创建 cache/loader，并把它们注册到内部 database：
@@ -790,7 +800,13 @@ caors::error make_texture_runtime(
   return context.database.register_type(*cache, *loader, config.type);
 }
 
-assets.register_type_factory(caors::string_name{"game.texture"}, &make_texture_runtime);
+caors::resources::factory_option_schema texture_schema;
+texture_schema.require(caors::string_name{"format"},
+                       caors::resources::factory_option_kind::string);
+texture_schema.optional(caors::string_name{"priority"});
+
+assets.register_type_factory(caors::string_name{"game.texture"}, &make_texture_runtime, nullptr,
+                             texture_schema);
 ```
 
 `create_owned<T>()` 使用 asset_manager 的内存资源构造对象，并在 asset_manager 析构时统一释放。
@@ -807,6 +823,8 @@ assets.register_type_factory(caors::string_name{"game.texture"}, &make_texture_r
 - `project_config.sources[].options` 是可选扩展配置对象，原样传给 source factory；缺省为
   `null`。当前只接受 JSON object 或 `null`，字符串、数组等形态会返回
   `resources / invalid_argument`。
+- source factory 可以注册 `factory_option_schema`，在 factory 调用前检查必填字段、字段值形态和未知字段策略。
+  schema 失败会使 `build_detailed()` 返回 `asset_build_stage::source`，并在 `reasons` 中记录失败字段。
 - `project_config.resources` 描述 `guid -> source/location/type/hash/version`，会被
   `asset_manager::build()` 写入内部 manifest 和 provider。
 - `project_config.resource_types` 保存资源类型到 loader/cache 策略名的描述。调用
@@ -814,6 +832,8 @@ assets.register_type_factory(caors::string_name{"game.texture"}, &make_texture_r
   `cache<T>` 和 `json_loader<T>`。默认类型工厂第一版支持 `cache = "memory"`、`loader = "json"`。
 - `project_config.resource_types[].options` 是可选扩展配置对象，原样传给 type factory；缺省为
   `null`。它适合表达格式参数、缓存策略、资源包索引名、远程请求策略等运行期构造参数。
+- type factory 同样可以注册 `factory_option_schema`。它适合约束 `"json"`、`"native_file_system"`、
+  `"memory"` 之外的自定义策略，例如资源包名、远程 endpoint、缓存策略名等。
 - `project_config.dependencies` 会写入内部 `dependency_graph`。
 - `project_config.preload_roots` 只保存建议预加载入口；调用方决定何时调用 `preload()` 或异步预加载。
 - `asset_manager::bind_source(name, source)` 不接管 source 生命周期；调用方必须保证 source 存活时间长于
@@ -821,6 +841,9 @@ assets.register_type_factory(caors::string_name{"game.texture"}, &make_texture_r
 - `asset_manager::build(config)` 会清空内部 manifest、provider 和 dependency graph，再按配置重建。它还会先清理上一轮
   build 由 source/type factory 通过 `create_owned<T>()` 创建的对象，以及这些对象对应的 source 和
   cache/loader 注册。
+- `asset_build_result` 不替代 `error`。`error` 继续保持轻量状态码；`asset_build_result` 只服务于
+  `asset_manager` 构建这种多阶段流程，携带 `stage`、`index`、`name`、`type`、`guid` 和
+  `reasons` 等上下文。
 - 手动 `bind_source(name, source)` 绑定的外部 source、手动 `register_type(cache, loader, type)`
   注册的外部 cache/loader、source/type factory 注册表会跨 `build()` 保留。`asset_manager`
   会在清理配置创建的 type runtime 后重新把手动 type binding 注册回内部 database。

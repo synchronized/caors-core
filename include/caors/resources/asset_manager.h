@@ -17,10 +17,95 @@
 #include "caors/resources/source.h"
 
 #include <cstddef>
+#include <limits>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 
 namespace caors::resources {
+
+/** @brief asset_manager 构建失败所在阶段。 */
+enum class asset_build_stage {
+  none,
+  clear_runtime,
+  source,
+  resource_type,
+  resource,
+  dependency,
+};
+
+/** @brief 资源配置 factory option 字段期望的数据形态。 */
+enum class factory_option_kind {
+  any,
+  boolean,
+  signed_integer,
+  unsigned_integer,
+  floating,
+  string,
+  array,
+  dictionary,
+  object,
+};
+
+/** @brief source/type factory 支持的单个 option 字段描述。 */
+struct factory_option_field {
+  core::string_name name{};
+  factory_option_kind kind = factory_option_kind::any;
+  bool required = false;
+};
+
+/** @brief source/type factory 的轻量 option schema。 */
+struct factory_option_schema {
+  using field_list = core::vector<factory_option_field>;
+
+  explicit factory_option_schema(memory_resource* resource = nullptr)
+      : fields(typename field_list::allocator_type{resource}) {}
+
+  /** @brief 增加必填 option 字段。 */
+  factory_option_schema& require(core::string_name name,
+                                 factory_option_kind kind = factory_option_kind::any) {
+    fields.push_back(factory_option_field{name, kind, true});
+    return *this;
+  }
+
+  /** @brief 增加可选 option 字段。 */
+  factory_option_schema& optional(core::string_name name,
+                                  factory_option_kind kind = factory_option_kind::any) {
+    fields.push_back(factory_option_field{name, kind, false});
+    return *this;
+  }
+
+  /** @brief 是否允许 schema 未声明的 option 字段。 */
+  bool allow_unknown = true;
+  field_list fields;
+};
+
+/** @brief asset_manager 构建结果和诊断信息。 */
+struct asset_build_result {
+  using reason_list = core::vector<core::string>;
+  static constexpr std::size_t npos = std::numeric_limits<std::size_t>::max();
+
+  explicit asset_build_result(memory_resource* resource = nullptr)
+      : reasons(typename reason_list::allocator_type{resource}) {}
+
+  [[nodiscard]] bool succeeded() const noexcept { return !status; }
+  [[nodiscard]] bool failed() const noexcept { return status.failed(); }
+
+  /** @brief 追加一条可读诊断原因。 */
+  void add_reason(std::string_view reason) {
+    core::string text{allocator<char>{reasons.get_allocator().resource()}};
+    text.assign(reason.begin(), reason.end());
+    reasons.push_back(std::move(text));
+  }
+
+  error status{};
+  asset_build_stage stage = asset_build_stage::none;
+  std::size_t index = npos;
+  core::string_name name{};
+  core::string_name type{};
+  resource_guid guid{};
+  reason_list reasons;
+};
 
 /**
  * @brief 拥有式资源运行期外壳。
@@ -56,13 +141,17 @@ public:
     using create_fn = error (*)(source_factory_context& context,
                                 const project_source_config& config, void* user_data);
 
-    constexpr source_factory_ops() noexcept = default;
-    constexpr source_factory_ops(create_fn value, void* data = nullptr) noexcept
+    source_factory_ops() = default;
+    source_factory_ops(create_fn value, void* data = nullptr)
         : create(value), user_data(data) {}
+    source_factory_ops(create_fn value, void* data, factory_option_schema option_schema)
+        : create(value), user_data(data), schema(std::move(option_schema)) {}
 
     create_fn create = nullptr;
     /** @brief 传给 create 的外部状态；asset_manager 不拥有它。 */
     void* user_data = nullptr;
+    /** @brief 该 source factory 接受的 options 形态。 */
+    factory_option_schema schema{};
 
     [[nodiscard]] constexpr bool valid() const noexcept { return create != nullptr; }
     [[nodiscard]] error operator()(asset_manager& manager,
@@ -77,13 +166,17 @@ public:
     using create_fn = error (*)(type_factory_context& context,
                                 const project_resource_type_config& config, void* user_data);
 
-    constexpr type_factory_ops() noexcept = default;
-    constexpr type_factory_ops(create_fn value, void* data = nullptr) noexcept
+    type_factory_ops() = default;
+    type_factory_ops(create_fn value, void* data = nullptr)
         : create(value), user_data(data) {}
+    type_factory_ops(create_fn value, void* data, factory_option_schema option_schema)
+        : create(value), user_data(data), schema(std::move(option_schema)) {}
 
     create_fn create = nullptr;
     /** @brief 传给 create 的外部状态；asset_manager 不拥有它。 */
     void* user_data = nullptr;
+    /** @brief 该 type factory 接受的 options 形态。 */
+    factory_option_schema schema{};
 
     [[nodiscard]] constexpr bool valid() const noexcept { return create != nullptr; }
     [[nodiscard]] error operator()(asset_manager& manager,
@@ -145,6 +238,19 @@ public:
                                               void* user_data = nullptr) {
     return register_source_factory(type, source_factory_ops{create, user_data});
   }
+  /** @brief 注册带 option schema 且无外部状态的 source 策略构造函数。 */
+  [[nodiscard]] error register_source_factory(core::string_name type,
+                                              source_factory_ops::create_fn create,
+                                              factory_option_schema schema) {
+    return register_source_factory(type, source_factory_ops{create, nullptr, std::move(schema)});
+  }
+  /** @brief 注册带 option schema 的 source 策略构造函数。 */
+  [[nodiscard]] error register_source_factory(core::string_name type,
+                                              source_factory_ops::create_fn create,
+                                              void* user_data,
+                                              factory_option_schema schema) {
+    return register_source_factory(type, source_factory_ops{create, user_data, std::move(schema)});
+  }
 
   /** @brief 注册 manifest 资源类型到运行期 cache/loader 构造函数。 */
   [[nodiscard]] error register_type_factory(core::string_name resource_type,
@@ -154,6 +260,21 @@ public:
                                             type_factory_ops::create_fn create,
                                             void* user_data = nullptr) {
     return register_type_factory(resource_type, type_factory_ops{create, user_data});
+  }
+  /** @brief 注册带 option schema 且无外部状态的 manifest 资源类型构造函数。 */
+  [[nodiscard]] error register_type_factory(core::string_name resource_type,
+                                            type_factory_ops::create_fn create,
+                                            factory_option_schema schema) {
+    return register_type_factory(resource_type,
+                                 type_factory_ops{create, nullptr, std::move(schema)});
+  }
+  /** @brief 注册带 option schema 的 manifest 资源类型构造函数。 */
+  [[nodiscard]] error register_type_factory(core::string_name resource_type,
+                                            type_factory_ops::create_fn create,
+                                            void* user_data,
+                                            factory_option_schema schema) {
+    return register_type_factory(resource_type,
+                                 type_factory_ops{create, user_data, std::move(schema)});
   }
 
   /**
@@ -169,6 +290,17 @@ public:
                                  type_factory_ops{&asset_manager::default_type_factory<T>});
   }
 
+  /** @brief 注册带 option schema 的默认资源类型工厂。 */
+  template <typename T>
+  [[nodiscard]] error register_type_factory(core::string_name resource_type,
+                                            factory_option_schema schema) {
+    static_assert(std::is_base_of_v<resources::resource, T>,
+                  "T must derive from caors::resources::resource");
+    return register_type_factory(
+        resource_type, type_factory_ops{&asset_manager::default_type_factory<T>, nullptr,
+                                        std::move(schema)});
+  }
+
   /**
    * @brief 根据工程配置重建 manifest、provider 和 dependency graph。
    *
@@ -177,6 +309,13 @@ public:
    * 的外部绑定会保留。
    */
   [[nodiscard]] error build(const project_config& config);
+
+  /**
+   * @brief 根据工程配置重建运行期资源环境，并返回详细诊断。
+   *
+   * 普通调用可以继续使用 `build()`。工具链、编辑器和测试需要定位失败阶段时使用该入口。
+   */
+  [[nodiscard]] asset_build_result build_detailed(const project_config& config);
 
   /** @brief 同时注册某个资源类型的 cache、loader 和 manifest type。 */
   template <typename T>
@@ -426,8 +565,10 @@ private:
 
   [[nodiscard]] error clear_config_runtime();
   [[nodiscard]] error rebuild_manual_type_bindings();
-  [[nodiscard]] error ensure_source_from_config(const project_source_config& config);
-  [[nodiscard]] error ensure_type_from_config(const project_resource_type_config& config);
+  [[nodiscard]] error ensure_source_from_config(const project_source_config& config,
+                                                core::string* reason = nullptr);
+  [[nodiscard]] error ensure_type_from_config(const project_resource_type_config& config,
+                                              core::string* reason = nullptr);
   [[nodiscard]] error register_builtin_source_factories();
   [[nodiscard]] static error make_memory_file_source(source_factory_context& context,
                                                      const project_source_config& config,
