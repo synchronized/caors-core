@@ -242,26 +242,49 @@ database.register_type(material_cache, material_loader, material_type);
 caors::resources::preload_result result = database.preload(material_id);
 ```
 
+如果外部资源数据库使用另一套类型 token，可以把外部 token 映射到已有 manifest type：
+
+```cpp
+caors::string_name editor_texture_type{"editor.texture"};
+
+database.register_type(texture_cache, texture_loader, texture_type);
+database.bind_resource_type_alias(editor_texture_type, texture_type);
+
+manifest.bind(texture_id, "textures/albedo.json", editor_texture_type);
+```
+
+如果 manifest type 直接保存稳定 `type_guid` 的字符串形式，可以把对应 GUID 绑定到资源类型：
+
+```cpp
+caors::type_guid texture_guid{...};
+caors::string_name texture_guid_token{texture_guid.value.string()};
+
+database.register_type(texture_cache, texture_loader, texture_guid);
+manifest.bind(texture_id, "textures/albedo.json", texture_guid_token);
+```
+
 当前语义：
 
 - `plan_preload<T>(root)` 从 `root` 出发遍历依赖闭包，生成依赖优先的 `load_order`。
 - `plan_preload(root)` 要求 database 已设置 manifest，会从每个 manifest 条目读取 `type` 并按
-  `register_type(cache, loader, type)` 绑定分派。
+  `register_type(cache, loader, type)`、`bind_resource_type_alias()` 或 `register_type(cache, loader, type_guid)`
+  绑定分派。
 - `load_order` 和 `already_loaded` 保存 `resource_preload_item{guid, type}`，跨类型预加载时 type
-  就是 manifest type。
+  就是 manifest 中保存的原始 type token。
 - 已经在对应已注册 cache 中的资源会进入 `already_loaded`，不会重复加载。
 - 如果 database 设置了 manifest，缺失清单条目会进入 `missing_manifest`，计划返回
   `resources / not_found`。
 - 如果 manifest 条目缺失 type，会进入 `missing_type`，计划返回 `resources / missing_type`。
-- 如果 manifest type 没有对应 cache 或 loader，会进入 `missing_cache` / `missing_loader`，计划返回
-  `resources / not_found`。
+- 如果 manifest type、外部 alias 或 type_guid token 没有对应 cache 或 loader，会进入
+  `missing_cache` / `missing_loader`，计划返回 `resources / not_found`。
 - 如果依赖闭包中存在环，`cycle` 保存一个闭合路径，计划返回 `resources / cycle_detected`。
 - `preload<T>(root)` 会先生成计划，再按 `load_order` 调用已注册 `loader<T>` 和 `cache<T>`。
 - `preload(root)` 会先生成跨类型计划，再逐项按 manifest type 分派到对应 loader/cache。
 
 当前限制：
 
-- 跨类型入口只按 manifest `type` 分派，不会按 `type_guid` 或外部资源数据库自动选择资源类型。
+- 跨类型入口只解析 manifest `type` 中已经存在的 token；外部资源数据库需要先把自己的类型 token
+  显式绑定到 CAORS 资源类型，不会自动访问外部数据库。
 - 不会自动递归解析对象、场景或资源包层级的依赖；这些能力后续建立在当前计划结构之上。
 
 ## 异步加载请求
@@ -625,6 +648,8 @@ auto resolver = database.resolver();
   provider。
 - `register_cache<T>()` / `register_loader<T>()` / `register_type<T>()`：按已注册 meta 类型挂接类型化
   cache 和 loader。
+- `bind_resource_type_alias()` / `bind_resource_type_guid()`：把外部类型 token 或稳定 type_guid 映射到已注册
+  cache/loader，供跨类型预加载分派使用。
 - `load<T>(guid)` / `load_handle<T>(guid)`：通过已注册 loader 加载资源并转入对应 cache。
 - `reload<T>(guid)` / `reload_handle<T>(guid)`：重新加载并替换对应 cache 中已有资源；失败时仍保留旧资源。
 - `find<T>(guid)` / `find(guid)`：查询已注册 cache 中的资源。

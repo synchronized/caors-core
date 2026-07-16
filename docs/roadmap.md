@@ -264,7 +264,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 提供 `resources::reload_handle_into()` 和 `cache<T>::replace()`，支持同步重载成功替换、失败保留旧资源。
 - [ ] 实现资源包、远程资源或异步 loader/saver 后端。
 - [x] 扩展 `resources::database` 的同步预加载类型选择策略，支持按 manifest type 分派到匹配 loader/cache。
-- [ ] 扩展 `resources::database` 的资源类型选择策略，后续支持按 type_guid 或外部资源数据库选择匹配
+- [x] 扩展 `resources::database` 的资源类型选择策略，支持按 type_guid 或外部资源数据库 token 选择匹配
   loader/cache。
 - [x] 设计 Godot 风格的异步资源加载 API：`request_load<T>()` / `request_reload<T>()` 提交后台任务，
   `load_request` 保存 queued/loading/loaded/failed/cancelled 状态、错误和结果 handle，调用方跨帧查询状态后再获取结果。

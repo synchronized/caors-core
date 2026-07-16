@@ -4,6 +4,7 @@
 #ifndef CAORS_RESOURCES_DATABASE_H_
 #define CAORS_RESOURCES_DATABASE_H_
 
+#include "caors/core/type_guid.h"
 #include "caors/resources/async.h"
 #include "caors/resources/dependency_graph.h"
 #include "caors/resources/detail/type_entry_ops.h"
@@ -13,6 +14,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <type_traits>
 
 namespace caors::resources {
@@ -29,7 +31,8 @@ public:
   explicit database(memory_resource* resource = nullptr)
       : resource_(resource != nullptr ? resource : get_default_memory_resource()),
         entries_(typename entry_map::allocator_type{resource_}),
-        entries_by_resource_type_(typename resource_type_map::allocator_type{resource_}) {}
+        entries_by_resource_type_(typename resource_type_map::allocator_type{resource_}),
+        entries_by_type_guid_(typename type_guid_map::allocator_type{resource_}) {}
 
   database(const database&) = delete;
   database& operator=(const database&) = delete;
@@ -122,6 +125,17 @@ public:
     return bind_resource_type<T>(resource_type);
   }
 
+  /** @brief 注册某个资源类型的拥有式 cache，并绑定稳定 type_guid。 */
+  template <typename T>
+  [[nodiscard]] error register_cache(resources::cache<T>& target, type_guid guid) {
+    error status = register_cache(target);
+    if (status) {
+      return status;
+    }
+
+    return bind_type_guid<T>(guid);
+  }
+
   /** @brief 注册某个资源类型的加载器。 */
   template <typename T> [[nodiscard]] error register_loader(resources::loader<T>& source) {
     static_assert(std::is_base_of_v<resources::resource, T>,
@@ -155,6 +169,17 @@ public:
     return bind_resource_type<T>(resource_type);
   }
 
+  /** @brief 注册某个资源类型的加载器，并绑定稳定 type_guid。 */
+  template <typename T>
+  [[nodiscard]] error register_loader(resources::loader<T>& source, type_guid guid) {
+    error status = register_loader(source);
+    if (status) {
+      return status;
+    }
+
+    return bind_type_guid<T>(guid);
+  }
+
   /** @brief 同时注册某个资源类型的 cache 和 loader。 */
   template <typename T>
   [[nodiscard]] error register_type(resources::cache<T>& target, resources::loader<T>& source) {
@@ -176,6 +201,81 @@ public:
     }
 
     return bind_resource_type<T>(resource_type);
+  }
+
+  /** @brief 同时注册某个资源类型的 cache、loader 和稳定 type_guid。 */
+  template <typename T>
+  [[nodiscard]] error register_type(resources::cache<T>& target, resources::loader<T>& source,
+                                    type_guid guid) {
+    error status = register_type(target, source);
+    if (status) {
+      return status;
+    }
+
+    return bind_type_guid<T>(guid);
+  }
+
+  /**
+   * @brief 把外部资源数据库中的类型 token 绑定到已有 manifest type。
+   *
+   * 该入口不会创建 cache 或 loader，只让跨类型预加载在读取到 `alias` 时复用
+   * `resource_type` 对应的已注册资源类型。
+   */
+  [[nodiscard]] error bind_resource_type_alias(core::string_name alias,
+                                               core::string_name resource_type) {
+    if (!alias || !resource_type) {
+      return {error_domain::resources, errc::invalid_argument};
+    }
+
+    const type_entry* entry = find_entry(resource_type);
+    if (entry == nullptr || !entry->id) {
+      return {error_domain::resources, errc::not_found};
+    }
+
+    const auto position = entries_by_resource_type_.find(alias);
+    if (position != entries_by_resource_type_.end() && position->second != entry->id.value()) {
+      return {error_domain::resources, errc::already_exists};
+    }
+
+    entries_by_resource_type_[alias] = entry->id.value();
+    return {};
+  }
+
+  /**
+   * @brief 把稳定 type_guid 绑定到已有 manifest type。
+   *
+   * manifest 条目的 `type` 可以保存该 GUID 的字符串形式，跨类型预加载会自动解析并找到对应
+   * cache/loader。
+   */
+  [[nodiscard]] error bind_resource_type_guid(type_guid guid, core::string_name resource_type) {
+    if (!guid || !resource_type) {
+      return {error_domain::resources, errc::invalid_argument};
+    }
+
+    type_entry* entry = find_entry(resource_type);
+    if (entry == nullptr || !entry->id) {
+      return {error_domain::resources, errc::not_found};
+    }
+
+    return bind_entry_type_guid(*entry, guid);
+  }
+
+  /** @brief 把指定 C++ 资源类型绑定到稳定 type_guid。 */
+  template <typename T> [[nodiscard]] error bind_type_guid(type_guid guid) {
+    static_assert(std::is_base_of_v<resources::resource, T>,
+                  "T must derive from caors::resources::resource");
+
+    if (!guid) {
+      return {error_domain::resources, errc::invalid_argument};
+    }
+
+    type_entry* entry = nullptr;
+    const error status = ensure_entry<T>(entry);
+    if (status) {
+      return status;
+    }
+
+    return bind_entry_type_guid(*entry, guid);
   }
 
   /** @brief 按资源类型和 GUID 查询已缓存资源。 */
@@ -580,6 +680,12 @@ private:
 
   using entry_map = core::hash_map<std::uint64_t, type_entry>;
   using resource_type_map = core::hash_map<core::string_name, std::uint64_t>;
+  struct type_guid_hash {
+    [[nodiscard]] std::size_t operator()(type_guid guid) const noexcept {
+      return core::guid_hash{}(guid.value);
+    }
+  };
+  using type_guid_map = core::hash_map<type_guid, std::uint64_t, type_guid_hash>;
 
   template <typename T> [[nodiscard]] error ensure_entry(type_entry*& entry) {
     const type_id id = meta::id_of<T>();
@@ -637,6 +743,20 @@ private:
     return {};
   }
 
+  [[nodiscard]] error bind_entry_type_guid(type_entry& entry, type_guid guid) {
+    if (!guid || !entry.id) {
+      return {error_domain::resources, errc::invalid_argument};
+    }
+
+    const auto position = entries_by_type_guid_.find(guid);
+    if (position != entries_by_type_guid_.end() && position->second != entry.id.value()) {
+      return {error_domain::resources, errc::already_exists};
+    }
+
+    entries_by_type_guid_[guid] = entry.id.value();
+    return {};
+  }
+
   template <typename T> [[nodiscard]] type_entry* find_entry() {
     const type_id id = meta::id_of<T>();
     if (!id) {
@@ -664,7 +784,8 @@ private:
 
     const auto type_position = entries_by_resource_type_.find(resource_type);
     if (type_position == entries_by_resource_type_.end()) {
-      return nullptr;
+      const std::optional<core::guid> parsed = core::guid::parse(resource_type.view());
+      return parsed ? find_entry(type_guid{*parsed}) : nullptr;
     }
 
     const auto position = entries_.find(type_position->second);
@@ -678,6 +799,35 @@ private:
 
     const auto type_position = entries_by_resource_type_.find(resource_type);
     if (type_position == entries_by_resource_type_.end()) {
+      const std::optional<core::guid> parsed = core::guid::parse(resource_type.view());
+      return parsed ? find_entry(type_guid{*parsed}) : nullptr;
+    }
+
+    const auto position = entries_.find(type_position->second);
+    return position != entries_.end() ? &position->second : nullptr;
+  }
+
+  [[nodiscard]] type_entry* find_entry(type_guid guid) {
+    if (!guid) {
+      return nullptr;
+    }
+
+    const auto type_position = entries_by_type_guid_.find(guid);
+    if (type_position == entries_by_type_guid_.end()) {
+      return nullptr;
+    }
+
+    const auto position = entries_.find(type_position->second);
+    return position != entries_.end() ? &position->second : nullptr;
+  }
+
+  [[nodiscard]] const type_entry* find_entry(type_guid guid) const {
+    if (!guid) {
+      return nullptr;
+    }
+
+    const auto type_position = entries_by_type_guid_.find(guid);
+    if (type_position == entries_by_type_guid_.end()) {
       return nullptr;
     }
 
@@ -870,6 +1020,7 @@ private:
   resources::dependency_graph* dependency_graph_ = nullptr;
   entry_map entries_;
   resource_type_map entries_by_resource_type_;
+  type_guid_map entries_by_type_guid_;
 };
 
 } // namespace caors::resources

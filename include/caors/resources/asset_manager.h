@@ -62,6 +62,8 @@ public:
   };
 
   explicit asset_manager(memory_resource* resource = nullptr);
+  /** @brief 按安全顺序释放内部运行期绑定和由 asset_manager 创建的对象。 */
+  ~asset_manager();
 
   asset_manager(const asset_manager&) = delete;
   asset_manager& operator=(const asset_manager&) = delete;

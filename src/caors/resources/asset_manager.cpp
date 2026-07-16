@@ -93,6 +93,15 @@ asset_manager::asset_manager(memory_resource* resource)
   (void)register_builtin_source_factories();
 }
 
+asset_manager::~asset_manager() {
+  provider_.clear();
+  sources_.clear();
+  type_factories_.clear();
+  source_factories_.clear();
+  owned_types_.clear();
+  owned_objects_.clear();
+}
+
 error asset_manager::bind_source(core::string_name name, resources::source& source) {
   if (!name) {
     return {error_domain::resources, errc::invalid_argument};

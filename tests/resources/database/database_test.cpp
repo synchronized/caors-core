@@ -13,6 +13,10 @@ constexpr caors::resource_guid test_guid_c{caors::guid::from_bytes(
     caors::guid::byte_array{0x9d, 0xe1, 0x08, 0x75, 0xa1, 0x63, 0x4b, 0x8d, 0x9c, 0x28, 0x5b, 0x28,
                             0x57, 0x49, 0x86, 0x92})};
 
+constexpr caors::type_guid texture_stable_type_guid{caors::guid::from_bytes(
+    caors::guid::byte_array{0xc5, 0x19, 0xf3, 0xa7, 0x2d, 0x9a, 0x45, 0x24, 0x84, 0x7e, 0x92, 0x2e,
+                            0x98, 0x53, 0x8c, 0x11})};
+
 [[nodiscard]] caors::string_name texture_manifest_type() {
   return caors::string_name{"caors.test.resources.texture"};
 }
@@ -305,6 +309,61 @@ TEST_CASE("resources - database preload dispatches by manifest type", "[resource
   CHECK(contains_item(loaded_again.plan.already_loaded, test_guid_a, material_manifest_type()));
   CHECK(texture_loader.load_count == 1);
   CHECK(material_loader.load_count == 1);
+}
+
+TEST_CASE("resources - database preload dispatches by external manifest type alias",
+          "[resources]") {
+  require_texture_resource_type();
+
+  const caors::string_name external_texture_type{"external.texture"};
+
+  caors::resource_manifest manifest;
+  REQUIRE(manifest.bind(test_guid_a, "assets/texture.json", external_texture_type).succeeded());
+
+  caors::resource_cache<texture_resource> cache;
+  counting_texture_loader loader;
+
+  caors::resource_database database;
+  database.set_manifest(manifest);
+  REQUIRE(database.register_type(cache, loader, texture_manifest_type()).succeeded());
+  REQUIRE(database.bind_resource_type_alias(external_texture_type, texture_manifest_type())
+              .succeeded());
+
+  caors::resources::preload_plan plan = database.plan_preload(test_guid_a);
+  REQUIRE(plan.succeeded());
+  REQUIRE(plan.load_order.size() == 1);
+  CHECK(plan.load_order[0] == caors::resources::preload_item{test_guid_a, external_texture_type});
+
+  caors::resources::preload_result loaded = database.preload(test_guid_a);
+  REQUIRE(loaded.succeeded());
+  CHECK(loader.load_count == 1);
+  CHECK(cache.contains(test_guid_a));
+}
+
+TEST_CASE("resources - database preload dispatches by manifest type guid token", "[resources]") {
+  require_texture_resource_type();
+
+  const caors::string_name type_guid_token{texture_stable_type_guid.value.string()};
+
+  caors::resource_manifest manifest;
+  REQUIRE(manifest.bind(test_guid_a, "assets/texture.json", type_guid_token).succeeded());
+
+  caors::resource_cache<texture_resource> cache;
+  counting_texture_loader loader;
+
+  caors::resource_database database;
+  database.set_manifest(manifest);
+  REQUIRE(database.register_type(cache, loader, texture_stable_type_guid).succeeded());
+
+  caors::resources::preload_plan plan = database.plan_preload(test_guid_a);
+  REQUIRE(plan.succeeded());
+  REQUIRE(plan.load_order.size() == 1);
+  CHECK(plan.load_order[0] == caors::resources::preload_item{test_guid_a, type_guid_token});
+
+  caors::resources::preload_result loaded = database.preload(test_guid_a);
+  REQUIRE(loaded.succeeded());
+  CHECK(loader.load_count == 1);
+  CHECK(cache.contains(test_guid_a));
 }
 
 TEST_CASE("resources - database dispatched preload reports missing manifest type", "[resources]") {
