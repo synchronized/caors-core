@@ -315,7 +315,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   实现固定线程池，支持安全停止和析构前 drain / cancel 边界。
 - [x] 提供轻量 move-only task wrapper，避免把任务系统核心 API 绑定到 `std::function` 的可拷贝要求。
 - [x] 提供 `tasks::completion_queue` 主线程回调队列，用于后台任务完成后把结果交给主线程 commit。
-- [ ] 定义基础任务状态和结果语义，先覆盖 queued/running/completed/failed/cancelled，后续再评估进度、优先级和取消传播。
+- [x] 定义基础任务状态和结果语义，提供 `tasks::request` / `submit_request()`，覆盖
+  queued/running/completed/failed/cancelled；进度、优先级、阻塞等待和取消传播后续再评估。
 - [ ] 明确任务调度边界：第一阶段不做 work stealing、fiber、协程 scheduler、任务图和平台异步 IO；这些能力后续按需求评估。
 
 ## 8. 事件与委托
