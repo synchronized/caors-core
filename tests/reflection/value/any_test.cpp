@@ -223,7 +223,7 @@ TEST_CASE("reflection any_ref - creates descriptor views for unregistered nested
   REQUIRE(reference.valid());
   CHECK(reference.get_type().name() == "std.vector<std.vector<int>>");
 
-  caors::meta::sequence_view outer = reference.get_capability<caors::meta::sequence_view>();
+  caors::meta::sequence_view outer = reference.get_capability<caors::meta::sequence_capability>();
   REQUIRE(outer.valid());
   CHECK(outer.writable());
   CHECK(static_cast<bool>(outer.get_value_type().id()));
@@ -234,7 +234,7 @@ TEST_CASE("reflection any_ref - creates descriptor views for unregistered nested
 
   caors::any_ref first_row = outer.element_ref(0);
   REQUIRE(first_row.valid());
-  caors::meta::sequence_view inner = first_row.get_capability<caors::meta::sequence_view>();
+  caors::meta::sequence_view inner = first_row.get_capability<caors::meta::sequence_capability>();
   REQUIRE(inner.valid());
   CHECK(inner.get_value_type().id() == caors::any::from(0).get_type().id());
 
@@ -282,13 +282,13 @@ TEST_CASE("reflection any - descriptor fields do not require container type regi
 
   unregistered_nested_vector_holder holder{{{1, 2}, {3}}};
   caors::meta::sequence_view outer =
-      values_field.get_ref(&holder).get_capability<caors::meta::sequence_view>();
+      values_field.get_ref(&holder).get_capability<caors::meta::sequence_capability>();
   REQUIRE(outer.valid());
   REQUIRE(outer.size().has_value());
   CHECK(*outer.size() == 2);
 
   caors::meta::sequence_view inner =
-      outer.element_ref(0).get_capability<caors::meta::sequence_view>();
+      outer.element_ref(0).get_capability<caors::meta::sequence_capability>();
   REQUIRE(inner.valid());
   CHECK(inner.get_element_type().id() == caors::any::from(0).get_type().id());
   CHECK(inner.element_ref(0).try_set(5));

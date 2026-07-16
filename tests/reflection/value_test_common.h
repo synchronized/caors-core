@@ -5,7 +5,7 @@
 
 #include "caors/adapters/stl.h"
 #include "caors/memory.h"
-#include "caors/meta/value/capability_view.h"
+#include "caors/meta/value/type_capability.h"
 #include "caors/reflection.h"
 
 #include <catch2/catch_all.hpp>

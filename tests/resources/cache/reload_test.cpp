@@ -63,7 +63,7 @@ TEST_CASE("resources - cache can replace existing resources", "[resources]") {
   CHECK(reload_resource::destroyed == 1);
 }
 
-TEST_CASE("resources - reload_into replaces existing cache entries", "[resources]") {
+TEST_CASE("resources - reload_handle_into replaces existing cache entries", "[resources]") {
   reload_resource::destroyed = 0;
 
   caors::resource_cache<reload_resource> cache;
@@ -78,20 +78,22 @@ TEST_CASE("resources - reload_into replaces existing cache entries", "[resources
   reload_resource_loader loader;
   loader.width = 512;
 
-  caors::result<reload_resource*> reloaded = caors::reload_into(cache, loader, test_guid_a);
+  caors::resource_handle_result<reload_resource> reloaded =
+      caors::reload_handle_into(cache, loader, test_guid_a);
 
   REQUIRE(reloaded.succeeded());
-  REQUIRE(reloaded.value != nullptr);
+  REQUIRE(reloaded.value);
   CHECK(loader.load_count == 1);
-  CHECK(reloaded.value == cache.find(test_guid_a));
+  CHECK(reloaded.value.get() == cache.find(test_guid_a));
   CHECK(reloaded.value->width == 512);
   CHECK(reload_resource::destroyed == 1);
 
   REQUIRE(cache.resolve(reference));
-  CHECK(reference.get() == reloaded.value);
+  CHECK(reference.get() == reloaded.value.get());
 }
 
-TEST_CASE("resources - reload_into keeps old cache entry when loading fails", "[resources]") {
+TEST_CASE("resources - reload_handle_into keeps old cache entry when loading fails",
+          "[resources]") {
   reload_resource::destroyed = 0;
 
   caors::resource_cache<reload_resource> cache;
@@ -102,7 +104,8 @@ TEST_CASE("resources - reload_into keeps old cache entry when loading fails", "[
   reload_resource_loader loader;
   loader.status = {caors::error_domain::resources, caors::errc::backend_failure};
 
-  caors::result<reload_resource*> reloaded = caors::reload_into(cache, loader, test_guid_a);
+  caors::resource_handle_result<reload_resource> reloaded =
+      caors::reload_handle_into(cache, loader, test_guid_a);
 
   CHECK(reloaded.failed());
   CHECK(reloaded.status ==
@@ -112,11 +115,13 @@ TEST_CASE("resources - reload_into keeps old cache entry when loading fails", "[
   CHECK(reload_resource::destroyed == 0);
 }
 
-TEST_CASE("resources - reload_into rejects missing and mismatched resources", "[resources]") {
+TEST_CASE("resources - reload_handle_into rejects missing and mismatched resources",
+          "[resources]") {
   caors::resource_cache<reload_resource> cache;
   reload_resource_loader loader;
 
-  caors::result<reload_resource*> missing = caors::reload_into(cache, loader, test_guid_a);
+  caors::resource_handle_result<reload_resource> missing =
+      caors::reload_handle_into(cache, loader, test_guid_a);
   CHECK(missing.failed());
   CHECK(missing.status == caors::error{caors::error_domain::resources, caors::errc::not_found});
 
@@ -127,7 +132,8 @@ TEST_CASE("resources - reload_into rejects missing and mismatched resources", "[
   loader.width = 512;
   loader.forced_guid = test_guid_b;
 
-  caors::result<reload_resource*> mismatched = caors::reload_into(cache, loader, test_guid_a);
+  caors::resource_handle_result<reload_resource> mismatched =
+      caors::reload_handle_into(cache, loader, test_guid_a);
 
   CHECK(mismatched.failed());
   CHECK(mismatched.status ==

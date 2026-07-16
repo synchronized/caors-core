@@ -319,7 +319,7 @@ TEST_CASE("meta - type builder stores owned runtime concept table", "[meta]") {
   CHECK(found->get(&matrix, 1, 0) == 17);
   CHECK(view.get(1, 0) == 17);
 
-  const matrix_view direct_view = matrix_ref.get_capability<matrix_view>();
+  const matrix_view direct_view = matrix_ref.get_capability<matrix_capability>();
   REQUIRE(direct_view);
   CHECK(direct_view.get(1, 0) == 17);
 

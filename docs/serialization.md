@@ -614,7 +614,7 @@ caors::replace_resource_dependencies(graph, material_resource_guid, dependencies
    刷新依赖图。
 3. 按依赖条目中的 `guid` 和声明 `type_id` 查询 manifest 或资源数据库，确定资源位置和 loader。
 4. 通过 `resources::provider` 读取字节，再由匹配的 `resources::loader<T>` 解码资源。
-5. 使用 `resources::load_into(cache, loader, guid)` 把资源放入拥有式 cache。
+5. 使用 `resources::load_handle_into(cache, loader, guid)` 把资源放入拥有式 cache。
 6. 创建 `resources::make_resource_resolver(cache)`，并在后续反序列化 context 中设置
    `resolvers.external_refs.resolver` 和 `resolvers.external_refs.resolution`。
 

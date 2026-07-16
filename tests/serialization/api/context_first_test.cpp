@@ -176,10 +176,11 @@ TEST_CASE("resources - json loader and saver accept context first", "[resources]
 
   caors::resource_json_loader<context_api_resource> loader{context, provider};
   caors::resource_cache<context_api_resource> cache;
-  caors::result<context_api_resource*> loaded = caors::load_into(cache, loader, resource_guid);
+  caors::resource_handle_result<context_api_resource> loaded =
+      caors::load_handle_into(cache, loader, resource_guid);
 
   REQUIRE(loaded.succeeded());
-  REQUIRE(loaded.value != nullptr);
+  REQUIRE(loaded.value);
   CHECK(loaded.value->guid() == resource_guid);
   CHECK(loaded.value->value == 42);
 }

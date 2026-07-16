@@ -12,7 +12,7 @@ namespace caors::resources {
 /**
  * @brief 资源重载通知事件。
  *
- * 事件由 `reload_and_notify()` 在 `reload_into()` 完成后同步发出。成功时 `resource`
+ * 事件由 `reload_and_notify()` 在 `reload_handle_into()` 完成后同步发出。成功时 `resource`
  * 指向 cache 中的新资源；失败时 `resource` 为 `nullptr`，cache 会保留旧资源。
  */
 template <typename T> struct reload_event {
@@ -34,10 +34,10 @@ template <typename T> using reload_signal = events::signal<void(const reload_eve
  * `reload_event<T>` 决定是否重新解析 `resource_ref<T>`、刷新运行期对象或记录诊断信息。
  */
 template <typename T>
-[[nodiscard]] result<T*> reload_and_notify(cache<T>& target, loader<T>& source, resource_guid guid,
-                                           reload_signal<T>& signal) {
-  result<T*> reloaded = reload_into(target, source, guid);
-  reload_event<T> event{guid, reloaded.status, reloaded.value};
+[[nodiscard]] handle_result<T> reload_and_notify(cache<T>& target, loader<T>& source,
+                                                 resource_guid guid, reload_signal<T>& signal) {
+  handle_result<T> reloaded = reload_handle_into(target, source, guid);
+  reload_event<T> event{guid, reloaded.status, reloaded.value.get()};
   signal.emit(event);
   return reloaded;
 }

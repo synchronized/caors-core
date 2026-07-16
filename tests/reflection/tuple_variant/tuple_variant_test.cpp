@@ -6,7 +6,7 @@
 #include "reflection_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
-#include "caors/meta/value/capability_view.h"
+#include "caors/meta/value/type_capability.h"
 
 using namespace test_reflection;
 
@@ -32,7 +32,8 @@ TEST_CASE("reflection - std pair field view exposes first and second values", "[
   CHECK(value.get_value_type().id() == registered_type_id("caors.string"));
 
   pair_holder instance{{7, caors::string{"seven"}}};
-  caors::meta::pair_view pair = value.get_ref(&instance).get_capability<caors::meta::pair_view>();
+  caors::meta::pair_view pair =
+      value.get_ref(&instance).get_capability<caors::meta::pair_capability>();
   REQUIRE(pair.valid());
   CHECK(pair.writable());
   CHECK(pair.get_first_type().id() == registered_type_id("int"));
@@ -55,7 +56,7 @@ TEST_CASE("reflection - std pair field view exposes first and second values", "[
 #include "reflection_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
-#include "caors/meta/value/capability_view.h"
+#include "caors/meta/value/type_capability.h"
 
 using namespace test_reflection;
 
@@ -77,7 +78,7 @@ TEST_CASE("reflection - std tuple field view exposes indexed elements", "[reflec
 
   tuple_holder instance{std::tuple<int, caors::string, float>{7, caors::string{"seven"}, 1.5F}};
   caors::meta::tuple_view tuple =
-      value.get_ref(&instance).get_capability<caors::meta::tuple_view>();
+      value.get_ref(&instance).get_capability<caors::meta::tuple_capability>();
   REQUIRE(tuple.valid());
   CHECK(tuple.writable());
   CHECK(tuple.size() == 3);
@@ -111,7 +112,7 @@ TEST_CASE("reflection - std tuple field view exposes indexed elements", "[reflec
 #include "reflection_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
-#include "caors/meta/value/capability_view.h"
+#include "caors/meta/value/type_capability.h"
 
 using namespace test_reflection;
 
@@ -133,7 +134,7 @@ TEST_CASE("reflection - std variant field view exposes active alternative", "[re
 
   variant_holder instance{std::variant<int, caors::string, float>{7}};
   caors::meta::variant_view variant =
-      value.get_ref(&instance).get_capability<caors::meta::variant_view>();
+      value.get_ref(&instance).get_capability<caors::meta::variant_capability>();
   REQUIRE(variant.valid());
   CHECK(variant.writable());
   CHECK(variant.size() == 3);

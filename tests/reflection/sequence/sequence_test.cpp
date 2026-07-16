@@ -6,7 +6,7 @@
 #include "reflection_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
-#include "caors/meta/value/capability_view.h"
+#include "caors/meta/value/type_capability.h"
 
 using namespace test_reflection;
 
@@ -30,7 +30,7 @@ TEST_CASE("reflection - custom sequence traits expose field view", "[reflection]
 
   custom_sequence_holder instance{};
   caors::meta::sequence_view sequence =
-      values.get_ref(&instance).get_capability<caors::meta::sequence_view>();
+      values.get_ref(&instance).get_capability<caors::meta::sequence_capability>();
   CHECK(sequence.append_value(caors::any::from(21)));
   CHECK(sequence.append_value(caors::any::from(34)));
 
@@ -55,7 +55,7 @@ TEST_CASE("reflection - custom sequence traits expose field view", "[reflection]
 #include "reflection_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
-#include "caors/meta/value/capability_view.h"
+#include "caors/meta/value/type_capability.h"
 
 using namespace test_reflection;
 
@@ -81,7 +81,7 @@ TEST_CASE("reflection - fixed std span field name includes extent", "[reflection
 #include "reflection_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
-#include "caors/meta/value/capability_view.h"
+#include "caors/meta/value/type_capability.h"
 
 using namespace test_reflection;
 
@@ -106,7 +106,7 @@ TEST_CASE("reflection - list field view uses sequence traits", "[reflection]") {
   instance.values.push_back(5);
 
   caors::meta::sequence_view sequence =
-      values.get_ref(&instance).get_capability<caors::meta::sequence_view>();
+      values.get_ref(&instance).get_capability<caors::meta::sequence_capability>();
   CHECK(sequence.valid());
   CHECK(sequence.writable());
 
@@ -127,7 +127,7 @@ TEST_CASE("reflection - list field view uses sequence traits", "[reflection]") {
 #include "reflection_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
-#include "caors/meta/value/capability_view.h"
+#include "caors/meta/value/type_capability.h"
 
 using namespace test_reflection;
 
@@ -154,7 +154,7 @@ TEST_CASE("reflection - sequence field view exposes element metadata", "[reflect
   instance.values.push_back(5);
 
   caors::meta::sequence_view sequence =
-      values.get_ref(&instance).get_capability<caors::meta::sequence_view>();
+      values.get_ref(&instance).get_capability<caors::meta::sequence_capability>();
   CHECK(sequence.valid());
   CHECK(sequence.writable());
   CHECK(sequence.get_value_type().id() == registered_type_id("int"));
@@ -176,7 +176,7 @@ TEST_CASE("reflection - sequence field view exposes element metadata", "[reflect
 
   const vector_holder& readonly_instance = instance;
   caors::meta::sequence_view readonly_sequence =
-      values.get_ref(&readonly_instance).get_capability<caors::meta::sequence_view>();
+      values.get_ref(&readonly_instance).get_capability<caors::meta::sequence_capability>();
   CHECK(readonly_sequence.valid());
   CHECK_FALSE(readonly_sequence.writable());
 
@@ -210,7 +210,7 @@ TEST_CASE("reflection - sequence field view exposes element metadata", "[reflect
 #include "reflection_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
-#include "caors/meta/value/capability_view.h"
+#include "caors/meta/value/type_capability.h"
 
 using namespace test_reflection;
 
@@ -232,7 +232,7 @@ TEST_CASE("reflection - std array field view uses fixed sequence traits", "[refl
 
   array_holder instance{{1, 2, 3}};
   caors::meta::sequence_view sequence =
-      values.get_ref(&instance).get_capability<caors::meta::sequence_view>();
+      values.get_ref(&instance).get_capability<caors::meta::sequence_capability>();
   REQUIRE(sequence.valid());
   CHECK(sequence.writable());
 
@@ -255,7 +255,7 @@ TEST_CASE("reflection - std array field view uses fixed sequence traits", "[refl
 #include "reflection_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
-#include "caors/meta/value/capability_view.h"
+#include "caors/meta/value/type_capability.h"
 
 using namespace test_reflection;
 
@@ -278,7 +278,7 @@ TEST_CASE("reflection - std span field view is borrowed sequence", "[reflection]
   std::array<int, 3> storage{1, 2, 3};
   span_holder instance{std::span<int>{storage}};
   caors::meta::sequence_view sequence =
-      values.get_ref(&instance).get_capability<caors::meta::sequence_view>();
+      values.get_ref(&instance).get_capability<caors::meta::sequence_capability>();
   REQUIRE(sequence.valid());
   CHECK(sequence.writable());
 

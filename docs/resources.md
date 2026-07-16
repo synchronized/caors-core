@@ -124,7 +124,6 @@
 - `caors::resource_reload_signal<T>`
 - `caors::bind_manifest()`
 - `caors::adopt_handle()`
-- `caors::load_into()`
 - `caors::load_handle_into()`
 - `caors::load_manifest()`
 - `caors::load_manifest_json()`
@@ -312,7 +311,7 @@ caors::resource_json_loader<texture> loader{provider};
 caors::tasks::thread_pool_executor executor{2};
 caors::tasks::completion_queue completions;
 
-auto request = caors::request_load_into(cache, loader, texture_id, executor, completions);
+auto request = caors::request_load_handle_into(cache, loader, texture_id, executor, completions);
 
 // 后台任务完成后，在主线程明确时机提交 cache 修改。
 completions.drain();
@@ -544,8 +543,8 @@ if (cache.resolve(reference)) {
 
 需要注意：
 
-- `cache<T>` 内部保存强 handle。`create_handle()`、`find_handle()` 和 `release()` 返回强 handle；
-  `create()`、`find()` 和 `load_into()` 只是返回非拥有裸指针视图。
+- `cache<T>` 内部保存强 handle。`create_handle()`、`find_handle()`、`release()` 和
+  `load_handle_into()` 返回强 handle；`create()` 和 `find()` 只是返回非拥有裸指针视图。
 - `insert()` 可以接收已经构造好的 `memory::unique_ptr<T>` 或 `resource_handle<T>`，适合 loader
   把资源所有权转入缓存。
 - `replace()` 可以替换同 GUID 的已有资源，适合同步 reload 成功后把新资源放入 cache。旧资源会在
@@ -727,8 +726,8 @@ auto resolver = assets.resolver();
 - `resource_ref<T>` 保存稳定 `resource_guid`、可选已解析 `T*` 和运行期 generation，不拥有资源。
 - `resources::cache<T>` 持有资源强 handle，并维护 GUID 到资源指针的索引。
 - `resources::manifest` / `resources::provider` / `resources::loader<T>` 负责定位和重新加载资源内容。
-- `resources::reload_into(cache, loader, guid)` 只负责“重新加载已有资源并替换 cache 中的对象”。
-- `resources::reload_and_notify(cache, loader, guid, signal)` 在 `reload_into()` 之后同步广播
+- `resources::reload_handle_into(cache, loader, guid)` 只负责“重新加载已有资源并替换 cache 中的对象”。
+- `resources::reload_and_notify(cache, loader, guid, signal)` 在 `reload_handle_into()` 之后同步广播
   `reload_event<T>`，让上层决定是否刷新引用或记录错误。
 
 当前方案优点：
@@ -902,8 +901,7 @@ public:
 ```
 
 加载结果使用 `resource_load_result<T>`，内部是 `result<memory::unique_ptr<T>>`。加载器返回所有权后，
-可以通过 `load_handle_into()` 转入 `resources::cache<T>` 并拿到强 handle；如果只需要临时访问，
-也可以使用兼容入口 `load_into()` 返回裸指针：
+可以通过 `load_handle_into()` 转入 `resources::cache<T>` 并拿到强 handle：
 
 ```cpp
 caors::resource_cache<texture> cache;
@@ -911,7 +909,6 @@ texture_loader loader;
 
 caors::resource_handle_result<texture> held =
     caors::load_handle_into(cache, loader, id);
-caors::result<texture*> value = caors::load_into(cache, loader, id);
 ```
 
 保存方向可以使用 `save_from()` 从 cache 取出指定 GUID 的资源并交给 saver：
@@ -921,17 +918,18 @@ texture_saver saver;
 caors::error saved = caors::save_from(cache, saver, id);
 ```
 
-`load_handle_into()` / `load_into()` 的规则：
+`load_handle_into()` 的规则：
 
 - cache 已经有同 GUID 资源时直接返回已有对象，不再次调用 loader。
 - loader 返回的资源如果没有 GUID，会写入请求 GUID。
 - loader 返回的资源如果携带不同 GUID，会返回 `errc::inconsistent_type`。
-- 成功后资源所有权转入 cache。`load_handle_into()` 返回强 handle；`load_into()` 返回非拥有裸指针。
+- 成功后资源所有权转入 cache，`load_handle_into()` 返回强 handle。需要临时指针时可从 handle
+  调用 `.get()`，但调用方不应把该裸指针当成生命周期凭据保存。
 
-`reload_handle_into()` / `reload_into()` 用于同步重载 cache 中已经存在的资源：
+`reload_handle_into()` 用于同步重载 cache 中已经存在的资源：
 
 - GUID 为 nil 时返回 `resources / invalid_argument`。
-- cache 未包含该 GUID 时返回 `resources / not_found`；首次加载应继续使用 `load_into()`。
+- cache 未包含该 GUID 时返回 `resources / not_found`；首次加载应继续使用 `load_handle_into()`。
 - loader 加载失败、返回空指针或返回不同 GUID 时，不修改 cache 中旧资源。
 - 只有新资源完整加载且身份校验通过后，才通过 `cache.replace()` 替换旧资源。
 - 替换成功后 cache 指向新资源；外部旧 `resource_handle<T>` 会继续持有旧资源，直到最后一个强引用释放。
@@ -950,7 +948,7 @@ auto result = caors::reload_and_notify(cache, loader, texture_id, reloaded);
 
 `reload_and_notify()` 的规则：
 
-- 内部先调用 `reload_into()`，然后无论成功或失败都会发出一次 `resource_reload_event<T>`。
+- 内部先调用 `reload_handle_into()`，然后无论成功或失败都会发出一次 `resource_reload_event<T>`。
 - `event.status` 表示本次 reload 结果；`event.succeeded()` 为 true 时 `event.resource` 指向 cache
   中的新资源。
 - 失败时 `event.resource` 为 `nullptr`，cache 中旧资源保持不变。
@@ -982,7 +980,7 @@ caors::save_serialized(context, *loaded_with_context.value, writer);
 ```
 
 `resources::json_loader<T>` 是 provider 到资源对象的第一版桥接。它按 GUID 从 provider 读取 JSON
-字节，再通过 `load_serialized<T>()` 构造资源，可直接配合 `load_into()` 使用：
+字节，再通过 `load_serialized<T>()` 构造资源，可直接配合 `load_handle_into()` 使用：
 
 ```cpp
 caors::resource_file_source source{file_system};
@@ -994,7 +992,7 @@ caors::resource_json_loader<texture> loader{provider};
 caors::resource_json_loader<texture> loader_with_context{context, provider};
 caors::resource_cache<texture> cache;
 
-auto loaded = caors::load_into(cache, loader, texture_id);
+auto loaded = caors::load_handle_into(cache, loader, texture_id);
 ```
 
 推荐同步加载链路是：
@@ -1003,7 +1001,7 @@ auto loaded = caors::load_into(cache, loader, texture_id);
 2. `bind_manifest()` / `sync_manifest()` / `replace_manifest()` 把 manifest 批量绑定到 provider。
 3. `resources::provider` 只负责按 GUID 定位并读取字节。
 4. `resources::loader<T>` 负责把字节解码为资源对象。
-5. `load_into(cache, loader, guid)` 把加载结果转入拥有式 cache。
+5. `load_handle_into(cache, loader, guid)` 把加载结果转入拥有式 cache。
 6. `resources::resource_ref_resolver_ops` 从 manager/cache 查询已加载资源，用于解析 `resource_ref<T>`。
 
 如果对象存档中包含资源引用，推荐在读回前先做一遍依赖收集和预加载：
@@ -1013,7 +1011,7 @@ auto loaded = caors::load_into(cache, loader, texture_id);
    `resources::replace_resource_dependencies(graph, current_resource_guid, dependencies)` 写入依赖图。
 3. 通过 manifest 查找每个 GUID 对应的资源位置、类型和版本信息。
 4. 通过 provider 读取资源字节，并用对应 loader 解码。
-5. 使用 `load_into(cache, loader, guid)` 把资源放入 cache。
+5. 使用 `load_handle_into(cache, loader, guid)` 把资源放入 cache。
 6. 反序列化对象时把 cache resolver 挂到 `context.resolvers.external_refs.resolver`，按
    `resolve_if_present` 或 `require_resolved` 决定缺资源策略。
 
@@ -1021,9 +1019,9 @@ auto loaded = caors::load_into(cache, loader, texture_id);
 
 1. 更新 manifest 条目的 `location`、`hash` 或 `version`。
 2. 使用 `sync_manifest(provider, source, manifest)` 更新 provider 中的 GUID 到位置映射。
-3. 调用 `reload_into(cache, loader, guid)` 或 `reload_and_notify(cache, loader, guid, signal)`
+3. 调用 `reload_handle_into(cache, loader, guid)` 或 `reload_and_notify(cache, loader, guid, signal)`
    重新读取 provider、解码资源并替换 cache 中旧资源。
-4. 如果重载失败，`reload_into()` 保留 cache 中旧资源，调用方可以继续使用旧资源并返回诊断错误。
+4. 如果重载失败，`reload_handle_into()` 保留 cache 中旧资源，调用方可以继续使用旧资源并返回诊断错误。
 5. 替换成功后，可以用 `dependency_graph.affected_by(guid)` 查询直接受影响的资源，或用
    `dependency_graph.affected_closure(guid)` 查询递归受影响的资源。
 6. 调用方需要重新解析相关 `resource_ref<T>`，或在上层系统里发出资源失效/重载通知。

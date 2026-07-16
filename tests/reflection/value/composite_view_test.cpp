@@ -15,7 +15,7 @@ TEST_CASE("reflection any_ref - creates pair views from descriptor values", "[re
   caors::any_ref reference = caors::any_ref::from(value);
   REQUIRE(reference.valid());
 
-  caors::meta::pair_view pair = reference.get_capability<caors::meta::pair_view>();
+  caors::meta::pair_view pair = reference.get_capability<caors::meta::pair_capability>();
   REQUIRE(pair.valid());
   CHECK(pair.writable());
   const caors::type_id int_type = caors::any::from(0).get_type().id();
@@ -51,7 +51,8 @@ TEST_CASE("reflection any_ref - creates sequence views from descriptor span valu
   caors::any_ref reference = caors::any_ref::from(value);
   REQUIRE(reference.valid());
 
-  caors::meta::sequence_view sequence = reference.get_capability<caors::meta::sequence_view>();
+  caors::meta::sequence_view sequence =
+      reference.get_capability<caors::meta::sequence_capability>();
   REQUIRE(sequence.valid());
   CHECK(sequence.writable());
   CHECK(sequence.get_value_type().id() == caors::any::from(0).get_type().id());
@@ -83,7 +84,7 @@ TEST_CASE("reflection any_ref - creates tuple views from descriptor values", "[r
   caors::any_ref reference = caors::any_ref::from(value);
   REQUIRE(reference.valid());
 
-  caors::meta::tuple_view tuple = reference.get_capability<caors::meta::tuple_view>();
+  caors::meta::tuple_view tuple = reference.get_capability<caors::meta::tuple_capability>();
   REQUIRE(tuple.valid());
   CHECK(tuple.writable());
   CHECK(tuple.size() == 3);
@@ -120,7 +121,7 @@ TEST_CASE("reflection any_ref - creates variant views from descriptor values", "
   caors::any_ref reference = caors::any_ref::from(value);
   REQUIRE(reference.valid());
 
-  caors::meta::variant_view variant = reference.get_capability<caors::meta::variant_view>();
+  caors::meta::variant_view variant = reference.get_capability<caors::meta::variant_capability>();
   REQUIRE(variant.valid());
   CHECK(variant.writable());
   CHECK(variant.size() == 2);
@@ -159,7 +160,8 @@ TEST_CASE("reflection any_ref - keeps readonly span views immutable", "[reflecti
   REQUIRE(reference.valid());
   CHECK_FALSE(reference.writable());
 
-  caors::meta::sequence_view sequence = reference.get_capability<caors::meta::sequence_view>();
+  caors::meta::sequence_view sequence =
+      reference.get_capability<caors::meta::sequence_capability>();
   REQUIRE(sequence.valid());
   CHECK_FALSE(sequence.writable());
 

@@ -36,7 +36,7 @@ value_ref_to_serialization_value(const any_ref& value, const serialization::cont
   any_ref field_ref{};
   if (field_uses_inline_indirect_value(field)) {
     const meta::indirect_view indirect =
-        field.get_ref(object).get_capability<meta::indirect_view>();
+        field.get_ref(object).get_capability<meta::indirect_capability>();
     return serialization::detail::make_indirect_serialized_value(indirect, nested_context.value);
   } else {
     field_ref = field.get_ref(object);

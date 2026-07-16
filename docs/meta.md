@@ -318,8 +318,8 @@ descriptor 内部按职责拆分：
   `serialization::codec_capability` 可以直接读写序列化数据。
 - 外部实例访问优先使用绑定后的 `*_view`，例如
   `any_ref.get_capability<meta::sequence_capability>()` 或
-  `any_ref.get_capability<objects::ptr_capability>()`；直接用 `*_view` 查询仍可用于兼容和高级适配。
-  `*_ops` 是 raw ops 函数表，面向高级扩展与内部适配，不作为普通业务代码的首选入口。
+  `any_ref.get_capability<objects::ptr_capability>()`。`*_ops` 是 raw ops 函数表，面向高级扩展与内部适配，
+  不作为普通业务代码的首选入口。
 - `*_fn` 类型别名应尽量嵌套在对应 `*_ops` 内，例如 `value_ops::assign_fn`、
   `factory_ops::construct_fn`、`codec_ops::write_fn` 和 `ptr_ops::get_fn`；除
   `registration_fn` 这类独立回调外，不在模块命名空间顶层继续暴露函数指针别名。
@@ -658,8 +658,7 @@ auto direct_view = caors::meta::any_ref::from(value).get_capability<matrix_capab
 ```
 
 这个 helper 解决的是重复编写 `type_capability_traits<Facade>`、`capability_view_traits<Capability>` 和基础存储的问题。
-直接使用 `any_ref::get_capability<View>()` 仍可用于兼容旧代码或高级适配，但普通 API 应优先传入
-capability 类型。
+实例查询应传入 capability 类型；`any_ref::get_capability<View>()` 这类直接传 view 的旧查询方式不再保留。
 
 推荐优先使用 Proxy 风格的 convention builder。它把“成员名”和“函数签名”分开描述，用户不需要手写
 `ops`、`view`、调用参数名或 model：

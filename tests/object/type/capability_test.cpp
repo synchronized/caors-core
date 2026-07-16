@@ -107,7 +107,7 @@ TEST_CASE("object - descriptor exposes object capabilities", "[object]") {
       pointer_ref.get_type().get_capability<caors::objects::ptr_capability>();
   REQUIRE(pointer_capability);
   CHECK(pointer_capability.bind(pointer_ref));
-  CHECK(pointer_ref.get_capability<caors::objects::ptr_view>());
+  CHECK(pointer_ref.get_capability<caors::objects::ptr_capability>());
 
   caors::typed_object_handle<capability_target> handle{};
   const caors::any_ref handle_ref = caors::any_ref::from(handle);
@@ -116,7 +116,7 @@ TEST_CASE("object - descriptor exposes object capabilities", "[object]") {
       handle_ref.get_type().get_capability<caors::objects::handle_capability>();
   REQUIRE(handle_capability);
   CHECK(handle_capability.bind(handle_ref));
-  CHECK(handle_ref.get_capability<caors::objects::handle_view>());
+  CHECK(handle_ref.get_capability<caors::objects::handle_capability>());
 }
 
 TEST_CASE("object - reflected fields use descriptor object capabilities", "[object]") {
@@ -136,7 +136,7 @@ TEST_CASE("object - reflected fields use descriptor object capabilities", "[obje
   const caors::reflection::field pointer = reflected.find_field("pointer");
   REQUIRE(pointer);
   const caors::objects::ptr_view pointer_view =
-      pointer.get_ref(&owner).get_capability<caors::objects::ptr_view>();
+      pointer.get_ref(&owner).get_capability<caors::objects::ptr_capability>();
   REQUIRE(pointer_view);
   CHECK(pointer_view.set(&target));
   CHECK(owner.pointer.get() == &target);
@@ -146,12 +146,12 @@ TEST_CASE("object - any_ref resolves object capabilities through descriptor", "[
   caors::object_ptr<capability_target> pointer{};
   const caors::any_ref pointer_ref = caors::any_ref::from(pointer);
   const caors::objects::ptr_view pointer_view =
-      pointer_ref.get_capability<caors::objects::ptr_view>();
+      pointer_ref.get_capability<caors::objects::ptr_capability>();
   CHECK(pointer_view);
 
   caors::typed_object_handle<capability_target> handle{};
   const caors::any_ref handle_ref = caors::any_ref::from(handle);
   const caors::objects::handle_view handle_view =
-      handle_ref.get_capability<caors::objects::handle_view>();
+      handle_ref.get_capability<caors::objects::handle_capability>();
   CHECK(handle_view);
 }

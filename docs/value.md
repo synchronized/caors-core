@@ -24,8 +24,7 @@ meta value 提供细粒度头和完整聚合头。细粒度头不再依赖 `any.
 | `caors/meta/value/any_ref.h` | `caors::meta::any_ref`、`caors::any_ref` | 需要引用外部 C++ 对象或反射字段。 |
 | `caors/meta/value/view_factory.h` | 所有具体 view 类型和显式 `make_*_view()` 工厂 | 高级代码或内部适配层需要显式创建具体 view。 |
 | `caors/meta/value/capability_facade.h` | 自定义 capability facade/view 的轻量 helper | 用 `type_capability_base<Ops, View>`、`capability_view_base<Ops>` 和自动 traits 减少样板代码。 |
-| `caors/meta/value/capability_view.h` | `any` / `any_ref` 的 `get_capability<Capability>()` 视图绑定适配 | 推荐的统一运行期视图查询入口。 |
-| `caors/meta/value/type_capability.h` | 类型级 `*_capability` facade | 需要先从 `meta::type` 查询能力，再绑定到具体 `any_ref`。 |
+| `caors/meta/value/type_capability.h` | 类型级 `*_capability` facade 和实例绑定适配 | 需要从 `meta::type` 查询能力，或通过 `any_ref::get_capability<Capability>()` 获取绑定后的 view。 |
 | `caors/meta/value/associative_entry_ref.h` | `associative_entry_ref` | 需要按值使用关联容器迭代条目。 |
 | `caors/meta/value/variant.h` | `caors::meta::variant`、`caors::variant` | 需要序列化 DOM 或数据中间表示。 |
 | `caors/meta/value.h` | meta value 完整公共入口 | 应用层或示例代码需要完整运行期值能力。 |
@@ -58,7 +57,7 @@ ref.try_set(2);
 ```cpp
 #include <caors/core/containers.h>
 #include <caors/meta/value/any_ref.h>
-#include <caors/meta/value/capability_view.h>
+#include <caors/meta/value/type_capability.h>
 
 caors::vector<int> numbers{1, 2, 3};
 caors::any_ref ref = caors::any_ref::from(numbers);
@@ -144,9 +143,9 @@ caors::meta::indirect_view indirect =
 ### 高级用法：显式 view 工厂
 
 `caors::meta::make_sequence_view()`、`make_indirect_view()` 等 `make_*_view()` 函数是显式 view
-工厂，主要服务 capability 绑定、测试边界、自定义 `capability_view_traits` 和高级适配代码。普通用户应优先使用
+工厂，主要服务 capability 绑定、测试边界和高级适配代码。普通用户应优先使用
 `any_ref::get_capability<Capability>()`，这样类型级和实例级查询都使用同一个 capability 入口。
-直接传入 `sequence_view`、`indirect_view` 等 view 类型仍可用于兼容旧代码和高级适配。
+直接把具体 view 类型作为 `get_capability` 模板参数的旧查询方式不再保留。
 
 如果调用方先拿到的是类型视图，可以使用类型级 `*_capability` facade，再把它绑定到具体实例：
 

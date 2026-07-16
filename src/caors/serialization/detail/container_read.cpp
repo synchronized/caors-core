@@ -108,7 +108,7 @@ namespace caors::serialization::detail {
 
 [[nodiscard]] error read_sequence_value(reader& reader, const any_ref& target,
                                         const serialization::context& context) {
-  const meta::sequence_view target_view = target.get_capability<meta::sequence_view>();
+  const meta::sequence_view target_view = target.get_capability<meta::sequence_capability>();
   if (!target_view.can_read()) {
     return {error_domain::serialization, errc::unsupported};
   }
@@ -116,8 +116,8 @@ namespace caors::serialization::detail {
   if (!target_view.read_in_place() && target.assignable()) {
     any decoded = default_construct_for(target, context);
     if (decoded.valid()) {
-      error status =
-          read_sequence_into_view(reader, decoded.get_capability<meta::sequence_view>(), context);
+      error status = read_sequence_into_view(
+          reader, decoded.get_capability<meta::sequence_capability>(), context);
       if (status) {
         return status;
       }
@@ -189,7 +189,8 @@ namespace caors::serialization::detail {
   if (target.assignable()) {
     any decoded = default_construct_for(target, context);
     if (decoded.valid()) {
-      error status = read_set_into_view(reader, decoded.get_capability<meta::set_view>(), context);
+      error status =
+          read_set_into_view(reader, decoded.get_capability<meta::set_capability>(), context);
       if (status) {
         return status;
       }
@@ -202,7 +203,7 @@ namespace caors::serialization::detail {
     }
   }
 
-  return read_set_into_view(reader, target.get_capability<meta::set_view>(), context);
+  return read_set_into_view(reader, target.get_capability<meta::set_capability>(), context);
 }
 
 [[nodiscard]] error read_associative_into_view(reader& reader, const meta::associative_view& view,
@@ -289,7 +290,7 @@ namespace caors::serialization::detail {
     any decoded = default_construct_for(target, context);
     if (decoded.valid()) {
       error status = read_associative_into_view(
-          reader, decoded.get_capability<meta::associative_view>(), context);
+          reader, decoded.get_capability<meta::associative_capability>(), context);
       if (status) {
         return status;
       }
@@ -302,7 +303,7 @@ namespace caors::serialization::detail {
     }
   }
 
-  return read_associative_into_view(reader, target.get_capability<meta::associative_view>(),
+  return read_associative_into_view(reader, target.get_capability<meta::associative_capability>(),
                                     context);
 }
 
@@ -376,7 +377,7 @@ namespace caors::serialization::detail {
     any decoded = default_construct_for(target, context);
     if (decoded.valid()) {
       error status =
-          read_pair_into_view(reader, decoded.get_capability<meta::pair_view>(), context);
+          read_pair_into_view(reader, decoded.get_capability<meta::pair_capability>(), context);
       if (status) {
         return status;
       }
@@ -389,7 +390,7 @@ namespace caors::serialization::detail {
     }
   }
 
-  return read_pair_into_view(reader, target.get_capability<meta::pair_view>(), context);
+  return read_pair_into_view(reader, target.get_capability<meta::pair_capability>(), context);
 }
 
 [[nodiscard]] error read_tuple_into_view(reader& reader, const meta::tuple_view& view,
@@ -444,7 +445,7 @@ namespace caors::serialization::detail {
     any decoded = default_construct_for(target, context);
     if (decoded.valid()) {
       error status =
-          read_tuple_into_view(reader, decoded.get_capability<meta::tuple_view>(), context);
+          read_tuple_into_view(reader, decoded.get_capability<meta::tuple_capability>(), context);
       if (status) {
         return status;
       }
@@ -457,7 +458,7 @@ namespace caors::serialization::detail {
     }
   }
 
-  return read_tuple_into_view(reader, target.get_capability<meta::tuple_view>(), context);
+  return read_tuple_into_view(reader, target.get_capability<meta::tuple_capability>(), context);
 }
 
 [[nodiscard]] error read_variant_into_view(reader& reader, const meta::variant_view& view,
@@ -555,8 +556,8 @@ namespace caors::serialization::detail {
     }
 
     if (decoded.valid()) {
-      error status =
-          read_variant_into_view(reader, decoded.get_capability<meta::variant_view>(), context);
+      error status = read_variant_into_view(
+          reader, decoded.get_capability<meta::variant_capability>(), context);
       if (status) {
         return status;
       }
@@ -569,7 +570,7 @@ namespace caors::serialization::detail {
     }
   }
 
-  return read_variant_into_view(reader, target.get_capability<meta::variant_view>(), context);
+  return read_variant_into_view(reader, target.get_capability<meta::variant_capability>(), context);
 }
 
 } // namespace caors::serialization::detail

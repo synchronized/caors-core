@@ -23,8 +23,7 @@ template <typename T> using handle_result = result<handle<T>>;
  * @brief 指定资源类型的加载器接口。
  *
  * `loader<T>` 不绑定文件路径、资源包或异步系统。实现类只需要按 GUID 构造资源并返回所有权；
- * 调用方可选择直接持有结果，或通过 `load_handle_into()` / `load_into()` 转入
- * `resources::cache<T>`。
+ * 调用方可选择直接持有结果，或通过 `load_handle_into()` 转入 `resources::cache<T>`。
  */
 template <typename T> class loader {
   static_assert(std::is_base_of_v<resources::resource, T>,
@@ -115,18 +114,6 @@ template <typename T>
 }
 
 /**
- * @brief 使用加载器把资源加载进 cache。
- *
- * 如果 cache 已包含该 GUID，直接返回已有对象。否则调用 loader 加载资源并把所有权转入 cache。
- * 返回值是非拥有裸指针；需要延长资源生命周期时应使用 `load_handle_into()`。
- */
-template <typename T>
-[[nodiscard]] result<T*> load_into(cache<T>& target, loader<T>& source, resource_guid guid) {
-  handle_result<T> loaded = load_handle_into(target, source, guid);
-  return {loaded.status, loaded.value.get()};
-}
-
-/**
  * @brief 重新加载并替换 cache 中已有资源。
  *
  * 该函数只处理已存在资源的同步重载：cache 未包含该 GUID 时返回 `errc::not_found`。加载、解析或
@@ -171,17 +158,6 @@ template <typename T>
   }
 
   return {{}, loaded_handle};
-}
-
-/**
- * @brief 重新加载并替换 cache 中已有资源。
- *
- * 该函数返回非拥有裸指针；需要在 reload 后继续持有新资源时应使用 `reload_handle_into()`。
- */
-template <typename T>
-[[nodiscard]] result<T*> reload_into(cache<T>& target, loader<T>& source, resource_guid guid) {
-  handle_result<T> reloaded = reload_handle_into(target, source, guid);
-  return {reloaded.status, reloaded.value.get()};
 }
 
 /**
@@ -380,12 +356,10 @@ template <typename T> using resource_loader = resources::loader<T>;
 template <typename T> using resource_saver = resources::saver<T>;
 
 using resources::load_handle_into;
-using resources::load_into;
 using resources::load_manifest;
 using resources::load_manifest_json;
 using resources::load_serialized;
 using resources::reload_handle_into;
-using resources::reload_into;
 using resources::save_from;
 using resources::save_serialized;
 

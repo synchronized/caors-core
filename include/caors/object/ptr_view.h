@@ -109,18 +109,4 @@ public:
 
 } // namespace caors::objects
 
-namespace caors::meta {
-
-template <> struct capability_view_traits<objects::ptr_view> {
-  using result_type = objects::ptr_view;
-
-  static constexpr bool supported = true;
-
-  [[nodiscard]] static objects::ptr_view bind(meta::any_ref source) noexcept {
-    return objects::make_ptr_view(source);
-  }
-};
-
-} // namespace caors::meta
-
 #endif

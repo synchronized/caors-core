@@ -28,13 +28,14 @@ TEST_CASE("resources - json loader loads resource through provider", "[resources
   caors::resource_json_loader<serialized_resource> loader{provider};
   caors::resource_cache<serialized_resource> cache;
 
-  caors::result<serialized_resource*> loaded = caors::load_into(cache, loader, test_guid_a);
+  caors::resource_handle_result<serialized_resource> loaded =
+      caors::load_handle_into(cache, loader, test_guid_a);
 
   REQUIRE(loaded.succeeded());
-  REQUIRE(loaded.value != nullptr);
+  REQUIRE(loaded.value);
   CHECK(loaded.value->guid() == test_guid_a);
   CHECK(loaded.value->width == 512);
-  CHECK(cache.find(test_guid_a) == loaded.value);
+  CHECK(cache.find(test_guid_a) == loaded.value.get());
 
   std::filesystem::remove_all(directory, ec);
 }
@@ -128,10 +129,11 @@ TEST_CASE("resources - json saver saves resource through provider", "[resources]
 
   caors::resource_json_loader<serialized_resource> loader{provider};
   caors::resource_cache<serialized_resource> cache;
-  caors::result<serialized_resource*> loaded = caors::load_into(cache, loader, test_guid_a);
+  caors::resource_handle_result<serialized_resource> loaded =
+      caors::load_handle_into(cache, loader, test_guid_a);
 
   REQUIRE(loaded.succeeded());
-  REQUIRE(loaded.value != nullptr);
+  REQUIRE(loaded.value);
   CHECK(loaded.value->guid() == test_guid_a);
   CHECK(loaded.value->width == 640);
 }

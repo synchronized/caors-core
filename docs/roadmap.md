@@ -263,7 +263,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 支持 `resources::provider` 通过可写 source 按 GUID 写回字节，为后续 saver 和热更新回写提供基础。
 - [x] 实现 `resources::json_saver<T>`，打通 `resource -> JSON -> provider -> source` 的同步保存链路。
 - [x] 提供 `resources::save_from()`，把 cache 中指定 GUID 的资源交给 saver 保存。
-- [x] 提供 `resources::reload_into()` 和 `cache<T>::replace()`，支持同步重载成功替换、失败保留旧资源。
+- [x] 提供 `resources::reload_handle_into()` 和 `cache<T>::replace()`，支持同步重载成功替换、失败保留旧资源。
 - [ ] 实现资源包、远程资源或异步 loader/saver 后端。
 - [x] 扩展 `resources::database` 的同步预加载类型选择策略，支持按 manifest type 分派到匹配 loader/cache。
 - [ ] 扩展 `resources::database` 的资源类型选择策略，后续支持按 type_guid 或外部资源数据库选择匹配

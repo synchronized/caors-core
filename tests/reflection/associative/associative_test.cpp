@@ -6,7 +6,7 @@
 #include "reflection_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
-#include "caors/meta/value/capability_view.h"
+#include "caors/meta/value/type_capability.h"
 
 using namespace test_reflection;
 
@@ -37,7 +37,7 @@ TEST_CASE("reflection - associative field view exposes key and value metadata", 
 #include "reflection_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
-#include "caors/meta/value/capability_view.h"
+#include "caors/meta/value/type_capability.h"
 
 using namespace test_reflection;
 
@@ -57,7 +57,7 @@ TEST_CASE("reflection - associative field view supports dynamic operations", "[r
 
   hash_map_ops_holder instance{};
   caors::meta::associative_view map =
-      values.get_ref(&instance).get_capability<caors::meta::associative_view>();
+      values.get_ref(&instance).get_capability<caors::meta::associative_capability>();
   CHECK(map.valid());
   CHECK(map.writable());
   CHECK(map.get_key_type().id() == registered_type_id("int"));
@@ -90,7 +90,7 @@ TEST_CASE("reflection - associative field view supports dynamic operations", "[r
 
   const hash_map_ops_holder& readonly_instance = instance;
   caors::meta::associative_view readonly_map =
-      values.get_ref(&readonly_instance).get_capability<caors::meta::associative_view>();
+      values.get_ref(&readonly_instance).get_capability<caors::meta::associative_capability>();
   CHECK(readonly_map.valid());
   CHECK_FALSE(readonly_map.writable());
   CHECK_FALSE(readonly_map.insert_value(caors::any::from(8), caors::any::from(80)));
@@ -125,7 +125,7 @@ TEST_CASE("reflection - associative field view supports dynamic operations", "[r
 #include "reflection_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
-#include "caors/meta/value/capability_view.h"
+#include "caors/meta/value/type_capability.h"
 
 using namespace test_reflection;
 
@@ -149,7 +149,8 @@ TEST_CASE("reflection - set field view exposes element metadata", "[reflection]"
   CHECK(values.get_element_type().name() == "int");
 
   hash_set_holder instance{};
-  caors::meta::set_view set = values.get_ref(&instance).get_capability<caors::meta::set_view>();
+  caors::meta::set_view set =
+      values.get_ref(&instance).get_capability<caors::meta::set_capability>();
   CHECK(set.valid());
   CHECK(set.writable());
   CHECK(set.get_value_type().id() == registered_type_id("int"));
@@ -174,7 +175,7 @@ TEST_CASE("reflection - set field view exposes element metadata", "[reflection]"
 
   const hash_set_holder& readonly_instance = instance;
   caors::meta::set_view readonly_set =
-      values.get_ref(&readonly_instance).get_capability<caors::meta::set_view>();
+      values.get_ref(&readonly_instance).get_capability<caors::meta::set_capability>();
   CHECK(readonly_set.valid());
   CHECK_FALSE(readonly_set.writable());
   CHECK_FALSE(readonly_set.insert_value(caors::any::from(12)));

@@ -132,53 +132,6 @@ type_capability_base<Ops, View>::bind(any_ref source) const {
   return capability_bind_traits<view_type>::bind(this->type_, this->ops_, source);
 }
 
-/**
- * @brief 类型级 capability facade，负责把类型能力延后绑定到具体 `any_ref`。
- */
-template <typename View>
-class type_capability_view : public type_capability_base<
-                                 typename std::remove_cv_t<std::remove_reference_t<View>>::ops_type,
-                                 std::remove_cv_t<std::remove_reference_t<View>>> {
-public:
-  using view_type = std::remove_cv_t<std::remove_reference_t<View>>;
-  using ops_type = typename view_type::ops_type;
-  using base_type = type_capability_base<ops_type, view_type>;
-
-  type_capability_view() noexcept = default;
-
-  explicit type_capability_view(meta::type type) noexcept : base_type(type) {}
-};
-
-template <typename View>
-struct type_capability_traits<View, std::enable_if_t<detail::is_auto_capability_view_v<View>>> {
-  using result_type = type_capability_view<View>;
-  using view_type = std::remove_cv_t<std::remove_reference_t<View>>;
-  using ops_type = typename view_type::ops_type;
-
-  [[nodiscard]] static result_type get(const type& source) noexcept { return result_type{source}; }
-
-  [[nodiscard]] static const ops_type* get_raw(const type& source) noexcept {
-    return type_capability_traits<ops_type>::get_raw(source);
-  }
-
-  [[nodiscard]] static bool has(const type& source) noexcept { return get(source).valid(); }
-};
-
-template <typename View>
-struct capability_view_traits<View, std::enable_if_t<detail::is_auto_capability_view_v<View>>> {
-  using result_type = std::remove_cv_t<std::remove_reference_t<View>>;
-
-  static constexpr bool supported = true;
-
-  [[nodiscard]] static result_type bind(any_ref source) noexcept {
-    if (!source.valid()) {
-      return {};
-    }
-
-    return type_capability_view<result_type>{source.get_type()}.bind(source);
-  }
-};
-
 template <typename Capability>
 struct capability_view_traits<Capability,
                               std::enable_if_t<detail::is_bindable_type_capability_v<Capability>>> {
