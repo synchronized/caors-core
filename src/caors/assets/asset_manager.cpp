@@ -335,7 +335,9 @@ error asset_manager::register_type_factory(core::string_name resource_type,
   const auto position = type_factories_.find(resource_type);
   if (position != type_factories_.end()) {
     return position->second.create == factory.create &&
-                   position->second.user_data == factory.user_data
+                   position->second.user_data == factory.user_data &&
+                   position->second.cache_strategy == factory.cache_strategy &&
+                   position->second.loader_strategy == factory.loader_strategy
                ? error{}
                : error{error_domain::resources, errc::already_exists};
   }

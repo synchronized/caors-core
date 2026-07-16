@@ -358,9 +358,12 @@ TEST_CASE("resources - asset_manager exposes high level resource operations", "[
   REQUIRE(caors::assets::json::load_project_config(config, make_project_config_json()).succeeded());
 
   caors::assets::asset_manager assets;
-  REQUIRE(caors::assets::json::register_type_factory<serialized_resource>(
-              assets, serialized_manifest_type())
-              .succeeded());
+  REQUIRE((
+      caors::assets::register_cached_type_factory<serialized_resource,
+                                                  caors::assets::json::loader<serialized_resource>>(
+          assets, serialized_manifest_type(), caors::string_name{"memory"},
+          caors::string_name{"json"})
+          .succeeded()));
   REQUIRE(assets.build(config).succeeded());
 
   auto* source = dynamic_cast<caors::resources::file_source*>(

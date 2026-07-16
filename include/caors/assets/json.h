@@ -7,6 +7,7 @@
 #include "caors/assets/asset_manager.h"
 #include "caors/assets/project_config.h"
 #include "caors/assets/serialization.h"
+#include "caors/assets/type_factory.h"
 #include "caors/resources/manifest.h"
 #include "caors/resources/source.h"
 #include "caors/serialization/operations.h"
@@ -114,36 +115,6 @@ private:
                                                   io::path_view location,
                                                   memory_resource* resource = nullptr);
 
-namespace detail {
-
-template <typename T>
-[[nodiscard]] error make_memory_json_type(asset_manager::type_factory_context& context,
-                                          const project_resource_type_config& config,
-                                          void* user_data) {
-  (void)user_data;
-  static_assert(std::is_base_of_v<resources::resource, T>,
-                "T must derive from caors::resources::resource");
-
-  if (!config.type || config.cache != core::string_name{"memory"} ||
-      config.loader != core::string_name{"json"}) {
-    return {error_domain::resources, errc::unsupported};
-  }
-
-  auto* cache = context.manager.create_owned<resources::cache<T>>(context.resource);
-  if (cache == nullptr) {
-    return {error_domain::resources, errc::out_of_memory};
-  }
-
-  auto* resource_loader = context.manager.create_owned<loader<T>>(context.provider);
-  if (resource_loader == nullptr) {
-    return {error_domain::resources, errc::out_of_memory};
-  }
-
-  return context.database.register_type(*cache, *resource_loader, config.type);
-}
-
-} // namespace detail
-
 /**
  * @brief 注册默认 JSON 资源类型工厂。
  *
@@ -154,8 +125,8 @@ template <typename T>
 [[nodiscard]] error register_type_factory(asset_manager& manager, core::string_name resource_type) {
   static_assert(std::is_base_of_v<resources::resource, T>,
                 "T must derive from caors::resources::resource");
-  return manager.register_type_factory(
-      resource_type, asset_manager::type_factory_ops{&detail::make_memory_json_type<T>});
+  return assets::register_cached_type_factory<T, loader<T>>(
+      manager, resource_type, core::string_name{"memory"}, core::string_name{"json"});
 }
 
 /** @brief 注册带 option schema 的默认 JSON 资源类型工厂。 */
@@ -164,9 +135,9 @@ template <typename T>
                                           factory_option_schema schema) {
   static_assert(std::is_base_of_v<resources::resource, T>,
                 "T must derive from caors::resources::resource");
-  return manager.register_type_factory(
-      resource_type, asset_manager::type_factory_ops{&detail::make_memory_json_type<T>, nullptr,
-                                                     std::move(schema)});
+  return assets::register_cached_type_factory<T, loader<T>>(
+      manager, resource_type, core::string_name{"memory"}, core::string_name{"json"},
+      std::move(schema));
 }
 
 } // namespace caors::assets::json

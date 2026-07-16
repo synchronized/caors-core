@@ -56,14 +56,15 @@
 
 - `project_config` 和相关配置结构。
 - `asset_manager` 以及 source/type factory。
+- `register_cached_type_factory<T, Loader>()` 这类格式无关的 cache/loader 工厂 helper。
 - `load_serialized()` / `save_serialized()` 这类基于 reader/writer 的格式中立 helper。
 
 `assets::json` 是 JSON 格式适配层：
 
 - `json::loader<T>` / `json::saver<T>`。
 - 从 JSON 文本或 source 读入 manifest / project config 的 helper。
-- 默认 JSON type factory：把 `cache = "memory"`、`loader = "json"` 的配置映射到 `cache<T>` 和
-  `json::loader<T>`。
+- JSON type factory 薄包装：复用 `assets::register_cached_type_factory<T, json::loader<T>>()`，
+  把 `cache = "memory"`、`loader = "json"` 的配置映射到 `cache<T>` 和 `json::loader<T>`。
 
 因此，普通资源核心代码优先包含 `caors/resources.h`；需要工程配置和 asset manager 时包含
 `caors/assets.h`；需要 JSON loader/saver、JSON manifest 或 JSON project config 时显式包含
@@ -94,6 +95,7 @@
 - `assets::project_resource_type_config`
 - `assets::project_dependency_config`
 - `assets::asset_manager`
+- `assets::register_cached_type_factory<T, Loader>()`
 - `resources::loader<T>`
 - `assets::json::loader<T>`
 - `resources::saver<T>`
@@ -776,7 +778,8 @@ auto resolver = assets.resolver();
 - `build(config)`：根据 `project_config` 重建内部 manifest、provider 和 dependency graph，并按已注册工厂创建运行期 source、cache 和 loader；重复调用会先清理上一轮配置创建的运行期对象。
 - `build_detailed(config)`：执行同样构建流程，但返回 `asset_build_result`，用于定位失败阶段、配置项索引、source/type 名称、资源 GUID 和可读原因。
 - `assets::json::register_type_factory<T>(manager, type)`：把配置里的资源类型名映射到默认
-  `memory` cache 和 `json` loader。
+  `memory` cache 和 `json` loader。非 JSON 格式可以直接使用
+  `assets::register_cached_type_factory<T, Loader>()` 注册同样的 cache/loader 装配逻辑。
 - `find<T>(guid)` / `find(guid)`：查询内部已注册 cache 中的资源。
 - `load<T>(guid)` / `load_handle<T>(guid)`：通过内部 database 中已注册的 loader/cache 加载资源。
 - `reload<T>(guid)` / `reload_handle<T>(guid)`：重新加载并替换 cache 当前绑定；失败时保留旧资源。
@@ -837,6 +840,25 @@ assets.register_type_factory(caors::string_name{"game.texture"}, &make_texture_r
                              texture_schema);
 ```
 
+如果某个格式的 loader 只需要 `resources::provider` 就能构造，可以复用通用 cached type factory，
+避免重复编写创建 `cache<T>`、创建 loader、注册 database 的样板代码：
+
+```cpp
+caors::assets::register_cached_type_factory<texture, pak_texture_loader>(
+    assets,
+    caors::string_name{"game.texture"},
+    caors::string_name{"memory"},
+    caors::string_name{"pak"});
+```
+
+JSON 适配层的 `assets::json::register_type_factory<T>()` 就是这套通用 helper 的薄包装：
+
+```cpp
+caors::assets::json::register_type_factory<texture>(
+    assets,
+    caors::string_name{"game.texture"});
+```
+
 `create_owned<T>()` 使用 asset_manager 的内存资源构造对象，并在 asset_manager 析构时统一释放。
 它适合由配置驱动创建的 source、cache、loader、文件系统或资源包索引对象。手动传入
 `bind_source()` / `register_type()` 的外部对象仍由调用方自己管理生命周期。
@@ -856,8 +878,10 @@ assets.register_type_factory(caors::string_name{"game.texture"}, &make_texture_r
 - `project_config.resources` 描述 `guid -> source/location/type/hash/version`，会被
   `asset_manager::build()` 写入内部 manifest 和 provider。
 - `project_config.resource_types` 保存资源类型到 loader/cache 策略名的描述。调用
-  `assets::json::register_type_factory<T>(manager, type)` 后，`build()` 会在遇到同名资源类型时创建并拥有
-  `cache<T>` 和 `json::loader<T>`。JSON 类型工厂第一版支持 `cache = "memory"`、`loader = "json"`。
+  `assets::register_cached_type_factory<T, Loader>(manager, type, cache, loader)` 后，`build()`
+  会在遇到同名资源类型且策略名匹配时创建并拥有 `cache<T>` 和对应 loader。JSON 适配层的
+  `assets::json::register_type_factory<T>(manager, type)` 固定匹配 `cache = "memory"`、
+  `loader = "json"`。
 - `project_config.resource_types[].options` 是可选扩展配置对象，原样传给 type factory；缺省为
   `null`。它适合表达格式参数、缓存策略、资源包索引名、远程请求策略等运行期构造参数。
 - type factory 同样可以注册 `factory_option_schema`。它适合约束 `"json"`、`"native_file_system"`、

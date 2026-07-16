@@ -180,12 +180,21 @@ public:
     create_fn create = nullptr;
     /** @brief 传给 create 的外部状态；asset_manager 不拥有它。 */
     void* user_data = nullptr;
+    /** @brief 非空时要求配置中的 cache 策略名与该值一致。 */
+    core::string_name cache_strategy{};
+    /** @brief 非空时要求配置中的 loader 策略名与该值一致。 */
+    core::string_name loader_strategy{};
     /** @brief 该 type factory 接受的 options 形态。 */
     factory_option_schema schema{};
 
     [[nodiscard]] constexpr bool valid() const noexcept { return create != nullptr; }
     [[nodiscard]] error operator()(asset_manager& manager,
                                    const project_resource_type_config& config) const {
+      if ((cache_strategy && config.cache != cache_strategy) ||
+          (loader_strategy && config.loader != loader_strategy)) {
+        return {error_domain::resources, errc::unsupported};
+      }
+
       type_factory_context context{manager, manager.resource(), manager.provider(),
                                    manager.database()};
       return create(context, config, user_data);
