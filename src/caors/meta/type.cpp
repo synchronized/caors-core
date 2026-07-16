@@ -65,48 +65,50 @@ type type::get_value_type() const noexcept {
     return {};
   }
 
-  const type_id value_type = detail::descriptor_value_type(*descriptor_);
-  meta::type value = {};
   switch (detail::descriptor_kind(*descriptor_)) {
   case type_kind::value:
   case type_kind::enumeration:
-    value = *this;
-    break;
+    return *this;
   case type_kind::raw_pointer:
-  case type_kind::wrapper:
+  case type_kind::wrapper: {
     if (const auto* indirect_ops = get_raw_ops<meta::indirect_ops>()) {
-      value =
-          indirect_ops->get_value_type != nullptr ? indirect_ops->get_value_type() : meta::type{};
+      return indirect_ops->get_value_type != nullptr ? indirect_ops->get_value_type()
+                                                     : meta::type{};
     }
     break;
-  case type_kind::sequence:
+  }
+  case type_kind::sequence: {
     if (const auto* sequence_ops = get_raw_ops<meta::sequence_ops>()) {
-      value =
-          sequence_ops->get_value_type != nullptr ? sequence_ops->get_value_type() : meta::type{};
+      return sequence_ops->get_value_type != nullptr ? sequence_ops->get_value_type()
+                                                     : meta::type{};
     }
     break;
-  case type_kind::set:
+  }
+  case type_kind::set: {
     if (const auto* set_ops = get_raw_ops<meta::set_ops>()) {
-      value = set_ops->get_value_type != nullptr ? set_ops->get_value_type() : meta::type{};
+      return set_ops->get_value_type != nullptr ? set_ops->get_value_type() : meta::type{};
     }
     break;
-  case type_kind::associative:
+  }
+  case type_kind::associative: {
     if (const auto* associative_ops = get_raw_ops<meta::associative_ops>()) {
-      value = associative_ops->get_value_type != nullptr ? associative_ops->get_value_type()
-                                                         : meta::type{};
+      return associative_ops->get_value_type != nullptr ? associative_ops->get_value_type()
+                                                        : meta::type{};
     }
     break;
-  case type_kind::pair:
+  }
+  case type_kind::pair: {
     if (const auto* pair_ops = get_raw_ops<meta::pair_ops>()) {
-      value = pair_ops->get_value_type != nullptr ? pair_ops->get_value_type() : meta::type{};
+      return pair_ops->get_value_type != nullptr ? pair_ops->get_value_type() : meta::type{};
     }
     break;
+  }
   case type_kind::tuple:
   case type_kind::variant:
     break;
   }
 
-  return value && value.id() == value_type ? value : meta::type{};
+  return {};
 }
 
 type type::get_key_type() const noexcept {

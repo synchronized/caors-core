@@ -57,11 +57,6 @@ template <typename Ops>
   }
 }
 
-template <typename Ops>
-[[nodiscard]] inline const Ops* descriptor_ops(const type_descriptor* descriptor) noexcept {
-  return descriptor != nullptr ? descriptor_ops<Ops>(*descriptor) : nullptr;
-}
-
 /** @brief 按 capability key 查询 descriptor 内建函数表。 */
 [[nodiscard]] inline const void* descriptor_builtin_ops(const type_descriptor& descriptor,
                                                         capability_key key) noexcept {
@@ -102,31 +97,6 @@ template <typename Ops>
   return descriptor != nullptr ? descriptor_builtin_ops(*descriptor, key) : nullptr;
 }
 
-template <typename Capability>
-[[nodiscard]] inline const Capability*
-descriptor_static_capability(const type_descriptor& descriptor) noexcept {
-  const capability_key key = capability_key_of<Capability>();
-  for (std::size_t index = 0; index < descriptor.static_capability_count; ++index) {
-    const capability_entry& entry = descriptor.static_capabilities[index];
-    if (entry.key == key && entry.data != nullptr) {
-      return static_cast<const Capability*>(entry.data);
-    }
-  }
-
-  return nullptr;
-}
-
-template <typename Capability>
-[[nodiscard]] inline const Capability*
-descriptor_static_capability(const type_descriptor* descriptor) noexcept {
-  return descriptor != nullptr ? descriptor_static_capability<Capability>(*descriptor) : nullptr;
-}
-
-/** @brief 从 descriptor 指针取得类型 id，空指针返回无效 id。 */
-[[nodiscard]] inline type_id descriptor_id(const type_descriptor* descriptor) noexcept {
-  return descriptor != nullptr ? descriptor->type : type_id{};
-}
-
 [[nodiscard]] inline type_kind descriptor_kind(const type_descriptor& descriptor) noexcept {
   return descriptor.semantics.kind;
 }
@@ -142,53 +112,6 @@ descriptor_wrapper_semantics(const type_descriptor& descriptor) noexcept {
 
 [[nodiscard]] inline bool descriptor_nullable(const type_descriptor& descriptor) noexcept {
   return descriptor.semantics.nullable;
-}
-
-[[nodiscard]] inline type_id descriptor_value_type(const type_descriptor& descriptor) noexcept {
-  switch (descriptor_kind(descriptor)) {
-  case type_kind::value:
-  case type_kind::enumeration:
-    return descriptor.type;
-  case type_kind::raw_pointer:
-  case type_kind::wrapper: {
-    const auto* indirect = descriptor_ops<indirect_ops>(descriptor);
-    const meta::type value = indirect != nullptr && indirect->get_value_type != nullptr
-                                 ? indirect->get_value_type()
-                                 : meta::type{};
-    return value ? value.id() : type_id{};
-  }
-  case type_kind::sequence: {
-    const auto* sequence = descriptor_ops<sequence_ops>(descriptor);
-    const meta::type value = sequence != nullptr && sequence->get_value_type != nullptr
-                                 ? sequence->get_value_type()
-                                 : meta::type{};
-    return value ? value.id() : type_id{};
-  }
-  case type_kind::set: {
-    const auto* set = descriptor_ops<set_ops>(descriptor);
-    const meta::type value =
-        set != nullptr && set->get_value_type != nullptr ? set->get_value_type() : meta::type{};
-    return value ? value.id() : type_id{};
-  }
-  case type_kind::associative: {
-    const auto* associative = descriptor_ops<associative_ops>(descriptor);
-    const meta::type value = associative != nullptr && associative->get_value_type != nullptr
-                                 ? associative->get_value_type()
-                                 : meta::type{};
-    return value ? value.id() : type_id{};
-  }
-  case type_kind::pair: {
-    const auto* pair = descriptor_ops<pair_ops>(descriptor);
-    const meta::type value =
-        pair != nullptr && pair->get_value_type != nullptr ? pair->get_value_type() : meta::type{};
-    return value ? value.id() : type_id{};
-  }
-  case type_kind::tuple:
-  case type_kind::variant:
-    return {};
-  }
-
-  return {};
 }
 
 template <typename T> [[nodiscard]] type_id descriptor_type_id() noexcept {

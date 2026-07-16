@@ -356,8 +356,8 @@ descriptor 内部按职责拆分：
 - `nullable`：运行期值是否可能为空。
 
 具体访问函数表由 `builtin_ops` 或模块 ops 持有，用来描述枚举转换、容器、指针、wrapper、
-对象引用、pair、tuple 和 variant 访问能力。当前 descriptor 内置 ops 由 CAORS 定义，并且同一类型只会持有一个内置 ops；查询入口仍是内部
-`descriptor_ops<T>()`：
+对象引用、pair、tuple 和 variant 访问能力。当前 descriptor 内置 ops 由 CAORS 定义，并且同一类型只会持有一个内置 ops；内部通过
+`descriptor_ops<T>(descriptor)` 查询：
 
 - `meta::indirect_ops`：裸指针或 wrapper 的内部值访问、持值检测、重置和确保持值函数。
 - `meta::enum_ops`：枚举类型和整数之间的转换函数。
@@ -369,8 +369,7 @@ descriptor 内部按职责拆分：
 再由 `static_capability_list<T>` 合并所有模块贡献的 `type_list<Capability...>`。descriptor 生成时会把这些能力整理成一张静态
 `capability_entry` 表。公开查询优先使用 `meta::type::get_capability<T>()` 或
 `meta::type::has_capability<T>()`；该入口会先查询 descriptor 静态能力，再回退到运行期
-capability 索引。内部仍保留 `descriptor_static_capability<T>()` 给 descriptor 层实现使用。
-对象指针、对象句柄和 serialization codec 都通过 `meta::type` 的统一入口查询公开 facade；
+capability 索引。对象指针、对象句柄和 serialization codec 都通过 `meta::type` 的统一入口查询公开 facade；
 内部 `ptr_ops`、`handle_ops` 和 `codec_ops` 只作为实现细节保留。
 
 动态扩展能力通过 `meta::class_<T>().capability(ops)`、`meta::class_<T>().capability<Capability>()`
