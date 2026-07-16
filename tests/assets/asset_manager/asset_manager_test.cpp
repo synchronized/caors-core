@@ -54,6 +54,19 @@ void require_secondary_serialized_resource_metadata() {
   return false;
 }
 
+[[nodiscard]] bool
+contains_reason(const caors::serialization::config_validation_result::diagnostic_list& diagnostics,
+                std::string_view text) {
+  for (const caors::serialization::config_validation_diagnostic& diagnostic : diagnostics) {
+    const caors::string& reason = diagnostic.reason;
+    if (std::string_view{reason.data(), reason.size()}.find(text) != std::string_view::npos) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 [[nodiscard]] std::string make_project_config_json() {
   std::string json{R"({
     "sources": [
@@ -179,6 +192,36 @@ struct external_source_factory_state {
   std::string mount;
 };
 
+struct typed_external_source_config {
+  std::string mount;
+  bool read_only = false;
+  int priority = 1;
+  std::string filter = "nearest";
+};
+
+void require_typed_external_source_config_metadata() {
+  namespace metadata = caors::serialization::config_metadata;
+
+  (void)caors::meta::class_<typed_external_source_config>(
+      "caors.test.assets.typed_external_source_config");
+  REQUIRE(reflection_result_ok(
+      caors::reflection::class_<typed_external_source_config>()
+          .field("mount", &typed_external_source_config::mount)
+          .metadata(metadata::required(), true)
+          .metadata(metadata::non_empty(), true)
+          .field("read_only", &typed_external_source_config::read_only)
+          .field("priority", &typed_external_source_config::priority)
+          .metadata(metadata::range_min(), 1)
+          .metadata(metadata::range_max(), 10)
+          .field("filter", &typed_external_source_config::filter)
+          .metadata(metadata::one_of(),
+                    caors::meta::make_metadata_string_array(
+                        {std::string_view{"nearest"}, std::string_view{"linear"}}))
+          .commit()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::class_<typed_external_source_config>().commit()));
+}
+
 struct external_type_factory_state {
   int calls = 0;
   caors::resources::cache<serialized_resource>* cache = nullptr;
@@ -226,6 +269,45 @@ make_external_memory_source(caors::assets::asset_manager::source_factory_context
   (void)options.read(caors::string_name{"mount"}, state.mount);
   (void)options.read(caors::string_name{"read_only"}, state.read_only);
 
+  state.file_system = context.manager.create_owned<caors::io::memory_file_system>(context.resource);
+  if (state.file_system == nullptr) {
+    return {caors::error_domain::resources, caors::errc::out_of_memory};
+  }
+
+  state.source = context.manager.create_owned<caors::resources::file_source>(*state.file_system);
+  if (state.source == nullptr) {
+    return {caors::error_domain::resources, caors::errc::out_of_memory};
+  }
+
+  return context.manager.bind_source(config.name, *state.source);
+}
+
+[[nodiscard]] caors::error
+make_typed_external_memory_source(caors::assets::asset_manager::source_factory_context& context,
+                                  const caors::assets::project_source_config& config,
+                                  void* user_data) {
+  if (user_data == nullptr) {
+    return {caors::error_domain::resources, caors::errc::invalid_argument};
+  }
+
+  auto& state = *static_cast<external_source_factory_state*>(user_data);
+  ++state.calls;
+  state.resource = context.resource;
+
+  typed_external_source_config options;
+  caors::error status = caors::deserialize(options, config.options);
+  if (status) {
+    return status;
+  }
+
+  caors::serialization::config_validation_result validation =
+      caors::serialization::validate_config(options, context.resource);
+  if (validation.failed()) {
+    return validation.status;
+  }
+
+  state.mount = options.mount;
+  state.read_only = options.read_only;
   state.file_system = context.manager.create_owned<caors::io::memory_file_system>(context.resource);
   if (state.file_system == nullptr) {
     return {caors::error_domain::resources, caors::errc::out_of_memory};
@@ -619,6 +701,46 @@ TEST_CASE("resources - asset_manager accepts external source factory state", "[r
   REQUIRE(state.file_system != nullptr);
   REQUIRE(state.source != nullptr);
   CHECK(assets.find_source(caors::string_name{"assets"}) == state.source);
+}
+
+TEST_CASE("resources - asset_manager source factory can use typed options metadata",
+          "[resources]") {
+  require_typed_external_source_config_metadata();
+
+  caors::assets::project_config config;
+  REQUIRE(
+      caors::assets::json::load_project_config(
+          config,
+          R"({"sources":[{"name":"assets","type":"typed_external_memory","options":{"mount":"debug-assets","read_only":true,"priority":5,"filter":"linear"}}]})")
+          .succeeded());
+
+  external_source_factory_state state;
+  caors::assets::asset_manager assets;
+  REQUIRE(assets
+              .register_source_factory(caors::string_name{"typed_external_memory"},
+                                       &make_typed_external_memory_source, &state)
+              .succeeded());
+
+  REQUIRE(assets.build(config).succeeded());
+  CHECK(state.calls == 1);
+  CHECK(state.mount == "debug-assets");
+  CHECK(state.read_only);
+  REQUIRE(state.source != nullptr);
+  CHECK(assets.find_source(caors::string_name{"assets"}) == state.source);
+
+  typed_external_source_config invalid_options;
+  invalid_options.mount = "";
+  invalid_options.priority = 99;
+  invalid_options.filter = "cubic";
+
+  const caors::serialization::config_validation_result validation =
+      caors::serialization::validate_config(invalid_options);
+  CHECK(validation.status ==
+        caors::error{caors::error_domain::serialization, caors::errc::invalid_argument});
+  CHECK(validation.diagnostics.size() >= 3);
+  CHECK(contains_reason(validation.diagnostics, "有效值"));
+  CHECK(contains_reason(validation.diagnostics, "范围"));
+  CHECK(contains_reason(validation.diagnostics, "允许值"));
 }
 
 TEST_CASE("resources - asset_manager validates source factory option schema", "[resources]") {

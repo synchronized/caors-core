@@ -71,6 +71,16 @@ public:
     return position->second.get();
   }
 
+  [[nodiscard]] Component* find_mutable_ptr(type_id id) {
+    std::lock_guard lock(mutex_);
+    const auto position = components_.find(id.value());
+    if (position == components_.end()) {
+      return nullptr;
+    }
+
+    return position->second.get();
+  }
+
   [[nodiscard]] bool contains(type_id id) const override {
     std::lock_guard lock(mutex_);
     return components_.contains(id.value());

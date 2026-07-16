@@ -4,6 +4,7 @@
 #ifndef CAORS_REFLECTION_DETAIL_FIELD_WRAPPER_H_
 #define CAORS_REFLECTION_DETAIL_FIELD_WRAPPER_H_
 
+#include "caors/memory/unique_ptr.h"
 #include "caors/meta.h"
 #include "caors/meta/value/any_ref.h"
 #include "caors/traits/container.h"
@@ -13,6 +14,7 @@
 #include <optional>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 
 namespace caors::reflection::detail {
 
@@ -65,6 +67,36 @@ public:
       : name_(field_name), offset_(field_offset), writable_(field_writable),
         ops_(field_operations) {}
 
+  field_wrapper(const field_wrapper& other)
+      : name_(other.name_), offset_(other.offset_), writable_(other.writable_), ops_(other.ops_) {
+    if (other.metadata_ != nullptr) {
+      metadata_ =
+          memory::make_unique<meta::metadata_map>(&memory::library_resource(), *other.metadata_);
+    }
+  }
+
+  field_wrapper& operator=(const field_wrapper& other) {
+    if (this == &other) {
+      return *this;
+    }
+
+    name_ = other.name_;
+    offset_ = other.offset_;
+    writable_ = other.writable_;
+    ops_ = other.ops_;
+    if (other.metadata_ != nullptr) {
+      metadata_ =
+          memory::make_unique<meta::metadata_map>(&memory::library_resource(), *other.metadata_);
+    } else {
+      metadata_.reset();
+    }
+    return *this;
+  }
+
+  field_wrapper(field_wrapper&&) noexcept = default;
+  field_wrapper& operator=(field_wrapper&&) noexcept = default;
+  ~field_wrapper() = default;
+
   [[nodiscard]] bool valid() const noexcept {
     const meta::type type = get_type();
     return !name_.empty() && type.valid() && ops_.valid();
@@ -72,6 +104,25 @@ public:
 
   /** @brief 查询字段名称。 */
   [[nodiscard]] string_name name() const noexcept { return name_; }
+
+  /** @brief 查询字段 metadata。 */
+  [[nodiscard]] const meta::metadata_map& metadata() const noexcept {
+    return metadata_ != nullptr ? *metadata_ : empty_metadata_map();
+  }
+
+  /** @brief 查询字段 metadata 值。 */
+  [[nodiscard]] const meta::metadata_value* find_metadata(meta::metadata_key key) const noexcept {
+    return metadata_ != nullptr ? meta::find_metadata(*metadata_, key) : nullptr;
+  }
+
+  /** @brief 写入或覆盖字段 metadata。 */
+  void set_metadata(meta::metadata_key key, meta::metadata_value value) {
+    if (metadata_ == nullptr) {
+      metadata_ = memory::make_unique<meta::metadata_map>(
+          &memory::library_resource(), meta::make_metadata_map(&memory::library_resource()));
+    }
+    meta::set_metadata(*metadata_, key, std::move(value));
+  }
 
   /** @brief 查询字段所有者类型视图。 */
   [[nodiscard]] meta::type get_owner_type() const noexcept {
@@ -242,10 +293,17 @@ public:
   }
 
 private:
+  [[nodiscard]] static const meta::metadata_map& empty_metadata_map() noexcept {
+    static const meta::metadata_map empty{
+        typename meta::metadata_map::allocator_type{&memory::library_resource()}};
+    return empty;
+  }
+
   string_name name_{};
   std::size_t offset_ = 0;
   bool writable_ = true;
   field_ops ops_{};
+  memory::unique_ptr<meta::metadata_map> metadata_{};
 };
 
 template <typename Class>

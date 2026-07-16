@@ -163,6 +163,38 @@ public:
     return *this;
   }
 
+  /** @brief 给当前类型写入 metadata。 */
+  template <typename Value> class_builder& metadata(std::string_view key, Value&& value) {
+    return metadata(string_name{key}, std::forward<Value>(value));
+  }
+
+  /** @brief 给当前类型写入 metadata。 */
+  template <typename Value> class_builder& metadata(string_name key, Value&& value) {
+    if (!type_.registered() || !key) {
+      status_ = {error_domain::meta, errc::invalid_type};
+      return *this;
+    }
+
+    type_metadata* data = get_registry().find_component_mutable_ptr<type_metadata>(type_.id());
+    if (data == nullptr) {
+      status_ = get_registry().emplace_component<type_metadata>(type_.id());
+      if (status_ && status_.value() != errc::duplicate_component) {
+        return *this;
+      }
+
+      data = get_registry().find_component_mutable_ptr<type_metadata>(type_.id());
+    }
+
+    if (data == nullptr) {
+      status_ = {error_domain::meta, errc::invalid_type};
+      return *this;
+    }
+
+    set_metadata(data->values, key, make_metadata_value(std::forward<Value>(value)));
+    refresh();
+    return *this;
+  }
+
   [[nodiscard]] ::caors::meta::type get() const noexcept { return type_; }
   [[nodiscard]] error result() const noexcept { return status_; }
   [[nodiscard]] bool succeeded() const noexcept {
@@ -234,6 +266,38 @@ public:
     } else {
       status_ = detail::register_static_capability_for<capability_type, T>();
     }
+    refresh();
+    return *this;
+  }
+
+  /** @brief 给当前枚举类型写入 metadata。 */
+  template <typename Value> enum_builder& metadata(std::string_view key, Value&& value) {
+    return metadata(string_name{key}, std::forward<Value>(value));
+  }
+
+  /** @brief 给当前枚举类型写入 metadata。 */
+  template <typename Value> enum_builder& metadata(string_name key, Value&& value) {
+    if (!type_.registered() || !key) {
+      status_ = {error_domain::meta, errc::invalid_type};
+      return *this;
+    }
+
+    type_metadata* data = get_registry().find_component_mutable_ptr<type_metadata>(type_.id());
+    if (data == nullptr) {
+      status_ = get_registry().emplace_component<type_metadata>(type_.id());
+      if (status_ && status_.value() != errc::duplicate_component) {
+        return *this;
+      }
+
+      data = get_registry().find_component_mutable_ptr<type_metadata>(type_.id());
+    }
+
+    if (data == nullptr) {
+      status_ = {error_domain::meta, errc::invalid_type};
+      return *this;
+    }
+
+    set_metadata(data->values, key, make_metadata_value(std::forward<Value>(value)));
     refresh();
     return *this;
   }

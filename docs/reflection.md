@@ -499,6 +499,8 @@ damage.invoke(&instance, args);
 - `get_second_type()`：查询 pair 字段的 second 类型信息，是 `get_value_type()` 的语义别名。
 - `kind()` / `wrapper_semantics()` / `indirect()` / `nullable()`：查询字段形态语义。
 - `offset()` / `size()` / `alignment()` / `writable()`：查询字段布局和可写性。
+- `metadata()` / `find_metadata()`：查询字段附加 metadata。普通字段访问不依赖 metadata；
+  配置校验、编辑器提示和导入管线可以按约定键读取。
 - `try_get<T>()` / `try_set<T>()`：按静态类型读写字段。
 - `get_value()` / `try_set_value()`：按运行期 `any` 读写字段。
 - `get_ref(const void*)` / `get_ref(void*)`：按运行期 `any_ref` 引用字段，权限由传入对象地址的 constness 决定。

@@ -12,6 +12,12 @@ namespace {
   return static_cast<const detail::field_wrapper*>(field);
 }
 
+[[nodiscard]] const meta::metadata_map& empty_metadata_map() noexcept {
+  static const meta::metadata_map empty{
+      typename meta::metadata_map::allocator_type{&memory::library_resource()}};
+  return empty;
+}
+
 } // namespace
 
 field::field(const void* field) noexcept : field_(field) {}
@@ -59,6 +65,16 @@ bool field::nullable() const noexcept { return get_type().nullable(); }
 bool field::writable() const noexcept {
   const detail::field_wrapper* field = as_field_wrapper(info());
   return field != nullptr && field->writable();
+}
+
+const meta::metadata_map& field::metadata() const noexcept {
+  const detail::field_wrapper* field = as_field_wrapper(info());
+  return field != nullptr ? field->metadata() : empty_metadata_map();
+}
+
+const meta::metadata_value* field::find_metadata(meta::metadata_key key) const noexcept {
+  const detail::field_wrapper* field = as_field_wrapper(info());
+  return field != nullptr ? field->find_metadata(key) : nullptr;
 }
 
 std::size_t field::offset() const noexcept {

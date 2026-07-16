@@ -6,6 +6,15 @@
 #include "caors/meta/detail/type_descriptor.h"
 
 namespace caors::meta {
+namespace {
+
+[[nodiscard]] const metadata_map& empty_metadata_map() noexcept {
+  static const metadata_map empty{
+      typename metadata_map::allocator_type{&memory::library_resource()}};
+  return empty;
+}
+
+} // namespace
 
 bool type::valid() const noexcept { return descriptor_ != nullptr && descriptor_->valid(); }
 
@@ -58,6 +67,19 @@ bool type::indirect() const noexcept {
 
 bool type::nullable() const noexcept {
   return descriptor_ != nullptr && detail::descriptor_nullable(*descriptor_);
+}
+
+const metadata_map& type::metadata() const noexcept {
+  if (registry_ == nullptr || !id()) {
+    return empty_metadata_map();
+  }
+
+  const type_metadata* data = registry_->find_component_ptr<type_metadata>(id());
+  return data != nullptr ? data->values : empty_metadata_map();
+}
+
+const metadata_value* type::find_metadata(metadata_key key) const noexcept {
+  return meta::find_metadata(metadata(), key);
 }
 
 type type::get_value_type() const noexcept {

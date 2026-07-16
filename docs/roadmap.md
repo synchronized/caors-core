@@ -78,6 +78,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `CAORS_META_DEF_TYPE_DISPATCH + add_type_convention<Dispatch, Signature>` 自动生成 capability，
   并通过成员函数名、静态成员函数名、自由函数指针和函数签名接入自动 model。
 - [x] 收敛 Proxy 自定义能力入口，移除早期 X-macro DSL，统一推荐 dispatch + `capability_builder`。
+- [x] 增加通用 `meta::metadata_map` / `meta::type_metadata`，用于给类型挂载轻量键值附加信息；
+  metadata 只承载工具、配置和编辑器提示，不替代类型身份或 capability。
 - [ ] 扩展完整 Proxy DSL，进一步减少用户自定义 capability 的 `ops` / `view` / `model` 样板代码。
 - [ ] 支持 Proxy 模板方法代理。
 - [ ] 支持 Proxy 重载自动选择。
@@ -147,6 +149,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 定义成员方法元信息模型；字段继续承担数据属性反射。
 - [x] 提供成员方法调用入口。
 - [x] 设计独立 constructor / 带参构造函数注册组件，并接入 `runtime::type::create()` 的统一创建策略。
+- [x] 支持字段级 metadata 注册与查询，供配置校验、导入管线和编辑器工具按约定键读取。
 - [ ] 扩展属性别名、访问控制、重载选择和类型转换测试。
 
 ## 5. 序列化
@@ -203,6 +206,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 设计字段级构造策略，覆盖容器新增元素、拥有型智能指针 wrapper、`variant` 候选切换和不可默认构造类型；
   优先使用 `serialization::context::resolvers.construction`、`memory_resource`、meta factory / constructor
   capability 和 descriptor 默认构造，失败时返回明确诊断。
+- [x] 增加 `serialization::validate_config()`，基于反射字段 metadata 校验 typed config，支持
+  `required`、`non_empty`、`range_min/range_max` 和 `one_of`，并一次收集多条诊断。
 - [x] 扩展空 `optional<T>` 读入非空值时的安全构造和写入策略，避免把拥有型 wrapper 的接管语义误用于
   `optional` 的按值存储语义。
 - [ ] 放宽多层指针 / 多层 wrapper 限制，采用逐层 indirect descriptor 展开；默认设置合理最大深度，
@@ -264,6 +269,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 为资源配置 source/type factory 增加轻量 options schema，支持必填字段、字段值形态、非空、范围、
   允许值和未知字段策略校验，并通过 `factory_options_view` 简化 factory 内部读取。
 - [x] 扩展 `asset_manager::build_detailed()` 的 options 诊断，支持同一 options 对象一次收集多条 schema 错误。
+- [x] 增加 typed factory options 示例路径：配置 `variant` 先反序列化为结构体，再通过
+  `serialization::validate_config()` 和字段 metadata 完成校验。
 - [x] 继续收敛资源公开主入口，以 `assets::asset_manager` / 运行期 builder 作为用户优先入口，
   `database`、`provider`、`cache<T>` 和 `loader<T>` 作为高级组合入口。
 - [x] 支持 `resources::provider` 通过可写 source 按 GUID 写回字节，为后续 saver 和热更新回写提供基础。

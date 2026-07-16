@@ -6,6 +6,7 @@
 
 #include "caors/meta/capability.h"
 #include "caors/meta/constructor.h"
+#include "caors/meta/metadata.h"
 #include "caors/meta/proxy.h"
 #include "caors/meta/registry.h"
 #include "caors/meta/type_ops.h"

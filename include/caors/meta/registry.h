@@ -168,6 +168,19 @@ public:
     return storage.find_ptr(id);
   }
 
+  /** @brief 获取指定类型上的元数据组件可写指针，仅供注册构建阶段使用。 */
+  template <typename Component> [[nodiscard]] Component* find_component_mutable_ptr(type_id id) {
+    using component_type = std::decay_t<Component>;
+    detail::meta_component_storage_base* storage_base =
+        find_component_storage(detail::meta_component_key_of<component_type>());
+    if (storage_base == nullptr) {
+      return nullptr;
+    }
+
+    auto& storage = static_cast<detail::meta_component_storage<component_type>&>(*storage_base);
+    return storage.find_mutable_ptr(id);
+  }
+
   /** @brief 统计挂载了指定组件的类型数量。 */
   template <typename Component> [[nodiscard]] std::size_t component_count() const noexcept {
     using component_type = std::decay_t<Component>;

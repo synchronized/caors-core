@@ -222,7 +222,38 @@ bool readonly = false;
 (void)options.read(caors::string_name{"read_only"}, readonly);
 ```
 
-复杂的跨字段约束、结构体配置绑定和带编辑器提示的 schema metadata 后续再扩展。
+复杂配置推荐先反序列化到 typed config，再用反射字段 metadata 做校验。这样可以复用序列化系统，
+并把工厂内部的配置读取收敛到一个结构体上：
+
+```cpp
+struct texture_options {
+  std::string format;
+  int priority = 1;
+};
+
+namespace metadata = caors::serialization::config_metadata;
+
+caors::meta::class_<texture_options>("game.texture_options");
+caors::reflection::class_<texture_options>()
+    .field("format", &texture_options::format)
+    .metadata(metadata::required(), true)
+    .metadata(metadata::non_empty(), true)
+    .metadata(metadata::one_of(),
+              caors::meta::make_metadata_string_array({"json", "binary"}))
+    .field("priority", &texture_options::priority)
+    .metadata(metadata::range_min(), 1)
+    .metadata(metadata::range_max(), 100)
+    .commit();
+caors::serialization::class_<texture_options>().commit();
+
+texture_options options;
+caors::error read_status = caors::deserialize(options, config.options);
+caors::serialization::config_validation_result validation =
+    caors::serialization::validate_config(options);
+```
+
+`factory_option_schema` 仍适合简单、无需结构体绑定的插件入口；typed config + metadata 更适合
+复杂配置、工具面板和后续 schema metadata 扩展。
 
 ## JSON 适配
 

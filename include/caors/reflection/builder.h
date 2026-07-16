@@ -100,6 +100,42 @@ public:
     return *this;
   }
 
+  /** @brief 给最近添加的字段写入 metadata。 */
+  template <typename Value> class_builder& metadata(std::string_view key, Value&& value) {
+    return metadata(string_name{key}, std::forward<Value>(value));
+  }
+
+  /** @brief 给最近添加的字段写入 metadata。 */
+  template <typename Value> class_builder& metadata(string_name key, Value&& value) {
+    if (pending_status_) {
+      return *this;
+    }
+
+    if (!key || reflection_.field_count() == 0) {
+      pending_status_ = {error_domain::reflection, errc::invalid_field};
+      return *this;
+    }
+
+    detail::field_wrapper* field = reflection_.mutable_field_at(reflection_.field_count() - 1);
+    if (field == nullptr) {
+      pending_status_ = {error_domain::reflection, errc::invalid_field};
+      return *this;
+    }
+
+    field->set_metadata(key, meta::make_metadata_value(std::forward<Value>(value)));
+    return *this;
+  }
+
+  /** @brief 给最近添加的字段写入 metadata。 */
+  template <typename Value> class_builder& field_metadata(std::string_view key, Value&& value) {
+    return metadata(key, std::forward<Value>(value));
+  }
+
+  /** @brief 给最近添加的字段写入 metadata。 */
+  template <typename Value> class_builder& field_metadata(string_name key, Value&& value) {
+    return metadata(key, std::forward<Value>(value));
+  }
+
   [[nodiscard]] error commit() {
     if (pending_status_) {
       return pending_status_;

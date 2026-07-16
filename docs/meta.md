@@ -512,6 +512,24 @@ caors::type_id actor_id = caors::meta::find<actor>().id();
 caors::meta::get_registry().emplace_component<object_factory_meta>(actor_id, true);
 ```
 
+### metadata
+
+`meta::metadata_map` 是轻量键值附加信息，值使用 `meta::variant` 保存，适合给类型或字段补充工具层、
+配置层和编辑器提示信息。类型级 metadata 通过 `meta::type_metadata` 组件挂到全局 registry：
+
+```cpp
+caors::meta::class_<actor>("game.actor")
+    .metadata("category", "gameplay")
+    .metadata("spawnable", true);
+
+caors::meta::type type = caors::meta::find<actor>();
+const caors::meta::metadata_value* category =
+    type.find_metadata(caors::string_name{"category"});
+```
+
+metadata 不参与类型身份，不替代 `type_name` / `type_guid` / capability。需要决定运行期行为时，优先使用
+明确的 capability、反射字段、序列化 schema 或资源配置对象；metadata 只承载可选约束、标签和工具提示。
+
 ## 高级扩展
 
 ### 自定义 capability

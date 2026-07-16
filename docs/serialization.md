@@ -740,6 +740,49 @@ descriptor 静态 codec 能力；运行期只剩 `type_id` 时也会先回到 me
 递归用到的业务类型如果需要稳定名称、GUID、反射字段、多态构造或对象工厂，仍应通过
 `meta::class_<T>("name")` 显式注册。自定义容器扩展示例：
 
+### 配置校验 metadata
+
+`serialization/config_validation.h` 提供基于反射字段 metadata 的 typed config 校验。推荐流程是先把
+`variant` / JSON 反序列化成明确的配置结构体，再调用 `serialization::validate_config(config)`：
+
+```cpp
+struct texture_config {
+  std::string format;
+  int priority = 1;
+};
+
+namespace metadata = caors::serialization::config_metadata;
+
+caors::meta::class_<texture_config>("game.texture_config");
+caors::reflection::class_<texture_config>()
+    .field("format", &texture_config::format)
+    .metadata(metadata::required(), true)
+    .metadata(metadata::non_empty(), true)
+    .metadata(metadata::one_of(),
+              caors::meta::make_metadata_string_array({"json", "binary"}))
+    .field("priority", &texture_config::priority)
+    .metadata(metadata::range_min(), 1)
+    .metadata(metadata::range_max(), 100)
+    .commit();
+caors::serialization::class_<texture_config>().commit();
+
+texture_config config;
+caors::deserialize(config, options_value);
+caors::serialization::config_validation_result result =
+    caors::serialization::validate_config(config);
+```
+
+当前内置约定键包括：
+
+- `required`：字段必须有有效值。对 typed C++ 对象来说，标量字段天然存在；字符串、`string_name`
+  等空值会被视为缺少有效值。
+- `non_empty`：字符串、`string_view`、`string_name` 等文本字段不能为空。
+- `range_min` / `range_max`：数值字段范围。
+- `one_of`：字符串字段允许值数组。
+
+校验结果会一次收集多条 `config_validation_diagnostic`。这套机制适合资源 factory options、导入配置、
+编辑器面板和工具配置；跨字段关系、条件约束、默认值恢复和更完整 schema 策略仍放在后续路线图中。
+
 ```cpp
 namespace caors::traits {
 

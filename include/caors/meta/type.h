@@ -7,6 +7,7 @@
 #include "caors/core/string_name.h"
 #include "caors/export.h"
 #include "caors/meta/capability.h"
+#include "caors/meta/metadata.h"
 #include "caors/meta/type_id.h"
 #include "caors/meta/value_ops.h"
 #include "caors/traits/wrapper.h"
@@ -72,6 +73,8 @@ public:
   [[nodiscard]] wrapper_semantics wrapper() const noexcept;
   [[nodiscard]] bool indirect() const noexcept;
   [[nodiscard]] bool nullable() const noexcept;
+  [[nodiscard]] const metadata_map& metadata() const noexcept;
+  [[nodiscard]] const metadata_value* find_metadata(metadata_key key) const noexcept;
   [[nodiscard]] type get_value_type() const noexcept;
   [[nodiscard]] type get_key_type() const noexcept;
 

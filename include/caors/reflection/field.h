@@ -59,6 +59,8 @@ public:
   [[nodiscard]] bool indirect() const noexcept;
   [[nodiscard]] bool nullable() const noexcept;
   [[nodiscard]] bool writable() const noexcept;
+  [[nodiscard]] const meta::metadata_map& metadata() const noexcept;
+  [[nodiscard]] const meta::metadata_value* find_metadata(meta::metadata_key key) const noexcept;
   [[nodiscard]] std::size_t offset() const noexcept;
   [[nodiscard]] std::size_t size() const noexcept;
   [[nodiscard]] std::size_t alignment() const noexcept;
