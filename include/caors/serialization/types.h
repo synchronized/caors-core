@@ -274,12 +274,12 @@ struct context {
 
   [[nodiscard]] result<context> enter_nested_value() const noexcept {
     if (at_depth_limit()) {
-      return {{error_domain::serialization, errc::recursion_limit}, {}};
+      return fail<context>({error_domain::serialization, errc::recursion_limit});
     }
 
     context nested = *this;
     ++nested.state.current_depth;
-    return {{}, nested};
+    return ok(std::move(nested));
   }
 };
 

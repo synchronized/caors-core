@@ -290,7 +290,7 @@ if (request.loaded()) {
 
 auto result = request.result();
 if (result.failed()) {
-  caors::error status = result.status;
+  caors::error status = result.error();
 }
 ```
 
@@ -988,14 +988,14 @@ caors::serialization::variant_reader reader{value};
 auto loaded = caors::resources::load_serialized<texture>(id, reader);
 
 caors::serialization::json_writer writer;
-caors::resources::save_serialized(*loaded.value, writer);
+caors::resources::save_serialized(**loaded, writer);
 ```
 
 需要传入序列化上下文时使用 context-first 形式：
 
 ```cpp
 auto loaded_with_context = caors::resources::load_serialized<texture>(context, id, reader);
-caors::resources::save_serialized(context, *loaded_with_context.value, writer);
+caors::resources::save_serialized(context, **loaded_with_context, writer);
 ```
 
 `resources::json_loader<T>` 是 provider 到资源对象的第一版桥接。它按 GUID 从 provider 读取 JSON
@@ -1056,7 +1056,7 @@ JSON 文本，再按资源 GUID 写回 provider 已绑定的位置：
 caors::serialization::context context{};
 caors::resources::json_saver<texture> saver{provider};
 caors::resources::json_saver<texture> saver_with_context{context, provider};
-caors::error saved = saver.save(*loaded.value);
+caors::error saved = saver.save(**loaded);
 ```
 
 需要注意：

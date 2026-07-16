@@ -466,7 +466,7 @@ reader 还可以选择支持多态 envelope 读入。默认实现会尝试通过
 
 ```cpp
 actor instance{};
-caors::error status = caors::deserialize(instance, value.value);
+caors::error status = caors::deserialize(instance, *value);
 ```
 
 字段查找优先使用非 0 的 `field_id`，再回退到 `serialized_name` 或 `field_name`。当前支持写入
@@ -943,7 +943,7 @@ caors::serialization::variant_result value = caors::to_value(instance);
 
 ```cpp
 caors::serialization::text_writer writer;
-caors::serialization::write_variant(writer, value.value);
+caors::serialization::write_variant(writer, *value);
 ```
 
 DOM 是可选路径，适合工具、编辑器、测试对比和格式转换。性能敏感路径仍可直接使用
@@ -1013,7 +1013,7 @@ caors::serialization::class_(type)
 
 actor instance{7, 95.5F};
 caors::serialization::serialization_text_result result = caors::serialization::serialize_text(instance);
-caors::string text = result.value;
+caors::string text = *result;
 ```
 
 输出格式是内部简单文本格式，例如：

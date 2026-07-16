@@ -16,6 +16,5 @@ TEST_CASE("io - mount file system can remap target prefixes", "[io]") {
 
   caors::io::byte_buffer_result read = mounted.read_all("textures/hero.txt");
   REQUIRE(read.succeeded());
-  CHECK(std::string_view{reinterpret_cast<const char*>(read.value.data()), read.value.size()} ==
-        "hero");
+  CHECK(std::string_view{reinterpret_cast<const char*>(read->data()), read->size()} == "hero");
 }

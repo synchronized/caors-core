@@ -135,13 +135,13 @@ bool mount_file_system::exists(path_view path) const {
 
 byte_buffer_result mount_file_system::read_all(path_view path, memory_resource* resource) {
   if (path.empty()) {
-    return {{error_domain::io, errc::invalid_argument}, {}};
+    return fail<byte_buffer>({error_domain::io, errc::invalid_argument});
   }
 
   const core::string normalized_path = normalize_mount_path(path, this->resource());
   const mount_entry* entry = find_mount(path_view{normalized_path});
   if (entry == nullptr || entry->target == nullptr) {
-    return {{error_domain::io, errc::not_found}, {}};
+    return fail<byte_buffer>({error_domain::io, errc::not_found});
   }
 
   return entry->target->read_all(resolve_path(*entry, path_view{normalized_path}), resource);

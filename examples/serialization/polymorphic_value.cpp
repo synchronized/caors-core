@@ -120,7 +120,7 @@ int main() {
 
   const caors::serialization::serialization_text_result json = caors::to_string(source);
   if (json.failed()) {
-    std::cerr << "failed to serialize: " << static_cast<int>(json.status.value()) << '\n';
+    std::cerr << "failed to serialize: " << static_cast<int>(json.error().value()) << '\n';
     return 1;
   }
 
@@ -129,13 +129,13 @@ int main() {
   context.resolvers.memory.resource = &tracking;
 
   scene decoded{};
-  const caors::error status = caors::deserialize(context, decoded, json.value);
+  const caors::error status = caors::deserialize(context, decoded, *json);
   if (status) {
     std::cerr << "failed to deserialize: " << static_cast<int>(status.value()) << '\n';
     return 1;
   }
 
-  std::cout << json.value << '\n';
+  std::cout << *json << '\n';
 
   const auto* decoded_owner = dynamic_cast<const player*>(decoded.owner.get());
   if (decoded_owner == nullptr) {

@@ -62,21 +62,21 @@ bool native_file_system::exists(path_view path) const {
 byte_buffer_result native_file_system::read_all(path_view path, memory_resource* resource) {
   error status = validate_path(path);
   if (status) {
-    return {status, {}};
+    return fail<byte_buffer>(status);
   }
 
   if (!exists(path)) {
-    return {{error_domain::io, errc::not_found}, {}};
+    return fail<byte_buffer>({error_domain::io, errc::not_found});
   }
 
   std::ifstream input{native_path(root(), path), std::ios::binary | std::ios::ate};
   if (!input) {
-    return {{error_domain::io, errc::backend_failure}, {}};
+    return fail<byte_buffer>({error_domain::io, errc::backend_failure});
   }
 
   const std::streampos end = input.tellg();
   if (end < std::streampos{0}) {
-    return {{error_domain::io, errc::backend_failure}, {}};
+    return fail<byte_buffer>({error_domain::io, errc::backend_failure});
   }
 
   byte_buffer bytes = make_byte_buffer(resource);
@@ -85,11 +85,11 @@ byte_buffer_result native_file_system::read_all(path_view path, memory_resource*
   if (!bytes.empty()) {
     input.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
     if (!input) {
-      return {{error_domain::io, errc::backend_failure}, {}};
+      return fail<byte_buffer>({error_domain::io, errc::backend_failure});
     }
   }
 
-  return {{}, std::move(bytes)};
+  return ok(std::move(bytes));
 }
 
 error native_file_system::write_all(path_view path, std::span<const std::byte> bytes) {

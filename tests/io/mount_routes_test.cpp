@@ -32,17 +32,17 @@ TEST_CASE("io - mount file system routes virtual prefixes", "[io]") {
 
   REQUIRE(base_read.succeeded());
   REQUIRE(override_read.succeeded());
-  CHECK(std::string_view{reinterpret_cast<const char*>(base_read.value.data()),
-                         base_read.value.size()} == "base");
-  CHECK(std::string_view{reinterpret_cast<const char*>(override_read.value.data()),
-                         override_read.value.size()} == "override");
+  CHECK(std::string_view{reinterpret_cast<const char*>(base_read->data()), base_read->size()} ==
+        "base");
+  CHECK(std::string_view{reinterpret_cast<const char*>(override_read->data()),
+                         override_read->size()} == "override");
   CHECK(mounted.exists("assets/config.txt"));
   CHECK(mounted.exists("assets/special/config.txt"));
 
   caors::io::byte_buffer_result missing = mounted.read_all("missing/config.txt");
   REQUIRE(missing.failed());
-  CHECK(missing.status.domain() == caors::error_domain::io);
-  CHECK(missing.status.value() == caors::errc::not_found);
+  CHECK(missing.error().domain() == caors::error_domain::io);
+  CHECK(missing.error().value() == caors::errc::not_found);
 
   CHECK(mounted.unmount("assets/special"));
   CHECK(mounted.mount_count() == 1);

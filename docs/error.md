@@ -14,6 +14,7 @@ serialization 等模块提供一致的跨模块错误表达。
 - 用 `caors::error_domain` 保留错误来源模块。
 - 用 `caors::error` 表达轻量错误状态，不分配动态消息。
 - 用 `caors::result<T>` 表达携带值的轻量返回结果。
+- 用 `caors::result<void>` 表达需要统一 `result` 流程但没有返回值的结果。
 - 让 `caors::errc` 可以转换为 `std::error_code`，方便接入标准库生态。
 
 当前不会包含：
@@ -139,11 +140,19 @@ return caors::rethrow_as(status,
 需要同时返回错误状态和值的 API 可以使用 `caors::result<T>`：
 
 ```cpp
-caors::result<caors::string> result = caors::serialization::serialize_text(instance);
+caors::result<caors::string> result = caors::ok(caors::string{"text"});
 
 if (result.has_value()) {
   caors::string text = *result;
 }
+```
+
+失败结果可以用 `fail<T>()` 构造，避免调用点手写 `{status, value}` 聚合初始化：
+
+```cpp
+caors::result<caors::string> result =
+    caors::fail<caors::string>(
+        caors::error{caors::error_domain::serialization, caors::errc::invalid_type});
 ```
 
 `result<T>` 提供接近 `expected<T, error>` 的访问方式：
@@ -156,6 +165,21 @@ if (result.has_value()) {
 `result<T>` 目前仍保留 `status` 和 `value` 聚合字段，方便内部和历史调用点逐步迁移。新代码优先使用
 上面的访问器，避免继续扩散字段名依赖。布尔上下文中 `true` 表示成功且有可用值，
 这和 `caors::error` 的布尔语义相反：`error` 的 `true` 表示失败。
+
+### result<void>
+
+`result<void>` 用于没有返回值、但需要和 `result<T>` 保持同一套流程语义的 API：
+
+```cpp
+caors::result<void> status = caors::ok();
+
+if (!status) {
+  return status.error();
+}
+```
+
+如果一个 API 只表达“成功或失败”，没有结果值、没有后续组合流程，仍优先直接返回 `caors::error`。
+`result<void>` 更适合需要和泛型 `result<T>` 统一处理的场景，例如批处理步骤、异步流程节点或后续可能扩展值结果的 API。
 
 ## 后续方向
 

@@ -24,12 +24,12 @@ TEST_CASE("serialization - builds variant from reflected object", "[serializatio
   const caors::serialization::variant_result result = caors::to_value(actor);
 
   REQUIRE(result.succeeded());
-  CHECK(result.value.kind() == caors::meta::variant_kind::object);
-  REQUIRE(result.value.as_object().size() == 1);
-  CHECK(result.value.as_object()[0].name == "actor_id");
-  CHECK(result.value.as_object()[0].field_id == 7);
-  CHECK(result.value.as_object()[0].value.kind() == caors::meta::variant_kind::signed_integer);
-  CHECK(result.value.as_object()[0].value.as_i64() == 42);
+  CHECK(result->kind() == caors::meta::variant_kind::object);
+  REQUIRE(result->as_object().size() == 1);
+  CHECK(result->as_object()[0].name == "actor_id");
+  CHECK(result->as_object()[0].field_id == 7);
+  CHECK(result->as_object()[0].value.kind() == caors::meta::variant_kind::signed_integer);
+  CHECK(result->as_object()[0].value.as_i64() == 42);
 }
 
 // 原测试文件：serialization_write_converts_runtime_values_to_variant_test.cpp
@@ -42,31 +42,31 @@ TEST_CASE("serialization - converts runtime values to variant", "[serialization]
   caors::any number = caors::any::from(42);
   caors::serialization::variant_result number_result = caors::serialization::to_variant(number);
   REQUIRE(number_result.succeeded());
-  CHECK(number_result.value.is_i64());
-  REQUIRE(number_result.value.try_as_i64() != nullptr);
-  CHECK(*number_result.value.try_as_i64() == 42);
+  CHECK(number_result->is_i64());
+  REQUIRE(number_result->try_as_i64() != nullptr);
+  CHECK(*number_result->try_as_i64() == 42);
 
   caors::string name = "Ada";
   caors::any_ref name_ref = caors::any_ref::from(name);
   caors::serialization::variant_result name_result = caors::serialization::to_variant(name_ref);
   REQUIRE(name_result.succeeded());
-  CHECK(name_result.value.is_string());
-  REQUIRE(name_result.value.try_as_string() != nullptr);
-  CHECK(*name_result.value.try_as_string() == "Ada");
+  CHECK(name_result->is_string());
+  REQUIRE(name_result->try_as_string() != nullptr);
+  CHECK(*name_result->try_as_string() == "Ada");
 
   const std::optional<caors::guid> id = caors::guid::parse("2f6d1f64-7a3a-4db2-9a2d-123456789abc");
   REQUIRE(id.has_value());
   caors::serialization::variant_result guid_result =
       caors::serialization::to_variant(caors::any::from(*id));
   REQUIRE(guid_result.succeeded());
-  CHECK(guid_result.value.is_string());
-  REQUIRE(guid_result.value.try_as_string() != nullptr);
-  CHECK(*guid_result.value.try_as_string() == "2f6d1f64-7a3a-4db2-9a2d-123456789abc");
+  CHECK(guid_result->is_string());
+  REQUIRE(guid_result->try_as_string() != nullptr);
+  CHECK(*guid_result->try_as_string() == "2f6d1f64-7a3a-4db2-9a2d-123456789abc");
 
   caors::serialization::variant_result invalid_result =
       caors::serialization::to_variant(caors::any_ref{});
   CHECK(invalid_result.failed());
-  CHECK(invalid_result.status.value() == caors::errc::invalid_argument);
+  CHECK(invalid_result.error().value() == caors::errc::invalid_argument);
 }
 
 // 原测试文件：serialization_write_generic_writer_backend_serializes_fields_test.cpp
@@ -128,7 +128,7 @@ TEST_CASE("serialization - json options can pretty print json", "[serialization]
   const caors::serialization::serialization_text_result result = caors::to_string(actor, options);
 
   REQUIRE(result.succeeded());
-  CHECK(result.value == "{\n  \"id\": 7\n}");
+  CHECK(*result == "{\n  \"id\": 7\n}");
 }
 
 // 原测试文件：serialization_write_serializes_json_to_caller_provided_buffer_test.cpp
@@ -186,7 +186,7 @@ TEST_CASE("serialization - serializes reflected struct fields to json", "[serial
   const caors::serialization::serialization_text_result result = caors::to_string(actor);
 
   REQUIRE(result.succeeded());
-  CHECK(result.value == R"({"id":7,"health":95.5,"active":true,"name":"Ada\nLovelace"})");
+  CHECK(*result == R"({"id":7,"health":95.5,"active":true,"name":"Ada\nLovelace"})");
 }
 
 // 原测试文件：serialization_write_serializes_reflected_struct_fields_to_text_test.cpp
@@ -213,7 +213,7 @@ TEST_CASE("serialization - serializes reflected struct fields to text", "[serial
       caors::serialization::serialize_text(actor);
 
   REQUIRE(result.succeeded());
-  CHECK(result.value == R"({"id":7,"health":95.5,"active":true,"name":"Ada"})");
+  CHECK(*result == R"({"id":7,"health":95.5,"active":true,"name":"Ada"})");
 }
 
 // 原测试文件：serialization_write_variant_exposes_checked_accessors_and_helpers_test.cpp

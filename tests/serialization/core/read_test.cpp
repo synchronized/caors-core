@@ -22,8 +22,8 @@ TEST_CASE("serialization - parses json and deserializes reflected struct fields"
   const caors::serialization::variant_result parsed = caors::serialization::parse_json(
       R"({"id":7,"health":95.5,"active":true,"name":"Ada\nLovelace"})");
   REQUIRE(parsed.succeeded());
-  REQUIRE(parsed.value.is_object());
-  const caors::meta::variant_member* name = parsed.value.find_member(caors::string_name{"name"});
+  REQUIRE(parsed->is_object());
+  const caors::meta::variant_member* name = parsed->find_member(caors::string_name{"name"});
   REQUIRE(name != nullptr);
   REQUIRE(name->value.is_string());
   CHECK(name->value.as_string() == "Ada\nLovelace");
@@ -73,8 +73,8 @@ TEST_CASE("serialization - rejects invalid json", "[serialization]") {
       caors::serialization::parse_json(R"({"id":1,})");
 
   CHECK(parsed.failed());
-  CHECK(parsed.status.domain() == caors::error_domain::serialization);
-  CHECK(parsed.status.value() == caors::errc::invalid_argument);
+  CHECK(parsed.error().domain() == caors::error_domain::serialization);
+  CHECK(parsed.error().value() == caors::errc::invalid_argument);
 }
 
 // 原测试文件：serialization_read_roundtrips_char_and_enum_fields_test.cpp
@@ -93,14 +93,14 @@ TEST_CASE("serialization - roundtrips char and enum fields", "[serialization]") 
 
   const caors::serialization::serialization_text_result text = caors::to_string(actor);
   REQUIRE(text.succeeded());
-  CHECK(text.value == R"({"code":"A","color":2,"state":2})");
+  CHECK(*text == R"({"code":"A","color":2,"state":2})");
 
   const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
 
-  const caors::meta::variant_member* code = value.value.find_member(caors::string_name{"code"});
-  const caors::meta::variant_member* color = value.value.find_member(caors::string_name{"color"});
-  const caors::meta::variant_member* state = value.value.find_member(caors::string_name{"state"});
+  const caors::meta::variant_member* code = value->find_member(caors::string_name{"code"});
+  const caors::meta::variant_member* color = value->find_member(caors::string_name{"color"});
+  const caors::meta::variant_member* state = value->find_member(caors::string_name{"state"});
   REQUIRE(code != nullptr);
   REQUIRE(color != nullptr);
   REQUIRE(state != nullptr);
@@ -210,7 +210,7 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
       caors::serialization::serialize_text(context_v2, actor);
 
   REQUIRE(text_v2.succeeded());
-  CHECK(text_v2.value == R"({"id":1,"current":20})");
+  CHECK(*text_v2 == R"({"id":1,"current":20})");
 
   caors::serialization::context context_v3{};
   context_v3.config.fields.schema_version = 3;
@@ -218,7 +218,7 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
       caors::serialization::serialize_text(context_v3, actor);
 
   REQUIRE(text_v3.succeeded());
-  CHECK(text_v3.value == R"({"id":1,"current":20,"future":30})");
+  CHECK(*text_v3 == R"({"id":1,"current":20,"future":30})");
 
   caors::variant::object_type members;
   members.push_back(caors::meta::variant_member{

@@ -37,17 +37,17 @@ bool memory_file_system::exists(path_view path) const {
 
 byte_buffer_result memory_file_system::read_all(path_view path, memory_resource* resource) {
   if (path.empty()) {
-    return {{error_domain::io, errc::invalid_argument}, {}};
+    return fail<byte_buffer>({error_domain::io, errc::invalid_argument});
   }
 
   const auto found = files_.find(key_for(path));
   if (found == files_.end()) {
-    return {{error_domain::io, errc::not_found}, {}};
+    return fail<byte_buffer>({error_domain::io, errc::not_found});
   }
 
   byte_buffer bytes = make_byte_buffer(resource);
   bytes.assign(found->second.begin(), found->second.end());
-  return {{}, std::move(bytes)};
+  return ok(std::move(bytes));
 }
 
 error memory_file_system::write_all(path_view path, std::span<const std::byte> bytes) {

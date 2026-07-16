@@ -24,15 +24,14 @@ TEST_CASE("io - native file system can use a root directory", "[io]") {
 
   caors::io::byte_buffer_result read = fs.read_all("rooted.txt");
   REQUIRE(read.succeeded());
-  CHECK(std::string_view{reinterpret_cast<const char*>(read.value.data()), read.value.size()} ==
-        "rooted");
+  CHECK(std::string_view{reinterpret_cast<const char*>(read->data()), read->size()} == "rooted");
 
   const std::filesystem::path absolute_file = directory / "absolute.txt";
   REQUIRE(fs.write_all(path_string(absolute_file), std::string_view{"absolute"}).succeeded());
   caors::io::byte_buffer_result absolute_read = fs.read_all(path_string(absolute_file));
   REQUIRE(absolute_read.succeeded());
-  CHECK(std::string_view{reinterpret_cast<const char*>(absolute_read.value.data()),
-                         absolute_read.value.size()} == "absolute");
+  CHECK(std::string_view{reinterpret_cast<const char*>(absolute_read->data()),
+                         absolute_read->size()} == "absolute");
 
   std::filesystem::remove_all(directory, ec);
 }
@@ -68,9 +67,9 @@ TEST_CASE("io - native file system reads and writes bytes", "[io]") {
   caors::io::byte_buffer_result read = fs.read_all(file_path, &tracking);
 
   REQUIRE(read.succeeded());
-  CHECK(read.value.get_allocator().resource() == &tracking);
-  REQUIRE(read.value.size() == expected.size());
-  CHECK(std::equal(read.value.begin(), read.value.end(), expected.begin(), expected.end()));
+  CHECK(read->get_allocator().resource() == &tracking);
+  REQUIRE(read->size() == expected.size());
+  CHECK(std::equal(read->begin(), read->end(), expected.begin(), expected.end()));
 
   std::filesystem::remove_all(directory, ec);
 }
@@ -86,13 +85,13 @@ TEST_CASE("io - native file system reports invalid paths and missing files", "[i
 
   caors::io::byte_buffer_result empty = fs.read_all("");
   REQUIRE(empty.failed());
-  CHECK(empty.status.domain() == caors::error_domain::io);
-  CHECK(empty.status.value() == caors::errc::invalid_argument);
+  CHECK(empty.error().domain() == caors::error_domain::io);
+  CHECK(empty.error().value() == caors::errc::invalid_argument);
 
   caors::io::byte_buffer_result missing = fs.read_all(path_string(make_temp_dir() / "missing.bin"));
   REQUIRE(missing.failed());
-  CHECK(missing.status.domain() == caors::error_domain::io);
-  CHECK(missing.status.value() == caors::errc::not_found);
+  CHECK(missing.error().domain() == caors::error_domain::io);
+  CHECK(missing.error().value() == caors::errc::not_found);
 
   const caors::error write_empty = fs.write_all("", std::string_view{"data"});
   REQUIRE(write_empty.failed());
@@ -121,9 +120,8 @@ TEST_CASE("io - native file system writes text", "[io]") {
   caors::io::byte_buffer_result read = fs.read_all(file_path);
 
   REQUIRE(read.succeeded());
-  REQUIRE(read.value.size() == 5);
-  CHECK(std::string_view{reinterpret_cast<const char*>(read.value.data()), read.value.size()} ==
-        "hello");
+  REQUIRE(read->size() == 5);
+  CHECK(std::string_view{reinterpret_cast<const char*>(read->data()), read->size()} == "hello");
 
   std::filesystem::remove_all(directory, ec);
 }

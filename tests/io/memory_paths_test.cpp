@@ -18,15 +18,14 @@ TEST_CASE("io - memory file system stores normalized virtual paths", "[io]") {
   caors::io::byte_buffer_result read = fs.read_all("assets/data.txt", &tracking);
 
   REQUIRE(read.succeeded());
-  CHECK(read.value.get_allocator().resource() == &tracking);
-  CHECK(std::string_view{reinterpret_cast<const char*>(read.value.data()), read.value.size()} ==
-        "memory");
+  CHECK(read->get_allocator().resource() == &tracking);
+  CHECK(std::string_view{reinterpret_cast<const char*>(read->data()), read->size()} == "memory");
 
   REQUIRE(fs.write_all("assets/data.txt", std::string_view{"updated"}).succeeded());
   CHECK(fs.file_count() == 1);
 
   caors::io::byte_buffer_result updated = fs.read_all("assets/data.txt");
   REQUIRE(updated.succeeded());
-  CHECK(std::string_view{reinterpret_cast<const char*>(updated.value.data()),
-                         updated.value.size()} == "updated");
+  CHECK(std::string_view{reinterpret_cast<const char*>(updated->data()), updated->size()} ==
+        "updated");
 }

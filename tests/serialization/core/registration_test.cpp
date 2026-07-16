@@ -26,7 +26,7 @@ TEST_CASE("serialization - class builder can attach to explicit meta type", "[se
       caors::serialization::serialize_text(actor);
 
   REQUIRE(text.succeeded());
-  CHECK(text.value == R"({"id":42})");
+  CHECK(*text == R"({"id":42})");
 }
 
 // 原测试文件：serialization_registration_error_registration_can_happen_before_reflection_fields_test.cpp
@@ -59,7 +59,7 @@ TEST_CASE("serialization - registration can happen before reflection fields", "[
       caors::serialization::serialize_text(actor);
 
   REQUIRE(result.succeeded());
-  CHECK(result.value == R"({"actor_id":9})");
+  CHECK(*result == R"({"actor_id":9})");
 }
 
 // 原测试文件：serialization_registration_error_rejects_weak_pointer_deserialization_test.cpp
@@ -109,8 +109,8 @@ TEST_CASE("serialization - reports missing configured reflection field", "[seria
       caors::serialization::serialize_text(actor);
 
   CHECK(result.failed());
-  CHECK(result.status.domain() == caors::error_domain::serialization);
-  CHECK(result.status.value() == caors::errc::not_found);
+  CHECK(result.error().domain() == caors::error_domain::serialization);
+  CHECK(result.error().value() == caors::errc::not_found);
 }
 
 // 原测试文件：serialization_registration_error_reports_missing_serialization_metadata_test.cpp
@@ -131,9 +131,9 @@ TEST_CASE("serialization - reports missing serialization metadata", "[serializat
       caors::serialization::serialize_text(actor);
 
   CHECK(result.failed());
-  CHECK(result.status.domain() == caors::error_domain::serialization);
-  CHECK(result.status.value() == caors::errc::missing_type);
-  CHECK(result.value.empty());
+  CHECK(result.error().domain() == caors::error_domain::serialization);
+  CHECK(result.error().value() == caors::errc::missing_type);
+  CHECK(result->empty());
 }
 
 // 原测试文件：serialization_registration_error_reports_unsupported_reflected_field_kind_test.cpp
@@ -156,8 +156,8 @@ TEST_CASE("serialization - reports unsupported reflected field kind", "[serializ
       caors::serialization::serialize_text(actor);
 
   CHECK(result.failed());
-  CHECK(result.status.domain() == caors::error_domain::serialization);
-  CHECK(result.status.value() == caors::errc::unsupported);
+  CHECK(result.error().domain() == caors::error_domain::serialization);
+  CHECK(result.error().value() == caors::errc::unsupported);
 }
 
 // 原测试文件：serialization_registration_error_reports_unsupported_weak_pointer_fields_test.cpp
@@ -180,8 +180,8 @@ TEST_CASE("serialization - reports unsupported weak pointer fields", "[serializa
       caors::serialization::serialize_text(actor);
 
   CHECK(result.failed());
-  CHECK(result.status.domain() == caors::error_domain::serialization);
-  CHECK(result.status.value() == caors::errc::unsupported);
+  CHECK(result.error().domain() == caors::error_domain::serialization);
+  CHECK(result.error().value() == caors::errc::unsupported);
 }
 
 // 原测试文件：serialization_registration_explicit_registration_reports_missing_meta_type_test.cpp
@@ -227,7 +227,7 @@ TEST_CASE("serialization - field metadata renames and skips fields", "[serializa
       caors::serialization::serialize_text(actor);
 
   REQUIRE(result.succeeded());
-  CHECK(result.value == R"({"hp":42.5,"id":7})");
+  CHECK(*result == R"({"hp":42.5,"id":7})");
 }
 
 // 原测试文件：serialization_registration_registers_type_metadata_component_test.cpp

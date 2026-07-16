@@ -10,13 +10,13 @@ TEST_CASE("io - memory file system reports missing and supports erase", "[io]") 
 
   caors::io::byte_buffer_result empty = fs.read_all("");
   REQUIRE(empty.failed());
-  CHECK(empty.status.domain() == caors::error_domain::io);
-  CHECK(empty.status.value() == caors::errc::invalid_argument);
+  CHECK(empty.error().domain() == caors::error_domain::io);
+  CHECK(empty.error().value() == caors::errc::invalid_argument);
 
   caors::io::byte_buffer_result missing = fs.read_all("missing.txt");
   REQUIRE(missing.failed());
-  CHECK(missing.status.domain() == caors::error_domain::io);
-  CHECK(missing.status.value() == caors::errc::not_found);
+  CHECK(missing.error().domain() == caors::error_domain::io);
+  CHECK(missing.error().value() == caors::errc::not_found);
 
   REQUIRE(fs.write_all("assets/data.txt", std::string_view{"data"}).succeeded());
   CHECK(fs.erase("/assets/data.txt"));

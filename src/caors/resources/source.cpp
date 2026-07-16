@@ -33,7 +33,7 @@ bool file_source::exists(io::path_view location) const {
 
 io::byte_buffer_result file_source::read(io::path_view location, memory_resource* resource) {
   if (file_system_ == nullptr) {
-    return {{error_domain::resources, errc::backend_failure}, {}};
+    return fail<io::byte_buffer>({error_domain::resources, errc::backend_failure});
   }
 
   return file_system_->read_all(location, resource);
@@ -109,12 +109,12 @@ bool provider::exists(resource_guid guid) const {
 
 io::byte_buffer_result provider::read(resource_guid guid, memory_resource* resource) const {
   if (!guid) {
-    return {{error_domain::resources, errc::invalid_argument}, {}};
+    return fail<io::byte_buffer>({error_domain::resources, errc::invalid_argument});
   }
 
   const source_location location = find(guid);
   if (!location) {
-    return {{error_domain::resources, errc::not_found}, {}};
+    return fail<io::byte_buffer>({error_domain::resources, errc::not_found});
   }
 
   return location.source->read(location.location, resource);
