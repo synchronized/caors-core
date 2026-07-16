@@ -396,6 +396,14 @@ if (request.loaded()) {
 - `result()`：返回本次 `preload_plan` 和已经成功提交的 `loaded` 列表；queued/loading 时
   `status` 为 `resources / pending`。
 
+异步预加载会复用 database 级单资源请求表：
+
+- 同一个资源类型、同一个 GUID 的 direct load 和 preload load 共享同一个 queued/loading `load_request<T>` 状态。
+- 多个 preload 请求命中同一个资源时只提交一次后台 loader；每个 `preload_request` 都会观察共享请求的最终结果。
+- 计划阶段已经在 cache 中的资源会进入 `plan.already_loaded`，`total_count()` 不计入这些资源，也不会提交后台任务。
+- 计划后、提交前被其它路径写入 cache 的资源会立即标记该 preload item 完成。
+- 取消 `preload_request` 只取消该批量请求的聚合状态；它不会取消已经共享给其它请求的底层 `load_request<T>`。
+
 失败策略：
 
 - nil GUID：立即进入 `failed / resources::invalid_argument`。
@@ -409,7 +417,7 @@ if (request.loaded()) {
 - 调用方取消请求：进入 `cancelled / resources::cancelled`。若后台已经加载完成但主线程尚未 drain，
   completion 回调会释放加载结果并跳过 cache commit。
 - 异步预加载中任一资源加载或 commit 失败，整个 `preload_request` 进入 failed；已提交成功的资源保留在
-  cache 中，尚未 commit 的 completion 会跳过写入。
+  cache 中，尚未 commit 或尚未通知该批量请求的 completion 会跳过写入或状态更新。
 
 线程边界：
 
@@ -419,8 +427,8 @@ if (request.loaded()) {
 - `preload_request` 自身状态查询是线程安全的。
 - `completion_queue::drain()` 应在拥有 cache 的线程调用。
 - 第一版 `load_request<T>::try_get()` 和 `result()` 都不阻塞；等待、批量轮询和进度聚合后续再补。
-- 第一版异步预加载只做批量提交和聚合状态，不做预加载内部同 GUID 请求合并、优先级、分层依赖等待或 loader
-  内部进度上报。
+- 第一版异步预加载已复用同类型同 GUID 的进行中 load 请求；优先级、分层依赖等待和 loader 内部进度上报
+  后续再补。
 
 ## 序列化
 

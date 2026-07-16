@@ -459,7 +459,8 @@ public:
 
     for (const preload_item& item : plan.load_order) {
       const error status =
-          entry->ops.request_load(entry->cache, entry->loader, item, executor, completions, state);
+          entry->ops.request_load(entry->cache, entry->loader, entry->load_requests.get(), item,
+                                  executor, completions, state);
       if (status) {
         return request;
       }
@@ -492,7 +493,8 @@ public:
       }
 
       const error status =
-          entry->ops.request_load(entry->cache, entry->loader, item, executor, completions, state);
+          entry->ops.request_load(entry->cache, entry->loader, entry->load_requests.get(), item,
+                                  executor, completions, state);
       if (status) {
         return request;
       }
@@ -698,8 +700,8 @@ private:
 
   template <typename T>
   [[nodiscard]] static error
-  request_load_in_cache(void* cache, void* loader, preload_item item, tasks::executor& executor,
-                        tasks::completion_queue& completions,
+  request_load_in_cache(void* cache, void* loader, void* requests, preload_item item,
+                        tasks::executor& executor, tasks::completion_queue& completions,
                         const std::shared_ptr<detail::preload_request_state>& state) {
     auto& target = *static_cast<resources::cache<T>*>(cache);
     auto& source = *static_cast<resources::loader<T>*>(loader);
@@ -714,15 +716,20 @@ private:
       return {};
     }
 
-    const error status = executor.submit(tasks::task{
-        target.resource(), [state, &target, &source, item, &completions]() mutable {
-          detail::preload_resource_in_background(state, target, source, item, completions);
-        }});
-    if (status) {
+    auto* request_table = static_cast<resources::load_request_table<T>*>(requests);
+    resources::load_request<T> request =
+        request_table != nullptr
+            ? detail::request_load_into_impl(target, source, item.guid, executor, completions,
+                                             request_table, false, state, item)
+            : detail::request_load_into_impl<T>(target, source, item.guid, executor, completions,
+                                                nullptr, false, state, item);
+    if (!request) {
+      const error status{error_domain::resources, errc::backend_failure};
       detail::preload_request_access::fail_item(state, item, status);
+      return status;
     }
 
-    return status;
+    return request.failed() ? request.error() : error{};
   }
 
   template <typename T> [[nodiscard]] static bool resolve_in_cache(void* cache, void* reference) {

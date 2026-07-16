@@ -222,13 +222,21 @@ private:
   }
 
   struct state_type {
-    explicit state_type(memory_resource* resource) noexcept : resource(resource) {}
+    struct preload_observer {
+      preload_item item{};
+      std::weak_ptr<detail::preload_request_state> state{};
+    };
+
+    explicit state_type(memory_resource* resource)
+        : resource(resource), preload_observers(allocator<preload_observer>{resource}) {}
 
     memory_resource* resource = nullptr;
     mutable std::mutex mutex{};
     request_status status = request_status::queued;
     caors::error status_error{};
     handle<T> value{};
+    bool commit_unconditionally = false;
+    core::vector<preload_observer> preload_observers;
   };
 
   explicit load_request(std::shared_ptr<state_type> state) noexcept : state_(std::move(state)) {}
@@ -506,6 +514,15 @@ public:
     return request.state_;
   }
 
+  static void set_commit_unconditionally(const std::shared_ptr<state_type>& state, bool value) {
+    if (state == nullptr) {
+      return;
+    }
+
+    std::lock_guard lock{state->mutex};
+    state->commit_unconditionally = state->commit_unconditionally || value;
+  }
+
   [[nodiscard]] static bool loading(const std::shared_ptr<state_type>& state) {
     if (state == nullptr) {
       return false;
@@ -556,7 +573,8 @@ public:
     }
 
     std::lock_guard lock{state->mutex};
-    if (state->status == request_status::cancelled || state->status == request_status::loaded) {
+    if (state->status == request_status::cancelled || state->status == request_status::failed ||
+        state->status == request_status::loaded) {
       return;
     }
 
@@ -573,14 +591,18 @@ public:
       return false;
     }
 
-    std::lock_guard lock{state->mutex};
-    if (state->status != request_status::queued && state->status != request_status::loading) {
-      return false;
+    {
+      std::lock_guard lock{state->mutex};
+      if (state->status != request_status::queued && state->status != request_status::loading) {
+        return false;
+      }
+
+      state->status = request_status::cancelled;
+      state->status_error = {error_domain::resources, errc::cancelled};
+      state->value = {};
     }
 
-    state->status = request_status::cancelled;
-    state->status_error = {error_domain::resources, errc::cancelled};
-    state->value = {};
+    notify_preload_observers(state);
     return true;
   }
 
@@ -592,6 +614,19 @@ public:
     std::lock_guard lock{state->mutex};
     return state->status == request_status::cancelled;
   }
+
+  static void observe_preload(const request_type& request, preload_item item,
+                              const std::shared_ptr<preload_request_state>& preload_state);
+
+  static void notify_preload_observers(const std::shared_ptr<state_type>& state);
+
+  [[nodiscard]] static bool should_commit(const std::shared_ptr<state_type>& state);
+
+private:
+  using preload_observer = typename state_type::preload_observer;
+
+  static void notify_preload_observer(const preload_observer& observer, request_status status,
+                                      caors::error status_error);
 };
 
 class preload_request_access {
@@ -687,7 +722,8 @@ public:
     }
 
     std::lock_guard lock{state->mutex};
-    if (state->status == request_status::cancelled || state->status == request_status::loaded) {
+    if (state->status == request_status::cancelled || state->status == request_status::failed ||
+        state->status == request_status::loaded) {
       return;
     }
 
@@ -705,7 +741,8 @@ public:
     }
 
     std::lock_guard lock{state->mutex};
-    if (state->status == request_status::cancelled || state->status == request_status::loaded) {
+    if (state->status == request_status::cancelled || state->status == request_status::failed ||
+        state->status == request_status::loaded) {
       return;
     }
 
@@ -745,6 +782,108 @@ public:
   }
 };
 
+template <typename T>
+void load_request_access<T>::observe_preload(
+    const request_type& request, preload_item item,
+    const std::shared_ptr<preload_request_state>& preload_state) {
+  if (request.state_ == nullptr || preload_state == nullptr) {
+    return;
+  }
+
+  preload_observer observer{item, preload_state};
+  request_status status = request_status::cancelled;
+  caors::error status_error{};
+  {
+    std::lock_guard lock{request.state_->mutex};
+    status = request.state_->status;
+    status_error = request.state_->status_error;
+    if (status == request_status::queued || status == request_status::loading) {
+      request.state_->preload_observers.push_back(std::move(observer));
+      return;
+    }
+  }
+
+  notify_preload_observer(observer, status, status_error);
+}
+
+template <typename T>
+void load_request_access<T>::notify_preload_observers(const std::shared_ptr<state_type>& state) {
+  if (state == nullptr) {
+    return;
+  }
+
+  using observer_type = typename state_type::preload_observer;
+  core::vector<observer_type> observers{allocator<observer_type>{state->resource}};
+  request_status status = request_status::cancelled;
+  caors::error status_error{};
+  {
+    std::lock_guard lock{state->mutex};
+    if (state->status == request_status::queued || state->status == request_status::loading) {
+      return;
+    }
+
+    status = state->status;
+    status_error = state->status_error;
+    observers.swap(state->preload_observers);
+  }
+
+  for (const observer_type& observer : observers) {
+    notify_preload_observer(observer, status, status_error);
+  }
+}
+
+template <typename T>
+bool load_request_access<T>::should_commit(const std::shared_ptr<state_type>& state) {
+  if (state == nullptr) {
+    return false;
+  }
+
+  std::lock_guard lock{state->mutex};
+  if (state->status == request_status::cancelled || state->status == request_status::failed) {
+    return false;
+  }
+  if (state->commit_unconditionally) {
+    return true;
+  }
+
+  for (const preload_observer& observer : state->preload_observers) {
+    const std::shared_ptr<preload_request_state> preload_state = observer.state.lock();
+    if (preload_state != nullptr && preload_request_access::should_continue(preload_state)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+template <typename T>
+void load_request_access<T>::notify_preload_observer(
+    const typename load_request_access<T>::preload_observer& observer, request_status status,
+    caors::error status_error) {
+  const std::shared_ptr<preload_request_state> preload_state = observer.state.lock();
+  if (preload_state == nullptr) {
+    return;
+  }
+
+  switch (status) {
+  case request_status::loaded:
+    preload_request_access::complete_item(preload_state, observer.item);
+    return;
+  case request_status::failed:
+    preload_request_access::fail_item(
+        preload_state, observer.item,
+        status_error ? status_error : caors::error{error_domain::resources, errc::backend_failure});
+    return;
+  case request_status::cancelled:
+    preload_request_access::fail_item(preload_state, observer.item,
+                                      {error_domain::resources, errc::cancelled});
+    return;
+  case request_status::queued:
+  case request_status::loading:
+    return;
+  }
+}
+
 } // namespace detail
 
 inline preload_request preload_request::failed(caors::error status, memory_resource* resource) {
@@ -779,6 +918,15 @@ void load_resource_in_background(const StatePtr& state, cache<T>& target, loader
     if (requests != nullptr) {
       requests->erase(guid, request);
     }
+    load_request_access<T>::notify_preload_observers(state);
+    return;
+  }
+
+  if (!load_request_access<T>::should_commit(state)) {
+    (void)load_request_access<T>::cancel(state);
+    if (requests != nullptr) {
+      requests->erase(guid, request);
+    }
     return;
   }
 
@@ -791,10 +939,12 @@ void load_resource_in_background(const StatePtr& state, cache<T>& target, loader
       if (requests != nullptr) {
         requests->erase(guid, request);
       }
+      load_request_access<T>::notify_preload_observers(state);
       return;
     }
 
-    if (load_request_access<T>::is_cancelled(state)) {
+    if (!load_request_access<T>::should_commit(state)) {
+      (void)load_request_access<T>::cancel(state);
       if (requests != nullptr) {
         requests->erase(guid, request);
       }
@@ -804,7 +954,8 @@ void load_resource_in_background(const StatePtr& state, cache<T>& target, loader
     error push_status = completions.push(tasks::task{
         target.resource(), [state, &target, guid, replace, requests, request,
                             loaded_resource = std::move(loaded.value)]() mutable {
-          if (load_request_access<T>::is_cancelled(state)) {
+          if (!load_request_access<T>::should_commit(state)) {
+            (void)load_request_access<T>::cancel(state);
             if (requests != nullptr) {
               requests->erase(guid, request);
             }
@@ -819,6 +970,7 @@ void load_resource_in_background(const StatePtr& state, cache<T>& target, loader
             if (requests != nullptr) {
               requests->erase(guid, request);
             }
+            load_request_access<T>::notify_preload_observers(state);
             return status;
           }
 
@@ -826,6 +978,7 @@ void load_resource_in_background(const StatePtr& state, cache<T>& target, loader
           if (requests != nullptr) {
             requests->erase(guid, request);
           }
+          load_request_access<T>::notify_preload_observers(state);
           return error{};
         }});
     if (push_status) {
@@ -833,6 +986,7 @@ void load_resource_in_background(const StatePtr& state, cache<T>& target, loader
       if (requests != nullptr) {
         requests->erase(guid, request);
       }
+      load_request_access<T>::notify_preload_observers(state);
     }
 #if CAORS_HAS_EXCEPTIONS
   } catch (...) {
@@ -840,81 +994,47 @@ void load_resource_in_background(const StatePtr& state, cache<T>& target, loader
     if (requests != nullptr) {
       requests->erase(guid, request);
     }
-  }
-#endif
-}
-
-template <typename T, typename StatePtr>
-void preload_resource_in_background(const StatePtr& state, cache<T>& target, loader<T>& source,
-                                    preload_item item, tasks::completion_queue& completions) {
-  if (!preload_request_access::should_continue(state)) {
-    return;
-  }
-
-#if CAORS_HAS_EXCEPTIONS
-  try {
-#endif
-    load_result<T> loaded = source.load(item.guid, target.resource());
-    if (loaded.failed()) {
-      preload_request_access::fail_item(state, item, loaded.status);
-      return;
-    }
-
-    if (!preload_request_access::should_continue(state)) {
-      return;
-    }
-
-    error push_status = completions.push(
-        tasks::task{target.resource(),
-                    [state, &target, item, loaded_resource = std::move(loaded.value)]() mutable {
-                      if (!preload_request_access::should_continue(state)) {
-                        return error{};
-                      }
-
-                      handle<T> committed;
-                      const error status = commit_loaded_resource(
-                          target, item.guid, std::move(loaded_resource), false, committed);
-                      if (status) {
-                        preload_request_access::fail_item(state, item, status);
-                        return status;
-                      }
-
-                      preload_request_access::complete_item(state, item);
-                      return error{};
-                    }});
-    if (push_status) {
-      preload_request_access::fail_item(state, item, push_status);
-    }
-#if CAORS_HAS_EXCEPTIONS
-  } catch (...) {
-    preload_request_access::fail_item(state, item,
-                                      {error_domain::resources, errc::backend_failure});
+    load_request_access<T>::notify_preload_observers(state);
   }
 #endif
 }
 
 template <typename T>
-[[nodiscard]] load_request<T> request_load_into_impl(cache<T>& target, loader<T>& source,
-                                                     resource_guid guid, tasks::executor& executor,
-                                                     tasks::completion_queue& completions,
-                                                     load_request_table<T>* requests) {
+[[nodiscard]] load_request<T>
+request_load_into_impl(cache<T>& target, loader<T>& source, resource_guid guid,
+                       tasks::executor& executor, tasks::completion_queue& completions,
+                       load_request_table<T>* requests, bool commit_unconditionally = true,
+                       std::shared_ptr<preload_request_state> preload_state = {},
+                       preload_item preload_observer_item = {}) {
   if (!guid) {
-    return load_request<T>::failed({error_domain::resources, errc::invalid_argument},
-                                   target.resource());
+    load_request<T> request = load_request<T>::failed(
+        {error_domain::resources, errc::invalid_argument}, target.resource());
+    load_request_access<T>::observe_preload(request, preload_observer_item,
+                                            std::move(preload_state));
+    return request;
   }
 
   if (handle<T> existing = target.find_handle(guid)) {
-    return load_request<T>::completed(std::move(existing), target.resource());
+    load_request<T> request = load_request<T>::completed(std::move(existing), target.resource());
+    load_request_access<T>::observe_preload(request, preload_observer_item,
+                                            std::move(preload_state));
+    return request;
   }
 
   if (requests != nullptr) {
     if (load_request<T> pending = requests->find_pending(guid)) {
+      load_request_access<T>::set_commit_unconditionally(load_request_access<T>::state(pending),
+                                                         commit_unconditionally);
+      load_request_access<T>::observe_preload(pending, preload_observer_item,
+                                              std::move(preload_state));
       return pending;
     }
   }
 
   load_request<T> request = load_request_access<T>::make(target.resource());
   auto state = load_request_access<T>::state(request);
+  load_request_access<T>::set_commit_unconditionally(state, commit_unconditionally);
+  load_request_access<T>::observe_preload(request, preload_observer_item, std::move(preload_state));
   if (requests != nullptr) {
     requests->store(guid, request);
   }
@@ -930,6 +1050,7 @@ template <typename T>
     if (requests != nullptr) {
       requests->erase(guid, request);
     }
+    load_request_access<T>::notify_preload_observers(state);
   }
 
   return request;
@@ -951,12 +1072,15 @@ request_reload_into_impl(cache<T>& target, loader<T>& source, resource_guid guid
 
   if (requests != nullptr) {
     if (load_request<T> pending = requests->find_pending(guid)) {
+      load_request_access<T>::set_commit_unconditionally(load_request_access<T>::state(pending),
+                                                         true);
       return pending;
     }
   }
 
   load_request<T> request = load_request_access<T>::make(target.resource());
   auto state = load_request_access<T>::state(request);
+  load_request_access<T>::set_commit_unconditionally(state, true);
   if (requests != nullptr) {
     requests->store(guid, request);
   }

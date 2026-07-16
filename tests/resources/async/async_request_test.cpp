@@ -502,6 +502,155 @@ TEST_CASE("resources - database async preload dispatches manifest types", "[reso
   CHECK(contains_item(result.loaded, test_guid_a, material_manifest_type()));
 }
 
+TEST_CASE("resources - database async preload reuses pending direct load request", "[resources]") {
+  require_async_preload_metadata();
+
+  caors::resource_manifest manifest;
+  REQUIRE(manifest.bind(test_guid_a, "textures/albedo.json", texture_manifest_type()).succeeded());
+
+  caors::resource_cache<texture_resource> cache;
+  counting_texture_loader loader;
+
+  caors::resource_database database;
+  database.set_manifest(manifest);
+  REQUIRE(database.register_type(cache, loader, texture_manifest_type()).succeeded());
+
+  caors::tasks::inline_executor executor;
+  caors::tasks::completion_queue completions;
+
+  caors::resource_load_request<texture_resource> direct =
+      database.request_load<texture_resource>(test_guid_a, executor, completions);
+  caors::resource_preload_request preload =
+      database.request_preload(test_guid_a, executor, completions);
+
+  CHECK(direct.status() == caors::resource_request_status::loading);
+  CHECK(preload.status() == caors::resource_request_status::loading);
+  CHECK(preload.total_count() == 1);
+  CHECK(preload.pending_count() == 1);
+  CHECK(loader.load_count == 1);
+  CHECK(completions.size() == 1);
+
+  CHECK(completions.drain() == 1);
+
+  REQUIRE(direct.loaded());
+  REQUIRE(preload.loaded());
+  CHECK(preload.loaded_count() == 1);
+  CHECK(preload.failed_count() == 0);
+  CHECK(cache.contains(test_guid_a));
+  CHECK(direct.try_get().get() == cache.find(test_guid_a));
+  CHECK(loader.load_count == 1);
+
+  caors::resource_preload_result result = preload.result();
+  REQUIRE(result.succeeded());
+  CHECK(contains_item(result.loaded, test_guid_a, texture_manifest_type()));
+}
+
+TEST_CASE("resources - database async preload observes shared load cancellation", "[resources]") {
+  require_async_preload_metadata();
+
+  caors::resource_manifest manifest;
+  REQUIRE(manifest.bind(test_guid_a, "textures/albedo.json", texture_manifest_type()).succeeded());
+
+  caors::resource_cache<texture_resource> cache;
+  counting_texture_loader loader;
+
+  caors::resource_database database;
+  database.set_manifest(manifest);
+  REQUIRE(database.register_type(cache, loader, texture_manifest_type()).succeeded());
+
+  holding_executor executor;
+  caors::tasks::completion_queue completions;
+
+  caors::resource_load_request<texture_resource> direct =
+      database.request_load<texture_resource>(test_guid_a, executor, completions);
+  caors::resource_preload_request preload =
+      database.request_preload(test_guid_a, executor, completions);
+
+  CHECK(direct.status() == caors::resource_request_status::queued);
+  CHECK(preload.status() == caors::resource_request_status::loading);
+  REQUIRE(direct.cancel());
+  CHECK(preload.failed());
+  CHECK(preload.error() == caors::error{caors::error_domain::resources, caors::errc::cancelled});
+  CHECK(preload.failed_count() == 1);
+  CHECK(preload.pending_count() == 0);
+
+  CHECK_FALSE(executor.run_once());
+  CHECK(loader.load_count == 0);
+  CHECK_FALSE(cache.contains(test_guid_a));
+}
+
+TEST_CASE("resources - database async preload reuses pending preload request", "[resources]") {
+  require_async_preload_metadata();
+
+  caors::resource_manifest manifest;
+  REQUIRE(manifest.bind(test_guid_a, "textures/albedo.json", texture_manifest_type()).succeeded());
+
+  caors::resource_cache<texture_resource> cache;
+  counting_texture_loader loader;
+
+  caors::resource_database database;
+  database.set_manifest(manifest);
+  REQUIRE(database.register_type(cache, loader, texture_manifest_type()).succeeded());
+
+  caors::tasks::inline_executor executor;
+  caors::tasks::completion_queue completions;
+
+  caors::resource_preload_request first =
+      database.request_preload(test_guid_a, executor, completions);
+  caors::resource_preload_request second =
+      database.request_preload(test_guid_a, executor, completions);
+
+  CHECK(first.status() == caors::resource_request_status::loading);
+  CHECK(second.status() == caors::resource_request_status::loading);
+  CHECK(loader.load_count == 1);
+  CHECK(completions.size() == 1);
+
+  CHECK(completions.drain() == 1);
+
+  REQUIRE(first.loaded());
+  REQUIRE(second.loaded());
+  CHECK(first.loaded_count() == 1);
+  CHECK(second.loaded_count() == 1);
+  CHECK(first.failed_count() == 0);
+  CHECK(second.failed_count() == 0);
+  CHECK(cache.contains(test_guid_a));
+  CHECK(loader.load_count == 1);
+}
+
+TEST_CASE("resources - database async preload completes cached resources immediately",
+          "[resources]") {
+  require_async_preload_metadata();
+
+  caors::resource_manifest manifest;
+  REQUIRE(manifest.bind(test_guid_a, "textures/albedo.json", texture_manifest_type()).succeeded());
+
+  caors::resource_cache<texture_resource> cache;
+  REQUIRE(cache.create(test_guid_a) != nullptr);
+  counting_texture_loader loader;
+
+  caors::resource_database database;
+  database.set_manifest(manifest);
+  REQUIRE(database.register_type(cache, loader, texture_manifest_type()).succeeded());
+
+  caors::tasks::inline_executor executor;
+  caors::tasks::completion_queue completions;
+
+  caors::resource_preload_request preload =
+      database.request_preload(test_guid_a, executor, completions);
+
+  REQUIRE(preload.loaded());
+  CHECK(preload.total_count() == 0);
+  CHECK(preload.loaded_count() == 0);
+  CHECK(preload.pending_count() == 0);
+  CHECK(preload.progress() == 1.0);
+  CHECK(loader.load_count == 0);
+  CHECK(completions.size() == 0);
+
+  caors::resource_preload_result result = preload.result();
+  REQUIRE(result.succeeded());
+  CHECK(contains_item(result.plan.already_loaded, test_guid_a, texture_manifest_type()));
+}
+
 TEST_CASE("resources - database async preload cancellation skips queued commits", "[resources]") {
   require_async_preload_metadata();
 
