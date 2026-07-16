@@ -10,6 +10,7 @@
 
 #include <cstddef>
 #include <optional>
+#include <span>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -190,6 +191,21 @@ private:
 };
 
 void swap(any& lhs, any& rhs) noexcept;
+
+inline any factory_capability::construct_any(memory::memory_resource* resource) const {
+  void* value = construct(resource);
+  return value != nullptr
+             ? any::take_ownership(get_type(), value, resource, detail::factory_destroy_fn(*this))
+             : any{};
+}
+
+inline any constructor_capability::construct_any(std::span<const any_ref> arguments,
+                                                 memory::memory_resource* resource) const {
+  void* value = construct(resource, arguments);
+  return value != nullptr ? any::take_ownership(get_type(), value, resource,
+                                                detail::constructor_destroy_fn(*this))
+                          : any{};
+}
 
 } // namespace caors::meta
 

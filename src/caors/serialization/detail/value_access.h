@@ -107,7 +107,8 @@ construct_owned_value(meta::type type, const serialization::context& context,
     if (factory) {
       void* value = factory.construct(resource);
       if (value != nullptr) {
-        return {value, resource, factory.destroy_fn(), transfer_destroy_context};
+        return {value, resource, meta::detail::factory_destroy_fn(factory),
+                transfer_destroy_context};
       }
     }
   }
@@ -119,7 +120,8 @@ construct_owned_value(meta::type type, const serialization::context& context,
     if (constructor.matches(arguments.size())) {
       void* value = constructor.construct(resource, arguments);
       if (value != nullptr) {
-        return {value, resource, constructor.destroy_fn(), transfer_destroy_context};
+        return {value, resource, meta::detail::constructor_destroy_fn(constructor),
+                transfer_destroy_context};
       }
     }
   }

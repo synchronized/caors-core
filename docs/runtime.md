@@ -50,7 +50,7 @@ caors::any value = type.create();
 
 当前创建优先级是：
 
-1. 如果类型注册了 `meta` factory，使用 factory 构造对象，并让返回的 `any` 记住匹配的销毁函数。
+1. 如果类型注册了 `meta` factory，使用 factory 构造对象，并让返回的 `any` 记住匹配的内部销毁策略。
 2. 如果传入运行期参数列表，使用已注册 constructor capability 精确匹配参数数量和参数类型。
 3. 如果没有参数且没有可用 factory / constructor，回退到 descriptor 默认构造，也就是
    `any::default_construct()`。
@@ -97,7 +97,7 @@ constructor 参数采用保守匹配策略：参数数量必须一致，参数�
 
 - `default_construct(type, resource)` 只按 descriptor 默认构造值。
 - `take_ownership(type, value, resource, destroy)` 接管外部工厂创建的对象，调用方必须保证对象类型、
-  销毁函数和 `memory_resource` 完全匹配。
+  销毁函数和 `memory_resource` 完全匹配。普通 meta factory 调用优先使用 `factory_capability::construct_any()`。
 - 普通业务、编辑器创建、多态反序列化和资源配置加载应优先通过 `runtime::type::create()` 统一调度。
 
 注册自定义无参构造策略时，使用 `runtime::class_<T>().factory()`：

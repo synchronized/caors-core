@@ -200,7 +200,9 @@ caors::meta::class_<player>("game.player")
 可默认构造。带函数指针的重载用于不可默认构造类型，`destroy` 必须匹配 `construct` 的分配策略。
 应用层需要创建运行期值时优先使用 `runtime::type::create()`，它会先通过
 `meta::type::get_capability<meta::factory_capability>()` 查询这里注册的 factory，再回退到 descriptor
-默认构造。`any::default_construct()` 只表达 descriptor 默认构造能力，不查询 factory。
+默认构造。如果确实只需要 meta 层创建结果，可以使用 `factory_capability::construct_any(resource)` 直接返回
+拥有生命周期的 `meta::any`；`construct()` / `destroy()` 是高级裸指针成对入口。`any::default_construct()`
+只表达 descriptor 默认构造能力，不查询 factory。
 
 如果类型需要按运行期参数列表构造，可以注册 constructor capability：
 
@@ -217,8 +219,9 @@ caors::meta::class_<actor>("game.actor")
 `constructor<Args...>()` 使用 `std::span<const meta::any_ref>` 参数列表做精确匹配：参数数量必须一致，
 参数类型必须和 `Args...` 去 cv/ref 后一致；非 const 左值引用参数要求传入可写 `any_ref`。
 `runtime::type::create(arguments)` 会在 factory 之后查询 constructor，构造成功后同样由 `any`
-保存匹配的销毁函数。当前版本只支持一个 constructor 能力，右值引用参数和 move-only by-value 参数暂不支持；
-构造函数重载、默认参数和隐式类型转换后续再扩展。
+保存匹配的内部销毁策略。也可以使用 `constructor_capability::construct_any(arguments, resource)` 直接获得
+`meta::any`。当前版本只支持一个 constructor 能力，右值引用参数和 move-only by-value 参数暂不支持；构造函数重载、
+默认参数和隐式类型转换后续再扩展。
 
 `caors::meta::resolve<T>()` 是 C++ 类型到 descriptor 视图的入口；类型未显式注册时仍可能返回有效
 `meta::type`，但 `registered()` 为 false。`caors::meta::find<T>()` 是 C++ 类型到已注册类型的入口，
@@ -835,10 +838,10 @@ descriptor，不再为了创建 view 把每一种容器组合额外挂载为 met
 - `meta::enum_<T>("name")`：显式注册枚举类型，注册后 `meta::type::kind()` 为
   `meta::type_kind::enumeration`。
 - `meta::class_<T>().parent<Base>()`：保存 C++ 父类型关系和安全 upcast 回调。
-- `meta::class_<T>().factory()` / `.factory(construct, destroy)`：注册运行期 factory，保存运行期值构造和销毁策略；查询时使用 `meta::type::get_capability<meta::factory_capability>()`。
+- `meta::class_<T>().factory()` / `.factory(construct, destroy)`：注册运行期 factory，保存运行期值构造和销毁策略；查询时使用 `meta::type::get_capability<meta::factory_capability>()`，推荐通过 `factory_capability::construct_any()` 获取拥有生命周期的 `any`。
 - `meta::class_<T>().constructor<Args...>()`：注册运行期参数构造策略；查询时使用
   `meta::type::get_capability<meta::constructor_capability>()`，普通调用优先走
-  `runtime::type::create(arguments)`。
+  `runtime::type::create(arguments)` 或 `constructor_capability::construct_any(arguments)`。
 - `meta::registry`：全局 meta 类型注册、按 id/name/guid 或 C++ 类型查询、继承关系判断和组件式元数据挂载。
 - `meta::registry::component_view<T...>`：按组件集合查询类型。
 - `meta::run_registrations()`：执行已收集的延迟元数据注册函数。

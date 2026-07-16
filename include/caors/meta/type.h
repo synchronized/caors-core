@@ -18,6 +18,7 @@ namespace caors::meta {
 
 class registry;
 class type;
+class any;
 class any_ref;
 class type_registration_data;
 
@@ -198,6 +199,19 @@ struct type_capability_traits<Capability,
   [[nodiscard]] static bool has(const type& source) noexcept { return get(source).valid(); }
 };
 
+class factory_capability;
+class constructor_capability;
+
+namespace detail {
+
+[[nodiscard]] factory_ops::destroy_fn
+factory_destroy_fn(const factory_capability& capability) noexcept;
+
+[[nodiscard]] constructor_ops::destroy_fn
+constructor_destroy_fn(const constructor_capability& capability) noexcept;
+
+} // namespace detail
+
 /** @brief 类型运行期创建能力的公开 facade。 */
 class factory_capability final : public type_capability_base<factory_ops> {
 public:
@@ -211,6 +225,9 @@ public:
     return valid() ? ops_->construct(resource) : nullptr;
   }
 
+  /** @brief 使用注册工厂构造并返回拥有对象生命周期的 `any`。 */
+  [[nodiscard]] any construct_any(memory::memory_resource* resource = nullptr) const;
+
   /** @brief 使用注册工厂销毁对象；空对象或能力无效时不做操作。 */
   void destroy(memory::memory_resource* resource, void* value) const noexcept {
     if (valid() && value != nullptr) {
@@ -218,10 +235,8 @@ public:
     }
   }
 
-  /** @brief 返回销毁函数，供高级所有权接管路径保存销毁策略。 */
-  [[nodiscard]] factory_ops::destroy_fn destroy_fn() const noexcept {
-    return valid() ? ops_->destroy : nullptr;
-  }
+private:
+  friend factory_ops::destroy_fn detail::factory_destroy_fn(const factory_capability&) noexcept;
 };
 
 /** @brief 类型运行期带参构造能力的公开 facade。 */
@@ -248,6 +263,10 @@ public:
     return matches(arguments.size()) ? ops_->construct(resource, arguments) : nullptr;
   }
 
+  /** @brief 使用注册构造函数构造并返回拥有对象生命周期的 `any`。 */
+  [[nodiscard]] any construct_any(std::span<const any_ref> arguments,
+                                  memory::memory_resource* resource = nullptr) const;
+
   /** @brief 使用注册构造函数对应的销毁策略销毁对象；空对象或能力无效时不做操作。 */
   void destroy(memory::memory_resource* resource, void* value) const noexcept {
     if (valid() && value != nullptr) {
@@ -255,11 +274,26 @@ public:
     }
   }
 
-  /** @brief 返回销毁函数，供高级所有权接管路径保存销毁策略。 */
-  [[nodiscard]] constructor_ops::destroy_fn destroy_fn() const noexcept {
-    return valid() ? ops_->destroy : nullptr;
-  }
+private:
+  friend constructor_ops::destroy_fn
+  detail::constructor_destroy_fn(const constructor_capability&) noexcept;
 };
+
+namespace detail {
+
+/** @brief 查询注册 factory 的销毁策略，仅供内部所有权接管路径使用。 */
+[[nodiscard]] inline factory_ops::destroy_fn
+factory_destroy_fn(const factory_capability& capability) noexcept {
+  return capability.valid() ? capability.ops_->destroy : nullptr;
+}
+
+/** @brief 查询注册 constructor 的销毁策略，仅供内部所有权接管路径使用。 */
+[[nodiscard]] inline constructor_ops::destroy_fn
+constructor_destroy_fn(const constructor_capability& capability) noexcept {
+  return capability.valid() ? capability.ops_->destroy : nullptr;
+}
+
+} // namespace detail
 
 } // namespace caors::meta
 

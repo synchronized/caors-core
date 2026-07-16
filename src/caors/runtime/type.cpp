@@ -88,9 +88,9 @@ any type::create(std::span<const meta::any_ref> arguments,
   if (arguments.empty()) {
     const meta::factory_capability factory = meta_.get_capability<meta::factory_capability>();
     if (factory) {
-      void* value = factory.construct(resource);
-      if (value != nullptr) {
-        return any::take_ownership(meta_, value, resource, factory.destroy_fn());
+      any value = factory.construct_any(resource);
+      if (value.valid()) {
+        return value;
       }
     }
   }
@@ -98,9 +98,9 @@ any type::create(std::span<const meta::any_ref> arguments,
   const meta::constructor_capability constructor =
       meta_.get_capability<meta::constructor_capability>();
   if (constructor.matches(arguments.size())) {
-    void* value = constructor.construct(resource, arguments);
-    if (value != nullptr) {
-      return any::take_ownership(meta_, value, resource, constructor.destroy_fn());
+    any value = constructor.construct_any(arguments, resource);
+    if (value.valid()) {
+      return value;
     }
   }
 

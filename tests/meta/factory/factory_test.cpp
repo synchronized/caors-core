@@ -36,6 +36,12 @@ TEST_CASE("meta type - factory registers custom construction strategy", "[meta]"
   CHECK(value->value == 23);
   factory.destroy(nullptr, value);
 
+  caors::any owned = factory.construct_any();
+  REQUIRE(owned.valid());
+  auto* owned_value = owned.try_get_mutable<custom_factory_type>();
+  REQUIRE(owned_value != nullptr);
+  CHECK(owned_value->value == 23);
+
   auto duplicate = caors::meta::class_<custom_factory_type>("caors.test.type.factory_custom")
                        .factory(&construct_custom_factory_type, &destroy_custom_factory_type);
   CHECK(duplicate.result() == meta_error(caors::errc::duplicate_id));
@@ -69,6 +75,18 @@ TEST_CASE("meta type - factory registers resource-aware default construction", "
 
   factory.destroy(&tracking, value);
   CHECK(tracking.statistics().deallocation_count == 1);
+  CHECK(tracking.statistics().bytes_in_use == 0);
+
+  caors::any owned = factory.construct_any(&tracking);
+  REQUIRE(owned.valid());
+  auto* owned_value = owned.try_get_mutable<default_factory_type>();
+  REQUIRE(owned_value != nullptr);
+  CHECK(owned_value->value == 11);
+  CHECK(tracking.statistics().allocation_count == 2);
+  CHECK(tracking.statistics().bytes_in_use >= sizeof(default_factory_type));
+
+  owned.reset();
+  CHECK(tracking.statistics().deallocation_count == 2);
   CHECK(tracking.statistics().bytes_in_use == 0);
 }
 
