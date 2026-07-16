@@ -19,9 +19,6 @@ namespace caors::meta {
 
 namespace detail {
 
-struct detached_owned_value;
-
-[[nodiscard]] detached_owned_value detach_owned_value(owned_value& value) noexcept;
 [[nodiscard]] memory::memory_resource* owned_value_resource(const owned_value& value) noexcept;
 [[nodiscard]] meta::resource_destroy_fn
 owned_value_resource_destroy(const owned_value& value) noexcept;
@@ -33,6 +30,19 @@ owned_value_resource_destroy(const owned_value& value) noexcept;
                                            meta::resource_destroy_fn destroy) noexcept;
 [[nodiscard]] owned_value make_owned_value(meta::type type, void* value,
                                            meta::destroy_fn destroy) noexcept;
+
+/** @brief `owned_value` 拆出所有权后的裸对象和匹配销毁函数。 */
+struct detached_owned_value {
+  meta::type type{};
+  void* value = nullptr;
+  memory::memory_resource* resource = nullptr;
+  meta::resource_destroy_fn resource_destroy = nullptr;
+  meta::destroy_fn destroy = nullptr;
+
+  [[nodiscard]] bool valid() const noexcept {
+    return type && value != nullptr && (resource_destroy != nullptr || destroy != nullptr);
+  }
+};
 
 /**
  * @brief 拥有一个运行期构造对象的轻量 RAII 句柄。
@@ -67,6 +77,14 @@ public:
    */
   [[nodiscard]] any into_any() &&;
 
+  /**
+   * @brief 拆出当前对象所有权并让当前句柄变为空。
+   *
+   * 这是高级所有权 API。调用方必须保存返回值里的类型、资源和销毁函数，并负责最终销毁
+   * `value`，否则会泄漏。
+   */
+  [[nodiscard]] detached_owned_value detach() && noexcept;
+
   /** @brief 销毁当前持有的对象并清空句柄。 */
   void reset() noexcept;
 
@@ -78,12 +96,11 @@ private:
   friend owned_value make_owned_value(meta::type, void*, memory::memory_resource*,
                                       meta::resource_destroy_fn) noexcept;
   friend owned_value make_owned_value(meta::type, void*, meta::destroy_fn) noexcept;
-  friend detail::detached_owned_value detail::detach_owned_value(owned_value&) noexcept;
   friend memory::memory_resource* detail::owned_value_resource(const owned_value&) noexcept;
   friend meta::resource_destroy_fn
   detail::owned_value_resource_destroy(const owned_value&) noexcept;
 
-  void detach() noexcept;
+  void clear_detached() noexcept;
 
   meta::type type_{};
   void* data_ = nullptr;
@@ -123,27 +140,6 @@ void swap(owned_value& lhs, owned_value& rhs) noexcept;
 }
 
 namespace detail {
-
-/** @brief `owned_value` 内部所有权拆出结果，仅供模块桥接使用。 */
-struct detached_owned_value {
-  meta::type type{};
-  void* value = nullptr;
-  memory::memory_resource* resource = nullptr;
-  meta::resource_destroy_fn resource_destroy = nullptr;
-
-  [[nodiscard]] bool valid() const noexcept { return type && value != nullptr; }
-};
-
-[[nodiscard]] inline detached_owned_value detach_owned_value(owned_value& value) noexcept {
-  detached_owned_value detached{
-      value.type_,
-      value.data_,
-      value.resource_,
-      value.resource_destroy_,
-  };
-  value.detach();
-  return detached;
-}
 
 [[nodiscard]] inline memory::memory_resource*
 owned_value_resource(const owned_value& value) noexcept {
@@ -351,6 +347,7 @@ inline any constructor_capability::construct(std::span<const any_ref> arguments,
 namespace caors {
 
 using meta::any;
+using meta::detached_owned_value;
 using meta::owned_value;
 
 } // namespace caors

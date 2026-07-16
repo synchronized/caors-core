@@ -41,7 +41,7 @@ struct owned_constructed_value {
   }
 
   void detach() noexcept {
-    static_cast<void>(meta::detail::detach_owned_value(value));
+    static_cast<void>(std::move(value).detach());
     transfer_destroy_context = false;
   }
 

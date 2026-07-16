@@ -56,6 +56,26 @@ TEST_CASE("meta type - factory registers custom construction strategy", "[meta]"
   CHECK(duplicate.succeeded());
 }
 
+TEST_CASE("meta type - owned value detach exposes manual destruction", "[meta]") {
+  const caors::meta::type type = caors::meta::resolve<custom_factory_type>();
+  auto* raw = new custom_factory_type(31);
+  caors::owned_value value = caors::meta::make_owned_value(type, raw, [](void* instance) noexcept {
+    delete static_cast<custom_factory_type*>(instance);
+  });
+
+  caors::detached_owned_value detached = std::move(value).detach();
+
+  REQUIRE(detached.valid());
+  CHECK_FALSE(value.valid());
+  CHECK(detached.type.id() == type.id());
+  CHECK(detached.value == raw);
+  CHECK(detached.resource == nullptr);
+  CHECK(detached.resource_destroy == nullptr);
+  REQUIRE(detached.destroy != nullptr);
+
+  detached.destroy(detached.value);
+}
+
 // 原测试文件：meta_type_factory_meta_type_factory_registers_resource_aware_default_construction_test.cpp
 
 #include "meta_type_factory_test_support.h"
@@ -83,7 +103,15 @@ TEST_CASE("meta type - factory registers resource-aware default construction", "
   CHECK(tracking.statistics().allocation_count == 1);
   CHECK(tracking.statistics().bytes_in_use >= sizeof(default_factory_type));
 
-  constructed.reset();
+  caors::detached_owned_value detached = std::move(constructed).detach();
+  REQUIRE(detached.valid());
+  CHECK_FALSE(constructed.valid());
+  CHECK(detached.type.id() == type.id());
+  CHECK(detached.resource == &tracking);
+  REQUIRE(detached.resource_destroy != nullptr);
+  CHECK(detached.destroy == nullptr);
+
+  detached.resource_destroy(detached.resource, detached.value);
   CHECK(tracking.statistics().deallocation_count == 1);
   CHECK(tracking.statistics().bytes_in_use == 0);
 
