@@ -6,6 +6,7 @@
 #include "caors/serialization/operations.h"
 
 #include <cstdint>
+#include <limits>
 #include <string_view>
 #include <utility>
 
@@ -56,6 +57,30 @@ namespace {
   return {error_domain::resources, errc::invalid_argument};
 }
 
+[[nodiscard]] error read_schema_version(const variant& object, std::uint32_t& version) {
+  const variant* member = find_member(object, "schema_version");
+  if (member == nullptr || member->is_null()) {
+    version = 1;
+    return {};
+  }
+
+  std::uint64_t parsed = 0;
+  if (const std::uint64_t* value = member->try_as_u64()) {
+    parsed = *value;
+  } else if (const std::int64_t* value = member->try_as_i64(); value != nullptr && *value >= 0) {
+    parsed = static_cast<std::uint64_t>(*value);
+  } else {
+    return {error_domain::resources, errc::invalid_argument};
+  }
+
+  if (parsed == 0 || parsed > std::numeric_limits<std::uint32_t>::max()) {
+    return {error_domain::resources, errc::invalid_argument};
+  }
+
+  version = static_cast<std::uint32_t>(parsed);
+  return version == 1 ? error{} : error{error_domain::resources, errc::unsupported};
+}
+
 [[nodiscard]] error read_guid(const variant& object, std::string_view name, resource_guid& guid) {
   const core::string* guid_text = find_string_member(object, name);
   if (guid_text == nullptr) {
@@ -76,6 +101,21 @@ namespace {
   return text != nullptr ? core::string_name{string_view_of(*text)} : core::string_name{};
 }
 
+[[nodiscard]] error read_options(const variant& object, variant& options) {
+  const variant* member = find_member(object, "options");
+  if (member == nullptr || member->is_null()) {
+    options = variant::null();
+    return {};
+  }
+
+  if (!member->is_object()) {
+    return {error_domain::resources, errc::invalid_argument};
+  }
+
+  options = *member;
+  return {};
+}
+
 [[nodiscard]] error read_source_config(project_config& target, const variant& value) {
   if (!value.is_object()) {
     return {error_domain::resources, errc::invalid_argument};
@@ -92,6 +132,11 @@ namespace {
 
   if (const core::string* root_text = find_string_member(value, "root")) {
     source_config.root = io::normalize_path(string_view_of(*root_text), target.resource);
+  }
+
+  error status = read_options(value, source_config.options);
+  if (status) {
+    return status;
   }
 
   target.sources.push_back(std::move(source_config));
@@ -150,6 +195,12 @@ namespace {
   type_config.type = core::string_name{string_view_of(*type_text)};
   type_config.loader = read_optional_name(value, "loader");
   type_config.cache = read_optional_name(value, "cache");
+
+  error status = read_options(value, type_config.options);
+  if (status) {
+    return status;
+  }
+
   target.resource_types.push_back(type_config);
   return {};
 }
@@ -227,8 +278,13 @@ template <typename Reader>
     return {error_domain::resources, errc::invalid_argument};
   }
 
-  error status = read_array(
-      value, "sources", [&](const variant& entry) { return read_source_config(target, entry); });
+  error status = read_schema_version(value, target.schema_version);
+  if (status) {
+    return status;
+  }
+
+  status = read_array(value, "sources",
+                      [&](const variant& entry) { return read_source_config(target, entry); });
   if (status) {
     return status;
   }

@@ -28,14 +28,22 @@ constexpr caors::resource_guid test_guid_c{caors::guid::from_bytes(
       {
         "name": "assets",
         "type": "memory_file_system",
-        "root": "/"
+        "root": "/",
+        "options": {
+          "mount": "debug-assets",
+          "read_only": true
+        }
       }
     ],
     "resource_types": [
       {
         "type": "game.serialized",
         "loader": "json",
-        "cache": "memory"
+        "cache": "memory",
+        "options": {
+          "format": "resource-json",
+          "priority": 2
+        }
       }
     ],
     "resources": [
@@ -89,12 +97,16 @@ struct external_source_factory_state {
   caors::memory_resource* resource = nullptr;
   caors::io::memory_file_system* file_system = nullptr;
   caors::resources::file_source* source = nullptr;
+  bool read_only = false;
+  std::string mount;
 };
 
 struct external_type_factory_state {
   int calls = 0;
   caors::resources::cache<serialized_resource>* cache = nullptr;
   caors::resources::json_loader<serialized_resource>* loader = nullptr;
+  std::string format;
+  std::uint64_t priority = 0;
 };
 
 [[nodiscard]] caors::error
@@ -108,6 +120,18 @@ make_external_memory_source(caors::resources::asset_manager::source_factory_cont
   auto& state = *static_cast<external_source_factory_state*>(user_data);
   ++state.calls;
   state.resource = context.resource;
+  if (const caors::meta::variant_member* member =
+          config.options.find_member(caors::string_name{"mount"})) {
+    if (const caors::string* text = member->value.try_as_string()) {
+      state.mount.assign(text->begin(), text->end());
+    }
+  }
+  if (const caors::meta::variant_member* member =
+          config.options.find_member(caors::string_name{"read_only"})) {
+    if (const bool* value = member->value.try_as_bool()) {
+      state.read_only = *value;
+    }
+  }
 
   state.file_system = context.manager.create_owned<caors::io::memory_file_system>(context.resource);
   if (state.file_system == nullptr) {
@@ -137,6 +161,21 @@ make_external_serialized_type(caors::resources::asset_manager::type_factory_cont
 
   auto& state = *static_cast<external_type_factory_state*>(user_data);
   ++state.calls;
+  if (const caors::meta::variant_member* member =
+          config.options.find_member(caors::string_name{"format"})) {
+    if (const caors::string* text = member->value.try_as_string()) {
+      state.format.assign(text->begin(), text->end());
+    }
+  }
+  if (const caors::meta::variant_member* member =
+          config.options.find_member(caors::string_name{"priority"})) {
+    if (const std::uint64_t* value = member->value.try_as_u64()) {
+      state.priority = *value;
+    } else if (const std::int64_t* signed_value = member->value.try_as_i64();
+               signed_value != nullptr && *signed_value >= 0) {
+      state.priority = static_cast<std::uint64_t>(*signed_value);
+    }
+  }
 
   state.cache =
       context.manager.create_owned<caors::resources::cache<serialized_resource>>(context.resource);
@@ -167,11 +206,21 @@ TEST_CASE("resources - asset_manager builds provider manifest and dependency gra
   REQUIRE(config.resources.size() == 2);
   REQUIRE(config.dependencies.size() == 1);
   REQUIRE(config.preload_roots.size() == 2);
+  CHECK(config.schema_version == 1);
   CHECK(config.sources[0].name == std::string_view{"assets"});
   CHECK(config.sources[0].type == std::string_view{"memory_file_system"});
+  REQUIRE(config.sources[0].options.is_object());
+  REQUIRE(config.sources[0].options.find_member(caors::string_name{"mount"}) != nullptr);
+  CHECK(config.sources[0].options.find_member(caors::string_name{"mount"})->value.as_string() ==
+        std::string_view{"debug-assets"});
   CHECK(config.resource_types[0].type == serialized_manifest_type());
   CHECK(config.resource_types[0].loader == std::string_view{"json"});
   CHECK(config.resource_types[0].cache == std::string_view{"memory"});
+  REQUIRE(config.resource_types[0].options.is_object());
+  REQUIRE(config.resource_types[0].options.find_member(caors::string_name{"format"}) != nullptr);
+  CHECK(config.resource_types[0]
+            .options.find_member(caors::string_name{"format"})
+            ->value.as_string() == std::string_view{"resource-json"});
   CHECK(config.preload_roots[0] == test_guid_b);
   CHECK(config.preload_roots[1] == test_guid_c);
 
@@ -403,6 +452,8 @@ TEST_CASE("resources - asset_manager accepts external source factory state", "[r
   REQUIRE(assets.build(config).succeeded());
   CHECK(state.calls == 1);
   CHECK(state.resource == assets.resource());
+  CHECK(state.mount == "debug-assets");
+  CHECK(state.read_only);
   REQUIRE(state.file_system != nullptr);
   REQUIRE(state.source != nullptr);
   CHECK(assets.find_source(caors::string_name{"assets"}) == state.source);
@@ -427,6 +478,8 @@ TEST_CASE("resources - asset_manager accepts external type factory state", "[res
   REQUIRE(assets.build(config).succeeded());
 
   CHECK(state.calls == 1);
+  CHECK(state.format == "resource-json");
+  CHECK(state.priority == 2);
   REQUIRE(state.cache != nullptr);
   REQUIRE(state.loader != nullptr);
 
@@ -474,4 +527,21 @@ TEST_CASE("resources - asset_manager reports missing configured sources", "[reso
   caors::resource_asset_manager assets;
   const caors::error status = assets.build(config);
   CHECK(status == caors::error{caors::error_domain::resources, caors::errc::not_found});
+}
+
+TEST_CASE("resources - project config validates schema and options", "[resources]") {
+  caors::resources::project_config config;
+
+  CHECK(caors::resources::load_project_config_json(config, R"({"schema_version":2})") ==
+        caors::error{caors::error_domain::resources, caors::errc::unsupported});
+
+  CHECK(caors::resources::load_project_config_json(
+            config, R"({"sources":[{"name":"assets","type":"memory","options":"bad"}]})") ==
+        caors::error{caors::error_domain::resources, caors::errc::invalid_argument});
+
+  CHECK(
+      caors::resources::load_project_config_json(
+          config,
+          R"({"resource_types":[{"type":"game.serialized","loader":"json","cache":"memory","options":["bad"]}]})") ==
+      caors::error{caors::error_domain::resources, caors::errc::invalid_argument});
 }

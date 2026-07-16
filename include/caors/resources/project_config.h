@@ -24,6 +24,8 @@ struct project_source_config {
   core::string_name name{};
   core::string_name type{};
   io::path root;
+  /** @brief 传给 source factory 的扩展配置对象；未配置时为 null。 */
+  variant options{};
 };
 
 /** @brief 工程资源条目描述。比 manifest 多保存一个 source 名称。 */
@@ -44,6 +46,8 @@ struct project_resource_type_config {
   core::string_name type{};
   core::string_name loader{};
   core::string_name cache{};
+  /** @brief 传给 type factory 的扩展配置对象；未配置时为 null。 */
+  variant options{};
 };
 
 /** @brief 资源依赖描述，表示 resource 依赖 dependency。 */
@@ -75,6 +79,7 @@ struct project_config {
 
   /** @brief 清空全部配置描述。 */
   void clear() noexcept {
+    schema_version = 1;
     sources.clear();
     resources.clear();
     resource_types.clear();
@@ -84,6 +89,8 @@ struct project_config {
 
   /** @brief 配置内部容器和字符串使用的内存资源。 */
   memory_resource* resource = nullptr;
+  /** @brief 工程资源配置 schema 版本。当前支持版本 1。 */
+  std::uint32_t schema_version = 1;
   source_list sources;
   resource_list resources;
   resource_type_list resource_types;

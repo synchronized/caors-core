@@ -680,11 +680,26 @@ auto resolver = database.resolver();
 ```cpp
 caors::resources::project_config config;
 caors::resources::load_project_config_json(config, R"({
+  "schema_version": 1,
   "sources": [
-    { "name": "assets", "type": "memory_file_system", "root": "/" }
+    {
+      "name": "assets",
+      "type": "memory_file_system",
+      "root": "/",
+      "options": {
+        "mount": "debug-assets"
+      }
+    }
   ],
   "resource_types": [
-    { "type": "game.texture", "loader": "json", "cache": "memory" }
+    {
+      "type": "game.texture",
+      "loader": "json",
+      "cache": "memory",
+      "options": {
+        "format": "resource-json"
+      }
+    }
   ],
   "resources": [
     {
@@ -750,6 +765,9 @@ caors::error make_pak_source(caors::resources::asset_manager::source_factory_con
                              const caors::resources::project_source_config& config,
                              void* user_data) {
   auto* state = static_cast<pak_state*>(user_data);
+  const caors::meta::variant_member* compression =
+      config.options.find_member(caors::string_name{"compression"});
+  (void)compression;
   auto* file_system = context.manager.create_owned<pak_file_system>(config.root, state->index);
   auto* source = context.manager.create_owned<caors::resources::file_source>(*file_system);
   return context.manager.bind_source(config.name, *source);
@@ -781,14 +799,21 @@ assets.register_type_factory(caors::string_name{"game.texture"}, &make_texture_r
 
 当前语义：
 
+- `project_config.schema_version` 是工程资源配置 schema 版本。缺省值为 1；当前只接受版本 1，
+  读取到不支持的版本会返回 `resources / unsupported`。
 - `project_config.sources` 描述 source 名称和策略名。`asset_manager` 内置支持
   `"memory_file_system"` / `"memory"` 和 `"native_file_system"` / `"native"`，会在 build
   阶段创建并拥有对应 `file_source`。
+- `project_config.sources[].options` 是可选扩展配置对象，原样传给 source factory；缺省为
+  `null`。当前只接受 JSON object 或 `null`，字符串、数组等形态会返回
+  `resources / invalid_argument`。
 - `project_config.resources` 描述 `guid -> source/location/type/hash/version`，会被
   `asset_manager::build()` 写入内部 manifest 和 provider。
 - `project_config.resource_types` 保存资源类型到 loader/cache 策略名的描述。调用
   `asset_manager::register_type_factory<T>(type)` 后，`build()` 会在遇到同名资源类型时创建并拥有
   `cache<T>` 和 `json_loader<T>`。默认类型工厂第一版支持 `cache = "memory"`、`loader = "json"`。
+- `project_config.resource_types[].options` 是可选扩展配置对象，原样传给 type factory；缺省为
+  `null`。它适合表达格式参数、缓存策略、资源包索引名、远程请求策略等运行期构造参数。
 - `project_config.dependencies` 会写入内部 `dependency_graph`。
 - `project_config.preload_roots` 只保存建议预加载入口；调用方决定何时调用 `preload()` 或异步预加载。
 - `asset_manager::bind_source(name, source)` 不接管 source 生命周期；调用方必须保证 source 存活时间长于
