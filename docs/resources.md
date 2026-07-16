@@ -381,7 +381,18 @@ if (request.loaded()) {
 - `progress()`：非阻塞；queued/loading 返回最近一次 loader 上报的 0.0 到 1.0 进度，终态返回 1.0。
 - `progress_stage()`：返回最近一次 loader 上报的阶段文本副本。
 
-loader 可选择覆盖带 `resource_progress_reporter` 的重载来上报内部阶段进度；不覆盖时默认忽略进度并转调旧
+可以使用 request poll/drain helper 在主循环或测试中收敛 completion queue：
+
+- `poll_request(completions, request)`：执行一轮当前已经入队的完成回调，并返回请求是否完成。
+- `drain_until_done(completions, request, max_drains)`：持续 drain，直到该请求完成、队列暂时为空或达到轮数上限。
+- `all_requests_done(requests)`：判断一组请求是否都已进入终态。
+- `poll_requests(completions, requests)` / `drain_until_all_done(completions, requests, max_drains)`：
+  面向一组 `load_request<T>` 或 `preload_request` 的批量版本。
+
+这些 helper 不阻塞等待后台线程，也不自带条件变量；如果返回 `done == false`，说明当前 completion queue
+暂时没有足够回调，调用方应在后续帧或外部等待策略后再次调用。
+
+loader 可选择覆盖带 `progress_reporter` 的重载来上报内部阶段进度；不覆盖时默认忽略进度并转调旧
 `load(guid, resource)`：
 
 ```cpp
@@ -403,7 +414,7 @@ public:
 };
 ```
 
-`resource_progress_reporter` 只在 `load()` 调用期间有效，loader 不应保存它或跨线程延后调用。
+`progress_reporter` 只在 `load()` 调用期间有效，loader 不应保存它或跨线程延后调用。
 
 `preload_request` 是批量请求句柄，不直接保存每个资源的强 handle；成功加载的资源由对应 `cache<T>`
 持有，调用方可通过 cache 或 database 查询。它额外提供：

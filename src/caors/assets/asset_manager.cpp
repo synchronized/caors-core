@@ -7,6 +7,8 @@
 #include "caors/io/native_file_system.h"
 
 #include <algorithm>
+#include <optional>
+#include <string>
 
 namespace caors::assets {
 namespace {
@@ -114,6 +116,103 @@ void assign_unknown_option_reason(core::string* reason, core::string_name name) 
   append_name(*reason, name);
 }
 
+void assign_empty_option_reason(core::string* reason, core::string_name name) {
+  if (reason == nullptr) {
+    return;
+  }
+
+  reason->assign("options 字段不能为空：");
+  append_name(*reason, name);
+}
+
+void assign_range_option_reason(core::string* reason, core::string_name name, double min,
+                                double max) {
+  if (reason == nullptr) {
+    return;
+  }
+
+  reason->assign("options 字段超出范围：");
+  append_name(*reason, name);
+  reason->append("，期望范围 [");
+  reason->append(std::to_string(min));
+  reason->append(", ");
+  reason->append(std::to_string(max));
+  reason->append("]");
+}
+
+void assign_one_of_option_reason(core::string* reason, core::string_name name,
+                                 const factory_option_field::value_list& values) {
+  if (reason == nullptr) {
+    return;
+  }
+
+  reason->assign("options 字段不是允许值：");
+  append_name(*reason, name);
+  if (values.empty()) {
+    return;
+  }
+
+  reason->append("，允许值 ");
+  for (std::size_t index = 0; index < values.size(); ++index) {
+    if (index != 0) {
+      reason->append(", ");
+    }
+    append_name(*reason, values[index]);
+  }
+}
+
+[[nodiscard]] std::optional<double> numeric_option_value(const variant& value) noexcept {
+  if (const auto* number = value.try_as_i64()) {
+    return static_cast<double>(*number);
+  }
+  if (const auto* number = value.try_as_u64()) {
+    return static_cast<double>(*number);
+  }
+  if (const auto* number = value.try_as_f64()) {
+    return *number;
+  }
+
+  return std::nullopt;
+}
+
+[[nodiscard]] bool option_value_empty(const variant& value) noexcept {
+  if (const auto* text = value.try_as_string()) {
+    return text->empty();
+  }
+  if (const auto* values = value.try_as_array()) {
+    return values->empty();
+  }
+  if (const auto* values = value.try_as_dictionary()) {
+    return values->empty();
+  }
+  if (const auto* values = value.try_as_object()) {
+    return values->empty();
+  }
+
+  return value.is_null();
+}
+
+[[nodiscard]] bool option_value_allowed(const variant& value,
+                                        const factory_option_field::value_list& values) noexcept {
+  if (values.empty()) {
+    return true;
+  }
+
+  const string* text = value.try_as_string();
+  if (text == nullptr) {
+    return false;
+  }
+
+  const std::string_view view{text->data(), text->size()};
+  for (core::string_name allowed : values) {
+    if (allowed == view) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 [[nodiscard]] error validate_options(const factory_option_schema& schema, const variant& options,
                                      core::string* reason) {
   if (schema.fields.empty() && schema.allow_unknown) {
@@ -149,6 +248,28 @@ void assign_unknown_option_reason(core::string* reason, core::string_name name) 
 
     if (!matches_kind(*value, field.kind)) {
       assign_invalid_option_reason(reason, field.name, field.kind);
+      return {error_domain::resources, errc::invalid_argument};
+    }
+
+    if (field.non_empty && option_value_empty(*value)) {
+      assign_empty_option_reason(reason, field.name);
+      return {error_domain::resources, errc::invalid_argument};
+    }
+
+    if (field.has_range) {
+      const std::optional<double> number = numeric_option_value(*value);
+      if (!number.has_value()) {
+        assign_invalid_option_reason(reason, field.name, factory_option_kind::floating);
+        return {error_domain::resources, errc::invalid_argument};
+      }
+      if (*number < field.range_min || *number > field.range_max) {
+        assign_range_option_reason(reason, field.name, field.range_min, field.range_max);
+        return {error_domain::resources, errc::invalid_argument};
+      }
+    }
+
+    if (!option_value_allowed(*value, field.allowed_values)) {
+      assign_one_of_option_reason(reason, field.name, field.allowed_values);
       return {error_domain::resources, errc::invalid_argument};
     }
   }

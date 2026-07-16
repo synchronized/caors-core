@@ -287,12 +287,13 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 设计并实现 database 级异步单资源请求合并和生命周期策略：同资源类型、同 GUID 的 direct
   load/reload 重复请求复用同一 request，已缓存资源可立即完成，取消、完成和失败后会从请求表移除。
 - [x] 扩展异步预加载内部请求合并：同类型同 GUID 的 direct load / preload load 复用同一请求，
-  已缓存资源立即完成，取消和失败按批量请求独立聚合。优先级、等待 API、分层依赖调度和细粒度进度聚合后续再评估。
+  已缓存资源立即完成，取消和失败按批量请求独立聚合，并提供非阻塞 poll/drain helper 辅助测试和主循环收敛。
+  优先级、真正阻塞等待、分层依赖调度和细粒度进度聚合后续再评估。
 - [x] 明确异步资源系统线程安全边界：哪些 `source` / `provider` / `memory_resource` 可跨线程访问，
   cache 修改必须在哪个线程执行，未完成 request 的 `try_get()` 是阻塞、返回错误还是禁止调用。
 - [x] 打通资源引用序列化 resolver，支持反序列化后按策略解析稳定 GUID 引用。
-- [ ] 继续拆分资源序列化 adapter，把 `resources::database` 中强依赖 `serialization` resolver 的高级入口
-  收敛到 assets 或 serialization adapter 层。
+- [x] 继续拆分资源序列化 adapter，把 `resources::database` 中强依赖 `serialization` resolver 的高级入口
+  收敛到 `resources/serialization.h` 和 `assets/serialization.h` adapter 层。
 - [x] 设计资源热重载边界：第一阶段放在资源系统主题内，不新增独立主题；热重载只负责发现资源描述或字节内容变化、
   刷新 manifest / provider / cache，并返回 reload 结果，不隐式修改对象、场景树或运行期业务状态。
 - [x] 支持基于 manifest / provider / cache 的手动同步热重载流程：调用方检测 `hash`、`version` 或

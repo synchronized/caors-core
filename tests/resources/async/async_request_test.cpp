@@ -6,6 +6,7 @@
 #include "caors/tasks.h"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 
 using namespace caors::tests::resources;
@@ -202,6 +203,61 @@ TEST_CASE("resources - async load commits loaded resource through completion que
   CHECK(cache.find(test_guid_a) == request.try_get().get());
   CHECK(loader.load_count.load() == 1);
   CHECK_FALSE(request.cancel());
+}
+
+TEST_CASE("resources - async helpers poll single request through completion queue", "[resources]") {
+  caors::resource_cache<async_resource> cache;
+  async_loader loader;
+  loader.next_value = 19;
+  caors::tasks::inline_executor executor;
+  caors::tasks::completion_queue completions;
+
+  caors::resources::load_request<async_resource> request =
+      caors::resources::request_load_into(cache, loader, test_guid_a, executor, completions);
+
+  CHECK(request.status() == caors::resources::request_status::loading);
+
+  const caors::resources::request_poll_result result =
+      caors::resources::drain_until_done(completions, request);
+
+  CHECK(result.drained == 1);
+  REQUIRE(result.done);
+  REQUIRE(request.loaded());
+  REQUIRE(request.try_get());
+  CHECK(request.try_get()->value == 19);
+
+  const caors::resources::request_poll_result cached =
+      caors::resources::poll_request(completions, request);
+  CHECK(cached.drained == 0);
+  CHECK(cached.done);
+}
+
+TEST_CASE("resources - async helpers poll request batches through completion queue",
+          "[resources]") {
+  caors::resource_cache<async_resource> cache;
+  async_loader loader;
+  loader.next_value = 23;
+  caors::tasks::inline_executor executor;
+  caors::tasks::completion_queue completions;
+
+  caors::resources::load_request<async_resource> first =
+      caors::resources::request_load_into(cache, loader, test_guid_a, executor, completions);
+  caors::resources::load_request<async_resource> second =
+      caors::resources::request_load_into(cache, loader, test_guid_b, executor, completions);
+  const std::array requests{first, second};
+
+  CHECK_FALSE(caors::resources::all_requests_done(requests));
+
+  const caors::resources::request_poll_result result =
+      caors::resources::drain_until_all_done(completions, requests);
+
+  CHECK(result.drained == 2);
+  REQUIRE(result.done);
+  REQUIRE(first.loaded());
+  REQUIRE(second.loaded());
+  CHECK(cache.contains(test_guid_a));
+  CHECK(cache.contains(test_guid_b));
+  CHECK(loader.load_count.load() == 2);
 }
 
 TEST_CASE("resources - async load reports loader progress and stage", "[resources]") {

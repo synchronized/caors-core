@@ -178,8 +178,12 @@ caors::error make_texture_runtime(
 
 caors::assets::factory_option_schema texture_schema;
 texture_schema.require(caors::string_name{"format"},
-                       caors::assets::factory_option_kind::string);
-texture_schema.optional(caors::string_name{"priority"});
+                       caors::assets::factory_option_kind::string)
+    .non_empty(caors::string_name{"format"})
+    .one_of(caors::string_name{"format"},
+            {std::string_view{"json"}, std::string_view{"binary"}});
+texture_schema.optional(caors::string_name{"priority"})
+    .range(caors::string_name{"priority"}, 1.0, 100.0);
 
 assets.register_type_factory(caors::string_name{"game.texture"}, &make_texture_runtime, nullptr,
                              texture_schema);
@@ -195,8 +199,8 @@ caors::assets::register_cached_type_factory<texture, pak_texture_loader>(
     caors::string_name{"pak"});
 ```
 
-`factory_option_schema` 只做轻量配置校验：必填字段、字段值形态和未知字段策略。复杂的
-`range`、`one_of`、跨字段约束和结构体配置绑定后续再扩展。
+`factory_option_schema` 只做轻量配置校验：必填字段、字段值形态、非空约束、数值范围、字符串允许值和
+未知字段策略。复杂的跨字段约束、结构体配置绑定和带编辑器提示的 schema metadata 后续再扩展。
 
 ## JSON 适配
 

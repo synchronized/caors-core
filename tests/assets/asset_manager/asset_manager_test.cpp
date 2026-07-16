@@ -22,6 +22,27 @@ constexpr caors::resource_guid test_guid_c{caors::guid::from_bytes(
   return caors::string_name{"game.serialized"};
 }
 
+[[nodiscard]] caors::string_name secondary_manifest_type() {
+  return caors::string_name{"game.secondary"};
+}
+
+class secondary_serialized_resource : public caors::resource {
+public:
+  using caors::resource::resource;
+
+  int width = 0;
+};
+
+void require_secondary_serialized_resource_metadata() {
+  REQUIRE(reflection_result_ok(((void)caors::meta::class_<secondary_serialized_resource>(
+                                    "caors.test.resources.secondary_serialized_resource"),
+                                caors::reflection::class_<secondary_serialized_resource>())
+                                   .field("width", &secondary_serialized_resource::width)
+                                   .commit()));
+  REQUIRE(serialization_result_ok(
+      caors::serialization::class_<secondary_serialized_resource>().commit()));
+}
+
 [[nodiscard]] std::string make_project_config_json() {
   std::string json{R"({
     "sources": [
@@ -86,6 +107,52 @@ constexpr caors::resource_guid test_guid_c{caors::guid::from_bytes(
         "guid": ")";
   json += test_guid_c.string();
   json += R"("
+      }
+    ]
+  })";
+  return json;
+}
+
+[[nodiscard]] std::string make_multi_source_type_config_json() {
+  std::string json{R"({
+    "sources": [
+      {
+        "name": "assets",
+        "type": "memory_file_system"
+      },
+      {
+        "name": "dlc",
+        "type": "memory_file_system"
+      }
+    ],
+    "resource_types": [
+      {
+        "type": "game.serialized",
+        "loader": "json",
+        "cache": "memory"
+      },
+      {
+        "type": "game.secondary",
+        "loader": "json",
+        "cache": "memory"
+      }
+    ],
+    "resources": [
+      {
+        "guid": ")"};
+  json += test_guid_a.string();
+  json += R"(",
+        "source": "assets",
+        "location": "base/resource-a.json",
+        "type": "game.serialized"
+      },
+      {
+        "guid": ")";
+  json += test_guid_c.string();
+  json += R"(",
+        "source": "dlc",
+        "location": "packs/resource-c.json",
+        "type": "game.secondary"
       }
     ]
   })";
@@ -351,6 +418,56 @@ TEST_CASE("resources - asset_manager creates configured source cache and loader 
   CHECK(resource_b->width == 1024);
 }
 
+TEST_CASE("resources - asset_manager builds multiple sources and resource types", "[resources]") {
+  require_serialized_resource_metadata();
+  require_secondary_serialized_resource_metadata();
+
+  caors::assets::project_config config;
+  REQUIRE(caors::assets::json::load_project_config(config, make_multi_source_type_config_json())
+              .succeeded());
+
+  caors::assets::asset_manager assets;
+  REQUIRE(caors::assets::json::register_type_factory<serialized_resource>(
+              assets, serialized_manifest_type())
+              .succeeded());
+  REQUIRE(caors::assets::json::register_type_factory<secondary_serialized_resource>(
+              assets, secondary_manifest_type())
+              .succeeded());
+
+  REQUIRE(assets.build(config).succeeded());
+  REQUIRE(assets.source_count() == 2);
+
+  auto* base_source = dynamic_cast<caors::resources::file_source*>(
+      assets.find_source(caors::string_name{"assets"}));
+  auto* dlc_source =
+      dynamic_cast<caors::resources::file_source*>(assets.find_source(caors::string_name{"dlc"}));
+  REQUIRE(base_source != nullptr);
+  REQUIRE(dlc_source != nullptr);
+  CHECK(base_source != dlc_source);
+
+  auto* base_files = dynamic_cast<caors::io::memory_file_system*>(&base_source->file_system());
+  auto* dlc_files = dynamic_cast<caors::io::memory_file_system*>(&dlc_source->file_system());
+  REQUIRE(base_files != nullptr);
+  REQUIRE(dlc_files != nullptr);
+  REQUIRE(base_files->write_all("base/resource-a.json", std::string_view{R"({"width":64})"})
+              .succeeded());
+  REQUIRE(dlc_files->write_all("packs/resource-c.json", std::string_view{R"({"width":128})"})
+              .succeeded());
+
+  caors::result<serialized_resource*> base = assets.load<serialized_resource>(test_guid_a);
+  caors::result<secondary_serialized_resource*> dlc =
+      assets.load<secondary_serialized_resource>(test_guid_c);
+
+  REQUIRE(base.succeeded());
+  REQUIRE(dlc.succeeded());
+  REQUIRE(base.value != nullptr);
+  REQUIRE(dlc.value != nullptr);
+  CHECK(base.value->width == 64);
+  CHECK(dlc.value->width == 128);
+  CHECK(assets.provider().find(test_guid_a).source == base_source);
+  CHECK(assets.provider().find(test_guid_c).source == dlc_source);
+}
+
 TEST_CASE("resources - asset_manager exposes high level resource operations", "[resources]") {
   require_serialized_resource_metadata();
 
@@ -572,6 +689,48 @@ TEST_CASE("resources - asset_manager reports unknown source factory options", "[
   REQUIRE_FALSE(result.reasons.empty());
   CHECK(result.reasons.front().find("extra") != caors::string::npos);
   CHECK(state.calls == 0);
+}
+
+TEST_CASE("resources - asset_manager validates advanced factory option schema", "[resources]") {
+  const auto check_invalid_source = [](std::string_view json, std::string_view expected_reason) {
+    caors::assets::project_config config;
+    REQUIRE(caors::assets::json::load_project_config(config, json).succeeded());
+
+    caors::assets::factory_option_schema schema;
+    schema.require(caors::string_name{"mount"}, caors::assets::factory_option_kind::string)
+        .non_empty(caors::string_name{"mount"})
+        .optional(caors::string_name{"priority"})
+        .range(caors::string_name{"priority"}, 1.0, 10.0)
+        .optional(caors::string_name{"filter"}, caors::assets::factory_option_kind::string)
+        .one_of(caors::string_name{"filter"},
+                {std::string_view{"nearest"}, std::string_view{"linear"}});
+    schema.allow_unknown = false;
+
+    external_source_factory_state state;
+    caors::assets::asset_manager assets;
+    REQUIRE(assets
+                .register_source_factory(caors::string_name{"external_memory"},
+                                         &make_external_memory_source, &state, schema)
+                .succeeded());
+
+    const caors::assets::asset_build_result result = assets.build_detailed(config);
+    CHECK(result.status ==
+          caors::error{caors::error_domain::resources, caors::errc::invalid_argument});
+    CHECK(result.stage == caors::assets::asset_build_stage::source);
+    REQUIRE_FALSE(result.reasons.empty());
+    CHECK(result.reasons.front().find(expected_reason) != caors::string::npos);
+    CHECK(state.calls == 0);
+  };
+
+  check_invalid_source(
+      R"({"sources":[{"name":"assets","type":"external_memory","options":{"mount":"","priority":2,"filter":"linear"}}]})",
+      "不能为空");
+  check_invalid_source(
+      R"({"sources":[{"name":"assets","type":"external_memory","options":{"mount":"debug","priority":99,"filter":"linear"}}]})",
+      "范围");
+  check_invalid_source(
+      R"({"sources":[{"name":"assets","type":"external_memory","options":{"mount":"debug","priority":2,"filter":"cubic"}}]})",
+      "允许值");
 }
 
 TEST_CASE("resources - asset_manager accepts external type factory state", "[resources]") {
