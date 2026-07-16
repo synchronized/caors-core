@@ -346,6 +346,7 @@ private:
   void* data_ = nullptr;
   memory::memory_resource* resource_ = nullptr;
   meta::resource_destroy_fn resource_destroy_ = nullptr;
+  meta::destroy_fn destroy_ = nullptr;
   storage_mode mode_ = storage_mode::empty;
   alignas(std::max_align_t) unsigned char inline_storage_[inline_storage_size]{};
 };

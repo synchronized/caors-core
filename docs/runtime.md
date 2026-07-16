@@ -101,8 +101,8 @@ constructor 参数采用保守匹配策略：参数数量必须一致，参数�
   `meta::owned_value`，适合工具层先填充对象再转交所有权；最终可用 `into_any()` 转成 `any`。
 - `meta::make_owned_value(type, value, destroy)` / `meta::make_owned_value(type, value, resource, destroy)`
   可以把外部高级构造结果封装进 RAII 句柄；调用方必须保证销毁函数和资源匹配。
-- `take_ownership(owned_value&&)` 接管 `owned_value` 持有的对象。普通 meta factory 调用优先使用
-  `factory_capability::construct()`。
+- `take_ownership(owned_value&&)` 接管 `owned_value` 持有的对象，并保留匹配的资源销毁函数或普通销毁函数。
+  普通 meta factory 调用优先使用 `factory_capability::construct()`。
 - 普通业务、编辑器创建、多态反序列化和资源配置加载应优先通过 `runtime::type::create()` 统一调度。
 
 注册自定义无参构造策略时，使用 `runtime::class_<T>().factory()`：
@@ -188,6 +188,9 @@ caors::runtime::type state_type = caors::runtime::find<actor_state>();
 - `runtime` 只负责把这些能力组合成更直接的用户入口。
 - object/resource 等领域专用便利能力放在 `runtime` 或对应适配层，不反向塞进 `reflection::field`
   这类底层通用视图。
+- `runtime` 组合公开 facade，不直接依赖 `meta::detail`。需要构造未知类型值时走
+  `runtime::type::create()`、`meta::factory_capability`、`meta::constructor_capability`
+  或 `meta::any` / `meta::owned_value` 这类公开所有权接口。
 - `runtime::object` 当前只收口对象指针字段访问和当前对象指针查询，不替代对象 manager、handle、
   引用计数或资源引用 resolver。
 - 具体模块仍保留高级入口，例如 `meta::class_<T>()`、`meta::enum_<T>()`、

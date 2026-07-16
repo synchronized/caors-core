@@ -76,6 +76,27 @@ TEST_CASE("meta type - owned value release exposes manual destruction", "[meta]"
   released.destroy(released.value);
 }
 
+TEST_CASE("meta type - owned value into_any preserves custom destroy function", "[meta]") {
+  owned_value_custom_destroy_type::reset_counts();
+
+  const caors::meta::type type = caors::meta::resolve<owned_value_custom_destroy_type>();
+  auto* raw = new owned_value_custom_destroy_type(41);
+  caors::owned_value value =
+      caors::meta::make_owned_value(type, raw, &destroy_owned_value_custom_destroy_type);
+
+  caors::any owned = std::move(value).into_any();
+  REQUIRE(owned.valid());
+  CHECK_FALSE(value.valid());
+  auto* stored = owned.try_get_mutable<owned_value_custom_destroy_type>();
+  REQUIRE(stored != nullptr);
+  CHECK(stored->value == 41);
+
+  owned.reset();
+
+  CHECK(owned_value_custom_destroy_type::custom_destroy_count == 1);
+  CHECK(owned_value_custom_destroy_type::destructor_count == 1);
+}
+
 TEST_CASE("meta type - released owned value guard destroys on scope exit", "[meta]") {
   const caors::meta::type type = caors::meta::resolve<default_factory_type>();
   caors::tracking_resource tracking(&caors::get_system_memory_resource());

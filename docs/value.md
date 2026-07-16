@@ -97,8 +97,10 @@ caors::any value = caors::any::from(7);
   资源构造会使用标准 uses-allocator 规则，把同一个 `memory_resource` 传给对象内部 allocator。
 - 复制已有值生成 `any` 时会沿用当前存储策略：可内联的小型平凡值继续内联，其他值走 clone；需要指定资源创建空对象再读入数据时，应使用
   `any::default_construct(type_id, resource)`。
-- `any::take_ownership(owned_value&&)` 是高级所有权接管入口。普通业务代码应优先使用
-  `runtime::type::create()` 或 `factory_capability::construct()`，不要直接拼接裸指针生命周期。
+- `any::take_ownership(owned_value&&)` 是高级所有权接管入口。它会把 `owned_value`
+  中匹配的资源销毁函数或普通销毁函数一起转移到 `any`，保证后续析构仍使用同一套分配 / 释放策略。
+  普通业务代码应优先使用 `runtime::type::create()` 或 `factory_capability::construct()`，
+  不要直接拼接裸指针生命周期。
 - `meta::destroy_fn` 和 `meta::resource_destroy_fn` 是高级构造路径共用的销毁函数类型；
   `meta::value_ops`、factory、constructor 和序列化自定义构造都会复用这两个别名。
 
@@ -131,8 +133,8 @@ caors::meta::owned_value value =
 
 规则：
 
-- `owned_value` 析构时会使用匹配的资源销毁函数或 descriptor 销毁函数释放对象。
-- `into_any()` 成功后当前 `owned_value` 变为空，所有权转移给返回的 `any`。
+- `owned_value` 析构时会使用匹配的资源销毁函数、自定义销毁函数或 descriptor 销毁函数释放对象。
+- `into_any()` 成功后当前 `owned_value` 变为空，所有权和匹配销毁函数一起转移给返回的 `any`。
 - `std::move(value).release()` 会释放所有权并返回裸对象、类型、资源和销毁函数，让当前 `owned_value`
   变为空。调用方必须使用返回的 `resource_destroy` 或 `destroy` 手动销毁对象；这是高级接口，普通代码应优先使用
   `into_any()`。
@@ -142,6 +144,15 @@ caors::meta::owned_value value =
   是高级 RAII 包装入口；调用方必须保证 `type`、原始对象、销毁函数和资源完全匹配。
 - 公开 facade 只暴露 `construct()` / `construct_owned()` 这类 RAII 入口；裸 `void*`
   构造和销毁函数只作为底层 ops/model 的内部实现细节。
+
+所有权接口分层约定：
+
+- 公开 facade 面向普通用户，只返回 `any`、`owned_value`、`any_ref` 或具体 view，不暴露 `void*`。
+- `owned_value` 是“构造后尚未进入最终容器”的 RAII 句柄；`any` 是最终拥有式运行期值。
+- `released_owned_value` / `released_owned_value_guard` 是高级桥接工具，仅用于 wrapper 接管、容器 emplace
+  或序列化内部构造这类需要短暂暴露裸对象的路径。
+- 底层 `*_ops` / model 可以使用 `void*`，但必须把匹配销毁函数向上交给 `owned_value` 或 `any`，
+  不能让分配和释放策略分离。
 
 当前限制：
 

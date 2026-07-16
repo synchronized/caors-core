@@ -159,6 +159,11 @@ caors::deserialize(context, object, text);
 `meta::owned_value`，失败路径自动销毁；普通 meta factory / constructor 路径直接使用
 `construct_owned()`，不会向公开层暴露裸销毁函数。
 
+序列化模块不直接访问 `meta::detail`。需要创建、托管或转移运行期值时，只使用
+`meta::factory_capability`、`meta::constructor_capability`、`meta::owned_value`、
+`meta::released_owned_value_guard` 和 `meta::any` 这些公开接口。这样自定义构造策略、factory、
+descriptor 默认构造和资源感知构造都能通过同一套 RAII 路径保留匹配销毁函数。
+
 当前调用点包括：需要临时值的容器元素、集合元素、关联容器 key/value、空拥有型智能指针 wrapper 的内部值、variant
 候选切换、普通多态 wrapper 新建对象，以及字段整体临时值。裸指针仍表示借用，不会通过该策略自动分配内存。
 

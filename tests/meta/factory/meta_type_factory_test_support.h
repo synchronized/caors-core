@@ -28,6 +28,21 @@ struct custom_factory_type {
   int value = 0;
 };
 
+struct owned_value_custom_destroy_type {
+  explicit owned_value_custom_destroy_type(int input) : value(input) {}
+  ~owned_value_custom_destroy_type() { ++destructor_count; }
+
+  static void reset_counts() noexcept {
+    custom_destroy_count = 0;
+    destructor_count = 0;
+  }
+
+  inline static int custom_destroy_count = 0;
+  inline static int destructor_count = 0;
+
+  int value = 0;
+};
+
 [[nodiscard]] constexpr caors::error meta_error(caors::errc code) noexcept {
   return {caors::error_domain::meta, code};
 }
@@ -48,6 +63,11 @@ inline void destroy_custom_factory_type(caors::memory_resource* resource, void* 
   }
 
   delete typed;
+}
+
+inline void destroy_owned_value_custom_destroy_type(void* value) noexcept {
+  ++owned_value_custom_destroy_type::custom_destroy_count;
+  delete static_cast<owned_value_custom_destroy_type*>(value);
 }
 
 } // namespace caors::tests::meta_type_factory

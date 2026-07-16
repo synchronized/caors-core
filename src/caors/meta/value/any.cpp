@@ -175,9 +175,8 @@ void any::reset() noexcept {
       // 内联路径只接收平凡析构类型，不需要调用销毁函数。
     } else if (resource_destroy_ != nullptr) {
       resource_destroy_(resource_, data_);
-    } else if (const meta::value_ops* ops = value_ops_of(type_);
-               ops != nullptr && ops->destroy != nullptr) {
-      ops->destroy(data_);
+    } else if (destroy_ != nullptr) {
+      destroy_(data_);
     }
   }
 
@@ -185,6 +184,7 @@ void any::reset() noexcept {
   data_ = nullptr;
   resource_ = nullptr;
   resource_destroy_ = nullptr;
+  destroy_ = nullptr;
   mode_ = storage_mode::empty;
 }
 
@@ -243,6 +243,7 @@ any any::copy_from_raw(meta::type type, const void* source) {
   any result;
   result.type_ = type;
   result.data_ = copy;
+  result.destroy_ = value_ops->ops.destroy;
   result.mode_ = storage_mode::heap_value;
   return result;
 }
@@ -253,7 +254,14 @@ any any::take_ownership(owned_value&& value) {
   }
 
   const meta::value_storage_ops* value_ops = value.type_.get_raw_ops<meta::value_storage_ops>();
-  if (value_ops == nullptr || value_ops->ops.destroy == nullptr) {
+  if (value_ops == nullptr) {
+    return {};
+  }
+
+  const bool uses_resource_destroy = value.resource_destroy_ != nullptr;
+  const meta::destroy_fn destroy =
+      value.default_destroy_ != nullptr ? value.default_destroy_ : value_ops->ops.destroy;
+  if (!uses_resource_destroy && destroy == nullptr) {
     return {};
   }
 
@@ -265,6 +273,7 @@ any any::take_ownership(owned_value&& value) {
     result.resource_destroy_ = value.resource_destroy_;
     result.mode_ = any::storage_mode::resource_value;
   } else {
+    result.destroy_ = destroy;
     result.mode_ = any::storage_mode::heap_value;
   }
 
@@ -284,6 +293,7 @@ void any::move_from(any& other) noexcept {
   type_ = other.type_;
   resource_ = other.resource_;
   resource_destroy_ = other.resource_destroy_;
+  destroy_ = other.destroy_;
   mode_ = other.mode_;
 
   if (other.stores_inline()) {
@@ -297,6 +307,7 @@ void any::move_from(any& other) noexcept {
   other.data_ = nullptr;
   other.resource_ = nullptr;
   other.resource_destroy_ = nullptr;
+  other.destroy_ = nullptr;
   other.mode_ = storage_mode::empty;
 }
 
@@ -402,6 +413,7 @@ any any::default_construct(meta::type type, memory::memory_resource* resource) {
   result.data_ = value;
   result.resource_ = resource_destroy != nullptr ? resource : nullptr;
   result.resource_destroy_ = resource_destroy;
+  result.destroy_ = resource_destroy == nullptr ? value_ops->ops.destroy : nullptr;
   result.mode_ = resource_destroy != nullptr ? any::storage_mode::resource_value
                                              : any::storage_mode::heap_value;
   return result;
