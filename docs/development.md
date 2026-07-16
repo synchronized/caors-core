@@ -52,6 +52,8 @@ CAORS 当前仍处于早期设计和验证阶段，暂不承诺公共 API 稳定
   `caors/meta/value*.h` 与 `caors::meta::*`。
 - 类型擦除函数表使用 `*_ops` 命名，通常属于内部或高级实现；用户可见的类型能力应优先提供
   `*_capability` facade，实例访问优先返回绑定后的 `*_view`。
+- 公开 capability facade 不直接暴露 `void*`。构造未知类型值时优先返回 `meta::any`，引用已有对象时优先返回
+  `meta::any_ref` 或绑定后的 view；裸 `void*` 只放在底层 `*_ops`、model 和 `detail` helper 中。
 - 公共头应自包含并避免依赖偶然传递 include；只需要保存指针或引用时优先前置声明，把完整内部定义留在 `.cpp` 或内部头中。
 
 ## 代码格式与静态检查

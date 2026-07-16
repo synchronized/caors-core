@@ -204,8 +204,15 @@ class constructor_capability;
 
 namespace detail {
 
+[[nodiscard]] void* factory_construct(const factory_capability& capability,
+                                      memory::memory_resource* resource);
+
 [[nodiscard]] factory_ops::destroy_fn
 factory_destroy_fn(const factory_capability& capability) noexcept;
+
+[[nodiscard]] void* constructor_construct(const constructor_capability& capability,
+                                          memory::memory_resource* resource,
+                                          std::span<const any_ref> arguments);
 
 [[nodiscard]] constructor_ops::destroy_fn
 constructor_destroy_fn(const constructor_capability& capability) noexcept;
@@ -220,22 +227,11 @@ public:
   factory_capability() noexcept = default;
   explicit factory_capability(meta::type type) noexcept : base_type(type) {}
 
-  /** @brief 使用注册工厂构造对象；能力无效或构造失败时返回空指针。 */
-  [[nodiscard]] void* construct(memory::memory_resource* resource) const {
-    return valid() ? ops_->construct(resource) : nullptr;
-  }
-
   /** @brief 使用注册工厂构造并返回拥有对象生命周期的 `any`。 */
   [[nodiscard]] any construct_any(memory::memory_resource* resource = nullptr) const;
 
-  /** @brief 使用注册工厂销毁对象；空对象或能力无效时不做操作。 */
-  void destroy(memory::memory_resource* resource, void* value) const noexcept {
-    if (valid() && value != nullptr) {
-      ops_->destroy(resource, value);
-    }
-  }
-
 private:
+  friend void* detail::factory_construct(const factory_capability&, memory::memory_resource*);
   friend factory_ops::destroy_fn detail::factory_destroy_fn(const factory_capability&) noexcept;
 };
 
@@ -257,34 +253,37 @@ public:
     return valid() && ops_->argument_count == count;
   }
 
-  /** @brief 使用注册构造函数创建对象；能力无效、参数不匹配或构造失败时返回空指针。 */
-  [[nodiscard]] void* construct(memory::memory_resource* resource,
-                                std::span<const any_ref> arguments) const {
-    return matches(arguments.size()) ? ops_->construct(resource, arguments) : nullptr;
-  }
-
   /** @brief 使用注册构造函数构造并返回拥有对象生命周期的 `any`。 */
   [[nodiscard]] any construct_any(std::span<const any_ref> arguments,
                                   memory::memory_resource* resource = nullptr) const;
 
-  /** @brief 使用注册构造函数对应的销毁策略销毁对象；空对象或能力无效时不做操作。 */
-  void destroy(memory::memory_resource* resource, void* value) const noexcept {
-    if (valid() && value != nullptr) {
-      ops_->destroy(resource, value);
-    }
-  }
-
 private:
+  friend void* detail::constructor_construct(const constructor_capability&,
+                                             memory::memory_resource*, std::span<const any_ref>);
   friend constructor_ops::destroy_fn
   detail::constructor_destroy_fn(const constructor_capability&) noexcept;
 };
 
 namespace detail {
 
+/** @brief 使用注册 factory 构造裸对象，仅供内部所有权接管路径使用。 */
+[[nodiscard]] inline void* factory_construct(const factory_capability& capability,
+                                             memory::memory_resource* resource) {
+  return capability.valid() ? capability.ops_->construct(resource) : nullptr;
+}
+
 /** @brief 查询注册 factory 的销毁策略，仅供内部所有权接管路径使用。 */
 [[nodiscard]] inline factory_ops::destroy_fn
 factory_destroy_fn(const factory_capability& capability) noexcept {
   return capability.valid() ? capability.ops_->destroy : nullptr;
+}
+
+/** @brief 使用注册 constructor 构造裸对象，仅供内部所有权接管路径使用。 */
+[[nodiscard]] inline void* constructor_construct(const constructor_capability& capability,
+                                                 memory::memory_resource* resource,
+                                                 std::span<const any_ref> arguments) {
+  return capability.matches(arguments.size()) ? capability.ops_->construct(resource, arguments)
+                                              : nullptr;
 }
 
 /** @brief 查询注册 constructor 的销毁策略，仅供内部所有权接管路径使用。 */

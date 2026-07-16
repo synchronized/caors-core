@@ -193,7 +193,7 @@ private:
 void swap(any& lhs, any& rhs) noexcept;
 
 inline any factory_capability::construct_any(memory::memory_resource* resource) const {
-  void* value = construct(resource);
+  void* value = detail::factory_construct(*this, resource);
   return value != nullptr
              ? any::take_ownership(get_type(), value, resource, detail::factory_destroy_fn(*this))
              : any{};
@@ -201,7 +201,7 @@ inline any factory_capability::construct_any(memory::memory_resource* resource) 
 
 inline any constructor_capability::construct_any(std::span<const any_ref> arguments,
                                                  memory::memory_resource* resource) const {
-  void* value = construct(resource, arguments);
+  void* value = detail::constructor_construct(*this, resource, arguments);
   return value != nullptr ? any::take_ownership(get_type(), value, resource,
                                                 detail::constructor_destroy_fn(*this))
                           : any{};

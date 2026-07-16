@@ -431,9 +431,9 @@ inline caors::serialization::construction_result construct_non_default_value_for
   std::array<caors::any_ref, 1> arguments{initial.ref()};
   const caors::meta::constructor_capability constructor =
       request.type.get_capability<caors::meta::constructor_capability>();
-  void* value =
-      constructor.construct(context.effective_memory_resource(),
-                            std::span<const caors::any_ref>{arguments.data(), arguments.size()});
+  void* value = caors::meta::detail::constructor_construct(
+      constructor, context.effective_memory_resource(),
+      std::span<const caors::any_ref>{arguments.data(), arguments.size()});
   return {value, caors::meta::detail::constructor_destroy_fn(constructor)};
 }
 

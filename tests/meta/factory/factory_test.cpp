@@ -31,11 +31,6 @@ TEST_CASE("meta type - factory registers custom construction strategy", "[meta]"
   REQUIRE(factory);
   REQUIRE(factory.valid());
 
-  auto* value = static_cast<custom_factory_type*>(factory.construct(nullptr));
-  REQUIRE(value != nullptr);
-  CHECK(value->value == 23);
-  factory.destroy(nullptr, value);
-
   caors::any owned = factory.construct_any();
   REQUIRE(owned.valid());
   auto* owned_value = owned.try_get_mutable<custom_factory_type>();
@@ -67,26 +62,16 @@ TEST_CASE("meta type - factory registers resource-aware default construction", "
   REQUIRE(factory.valid());
 
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
-  auto* value = static_cast<default_factory_type*>(factory.construct(&tracking));
-  REQUIRE(value != nullptr);
-  CHECK(value->value == 11);
-  CHECK(tracking.statistics().allocation_count == 1);
-  CHECK(tracking.statistics().bytes_in_use >= sizeof(default_factory_type));
-
-  factory.destroy(&tracking, value);
-  CHECK(tracking.statistics().deallocation_count == 1);
-  CHECK(tracking.statistics().bytes_in_use == 0);
-
   caors::any owned = factory.construct_any(&tracking);
   REQUIRE(owned.valid());
   auto* owned_value = owned.try_get_mutable<default_factory_type>();
   REQUIRE(owned_value != nullptr);
   CHECK(owned_value->value == 11);
-  CHECK(tracking.statistics().allocation_count == 2);
+  CHECK(tracking.statistics().allocation_count == 1);
   CHECK(tracking.statistics().bytes_in_use >= sizeof(default_factory_type));
 
   owned.reset();
-  CHECK(tracking.statistics().deallocation_count == 2);
+  CHECK(tracking.statistics().deallocation_count == 1);
   CHECK(tracking.statistics().bytes_in_use == 0);
 }
 

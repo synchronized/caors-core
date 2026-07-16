@@ -105,7 +105,7 @@ construct_owned_value(meta::type type, const serialization::context& context,
   if (options.use_registered_factory) {
     const meta::factory_capability factory = type.get_capability<meta::factory_capability>();
     if (factory) {
-      void* value = factory.construct(resource);
+      void* value = meta::detail::factory_construct(factory, resource);
       if (value != nullptr) {
         return {value, resource, meta::detail::factory_destroy_fn(factory),
                 transfer_destroy_context};
@@ -118,7 +118,7 @@ construct_owned_value(meta::type type, const serialization::context& context,
         type.get_capability<meta::constructor_capability>();
     const std::span<const meta::any_ref> arguments{};
     if (constructor.matches(arguments.size())) {
-      void* value = constructor.construct(resource, arguments);
+      void* value = meta::detail::constructor_construct(constructor, resource, arguments);
       if (value != nullptr) {
         return {value, resource, meta::detail::constructor_destroy_fn(constructor),
                 transfer_destroy_context};

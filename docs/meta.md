@@ -201,8 +201,9 @@ caors::meta::class_<player>("game.player")
 应用层需要创建运行期值时优先使用 `runtime::type::create()`，它会先通过
 `meta::type::get_capability<meta::factory_capability>()` 查询这里注册的 factory，再回退到 descriptor
 默认构造。如果确实只需要 meta 层创建结果，可以使用 `factory_capability::construct_any(resource)` 直接返回
-拥有生命周期的 `meta::any`；`construct()` / `destroy()` 是高级裸指针成对入口。`any::default_construct()`
-只表达 descriptor 默认构造能力，不查询 factory。
+拥有生命周期的 `meta::any`。裸指针构造和销毁只存在于底层 `factory_ops` / `meta::detail`
+所有权接管路径，公开 facade 不暴露 `void*`。`any::default_construct()` 只表达 descriptor
+默认构造能力，不查询 factory。
 
 如果类型需要按运行期参数列表构造，可以注册 constructor capability：
 
@@ -241,6 +242,9 @@ caors::meta::class_<actor>("game.actor")
   `any_ref.get_capability<meta::sequence_capability>()` 返回 `sequence_view`，
   `any_ref.get_capability<objects::ptr_capability>()` 返回 `objects::ptr_view`。
 - 跨 meta / reflection / object 的高层访问优先使用 `runtime::type` 和 `runtime::instance`。
+- 公开 capability facade 不直接暴露 `void*`。需要返回未知类型值时使用 `meta::any`，
+  需要引用已有对象时使用 `meta::any_ref` 或绑定后的 `*_view`；`void*` 只用于底层
+  `*_ops`、model 和 `meta::detail` helper。
 
 只有实现新的 capability facade、调试工具、序列化桥接或性能敏感适配层时，才直接使用
 `meta::type::get_raw_ops<Ops>()`。
