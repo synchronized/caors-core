@@ -191,35 +191,6 @@ descriptor_wrapper_semantics(const type_descriptor& descriptor) noexcept {
   return {};
 }
 
-[[nodiscard]] inline type_id descriptor_key_type(const type_descriptor& descriptor) noexcept {
-  switch (descriptor_kind(descriptor)) {
-  case type_kind::associative: {
-    const auto* associative = descriptor_ops<associative_ops>(descriptor);
-    const meta::type key = associative != nullptr && associative->get_key_type != nullptr
-                               ? associative->get_key_type()
-                               : meta::type{};
-    return key ? key.id() : type_id{};
-  }
-  case type_kind::pair: {
-    const auto* pair = descriptor_ops<pair_ops>(descriptor);
-    const meta::type key =
-        pair != nullptr && pair->get_key_type != nullptr ? pair->get_key_type() : meta::type{};
-    return key ? key.id() : type_id{};
-  }
-  case type_kind::value:
-  case type_kind::enumeration:
-  case type_kind::raw_pointer:
-  case type_kind::wrapper:
-  case type_kind::sequence:
-  case type_kind::set:
-  case type_kind::tuple:
-  case type_kind::variant:
-    return {};
-  }
-
-  return {};
-}
-
 template <typename T> [[nodiscard]] type_id descriptor_type_id() noexcept {
   return type_id_of_cpp_type<std::remove_cv_t<std::remove_reference_t<T>>>();
 }

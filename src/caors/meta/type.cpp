@@ -114,22 +114,20 @@ type type::get_key_type() const noexcept {
     return {};
   }
 
-  type_id key_type{};
-  meta::type key = {};
   switch (detail::descriptor_kind(*descriptor_)) {
-  case type_kind::associative:
+  case type_kind::associative: {
     if (const auto* associative_ops = get_raw_ops<meta::associative_ops>()) {
-      key_type = detail::descriptor_key_type(*descriptor_);
-      key =
-          associative_ops->get_key_type != nullptr ? associative_ops->get_key_type() : meta::type{};
+      return associative_ops->get_key_type != nullptr ? associative_ops->get_key_type()
+                                                      : meta::type{};
     }
     break;
-  case type_kind::pair:
+  }
+  case type_kind::pair: {
     if (const auto* pair_ops = get_raw_ops<meta::pair_ops>()) {
-      key_type = detail::descriptor_key_type(*descriptor_);
-      key = pair_ops->get_key_type != nullptr ? pair_ops->get_key_type() : meta::type{};
+      return pair_ops->get_key_type != nullptr ? pair_ops->get_key_type() : meta::type{};
     }
     break;
+  }
   case type_kind::value:
   case type_kind::enumeration:
   case type_kind::raw_pointer:
@@ -141,7 +139,7 @@ type type::get_key_type() const noexcept {
     break;
   }
 
-  return key && key.id() == key_type ? key : meta::type{};
+  return {};
 }
 
 namespace detail {
