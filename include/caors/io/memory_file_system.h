@@ -65,10 +65,4 @@ private:
 
 } // namespace caors::io
 
-namespace caors {
-
-using io::memory_file_system;
-
-} // namespace caors
-
 #endif

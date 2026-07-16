@@ -189,10 +189,4 @@ private:
 
 } // namespace caors::tasks
 
-namespace caors {
-
-using thread_pool_task_executor = tasks::thread_pool_executor;
-
-} // namespace caors
-
 #endif

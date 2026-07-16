@@ -248,10 +248,4 @@ private:
 
 } // namespace caors::events
 
-namespace caors {
-
-using event_dispatcher = events::dispatcher;
-
-} // namespace caors
-
 #endif

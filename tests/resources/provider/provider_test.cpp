@@ -15,7 +15,7 @@ TEST_CASE("resources - provider reads bytes from file source", "[resources]") {
   REQUIRE(std::filesystem::create_directories(directory, ec));
   REQUIRE_FALSE(ec);
 
-  caors::native_file_system native;
+  caors::io::native_file_system native;
   const std::string file_path = path_string(file);
   REQUIRE(native.write_all(file_path, std::string_view{"texture-bytes"}).succeeded());
 
@@ -33,7 +33,7 @@ TEST_CASE("resources - provider reads bytes from file source", "[resources]") {
   CHECK(location.location.string_view() == file_path);
 
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
-  caors::byte_buffer_result bytes = provider.read(test_guid_a, &tracking);
+  caors::io::byte_buffer_result bytes = provider.read(test_guid_a, &tracking);
 
   REQUIRE(bytes.succeeded());
   CHECK(bytes.value.get_allocator().resource() == &tracking);
@@ -50,7 +50,7 @@ TEST_CASE("resources - provider reads bytes from file source", "[resources]") {
 using namespace caors::tests::resources;
 
 TEST_CASE("resources - provider reports invalid and missing resources", "[resources]") {
-  caors::native_file_system native;
+  caors::io::native_file_system native;
   caors::resources::file_source source{native};
   caors::resources::provider provider;
 
@@ -76,7 +76,7 @@ TEST_CASE("resources - provider reports invalid and missing resources", "[resour
   CHECK(duplicate.domain() == caors::error_domain::resources);
   CHECK(duplicate.value() == caors::errc::already_exists);
 
-  caors::byte_buffer_result missing_guid = provider.read(test_guid_b);
+  caors::io::byte_buffer_result missing_guid = provider.read(test_guid_b);
   REQUIRE(missing_guid.failed());
   CHECK(missing_guid.status.domain() == caors::error_domain::resources);
   CHECK(missing_guid.status.value() == caors::errc::not_found);
@@ -86,7 +86,7 @@ TEST_CASE("resources - provider reports invalid and missing resources", "[resour
   CHECK(missing_write.domain() == caors::error_domain::resources);
   CHECK(missing_write.value() == caors::errc::not_found);
 
-  caors::byte_buffer_result missing_file = provider.read(test_guid_a);
+  caors::io::byte_buffer_result missing_file = provider.read(test_guid_a);
   REQUIRE(missing_file.failed());
   CHECK(missing_file.status.domain() == caors::error_domain::io);
   CHECK(missing_file.status.value() == caors::errc::not_found);
@@ -117,14 +117,14 @@ TEST_CASE("resources - provider reports unsupported writes for read only sources
 using namespace caors::tests::resources;
 
 TEST_CASE("resources - provider writes bytes through file source", "[resources]") {
-  caors::memory_file_system files;
+  caors::io::memory_file_system files;
   caors::resources::file_source source{files};
   caors::resources::provider provider;
 
   REQUIRE(provider.bind(test_guid_a, source, "assets/generated.txt").succeeded());
   REQUIRE(provider.write(test_guid_a, std::string_view{"generated-bytes"}).succeeded());
 
-  caors::byte_buffer_result bytes = files.read_all("assets/generated.txt");
+  caors::io::byte_buffer_result bytes = files.read_all("assets/generated.txt");
   REQUIRE(bytes.succeeded());
   CHECK(std::string_view{reinterpret_cast<const char*>(bytes.value.data()), bytes.value.size()} ==
         "generated-bytes");

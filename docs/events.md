@@ -41,14 +41,8 @@
 - `events::scoped_connection`
 - `events::dispatcher`
 
-根命名空间保留常用别名：
-
-- `caors::delegate<Signature>`
-- `caors::signal<Signature>`
-- `caors::event_sink<Signature>`
-- `caors::event_connection`
-- `caors::scoped_event_connection`
-- `caors::event_dispatcher`
+事件模块不再向根命名空间导出别名。事件、信号、连接和派发器统一通过
+`caors::events::...` 使用，避免和对象、资源、任务模块的运行期组合件混在一起。
 
 公共头文件：
 

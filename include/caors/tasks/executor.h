@@ -29,10 +29,4 @@ public:
 
 } // namespace caors::tasks
 
-namespace caors {
-
-using task_executor = tasks::executor;
-
-} // namespace caors
-
 #endif

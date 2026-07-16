@@ -75,10 +75,4 @@ private:
 
 } // namespace caors::objects
 
-namespace caors {
-
-using object_index = objects::object_index;
-
-} // namespace caors
-
 #endif

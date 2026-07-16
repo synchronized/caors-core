@@ -294,12 +294,4 @@ inline bool request::cancel() const { return detail::request_access::cancel(stat
 
 } // namespace caors::tasks
 
-namespace caors {
-
-using task_request = tasks::request;
-using task_request_status = tasks::request_status;
-using tasks::submit_request;
-
-} // namespace caors
-
 #endif

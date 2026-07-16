@@ -471,9 +471,9 @@ inline void destroy_takeover_rollback_value(caors::memory_resource*, void* value
   delete static_cast<takeover_rollback_value*>(value);
 }
 
-inline caors::serialization::construction_result construct_takeover_rollback_value(
-    const caors::serialization::construction_request& request,
-    const caors::serialization::context&, void*) {
+inline caors::serialization::construction_result
+construct_takeover_rollback_value(const caors::serialization::construction_request& request,
+                                  const caors::serialization::context&, void*) {
   const caors::meta::type expected = caors::meta::resolve<takeover_rollback_value>();
   if (!request.type || request.type.id() != expected.id()) {
     return {};
@@ -489,20 +489,17 @@ inline caors::serialization::context takeover_rollback_construction_context() {
 }
 
 inline void require_failing_takeover_actor_metadata() {
-  REQUIRE(reflection_result_ok(
-      registered_reflection_class<takeover_rollback_value>(
-          "caors.test.serialization.takeover_rollback_value")
-          .field("value", &takeover_rollback_value::value)
-          .commit()));
-  REQUIRE(reflection_result_ok(
-      registered_reflection_class<failing_takeover_actor>(
-          "caors.test.serialization.failing_takeover_actor")
-          .field("value", &failing_takeover_actor::value)
-          .commit()));
+  REQUIRE(reflection_result_ok(registered_reflection_class<takeover_rollback_value>(
+                                   "caors.test.serialization.takeover_rollback_value")
+                                   .field("value", &takeover_rollback_value::value)
+                                   .commit()));
+  REQUIRE(reflection_result_ok(registered_reflection_class<failing_takeover_actor>(
+                                   "caors.test.serialization.failing_takeover_actor")
+                                   .field("value", &failing_takeover_actor::value)
+                                   .commit()));
   REQUIRE(
       serialization_result_ok(caors::serialization::class_<takeover_rollback_value>().commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::class_<failing_takeover_actor>().commit()));
+  REQUIRE(serialization_result_ok(caors::serialization::class_<failing_takeover_actor>().commit()));
 }
 
 inline void require_unique_ptr_vector_actor_metadata() {
@@ -581,9 +578,9 @@ inline void require_object_ptr_vector_actor_metadata() {
   return data->instance;
 }
 
-[[nodiscard]] inline caors::object_ref_resolver_ops
+[[nodiscard]] inline caors::objects::object_ref_resolver_ops
 make_test_object_ref_resolver(object_ptr_resolver_data& data) {
-  return caors::object_ref_resolver_ops{
+  return caors::objects::object_ref_resolver_ops{
       &resolve_object_ref,
       &data,
       caors::serialization::external_ref_identity::integer,

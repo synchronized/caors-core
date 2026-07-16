@@ -516,7 +516,7 @@ parser-side 行为选项集中记录在路线图。
 对象引用 resolver，并挂到通用外部引用入口：
 
 ```cpp
-caors::object_ref_resolver_ops resolver = make_custom_object_ref_resolver(...);
+caors::objects::object_ref_resolver_ops resolver = make_custom_object_ref_resolver(...);
 caors::serialization::context context{};
 context.resolvers.external_refs.resolver = &resolver;
 ```
@@ -533,7 +533,7 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `objects::ptr<T>
 
 ```cpp
 caors::objects::manager manager;
-caors::object_ref_resolver_ops resolver = caors::make_object_ref_resolver(manager);
+caors::objects::object_ref_resolver_ops resolver = caors::objects::make_object_ref_resolver(manager);
 caors::serialization::context context{};
 context.resolvers.external_refs.resolver = &resolver;
 ```
@@ -550,7 +550,7 @@ caors::objects::manager manager(index);
 
 player* instance = manager.create_with_guid<player>(persistent_guid);
 
-caors::object_ref_resolver_ops resolver = caors::make_persistent_object_ref_resolver(manager);
+caors::objects::object_ref_resolver_ops resolver = caors::objects::make_persistent_object_ref_resolver(manager);
 caors::serialization::context context{};
 context.resolvers.external_refs.resolver = &resolver;
 ```

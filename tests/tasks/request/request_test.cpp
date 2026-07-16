@@ -132,9 +132,9 @@ TEST_CASE("tasks - request uses configured memory resource", "[tasks]") {
   CHECK(tracking.statistics().bytes_in_use == 0);
 }
 
-TEST_CASE("tasks - root request aliases are available", "[tasks]") {
-  caors::inline_task_executor executor;
-  caors::task_request request = caors::submit_request(executor, caors::task{[] {}});
+TEST_CASE("tasks - request helpers are available from module namespace", "[tasks]") {
+  caors::tasks::inline_executor executor;
+  caors::tasks::request request = caors::tasks::submit_request(executor, caors::tasks::task{[] {}});
 
-  CHECK(request.status() == caors::task_request_status::completed);
+  CHECK(request.status() == caors::tasks::request_status::completed);
 }

@@ -46,10 +46,4 @@ public:
 
 } // namespace caors::io
 
-namespace caors {
-
-using io::file_system;
-
-} // namespace caors
-
 #endif

@@ -38,8 +38,8 @@ CAORS 对象系统第一阶段只解决几件事：
 
 为了保持常用 API 简洁，根命名空间保留带对象语义的别名：`caors::object`、`caors::object_id`、
 `caors::object_type_id`、`caors::object_base<T>`、`caors::object_ptr<T>`、`caors::object_handle`、
-`caors::typed_object_handle<T>`、`caors::object_ref<T>`、`caors::object_weak_ref<T>` 和
-`caors::object_manager`。新代码在对象模块内部实现和低频辅助类型上优先使用 `caors::objects::*`。
+`caors::typed_object_handle<T>`、`caors::object_ref<T>` 和 `caors::object_weak_ref<T>`。对象 manager、
+object_index、序列化 resolver 和工厂 helper 等低频组合件统一使用 `caors::objects::*`。
 
 `objects::ptr<T>`、`objects::handle` 和 `objects::typed_handle<T>` 的运行期读写函数表作为
 `meta::capabilities` 模块静态能力声明，并保存到 meta 内部 descriptor

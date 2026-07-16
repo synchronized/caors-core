@@ -92,7 +92,7 @@ TEST_CASE("resources - database orchestrates manifest provider loader cache and 
           "[resources]") {
   require_database_resource_ref_metadata();
 
-  caors::memory_file_system files;
+  caors::io::memory_file_system files;
   REQUIRE(
       files.write_all("assets/resource.json", std::string_view{R"({"width":512})"}).succeeded());
 

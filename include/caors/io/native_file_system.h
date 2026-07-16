@@ -39,11 +39,4 @@ private:
 
 } // namespace caors::io
 
-namespace caors {
-
-using io::get_native_file_system;
-using io::native_file_system;
-
-} // namespace caors
-
 #endif

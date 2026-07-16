@@ -6,14 +6,14 @@
 using namespace caors::tests::io;
 
 TEST_CASE("io - memory file system reports missing and supports erase", "[io]") {
-  caors::memory_file_system fs;
+  caors::io::memory_file_system fs;
 
-  caors::byte_buffer_result empty = fs.read_all("");
+  caors::io::byte_buffer_result empty = fs.read_all("");
   REQUIRE(empty.failed());
   CHECK(empty.status.domain() == caors::error_domain::io);
   CHECK(empty.status.value() == caors::errc::invalid_argument);
 
-  caors::byte_buffer_result missing = fs.read_all("missing.txt");
+  caors::io::byte_buffer_result missing = fs.read_all("missing.txt");
   REQUIRE(missing.failed());
   CHECK(missing.status.domain() == caors::error_domain::io);
   CHECK(missing.status.value() == caors::errc::not_found);

@@ -15,21 +15,21 @@ TEST_CASE("io - native file system can use a root directory", "[io]") {
   REQUIRE_FALSE(ec);
 
   const std::string root = path_string(directory);
-  caors::native_file_system fs{root};
+  caors::io::native_file_system fs{root};
 
   CHECK(fs.root().string_view() == root);
 
   REQUIRE(fs.write_all("rooted.txt", std::string_view{"rooted"}).succeeded());
   CHECK(std::filesystem::exists(directory / "rooted.txt", ec));
 
-  caors::byte_buffer_result read = fs.read_all("rooted.txt");
+  caors::io::byte_buffer_result read = fs.read_all("rooted.txt");
   REQUIRE(read.succeeded());
   CHECK(std::string_view{reinterpret_cast<const char*>(read.value.data()), read.value.size()} ==
         "rooted");
 
   const std::filesystem::path absolute_file = directory / "absolute.txt";
   REQUIRE(fs.write_all(path_string(absolute_file), std::string_view{"absolute"}).succeeded());
-  caors::byte_buffer_result absolute_read = fs.read_all(path_string(absolute_file));
+  caors::io::byte_buffer_result absolute_read = fs.read_all(path_string(absolute_file));
   REQUIRE(absolute_read.succeeded());
   CHECK(std::string_view{reinterpret_cast<const char*>(absolute_read.value.data()),
                          absolute_read.value.size()} == "absolute");
@@ -51,7 +51,7 @@ TEST_CASE("io - native file system reads and writes bytes", "[io]") {
   REQUIRE(std::filesystem::create_directories(directory, ec));
   REQUIRE_FALSE(ec);
 
-  caors::native_file_system fs;
+  caors::io::native_file_system fs;
   const std::string file_path = path_string(file);
   const std::array<std::byte, 4> expected{
       std::byte{0x01},
@@ -65,7 +65,7 @@ TEST_CASE("io - native file system reads and writes bytes", "[io]") {
   CHECK(fs.exists(file_path));
 
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
-  caors::byte_buffer_result read = fs.read_all(file_path, &tracking);
+  caors::io::byte_buffer_result read = fs.read_all(file_path, &tracking);
 
   REQUIRE(read.succeeded());
   CHECK(read.value.get_allocator().resource() == &tracking);
@@ -82,14 +82,14 @@ TEST_CASE("io - native file system reads and writes bytes", "[io]") {
 using namespace caors::tests::io;
 
 TEST_CASE("io - native file system reports invalid paths and missing files", "[io]") {
-  caors::native_file_system fs;
+  caors::io::native_file_system fs;
 
-  caors::byte_buffer_result empty = fs.read_all("");
+  caors::io::byte_buffer_result empty = fs.read_all("");
   REQUIRE(empty.failed());
   CHECK(empty.status.domain() == caors::error_domain::io);
   CHECK(empty.status.value() == caors::errc::invalid_argument);
 
-  caors::byte_buffer_result missing = fs.read_all(path_string(make_temp_dir() / "missing.bin"));
+  caors::io::byte_buffer_result missing = fs.read_all(path_string(make_temp_dir() / "missing.bin"));
   REQUIRE(missing.failed());
   CHECK(missing.status.domain() == caors::error_domain::io);
   CHECK(missing.status.value() == caors::errc::not_found);
@@ -114,11 +114,11 @@ TEST_CASE("io - native file system writes text", "[io]") {
   REQUIRE(std::filesystem::create_directories(directory, ec));
   REQUIRE_FALSE(ec);
 
-  caors::native_file_system fs;
+  caors::io::native_file_system fs;
   const std::string file_path = path_string(file);
 
   REQUIRE(fs.write_all(file_path, std::string_view{"hello"}).succeeded());
-  caors::byte_buffer_result read = fs.read_all(file_path);
+  caors::io::byte_buffer_result read = fs.read_all(file_path);
 
   REQUIRE(read.succeeded());
   REQUIRE(read.value.size() == 5);

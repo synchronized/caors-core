@@ -129,11 +129,4 @@ private:
 
 } // namespace caors::events
 
-namespace caors {
-
-using event_connection = events::connection;
-using scoped_event_connection = events::scoped_connection;
-
-} // namespace caors
-
 #endif

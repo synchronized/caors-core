@@ -49,7 +49,7 @@ TEST_CASE("resources - manifest provider loader cache can resolve serialized res
           "[resources]") {
   require_serialized_resource_ref_holder_metadata();
 
-  caors::memory_file_system files;
+  caors::io::memory_file_system files;
   REQUIRE(
       files.write_all("assets/resource.json", std::string_view{R"({"width":512})"}).succeeded());
 

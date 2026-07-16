@@ -45,9 +45,9 @@ TEST_CASE("tasks - task uses configured memory resource", "[tasks]") {
   CHECK(tracking.statistics().bytes_in_use == 0);
 }
 
-TEST_CASE("tasks - root task alias is available", "[tasks]") {
+TEST_CASE("tasks - task is available from module namespace", "[tasks]") {
   bool called = false;
-  caors::task current{[&] { called = true; }};
+  caors::tasks::task current{[&] { called = true; }};
 
   CHECK_FALSE(current());
   CHECK(called);

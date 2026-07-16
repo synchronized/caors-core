@@ -57,16 +57,8 @@ scheduler，也不是完整作业系统：
 - `tasks::request_status`
 - `tasks::submit_request()`
 
-根命名空间保留常用别名：
-
-- `caors::task`
-- `caors::task_executor`
-- `caors::inline_task_executor`
-- `caors::thread_pool_task_executor`
-- `caors::task_completion_queue`
-- `caors::task_request`
-- `caors::task_request_status`
-- `caors::submit_request()`
+任务模块不再向根命名空间导出低层别名。任务、执行器、完成队列和请求状态统一通过
+`caors::tasks::...` 使用，避免根命名空间承担运行期调度组合件。
 
 公共头文件：
 

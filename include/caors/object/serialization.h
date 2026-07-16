@@ -440,13 +440,4 @@ template <typename T> struct codec_traits<objects::detail::basic_handle<T>> {
 
 } // namespace caors::serialization
 
-namespace caors {
-
-using object_ref_resolver_ops = objects::object_ref_resolver_ops;
-using objects::make_object_factory;
-using objects::make_object_ref_resolver;
-using objects::make_persistent_object_ref_resolver;
-
-} // namespace caors
-
 #endif

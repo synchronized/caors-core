@@ -52,7 +52,7 @@ TEST_CASE("resources - reload_and_notify emits success events", "[resources]") {
     ++notify_count;
     captured = event;
   };
-  [[maybe_unused]] caors::event_connection connection = reloaded.connect(listener);
+  [[maybe_unused]] caors::events::connection connection = reloaded.connect(listener);
 
   caors::resources::handle_result<reload_notified_resource> result =
       caors::resources::reload_and_notify(cache, loader, test_guid_a, reloaded);
@@ -84,7 +84,7 @@ TEST_CASE("resources - reload_and_notify emits failure events and keeps old reso
     ++notify_count;
     captured = event;
   };
-  [[maybe_unused]] caors::event_connection connection = reloaded.connect(listener);
+  [[maybe_unused]] caors::events::connection connection = reloaded.connect(listener);
 
   caors::resources::handle_result<reload_notified_resource> result =
       caors::resources::reload_and_notify(cache, loader, test_guid_a, reloaded);
@@ -114,7 +114,7 @@ TEST_CASE("resources - reload_and_notify respects disconnected listeners", "[res
   auto listener = [&](const caors::resources::reload_event<reload_notified_resource>&) {
     ++notify_count;
   };
-  caors::event_connection connection = reloaded.connect(listener);
+  caors::events::connection connection = reloaded.connect(listener);
   REQUIRE(connection.disconnect());
 
   caors::resources::handle_result<reload_notified_resource> result =

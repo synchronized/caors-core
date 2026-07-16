@@ -91,10 +91,4 @@ private:
 
 } // namespace caors::events
 
-namespace caors {
-
-template <typename Signature> using event_sink = events::sink<Signature>;
-
-} // namespace caors
-
 #endif

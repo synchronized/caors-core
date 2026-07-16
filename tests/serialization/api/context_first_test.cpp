@@ -162,7 +162,7 @@ TEST_CASE("resources - json loader and saver accept context first", "[resources]
 
   require_context_resource_metadata();
 
-  caors::memory_file_system files;
+  caors::io::memory_file_system files;
   caors::resources::file_source source{files};
   caors::resources::provider provider;
   REQUIRE(provider.bind(resource_guid, source, "assets/context-resource.json").succeeded());

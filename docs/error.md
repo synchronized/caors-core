@@ -20,7 +20,7 @@ serialization 等模块提供一致的跨模块错误表达。
 
 - 动态错误消息。
 - 调用栈或诊断上下文。
-- 完整 `expected<T, E>` 风格返回值封装。
+- 需要抛异常的返回值封装。
 
 这些能力可以在序列化和跨模块 API 稳定后再评估。
 
@@ -88,7 +88,7 @@ caors::error status = caors::meta::class_<enemy>("game.actor").result();
 
 ```cpp
 auto result = request.result();
-if (result.status.value() == caors::errc::pending) {
+if (result.error().value() == caors::errc::pending) {
   // 稍后再查询。
 }
 ```
@@ -98,7 +98,7 @@ if (result.status.value() == caors::errc::pending) {
 
 ```cpp
 auto plan = database.plan_preload<texture>(texture_id);
-if (plan.status.value() == caors::errc::cycle_detected) {
+if (plan.error().value() == caors::errc::cycle_detected) {
   // plan.cycle 保存一个闭合依赖路径。
 }
 ```
@@ -111,7 +111,7 @@ caors::serialization::context context{};
 context.config.limits.max_depth = 8;
 
 auto result = caors::to_string(context, node);
-if (result.status.value() == caors::errc::recursion_limit) {
+if (result.error().value() == caors::errc::recursion_limit) {
   // 检查是否存在自环、父指针或过深嵌套。
 }
 ```
@@ -141,19 +141,26 @@ return caors::rethrow_as(status,
 ```cpp
 caors::result<caors::string> result = caors::serialization::serialize_text(instance);
 
-if (result) {
-  caors::string text = result.value;
+if (result.has_value()) {
+  caors::string text = *result;
 }
 ```
 
-`result<T>` 内部保存 `status` 和 `value`。布尔上下文中 `true` 表示成功且有可用值，
+`result<T>` 提供接近 `expected<T, error>` 的访问方式：
+
+- `has_value()` / `operator bool()`：是否成功并拥有可用值。
+- `error()`：失败状态，返回 `caors::error`。
+- `operator*` / `operator->`：访问结果值。
+- `value_or(fallback)`：失败时返回备用值。
+
+`result<T>` 目前仍保留 `status` 和 `value` 聚合字段，方便内部和历史调用点逐步迁移。新代码优先使用
+上面的访问器，避免继续扩散字段名依赖。布尔上下文中 `true` 表示成功且有可用值，
 这和 `caors::error` 的布尔语义相反：`error` 的 `true` 表示失败。
 
 ## 后续方向
 
 - 新模块和新的公共注册入口优先返回或暴露统一 `caors::error`。
-- 需要更严格的值访问语义时，可以评估把轻量 `result<T>` 升级为完整
-  `expected<T, error>` 风格封装。
+- `result<T>` 后续可继续评估是否隐藏聚合字段、增加 `and_then` / `transform` 等组合操作。
 - 需要详细诊断的工具链 API 可以在 `error` 之外增加诊断对象，避免让底层热路径默认承担分配成本。
 
 ## 相关入口

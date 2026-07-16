@@ -812,7 +812,7 @@ manifest.set(texture_id,
 可以把清单批量绑定到 provider：
 
 ```cpp
-caors::memory_file_system files;
+caors::io::memory_file_system files;
 caors::resources::file_source source{files};
 caors::resources::provider provider;
 
@@ -882,13 +882,13 @@ JSON 清单支持两种根格式：
 `resource_guid -> (source, location)` 的运行期索引：
 
 ```cpp
-caors::native_file_system native;
+caors::io::native_file_system native;
 caors::resources::file_source source{native};
 caors::resources::provider provider;
 
 provider.bind(texture_id, source, "assets/textures/albedo.png");
 
-caors::byte_buffer_result bytes = provider.read(texture_id);
+caors::io::byte_buffer_result bytes = provider.read(texture_id);
 caors::error written = provider.write(texture_id, std::string_view{"new-bytes"});
 ```
 

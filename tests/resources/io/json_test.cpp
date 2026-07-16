@@ -17,7 +17,7 @@ TEST_CASE("resources - json loader loads resource through provider", "[resources
   REQUIRE(std::filesystem::create_directories(directory, ec));
   REQUIRE_FALSE(ec);
 
-  caors::native_file_system native;
+  caors::io::native_file_system native;
   const std::string file_path = path_string(file);
   REQUIRE(native.write_all(file_path, std::string_view{R"({"width":512})"}).succeeded());
 
@@ -54,7 +54,7 @@ TEST_CASE("resources - json loader reports parse failures", "[resources]") {
   REQUIRE(std::filesystem::create_directories(directory, ec));
   REQUIRE_FALSE(ec);
 
-  caors::native_file_system native;
+  caors::io::native_file_system native;
   const std::string file_path = path_string(file);
   REQUIRE(native.write_all(file_path, std::string_view{R"({"width":)"}).succeeded());
 
@@ -81,7 +81,7 @@ using namespace caors::tests::resources;
 TEST_CASE("resources - json saver reports invalid and missing targets", "[resources]") {
   require_serialized_resource_metadata();
 
-  caors::memory_file_system files;
+  caors::io::memory_file_system files;
   caors::resources::file_source source{files};
   caors::resources::provider provider;
   REQUIRE(provider.bind(test_guid_a, source, "assets/resource.json").succeeded());
@@ -111,7 +111,7 @@ using namespace caors::tests::resources;
 TEST_CASE("resources - json saver saves resource through provider", "[resources]") {
   require_serialized_resource_metadata();
 
-  caors::memory_file_system files;
+  caors::io::memory_file_system files;
   caors::resources::file_source source{files};
   caors::resources::provider provider;
   REQUIRE(provider.bind(test_guid_a, source, "assets/resource.json").succeeded());
@@ -122,7 +122,7 @@ TEST_CASE("resources - json saver saves resource through provider", "[resources]
   caors::resources::json_saver<serialized_resource> saver{provider};
   REQUIRE(saver.save(value).succeeded());
 
-  caors::byte_buffer_result bytes = files.read_all("assets/resource.json");
+  caors::io::byte_buffer_result bytes = files.read_all("assets/resource.json");
   REQUIRE(bytes.succeeded());
   CHECK(std::string_view{reinterpret_cast<const char*>(bytes.value.data()), bytes.value.size()} ==
         R"({"width":640})");

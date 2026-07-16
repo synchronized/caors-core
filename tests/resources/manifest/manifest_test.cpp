@@ -8,7 +8,7 @@
 using namespace caors::tests::resources;
 
 TEST_CASE("resources - manifest can populate provider bindings", "[resources]") {
-  caors::memory_file_system files;
+  caors::io::memory_file_system files;
   REQUIRE(files.write_all("assets/texture.json", std::string_view{"texture-bytes"}).succeeded());
 
   caors::resources::file_source source{files};
@@ -26,7 +26,7 @@ TEST_CASE("resources - manifest can populate provider bindings", "[resources]") 
   CHECK(location.source == &source);
   CHECK(location.location.string_view() == "assets/texture.json");
 
-  const caors::byte_buffer_result bytes = provider.read(test_guid_a);
+  const caors::io::byte_buffer_result bytes = provider.read(test_guid_a);
   REQUIRE(bytes.succeeded());
   CHECK(std::string_view{reinterpret_cast<const char*>(bytes.value.data()), bytes.value.size()} ==
         "texture-bytes");
@@ -40,7 +40,7 @@ TEST_CASE("resources - manifest can populate provider bindings", "[resources]") 
   REQUIRE(updated_location);
   CHECK(updated_location.location.string_view() == "assets/texture-v2.json");
 
-  const caors::byte_buffer_result updated_bytes = provider.read(test_guid_a);
+  const caors::io::byte_buffer_result updated_bytes = provider.read(test_guid_a);
   REQUIRE(updated_bytes.succeeded());
   CHECK(std::string_view{reinterpret_cast<const char*>(updated_bytes.value.data()),
                          updated_bytes.value.size()} == "updated-bytes");
@@ -53,7 +53,7 @@ TEST_CASE("resources - manifest can populate provider bindings", "[resources]") 
 using namespace caors::tests::resources;
 
 TEST_CASE("resources - manifest can replace provider bindings", "[resources]") {
-  caors::memory_file_system files;
+  caors::io::memory_file_system files;
   REQUIRE(files.write_all("assets/texture.json", std::string_view{"texture-bytes"}).succeeded());
   REQUIRE(files.write_all("assets/old.json", std::string_view{"old-bytes"}).succeeded());
   REQUIRE(files.write_all("assets/new.json", std::string_view{"new-bytes"}).succeeded());
@@ -79,7 +79,7 @@ TEST_CASE("resources - manifest can replace provider bindings", "[resources]") {
   CHECK(location.source == &source);
   CHECK(location.location.string_view() == "assets/new.json");
 
-  const caors::byte_buffer_result bytes = provider.read(test_guid_b);
+  const caors::io::byte_buffer_result bytes = provider.read(test_guid_b);
   REQUIRE(bytes.succeeded());
   CHECK(std::string_view{reinterpret_cast<const char*>(bytes.value.data()), bytes.value.size()} ==
         "new-bytes");
@@ -95,7 +95,7 @@ TEST_CASE("resources - manifest loads array json from source", "[resources]") {
   const std::string json =
       std::string{R"([{"guid":")"} + test_guid_b.string() + R"(","location":"assets/mesh.json"}])";
 
-  caors::memory_file_system files;
+  caors::io::memory_file_system files;
   REQUIRE(files.write_all("manifest.json", std::string_view{json}).succeeded());
 
   caors::resources::file_source source{files};

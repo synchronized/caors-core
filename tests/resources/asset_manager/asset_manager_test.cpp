@@ -106,7 +106,7 @@ TEST_CASE("resources - asset_manager builds provider manifest and dependency gra
   CHECK(config.preload_roots[0] == test_guid_b);
   CHECK(config.preload_roots[1] == test_guid_c);
 
-  caors::memory_file_system files;
+  caors::io::memory_file_system files;
   REQUIRE(files.write_all("config/project.json", make_project_config_json()).succeeded());
   REQUIRE(
       files.write_all("assets/resource-a.json", std::string_view{R"({"width":512})"}).succeeded());
@@ -171,7 +171,7 @@ TEST_CASE("resources - asset_manager creates configured source cache and loader 
       assets.find_source(caors::string_name{"assets"}));
   REQUIRE(source != nullptr);
 
-  auto* files = dynamic_cast<caors::memory_file_system*>(&source->file_system());
+  auto* files = dynamic_cast<caors::io::memory_file_system*>(&source->file_system());
   REQUIRE(files != nullptr);
   REQUIRE(
       files->write_all("assets/resource-a.json", std::string_view{R"({"width":512})"}).succeeded());
@@ -206,7 +206,7 @@ TEST_CASE("resources - asset_manager exposes high level resource operations", "[
       assets.find_source(caors::string_name{"assets"}));
   REQUIRE(source != nullptr);
 
-  auto* files = dynamic_cast<caors::memory_file_system*>(&source->file_system());
+  auto* files = dynamic_cast<caors::io::memory_file_system*>(&source->file_system());
   REQUIRE(files != nullptr);
   REQUIRE(
       files->write_all("assets/resource-a.json", std::string_view{R"({"width":512})"}).succeeded());
@@ -237,7 +237,7 @@ TEST_CASE("resources - asset_manager exposes high level resource operations", "[
 
   reloaded.value->width = 4096;
   REQUIRE(assets.save<serialized_resource>(test_guid_a).succeeded());
-  caors::byte_buffer_result saved = files->read_all("assets/resource-a.json");
+  caors::io::byte_buffer_result saved = files->read_all("assets/resource-a.json");
   REQUIRE(saved.succeeded());
   const std::string_view saved_text{reinterpret_cast<const char*>(saved.value.data()),
                                     saved.value.size()};
@@ -267,15 +267,15 @@ TEST_CASE("resources - asset_manager forwards async requests", "[resources]") {
       assets.find_source(caors::string_name{"assets"}));
   REQUIRE(source != nullptr);
 
-  auto* files = dynamic_cast<caors::memory_file_system*>(&source->file_system());
+  auto* files = dynamic_cast<caors::io::memory_file_system*>(&source->file_system());
   REQUIRE(files != nullptr);
   REQUIRE(
       files->write_all("assets/resource-a.json", std::string_view{R"({"width":512})"}).succeeded());
   REQUIRE(files->write_all("assets/resource-b.json", std::string_view{R"({"width":1024})"})
               .succeeded());
 
-  caors::inline_task_executor executor;
-  caors::task_completion_queue completions;
+  caors::tasks::inline_executor executor;
+  caors::tasks::completion_queue completions;
 
   caors::resources::load_request<serialized_resource> loaded =
       assets.request_load<serialized_resource>(test_guid_a, executor, completions);

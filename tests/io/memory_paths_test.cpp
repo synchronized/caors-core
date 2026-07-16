@@ -6,7 +6,7 @@
 using namespace caors::tests::io;
 
 TEST_CASE("io - memory file system stores normalized virtual paths", "[io]") {
-  caors::memory_file_system fs;
+  caors::io::memory_file_system fs;
 
   REQUIRE(fs.write_all("\\assets//data.txt", std::string_view{"memory"}).succeeded());
 
@@ -15,7 +15,7 @@ TEST_CASE("io - memory file system stores normalized virtual paths", "[io]") {
   CHECK(fs.exists("/assets\\data.txt"));
 
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
-  caors::byte_buffer_result read = fs.read_all("assets/data.txt", &tracking);
+  caors::io::byte_buffer_result read = fs.read_all("assets/data.txt", &tracking);
 
   REQUIRE(read.succeeded());
   CHECK(read.value.get_allocator().resource() == &tracking);
@@ -25,7 +25,7 @@ TEST_CASE("io - memory file system stores normalized virtual paths", "[io]") {
   REQUIRE(fs.write_all("assets/data.txt", std::string_view{"updated"}).succeeded());
   CHECK(fs.file_count() == 1);
 
-  caors::byte_buffer_result updated = fs.read_all("assets/data.txt");
+  caors::io::byte_buffer_result updated = fs.read_all("assets/data.txt");
   REQUIRE(updated.succeeded());
   CHECK(std::string_view{reinterpret_cast<const char*>(updated.value.data()),
                          updated.value.size()} == "updated");

@@ -217,10 +217,4 @@ private:
 
 } // namespace caors::objects
 
-namespace caors {
-
-using object_manager = objects::manager;
-
-} // namespace caors
-
 #endif

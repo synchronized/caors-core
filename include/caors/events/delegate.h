@@ -137,10 +137,4 @@ private:
 
 } // namespace caors::events
 
-namespace caors {
-
-template <typename Signature> using delegate = events::delegate<Signature>;
-
-} // namespace caors
-
 #endif

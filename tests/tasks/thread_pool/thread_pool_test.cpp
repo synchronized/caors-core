@@ -74,14 +74,14 @@ TEST_CASE("tasks - thread pool executor uses configured memory resource", "[task
   CHECK(tracking.statistics().bytes_in_use == 0);
 }
 
-TEST_CASE("tasks - root thread pool executor alias is available", "[tasks]") {
+TEST_CASE("tasks - thread pool executor is available from module namespace", "[tasks]") {
   std::atomic<int> value = 0;
 
   {
-    caors::thread_pool_task_executor executor{1};
-    caors::task_executor* base = &executor;
+    caors::tasks::thread_pool_executor executor{1};
+    caors::tasks::executor* base = &executor;
 
-    CHECK_FALSE(base->submit(caors::task{[&] { value.store(3); }}));
+    CHECK_FALSE(base->submit(caors::tasks::task{[&] { value.store(3); }}));
     executor.shutdown();
   }
 

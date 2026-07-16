@@ -16,9 +16,9 @@ TEST_CASE("io - mount file system routes virtual prefixes", "[io]") {
   REQUIRE(std::filesystem::create_directories(override, ec));
   REQUIRE_FALSE(ec);
 
-  caors::native_file_system base_fs{path_string(base)};
-  caors::native_file_system override_fs{path_string(override)};
-  caors::mount_file_system mounted;
+  caors::io::native_file_system base_fs{path_string(base)};
+  caors::io::native_file_system override_fs{path_string(override)};
+  caors::io::mount_file_system mounted;
 
   REQUIRE(mounted.mount("assets", base_fs).succeeded());
   REQUIRE(mounted.mount("assets/special", override_fs).succeeded());
@@ -27,8 +27,8 @@ TEST_CASE("io - mount file system routes virtual prefixes", "[io]") {
   REQUIRE(mounted.write_all("assets/config.txt", std::string_view{"base"}).succeeded());
   REQUIRE(mounted.write_all("assets/special/config.txt", std::string_view{"override"}).succeeded());
 
-  caors::byte_buffer_result base_read = base_fs.read_all("config.txt");
-  caors::byte_buffer_result override_read = override_fs.read_all("config.txt");
+  caors::io::byte_buffer_result base_read = base_fs.read_all("config.txt");
+  caors::io::byte_buffer_result override_read = override_fs.read_all("config.txt");
 
   REQUIRE(base_read.succeeded());
   REQUIRE(override_read.succeeded());
@@ -39,7 +39,7 @@ TEST_CASE("io - mount file system routes virtual prefixes", "[io]") {
   CHECK(mounted.exists("assets/config.txt"));
   CHECK(mounted.exists("assets/special/config.txt"));
 
-  caors::byte_buffer_result missing = mounted.read_all("missing/config.txt");
+  caors::io::byte_buffer_result missing = mounted.read_all("missing/config.txt");
   REQUIRE(missing.failed());
   CHECK(missing.status.domain() == caors::error_domain::io);
   CHECK(missing.status.value() == caors::errc::not_found);

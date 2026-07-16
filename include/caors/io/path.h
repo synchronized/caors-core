@@ -157,13 +157,4 @@ private:
 
 } // namespace caors::io
 
-namespace caors {
-
-using io::join_path;
-using io::normalize_path;
-using io::path;
-using io::path_view;
-
-} // namespace caors
-
 #endif

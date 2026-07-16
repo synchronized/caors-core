@@ -95,10 +95,4 @@ private:
 
 } // namespace caors::tasks
 
-namespace caors {
-
-using task_completion_queue = tasks::completion_queue;
-
-} // namespace caors
-
 #endif

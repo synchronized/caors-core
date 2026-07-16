@@ -58,10 +58,4 @@ private:
 
 } // namespace caors::io
 
-namespace caors {
-
-using io::mount_file_system;
-
-} // namespace caors
-
 #endif

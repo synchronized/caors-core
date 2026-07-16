@@ -160,10 +160,4 @@ inline void swap(task& lhs, task& rhs) noexcept { lhs.swap(rhs); }
 
 } // namespace caors::tasks
 
-namespace caors {
-
-using task = tasks::task;
-
-} // namespace caors
-
 #endif

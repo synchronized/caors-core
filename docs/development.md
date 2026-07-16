@@ -51,6 +51,11 @@ CAORS 当前仍处于早期设计和验证阶段，暂不承诺公共 API 稳定
   高频、跨模块、语义稳定的便捷别名。
 - 不把低层策略对象、临时结果、请求状态、配置条目、注册 helper、`*_ops`、`*_fn` 或 source/provider/loader
   这类组合件放入根命名空间。新增根别名前应确认它比模块命名空间更清晰，并且不会扩大普通用户的 API 表面噪声。
+- 当前允许保留在根命名空间的典型类别包括：基础错误和值结果类型、核心容器和字符串、GUID / type_id
+  这类基础身份、内存资源基础 API、`meta::any` / `any_ref` / `variant` 这类跨模块值类型、对象和资源的高频语义别名、
+  以及 `serialize` / `deserialize` / `to_value` / `to_string` 这类顶层操作入口。
+- IO、events、tasks 的公开 API 默认只放在对应模块命名空间；对象和资源模块只把高频身份、引用和 handle
+  类型放入根命名空间，manager、index、resolver、source、provider、loader、request 等组合件不放根命名空间。
 - 不保留阻碍模块边界收敛的旧兼容转发头。meta value 相关代码统一使用
   `caors/meta/value*.h` 与 `caors::meta::*`。
 - 类型擦除函数表使用 `*_ops` 命名，通常属于内部或高级实现；用户可见的类型能力应优先提供

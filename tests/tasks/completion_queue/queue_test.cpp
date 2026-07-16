@@ -67,11 +67,11 @@ TEST_CASE("tasks - completion queue uses configured memory resource", "[tasks]")
   CHECK(tracking.statistics().bytes_in_use == 0);
 }
 
-TEST_CASE("tasks - root completion queue alias is available", "[tasks]") {
-  caors::task_completion_queue queue;
+TEST_CASE("tasks - completion queue is available from module namespace", "[tasks]") {
+  caors::tasks::completion_queue queue;
   bool called = false;
 
-  CHECK_FALSE(queue.push(caors::task{[&] { called = true; }}));
+  CHECK_FALSE(queue.push(caors::tasks::task{[&] { called = true; }}));
   CHECK(queue.drain() == 1);
   CHECK(called);
 }

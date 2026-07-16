@@ -20,10 +20,4 @@ public:
 
 } // namespace caors::tasks
 
-namespace caors {
-
-using inline_task_executor = tasks::inline_executor;
-
-} // namespace caors
-
 #endif

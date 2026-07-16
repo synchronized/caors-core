@@ -28,13 +28,4 @@ using size_result = result<std::size_t>;
 
 } // namespace caors::io
 
-namespace caors {
-
-using io::byte_buffer;
-using io::byte_buffer_result;
-using io::make_byte_buffer;
-using io::size_result;
-
-} // namespace caors
-
 #endif

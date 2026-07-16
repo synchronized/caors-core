@@ -45,23 +45,8 @@ IO 模块主定义位于 `caors::io` 命名空间，例如：
 - `io::memory_file_system`
 - `io::mount_file_system`
 
-根命名空间保留常用别名：
-
-- `caors::byte_buffer`
-- `caors::byte_buffer_result`
-- `caors::size_result`
-- `caors::make_byte_buffer`
-- `caors::path_view`
-- `caors::path`
-- `caors::normalize_path`
-- `caors::join_path`
-- `caors::input_stream`
-- `caors::output_stream`
-- `caors::file_system`
-- `caors::native_file_system`
-- `caors::get_native_file_system`
-- `caors::memory_file_system`
-- `caors::mount_file_system`
+IO 模块不再向根命名空间导出低层别名。路径、流和文件系统类型统一通过
+`caors::io::...` 使用，避免根命名空间和资源、任务、对象等模块的低层组合件混在一起。
 
 ## path / path_view
 
@@ -69,7 +54,7 @@ IO 模块主定义位于 `caors::io` 命名空间，例如：
 但不等同于 `std::filesystem::path`：
 
 ```cpp
-caors::path path = caors::normalize_path("\\assets//textures\\albedo.png");
+caors::io::path path = caors::io::normalize_path("\\assets//textures\\albedo.png");
 // path.string_view() == "assets/textures/albedo.png"
 ```
 
@@ -86,10 +71,10 @@ caors::path path = caors::normalize_path("\\assets//textures\\albedo.png");
 `io::file_system` 表示一类可通过 `path_view` 访问的字节来源。路径语义由具体实现决定：
 
 ```cpp
-caors::file_system& fs = caors::get_native_file_system();
+caors::io::file_system& fs = caors::io::get_native_file_system();
 
 if (fs.exists("config.json")) {
-  caors::byte_buffer_result bytes = fs.read_all("config.json");
+  caors::io::byte_buffer_result bytes = fs.read_all("config.json");
 }
 ```
 
@@ -113,16 +98,16 @@ if (fs.exists("config.json")) {
 `io::native_file_system` 是本地文件系统实现：
 
 ```cpp
-caors::native_file_system fs;
+caors::io::native_file_system fs;
 
 caors::error status = fs.write_all("hello.txt", "hello");
-caors::byte_buffer_result bytes = fs.read_all("hello.txt");
+caors::io::byte_buffer_result bytes = fs.read_all("hello.txt");
 ```
 
 也可以在构造时指定本地根目录。此时相对路径会在 root 下解析，绝对路径仍按宿主平台语义直接使用：
 
 ```cpp
-caors::native_file_system assets{"D:/game/assets"};
+caors::io::native_file_system assets{"D:/game/assets"};
 
 assets.write_all("config.json", R"({"debug":true})");
 // 实际写入 D:/game/assets/config.json
@@ -131,7 +116,7 @@ assets.write_all("config.json", R"({"debug":true})");
 也可以使用进程内默认实例：
 
 ```cpp
-caors::native_file_system& fs = caors::get_native_file_system();
+caors::io::native_file_system& fs = caors::io::get_native_file_system();
 ```
 
 需要注意：
@@ -148,7 +133,7 @@ caors::native_file_system& fs = caors::get_native_file_system();
 `io::memory_file_system` 是内存中的虚拟文件系统。它按规范化虚拟路径保存字节内容：
 
 ```cpp
-caors::memory_file_system fs;
+caors::io::memory_file_system fs;
 
 fs.write_all("assets/config.json", R"({"debug":true})");
 auto bytes = fs.read_all("/assets\\config.json");
@@ -168,8 +153,8 @@ auto bytes = fs.read_all("/assets\\config.json");
 fileserver、资源包等组合成统一入口：
 
 ```cpp
-caors::native_file_system assets{"D:/game/assets"};
-caors::mount_file_system fs;
+caors::io::native_file_system assets{"D:/game/assets"};
+caors::io::mount_file_system fs;
 
 fs.mount("assets", assets);
 
@@ -179,8 +164,8 @@ auto bytes = fs.read_all("assets/textures/albedo.png");
 如果需要把同一个目标文件系统里的不同子目录挂到不同虚拟路径，可以使用 `target_prefix`：
 
 ```cpp
-caors::native_file_system project{"D:/game_project"};
-caors::mount_file_system fs;
+caors::io::native_file_system project{"D:/game_project"};
+caors::io::mount_file_system fs;
 
 fs.mount("textures", project, "assets/textures");
 fs.mount("materials", project, "assets/materials");

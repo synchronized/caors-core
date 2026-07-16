@@ -184,10 +184,4 @@ template <typename Result, typename... Args> class signal<Result(Args...)> {
 
 } // namespace caors::events
 
-namespace caors {
-
-template <typename Signature> using signal = events::signal<Signature>;
-
-} // namespace caors
-
 #endif

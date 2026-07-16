@@ -45,11 +45,4 @@ public:
 
 } // namespace caors::io
 
-namespace caors {
-
-using io::input_stream;
-using io::output_stream;
-
-} // namespace caors
-
 #endif

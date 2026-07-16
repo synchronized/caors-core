@@ -97,13 +97,13 @@ public:
     return !location.empty();
   }
 
-  [[nodiscard]] caors::byte_buffer_result
+  [[nodiscard]] caors::io::byte_buffer_result
   read(caors::io::path_view location, caors::memory_resource* resource = nullptr) override {
     if (location.empty()) {
       return {{caors::error_domain::resources, caors::errc::invalid_argument}, {}};
     }
 
-    caors::byte_buffer bytes = caors::make_byte_buffer(resource);
+    caors::io::byte_buffer bytes = caors::io::make_byte_buffer(resource);
     return {{}, std::move(bytes)};
   }
 };
