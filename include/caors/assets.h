@@ -5,7 +5,7 @@
 #define CAORS_ASSETS_H_
 
 #include "caors/assets/asset_manager.h"
-#include "caors/assets/io.h"
 #include "caors/assets/project_config.h"
+#include "caors/assets/serialization.h"
 
 #endif

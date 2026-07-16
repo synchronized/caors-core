@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 原测试文件：resources_json_json_loader_loads_resource_through_provider_test.cpp
-
 #include "../../resources/resources_test_common.h"
 
 using namespace caors::tests::resources;
@@ -25,7 +23,7 @@ TEST_CASE("resources - json loader loads resource through provider", "[resources
   caors::resources::provider provider;
   REQUIRE(provider.bind(test_guid_a, source, file_path).succeeded());
 
-  caors::assets::json_loader<serialized_resource> loader{provider};
+  caors::assets::json::loader<serialized_resource> loader{provider};
   caors::resource_cache<serialized_resource> cache;
 
   caors::resources::handle_result<serialized_resource> loaded =
@@ -39,8 +37,6 @@ TEST_CASE("resources - json loader loads resource through provider", "[resources
 
   std::filesystem::remove_all(directory, ec);
 }
-
-// 原测试文件：resources_json_json_loader_reports_parse_failures_test.cpp
 
 #include "../../resources/resources_test_common.h"
 
@@ -62,7 +58,7 @@ TEST_CASE("resources - json loader reports parse failures", "[resources]") {
   caors::resources::provider provider;
   REQUIRE(provider.bind(test_guid_a, source, file_path).succeeded());
 
-  caors::assets::json_loader<serialized_resource> loader{provider};
+  caors::assets::json::loader<serialized_resource> loader{provider};
   caors::resources::load_result<serialized_resource> loaded = loader.load(test_guid_a);
 
   REQUIRE(loaded.failed());
@@ -71,8 +67,6 @@ TEST_CASE("resources - json loader reports parse failures", "[resources]") {
 
   std::filesystem::remove_all(directory, ec);
 }
-
-// 原测试文件：resources_json_json_saver_reports_invalid_and_missing_targets_test.cpp
 
 #include "../../resources/resources_test_common.h"
 
@@ -86,7 +80,7 @@ TEST_CASE("resources - json saver reports invalid and missing targets", "[resour
   caors::resources::provider provider;
   REQUIRE(provider.bind(test_guid_a, source, "assets/resource.json").succeeded());
 
-  caors::assets::json_saver<serialized_resource> saver{provider};
+  caors::assets::json::saver<serialized_resource> saver{provider};
 
   serialized_resource invalid_resource{};
   caors::error invalid = saver.save(invalid_resource);
@@ -101,8 +95,6 @@ TEST_CASE("resources - json saver reports invalid and missing targets", "[resour
   CHECK(missing.domain() == caors::error_domain::resources);
   CHECK(missing.value() == caors::errc::not_found);
 }
-
-// 原测试文件：resources_json_json_saver_saves_resource_through_provider_test.cpp
 
 #include "../../resources/resources_test_common.h"
 
@@ -119,7 +111,7 @@ TEST_CASE("resources - json saver saves resource through provider", "[resources]
   serialized_resource value{test_guid_a};
   value.width = 640;
 
-  caors::assets::json_saver<serialized_resource> saver{provider};
+  caors::assets::json::saver<serialized_resource> saver{provider};
   REQUIRE(saver.save(value).succeeded());
 
   caors::io::byte_buffer_result bytes = files.read_all("assets/resource.json");
@@ -127,7 +119,7 @@ TEST_CASE("resources - json saver saves resource through provider", "[resources]
   CHECK(std::string_view{reinterpret_cast<const char*>(bytes.value.data()), bytes.value.size()} ==
         R"({"width":640})");
 
-  caors::assets::json_loader<serialized_resource> loader{provider};
+  caors::assets::json::loader<serialized_resource> loader{provider};
   caors::resource_cache<serialized_resource> cache;
   caors::resources::handle_result<serialized_resource> loaded =
       caors::resources::load_handle_into(cache, loader, test_guid_a);

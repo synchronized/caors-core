@@ -10,10 +10,8 @@
 #include "caors/io/path.h"
 #include "caors/meta/value/variant.h"
 #include "caors/resources/id.h"
-#include "caors/resources/source.h"
 
 #include <cstdint>
-#include <string_view>
 
 namespace caors::assets {
 
@@ -100,16 +98,6 @@ struct project_config {
 
 /** @brief 从 DOM 配置读入资源工程描述。 */
 [[nodiscard]] CAORS_API error load_project_config(project_config& target, const variant& value);
-
-/** @brief 从 JSON 文本读入资源工程描述。 */
-[[nodiscard]] CAORS_API error load_project_config_json(project_config& target,
-                                                       std::string_view text);
-
-/** @brief 从资源字节来源读取 JSON 文本并读入资源工程描述。 */
-[[nodiscard]] CAORS_API error load_project_config(project_config& target,
-                                                  resources::source& resource_source,
-                                                  io::path_view location,
-                                                  memory_resource* resource = nullptr);
 
 } // namespace caors::assets
 

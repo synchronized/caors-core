@@ -240,7 +240,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 设计资源层 `resources::source` / `resources::provider`，负责从 `resource_guid` 或资源位置解析到统一数据流，再交给 loader 解码。
 - [x] 实现本地文件系统后端 `io::native_file_system`。
 - [x] 实现 `resources::file_source`，把 `io::file_system` 适配为资源字节来源。
-- [x] 实现 `assets::json_loader<T>`，打通 `resource_guid -> provider -> JSON -> resource` 的同步加载链路。
+- [x] 实现 `assets::json::loader<T>`，打通 `resource_guid -> provider -> JSON -> resource` 的同步加载链路。
 - [x] 实现内存文件系统后端 `io::memory_file_system`，用于测试、热更新缓存和后续资源包索引内存镜像。
 - [x] 增加 `resources::manifest`，保存 `resource_guid -> location/type/hash/version` 清单，并可批量绑定到 provider。
 - [x] 支持从 JSON 文本或 `resources::source` 导入资源 manifest，作为本地资源数据库和调试 fileserver 清单入口。
@@ -264,7 +264,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 继续收敛资源公开主入口，以 `assets::asset_manager` / 运行期 builder 作为用户优先入口，
   `database`、`provider`、`cache<T>` 和 `loader<T>` 作为高级组合入口。
 - [x] 支持 `resources::provider` 通过可写 source 按 GUID 写回字节，为后续 saver 和热更新回写提供基础。
-- [x] 实现 `assets::json_saver<T>`，打通 `resource -> JSON -> provider -> source` 的同步保存链路。
+- [x] 实现 `assets::json::saver<T>`，打通 `resource -> JSON -> provider -> source` 的同步保存链路。
 - [x] 提供 `resources::save_from()`，把 cache 中指定 GUID 的资源交给 saver 保存。
 - [x] 提供 `resources::reload_handle_into()` 和 `cache<T>::replace()`，支持同步重载成功替换、失败保留旧资源。
 - [ ] 实现资源包、远程资源或异步 loader/saver 后端。

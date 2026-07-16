@@ -4,7 +4,6 @@
 #ifndef CAORS_ASSETS_ASSET_MANAGER_H_
 #define CAORS_ASSETS_ASSET_MANAGER_H_
 
-#include "caors/assets/io.h"
 #include "caors/assets/project_config.h"
 #include "caors/core/containers.h"
 #include "caors/core/string_name.h"
@@ -13,6 +12,7 @@
 #include "caors/resources/cache.h"
 #include "caors/resources/database.h"
 #include "caors/resources/dependency_graph.h"
+#include "caors/resources/io.h"
 #include "caors/resources/manifest.h"
 #include "caors/resources/source.h"
 
@@ -281,30 +281,6 @@ public:
   }
 
   /**
-   * @brief 注册默认资源类型工厂。
-   *
-   * 第一版支持 `cache = "memory"` 和 `loader = "json"`，会创建 `cache<T>` 与
-   * `json_loader<T>` 并注册到内部 database。
-   */
-  template <typename T> [[nodiscard]] error register_type_factory(core::string_name resource_type) {
-    static_assert(std::is_base_of_v<resources::resource, T>,
-                  "T must derive from caors::resources::resource");
-    return register_type_factory(resource_type,
-                                 type_factory_ops{&asset_manager::default_type_factory<T>});
-  }
-
-  /** @brief 注册带 option schema 的默认资源类型工厂。 */
-  template <typename T>
-  [[nodiscard]] error register_type_factory(core::string_name resource_type,
-                                            factory_option_schema schema) {
-    static_assert(std::is_base_of_v<resources::resource, T>,
-                  "T must derive from caors::resources::resource");
-    return register_type_factory(
-        resource_type,
-        type_factory_ops{&asset_manager::default_type_factory<T>, nullptr, std::move(schema)});
-  }
-
-  /**
    * @brief 根据工程配置重建 manifest、provider 和 dependency graph。
    *
    * 该函数会清空上一轮配置创建的 source/cache/loader 等运行期对象，并重建
@@ -371,29 +347,6 @@ public:
     static_assert(std::is_base_of_v<resources::resource, T>,
                   "T must derive from caors::resources::resource");
     return database_.reload<T>(guid);
-  }
-
-  /**
-   * @brief 使用内部 provider 以 JSON 格式保存已缓存资源。
-   *
-   * 这是 `asset_manager` 第一版便捷保存入口，适配默认 `loader = "json"` / `cache = "memory"`
-   * 资源类型。需要二进制、资源包或自定义保存策略时，应继续使用显式 `saver<T>` 组合。
-   */
-  template <typename T> [[nodiscard]] error save(resource_guid guid) const {
-    static_assert(std::is_base_of_v<resources::resource, T>,
-                  "T must derive from caors::resources::resource");
-
-    if (!guid) {
-      return {error_domain::resources, errc::invalid_argument};
-    }
-
-    const T* value = database_.find<T>(guid);
-    if (value == nullptr) {
-      return {error_domain::resources, errc::not_found};
-    }
-
-    json_saver<T> saver{provider_};
-    return saver.save(*value);
   }
 
   /** @brief 为指定根资源生成同类型预加载计划。 */
@@ -544,11 +497,6 @@ private:
     bool config_created = false;
   };
 
-  struct owned_type_binding {
-    core::string_name loader{};
-    core::string_name cache{};
-  };
-
   struct manual_type_binding {
     using bind_fn = error (*)(asset_manager& manager, void* cache, void* loader,
                               core::string_name resource_type);
@@ -559,7 +507,6 @@ private:
   };
 
   using owned_object_list = core::vector<owned_runtime_object>;
-  using owned_type_map = core::hash_map<core::string_name, owned_type_binding>;
   using manual_type_map = core::hash_map<core::string_name, manual_type_binding>;
 
   [[nodiscard]] resources::source*
@@ -609,43 +556,6 @@ private:
     return {};
   }
 
-  template <typename T>
-  [[nodiscard]] static error default_type_factory(type_factory_context& context,
-                                                  const project_resource_type_config& config,
-                                                  void* user_data) {
-    (void)user_data;
-    if (!config.type || config.cache != core::string_name{"memory"} ||
-        config.loader != core::string_name{"json"}) {
-      return {error_domain::resources, errc::unsupported};
-    }
-
-    const auto existing = context.manager.owned_types_.find(config.type);
-    if (existing != context.manager.owned_types_.end()) {
-      return existing->second.cache == config.cache && existing->second.loader == config.loader
-                 ? error{}
-                 : error{error_domain::resources, errc::already_exists};
-    }
-
-    auto* cache = context.manager.create_owned<resources::cache<T>>(context.resource);
-    if (cache == nullptr) {
-      return {error_domain::resources, errc::out_of_memory};
-    }
-
-    auto* loader = context.manager.create_owned<json_loader<T>>(context.provider);
-    if (loader == nullptr) {
-      return {error_domain::resources, errc::out_of_memory};
-    }
-
-    const error status = context.database.register_type(*cache, *loader, config.type);
-    if (status) {
-      return status;
-    }
-
-    context.manager.owned_types_.emplace(config.type,
-                                         owned_type_binding{config.loader, config.cache});
-    return {};
-  }
-
   memory_resource* resource_ = nullptr;
   resources::manifest manifest_;
   resources::provider provider_;
@@ -655,7 +565,6 @@ private:
   source_factory_map source_factories_;
   type_factory_map type_factories_;
   owned_object_list owned_objects_;
-  owned_type_map owned_types_;
   manual_type_map manual_type_bindings_;
   bool building_config_runtime_ = false;
 };

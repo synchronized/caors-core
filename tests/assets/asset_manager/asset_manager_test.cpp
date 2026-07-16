@@ -104,7 +104,7 @@ struct external_source_factory_state {
 struct external_type_factory_state {
   int calls = 0;
   caors::resources::cache<serialized_resource>* cache = nullptr;
-  caors::assets::json_loader<serialized_resource>* loader = nullptr;
+  caors::assets::json::loader<serialized_resource>* loader = nullptr;
   std::string format;
   std::uint64_t priority = 0;
 };
@@ -207,7 +207,7 @@ make_external_serialized_type(caors::assets::asset_manager::type_factory_context
     return {caors::error_domain::resources, caors::errc::out_of_memory};
   }
 
-  state.loader = context.manager.create_owned<caors::assets::json_loader<serialized_resource>>(
+  state.loader = context.manager.create_owned<caors::assets::json::loader<serialized_resource>>(
       context.provider);
   if (state.loader == nullptr) {
     return {caors::error_domain::resources, caors::errc::out_of_memory};
@@ -241,7 +241,7 @@ TEST_CASE("resources - asset_manager builds provider manifest and dependency gra
   require_serialized_resource_metadata();
 
   caors::assets::project_config config;
-  REQUIRE(caors::assets::load_project_config_json(config, make_project_config_json()).succeeded());
+  REQUIRE(caors::assets::json::load_project_config(config, make_project_config_json()).succeeded());
   REQUIRE(config.sources.size() == 1);
   REQUIRE(config.resource_types.size() == 1);
   REQUIRE(config.resources.size() == 2);
@@ -275,8 +275,9 @@ TEST_CASE("resources - asset_manager builds provider manifest and dependency gra
 
   caors::resources::file_source source{files};
   caors::assets::project_config loaded_from_source;
-  REQUIRE(caors::assets::load_project_config(loaded_from_source, source, "config/project.json")
-              .succeeded());
+  REQUIRE(
+      caors::assets::json::load_project_config(loaded_from_source, source, "config/project.json")
+          .succeeded());
   CHECK(loaded_from_source.resources.size() == 2);
 
   caors::assets::asset_manager assets;
@@ -294,7 +295,7 @@ TEST_CASE("resources - asset_manager builds provider manifest and dependency gra
         std::string_view{"assets/resource-b.json"});
   CHECK(assets.dependency_graph().contains(test_guid_b, test_guid_a));
 
-  caors::assets::json_loader<serialized_resource> loader{assets.provider()};
+  caors::assets::json::loader<serialized_resource> loader{assets.provider()};
   caors::resource_cache<serialized_resource> cache;
   REQUIRE(assets.register_type(cache, loader, serialized_manifest_type()).succeeded());
 
@@ -319,11 +320,12 @@ TEST_CASE("resources - asset_manager creates configured source cache and loader 
   require_serialized_resource_metadata();
 
   caors::assets::project_config config;
-  REQUIRE(caors::assets::load_project_config_json(config, make_project_config_json()).succeeded());
+  REQUIRE(caors::assets::json::load_project_config(config, make_project_config_json()).succeeded());
 
   caors::assets::asset_manager assets;
-  REQUIRE(
-      assets.register_type_factory<serialized_resource>(serialized_manifest_type()).succeeded());
+  REQUIRE(caors::assets::json::register_type_factory<serialized_resource>(
+              assets, serialized_manifest_type())
+              .succeeded());
   REQUIRE(assets.build(config).succeeded());
 
   auto* source = dynamic_cast<caors::resources::file_source*>(
@@ -353,11 +355,12 @@ TEST_CASE("resources - asset_manager exposes high level resource operations", "[
   require_serialized_resource_metadata();
 
   caors::assets::project_config config;
-  REQUIRE(caors::assets::load_project_config_json(config, make_project_config_json()).succeeded());
+  REQUIRE(caors::assets::json::load_project_config(config, make_project_config_json()).succeeded());
 
   caors::assets::asset_manager assets;
-  REQUIRE(
-      assets.register_type_factory<serialized_resource>(serialized_manifest_type()).succeeded());
+  REQUIRE(caors::assets::json::register_type_factory<serialized_resource>(
+              assets, serialized_manifest_type())
+              .succeeded());
   REQUIRE(assets.build(config).succeeded());
 
   auto* source = dynamic_cast<caors::resources::file_source*>(
@@ -394,7 +397,8 @@ TEST_CASE("resources - asset_manager exposes high level resource operations", "[
   CHECK(reference.get() == reloaded.value);
 
   reloaded.value->width = 4096;
-  REQUIRE(assets.save<serialized_resource>(test_guid_a).succeeded());
+  caors::assets::json::saver<serialized_resource> saver{assets.provider()};
+  REQUIRE(saver.save(*reloaded.value).succeeded());
   caors::io::byte_buffer_result saved = files->read_all("assets/resource-a.json");
   REQUIRE(saved.succeeded());
   const std::string_view saved_text{reinterpret_cast<const char*>(saved.value.data()),
@@ -413,11 +417,12 @@ TEST_CASE("resources - asset_manager forwards async requests", "[resources]") {
   require_serialized_resource_metadata();
 
   caors::assets::project_config config;
-  REQUIRE(caors::assets::load_project_config_json(config, make_project_config_json()).succeeded());
+  REQUIRE(caors::assets::json::load_project_config(config, make_project_config_json()).succeeded());
 
   caors::assets::asset_manager assets;
-  REQUIRE(
-      assets.register_type_factory<serialized_resource>(serialized_manifest_type()).succeeded());
+  REQUIRE(caors::assets::json::register_type_factory<serialized_resource>(
+              assets, serialized_manifest_type())
+              .succeeded());
   REQUIRE(assets.build(config).succeeded());
 
   auto* source = dynamic_cast<caors::resources::file_source*>(
@@ -468,7 +473,7 @@ TEST_CASE("resources - asset_manager forwards async requests", "[resources]") {
 
 TEST_CASE("resources - asset_manager accepts external source factory state", "[resources]") {
   caors::assets::project_config config;
-  REQUIRE(caors::assets::load_project_config_json(config, make_project_config_json()).succeeded());
+  REQUIRE(caors::assets::json::load_project_config(config, make_project_config_json()).succeeded());
   config.sources[0].type = caors::string_name{"external_memory"};
 
   external_source_factory_state state;
@@ -504,7 +509,7 @@ TEST_CASE("resources - asset_manager accepts external source factory state", "[r
 TEST_CASE("resources - asset_manager validates source factory option schema", "[resources]") {
   caors::assets::project_config config;
   REQUIRE(
-      caors::assets::load_project_config_json(
+      caors::assets::json::load_project_config(
           config,
           R"({"sources":[{"name":"assets","type":"external_memory","options":{"read_only":true}}]})")
           .succeeded());
@@ -537,7 +542,7 @@ TEST_CASE("resources - asset_manager accepts external type factory state", "[res
   require_serialized_resource_metadata();
 
   caors::assets::project_config config;
-  REQUIRE(caors::assets::load_project_config_json(config, make_project_config_json()).succeeded());
+  REQUIRE(caors::assets::json::load_project_config(config, make_project_config_json()).succeeded());
   config.resource_types[0].cache = caors::string_name{"external_memory"};
   config.resource_types[0].loader = caors::string_name{"external_json"};
 
@@ -584,7 +589,7 @@ TEST_CASE("resources - asset_manager validates type factory option schema", "[re
 
   caors::assets::project_config config;
   REQUIRE(
-      caors::assets::load_project_config_json(
+      caors::assets::json::load_project_config(
           config,
           R"({"resource_types":[{"type":"game.serialized","loader":"external_json","cache":"external_memory","options":{"priority":2}}]})")
           .succeeded());
@@ -646,7 +651,7 @@ TEST_CASE("resources - asset_manager rebuild keeps manual type bindings", "[reso
   require_serialized_resource_metadata();
 
   caors::assets::project_config config;
-  REQUIRE(caors::assets::load_project_config_json(config, make_project_config_json()).succeeded());
+  REQUIRE(caors::assets::json::load_project_config(config, make_project_config_json()).succeeded());
 
   caors::io::memory_file_system files;
   REQUIRE(
@@ -658,7 +663,7 @@ TEST_CASE("resources - asset_manager rebuild keeps manual type bindings", "[reso
   caors::resource_cache<serialized_resource> cache;
 
   caors::assets::asset_manager assets;
-  caors::assets::json_loader<serialized_resource> loader{assets.provider()};
+  caors::assets::json::loader<serialized_resource> loader{assets.provider()};
   REQUIRE(assets.bind_source(caors::string_name{"assets"}, source).succeeded());
   REQUIRE(assets.register_type(cache, loader, serialized_manifest_type()).succeeded());
 
@@ -675,12 +680,13 @@ TEST_CASE("resources - asset_manager rebuild keeps manual type bindings", "[reso
 TEST_CASE("resources - asset_manager reports unsupported configured runtime strategy",
           "[resources]") {
   caors::assets::project_config config;
-  REQUIRE(caors::assets::load_project_config_json(config, make_project_config_json()).succeeded());
+  REQUIRE(caors::assets::json::load_project_config(config, make_project_config_json()).succeeded());
   config.resource_types[0].loader = caors::string_name{"binary"};
 
   caors::assets::asset_manager assets;
-  REQUIRE(
-      assets.register_type_factory<serialized_resource>(serialized_manifest_type()).succeeded());
+  REQUIRE(caors::assets::json::register_type_factory<serialized_resource>(
+              assets, serialized_manifest_type())
+              .succeeded());
 
   const caors::assets::asset_build_result result = assets.build_detailed(config);
   CHECK(result.status == caors::error{caors::error_domain::resources, caors::errc::unsupported});
@@ -692,7 +698,7 @@ TEST_CASE("resources - asset_manager reports unsupported configured runtime stra
 
 TEST_CASE("resources - asset_manager reports missing configured sources", "[resources]") {
   caors::assets::project_config config;
-  REQUIRE(caors::assets::load_project_config_json(config, make_project_config_json()).succeeded());
+  REQUIRE(caors::assets::json::load_project_config(config, make_project_config_json()).succeeded());
   config.sources[0].type = caors::string_name{"unknown_source"};
 
   caors::assets::asset_manager assets;
@@ -708,15 +714,15 @@ TEST_CASE("resources - asset_manager reports missing configured sources", "[reso
 TEST_CASE("resources - project config validates schema and options", "[resources]") {
   caors::assets::project_config config;
 
-  CHECK(caors::assets::load_project_config_json(config, R"({"schema_version":2})") ==
+  CHECK(caors::assets::json::load_project_config(config, R"({"schema_version":2})") ==
         caors::error{caors::error_domain::resources, caors::errc::unsupported});
 
-  CHECK(caors::assets::load_project_config_json(
+  CHECK(caors::assets::json::load_project_config(
             config, R"({"sources":[{"name":"assets","type":"memory","options":"bad"}]})") ==
         caors::error{caors::error_domain::resources, caors::errc::invalid_argument});
 
   CHECK(
-      caors::assets::load_project_config_json(
+      caors::assets::json::load_project_config(
           config,
           R"({"resource_types":[{"type":"game.serialized","loader":"json","cache":"memory","options":["bad"]}]})") ==
       caors::error{caors::error_domain::resources, caors::errc::invalid_argument});

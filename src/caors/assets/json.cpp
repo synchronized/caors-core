@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "caors/assets/io.h"
+#include "caors/assets/json.h"
 
 #include <cstdint>
 #include <string_view>
 
-namespace caors::assets {
+namespace caors::assets::json {
 namespace {
+
+[[nodiscard]] std::string_view string_view_of(const core::string& value) noexcept {
+  return std::string_view{value.data(), value.size()};
+}
 
 [[nodiscard]] const core::string* find_string_member(const variant& object, std::string_view name) {
   const variant* member = object.find_member_variant(core::string_name{name});
@@ -45,20 +49,19 @@ namespace {
     return {error_domain::resources, errc::invalid_argument};
   }
 
-  const auto parsed_guid =
-      resource_guid::parse(std::string_view{guid_text->data(), guid_text->size()});
+  const auto parsed_guid = resource_guid::parse(string_view_of(*guid_text));
   if (!parsed_guid) {
     return {error_domain::resources, errc::invalid_argument};
   }
 
   core::string_name type{};
   if (const core::string* type_text = find_string_member(value, "type")) {
-    type = core::string_name{std::string_view{type_text->data(), type_text->size()}};
+    type = core::string_name{string_view_of(*type_text)};
   }
 
   std::string_view hash{};
   if (const core::string* hash_text = find_string_member(value, "hash")) {
-    hash = std::string_view{hash_text->data(), hash_text->size()};
+    hash = string_view_of(*hash_text);
   }
 
   std::uint64_t version = 0;
@@ -67,8 +70,7 @@ namespace {
     return version_status;
   }
 
-  return target.set(*parsed_guid, std::string_view{location_text->data(), location_text->size()},
-                    type, hash, version);
+  return target.set(*parsed_guid, string_view_of(*location_text), type, hash, version);
 }
 
 [[nodiscard]] const variant::array_type* manifest_entries(const variant& value) {
@@ -98,7 +100,7 @@ error load_manifest(resources::manifest& target, const variant& value) {
   return {};
 }
 
-error load_manifest_json(resources::manifest& target, std::string_view text) {
+error load_manifest(resources::manifest& target, std::string_view text) {
   serialization::variant_result parsed = serialization::parse_json(text);
   if (parsed.failed()) {
     return parsed.status;
@@ -121,7 +123,33 @@ error load_manifest(resources::manifest& target, resources::source& resource_sou
 
   const std::string_view text{reinterpret_cast<const char*>(bytes.value.data()),
                               bytes.value.size()};
-  return load_manifest_json(target, text);
+  return load_manifest(target, text);
 }
 
-} // namespace caors::assets
+error load_project_config(project_config& target, std::string_view text) {
+  serialization::variant_result parsed = serialization::parse_json(text);
+  if (parsed.failed()) {
+    return parsed.status;
+  }
+
+  return assets::load_project_config(target, parsed.value);
+}
+
+error load_project_config(project_config& target, resources::source& resource_source,
+                          io::path_view location, memory_resource* resource) {
+  if (location.empty()) {
+    return {error_domain::resources, errc::invalid_argument};
+  }
+
+  io::byte_buffer_result bytes =
+      resource_source.read(location, resource != nullptr ? resource : target.resource);
+  if (bytes.failed()) {
+    return bytes.status;
+  }
+
+  const std::string_view text{reinterpret_cast<const char*>(bytes.value.data()),
+                              bytes.value.size()};
+  return load_project_config(target, text);
+}
+
+} // namespace caors::assets::json

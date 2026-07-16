@@ -267,7 +267,6 @@ asset_manager::asset_manager(memory_resource* resource)
       source_factories_(typename source_factory_map::allocator_type{resource_}),
       type_factories_(typename type_factory_map::allocator_type{resource_}),
       owned_objects_(typename owned_object_list::allocator_type{resource_}),
-      owned_types_(typename owned_type_map::allocator_type{resource_}),
       manual_type_bindings_(typename manual_type_map::allocator_type{resource_}) {
   database_.set_manifest(manifest_);
   database_.set_provider(provider_);
@@ -281,7 +280,6 @@ asset_manager::~asset_manager() {
   sources_.clear();
   type_factories_.clear();
   source_factories_.clear();
-  owned_types_.clear();
   manual_type_bindings_.clear();
   owned_objects_.clear();
 }
@@ -543,8 +541,6 @@ error asset_manager::clear_config_runtime() {
   }
 
   database_.clear_registered_types();
-  owned_types_.clear();
-
   const auto remove_config_object = [](const owned_runtime_object& object) {
     return object.config_created;
   };
