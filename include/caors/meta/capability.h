@@ -80,12 +80,12 @@ template <typename Ops> [[nodiscard]] bool capability_ops_valid(const Ops* ops) 
 /**
  * @brief 运行期实例能力视图的绑定扩展点。
  *
- * `CapabilityView` 是绑定到具体 `any_ref` 后可直接调用的轻量视图，例如
- * `meta::sequence_view` 或 `objects::ptr_view`。默认表示该视图不支持通过
- * `any_ref::get_capability<View>()` 查询。
+ * `Capability` 是传给 `any_ref::get_capability<Capability>()` 的查询类型。内置 capability 通常返回
+ * 绑定到具体 `any_ref` 后可直接调用的轻量 view，例如 `meta::sequence_view` 或
+ * `objects::ptr_view`。默认表示该 capability 不支持实例绑定查询。
  */
-template <typename CapabilityView, typename = void> struct capability_view_traits {
-  using result_type = std::remove_cv_t<std::remove_reference_t<CapabilityView>>;
+template <typename Capability, typename = void> struct capability_view_traits {
+  using result_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
 
   static constexpr bool supported = false;
 };

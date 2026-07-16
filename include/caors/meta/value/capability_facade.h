@@ -66,8 +66,8 @@ template <typename View, typename = void> struct capability_bind_traits {
  * @brief 自定义 capability view 的通用基类。
  *
  * `Ops` 是类型擦除函数表。派生 view 只需要声明 `using ops_type = Ops`，并通过继承构造函数接收
- * `(meta::type, const Ops*, any_ref)`，即可自动接入 `any_ref::get_capability<View>()` 和
- * `meta::type::get_capability<View>()`。
+ * `(meta::type, const Ops*, any_ref)`，即可作为 `type_capability_base<Ops, View>` 的绑定结果；
+ * 实例查询应通过对应 capability facade，例如 `any_ref::get_capability<MyCapability>()`。
  */
 template <typename Ops> class capability_view_base {
 public:

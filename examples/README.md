@@ -47,7 +47,7 @@ cmake --build --preset windows-clang-debug --target caors_example_version_basic
 - 新主题需要新增子目录和该目录下的 `CMakeLists.txt`。
 - 示例目标命名使用 `caors_example_<主题>_<名称>`。
 - 示例代码应尽量短，只展示一个明确场景。
-- 基础示例优先展示公开 facade 和绑定后的 view，例如 `runtime`、`any_ref::get_capability<View>()`
+- 基础示例优先展示公开 facade 和绑定后的 view，例如 `runtime`、`any_ref::get_capability<Capability>()`
   或模块级 `find()` / `class_()` 入口；只有 capability 扩展、registry 管理或生命周期管理示例才直接展示
   类型级 capability、registry 或其他高级入口。
 - 复杂背景说明放到 `docs/` 对应主题文档中，不写进示例源码。

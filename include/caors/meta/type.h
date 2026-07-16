@@ -94,7 +94,7 @@ public:
    * @brief 查询该类型视图具备的 raw ops 函数表。
    *
    * `*_ops` 是 CAORS 内部和高级扩展使用的类型擦除函数表。普通实例访问应优先通过
-   * `any_ref::get_capability<View>()` 获取绑定后的 view。
+   * `any_ref::get_capability<Capability>()` 获取绑定后的 view。
    */
   template <typename Ops> [[nodiscard]] const Ops* get_raw_ops() const noexcept {
     using ops_type = std::remove_cv_t<std::remove_reference_t<Ops>>;
