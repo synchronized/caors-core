@@ -89,8 +89,7 @@ CAORS_META_REGISTRATION(register_actor) {
 - 校验 meta 层基础索引和父类型关系。
 - 不冻结注册表，也不阻止后续注册。
 
-`meta::validate_registry()` 只做一致性校验，不执行延迟注册函数。`meta::freeze_registry()` 保留为兼容入口，
-当前等价于 `init_registry()`；`meta::is_registry_frozen()` 始终返回 `false`。
+`meta::validate_registry()` 只做一致性校验，不执行延迟注册函数。CAORS 不再提供冻结注册表的公开入口。
 
 注册表内部会对单次注册和查询加锁，但 CAORS 不保证“运行期一边读一边改注册表”的业务一致性。推荐由应用在启动期、
 模块加载期或测试初始化阶段完成注册；进入主循环后只做查询。如果需要脚本类型、插件热卸载或热重载注册，后续应使用独立的动态注册系统。

@@ -847,6 +847,5 @@ descriptor，不再为了创建 view 把每一种容器组合额外挂载为 met
 - `meta::validate_registry()`：只校验注册表，不执行延迟注册函数。
 - `CAORS_META_REGISTRATION(name)`：定义一个延迟注册函数，函数体需要返回 `caors::error`。
 - `meta::get_registry()`：进程内全局元数据注册表。
-- `meta::freeze_registry()` / `meta::is_registry_frozen()`：兼容旧接口；前者等价于 `init_registry()`，后者始终返回 `false`。
 
 相关测试位于 `tests/meta/` 和 `tests/core/`，测试组织规则见 [tests/README.md](../tests/README.md)。

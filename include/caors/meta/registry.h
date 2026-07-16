@@ -58,7 +58,6 @@ public:
   [[nodiscard]] error run_registrations();
   [[nodiscard]] error init();
   [[nodiscard]] error validate() const;
-  [[nodiscard]] bool is_frozen() const noexcept;
 
   [[nodiscard]] bool contains(type_id id) const;
   template <typename T> [[nodiscard]] type find_type() const;

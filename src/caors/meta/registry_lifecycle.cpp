@@ -72,8 +72,6 @@ error registry::init() {
   return validate();
 }
 
-bool registry::is_frozen() const noexcept { return false; }
-
 error registry::validate() const {
   std::lock_guard lock(state_->mutex);
   return detail::validate_registry(*state_);
@@ -92,9 +90,5 @@ error run_registrations() { return get_registry().run_registrations(); }
 error init_registry() { return get_registry().init(); }
 
 error validate_registry() { return get_registry().validate(); }
-
-error freeze_registry() { return init_registry(); }
-
-bool is_registry_frozen() noexcept { return get_registry().is_frozen(); }
 
 } // namespace caors::meta

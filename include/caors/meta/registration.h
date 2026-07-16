@@ -28,16 +28,11 @@ namespace detail {
 /** @brief 校验全局元数据注册表的内部索引一致性。 */
 [[nodiscard]] CAORS_API error validate_registry();
 
-/** @brief 兼容旧接口：等价于 `init_registry()`，不再冻结注册表。 */
-[[nodiscard]] CAORS_API error freeze_registry();
-
-/** @brief 兼容旧接口：全局注册表不再支持硬性冻结，始终返回 false。 */
-[[nodiscard]] CAORS_API bool is_registry_frozen() noexcept;
-
 } // namespace caors::meta
 
 /**
- * @brief 定义一个延迟到 `meta::run_registrations()` 前执行的元数据注册函数。
+ * @brief 定义一个延迟到 `meta::run_registrations()` / `meta::init_registry()`
+ * 时执行的元数据注册函数。
  *
  * `name` 必须是当前翻译单元内唯一的普通标识符。函数体需要返回 `caors::error`。
  */

@@ -35,7 +35,6 @@ CAORS_META_REGISTRATION(register_init_macro_actor) {
 
 TEST_CASE("registration - meta registry init runs registrations without becoming read only",
           "[registration]") {
-  REQUIRE_FALSE(caors::meta::is_registry_frozen());
   CHECK_FALSE(caors::meta::find<macro_actor>());
 
   const caors::meta::type type = caors::meta::class_<init_actor>("caors.test.init.actor").get();
@@ -44,8 +43,6 @@ TEST_CASE("registration - meta registry init runs registrations without becoming
           caors::error{});
 
   CHECK(caors::meta::init_registry() == caors::error{});
-  CHECK_FALSE(caors::meta::is_registry_frozen());
-  CHECK(caors::meta::freeze_registry() == caors::error{});
   CHECK(caors::meta::find<macro_actor>().registered());
 
   const caors::meta::type late_type = caors::meta::class_<late_actor>("caors.test.init.late").get();
