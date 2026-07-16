@@ -76,6 +76,50 @@ TEST_CASE("meta type - owned value release exposes manual destruction", "[meta]"
   released.destroy(released.value);
 }
 
+TEST_CASE("meta type - released owned value guard destroys on scope exit", "[meta]") {
+  const caors::meta::type type = caors::meta::resolve<default_factory_type>();
+  caors::tracking_resource tracking(&caors::get_system_memory_resource());
+  auto* raw = caors::memory::make<default_factory_type>(&tracking);
+  caors::owned_value value = caors::meta::make_owned_value(
+      type, raw, &tracking, [](caors::memory_resource* resource, void* instance) noexcept {
+        caors::memory::destroy(static_cast<default_factory_type*>(instance), resource);
+      });
+
+  {
+    caors::released_owned_value_guard guard{std::move(value).release()};
+    REQUIRE(guard.valid());
+    CHECK(guard.data() == raw);
+    CHECK(guard.resource() == &tracking);
+    CHECK(tracking.statistics().deallocation_count == 0);
+  }
+
+  CHECK(tracking.statistics().deallocation_count == 1);
+  CHECK(tracking.statistics().bytes_in_use == 0);
+}
+
+TEST_CASE("meta type - released owned value guard can release responsibility", "[meta]") {
+  const caors::meta::type type = caors::meta::resolve<default_factory_type>();
+  caors::tracking_resource tracking(&caors::get_system_memory_resource());
+  auto* raw = caors::memory::make<default_factory_type>(&tracking);
+  caors::owned_value value = caors::meta::make_owned_value(
+      type, raw, &tracking, [](caors::memory_resource* resource, void* instance) noexcept {
+        caors::memory::destroy(static_cast<default_factory_type*>(instance), resource);
+      });
+
+  caors::released_owned_value released{};
+  {
+    caors::released_owned_value_guard guard{std::move(value).release()};
+    released = guard.release();
+    CHECK_FALSE(guard.valid());
+  }
+
+  CHECK(tracking.statistics().deallocation_count == 0);
+  REQUIRE(released.valid());
+  released.resource_destroy(released.resource, released.value);
+  CHECK(tracking.statistics().deallocation_count == 1);
+  CHECK(tracking.statistics().bytes_in_use == 0);
+}
+
 // 原测试文件：meta_type_factory_meta_type_factory_registers_resource_aware_default_construction_test.cpp
 
 #include "meta_type_factory_test_support.h"

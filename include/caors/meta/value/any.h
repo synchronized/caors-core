@@ -17,14 +17,6 @@
 
 namespace caors::meta {
 
-namespace detail {
-
-[[nodiscard]] memory::memory_resource* owned_value_resource(const owned_value& value) noexcept;
-[[nodiscard]] meta::resource_destroy_fn
-owned_value_resource_destroy(const owned_value& value) noexcept;
-
-} // namespace detail
-
 [[nodiscard]] owned_value make_owned_value(meta::type type, void* value,
                                            memory::memory_resource* resource,
                                            meta::resource_destroy_fn destroy) noexcept;
@@ -42,6 +34,62 @@ struct released_owned_value {
   [[nodiscard]] bool valid() const noexcept {
     return type && value != nullptr && (resource_destroy != nullptr || destroy != nullptr);
   }
+};
+
+/** @brief 对已 release 的 owned value 重新提供失败路径 RAII 销毁保护。 */
+class released_owned_value_guard final {
+public:
+  released_owned_value_guard() noexcept = default;
+  explicit released_owned_value_guard(released_owned_value value) noexcept : value_(value) {}
+  ~released_owned_value_guard() noexcept { reset(); }
+
+  released_owned_value_guard(const released_owned_value_guard&) = delete;
+  released_owned_value_guard& operator=(const released_owned_value_guard&) = delete;
+
+  released_owned_value_guard(released_owned_value_guard&& other) noexcept
+      : value_(std::exchange(other.value_, {})) {}
+
+  released_owned_value_guard& operator=(released_owned_value_guard&& other) noexcept {
+    if (this != &other) {
+      reset();
+      value_ = std::exchange(other.value_, {});
+    }
+    return *this;
+  }
+
+  [[nodiscard]] bool valid() const noexcept { return value_.valid(); }
+  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
+  [[nodiscard]] meta::type get_type() const noexcept { return value_.type; }
+  [[nodiscard]] void* data() const noexcept { return value_.value; }
+  [[nodiscard]] memory::memory_resource* resource() const noexcept { return value_.resource; }
+  [[nodiscard]] meta::resource_destroy_fn resource_destroy() const noexcept {
+    return value_.resource_destroy;
+  }
+  [[nodiscard]] meta::destroy_fn destroy() const noexcept { return value_.destroy; }
+
+  /** @brief 释放 guard 的销毁责任并返回原始 release 结果。 */
+  [[nodiscard]] released_owned_value release() noexcept { return std::exchange(value_, {}); }
+
+  /** @brief 外部已经接管销毁责任时，清空 guard 且不销毁对象。 */
+  void dismiss() noexcept { value_ = {}; }
+
+  /** @brief 销毁当前托管对象并清空 guard。 */
+  void reset() noexcept {
+    if (!value_.valid()) {
+      return;
+    }
+
+    if (value_.resource_destroy != nullptr) {
+      value_.resource_destroy(value_.resource, value_.value);
+    } else if (value_.destroy != nullptr) {
+      value_.destroy(value_.value);
+    }
+
+    value_ = {};
+  }
+
+private:
+  released_owned_value value_{};
 };
 
 /**
@@ -96,9 +144,6 @@ private:
   friend owned_value make_owned_value(meta::type, void*, memory::memory_resource*,
                                       meta::resource_destroy_fn) noexcept;
   friend owned_value make_owned_value(meta::type, void*, meta::destroy_fn) noexcept;
-  friend memory::memory_resource* detail::owned_value_resource(const owned_value&) noexcept;
-  friend meta::resource_destroy_fn
-  detail::owned_value_resource_destroy(const owned_value&) noexcept;
 
   void clear_released() noexcept;
 
@@ -138,20 +183,6 @@ void swap(owned_value& lhs, owned_value& rhs) noexcept;
   result.default_destroy_ = destroy;
   return result;
 }
-
-namespace detail {
-
-[[nodiscard]] inline memory::memory_resource*
-owned_value_resource(const owned_value& value) noexcept {
-  return value.resource_;
-}
-
-[[nodiscard]] inline meta::resource_destroy_fn
-owned_value_resource_destroy(const owned_value& value) noexcept {
-  return value.resource_destroy_;
-}
-
-} // namespace detail
 
 /**
  * @brief 运行期 C++ 类型值。
@@ -349,6 +380,7 @@ namespace caors {
 using meta::any;
 using meta::owned_value;
 using meta::released_owned_value;
+using meta::released_owned_value_guard;
 
 } // namespace caors
 

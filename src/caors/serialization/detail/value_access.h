@@ -14,13 +14,13 @@ namespace caors::serialization::detail {
 
 /** @brief 反序列化内部持有的运行期构造结果，负责失败路径回滚销毁。 */
 struct owned_constructed_value {
-  meta::owned_value value{};
+  meta::released_owned_value_guard value{};
   bool transfer_destroy_context = false;
 
   owned_constructed_value() = default;
 
   owned_constructed_value(meta::owned_value constructed, bool transfer_context = false) noexcept
-      : value(std::move(constructed)), transfer_destroy_context(transfer_context) {}
+      : value(std::move(constructed).release()), transfer_destroy_context(transfer_context) {}
 
   owned_constructed_value(const owned_constructed_value&) = delete;
   owned_constructed_value& operator=(const owned_constructed_value&) = delete;
@@ -28,20 +28,18 @@ struct owned_constructed_value {
   owned_constructed_value& operator=(owned_constructed_value&& other) noexcept = default;
 
   [[nodiscard]] bool valid() const noexcept { return value.valid(); }
-  [[nodiscard]] void* data() noexcept { return value.mutable_data(); }
+  [[nodiscard]] void* data() noexcept { return value.data(); }
   [[nodiscard]] const void* data() const noexcept { return value.data(); }
-  [[nodiscard]] memory::memory_resource* resource() const noexcept {
-    return meta::detail::owned_value_resource(value);
-  }
+  [[nodiscard]] memory::memory_resource* resource() const noexcept { return value.resource(); }
   [[nodiscard]] meta::resource_destroy_fn resource_destroy() const noexcept {
-    return meta::detail::owned_value_resource_destroy(value);
+    return value.resource_destroy();
   }
   [[nodiscard]] bool uses_resource_destroy() const noexcept {
     return value.valid() && resource_destroy() != nullptr && transfer_destroy_context;
   }
 
   void release() noexcept {
-    static_cast<void>(std::move(value).release());
+    value.dismiss();
     transfer_destroy_context = false;
   }
 
@@ -120,7 +118,13 @@ construct_owned_value(meta::type type, const serialization::context& context,
   owned_constructed_value constructed =
       construct_owned_value(type, context, site, index, false, true);
   if (constructed.valid()) {
-    any decoded = std::move(constructed.value).into_any();
+    const meta::released_owned_value released = constructed.value.release();
+    meta::owned_value owned =
+        released.resource_destroy != nullptr
+            ? meta::make_owned_value(released.type, released.value, released.resource,
+                                     released.resource_destroy)
+            : meta::make_owned_value(released.type, released.value, released.destroy);
+    any decoded = std::move(owned).into_any();
     if (decoded.valid()) {
       return decoded;
     }

@@ -136,6 +136,8 @@ caors::meta::owned_value value =
 - `std::move(value).release()` 会释放所有权并返回裸对象、类型、资源和销毁函数，让当前 `owned_value`
   变为空。调用方必须使用返回的 `resource_destroy` 或 `destroy` 手动销毁对象；这是高级接口，普通代码应优先使用
   `into_any()`。
+- `released_owned_value_guard` 可以重新托管 `release()` 的返回值，适合把裸对象传给 wrapper、容器或外部系统前的失败回滚。
+  目标对象成功接管后调用 `release()` 取回原始结构体，或调用 `dismiss()` 放弃 guard 的销毁责任。
 - `make_owned_value(type, value, destroy)` 和 `make_owned_value(type, value, resource, destroy)`
   是高级 RAII 包装入口；调用方必须保证 `type`、原始对象、销毁函数和资源完全匹配。
 - 公开 facade 只暴露 `construct()` / `construct_owned()` 这类 RAII 入口；裸 `void*`
