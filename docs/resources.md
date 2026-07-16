@@ -765,8 +765,8 @@ caors::error make_pak_source(caors::resources::asset_manager::source_factory_con
                              const caors::resources::project_source_config& config,
                              void* user_data) {
   auto* state = static_cast<pak_state*>(user_data);
-  const caors::meta::variant_member* compression =
-      config.options.find_member(caors::string_name{"compression"});
+  const caors::variant* compression =
+      config.options.find_member_variant(caors::string_name{"compression"});
   (void)compression;
   auto* file_system = context.manager.create_owned<pak_file_system>(config.root, state->index);
   auto* source = context.manager.create_owned<caors::resources::file_source>(*file_system);

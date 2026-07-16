@@ -17,28 +17,19 @@ namespace {
   return std::string_view{value.data(), value.size()};
 }
 
-[[nodiscard]] const variant* find_member(const variant& object, std::string_view name) {
-  if (!object.is_object()) {
-    return nullptr;
-  }
-
-  const meta::variant_member* member = object.find_member(core::string_name{name});
-  return member != nullptr ? &member->value : nullptr;
-}
-
 [[nodiscard]] const variant::array_type* find_array_member(const variant& object,
                                                            std::string_view name) {
-  const variant* member = find_member(object, name);
+  const variant* member = object.find_member_variant(core::string_name{name});
   return member != nullptr ? member->try_as_array() : nullptr;
 }
 
 [[nodiscard]] const core::string* find_string_member(const variant& object, std::string_view name) {
-  const variant* member = find_member(object, name);
+  const variant* member = object.find_member_variant(core::string_name{name});
   return member != nullptr ? member->try_as_string() : nullptr;
 }
 
 [[nodiscard]] error read_version(const variant& object, std::uint64_t& version) {
-  const variant* member = find_member(object, "version");
+  const variant* member = object.find_member_variant(core::string_name{"version"});
   if (member == nullptr || member->is_null()) {
     version = 0;
     return {};
@@ -58,7 +49,7 @@ namespace {
 }
 
 [[nodiscard]] error read_schema_version(const variant& object, std::uint32_t& version) {
-  const variant* member = find_member(object, "schema_version");
+  const variant* member = object.find_member_variant(core::string_name{"schema_version"});
   if (member == nullptr || member->is_null()) {
     version = 1;
     return {};
@@ -102,7 +93,7 @@ namespace {
 }
 
 [[nodiscard]] error read_options(const variant& object, variant& options) {
-  const variant* member = find_member(object, "options");
+  const variant* member = object.find_member_variant(core::string_name{"options"});
   if (member == nullptr || member->is_null()) {
     options = variant::null();
     return {};

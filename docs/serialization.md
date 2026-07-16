@@ -951,7 +951,9 @@ DOM 是可选路径，适合工具、编辑器、测试对比和格式转换。�
 
 `variant` 提供 `is_*()` 和 `try_as_*()` 安全访问器，避免在类型不匹配时误读默认存储字段。
 数组、字典和对象可以通过 `push_back()`、`add_entry()`、`add_member()`、`find_member(name)`
-和 `find_member(field_id)` 做基础修改和查询。
+和 `find_member(field_id)` 做基础修改和查询。只需要成员值时，优先使用
+`find_member_variant(name)` / `find_member_variant(field_id)`，避免调用方手动解开
+`variant_member::value`。
 
 运行期 C++ 值可以显式转换为 `variant`：
 

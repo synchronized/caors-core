@@ -140,4 +140,22 @@ variant_member* variant::find_member(std::uint32_t field_id) noexcept {
   return const_cast<variant_member*>(std::as_const(*this).find_member(field_id));
 }
 
+const variant* variant::find_member_variant(string_name name) const noexcept {
+  const variant_member* member = find_member(name);
+  return member != nullptr ? &member->value : nullptr;
+}
+
+const variant* variant::find_member_variant(std::uint32_t field_id) const noexcept {
+  const variant_member* member = find_member(field_id);
+  return member != nullptr ? &member->value : nullptr;
+}
+
+variant* variant::find_member_variant(string_name name) noexcept {
+  return const_cast<variant*>(std::as_const(*this).find_member_variant(name));
+}
+
+variant* variant::find_member_variant(std::uint32_t field_id) noexcept {
+  return const_cast<variant*>(std::as_const(*this).find_member_variant(field_id));
+}
+
 } // namespace caors::meta

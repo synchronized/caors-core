@@ -120,16 +120,16 @@ make_external_memory_source(caors::resources::asset_manager::source_factory_cont
   auto& state = *static_cast<external_source_factory_state*>(user_data);
   ++state.calls;
   state.resource = context.resource;
-  if (const caors::meta::variant_member* member =
-          config.options.find_member(caors::string_name{"mount"})) {
-    if (const caors::string* text = member->value.try_as_string()) {
+  if (const caors::variant* value =
+          config.options.find_member_variant(caors::string_name{"mount"})) {
+    if (const caors::string* text = value->try_as_string()) {
       state.mount.assign(text->begin(), text->end());
     }
   }
-  if (const caors::meta::variant_member* member =
-          config.options.find_member(caors::string_name{"read_only"})) {
-    if (const bool* value = member->value.try_as_bool()) {
-      state.read_only = *value;
+  if (const caors::variant* value =
+          config.options.find_member_variant(caors::string_name{"read_only"})) {
+    if (const bool* enabled = value->try_as_bool()) {
+      state.read_only = *enabled;
     }
   }
 
@@ -161,17 +161,17 @@ make_external_serialized_type(caors::resources::asset_manager::type_factory_cont
 
   auto& state = *static_cast<external_type_factory_state*>(user_data);
   ++state.calls;
-  if (const caors::meta::variant_member* member =
-          config.options.find_member(caors::string_name{"format"})) {
-    if (const caors::string* text = member->value.try_as_string()) {
+  if (const caors::variant* value =
+          config.options.find_member_variant(caors::string_name{"format"})) {
+    if (const caors::string* text = value->try_as_string()) {
       state.format.assign(text->begin(), text->end());
     }
   }
-  if (const caors::meta::variant_member* member =
-          config.options.find_member(caors::string_name{"priority"})) {
-    if (const std::uint64_t* value = member->value.try_as_u64()) {
+  if (const caors::variant* priority =
+          config.options.find_member_variant(caors::string_name{"priority"})) {
+    if (const std::uint64_t* value = priority->try_as_u64()) {
       state.priority = *value;
-    } else if (const std::int64_t* signed_value = member->value.try_as_i64();
+    } else if (const std::int64_t* signed_value = priority->try_as_i64();
                signed_value != nullptr && *signed_value >= 0) {
       state.priority = static_cast<std::uint64_t>(*signed_value);
     }
@@ -210,17 +210,18 @@ TEST_CASE("resources - asset_manager builds provider manifest and dependency gra
   CHECK(config.sources[0].name == std::string_view{"assets"});
   CHECK(config.sources[0].type == std::string_view{"memory_file_system"});
   REQUIRE(config.sources[0].options.is_object());
-  REQUIRE(config.sources[0].options.find_member(caors::string_name{"mount"}) != nullptr);
-  CHECK(config.sources[0].options.find_member(caors::string_name{"mount"})->value.as_string() ==
+  REQUIRE(config.sources[0].options.find_member_variant(caors::string_name{"mount"}) != nullptr);
+  CHECK(config.sources[0].options.find_member_variant(caors::string_name{"mount"})->as_string() ==
         std::string_view{"debug-assets"});
   CHECK(config.resource_types[0].type == serialized_manifest_type());
   CHECK(config.resource_types[0].loader == std::string_view{"json"});
   CHECK(config.resource_types[0].cache == std::string_view{"memory"});
   REQUIRE(config.resource_types[0].options.is_object());
-  REQUIRE(config.resource_types[0].options.find_member(caors::string_name{"format"}) != nullptr);
+  REQUIRE(config.resource_types[0].options.find_member_variant(caors::string_name{"format"}) !=
+          nullptr);
   CHECK(config.resource_types[0]
-            .options.find_member(caors::string_name{"format"})
-            ->value.as_string() == std::string_view{"resource-json"});
+            .options.find_member_variant(caors::string_name{"format"})
+            ->as_string() == std::string_view{"resource-json"});
   CHECK(config.preload_roots[0] == test_guid_b);
   CHECK(config.preload_roots[1] == test_guid_c);
 

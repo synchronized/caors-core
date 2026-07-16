@@ -246,8 +246,19 @@ TEST_CASE("serialization - variant exposes checked accessors and helpers", "[ser
   CHECK(object.find_member(7) != nullptr);
   CHECK(object.find_member(caors::string_name{"missing"}) == nullptr);
   CHECK(object.find_member(99) == nullptr);
+  CHECK(object.find_member_variant(caors::string_name{"items"}) != nullptr);
+  CHECK(object.find_member_variant(7) != nullptr);
+  CHECK(object.find_member_variant(caors::string_name{"missing"}) == nullptr);
+  CHECK(object.find_member_variant(99) == nullptr);
   REQUIRE(object.find_member(7) != nullptr);
   CHECK(object.find_member(7)->value.is_array());
+  REQUIRE(object.find_member_variant(7) != nullptr);
+  CHECK(object.find_member_variant(7)->is_array());
+
+  caors::variant* mutable_items = object.find_member_variant(caors::string_name{"items"});
+  REQUIRE(mutable_items != nullptr);
+  CHECK(mutable_items->push_back(caors::variant::from(std::int64_t{3})));
+  CHECK(object.find_member_variant(7)->as_array().size() == 3);
 }
 
 // 原测试文件：serialization_write_writes_intermediate_arrays_and_objects_through_text_writer_test.cpp

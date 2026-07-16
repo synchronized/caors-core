@@ -122,10 +122,22 @@ public:
   bool push_back(variant value);
   bool add_entry(variant key, variant value);
   bool add_member(string_name name, std::uint32_t field_id, variant value);
+  /** @brief 按名称查找对象成员完整描述。 */
   [[nodiscard]] const variant_member* find_member(string_name name) const noexcept;
+  /** @brief 按字段 id 查找对象成员完整描述。 */
   [[nodiscard]] const variant_member* find_member(std::uint32_t field_id) const noexcept;
+  /** @brief 按名称查找对象成员完整描述。 */
   [[nodiscard]] variant_member* find_member(string_name name) noexcept;
+  /** @brief 按字段 id 查找对象成员完整描述。 */
   [[nodiscard]] variant_member* find_member(std::uint32_t field_id) noexcept;
+  /** @brief 按名称查找对象成员值。 */
+  [[nodiscard]] const variant* find_member_variant(string_name name) const noexcept;
+  /** @brief 按字段 id 查找对象成员值。 */
+  [[nodiscard]] const variant* find_member_variant(std::uint32_t field_id) const noexcept;
+  /** @brief 按名称查找对象成员值。 */
+  [[nodiscard]] variant* find_member_variant(string_name name) noexcept;
+  /** @brief 按字段 id 查找对象成员值。 */
+  [[nodiscard]] variant* find_member_variant(std::uint32_t field_id) noexcept;
 
 private:
   variant_kind kind_ = variant_kind::null;

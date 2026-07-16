@@ -9,22 +9,13 @@
 namespace caors::resources {
 namespace {
 
-[[nodiscard]] const variant* find_member(const variant& object, std::string_view name) {
-  if (!object.is_object()) {
-    return nullptr;
-  }
-
-  const meta::variant_member* member = object.find_member(core::string_name{name});
-  return member != nullptr ? &member->value : nullptr;
-}
-
 [[nodiscard]] const core::string* find_string_member(const variant& object, std::string_view name) {
-  const variant* member = find_member(object, name);
+  const variant* member = object.find_member_variant(core::string_name{name});
   return member != nullptr ? member->try_as_string() : nullptr;
 }
 
 [[nodiscard]] error read_version(const variant& object, std::uint64_t& version) {
-  const variant* member = find_member(object, "version");
+  const variant* member = object.find_member_variant(core::string_name{"version"});
   if (member == nullptr || member->is_null()) {
     version = 0;
     return {};
@@ -85,7 +76,7 @@ namespace {
     return entries;
   }
 
-  const variant* resources = find_member(value, "resources");
+  const variant* resources = value.find_member_variant(core::string_name{"resources"});
   return resources != nullptr ? resources->try_as_array() : nullptr;
 }
 
