@@ -43,7 +43,7 @@ owned_value::owned_value(owned_value&& other) noexcept {
   resource_ = other.resource_;
   resource_destroy_ = other.resource_destroy_;
   default_destroy_ = other.default_destroy_;
-  other.release();
+  other.detach();
 }
 
 owned_value& owned_value::operator=(owned_value&& other) noexcept {
@@ -57,7 +57,7 @@ owned_value& owned_value::operator=(owned_value&& other) noexcept {
   resource_ = other.resource_;
   resource_destroy_ = other.resource_destroy_;
   default_destroy_ = other.default_destroy_;
-  other.release();
+  other.detach();
   return *this;
 }
 
@@ -87,7 +87,7 @@ void owned_value::reset() noexcept {
     }
   }
 
-  release();
+  detach();
 }
 
 void owned_value::swap(owned_value& other) noexcept {
@@ -99,7 +99,7 @@ void owned_value::swap(owned_value& other) noexcept {
   swap(default_destroy_, other.default_destroy_);
 }
 
-void owned_value::release() noexcept {
+void owned_value::detach() noexcept {
   type_ = {};
   data_ = nullptr;
   resource_ = nullptr;
@@ -260,7 +260,7 @@ any any::take_ownership(owned_value&& value) {
     result.mode_ = any::storage_mode::heap_value;
   }
 
-  value.release();
+  value.detach();
   return result;
 }
 

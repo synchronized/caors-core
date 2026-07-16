@@ -40,8 +40,8 @@ struct owned_constructed_value {
     return value.valid() && resource_destroy() != nullptr && transfer_destroy_context;
   }
 
-  void release() noexcept {
-    static_cast<void>(meta::detail::release_owned_value(value));
+  void detach() noexcept {
+    static_cast<void>(meta::detail::detach_owned_value(value));
     transfer_destroy_context = false;
   }
 

@@ -19,9 +19,9 @@ namespace caors::meta {
 
 namespace detail {
 
-struct owned_value_release;
+struct detached_owned_value;
 
-[[nodiscard]] owned_value_release release_owned_value(owned_value& value) noexcept;
+[[nodiscard]] detached_owned_value detach_owned_value(owned_value& value) noexcept;
 [[nodiscard]] memory::memory_resource* owned_value_resource(const owned_value& value) noexcept;
 [[nodiscard]] meta::resource_destroy_fn
 owned_value_resource_destroy(const owned_value& value) noexcept;
@@ -78,12 +78,12 @@ private:
   friend owned_value make_owned_value(meta::type, void*, memory::memory_resource*,
                                       meta::resource_destroy_fn) noexcept;
   friend owned_value make_owned_value(meta::type, void*, meta::destroy_fn) noexcept;
-  friend detail::owned_value_release detail::release_owned_value(owned_value&) noexcept;
+  friend detail::detached_owned_value detail::detach_owned_value(owned_value&) noexcept;
   friend memory::memory_resource* detail::owned_value_resource(const owned_value&) noexcept;
   friend meta::resource_destroy_fn
   detail::owned_value_resource_destroy(const owned_value&) noexcept;
 
-  void release() noexcept;
+  void detach() noexcept;
 
   meta::type type_{};
   void* data_ = nullptr;
@@ -124,8 +124,8 @@ void swap(owned_value& lhs, owned_value& rhs) noexcept;
 
 namespace detail {
 
-/** @brief `owned_value` 内部所有权释放结果，仅供模块桥接使用。 */
-struct owned_value_release {
+/** @brief `owned_value` 内部所有权拆出结果，仅供模块桥接使用。 */
+struct detached_owned_value {
   meta::type type{};
   void* value = nullptr;
   memory::memory_resource* resource = nullptr;
@@ -134,15 +134,15 @@ struct owned_value_release {
   [[nodiscard]] bool valid() const noexcept { return type && value != nullptr; }
 };
 
-[[nodiscard]] inline owned_value_release release_owned_value(owned_value& value) noexcept {
-  owned_value_release released{
+[[nodiscard]] inline detached_owned_value detach_owned_value(owned_value& value) noexcept {
+  detached_owned_value detached{
       value.type_,
       value.data_,
       value.resource_,
       value.resource_destroy_,
   };
-  value.release();
-  return released;
+  value.detach();
+  return detached;
 }
 
 [[nodiscard]] inline memory::memory_resource*
