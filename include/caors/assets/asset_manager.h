@@ -18,8 +18,10 @@
 #include "caors/resources/source.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <initializer_list>
 #include <limits>
+#include <string>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -167,6 +169,165 @@ private:
     fields.push_back(make_field(name));
     return fields.back();
   }
+};
+
+/**
+ * @brief source/type factory 读取 `options` 的轻量视图。
+ *
+ * 该视图不拥有 `variant`，字符串读取返回的 `std::string_view`
+ * 只在底层配置对象存活且未修改期间有效。 它只提供常见标量读取；复杂结构体绑定和跨字段校验应由上层
+ * schema 或自定义 factory 处理。
+ */
+class factory_options_view final {
+public:
+  explicit factory_options_view(const variant& options) noexcept : options_(&options) {}
+
+  /** @brief 判断 options 是否是 object。 */
+  [[nodiscard]] bool is_object() const noexcept {
+    return options_ != nullptr && options_->is_object();
+  }
+
+  /** @brief 按字段名查询原始 variant；options 不是 object 或字段不存在时返回 nullptr。 */
+  [[nodiscard]] const variant* find(core::string_name name) const noexcept {
+    return is_object() ? options_->find_member_variant(name) : nullptr;
+  }
+
+  /** @brief 判断字段是否存在且非 null。 */
+  [[nodiscard]] bool contains(core::string_name name) const noexcept {
+    const variant* value = find(name);
+    return value != nullptr && !value->is_null();
+  }
+
+  /** @brief 读取 bool 字段。 */
+  [[nodiscard]] bool read(core::string_name name, bool& out) const noexcept {
+    const variant* value = find(name);
+    if (value == nullptr) {
+      return false;
+    }
+
+    if (const bool* typed = value->try_as_bool()) {
+      out = *typed;
+      return true;
+    }
+
+    return false;
+  }
+
+  /** @brief 读取有符号整数；无符号值超出 `std::int64_t` 范围时读取失败。 */
+  [[nodiscard]] bool read(core::string_name name, std::int64_t& out) const noexcept {
+    const variant* value = find(name);
+    if (value == nullptr) {
+      return false;
+    }
+
+    if (const std::int64_t* typed = value->try_as_i64()) {
+      out = *typed;
+      return true;
+    }
+
+    if (const std::uint64_t* typed = value->try_as_u64();
+        typed != nullptr &&
+        *typed <= static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max())) {
+      out = static_cast<std::int64_t>(*typed);
+      return true;
+    }
+
+    return false;
+  }
+
+  /** @brief 读取无符号整数；负数读取失败。 */
+  [[nodiscard]] bool read(core::string_name name, std::uint64_t& out) const noexcept {
+    const variant* value = find(name);
+    if (value == nullptr) {
+      return false;
+    }
+
+    if (const std::uint64_t* typed = value->try_as_u64()) {
+      out = *typed;
+      return true;
+    }
+
+    if (const std::int64_t* typed = value->try_as_i64(); typed != nullptr && *typed >= 0) {
+      out = static_cast<std::uint64_t>(*typed);
+      return true;
+    }
+
+    return false;
+  }
+
+  /** @brief 读取浮点数；整数会转换为 double。 */
+  [[nodiscard]] bool read(core::string_name name, double& out) const noexcept {
+    const variant* value = find(name);
+    if (value == nullptr) {
+      return false;
+    }
+
+    if (const double* typed = value->try_as_f64()) {
+      out = *typed;
+      return true;
+    }
+    if (const std::int64_t* typed = value->try_as_i64()) {
+      out = static_cast<double>(*typed);
+      return true;
+    }
+    if (const std::uint64_t* typed = value->try_as_u64()) {
+      out = static_cast<double>(*typed);
+      return true;
+    }
+
+    return false;
+  }
+
+  /** @brief 读取字符串视图；视图不拥有底层字符。 */
+  [[nodiscard]] bool read(core::string_name name, std::string_view& out) const noexcept {
+    const variant* value = find(name);
+    if (value == nullptr) {
+      return false;
+    }
+
+    if (const core::string* typed = value->try_as_string()) {
+      out = std::string_view{typed->data(), typed->size()};
+      return true;
+    }
+
+    return false;
+  }
+
+  /** @brief 读取字符串并复制到 `core::string`。 */
+  [[nodiscard]] bool read(core::string_name name, core::string& out) const {
+    std::string_view value;
+    if (!read(name, value)) {
+      return false;
+    }
+
+    out.assign(value.begin(), value.end());
+    return true;
+  }
+
+  /** @brief 读取字符串并复制到 `std::string`。 */
+  [[nodiscard]] bool read(core::string_name name, std::string& out) const {
+    std::string_view value;
+    if (!read(name, value)) {
+      return false;
+    }
+
+    out.assign(value.begin(), value.end());
+    return true;
+  }
+
+  /** @brief 读取字符串并 intern 为 `string_name`。 */
+  [[nodiscard]] bool read(core::string_name name, core::string_name& out) const {
+    std::string_view value;
+    if (!read(name, value)) {
+      return false;
+    }
+
+    out = core::string_name{value};
+    return true;
+  }
+
+private:
+  const variant* options_ = nullptr;
 };
 
 /** @brief asset_manager 构建结果和诊断信息。 */
@@ -602,9 +763,9 @@ private:
   [[nodiscard]] error clear_config_runtime();
   [[nodiscard]] error rebuild_manual_type_bindings();
   [[nodiscard]] error ensure_source_from_config(const project_source_config& config,
-                                                core::string* reason = nullptr);
+                                                asset_build_result::reason_list& reasons);
   [[nodiscard]] error ensure_type_from_config(const project_resource_type_config& config,
-                                              core::string* reason = nullptr);
+                                              asset_build_result::reason_list& reasons);
   [[nodiscard]] error register_builtin_source_factories();
   [[nodiscard]] static error make_memory_file_source(source_factory_context& context,
                                                      const project_source_config& config,

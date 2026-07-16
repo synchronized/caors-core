@@ -43,6 +43,17 @@ void require_secondary_serialized_resource_metadata() {
       caors::serialization::class_<secondary_serialized_resource>().commit()));
 }
 
+[[nodiscard]] bool contains_reason(const caors::assets::asset_build_result::reason_list& reasons,
+                                   std::string_view text) {
+  for (const caors::string& reason : reasons) {
+    if (std::string_view{reason.data(), reason.size()}.find(text) != std::string_view::npos) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 [[nodiscard]] std::string make_project_config_json() {
   std::string json{R"({
     "sources": [
@@ -211,18 +222,9 @@ make_external_memory_source(caors::assets::asset_manager::source_factory_context
   auto& state = *static_cast<external_source_factory_state*>(user_data);
   ++state.calls;
   state.resource = context.resource;
-  if (const caors::variant* value =
-          config.options.find_member_variant(caors::string_name{"mount"})) {
-    if (const caors::string* text = value->try_as_string()) {
-      state.mount.assign(text->begin(), text->end());
-    }
-  }
-  if (const caors::variant* value =
-          config.options.find_member_variant(caors::string_name{"read_only"})) {
-    if (const bool* enabled = value->try_as_bool()) {
-      state.read_only = *enabled;
-    }
-  }
+  const caors::assets::factory_options_view options{config.options};
+  (void)options.read(caors::string_name{"mount"}, state.mount);
+  (void)options.read(caors::string_name{"read_only"}, state.read_only);
 
   state.file_system = context.manager.create_owned<caors::io::memory_file_system>(context.resource);
   if (state.file_system == nullptr) {
@@ -252,21 +254,9 @@ make_external_serialized_type(caors::assets::asset_manager::type_factory_context
 
   auto& state = *static_cast<external_type_factory_state*>(user_data);
   ++state.calls;
-  if (const caors::variant* value =
-          config.options.find_member_variant(caors::string_name{"format"})) {
-    if (const caors::string* text = value->try_as_string()) {
-      state.format.assign(text->begin(), text->end());
-    }
-  }
-  if (const caors::variant* priority =
-          config.options.find_member_variant(caors::string_name{"priority"})) {
-    if (const std::uint64_t* value = priority->try_as_u64()) {
-      state.priority = *value;
-    } else if (const std::int64_t* signed_value = priority->try_as_i64();
-               signed_value != nullptr && *signed_value >= 0) {
-      state.priority = static_cast<std::uint64_t>(*signed_value);
-    }
-  }
+  const caors::assets::factory_options_view options{config.options};
+  (void)options.read(caors::string_name{"format"}, state.format);
+  (void)options.read(caors::string_name{"priority"}, state.priority);
 
   state.cache =
       context.manager.create_owned<caors::resources::cache<serialized_resource>>(context.resource);
@@ -731,6 +721,44 @@ TEST_CASE("resources - asset_manager validates advanced factory option schema", 
   check_invalid_source(
       R"({"sources":[{"name":"assets","type":"external_memory","options":{"mount":"debug","priority":2,"filter":"cubic"}}]})",
       "允许值");
+}
+
+TEST_CASE("resources - asset_manager reports multiple factory option schema errors",
+          "[resources]") {
+  caors::assets::project_config config;
+  REQUIRE(
+      caors::assets::json::load_project_config(
+          config,
+          R"({"sources":[{"name":"assets","type":"external_memory","options":{"mount":"","priority":99,"filter":"cubic","extra":true}}]})")
+          .succeeded());
+
+  caors::assets::factory_option_schema schema;
+  schema.require(caors::string_name{"mount"}, caors::assets::factory_option_kind::string)
+      .non_empty(caors::string_name{"mount"})
+      .optional(caors::string_name{"priority"})
+      .range(caors::string_name{"priority"}, 1.0, 10.0)
+      .optional(caors::string_name{"filter"}, caors::assets::factory_option_kind::string)
+      .one_of(caors::string_name{"filter"},
+              {std::string_view{"nearest"}, std::string_view{"linear"}});
+  schema.allow_unknown = false;
+
+  external_source_factory_state state;
+  caors::assets::asset_manager assets;
+  REQUIRE(assets
+              .register_source_factory(caors::string_name{"external_memory"},
+                                       &make_external_memory_source, &state, schema)
+              .succeeded());
+
+  const caors::assets::asset_build_result result = assets.build_detailed(config);
+  CHECK(result.status ==
+        caors::error{caors::error_domain::resources, caors::errc::invalid_argument});
+  CHECK(result.stage == caors::assets::asset_build_stage::source);
+  CHECK(result.reasons.size() >= 4);
+  CHECK(contains_reason(result.reasons, "不能为空"));
+  CHECK(contains_reason(result.reasons, "范围"));
+  CHECK(contains_reason(result.reasons, "允许值"));
+  CHECK(contains_reason(result.reasons, "未声明"));
+  CHECK(state.calls == 0);
 }
 
 TEST_CASE("resources - asset_manager accepts external type factory state", "[resources]") {

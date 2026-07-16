@@ -260,6 +260,32 @@ TEST_CASE("resources - async helpers poll request batches through completion que
   CHECK(loader.load_count.load() == 2);
 }
 
+TEST_CASE("resources - async helpers report pending when no completion is queued", "[resources]") {
+  caors::resource_cache<async_resource> cache;
+  async_loader loader;
+  holding_executor executor;
+  caors::tasks::completion_queue completions;
+
+  caors::resources::load_request<async_resource> request =
+      caors::resources::request_load_into(cache, loader, test_guid_a, executor, completions);
+
+  REQUIRE(request.status() == caors::resources::request_status::queued);
+  CHECK(completions.empty());
+
+  const caors::resources::request_poll_result poll =
+      caors::resources::poll_request(completions, request);
+  CHECK(poll.drained == 0);
+  CHECK_FALSE(poll.done);
+  CHECK(request.status() == caors::resources::request_status::queued);
+
+  const caors::resources::request_poll_result limited =
+      caors::resources::drain_until_done(completions, request, 0);
+  CHECK(limited.drained == 0);
+  CHECK_FALSE(limited.done);
+
+  REQUIRE(request.cancel());
+}
+
 TEST_CASE("resources - async load reports loader progress and stage", "[resources]") {
   caors::resource_cache<async_resource> cache;
   progress_async_loader loader;

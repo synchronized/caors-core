@@ -261,7 +261,9 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `"memory"` 等策略名映射到运行期 source、cache 和 loader 构造；`"remote"`、资源包和专用缓存后续扩展。
 - [x] 为 `assets::asset_manager::build_detailed()` 增加构建阶段诊断，记录失败阶段、配置项索引、
   source/type 名称、资源 GUID 和可读原因。
-- [x] 为资源配置 source/type factory 增加轻量 options schema，支持必填字段、字段值形态和未知字段策略校验。
+- [x] 为资源配置 source/type factory 增加轻量 options schema，支持必填字段、字段值形态、非空、范围、
+  允许值和未知字段策略校验，并通过 `factory_options_view` 简化 factory 内部读取。
+- [x] 扩展 `asset_manager::build_detailed()` 的 options 诊断，支持同一 options 对象一次收集多条 schema 错误。
 - [x] 继续收敛资源公开主入口，以 `assets::asset_manager` / 运行期 builder 作为用户优先入口，
   `database`、`provider`、`cache<T>` 和 `loader<T>` 作为高级组合入口。
 - [x] 支持 `resources::provider` 通过可写 source 按 GUID 写回字节，为后续 saver 和热更新回写提供基础。
@@ -289,6 +291,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 扩展异步预加载内部请求合并：同类型同 GUID 的 direct load / preload load 复用同一请求，
   已缓存资源立即完成，取消和失败按批量请求独立聚合，并提供非阻塞 poll/drain helper 辅助测试和主循环收敛。
   优先级、真正阻塞等待、分层依赖调度和细粒度进度聚合后续再评估。
+- [ ] 后续为 `preload_request` 增加每个 preload item 的详细失败列表，便于工具链展示批量预加载中具体失败项。
 - [x] 明确异步资源系统线程安全边界：哪些 `source` / `provider` / `memory_resource` 可跨线程访问，
   cache 修改必须在哪个线程执行，未完成 request 的 `try_get()` 是阻塞、返回错误还是禁止调用。
 - [x] 打通资源引用序列化 resolver，支持反序列化后按策略解析稳定 GUID 引用。

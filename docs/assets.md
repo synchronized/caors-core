@@ -149,6 +149,10 @@ caors::error make_pak_source(caors::assets::asset_manager::source_factory_contex
                              const caors::assets::project_source_config& config,
                              void* user_data) {
   auto* state = static_cast<pak_state*>(user_data);
+  caors::assets::factory_options_view options{config.options};
+  std::string_view compression;
+  (void)options.read(caors::string_name{"compression"}, compression);
+
   auto* file_system = context.manager.create_owned<pak_file_system>(config.root, state->index);
   auto* source = context.manager.create_owned<caors::resources::file_source>(*file_system);
   return context.manager.bind_source(config.name, *source);
@@ -200,7 +204,25 @@ caors::assets::register_cached_type_factory<texture, pak_texture_loader>(
 ```
 
 `factory_option_schema` 只做轻量配置校验：必填字段、字段值形态、非空约束、数值范围、字符串允许值和
-未知字段策略。复杂的跨字段约束、结构体配置绑定和带编辑器提示的 schema metadata 后续再扩展。
+未知字段策略。`build_detailed()` 会把同一个 options 对象中的多个 schema 错误收集到
+`asset_build_result::reasons`，方便工具和编辑器一次展示多条配置问题。
+
+factory 实现读取配置时优先使用 `factory_options_view`，避免直接重复写 `find_member_variant()` 和
+`try_as_*()`：
+
+```cpp
+caors::assets::factory_options_view options{config.options};
+
+std::string format;
+std::uint64_t priority = 0;
+bool readonly = false;
+
+(void)options.read(caors::string_name{"format"}, format);
+(void)options.read(caors::string_name{"priority"}, priority);
+(void)options.read(caors::string_name{"read_only"}, readonly);
+```
+
+复杂的跨字段约束、结构体配置绑定和带编辑器提示的 schema metadata 后续再扩展。
 
 ## JSON 适配
 

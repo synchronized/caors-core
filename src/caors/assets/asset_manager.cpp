@@ -74,15 +74,25 @@ namespace {
   return nullptr;
 }
 
-void assign_reason(core::string* reason, std::string_view text) {
-  if (reason != nullptr) {
-    reason->assign(text.begin(), text.end());
-  }
-}
-
 void append_name(core::string& text, core::string_name name) {
   const std::string_view view = name.view();
   text.append(view.begin(), view.end());
+}
+
+[[nodiscard]] core::string make_reason(asset_build_result::reason_list& reasons) {
+  return core::string{allocator<char>{reasons.get_allocator().resource()}};
+}
+
+void append_reason(asset_build_result::reason_list& reasons, core::string reason) {
+  if (!reason.empty()) {
+    reasons.push_back(std::move(reason));
+  }
+}
+
+void append_reason_text(asset_build_result::reason_list& reasons, std::string_view text) {
+  core::string reason = make_reason(reasons);
+  reason.assign(text.begin(), text.end());
+  append_reason(reasons, std::move(reason));
 }
 
 void assign_missing_option_reason(core::string* reason, core::string_name name) {
@@ -214,7 +224,9 @@ void assign_one_of_option_reason(core::string* reason, core::string_name name,
 }
 
 [[nodiscard]] error validate_options(const factory_option_schema& schema, const variant& options,
-                                     core::string* reason) {
+                                     asset_build_result::reason_list& reasons) {
+  const std::size_t initial_reason_count = reasons.size();
+
   if (schema.fields.empty() && schema.allow_unknown) {
     return {};
   }
@@ -222,16 +234,19 @@ void assign_one_of_option_reason(core::string* reason, core::string_name name,
   if (options.is_null()) {
     for (const factory_option_field& field : schema.fields) {
       if (field.required) {
-        assign_missing_option_reason(reason, field.name);
-        return {error_domain::resources, errc::invalid_argument};
+        core::string reason = make_reason(reasons);
+        assign_missing_option_reason(&reason, field.name);
+        append_reason(reasons, std::move(reason));
       }
     }
 
-    return {};
+    return reasons.size() != initial_reason_count
+               ? error{error_domain::resources, errc::invalid_argument}
+               : error{};
   }
 
   if (!options.is_object()) {
-    assign_reason(reason, "options 必须是 object 或 null");
+    append_reason_text(reasons, "options 必须是 object 或 null");
     return {error_domain::resources, errc::invalid_argument};
   }
 
@@ -239,51 +254,60 @@ void assign_one_of_option_reason(core::string* reason, core::string_name name,
     const variant* value = options.find_member_variant(field.name);
     if (value == nullptr || value->is_null()) {
       if (field.required) {
-        assign_missing_option_reason(reason, field.name);
-        return {error_domain::resources, errc::invalid_argument};
+        core::string reason = make_reason(reasons);
+        assign_missing_option_reason(&reason, field.name);
+        append_reason(reasons, std::move(reason));
       }
 
       continue;
     }
 
     if (!matches_kind(*value, field.kind)) {
-      assign_invalid_option_reason(reason, field.name, field.kind);
-      return {error_domain::resources, errc::invalid_argument};
+      core::string reason = make_reason(reasons);
+      assign_invalid_option_reason(&reason, field.name, field.kind);
+      append_reason(reasons, std::move(reason));
+      continue;
     }
 
     if (field.non_empty && option_value_empty(*value)) {
-      assign_empty_option_reason(reason, field.name);
-      return {error_domain::resources, errc::invalid_argument};
+      core::string reason = make_reason(reasons);
+      assign_empty_option_reason(&reason, field.name);
+      append_reason(reasons, std::move(reason));
     }
 
     if (field.has_range) {
       const std::optional<double> number = numeric_option_value(*value);
       if (!number.has_value()) {
-        assign_invalid_option_reason(reason, field.name, factory_option_kind::floating);
-        return {error_domain::resources, errc::invalid_argument};
-      }
-      if (*number < field.range_min || *number > field.range_max) {
-        assign_range_option_reason(reason, field.name, field.range_min, field.range_max);
-        return {error_domain::resources, errc::invalid_argument};
+        core::string reason = make_reason(reasons);
+        assign_invalid_option_reason(&reason, field.name, factory_option_kind::floating);
+        append_reason(reasons, std::move(reason));
+      } else if (*number < field.range_min || *number > field.range_max) {
+        core::string reason = make_reason(reasons);
+        assign_range_option_reason(&reason, field.name, field.range_min, field.range_max);
+        append_reason(reasons, std::move(reason));
       }
     }
 
     if (!option_value_allowed(*value, field.allowed_values)) {
-      assign_one_of_option_reason(reason, field.name, field.allowed_values);
-      return {error_domain::resources, errc::invalid_argument};
+      core::string reason = make_reason(reasons);
+      assign_one_of_option_reason(&reason, field.name, field.allowed_values);
+      append_reason(reasons, std::move(reason));
     }
   }
 
   if (!schema.allow_unknown) {
     for (const auto& member : options.as_object()) {
       if (find_schema_field(schema, member.name) == nullptr) {
-        assign_unknown_option_reason(reason, member.name);
-        return {error_domain::resources, errc::invalid_argument};
+        core::string reason = make_reason(reasons);
+        assign_unknown_option_reason(&reason, member.name);
+        append_reason(reasons, std::move(reason));
       }
     }
   }
 
-  return {};
+  return reasons.size() != initial_reason_count
+             ? error{error_domain::resources, errc::invalid_argument}
+             : error{};
 }
 
 void set_build_failure(asset_build_result& result, asset_build_stage stage, std::size_t index,
@@ -484,22 +508,20 @@ asset_build_result asset_manager::build_detailed(const project_config& config) {
 
   for (std::size_t index = 0; index < config.sources.size(); ++index) {
     const project_source_config& source_config = config.sources[index];
-    core::string reason{allocator<char>{resource_}};
-    status = ensure_source_from_config(source_config, &reason);
+    status = ensure_source_from_config(source_config, result.reasons);
     if (status) {
       set_build_failure(result, asset_build_stage::source, index, status, source_config.name,
-                        source_config.type, {}, reason);
+                        source_config.type, {}, {});
       return result;
     }
   }
 
   for (std::size_t index = 0; index < config.resource_types.size(); ++index) {
     const project_resource_type_config& type_config = config.resource_types[index];
-    core::string reason{allocator<char>{resource_}};
-    status = ensure_type_from_config(type_config, &reason);
+    status = ensure_type_from_config(type_config, result.reasons);
     if (status) {
       set_build_failure(result, asset_build_stage::resource_type, index, status, type_config.type,
-                        type_config.type, {}, reason);
+                        type_config.type, {}, {});
       return result;
     }
   }
@@ -554,9 +576,9 @@ asset_build_result asset_manager::build_detailed(const project_config& config) {
 }
 
 error asset_manager::ensure_source_from_config(const project_source_config& config,
-                                               core::string* reason) {
+                                               asset_build_result::reason_list& reasons) {
   if (!config.name) {
-    assign_reason(reason, "source 配置缺少 name");
+    append_reason_text(reasons, "source 配置缺少 name");
     return {error_domain::resources, errc::invalid_argument};
   }
 
@@ -566,29 +588,30 @@ error asset_manager::ensure_source_from_config(const project_source_config& conf
 
   const auto position = source_factories_.find(config.type);
   if (position == source_factories_.end()) {
-    assign_reason(reason, "source 配置没有匹配的 source factory");
+    append_reason_text(reasons, "source 配置没有匹配的 source factory");
     return {error_domain::resources, errc::not_found};
   }
 
-  error status = validate_options(position->second.schema, config.options, reason);
+  error status = validate_options(position->second.schema, config.options, reasons);
   if (status) {
     return status;
   }
 
+  const std::size_t reason_count = reasons.size();
   const bool previous = building_config_runtime_;
   building_config_runtime_ = true;
   status = position->second(*this, config);
   building_config_runtime_ = previous;
-  if (status && reason != nullptr && reason->empty()) {
-    assign_reason(reason, "source factory 返回错误");
+  if (status && reasons.size() == reason_count) {
+    append_reason_text(reasons, "source factory 返回错误");
   }
   return status;
 }
 
 error asset_manager::ensure_type_from_config(const project_resource_type_config& config,
-                                             core::string* reason) {
+                                             asset_build_result::reason_list& reasons) {
   if (!config.type) {
-    assign_reason(reason, "resource type 配置缺少 type");
+    append_reason_text(reasons, "resource type 配置缺少 type");
     return {error_domain::resources, errc::invalid_argument};
   }
 
@@ -597,17 +620,18 @@ error asset_manager::ensure_type_from_config(const project_resource_type_config&
     return {};
   }
 
-  error status = validate_options(position->second.schema, config.options, reason);
+  error status = validate_options(position->second.schema, config.options, reasons);
   if (status) {
     return status;
   }
 
+  const std::size_t reason_count = reasons.size();
   const bool previous = building_config_runtime_;
   building_config_runtime_ = true;
   status = position->second(*this, config);
   building_config_runtime_ = previous;
-  if (status && reason != nullptr && reason->empty()) {
-    assign_reason(reason, "resource type factory 返回错误");
+  if (status && reasons.size() == reason_count) {
+    append_reason_text(reasons, "resource type factory 返回错误");
   }
   return status;
 }

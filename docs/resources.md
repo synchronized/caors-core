@@ -458,8 +458,12 @@ public:
 - `load_request<T>` 自身状态查询是线程安全的。
 - `preload_request` 自身状态查询是线程安全的。
 - `completion_queue::drain()` 应在拥有 cache 的线程调用。
-- 第一版 `load_request<T>::try_get()` 和 `result()` 都不阻塞；等待和批量轮询后续再补。
-- 第一版异步预加载已复用同类型同 GUID 的进行中 load 请求；优先级和分层依赖等待后续再补。
+- `completion_queue::drain()` 不聚合完成回调自身的返回错误；异步资源请求会把 loader/commit 错误写入
+  request 状态，调用方应通过 `request.result()` 或 `preload_request::result()` 获取最终错误。
+- `load_request<T>::try_get()` 和 `result()` 都不阻塞；需要跨帧推进时使用
+  `poll_request()`、`drain_until_done()`、`poll_requests()` 或 `drain_until_all_done()`。
+- 当前异步预加载已复用同类型同 GUID 的进行中 load 请求；优先级、真正阻塞等待、分层依赖等待和
+  每个 preload item 的详细失败列表后续再补。
 
 ## 序列化
 
