@@ -717,55 +717,10 @@ C++ 类型存在同名成员函数，`meta::class_<T>().capability<Capability>()
 方法，普通用户优先使用宏。
 当前版本不处理重载自动选择，遇到重载成员时仍需要后续更完整的 Proxy DSL 或显式 model。
 
-具名 X-macro 入口可用于需要强控制 `ops/view/capability` 生成形态的高级场景。实例能力使用
-`CAORS_META_PROXY_CAPABILITY`：方法列表宏接收两个参数，分别表示只读方法和可写方法；每个方法项格式是
-`METHOD(name, result_type, noexcept_or_empty, (param_type, param_name)...)`。零参数方法不需要额外写 `()`；
-有参数时使用 `(类型, 名字)` pair，宏会自动生成函数声明和调用实参。
-
-```cpp
-#define MATRIX_METHODS(CONST_METHOD, MUTABLE_METHOD)             \
-  CONST_METHOD(rows, std::size_t, noexcept)                      \
-  CONST_METHOD(columns, std::size_t, noexcept)                   \
-  CONST_METHOD(get, int, , (std::size_t, row), (std::size_t, column)) \
-  MUTABLE_METHOD(set, void, , (std::size_t, row), (std::size_t, column), (int, value))
-
-CAORS_META_PROXY_CAPABILITY(matrix_capability, MATRIX_METHODS)
-```
-
-这会生成 `matrix_capability_ops`、`matrix_capability_view` 和 `matrix_capability`。如果目标类型有同名成员函数，
-可以直接注册：
-
-```cpp
-caors::meta::class_<matrix>()
-    .capability<matrix_capability>();
-
-matrix value{};
-auto view = caors::meta::any_ref::from(value)
-    .get_capability<matrix_capability>();
-
-view.set(1, 1, 42);
-```
-
-纯类型级能力使用 `CAORS_META_PROXY_TYPE_CAPABILITY`，它只生成 `ops` 和类型级 facade，不生成实例 view：
-
-```cpp
-#define CREATOR_METHODS(METHOD) METHOD(value, int, noexcept)
-
-CAORS_META_PROXY_TYPE_CAPABILITY(creator_capability, CREATOR_METHODS)
-
-creator_capability_ops ops{&creator_value};
-
-caors::meta::class_<creator_type>()
-    .capability(ops);
-```
-
-这种形式适合 factory、codec、编辑器 schema 这类不绑定具体对象实例的能力。当前类型级宏不自动生成
-`Capability::model<T>`；需要自动映射时后续再扩展，或者继续手写 `ops` / model。
-
 简单成员函数映射统一使用
-`CAORS_META_DEF_MEM_DISPATCH + capability_builder::add_convention`。需要稳定具名 `ops/view/capability`
-类型时使用 `CAORS_META_PROXY_CAPABILITY`。复杂适配、额外状态、错误策略或特殊生命周期仍建议手写
-`*_ops_model<T>` 或直接注册一份 `ops`。
+`CAORS_META_DEF_MEM_DISPATCH + capability_builder::add_convention`。需要稳定具名
+`ops/view/capability` 类型、额外状态、错误策略或特殊生命周期时，应手写
+`*_ops`、`*_view`、`*_capability` 和必要的 `*_ops_model<T>`，或直接注册一份 `ops`。
 
 如果能力由 `static_capability<Capability, T>` 提供，也可以只声明能力类型：
 

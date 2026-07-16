@@ -40,17 +40,6 @@ struct owned_matrix {
   int values[4]{};
 };
 
-struct macro_proxy_matrix {
-  int values[4]{};
-
-  [[nodiscard]] std::size_t rows() const noexcept { return 2; }
-  [[nodiscard]] std::size_t columns() const noexcept { return 2; }
-  [[nodiscard]] int get(std::size_t row, std::size_t column) const {
-    return values[row * 2 + column];
-  }
-  void set(std::size_t row, std::size_t column, int value) { values[row * 2 + column] = value; }
-};
-
 struct builder_proxy_matrix {
   int values[4]{};
 
@@ -148,18 +137,6 @@ void matrix_set(void* object, std::size_t row, std::size_t column, int value) {
   matrix.values[1] = 9;
   return matrix;
 }
-
-#define TEST_MATRIX_PROXY_METHODS(CONST_METHOD, MUTABLE_METHOD)                                    \
-  CONST_METHOD(rows, std::size_t, noexcept)                                                        \
-  CONST_METHOD(columns, std::size_t, noexcept)                                                     \
-  CONST_METHOD(get, int, , (std::size_t, row), (std::size_t, column))                              \
-  MUTABLE_METHOD(set, void, , (std::size_t, row), (std::size_t, column), (int, value))
-
-CAORS_META_PROXY_CAPABILITY(test_matrix_capability, TEST_MATRIX_PROXY_METHODS)
-
-#define TEST_TYPE_PROXY_METHODS(METHOD) METHOD(value, int, noexcept)
-
-CAORS_META_PROXY_TYPE_CAPABILITY(test_creator_capability, TEST_TYPE_PROXY_METHODS)
 
 CAORS_META_DEF_MEM_DISPATCH(test_builder_rows, rows);
 CAORS_META_DEF_MEM_DISPATCH(test_builder_columns, columns);
@@ -345,26 +322,6 @@ TEST_CASE("meta - type capability base auto exposes custom type facade", "[meta]
   CHECK(type.has_capability<creator_capability>());
 }
 
-TEST_CASE("meta - proxy capability macro generates ops view and auto model", "[meta]") {
-  REQUIRE(
-      caors::meta::class_<macro_proxy_matrix>().capability<test_matrix_capability>().succeeded());
-
-  const test_matrix_capability capability =
-      caors::meta::resolve<macro_proxy_matrix>().get_capability<test_matrix_capability>();
-  REQUIRE(capability);
-
-  macro_proxy_matrix matrix{};
-  const test_matrix_capability_view view =
-      caors::meta::any_ref::from(matrix).get_capability<test_matrix_capability>();
-  REQUIRE(view);
-
-  view.set(1, 0, 61);
-  CHECK(view.rows() == 2);
-  CHECK(view.columns() == 2);
-  CHECK(view.get(1, 0) == 61);
-  CHECK(matrix.values[2] == 61);
-}
-
 TEST_CASE("meta - proxy capability builder generates convention facade", "[meta]") {
   REQUIRE(caors::meta::class_<builder_proxy_matrix>()
               .capability<builder_matrix_capability>()
@@ -387,17 +344,6 @@ TEST_CASE("meta - proxy capability builder generates convention facade", "[meta]
   CHECK(view.columns() == 2);
   CHECK(view.get(1, 1) == 73);
   CHECK(matrix.values[3] == 73);
-}
-
-TEST_CASE("meta - proxy type capability macro generates type facade", "[meta]") {
-  test_creator_capability_ops ops{&creator_value};
-
-  REQUIRE(caors::meta::class_<creator_capability_type>().capability(ops).succeeded());
-
-  const test_creator_capability capability =
-      caors::meta::resolve<creator_capability_type>().get_capability<test_creator_capability>();
-  REQUIRE(capability);
-  CHECK(capability.value() == 31);
 }
 
 TEST_CASE("meta - type capability facade binds built in value views", "[meta]") {
