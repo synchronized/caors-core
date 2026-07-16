@@ -70,6 +70,25 @@ TEST_CASE("events - scoped connection disconnects on scope exit", "[events]") {
   CHECK(value_changed.empty());
 }
 
+TEST_CASE("events - scoped connection detach keeps listener connected", "[events]") {
+  caors::events::signal<void(int)> value_changed;
+  int total = 0;
+  auto add = [&](int value) { total += value; };
+  caors::events::connection detached;
+
+  {
+    caors::events::scoped_connection scoped{value_changed.connect(add)};
+    detached = scoped.detach();
+  }
+
+  value_changed.emit(5);
+
+  CHECK(total == 5);
+  CHECK(value_changed.size() == 1);
+  REQUIRE(detached.disconnect());
+  CHECK(value_changed.empty());
+}
+
 TEST_CASE("events - signal defers disconnect cleanup while emitting", "[events]") {
   caors::events::signal<void()> changed;
   int first_count = 0;

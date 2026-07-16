@@ -543,18 +543,18 @@ if (cache.resolve(reference)) {
 
 需要注意：
 
-- `cache<T>` 内部保存强 handle。`create_handle()`、`find_handle()`、`release()` 和
+- `cache<T>` 内部保存强 handle。`create_handle()`、`find_handle()`、`detach()` 和
   `load_handle_into()` 返回强 handle；`create()` 和 `find()` 只是返回非拥有裸指针视图。
 - `insert()` 可以接收已经构造好的 `memory::unique_ptr<T>` 或 `resource_handle<T>`，适合 loader
   把资源所有权转入缓存。
 - `replace()` 可以替换同 GUID 的已有资源，适合同步 reload 成功后把新资源放入 cache。旧资源会在
   最后一个外部强 handle 释放后销毁。
-- `release()` 会从缓存和索引中移除资源，并把强 handle 交给调用方。
+- `detach()` 会从缓存和索引中移除资源，并把强 handle 交给调用方。
 - `create_handle(guid, args...)` 会使用缓存的 `memory_resource` 构造资源；nil GUID、重复 GUID
   或构造后资源 GUID 与传入 GUID 不一致都会失败。
 - `cache<T>` 当前不负责从磁盘、网络或资源包加载内容；loader 层会决定如何构造资源。
 - `cache<T>` 不提供内部线程同步；跨线程访问时调用方需要自行加锁。
-- `erase()`、`release()`、`clear()` 和 `replace()` 不会通知外部已解析的 `resource_ref<T>` 或裸指针。
+- `erase()`、`detach()`、`clear()` 和 `replace()` 不会通知外部已解析的 `resource_ref<T>` 或裸指针。
   已解析引用可能继续保存旧资源地址；调用方可以用 `cache.is_current(ref)` 检测是否仍为当前版本，并在资源
   卸载或替换后重新解析引用，或由上层系统广播失效事件。需要保证旧资源存活时，应保存
   `resource_handle<T>`，不要只保存裸指针。

@@ -230,7 +230,7 @@ public:
    *
    * 返回的资源仍保留自身 GUID，但不再能通过当前缓存或内部索引查找。
    */
-  [[nodiscard]] handle<resource_type> release(resource_guid guid) {
+  [[nodiscard]] handle<resource_type> detach(resource_guid guid) {
     const auto position = resources_by_guid_.find(guid);
     if (position == resources_by_guid_.end()) {
       return {};
