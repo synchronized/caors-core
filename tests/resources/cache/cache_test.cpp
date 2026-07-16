@@ -217,19 +217,19 @@ TEST_CASE("resources - cache rejects invalid duplicate and mismatched resources"
   CHECK_FALSE(cache.contains(test_guid_b));
 }
 
-// 原测试文件：resources_cache_cache_detach_transfers_ownership_test.cpp
+// 原测试文件：resources_cache_cache_release_transfers_ownership_test.cpp
 
 #include "resources_test_common.h"
 
 using namespace caors::tests::resources;
 
-TEST_CASE("resources - cache detach transfers ownership", "[resources]") {
+TEST_CASE("resources - cache release transfers ownership", "[resources]") {
   observed_resource::destroyed = 0;
 
   caors::resource_cache<observed_resource> cache;
   REQUIRE(cache.create(test_guid_a) != nullptr);
 
-  auto released = cache.detach(test_guid_a);
+  auto released = cache.release(test_guid_a);
 
   REQUIRE(released != nullptr);
   CHECK(cache.empty());

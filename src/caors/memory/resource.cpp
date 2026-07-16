@@ -131,7 +131,7 @@ memory_block& memory_block::operator=(memory_block&& other) noexcept {
   return *this;
 }
 
-void* memory_block::detach() noexcept {
+void* memory_block::release() noexcept {
   void* ptr = ptr_;
   ptr_ = nullptr;
   return ptr;

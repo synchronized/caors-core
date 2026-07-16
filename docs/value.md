@@ -133,7 +133,7 @@ caors::meta::owned_value value =
 
 - `owned_value` 析构时会使用匹配的资源销毁函数或 descriptor 销毁函数释放对象。
 - `into_any()` 成功后当前 `owned_value` 变为空，所有权转移给返回的 `any`。
-- `std::move(value).detach()` 会拆出裸对象、类型、资源和销毁函数，并让当前 `owned_value`
+- `std::move(value).release()` 会释放所有权并返回裸对象、类型、资源和销毁函数，让当前 `owned_value`
   变为空。调用方必须使用返回的 `resource_destroy` 或 `destroy` 手动销毁对象；这是高级接口，普通代码应优先使用
   `into_any()`。
 - `make_owned_value(type, value, destroy)` 和 `make_owned_value(type, value, resource, destroy)`

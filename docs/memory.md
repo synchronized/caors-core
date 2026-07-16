@@ -166,10 +166,10 @@ if (!block) {
 }
 ```
 
-需要把裸指针交给外部系统时，可以调用 `detach()` 拆出裸指针并放弃所有权。调用方必须保存并使用原来的资源、大小和对齐释放：
+需要把裸指针交给外部系统时，可以调用 `release()` 释放所有权并返回裸指针。调用方必须保存并使用原来的资源、大小和对齐释放：
 
 ```cpp
-void* ptr = block.detach();
+void* ptr = block.release();
 tracking.deallocate(ptr, 128, 64);
 ```
 

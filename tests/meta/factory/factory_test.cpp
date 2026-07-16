@@ -56,24 +56,24 @@ TEST_CASE("meta type - factory registers custom construction strategy", "[meta]"
   CHECK(duplicate.succeeded());
 }
 
-TEST_CASE("meta type - owned value detach exposes manual destruction", "[meta]") {
+TEST_CASE("meta type - owned value release exposes manual destruction", "[meta]") {
   const caors::meta::type type = caors::meta::resolve<custom_factory_type>();
   auto* raw = new custom_factory_type(31);
   caors::owned_value value = caors::meta::make_owned_value(type, raw, [](void* instance) noexcept {
     delete static_cast<custom_factory_type*>(instance);
   });
 
-  caors::detached_owned_value detached = std::move(value).detach();
+  caors::released_owned_value released = std::move(value).release();
 
-  REQUIRE(detached.valid());
+  REQUIRE(released.valid());
   CHECK_FALSE(value.valid());
-  CHECK(detached.type.id() == type.id());
-  CHECK(detached.value == raw);
-  CHECK(detached.resource == nullptr);
-  CHECK(detached.resource_destroy == nullptr);
-  REQUIRE(detached.destroy != nullptr);
+  CHECK(released.type.id() == type.id());
+  CHECK(released.value == raw);
+  CHECK(released.resource == nullptr);
+  CHECK(released.resource_destroy == nullptr);
+  REQUIRE(released.destroy != nullptr);
 
-  detached.destroy(detached.value);
+  released.destroy(released.value);
 }
 
 // 原测试文件：meta_type_factory_meta_type_factory_registers_resource_aware_default_construction_test.cpp
@@ -103,15 +103,15 @@ TEST_CASE("meta type - factory registers resource-aware default construction", "
   CHECK(tracking.statistics().allocation_count == 1);
   CHECK(tracking.statistics().bytes_in_use >= sizeof(default_factory_type));
 
-  caors::detached_owned_value detached = std::move(constructed).detach();
-  REQUIRE(detached.valid());
+  caors::released_owned_value released = std::move(constructed).release();
+  REQUIRE(released.valid());
   CHECK_FALSE(constructed.valid());
-  CHECK(detached.type.id() == type.id());
-  CHECK(detached.resource == &tracking);
-  REQUIRE(detached.resource_destroy != nullptr);
-  CHECK(detached.destroy == nullptr);
+  CHECK(released.type.id() == type.id());
+  CHECK(released.resource == &tracking);
+  REQUIRE(released.resource_destroy != nullptr);
+  CHECK(released.destroy == nullptr);
 
-  detached.resource_destroy(detached.resource, detached.value);
+  released.resource_destroy(released.resource, released.value);
   CHECK(tracking.statistics().deallocation_count == 1);
   CHECK(tracking.statistics().bytes_in_use == 0);
 

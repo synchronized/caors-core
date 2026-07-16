@@ -91,11 +91,11 @@ public:
   [[nodiscard]] explicit operator bool() const noexcept { return ptr_ != nullptr; }
 
   /**
-   * @brief 拆出当前裸指针并放弃所有权。
+   * @brief 释放所有权并返回裸指针。
    *
    * 调用方接管释放责任，必须使用返回前记录的资源、大小和对齐释放该指针。
    */
-  [[nodiscard]] void* detach() noexcept;
+  [[nodiscard]] void* release() noexcept;
   /** @brief 释放当前内存并清空句柄。 */
   void reset() noexcept;
 

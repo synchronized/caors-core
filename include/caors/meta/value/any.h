@@ -31,8 +31,8 @@ owned_value_resource_destroy(const owned_value& value) noexcept;
 [[nodiscard]] owned_value make_owned_value(meta::type type, void* value,
                                            meta::destroy_fn destroy) noexcept;
 
-/** @brief `owned_value` 拆出所有权后的裸对象和匹配销毁函数。 */
-struct detached_owned_value {
+/** @brief `owned_value` 释放所有权后的裸对象和匹配销毁函数。 */
+struct released_owned_value {
   meta::type type{};
   void* value = nullptr;
   memory::memory_resource* resource = nullptr;
@@ -78,12 +78,12 @@ public:
   [[nodiscard]] any into_any() &&;
 
   /**
-   * @brief 拆出当前对象所有权并让当前句柄变为空。
+   * @brief 释放当前对象所有权并让当前句柄变为空。
    *
    * 这是高级所有权 API。调用方必须保存返回值里的类型、资源和销毁函数，并负责最终销毁
    * `value`，否则会泄漏。
    */
-  [[nodiscard]] detached_owned_value detach() && noexcept;
+  [[nodiscard]] released_owned_value release() && noexcept;
 
   /** @brief 销毁当前持有的对象并清空句柄。 */
   void reset() noexcept;
@@ -100,7 +100,7 @@ private:
   friend meta::resource_destroy_fn
   detail::owned_value_resource_destroy(const owned_value&) noexcept;
 
-  void clear_detached() noexcept;
+  void clear_released() noexcept;
 
   meta::type type_{};
   void* data_ = nullptr;
@@ -347,8 +347,8 @@ inline any constructor_capability::construct(std::span<const any_ref> arguments,
 namespace caors {
 
 using meta::any;
-using meta::detached_owned_value;
 using meta::owned_value;
+using meta::released_owned_value;
 
 } // namespace caors
 

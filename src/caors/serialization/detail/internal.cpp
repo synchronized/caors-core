@@ -322,7 +322,7 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
       return {error_domain::serialization, errc::invalid_field};
     }
 
-    instance.detach();
+    instance.release();
     return {};
   }
 
@@ -330,7 +330,7 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
     return {error_domain::serialization, errc::invalid_field};
   }
 
-  instance.detach();
+  instance.release();
   return {};
 }
 
@@ -395,7 +395,7 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
       return {error_domain::serialization, errc::invalid_field};
     }
 
-    instance.detach();
+    instance.release();
     return {};
   }
 
@@ -411,7 +411,7 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
     return {error_domain::serialization, errc::invalid_field};
   }
 
-  instance.detach();
+  instance.release();
   return {};
 }
 

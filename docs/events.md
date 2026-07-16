@@ -147,7 +147,7 @@ changed.emit(20); // listener 已断开。
 - signal 不做线程同步；跨线程连接、断开或 emit 时调用方需要自行加锁。
 - signal 不拥有监听对象，也不延长对象生命周期。
 - `connection` 和 `scoped_connection` 必须在对应 signal 存活期间使用。
-- `connection::detach()` 和 `scoped_connection::detach()` 只拆离句柄，不会主动断开订阅。
+- `connection::release()` 和 `scoped_connection::release()` 只释放句柄所有权，不会主动断开订阅。
 - emit 期间断开连接会延迟清理；emit 期间新增的监听者从下一次 emit 开始生效。
 - 大对象参数建议使用 `const T&` 作为 signal 签名，避免多监听者广播时发生不必要拷贝。
 

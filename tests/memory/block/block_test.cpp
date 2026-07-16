@@ -26,19 +26,19 @@ TEST_CASE("memory - memory block moves ownership", "[memory]") {
   CHECK(tracking.statistics().bytes_in_use == 0);
 }
 
-// 原测试文件：memory_block_memory_memory_block_detach_transfers_manual_ownership_test.cpp
+// 原测试文件：memory_block_memory_memory_block_release_transfers_manual_ownership_test.cpp
 
 #include "memory_block_test_support.h"
 
 using namespace caors::tests::memory_block;
-TEST_CASE("memory - memory block detach transfers manual ownership", "[memory]") {
+TEST_CASE("memory - memory block release transfers manual ownership", "[memory]") {
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
   caors::memory_block block = caors::allocate_block(80, 16, &tracking);
   caors::memory_resource* resource = block.resource();
   const std::size_t size = block.size();
   const std::size_t alignment = block.alignment();
 
-  void* ptr = block.detach();
+  void* ptr = block.release();
 
   REQUIRE(ptr != nullptr);
   CHECK_FALSE(block);

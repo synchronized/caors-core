@@ -61,8 +61,8 @@ public:
     return disconnected;
   }
 
-  /** @brief 拆离句柄但不主动断开订阅。 */
-  void detach() noexcept { reset(); }
+  /** @brief 释放句柄但不主动断开订阅。 */
+  void release() noexcept { reset(); }
 
 private:
   void reset() noexcept {
@@ -120,8 +120,8 @@ public:
     current_ = std::move(next);
   }
 
-  /** @brief 拆出连接句柄并交给调用方，析构时不再自动断开。 */
-  [[nodiscard]] connection detach() noexcept { return std::move(current_); }
+  /** @brief 释放连接句柄并交给调用方，析构时不再自动断开。 */
+  [[nodiscard]] connection release() noexcept { return std::move(current_); }
 
 private:
   connection current_{};

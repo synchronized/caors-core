@@ -434,8 +434,8 @@ inline caors::serialization::construction_result construct_non_default_value_for
   caors::owned_value value = constructor.construct_owned(
       std::span<const caors::any_ref>{arguments.data(), arguments.size()},
       context.effective_memory_resource());
-  caors::detached_owned_value detached = std::move(value).detach();
-  return {detached.value, detached.resource_destroy};
+  caors::released_owned_value released = std::move(value).release();
+  return {released.value, released.resource_destroy};
 }
 
 inline caors::serialization::context non_default_construction_context() {
