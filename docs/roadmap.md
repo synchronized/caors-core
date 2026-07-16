@@ -269,7 +269,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `load_request` 保存 queued/loading/loaded/failed/cancelled 状态、错误和结果 handle，调用方跨帧查询状态后再获取结果。
 - [x] 补充异步资源请求的基础取消语义：queued/loading 可取消，已开始的 loader 不强制中断，但取消后不再提交
   cache commit。
-- [ ] 扩展异步资源请求进度语义，支持 loader 报告可选进度和阶段文本。
+- [x] 扩展异步资源请求进度语义，支持 loader 报告可选进度和阶段文本，并让
+  `preload_request::progress()` 聚合底层 load request 的内部进度。
 - [x] 实现资源异步执行器和后台任务队列：后台阶段只做 provider 读取、loader 解码和资源对象构造，不直接修改
   `cache<T>`、manifest 或运行期对象状态。
 - [x] 实现主线程 commit 阶段：第一版通过 `tasks::completion_queue::drain()` 将已完成异步结果插入或替换 cache，

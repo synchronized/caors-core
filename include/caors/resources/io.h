@@ -19,6 +19,50 @@ namespace caors::resources {
 template <typename T> using load_result = result<memory::unique_ptr<T>>;
 template <typename T> using handle_result = result<handle<T>>;
 
+/** @brief 资源加载进度快照。 */
+struct progress_update {
+  /** @brief 0.0 到 1.0 的进度值，调用方会按范围裁剪。 */
+  double value = 0.0;
+  /** @brief 当前加载阶段文本。该视图只在 report 调用期间有效。 */
+  std::string_view stage{};
+};
+
+/**
+ * @brief loader 可选使用的进度上报器。
+ *
+ * `progress_reporter` 是轻量非拥有回调视图，只在 `loader::load()` 调用期间有效。loader
+ * 不应保存它或跨线程延后调用。
+ */
+class progress_reporter final {
+public:
+  using report_fn = void (*)(void* context, progress_update update) noexcept;
+
+  progress_reporter() noexcept = default;
+
+  progress_reporter(void* context, report_fn report) noexcept
+      : context_(context), report_(report) {}
+
+  /** @brief 判断当前 reporter 是否绑定到请求状态。 */
+  [[nodiscard]] bool valid() const noexcept { return report_ != nullptr; }
+  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
+
+  /** @brief 上报一次进度快照。 */
+  void report(double value, std::string_view stage = {}) const noexcept {
+    if (report_ != nullptr) {
+      report_(context_, progress_update{value, stage});
+    }
+  }
+
+  /** @brief 便捷调用形式，等价于 `report(value, stage)`。 */
+  void operator()(double value, std::string_view stage = {}) const noexcept {
+    report(value, stage);
+  }
+
+private:
+  void* context_ = nullptr;
+  report_fn report_ = nullptr;
+};
+
 /**
  * @brief 指定资源类型的加载器接口。
  *
@@ -43,6 +87,17 @@ public:
   /** @brief 按 GUID 加载资源，返回资源所有权。 */
   [[nodiscard]] virtual load_result<resource_type> load(resource_guid guid,
                                                         memory_resource* resource = nullptr) = 0;
+
+  /**
+   * @brief 按 GUID 加载资源，并可选择上报进度。
+   *
+   * 默认实现忽略 reporter 并转调旧的两参数 `load()`，因此已有 loader 不需要修改。
+   */
+  [[nodiscard]] virtual load_result<resource_type>
+  load(resource_guid guid, memory_resource* resource, progress_reporter reporter) {
+    (void)reporter;
+    return load(guid, resource);
+  }
 };
 
 /**
@@ -354,6 +409,8 @@ template <typename T> using resource_json_loader = resources::json_loader<T>;
 template <typename T> using resource_json_saver = resources::json_saver<T>;
 template <typename T> using resource_loader = resources::loader<T>;
 template <typename T> using resource_saver = resources::saver<T>;
+using resource_progress_reporter = resources::progress_reporter;
+using resource_progress_update = resources::progress_update;
 
 using resources::load_handle_into;
 using resources::load_manifest;

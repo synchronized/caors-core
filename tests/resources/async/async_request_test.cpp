@@ -61,6 +61,64 @@ public:
   caors::error status{};
 };
 
+class progress_async_loader final : public caors::resource_loader<async_resource> {
+public:
+  [[nodiscard]] caors::resource_load_result<async_resource>
+  load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {
+    auto loaded = caors::memory::make_unique<async_resource>(resource, guid);
+    loaded->value = next_value;
+    return {{}, std::move(loaded)};
+  }
+
+  [[nodiscard]] caors::resource_load_result<async_resource>
+  load(caors::resource_guid guid, caors::memory_resource* resource,
+       caors::resource_progress_reporter reporter) override {
+    reporter.report(0.25, "read");
+    reporter(0.75, "decode");
+    return load(guid, resource);
+  }
+
+  int next_value = 0;
+};
+
+class progress_texture_loader final : public caors::resource_loader<texture_resource> {
+public:
+  [[nodiscard]] caors::resource_load_result<texture_resource>
+  load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {
+    auto loaded = caors::memory::make_unique<texture_resource>(resource, guid);
+    return {{}, std::move(loaded)};
+  }
+
+  [[nodiscard]] caors::resource_load_result<texture_resource>
+  load(caors::resource_guid guid, caors::memory_resource* resource,
+       caors::resource_progress_reporter reporter) override {
+    ++load_count;
+    reporter.report(0.5, "texture");
+    return load(guid, resource);
+  }
+
+  int load_count = 0;
+};
+
+class progress_material_loader final : public caors::resource_loader<async_material_resource> {
+public:
+  [[nodiscard]] caors::resource_load_result<async_material_resource>
+  load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {
+    auto loaded = caors::memory::make_unique<async_material_resource>(resource, guid);
+    return {{}, std::move(loaded)};
+  }
+
+  [[nodiscard]] caors::resource_load_result<async_material_resource>
+  load(caors::resource_guid guid, caors::memory_resource* resource,
+       caors::resource_progress_reporter reporter) override {
+    ++load_count;
+    reporter.report(0.5, "material");
+    return load(guid, resource);
+  }
+
+  int load_count = 0;
+};
+
 [[nodiscard]] caors::string_name texture_manifest_type() {
   return caors::string_name{"caors.test.resources.async_texture"};
 }
@@ -144,6 +202,29 @@ TEST_CASE("resources - async load commits loaded resource through completion que
   CHECK(cache.find(test_guid_a) == request.try_get().get());
   CHECK(loader.load_count.load() == 1);
   CHECK_FALSE(request.cancel());
+}
+
+TEST_CASE("resources - async load reports loader progress and stage", "[resources]") {
+  caors::resource_cache<async_resource> cache;
+  progress_async_loader loader;
+  loader.next_value = 17;
+  caors::tasks::inline_executor executor;
+  caors::tasks::completion_queue completions;
+
+  caors::resource_load_request<async_resource> request =
+      caors::request_load_into(cache, loader, test_guid_a, executor, completions);
+
+  CHECK(request.status() == caors::resource_request_status::loading);
+  CHECK(request.progress() == Catch::Approx(0.75));
+  CHECK(std::string{request.progress_stage().data(), request.progress_stage().size()} == "decode");
+
+  CHECK(completions.drain() == 1);
+
+  REQUIRE(request.loaded());
+  CHECK(request.progress() == Catch::Approx(1.0));
+  CHECK(request.progress_stage() == "decode");
+  REQUIRE(request.try_get());
+  CHECK(request.try_get()->value == 17);
 }
 
 TEST_CASE("resources - async load returns cached resource immediately", "[resources]") {
@@ -500,6 +581,50 @@ TEST_CASE("resources - database async preload dispatches manifest types", "[reso
   REQUIRE(result.succeeded());
   CHECK(contains_item(result.loaded, test_guid_b, texture_manifest_type()));
   CHECK(contains_item(result.loaded, test_guid_a, material_manifest_type()));
+}
+
+TEST_CASE("resources - database async preload aggregates loader progress", "[resources]") {
+  require_async_preload_metadata();
+
+  caors::resource_manifest manifest;
+  REQUIRE(manifest.bind(test_guid_a, "materials/body.json", material_manifest_type()).succeeded());
+  REQUIRE(manifest.bind(test_guid_b, "textures/albedo.json", texture_manifest_type()).succeeded());
+
+  caors::resource_dependency_graph graph;
+  REQUIRE(graph.add(test_guid_a, test_guid_b));
+
+  caors::resource_cache<texture_resource> texture_cache;
+  progress_texture_loader texture_loader;
+  caors::resource_cache<async_material_resource> material_cache;
+  progress_material_loader material_loader;
+
+  caors::resource_database database;
+  database.set_manifest(manifest);
+  database.set_dependency_graph(graph);
+  REQUIRE(
+      database.register_type(texture_cache, texture_loader, texture_manifest_type()).succeeded());
+  REQUIRE(database.register_type(material_cache, material_loader, material_manifest_type())
+              .succeeded());
+
+  caors::tasks::inline_executor executor;
+  caors::tasks::completion_queue completions;
+
+  caors::resource_preload_request request =
+      database.request_preload(test_guid_a, executor, completions);
+
+  CHECK(request.status() == caors::resource_request_status::loading);
+  CHECK(request.total_count() == 2);
+  CHECK(request.progress() == Catch::Approx(0.5));
+  CHECK(request.progress_stage() == "material");
+  CHECK(completions.size() == 2);
+
+  CHECK(completions.drain() == 2);
+
+  REQUIRE(request.loaded());
+  CHECK(request.progress() == Catch::Approx(1.0));
+  CHECK(request.loaded_count() == 2);
+  CHECK(texture_loader.load_count == 1);
+  CHECK(material_loader.load_count == 1);
 }
 
 TEST_CASE("resources - database async preload reuses pending direct load request", "[resources]") {

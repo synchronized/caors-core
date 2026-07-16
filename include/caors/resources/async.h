@@ -15,6 +15,7 @@
 #include <cstddef>
 #include <memory>
 #include <mutex>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 
@@ -43,9 +44,20 @@ namespace detail {
 template <typename T> class load_request_access;
 class preload_request_access;
 
+[[nodiscard]] inline double clamp_progress(double value) noexcept {
+  if (!(value >= 0.0)) {
+    return 0.0;
+  }
+  if (value > 1.0) {
+    return 1.0;
+  }
+  return value;
+}
+
 struct preload_request_state {
   explicit preload_request_state(memory_resource* memory)
-      : resource(memory != nullptr ? memory : get_default_memory_resource()), result(resource) {}
+      : resource(memory != nullptr ? memory : get_default_memory_resource()), result(resource),
+        item_progress(allocator<double>{resource}), progress_stage(allocator<char>{resource}) {}
 
   memory_resource* resource = nullptr;
   mutable std::mutex mutex{};
@@ -55,6 +67,8 @@ struct preload_request_state {
   std::size_t total = 0;
   std::size_t loaded = 0;
   std::size_t failed = 0;
+  core::vector<double> item_progress;
+  core::string progress_stage;
 };
 
 template <typename T>
@@ -213,6 +227,33 @@ public:
     return {{error_domain::resources, errc::backend_failure}, {}};
   }
 
+  /** @brief 返回 0.0 到 1.0 的非阻塞加载进度。终态请求返回 1.0。 */
+  [[nodiscard]] double progress() const {
+    if (state_ == nullptr) {
+      return 0.0;
+    }
+
+    std::lock_guard lock{state_->mutex};
+    if (state_->status == request_status::loaded || state_->status == request_status::failed ||
+        state_->status == request_status::cancelled) {
+      return 1.0;
+    }
+
+    return state_->progress;
+  }
+
+  /** @brief 返回最近一次 loader 上报的阶段文本。 */
+  [[nodiscard]] core::string progress_stage() const {
+    core::string result{allocator<char>{state_ != nullptr ? state_->resource : nullptr}};
+    if (state_ == nullptr) {
+      return result;
+    }
+
+    std::lock_guard lock{state_->mutex};
+    result = state_->progress_stage;
+    return result;
+  }
+
 private:
   friend class detail::load_request_access<T>;
   friend class load_request_table<T>;
@@ -228,13 +269,16 @@ private:
     };
 
     explicit state_type(memory_resource* resource)
-        : resource(resource), preload_observers(allocator<preload_observer>{resource}) {}
+        : resource(resource), progress_stage(allocator<char>{resource}),
+          preload_observers(allocator<preload_observer>{resource}) {}
 
     memory_resource* resource = nullptr;
     mutable std::mutex mutex{};
     request_status status = request_status::queued;
     caors::error status_error{};
     handle<T> value{};
+    double progress = 0.0;
+    core::string progress_stage;
     bool commit_unconditionally = false;
     core::vector<preload_observer> preload_observers;
   };
@@ -484,8 +528,24 @@ public:
       return 1.0;
     }
 
-    return static_cast<double>(state_->loaded + state_->failed) /
-           static_cast<double>(state_->total);
+    double progress = 0.0;
+    for (double item_progress : state_->item_progress) {
+      progress += detail::clamp_progress(item_progress);
+    }
+
+    return progress / static_cast<double>(state_->total);
+  }
+
+  /** @brief 返回最近一次底层 loader 上报的阶段文本。 */
+  [[nodiscard]] core::string progress_stage() const {
+    core::string result{allocator<char>{state_ != nullptr ? state_->resource : nullptr}};
+    if (state_ == nullptr) {
+      return result;
+    }
+
+    std::lock_guard lock{state_->mutex};
+    result = state_->progress_stage;
+    return result;
   }
 
 private:
@@ -539,6 +599,8 @@ public:
     state->status = request_status::loading;
     state->status_error = {};
     state->value = {};
+    state->progress = 0.0;
+    state->progress_stage.clear();
     return true;
   }
 
@@ -560,6 +622,7 @@ public:
     state->status = request_status::loaded;
     state->status_error = {};
     state->value = std::move(value);
+    state->progress = 1.0;
     return true;
   }
 
@@ -582,6 +645,7 @@ public:
     state->status_error =
         status ? status : caors::error{error_domain::resources, errc::backend_failure};
     state->value = {};
+    state->progress = 1.0;
   }
 
   [[nodiscard]] static bool cancel(const request_type& request) { return cancel(request.state_); }
@@ -600,6 +664,7 @@ public:
       state->status = request_status::cancelled;
       state->status_error = {error_domain::resources, errc::cancelled};
       state->value = {};
+      state->progress = 1.0;
     }
 
     notify_preload_observers(state);
@@ -617,6 +682,8 @@ public:
 
   static void observe_preload(const request_type& request, preload_item item,
                               const std::shared_ptr<preload_request_state>& preload_state);
+
+  static void report_progress(const std::shared_ptr<state_type>& state, progress_update update);
 
   static void notify_preload_observers(const std::shared_ptr<state_type>& state);
 
@@ -656,6 +723,8 @@ public:
     request.state_->total = request.state_->result.plan.load_order.size();
     request.state_->loaded = 0;
     request.state_->failed = 0;
+    request.state_->item_progress.assign(request.state_->total, 0.0);
+    request.state_->progress_stage.clear();
     request.state_->status_error = {};
 
     if (request.state_->result.plan.failed()) {
@@ -705,6 +774,9 @@ public:
 
     state->result.loaded.push_back(item);
     ++state->loaded;
+    if (std::size_t index = item_index(*state, item); index < state->item_progress.size()) {
+      state->item_progress[index] = 1.0;
+    }
     if (state->loaded + state->failed >= state->total) {
       state->status = request_status::loaded;
       state->status_error = {};
@@ -735,7 +807,6 @@ public:
 
   static void fail_item(const std::shared_ptr<state_type>& state, preload_item item,
                         caors::error status) {
-    (void)item;
     if (state == nullptr) {
       return;
     }
@@ -747,6 +818,9 @@ public:
     }
 
     ++state->failed;
+    if (std::size_t index = item_index(*state, item); index < state->item_progress.size()) {
+      state->item_progress[index] = 1.0;
+    }
     state->status = request_status::failed;
     state->status_error =
         status ? status : caors::error{error_domain::resources, errc::backend_failure};
@@ -780,6 +854,39 @@ public:
     return state->status != request_status::cancelled && state->status != request_status::failed &&
            state->status != request_status::loaded;
   }
+
+  static void report_item_progress(const std::shared_ptr<state_type>& state, preload_item item,
+                                   progress_update update) {
+    if (state == nullptr) {
+      return;
+    }
+
+    std::lock_guard lock{state->mutex};
+    if (state->status == request_status::cancelled || state->status == request_status::failed ||
+        state->status == request_status::loaded) {
+      return;
+    }
+
+    const std::size_t index = item_index(*state, item);
+    if (index < state->item_progress.size()) {
+      state->item_progress[index] = clamp_progress(update.value);
+    }
+    if (!update.stage.empty()) {
+      state->progress_stage.assign(update.stage.data(), update.stage.size());
+    }
+  }
+
+private:
+  [[nodiscard]] static std::size_t item_index(const state_type& state, preload_item item) {
+    const auto& values = state.result.plan.load_order;
+    for (std::size_t index = 0; index < values.size(); ++index) {
+      if (values[index] == item) {
+        return index;
+      }
+    }
+
+    return values.size();
+  }
 };
 
 template <typename T>
@@ -804,6 +911,34 @@ void load_request_access<T>::observe_preload(
   }
 
   notify_preload_observer(observer, status, status_error);
+}
+
+template <typename T>
+void load_request_access<T>::report_progress(const std::shared_ptr<state_type>& state,
+                                             progress_update update) {
+  if (state == nullptr) {
+    return;
+  }
+
+  using observer_type = typename state_type::preload_observer;
+  core::vector<observer_type> observers{allocator<observer_type>{state->resource}};
+  {
+    std::lock_guard lock{state->mutex};
+    if (state->status != request_status::queued && state->status != request_status::loading) {
+      return;
+    }
+
+    state->progress = clamp_progress(update.value);
+    if (!update.stage.empty()) {
+      state->progress_stage.assign(update.stage.data(), update.stage.size());
+    }
+    observers = state->preload_observers;
+  }
+
+  for (const observer_type& observer : observers) {
+    const std::shared_ptr<preload_request_state> preload_state = observer.state.lock();
+    preload_request_access::report_item_progress(preload_state, observer.item, update);
+  }
 }
 
 template <typename T>
@@ -933,7 +1068,12 @@ void load_resource_in_background(const StatePtr& state, cache<T>& target, loader
 #if CAORS_HAS_EXCEPTIONS
   try {
 #endif
-    load_result<T> loaded = source.load(guid, target.resource());
+    StatePtr progress_state = state;
+    progress_reporter reporter{&progress_state, [](void* context, progress_update update) noexcept {
+                                 const auto& typed_state = *static_cast<const StatePtr*>(context);
+                                 load_request_access<T>::report_progress(typed_state, update);
+                               }};
+    load_result<T> loaded = source.load(guid, target.resource(), reporter);
     if (loaded.failed()) {
       load_request_access<T>::fail(state, loaded.status);
       if (requests != nullptr) {

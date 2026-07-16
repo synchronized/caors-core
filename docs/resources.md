@@ -311,7 +311,7 @@ caors::resource_json_loader<texture> loader{provider};
 caors::tasks::thread_pool_executor executor{2};
 caors::tasks::completion_queue completions;
 
-auto request = caors::request_load_handle_into(cache, loader, texture_id, executor, completions);
+auto request = caors::request_load_into(cache, loader, texture_id, executor, completions);
 
 // 后台任务完成后，在主线程明确时机提交 cache 修改。
 completions.drain();
@@ -384,6 +384,32 @@ if (request.loaded()) {
 - `try_get()`：非阻塞；loaded 时返回结果 handle，未完成、失败或取消时返回空 handle。
 - `result()`：非阻塞；loaded 返回成功和结果 handle，queued/loading 返回 `resources / pending`，
   cancelled 返回 `resources / cancelled`，failed 返回原始错误。
+- `progress()`：非阻塞；queued/loading 返回最近一次 loader 上报的 0.0 到 1.0 进度，终态返回 1.0。
+- `progress_stage()`：返回最近一次 loader 上报的阶段文本副本。
+
+loader 可选择覆盖带 `resource_progress_reporter` 的重载来上报内部阶段进度；不覆盖时默认忽略进度并转调旧
+`load(guid, resource)`：
+
+```cpp
+class texture_loader final : public caors::resource_loader<texture> {
+public:
+  caors::resource_load_result<texture>
+  load(caors::resource_guid guid, caors::memory_resource* resource) override {
+    return {{}, caors::memory::make_unique<texture>(resource, guid)};
+  }
+
+  caors::resource_load_result<texture>
+  load(caors::resource_guid guid,
+       caors::memory_resource* resource,
+       caors::resource_progress_reporter progress) override {
+    progress.report(0.25, "read");
+    progress.report(0.75, "decode");
+    return load(guid, resource);
+  }
+};
+```
+
+`resource_progress_reporter` 只在 `load()` 调用期间有效，loader 不应保存它或跨线程延后调用。
 
 `preload_request` 是批量请求句柄，不直接保存每个资源的强 handle；成功加载的资源由对应 `cache<T>`
 持有，调用方可通过 cache 或 database 查询。它额外提供：
@@ -392,7 +418,8 @@ if (request.loaded()) {
 - `loaded_count()`：已经在 completion queue drain 阶段成功提交到 cache 的资源数量。
 - `failed_count()`：已经失败的资源数量。
 - `pending_count()`：还未结束的资源数量；请求进入 loaded、failed 或 cancelled 后返回 0。
-- `progress()`：非阻塞聚合进度。第一版只统计已结束项，不读取 loader 内部阶段进度。
+- `progress()`：非阻塞聚合进度。它按本次实际提交的资源项平均计算，未完成项会使用对应 loader 最近一次上报的内部进度。
+- `progress_stage()`：返回最近一次底层 loader 上报的阶段文本副本。
 - `result()`：返回本次 `preload_plan` 和已经成功提交的 `loaded` 列表；queued/loading 时
   `status` 为 `resources / pending`。
 
@@ -426,9 +453,8 @@ if (request.loaded()) {
 - `load_request<T>` 自身状态查询是线程安全的。
 - `preload_request` 自身状态查询是线程安全的。
 - `completion_queue::drain()` 应在拥有 cache 的线程调用。
-- 第一版 `load_request<T>::try_get()` 和 `result()` 都不阻塞；等待、批量轮询和进度聚合后续再补。
-- 第一版异步预加载已复用同类型同 GUID 的进行中 load 请求；优先级、分层依赖等待和 loader 内部进度上报
-  后续再补。
+- 第一版 `load_request<T>::try_get()` 和 `result()` 都不阻塞；等待和批量轮询后续再补。
+- 第一版异步预加载已复用同类型同 GUID 的进行中 load 请求；优先级和分层依赖等待后续再补。
 
 ## 序列化
 
