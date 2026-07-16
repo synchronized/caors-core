@@ -8,7 +8,7 @@
 using namespace caors::tests::resources;
 
 TEST_CASE("resources - manager binds and finds resources", "[resources]") {
-  caors::resource_manager manager;
+  caors::resources::manager manager;
   texture_resource texture{test_guid_a};
 
   CHECK(manager.empty());
@@ -32,7 +32,7 @@ TEST_CASE("resources - manager binds and finds resources", "[resources]") {
 using namespace caors::tests::resources;
 
 TEST_CASE("resources - manager can assign guid while binding", "[resources]") {
-  caors::resource_manager manager;
+  caors::resources::manager manager;
   texture_resource texture;
 
   REQUIRE(manager.bind(test_guid_a, &texture));
@@ -48,7 +48,7 @@ TEST_CASE("resources - manager can assign guid while binding", "[resources]") {
 using namespace caors::tests::resources;
 
 TEST_CASE("resources - manager clears without destroying resources", "[resources]") {
-  caors::resource_manager manager;
+  caors::resources::manager manager;
   texture_resource texture{test_guid_a};
 
   REQUIRE(manager.bind(&texture));
@@ -67,7 +67,7 @@ TEST_CASE("resources - manager clears without destroying resources", "[resources
 using namespace caors::tests::resources;
 
 TEST_CASE("resources - manager rejects conflicting bindings", "[resources]") {
-  caors::resource_manager manager;
+  caors::resources::manager manager;
   texture_resource first{test_guid_a};
   texture_resource second{test_guid_b};
 
@@ -90,7 +90,7 @@ TEST_CASE("resources - manager rejects conflicting bindings", "[resources]") {
 using namespace caors::tests::resources;
 
 TEST_CASE("resources - manager resolves resource refs", "[resources]") {
-  caors::resource_manager manager;
+  caors::resources::manager manager;
   image_texture_resource image{test_guid_a};
   texture_resource other{test_guid_b};
 
@@ -124,7 +124,7 @@ TEST_CASE("resources - manager resolves resource refs", "[resources]") {
 using namespace caors::tests::resources;
 
 TEST_CASE("resources - manager tracks resource binding generations", "[resources]") {
-  caors::resource_manager manager;
+  caors::resources::manager manager;
   texture_resource texture{test_guid_a};
 
   REQUIRE(manager.bind(&texture));
@@ -159,7 +159,7 @@ TEST_CASE("resources - manager tracks resource binding generations", "[resources
 using namespace caors::tests::resources;
 
 TEST_CASE("resources - manager unbinds by guid and resource pointer", "[resources]") {
-  caors::resource_manager manager;
+  caors::resources::manager manager;
   texture_resource first{test_guid_a};
   texture_resource second{test_guid_b};
 

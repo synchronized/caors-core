@@ -338,17 +338,4 @@ template <typename T> struct codec_traits<resources::ref<T>> {
 
 } // namespace caors::serialization
 
-namespace caors {
-
-using resources::add_resource_dependencies;
-using resources::make_resource_resolver;
-using resources::replace_resource_dependencies;
-using resource_dependency = resources::resource_dependency;
-using resource_dependency_collector_ops = resources::resource_dependency_collector_ops;
-using resource_dependency_list = resources::resource_dependency_list;
-using resource_ref_resolution = resources::resource_ref_resolution;
-using resource_ref_resolver_ops = resources::resource_ref_resolver_ops;
-
-} // namespace caors
-
 #endif

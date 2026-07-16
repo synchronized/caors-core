@@ -154,13 +154,4 @@ private:
 
 } // namespace caors::resources
 
-namespace caors {
-
-using resource_file_source = resources::file_source;
-using resource_provider = resources::provider;
-using resource_source = resources::source;
-using resource_source_location = resources::source_location;
-
-} // namespace caors
-
 #endif

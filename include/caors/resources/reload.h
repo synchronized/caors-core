@@ -44,13 +44,4 @@ template <typename T>
 
 } // namespace caors::resources
 
-namespace caors {
-
-template <typename T> using resource_reload_event = resources::reload_event<T>;
-template <typename T> using resource_reload_signal = resources::reload_signal<T>;
-
-using resources::reload_and_notify;
-
-} // namespace caors
-
 #endif

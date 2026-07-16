@@ -573,11 +573,11 @@ context.resolvers.external_refs.resolver = &resolver;
 
 ```cpp
 caors::resource_cache<texture> cache;
-caors::resource_ref_resolver_ops resolver = caors::make_resource_resolver(cache);
+caors::resources::resource_ref_resolver_ops resolver = caors::resources::make_resource_resolver(cache);
 
 caors::serialization::context context{};
 context.resolvers.external_refs.resolver = &resolver;
-context.resolvers.external_refs.resolution = caors::resource_ref_resolution::resolve_if_present;
+context.resolvers.external_refs.resolution = caors::resources::resource_ref_resolution::resolve_if_present;
 
 material decoded{};
 caors::deserialize(context, decoded, json_text);
@@ -599,8 +599,8 @@ caors::deserialize(context, decoded, json_text);
 时会记录 `{resource_guid, type_id}`：
 
 ```cpp
-caors::resource_dependency_list dependencies;
-caors::resource_dependency_collector_ops collector = dependencies.collector();
+caors::resources::resource_dependency_list dependencies;
+caors::resources::resource_dependency_collector_ops collector = dependencies.collector();
 
 caors::serialization::context context{};
 context.resolvers.external_refs.collector = &collector;
@@ -608,7 +608,7 @@ context.resolvers.external_refs.collector = &collector;
 caors::to_string(context, material_value);
 
 caors::resource_dependency_graph graph;
-caors::replace_resource_dependencies(graph, material_resource_guid, dependencies);
+caors::resources::replace_resource_dependencies(graph, material_resource_guid, dependencies);
 ```
 
 依赖收集不加载资源，也不改变 `resource_ref<T>` 的 resolved 状态。它主要服务于预加载、打包、

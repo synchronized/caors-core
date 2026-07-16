@@ -19,8 +19,9 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 为 `io::native_file_system` 增加可选 root 目录，使 mount 层只负责虚拟路径分发和可选子路径重映射。
 - [ ] 将 `result<T>` 逐步收敛为更接近 `expected<T, error>` 的语义，减少 `value/error/status`
   之间的重复表达。
-- [ ] 清理根命名空间下不常用或不推荐继续使用的别名，只保留高频便捷别名，降低 API 表面噪声；
-  序列化模块已先行收敛到 `serialize` / `deserialize` / `to_value` / `to_string`。
+- [x] 清理根命名空间下不常用或不推荐继续使用的别名，只保留高频便捷别名，降低 API 表面噪声；
+  序列化模块已先行收敛到 `serialize` / `deserialize` / `to_value` / `to_string`，资源模块低层
+  source/provider/loader/request/config/helper 别名已收敛回 `caors::resources` 命名空间。
 - [ ] 在 core 主题下逐步补充 small_vector、stable_vector 等基础容器。
 
 ## 1. 类型元数据底座

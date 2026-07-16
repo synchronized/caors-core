@@ -19,9 +19,9 @@ public:
   inline static int destroyed = 0;
 };
 
-class reload_resource_loader final : public caors::resource_loader<reload_resource> {
+class reload_resource_loader final : public caors::resources::loader<reload_resource> {
 public:
-  [[nodiscard]] caors::resource_load_result<reload_resource>
+  [[nodiscard]] caors::resources::load_result<reload_resource>
   load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {
     ++load_count;
     if (status.failed()) {
@@ -78,8 +78,8 @@ TEST_CASE("resources - reload_handle_into replaces existing cache entries", "[re
   reload_resource_loader loader;
   loader.width = 512;
 
-  caors::resource_handle_result<reload_resource> reloaded =
-      caors::reload_handle_into(cache, loader, test_guid_a);
+  caors::resources::handle_result<reload_resource> reloaded =
+      caors::resources::reload_handle_into(cache, loader, test_guid_a);
 
   REQUIRE(reloaded.succeeded());
   REQUIRE(reloaded.value);
@@ -104,8 +104,8 @@ TEST_CASE("resources - reload_handle_into keeps old cache entry when loading fai
   reload_resource_loader loader;
   loader.status = {caors::error_domain::resources, caors::errc::backend_failure};
 
-  caors::resource_handle_result<reload_resource> reloaded =
-      caors::reload_handle_into(cache, loader, test_guid_a);
+  caors::resources::handle_result<reload_resource> reloaded =
+      caors::resources::reload_handle_into(cache, loader, test_guid_a);
 
   CHECK(reloaded.failed());
   CHECK(reloaded.status ==
@@ -120,8 +120,8 @@ TEST_CASE("resources - reload_handle_into rejects missing and mismatched resourc
   caors::resource_cache<reload_resource> cache;
   reload_resource_loader loader;
 
-  caors::resource_handle_result<reload_resource> missing =
-      caors::reload_handle_into(cache, loader, test_guid_a);
+  caors::resources::handle_result<reload_resource> missing =
+      caors::resources::reload_handle_into(cache, loader, test_guid_a);
   CHECK(missing.failed());
   CHECK(missing.status == caors::error{caors::error_domain::resources, caors::errc::not_found});
 
@@ -132,8 +132,8 @@ TEST_CASE("resources - reload_handle_into rejects missing and mismatched resourc
   loader.width = 512;
   loader.forced_guid = test_guid_b;
 
-  caors::resource_handle_result<reload_resource> mismatched =
-      caors::reload_handle_into(cache, loader, test_guid_a);
+  caors::resources::handle_result<reload_resource> mismatched =
+      caors::resources::reload_handle_into(cache, loader, test_guid_a);
 
   CHECK(mismatched.failed());
   CHECK(mismatched.status ==

@@ -19,15 +19,15 @@ TEST_CASE("resources - provider reads bytes from file source", "[resources]") {
   const std::string file_path = path_string(file);
   REQUIRE(native.write_all(file_path, std::string_view{"texture-bytes"}).succeeded());
 
-  caors::resource_file_source source{native};
-  caors::resource_provider provider;
+  caors::resources::file_source source{native};
+  caors::resources::provider provider;
 
   REQUIRE(provider.bind(test_guid_a, source, file_path).succeeded());
   CHECK(provider.size() == 1);
   CHECK(provider.contains(test_guid_a));
   CHECK(provider.exists(test_guid_a));
 
-  const caors::resource_source_location location = provider.find(test_guid_a);
+  const caors::resources::source_location location = provider.find(test_guid_a);
   REQUIRE(location);
   CHECK(location.source == &source);
   CHECK(location.location.string_view() == file_path);
@@ -51,8 +51,8 @@ using namespace caors::tests::resources;
 
 TEST_CASE("resources - provider reports invalid and missing resources", "[resources]") {
   caors::native_file_system native;
-  caors::resource_file_source source{native};
-  caors::resource_provider provider;
+  caors::resources::file_source source{native};
+  caors::resources::provider provider;
 
   caors::error invalid_guid = provider.bind(caors::resource_guid::nil(), source, "asset.txt");
   REQUIRE(invalid_guid.failed());
@@ -100,7 +100,7 @@ using namespace caors::tests::resources;
 
 TEST_CASE("resources - provider reports unsupported writes for read only sources", "[resources]") {
   read_only_source source;
-  caors::resource_provider provider;
+  caors::resources::provider provider;
 
   REQUIRE(provider.bind(test_guid_a, source, "assets/generated.txt").succeeded());
 
@@ -118,8 +118,8 @@ using namespace caors::tests::resources;
 
 TEST_CASE("resources - provider writes bytes through file source", "[resources]") {
   caors::memory_file_system files;
-  caors::resource_file_source source{files};
-  caors::resource_provider provider;
+  caors::resources::file_source source{files};
+  caors::resources::provider provider;
 
   REQUIRE(provider.bind(test_guid_a, source, "assets/generated.txt").succeeded());
   REQUIRE(provider.write(test_guid_a, std::string_view{"generated-bytes"}).succeeded());

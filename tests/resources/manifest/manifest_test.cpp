@@ -11,17 +11,17 @@ TEST_CASE("resources - manifest can populate provider bindings", "[resources]") 
   caors::memory_file_system files;
   REQUIRE(files.write_all("assets/texture.json", std::string_view{"texture-bytes"}).succeeded());
 
-  caors::resource_file_source source{files};
+  caors::resources::file_source source{files};
   caors::resource_manifest manifest;
   REQUIRE(manifest.bind(test_guid_a, "/assets//texture.json").succeeded());
 
-  caors::resource_provider provider;
-  REQUIRE(caors::bind_manifest(provider, source, manifest).succeeded());
+  caors::resources::provider provider;
+  REQUIRE(caors::resources::bind_manifest(provider, source, manifest).succeeded());
 
   CHECK(provider.size() == 1);
   CHECK(provider.exists(test_guid_a));
 
-  const caors::resource_source_location location = provider.find(test_guid_a);
+  const caors::resources::source_location location = provider.find(test_guid_a);
   REQUIRE(location);
   CHECK(location.source == &source);
   CHECK(location.location.string_view() == "assets/texture.json");
@@ -33,10 +33,10 @@ TEST_CASE("resources - manifest can populate provider bindings", "[resources]") 
 
   REQUIRE(files.write_all("assets/texture-v2.json", std::string_view{"updated-bytes"}).succeeded());
   REQUIRE(manifest.set(test_guid_a, "/assets//texture-v2.json").succeeded());
-  REQUIRE(caors::sync_manifest(provider, source, manifest).succeeded());
+  REQUIRE(caors::resources::sync_manifest(provider, source, manifest).succeeded());
 
   CHECK(provider.size() == 1);
-  const caors::resource_source_location updated_location = provider.find(test_guid_a);
+  const caors::resources::source_location updated_location = provider.find(test_guid_a);
   REQUIRE(updated_location);
   CHECK(updated_location.location.string_view() == "assets/texture-v2.json");
 
@@ -58,23 +58,23 @@ TEST_CASE("resources - manifest can replace provider bindings", "[resources]") {
   REQUIRE(files.write_all("assets/old.json", std::string_view{"old-bytes"}).succeeded());
   REQUIRE(files.write_all("assets/new.json", std::string_view{"new-bytes"}).succeeded());
 
-  caors::resource_file_source source{files};
-  caors::resource_provider provider;
+  caors::resources::file_source source{files};
+  caors::resources::provider provider;
 
   caors::resource_manifest initial_manifest;
   REQUIRE(initial_manifest.bind(test_guid_a, "assets/texture.json").succeeded());
-  REQUIRE(caors::bind_manifest(provider, source, initial_manifest).succeeded());
+  REQUIRE(caors::resources::bind_manifest(provider, source, initial_manifest).succeeded());
   REQUIRE(provider.bind(test_guid_b, source, "assets/old.json").succeeded());
 
   caors::resource_manifest replacement_manifest;
   REQUIRE(replacement_manifest.bind(test_guid_b, "assets/new.json").succeeded());
-  REQUIRE(caors::replace_manifest(provider, source, replacement_manifest).succeeded());
+  REQUIRE(caors::resources::replace_manifest(provider, source, replacement_manifest).succeeded());
 
   CHECK(provider.size() == 1);
   CHECK_FALSE(provider.contains(test_guid_a));
   CHECK(provider.contains(test_guid_b));
 
-  const caors::resource_source_location location = provider.find(test_guid_b);
+  const caors::resources::source_location location = provider.find(test_guid_b);
   REQUIRE(location);
   CHECK(location.source == &source);
   CHECK(location.location.string_view() == "assets/new.json");
@@ -98,12 +98,12 @@ TEST_CASE("resources - manifest loads array json from source", "[resources]") {
   caors::memory_file_system files;
   REQUIRE(files.write_all("manifest.json", std::string_view{json}).succeeded());
 
-  caors::resource_file_source source{files};
+  caors::resources::file_source source{files};
   caors::resource_manifest manifest;
 
-  REQUIRE(caors::load_manifest(manifest, source, "manifest.json").succeeded());
+  REQUIRE(caors::resources::load_manifest(manifest, source, "manifest.json").succeeded());
 
-  const caors::resource_manifest_entry* entry = manifest.find(test_guid_b);
+  const caors::resources::manifest_entry* entry = manifest.find(test_guid_b);
   REQUIRE(entry != nullptr);
   CHECK(entry->location.string_view() == "assets/mesh.json");
   CHECK(entry->type.empty());
@@ -123,9 +123,9 @@ TEST_CASE("resources - manifest loads from json document", "[resources]") {
       std::string{R"({"resources":[{"guid":")"} + test_guid_a.string() +
       R"(","location":"/assets//texture.json","type":"game.texture","hash":"etag-a","version":9}]})";
 
-  REQUIRE(caors::load_manifest_json(manifest, json).succeeded());
+  REQUIRE(caors::resources::load_manifest_json(manifest, json).succeeded());
 
-  const caors::resource_manifest_entry* entry = manifest.find(test_guid_a);
+  const caors::resources::manifest_entry* entry = manifest.find(test_guid_a);
   REQUIRE(entry != nullptr);
   CHECK(entry->location.string_view() == "assets/texture.json");
   CHECK(entry->type == std::string_view{"game.texture"});
@@ -135,7 +135,7 @@ TEST_CASE("resources - manifest loads from json document", "[resources]") {
   const std::string updated_json =
       std::string{R"([{"guid":")"} + test_guid_a.string() +
       R"(","location":"assets/texture-v2.json","hash":"etag-b","version":10}])";
-  REQUIRE(caors::load_manifest_json(manifest, updated_json).succeeded());
+  REQUIRE(caors::resources::load_manifest_json(manifest, updated_json).succeeded());
 
   CHECK(manifest.size() == 1);
   entry = manifest.find(test_guid_a);
@@ -154,18 +154,18 @@ using namespace caors::tests::resources;
 TEST_CASE("resources - manifest reports invalid json entries", "[resources]") {
   caors::resource_manifest manifest;
 
-  caors::error invalid_guid = caors::load_manifest_json(
+  caors::error invalid_guid = caors::resources::load_manifest_json(
       manifest, R"({"resources":[{"guid":"not-a-guid","location":"asset.json"}]})");
   REQUIRE(invalid_guid.failed());
   CHECK(invalid_guid.domain() == caors::error_domain::resources);
   CHECK(invalid_guid.value() == caors::errc::invalid_argument);
 
-  caors::error missing_entries = caors::load_manifest_json(manifest, R"({"items":[]})");
+  caors::error missing_entries = caors::resources::load_manifest_json(manifest, R"({"items":[]})");
   REQUIRE(missing_entries.failed());
   CHECK(missing_entries.domain() == caors::error_domain::resources);
   CHECK(missing_entries.value() == caors::errc::invalid_argument);
 
-  caors::error syntax_error = caors::load_manifest_json(manifest, R"({"resources":)");
+  caors::error syntax_error = caors::resources::load_manifest_json(manifest, R"({"resources":)");
   REQUIRE(syntax_error.failed());
   CHECK(syntax_error.domain() == caors::error_domain::serialization);
   CHECK(syntax_error.value() == caors::errc::invalid_argument);
@@ -187,7 +187,7 @@ TEST_CASE("resources - manifest stores normalized locations and metadata", "[res
   CHECK(manifest.size() == 1);
   CHECK(manifest.contains(test_guid_a));
 
-  const caors::resource_manifest_entry* entry = manifest.find(test_guid_a);
+  const caors::resources::manifest_entry* entry = manifest.find(test_guid_a);
   REQUIRE(entry != nullptr);
   CHECK(entry->guid == test_guid_a);
   CHECK(entry->location.string_view() == "assets/texture.json");

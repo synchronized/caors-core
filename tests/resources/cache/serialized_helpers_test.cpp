@@ -15,8 +15,8 @@ TEST_CASE("resources - serialized helpers load and save resources", "[resources]
   REQUIRE(parsed.succeeded());
 
   caors::serialization::variant_reader reader{parsed.value};
-  caors::resource_load_result<serialized_resource> loaded =
-      caors::load_serialized<serialized_resource>(test_guid_a, reader);
+  caors::resources::load_result<serialized_resource> loaded =
+      caors::resources::load_serialized<serialized_resource>(test_guid_a, reader);
 
   REQUIRE(loaded.succeeded());
   REQUIRE(loaded.value != nullptr);
@@ -25,7 +25,7 @@ TEST_CASE("resources - serialized helpers load and save resources", "[resources]
 
   caors::string output;
   caors::serialization::json_writer writer{output};
-  const caors::error save_status = caors::save_serialized(*loaded.value, writer);
+  const caors::error save_status = caors::resources::save_serialized(*loaded.value, writer);
 
   REQUIRE(save_status.succeeded());
   CHECK(output == R"({"width":256})");
@@ -45,8 +45,8 @@ TEST_CASE("resources - serialized helpers reject invalid resource identity", "[r
   REQUIRE(parsed.succeeded());
 
   caors::serialization::variant_reader reader{parsed.value};
-  caors::resource_load_result<serialized_resource> loaded =
-      caors::load_serialized<serialized_resource>(caors::resource_guid::nil(), reader);
+  caors::resources::load_result<serialized_resource> loaded =
+      caors::resources::load_serialized<serialized_resource>(caors::resource_guid::nil(), reader);
 
   REQUIRE(loaded.failed());
   CHECK(loaded.status.domain() == caors::error_domain::resources);
@@ -54,7 +54,7 @@ TEST_CASE("resources - serialized helpers reject invalid resource identity", "[r
 
   serialized_resource value{};
   caors::serialization::json_writer writer;
-  const caors::error save_status = caors::save_serialized(value, writer);
+  const caors::error save_status = caors::resources::save_serialized(value, writer);
 
   REQUIRE(save_status.failed());
   CHECK(save_status.domain() == caors::error_domain::resources);

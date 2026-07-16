@@ -90,8 +90,9 @@ TEST_CASE("resources - asset_manager builds provider manifest and dependency gra
           "[resources]") {
   require_serialized_resource_metadata();
 
-  caors::resource_project_config config;
-  REQUIRE(caors::load_project_config_json(config, make_project_config_json()).succeeded());
+  caors::resources::project_config config;
+  REQUIRE(
+      caors::resources::load_project_config_json(config, make_project_config_json()).succeeded());
   REQUIRE(config.sources.size() == 1);
   REQUIRE(config.resource_types.size() == 1);
   REQUIRE(config.resources.size() == 2);
@@ -112,17 +113,17 @@ TEST_CASE("resources - asset_manager builds provider manifest and dependency gra
   REQUIRE(
       files.write_all("assets/resource-b.json", std::string_view{R"({"width":1024})"}).succeeded());
 
-  caors::resource_file_source source{files};
-  caors::resource_project_config loaded_from_source;
-  REQUIRE(
-      caors::load_project_config(loaded_from_source, source, "config/project.json").succeeded());
+  caors::resources::file_source source{files};
+  caors::resources::project_config loaded_from_source;
+  REQUIRE(caors::resources::load_project_config(loaded_from_source, source, "config/project.json")
+              .succeeded());
   CHECK(loaded_from_source.resources.size() == 2);
 
   caors::resource_asset_manager assets;
   REQUIRE(assets.bind_source(caors::string_name{"assets"}, source).succeeded());
   REQUIRE(assets.build(config).succeeded());
 
-  const caors::resource_manifest_entry* entry_a = assets.manifest().find(test_guid_a);
+  const caors::resources::manifest_entry* entry_a = assets.manifest().find(test_guid_a);
   REQUIRE(entry_a != nullptr);
   CHECK(entry_a->location.string_view() == std::string_view{"assets/resource-a.json"});
   CHECK(entry_a->type == serialized_manifest_type());
@@ -133,15 +134,17 @@ TEST_CASE("resources - asset_manager builds provider manifest and dependency gra
         std::string_view{"assets/resource-b.json"});
   CHECK(assets.dependency_graph().contains(test_guid_b, test_guid_a));
 
-  caors::resource_json_loader<serialized_resource> loader{assets.provider()};
+  caors::resources::json_loader<serialized_resource> loader{assets.provider()};
   caors::resource_cache<serialized_resource> cache;
   REQUIRE(assets.register_type(cache, loader, serialized_manifest_type()).succeeded());
 
-  caors::resource_preload_result loaded = assets.preload(test_guid_b);
+  caors::resources::preload_result loaded = assets.preload(test_guid_b);
   REQUIRE(loaded.succeeded());
   REQUIRE(loaded.loaded.size() == 2);
-  CHECK(loaded.loaded[0] == caors::resource_preload_item{test_guid_a, serialized_manifest_type()});
-  CHECK(loaded.loaded[1] == caors::resource_preload_item{test_guid_b, serialized_manifest_type()});
+  CHECK(loaded.loaded[0] ==
+        caors::resources::preload_item{test_guid_a, serialized_manifest_type()});
+  CHECK(loaded.loaded[1] ==
+        caors::resources::preload_item{test_guid_b, serialized_manifest_type()});
 
   const serialized_resource* resource_a = cache.find(test_guid_a);
   const serialized_resource* resource_b = cache.find(test_guid_b);
@@ -155,16 +158,17 @@ TEST_CASE("resources - asset_manager creates configured source cache and loader 
           "[resources]") {
   require_serialized_resource_metadata();
 
-  caors::resource_project_config config;
-  REQUIRE(caors::load_project_config_json(config, make_project_config_json()).succeeded());
+  caors::resources::project_config config;
+  REQUIRE(
+      caors::resources::load_project_config_json(config, make_project_config_json()).succeeded());
 
   caors::resource_asset_manager assets;
   REQUIRE(
       assets.register_type_factory<serialized_resource>(serialized_manifest_type()).succeeded());
   REQUIRE(assets.build(config).succeeded());
 
-  auto* source =
-      dynamic_cast<caors::resource_file_source*>(assets.find_source(caors::string_name{"assets"}));
+  auto* source = dynamic_cast<caors::resources::file_source*>(
+      assets.find_source(caors::string_name{"assets"}));
   REQUIRE(source != nullptr);
 
   auto* files = dynamic_cast<caors::memory_file_system*>(&source->file_system());
@@ -174,7 +178,7 @@ TEST_CASE("resources - asset_manager creates configured source cache and loader 
   REQUIRE(files->write_all("assets/resource-b.json", std::string_view{R"({"width":1024})"})
               .succeeded());
 
-  caors::resource_preload_result loaded = assets.preload(test_guid_b);
+  caors::resources::preload_result loaded = assets.preload(test_guid_b);
   REQUIRE(loaded.succeeded());
   CHECK(loaded.loaded.size() == 2);
 
@@ -189,16 +193,17 @@ TEST_CASE("resources - asset_manager creates configured source cache and loader 
 TEST_CASE("resources - asset_manager exposes high level resource operations", "[resources]") {
   require_serialized_resource_metadata();
 
-  caors::resource_project_config config;
-  REQUIRE(caors::load_project_config_json(config, make_project_config_json()).succeeded());
+  caors::resources::project_config config;
+  REQUIRE(
+      caors::resources::load_project_config_json(config, make_project_config_json()).succeeded());
 
   caors::resource_asset_manager assets;
   REQUIRE(
       assets.register_type_factory<serialized_resource>(serialized_manifest_type()).succeeded());
   REQUIRE(assets.build(config).succeeded());
 
-  auto* source =
-      dynamic_cast<caors::resource_file_source*>(assets.find_source(caors::string_name{"assets"}));
+  auto* source = dynamic_cast<caors::resources::file_source*>(
+      assets.find_source(caors::string_name{"assets"}));
   REQUIRE(source != nullptr);
 
   auto* files = dynamic_cast<caors::memory_file_system*>(&source->file_system());
@@ -238,7 +243,7 @@ TEST_CASE("resources - asset_manager exposes high level resource operations", "[
                                     saved.value.size()};
   CHECK(saved_text == std::string_view{R"({"width":4096})"});
 
-  caors::resource_dependency_list dependencies;
+  caors::resources::resource_dependency_list dependencies;
   dependencies.collect(test_guid_b, caors::meta::id_of<serialized_resource>());
   CHECK(assets.replace_dependencies(test_guid_a, dependencies) == 1);
   caors::resource_dependency_graph::guid_list affected = assets.affected_by(test_guid_b);
@@ -249,16 +254,17 @@ TEST_CASE("resources - asset_manager exposes high level resource operations", "[
 TEST_CASE("resources - asset_manager forwards async requests", "[resources]") {
   require_serialized_resource_metadata();
 
-  caors::resource_project_config config;
-  REQUIRE(caors::load_project_config_json(config, make_project_config_json()).succeeded());
+  caors::resources::project_config config;
+  REQUIRE(
+      caors::resources::load_project_config_json(config, make_project_config_json()).succeeded());
 
   caors::resource_asset_manager assets;
   REQUIRE(
       assets.register_type_factory<serialized_resource>(serialized_manifest_type()).succeeded());
   REQUIRE(assets.build(config).succeeded());
 
-  auto* source =
-      dynamic_cast<caors::resource_file_source*>(assets.find_source(caors::string_name{"assets"}));
+  auto* source = dynamic_cast<caors::resources::file_source*>(
+      assets.find_source(caors::string_name{"assets"}));
   REQUIRE(source != nullptr);
 
   auto* files = dynamic_cast<caors::memory_file_system*>(&source->file_system());
@@ -271,10 +277,10 @@ TEST_CASE("resources - asset_manager forwards async requests", "[resources]") {
   caors::inline_task_executor executor;
   caors::task_completion_queue completions;
 
-  caors::resource_load_request<serialized_resource> loaded =
+  caors::resources::load_request<serialized_resource> loaded =
       assets.request_load<serialized_resource>(test_guid_a, executor, completions);
   REQUIRE(loaded);
-  CHECK(loaded.status() == caors::resource_request_status::loading);
+  CHECK(loaded.status() == caors::resources::request_status::loading);
   CHECK(completions.drain() == 1);
   REQUIRE(loaded.loaded());
   REQUIRE(loaded.try_get());
@@ -282,30 +288,32 @@ TEST_CASE("resources - asset_manager forwards async requests", "[resources]") {
 
   REQUIRE(
       files->write_all("assets/resource-a.json", std::string_view{R"({"width":256})"}).succeeded());
-  caors::resource_load_request<serialized_resource> reloaded =
+  caors::resources::load_request<serialized_resource> reloaded =
       assets.request_reload<serialized_resource>(test_guid_a, executor, completions);
   REQUIRE(reloaded);
-  CHECK(reloaded.status() == caors::resource_request_status::loading);
+  CHECK(reloaded.status() == caors::resources::request_status::loading);
   CHECK(completions.drain() == 1);
   REQUIRE(reloaded.loaded());
   CHECK(reloaded.try_get()->width == 256);
 
-  caors::resource_preload_request preloaded =
+  caors::resources::preload_request preloaded =
       assets.request_preload(test_guid_b, executor, completions);
   REQUIRE(preloaded);
   CHECK(completions.drain() == 1);
   REQUIRE(preloaded.loaded());
-  caors::resource_preload_result result = preloaded.result();
+  caors::resources::preload_result result = preloaded.result();
   REQUIRE(result.succeeded());
   REQUIRE(result.loaded.size() == 1);
-  CHECK(result.loaded[0] == caors::resource_preload_item{test_guid_b, serialized_manifest_type()});
+  CHECK(result.loaded[0] ==
+        caors::resources::preload_item{test_guid_b, serialized_manifest_type()});
   CHECK(assets.find<serialized_resource>(test_guid_b)->width == 1024);
 }
 
 TEST_CASE("resources - asset_manager reports unsupported configured runtime strategy",
           "[resources]") {
-  caors::resource_project_config config;
-  REQUIRE(caors::load_project_config_json(config, make_project_config_json()).succeeded());
+  caors::resources::project_config config;
+  REQUIRE(
+      caors::resources::load_project_config_json(config, make_project_config_json()).succeeded());
   config.resource_types[0].loader = caors::string_name{"binary"};
 
   caors::resource_asset_manager assets;
@@ -317,8 +325,9 @@ TEST_CASE("resources - asset_manager reports unsupported configured runtime stra
 }
 
 TEST_CASE("resources - asset_manager reports missing configured sources", "[resources]") {
-  caors::resource_project_config config;
-  REQUIRE(caors::load_project_config_json(config, make_project_config_json()).succeeded());
+  caors::resources::project_config config;
+  REQUIRE(
+      caors::resources::load_project_config_json(config, make_project_config_json()).succeeded());
   config.sources[0].type = caors::string_name{"unknown_source"};
 
   caors::resource_asset_manager assets;

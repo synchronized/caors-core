@@ -163,21 +163,21 @@ TEST_CASE("resources - json loader and saver accept context first", "[resources]
   require_context_resource_metadata();
 
   caors::memory_file_system files;
-  caors::resource_file_source source{files};
-  caors::resource_provider provider;
+  caors::resources::file_source source{files};
+  caors::resources::provider provider;
   REQUIRE(provider.bind(resource_guid, source, "assets/context-resource.json").succeeded());
 
   caors::serialization::context context{};
-  caors::resource_json_saver<context_api_resource> saver{context, provider};
+  caors::resources::json_saver<context_api_resource> saver{context, provider};
 
   context_api_resource value{resource_guid};
   value.value = 42;
   REQUIRE(saver.save(value).succeeded());
 
-  caors::resource_json_loader<context_api_resource> loader{context, provider};
+  caors::resources::json_loader<context_api_resource> loader{context, provider};
   caors::resource_cache<context_api_resource> cache;
-  caors::resource_handle_result<context_api_resource> loaded =
-      caors::load_handle_into(cache, loader, resource_guid);
+  caors::resources::handle_result<context_api_resource> loaded =
+      caors::resources::load_handle_into(cache, loader, resource_guid);
 
   REQUIRE(loaded.succeeded());
   REQUIRE(loaded.value);

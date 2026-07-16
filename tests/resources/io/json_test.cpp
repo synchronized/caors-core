@@ -21,15 +21,15 @@ TEST_CASE("resources - json loader loads resource through provider", "[resources
   const std::string file_path = path_string(file);
   REQUIRE(native.write_all(file_path, std::string_view{R"({"width":512})"}).succeeded());
 
-  caors::resource_file_source source{native};
-  caors::resource_provider provider;
+  caors::resources::file_source source{native};
+  caors::resources::provider provider;
   REQUIRE(provider.bind(test_guid_a, source, file_path).succeeded());
 
-  caors::resource_json_loader<serialized_resource> loader{provider};
+  caors::resources::json_loader<serialized_resource> loader{provider};
   caors::resource_cache<serialized_resource> cache;
 
-  caors::resource_handle_result<serialized_resource> loaded =
-      caors::load_handle_into(cache, loader, test_guid_a);
+  caors::resources::handle_result<serialized_resource> loaded =
+      caors::resources::load_handle_into(cache, loader, test_guid_a);
 
   REQUIRE(loaded.succeeded());
   REQUIRE(loaded.value);
@@ -58,12 +58,12 @@ TEST_CASE("resources - json loader reports parse failures", "[resources]") {
   const std::string file_path = path_string(file);
   REQUIRE(native.write_all(file_path, std::string_view{R"({"width":)"}).succeeded());
 
-  caors::resource_file_source source{native};
-  caors::resource_provider provider;
+  caors::resources::file_source source{native};
+  caors::resources::provider provider;
   REQUIRE(provider.bind(test_guid_a, source, file_path).succeeded());
 
-  caors::resource_json_loader<serialized_resource> loader{provider};
-  caors::resource_load_result<serialized_resource> loaded = loader.load(test_guid_a);
+  caors::resources::json_loader<serialized_resource> loader{provider};
+  caors::resources::load_result<serialized_resource> loaded = loader.load(test_guid_a);
 
   REQUIRE(loaded.failed());
   CHECK(loaded.status.domain() == caors::error_domain::serialization);
@@ -82,11 +82,11 @@ TEST_CASE("resources - json saver reports invalid and missing targets", "[resour
   require_serialized_resource_metadata();
 
   caors::memory_file_system files;
-  caors::resource_file_source source{files};
-  caors::resource_provider provider;
+  caors::resources::file_source source{files};
+  caors::resources::provider provider;
   REQUIRE(provider.bind(test_guid_a, source, "assets/resource.json").succeeded());
 
-  caors::resource_json_saver<serialized_resource> saver{provider};
+  caors::resources::json_saver<serialized_resource> saver{provider};
 
   serialized_resource invalid_resource{};
   caors::error invalid = saver.save(invalid_resource);
@@ -112,14 +112,14 @@ TEST_CASE("resources - json saver saves resource through provider", "[resources]
   require_serialized_resource_metadata();
 
   caors::memory_file_system files;
-  caors::resource_file_source source{files};
-  caors::resource_provider provider;
+  caors::resources::file_source source{files};
+  caors::resources::provider provider;
   REQUIRE(provider.bind(test_guid_a, source, "assets/resource.json").succeeded());
 
   serialized_resource value{test_guid_a};
   value.width = 640;
 
-  caors::resource_json_saver<serialized_resource> saver{provider};
+  caors::resources::json_saver<serialized_resource> saver{provider};
   REQUIRE(saver.save(value).succeeded());
 
   caors::byte_buffer_result bytes = files.read_all("assets/resource.json");
@@ -127,10 +127,10 @@ TEST_CASE("resources - json saver saves resource through provider", "[resources]
   CHECK(std::string_view{reinterpret_cast<const char*>(bytes.value.data()), bytes.value.size()} ==
         R"({"width":640})");
 
-  caors::resource_json_loader<serialized_resource> loader{provider};
+  caors::resources::json_loader<serialized_resource> loader{provider};
   caors::resource_cache<serialized_resource> cache;
-  caors::resource_handle_result<serialized_resource> loaded =
-      caors::load_handle_into(cache, loader, test_guid_a);
+  caors::resources::handle_result<serialized_resource> loaded =
+      caors::resources::load_handle_into(cache, loader, test_guid_a);
 
   REQUIRE(loaded.succeeded());
   REQUIRE(loaded.value);

@@ -67,9 +67,9 @@ public:
   int width = 0;
 };
 
-class counting_texture_loader final : public caors::resource_loader<texture_resource> {
+class counting_texture_loader final : public caors::resources::loader<texture_resource> {
 public:
-  [[nodiscard]] caors::resource_load_result<texture_resource>
+  [[nodiscard]] caors::resources::load_result<texture_resource>
   load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {
     ++load_count;
     auto loaded = caors::memory::make_unique<texture_resource>(resource, guid);
@@ -79,7 +79,7 @@ public:
   int load_count = 0;
 };
 
-class counting_texture_saver final : public caors::resource_saver<texture_resource> {
+class counting_texture_saver final : public caors::resources::saver<texture_resource> {
 public:
   [[nodiscard]] caors::error save(const texture_resource& value) override {
     ++save_count;
@@ -91,7 +91,7 @@ public:
   caors::resource_guid saved_guid{};
 };
 
-class read_only_source final : public caors::resource_source {
+class read_only_source final : public caors::resources::source {
 public:
   [[nodiscard]] bool exists(caors::io::path_view location) const override {
     return !location.empty();

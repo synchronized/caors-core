@@ -210,10 +210,4 @@ private:
 
 } // namespace caors::resources
 
-namespace caors {
-
-using resource_manager = resources::manager;
-
-} // namespace caors
-
 #endif

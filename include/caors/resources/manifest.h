@@ -206,10 +206,6 @@ private:
 namespace caors {
 
 using resource_manifest = resources::manifest;
-using resource_manifest_entry = resources::manifest_entry;
-using resources::bind_manifest;
-using resources::replace_manifest;
-using resources::sync_manifest;
 
 } // namespace caors
 

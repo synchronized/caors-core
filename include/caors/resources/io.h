@@ -401,25 +401,4 @@ private:
 
 } // namespace caors::resources
 
-namespace caors {
-
-template <typename T> using resource_load_result = resources::load_result<T>;
-template <typename T> using resource_handle_result = resources::handle_result<T>;
-template <typename T> using resource_json_loader = resources::json_loader<T>;
-template <typename T> using resource_json_saver = resources::json_saver<T>;
-template <typename T> using resource_loader = resources::loader<T>;
-template <typename T> using resource_saver = resources::saver<T>;
-using resource_progress_reporter = resources::progress_reporter;
-using resource_progress_update = resources::progress_update;
-
-using resources::load_handle_into;
-using resources::load_manifest;
-using resources::load_manifest_json;
-using resources::load_serialized;
-using resources::reload_handle_into;
-using resources::save_from;
-using resources::save_serialized;
-
-} // namespace caors
-
 #endif

@@ -11,8 +11,8 @@ using namespace caors::tests::serialization::resource_ref_codec;
 TEST_CASE("serialization - resource refs are collected as dependencies", "[serialization]") {
   require_resource_ref_actor_metadata();
 
-  caors::resource_dependency_list dependencies;
-  caors::resource_dependency_collector_ops collector = dependencies.collector();
+  caors::resources::resource_dependency_list dependencies;
+  caors::resources::resource_dependency_collector_ops collector = dependencies.collector();
 
   caors::serialization::context context{};
   context.resolvers.external_refs.collector = &collector;
@@ -92,11 +92,13 @@ TEST_CASE("serialization - required resource ref resolution reports missing reso
   require_resource_ref_actor_metadata();
 
   caors::resource_cache<serialized_texture_resource> cache;
-  const caors::resource_ref_resolver_ops resolver = caors::make_resource_resolver(cache);
+  const caors::resources::resource_ref_resolver_ops resolver =
+      caors::resources::make_resource_resolver(cache);
 
   caors::serialization::context context{};
   context.resolvers.external_refs.resolver = &resolver;
-  context.resolvers.external_refs.resolution = caors::resource_ref_resolution::require_resolved;
+  context.resolvers.external_refs.resolution =
+      caors::resources::resource_ref_resolution::require_resolved;
 
   resource_ref_actor decoded{};
   const caors::error status =
@@ -122,13 +124,15 @@ TEST_CASE("serialization - resource ref can resolve through context resolver", "
   REQUIRE(texture != nullptr);
   caors::resource_cache<serialized_texture_resource> missing_cache;
 
-  const caors::resource_ref_resolver_ops resolver = caors::make_resource_resolver(cache);
-  const caors::resource_ref_resolver_ops missing_resolver =
-      caors::make_resource_resolver(missing_cache);
+  const caors::resources::resource_ref_resolver_ops resolver =
+      caors::resources::make_resource_resolver(cache);
+  const caors::resources::resource_ref_resolver_ops missing_resolver =
+      caors::resources::make_resource_resolver(missing_cache);
 
   caors::serialization::context context{};
   context.resolvers.external_refs.resolver = &resolver;
-  context.resolvers.external_refs.resolution = caors::resource_ref_resolution::resolve_if_present;
+  context.resolvers.external_refs.resolution =
+      caors::resources::resource_ref_resolution::resolve_if_present;
 
   resource_ref_actor decoded{};
   const caors::error status =
@@ -142,7 +146,7 @@ TEST_CASE("serialization - resource ref can resolve through context resolver", "
   caors::serialization::context unresolved_context{};
   unresolved_context.resolvers.external_refs.resolver = &missing_resolver;
   unresolved_context.resolvers.external_refs.resolution =
-      caors::resource_ref_resolution::keep_unresolved;
+      caors::resources::resource_ref_resolution::keep_unresolved;
 
   resource_ref_actor unresolved{};
   const caors::error unresolved_status = caors::deserialize(
@@ -212,7 +216,7 @@ TEST_CASE("serialization - external ref interfaces adapt resource refs", "[seria
   caors::serialization::context resolve_context{};
   resolve_context.resolvers.external_refs.resolver = &resolver;
   resolve_context.resolvers.external_refs.resolution =
-      caors::resource_ref_resolution::require_resolved;
+      caors::resources::resource_ref_resolution::require_resolved;
 
   resource_ref_actor decoded{};
   const caors::error status = caors::deserialize(resolve_context, decoded, json.value);

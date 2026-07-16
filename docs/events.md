@@ -211,8 +211,8 @@ events.update<resource_reloaded>(); // 派发这一类事件。
 资源系统已经可以在当前事件层上显式发出重载通知，例如：
 
 ```cpp
-caors::resource_reload_signal<texture> reloaded;
-auto result = caors::reload_and_notify(cache, loader, texture_id, reloaded);
+caors::resources::reload_signal<texture> reloaded;
+auto result = caors::resources::reload_and_notify(cache, loader, texture_id, reloaded);
 ```
 
 第一阶段资源 cache 仍只负责加载、替换和失败保留，不会隐式广播。`reload_and_notify()` 只是显式 helper：

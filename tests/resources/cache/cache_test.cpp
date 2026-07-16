@@ -59,9 +59,9 @@ public:
   inline static int destroyed = 0;
 };
 
-class handled_resource_loader final : public caors::resource_loader<handled_resource> {
+class handled_resource_loader final : public caors::resources::loader<handled_resource> {
 public:
-  [[nodiscard]] caors::resource_load_result<handled_resource>
+  [[nodiscard]] caors::resources::load_result<handled_resource>
   load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {
     ++load_count;
     auto loaded = caors::memory::make_unique<handled_resource>(resource, guid);
@@ -99,8 +99,8 @@ TEST_CASE("resources - load_handle_into returns cache-owned handles", "[resource
   handled_resource_loader loader;
   loader.value = 11;
 
-  caors::resource_handle_result<handled_resource> loaded =
-      caors::load_handle_into(cache, loader, test_guid_a);
+  caors::resources::handle_result<handled_resource> loaded =
+      caors::resources::load_handle_into(cache, loader, test_guid_a);
 
   REQUIRE(loaded.succeeded());
   REQUIRE(loaded.value != nullptr);
@@ -109,8 +109,8 @@ TEST_CASE("resources - load_handle_into returns cache-owned handles", "[resource
   CHECK(loaded.value.use_count() == 2);
   CHECK(loader.load_count == 1);
 
-  caors::resource_handle_result<handled_resource> cached =
-      caors::load_handle_into(cache, loader, test_guid_a);
+  caors::resources::handle_result<handled_resource> cached =
+      caors::resources::load_handle_into(cache, loader, test_guid_a);
 
   REQUIRE(cached.succeeded());
   CHECK(cached.value.get() == loaded.value.get());
@@ -129,8 +129,8 @@ TEST_CASE("resources - reload_handle_into keeps old external handles alive", "[r
   handled_resource_loader loader;
   loader.value = 2;
 
-  caors::resource_handle_result<handled_resource> reloaded =
-      caors::reload_handle_into(cache, loader, test_guid_a);
+  caors::resources::handle_result<handled_resource> reloaded =
+      caors::resources::reload_handle_into(cache, loader, test_guid_a);
 
   REQUIRE(reloaded.succeeded());
   REQUIRE(reloaded.value != nullptr);

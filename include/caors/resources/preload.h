@@ -95,12 +95,4 @@ struct preload_result {
 
 } // namespace caors::resources
 
-namespace caors {
-
-using resource_preload_plan = resources::preload_plan;
-using resource_preload_result = resources::preload_result;
-using resource_preload_item = resources::preload_item;
-
-} // namespace caors
-
 #endif

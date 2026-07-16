@@ -53,18 +53,18 @@ TEST_CASE("resources - manifest provider loader cache can resolve serialized res
   REQUIRE(
       files.write_all("assets/resource.json", std::string_view{R"({"width":512})"}).succeeded());
 
-  caors::resource_file_source source{files};
+  caors::resources::file_source source{files};
   caors::resource_manifest manifest;
   REQUIRE(manifest.bind(test_guid_a, "assets/resource.json").succeeded());
 
-  caors::resource_provider provider;
-  REQUIRE(caors::bind_manifest(provider, source, manifest).succeeded());
+  caors::resources::provider provider;
+  REQUIRE(caors::resources::bind_manifest(provider, source, manifest).succeeded());
 
-  caors::resource_json_loader<serialized_resource> loader{provider};
+  caors::resources::json_loader<serialized_resource> loader{provider};
   caors::resource_cache<serialized_resource> cache;
 
-  caors::resource_dependency_list dependencies;
-  caors::resource_dependency_collector_ops collector = dependencies.collector();
+  caors::resources::resource_dependency_list dependencies;
+  caors::resources::resource_dependency_collector_ops collector = dependencies.collector();
   caors::serialization::context dependency_context{};
   dependency_context.resolvers.external_refs.collector = &collector;
 
@@ -80,21 +80,23 @@ TEST_CASE("resources - manifest provider loader cache can resolve serialized res
   CHECK(dependencies.entries()[0].type == caors::meta::id_of<serialized_resource>());
 
   caors::resource_dependency_graph graph;
-  CHECK(caors::replace_resource_dependencies(graph, test_guid_b, dependencies) == 1);
+  CHECK(caors::resources::replace_resource_dependencies(graph, test_guid_b, dependencies) == 1);
   CHECK(graph.contains(test_guid_b, test_guid_a));
   CHECK(contains_guid(graph.dependencies(test_guid_b), test_guid_a));
 
-  caors::resource_handle_result<serialized_resource> loaded =
-      caors::load_handle_into(cache, loader, dependencies.entries()[0].guid);
+  caors::resources::handle_result<serialized_resource> loaded =
+      caors::resources::load_handle_into(cache, loader, dependencies.entries()[0].guid);
 
   REQUIRE(loaded.succeeded());
   REQUIRE(loaded.value);
   CHECK(loaded.value->width == 512);
 
-  const caors::resource_ref_resolver_ops resolver = caors::make_resource_resolver(cache);
+  const caors::resources::resource_ref_resolver_ops resolver =
+      caors::resources::make_resource_resolver(cache);
   caors::serialization::context context{};
   context.resolvers.external_refs.resolver = &resolver;
-  context.resolvers.external_refs.resolution = caors::resource_ref_resolution::require_resolved;
+  context.resolvers.external_refs.resolution =
+      caors::resources::resource_ref_resolution::require_resolved;
 
   serialized_resource_ref_holder decoded{};
   const caors::error status = caors::deserialize(
@@ -108,10 +110,10 @@ TEST_CASE("resources - manifest provider loader cache can resolve serialized res
   REQUIRE(files.write_all("assets/resource-v2.json", std::string_view{R"({"width":1024})"})
               .succeeded());
   REQUIRE(manifest.set(test_guid_a, "assets/resource-v2.json").succeeded());
-  REQUIRE(caors::sync_manifest(provider, source, manifest).succeeded());
+  REQUIRE(caors::resources::sync_manifest(provider, source, manifest).succeeded());
 
-  caors::resource_handle_result<serialized_resource> reloaded =
-      caors::reload_handle_into(cache, loader, test_guid_a);
+  caors::resources::handle_result<serialized_resource> reloaded =
+      caors::resources::reload_handle_into(cache, loader, test_guid_a);
 
   REQUIRE(reloaded.succeeded());
   REQUIRE(reloaded.value);
@@ -126,10 +128,10 @@ TEST_CASE("resources - manifest provider loader cache can resolve serialized res
   CHECK(decoded.resource.get() == reloaded.value.get());
 
   REQUIRE(manifest.set(test_guid_a, "assets/missing.json").succeeded());
-  REQUIRE(caors::sync_manifest(provider, source, manifest).succeeded());
+  REQUIRE(caors::resources::sync_manifest(provider, source, manifest).succeeded());
 
-  caors::resource_handle_result<serialized_resource> failed_reload =
-      caors::reload_handle_into(cache, loader, test_guid_a);
+  caors::resources::handle_result<serialized_resource> failed_reload =
+      caors::resources::reload_handle_into(cache, loader, test_guid_a);
 
   CHECK(failed_reload.failed());
   CHECK(cache.find(test_guid_a) == reloaded.value.get());

@@ -1294,15 +1294,4 @@ template <typename T>
 
 } // namespace caors::resources
 
-namespace caors {
-
-using resource_request_status = resources::request_status;
-template <typename T> using resource_load_request = resources::load_request<T>;
-template <typename T> using resource_load_request_table = resources::load_request_table<T>;
-using resource_preload_request = resources::preload_request;
-using resources::request_load_into;
-using resources::request_reload_into;
-
-} // namespace caors
-
 #endif

@@ -105,16 +105,4 @@ struct project_config {
 
 } // namespace caors::resources
 
-namespace caors {
-
-using resource_project_config = resources::project_config;
-using resource_project_dependency_config = resources::project_dependency_config;
-using resource_project_resource_config = resources::project_resource_config;
-using resource_project_resource_type_config = resources::project_resource_type_config;
-using resource_project_source_config = resources::project_source_config;
-using resources::load_project_config;
-using resources::load_project_config_json;
-
-} // namespace caors
-
 #endif

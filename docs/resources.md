@@ -85,60 +85,28 @@
 - `resources::reload_event<T>`
 - `resources::reload_signal<T>`
 
-根命名空间保留常用别名：
+根命名空间只保留高频资源语义别名：
 
 - `caors::resource_guid`
 - `caors::resource_guid_hash`
+- `caors::resource_generation`
+- `caors::invalid_resource_generation`
 - `caors::resource`
 - `caors::resource_ref<T>`
 - `caors::resource_handle<T>`
 - `caors::resource_weak_handle<T>`
-- `caors::resource_manager`
 - `caors::resource_cache<T>`
 - `caors::resource_dependency_graph`
 - `caors::resource_database`
 - `caors::resource_manifest`
-- `caors::resource_manifest_entry`
-- `caors::resource_source`
-- `caors::resource_file_source`
-- `caors::resource_provider`
-- `caors::resource_project_config`
-- `caors::resource_project_source_config`
-- `caors::resource_project_resource_config`
-- `caors::resource_project_resource_type_config`
-- `caors::resource_project_dependency_config`
 - `caors::resource_asset_manager`
-- `caors::resource_load_result<T>`
-- `caors::resource_handle_result<T>`
-- `caors::resource_loader<T>`
-- `caors::resource_json_loader<T>`
-- `caors::resource_saver<T>`
-- `caors::resource_json_saver<T>`
-- `caors::resource_request_status`
-- `caors::resource_load_request<T>`
-- `caors::resource_preload_item`
-- `caors::resource_preload_plan`
-- `caors::resource_preload_request`
-- `caors::resource_preload_result`
-- `caors::resource_reload_event<T>`
-- `caors::resource_reload_signal<T>`
-- `caors::bind_manifest()`
 - `caors::adopt_handle()`
-- `caors::load_handle_into()`
-- `caors::load_manifest()`
-- `caors::load_manifest_json()`
-- `caors::load_project_config()`
-- `caors::load_project_config_json()`
-- `caors::load_serialized()`
 - `caors::make_handle()`
-- `caors::replace_manifest()`
-- `caors::reload_and_notify()`
-- `caors::reload_handle_into()`
-- `caors::request_load_into()`
-- `caors::request_reload_into()`
-- `caors::save_from()`
-- `caors::save_serialized()`
-- `caors::sync_manifest()`
+
+低频组合件不再放入根命名空间，包括 source/provider、loader/saver、request/result/status、
+manifest helper、project config、reload event/signal 和资源序列化 resolver helper。普通用户优先从
+`resources::asset_manager` / `resources::database` / `resources::cache<T>` 进入；需要手动拼装资源管线时，
+显式使用 `caors::resources::...` 可以让职责边界更清楚。
 
 ## resource_guid
 
@@ -250,11 +218,11 @@ if (graph.has_cycle(material_id)) {
 明确知道整个依赖闭包都由同一个资源类型处理时，可以使用模板入口：
 
 ```cpp
-caors::resource_preload_plan plan =
+caors::resources::preload_plan plan =
     database.plan_preload<texture>(texture_id);
 
 if (plan.succeeded()) {
-  caors::resource_preload_result result =
+  caors::resources::preload_result result =
       database.preload<texture>(texture_id);
 }
 ```
@@ -271,7 +239,7 @@ manifest.bind(material_id, "materials/body.json", material_type);
 database.register_type(texture_cache, texture_loader, texture_type);
 database.register_type(material_cache, material_loader, material_type);
 
-caors::resource_preload_result result = database.preload(material_id);
+caors::resources::preload_result result = database.preload(material_id);
 ```
 
 当前语义：
@@ -307,11 +275,11 @@ caors::resource_preload_result result = database.preload(material_id);
 
 ```cpp
 caors::resource_cache<texture> cache;
-caors::resource_json_loader<texture> loader{provider};
+caors::resources::json_loader<texture> loader{provider};
 caors::tasks::thread_pool_executor executor{2};
 caors::tasks::completion_queue completions;
 
-auto request = caors::request_load_into(cache, loader, texture_id, executor, completions);
+auto request = caors::resources::request_load_into(cache, loader, texture_id, executor, completions);
 
 // 后台任务完成后，在主线程明确时机提交 cache 修改。
 completions.drain();
@@ -354,14 +322,14 @@ database.set_dependency_graph(graph);
 database.register_type(texture_cache, texture_loader, texture_type);
 database.register_type(material_cache, material_loader, material_type);
 
-caors::resource_preload_request request =
+caors::resources::preload_request request =
     database.request_preload(material_id, executor, completions);
 
 // 后台 loader 完成后，在主线程提交各个 cache 修改。
 completions.drain();
 
 if (request.loaded()) {
-  caors::resource_preload_result result = request.result();
+  caors::resources::preload_result result = request.result();
 }
 ```
 
@@ -391,17 +359,17 @@ loader 可选择覆盖带 `resource_progress_reporter` 的重载来上报内部�
 `load(guid, resource)`：
 
 ```cpp
-class texture_loader final : public caors::resource_loader<texture> {
+class texture_loader final : public caors::resources::loader<texture> {
 public:
-  caors::resource_load_result<texture>
+  caors::resources::load_result<texture>
   load(caors::resource_guid guid, caors::memory_resource* resource) override {
     return {{}, caors::memory::make_unique<texture>(resource, guid)};
   }
 
-  caors::resource_load_result<texture>
+  caors::resources::load_result<texture>
   load(caors::resource_guid guid,
        caors::memory_resource* resource,
-       caors::resource_progress_reporter progress) override {
+       caors::resources::progress_reporter progress) override {
     progress.report(0.25, "read");
     progress.report(0.75, "decode");
     return load(guid, resource);
@@ -499,11 +467,11 @@ cache.resolve(decoded.albedo);
 caors::resource_cache<texture> cache;
 texture* loaded = cache.create(texture_id);
 
-caors::resource_ref_resolver_ops resolver = caors::make_resource_resolver(cache);
+caors::resources::resource_ref_resolver_ops resolver = caors::resources::make_resource_resolver(cache);
 
 caors::serialization::context context{};
 context.resolvers.external_refs.resolver = &resolver;
-context.resolvers.external_refs.resolution = caors::resource_ref_resolution::resolve_if_present;
+context.resolvers.external_refs.resolution = caors::resources::resource_ref_resolution::resolve_if_present;
 
 material decoded{};
 caors::deserialize(context, decoded, R"({"albedo":"6cd2da3d-b549-4756-8b8b-0c84293af410"})");
@@ -518,8 +486,8 @@ caors::deserialize(context, decoded, R"({"albedo":"6cd2da3d-b549-4756-8b8b-0c842
 序列化和反序列化遍历 `resource_ref<T>` 时还可以收集资源依赖：
 
 ```cpp
-caors::resource_dependency_list dependencies;
-caors::resource_dependency_collector_ops collector = dependencies.collector();
+caors::resources::resource_dependency_list dependencies;
+caors::resources::resource_dependency_collector_ops collector = dependencies.collector();
 
 caors::serialization::context context{};
 context.resolvers.external_refs.collector = &collector;
@@ -538,7 +506,7 @@ caors::to_string(context, material_value);
 解绑和清空资源，也可以把 `resource_ref<T>` 解析成实际资源指针：
 
 ```cpp
-caors::resource_manager manager;
+caors::resources::manager manager;
 
 texture value{id};
 manager.bind(&value);
@@ -632,7 +600,7 @@ manifest、provider、cache、loader 或 dependency graph；调用方把这些�
 
 ```cpp
 caors::resource_manifest manifest;
-caors::resource_provider provider;
+caors::resources::provider provider;
 caors::resource_dependency_graph graph;
 
 caors::resource_database database;
@@ -643,7 +611,7 @@ database.set_dependency_graph(graph);
 database.sync_manifest(source);
 
 caors::resource_cache<texture> cache;
-caors::resource_json_loader<texture> loader{provider};
+caors::resources::json_loader<texture> loader{provider};
 database.register_type(cache, loader);
 
 auto loaded = database.load<texture>(texture_id);
@@ -685,8 +653,8 @@ auto resolver = database.resolver();
 `source`、`provider`、`cache`、`loader` 或 `database`：
 
 ```cpp
-caors::resource_project_config config;
-caors::load_project_config_json(config, R"({
+caors::resources::project_config config;
+caors::resources::load_project_config_json(config, R"({
   "sources": [
     { "name": "assets", "type": "memory_file_system", "root": "/" }
   ],
@@ -727,7 +695,7 @@ if (built) {
   // 处理配置或运行期对象创建错误。
 }
 
-caors::resource_preload_result result = assets.preload(texture_id);
+caors::resources::preload_result result = assets.preload(texture_id);
 auto resolver = assets.resolver();
 ```
 
@@ -845,12 +813,12 @@ manifest.set(texture_id,
 
 ```cpp
 caors::memory_file_system files;
-caors::resource_file_source source{files};
-caors::resource_provider provider;
+caors::resources::file_source source{files};
+caors::resources::provider provider;
 
-caors::bind_manifest(provider, source, manifest);
-caors::sync_manifest(provider, source, manifest);
-caors::replace_manifest(provider, source, manifest);
+caors::resources::bind_manifest(provider, source, manifest);
+caors::resources::sync_manifest(provider, source, manifest);
+caors::resources::replace_manifest(provider, source, manifest);
 ```
 
 也可以从 JSON 文本或 source 读取清单：
@@ -858,7 +826,7 @@ caors::replace_manifest(provider, source, manifest);
 ```cpp
 caors::resource_manifest manifest;
 
-caors::load_manifest_json(manifest, R"({
+caors::resources::load_manifest_json(manifest, R"({
   "resources": [
     {
       "guid": "6cd2da3d-b549-4756-8b8b-0c84293af410",
@@ -870,7 +838,7 @@ caors::load_manifest_json(manifest, R"({
   ]
 })");
 
-caors::load_manifest(manifest, source, "manifest.json");
+caors::resources::load_manifest(manifest, source, "manifest.json");
 ```
 
 JSON 清单支持两种根格式：
@@ -915,8 +883,8 @@ JSON 清单支持两种根格式：
 
 ```cpp
 caors::native_file_system native;
-caors::resource_file_source source{native};
-caors::resource_provider provider;
+caors::resources::file_source source{native};
+caors::resources::provider provider;
 
 provider.bind(texture_id, source, "assets/textures/albedo.png");
 
@@ -944,9 +912,9 @@ caors::error written = provider.write(texture_id, std::string_view{"new-bytes"})
 资源”和“保存一个已有资源”，不规定路径、文件格式、资源包、缓存策略或异步调度：
 
 ```cpp
-class texture_loader : public caors::resource_loader<texture> {
+class texture_loader : public caors::resources::loader<texture> {
 public:
-  caors::resource_load_result<texture>
+  caors::resources::load_result<texture>
   load(caors::resource_guid id, caors::memory_resource* resource) override;
 };
 ```
@@ -958,15 +926,15 @@ public:
 caors::resource_cache<texture> cache;
 texture_loader loader;
 
-caors::resource_handle_result<texture> held =
-    caors::load_handle_into(cache, loader, id);
+caors::resources::handle_result<texture> held =
+    caors::resources::load_handle_into(cache, loader, id);
 ```
 
 保存方向可以使用 `save_from()` 从 cache 取出指定 GUID 的资源并交给 saver：
 
 ```cpp
 texture_saver saver;
-caors::error saved = caors::save_from(cache, saver, id);
+caors::error saved = caors::resources::save_from(cache, saver, id);
 ```
 
 `load_handle_into()` 的规则：
@@ -991,10 +959,10 @@ caors::error saved = caors::save_from(cache, saver, id);
 如果需要同步通知，可以使用 `reload_and_notify()`：
 
 ```cpp
-caors::resource_reload_signal<texture> reloaded;
+caors::resources::reload_signal<texture> reloaded;
 
 auto connection = reloaded.connect(listener);
-auto result = caors::reload_and_notify(cache, loader, texture_id, reloaded);
+auto result = caors::resources::reload_and_notify(cache, loader, texture_id, reloaded);
 ```
 
 `reload_and_notify()` 的规则：
@@ -1017,33 +985,33 @@ auto result = caors::reload_and_notify(cache, loader, texture_id, reloaded);
 
 ```cpp
 caors::serialization::variant_reader reader{value};
-auto loaded = caors::load_serialized<texture>(id, reader);
+auto loaded = caors::resources::load_serialized<texture>(id, reader);
 
 caors::serialization::json_writer writer;
-caors::save_serialized(*loaded.value, writer);
+caors::resources::save_serialized(*loaded.value, writer);
 ```
 
 需要传入序列化上下文时使用 context-first 形式：
 
 ```cpp
-auto loaded_with_context = caors::load_serialized<texture>(context, id, reader);
-caors::save_serialized(context, *loaded_with_context.value, writer);
+auto loaded_with_context = caors::resources::load_serialized<texture>(context, id, reader);
+caors::resources::save_serialized(context, *loaded_with_context.value, writer);
 ```
 
 `resources::json_loader<T>` 是 provider 到资源对象的第一版桥接。它按 GUID 从 provider 读取 JSON
 字节，再通过 `load_serialized<T>()` 构造资源，可直接配合 `load_handle_into()` 使用：
 
 ```cpp
-caors::resource_file_source source{file_system};
-caors::resource_provider provider;
+caors::resources::file_source source{file_system};
+caors::resources::provider provider;
 provider.bind(texture_id, source, "assets/texture.json");
 
 caors::serialization::context context{};
-caors::resource_json_loader<texture> loader{provider};
-caors::resource_json_loader<texture> loader_with_context{context, provider};
+caors::resources::json_loader<texture> loader{provider};
+caors::resources::json_loader<texture> loader_with_context{context, provider};
 caors::resource_cache<texture> cache;
 
-auto loaded = caors::load_handle_into(cache, loader, texture_id);
+auto loaded = caors::resources::load_handle_into(cache, loader, texture_id);
 ```
 
 推荐同步加载链路是：
@@ -1086,8 +1054,8 @@ JSON 文本，再按资源 GUID 写回 provider 已绑定的位置：
 
 ```cpp
 caors::serialization::context context{};
-caors::resource_json_saver<texture> saver{provider};
-caors::resource_json_saver<texture> saver_with_context{context, provider};
+caors::resources::json_saver<texture> saver{provider};
+caors::resources::json_saver<texture> saver_with_context{context, provider};
 caors::error saved = saver.save(*loaded.value);
 ```
 

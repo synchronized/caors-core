@@ -14,9 +14,9 @@ public:
   int width = 0;
 };
 
-class reload_notified_loader final : public caors::resource_loader<reload_notified_resource> {
+class reload_notified_loader final : public caors::resources::loader<reload_notified_resource> {
 public:
-  [[nodiscard]] caors::resource_load_result<reload_notified_resource>
+  [[nodiscard]] caors::resources::load_result<reload_notified_resource>
   load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {
     ++load_count;
     if (status.failed()) {
@@ -45,17 +45,17 @@ TEST_CASE("resources - reload_and_notify emits success events", "[resources]") {
   reload_notified_loader loader;
   loader.width = 256;
 
-  caors::resource_reload_signal<reload_notified_resource> reloaded;
-  caors::resource_reload_event<reload_notified_resource> captured{};
+  caors::resources::reload_signal<reload_notified_resource> reloaded;
+  caors::resources::reload_event<reload_notified_resource> captured{};
   int notify_count = 0;
-  auto listener = [&](const caors::resource_reload_event<reload_notified_resource>& event) {
+  auto listener = [&](const caors::resources::reload_event<reload_notified_resource>& event) {
     ++notify_count;
     captured = event;
   };
   [[maybe_unused]] caors::event_connection connection = reloaded.connect(listener);
 
-  caors::resource_handle_result<reload_notified_resource> result =
-      caors::reload_and_notify(cache, loader, test_guid_a, reloaded);
+  caors::resources::handle_result<reload_notified_resource> result =
+      caors::resources::reload_and_notify(cache, loader, test_guid_a, reloaded);
 
   REQUIRE(result.succeeded());
   REQUIRE(result.value);
@@ -77,17 +77,17 @@ TEST_CASE("resources - reload_and_notify emits failure events and keeps old reso
   reload_notified_loader loader;
   loader.status = {caors::error_domain::resources, caors::errc::backend_failure};
 
-  caors::resource_reload_signal<reload_notified_resource> reloaded;
-  caors::resource_reload_event<reload_notified_resource> captured{};
+  caors::resources::reload_signal<reload_notified_resource> reloaded;
+  caors::resources::reload_event<reload_notified_resource> captured{};
   int notify_count = 0;
-  auto listener = [&](const caors::resource_reload_event<reload_notified_resource>& event) {
+  auto listener = [&](const caors::resources::reload_event<reload_notified_resource>& event) {
     ++notify_count;
     captured = event;
   };
   [[maybe_unused]] caors::event_connection connection = reloaded.connect(listener);
 
-  caors::resource_handle_result<reload_notified_resource> result =
-      caors::reload_and_notify(cache, loader, test_guid_a, reloaded);
+  caors::resources::handle_result<reload_notified_resource> result =
+      caors::resources::reload_and_notify(cache, loader, test_guid_a, reloaded);
 
   CHECK(result.failed());
   CHECK(result.status ==
@@ -109,16 +109,16 @@ TEST_CASE("resources - reload_and_notify respects disconnected listeners", "[res
   reload_notified_loader loader;
   loader.width = 512;
 
-  caors::resource_reload_signal<reload_notified_resource> reloaded;
+  caors::resources::reload_signal<reload_notified_resource> reloaded;
   int notify_count = 0;
-  auto listener = [&](const caors::resource_reload_event<reload_notified_resource>&) {
+  auto listener = [&](const caors::resources::reload_event<reload_notified_resource>&) {
     ++notify_count;
   };
   caors::event_connection connection = reloaded.connect(listener);
   REQUIRE(connection.disconnect());
 
-  caors::resource_handle_result<reload_notified_resource> result =
-      caors::reload_and_notify(cache, loader, test_guid_a, reloaded);
+  caors::resources::handle_result<reload_notified_resource> result =
+      caors::resources::reload_and_notify(cache, loader, test_guid_a, reloaded);
 
   REQUIRE(result.succeeded());
   CHECK(notify_count == 0);
