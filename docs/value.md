@@ -97,9 +97,8 @@ caors::any value = caors::any::from(7);
   资源构造会使用标准 uses-allocator 规则，把同一个 `memory_resource` 传给对象内部 allocator。
 - 复制已有值生成 `any` 时会沿用当前存储策略：可内联的小型平凡值继续内联，其他值走 clone；需要指定资源创建空对象再读入数据时，应使用
   `any::default_construct(type_id, resource)`。
-- `any::take_ownership(type, value, resource, destroy)` 是高级所有权接管入口。调用方必须保证 `value`
-  指向与 `type` 匹配的对象，并且 `destroy` 与构造策略和 `resource` 配套。普通业务代码应优先使用
-  `runtime::type::create()`，不要直接拼接裸指针生命周期。
+- `any::take_ownership(owned_value&&)` 是高级所有权接管入口。普通业务代码应优先使用
+  `runtime::type::create()` 或 `factory_capability::construct()`，不要直接拼接裸指针生命周期。
 
 ## owned_value
 

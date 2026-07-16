@@ -431,10 +431,12 @@ inline caors::serialization::construction_result construct_non_default_value_for
   std::array<caors::any_ref, 1> arguments{initial.ref()};
   const caors::meta::constructor_capability constructor =
       request.type.get_capability<caors::meta::constructor_capability>();
-  void* value = caors::meta::detail::constructor_construct(
-      constructor, context.effective_memory_resource(),
-      std::span<const caors::any_ref>{arguments.data(), arguments.size()});
-  return {value, caors::meta::detail::constructor_destroy_fn(constructor)};
+  caors::owned_value value = constructor.construct_owned(
+      std::span<const caors::any_ref>{arguments.data(), arguments.size()},
+      context.effective_memory_resource());
+  caors::meta::detail::owned_value_release released =
+      caors::meta::detail::release_owned_value(value);
+  return {released.value, released.resource_destroy};
 }
 
 inline caors::serialization::context non_default_construction_context() {

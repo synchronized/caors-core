@@ -139,12 +139,6 @@ construct_owned_value(meta::type type, const serialization::context& context,
   return decoded;
 }
 
-/** @brief 兼容旧内部命名；语义已包含 resolver、factory 和 constructor。 */
-[[nodiscard]] inline any default_construct_value(meta::type type,
-                                                 const serialization::context& context) {
-  return construct_value(type, context);
-}
-
 } // namespace caors::serialization::detail
 
 #endif

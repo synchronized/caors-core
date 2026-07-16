@@ -203,23 +203,6 @@ struct type_capability_traits<Capability,
 class factory_capability;
 class constructor_capability;
 
-namespace detail {
-
-[[nodiscard]] void* factory_construct(const factory_capability& capability,
-                                      memory::memory_resource* resource);
-
-[[nodiscard]] factory_ops::destroy_fn
-factory_destroy_fn(const factory_capability& capability) noexcept;
-
-[[nodiscard]] void* constructor_construct(const constructor_capability& capability,
-                                          memory::memory_resource* resource,
-                                          std::span<const any_ref> arguments);
-
-[[nodiscard]] constructor_ops::destroy_fn
-constructor_destroy_fn(const constructor_capability& capability) noexcept;
-
-} // namespace detail
-
 /** @brief 类型运行期创建能力的公开 facade。 */
 class factory_capability final : public type_capability_base<factory_ops> {
 public:
@@ -233,10 +216,6 @@ public:
 
   /** @brief 使用注册工厂构造并返回可显式转移所有权的运行期值。 */
   [[nodiscard]] owned_value construct_owned(memory::memory_resource* resource = nullptr) const;
-
-private:
-  friend void* detail::factory_construct(const factory_capability&, memory::memory_resource*);
-  friend factory_ops::destroy_fn detail::factory_destroy_fn(const factory_capability&) noexcept;
 };
 
 /** @brief 类型运行期带参构造能力的公开 facade。 */
@@ -264,43 +243,7 @@ public:
   /** @brief 使用注册构造函数构造并返回可显式转移所有权的运行期值。 */
   [[nodiscard]] owned_value construct_owned(std::span<const any_ref> arguments,
                                             memory::memory_resource* resource = nullptr) const;
-
-private:
-  friend void* detail::constructor_construct(const constructor_capability&,
-                                             memory::memory_resource*, std::span<const any_ref>);
-  friend constructor_ops::destroy_fn
-  detail::constructor_destroy_fn(const constructor_capability&) noexcept;
 };
-
-namespace detail {
-
-/** @brief 使用注册 factory 构造裸对象，仅供内部所有权接管路径使用。 */
-[[nodiscard]] inline void* factory_construct(const factory_capability& capability,
-                                             memory::memory_resource* resource) {
-  return capability.valid() ? capability.ops_->construct(resource) : nullptr;
-}
-
-/** @brief 查询注册 factory 的销毁策略，仅供内部所有权接管路径使用。 */
-[[nodiscard]] inline factory_ops::destroy_fn
-factory_destroy_fn(const factory_capability& capability) noexcept {
-  return capability.valid() ? capability.ops_->destroy : nullptr;
-}
-
-/** @brief 使用注册 constructor 构造裸对象，仅供内部所有权接管路径使用。 */
-[[nodiscard]] inline void* constructor_construct(const constructor_capability& capability,
-                                                 memory::memory_resource* resource,
-                                                 std::span<const any_ref> arguments) {
-  return capability.matches(arguments.size()) ? capability.ops_->construct(resource, arguments)
-                                              : nullptr;
-}
-
-/** @brief 查询注册 constructor 的销毁策略，仅供内部所有权接管路径使用。 */
-[[nodiscard]] inline constructor_ops::destroy_fn
-constructor_destroy_fn(const constructor_capability& capability) noexcept {
-  return capability.valid() ? capability.ops_->destroy : nullptr;
-}
-
-} // namespace detail
 
 } // namespace caors::meta
 

@@ -93,13 +93,14 @@ constructor 参数采用保守匹配策略：参数数量必须一致，参数�
 `meta::factory_capability`，因此不适合作为多态反序列化、编辑器创建对象或资源配置加载的首选入口。
 它适合测试、兜底构造、工具层显式绕过 factory 的场景。
 
-更底层的 `meta::any::default_construct()` 和 `meta::any::take_ownership()` 属于 meta value 的高级构造接口：
+更底层的 `meta::any::default_construct()`、`meta::owned_value` 和 `meta::any::take_ownership()`
+属于 meta value 的高级构造接口：
 
 - `default_construct(type, resource)` 只按 descriptor 默认构造值。
-- `take_ownership(type, value, resource, destroy)` 接管外部工厂创建的对象，调用方必须保证对象类型、
-  销毁函数和 `memory_resource` 完全匹配。普通 meta factory 调用优先使用 `factory_capability::construct()`。
 - `factory_capability::construct_owned()` / `constructor_capability::construct_owned()` 返回
   `meta::owned_value`，适合工具层先填充对象再转交所有权；最终可用 `into_any()` 转成 `any`。
+- `take_ownership(owned_value&&)` 接管 `owned_value` 持有的对象。普通 meta factory 调用优先使用
+  `factory_capability::construct()`。
 - 普通业务、编辑器创建、多态反序列化和资源配置加载应优先通过 `runtime::type::create()` 统一调度。
 
 注册自定义无参构造策略时，使用 `runtime::class_<T>().factory()`：

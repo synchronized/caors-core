@@ -107,51 +107,6 @@ void owned_value::release() noexcept {
   default_destroy_ = nullptr;
 }
 
-owned_value
-detail::owned_value_access::make(meta::type type, void* value, memory::memory_resource* resource,
-                                 meta::value_ops::resource_destroy_fn destroy) noexcept {
-  if (!type || value == nullptr || destroy == nullptr) {
-    return {};
-  }
-
-  owned_value result;
-  result.type_ = type;
-  result.data_ = value;
-  result.resource_ = resource;
-  result.resource_destroy_ = destroy;
-  return result;
-}
-
-owned_value detail::owned_value_access::make(meta::type type, void* value,
-                                             meta::value_ops::destroy_fn destroy) noexcept {
-  if (!type || value == nullptr || destroy == nullptr) {
-    return {};
-  }
-
-  owned_value result;
-  result.type_ = type;
-  result.data_ = value;
-  result.default_destroy_ = destroy;
-  return result;
-}
-
-detail::owned_value_release detail::owned_value_access::release(owned_value& value) noexcept {
-  owned_value_release released{
-      value.type_, value.data_, value.resource_, value.resource_destroy_, value.default_destroy_,
-  };
-  value.release();
-  return released;
-}
-
-memory::memory_resource* detail::owned_value_access::resource(const owned_value& value) noexcept {
-  return value.resource_;
-}
-
-meta::value_ops::resource_destroy_fn
-detail::owned_value_access::resource_destroy(const owned_value& value) noexcept {
-  return value.resource_destroy_;
-}
-
 any::~any() { reset(); }
 
 any::any(const any& other) { copy_from(other); }
@@ -281,22 +236,6 @@ any any::copy_from_raw(meta::type type, const void* source) {
   result.type_ = type;
   result.data_ = copy;
   result.mode_ = storage_mode::heap_value;
-  return result;
-}
-
-any any::take_ownership(meta::type type, void* value, memory::memory_resource* resource,
-                        meta::factory_ops::destroy_fn destroy) {
-  const meta::value_storage_ops* value_ops = type.get_raw_ops<meta::value_storage_ops>();
-  if (!type || value_ops == nullptr || value == nullptr || destroy == nullptr) {
-    return {};
-  }
-
-  any result;
-  result.type_ = type;
-  result.data_ = value;
-  result.resource_ = resource;
-  result.resource_destroy_ = destroy;
-  result.mode_ = any::storage_mode::resource_value;
   return result;
 }
 

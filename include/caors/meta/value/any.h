@@ -20,7 +20,16 @@ namespace caors::meta {
 namespace detail {
 
 struct owned_value_release;
-struct owned_value_access;
+
+[[nodiscard]] owned_value make_owned_value(meta::type type, void* value,
+                                           memory::memory_resource* resource,
+                                           meta::value_ops::resource_destroy_fn destroy) noexcept;
+[[nodiscard]] owned_value make_owned_value(meta::type type, void* value,
+                                           meta::value_ops::destroy_fn destroy) noexcept;
+[[nodiscard]] owned_value_release release_owned_value(owned_value& value) noexcept;
+[[nodiscard]] memory::memory_resource* owned_value_resource(const owned_value& value) noexcept;
+[[nodiscard]] meta::value_ops::resource_destroy_fn
+owned_value_resource_destroy(const owned_value& value) noexcept;
 
 } // namespace detail
 
@@ -65,7 +74,14 @@ public:
 
 private:
   friend class any;
-  friend struct detail::owned_value_access;
+  friend owned_value detail::make_owned_value(meta::type, void*, memory::memory_resource*,
+                                              meta::value_ops::resource_destroy_fn) noexcept;
+  friend owned_value detail::make_owned_value(meta::type, void*,
+                                              meta::value_ops::destroy_fn) noexcept;
+  friend detail::owned_value_release detail::release_owned_value(owned_value&) noexcept;
+  friend memory::memory_resource* detail::owned_value_resource(const owned_value&) noexcept;
+  friend meta::value_ops::resource_destroy_fn
+  detail::owned_value_resource_destroy(const owned_value&) noexcept;
 
   void release() noexcept;
 
@@ -86,46 +102,57 @@ struct owned_value_release {
   void* value = nullptr;
   memory::memory_resource* resource = nullptr;
   meta::value_ops::resource_destroy_fn resource_destroy = nullptr;
-  meta::value_ops::destroy_fn default_destroy = nullptr;
 
   [[nodiscard]] bool valid() const noexcept { return type && value != nullptr; }
-};
-
-struct owned_value_access {
-  [[nodiscard]] static owned_value make(meta::type type, void* value,
-                                        memory::memory_resource* resource,
-                                        meta::value_ops::resource_destroy_fn destroy) noexcept;
-  [[nodiscard]] static owned_value make(meta::type type, void* value,
-                                        meta::value_ops::destroy_fn destroy) noexcept;
-  [[nodiscard]] static owned_value_release release(owned_value& value) noexcept;
-  [[nodiscard]] static memory::memory_resource* resource(const owned_value& value) noexcept;
-  [[nodiscard]] static meta::value_ops::resource_destroy_fn
-  resource_destroy(const owned_value& value) noexcept;
 };
 
 [[nodiscard]] inline owned_value
 make_owned_value(meta::type type, void* value, memory::memory_resource* resource,
                  meta::value_ops::resource_destroy_fn destroy) noexcept {
-  return owned_value_access::make(type, value, resource, destroy);
+  if (!type || value == nullptr || destroy == nullptr) {
+    return {};
+  }
+
+  owned_value result;
+  result.type_ = type;
+  result.data_ = value;
+  result.resource_ = resource;
+  result.resource_destroy_ = destroy;
+  return result;
 }
 
 [[nodiscard]] inline owned_value make_owned_value(meta::type type, void* value,
                                                   meta::value_ops::destroy_fn destroy) noexcept {
-  return owned_value_access::make(type, value, destroy);
+  if (!type || value == nullptr || destroy == nullptr) {
+    return {};
+  }
+
+  owned_value result;
+  result.type_ = type;
+  result.data_ = value;
+  result.default_destroy_ = destroy;
+  return result;
 }
 
 [[nodiscard]] inline owned_value_release release_owned_value(owned_value& value) noexcept {
-  return owned_value_access::release(value);
+  owned_value_release released{
+      value.type_,
+      value.data_,
+      value.resource_,
+      value.resource_destroy_,
+  };
+  value.release();
+  return released;
 }
 
 [[nodiscard]] inline memory::memory_resource*
 owned_value_resource(const owned_value& value) noexcept {
-  return owned_value_access::resource(value);
+  return value.resource_;
 }
 
 [[nodiscard]] inline meta::value_ops::resource_destroy_fn
 owned_value_resource_destroy(const owned_value& value) noexcept {
-  return owned_value_access::resource_destroy(value);
+  return value.resource_destroy_;
 }
 
 } // namespace detail
@@ -200,16 +227,6 @@ public:
    * `any`。
    */
   [[nodiscard]] static any copy_from_raw(meta::type type, const void* source);
-
-  /**
-   * @brief 接管由外部工厂创建的运行期对象。
-   *
-   * `value` 必须指向与 `type` 匹配的对象，`destroy` 必须能用同一个 `resource` 正确销毁该对象。
-   * 该入口主要供 runtime factory、序列化多态创建等高级所有权接管路径使用。
-   */
-  [[nodiscard]] static any take_ownership(meta::type type, void* value,
-                                          memory::memory_resource* resource,
-                                          meta::factory_ops::destroy_fn destroy);
 
   /** @brief 接管一个 `owned_value` 持有的对象。转移成功后 `owned_value` 变为空。 */
   [[nodiscard]] static any take_ownership(owned_value&& value);
@@ -309,8 +326,8 @@ private:
 void swap(any& lhs, any& rhs) noexcept;
 
 inline owned_value factory_capability::construct_owned(memory::memory_resource* resource) const {
-  void* value = detail::factory_construct(*this, resource);
-  return detail::make_owned_value(get_type(), value, resource, detail::factory_destroy_fn(*this));
+  void* value = valid() ? ops_->construct(resource) : nullptr;
+  return detail::make_owned_value(get_type(), value, resource, valid() ? ops_->destroy : nullptr);
 }
 
 inline any factory_capability::construct(memory::memory_resource* resource) const {
@@ -320,9 +337,8 @@ inline any factory_capability::construct(memory::memory_resource* resource) cons
 inline owned_value
 constructor_capability::construct_owned(std::span<const any_ref> arguments,
                                         memory::memory_resource* resource) const {
-  void* value = detail::constructor_construct(*this, resource, arguments);
-  return detail::make_owned_value(get_type(), value, resource,
-                                  detail::constructor_destroy_fn(*this));
+  void* value = matches(arguments.size()) ? ops_->construct(resource, arguments) : nullptr;
+  return detail::make_owned_value(get_type(), value, resource, valid() ? ops_->destroy : nullptr);
 }
 
 inline any constructor_capability::construct(std::span<const any_ref> arguments,
