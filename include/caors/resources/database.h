@@ -5,13 +5,14 @@
 #define CAORS_RESOURCES_DATABASE_H_
 
 #include "caors/core/type_guid.h"
+#include "caors/meta/query.h"
 #include "caors/resources/async.h"
 #include "caors/resources/dependency_graph.h"
+#include "caors/resources/dependency_list.h"
 #include "caors/resources/detail/type_entry_ops.h"
 #include "caors/resources/io.h"
 #include "caors/resources/manifest.h"
 #include "caors/resources/preload.h"
-#include "caors/resources/serialization.h"
 #include "caors/resources/source.h"
 
 #include <cstdint>
@@ -676,11 +677,6 @@ public:
                                         : make_guid_list();
   }
 
-  /** @brief 创建可挂到 `serialization::context` 的外部引用 resolver。 */
-  [[nodiscard]] resources::resource_ref_resolver_ops resolver() noexcept {
-    return resources::resource_ref_resolver_ops{&database_resource_resolve, this};
-  }
-
 private:
   struct type_entry {
     type_id id{};
@@ -1016,16 +1012,6 @@ private:
   [[nodiscard]] dependency_graph::guid_list make_guid_list() const {
     return dependency_graph::guid_list{
         typename dependency_graph::guid_list::allocator_type{resource_}};
-  }
-
-  [[nodiscard]] static void* database_resource_resolve(const serialization::external_ref& ref,
-                                                       void* user_data) noexcept {
-    if (ref.domain != resources::resource_ref_domain()) {
-      return nullptr;
-    }
-
-    auto* database = static_cast<resources::database*>(user_data);
-    return database != nullptr ? database->find(resource_guid{ref.id}) : nullptr;
   }
 
   memory_resource* resource_ = nullptr;

@@ -4,13 +4,21 @@
 #ifndef CAORS_ASSETS_SERIALIZATION_H_
 #define CAORS_ASSETS_SERIALIZATION_H_
 
+#include "caors/assets/asset_manager.h"
 #include "caors/resources/io.h"
+#include "caors/resources/serialization.h"
 #include "caors/serialization/operations.h"
 
 #include <type_traits>
 #include <utility>
 
 namespace caors::assets {
+
+/** @brief 使用 asset_manager 内部 database 创建资源引用 resolver。 */
+[[nodiscard]] inline resources::resource_ref_resolver_ops
+make_resource_resolver(asset_manager& manager) noexcept {
+  return resources::make_resource_resolver(manager.database());
+}
 
 /**
  * @brief 从序列化 reader 构造资源。

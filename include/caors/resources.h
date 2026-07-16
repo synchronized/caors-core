@@ -8,6 +8,7 @@
 #include "caors/resources/cache.h"
 #include "caors/resources/database.h"
 #include "caors/resources/dependency_graph.h"
+#include "caors/resources/dependency_list.h"
 #include "caors/resources/handle.h"
 #include "caors/resources/id.h"
 #include "caors/resources/io.h"

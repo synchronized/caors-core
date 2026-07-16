@@ -38,6 +38,7 @@ CAORS 目前更偏底层库和实验性基础设施，而不是完整引擎或�
 - 运行时组合 API：`caors/runtime.h`，提供 `meta`、`reflection` 和运行期值能力的用户友好 facade。
 - 资源 API：`caors/resources.h`，包含资源身份、引用、运行期 handle、引用计数缓存、依赖图、清单、
   字节来源 provider、loader/saver、同步 reload 通知、异步加载请求和非拥有资源 database 编排入口。
+- 工程资源 API：`caors/assets.h`，包含工程资源配置、asset manager、source/type factory 和 JSON 资源适配。
 - Meta value API：`caors/meta/value.h`，包含 `any`、`any_ref`、运行期 view 和 `variant` 数据 DOM。
 - 序列化 API：`caors/serialization.h`，提供基于反射字段的文本/JSON 读写、DOM、codec、资源引用和多态读写入口。
 - `examples/` 可运行示例。
@@ -73,6 +74,7 @@ ctest --preset windows-clang-debug
 - [docs/error.md](docs/error.md)：统一错误模型和标准库错误码适配。
 - [docs/events.md](docs/events.md)：轻量 delegate、同步 signal、连接视图、同步 dispatcher 和连接生命周期。
 - [docs/io.md](docs/io.md)：同步字节流、文件系统抽象和本地文件系统实现。
+- [docs/assets.md](docs/assets.md)：工程资源配置、asset manager、source/type factory 和 JSON 资源适配。
 - [docs/roadmap.md](docs/roadmap.md)：项目路线图。
 - [docs/registration.md](docs/registration.md)：类型、对象、反射和序列化的注册顺序与初始化策略。
 - [docs/runtime.md](docs/runtime.md)：运行时组合 facade，统一查询类型、字段、方法和值构造能力。

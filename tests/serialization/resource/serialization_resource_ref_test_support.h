@@ -6,6 +6,7 @@
 #include "serialization_test_support.h"
 
 #include "caors/resources.h"
+#include "caors/resources/serialization.h"
 
 namespace caors::tests::serialization::resource_ref_codec {
 

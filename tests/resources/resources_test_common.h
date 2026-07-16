@@ -6,6 +6,7 @@
 #include "caors/assets.h"
 #include "caors/assets/json.h"
 #include "caors/resources.h"
+#include "caors/resources/serialization.h"
 
 #include "caors/core/containers.h"
 #include "caors/io.h"

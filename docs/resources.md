@@ -5,9 +5,9 @@
 
 本文档说明 CAORS 资源系统的当前设计边界。资源系统仍处于基础阶段，当前提供资源身份、轻量引用模型、
 运行期共享 handle、非拥有资源索引、引用计数缓存、资源依赖图、资源清单、字节来源 provider、
-加载/保存接口、非拥有资源 database 编排入口、同步 reload、显式 reload 通知、同步预加载计划、
-序列化资源引用 resolver、第一版异步加载请求，以及高层 assets 工程配置和 asset manager；
-资源包后续再补。
+加载/保存接口、非拥有资源 database 编排入口、同步 reload、显式 reload 通知、同步预加载计划和
+第一版异步加载请求；资源包后续再补。高层工程配置、asset manager 和 JSON 适配见
+[assets.md](assets.md)。
 
 ## 设计目标
 
@@ -23,9 +23,7 @@
 - 资源清单可以把稳定 GUID 映射到资源位置、类型、版本和 hash。
 - 资源 provider 可以把稳定 GUID 映射到字节来源和位置，作为资源数据库或调试 fileserver 的运行期读取入口。
 - 资源加载器和保存器先只定义类型化接口，不绑定路径、文件系统或异步框架。
-- 资源 database 可以把 manifest、provider、cache、loader、依赖图和资源引用 resolver 串成一条主流程。
-- assets 层的工程资源配置可以描述 source、manifest 条目、资源类型策略名、依赖边和预加载根资源。
-- `assets::asset_manager` 可以拥有 manifest、provider、dependency graph 和 database，减少手动拼装时的生命周期错误。
+- 资源 database 可以把 manifest、provider、cache、loader 和依赖图串成一条主流程。
 - 同步预加载计划可以按依赖图计算依赖优先的加载顺序，并在需要拓扑顺序的流程中检测循环依赖。
 - 异步加载请求可以把后台 loader 阶段和主线程 cache commit 阶段分开。
 - 底层资源模型不绑定具体引擎、文件系统、异步加载框架或编辑器管线。
@@ -52,24 +50,14 @@
 - `source`、`provider`、`manifest`、`dependency_graph`。
 - `loader<T>` / `saver<T>` 抽象、同步/异步加载组合函数和非拥有 `database`。
 
-`assets` 是高层工程资源入口，允许依赖 `resources`、`serialization`、`io` 和运行期配置：
+`resources/serialization.h` 是资源引用与序列化上下文之间的适配层。它提供 `resource_ref<T>` codec、
+依赖收集器和 resolver helper；资源核心头 `caors/resources.h` 不依赖序列化。
 
-- `project_config` 和相关配置结构。
-- `asset_manager` 以及 source/type factory。
-- `register_cached_type_factory<T, Loader>()` 这类格式无关的 cache/loader 工厂 helper。
-- `load_serialized()` / `save_serialized()` 这类基于 reader/writer 的格式中立 helper。
-
-`assets::json` 是 JSON 格式适配层：
-
-- `json::loader<T>` / `json::saver<T>`。
-- 从 JSON 文本或 source 读入 manifest / project config 的 helper。
-- JSON type factory 薄包装：复用 `assets::register_cached_type_factory<T, json::loader<T>>()`，
-  把 `cache = "memory"`、`loader = "json"` 的配置映射到 `cache<T>` 和 `json::loader<T>`。
-
-因此，普通资源核心代码优先包含 `caors/resources.h`；需要工程配置和 asset manager 时包含
-`caors/assets.h`；需要 JSON loader/saver、JSON manifest 或 JSON project config 时显式包含
-`caors/assets/json.h`。后续如果继续解耦，应优先把 `resources::database` 中和序列化 resolver
-强相关的适配入口进一步移动到高层 adapter。
+`assets` 是高层工程资源入口，允许依赖 `resources`、`serialization`、`io` 和运行期配置。它的职责、
+配置格式和 JSON 适配见 [assets.md](assets.md)。因此普通资源核心代码优先包含 `caors/resources.h`；
+需要资源引用序列化适配时显式包含 `caors/resources/serialization.h`；需要工程配置和 asset manager
+时包含 `caors/assets.h`；需要 JSON loader/saver、JSON manifest 或 JSON project config 时显式包含
+`caors/assets/json.h`。
 
 ## 命名空间
 
@@ -89,17 +77,8 @@
 - `resources::source`
 - `resources::file_source`
 - `resources::provider`
-- `assets::project_config`
-- `assets::project_source_config`
-- `assets::project_resource_config`
-- `assets::project_resource_type_config`
-- `assets::project_dependency_config`
-- `assets::asset_manager`
-- `assets::register_cached_type_factory<T, Loader>()`
 - `resources::loader<T>`
-- `assets::json::loader<T>`
 - `resources::saver<T>`
-- `assets::json::saver<T>`
 - `resources::request_status`
 - `resources::load_request<T>`
 - `resources::preload_request`
@@ -108,8 +87,6 @@
 - `resources::preload_result`
 - `resources::request_load_into()`
 - `resources::request_reload_into()`
-- `assets::load_project_config()`（从 DOM 读入）
-- `assets::json::load_project_config()`（从 JSON 文本或 source 读入）
 - `resources::reload_event<T>`
 - `resources::reload_signal<T>`
 
@@ -131,9 +108,8 @@
 - `caors::make_handle()`
 
 低频组合件不再放入根命名空间，包括 source/provider、loader/saver、request/result/status、
-manifest helper、project config、reload event/signal 和资源序列化 resolver helper。普通用户优先从
-`assets::asset_manager` / `resources::database` / `resources::cache<T>` 进入；需要手动拼装资源管线时，
-显式使用 `caors::resources::...` 或 `caors::assets::...` 可以让职责边界更清楚。
+manifest helper、reload event/signal 和资源序列化 resolver helper。需要手动拼装资源管线时，
+显式使用 `caors::resources::...` 可以让职责边界更清楚；工程级入口见 `caors::assets`。
 
 ## resource_guid
 
@@ -325,7 +301,7 @@ manifest.bind(texture_id, "textures/albedo.json", texture_guid_token);
 
 ```cpp
 caors::resource_cache<texture> cache;
-caors::assets::json::loader<texture> loader{provider};
+texture_loader loader{provider};
 caors::tasks::thread_pool_executor executor{2};
 caors::tasks::completion_queue completions;
 
@@ -511,7 +487,8 @@ cache.resolve(decoded.albedo);
 ```
 
 也可以通过 `serialization::context` 为本次反序列化挂一个通用外部引用 resolver。资源模块提供
-`resources::make_resource_resolver()` 适配 `resources::manager` 或 `resources::cache<T>`：
+`resources::make_resource_resolver()` 适配 `resources::manager`、`resources::database` 或
+`resources::cache<T>`：
 
 ```cpp
 caors::resource_cache<texture> cache;
@@ -537,7 +514,8 @@ caors::deserialize(context, decoded, R"({"albedo":"6cd2da3d-b549-4756-8b8b-0c842
 
 ```cpp
 caors::resources::resource_dependency_list dependencies;
-caors::resources::resource_dependency_collector_ops collector = dependencies.collector();
+caors::resources::resource_dependency_collector_ops collector =
+    caors::resources::make_resource_dependency_collector(dependencies);
 
 caors::serialization::context context{};
 context.resolvers.external_refs.collector = &collector;
@@ -661,11 +639,11 @@ database.set_dependency_graph(graph);
 database.sync_manifest(source);
 
 caors::resource_cache<texture> cache;
-caors::assets::json::loader<texture> loader{provider};
+texture_loader loader{provider};
 database.register_type(cache, loader);
 
 auto loaded = database.load<texture>(texture_id);
-auto resolver = database.resolver();
+auto resolver = caors::resources::make_resource_resolver(database);
 ```
 
 常用入口：
@@ -681,8 +659,6 @@ auto resolver = database.resolver();
 - `reload<T>(guid)` / `reload_handle<T>(guid)`：重新加载并替换对应 cache 中已有资源；失败时仍保留旧资源。
 - `find<T>(guid)` / `find(guid)`：查询已注册 cache 中的资源。
 - `resolve(ref<T>&)` / `is_current(ref<T>)`：通过已注册 cache 解析资源引用并检查 generation 是否仍当前。
-- `resolver()`：生成 `resources::resource_ref_resolver_ops`，可挂到 `serialization::context` 中解析
-  `resource_ref<T>`。
 - `replace_dependencies()` / `affected_by()` / `affected_closure()`：把依赖收集结果写入当前依赖图，并查询
   reload 影响范围。
 
@@ -693,225 +669,18 @@ auto resolver = database.resolver();
   `asset_manager` 工厂配置的场景。
 - 普通 `load<T>()` 不会根据 manifest 的 `type` 字符串自动选择 loader；调用方仍需要明确使用模板类型。
   跨类型预加载入口会按 `register_type<T>(cache, loader, type)` 的 manifest type 绑定分派。
-- `database.resolver()` 只能返回 `resource*`；`resource_ref<T>` 的类型兼容检查仍由序列化层的
+- `resources::make_resource_resolver(database)` 位于 `caors/resources/serialization.h`，只返回
+  `resource*`；`resource_ref<T>` 的类型兼容检查仍由序列化层的
   `dynamic_cast<T*>` 完成。
 - 如果希望 `resource_ref<T>` 记录 cache generation，应在读回后调用 `database.resolve(ref)` 或
   `cache.resolve(ref)`；序列化 resolver 本身只负责把 GUID 解析为资源对象。
 - 跨线程修改 database、cache、provider 或 manifest 时，调用方需要自行同步。
 
-## project_config / asset_manager
+## 高层 assets 入口
 
-`assets::project_config` 是工程资源系统的可反序列化描述对象。它只保存数据，不拥有运行期
-`source`、`provider`、`cache`、`loader` 或 `database`：
-
-```cpp
-caors::assets::project_config config;
-caors::assets::json::load_project_config(config, R"({
-  "schema_version": 1,
-  "sources": [
-    {
-      "name": "assets",
-      "type": "memory_file_system",
-      "root": "/",
-      "options": {
-        "mount": "debug-assets"
-      }
-    }
-  ],
-  "resource_types": [
-    {
-      "type": "game.texture",
-      "loader": "json",
-      "cache": "memory",
-      "options": {
-        "format": "resource-json"
-      }
-    }
-  ],
-  "resources": [
-    {
-      "guid": "6cd2da3d-b549-4756-8b8b-0c84293af410",
-      "source": "assets",
-      "location": "textures/albedo.json",
-      "type": "game.texture",
-      "hash": "content-hash",
-      "version": 1
-    }
-  ],
-  "dependencies": [
-    {
-      "resource": "0c2f82f8-2b3e-4f77-965c-4f2d1c4a907a",
-      "dependency": "6cd2da3d-b549-4756-8b8b-0c84293af410"
-    }
-  ],
-  "preload": [
-    "0c2f82f8-2b3e-4f77-965c-4f2d1c4a907a"
-  ]
-})");
-```
-
-`assets::asset_manager` 是第一版拥有式运行期外壳。它持有 `manifest`、`provider`、
-`dependency_graph` 和 `database`，并把这些对象在构造时挂接到内部 database：
-
-```cpp
-caors::assets::asset_manager assets;
-caors::assets::json::register_type_factory<texture>(
-    assets,
-    caors::string_name{"game.texture"});
-
-caors::error built = assets.build(config);
-if (built) {
-  // 处理配置或运行期对象创建错误。
-}
-
-caors::assets::asset_build_result detailed = assets.build_detailed(config);
-if (detailed.failed()) {
-  // detailed.stage / index / name / type / guid / reasons 可用于编辑器或工具层诊断。
-}
-
-caors::resources::preload_result result = assets.preload(texture_id);
-auto resolver = assets.resolver();
-```
-
-推荐普通项目优先使用 `asset_manager` 的高层入口：
-
-- `build(config)`：根据 `project_config` 重建内部 manifest、provider 和 dependency graph，并按已注册工厂创建运行期 source、cache 和 loader；重复调用会先清理上一轮配置创建的运行期对象。
-- `build_detailed(config)`：执行同样构建流程，但返回 `asset_build_result`，用于定位失败阶段、配置项索引、source/type 名称、资源 GUID 和可读原因。
-- `assets::json::register_type_factory<T>(manager, type)`：把配置里的资源类型名映射到默认
-  `memory` cache 和 `json` loader。非 JSON 格式可以直接使用
-  `assets::register_cached_type_factory<T, Loader>()` 注册同样的 cache/loader 装配逻辑。
-- `find<T>(guid)` / `find(guid)`：查询内部已注册 cache 中的资源。
-- `load<T>(guid)` / `load_handle<T>(guid)`：通过内部 database 中已注册的 loader/cache 加载资源。
-- `reload<T>(guid)` / `reload_handle<T>(guid)`：重新加载并替换 cache 当前绑定；失败时保留旧资源。
-- 保存资源时显式组合对应格式的 `saver<T>`；例如 JSON 路径使用 `assets::json::saver<T>`。
-- `plan_preload<T>(root)` / `preload<T>(root)`：按同一资源类型生成和执行依赖闭包预加载。
-- `plan_preload(root)` / `preload(root)`：按 manifest type 跨类型分派预加载。
-- `request_load<T>()` / `request_reload<T>()` / `request_preload()`：把资源加载提交到 executor，并在 completion queue 中完成 cache commit。
-- `resolve(ref<T>&)` / `is_current(ref<T>)`：通过内部 cache 解析资源引用并检查 generation 是否仍当前。
-- `resolver()`：生成可挂到 `serialization::context` 的资源引用 resolver。
-- `replace_dependencies()` / `affected_by()` / `affected_closure()`：维护和查询内部依赖图。
-
-外部扩展可以注册自己的 source/type factory。factory 会收到 context 和可选 `user_data`：
-
-```cpp
-struct pak_state {
-  pak_index* index = nullptr;
-};
-
-caors::error make_pak_source(caors::assets::asset_manager::source_factory_context& context,
-                             const caors::assets::project_source_config& config,
-                             void* user_data) {
-  auto* state = static_cast<pak_state*>(user_data);
-  const caors::variant* compression =
-      config.options.find_member_variant(caors::string_name{"compression"});
-  (void)compression;
-  auto* file_system = context.manager.create_owned<pak_file_system>(config.root, state->index);
-  auto* source = context.manager.create_owned<caors::resources::file_source>(*file_system);
-  return context.manager.bind_source(config.name, *source);
-}
-
-pak_state state{&index};
-caors::assets::factory_option_schema pak_schema;
-pak_schema.optional(caors::string_name{"compression"},
-                    caors::assets::factory_option_kind::string);
-
-assets.register_source_factory(caors::string_name{"pak"}, &make_pak_source, &state, pak_schema);
-```
-
-类型工厂同样可以创建 cache/loader，并把它们注册到内部 database：
-
-```cpp
-caors::error make_texture_runtime(
-    caors::assets::asset_manager::type_factory_context& context,
-    const caors::assets::project_resource_type_config& config,
-    void* user_data) {
-  (void)user_data;
-  auto* cache = context.manager.create_owned<caors::resources::cache<texture>>(context.resource);
-  auto* loader = context.manager.create_owned<pak_texture_loader>(context.provider);
-  return context.database.register_type(*cache, *loader, config.type);
-}
-
-caors::assets::factory_option_schema texture_schema;
-texture_schema.require(caors::string_name{"format"},
-                       caors::assets::factory_option_kind::string);
-texture_schema.optional(caors::string_name{"priority"});
-
-assets.register_type_factory(caors::string_name{"game.texture"}, &make_texture_runtime, nullptr,
-                             texture_schema);
-```
-
-如果某个格式的 loader 只需要 `resources::provider` 就能构造，可以复用通用 cached type factory，
-避免重复编写创建 `cache<T>`、创建 loader、注册 database 的样板代码：
-
-```cpp
-caors::assets::register_cached_type_factory<texture, pak_texture_loader>(
-    assets,
-    caors::string_name{"game.texture"},
-    caors::string_name{"memory"},
-    caors::string_name{"pak"});
-```
-
-JSON 适配层的 `assets::json::register_type_factory<T>()` 就是这套通用 helper 的薄包装：
-
-```cpp
-caors::assets::json::register_type_factory<texture>(
-    assets,
-    caors::string_name{"game.texture"});
-```
-
-`create_owned<T>()` 使用 asset_manager 的内存资源构造对象，并在 asset_manager 析构时统一释放。
-它适合由配置驱动创建的 source、cache、loader、文件系统或资源包索引对象。手动传入
-`bind_source()` / `register_type()` 的外部对象仍由调用方自己管理生命周期。
-
-当前语义：
-
-- `project_config.schema_version` 是工程资源配置 schema 版本。缺省值为 1；当前只接受版本 1，
-  读取到不支持的版本会返回 `resources / unsupported`。
-- `project_config.sources` 描述 source 名称和策略名。`asset_manager` 内置支持
-  `"memory_file_system"` / `"memory"` 和 `"native_file_system"` / `"native"`，会在 build
-  阶段创建并拥有对应 `file_source`。
-- `project_config.sources[].options` 是可选扩展配置对象，原样传给 source factory；缺省为
-  `null`。当前只接受 JSON object 或 `null`，字符串、数组等形态会返回
-  `resources / invalid_argument`。
-- source factory 可以注册 `factory_option_schema`，在 factory 调用前检查必填字段、字段值形态和未知字段策略。
-  schema 失败会使 `build_detailed()` 返回 `asset_build_stage::source`，并在 `reasons` 中记录失败字段。
-- `project_config.resources` 描述 `guid -> source/location/type/hash/version`，会被
-  `asset_manager::build()` 写入内部 manifest 和 provider。
-- `project_config.resource_types` 保存资源类型到 loader/cache 策略名的描述。调用
-  `assets::register_cached_type_factory<T, Loader>(manager, type, cache, loader)` 后，`build()`
-  会在遇到同名资源类型且策略名匹配时创建并拥有 `cache<T>` 和对应 loader。JSON 适配层的
-  `assets::json::register_type_factory<T>(manager, type)` 固定匹配 `cache = "memory"`、
-  `loader = "json"`。
-- `project_config.resource_types[].options` 是可选扩展配置对象，原样传给 type factory；缺省为
-  `null`。它适合表达格式参数、缓存策略、资源包索引名、远程请求策略等运行期构造参数。
-- type factory 同样可以注册 `factory_option_schema`。它适合约束 `"json"`、`"native_file_system"`、
-  `"memory"` 之外的自定义策略，例如资源包名、远程 endpoint、缓存策略名等。
-- `project_config.dependencies` 会写入内部 `dependency_graph`。
-- `project_config.preload_roots` 只保存建议预加载入口；调用方决定何时调用 `preload()` 或异步预加载。
-- `asset_manager::bind_source(name, source)` 不接管 source 生命周期；调用方必须保证 source 存活时间长于
-  `asset_manager` 对它的使用。手动绑定的 source 会覆盖同名配置 source 的自动创建。
-- `asset_manager::build(config)` 会清空内部 manifest、provider 和 dependency graph，再按配置重建。它还会先清理上一轮
-  build 由 source/type factory 通过 `create_owned<T>()` 创建的对象，以及这些对象对应的 source 和
-  cache/loader 注册。
-- `asset_build_result` 不替代 `error`。`error` 继续保持轻量状态码；`asset_build_result` 只服务于
-  `asset_manager` 构建这种多阶段流程，携带 `stage`、`index`、`name`、`type`、`guid` 和
-  `reasons` 等上下文。
-- 手动 `bind_source(name, source)` 绑定的外部 source、手动 `register_type(cache, loader, type)`
-  注册的外部 cache/loader、source/type factory 注册表会跨 `build()` 保留。`asset_manager`
-  会在清理配置创建的 type runtime 后重新把手动 type binding 注册回内部 database。
-- 如果 `build(config)` 中途失败，配置创建的旧运行期对象已经被清理，manifest/provider/dependency graph
-  可能处于本次构建的部分状态；手动绑定和 factory 注册表仍保留。调用方应修正配置后再次调用
-  `build()`，或销毁当前 `asset_manager` 后重新创建。
-- 资源条目未显式写 `source` 时，如果配置中只有一个 source 或 asset_manager 只绑定了一个 source，会使用该
-  唯一 source；否则返回 `resources / not_found`。
-- 没有注册类型工厂的 `resource_types` 会被跳过，保留 `register_type<T>(cache, loader, type)` 手动绑定路径。
-  已注册类型工厂但配置的 cache/loader 策略不支持时，会返回 `resources / unsupported`。
-- `register_source_factory()` 和 `register_type_factory()` 可扩展自定义策略名；factory 可以通过
-  context 访问 asset_manager、内部 provider/database 和内存资源，也可以通过 `user_data`
-  携带外部状态。内置实现只覆盖内存/本地 source 和 JSON + memory cache 的常见调试路径。
-  网络、资源包、专用缓存等策略后续再补。
-- `database()` / `provider()` / `manifest()` / `dependency_graph()` 仍可用于调试和高级组合，但普通业务代码应优先使用
-  `asset_manager` 的高层入口，避免直接依赖内部对象生命周期。
+工程资源配置、`assets::asset_manager`、source/type factory、JSON loader/saver 和
+`load_serialized()` / `save_serialized()` helper 已拆到 [assets.md](assets.md)。资源核心文档只描述
+`resources` 底层组件；项目入口优先阅读 assets 文档。
 
 ## reload 策略现状
 
@@ -996,6 +765,7 @@ caors::resources::sync_manifest(provider, source, manifest);
 caors::resources::replace_manifest(provider, source, manifest);
 ```
 
+`resources` 核心只保存 manifest 数据，不绑定具体配置格式。如果项目使用 `assets` JSON adapter，
 也可以从 JSON 文本或 source 读取清单：
 
 ```cpp
@@ -1156,40 +926,6 @@ auto result = caors::resources::reload_and_notify(cache, loader, texture_id, rel
 - cache 未包含该 GUID 时返回 `errc::not_found`。
 - 具体保存目标、格式和覆盖策略由 saver 实现决定。
 
-`load_serialized<T>()` / `save_serialized<T>()` 是最小序列化读写 helper，复用现有
-`serialization::reader` / `serialization::writer`：
-
-```cpp
-caors::serialization::variant_reader reader{value};
-auto loaded = caors::assets::load_serialized<texture>(id, reader);
-
-caors::serialization::json_writer writer;
-caors::assets::save_serialized(**loaded, writer);
-```
-
-需要传入序列化上下文时使用 context-first 形式：
-
-```cpp
-auto loaded_with_context = caors::assets::load_serialized<texture>(context, id, reader);
-caors::assets::save_serialized(context, **loaded_with_context, writer);
-```
-
-`assets::json::loader<T>` 是 provider 到资源对象的第一版桥接。它按 GUID 从 provider 读取 JSON
-字节，再通过 `load_serialized<T>()` 构造资源，可直接配合 `load_handle_into()` 使用：
-
-```cpp
-caors::resources::file_source source{file_system};
-caors::resources::provider provider;
-provider.bind(texture_id, source, "assets/texture.json");
-
-caors::serialization::context context{};
-caors::assets::json::loader<texture> loader{provider};
-caors::assets::json::loader<texture> loader_with_context{context, provider};
-caors::resource_cache<texture> cache;
-
-auto loaded = caors::resources::load_handle_into(cache, loader, texture_id);
-```
-
 推荐同步加载链路是：
 
 1. `resources::manifest` 保存 `resource_guid -> location/type/hash/version`。
@@ -1197,7 +933,8 @@ auto loaded = caors::resources::load_handle_into(cache, loader, texture_id);
 3. `resources::provider` 只负责按 GUID 定位并读取字节。
 4. `resources::loader<T>` 负责把字节解码为资源对象。
 5. `load_handle_into(cache, loader, guid)` 把加载结果转入拥有式 cache。
-6. `resources::resource_ref_resolver_ops` 从 manager/cache 查询已加载资源，用于解析 `resource_ref<T>`。
+6. `resources::resource_ref_resolver_ops` 从 manager/database/cache 查询已加载资源，用于解析
+   `resource_ref<T>`。
 
 如果对象存档中包含资源引用，推荐在读回前先做一遍依赖收集和预加载：
 
@@ -1225,26 +962,12 @@ provider 本身不直接作为 `resource_ref<T>` resolver，因为它只知道�
 如果需要“缺失时自动加载”，应在上层实现一个自定义 resolver：内部先查询 cache，未命中时通过
 provider + loader 加载，再把结果插入 cache。
 
-`assets::json::saver<T>` 是资源对象到 provider 的同步 JSON 保存桥接。它会把资源对象字段序列化为
-JSON 文本，再按资源 GUID 写回 provider 已绑定的位置：
-
-```cpp
-caors::serialization::context context{};
-caors::assets::json::saver<texture> saver{provider};
-caors::assets::json::saver<texture> saver_with_context{context, provider};
-caors::error saved = saver.save(**loaded);
-```
-
 需要注意：
 
-- `load_serialized<T>()` 要求 `T` 派生自 `resources::resource` 且可默认构造。
-- 读写的资源类型仍需要完成 reflection 和 serialization 注册。
-- helper 只读写资源对象字段；资源 GUID 由外部资源数据库、路径或包索引维护，不写入资源对象本体。
-- `json::loader<T>` 和 `json::saver<T>` 不拥有 provider；provider、source 和底层 file_system 的生命周期
-  由调用方保证。
-- `json::saver<T>` 要求资源携带非 nil GUID，且 provider 中已有对应 GUID 绑定；绑定到只读 source 时会返回
-  `errc::unsupported`。
 - 非默认构造、需要外部依赖或需要异步调度的资源应实现自定义 `loader<T>`。
+- 基于 serialization reader/writer 的 `assets::load_serialized<T>()`、`assets::save_serialized<T>()`、
+  `assets::json::loader<T>` 和 `assets::json::saver<T>` 属于高层 assets adapter，见
+  [assets.md](assets.md)。
 
 底层资源测试位于 `tests/resources/`，高层 assets 配置、JSON loader/saver 和 asset manager 测试位于
 `tests/assets/`。测试组织规则见 [tests/README.md](../tests/README.md)。

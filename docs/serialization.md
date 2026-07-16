@@ -586,7 +586,9 @@ caors::deserialize(context, decoded, json_text);
 当前内置 resolver 创建入口：
 
 - `make_resource_resolver(resources::manager&)`：从非拥有资源索引查找已存在资源。
+- `make_resource_resolver(resources::database&)`：从非拥有资源 database 查询已注册 cache 中的资源。
 - `make_resource_resolver(resources::cache<T>&)`：从拥有式 cache 查找已加载资源。
+- `assets::make_resource_resolver(assets::asset_manager&)`：从高层 asset manager 的内部 database 查询资源。
 
 解析策略：
 
@@ -600,7 +602,8 @@ caors::deserialize(context, decoded, json_text);
 
 ```cpp
 caors::resources::resource_dependency_list dependencies;
-caors::resources::resource_dependency_collector_ops collector = dependencies.collector();
+caors::resources::resource_dependency_collector_ops collector =
+    caors::resources::make_resource_dependency_collector(dependencies);
 
 caors::serialization::context context{};
 context.resolvers.external_refs.collector = &collector;

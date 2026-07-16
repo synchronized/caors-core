@@ -12,7 +12,8 @@ TEST_CASE("serialization - resource refs are collected as dependencies", "[seria
   require_resource_ref_actor_metadata();
 
   caors::resources::resource_dependency_list dependencies;
-  caors::resources::resource_dependency_collector_ops collector = dependencies.collector();
+  caors::resources::resource_dependency_collector_ops collector =
+      caors::resources::make_resource_dependency_collector(dependencies);
 
   caors::serialization::context context{};
   context.resolvers.external_refs.collector = &collector;

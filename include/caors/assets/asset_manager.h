@@ -12,6 +12,7 @@
 #include "caors/resources/cache.h"
 #include "caors/resources/database.h"
 #include "caors/resources/dependency_graph.h"
+#include "caors/resources/dependency_list.h"
 #include "caors/resources/io.h"
 #include "caors/resources/manifest.h"
 #include "caors/resources/source.h"
@@ -449,11 +450,6 @@ public:
   /** @brief 查询某个资源变化后递归受影响的资源。 */
   [[nodiscard]] dependency_graph::guid_list affected_closure(resource_guid resource) const {
     return database_.affected_closure(resource);
-  }
-
-  /** @brief 创建可挂到 serialization::context 的外部引用 resolver。 */
-  [[nodiscard]] resources::resource_ref_resolver_ops resolver() noexcept {
-    return database_.resolver();
   }
 
   /**
