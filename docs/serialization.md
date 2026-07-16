@@ -155,6 +155,10 @@ caors::deserialize(context, object, text);
 类型提供字段级或容器元素级初始对象。返回的 `construction_result` 必须包含对象指针和匹配销毁函数；如果返回空结果，
 序列化层继续尝试后续 fallback。
 
+`construction_result` 是序列化回调的低层桥接结构，保留裸指针是为了兼容自定义构造策略。序列化内部会立即把它转为
+`meta::owned_value`，失败路径自动销毁；普通 meta factory / constructor 路径直接使用
+`construct_owned()`，不会向公开层暴露裸销毁函数。
+
 当前调用点包括：需要临时值的容器元素、集合元素、关联容器 key/value、空拥有型智能指针 wrapper 的内部值、variant
 候选切换、普通多态 wrapper 新建对象，以及字段整体临时值。裸指针仍表示借用，不会通过该策略自动分配内存。
 

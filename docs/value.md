@@ -6,6 +6,8 @@
 meta value 子模块负责运行期值访问和数据中间表示，是 `meta` 的一部分，主要包含四类能力：
 
 - `any`：拥有一份 C++ 对象拷贝，保留运行期类型描述。
+- `owned_value`：拥有一份由 factory、constructor 或内部构造策略创建出来的对象，可在填充后转成
+  `any` 或交给 wrapper 接管。
 - `any_ref`：非拥有 C++ 对象引用，用于字段、容器元素和外部对象的零拷贝访问。
 - 各类 view：把指针、wrapper、sequence、set、associative、pair、tuple 和 variant-like 类型按统一接口访问。
 - `variant`：脱离精确 C++ 类型的数据 DOM，主要用于序列化、配置和跨格式转换。
@@ -20,7 +22,7 @@ meta value 提供细粒度头和完整聚合头。细粒度头不再依赖 `any.
 
 | 头文件 | 提供内容 | 适用场景 |
 | --- | --- | --- |
-| `caors/meta/value/any.h` | `caors::meta::any`、`caors::any` | 只需要拥有式运行期 C++ 值。 |
+| `caors/meta/value/any.h` | `caors::meta::any`、`caors::meta::owned_value`、`caors::any`、`caors::owned_value` | 需要拥有式运行期 C++ 值或高级构造所有权句柄。 |
 | `caors/meta/value/any_ref.h` | `caors::meta::any_ref`、`caors::any_ref` | 需要引用外部 C++ 对象或反射字段。 |
 | `caors/meta/value/view_factory.h` | 所有具体 view 类型和显式 `make_*_view()` 工厂 | 高级代码或内部适配层需要显式创建具体 view。 |
 | `caors/meta/value/capability_facade.h` | 自定义 capability facade/view 的轻量 helper | 用 `type_capability_base<Ops, View>`、`capability_view_base<Ops>` 和自动 traits 减少样板代码。 |
@@ -98,6 +100,32 @@ caors::any value = caors::any::from(7);
 - `any::take_ownership(type, value, resource, destroy)` 是高级所有权接管入口。调用方必须保证 `value`
   指向与 `type` 匹配的对象，并且 `destroy` 与构造策略和 `resource` 配套。普通业务代码应优先使用
   `runtime::type::create()`，不要直接拼接裸指针生命周期。
+
+## owned_value
+
+`owned_value` 是 move-only 的临时所有权句柄，主要服务于“先构造对象，再填充字段或转交给 wrapper”的路径。
+它和 `any` 的区别是：`any` 已经是最终拥有式运行期值，而 `owned_value` 允许在接管前访问可写对象地址。
+
+常见来源：
+
+```cpp
+caors::meta::factory_capability factory =
+    caors::meta::resolve<actor>().get_capability<caors::meta::factory_capability>();
+
+caors::owned_value value = factory.construct_owned(resource);
+if (auto* actor_value = value.ref().try_get_mutable<actor>()) {
+  actor_value->health = 100;
+}
+
+caors::any owned = std::move(value).into_any();
+```
+
+规则：
+
+- `owned_value` 析构时会使用匹配的资源销毁函数或 descriptor 销毁函数释放对象。
+- `into_any()` 成功后当前 `owned_value` 变为空，所有权转移给返回的 `any`。
+- 公开 facade 只暴露 `construct()` / `construct_owned()` 这类 RAII 入口；裸 `void*`
+  构造和销毁函数只作为底层 ops/model 的内部实现细节。
 
 当前限制：
 

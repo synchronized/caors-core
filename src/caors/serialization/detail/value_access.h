@@ -8,79 +8,46 @@
 #include "caors/serialization/types.h"
 
 #include <span>
+#include <utility>
 
 namespace caors::serialization::detail {
 
 /** @brief 反序列化内部持有的运行期构造结果，负责失败路径回滚销毁。 */
 struct owned_constructed_value {
-  void* value = nullptr;
-  memory::memory_resource* resource = nullptr;
-  meta::value_ops::resource_destroy_fn resource_destroy = nullptr;
-  meta::value_ops::destroy_fn default_destroy = nullptr;
+  meta::owned_value value{};
   bool transfer_destroy_context = false;
 
   owned_constructed_value() = default;
 
-  owned_constructed_value(void* constructed, memory::memory_resource* memory,
-                          meta::value_ops::resource_destroy_fn destroy,
-                          bool transfer_context) noexcept
-      : value(constructed), resource(memory), resource_destroy(destroy),
-        transfer_destroy_context(transfer_context) {}
-
-  owned_constructed_value(void* constructed, meta::value_ops::destroy_fn destroy) noexcept
-      : value(constructed), default_destroy(destroy) {}
+  owned_constructed_value(meta::owned_value constructed, bool transfer_context = false) noexcept
+      : value(std::move(constructed)), transfer_destroy_context(transfer_context) {}
 
   owned_constructed_value(const owned_constructed_value&) = delete;
   owned_constructed_value& operator=(const owned_constructed_value&) = delete;
+  owned_constructed_value(owned_constructed_value&& other) noexcept = default;
+  owned_constructed_value& operator=(owned_constructed_value&& other) noexcept = default;
 
-  owned_constructed_value(owned_constructed_value&& other) noexcept
-      : value(other.value), resource(other.resource), resource_destroy(other.resource_destroy),
-        default_destroy(other.default_destroy),
-        transfer_destroy_context(other.transfer_destroy_context) {
-    other.release();
+  [[nodiscard]] bool valid() const noexcept { return value.valid(); }
+  [[nodiscard]] void* data() noexcept { return value.mutable_data(); }
+  [[nodiscard]] const void* data() const noexcept { return value.data(); }
+  [[nodiscard]] memory::memory_resource* resource() const noexcept {
+    return meta::detail::owned_value_resource(value);
   }
-
-  owned_constructed_value& operator=(owned_constructed_value&& other) noexcept {
-    if (this != &other) {
-      reset();
-      value = other.value;
-      resource = other.resource;
-      resource_destroy = other.resource_destroy;
-      default_destroy = other.default_destroy;
-      transfer_destroy_context = other.transfer_destroy_context;
-      other.release();
-    }
-
-    return *this;
+  [[nodiscard]] meta::value_ops::resource_destroy_fn resource_destroy() const noexcept {
+    return meta::detail::owned_value_resource_destroy(value);
   }
-
-  ~owned_constructed_value() { reset(); }
-
-  [[nodiscard]] bool valid() const noexcept { return value != nullptr; }
   [[nodiscard]] bool uses_resource_destroy() const noexcept {
-    return value != nullptr && resource_destroy != nullptr && transfer_destroy_context;
+    return value.valid() && resource_destroy() != nullptr && transfer_destroy_context;
   }
 
   void release() noexcept {
-    value = nullptr;
-    resource = nullptr;
-    resource_destroy = nullptr;
-    default_destroy = nullptr;
+    static_cast<void>(meta::detail::release_owned_value(value));
     transfer_destroy_context = false;
   }
 
   void reset() noexcept {
-    if (value == nullptr) {
-      return;
-    }
-
-    if (resource_destroy != nullptr) {
-      resource_destroy(resource, value);
-    } else if (default_destroy != nullptr) {
-      default_destroy(value);
-    }
-
-    release();
+    value.reset();
+    transfer_destroy_context = false;
   }
 };
 
@@ -98,17 +65,17 @@ construct_owned_value(meta::type type, const serialization::context& context,
   if (options.has_custom_construct()) {
     const construction_result result = options.create(request, context);
     if (result.valid()) {
-      return {result.value, resource, result.destroy, transfer_destroy_context};
+      return {meta::detail::make_owned_value(type, result.value, resource, result.destroy),
+              transfer_destroy_context};
     }
   }
 
   if (options.use_registered_factory) {
     const meta::factory_capability factory = type.get_capability<meta::factory_capability>();
     if (factory) {
-      void* value = meta::detail::factory_construct(factory, resource);
-      if (value != nullptr) {
-        return {value, resource, meta::detail::factory_destroy_fn(factory),
-                transfer_destroy_context};
+      meta::owned_value value = factory.construct_owned(resource);
+      if (value.valid()) {
+        return {std::move(value), transfer_destroy_context};
       }
     }
   }
@@ -118,10 +85,9 @@ construct_owned_value(meta::type type, const serialization::context& context,
         type.get_capability<meta::constructor_capability>();
     const std::span<const meta::any_ref> arguments{};
     if (constructor.matches(arguments.size())) {
-      void* value = meta::detail::constructor_construct(constructor, resource, arguments);
-      if (value != nullptr) {
-        return {value, resource, meta::detail::constructor_destroy_fn(constructor),
-                transfer_destroy_context};
+      meta::owned_value value = constructor.construct_owned(arguments, resource);
+      if (value.valid()) {
+        return {std::move(value), transfer_destroy_context};
       }
     }
   }
@@ -137,12 +103,14 @@ construct_owned_value(meta::type type, const serialization::context& context,
 
   if (resource != nullptr && storage->ops.resource_construct != nullptr &&
       storage->ops.resource_destroy != nullptr) {
-    return {storage->ops.resource_construct(resource), resource, storage->ops.resource_destroy,
+    return {meta::detail::make_owned_value(type, storage->ops.resource_construct(resource),
+                                           resource, storage->ops.resource_destroy),
             transfer_destroy_context};
   }
 
-  return {storage->ops.default_construct != nullptr ? storage->ops.default_construct() : nullptr,
-          storage->ops.destroy};
+  return {meta::detail::make_owned_value(
+      type, storage->ops.default_construct != nullptr ? storage->ops.default_construct() : nullptr,
+      storage->ops.destroy)};
 }
 
 /** @brief 按类型视图和序列化上下文构造临时运行期值。 */
@@ -151,11 +119,9 @@ construct_owned_value(meta::type type, const serialization::context& context,
                                          std::size_t index = construction_request_no_index) {
   owned_constructed_value constructed =
       construct_owned_value(type, context, site, index, false, true);
-  if (constructed.valid() && constructed.resource_destroy != nullptr) {
-    any decoded = any::take_ownership(type, constructed.value, constructed.resource,
-                                      constructed.resource_destroy);
+  if (constructed.valid()) {
+    any decoded = std::move(constructed.value).into_any();
     if (decoded.valid()) {
-      constructed.release();
       return decoded;
     }
   }

@@ -17,6 +17,119 @@
 
 namespace caors::meta {
 
+namespace detail {
+
+struct owned_value_release;
+struct owned_value_access;
+
+} // namespace detail
+
+/**
+ * @brief 拥有一个运行期构造对象的轻量 RAII 句柄。
+ *
+ * `owned_value` 主要用于 factory、constructor 和反序列化内部创建对象后再决定如何转移所有权。
+ * 普通用户通常直接使用 `construct()` 得到 `any`；需要先填充对象、再交给 wrapper 或容器接管时，
+ * 可以使用 `construct_owned()`。
+ */
+class owned_value final {
+public:
+  owned_value() noexcept = default;
+  ~owned_value();
+
+  owned_value(const owned_value&) = delete;
+  owned_value& operator=(const owned_value&) = delete;
+
+  owned_value(owned_value&& other) noexcept;
+  owned_value& operator=(owned_value&& other) noexcept;
+
+  [[nodiscard]] bool valid() const noexcept;
+  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
+  [[nodiscard]] meta::type get_type() const noexcept;
+  [[nodiscard]] const void* data() const noexcept;
+  [[nodiscard]] void* mutable_data() noexcept;
+  [[nodiscard]] any_ref ref();
+  [[nodiscard]] any_ref ref() const;
+
+  /**
+   * @brief 将当前所有权转移为 `any`。
+   *
+   * 转移成功后当前对象变为空；失败时仍由当前对象负责销毁原始值。
+   */
+  [[nodiscard]] any into_any() &&;
+
+  /** @brief 销毁当前持有的对象并清空句柄。 */
+  void reset() noexcept;
+
+  /** @brief 交换两个 owned value。 */
+  void swap(owned_value& other) noexcept;
+
+private:
+  friend class any;
+  friend struct detail::owned_value_access;
+
+  void release() noexcept;
+
+  meta::type type_{};
+  void* data_ = nullptr;
+  memory::memory_resource* resource_ = nullptr;
+  meta::value_ops::resource_destroy_fn resource_destroy_ = nullptr;
+  meta::value_ops::destroy_fn default_destroy_ = nullptr;
+};
+
+void swap(owned_value& lhs, owned_value& rhs) noexcept;
+
+namespace detail {
+
+/** @brief `owned_value` 内部所有权释放结果，仅供模块桥接使用。 */
+struct owned_value_release {
+  meta::type type{};
+  void* value = nullptr;
+  memory::memory_resource* resource = nullptr;
+  meta::value_ops::resource_destroy_fn resource_destroy = nullptr;
+  meta::value_ops::destroy_fn default_destroy = nullptr;
+
+  [[nodiscard]] bool valid() const noexcept { return type && value != nullptr; }
+};
+
+struct owned_value_access {
+  [[nodiscard]] static owned_value make(meta::type type, void* value,
+                                        memory::memory_resource* resource,
+                                        meta::value_ops::resource_destroy_fn destroy) noexcept;
+  [[nodiscard]] static owned_value make(meta::type type, void* value,
+                                        meta::value_ops::destroy_fn destroy) noexcept;
+  [[nodiscard]] static owned_value_release release(owned_value& value) noexcept;
+  [[nodiscard]] static memory::memory_resource* resource(const owned_value& value) noexcept;
+  [[nodiscard]] static meta::value_ops::resource_destroy_fn
+  resource_destroy(const owned_value& value) noexcept;
+};
+
+[[nodiscard]] inline owned_value
+make_owned_value(meta::type type, void* value, memory::memory_resource* resource,
+                 meta::value_ops::resource_destroy_fn destroy) noexcept {
+  return owned_value_access::make(type, value, resource, destroy);
+}
+
+[[nodiscard]] inline owned_value make_owned_value(meta::type type, void* value,
+                                                  meta::value_ops::destroy_fn destroy) noexcept {
+  return owned_value_access::make(type, value, destroy);
+}
+
+[[nodiscard]] inline owned_value_release release_owned_value(owned_value& value) noexcept {
+  return owned_value_access::release(value);
+}
+
+[[nodiscard]] inline memory::memory_resource*
+owned_value_resource(const owned_value& value) noexcept {
+  return owned_value_access::resource(value);
+}
+
+[[nodiscard]] inline meta::value_ops::resource_destroy_fn
+owned_value_resource_destroy(const owned_value& value) noexcept {
+  return owned_value_access::resource_destroy(value);
+}
+
+} // namespace detail
+
 /**
  * @brief 运行期 C++ 类型值。
  *
@@ -97,6 +210,9 @@ public:
   [[nodiscard]] static any take_ownership(meta::type type, void* value,
                                           memory::memory_resource* resource,
                                           meta::factory_ops::destroy_fn destroy);
+
+  /** @brief 接管一个 `owned_value` 持有的对象。转移成功后 `owned_value` 变为空。 */
+  [[nodiscard]] static any take_ownership(owned_value&& value);
 
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
@@ -192,19 +308,26 @@ private:
 
 void swap(any& lhs, any& rhs) noexcept;
 
-inline any factory_capability::construct(memory::memory_resource* resource) const {
+inline owned_value factory_capability::construct_owned(memory::memory_resource* resource) const {
   void* value = detail::factory_construct(*this, resource);
-  return value != nullptr
-             ? any::take_ownership(get_type(), value, resource, detail::factory_destroy_fn(*this))
-             : any{};
+  return detail::make_owned_value(get_type(), value, resource, detail::factory_destroy_fn(*this));
+}
+
+inline any factory_capability::construct(memory::memory_resource* resource) const {
+  return std::move(construct_owned(resource)).into_any();
+}
+
+inline owned_value
+constructor_capability::construct_owned(std::span<const any_ref> arguments,
+                                        memory::memory_resource* resource) const {
+  void* value = detail::constructor_construct(*this, resource, arguments);
+  return detail::make_owned_value(get_type(), value, resource,
+                                  detail::constructor_destroy_fn(*this));
 }
 
 inline any constructor_capability::construct(std::span<const any_ref> arguments,
                                              memory::memory_resource* resource) const {
-  void* value = detail::constructor_construct(*this, resource, arguments);
-  return value != nullptr ? any::take_ownership(get_type(), value, resource,
-                                                detail::constructor_destroy_fn(*this))
-                          : any{};
+  return std::move(construct_owned(arguments, resource)).into_any();
 }
 
 } // namespace caors::meta
@@ -212,6 +335,7 @@ inline any constructor_capability::construct(std::span<const any_ref> arguments,
 namespace caors {
 
 using meta::any;
+using meta::owned_value;
 
 } // namespace caors
 

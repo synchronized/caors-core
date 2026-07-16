@@ -35,6 +35,123 @@ namespace {
 
 } // namespace
 
+owned_value::~owned_value() { reset(); }
+
+owned_value::owned_value(owned_value&& other) noexcept {
+  type_ = other.type_;
+  data_ = other.data_;
+  resource_ = other.resource_;
+  resource_destroy_ = other.resource_destroy_;
+  default_destroy_ = other.default_destroy_;
+  other.release();
+}
+
+owned_value& owned_value::operator=(owned_value&& other) noexcept {
+  if (this == &other) {
+    return *this;
+  }
+
+  reset();
+  type_ = other.type_;
+  data_ = other.data_;
+  resource_ = other.resource_;
+  resource_destroy_ = other.resource_destroy_;
+  default_destroy_ = other.default_destroy_;
+  other.release();
+  return *this;
+}
+
+bool owned_value::valid() const noexcept {
+  return type_.valid() && data_ != nullptr &&
+         (resource_destroy_ != nullptr || default_destroy_ != nullptr);
+}
+
+meta::type owned_value::get_type() const noexcept { return valid() ? type_ : meta::type{}; }
+
+const void* owned_value::data() const noexcept { return valid() ? data_ : nullptr; }
+
+void* owned_value::mutable_data() noexcept { return valid() ? data_ : nullptr; }
+
+any_ref owned_value::ref() { return any_ref::from_raw(get_type(), data_, true); }
+
+any_ref owned_value::ref() const { return any_ref::from_raw(get_type(), data_, false); }
+
+any owned_value::into_any() && { return any::take_ownership(std::move(*this)); }
+
+void owned_value::reset() noexcept {
+  if (data_ != nullptr) {
+    if (resource_destroy_ != nullptr) {
+      resource_destroy_(resource_, data_);
+    } else if (default_destroy_ != nullptr) {
+      default_destroy_(data_);
+    }
+  }
+
+  release();
+}
+
+void owned_value::swap(owned_value& other) noexcept {
+  using std::swap;
+  swap(type_, other.type_);
+  swap(data_, other.data_);
+  swap(resource_, other.resource_);
+  swap(resource_destroy_, other.resource_destroy_);
+  swap(default_destroy_, other.default_destroy_);
+}
+
+void owned_value::release() noexcept {
+  type_ = {};
+  data_ = nullptr;
+  resource_ = nullptr;
+  resource_destroy_ = nullptr;
+  default_destroy_ = nullptr;
+}
+
+owned_value
+detail::owned_value_access::make(meta::type type, void* value, memory::memory_resource* resource,
+                                 meta::value_ops::resource_destroy_fn destroy) noexcept {
+  if (!type || value == nullptr || destroy == nullptr) {
+    return {};
+  }
+
+  owned_value result;
+  result.type_ = type;
+  result.data_ = value;
+  result.resource_ = resource;
+  result.resource_destroy_ = destroy;
+  return result;
+}
+
+owned_value detail::owned_value_access::make(meta::type type, void* value,
+                                             meta::value_ops::destroy_fn destroy) noexcept {
+  if (!type || value == nullptr || destroy == nullptr) {
+    return {};
+  }
+
+  owned_value result;
+  result.type_ = type;
+  result.data_ = value;
+  result.default_destroy_ = destroy;
+  return result;
+}
+
+detail::owned_value_release detail::owned_value_access::release(owned_value& value) noexcept {
+  owned_value_release released{
+      value.type_, value.data_, value.resource_, value.resource_destroy_, value.default_destroy_,
+  };
+  value.release();
+  return released;
+}
+
+memory::memory_resource* detail::owned_value_access::resource(const owned_value& value) noexcept {
+  return value.resource_;
+}
+
+meta::value_ops::resource_destroy_fn
+detail::owned_value_access::resource_destroy(const owned_value& value) noexcept {
+  return value.resource_destroy_;
+}
+
 any::~any() { reset(); }
 
 any::any(const any& other) { copy_from(other); }
@@ -183,6 +300,31 @@ any any::take_ownership(meta::type type, void* value, memory::memory_resource* r
   return result;
 }
 
+any any::take_ownership(owned_value&& value) {
+  if (!value.valid()) {
+    return {};
+  }
+
+  const meta::value_storage_ops* value_ops = value.type_.get_raw_ops<meta::value_storage_ops>();
+  if (value_ops == nullptr || value_ops->ops.destroy == nullptr) {
+    return {};
+  }
+
+  any result;
+  result.type_ = value.type_;
+  result.data_ = value.data_;
+  if (value.resource_destroy_ != nullptr) {
+    result.resource_ = value.resource_;
+    result.resource_destroy_ = value.resource_destroy_;
+    result.mode_ = any::storage_mode::resource_value;
+  } else {
+    result.mode_ = any::storage_mode::heap_value;
+  }
+
+  value.release();
+  return result;
+}
+
 void any::copy_from(const any& other) {
   if (!other.valid()) {
     return;
@@ -319,5 +461,7 @@ any any::default_construct(meta::type type, memory::memory_resource* resource) {
 }
 
 void swap(any& lhs, any& rhs) noexcept { lhs.swap(rhs); }
+
+void swap(owned_value& lhs, owned_value& rhs) noexcept { lhs.swap(rhs); }
 
 } // namespace caors::meta

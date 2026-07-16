@@ -276,7 +276,7 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
     }
 
     variant_reader value_reader{*stored_value};
-    status = deserialize(context, reflected_dynamic_type, instance.value, value_reader);
+    status = deserialize(context, reflected_dynamic_type, instance.data(), value_reader);
     if (status) {
       return status;
     }
@@ -285,7 +285,7 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
       return status;
     }
 
-    status = deserialize(context, reflected_dynamic_type, instance.value, reader);
+    status = deserialize(context, reflected_dynamic_type, instance.data(), reader);
     const error end_status = reader.end_polymorphic_value();
     if (status) {
       return status;
@@ -309,15 +309,15 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
 
     auto* destroy_context = ::new (context_storage) polymorphic_destroy_context{
         resource,
-        instance.resource,
-        instance.resource_destroy,
+        instance.resource(),
+        instance.resource_destroy(),
     };
     const traits::wrapper_set_context set_context{
         destroy_context,
         &destroy_polymorphic_constructed_value,
         resource,
     };
-    if (!indirect.set_value(dynamic_type.value.id(), instance.value, set_context)) {
+    if (!indirect.set_value(dynamic_type.value.id(), instance.data(), set_context)) {
       memory::destroy(destroy_context, destroy_context->allocation_resource);
       return {error_domain::serialization, errc::invalid_field};
     }
@@ -326,7 +326,7 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
     return {};
   }
 
-  if (!indirect.set_value(dynamic_type.value.id(), instance.value)) {
+  if (!indirect.set_value(dynamic_type.value.id(), instance.data())) {
     return {error_domain::serialization, errc::invalid_field};
   }
 
@@ -358,7 +358,7 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
     return {error_domain::serialization, errc::invalid_type};
   }
 
-  any_ref value = any_ref::from_raw(value_type, instance.value, true);
+  any_ref value = any_ref::from_raw(value_type, instance.data(), true);
   if (!value.valid() || !value.writable()) {
     return {error_domain::serialization, errc::invalid_field};
   }
@@ -382,15 +382,15 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
 
     auto* destroy_context = ::new (context_storage) polymorphic_destroy_context{
         resource,
-        instance.resource,
-        instance.resource_destroy,
+        instance.resource(),
+        instance.resource_destroy(),
     };
     const traits::wrapper_set_context set_context{
         destroy_context,
         &destroy_polymorphic_constructed_value,
         resource,
     };
-    if (!indirect.set_value(value_type.id(), instance.value, set_context)) {
+    if (!indirect.set_value(value_type.id(), instance.data(), set_context)) {
       memory::destroy(destroy_context, destroy_context->allocation_resource);
       return {error_domain::serialization, errc::invalid_field};
     }
@@ -400,14 +400,14 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
   }
 
   if (indirect.can_emplace_value()) {
-    if (!indirect.emplace_value(value_type.id(), instance.value)) {
+    if (!indirect.emplace_value(value_type.id(), instance.data())) {
       return {error_domain::serialization, errc::invalid_field};
     }
 
     return {};
   }
 
-  if (!indirect.set_value(value_type.id(), instance.value)) {
+  if (!indirect.set_value(value_type.id(), instance.data())) {
     return {error_domain::serialization, errc::invalid_field};
   }
 

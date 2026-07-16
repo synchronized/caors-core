@@ -201,9 +201,10 @@ caors::meta::class_<player>("game.player")
 应用层需要创建运行期值时优先使用 `runtime::type::create()`，它会先通过
 `meta::type::get_capability<meta::factory_capability>()` 查询这里注册的 factory，再回退到 descriptor
 默认构造。如果确实只需要 meta 层创建结果，可以使用 `factory_capability::construct(resource)` 直接返回
-拥有生命周期的 `meta::any`。裸指针构造和销毁只存在于底层 `factory_ops` / `meta::detail`
-所有权接管路径，公开 facade 不暴露 `void*`。`any::default_construct()` 只表达 descriptor
-默认构造能力，不查询 factory。
+拥有生命周期的 `meta::any`；需要先填充对象再转移所有权时，使用
+`factory_capability::construct_owned(resource)` 返回 `meta::owned_value`。裸指针构造和销毁只存在于底层
+`factory_ops` / `meta::detail` 所有权接管路径，公开 facade 不暴露 `void*`。`any::default_construct()`
+只表达 descriptor 默认构造能力，不查询 factory。
 
 如果类型需要按运行期参数列表构造，可以注册 constructor capability：
 
@@ -221,7 +222,8 @@ caors::meta::class_<actor>("game.actor")
 参数类型必须和 `Args...` 去 cv/ref 后一致；非 const 左值引用参数要求传入可写 `any_ref`。
 `runtime::type::create(arguments)` 会在 factory 之后查询 constructor，构造成功后同样由 `any`
 保存匹配的内部销毁策略。也可以使用 `constructor_capability::construct(arguments, resource)` 直接获得
-`meta::any`。当前版本只支持一个 constructor 能力，右值引用参数和 move-only by-value 参数暂不支持；构造函数重载、
+`meta::any`，或使用 `constructor_capability::construct_owned(arguments, resource)` 获得可延迟转移的
+`meta::owned_value`。当前版本只支持一个 constructor 能力，右值引用参数和 move-only by-value 参数暂不支持；构造函数重载、
 默认参数和隐式类型转换后续再扩展。
 
 `caors::meta::resolve<T>()` 是 C++ 类型到 descriptor 视图的入口；类型未显式注册时仍可能返回有效

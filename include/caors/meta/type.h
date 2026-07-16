@@ -20,6 +20,7 @@ class registry;
 class type;
 class any;
 class any_ref;
+class owned_value;
 class type_registration_data;
 
 [[nodiscard]] CAORS_API registry& get_registry() noexcept;
@@ -230,6 +231,9 @@ public:
   /** @brief 使用注册工厂构造并返回拥有对象生命周期的 `any`。 */
   [[nodiscard]] any construct(memory::memory_resource* resource = nullptr) const;
 
+  /** @brief 使用注册工厂构造并返回可显式转移所有权的运行期值。 */
+  [[nodiscard]] owned_value construct_owned(memory::memory_resource* resource = nullptr) const;
+
 private:
   friend void* detail::factory_construct(const factory_capability&, memory::memory_resource*);
   friend factory_ops::destroy_fn detail::factory_destroy_fn(const factory_capability&) noexcept;
@@ -256,6 +260,10 @@ public:
   /** @brief 使用注册构造函数构造并返回拥有对象生命周期的 `any`。 */
   [[nodiscard]] any construct(std::span<const any_ref> arguments,
                               memory::memory_resource* resource = nullptr) const;
+
+  /** @brief 使用注册构造函数构造并返回可显式转移所有权的运行期值。 */
+  [[nodiscard]] owned_value construct_owned(std::span<const any_ref> arguments,
+                                            memory::memory_resource* resource = nullptr) const;
 
 private:
   friend void* detail::constructor_construct(const constructor_capability&,

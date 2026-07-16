@@ -31,6 +31,19 @@ TEST_CASE("meta type - factory registers custom construction strategy", "[meta]"
   REQUIRE(factory);
   REQUIRE(factory.valid());
 
+  caors::owned_value constructed = factory.construct_owned();
+  REQUIRE(constructed.valid());
+  auto* constructed_value = constructed.ref().try_get_mutable<custom_factory_type>();
+  REQUIRE(constructed_value != nullptr);
+  CHECK(constructed_value->value == 23);
+
+  caors::any moved = std::move(constructed).into_any();
+  REQUIRE(moved.valid());
+  CHECK_FALSE(constructed.valid());
+  auto* moved_value = moved.try_get_mutable<custom_factory_type>();
+  REQUIRE(moved_value != nullptr);
+  CHECK(moved_value->value == 23);
+
   caors::any owned = factory.construct();
   REQUIRE(owned.valid());
   auto* owned_value = owned.try_get_mutable<custom_factory_type>();
@@ -62,16 +75,28 @@ TEST_CASE("meta type - factory registers resource-aware default construction", "
   REQUIRE(factory.valid());
 
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
+  caors::owned_value constructed = factory.construct_owned(&tracking);
+  REQUIRE(constructed.valid());
+  auto* constructed_value = constructed.ref().try_get_mutable<default_factory_type>();
+  REQUIRE(constructed_value != nullptr);
+  CHECK(constructed_value->value == 11);
+  CHECK(tracking.statistics().allocation_count == 1);
+  CHECK(tracking.statistics().bytes_in_use >= sizeof(default_factory_type));
+
+  constructed.reset();
+  CHECK(tracking.statistics().deallocation_count == 1);
+  CHECK(tracking.statistics().bytes_in_use == 0);
+
   caors::any owned = factory.construct(&tracking);
   REQUIRE(owned.valid());
   auto* owned_value = owned.try_get_mutable<default_factory_type>();
   REQUIRE(owned_value != nullptr);
   CHECK(owned_value->value == 11);
-  CHECK(tracking.statistics().allocation_count == 1);
+  CHECK(tracking.statistics().allocation_count == 2);
   CHECK(tracking.statistics().bytes_in_use >= sizeof(default_factory_type));
 
   owned.reset();
-  CHECK(tracking.statistics().deallocation_count == 1);
+  CHECK(tracking.statistics().deallocation_count == 2);
   CHECK(tracking.statistics().bytes_in_use == 0);
 }
 
