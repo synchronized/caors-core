@@ -9,8 +9,10 @@
 #include "caors/resources/dependency_graph.h"
 #include "caors/resources/detail/type_entry_ops.h"
 #include "caors/resources/io.h"
+#include "caors/resources/manifest.h"
 #include "caors/resources/preload.h"
 #include "caors/resources/serialization.h"
+#include "caors/resources/source.h"
 
 #include <cstdint>
 #include <memory>

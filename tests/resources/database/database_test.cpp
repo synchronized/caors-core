@@ -114,7 +114,7 @@ TEST_CASE("resources - database orchestrates manifest provider loader cache and 
   REQUIRE(database.sync_manifest(source).succeeded());
   CHECK(provider.contains(test_guid_a));
 
-  caors::resources::json_loader<serialized_resource> loader{provider};
+  caors::assets::json_loader<serialized_resource> loader{provider};
   caors::resource_cache<serialized_resource> cache;
   REQUIRE(database.register_type(cache, loader).succeeded());
 

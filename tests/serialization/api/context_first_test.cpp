@@ -3,6 +3,7 @@
 
 #include "serialization_test_support.h"
 
+#include "caors/assets.h"
 #include "caors/io.h"
 #include "caors/resources.h"
 
@@ -168,13 +169,13 @@ TEST_CASE("resources - json loader and saver accept context first", "[resources]
   REQUIRE(provider.bind(resource_guid, source, "assets/context-resource.json").succeeded());
 
   caors::serialization::context context{};
-  caors::resources::json_saver<context_api_resource> saver{context, provider};
+  caors::assets::json_saver<context_api_resource> saver{context, provider};
 
   context_api_resource value{resource_guid};
   value.value = 42;
   REQUIRE(saver.save(value).succeeded());
 
-  caors::resources::json_loader<context_api_resource> loader{context, provider};
+  caors::assets::json_loader<context_api_resource> loader{context, provider};
   caors::resource_cache<context_api_resource> cache;
   caors::resources::handle_result<context_api_resource> loaded =
       caors::resources::load_handle_into(cache, loader, resource_guid);

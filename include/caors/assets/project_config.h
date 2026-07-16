@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_RESOURCES_PROJECT_CONFIG_H_
-#define CAORS_RESOURCES_PROJECT_CONFIG_H_
+#ifndef CAORS_ASSETS_PROJECT_CONFIG_H_
+#define CAORS_ASSETS_PROJECT_CONFIG_H_
 
 #include "caors/core/containers.h"
 #include "caors/core/string_name.h"
@@ -15,7 +15,7 @@
 #include <cstdint>
 #include <string_view>
 
-namespace caors::resources {
+namespace caors::assets {
 
 /** @brief 工程资源来源描述。运行期 source 对象由 asset_manager 工厂或上层代码创建。 */
 struct project_source_config {
@@ -106,10 +106,11 @@ struct project_config {
                                                        std::string_view text);
 
 /** @brief 从资源字节来源读取 JSON 文本并读入资源工程描述。 */
-[[nodiscard]] CAORS_API error load_project_config(project_config& target, source& resource_source,
+[[nodiscard]] CAORS_API error load_project_config(project_config& target,
+                                                  resources::source& resource_source,
                                                   io::path_view location,
                                                   memory_resource* resource = nullptr);
 
-} // namespace caors::resources
+} // namespace caors::assets
 
 #endif

@@ -5,9 +5,9 @@
 
 本文档说明 CAORS 资源系统的当前设计边界。资源系统仍处于基础阶段，当前提供资源身份、轻量引用模型、
 运行期共享 handle、非拥有资源索引、引用计数缓存、资源依赖图、资源清单、字节来源 provider、
-加载/保存接口、非拥有资源 database 编排入口、同步 reload、显式 reload 通知、最小序列化读写 helper、
-同步预加载计划、序列化资源引用 resolver、第一版异步加载请求、工程资源配置描述、资源运行期工厂和
-第一版 `asset_manager`；资源包后续再补。
+加载/保存接口、非拥有资源 database 编排入口、同步 reload、显式 reload 通知、同步预加载计划、
+序列化资源引用 resolver、第一版异步加载请求，以及高层 assets 工程配置和 asset manager；
+资源包后续再补。
 
 ## 设计目标
 
@@ -23,9 +23,9 @@
 - 资源清单可以把稳定 GUID 映射到资源位置、类型、版本和 hash。
 - 资源 provider 可以把稳定 GUID 映射到字节来源和位置，作为资源数据库或调试 fileserver 的运行期读取入口。
 - 资源加载器和保存器先只定义类型化接口，不绑定路径、文件系统或异步框架。
-- 资源 database 可以把 manifest、provider、cache、loader、依赖图和序列化 resolver 串成一条主流程。
-- 工程资源配置可以描述 source、manifest 条目、资源类型策略名、依赖边和预加载根资源。
-- `asset_manager` 可以拥有 manifest、provider、dependency graph 和 database，减少手动拼装时的生命周期错误。
+- 资源 database 可以把 manifest、provider、cache、loader、依赖图和资源引用 resolver 串成一条主流程。
+- assets 层的工程资源配置可以描述 source、manifest 条目、资源类型策略名、依赖边和预加载根资源。
+- `assets::asset_manager` 可以拥有 manifest、provider、dependency graph 和 database，减少手动拼装时的生命周期错误。
 - 同步预加载计划可以按依赖图计算依赖优先的加载顺序，并在需要拓扑顺序的流程中检测循环依赖。
 - 异步加载请求可以把后台 loader 阶段和主线程 cache commit 阶段分开。
 - 底层资源模型不绑定具体引擎、文件系统、异步加载框架或编辑器管线。
@@ -43,6 +43,25 @@
 
 这些能力后续应建立在 `io::file_system`、`resources::provider`、`resources::manager`、
 `resources::loader` / `resources::saver` 和上层资源数据库之上。
+
+## 模块边界
+
+`resources` 是底层资源核心，目标是提供不绑定具体格式和工程配置的资源基础设施：
+
+- `resource_guid`、`resource`、`ref<T>`、`handle<T>`、`cache<T>`、`manager`。
+- `source`、`provider`、`manifest`、`dependency_graph`。
+- `loader<T>` / `saver<T>` 抽象、同步/异步加载组合函数和非拥有 `database`。
+
+`assets` 是高层工程资源入口，允许依赖 `resources`、`serialization`、`io` 和运行期配置：
+
+- `project_config` 和相关配置结构。
+- `asset_manager` 以及 source/type factory。
+- `load_serialized()` / `save_serialized()`、`json_loader<T>` / `json_saver<T>`。
+- 从 JSON/DOM 读入 manifest 或 project config 的 helper。
+
+因此，普通资源核心代码优先包含 `caors/resources.h`；需要工程配置、JSON loader/saver 或资源清单 JSON
+读入时包含 `caors/assets.h`。后续如果继续解耦，应优先把 `resources::database` 中和序列化 resolver
+强相关的适配入口进一步移动到高层 adapter。
 
 ## 命名空间
 
@@ -62,16 +81,16 @@
 - `resources::source`
 - `resources::file_source`
 - `resources::provider`
-- `resources::project_config`
-- `resources::project_source_config`
-- `resources::project_resource_config`
-- `resources::project_resource_type_config`
-- `resources::project_dependency_config`
-- `resources::asset_manager`
+- `assets::project_config`
+- `assets::project_source_config`
+- `assets::project_resource_config`
+- `assets::project_resource_type_config`
+- `assets::project_dependency_config`
+- `assets::asset_manager`
 - `resources::loader<T>`
-- `resources::json_loader<T>`
+- `assets::json_loader<T>`
 - `resources::saver<T>`
-- `resources::json_saver<T>`
+- `assets::json_saver<T>`
 - `resources::request_status`
 - `resources::load_request<T>`
 - `resources::preload_request`
@@ -80,8 +99,8 @@
 - `resources::preload_result`
 - `resources::request_load_into()`
 - `resources::request_reload_into()`
-- `resources::load_project_config()`
-- `resources::load_project_config_json()`
+- `assets::load_project_config()`
+- `assets::load_project_config_json()`
 - `resources::reload_event<T>`
 - `resources::reload_signal<T>`
 
@@ -99,14 +118,13 @@
 - `caors::resource_dependency_graph`
 - `caors::resource_database`
 - `caors::resource_manifest`
-- `caors::resource_asset_manager`
 - `caors::adopt_handle()`
 - `caors::make_handle()`
 
 低频组合件不再放入根命名空间，包括 source/provider、loader/saver、request/result/status、
 manifest helper、project config、reload event/signal 和资源序列化 resolver helper。普通用户优先从
-`resources::asset_manager` / `resources::database` / `resources::cache<T>` 进入；需要手动拼装资源管线时，
-显式使用 `caors::resources::...` 可以让职责边界更清楚。
+`assets::asset_manager` / `resources::database` / `resources::cache<T>` 进入；需要手动拼装资源管线时，
+显式使用 `caors::resources::...` 或 `caors::assets::...` 可以让职责边界更清楚。
 
 ## resource_guid
 
@@ -298,7 +316,7 @@ manifest.bind(texture_id, "textures/albedo.json", texture_guid_token);
 
 ```cpp
 caors::resource_cache<texture> cache;
-caors::resources::json_loader<texture> loader{provider};
+caors::assets::json_loader<texture> loader{provider};
 caors::tasks::thread_pool_executor executor{2};
 caors::tasks::completion_queue completions;
 
@@ -616,7 +634,7 @@ caors::vector<caors::resource_guid> affected_all = graph.affected_closure(albedo
 
 ## 高级用法：手动组合资源管线
 
-普通项目入口优先使用 `resources::asset_manager`，由它持有 manifest、provider、dependency graph
+普通项目入口优先使用 `assets::asset_manager`，由它持有 manifest、provider、dependency graph
 和内部 database。`resources::database` 是高级组合入口：它不会创建全局单例，也不会拥有
 manifest、provider、cache、loader 或 dependency graph；调用方把这些组件挂进去后，database
 只负责把常见同步流程串起来：
@@ -634,7 +652,7 @@ database.set_dependency_graph(graph);
 database.sync_manifest(source);
 
 caors::resource_cache<texture> cache;
-caors::resources::json_loader<texture> loader{provider};
+caors::assets::json_loader<texture> loader{provider};
 database.register_type(cache, loader);
 
 auto loaded = database.load<texture>(texture_id);
@@ -674,12 +692,12 @@ auto resolver = database.resolver();
 
 ## project_config / asset_manager
 
-`resources::project_config` 是工程资源系统的可反序列化描述对象。它只保存数据，不拥有运行期
+`assets::project_config` 是工程资源系统的可反序列化描述对象。它只保存数据，不拥有运行期
 `source`、`provider`、`cache`、`loader` 或 `database`：
 
 ```cpp
-caors::resources::project_config config;
-caors::resources::load_project_config_json(config, R"({
+caors::assets::project_config config;
+caors::assets::load_project_config_json(config, R"({
   "schema_version": 1,
   "sources": [
     {
@@ -723,11 +741,11 @@ caors::resources::load_project_config_json(config, R"({
 })");
 ```
 
-`resources::asset_manager` 是第一版拥有式运行期外壳。它持有 `manifest`、`provider`、
+`assets::asset_manager` 是第一版拥有式运行期外壳。它持有 `manifest`、`provider`、
 `dependency_graph` 和 `database`，并把这些对象在构造时挂接到内部 database：
 
 ```cpp
-caors::resource_asset_manager assets;
+caors::assets::asset_manager assets;
 assets.register_type_factory<texture>(caors::string_name{"game.texture"});
 
 caors::error built = assets.build(config);
@@ -735,7 +753,7 @@ if (built) {
   // 处理配置或运行期对象创建错误。
 }
 
-caors::resources::asset_build_result detailed = assets.build_detailed(config);
+caors::assets::asset_build_result detailed = assets.build_detailed(config);
 if (detailed.failed()) {
   // detailed.stage / index / name / type / guid / reasons 可用于编辑器或工具层诊断。
 }
@@ -767,8 +785,8 @@ struct pak_state {
   pak_index* index = nullptr;
 };
 
-caors::error make_pak_source(caors::resources::asset_manager::source_factory_context& context,
-                             const caors::resources::project_source_config& config,
+caors::error make_pak_source(caors::assets::asset_manager::source_factory_context& context,
+                             const caors::assets::project_source_config& config,
                              void* user_data) {
   auto* state = static_cast<pak_state*>(user_data);
   const caors::variant* compression =
@@ -780,9 +798,9 @@ caors::error make_pak_source(caors::resources::asset_manager::source_factory_con
 }
 
 pak_state state{&index};
-caors::resources::factory_option_schema pak_schema;
+caors::assets::factory_option_schema pak_schema;
 pak_schema.optional(caors::string_name{"compression"},
-                    caors::resources::factory_option_kind::string);
+                    caors::assets::factory_option_kind::string);
 
 assets.register_source_factory(caors::string_name{"pak"}, &make_pak_source, &state, pak_schema);
 ```
@@ -791,8 +809,8 @@ assets.register_source_factory(caors::string_name{"pak"}, &make_pak_source, &sta
 
 ```cpp
 caors::error make_texture_runtime(
-    caors::resources::asset_manager::type_factory_context& context,
-    const caors::resources::project_resource_type_config& config,
+    caors::assets::asset_manager::type_factory_context& context,
+    const caors::assets::project_resource_type_config& config,
     void* user_data) {
   (void)user_data;
   auto* cache = context.manager.create_owned<caors::resources::cache<texture>>(context.resource);
@@ -800,9 +818,9 @@ caors::error make_texture_runtime(
   return context.database.register_type(*cache, *loader, config.type);
 }
 
-caors::resources::factory_option_schema texture_schema;
+caors::assets::factory_option_schema texture_schema;
 texture_schema.require(caors::string_name{"format"},
-                       caors::resources::factory_option_kind::string);
+                       caors::assets::factory_option_kind::string);
 texture_schema.optional(caors::string_name{"priority"});
 
 assets.register_type_factory(caors::string_name{"game.texture"}, &make_texture_runtime, nullptr,
@@ -949,7 +967,7 @@ caors::resources::replace_manifest(provider, source, manifest);
 ```cpp
 caors::resource_manifest manifest;
 
-caors::resources::load_manifest_json(manifest, R"({
+caors::assets::load_manifest_json(manifest, R"({
   "resources": [
     {
       "guid": "6cd2da3d-b549-4756-8b8b-0c84293af410",
@@ -961,7 +979,7 @@ caors::resources::load_manifest_json(manifest, R"({
   ]
 })");
 
-caors::resources::load_manifest(manifest, source, "manifest.json");
+caors::assets::load_manifest(manifest, source, "manifest.json");
 ```
 
 JSON 清单支持两种根格式：
@@ -1108,20 +1126,20 @@ auto result = caors::resources::reload_and_notify(cache, loader, texture_id, rel
 
 ```cpp
 caors::serialization::variant_reader reader{value};
-auto loaded = caors::resources::load_serialized<texture>(id, reader);
+auto loaded = caors::assets::load_serialized<texture>(id, reader);
 
 caors::serialization::json_writer writer;
-caors::resources::save_serialized(**loaded, writer);
+caors::assets::save_serialized(**loaded, writer);
 ```
 
 需要传入序列化上下文时使用 context-first 形式：
 
 ```cpp
-auto loaded_with_context = caors::resources::load_serialized<texture>(context, id, reader);
-caors::resources::save_serialized(context, **loaded_with_context, writer);
+auto loaded_with_context = caors::assets::load_serialized<texture>(context, id, reader);
+caors::assets::save_serialized(context, **loaded_with_context, writer);
 ```
 
-`resources::json_loader<T>` 是 provider 到资源对象的第一版桥接。它按 GUID 从 provider 读取 JSON
+`assets::json_loader<T>` 是 provider 到资源对象的第一版桥接。它按 GUID 从 provider 读取 JSON
 字节，再通过 `load_serialized<T>()` 构造资源，可直接配合 `load_handle_into()` 使用：
 
 ```cpp
@@ -1130,8 +1148,8 @@ caors::resources::provider provider;
 provider.bind(texture_id, source, "assets/texture.json");
 
 caors::serialization::context context{};
-caors::resources::json_loader<texture> loader{provider};
-caors::resources::json_loader<texture> loader_with_context{context, provider};
+caors::assets::json_loader<texture> loader{provider};
+caors::assets::json_loader<texture> loader_with_context{context, provider};
 caors::resource_cache<texture> cache;
 
 auto loaded = caors::resources::load_handle_into(cache, loader, texture_id);
@@ -1172,13 +1190,13 @@ provider 本身不直接作为 `resource_ref<T>` resolver，因为它只知道�
 如果需要“缺失时自动加载”，应在上层实现一个自定义 resolver：内部先查询 cache，未命中时通过
 provider + loader 加载，再把结果插入 cache。
 
-`resources::json_saver<T>` 是资源对象到 provider 的同步 JSON 保存桥接。它会把资源对象字段序列化为
+`assets::json_saver<T>` 是资源对象到 provider 的同步 JSON 保存桥接。它会把资源对象字段序列化为
 JSON 文本，再按资源 GUID 写回 provider 已绑定的位置：
 
 ```cpp
 caors::serialization::context context{};
-caors::resources::json_saver<texture> saver{provider};
-caors::resources::json_saver<texture> saver_with_context{context, provider};
+caors::assets::json_saver<texture> saver{provider};
+caors::assets::json_saver<texture> saver_with_context{context, provider};
 caors::error saved = saver.save(**loaded);
 ```
 
@@ -1193,4 +1211,5 @@ caors::error saved = saver.save(**loaded);
   `errc::unsupported`。
 - 非默认构造、需要外部依赖或需要异步调度的资源应实现自定义 `loader<T>`。
 
-相关测试位于 `tests/resources/`，测试组织规则见 [tests/README.md](../tests/README.md)。
+底层资源测试位于 `tests/resources/`，高层 assets 配置、JSON loader/saver 和 asset manager 测试位于
+`tests/assets/`。测试组织规则见 [tests/README.md](../tests/README.md)。

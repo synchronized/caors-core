@@ -3,7 +3,7 @@
 
 // 原测试文件：resources_cache_serialized_helpers_load_and_save_resources_test.cpp
 
-#include "resources_test_common.h"
+#include "../../resources/resources_test_common.h"
 
 using namespace caors::tests::resources;
 
@@ -16,7 +16,7 @@ TEST_CASE("resources - serialized helpers load and save resources", "[resources]
 
   caors::serialization::variant_reader reader{parsed.value};
   caors::resources::load_result<serialized_resource> loaded =
-      caors::resources::load_serialized<serialized_resource>(test_guid_a, reader);
+      caors::assets::load_serialized<serialized_resource>(test_guid_a, reader);
 
   REQUIRE(loaded.succeeded());
   REQUIRE(loaded.value != nullptr);
@@ -25,7 +25,7 @@ TEST_CASE("resources - serialized helpers load and save resources", "[resources]
 
   caors::string output;
   caors::serialization::json_writer writer{output};
-  const caors::error save_status = caors::resources::save_serialized(*loaded.value, writer);
+  const caors::error save_status = caors::assets::save_serialized(*loaded.value, writer);
 
   REQUIRE(save_status.succeeded());
   CHECK(output == R"({"width":256})");
@@ -33,7 +33,7 @@ TEST_CASE("resources - serialized helpers load and save resources", "[resources]
 
 // 原测试文件：resources_cache_serialized_helpers_reject_invalid_resource_identity_test.cpp
 
-#include "resources_test_common.h"
+#include "../../resources/resources_test_common.h"
 
 using namespace caors::tests::resources;
 
@@ -46,7 +46,7 @@ TEST_CASE("resources - serialized helpers reject invalid resource identity", "[r
 
   caors::serialization::variant_reader reader{parsed.value};
   caors::resources::load_result<serialized_resource> loaded =
-      caors::resources::load_serialized<serialized_resource>(caors::resource_guid::nil(), reader);
+      caors::assets::load_serialized<serialized_resource>(caors::resource_guid::nil(), reader);
 
   REQUIRE(loaded.failed());
   CHECK(loaded.status.domain() == caors::error_domain::resources);
@@ -54,7 +54,7 @@ TEST_CASE("resources - serialized helpers reject invalid resource identity", "[r
 
   serialized_resource value{};
   caors::serialization::json_writer writer;
-  const caors::error save_status = caors::resources::save_serialized(value, writer);
+  const caors::error save_status = caors::assets::save_serialized(value, writer);
 
   REQUIRE(save_status.failed());
   CHECK(save_status.domain() == caors::error_domain::resources);

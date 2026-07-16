@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "caors/resources/asset_manager.h"
+#include "caors/assets/asset_manager.h"
 
 #include "caors/io/memory_file_system.h"
 #include "caors/io/native_file_system.h"
 
 #include <algorithm>
 
-namespace caors::resources {
+namespace caors::assets {
 namespace {
 
 [[nodiscard]] std::string_view kind_name(factory_option_kind kind) noexcept {
@@ -61,8 +61,8 @@ namespace {
   return false;
 }
 
-[[nodiscard]] const factory_option_field*
-find_schema_field(const factory_option_schema& schema, core::string_name name) noexcept {
+[[nodiscard]] const factory_option_field* find_schema_field(const factory_option_schema& schema,
+                                                            core::string_name name) noexcept {
   for (const factory_option_field& field : schema.fields) {
     if (field.name == name) {
       return &field;
@@ -346,9 +346,7 @@ error asset_manager::register_type_factory(core::string_name resource_type,
   return {};
 }
 
-error asset_manager::build(const project_config& config) {
-  return build_detailed(config).status;
-}
+error asset_manager::build(const project_config& config) { return build_detailed(config).status; }
 
 asset_build_result asset_manager::build_detailed(const project_config& config) {
   asset_build_result result{resource_};
@@ -389,8 +387,8 @@ asset_build_result asset_manager::build_detailed(const project_config& config) {
     const project_resource_config& resource_config = config.resources[index];
     if (!resource_config.guid || resource_config.location.empty()) {
       set_build_failure(result, asset_build_stage::resource, index,
-                        {error_domain::resources, errc::invalid_argument},
-                        resource_config.source, resource_config.type, resource_config.guid,
+                        {error_domain::resources, errc::invalid_argument}, resource_config.source,
+                        resource_config.type, resource_config.guid,
                         "resource 配置缺少 guid 或 location");
       return result;
     }
@@ -399,8 +397,7 @@ asset_build_result asset_manager::build_detailed(const project_config& config) {
     if (source == nullptr) {
       set_build_failure(result, asset_build_stage::resource, index,
                         {error_domain::resources, errc::not_found}, resource_config.source,
-                        resource_config.type, resource_config.guid,
-                        "resource 配置无法解析 source");
+                        resource_config.type, resource_config.guid, "resource 配置无法解析 source");
       return result;
     }
 
@@ -574,4 +571,4 @@ error asset_manager::rebuild_manual_type_bindings() {
   return {};
 }
 
-} // namespace caors::resources
+} // namespace caors::assets

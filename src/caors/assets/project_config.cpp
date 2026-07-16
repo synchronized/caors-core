@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "caors/resources/project_config.h"
+#include "caors/assets/project_config.h"
 
 #include "caors/serialization/operations.h"
 
@@ -10,7 +10,7 @@
 #include <string_view>
 #include <utility>
 
-namespace caors::resources {
+namespace caors::assets {
 namespace {
 
 [[nodiscard]] std::string_view string_view_of(const core::string& value) noexcept {
@@ -325,8 +325,8 @@ error load_project_config_json(project_config& target, std::string_view text) {
   return load_project_config(target, parsed.value);
 }
 
-error load_project_config(project_config& target, source& resource_source, io::path_view location,
-                          memory_resource* resource) {
+error load_project_config(project_config& target, resources::source& resource_source,
+                          io::path_view location, memory_resource* resource) {
   if (location.empty()) {
     return {error_domain::resources, errc::invalid_argument};
   }
@@ -342,4 +342,4 @@ error load_project_config(project_config& target, source& resource_source, io::p
   return load_project_config_json(target, text);
 }
 
-} // namespace caors::resources
+} // namespace caors::assets

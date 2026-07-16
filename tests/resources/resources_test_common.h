@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "caors/assets.h"
 #include "caors/resources.h"
 
 #include "caors/core/containers.h"

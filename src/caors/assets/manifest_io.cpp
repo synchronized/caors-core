@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "caors/resources/io.h"
+#include "caors/assets/io.h"
 
 #include <cstdint>
 #include <string_view>
 
-namespace caors::resources {
+namespace caors::assets {
 namespace {
 
 [[nodiscard]] const core::string* find_string_member(const variant& object, std::string_view name) {
@@ -34,7 +34,7 @@ namespace {
   return {error_domain::resources, errc::invalid_argument};
 }
 
-[[nodiscard]] error load_manifest_entry(manifest& target, const variant& value) {
+[[nodiscard]] error load_manifest_entry(resources::manifest& target, const variant& value) {
   if (!value.is_object()) {
     return {error_domain::resources, errc::invalid_argument};
   }
@@ -82,7 +82,7 @@ namespace {
 
 } // namespace
 
-error load_manifest(manifest& target, const variant& value) {
+error load_manifest(resources::manifest& target, const variant& value) {
   const variant::array_type* entries = manifest_entries(value);
   if (entries == nullptr) {
     return {error_domain::resources, errc::invalid_argument};
@@ -98,7 +98,7 @@ error load_manifest(manifest& target, const variant& value) {
   return {};
 }
 
-error load_manifest_json(manifest& target, std::string_view text) {
+error load_manifest_json(resources::manifest& target, std::string_view text) {
   serialization::variant_result parsed = serialization::parse_json(text);
   if (parsed.failed()) {
     return parsed.status;
@@ -107,8 +107,8 @@ error load_manifest_json(manifest& target, std::string_view text) {
   return load_manifest(target, parsed.value);
 }
 
-error load_manifest(manifest& target, source& resource_source, io::path_view location,
-                    memory_resource* resource) {
+error load_manifest(resources::manifest& target, resources::source& resource_source,
+                    io::path_view location, memory_resource* resource) {
   if (location.empty()) {
     return {error_domain::resources, errc::invalid_argument};
   }
@@ -124,4 +124,4 @@ error load_manifest(manifest& target, source& resource_source, io::path_view loc
   return load_manifest_json(target, text);
 }
 
-} // namespace caors::resources
+} // namespace caors::assets

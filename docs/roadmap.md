@@ -240,7 +240,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 设计资源层 `resources::source` / `resources::provider`，负责从 `resource_guid` 或资源位置解析到统一数据流，再交给 loader 解码。
 - [x] 实现本地文件系统后端 `io::native_file_system`。
 - [x] 实现 `resources::file_source`，把 `io::file_system` 适配为资源字节来源。
-- [x] 实现 `resources::json_loader<T>`，打通 `resource_guid -> provider -> JSON -> resource` 的同步加载链路。
+- [x] 实现 `assets::json_loader<T>`，打通 `resource_guid -> provider -> JSON -> resource` 的同步加载链路。
 - [x] 实现内存文件系统后端 `io::memory_file_system`，用于测试、热更新缓存和后续资源包索引内存镜像。
 - [x] 增加 `resources::manifest`，保存 `resource_guid -> location/type/hash/version` 清单，并可批量绑定到 provider。
 - [x] 支持从 JSON 文本或 `resources::source` 导入资源 manifest，作为本地资源数据库和调试 fileserver 清单入口。
@@ -248,21 +248,23 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 支持 manifest 全量替换 provider 绑定，方便完整资源清单刷新时移除旧资源位置。
 - [x] 设计工程/场景资源配置描述格式，用于声明 source/provider、manifest、资源类型、loader/cache
   绑定、预加载根资源和资源解析策略。
-- [x] 提供配置反序列化入口，先把 JSON/DOM 读成 `resources::project_config` 或类似描述对象，不直接反序列化
+- [x] 提供配置反序列化入口，先把 JSON/DOM 读成 `assets::project_config` 或类似描述对象，不直接反序列化
   运行期 `provider` / `database` / `cache` / `loader` 指针对象。
-- [x] 设计拥有式 `resources::asset_manager` 或资源运行期 builder，持有 manifest、provider、dependency graph
+- [x] 设计拥有式 `assets::asset_manager` 或资源运行期 builder，持有 manifest、provider、dependency graph
   和非拥有 `database`，统一保证核心资源运行期对象生命周期。
-- [x] 提供 `resources::asset_manager` 第一版，拥有 manifest、provider、dependency graph 和 database，并可从
+- [x] 提供 `assets::asset_manager` 第一版，拥有 manifest、provider、dependency graph 和 database，并可从
   `project_config` 构建运行期资源定位与依赖图。
+- [x] 将高层工程资源入口拆到 `assets` 模块，`project_config`、`asset_manager`、JSON loader/saver 和
+  manifest/project config JSON 读入 helper 不再挂在 `resources` 核心入口下。
 - [x] 提供第一版 loader/source/cache 工厂注册机制，把配置中的 `"json"`、`"native_file_system"`、
   `"memory"` 等策略名映射到运行期 source、cache 和 loader 构造；`"remote"`、资源包和专用缓存后续扩展。
-- [x] 为 `resources::asset_manager::build_detailed()` 增加构建阶段诊断，记录失败阶段、配置项索引、
+- [x] 为 `assets::asset_manager::build_detailed()` 增加构建阶段诊断，记录失败阶段、配置项索引、
   source/type 名称、资源 GUID 和可读原因。
 - [x] 为资源配置 source/type factory 增加轻量 options schema，支持必填字段、字段值形态和未知字段策略校验。
-- [x] 继续收敛资源公开主入口，以 `resources::asset_manager` / 运行期 builder 作为用户优先入口，
+- [x] 继续收敛资源公开主入口，以 `assets::asset_manager` / 运行期 builder 作为用户优先入口，
   `database`、`provider`、`cache<T>` 和 `loader<T>` 作为高级组合入口。
 - [x] 支持 `resources::provider` 通过可写 source 按 GUID 写回字节，为后续 saver 和热更新回写提供基础。
-- [x] 实现 `resources::json_saver<T>`，打通 `resource -> JSON -> provider -> source` 的同步保存链路。
+- [x] 实现 `assets::json_saver<T>`，打通 `resource -> JSON -> provider -> source` 的同步保存链路。
 - [x] 提供 `resources::save_from()`，把 cache 中指定 GUID 的资源交给 saver 保存。
 - [x] 提供 `resources::reload_handle_into()` 和 `cache<T>::replace()`，支持同步重载成功替换、失败保留旧资源。
 - [ ] 实现资源包、远程资源或异步 loader/saver 后端。
@@ -288,6 +290,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 明确异步资源系统线程安全边界：哪些 `source` / `provider` / `memory_resource` 可跨线程访问，
   cache 修改必须在哪个线程执行，未完成 request 的 `try_get()` 是阻塞、返回错误还是禁止调用。
 - [x] 打通资源引用序列化 resolver，支持反序列化后按策略解析稳定 GUID 引用。
+- [ ] 继续拆分资源序列化 adapter，把 `resources::database` 中强依赖 `serialization` resolver 的高级入口
+  收敛到 assets 或 serialization adapter 层。
 - [x] 设计资源热重载边界：第一阶段放在资源系统主题内，不新增独立主题；热重载只负责发现资源描述或字节内容变化、
   刷新 manifest / provider / cache，并返回 reload 结果，不隐式修改对象、场景树或运行期业务状态。
 - [x] 支持基于 manifest / provider / cache 的手动同步热重载流程：调用方检测 `hash`、`version` 或

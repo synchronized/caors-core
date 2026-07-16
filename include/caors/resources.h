@@ -4,7 +4,6 @@
 #ifndef CAORS_RESOURCES_H_
 #define CAORS_RESOURCES_H_
 
-#include "caors/resources/asset_manager.h"
 #include "caors/resources/async.h"
 #include "caors/resources/cache.h"
 #include "caors/resources/database.h"
@@ -15,11 +14,9 @@
 #include "caors/resources/manager.h"
 #include "caors/resources/manifest.h"
 #include "caors/resources/preload.h"
-#include "caors/resources/project_config.h"
 #include "caors/resources/ref.h"
 #include "caors/resources/reload.h"
 #include "caors/resources/resource.h"
-#include "caors/resources/serialization.h"
 #include "caors/resources/source.h"
 
 #endif

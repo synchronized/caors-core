@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_RESOURCES_ASSET_MANAGER_H_
-#define CAORS_RESOURCES_ASSET_MANAGER_H_
+#ifndef CAORS_ASSETS_ASSET_MANAGER_H_
+#define CAORS_ASSETS_ASSET_MANAGER_H_
 
+#include "caors/assets/io.h"
+#include "caors/assets/project_config.h"
 #include "caors/core/containers.h"
 #include "caors/core/string_name.h"
 #include "caors/error.h"
@@ -11,9 +13,7 @@
 #include "caors/resources/cache.h"
 #include "caors/resources/database.h"
 #include "caors/resources/dependency_graph.h"
-#include "caors/resources/io.h"
 #include "caors/resources/manifest.h"
-#include "caors/resources/project_config.h"
 #include "caors/resources/source.h"
 
 #include <cstddef>
@@ -22,7 +22,14 @@
 #include <type_traits>
 #include <utility>
 
-namespace caors::resources {
+namespace caors::assets {
+
+using resources::dependency_graph;
+using resources::handle_result;
+using resources::load_request;
+using resources::preload_plan;
+using resources::preload_request;
+using resources::preload_result;
 
 /** @brief asset_manager 构建失败所在阶段。 */
 enum class asset_build_stage {
@@ -142,8 +149,7 @@ public:
                                 const project_source_config& config, void* user_data);
 
     source_factory_ops() = default;
-    source_factory_ops(create_fn value, void* data = nullptr)
-        : create(value), user_data(data) {}
+    source_factory_ops(create_fn value, void* data = nullptr) : create(value), user_data(data) {}
     source_factory_ops(create_fn value, void* data, factory_option_schema option_schema)
         : create(value), user_data(data), schema(std::move(option_schema)) {}
 
@@ -167,8 +173,7 @@ public:
                                 const project_resource_type_config& config, void* user_data);
 
     type_factory_ops() = default;
-    type_factory_ops(create_fn value, void* data = nullptr)
-        : create(value), user_data(data) {}
+    type_factory_ops(create_fn value, void* data = nullptr) : create(value), user_data(data) {}
     type_factory_ops(create_fn value, void* data, factory_option_schema option_schema)
         : create(value), user_data(data), schema(std::move(option_schema)) {}
 
@@ -246,8 +251,7 @@ public:
   }
   /** @brief 注册带 option schema 的 source 策略构造函数。 */
   [[nodiscard]] error register_source_factory(core::string_name type,
-                                              source_factory_ops::create_fn create,
-                                              void* user_data,
+                                              source_factory_ops::create_fn create, void* user_data,
                                               factory_option_schema schema) {
     return register_source_factory(type, source_factory_ops{create, user_data, std::move(schema)});
   }
@@ -270,8 +274,7 @@ public:
   }
   /** @brief 注册带 option schema 的 manifest 资源类型构造函数。 */
   [[nodiscard]] error register_type_factory(core::string_name resource_type,
-                                            type_factory_ops::create_fn create,
-                                            void* user_data,
+                                            type_factory_ops::create_fn create, void* user_data,
                                             factory_option_schema schema) {
     return register_type_factory(resource_type,
                                  type_factory_ops{create, user_data, std::move(schema)});
@@ -297,8 +300,8 @@ public:
     static_assert(std::is_base_of_v<resources::resource, T>,
                   "T must derive from caors::resources::resource");
     return register_type_factory(
-        resource_type, type_factory_ops{&asset_manager::default_type_factory<T>, nullptr,
-                                        std::move(schema)});
+        resource_type,
+        type_factory_ops{&asset_manager::default_type_factory<T>, nullptr, std::move(schema)});
   }
 
   /**
@@ -389,7 +392,7 @@ public:
       return {error_domain::resources, errc::not_found};
     }
 
-    resources::json_saver<T> saver{provider_};
+    json_saver<T> saver{provider_};
     return saver.save(*value);
   }
 
@@ -628,7 +631,7 @@ private:
       return {error_domain::resources, errc::out_of_memory};
     }
 
-    auto* loader = context.manager.create_owned<resources::json_loader<T>>(context.provider);
+    auto* loader = context.manager.create_owned<json_loader<T>>(context.provider);
     if (loader == nullptr) {
       return {error_domain::resources, errc::out_of_memory};
     }
@@ -657,12 +660,6 @@ private:
   bool building_config_runtime_ = false;
 };
 
-} // namespace caors::resources
-
-namespace caors {
-
-using resource_asset_manager = resources::asset_manager;
-
-} // namespace caors
+} // namespace caors::assets
 
 #endif
