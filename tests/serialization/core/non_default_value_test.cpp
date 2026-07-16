@@ -66,6 +66,24 @@ TEST_CASE("serialization - constructs empty non default optional values with con
   CHECK(actor.value->value == 7);
 }
 
+TEST_CASE("serialization - destroys constructed values when wrapper takeover fails",
+          "[serialization]") {
+  require_failing_takeover_actor_metadata();
+  takeover_rollback_value::reset_counts();
+
+  failing_takeover_actor actor{};
+  caors::serialization::context context = takeover_rollback_construction_context();
+
+  const caors::error result = caors::deserialize(context, actor, R"({"value":{"value":7}})");
+
+  REQUIRE(result.failed());
+  CHECK(result.domain() == caors::error_domain::serialization);
+  CHECK(result.value() == caors::errc::invalid_field);
+  CHECK(actor.value.value == nullptr);
+  CHECK(takeover_rollback_value::constructed_count == 1);
+  CHECK(takeover_rollback_value::destroyed_count == 1);
+}
+
 // 原测试文件：serialization_non_default_value_rejects_non_default_constructible_sequence_elements_test.cpp
 
 #include "serialization_test_support.h"

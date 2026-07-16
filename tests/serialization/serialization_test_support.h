@@ -190,6 +190,29 @@ struct non_default_variant_actor {
   std::variant<int, non_default_value> value{0};
 };
 
+struct takeover_rollback_value {
+  explicit takeover_rollback_value(int input) : value(input) { ++constructed_count; }
+  ~takeover_rollback_value() { ++destroyed_count; }
+
+  static void reset_counts() noexcept {
+    constructed_count = 0;
+    destroyed_count = 0;
+  }
+
+  inline static int constructed_count = 0;
+  inline static int destroyed_count = 0;
+
+  int value = 0;
+};
+
+struct failing_takeover_wrapper {
+  takeover_rollback_value* value = nullptr;
+};
+
+struct failing_takeover_actor {
+  failing_takeover_wrapper value{};
+};
+
 struct pointer_actor {
   int* raw = nullptr;
   std::shared_ptr<int> shared{};
@@ -444,6 +467,44 @@ inline caors::serialization::context non_default_construction_context() {
   return context;
 }
 
+inline void destroy_takeover_rollback_value(caors::memory_resource*, void* value) noexcept {
+  delete static_cast<takeover_rollback_value*>(value);
+}
+
+inline caors::serialization::construction_result construct_takeover_rollback_value(
+    const caors::serialization::construction_request& request,
+    const caors::serialization::context&, void*) {
+  const caors::meta::type expected = caors::meta::resolve<takeover_rollback_value>();
+  if (!request.type || request.type.id() != expected.id()) {
+    return {};
+  }
+
+  return {new takeover_rollback_value(0), &destroy_takeover_rollback_value};
+}
+
+inline caors::serialization::context takeover_rollback_construction_context() {
+  caors::serialization::context context{};
+  context.resolvers.construction.construct = &construct_takeover_rollback_value;
+  return context;
+}
+
+inline void require_failing_takeover_actor_metadata() {
+  REQUIRE(reflection_result_ok(
+      registered_reflection_class<takeover_rollback_value>(
+          "caors.test.serialization.takeover_rollback_value")
+          .field("value", &takeover_rollback_value::value)
+          .commit()));
+  REQUIRE(reflection_result_ok(
+      registered_reflection_class<failing_takeover_actor>(
+          "caors.test.serialization.failing_takeover_actor")
+          .field("value", &failing_takeover_actor::value)
+          .commit()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::class_<takeover_rollback_value>().commit()));
+  REQUIRE(
+      serialization_result_ok(caors::serialization::class_<failing_takeover_actor>().commit()));
+}
+
 inline void require_unique_ptr_vector_actor_metadata() {
   REQUIRE(reflection_result_ok(registered_reflection_class<unique_ptr_vector_actor>(
                                    "caors.test.serialization.unique_ptr_vector_actor")
@@ -589,6 +650,39 @@ template <> struct type_name<caors::tests::serialization::nested_stats> {
 } // namespace caors::traits
 
 namespace caors::traits {
+
+template <> struct wrapper_traits<caors::tests::serialization::failing_takeover_wrapper> {
+  static constexpr bool is_wrapper = true;
+  static constexpr bool nullable = true;
+  static constexpr wrapper_semantics semantics = wrapper_semantics::inline_value;
+  using wrapped_type = caors::tests::serialization::takeover_rollback_value;
+};
+
+template <> struct wrapper_access<caors::tests::serialization::failing_takeover_wrapper> {
+  using wrapper_type = caors::tests::serialization::failing_takeover_wrapper;
+  using wrapped_type = caors::tests::serialization::takeover_rollback_value;
+
+  [[nodiscard]] static const wrapped_type* value(const wrapper_type& wrapper) noexcept {
+    return wrapper.value;
+  }
+
+  [[nodiscard]] static wrapped_type* mutable_value(wrapper_type& wrapper) noexcept {
+    return wrapper.value;
+  }
+
+  [[nodiscard]] static bool has_value(const wrapper_type& wrapper) noexcept {
+    return wrapper.value != nullptr;
+  }
+
+  static bool reset(wrapper_type& wrapper) noexcept {
+    wrapper.value = nullptr;
+    return true;
+  }
+
+  static bool ensure_value(wrapper_type&) { return false; }
+
+  static bool set_value(wrapper_type&, wrapped_type*) noexcept { return false; }
+};
 
 template <typename T> struct sequence_traits<caors::tests::serialization::custom_sequence<T>> {
   static constexpr bool is_sequence = true;

@@ -47,6 +47,22 @@ struct owned_constructed_value {
     value.reset();
     transfer_destroy_context = false;
   }
+
+  /** @brief 把当前构造结果转成拥有式 any；失败时仍由 guard 负责回滚销毁。 */
+  [[nodiscard]] any into_any() noexcept {
+    if (!valid()) {
+      return {};
+    }
+
+    const meta::released_owned_value released = value.release();
+    transfer_destroy_context = false;
+    meta::owned_value owned =
+        released.resource_destroy != nullptr
+            ? meta::make_owned_value(released.type, released.value, released.resource,
+                                     released.resource_destroy)
+            : meta::make_owned_value(released.type, released.value, released.destroy);
+    return std::move(owned).into_any();
+  }
 };
 
 /** @brief 按序列化构造策略创建一个由调用方接管的运行期对象。 */
@@ -118,13 +134,7 @@ construct_owned_value(meta::type type, const serialization::context& context,
   owned_constructed_value constructed =
       construct_owned_value(type, context, site, index, false, true);
   if (constructed.valid()) {
-    const meta::released_owned_value released = constructed.value.release();
-    meta::owned_value owned =
-        released.resource_destroy != nullptr
-            ? meta::make_owned_value(released.type, released.value, released.resource,
-                                     released.resource_destroy)
-            : meta::make_owned_value(released.type, released.value, released.destroy);
-    any decoded = std::move(owned).into_any();
+    any decoded = constructed.into_any();
     if (decoded.valid()) {
       return decoded;
     }
