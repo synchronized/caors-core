@@ -88,7 +88,7 @@ any type::create(std::span<const meta::any_ref> arguments,
   if (arguments.empty()) {
     const meta::factory_capability factory = meta_.get_capability<meta::factory_capability>();
     if (factory) {
-      any value = factory.construct_any(resource);
+      any value = factory.construct(resource);
       if (value.valid()) {
         return value;
       }
@@ -98,7 +98,7 @@ any type::create(std::span<const meta::any_ref> arguments,
   const meta::constructor_capability constructor =
       meta_.get_capability<meta::constructor_capability>();
   if (constructor.matches(arguments.size())) {
-    any value = constructor.construct_any(arguments, resource);
+    any value = constructor.construct(arguments, resource);
     if (value.valid()) {
       return value;
     }

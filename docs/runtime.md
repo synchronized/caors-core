@@ -97,7 +97,7 @@ constructor 参数采用保守匹配策略：参数数量必须一致，参数�
 
 - `default_construct(type, resource)` 只按 descriptor 默认构造值。
 - `take_ownership(type, value, resource, destroy)` 接管外部工厂创建的对象，调用方必须保证对象类型、
-  销毁函数和 `memory_resource` 完全匹配。普通 meta factory 调用优先使用 `factory_capability::construct_any()`。
+  销毁函数和 `memory_resource` 完全匹配。普通 meta factory 调用优先使用 `factory_capability::construct()`。
 - 普通业务、编辑器创建、多态反序列化和资源配置加载应优先通过 `runtime::type::create()` 统一调度。
 
 注册自定义无参构造策略时，使用 `runtime::class_<T>().factory()`：

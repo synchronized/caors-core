@@ -31,7 +31,7 @@ TEST_CASE("meta type - factory registers custom construction strategy", "[meta]"
   REQUIRE(factory);
   REQUIRE(factory.valid());
 
-  caors::any owned = factory.construct_any();
+  caors::any owned = factory.construct();
   REQUIRE(owned.valid());
   auto* owned_value = owned.try_get_mutable<custom_factory_type>();
   REQUIRE(owned_value != nullptr);
@@ -62,7 +62,7 @@ TEST_CASE("meta type - factory registers resource-aware default construction", "
   REQUIRE(factory.valid());
 
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
-  caors::any owned = factory.construct_any(&tracking);
+  caors::any owned = factory.construct(&tracking);
   REQUIRE(owned.valid());
   auto* owned_value = owned.try_get_mutable<default_factory_type>();
   REQUIRE(owned_value != nullptr);

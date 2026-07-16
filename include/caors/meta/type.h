@@ -228,7 +228,7 @@ public:
   explicit factory_capability(meta::type type) noexcept : base_type(type) {}
 
   /** @brief 使用注册工厂构造并返回拥有对象生命周期的 `any`。 */
-  [[nodiscard]] any construct_any(memory::memory_resource* resource = nullptr) const;
+  [[nodiscard]] any construct(memory::memory_resource* resource = nullptr) const;
 
 private:
   friend void* detail::factory_construct(const factory_capability&, memory::memory_resource*);
@@ -254,8 +254,8 @@ public:
   }
 
   /** @brief 使用注册构造函数构造并返回拥有对象生命周期的 `any`。 */
-  [[nodiscard]] any construct_any(std::span<const any_ref> arguments,
-                                  memory::memory_resource* resource = nullptr) const;
+  [[nodiscard]] any construct(std::span<const any_ref> arguments,
+                              memory::memory_resource* resource = nullptr) const;
 
 private:
   friend void* detail::constructor_construct(const constructor_capability&,
