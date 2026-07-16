@@ -741,7 +741,7 @@ auto resolver = assets.resolver();
 
 推荐普通项目优先使用 `asset_manager` 的高层入口：
 
-- `build(config)`：根据 `project_config` 重建内部 manifest、provider 和 dependency graph，并按已注册工厂创建运行期 source、cache 和 loader。
+- `build(config)`：根据 `project_config` 重建内部 manifest、provider 和 dependency graph，并按已注册工厂创建运行期 source、cache 和 loader；重复调用会先清理上一轮配置创建的运行期对象。
 - `register_type_factory<T>(type)`：把配置里的资源类型名映射到默认 `memory` cache 和 `json` loader。
 - `find<T>(guid)` / `find(guid)`：查询内部已注册 cache 中的资源。
 - `load<T>(guid)` / `load_handle<T>(guid)`：通过内部 database 中已注册的 loader/cache 加载资源。
@@ -818,7 +818,15 @@ assets.register_type_factory(caors::string_name{"game.texture"}, &make_texture_r
 - `project_config.preload_roots` 只保存建议预加载入口；调用方决定何时调用 `preload()` 或异步预加载。
 - `asset_manager::bind_source(name, source)` 不接管 source 生命周期；调用方必须保证 source 存活时间长于
   `asset_manager` 对它的使用。手动绑定的 source 会覆盖同名配置 source 的自动创建。
-- `asset_manager::build(config)` 会清空内部 manifest、provider 和 dependency graph，再按配置重建。
+- `asset_manager::build(config)` 会清空内部 manifest、provider 和 dependency graph，再按配置重建。它还会先清理上一轮
+  build 由 source/type factory 通过 `create_owned<T>()` 创建的对象，以及这些对象对应的 source 和
+  cache/loader 注册。
+- 手动 `bind_source(name, source)` 绑定的外部 source、手动 `register_type(cache, loader, type)`
+  注册的外部 cache/loader、source/type factory 注册表会跨 `build()` 保留。`asset_manager`
+  会在清理配置创建的 type runtime 后重新把手动 type binding 注册回内部 database。
+- 如果 `build(config)` 中途失败，配置创建的旧运行期对象已经被清理，manifest/provider/dependency graph
+  可能处于本次构建的部分状态；手动绑定和 factory 注册表仍保留。调用方应修正配置后再次调用
+  `build()`，或销毁当前 `asset_manager` 后重新创建。
 - 资源条目未显式写 `source` 时，如果配置中只有一个 source 或 asset_manager 只绑定了一个 source，会使用该
   唯一 source；否则返回 `resources / not_found`。
 - 没有注册类型工厂的 `resource_types` 会被跳过，保留 `register_type<T>(cache, loader, type)` 手动绑定路径。

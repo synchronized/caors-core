@@ -63,6 +63,18 @@ public:
     return dependency_graph_;
   }
 
+  /**
+   * @brief 清空已注册的资源类型绑定。
+   *
+   * 该函数只清除 cache、loader、manifest type alias、type_guid 和异步请求表绑定，不修改当前
+   * manifest、provider 或 dependency graph 指针。
+   */
+  void clear_registered_types() noexcept {
+    entries_.clear();
+    entries_by_resource_type_.clear();
+    entries_by_type_guid_.clear();
+  }
+
   /** @brief 使用当前 manifest 把 GUID/location 绑定到当前 provider。 */
   [[nodiscard]] error bind_manifest(resources::source& source) const {
     if (provider_ == nullptr || manifest_ == nullptr) {

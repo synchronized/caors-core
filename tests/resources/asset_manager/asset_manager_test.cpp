@@ -109,6 +109,31 @@ struct external_type_factory_state {
   std::uint64_t priority = 0;
 };
 
+class counted_source final : public caors::resources::source {
+public:
+  explicit counted_source(int* destroyed) noexcept : destroyed_(destroyed) {}
+  ~counted_source() override {
+    if (destroyed_ != nullptr) {
+      ++*destroyed_;
+    }
+  }
+
+  [[nodiscard]] bool exists(caors::io::path_view) const override { return false; }
+
+  [[nodiscard]] caors::io::byte_buffer_result read(caors::io::path_view,
+                                                   caors::memory_resource*) override {
+    return {{caors::error_domain::resources, caors::errc::not_found}, {}};
+  }
+
+private:
+  int* destroyed_ = nullptr;
+};
+
+struct counted_source_factory_state {
+  int calls = 0;
+  int destroyed = 0;
+};
+
 [[nodiscard]] caors::error
 make_external_memory_source(caors::resources::asset_manager::source_factory_context& context,
                             const caors::resources::project_source_config& config,
@@ -190,6 +215,24 @@ make_external_serialized_type(caors::resources::asset_manager::type_factory_cont
   }
 
   return context.database.register_type(*state.cache, *state.loader, config.type);
+}
+
+[[nodiscard]] caors::error
+make_counted_source(caors::resources::asset_manager::source_factory_context& context,
+                    const caors::resources::project_source_config& config, void* user_data) {
+  if (user_data == nullptr) {
+    return {caors::error_domain::resources, caors::errc::invalid_argument};
+  }
+
+  auto& state = *static_cast<counted_source_factory_state*>(user_data);
+  ++state.calls;
+
+  auto* source = context.manager.create_owned<counted_source>(&state.destroyed);
+  if (source == nullptr) {
+    return {caors::error_domain::resources, caors::errc::out_of_memory};
+  }
+
+  return context.manager.bind_source(config.name, *source);
 }
 
 } // namespace
@@ -502,6 +545,67 @@ TEST_CASE("resources - asset_manager accepts external type factory state", "[res
   REQUIRE(state.cache->find(test_guid_b) != nullptr);
   CHECK(state.cache->find(test_guid_a)->width == 128);
   CHECK(state.cache->find(test_guid_b)->width == 256);
+}
+
+TEST_CASE("resources - asset_manager rebuild clears config created runtime objects",
+          "[resources]") {
+  caors::resources::project_config config;
+  caors::resources::project_source_config source{config.resource};
+  source.name = caors::string_name{"assets"};
+  source.type = caors::string_name{"counted"};
+  config.sources.push_back(std::move(source));
+
+  counted_source_factory_state state;
+
+  {
+    caors::resource_asset_manager assets;
+    REQUIRE(
+        assets.register_source_factory(caors::string_name{"counted"}, &make_counted_source, &state)
+            .succeeded());
+
+    REQUIRE(assets.build(config).succeeded());
+    CHECK(state.calls == 1);
+    CHECK(state.destroyed == 0);
+    REQUIRE(assets.find_source(caors::string_name{"assets"}) != nullptr);
+
+    REQUIRE(assets.build(config).succeeded());
+    CHECK(state.calls == 2);
+    CHECK(state.destroyed == 1);
+    REQUIRE(assets.find_source(caors::string_name{"assets"}) != nullptr);
+  }
+
+  CHECK(state.destroyed == 2);
+}
+
+TEST_CASE("resources - asset_manager rebuild keeps manual type bindings", "[resources]") {
+  require_serialized_resource_metadata();
+
+  caors::resources::project_config config;
+  REQUIRE(
+      caors::resources::load_project_config_json(config, make_project_config_json()).succeeded());
+
+  caors::io::memory_file_system files;
+  REQUIRE(
+      files.write_all("assets/resource-a.json", std::string_view{R"({"width":512})"}).succeeded());
+  REQUIRE(
+      files.write_all("assets/resource-b.json", std::string_view{R"({"width":1024})"}).succeeded());
+
+  caors::resources::file_source source{files};
+  caors::resource_cache<serialized_resource> cache;
+
+  caors::resource_asset_manager assets;
+  caors::resources::json_loader<serialized_resource> loader{assets.provider()};
+  REQUIRE(assets.bind_source(caors::string_name{"assets"}, source).succeeded());
+  REQUIRE(assets.register_type(cache, loader, serialized_manifest_type()).succeeded());
+
+  REQUIRE(assets.build(config).succeeded());
+  caors::resources::preload_result loaded = assets.preload(test_guid_b);
+  REQUIRE(loaded.succeeded());
+  REQUIRE(cache.find(test_guid_a) != nullptr);
+
+  REQUIRE(assets.build(config).succeeded());
+  CHECK(assets.find<serialized_resource>(test_guid_a) == cache.find(test_guid_a));
+  CHECK(assets.find<serialized_resource>(test_guid_b) == cache.find(test_guid_b));
 }
 
 TEST_CASE("resources - asset_manager reports unsupported configured runtime strategy",

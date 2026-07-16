@@ -172,8 +172,9 @@ public:
   /**
    * @brief 根据工程配置重建 manifest、provider 和 dependency graph。
    *
-   * 该函数会清空已有 manifest/provider/dependency graph，再按配置重新绑定。cache/loader
-   * 注册不会被清除；它们仍保留在内部 database 中。
+   * 该函数会清空上一轮配置创建的 source/cache/loader 等运行期对象，并重建
+   * manifest/provider/dependency graph。用户手动 `bind_source()` 和 `register_type()`
+   * 的外部绑定会保留。
    */
   [[nodiscard]] error build(const project_config& config);
 
@@ -183,7 +184,13 @@ public:
                                     core::string_name resource_type) {
     static_assert(std::is_base_of_v<resources::resource, T>,
                   "T must derive from caors::resources::resource");
-    return database_.register_type(cache, loader, resource_type);
+    error status = database_.register_type(cache, loader, resource_type);
+    if (status) {
+      return status;
+    }
+
+    return building_config_runtime_ ? error{}
+                                    : remember_manual_type_binding<T>(cache, loader, resource_type);
   }
 
   /** @brief 按资源类型和 GUID 查询已缓存资源。 */
@@ -357,20 +364,28 @@ public:
       return nullptr;
     }
 
-    owned_objects_.emplace_back(resource_, value, &asset_manager::destroy_owned<T>);
+    owned_objects_.emplace_back(resource_, value, &asset_manager::destroy_owned<T>,
+                                building_config_runtime_);
     return value;
   }
 
 private:
-  using source_map = core::hash_map<core::string_name, resources::source*>;
   using source_factory_map = core::hash_map<core::string_name, source_factory_ops>;
   using type_factory_map = core::hash_map<core::string_name, type_factory_ops>;
+
+  struct source_binding {
+    resources::source* source = nullptr;
+    bool config_created = false;
+  };
+
+  using source_map = core::hash_map<core::string_name, source_binding>;
 
   struct owned_runtime_object {
     using destroy_fn = void (*)(memory_resource* resource, void* value) noexcept;
 
     owned_runtime_object() noexcept = default;
-    owned_runtime_object(memory_resource* resource, void* value, destroy_fn destroy) noexcept;
+    owned_runtime_object(memory_resource* resource, void* value, destroy_fn destroy,
+                         bool config_created) noexcept;
     ~owned_runtime_object();
 
     owned_runtime_object(const owned_runtime_object&) = delete;
@@ -384,6 +399,7 @@ private:
     memory_resource* resource = nullptr;
     void* value = nullptr;
     destroy_fn destroy = nullptr;
+    bool config_created = false;
   };
 
   struct owned_type_binding {
@@ -391,13 +407,25 @@ private:
     core::string_name cache{};
   };
 
+  struct manual_type_binding {
+    using bind_fn = error (*)(asset_manager& manager, void* cache, void* loader,
+                              core::string_name resource_type);
+
+    void* cache = nullptr;
+    void* loader = nullptr;
+    bind_fn bind = nullptr;
+  };
+
   using owned_object_list = core::vector<owned_runtime_object>;
   using owned_type_map = core::hash_map<core::string_name, owned_type_binding>;
+  using manual_type_map = core::hash_map<core::string_name, manual_type_binding>;
 
   [[nodiscard]] resources::source*
   resolve_resource_source(const project_config& config,
                           const project_resource_config& resource_config) const;
 
+  [[nodiscard]] error clear_config_runtime();
+  [[nodiscard]] error rebuild_manual_type_bindings();
   [[nodiscard]] error ensure_source_from_config(const project_source_config& config);
   [[nodiscard]] error ensure_type_from_config(const project_resource_type_config& config);
   [[nodiscard]] error register_builtin_source_factories();
@@ -410,6 +438,31 @@ private:
 
   template <typename T> static void destroy_owned(memory_resource* resource, void* value) noexcept {
     memory::destroy(static_cast<T*>(value), resource);
+  }
+
+  template <typename T>
+  [[nodiscard]] static error rebind_manual_type(asset_manager& manager, void* cache, void* loader,
+                                                core::string_name resource_type) {
+    return manager.database_.register_type(*static_cast<resources::cache<T>*>(cache),
+                                           *static_cast<resources::loader<T>*>(loader),
+                                           resource_type);
+  }
+
+  template <typename T>
+  [[nodiscard]] error remember_manual_type_binding(resources::cache<T>& cache,
+                                                   resources::loader<T>& loader,
+                                                   core::string_name resource_type) {
+    manual_type_binding binding{&cache, &loader, &asset_manager::rebind_manual_type<T>};
+    const auto position = manual_type_bindings_.find(resource_type);
+    if (position != manual_type_bindings_.end()) {
+      return position->second.cache == binding.cache && position->second.loader == binding.loader &&
+                     position->second.bind == binding.bind
+                 ? error{}
+                 : error{error_domain::resources, errc::already_exists};
+    }
+
+    manual_type_bindings_.emplace(resource_type, binding);
+    return {};
   }
 
   template <typename T>
@@ -459,6 +512,8 @@ private:
   type_factory_map type_factories_;
   owned_object_list owned_objects_;
   owned_type_map owned_types_;
+  manual_type_map manual_type_bindings_;
+  bool building_config_runtime_ = false;
 };
 
 } // namespace caors::resources
