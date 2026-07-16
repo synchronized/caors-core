@@ -33,7 +33,7 @@ struct owned_constructed_value {
   [[nodiscard]] memory::memory_resource* resource() const noexcept {
     return meta::detail::owned_value_resource(value);
   }
-  [[nodiscard]] meta::value_ops::resource_destroy_fn resource_destroy() const noexcept {
+  [[nodiscard]] meta::resource_destroy_fn resource_destroy() const noexcept {
     return meta::detail::owned_value_resource_destroy(value);
   }
   [[nodiscard]] bool uses_resource_destroy() const noexcept {
@@ -65,7 +65,7 @@ construct_owned_value(meta::type type, const serialization::context& context,
   if (options.has_custom_construct()) {
     const construction_result result = options.create(request, context);
     if (result.valid()) {
-      return {meta::detail::make_owned_value(type, result.value, resource, result.destroy),
+      return {meta::make_owned_value(type, result.value, resource, result.destroy),
               transfer_destroy_context};
     }
   }
@@ -103,12 +103,12 @@ construct_owned_value(meta::type type, const serialization::context& context,
 
   if (resource != nullptr && storage->ops.resource_construct != nullptr &&
       storage->ops.resource_destroy != nullptr) {
-    return {meta::detail::make_owned_value(type, storage->ops.resource_construct(resource),
-                                           resource, storage->ops.resource_destroy),
+    return {meta::make_owned_value(type, storage->ops.resource_construct(resource), resource,
+                                   storage->ops.resource_destroy),
             transfer_destroy_context};
   }
 
-  return {meta::detail::make_owned_value(
+  return {meta::make_owned_value(
       type, storage->ops.default_construct != nullptr ? storage->ops.default_construct() : nullptr,
       storage->ops.destroy)};
 }

@@ -76,7 +76,7 @@ struct construction_request {
 /** @brief 自定义构造策略返回的运行期对象和匹配销毁函数。 */
 struct construction_result {
   void* value = nullptr;
-  meta::value_ops::resource_destroy_fn destroy = nullptr;
+  meta::resource_destroy_fn destroy = nullptr;
 
   [[nodiscard]] constexpr bool valid() const noexcept {
     return value != nullptr && destroy != nullptr;

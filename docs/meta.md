@@ -203,8 +203,9 @@ caors::meta::class_<player>("game.player")
 默认构造。如果确实只需要 meta 层创建结果，可以使用 `factory_capability::construct(resource)` 直接返回
 拥有生命周期的 `meta::any`；需要先填充对象再转移所有权时，使用
 `factory_capability::construct_owned(resource)` 返回 `meta::owned_value`。裸指针构造和销毁只存在于底层
-`factory_ops` / `meta::detail` 所有权接管路径，公开 facade 不暴露 `void*`。`any::default_construct()`
-只表达 descriptor 默认构造能力，不查询 factory。
+`factory_ops` / ops/model 实现中；需要把外部高级构造结果转成 RAII 句柄时，使用
+`meta::make_owned_value()`。公开 facade 不暴露 `void*`，`any::default_construct()` 只表达 descriptor
+默认构造能力，不查询 factory。
 
 如果类型需要按运行期参数列表构造，可以注册 constructor capability：
 

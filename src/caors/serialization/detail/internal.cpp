@@ -18,7 +18,7 @@ namespace {
 struct polymorphic_destroy_context {
   memory::memory_resource* allocation_resource = nullptr;
   memory::memory_resource* value_resource = nullptr;
-  meta::value_ops::resource_destroy_fn destroy = nullptr;
+  meta::resource_destroy_fn destroy = nullptr;
 };
 
 void destroy_polymorphic_constructed_value(void* user_data, void* value) noexcept {

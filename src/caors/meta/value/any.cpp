@@ -376,7 +376,7 @@ any any::default_construct(meta::type type, memory::memory_resource* resource) {
   }
 
   void* value = nullptr;
-  meta::value_ops::resource_destroy_fn resource_destroy = nullptr;
+  meta::resource_destroy_fn resource_destroy = nullptr;
   if (resource != nullptr && value_ops->ops.resource_construct != nullptr &&
       value_ops->ops.resource_destroy != nullptr) {
     value = value_ops->ops.resource_construct(resource);

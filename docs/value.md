@@ -99,6 +99,8 @@ caors::any value = caors::any::from(7);
   `any::default_construct(type_id, resource)`。
 - `any::take_ownership(owned_value&&)` 是高级所有权接管入口。普通业务代码应优先使用
   `runtime::type::create()` 或 `factory_capability::construct()`，不要直接拼接裸指针生命周期。
+- `meta::destroy_fn` 和 `meta::resource_destroy_fn` 是高级构造路径共用的销毁函数类型；
+  `meta::value_ops`、factory、constructor 和序列化自定义构造都会复用这两个别名。
 
 ## owned_value
 
@@ -119,10 +121,20 @@ if (auto* actor_value = value.ref().try_get_mutable<actor>()) {
 caors::any owned = std::move(value).into_any();
 ```
 
+需要接管外部高级构造结果时，可以先封装成 `owned_value`：
+
+```cpp
+void* raw = construct_actor(resource);
+caors::meta::owned_value value =
+    caors::meta::make_owned_value(caors::meta::resolve<actor>(), raw, resource, &destroy_actor);
+```
+
 规则：
 
 - `owned_value` 析构时会使用匹配的资源销毁函数或 descriptor 销毁函数释放对象。
 - `into_any()` 成功后当前 `owned_value` 变为空，所有权转移给返回的 `any`。
+- `make_owned_value(type, value, destroy)` 和 `make_owned_value(type, value, resource, destroy)`
+  是高级 RAII 包装入口；调用方必须保证 `type`、原始对象、销毁函数和资源完全匹配。
 - 公开 facade 只暴露 `construct()` / `construct_owned()` 这类 RAII 入口；裸 `void*`
   构造和销毁函数只作为底层 ops/model 的内部实现细节。
 

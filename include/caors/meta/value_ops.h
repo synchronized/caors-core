@@ -17,6 +17,12 @@ namespace caors::meta {
 class type;
 class any_ref;
 
+/** @brief 普通堆对象销毁函数。 */
+using destroy_fn = void (*)(void*) noexcept;
+
+/** @brief 使用指定内存资源销毁对象的函数。 */
+using resource_destroy_fn = void (*)(memory::memory_resource*, void*) noexcept;
+
 /** @brief C++ 类型布局信息。 */
 struct type_layout {
   std::size_t size = 0;
@@ -29,10 +35,10 @@ struct type_layout {
 struct value_ops {
   using default_construct_fn = void* (*)();
   using clone_fn = void* (*)(const void*);
-  using destroy_fn = void (*)(void*) noexcept;
+  using destroy_fn = meta::destroy_fn;
   using assign_fn = bool (*)(void*, const void*);
   using resource_construct_fn = void* (*)(memory::memory_resource*);
-  using resource_destroy_fn = void (*)(memory::memory_resource*, void*) noexcept;
+  using resource_destroy_fn = meta::resource_destroy_fn;
 
   default_construct_fn default_construct = nullptr;
   clone_fn clone = nullptr;
@@ -61,7 +67,7 @@ struct value_storage_ops {
 /** @brief 类型运行期创建能力，负责按资源构造并销毁对象。 */
 struct factory_ops {
   using construct_fn = value_ops::resource_construct_fn;
-  using destroy_fn = value_ops::resource_destroy_fn;
+  using destroy_fn = meta::resource_destroy_fn;
 
   construct_fn construct = nullptr;
   destroy_fn destroy = nullptr;
@@ -74,7 +80,7 @@ struct factory_ops {
 /** @brief 带参数运行期构造能力，负责按 `any_ref` 参数列表构造并销毁对象。 */
 struct constructor_ops {
   using construct_fn = void* (*)(memory::memory_resource*, std::span<const any_ref>);
-  using destroy_fn = value_ops::resource_destroy_fn;
+  using destroy_fn = meta::resource_destroy_fn;
 
   construct_fn construct = nullptr;
   destroy_fn destroy = nullptr;
@@ -251,7 +257,7 @@ template <typename T> [[nodiscard]] value_ops::clone_fn value_clone_fn_of() noex
   }
 }
 
-template <typename T> [[nodiscard]] value_ops::destroy_fn value_destroy_fn_of() noexcept {
+template <typename T> [[nodiscard]] meta::destroy_fn value_destroy_fn_of() noexcept {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (std::is_destructible_v<type>) {
     return &destroy_value<type>;
@@ -279,8 +285,7 @@ template <typename T>
   }
 }
 
-template <typename T>
-[[nodiscard]] value_ops::resource_destroy_fn resource_destroy_fn_of() noexcept {
+template <typename T> [[nodiscard]] meta::resource_destroy_fn resource_destroy_fn_of() noexcept {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (std::is_destructible_v<type>) {
     return &resource_destroy_value<type>;

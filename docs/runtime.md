@@ -99,6 +99,8 @@ constructor 参数采用保守匹配策略：参数数量必须一致，参数�
 - `default_construct(type, resource)` 只按 descriptor 默认构造值。
 - `factory_capability::construct_owned()` / `constructor_capability::construct_owned()` 返回
   `meta::owned_value`，适合工具层先填充对象再转交所有权；最终可用 `into_any()` 转成 `any`。
+- `meta::make_owned_value(type, value, destroy)` / `meta::make_owned_value(type, value, resource, destroy)`
+  可以把外部高级构造结果封装进 RAII 句柄；调用方必须保证销毁函数和资源匹配。
 - `take_ownership(owned_value&&)` 接管 `owned_value` 持有的对象。普通 meta factory 调用优先使用
   `factory_capability::construct()`。
 - 普通业务、编辑器创建、多态反序列化和资源配置加载应优先通过 `runtime::type::create()` 统一调度。
