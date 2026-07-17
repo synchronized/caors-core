@@ -875,8 +875,6 @@ caors::meta::class_<actor>()
 - `find_component<T>(type_id)`：获取组件副本。
 - `find_component_ptr<T>(type_id)`：获取组件只读指针。组件由注册表以 `unique_ptr` 保存，地址在 append-only
   注册表生命周期内保持稳定。
-- `ensure_component<T>(type_id, args...)`：按需组件创建 helper，组件已存在时返回现有指针，不存在时创建并返回
-  新组件指针。
 - `component_count<T>()`：统计拥有指定组件的类型数量。
 - `component_view<T...>()`：查询同时拥有指定组件集合的类型。
 

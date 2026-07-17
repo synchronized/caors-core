@@ -83,15 +83,6 @@ public:
   template <typename Component, typename... Args>
   [[nodiscard]] error emplace_component(type_id id, Args&&... args);
 
-  /**
-   * @brief 确保指定类型拥有组件。
-   *
-   * 如果组件已经存在，直接返回现有组件指针；如果不存在，则用传入参数创建。返回指针不拥有组件，
-   * 生命周期由全局注册表管理。
-   */
-  template <typename Component, typename... Args>
-  [[nodiscard]] const Component* ensure_component(type_id id, Args&&... args);
-
   /** @brief 判断指定类型是否挂载了某个元数据组件。 */
   template <typename Component> [[nodiscard]] bool has_component(type_id id) const;
 

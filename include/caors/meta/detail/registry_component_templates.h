@@ -40,20 +40,6 @@ template <typename Component, typename... Args>
   return {};
 }
 
-template <typename Component, typename... Args>
-[[nodiscard]] const Component* registry::ensure_component(type_id id, Args&&... args) {
-  if (const Component* existing = find_component_ptr<Component>(id); existing != nullptr) {
-    return existing;
-  }
-
-  const error status = emplace_component<Component>(id, std::forward<Args>(args)...);
-  if (status && status.value() != errc::duplicate_component) {
-    return nullptr;
-  }
-
-  return find_component_ptr<Component>(id);
-}
-
 template <typename Component> [[nodiscard]] bool registry::has_component(type_id id) const {
   using component_type = std::decay_t<Component>;
   const detail::meta_component_storage_base* storage_base =
