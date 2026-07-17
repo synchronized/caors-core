@@ -540,6 +540,46 @@ caors::type_id actor_id = caors::meta::find<actor>().id();
 caors::meta::get_registry().emplace_component<object_factory_meta>(actor_id, true);
 ```
 
+### meta::module
+
+`meta::module` 是挂在 meta registry 上的全局命名空间，用来注册不依赖实例的全局属性和全局函数。
+类的 `static` 成员变量和 `static` 成员函数也按同一套 global 入口注册到 module 上；它们不属于某个
+`meta::type` 的成员属性或成员方法，调用时不需要传入 instance。
+
+```cpp
+int version = 1;
+
+int add(int left, int right) {
+  return left + right;
+}
+
+caors::meta::module("game")
+    .property("version", &version)
+    .function("add", &add);
+
+caors::meta::module_view game = caors::meta::find_module("game");
+caors::meta::property version_property = game.find_property("version");
+caors::meta::method_set add_function = game.find_method("add");
+
+version_property.try_set_value(caors::any::from(2));
+
+int left = 1;
+int right = 2;
+std::array<caors::any_ref, 2> args{
+    caors::any_ref::from(left),
+    caors::any_ref::from(right),
+};
+caors::any sum = add_function.invoke(args);
+```
+
+module 和 class 的边界：
+
+- `meta::class_<T>()`：注册 C++ 类型、成员属性、成员方法、父类型、factory 和类型级 capability。
+- `meta::module(name)`：注册全局/静态属性和全局/静态函数，查询时通过 module 名称进入。
+- module 上的 `property::get_value()`、`property::get_ref()`、`property::try_set_value()` 不接收对象地址。
+- module 上的 `method::invoke(args)` 和 `method_set::invoke(args)` 不接收对象地址；成员方法仍使用
+  `invoke(object, args)`。
+
 ### 属性 schema
 
 `meta::property_schema` 是属性自带的通用约束，直接保存在属性数据中。它适合表达配置、编辑器和工具层都能

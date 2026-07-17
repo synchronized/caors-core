@@ -650,6 +650,113 @@ template <typename Class, typename Property>
   return property;
 }
 
+template <typename Property>
+[[nodiscard]] meta::type global_property_owner_type(const property_data&) noexcept {
+  return {};
+}
+
+template <typename Property>
+[[nodiscard]] meta::type global_property_type(const property_data&) noexcept {
+  using property_type = std::remove_cv_t<Property>;
+  return meta::resolve<property_type>();
+}
+
+template <typename Property>
+[[nodiscard]] const void* global_property_data(const property_data& property,
+                                               const void*) noexcept {
+  return property.template load_pointer<Property*>(0);
+}
+
+template <typename Property>
+[[nodiscard]] void* global_property_mutable_data(const property_data& property, void*) noexcept {
+  if constexpr (std::is_const_v<Property>) {
+    return nullptr;
+  } else {
+    return property.template load_pointer<Property*>(0);
+  }
+}
+
+template <typename Property>
+[[nodiscard]] any global_property_get_value(const property_data& property, const void*) {
+  const auto* value = property.template load_pointer<Property*>(0);
+  return value != nullptr ? any::from(*value) : any{};
+}
+
+template <typename Property>
+[[nodiscard]] any_ref global_property_get_const_ref(const property_data& property, const void*) {
+  using property_type = std::remove_cv_t<Property>;
+  const auto* value = property.template load_pointer<Property*>(0);
+  return value != nullptr ? any_ref::from_raw(meta::resolve<property_type>(), value, false)
+                          : any_ref{};
+}
+
+template <typename Property>
+[[nodiscard]] any_ref global_property_get_mutable_ref(const property_data& property, void*) {
+  if constexpr (std::is_const_v<Property>) {
+    return {};
+  } else {
+    using property_type = std::remove_cv_t<Property>;
+    auto* value = property.template load_pointer<Property*>(0);
+    return value != nullptr ? any_ref::from_raw(meta::resolve<property_type>(), value, true)
+                            : any_ref{};
+  }
+}
+
+template <typename Property>
+bool global_property_set_value(const property_data& property, void*, const any& source) {
+  if constexpr (std::is_const_v<Property>) {
+    return false;
+  } else {
+    using property_type = std::remove_cv_t<Property>;
+    auto* value = property.template load_pointer<Property*>(0);
+    if (value == nullptr || !source.template matches_type<property_type>()) {
+      return false;
+    }
+
+    const property_type* source_value = source.template try_get<property_type>();
+    if (source_value == nullptr) {
+      return false;
+    }
+
+    if constexpr (std::is_assignable_v<property_type&, const property_type&>) {
+      *value = *source_value;
+      return true;
+    } else {
+      return false;
+    }
+  }
+}
+
+template <typename Property> [[nodiscard]] property_ops global_property_ops() noexcept {
+  return property_ops{
+      &global_property_owner_type<Property>,
+      &global_property_type<Property>,
+      &global_property_data<Property>,
+      &global_property_mutable_data<Property>,
+      &global_property_get_value<Property>,
+      &global_property_get_const_ref<Property>,
+      &global_property_get_mutable_ref<Property>,
+      &global_property_set_value<Property>,
+  };
+}
+
+template <typename Property>
+[[nodiscard]] property_data make_global_property_data(std::string_view name, Property* pointer) {
+  using property_type = std::remove_cv_t<Property>;
+  if (pointer == nullptr || !meta::resolve<property_type>()) {
+    return {};
+  }
+
+  property_data property{
+      string_name{name},
+      0,
+      !std::is_const_v<Property>,
+      global_property_ops<Property>(),
+  };
+  property.store_pointer(pointer, 0);
+  return property;
+}
+
 template <typename Class, typename Getter>
 [[nodiscard]] property_data make_readonly_property_data(std::string_view name, Getter getter) {
   using getter_traits = const_member_getter_traits<Getter>;

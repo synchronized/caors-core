@@ -88,6 +88,15 @@ any method::invoke(const void* object, std::span<const any_ref> arguments) const
   return method->invoke(object, false, arguments);
 }
 
+any method::invoke(std::span<const any_ref> arguments) const {
+  const detail::method_data* method = as_method_data(info());
+  if (method == nullptr) {
+    return {};
+  }
+
+  return method->invoke(nullptr, false, arguments);
+}
+
 const void* method::info() const noexcept {
   if (!valid()) {
     return nullptr;
@@ -136,6 +145,11 @@ any method_set::invoke(void* object, std::span<const any_ref> arguments) const {
 any method_set::invoke(const void* object, std::span<const any_ref> arguments) const {
   const method target = resolve(arguments);
   return target ? target.invoke(object, arguments) : any{};
+}
+
+any method_set::invoke(std::span<const any_ref> arguments) const {
+  const method target = resolve(arguments);
+  return target ? target.invoke(arguments) : any{};
 }
 
 const void* method_set::info() const noexcept {

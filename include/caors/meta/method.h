@@ -52,6 +52,9 @@ public:
   /** @brief 在只读对象上调用方法；非 const 方法会失败并返回无效 `any`。 */
   [[nodiscard]] any invoke(const void* object, std::span<const any_ref> arguments = {}) const;
 
+  /** @brief 调用全局函数。成员方法会失败并返回无效 `any`。 */
+  [[nodiscard]] any invoke(std::span<const any_ref> arguments = {}) const;
+
   /** @brief 按指定类型调用方法并读取返回值。 */
   template <typename Return>
   [[nodiscard]] std::optional<std::remove_cv_t<std::remove_reference_t<Return>>>
@@ -86,8 +89,26 @@ public:
     return *value;
   }
 
+  /** @brief 按指定类型调用全局函数并读取返回值。 */
+  template <typename Return>
+  [[nodiscard]] std::optional<std::remove_cv_t<std::remove_reference_t<Return>>>
+  try_invoke(std::span<const any_ref> arguments = {}) const {
+    using return_type = std::remove_cv_t<std::remove_reference_t<Return>>;
+    static_assert(std::is_copy_constructible_v<return_type>,
+                  "Reflected method return values must be copy constructible");
+
+    any result = invoke(arguments);
+    const return_type* value = result.template try_get<return_type>();
+    if (value == nullptr) {
+      return std::nullopt;
+    }
+
+    return *value;
+  }
+
 private:
   friend class method_set;
+  friend class module_view;
   friend class type;
 
   explicit method(const void* reflected_method) noexcept;
@@ -121,7 +142,11 @@ public:
   /** @brief 在只读对象上调用唯一匹配的 const 重载。 */
   [[nodiscard]] any invoke(const void* object, std::span<const any_ref> arguments = {}) const;
 
+  /** @brief 调用唯一匹配的全局函数重载。 */
+  [[nodiscard]] any invoke(std::span<const any_ref> arguments = {}) const;
+
 private:
+  friend class module_view;
   friend class type;
 
   explicit method_set(const void* reflected_method_set) noexcept;

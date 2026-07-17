@@ -12,6 +12,7 @@
 #include "caors/meta/enum_value.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/method.h"
+#include "caors/meta/module.h"
 #include "caors/meta/property.h"
 #include "caors/meta/property_schema.h"
 #include "caors/meta/proxy.h"

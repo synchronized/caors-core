@@ -441,6 +441,64 @@ template <typename Class, typename Return, typename... Arguments>
   return method;
 }
 
+template <typename Return, typename... Arguments, std::size_t... Index>
+[[nodiscard]] any invoke_global_impl(Return (*function)(Arguments...),
+                                     std::span<const any_ref> arguments,
+                                     std::index_sequence<Index...>) {
+  if constexpr (std::is_void_v<Return>) {
+    std::invoke(function, argument_value<Arguments>(arguments[Index])...);
+    return {};
+  } else {
+    static_assert(std::is_copy_constructible_v<method_value_type<Return>>,
+                  "Reflected function return values must be copy constructible");
+    decltype(auto) result = std::invoke(function, argument_value<Arguments>(arguments[Index])...);
+    return any::from(result);
+  }
+}
+
+template <typename Return, typename... Arguments>
+[[nodiscard]] any invoke_global_method(const method_data& method, const void*, bool,
+                                       std::span<const any_ref> arguments) {
+  static_assert((!std::is_rvalue_reference_v<Arguments> && ...),
+                "Reflected function rvalue reference parameters are not supported");
+  if (!arguments_match<Arguments...>(arguments)) {
+    return {};
+  }
+
+  auto function = method.template load_member_pointer<Return (*)(Arguments...)>();
+  if (function == nullptr) {
+    return {};
+  }
+
+  return invoke_global_impl(function, arguments, std::index_sequence_for<Arguments...>{});
+}
+
+template <typename Return, typename... Arguments>
+[[nodiscard]] meta::type global_method_owner_type(const method_data&) noexcept {
+  return {};
+}
+
+template <typename Return, typename... Arguments>
+[[nodiscard]] method_ops global_method_ops() noexcept {
+  return method_ops{
+      &global_method_owner_type<Return, Arguments...>, &method_return_type<Return>,
+      &method_parameter_count<Arguments...>,           &method_parameter_type<Arguments...>,
+      &method_arguments_match<Arguments...>,           &invoke_global_method<Return, Arguments...>,
+  };
+}
+
+template <typename Return, typename... Arguments>
+[[nodiscard]] method_data make_global_method_data(std::string_view name,
+                                                  Return (*function)(Arguments...)) {
+  method_data method{
+      string_name{name},
+      global_method_ops<Return, Arguments...>(),
+      true,
+  };
+  method.store_member_pointer(function);
+  return method;
+}
+
 } // namespace caors::meta::detail
 
 #endif

@@ -70,14 +70,23 @@ public:
   /** @brief 获取属性值的运行期拷贝。 */
   [[nodiscard]] any get_value(const void* object) const;
 
+  /** @brief 获取全局属性值的运行期拷贝。成员属性会返回无效 `any`。 */
+  [[nodiscard]] any get_value() const;
+
   /** @brief 获取属性值的只读运行期引用。 */
   [[nodiscard]] any_ref get_ref(const void* object) const;
+
+  /** @brief 获取全局属性值的只读运行期引用。成员属性会返回无效引用。 */
+  [[nodiscard]] any_ref get_ref() const;
 
   /** @brief 获取属性值引用；优先返回可写引用，无法写入时回退为只读引用。 */
   [[nodiscard]] any_ref get_ref(void* object) const;
 
   /** @brief 从运行期值写入属性。 */
   bool try_set_value(void* object, const any& source) const;
+
+  /** @brief 从运行期值写入全局属性。成员属性会返回 false。 */
+  bool try_set_value(const any& source) const;
 
   /** @brief 判断属性是否是顺序容器。 */
   [[nodiscard]] bool is_sequence() const noexcept;
@@ -121,6 +130,7 @@ public:
   }
 
 private:
+  friend class module_view;
   friend class type;
 
   explicit property(const void* reflected_property) noexcept;

@@ -123,6 +123,8 @@ any property::get_value(const void* object) const {
   return property->get_value(object);
 }
 
+any property::get_value() const { return get_value(static_cast<const void*>(nullptr)); }
+
 any_ref property::get_ref(const void* object) const {
   const detail::property_data* property = as_property_data(info());
   if (property == nullptr) {
@@ -131,6 +133,8 @@ any_ref property::get_ref(const void* object) const {
 
   return property->get_ref(object);
 }
+
+any_ref property::get_ref() const { return get_ref(static_cast<const void*>(nullptr)); }
 
 any_ref property::get_ref(void* object) const {
   const detail::property_data* property = as_property_data(info());
@@ -148,6 +152,15 @@ bool property::try_set_value(void* object, const any& source) const {
   }
 
   return property->try_set_value(object, source);
+}
+
+bool property::try_set_value(const any& source) const {
+  const detail::property_data* property = as_property_data(info());
+  if (property == nullptr) {
+    return false;
+  }
+
+  return property->try_set_value(nullptr, source);
 }
 
 bool property::is_sequence() const noexcept { return kind() == meta::type_kind::sequence; }
