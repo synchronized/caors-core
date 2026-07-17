@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_TESTS_REFLECTION_TEST_SUPPORT_H_
-#define CAORS_TESTS_REFLECTION_TEST_SUPPORT_H_
+#ifndef CAORS_TESTS_META_FIELD_TEST_SUPPORT_H_
+#define CAORS_TESTS_META_FIELD_TEST_SUPPORT_H_
 #include "caors/adapters/stl.h"
+#include "caors/meta.h"
 #include "caors/object/base.h"
 #include "caors/object/ptr.h"
-#include "caors/meta.h"
 #include "caors/traits/type_name.h"
 
 #include <catch2/catch_all.hpp>
@@ -25,7 +25,7 @@
 #include <utility>
 #include <variant>
 
-namespace test_reflection {
+namespace test_meta {
 
 template <typename T> struct custom_inline_wrapper {
   T value{};
@@ -43,26 +43,26 @@ template <typename T> struct custom_sequence {
   caors::vector<T> values{};
 };
 
-} // namespace test_reflection
+} // namespace test_meta
 
 namespace caors::traits {
 
-template <typename T> struct wrapper_traits<test_reflection::custom_inline_wrapper<T>> {
+template <typename T> struct wrapper_traits<test_meta::custom_inline_wrapper<T>> {
   static constexpr bool is_wrapper = true;
   static constexpr bool nullable = false;
   static constexpr wrapper_semantics semantics = wrapper_semantics::inline_value;
   using wrapped_type = T;
 };
 
-template <> struct type_name<test_reflection::named_field_value> {
-  static constexpr std::string_view value = "caors.test.reflection.named_field_value";
+template <> struct type_name<test_meta::named_field_value> {
+  static constexpr std::string_view value = "caors.test.meta.named_field_value";
 };
 
 } // namespace caors::traits
 
 namespace caors::traits {
 
-template <typename T> struct sequence_traits<test_reflection::custom_sequence<T>> {
+template <typename T> struct sequence_traits<test_meta::custom_sequence<T>> {
   static constexpr bool is_sequence = true;
   using element_type = std::remove_cv_t<T>;
 
@@ -70,24 +70,23 @@ template <typename T> struct sequence_traits<test_reflection::custom_sequence<T>
     return "test.custom_sequence";
   }
 
-  [[nodiscard]] static std::size_t
-  size(const test_reflection::custom_sequence<T>& values) noexcept {
+  [[nodiscard]] static std::size_t size(const test_meta::custom_sequence<T>& values) noexcept {
     return values.values.size();
   }
 
-  [[nodiscard]] static const element_type*
-  element(const test_reflection::custom_sequence<T>& values, std::size_t index) noexcept {
+  [[nodiscard]] static const element_type* element(const test_meta::custom_sequence<T>& values,
+                                                   std::size_t index) noexcept {
     return index < values.values.size() ? &values.values[index] : nullptr;
   }
 
-  [[nodiscard]] static element_type* mutable_element(test_reflection::custom_sequence<T>& values,
+  [[nodiscard]] static element_type* mutable_element(test_meta::custom_sequence<T>& values,
                                                      std::size_t index) noexcept {
     return index < values.values.size() ? &values.values[index] : nullptr;
   }
 
-  static void clear(test_reflection::custom_sequence<T>& values) { values.values.clear(); }
+  static void clear(test_meta::custom_sequence<T>& values) { values.values.clear(); }
 
-  [[nodiscard]] static bool resize(test_reflection::custom_sequence<T>& values, std::size_t size) {
+  [[nodiscard]] static bool resize(test_meta::custom_sequence<T>& values, std::size_t size) {
     if constexpr (std::is_default_constructible_v<T>) {
       values.values.resize(size);
       return true;
@@ -96,7 +95,7 @@ template <typename T> struct sequence_traits<test_reflection::custom_sequence<T>
     }
   }
 
-  [[nodiscard]] static bool append(test_reflection::custom_sequence<T>& values,
+  [[nodiscard]] static bool append(test_meta::custom_sequence<T>& values,
                                    const element_type& value) {
     if constexpr (std::is_copy_constructible_v<T>) {
       values.values.push_back(value);
@@ -109,7 +108,7 @@ template <typename T> struct sequence_traits<test_reflection::custom_sequence<T>
 
 } // namespace caors::traits
 
-namespace test_reflection {
+namespace test_meta {
 
 struct actor {
   int id = 0;
@@ -203,7 +202,7 @@ struct variant_holder {
 };
 
 struct custom_sequence_holder {
-  test_reflection::custom_sequence<int> values{};
+  test_meta::custom_sequence<int> values{};
 };
 
 struct hash_map_holder {
@@ -268,7 +267,7 @@ struct stored_fields_actor {
 }
 
 [[nodiscard]] inline caors::meta::field require_field(const caors::meta::type& type,
-                                                            std::string_view name) {
+                                                      std::string_view name) {
   auto field = type.find_field(name);
   REQUIRE(field);
   return field;
@@ -322,7 +321,7 @@ constexpr caors::type_guid view_actor_guid{caors::guid::from_bytes(
     return caors::meta::resolve<std::variant<int, caors::string, float>>().id();
   }
   if (name == "test.custom_sequence<int>") {
-    return caors::meta::resolve<test_reflection::custom_sequence<int>>().id();
+    return caors::meta::resolve<test_meta::custom_sequence<int>>().id();
   }
   if (name == "caors.hash_map<int,int>") {
     return caors::meta::resolve<caors::hash_map<int, int>>().id();
@@ -330,10 +329,10 @@ constexpr caors::type_guid view_actor_guid{caors::guid::from_bytes(
   if (name == "caors.hash_set<int>") {
     return caors::meta::resolve<caors::hash_set<int>>().id();
   }
-  if (name == "caors.test.reflection.color") {
+  if (name == "caors.test.meta.color") {
     return caors::meta::resolve<reflected_color>().id();
   }
-  if (name == "caors.object_ptr<caors.test.reflection.reflected_object_ptr_target>") {
+  if (name == "caors.object_ptr<caors.test.meta.reflected_object_ptr_target>") {
     return caors::meta::resolve<caors::object_ptr<reflected_object_ptr_target>>().id();
   }
 
@@ -350,8 +349,7 @@ constexpr caors::type_guid view_actor_guid{caors::guid::from_bytes(
 }
 
 template <typename T>
-[[nodiscard]] caors::meta::class_builder<T>
-registered_reflection_class(std::string_view name) {
+[[nodiscard]] caors::meta::class_builder<T> registered_reflection_class(std::string_view name) {
   const caors::error status = caors::meta::class_<T>(name).result();
   REQUIRE((status == caors::error{} || status == meta_error(caors::errc::duplicate_id)));
   return caors::meta::class_<T>();
@@ -359,7 +357,7 @@ registered_reflection_class(std::string_view name) {
 
 [[nodiscard]] inline caors::meta::type require_field_traits_owner_reflection() {
   const caors::error status =
-      registered_reflection_class<field_traits_owner>("caors.test.reflection.field_traits_owner")
+      registered_reflection_class<field_traits_owner>("caors.test.meta.field_traits_owner")
           .field("value", &field_traits_owner::value)
           .field("color", &field_traits_owner::color)
           .field("raw", &field_traits_owner::raw)
@@ -377,10 +375,9 @@ registered_reflection_class(std::string_view name) {
           .field("variant", &field_traits_owner::variant)
           .commit();
 
-  REQUIRE(
-      (status == caors::error{} || status == reflection_error(caors::errc::duplicate_field) ||
-       status == reflection_error(caors::errc::duplicate_method)));
-  return require_reflected("caors.test.reflection.field_traits_owner");
+  REQUIRE((status == caors::error{} || status == reflection_error(caors::errc::duplicate_field) ||
+           status == reflection_error(caors::errc::duplicate_method)));
+  return require_reflected("caors.test.meta.field_traits_owner");
 }
 
 template <typename T> void require_registered_type(std::string_view name) {
@@ -394,15 +391,14 @@ template <typename T> void register_common_type(std::string_view name) {
 }
 
 [[maybe_unused]] const bool common_reflection_types_registered = [] {
-  register_common_type<reflected_color>("caors.test.reflection.color");
-  register_common_type<reflected_object_ptr_target>(
-      "caors.test.reflection.reflected_object_ptr_target");
+  register_common_type<reflected_color>("caors.test.meta.color");
+  register_common_type<reflected_object_ptr_target>("caors.test.meta.reflected_object_ptr_target");
   register_common_type<caors::object_ptr<reflected_object_ptr_target>>(
-      "caors.object_ptr<caors.test.reflection.reflected_object_ptr_target>");
-  register_common_type<inventory>("caors.test.reflection.inventory");
+      "caors.object_ptr<caors.test.meta.reflected_object_ptr_target>");
+  register_common_type<inventory>("caors.test.meta.inventory");
   return true;
 }();
 
-} // namespace test_reflection
+} // namespace test_meta
 
 #endif

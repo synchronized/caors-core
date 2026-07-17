@@ -46,7 +46,7 @@
 - `caors/meta/query.h`：`meta::resolve<T>()`、`meta::find<T>()`、`meta::id_of<T>()` 等查询入口。
 - `caors/meta/builder.h`：`meta::class_<T>()`、`meta::enum_<T>()` 等链式注册入口。
 - `caors/meta/field.h`、`caors/meta/method.h`：字段和成员方法只读视图。
-- `caors/meta/reflection.h`：`meta::class_<T>()` 上的字段/方法注册扩展。
+- `caors/meta/class_registration.h`：`meta::class_<T>()` 上的字段/方法注册扩展。
 - `caors/meta/capability_traits.h`：capability key、traits 和类型/实例能力查询扩展点。
 - `caors/meta/static_capability.h`：按 C++ 类型聚合静态能力的模块化扩展点。
 - `caors/meta/capability_facade.h`：类型级 capability facade 基类，以及 factory/constructor facade。

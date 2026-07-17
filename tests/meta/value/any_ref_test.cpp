@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 原测试文件：reflection_any_ref_view_test.cpp
+// 原测试文件：meta_any_ref_view_test.cpp
 
-#include "reflection_test_support.h"
+#include "meta_field_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
 #include "caors/meta/value/type_capability.h"
 
-using namespace test_reflection;
+using namespace test_meta;
 
-TEST_CASE("reflection - container views can be created from any_ref", "[reflection]") {
+TEST_CASE("meta - container views can be created from any_ref", "[meta]") {
   caors::vector<int> scores{};
   caors::any_ref scores_ref = caors::any_ref::from(scores);
   REQUIRE(scores_ref.valid());

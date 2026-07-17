@@ -23,7 +23,6 @@ class registry;
 class type;
 class field;
 class method;
-class enum_capability;
 class enum_value_view;
 
 [[nodiscard]] CAORS_API registry& get_registry() noexcept;
@@ -36,6 +35,14 @@ class type_data;
 struct type_descriptor;
 
 [[nodiscard]] CAORS_API type make_type_view(type_id id, const type_descriptor* descriptor) noexcept;
+[[nodiscard]] CAORS_API std::size_t enum_value_count(const type& source) noexcept;
+[[nodiscard]] CAORS_API enum_value_view enum_value_at(const type& source, std::size_t index);
+[[nodiscard]] CAORS_API enum_value_view find_enum_value(const type& source, string_name name);
+[[nodiscard]] CAORS_API enum_value_view find_enum_value(const type& source, std::string_view name);
+[[nodiscard]] CAORS_API enum_value_view find_enum_value_by_i64(const type& source,
+                                                               std::int64_t value) noexcept;
+[[nodiscard]] CAORS_API enum_value_view find_enum_value_by_u64(const type& source,
+                                                               std::uint64_t value) noexcept;
 
 } // namespace detail
 
@@ -126,16 +133,14 @@ public:
 
 private:
   friend class registry;
-  friend class enum_capability;
   friend type detail::make_type_view(type_id, const detail::type_descriptor*) noexcept;
   friend const void* detail::find_type_capability(const type&, capability_key) noexcept;
-
-  [[nodiscard]] std::size_t enum_value_count_impl() const noexcept;
-  [[nodiscard]] enum_value_view enum_value_at_impl(std::size_t index) const;
-  [[nodiscard]] enum_value_view find_enum_value_impl(string_name name) const;
-  [[nodiscard]] enum_value_view find_enum_value_impl(std::string_view name) const;
-  [[nodiscard]] enum_value_view find_enum_value_by_i64_impl(std::int64_t value) const noexcept;
-  [[nodiscard]] enum_value_view find_enum_value_by_u64_impl(std::uint64_t value) const noexcept;
+  friend std::size_t detail::enum_value_count(const type&) noexcept;
+  friend enum_value_view detail::enum_value_at(const type&, std::size_t);
+  friend enum_value_view detail::find_enum_value(const type&, string_name);
+  friend enum_value_view detail::find_enum_value(const type&, std::string_view);
+  friend enum_value_view detail::find_enum_value_by_i64(const type&, std::int64_t) noexcept;
+  friend enum_value_view detail::find_enum_value_by_u64(const type&, std::uint64_t) noexcept;
 
   constexpr type(const registry* registry, const detail::type_data* data,
                  const detail::type_descriptor* descriptor) noexcept

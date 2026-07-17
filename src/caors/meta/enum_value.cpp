@@ -60,4 +60,12 @@ const void* enum_value_view::info() const noexcept {
   return value_;
 }
 
+namespace detail {
+
+enum_value_view make_enum_value_view(const void* enum_value) noexcept {
+  return enum_value_view{enum_value};
+}
+
+} // namespace detail
+
 } // namespace caors::meta

@@ -674,7 +674,7 @@ auto reflected = caors::meta::find("game.actor");
 - 推荐公共头文件位于 `include/caors/meta/`：
   - `field.h`：字段元信息和字段访问。
   - `method.h`：成员方法元信息和运行期调用。
-  - `reflection.h`：`meta::class_<T>()` 的字段/方法注册扩展。
+  - `class_registration.h`：`meta::class_<T>()` 的字段/方法注册扩展。
 - `include/caors/meta.h` 是推荐 umbrella 头，包含字段和方法注册、查询入口。
 - `include/caors/traits/*.h` 提供 `type_name`、wrapper、容器、pair、tuple 和 variant 类型语义扩展点主模板。
 - `include/caors/object/ptr.h` 提供 `objects::ptr<T>` 和对象指针 trait；
@@ -687,4 +687,5 @@ auto reflected = caors::meta::find("game.actor");
   `caors::variant` DOM 值；具体 view 头位于 `include/caors/meta/value/`。
 - 相关可运行示例位于 `examples/meta/` 和 `examples/serialization/`，示例组织规则见
   [examples/README.md](../examples/README.md)。
-- 行为测试仍按反射能力主题位于 `tests/reflection/`，测试组织规则见 [tests/README.md](../tests/README.md)。
+- 行为测试按 meta 能力主题位于 `tests/meta/field/`、`tests/meta/method/`、`tests/meta/value/`
+  等目录，测试组织规则见 [tests/README.md](../tests/README.md)。

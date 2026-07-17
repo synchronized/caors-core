@@ -1,28 +1,28 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 原测试文件：reflection_method_reflection_class_builder_rejects_duplicate_method_names_test.cpp
+// 原测试文件：meta_method_class_builder_rejects_duplicate_method_names_test.cpp
 
-#include "reflection_method_test_support.h"
+#include "meta_method_test_support.h"
 
-using namespace test_reflection;
-using namespace caors::tests::reflection_method;
-TEST_CASE("reflection - class builder rejects duplicate method names", "[reflection]") {
-  CHECK(((void)caors::meta::class_<duplicate_method_actor>(
-             "caors.test.reflection.duplicate_method_actor"),
-         caors::meta::class_<duplicate_method_actor>())
-            .method("update", &duplicate_method_actor::first)
-            .method("update", &duplicate_method_actor::second)
-            .commit() == reflection_error(caors::errc::duplicate_method));
+using namespace test_meta;
+using namespace caors::tests::meta_method;
+TEST_CASE("meta - class builder rejects duplicate method names", "[meta]") {
+  CHECK(
+      ((void)caors::meta::class_<duplicate_method_actor>("caors.test.meta.duplicate_method_actor"),
+       caors::meta::class_<duplicate_method_actor>())
+          .method("update", &duplicate_method_actor::first)
+          .method("update", &duplicate_method_actor::second)
+          .commit() == reflection_error(caors::errc::duplicate_method));
 }
 
-// 原测试文件：reflection_method_reflection_method_view_describes_member_function_signatures_test.cpp
+// 原测试文件：meta_method_method_view_describes_member_function_signatures_test.cpp
 
-#include "reflection_method_test_support.h"
+#include "meta_method_test_support.h"
 
-using namespace test_reflection;
-using namespace caors::tests::reflection_method;
-TEST_CASE("reflection - method view describes member function signatures", "[reflection]") {
+using namespace test_meta;
+using namespace caors::tests::meta_method;
+TEST_CASE("meta - method view describes member function signatures", "[meta]") {
   const caors::meta::type reflected = require_method_type();
 
   CHECK(reflected.method_count() == 3);
@@ -47,13 +47,13 @@ TEST_CASE("reflection - method view describes member function signatures", "[ref
   CHECK_FALSE(reflected.find_method("missing"));
 }
 
-// 原测试文件：reflection_method_reflection_method_view_invokes_mutable_and_const_member_functions_test.cpp
+// 原测试文件：meta_method_method_view_invokes_mutable_and_const_member_functions_test.cpp
 
-#include "reflection_method_test_support.h"
+#include "meta_method_test_support.h"
 
-using namespace test_reflection;
-using namespace caors::tests::reflection_method;
-TEST_CASE("reflection - method view invokes mutable and const member functions", "[reflection]") {
+using namespace test_meta;
+using namespace caors::tests::meta_method;
+TEST_CASE("meta - method view invokes mutable and const member functions", "[meta]") {
   const caors::meta::type reflected = require_method_type();
   const caors::meta::method add = require_method(reflected, "add");
   const caors::meta::method score = require_method(reflected, "score");
@@ -77,13 +77,13 @@ TEST_CASE("reflection - method view invokes mutable and const member functions",
   CHECK(*const_result == 14);
 }
 
-// 原测试文件：reflection_method_reflection_method_view_rejects_invalid_calls_test.cpp
+// 原测试文件：meta_method_method_view_rejects_invalid_calls_test.cpp
 
-#include "reflection_method_test_support.h"
+#include "meta_method_test_support.h"
 
-using namespace test_reflection;
-using namespace caors::tests::reflection_method;
-TEST_CASE("reflection - method view rejects invalid calls", "[reflection]") {
+using namespace test_meta;
+using namespace caors::tests::meta_method;
+TEST_CASE("meta - method view rejects invalid calls", "[meta]") {
   const caors::meta::type reflected = require_method_type();
   const caors::meta::method add = require_method(reflected, "add");
   const caors::meta::method add_to = require_method(reflected, "add_to");

@@ -6,9 +6,9 @@
 
 #include "caors/error.h"
 #include "caors/meta/builder.h"
+#include "caors/meta/class_registration.h"
 #include "caors/meta/constructor.h"
 #include "caors/meta/query.h"
-#include "caors/meta/reflection.h"
 #include "caors/runtime/query.h"
 
 #include <string_view>

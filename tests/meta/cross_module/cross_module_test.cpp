@@ -73,7 +73,7 @@ TEST_CASE("meta - view finds types with reflection and serialization components"
 #include "cross_module_test_support.h"
 
 using namespace caors::tests::cross_module;
-TEST_CASE("reflection - field handles remain valid after later registrations", "[reflection]") {
+TEST_CASE("meta - field handles remain valid after later registrations", "[meta]") {
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<cross_module_actor>("caors.test.meta.cross_module_actor"),
        caors::meta::class_<cross_module_actor>())

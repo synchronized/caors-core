@@ -3,32 +3,32 @@
 
 // 原测试文件：value_indirect_view_creates_indirect_views_for_pointer_and_wrappers_test.cpp
 
-#include "value_test_common.h"
+#include "meta_value_test_common.h"
 
 using namespace caors::tests::reflection;
 
-TEST_CASE("reflection any_ref - creates indirect views for pointer and wrappers", "[reflection]") {
+TEST_CASE("meta any_ref - creates indirect views for pointer and wrappers", "[meta]") {
   require_value_test_meta();
 
-  REQUIRE(((void)caors::meta::class_<indirect_value_holder>(
-               "caors.test.reflection.indirect_value_holder"),
-           caors::meta::class_<indirect_value_holder>())
-              .field("pointer", &indirect_value_holder::pointer)
-              .field("optional", &indirect_value_holder::optional)
-              .field("unique", &indirect_value_holder::unique)
-              .field("weak", &indirect_value_holder::weak)
-              .commit() == caors::error{});
+  REQUIRE(
+      ((void)caors::meta::class_<indirect_value_holder>("caors.test.meta.indirect_value_holder"),
+       caors::meta::class_<indirect_value_holder>())
+          .field("pointer", &indirect_value_holder::pointer)
+          .field("optional", &indirect_value_holder::optional)
+          .field("unique", &indirect_value_holder::unique)
+          .field("weak", &indirect_value_holder::weak)
+          .commit() == caors::error{});
 
   indirect_value_holder holder{};
 
   const caors::meta::field pointer_field =
-      require_reflected_field("caors.test.reflection.indirect_value_holder", "pointer");
+      require_reflected_field("caors.test.meta.indirect_value_holder", "pointer");
   const caors::meta::field optional_field =
-      require_reflected_field("caors.test.reflection.indirect_value_holder", "optional");
+      require_reflected_field("caors.test.meta.indirect_value_holder", "optional");
   const caors::meta::field unique_field =
-      require_reflected_field("caors.test.reflection.indirect_value_holder", "unique");
+      require_reflected_field("caors.test.meta.indirect_value_holder", "unique");
   const caors::meta::field weak_field =
-      require_reflected_field("caors.test.reflection.indirect_value_holder", "weak");
+      require_reflected_field("caors.test.meta.indirect_value_holder", "weak");
 
   caors::meta::indirect_view pointer =
       pointer_field.get_ref(&holder).get_capability<caors::meta::indirect_capability>();
@@ -85,12 +85,11 @@ TEST_CASE("reflection any_ref - creates indirect views for pointer and wrappers"
 
 // 原测试文件：value_indirect_view_creates_indirect_views_for_registered_wrapper_values_test.cpp
 
-#include "value_test_common.h"
+#include "meta_value_test_common.h"
 
 using namespace caors::tests::reflection;
 
-TEST_CASE("reflection any_ref - creates indirect views from descriptor wrapper values",
-          "[reflection]") {
+TEST_CASE("meta any_ref - creates indirect views from descriptor wrapper values", "[meta]") {
   require_value_test_meta();
 
   std::optional<int> value = 41;

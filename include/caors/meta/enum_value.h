@@ -15,6 +15,13 @@
 namespace caors::meta {
 
 class type;
+class enum_value_view;
+
+namespace detail {
+
+[[nodiscard]] CAORS_API enum_value_view make_enum_value_view(const void* enum_value) noexcept;
+
+} // namespace detail
 
 /**
  * @brief 枚举项只读视图。
@@ -54,6 +61,7 @@ public:
 
 private:
   friend class type;
+  friend enum_value_view detail::make_enum_value_view(const void*) noexcept;
 
   explicit enum_value_view(const void* enum_value) noexcept;
   [[nodiscard]] const void* info() const noexcept;

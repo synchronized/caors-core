@@ -1,23 +1,23 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 原测试文件：reflection_associative_associative_field_view_exposes_key_and_value_metadata_test.cpp
+// 原测试文件：meta_associative_associative_field_view_exposes_key_and_value_metadata_test.cpp
 
-#include "reflection_test_support.h"
+#include "meta_field_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
 #include "caors/meta/value/type_capability.h"
 
-using namespace test_reflection;
+using namespace test_meta;
 
-TEST_CASE("reflection - associative field view exposes key and value metadata", "[reflection]") {
-  REQUIRE(((void)caors::meta::class_<hash_map_holder>("caors.test.reflection.hash_map_holder"),
+TEST_CASE("meta - associative field view exposes key and value metadata", "[meta]") {
+  REQUIRE(((void)caors::meta::class_<hash_map_holder>("caors.test.meta.hash_map_holder"),
            caors::meta::class_<hash_map_holder>())
               .field("values", &hash_map_holder::values)
               .commit()
               .succeeded());
 
-  auto reflected = caors::meta::find("caors.test.reflection.hash_map_holder");
+  auto reflected = caors::meta::find("caors.test.meta.hash_map_holder");
   REQUIRE(reflected);
 
   auto values = reflected.find_field("values");
@@ -32,24 +32,23 @@ TEST_CASE("reflection - associative field view exposes key and value metadata", 
   CHECK(values.get_mapped_type().name() == "int");
 }
 
-// 原测试文件：reflection_associative_associative_field_view_supports_dynamic_operations_test.cpp
+// 原测试文件：meta_associative_associative_field_view_supports_dynamic_operations_test.cpp
 
-#include "reflection_test_support.h"
+#include "meta_field_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
 #include "caors/meta/value/type_capability.h"
 
-using namespace test_reflection;
+using namespace test_meta;
 
-TEST_CASE("reflection - associative field view supports dynamic operations", "[reflection]") {
-  REQUIRE(
-      ((void)caors::meta::class_<hash_map_ops_holder>("caors.test.reflection.hash_map_ops_holder"),
-       caors::meta::class_<hash_map_ops_holder>())
-          .field("values", &hash_map_ops_holder::values)
-          .commit()
-          .succeeded());
+TEST_CASE("meta - associative field view supports dynamic operations", "[meta]") {
+  REQUIRE(((void)caors::meta::class_<hash_map_ops_holder>("caors.test.meta.hash_map_ops_holder"),
+           caors::meta::class_<hash_map_ops_holder>())
+              .field("values", &hash_map_ops_holder::values)
+              .commit()
+              .succeeded());
 
-  auto reflected = caors::meta::find("caors.test.reflection.hash_map_ops_holder");
+  auto reflected = caors::meta::find("caors.test.meta.hash_map_ops_holder");
   REQUIRE(reflected);
 
   auto values = reflected.find_field("values");
@@ -120,23 +119,23 @@ TEST_CASE("reflection - associative field view supports dynamic operations", "[r
   CHECK(instance.values.empty());
 }
 
-// 原测试文件：reflection_associative_set_field_view_exposes_element_metadata_test.cpp
+// 原测试文件：meta_associative_set_field_view_exposes_element_metadata_test.cpp
 
-#include "reflection_test_support.h"
+#include "meta_field_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
 #include "caors/meta/value/type_capability.h"
 
-using namespace test_reflection;
+using namespace test_meta;
 
-TEST_CASE("reflection - set field view exposes element metadata", "[reflection]") {
-  REQUIRE(((void)caors::meta::class_<hash_set_holder>("caors.test.reflection.hash_set_holder"),
+TEST_CASE("meta - set field view exposes element metadata", "[meta]") {
+  REQUIRE(((void)caors::meta::class_<hash_set_holder>("caors.test.meta.hash_set_holder"),
            caors::meta::class_<hash_set_holder>())
               .field("values", &hash_set_holder::values)
               .commit()
               .succeeded());
 
-  auto reflected = caors::meta::find("caors.test.reflection.hash_set_holder");
+  auto reflected = caors::meta::find("caors.test.meta.hash_set_holder");
   REQUIRE(reflected);
 
   auto values = reflected.find_field("values");

@@ -714,6 +714,7 @@ template <typename T> [[nodiscard]] enum_builder<T> enum_(std::string_view name)
 
 } // namespace caors::meta
 
+#include "caors/meta/class_registration.h"
 #include "caors/meta/enum_registration.h"
 
 #endif

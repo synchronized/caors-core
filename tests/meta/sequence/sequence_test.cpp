@@ -1,24 +1,24 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 原测试文件：reflection_sequence_custom_sequence_traits_expose_field_view_test.cpp
+// 原测试文件：meta_sequence_custom_sequence_traits_expose_field_view_test.cpp
 
-#include "reflection_test_support.h"
+#include "meta_field_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
 #include "caors/meta/value/type_capability.h"
 
-using namespace test_reflection;
+using namespace test_meta;
 
-TEST_CASE("reflection - custom sequence traits expose field view", "[reflection]") {
-  REQUIRE(((void)caors::meta::class_<custom_sequence_holder>(
-               "caors.test.reflection.custom_sequence_holder"),
-           caors::meta::class_<custom_sequence_holder>())
-              .field("values", &custom_sequence_holder::values)
-              .commit()
-              .succeeded());
+TEST_CASE("meta - custom sequence traits expose field view", "[meta]") {
+  REQUIRE(
+      ((void)caors::meta::class_<custom_sequence_holder>("caors.test.meta.custom_sequence_holder"),
+       caors::meta::class_<custom_sequence_holder>())
+          .field("values", &custom_sequence_holder::values)
+          .commit()
+          .succeeded());
 
-  auto reflected = caors::meta::find("caors.test.reflection.custom_sequence_holder");
+  auto reflected = caors::meta::find("caors.test.meta.custom_sequence_holder");
   REQUIRE(reflected);
 
   auto values = reflected.find_field("values");
@@ -50,23 +50,23 @@ TEST_CASE("reflection - custom sequence traits expose field view", "[reflection]
   CHECK(instance.values.values.empty());
 }
 
-// 原测试文件：reflection_sequence_fixed_std_span_field_name_includes_extent_test.cpp
+// 原测试文件：meta_sequence_fixed_std_span_field_name_includes_extent_test.cpp
 
-#include "reflection_test_support.h"
+#include "meta_field_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
 #include "caors/meta/value/type_capability.h"
 
-using namespace test_reflection;
+using namespace test_meta;
 
-TEST_CASE("reflection - fixed std span field name includes extent", "[reflection]") {
-  REQUIRE(((void)caors::meta::class_<fixed_span_holder>("caors.test.reflection.fixed_span_holder"),
+TEST_CASE("meta - fixed std span field name includes extent", "[meta]") {
+  REQUIRE(((void)caors::meta::class_<fixed_span_holder>("caors.test.meta.fixed_span_holder"),
            caors::meta::class_<fixed_span_holder>())
               .field("values", &fixed_span_holder::values)
               .commit()
               .succeeded());
 
-  auto reflected = caors::meta::find("caors.test.reflection.fixed_span_holder");
+  auto reflected = caors::meta::find("caors.test.meta.fixed_span_holder");
   REQUIRE(reflected);
 
   auto values = reflected.find_field("values");
@@ -76,23 +76,23 @@ TEST_CASE("reflection - fixed std span field name includes extent", "[reflection
   CHECK(values.get_element_type().id() == registered_type_id("int"));
 }
 
-// 原测试文件：reflection_sequence_list_field_view_uses_sequence_traits_test.cpp
+// 原测试文件：meta_sequence_list_field_view_uses_sequence_traits_test.cpp
 
-#include "reflection_test_support.h"
+#include "meta_field_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
 #include "caors/meta/value/type_capability.h"
 
-using namespace test_reflection;
+using namespace test_meta;
 
-TEST_CASE("reflection - list field view uses sequence traits", "[reflection]") {
-  REQUIRE(((void)caors::meta::class_<list_holder>("caors.test.reflection.list_holder"),
+TEST_CASE("meta - list field view uses sequence traits", "[meta]") {
+  REQUIRE(((void)caors::meta::class_<list_holder>("caors.test.meta.list_holder"),
            caors::meta::class_<list_holder>())
               .field("values", &list_holder::values)
               .commit()
               .succeeded());
 
-  auto reflected = caors::meta::find("caors.test.reflection.list_holder");
+  auto reflected = caors::meta::find("caors.test.meta.list_holder");
   REQUIRE(reflected);
 
   auto values = reflected.find_field("values");
@@ -122,23 +122,23 @@ TEST_CASE("reflection - list field view uses sequence traits", "[reflection]") {
   CHECK(instance.values.back() == 13);
 }
 
-// 原测试文件：reflection_sequence_sequence_field_view_exposes_element_metadata_test.cpp
+// 原测试文件：meta_sequence_sequence_field_view_exposes_element_metadata_test.cpp
 
-#include "reflection_test_support.h"
+#include "meta_field_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
 #include "caors/meta/value/type_capability.h"
 
-using namespace test_reflection;
+using namespace test_meta;
 
-TEST_CASE("reflection - sequence field view exposes element metadata", "[reflection]") {
-  REQUIRE(((void)caors::meta::class_<vector_holder>("caors.test.reflection.vector_holder"),
+TEST_CASE("meta - sequence field view exposes element metadata", "[meta]") {
+  REQUIRE(((void)caors::meta::class_<vector_holder>("caors.test.meta.vector_holder"),
            caors::meta::class_<vector_holder>())
               .field("values", &vector_holder::values)
               .commit()
               .succeeded());
 
-  auto reflected = caors::meta::find("caors.test.reflection.vector_holder");
+  auto reflected = caors::meta::find("caors.test.meta.vector_holder");
   REQUIRE(reflected);
 
   auto values = reflected.find_field("values");
@@ -205,23 +205,23 @@ TEST_CASE("reflection - sequence field view exposes element metadata", "[reflect
   CHECK(instance.values.empty());
 }
 
-// 原测试文件：reflection_sequence_std_array_field_view_uses_fixed_sequence_traits_test.cpp
+// 原测试文件：meta_sequence_std_array_field_view_uses_fixed_sequence_traits_test.cpp
 
-#include "reflection_test_support.h"
+#include "meta_field_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
 #include "caors/meta/value/type_capability.h"
 
-using namespace test_reflection;
+using namespace test_meta;
 
-TEST_CASE("reflection - std array field view uses fixed sequence traits", "[reflection]") {
-  REQUIRE(((void)caors::meta::class_<array_holder>("caors.test.reflection.array_holder"),
+TEST_CASE("meta - std array field view uses fixed sequence traits", "[meta]") {
+  REQUIRE(((void)caors::meta::class_<array_holder>("caors.test.meta.array_holder"),
            caors::meta::class_<array_holder>())
               .field("values", &array_holder::values)
               .commit()
               .succeeded());
 
-  auto reflected = caors::meta::find("caors.test.reflection.array_holder");
+  auto reflected = caors::meta::find("caors.test.meta.array_holder");
   REQUIRE(reflected);
 
   auto values = reflected.find_field("values");
@@ -250,23 +250,23 @@ TEST_CASE("reflection - std array field view uses fixed sequence traits", "[refl
   CHECK_FALSE(sequence.append_value(caors::any::from(13)));
 }
 
-// 原测试文件：reflection_sequence_std_span_field_view_is_borrowed_sequence_test.cpp
+// 原测试文件：meta_sequence_std_span_field_view_is_borrowed_sequence_test.cpp
 
-#include "reflection_test_support.h"
+#include "meta_field_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
 #include "caors/meta/value/type_capability.h"
 
-using namespace test_reflection;
+using namespace test_meta;
 
-TEST_CASE("reflection - std span field view is borrowed sequence", "[reflection]") {
-  REQUIRE(((void)caors::meta::class_<span_holder>("caors.test.reflection.span_holder"),
+TEST_CASE("meta - std span field view is borrowed sequence", "[meta]") {
+  REQUIRE(((void)caors::meta::class_<span_holder>("caors.test.meta.span_holder"),
            caors::meta::class_<span_holder>())
               .field("values", &span_holder::values)
               .commit()
               .succeeded());
 
-  auto reflected = caors::meta::find("caors.test.reflection.span_holder");
+  auto reflected = caors::meta::find("caors.test.meta.span_holder");
   REQUIRE(reflected);
 
   auto values = reflected.find_field("values");

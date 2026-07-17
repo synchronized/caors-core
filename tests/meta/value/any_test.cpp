@@ -3,11 +3,11 @@
 
 // 原测试文件：value_any_copies_deeply_and_rejects_mismatched_writes_test.cpp
 
-#include "value_test_common.h"
+#include "meta_value_test_common.h"
 
 using namespace caors::tests::reflection;
 
-TEST_CASE("reflection any - copies deeply and rejects mismatched writes", "[reflection]") {
+TEST_CASE("meta any - copies deeply and rejects mismatched writes", "[meta]") {
   require_value_test_meta();
 
   caors::any stored = caors::any::from(7);
@@ -31,16 +31,16 @@ TEST_CASE("reflection any - copies deeply and rejects mismatched writes", "[refl
 
 // 原测试文件：value_any_default_construction_can_use_memory_resource_test.cpp
 
-#include "value_test_common.h"
+#include "meta_value_test_common.h"
 
 using namespace caors::tests::reflection;
 
-TEST_CASE("reflection any - default construction can use memory resource", "[reflection]") {
+TEST_CASE("meta any - default construction can use memory resource", "[meta]") {
   require_value_test_meta();
 
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
   caors::any stored = caors::any::default_construct(
-      caors::meta::id("caors.test.reflection.any_resource_value"), &tracking);
+      caors::meta::id("caors.test.meta.any_resource_value"), &tracking);
 
   REQUIRE(stored.valid());
   REQUIRE(stored.try_get<any_resource_value>() != nullptr);
@@ -55,17 +55,17 @@ TEST_CASE("reflection any - default construction can use memory resource", "[ref
 
 // 原测试文件：value_any_default_constructs_small_trivial_values_inline_test.cpp
 
-#include "value_test_common.h"
+#include "meta_value_test_common.h"
 
 using namespace caors::tests::reflection;
 
-TEST_CASE("reflection any - default constructs small trivial values inline", "[reflection]") {
-  require_registered_type<tracked_small_trivial>("caors.test.reflection.tracked_small_trivial");
+TEST_CASE("meta any - default constructs small trivial values inline", "[meta]") {
+  require_registered_type<tracked_small_trivial>("caors.test.meta.tracked_small_trivial");
   tracked_small_trivial::allocation_count = 0;
   tracked_small_trivial::deallocation_count = 0;
 
   caors::any stored =
-      caors::any::default_construct(caors::meta::id("caors.test.reflection.tracked_small_trivial"));
+      caors::any::default_construct(caors::meta::id("caors.test.meta.tracked_small_trivial"));
 
   REQUIRE(stored.valid());
   REQUIRE(stored.try_get<tracked_small_trivial>() != nullptr);
@@ -79,25 +79,25 @@ TEST_CASE("reflection any - default constructs small trivial values inline", "[r
 
 // 原测试文件：value_any_fields_expose_copied_runtime_values_test.cpp
 
-#include "value_test_common.h"
+#include "meta_value_test_common.h"
 
 using namespace caors::tests::reflection;
 
-TEST_CASE("reflection any - fields expose copied runtime values", "[reflection]") {
+TEST_CASE("meta any - fields expose copied runtime values", "[meta]") {
   require_value_test_meta();
 
-  REQUIRE(((void)caors::meta::class_<reflected_value_holder>(
-               "caors.test.reflection.value_reflected_holder"),
-           caors::meta::class_<reflected_value_holder>())
-              .field("value", &reflected_value_holder::value)
-              .field("readonly", &reflected_value_holder::readonly)
-              .commit() == caors::error{});
+  REQUIRE(
+      ((void)caors::meta::class_<reflected_value_holder>("caors.test.meta.value_reflected_holder"),
+       caors::meta::class_<reflected_value_holder>())
+          .field("value", &reflected_value_holder::value)
+          .field("readonly", &reflected_value_holder::readonly)
+          .commit() == caors::error{});
 
   reflected_value_holder holder{1, 7};
   const caors::meta::field value =
-      require_reflected_field("caors.test.reflection.value_reflected_holder", "value");
+      require_reflected_field("caors.test.meta.value_reflected_holder", "value");
   const caors::meta::field readonly =
-      require_reflected_field("caors.test.reflection.value_reflected_holder", "readonly");
+      require_reflected_field("caors.test.meta.value_reflected_holder", "readonly");
 
   caors::any copied = value.get_value(&holder);
   CHECK(copied.valid());
@@ -128,11 +128,11 @@ TEST_CASE("reflection any - fields expose copied runtime values", "[reflection]"
 
 // 原测试文件：value_any_keeps_large_trivial_values_on_heap_test.cpp
 
-#include "value_test_common.h"
+#include "meta_value_test_common.h"
 
 using namespace caors::tests::reflection;
 
-TEST_CASE("reflection any - keeps large trivial values on heap", "[reflection]") {
+TEST_CASE("meta any - keeps large trivial values on heap", "[meta]") {
   tracked_large_trivial::allocation_count = 0;
   tracked_large_trivial::deallocation_count = 0;
 
@@ -161,21 +161,21 @@ TEST_CASE("reflection any - keeps large trivial values on heap", "[reflection]")
 
 // 原测试文件：value_any_noncopyable_fields_return_invalid_values_test.cpp
 
-#include "value_test_common.h"
+#include "meta_value_test_common.h"
 
 using namespace caors::tests::reflection;
 
-TEST_CASE("reflection any - noncopyable fields return invalid values", "[reflection]") {
+TEST_CASE("meta any - noncopyable fields return invalid values", "[meta]") {
   require_value_test_meta();
 
-  REQUIRE(((void)caors::meta::class_<move_only_value>("caors.test.reflection.move_only_value"),
+  REQUIRE(((void)caors::meta::class_<move_only_value>("caors.test.meta.move_only_value"),
            caors::meta::class_<move_only_value>())
               .field("value", &move_only_value::value)
               .commit() == caors::error{});
 
   move_only_value holder{std::make_unique<int>(7)};
   const caors::meta::field field =
-      require_reflected_field("caors.test.reflection.move_only_value", "value");
+      require_reflected_field("caors.test.meta.move_only_value", "value");
 
   caors::any copied = field.get_value(&holder);
   CHECK_FALSE(copied.valid());
@@ -209,12 +209,11 @@ TEST_CASE("reflection any - noncopyable fields return invalid values", "[reflect
 
 // 原测试文件：value_any_ref_creates_descriptor_views_for_unregistered_nested_vectors_test.cpp
 
-#include "value_test_common.h"
+#include "meta_value_test_common.h"
 
 using namespace caors::tests::reflection;
 
-TEST_CASE("reflection any_ref - creates descriptor views for unregistered nested vectors",
-          "[reflection]") {
+TEST_CASE("meta any_ref - creates descriptor views for unregistered nested vectors", "[meta]") {
   require_value_test_meta();
 
   std::vector<std::vector<int>> values{{1, 2}, {3}};
@@ -250,22 +249,20 @@ TEST_CASE("reflection any_ref - creates descriptor views for unregistered nested
 
 // 原测试文件：value_any_ref_descriptor_fields_do_not_require_container_type_registration_test.cpp
 
-#include "value_test_common.h"
+#include "meta_value_test_common.h"
 
 using namespace caors::tests::reflection;
 
-TEST_CASE("reflection any - descriptor fields do not require container type registration",
-          "[reflection]") {
+TEST_CASE("meta any - descriptor fields do not require container type registration", "[meta]") {
   require_value_test_meta();
 
   REQUIRE(((void)caors::meta::class_<unregistered_nested_vector_holder>(
-               "caors.test.reflection.unregistered_nested_vector_holder"),
+               "caors.test.meta.unregistered_nested_vector_holder"),
            caors::meta::class_<unregistered_nested_vector_holder>())
               .field("values", &unregistered_nested_vector_holder::values)
               .commit() == caors::error{});
 
-  auto reflected =
-      caors::meta::find("caors.test.reflection.unregistered_nested_vector_holder");
+  auto reflected = caors::meta::find("caors.test.meta.unregistered_nested_vector_holder");
   REQUIRE(reflected);
   auto values_field = reflected.find_field("values");
   REQUIRE(values_field);
@@ -297,11 +294,11 @@ TEST_CASE("reflection any - descriptor fields do not require container type regi
 
 // 原测试文件：value_any_ref_references_external_typed_values_test.cpp
 
-#include "value_test_common.h"
+#include "meta_value_test_common.h"
 
 using namespace caors::tests::reflection;
 
-TEST_CASE("reflection any_ref - references external typed values", "[reflection]") {
+TEST_CASE("meta any_ref - references external typed values", "[meta]") {
   require_value_test_meta();
 
   int source = 7;
@@ -341,11 +338,11 @@ TEST_CASE("reflection any_ref - references external typed values", "[reflection]
 
 // 原测试文件：value_any_stores_copied_values_test.cpp
 
-#include "value_test_common.h"
+#include "meta_value_test_common.h"
 
 using namespace caors::tests::reflection;
 
-TEST_CASE("reflection any - stores copied values", "[reflection]") {
+TEST_CASE("meta any - stores copied values", "[meta]") {
   require_value_test_meta();
 
   int source = 7;
@@ -375,11 +372,11 @@ TEST_CASE("reflection any - stores copied values", "[reflection]") {
 
 // 原测试文件：value_any_stores_small_trivial_values_inline_test.cpp
 
-#include "value_test_common.h"
+#include "meta_value_test_common.h"
 
 using namespace caors::tests::reflection;
 
-TEST_CASE("reflection any - stores small trivial values inline", "[reflection]") {
+TEST_CASE("meta any - stores small trivial values inline", "[meta]") {
   tracked_small_trivial::allocation_count = 0;
   tracked_small_trivial::deallocation_count = 0;
 

@@ -1,24 +1,22 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 原测试文件：reflection_registry_class_builder_can_attach_to_explicit_meta_type_test.cpp
+// 原测试文件：meta_registry_class_builder_can_attach_to_explicit_meta_type_test.cpp
 
-#include "reflection_registry_test_support.h"
+#include "meta_registry_view_test_support.h"
 
-using namespace test_reflection;
+using namespace test_meta;
 
-TEST_CASE("reflection - class builder can attach to explicit meta type", "[reflection]") {
+TEST_CASE("meta - class builder can attach to explicit meta type", "[meta]") {
   const caors::meta::type type =
-      caors::meta::class_<explicit_meta_actor>("caors.test.reflection.explicit_meta_actor").get();
+      caors::meta::class_<explicit_meta_actor>("caors.test.meta.explicit_meta_actor").get();
   REQUIRE(type.valid());
   CHECK(caors::meta::find<explicit_meta_actor>().id() == type.id());
 
-  const caors::error status = caors::meta::class_<explicit_meta_actor>()
-                                  .field("id", &explicit_meta_actor::id)
-                                  .commit();
+  const caors::error status =
+      caors::meta::class_<explicit_meta_actor>().field("id", &explicit_meta_actor::id).commit();
 
-  REQUIRE(
-      (status == caors::error{} || status == reflection_error(caors::errc::duplicate_field)));
+  REQUIRE((status == caors::error{} || status == reflection_error(caors::errc::duplicate_field)));
 
   auto reflected = caors::meta::find(type.id());
   REQUIRE(reflected);
@@ -26,17 +24,15 @@ TEST_CASE("reflection - class builder can attach to explicit meta type", "[refle
   CHECK(reflected.find_field("id"));
 }
 
-TEST_CASE("reflection - class builder uses registered meta type without arguments",
-          "[reflection]") {
+TEST_CASE("meta - class builder uses registered meta type without arguments", "[meta]") {
   const caors::meta::type type =
-      caors::meta::class_<builder_actor>("caors.test.reflection.builder_actor.no_args").get();
+      caors::meta::class_<builder_actor>("caors.test.meta.builder_actor.no_args").get();
   REQUIRE(type.valid());
 
   const caors::error status =
       caors::meta::class_<builder_actor>().field("id", &builder_actor::id).commit();
 
-  REQUIRE(
-      (status == caors::error{} || status == reflection_error(caors::errc::duplicate_field)));
+  REQUIRE((status == caors::error{} || status == reflection_error(caors::errc::duplicate_field)));
 
   auto reflected = caors::meta::find(type.id());
   REQUIRE(reflected);
@@ -44,29 +40,27 @@ TEST_CASE("reflection - class builder uses registered meta type without argument
   CHECK(reflected.find_field("id"));
 }
 
-TEST_CASE("reflection - class builder without arguments requires registered meta type",
-          "[reflection]") {
-  const caors::error status = caors::meta::class_<invalid_field_owner>()
-                                  .field("id", &invalid_field_owner::id)
-                                  .commit();
+TEST_CASE("meta - class builder without arguments requires registered meta type", "[meta]") {
+  const caors::error status =
+      caors::meta::class_<invalid_field_owner>().field("id", &invalid_field_owner::id).commit();
 
   CHECK(status.failed());
   CHECK(status.domain() == caors::error_domain::meta);
   CHECK(status.value() == caors::errc::invalid_type);
 }
 
-// 原测试文件：reflection_registry_registry_registers_and_finds_types_test.cpp
+// 原测试文件：meta_registry_registry_registers_and_finds_types_test.cpp
 
-#include "reflection_registry_test_support.h"
+#include "meta_registry_view_test_support.h"
 
-using namespace test_reflection;
+using namespace test_meta;
 
-TEST_CASE("reflection - registry registers and finds types", "[reflection]") {
+TEST_CASE("meta - registry registers and finds types", "[meta]") {
   REQUIRE(register_registry_actor() == caors::error{});
 
   CHECK(caors::meta::get_registry().size() >= 1);
 
-  auto by_name = caors::meta::find("caors.test.reflection.registry_actor");
+  auto by_name = caors::meta::find("caors.test.meta.registry_actor");
   REQUIRE(by_name);
   CHECK(caors::meta::get_registry().contains(by_name.id()));
   CHECK(by_name.field_count() == 2);
@@ -76,64 +70,64 @@ TEST_CASE("reflection - registry registers and finds types", "[reflection]") {
   CHECK(by_guid.id() == by_name.id());
 }
 
-// 原测试文件：reflection_registry_registry_registers_child_type_with_parent_test.cpp
+// 原测试文件：meta_registry_registry_registers_child_type_with_parent_test.cpp
 
-#include "reflection_registry_test_support.h"
+#include "meta_registry_view_test_support.h"
 
-using namespace test_reflection;
+using namespace test_meta;
 
-TEST_CASE("reflection - registry registers child type with parent", "[reflection]") {
-  REQUIRE(((void)caors::meta::class_<parent_actor>("caors.test.reflection.parent_actor"),
+TEST_CASE("meta - registry registers child type with parent", "[meta]") {
+  REQUIRE(((void)caors::meta::class_<parent_actor>("caors.test.meta.parent_actor"),
            caors::meta::class_<parent_actor>())
               .field("id", &parent_actor::id)
               .commit() == caors::error{});
-  const auto reflected_actor = caors::meta::find("caors.test.reflection.parent_actor");
+  const auto reflected_actor = caors::meta::find("caors.test.meta.parent_actor");
   REQUIRE(reflected_actor);
 
-  REQUIRE(((void)caors::meta::class_<child_player>("caors.test.reflection.child_player")
+  REQUIRE(((void)caors::meta::class_<child_player>("caors.test.meta.child_player")
                .parent(reflected_actor.id()),
            caors::meta::class_<child_player>())
               .field("level", &child_player::level)
               .commit() == caors::error{});
 
-  auto reflected_player = caors::meta::find("caors.test.reflection.child_player");
+  auto reflected_player = caors::meta::find("caors.test.meta.child_player");
   REQUIRE(reflected_player);
   CHECK(reflected_player.parent_id() == reflected_actor.id());
 }
 
-// 原测试文件：reflection_registry_registry_reports_duplicate_field_test.cpp
+// 原测试文件：meta_registry_registry_reports_duplicate_field_test.cpp
 
-#include "reflection_registry_test_support.h"
+#include "meta_registry_view_test_support.h"
 
-using namespace test_reflection;
+using namespace test_meta;
 
-TEST_CASE("reflection - registry reports duplicate reflection", "[reflection]") {
-  REQUIRE(((void)caors::meta::class_<duplicate_actor>("caors.test.reflection.duplicate_actor"),
+TEST_CASE("meta - registry reports duplicate reflection", "[meta]") {
+  REQUIRE(((void)caors::meta::class_<duplicate_actor>("caors.test.meta.duplicate_actor"),
            caors::meta::class_<duplicate_actor>())
               .field("id", &duplicate_actor::id)
               .commit() == caors::error{});
-  CHECK(((void)caors::meta::class_<duplicate_actor>("caors.test.reflection.duplicate_actor"),
+  CHECK(((void)caors::meta::class_<duplicate_actor>("caors.test.meta.duplicate_actor"),
          caors::meta::class_<duplicate_actor>())
             .field("id", &duplicate_actor::id)
             .commit() == reflection_error(caors::errc::duplicate_field));
 }
 
-// 原测试文件：reflection_registry_registry_returns_type_and_field_views_test.cpp
+// 原测试文件：meta_registry_registry_returns_type_and_field_views_test.cpp
 
-#include "reflection_registry_test_support.h"
+#include "meta_registry_view_test_support.h"
 
-using namespace test_reflection;
+using namespace test_meta;
 
-TEST_CASE("reflection - registry returns type and field views", "[reflection]") {
+TEST_CASE("meta - registry returns type and field views", "[meta]") {
   const caors::error register_status = register_view_actor();
   REQUIRE((register_status == caors::error{} ||
            register_status == reflection_error(caors::errc::duplicate_field)));
 
-  auto reflected = caors::meta::find("caors.test.reflection.view_actor");
+  auto reflected = caors::meta::find("caors.test.meta.view_actor");
   REQUIRE(reflected);
   CHECK(reflected.valid());
-  CHECK(reflected.id() == registered_type_id("caors.test.reflection.view_actor"));
-  CHECK(reflected.name() == "caors.test.reflection.view_actor");
+  CHECK(reflected.id() == registered_type_id("caors.test.meta.view_actor"));
+  CHECK(reflected.name() == "caors.test.meta.view_actor");
   CHECK(reflected.guid() == view_actor_guid);
   CHECK(reflected.field_count() == 2);
 
@@ -172,32 +166,32 @@ TEST_CASE("reflection - registry returns type and field views", "[reflection]") 
   CHECK(instance.id == 7);
 }
 
-// 原测试文件：reflection_registry_registry_validates_duplicate_fields_test.cpp
+// 原测试文件：meta_registry_registry_validates_duplicate_fields_test.cpp
 
-#include "reflection_registry_test_support.h"
+#include "meta_registry_view_test_support.h"
 
-using namespace test_reflection;
+using namespace test_meta;
 
-TEST_CASE("reflection - registry validates duplicate fields", "[reflection]") {
-  CHECK(((void)caors::meta::class_<duplicate_field_owner>("caors.test.reflection.duplicate_field"),
+TEST_CASE("meta - registry validates duplicate fields", "[meta]") {
+  CHECK(((void)caors::meta::class_<duplicate_field_owner>("caors.test.meta.duplicate_field"),
          caors::meta::class_<duplicate_field_owner>())
             .field("id", &duplicate_field_owner::id)
             .field("id", &duplicate_field_owner::health)
             .commit() == reflection_error(caors::errc::duplicate_field));
 }
 
-// 原测试文件：reflection_registry_views_remain_valid_for_append_only_registry_test.cpp
+// 原测试文件：meta_registry_views_remain_valid_for_append_only_registry_test.cpp
 
-#include "reflection_registry_test_support.h"
+#include "meta_registry_view_test_support.h"
 
-using namespace test_reflection;
+using namespace test_meta;
 
-TEST_CASE("reflection - views remain valid for append-only registry", "[reflection]") {
+TEST_CASE("meta - views remain valid for append-only registry", "[meta]") {
   const caors::error register_status = register_view_actor();
   REQUIRE((register_status == caors::error{} ||
            register_status == reflection_error(caors::errc::duplicate_field)));
 
-  auto reflected = caors::meta::find("caors.test.reflection.view_actor");
+  auto reflected = caors::meta::find("caors.test.meta.view_actor");
   REQUIRE(reflected);
 
   auto field = reflected.find_field("id");

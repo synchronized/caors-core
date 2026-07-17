@@ -3,11 +3,11 @@
 
 #pragma once
 
-#include "reflection_test_support.h"
+#include "meta_field_test_support.h"
 
-namespace caors::tests::reflection_method {
+namespace caors::tests::meta_method {
 
-using namespace test_reflection;
+using namespace test_meta;
 
 struct method_actor {
   int value = 0;
@@ -26,27 +26,26 @@ struct duplicate_method_actor {
 
 [[nodiscard]] inline caors::meta::type require_method_type() {
   const caors::error result =
-      ((void)caors::meta::class_<method_actor>("caors.test.reflection.method_actor"),
+      ((void)caors::meta::class_<method_actor>("caors.test.meta.method_actor"),
        caors::meta::class_<method_actor>())
           .field("value", &method_actor::value)
           .method("add", &method_actor::add)
           .method("add_to", &method_actor::add_to)
           .method("score", &method_actor::score)
           .commit();
-  REQUIRE(
-      (result == caors::error{} || result == reflection_error(caors::errc::duplicate_field) ||
-       result == reflection_error(caors::errc::duplicate_method)));
+  REQUIRE((result == caors::error{} || result == reflection_error(caors::errc::duplicate_field) ||
+           result == reflection_error(caors::errc::duplicate_method)));
 
-  auto reflected = caors::meta::find("caors.test.reflection.method_actor");
+  auto reflected = caors::meta::find("caors.test.meta.method_actor");
   REQUIRE(reflected);
   return reflected;
 }
 
 [[nodiscard]] inline caors::meta::method require_method(const caors::meta::type& type,
-                                                              std::string_view name) {
+                                                        std::string_view name) {
   auto method = type.find_method(name);
   REQUIRE(method);
   return method;
 }
 
-} // namespace caors::tests::reflection_method
+} // namespace caors::tests::meta_method

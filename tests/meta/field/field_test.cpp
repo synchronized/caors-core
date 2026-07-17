@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 原测试文件：reflection_field_field_view_describes_composite_traits_test.cpp
+// 原测试文件：meta_field_field_view_describes_composite_traits_test.cpp
 
-#include "reflection_test_support.h"
+#include "meta_field_test_support.h"
 
-using namespace test_reflection;
+using namespace test_meta;
 
-TEST_CASE("reflection - field view describes composite traits", "[reflection]") {
+TEST_CASE("meta - field view describes composite traits", "[meta]") {
   const caors::meta::type reflected = require_field_traits_owner_reflection();
 
   const caors::meta::field pair = require_field(reflected, "pair");
@@ -26,21 +26,19 @@ TEST_CASE("reflection - field view describes composite traits", "[reflection]") 
   CHECK_FALSE(static_cast<bool>(variant.get_value_type().id()));
 }
 
-// 原测试文件：reflection_field_field_view_describes_field_layout_test.cpp
+// 原测试文件：meta_field_field_view_describes_field_layout_test.cpp
 
-#include "reflection_test_support.h"
+#include "meta_field_test_support.h"
 
-using namespace test_reflection;
+using namespace test_meta;
 
-TEST_CASE("reflection - field view describes field layout", "[reflection]") {
-  REQUIRE(
-      ((void)caors::meta::class_<field_layout_actor>("caors.test.reflection.field_layout_actor"),
-       caors::meta::class_<field_layout_actor>())
-          .field("health", &field_layout_actor::health)
-          .commit() == caors::error{});
+TEST_CASE("meta - field view describes field layout", "[meta]") {
+  REQUIRE(((void)caors::meta::class_<field_layout_actor>("caors.test.meta.field_layout_actor"),
+           caors::meta::class_<field_layout_actor>())
+              .field("health", &field_layout_actor::health)
+              .commit() == caors::error{});
 
-  const caors::meta::type reflected =
-      require_reflected("caors.test.reflection.field_layout_actor");
+  const caors::meta::type reflected = require_reflected("caors.test.meta.field_layout_actor");
   const caors::meta::field field = require_field(reflected, "health");
 
   CHECK(field.valid());
@@ -55,13 +53,13 @@ TEST_CASE("reflection - field view describes field layout", "[reflection]") {
   CHECK(field.alignment() == alignof(float));
 }
 
-// 原测试文件：reflection_field_field_view_describes_indirect_wrapper_traits_test.cpp
+// 原测试文件：meta_field_field_view_describes_indirect_wrapper_traits_test.cpp
 
-#include "reflection_test_support.h"
+#include "meta_field_test_support.h"
 
-using namespace test_reflection;
+using namespace test_meta;
 
-TEST_CASE("reflection - field view describes indirect wrapper traits", "[reflection]") {
+TEST_CASE("meta - field view describes indirect wrapper traits", "[meta]") {
   const caors::meta::type reflected = require_field_traits_owner_reflection();
 
   const caors::meta::field raw = require_field(reflected, "raw");
@@ -108,30 +106,30 @@ TEST_CASE("reflection - field view describes indirect wrapper traits", "[reflect
   CHECK_FALSE(custom_inline.nullable());
 }
 
-// 原测试文件：reflection_field_field_view_describes_object_ptr_traits_test.cpp
+// 原测试文件：meta_field_field_view_describes_object_ptr_traits_test.cpp
 
-#include "reflection_test_support.h"
+#include "meta_field_test_support.h"
 
-using namespace test_reflection;
+using namespace test_meta;
 
-TEST_CASE("reflection - field view describes object ptr traits", "[reflection]") {
+TEST_CASE("meta - field view describes object ptr traits", "[meta]") {
   const caors::meta::type reflected = require_field_traits_owner_reflection();
   const caors::meta::field object_ptr = require_field(reflected, "object_ptr");
 
   CHECK(object_ptr.kind() == caors::meta::type_kind::value);
   CHECK(object_ptr.wrapper_semantics() == caors::meta::wrapper_semantics::none);
   CHECK(object_ptr.get_value_type().id() ==
-        registered_type_id("caors.object_ptr<caors.test.reflection.reflected_object_ptr_target>"));
+        registered_type_id("caors.object_ptr<caors.test.meta.reflected_object_ptr_target>"));
   CHECK_FALSE(object_ptr.nullable());
 }
 
-// 原测试文件：reflection_field_field_view_describes_sequence_traits_test.cpp
+// 原测试文件：meta_field_field_view_describes_sequence_traits_test.cpp
 
-#include "reflection_test_support.h"
+#include "meta_field_test_support.h"
 
-using namespace test_reflection;
+using namespace test_meta;
 
-TEST_CASE("reflection - field view describes sequence traits", "[reflection]") {
+TEST_CASE("meta - field view describes sequence traits", "[meta]") {
   const caors::meta::type reflected = require_field_traits_owner_reflection();
 
   const caors::meta::field sequence = require_field(reflected, "sequence");
@@ -145,13 +143,13 @@ TEST_CASE("reflection - field view describes sequence traits", "[reflection]") {
   CHECK(span.get_value_type().id() == registered_type_id("int"));
 }
 
-// 原测试文件：reflection_field_field_view_describes_value_and_enum_traits_test.cpp
+// 原测试文件：meta_field_field_view_describes_value_and_enum_traits_test.cpp
 
-#include "reflection_test_support.h"
+#include "meta_field_test_support.h"
 
-using namespace test_reflection;
+using namespace test_meta;
 
-TEST_CASE("reflection - field view describes value and enum traits", "[reflection]") {
+TEST_CASE("meta - field view describes value and enum traits", "[meta]") {
   const caors::meta::type reflected = require_field_traits_owner_reflection();
 
   const caors::meta::field value = require_field(reflected, "value");
@@ -164,25 +162,24 @@ TEST_CASE("reflection - field view describes value and enum traits", "[reflectio
 
   const caors::meta::field enumeration = require_field(reflected, "color");
   CHECK(enumeration.kind() == caors::meta::type_kind::enumeration);
-  CHECK(enumeration.get_value_type().id() == registered_type_id("caors.test.reflection.color"));
+  CHECK(enumeration.get_value_type().id() == registered_type_id("caors.test.meta.color"));
   CHECK_FALSE(enumeration.nullable());
 }
 
-// 原测试文件：reflection_field_field_view_reads_and_writes_field_values_test.cpp
+// 原测试文件：meta_field_field_view_reads_and_writes_field_values_test.cpp
 
-#include "reflection_test_support.h"
+#include "meta_field_test_support.h"
 
-using namespace test_reflection;
+using namespace test_meta;
 
-TEST_CASE("reflection - field view reads and writes field values", "[reflection]") {
-  REQUIRE(((void)caors::meta::class_<read_write_actor>("caors.test.reflection.read_write_actor"),
+TEST_CASE("meta - field view reads and writes field values", "[meta]") {
+  REQUIRE(((void)caors::meta::class_<read_write_actor>("caors.test.meta.read_write_actor"),
            caors::meta::class_<read_write_actor>())
               .field("id", &read_write_actor::id)
               .field("health", &read_write_actor::health)
               .commit() == caors::error{});
 
-  const caors::meta::type reflected =
-      require_reflected("caors.test.reflection.read_write_actor");
+  const caors::meta::type reflected = require_reflected("caors.test.meta.read_write_actor");
   const caors::meta::field id = require_field(reflected, "id");
   const caors::meta::field health = require_field(reflected, "health");
 
@@ -208,20 +205,20 @@ TEST_CASE("reflection - field view reads and writes field values", "[reflection]
   CHECK_FALSE(id.try_set<int>(nullptr, 1));
 }
 
-// 原测试文件：reflection_field_field_view_rejects_writes_to_readonly_fields_test.cpp
+// 原测试文件：meta_field_field_view_rejects_writes_to_readonly_fields_test.cpp
 
-#include "reflection_test_support.h"
+#include "meta_field_test_support.h"
 
-using namespace test_reflection;
+using namespace test_meta;
 
-TEST_CASE("reflection - field view rejects writes to readonly fields", "[reflection]") {
-  REQUIRE(((void)caors::meta::class_<readonly_actor>("caors.test.reflection.readonly_actor"),
+TEST_CASE("meta - field view rejects writes to readonly fields", "[meta]") {
+  REQUIRE(((void)caors::meta::class_<readonly_actor>("caors.test.meta.readonly_actor"),
            caors::meta::class_<readonly_actor>())
               .field("id", &readonly_actor::id)
               .commit() == caors::error{});
 
   const caors::meta::field id =
-      require_field(require_reflected("caors.test.reflection.readonly_actor"), "id");
+      require_field(require_reflected("caors.test.meta.readonly_actor"), "id");
 
   readonly_actor instance{};
   CHECK_FALSE(id.writable());
@@ -232,22 +229,20 @@ TEST_CASE("reflection - field view rejects writes to readonly fields", "[reflect
   CHECK_FALSE(id.try_set<int>(&instance, 8));
 }
 
-// 原测试文件：reflection_field_type_view_stores_and_finds_fields_test.cpp
+// 原测试文件：meta_field_type_view_stores_and_finds_fields_test.cpp
 
-#include "reflection_test_support.h"
+#include "meta_field_test_support.h"
 
-using namespace test_reflection;
+using namespace test_meta;
 
-TEST_CASE("reflection - type view stores and finds fields", "[reflection]") {
-  REQUIRE(
-      ((void)caors::meta::class_<stored_fields_actor>("caors.test.reflection.stored_fields_actor"),
-       caors::meta::class_<stored_fields_actor>())
-          .field("id", &stored_fields_actor::id)
-          .field("health", &stored_fields_actor::health)
-          .commit() == caors::error{});
+TEST_CASE("meta - type view stores and finds fields", "[meta]") {
+  REQUIRE(((void)caors::meta::class_<stored_fields_actor>("caors.test.meta.stored_fields_actor"),
+           caors::meta::class_<stored_fields_actor>())
+              .field("id", &stored_fields_actor::id)
+              .field("health", &stored_fields_actor::health)
+              .commit() == caors::error{});
 
-  const caors::meta::type type =
-      require_reflected("caors.test.reflection.stored_fields_actor");
+  const caors::meta::type type = require_reflected("caors.test.meta.stored_fields_actor");
 
   CHECK(type.valid());
   CHECK(type.field_count() == 2);
