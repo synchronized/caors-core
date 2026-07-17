@@ -6,9 +6,9 @@
 
 #include "caors/core/containers.h"
 #include "caors/memory/unique_ptr.h"
+#include "caors/meta/argument.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/type.h"
-#include "caors/meta/value/any_ref.h"
 
 #include <array>
 #include <cstddef>
@@ -31,9 +31,9 @@ struct method_ops {
   using parameter_type_fn = std::optional<meta::type> (*)(const method_data& method,
                                                           std::size_t index) noexcept;
   using match_arguments_fn = bool (*)(const method_data& method,
-                                      std::span<const any_ref> arguments) noexcept;
+                                      std::span<const argument> arguments) noexcept;
   using invoke_fn = any (*)(const method_data& method, const void* object, bool mutable_object,
-                            std::span<const any_ref> arguments);
+                            std::span<const argument> arguments);
 
   type_fn get_owner_type = nullptr;
   type_fn get_return_type = nullptr;
@@ -122,7 +122,7 @@ public:
     return ops_.get_parameter_type(*this, index);
   }
 
-  [[nodiscard]] bool matches_arguments(std::span<const any_ref> arguments) const noexcept {
+  [[nodiscard]] bool matches_arguments(std::span<const argument> arguments) const noexcept {
     return ops_.match_arguments(*this, arguments);
   }
 
@@ -144,7 +144,7 @@ public:
   }
 
   [[nodiscard]] any invoke(const void* object, bool mutable_object,
-                           std::span<const any_ref> arguments) const {
+                           std::span<const argument> arguments) const {
     return ops_.invoke(*this, object, mutable_object, arguments);
   }
 
@@ -211,7 +211,7 @@ public:
     return overloads_.size() == 1U ? &overloads_.front() : nullptr;
   }
 
-  [[nodiscard]] const method_data* resolve(std::span<const any_ref> arguments) const noexcept {
+  [[nodiscard]] const method_data* resolve(std::span<const argument> arguments) const noexcept {
     const method_data* matched = nullptr;
     for (const method_data& method : overloads_) {
       if (!method.matches_arguments(arguments)) {
@@ -254,32 +254,57 @@ private:
 
 template <typename T> using method_value_type = std::remove_cv_t<std::remove_reference_t<T>>;
 
-template <typename Argument> [[nodiscard]] bool argument_matches(const any_ref& value) noexcept {
-  using value_type = method_value_type<Argument>;
+template <typename Parameter> [[nodiscard]] bool argument_matches(const argument& value) noexcept {
+  using value_type = method_value_type<Parameter>;
   if (!value.template matches_type<value_type>()) {
     return false;
   }
 
-  if constexpr (std::is_lvalue_reference_v<Argument> &&
-                !std::is_const_v<std::remove_reference_t<Argument>>) {
+  if constexpr (std::is_rvalue_reference_v<Parameter>) {
+    return value.rvalue() && value.writable();
+  } else if constexpr (std::is_lvalue_reference_v<Parameter> &&
+                       !std::is_const_v<std::remove_reference_t<Parameter>>) {
     return value.writable();
   } else {
     return true;
   }
 }
 
-template <typename Argument> decltype(auto) argument_value(const any_ref& value) noexcept {
-  using value_type = method_value_type<Argument>;
-  if constexpr (std::is_lvalue_reference_v<Argument> &&
-                !std::is_const_v<std::remove_reference_t<Argument>>) {
+template <typename Parameter>
+using argument_pass_type =
+    std::conditional_t<std::is_rvalue_reference_v<Parameter>, method_value_type<Parameter>&&,
+                       std::conditional_t<std::is_lvalue_reference_v<Parameter> &&
+                                              !std::is_const_v<std::remove_reference_t<Parameter>>,
+                                          method_value_type<Parameter>&,
+                                          std::conditional_t<std::is_lvalue_reference_v<Parameter>,
+                                                             const method_value_type<Parameter>&,
+                                                             method_value_type<Parameter>>>>;
+
+template <typename Parameter>
+argument_pass_type<Parameter> argument_value(const argument& value) noexcept {
+  using value_type = method_value_type<Parameter>;
+  if constexpr (std::is_rvalue_reference_v<Parameter>) {
+    auto* result = value.template try_get_mutable<value_type>();
+    value.consume();
+    return std::move(*result);
+  } else if constexpr (std::is_lvalue_reference_v<Parameter> &&
+                       !std::is_const_v<std::remove_reference_t<Parameter>>) {
     return *value.template try_get_mutable<value_type>();
+  } else if constexpr (!std::is_reference_v<Parameter>) {
+    if (value.rvalue()) {
+      auto* result = value.template try_get_mutable<value_type>();
+      value.consume();
+      return std::move(*result);
+    }
+
+    return *value.template try_get<value_type>();
   } else {
     return *value.template try_get<value_type>();
   }
 }
 
 template <typename... Arguments>
-[[nodiscard]] bool arguments_match(std::span<const any_ref> arguments) noexcept {
+[[nodiscard]] bool arguments_match(std::span<const argument> arguments) noexcept {
   if (arguments.size() != sizeof...(Arguments)) {
     return false;
   }
@@ -290,7 +315,7 @@ template <typename... Arguments>
 
 template <typename Class, typename Return, typename... Arguments, std::size_t... Index>
 [[nodiscard]] any invoke_member_impl(Return (Class::*member)(Arguments...), Class& object,
-                                     std::span<const any_ref> arguments,
+                                     std::span<const argument> arguments,
                                      std::index_sequence<Index...>) {
   if constexpr (std::is_void_v<Return>) {
     std::invoke(member, object, argument_value<Arguments>(arguments[Index])...);
@@ -306,7 +331,7 @@ template <typename Class, typename Return, typename... Arguments, std::size_t...
 
 template <typename Class, typename Return, typename... Arguments, std::size_t... Index>
 [[nodiscard]] any invoke_member_impl(Return (Class::*member)(Arguments...) const,
-                                     const Class& object, std::span<const any_ref> arguments,
+                                     const Class& object, std::span<const argument> arguments,
                                      std::index_sequence<Index...>) {
   if constexpr (std::is_void_v<Return>) {
     std::invoke(member, object, argument_value<Arguments>(arguments[Index])...);
@@ -322,9 +347,7 @@ template <typename Class, typename Return, typename... Arguments, std::size_t...
 
 template <typename Class, typename Return, typename... Arguments>
 [[nodiscard]] any invoke_member_method(const method_data& method, const void* object,
-                                       bool mutable_object, std::span<const any_ref> arguments) {
-  static_assert((!std::is_rvalue_reference_v<Arguments> && ...),
-                "Reflected method rvalue reference parameters are not supported");
+                                       bool mutable_object, std::span<const argument> arguments) {
   if (object == nullptr || !mutable_object || !arguments_match<Arguments...>(arguments)) {
     return {};
   }
@@ -337,9 +360,7 @@ template <typename Class, typename Return, typename... Arguments>
 template <typename Class, typename Return, typename... Arguments>
 [[nodiscard]] any invoke_const_member_method(const method_data& method, const void* object,
                                              bool /*mutable_object*/,
-                                             std::span<const any_ref> arguments) {
-  static_assert((!std::is_rvalue_reference_v<Arguments> && ...),
-                "Reflected method rvalue reference parameters are not supported");
+                                             std::span<const argument> arguments) {
   if (object == nullptr || !arguments_match<Arguments...>(arguments)) {
     return {};
   }
@@ -389,7 +410,7 @@ template <typename... Arguments>
 
 template <typename... Arguments>
 [[nodiscard]] bool method_arguments_match(const method_data&,
-                                          std::span<const any_ref> arguments) noexcept {
+                                          std::span<const argument> arguments) noexcept {
   return arguments_match<Arguments...>(arguments);
 }
 
@@ -443,7 +464,7 @@ template <typename Class, typename Return, typename... Arguments>
 
 template <typename Return, typename... Arguments, std::size_t... Index>
 [[nodiscard]] any invoke_global_impl(Return (*function)(Arguments...),
-                                     std::span<const any_ref> arguments,
+                                     std::span<const argument> arguments,
                                      std::index_sequence<Index...>) {
   if constexpr (std::is_void_v<Return>) {
     std::invoke(function, argument_value<Arguments>(arguments[Index])...);
@@ -458,9 +479,7 @@ template <typename Return, typename... Arguments, std::size_t... Index>
 
 template <typename Return, typename... Arguments>
 [[nodiscard]] any invoke_global_method(const method_data& method, const void*, bool,
-                                       std::span<const any_ref> arguments) {
-  static_assert((!std::is_rvalue_reference_v<Arguments> && ...),
-                "Reflected function rvalue reference parameters are not supported");
+                                       std::span<const argument> arguments) {
   if (!arguments_match<Arguments...>(arguments)) {
     return {};
   }

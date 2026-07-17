@@ -3,6 +3,7 @@
 
 #include "caors/meta/method.h"
 
+#include "caors/core/containers.h"
 #include "caors/meta/detail/method_data.h"
 #include "caors/meta/instance.h"
 
@@ -21,6 +22,15 @@ namespace {
 
 [[nodiscard]] const detail::method_set_data* as_method_set_data(const void* method_set) noexcept {
   return static_cast<const detail::method_set_data*>(method_set);
+}
+
+[[nodiscard]] core::vector<argument> make_arguments(std::span<const any_ref> arguments) {
+  core::vector<argument> result{allocator<argument>{&memory::library_resource()}};
+  result.reserve(arguments.size());
+  for (const any_ref value : arguments) {
+    result.push_back(argument::from(value));
+  }
+  return result;
 }
 
 } // namespace
@@ -71,7 +81,7 @@ const meta::metadata_value* method::find_metadata(meta::metadata_key key) const 
   return meta::find_metadata(metadata(), key);
 }
 
-any method::invoke(const instance& object, std::span<const any_ref> arguments) const {
+any method::invoke(const instance& object, std::span<const argument> arguments) const {
   const detail::method_data* method = as_method_data(info());
   if (method == nullptr || !object) {
     return {};
@@ -81,13 +91,23 @@ any method::invoke(const instance& object, std::span<const any_ref> arguments) c
                         object.writable(), arguments);
 }
 
-any method::invoke(std::span<const any_ref> arguments) const {
+any method::invoke(const instance& object, std::span<const any_ref> arguments) const {
+  core::vector<argument> converted = make_arguments(arguments);
+  return invoke(object, std::span<const argument>{converted.data(), converted.size()});
+}
+
+any method::invoke(std::span<const argument> arguments) const {
   const detail::method_data* method = as_method_data(info());
   if (method == nullptr) {
     return {};
   }
 
   return method->invoke(nullptr, false, arguments);
+}
+
+any method::invoke(std::span<const any_ref> arguments) const {
+  core::vector<argument> converted = make_arguments(arguments);
+  return invoke(std::span<const argument>{converted.data(), converted.size()});
 }
 
 const void* method::info() const noexcept {
@@ -125,19 +145,34 @@ method method_set::single() const {
   return method_set != nullptr ? method{method_set->single()} : method{};
 }
 
-method method_set::resolve(std::span<const any_ref> arguments) const {
+method method_set::resolve(std::span<const argument> arguments) const {
   const detail::method_set_data* method_set = as_method_set_data(info());
   return method_set != nullptr ? method{method_set->resolve(arguments)} : method{};
 }
 
-any method_set::invoke(const instance& object, std::span<const any_ref> arguments) const {
+method method_set::resolve(std::span<const any_ref> arguments) const {
+  core::vector<argument> converted = make_arguments(arguments);
+  return resolve(std::span<const argument>{converted.data(), converted.size()});
+}
+
+any method_set::invoke(const instance& object, std::span<const argument> arguments) const {
   const method target = resolve(arguments);
   return target ? target.invoke(object, arguments) : any{};
 }
 
-any method_set::invoke(std::span<const any_ref> arguments) const {
+any method_set::invoke(const instance& object, std::span<const any_ref> arguments) const {
+  core::vector<argument> converted = make_arguments(arguments);
+  return invoke(object, std::span<const argument>{converted.data(), converted.size()});
+}
+
+any method_set::invoke(std::span<const argument> arguments) const {
   const method target = resolve(arguments);
   return target ? target.invoke(arguments) : any{};
+}
+
+any method_set::invoke(std::span<const any_ref> arguments) const {
+  core::vector<argument> converted = make_arguments(arguments);
+  return invoke(std::span<const argument>{converted.data(), converted.size()});
 }
 
 const void* method_set::info() const noexcept {

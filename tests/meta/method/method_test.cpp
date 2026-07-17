@@ -83,7 +83,7 @@ TEST_CASE("meta - method set groups overloaded methods", "[meta]") {
   CHECK_FALSE(update.invoke(object, float_arguments));
   CHECK(instance.value == 16);
 
-  const caors::meta::method getter = update.resolve({});
+  const caors::meta::method getter = update.resolve(std::span<const caors::meta::argument>{});
   REQUIRE(getter);
   CHECK(getter.const_method());
 
@@ -125,6 +125,32 @@ TEST_CASE("meta - method view invokes mutable and const member functions", "[met
   CHECK(*const_result == 14);
 }
 
+TEST_CASE("meta - method view invokes rvalue reference parameters through arguments", "[meta]") {
+  const caors::error result =
+      ((void)caors::meta::class_<rvalue_method_actor>("caors.test.meta.rvalue_method_actor"),
+       caors::meta::class_<rvalue_method_actor>())
+          .method("take", &rvalue_method_actor::take)
+          .commit();
+  REQUIRE((result == caors::error{} || result == meta_error(caors::errc::duplicate_method)));
+
+  const caors::meta::type reflected = caors::meta::find("caors.test.meta.rvalue_method_actor");
+  REQUIRE(reflected);
+  const caors::meta::method take = reflected.find_method("take").single();
+  REQUIRE(take);
+
+  rvalue_method_actor instance{};
+  caors::meta::instance object = caors::meta::view(instance);
+
+  int lvalue = 12;
+  std::array<caors::meta::argument, 1> lvalue_arguments{caors::meta::arg(lvalue)};
+  CHECK_FALSE(take.invoke(object, lvalue_arguments));
+  CHECK(instance.value == 0);
+
+  std::array<caors::meta::argument, 1> rvalue_arguments{caors::meta::move_arg(21)};
+  CHECK_FALSE(take.invoke(object, rvalue_arguments));
+  CHECK(instance.value == 21);
+}
+
 // 原测试文件：meta_method_method_view_rejects_invalid_calls_test.cpp
 
 #include "meta_method_test_support.h"
@@ -157,7 +183,7 @@ TEST_CASE("meta - method view rejects invalid calls", "[meta]") {
   int target = 2;
   std::array<caors::any_ref, 1> writable_arguments{caors::any_ref::from(target)};
   CHECK_FALSE(add_to.invoke(caors::meta::instance{}, writable_arguments));
-  CHECK_FALSE(add_to.invoke(object, {}));
+  CHECK_FALSE(add_to.invoke(object, std::span<const caors::meta::argument>{}));
   CHECK_FALSE(add_to.invoke(object, wrong_arguments));
   CHECK_FALSE(add_to.invoke(const_object, writable_arguments));
 

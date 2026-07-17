@@ -9,6 +9,7 @@ meta value 子模块负责运行期值访问和数据中间表示，是 `meta` �
 - `owned_value`：拥有一份由 factory、constructor 或内部构造策略创建出来的对象，可在填充后转成
   `any` 或交给 wrapper 接管。
 - `any_ref`：非拥有 C++ 对象引用，用于属性、容器元素和外部对象的零拷贝访问。
+- `argument`：反射方法调用参数，能表达左值、const 左值和显式右值参数。
 - 各类 view：把指针、wrapper、sequence、set、associative、pair、tuple 和 variant-like 类型按统一接口访问。
 - `variant`：脱离精确 C++ 类型的数据 DOM，主要用于序列化、配置和跨格式转换。
 
@@ -24,6 +25,7 @@ meta value 提供细粒度头和完整聚合头。细粒度头不再依赖 `any.
 | --- | --- | --- |
 | `caors/meta/value/any.h` | `caors::meta::any`、`caors::meta::owned_value`、`caors::any`、`caors::owned_value` | 需要拥有式运行期 C++ 值或高级构造所有权句柄。 |
 | `caors/meta/value/any_ref.h` | `caors::meta::any_ref`、`caors::any_ref` | 需要引用外部 C++ 对象或反射属性。 |
+| `caors/meta/argument.h` | `caors::meta::argument`、`caors::argument`、`meta::arg()`、`meta::move_arg()` | 需要调用反射方法，尤其是需要表达 `T&&` 参数时。 |
 | `caors/meta/value/view_factory.h` | 所有具体 view 类型和显式 `make_*_view()` 工厂 | 高级代码或内部适配层需要显式创建具体 view。 |
 | `caors/meta/capability_facade.h` | 类型级 capability facade 基类 | 用 `type_capability_base<Ops>` 或 `type_capability_base<Ops, View>` 定义类型级能力。 |
 | `caors/meta/capability_bind.h` | capability 绑定和实例 view helper | 用 `capability_view_base<Ops>`、`capability_bind_traits` 和自动 traits 减少实例 view 样板代码。 |

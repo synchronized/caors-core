@@ -32,6 +32,12 @@ struct overloaded_method_actor {
   [[nodiscard]] int update() const { return value; }
 };
 
+struct rvalue_method_actor {
+  int value = 0;
+
+  void take(int&& amount) { value = amount; }
+};
+
 [[nodiscard]] inline caors::meta::type require_method_type() {
   const caors::error result =
       ((void)caors::meta::class_<method_actor>("caors.test.meta.method_actor"),

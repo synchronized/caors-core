@@ -5,9 +5,9 @@
 #define CAORS_META_METHOD_H_
 
 #include "caors/export.h"
+#include "caors/meta/argument.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/type.h"
-#include "caors/meta/value/any_ref.h"
 
 #include <cstddef>
 #include <optional>
@@ -48,15 +48,38 @@ public:
   [[nodiscard]] const meta::metadata_value* find_metadata(meta::metadata_key key) const noexcept;
 
   /** @brief 在实例上调用成员方法；只读实例只能调用 const 成员函数。 */
-  [[nodiscard]] any invoke(const instance& object, std::span<const any_ref> arguments = {}) const;
+  [[nodiscard]] any invoke(const instance& object, std::span<const argument> arguments = {}) const;
+
+  /** @brief 使用 `any_ref` 左值参数在实例上调用成员方法。 */
+  [[nodiscard]] any invoke(const instance& object, std::span<const any_ref> arguments) const;
 
   /** @brief 调用全局函数。成员方法会失败并返回无效 `any`。 */
-  [[nodiscard]] any invoke(std::span<const any_ref> arguments = {}) const;
+  [[nodiscard]] any invoke(std::span<const argument> arguments = {}) const;
+
+  /** @brief 使用 `any_ref` 左值参数调用全局函数。 */
+  [[nodiscard]] any invoke(std::span<const any_ref> arguments) const;
 
   /** @brief 按指定类型调用方法并读取返回值。 */
   template <typename Return>
   [[nodiscard]] std::optional<std::remove_cv_t<std::remove_reference_t<Return>>>
-  try_invoke(const instance& object, std::span<const any_ref> arguments = {}) const {
+  try_invoke(const instance& object, std::span<const argument> arguments = {}) const {
+    using return_type = std::remove_cv_t<std::remove_reference_t<Return>>;
+    static_assert(std::is_copy_constructible_v<return_type>,
+                  "Reflected method return values must be copy constructible");
+
+    any result = invoke(object, arguments);
+    const return_type* value = result.template try_get<return_type>();
+    if (value == nullptr) {
+      return std::nullopt;
+    }
+
+    return *value;
+  }
+
+  /** @brief 使用 `any_ref` 左值参数按指定类型调用方法并读取返回值。 */
+  template <typename Return>
+  [[nodiscard]] std::optional<std::remove_cv_t<std::remove_reference_t<Return>>>
+  try_invoke(const instance& object, std::span<const any_ref> arguments) const {
     using return_type = std::remove_cv_t<std::remove_reference_t<Return>>;
     static_assert(std::is_copy_constructible_v<return_type>,
                   "Reflected method return values must be copy constructible");
@@ -73,7 +96,24 @@ public:
   /** @brief 按指定类型调用全局函数并读取返回值。 */
   template <typename Return>
   [[nodiscard]] std::optional<std::remove_cv_t<std::remove_reference_t<Return>>>
-  try_invoke(std::span<const any_ref> arguments = {}) const {
+  try_invoke(std::span<const argument> arguments = {}) const {
+    using return_type = std::remove_cv_t<std::remove_reference_t<Return>>;
+    static_assert(std::is_copy_constructible_v<return_type>,
+                  "Reflected method return values must be copy constructible");
+
+    any result = invoke(arguments);
+    const return_type* value = result.template try_get<return_type>();
+    if (value == nullptr) {
+      return std::nullopt;
+    }
+
+    return *value;
+  }
+
+  /** @brief 使用 `any_ref` 左值参数按指定类型调用全局函数并读取返回值。 */
+  template <typename Return>
+  [[nodiscard]] std::optional<std::remove_cv_t<std::remove_reference_t<Return>>>
+  try_invoke(std::span<const any_ref> arguments) const {
     using return_type = std::remove_cv_t<std::remove_reference_t<Return>>;
     static_assert(std::is_copy_constructible_v<return_type>,
                   "Reflected method return values must be copy constructible");
@@ -115,13 +155,20 @@ public:
   [[nodiscard]] std::size_t overload_count() const noexcept;
   [[nodiscard]] method overload_at(std::size_t index) const;
   [[nodiscard]] method single() const;
-  [[nodiscard]] method resolve(std::span<const any_ref> arguments = {}) const;
+  [[nodiscard]] method resolve(std::span<const argument> arguments = {}) const;
+  [[nodiscard]] method resolve(std::span<const any_ref> arguments) const;
 
   /** @brief 在实例上调用唯一匹配的成员方法重载。 */
-  [[nodiscard]] any invoke(const instance& object, std::span<const any_ref> arguments = {}) const;
+  [[nodiscard]] any invoke(const instance& object, std::span<const argument> arguments = {}) const;
+
+  /** @brief 使用 `any_ref` 左值参数在实例上调用唯一匹配的成员方法重载。 */
+  [[nodiscard]] any invoke(const instance& object, std::span<const any_ref> arguments) const;
 
   /** @brief 调用唯一匹配的全局函数重载。 */
-  [[nodiscard]] any invoke(std::span<const any_ref> arguments = {}) const;
+  [[nodiscard]] any invoke(std::span<const argument> arguments = {}) const;
+
+  /** @brief 使用 `any_ref` 左值参数调用唯一匹配的全局函数重载。 */
+  [[nodiscard]] any invoke(std::span<const any_ref> arguments) const;
 
 private:
   friend class module_view;

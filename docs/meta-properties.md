@@ -141,8 +141,9 @@ caors::meta::class_<actor>("game.actor")
 当前方法能力的边界：
 
 - 只支持成员函数指针，包括 `const` 成员函数。
-- 参数通过 `std::span<const caors::any_ref>` 传入，类型必须和注册时的方法参数匹配。
-- 非 const 引用参数要求传入可写 `any_ref`。
+- 参数通过 `std::span<const caors::meta::argument>` 传入，类型必须和注册时的方法参数匹配。
+- `any_ref` 参数仍作为左值兼容路径支持；非 const 左值引用参数要求传入可写 `any_ref`。
+- 右值引用参数需要显式使用 `meta::move_arg(...)`，避免反射调用隐式 move 外部对象。
 - 非 const 成员函数只能通过可写对象指针调用；`const` 对象只能调用 `const` 成员函数。
 - 返回值通过 `caors::any` 拷贝返回；`void` 返回值会得到无效 `any`，调用是否成功应通过对象副作用或业务返回值表达。
 - 暂不支持自由函数、静态函数、重载解析、默认参数、隐式类型转换和不可拷贝返回值。
@@ -462,8 +463,18 @@ field.try_set<float>(&instance, 75.0F);
 
 auto damage = reflected.find_method("damage");
 int amount = 10;
-std::array<caors::any_ref, 1> args{caors::any_ref::from(amount)};
+std::array<caors::meta::argument, 1> args{caors::meta::arg(amount)};
 damage.invoke(caors::meta::view(instance), args);
+```
+
+需要调用 `T&&` 参数时，使用拥有值右值参数：
+
+```cpp
+auto take = reflected.find_method("take").single();
+std::array<caors::meta::argument, 1> args{
+    caors::meta::move_arg(caors::any::from(42)),
+};
+take.invoke(caors::meta::view(instance), args);
 ```
 
 `meta::type`、`meta::property`、`meta::method_set` 和 `meta::method` 是轻量只读视图，内部引用全局 `meta::registry`
@@ -524,6 +535,7 @@ damage.invoke(caors::meta::view(instance), args);
 - `invoke(instance, args)`：在实例上调用成员方法；只读实例只能调用 const 方法。
 - `invoke(args)`：调用全局函数；成员方法会失败。
 - `try_invoke<T>()`：调用方法并按指定类型读取返回值。
+- `args` 优先使用 `span<const meta::argument>`；`span<const any_ref>` 会被视为左值参数兼容路径。
 
 `meta::method_set` 当前提供：
 
@@ -531,7 +543,7 @@ damage.invoke(caors::meta::view(instance), args);
 - `name()`：查询方法名。
 - `overload_count()` / `overload_at()`：遍历同名重载；索引越界时返回无效 `meta::method`。
 - `single()`：只有一个重载时返回该 `meta::method`；存在多个重载时返回无效视图。
-- `resolve(args)`：按 `any_ref` 参数列表匹配唯一重载；没有匹配或匹配不唯一时返回无效视图。
+- `resolve(args)`：按参数列表匹配唯一重载；没有匹配或匹配不唯一时返回无效视图。
 - `invoke(instance, args)`：先解析唯一成员方法重载，再调用具体方法。
 - `invoke(args)`：调用全局函数重载。
 
