@@ -3,13 +3,13 @@
 
 #include "caors/serialization/operations.h"
 
-#include "caors/reflection/registry.h"
+#include "caors/meta.h"
 
 #include "detail/internal.h"
 
 namespace caors::serialization::detail {
 
-error serialize(const serialization::context& context, const reflection::type& type,
+error serialize(const serialization::context& context, const meta::type& type,
                 const void* object, writer& writer) {
   if (!type.valid()) {
     return {error_domain::serialization, errc::invalid_type};
@@ -41,7 +41,7 @@ error serialize(const serialization::context& context, const reflection::type& t
         continue;
       }
 
-      const reflection::field field = type.find_field(field_schema.field_name);
+      const meta::field field = type.find_field(field_schema.field_name);
       if (!field) {
         return {error_domain::serialization, errc::not_found};
       }
@@ -59,7 +59,7 @@ error serialize(const serialization::context& context, const reflection::type& t
     }
   } else {
     for (std::size_t index = 0; index < type.field_count(); ++index) {
-      const reflection::field field = type.field_at(index);
+      const meta::field field = type.field_at(index);
       if (!field) {
         return {error_domain::serialization, errc::invalid_field};
       }

@@ -3,8 +3,7 @@
 
 #include "caors/runtime/type.h"
 
-#include "caors/meta/registry.h"
-#include "caors/reflection/registry.h"
+#include "caors/meta/query.h"
 
 namespace caors::runtime {
 
@@ -13,12 +12,6 @@ type::type(meta::type meta_type) noexcept : meta_(meta_type) {}
 bool type::valid() const noexcept { return meta_.valid(); }
 
 meta::type type::meta() const noexcept { return meta_; }
-
-reflection::type type::reflection() const noexcept {
-  return valid() ? reflection::find(id()) : reflection::type{};
-}
-
-bool type::reflectable() const noexcept { return static_cast<bool>(reflection()); }
 
 type_id type::id() const noexcept { return meta_.id(); }
 
@@ -111,44 +104,22 @@ any type::create_value(memory::memory_resource* resource) const {
   return valid() ? any::default_construct(meta_, resource) : any{};
 }
 
-std::size_t type::field_count() const noexcept {
-  const reflection::type reflected = reflection();
-  return reflected ? reflected.field_count() : 0;
-}
+std::size_t type::field_count() const noexcept { return meta_.field_count(); }
 
-field type::field_at(std::size_t index) const {
-  const reflection::type reflected = reflection();
-  return reflected ? reflected.field_at(index) : field{};
-}
+field type::field_at(std::size_t index) const { return meta_.field_at(index); }
 
-field type::find_field(string_name field_name) const {
-  const reflection::type reflected = reflection();
-  return reflected ? reflected.find_field(field_name) : field{};
-}
+field type::find_field(string_name field_name) const { return meta_.find_field(field_name); }
 
-field type::find_field(std::string_view field_name) const {
-  const reflection::type reflected = reflection();
-  return reflected ? reflected.find_field(field_name) : field{};
-}
+field type::find_field(std::string_view field_name) const { return meta_.find_field(field_name); }
 
-std::size_t type::method_count() const noexcept {
-  const reflection::type reflected = reflection();
-  return reflected ? reflected.method_count() : 0;
-}
+std::size_t type::method_count() const noexcept { return meta_.method_count(); }
 
-method type::method_at(std::size_t index) const {
-  const reflection::type reflected = reflection();
-  return reflected ? reflected.method_at(index) : method{};
-}
+method type::method_at(std::size_t index) const { return meta_.method_at(index); }
 
-method type::find_method(string_name method_name) const {
-  const reflection::type reflected = reflection();
-  return reflected ? reflected.find_method(method_name) : method{};
-}
+method type::find_method(string_name method_name) const { return meta_.find_method(method_name); }
 
 method type::find_method(std::string_view method_name) const {
-  const reflection::type reflected = reflection();
-  return reflected ? reflected.find_method(method_name) : method{};
+  return meta_.find_method(method_name);
 }
 
 } // namespace caors::runtime

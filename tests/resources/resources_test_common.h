@@ -11,7 +11,7 @@
 #include "caors/core/containers.h"
 #include "caors/io.h"
 #include "caors/memory/tracking.h"
-#include "caors/reflection.h"
+#include "caors/meta.h"
 #include "caors/serialization.h"
 
 #include <catch2/catch_all.hpp>
@@ -112,7 +112,8 @@ public:
 };
 
 [[nodiscard]] inline bool reflection_result_ok(caors::error result) noexcept {
-  return result.succeeded() || result.value() == caors::errc::duplicate_reflection;
+  return result.succeeded() || result.value() == caors::errc::duplicate_field ||
+         result.value() == caors::errc::duplicate_method;
 }
 
 [[nodiscard]] inline bool serialization_result_ok(caors::error result) noexcept {
@@ -122,7 +123,7 @@ public:
 inline void require_serialized_resource_metadata() {
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<serialized_resource>("caors.test.resources.serialized_resource"),
-       caors::reflection::class_<serialized_resource>())
+       caors::meta::class_<serialized_resource>())
           .field("width", &serialized_resource::width)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<serialized_resource>().commit()));

@@ -6,7 +6,7 @@
 
 #include "caors/core/containers.h"
 #include "caors/meta/metadata.h"
-#include "caors/reflection/registry.h"
+#include "caors/meta.h"
 
 #include <optional>
 #include <string>
@@ -186,7 +186,7 @@ metadata_number(const meta::metadata_value* value) noexcept {
   return false;
 }
 
-inline void validate_config_field(config_validation_result& result, const reflection::field& field,
+inline void validate_config_field(config_validation_result& result, const meta::field& field,
                                   const void* object) {
   const any_ref value = field.get_ref(object);
   if (!value) {
@@ -251,14 +251,14 @@ template <typename T>
     return result;
   }
 
-  const reflection::type reflected = reflection::find(meta_type.id());
+  const meta::type reflected = meta::find(meta_type.id());
   if (!reflected) {
     result.status = {error_domain::serialization, errc::not_found};
     return result;
   }
 
   for (std::size_t index = 0; index < reflected.field_count(); ++index) {
-    const reflection::field field = reflected.field_at(index);
+    const meta::field field = reflected.field_at(index);
     if (!field) {
       result.status = {error_domain::serialization, errc::invalid_field};
       return result;

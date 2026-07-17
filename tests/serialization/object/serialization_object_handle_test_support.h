@@ -17,7 +17,7 @@ struct object_handle_actor {
 inline void require_object_handle_actor_metadata() {
   REQUIRE(reflection_result_ok(((void)caors::meta::class_<object_handle_actor>(
                                     "caors.test.serialization.object_handle_actor"),
-                                caors::reflection::class_<object_handle_actor>())
+                                caors::meta::class_<object_handle_actor>())
                                    .field("target", &object_handle_actor::target)
                                    .field("typed", &object_handle_actor::typed)
                                    .commit()));

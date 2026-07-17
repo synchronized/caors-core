@@ -12,7 +12,7 @@ using namespace caors::tests::serialization;
 TEST_CASE("serialization - built in codecs reject string view deserialization", "[serialization]") {
   REQUIRE(reflection_result_ok(((void)caors::meta::class_<codec_string_view_actor>(
                                     "caors.test.serialization.codec_string_view_actor"),
-                                caors::reflection::class_<codec_string_view_actor>())
+                                caors::meta::class_<codec_string_view_actor>())
                                    .field("name", &codec_string_view_actor::name)
                                    .commit()));
   REQUIRE(
@@ -38,7 +38,7 @@ using namespace caors::tests::serialization;
 TEST_CASE("serialization - built in codecs serialize string view fields", "[serialization]") {
   REQUIRE(reflection_result_ok(((void)caors::meta::class_<codec_string_view_actor>(
                                     "caors.test.serialization.codec_string_view_actor"),
-                                caors::reflection::class_<codec_string_view_actor>())
+                                caors::meta::class_<codec_string_view_actor>())
                                    .field("name", &codec_string_view_actor::name)
                                    .commit()));
   REQUIRE(
@@ -64,7 +64,7 @@ TEST_CASE("serialization - string view deserialization can use explicit backing 
           "[serialization]") {
   REQUIRE(reflection_result_ok(((void)caors::meta::class_<codec_string_view_actor>(
                                     "caors.test.serialization.codec_string_view_actor"),
-                                caors::reflection::class_<codec_string_view_actor>())
+                                caors::meta::class_<codec_string_view_actor>())
                                    .field("name", &codec_string_view_actor::name)
                                    .commit()));
   REQUIRE(
@@ -94,7 +94,7 @@ TEST_CASE("serialization - string view storage keeps multiple deserialized strin
           "[serialization]") {
   REQUIRE(reflection_result_ok(((void)caors::meta::class_<codec_string_view_pair_actor>(
                                     "caors.test.serialization.codec_string_view_pair_actor"),
-                                caors::reflection::class_<codec_string_view_pair_actor>())
+                                caors::meta::class_<codec_string_view_pair_actor>())
                                    .field("first", &codec_string_view_pair_actor::first)
                                    .field("second", &codec_string_view_pair_actor::second)
                                    .commit()));

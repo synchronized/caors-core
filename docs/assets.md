@@ -234,15 +234,15 @@ struct texture_options {
 namespace metadata = caors::serialization::config_metadata;
 
 caors::meta::class_<texture_options>("game.texture_options");
-caors::reflection::class_<texture_options>()
+caors::meta::class_<texture_options>()
     .field("format", &texture_options::format)
-    .metadata(metadata::required(), true)
-    .metadata(metadata::non_empty(), true)
-    .metadata(metadata::one_of(),
-              caors::meta::make_metadata_string_array({"json", "binary"}))
+    .field_metadata(metadata::required(), true)
+    .field_metadata(metadata::non_empty(), true)
+    .field_metadata(metadata::one_of(),
+                    caors::meta::make_metadata_string_array({"json", "binary"}))
     .field("priority", &texture_options::priority)
-    .metadata(metadata::range_min(), 1)
-    .metadata(metadata::range_max(), 100)
+    .field_metadata(metadata::range_min(), 1)
+    .field_metadata(metadata::range_max(), 100)
     .commit();
 caors::serialization::class_<texture_options>().commit();
 
@@ -283,7 +283,7 @@ caors::error saved = saver.save(**loaded);
 需要注意：
 
 - `load_serialized<T>()` 要求 `T` 派生自 `resources::resource` 且可默认构造。
-- 读写的资源类型仍需要完成 reflection 和 serialization 注册。
+- 读写的资源类型仍需要完成 meta 字段和 serialization 注册。
 - helper 只读写资源对象字段；资源 GUID 由外部资源数据库、路径或包索引维护，不写入资源对象本体。
 - `json::loader<T>` 和 `json::saver<T>` 不拥有 provider；provider、source 和底层 file_system 的生命周期
   由调用方保证。

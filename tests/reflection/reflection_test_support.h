@@ -6,7 +6,7 @@
 #include "caors/adapters/stl.h"
 #include "caors/object/base.h"
 #include "caors/object/ptr.h"
-#include "caors/reflection.h"
+#include "caors/meta.h"
 #include "caors/traits/type_name.h"
 
 #include <catch2/catch_all.hpp>
@@ -261,13 +261,13 @@ struct stored_fields_actor {
   float health = 0.0F;
 };
 
-[[nodiscard]] inline caors::reflection::type require_reflected(std::string_view name) {
-  auto reflected = caors::reflection::find(name);
+[[nodiscard]] inline caors::meta::type require_reflected(std::string_view name) {
+  auto reflected = caors::meta::find(name);
   REQUIRE(reflected);
   return reflected;
 }
 
-[[nodiscard]] inline caors::reflection::field require_field(const caors::reflection::type& type,
+[[nodiscard]] inline caors::meta::field require_field(const caors::meta::type& type,
                                                             std::string_view name) {
   auto field = type.find_field(name);
   REQUIRE(field);
@@ -342,7 +342,7 @@ constexpr caors::type_guid view_actor_guid{caors::guid::from_bytes(
 }
 
 [[nodiscard]] constexpr caors::error reflection_error(caors::errc code) noexcept {
-  return {caors::error_domain::reflection, code};
+  return {caors::error_domain::meta, code};
 }
 
 [[nodiscard]] constexpr caors::error meta_error(caors::errc code) noexcept {
@@ -350,14 +350,14 @@ constexpr caors::type_guid view_actor_guid{caors::guid::from_bytes(
 }
 
 template <typename T>
-[[nodiscard]] caors::reflection::class_builder<T>
+[[nodiscard]] caors::meta::class_builder<T>
 registered_reflection_class(std::string_view name) {
   const caors::error status = caors::meta::class_<T>(name).result();
   REQUIRE((status == caors::error{} || status == meta_error(caors::errc::duplicate_id)));
-  return caors::reflection::class_<T>();
+  return caors::meta::class_<T>();
 }
 
-[[nodiscard]] inline caors::reflection::type require_field_traits_owner_reflection() {
+[[nodiscard]] inline caors::meta::type require_field_traits_owner_reflection() {
   const caors::error status =
       registered_reflection_class<field_traits_owner>("caors.test.reflection.field_traits_owner")
           .field("value", &field_traits_owner::value)
@@ -378,7 +378,8 @@ registered_reflection_class(std::string_view name) {
           .commit();
 
   REQUIRE(
-      (status == caors::error{} || status == reflection_error(caors::errc::duplicate_reflection)));
+      (status == caors::error{} || status == reflection_error(caors::errc::duplicate_field) ||
+       status == reflection_error(caors::errc::duplicate_method)));
   return require_reflected("caors.test.reflection.field_traits_owner");
 }
 

@@ -10,7 +10,7 @@ using namespace caors::tests::serialization;
 TEST_CASE("serialization - rejects std pair length mismatch", "[serialization]") {
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<pair_actor>("caors.test.serialization.pair_actor"),
-       caors::reflection::class_<pair_actor>())
+       caors::meta::class_<pair_actor>())
           .field("entry", &pair_actor::entry)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<pair_actor>().commit()));
@@ -34,7 +34,7 @@ using namespace caors::tests::serialization;
 TEST_CASE("serialization - rejects std tuple length mismatch", "[serialization]") {
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<tuple_actor>("caors.test.serialization.tuple_actor"),
-       caors::reflection::class_<tuple_actor>())
+       caors::meta::class_<tuple_actor>())
           .field("entry", &tuple_actor::entry)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<tuple_actor>().commit()));
@@ -59,7 +59,7 @@ using namespace caors::tests::serialization;
 TEST_CASE("serialization - rejects std variant invalid data", "[serialization]") {
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<variant_actor>("caors.test.serialization.variant_actor"),
-       caors::reflection::class_<variant_actor>())
+       caors::meta::class_<variant_actor>())
           .field("entry", &variant_actor::entry)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<variant_actor>().commit()));
@@ -92,7 +92,7 @@ using namespace caors::tests::serialization;
 TEST_CASE("serialization - roundtrips std pair fields", "[serialization]") {
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<pair_actor>("caors.test.serialization.pair_actor"),
-       caors::reflection::class_<pair_actor>())
+       caors::meta::class_<pair_actor>())
           .field("entry", &pair_actor::entry)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<pair_actor>().commit()));
@@ -130,7 +130,7 @@ using namespace caors::tests::serialization;
 TEST_CASE("serialization - roundtrips std tuple fields", "[serialization]") {
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<tuple_actor>("caors.test.serialization.tuple_actor"),
-       caors::reflection::class_<tuple_actor>())
+       caors::meta::class_<tuple_actor>())
           .field("entry", &tuple_actor::entry)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<tuple_actor>().commit()));
@@ -170,7 +170,7 @@ using namespace caors::tests::serialization;
 TEST_CASE("serialization - roundtrips std variant fields", "[serialization]") {
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<variant_actor>("caors.test.serialization.variant_actor"),
-       caors::reflection::class_<variant_actor>())
+       caors::meta::class_<variant_actor>())
           .field("entry", &variant_actor::entry)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<variant_actor>().commit()));

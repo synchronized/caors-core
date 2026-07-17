@@ -12,12 +12,12 @@ using namespace test_reflection;
 
 TEST_CASE("reflection - associative field view exposes key and value metadata", "[reflection]") {
   REQUIRE(((void)caors::meta::class_<hash_map_holder>("caors.test.reflection.hash_map_holder"),
-           caors::reflection::class_<hash_map_holder>())
+           caors::meta::class_<hash_map_holder>())
               .field("values", &hash_map_holder::values)
               .commit()
               .succeeded());
 
-  auto reflected = caors::reflection::find("caors.test.reflection.hash_map_holder");
+  auto reflected = caors::meta::find("caors.test.reflection.hash_map_holder");
   REQUIRE(reflected);
 
   auto values = reflected.find_field("values");
@@ -44,12 +44,12 @@ using namespace test_reflection;
 TEST_CASE("reflection - associative field view supports dynamic operations", "[reflection]") {
   REQUIRE(
       ((void)caors::meta::class_<hash_map_ops_holder>("caors.test.reflection.hash_map_ops_holder"),
-       caors::reflection::class_<hash_map_ops_holder>())
+       caors::meta::class_<hash_map_ops_holder>())
           .field("values", &hash_map_ops_holder::values)
           .commit()
           .succeeded());
 
-  auto reflected = caors::reflection::find("caors.test.reflection.hash_map_ops_holder");
+  auto reflected = caors::meta::find("caors.test.reflection.hash_map_ops_holder");
   REQUIRE(reflected);
 
   auto values = reflected.find_field("values");
@@ -131,12 +131,12 @@ using namespace test_reflection;
 
 TEST_CASE("reflection - set field view exposes element metadata", "[reflection]") {
   REQUIRE(((void)caors::meta::class_<hash_set_holder>("caors.test.reflection.hash_set_holder"),
-           caors::reflection::class_<hash_set_holder>())
+           caors::meta::class_<hash_set_holder>())
               .field("values", &hash_set_holder::values)
               .commit()
               .succeeded());
 
-  auto reflected = caors::reflection::find("caors.test.reflection.hash_set_holder");
+  auto reflected = caors::meta::find("caors.test.reflection.hash_set_holder");
   REQUIRE(reflected);
 
   auto values = reflected.find_field("values");

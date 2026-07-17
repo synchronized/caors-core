@@ -11,8 +11,8 @@
 namespace caors::serialization::detail {
 
 [[nodiscard]] error read_size_value(reader& reader, std::size_t& value);
-[[nodiscard]] bool field_uses_inline_indirect_value(const reflection::field& field) noexcept;
-[[nodiscard]] bool field_uses_direct_value(const reflection::field& field) noexcept;
+[[nodiscard]] bool field_uses_inline_indirect_value(const meta::field& field) noexcept;
+[[nodiscard]] bool field_uses_direct_value(const meta::field& field) noexcept;
 [[nodiscard]] bool type_uses_inline_indirect_value(const any_ref& value) noexcept;
 [[nodiscard]] bool type_is_enumeration(const any_ref& value) noexcept;
 [[nodiscard]] variant_result make_enum_value(const any_ref& value);

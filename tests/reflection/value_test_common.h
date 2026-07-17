@@ -6,7 +6,7 @@
 #include "caors/adapters/stl.h"
 #include "caors/memory.h"
 #include "caors/meta/value/type_capability.h"
-#include "caors/reflection.h"
+#include "caors/meta.h"
 
 #include <catch2/catch_all.hpp>
 
@@ -96,9 +96,9 @@ inline void require_value_test_meta() {
   require_registered_type<any_resource_value>("caors.test.reflection.any_resource_value");
 }
 
-[[nodiscard]] inline caors::reflection::field require_reflected_field(std::string_view type_name,
+[[nodiscard]] inline caors::meta::field require_reflected_field(std::string_view type_name,
                                                                       std::string_view field_name) {
-  auto reflected = caors::reflection::find(type_name);
+  auto reflected = caors::meta::find(type_name);
   REQUIRE(reflected);
   auto field = reflected.find_field(field_name);
   REQUIRE(field);

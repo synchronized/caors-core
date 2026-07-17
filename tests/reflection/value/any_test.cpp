@@ -88,15 +88,15 @@ TEST_CASE("reflection any - fields expose copied runtime values", "[reflection]"
 
   REQUIRE(((void)caors::meta::class_<reflected_value_holder>(
                "caors.test.reflection.value_reflected_holder"),
-           caors::reflection::class_<reflected_value_holder>())
+           caors::meta::class_<reflected_value_holder>())
               .field("value", &reflected_value_holder::value)
               .field("readonly", &reflected_value_holder::readonly)
               .commit() == caors::error{});
 
   reflected_value_holder holder{1, 7};
-  const caors::reflection::field value =
+  const caors::meta::field value =
       require_reflected_field("caors.test.reflection.value_reflected_holder", "value");
-  const caors::reflection::field readonly =
+  const caors::meta::field readonly =
       require_reflected_field("caors.test.reflection.value_reflected_holder", "readonly");
 
   caors::any copied = value.get_value(&holder);
@@ -169,12 +169,12 @@ TEST_CASE("reflection any - noncopyable fields return invalid values", "[reflect
   require_value_test_meta();
 
   REQUIRE(((void)caors::meta::class_<move_only_value>("caors.test.reflection.move_only_value"),
-           caors::reflection::class_<move_only_value>())
+           caors::meta::class_<move_only_value>())
               .field("value", &move_only_value::value)
               .commit() == caors::error{});
 
   move_only_value holder{std::make_unique<int>(7)};
-  const caors::reflection::field field =
+  const caors::meta::field field =
       require_reflected_field("caors.test.reflection.move_only_value", "value");
 
   caors::any copied = field.get_value(&holder);
@@ -260,12 +260,12 @@ TEST_CASE("reflection any - descriptor fields do not require container type regi
 
   REQUIRE(((void)caors::meta::class_<unregistered_nested_vector_holder>(
                "caors.test.reflection.unregistered_nested_vector_holder"),
-           caors::reflection::class_<unregistered_nested_vector_holder>())
+           caors::meta::class_<unregistered_nested_vector_holder>())
               .field("values", &unregistered_nested_vector_holder::values)
               .commit() == caors::error{});
 
   auto reflected =
-      caors::reflection::find("caors.test.reflection.unregistered_nested_vector_holder");
+      caors::meta::find("caors.test.reflection.unregistered_nested_vector_holder");
   REQUIRE(reflected);
   auto values_field = reflected.find_field("values");
   REQUIRE(values_field);

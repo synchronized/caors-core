@@ -3,7 +3,7 @@
 
 # Error
 
-本文档说明 CAORS 的统一错误模型。当前错误层目标是为 io、meta、object、reflection、resources 和
+本文档说明 CAORS 的统一错误模型。当前错误层目标是为 io、meta、object、resources 和
 serialization 等模块提供一致的跨模块错误表达。
 
 ## 设计目标
@@ -43,11 +43,11 @@ std::error_code code = caors::errc::invalid_type;
 `error_domain` 描述错误来源：
 
 ```cpp
-caors::error error{caors::error_domain::reflection, caors::errc::invalid_field};
+caors::error error{caors::error_domain::meta, caors::errc::invalid_field};
 ```
 
 同一个通用错误码在不同模块可能有不同含义。比如 `duplicate_name` 可能来自 meta 类型注册，也可能
-来自对象类型或反射类型注册。`error_domain` 用来保留这层边界。
+来自对象类型或序列化 schema 注册。`error_domain` 用来保留这层边界。
 
 ### error
 
@@ -130,9 +130,9 @@ return caors::rethrow_as(status, caors::error_domain::serialization);
 
 ```cpp
 return caors::rethrow_as(status,
-                         caors::error_domain::reflection,
+                         caors::error_domain::serialization,
                          caors::errc::duplicate_component,
-                         caors::errc::duplicate_reflection);
+                         caors::errc::duplicate_field);
 ```
 
 ### result

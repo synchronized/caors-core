@@ -69,20 +69,20 @@ inline void require_polymorphic_value_metadata() {
                              .result()));
 
   REQUIRE(caors::tests::serialization::reflection_result_ok(
-      caors::reflection::class_<polymorphic_value_actor>().commit()));
+      caors::meta::class_<polymorphic_value_actor>().commit()));
   REQUIRE(caors::tests::serialization::reflection_result_ok(
-      caors::reflection::class_<polymorphic_value_player>()
+      caors::meta::class_<polymorphic_value_player>()
           .field("level", &polymorphic_value_player::level)
           .field("name", &polymorphic_value_player::name)
           .commit()));
   REQUIRE(caors::tests::serialization::reflection_result_ok(
-      caors::reflection::class_<polymorphic_value_enemy>()
+      caors::meta::class_<polymorphic_value_enemy>()
           .field("danger", &polymorphic_value_enemy::danger)
           .commit()));
   REQUIRE(caors::tests::serialization::reflection_result_ok(
       ((void)caors::meta::class_<polymorphic_value_holder>(
            "caors.test.serialization.poly_value.holder"),
-       caors::reflection::class_<polymorphic_value_holder>())
+       caors::meta::class_<polymorphic_value_holder>())
           .field("owner", &polymorphic_value_holder::owner)
           .field("shared", &polymorphic_value_holder::shared)
           .commit()));

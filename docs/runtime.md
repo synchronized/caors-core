@@ -5,7 +5,7 @@
 
 `runtime` 主题提供面向用户的一站式运行时类型 facade，是普通用户优先使用的注册和查询入口。
 它不引入新的类型注册表，
-而是组合现有 `meta`、兼容 `reflection` 和 meta value 能力：
+而是组合现有 `meta` 字段/方法和 meta value 能力：
 
 - `runtime::type` 内部持有 `meta::type`，按需查询字段和方法。
 - `runtime::class_<T>("name")` 先注册 meta 类/普通值类型，再把字段和方法写入同一份 meta 类型数据。
@@ -145,7 +145,7 @@ caors::any result = instance.call("add_health", 5);
 `fields()` 和 `methods()` 当前返回字段/方法视图的 `core::vector` 快照，适合简单遍历。它不表达成员生命周期所有权；
 字段和方法视图仍引用全局 append-only `meta::registry`。后续如果需要零分配遍历，可以再增加 range view。
 
-对象指针字段属于对象系统语义，不直接放在 `reflection::field` 上。需要按对象关系读写时，使用
+对象指针字段属于对象系统语义，不直接放在 `meta::field` 上。需要按对象关系读写时，使用
 `runtime::object` 适配视图：
 
 ```cpp
@@ -184,9 +184,9 @@ caors::runtime::type state_type = caors::runtime::find<actor_state>();
 
 - `meta` 继续负责类型身份、descriptor、registry 和 capability。
 - `value` 继续负责 `any`、`any_ref` 和运行期 view。
-- `meta` 继续负责字段、方法和成员访问；`reflection` 保留兼容入口。
+- `meta` 负责字段、方法和成员访问。
 - `runtime` 只负责把这些能力组合成更直接的用户入口。
-- object/resource 等领域专用便利能力放在 `runtime` 或对应适配层，不反向塞进 `reflection::field`
+- object/resource 等领域专用便利能力放在 `runtime` 或对应适配层，不反向塞进 `meta::field`
   这类底层通用视图。
 - `runtime` 组合公开 facade，不直接依赖 `meta::detail`。需要构造未知类型值时走
   `runtime::type::create()`、`meta::factory_capability`、`meta::constructor_capability`
@@ -194,6 +194,6 @@ caors::runtime::type state_type = caors::runtime::find<actor_state>();
 - `runtime::object` 当前只收口对象指针字段访问和当前对象指针查询，不替代对象 manager、handle、
   引用计数或资源引用 resolver。
 - 具体模块仍保留高级入口，例如 `meta::class_<T>()`、`meta::enum_<T>()`、
-  `reflection::class_<T>()` 和 `serialization::class_<T>()`，用于更细粒度地控制注册顺序和模块依赖。
+  `meta::class_<T>()` 和 `serialization::class_<T>()`，用于更细粒度地控制注册顺序和模块依赖。
 
-因此依赖方向仍保持为上层 facade 依赖底层模块，`meta` 不反向依赖 `reflection` 或 `value`。
+因此依赖方向仍保持为上层 facade 依赖底层模块。

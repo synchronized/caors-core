@@ -24,7 +24,7 @@ memory/resource, memory/tracking, memory/debug_tracking
 core containers
   -> 依赖 memory_resource / allocator<T>
 
-meta / reflection / serialization / object
+meta / serialization / object
   -> 默认使用 core containers
 ```
 

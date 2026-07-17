@@ -53,36 +53,35 @@ class_builder<T>& class_builder<T>::field(std::string_view name, Member member) 
                 "Field member pointer owner must match builder type");
 
   if (!type_.registered()) {
-    status_ = {error_domain::reflection, errc::invalid_type};
+    status_ = {error_domain::meta, errc::invalid_type};
     return *this;
   }
 
   if (!caors::meta::resolve<field_type>()) {
-    status_ = {error_domain::reflection, errc::invalid_field};
+    status_ = {error_domain::meta, errc::invalid_field};
     return *this;
   }
 
   detail::field_data field = detail::make_field_data<T, typename traits_type::field_type>(
       name, std::string_view{}, detail::member_offset(member));
   if (!field.valid()) {
-    status_ = {error_domain::reflection, errc::invalid_field};
+    status_ = {error_domain::meta, errc::invalid_field};
     return *this;
   }
 
-  detail::type_data* reflection =
-      get_registry().ensure_reflection(type_.id(), detail::make_reflection_type_ops<T>());
-  if (reflection == nullptr) {
-    status_ = {error_domain::reflection, errc::invalid_type};
+  detail::type_data* type_data = get_registry().find_mutable_type_data(type_.id());
+  if (type_data == nullptr) {
+    status_ = {error_domain::meta, errc::invalid_type};
     return *this;
   }
 
-  if (reflection->find_field_ptr(field.name()) != nullptr) {
-    status_ = {error_domain::reflection, errc::duplicate_field};
+  if (type_data->find_field_ptr(field.name()) != nullptr) {
+    status_ = {error_domain::meta, errc::duplicate_field};
     return *this;
   }
 
   last_field_name_ = field.name();
-  reflection->add_field(std::move(field));
+  type_data->add_field(std::move(field));
   status_ = {};
   return *this;
 }
@@ -99,31 +98,30 @@ class_builder<T>& class_builder<T>::field(std::string_view name, Member member,
                 "Field member pointer owner must match builder type");
 
   if (!type_.registered()) {
-    status_ = {error_domain::reflection, errc::invalid_type};
+    status_ = {error_domain::meta, errc::invalid_type};
     return *this;
   }
 
   detail::field_data field = detail::make_field_data<T, typename traits_type::field_type>(
       name, type_name, detail::member_offset(member));
   if (!field.valid()) {
-    status_ = {error_domain::reflection, errc::invalid_field};
+    status_ = {error_domain::meta, errc::invalid_field};
     return *this;
   }
 
-  detail::type_data* reflection =
-      get_registry().ensure_reflection(type_.id(), detail::make_reflection_type_ops<T>());
-  if (reflection == nullptr) {
-    status_ = {error_domain::reflection, errc::invalid_type};
+  detail::type_data* type_data = get_registry().find_mutable_type_data(type_.id());
+  if (type_data == nullptr) {
+    status_ = {error_domain::meta, errc::invalid_type};
     return *this;
   }
 
-  if (reflection->find_field_ptr(field.name()) != nullptr) {
-    status_ = {error_domain::reflection, errc::duplicate_field};
+  if (type_data->find_field_ptr(field.name()) != nullptr) {
+    status_ = {error_domain::meta, errc::duplicate_field};
     return *this;
   }
 
   last_field_name_ = field.name();
-  reflection->add_field(std::move(field));
+  type_data->add_field(std::move(field));
   status_ = {};
   return *this;
 }
@@ -139,29 +137,28 @@ class_builder<T>& class_builder<T>::method(std::string_view name, Member member)
                 "Method member pointer owner must match builder type");
 
   if (!type_.registered()) {
-    status_ = {error_domain::reflection, errc::invalid_type};
+    status_ = {error_domain::meta, errc::invalid_type};
     return *this;
   }
 
   detail::method_data method = detail::make_method_data<T>(name, member);
   if (!method.valid()) {
-    status_ = {error_domain::reflection, errc::invalid_field};
+    status_ = {error_domain::meta, errc::invalid_field};
     return *this;
   }
 
-  detail::type_data* reflection =
-      get_registry().ensure_reflection(type_.id(), detail::make_reflection_type_ops<T>());
-  if (reflection == nullptr) {
-    status_ = {error_domain::reflection, errc::invalid_type};
+  detail::type_data* type_data = get_registry().find_mutable_type_data(type_.id());
+  if (type_data == nullptr) {
+    status_ = {error_domain::meta, errc::invalid_type};
     return *this;
   }
 
-  if (reflection->find_method_ptr(method.name()) != nullptr) {
-    status_ = {error_domain::reflection, errc::duplicate_method};
+  if (type_data->find_method_ptr(method.name()) != nullptr) {
+    status_ = {error_domain::meta, errc::duplicate_method};
     return *this;
   }
 
-  reflection->add_method(std::move(method));
+  type_data->add_method(std::move(method));
   status_ = {};
   return *this;
 }
@@ -176,15 +173,15 @@ template <typename T>
 template <typename Value>
 class_builder<T>& class_builder<T>::field_metadata(string_name key, Value&& value) {
   if (!type_.registered() || !key || !last_field_name_) {
-    status_ = {error_domain::reflection, errc::invalid_field};
+    status_ = {error_domain::meta, errc::invalid_field};
     return *this;
   }
 
-  detail::type_data* reflection = get_registry().find_mutable_reflection(type_.id());
+  detail::type_data* type_data = get_registry().find_mutable_type_data(type_.id());
   detail::field_data* field =
-      reflection != nullptr ? reflection->mutable_find_field_ptr(last_field_name_) : nullptr;
+      type_data != nullptr ? type_data->mutable_find_field_ptr(last_field_name_) : nullptr;
   if (field == nullptr) {
-    status_ = {error_domain::reflection, errc::invalid_field};
+    status_ = {error_domain::meta, errc::invalid_field};
     return *this;
   }
 

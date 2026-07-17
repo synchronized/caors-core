@@ -248,8 +248,7 @@ error validate_registry(const registry_state& state) {
       }
     }
 
-    if (stored->has_reflection() &&
-        (!stored->reflection_valid() || stored->get_type().id() != stored->id())) {
+    if (!stored->members_valid()) {
       return {error_domain::meta, errc::invalid_type};
     }
   }

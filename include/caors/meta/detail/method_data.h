@@ -86,7 +86,7 @@ public:
     static_assert(std::is_trivially_copyable_v<Member>,
                   "Member pointers must be trivially copyable");
     static_assert(sizeof(Member) <= storage_size,
-                  "Member pointer is too large for reflection method storage");
+                  "Member pointer is too large for meta method storage");
     std::memcpy(storage_.data(), &member, sizeof(Member));
   }
 

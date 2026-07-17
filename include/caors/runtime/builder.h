@@ -5,9 +5,10 @@
 #define CAORS_RUNTIME_BUILDER_H_
 
 #include "caors/error.h"
+#include "caors/meta/builder.h"
 #include "caors/meta/constructor.h"
 #include "caors/meta/query.h"
-#include "caors/reflection/builder.h"
+#include "caors/meta/reflection.h"
 #include "caors/runtime/query.h"
 
 #include <string_view>
@@ -19,13 +20,11 @@ namespace caors::runtime {
 /**
  * @brief 组合式运行时类型注册构建器。
  *
- * 该 facade 先注册 `meta` 类型，再把字段和方法挂到反射组件上。底层仍保持 `meta` 与
- * `reflection` 分层，避免 `meta` 反向依赖反射和值系统。
+ * 该 facade 注册 `meta` 类型，并把字段和方法直接写入同一份 `meta::type` 数据。
  */
 template <typename Class> class class_builder {
 public:
-  explicit class_builder(std::string_view name)
-      : meta_builder_(meta::class_<Class>(name)), reflection_builder_(reflection::class_<Class>()) {
+  explicit class_builder(std::string_view name) : meta_builder_(meta::class_<Class>(name)) {
     update_meta_status();
   }
 
@@ -71,7 +70,8 @@ public:
 
   template <typename Field> class_builder& field(std::string_view name, Field Class::* member) {
     if (!failed()) {
-      reflection_builder_.field(name, member);
+      meta_builder_.field(name, member);
+      update_meta_status();
     }
     return *this;
   }
@@ -79,7 +79,8 @@ public:
   template <typename Field>
   class_builder& field(std::string_view name, Field Class::* member, std::string_view type_name) {
     if (!failed()) {
-      reflection_builder_.field(name, member, type_name);
+      meta_builder_.field(name, member, type_name);
+      update_meta_status();
     }
     return *this;
   }
@@ -87,7 +88,8 @@ public:
   template <typename Return, typename... Arguments>
   class_builder& method(std::string_view name, Return (Class::*member)(Arguments...)) {
     if (!failed()) {
-      reflection_builder_.method(name, member);
+      meta_builder_.method(name, member);
+      update_meta_status();
     }
     return *this;
   }
@@ -95,20 +97,14 @@ public:
   template <typename Return, typename... Arguments>
   class_builder& method(std::string_view name, Return (Class::*member)(Arguments...) const) {
     if (!failed()) {
-      reflection_builder_.method(name, member);
+      meta_builder_.method(name, member);
+      update_meta_status();
     }
     return *this;
   }
 
-  /** @brief 提交反射组件注册；meta 类型在构造 builder 时已经注册。 */
-  [[nodiscard]] error commit() {
-    if (failed()) {
-      return status_;
-    }
-
-    status_ = reflection_builder_.commit();
-    return status_;
-  }
+  /** @brief 返回当前注册状态；meta 类型、字段和方法均已即时写入。 */
+  [[nodiscard]] error commit() const noexcept { return status_; }
 
   [[nodiscard]] runtime::type get() const noexcept { return runtime::type{meta_builder_.get()}; }
   [[nodiscard]] error result() const noexcept { return status_; }
@@ -124,7 +120,6 @@ private:
   }
 
   meta::class_builder<Class> meta_builder_;
-  reflection::class_builder<Class> reflection_builder_;
   error status_{};
 };
 

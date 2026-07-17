@@ -4,7 +4,7 @@
 #ifndef CAORS_SERIALIZATION_DETAIL_OPERATIONS_H_
 #define CAORS_SERIALIZATION_DETAIL_OPERATIONS_H_
 
-#include "caors/reflection/type.h"
+#include "caors/meta/type.h"
 #include "caors/serialization/reader.h"
 #include "caors/serialization/types.h"
 #include "caors/serialization/writer.h"
@@ -13,17 +13,17 @@ namespace caors::serialization::detail {
 
 /** @brief 通过反射类型视图、指定后端和上下文序列化对象。 */
 [[nodiscard]] CAORS_API error serialize(const serialization::context& context,
-                                        const reflection::type& type, const void* object,
+                                        const meta::type& type, const void* object,
                                         writer& writer);
 
 /** @brief 通过反射类型视图、指定后端和上下文反序列化到对象。 */
 [[nodiscard]] CAORS_API error deserialize(const serialization::context& context,
-                                          const reflection::type& type, void* object,
+                                          const meta::type& type, void* object,
                                           reader& reader);
 
 /** @brief 通过反射类型视图和上下文构造序列化中间值。 */
 [[nodiscard]] CAORS_API variant_result to_serialization_value(const serialization::context& context,
-                                                              const reflection::type& type,
+                                                              const meta::type& type,
                                                               const void* object);
 
 /** @brief 判断对象运行期类型是否需要写出多态 envelope。 */

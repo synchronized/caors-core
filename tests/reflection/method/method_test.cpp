@@ -10,7 +10,7 @@ using namespace caors::tests::reflection_method;
 TEST_CASE("reflection - class builder rejects duplicate method names", "[reflection]") {
   CHECK(((void)caors::meta::class_<duplicate_method_actor>(
              "caors.test.reflection.duplicate_method_actor"),
-         caors::reflection::class_<duplicate_method_actor>())
+         caors::meta::class_<duplicate_method_actor>())
             .method("update", &duplicate_method_actor::first)
             .method("update", &duplicate_method_actor::second)
             .commit() == reflection_error(caors::errc::duplicate_method));
@@ -23,11 +23,11 @@ TEST_CASE("reflection - class builder rejects duplicate method names", "[reflect
 using namespace test_reflection;
 using namespace caors::tests::reflection_method;
 TEST_CASE("reflection - method view describes member function signatures", "[reflection]") {
-  const caors::reflection::type reflected = require_method_type();
+  const caors::meta::type reflected = require_method_type();
 
   CHECK(reflected.method_count() == 3);
 
-  const caors::reflection::method add = require_method(reflected, "add");
+  const caors::meta::method add = require_method(reflected, "add");
   CHECK(add.name() == "add");
   CHECK_FALSE(add.const_method());
   CHECK_FALSE(add.get_return_type());
@@ -36,7 +36,7 @@ TEST_CASE("reflection - method view describes member function signatures", "[ref
   CHECK(add.get_parameter_type(0)->id() == registered_type_id("int"));
   CHECK(add.get_parameter_type(0)->name() == "int");
 
-  const caors::reflection::method score = require_method(reflected, "score");
+  const caors::meta::method score = require_method(reflected, "score");
   CHECK(score.name() == "score");
   CHECK(score.const_method());
   CHECK(score.get_return_type().id() == registered_type_id("int"));
@@ -54,9 +54,9 @@ TEST_CASE("reflection - method view describes member function signatures", "[ref
 using namespace test_reflection;
 using namespace caors::tests::reflection_method;
 TEST_CASE("reflection - method view invokes mutable and const member functions", "[reflection]") {
-  const caors::reflection::type reflected = require_method_type();
-  const caors::reflection::method add = require_method(reflected, "add");
-  const caors::reflection::method score = require_method(reflected, "score");
+  const caors::meta::type reflected = require_method_type();
+  const caors::meta::method add = require_method(reflected, "add");
+  const caors::meta::method score = require_method(reflected, "score");
 
   method_actor instance{3};
   int amount = 4;
@@ -84,9 +84,9 @@ TEST_CASE("reflection - method view invokes mutable and const member functions",
 using namespace test_reflection;
 using namespace caors::tests::reflection_method;
 TEST_CASE("reflection - method view rejects invalid calls", "[reflection]") {
-  const caors::reflection::type reflected = require_method_type();
-  const caors::reflection::method add = require_method(reflected, "add");
-  const caors::reflection::method add_to = require_method(reflected, "add_to");
+  const caors::meta::type reflected = require_method_type();
+  const caors::meta::method add = require_method(reflected, "add");
+  const caors::meta::method add_to = require_method(reflected, "add_to");
 
   method_actor instance{5};
   float wrong_argument = 2.0F;

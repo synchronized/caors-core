@@ -38,8 +38,6 @@ public:
       return "duplicate field";
     case errc::duplicate_method:
       return "duplicate method";
-    case errc::duplicate_reflection:
-      return "duplicate reflection";
     case errc::inconsistent_type:
       return "inconsistent type";
     case errc::missing_parent:

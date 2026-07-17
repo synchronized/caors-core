@@ -171,7 +171,7 @@ descriptor 默认构造和资源感知构造都能通过同一套 RAII 路径保
 
 普通序列化入口默认支持 `objects::object` 的运行期真实类型。写出时，调度层读取对象的
 `type_id()`；如果运行期类型不同于调用点声明类型，就按真实类型写出 DOM envelope。动态类型必须已经
-完成 object、reflection 和 serialization 注册，并且拥有非 nil `type_guid`。输出 envelope 默认包含：
+完成 object、meta 字段和 serialization 注册，并且拥有非 nil `type_guid`。输出 envelope 默认包含：
 
 - `$type`：动态类型的稳定 `type_guid` 字符串。
 - `$value`：按动态类型反射字段生成的对象数据。
@@ -229,7 +229,7 @@ runtime、对象或智能指针 codec 路径，由对应模块在内部使用 `c
 - `objects::ref<Base>` 要求 `Base` 继承 `objects::object` 和 `objects::ref_counted`。
 - 写出时通过 RTTI 查询真实动态类型，动态类型必须已经注册到 `meta::registry`。
 - 派生类必须通过 typed parent 注册，例如 `.parent<Base>()`，这样注册表同时保存继承关系和安全 upcast 回调。
-- 动态类型必须拥有稳定 `type_guid`，并完成 reflection 和 serialization 注册。
+- 动态类型必须拥有稳定 `type_guid`，并完成 meta 字段和 serialization 注册。
 - 读入时优先走 `reader` 的多态 envelope 接口；DOM/JSON 路径由 `variant_reader` 内置支持。自定义 reader
   如果不暴露 `current_variant()`，也可以通过重写 `is_polymorphic_envelope()`、`read_polymorphic_type_guid()`、
   `begin_polymorphic_value()` 和 `end_polymorphic_value()` 接入同一语义。
@@ -256,7 +256,7 @@ caors::meta::class_<player>("game.player")
     .guid(player_guid)
     .parent<actor>();
 
-caors::reflection::class_<player>()
+caors::meta::class_<player>()
     .field("level", &player::level)
     .commit();
 
@@ -264,7 +264,7 @@ caors::meta::class_<caors::memory::unique_ptr<actor>>("caors.memory.unique_ptr<g
 
 caors::meta::class_<holder>("game.holder");
 
-caors::reflection::class_<holder>()
+caors::meta::class_<holder>()
     .field("owner", &holder::owner)
     .commit();
 
@@ -754,15 +754,15 @@ struct texture_config {
 namespace metadata = caors::serialization::config_metadata;
 
 caors::meta::class_<texture_config>("game.texture_config");
-caors::reflection::class_<texture_config>()
+caors::meta::class_<texture_config>()
     .field("format", &texture_config::format)
-    .metadata(metadata::required(), true)
-    .metadata(metadata::non_empty(), true)
-    .metadata(metadata::one_of(),
-              caors::meta::make_metadata_string_array({"json", "binary"}))
+    .field_metadata(metadata::required(), true)
+    .field_metadata(metadata::non_empty(), true)
+    .field_metadata(metadata::one_of(),
+                    caors::meta::make_metadata_string_array({"json", "binary"}))
     .field("priority", &texture_config::priority)
-    .metadata(metadata::range_min(), 1)
-    .metadata(metadata::range_max(), 100)
+    .field_metadata(metadata::range_min(), 1)
+    .field_metadata(metadata::range_max(), 100)
     .commit();
 caors::serialization::class_<texture_config>().commit();
 
@@ -1049,7 +1049,7 @@ auto serialization_type = caors::serialization::find(type);
 ```cpp
 caors::meta::type type = caors::meta::class_<actor>("game.actor").get();
 
-caors::reflection::class_<actor>(type)
+caors::meta::class_<actor>(type)
     .field("id", &actor::id)
     .field("health", &actor::health)
     .commit();

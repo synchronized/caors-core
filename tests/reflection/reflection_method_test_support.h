@@ -24,24 +24,25 @@ struct duplicate_method_actor {
   void second() {}
 };
 
-[[nodiscard]] inline caors::reflection::type require_method_type() {
+[[nodiscard]] inline caors::meta::type require_method_type() {
   const caors::error result =
       ((void)caors::meta::class_<method_actor>("caors.test.reflection.method_actor"),
-       caors::reflection::class_<method_actor>())
+       caors::meta::class_<method_actor>())
           .field("value", &method_actor::value)
           .method("add", &method_actor::add)
           .method("add_to", &method_actor::add_to)
           .method("score", &method_actor::score)
           .commit();
   REQUIRE(
-      (result == caors::error{} || result == reflection_error(caors::errc::duplicate_reflection)));
+      (result == caors::error{} || result == reflection_error(caors::errc::duplicate_field) ||
+       result == reflection_error(caors::errc::duplicate_method)));
 
-  auto reflected = caors::reflection::find("caors.test.reflection.method_actor");
+  auto reflected = caors::meta::find("caors.test.reflection.method_actor");
   REQUIRE(reflected);
   return reflected;
 }
 
-[[nodiscard]] inline caors::reflection::method require_method(const caors::reflection::type& type,
+[[nodiscard]] inline caors::meta::method require_method(const caors::meta::type& type,
                                                               std::string_view name) {
   auto method = type.find_method(name);
   REQUIRE(method);

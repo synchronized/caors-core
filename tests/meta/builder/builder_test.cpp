@@ -103,7 +103,6 @@ TEST_CASE("meta type - class builder registers fields and methods", "[meta]") {
 
   const caors::meta::type type = caors::meta::find<reflected_meta_actor>();
   REQUIRE(type);
-  REQUIRE(type.has_reflection());
   CHECK(type.field_count() == 1);
   CHECK(type.method_count() == 1);
 

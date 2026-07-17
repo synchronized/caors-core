@@ -17,8 +17,6 @@ runtime::type instance::type() const noexcept {
   return valid() ? runtime::type{value_.get_type()} : runtime::type{};
 }
 
-reflection::type instance::reflection() const noexcept { return type().reflection(); }
-
 std::size_t instance::field_count() const noexcept { return type().field_count(); }
 
 field instance::field_at(std::size_t index) const { return type().field_at(index); }

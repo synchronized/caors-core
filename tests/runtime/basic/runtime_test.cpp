@@ -152,7 +152,7 @@ void destroy_runtime_factory_constructor_priority_type(caors::memory_resource* r
 
 } // namespace
 
-TEST_CASE("runtime facade - class builder registers meta and reflection", "[runtime]") {
+TEST_CASE("runtime facade - class builder registers meta fields and methods", "[runtime]") {
   const caors::error status = caors::runtime::class_<runtime_actor>("caors.test.runtime.actor")
                                   .field("health", &runtime_actor::health)
                                   .method("add_health", &runtime_actor::add_health)
@@ -166,7 +166,6 @@ TEST_CASE("runtime facade - class builder registers meta and reflection", "[runt
   CHECK(type.size() == sizeof(runtime_actor));
   CHECK(type.alignment() == alignof(runtime_actor));
   CHECK(type.value_constructible());
-  CHECK(type.reflectable());
   CHECK(type.field_count() == 1);
   CHECK(type.method_count() == 1);
 

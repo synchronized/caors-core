@@ -80,7 +80,6 @@ public:
   [[nodiscard]] const metadata_value* find_metadata(metadata_key key) const noexcept;
   [[nodiscard]] type get_value_type() const noexcept;
   [[nodiscard]] type get_key_type() const noexcept;
-  [[nodiscard]] bool has_reflection() const noexcept;
   [[nodiscard]] std::size_t field_count() const noexcept;
   [[nodiscard]] field field_at(std::size_t index) const;
   [[nodiscard]] field find_field(string_name name) const;

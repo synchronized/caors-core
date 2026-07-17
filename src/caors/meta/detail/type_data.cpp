@@ -5,11 +5,7 @@
 
 namespace caors::meta::detail {
 
-bool type_data::reflection_valid() const noexcept {
-  if (!reflection_ops_.valid() || !get_type()) {
-    return false;
-  }
-
+bool type_data::members_valid() const noexcept {
   for (const field_data& field : fields_) {
     if (!field.valid()) {
       return false;
@@ -23,10 +19,6 @@ bool type_data::reflection_valid() const noexcept {
   }
 
   return true;
-}
-
-meta::type type_data::get_type() const noexcept {
-  return reflection_ops_.get_type != nullptr ? reflection_ops_.get_type() : meta::type{};
 }
 
 std::size_t type_data::field_count() const noexcept { return fields_.size(); }
@@ -126,32 +118,5 @@ std::optional<method_data> type_data::find_method(std::string_view name) const {
 }
 
 void type_data::add_method(method_data method) { methods_.push_back(method); }
-
-error type_data::attach_reflection(const type_data& reflection) {
-  if (has_reflection()) {
-    return {error_domain::reflection, errc::duplicate_reflection};
-  }
-
-  if (!reflection.has_reflection()) {
-    return {error_domain::reflection, errc::invalid_type};
-  }
-
-  reflection_ops_ = reflection.reflection_ops_;
-  fields_ = reflection.fields_;
-  methods_ = reflection.methods_;
-  return {};
-}
-
-type_data* type_data::ensure_reflection(reflection_type_ops ops) noexcept {
-  if (!ops.valid()) {
-    return nullptr;
-  }
-
-  if (!has_reflection()) {
-    reflection_ops_ = ops;
-  }
-
-  return this;
-}
 
 } // namespace caors::meta::detail

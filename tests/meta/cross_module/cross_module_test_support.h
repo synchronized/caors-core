@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "caors/reflection.h"
+#include "caors/meta.h"
 #include "caors/serialization.h"
 
 #include <catch2/catch_all.hpp>
@@ -24,7 +24,8 @@ struct cross_module_late_registered {
 };
 
 [[nodiscard]] inline bool reflection_result_ok(caors::error result) noexcept {
-  return result.succeeded() || result.value() == caors::errc::duplicate_reflection;
+  return result.succeeded() || result.value() == caors::errc::duplicate_field ||
+         result.value() == caors::errc::duplicate_method;
 }
 
 [[nodiscard]] inline bool serialization_result_ok(caors::error result) noexcept {

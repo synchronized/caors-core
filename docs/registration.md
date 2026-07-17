@@ -101,4 +101,4 @@ CAORS_META_REGISTRATION(register_actor) {
 - `errc::missing_parent`：父类型尚未注册。
 - `errc::invalid_field`：反射字段描述无效、字段名冲突，或字段类型无法生成有效 descriptor。
 
-公共测试和用户代码应使用 `meta::class_<T>()`、`objects::class_<T>()`、`serialization::class_()` 等公开入口，不直接调用各模块的 `detail` 命名空间函数。`reflection::class_<T>()` 保留为兼容入口，新代码优先把字段和方法写在 `meta::class_<T>()` 上。
+公共测试和用户代码应使用 `meta::class_<T>()`、`objects::class_<T>()`、`serialization::class_()` 等公开入口，不直接调用各模块的 `detail` 命名空间函数。`meta::class_<T>()` 保留为兼容入口，新代码优先把字段和方法写在 `meta::class_<T>()` 上。

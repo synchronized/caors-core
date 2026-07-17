@@ -10,7 +10,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 提供 `string_name`，用于运行期名称去重、快速比较和查找。
 - [x] 增加 `guid` / `type_guid`，用于序列化和资源引用的稳定标识。
 - [x] 增加统一错误码、错误来源域和 `std::error_code` 适配。
-- [x] 统一 meta、object、reflection 注册 API 返回 `caors::error`，移除旧注册结果枚举兼容层。
+- [x] 统一 meta、object、serialization 注册 API 返回 `caors::error`，移除旧注册结果枚举兼容层。
 - [x] 增加轻量 `result<T>`，统一携带值的错误返回结构。
 - [x] 提供与 CAORS 内存系统适配的 `string` / `vector` / `hash_map` / `hash_set` 基础容器别名。
 - [x] 提供与 CAORS 内存系统适配的 `list` 基础容器别名。
@@ -28,9 +28,9 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 
 - [x] 定义 `type_id`、`meta::type` 和 meta 类型注册错误状态。
 - [x] 在 `meta::registry` 中集中处理运行期类型索引、重名、重复 GUID、不一致类型描述和父类型缺失。
-- [x] 提供 `meta::registry`，允许围绕同一个 `type_id` 挂载对象、反射、序列化等元数据组件。
+- [x] 提供 `meta::registry`，允许围绕同一个 `type_id` 挂载对象、序列化和自定义元数据组件。
 - [x] 提供 `meta::registry::component_view<T...>()`，查询同时拥有指定元数据组件的类型。
-- [x] 补充反射和序列化组件的跨模块查询测试。
+- [x] 补充 meta 字段和序列化组件的跨模块查询测试。
 - [x] 增加组件 `try_emplace` / `ensure` 语义和组件状态诊断 API。
 - [x] 增加轻量动态 capability 运行期索引，支持 `type_id + capability_key` 挂接模块能力。
 - [x] 将 serialization codec 接入 descriptor 静态 capability；编译期已知 `T` 或携带 descriptor 的
@@ -50,11 +50,11 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `parent_cast_ops.h`。
 - [x] 将 value 操作函数指针收进 `meta::value_ops` / `meta::factory_ops`，公开层通过
   `meta::factory_capability` 查询构造能力，内部通过 `value_storage_ops` 访问内部值操作，避免 object /
-  reflection / serialization 横向依赖 `meta::detail`。
+  serialization 横向依赖 `meta::detail`。
 - [x] 将 descriptor 内建 ops 和静态能力纳入 `meta::type` 的 capability / ops 查询链路，并补充 `meta::type`
-  的 kind、wrapper、nullable、value type 和 key type 查询，使 reflection / serialization 优先使用
+  的 kind、wrapper、nullable、value type 和 key type 查询，使字段访问和 serialization 优先使用
   `meta::type` 作为能力 API。
-- [x] 将 reflection 字段访问收敛为 `field_ops` 函数表，`field_wrapper` 作为 property/concept-table
+- [x] 将 meta 字段访问收敛为 `field_ops` 函数表，`field_wrapper` 作为 property/concept-table
   包装器承载字段类型、取值、引用和写入能力，调用侧不再直接解释 descriptor 缓存。
 - [x] 将 `type_descriptor.h` 拆分为 descriptor 数据结构、默认名称生成和 descriptor model 构建三个边界。
 - [x] 将 descriptor 本体收进 `meta::detail`，公开 API 只通过 `meta::type` 暴露类型视图和能力查询。
@@ -134,7 +134,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 ## 4. 反射
 
 - [x] 定义类型和字段的基础元信息模型。
-- [x] 将字段和方法数据并入 `meta::registry` 的类型数据，并通过 meta / 兼容 reflection 视图对外查询。
+- [x] 将字段和方法数据并入 `meta::registry` 的类型数据，并通过 meta 视图对外查询。
 - [x] 支持基于已注册 `meta::type` 注册字段和方法，减少反射层隐式类型注册。
 - [x] 设计手写注册 API，并为后续代码生成保留扩展空间。
 - [x] 提供运行时类型查询和字段元信息查询入口。

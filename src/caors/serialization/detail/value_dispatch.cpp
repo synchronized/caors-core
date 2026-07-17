@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "caors/reflection/registry.h"
+#include "caors/meta.h"
 #include "helpers.h"
 
 #include <limits>
@@ -156,7 +156,7 @@ variant_result make_serialized_value(const any_ref& value, const serialization::
     return codec.make_value(context, copied);
   }
 
-  const reflection::type nested_type = reflection::find(value_type);
+  const meta::type nested_type = meta::find(value_type);
   if (nested_type && serialization::contains(value_type)) {
     return to_serialization_value(context, nested_type, value.data());
   }
@@ -225,7 +225,7 @@ error write_serialized_value(writer& writer, const any_ref& value,
     return codec.write(context, writer, copied);
   }
 
-  const reflection::type nested_type = reflection::find(value_type);
+  const meta::type nested_type = meta::find(value_type);
   if (nested_type && serialization::contains(value_type)) {
     return serialize(context, nested_type, value.data(), writer);
   }
@@ -287,7 +287,7 @@ error read_serialized_value(reader& reader, const any_ref& target,
     return codec.read(context, reader, target);
   }
 
-  const reflection::type nested_type = reflection::find(target_type);
+  const meta::type nested_type = meta::find(target_type);
   if (nested_type && serialization::contains(target_type)) {
     return deserialize(context, nested_type, target.mutable_data(), reader);
   }
@@ -295,7 +295,7 @@ error read_serialized_value(reader& reader, const any_ref& target,
   return read_scalar_value(reader, target, context);
 }
 
-error write_field(writer& writer, const reflection::field& field, const void* object,
+error write_field(writer& writer, const meta::field& field, const void* object,
                   const serialization::field_schema& field_schema,
                   const serialization::context& context) {
   if (!field.valid()) {
@@ -338,7 +338,7 @@ error write_field(writer& writer, const reflection::field& field, const void* ob
   return writer.end_field();
 }
 
-error read_field(reader& reader, const reflection::field& field, void* object,
+error read_field(reader& reader, const meta::field& field, void* object,
                  const serialization::field_schema& field_schema,
                  const serialization::context& context) {
   if (!field.valid()) {
@@ -397,7 +397,7 @@ error read_field(reader& reader, const reflection::field& field, void* object,
   return reader.end_field();
 }
 
-error read_configured_field(reader& reader, const reflection::field& field, void* object,
+error read_configured_field(reader& reader, const meta::field& field, void* object,
                             const serialization::field_schema& field_schema,
                             const serialization::context& context) {
   const error status = read_field(reader, field, object, field_schema, context);

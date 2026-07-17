@@ -12,7 +12,7 @@ TEST_CASE("reflection any_ref - creates indirect views for pointer and wrappers"
 
   REQUIRE(((void)caors::meta::class_<indirect_value_holder>(
                "caors.test.reflection.indirect_value_holder"),
-           caors::reflection::class_<indirect_value_holder>())
+           caors::meta::class_<indirect_value_holder>())
               .field("pointer", &indirect_value_holder::pointer)
               .field("optional", &indirect_value_holder::optional)
               .field("unique", &indirect_value_holder::unique)
@@ -21,13 +21,13 @@ TEST_CASE("reflection any_ref - creates indirect views for pointer and wrappers"
 
   indirect_value_holder holder{};
 
-  const caors::reflection::field pointer_field =
+  const caors::meta::field pointer_field =
       require_reflected_field("caors.test.reflection.indirect_value_holder", "pointer");
-  const caors::reflection::field optional_field =
+  const caors::meta::field optional_field =
       require_reflected_field("caors.test.reflection.indirect_value_holder", "optional");
-  const caors::reflection::field unique_field =
+  const caors::meta::field unique_field =
       require_reflected_field("caors.test.reflection.indirect_value_holder", "unique");
-  const caors::reflection::field weak_field =
+  const caors::meta::field weak_field =
       require_reflected_field("caors.test.reflection.indirect_value_holder", "weak");
 
   caors::meta::indirect_view pointer =

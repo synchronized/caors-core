@@ -32,7 +32,7 @@
 - 对象生命周期管理器。
 - 序列化格式。
 
-字段和成员方法现在直接保存在 `meta` 类型记录上；`reflection` 命名空间保留为反射语义的兼容入口和文档分区。
+字段和成员方法现在直接保存在 `meta` 类型记录上；不再保留独立 `reflection` 模块。
 对象、资源和序列化等领域能力仍由对应模块基于 `meta` 扩展。
 
 新代码可以直接包含 `caors/meta.h` 使用完整类型元数据 API；如果只需要局部能力，也可以包含对应子头文件：
@@ -260,7 +260,7 @@ caors::meta::class_<actor>("game.actor")
 未注册时返回空视图。`caors::meta::find(id/name/guid)` 是运行期查询入口：按 `name` / `guid`
 只能找到已注册类型，按 `id` 可以找到已缓存的 descriptor 视图或已注册类型。
 普通业务类型仍应通过 `caors::meta::class_<T>("name")` 显式注册，再把得到的 `meta::type` 交给
-对象、反射或序列化模块挂载组件。
+对象或序列化模块挂载组件。
 
 ### 普通入口：facade 和 view
 
@@ -272,7 +272,7 @@ caors::meta::class_<actor>("game.actor")
 - 实例级能力同样优先传入 capability 类型，例如
   `any_ref.get_capability<meta::sequence_capability>()` 返回 `sequence_view`，
   `any_ref.get_capability<objects::ptr_capability>()` 返回 `objects::ptr_view`。
-- 跨 meta / reflection / object 的高层访问优先使用 `runtime::type` 和 `runtime::instance`。
+- 跨 meta / object 的高层访问优先使用 `runtime::type` 和 `runtime::instance`。
 - 公开 capability facade 不直接暴露 `void*`。需要返回未知类型值时使用 `meta::any`，
   需要引用已有对象时使用 `meta::any_ref` 或绑定后的 `*_view`；`void*` 只用于底层
   `*_ops`、model 和 `meta::detail` helper。
@@ -814,7 +814,7 @@ descriptor，不再为了创建 view 把每一种容器组合额外挂载为 met
 - `objects::registry` 复用全局 meta 类型记录，再给同一个 `type_id` 挂载
   `objects::object_factory_capability`，并对外返回 `objects::type` 视图。
 - 字段和方法直接保存在 meta 类型记录关联的数据中，并通过 `meta::type` / `meta::field` / `meta::method` 对外查询；
-  `reflection::type` / `reflection::field` 是兼容视图。
+  `meta::type` / `meta::field` 是兼容视图。
 - 后续 `serialization::registry` 可以挂载序列化相关组件。
 
 这样对象、反射和序列化的全局注册入口不需要重复处理重名、重复 GUID、不一致类型描述和父类型缺失。

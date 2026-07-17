@@ -2,7 +2,7 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/memory.h"
-#include "caors/reflection.h"
+#include "caors/meta.h"
 #include "caors/serialization.h"
 
 #include <iostream>
@@ -84,20 +84,20 @@ bool register_types() {
     return false;
   }
 
-  if (!check(caors::reflection::class_<actor>().commit(), "reflection actor")) {
+  if (!check(caors::meta::class_<actor>().commit(), "meta fields actor")) {
     return false;
   }
 
-  if (!check(caors::reflection::class_<player>().field("level", &player::level).commit(),
-             "reflection player")) {
+  if (!check(caors::meta::class_<player>().field("level", &player::level).commit(),
+             "meta fields player")) {
     return false;
   }
 
   if (!check(((void)caors::meta::class_<scene>("example.serialization.scene"),
-              caors::reflection::class_<scene>())
+              caors::meta::class_<scene>())
                  .field("owner", &scene::owner, "std.shared_ptr<example.serialization.actor>")
                  .commit(),
-             "reflection scene")) {
+             "meta fields scene")) {
     return false;
   }
 

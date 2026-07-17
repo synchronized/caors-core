@@ -74,7 +74,7 @@ TEST_CASE("serialization - descriptor enum data handles unregistered enum values
 
   REQUIRE(reflection_result_ok(((void)caors::meta::class_<descriptor_enum_actor>(
                                     "caors.test.serialization.descriptor_enum_actor"),
-                                caors::reflection::class_<descriptor_enum_actor>())
+                                caors::meta::class_<descriptor_enum_actor>())
                                    .field("colors", &descriptor_enum_actor::colors)
                                    .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<descriptor_enum_actor>().commit()));

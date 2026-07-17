@@ -183,7 +183,7 @@ caors::object* target = object.get_ptr("target");
 自动反推出 `objects::object*`；这避免在没有完整对象类型语义时做不安全转换。需要当前对象指针时，
 优先使用 `runtime::object_view(T&)`，或由上层对象 manager / 场景系统显式提供。
 
-`reflection::field` 只保留通用字段读写能力，不直接暴露对象专用 `get/set` 接口。
+`meta::field` 只保留通用字段读写能力，不直接暴露对象专用 `get/set` 接口。
 
 如果 `objects::ptr<T>` / `objects::handle` 作为反射字段或容器元素使用，字段和容器元素 `any_ref`
 会携带声明类型的 descriptor，字段读写和序列化路径不需要手动注册运行期 capability。

@@ -1,11 +1,11 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (c) 2026 CAORS contributors -->
 
-# Reflection
+# Meta Reflection
 
 本文档说明 CAORS 反射系统的当前设计边界。当前反射能力已经并入 `meta` 类型记录：
-类型、字段和成员方法元信息统一由 `meta::registry` 保存，`reflection` 命名空间主要保留反射语义文档、
-旧入口和兼容查询；暂不提供独立属性系统或代码生成。
+类型、字段和成员方法元信息统一由 `meta::registry` 保存，不再提供独立 `caors::reflection`
+模块；暂不提供独立属性系统或代码生成。
 
 ## 设计目标
 
@@ -14,7 +14,7 @@
 - 直接使用 `meta::type`、`type_id` 和 `type_guid` 表达类型身份。
 - 在 `meta::registry` 的类型记录上保存字段和成员方法数据。
 - 通过 RTTR 风格 builder 描述字段和成员方法。
-- 提供按类型 id、类型名和稳定 GUID 查询反射类型；新代码也可以直接使用 `meta::find()`。
+- 提供按类型 id、类型名和稳定 GUID 查询 meta 类型；新代码直接使用 `meta::find()`。
 - 提供全局 append-only 注册表，以及稳定的类型、字段和方法视图。
 - 提供字段基础读写入口和运行期值拷贝。
 - 提供成员方法基础调用入口。
@@ -33,8 +33,8 @@
 ### 命名空间
 
 字段和方法的主类型位于 `caors::meta` 命名空间，例如 `meta::field`、`meta::method` 和
-`meta::type`。`caors::reflection` 仍提供 `reflection::field`、`reflection::method`、
-`reflection::type`、`reflection::class_<T>()` 和 `reflection::find()`，用于旧代码和强调反射语义的调用点。
+`meta::type`。反射字段和方法是 `meta::type` 的一部分，不再通过 `caors::reflection`
+命名空间访问。
 
 ### 字段注册
 
@@ -205,7 +205,7 @@ struct sequence_traits<my_sequence<T>> {
 `resize()` 适合只在元素可默认构造时返回成功，`append()` 适合只在元素可拷贝时返回成功。借用视图类型应额外提供
 `static constexpr bool can_read = false`，避免序列化层默认读回到不受它管理的 backing storage；如果后续有明确字段策略，
 可再通过显式 opt-in 配合 `read_in_place` 做原地读入。
-调用方通过 `meta::field` 或兼容 `reflection::field` 操作 sequence 字段时，类型不匹配、对象为空或 traits 不支持对应操作都会返回失败。
+调用方通过 `meta::field` 或兼容 `meta::field` 操作 sequence 字段时，类型不匹配、对象为空或 traits 不支持对应操作都会返回失败。
 内置适配已覆盖 `std::vector<T>`、`caors::vector<T>`、`std::list<T>`、`caors::list<T>`、
 `std::forward_list<T>`、`std::deque<T>` 和 `std::array<T, N>`。`std::array<T, N>` 的类型名包含固定长度，例如
 `std.array<int,3>`；读入或调整长度时只有 `size == N` 才会成功。`std::span<T>` 是借用视图，
@@ -352,7 +352,7 @@ struct variant_traits<my_variant<Ts...>> {
   默认都属于该语义。
 - `unsupported`：明确识别为 wrapper，但当前序列化层不支持。
 
-推荐通过 `meta::field` 读写字段；`reflection::field` 是读取同一份底层数据的兼容视图：
+推荐通过 `meta::field` 读写字段；`meta::field` 是读取同一份底层数据的兼容视图：
 
 ```cpp
 actor instance{};
@@ -633,17 +633,15 @@ caors::meta::class_<actor>("game.actor")
 auto reflected = caors::meta::find("game.actor");
 ```
 
-`reflection::class_<T>()`、`reflection::find()` 和 `reflection::type` 仍保留为兼容入口。它们不会维护第二套
-注册表，而是读写同一个 `meta::registry` 中的字段和方法数据。新代码如果不需要强调旧反射命名空间语义，
-优先使用 `meta::class_<T>()` 和 `meta::type`。
+`meta::class_<T>()`、`meta::find()` 和 `meta::type` 不维护第二套注册表，而是读写同一个
+`meta::registry` 中的字段和方法数据。
 
 反射注册推荐在启动期或模块加载期完成，并在进入运行期前调用 `meta::init_registry()` 做延迟注册和一致性校验。
 `init_registry()` 不会冻结注册表；如果后续继续注册字段或方法，调用方需要自行保证没有并发读取依赖中的半成品类型。
 
-`reflection::registry` 仍作为实现 facade 存在，并复用 `meta::registry` 保存字段和方法数据。
-注册表构造由库内部管理；注册后不提供清理和撤销入口。
+`meta::registry` 由库内部管理；注册后不提供清理和撤销入口。
 
-注册失败会返回 `caors::error`，`domain()` 为 `error_domain::reflection`，`value()` 为明确的通用错误码：
+注册失败会返回 `caors::error`，`domain()` 为 `error_domain::meta`，`value()` 为明确的通用错误码：
 
 - `errc::invalid_type`：类型描述无效。
 - `errc::invalid_field`：字段描述无效。
@@ -652,13 +650,12 @@ auto reflected = caors::meta::find("game.actor");
 - `errc::duplicate_guid`：同一个非 nil 稳定 GUID 已注册。
 - `errc::duplicate_field`：同一个类型内存在重复字段名。
 - `errc::duplicate_method`：同一个类型内存在重复方法名。
-- `errc::duplicate_reflection`：兼容反射入口重复提交了同一个类型的完整反射数据。
 - `errc::inconsistent_type`：目标类型已存在，但 meta 类型信息不一致。
 - `errc::missing_parent`：父类型未注册。
 
-重复注册同一个类型时，如果 meta 类型信息一致且兼容反射入口重复提交完整反射数据，会返回 `duplicate_reflection`；
-如果同名、同 GUID 或同运行期类型 id 对应的 meta 类型信息不一致，会返回
-`inconsistent_type` 或对应的重复错误。
+重复注册同一个类型时，如果 meta 类型信息一致通常返回 `duplicate_id` 或成功保留已有数据；
+如果字段或方法名重复，会返回 `duplicate_field` / `duplicate_method`；如果同名、同 GUID
+或同运行期类型 id 对应的 meta 类型信息不一致，会返回 `inconsistent_type` 或对应的重复错误。
 
 ## 当前已实现能力
 
@@ -668,10 +665,8 @@ auto reflected = caors::meta::find("game.actor");
 - 字段声明类型的布局、值操作、类型语义和固定运行期能力集合由 meta 内部 descriptor 提供。
 - `meta::type` / `meta::field` / `meta::method`：全局字段和方法数据的推荐查询入口。
 - `meta::class_<T>()`：推荐的 RTTR 风格链式注册入口。
-- `reflection::type` / `reflection::field` / `reflection::method`：兼容查询入口，底层读取同一份 meta 数据。
-- `reflection::registry`：兼容注册表 facade。
-- `reflection::class_<T>()`：兼容链式注册入口。
-- `reflection::find()` / `reflection::contains()`：兼容查询入口。
+- `meta::registry`：全局 meta 注册表 facade。
+- `meta::find()` / `meta::get_registry().contains()`：类型查询入口。
 
 ## 相关入口
 
@@ -679,15 +674,7 @@ auto reflected = caors::meta::find("game.actor");
   - `field.h`：字段元信息和字段访问。
   - `method.h`：成员方法元信息和运行期调用。
   - `reflection.h`：`meta::class_<T>()` 的字段/方法注册扩展。
-- 兼容头文件按职责拆分在 `include/caors/reflection/`：
-  - `field.h`：字段元信息和字段访问。
-  - `method.h`：成员方法元信息和运行期调用。
-  - `type.h`：类型反射描述。
-  - `view.h`：类型和字段的外部查询视图。
-  - `registry.h`：兼容注册表 facade 和注册查询函数。
-  - `builder.h`：RTTR 风格链式注册入口。
 - `include/caors/meta.h` 是推荐 umbrella 头，包含字段和方法注册、查询入口。
-- `include/caors/reflection.h` 继续提供兼容反射 API。
 - `include/caors/traits/*.h` 提供 `type_name`、wrapper、容器、pair、tuple 和 variant 类型语义扩展点主模板。
 - `include/caors/object/ptr.h` 提供 `objects::ptr<T>` 和对象指针 trait；
   `include/caors/object/ptr_view.h` 提供 `objects::ptr_view` 和显式 `objects::make_ptr_view(any_ref)`
@@ -697,5 +684,6 @@ auto reflected = caors::meta::find("game.actor");
 - `include/caors/adapters/stl.h` 是 STL/CAORS 容器、wrapper 和反射 traits 适配的聚合入口，不包含序列化 codec。
 - `include/caors/meta/value.h` 是 meta value umbrella 头，提供 `any`、各类运行期 view 和
   `caors::variant` DOM 值；具体 view 头位于 `include/caors/meta/value/`。
-- 可运行示例位于 `examples/reflection/`，示例组织规则见 [examples/README.md](../examples/README.md)。
-- 行为测试位于 `tests/reflection/`，测试组织规则见 [tests/README.md](../tests/README.md)。
+- 相关可运行示例位于 `examples/meta/` 和 `examples/serialization/`，示例组织规则见
+  [examples/README.md](../examples/README.md)。
+- 行为测试仍按反射能力主题位于 `tests/reflection/`，测试组织规则见 [tests/README.md](../tests/README.md)。

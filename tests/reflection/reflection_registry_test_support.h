@@ -10,7 +10,7 @@ namespace test_reflection {
 [[nodiscard]] inline caors::error register_registry_actor() {
   return ((void)caors::meta::class_<registry_actor>("caors.test.reflection.registry_actor")
               .guid(registry_actor_guid),
-          caors::reflection::class_<registry_actor>())
+          caors::meta::class_<registry_actor>())
       .field("id", &registry_actor::id)
       .field("health", &registry_actor::health)
       .commit();
@@ -19,7 +19,7 @@ namespace test_reflection {
 [[nodiscard]] inline caors::error register_view_actor() {
   return ((void)caors::meta::class_<view_actor>("caors.test.reflection.view_actor")
               .guid(view_actor_guid),
-          caors::reflection::class_<view_actor>())
+          caors::meta::class_<view_actor>())
       .field("id", &view_actor::id)
       .field("health", &view_actor::health)
       .commit();

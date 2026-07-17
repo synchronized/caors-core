@@ -143,7 +143,7 @@ struct object_ptr_access<game::actor_ptr> {
 
 ## 容器 traits
 
-容器 traits 用于让 meta、reflection、serialization 和 value 模块以统一方式识别容器形态。
+容器 traits 用于让 meta、serialization 和 object 等上层模块以统一方式识别容器形态。
 
 - `traits::sequence_traits<T>`：顺序容器，例如 vector、array、span。
 - `traits::set_traits<T>`：集合容器，例如 unordered_set、set。
@@ -222,8 +222,8 @@ core
   ↑
 traits
   ↑
-adapters / meta / value / reflection / serialization / object
+adapters / meta / serialization / object
 ```
 
-`traits` 不应依赖 `meta`、`reflection` 或 `serialization`。当扩展点需要共享基础枚举或值类型时，
+`traits` 不应依赖 `meta` 或 `serialization`。当扩展点需要共享基础枚举或值类型时，
 优先放在 `traits` 或 `core`，再由上层模块引用。

@@ -5,7 +5,7 @@
 #include "helpers.h"
 #include "polymorphic.h"
 
-#include "caors/reflection/registry.h"
+#include "caors/meta.h"
 
 #include <limits>
 #include <new>
@@ -73,13 +73,13 @@ construct_polymorphic_value(const meta::type& dynamic_type, const meta::indirect
   return {};
 }
 
-[[nodiscard]] bool field_uses_inline_indirect_value(const reflection::field& field) noexcept {
+[[nodiscard]] bool field_uses_inline_indirect_value(const meta::field& field) noexcept {
   return (field.kind() == meta::type_kind::raw_pointer ||
           field.kind() == meta::type_kind::wrapper) &&
          field.wrapper_semantics() == meta::wrapper_semantics::inline_value;
 }
 
-[[nodiscard]] bool field_uses_direct_value(const reflection::field& field) noexcept {
+[[nodiscard]] bool field_uses_direct_value(const meta::field& field) noexcept {
   return field.kind() == meta::type_kind::value || field.kind() == meta::type_kind::enumeration ||
          field.kind() == meta::type_kind::sequence || field.kind() == meta::type_kind::set ||
          field.kind() == meta::type_kind::associative || field.kind() == meta::type_kind::pair ||
@@ -258,7 +258,7 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
     return {error_domain::serialization, errc::unsupported};
   }
 
-  const reflection::type reflected_dynamic_type = reflection::find(dynamic_type.value.id());
+  const meta::type reflected_dynamic_type = meta::find(dynamic_type.value.id());
   if (!reflected_dynamic_type) {
     return {error_domain::serialization, errc::not_found};
   }

@@ -36,7 +36,7 @@ public:
 void require_secondary_serialized_resource_metadata() {
   REQUIRE(reflection_result_ok(((void)caors::meta::class_<secondary_serialized_resource>(
                                     "caors.test.resources.secondary_serialized_resource"),
-                                caors::reflection::class_<secondary_serialized_resource>())
+                                caors::meta::class_<secondary_serialized_resource>())
                                    .field("width", &secondary_serialized_resource::width)
                                    .commit()));
   REQUIRE(serialization_result_ok(
@@ -205,18 +205,18 @@ void require_typed_external_source_config_metadata() {
   (void)caors::meta::class_<typed_external_source_config>(
       "caors.test.assets.typed_external_source_config");
   REQUIRE(reflection_result_ok(
-      caors::reflection::class_<typed_external_source_config>()
+          caors::meta::class_<typed_external_source_config>()
           .field("mount", &typed_external_source_config::mount)
-          .metadata(metadata::required(), true)
-          .metadata(metadata::non_empty(), true)
+          .field_metadata(metadata::required(), true)
+          .field_metadata(metadata::non_empty(), true)
           .field("read_only", &typed_external_source_config::read_only)
           .field("priority", &typed_external_source_config::priority)
-          .metadata(metadata::range_min(), 1)
-          .metadata(metadata::range_max(), 10)
+          .field_metadata(metadata::range_min(), 1)
+          .field_metadata(metadata::range_max(), 10)
           .field("filter", &typed_external_source_config::filter)
-          .metadata(metadata::one_of(),
-                    caors::meta::make_metadata_string_array(
-                        {std::string_view{"nearest"}, std::string_view{"linear"}}))
+          .field_metadata(metadata::one_of(),
+                          caors::meta::make_metadata_string_array(
+                              {std::string_view{"nearest"}, std::string_view{"linear"}}))
           .commit()));
   REQUIRE(serialization_result_ok(
       caors::serialization::class_<typed_external_source_config>().commit()));

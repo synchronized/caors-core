@@ -5,7 +5,7 @@
 
 #include "detail/polymorphic.h"
 
-#include "caors/reflection/registry.h"
+#include "caors/meta.h"
 
 #include <utility>
 
@@ -28,7 +28,7 @@ variant_result to_polymorphic_object_serialization_value(const serialization::co
   }
 
   if (dynamic_id == declared_id) {
-    const reflection::type declared_type = reflection::find(declared_id);
+    const meta::type declared_type = meta::find(declared_id);
     if (!declared_type) {
       return {{error_domain::serialization, errc::not_found}, {}};
     }
@@ -45,7 +45,7 @@ variant_result to_polymorphic_object_serialization_value(const serialization::co
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
 
-  const reflection::type reflected_dynamic_type = reflection::find(dynamic_type.id());
+  const meta::type reflected_dynamic_type = meta::find(dynamic_type.id());
   if (!reflected_dynamic_type) {
     return {{error_domain::serialization, errc::not_found}, {}};
   }
@@ -91,7 +91,7 @@ error deserialize_polymorphic_object_into(const serialization::context& context,
   }
 
   variant_reader reader{*stored_value};
-  const reflection::type reflected_dynamic_type = reflection::find(dynamic_type.value.id());
+  const meta::type reflected_dynamic_type = meta::find(dynamic_type.value.id());
   if (!reflected_dynamic_type) {
     return {error_domain::serialization, errc::not_found};
   }

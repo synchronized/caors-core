@@ -169,14 +169,10 @@ type type::get_key_type() const noexcept {
   return {};
 }
 
-bool type::has_reflection() const noexcept { return data_ != nullptr && data_->has_reflection(); }
-
-std::size_t type::field_count() const noexcept {
-  return data_ != nullptr && data_->has_reflection() ? data_->field_count() : 0;
-}
+std::size_t type::field_count() const noexcept { return data_ != nullptr ? data_->field_count() : 0; }
 
 field type::field_at(std::size_t index) const {
-  return data_ != nullptr && data_->has_reflection() ? field{data_->field_at(index)} : field{};
+  return data_ != nullptr ? field{data_->field_at(index)} : field{};
 }
 
 field type::find_field(core::string_name field_name) const {
@@ -184,8 +180,7 @@ field type::find_field(core::string_name field_name) const {
     return {};
   }
 
-  return data_ != nullptr && data_->has_reflection() ? field{data_->find_field_ptr(field_name)}
-                                                     : field{};
+  return data_ != nullptr ? field{data_->find_field_ptr(field_name)} : field{};
 }
 
 field type::find_field(std::string_view field_name) const {
@@ -197,12 +192,10 @@ field type::find_field(std::string_view field_name) const {
   return find_field(*interned_name);
 }
 
-std::size_t type::method_count() const noexcept {
-  return data_ != nullptr && data_->has_reflection() ? data_->method_count() : 0;
-}
+std::size_t type::method_count() const noexcept { return data_ != nullptr ? data_->method_count() : 0; }
 
 method type::method_at(std::size_t index) const {
-  return data_ != nullptr && data_->has_reflection() ? method{data_->method_at(index)} : method{};
+  return data_ != nullptr ? method{data_->method_at(index)} : method{};
 }
 
 method type::find_method(core::string_name method_name) const {
@@ -210,8 +203,7 @@ method type::find_method(core::string_name method_name) const {
     return {};
   }
 
-  return data_ != nullptr && data_->has_reflection() ? method{data_->find_method_ptr(method_name)}
-                                                     : method{};
+  return data_ != nullptr ? method{data_->find_method_ptr(method_name)} : method{};
 }
 
 method type::find_method(std::string_view method_name) const {

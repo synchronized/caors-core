@@ -17,7 +17,7 @@ namespace caors::meta {
 /** @brief RTTR 风格的类/普通值类型注册构建器。 */
 template <typename T> class class_builder {
 public:
-  class_builder() = default;
+  class_builder() { refresh(); }
 
   class_builder& type(std::string_view name) {
     status_ = get_registry().register_type_for<T>(make_type_registration_data<T>(name));
@@ -212,6 +212,7 @@ public:
 
   [[nodiscard]] ::caors::meta::type get() const noexcept { return type_; }
   [[nodiscard]] error result() const noexcept { return status_; }
+  [[nodiscard]] error commit() const noexcept { return status_; }
   [[nodiscard]] bool succeeded() const noexcept {
     return status_.succeeded() || status_.value() == errc::duplicate_id;
   }
@@ -235,7 +236,7 @@ template <typename T> class enum_builder {
                 "T must be an enum type");
 
 public:
-  enum_builder() = default;
+  enum_builder() { refresh(); }
 
   enum_builder& type(std::string_view name) {
     status_ = get_registry().register_type_for<T>(make_type_registration_data<T>(name));
@@ -320,6 +321,7 @@ public:
 
   [[nodiscard]] ::caors::meta::type get() const noexcept { return type_; }
   [[nodiscard]] error result() const noexcept { return status_; }
+  [[nodiscard]] error commit() const noexcept { return status_; }
   [[nodiscard]] bool succeeded() const noexcept {
     return status_.succeeded() || status_.value() == errc::duplicate_id;
   }

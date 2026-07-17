@@ -12,12 +12,12 @@ using namespace test_reflection;
 
 TEST_CASE("reflection - std pair field view exposes first and second values", "[reflection]") {
   REQUIRE(((void)caors::meta::class_<pair_holder>("caors.test.reflection.pair_holder"),
-           caors::reflection::class_<pair_holder>())
+           caors::meta::class_<pair_holder>())
               .field("value", &pair_holder::value)
               .commit()
               .succeeded());
 
-  auto reflected = caors::reflection::find("caors.test.reflection.pair_holder");
+  auto reflected = caors::meta::find("caors.test.reflection.pair_holder");
   REQUIRE(reflected);
 
   auto value = reflected.find_field("value");
@@ -62,12 +62,12 @@ using namespace test_reflection;
 
 TEST_CASE("reflection - std tuple field view exposes indexed elements", "[reflection]") {
   REQUIRE(((void)caors::meta::class_<tuple_holder>("caors.test.reflection.tuple_holder"),
-           caors::reflection::class_<tuple_holder>())
+           caors::meta::class_<tuple_holder>())
               .field("value", &tuple_holder::value)
               .commit()
               .succeeded());
 
-  auto reflected = caors::reflection::find("caors.test.reflection.tuple_holder");
+  auto reflected = caors::meta::find("caors.test.reflection.tuple_holder");
   REQUIRE(reflected);
 
   auto value = reflected.find_field("value");
@@ -118,12 +118,12 @@ using namespace test_reflection;
 
 TEST_CASE("reflection - std variant field view exposes active alternative", "[reflection]") {
   REQUIRE(((void)caors::meta::class_<variant_holder>("caors.test.reflection.variant_holder"),
-           caors::reflection::class_<variant_holder>())
+           caors::meta::class_<variant_holder>())
               .field("value", &variant_holder::value)
               .commit()
               .succeeded());
 
-  auto reflected = caors::reflection::find("caors.test.reflection.variant_holder");
+  auto reflected = caors::meta::find("caors.test.reflection.variant_holder");
   REQUIRE(reflected);
 
   auto value = reflected.find_field("value");

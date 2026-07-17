@@ -20,7 +20,7 @@ TEST_CASE("meta - cross module view supports serialization registered before ref
                                       .commit()));
   REQUIRE(reflection_result_ok(((void)caors::meta::class_<cross_module_serialization_first>(
                                     "caors.test.meta.cross_module_serialization_first"),
-                                caors::reflection::class_<cross_module_serialization_first>())
+                                caors::meta::class_<cross_module_serialization_first>())
                                    .field("id", &cross_module_serialization_first::id)
                                    .commit()));
 
@@ -42,7 +42,7 @@ using namespace caors::tests::cross_module;
 TEST_CASE("meta - view finds types with reflection and serialization components", "[meta]") {
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<cross_module_actor>("caors.test.meta.cross_module_actor"),
-       caors::reflection::class_<cross_module_actor>())
+       caors::meta::class_<cross_module_actor>())
           .field("id", &cross_module_actor::id)
           .field("health", &cross_module_actor::health)
           .commit()));
@@ -59,7 +59,7 @@ TEST_CASE("meta - view finds types with reflection and serialization components"
   auto view = caors::meta::get_registry().component_view<caors::serialization::type_schema>();
   CHECK(view_contains(view, type.id()));
 
-  auto reflection = caors::reflection::find(type.id());
+  auto reflection = caors::meta::find(type.id());
   REQUIRE(reflection);
   CHECK(reflection.field_count() == 2);
 
@@ -76,12 +76,12 @@ using namespace caors::tests::cross_module;
 TEST_CASE("reflection - field handles remain valid after later registrations", "[reflection]") {
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<cross_module_actor>("caors.test.meta.cross_module_actor"),
-       caors::reflection::class_<cross_module_actor>())
+       caors::meta::class_<cross_module_actor>())
           .field("id", &cross_module_actor::id)
           .field("health", &cross_module_actor::health)
           .commit()));
 
-  auto reflected = caors::reflection::find("caors.test.meta.cross_module_actor");
+  auto reflected = caors::meta::find("caors.test.meta.cross_module_actor");
   REQUIRE(reflected);
 
   auto id = reflected.find_field("id");
@@ -90,7 +90,7 @@ TEST_CASE("reflection - field handles remain valid after later registrations", "
 
   REQUIRE(reflection_result_ok(((void)caors::meta::class_<cross_module_late_registered>(
                                     "caors.test.meta.cross_module_late_registered"),
-                                caors::reflection::class_<cross_module_late_registered>())
+                                caors::meta::class_<cross_module_late_registered>())
                                    .field("value", &cross_module_late_registered::value)
                                    .commit()));
 

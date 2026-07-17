@@ -26,7 +26,6 @@ enum class errc {
   duplicate_component,
   duplicate_field,
   duplicate_method,
-  duplicate_reflection,
   inconsistent_type,
   missing_parent,
   frozen,
@@ -47,7 +46,6 @@ enum class error_domain {
   meta,
   memory,
   object,
-  reflection,
   resources,
   serialization,
 };
@@ -103,8 +101,7 @@ inline std::error_code error::code() const noexcept { return make_error_code(cod
 /**
  * @brief 将错误状态作为另一个模块的错误重新返回，并覆盖一个模块边界上的语义差异。
  *
- * 当底层错误码在当前模块有更准确的对外语义时使用。例如 meta 的
- * `duplicate_component` 可以在 reflection 边界转换为 `duplicate_reflection`。
+ * 当底层错误码在当前模块有更准确的对外语义时使用。
  */
 [[nodiscard]] constexpr error rethrow_as(error status, error_domain domain, errc from,
                                          errc to) noexcept {

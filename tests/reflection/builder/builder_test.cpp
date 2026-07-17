@@ -14,11 +14,11 @@ TEST_CASE("reflection - class builder accepts fields with descriptor-only types"
   };
 
   REQUIRE(((void)caors::meta::class_<owner>("caors.test.reflection.owner"),
-           caors::reflection::class_<owner>())
+           caors::meta::class_<owner>())
               .field("field", &owner::field)
               .commit() == caors::error{});
 
-  auto reflected = caors::reflection::find("caors.test.reflection.owner");
+  auto reflected = caors::meta::find("caors.test.reflection.owner");
   REQUIRE(reflected);
 
   auto field = reflected.find_field("field");
@@ -41,14 +41,14 @@ using namespace test_reflection;
 TEST_CASE("reflection - class builder infers built-in field types", "[reflection]") {
   const caors::error result =
       ((void)caors::meta::class_<builder_actor>("caors.test.reflection.builder_actor"),
-       caors::reflection::class_<builder_actor>())
+       caors::meta::class_<builder_actor>())
           .field("id", &builder_actor::id)
           .field("health", &builder_actor::health)
           .commit();
 
   REQUIRE(result == caors::error{});
 
-  auto reflected = caors::reflection::find("caors.test.reflection.builder_actor");
+  auto reflected = caors::meta::find("caors.test.reflection.builder_actor");
   REQUIRE(reflected);
 
   auto id = reflected.find_field("id");
@@ -81,7 +81,7 @@ TEST_CASE("reflection - class builder resolves explicitly registered C++ field t
 
   REQUIRE(((void)caors::meta::class_<test_reflection::named_field_owner>(
                "caors.test.reflection.named_field_owner"),
-           caors::reflection::class_<test_reflection::named_field_owner>())
+           caors::meta::class_<test_reflection::named_field_owner>())
               .field("value", &test_reflection::named_field_owner::value)
               .commit() == caors::error{});
 
@@ -89,7 +89,7 @@ TEST_CASE("reflection - class builder resolves explicitly registered C++ field t
   REQUIRE(value_type);
   CHECK(value_type.id() == caors::meta::id_of<test_reflection::named_field_value>());
 
-  auto reflected = caors::reflection::find("caors.test.reflection.named_field_owner");
+  auto reflected = caors::meta::find("caors.test.reflection.named_field_owner");
   REQUIRE(reflected);
 
   auto value = reflected.find_field("value");
@@ -106,16 +106,16 @@ using namespace test_reflection;
 
 TEST_CASE("reflection - class builder resolves registered C++ field types", "[reflection]") {
   REQUIRE(((void)caors::meta::class_<inventory>("caors.test.reflection.inventory"),
-           caors::reflection::class_<inventory>())
+           caors::meta::class_<inventory>())
               .field("count", &inventory::count)
               .commit() == caors::error{});
 
   REQUIRE(((void)caors::meta::class_<inventory_holder>("caors.test.reflection.inventory_holder"),
-           caors::reflection::class_<inventory_holder>())
+           caors::meta::class_<inventory_holder>())
               .field("items", &inventory_holder::items)
               .commit() == caors::error{});
 
-  auto reflected = caors::reflection::find("caors.test.reflection.inventory_holder");
+  auto reflected = caors::meta::find("caors.test.reflection.inventory_holder");
   REQUIRE(reflected);
 
   auto items = reflected.find_field("items");

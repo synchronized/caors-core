@@ -6,10 +6,11 @@
 
 #include "caors/export.h"
 #include "caors/memory/resource.h"
+#include "caors/meta/field.h"
+#include "caors/meta/method.h"
 #include "caors/meta/type.h"
 #include "caors/meta/value/any.h"
 #include "caors/meta/value/any_ref.h"
-#include "caors/reflection/type.h"
 
 #include <cstddef>
 #include <span>
@@ -17,14 +18,14 @@
 
 namespace caors::runtime {
 
-using field = reflection::field;
-using method = reflection::method;
+using field = meta::field;
+using method = meta::method;
 
 /**
  * @brief 运行时类型组合视图。
  *
  * `runtime::type` 是用户友好的 facade，不拥有任何类型数据。它以 `meta::type` 为主视图，
- * 并按需查询反射组件。缺少反射组件时，字段和方法查询返回空视图。
+ * 字段和方法查询直接转发到 `meta::type`。
  */
 class CAORS_API type final {
 public:
@@ -35,8 +36,6 @@ public:
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
 
   [[nodiscard]] meta::type meta() const noexcept;
-  [[nodiscard]] reflection::type reflection() const noexcept;
-  [[nodiscard]] bool reflectable() const noexcept;
 
   [[nodiscard]] type_id id() const noexcept;
   [[nodiscard]] string_name name() const noexcept;

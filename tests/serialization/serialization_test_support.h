@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "caors/reflection.h"
+#include "caors/meta.h"
 #include "caors/serialization.h"
 #include "caors/traits/type_name.h"
 
@@ -342,7 +342,8 @@ struct object_ptr_resolver_data {
 };
 
 [[nodiscard]] inline bool reflection_result_ok(caors::error result) noexcept {
-  return result.succeeded() || result.value() == caors::errc::duplicate_reflection;
+  return result.succeeded() || result.value() == caors::errc::duplicate_field ||
+         result.value() == caors::errc::duplicate_method;
 }
 
 [[nodiscard]] inline bool serialization_result_ok(caors::error result) noexcept {
@@ -358,10 +359,10 @@ template <typename T> void require_registered_type(std::string_view name) {
 }
 
 template <typename T>
-[[nodiscard]] caors::reflection::class_builder<T>
+[[nodiscard]] caors::meta::class_builder<T>
 registered_reflection_class(std::string_view name) {
   REQUIRE(type_result_ok(caors::meta::class_<T>(name).result()));
-  return caors::reflection::class_<T>();
+  return caors::meta::class_<T>();
 }
 
 inline void require_pointer_actor_metadata() {

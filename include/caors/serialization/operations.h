@@ -5,7 +5,7 @@
 #define CAORS_SERIALIZATION_OPERATIONS_H_
 
 #include "caors/object.h"
-#include "caors/reflection/registry.h"
+#include "caors/meta.h"
 #include "caors/serialization/codec.h"
 #include "caors/serialization/detail/operations.h"
 #include "caors/serialization/dom_reader.h"
@@ -18,7 +18,7 @@
 
 namespace caors::serialization {
 
-/** @brief 把已注册序列化和反射信息的 C++ 对象写入指定后端。 */
+/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象写入指定后端。 */
 template <typename T> [[nodiscard]] error serialize(const T& object, writer& writer) {
   serialization::context context{};
   const meta::type type = caors::meta::find<T>();
@@ -33,15 +33,15 @@ template <typename T> [[nodiscard]] error serialize(const T& object, writer& wri
     }
   }
 
-  const reflection::type reflection_type = reflection::find(type.id());
-  if (!reflection_type) {
+  const meta::type meta_type = meta::find(type.id());
+  if (!meta_type) {
     return {error_domain::serialization, errc::not_found};
   }
 
-  return detail::serialize(context, reflection_type, &object, writer);
+  return detail::serialize(context, meta_type, &object, writer);
 }
 
-/** @brief 把已注册序列化和反射信息的 C++ 对象按上下文写入指定后端。 */
+/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象按上下文写入指定后端。 */
 template <typename T>
 [[nodiscard]] error serialize(const serialization::context& context, const T& object,
                               writer& writer) {
@@ -57,12 +57,12 @@ template <typename T>
     }
   }
 
-  const reflection::type reflection_type = reflection::find(type.id());
-  if (!reflection_type) {
+  const meta::type meta_type = meta::find(type.id());
+  if (!meta_type) {
     return {error_domain::serialization, errc::not_found};
   }
 
-  return detail::serialize(context, reflection_type, &object, writer);
+  return detail::serialize(context, meta_type, &object, writer);
 }
 
 /** @brief 将序列化中间值写入指定后端。 */
@@ -74,22 +74,22 @@ template <typename T>
 /** @brief 按格式选项解析 JSON 文本为序列化中间值。 */
 [[nodiscard]] CAORS_API variant_result parse_json(std::string_view text, json_options options);
 
-/** @brief 把已注册序列化和反射信息的 C++ 对象从指定后端读入。 */
+/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象从指定后端读入。 */
 template <typename T> [[nodiscard]] error deserialize(T& object, reader& reader) {
   const meta::type type = caors::meta::find<T>();
   if (!type.registered()) {
     return {error_domain::serialization, errc::missing_type};
   }
 
-  const reflection::type reflection_type = reflection::find(type.id());
-  if (!reflection_type) {
+  const meta::type meta_type = meta::find(type.id());
+  if (!meta_type) {
     return {error_domain::serialization, errc::not_found};
   }
 
-  return detail::deserialize(serialization::context{}, reflection_type, &object, reader);
+  return detail::deserialize(serialization::context{}, meta_type, &object, reader);
 }
 
-/** @brief 把已注册序列化和反射信息的 C++ 对象按上下文从指定后端读入。 */
+/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象按上下文从指定后端读入。 */
 template <typename T>
 [[nodiscard]] error deserialize(const serialization::context& context, T& object, reader& reader) {
   const meta::type type = caors::meta::find<T>();
@@ -97,12 +97,12 @@ template <typename T>
     return {error_domain::serialization, errc::missing_type};
   }
 
-  const reflection::type reflection_type = reflection::find(type.id());
-  if (!reflection_type) {
+  const meta::type meta_type = meta::find(type.id());
+  if (!meta_type) {
     return {error_domain::serialization, errc::not_found};
   }
 
-  return detail::deserialize(context, reflection_type, &object, reader);
+  return detail::deserialize(context, meta_type, &object, reader);
 }
 
 /** @brief 从序列化 DOM 中间对象反序列化到对象。 */
@@ -187,7 +187,7 @@ template <typename T>
   return deserialize(context, object, value.value);
 }
 
-/** @brief 把已注册序列化和反射信息的 C++ 对象转换为序列化中间值。 */
+/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象转换为序列化中间值。 */
 template <typename T> [[nodiscard]] variant_result to_serialization_value(const T& object) {
   serialization::context context{};
   const meta::type type = caors::meta::find<T>();
@@ -202,15 +202,15 @@ template <typename T> [[nodiscard]] variant_result to_serialization_value(const 
     }
   }
 
-  const reflection::type reflection_type = reflection::find(type.id());
-  if (!reflection_type) {
+  const meta::type meta_type = meta::find(type.id());
+  if (!meta_type) {
     return {{error_domain::serialization, errc::not_found}, {}};
   }
 
-  return detail::to_serialization_value(context, reflection_type, &object);
+  return detail::to_serialization_value(context, meta_type, &object);
 }
 
-/** @brief 把已注册序列化和反射信息的 C++ 对象按上下文转换为序列化中间值。 */
+/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象按上下文转换为序列化中间值。 */
 template <typename T>
 [[nodiscard]] variant_result to_serialization_value(const serialization::context& context,
                                                     const T& object) {
@@ -226,12 +226,12 @@ template <typename T>
     }
   }
 
-  const reflection::type reflection_type = reflection::find(type.id());
-  if (!reflection_type) {
+  const meta::type meta_type = meta::find(type.id());
+  if (!meta_type) {
     return {{error_domain::serialization, errc::not_found}, {}};
   }
 
-  return detail::to_serialization_value(context, reflection_type, &object);
+  return detail::to_serialization_value(context, meta_type, &object);
 }
 
 /** @brief 把已注册序列化和反射信息的 C++ 对象转换为序列化中间值。 */
@@ -245,13 +245,13 @@ template <typename T>
   return to_serialization_value(context, object);
 }
 
-/** @brief 把已注册序列化和反射信息的 C++ 对象序列化到外部简单文本 buffer。 */
+/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象序列化到外部简单文本 buffer。 */
 template <typename T> [[nodiscard]] error serialize_text_to(const T& object, string& output) {
   serialization::text_writer writer{output};
   return serialize(object, writer);
 }
 
-/** @brief 把已注册序列化和反射信息的 C++ 对象按上下文序列化到外部简单文本 buffer。 */
+/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象按上下文序列化到外部简单文本 buffer。 */
 template <typename T>
 [[nodiscard]] error serialize_text_to(const serialization::context& context, const T& object,
                                       string& output) {
@@ -259,7 +259,7 @@ template <typename T>
   return serialize(context, object, writer);
 }
 
-/** @brief 把已注册序列化和反射信息的 C++ 对象序列化为简单文本格式。 */
+/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象序列化为简单文本格式。 */
 template <typename T> [[nodiscard]] serialization_text_result serialize_text(const T& object) {
   string output;
   const error status = serialize_text_to(object, output);
@@ -270,7 +270,7 @@ template <typename T> [[nodiscard]] serialization_text_result serialize_text(con
   return {{}, std::move(output)};
 }
 
-/** @brief 把已注册序列化和反射信息的 C++ 对象按上下文序列化为简单文本格式。 */
+/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象按上下文序列化为简单文本格式。 */
 template <typename T>
 [[nodiscard]] serialization_text_result serialize_text(const serialization::context& context,
                                                        const T& object) {
@@ -283,20 +283,20 @@ template <typename T>
   return {{}, std::move(output)};
 }
 
-/** @brief 把已注册序列化和反射信息的 C++ 对象序列化到外部 JSON buffer。 */
+/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象序列化到外部 JSON buffer。 */
 template <typename T> [[nodiscard]] error serialize_json_to(const T& object, string& output) {
   serialization::json_writer writer{output};
   return serialize(object, writer);
 }
 
-/** @brief 按 JSON 格式选项把已注册序列化和反射信息的 C++ 对象序列化到外部 JSON buffer。 */
+/** @brief 按 JSON 格式选项把已注册序列化和 meta 字段信息的 C++ 对象序列化到外部 JSON buffer。 */
 template <typename T>
 [[nodiscard]] error serialize_json_to(const T& object, string& output, json_options options) {
   serialization::json_writer writer{output, options};
   return serialize(object, writer);
 }
 
-/** @brief 把已注册序列化和反射信息的 C++ 对象按上下文序列化到外部 JSON buffer。 */
+/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象按上下文序列化到外部 JSON buffer。 */
 template <typename T>
 [[nodiscard]] error serialize_json_to(const serialization::context& context, const T& object,
                                       string& output) {
@@ -312,7 +312,7 @@ template <typename T>
   return serialize(context, object, writer);
 }
 
-/** @brief 把已注册序列化和反射信息的 C++ 对象序列化为 JSON。 */
+/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象序列化为 JSON。 */
 template <typename T> [[nodiscard]] serialization_text_result serialize_json(const T& object) {
   string output;
   const error status = serialize_json_to(object, output);
@@ -323,7 +323,7 @@ template <typename T> [[nodiscard]] serialization_text_result serialize_json(con
   return {{}, std::move(output)};
 }
 
-/** @brief 按 JSON 格式选项把已注册序列化和反射信息的 C++ 对象序列化为 JSON。 */
+/** @brief 按 JSON 格式选项把已注册序列化和 meta 字段信息的 C++ 对象序列化为 JSON。 */
 template <typename T>
 [[nodiscard]] serialization_text_result serialize_json(const T& object, json_options options) {
   string output;
@@ -335,7 +335,7 @@ template <typename T>
   return {{}, std::move(output)};
 }
 
-/** @brief 把已注册序列化和反射信息的 C++ 对象按上下文序列化为 JSON。 */
+/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象按上下文序列化为 JSON。 */
 template <typename T>
 [[nodiscard]] serialization_text_result serialize_json(const serialization::context& context,
                                                        const T& object) {
@@ -348,7 +348,7 @@ template <typename T>
   return {{}, std::move(output)};
 }
 
-/** @brief 按上下文和 JSON 格式选项把已注册序列化和反射信息的 C++ 对象序列化为 JSON。 */
+/** @brief 按上下文和 JSON 格式选项把已注册序列化和 meta 字段信息的 C++ 对象序列化为 JSON。 */
 template <typename T>
 [[nodiscard]] serialization_text_result serialize_json(const serialization::context& context,
                                                        const T& object, json_options options) {
@@ -361,7 +361,7 @@ template <typename T>
   return {{}, std::move(output)};
 }
 
-/** @brief 把已注册序列化和反射信息的 C++ 对象序列化为 JSON 字符串。 */
+/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象序列化为 JSON 字符串。 */
 template <typename T> [[nodiscard]] serialization_text_result to_string(const T& object) {
   return serialize_json(object);
 }

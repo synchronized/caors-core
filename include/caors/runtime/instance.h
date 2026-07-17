@@ -20,7 +20,7 @@ namespace caors::runtime {
  * @brief 运行期实例反射访问门面。
  *
  * `runtime::instance` 不拥有对象，只保存外部实例的 `meta::any_ref`。它负责把运行期值、类型视图和
- * 反射字段/方法组合起来，适合实现编辑器、调试面板和脚本桥接等高层访问入口。
+ * meta 字段/方法组合起来，适合实现编辑器、调试面板和脚本桥接等高层访问入口。
  */
 class CAORS_API instance final {
 public:
@@ -32,7 +32,6 @@ public:
 
   [[nodiscard]] meta::any_ref value() const noexcept;
   [[nodiscard]] runtime::type type() const noexcept;
-  [[nodiscard]] reflection::type reflection() const noexcept;
 
   /** @brief 查询并绑定当前实例的运行期能力视图。 */
   template <typename View> [[nodiscard]] View get_capability() const {
@@ -43,14 +42,14 @@ public:
   [[nodiscard]] field field_at(std::size_t index) const;
   [[nodiscard]] field find_field(string_name name) const;
   [[nodiscard]] field find_field(std::string_view name) const;
-  /** @brief 返回字段视图快照；字段视图仍引用全局反射注册表。 */
+  /** @brief 返回字段视图快照；字段视图仍引用全局 meta 注册表。 */
   [[nodiscard]] core::vector<field> fields(memory_resource* resource = nullptr) const;
 
   [[nodiscard]] std::size_t method_count() const noexcept;
   [[nodiscard]] method method_at(std::size_t index) const;
   [[nodiscard]] method find_method(string_name name) const;
   [[nodiscard]] method find_method(std::string_view name) const;
-  /** @brief 返回方法视图快照；方法视图仍引用全局反射注册表。 */
+  /** @brief 返回方法视图快照；方法视图仍引用全局 meta 注册表。 */
   [[nodiscard]] core::vector<method> methods(memory_resource* resource = nullptr) const;
 
   /** @brief 读取字段值的运行期拷贝；字段不存在时返回无效 `any`。 */

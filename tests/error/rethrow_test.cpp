@@ -4,7 +4,6 @@
 #include "caors/error.h"
 #include "caors/meta.h"
 #include "caors/object.h"
-#include "caors/reflection.h"
 #include "caors/result.h"
 
 #include <catch2/catch_all.hpp>
@@ -12,7 +11,7 @@
 #include <system_error>
 
 TEST_CASE("error - rethrow_as replaces domain and optional code", "[error]") {
-  constexpr caors::error ok = caors::rethrow_as(caors::error{}, caors::error_domain::reflection);
+  constexpr caors::error ok = caors::rethrow_as(caors::error{}, caors::error_domain::serialization);
   CHECK(ok.succeeded());
   CHECK_FALSE(ok);
   CHECK(ok.domain() == caors::error_domain::none);
@@ -25,8 +24,8 @@ TEST_CASE("error - rethrow_as replaces domain and optional code", "[error]") {
   CHECK(rethrown.value() == caors::errc::duplicate_component);
 
   constexpr caors::error remapped =
-      caors::rethrow_as(duplicate_component, caors::error_domain::reflection,
-                        caors::errc::duplicate_component, caors::errc::duplicate_reflection);
-  CHECK(remapped.domain() == caors::error_domain::reflection);
-  CHECK(remapped.value() == caors::errc::duplicate_reflection);
+      caors::rethrow_as(duplicate_component, caors::error_domain::serialization,
+                        caors::errc::duplicate_component, caors::errc::duplicate_field);
+  CHECK(remapped.domain() == caors::error_domain::serialization);
+  CHECK(remapped.value() == caors::errc::duplicate_field);
 }
