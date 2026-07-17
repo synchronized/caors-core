@@ -186,6 +186,27 @@ class_builder<T>& class_builder<T>::set_field_entry(string_name field_name, meta
 }
 
 template <typename T>
+class_builder<T>& class_builder<T>::set_field_schema_entry(string_name field_name,
+                                                           field_schema_entry entry) {
+  if (!type_.registered() || !field_name) {
+    status_ = {error_domain::meta, errc::invalid_field};
+    return *this;
+  }
+
+  detail::type_data* type_data = get_registry().find_mutable_type_data(type_.id());
+  detail::field_data* field =
+      type_data != nullptr ? type_data->mutable_find_field_ptr(field_name) : nullptr;
+  if (field == nullptr) {
+    status_ = {error_domain::meta, errc::invalid_field};
+    return *this;
+  }
+
+  field->apply_schema_entry(std::move(entry));
+  status_ = {};
+  return *this;
+}
+
+template <typename T>
 class_builder<T>& class_builder<T>::set_method_metadata(string_name method_name, metadata_key key,
                                                         metadata_value value) {
   if (!type_.registered() || !key || !method_name) {

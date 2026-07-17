@@ -537,6 +537,41 @@ caors::type_id actor_id = caors::meta::find<actor>().id();
 caors::meta::get_registry().emplace_component<object_factory_meta>(actor_id, true);
 ```
 
+### 字段 schema
+
+`meta::field_schema` 是字段自带的通用约束，直接保存在字段数据中。它适合表达配置、编辑器和工具层都能
+理解的稳定语义，不用于描述具体序列化格式：
+
+```cpp
+struct texture_config {
+  caors::string format;
+  int priority = 1;
+};
+
+caors::meta::class_<texture_config>("game.texture_config")
+    .field("format", &texture_config::format)
+    (caors::meta::required(),
+     caors::meta::non_empty(),
+     caors::meta::one_of({"json", "binary"}))
+    .field("priority", &texture_config::priority)
+    (caors::meta::range(1, 100))
+    .commit();
+
+caors::meta::field format =
+    caors::meta::find<texture_config>().find_field("format");
+const caors::meta::field_schema& schema = format.schema();
+```
+
+当前内置字段 schema 包括：
+
+- `required()`：字段必须有有效值。
+- `non_empty()`：字段不能为空，主要用于字符串、`string_name` 等文本字段。
+- `range_min(value)` / `range_max(value)` / `range(min, max)`：字段数值范围。
+- `one_of({...})`：字段允许值集合。
+
+字段 schema 只放常见、跨模块可理解的约束。序列化字段名、字段 id、版本迁移、跳过字段等格式或持久化
+策略应由 serialization 模块自己的 options 处理；不通用的工具扩展继续使用 metadata。
+
 ### metadata
 
 `meta::metadata_map` 是轻量键值附加信息，值使用 `meta::variant` 保存，适合给类型、字段或方法补充工具层、
@@ -603,7 +638,8 @@ caors::meta::enum_value_view hidden = values.find_value("hidden");
 `get_capability<Capability>()`。
 
 metadata 不参与类型身份，不替代 `type_name` / `type_guid` / capability。需要决定运行期行为时，优先使用
-明确的 capability、反射字段、序列化 schema 或资源配置对象；metadata 只承载可选约束、标签和工具提示。
+明确的 capability、反射字段、字段 schema、序列化 options 或资源配置对象；metadata 只承载可选标签和
+非标准工具提示。
 
 ## 高级扩展
 

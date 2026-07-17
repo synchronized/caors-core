@@ -5,6 +5,7 @@
 #define CAORS_META_BUILDER_H_
 
 #include "caors/meta/detail/value_ops_model.h"
+#include "caors/meta/field_schema.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/proxy.h"
 #include "caors/meta/registry.h"
@@ -20,6 +21,11 @@ template <typename T> class enum_builder;
 template <typename T> class field_bind;
 template <typename T> class method_bind;
 template <typename T> class enum_value_bind;
+
+template <typename Entry>
+inline constexpr bool is_field_bind_entry_v =
+    std::is_same_v<std::remove_cvref_t<Entry>, metadata_entry> ||
+    std::is_same_v<std::remove_cvref_t<Entry>, field_schema_entry>;
 
 /** @brief 枚举项注册输入。 */
 template <typename T> struct enum_value_entry {
@@ -306,6 +312,14 @@ private:
     return set_field_entry(field_name, entry.key, std::move(entry.value));
   }
 
+  class_builder& apply_field_entry(string_name field_name, const field_schema_entry& entry) {
+    return set_field_schema_entry(field_name, entry);
+  }
+
+  class_builder& apply_field_entry(string_name field_name, field_schema_entry&& entry) {
+    return set_field_schema_entry(field_name, std::move(entry));
+  }
+
   class_builder& apply_method_metadata(string_name method_name, const metadata_entry& entry) {
     return set_method_metadata(method_name, entry.key, entry.value);
   }
@@ -315,6 +329,7 @@ private:
   }
 
   class_builder& set_field_entry(string_name field_name, metadata_key key, metadata_value value);
+  class_builder& set_field_schema_entry(string_name field_name, field_schema_entry entry);
   class_builder& set_method_metadata(string_name method_name, metadata_key key,
                                      metadata_value value);
 
@@ -336,8 +351,9 @@ public:
       : builder_(&builder), field_name_(field_name) {}
 
   template <typename... Entries> class_builder<T>& operator()(Entries&&... entries) {
-    static_assert((std::is_same_v<std::remove_cvref_t<Entries>, metadata_entry> && ...),
-                  "meta::field_bind::operator() expects meta::metadata(...) entries");
+    static_assert((is_field_bind_entry_v<Entries> && ...),
+                  "meta::field_bind::operator() expects meta::metadata(...) or field schema "
+                  "entries");
     (builder_->apply_field_entry(field_name_, std::forward<Entries>(entries)), ...);
     return *builder_;
   }

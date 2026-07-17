@@ -11,6 +11,7 @@
 #include "caors/meta/constructor.h"
 #include "caors/meta/enum_value.h"
 #include "caors/meta/field.h"
+#include "caors/meta/field_schema.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/method.h"
 #include "caors/meta/proxy.h"

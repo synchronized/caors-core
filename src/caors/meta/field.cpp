@@ -18,6 +18,11 @@ namespace {
   return empty;
 }
 
+[[nodiscard]] const meta::field_schema& empty_field_schema() noexcept {
+  static const meta::field_schema empty{};
+  return empty;
+}
+
 } // namespace
 
 field::field(const void* field) noexcept : field_(field) {}
@@ -65,6 +70,11 @@ bool field::nullable() const noexcept { return get_type().nullable(); }
 bool field::writable() const noexcept {
   const detail::field_data* field = as_field_data(info());
   return field != nullptr && field->writable();
+}
+
+const meta::field_schema& field::schema() const noexcept {
+  const detail::field_data* field = as_field_data(info());
+  return field != nullptr ? field->schema() : empty_field_schema();
 }
 
 const meta::metadata_map& field::metadata() const noexcept {

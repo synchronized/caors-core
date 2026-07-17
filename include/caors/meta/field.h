@@ -5,6 +5,7 @@
 #define CAORS_META_FIELD_H_
 
 #include "caors/export.h"
+#include "caors/meta/field_schema.h"
 #include "caors/meta/type.h"
 #include "caors/meta/value/any_ref.h"
 
@@ -20,8 +21,8 @@ class type;
 /**
  * @brief 字段反射只读视图。
  *
- * `meta::field` 是全局 `meta::registry` 返回的字段只读句柄。字段数据注册后不可撤销，因此有效视图可以在
- * 进程生命周期内稳定使用。
+ * `meta::field` 是全局 `meta::registry` 返回的字段只读句柄。字段数据注册后不可撤销，
+ * 因此有效视图可以在进程生命周期内稳定使用。
  */
 class CAORS_API field final {
 public:
@@ -59,6 +60,7 @@ public:
   [[nodiscard]] bool indirect() const noexcept;
   [[nodiscard]] bool nullable() const noexcept;
   [[nodiscard]] bool writable() const noexcept;
+  [[nodiscard]] const meta::field_schema& schema() const noexcept;
   [[nodiscard]] const meta::metadata_map& metadata() const noexcept;
   [[nodiscard]] const meta::metadata_value* find_metadata(meta::metadata_key key) const noexcept;
   [[nodiscard]] std::size_t offset() const noexcept;

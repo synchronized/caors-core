@@ -53,6 +53,57 @@ TEST_CASE("meta - field view describes field layout", "[meta]") {
   CHECK(field.alignment() == alignof(float));
 }
 
+// 原测试文件：meta_field_field_view_exposes_builtin_schema_test.cpp
+
+#include "meta_field_test_support.h"
+
+using namespace test_meta;
+
+namespace {
+
+struct schema_actor {
+  caors::string format{};
+  int priority = 0;
+};
+
+} // namespace
+
+TEST_CASE("meta - field view exposes builtin schema", "[meta]") {
+  REQUIRE(((void)caors::meta::class_<schema_actor>("caors.test.meta.schema_actor"),
+           caors::meta::class_<schema_actor>())
+              .field("format", &schema_actor::format)(caors::meta::required(),
+                                                      caors::meta::non_empty(),
+                                                      caors::meta::one_of({"json", "binary"}))
+              .field("priority", &schema_actor::priority)(caors::meta::range(1, 100))
+              .commit() == caors::error{});
+
+  const caors::meta::type reflected = require_reflected("caors.test.meta.schema_actor");
+
+  const caors::meta::field format = require_field(reflected, "format");
+  const caors::meta::field_schema& format_schema = format.schema();
+  CHECK(format_schema.required);
+  CHECK(format_schema.non_empty);
+  REQUIRE(format_schema.one_of_value() != nullptr);
+  const caors::meta::metadata_value::array_type* allowed =
+      format_schema.one_of_value()->try_as_array();
+  REQUIRE(allowed != nullptr);
+  REQUIRE(allowed->size() == 2);
+  REQUIRE((*allowed)[0].try_as_string() != nullptr);
+  REQUIRE((*allowed)[1].try_as_string() != nullptr);
+  CHECK(*(*allowed)[0].try_as_string() == "json");
+  CHECK(*(*allowed)[1].try_as_string() == "binary");
+
+  const caors::meta::field priority = require_field(reflected, "priority");
+  const caors::meta::field_schema& priority_schema = priority.schema();
+  CHECK(priority_schema.has_range());
+  REQUIRE(priority_schema.range_min_value() != nullptr);
+  REQUIRE(priority_schema.range_max_value() != nullptr);
+  REQUIRE(priority_schema.range_min_value()->try_as_i64() != nullptr);
+  REQUIRE(priority_schema.range_max_value()->try_as_i64() != nullptr);
+  CHECK(*priority_schema.range_min_value()->try_as_i64() == 1);
+  CHECK(*priority_schema.range_max_value()->try_as_i64() == 100);
+}
+
 // 原测试文件：meta_field_field_view_describes_indirect_wrapper_traits_test.cpp
 
 #include "meta_field_test_support.h"

@@ -5,6 +5,7 @@
 #define CAORS_META_DETAIL_FIELD_DATA_H_
 
 #include "caors/memory/unique_ptr.h"
+#include "caors/meta/field_schema.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/type.h"
 #include "caors/meta/value/any_ref.h"
@@ -70,7 +71,8 @@ public:
         ops_(field_operations) {}
 
   field_data(const field_data& other)
-      : name_(other.name_), offset_(other.offset_), writable_(other.writable_), ops_(other.ops_) {
+      : name_(other.name_), offset_(other.offset_), writable_(other.writable_), ops_(other.ops_),
+        schema_(other.schema_) {
     if (other.metadata_ != nullptr) {
       metadata_ =
           memory::make_unique<meta::metadata_map>(&memory::library_resource(), *other.metadata_);
@@ -86,6 +88,7 @@ public:
     offset_ = other.offset_;
     writable_ = other.writable_;
     ops_ = other.ops_;
+    schema_ = other.schema_;
     if (other.metadata_ != nullptr) {
       metadata_ =
           memory::make_unique<meta::metadata_map>(&memory::library_resource(), *other.metadata_);
@@ -112,6 +115,9 @@ public:
     return metadata_ != nullptr ? *metadata_ : empty_metadata_map();
   }
 
+  /** @brief 查询字段通用 schema。 */
+  [[nodiscard]] const meta::field_schema& schema() const noexcept { return schema_; }
+
   /** @brief 查询字段 metadata 值。 */
   [[nodiscard]] const meta::metadata_value* find_metadata(meta::metadata_key key) const noexcept {
     return metadata_ != nullptr ? meta::find_metadata(*metadata_, key) : nullptr;
@@ -124,6 +130,11 @@ public:
           &memory::library_resource(), meta::make_metadata_map(&memory::library_resource()));
     }
     meta::set_metadata(*metadata_, key, std::move(value));
+  }
+
+  /** @brief 写入字段 schema 项。 */
+  void apply_schema_entry(meta::field_schema_entry entry) {
+    meta::apply_field_schema_entry(schema_, std::move(entry));
   }
 
   /** @brief 查询字段所有者类型视图。 */
@@ -305,6 +316,7 @@ private:
   std::size_t offset_ = 0;
   bool writable_ = true;
   field_ops ops_{};
+  meta::field_schema schema_{};
   memory::unique_ptr<meta::metadata_map> metadata_{};
 };
 
@@ -313,8 +325,7 @@ template <typename Class>
   return meta::resolve<Class>();
 }
 
-template <typename Field>
-[[nodiscard]] meta::type member_field_type(const field_data&) noexcept {
+template <typename Field> [[nodiscard]] meta::type member_field_type(const field_data&) noexcept {
   using field_type = std::remove_cv_t<Field>;
   return meta::resolve<field_type>();
 }
@@ -368,7 +379,7 @@ template <typename Class, typename Field> [[nodiscard]] field_ops member_field_o
 /** @brief 创建字段反射元信息。 */
 template <typename Class, typename Field>
 [[nodiscard]] field_data make_field_data(std::string_view name, std::string_view type_name,
-                                               std::size_t offset) {
+                                         std::size_t offset) {
   using field_type = std::remove_cv_t<Field>;
   if (!meta::resolve<field_type>()) {
     return {};
