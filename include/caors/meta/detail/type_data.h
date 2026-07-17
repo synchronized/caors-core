@@ -6,6 +6,7 @@
 
 #include "caors/core/containers.h"
 #include "caors/error.h"
+#include "caors/meta/detail/capability_data.h"
 #include "caors/meta/detail/enum_value_data.h"
 #include "caors/meta/detail/method_data.h"
 #include "caors/meta/detail/property_data.h"
@@ -30,6 +31,10 @@ public:
   constexpr type_data(type_id id, string_name name = {}, type_guid guid = type_guid::nil(),
                       type_id parent_id = type_id::invalid()) noexcept
       : id_(id), name_(name), guid_(guid), parent_id_(parent_id) {}
+  type_data(const type_data& other);
+  type_data& operator=(const type_data& other);
+  type_data(type_data&&) noexcept = default;
+  type_data& operator=(type_data&&) noexcept = default;
 
   [[nodiscard]] constexpr type_id id() const noexcept { return id_; }
   [[nodiscard]] constexpr string_name name() const noexcept { return name_; }
@@ -67,6 +72,12 @@ public:
   [[nodiscard]] const enum_value_data* find_enum_value_ptr(std::int64_t value) const noexcept;
   [[nodiscard]] const enum_value_data* find_enum_value_ptr(std::uint64_t value) const noexcept;
   void add_enum_value(enum_value_data value);
+  [[nodiscard]] const void* find_capability(capability_key key) const noexcept;
+  [[nodiscard]] bool contains_capability(capability_key key) const noexcept;
+  [[nodiscard]] std::size_t capability_count() const noexcept;
+  [[nodiscard]] error add_capability(capability_key key, const void* capability);
+  [[nodiscard]] error add_owned_capability(capability_key key,
+                                           memory::unique_ptr<owned_capability_base> capability);
 
 private:
   type_id id_{};
@@ -76,6 +87,7 @@ private:
   vector<property_data> properties_{};
   vector<method_data> methods_{};
   vector<enum_value_data> enum_values_{};
+  vector<capability_data> capabilities_{};
 };
 
 [[nodiscard]] error merge_type_data(registry_state& state, type_data& stored,

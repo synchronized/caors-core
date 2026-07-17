@@ -1,26 +1,18 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_META_DETAIL_CAPABILITY_REGISTRY_H_
-#define CAORS_META_DETAIL_CAPABILITY_REGISTRY_H_
+#ifndef CAORS_META_DETAIL_CAPABILITY_DATA_H_
+#define CAORS_META_DETAIL_CAPABILITY_DATA_H_
 
-#include "caors/error.h"
-#include "caors/export.h"
 #include "caors/memory/unique_ptr.h"
-#include "caors/meta/type_id.h"
+#include "caors/meta/capability_traits.h"
 
-#include <cstddef>
 #include <type_traits>
 #include <utility>
 
-namespace caors::meta {
+namespace caors::meta::detail {
 
-class type;
-using capability_key = const void*;
-
-namespace detail {
-
-/** @brief 运行期索引拥有的 capability 基类。内部用于保存用户自定义 concept table。 */
+/** @brief 注册类型拥有的 capability 基类。内部用于保存用户自定义 concept table。 */
 class owned_capability_base {
 public:
   virtual ~owned_capability_base() = default;
@@ -28,7 +20,7 @@ public:
   [[nodiscard]] virtual const void* data() const noexcept = 0;
 };
 
-/** @brief 保存一份具体 capability 对象，并向运行期索引暴露稳定只读指针。 */
+/** @brief 保存一份具体 capability 对象，并向类型数据暴露稳定只读指针。 */
 template <typename Capability> class owned_capability final : public owned_capability_base {
 public:
   using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
@@ -58,17 +50,15 @@ make_owned_capability(Capability capability) {
   return result;
 }
 
-[[nodiscard]] CAORS_API error register_capability(type_id id, capability_key key,
-                                                  const void* capability);
-[[nodiscard]] CAORS_API error register_owned_capability(
-    type_id id, capability_key key, memory::unique_ptr<owned_capability_base> capability);
-[[nodiscard]] CAORS_API const void* find_capability(type_id id, capability_key key) noexcept;
-[[nodiscard]] CAORS_API const void* find_type_capability(const meta::type& type,
-                                                         capability_key key) noexcept;
-[[nodiscard]] CAORS_API bool contains_capability(type_id id, capability_key key) noexcept;
-[[nodiscard]] CAORS_API std::size_t capability_count(capability_key key) noexcept;
+/** @brief 注册类型上的一条动态 capability 记录。 */
+struct capability_data {
+  capability_key key = nullptr;
+  const void* data = nullptr;
+  memory::unique_ptr<owned_capability_base> owned{};
 
-} // namespace detail
-} // namespace caors::meta
+  [[nodiscard]] bool valid() const noexcept { return key != nullptr && data != nullptr; }
+};
+
+} // namespace caors::meta::detail
 
 #endif

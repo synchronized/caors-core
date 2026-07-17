@@ -291,14 +291,15 @@ caors::meta::class_<actor>("game.actor")
 - descriptor static capability 用于类型固有能力。能力由模块在编译期按 `T` 生成，例如
   `objects::ptr<T>` 访问函数、对象 handle 函数表和 `codec_traits<T>` 生成的 codec 函数表。
   它们随 descriptor 一起查询，不要求类型先注册到 registry。
-- runtime capability 用于用户或插件扩展能力。它挂在 `type_id + capability_key` 的运行期索引上，
+- runtime capability 用于用户或插件扩展能力。它挂在已注册类型的 `type_data` 上，
   适合矩阵、图、脚本桥接、编辑器扩展等 CAORS 不内置的 concept table。公开写入入口是
-  `meta::class_<T>().capability(ops)`，由 CAORS 持有 `ops` 生命周期。
+  `meta::class_<T>().type("name").capability(ops)`，由 CAORS 持有 `ops` 生命周期。
   `meta::class_<T>().factory()` 也是该机制的高级封装，会把构造策略注册为内部
   `meta::factory_ops`，公开查询时返回 `meta::factory_capability`。
 
 默认查询顺序是：`meta::type::get_capability<C>()` 先查 descriptor static capability，再回退到
-runtime capability。普通调用方应使用这个统一入口，不直接关心能力来自 descriptor 还是运行期索引。
+注册类型数据上的 runtime capability。普通调用方应使用这个统一入口，不直接关心能力来自 descriptor
+还是注册类型数据。
 如果只剩 `type_id`，应先通过 `meta::find(id)` 找回 `meta::type` 视图；只有确实需要直接查运行期扩展时，
 才使用 `meta::capabilities::find<C>(id)`。
 
@@ -401,8 +402,9 @@ capability 索引。对象指针、对象句柄和 serialization codec 都通过
 内部 `ptr_ops`、`handle_ops` 和 `codec_ops` 只作为实现细节保留。
 
 动态扩展能力通过 `meta::class_<T>().capability(ops)`、`meta::class_<T>().capability<Capability>()`
-或内部稳定指针入口挂接到独立运行期索引；`meta::capabilities` 命名空间只保留静态能力提供者、
-运行期查询和诊断工具。`capability(ops)` 会把一份用户自定义 concept table 复制或移动到运行期索引中，
+或内部稳定指针入口挂接到注册类型数据；类型必须已经通过 `meta::class_<T>().type("name")`
+注册。`meta::capabilities` 命名空间只保留静态能力提供者、
+运行期查询和诊断工具。`capability(ops)` 会把一份用户自定义 concept table 复制或移动到注册类型数据中，
 由 CAORS 持有其生命周期；查询仍通过 `meta::type::get_capability<Capability>()` 或
 `meta::capabilities::find<Capability>(type_id)` 查询。默认用户 capability 返回只读指针；内置公开
 facade 可以通过 `type_capability_traits` 返回轻量对象。拿得到 C++ 类型 `T` 时，也可以通过
@@ -414,13 +416,14 @@ capability 和 registry 的边界：
 
 - descriptor 静态能力适合“编译期已知 C++ 类型即可生成”的只读函数表，例如对象指针访问函数、
   句柄访问函数和 `codec_traits<T>` 生成的 codec 操作表。
-- `meta::capabilities` 运行期索引适合“只剩 `type_id`，但仍需要查询某种用户外挂运行期能力”的场景；
+- `meta::capabilities` 的运行期查询适合“只剩 `type_id`，但仍需要查询某种用户外挂运行期能力”的场景；
   内置 object / serialization 能力优先通过 type descriptor 静态能力查询。
-- 公开写入运行期索引时优先使用 `meta::class_<T>().capability(ops)`，让 CAORS 持有用户自定义
+- 公开写入动态能力时优先使用 `meta::class_<T>().type("name").capability(ops)`，让 CAORS 持有用户自定义
   concept table。内部模块如果已经拥有进程生命周期的静态函数表，可以使用指针注册入口。
-  如果能力来自 `static_capability<Capability, T>`，可以使用 `meta::class_<T>().capability<Capability>()`。
-- 普通调用方优先使用 `meta::type::get_capability<T>()`。该入口统一处理 descriptor 静态能力和运行期
-  索引 fallback，避免业务代码分别理解两套存储位置。
+  如果能力来自 `static_capability<Capability, T>`，可以在类型注册后使用
+  `meta::class_<T>().capability<Capability>()`。
+- 普通调用方优先使用 `meta::type::get_capability<T>()`。该入口统一处理 descriptor 静态能力和注册类型数据
+  fallback，避免业务代码分别理解两套存储位置。
 - capability 不是 meta 组件。它不拥有类型注册数据，也不表示该 C++ 类型已经注册到
   `meta::registry`。需要稳定名称、GUID、父类型、反射属性、序列化属性配置或对象工厂时，仍应显式注册
   meta 类型和对应模块组件。
@@ -786,6 +789,7 @@ public:
 
 ```cpp
 caors::meta::class_<matrix>()
+    .type("game.matrix")
     .capability(matrix_ops{&matrix_rows, &matrix_columns});
 
 auto matrix_type = caors::meta::resolve<matrix>();
@@ -823,6 +827,7 @@ using matrix_capability =
                         add_type_convention<matrix_make, matrix()>::build;
 
 caors::meta::class_<matrix>()
+    .type("game.matrix")
     .capability<matrix_capability>();
 
 auto type = caors::meta::resolve<matrix>();
@@ -839,7 +844,7 @@ view.set(1, 1, 42);
 
 `CAORS_META_DEF_MEM_DISPATCH(dispatch_type, member_name)` 会定义一个 dispatch 类型。`add_convention`
 使用该 dispatch 和 `R(Args...)` / `R(Args...) noexcept` 签名生成 capability。注册时如果目标
-C++ 类型存在同名成员函数，`meta::class_<T>().capability<Capability>()` 会自动生成并注册
+C++ 类型存在同名成员函数，`meta::class_<T>().type("name").capability<Capability>()` 会自动生成并注册
 对应 ops；实例访问时 `any_ref::get_capability<Capability>()` 返回绑定后的 view。
 
 `CAORS_META_DEF_TYPE_DISPATCH(dispatch_type, member_name)` 定义类型级 dispatch。`add_type_convention`
@@ -934,7 +939,7 @@ descriptor，不再为了创建 view 把每一种容器组合额外挂载为 met
 - `meta::registration::value(name, value)` / `meta::enum_<T>().value(name, value)`：注册枚举项；查询时通过
   `meta::enum_capability` 返回的 `meta::enum_value_view` 访问名称、整数值和 metadata。
 - `meta::class_<T>().parent<Base>()`：保存 C++ 父类型关系和安全 upcast 回调。
-- `meta::class_<T>().factory()` / `.factory(construct, destroy)`：注册运行期 factory，保存运行期值构造和销毁策略；查询时使用 `meta::type::get_capability<meta::factory_capability>()`，推荐通过 `factory_capability::construct()` 获取拥有生命周期的 `any`。
+- `meta::class_<T>().factory()` / `.factory(construct, destroy)`：给已注册类型注册运行期 factory，保存运行期值构造和销毁策略；查询时使用 `meta::type::get_capability<meta::factory_capability>()`，推荐通过 `factory_capability::construct()` 获取拥有生命周期的 `any`。
 - `meta::class_<T>().constructor<Args...>()`：注册运行期参数构造策略；查询时使用
   `meta::type::get_capability<meta::constructor_capability>()`，普通调用优先走
   `runtime::type::create(arguments)` 或 `constructor_capability::construct(arguments)`。

@@ -198,7 +198,7 @@ public:
   /**
    * @brief 为当前 C++ 类型挂接一份运行期 capability 指针。
    *
-   * `capability` 必须在运行期索引可访问期间保持有效；普通查询优先使用
+   * `capability` 必须在类型数据可访问期间保持有效；普通查询优先使用
    * `meta::type::get_capability<Capability>()`。
    */
   template <typename Capability> class_builder& capability(const Capability* capability) {
@@ -209,9 +209,9 @@ public:
   }
 
   /**
-   * @brief 为当前 C++ 类型挂接一份由运行期索引拥有的 capability 对象。
+   * @brief 为当前 C++ 类型挂接一份由注册类型数据拥有的 capability 对象。
    *
-   * 该入口适合用户自定义 poly / concept table。能力对象会复制或移动到运行期索引内部，
+   * 该入口适合用户自定义 poly / concept table。能力对象会复制或移动到注册类型数据内部，
    * 查询得到的指针在进程内 append-only 注册表生命周期内保持稳定。
    */
   template <typename Capability>
@@ -225,7 +225,7 @@ public:
   }
 
   /**
-   * @brief 把 `capability_model<Capability, T>` 或静态能力挂接到运行期索引。
+   * @brief 把 `capability_model<Capability, T>` 或静态能力挂接到注册类型数据。
    *
    * 如果存在 `capability_model<Capability, T>`，优先注册 model 生成的 `Capability::ops_type`；
    * 否则尝试使用 `Capability::model<T>` 自动 model，最后回退到 `static_capability<Capability, T>`。

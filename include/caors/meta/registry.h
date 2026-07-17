@@ -28,10 +28,17 @@
 namespace caors::meta::detail {
 
 class registry_state;
+class owned_capability_base;
 class type_data;
 struct type_descriptor;
 template <typename T> [[nodiscard]] error ensure_type_descriptor_for();
 [[nodiscard]] error ensure_type_descriptor_registered(const type_descriptor& descriptor);
+[[nodiscard]] error register_capability(type_id id, capability_key key, const void* capability);
+[[nodiscard]] error register_owned_capability(type_id id, capability_key key,
+                                              memory::unique_ptr<owned_capability_base> capability);
+[[nodiscard]] const void* find_capability(type_id id, capability_key key) noexcept;
+[[nodiscard]] bool contains_capability(type_id id, capability_key key) noexcept;
+[[nodiscard]] std::size_t capability_count(capability_key key) noexcept;
 
 } // namespace caors::meta::detail
 
@@ -118,6 +125,13 @@ private:
   template <typename T> friend class enum_builder;
   friend class type;
   friend error detail::ensure_type_descriptor_registered(const detail::type_descriptor& descriptor);
+  friend error detail::register_capability(type_id id, capability_key key, const void* capability);
+  friend error
+  detail::register_owned_capability(type_id id, capability_key key,
+                                    memory::unique_ptr<detail::owned_capability_base> capability);
+  friend const void* detail::find_capability(type_id id, capability_key key) noexcept;
+  friend bool detail::contains_capability(type_id id, capability_key key) noexcept;
+  friend std::size_t detail::capability_count(capability_key key) noexcept;
 
   [[nodiscard]] error register_type(type_id id, string_name name, type_guid guid,
                                     type_id parent_id);

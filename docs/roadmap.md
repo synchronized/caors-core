@@ -32,7 +32,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 提供 `meta::registry::component_view<T...>()`，查询同时拥有指定元数据组件的类型。
 - [x] 补充 meta 字段和序列化组件的跨模块查询测试。
 - [x] 增加组件 `try_emplace` / `ensure` 语义和组件状态诊断 API。
-- [x] 增加轻量动态 capability 运行期索引，支持 `type_id + capability_key` 挂接模块能力。
+- [x] 将动态 capability 挂到注册类型数据，支持 `type_id + capability_key` 查询模块扩展能力。
 - [x] 将 serialization codec 接入 descriptor 静态 capability；编译期已知 `T` 或携带 descriptor 的
   `any` / `any_ref` 路径都可直接查询静态 codec 能力。
 - [x] 将对象指针和对象句柄运行期访问迁移到 descriptor 静态 capability 表，避免 `type_descriptor`

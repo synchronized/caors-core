@@ -41,7 +41,8 @@ descriptor、registry 和 capability 的边界如下：
 - registry 只保存显式注册后的稳定元数据和模块数据，例如名称、GUID、父类型、factory、字段、方法和序列化组件。
 - descriptor static capability 用于类型固有能力，例如对象指针、对象句柄和 `codec_traits<T>` 生成的
   codec 函数表，不需要单独注册 codec。
-- runtime capability 用于用户或插件扩展能力，通过 `meta::class_<T>().capability(ops)` 挂到运行期索引；
+- runtime capability 用于用户或插件扩展能力，通过 `meta::class_<T>().type("name").capability(ops)`
+  挂到注册类型数据；
   它不是 registry 组件，也不替代业务 meta 类型注册。
 
 ## 显式初始化

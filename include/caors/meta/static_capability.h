@@ -6,6 +6,7 @@
 
 #include "caors/error.h"
 #include "caors/meta/capability_traits.h"
+#include "caors/meta/detail/capability_data.h"
 #include "caors/meta/type_id.h"
 
 #include <cstddef>
@@ -109,14 +110,22 @@ template <typename Capability, typename T> [[nodiscard]] const Capability* get()
 
 namespace caors::meta::detail {
 
-/** @brief 把一份稳定生命周期的能力指针挂到运行期索引。内部入口。 */
+[[nodiscard]] CAORS_API error register_capability(type_id id, capability_key key,
+                                                  const void* capability);
+[[nodiscard]] CAORS_API error register_owned_capability(
+    type_id id, capability_key key, memory::unique_ptr<owned_capability_base> capability);
+[[nodiscard]] CAORS_API const void* find_capability(type_id id, capability_key key) noexcept;
+[[nodiscard]] CAORS_API bool contains_capability(type_id id, capability_key key) noexcept;
+[[nodiscard]] CAORS_API std::size_t capability_count(capability_key key) noexcept;
+
+/** @brief 把一份稳定生命周期的能力指针挂到已注册类型数据。内部入口。 */
 template <typename Capability>
 [[nodiscard]] error register_capability_for(type_id id, const Capability* capability) {
   using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
   return register_capability(id, capability_key_of<capability_type>(), capability);
 }
 
-/** @brief 按 C++ 类型把一份稳定生命周期的能力指针挂到运行期索引。内部入口。 */
+/** @brief 按 C++ 类型把一份稳定生命周期的能力指针挂到已注册类型数据。内部入口。 */
 template <typename Capability, typename T>
 [[nodiscard]] error register_capability_for_type(const Capability* capability) {
   using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
@@ -124,7 +133,7 @@ template <typename Capability, typename T>
   return register_capability_for<capability_type>(type_id_of_cpp_type<value_type>(), capability);
 }
 
-/** @brief 按 C++ 类型把一份运行期索引拥有的能力对象挂到运行期索引。内部入口。 */
+/** @brief 按 C++ 类型把一份类型数据拥有的能力对象挂到已注册类型数据。内部入口。 */
 template <typename Capability, typename T>
 [[nodiscard]] error register_owned_capability_for_type(Capability capability) {
   using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
@@ -134,7 +143,7 @@ template <typename Capability, typename T>
                                    capability_key_of<capability_type>(), std::move(owned));
 }
 
-/** @brief 把 C++ 类型的静态能力挂到运行期索引。内部入口。 */
+/** @brief 把 C++ 类型的静态能力挂到已注册类型数据。内部入口。 */
 template <typename Capability, typename T> [[nodiscard]] error register_static_capability_for() {
   using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
@@ -183,20 +192,20 @@ template <typename T> [[nodiscard]] constexpr std::size_t static_capabilities_si
   return static_capability_entries<value_type, list_type>::size();
 }
 
-/** @brief 按运行期类型 id 查询已注册能力。 */
+/** @brief 按运行期类型 id 查询注册类型数据上的动态能力。 */
 template <typename Capability> [[nodiscard]] const Capability* find(type_id id) noexcept {
   using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
   return static_cast<const capability_type*>(
       detail::find_capability(id, capability_key_of<capability_type>()));
 }
 
-/** @brief 判断运行期类型 id 是否已经注册指定能力。 */
+/** @brief 判断运行期类型 id 是否已经挂接指定动态能力。 */
 template <typename Capability> [[nodiscard]] bool contains(type_id id) noexcept {
   using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
   return detail::contains_capability(id, capability_key_of<capability_type>());
 }
 
-/** @brief 返回指定能力在运行期索引中的数量。 */
+/** @brief 返回指定动态能力挂接到注册类型数据的数量。 */
 template <typename Capability> [[nodiscard]] std::size_t size() noexcept {
   using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
   return detail::capability_count(capability_key_of<capability_type>());

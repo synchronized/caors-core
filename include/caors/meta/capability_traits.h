@@ -5,13 +5,24 @@
 #define CAORS_META_CAPABILITY_TRAITS_H_
 
 #include "caors/core/guid.h"
-#include "caors/meta/detail/capability_registry.h"
+#include "caors/export.h"
 
 #include <cstdint>
 #include <string_view>
 #include <type_traits>
 
 namespace caors::meta {
+
+class type;
+
+using capability_key = const void*;
+
+namespace detail {
+
+[[nodiscard]] CAORS_API const void* find_type_capability(const meta::type& type,
+                                                         capability_key key) noexcept;
+
+} // namespace detail
 
 /** @brief 能力类型的可选稳定描述信息。 */
 struct capability_info {

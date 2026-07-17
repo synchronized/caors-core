@@ -65,7 +65,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 - `caors/serialization/writer.h`：`serialization::writer`、`serialization::text_writer` 和
   `serialization::json_writer`。
 - `caors/serialization/reader.h`：`serialization::reader`。
-- `caors/serialization/codec.h`：类型级 codec 扩展点，以及接入 `meta::capabilities` 的运行期能力索引包装。
+- `caors/serialization/codec.h`：类型级 codec 扩展点，以及接入 `meta::capabilities` 的能力查询包装。
 - `caors/serialization/dom_reader.h`：从 `variant` DOM 读入的 reader 后端。
 - `caors/serialization/operations.h`：`serialize()`、`deserialize()`、`to_value()`、`to_string()`、`write_variant()` 等调度入口。
 - `caors/serialization.h`：序列化模块聚合入口，包含序列化入口和 STL 容器 traits 适配。

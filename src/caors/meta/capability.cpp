@@ -3,41 +3,16 @@
 
 #include "caors/meta/capability.h"
 
-#include "caors/core/containers.h"
-#include "caors/meta/detail/capability_registry.h"
 #include "caors/meta/detail/type_descriptor.h"
+#include "caors/meta/registry.h"
 #include "caors/meta/type.h"
 
-#include <cstdint>
+#include "detail/registry_state.h"
+
 #include <mutex>
 #include <utility>
 
 namespace caors::meta::detail {
-
-namespace {
-
-using stored_capability_key = std::uintptr_t;
-
-[[nodiscard]] stored_capability_key store_key(capability_key key) noexcept {
-  return reinterpret_cast<stored_capability_key>(key);
-}
-
-struct capability_registry_state {
-  mutable std::mutex mutex;
-  struct entry {
-    const void* data = nullptr;
-    memory::unique_ptr<owned_capability_base> owned{};
-  };
-
-  core::hash_map<std::uint64_t, core::hash_map<stored_capability_key, entry>> capabilities;
-};
-
-[[nodiscard]] capability_registry_state& capability_state() {
-  static capability_registry_state state;
-  return state;
-}
-
-} // namespace
 
 error register_capability(type_id id, capability_key key, const void* capability) {
   if (!id) {
@@ -48,17 +23,14 @@ error register_capability(type_id id, capability_key key, const void* capability
     return {error_domain::meta, errc::invalid_argument};
   }
 
-  capability_registry_state& state = capability_state();
-  std::lock_guard lock(state.mutex);
-  auto type_entry = state.capabilities.try_emplace(id.value());
-  capability_registry_state::entry entry{};
-  entry.data = capability;
-  auto capability_entry = type_entry.first->second.emplace(store_key(key), std::move(entry));
-  if (!capability_entry.second) {
-    return {error_domain::meta, errc::duplicate_component};
+  registry& registry = get_registry();
+  std::lock_guard lock(registry.state_->mutex);
+  type_data* type = find_type_data(*registry.state_, id);
+  if (type == nullptr) {
+    return {error_domain::meta, errc::missing_type};
   }
 
-  return {};
+  return type->add_capability(key, capability);
 }
 
 error register_owned_capability(type_id id, capability_key key,
@@ -71,18 +43,14 @@ error register_owned_capability(type_id id, capability_key key,
     return {error_domain::meta, errc::invalid_argument};
   }
 
-  capability_registry_state& state = capability_state();
-  std::lock_guard lock(state.mutex);
-  auto type_entry = state.capabilities.try_emplace(id.value());
-  capability_registry_state::entry entry{};
-  entry.data = capability->data();
-  entry.owned = std::move(capability);
-  auto capability_entry = type_entry.first->second.emplace(store_key(key), std::move(entry));
-  if (!capability_entry.second) {
-    return {error_domain::meta, errc::duplicate_component};
+  registry& registry = get_registry();
+  std::lock_guard lock(registry.state_->mutex);
+  type_data* type = find_type_data(*registry.state_, id);
+  if (type == nullptr) {
+    return {error_domain::meta, errc::missing_type};
   }
 
-  return {};
+  return type->add_owned_capability(key, std::move(capability));
 }
 
 const void* find_capability(type_id id, capability_key key) noexcept {
@@ -90,19 +58,14 @@ const void* find_capability(type_id id, capability_key key) noexcept {
     return nullptr;
   }
 
-  capability_registry_state& state = capability_state();
-  std::lock_guard lock(state.mutex);
-  const auto type_position = state.capabilities.find(id.value());
-  if (type_position == state.capabilities.end()) {
+  registry& registry = get_registry();
+  std::lock_guard lock(registry.state_->mutex);
+  const type_data* type = find_type_data(*registry.state_, id);
+  if (type == nullptr) {
     return nullptr;
   }
 
-  const auto capability_position = type_position->second.find(store_key(key));
-  if (capability_position == type_position->second.end()) {
-    return nullptr;
-  }
-
-  return capability_position->second.data;
+  return type->find_capability(key);
 }
 
 const void* find_type_capability(const meta::type& type, capability_key key) noexcept {
@@ -135,12 +98,12 @@ std::size_t capability_count(capability_key key) noexcept {
     return 0;
   }
 
-  const stored_capability_key stored_key = store_key(key);
-  capability_registry_state& state = capability_state();
-  std::lock_guard lock(state.mutex);
+  registry& registry = get_registry();
+  std::lock_guard lock(registry.state_->mutex);
   std::size_t result = 0;
-  for (const auto& type_entry : state.capabilities) {
-    if (type_entry.second.contains(stored_key)) {
+  for (const auto& [raw_id, type] : registry.state_->types) {
+    (void)raw_id;
+    if (type != nullptr && type->contains_capability(key)) {
       ++result;
     }
   }

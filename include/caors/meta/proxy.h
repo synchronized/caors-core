@@ -537,7 +537,7 @@ struct has_capability_auto_model<
 template <typename Capability, typename T>
 inline constexpr bool has_capability_auto_model_v = has_capability_auto_model<Capability, T>::value;
 
-/** @brief 把 `capability_model<Capability, T>` 生成的 ops 挂到运行期索引。内部入口。 */
+/** @brief 把 `capability_model<Capability, T>` 生成的 ops 挂到注册类型数据。内部入口。 */
 template <typename Capability, typename T> [[nodiscard]] error register_capability_model_for() {
   using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
@@ -555,7 +555,7 @@ template <typename Capability, typename T> [[nodiscard]] error register_capabili
   return register_capability_for_type<ops_type, value_type>(ops);
 }
 
-/** @brief 把 capability 自身声明的自动 model 生成的 ops 挂到运行期索引。内部入口。 */
+/** @brief 把 capability 自身声明的自动 model 生成的 ops 挂到注册类型数据。内部入口。 */
 template <typename Capability, typename T>
 [[nodiscard]] error register_capability_auto_model_for() {
   using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
