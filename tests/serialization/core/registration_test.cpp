@@ -198,7 +198,7 @@ TEST_CASE("serialization - explicit registration reports missing meta type", "[s
   CHECK(status.value() == caors::errc::invalid_type);
 }
 
-// 原测试文件：serialization_registration_field_metadata_renames_and_skips_fields_test.cpp
+// 原测试文件：serialization_registration_metadata_renames_and_skips_fields_test.cpp
 
 #include "serialization_test_support.h"
 

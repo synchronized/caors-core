@@ -573,8 +573,6 @@ caors::meta::class_<actor>("game.actor")
     (caors::meta::metadata("scriptable", true));
 ```
 
-`field_metadata(key, value)` 仍可用于高级代码按步骤给最近字段写入 metadata；普通注册代码优先使用上面的绑定语法。
-
 metadata 不参与类型身份，不替代 `type_name` / `type_guid` / capability。需要决定运行期行为时，优先使用
 明确的 capability、反射字段、序列化 schema 或资源配置对象；metadata 只承载可选约束、标签和工具提示。
 

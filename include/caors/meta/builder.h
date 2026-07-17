@@ -34,8 +34,6 @@ public:
   template <typename Member>
   field_bind<T> field(std::string_view name, Member member, std::string_view type_name);
   template <typename Member> method_bind<T> method(std::string_view name, Member member);
-  template <typename Value> class_builder<T>& field_metadata(std::string_view key, Value&& value);
-  template <typename Value> class_builder<T>& field_metadata(string_name key, Value&& value);
   template <typename Capability> class_builder<T>& capability(const Capability* capability);
   template <typename Capability>
     requires(!std::is_pointer_v<std::remove_reference_t<Capability>>)
@@ -167,12 +165,6 @@ public:
   /** @brief 注册成员方法反射信息。 */
   template <typename Member> method_bind<T> method(std::string_view name, Member member);
 
-  /** @brief 给最近添加的字段写入 metadata。 */
-  template <typename Value> class_builder& field_metadata(std::string_view key, Value&& value);
-
-  /** @brief 给最近添加的字段写入 metadata。 */
-  template <typename Value> class_builder& field_metadata(string_name key, Value&& value);
-
   /** @brief 用 RTTR 风格语法给当前类型写入 metadata。 */
   template <typename... Entries> class_builder& operator()(Entries&&... entries) {
     static_assert((std::is_same_v<std::remove_cvref_t<Entries>, metadata_entry> && ...),
@@ -281,12 +273,12 @@ private:
     return metadata(entry.key, std::move(entry.value));
   }
 
-  class_builder& apply_field_metadata(string_name field_name, const metadata_entry& entry) {
-    return set_field_metadata(field_name, entry.key, entry.value);
+  class_builder& apply_field_entry(string_name field_name, const metadata_entry& entry) {
+    return set_field_entry(field_name, entry.key, entry.value);
   }
 
-  class_builder& apply_field_metadata(string_name field_name, metadata_entry&& entry) {
-    return set_field_metadata(field_name, entry.key, std::move(entry.value));
+  class_builder& apply_field_entry(string_name field_name, metadata_entry&& entry) {
+    return set_field_entry(field_name, entry.key, std::move(entry.value));
   }
 
   class_builder& apply_method_metadata(string_name method_name, const metadata_entry& entry) {
@@ -297,17 +289,9 @@ private:
     return set_method_metadata(method_name, entry.key, std::move(entry.value));
   }
 
-  class_builder& set_field_metadata(string_name field_name, metadata_key key, metadata_value value);
+  class_builder& set_field_entry(string_name field_name, metadata_key key, metadata_value value);
   class_builder& set_method_metadata(string_name method_name, metadata_key key,
                                      metadata_value value);
-
-  class_builder& apply_field_metadata(const metadata_entry& entry) {
-    return field_metadata(entry.key, entry.value);
-  }
-
-  class_builder& apply_field_metadata(metadata_entry&& entry) {
-    return field_metadata(entry.key, std::move(entry.value));
-  }
 
   void refresh() {
     ::caors::meta::type refreshed = get_registry().find_type<T>();
@@ -318,7 +302,6 @@ private:
 
   ::caors::meta::type type_{};
   error status_{};
-  string_name last_field_name_{};
 };
 
 /** @brief 刚注册字段的 RTTR 风格 bind 对象。 */
@@ -330,7 +313,7 @@ public:
   template <typename... Entries> class_builder<T>& operator()(Entries&&... entries) {
     static_assert((std::is_same_v<std::remove_cvref_t<Entries>, metadata_entry> && ...),
                   "meta::field_bind::operator() expects meta::metadata(...) entries");
-    (builder_->apply_field_metadata(field_name_, std::forward<Entries>(entries)), ...);
+    (builder_->apply_field_entry(field_name_, std::forward<Entries>(entries)), ...);
     return *builder_;
   }
 
@@ -433,20 +416,6 @@ template <typename T, typename Derived>
 template <typename Member>
 method_bind<T> class_builder_bind_chain<T, Derived>::method(std::string_view name, Member member) {
   return builder().method(name, member);
-}
-
-template <typename T, typename Derived>
-template <typename Value>
-class_builder<T>& class_builder_bind_chain<T, Derived>::field_metadata(std::string_view key,
-                                                                       Value&& value) {
-  return builder().field_metadata(key, std::forward<Value>(value));
-}
-
-template <typename T, typename Derived>
-template <typename Value>
-class_builder<T>& class_builder_bind_chain<T, Derived>::field_metadata(string_name key,
-                                                                       Value&& value) {
-  return builder().field_metadata(key, std::forward<Value>(value));
 }
 
 template <typename T, typename Derived>

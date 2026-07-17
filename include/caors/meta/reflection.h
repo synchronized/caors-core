@@ -81,7 +81,6 @@ field_bind<T> class_builder<T>::field(std::string_view name, Member member) {
   }
 
   const string_name field_name = field.name();
-  last_field_name_ = field_name;
   type_data->add_field(std::move(field));
   status_ = {};
   return field_bind<T>{*this, field_name};
@@ -122,7 +121,6 @@ field_bind<T> class_builder<T>::field(std::string_view name, Member member,
   }
 
   const string_name field_name = field.name();
-  last_field_name_ = field_name;
   type_data->add_field(std::move(field));
   status_ = {};
   return field_bind<T>{*this, field_name};
@@ -167,21 +165,8 @@ method_bind<T> class_builder<T>::method(std::string_view name, Member member) {
 }
 
 template <typename T>
-template <typename Value>
-class_builder<T>& class_builder<T>::field_metadata(std::string_view key, Value&& value) {
-  return field_metadata(string_name{key}, std::forward<Value>(value));
-}
-
-template <typename T>
-template <typename Value>
-class_builder<T>& class_builder<T>::field_metadata(string_name key, Value&& value) {
-  return set_field_metadata(last_field_name_, key,
-                            meta::make_metadata_value(std::forward<Value>(value)));
-}
-
-template <typename T>
-class_builder<T>& class_builder<T>::set_field_metadata(string_name field_name, metadata_key key,
-                                                       metadata_value value) {
+class_builder<T>& class_builder<T>::set_field_entry(string_name field_name, metadata_key key,
+                                                    metadata_value value) {
   if (!type_.registered() || !key || !field_name) {
     status_ = {error_domain::meta, errc::invalid_field};
     return *this;
