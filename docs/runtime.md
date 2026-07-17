@@ -10,9 +10,8 @@
 - `runtime::type` 内部持有 `meta::type`，按需查询属性和方法。
 - `runtime::class_<T>("name")` 先注册 meta 类/普通值类型，再把属性和方法写入同一份 meta 类型数据。
 - `runtime::enum_<T>("name")` 注册枚举 meta 类型，适合只需要稳定类型身份、GUID 和枚举值转换能力的场景。
-- `runtime::instance` 组合 `meta::any_ref`、`runtime::type`、`meta::property`、`meta::method_set`
-  和 `meta::method`，
-  提供面向实例的属性读写和方法调用入口。
+- `runtime::instance` 是 `meta::instance` 的兼容别名；实例访问由 meta 层组合 `meta::any_ref`、
+  `meta::type`、`meta::property`、`meta::method_set` 和 `meta::method`。
 - `runtime::type::create()` 是运行期值创建的高层入口，优先使用 `meta::factory_capability`，再使用
   `meta::constructor_capability` 匹配运行期参数列表，最后才回退到 descriptor 默认构造。
 - `runtime::type::create_value()` 是高级默认构造入口，只使用 `meta::any` 的 descriptor 默认构造能力，
@@ -121,21 +120,22 @@ caors::runtime::class_<actor>("game.actor")
 适合编辑器、脚本桥接和工具层按运行期参数创建值。两者同时存在时，无参 `create()` 优先使用
 factory；带参数 `create(arguments)` 只匹配 constructor。
 
-已注册反射属性和方法后，可以通过 `runtime::instance` 访问具体实例：
+已注册反射属性和方法后，可以通过 `meta::instance` 访问具体实例；`runtime::view()`
+保留为兼容入口，返回同一个实例视图：
 
 ```cpp
 actor value{};
-caors::runtime::instance instance = caors::runtime::view(value);
+caors::meta::instance instance = caors::meta::view(value);
 
 caors::any health = instance.get("health");
 instance.set("health", 120);
 caors::any result = instance.call("add_health", 5);
 ```
 
-`runtime::instance` 是非拥有视图，只保存 `meta::any_ref`：
+`meta::instance` 是非拥有视图，只保存 `meta::any_ref`：
 
-- `runtime::view(value)` 创建可写实例视图。
-- `runtime::view_const(value)` 创建只读实例视图。
+- `meta::view(value)` 创建可写实例视图。
+- `meta::view_const(value)` 创建只读实例视图。
 - `get()` 返回属性值拷贝，属性不存在或值不可拷贝时返回无效 `any`。
 - `get_ref()` 返回属性引用；只读实例返回只读 `any_ref`。
 - `set()` 只在实例可写、属性存在并且类型匹配时成功。

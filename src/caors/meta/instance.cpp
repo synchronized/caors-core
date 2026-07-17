@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "caors/runtime/instance.h"
+#include "caors/meta/instance.h"
 
-namespace caors::runtime {
+namespace caors::meta {
 
 instance::instance(meta::any_ref value) noexcept : value_(value) {}
 
@@ -11,9 +11,13 @@ bool instance::valid() const noexcept { return value_.valid(); }
 
 meta::any_ref instance::value() const noexcept { return value_; }
 
-runtime::type instance::type() const noexcept {
-  return valid() ? runtime::type{value_.get_type()} : runtime::type{};
-}
+meta::type instance::type() const noexcept { return valid() ? value_.get_type() : meta::type{}; }
+
+const void* instance::data() const noexcept { return value_.data(); }
+
+void* instance::mutable_data() const noexcept { return value_.mutable_data(); }
+
+bool instance::writable() const noexcept { return value_.writable(); }
 
 std::size_t instance::property_count() const noexcept { return type().property_count(); }
 
@@ -59,7 +63,7 @@ any instance::get(std::string_view name) const {
     return {};
   }
 
-  return reflected_property.get_value(value_.data());
+  return reflected_property.get_value(*this);
 }
 
 any_ref instance::get_ref(std::string_view name) const {
@@ -68,11 +72,7 @@ any_ref instance::get_ref(std::string_view name) const {
     return {};
   }
 
-  if (value_.writable()) {
-    return reflected_property.get_ref(value_.mutable_data());
-  }
-
-  return reflected_property.get_ref(value_.data());
+  return reflected_property.get_ref(*this);
 }
 
 bool instance::set(std::string_view name, const any& source) const {
@@ -81,7 +81,7 @@ bool instance::set(std::string_view name, const any& source) const {
     return false;
   }
 
-  return reflected_property.try_set_value(value_.mutable_data(), source);
+  return reflected_property.try_set_value(*this, source);
 }
 
 bool instance::set(std::string_view name, const any_ref& source) const {
@@ -95,11 +95,7 @@ any instance::call(std::string_view name, std::span<const any_ref> arguments) co
     return {};
   }
 
-  if (value_.writable()) {
-    return reflected_method.invoke(value_.mutable_data(), arguments);
-  }
-
-  return reflected_method.invoke(value_.data(), arguments);
+  return reflected_method.invoke(*this, arguments);
 }
 
-} // namespace caors::runtime
+} // namespace caors::meta

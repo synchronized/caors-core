@@ -4,6 +4,7 @@
 #include "caors/meta.h"
 
 #include "caors/meta/detail/property_data.h"
+#include "caors/meta/instance.h"
 
 namespace caors::meta {
 namespace {
@@ -123,6 +124,14 @@ any property::get_value(const void* object) const {
   return property->get_value(object);
 }
 
+any property::get_value(const instance& object) const {
+  if (!object) {
+    return {};
+  }
+
+  return get_value(object.data());
+}
+
 any property::get_value() const { return get_value(static_cast<const void*>(nullptr)); }
 
 any_ref property::get_ref(const void* object) const {
@@ -132,6 +141,14 @@ any_ref property::get_ref(const void* object) const {
   }
 
   return property->get_ref(object);
+}
+
+any_ref property::get_ref(const instance& object) const {
+  if (!object) {
+    return {};
+  }
+
+  return object.writable() ? get_ref(object.mutable_data()) : get_ref(object.data());
 }
 
 any_ref property::get_ref() const { return get_ref(static_cast<const void*>(nullptr)); }
@@ -152,6 +169,14 @@ bool property::try_set_value(void* object, const any& source) const {
   }
 
   return property->try_set_value(object, source);
+}
+
+bool property::try_set_value(const instance& object, const any& source) const {
+  if (!object.writable()) {
+    return false;
+  }
+
+  return try_set_value(object.mutable_data(), source);
 }
 
 bool property::try_set_value(const any& source) const {

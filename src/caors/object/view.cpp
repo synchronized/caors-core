@@ -3,6 +3,7 @@
 
 #include "caors/object/view.h"
 
+#include "caors/meta/instance.h"
 #include "caors/object/ptr_view.h"
 
 namespace caors::objects {
@@ -72,7 +73,7 @@ any object_view::get(std::string_view name) const {
     return {};
   }
 
-  return reflected_property.get_value(value_.data());
+  return reflected_property.get_value(meta::instance{value_});
 }
 
 any_ref object_view::get_ref(std::string_view name) const {
@@ -81,11 +82,7 @@ any_ref object_view::get_ref(std::string_view name) const {
     return {};
   }
 
-  if (value_.writable()) {
-    return reflected_property.get_ref(value_.mutable_data());
-  }
-
-  return reflected_property.get_ref(value_.data());
+  return reflected_property.get_ref(meta::instance{value_});
 }
 
 bool object_view::set(std::string_view name, const any& source) const {
@@ -94,7 +91,7 @@ bool object_view::set(std::string_view name, const any& source) const {
     return false;
   }
 
-  return reflected_property.try_set_value(value_.mutable_data(), source);
+  return reflected_property.try_set_value(meta::instance{value_}, source);
 }
 
 bool object_view::set(std::string_view name, const any_ref& source) const {
@@ -108,11 +105,7 @@ any object_view::call(std::string_view name, std::span<const any_ref> arguments)
     return {};
   }
 
-  if (value_.writable()) {
-    return reflected_method.invoke(value_.mutable_data(), arguments);
-  }
-
-  return reflected_method.invoke(value_.data(), arguments);
+  return reflected_method.invoke(meta::instance{value_}, arguments);
 }
 
 object* object_view::ptr() const noexcept {

@@ -169,7 +169,7 @@ TEST_CASE("runtime facade - class builder registers meta fields and methods", "[
 
   int delta = 5;
   std::array<caors::any_ref, 1> arguments{caors::any_ref::from(delta)};
-  const std::optional<int> result = method.try_invoke<int>(&actor, arguments);
+  const std::optional<int> result = method.try_invoke<int>(caors::meta::view(actor), arguments);
   REQUIRE(result.has_value());
   CHECK(*result == 16);
   CHECK(actor.health == 16);

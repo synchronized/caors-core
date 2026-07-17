@@ -4,6 +4,7 @@
 #include "caors/meta/method.h"
 
 #include "caors/meta/detail/method_data.h"
+#include "caors/meta/instance.h"
 
 namespace caors::meta {
 namespace {
@@ -70,22 +71,14 @@ const meta::metadata_value* method::find_metadata(meta::metadata_key key) const 
   return meta::find_metadata(metadata(), key);
 }
 
-any method::invoke(void* object, std::span<const any_ref> arguments) const {
+any method::invoke(const instance& object, std::span<const any_ref> arguments) const {
   const detail::method_data* method = as_method_data(info());
-  if (method == nullptr) {
+  if (method == nullptr || !object) {
     return {};
   }
 
-  return method->invoke(object, true, arguments);
-}
-
-any method::invoke(const void* object, std::span<const any_ref> arguments) const {
-  const detail::method_data* method = as_method_data(info());
-  if (method == nullptr) {
-    return {};
-  }
-
-  return method->invoke(object, false, arguments);
+  return method->invoke(object.writable() ? object.mutable_data() : object.data(),
+                        object.writable(), arguments);
 }
 
 any method::invoke(std::span<const any_ref> arguments) const {
@@ -137,12 +130,7 @@ method method_set::resolve(std::span<const any_ref> arguments) const {
   return method_set != nullptr ? method{method_set->resolve(arguments)} : method{};
 }
 
-any method_set::invoke(void* object, std::span<const any_ref> arguments) const {
-  const method target = resolve(arguments);
-  return target ? target.invoke(object, arguments) : any{};
-}
-
-any method_set::invoke(const void* object, std::span<const any_ref> arguments) const {
+any method_set::invoke(const instance& object, std::span<const any_ref> arguments) const {
   const method target = resolve(arguments);
   return target ? target.invoke(object, arguments) : any{};
 }

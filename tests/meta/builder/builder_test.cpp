@@ -133,8 +133,9 @@ TEST_CASE("meta type - class builder registers fields and methods", "[meta]") {
 
   int delta = 5;
   std::array<caors::any_ref, 1> arguments{caors::any_ref::from(delta)};
-  const caors::any result = add_health.invoke(
-      &actor, std::span<const caors::any_ref>{arguments.data(), arguments.size()});
+  const caors::any result =
+      add_health.invoke(caors::meta::view(actor),
+                        std::span<const caors::any_ref>{arguments.data(), arguments.size()});
   REQUIRE(result);
   REQUIRE(result.try_get<int>() != nullptr);
   CHECK(*result.try_get<int>() == 25);

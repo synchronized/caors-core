@@ -72,22 +72,22 @@ TEST_CASE("meta - method set groups overloaded methods", "[meta]") {
   CHECK_FALSE(update.single());
 
   overloaded_method_actor instance{10};
+  caors::meta::instance object = caors::meta::view(instance);
   int int_amount = 4;
   std::array<caors::any_ref, 1> int_arguments{caors::any_ref::from(int_amount)};
-  CHECK_FALSE(update.invoke(&instance, int_arguments));
+  CHECK_FALSE(update.invoke(object, int_arguments));
   CHECK(instance.value == 14);
 
   float float_amount = 2.0F;
   std::array<caors::any_ref, 1> float_arguments{caors::any_ref::from(float_amount)};
-  CHECK_FALSE(update.invoke(&instance, float_arguments));
+  CHECK_FALSE(update.invoke(object, float_arguments));
   CHECK(instance.value == 16);
 
   const caors::meta::method getter = update.resolve({});
   REQUIRE(getter);
   CHECK(getter.const_method());
 
-  const caors::any result_value =
-      update.invoke(static_cast<const overloaded_method_actor*>(&instance));
+  const caors::any result_value = update.invoke(caors::meta::view_const(instance));
   REQUIRE(result_value);
   const int* value = result_value.try_get<int>();
   REQUIRE(value != nullptr);
@@ -106,20 +106,21 @@ TEST_CASE("meta - method view invokes mutable and const member functions", "[met
   const caors::meta::method score = require_method(reflected, "score");
 
   method_actor instance{3};
+  caors::meta::instance object = caors::meta::view(instance);
   int amount = 4;
   std::array<caors::any_ref, 1> arguments{caors::any_ref::from(amount)};
 
-  CHECK_FALSE(add.invoke(&instance, arguments));
+  CHECK_FALSE(add.invoke(object, arguments));
   CHECK(instance.value == 7);
 
-  caors::any result = score.invoke(&instance);
+  caors::any result = score.invoke(object);
   REQUIRE(result);
   const int* value = result.try_get<int>();
   REQUIRE(value != nullptr);
   CHECK(*value == 14);
 
   const method_actor& const_instance = instance;
-  auto const_result = score.try_invoke<int>(&const_instance);
+  auto const_result = score.try_invoke<int>(caors::meta::view_const(const_instance));
   REQUIRE(const_result.has_value());
   CHECK(*const_result == 14);
 }
@@ -136,28 +137,30 @@ TEST_CASE("meta - method view rejects invalid calls", "[meta]") {
   const caors::meta::method add_to = require_method(reflected, "add_to");
 
   method_actor instance{5};
+  caors::meta::instance object = caors::meta::view(instance);
   float wrong_argument = 2.0F;
   std::array<caors::any_ref, 1> wrong_arguments{caors::any_ref::from(wrong_argument)};
-  CHECK_FALSE(add.invoke(&instance, wrong_arguments));
+  CHECK_FALSE(add.invoke(object, wrong_arguments));
   CHECK(instance.value == 5);
 
   const method_actor& const_instance = instance;
+  caors::meta::instance const_object = caors::meta::view_const(const_instance);
   int amount = 3;
   std::array<caors::any_ref, 1> arguments{caors::any_ref::from(amount)};
-  CHECK_FALSE(add.invoke(&const_instance, arguments));
+  CHECK_FALSE(add.invoke(const_object, arguments));
   CHECK(instance.value == 5);
 
   const int readonly_target = 1;
   std::array<caors::any_ref, 1> readonly_arguments{caors::any_ref::from_const(readonly_target)};
-  CHECK_FALSE(add_to.invoke(&instance, readonly_arguments));
+  CHECK_FALSE(add_to.invoke(object, readonly_arguments));
 
   int target = 2;
   std::array<caors::any_ref, 1> writable_arguments{caors::any_ref::from(target)};
-  CHECK_FALSE(add_to.invoke(static_cast<method_actor*>(nullptr), writable_arguments));
-  CHECK_FALSE(add_to.invoke(&instance, {}));
-  CHECK_FALSE(add_to.invoke(&instance, wrong_arguments));
-  CHECK_FALSE(add_to.invoke(&const_instance, writable_arguments));
+  CHECK_FALSE(add_to.invoke(caors::meta::instance{}, writable_arguments));
+  CHECK_FALSE(add_to.invoke(object, {}));
+  CHECK_FALSE(add_to.invoke(object, wrong_arguments));
+  CHECK_FALSE(add_to.invoke(const_object, writable_arguments));
 
-  CHECK_FALSE(add_to.invoke(&instance, writable_arguments));
+  CHECK_FALSE(add_to.invoke(object, writable_arguments));
   CHECK(target == 7);
 }

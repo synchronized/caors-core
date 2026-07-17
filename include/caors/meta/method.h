@@ -22,6 +22,7 @@ class method_set_data;
 } // namespace detail
 
 class method_set;
+class instance;
 
 /**
  * @brief 成员方法反射只读视图。
@@ -46,11 +47,8 @@ public:
   [[nodiscard]] const meta::metadata_map& metadata() const noexcept;
   [[nodiscard]] const meta::metadata_value* find_metadata(meta::metadata_key key) const noexcept;
 
-  /** @brief 在可写对象上调用方法。 */
-  [[nodiscard]] any invoke(void* object, std::span<const any_ref> arguments = {}) const;
-
-  /** @brief 在只读对象上调用方法；非 const 方法会失败并返回无效 `any`。 */
-  [[nodiscard]] any invoke(const void* object, std::span<const any_ref> arguments = {}) const;
+  /** @brief 在实例上调用成员方法；只读实例只能调用 const 成员函数。 */
+  [[nodiscard]] any invoke(const instance& object, std::span<const any_ref> arguments = {}) const;
 
   /** @brief 调用全局函数。成员方法会失败并返回无效 `any`。 */
   [[nodiscard]] any invoke(std::span<const any_ref> arguments = {}) const;
@@ -58,24 +56,7 @@ public:
   /** @brief 按指定类型调用方法并读取返回值。 */
   template <typename Return>
   [[nodiscard]] std::optional<std::remove_cv_t<std::remove_reference_t<Return>>>
-  try_invoke(void* object, std::span<const any_ref> arguments = {}) const {
-    using return_type = std::remove_cv_t<std::remove_reference_t<Return>>;
-    static_assert(std::is_copy_constructible_v<return_type>,
-                  "Reflected method return values must be copy constructible");
-
-    any result = invoke(object, arguments);
-    const return_type* value = result.template try_get<return_type>();
-    if (value == nullptr) {
-      return std::nullopt;
-    }
-
-    return *value;
-  }
-
-  /** @brief 按指定类型在只读对象上调用方法并读取返回值。 */
-  template <typename Return>
-  [[nodiscard]] std::optional<std::remove_cv_t<std::remove_reference_t<Return>>>
-  try_invoke(const void* object, std::span<const any_ref> arguments = {}) const {
+  try_invoke(const instance& object, std::span<const any_ref> arguments = {}) const {
     using return_type = std::remove_cv_t<std::remove_reference_t<Return>>;
     static_assert(std::is_copy_constructible_v<return_type>,
                   "Reflected method return values must be copy constructible");
@@ -136,11 +117,8 @@ public:
   [[nodiscard]] method single() const;
   [[nodiscard]] method resolve(std::span<const any_ref> arguments = {}) const;
 
-  /** @brief 在可写对象上调用唯一匹配的重载。 */
-  [[nodiscard]] any invoke(void* object, std::span<const any_ref> arguments = {}) const;
-
-  /** @brief 在只读对象上调用唯一匹配的 const 重载。 */
-  [[nodiscard]] any invoke(const void* object, std::span<const any_ref> arguments = {}) const;
+  /** @brief 在实例上调用唯一匹配的成员方法重载。 */
+  [[nodiscard]] any invoke(const instance& object, std::span<const any_ref> arguments = {}) const;
 
   /** @brief 调用唯一匹配的全局函数重载。 */
   [[nodiscard]] any invoke(std::span<const any_ref> arguments = {}) const;

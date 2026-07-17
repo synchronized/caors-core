@@ -463,7 +463,7 @@ field.try_set<float>(&instance, 75.0F);
 auto damage = reflected.find_method("damage");
 int amount = 10;
 std::array<caors::any_ref, 1> args{caors::any_ref::from(amount)};
-damage.invoke(&instance, args);
+damage.invoke(caors::meta::view(instance), args);
 ```
 
 `meta::type`、`meta::property`、`meta::method_set` 和 `meta::method` 是轻量只读视图，内部引用全局 `meta::registry`
@@ -521,8 +521,8 @@ damage.invoke(&instance, args);
 - `parameter_count()` / `get_parameter_type()`：查询参数列表。
 - `const_method()`：判断是否是 `const` 成员函数。
 - `metadata()` / `find_metadata()`：查询方法附加 metadata。脚本导出、编辑器命令和工具层可以按约定键读取。
-- `invoke(void*, args)`：在可写对象上调用方法。
-- `invoke(const void*, args)`：在只读对象上调用方法；非 const 方法会失败。
+- `invoke(instance, args)`：在实例上调用成员方法；只读实例只能调用 const 方法。
+- `invoke(args)`：调用全局函数；成员方法会失败。
 - `try_invoke<T>()`：调用方法并按指定类型读取返回值。
 
 `meta::method_set` 当前提供：
@@ -532,7 +532,8 @@ damage.invoke(&instance, args);
 - `overload_count()` / `overload_at()`：遍历同名重载；索引越界时返回无效 `meta::method`。
 - `single()`：只有一个重载时返回该 `meta::method`；存在多个重载时返回无效视图。
 - `resolve(args)`：按 `any_ref` 参数列表匹配唯一重载；没有匹配或匹配不唯一时返回无效视图。
-- `invoke(void*, args)` / `invoke(const void*, args)`：先解析唯一重载，再调用具体方法。
+- `invoke(instance, args)`：先解析唯一成员方法重载，再调用具体方法。
+- `invoke(args)`：调用全局函数重载。
 
 `sequence_view` 当前提供：
 

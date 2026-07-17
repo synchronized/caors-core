@@ -10,6 +10,7 @@
 #include "caors/meta/class_registration.h"
 #include "caors/meta/constructor.h"
 #include "caors/meta/enum_value.h"
+#include "caors/meta/instance.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/method.h"
 #include "caors/meta/module.h"

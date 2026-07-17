@@ -272,7 +272,8 @@ caors::meta::class_<actor>("game.actor")
 - 实例级能力同样优先传入 capability 类型，例如
   `any_ref.get_capability<meta::sequence_capability>()` 返回 `sequence_view`，
   `any_ref.get_capability<objects::ptr_capability>()` 返回 `objects::ptr_view`。
-- 跨 meta / object 的高层访问优先使用 `runtime::type` 和 `runtime::instance`。
+- 跨 meta / object 的高层访问优先使用 `runtime::type` 和 `meta::instance`；
+  `runtime::instance` 只是指向 `meta::instance` 的兼容别名。
 - 公开 capability facade 不直接暴露 `void*`。需要返回未知类型值时使用 `meta::any`，
   需要引用已有对象时使用 `meta::any_ref` 或绑定后的 `*_view`；`void*` 只用于底层
   `*_ops`、model 和 `meta::detail` helper。

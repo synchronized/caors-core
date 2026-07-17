@@ -4,100 +4,21 @@
 #ifndef CAORS_RUNTIME_INSTANCE_H_
 #define CAORS_RUNTIME_INSTANCE_H_
 
-#include "caors/core/containers.h"
-#include "caors/meta/value/any_ref.h"
-#include "caors/runtime/type.h"
-
-#include <array>
-#include <span>
-#include <string_view>
-#include <type_traits>
+#include "caors/meta/instance.h"
 
 namespace caors::runtime {
 
-/**
- * @brief 运行期实例反射访问门面。
- *
- * `runtime::instance` 不拥有对象，只保存外部实例的 `meta::any_ref`。它负责把运行期值、类型视图和
- * meta 属性/方法组合起来，适合实现编辑器、调试面板和脚本桥接等高层访问入口。
- */
-class CAORS_API instance final {
-public:
-  instance() noexcept = default;
-  explicit instance(meta::any_ref value) noexcept;
-
-  [[nodiscard]] bool valid() const noexcept;
-  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
-
-  [[nodiscard]] meta::any_ref value() const noexcept;
-  [[nodiscard]] runtime::type type() const noexcept;
-
-  /** @brief 查询并绑定当前实例的运行期能力视图。 */
-  template <typename View> [[nodiscard]] View get_capability() const {
-    return value_.template get_capability<View>();
-  }
-
-  [[nodiscard]] std::size_t property_count() const noexcept;
-  [[nodiscard]] property property_at(std::size_t index) const;
-  [[nodiscard]] property find_property(string_name name) const;
-  [[nodiscard]] property find_property(std::string_view name) const;
-  /** @brief 返回属性视图快照；属性视图仍引用全局 meta 注册表。 */
-  [[nodiscard]] core::vector<property> properties(memory_resource* resource = nullptr) const;
-
-  [[nodiscard]] std::size_t method_count() const noexcept;
-  [[nodiscard]] method_set method_at(std::size_t index) const;
-  [[nodiscard]] method_set find_method(string_name name) const;
-  [[nodiscard]] method_set find_method(std::string_view name) const;
-  /** @brief 返回方法视图快照；方法视图仍引用全局 meta 注册表。 */
-  [[nodiscard]] core::vector<method_set> methods(memory_resource* resource = nullptr) const;
-
-  /** @brief 读取属性值的运行期拷贝；属性不存在时返回无效 `any`。 */
-  [[nodiscard]] any get(std::string_view name) const;
-
-  /** @brief 读取属性值的运行期引用；只读实例返回只读引用。 */
-  [[nodiscard]] any_ref get_ref(std::string_view name) const;
-
-  /** @brief 从运行期值写入属性。 */
-  bool set(std::string_view name, const any& source) const;
-
-  /** @brief 从运行期引用写入属性。 */
-  bool set(std::string_view name, const any_ref& source) const;
-
-  /** @brief 从 C++ 值写入属性。 */
-  template <typename T> bool set(std::string_view name, const T& source) const {
-    const property reflected_property = find_property(name);
-    if (!reflected_property || !value_.writable()) {
-      return false;
-    }
-
-    const any_ref target = reflected_property.get_ref(value_.mutable_data());
-    return target.try_set(source);
-  }
-
-  /** @brief 调用反射方法；只读实例只能调用 const 成员函数。 */
-  [[nodiscard]] any call(std::string_view name, std::span<const any_ref> arguments = {}) const;
-
-  /** @brief 使用 C++ 参数临时创建 `any_ref` 后调用反射方法。 */
-  template <typename... Args> [[nodiscard]] any call(std::string_view name, Args&&... args) const {
-    std::array<any_ref, sizeof...(Args)> argument_refs{any_ref::from(args)...};
-    return call(name, std::span<const any_ref>{argument_refs.data(), argument_refs.size()});
-  }
-
-private:
-  meta::any_ref value_{};
-};
+using instance = meta::instance;
 
 /** @brief 从运行期引用创建实例视图。 */
-[[nodiscard]] inline instance view(meta::any_ref value) noexcept { return instance{value}; }
+[[nodiscard]] inline instance view(meta::any_ref value) noexcept { return meta::view(value); }
 
 /** @brief 从 C++ 对象创建实例视图。 */
-template <typename T> [[nodiscard]] instance view(T& value) {
-  return instance{meta::any_ref::from(value)};
-}
+template <typename T> [[nodiscard]] instance view(T& value) { return meta::view(value); }
 
 /** @brief 从只读 C++ 对象创建实例视图。 */
 template <typename T> [[nodiscard]] instance view_const(const T& value) {
-  return instance{meta::any_ref::from_const(value)};
+  return meta::view_const(value);
 }
 
 } // namespace caors::runtime
