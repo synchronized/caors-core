@@ -1,15 +1,15 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (c) 2026 CAORS contributors -->
 
-# Meta Reflection
+# Meta Fields And Methods
 
-本文档说明 CAORS 反射系统的当前设计边界。当前反射能力已经并入 `meta` 类型记录：
-类型、字段和成员方法元信息统一由 `meta::registry` 保存，不再提供独立 `caors::reflection`
-模块；暂不提供独立属性系统或代码生成。
+本文档说明 CAORS meta 字段和成员方法能力的当前设计边界。字段和成员方法元信息统一保存在
+`meta` 类型记录里，由 `meta::registry` 管理；项目不再提供独立 `caors::reflection` 模块，
+也暂不提供独立属性系统或代码生成。
 
 ## 设计目标
 
-反射第一阶段解决几件事：
+字段/方法第一阶段解决几件事：
 
 - 直接使用 `meta::type`、`type_id` 和 `type_guid` 表达类型身份。
 - 在 `meta::registry` 的类型记录上保存字段和成员方法数据。
@@ -18,7 +18,7 @@
 - 提供全局 append-only 注册表，以及稳定的类型、字段和方法视图。
 - 提供字段基础读写入口和运行期值拷贝。
 - 提供成员方法基础调用入口。
-- 保持字段和方法视图为通用反射能力；对象指针、资源引用等领域专用访问放在 `runtime` 或对应模块适配层。
+- 保持字段和方法视图为通用 meta 能力；对象指针、资源引用等领域专用访问放在 `runtime` 或对应模块适配层。
 
 当前不会包含：
 
@@ -33,7 +33,7 @@
 ### 命名空间
 
 字段和方法的主类型位于 `caors::meta` 命名空间，例如 `meta::field`、`meta::method` 和
-`meta::type`。反射字段和方法是 `meta::type` 的一部分，不再通过 `caors::reflection`
+`meta::type`。字段和方法是 `meta::type` 的一部分，不再通过 `caors::reflection`
 命名空间访问。
 
 ### 字段注册
@@ -116,7 +116,7 @@ caors::meta::class_<actor>("game.actor")
 序列化裸指针、引用 wrapper 或普通 wrapper 时会按内部值递归展开；父指针、自环和共享对象图需要调用方
 跳过对应字段，或改用对象/资源引用语义。
 
-STL 智能指针和裸指针只作为外部字段类型被反射系统描述。CAORS 不根据这些字段接管对象生命周期；
+STL 智能指针和裸指针只作为外部字段类型被 meta 描述。CAORS 不根据这些字段接管对象生命周期；
 用户如果直接使用这些类型，需要自行保证释放、引用有效性和线程安全。后续 CAORS 自身的对象句柄、
 引用计数或分配器类型会作为独立 wrapper 接入反射规则。
 
@@ -138,7 +138,7 @@ caors::meta::class_<actor>("game.actor")
     .method("score", &actor::score);
 ```
 
-当前方法反射的边界：
+当前方法能力的边界：
 
 - 只支持成员函数指针，包括 `const` 成员函数。
 - 参数通过 `std::span<const caors::any_ref>` 传入，类型必须和注册时的方法参数匹配。
@@ -637,7 +637,7 @@ auto reflected = caors::meta::find("game.actor");
 `meta::class_<T>()`、`meta::find()` 和 `meta::type` 不维护第二套注册表，而是读写同一个
 `meta::registry` 中的字段和方法数据。
 
-反射注册推荐在启动期或模块加载期完成，并在进入运行期前调用 `meta::init_registry()` 做延迟注册和一致性校验。
+字段/方法注册推荐在启动期或模块加载期完成，并在进入运行期前调用 `meta::init_registry()` 做延迟注册和一致性校验。
 `init_registry()` 不会冻结注册表；如果后续继续注册字段或方法，调用方需要自行保证没有并发读取依赖中的半成品类型。
 
 `meta::registry` 由库内部管理；注册后不提供清理和撤销入口。

@@ -53,7 +53,7 @@
 - `caors/meta/type_ops.h`：内建 ops 聚合头；更细粒度可以包含 `caors/meta/ops/*.h`。
 - `caors/meta/value_ops.h`：值布局、生命周期、factory 和 constructor 的底层 ops 结构体。
 - `caors/adapters/stl_traits.h`、`caors/adapters/stl_wrapper.h`：STL/CAORS 类型的默认 traits 特化。
-- `caors/meta/view.h`：`meta::view<T...>` 查询视图。
+- `caors/meta/component_view.h`：`meta::component_view<T...>` 查询视图。
 - `caors/meta/registry.h`：全局 `meta::registry`、注册错误状态和注册 helper。
 
 ## 核心概念

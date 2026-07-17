@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_META_VIEW_H_
-#define CAORS_META_VIEW_H_
+#ifndef CAORS_META_COMPONENT_VIEW_H_
+#define CAORS_META_COMPONENT_VIEW_H_
 
 #include "caors/core/containers.h"
 #include "caors/meta/type_id.h"
@@ -21,11 +21,11 @@ class registry;
  * 视图保存查询时匹配的 `type_id` 列表，不持有组件引用。需要组件内容时可通过 `find<T>()`
  * 获取副本。
  */
-template <typename... Components> class view final {
+template <typename... Components> class component_view final {
 public:
   using const_iterator = typename vector<type_id>::const_iterator;
 
-  view() = default;
+  component_view() = default;
 
   [[nodiscard]] const_iterator begin() const noexcept { return ids_.begin(); }
   [[nodiscard]] const_iterator end() const noexcept { return ids_.end(); }
@@ -39,7 +39,8 @@ public:
 private:
   friend class registry;
 
-  view(const registry* owner, vector<type_id> ids) : registry_(owner), ids_(std::move(ids)) {}
+  component_view(const registry* owner, vector<type_id> ids)
+      : registry_(owner), ids_(std::move(ids)) {}
 
   const registry* registry_ = nullptr;
   vector<type_id> ids_;

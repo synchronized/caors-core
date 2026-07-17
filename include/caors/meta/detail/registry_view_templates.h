@@ -4,8 +4,8 @@
 #ifndef CAORS_META_DETAIL_REGISTRY_VIEW_TEMPLATES_H_
 #define CAORS_META_DETAIL_REGISTRY_VIEW_TEMPLATES_H_
 
+#include "caors/meta/component_view.h"
 #include "caors/meta/registry.h"
-#include "caors/meta/view.h"
 
 #include <optional>
 #include <type_traits>
@@ -14,7 +14,7 @@ namespace caors::meta {
 
 template <typename... Components>
 template <typename Component>
-[[nodiscard]] std::optional<Component> view<Components...>::find(type_id id) const {
+[[nodiscard]] std::optional<Component> component_view<Components...>::find(type_id id) const {
   if (registry_ == nullptr) {
     return std::nullopt;
   }
@@ -23,12 +23,13 @@ template <typename Component>
 }
 
 template <typename... Components>
-[[nodiscard]] view<Components...> registry::component_view() const {
+[[nodiscard]] ::caors::meta::component_view<Components...> registry::component_view() const {
   static_assert(sizeof...(Components) > 0, "Meta view requires at least one component type");
 
   detail::meta_component_key keys[] = {
       detail::meta_component_key_of<std::decay_t<Components>>()...};
-  return ::caors::meta::view<Components...>{this, view_component_ids(keys, sizeof...(Components))};
+  return ::caors::meta::component_view<Components...>{
+      this, view_component_ids(keys, sizeof...(Components))};
 }
 
 } // namespace caors::meta

@@ -7,11 +7,11 @@
 #include "caors/adapters/stl_wrapper.h"
 #include "caors/error.h"
 #include "caors/export.h"
+#include "caors/meta/component_view.h"
 #include "caors/meta/detail/component_storage.h"
 #include "caors/meta/detail/parent_cast_ops.h"
 #include "caors/meta/registration.h"
 #include "caors/meta/type.h"
-#include "caors/meta/view.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -107,7 +107,8 @@ public:
   template <typename Component> [[nodiscard]] std::size_t component_count() const noexcept;
 
   /** @brief 查询同时拥有指定组件集合的类型。 */
-  template <typename... Components> [[nodiscard]] view<Components...> component_view() const;
+  template <typename... Components>
+  [[nodiscard]] ::caors::meta::component_view<Components...> component_view() const;
 
 private:
   registry();
