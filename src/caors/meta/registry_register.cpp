@@ -43,7 +43,7 @@ namespace {
     return status;
   }
 
-  return detail::store_new_type(state, type, stored_id);
+  return detail::store_new_type(state, std::move(type), stored_id);
 }
 
 } // namespace

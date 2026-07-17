@@ -5,26 +5,6 @@
 
 namespace caors::meta::detail {
 
-type_data::type_data(const type_data& other)
-    : id_(other.id_), name_(other.name_), guid_(other.guid_), parent_id_(other.parent_id_),
-      properties_(other.properties_), methods_(other.methods_), enum_values_(other.enum_values_) {}
-
-type_data& type_data::operator=(const type_data& other) {
-  if (this == &other) {
-    return *this;
-  }
-
-  id_ = other.id_;
-  name_ = other.name_;
-  guid_ = other.guid_;
-  parent_id_ = other.parent_id_;
-  properties_ = other.properties_;
-  methods_ = other.methods_;
-  enum_values_ = other.enum_values_;
-  capabilities_.clear();
-  return *this;
-}
-
 bool type_data::members_valid() const noexcept {
   for (const property_data& property : properties_) {
     if (!property.valid()) {

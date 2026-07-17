@@ -5,6 +5,8 @@
 
 #include "caors/meta/detail/type_descriptor.h"
 
+#include <utility>
+
 namespace caors::meta::detail {
 
 type_data* find_type_data(registry_state& state, type_id id) {
@@ -159,7 +161,7 @@ error merge_type_data(registry_state& state, type_data& stored, const type_data&
   return changed ? error{} : error{error_domain::meta, errc::duplicate_id};
 }
 
-error store_new_type(registry_state& state, const type_data& incoming, type_id* stored_id) {
+error store_new_type(registry_state& state, type_data&& incoming, type_id* stored_id) {
   if (!incoming.valid() || !incoming.id()) {
     return {error_domain::meta, errc::invalid_type};
   }
@@ -181,8 +183,8 @@ error store_new_type(registry_state& state, const type_data& incoming, type_id* 
   }
 
   const type_id id = incoming.id();
-  auto [position, inserted] =
-      state.types.try_emplace(id.value(), memory::make_unique<type_data>(state.resource, incoming));
+  auto [position, inserted] = state.types.try_emplace(
+      id.value(), memory::make_unique<type_data>(state.resource, std::move(incoming)));
   if (!inserted) {
     return {error_domain::meta, errc::duplicate_id};
   }

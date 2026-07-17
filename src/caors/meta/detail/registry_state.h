@@ -57,7 +57,7 @@ public:
                                              type_id existing_id);
 [[nodiscard]] error merge_type_data(registry_state& state, type_data& stored,
                                     const type_data& incoming);
-[[nodiscard]] error store_new_type(registry_state& state, const type_data& incoming,
+[[nodiscard]] error store_new_type(registry_state& state, type_data&& incoming,
                                    type_id* stored_id = nullptr);
 [[nodiscard]] error store_type_descriptor(registry_state& state, const type_descriptor& descriptor);
 [[nodiscard]] error validate_registry(const registry_state& state);

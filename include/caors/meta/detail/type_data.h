@@ -31,8 +31,8 @@ public:
   constexpr type_data(type_id id, string_name name = {}, type_guid guid = type_guid::nil(),
                       type_id parent_id = type_id::invalid()) noexcept
       : id_(id), name_(name), guid_(guid), parent_id_(parent_id) {}
-  type_data(const type_data& other);
-  type_data& operator=(const type_data& other);
+  type_data(const type_data& other) = delete;
+  type_data& operator=(const type_data& other) = delete;
   type_data(type_data&&) noexcept = default;
   type_data& operator=(type_data&&) noexcept = default;
 
