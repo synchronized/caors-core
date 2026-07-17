@@ -48,8 +48,8 @@ namespace {
 
 } // namespace
 
-error registry::register_type(const type_registration_data& type) {
-  return register_type_impl(*state_, type);
+error registry::register_type(type_id id, string_name name, type_guid guid, type_id parent_id) {
+  return register_type_impl(*state_, detail::type_data{id, name, guid, parent_id});
 }
 
 error registry::ensure_type_descriptor(const detail::type_descriptor& descriptor) {

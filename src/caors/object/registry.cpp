@@ -4,17 +4,10 @@
 #include "caors/object/registry.h"
 
 namespace caors::objects {
-namespace {
-
-[[nodiscard]] meta::type_registration_data make_root_object_meta_type_data() {
-  return meta::make_type_registration_data<object>(object::static_type_name(),
-                                                   object_type_id::invalid());
-}
-
-} // namespace
 
 registry::registry() {
-  (void)attach_object_type<object>(make_root_object_meta_type_data(),
+  (void)attach_object_type<object>(object::static_type_name(),
+                                   detail::object_type_guid_of<object>(), object_type_id::invalid(),
                                    meta::capabilities::get<object_factory_ops, object>());
 }
 

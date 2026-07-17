@@ -16,7 +16,6 @@
 #include "caors/meta/reflection.h"
 #include "caors/meta/registry.h"
 #include "caors/meta/type_ops.h"
-#include "caors/meta/type_registration.h"
 #include "caors/meta/type_semantics.h"
 #include "caors/meta/value.h"
 #include "caors/meta/value_ops.h"

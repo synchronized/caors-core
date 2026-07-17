@@ -62,7 +62,7 @@ public:
   class_builder() { refresh(); }
 
   class_builder& type(std::string_view name) {
-    status_ = get_registry().register_type_for<T>(make_type_registration_data<T>(name));
+    status_ = get_registry().register_type_for<T>(string_name{name});
     refresh();
     return *this;
   }
@@ -479,7 +479,7 @@ public:
   enum_builder() { refresh(); }
 
   enum_builder& type(std::string_view name) {
-    status_ = get_registry().register_type_for<T>(make_type_registration_data<T>(name));
+    status_ = get_registry().register_type_for<T>(string_name{name});
     refresh();
     return *this;
   }

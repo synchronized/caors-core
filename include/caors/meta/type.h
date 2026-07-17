@@ -22,7 +22,6 @@ class registry;
 class type;
 class field;
 class method;
-class type_registration_data;
 
 [[nodiscard]] CAORS_API registry& get_registry() noexcept;
 template <typename T> [[nodiscard]] type resolve();

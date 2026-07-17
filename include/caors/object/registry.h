@@ -41,16 +41,6 @@ struct object_type_name_traits<T, std::void_t<decltype(T::object_type_name)>> {
   [[nodiscard]] static constexpr std::string_view get() noexcept { return T::object_type_name; }
 };
 
-/** @brief 创建对象类型基础元信息。 */
-template <typename T>
-[[nodiscard]] meta::type_registration_data
-make_meta_type_data(std::string_view name,
-                    object_type_id parent_id = object::static_type_id()) noexcept {
-  static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
-  return caors::meta::make_type_registration_data<T>(name, detail::object_type_guid_of<T>(),
-                                                     parent_id);
-}
-
 } // namespace caors::objects::detail
 
 namespace caors::objects {
@@ -119,45 +109,41 @@ private:
   ~registry();
 
   template <typename T>
-  [[nodiscard]] error attach_object_type(const meta::type_registration_data& type,
+  [[nodiscard]] error attach_object_type(std::string_view name, type_guid guid,
+                                         object_type_id parent_id,
                                          const object_factory_ops* factory) {
     using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
     const meta::type expected = meta::resolve<value_type>();
     const type_id expected_id = expected.id();
-    if (type.id() && type.id() != expected_id) {
+    if (!expected_id) {
       return {error_domain::object, errc::invalid_type};
     }
 
-    meta::type_registration_data stored_type = type;
-    if (!stored_type.id()) {
-      stored_type.set_id(expected_id);
-    }
-
-    if (stored_type.parent_id() && !meta::find(stored_type.parent_id())) {
+    if (parent_id && !meta::find(parent_id)) {
       return {error_domain::object, errc::missing_parent};
     }
 
-    if (stored_type.guid()) {
-      const meta::type existing_guid = meta::find(stored_type.guid());
+    if (guid) {
+      const meta::type existing_guid = meta::find(guid);
       if (existing_guid && existing_guid.id() != expected_id) {
         return {error_domain::object, errc::duplicate_guid};
       }
     }
 
-    meta::class_builder<value_type> builder = meta::class_<value_type>(stored_type.name().view());
+    meta::class_builder<value_type> builder = meta::class_<value_type>(name);
     if (builder.result() && builder.result().value() != errc::duplicate_id) {
       return rethrow_as(builder.result(), error_domain::object);
     }
 
-    if (stored_type.guid()) {
-      builder.guid(stored_type.guid());
+    if (guid) {
+      builder.guid(guid);
       if (builder.result() && builder.result().value() != errc::duplicate_id) {
         return rethrow_as(builder.result(), error_domain::object);
       }
     }
 
-    if (stored_type.parent_id()) {
-      builder.parent(stored_type.parent_id());
+    if (parent_id) {
+      builder.parent(parent_id);
       if (builder.result()) {
         return rethrow_as(builder.result(), error_domain::object);
       }
@@ -231,7 +217,7 @@ public:
     }
 
     status_ = get_registry().template attach_object_type<T>(
-        detail::make_meta_type_data<T>(name_, parent_id),
+        name_, detail::object_type_guid_of<T>(), parent_id,
         meta::capabilities::get<objects::object_factory_ops, T>());
     refresh();
     return status_;

@@ -332,7 +332,7 @@ descriptor 内部按职责拆分：
   serialization codec 函数表。
 
 文件边界上，`meta/detail/type_descriptor.h` 保存内部 descriptor 结构和查询 helper；
-`meta/type_registration.h` 保存公开注册输入描述 `type_registration_data`；
+`meta/detail/type_data.h` 保存注册后的内部类型记录、字段和方法集合；
 `meta/detail/type_descriptor_name.h` 负责 descriptor 默认显示名生成；
 `meta/detail/type_descriptor_model.h` 负责 descriptor holder、语义填充和构建实现；
 `meta/detail/builtin_ops_model.h` 作为内置 ops 聚合入口，只负责引入

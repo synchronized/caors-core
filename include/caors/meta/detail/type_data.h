@@ -8,7 +8,7 @@
 #include "caors/error.h"
 #include "caors/meta/detail/field_data.h"
 #include "caors/meta/detail/method_data.h"
-#include "caors/meta/type_registration.h"
+#include "caors/meta/type_id.h"
 
 #include <cstddef>
 #include <initializer_list>
@@ -25,20 +25,22 @@ class registry_state;
 class type_data {
 public:
   type_data() = default;
-  type_data(meta::type_registration_data registration) noexcept : registration_(registration) {}
+  constexpr type_data(type_id id, string_name name = {}, type_guid guid = type_guid::nil(),
+                      type_id parent_id = type_id::invalid()) noexcept
+      : id_(id), name_(name), guid_(guid), parent_id_(parent_id) {}
 
-  [[nodiscard]] type_id id() const noexcept { return registration_.id(); }
-  [[nodiscard]] string_name name() const noexcept { return registration_.name(); }
-  [[nodiscard]] type_guid guid() const noexcept { return registration_.guid(); }
-  [[nodiscard]] type_id parent_id() const noexcept { return registration_.parent_id(); }
+  [[nodiscard]] constexpr type_id id() const noexcept { return id_; }
+  [[nodiscard]] constexpr string_name name() const noexcept { return name_; }
+  [[nodiscard]] constexpr type_guid guid() const noexcept { return guid_; }
+  [[nodiscard]] constexpr type_id parent_id() const noexcept { return parent_id_; }
 
-  [[nodiscard]] bool valid() const noexcept { return registration_.valid(); }
-  [[nodiscard]] bool registered() const noexcept { return registration_.registered(); }
+  [[nodiscard]] constexpr bool valid() const noexcept { return static_cast<bool>(id_); }
+  [[nodiscard]] constexpr bool registered() const noexcept { return valid(); }
 
-  void set_id(type_id id) noexcept { registration_.set_id(id); }
-  void set_name(string_name name) noexcept { registration_.set_name(name); }
-  void set_guid(type_guid guid) noexcept { registration_.set_guid(guid); }
-  void set_parent_id(type_id parent_id) noexcept { registration_.set_parent_id(parent_id); }
+  constexpr void set_id(type_id id) noexcept { id_ = id; }
+  constexpr void set_name(string_name name) noexcept { name_ = name; }
+  constexpr void set_guid(type_guid guid) noexcept { guid_ = guid; }
+  constexpr void set_parent_id(type_id parent_id) noexcept { parent_id_ = parent_id; }
 
   [[nodiscard]] bool members_valid() const noexcept;
   [[nodiscard]] std::size_t field_count() const noexcept;
@@ -58,7 +60,10 @@ public:
   void add_method(method_data method);
 
 private:
-  meta::type_registration_data registration_{};
+  type_id id_{};
+  string_name name_{};
+  type_guid guid_{};
+  type_id parent_id_{};
   vector<field_data> fields_{};
   vector<method_data> methods_{};
 };
@@ -70,14 +75,14 @@ private:
 template <typename T>
 [[nodiscard]] type_data make_type_data(string_name name,
                                        type_id parent_id = type_id::invalid()) noexcept {
-  return meta::make_type_registration_data<T>(name, parent_id);
+  return type_data{detail::type_id_of_cpp_type<T>(), name, type_guid::nil(), parent_id};
 }
 
 /** @brief 创建带稳定 GUID 的基础元类型注册描述。 */
 template <typename T>
 [[nodiscard]] type_data make_type_data(string_name name, type_guid guid,
                                        type_id parent_id = type_id::invalid()) noexcept {
-  return meta::make_type_registration_data<T>(name, guid, parent_id);
+  return type_data{detail::type_id_of_cpp_type<T>(), name, guid, parent_id};
 }
 
 /** @brief 创建基础元类型注册描述。 */

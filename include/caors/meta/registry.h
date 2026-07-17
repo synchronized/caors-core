@@ -11,7 +11,6 @@
 #include "caors/meta/detail/parent_cast_ops.h"
 #include "caors/meta/registration.h"
 #include "caors/meta/type.h"
-#include "caors/meta/type_registration.h"
 #include "caors/meta/view.h"
 
 #include <cstddef>
@@ -119,8 +118,11 @@ private:
   friend class type;
   friend error detail::ensure_type_descriptor_registered(const detail::type_descriptor& descriptor);
 
-  [[nodiscard]] error register_type(const type_registration_data& type);
-  template <typename T> [[nodiscard]] error register_type_for(const type_registration_data& data);
+  [[nodiscard]] error register_type(type_id id, string_name name, type_guid guid,
+                                    type_id parent_id);
+  template <typename T>
+  [[nodiscard]] error register_type_for(string_name name, type_guid guid = type_guid::nil(),
+                                        type_id parent_id = type_id::invalid());
   [[nodiscard]] error ensure_type_descriptor(const detail::type_descriptor& descriptor);
   [[nodiscard]] error set_type_guid(type_id id, type_guid guid);
   [[nodiscard]] error set_type_parent(type_id id, type_id parent_id);

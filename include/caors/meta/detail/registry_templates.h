@@ -12,19 +12,15 @@
 namespace caors::meta {
 
 template <typename T>
-[[nodiscard]] error registry::register_type_for(const type_registration_data& data) {
+[[nodiscard]] error registry::register_type_for(string_name name, type_guid guid,
+                                                type_id parent_id) {
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
   const type_id expected_id = detail::descriptor_type_id<value_type>();
-  if ((data.id() && data.id() != expected_id) || !expected_id) {
+  if (!expected_id) {
     return {error_domain::meta, errc::invalid_type};
   }
 
-  type_registration_data stored_type = data;
-  if (!stored_type.id()) {
-    stored_type.set_id(expected_id);
-  }
-
-  const error status = register_type(stored_type);
+  const error status = register_type(expected_id, name, guid, parent_id);
   if (status && status.value() != errc::duplicate_id) {
     return status;
   }
