@@ -16,8 +16,33 @@
 namespace caors::meta {
 
 template <typename T> class class_builder;
+template <typename T> class enum_builder;
 template <typename T> class field_bind;
 template <typename T> class method_bind;
+template <typename T> class enum_value_bind;
+
+/** @brief 枚举项注册输入。 */
+template <typename T> struct enum_value_entry {
+  using enum_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  static_assert(std::is_enum_v<enum_type>, "meta::enum_value_entry requires an enum type");
+
+  string_name name{};
+  enum_type value{};
+};
+
+/** @brief 创建枚举项注册输入，用于 `meta::enum_<T>()(...)`。 */
+template <typename Enum>
+[[nodiscard]] enum_value_entry<Enum> enum_value(string_name name, Enum value) {
+  using enum_type = std::remove_cv_t<std::remove_reference_t<Enum>>;
+  static_assert(std::is_enum_v<enum_type>, "meta::enum_value requires an enum type");
+  return enum_value_entry<enum_type>{name, static_cast<enum_type>(value)};
+}
+
+/** @brief 创建枚举项注册输入，用于 `meta::enum_<T>()(...)`。 */
+template <typename Enum>
+[[nodiscard]] enum_value_entry<Enum> enum_value(std::string_view name, Enum value) {
+  return enum_value(string_name{name}, value);
+}
 
 /** @brief 字段/方法 bind 共享的类注册链式入口。 */
 template <typename T, typename Derived> class class_builder_bind_chain {
@@ -527,6 +552,12 @@ public:
     return *this;
   }
 
+  /** @brief 注册枚举项。重复名称会返回 `errc::duplicate_name`；重复数值允许作为别名。 */
+  enum_value_bind<T> value(std::string_view name, T value);
+
+  /** @brief 注册枚举项。重复名称会返回 `errc::duplicate_name`；重复数值允许作为别名。 */
+  enum_value_bind<T> value(string_name name, T value);
+
   /** @brief 给当前枚举类型写入 metadata。 */
   template <typename Value> enum_builder& metadata(std::string_view key, Value&& value) {
     return metadata(string_name{key}, std::forward<Value>(value));
@@ -559,6 +590,14 @@ public:
     return *this;
   }
 
+  /** @brief 用 RTTR 风格语法批量注册枚举项。 */
+  template <typename... Entries> enum_builder& operator()(Entries&&... entries) {
+    static_assert((std::is_same_v<std::remove_cvref_t<Entries>, enum_value_entry<T>> && ...),
+                  "meta::enum_builder::operator() expects meta::enum_value(...) entries");
+    (apply_enum_value_entry(std::forward<Entries>(entries)), ...);
+    return *this;
+  }
+
   [[nodiscard]] ::caors::meta::type get() const noexcept { return type_; }
   [[nodiscard]] error result() const noexcept { return status_; }
   [[nodiscard]] error commit() const noexcept { return status_; }
@@ -567,6 +606,28 @@ public:
   }
 
 private:
+  friend class enum_value_bind<T>;
+
+  enum_builder& apply_enum_value_entry(const enum_value_entry<T>& entry) {
+    return add_enum_value(entry.name, entry.value);
+  }
+
+  enum_builder& apply_enum_value_entry(enum_value_entry<T>&& entry) {
+    return add_enum_value(entry.name, entry.value);
+  }
+
+  enum_builder& apply_enum_value_metadata(string_name value_name, const metadata_entry& entry) {
+    return set_enum_value_metadata(value_name, entry.key, entry.value);
+  }
+
+  enum_builder& apply_enum_value_metadata(string_name value_name, metadata_entry&& entry) {
+    return set_enum_value_metadata(value_name, entry.key, std::move(entry.value));
+  }
+
+  enum_builder& add_enum_value(string_name name, T value);
+  enum_builder& set_enum_value_metadata(string_name value_name, metadata_key key,
+                                        metadata_value value);
+
   void refresh() {
     ::caors::meta::type refreshed = get_registry().find_type<T>();
     if (refreshed.registered()) {
@@ -577,6 +638,63 @@ private:
   ::caors::meta::type type_{};
   error status_{};
 };
+
+/** @brief 刚注册枚举项的 RTTR 风格 bind 对象。 */
+template <typename T> class enum_value_bind final {
+public:
+  enum_value_bind(enum_builder<T>& builder, string_name value_name) noexcept
+      : builder_(&builder), value_name_(value_name) {}
+
+  template <typename... Entries> enum_builder<T>& operator()(Entries&&... entries) {
+    static_assert((std::is_same_v<std::remove_cvref_t<Entries>, metadata_entry> && ...),
+                  "meta::enum_value_bind::operator() expects meta::metadata(...) entries");
+    (builder_->apply_enum_value_metadata(value_name_, std::forward<Entries>(entries)), ...);
+    return *builder_;
+  }
+
+  enum_builder<T>& type(std::string_view name) { return builder_->type(name); }
+  enum_builder<T>& guid(type_guid guid_value) { return builder_->guid(guid_value); }
+  enum_builder<T>& guid(caors::guid guid_value) { return builder_->guid(guid_value); }
+  template <typename Capability> enum_builder<T>& capability(const Capability* capability) {
+    return builder_->capability(capability);
+  }
+  template <typename Capability>
+    requires(!std::is_pointer_v<std::remove_reference_t<Capability>>)
+  enum_builder<T>& capability(Capability&& capability) {
+    return builder_->capability(std::forward<Capability>(capability));
+  }
+  template <typename Capability> enum_builder<T>& capability() {
+    return builder_->template capability<Capability>();
+  }
+  enum_value_bind<T> value(std::string_view name, T value) { return builder_->value(name, value); }
+  enum_value_bind<T> value(string_name name, T value) { return builder_->value(name, value); }
+  template <typename Value> enum_builder<T>& metadata(std::string_view key, Value&& value) {
+    return builder_->metadata(key, std::forward<Value>(value));
+  }
+  template <typename Value> enum_builder<T>& metadata(string_name key, Value&& value) {
+    return builder_->metadata(key, std::forward<Value>(value));
+  }
+
+  [[nodiscard]] ::caors::meta::type get() const noexcept { return builder_->get(); }
+  [[nodiscard]] error result() const noexcept { return builder_->result(); }
+  [[nodiscard]] error commit() const noexcept { return builder_->commit(); }
+  [[nodiscard]] bool succeeded() const noexcept { return builder_->succeeded(); }
+  [[nodiscard]] operator enum_builder<T>&() noexcept { return *builder_; }
+  [[nodiscard]] operator const enum_builder<T>&() const noexcept { return *builder_; }
+
+private:
+  enum_builder<T>* builder_ = nullptr;
+  string_name value_name_{};
+};
+
+template <typename T> enum_value_bind<T> enum_builder<T>::value(std::string_view name, T value) {
+  return this->value(string_name{name}, value);
+}
+
+template <typename T> enum_value_bind<T> enum_builder<T>::value(string_name name, T value) {
+  add_enum_value(name, value);
+  return enum_value_bind<T>{*this, status_.succeeded() ? name : string_name{}};
+}
 
 /** @brief 获取指定 C++ 类/普通值类型的元类型注册构建器；默认不注册类型。 */
 template <typename T> [[nodiscard]] class_builder<T> class_() { return class_builder<T>{}; }
@@ -595,5 +713,7 @@ template <typename T> [[nodiscard]] enum_builder<T> enum_(std::string_view name)
 }
 
 } // namespace caors::meta
+
+#include "caors/meta/enum_registration.h"
 
 #endif

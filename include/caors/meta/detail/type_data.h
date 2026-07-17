@@ -6,11 +6,13 @@
 
 #include "caors/core/containers.h"
 #include "caors/error.h"
+#include "caors/meta/detail/enum_value_data.h"
 #include "caors/meta/detail/field_data.h"
 #include "caors/meta/detail/method_data.h"
 #include "caors/meta/type_id.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <initializer_list>
 #include <optional>
 #include <string_view>
@@ -58,6 +60,13 @@ public:
   [[nodiscard]] std::optional<method_data> find_method(string_name name) const;
   [[nodiscard]] std::optional<method_data> find_method(std::string_view name) const;
   void add_method(method_data method);
+  [[nodiscard]] std::size_t enum_value_count() const noexcept;
+  [[nodiscard]] const enum_value_data* enum_value_at(std::size_t index) const noexcept;
+  [[nodiscard]] const enum_value_data* find_enum_value_ptr(string_name name) const noexcept;
+  [[nodiscard]] enum_value_data* mutable_find_enum_value_ptr(string_name name) noexcept;
+  [[nodiscard]] const enum_value_data* find_enum_value_ptr(std::int64_t value) const noexcept;
+  [[nodiscard]] const enum_value_data* find_enum_value_ptr(std::uint64_t value) const noexcept;
+  void add_enum_value(enum_value_data value);
 
 private:
   type_id id_{};
@@ -66,6 +75,7 @@ private:
   type_id parent_id_{};
   vector<field_data> fields_{};
   vector<method_data> methods_{};
+  vector<enum_value_data> enum_values_{};
 };
 
 [[nodiscard]] error merge_type_data(registry_state& state, type_data& stored,

@@ -8,6 +8,8 @@
 #include "caors/meta/capability.h"
 #include "caors/meta/capability_facade.h"
 #include "caors/meta/constructor.h"
+#include "caors/meta/enum_registration.h"
+#include "caors/meta/enum_value.h"
 #include "caors/meta/field.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/method.h"

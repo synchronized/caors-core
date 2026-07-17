@@ -18,6 +18,12 @@ bool type_data::members_valid() const noexcept {
     }
   }
 
+  for (const enum_value_data& value : enum_values_) {
+    if (!value.valid()) {
+      return false;
+    }
+  }
+
   return true;
 }
 
@@ -132,5 +138,61 @@ std::optional<method_data> type_data::find_method(std::string_view name) const {
 }
 
 void type_data::add_method(method_data method) { methods_.push_back(method); }
+
+std::size_t type_data::enum_value_count() const noexcept { return enum_values_.size(); }
+
+const enum_value_data* type_data::enum_value_at(std::size_t index) const noexcept {
+  return index < enum_values_.size() ? &enum_values_[index] : nullptr;
+}
+
+const enum_value_data* type_data::find_enum_value_ptr(core::string_name name) const noexcept {
+  if (!name) {
+    return nullptr;
+  }
+
+  for (const enum_value_data& value : enum_values_) {
+    if (value.name() == name) {
+      return &value;
+    }
+  }
+
+  return nullptr;
+}
+
+enum_value_data* type_data::mutable_find_enum_value_ptr(core::string_name name) noexcept {
+  if (!name) {
+    return nullptr;
+  }
+
+  for (enum_value_data& value : enum_values_) {
+    if (value.name() == name) {
+      return &value;
+    }
+  }
+
+  return nullptr;
+}
+
+const enum_value_data* type_data::find_enum_value_ptr(std::int64_t value) const noexcept {
+  for (const enum_value_data& enum_value : enum_values_) {
+    if (enum_value.to_i64() == value) {
+      return &enum_value;
+    }
+  }
+
+  return nullptr;
+}
+
+const enum_value_data* type_data::find_enum_value_ptr(std::uint64_t value) const noexcept {
+  for (const enum_value_data& enum_value : enum_values_) {
+    if (enum_value.to_u64() == value) {
+      return &enum_value;
+    }
+  }
+
+  return nullptr;
+}
+
+void type_data::add_enum_value(enum_value_data value) { enum_values_.push_back(std::move(value)); }
 
 } // namespace caors::meta::detail

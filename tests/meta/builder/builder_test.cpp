@@ -139,3 +139,54 @@ TEST_CASE("meta type - class builder registers fields and methods", "[meta]") {
   CHECK(*result.try_get<int>() == 25);
   CHECK(actor.health == 25);
 }
+
+TEST_CASE("meta enum - builder registers values and metadata", "[meta]") {
+  auto builder = caors::meta::enum_<reflected_meta_state>("caors.test.meta.reflected_state")(
+                     caors::meta::enum_value("idle", reflected_meta_state::idle),
+                     caors::meta::enum_value("running", reflected_meta_state::running))
+                     .value("hidden", reflected_meta_state::hidden)(
+                         caors::meta::metadata("editor_hidden", true));
+
+  REQUIRE(builder.succeeded());
+
+  const caors::meta::type type = caors::meta::find<reflected_meta_state>();
+  REQUIRE(type);
+  CHECK(type.kind() == caors::meta::type_kind::enumeration);
+  const caors::meta::enum_capability values = type.get_capability<caors::meta::enum_capability>();
+  REQUIRE(values);
+  CHECK(values.value_count() == 3);
+
+  const caors::meta::enum_value_view idle = values.find_value("idle");
+  REQUIRE(idle);
+  CHECK(idle.name() == "idle");
+  REQUIRE(idle.get<reflected_meta_state>().has_value());
+  CHECK(*idle.get<reflected_meta_state>() == reflected_meta_state::idle);
+
+  const caors::meta::enum_value_view running = values.find_value(reflected_meta_state::running);
+  REQUIRE(running);
+  CHECK(running.name() == "running");
+  CHECK(running.to_i64() == 2);
+  CHECK(running.to_u64() == 2U);
+
+  const caors::meta::enum_value_view hidden = values.value_at(2);
+  REQUIRE(hidden);
+  CHECK(hidden.name() == "hidden");
+  const caors::string_name editor_hidden_key{"editor_hidden"};
+  REQUIRE(hidden.find_metadata(editor_hidden_key) != nullptr);
+  CHECK(hidden.find_metadata(editor_hidden_key)->as_bool());
+}
+
+TEST_CASE("meta enum - builder rejects duplicate value names", "[meta]") {
+  auto builder = caors::meta::enum_<duplicate_meta_state>("caors.test.meta.duplicate_state")
+                     .value("same", duplicate_meta_state::first);
+  REQUIRE(builder.succeeded());
+
+  const auto duplicate = builder.value("same", duplicate_meta_state::second);
+  CHECK(duplicate.result() == caors::error{caors::error_domain::meta, caors::errc::duplicate_name});
+
+  const caors::meta::type type = caors::meta::find<duplicate_meta_state>();
+  REQUIRE(type);
+  const caors::meta::enum_capability values = type.get_capability<caors::meta::enum_capability>();
+  REQUIRE(values);
+  CHECK(values.value_count() == 1);
+}

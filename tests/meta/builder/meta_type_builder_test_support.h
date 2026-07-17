@@ -19,6 +19,17 @@ struct explicit_find_type {};
 
 struct missing_find_type {};
 
+enum class reflected_meta_state {
+  idle = 1,
+  running = 2,
+  hidden = 3,
+};
+
+enum class duplicate_meta_state {
+  first = 1,
+  second = 2,
+};
+
 struct reflected_meta_actor {
   int health = 10;
 

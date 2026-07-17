@@ -5,6 +5,7 @@
 
 #include "caors/meta/detail/type_data.h"
 #include "caors/meta/detail/type_descriptor.h"
+#include "caors/meta/enum_value.h"
 #include "caors/meta/field.h"
 #include "caors/meta/method.h"
 
@@ -169,7 +170,9 @@ type type::get_key_type() const noexcept {
   return {};
 }
 
-std::size_t type::field_count() const noexcept { return data_ != nullptr ? data_->field_count() : 0; }
+std::size_t type::field_count() const noexcept {
+  return data_ != nullptr ? data_->field_count() : 0;
+}
 
 field type::field_at(std::size_t index) const {
   return data_ != nullptr ? field{data_->field_at(index)} : field{};
@@ -192,7 +195,9 @@ field type::find_field(std::string_view field_name) const {
   return find_field(*interned_name);
 }
 
-std::size_t type::method_count() const noexcept { return data_ != nullptr ? data_->method_count() : 0; }
+std::size_t type::method_count() const noexcept {
+  return data_ != nullptr ? data_->method_count() : 0;
+}
 
 method type::method_at(std::size_t index) const {
   return data_ != nullptr ? method{data_->method_at(index)} : method{};
@@ -213,6 +218,40 @@ method type::find_method(std::string_view method_name) const {
   }
 
   return find_method(*interned_name);
+}
+
+std::size_t type::enum_value_count_impl() const noexcept {
+  return data_ != nullptr ? data_->enum_value_count() : 0;
+}
+
+enum_value_view type::enum_value_at_impl(std::size_t index) const {
+  return data_ != nullptr ? enum_value_view{data_->enum_value_at(index)} : enum_value_view{};
+}
+
+enum_value_view type::find_enum_value_impl(core::string_name enum_value_name) const {
+  if (!enum_value_name) {
+    return {};
+  }
+
+  return data_ != nullptr ? enum_value_view{data_->find_enum_value_ptr(enum_value_name)}
+                          : enum_value_view{};
+}
+
+enum_value_view type::find_enum_value_impl(std::string_view enum_value_name) const {
+  const std::optional<core::string_name> interned_name = core::string_name::find(enum_value_name);
+  if (!interned_name.has_value()) {
+    return {};
+  }
+
+  return find_enum_value_impl(*interned_name);
+}
+
+enum_value_view type::find_enum_value_by_i64_impl(std::int64_t value) const noexcept {
+  return data_ != nullptr ? enum_value_view{data_->find_enum_value_ptr(value)} : enum_value_view{};
+}
+
+enum_value_view type::find_enum_value_by_u64_impl(std::uint64_t value) const noexcept {
+  return data_ != nullptr ? enum_value_view{data_->find_enum_value_ptr(value)} : enum_value_view{};
 }
 
 namespace detail {

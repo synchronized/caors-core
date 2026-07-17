@@ -557,6 +557,7 @@ metadata 推荐使用 RTTR 风格的绑定语法。`meta::metadata(key, value)` 
 - 紧跟在 `class_<T>(...)` 后面的 `(...)` 写入类型 metadata。
 - 紧跟在 `.field(...)` 后面的 `(...)` 写入字段 metadata。
 - 紧跟在 `.method(...)` 后面的 `(...)` 写入方法 metadata。
+- 紧跟在 `meta::enum_<T>().value(...)` 后面的 `(...)` 写入枚举项 metadata。
 
 `.field(...)` 和 `.method(...)` 返回临时 bind 对象；bind 对象会把后续
 `.field()`、`.method()`、`.metadata()`、`.commit()` 等链式调用继续转发给原始 class builder，
@@ -572,6 +573,34 @@ caors::meta::class_<actor>("game.actor")
     .method("damage", &actor::damage)
     (caors::meta::metadata("scriptable", true));
 ```
+
+枚举项也使用同样的绑定风格。`meta::enum_value(name, value)` 适合在 `operator()` 中批量注册，
+`.value(name, value)` 适合链式追加并给枚举项挂 metadata：
+
+```cpp
+enum class actor_state {
+  idle,
+  running,
+  hidden,
+};
+
+caors::meta::enum_<actor_state>("game.actor_state")
+    (caors::meta::enum_value("idle", actor_state::idle),
+     caors::meta::enum_value("running", actor_state::running))
+    .value("hidden", actor_state::hidden)
+    (caors::meta::metadata("editor_hidden", true));
+
+caors::meta::type state_type = caors::meta::find<actor_state>();
+caors::meta::enum_capability values =
+    state_type.get_capability<caors::meta::enum_capability>();
+caors::meta::enum_value_view hidden = values.find_value("hidden");
+```
+
+枚举项按注册顺序保存，通过 `meta::enum_capability` 查询：
+`values.value_count()`、`values.value_at(index)`、`values.find_value(name)` 或
+`values.find_value(enum_value)`。重复枚举项名称返回 `errc::duplicate_name`；重复数值允许作为别名，
+按数值查询时返回第一条注册项。`meta::type` 本身不暴露枚举专用 API，具体类型级行为统一走
+`get_capability<Capability>()`。
 
 metadata 不参与类型身份，不替代 `type_name` / `type_guid` / capability。需要决定运行期行为时，优先使用
 明确的 capability、反射字段、序列化 schema 或资源配置对象；metadata 只承载可选约束、标签和工具提示。
@@ -863,6 +892,8 @@ descriptor，不再为了创建 view 把每一种容器组合额外挂载为 met
 - `meta::enum_<T>()`：RTTR 风格的枚举类型注册入口；默认不注册类型，需要继续调用 `.type("name")`。
 - `meta::enum_<T>("name")`：显式注册枚举类型，注册后 `meta::type::kind()` 为
   `meta::type_kind::enumeration`。
+- `meta::enum_value(name, value)` / `meta::enum_<T>().value(name, value)`：注册枚举项；查询时通过
+  `meta::enum_capability` 返回的 `meta::enum_value_view` 访问名称、整数值和 metadata。
 - `meta::class_<T>().parent<Base>()`：保存 C++ 父类型关系和安全 upcast 回调。
 - `meta::class_<T>().factory()` / `.factory(construct, destroy)`：注册运行期 factory，保存运行期值构造和销毁策略；查询时使用 `meta::type::get_capability<meta::factory_capability>()`，推荐通过 `factory_capability::construct()` 获取拥有生命周期的 `any`。
 - `meta::class_<T>().constructor<Args...>()`：注册运行期参数构造策略；查询时使用

@@ -12,6 +12,7 @@
 #include "caors/traits/wrapper.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <span>
 #include <string_view>
 #include <type_traits>
@@ -22,6 +23,8 @@ class registry;
 class type;
 class field;
 class method;
+class enum_capability;
+class enum_value_view;
 
 [[nodiscard]] CAORS_API registry& get_registry() noexcept;
 template <typename T> [[nodiscard]] type resolve();
@@ -123,8 +126,16 @@ public:
 
 private:
   friend class registry;
+  friend class enum_capability;
   friend type detail::make_type_view(type_id, const detail::type_descriptor*) noexcept;
   friend const void* detail::find_type_capability(const type&, capability_key) noexcept;
+
+  [[nodiscard]] std::size_t enum_value_count_impl() const noexcept;
+  [[nodiscard]] enum_value_view enum_value_at_impl(std::size_t index) const;
+  [[nodiscard]] enum_value_view find_enum_value_impl(string_name name) const;
+  [[nodiscard]] enum_value_view find_enum_value_impl(std::string_view name) const;
+  [[nodiscard]] enum_value_view find_enum_value_by_i64_impl(std::int64_t value) const noexcept;
+  [[nodiscard]] enum_value_view find_enum_value_by_u64_impl(std::uint64_t value) const noexcept;
 
   constexpr type(const registry* registry, const detail::type_data* data,
                  const detail::type_descriptor* descriptor) noexcept
