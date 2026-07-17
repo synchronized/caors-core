@@ -5,6 +5,7 @@
 #define CAORS_META_VALUE_ANY_H_
 
 #include "caors/memory/resource.h"
+#include "caors/meta/capability_facade.h"
 #include "caors/meta/query.h"
 #include "caors/meta/value/fwd.h"
 

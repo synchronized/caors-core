@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_META_DETAIL_INTERNAL_H_
-#define CAORS_META_DETAIL_INTERNAL_H_
+#ifndef CAORS_META_DETAIL_REGISTRY_STATE_H_
+#define CAORS_META_DETAIL_REGISTRY_STATE_H_
 
 #include "caors/memory/resource.h"
 #include "caors/memory/unique_ptr.h"

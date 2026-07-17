@@ -248,6 +248,6 @@ private:
 
 } // namespace caors::meta
 
-#include "caors/meta/query.h"
+#include "caors/meta/detail/registry_templates.h"
 
 #endif

@@ -4,6 +4,7 @@
 #ifndef CAORS_OBJECT_OBJECT_FACTORY_CAPABILITY_H_
 #define CAORS_OBJECT_OBJECT_FACTORY_CAPABILITY_H_
 
+#include "caors/meta/capability_facade.h"
 #include "caors/meta/type.h"
 #include "caors/object/detail/factory_ops.h"
 

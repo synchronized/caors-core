@@ -4,6 +4,7 @@
 #ifndef CAORS_META_VALUE_CAPABILITY_FACADE_H_
 #define CAORS_META_VALUE_CAPABILITY_FACADE_H_
 
+#include "caors/meta/capability_facade.h"
 #include "caors/meta/type.h"
 #include "caors/meta/value/any_ref.h"
 

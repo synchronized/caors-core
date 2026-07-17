@@ -42,9 +42,16 @@
 - `caors/traits/type_name.h`：`traits::type_name<T>` 默认类型名映射。
 - `caors/traits/wrapper.h`：`traits::wrapper_traits<T>` 和 `traits::wrapper_access<T>` 主模板。
 - `caors/traits/container.h`：顺序、集合、关联、pair、tuple 和 variant 类型语义 traits 主模板。
-- `caors/meta/type.h`：`meta::type`、类型语义数据和内部类型描述实现。
+- `caors/meta/type.h`：`meta::type` 只读类型视图和类型语义枚举。
+- `caors/meta/query.h`：`meta::resolve<T>()`、`meta::find<T>()`、`meta::id_of<T>()` 等查询入口。
+- `caors/meta/builder.h`：`meta::class_<T>()`、`meta::enum_<T>()` 等链式注册入口。
 - `caors/meta/field.h`、`caors/meta/method.h`：字段和成员方法只读视图。
 - `caors/meta/reflection.h`：`meta::class_<T>()` 上的字段/方法注册扩展。
+- `caors/meta/capability_traits.h`：capability key、traits 和类型/实例能力查询扩展点。
+- `caors/meta/static_capability.h`：按 C++ 类型聚合静态能力的模块化扩展点。
+- `caors/meta/capability_facade.h`：类型级 capability facade 基类，以及 factory/constructor facade。
+- `caors/meta/type_ops.h`：内建 ops 聚合头；更细粒度可以包含 `caors/meta/ops/*.h`。
+- `caors/meta/value_ops.h`：值布局、生命周期、factory 和 constructor 的底层 ops 结构体。
 - `caors/adapters/stl_traits.h`、`caors/adapters/stl_wrapper.h`：STL/CAORS 类型的默认 traits 特化。
 - `caors/meta/view.h`：`meta::view<T...>` 查询视图。
 - `caors/meta/registry.h`：全局 `meta::registry`、注册错误状态和注册 helper。

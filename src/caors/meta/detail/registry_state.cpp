@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "internal.h"
+#include "registry_state.h"
 
 #include "caors/meta/detail/type_descriptor.h"
 

@@ -4,6 +4,7 @@
 #ifndef CAORS_META_REFLECTION_H_
 #define CAORS_META_REFLECTION_H_
 
+#include "caors/meta/builder.h"
 #include "caors/meta/detail/type_data.h"
 #include "caors/meta/query.h"
 

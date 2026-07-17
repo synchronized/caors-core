@@ -4,6 +4,7 @@
 #ifndef CAORS_SERIALIZATION_CODEC_H_
 #define CAORS_SERIALIZATION_CODEC_H_
 
+#include "caors/meta/capability_facade.h"
 #include "caors/meta/query.h"
 #include "caors/meta/type.h"
 #include "caors/meta/value/any_ref.h"

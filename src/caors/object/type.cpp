@@ -3,6 +3,8 @@
 
 #include "caors/object/type.h"
 
+#include "caors/meta/value_ops.h"
+
 namespace caors::objects {
 
 type::type(meta::type type, object_factory_capability factory) noexcept

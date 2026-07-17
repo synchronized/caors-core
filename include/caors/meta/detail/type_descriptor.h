@@ -7,6 +7,7 @@
 #include "caors/meta/detail/builtin/ops.h"
 #include "caors/meta/type.h"
 #include "caors/meta/type_ops.h"
+#include "caors/meta/value_ops.h"
 
 #include <cstddef>
 #include <type_traits>

@@ -4,8 +4,10 @@
 #ifndef CAORS_META_CONSTRUCTOR_H_
 #define CAORS_META_CONSTRUCTOR_H_
 
-#include "caors/meta/query.h"
+#include "caors/meta/builder.h"
+#include "caors/meta/detail/value_ops_model.h"
 #include "caors/meta/value/any_ref.h"
+#include "caors/meta/value_ops.h"
 
 #include <span>
 #include <type_traits>

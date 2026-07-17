@@ -7,6 +7,7 @@
 #include "caors/meta/detail/builtin_ops_model.h"
 #include "caors/meta/detail/type_descriptor.h"
 #include "caors/meta/detail/type_descriptor_name.h"
+#include "caors/meta/detail/value_ops_model.h"
 #include "caors/meta/type_semantics.h"
 #include "caors/traits/container.h"
 #include "caors/traits/wrapper.h"

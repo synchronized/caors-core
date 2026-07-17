@@ -4,7 +4,7 @@
 #ifndef CAORS_META_PROXY_H_
 #define CAORS_META_PROXY_H_
 
-#include "caors/meta/capability.h"
+#include "caors/meta/capability_facade.h"
 #include "caors/meta/type.h"
 
 #include <cstddef>
