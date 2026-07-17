@@ -4,7 +4,7 @@
 #ifndef CAORS_META_REFLECTION_H_
 #define CAORS_META_REFLECTION_H_
 
-#include "caors/meta/detail/reflection_data.h"
+#include "caors/meta/detail/type_data.h"
 #include "caors/meta/query.h"
 
 #include <string_view>
@@ -48,7 +48,8 @@ class_builder<T>& class_builder<T>::field(std::string_view name, Member member) 
   using traits_type = detail::member_object_pointer_traits<Member>;
   using owner_type = typename traits_type::class_type;
   using field_type = std::remove_cv_t<typename traits_type::field_type>;
-  static_assert(std::is_same_v<owner_type, T>, "Field member pointer owner must match builder type");
+  static_assert(std::is_same_v<owner_type, T>,
+                "Field member pointer owner must match builder type");
 
   if (!type_.registered()) {
     status_ = {error_domain::reflection, errc::invalid_type};
@@ -60,16 +61,15 @@ class_builder<T>& class_builder<T>::field(std::string_view name, Member member) 
     return *this;
   }
 
-  detail::field_data field =
-      detail::make_field_data<T, typename traits_type::field_type>(
-          name, std::string_view{}, detail::member_offset(member));
+  detail::field_data field = detail::make_field_data<T, typename traits_type::field_type>(
+      name, std::string_view{}, detail::member_offset(member));
   if (!field.valid()) {
     status_ = {error_domain::reflection, errc::invalid_field};
     return *this;
   }
 
-  detail::reflection_data* reflection = get_registry().ensure_reflection(
-      type_.id(), detail::reflection_data{detail::make_reflection_type_ops<T>()});
+  detail::type_data* reflection =
+      get_registry().ensure_reflection(type_.id(), detail::make_reflection_type_ops<T>());
   if (reflection == nullptr) {
     status_ = {error_domain::reflection, errc::invalid_type};
     return *this;
@@ -94,23 +94,23 @@ class_builder<T>& class_builder<T>::field(std::string_view name, Member member,
                 "meta::class_builder::field requires a data member pointer");
   using traits_type = detail::member_object_pointer_traits<Member>;
   using owner_type = typename traits_type::class_type;
-  static_assert(std::is_same_v<owner_type, T>, "Field member pointer owner must match builder type");
+  static_assert(std::is_same_v<owner_type, T>,
+                "Field member pointer owner must match builder type");
 
   if (!type_.registered()) {
     status_ = {error_domain::reflection, errc::invalid_type};
     return *this;
   }
 
-  detail::field_data field =
-      detail::make_field_data<T, typename traits_type::field_type>(
-          name, type_name, detail::member_offset(member));
+  detail::field_data field = detail::make_field_data<T, typename traits_type::field_type>(
+      name, type_name, detail::member_offset(member));
   if (!field.valid()) {
     status_ = {error_domain::reflection, errc::invalid_field};
     return *this;
   }
 
-  detail::reflection_data* reflection = get_registry().ensure_reflection(
-      type_.id(), detail::reflection_data{detail::make_reflection_type_ops<T>()});
+  detail::type_data* reflection =
+      get_registry().ensure_reflection(type_.id(), detail::make_reflection_type_ops<T>());
   if (reflection == nullptr) {
     status_ = {error_domain::reflection, errc::invalid_type};
     return *this;
@@ -134,7 +134,8 @@ class_builder<T>& class_builder<T>::method(std::string_view name, Member member)
                 "meta::class_builder::method requires a member function pointer");
   using traits_type = detail::member_function_pointer_traits<Member>;
   using owner_type = typename traits_type::class_type;
-  static_assert(std::is_same_v<owner_type, T>, "Method member pointer owner must match builder type");
+  static_assert(std::is_same_v<owner_type, T>,
+                "Method member pointer owner must match builder type");
 
   if (!type_.registered()) {
     status_ = {error_domain::reflection, errc::invalid_type};
@@ -147,8 +148,8 @@ class_builder<T>& class_builder<T>::method(std::string_view name, Member member)
     return *this;
   }
 
-  detail::reflection_data* reflection = get_registry().ensure_reflection(
-      type_.id(), detail::reflection_data{detail::make_reflection_type_ops<T>()});
+  detail::type_data* reflection =
+      get_registry().ensure_reflection(type_.id(), detail::make_reflection_type_ops<T>());
   if (reflection == nullptr) {
     status_ = {error_domain::reflection, errc::invalid_type};
     return *this;
@@ -178,7 +179,7 @@ class_builder<T>& class_builder<T>::field_metadata(string_name key, Value&& valu
     return *this;
   }
 
-  detail::reflection_data* reflection = get_registry().find_mutable_reflection(type_.id());
+  detail::type_data* reflection = get_registry().find_mutable_reflection(type_.id());
   detail::field_data* field =
       reflection != nullptr ? reflection->mutable_find_field_ptr(last_field_name_) : nullptr;
   if (field == nullptr) {

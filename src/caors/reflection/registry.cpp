@@ -104,17 +104,17 @@ error registry::attach_type(meta::type type, const void* reflection) {
     return {error_domain::reflection, errc::invalid_type};
   }
 
-  const detail::type_wrapper* reflection_data = as_type_wrapper(reflection);
-  if (reflection_data == nullptr || !reflection_data->valid()) {
+  const detail::type_wrapper* reflected = as_type_wrapper(reflection);
+  if (reflected == nullptr || !reflected->reflection_valid()) {
     return {error_domain::reflection, errc::invalid_field};
   }
 
-  const error reflected_type_status = validate_reflection_type(type.id(), *reflection_data);
+  const error reflected_type_status = validate_reflection_type(type.id(), *reflected);
   if (reflected_type_status) {
     return reflected_type_status;
   }
 
-  detail::type_wrapper stored_reflection = *reflection_data;
+  detail::type_wrapper stored_reflection = *reflected;
 
   const error field_status = resolve_fields(meta::get_registry(), stored_reflection);
   if (field_status) {
@@ -138,7 +138,7 @@ bool registry::contains(type_id id) const {
   return meta::get_registry().find_reflection(id) != nullptr;
 }
 
-const void* registry::find_reflection_data(type_id id) const {
+const void* registry::find_type_storage(type_id id) const {
   return meta::get_registry().find_reflection(id);
 }
 
@@ -148,7 +148,7 @@ type registry::find_type(type_id id) const {
     return {};
   }
 
-  const detail::type_wrapper* reflection = as_type_wrapper(find_reflection_data(id));
+  const detail::type_wrapper* reflection = as_type_wrapper(find_type_storage(id));
   if (reflection == nullptr) {
     return {};
   }
@@ -183,9 +183,7 @@ type registry::find_type(core::string_name name) const {
   return find_type(type.id());
 }
 
-std::size_t registry::size() const noexcept {
-  return meta::get_registry().reflection_count();
-}
+std::size_t registry::size() const noexcept { return meta::get_registry().reflection_count(); }
 
 registry& get_registry() noexcept { return registry::instance(); }
 

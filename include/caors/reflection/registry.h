@@ -21,9 +21,8 @@ template <typename Class> class class_builder;
 /**
  * @brief 底层全局反射注册表。
  *
- * 注册表基于 `meta::registry` 保存基础类型信息，并把内部反射数据
- * 作为元数据组件挂载到同一个 `type_id` 上。普通代码应使用 `reflection::class_<T>()` 和
- * `reflection::find()`，不要创建或管理注册表实例。
+ * 注册表基于 `meta::registry` 保存基础类型、字段和方法信息。普通代码应使用
+ * `reflection::class_<T>()` 和 `reflection::find()`，不要创建或管理注册表实例。
  */
 class CAORS_API registry final {
 public:
@@ -51,7 +50,7 @@ private:
 
   [[nodiscard]] error attach_type(meta::type type, const void* reflection);
 
-  [[nodiscard]] const void* find_reflection_data(type_id id) const;
+  [[nodiscard]] const void* find_type_storage(type_id id) const;
 };
 
 /** @brief 获取进程内全局反射注册表。 */

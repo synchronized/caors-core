@@ -46,13 +46,12 @@ namespace {
   return detail::store_new_type(state, type, stored_id);
 }
 
-[[nodiscard]] error validate_reflection_type(type_id id,
-                                             const detail::reflection_data& reflection) noexcept {
+[[nodiscard]] error validate_reflection_type(type_id id, detail::reflection_type_ops ops) noexcept {
   if (!id) {
     return {error_domain::reflection, errc::invalid_type};
   }
 
-  const meta::type reflected_type = reflection.get_type();
+  const meta::type reflected_type = ops.get_type != nullptr ? ops.get_type() : meta::type{};
   if (!reflected_type || reflected_type.id() != id) {
     return {error_domain::reflection, errc::invalid_type};
   }
@@ -73,7 +72,7 @@ namespace {
   return static_cast<bool>(type);
 }
 
-[[nodiscard]] error resolve_fields(const detail::reflection_data& reflection) {
+[[nodiscard]] error resolve_fields(const detail::type_data& reflection) {
   for (std::size_t index = 0; index < reflection.field_count(); ++index) {
     const detail::field_data* field = reflection.field_at(index);
     if (field == nullptr || !resolve_field_type(*field)) {
@@ -84,7 +83,7 @@ namespace {
   return {};
 }
 
-[[nodiscard]] error validate_registered_fields(const detail::reflection_data& reflection) {
+[[nodiscard]] error validate_registered_fields(const detail::type_data& reflection) {
   core::hash_set<core::string_name> names;
   names.reserve(reflection.field_count());
 
@@ -102,7 +101,7 @@ namespace {
   return {};
 }
 
-[[nodiscard]] error validate_registered_methods(const detail::reflection_data& reflection) {
+[[nodiscard]] error validate_registered_methods(const detail::type_data& reflection) {
   core::hash_set<core::string_name> names;
   names.reserve(reflection.method_count());
 
@@ -120,10 +119,18 @@ namespace {
   return {};
 }
 
-[[nodiscard]] error validate_reflection_data(type_id id, const detail::reflection_data& reflection) {
-  const error reflected_type_status = validate_reflection_type(id, reflection);
-  if (reflected_type_status) {
-    return reflected_type_status;
+[[nodiscard]] error validate_reflection_storage(type_id id, const detail::type_data& reflection) {
+  if (!id || !reflection.has_reflection()) {
+    return {error_domain::reflection, errc::invalid_type};
+  }
+
+  const meta::type reflected_type = reflection.get_type();
+  if (!reflected_type || reflected_type.id() != id) {
+    return {error_domain::reflection, errc::invalid_type};
+  }
+
+  if (!reflection.reflection_valid()) {
+    return {error_domain::reflection, errc::invalid_field};
   }
 
   const error field_status = resolve_fields(reflection);
@@ -215,12 +222,12 @@ error registry::register_cpp_type_info(const std::type_info& info, type_id id) {
   return {};
 }
 
-error registry::attach_reflection(type_id id, const detail::reflection_data& reflection) {
+error registry::attach_reflection(type_id id, const detail::type_data& reflection) {
   if (!id) {
     return {error_domain::reflection, errc::invalid_type};
   }
 
-  const error validation_status = validate_reflection_data(id, reflection);
+  const error validation_status = validate_reflection_storage(id, reflection);
   if (validation_status) {
     return validation_status;
   }
@@ -234,13 +241,12 @@ error registry::attach_reflection(type_id id, const detail::reflection_data& ref
   return stored->attach_reflection(reflection);
 }
 
-detail::reflection_data* registry::ensure_reflection(type_id id,
-                                                     detail::reflection_data reflection) {
+detail::type_data* registry::ensure_reflection(type_id id, detail::reflection_type_ops ops) {
   if (!id) {
     return nullptr;
   }
 
-  const error validation_status = validate_reflection_type(id, reflection);
+  const error validation_status = validate_reflection_type(id, ops);
   if (validation_status) {
     return nullptr;
   }
@@ -251,7 +257,7 @@ detail::reflection_data* registry::ensure_reflection(type_id id,
     return nullptr;
   }
 
-  return stored->ensure_reflection(std::move(reflection));
+  return stored->ensure_reflection(ops);
 }
 
 error registry::set_type_parent(type_id id, type_id parent_id) {

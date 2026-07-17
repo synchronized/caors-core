@@ -196,24 +196,24 @@ std::size_t registry::size() const noexcept {
   return state_->types.size();
 }
 
-const detail::reflection_data* registry::find_reflection(type_id id) const {
+const detail::type_data* registry::find_reflection(type_id id) const {
   if (!id) {
     return nullptr;
   }
 
   std::lock_guard lock(state_->mutex);
   const detail::type_data* stored = detail::find_type_data(*state_, id);
-  return stored != nullptr ? stored->reflection() : nullptr;
+  return stored != nullptr && stored->has_reflection() ? stored : nullptr;
 }
 
-detail::reflection_data* registry::find_mutable_reflection(type_id id) {
+detail::type_data* registry::find_mutable_reflection(type_id id) {
   if (!id) {
     return nullptr;
   }
 
   std::lock_guard lock(state_->mutex);
   detail::type_data* stored = detail::find_type_data(*state_, id);
-  return stored != nullptr ? stored->mutable_reflection() : nullptr;
+  return stored != nullptr && stored->has_reflection() ? stored : nullptr;
 }
 
 std::size_t registry::reflection_count() const noexcept {
@@ -221,7 +221,7 @@ std::size_t registry::reflection_count() const noexcept {
   std::size_t count = 0;
   for (const auto& [unused_id, stored] : state_->types) {
     (void)unused_id;
-    if (stored != nullptr && stored->reflection() != nullptr) {
+    if (stored != nullptr && stored->has_reflection()) {
       ++count;
     }
   }

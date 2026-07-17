@@ -18,7 +18,7 @@ type::type(meta::type type, const void* data) noexcept : type_(type), data_(data
 
 bool type::valid() const noexcept {
   const detail::type_wrapper* reflected = as_type_wrapper(data_);
-  if (!type_.valid() || reflected == nullptr || !reflected->valid()) {
+  if (!type_.valid() || reflected == nullptr || !reflected->reflection_valid()) {
     return false;
   }
 
