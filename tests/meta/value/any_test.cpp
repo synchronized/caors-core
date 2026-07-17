@@ -99,7 +99,7 @@ TEST_CASE("meta any - fields expose copied runtime values", "[meta]") {
   const caors::meta::property readonly =
       require_reflected_field("caors.test.meta.value_reflected_holder", "readonly");
 
-  caors::any copied = value.get_value(&holder);
+  caors::any copied = value.get_value(caors::meta::view(holder));
   CHECK(copied.valid());
   CHECK(copied.matches_type<int>());
   REQUIRE(copied.try_get<int>() != nullptr);
@@ -109,20 +109,20 @@ TEST_CASE("meta any - fields expose copied runtime values", "[meta]") {
   CHECK(*copied.try_get<int>() == 10);
   CHECK(holder.value == 1);
 
-  CHECK(value.try_set_value(&holder, copied));
+  CHECK(value.try_set_value(caors::meta::view(holder), copied));
   CHECK(holder.value == 10);
 
   caors::any mismatch = caors::any::from(2.0F);
-  CHECK_FALSE(value.try_set_value(&holder, mismatch));
+  CHECK_FALSE(value.try_set_value(caors::meta::view(holder), mismatch));
   CHECK(holder.value == 10);
 
-  caors::any readonly_value = readonly.get_value(&holder);
+  caors::any readonly_value = readonly.get_value(caors::meta::view(holder));
   CHECK(readonly_value.valid());
   REQUIRE(readonly_value.try_get<int>() != nullptr);
   CHECK(*readonly_value.try_get<int>() == 7);
   CHECK(readonly_value.try_set(8));
   CHECK(*readonly_value.try_get<int>() == 8);
-  CHECK_FALSE(readonly.try_set_value(&holder, readonly_value));
+  CHECK_FALSE(readonly.try_set_value(caors::meta::view(holder), readonly_value));
   CHECK(holder.readonly == 7);
 }
 
@@ -177,11 +177,11 @@ TEST_CASE("meta any - noncopyable fields return invalid values", "[meta]") {
   const caors::meta::property field =
       require_reflected_field("caors.test.meta.move_only_value", "value");
 
-  caors::any copied = field.get_value(&holder);
+  caors::any copied = field.get_value(caors::meta::view(holder));
   CHECK_FALSE(copied.valid());
 
   const move_only_value& readonly_holder = holder;
-  caors::any_ref referenced = field.get_ref(&readonly_holder);
+  caors::any_ref referenced = field.get_ref(caors::meta::view_const(readonly_holder));
   CHECK(referenced.valid());
   CHECK_FALSE(referenced.writable());
   const std::unique_ptr<int>* stored = referenced.try_get<std::unique_ptr<int>>();
@@ -189,7 +189,7 @@ TEST_CASE("meta any - noncopyable fields return invalid values", "[meta]") {
   REQUIRE(*stored);
   CHECK(**stored == 7);
 
-  caors::any_ref writable = field.get_ref(&holder);
+  caors::any_ref writable = field.get_ref(caors::meta::view(holder));
   CHECK(writable.valid());
   CHECK(writable.writable());
   std::unique_ptr<int>* writable_stored = writable.try_get_mutable<std::unique_ptr<int>>();
@@ -278,8 +278,8 @@ TEST_CASE("meta any - descriptor fields do not require container type registrati
   CHECK_FALSE(values_field.get_value_type().registered());
 
   unregistered_nested_vector_holder holder{{{1, 2}, {3}}};
-  caors::meta::sequence_view outer =
-      values_field.get_ref(&holder).get_capability<caors::meta::sequence_capability>();
+  caors::meta::sequence_view outer = values_field.get_ref(caors::meta::view(holder))
+                                         .get_capability<caors::meta::sequence_capability>();
   REQUIRE(outer.valid());
   REQUIRE(outer.size().has_value());
   CHECK(*outer.size() == 2);

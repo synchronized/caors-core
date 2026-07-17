@@ -364,13 +364,13 @@ inline any factory_capability::construct(memory::memory_resource* resource) cons
 }
 
 inline owned_value
-constructor_capability::construct_owned(std::span<const any_ref> arguments,
+constructor_capability::construct_owned(std::span<const argument> arguments,
                                         memory::memory_resource* resource) const {
   void* value = matches(arguments.size()) ? ops_->construct(resource, arguments) : nullptr;
   return make_owned_value(get_type(), value, resource, valid() ? ops_->destroy : nullptr);
 }
 
-inline any constructor_capability::construct(std::span<const any_ref> arguments,
+inline any constructor_capability::construct(std::span<const argument> arguments,
                                              memory::memory_resource* resource) const {
   return std::move(construct_owned(arguments, resource)).into_any();
 }

@@ -45,6 +45,12 @@ struct runtime_constructor_create_type {
   int value = 0;
 };
 
+struct runtime_rvalue_constructor_create_type {
+  explicit runtime_rvalue_constructor_create_type(int&& input) : value(input) { input = -1; }
+
+  int value = 0;
+};
+
 struct runtime_factory_constructor_priority_type {
   runtime_factory_constructor_priority_type() = default;
 
@@ -160,8 +166,8 @@ TEST_CASE("runtime facade - class builder registers meta fields and methods", "[
   REQUIRE(field.valid());
 
   runtime_actor actor{};
-  CHECK(field.try_get<int>(&actor) == 7);
-  CHECK(field.try_set(&actor, 11));
+  CHECK(field.try_get<int>(caors::meta::view(actor)) == 7);
+  CHECK(field.try_set(caors::meta::view(actor), 11));
   CHECK(actor.health == 11);
 
   caors::runtime::method method = type.find_method("add_health").single();
@@ -282,18 +288,44 @@ TEST_CASE("runtime facade - create uses registered constructor arguments", "[run
   CHECK_FALSE(type.create());
 
   int input = 37;
-  std::array<caors::any_ref, 1> arguments{caors::any_ref::from(input)};
+  std::array<caors::argument, 1> arguments{caors::arg(input)};
   caors::any value =
-      type.create(std::span<const caors::any_ref>{arguments.data(), arguments.size()});
+      type.create(std::span<const caors::argument>{arguments.data(), arguments.size()});
   REQUIRE(value.valid());
   auto* created = value.try_get_mutable<runtime_constructor_create_type>();
   REQUIRE(created != nullptr);
   CHECK(created->value == 37);
 
   float wrong = 3.0F;
-  std::array<caors::any_ref, 1> wrong_arguments{caors::any_ref::from(wrong)};
-  CHECK_FALSE(
-      type.create(std::span<const caors::any_ref>{wrong_arguments.data(), wrong_arguments.size()}));
+  std::array<caors::argument, 1> wrong_arguments{caors::arg(wrong)};
+  CHECK_FALSE(type.create(
+      std::span<const caors::argument>{wrong_arguments.data(), wrong_arguments.size()}));
+}
+
+TEST_CASE("runtime facade - create supports rvalue constructor arguments", "[runtime]") {
+  const caors::error status = caors::runtime::class_<runtime_rvalue_constructor_create_type>(
+                                  "caors.test.runtime.rvalue_constructor_create")
+                                  .constructor<int&&>()
+                                  .commit();
+  CHECK_FALSE(status);
+
+  caors::runtime::type type = caors::runtime::find<runtime_rvalue_constructor_create_type>();
+  REQUIRE(type.valid());
+  CHECK(type.constructible(1));
+
+  int input = 17;
+  std::array<caors::argument, 1> lvalue_arguments{caors::arg(input)};
+  CHECK_FALSE(type.create(
+      std::span<const caors::argument>{lvalue_arguments.data(), lvalue_arguments.size()}));
+  CHECK(input == 17);
+
+  std::array<caors::argument, 1> rvalue_arguments{caors::move_arg(21)};
+  caors::any value = type.create(
+      std::span<const caors::argument>{rvalue_arguments.data(), rvalue_arguments.size()});
+  REQUIRE(value.valid());
+  const auto* created = value.try_get<runtime_rvalue_constructor_create_type>();
+  REQUIRE(created != nullptr);
+  CHECK(created->value == 21);
 }
 
 TEST_CASE("runtime facade - create keeps factory before zero argument constructor", "[runtime]") {
@@ -420,8 +452,8 @@ TEST_CASE("runtime facade - const instance is read only", "[runtime]") {
   CHECK(*readonly_result.try_get<int>() == 7);
 
   int delta = 5;
-  std::array<caors::any_ref, 1> arguments{caors::any_ref::from(delta)};
+  std::array<caors::argument, 1> arguments{caors::arg(delta)};
   CHECK_FALSE(instance.call("add_health",
-                            std::span<const caors::any_ref>{arguments.data(), arguments.size()}));
+                            std::span<const caors::argument>{arguments.data(), arguments.size()}));
   CHECK(owner.health == 7);
 }

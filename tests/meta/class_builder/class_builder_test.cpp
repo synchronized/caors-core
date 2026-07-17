@@ -28,7 +28,7 @@ TEST_CASE("meta - class builder accepts fields with descriptor-only types", "[me
   CHECK_FALSE(field.indirect());
 
   owner instance{};
-  CHECK(field.try_get<unregistered_field>(&instance).has_value());
+  CHECK(field.try_get<unregistered_field>(caors::meta::view(instance)).has_value());
 }
 
 // 原测试文件：meta_builder_class_builder_infers_built_in_field_types_test.cpp
@@ -61,8 +61,8 @@ TEST_CASE("meta - class builder infers built-in field types", "[meta]") {
   CHECK(health.get_type().id() == registered_type_id("float"));
 
   builder_actor instance{3, 80.0F};
-  CHECK(id.try_set<int>(&instance, 10));
-  CHECK(health.try_set<float>(&instance, 20.0F));
+  CHECK(id.try_set<int>(caors::meta::view(instance), 10));
+  CHECK(health.try_set<float>(caors::meta::view(instance), 20.0F));
   CHECK(instance.id == 10);
   CHECK(instance.health == 20.0F);
 }

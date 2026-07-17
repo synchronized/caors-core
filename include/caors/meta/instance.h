@@ -5,6 +5,7 @@
 #define CAORS_META_INSTANCE_H_
 
 #include "caors/core/containers.h"
+#include "caors/meta/argument.h"
 #include "caors/meta/method.h"
 #include "caors/meta/property.h"
 #include "caors/meta/type.h"
@@ -80,12 +81,15 @@ public:
   }
 
   /** @brief 调用反射方法；只读实例只能调用 const 成员函数。 */
-  [[nodiscard]] any call(std::string_view name, std::span<const any_ref> arguments = {}) const;
+  [[nodiscard]] any call(std::string_view name, std::span<const argument> arguments = {}) const;
 
-  /** @brief 使用 C++ 参数临时创建 `any_ref` 后调用反射方法。 */
+  /** @brief 使用 `any_ref` 左值参数调用反射方法。 */
+  [[nodiscard]] any call(std::string_view name, std::span<const any_ref> arguments) const;
+
+  /** @brief 使用 C++ 参数临时创建左值 `argument` 后调用反射方法。 */
   template <typename... Args> [[nodiscard]] any call(std::string_view name, Args&&... args) const {
-    std::array<any_ref, sizeof...(Args)> argument_refs{any_ref::from(args)...};
-    return call(name, std::span<const any_ref>{argument_refs.data(), argument_refs.size()});
+    std::array<argument, sizeof...(Args)> argument_refs{argument::ref(args)...};
+    return call(name, std::span<const argument>{argument_refs.data(), argument_refs.size()});
   }
 
 private:

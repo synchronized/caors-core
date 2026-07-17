@@ -5,6 +5,8 @@
 #define CAORS_OBJECT_VIEW_H_
 
 #include "caors/core/containers.h"
+#include "caors/meta/argument.h"
+#include "caors/meta/instance.h"
 #include "caors/meta/method.h"
 #include "caors/meta/property.h"
 #include "caors/meta/type.h"
@@ -73,17 +75,21 @@ public:
       return false;
     }
 
-    const any_ref target = reflected_property.get_ref(value_.mutable_data());
+    const any_ref target = reflected_property.get_ref(meta::instance{value_});
     return target.try_set(source);
   }
 
   /** @brief 调用反射方法；只读实例只能调用 const 成员函数。 */
-  [[nodiscard]] any call(std::string_view name, std::span<const any_ref> arguments = {}) const;
+  [[nodiscard]] any call(std::string_view name,
+                         std::span<const meta::argument> arguments = {}) const;
 
-  /** @brief 使用 C++ 参数临时创建 `any_ref` 后调用反射方法。 */
+  /** @brief 使用 `any_ref` 左值参数调用反射方法。 */
+  [[nodiscard]] any call(std::string_view name, std::span<const any_ref> arguments) const;
+
+  /** @brief 使用 C++ 参数临时创建左值 `argument` 后调用反射方法。 */
   template <typename... Args> [[nodiscard]] any call(std::string_view name, Args&&... args) const {
-    std::array<any_ref, sizeof...(Args)> argument_refs{any_ref::from(args)...};
-    return call(name, std::span<const any_ref>{argument_refs.data(), argument_refs.size()});
+    std::array<meta::argument, sizeof...(Args)> argument_refs{meta::argument::ref(args)...};
+    return call(name, std::span<const meta::argument>{argument_refs.data(), argument_refs.size()});
   }
 
   /** @brief 返回当前视图显式绑定的对象指针；没有显式绑定时可能返回 `nullptr`。 */

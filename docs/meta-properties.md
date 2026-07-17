@@ -360,9 +360,9 @@ actor instance{};
 
 auto reflected = caors::meta::find("game.actor");
 auto id = reflected.find_property("id");
-id.try_set<int>(&instance, 42);
+id.try_set<int>(caors::meta::view(instance), 42);
 
-auto value = id.try_get<int>(&instance);
+auto value = id.try_get<int>(caors::meta::view(instance));
 ```
 
 `try_get<T>()` 在对象为空或类型不匹配时返回 `std::nullopt`。`try_set<T>()`
@@ -371,7 +371,7 @@ auto value = id.try_get<int>(&instance);
 也可以通过 `get_value()` 获取运行期值拷贝：
 
 ```cpp
-caors::any value = id.get_value(&instance);
+caors::any value = id.get_value(caors::meta::view(instance));
 
 if (const int* current = value.try_get<int>()) {
   // 使用 current 读取属性值。
@@ -385,14 +385,14 @@ value.try_set(7);
 
 ```cpp
 int source = 42;
-id.try_set_value(&instance, caors::any::from(source));
+id.try_set_value(caors::meta::view(instance), caors::any::from(source));
 ```
 
 如果只需要访问属性本体，或者属性不可拷贝，可以使用 `get_ref()` 获取运行期引用。传入
 `const void*` 时返回只读引用，传入 `void*` 时返回可写引用：
 
 ```cpp
-caors::any_ref ref = id.get_ref(&instance);
+caors::any_ref ref = id.get_ref(caors::meta::view(instance));
 
 if (int* current = ref.try_get_mutable<int>()) {
   *current = 7;
@@ -402,7 +402,7 @@ ref.try_set(9);
 ```
 
 `any_ref` 不拥有对象，也不会延长属性所属对象生命周期。调用方必须保证原对象在引用使用期间仍然存活。
-`get_ref(const void*)` 始终返回只读引用；`get_ref(void*)` 会优先返回可写引用，属性只读或无法提供可写地址时回退为只读引用。
+`get_ref(meta::instance)` 根据实例可写性返回只读或可写引用；只读实例始终返回只读引用。
 
 ### any
 
@@ -459,7 +459,7 @@ auto reflected = caors::meta::find("game.actor");
 auto field = reflected.find_property("health");
 
 actor instance{};
-field.try_set<float>(&instance, 75.0F);
+field.try_set<float>(caors::meta::view(instance), 75.0F);
 
 auto damage = reflected.find_method("damage");
 int amount = 10;
@@ -512,7 +512,7 @@ take.invoke(caors::meta::view(instance), args);
   配置校验、编辑器提示和导入管线可以按约定键读取。
 - `try_get<T>()` / `try_set<T>()`：按静态类型读写属性。
 - `get_value()` / `try_set_value()`：按运行期 `any` 读写属性。
-- `get_ref(const void*)` / `get_ref(void*)`：按运行期 `any_ref` 引用属性，权限由传入对象地址的 constness 决定。
+- `get_ref(meta::instance)`：按运行期 `any_ref` 引用属性，权限由实例可写性决定。
 - 对象指针属性不在 `meta::property` 上提供专用 `get/set` 接口。需要按对象语义访问时，使用
   `objects::object_view` 或 `field.get_ref(...).get_capability<objects::ptr_capability>()`。
 - `meta::property` 不负责对象生命周期、对象身份解析或对象引用计数。对象关系、资源引用和其他领域语义
@@ -631,9 +631,9 @@ take.invoke(caors::meta::view(instance), args);
 
 ```cpp
 caors::meta::sequence_view field_sequence =
-    field.get_ref(&instance).get_capability<caors::meta::sequence_capability>();
+    field.get_ref(caors::meta::view(instance)).get_capability<caors::meta::sequence_capability>();
 caors::meta::associative_view field_map =
-    field.get_ref(&instance).get_capability<caors::meta::associative_capability>();
+    field.get_ref(caors::meta::view(instance)).get_capability<caors::meta::associative_capability>();
 
 caors::hash_map<int, int> values;
 caors::any_ref ref = caors::any_ref::from(values);

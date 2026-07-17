@@ -303,9 +303,10 @@ error write_field(writer& writer, const meta::property& field, const void* objec
   }
 
   const bool uses_indirect_value = field_uses_inline_indirect_value(field);
+  const meta::instance instance{meta::any_ref::from_raw(field.get_owner_type(), object, false)};
   any_ref field_value{};
   if (field_uses_direct_value(field)) {
-    field_value = field.get_ref(object);
+    field_value = field.get_ref(instance);
   } else if (!uses_indirect_value) {
     return {error_domain::serialization, errc::unsupported};
   }
@@ -326,7 +327,7 @@ error write_field(writer& writer, const meta::property& field, const void* objec
 
   if (uses_indirect_value) {
     status = write_indirect_serialized_value(
-        writer, field.get_ref(object).get_capability<meta::indirect_capability>(), context);
+        writer, field.get_ref(instance).get_capability<meta::indirect_capability>(), context);
   } else {
     status = write_serialized_value(writer, field_value, context);
   }
@@ -355,9 +356,10 @@ error read_field(reader& reader, const meta::property& field, void* object,
   }
 
   const bool uses_indirect_value = field_uses_inline_indirect_value(field);
+  const meta::instance instance{meta::any_ref::from_raw(field.get_owner_type(), object, true)};
   any_ref target{};
   if (field_uses_direct_value(field)) {
-    target = field.get_ref(object);
+    target = field.get_ref(instance);
   } else if (!uses_indirect_value) {
     return {error_domain::serialization, errc::unsupported};
   }
@@ -381,7 +383,7 @@ error read_field(reader& reader, const meta::property& field, void* object,
 
   if (uses_indirect_value) {
     status = read_indirect_serialized_value(
-        reader, field.get_ref(object).get_capability<meta::indirect_capability>(), field_context);
+        reader, field.get_ref(instance).get_capability<meta::indirect_capability>(), field_context);
     if (status) {
       return status;
     }

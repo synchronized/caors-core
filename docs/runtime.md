@@ -62,7 +62,7 @@ caors::tracking_resource tracking{&caors::get_system_memory_resource()};
 caors::any value = type.create(&tracking);
 ```
 
-需要按运行期参数构造时，先注册 constructor，再把参数包装成 `any_ref` 列表传给 `create()`：
+需要按运行期参数构造时，先注册 constructor，再把参数包装成 `argument` 列表传给 `create()`：
 
 ```cpp
 struct actor {
@@ -79,7 +79,7 @@ std::array<caors::any_ref, 1> args{caors::any_ref::from(health)};
 
 caors::runtime::type type = caors::runtime::find<actor>();
 caors::any value =
-    type.create(std::span<const caors::any_ref>{args.data(), args.size()});
+    type.create(std::span<const caors::argument>{args.data(), args.size()});
 ```
 
 constructor 参数采用保守匹配策略：参数数量必须一致，参数类型必须和注册的 `Args...`

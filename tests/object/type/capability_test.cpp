@@ -135,7 +135,7 @@ TEST_CASE("object - reflected fields use descriptor object capabilities", "[obje
   const caors::meta::property pointer = reflected.find_property("pointer");
   REQUIRE(pointer);
   const caors::objects::ptr_view pointer_view =
-      pointer.get_ref(&owner).get_capability<caors::objects::ptr_capability>();
+      pointer.get_ref(caors::meta::view(owner)).get_capability<caors::objects::ptr_capability>();
   REQUIRE(pointer_view);
   CHECK(pointer_view.set(&target));
   CHECK(owner.pointer.get() == &target);

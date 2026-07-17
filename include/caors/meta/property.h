@@ -68,29 +68,17 @@ public:
   [[nodiscard]] std::size_t size() const noexcept;
   [[nodiscard]] std::size_t alignment() const noexcept;
 
-  /** @brief 获取属性值的运行期拷贝。 */
-  [[nodiscard]] any get_value(const void* object) const;
-
   /** @brief 获取实例属性值的运行期拷贝。 */
   [[nodiscard]] any get_value(const instance& object) const;
 
   /** @brief 获取全局属性值的运行期拷贝。成员属性会返回无效 `any`。 */
   [[nodiscard]] any get_value() const;
 
-  /** @brief 获取属性值的只读运行期引用。 */
-  [[nodiscard]] any_ref get_ref(const void* object) const;
-
   /** @brief 获取实例属性值引用；可写实例返回可写引用，只读实例返回只读引用。 */
   [[nodiscard]] any_ref get_ref(const instance& object) const;
 
   /** @brief 获取全局属性值的只读运行期引用。成员属性会返回无效引用。 */
   [[nodiscard]] any_ref get_ref() const;
-
-  /** @brief 获取属性值引用；优先返回可写引用，无法写入时回退为只读引用。 */
-  [[nodiscard]] any_ref get_ref(void* object) const;
-
-  /** @brief 从运行期值写入属性。 */
-  bool try_set_value(void* object, const any& source) const;
 
   /** @brief 从运行期值写入实例属性。 */
   bool try_set_value(const instance& object, const any& source) const;
@@ -116,23 +104,6 @@ public:
   /** @brief 判断属性是否是 variant-like 类型。 */
   [[nodiscard]] bool is_variant() const noexcept;
 
-  /** @brief 按指定类型读取属性值。 */
-  template <typename Property>
-  [[nodiscard]] std::optional<std::remove_cv_t<std::remove_reference_t<Property>>>
-  try_get(const void* object) const {
-    using property_type = std::remove_cv_t<std::remove_reference_t<Property>>;
-    static_assert(std::is_copy_constructible_v<property_type>,
-                  "Reflected property values must be copy constructible");
-
-    const any_ref ref = get_ref(object);
-    const property_type* value = ref.template try_get<property_type>();
-    if (value == nullptr) {
-      return std::nullopt;
-    }
-
-    return *value;
-  }
-
   /** @brief 按指定类型读取实例属性值。 */
   template <typename Property>
   [[nodiscard]] std::optional<std::remove_cv_t<std::remove_reference_t<Property>>>
@@ -150,15 +121,31 @@ public:
     return *value;
   }
 
-  /** @brief 按指定类型写入属性值。 */
-  template <typename Property> bool try_set(void* object, const Property& value) const {
-    const any_ref ref = get_ref(object);
-    return ref.try_set(value);
+  /** @brief 按指定类型读取全局属性值。 */
+  template <typename Property>
+  [[nodiscard]] std::optional<std::remove_cv_t<std::remove_reference_t<Property>>> try_get() const {
+    using property_type = std::remove_cv_t<std::remove_reference_t<Property>>;
+    static_assert(std::is_copy_constructible_v<property_type>,
+                  "Reflected property values must be copy constructible");
+
+    const any_ref ref = get_ref();
+    const property_type* value = ref.template try_get<property_type>();
+    if (value == nullptr) {
+      return std::nullopt;
+    }
+
+    return *value;
   }
 
   /** @brief 按指定类型写入实例属性值。 */
   template <typename Property> bool try_set(const instance& object, const Property& value) const {
     const any_ref ref = get_ref(object);
+    return ref.try_set(value);
+  }
+
+  /** @brief 按指定类型写入全局属性值。 */
+  template <typename Property> bool try_set(const Property& value) const {
+    const any_ref ref = get_ref();
     return ref.try_set(value);
   }
 

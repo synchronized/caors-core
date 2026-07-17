@@ -121,7 +121,7 @@ TEST_CASE("meta type - class builder registers fields and methods", "[meta]") {
   CHECK(health.find_metadata(display_key)->as_string() == "Health");
 
   reflected_meta_actor actor{};
-  CHECK(health.try_set(&actor, 20));
+  CHECK(health.try_set(caors::meta::view(actor), 20));
   CHECK(actor.health == 20);
 
   const caors::meta::method add_health = type.find_method("add_health").single();
@@ -132,10 +132,10 @@ TEST_CASE("meta type - class builder registers fields and methods", "[meta]") {
   CHECK(add_health.find_metadata(scriptable_key)->as_bool());
 
   int delta = 5;
-  std::array<caors::any_ref, 1> arguments{caors::any_ref::from(delta)};
+  std::array<caors::argument, 1> arguments{caors::arg(delta)};
   const caors::any result =
       add_health.invoke(caors::meta::view(actor),
-                        std::span<const caors::any_ref>{arguments.data(), arguments.size()});
+                        std::span<const caors::argument>{arguments.data(), arguments.size()});
   REQUIRE(result);
   REQUIRE(result.try_get<int>() != nullptr);
   CHECK(*result.try_get<int>() == 25);

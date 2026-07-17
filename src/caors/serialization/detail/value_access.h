@@ -4,6 +4,7 @@
 #ifndef CAORS_SERIALIZATION_DETAIL_VALUE_ACCESS_H_
 #define CAORS_SERIALIZATION_DETAIL_VALUE_ACCESS_H_
 
+#include "caors/meta/argument.h"
 #include "caors/meta/value/any_ref.h"
 #include "caors/serialization/types.h"
 
@@ -97,7 +98,7 @@ construct_owned_value(meta::type type, const serialization::context& context,
   if (options.use_registered_constructor) {
     const meta::constructor_capability constructor =
         type.get_capability<meta::constructor_capability>();
-    const std::span<const meta::any_ref> arguments{};
+    const std::span<const meta::argument> arguments{};
     if (constructor.matches(arguments.size())) {
       meta::owned_value value = constructor.construct_owned(arguments, resource);
       if (value.valid()) {

@@ -451,11 +451,11 @@ inline caors::serialization::construction_result construct_non_default_value_for
   }
 
   caors::any initial = caors::any::from(0);
-  std::array<caors::any_ref, 1> arguments{initial.ref()};
+  std::array<caors::argument, 1> arguments{caors::arg(initial.ref())};
   const caors::meta::constructor_capability constructor =
       request.type.get_capability<caors::meta::constructor_capability>();
   caors::owned_value value = constructor.construct_owned(
-      std::span<const caors::any_ref>{arguments.data(), arguments.size()},
+      std::span<const caors::argument>{arguments.data(), arguments.size()},
       context.effective_memory_resource());
   caors::released_owned_value released = std::move(value).release();
   return {released.value, released.resource_destroy};

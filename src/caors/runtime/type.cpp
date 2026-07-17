@@ -69,10 +69,10 @@ bool type::constructible(std::size_t argument_count) const noexcept {
 }
 
 any type::create(memory::memory_resource* resource) const {
-  return create(std::span<const meta::any_ref>{}, resource);
+  return create(std::span<const meta::argument>{}, resource);
 }
 
-any type::create(std::span<const meta::any_ref> arguments,
+any type::create(std::span<const meta::argument> arguments,
                  memory::memory_resource* resource) const {
   if (!valid()) {
     return {};

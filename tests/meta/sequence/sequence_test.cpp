@@ -29,8 +29,8 @@ TEST_CASE("meta - custom sequence traits expose property view", "[meta]") {
   CHECK(values.get_element_type().name() == "int");
 
   custom_sequence_holder instance{};
-  caors::meta::sequence_view sequence =
-      values.get_ref(&instance).get_capability<caors::meta::sequence_capability>();
+  caors::meta::sequence_view sequence = values.get_ref(caors::meta::view(instance))
+                                            .get_capability<caors::meta::sequence_capability>();
   CHECK(sequence.append_value(caors::any::from(21)));
   CHECK(sequence.append_value(caors::any::from(34)));
 
@@ -105,8 +105,8 @@ TEST_CASE("meta - list property view uses sequence traits", "[meta]") {
   instance.values.push_back(3);
   instance.values.push_back(5);
 
-  caors::meta::sequence_view sequence =
-      values.get_ref(&instance).get_capability<caors::meta::sequence_capability>();
+  caors::meta::sequence_view sequence = values.get_ref(caors::meta::view(instance))
+                                            .get_capability<caors::meta::sequence_capability>();
   CHECK(sequence.valid());
   CHECK(sequence.writable());
 
@@ -153,8 +153,8 @@ TEST_CASE("meta - sequence property view exposes element metadata", "[meta]") {
   instance.values.push_back(3);
   instance.values.push_back(5);
 
-  caors::meta::sequence_view sequence =
-      values.get_ref(&instance).get_capability<caors::meta::sequence_capability>();
+  caors::meta::sequence_view sequence = values.get_ref(caors::meta::view(instance))
+                                            .get_capability<caors::meta::sequence_capability>();
   CHECK(sequence.valid());
   CHECK(sequence.writable());
   CHECK(sequence.get_value_type().id() == registered_type_id("int"));
@@ -176,7 +176,8 @@ TEST_CASE("meta - sequence property view exposes element metadata", "[meta]") {
 
   const vector_holder& readonly_instance = instance;
   caors::meta::sequence_view readonly_sequence =
-      values.get_ref(&readonly_instance).get_capability<caors::meta::sequence_capability>();
+      values.get_ref(caors::meta::view_const(readonly_instance))
+          .get_capability<caors::meta::sequence_capability>();
   CHECK(readonly_sequence.valid());
   CHECK_FALSE(readonly_sequence.writable());
 
@@ -231,8 +232,8 @@ TEST_CASE("meta - std array property view uses fixed sequence traits", "[meta]")
   CHECK(values.get_element_type().id() == registered_type_id("int"));
 
   array_holder instance{{1, 2, 3}};
-  caors::meta::sequence_view sequence =
-      values.get_ref(&instance).get_capability<caors::meta::sequence_capability>();
+  caors::meta::sequence_view sequence = values.get_ref(caors::meta::view(instance))
+                                            .get_capability<caors::meta::sequence_capability>();
   REQUIRE(sequence.valid());
   CHECK(sequence.writable());
 
@@ -277,8 +278,8 @@ TEST_CASE("meta - std span property view is borrowed sequence", "[meta]") {
 
   std::array<int, 3> storage{1, 2, 3};
   span_holder instance{std::span<int>{storage}};
-  caors::meta::sequence_view sequence =
-      values.get_ref(&instance).get_capability<caors::meta::sequence_capability>();
+  caors::meta::sequence_view sequence = values.get_ref(caors::meta::view(instance))
+                                            .get_capability<caors::meta::sequence_capability>();
   REQUIRE(sequence.valid());
   CHECK(sequence.writable());
 

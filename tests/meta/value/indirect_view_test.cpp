@@ -30,8 +30,8 @@ TEST_CASE("meta any_ref - creates indirect views for pointer and wrappers", "[me
   const caors::meta::property weak_field =
       require_reflected_field("caors.test.meta.indirect_value_holder", "weak");
 
-  caors::meta::indirect_view pointer =
-      pointer_field.get_ref(&holder).get_capability<caors::meta::indirect_capability>();
+  caors::meta::indirect_view pointer = pointer_field.get_ref(caors::meta::view(holder))
+                                           .get_capability<caors::meta::indirect_capability>();
   REQUIRE(pointer.valid());
   CHECK(pointer.writable());
   CHECK(pointer.get_value_type().id() == caors::any::from(0).get_type().id());
@@ -49,8 +49,8 @@ TEST_CASE("meta any_ref - creates indirect views for pointer and wrappers", "[me
   CHECK_FALSE(pointer.has_value());
   CHECK_FALSE(pointer.value_ref().valid());
 
-  caors::meta::indirect_view optional =
-      optional_field.get_ref(&holder).get_capability<caors::meta::indirect_capability>();
+  caors::meta::indirect_view optional = optional_field.get_ref(caors::meta::view(holder))
+                                            .get_capability<caors::meta::indirect_capability>();
   REQUIRE(optional.valid());
   REQUIRE(optional.value_ref().try_get_mutable<int>() != nullptr);
   CHECK(*optional.value_ref().try_get_mutable<int>() == 11);
@@ -60,8 +60,8 @@ TEST_CASE("meta any_ref - creates indirect views for pointer and wrappers", "[me
   CHECK_FALSE(holder.optional.has_value());
   CHECK_FALSE(optional.has_value());
 
-  caors::meta::indirect_view unique =
-      unique_field.get_ref(&holder).get_capability<caors::meta::indirect_capability>();
+  caors::meta::indirect_view unique = unique_field.get_ref(caors::meta::view(holder))
+                                          .get_capability<caors::meta::indirect_capability>();
   REQUIRE(unique.valid());
   REQUIRE(unique.value_ref().try_get_mutable<int>() != nullptr);
   CHECK(*unique.value_ref().try_get_mutable<int>() == 13);
@@ -71,7 +71,8 @@ TEST_CASE("meta any_ref - creates indirect views for pointer and wrappers", "[me
 
   const indirect_value_holder& readonly_holder = holder;
   caors::meta::indirect_view readonly_unique =
-      unique_field.get_ref(&readonly_holder).get_capability<caors::meta::indirect_capability>();
+      unique_field.get_ref(caors::meta::view_const(readonly_holder))
+          .get_capability<caors::meta::indirect_capability>();
   REQUIRE(readonly_unique.valid());
   CHECK_FALSE(readonly_unique.writable());
   caors::any_ref readonly_value = readonly_unique.value_ref();
@@ -79,8 +80,9 @@ TEST_CASE("meta any_ref - creates indirect views for pointer and wrappers", "[me
   CHECK_FALSE(readonly_value.writable());
   CHECK_FALSE(readonly_unique.reset());
 
-  CHECK_FALSE(
-      weak_field.get_ref(&holder).get_capability<caors::meta::indirect_capability>().valid());
+  CHECK_FALSE(weak_field.get_ref(caors::meta::view(holder))
+                  .get_capability<caors::meta::indirect_capability>()
+                  .valid());
 }
 
 // 原测试文件：value_indirect_view_creates_indirect_views_for_registered_wrapper_values_test.cpp

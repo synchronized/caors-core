@@ -4,9 +4,9 @@
 #ifndef CAORS_META_CONSTRUCTOR_H_
 #define CAORS_META_CONSTRUCTOR_H_
 
+#include "caors/meta/argument.h"
 #include "caors/meta/builder.h"
 #include "caors/meta/detail/value_ops_model.h"
-#include "caors/meta/value/any_ref.h"
 #include "caors/meta/value_ops.h"
 
 #include <span>
@@ -19,8 +19,7 @@ template <typename Argument> struct constructor_argument_supported {
   using argument_type = std::remove_cv_t<std::remove_reference_t<Argument>>;
 
   static constexpr bool value =
-      !std::is_rvalue_reference_v<Argument> &&
-      (std::is_lvalue_reference_v<Argument> || std::is_copy_constructible_v<argument_type>);
+      std::is_lvalue_reference_v<Argument> || std::is_move_constructible_v<argument_type>;
 };
 
 template <typename... Arguments>
@@ -28,31 +27,60 @@ inline constexpr bool constructor_arguments_supported_v =
     (constructor_argument_supported<Arguments>::value && ...);
 
 template <typename Argument>
-[[nodiscard]] bool constructor_argument_matches(const any_ref& argument) noexcept {
+[[nodiscard]] bool constructor_argument_matches(const argument& argument) noexcept {
   using argument_type = std::remove_cv_t<std::remove_reference_t<Argument>>;
-  if constexpr (std::is_lvalue_reference_v<Argument> &&
-                !std::is_const_v<std::remove_reference_t<Argument>>) {
-    return argument.template try_get_mutable<argument_type>() != nullptr;
+  if (!argument.template matches_type<argument_type>()) {
+    return false;
+  }
+
+  if constexpr (std::is_rvalue_reference_v<Argument>) {
+    return argument.rvalue() && argument.writable();
+  } else if constexpr (std::is_lvalue_reference_v<Argument> &&
+                       !std::is_const_v<std::remove_reference_t<Argument>>) {
+    return argument.writable();
   } else {
-    return argument.template try_get<argument_type>() != nullptr;
+    return true;
   }
 }
 
 template <typename Argument>
-[[nodiscard]] decltype(auto) constructor_argument_cast(const any_ref& argument) noexcept {
+using constructor_argument_pass_type = std::conditional_t<
+    std::is_rvalue_reference_v<Argument>, std::remove_cv_t<std::remove_reference_t<Argument>>&&,
+    std::conditional_t<
+        std::is_lvalue_reference_v<Argument> && !std::is_const_v<std::remove_reference_t<Argument>>,
+        std::remove_cv_t<std::remove_reference_t<Argument>>&,
+        std::conditional_t<std::is_lvalue_reference_v<Argument>,
+                           const std::remove_cv_t<std::remove_reference_t<Argument>>&,
+                           std::remove_cv_t<std::remove_reference_t<Argument>>>>>;
+
+template <typename Argument>
+[[nodiscard]] constructor_argument_pass_type<Argument>
+constructor_argument_cast(const argument& argument) noexcept {
   using argument_type = std::remove_cv_t<std::remove_reference_t<Argument>>;
-  if constexpr (std::is_lvalue_reference_v<Argument> &&
-                !std::is_const_v<std::remove_reference_t<Argument>>) {
-    return static_cast<Argument>(*argument.template try_get_mutable<argument_type>());
+  if constexpr (std::is_rvalue_reference_v<Argument>) {
+    auto* result = argument.template try_get_mutable<argument_type>();
+    argument.consume();
+    return std::move(*result);
+  } else if constexpr (std::is_lvalue_reference_v<Argument> &&
+                       !std::is_const_v<std::remove_reference_t<Argument>>) {
+    return *argument.template try_get_mutable<argument_type>();
+  } else if constexpr (!std::is_reference_v<Argument>) {
+    if (argument.rvalue()) {
+      auto* result = argument.template try_get_mutable<argument_type>();
+      argument.consume();
+      return std::move(*result);
+    }
+
+    return *argument.template try_get<argument_type>();
   } else if constexpr (std::is_lvalue_reference_v<Argument>) {
-    return static_cast<Argument>(*argument.template try_get<argument_type>());
+    return *argument.template try_get<argument_type>();
   } else {
-    return static_cast<Argument>(*argument.template try_get<argument_type>());
+    return *argument.template try_get<argument_type>();
   }
 }
 
 template <typename T, typename... Arguments, std::size_t... Indices>
-[[nodiscard]] bool constructor_arguments_match(std::span<const any_ref> arguments,
+[[nodiscard]] bool constructor_arguments_match(std::span<const argument> arguments,
                                                std::index_sequence<Indices...>) noexcept {
   return arguments.size() == sizeof...(Arguments) &&
          (constructor_argument_matches<Arguments>(arguments[Indices]) && ...);
@@ -60,7 +88,7 @@ template <typename T, typename... Arguments, std::size_t... Indices>
 
 template <typename T, typename... Arguments, std::size_t... Indices>
 [[nodiscard]] void* construct_value_with_arguments(memory::memory_resource* resource,
-                                                   std::span<const any_ref> arguments,
+                                                   std::span<const argument> arguments,
                                                    std::index_sequence<Indices...>) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (constructor_arguments_supported_v<Arguments...> &&
@@ -79,7 +107,7 @@ template <typename T, typename... Arguments, std::size_t... Indices>
 
 template <typename T, typename... Arguments>
 [[nodiscard]] void* construct_value_with_arguments(memory::memory_resource* resource,
-                                                   std::span<const any_ref> arguments) {
+                                                   std::span<const argument> arguments) {
   return construct_value_with_arguments<T, Arguments...>(resource, arguments,
                                                          std::index_sequence_for<Arguments...>{});
 }

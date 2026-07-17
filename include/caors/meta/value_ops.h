@@ -12,7 +12,7 @@
 namespace caors::meta {
 
 class type;
-class any_ref;
+class argument;
 
 /** @brief 普通堆对象销毁函数。 */
 using destroy_fn = void (*)(void*) noexcept;
@@ -74,9 +74,9 @@ struct factory_ops {
   }
 };
 
-/** @brief 带参数运行期构造能力，负责按 `any_ref` 参数列表构造并销毁对象。 */
+/** @brief 带参数运行期构造能力，负责按运行期参数列表构造并销毁对象。 */
 struct constructor_ops {
-  using construct_fn = void* (*)(memory::memory_resource*, std::span<const any_ref>);
+  using construct_fn = void* (*)(memory::memory_resource*, std::span<const argument>);
   using destroy_fn = meta::resource_destroy_fn;
 
   construct_fn construct = nullptr;

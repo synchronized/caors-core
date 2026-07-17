@@ -95,7 +95,7 @@ TEST_CASE("meta - field handles remain valid after later registrations", "[meta]
                                       .commit()));
 
   const cross_module_actor instance{7, 12.0F};
-  const auto value = id.try_get<int>(&instance);
+  const auto value = id.try_get<int>(caors::meta::view(instance));
   REQUIRE(value.has_value());
   CHECK(*value == 7);
   CHECK(id.valid());

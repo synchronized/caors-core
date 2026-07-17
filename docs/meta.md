@@ -247,7 +247,7 @@ caors::meta::class_<actor>("game.actor")
     .constructor<int>();
 ```
 
-`constructor<Args...>()` 使用 `std::span<const meta::any_ref>` 参数列表做精确匹配：参数数量必须一致，
+`constructor<Args...>()` 使用 `std::span<const meta::argument>` 参数列表做精确匹配：参数数量必须一致，
 参数类型必须和 `Args...` 去 cv/ref 后一致；非 const 左值引用参数要求传入可写 `any_ref`。
 `runtime::type::create(arguments)` 会在 factory 之后查询 constructor，构造成功后同样由 `any`
 保存匹配的内部销毁策略。也可以使用 `constructor_capability::construct(arguments, resource)` 直接获得

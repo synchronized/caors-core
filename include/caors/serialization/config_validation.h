@@ -188,7 +188,8 @@ metadata_number(const meta::metadata_value* value) noexcept {
 
 inline void validate_config_field(config_validation_result& result, const meta::property& field,
                                   const void* object) {
-  const any_ref value = field.get_ref(object);
+  const meta::instance instance{meta::any_ref::from_raw(field.get_owner_type(), object, false)};
+  const any_ref value = field.get_ref(instance);
   if (!value) {
     core::string reason =
         make_config_validation_reason(result.diagnostics.get_allocator().resource());

@@ -33,7 +33,7 @@ TEST_CASE("meta - std pair property view exposes first and second values", "[met
 
   pair_holder instance{{7, caors::string{"seven"}}};
   caors::meta::pair_view pair =
-      value.get_ref(&instance).get_capability<caors::meta::pair_capability>();
+      value.get_ref(caors::meta::view(instance)).get_capability<caors::meta::pair_capability>();
   REQUIRE(pair.valid());
   CHECK(pair.writable());
   CHECK(pair.get_first_type().id() == registered_type_id("int"));
@@ -78,7 +78,7 @@ TEST_CASE("meta - std tuple property view exposes indexed elements", "[meta]") {
 
   tuple_holder instance{std::tuple<int, caors::string, float>{7, caors::string{"seven"}, 1.5F}};
   caors::meta::tuple_view tuple =
-      value.get_ref(&instance).get_capability<caors::meta::tuple_capability>();
+      value.get_ref(caors::meta::view(instance)).get_capability<caors::meta::tuple_capability>();
   REQUIRE(tuple.valid());
   CHECK(tuple.writable());
   CHECK(tuple.size() == 3);
@@ -134,7 +134,7 @@ TEST_CASE("meta - std variant property view exposes active alternative", "[meta]
 
   variant_holder instance{std::variant<int, caors::string, float>{7}};
   caors::meta::variant_view variant =
-      value.get_ref(&instance).get_capability<caors::meta::variant_capability>();
+      value.get_ref(caors::meta::view(instance)).get_capability<caors::meta::variant_capability>();
   REQUIRE(variant.valid());
   CHECK(variant.writable());
   CHECK(variant.size() == 3);

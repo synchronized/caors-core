@@ -237,24 +237,24 @@ TEST_CASE("meta - property view reads and writes field values", "[meta]") {
 
   read_write_actor instance{1, 25.0F};
 
-  auto id_value = id.try_get<int>(&instance);
+  auto id_value = id.try_get<int>(caors::meta::view(instance));
   REQUIRE(id_value.has_value());
   CHECK(*id_value == 1);
 
-  CHECK(id.try_set<int>(&instance, 42));
+  CHECK(id.try_set<int>(caors::meta::view(instance), 42));
   CHECK(instance.id == 42);
 
-  auto health_value = health.try_get<float>(&instance);
+  auto health_value = health.try_get<float>(caors::meta::view(instance));
   REQUIRE(health_value.has_value());
   CHECK(*health_value == 25.0F);
 
-  CHECK(health.try_set<float>(&instance, 75.0F));
+  CHECK(health.try_set<float>(caors::meta::view(instance), 75.0F));
   CHECK(instance.health == 75.0F);
 
-  CHECK_FALSE(id.try_get<float>(&instance).has_value());
-  CHECK_FALSE(id.try_get<int>(nullptr).has_value());
-  CHECK_FALSE(id.try_set<float>(&instance, 1.0F));
-  CHECK_FALSE(id.try_set<int>(nullptr, 1));
+  CHECK_FALSE(id.try_get<float>(caors::meta::view(instance)).has_value());
+  CHECK_FALSE(id.try_get<int>(caors::meta::instance{}).has_value());
+  CHECK_FALSE(id.try_set<float>(caors::meta::view(instance), 1.0F));
+  CHECK_FALSE(id.try_set<int>(caors::meta::instance{}, 1));
 }
 
 namespace {
@@ -290,22 +290,22 @@ TEST_CASE("meta - property view supports getter setter properties", "[meta]") {
   accessor_property_actor instance{};
 
   CHECK(health.writable());
-  caors::meta::any health_value = health.get_value(&instance);
+  caors::meta::any health_value = health.get_value(caors::meta::view(instance));
   REQUIRE(health_value.valid());
   REQUIRE(health_value.try_get<int>() != nullptr);
   CHECK(*health_value.try_get<int>() == 10);
-  CHECK_FALSE(health.get_ref(&instance));
+  CHECK_FALSE(health.get_ref(caors::meta::view(instance)));
 
-  CHECK(health.try_set_value(&instance, caors::meta::any::from(42)));
+  CHECK(health.try_set_value(caors::meta::view(instance), caors::meta::any::from(42)));
   CHECK(instance.health == 42);
-  CHECK_FALSE(health.try_set_value(&instance, caors::meta::any::from(3.0F)));
+  CHECK_FALSE(health.try_set_value(caors::meta::view(instance), caors::meta::any::from(3.0F)));
 
   CHECK_FALSE(level.writable());
-  const caors::meta::any_ref level_ref = level.get_ref(&instance);
+  const caors::meta::any_ref level_ref = level.get_ref(caors::meta::view(instance));
   REQUIRE(level_ref);
   REQUIRE(level_ref.try_get<int>() != nullptr);
   CHECK(*level_ref.try_get<int>() == 7);
-  CHECK_FALSE(level.try_set_value(&instance, caors::meta::any::from(11)));
+  CHECK_FALSE(level.try_set_value(caors::meta::view(instance), caors::meta::any::from(11)));
 }
 
 // 原测试文件：meta_property_field_view_rejects_writes_to_readonly_fields_test.cpp
@@ -326,10 +326,10 @@ TEST_CASE("meta - property view rejects writes to readonly fields", "[meta]") {
   readonly_actor instance{};
   CHECK_FALSE(id.writable());
 
-  auto id_value = id.try_get<int>(&instance);
+  auto id_value = id.try_get<int>(caors::meta::view(instance));
   REQUIRE(id_value.has_value());
   CHECK(*id_value == 7);
-  CHECK_FALSE(id.try_set<int>(&instance, 8));
+  CHECK_FALSE(id.try_set<int>(caors::meta::view(instance), 8));
 }
 
 // 原测试文件：meta_property_type_view_stores_and_finds_fields_test.cpp

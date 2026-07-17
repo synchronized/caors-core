@@ -106,7 +106,10 @@ template <typename T> [[nodiscard]] argument move_arg(T&& value) {
 
 namespace caors {
 
+using meta::arg;
 using meta::argument;
+using meta::carg;
+using meta::move_arg;
 
 } // namespace caors
 

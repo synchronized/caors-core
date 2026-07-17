@@ -152,17 +152,17 @@ TEST_CASE("meta - registry returns type and property views", "[meta]") {
   CHECK(health.alignment() == alignof(float));
 
   view_actor instance{1, 25.0F};
-  CHECK(health.try_set<float>(&instance, 90.0F));
+  CHECK(health.try_set<float>(caors::meta::view(instance), 90.0F));
   CHECK(instance.health == 90.0F);
 
-  caors::any health_value = health.get_value(&instance);
+  caors::any health_value = health.get_value(caors::meta::view(instance));
   REQUIRE(health_value.valid());
   const float* copied_health = health_value.try_get<float>();
   REQUIRE(copied_health != nullptr);
   CHECK(*copied_health == 90.0F);
 
   const int next_id = 7;
-  CHECK(id.try_set_value(&instance, caors::any::from(next_id)));
+  CHECK(id.try_set_value(caors::meta::view(instance), caors::any::from(next_id)));
   CHECK(instance.id == 7);
 }
 

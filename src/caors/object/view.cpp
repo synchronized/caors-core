@@ -99,6 +99,15 @@ bool object_view::set(std::string_view name, const any_ref& source) const {
   return target.try_set(source);
 }
 
+any object_view::call(std::string_view name, std::span<const meta::argument> arguments) const {
+  const meta::method_set reflected_method = find_method(name);
+  if (!reflected_method || !value_) {
+    return {};
+  }
+
+  return reflected_method.invoke(meta::instance{value_}, arguments);
+}
+
 any object_view::call(std::string_view name, std::span<const any_ref> arguments) const {
   const meta::method_set reflected_method = find_method(name);
   if (!reflected_method || !value_) {

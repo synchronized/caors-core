@@ -6,6 +6,7 @@
 
 #include "caors/export.h"
 #include "caors/memory/resource.h"
+#include "caors/meta/argument.h"
 #include "caors/meta/method.h"
 #include "caors/meta/property.h"
 #include "caors/meta/type.h"
@@ -68,7 +69,7 @@ public:
    *
    * 空参数列表保持无参 `create()` 语义；非空参数列表只查询已注册的 constructor capability。
    */
-  [[nodiscard]] any create(std::span<const meta::any_ref> arguments,
+  [[nodiscard]] any create(std::span<const meta::argument> arguments,
                            memory::memory_resource* resource = nullptr) const;
 
   /** @brief 查询 descriptor 默认构造能力。 */

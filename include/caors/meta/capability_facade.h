@@ -15,6 +15,7 @@ namespace caors::meta {
 
 class any;
 class any_ref;
+class argument;
 class owned_value;
 
 /**
@@ -129,11 +130,11 @@ public:
   }
 
   /** @brief 使用注册构造函数构造并返回拥有对象生命周期的 `any`。 */
-  [[nodiscard]] any construct(std::span<const any_ref> arguments,
+  [[nodiscard]] any construct(std::span<const argument> arguments,
                               memory::memory_resource* resource = nullptr) const;
 
   /** @brief 使用注册构造函数构造并返回可显式转移所有权的运行期值。 */
-  [[nodiscard]] owned_value construct_owned(std::span<const any_ref> arguments,
+  [[nodiscard]] owned_value construct_owned(std::span<const argument> arguments,
                                             memory::memory_resource* resource = nullptr) const;
 };
 
