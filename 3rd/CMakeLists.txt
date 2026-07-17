@@ -55,4 +55,15 @@ if(NOT TARGET Catch2::Catch2)
     set_target_properties(Catch2WithMain PROPERTIES FOLDER "${third_party_folder}/Catch2")
 endif()
 
+# Find ctrack
+if(NOT TARGET ctrack::ctrack)
+    set(CTRACK_INCLUDE_DIR ${THIRD_PARTY_ROOT}/ctrack-1.1.0/include)
+    add_library(ctrack INTERFACE)
+    add_library(ctrack::ctrack ALIAS ctrack)
+    target_include_directories(ctrack INTERFACE ${CTRACK_INCLUDE_DIR})
+    target_compile_features(ctrack INTERFACE cxx_std_20)
+    target_compile_definitions(ctrack INTERFACE CTRACK_DISABLE_EXECUTION_POLICY)
+    set_target_properties(ctrack PROPERTIES FOLDER "${third_party_folder}/ctrack")
+endif()
+
 MESSAGE(STATUS "Finished finding 3rd party libs!")

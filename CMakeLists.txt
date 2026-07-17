@@ -13,6 +13,7 @@ project(
 option(CAORS_BUILD_TESTING "构建 CAORS 测试" ON)
 option(CAORS_BUILD_EXAMPLES "构建 CAORS 示例" ${PROJECT_IS_TOP_LEVEL})
 option(CAORS_BUILD_EXAMPLE_TESTING "测试构建中同时构建 CAORS 示例" ON)
+option(CAORS_BUILD_BENCHMARKS "构建 CAORS benchmark 程序" OFF)
 option(BUILD_SHARED_LIBS "构建共享库" OFF)
 option(USE_DEBUG_OUTPUT "启用调试输出" OFF)
 option(USE_LOG "启用日志" OFF)
@@ -41,6 +42,10 @@ include(CTest)
 
 if(CAORS_BUILD_EXAMPLES OR (CAORS_BUILD_TESTING AND BUILD_TESTING AND CAORS_BUILD_EXAMPLE_TESTING))
   add_subdirectory(examples)
+endif()
+
+if(CAORS_BUILD_BENCHMARKS)
+  add_subdirectory(benchmarks)
 endif()
 
 configure_package_config_file(

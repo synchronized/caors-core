@@ -72,6 +72,7 @@ ctest --preset linux-gcc-debug
 | `BUILD_SHARED_LIBS` | `OFF` | 是否将 `caors` 构建为共享库 |
 | `CAORS_BUILD_TESTING` | `ON` | 是否构建测试目标 |
 | `CAORS_BUILD_EXAMPLES` | 顶层项目为 `ON` | 是否构建示例目标 |
+| `CAORS_BUILD_BENCHMARKS` | `OFF` | 是否构建 benchmark 目标 |
 | `CAORS_ENABLE_WARNINGS` | `ON` | 是否为 CAORS 自有目标开启编译警告 |
 | `CAORS_ENABLE_PEDANTIC_WARNINGS` | `OFF` | 是否启用严格标准扩展警告，例如 `-Wpedantic` |
 | `CAORS_WARNINGS_AS_ERRORS` | `OFF` | 是否将 CAORS 自有目标的编译警告视为错误 |
@@ -89,6 +90,13 @@ cmake --preset windows-clang-debug -DCAORS_WARNINGS_AS_ERRORS=ON
 
 ```sh
 cmake --preset windows-clang-debug -DCAORS_ENABLE_PEDANTIC_WARNINGS=ON
+```
+
+构建 benchmark：
+
+```sh
+cmake --preset windows-clang-debug -DCAORS_BUILD_BENCHMARKS=ON
+cmake --build --preset windows-clang-debug --target caors_benchmarks
 ```
 
 ## 示例

@@ -1,0 +1,50 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright (c) 2026 CAORS contributors -->
+
+# Benchmarking
+
+CAORS 使用 `ctrack` 作为轻量 benchmark / profiling 工具。`ctrack` 以源码形式放在
+`3rd/ctrack-1.1.0`，CMake 中包装为 `ctrack::ctrack` interface 目标；不会构建
+`ctrack` 自带示例、测试和 benchmark。
+
+## 构建和运行
+
+benchmark 默认关闭，避免影响普通开发构建：
+
+```sh
+cmake --preset windows-clang-debug -DCAORS_BUILD_BENCHMARKS=ON
+cmake --build --preset windows-clang-debug --target caors_benchmarks
+build/benchmarks/caors_benchmarks 100000
+```
+
+命令行参数是每个用例内部循环次数；不传时默认 `100000`。
+
+## 当前用例
+
+第一版 `caors_benchmarks` 覆盖以下稳定热路径：
+
+- `core::string_name`：热路径 intern 查找和轻量比较。
+- `meta::resolve<T>()` / `meta::find<T>()`：运行期类型查询。
+- `meta::property`：成员属性和 getter/setter 属性的读写。
+- `meta::any_ref` / `meta::any`：运行期引用创建、类型检查和标量装箱。
+- `serialization::to_value()`：反射对象序列化到 `variant` DOM。
+
+这些 API 都是纯内存路径，结果更容易对比不同提交之间的回归。
+
+## 后续适合拆分的专项
+
+- 资源系统：`resources::manager`、`cache<T>`、provider、loader、resolver 和 async request。
+- IO 系统：本地文件系统、内存文件系统、挂载路径解析和字节流读写。
+- 对象系统：`object_id` 生成、对象注册、handle/ref 查询和对象工厂。
+- 序列化文本后端：JSON 文本读写、调用方提供 buffer、不同 field policy。
+- 内存系统：`memory::resource`、分配器、策略资源和 debug tracking。
+
+资源、IO 和异步任务受外部环境、线程调度、缓存状态影响更大，建议保持独立目标和独立输入数据。
+
+## 约定
+
+- benchmark 源码放在 `benchmarks/`，目标名使用 `caors_<topic>_benchmarks` 或
+  当前聚合目标 `caors_benchmarks`。
+- benchmark 目标只在 `CAORS_BUILD_BENCHMARKS=ON` 时加入构建。
+- 用例应优先测公开 API，除非文档明确说明正在测高级内部扩展点。
+- 每个用例应使用固定输入，避免把日志、文件系统、网络或随机数据成本混入基础 API 测量。

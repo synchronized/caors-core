@@ -68,6 +68,7 @@ ctest --preset windows-clang-debug
 ## 文档入口
 
 - [docs/README.md](docs/README.md)：文档索引。
+- [docs/benchmarking.md](docs/benchmarking.md)：benchmark 构建入口、当前用例和后续专项拆分建议。
 - [docs/build.md](docs/build.md)：构建、测试、安装和 CMake 选项。
 - [docs/config.md](docs/config.md)：编译期配置常量、异常检测和内部分配策略。
 - [docs/development.md](docs/development.md)：开发规范、代码格式和静态检查。
