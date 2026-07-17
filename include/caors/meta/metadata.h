@@ -26,6 +26,12 @@ using metadata_value = variant;
 /** @brief 通用 metadata 表。 */
 using metadata_map = core::hash_map<metadata_key, metadata_value>;
 
+/** @brief 一条待写入的 metadata。 */
+struct metadata_entry {
+  metadata_key key{};
+  metadata_value value{};
+};
+
 /** @brief 类型级 metadata 组件。 */
 struct type_metadata {
   explicit type_metadata(memory_resource* resource = nullptr)
@@ -51,6 +57,11 @@ struct type_metadata {
 /** @brief 写入或覆盖 metadata 值。 */
 inline void set_metadata(metadata_map& metadata, metadata_key key, metadata_value value) {
   metadata.insert_or_assign(key, std::move(value));
+}
+
+/** @brief 创建一条 metadata 写入项。 */
+[[nodiscard]] inline metadata_entry make_metadata_entry(metadata_key key, metadata_value value) {
+  return metadata_entry{key, std::move(value)};
 }
 
 /** @brief 转换 metadata 值。 */
@@ -105,6 +116,18 @@ template <typename T>
 /** @brief 转换 metadata 值。 */
 [[nodiscard]] inline metadata_value make_metadata_value(core::string_name value) {
   return metadata_value::from(value.view());
+}
+
+/** @brief 创建一条 metadata 写入项。 */
+template <typename Value>
+[[nodiscard]] metadata_entry metadata(std::string_view key, Value&& value) {
+  return make_metadata_entry(metadata_key{key}, make_metadata_value(std::forward<Value>(value)));
+}
+
+/** @brief 创建一条 metadata 写入项。 */
+template <typename Value>
+[[nodiscard]] metadata_entry metadata(metadata_key key, Value&& value) {
+  return make_metadata_entry(key, make_metadata_value(std::forward<Value>(value)));
 }
 
 /** @brief 创建字符串数组 metadata。 */

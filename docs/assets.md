@@ -236,13 +236,13 @@ namespace metadata = caors::serialization::config_metadata;
 caors::meta::class_<texture_options>("game.texture_options");
 caors::meta::class_<texture_options>()
     .field("format", &texture_options::format)
-    .field_metadata(metadata::required(), true)
-    .field_metadata(metadata::non_empty(), true)
-    .field_metadata(metadata::one_of(),
-                    caors::meta::make_metadata_string_array({"json", "binary"}))
+    (caors::meta::metadata(metadata::required(), true),
+     caors::meta::metadata(metadata::non_empty(), true),
+     caors::meta::metadata(metadata::one_of(),
+                           caors::meta::make_metadata_string_array({"json", "binary"})))
     .field("priority", &texture_options::priority)
-    .field_metadata(metadata::range_min(), 1)
-    .field_metadata(metadata::range_max(), 100)
+    (caors::meta::metadata(metadata::range_min(), 1),
+     caors::meta::metadata(metadata::range_max(), 100))
     .commit();
 caors::serialization::class_<texture_options>().commit();
 

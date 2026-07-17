@@ -207,16 +207,17 @@ void require_typed_external_source_config_metadata() {
   REQUIRE(reflection_result_ok(
           caors::meta::class_<typed_external_source_config>()
           .field("mount", &typed_external_source_config::mount)
-          .field_metadata(metadata::required(), true)
-          .field_metadata(metadata::non_empty(), true)
+          (caors::meta::metadata(metadata::required(), true),
+           caors::meta::metadata(metadata::non_empty(), true))
           .field("read_only", &typed_external_source_config::read_only)
           .field("priority", &typed_external_source_config::priority)
-          .field_metadata(metadata::range_min(), 1)
-          .field_metadata(metadata::range_max(), 10)
+          (caors::meta::metadata(metadata::range_min(), 1),
+           caors::meta::metadata(metadata::range_max(), 10))
           .field("filter", &typed_external_source_config::filter)
-          .field_metadata(metadata::one_of(),
-                          caors::meta::make_metadata_string_array(
-                              {std::string_view{"nearest"}, std::string_view{"linear"}}))
+          (caors::meta::metadata(
+              metadata::one_of(),
+              caors::meta::make_metadata_string_array(
+                  {std::string_view{"nearest"}, std::string_view{"linear"}})))
           .commit()));
   REQUIRE(serialization_result_ok(
       caors::serialization::class_<typed_external_source_config>().commit()));

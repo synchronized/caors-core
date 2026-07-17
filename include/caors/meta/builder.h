@@ -5,6 +5,7 @@
 #define CAORS_META_BUILDER_H_
 
 #include "caors/meta/detail/value_ops_model.h"
+#include "caors/meta/metadata.h"
 #include "caors/meta/proxy.h"
 #include "caors/meta/registry.h"
 
@@ -129,6 +130,14 @@ public:
   /** @brief 给最近添加的字段写入 metadata。 */
   template <typename Value> class_builder& field_metadata(string_name key, Value&& value);
 
+  /** @brief 用 RTTR 风格语法给最近添加的字段写入 metadata。 */
+  template <typename... Entries> class_builder& operator()(Entries&&... entries) {
+    static_assert((std::is_same_v<std::remove_cvref_t<Entries>, metadata_entry> && ...),
+                  "meta::class_builder::operator() expects meta::metadata(...) entries");
+    (apply_field_metadata(std::forward<Entries>(entries)), ...);
+    return *this;
+  }
+
   /**
    * @brief 为当前 C++ 类型挂接一份运行期 capability 指针。
    *
@@ -218,6 +227,14 @@ public:
   }
 
 private:
+  class_builder& apply_field_metadata(const metadata_entry& entry) {
+    return field_metadata(entry.key, entry.value);
+  }
+
+  class_builder& apply_field_metadata(metadata_entry&& entry) {
+    return field_metadata(entry.key, std::move(entry.value));
+  }
+
   void refresh() {
     ::caors::meta::type refreshed = get_registry().find_type<T>();
     if (refreshed.registered()) {

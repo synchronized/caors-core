@@ -552,6 +552,19 @@ const caors::meta::metadata_value* category =
     type.find_metadata(caors::string_name{"category"});
 ```
 
+字段级 metadata 推荐使用 RTTR 风格的绑定语法。`meta::metadata(key, value)` 创建一条写入项，
+紧跟在 `.field(...)` 后面的 `(...)` 会把这些写入项挂到刚注册的字段上：
+
+```cpp
+caors::meta::class_<actor>("game.actor")
+    .field("health", &actor::health)
+    (caors::meta::metadata("display", "Health"),
+     caors::meta::metadata("range_min", 0),
+     caors::meta::metadata("range_max", 100));
+```
+
+`field_metadata(key, value)` 仍可用于高级代码按步骤给最近字段写入 metadata；普通注册代码优先使用上面的绑定语法。
+
 metadata 不参与类型身份，不替代 `type_name` / `type_guid` / capability。需要决定运行期行为时，优先使用
 明确的 capability、反射字段、序列化 schema 或资源配置对象；metadata 只承载可选约束、标签和工具提示。
 
