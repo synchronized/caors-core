@@ -22,12 +22,6 @@ struct runtime_actor {
   int read_health() const { return health; }
 };
 
-struct runtime_target : caors::object {};
-
-struct runtime_plain_owner {
-  int health = 7;
-};
-
 struct runtime_default_create_type {
   int value = 11;
 };
@@ -75,13 +69,6 @@ public:
   }
 
   int read_health() const { return health; }
-};
-
-class runtime_object_owner : public caors::object_base<runtime_object_owner> {
-public:
-  static constexpr std::string_view object_type_name = "caors.test.runtime.object_owner";
-
-  caors::object_ptr<runtime_target> target{};
 };
 
 struct runtime_const_owner {
@@ -436,41 +423,5 @@ TEST_CASE("runtime facade - const instance is read only", "[runtime]") {
   std::array<caors::any_ref, 1> arguments{caors::any_ref::from(delta)};
   CHECK_FALSE(instance.call("add_health",
                             std::span<const caors::any_ref>{arguments.data(), arguments.size()}));
-  CHECK(owner.health == 7);
-}
-
-TEST_CASE("runtime facade - object view reads and writes object pointer fields", "[runtime]") {
-  const caors::error status =
-      caors::runtime::class_<runtime_object_owner>(runtime_object_owner::object_type_name)
-          .property("target", &runtime_object_owner::target)
-          .commit();
-  CHECK_FALSE(status);
-
-  runtime_object_owner owner{};
-  runtime_target target{};
-
-  caors::runtime::object object = caors::runtime::object_view(owner);
-  REQUIRE(object);
-  CHECK(object.ptr() == &owner);
-  CHECK(object.get_ptr("target") == nullptr);
-  CHECK(object.set_ptr("target", &target));
-  CHECK(owner.target.get() == &target);
-  CHECK(object.get_ptr("target") == &target);
-}
-
-TEST_CASE("runtime facade - object view reports non object pointer fields as empty", "[runtime]") {
-  const caors::error status =
-      caors::runtime::class_<runtime_plain_owner>("caors.test.runtime.plain_owner")
-          .property("health", &runtime_plain_owner::health)
-          .commit();
-  CHECK_FALSE(status);
-
-  runtime_plain_owner owner{};
-
-  caors::runtime::object object = caors::runtime::object_view(caors::runtime::view(owner));
-  REQUIRE(object);
-  CHECK(object.ptr() == nullptr);
-  CHECK(object.get_ptr("health") == nullptr);
-  CHECK_FALSE(object.set_ptr("health", nullptr));
   CHECK(owner.health == 7);
 }

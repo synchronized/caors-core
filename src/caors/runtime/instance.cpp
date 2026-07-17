@@ -3,8 +3,6 @@
 
 #include "caors/runtime/instance.h"
 
-#include "caors/object/ptr_view.h"
-
 namespace caors::runtime {
 
 instance::instance(meta::any_ref value) noexcept : value_(value) {}
@@ -103,59 +101,5 @@ any instance::call(std::string_view name, std::span<const any_ref> arguments) co
 
   return reflected_method.invoke(value_.data(), arguments);
 }
-
-object::object(instance value) noexcept : instance_(value) {}
-
-object::object(instance value, objects::object* pointer) noexcept
-    : instance_(value), pointer_(pointer) {}
-
-bool object::valid() const noexcept { return instance_.valid(); }
-
-instance object::as_instance() const noexcept { return instance_; }
-
-meta::any_ref object::value() const noexcept { return instance_.value(); }
-
-runtime::type object::type() const noexcept { return instance_.type(); }
-
-any object::get(std::string_view name) const { return instance_.get(name); }
-
-any_ref object::get_ref(std::string_view name) const { return instance_.get_ref(name); }
-
-bool object::set(std::string_view name, const any& source) const {
-  return instance_.set(name, source);
-}
-
-bool object::set(std::string_view name, const any_ref& source) const {
-  return instance_.set(name, source);
-}
-
-objects::object* object::ptr() const noexcept {
-  if (pointer_ != nullptr) {
-    return pointer_;
-  }
-
-  meta::any_ref ref = instance_.value();
-  if (!ref) {
-    return nullptr;
-  }
-
-  if (auto* mutable_object = ref.try_get_mutable<objects::object>()) {
-    return mutable_object;
-  }
-
-  return const_cast<objects::object*>(ref.try_get<objects::object>());
-}
-
-objects::object* object::get_ptr(std::string_view name) const {
-  const objects::ptr_view pointer = objects::make_ptr_view(instance_.get_ref(name));
-  return pointer ? pointer.get() : nullptr;
-}
-
-bool object::set_ptr(std::string_view name, objects::object* pointer) const {
-  const objects::ptr_view object_pointer = objects::make_ptr_view(instance_.get_ref(name));
-  return object_pointer && object_pointer.set(pointer);
-}
-
-object object_view(instance value) noexcept { return object{value}; }
 
 } // namespace caors::runtime

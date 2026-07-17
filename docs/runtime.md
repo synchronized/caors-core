@@ -13,7 +13,6 @@
 - `runtime::instance` 组合 `meta::any_ref`、`runtime::type`、`meta::property`、`meta::method_set`
   和 `meta::method`，
   提供面向实例的属性读写和方法调用入口。
-- `runtime::object` 是对象系统适配视图，用于处理 `objects::ptr<T>` 这类对象指针属性。
 - `runtime::type::create()` 是运行期值创建的高层入口，优先使用 `meta::factory_capability`，再使用
   `meta::constructor_capability` 匹配运行期参数列表，最后才回退到 descriptor 默认构造。
 - `runtime::type::create_value()` 是高级默认构造入口，只使用 `meta::any` 的 descriptor 默认构造能力，
@@ -147,24 +146,7 @@ caors::any result = instance.call("add_health", 5);
 属性和方法视图仍引用全局 append-only `meta::registry`。后续如果需要零分配遍历，可以再增加 range view。
 
 对象指针属性属于对象系统语义，不直接放在 `meta::property` 上。需要按对象关系读写时，使用
-`runtime::object` 适配视图：
-
-```cpp
-auto object = caors::runtime::object_view(actor_object);
-object.set_ptr("target", &target_object);
-caors::object* target = object.get_ptr("target");
-```
-
-`runtime::object` 也是非拥有视图：
-
-- `runtime::object_view(T&)` 要求 `T` 派生自 `objects::object`，会显式保存当前对象指针，`ptr()` 返回该指针。
-- `runtime::object_view(instance)` 只包装已有实例视图，不会从类型擦除的派生对象自动推导
-  `objects::object*`；没有显式对象指针时 `ptr()` 可能返回 `nullptr`。
-- `get_ptr(name)` / `set_ptr(name, ptr)` 只处理属性类型具备 `objects::ptr<T>` 语义的属性；
-  普通裸指针、普通属性或不存在属性会返回 `nullptr` / `false`。
-- `runtime::object` 不管理对象生命周期，也不解析 `objects::handle`、`objects::typed_handle<T>`、
-  `objects::ref<T>` 或 `objects::weak_ref<T>`。这些所有权或身份策略应继续由对象系统、manager、
-  场景树或上层 runtime 适配层处理。
+`objects::object_view` / `objects::view(...)`，详见对象系统文档。
 
 枚举类型可以通过 `runtime::enum_<T>()` 注册：
 
@@ -187,13 +169,11 @@ caors::runtime::type state_type = caors::runtime::find<actor_state>();
 - `value` 继续负责 `any`、`any_ref` 和运行期 view。
 - `meta` 负责属性、方法和成员访问。
 - `runtime` 只负责把这些能力组合成更直接的用户入口。
-- object/resource 等领域专用便利能力放在 `runtime` 或对应适配层，不反向塞进 `meta::property`
+- object/resource 等领域专用便利能力放在对应模块或适配层，不反向塞进 `meta::property`
   这类底层通用视图。
 - `runtime` 组合公开 facade，不直接依赖 `meta::detail`。需要构造未知类型值时走
   `runtime::type::create()`、`meta::factory_capability`、`meta::constructor_capability`
   或 `meta::any` / `meta::owned_value` 这类公开所有权接口。
-- `runtime::object` 当前只收口对象指针属性访问和当前对象指针查询，不替代对象 manager、handle、
-  引用计数或资源引用 resolver。
 - 具体模块仍保留高级入口，例如 `meta::class_<T>()`、`meta::enum_<T>()`、
   `meta::class_<T>()` 和 `serialization::class_<T>()`，用于更细粒度地控制注册顺序和模块依赖。
 

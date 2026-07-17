@@ -503,7 +503,7 @@ damage.invoke(&instance, args);
 - `get_value()` / `try_set_value()`：按运行期 `any` 读写属性。
 - `get_ref(const void*)` / `get_ref(void*)`：按运行期 `any_ref` 引用属性，权限由传入对象地址的 constness 决定。
 - 对象指针属性不在 `meta::property` 上提供专用 `get/set` 接口。需要按对象语义访问时，使用
-  `runtime::object` 或 `field.get_ref(...).get_capability<objects::ptr_capability>()`。
+  `objects::object_view` 或 `field.get_ref(...).get_capability<objects::ptr_capability>()`。
 - `meta::property` 不负责对象生命周期、对象身份解析或对象引用计数。对象关系、资源引用和其他领域语义
   应由 `runtime`、`objects`、`resources` 或序列化上下文中的 resolver 处理。
 - `is_sequence()`：判断属性是否是顺序容器属性。

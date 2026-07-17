@@ -6,7 +6,6 @@
 
 #include "caors/core/containers.h"
 #include "caors/meta/value/any_ref.h"
-#include "caors/object/base.h"
 #include "caors/runtime/type.h"
 
 #include <array>
@@ -88,53 +87,6 @@ private:
   meta::any_ref value_{};
 };
 
-/**
- * @brief 对象系统运行期适配视图。
- *
- * `runtime::object` 是 `runtime::instance` 之上的对象专用门面，用于处理 `objects::ptr<T>` 等对象
- * 指针语义。它不拥有对象生命周期。
- */
-class CAORS_API object final {
-public:
-  object() noexcept = default;
-  explicit object(instance value) noexcept;
-  object(instance value, objects::object* pointer) noexcept;
-
-  [[nodiscard]] bool valid() const noexcept;
-  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
-
-  [[nodiscard]] instance as_instance() const noexcept;
-  [[nodiscard]] meta::any_ref value() const noexcept;
-  [[nodiscard]] runtime::type type() const noexcept;
-
-  /** @brief 查询并绑定当前对象实例的运行期能力视图。 */
-  template <typename View> [[nodiscard]] View get_capability() const {
-    return instance_.template get_capability<View>();
-  }
-
-  [[nodiscard]] any get(std::string_view name) const;
-  [[nodiscard]] any_ref get_ref(std::string_view name) const;
-  bool set(std::string_view name, const any& source) const;
-  bool set(std::string_view name, const any_ref& source) const;
-
-  template <typename T> bool set(std::string_view name, const T& source) const {
-    return instance_.set(name, source);
-  }
-
-  /** @brief 返回当前视图显式绑定的对象指针；没有显式绑定时可能返回 `nullptr`。 */
-  [[nodiscard]] objects::object* ptr() const noexcept;
-
-  /** @brief 读取属性中的对象指针。 */
-  [[nodiscard]] objects::object* get_ptr(std::string_view name) const;
-
-  /** @brief 写入属性中的对象指针。 */
-  bool set_ptr(std::string_view name, objects::object* pointer) const;
-
-private:
-  instance instance_{};
-  objects::object* pointer_ = nullptr;
-};
-
 /** @brief 从运行期引用创建实例视图。 */
 [[nodiscard]] inline instance view(meta::any_ref value) noexcept { return instance{value}; }
 
@@ -146,19 +98,6 @@ template <typename T> [[nodiscard]] instance view(T& value) {
 /** @brief 从只读 C++ 对象创建实例视图。 */
 template <typename T> [[nodiscard]] instance view_const(const T& value) {
   return instance{meta::any_ref::from_const(value)};
-}
-
-/** @brief 从实例视图创建对象适配视图；不会从类型擦除的派生对象自动推导对象指针。 */
-[[nodiscard]] object object_view(instance value) noexcept;
-
-/** @brief 从对象派生实例创建对象适配视图，同时保留真实 C++ 类型的反射信息。 */
-template <typename T> [[nodiscard]] object object_view(T& value) {
-  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-  static_assert(std::is_base_of_v<objects::object, value_type>,
-                "T must derive from caors::objects::object");
-  static_assert(!std::is_const_v<std::remove_reference_t<T>>,
-                "runtime::object_view requires a mutable object");
-  return object{view(value), &value};
 }
 
 } // namespace caors::runtime

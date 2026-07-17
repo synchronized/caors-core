@@ -170,18 +170,18 @@ auto capability =
 auto view = capability.bind(caors::any_ref::from(ptr));
 ```
 
-如果对象指针来自反射属性，推荐通过 `runtime::object` 在组合层读写：
+如果对象指针来自反射属性，推荐通过 `objects::object_view` 在对象系统层读写：
 
 ```cpp
-auto object = caors::runtime::object_view(owner);
+auto object = caors::objects::view(owner);
 object.set_ptr("target", &target);
 caors::object* target = object.get_ptr("target");
 ```
 
-`runtime::object_view(owner)` 会显式绑定当前派生对象指针，因此 `object.ptr()` 可以返回 `&owner`。
-如果只有一个已经类型擦除的 `runtime::instance`，`runtime::object_view(instance)` 不会尝试从派生类型
-自动反推出 `objects::object*`；这避免在没有完整对象类型语义时做不安全转换。需要当前对象指针时，
-优先使用 `runtime::object_view(T&)`，或由上层对象 manager / 场景系统显式提供。
+`objects::view(owner)` 会显式绑定当前派生对象指针，因此 `object.ptr()` 可以返回 `&owner`。
+如果只通过 `objects::view(any_ref)` 包装已经类型擦除的实例视图，不会尝试从派生类型自动反推出
+`objects::object*`；这避免在没有完整对象类型语义时做不安全转换。需要当前对象指针时，
+优先使用 `objects::view(T&)`，或由上层对象 manager / 场景系统显式提供。
 
 `meta::property` 只保留通用属性读写能力，不直接暴露对象专用 `get/set` 接口。
 
