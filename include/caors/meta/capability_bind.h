@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_META_VALUE_CAPABILITY_FACADE_H_
-#define CAORS_META_VALUE_CAPABILITY_FACADE_H_
+#ifndef CAORS_META_CAPABILITY_BIND_H_
+#define CAORS_META_CAPABILITY_BIND_H_
 
 #include "caors/meta/capability_facade.h"
 #include "caors/meta/type.h"

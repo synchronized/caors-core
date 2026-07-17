@@ -61,7 +61,7 @@ TEST_CASE("meta - global registry stores components by type id", "[meta]") {
   CHECK(caors::meta::get_registry().emplace_component<factory_meta>(actor_id, false) ==
         meta_error(caors::errc::duplicate_component));
   CHECK(caors::meta::get_registry().has_component<factory_meta>(actor_id));
-  CHECK_FALSE(caors::meta::get_registry().has_component<view_reflection_meta>(actor_id));
+  CHECK_FALSE(caors::meta::get_registry().has_component<view_label_meta>(actor_id));
 }
 
 // 原测试文件：meta_meta_global_view_finds_types_with_all_requested_components_test.cpp
@@ -87,19 +87,19 @@ TEST_CASE("meta - global view finds types with all requested components", "[meta
           caors::error{});
   REQUIRE(caors::meta::get_registry().emplace_component<view_factory_meta>(player_id, true) ==
           caors::error{});
-  REQUIRE(caors::meta::get_registry().emplace_component<view_reflection_meta>(
-              player_id, "Player") == caors::error{});
+  REQUIRE(caors::meta::get_registry().emplace_component<view_label_meta>(player_id, "Player") ==
+          caors::error{});
 
   auto object_view = caors::meta::get_registry().component_view<view_factory_meta>();
   CHECK(object_view.size() == 2);
 
   auto reflected_object_view =
-      caors::meta::get_registry().component_view<view_factory_meta, view_reflection_meta>();
+      caors::meta::get_registry().component_view<view_factory_meta, view_label_meta>();
   REQUIRE(reflected_object_view.size() == 1);
   CHECK(reflected_object_view.ids().front() == player_id);
 
-  auto reflection = reflected_object_view.find<view_reflection_meta>(player_id);
-  REQUIRE(reflection.has_value());
-  CHECK(reflection->display_name == "Player");
+  auto label = reflected_object_view.find<view_label_meta>(player_id);
+  REQUIRE(label.has_value());
+  CHECK(label->display_name == "Player");
   CHECK(caors::meta::is_a(player_id, actor_id));
 }

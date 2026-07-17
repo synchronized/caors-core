@@ -5,7 +5,7 @@
 
 #include "meta_value_test_common.h"
 
-using namespace caors::tests::reflection;
+using namespace caors::tests::meta_value;
 
 TEST_CASE("meta any_ref - creates indirect views for pointer and wrappers", "[meta]") {
   require_value_test_meta();
@@ -87,7 +87,7 @@ TEST_CASE("meta any_ref - creates indirect views for pointer and wrappers", "[me
 
 #include "meta_value_test_common.h"
 
-using namespace caors::tests::reflection;
+using namespace caors::tests::meta_value;
 
 TEST_CASE("meta any_ref - creates indirect views from descriptor wrapper values", "[meta]") {
   require_value_test_meta();

@@ -8,7 +8,7 @@
 using namespace test_meta;
 
 TEST_CASE("meta - field view describes composite traits", "[meta]") {
-  const caors::meta::type reflected = require_field_traits_owner_reflection();
+  const caors::meta::type reflected = require_field_traits_owner_meta();
 
   const caors::meta::field pair = require_field(reflected, "pair");
   CHECK(pair.kind() == caors::meta::type_kind::pair);
@@ -60,7 +60,7 @@ TEST_CASE("meta - field view describes field layout", "[meta]") {
 using namespace test_meta;
 
 TEST_CASE("meta - field view describes indirect wrapper traits", "[meta]") {
-  const caors::meta::type reflected = require_field_traits_owner_reflection();
+  const caors::meta::type reflected = require_field_traits_owner_meta();
 
   const caors::meta::field raw = require_field(reflected, "raw");
   CHECK(raw.kind() == caors::meta::type_kind::raw_pointer);
@@ -113,7 +113,7 @@ TEST_CASE("meta - field view describes indirect wrapper traits", "[meta]") {
 using namespace test_meta;
 
 TEST_CASE("meta - field view describes object ptr traits", "[meta]") {
-  const caors::meta::type reflected = require_field_traits_owner_reflection();
+  const caors::meta::type reflected = require_field_traits_owner_meta();
   const caors::meta::field object_ptr = require_field(reflected, "object_ptr");
 
   CHECK(object_ptr.kind() == caors::meta::type_kind::value);
@@ -130,7 +130,7 @@ TEST_CASE("meta - field view describes object ptr traits", "[meta]") {
 using namespace test_meta;
 
 TEST_CASE("meta - field view describes sequence traits", "[meta]") {
-  const caors::meta::type reflected = require_field_traits_owner_reflection();
+  const caors::meta::type reflected = require_field_traits_owner_meta();
 
   const caors::meta::field sequence = require_field(reflected, "sequence");
   CHECK(sequence.kind() == caors::meta::type_kind::sequence);
@@ -150,7 +150,7 @@ TEST_CASE("meta - field view describes sequence traits", "[meta]") {
 using namespace test_meta;
 
 TEST_CASE("meta - field view describes value and enum traits", "[meta]") {
-  const caors::meta::type reflected = require_field_traits_owner_reflection();
+  const caors::meta::type reflected = require_field_traits_owner_meta();
 
   const caors::meta::field value = require_field(reflected, "value");
   CHECK(value.kind() == caors::meta::type_kind::value);

@@ -340,24 +340,20 @@ constexpr caors::type_guid view_actor_guid{caors::guid::from_bytes(
   return caors::type_id::invalid();
 }
 
-[[nodiscard]] constexpr caors::error reflection_error(caors::errc code) noexcept {
-  return {caors::error_domain::meta, code};
-}
-
 [[nodiscard]] constexpr caors::error meta_error(caors::errc code) noexcept {
   return {caors::error_domain::meta, code};
 }
 
 template <typename T>
-[[nodiscard]] caors::meta::class_builder<T> registered_reflection_class(std::string_view name) {
+[[nodiscard]] caors::meta::class_builder<T> registered_meta_class(std::string_view name) {
   const caors::error status = caors::meta::class_<T>(name).result();
   REQUIRE((status == caors::error{} || status == meta_error(caors::errc::duplicate_id)));
   return caors::meta::class_<T>();
 }
 
-[[nodiscard]] inline caors::meta::type require_field_traits_owner_reflection() {
+[[nodiscard]] inline caors::meta::type require_field_traits_owner_meta() {
   const caors::error status =
-      registered_reflection_class<field_traits_owner>("caors.test.meta.field_traits_owner")
+      registered_meta_class<field_traits_owner>("caors.test.meta.field_traits_owner")
           .field("value", &field_traits_owner::value)
           .field("color", &field_traits_owner::color)
           .field("raw", &field_traits_owner::raw)
@@ -375,8 +371,8 @@ template <typename T>
           .field("variant", &field_traits_owner::variant)
           .commit();
 
-  REQUIRE((status == caors::error{} || status == reflection_error(caors::errc::duplicate_field) ||
-           status == reflection_error(caors::errc::duplicate_method)));
+  REQUIRE((status == caors::error{} || status == meta_error(caors::errc::duplicate_field) ||
+           status == meta_error(caors::errc::duplicate_method)));
   return require_reflected("caors.test.meta.field_traits_owner");
 }
 
@@ -390,7 +386,7 @@ template <typename T> void register_common_type(std::string_view name) {
   (void)status;
 }
 
-[[maybe_unused]] const bool common_reflection_types_registered = [] {
+[[maybe_unused]] const bool common_meta_types_registered = [] {
   register_common_type<reflected_color>("caors.test.meta.color");
   register_common_type<reflected_object_ptr_target>("caors.test.meta.reflected_object_ptr_target");
   register_common_type<caors::object_ptr<reflected_object_ptr_target>>(

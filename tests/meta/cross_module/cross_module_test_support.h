@@ -23,7 +23,7 @@ struct cross_module_late_registered {
   int value = 0;
 };
 
-[[nodiscard]] inline bool reflection_result_ok(caors::error result) noexcept {
+[[nodiscard]] inline bool meta_field_result_ok(caors::error result) noexcept {
   return result.succeeded() || result.value() == caors::errc::duplicate_field ||
          result.value() == caors::errc::duplicate_method;
 }

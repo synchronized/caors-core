@@ -6,7 +6,7 @@
 #include "meta_field_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
-#include "caors/meta/value/type_capability.h"
+#include "caors/meta/value/capabilities.h"
 
 using namespace test_meta;
 

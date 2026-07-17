@@ -13,7 +13,7 @@ TEST_CASE("meta - class builder rejects duplicate method names", "[meta]") {
        caors::meta::class_<duplicate_method_actor>())
           .method("update", &duplicate_method_actor::first)
           .method("update", &duplicate_method_actor::second)
-          .commit() == reflection_error(caors::errc::duplicate_method));
+          .commit() == meta_error(caors::errc::duplicate_method));
 }
 
 // 原测试文件：meta_method_method_view_describes_member_function_signatures_test.cpp

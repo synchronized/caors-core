@@ -3,13 +3,13 @@
 
 #include <caors/adapters/stl_traits.h>
 #include <caors/meta/value/any_ref.h>
-#include <caors/meta/value/type_capability.h>
+#include <caors/meta/value/capabilities.h>
 
 #include <catch2/catch_all.hpp>
 
 #include <vector>
 
-TEST_CASE("headers - meta value type capability exposes type facade", "[headers]") {
+TEST_CASE("headers - meta value capabilities expose type facade", "[headers]") {
   std::vector<int> values{1, 2, 3};
 
   caors::meta::sequence_capability sequence =

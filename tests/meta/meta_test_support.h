@@ -33,7 +33,7 @@ struct view_factory_meta {
   bool constructible = false;
 };
 
-struct view_reflection_meta {
+struct view_label_meta {
   std::string_view display_name{};
 };
 

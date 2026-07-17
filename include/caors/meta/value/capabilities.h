@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_META_VALUE_TYPE_CAPABILITY_H_
-#define CAORS_META_VALUE_TYPE_CAPABILITY_H_
+#ifndef CAORS_META_VALUE_CAPABILITIES_H_
+#define CAORS_META_VALUE_CAPABILITIES_H_
 
 #include "caors/meta/value/capabilities/associative_capability.h"
 #include "caors/meta/value/capabilities/enum_capability.h"

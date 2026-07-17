@@ -4,8 +4,8 @@
 #ifndef CAORS_OBJECT_PTR_VIEW_H_
 #define CAORS_OBJECT_PTR_VIEW_H_
 
+#include "caors/meta/capability_bind.h"
 #include "caors/meta/value/any_ref.h"
-#include "caors/meta/value/capability_facade.h"
 #include "caors/object/ptr.h"
 
 namespace caors::objects {

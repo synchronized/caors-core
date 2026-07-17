@@ -6,7 +6,7 @@
 #include "meta_field_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
-#include "caors/meta/value/type_capability.h"
+#include "caors/meta/value/capabilities.h"
 
 using namespace test_meta;
 
@@ -55,7 +55,7 @@ TEST_CASE("meta - custom sequence traits expose field view", "[meta]") {
 #include "meta_field_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
-#include "caors/meta/value/type_capability.h"
+#include "caors/meta/value/capabilities.h"
 
 using namespace test_meta;
 
@@ -81,7 +81,7 @@ TEST_CASE("meta - fixed std span field name includes extent", "[meta]") {
 #include "meta_field_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
-#include "caors/meta/value/type_capability.h"
+#include "caors/meta/value/capabilities.h"
 
 using namespace test_meta;
 
@@ -127,7 +127,7 @@ TEST_CASE("meta - list field view uses sequence traits", "[meta]") {
 #include "meta_field_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
-#include "caors/meta/value/type_capability.h"
+#include "caors/meta/value/capabilities.h"
 
 using namespace test_meta;
 
@@ -210,7 +210,7 @@ TEST_CASE("meta - sequence field view exposes element metadata", "[meta]") {
 #include "meta_field_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
-#include "caors/meta/value/type_capability.h"
+#include "caors/meta/value/capabilities.h"
 
 using namespace test_meta;
 
@@ -255,7 +255,7 @@ TEST_CASE("meta - std array field view uses fixed sequence traits", "[meta]") {
 #include "meta_field_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
-#include "caors/meta/value/type_capability.h"
+#include "caors/meta/value/capabilities.h"
 
 using namespace test_meta;
 

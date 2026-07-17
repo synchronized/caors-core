@@ -4,8 +4,8 @@
 #ifndef CAORS_META_VALUE_CAPABILITIES_SEQUENCE_CAPABILITY_H_
 #define CAORS_META_VALUE_CAPABILITIES_SEQUENCE_CAPABILITY_H_
 
+#include "caors/meta/capability_bind.h"
 #include "caors/meta/type_ops.h"
-#include "caors/meta/value/capability_facade.h"
 #include "caors/meta/value/view_factory.h"
 
 namespace caors::meta {

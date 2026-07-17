@@ -4,8 +4,8 @@
 #ifndef CAORS_OBJECT_HANDLE_VIEW_H_
 #define CAORS_OBJECT_HANDLE_VIEW_H_
 
+#include "caors/meta/capability_bind.h"
 #include "caors/meta/value/any_ref.h"
-#include "caors/meta/value/capability_facade.h"
 #include "caors/object/handle.h"
 
 namespace caors::objects {

@@ -5,7 +5,7 @@
 
 #include "meta_value_test_common.h"
 
-using namespace caors::tests::reflection;
+using namespace caors::tests::meta_value;
 
 TEST_CASE("meta any_ref - creates pair views from descriptor values", "[meta]") {
   require_value_test_meta();
@@ -39,7 +39,7 @@ TEST_CASE("meta any_ref - creates pair views from descriptor values", "[meta]") 
 
 #include "meta_value_test_common.h"
 
-using namespace caors::tests::reflection;
+using namespace caors::tests::meta_value;
 
 TEST_CASE("meta any_ref - creates sequence views from descriptor span values", "[meta]") {
   require_value_test_meta();
@@ -73,7 +73,7 @@ TEST_CASE("meta any_ref - creates sequence views from descriptor span values", "
 
 #include "meta_value_test_common.h"
 
-using namespace caors::tests::reflection;
+using namespace caors::tests::meta_value;
 
 TEST_CASE("meta any_ref - creates tuple views from descriptor values", "[meta]") {
   require_value_test_meta();
@@ -110,7 +110,7 @@ TEST_CASE("meta any_ref - creates tuple views from descriptor values", "[meta]")
 
 #include "meta_value_test_common.h"
 
-using namespace caors::tests::reflection;
+using namespace caors::tests::meta_value;
 
 TEST_CASE("meta any_ref - creates variant views from descriptor values", "[meta]") {
   require_value_test_meta();
@@ -147,7 +147,7 @@ TEST_CASE("meta any_ref - creates variant views from descriptor values", "[meta]
 
 #include "meta_value_test_common.h"
 
-using namespace caors::tests::reflection;
+using namespace caors::tests::meta_value;
 
 TEST_CASE("meta any_ref - keeps readonly span views immutable", "[meta]") {
   require_value_test_meta();

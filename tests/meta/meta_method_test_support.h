@@ -33,8 +33,8 @@ struct duplicate_method_actor {
           .method("add_to", &method_actor::add_to)
           .method("score", &method_actor::score)
           .commit();
-  REQUIRE((result == caors::error{} || result == reflection_error(caors::errc::duplicate_field) ||
-           result == reflection_error(caors::errc::duplicate_method)));
+  REQUIRE((result == caors::error{} || result == meta_error(caors::errc::duplicate_field) ||
+           result == meta_error(caors::errc::duplicate_method)));
 
   auto reflected = caors::meta::find("caors.test.meta.method_actor");
   REQUIRE(reflected);

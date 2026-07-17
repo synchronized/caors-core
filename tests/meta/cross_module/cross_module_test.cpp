@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 原测试文件：cross_module_meta_cross_module_view_supports_serialization_registered_before_reflection_test.cpp
+// 原测试文件：cross_module_meta_cross_module_view_supports_serialization_registered_before_meta_fields_test.cpp
 
 #include "cross_module_test_support.h"
 
 using namespace caors::tests::cross_module;
-TEST_CASE("meta - cross module view supports serialization registered before reflection",
+TEST_CASE("meta - cross module view supports serialization registered before meta fields",
           "[meta]") {
   const caors::meta::type type = caors::meta::class_<cross_module_serialization_first>(
                                      "caors.test.meta.cross_module_serialization_first")
@@ -18,7 +18,7 @@ TEST_CASE("meta - cross module view supports serialization registered before ref
                                           caors::serialization::make_field("id", "actor_id"),
                                       })
                                       .commit()));
-  REQUIRE(reflection_result_ok(((void)caors::meta::class_<cross_module_serialization_first>(
+  REQUIRE(meta_field_result_ok(((void)caors::meta::class_<cross_module_serialization_first>(
                                     "caors.test.meta.cross_module_serialization_first"),
                                 caors::meta::class_<cross_module_serialization_first>())
                                    .field("id", &cross_module_serialization_first::id)
@@ -34,13 +34,13 @@ TEST_CASE("meta - cross module view supports serialization registered before ref
   CHECK(result.value == R"({"actor_id":42})");
 }
 
-// 原测试文件：cross_module_meta_view_finds_types_with_reflection_and_serialization_components_test.cpp
+// 原测试文件：cross_module_meta_view_finds_types_with_meta_fields_and_serialization_components_test.cpp
 
 #include "cross_module_test_support.h"
 
 using namespace caors::tests::cross_module;
-TEST_CASE("meta - view finds types with reflection and serialization components", "[meta]") {
-  REQUIRE(reflection_result_ok(
+TEST_CASE("meta - view finds types with meta fields and serialization components", "[meta]") {
+  REQUIRE(meta_field_result_ok(
       ((void)caors::meta::class_<cross_module_actor>("caors.test.meta.cross_module_actor"),
        caors::meta::class_<cross_module_actor>())
           .field("id", &cross_module_actor::id)
@@ -59,22 +59,22 @@ TEST_CASE("meta - view finds types with reflection and serialization components"
   auto view = caors::meta::get_registry().component_view<caors::serialization::type_schema>();
   CHECK(view_contains(view, type.id()));
 
-  auto reflection = caors::meta::find(type.id());
-  REQUIRE(reflection);
-  CHECK(reflection.field_count() == 2);
+  auto meta_type = caors::meta::find(type.id());
+  REQUIRE(meta_type);
+  CHECK(meta_type.field_count() == 2);
 
   auto serialization = view.find<caors::serialization::type_schema>(type.id());
   REQUIRE(serialization.has_value());
   CHECK(serialization->fields.size() == 2);
 }
 
-// 原测试文件：cross_module_reflection_field_handles_remain_valid_after_later_registrations_test.cpp
+// 原测试文件：cross_module_meta_field_handles_remain_valid_after_later_registrations_test.cpp
 
 #include "cross_module_test_support.h"
 
 using namespace caors::tests::cross_module;
 TEST_CASE("meta - field handles remain valid after later registrations", "[meta]") {
-  REQUIRE(reflection_result_ok(
+  REQUIRE(meta_field_result_ok(
       ((void)caors::meta::class_<cross_module_actor>("caors.test.meta.cross_module_actor"),
        caors::meta::class_<cross_module_actor>())
           .field("id", &cross_module_actor::id)
@@ -88,7 +88,7 @@ TEST_CASE("meta - field handles remain valid after later registrations", "[meta]
   REQUIRE(id);
   REQUIRE(id.valid());
 
-  REQUIRE(reflection_result_ok(((void)caors::meta::class_<cross_module_late_registered>(
+  REQUIRE(meta_field_result_ok(((void)caors::meta::class_<cross_module_late_registered>(
                                     "caors.test.meta.cross_module_late_registered"),
                                 caors::meta::class_<cross_module_late_registered>())
                                    .field("value", &cross_module_late_registered::value)

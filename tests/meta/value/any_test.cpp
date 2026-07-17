@@ -5,7 +5,7 @@
 
 #include "meta_value_test_common.h"
 
-using namespace caors::tests::reflection;
+using namespace caors::tests::meta_value;
 
 TEST_CASE("meta any - copies deeply and rejects mismatched writes", "[meta]") {
   require_value_test_meta();
@@ -33,7 +33,7 @@ TEST_CASE("meta any - copies deeply and rejects mismatched writes", "[meta]") {
 
 #include "meta_value_test_common.h"
 
-using namespace caors::tests::reflection;
+using namespace caors::tests::meta_value;
 
 TEST_CASE("meta any - default construction can use memory resource", "[meta]") {
   require_value_test_meta();
@@ -57,7 +57,7 @@ TEST_CASE("meta any - default construction can use memory resource", "[meta]") {
 
 #include "meta_value_test_common.h"
 
-using namespace caors::tests::reflection;
+using namespace caors::tests::meta_value;
 
 TEST_CASE("meta any - default constructs small trivial values inline", "[meta]") {
   require_registered_type<tracked_small_trivial>("caors.test.meta.tracked_small_trivial");
@@ -81,7 +81,7 @@ TEST_CASE("meta any - default constructs small trivial values inline", "[meta]")
 
 #include "meta_value_test_common.h"
 
-using namespace caors::tests::reflection;
+using namespace caors::tests::meta_value;
 
 TEST_CASE("meta any - fields expose copied runtime values", "[meta]") {
   require_value_test_meta();
@@ -130,7 +130,7 @@ TEST_CASE("meta any - fields expose copied runtime values", "[meta]") {
 
 #include "meta_value_test_common.h"
 
-using namespace caors::tests::reflection;
+using namespace caors::tests::meta_value;
 
 TEST_CASE("meta any - keeps large trivial values on heap", "[meta]") {
   tracked_large_trivial::allocation_count = 0;
@@ -163,7 +163,7 @@ TEST_CASE("meta any - keeps large trivial values on heap", "[meta]") {
 
 #include "meta_value_test_common.h"
 
-using namespace caors::tests::reflection;
+using namespace caors::tests::meta_value;
 
 TEST_CASE("meta any - noncopyable fields return invalid values", "[meta]") {
   require_value_test_meta();
@@ -211,7 +211,7 @@ TEST_CASE("meta any - noncopyable fields return invalid values", "[meta]") {
 
 #include "meta_value_test_common.h"
 
-using namespace caors::tests::reflection;
+using namespace caors::tests::meta_value;
 
 TEST_CASE("meta any_ref - creates descriptor views for unregistered nested vectors", "[meta]") {
   require_value_test_meta();
@@ -251,7 +251,7 @@ TEST_CASE("meta any_ref - creates descriptor views for unregistered nested vecto
 
 #include "meta_value_test_common.h"
 
-using namespace caors::tests::reflection;
+using namespace caors::tests::meta_value;
 
 TEST_CASE("meta any - descriptor fields do not require container type registration", "[meta]") {
   require_value_test_meta();
@@ -296,7 +296,7 @@ TEST_CASE("meta any - descriptor fields do not require container type registrati
 
 #include "meta_value_test_common.h"
 
-using namespace caors::tests::reflection;
+using namespace caors::tests::meta_value;
 
 TEST_CASE("meta any_ref - references external typed values", "[meta]") {
   require_value_test_meta();
@@ -340,7 +340,7 @@ TEST_CASE("meta any_ref - references external typed values", "[meta]") {
 
 #include "meta_value_test_common.h"
 
-using namespace caors::tests::reflection;
+using namespace caors::tests::meta_value;
 
 TEST_CASE("meta any - stores copied values", "[meta]") {
   require_value_test_meta();
@@ -374,7 +374,7 @@ TEST_CASE("meta any - stores copied values", "[meta]") {
 
 #include "meta_value_test_common.h"
 
-using namespace caors::tests::reflection;
+using namespace caors::tests::meta_value;
 
 TEST_CASE("meta any - stores small trivial values inline", "[meta]") {
   tracked_small_trivial::allocation_count = 0;

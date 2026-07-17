@@ -6,7 +6,7 @@
 
 #include "internal.h"
 
-#include "caors/meta/value/type_capability.h"
+#include "caors/meta/value/capabilities.h"
 
 namespace caors::serialization::detail {
 

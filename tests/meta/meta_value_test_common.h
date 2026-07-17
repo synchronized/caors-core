@@ -6,7 +6,7 @@
 #include "caors/adapters/stl.h"
 #include "caors/memory.h"
 #include "caors/meta.h"
-#include "caors/meta/value/type_capability.h"
+#include "caors/meta/value/capabilities.h"
 
 #include <catch2/catch_all.hpp>
 
@@ -22,7 +22,7 @@
 #include <variant>
 #include <vector>
 
-namespace caors::tests::reflection {
+namespace caors::tests::meta_value {
 
 struct reflected_value_holder {
   int value = 0;
@@ -105,4 +105,4 @@ inline void require_value_test_meta() {
   return field;
 }
 
-} // namespace caors::tests::reflection
+} // namespace caors::tests::meta_value
