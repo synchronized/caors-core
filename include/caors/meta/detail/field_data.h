@@ -133,8 +133,8 @@ public:
   }
 
   /** @brief 写入字段 schema 项。 */
-  void apply_schema_entry(meta::field_schema_entry entry) {
-    meta::apply_field_schema_entry(schema_, std::move(entry));
+  void apply_schema_entry(meta::registration::field_schema_entry entry) {
+    meta::registration::apply_field_schema_entry(schema_, std::move(entry));
   }
 
   /** @brief 查询字段所有者类型视图。 */

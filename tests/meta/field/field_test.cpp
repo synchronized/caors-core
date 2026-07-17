@@ -71,10 +71,10 @@ struct schema_actor {
 TEST_CASE("meta - field view exposes builtin schema", "[meta]") {
   REQUIRE(((void)caors::meta::class_<schema_actor>("caors.test.meta.schema_actor"),
            caors::meta::class_<schema_actor>())
-              .field("format", &schema_actor::format)(caors::meta::required(),
-                                                      caors::meta::non_empty(),
-                                                      caors::meta::one_of({"json", "binary"}))
-              .field("priority", &schema_actor::priority)(caors::meta::range(1, 100))
+              .field("format", &schema_actor::format)(
+                  caors::meta::registration::required(), caors::meta::registration::non_empty(),
+                  caors::meta::registration::one_of({"json", "binary"}))
+              .field("priority", &schema_actor::priority)(caors::meta::registration::range(1, 100))
               .commit() == caors::error{});
 
   const caors::meta::type reflected = require_reflected("caors.test.meta.schema_actor");

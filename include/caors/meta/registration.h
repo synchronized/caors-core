@@ -6,6 +6,11 @@
 
 #include "caors/error.h"
 #include "caors/export.h"
+#include "caors/meta/field_schema.h"
+#include "caors/meta/metadata.h"
+
+#include <string_view>
+#include <type_traits>
 
 namespace caors::meta {
 
@@ -29,6 +34,34 @@ namespace detail {
 [[nodiscard]] CAORS_API error validate_registry();
 
 } // namespace caors::meta
+
+namespace caors::meta::registration {
+
+/** @brief 枚举项注册输入。 */
+template <typename T> struct enum_value_entry {
+  using enum_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  static_assert(std::is_enum_v<enum_type>,
+                "meta::registration::enum_value_entry requires an enum type");
+
+  string_name name{};
+  enum_type value{};
+};
+
+/** @brief 创建枚举项注册输入，用于 `meta::enum_<T>()(...)`。 */
+template <typename Enum>
+[[nodiscard]] enum_value_entry<Enum> value(string_name name, Enum enum_value) {
+  using enum_type = std::remove_cv_t<std::remove_reference_t<Enum>>;
+  static_assert(std::is_enum_v<enum_type>, "meta::registration::value requires an enum type");
+  return enum_value_entry<enum_type>{name, static_cast<enum_type>(enum_value)};
+}
+
+/** @brief 创建枚举项注册输入，用于 `meta::enum_<T>()(...)`。 */
+template <typename Enum>
+[[nodiscard]] enum_value_entry<Enum> value(std::string_view name, Enum enum_value) {
+  return value(string_name{name}, enum_value);
+}
+
+} // namespace caors::meta::registration
 
 /**
  * @brief 定义一个延迟到 `meta::run_registrations()` / `meta::init_registry()`

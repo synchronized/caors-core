@@ -95,10 +95,11 @@ TEST_CASE("meta type - fluent builder registers name and guid", "[meta]") {
 
 TEST_CASE("meta type - class builder registers fields and methods", "[meta]") {
   auto builder = caors::meta::class_<reflected_meta_actor>("caors.test.meta.reflected_actor");
-  builder(caors::meta::metadata("category", "gameplay"))
-      .field("health", &reflected_meta_actor::health)(caors::meta::metadata("display", "Health"))
-      .method("add_health",
-              &reflected_meta_actor::add_health)(caors::meta::metadata("scriptable", true));
+  builder(caors::meta::registration::metadata("category", "gameplay"))
+      .field("health", &reflected_meta_actor::health)(
+          caors::meta::registration::metadata("display", "Health"))
+      .method("add_health", &reflected_meta_actor::add_health)(
+          caors::meta::registration::metadata("scriptable", true));
 
   REQUIRE(builder.succeeded());
 
@@ -142,10 +143,10 @@ TEST_CASE("meta type - class builder registers fields and methods", "[meta]") {
 
 TEST_CASE("meta enum - builder registers values and metadata", "[meta]") {
   auto builder = caors::meta::enum_<reflected_meta_state>("caors.test.meta.reflected_state")(
-                     caors::meta::enum_value("idle", reflected_meta_state::idle),
-                     caors::meta::enum_value("running", reflected_meta_state::running))
+                     caors::meta::registration::value("idle", reflected_meta_state::idle),
+                     caors::meta::registration::value("running", reflected_meta_state::running))
                      .value("hidden", reflected_meta_state::hidden)(
-                         caors::meta::metadata("editor_hidden", true));
+                         caors::meta::registration::metadata("editor_hidden", true));
 
   REQUIRE(builder.succeeded());
 

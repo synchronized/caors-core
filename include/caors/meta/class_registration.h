@@ -187,7 +187,7 @@ class_builder<T>& class_builder<T>::set_field_entry(string_name field_name, meta
 
 template <typename T>
 class_builder<T>& class_builder<T>::set_field_schema_entry(string_name field_name,
-                                                           field_schema_entry entry) {
+                                                           registration::field_schema_entry entry) {
   if (!type_.registered() || !field_name) {
     status_ = {error_domain::meta, errc::invalid_field};
     return *this;

@@ -550,11 +550,11 @@ struct texture_config {
 
 caors::meta::class_<texture_config>("game.texture_config")
     .field("format", &texture_config::format)
-    (caors::meta::required(),
-     caors::meta::non_empty(),
-     caors::meta::one_of({"json", "binary"}))
+    (caors::meta::registration::required(),
+     caors::meta::registration::non_empty(),
+     caors::meta::registration::one_of({"json", "binary"}))
     .field("priority", &texture_config::priority)
-    (caors::meta::range(1, 100))
+    (caors::meta::registration::range(1, 100))
     .commit();
 
 caors::meta::field format =
@@ -564,10 +564,13 @@ const caors::meta::field_schema& schema = format.schema();
 
 当前内置字段 schema 包括：
 
-- `required()`：字段必须有有效值。
-- `non_empty()`：字段不能为空，主要用于字符串、`string_name` 等文本字段。
-- `range_min(value)` / `range_max(value)` / `range(min, max)`：字段数值范围。
-- `one_of({...})`：字段允许值集合。
+字段 schema 的注册 token 位于 `meta::registration` 命名空间：
+
+- `registration::required()`：字段必须有有效值。
+- `registration::non_empty()`：字段不能为空，主要用于字符串、`string_name` 等文本字段。
+- `registration::range_min(value)` / `registration::range_max(value)` /
+  `registration::range(min, max)`：字段数值范围。
+- `registration::one_of({...})`：字段允许值集合。
 
 字段 schema 只放常见、跨模块可理解的约束。序列化字段名、字段 id、版本迁移、跳过字段等格式或持久化
 策略应由 serialization 模块自己的 options 处理；不通用的工具扩展继续使用 metadata。
@@ -579,7 +582,7 @@ const caors::meta::field_schema& schema = format.schema();
 
 ```cpp
 caors::meta::class_<actor>("game.actor")
-    (caors::meta::metadata("category", "gameplay"))
+    (caors::meta::registration::metadata("category", "gameplay"))
     .metadata("spawnable", true);
 
 caors::meta::type type = caors::meta::find<actor>();
@@ -587,7 +590,7 @@ const caors::meta::metadata_value* category =
     type.find_metadata(caors::string_name{"category"});
 ```
 
-metadata 推荐使用 RTTR 风格的绑定语法。`meta::metadata(key, value)` 创建一条写入项：
+metadata 推荐使用 RTTR 风格的绑定语法。`meta::registration::metadata(key, value)` 创建一条写入项：
 
 - 紧跟在 `class_<T>(...)` 后面的 `(...)` 写入类型 metadata。
 - 紧跟在 `.field(...)` 后面的 `(...)` 写入字段 metadata。
@@ -600,16 +603,16 @@ metadata 推荐使用 RTTR 风格的绑定语法。`meta::metadata(key, value)` 
 
 ```cpp
 caors::meta::class_<actor>("game.actor")
-    (caors::meta::metadata("category", "gameplay"))
+    (caors::meta::registration::metadata("category", "gameplay"))
     .field("health", &actor::health)
-    (caors::meta::metadata("display", "Health"),
-     caors::meta::metadata("range_min", 0),
-     caors::meta::metadata("range_max", 100))
+    (caors::meta::registration::metadata("display", "Health"),
+     caors::meta::registration::metadata("range_min", 0),
+     caors::meta::registration::metadata("range_max", 100))
     .method("damage", &actor::damage)
-    (caors::meta::metadata("scriptable", true));
+    (caors::meta::registration::metadata("scriptable", true));
 ```
 
-枚举项也使用同样的绑定风格。`meta::enum_value(name, value)` 适合在 `operator()` 中批量注册，
+枚举项也使用同样的绑定风格。`meta::registration::value(name, value)` 适合在 `operator()` 中批量注册，
 `.value(name, value)` 适合链式追加并给枚举项挂 metadata：
 
 ```cpp
@@ -620,10 +623,10 @@ enum class actor_state {
 };
 
 caors::meta::enum_<actor_state>("game.actor_state")
-    (caors::meta::enum_value("idle", actor_state::idle),
-     caors::meta::enum_value("running", actor_state::running))
+    (caors::meta::registration::value("idle", actor_state::idle),
+     caors::meta::registration::value("running", actor_state::running))
     .value("hidden", actor_state::hidden)
-    (caors::meta::metadata("editor_hidden", true));
+    (caors::meta::registration::metadata("editor_hidden", true));
 
 caors::meta::type state_type = caors::meta::find<actor_state>();
 caors::meta::enum_capability values =
@@ -928,7 +931,7 @@ descriptor，不再为了创建 view 把每一种容器组合额外挂载为 met
 - `meta::enum_<T>()`：RTTR 风格的枚举类型注册入口；默认不注册类型，需要继续调用 `.type("name")`。
 - `meta::enum_<T>("name")`：显式注册枚举类型，注册后 `meta::type::kind()` 为
   `meta::type_kind::enumeration`。
-- `meta::enum_value(name, value)` / `meta::enum_<T>().value(name, value)`：注册枚举项；查询时通过
+- `meta::registration::value(name, value)` / `meta::enum_<T>().value(name, value)`：注册枚举项；查询时通过
   `meta::enum_capability` 返回的 `meta::enum_value_view` 访问名称、整数值和 metadata。
 - `meta::class_<T>().parent<Base>()`：保存 C++ 父类型关系和安全 upcast 回调。
 - `meta::class_<T>().factory()` / `.factory(construct, destroy)`：注册运行期 factory，保存运行期值构造和销毁策略；查询时使用 `meta::type::get_capability<meta::factory_capability>()`，推荐通过 `factory_capability::construct()` 获取拥有生命周期的 `any`。

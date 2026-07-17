@@ -5,9 +5,8 @@
 #define CAORS_META_BUILDER_H_
 
 #include "caors/meta/detail/value_ops_model.h"
-#include "caors/meta/field_schema.h"
-#include "caors/meta/metadata.h"
 #include "caors/meta/proxy.h"
+#include "caors/meta/registration.h"
 #include "caors/meta/registry.h"
 
 #include <string_view>
@@ -24,31 +23,8 @@ template <typename T> class enum_value_bind;
 
 template <typename Entry>
 inline constexpr bool is_field_bind_entry_v =
-    std::is_same_v<std::remove_cvref_t<Entry>, metadata_entry> ||
-    std::is_same_v<std::remove_cvref_t<Entry>, field_schema_entry>;
-
-/** @brief 枚举项注册输入。 */
-template <typename T> struct enum_value_entry {
-  using enum_type = std::remove_cv_t<std::remove_reference_t<T>>;
-  static_assert(std::is_enum_v<enum_type>, "meta::enum_value_entry requires an enum type");
-
-  string_name name{};
-  enum_type value{};
-};
-
-/** @brief 创建枚举项注册输入，用于 `meta::enum_<T>()(...)`。 */
-template <typename Enum>
-[[nodiscard]] enum_value_entry<Enum> enum_value(string_name name, Enum value) {
-  using enum_type = std::remove_cv_t<std::remove_reference_t<Enum>>;
-  static_assert(std::is_enum_v<enum_type>, "meta::enum_value requires an enum type");
-  return enum_value_entry<enum_type>{name, static_cast<enum_type>(value)};
-}
-
-/** @brief 创建枚举项注册输入，用于 `meta::enum_<T>()(...)`。 */
-template <typename Enum>
-[[nodiscard]] enum_value_entry<Enum> enum_value(std::string_view name, Enum value) {
-  return enum_value(string_name{name}, value);
-}
+    std::is_same_v<std::remove_cvref_t<Entry>, registration::metadata_entry> ||
+    std::is_same_v<std::remove_cvref_t<Entry>, registration::field_schema_entry>;
 
 /** @brief 字段/方法 bind 共享的类注册链式入口。 */
 template <typename T, typename Derived> class class_builder_bind_chain {
@@ -198,8 +174,9 @@ public:
 
   /** @brief 用 RTTR 风格语法给当前类型写入 metadata。 */
   template <typename... Entries> class_builder& operator()(Entries&&... entries) {
-    static_assert((std::is_same_v<std::remove_cvref_t<Entries>, metadata_entry> && ...),
-                  "meta::class_builder::operator() expects meta::metadata(...) entries");
+    static_assert(
+        (std::is_same_v<std::remove_cvref_t<Entries>, registration::metadata_entry> && ...),
+        "meta::class_builder::operator() expects meta::registration::metadata(...) entries");
     (apply_type_metadata(std::forward<Entries>(entries)), ...);
     return *this;
   }
@@ -296,40 +273,46 @@ private:
   friend class field_bind<T>;
   friend class method_bind<T>;
 
-  class_builder& apply_type_metadata(const metadata_entry& entry) {
+  class_builder& apply_type_metadata(const registration::metadata_entry& entry) {
     return metadata(entry.key, entry.value);
   }
 
-  class_builder& apply_type_metadata(metadata_entry&& entry) {
+  class_builder& apply_type_metadata(registration::metadata_entry&& entry) {
     return metadata(entry.key, std::move(entry.value));
   }
 
-  class_builder& apply_field_entry(string_name field_name, const metadata_entry& entry) {
+  class_builder& apply_field_entry(string_name field_name,
+                                   const registration::metadata_entry& entry) {
     return set_field_entry(field_name, entry.key, entry.value);
   }
 
-  class_builder& apply_field_entry(string_name field_name, metadata_entry&& entry) {
+  class_builder& apply_field_entry(string_name field_name, registration::metadata_entry&& entry) {
     return set_field_entry(field_name, entry.key, std::move(entry.value));
   }
 
-  class_builder& apply_field_entry(string_name field_name, const field_schema_entry& entry) {
+  class_builder& apply_field_entry(string_name field_name,
+                                   const registration::field_schema_entry& entry) {
     return set_field_schema_entry(field_name, entry);
   }
 
-  class_builder& apply_field_entry(string_name field_name, field_schema_entry&& entry) {
+  class_builder& apply_field_entry(string_name field_name,
+                                   registration::field_schema_entry&& entry) {
     return set_field_schema_entry(field_name, std::move(entry));
   }
 
-  class_builder& apply_method_metadata(string_name method_name, const metadata_entry& entry) {
+  class_builder& apply_method_metadata(string_name method_name,
+                                       const registration::metadata_entry& entry) {
     return set_method_metadata(method_name, entry.key, entry.value);
   }
 
-  class_builder& apply_method_metadata(string_name method_name, metadata_entry&& entry) {
+  class_builder& apply_method_metadata(string_name method_name,
+                                       registration::metadata_entry&& entry) {
     return set_method_metadata(method_name, entry.key, std::move(entry.value));
   }
 
   class_builder& set_field_entry(string_name field_name, metadata_key key, metadata_value value);
-  class_builder& set_field_schema_entry(string_name field_name, field_schema_entry entry);
+  class_builder& set_field_schema_entry(string_name field_name,
+                                        registration::field_schema_entry entry);
   class_builder& set_method_metadata(string_name method_name, metadata_key key,
                                      metadata_value value);
 
@@ -352,8 +335,8 @@ public:
 
   template <typename... Entries> class_builder<T>& operator()(Entries&&... entries) {
     static_assert((is_field_bind_entry_v<Entries> && ...),
-                  "meta::field_bind::operator() expects meta::metadata(...) or field schema "
-                  "entries");
+                  "meta::field_bind::operator() expects meta::registration::metadata(...) or "
+                  "field schema entries");
     (builder_->apply_field_entry(field_name_, std::forward<Entries>(entries)), ...);
     return *builder_;
   }
@@ -378,8 +361,9 @@ public:
       : builder_(&builder), method_name_(method_name) {}
 
   template <typename... Entries> class_builder<T>& operator()(Entries&&... entries) {
-    static_assert((std::is_same_v<std::remove_cvref_t<Entries>, metadata_entry> && ...),
-                  "meta::method_bind::operator() expects meta::metadata(...) entries");
+    static_assert(
+        (std::is_same_v<std::remove_cvref_t<Entries>, registration::metadata_entry> && ...),
+        "meta::method_bind::operator() expects meta::registration::metadata(...) entries");
     (builder_->apply_method_metadata(method_name_, std::forward<Entries>(entries)), ...);
     return *builder_;
   }
@@ -608,8 +592,9 @@ public:
 
   /** @brief 用 RTTR 风格语法批量注册枚举项。 */
   template <typename... Entries> enum_builder& operator()(Entries&&... entries) {
-    static_assert((std::is_same_v<std::remove_cvref_t<Entries>, enum_value_entry<T>> && ...),
-                  "meta::enum_builder::operator() expects meta::enum_value(...) entries");
+    static_assert(
+        (std::is_same_v<std::remove_cvref_t<Entries>, registration::enum_value_entry<T>> && ...),
+        "meta::enum_builder::operator() expects meta::registration::value(...) entries");
     (apply_enum_value_entry(std::forward<Entries>(entries)), ...);
     return *this;
   }
@@ -624,19 +609,21 @@ public:
 private:
   friend class enum_value_bind<T>;
 
-  enum_builder& apply_enum_value_entry(const enum_value_entry<T>& entry) {
+  enum_builder& apply_enum_value_entry(const registration::enum_value_entry<T>& entry) {
     return add_enum_value(entry.name, entry.value);
   }
 
-  enum_builder& apply_enum_value_entry(enum_value_entry<T>&& entry) {
+  enum_builder& apply_enum_value_entry(registration::enum_value_entry<T>&& entry) {
     return add_enum_value(entry.name, entry.value);
   }
 
-  enum_builder& apply_enum_value_metadata(string_name value_name, const metadata_entry& entry) {
+  enum_builder& apply_enum_value_metadata(string_name value_name,
+                                          const registration::metadata_entry& entry) {
     return set_enum_value_metadata(value_name, entry.key, entry.value);
   }
 
-  enum_builder& apply_enum_value_metadata(string_name value_name, metadata_entry&& entry) {
+  enum_builder& apply_enum_value_metadata(string_name value_name,
+                                          registration::metadata_entry&& entry) {
     return set_enum_value_metadata(value_name, entry.key, std::move(entry.value));
   }
 
@@ -662,8 +649,9 @@ public:
       : builder_(&builder), value_name_(value_name) {}
 
   template <typename... Entries> enum_builder<T>& operator()(Entries&&... entries) {
-    static_assert((std::is_same_v<std::remove_cvref_t<Entries>, metadata_entry> && ...),
-                  "meta::enum_value_bind::operator() expects meta::metadata(...) entries");
+    static_assert(
+        (std::is_same_v<std::remove_cvref_t<Entries>, registration::metadata_entry> && ...),
+        "meta::enum_value_bind::operator() expects meta::registration::metadata(...) entries");
     (builder_->apply_enum_value_metadata(value_name_, std::forward<Entries>(entries)), ...);
     return *builder_;
   }

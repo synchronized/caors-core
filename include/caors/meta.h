@@ -16,6 +16,7 @@
 #include "caors/meta/method.h"
 #include "caors/meta/proxy.h"
 #include "caors/meta/query.h"
+#include "caors/meta/registration.h"
 #include "caors/meta/registry.h"
 #include "caors/meta/type_ops.h"
 #include "caors/meta/type_semantics.h"

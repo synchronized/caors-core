@@ -43,6 +43,10 @@ struct field_schema {
   }
 };
 
+} // namespace caors::meta
+
+namespace caors::meta::registration {
+
 /** @brief 字段 schema 写入项类型。 */
 enum class field_schema_entry_kind {
   required,
@@ -136,6 +140,6 @@ template <typename Min, typename Max> [[nodiscard]] field_schema_entry range(Min
   return entry;
 }
 
-} // namespace caors::meta
+} // namespace caors::meta::registration
 
 #endif
