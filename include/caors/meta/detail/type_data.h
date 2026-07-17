@@ -9,6 +9,7 @@
 #include "caors/meta/detail/capability_data.h"
 #include "caors/meta/detail/enum_value_data.h"
 #include "caors/meta/detail/method_data.h"
+#include "caors/meta/detail/parent_cast_ops.h"
 #include "caors/meta/detail/property_data.h"
 #include "caors/meta/type_id.h"
 
@@ -23,6 +24,7 @@
 namespace caors::meta::detail {
 
 class registry_state;
+struct type_descriptor;
 
 /** @brief 注册表内部保存的完整 meta 类型数据。 */
 class type_data {
@@ -40,6 +42,10 @@ public:
   [[nodiscard]] constexpr string_name name() const noexcept { return name_; }
   [[nodiscard]] constexpr type_guid guid() const noexcept { return guid_; }
   [[nodiscard]] constexpr type_id parent_id() const noexcept { return parent_id_; }
+  [[nodiscard]] constexpr const type_descriptor* descriptor() const noexcept { return descriptor_; }
+  [[nodiscard]] const parent_cast_ops* parent_cast() const noexcept {
+    return parent_cast_.valid() ? &parent_cast_ : nullptr;
+  }
 
   [[nodiscard]] constexpr bool valid() const noexcept { return static_cast<bool>(id_); }
   [[nodiscard]] constexpr bool registered() const noexcept { return valid(); }
@@ -48,6 +54,10 @@ public:
   constexpr void set_name(string_name name) noexcept { name_ = name; }
   constexpr void set_guid(type_guid guid) noexcept { guid_ = guid; }
   constexpr void set_parent_id(type_id parent_id) noexcept { parent_id_ = parent_id; }
+  constexpr void set_descriptor(const type_descriptor* descriptor) noexcept {
+    descriptor_ = descriptor;
+  }
+  constexpr void set_parent_cast(parent_cast_ops cast) noexcept { parent_cast_ = cast; }
 
   [[nodiscard]] bool members_valid() const noexcept;
   [[nodiscard]] std::size_t property_count() const noexcept;
@@ -84,6 +94,8 @@ private:
   string_name name_{};
   type_guid guid_{};
   type_id parent_id_{};
+  const type_descriptor* descriptor_ = nullptr;
+  parent_cast_ops parent_cast_{};
   vector<property_data> properties_{};
   vector<method_data> methods_{};
   vector<enum_value_data> enum_values_{};

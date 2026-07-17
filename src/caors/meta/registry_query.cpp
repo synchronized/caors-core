@@ -16,12 +16,11 @@ bool registry::contains(type_id id) const {
 type registry::find_type(type_id id) const {
   std::lock_guard lock(state_->mutex);
   const detail::type_data* type_data = detail::find_type_data(*state_, id);
-  const detail::type_descriptor* descriptor = detail::find_type_descriptor(*state_, id);
-  if (type_data == nullptr && descriptor == nullptr) {
+  if (type_data == nullptr) {
     return {};
   }
 
-  return type{this, type_data, descriptor};
+  return type{this, type_data, type_data->descriptor()};
 }
 
 type registry::find_type(core::type_guid guid) const {
@@ -35,27 +34,27 @@ type registry::find_type(core::type_guid guid) const {
     return {};
   }
 
-  const detail::type_data* type_data = detail::find_type_data(*state_, guid_position->second);
+  const detail::type_data* type_data = guid_position->second;
   if (type_data == nullptr) {
     return {};
   }
 
-  return type{this, type_data, detail::find_type_descriptor(*state_, type_data->id())};
+  return type{this, type_data, type_data->descriptor()};
 }
 
 type registry::find_type(const std::type_info& info) const {
   std::lock_guard lock(state_->mutex);
-  const auto position = state_->cpp_type_ids.find(std::type_index{info});
-  if (position == state_->cpp_type_ids.end()) {
+  const auto position = state_->cpp_types.find(std::type_index{info});
+  if (position == state_->cpp_types.end()) {
     return {};
   }
 
-  const detail::type_data* type_data = detail::find_type_data(*state_, position->second);
+  const detail::type_data* type_data = position->second;
   if (type_data == nullptr) {
     return {};
   }
 
-  return type{this, type_data, detail::find_type_descriptor(*state_, type_data->id())};
+  return type{this, type_data, type_data->descriptor()};
 }
 
 type registry::find_type(std::string_view name) const {
@@ -74,12 +73,12 @@ type registry::find_type(core::string_name name) const {
     return {};
   }
 
-  const detail::type_data* type_data = detail::find_type_data(*state_, name_position->second);
+  const detail::type_data* type_data = name_position->second;
   if (type_data == nullptr) {
     return {};
   }
 
-  return type{this, type_data, detail::find_type_descriptor(*state_, type_data->id())};
+  return type{this, type_data, type_data->descriptor()};
 }
 
 bool registry::is_a(type_id id, type_id base_id) const {

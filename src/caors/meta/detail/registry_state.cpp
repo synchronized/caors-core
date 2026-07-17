@@ -27,41 +27,37 @@ const type_data* find_type_data(const registry_state& state, type_id id) {
   return position->second.get();
 }
 
-const type_descriptor* find_type_descriptor(const registry_state& state, type_id id) {
-  const auto position = state.descriptors.find(id.value());
-  if (position == state.descriptors.end()) {
-    return nullptr;
-  }
-
-  return position->second;
-}
-
 const parent_cast_ops* find_parent_cast(const registry_state& state, type_id id) {
-  const auto position = state.parent_casts.find(id.value());
-  if (position == state.parent_casts.end()) {
-    return nullptr;
-  }
-
-  return &position->second;
+  const type_data* stored = find_type_data(state, id);
+  return stored != nullptr ? stored->parent_cast() : nullptr;
 }
 
 std::optional<type_id> find_existing_type_id(const registry_state& state, const type_data& type,
                                              error& conflict) {
   std::optional<type_id> existing_id;
 
-  const auto merge_candidate = [&](type_id candidate, error result) {
-    if (existing_id.has_value() && *existing_id != candidate) {
+  const auto merge_candidate = [&](const type_data* candidate, error result) {
+    if (candidate == nullptr || !candidate->id()) {
+      conflict = {error_domain::meta, errc::invalid_type};
+      return false;
+    }
+
+    const type_id candidate_id = candidate->id();
+    if (existing_id.has_value() && *existing_id != candidate_id) {
       conflict = result;
       return false;
     }
 
-    existing_id = candidate;
+    existing_id = candidate_id;
     return true;
   };
 
-  if (type.id() && state.types.contains(type.id().value()) &&
-      !merge_candidate(type.id(), {error_domain::meta, errc::duplicate_id})) {
-    return std::nullopt;
+  if (type.id()) {
+    const auto position = state.types.find(type.id().value());
+    if (position != state.types.end() &&
+        !merge_candidate(position->second.get(), {error_domain::meta, errc::duplicate_id})) {
+      return std::nullopt;
+    }
   }
 
   if (type.name()) {
@@ -87,14 +83,16 @@ error duplicate_identity_error(const registry_state& state, const type_data& typ
                                type_id existing_id) {
   if (type.name()) {
     const auto name_position = state.names.find(type.name());
-    if (name_position != state.names.end() && name_position->second == existing_id) {
+    if (name_position != state.names.end() && name_position->second != nullptr &&
+        name_position->second->id() == existing_id) {
       return {error_domain::meta, errc::duplicate_name};
     }
   }
 
   if (type.guid()) {
     const auto guid_position = state.guids.find(type.guid().value);
-    if (guid_position != state.guids.end() && guid_position->second == existing_id) {
+    if (guid_position != state.guids.end() && guid_position->second != nullptr &&
+        guid_position->second->id() == existing_id) {
       return {error_domain::meta, errc::duplicate_guid};
     }
   }
@@ -126,7 +124,7 @@ error merge_type_data(registry_state& state, type_data& stored, const type_data&
 
   if (incoming.name()) {
     const auto name_position = state.names.find(incoming.name());
-    if (name_position != state.names.end() && name_position->second != stored.id()) {
+    if (name_position != state.names.end() && name_position->second != &stored) {
       return {error_domain::meta, errc::duplicate_name};
     }
 
@@ -136,14 +134,14 @@ error merge_type_data(registry_state& state, type_data& stored, const type_data&
 
     if (!stored.name()) {
       stored.set_name(incoming.name());
-      state.names.emplace(stored.name(), stored.id());
+      state.names.emplace(stored.name(), &stored);
       changed = true;
     }
   }
 
   if (incoming.guid()) {
     const auto guid_position = state.guids.find(incoming.guid().value);
-    if (guid_position != state.guids.end() && guid_position->second != stored.id()) {
+    if (guid_position != state.guids.end() && guid_position->second != &stored) {
       return {error_domain::meta, errc::duplicate_guid};
     }
 
@@ -153,7 +151,7 @@ error merge_type_data(registry_state& state, type_data& stored, const type_data&
 
     if (!stored.guid()) {
       stored.set_guid(incoming.guid());
-      state.guids.emplace(stored.guid().value, stored.id());
+      state.guids.emplace(stored.guid().value, &stored);
       changed = true;
     }
   }
@@ -189,13 +187,13 @@ error store_new_type(registry_state& state, type_data&& incoming, type_id* store
     return {error_domain::meta, errc::duplicate_id};
   }
 
-  const type_data& stored = *position->second;
-  if (stored.name()) {
-    state.names.emplace(stored.name(), id);
+  type_data* stored = position->second.get();
+  if (stored->name()) {
+    state.names.emplace(stored->name(), stored);
   }
 
-  if (stored.guid()) {
-    state.guids.emplace(stored.guid().value, id);
+  if (stored->guid()) {
+    state.guids.emplace(stored->guid().value, stored);
   }
 
   if (stored_id != nullptr) {
@@ -210,10 +208,14 @@ error store_type_descriptor(registry_state& state, const type_descriptor& descri
     return {error_domain::meta, errc::invalid_type};
   }
 
-  const auto position = state.descriptors.find(descriptor.type.value());
-  if (position != state.descriptors.end()) {
-    const type_descriptor* existing = position->second;
-    if (existing == nullptr || existing->type != descriptor.type ||
+  type_data* stored = find_type_data(state, descriptor.type);
+  if (stored == nullptr) {
+    return {error_domain::meta, errc::missing_type};
+  }
+
+  const type_descriptor* existing = stored->descriptor();
+  if (existing != nullptr) {
+    if (existing->type != descriptor.type ||
         existing->value.layout.size != descriptor.value.layout.size ||
         existing->value.layout.alignment != descriptor.value.layout.alignment) {
       return {error_domain::meta, errc::invalid_type};
@@ -222,7 +224,7 @@ error store_type_descriptor(registry_state& state, const type_descriptor& descri
     return {};
   }
 
-  state.descriptors.emplace(descriptor.type.value(), &descriptor);
+  stored->set_descriptor(&descriptor);
   return {};
 }
 
@@ -238,16 +240,27 @@ error validate_registry(const registry_state& state) {
 
     if (stored->name()) {
       const auto name_position = state.names.find(stored->name());
-      if (name_position == state.names.end() || name_position->second != stored->id()) {
+      if (name_position == state.names.end() || name_position->second != stored.get()) {
         return {error_domain::meta, errc::inconsistent_type};
       }
     }
 
     if (stored->guid()) {
       const auto guid_position = state.guids.find(stored->guid().value);
-      if (guid_position == state.guids.end() || guid_position->second != stored->id()) {
+      if (guid_position == state.guids.end() || guid_position->second != stored.get()) {
         return {error_domain::meta, errc::inconsistent_type};
       }
+    }
+
+    const type_descriptor* descriptor = stored->descriptor();
+    if (descriptor != nullptr && (!descriptor->valid() || descriptor->type != stored->id())) {
+      return {error_domain::meta, errc::invalid_type};
+    }
+
+    const parent_cast_ops* cast = stored->parent_cast();
+    if (cast != nullptr && (!cast->valid() || cast->parent != stored->parent_id() ||
+                            !state.types.contains(cast->parent.value()))) {
+      return {error_domain::meta, errc::invalid_type};
     }
 
     if (!stored->members_valid()) {
@@ -255,33 +268,20 @@ error validate_registry(const registry_state& state) {
     }
   }
 
-  for (const auto& [raw_id, descriptor] : state.descriptors) {
-    if (descriptor == nullptr || !descriptor->valid() || descriptor->type.value() != raw_id) {
-      return {error_domain::meta, errc::invalid_type};
-    }
-  }
-
-  for (const auto& [raw_id, cast] : state.parent_casts) {
-    if (!cast.valid() || !state.types.contains(raw_id) ||
-        !state.types.contains(cast.parent.value())) {
-      return {error_domain::meta, errc::invalid_type};
-    }
-
-    const type_data* stored = find_type_data(state, type_id{raw_id});
-    if (stored == nullptr || stored->parent_id() != cast.parent) {
+  for (const auto& [index, stored] : state.cpp_types) {
+    (void)index;
+    if (stored == nullptr || find_type_data(state, stored->id()) != stored) {
       return {error_domain::meta, errc::inconsistent_type};
     }
   }
 
-  for (const auto& [name, id] : state.names) {
-    const type_data* stored = find_type_data(state, id);
+  for (const auto& [name, stored] : state.names) {
     if (stored == nullptr || stored->name() != name) {
       return {error_domain::meta, errc::inconsistent_type};
     }
   }
 
-  for (const auto& [guid_value, id] : state.guids) {
-    const type_data* stored = find_type_data(state, id);
+  for (const auto& [guid_value, stored] : state.guids) {
     if (stored == nullptr || stored->guid().value != guid_value) {
       return {error_domain::meta, errc::inconsistent_type};
     }

@@ -58,10 +58,6 @@ error registry::ensure_type_descriptor(const detail::type_descriptor& descriptor
     return {error_domain::meta, errc::invalid_type};
   }
 
-  if (detail::find_type_descriptor(*state_, descriptor.type) != nullptr) {
-    return detail::store_type_descriptor(*state_, descriptor);
-  }
-
   return detail::store_type_descriptor(*state_, descriptor);
 }
 
@@ -98,7 +94,7 @@ error registry::set_type_guid(type_id id, type_guid guid) {
   }
 
   stored->set_guid(guid);
-  state_->guids.emplace(guid.value, id);
+  state_->guids.emplace(guid.value, stored);
   return {};
 }
 
@@ -113,12 +109,19 @@ error registry::register_cpp_type_info(const std::type_info& info, type_id id) {
   }
 
   const std::type_index index{info};
-  const auto position = state_->cpp_type_ids.find(index);
-  if (position != state_->cpp_type_ids.end()) {
-    return position->second == id ? error{} : error{error_domain::meta, errc::invalid_type};
+  const auto position = state_->cpp_types.find(index);
+  if (position != state_->cpp_types.end()) {
+    return position->second != nullptr && position->second->id() == id
+               ? error{}
+               : error{error_domain::meta, errc::invalid_type};
   }
 
-  state_->cpp_type_ids.emplace(index, id);
+  detail::type_data* stored = detail::find_type_data(*state_, id);
+  if (stored == nullptr) {
+    return {error_domain::meta, errc::missing_type};
+  }
+
+  state_->cpp_types.emplace(index, stored);
   return {};
 }
 
@@ -160,15 +163,14 @@ error registry::set_type_parent(type_id id, type_id parent_id, detail::parent_ca
   }
 
   if (cast.valid()) {
-    const auto position = state_->parent_casts.find(id.value());
-    if (position != state_->parent_casts.end()) {
-      if (position->second.parent != parent_id ||
-          position->second.const_upcast != cast.const_upcast ||
-          position->second.mutable_upcast != cast.mutable_upcast) {
+    const detail::parent_cast_ops* existing_cast = stored->parent_cast();
+    if (existing_cast != nullptr) {
+      if (existing_cast->parent != parent_id || existing_cast->const_upcast != cast.const_upcast ||
+          existing_cast->mutable_upcast != cast.mutable_upcast) {
         return {error_domain::meta, errc::invalid_type};
       }
     } else {
-      state_->parent_casts.emplace(id.value(), cast);
+      stored->set_parent_cast(cast);
       changed = true;
     }
   }
