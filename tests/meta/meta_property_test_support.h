@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_TESTS_META_FIELD_TEST_SUPPORT_H_
-#define CAORS_TESTS_META_FIELD_TEST_SUPPORT_H_
+#ifndef CAORS_TESTS_META_PROPERTY_TEST_SUPPORT_H_
+#define CAORS_TESTS_META_PROPERTY_TEST_SUPPORT_H_
 #include "caors/adapters/stl.h"
 #include "caors/meta.h"
 #include "caors/object/base.h"
@@ -266,9 +266,9 @@ struct stored_fields_actor {
   return reflected;
 }
 
-[[nodiscard]] inline caors::meta::field require_field(const caors::meta::type& type,
-                                                      std::string_view name) {
-  auto field = type.find_field(name);
+[[nodiscard]] inline caors::meta::property require_property(const caors::meta::type& type,
+                                                            std::string_view name) {
+  auto field = type.find_property(name);
   REQUIRE(field);
   return field;
 }
@@ -351,24 +351,24 @@ template <typename T>
   return caors::meta::class_<T>();
 }
 
-[[nodiscard]] inline caors::meta::type require_field_traits_owner_meta() {
+[[nodiscard]] inline caors::meta::type require_property_traits_owner_meta() {
   const caors::error status =
       registered_meta_class<field_traits_owner>("caors.test.meta.field_traits_owner")
-          .field("value", &field_traits_owner::value)
-          .field("color", &field_traits_owner::color)
-          .field("raw", &field_traits_owner::raw)
-          .field("unique", &field_traits_owner::unique)
-          .field("shared", &field_traits_owner::shared)
-          .field("weak", &field_traits_owner::weak)
-          .field("optional", &field_traits_owner::optional)
-          .field("wrapper", &field_traits_owner::wrapper)
-          .field("custom_inline", &field_traits_owner::custom_inline)
-          .field("object_ptr", &field_traits_owner::object_ptr)
-          .field("sequence", &field_traits_owner::sequence)
-          .field("span", &field_traits_owner::span)
-          .field("pair", &field_traits_owner::pair)
-          .field("tuple", &field_traits_owner::tuple)
-          .field("variant", &field_traits_owner::variant)
+          .property("value", &field_traits_owner::value)
+          .property("color", &field_traits_owner::color)
+          .property("raw", &field_traits_owner::raw)
+          .property("unique", &field_traits_owner::unique)
+          .property("shared", &field_traits_owner::shared)
+          .property("weak", &field_traits_owner::weak)
+          .property("optional", &field_traits_owner::optional)
+          .property("wrapper", &field_traits_owner::wrapper)
+          .property("custom_inline", &field_traits_owner::custom_inline)
+          .property("object_ptr", &field_traits_owner::object_ptr)
+          .property("sequence", &field_traits_owner::sequence)
+          .property("span", &field_traits_owner::span)
+          .property("pair", &field_traits_owner::pair)
+          .property("tuple", &field_traits_owner::tuple)
+          .property("variant", &field_traits_owner::variant)
           .commit();
 
   REQUIRE((status == caors::error{} || status == meta_error(caors::errc::duplicate_field) ||

@@ -14,14 +14,14 @@ TEST_CASE("meta - class builder can attach to explicit meta type", "[meta]") {
   CHECK(caors::meta::find<explicit_meta_actor>().id() == type.id());
 
   const caors::error status =
-      caors::meta::class_<explicit_meta_actor>().field("id", &explicit_meta_actor::id).commit();
+      caors::meta::class_<explicit_meta_actor>().property("id", &explicit_meta_actor::id).commit();
 
   REQUIRE((status == caors::error{} || status == meta_error(caors::errc::duplicate_field)));
 
   auto reflected = caors::meta::find(type.id());
   REQUIRE(reflected);
-  CHECK(reflected.field_count() == 1);
-  CHECK(reflected.find_field("id"));
+  CHECK(reflected.property_count() == 1);
+  CHECK(reflected.find_property("id"));
 }
 
 TEST_CASE("meta - class builder uses registered meta type without arguments", "[meta]") {
@@ -30,19 +30,19 @@ TEST_CASE("meta - class builder uses registered meta type without arguments", "[
   REQUIRE(type.valid());
 
   const caors::error status =
-      caors::meta::class_<builder_actor>().field("id", &builder_actor::id).commit();
+      caors::meta::class_<builder_actor>().property("id", &builder_actor::id).commit();
 
   REQUIRE((status == caors::error{} || status == meta_error(caors::errc::duplicate_field)));
 
   auto reflected = caors::meta::find(type.id());
   REQUIRE(reflected);
   CHECK(reflected.id() == type.id());
-  CHECK(reflected.find_field("id"));
+  CHECK(reflected.find_property("id"));
 }
 
 TEST_CASE("meta - class builder without arguments requires registered meta type", "[meta]") {
   const caors::error status =
-      caors::meta::class_<invalid_field_owner>().field("id", &invalid_field_owner::id).commit();
+      caors::meta::class_<invalid_field_owner>().property("id", &invalid_field_owner::id).commit();
 
   CHECK(status.failed());
   CHECK(status.domain() == caors::error_domain::meta);
@@ -63,7 +63,7 @@ TEST_CASE("meta - registry registers and finds types", "[meta]") {
   auto by_name = caors::meta::find("caors.test.meta.registry_actor");
   REQUIRE(by_name);
   CHECK(caors::meta::get_registry().contains(by_name.id()));
-  CHECK(by_name.field_count() == 2);
+  CHECK(by_name.property_count() == 2);
 
   auto by_guid = caors::meta::find(registry_actor_guid);
   REQUIRE(by_guid);
@@ -79,7 +79,7 @@ using namespace test_meta;
 TEST_CASE("meta - registry registers child type with parent", "[meta]") {
   REQUIRE(((void)caors::meta::class_<parent_actor>("caors.test.meta.parent_actor"),
            caors::meta::class_<parent_actor>())
-              .field("id", &parent_actor::id)
+              .property("id", &parent_actor::id)
               .commit() == caors::error{});
   const auto reflected_actor = caors::meta::find("caors.test.meta.parent_actor");
   REQUIRE(reflected_actor);
@@ -87,7 +87,7 @@ TEST_CASE("meta - registry registers child type with parent", "[meta]") {
   REQUIRE(((void)caors::meta::class_<child_player>("caors.test.meta.child_player")
                .parent(reflected_actor.id()),
            caors::meta::class_<child_player>())
-              .field("level", &child_player::level)
+              .property("level", &child_player::level)
               .commit() == caors::error{});
 
   auto reflected_player = caors::meta::find("caors.test.meta.child_player");
@@ -104,11 +104,11 @@ using namespace test_meta;
 TEST_CASE("meta - registry reports duplicate field", "[meta]") {
   REQUIRE(((void)caors::meta::class_<duplicate_actor>("caors.test.meta.duplicate_actor"),
            caors::meta::class_<duplicate_actor>())
-              .field("id", &duplicate_actor::id)
+              .property("id", &duplicate_actor::id)
               .commit() == caors::error{});
   CHECK(((void)caors::meta::class_<duplicate_actor>("caors.test.meta.duplicate_actor"),
          caors::meta::class_<duplicate_actor>())
-            .field("id", &duplicate_actor::id)
+            .property("id", &duplicate_actor::id)
             .commit() == meta_error(caors::errc::duplicate_field));
 }
 
@@ -118,7 +118,7 @@ TEST_CASE("meta - registry reports duplicate field", "[meta]") {
 
 using namespace test_meta;
 
-TEST_CASE("meta - registry returns type and field views", "[meta]") {
+TEST_CASE("meta - registry returns type and property views", "[meta]") {
   const caors::error register_status = register_view_actor();
   REQUIRE((register_status == caors::error{} ||
            register_status == meta_error(caors::errc::duplicate_field)));
@@ -129,17 +129,17 @@ TEST_CASE("meta - registry returns type and field views", "[meta]") {
   CHECK(reflected.id() == registered_type_id("caors.test.meta.view_actor"));
   CHECK(reflected.name() == "caors.test.meta.view_actor");
   CHECK(reflected.guid() == view_actor_guid);
-  CHECK(reflected.field_count() == 2);
+  CHECK(reflected.property_count() == 2);
 
-  auto id = reflected.field_at(0);
+  auto id = reflected.property_at(0);
   REQUIRE(id);
   CHECK(id.valid());
   CHECK(id.name() == "id");
   CHECK(id.get_type().name() == "int");
   CHECK(id.get_value_type().id() == registered_type_id("int"));
-  CHECK_FALSE(reflected.field_at(99));
+  CHECK_FALSE(reflected.property_at(99));
 
-  auto health = reflected.find_field("health");
+  auto health = reflected.find_property("health");
   REQUIRE(health);
   CHECK(health.name() == "health");
   CHECK(health.kind() == caors::meta::type_kind::value);
@@ -175,8 +175,8 @@ using namespace test_meta;
 TEST_CASE("meta - registry validates duplicate fields", "[meta]") {
   CHECK(((void)caors::meta::class_<duplicate_field_owner>("caors.test.meta.duplicate_field"),
          caors::meta::class_<duplicate_field_owner>())
-            .field("id", &duplicate_field_owner::id)
-            .field("id", &duplicate_field_owner::health)
+            .property("id", &duplicate_field_owner::id)
+            .property("id", &duplicate_field_owner::health)
             .commit() == meta_error(caors::errc::duplicate_field));
 }
 
@@ -194,7 +194,7 @@ TEST_CASE("meta - views remain valid for append-only registry", "[meta]") {
   auto reflected = caors::meta::find("caors.test.meta.view_actor");
   REQUIRE(reflected);
 
-  auto field = reflected.find_field("id");
+  auto field = reflected.find_property("id");
   REQUIRE(field);
   CHECK(reflected.valid());
   CHECK(field.valid());

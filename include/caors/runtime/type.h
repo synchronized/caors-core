@@ -6,8 +6,8 @@
 
 #include "caors/export.h"
 #include "caors/memory/resource.h"
-#include "caors/meta/field.h"
 #include "caors/meta/method.h"
+#include "caors/meta/property.h"
 #include "caors/meta/type.h"
 #include "caors/meta/value/any.h"
 #include "caors/meta/value/any_ref.h"
@@ -18,7 +18,7 @@
 
 namespace caors::runtime {
 
-using field = meta::field;
+using property = meta::property;
 using method = meta::method;
 
 /**
@@ -76,10 +76,10 @@ public:
   /** @brief 使用 descriptor 默认构造创建运行期值，不查询 factory capability。 */
   [[nodiscard]] any create_value(memory::memory_resource* resource = nullptr) const;
 
-  [[nodiscard]] std::size_t field_count() const noexcept;
-  [[nodiscard]] field field_at(std::size_t index) const;
-  [[nodiscard]] field find_field(string_name name) const;
-  [[nodiscard]] field find_field(std::string_view name) const;
+  [[nodiscard]] std::size_t property_count() const noexcept;
+  [[nodiscard]] property property_at(std::size_t index) const;
+  [[nodiscard]] property find_property(string_name name) const;
+  [[nodiscard]] property find_property(std::string_view name) const;
 
   [[nodiscard]] std::size_t method_count() const noexcept;
   [[nodiscard]] method method_at(std::size_t index) const;

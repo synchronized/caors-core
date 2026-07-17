@@ -151,7 +151,7 @@ private:
     return field;
   }
 
-  [[nodiscard]] factory_option_field* find_field(core::string_name name) noexcept {
+  [[nodiscard]] factory_option_field* find_property(core::string_name name) noexcept {
     for (factory_option_field& field : fields) {
       if (field.name == name) {
         return &field;
@@ -162,7 +162,7 @@ private:
   }
 
   [[nodiscard]] factory_option_field& ensure_field(core::string_name name) {
-    if (factory_option_field* field = find_field(name)) {
+    if (factory_option_field* field = find_property(name)) {
       return *field;
     }
 

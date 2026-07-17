@@ -13,21 +13,21 @@ TEST_CASE("meta any_ref - creates indirect views for pointer and wrappers", "[me
   REQUIRE(
       ((void)caors::meta::class_<indirect_value_holder>("caors.test.meta.indirect_value_holder"),
        caors::meta::class_<indirect_value_holder>())
-          .field("pointer", &indirect_value_holder::pointer)
-          .field("optional", &indirect_value_holder::optional)
-          .field("unique", &indirect_value_holder::unique)
-          .field("weak", &indirect_value_holder::weak)
+          .property("pointer", &indirect_value_holder::pointer)
+          .property("optional", &indirect_value_holder::optional)
+          .property("unique", &indirect_value_holder::unique)
+          .property("weak", &indirect_value_holder::weak)
           .commit() == caors::error{});
 
   indirect_value_holder holder{};
 
-  const caors::meta::field pointer_field =
+  const caors::meta::property pointer_field =
       require_reflected_field("caors.test.meta.indirect_value_holder", "pointer");
-  const caors::meta::field optional_field =
+  const caors::meta::property optional_field =
       require_reflected_field("caors.test.meta.indirect_value_holder", "optional");
-  const caors::meta::field unique_field =
+  const caors::meta::property unique_field =
       require_reflected_field("caors.test.meta.indirect_value_holder", "unique");
-  const caors::meta::field weak_field =
+  const caors::meta::property weak_field =
       require_reflected_field("caors.test.meta.indirect_value_holder", "weak");
 
   caors::meta::indirect_view pointer =

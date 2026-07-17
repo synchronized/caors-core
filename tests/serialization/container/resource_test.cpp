@@ -32,11 +32,11 @@ void require_resource_propagation_holder_metadata() {
   REQUIRE(reflection_result_ok(((void)caors::meta::class_<resource_propagation_holder>(
                                     "caors.test.serialization.resource_propagation_holder"),
                                 caors::meta::class_<resource_propagation_holder>())
-                                   .field("names", &resource_propagation_holder::names)
-                                   .field("groups", &resource_propagation_holder::groups)
-                                   .field("labels", &resource_propagation_holder::labels)
-                                   .field("maybe", &resource_propagation_holder::maybe)
-                                   .field("choice", &resource_propagation_holder::choice)
+                                   .property("names", &resource_propagation_holder::names)
+                                   .property("groups", &resource_propagation_holder::groups)
+                                   .property("labels", &resource_propagation_holder::labels)
+                                   .property("maybe", &resource_propagation_holder::maybe)
+                                   .property("choice", &resource_propagation_holder::choice)
                                    .commit()));
   REQUIRE(serialization_result_ok(
       caors::serialization::class_<resource_propagation_holder>().commit()));

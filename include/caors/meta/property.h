@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_META_FIELD_H_
-#define CAORS_META_FIELD_H_
+#ifndef CAORS_META_PROPERTY_H_
+#define CAORS_META_PROPERTY_H_
 
 #include "caors/export.h"
-#include "caors/meta/field_schema.h"
+#include "caors/meta/property_schema.h"
 #include "caors/meta/type.h"
 #include "caors/meta/value/any_ref.h"
 
@@ -19,40 +19,40 @@ namespace caors::meta {
 class type;
 
 /**
- * @brief 字段反射只读视图。
+ * @brief 属性反射只读视图。
  *
- * `meta::field` 是全局 `meta::registry` 返回的字段只读句柄。字段数据注册后不可撤销，
+ * `meta::property` 是全局 `meta::registry` 返回的属性只读句柄。属性数据注册后不可撤销，
  * 因此有效视图可以在进程生命周期内稳定使用。
  */
-class CAORS_API field final {
+class CAORS_API property final {
 public:
-  field() noexcept = default;
+  property() noexcept = default;
 
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
 
   [[nodiscard]] string_name name() const noexcept;
-  /** @brief 查询字段所属类型视图。 */
+  /** @brief 查询属性所属类型视图。 */
   [[nodiscard]] meta::type get_owner_type() const noexcept;
-  /** @brief 查询字段声明类型视图。 */
+  /** @brief 查询属性声明类型视图。 */
   [[nodiscard]] meta::type get_type() const noexcept;
 
-  /** @brief 查询统一 value 类型。容器字段返回元素或 mapped/value 类型。 */
+  /** @brief 查询统一 value 类型。容器属性返回元素或 mapped/value 类型。 */
   [[nodiscard]] meta::type get_value_type() const noexcept;
 
-  /** @brief 查询 sequence/set 字段的元素类型，等价于对应语义下的 `get_value_type()`。 */
+  /** @brief 查询 sequence/set 属性的元素类型，等价于对应语义下的 `get_value_type()`。 */
   [[nodiscard]] meta::type get_element_type() const noexcept;
 
-  /** @brief 查询 associative 字段的 key 类型。 */
+  /** @brief 查询 associative 属性的 key 类型。 */
   [[nodiscard]] meta::type get_key_type() const noexcept;
 
-  /** @brief 查询 pair 字段的 first 类型，当前等价于对应语义下的 `get_key_type()`。 */
+  /** @brief 查询 pair 属性的 first 类型，当前等价于对应语义下的 `get_key_type()`。 */
   [[nodiscard]] meta::type get_first_type() const noexcept;
 
-  /** @brief 查询 associative 字段的 mapped/value 类型，等价于 `get_value_type()`。 */
+  /** @brief 查询 associative 属性的 mapped/value 类型，等价于 `get_value_type()`。 */
   [[nodiscard]] meta::type get_mapped_type() const noexcept;
 
-  /** @brief 查询 pair 字段的 second 类型，当前等价于对应语义下的 `get_value_type()`。 */
+  /** @brief 查询 pair 属性的 second 类型，当前等价于对应语义下的 `get_value_type()`。 */
   [[nodiscard]] meta::type get_second_type() const noexcept;
 
   [[nodiscard]] meta::type_kind kind() const noexcept;
@@ -60,53 +60,53 @@ public:
   [[nodiscard]] bool indirect() const noexcept;
   [[nodiscard]] bool nullable() const noexcept;
   [[nodiscard]] bool writable() const noexcept;
-  [[nodiscard]] const meta::field_schema& schema() const noexcept;
+  [[nodiscard]] const meta::property_schema& schema() const noexcept;
   [[nodiscard]] const meta::metadata_map& metadata() const noexcept;
   [[nodiscard]] const meta::metadata_value* find_metadata(meta::metadata_key key) const noexcept;
   [[nodiscard]] std::size_t offset() const noexcept;
   [[nodiscard]] std::size_t size() const noexcept;
   [[nodiscard]] std::size_t alignment() const noexcept;
 
-  /** @brief 获取字段值的运行期拷贝。 */
+  /** @brief 获取属性值的运行期拷贝。 */
   [[nodiscard]] any get_value(const void* object) const;
 
-  /** @brief 获取字段值的只读运行期引用。 */
+  /** @brief 获取属性值的只读运行期引用。 */
   [[nodiscard]] any_ref get_ref(const void* object) const;
 
-  /** @brief 获取字段值的可写运行期引用。 */
+  /** @brief 获取属性值引用；优先返回可写引用，无法写入时回退为只读引用。 */
   [[nodiscard]] any_ref get_ref(void* object) const;
 
-  /** @brief 从运行期值写入字段。 */
+  /** @brief 从运行期值写入属性。 */
   bool try_set_value(void* object, const any& source) const;
 
-  /** @brief 判断字段是否是顺序容器。 */
+  /** @brief 判断属性是否是顺序容器。 */
   [[nodiscard]] bool is_sequence() const noexcept;
 
-  /** @brief 判断字段是否是集合容器。 */
+  /** @brief 判断属性是否是集合容器。 */
   [[nodiscard]] bool is_set() const noexcept;
 
-  /** @brief 判断字段是否是关联容器。 */
+  /** @brief 判断属性是否是关联容器。 */
   [[nodiscard]] bool is_associative() const noexcept;
 
-  /** @brief 判断字段是否是二元组。 */
+  /** @brief 判断属性是否是二元组。 */
   [[nodiscard]] bool is_pair() const noexcept;
 
-  /** @brief 判断字段是否是 tuple-like 字段。 */
+  /** @brief 判断属性是否是 tuple-like 类型。 */
   [[nodiscard]] bool is_tuple() const noexcept;
 
-  /** @brief 判断字段是否是 variant-like 字段。 */
+  /** @brief 判断属性是否是 variant-like 类型。 */
   [[nodiscard]] bool is_variant() const noexcept;
 
-  /** @brief 按指定类型读取字段值。 */
-  template <typename Field>
-  [[nodiscard]] std::optional<std::remove_cv_t<std::remove_reference_t<Field>>>
+  /** @brief 按指定类型读取属性值。 */
+  template <typename Property>
+  [[nodiscard]] std::optional<std::remove_cv_t<std::remove_reference_t<Property>>>
   try_get(const void* object) const {
-    using field_type = std::remove_cv_t<std::remove_reference_t<Field>>;
-    static_assert(std::is_copy_constructible_v<field_type>,
-                  "Reflected field values must be copy constructible");
+    using property_type = std::remove_cv_t<std::remove_reference_t<Property>>;
+    static_assert(std::is_copy_constructible_v<property_type>,
+                  "Reflected property values must be copy constructible");
 
     const any_ref ref = get_ref(object);
-    const field_type* value = ref.template try_get<field_type>();
+    const property_type* value = ref.template try_get<property_type>();
     if (value == nullptr) {
       return std::nullopt;
     }
@@ -114,8 +114,8 @@ public:
     return *value;
   }
 
-  /** @brief 按指定类型写入字段值。 */
-  template <typename Field> bool try_set(void* object, const Field& value) const {
+  /** @brief 按指定类型写入属性值。 */
+  template <typename Property> bool try_set(void* object, const Property& value) const {
     const any_ref ref = get_ref(object);
     return ref.try_set(value);
   }
@@ -123,10 +123,10 @@ public:
 private:
   friend class type;
 
-  explicit field(const void* reflected_field) noexcept;
+  explicit property(const void* reflected_property) noexcept;
   [[nodiscard]] const void* info() const noexcept;
 
-  const void* field_ = nullptr;
+  const void* property_ = nullptr;
 };
 
 } // namespace caors::meta

@@ -1,45 +1,45 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 原测试文件：meta_field_field_view_describes_composite_traits_test.cpp
+// 原测试文件：meta_property_field_view_describes_composite_traits_test.cpp
 
-#include "meta_field_test_support.h"
+#include "meta_property_test_support.h"
 
 using namespace test_meta;
 
-TEST_CASE("meta - field view describes composite traits", "[meta]") {
-  const caors::meta::type reflected = require_field_traits_owner_meta();
+TEST_CASE("meta - property view describes composite traits", "[meta]") {
+  const caors::meta::type reflected = require_property_traits_owner_meta();
 
-  const caors::meta::field pair = require_field(reflected, "pair");
+  const caors::meta::property pair = require_property(reflected, "pair");
   CHECK(pair.kind() == caors::meta::type_kind::pair);
   CHECK(pair.get_key_type().id() == registered_type_id("int"));
   CHECK(pair.get_value_type().id() == registered_type_id("caors.string"));
 
-  const caors::meta::field tuple = require_field(reflected, "tuple");
+  const caors::meta::property tuple = require_property(reflected, "tuple");
   CHECK(tuple.kind() == caors::meta::type_kind::tuple);
   CHECK_FALSE(static_cast<bool>(tuple.get_key_type().id()));
   CHECK_FALSE(static_cast<bool>(tuple.get_value_type().id()));
 
-  const caors::meta::field variant = require_field(reflected, "variant");
+  const caors::meta::property variant = require_property(reflected, "variant");
   CHECK(variant.kind() == caors::meta::type_kind::variant);
   CHECK_FALSE(static_cast<bool>(variant.get_key_type().id()));
   CHECK_FALSE(static_cast<bool>(variant.get_value_type().id()));
 }
 
-// 原测试文件：meta_field_field_view_describes_field_layout_test.cpp
+// 原测试文件：meta_property_field_view_describes_field_layout_test.cpp
 
-#include "meta_field_test_support.h"
+#include "meta_property_test_support.h"
 
 using namespace test_meta;
 
-TEST_CASE("meta - field view describes field layout", "[meta]") {
+TEST_CASE("meta - property view describes field layout", "[meta]") {
   REQUIRE(((void)caors::meta::class_<field_layout_actor>("caors.test.meta.field_layout_actor"),
            caors::meta::class_<field_layout_actor>())
-              .field("health", &field_layout_actor::health)
+              .property("health", &field_layout_actor::health)
               .commit() == caors::error{});
 
   const caors::meta::type reflected = require_reflected("caors.test.meta.field_layout_actor");
-  const caors::meta::field field = require_field(reflected, "health");
+  const caors::meta::property field = require_property(reflected, "health");
 
   CHECK(field.valid());
   CHECK(field.name() == "health");
@@ -53,9 +53,9 @@ TEST_CASE("meta - field view describes field layout", "[meta]") {
   CHECK(field.alignment() == alignof(float));
 }
 
-// 原测试文件：meta_field_field_view_exposes_builtin_schema_test.cpp
+// 原测试文件：meta_property_field_view_exposes_builtin_schema_test.cpp
 
-#include "meta_field_test_support.h"
+#include "meta_property_test_support.h"
 
 using namespace test_meta;
 
@@ -68,19 +68,20 @@ struct schema_actor {
 
 } // namespace
 
-TEST_CASE("meta - field view exposes builtin schema", "[meta]") {
-  REQUIRE(((void)caors::meta::class_<schema_actor>("caors.test.meta.schema_actor"),
-           caors::meta::class_<schema_actor>())
-              .field("format", &schema_actor::format)(
-                  caors::meta::registration::required(), caors::meta::registration::non_empty(),
-                  caors::meta::registration::one_of({"json", "binary"}))
-              .field("priority", &schema_actor::priority)(caors::meta::registration::range(1, 100))
-              .commit() == caors::error{});
+TEST_CASE("meta - property view exposes builtin schema", "[meta]") {
+  REQUIRE(
+      ((void)caors::meta::class_<schema_actor>("caors.test.meta.schema_actor"),
+       caors::meta::class_<schema_actor>())
+          .property("format", &schema_actor::format)(
+              caors::meta::registration::required(), caors::meta::registration::non_empty(),
+              caors::meta::registration::one_of({"json", "binary"}))
+          .property("priority", &schema_actor::priority)(caors::meta::registration::range(1, 100))
+          .commit() == caors::error{});
 
   const caors::meta::type reflected = require_reflected("caors.test.meta.schema_actor");
 
-  const caors::meta::field format = require_field(reflected, "format");
-  const caors::meta::field_schema& format_schema = format.schema();
+  const caors::meta::property format = require_property(reflected, "format");
+  const caors::meta::property_schema& format_schema = format.schema();
   CHECK(format_schema.required);
   CHECK(format_schema.non_empty);
   REQUIRE(format_schema.one_of_value() != nullptr);
@@ -93,8 +94,8 @@ TEST_CASE("meta - field view exposes builtin schema", "[meta]") {
   CHECK(*(*allowed)[0].try_as_string() == "json");
   CHECK(*(*allowed)[1].try_as_string() == "binary");
 
-  const caors::meta::field priority = require_field(reflected, "priority");
-  const caors::meta::field_schema& priority_schema = priority.schema();
+  const caors::meta::property priority = require_property(reflected, "priority");
+  const caors::meta::property_schema& priority_schema = priority.schema();
   CHECK(priority_schema.has_range());
   REQUIRE(priority_schema.range_min_value() != nullptr);
   REQUIRE(priority_schema.range_max_value() != nullptr);
@@ -104,68 +105,68 @@ TEST_CASE("meta - field view exposes builtin schema", "[meta]") {
   CHECK(*priority_schema.range_max_value()->try_as_i64() == 100);
 }
 
-// 原测试文件：meta_field_field_view_describes_indirect_wrapper_traits_test.cpp
+// 原测试文件：meta_property_field_view_describes_indirect_wrapper_traits_test.cpp
 
-#include "meta_field_test_support.h"
+#include "meta_property_test_support.h"
 
 using namespace test_meta;
 
-TEST_CASE("meta - field view describes indirect wrapper traits", "[meta]") {
-  const caors::meta::type reflected = require_field_traits_owner_meta();
+TEST_CASE("meta - property view describes indirect wrapper traits", "[meta]") {
+  const caors::meta::type reflected = require_property_traits_owner_meta();
 
-  const caors::meta::field raw = require_field(reflected, "raw");
+  const caors::meta::property raw = require_property(reflected, "raw");
   CHECK(raw.kind() == caors::meta::type_kind::raw_pointer);
   CHECK(raw.wrapper_semantics() == caors::meta::wrapper_semantics::inline_value);
   CHECK(raw.get_value_type().id() == registered_type_id("int"));
   CHECK(raw.indirect());
   CHECK(raw.nullable());
 
-  const caors::meta::field unique = require_field(reflected, "unique");
+  const caors::meta::property unique = require_property(reflected, "unique");
   CHECK(unique.kind() == caors::meta::type_kind::wrapper);
   CHECK(unique.wrapper_semantics() == caors::meta::wrapper_semantics::inline_value);
   CHECK(unique.get_value_type().id() == registered_type_id("int"));
   CHECK(unique.nullable());
 
-  const caors::meta::field shared = require_field(reflected, "shared");
+  const caors::meta::property shared = require_property(reflected, "shared");
   CHECK(shared.kind() == caors::meta::type_kind::wrapper);
   CHECK(shared.wrapper_semantics() == caors::meta::wrapper_semantics::inline_value);
   CHECK(shared.get_value_type().id() == registered_type_id("int"));
   CHECK(shared.nullable());
 
-  const caors::meta::field weak = require_field(reflected, "weak");
+  const caors::meta::property weak = require_property(reflected, "weak");
   CHECK(weak.kind() == caors::meta::type_kind::wrapper);
   CHECK(weak.wrapper_semantics() == caors::meta::wrapper_semantics::unsupported);
   CHECK(weak.get_value_type().id() == registered_type_id("int"));
   CHECK(weak.nullable());
 
-  const caors::meta::field optional = require_field(reflected, "optional");
+  const caors::meta::property optional = require_property(reflected, "optional");
   CHECK(optional.kind() == caors::meta::type_kind::wrapper);
   CHECK(optional.wrapper_semantics() == caors::meta::wrapper_semantics::inline_value);
   CHECK(optional.get_value_type().id() == registered_type_id("int"));
   CHECK(optional.nullable());
 
-  const caors::meta::field wrapper = require_field(reflected, "wrapper");
+  const caors::meta::property wrapper = require_property(reflected, "wrapper");
   CHECK(wrapper.kind() == caors::meta::type_kind::wrapper);
   CHECK(wrapper.wrapper_semantics() == caors::meta::wrapper_semantics::inline_value);
   CHECK(wrapper.get_value_type().id() == registered_type_id("int"));
   CHECK_FALSE(wrapper.nullable());
 
-  const caors::meta::field custom_inline = require_field(reflected, "custom_inline");
+  const caors::meta::property custom_inline = require_property(reflected, "custom_inline");
   CHECK(custom_inline.kind() == caors::meta::type_kind::wrapper);
   CHECK(custom_inline.wrapper_semantics() == caors::meta::wrapper_semantics::inline_value);
   CHECK(custom_inline.get_value_type().id() == registered_type_id("int"));
   CHECK_FALSE(custom_inline.nullable());
 }
 
-// 原测试文件：meta_field_field_view_describes_object_ptr_traits_test.cpp
+// 原测试文件：meta_property_field_view_describes_object_ptr_traits_test.cpp
 
-#include "meta_field_test_support.h"
+#include "meta_property_test_support.h"
 
 using namespace test_meta;
 
-TEST_CASE("meta - field view describes object ptr traits", "[meta]") {
-  const caors::meta::type reflected = require_field_traits_owner_meta();
-  const caors::meta::field object_ptr = require_field(reflected, "object_ptr");
+TEST_CASE("meta - property view describes object ptr traits", "[meta]") {
+  const caors::meta::type reflected = require_property_traits_owner_meta();
+  const caors::meta::property object_ptr = require_property(reflected, "object_ptr");
 
   CHECK(object_ptr.kind() == caors::meta::type_kind::value);
   CHECK(object_ptr.wrapper_semantics() == caors::meta::wrapper_semantics::none);
@@ -174,36 +175,36 @@ TEST_CASE("meta - field view describes object ptr traits", "[meta]") {
   CHECK_FALSE(object_ptr.nullable());
 }
 
-// 原测试文件：meta_field_field_view_describes_sequence_traits_test.cpp
+// 原测试文件：meta_property_field_view_describes_sequence_traits_test.cpp
 
-#include "meta_field_test_support.h"
+#include "meta_property_test_support.h"
 
 using namespace test_meta;
 
-TEST_CASE("meta - field view describes sequence traits", "[meta]") {
-  const caors::meta::type reflected = require_field_traits_owner_meta();
+TEST_CASE("meta - property view describes sequence traits", "[meta]") {
+  const caors::meta::type reflected = require_property_traits_owner_meta();
 
-  const caors::meta::field sequence = require_field(reflected, "sequence");
+  const caors::meta::property sequence = require_property(reflected, "sequence");
   CHECK(sequence.kind() == caors::meta::type_kind::sequence);
   CHECK(sequence.get_value_type().id() == registered_type_id("int"));
   CHECK(sequence.get_element_type().id() == registered_type_id("int"));
   CHECK(sequence.get_value_type().id() == registered_type_id("int"));
 
-  const caors::meta::field span = require_field(reflected, "span");
+  const caors::meta::property span = require_property(reflected, "span");
   CHECK(span.kind() == caors::meta::type_kind::sequence);
   CHECK(span.get_value_type().id() == registered_type_id("int"));
 }
 
-// 原测试文件：meta_field_field_view_describes_value_and_enum_traits_test.cpp
+// 原测试文件：meta_property_field_view_describes_value_and_enum_traits_test.cpp
 
-#include "meta_field_test_support.h"
+#include "meta_property_test_support.h"
 
 using namespace test_meta;
 
-TEST_CASE("meta - field view describes value and enum traits", "[meta]") {
-  const caors::meta::type reflected = require_field_traits_owner_meta();
+TEST_CASE("meta - property view describes value and enum traits", "[meta]") {
+  const caors::meta::type reflected = require_property_traits_owner_meta();
 
-  const caors::meta::field value = require_field(reflected, "value");
+  const caors::meta::property value = require_property(reflected, "value");
   CHECK(value.kind() == caors::meta::type_kind::value);
   CHECK(value.wrapper_semantics() == caors::meta::wrapper_semantics::none);
   CHECK(value.get_value_type().id() == registered_type_id("int"));
@@ -211,28 +212,28 @@ TEST_CASE("meta - field view describes value and enum traits", "[meta]") {
   CHECK_FALSE(value.indirect());
   CHECK_FALSE(value.nullable());
 
-  const caors::meta::field enumeration = require_field(reflected, "color");
+  const caors::meta::property enumeration = require_property(reflected, "color");
   CHECK(enumeration.kind() == caors::meta::type_kind::enumeration);
   CHECK(enumeration.get_value_type().id() == registered_type_id("caors.test.meta.color"));
   CHECK_FALSE(enumeration.nullable());
 }
 
-// 原测试文件：meta_field_field_view_reads_and_writes_field_values_test.cpp
+// 原测试文件：meta_property_field_view_reads_and_writes_field_values_test.cpp
 
-#include "meta_field_test_support.h"
+#include "meta_property_test_support.h"
 
 using namespace test_meta;
 
-TEST_CASE("meta - field view reads and writes field values", "[meta]") {
+TEST_CASE("meta - property view reads and writes field values", "[meta]") {
   REQUIRE(((void)caors::meta::class_<read_write_actor>("caors.test.meta.read_write_actor"),
            caors::meta::class_<read_write_actor>())
-              .field("id", &read_write_actor::id)
-              .field("health", &read_write_actor::health)
+              .property("id", &read_write_actor::id)
+              .property("health", &read_write_actor::health)
               .commit() == caors::error{});
 
   const caors::meta::type reflected = require_reflected("caors.test.meta.read_write_actor");
-  const caors::meta::field id = require_field(reflected, "id");
-  const caors::meta::field health = require_field(reflected, "health");
+  const caors::meta::property id = require_property(reflected, "id");
+  const caors::meta::property health = require_property(reflected, "health");
 
   read_write_actor instance{1, 25.0F};
 
@@ -256,20 +257,71 @@ TEST_CASE("meta - field view reads and writes field values", "[meta]") {
   CHECK_FALSE(id.try_set<int>(nullptr, 1));
 }
 
-// 原测试文件：meta_field_field_view_rejects_writes_to_readonly_fields_test.cpp
+namespace {
 
-#include "meta_field_test_support.h"
+struct accessor_property_actor {
+  int health = 10;
+  int level = 7;
+
+  [[nodiscard]] int get_health() const noexcept { return health; }
+  bool set_health(int value) noexcept {
+    health = value;
+    return true;
+  }
+
+  [[nodiscard]] const int& get_level() const noexcept { return level; }
+};
+
+} // namespace
+
+TEST_CASE("meta - property view supports getter setter properties", "[meta]") {
+  REQUIRE(((void)caors::meta::class_<accessor_property_actor>(
+               "caors.test.meta.accessor_property_actor"),
+           caors::meta::class_<accessor_property_actor>())
+              .property("health", &accessor_property_actor::get_health,
+                        &accessor_property_actor::set_health)
+              .property_readonly("level", &accessor_property_actor::get_level)
+              .commit() == caors::error{});
+
+  const caors::meta::type reflected = require_reflected("caors.test.meta.accessor_property_actor");
+  const caors::meta::property health = require_property(reflected, "health");
+  const caors::meta::property level = require_property(reflected, "level");
+
+  accessor_property_actor instance{};
+
+  CHECK(health.writable());
+  caors::meta::any health_value = health.get_value(&instance);
+  REQUIRE(health_value.valid());
+  REQUIRE(health_value.try_get<int>() != nullptr);
+  CHECK(*health_value.try_get<int>() == 10);
+  CHECK_FALSE(health.get_ref(&instance));
+
+  CHECK(health.try_set_value(&instance, caors::meta::any::from(42)));
+  CHECK(instance.health == 42);
+  CHECK_FALSE(health.try_set_value(&instance, caors::meta::any::from(3.0F)));
+
+  CHECK_FALSE(level.writable());
+  const caors::meta::any_ref level_ref = level.get_ref(&instance);
+  REQUIRE(level_ref);
+  REQUIRE(level_ref.try_get<int>() != nullptr);
+  CHECK(*level_ref.try_get<int>() == 7);
+  CHECK_FALSE(level.try_set_value(&instance, caors::meta::any::from(11)));
+}
+
+// 原测试文件：meta_property_field_view_rejects_writes_to_readonly_fields_test.cpp
+
+#include "meta_property_test_support.h"
 
 using namespace test_meta;
 
-TEST_CASE("meta - field view rejects writes to readonly fields", "[meta]") {
+TEST_CASE("meta - property view rejects writes to readonly fields", "[meta]") {
   REQUIRE(((void)caors::meta::class_<readonly_actor>("caors.test.meta.readonly_actor"),
            caors::meta::class_<readonly_actor>())
-              .field("id", &readonly_actor::id)
+              .property("id", &readonly_actor::id)
               .commit() == caors::error{});
 
-  const caors::meta::field id =
-      require_field(require_reflected("caors.test.meta.readonly_actor"), "id");
+  const caors::meta::property id =
+      require_property(require_reflected("caors.test.meta.readonly_actor"), "id");
 
   readonly_actor instance{};
   CHECK_FALSE(id.writable());
@@ -280,26 +332,26 @@ TEST_CASE("meta - field view rejects writes to readonly fields", "[meta]") {
   CHECK_FALSE(id.try_set<int>(&instance, 8));
 }
 
-// 原测试文件：meta_field_type_view_stores_and_finds_fields_test.cpp
+// 原测试文件：meta_property_type_view_stores_and_finds_fields_test.cpp
 
-#include "meta_field_test_support.h"
+#include "meta_property_test_support.h"
 
 using namespace test_meta;
 
 TEST_CASE("meta - type view stores and finds fields", "[meta]") {
   REQUIRE(((void)caors::meta::class_<stored_fields_actor>("caors.test.meta.stored_fields_actor"),
            caors::meta::class_<stored_fields_actor>())
-              .field("id", &stored_fields_actor::id)
-              .field("health", &stored_fields_actor::health)
+              .property("id", &stored_fields_actor::id)
+              .property("health", &stored_fields_actor::health)
               .commit() == caors::error{});
 
   const caors::meta::type type = require_reflected("caors.test.meta.stored_fields_actor");
 
   CHECK(type.valid());
-  CHECK(type.field_count() == 2);
+  CHECK(type.property_count() == 2);
 
-  auto health = type.find_field("health");
+  auto health = type.find_property("health");
   REQUIRE(health);
   CHECK(health.get_type().name() == "float");
-  CHECK_FALSE(type.find_field("missing"));
+  CHECK_FALSE(type.find_property("missing"));
 }

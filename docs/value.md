@@ -8,7 +8,7 @@ meta value 子模块负责运行期值访问和数据中间表示，是 `meta` �
 - `any`：拥有一份 C++ 对象拷贝，保留运行期类型描述。
 - `owned_value`：拥有一份由 factory、constructor 或内部构造策略创建出来的对象，可在填充后转成
   `any` 或交给 wrapper 接管。
-- `any_ref`：非拥有 C++ 对象引用，用于字段、容器元素和外部对象的零拷贝访问。
+- `any_ref`：非拥有 C++ 对象引用，用于属性、容器元素和外部对象的零拷贝访问。
 - 各类 view：把指针、wrapper、sequence、set、associative、pair、tuple 和 variant-like 类型按统一接口访问。
 - `variant`：脱离精确 C++ 类型的数据 DOM，主要用于序列化、配置和跨格式转换。
 
@@ -23,7 +23,7 @@ meta value 提供细粒度头和完整聚合头。细粒度头不再依赖 `any.
 | 头文件 | 提供内容 | 适用场景 |
 | --- | --- | --- |
 | `caors/meta/value/any.h` | `caors::meta::any`、`caors::meta::owned_value`、`caors::any`、`caors::owned_value` | 需要拥有式运行期 C++ 值或高级构造所有权句柄。 |
-| `caors/meta/value/any_ref.h` | `caors::meta::any_ref`、`caors::any_ref` | 需要引用外部 C++ 对象或反射字段。 |
+| `caors/meta/value/any_ref.h` | `caors::meta::any_ref`、`caors::any_ref` | 需要引用外部 C++ 对象或反射属性。 |
 | `caors/meta/value/view_factory.h` | 所有具体 view 类型和显式 `make_*_view()` 工厂 | 高级代码或内部适配层需要显式创建具体 view。 |
 | `caors/meta/capability_facade.h` | 类型级 capability facade 基类 | 用 `type_capability_base<Ops>` 或 `type_capability_base<Ops, View>` 定义类型级能力。 |
 | `caors/meta/capability_bind.h` | capability 绑定和实例 view helper | 用 `capability_view_base<Ops>`、`capability_bind_traits` 和自动 traits 减少实例 view 样板代码。 |
@@ -83,7 +83,7 @@ caors::any value = caors::any::from(7);
 
 ## any
 
-`any` 拥有对象副本，适合把字段值从原对象中取出后独立保存。它依赖 meta descriptor 执行默认构造、复制、销毁和赋值。
+`any` 拥有对象副本，适合把属性值从原对象中取出后独立保存。它依赖 meta descriptor 执行默认构造、复制、销毁和赋值。
 小型平凡可拷贝、平凡析构的值会直接保存在 `any` 内部，避免为标量和小型 POD 临时值产生堆分配；超过内联容量、
 对齐不满足或非平凡析构的类型仍使用 descriptor 的普通构造/销毁路径。
 `any::default_construct(type_id, memory_resource*)` 可以用指定 `memory_resource` 默认构造对象，返回的
@@ -107,7 +107,7 @@ caors::any value = caors::any::from(7);
 
 ## owned_value
 
-`owned_value` 是 move-only 的临时所有权句柄，主要服务于“先构造对象，再填充字段或转交给 wrapper”的路径。
+`owned_value` 是 move-only 的临时所有权句柄，主要服务于“先构造对象，再填充属性或转交给 wrapper”的路径。
 它和 `any` 的区别是：`any` 已经是最终拥有式运行期值，而 `owned_value` 允许在接管前访问可写对象地址。
 
 常见来源：
@@ -159,7 +159,7 @@ caors::meta::owned_value value =
 
 - 不可拷贝类型无法被复制成有效 `any`。
 - `any` 不保留对象身份、共享关系或对象图引用。
-- 未注册 C++ 类型仍可通过 descriptor 使用基础值能力，但没有稳定名称、GUID、反射字段或多态构造信息。
+- 未注册 C++ 类型仍可通过 descriptor 使用基础值能力，但没有稳定名称、GUID、反射属性或多态构造信息。
 
 ## any_ref
 
@@ -168,7 +168,7 @@ caors::meta::owned_value value =
 常见来源：
 
 - `caors::any_ref::from(value)`：引用普通 C++ 对象。
-- `meta::field::get_ref(object)`：引用反射字段。
+- `meta::property::get_ref(object)`：引用反射属性。
 - view 的 `element_ref()`、`value_ref()`、`first_ref()` 等：引用容器元素或结构内部值。
 
 `any_ref` 可以写回同类型值；只读引用、类型不匹配或底层类型不支持赋值时返回失败。
@@ -226,7 +226,7 @@ caors::meta::sequence_view view =
 
 这些 view 通过 meta 内部 descriptor 保存的类型能力工作，不要求容器类型本身一定注册到全局 meta
 registry。`get_*_type()` 系列接口返回 descriptor-backed `meta::type`；调用方需要 `type_id` 或名称时，
-直接读取返回视图的 `id()` / `name()`。需要稳定名称、GUID、反射字段、序列化策略或多态构造的业务类型仍应显式注册。
+直接读取返回视图的 `id()` / `name()`。需要稳定名称、GUID、反射属性、序列化策略或多态构造的业务类型仍应显式注册。
 
 集合和关联容器的 erased iterator 是 meta value 内部临时对象，使用 CAORS 内部资源策略分配，并在 iterator
 视图析构时自动释放。它不使用用户容器的 allocator，也不会延长底层容器元素生命周期。
@@ -237,7 +237,7 @@ registry。`get_*_type()` 系列接口返回 descriptor-backed `meta::type`；�
 
 它和 `any` 的边界：
 
-- `any` 面向 C++ 类型和反射字段访问。
+- `any` 面向 C++ 类型和反射属性访问。
 - `variant` 面向序列化、配置和跨格式数据交换。
 - `serialization::to_variant(any)` / `serialization::to_variant(any_ref)` 负责从 C++ 运行期值转换到数据 DOM。
 

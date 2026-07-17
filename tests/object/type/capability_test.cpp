@@ -3,7 +3,6 @@
 
 #include "caors/meta.h"
 #include "caors/object.h"
-#include "caors/meta.h"
 
 #include <catch2/catch_all.hpp>
 
@@ -122,9 +121,9 @@ TEST_CASE("object - descriptor exposes object capabilities", "[object]") {
 TEST_CASE("object - reflected fields use descriptor object capabilities", "[object]") {
   REQUIRE(((void)caors::meta::class_<capability_owner>("caors.test.object.capability_owner"),
            caors::meta::class_<capability_owner>())
-              .field("pointer", &capability_owner::pointer)
-              .field("handle", &capability_owner::handle)
-              .field("typed_handle", &capability_owner::typed_handle)
+              .property("pointer", &capability_owner::pointer)
+              .property("handle", &capability_owner::handle)
+              .property("typed_handle", &capability_owner::typed_handle)
               .commit()
               .succeeded());
 
@@ -133,7 +132,7 @@ TEST_CASE("object - reflected fields use descriptor object capabilities", "[obje
 
   capability_owner owner{};
   capability_target target{};
-  const caors::meta::field pointer = reflected.find_field("pointer");
+  const caors::meta::property pointer = reflected.find_property("pointer");
   REQUIRE(pointer);
   const caors::objects::ptr_view pointer_view =
       pointer.get_ref(&owner).get_capability<caors::objects::ptr_capability>();

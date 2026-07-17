@@ -40,16 +40,16 @@ inline void require_context_resource_holder_metadata() {
   REQUIRE(reflection_result_ok(((void)caors::meta::class_<context_resource_value>(
                                     "caors.test.serialization.context_resource_value"),
                                 caors::meta::class_<context_resource_value>())
-                                   .field("value", &context_resource_value::value)
+                                   .property("value", &context_resource_value::value)
                                    .commit()));
   REQUIRE(reflection_result_ok(((void)caors::meta::class_<context_resource_holder>(
                                     "caors.test.serialization.context_resource_holder"),
                                 caors::meta::class_<context_resource_holder>())
-                                   .field("unique", &context_resource_holder::unique)
-                                   .field("shared", &context_resource_holder::shared)
-                                   .field("names", &context_resource_holder::names)
-                                   .field("maybe", &context_resource_holder::maybe)
-                                   .field("choice", &context_resource_holder::choice)
+                                   .property("unique", &context_resource_holder::unique)
+                                   .property("shared", &context_resource_holder::shared)
+                                   .property("names", &context_resource_holder::names)
+                                   .property("maybe", &context_resource_holder::maybe)
+                                   .property("choice", &context_resource_holder::choice)
                                    .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<context_resource_value>().commit()));
   REQUIRE(

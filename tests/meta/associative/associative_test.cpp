@@ -3,24 +3,24 @@
 
 // 原测试文件：meta_associative_associative_field_view_exposes_key_and_value_metadata_test.cpp
 
-#include "meta_field_test_support.h"
+#include "meta_property_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
 #include "caors/meta/value/capabilities.h"
 
 using namespace test_meta;
 
-TEST_CASE("meta - associative field view exposes key and value metadata", "[meta]") {
+TEST_CASE("meta - associative property view exposes key and value metadata", "[meta]") {
   REQUIRE(((void)caors::meta::class_<hash_map_holder>("caors.test.meta.hash_map_holder"),
            caors::meta::class_<hash_map_holder>())
-              .field("values", &hash_map_holder::values)
+              .property("values", &hash_map_holder::values)
               .commit()
               .succeeded());
 
   auto reflected = caors::meta::find("caors.test.meta.hash_map_holder");
   REQUIRE(reflected);
 
-  auto values = reflected.find_field("values");
+  auto values = reflected.find_property("values");
   REQUIRE(values);
   CHECK(values.kind() == caors::meta::type_kind::associative);
   CHECK(values.is_associative());
@@ -34,24 +34,24 @@ TEST_CASE("meta - associative field view exposes key and value metadata", "[meta
 
 // 原测试文件：meta_associative_associative_field_view_supports_dynamic_operations_test.cpp
 
-#include "meta_field_test_support.h"
+#include "meta_property_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
 #include "caors/meta/value/capabilities.h"
 
 using namespace test_meta;
 
-TEST_CASE("meta - associative field view supports dynamic operations", "[meta]") {
+TEST_CASE("meta - associative property view supports dynamic operations", "[meta]") {
   REQUIRE(((void)caors::meta::class_<hash_map_ops_holder>("caors.test.meta.hash_map_ops_holder"),
            caors::meta::class_<hash_map_ops_holder>())
-              .field("values", &hash_map_ops_holder::values)
+              .property("values", &hash_map_ops_holder::values)
               .commit()
               .succeeded());
 
   auto reflected = caors::meta::find("caors.test.meta.hash_map_ops_holder");
   REQUIRE(reflected);
 
-  auto values = reflected.find_field("values");
+  auto values = reflected.find_property("values");
   REQUIRE(values);
 
   hash_map_ops_holder instance{};
@@ -121,24 +121,24 @@ TEST_CASE("meta - associative field view supports dynamic operations", "[meta]")
 
 // 原测试文件：meta_associative_set_field_view_exposes_element_metadata_test.cpp
 
-#include "meta_field_test_support.h"
+#include "meta_property_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
 #include "caors/meta/value/capabilities.h"
 
 using namespace test_meta;
 
-TEST_CASE("meta - set field view exposes element metadata", "[meta]") {
+TEST_CASE("meta - set property view exposes element metadata", "[meta]") {
   REQUIRE(((void)caors::meta::class_<hash_set_holder>("caors.test.meta.hash_set_holder"),
            caors::meta::class_<hash_set_holder>())
-              .field("values", &hash_set_holder::values)
+              .property("values", &hash_set_holder::values)
               .commit()
               .succeeded());
 
   auto reflected = caors::meta::find("caors.test.meta.hash_set_holder");
   REQUIRE(reflected);
 
-  auto values = reflected.find_field("values");
+  auto values = reflected.find_property("values");
   REQUIRE(values);
   CHECK(values.kind() == caors::meta::type_kind::set);
   CHECK(values.is_set());

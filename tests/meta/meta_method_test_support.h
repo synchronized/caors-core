@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "meta_field_test_support.h"
+#include "meta_property_test_support.h"
 
 namespace caors::tests::meta_method {
 
@@ -28,7 +28,7 @@ struct duplicate_method_actor {
   const caors::error result =
       ((void)caors::meta::class_<method_actor>("caors.test.meta.method_actor"),
        caors::meta::class_<method_actor>())
-          .field("value", &method_actor::value)
+          .property("value", &method_actor::value)
           .method("add", &method_actor::add)
           .method("add_to", &method_actor::add_to)
           .method("score", &method_actor::score)

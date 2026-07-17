@@ -88,14 +88,14 @@ bool register_types() {
     return false;
   }
 
-  if (!check(caors::meta::class_<player>().field("level", &player::level).commit(),
+  if (!check(caors::meta::class_<player>().property("level", &player::level).commit(),
              "meta fields player")) {
     return false;
   }
 
   if (!check(((void)caors::meta::class_<scene>("example.serialization.scene"),
               caors::meta::class_<scene>())
-                 .field("owner", &scene::owner, "std.shared_ptr<example.serialization.actor>")
+                 .property("owner", &scene::owner, "std.shared_ptr<example.serialization.actor>")
                  .commit(),
              "meta fields scene")) {
     return false;

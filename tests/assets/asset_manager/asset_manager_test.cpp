@@ -37,7 +37,7 @@ void require_secondary_serialized_resource_metadata() {
   REQUIRE(reflection_result_ok(((void)caors::meta::class_<secondary_serialized_resource>(
                                     "caors.test.resources.secondary_serialized_resource"),
                                 caors::meta::class_<secondary_serialized_resource>())
-                                   .field("width", &secondary_serialized_resource::width)
+                                   .property("width", &secondary_serialized_resource::width)
                                    .commit()));
   REQUIRE(serialization_result_ok(
       caors::serialization::class_<secondary_serialized_resource>().commit()));
@@ -206,15 +206,15 @@ void require_typed_external_source_config_metadata() {
       "caors.test.assets.typed_external_source_config");
   REQUIRE(reflection_result_ok(
       caors::meta::class_<typed_external_source_config>()
-          .field("mount", &typed_external_source_config::mount)(
+          .property("mount", &typed_external_source_config::mount)(
               caors::meta::registration::metadata(metadata::required(), true),
               caors::meta::registration::metadata(metadata::non_empty(), true))
-          .field("read_only", &typed_external_source_config::read_only)
-          .field("priority", &typed_external_source_config::priority)(
+          .property("read_only", &typed_external_source_config::read_only)
+          .property("priority", &typed_external_source_config::priority)(
               caors::meta::registration::metadata(metadata::range_min(), 1),
               caors::meta::registration::metadata(metadata::range_max(), 10))
-          .field("filter",
-                 &typed_external_source_config::filter)(caors::meta::registration::metadata(
+          .property("filter",
+                    &typed_external_source_config::filter)(caors::meta::registration::metadata(
               metadata::one_of(), caors::meta::make_metadata_string_array(
                                       {std::string_view{"nearest"}, std::string_view{"linear"}})))
           .commit()));

@@ -295,7 +295,7 @@ error read_serialized_value(reader& reader, const any_ref& target,
   return read_scalar_value(reader, target, context);
 }
 
-error write_field(writer& writer, const meta::field& field, const void* object,
+error write_field(writer& writer, const meta::property& field, const void* object,
                   const serialization::field_schema& field_schema,
                   const serialization::context& context) {
   if (!field.valid()) {
@@ -338,7 +338,7 @@ error write_field(writer& writer, const meta::field& field, const void* object,
   return writer.end_field();
 }
 
-error read_field(reader& reader, const meta::field& field, void* object,
+error read_field(reader& reader, const meta::property& field, void* object,
                  const serialization::field_schema& field_schema,
                  const serialization::context& context) {
   if (!field.valid()) {
@@ -397,7 +397,7 @@ error read_field(reader& reader, const meta::field& field, void* object,
   return reader.end_field();
 }
 
-error read_configured_field(reader& reader, const meta::field& field, void* object,
+error read_configured_field(reader& reader, const meta::property& field, void* object,
                             const serialization::field_schema& field_schema,
                             const serialization::context& context) {
   const error status = read_field(reader, field, object, field_schema, context);

@@ -3,24 +3,24 @@
 
 // 原测试文件：meta_tuple_variant_view_std_pair_field_view_exposes_first_and_second_values_test.cpp
 
-#include "meta_field_test_support.h"
+#include "meta_property_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
 #include "caors/meta/value/capabilities.h"
 
 using namespace test_meta;
 
-TEST_CASE("meta - std pair field view exposes first and second values", "[meta]") {
+TEST_CASE("meta - std pair property view exposes first and second values", "[meta]") {
   REQUIRE(((void)caors::meta::class_<pair_holder>("caors.test.meta.pair_holder"),
            caors::meta::class_<pair_holder>())
-              .field("value", &pair_holder::value)
+              .property("value", &pair_holder::value)
               .commit()
               .succeeded());
 
   auto reflected = caors::meta::find("caors.test.meta.pair_holder");
   REQUIRE(reflected);
 
-  auto value = reflected.find_field("value");
+  auto value = reflected.find_property("value");
   REQUIRE(value);
   CHECK(value.kind() == caors::meta::type_kind::pair);
   CHECK(value.is_pair());
@@ -53,24 +53,24 @@ TEST_CASE("meta - std pair field view exposes first and second values", "[meta]"
 
 // 原测试文件：meta_tuple_variant_view_std_tuple_field_view_exposes_indexed_elements_test.cpp
 
-#include "meta_field_test_support.h"
+#include "meta_property_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
 #include "caors/meta/value/capabilities.h"
 
 using namespace test_meta;
 
-TEST_CASE("meta - std tuple field view exposes indexed elements", "[meta]") {
+TEST_CASE("meta - std tuple property view exposes indexed elements", "[meta]") {
   REQUIRE(((void)caors::meta::class_<tuple_holder>("caors.test.meta.tuple_holder"),
            caors::meta::class_<tuple_holder>())
-              .field("value", &tuple_holder::value)
+              .property("value", &tuple_holder::value)
               .commit()
               .succeeded());
 
   auto reflected = caors::meta::find("caors.test.meta.tuple_holder");
   REQUIRE(reflected);
 
-  auto value = reflected.find_field("value");
+  auto value = reflected.find_property("value");
   REQUIRE(value);
   CHECK(value.kind() == caors::meta::type_kind::tuple);
   CHECK(value.is_tuple());
@@ -109,24 +109,24 @@ TEST_CASE("meta - std tuple field view exposes indexed elements", "[meta]") {
 
 // 原测试文件：meta_tuple_variant_view_std_variant_field_view_exposes_active_alternative_test.cpp
 
-#include "meta_field_test_support.h"
+#include "meta_property_test_support.h"
 
 #include "caors/meta/value/associative_entry_ref.h"
 #include "caors/meta/value/capabilities.h"
 
 using namespace test_meta;
 
-TEST_CASE("meta - std variant field view exposes active alternative", "[meta]") {
+TEST_CASE("meta - std variant property view exposes active alternative", "[meta]") {
   REQUIRE(((void)caors::meta::class_<variant_holder>("caors.test.meta.variant_holder"),
            caors::meta::class_<variant_holder>())
-              .field("value", &variant_holder::value)
+              .property("value", &variant_holder::value)
               .commit()
               .succeeded());
 
   auto reflected = caors::meta::find("caors.test.meta.variant_holder");
   REQUIRE(reflected);
 
-  auto value = reflected.find_field("value");
+  auto value = reflected.find_property("value");
   REQUIRE(value);
   CHECK(value.kind() == caors::meta::type_kind::variant);
   CHECK(value.is_variant());

@@ -22,7 +22,7 @@
 void register_actor() {
   caors::meta::class_<actor>("game.actor")
       .guid(caors::type_guid{actor_guid})
-      .field("id", &actor::id);
+      .property("id", &actor::id);
 
   caors::serialization::class_<actor>()
       .field("id")

@@ -3,7 +3,7 @@
 
 // 原测试文件：meta_builder_class_builder_accepts_fields_with_descriptor_only_types_test.cpp
 
-#include "meta_field_test_support.h"
+#include "meta_property_test_support.h"
 
 using namespace test_meta;
 
@@ -14,13 +14,13 @@ TEST_CASE("meta - class builder accepts fields with descriptor-only types", "[me
   };
 
   REQUIRE(((void)caors::meta::class_<owner>("caors.test.meta.owner"), caors::meta::class_<owner>())
-              .field("field", &owner::field)
+              .property("field", &owner::field)
               .commit() == caors::error{});
 
   auto reflected = caors::meta::find("caors.test.meta.owner");
   REQUIRE(reflected);
 
-  auto field = reflected.find_field("field");
+  auto field = reflected.find_property("field");
   REQUIRE(field);
   CHECK(field.get_type().name().empty());
   CHECK_FALSE(caors::meta::find(field.get_type().id()).registered());
@@ -33,7 +33,7 @@ TEST_CASE("meta - class builder accepts fields with descriptor-only types", "[me
 
 // 原测试文件：meta_builder_class_builder_infers_built_in_field_types_test.cpp
 
-#include "meta_field_test_support.h"
+#include "meta_property_test_support.h"
 
 using namespace test_meta;
 
@@ -41,8 +41,8 @@ TEST_CASE("meta - class builder infers built-in field types", "[meta]") {
   const caors::error result =
       ((void)caors::meta::class_<builder_actor>("caors.test.meta.builder_actor"),
        caors::meta::class_<builder_actor>())
-          .field("id", &builder_actor::id)
-          .field("health", &builder_actor::health)
+          .property("id", &builder_actor::id)
+          .property("health", &builder_actor::health)
           .commit();
 
   REQUIRE(result == caors::error{});
@@ -50,12 +50,12 @@ TEST_CASE("meta - class builder infers built-in field types", "[meta]") {
   auto reflected = caors::meta::find("caors.test.meta.builder_actor");
   REQUIRE(reflected);
 
-  auto id = reflected.find_field("id");
+  auto id = reflected.find_property("id");
   REQUIRE(id);
   CHECK(id.get_type().name() == "int");
   CHECK(id.get_type().id() == registered_type_id("int"));
 
-  auto health = reflected.find_field("health");
+  auto health = reflected.find_property("health");
   REQUIRE(health);
   CHECK(health.get_type().name() == "float");
   CHECK(health.get_type().id() == registered_type_id("float"));
@@ -69,7 +69,7 @@ TEST_CASE("meta - class builder infers built-in field types", "[meta]") {
 
 // 原测试文件：meta_builder_class_builder_resolves_explicitly_registered_c_field_type_test.cpp
 
-#include "meta_field_test_support.h"
+#include "meta_property_test_support.h"
 
 using namespace test_meta;
 
@@ -79,7 +79,7 @@ TEST_CASE("meta - class builder resolves explicitly registered C++ field type", 
   REQUIRE(
       ((void)caors::meta::class_<test_meta::named_field_owner>("caors.test.meta.named_field_owner"),
        caors::meta::class_<test_meta::named_field_owner>())
-          .field("value", &test_meta::named_field_owner::value)
+          .property("value", &test_meta::named_field_owner::value)
           .commit() == caors::error{});
 
   auto value_type = caors::meta::find("caors.test.meta.named_field_value");
@@ -89,7 +89,7 @@ TEST_CASE("meta - class builder resolves explicitly registered C++ field type", 
   auto reflected = caors::meta::find("caors.test.meta.named_field_owner");
   REQUIRE(reflected);
 
-  auto value = reflected.find_field("value");
+  auto value = reflected.find_property("value");
   REQUIRE(value);
   CHECK(value.get_type().name() == "caors.test.meta.named_field_value");
   CHECK(value.get_type().id() == value_type.id());
@@ -97,25 +97,25 @@ TEST_CASE("meta - class builder resolves explicitly registered C++ field type", 
 
 // 原测试文件：meta_builder_class_builder_resolves_registered_c_field_types_test.cpp
 
-#include "meta_field_test_support.h"
+#include "meta_property_test_support.h"
 
 using namespace test_meta;
 
 TEST_CASE("meta - class builder resolves registered C++ field types", "[meta]") {
   REQUIRE(((void)caors::meta::class_<inventory>("caors.test.meta.inventory"),
            caors::meta::class_<inventory>())
-              .field("count", &inventory::count)
+              .property("count", &inventory::count)
               .commit() == caors::error{});
 
   REQUIRE(((void)caors::meta::class_<inventory_holder>("caors.test.meta.inventory_holder"),
            caors::meta::class_<inventory_holder>())
-              .field("items", &inventory_holder::items)
+              .property("items", &inventory_holder::items)
               .commit() == caors::error{});
 
   auto reflected = caors::meta::find("caors.test.meta.inventory_holder");
   REQUIRE(reflected);
 
-  auto items = reflected.find_field("items");
+  auto items = reflected.find_property("items");
   REQUIRE(items);
   CHECK(items.get_type().name() == "caors.test.meta.inventory");
   CHECK(items.get_type().id() == registered_type_id("caors.test.meta.inventory"));

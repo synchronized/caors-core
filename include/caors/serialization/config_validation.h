@@ -5,8 +5,8 @@
 #define CAORS_SERIALIZATION_CONFIG_VALIDATION_H_
 
 #include "caors/core/containers.h"
-#include "caors/meta/metadata.h"
 #include "caors/meta.h"
+#include "caors/meta/metadata.h"
 
 #include <optional>
 #include <string>
@@ -186,7 +186,7 @@ metadata_number(const meta::metadata_value* value) noexcept {
   return false;
 }
 
-inline void validate_config_field(config_validation_result& result, const meta::field& field,
+inline void validate_config_field(config_validation_result& result, const meta::property& field,
                                   const void* object) {
   const any_ref value = field.get_ref(object);
   if (!value) {
@@ -257,8 +257,8 @@ template <typename T>
     return result;
   }
 
-  for (std::size_t index = 0; index < reflected.field_count(); ++index) {
-    const meta::field field = reflected.field_at(index);
+  for (std::size_t index = 0; index < reflected.property_count(); ++index) {
+    const meta::property field = reflected.property_at(index);
     if (!field) {
       result.status = {error_domain::serialization, errc::invalid_field};
       return result;

@@ -17,20 +17,20 @@ runtime::type instance::type() const noexcept {
   return valid() ? runtime::type{value_.get_type()} : runtime::type{};
 }
 
-std::size_t instance::field_count() const noexcept { return type().field_count(); }
+std::size_t instance::property_count() const noexcept { return type().property_count(); }
 
-field instance::field_at(std::size_t index) const { return type().field_at(index); }
+property instance::property_at(std::size_t index) const { return type().property_at(index); }
 
-field instance::find_field(string_name name) const { return type().find_field(name); }
+property instance::find_property(string_name name) const { return type().find_property(name); }
 
-field instance::find_field(std::string_view name) const { return type().find_field(name); }
+property instance::find_property(std::string_view name) const { return type().find_property(name); }
 
-core::vector<field> instance::fields(memory_resource* resource) const {
-  core::vector<field> result{allocator<field>{resource}};
-  const std::size_t count = field_count();
+core::vector<property> instance::properties(memory_resource* resource) const {
+  core::vector<property> result{allocator<property>{resource}};
+  const std::size_t count = property_count();
   result.reserve(count);
   for (std::size_t index = 0; index < count; ++index) {
-    result.push_back(field_at(index));
+    result.push_back(property_at(index));
   }
 
   return result;
@@ -56,34 +56,34 @@ core::vector<method> instance::methods(memory_resource* resource) const {
 }
 
 any instance::get(std::string_view name) const {
-  const field reflected_field = find_field(name);
-  if (!reflected_field || !value_) {
+  const property reflected_property = find_property(name);
+  if (!reflected_property || !value_) {
     return {};
   }
 
-  return reflected_field.get_value(value_.data());
+  return reflected_property.get_value(value_.data());
 }
 
 any_ref instance::get_ref(std::string_view name) const {
-  const field reflected_field = find_field(name);
-  if (!reflected_field || !value_) {
+  const property reflected_property = find_property(name);
+  if (!reflected_property || !value_) {
     return {};
   }
 
   if (value_.writable()) {
-    return reflected_field.get_ref(value_.mutable_data());
+    return reflected_property.get_ref(value_.mutable_data());
   }
 
-  return reflected_field.get_ref(value_.data());
+  return reflected_property.get_ref(value_.data());
 }
 
 bool instance::set(std::string_view name, const any& source) const {
-  const field reflected_field = find_field(name);
-  if (!reflected_field || !value_.writable()) {
+  const property reflected_property = find_property(name);
+  if (!reflected_property || !value_.writable()) {
     return false;
   }
 
-  return reflected_field.try_set_value(value_.mutable_data(), source);
+  return reflected_property.try_set_value(value_.mutable_data(), source);
 }
 
 bool instance::set(std::string_view name, const any_ref& source) const {

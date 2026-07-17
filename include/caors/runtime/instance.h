@@ -20,7 +20,7 @@ namespace caors::runtime {
  * @brief 运行期实例反射访问门面。
  *
  * `runtime::instance` 不拥有对象，只保存外部实例的 `meta::any_ref`。它负责把运行期值、类型视图和
- * meta 字段/方法组合起来，适合实现编辑器、调试面板和脚本桥接等高层访问入口。
+ * meta 属性/方法组合起来，适合实现编辑器、调试面板和脚本桥接等高层访问入口。
  */
 class CAORS_API instance final {
 public:
@@ -38,12 +38,12 @@ public:
     return value_.template get_capability<View>();
   }
 
-  [[nodiscard]] std::size_t field_count() const noexcept;
-  [[nodiscard]] field field_at(std::size_t index) const;
-  [[nodiscard]] field find_field(string_name name) const;
-  [[nodiscard]] field find_field(std::string_view name) const;
-  /** @brief 返回字段视图快照；字段视图仍引用全局 meta 注册表。 */
-  [[nodiscard]] core::vector<field> fields(memory_resource* resource = nullptr) const;
+  [[nodiscard]] std::size_t property_count() const noexcept;
+  [[nodiscard]] property property_at(std::size_t index) const;
+  [[nodiscard]] property find_property(string_name name) const;
+  [[nodiscard]] property find_property(std::string_view name) const;
+  /** @brief 返回属性视图快照；属性视图仍引用全局 meta 注册表。 */
+  [[nodiscard]] core::vector<property> properties(memory_resource* resource = nullptr) const;
 
   [[nodiscard]] std::size_t method_count() const noexcept;
   [[nodiscard]] method method_at(std::size_t index) const;
@@ -52,26 +52,26 @@ public:
   /** @brief 返回方法视图快照；方法视图仍引用全局 meta 注册表。 */
   [[nodiscard]] core::vector<method> methods(memory_resource* resource = nullptr) const;
 
-  /** @brief 读取字段值的运行期拷贝；字段不存在时返回无效 `any`。 */
+  /** @brief 读取属性值的运行期拷贝；属性不存在时返回无效 `any`。 */
   [[nodiscard]] any get(std::string_view name) const;
 
-  /** @brief 读取字段值的运行期引用；只读实例返回只读引用。 */
+  /** @brief 读取属性值的运行期引用；只读实例返回只读引用。 */
   [[nodiscard]] any_ref get_ref(std::string_view name) const;
 
-  /** @brief 从运行期值写入字段。 */
+  /** @brief 从运行期值写入属性。 */
   bool set(std::string_view name, const any& source) const;
 
-  /** @brief 从运行期引用写入字段。 */
+  /** @brief 从运行期引用写入属性。 */
   bool set(std::string_view name, const any_ref& source) const;
 
-  /** @brief 从 C++ 值写入字段。 */
+  /** @brief 从 C++ 值写入属性。 */
   template <typename T> bool set(std::string_view name, const T& source) const {
-    const field reflected_field = find_field(name);
-    if (!reflected_field || !value_.writable()) {
+    const property reflected_property = find_property(name);
+    if (!reflected_property || !value_.writable()) {
       return false;
     }
 
-    const any_ref target = reflected_field.get_ref(value_.mutable_data());
+    const any_ref target = reflected_property.get_ref(value_.mutable_data());
     return target.try_set(source);
   }
 
@@ -124,10 +124,10 @@ public:
   /** @brief 返回当前视图显式绑定的对象指针；没有显式绑定时可能返回 `nullptr`。 */
   [[nodiscard]] objects::object* ptr() const noexcept;
 
-  /** @brief 读取字段中的对象指针。 */
+  /** @brief 读取属性中的对象指针。 */
   [[nodiscard]] objects::object* get_ptr(std::string_view name) const;
 
-  /** @brief 写入字段中的对象指针。 */
+  /** @brief 写入属性中的对象指针。 */
   bool set_ptr(std::string_view name, objects::object* pointer) const;
 
 private:

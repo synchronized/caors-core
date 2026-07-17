@@ -104,13 +104,17 @@ any type::create_value(memory::memory_resource* resource) const {
   return valid() ? any::default_construct(meta_, resource) : any{};
 }
 
-std::size_t type::field_count() const noexcept { return meta_.field_count(); }
+std::size_t type::property_count() const noexcept { return meta_.property_count(); }
 
-field type::field_at(std::size_t index) const { return meta_.field_at(index); }
+property type::property_at(std::size_t index) const { return meta_.property_at(index); }
 
-field type::find_field(string_name field_name) const { return meta_.find_field(field_name); }
+property type::find_property(string_name property_name) const {
+  return meta_.find_property(property_name);
+}
 
-field type::find_field(std::string_view field_name) const { return meta_.find_field(field_name); }
+property type::find_property(std::string_view property_name) const {
+  return meta_.find_property(property_name);
+}
 
 std::size_t type::method_count() const noexcept { return meta_.method_count(); }
 

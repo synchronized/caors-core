@@ -257,7 +257,7 @@ caors::meta::class_<player>("game.player")
     .parent<actor>();
 
 caors::meta::class_<player>()
-    .field("level", &player::level)
+    .property("level", &player::level)
     .commit();
 
 caors::meta::class_<caors::memory::unique_ptr<actor>>("caors.memory.unique_ptr<game.actor>");
@@ -265,7 +265,7 @@ caors::meta::class_<caors::memory::unique_ptr<actor>>("caors.memory.unique_ptr<g
 caors::meta::class_<holder>("game.holder");
 
 caors::meta::class_<holder>()
-    .field("owner", &holder::owner)
+    .property("owner", &holder::owner)
     .commit();
 
 caors::serialization::class_<player>().commit();
@@ -755,12 +755,12 @@ namespace metadata = caors::serialization::config_metadata;
 
 caors::meta::class_<texture_config>("game.texture_config");
 caors::meta::class_<texture_config>()
-    .field("format", &texture_config::format)
+    .property("format", &texture_config::format)
     (caors::meta::registration::metadata(metadata::required(), true),
      caors::meta::registration::metadata(metadata::non_empty(), true),
      caors::meta::registration::metadata(metadata::one_of(),
                            caors::meta::make_metadata_string_array({"json", "binary"})))
-    .field("priority", &texture_config::priority)
+    .property("priority", &texture_config::priority)
     (caors::meta::registration::metadata(metadata::range_min(), 1),
      caors::meta::registration::metadata(metadata::range_max(), 100))
     .commit();
@@ -1050,8 +1050,8 @@ auto serialization_type = caors::serialization::find(type);
 caors::meta::type type = caors::meta::class_<actor>("game.actor").get();
 
 caors::meta::class_<actor>(type)
-    .field("id", &actor::id)
-    .field("health", &actor::health)
+    .property("id", &actor::id)
+    .property("health", &actor::health)
     .commit();
 
 caors::serialization::class_(type)

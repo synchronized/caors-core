@@ -12,8 +12,8 @@ TEST_CASE("serialization - built in codecs roundtrip chrono values as integers",
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<codec_chrono_actor>("caors.test.serialization.codec_chrono_actor"),
        caors::meta::class_<codec_chrono_actor>())
-          .field("timeout", &codec_chrono_actor::timeout)
-          .field("timestamp", &codec_chrono_actor::timestamp)
+          .property("timeout", &codec_chrono_actor::timeout)
+          .property("timestamp", &codec_chrono_actor::timestamp)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<codec_chrono_actor>().commit()));
 
@@ -60,7 +60,7 @@ TEST_CASE("serialization - built in codecs roundtrip filesystem paths as strings
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<codec_path_actor>("caors.test.serialization.codec_path_actor"),
        caors::meta::class_<codec_path_actor>())
-          .field("path", &codec_path_actor::path)
+          .property("path", &codec_path_actor::path)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<codec_path_actor>().commit()));
 
@@ -115,7 +115,7 @@ TEST_CASE("serialization - built in codecs survive late meta type registration",
   REQUIRE(reflection_result_ok(((void)caors::meta::class_<late_builtin_codec_actor>(
                                     "caors.test.serialization.late_builtin_codec_actor"),
                                 caors::meta::class_<late_builtin_codec_actor>())
-                                   .field("timeout", &late_builtin_codec_actor::timeout)
+                                   .property("timeout", &late_builtin_codec_actor::timeout)
                                    .commit()));
   REQUIRE(
       serialization_result_ok(caors::serialization::class_<late_builtin_codec_actor>().commit()));

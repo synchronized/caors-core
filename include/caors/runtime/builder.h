@@ -68,18 +68,20 @@ public:
     return *this;
   }
 
-  template <typename Field> class_builder& field(std::string_view name, Field Class::* member) {
+  template <typename Property>
+  class_builder& property(std::string_view name, Property Class::* member) {
     if (!failed()) {
-      meta_builder_.field(name, member);
+      meta_builder_.property(name, member);
       update_meta_status();
     }
     return *this;
   }
 
-  template <typename Field>
-  class_builder& field(std::string_view name, Field Class::* member, std::string_view type_name) {
+  template <typename Property>
+  class_builder& property(std::string_view name, Property Class::* member,
+                          std::string_view type_name) {
     if (!failed()) {
-      meta_builder_.field(name, member, type_name);
+      meta_builder_.property(name, member, type_name);
       update_meta_status();
     }
     return *this;

@@ -27,14 +27,13 @@ serialized_field_name(const serialization::field_schema& data) noexcept;
                                            const serialization::context& context);
 [[nodiscard]] error read_serialized_value(reader& reader, const any_ref& target,
                                           const serialization::context& context);
-[[nodiscard]] error write_field(writer& writer, const meta::field& field, const void* object,
+[[nodiscard]] error write_field(writer& writer, const meta::property& field, const void* object,
                                 const serialization::field_schema& field_schema,
                                 const serialization::context& context);
-[[nodiscard]] error read_field(reader& reader, const meta::field& field, void* object,
+[[nodiscard]] error read_field(reader& reader, const meta::property& field, void* object,
                                const serialization::field_schema& field_schema,
                                const serialization::context& context);
-[[nodiscard]] error read_configured_field(reader& reader, const meta::field& field,
-                                          void* object,
+[[nodiscard]] error read_configured_field(reader& reader, const meta::property& field, void* object,
                                           const serialization::field_schema& field_schema,
                                           const serialization::context& context);
 

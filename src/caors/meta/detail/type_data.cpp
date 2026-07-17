@@ -6,8 +6,8 @@
 namespace caors::meta::detail {
 
 bool type_data::members_valid() const noexcept {
-  for (const field_data& field : fields_) {
-    if (!field.valid()) {
+  for (const property_data& property : properties_) {
+    if (!property.valid()) {
       return false;
     }
   }
@@ -27,63 +27,63 @@ bool type_data::members_valid() const noexcept {
   return true;
 }
 
-std::size_t type_data::field_count() const noexcept { return fields_.size(); }
+std::size_t type_data::property_count() const noexcept { return properties_.size(); }
 
-const field_data* type_data::field_at(std::size_t index) const noexcept {
-  return index < fields_.size() ? &fields_[index] : nullptr;
+const property_data* type_data::property_at(std::size_t index) const noexcept {
+  return index < properties_.size() ? &properties_[index] : nullptr;
 }
 
-field_data* type_data::mutable_field_at(std::size_t index) noexcept {
-  return index < fields_.size() ? &fields_[index] : nullptr;
+property_data* type_data::mutable_property_at(std::size_t index) noexcept {
+  return index < properties_.size() ? &properties_[index] : nullptr;
 }
 
-const field_data* type_data::find_field_ptr(core::string_name name) const noexcept {
+const property_data* type_data::find_property_ptr(core::string_name name) const noexcept {
   if (!name) {
     return nullptr;
   }
 
-  for (const field_data& field : fields_) {
-    if (field.name() == name) {
-      return &field;
+  for (const property_data& property : properties_) {
+    if (property.name() == name) {
+      return &property;
     }
   }
 
   return nullptr;
 }
 
-field_data* type_data::mutable_find_field_ptr(core::string_name name) noexcept {
+property_data* type_data::mutable_find_property_ptr(core::string_name name) noexcept {
   if (!name) {
     return nullptr;
   }
 
-  for (field_data& field : fields_) {
-    if (field.name() == name) {
-      return &field;
+  for (property_data& property : properties_) {
+    if (property.name() == name) {
+      return &property;
     }
   }
 
   return nullptr;
 }
 
-std::optional<field_data> type_data::find_field(core::string_name name) const {
-  const field_data* field = find_field_ptr(name);
-  if (field != nullptr) {
-    return *field;
+std::optional<property_data> type_data::find_property(core::string_name name) const {
+  const property_data* property = find_property_ptr(name);
+  if (property != nullptr) {
+    return *property;
   }
 
   return std::nullopt;
 }
 
-std::optional<field_data> type_data::find_field(std::string_view name) const {
+std::optional<property_data> type_data::find_property(std::string_view name) const {
   const std::optional<core::string_name> interned_name = core::string_name::find(name);
   if (!interned_name.has_value()) {
     return std::nullopt;
   }
 
-  return find_field(*interned_name);
+  return find_property(*interned_name);
 }
 
-void type_data::add_field(field_data field) { fields_.push_back(field); }
+void type_data::add_property(property_data property) { properties_.push_back(property); }
 
 std::size_t type_data::method_count() const noexcept { return methods_.size(); }
 

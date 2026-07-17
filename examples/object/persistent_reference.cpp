@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "caors/object.h"
 #include "caors/meta.h"
+#include "caors/object.h"
 #include "caors/serialization.h"
 
 #include <iostream>
@@ -39,7 +39,7 @@ int main() {
 
   if (((void)caors::meta::class_<party_slot>("example.party_slot"),
        caors::meta::class_<party_slot>())
-          .field("leader", &party_slot::leader)
+          .property("leader", &party_slot::leader)
           .commit()) {
     return 1;
   }

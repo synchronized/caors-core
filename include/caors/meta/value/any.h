@@ -189,7 +189,7 @@ void swap(owned_value& lhs, owned_value& rhs) noexcept;
  * @brief 运行期 C++ 类型值。
  *
  * `any` 持有一份对象拷贝，并保存对应的运行期类型信息。它不引用原对象，因此可以安全地
- * 脱离字段所属对象生命周期使用。第一版只支持可拷贝类型；不可拷贝对象会产生无效 `any`。
+ * 脱离属性所属对象生命周期使用。第一版只支持可拷贝类型；不可拷贝对象会产生无效 `any`。
  */
 class any final {
 public:

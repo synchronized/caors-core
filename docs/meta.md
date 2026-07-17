@@ -15,14 +15,14 @@
 - 用 `string_name` 保存运行期去重后的类型名。
 - 用 `type_id` 表示由 C++ 类型运行期 key 派生的进程内类型句柄。
 - 用 `type_guid` 保存可选的稳定类型标识。
-- 用注册表内部 meta 类型记录保存类型名、稳定 GUID、父类型、字段和成员方法。
+- 用注册表内部 meta 类型记录保存类型名、稳定 GUID、父类型、属性和成员方法。
 - 用内部 type descriptor 保存 C++ 类型布局、默认构造、复制、析构、赋值和运行期视图能力。
 - 用内部 type descriptor 保存类型形态、通用类型关系和具体访问函数表。
 - 用可选 factory capability 保存资源感知构造策略，供普通类多态反序列化等需要运行期创建值的路径使用。
 - 用 `meta::type` 作为对外只读类型视图，避免直接暴露注册表内部数据。
 - 用全局 `meta::registry` 集中处理 meta 类型注册、查找和继承关系判断。
 - 用全局 `meta::registry` 在同一个 `type_id` 上集中保存类型数据，并按需挂载不同主题的扩展数据。
-- 避免对象系统、反射系统和序列化系统各自重复实现类型注册和字段/方法索引逻辑。
+- 避免对象系统、反射系统和序列化系统各自重复实现类型注册和属性/方法索引逻辑。
 
 当前不会包含：
 
@@ -32,7 +32,7 @@
 - 对象生命周期管理器。
 - 序列化格式。
 
-字段和成员方法现在直接保存在 `meta` 类型记录上；不再保留独立 `reflection` 模块。
+属性和成员方法现在直接保存在 `meta` 类型记录上；不再保留独立 `reflection` 模块。
 对象、资源和序列化等领域能力仍由对应模块基于 `meta` 扩展。
 
 新代码可以直接包含 `caors/meta.h` 使用完整类型元数据 API；如果只需要局部能力，也可以包含对应子头文件：
@@ -45,8 +45,8 @@
 - `caors/meta/type.h`：`meta::type` 只读类型视图和类型语义枚举。
 - `caors/meta/query.h`：`meta::resolve<T>()`、`meta::find<T>()`、`meta::id_of<T>()` 等查询入口。
 - `caors/meta/builder.h`：`meta::class_<T>()`、`meta::enum_<T>()` 等链式注册入口。
-- `caors/meta/field.h`、`caors/meta/method.h`：字段和成员方法只读视图。
-- `caors/meta/class_registration.h`：`meta::class_<T>()` 上的字段/方法注册扩展。
+- `caors/meta/property.h`、`caors/meta/method.h`：属性和成员方法只读视图。
+- `caors/meta/class_registration.h`：`meta::class_<T>()` 上的属性/方法注册扩展。
 - `caors/meta/capability_traits.h`：capability key、traits 和类型/实例能力查询扩展点。
 - `caors/meta/static_capability.h`：按 C++ 类型聚合静态能力的模块化扩展点。
 - `caors/meta/capability_facade.h`：类型级 capability facade 基类，以及 factory/constructor facade。
@@ -132,7 +132,7 @@ meta 类型记录由全局注册表内部保存，普通代码不直接构造或
 `meta::find<T>()` 只查询已经注册的 C++ 类型；未注册类型即使能解析 descriptor，也会返回空视图。
 `meta::class_<T>()` 链式 builder 会原地更新全局注册表中已经保存的类型数据；已有 `meta::type`
 视图只引用这份稳定数据，不会因为后续 `.guid()` 或 `.parent()` 调用而失效。
-字段和成员方法也挂在同一份类型数据上，已有 `meta::type` 视图可以在后续字段/方法注册后直接查询到新内容。
+属性和成员方法也挂在同一份类型数据上，已有 `meta::type` 视图可以在后续属性/方法注册后直接查询到新内容。
 
 `meta::type` 是对外查询返回的只读视图：
 
@@ -145,7 +145,7 @@ if (type) {
 }
 ```
 
-字段和成员方法可以直接通过 `meta::type` 查询：
+属性和成员方法可以直接通过 `meta::type` 查询：
 
 ```cpp
 struct actor {
@@ -154,11 +154,11 @@ struct actor {
 };
 
 caors::meta::class_<actor>("game.actor")
-    .field("health", &actor::health)
+    .property("health", &actor::health)
     .method("add_health", &actor::add_health);
 
 caors::meta::type type = caors::meta::find<actor>();
-caors::meta::field health = type.find_field("health");
+caors::meta::property health = type.find_property("health");
 caors::meta::method add_health = type.find_method("add_health");
 ```
 
@@ -183,7 +183,7 @@ caors::traits::type_name<float>::value; // "float"
 ```
 
 用户类型可以通过特化 `traits::type_name<T>` 提供 descriptor 默认显示名，也可以直接通过
-`meta::class_<T>("name")` 显式注册。默认显示名只用于字段、`any` 和容器视图的调试/展示回退，
+`meta::class_<T>("name")` 显式注册。默认显示名只用于属性、`any` 和容器视图的调试/展示回退，
 不等价于 meta 注册；模板注册入口会把 C++ 类型和注册后的 `meta::type` 绑定起来，后续可以用
 C++ 类型查询：
 
@@ -287,7 +287,7 @@ caors::meta::class_<actor>("game.actor")
 - 内部 descriptor 是编译期 C++ 类型描述。它描述某个 `T` 的 `type_id`、默认显示名、布局、构造 /
   析构 / 复制 / 赋值、类型语义，以及 CAORS 内置运行期访问能力。它不表示类型已经完成业务注册。
 - `meta::registry` 是注册后元数据和模块数据索引。只有显式 `meta::class_<T>("name")` 注册后的类型，
-  才拥有稳定名称、GUID、父类型关系、字段、方法、对象组件和序列化组件等全局可查询数据。
+  才拥有稳定名称、GUID、父类型关系、属性、方法、对象组件和序列化组件等全局可查询数据。
 - descriptor static capability 用于类型固有能力。能力由模块在编译期按 `T` 生成，例如
   `objects::ptr<T>` 访问函数、对象 handle 函数表和 `codec_traits<T>` 生成的 codec 函数表。
   它们随 descriptor 一起查询，不要求类型先注册到 registry。
@@ -304,7 +304,7 @@ runtime capability。普通调用方应使用这个统一入口，不直接关�
 
 设计约束：
 
-- descriptor 只保存 C++ 类型事实和可由 `T` 推导的能力，不保存反射字段、序列化字段配置或对象注册数据。
+- descriptor 只保存 C++ 类型事实和可由 `T` 推导的能力，不保存反射属性、序列化属性配置或对象注册数据。
 - registry 保存注册后事实和模块组件，不复制 descriptor 的布局、子类型和内置 ops 数据。
 - static capability 不应承担用户插件协议；它适合编译期可见、进程内静态生命周期的模块能力。
 - runtime capability 不是 meta 组件，也不替代业务类型注册；需要稳定名称、GUID 或跨模块组件查询时仍要注册
@@ -315,7 +315,7 @@ runtime capability。普通调用方应使用这个统一入口，不直接关�
 内部 descriptor 是 C++ 类型的内部能力描述。注册表按 `type_id`
 保存指向静态 descriptor 的指针，不把 descriptor 当作普通 generic component 复制存储。descriptor
 由布局、值操作、类型语义、内置 ops 和静态能力表几部分组成；未注册结构类型也可以通过 `any`、
-`any_ref` 或反射字段携带的静态 descriptor 访问同一套能力。
+`any_ref` 或反射属性携带的静态 descriptor 访问同一套能力。
 descriptor 位于 `meta::detail`，不属于公开 API；普通用户应通过 `meta::type`、`meta::resolve<T>()`
 和 `meta::type::get_capability<T>()` 查询公开能力；需要实现自定义 facade、序列化桥接、编辑器适配或
 性能敏感路径时，可以使用高级扩展入口 `get_raw_ops<T>()` 查询 raw ops 函数表。
@@ -332,7 +332,7 @@ descriptor 内部按职责拆分：
   serialization codec 函数表。
 
 文件边界上，`meta/detail/type_descriptor.h` 保存内部 descriptor 结构和查询 helper；
-`meta/detail/type_data.h` 保存注册后的内部类型记录、字段和方法集合；
+`meta/detail/type_data.h` 保存注册后的内部类型记录、属性和方法集合；
 `meta/detail/type_descriptor_name.h` 负责 descriptor 默认显示名生成；
 `meta/detail/type_descriptor_model.h` 负责 descriptor holder、语义填充和构建实现；
 `meta/detail/builtin_ops_model.h` 作为内置 ops 聚合入口，只负责引入
@@ -422,7 +422,7 @@ capability 和 registry 的边界：
 - 普通调用方优先使用 `meta::type::get_capability<T>()`。该入口统一处理 descriptor 静态能力和运行期
   索引 fallback，避免业务代码分别理解两套存储位置。
 - capability 不是 meta 组件。它不拥有类型注册数据，也不表示该 C++ 类型已经注册到
-  `meta::registry`。需要稳定名称、GUID、父类型、反射字段、序列化字段配置或对象工厂时，仍应显式注册
+  `meta::registry`。需要稳定名称、GUID、父类型、反射属性、序列化属性配置或对象工厂时，仍应显式注册
   meta 类型和对应模块组件。
 - 当前 `capability_key` 是进程内模板静态地址，只适合当前进程内查询，不承诺跨动态库 ABI、跨进程或
   存档稳定。需要插件协议、脚本模块或工具链发现能力时，应特化 `capability_traits<T>` 提供稳定
@@ -431,23 +431,23 @@ capability 和 registry 的边界：
   `module_static_capability_list<Module, T>` 贡献能力，再通过 `extension_static_capability_modules<T>`
   把 module tag 加入指定 C++ 类型的静态能力聚合列表。
 
-统一 `value_type` / `key_type` 不再作为 descriptor 顶层字段保存。普通值和枚举直接使用
+统一 `value_type` / `key_type` 不再作为 descriptor 顶层属性保存。普通值和枚举直接使用
 descriptor 自身的 `type_id`；裸指针、wrapper、容器、pair、tuple 和 variant 的子类型信息由对应
 访问函数表保存，并通过 `field`、`sequence_view`、`pair_view` 等公开视图查询。
 
 类型形态和通用类型关系只从 descriptor 查询，不再把语义数据、枚举 ops、容器 ops 或间接访问 ops 作为
-独立 meta 组件挂载到注册表。反射字段会保存声明类型的 `type_id` 和 descriptor，因此
+独立 meta 组件挂载到注册表。反射属性会保存声明类型的 `type_id` 和 descriptor，因此
 `std::vector<T>`、`std::optional<T>`、`std::tuple<...>` 这类结构类型不要求
-自身注册为 meta 类型。未注册类型不会拥有 GUID、反射字段、对象工厂或序列化组件；如果 descriptor
+自身注册为 meta 类型。未注册类型不会拥有 GUID、反射属性、对象工厂或序列化组件；如果 descriptor
 能通过 traits 推导默认显示名，`type_name()` 仍可返回该名称。无默认显示名的未注册业务类型名称为空，
-但仍可通过字段、`any` / `any_ref` 或嵌套容器元素携带的 descriptor 使用布局、值操作和运行期视图能力。
+但仍可通过属性、`any` / `any_ref` 或嵌套容器元素携带的 descriptor 使用布局、值操作和运行期视图能力。
 
 meta 不会因为存在 `traits::type_name<T>` 就在运行期隐式创建业务类型。需要稳定名称、GUID、对象工厂、
-反射字段列表或多态序列化身份的 C++ 类型仍应通过 `meta::class_<T>("name")` 显式注册。
+反射属性列表或多态序列化身份的 C++ 类型仍应通过 `meta::class_<T>("name")` 显式注册。
 
 ### meta::registry
 
-`meta::registry` 是进程级全局类型元数据注册表。它直接管理 meta 类型记录，并在同一个 `type_id` 下保存字段、方法、对象、序列化等元数据。普通代码不需要创建 registry 对象：
+`meta::registry` 是进程级全局类型元数据注册表。它直接管理 meta 类型记录，并在同一个 `type_id` 下保存属性、方法、对象、序列化等元数据。普通代码不需要创建 registry 对象：
 
 ```cpp
 caors::error result = caors::meta::class_<actor>("game.actor").result();
@@ -456,12 +456,12 @@ caors::error result = caors::meta::class_<actor>("game.actor").result();
 注册表只面向 C++ 类型。脚本或动态类型不应直接写入当前注册表，后续应放到独立系统，再由上层 resolver
 统一查询。注册表是 append-only：meta 类型注册后不可清理或撤销，重复注册相同类型会返回重复结果。
 当前对象、序列化等扩展数据同样按 append-only 方式挂载：同一类型的同类扩展注册后不可替换。
-字段和方法数据也按“注册后不替换”处理，外部视图只在该约束下承诺进程生命周期内稳定。
+属性和方法数据也按“注册后不替换”处理，外部视图只在该约束下承诺进程生命周期内稳定。
 
 registry 使用边界：
 
 - 用 registry：需要全局稳定查询、按名称或 GUID 查找、跨模块组件查询、父类型关系、对象工厂、
-  反射字段列表、序列化字段配置或多态构造。
+  反射属性列表、序列化属性配置或多态构造。
 - 不用 registry：只需要当前 C++ 类型的布局、构造/析构、容器视图、wrapper 视图、枚举转换、
   descriptor 静态 capability 或 `any` / `any_ref` 的局部值访问。
 - 模块注册入口应接收已经存在的 `meta::type`，或者由调用方先显式 `meta::class_<T>("name")` 注册业务
@@ -479,7 +479,7 @@ registry 使用边界：
 ```cpp
 void register_game_types() {
   caors::meta::class_<actor>("game.actor")
-      .field("id", &actor::id);
+      .property("id", &actor::id);
 }
 
 int main() {
@@ -494,7 +494,7 @@ int main() {
 ```cpp
 CAORS_META_REGISTRATION(register_actor_meta) {
   caors::meta::class_<actor>("game.actor")
-      .field("id", &actor::id);
+      .property("id", &actor::id);
 
   return caors::error{};
 }
@@ -537,9 +537,9 @@ caors::type_id actor_id = caors::meta::find<actor>().id();
 caors::meta::get_registry().emplace_component<object_factory_meta>(actor_id, true);
 ```
 
-### 字段 schema
+### 属性 schema
 
-`meta::field_schema` 是字段自带的通用约束，直接保存在字段数据中。它适合表达配置、编辑器和工具层都能
+`meta::property_schema` 是属性自带的通用约束，直接保存在属性数据中。它适合表达配置、编辑器和工具层都能
 理解的稳定语义，不用于描述具体序列化格式：
 
 ```cpp
@@ -549,35 +549,35 @@ struct texture_config {
 };
 
 caors::meta::class_<texture_config>("game.texture_config")
-    .field("format", &texture_config::format)
+    .property("format", &texture_config::format)
     (caors::meta::registration::required(),
      caors::meta::registration::non_empty(),
      caors::meta::registration::one_of({"json", "binary"}))
-    .field("priority", &texture_config::priority)
+    .property("priority", &texture_config::priority)
     (caors::meta::registration::range(1, 100))
     .commit();
 
-caors::meta::field format =
-    caors::meta::find<texture_config>().find_field("format");
-const caors::meta::field_schema& schema = format.schema();
+caors::meta::property format =
+    caors::meta::find<texture_config>().find_property("format");
+const caors::meta::property_schema& schema = format.schema();
 ```
 
-当前内置字段 schema 包括：
+当前内置属性 schema 包括：
 
-字段 schema 的注册 token 位于 `meta::registration` 命名空间：
+属性 schema 的注册 token 位于 `meta::registration` 命名空间：
 
-- `registration::required()`：字段必须有有效值。
-- `registration::non_empty()`：字段不能为空，主要用于字符串、`string_name` 等文本字段。
+- `registration::required()`：属性必须有有效值。
+- `registration::non_empty()`：属性不能为空，主要用于字符串、`string_name` 等文本属性。
 - `registration::range_min(value)` / `registration::range_max(value)` /
-  `registration::range(min, max)`：字段数值范围。
-- `registration::one_of({...})`：字段允许值集合。
+  `registration::range(min, max)`：属性数值范围。
+- `registration::one_of({...})`：属性允许值集合。
 
-字段 schema 只放常见、跨模块可理解的约束。序列化字段名、字段 id、版本迁移、跳过字段等格式或持久化
+属性 schema 只放常见、跨模块可理解的约束。序列化属性名、属性 id、版本迁移、跳过属性等格式或持久化
 策略应由 serialization 模块自己的 options 处理；不通用的工具扩展继续使用 metadata。
 
 ### metadata
 
-`meta::metadata_map` 是轻量键值附加信息，值使用 `meta::variant` 保存，适合给类型、字段或方法补充工具层、
+`meta::metadata_map` 是轻量键值附加信息，值使用 `meta::variant` 保存，适合给类型、属性或方法补充工具层、
 配置层和编辑器提示信息。类型级 metadata 直接保存在 meta 类型记录上：
 
 ```cpp
@@ -593,18 +593,18 @@ const caors::meta::metadata_value* category =
 metadata 推荐使用 RTTR 风格的绑定语法。`meta::registration::metadata(key, value)` 创建一条写入项：
 
 - 紧跟在 `class_<T>(...)` 后面的 `(...)` 写入类型 metadata。
-- 紧跟在 `.field(...)` 后面的 `(...)` 写入字段 metadata。
+- 紧跟在 `.property(...)` 后面的 `(...)` 写入属性 metadata。
 - 紧跟在 `.method(...)` 后面的 `(...)` 写入方法 metadata。
 - 紧跟在 `meta::enum_<T>().value(...)` 后面的 `(...)` 写入枚举项 metadata。
 
-`.field(...)` 和 `.method(...)` 返回临时 bind 对象；bind 对象会把后续
-`.field()`、`.method()`、`.metadata()`、`.commit()` 等链式调用继续转发给原始 class builder，
+`.property(...)` 和 `.method(...)` 返回临时 bind 对象；bind 对象会把后续
+`.property()`、`.method()`、`.metadata()`、`.commit()` 等链式调用继续转发给原始 class builder，
 所以没有 metadata 的普通链式写法不需要额外处理：
 
 ```cpp
 caors::meta::class_<actor>("game.actor")
     (caors::meta::registration::metadata("category", "gameplay"))
-    .field("health", &actor::health)
+    .property("health", &actor::health)
     (caors::meta::registration::metadata("display", "Health"),
      caors::meta::registration::metadata("range_min", 0),
      caors::meta::registration::metadata("range_max", 100))
@@ -641,7 +641,7 @@ caors::meta::enum_value_view hidden = values.find_value("hidden");
 `get_capability<Capability>()`。
 
 metadata 不参与类型身份，不替代 `type_name` / `type_guid` / capability。需要决定运行期行为时，优先使用
-明确的 capability、反射字段、字段 schema、序列化 options 或资源配置对象；metadata 只承载可选标签和
+明确的 capability、反射属性、属性 schema、序列化 options 或资源配置对象；metadata 只承载可选标签和
 非标准工具提示。
 
 ## 高级扩展
@@ -902,12 +902,12 @@ descriptor，不再为了创建 view 把每一种容器组合额外挂载为 met
 
 - `objects::registry` 复用全局 meta 类型记录，再给同一个 `type_id` 挂载
   `objects::object_factory_capability`，并对外返回 `objects::type` 视图。
-- 字段和方法直接保存在 meta 类型记录关联的数据中，并通过 `meta::type` / `meta::field` / `meta::method` 对外查询；
-  `meta::type` / `meta::field` 是兼容视图。
+- 属性和方法直接保存在 meta 类型记录关联的数据中，并通过 `meta::type` / `meta::property` / `meta::method` 对外查询；
+  `meta::type` / `meta::property` 是兼容视图。
 - 后续 `serialization::registry` 可以挂载序列化相关组件。
 
 这样对象、反射和序列化的全局注册入口不需要重复处理重名、重复 GUID、不一致类型描述和父类型缺失。
-跨模块查询可以通过 `meta::registry::component_view<T...>()` 完成。字段和方法应通过 `meta::type`
+跨模块查询可以通过 `meta::registry::component_view<T...>()` 完成。属性和方法应通过 `meta::type`
 返回稳定只读视图；序列化等公开组件仍可通过
 `meta::get_registry().component_view<serialization::type_schema>()` 查询。
 

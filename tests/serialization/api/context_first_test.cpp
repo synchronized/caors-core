@@ -42,7 +42,7 @@ void require_context_codec_metadata() {
   REQUIRE(reflection_result_ok(((void)caors::meta::class_<context_codec_actor>(
                                     "caors.test.serialization.api.context_codec_actor"),
                                 caors::meta::class_<context_codec_actor>())
-                                   .field("value", &context_codec_actor::value)
+                                   .property("value", &context_codec_actor::value)
                                    .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<context_codec_actor>().commit()));
 }
@@ -51,7 +51,7 @@ void require_context_resource_metadata() {
   REQUIRE(reflection_result_ok(((void)caors::meta::class_<context_api_resource>(
                                     "caors.test.serialization.api.context_api_resource"),
                                 caors::meta::class_<context_api_resource>())
-                                   .field("value", &context_api_resource::value)
+                                   .property("value", &context_api_resource::value)
                                    .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<context_api_resource>().commit()));
 }

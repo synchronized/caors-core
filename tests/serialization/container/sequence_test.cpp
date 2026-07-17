@@ -11,7 +11,7 @@ TEST_CASE("serialization - deserializes list fields from arrays", "[serializatio
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<list_actor>("caors.test.serialization.list_actor"),
        caors::meta::class_<list_actor>())
-          .field("scores", &list_actor::scores)
+          .property("scores", &list_actor::scores)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<list_actor>().commit()));
 
@@ -48,7 +48,7 @@ TEST_CASE("serialization - generic sequence traits work without type registratio
   REQUIRE(reflection_result_ok(((void)caors::meta::class_<custom_sequence_actor>(
                                     "caors.test.serialization.custom_sequence_actor"),
                                 caors::meta::class_<custom_sequence_actor>())
-                                   .field("scores", &custom_sequence_actor::scores)
+                                   .property("scores", &custom_sequence_actor::scores)
                                    .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<custom_sequence_actor>().commit()));
 
@@ -92,7 +92,7 @@ TEST_CASE("serialization - rejects std array length mismatch", "[serialization]"
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<array_actor>("caors.test.serialization.array_actor"),
        caors::meta::class_<array_actor>())
-          .field("scores", &array_actor::scores)
+          .property("scores", &array_actor::scores)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<array_actor>().commit()));
 
@@ -115,7 +115,7 @@ TEST_CASE("serialization - rejects std span deserialization by default", "[seria
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<span_actor>("caors.test.serialization.span_actor"),
        caors::meta::class_<span_actor>())
-          .field("scores", &span_actor::scores)
+          .property("scores", &span_actor::scores)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<span_actor>().commit()));
 
@@ -141,7 +141,7 @@ TEST_CASE("serialization - rejects std span length mismatch without writing stor
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<span_actor>("caors.test.serialization.span_actor"),
        caors::meta::class_<span_actor>())
-          .field("scores", &span_actor::scores)
+          .property("scores", &span_actor::scores)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<span_actor>().commit()));
 
@@ -165,7 +165,7 @@ TEST_CASE("serialization - roundtrips std array fields", "[serialization]") {
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<array_actor>("caors.test.serialization.array_actor"),
        caors::meta::class_<array_actor>())
-          .field("scores", &array_actor::scores)
+          .property("scores", &array_actor::scores)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<array_actor>().commit()));
 
@@ -193,7 +193,7 @@ TEST_CASE("serialization - roundtrips std deque fields", "[serialization]") {
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<deque_actor>("caors.test.serialization.deque_actor"),
        caors::meta::class_<deque_actor>())
-          .field("scores", &deque_actor::scores)
+          .property("scores", &deque_actor::scores)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<deque_actor>().commit()));
 
@@ -226,7 +226,7 @@ TEST_CASE("serialization - roundtrips std forward list fields", "[serialization]
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<forward_list_actor>("caors.test.serialization.forward_list_actor"),
        caors::meta::class_<forward_list_actor>())
-          .field("scores", &forward_list_actor::scores)
+          .property("scores", &forward_list_actor::scores)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<forward_list_actor>().commit()));
 
@@ -262,7 +262,7 @@ TEST_CASE("serialization - serializes list fields as arrays", "[serialization]")
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<list_actor>("caors.test.serialization.list_actor"),
        caors::meta::class_<list_actor>())
-          .field("scores", &list_actor::scores)
+          .property("scores", &list_actor::scores)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<list_actor>().commit()));
 
@@ -295,7 +295,7 @@ TEST_CASE("serialization - serializes std span fields as borrowed views", "[seri
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<span_actor>("caors.test.serialization.span_actor"),
        caors::meta::class_<span_actor>())
-          .field("scores", &span_actor::scores)
+          .property("scores", &span_actor::scores)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<span_actor>().commit()));
 

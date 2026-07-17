@@ -33,7 +33,7 @@ void require_weak_object_ref_target_metadata() {
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<weak_object_ref_target>(weak_object_ref_target::object_type_name),
        caors::meta::class_<weak_object_ref_target>())
-          .field("value", &weak_object_ref_target::value)
+          .property("value", &weak_object_ref_target::value)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<weak_object_ref_target>().commit()));
 }
@@ -44,7 +44,7 @@ void require_object_weak_ref_actor_metadata() {
   REQUIRE(reflection_result_ok(((void)caors::meta::class_<object_weak_ref_actor>(
                                     "caors.test.serialization.object_weak_ref_actor"),
                                 caors::meta::class_<object_weak_ref_actor>())
-                                   .field("observer", &object_weak_ref_actor::observer)
+                                   .property("observer", &object_weak_ref_actor::observer)
                                    .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<object_weak_ref_actor>().commit()));
 }

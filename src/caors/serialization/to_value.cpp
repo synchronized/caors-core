@@ -3,8 +3,8 @@
 
 #include "caors/serialization/operations.h"
 
-#include "caors/meta/value/indirect_view.h"
 #include "caors/meta.h"
+#include "caors/meta/value/indirect_view.h"
 
 #include "detail/helpers.h"
 #include "detail/internal.h"
@@ -14,7 +14,7 @@
 namespace caors::serialization {
 namespace {
 
-[[nodiscard]] bool field_uses_inline_indirect_value(const meta::field& field) noexcept {
+[[nodiscard]] bool field_uses_inline_indirect_value(const meta::property& field) noexcept {
   return (field.kind() == meta::type_kind::raw_pointer ||
           field.kind() == meta::type_kind::wrapper) &&
          field.wrapper_semantics() == meta::wrapper_semantics::inline_value;
@@ -25,7 +25,7 @@ value_ref_to_serialization_value(const any_ref& value, const serialization::cont
   return serialization::detail::make_serialized_value(value, context);
 }
 
-[[nodiscard]] variant_result field_to_serialization_value(const meta::field& field,
+[[nodiscard]] variant_result field_to_serialization_value(const meta::property& field,
                                                           const void* object,
                                                           const serialization::context& context) {
   result<serialization::context> nested_context = context.enter_nested_value();
@@ -65,8 +65,8 @@ variant_result to_variant(const any_ref& data) {
 
 namespace detail {
 
-variant_result to_serialization_value(const serialization::context& context,
-                                      const meta::type& type, const void* object) {
+variant_result to_serialization_value(const serialization::context& context, const meta::type& type,
+                                      const void* object) {
   if (!type.valid()) {
     return {{error_domain::serialization, errc::invalid_type}, {}};
   }
@@ -95,7 +95,7 @@ variant_result to_serialization_value(const serialization::context& context,
         continue;
       }
 
-      const meta::field field = type.find_field(field_schema.field_name);
+      const meta::property field = type.find_property(field_schema.field_name);
       if (!field) {
         return {{error_domain::serialization, errc::not_found}, {}};
       }
@@ -112,9 +112,9 @@ variant_result to_serialization_value(const serialization::context& context,
       });
     }
   } else {
-    members.reserve(type.field_count());
-    for (std::size_t index = 0; index < type.field_count(); ++index) {
-      const meta::field field = type.field_at(index);
+    members.reserve(type.property_count());
+    for (std::size_t index = 0; index < type.property_count(); ++index) {
+      const meta::property field = type.property_at(index);
       if (!field) {
         return {{error_domain::serialization, errc::invalid_field}, {}};
       }

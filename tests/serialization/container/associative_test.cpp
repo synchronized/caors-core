@@ -11,7 +11,7 @@ TEST_CASE("serialization - deserializes hash map fields from dictionaries", "[se
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<map_actor>("caors.test.serialization.map_actor"),
        caors::meta::class_<map_actor>())
-          .field("labels", &map_actor::labels)
+          .property("labels", &map_actor::labels)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<map_actor>().commit()));
 
@@ -51,7 +51,7 @@ TEST_CASE("serialization - deserializes hash map fields from pair arrays", "[ser
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<map_actor>("caors.test.serialization.map_actor"),
        caors::meta::class_<map_actor>())
-          .field("labels", &map_actor::labels)
+          .property("labels", &map_actor::labels)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<map_actor>().commit()));
 
@@ -77,7 +77,7 @@ TEST_CASE("serialization - deserializes hash set fields from arrays", "[serializ
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<set_actor>("caors.test.serialization.set_actor"),
        caors::meta::class_<set_actor>())
-          .field("ids", &set_actor::ids)
+          .property("ids", &set_actor::ids)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<set_actor>().commit()));
 
@@ -112,7 +112,7 @@ TEST_CASE("serialization - generic associative traits work without type registra
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<custom_map_actor>("caors.test.serialization.custom_map_actor"),
        caors::meta::class_<custom_map_actor>())
-          .field("labels", &custom_map_actor::labels)
+          .property("labels", &custom_map_actor::labels)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<custom_map_actor>().commit()));
 
@@ -156,7 +156,7 @@ TEST_CASE("serialization - hash set reader rejects duplicate elements", "[serial
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<set_actor>("caors.test.serialization.set_actor"),
        caors::meta::class_<set_actor>())
-          .field("ids", &set_actor::ids)
+          .property("ids", &set_actor::ids)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<set_actor>().commit()));
 
@@ -189,7 +189,7 @@ TEST_CASE("serialization - roundtrips std map fields", "[serialization]") {
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<ordered_map_actor>("caors.test.serialization.ordered_map_actor"),
        caors::meta::class_<ordered_map_actor>())
-          .field("labels", &ordered_map_actor::labels)
+          .property("labels", &ordered_map_actor::labels)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<ordered_map_actor>().commit()));
 
@@ -221,7 +221,7 @@ TEST_CASE("serialization - roundtrips std set fields", "[serialization]") {
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<ordered_set_actor>("caors.test.serialization.ordered_set_actor"),
        caors::meta::class_<ordered_set_actor>())
-          .field("ids", &ordered_set_actor::ids)
+          .property("ids", &ordered_set_actor::ids)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<ordered_set_actor>().commit()));
 
@@ -253,7 +253,7 @@ TEST_CASE("serialization - serializes hash map fields as dictionaries", "[serial
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<map_actor>("caors.test.serialization.map_actor"),
        caors::meta::class_<map_actor>())
-          .field("labels", &map_actor::labels)
+          .property("labels", &map_actor::labels)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<map_actor>().commit()));
 
@@ -285,7 +285,7 @@ TEST_CASE("serialization - serializes hash set fields as arrays", "[serializatio
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<set_actor>("caors.test.serialization.set_actor"),
        caors::meta::class_<set_actor>())
-          .field("ids", &set_actor::ids)
+          .property("ids", &set_actor::ids)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<set_actor>().commit()));
 

@@ -9,8 +9,8 @@
 
 namespace caors::serialization::detail {
 
-error serialize(const serialization::context& context, const meta::type& type,
-                const void* object, writer& writer) {
+error serialize(const serialization::context& context, const meta::type& type, const void* object,
+                writer& writer) {
   if (!type.valid()) {
     return {error_domain::serialization, errc::invalid_type};
   }
@@ -41,7 +41,7 @@ error serialize(const serialization::context& context, const meta::type& type,
         continue;
       }
 
-      const meta::field field = type.find_field(field_schema.field_name);
+      const meta::property field = type.find_property(field_schema.field_name);
       if (!field) {
         return {error_domain::serialization, errc::not_found};
       }
@@ -58,8 +58,8 @@ error serialize(const serialization::context& context, const meta::type& type,
       }
     }
   } else {
-    for (std::size_t index = 0; index < type.field_count(); ++index) {
-      const meta::field field = type.field_at(index);
+    for (std::size_t index = 0; index < type.property_count(); ++index) {
+      const meta::property field = type.property_at(index);
       if (!field) {
         return {error_domain::serialization, errc::invalid_field};
       }

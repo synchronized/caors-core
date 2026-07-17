@@ -6,8 +6,8 @@
 
 #include "caors/error.h"
 #include "caors/export.h"
-#include "caors/meta/field_schema.h"
 #include "caors/meta/metadata.h"
+#include "caors/meta/property_schema.h"
 
 #include <string_view>
 #include <type_traits>

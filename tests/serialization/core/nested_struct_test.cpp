@@ -12,14 +12,14 @@ TEST_CASE("serialization - json handles nested structs arrays and schema context
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<nested_stats>("caors.test.serialization.nested_stats"),
        caors::meta::class_<nested_stats>())
-          .field("level", &nested_stats::level)
-          .field("score", &nested_stats::score)
+          .property("level", &nested_stats::level)
+          .property("score", &nested_stats::score)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<nested_stats>().commit()));
   REQUIRE(reflection_result_ok(((void)caors::meta::class_<nested_vector_actor>(
                                     "caors.test.serialization.nested_vector_actor"),
                                 caors::meta::class_<nested_vector_actor>())
-                                   .field("stats", &nested_vector_actor::stats)
+                                   .property("stats", &nested_vector_actor::stats)
                                    .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<nested_vector_actor>().commit()));
 
@@ -42,14 +42,14 @@ TEST_CASE("serialization - recursively deserializes nested reflected structs", "
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<nested_stats>("caors.test.serialization.nested_stats"),
        caors::meta::class_<nested_stats>())
-          .field("level", &nested_stats::level)
-          .field("score", &nested_stats::score)
+          .property("level", &nested_stats::level)
+          .property("score", &nested_stats::score)
           .commit()));
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<nested_actor>("caors.test.serialization.nested_actor"),
        caors::meta::class_<nested_actor>())
-          .field("id", &nested_actor::id)
-          .field("stats", &nested_actor::stats)
+          .property("id", &nested_actor::id)
+          .property("stats", &nested_actor::stats)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<nested_stats>().commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<nested_actor>().commit()));
@@ -98,14 +98,14 @@ TEST_CASE("serialization - recursively serializes nested reflected structs", "[s
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<nested_stats>("caors.test.serialization.nested_stats"),
        caors::meta::class_<nested_stats>())
-          .field("level", &nested_stats::level)
-          .field("score", &nested_stats::score)
+          .property("level", &nested_stats::level)
+          .property("score", &nested_stats::score)
           .commit()));
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<nested_actor>("caors.test.serialization.nested_actor"),
        caors::meta::class_<nested_actor>())
-          .field("id", &nested_actor::id)
-          .field("stats", &nested_actor::stats)
+          .property("id", &nested_actor::id)
+          .property("stats", &nested_actor::stats)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<nested_stats>().commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<nested_actor>().commit()));

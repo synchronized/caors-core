@@ -15,8 +15,8 @@ TEST_CASE("serialization - built in codecs deserialize guid and type guid from s
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<codec_guid_actor>("caors.test.serialization.codec_guid_actor"),
        caors::meta::class_<codec_guid_actor>())
-          .field("id", &codec_guid_actor::id)
-          .field("type", &codec_guid_actor::type)
+          .property("id", &codec_guid_actor::id)
+          .property("type", &codec_guid_actor::type)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<codec_guid_actor>().commit()));
 
@@ -53,8 +53,8 @@ TEST_CASE("serialization - built in codecs reject invalid guid text", "[serializ
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<codec_guid_actor>("caors.test.serialization.codec_guid_actor"),
        caors::meta::class_<codec_guid_actor>())
-          .field("id", &codec_guid_actor::id)
-          .field("type", &codec_guid_actor::type)
+          .property("id", &codec_guid_actor::id)
+          .property("type", &codec_guid_actor::type)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<codec_guid_actor>().commit()));
 
@@ -93,8 +93,8 @@ TEST_CASE("serialization - built in codecs serialize guid and type guid as scala
   REQUIRE(reflection_result_ok(
       ((void)caors::meta::class_<codec_guid_actor>("caors.test.serialization.codec_guid_actor"),
        caors::meta::class_<codec_guid_actor>())
-          .field("id", &codec_guid_actor::id)
-          .field("type", &codec_guid_actor::type)
+          .property("id", &codec_guid_actor::id)
+          .property("type", &codec_guid_actor::type)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<codec_guid_actor>().commit()));
 

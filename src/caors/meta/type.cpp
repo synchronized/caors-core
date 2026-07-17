@@ -6,8 +6,8 @@
 #include "caors/meta/detail/type_data.h"
 #include "caors/meta/detail/type_descriptor.h"
 #include "caors/meta/enum_value.h"
-#include "caors/meta/field.h"
 #include "caors/meta/method.h"
+#include "caors/meta/property.h"
 
 namespace caors::meta {
 namespace {
@@ -170,29 +170,29 @@ type type::get_key_type() const noexcept {
   return {};
 }
 
-std::size_t type::field_count() const noexcept {
-  return data_ != nullptr ? data_->field_count() : 0;
+std::size_t type::property_count() const noexcept {
+  return data_ != nullptr ? data_->property_count() : 0;
 }
 
-field type::field_at(std::size_t index) const {
-  return data_ != nullptr ? field{data_->field_at(index)} : field{};
+property type::property_at(std::size_t index) const {
+  return data_ != nullptr ? property{data_->property_at(index)} : property{};
 }
 
-field type::find_field(core::string_name field_name) const {
-  if (!field_name) {
+property type::find_property(core::string_name property_name) const {
+  if (!property_name) {
     return {};
   }
 
-  return data_ != nullptr ? field{data_->find_field_ptr(field_name)} : field{};
+  return data_ != nullptr ? property{data_->find_property_ptr(property_name)} : property{};
 }
 
-field type::find_field(std::string_view field_name) const {
-  const std::optional<core::string_name> interned_name = core::string_name::find(field_name);
+property type::find_property(std::string_view property_name) const {
+  const std::optional<core::string_name> interned_name = core::string_name::find(property_name);
   if (!interned_name.has_value()) {
     return {};
   }
 
-  return find_field(*interned_name);
+  return find_property(*interned_name);
 }
 
 std::size_t type::method_count() const noexcept {

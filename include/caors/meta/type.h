@@ -21,7 +21,7 @@ namespace caors::meta {
 
 class registry;
 class type;
-class field;
+class property;
 class method;
 class enum_value_view;
 
@@ -89,10 +89,10 @@ public:
   [[nodiscard]] const metadata_value* find_metadata(metadata_key key) const noexcept;
   [[nodiscard]] type get_value_type() const noexcept;
   [[nodiscard]] type get_key_type() const noexcept;
-  [[nodiscard]] std::size_t field_count() const noexcept;
-  [[nodiscard]] field field_at(std::size_t index) const;
-  [[nodiscard]] field find_field(string_name name) const;
-  [[nodiscard]] field find_field(std::string_view name) const;
+  [[nodiscard]] std::size_t property_count() const noexcept;
+  [[nodiscard]] property property_at(std::size_t index) const;
+  [[nodiscard]] property find_property(string_name name) const;
+  [[nodiscard]] property find_property(std::string_view name) const;
   [[nodiscard]] std::size_t method_count() const noexcept;
   [[nodiscard]] method method_at(std::size_t index) const;
   [[nodiscard]] method find_method(string_name name) const;

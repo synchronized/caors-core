@@ -17,16 +17,16 @@ namespace caors::meta {
 
 template <typename T> class class_builder;
 template <typename T> class enum_builder;
-template <typename T> class field_bind;
+template <typename T> class property_bind;
 template <typename T> class method_bind;
 template <typename T> class enum_value_bind;
 
 template <typename Entry>
-inline constexpr bool is_field_bind_entry_v =
+inline constexpr bool is_property_bind_entry_v =
     std::is_same_v<std::remove_cvref_t<Entry>, registration::metadata_entry> ||
-    std::is_same_v<std::remove_cvref_t<Entry>, registration::field_schema_entry>;
+    std::is_same_v<std::remove_cvref_t<Entry>, registration::property_schema_entry>;
 
-/** @brief 字段/方法 bind 共享的类注册链式入口。 */
+/** @brief 属性/方法 bind 共享的类注册链式入口。 */
 template <typename T, typename Derived> class class_builder_bind_chain {
 public:
   class_builder<T>& type(std::string_view name);
@@ -37,9 +37,14 @@ public:
   class_builder<T>& factory();
   class_builder<T>& factory(factory_ops::construct_fn construct, factory_ops::destroy_fn destroy);
   template <typename... Arguments> class_builder<T>& constructor();
-  template <typename Member> field_bind<T> field(std::string_view name, Member member);
+  template <typename Member> property_bind<T> property(std::string_view name, Member member);
   template <typename Member>
-  field_bind<T> field(std::string_view name, Member member, std::string_view type_name);
+  property_bind<T> property(std::string_view name, Member member, std::string_view type_name);
+  template <typename Getter, typename Setter>
+  property_bind<T> property(std::string_view name, Getter getter, Setter setter)
+    requires(!std::is_convertible_v<Setter, std::string_view>);
+  template <typename Getter>
+  property_bind<T> property_readonly(std::string_view name, Getter getter);
   template <typename Member> method_bind<T> method(std::string_view name, Member member);
   template <typename Capability> class_builder<T>& capability(const Capability* capability);
   template <typename Capability>
@@ -162,12 +167,21 @@ public:
    */
   template <typename... Arguments> class_builder& constructor();
 
-  /** @brief 注册成员字段反射信息。 */
-  template <typename Member> field_bind<T> field(std::string_view name, Member member);
+  /** @brief 注册成员属性反射信息。 */
+  template <typename Member> property_bind<T> property(std::string_view name, Member member);
 
-  /** @brief 注册成员字段反射信息，并校验字段类型名。 */
+  /** @brief 注册成员属性反射信息，并校验属性类型名。 */
   template <typename Member>
-  field_bind<T> field(std::string_view name, Member member, std::string_view type_name);
+  property_bind<T> property(std::string_view name, Member member, std::string_view type_name);
+
+  /** @brief 用 const getter 和 setter 注册属性反射信息。 */
+  template <typename Getter, typename Setter>
+  property_bind<T> property(std::string_view name, Getter getter, Setter setter)
+    requires(!std::is_convertible_v<Setter, std::string_view>);
+
+  /** @brief 用 const getter 注册只读属性反射信息。 */
+  template <typename Getter>
+  property_bind<T> property_readonly(std::string_view name, Getter getter);
 
   /** @brief 注册成员方法反射信息。 */
   template <typename Member> method_bind<T> method(std::string_view name, Member member);
@@ -270,7 +284,7 @@ public:
   }
 
 private:
-  friend class field_bind<T>;
+  friend class property_bind<T>;
   friend class method_bind<T>;
 
   class_builder& apply_type_metadata(const registration::metadata_entry& entry) {
@@ -281,23 +295,24 @@ private:
     return metadata(entry.key, std::move(entry.value));
   }
 
-  class_builder& apply_field_entry(string_name field_name,
-                                   const registration::metadata_entry& entry) {
-    return set_field_entry(field_name, entry.key, entry.value);
+  class_builder& apply_property_entry(string_name property_name,
+                                      const registration::metadata_entry& entry) {
+    return set_property_entry(property_name, entry.key, entry.value);
   }
 
-  class_builder& apply_field_entry(string_name field_name, registration::metadata_entry&& entry) {
-    return set_field_entry(field_name, entry.key, std::move(entry.value));
+  class_builder& apply_property_entry(string_name property_name,
+                                      registration::metadata_entry&& entry) {
+    return set_property_entry(property_name, entry.key, std::move(entry.value));
   }
 
-  class_builder& apply_field_entry(string_name field_name,
-                                   const registration::field_schema_entry& entry) {
-    return set_field_schema_entry(field_name, entry);
+  class_builder& apply_property_entry(string_name property_name,
+                                      const registration::property_schema_entry& entry) {
+    return set_property_schema_entry(property_name, entry);
   }
 
-  class_builder& apply_field_entry(string_name field_name,
-                                   registration::field_schema_entry&& entry) {
-    return set_field_schema_entry(field_name, std::move(entry));
+  class_builder& apply_property_entry(string_name property_name,
+                                      registration::property_schema_entry&& entry) {
+    return set_property_schema_entry(property_name, std::move(entry));
   }
 
   class_builder& apply_method_metadata(string_name method_name,
@@ -310,9 +325,10 @@ private:
     return set_method_metadata(method_name, entry.key, std::move(entry.value));
   }
 
-  class_builder& set_field_entry(string_name field_name, metadata_key key, metadata_value value);
-  class_builder& set_field_schema_entry(string_name field_name,
-                                        registration::field_schema_entry entry);
+  class_builder& set_property_entry(string_name property_name, metadata_key key,
+                                    metadata_value value);
+  class_builder& set_property_schema_entry(string_name property_name,
+                                           registration::property_schema_entry entry);
   class_builder& set_method_metadata(string_name method_name, metadata_key key,
                                      metadata_value value);
 
@@ -327,17 +343,18 @@ private:
   error status_{};
 };
 
-/** @brief 刚注册字段的 RTTR 风格 bind 对象。 */
-template <typename T> class field_bind final : public class_builder_bind_chain<T, field_bind<T>> {
+/** @brief 刚注册属性的 RTTR 风格 bind 对象。 */
+template <typename T>
+class property_bind final : public class_builder_bind_chain<T, property_bind<T>> {
 public:
-  field_bind(class_builder<T>& builder, string_name field_name) noexcept
-      : builder_(&builder), field_name_(field_name) {}
+  property_bind(class_builder<T>& builder, string_name property_name) noexcept
+      : builder_(&builder), property_name_(property_name) {}
 
   template <typename... Entries> class_builder<T>& operator()(Entries&&... entries) {
-    static_assert((is_field_bind_entry_v<Entries> && ...),
-                  "meta::field_bind::operator() expects meta::registration::metadata(...) or "
-                  "field schema entries");
-    (builder_->apply_field_entry(field_name_, std::forward<Entries>(entries)), ...);
+    static_assert((is_property_bind_entry_v<Entries> && ...),
+                  "meta::property_bind::operator() expects meta::registration::metadata(...) or "
+                  "property schema entries");
+    (builder_->apply_property_entry(property_name_, std::forward<Entries>(entries)), ...);
     return *builder_;
   }
 
@@ -345,13 +362,13 @@ public:
   [[nodiscard]] operator const class_builder<T>&() const noexcept { return *builder_; }
 
 private:
-  friend class class_builder_bind_chain<T, field_bind<T>>;
+  friend class class_builder_bind_chain<T, property_bind<T>>;
 
   [[nodiscard]] class_builder<T>& builder() noexcept { return *builder_; }
   [[nodiscard]] const class_builder<T>& builder() const noexcept { return *builder_; }
 
   class_builder<T>* builder_ = nullptr;
-  string_name field_name_{};
+  string_name property_name_{};
 };
 
 /** @brief 刚注册方法的 RTTR 风格 bind 对象。 */
@@ -426,15 +443,33 @@ class_builder<T>& class_builder_bind_chain<T, Derived>::constructor() {
 
 template <typename T, typename Derived>
 template <typename Member>
-field_bind<T> class_builder_bind_chain<T, Derived>::field(std::string_view name, Member member) {
-  return builder().field(name, member);
+property_bind<T> class_builder_bind_chain<T, Derived>::property(std::string_view name,
+                                                                Member member) {
+  return builder().property(name, member);
 }
 
 template <typename T, typename Derived>
 template <typename Member>
-field_bind<T> class_builder_bind_chain<T, Derived>::field(std::string_view name, Member member,
-                                                          std::string_view type_name) {
-  return builder().field(name, member, type_name);
+property_bind<T> class_builder_bind_chain<T, Derived>::property(std::string_view name,
+                                                                Member member,
+                                                                std::string_view type_name) {
+  return builder().property(name, member, type_name);
+}
+
+template <typename T, typename Derived>
+template <typename Getter, typename Setter>
+property_bind<T> class_builder_bind_chain<T, Derived>::property(std::string_view name,
+                                                                Getter getter, Setter setter)
+  requires(!std::is_convertible_v<Setter, std::string_view>)
+{
+  return builder().property(name, getter, setter);
+}
+
+template <typename T, typename Derived>
+template <typename Getter>
+property_bind<T> class_builder_bind_chain<T, Derived>::property_readonly(std::string_view name,
+                                                                         Getter getter) {
+  return builder().property_readonly(name, getter);
 }
 
 template <typename T, typename Derived>

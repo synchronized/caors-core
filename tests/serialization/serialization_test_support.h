@@ -367,16 +367,16 @@ template <typename T>
 inline void require_pointer_actor_metadata() {
   REQUIRE(reflection_result_ok(
       registered_meta_class<nested_stats>("caors.test.serialization.nested_stats")
-          .field("level", &nested_stats::level)
-          .field("score", &nested_stats::score)
+          .property("level", &nested_stats::level)
+          .property("score", &nested_stats::score)
           .commit()));
   REQUIRE(reflection_result_ok(
       registered_meta_class<pointer_actor>("caors.test.serialization.pointer_actor")
-          .field("raw", &pointer_actor::raw)
-          .field("shared", &pointer_actor::shared)
-          .field("unique", &pointer_actor::unique)
-          .field("optional", &pointer_actor::optional)
-          .field("stats", &pointer_actor::stats)
+          .property("raw", &pointer_actor::raw)
+          .property("shared", &pointer_actor::shared)
+          .property("unique", &pointer_actor::unique)
+          .property("optional", &pointer_actor::optional)
+          .property("stats", &pointer_actor::stats)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<nested_stats>().commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<pointer_actor>().commit()));
@@ -385,8 +385,8 @@ inline void require_pointer_actor_metadata() {
 inline void require_recursive_node_metadata() {
   REQUIRE(reflection_result_ok(
       registered_meta_class<recursive_node>("caors.test.serialization.recursive_node")
-          .field("value", &recursive_node::value)
-          .field("next", &recursive_node::next)
+          .property("value", &recursive_node::value)
+          .property("next", &recursive_node::next)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<recursive_node>().commit()));
 }
@@ -394,7 +394,7 @@ inline void require_recursive_node_metadata() {
 inline void require_reference_wrapper_actor_metadata() {
   REQUIRE(reflection_result_ok(registered_meta_class<reference_wrapper_actor>(
                                    "caors.test.serialization.reference_wrapper_actor")
-                                   .field("value", &reference_wrapper_actor::value)
+                                   .property("value", &reference_wrapper_actor::value)
                                    .commit()));
   REQUIRE(
       serialization_result_ok(caors::serialization::class_<reference_wrapper_actor>().commit()));
@@ -407,27 +407,27 @@ inline void require_non_default_value_metadata() {
           .result()));
   REQUIRE(reflection_result_ok(
       registered_meta_class<non_default_value>("caors.test.serialization.non_default_value")
-          .field("value", &non_default_value::value)
+          .property("value", &non_default_value::value)
           .commit()));
   REQUIRE(reflection_result_ok(registered_meta_class<non_default_field_actor>(
                                    "caors.test.serialization.non_default_field_actor")
-                                   .field("value", &non_default_field_actor::value)
+                                   .property("value", &non_default_field_actor::value)
                                    .commit()));
   REQUIRE(reflection_result_ok(registered_meta_class<non_default_vector_actor>(
                                    "caors.test.serialization.non_default_vector_actor")
-                                   .field("values", &non_default_vector_actor::values)
+                                   .property("values", &non_default_vector_actor::values)
                                    .commit()));
   REQUIRE(reflection_result_ok(registered_meta_class<non_default_unique_ptr_actor>(
                                    "caors.test.serialization.non_default_unique_ptr_actor")
-                                   .field("value", &non_default_unique_ptr_actor::value)
+                                   .property("value", &non_default_unique_ptr_actor::value)
                                    .commit()));
   REQUIRE(reflection_result_ok(registered_meta_class<non_default_optional_actor>(
                                    "caors.test.serialization.non_default_optional_actor")
-                                   .field("value", &non_default_optional_actor::value)
+                                   .property("value", &non_default_optional_actor::value)
                                    .commit()));
   REQUIRE(reflection_result_ok(registered_meta_class<non_default_variant_actor>(
                                    "caors.test.serialization.non_default_variant_actor")
-                                   .field("value", &non_default_variant_actor::value)
+                                   .property("value", &non_default_variant_actor::value)
                                    .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<non_default_value>().commit()));
   REQUIRE(
@@ -491,11 +491,11 @@ inline caors::serialization::context takeover_rollback_construction_context() {
 inline void require_failing_takeover_actor_metadata() {
   REQUIRE(reflection_result_ok(registered_meta_class<takeover_rollback_value>(
                                    "caors.test.serialization.takeover_rollback_value")
-                                   .field("value", &takeover_rollback_value::value)
+                                   .property("value", &takeover_rollback_value::value)
                                    .commit()));
   REQUIRE(reflection_result_ok(registered_meta_class<failing_takeover_actor>(
                                    "caors.test.serialization.failing_takeover_actor")
-                                   .field("value", &failing_takeover_actor::value)
+                                   .property("value", &failing_takeover_actor::value)
                                    .commit()));
   REQUIRE(
       serialization_result_ok(caors::serialization::class_<takeover_rollback_value>().commit()));
@@ -505,7 +505,7 @@ inline void require_failing_takeover_actor_metadata() {
 inline void require_unique_ptr_vector_actor_metadata() {
   REQUIRE(reflection_result_ok(registered_meta_class<unique_ptr_vector_actor>(
                                    "caors.test.serialization.unique_ptr_vector_actor")
-                                   .field("values", &unique_ptr_vector_actor::values)
+                                   .property("values", &unique_ptr_vector_actor::values)
                                    .commit()));
   REQUIRE(
       serialization_result_ok(caors::serialization::class_<unique_ptr_vector_actor>().commit()));
@@ -514,9 +514,9 @@ inline void require_unique_ptr_vector_actor_metadata() {
 inline void require_scalar_actor_metadata() {
   REQUIRE(reflection_result_ok(
       registered_meta_class<scalar_actor>("caors.test.serialization.scalar_actor")
-          .field("code", &scalar_actor::code)
-          .field("color", &scalar_actor::color)
-          .field("state", &scalar_actor::state)
+          .property("code", &scalar_actor::code)
+          .property("color", &scalar_actor::color)
+          .property("state", &scalar_actor::state)
           .commit()));
   REQUIRE(serialization_result_ok(caors::serialization::class_<scalar_actor>().commit()));
 }
@@ -524,7 +524,7 @@ inline void require_scalar_actor_metadata() {
 inline void require_object_ptr_vector_actor_metadata() {
   REQUIRE(reflection_result_ok(registered_meta_class<object_ptr_vector_actor>(
                                    "caors.test.serialization.object_ptr_vector_actor")
-                                   .field("targets", &object_ptr_vector_actor::targets)
+                                   .property("targets", &object_ptr_vector_actor::targets)
                                    .commit()));
   REQUIRE(
       serialization_result_ok(caors::serialization::class_<object_ptr_vector_actor>().commit()));

@@ -12,7 +12,7 @@ namespace caors::meta {
  * @brief 运行期 C++ 类型引用。
  *
  * `any_ref` 不拥有对象，只保存外部对象地址和运行期类型信息。调用方必须保证被引用对象在
- * `any_ref` 使用期间仍然存活；可写引用只能从非 const 对象或可写字段创建。
+ * `any_ref` 使用期间仍然存活；可写引用只能从非 const 对象或可写属性创建。
  */
 class any_ref final {
 public:

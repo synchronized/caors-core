@@ -7,8 +7,8 @@
 #include "caors/core/containers.h"
 #include "caors/error.h"
 #include "caors/meta/detail/enum_value_data.h"
-#include "caors/meta/detail/field_data.h"
 #include "caors/meta/detail/method_data.h"
+#include "caors/meta/detail/property_data.h"
 #include "caors/meta/type_id.h"
 
 #include <cstddef>
@@ -45,14 +45,14 @@ public:
   constexpr void set_parent_id(type_id parent_id) noexcept { parent_id_ = parent_id; }
 
   [[nodiscard]] bool members_valid() const noexcept;
-  [[nodiscard]] std::size_t field_count() const noexcept;
-  [[nodiscard]] const field_data* field_at(std::size_t index) const noexcept;
-  [[nodiscard]] field_data* mutable_field_at(std::size_t index) noexcept;
-  [[nodiscard]] const field_data* find_field_ptr(string_name name) const noexcept;
-  [[nodiscard]] field_data* mutable_find_field_ptr(string_name name) noexcept;
-  [[nodiscard]] std::optional<field_data> find_field(string_name name) const;
-  [[nodiscard]] std::optional<field_data> find_field(std::string_view name) const;
-  void add_field(field_data field);
+  [[nodiscard]] std::size_t property_count() const noexcept;
+  [[nodiscard]] const property_data* property_at(std::size_t index) const noexcept;
+  [[nodiscard]] property_data* mutable_property_at(std::size_t index) noexcept;
+  [[nodiscard]] const property_data* find_property_ptr(string_name name) const noexcept;
+  [[nodiscard]] property_data* mutable_find_property_ptr(string_name name) noexcept;
+  [[nodiscard]] std::optional<property_data> find_property(string_name name) const;
+  [[nodiscard]] std::optional<property_data> find_property(std::string_view name) const;
+  void add_property(property_data property);
   [[nodiscard]] std::size_t method_count() const noexcept;
   [[nodiscard]] const method_data* method_at(std::size_t index) const noexcept;
   [[nodiscard]] const method_data* find_method_ptr(string_name name) const noexcept;
@@ -73,7 +73,7 @@ private:
   string_name name_{};
   type_guid guid_{};
   type_id parent_id_{};
-  vector<field_data> fields_{};
+  vector<property_data> properties_{};
   vector<method_data> methods_{};
   vector<enum_value_data> enum_values_{};
 };

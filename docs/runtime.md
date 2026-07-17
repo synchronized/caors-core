@@ -5,14 +5,14 @@
 
 `runtime` 主题提供面向用户的一站式运行时类型 facade，是普通用户优先使用的注册和查询入口。
 它不引入新的类型注册表，
-而是组合现有 `meta` 字段/方法和 meta value 能力：
+而是组合现有 `meta` 属性/方法和 meta value 能力：
 
-- `runtime::type` 内部持有 `meta::type`，按需查询字段和方法。
-- `runtime::class_<T>("name")` 先注册 meta 类/普通值类型，再把字段和方法写入同一份 meta 类型数据。
+- `runtime::type` 内部持有 `meta::type`，按需查询属性和方法。
+- `runtime::class_<T>("name")` 先注册 meta 类/普通值类型，再把属性和方法写入同一份 meta 类型数据。
 - `runtime::enum_<T>("name")` 注册枚举 meta 类型，适合只需要稳定类型身份、GUID 和枚举值转换能力的场景。
-- `runtime::instance` 组合 `meta::any_ref`、`runtime::type`、`meta::field` 和 `meta::method`，
-  提供面向实例的字段读写和方法调用入口。
-- `runtime::object` 是对象系统适配视图，用于处理 `objects::ptr<T>` 这类对象指针字段。
+- `runtime::instance` 组合 `meta::any_ref`、`runtime::type`、`meta::property` 和 `meta::method`，
+  提供面向实例的属性读写和方法调用入口。
+- `runtime::object` 是对象系统适配视图，用于处理 `objects::ptr<T>` 这类对象指针属性。
 - `runtime::type::create()` 是运行期值创建的高层入口，优先使用 `meta::factory_capability`，再使用
   `meta::constructor_capability` 匹配运行期参数列表，最后才回退到 descriptor 默认构造。
 - `runtime::type::create_value()` 是高级默认构造入口，只使用 `meta::any` 的 descriptor 默认构造能力，
@@ -31,12 +31,12 @@ struct actor {
 };
 
 caors::runtime::class_<actor>("game.actor")
-    .field("health", &actor::health)
+    .property("health", &actor::health)
     .method("add_health", &actor::add_health)
     .commit();
 
 caors::runtime::type type = caors::runtime::find<actor>();
-caors::runtime::field field = type.find_field("health");
+caors::runtime::field field = type.find_property("health");
 ```
 
 ## 创建值
@@ -113,7 +113,7 @@ void destroy_actor(caors::memory_resource* resource, void* value) noexcept;
 
 caors::runtime::class_<actor>("game.actor")
     .factory(&construct_actor, &destroy_actor)
-    .field("health", &actor::health)
+    .property("health", &actor::health)
     .commit();
 ```
 
@@ -121,7 +121,7 @@ caors::runtime::class_<actor>("game.actor")
 适合编辑器、脚本桥接和工具层按运行期参数创建值。两者同时存在时，无参 `create()` 优先使用
 factory；带参数 `create(arguments)` 只匹配 constructor。
 
-已注册反射字段和方法后，可以通过 `runtime::instance` 访问具体实例：
+已注册反射属性和方法后，可以通过 `runtime::instance` 访问具体实例：
 
 ```cpp
 actor value{};
@@ -136,16 +136,16 @@ caors::any result = instance.call("add_health", 5);
 
 - `runtime::view(value)` 创建可写实例视图。
 - `runtime::view_const(value)` 创建只读实例视图。
-- `get()` 返回字段值拷贝，字段不存在或值不可拷贝时返回无效 `any`。
-- `get_ref()` 返回字段引用；只读实例返回只读 `any_ref`。
-- `set()` 只在实例可写、字段存在并且类型匹配时成功。
+- `get()` 返回属性值拷贝，属性不存在或值不可拷贝时返回无效 `any`。
+- `get_ref()` 返回属性引用；只读实例返回只读 `any_ref`。
+- `set()` 只在实例可写、属性存在并且类型匹配时成功。
 - `call()` 按反射方法调用；只读实例只能调用 `const` 成员函数，非 const 成员函数会返回无效 `any`。
-- 无效实例、未注册反射类型、字段/方法未命中时，查询返回空视图、空值或 `false`。
+- 无效实例、未注册反射类型、属性/方法未命中时，查询返回空视图、空值或 `false`。
 
-`fields()` 和 `methods()` 当前返回字段/方法视图的 `core::vector` 快照，适合简单遍历。它不表达成员生命周期所有权；
-字段和方法视图仍引用全局 append-only `meta::registry`。后续如果需要零分配遍历，可以再增加 range view。
+`properties()` 和 `methods()` 当前返回属性/方法视图的 `core::vector` 快照，适合简单遍历。它不表达成员生命周期所有权；
+属性和方法视图仍引用全局 append-only `meta::registry`。后续如果需要零分配遍历，可以再增加 range view。
 
-对象指针字段属于对象系统语义，不直接放在 `meta::field` 上。需要按对象关系读写时，使用
+对象指针属性属于对象系统语义，不直接放在 `meta::property` 上。需要按对象关系读写时，使用
 `runtime::object` 适配视图：
 
 ```cpp
@@ -159,8 +159,8 @@ caors::object* target = object.get_ptr("target");
 - `runtime::object_view(T&)` 要求 `T` 派生自 `objects::object`，会显式保存当前对象指针，`ptr()` 返回该指针。
 - `runtime::object_view(instance)` 只包装已有实例视图，不会从类型擦除的派生对象自动推导
   `objects::object*`；没有显式对象指针时 `ptr()` 可能返回 `nullptr`。
-- `get_ptr(name)` / `set_ptr(name, ptr)` 只处理字段类型具备 `objects::ptr<T>` 语义的字段；
-  普通裸指针、普通字段或不存在字段会返回 `nullptr` / `false`。
+- `get_ptr(name)` / `set_ptr(name, ptr)` 只处理属性类型具备 `objects::ptr<T>` 语义的属性；
+  普通裸指针、普通属性或不存在属性会返回 `nullptr` / `false`。
 - `runtime::object` 不管理对象生命周期，也不解析 `objects::handle`、`objects::typed_handle<T>`、
   `objects::ref<T>` 或 `objects::weak_ref<T>`。这些所有权或身份策略应继续由对象系统、manager、
   场景树或上层 runtime 适配层处理。
@@ -184,14 +184,14 @@ caors::runtime::type state_type = caors::runtime::find<actor_state>();
 
 - `meta` 继续负责类型身份、descriptor、registry 和 capability。
 - `value` 继续负责 `any`、`any_ref` 和运行期 view。
-- `meta` 负责字段、方法和成员访问。
+- `meta` 负责属性、方法和成员访问。
 - `runtime` 只负责把这些能力组合成更直接的用户入口。
-- object/resource 等领域专用便利能力放在 `runtime` 或对应适配层，不反向塞进 `meta::field`
+- object/resource 等领域专用便利能力放在 `runtime` 或对应适配层，不反向塞进 `meta::property`
   这类底层通用视图。
 - `runtime` 组合公开 facade，不直接依赖 `meta::detail`。需要构造未知类型值时走
   `runtime::type::create()`、`meta::factory_capability`、`meta::constructor_capability`
   或 `meta::any` / `meta::owned_value` 这类公开所有权接口。
-- `runtime::object` 当前只收口对象指针字段访问和当前对象指针查询，不替代对象 manager、handle、
+- `runtime::object` 当前只收口对象指针属性访问和当前对象指针查询，不替代对象 manager、handle、
   引用计数或资源引用 resolver。
 - 具体模块仍保留高级入口，例如 `meta::class_<T>()`、`meta::enum_<T>()`、
   `meta::class_<T>()` 和 `serialization::class_<T>()`，用于更细粒度地控制注册顺序和模块依赖。

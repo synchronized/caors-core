@@ -22,7 +22,7 @@ CAORS 对象系统第一阶段只解决几件事：
 - manager 感知的引用计数回收策略。
 - 脚本绑定。
 - 信号事件系统。
-- 属性字段反射。
+- 属性属性反射。
 - 序列化细节。
 
 这些能力后续应建立在对象类型信息和反射系统之上。
@@ -170,7 +170,7 @@ auto capability =
 auto view = capability.bind(caors::any_ref::from(ptr));
 ```
 
-如果对象指针来自反射字段，推荐通过 `runtime::object` 在组合层读写：
+如果对象指针来自反射属性，推荐通过 `runtime::object` 在组合层读写：
 
 ```cpp
 auto object = caors::runtime::object_view(owner);
@@ -183,10 +183,10 @@ caors::object* target = object.get_ptr("target");
 自动反推出 `objects::object*`；这避免在没有完整对象类型语义时做不安全转换。需要当前对象指针时，
 优先使用 `runtime::object_view(T&)`，或由上层对象 manager / 场景系统显式提供。
 
-`meta::field` 只保留通用字段读写能力，不直接暴露对象专用 `get/set` 接口。
+`meta::property` 只保留通用属性读写能力，不直接暴露对象专用 `get/set` 接口。
 
-如果 `objects::ptr<T>` / `objects::handle` 作为反射字段或容器元素使用，字段和容器元素 `any_ref`
-会携带声明类型的 descriptor，字段读写和序列化路径不需要手动注册运行期 capability。
+如果 `objects::ptr<T>` / `objects::handle` 作为反射属性或容器元素使用，属性和容器元素 `any_ref`
+会携带声明类型的 descriptor，属性读写和序列化路径不需要手动注册运行期 capability。
 
 它表达的是“当前已经拿到了对象地址”。如果对象由 `objects::manager`、场景树或其他上层容器拥有，
 调用方必须保证 `ptr<T>` 的使用时间不超过对象生命周期；对象销毁后已有 `ptr<T>` 不会自动置空。
@@ -238,7 +238,7 @@ if (player* current = manager.find(typed)) {
 `reset()` 时维护计数；最后一个强引用释放时，会按创建时传入的 `memory_resource` 销毁对象。
 弱引用使用 `objects::weak_ref<T>` 表达，它不延长对象生命周期；对象仍存活时可以通过 `lock()`
 尝试提升为强引用，对象销毁后 `lock()` 返回空强引用。
-`objects::weak_ref<T>` 不作为普通字段序列化；需要保存弱关系时应使用 `objects::handle`、资源 id
+`objects::weak_ref<T>` 不作为普通属性序列化；需要保存弱关系时应使用 `objects::handle`、资源 id
 或上层对象数据库可解析的身份。
 
 `objects::ref<Derived>` 可以隐式转换为 `objects::ref<Base>`，`objects::weak_ref<Derived>`
@@ -537,7 +537,7 @@ manager.destroy(instance);
 - [x] 实现可选侵入式引用计数基础类型和强引用包装。
 - [x] 实现引用计数弱引用控制信息和 `objects::weak_ref<T>`。
 - [x] 设计并实现 manager 延迟销毁策略，明确它和引用计数对象的边界。
-- [ ] 与反射系统打通字段、方法和属性元信息。
+- [ ] 与反射系统打通属性、方法和属性元信息。
 - [ ] 与序列化系统打通类型名、版本和构造流程。
 - [x] 设计持久对象 GUID / 业务对象 id，并与运行期 `object_id` 建立加载期映射。
 - [ ] 评估是否需要线程安全对象容器或对象数据库。

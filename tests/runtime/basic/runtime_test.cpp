@@ -154,7 +154,7 @@ void destroy_runtime_factory_constructor_priority_type(caors::memory_resource* r
 
 TEST_CASE("runtime facade - class builder registers meta fields and methods", "[runtime]") {
   const caors::error status = caors::runtime::class_<runtime_actor>("caors.test.runtime.actor")
-                                  .field("health", &runtime_actor::health)
+                                  .property("health", &runtime_actor::health)
                                   .method("add_health", &runtime_actor::add_health)
                                   .commit();
   CHECK_FALSE(status);
@@ -166,10 +166,10 @@ TEST_CASE("runtime facade - class builder registers meta fields and methods", "[
   CHECK(type.size() == sizeof(runtime_actor));
   CHECK(type.alignment() == alignof(runtime_actor));
   CHECK(type.value_constructible());
-  CHECK(type.field_count() == 1);
+  CHECK(type.property_count() == 1);
   CHECK(type.method_count() == 1);
 
-  caors::runtime::field field = type.find_field("health");
+  caors::runtime::property field = type.find_property("health");
   REQUIRE(field.valid());
 
   runtime_actor actor{};
@@ -344,7 +344,7 @@ TEST_CASE("runtime facade - enum builder registers meta enum", "[runtime]") {
 TEST_CASE("runtime facade - instance reads writes and calls reflected members", "[runtime]") {
   const caors::error status =
       caors::runtime::class_<runtime_instance_owner>(runtime_instance_owner::object_type_name)
-          .field("health", &runtime_instance_owner::health)
+          .property("health", &runtime_instance_owner::health)
           .method("add_health", &runtime_instance_owner::add_health)
           .method("read_health", &runtime_instance_owner::read_health)
           .commit();
@@ -354,9 +354,9 @@ TEST_CASE("runtime facade - instance reads writes and calls reflected members", 
   caors::runtime::instance instance = caors::runtime::view(owner);
   REQUIRE(instance);
   CHECK(instance.type().name() == runtime_instance_owner::object_type_name);
-  CHECK(instance.field_count() == 1);
+  CHECK(instance.property_count() == 1);
   CHECK(instance.method_count() == 2);
-  CHECK(instance.fields().size() == 1);
+  CHECK(instance.properties().size() == 1);
   CHECK(instance.methods().size() == 2);
 
   const caors::any health = instance.get("health");
@@ -378,9 +378,9 @@ TEST_CASE("runtime facade - instance handles invalid and missing members", "[run
   caors::runtime::instance invalid{};
   CHECK_FALSE(invalid);
   CHECK_FALSE(invalid.type());
-  CHECK(invalid.field_count() == 0);
+  CHECK(invalid.property_count() == 0);
   CHECK(invalid.method_count() == 0);
-  CHECK_FALSE(invalid.find_field("missing"));
+  CHECK_FALSE(invalid.find_property("missing"));
   CHECK_FALSE(invalid.find_method("missing"));
   CHECK_FALSE(invalid.get("missing"));
   CHECK_FALSE(invalid.get_ref("missing"));
@@ -389,7 +389,7 @@ TEST_CASE("runtime facade - instance handles invalid and missing members", "[run
 
   runtime_instance_owner owner{};
   caors::runtime::instance instance = caors::runtime::view(owner);
-  CHECK_FALSE(instance.find_field("missing"));
+  CHECK_FALSE(instance.find_property("missing"));
   CHECK_FALSE(instance.find_method("missing"));
   CHECK_FALSE(instance.get("missing"));
   CHECK_FALSE(instance.get_ref("missing"));
@@ -400,7 +400,7 @@ TEST_CASE("runtime facade - instance handles invalid and missing members", "[run
 TEST_CASE("runtime facade - const instance is read only", "[runtime]") {
   const caors::error status =
       caors::runtime::class_<runtime_const_owner>("caors.test.runtime.const_owner")
-          .field("health", &runtime_const_owner::health)
+          .property("health", &runtime_const_owner::health)
           .method("add_health", &runtime_const_owner::add_health)
           .method("read_health", &runtime_const_owner::read_health)
           .commit();
@@ -442,7 +442,7 @@ TEST_CASE("runtime facade - const instance is read only", "[runtime]") {
 TEST_CASE("runtime facade - object view reads and writes object pointer fields", "[runtime]") {
   const caors::error status =
       caors::runtime::class_<runtime_object_owner>(runtime_object_owner::object_type_name)
-          .field("target", &runtime_object_owner::target)
+          .property("target", &runtime_object_owner::target)
           .commit();
   CHECK_FALSE(status);
 
@@ -461,7 +461,7 @@ TEST_CASE("runtime facade - object view reads and writes object pointer fields",
 TEST_CASE("runtime facade - object view reports non object pointer fields as empty", "[runtime]") {
   const caors::error status =
       caors::runtime::class_<runtime_plain_owner>("caors.test.runtime.plain_owner")
-          .field("health", &runtime_plain_owner::health)
+          .property("health", &runtime_plain_owner::health)
           .commit();
   CHECK_FALSE(status);
 

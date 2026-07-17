@@ -96,7 +96,7 @@ TEST_CASE("meta type - fluent builder registers name and guid", "[meta]") {
 TEST_CASE("meta type - class builder registers fields and methods", "[meta]") {
   auto builder = caors::meta::class_<reflected_meta_actor>("caors.test.meta.reflected_actor");
   builder(caors::meta::registration::metadata("category", "gameplay"))
-      .field("health", &reflected_meta_actor::health)(
+      .property("health", &reflected_meta_actor::health)(
           caors::meta::registration::metadata("display", "Health"))
       .method("add_health", &reflected_meta_actor::add_health)(
           caors::meta::registration::metadata("scriptable", true));
@@ -105,13 +105,13 @@ TEST_CASE("meta type - class builder registers fields and methods", "[meta]") {
 
   const caors::meta::type type = caors::meta::find<reflected_meta_actor>();
   REQUIRE(type);
-  CHECK(type.field_count() == 1);
+  CHECK(type.property_count() == 1);
   CHECK(type.method_count() == 1);
   const caors::string_name category_key{"category"};
   REQUIRE(type.find_metadata(category_key) != nullptr);
   CHECK(type.find_metadata(category_key)->as_string() == "gameplay");
 
-  const caors::meta::field health = type.find_field("health");
+  const caors::meta::property health = type.find_property("health");
   REQUIRE(health);
   CHECK(health.name() == "health");
   CHECK(health.get_owner_type().id() == type.id());

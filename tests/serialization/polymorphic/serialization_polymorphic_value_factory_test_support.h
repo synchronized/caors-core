@@ -67,12 +67,12 @@ inline void require_polymorphic_factory_metadata() {
       caors::meta::class_<polymorphic_factory_actor>("caors.test.serialization.poly_factory.actor")
           .guid(factory_actor_guid)
           .result()));
-  REQUIRE(type_result_ok(
-      caors::meta::class_<polymorphic_factory_player>("caors.test.serialization.poly_factory.player")
-          .guid(factory_player_guid)
-          .parent<polymorphic_factory_actor>()
-          .factory(&construct_factory_player, &destroy_factory_player)
-          .result()));
+  REQUIRE(type_result_ok(caors::meta::class_<polymorphic_factory_player>(
+                             "caors.test.serialization.poly_factory.player")
+                             .guid(factory_player_guid)
+                             .parent<polymorphic_factory_actor>()
+                             .factory(&construct_factory_player, &destroy_factory_player)
+                             .result()));
   REQUIRE(type_result_ok(caors::meta::class_<std::shared_ptr<polymorphic_factory_actor>>(
                              "std.shared_ptr<caors.test.serialization.poly_factory.actor>")
                              .result()));
@@ -84,20 +84,20 @@ inline void require_polymorphic_factory_metadata() {
       caors::meta::class_<polymorphic_factory_actor>().commit()));
   REQUIRE(caors::tests::serialization::reflection_result_ok(
       caors::meta::class_<polymorphic_factory_player>()
-          .field("level", &polymorphic_factory_player::level)
-          .field("name", &polymorphic_factory_player::name)
+          .property("level", &polymorphic_factory_player::level)
+          .property("name", &polymorphic_factory_player::name)
           .commit()));
   REQUIRE(caors::tests::serialization::reflection_result_ok(
       ((void)caors::meta::class_<polymorphic_factory_holder>(
            "caors.test.serialization.poly_factory.holder"),
        caors::meta::class_<polymorphic_factory_holder>())
-          .field("shared", &polymorphic_factory_holder::shared)
+          .property("shared", &polymorphic_factory_holder::shared)
           .commit()));
   REQUIRE(caors::tests::serialization::reflection_result_ok(
       ((void)caors::meta::class_<polymorphic_factory_unique_holder>(
            "caors.test.serialization.poly_factory.unique_holder"),
        caors::meta::class_<polymorphic_factory_unique_holder>())
-          .field("owner", &polymorphic_factory_unique_holder::owner)
+          .property("owner", &polymorphic_factory_unique_holder::owner)
           .commit()));
 
   REQUIRE(caors::tests::serialization::serialization_result_ok(

@@ -203,8 +203,8 @@ caors::assets::register_cached_type_factory<texture, pak_texture_loader>(
     caors::string_name{"pak"});
 ```
 
-`factory_option_schema` 只做轻量配置校验：必填字段、字段值形态、非空约束、数值范围、字符串允许值和
-未知字段策略。`build_detailed()` 会把同一个 options 对象中的多个 schema 错误收集到
+`factory_option_schema` 只做轻量配置校验：必填属性、属性值形态、非空约束、数值范围、字符串允许值和
+未知属性策略。`build_detailed()` 会把同一个 options 对象中的多个 schema 错误收集到
 `asset_build_result::reasons`，方便工具和编辑器一次展示多条配置问题。
 
 factory 实现读取配置时优先使用 `factory_options_view`，避免直接重复写 `find_member_variant()` 和
@@ -222,7 +222,7 @@ bool readonly = false;
 (void)options.read(caors::string_name{"read_only"}, readonly);
 ```
 
-复杂配置推荐先反序列化到 typed config，再用反射字段 metadata 做校验。这样可以复用序列化系统，
+复杂配置推荐先反序列化到 typed config，再用反射属性 metadata 做校验。这样可以复用序列化系统，
 并把工厂内部的配置读取收敛到一个结构体上：
 
 ```cpp
@@ -235,12 +235,12 @@ namespace metadata = caors::serialization::config_metadata;
 
 caors::meta::class_<texture_options>("game.texture_options");
 caors::meta::class_<texture_options>()
-    .field("format", &texture_options::format)
+    .property("format", &texture_options::format)
     (caors::meta::registration::metadata(metadata::required(), true),
      caors::meta::registration::metadata(metadata::non_empty(), true),
      caors::meta::registration::metadata(metadata::one_of(),
                            caors::meta::make_metadata_string_array({"json", "binary"})))
-    .field("priority", &texture_options::priority)
+    .property("priority", &texture_options::priority)
     (caors::meta::registration::metadata(metadata::range_min(), 1),
      caors::meta::registration::metadata(metadata::range_max(), 100))
     .commit();
@@ -263,7 +263,7 @@ caors::serialization::config_validation_result validation =
 - `assets::json::load_project_config()`：从 JSON DOM、文本或 source 读入 `project_config`。
 - `assets::json::loader<T>`：从 provider 读取 JSON 字节，再通过 `assets::load_serialized<T>()`
   构造资源。
-- `assets::json::saver<T>`：把资源对象字段序列化为 JSON 文本，再写回 provider。
+- `assets::json::saver<T>`：把资源对象属性序列化为 JSON 文本，再写回 provider。
 - `assets::json::register_type_factory<T>()`：复用
   `assets::register_cached_type_factory<T, assets::json::loader<T>>()`，固定匹配
   `cache = "memory"`、`loader = "json"`。
@@ -283,8 +283,8 @@ caors::error saved = saver.save(**loaded);
 需要注意：
 
 - `load_serialized<T>()` 要求 `T` 派生自 `resources::resource` 且可默认构造。
-- 读写的资源类型仍需要完成 meta 字段和 serialization 注册。
-- helper 只读写资源对象字段；资源 GUID 由外部资源数据库、路径或包索引维护，不写入资源对象本体。
+- 读写的资源类型仍需要完成 meta 属性和 serialization 注册。
+- helper 只读写资源对象属性；资源 GUID 由外部资源数据库、路径或包索引维护，不写入资源对象本体。
 - `json::loader<T>` 和 `json::saver<T>` 不拥有 provider；provider、source 和底层 file_system 的生命周期
   由调用方保证。
 - `json::saver<T>` 要求资源携带非 nil GUID，且 provider 中已有对应 GUID 绑定；绑定到只读 source 时会返回
