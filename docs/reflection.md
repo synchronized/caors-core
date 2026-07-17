@@ -3,16 +3,18 @@
 
 # Reflection
 
-本文档说明 CAORS 反射系统的当前设计边界。当前反射提供类型、字段和成员方法元信息注册、查询，以及基础字段读写和成员方法调用；暂不提供独立属性系统或代码生成。
+本文档说明 CAORS 反射系统的当前设计边界。当前反射能力已经并入 `meta` 类型记录：
+类型、字段和成员方法元信息统一由 `meta::registry` 保存，`reflection` 命名空间主要保留反射语义文档、
+旧入口和兼容查询；暂不提供独立属性系统或代码生成。
 
 ## 设计目标
 
 反射第一阶段解决几件事：
 
-- 复用 `meta::type`、`type_id` 和 `type_guid` 表达类型身份。
-- 基于 `meta::registry` 挂载内部反射组件。
+- 直接使用 `meta::type`、`type_id` 和 `type_guid` 表达类型身份。
+- 在 `meta::registry` 的类型记录上保存字段和成员方法数据。
 - 通过 RTTR 风格 builder 描述字段和成员方法。
-- 提供按类型 id、类型名和稳定 GUID 查询反射类型。
+- 提供按类型 id、类型名和稳定 GUID 查询反射类型；新代码也可以直接使用 `meta::find()`。
 - 提供全局 append-only 注册表，以及稳定的类型、字段和方法视图。
 - 提供字段基础读写入口和运行期值拷贝。
 - 提供成员方法基础调用入口。
@@ -30,14 +32,14 @@
 
 ### 命名空间
 
-反射模块的公开类型位于 `caors::reflection` 命名空间，例如 `reflection::field`、
-`reflection::type` 和 `reflection::registry`。新代码应直接使用命名空间内的短名称；
-旧的根命名空间低频别名已经移除。
+字段和方法的主类型位于 `caors::meta` 命名空间，例如 `meta::field`、`meta::method` 和
+`meta::type`。`caors::reflection` 仍提供 `reflection::field`、`reflection::method`、
+`reflection::type`、`reflection::class_<T>()` 和 `reflection::find()`，用于旧代码和强调反射语义的调用点。
 
 ### 字段注册
 
-推荐使用 `reflection::class_<T>()` builder 注册字段。builder 通过成员指针推导偏移、字段类型和可写性，
-底层字段数据只保存在注册表内部，对外通过 `reflection::field` 视图查询。
+推荐使用 `meta::class_<T>()` builder 注册类型、字段和成员方法。builder 通过成员指针推导偏移、
+字段类型和可写性，底层字段数据只保存在注册表内部，对外通过 `meta::field` 视图查询。
 
 ```cpp
 struct actor {
@@ -45,12 +47,9 @@ struct actor {
   float health = 100.0F;
 };
 
-caors::meta::class_<actor>("game.actor");
-
-caors::reflection::class_<actor>()
+caors::meta::class_<actor>("game.actor")
     .field("id", &actor::id)
-    .field("health", &actor::health)
-    .commit();
+    .field("health", &actor::health);
 ```
 
 字段类型推导规则：
@@ -123,7 +122,7 @@ STL 智能指针和裸指针只作为外部字段类型被反射系统描述。C
 
 ### 方法注册
 
-`reflection::class_<T>()` 也可以注册成员函数指针：
+`meta::class_<T>()` 也可以注册成员函数指针：
 
 ```cpp
 struct actor {
@@ -133,13 +132,10 @@ struct actor {
   int score() const { return health * 2; }
 };
 
-caors::meta::class_<actor>("game.actor");
-
-caors::reflection::class_<actor>()
+caors::meta::class_<actor>("game.actor")
     .field("health", &actor::health)
     .method("damage", &actor::damage)
-    .method("score", &actor::score)
-    .commit();
+    .method("score", &actor::score);
 ```
 
 当前方法反射的边界：
@@ -209,7 +205,7 @@ struct sequence_traits<my_sequence<T>> {
 `resize()` 适合只在元素可默认构造时返回成功，`append()` 适合只在元素可拷贝时返回成功。借用视图类型应额外提供
 `static constexpr bool can_read = false`，避免序列化层默认读回到不受它管理的 backing storage；如果后续有明确字段策略，
 可再通过显式 opt-in 配合 `read_in_place` 做原地读入。
-调用方通过 `reflection::field` 操作 sequence 字段时，类型不匹配、对象为空或 traits 不支持对应操作都会返回失败。
+调用方通过 `meta::field` 或兼容 `reflection::field` 操作 sequence 字段时，类型不匹配、对象为空或 traits 不支持对应操作都会返回失败。
 内置适配已覆盖 `std::vector<T>`、`caors::vector<T>`、`std::list<T>`、`caors::list<T>`、
 `std::forward_list<T>`、`std::deque<T>` 和 `std::array<T, N>`。`std::array<T, N>` 的类型名包含固定长度，例如
 `std.array<int,3>`；读入或调整长度时只有 `size == N` 才会成功。`std::span<T>` 是借用视图，
@@ -356,12 +352,12 @@ struct variant_traits<my_variant<Ts...>> {
   默认都属于该语义。
 - `unsupported`：明确识别为 wrapper，但当前序列化层不支持。
 
-推荐通过 `reflection::field` 读写字段：
+推荐通过 `meta::field` 读写字段；`reflection::field` 是读取同一份底层数据的兼容视图：
 
 ```cpp
 actor instance{};
 
-auto reflected = caors::reflection::find("game.actor");
+auto reflected = caors::meta::find("game.actor");
 auto id = reflected.find_field("id");
 id.try_set<int>(&instance, 42);
 
@@ -451,12 +447,12 @@ descriptor 通过 layout、value ops、type semantics 和固定运行期能力�
 - `get_capability<meta::associative_capability>()`：如果 descriptor 描述了关联容器，则创建关联容器视图。
 - `get_capability<meta::indirect_capability>()`：如果 descriptor 描述了指针或 wrapper，则创建内部值视图。
 
-### reflection::type、reflection::field 和 reflection::method
+### meta::type、meta::field 和 meta::method
 
-`reflection::type`、`reflection::field` 和 `reflection::method` 是外部查询反射信息的推荐入口：
+`meta::type`、`meta::field` 和 `meta::method` 是外部查询字段和方法信息的推荐入口：
 
 ```cpp
-auto reflected = caors::reflection::find("game.actor");
+auto reflected = caors::meta::find("game.actor");
 auto field = reflected.find_field("health");
 
 actor instance{};
@@ -468,23 +464,23 @@ std::array<caors::any_ref, 1> args{caors::any_ref::from(amount)};
 damage.invoke(&instance, args);
 ```
 
-`reflection::type`、`reflection::field` 和 `reflection::method` 是轻量只读视图，内部引用全局注册表保存的反射数据。
-反射注册表是进程级 append-only 注册表，
-类型、字段和方法注册后不可撤销、不可替换，因此有效视图可以在进程生命周期内稳定使用。
+`meta::type`、`meta::field` 和 `meta::method` 是轻量只读视图，内部引用全局 `meta::registry`
+保存的字段和方法数据。注册表是进程级 append-only 注册表，类型、字段和方法注册后不可撤销、
+不可替换，因此有效视图可以在进程生命周期内稳定使用。
 
 字段和方法视图的稳定性依赖“注册后冻结”约束：注册完成后不会再向该类型追加、删除或替换成员。如果后续支持热重载、
 增量注册或组件替换，需要先重新设计成员存储和视图失效规则。
 
-`reflection::type` 当前提供：
+`meta::type` 当前提供：
 
 - `valid()`：判断视图是否仍有效。
 - `info()` / `id()` / `name()` / `guid()`：查询类型身份。
-- `field_count()` / `field_at()`：按索引遍历字段；索引越界时返回无效 `reflection::field`。
-- `find_field()`：按字段名查询字段视图；未命中时返回无效 `reflection::field`。
-- `method_count()` / `method_at()`：按索引遍历方法；索引越界时返回无效 `reflection::method`。
-- `find_method()`：按方法名查询方法视图；未命中时返回无效 `reflection::method`。
+- `field_count()` / `field_at()`：按索引遍历字段；索引越界时返回无效 `meta::field`。
+- `find_field()`：按字段名查询字段视图；未命中时返回无效 `meta::field`。
+- `method_count()` / `method_at()`：按索引遍历方法；索引越界时返回无效 `meta::method`。
+- `find_method()`：按方法名查询方法视图；未命中时返回无效 `meta::method`。
 
-`reflection::field` 当前提供：
+`meta::field` 当前提供：
 
 - `valid()`：判断视图是否仍有效。
 - `name()` / `get_type()`：查询字段声明类型信息。`get_type()` 返回 descriptor-backed `meta::type`。
@@ -504,9 +500,9 @@ damage.invoke(&instance, args);
 - `try_get<T>()` / `try_set<T>()`：按静态类型读写字段。
 - `get_value()` / `try_set_value()`：按运行期 `any` 读写字段。
 - `get_ref(const void*)` / `get_ref(void*)`：按运行期 `any_ref` 引用字段，权限由传入对象地址的 constness 决定。
-- 对象指针字段不在 `reflection::field` 上提供专用 `get/set` 接口。需要按对象语义访问时，使用
+- 对象指针字段不在 `meta::field` 上提供专用 `get/set` 接口。需要按对象语义访问时，使用
   `runtime::object` 或 `field.get_ref(...).get_capability<objects::ptr_capability>()`。
-- `reflection::field` 不负责对象生命周期、对象身份解析或对象引用计数。对象关系、资源引用和其他领域语义
+- `meta::field` 不负责对象生命周期、对象身份解析或对象引用计数。对象关系、资源引用和其他领域语义
   应由 `runtime`、`objects`、`resources` 或序列化上下文中的 resolver 处理。
 - `is_sequence()`：判断字段是否是顺序容器字段。
 - `is_set()`：判断字段是否是集合容器字段。
@@ -515,7 +511,7 @@ damage.invoke(&instance, args);
 - `is_tuple()`：判断字段是否是 tuple-like 字段。
 - `is_variant()`：判断字段是否是 variant-like 字段。
 
-`reflection::method` 当前提供：
+`meta::method` 当前提供：
 
 - `valid()`：判断视图是否仍有效。
 - `name()`：查询方法名。
@@ -627,30 +623,25 @@ for (caors::meta::associative_entry_ref entry : map) {
 
 ### 全局注册表
 
-反射系统使用进程级全局注册表。普通代码通过 `reflection::class_<T>()` 和 `reflection::find()`
-访问它，不需要创建 registry 对象：
+反射字段和方法使用进程级全局 `meta::registry` 保存。普通代码优先通过
+`meta::class_<T>("name")` 注册并通过 `meta::find()` / `meta::type` 查询，不需要创建 registry 对象：
 
 ```cpp
-caors::meta::class_<actor>("game.actor");
+caors::meta::class_<actor>("game.actor")
+    .field("id", &actor::id);
 
-caors::error result =
-    caors::reflection::class_<actor>()
-        .field("id", &actor::id)
-        .commit();
-
-auto reflected = caors::reflection::find("game.actor");
+auto reflected = caors::meta::find("game.actor");
 ```
 
-推荐先通过 `meta::class_<T>("name")` 注册业务 meta 类型，再调用 `reflection::class_<T>()`
-挂载反射组件。`reflection::class_<T>()` 不创建或修改基础 meta 记录；如果 `T` 尚未完成 meta 注册，
-`commit()` 会返回 `errc::missing_type`。detail 反射组件挂载函数属于内部实现入口，普通代码不直接调用。
+`reflection::class_<T>()`、`reflection::find()` 和 `reflection::type` 仍保留为兼容入口。它们不会维护第二套
+注册表，而是读写同一个 `meta::registry` 中的字段和方法数据。新代码如果不需要强调旧反射命名空间语义，
+优先使用 `meta::class_<T>()` 和 `meta::type`。
 
 反射注册推荐在启动期或模块加载期完成，并在进入运行期前调用 `meta::init_registry()` 做延迟注册和一致性校验。
-`init_registry()` 不会冻结注册表；如果后续继续注册反射组件，调用方需要自行保证没有并发读取依赖中的半成品类型。
+`init_registry()` 不会冻结注册表；如果后续继续注册字段或方法，调用方需要自行保证没有并发读取依赖中的半成品类型。
 
-`reflection::registry` 仍作为实现 facade 存在，并复用 `meta::registry` 保存 meta 类型信息，再把
-内部反射组件挂载到同一个 `type_id` 上。注册表构造由库内部管理；注册后不提供
-清理和撤销入口。
+`reflection::registry` 仍作为实现 facade 存在，并复用 `meta::registry` 保存字段和方法数据。
+注册表构造由库内部管理；注册后不提供清理和撤销入口。
 
 注册失败会返回 `caors::error`，`domain()` 为 `error_domain::reflection`，`value()` 为明确的通用错误码：
 
@@ -661,11 +652,11 @@ auto reflected = caors::reflection::find("game.actor");
 - `errc::duplicate_guid`：同一个非 nil 稳定 GUID 已注册。
 - `errc::duplicate_field`：同一个类型内存在重复字段名。
 - `errc::duplicate_method`：同一个类型内存在重复方法名。
-- `errc::duplicate_reflection`：目标类型已经挂载反射组件。
+- `errc::duplicate_reflection`：兼容反射入口重复提交了同一个类型的完整反射数据。
 - `errc::inconsistent_type`：目标类型已存在，但 meta 类型信息不一致。
 - `errc::missing_parent`：父类型未注册。
 
-重复注册同一个类型时，如果 meta 类型信息一致且已经挂载反射组件，会返回 `duplicate_reflection`；
+重复注册同一个类型时，如果 meta 类型信息一致且兼容反射入口重复提交完整反射数据，会返回 `duplicate_reflection`；
 如果同名、同 GUID 或同运行期类型 id 对应的 meta 类型信息不一致，会返回
 `inconsistent_type` 或对应的重复错误。
 
@@ -675,21 +666,28 @@ auto reflected = caors::reflection::find("game.actor");
 - `any_ref`：运行期 C++ 类型非拥有引用。
 - `sequence_view` / `set_view` / `associative_view` / `pair_view` / `tuple_view` / `variant_view`：容器、二元组、tuple-like 和 variant-like 类型的运行期视图。
 - 字段声明类型的布局、值操作、类型语义和固定运行期能力集合由 meta 内部 descriptor 提供。
-- `reflection::type` / `reflection::field` / `reflection::method`：全局反射数据的推荐查询入口。
-- `reflection::registry`：全局反射注册表 facade。
-- `reflection::class_<T>()`：RTTR 风格链式注册入口。
-- `reflection::find()` / `reflection::contains()`：反射组件查询入口。
+- `meta::type` / `meta::field` / `meta::method`：全局字段和方法数据的推荐查询入口。
+- `meta::class_<T>()`：推荐的 RTTR 风格链式注册入口。
+- `reflection::type` / `reflection::field` / `reflection::method`：兼容查询入口，底层读取同一份 meta 数据。
+- `reflection::registry`：兼容注册表 facade。
+- `reflection::class_<T>()`：兼容链式注册入口。
+- `reflection::find()` / `reflection::contains()`：兼容查询入口。
 
 ## 相关入口
 
-- 公共头文件按职责拆分在 `include/caors/reflection/`：
+- 推荐公共头文件位于 `include/caors/meta/`：
+  - `field.h`：字段元信息和字段访问。
+  - `method.h`：成员方法元信息和运行期调用。
+  - `reflection.h`：`meta::class_<T>()` 的字段/方法注册扩展。
+- 兼容头文件按职责拆分在 `include/caors/reflection/`：
   - `field.h`：字段元信息和字段访问。
   - `method.h`：成员方法元信息和运行期调用。
   - `type.h`：类型反射描述。
   - `view.h`：类型和字段的外部查询视图。
-  - `registry.h`：全局反射注册表和注册查询函数。
+  - `registry.h`：兼容注册表 facade 和注册查询函数。
   - `builder.h`：RTTR 风格链式注册入口。
-- `include/caors/reflection.h` 是 umbrella 头，继续提供完整反射 API。
+- `include/caors/meta.h` 是推荐 umbrella 头，包含字段和方法注册、查询入口。
+- `include/caors/reflection.h` 继续提供兼容反射 API。
 - `include/caors/traits/*.h` 提供 `type_name`、wrapper、容器、pair、tuple 和 variant 类型语义扩展点主模板。
 - `include/caors/object/ptr.h` 提供 `objects::ptr<T>` 和对象指针 trait；
   `include/caors/object/ptr_view.h` 提供 `objects::ptr_view` 和显式 `objects::make_ptr_view(any_ref)`

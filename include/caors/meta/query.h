@@ -114,6 +114,22 @@ public:
    */
   template <typename... Arguments> class_builder& constructor();
 
+  /** @brief 注册成员字段反射信息。 */
+  template <typename Member> class_builder& field(std::string_view name, Member member);
+
+  /** @brief 注册成员字段反射信息，并校验字段类型名。 */
+  template <typename Member>
+  class_builder& field(std::string_view name, Member member, std::string_view type_name);
+
+  /** @brief 注册成员方法反射信息。 */
+  template <typename Member> class_builder& method(std::string_view name, Member member);
+
+  /** @brief 给最近添加的字段写入 metadata。 */
+  template <typename Value> class_builder& field_metadata(std::string_view key, Value&& value);
+
+  /** @brief 给最近添加的字段写入 metadata。 */
+  template <typename Value> class_builder& field_metadata(string_name key, Value&& value);
+
   /**
    * @brief 为当前 C++ 类型挂接一份运行期 capability 指针。
    *
@@ -211,6 +227,7 @@ private:
 
   ::caors::meta::type type_{};
   error status_{};
+  string_name last_field_name_{};
 };
 
 /** @brief RTTR 风格的枚举类型注册构建器。 */

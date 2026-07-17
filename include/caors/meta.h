@@ -14,5 +14,8 @@
 #include "caors/meta/type_semantics.h"
 #include "caors/meta/value.h"
 #include "caors/meta/value_ops.h"
+#include "caors/meta/field.h"
+#include "caors/meta/method.h"
+#include "caors/meta/reflection.h"
 
 #endif

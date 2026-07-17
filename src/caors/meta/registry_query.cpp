@@ -196,4 +196,36 @@ std::size_t registry::size() const noexcept {
   return state_->types.size();
 }
 
+const detail::reflection_data* registry::find_reflection(type_id id) const {
+  if (!id) {
+    return nullptr;
+  }
+
+  std::lock_guard lock(state_->mutex);
+  const detail::type_data* stored = detail::find_type_data(*state_, id);
+  return stored != nullptr ? stored->reflection() : nullptr;
+}
+
+detail::reflection_data* registry::find_mutable_reflection(type_id id) {
+  if (!id) {
+    return nullptr;
+  }
+
+  std::lock_guard lock(state_->mutex);
+  detail::type_data* stored = detail::find_type_data(*state_, id);
+  return stored != nullptr ? stored->mutable_reflection() : nullptr;
+}
+
+std::size_t registry::reflection_count() const noexcept {
+  std::lock_guard lock(state_->mutex);
+  std::size_t count = 0;
+  for (const auto& [unused_id, stored] : state_->types) {
+    (void)unused_id;
+    if (stored != nullptr && stored->reflection() != nullptr) {
+      ++count;
+    }
+  }
+  return count;
+}
+
 } // namespace caors::meta

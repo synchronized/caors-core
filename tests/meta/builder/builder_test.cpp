@@ -5,6 +5,9 @@
 
 #include "meta_type_builder_test_support.h"
 
+#include <array>
+#include <span>
+
 using namespace caors::tests::meta_type_builder;
 TEST_CASE("meta type - builder updates registered data in place", "[meta]") {
   const auto guid = caors::guid::parse("2f7cc996-e0bc-4b61-85ea-b0263b876081");
@@ -88,4 +91,45 @@ TEST_CASE("meta type - fluent builder registers name and guid", "[meta]") {
   CHECK(type.guid() == caors::type_guid{*guid});
   CHECK(caors::meta::find<fluent_meta_type>().id() == type.id());
   CHECK(caors::meta::find(caors::type_guid{*guid}).id() == type.id());
+}
+
+TEST_CASE("meta type - class builder registers fields and methods", "[meta]") {
+  auto builder = caors::meta::class_<reflected_meta_actor>("caors.test.meta.reflected_actor")
+                     .field("health", &reflected_meta_actor::health)
+                     .field_metadata("display", "Health")
+                     .method("add_health", &reflected_meta_actor::add_health);
+
+  REQUIRE(builder.succeeded());
+
+  const caors::meta::type type = caors::meta::find<reflected_meta_actor>();
+  REQUIRE(type);
+  REQUIRE(type.has_reflection());
+  CHECK(type.field_count() == 1);
+  CHECK(type.method_count() == 1);
+
+  const caors::meta::field health = type.find_field("health");
+  REQUIRE(health);
+  CHECK(health.name() == "health");
+  CHECK(health.get_owner_type().id() == type.id());
+  CHECK(health.get_type().id() == caors::meta::id_of<int>());
+  const caors::string_name display_key{"display"};
+  REQUIRE(health.find_metadata(display_key) != nullptr);
+  CHECK(health.find_metadata(display_key)->as_string() == "Health");
+
+  reflected_meta_actor actor{};
+  CHECK(health.try_set(&actor, 20));
+  CHECK(actor.health == 20);
+
+  const caors::meta::method add_health = type.find_method("add_health");
+  REQUIRE(add_health);
+  CHECK(add_health.parameter_count() == 1);
+
+  int delta = 5;
+  std::array<caors::any_ref, 1> arguments{caors::any_ref::from(delta)};
+  const caors::any result = add_health.invoke(
+      &actor, std::span<const caors::any_ref>{arguments.data(), arguments.size()});
+  REQUIRE(result);
+  REQUIRE(result.try_get<int>() != nullptr);
+  CHECK(*result.try_get<int>() == 25);
+  CHECK(actor.health == 25);
 }

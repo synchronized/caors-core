@@ -5,12 +5,12 @@
 
 `runtime` 主题提供面向用户的一站式运行时类型 facade，是普通用户优先使用的注册和查询入口。
 它不引入新的类型注册表，
-而是组合现有 `meta`、`reflection` 和 meta value 能力：
+而是组合现有 `meta`、兼容 `reflection` 和 meta value 能力：
 
-- `runtime::type` 内部持有 `meta::type`，按需查询反射组件。
-- `runtime::class_<T>("name")` 先注册 meta 类/普通值类型，再把字段和方法挂到 reflection 组件上。
+- `runtime::type` 内部持有 `meta::type`，按需查询字段和方法。
+- `runtime::class_<T>("name")` 先注册 meta 类/普通值类型，再把字段和方法写入同一份 meta 类型数据。
 - `runtime::enum_<T>("name")` 注册枚举 meta 类型，适合只需要稳定类型身份、GUID 和枚举值转换能力的场景。
-- `runtime::instance` 组合 `meta::any_ref`、`runtime::type`、`reflection::field` 和 `reflection::method`，
+- `runtime::instance` 组合 `meta::any_ref`、`runtime::type`、`meta::field` 和 `meta::method`，
   提供面向实例的字段读写和方法调用入口。
 - `runtime::object` 是对象系统适配视图，用于处理 `objects::ptr<T>` 这类对象指针字段。
 - `runtime::type::create()` 是运行期值创建的高层入口，优先使用 `meta::factory_capability`，再使用
@@ -143,7 +143,7 @@ caors::any result = instance.call("add_health", 5);
 - 无效实例、未注册反射类型、字段/方法未命中时，查询返回空视图、空值或 `false`。
 
 `fields()` 和 `methods()` 当前返回字段/方法视图的 `core::vector` 快照，适合简单遍历。它不表达成员生命周期所有权；
-字段和方法视图仍引用全局 append-only 反射注册表。后续如果需要零分配遍历，可以再增加 range view。
+字段和方法视图仍引用全局 append-only `meta::registry`。后续如果需要零分配遍历，可以再增加 range view。
 
 对象指针字段属于对象系统语义，不直接放在 `reflection::field` 上。需要按对象关系读写时，使用
 `runtime::object` 适配视图：
@@ -184,7 +184,7 @@ caors::runtime::type state_type = caors::runtime::find<actor_state>();
 
 - `meta` 继续负责类型身份、descriptor、registry 和 capability。
 - `value` 继续负责 `any`、`any_ref` 和运行期 view。
-- `reflection` 继续负责字段、方法和成员访问。
+- `meta` 继续负责字段、方法和成员访问；`reflection` 保留兼容入口。
 - `runtime` 只负责把这些能力组合成更直接的用户入口。
 - object/resource 等领域专用便利能力放在 `runtime` 或对应适配层，不反向塞进 `reflection::field`
   这类底层通用视图。

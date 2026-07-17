@@ -12,7 +12,9 @@
 #include "caors/meta/value_ops.h"
 #include "caors/traits/wrapper.h"
 
+#include <cstddef>
 #include <span>
+#include <string_view>
 #include <type_traits>
 
 namespace caors::meta {
@@ -22,12 +24,17 @@ class type;
 class any;
 class any_ref;
 class owned_value;
+class field;
+class method;
 class type_registration_data;
 
 [[nodiscard]] CAORS_API registry& get_registry() noexcept;
+template <typename T> [[nodiscard]] type resolve();
+template <typename T> [[nodiscard]] type find();
 
 namespace detail {
 
+class type_data;
 struct type_descriptor;
 
 [[nodiscard]] CAORS_API type make_type_view(type_id id, const type_descriptor* descriptor) noexcept;
@@ -77,6 +84,15 @@ public:
   [[nodiscard]] const metadata_value* find_metadata(metadata_key key) const noexcept;
   [[nodiscard]] type get_value_type() const noexcept;
   [[nodiscard]] type get_key_type() const noexcept;
+  [[nodiscard]] bool has_reflection() const noexcept;
+  [[nodiscard]] std::size_t field_count() const noexcept;
+  [[nodiscard]] field field_at(std::size_t index) const;
+  [[nodiscard]] field find_field(string_name name) const;
+  [[nodiscard]] field find_field(std::string_view name) const;
+  [[nodiscard]] std::size_t method_count() const noexcept;
+  [[nodiscard]] method method_at(std::size_t index) const;
+  [[nodiscard]] method find_method(string_name name) const;
+  [[nodiscard]] method find_method(std::string_view name) const;
 
   /**
    * @brief 查询该类型视图具备的能力。
@@ -116,12 +132,12 @@ private:
   friend type detail::make_type_view(type_id, const detail::type_descriptor*) noexcept;
   friend const void* detail::find_type_capability(const type&, capability_key) noexcept;
 
-  constexpr type(const registry* registry, const type_registration_data* data,
+  constexpr type(const registry* registry, const detail::type_data* data,
                  const detail::type_descriptor* descriptor) noexcept
       : registry_(registry), data_(data), descriptor_(descriptor) {}
 
   const registry* registry_ = nullptr;
-  const type_registration_data* data_ = nullptr;
+  const detail::type_data* data_ = nullptr;
   const detail::type_descriptor* descriptor_ = nullptr;
 };
 

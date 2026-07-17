@@ -3,6 +3,10 @@
 
 #include "caors/meta.h"
 
+#include "caors/meta/detail/reflection_data.h"
+#include "caors/meta/detail/type_data.h"
+#include "caors/meta/field.h"
+#include "caors/meta/method.h"
 #include "caors/meta/detail/type_descriptor.h"
 
 namespace caors::meta {
@@ -164,6 +168,66 @@ type type::get_key_type() const noexcept {
   }
 
   return {};
+}
+
+bool type::has_reflection() const noexcept {
+  return data_ != nullptr && data_->reflection() != nullptr;
+}
+
+std::size_t type::field_count() const noexcept {
+  const detail::reflection_data* reflection = data_ != nullptr ? data_->reflection() : nullptr;
+  return reflection != nullptr ? reflection->field_count() : 0;
+}
+
+field type::field_at(std::size_t index) const {
+  const detail::reflection_data* reflection = data_ != nullptr ? data_->reflection() : nullptr;
+  return reflection != nullptr ? field{reflection->field_at(index)} : field{};
+}
+
+field type::find_field(core::string_name field_name) const {
+  if (!field_name) {
+    return {};
+  }
+
+  const detail::reflection_data* reflection = data_ != nullptr ? data_->reflection() : nullptr;
+  return reflection != nullptr ? field{reflection->find_field_ptr(field_name)} : field{};
+}
+
+field type::find_field(std::string_view field_name) const {
+  const std::optional<core::string_name> interned_name = core::string_name::find(field_name);
+  if (!interned_name.has_value()) {
+    return {};
+  }
+
+  return find_field(*interned_name);
+}
+
+std::size_t type::method_count() const noexcept {
+  const detail::reflection_data* reflection = data_ != nullptr ? data_->reflection() : nullptr;
+  return reflection != nullptr ? reflection->method_count() : 0;
+}
+
+method type::method_at(std::size_t index) const {
+  const detail::reflection_data* reflection = data_ != nullptr ? data_->reflection() : nullptr;
+  return reflection != nullptr ? method{reflection->method_at(index)} : method{};
+}
+
+method type::find_method(core::string_name method_name) const {
+  if (!method_name) {
+    return {};
+  }
+
+  const detail::reflection_data* reflection = data_ != nullptr ? data_->reflection() : nullptr;
+  return reflection != nullptr ? method{reflection->find_method_ptr(method_name)} : method{};
+}
+
+method type::find_method(std::string_view method_name) const {
+  const std::optional<core::string_name> interned_name = core::string_name::find(method_name);
+  if (!interned_name.has_value()) {
+    return {};
+  }
+
+  return find_method(*interned_name);
 }
 
 namespace detail {

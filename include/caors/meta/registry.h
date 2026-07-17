@@ -29,11 +29,18 @@
 namespace caors::meta::detail {
 
 class registry_state;
+class reflection_data;
 struct type_descriptor;
 template <typename T> [[nodiscard]] error ensure_type_descriptor_for();
 [[nodiscard]] error ensure_type_descriptor_registered(const type_descriptor& descriptor);
 
 } // namespace caors::meta::detail
+
+namespace caors::reflection {
+
+class registry;
+
+} // namespace caors::reflection
 
 namespace caors::meta {
 
@@ -202,6 +209,8 @@ private:
 
   template <typename T> friend class class_builder;
   template <typename T> friend class enum_builder;
+  friend class type;
+  friend class ::caors::reflection::registry;
   friend error detail::ensure_type_descriptor_registered(const detail::type_descriptor& descriptor);
 
   [[nodiscard]] error register_type(const type_registration_data& type);
@@ -213,6 +222,12 @@ private:
   template <typename Child, typename Parent> [[nodiscard]] error set_type_parent_for();
 
   [[nodiscard]] error register_cpp_type_info(const std::type_info& info, type_id id);
+  [[nodiscard]] error attach_reflection(type_id id, const detail::reflection_data& reflection);
+  [[nodiscard]] detail::reflection_data* ensure_reflection(type_id id,
+                                                           detail::reflection_data reflection);
+  [[nodiscard]] const detail::reflection_data* find_reflection(type_id id) const;
+  [[nodiscard]] detail::reflection_data* find_mutable_reflection(type_id id);
+  [[nodiscard]] std::size_t reflection_count() const noexcept;
 
   [[nodiscard]] detail::meta_component_storage_base*
   find_component_storage(detail::meta_component_key key);

@@ -19,4 +19,13 @@ struct explicit_find_type {};
 
 struct missing_find_type {};
 
+struct reflected_meta_actor {
+  int health = 10;
+
+  int add_health(int value) {
+    health += value;
+    return health;
+  }
+};
+
 } // namespace caors::tests::meta_type_builder

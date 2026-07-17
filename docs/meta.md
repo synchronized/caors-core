@@ -15,14 +15,14 @@
 - 用 `string_name` 保存运行期去重后的类型名。
 - 用 `type_id` 表示由 C++ 类型运行期 key 派生的进程内类型句柄。
 - 用 `type_guid` 保存可选的稳定类型标识。
-- 用注册表内部 meta 类型记录保存类型名、稳定 GUID 和父类型。
+- 用注册表内部 meta 类型记录保存类型名、稳定 GUID、父类型、字段和成员方法。
 - 用内部 type descriptor 保存 C++ 类型布局、默认构造、复制、析构、赋值和运行期视图能力。
 - 用内部 type descriptor 保存类型形态、通用类型关系和具体访问函数表。
 - 用可选 factory capability 保存资源感知构造策略，供普通类多态反序列化等需要运行期创建值的路径使用。
 - 用 `meta::type` 作为对外只读类型视图，避免直接暴露注册表内部数据。
 - 用全局 `meta::registry` 集中处理 meta 类型注册、查找和继承关系判断。
-- 用全局 `meta::registry` 在同一个 `type_id` 上挂载不同主题的元数据组件。
-- 避免对象系统、反射系统和序列化系统各自重复实现类型注册逻辑。
+- 用全局 `meta::registry` 在同一个 `type_id` 上集中保存类型数据，并按需挂载不同主题的扩展数据。
+- 避免对象系统、反射系统和序列化系统各自重复实现类型注册和字段/方法索引逻辑。
 
 当前不会包含：
 
@@ -30,9 +30,10 @@
 - 脚本或动态类型注册中心。
 - system 调度。
 - 对象生命周期管理器。
-- 具体字段、方法或序列化格式。
+- 序列化格式。
 
-这些能力应由对象、反射和序列化模块基于 `meta` 扩展。
+字段和成员方法现在直接保存在 `meta` 类型记录上；`reflection` 命名空间保留为反射语义的兼容入口和文档分区。
+对象、资源和序列化等领域能力仍由对应模块基于 `meta` 扩展。
 
 新代码可以直接包含 `caors/meta.h` 使用完整类型元数据 API；如果只需要局部能力，也可以包含对应子头文件：
 
@@ -42,6 +43,8 @@
 - `caors/traits/wrapper.h`：`traits::wrapper_traits<T>` 和 `traits::wrapper_access<T>` 主模板。
 - `caors/traits/container.h`：顺序、集合、关联、pair、tuple 和 variant 类型语义 traits 主模板。
 - `caors/meta/type.h`：`meta::type`、类型语义数据和内部类型描述实现。
+- `caors/meta/field.h`、`caors/meta/method.h`：字段和成员方法只读视图。
+- `caors/meta/reflection.h`：`meta::class_<T>()` 上的字段/方法注册扩展。
 - `caors/adapters/stl_traits.h`、`caors/adapters/stl_wrapper.h`：STL/CAORS 类型的默认 traits 特化。
 - `caors/meta/view.h`：`meta::view<T...>` 查询视图。
 - `caors/meta/registry.h`：全局 `meta::registry`、注册错误状态和注册 helper。
@@ -122,6 +125,7 @@ meta 类型记录由全局注册表内部保存，普通代码不直接构造或
 `meta::find<T>()` 只查询已经注册的 C++ 类型；未注册类型即使能解析 descriptor，也会返回空视图。
 `meta::class_<T>()` 链式 builder 会原地更新全局注册表中已经保存的类型数据；已有 `meta::type`
 视图只引用这份稳定数据，不会因为后续 `.guid()` 或 `.parent()` 调用而失效。
+字段和成员方法也挂在同一份类型数据上，已有 `meta::type` 视图可以在后续字段/方法注册后直接查询到新内容。
 
 `meta::type` 是对外查询返回的只读视图：
 
@@ -132,6 +136,23 @@ if (type) {
   caors::type_id id = type.id();
   std::string_view name = type.name().view();
 }
+```
+
+字段和成员方法可以直接通过 `meta::type` 查询：
+
+```cpp
+struct actor {
+  int health = 100;
+  int add_health(int value);
+};
+
+caors::meta::class_<actor>("game.actor")
+    .field("health", &actor::health)
+    .method("add_health", &actor::add_health);
+
+caors::meta::type type = caors::meta::find<actor>();
+caors::meta::field health = type.find_field("health");
+caors::meta::method add_health = type.find_method("add_health");
 ```
 
 `meta::type` 不拥有数据，内部引用静态 descriptor；类型已注册时还会引用全局 append-only 注册表中的
@@ -258,8 +279,8 @@ caors::meta::class_<actor>("game.actor")
 
 - 内部 descriptor 是编译期 C++ 类型描述。它描述某个 `T` 的 `type_id`、默认显示名、布局、构造 /
   析构 / 复制 / 赋值、类型语义，以及 CAORS 内置运行期访问能力。它不表示类型已经完成业务注册。
-- `meta::registry` 是注册后元数据和模块组件索引。只有显式 `meta::class_<T>("name")` 注册后的类型，
-  才拥有稳定名称、GUID、父类型关系、对象组件、反射组件和序列化组件等全局可查询数据。
+- `meta::registry` 是注册后元数据和模块数据索引。只有显式 `meta::class_<T>("name")` 注册后的类型，
+  才拥有稳定名称、GUID、父类型关系、字段、方法、对象组件和序列化组件等全局可查询数据。
 - descriptor static capability 用于类型固有能力。能力由模块在编译期按 `T` 生成，例如
   `objects::ptr<T>` 访问函数、对象 handle 函数表和 `codec_traits<T>` 生成的 codec 函数表。
   它们随 descriptor 一起查询，不要求类型先注册到 registry。
@@ -419,7 +440,7 @@ meta 不会因为存在 `traits::type_name<T>` 就在运行期隐式创建业务
 
 ### meta::registry
 
-`meta::registry` 是进程级全局类型元数据注册表。它直接管理 meta 类型记录，并允许在同一个 `type_id` 上挂载对象、反射、序列化等元数据组件。普通代码不需要创建 registry 对象：
+`meta::registry` 是进程级全局类型元数据注册表。它直接管理 meta 类型记录，并在同一个 `type_id` 下保存字段、方法、对象、序列化等元数据。普通代码不需要创建 registry 对象：
 
 ```cpp
 caors::error result = caors::meta::class_<actor>("game.actor").result();
@@ -427,8 +448,8 @@ caors::error result = caors::meta::class_<actor>("game.actor").result();
 
 注册表只面向 C++ 类型。脚本或动态类型不应直接写入当前注册表，后续应放到独立系统，再由上层 resolver
 统一查询。注册表是 append-only：meta 类型注册后不可清理或撤销，重复注册相同类型会返回重复结果。
-当前组件同样按 append-only 方式挂载：同一类型的同类组件注册后不可替换。反射和序列化这类组件
-数据按“注册后不替换”处理，外部视图只在该约束下承诺进程生命周期内稳定。
+当前对象、序列化等扩展数据同样按 append-only 方式挂载：同一类型的同类扩展注册后不可替换。
+字段和方法数据也按“注册后不替换”处理，外部视图只在该约束下承诺进程生命周期内稳定。
 
 registry 使用边界：
 
@@ -437,7 +458,7 @@ registry 使用边界：
 - 不用 registry：只需要当前 C++ 类型的布局、构造/析构、容器视图、wrapper 视图、枚举转换、
   descriptor 静态 capability 或 `any` / `any_ref` 的局部值访问。
 - 模块注册入口应接收已经存在的 `meta::type`，或者由调用方先显式 `meta::class_<T>("name")` 注册业务
-  类型。反射和序列化模块不应为了挂载组件隐式创建业务类型注册记录。
+  类型。序列化等模块不应为了挂载组件隐式创建业务类型注册记录。
 - `meta::resolve<T>()` 返回 descriptor-backed 类型视图，未注册类型也可能有效；`registered()` 才表示
   registry 中已经存在稳定注册数据。
 - `meta::find<T>()` 只查询已注册 C++ 类型；未注册类型返回空视图。
@@ -450,10 +471,8 @@ registry 使用边界：
 
 ```cpp
 void register_game_types() {
-  caors::meta::class_<actor>("game.actor");
-  caors::reflection::class_<actor>()
-      .field("id", &actor::id)
-      .commit();
+  caors::meta::class_<actor>("game.actor")
+      .field("id", &actor::id);
 }
 
 int main() {
@@ -467,11 +486,10 @@ int main() {
 
 ```cpp
 CAORS_META_REGISTRATION(register_actor_meta) {
-  caors::meta::class_<actor>("game.actor");
+  caors::meta::class_<actor>("game.actor")
+      .field("id", &actor::id);
 
-  return caors::reflection::class_<actor>()
-      .field("id", &actor::id)
-      .commit();
+  return caors::error{};
 }
 ```
 
@@ -788,11 +806,12 @@ descriptor，不再为了创建 view 把每一种容器组合额外挂载为 met
 
 - `objects::registry` 复用全局 meta 类型记录，再给同一个 `type_id` 挂载
   `objects::object_factory_capability`，并对外返回 `objects::type` 视图。
-- 全局反射注册表复用 meta 类型记录，再挂载内部反射组件，并通过 `reflection::type` / `reflection::field` 对外查询。
+- 字段和方法直接保存在 meta 类型记录关联的数据中，并通过 `meta::type` / `meta::field` / `meta::method` 对外查询；
+  `reflection::type` / `reflection::field` 是兼容视图。
 - 后续 `serialization::registry` 可以挂载序列化相关组件。
 
 这样对象、反射和序列化的全局注册入口不需要重复处理重名、重复 GUID、不一致类型描述和父类型缺失。
-跨模块查询可以通过 `meta::registry::component_view<T...>()` 完成。反射这类内部组件应通过对应模块 API
+跨模块查询可以通过 `meta::registry::component_view<T...>()` 完成。字段和方法应通过 `meta::type`
 返回稳定只读视图；序列化等公开组件仍可通过
 `meta::get_registry().component_view<serialization::type_schema>()` 查询。
 

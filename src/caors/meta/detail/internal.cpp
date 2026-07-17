@@ -247,6 +247,12 @@ error validate_registry(const registry_state& state) {
         return {error_domain::meta, errc::inconsistent_type};
       }
     }
+
+    const reflection_data* reflection = stored->reflection();
+    if (reflection != nullptr &&
+        (!reflection->valid() || reflection->get_type().id() != stored->id())) {
+      return {error_domain::meta, errc::invalid_type};
+    }
   }
 
   for (const auto& [raw_id, descriptor] : state.descriptors) {
