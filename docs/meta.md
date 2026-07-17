@@ -252,8 +252,8 @@ caors::meta::class_<actor>("game.actor")
 `runtime::type::create(arguments)` 会在 factory 之后查询 constructor，构造成功后同样由 `any`
 保存匹配的内部销毁策略。也可以使用 `constructor_capability::construct(arguments, resource)` 直接获得
 `meta::any`，或使用 `constructor_capability::construct_owned(arguments, resource)` 获得可延迟转移的
-`meta::owned_value`。当前版本只支持一个 constructor 能力，右值引用参数和 move-only by-value 参数暂不支持；构造函数重载、
-默认参数和隐式类型转换后续再扩展。
+`meta::owned_value`。当前版本只支持一个 constructor 能力，右值引用参数需要通过
+`caors::move_arg(...)` 显式传入；构造函数重载、默认参数和隐式类型转换后续再扩展。
 
 `caors::meta::resolve<T>()` 是 C++ 类型到 descriptor 视图的入口；类型未显式注册时仍可能返回有效
 `meta::type`，但 `registered()` 为 false。`caors::meta::find<T>()` 是 C++ 类型到已注册类型的入口，
@@ -566,9 +566,9 @@ version_property.try_set_value(caors::any::from(2));
 
 int left = 1;
 int right = 2;
-std::array<caors::any_ref, 2> args{
-    caors::any_ref::from(left),
-    caors::any_ref::from(right),
+std::array<caors::argument, 2> args{
+    caors::arg(left),
+    caors::arg(right),
 };
 caors::any sum = add_function.invoke(args);
 ```

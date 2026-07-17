@@ -108,15 +108,6 @@ any object_view::call(std::string_view name, std::span<const meta::argument> arg
   return reflected_method.invoke(meta::instance{value_}, arguments);
 }
 
-any object_view::call(std::string_view name, std::span<const any_ref> arguments) const {
-  const meta::method_set reflected_method = find_method(name);
-  if (!reflected_method || !value_) {
-    return {};
-  }
-
-  return reflected_method.invoke(meta::instance{value_}, arguments);
-}
-
 object* object_view::ptr() const noexcept {
   if (pointer_ != nullptr) {
     return pointer_;

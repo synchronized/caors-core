@@ -75,7 +75,7 @@ caors::runtime::class_<actor>("game.actor")
     .commit();
 
 int health = 100;
-std::array<caors::any_ref, 1> args{caors::any_ref::from(health)};
+std::array<caors::argument, 1> args{caors::arg(health)};
 
 caors::runtime::type type = caors::runtime::find<actor>();
 caors::any value =
@@ -83,8 +83,8 @@ caors::any value =
 ```
 
 constructor 参数采用保守匹配策略：参数数量必须一致，参数类型必须和注册的 `Args...`
-去 cv/ref 后精确匹配；非 const 左值引用参数要求传入可写 `any_ref`。当前版本只支持一个 constructor
-能力；右值引用参数和 move-only by-value 参数暂不支持。构造函数重载选择、默认参数和隐式类型转换后续再扩展。
+去 cv/ref 后精确匹配；非 const 左值引用参数要求底层引用可写，右值引用参数需要通过
+`caors::move_arg(...)` 显式传入。当前版本只支持一个 constructor 能力；构造函数重载选择、默认参数和隐式类型转换后续再扩展。
 
 ### 高级用法：值构造与所有权接管
 

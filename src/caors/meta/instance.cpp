@@ -98,13 +98,4 @@ any instance::call(std::string_view name, std::span<const argument> arguments) c
   return reflected_method.invoke(*this, arguments);
 }
 
-any instance::call(std::string_view name, std::span<const any_ref> arguments) const {
-  const method_set reflected_method = find_method(name);
-  if (!reflected_method || !value_) {
-    return {};
-  }
-
-  return reflected_method.invoke(*this, arguments);
-}
-
 } // namespace caors::meta

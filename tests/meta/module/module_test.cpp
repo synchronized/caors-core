@@ -65,7 +65,7 @@ TEST_CASE("meta - module registers global properties and functions", "[meta]") {
 
   int left = 3;
   int right = 5;
-  std::array<caors::any_ref, 2> arguments{caors::any_ref::from(left), caors::any_ref::from(right)};
+  std::array<caors::argument, 2> arguments{caors::arg(left), caors::arg(right)};
   const caors::any add_result = add.invoke(arguments);
   REQUIRE(add_result);
   REQUIRE(add_result.try_get<int>() != nullptr);
@@ -89,7 +89,7 @@ TEST_CASE("meta - module registers static properties and functions", "[meta]") {
   CHECK(module_static_fixture::value == 6);
 
   int factor = 7;
-  std::array<caors::any_ref, 1> arguments{caors::any_ref::from(factor)};
+  std::array<caors::argument, 1> arguments{caors::arg(factor)};
   const caors::any result = module.find_method("multiply").invoke(arguments);
   REQUIRE(result);
   REQUIRE(result.try_get<int>() != nullptr);
