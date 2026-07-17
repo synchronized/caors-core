@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_META_DETAIL_CONTAINER_ITERATORS_H_
-#define CAORS_META_DETAIL_CONTAINER_ITERATORS_H_
+#ifndef CAORS_META_DETAIL_BUILTIN_CONTAINER_ITERATOR_OPS_MODEL_H_
+#define CAORS_META_DETAIL_BUILTIN_CONTAINER_ITERATOR_OPS_MODEL_H_
 
 #include "caors/config.h"
 #include "caors/memory/resource.h"

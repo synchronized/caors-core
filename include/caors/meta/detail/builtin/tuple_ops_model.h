@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_META_DETAIL_BUILTIN_TUPLE_OPS_H_
-#define CAORS_META_DETAIL_BUILTIN_TUPLE_OPS_H_
+#ifndef CAORS_META_DETAIL_BUILTIN_TUPLE_OPS_MODEL_H_
+#define CAORS_META_DETAIL_BUILTIN_TUPLE_OPS_MODEL_H_
 
 #include "caors/core/containers.h"
 #include "caors/meta/detail/builtin/ops.h"

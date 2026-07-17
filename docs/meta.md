@@ -336,11 +336,11 @@ descriptor 内部按职责拆分：
 `meta/detail/type_descriptor_name.h` 负责 descriptor 默认显示名生成；
 `meta/detail/type_descriptor_model.h` 负责 descriptor holder、语义填充和构建实现；
 `meta/detail/builtin_ops_model.h` 作为内置 ops 聚合入口，只负责引入
-`meta/detail/builtin/*.h` 并选择当前类型的内置 ops；`builtin/enum_ops.h`、
-`builtin/indirect_ops.h`、`builtin/sequence_ops.h`、`builtin/set_ops.h`、
-`builtin/associative_ops.h`、`builtin/pair_ops.h`、`builtin/tuple_ops.h` 和
-`builtin/variant_ops.h` 分别负责对应能力的 `*_ops` 函数表、函数指针类型、具名 static 回调和
-`*_ops_model<T>` 生成；`builtin/container_iterators.h` 提供通用 `container_iterator_ops`、
+`meta/detail/builtin/*.h` 并选择当前类型的内置 ops；`builtin/enum_ops_model.h`、
+`builtin/indirect_ops_model.h`、`builtin/sequence_ops_model.h`、`builtin/set_ops_model.h`、
+`builtin/associative_ops_model.h`、`builtin/pair_ops_model.h`、`builtin/tuple_ops_model.h` 和
+`builtin/variant_ops_model.h` 分别负责对应能力的具名 static 回调和 `*_ops_model<T>`
+生成；`builtin/container_iterator_ops_model.h` 提供通用 `container_iterator_ops`、
 `container_iterator_ops_model<T>` 和 set / associative 复用的类型擦除迭代器 holder；
 `meta/detail/parent_cast_ops.h` 只保留类型层级 parent cast 能力；`meta/type_semantics.h`
 只保留类型语义判断 helper。
