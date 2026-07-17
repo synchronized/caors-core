@@ -5,6 +5,8 @@
 #define CAORS_META_DETAIL_METHOD_DATA_H_
 
 #include "caors/core/containers.h"
+#include "caors/memory/unique_ptr.h"
+#include "caors/meta/metadata.h"
 #include "caors/meta/type.h"
 #include "caors/meta/value/any_ref.h"
 
@@ -55,14 +57,60 @@ public:
 
   method_data() noexcept = default;
 
-  method_data(string_name method_name, method_ops method_operations,
-              bool is_const_method) noexcept
+  method_data(string_name method_name, method_ops method_operations, bool is_const_method) noexcept
       : name_(method_name), ops_(method_operations), const_method_(is_const_method) {}
+
+  method_data(const method_data& other)
+      : name_(other.name_), storage_(other.storage_), ops_(other.ops_),
+        const_method_(other.const_method_) {
+    if (other.metadata_ != nullptr) {
+      metadata_ =
+          memory::make_unique<meta::metadata_map>(&memory::library_resource(), *other.metadata_);
+    }
+  }
+
+  method_data& operator=(const method_data& other) {
+    if (this == &other) {
+      return *this;
+    }
+
+    name_ = other.name_;
+    storage_ = other.storage_;
+    ops_ = other.ops_;
+    const_method_ = other.const_method_;
+    if (other.metadata_ != nullptr) {
+      metadata_ =
+          memory::make_unique<meta::metadata_map>(&memory::library_resource(), *other.metadata_);
+    } else {
+      metadata_.reset();
+    }
+    return *this;
+  }
+
+  method_data(method_data&&) noexcept = default;
+  method_data& operator=(method_data&&) noexcept = default;
+  ~method_data() = default;
 
   [[nodiscard]] bool valid() const noexcept { return !name_.empty() && ops_.valid(); }
 
   [[nodiscard]] string_name name() const noexcept { return name_; }
   [[nodiscard]] bool const_method() const noexcept { return const_method_; }
+  [[nodiscard]] const meta::metadata_map& metadata() const noexcept {
+    return metadata_ != nullptr ? *metadata_ : empty_metadata_map();
+  }
+
+  [[nodiscard]] const meta::metadata_value* find_metadata(meta::metadata_key key) const noexcept {
+    return metadata_ != nullptr ? meta::find_metadata(*metadata_, key) : nullptr;
+  }
+
+  void set_metadata(meta::metadata_key key, meta::metadata_value value) {
+    if (metadata_ == nullptr) {
+      metadata_ = memory::make_unique<meta::metadata_map>(
+          &memory::library_resource(), meta::make_metadata_map(&memory::library_resource()));
+    }
+    meta::set_metadata(*metadata_, key, std::move(value));
+  }
+
   [[nodiscard]] meta::type get_owner_type() const noexcept { return ops_.get_owner_type(*this); }
   [[nodiscard]] meta::type get_return_type() const noexcept { return ops_.get_return_type(*this); }
   [[nodiscard]] std::size_t parameter_count() const noexcept { return ops_.parameter_count(*this); }
@@ -91,10 +139,17 @@ public:
   }
 
 private:
+  [[nodiscard]] static const meta::metadata_map& empty_metadata_map() noexcept {
+    static const meta::metadata_map empty{
+        typename meta::metadata_map::allocator_type{&memory::library_resource()}};
+    return empty;
+  }
+
   string_name name_{};
   alignas(std::max_align_t) std::array<std::byte, storage_size> storage_{};
   method_ops ops_{};
   bool const_method_ = false;
+  memory::unique_ptr<meta::metadata_map> metadata_{};
 };
 
 template <typename T> using method_value_type = std::remove_cv_t<std::remove_reference_t<T>>;
@@ -194,8 +249,7 @@ template <typename Class, typename Return, typename... Arguments>
   return invoke_member_impl(member, *instance, arguments, std::index_sequence_for<Arguments...>{});
 }
 
-template <typename Class>
-[[nodiscard]] meta::type method_owner_type(const method_data&) noexcept {
+template <typename Class> [[nodiscard]] meta::type method_owner_type(const method_data&) noexcept {
   return meta::resolve<Class>();
 }
 

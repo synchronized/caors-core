@@ -5,6 +5,7 @@
 #define CAORS_META_METHOD_H_
 
 #include "caors/export.h"
+#include "caors/meta/metadata.h"
 #include "caors/meta/type.h"
 #include "caors/meta/value/any_ref.h"
 
@@ -19,8 +20,9 @@ namespace caors::meta {
 /**
  * @brief 成员方法反射只读视图。
  *
- * `meta::method` 不拥有方法数据，只引用全局 `meta::registry` 中的内部记录。调用时需要显式传入对象地址和
- * 参数引用；参数类型不匹配、对象为空或 const 对象调用非 const 方法时会返回无效 `any`。
+ * `meta::method` 不拥有方法数据，只引用全局 `meta::registry`
+ * 中的内部记录。调用时需要显式传入对象地址和 参数引用；参数类型不匹配、对象为空或 const 对象调用非
+ * const 方法时会返回无效 `any`。
  */
 class CAORS_API method final {
 public:
@@ -35,6 +37,8 @@ public:
   [[nodiscard]] std::size_t parameter_count() const noexcept;
   [[nodiscard]] std::optional<meta::type> get_parameter_type(std::size_t index) const noexcept;
   [[nodiscard]] bool const_method() const noexcept;
+  [[nodiscard]] const meta::metadata_map& metadata() const noexcept;
+  [[nodiscard]] const meta::metadata_value* find_metadata(meta::metadata_key key) const noexcept;
 
   /** @brief 在可写对象上调用方法。 */
   [[nodiscard]] any invoke(void* object, std::span<const any_ref> arguments = {}) const;

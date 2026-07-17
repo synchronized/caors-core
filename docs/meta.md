@@ -539,12 +539,12 @@ caors::meta::get_registry().emplace_component<object_factory_meta>(actor_id, tru
 
 ### metadata
 
-`meta::metadata_map` 是轻量键值附加信息，值使用 `meta::variant` 保存，适合给类型或字段补充工具层、
-配置层和编辑器提示信息。类型级 metadata 通过 `meta::type_metadata` 组件挂到全局 registry：
+`meta::metadata_map` 是轻量键值附加信息，值使用 `meta::variant` 保存，适合给类型、字段或方法补充工具层、
+配置层和编辑器提示信息。类型级 metadata 直接保存在 meta 类型记录上：
 
 ```cpp
 caors::meta::class_<actor>("game.actor")
-    .metadata("category", "gameplay")
+    (caors::meta::metadata("category", "gameplay"))
     .metadata("spawnable", true);
 
 caors::meta::type type = caors::meta::find<actor>();
@@ -552,15 +552,25 @@ const caors::meta::metadata_value* category =
     type.find_metadata(caors::string_name{"category"});
 ```
 
-字段级 metadata 推荐使用 RTTR 风格的绑定语法。`meta::metadata(key, value)` 创建一条写入项，
-紧跟在 `.field(...)` 后面的 `(...)` 会把这些写入项挂到刚注册的字段上：
+metadata 推荐使用 RTTR 风格的绑定语法。`meta::metadata(key, value)` 创建一条写入项：
+
+- 紧跟在 `class_<T>(...)` 后面的 `(...)` 写入类型 metadata。
+- 紧跟在 `.field(...)` 后面的 `(...)` 写入字段 metadata。
+- 紧跟在 `.method(...)` 后面的 `(...)` 写入方法 metadata。
+
+`.field(...)` 和 `.method(...)` 返回临时 bind 对象；bind 对象会把后续
+`.field()`、`.method()`、`.metadata()`、`.commit()` 等链式调用继续转发给原始 class builder，
+所以没有 metadata 的普通链式写法不需要额外处理：
 
 ```cpp
 caors::meta::class_<actor>("game.actor")
+    (caors::meta::metadata("category", "gameplay"))
     .field("health", &actor::health)
     (caors::meta::metadata("display", "Health"),
      caors::meta::metadata("range_min", 0),
-     caors::meta::metadata("range_max", 100));
+     caors::meta::metadata("range_max", 100))
+    .method("damage", &actor::damage)
+    (caors::meta::metadata("scriptable", true));
 ```
 
 `field_metadata(key, value)` 仍可用于高级代码按步骤给最近字段写入 metadata；普通注册代码优先使用上面的绑定语法。

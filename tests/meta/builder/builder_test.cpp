@@ -94,10 +94,11 @@ TEST_CASE("meta type - fluent builder registers name and guid", "[meta]") {
 }
 
 TEST_CASE("meta type - class builder registers fields and methods", "[meta]") {
-  auto builder = caors::meta::class_<reflected_meta_actor>("caors.test.meta.reflected_actor")
-                     .field("health", &reflected_meta_actor::health)
-                     (caors::meta::metadata("display", "Health"))
-                     .method("add_health", &reflected_meta_actor::add_health);
+  auto builder = caors::meta::class_<reflected_meta_actor>("caors.test.meta.reflected_actor");
+  builder(caors::meta::metadata("category", "gameplay"))
+      .field("health", &reflected_meta_actor::health)(caors::meta::metadata("display", "Health"))
+      .method("add_health",
+              &reflected_meta_actor::add_health)(caors::meta::metadata("scriptable", true));
 
   REQUIRE(builder.succeeded());
 
@@ -105,6 +106,9 @@ TEST_CASE("meta type - class builder registers fields and methods", "[meta]") {
   REQUIRE(type);
   CHECK(type.field_count() == 1);
   CHECK(type.method_count() == 1);
+  const caors::string_name category_key{"category"};
+  REQUIRE(type.find_metadata(category_key) != nullptr);
+  CHECK(type.find_metadata(category_key)->as_string() == "gameplay");
 
   const caors::meta::field health = type.find_field("health");
   REQUIRE(health);
@@ -122,6 +126,9 @@ TEST_CASE("meta type - class builder registers fields and methods", "[meta]") {
   const caors::meta::method add_health = type.find_method("add_health");
   REQUIRE(add_health);
   CHECK(add_health.parameter_count() == 1);
+  const caors::string_name scriptable_key{"scriptable"};
+  REQUIRE(add_health.find_metadata(scriptable_key) != nullptr);
+  CHECK(add_health.find_metadata(scriptable_key)->as_bool());
 
   int delta = 5;
   std::array<caors::any_ref, 1> arguments{caors::any_ref::from(delta)};

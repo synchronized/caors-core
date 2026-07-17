@@ -15,6 +15,49 @@
 
 namespace caors::meta {
 
+template <typename T> class class_builder;
+template <typename T> class field_bind;
+template <typename T> class method_bind;
+
+/** @brief 字段/方法 bind 共享的类注册链式入口。 */
+template <typename T, typename Derived> class class_builder_bind_chain {
+public:
+  class_builder<T>& type(std::string_view name);
+  class_builder<T>& guid(type_guid guid_value);
+  class_builder<T>& guid(caors::guid guid_value);
+  class_builder<T>& parent(type_id parent_id);
+  template <typename Parent> class_builder<T>& parent();
+  class_builder<T>& factory();
+  class_builder<T>& factory(factory_ops::construct_fn construct, factory_ops::destroy_fn destroy);
+  template <typename... Arguments> class_builder<T>& constructor();
+  template <typename Member> field_bind<T> field(std::string_view name, Member member);
+  template <typename Member>
+  field_bind<T> field(std::string_view name, Member member, std::string_view type_name);
+  template <typename Member> method_bind<T> method(std::string_view name, Member member);
+  template <typename Value> class_builder<T>& field_metadata(std::string_view key, Value&& value);
+  template <typename Value> class_builder<T>& field_metadata(string_name key, Value&& value);
+  template <typename Capability> class_builder<T>& capability(const Capability* capability);
+  template <typename Capability>
+    requires(!std::is_pointer_v<std::remove_reference_t<Capability>>)
+  class_builder<T>& capability(Capability&& capability);
+  template <typename Capability> class_builder<T>& capability();
+  template <typename Value> class_builder<T>& metadata(std::string_view key, Value&& value);
+  template <typename Value> class_builder<T>& metadata(string_name key, Value&& value);
+  [[nodiscard]] ::caors::meta::type get() const noexcept;
+  [[nodiscard]] error result() const noexcept;
+  [[nodiscard]] error commit() const noexcept;
+  [[nodiscard]] bool succeeded() const noexcept;
+
+private:
+  [[nodiscard]] class_builder<T>& builder() noexcept {
+    return static_cast<Derived&>(*this).builder();
+  }
+
+  [[nodiscard]] const class_builder<T>& builder() const noexcept {
+    return static_cast<const Derived&>(*this).builder();
+  }
+};
+
 /** @brief RTTR 风格的类/普通值类型注册构建器。 */
 template <typename T> class class_builder {
 public:
@@ -115,14 +158,14 @@ public:
   template <typename... Arguments> class_builder& constructor();
 
   /** @brief 注册成员字段反射信息。 */
-  template <typename Member> class_builder& field(std::string_view name, Member member);
+  template <typename Member> field_bind<T> field(std::string_view name, Member member);
 
   /** @brief 注册成员字段反射信息，并校验字段类型名。 */
   template <typename Member>
-  class_builder& field(std::string_view name, Member member, std::string_view type_name);
+  field_bind<T> field(std::string_view name, Member member, std::string_view type_name);
 
   /** @brief 注册成员方法反射信息。 */
-  template <typename Member> class_builder& method(std::string_view name, Member member);
+  template <typename Member> method_bind<T> method(std::string_view name, Member member);
 
   /** @brief 给最近添加的字段写入 metadata。 */
   template <typename Value> class_builder& field_metadata(std::string_view key, Value&& value);
@@ -130,11 +173,11 @@ public:
   /** @brief 给最近添加的字段写入 metadata。 */
   template <typename Value> class_builder& field_metadata(string_name key, Value&& value);
 
-  /** @brief 用 RTTR 风格语法给最近添加的字段写入 metadata。 */
+  /** @brief 用 RTTR 风格语法给当前类型写入 metadata。 */
   template <typename... Entries> class_builder& operator()(Entries&&... entries) {
     static_assert((std::is_same_v<std::remove_cvref_t<Entries>, metadata_entry> && ...),
                   "meta::class_builder::operator() expects meta::metadata(...) entries");
-    (apply_field_metadata(std::forward<Entries>(entries)), ...);
+    (apply_type_metadata(std::forward<Entries>(entries)), ...);
     return *this;
   }
 
@@ -227,6 +270,37 @@ public:
   }
 
 private:
+  friend class field_bind<T>;
+  friend class method_bind<T>;
+
+  class_builder& apply_type_metadata(const metadata_entry& entry) {
+    return metadata(entry.key, entry.value);
+  }
+
+  class_builder& apply_type_metadata(metadata_entry&& entry) {
+    return metadata(entry.key, std::move(entry.value));
+  }
+
+  class_builder& apply_field_metadata(string_name field_name, const metadata_entry& entry) {
+    return set_field_metadata(field_name, entry.key, entry.value);
+  }
+
+  class_builder& apply_field_metadata(string_name field_name, metadata_entry&& entry) {
+    return set_field_metadata(field_name, entry.key, std::move(entry.value));
+  }
+
+  class_builder& apply_method_metadata(string_name method_name, const metadata_entry& entry) {
+    return set_method_metadata(method_name, entry.key, entry.value);
+  }
+
+  class_builder& apply_method_metadata(string_name method_name, metadata_entry&& entry) {
+    return set_method_metadata(method_name, entry.key, std::move(entry.value));
+  }
+
+  class_builder& set_field_metadata(string_name field_name, metadata_key key, metadata_value value);
+  class_builder& set_method_metadata(string_name method_name, metadata_key key,
+                                     metadata_value value);
+
   class_builder& apply_field_metadata(const metadata_entry& entry) {
     return field_metadata(entry.key, entry.value);
   }
@@ -246,6 +320,186 @@ private:
   error status_{};
   string_name last_field_name_{};
 };
+
+/** @brief 刚注册字段的 RTTR 风格 bind 对象。 */
+template <typename T> class field_bind final : public class_builder_bind_chain<T, field_bind<T>> {
+public:
+  field_bind(class_builder<T>& builder, string_name field_name) noexcept
+      : builder_(&builder), field_name_(field_name) {}
+
+  template <typename... Entries> class_builder<T>& operator()(Entries&&... entries) {
+    static_assert((std::is_same_v<std::remove_cvref_t<Entries>, metadata_entry> && ...),
+                  "meta::field_bind::operator() expects meta::metadata(...) entries");
+    (builder_->apply_field_metadata(field_name_, std::forward<Entries>(entries)), ...);
+    return *builder_;
+  }
+
+  [[nodiscard]] operator class_builder<T>&() noexcept { return *builder_; }
+  [[nodiscard]] operator const class_builder<T>&() const noexcept { return *builder_; }
+
+private:
+  friend class class_builder_bind_chain<T, field_bind<T>>;
+
+  [[nodiscard]] class_builder<T>& builder() noexcept { return *builder_; }
+  [[nodiscard]] const class_builder<T>& builder() const noexcept { return *builder_; }
+
+  class_builder<T>* builder_ = nullptr;
+  string_name field_name_{};
+};
+
+/** @brief 刚注册方法的 RTTR 风格 bind 对象。 */
+template <typename T> class method_bind final : public class_builder_bind_chain<T, method_bind<T>> {
+public:
+  method_bind(class_builder<T>& builder, string_name method_name) noexcept
+      : builder_(&builder), method_name_(method_name) {}
+
+  template <typename... Entries> class_builder<T>& operator()(Entries&&... entries) {
+    static_assert((std::is_same_v<std::remove_cvref_t<Entries>, metadata_entry> && ...),
+                  "meta::method_bind::operator() expects meta::metadata(...) entries");
+    (builder_->apply_method_metadata(method_name_, std::forward<Entries>(entries)), ...);
+    return *builder_;
+  }
+
+  [[nodiscard]] operator class_builder<T>&() noexcept { return *builder_; }
+  [[nodiscard]] operator const class_builder<T>&() const noexcept { return *builder_; }
+
+private:
+  friend class class_builder_bind_chain<T, method_bind<T>>;
+
+  [[nodiscard]] class_builder<T>& builder() noexcept { return *builder_; }
+  [[nodiscard]] const class_builder<T>& builder() const noexcept { return *builder_; }
+
+  class_builder<T>* builder_ = nullptr;
+  string_name method_name_{};
+};
+
+template <typename T, typename Derived>
+class_builder<T>& class_builder_bind_chain<T, Derived>::type(std::string_view name) {
+  return builder().type(name);
+}
+
+template <typename T, typename Derived>
+class_builder<T>& class_builder_bind_chain<T, Derived>::guid(type_guid guid_value) {
+  return builder().guid(guid_value);
+}
+
+template <typename T, typename Derived>
+class_builder<T>& class_builder_bind_chain<T, Derived>::guid(caors::guid guid_value) {
+  return builder().guid(guid_value);
+}
+
+template <typename T, typename Derived>
+class_builder<T>& class_builder_bind_chain<T, Derived>::parent(type_id parent_id) {
+  return builder().parent(parent_id);
+}
+
+template <typename T, typename Derived>
+template <typename Parent>
+class_builder<T>& class_builder_bind_chain<T, Derived>::parent() {
+  return builder().template parent<Parent>();
+}
+
+template <typename T, typename Derived>
+class_builder<T>& class_builder_bind_chain<T, Derived>::factory() {
+  return builder().factory();
+}
+
+template <typename T, typename Derived>
+class_builder<T>& class_builder_bind_chain<T, Derived>::factory(factory_ops::construct_fn construct,
+                                                                factory_ops::destroy_fn destroy) {
+  return builder().factory(construct, destroy);
+}
+
+template <typename T, typename Derived>
+template <typename... Arguments>
+class_builder<T>& class_builder_bind_chain<T, Derived>::constructor() {
+  return builder().template constructor<Arguments...>();
+}
+
+template <typename T, typename Derived>
+template <typename Member>
+field_bind<T> class_builder_bind_chain<T, Derived>::field(std::string_view name, Member member) {
+  return builder().field(name, member);
+}
+
+template <typename T, typename Derived>
+template <typename Member>
+field_bind<T> class_builder_bind_chain<T, Derived>::field(std::string_view name, Member member,
+                                                          std::string_view type_name) {
+  return builder().field(name, member, type_name);
+}
+
+template <typename T, typename Derived>
+template <typename Member>
+method_bind<T> class_builder_bind_chain<T, Derived>::method(std::string_view name, Member member) {
+  return builder().method(name, member);
+}
+
+template <typename T, typename Derived>
+template <typename Value>
+class_builder<T>& class_builder_bind_chain<T, Derived>::field_metadata(std::string_view key,
+                                                                       Value&& value) {
+  return builder().field_metadata(key, std::forward<Value>(value));
+}
+
+template <typename T, typename Derived>
+template <typename Value>
+class_builder<T>& class_builder_bind_chain<T, Derived>::field_metadata(string_name key,
+                                                                       Value&& value) {
+  return builder().field_metadata(key, std::forward<Value>(value));
+}
+
+template <typename T, typename Derived>
+template <typename Capability>
+class_builder<T>& class_builder_bind_chain<T, Derived>::capability(const Capability* capability) {
+  return builder().capability(capability);
+}
+
+template <typename T, typename Derived>
+template <typename Capability>
+  requires(!std::is_pointer_v<std::remove_reference_t<Capability>>)
+class_builder<T>& class_builder_bind_chain<T, Derived>::capability(Capability&& capability) {
+  return builder().capability(std::forward<Capability>(capability));
+}
+
+template <typename T, typename Derived>
+template <typename Capability>
+class_builder<T>& class_builder_bind_chain<T, Derived>::capability() {
+  return builder().template capability<Capability>();
+}
+
+template <typename T, typename Derived>
+template <typename Value>
+class_builder<T>& class_builder_bind_chain<T, Derived>::metadata(std::string_view key,
+                                                                 Value&& value) {
+  return builder().metadata(key, std::forward<Value>(value));
+}
+
+template <typename T, typename Derived>
+template <typename Value>
+class_builder<T>& class_builder_bind_chain<T, Derived>::metadata(string_name key, Value&& value) {
+  return builder().metadata(key, std::forward<Value>(value));
+}
+
+template <typename T, typename Derived>
+::caors::meta::type class_builder_bind_chain<T, Derived>::get() const noexcept {
+  return builder().get();
+}
+
+template <typename T, typename Derived>
+error class_builder_bind_chain<T, Derived>::result() const noexcept {
+  return builder().result();
+}
+
+template <typename T, typename Derived>
+error class_builder_bind_chain<T, Derived>::commit() const noexcept {
+  return builder().commit();
+}
+
+template <typename T, typename Derived>
+bool class_builder_bind_chain<T, Derived>::succeeded() const noexcept {
+  return builder().succeeded();
+}
 
 /** @brief RTTR 风格的枚举类型注册构建器。 */
 template <typename T> class enum_builder {

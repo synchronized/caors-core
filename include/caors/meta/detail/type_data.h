@@ -52,6 +52,7 @@ public:
   [[nodiscard]] std::size_t method_count() const noexcept;
   [[nodiscard]] const method_data* method_at(std::size_t index) const noexcept;
   [[nodiscard]] const method_data* find_method_ptr(string_name name) const noexcept;
+  [[nodiscard]] method_data* mutable_find_method_ptr(string_name name) noexcept;
   [[nodiscard]] std::optional<method_data> find_method(string_name name) const;
   [[nodiscard]] std::optional<method_data> find_method(std::string_view name) const;
   void add_method(method_data method);

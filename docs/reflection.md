@@ -518,6 +518,7 @@ damage.invoke(&instance, args);
 - `get_return_type()`：查询返回值类型；`void` 返回值返回无效 `meta::type`。
 - `parameter_count()` / `get_parameter_type()`：查询参数列表。
 - `const_method()`：判断是否是 `const` 成员函数。
+- `metadata()` / `find_metadata()`：查询方法附加 metadata。脚本导出、编辑器命令和工具层可以按约定键读取。
 - `invoke(void*, args)`：在可写对象上调用方法。
 - `invoke(const void*, args)`：在只读对象上调用方法；非 const 方法会失败。
 - `try_invoke<T>()`：调用方法并按指定类型读取返回值。

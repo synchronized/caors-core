@@ -99,6 +99,20 @@ const method_data* type_data::find_method_ptr(core::string_name name) const noex
   return nullptr;
 }
 
+method_data* type_data::mutable_find_method_ptr(core::string_name name) noexcept {
+  if (!name) {
+    return nullptr;
+  }
+
+  for (method_data& method : methods_) {
+    if (method.name() == name) {
+      return &method;
+    }
+  }
+
+  return nullptr;
+}
+
 std::optional<method_data> type_data::find_method(core::string_name name) const {
   const method_data* method = find_method_ptr(name);
   if (method != nullptr) {

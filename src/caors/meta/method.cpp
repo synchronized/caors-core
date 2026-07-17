@@ -8,6 +8,12 @@
 namespace caors::meta {
 namespace {
 
+[[nodiscard]] const metadata_map& empty_metadata_map() noexcept {
+  static const metadata_map empty{
+      typename metadata_map::allocator_type{&memory::library_resource()}};
+  return empty;
+}
+
 [[nodiscard]] const detail::method_data* as_method_data(const void* method) noexcept {
   return static_cast<const detail::method_data*>(method);
 }
@@ -49,6 +55,15 @@ std::optional<meta::type> method::get_parameter_type(std::size_t index) const no
 bool method::const_method() const noexcept {
   const detail::method_data* method = as_method_data(info());
   return method != nullptr && method->const_method();
+}
+
+const meta::metadata_map& method::metadata() const noexcept {
+  const detail::method_data* method = as_method_data(info());
+  return method != nullptr ? method->metadata() : empty_metadata_map();
+}
+
+const meta::metadata_value* method::find_metadata(meta::metadata_key key) const noexcept {
+  return meta::find_metadata(metadata(), key);
 }
 
 any method::invoke(void* object, std::span<const any_ref> arguments) const {
