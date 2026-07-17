@@ -12,8 +12,8 @@ bool type_data::members_valid() const noexcept {
     }
   }
 
-  for (const method_data& method : methods_) {
-    if (!method.valid()) {
+  for (const method_set_data& method_set : methods_) {
+    if (!method_set.valid()) {
       return false;
     }
   }
@@ -93,57 +93,57 @@ void type_data::add_property(property_data property) { properties_.push_back(pro
 
 std::size_t type_data::method_count() const noexcept { return methods_.size(); }
 
-const method_data* type_data::method_at(std::size_t index) const noexcept {
+const method_set_data* type_data::method_at(std::size_t index) const noexcept {
   return index < methods_.size() ? &methods_[index] : nullptr;
 }
 
-const method_data* type_data::find_method_ptr(core::string_name name) const noexcept {
+const method_set_data* type_data::find_method_ptr(core::string_name name) const noexcept {
   if (!name) {
     return nullptr;
   }
 
-  for (const method_data& method : methods_) {
-    if (method.name() == name) {
-      return &method;
+  for (const method_set_data& method_set : methods_) {
+    if (method_set.name() == name) {
+      return &method_set;
     }
   }
 
   return nullptr;
 }
 
-method_data* type_data::mutable_find_method_ptr(core::string_name name) noexcept {
+method_set_data* type_data::mutable_find_method_ptr(core::string_name name) noexcept {
   if (!name) {
     return nullptr;
   }
 
-  for (method_data& method : methods_) {
-    if (method.name() == name) {
-      return &method;
+  for (method_set_data& method_set : methods_) {
+    if (method_set.name() == name) {
+      return &method_set;
     }
   }
 
   return nullptr;
 }
 
-std::optional<method_data> type_data::find_method(core::string_name name) const {
-  const method_data* method = find_method_ptr(name);
-  if (method != nullptr) {
-    return *method;
-  }
-
-  return std::nullopt;
-}
-
-std::optional<method_data> type_data::find_method(std::string_view name) const {
-  const std::optional<core::string_name> interned_name = core::string_name::find(name);
-  if (!interned_name.has_value()) {
+std::optional<std::size_t> type_data::add_method(method_data method) {
+  if (!method.valid() || !method.name()) {
     return std::nullopt;
   }
 
-  return find_method(*interned_name);
-}
+  method_set_data* existing = mutable_find_method_ptr(method.name());
+  if (existing != nullptr) {
+    return existing->add_overload(std::move(method));
+  }
 
-void type_data::add_method(method_data method) { methods_.push_back(method); }
+  method_set_data method_set{method.name()};
+  std::optional<std::size_t> overload_index = method_set.add_overload(std::move(method));
+  if (!overload_index.has_value()) {
+    return std::nullopt;
+  }
+
+  methods_.push_back(std::move(method_set));
+  return overload_index;
+}
 
 std::size_t type_data::enum_value_count() const noexcept { return enum_values_.size(); }
 

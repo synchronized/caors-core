@@ -20,6 +20,7 @@ namespace caors::runtime {
 
 using property = meta::property;
 using method = meta::method;
+using method_set = meta::method_set;
 
 /**
  * @brief 运行时类型组合视图。
@@ -82,9 +83,9 @@ public:
   [[nodiscard]] property find_property(std::string_view name) const;
 
   [[nodiscard]] std::size_t method_count() const noexcept;
-  [[nodiscard]] method method_at(std::size_t index) const;
-  [[nodiscard]] method find_method(string_name name) const;
-  [[nodiscard]] method find_method(std::string_view name) const;
+  [[nodiscard]] method_set method_at(std::size_t index) const;
+  [[nodiscard]] method_set find_method(string_name name) const;
+  [[nodiscard]] method_set find_method(std::string_view name) const;
 
 private:
   meta::type meta_{};

@@ -69,12 +69,10 @@ public:
   [[nodiscard]] std::optional<property_data> find_property(std::string_view name) const;
   void add_property(property_data property);
   [[nodiscard]] std::size_t method_count() const noexcept;
-  [[nodiscard]] const method_data* method_at(std::size_t index) const noexcept;
-  [[nodiscard]] const method_data* find_method_ptr(string_name name) const noexcept;
-  [[nodiscard]] method_data* mutable_find_method_ptr(string_name name) noexcept;
-  [[nodiscard]] std::optional<method_data> find_method(string_name name) const;
-  [[nodiscard]] std::optional<method_data> find_method(std::string_view name) const;
-  void add_method(method_data method);
+  [[nodiscard]] const method_set_data* method_at(std::size_t index) const noexcept;
+  [[nodiscard]] const method_set_data* find_method_ptr(string_name name) const noexcept;
+  [[nodiscard]] method_set_data* mutable_find_method_ptr(string_name name) noexcept;
+  [[nodiscard]] std::optional<std::size_t> add_method(method_data method);
   [[nodiscard]] std::size_t enum_value_count() const noexcept;
   [[nodiscard]] const enum_value_data* enum_value_at(std::size_t index) const noexcept;
   [[nodiscard]] const enum_value_data* find_enum_value_ptr(string_name name) const noexcept;
@@ -97,7 +95,7 @@ private:
   const type_descriptor* descriptor_ = nullptr;
   parent_cast_ops parent_cast_{};
   vector<property_data> properties_{};
-  vector<method_data> methods_{};
+  vector<method_set_data> methods_{};
   vector<enum_value_data> enum_values_{};
   vector<capability_data> capabilities_{};
 };

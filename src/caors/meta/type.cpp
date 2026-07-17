@@ -199,19 +199,19 @@ std::size_t type::method_count() const noexcept {
   return data_ != nullptr ? data_->method_count() : 0;
 }
 
-method type::method_at(std::size_t index) const {
-  return data_ != nullptr ? method{data_->method_at(index)} : method{};
+method_set type::method_at(std::size_t index) const {
+  return data_ != nullptr ? method_set{data_->method_at(index)} : method_set{};
 }
 
-method type::find_method(core::string_name method_name) const {
+method_set type::find_method(core::string_name method_name) const {
   if (!method_name) {
     return {};
   }
 
-  return data_ != nullptr ? method{data_->find_method_ptr(method_name)} : method{};
+  return data_ != nullptr ? method_set{data_->find_method_ptr(method_name)} : method_set{};
 }
 
-method type::find_method(std::string_view method_name) const {
+method_set type::find_method(std::string_view method_name) const {
   const std::optional<core::string_name> interned_name = core::string_name::find(method_name);
   if (!interned_name.has_value()) {
     return {};

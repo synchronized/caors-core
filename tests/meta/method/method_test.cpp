@@ -7,7 +7,7 @@
 
 using namespace test_meta;
 using namespace caors::tests::meta_method;
-TEST_CASE("meta - class builder rejects duplicate method names", "[meta]") {
+TEST_CASE("meta - class builder rejects duplicate method signatures", "[meta]") {
   CHECK(
       ((void)caors::meta::class_<duplicate_method_actor>("caors.test.meta.duplicate_method_actor"),
        caors::meta::class_<duplicate_method_actor>())
@@ -45,6 +45,53 @@ TEST_CASE("meta - method view describes member function signatures", "[meta]") {
 
   CHECK_FALSE(reflected.method_at(100));
   CHECK_FALSE(reflected.find_method("missing"));
+}
+
+TEST_CASE("meta - method set groups overloaded methods", "[meta]") {
+  const caors::error result =
+      ((void)caors::meta::class_<overloaded_method_actor>(
+           "caors.test.meta.overloaded_method_actor"),
+       caors::meta::class_<overloaded_method_actor>())
+          .method("update", static_cast<void (overloaded_method_actor::*)(int)>(
+                                &overloaded_method_actor::update))
+          .method("update", static_cast<void (overloaded_method_actor::*)(float)>(
+                                &overloaded_method_actor::update))
+          .method("update", static_cast<int (overloaded_method_actor::*)() const>(
+                                &overloaded_method_actor::update))
+          .commit();
+  REQUIRE((result == caors::error{} || result == meta_error(caors::errc::duplicate_method)));
+
+  const caors::meta::type reflected = caors::meta::find("caors.test.meta.overloaded_method_actor");
+  REQUIRE(reflected);
+  CHECK(reflected.method_count() == 1);
+
+  const caors::meta::method_set update = reflected.find_method("update");
+  REQUIRE(update);
+  CHECK(update.name() == "update");
+  CHECK(update.overload_count() == 3);
+  CHECK_FALSE(update.single());
+
+  overloaded_method_actor instance{10};
+  int int_amount = 4;
+  std::array<caors::any_ref, 1> int_arguments{caors::any_ref::from(int_amount)};
+  CHECK_FALSE(update.invoke(&instance, int_arguments));
+  CHECK(instance.value == 14);
+
+  float float_amount = 2.0F;
+  std::array<caors::any_ref, 1> float_arguments{caors::any_ref::from(float_amount)};
+  CHECK_FALSE(update.invoke(&instance, float_arguments));
+  CHECK(instance.value == 16);
+
+  const caors::meta::method getter = update.resolve({});
+  REQUIRE(getter);
+  CHECK(getter.const_method());
+
+  const caors::any result_value =
+      update.invoke(static_cast<const overloaded_method_actor*>(&instance));
+  REQUIRE(result_value);
+  const int* value = result_value.try_get<int>();
+  REQUIRE(value != nullptr);
+  CHECK(*value == 16);
 }
 
 // 原测试文件：meta_method_method_view_invokes_mutable_and_const_member_functions_test.cpp

@@ -18,6 +18,10 @@ namespace {
   return static_cast<const detail::method_data*>(method);
 }
 
+[[nodiscard]] const detail::method_set_data* as_method_set_data(const void* method_set) noexcept {
+  return static_cast<const detail::method_set_data*>(method_set);
+}
+
 } // namespace
 
 method::method(const void* method) noexcept : method_(method) {}
@@ -90,6 +94,56 @@ const void* method::info() const noexcept {
   }
 
   return method_;
+}
+
+method_set::method_set(const void* method_set) noexcept : method_set_(method_set) {}
+
+bool method_set::valid() const noexcept {
+  const detail::method_set_data* method_set = as_method_set_data(method_set_);
+  return method_set != nullptr && method_set->valid();
+}
+
+core::string_name method_set::name() const noexcept {
+  const detail::method_set_data* method_set = as_method_set_data(info());
+  return method_set != nullptr ? method_set->name() : core::string_name{};
+}
+
+std::size_t method_set::overload_count() const noexcept {
+  const detail::method_set_data* method_set = as_method_set_data(info());
+  return method_set != nullptr ? method_set->overload_count() : 0;
+}
+
+method method_set::overload_at(std::size_t index) const {
+  const detail::method_set_data* method_set = as_method_set_data(info());
+  return method_set != nullptr ? method{method_set->overload_at(index)} : method{};
+}
+
+method method_set::single() const {
+  const detail::method_set_data* method_set = as_method_set_data(info());
+  return method_set != nullptr ? method{method_set->single()} : method{};
+}
+
+method method_set::resolve(std::span<const any_ref> arguments) const {
+  const detail::method_set_data* method_set = as_method_set_data(info());
+  return method_set != nullptr ? method{method_set->resolve(arguments)} : method{};
+}
+
+any method_set::invoke(void* object, std::span<const any_ref> arguments) const {
+  const method target = resolve(arguments);
+  return target ? target.invoke(object, arguments) : any{};
+}
+
+any method_set::invoke(const void* object, std::span<const any_ref> arguments) const {
+  const method target = resolve(arguments);
+  return target ? target.invoke(object, arguments) : any{};
+}
+
+const void* method_set::info() const noexcept {
+  if (!valid()) {
+    return nullptr;
+  }
+
+  return method_set_;
 }
 
 } // namespace caors::meta

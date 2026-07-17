@@ -159,7 +159,7 @@ caors::meta::class_<actor>("game.actor")
 
 caors::meta::type type = caors::meta::find<actor>();
 caors::meta::property health = type.find_property("health");
-caors::meta::method add_health = type.find_method("add_health");
+caors::meta::method add_health = type.find_method("add_health").single();
 ```
 
 `meta::type` 不拥有数据，内部引用静态 descriptor；类型已注册时还会引用全局 append-only 注册表中的

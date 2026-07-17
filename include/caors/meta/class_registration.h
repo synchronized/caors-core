@@ -228,15 +228,21 @@ method_bind<T> class_builder<T>::method(std::string_view name, Member member) {
     return method_bind<T>{*this, {}};
   }
 
-  if (type_data->find_method_ptr(method.name()) != nullptr) {
+  detail::method_set_data* method_set = type_data->mutable_find_method_ptr(method.name());
+  if (method_set != nullptr && method_set->contains_signature(method)) {
     status_ = {error_domain::meta, errc::duplicate_method};
     return method_bind<T>{*this, {}};
   }
 
   const string_name method_name = method.name();
-  type_data->add_method(std::move(method));
+  const std::optional<std::size_t> overload_index = type_data->add_method(std::move(method));
+  if (!overload_index.has_value()) {
+    status_ = {error_domain::meta, errc::duplicate_method};
+    return method_bind<T>{*this, {}};
+  }
+
   status_ = {};
-  return method_bind<T>{*this, method_name};
+  return method_bind<T>{*this, method_name, *overload_index};
 }
 
 template <typename T>
@@ -283,16 +289,20 @@ class_builder<T>::set_property_schema_entry(string_name property_name,
 }
 
 template <typename T>
-class_builder<T>& class_builder<T>::set_method_metadata(string_name method_name, metadata_key key,
-                                                        metadata_value value) {
-  if (!type_.registered() || !key || !method_name) {
+class_builder<T>& class_builder<T>::set_method_metadata(string_name method_name,
+                                                        std::size_t overload_index,
+                                                        metadata_key key, metadata_value value) {
+  if (!type_.registered() || !key || !method_name ||
+      overload_index == static_cast<std::size_t>(-1)) {
     status_ = {error_domain::meta, errc::invalid_field};
     return *this;
   }
 
   detail::type_data* type_data = get_registry().find_mutable_type_data(type_.id());
-  detail::method_data* method =
+  detail::method_set_data* method_set =
       type_data != nullptr ? type_data->mutable_find_method_ptr(method_name) : nullptr;
+  detail::method_data* method =
+      method_set != nullptr ? method_set->mutable_overload_at(overload_index) : nullptr;
   if (method == nullptr) {
     status_ = {error_domain::meta, errc::invalid_field};
     return *this;

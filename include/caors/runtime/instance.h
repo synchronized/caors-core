@@ -46,11 +46,11 @@ public:
   [[nodiscard]] core::vector<property> properties(memory_resource* resource = nullptr) const;
 
   [[nodiscard]] std::size_t method_count() const noexcept;
-  [[nodiscard]] method method_at(std::size_t index) const;
-  [[nodiscard]] method find_method(string_name name) const;
-  [[nodiscard]] method find_method(std::string_view name) const;
+  [[nodiscard]] method_set method_at(std::size_t index) const;
+  [[nodiscard]] method_set find_method(string_name name) const;
+  [[nodiscard]] method_set find_method(std::string_view name) const;
   /** @brief 返回方法视图快照；方法视图仍引用全局 meta 注册表。 */
-  [[nodiscard]] core::vector<method> methods(memory_resource* resource = nullptr) const;
+  [[nodiscard]] core::vector<method_set> methods(memory_resource* resource = nullptr) const;
 
   /** @brief 读取属性值的运行期拷贝；属性不存在时返回无效 `any`。 */
   [[nodiscard]] any get(std::string_view name) const;

@@ -447,9 +447,11 @@ descriptor 通过 layout、value ops、type semantics 和固定运行期能力�
 - `get_capability<meta::associative_capability>()`：如果 descriptor 描述了关联容器，则创建关联容器视图。
 - `get_capability<meta::indirect_capability>()`：如果 descriptor 描述了指针或 wrapper，则创建内部值视图。
 
-### meta::type、meta::property 和 meta::method
+### meta::type、meta::property、meta::method_set 和 meta::method
 
-`meta::type`、`meta::property` 和 `meta::method` 是外部查询属性和方法信息的推荐入口：
+`meta::type`、`meta::property`、`meta::method_set` 和 `meta::method`
+是外部查询属性和方法信息的推荐入口。`find_method()` 返回同名方法集合；如果该名称只有一个重载，可以通过
+`single()` 取得具体 `meta::method`，否则使用 `resolve(args)` 或直接在集合上 `invoke()`：
 
 ```cpp
 auto reflected = caors::meta::find("game.actor");
@@ -464,7 +466,7 @@ std::array<caors::any_ref, 1> args{caors::any_ref::from(amount)};
 damage.invoke(&instance, args);
 ```
 
-`meta::type`、`meta::property` 和 `meta::method` 是轻量只读视图，内部引用全局 `meta::registry`
+`meta::type`、`meta::property`、`meta::method_set` 和 `meta::method` 是轻量只读视图，内部引用全局 `meta::registry`
 保存的属性和方法数据。注册表是进程级 append-only 注册表，类型、属性和方法注册后不可撤销、
 不可替换，因此有效视图可以在进程生命周期内稳定使用。
 
@@ -477,8 +479,8 @@ damage.invoke(&instance, args);
 - `info()` / `id()` / `name()` / `guid()`：查询类型身份。
 - `property_count()` / `property_at()`：按索引遍历属性；索引越界时返回无效 `meta::property`。
 - `find_property()`：按属性名查询属性视图；未命中时返回无效 `meta::property`。
-- `method_count()` / `method_at()`：按索引遍历方法；索引越界时返回无效 `meta::method`。
-- `find_method()`：按方法名查询方法视图；未命中时返回无效 `meta::method`。
+- `method_count()` / `method_at()`：按索引遍历同名方法集合；索引越界时返回无效 `meta::method_set`。
+- `find_method()`：按方法名查询同名方法集合；未命中时返回无效 `meta::method_set`。
 
 `meta::property` 当前提供：
 
@@ -522,6 +524,15 @@ damage.invoke(&instance, args);
 - `invoke(void*, args)`：在可写对象上调用方法。
 - `invoke(const void*, args)`：在只读对象上调用方法；非 const 方法会失败。
 - `try_invoke<T>()`：调用方法并按指定类型读取返回值。
+
+`meta::method_set` 当前提供：
+
+- `valid()`：判断同名方法集合是否有效。
+- `name()`：查询方法名。
+- `overload_count()` / `overload_at()`：遍历同名重载；索引越界时返回无效 `meta::method`。
+- `single()`：只有一个重载时返回该 `meta::method`；存在多个重载时返回无效视图。
+- `resolve(args)`：按 `any_ref` 参数列表匹配唯一重载；没有匹配或匹配不唯一时返回无效视图。
+- `invoke(void*, args)` / `invoke(const void*, args)`：先解析唯一重载，再调用具体方法。
 
 `sequence_view` 当前提供：
 

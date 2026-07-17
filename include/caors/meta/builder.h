@@ -315,22 +315,22 @@ private:
     return set_property_schema_entry(property_name, std::move(entry));
   }
 
-  class_builder& apply_method_metadata(string_name method_name,
+  class_builder& apply_method_metadata(string_name method_name, std::size_t overload_index,
                                        const registration::metadata_entry& entry) {
-    return set_method_metadata(method_name, entry.key, entry.value);
+    return set_method_metadata(method_name, overload_index, entry.key, entry.value);
   }
 
-  class_builder& apply_method_metadata(string_name method_name,
+  class_builder& apply_method_metadata(string_name method_name, std::size_t overload_index,
                                        registration::metadata_entry&& entry) {
-    return set_method_metadata(method_name, entry.key, std::move(entry.value));
+    return set_method_metadata(method_name, overload_index, entry.key, std::move(entry.value));
   }
 
   class_builder& set_property_entry(string_name property_name, metadata_key key,
                                     metadata_value value);
   class_builder& set_property_schema_entry(string_name property_name,
                                            registration::property_schema_entry entry);
-  class_builder& set_method_metadata(string_name method_name, metadata_key key,
-                                     metadata_value value);
+  class_builder& set_method_metadata(string_name method_name, std::size_t overload_index,
+                                     metadata_key key, metadata_value value);
 
   void refresh() {
     ::caors::meta::type refreshed = get_registry().find_type<T>();
@@ -374,14 +374,16 @@ private:
 /** @brief 刚注册方法的 RTTR 风格 bind 对象。 */
 template <typename T> class method_bind final : public class_builder_bind_chain<T, method_bind<T>> {
 public:
-  method_bind(class_builder<T>& builder, string_name method_name) noexcept
-      : builder_(&builder), method_name_(method_name) {}
+  method_bind(class_builder<T>& builder, string_name method_name,
+              std::size_t overload_index = static_cast<std::size_t>(-1)) noexcept
+      : builder_(&builder), method_name_(method_name), overload_index_(overload_index) {}
 
   template <typename... Entries> class_builder<T>& operator()(Entries&&... entries) {
     static_assert(
         (std::is_same_v<std::remove_cvref_t<Entries>, registration::metadata_entry> && ...),
         "meta::method_bind::operator() expects meta::registration::metadata(...) entries");
-    (builder_->apply_method_metadata(method_name_, std::forward<Entries>(entries)), ...);
+    (builder_->apply_method_metadata(method_name_, overload_index_, std::forward<Entries>(entries)),
+     ...);
     return *builder_;
   }
 
@@ -396,6 +398,7 @@ private:
 
   class_builder<T>* builder_ = nullptr;
   string_name method_name_{};
+  std::size_t overload_index_ = static_cast<std::size_t>(-1);
 };
 
 template <typename T, typename Derived>

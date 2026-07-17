@@ -124,7 +124,7 @@ TEST_CASE("meta type - class builder registers fields and methods", "[meta]") {
   CHECK(health.try_set(&actor, 20));
   CHECK(actor.health == 20);
 
-  const caors::meta::method add_health = type.find_method("add_health");
+  const caors::meta::method add_health = type.find_method("add_health").single();
   REQUIRE(add_health);
   CHECK(add_health.parameter_count() == 1);
   const caors::string_name scriptable_key{"scriptable"};

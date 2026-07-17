@@ -30,6 +30,8 @@ struct method_ops {
   using parameter_count_fn = std::size_t (*)(const method_data& method) noexcept;
   using parameter_type_fn = std::optional<meta::type> (*)(const method_data& method,
                                                           std::size_t index) noexcept;
+  using match_arguments_fn = bool (*)(const method_data& method,
+                                      std::span<const any_ref> arguments) noexcept;
   using invoke_fn = any (*)(const method_data& method, const void* object, bool mutable_object,
                             std::span<const any_ref> arguments);
 
@@ -37,11 +39,12 @@ struct method_ops {
   type_fn get_return_type = nullptr;
   parameter_count_fn parameter_count = nullptr;
   parameter_type_fn get_parameter_type = nullptr;
+  match_arguments_fn match_arguments = nullptr;
   invoke_fn invoke = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
     return get_owner_type != nullptr && get_return_type != nullptr && parameter_count != nullptr &&
-           get_parameter_type != nullptr && invoke != nullptr;
+           get_parameter_type != nullptr && match_arguments != nullptr && invoke != nullptr;
   }
 };
 
@@ -119,6 +122,27 @@ public:
     return ops_.get_parameter_type(*this, index);
   }
 
+  [[nodiscard]] bool matches_arguments(std::span<const any_ref> arguments) const noexcept {
+    return ops_.match_arguments(*this, arguments);
+  }
+
+  [[nodiscard]] bool same_signature(const method_data& other) const noexcept {
+    if (!valid() || !other.valid() || name() != other.name() ||
+        const_method() != other.const_method() || parameter_count() != other.parameter_count()) {
+      return false;
+    }
+
+    for (std::size_t index = 0; index < parameter_count(); ++index) {
+      const std::optional<meta::type> left = get_parameter_type(index);
+      const std::optional<meta::type> right = other.get_parameter_type(index);
+      if (!left.has_value() || !right.has_value() || left->id() != right->id()) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
   [[nodiscard]] any invoke(const void* object, bool mutable_object,
                            std::span<const any_ref> arguments) const {
     return ops_.invoke(*this, object, mutable_object, arguments);
@@ -150,6 +174,82 @@ private:
   method_ops ops_{};
   bool const_method_ = false;
   memory::unique_ptr<meta::metadata_map> metadata_{};
+};
+
+/** @brief 同名成员方法的一组重载。 */
+class method_set_data final {
+public:
+  method_set_data() noexcept = default;
+  explicit method_set_data(string_name method_name) noexcept : name_(method_name) {}
+
+  [[nodiscard]] bool valid() const noexcept {
+    if (!name_ || overloads_.empty()) {
+      return false;
+    }
+
+    for (const method_data& method : overloads_) {
+      if (!method.valid() || method.name() != name_) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  [[nodiscard]] string_name name() const noexcept { return name_; }
+  [[nodiscard]] std::size_t overload_count() const noexcept { return overloads_.size(); }
+
+  [[nodiscard]] const method_data* overload_at(std::size_t index) const noexcept {
+    return index < overloads_.size() ? &overloads_[index] : nullptr;
+  }
+
+  [[nodiscard]] method_data* mutable_overload_at(std::size_t index) noexcept {
+    return index < overloads_.size() ? &overloads_[index] : nullptr;
+  }
+
+  [[nodiscard]] const method_data* single() const noexcept {
+    return overloads_.size() == 1U ? &overloads_.front() : nullptr;
+  }
+
+  [[nodiscard]] const method_data* resolve(std::span<const any_ref> arguments) const noexcept {
+    const method_data* matched = nullptr;
+    for (const method_data& method : overloads_) {
+      if (!method.matches_arguments(arguments)) {
+        continue;
+      }
+
+      if (matched != nullptr) {
+        return nullptr;
+      }
+
+      matched = &method;
+    }
+
+    return matched;
+  }
+
+  [[nodiscard]] bool contains_signature(const method_data& method) const noexcept {
+    for (const method_data& overload : overloads_) {
+      if (overload.same_signature(method)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  [[nodiscard]] std::optional<std::size_t> add_overload(method_data method) {
+    if (!method.valid() || method.name() != name_ || contains_signature(method)) {
+      return std::nullopt;
+    }
+
+    overloads_.push_back(std::move(method));
+    return overloads_.size() - 1U;
+  }
+
+private:
+  string_name name_{};
+  vector<method_data> overloads_{};
 };
 
 template <typename T> using method_value_type = std::remove_cv_t<std::remove_reference_t<T>>;
@@ -287,6 +387,12 @@ template <typename... Arguments>
   }
 }
 
+template <typename... Arguments>
+[[nodiscard]] bool method_arguments_match(const method_data&,
+                                          std::span<const any_ref> arguments) noexcept {
+  return arguments_match<Arguments...>(arguments);
+}
+
 template <typename Class, typename Return, typename... Arguments>
 [[nodiscard]] method_ops member_method_ops() noexcept {
   return method_ops{
@@ -294,6 +400,7 @@ template <typename Class, typename Return, typename... Arguments>
       &method_return_type<Return>,
       &method_parameter_count<Arguments...>,
       &method_parameter_type<Arguments...>,
+      &method_arguments_match<Arguments...>,
       &invoke_member_method<Class, Return, Arguments...>,
   };
 }
@@ -305,6 +412,7 @@ template <typename Class, typename Return, typename... Arguments>
       &method_return_type<Return>,
       &method_parameter_count<Arguments...>,
       &method_parameter_type<Arguments...>,
+      &method_arguments_match<Arguments...>,
       &invoke_const_member_method<Class, Return, Arguments...>,
   };
 }

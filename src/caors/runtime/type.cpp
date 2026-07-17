@@ -118,11 +118,13 @@ property type::find_property(std::string_view property_name) const {
 
 std::size_t type::method_count() const noexcept { return meta_.method_count(); }
 
-method type::method_at(std::size_t index) const { return meta_.method_at(index); }
+method_set type::method_at(std::size_t index) const { return meta_.method_at(index); }
 
-method type::find_method(string_name method_name) const { return meta_.find_method(method_name); }
+method_set type::find_method(string_name method_name) const {
+  return meta_.find_method(method_name);
+}
 
-method type::find_method(std::string_view method_name) const {
+method_set type::find_method(std::string_view method_name) const {
   return meta_.find_method(method_name);
 }
 

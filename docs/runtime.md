@@ -10,7 +10,8 @@
 - `runtime::type` 内部持有 `meta::type`，按需查询属性和方法。
 - `runtime::class_<T>("name")` 先注册 meta 类/普通值类型，再把属性和方法写入同一份 meta 类型数据。
 - `runtime::enum_<T>("name")` 注册枚举 meta 类型，适合只需要稳定类型身份、GUID 和枚举值转换能力的场景。
-- `runtime::instance` 组合 `meta::any_ref`、`runtime::type`、`meta::property` 和 `meta::method`，
+- `runtime::instance` 组合 `meta::any_ref`、`runtime::type`、`meta::property`、`meta::method_set`
+  和 `meta::method`，
   提供面向实例的属性读写和方法调用入口。
 - `runtime::object` 是对象系统适配视图，用于处理 `objects::ptr<T>` 这类对象指针属性。
 - `runtime::type::create()` 是运行期值创建的高层入口，优先使用 `meta::factory_capability`，再使用

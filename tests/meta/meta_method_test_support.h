@@ -24,6 +24,14 @@ struct duplicate_method_actor {
   void second() {}
 };
 
+struct overloaded_method_actor {
+  int value = 0;
+
+  void update(int amount) { value += amount; }
+  void update(float amount) { value += static_cast<int>(amount); }
+  [[nodiscard]] int update() const { return value; }
+};
+
 [[nodiscard]] inline caors::meta::type require_method_type() {
   const caors::error result =
       ((void)caors::meta::class_<method_actor>("caors.test.meta.method_actor"),
@@ -43,7 +51,9 @@ struct duplicate_method_actor {
 
 [[nodiscard]] inline caors::meta::method require_method(const caors::meta::type& type,
                                                         std::string_view name) {
-  auto method = type.find_method(name);
+  auto method_set = type.find_method(name);
+  REQUIRE(method_set);
+  auto method = method_set.single();
   REQUIRE(method);
   return method;
 }

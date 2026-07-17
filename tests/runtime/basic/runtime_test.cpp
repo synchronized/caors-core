@@ -177,7 +177,7 @@ TEST_CASE("runtime facade - class builder registers meta fields and methods", "[
   CHECK(field.try_set(&actor, 11));
   CHECK(actor.health == 11);
 
-  caors::runtime::method method = type.find_method("add_health");
+  caors::runtime::method method = type.find_method("add_health").single();
   REQUIRE(method.valid());
 
   int delta = 5;

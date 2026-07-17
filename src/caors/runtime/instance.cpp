@@ -38,14 +38,14 @@ core::vector<property> instance::properties(memory_resource* resource) const {
 
 std::size_t instance::method_count() const noexcept { return type().method_count(); }
 
-method instance::method_at(std::size_t index) const { return type().method_at(index); }
+method_set instance::method_at(std::size_t index) const { return type().method_at(index); }
 
-method instance::find_method(string_name name) const { return type().find_method(name); }
+method_set instance::find_method(string_name name) const { return type().find_method(name); }
 
-method instance::find_method(std::string_view name) const { return type().find_method(name); }
+method_set instance::find_method(std::string_view name) const { return type().find_method(name); }
 
-core::vector<method> instance::methods(memory_resource* resource) const {
-  core::vector<method> result{allocator<method>{resource}};
+core::vector<method_set> instance::methods(memory_resource* resource) const {
+  core::vector<method_set> result{allocator<method_set>{resource}};
   const std::size_t count = method_count();
   result.reserve(count);
   for (std::size_t index = 0; index < count; ++index) {
@@ -92,7 +92,7 @@ bool instance::set(std::string_view name, const any_ref& source) const {
 }
 
 any instance::call(std::string_view name, std::span<const any_ref> arguments) const {
-  const method reflected_method = find_method(name);
+  const method_set reflected_method = find_method(name);
   if (!reflected_method || !value_) {
     return {};
   }

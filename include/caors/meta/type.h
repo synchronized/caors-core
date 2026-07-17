@@ -23,6 +23,7 @@ class registry;
 class type;
 class property;
 class method;
+class method_set;
 class enum_value_view;
 
 [[nodiscard]] CAORS_API registry& get_registry() noexcept;
@@ -94,9 +95,9 @@ public:
   [[nodiscard]] property find_property(string_name name) const;
   [[nodiscard]] property find_property(std::string_view name) const;
   [[nodiscard]] std::size_t method_count() const noexcept;
-  [[nodiscard]] method method_at(std::size_t index) const;
-  [[nodiscard]] method find_method(string_name name) const;
-  [[nodiscard]] method find_method(std::string_view name) const;
+  [[nodiscard]] method_set method_at(std::size_t index) const;
+  [[nodiscard]] method_set find_method(string_name name) const;
+  [[nodiscard]] method_set find_method(std::string_view name) const;
 
   /**
    * @brief 查询该类型视图具备的能力。

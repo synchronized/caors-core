@@ -17,6 +17,12 @@
 
 namespace caors::meta {
 
+namespace detail {
+class method_set_data;
+} // namespace detail
+
+class method_set;
+
 /**
  * @brief 成员方法反射只读视图。
  *
@@ -81,12 +87,47 @@ public:
   }
 
 private:
+  friend class method_set;
   friend class type;
 
   explicit method(const void* reflected_method) noexcept;
   [[nodiscard]] const void* info() const noexcept;
 
   const void* method_ = nullptr;
+};
+
+/**
+ * @brief 同名成员方法重载集合只读视图。
+ *
+ * `meta::method_set` 不拥有方法数据。它表示同一个方法名下的一组具体重载；调用时会根据
+ * `any_ref` 参数匹配唯一重载，匹配失败或存在多个匹配时返回无效 `any`。
+ */
+class CAORS_API method_set final {
+public:
+  method_set() noexcept = default;
+
+  [[nodiscard]] bool valid() const noexcept;
+  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
+
+  [[nodiscard]] string_name name() const noexcept;
+  [[nodiscard]] std::size_t overload_count() const noexcept;
+  [[nodiscard]] method overload_at(std::size_t index) const;
+  [[nodiscard]] method single() const;
+  [[nodiscard]] method resolve(std::span<const any_ref> arguments = {}) const;
+
+  /** @brief 在可写对象上调用唯一匹配的重载。 */
+  [[nodiscard]] any invoke(void* object, std::span<const any_ref> arguments = {}) const;
+
+  /** @brief 在只读对象上调用唯一匹配的 const 重载。 */
+  [[nodiscard]] any invoke(const void* object, std::span<const any_ref> arguments = {}) const;
+
+private:
+  friend class type;
+
+  explicit method_set(const void* reflected_method_set) noexcept;
+  [[nodiscard]] const void* info() const noexcept;
+
+  const void* method_set_ = nullptr;
 };
 
 } // namespace caors::meta
