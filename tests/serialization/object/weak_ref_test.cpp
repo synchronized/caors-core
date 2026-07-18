@@ -27,27 +27,20 @@ struct object_weak_ref_actor {
 };
 
 void require_weak_object_ref_target_metadata() {
-  const caors::error object_status =
-      caors::registration::type_<weak_object_ref_target>().object().commit();
-  REQUIRE((object_status == caors::error{} || object_status.value() == caors::errc::duplicate_id));
-
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<weak_object_ref_target>(weak_object_ref_target::object_type_name),
-       caors::meta::class_<weak_object_ref_target>())
-          .property("value", &weak_object_ref_target::value)
-          .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<weak_object_ref_target>().commit()));
+  REQUIRE(registration_result_ok(caors::registration::type_<weak_object_ref_target>()
+                                     .meta()
+                                     .property("value", &weak_object_ref_target::value)
+                                     .serialization()
+                                     .object()
+                                     .commit()));
 }
 
 void require_object_weak_ref_actor_metadata() {
   require_weak_object_ref_target_metadata();
 
-  REQUIRE(reflection_result_ok(((void)caors::meta::class_<object_weak_ref_actor>(
-                                    "caors.test.serialization.object_weak_ref_actor"),
-                                caors::meta::class_<object_weak_ref_actor>())
-                                   .property("observer", &object_weak_ref_actor::observer)
-                                   .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<object_weak_ref_actor>().commit()));
+  require_serializable_property_type<object_weak_ref_actor>(
+      "caors.test.serialization.object_weak_ref_actor", "observer",
+      &object_weak_ref_actor::observer);
 }
 
 } // namespace

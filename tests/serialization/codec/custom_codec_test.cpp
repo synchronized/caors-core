@@ -34,16 +34,13 @@ TEST_CASE("serialization - custom codec specialization uses descriptor capabilit
   CHECK_FALSE(caors::meta::find<policy_custom_codec_value>());
   CHECK(caors::serialization::find_codec(caors::meta::resolve<policy_custom_codec_value>()));
 
-  require_registered_type<policy_custom_codec_value>(
-      "caors.test.serialization.policy_custom_codec_value");
+  REQUIRE(registration_result_ok(caors::registration::type_<policy_custom_codec_value>(
+                                     "caors.test.serialization.policy_custom_codec_value")
+                                     .commit()));
   CHECK(caors::serialization::find_codec(caors::meta::resolve<policy_custom_codec_value>()));
-  REQUIRE(reflection_result_ok(((void)caors::meta::class_<policy_custom_codec_actor>(
-                                    "caors.test.serialization.policy_custom_codec_actor"),
-                                caors::meta::class_<policy_custom_codec_actor>())
-                                   .property("value", &policy_custom_codec_actor::value)
-                                   .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::class_<policy_custom_codec_actor>().commit()));
+  require_serializable_property_type<policy_custom_codec_actor>(
+      "caors.test.serialization.policy_custom_codec_actor", "value",
+      &policy_custom_codec_actor::value);
 
   const policy_custom_codec_actor actor{{42}};
   const caors::serialization::serialization_text_result text =
@@ -77,15 +74,12 @@ TEST_CASE("serialization - descriptor static codec handles erased values without
   REQUIRE(erased.value.try_as_i64() != nullptr);
   CHECK(*erased.value.try_as_i64() == 209);
 
-  require_registered_type<descriptor_static_codec_value>(
-      "caors.test.serialization.descriptor_static_codec_value");
-  REQUIRE(reflection_result_ok(((void)caors::meta::class_<descriptor_static_codec_actor>(
-                                    "caors.test.serialization.descriptor_static_codec_actor"),
-                                caors::meta::class_<descriptor_static_codec_actor>())
-                                   .property("value", &descriptor_static_codec_actor::value)
-                                   .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::class_<descriptor_static_codec_actor>().commit()));
+  REQUIRE(registration_result_ok(caors::registration::type_<descriptor_static_codec_value>(
+                                     "caors.test.serialization.descriptor_static_codec_value")
+                                     .commit()));
+  require_serializable_property_type<descriptor_static_codec_actor>(
+      "caors.test.serialization.descriptor_static_codec_actor", "value",
+      &descriptor_static_codec_actor::value);
 
   const descriptor_static_codec_actor actor{{11}};
   const caors::serialization::serialization_text_result text =
@@ -109,17 +103,13 @@ TEST_CASE("serialization - descriptor static codec handles erased values without
 using namespace caors::tests::serialization;
 TEST_CASE("serialization - writer features validate required field identifiers",
           "[serialization]") {
-  REQUIRE(reflection_result_ok(((void)caors::meta::class_<numeric_writer_actor>(
-                                    "caors.test.serialization.numeric_writer_actor"),
-                                caors::meta::class_<numeric_writer_actor>())
-                                   .property("id", &numeric_writer_actor::id)
-                                   .commit()));
-  REQUIRE(
-      caors::serialization::class_<numeric_writer_actor>({
-                                                             caors::serialization::make_field("id"),
-                                                         })
-          .commit()
-          .succeeded());
+  REQUIRE(registration_result_ok(caors::registration::type_<numeric_writer_actor>(
+                                     "caors.test.serialization.numeric_writer_actor")
+                                     .meta()
+                                     .property("id", &numeric_writer_actor::id)
+                                     .serialization()
+                                     .field(caors::serialization::make_field("id"))
+                                     .commit()));
 
   numeric_field_writer writer;
   const numeric_writer_actor actor{5};

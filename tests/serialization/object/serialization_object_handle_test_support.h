@@ -15,19 +15,18 @@ struct object_handle_actor {
 };
 
 inline void require_object_handle_actor_metadata() {
-  REQUIRE(reflection_result_ok(((void)caors::meta::class_<object_handle_actor>(
-                                    "caors.test.serialization.object_handle_actor"),
-                                caors::meta::class_<object_handle_actor>())
-                                   .property("target", &object_handle_actor::target)
-                                   .property("typed", &object_handle_actor::typed)
-                                   .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<object_handle_actor>().commit()));
+  REQUIRE(registration_result_ok(caors::registration::type_<object_handle_actor>(
+                                     "caors.test.serialization.object_handle_actor")
+                                     .meta()
+                                     .property("target", &object_handle_actor::target)
+                                     .property("typed", &object_handle_actor::typed)
+                                     .serialization()
+                                     .commit()));
 }
 
 inline void require_object_handle_target_metadata() {
   const caors::error object_status =
-      caors::registration::type_<object_ptr_target>(
-          "caors.test.serialization.object_ptr_target")
+      caors::registration::type_<object_ptr_target>("caors.test.serialization.object_ptr_target")
           .object()
           .commit();
   REQUIRE((object_status == caors::error{} || object_status.value() == caors::errc::duplicate_id));

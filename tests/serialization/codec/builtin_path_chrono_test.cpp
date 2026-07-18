@@ -9,13 +9,13 @@ using namespace caors::tests::serialization;
 using namespace caors::tests::serialization::builtin_path_chrono;
 TEST_CASE("serialization - built in codecs roundtrip chrono values as integers",
           "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<codec_chrono_actor>("caors.test.serialization.codec_chrono_actor"),
-       caors::meta::class_<codec_chrono_actor>())
+  REQUIRE(registration_result_ok(
+      caors::registration::type_<codec_chrono_actor>("caors.test.serialization.codec_chrono_actor")
+          .meta()
           .property("timeout", &codec_chrono_actor::timeout)
           .property("timestamp", &codec_chrono_actor::timestamp)
+          .serialization()
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<codec_chrono_actor>().commit()));
 
   codec_chrono_actor actor{
       std::chrono::milliseconds{2500},
@@ -57,12 +57,8 @@ using namespace caors::tests::serialization;
 using namespace caors::tests::serialization::builtin_path_chrono;
 TEST_CASE("serialization - built in codecs roundtrip filesystem paths as strings",
           "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<codec_path_actor>("caors.test.serialization.codec_path_actor"),
-       caors::meta::class_<codec_path_actor>())
-          .property("path", &codec_path_actor::path)
-          .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<codec_path_actor>().commit()));
+  require_serializable_property_type<codec_path_actor>("caors.test.serialization.codec_path_actor",
+                                                       "path", &codec_path_actor::path);
 
   codec_path_actor actor{std::filesystem::path{"assets/textures/albedo.png"}};
 
@@ -111,14 +107,11 @@ TEST_CASE("serialization - built in codecs survive late meta type registration",
   REQUIRE(probe.succeeded());
   CHECK_FALSE(caors::meta::find<std::chrono::seconds>());
 
-  require_registered_type<std::chrono::seconds>("std.chrono.seconds");
-  REQUIRE(reflection_result_ok(((void)caors::meta::class_<late_builtin_codec_actor>(
-                                    "caors.test.serialization.late_builtin_codec_actor"),
-                                caors::meta::class_<late_builtin_codec_actor>())
-                                   .property("timeout", &late_builtin_codec_actor::timeout)
-                                   .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::class_<late_builtin_codec_actor>().commit()));
+  REQUIRE(registration_result_ok(
+      caors::registration::type_<std::chrono::seconds>("std.chrono.seconds").commit()));
+  require_serializable_property_type<late_builtin_codec_actor>(
+      "caors.test.serialization.late_builtin_codec_actor", "timeout",
+      &late_builtin_codec_actor::timeout);
 
   const late_builtin_codec_actor actor{std::chrono::seconds{42}};
   const caors::serialization::serialization_text_result text =

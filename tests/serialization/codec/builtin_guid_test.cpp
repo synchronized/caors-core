@@ -10,15 +10,23 @@
 
 using namespace caors::tests::serialization;
 
-TEST_CASE("serialization - built in codecs deserialize guid and type guid from strings",
-          "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<codec_guid_actor>("caors.test.serialization.codec_guid_actor"),
-       caors::meta::class_<codec_guid_actor>())
+namespace {
+
+void require_codec_guid_actor_metadata() {
+  REQUIRE(registration_result_ok(
+      caors::registration::type_<codec_guid_actor>("caors.test.serialization.codec_guid_actor")
+          .meta()
           .property("id", &codec_guid_actor::id)
           .property("type", &codec_guid_actor::type)
+          .serialization()
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<codec_guid_actor>().commit()));
+}
+
+} // namespace
+
+TEST_CASE("serialization - built in codecs deserialize guid and type guid from strings",
+          "[serialization]") {
+  require_codec_guid_actor_metadata();
 
   caors::variant::object_type members;
   members.push_back(caors::meta::variant_member{
@@ -50,13 +58,7 @@ TEST_CASE("serialization - built in codecs deserialize guid and type guid from s
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - built in codecs reject invalid guid text", "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<codec_guid_actor>("caors.test.serialization.codec_guid_actor"),
-       caors::meta::class_<codec_guid_actor>())
-          .property("id", &codec_guid_actor::id)
-          .property("type", &codec_guid_actor::type)
-          .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<codec_guid_actor>().commit()));
+  require_codec_guid_actor_metadata();
 
   caors::variant::object_type members;
   members.push_back(caors::meta::variant_member{
@@ -90,13 +92,7 @@ TEST_CASE("serialization - built in codecs serialize guid and type guid as scala
   REQUIRE(id.has_value());
   REQUIRE(type.has_value());
 
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<codec_guid_actor>("caors.test.serialization.codec_guid_actor"),
-       caors::meta::class_<codec_guid_actor>())
-          .property("id", &codec_guid_actor::id)
-          .property("type", &codec_guid_actor::type)
-          .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<codec_guid_actor>().commit()));
+  require_codec_guid_actor_metadata();
 
   const codec_guid_actor actor{*id, caors::type_guid{*type}};
   const caors::serialization::serialization_text_result text =

@@ -6,23 +6,18 @@
 #include "cross_module_test_support.h"
 
 using namespace caors::tests::cross_module;
-TEST_CASE("meta - cross module view supports serialization registered before meta properties",
+TEST_CASE("meta - cross module view supports unified meta and serialization registration",
           "[meta]") {
-  const caors::meta::type type = caors::meta::class_<cross_module_serialization_first>(
-                                     "caors.test.meta.cross_module_serialization_first")
-                                     .get();
-  REQUIRE(type.valid());
-
-  REQUIRE(serialization_result_ok(caors::serialization::class_<cross_module_serialization_first>(
-                                      {
-                                          caors::serialization::make_field("id", "actor_id"),
-                                      })
-                                      .commit()));
-  REQUIRE(meta_property_result_ok(((void)caors::meta::class_<cross_module_serialization_first>(
-                                       "caors.test.meta.cross_module_serialization_first"),
-                                   caors::meta::class_<cross_module_serialization_first>())
+  REQUIRE(serialization_result_ok(caors::registration::type_<cross_module_serialization_first>(
+                                      "caors.test.meta.cross_module_serialization_first")
+                                      .meta()
                                       .property("id", &cross_module_serialization_first::id)
+                                      .serialization()
+                                      .field("id", "actor_id")
                                       .commit()));
+
+  const caors::meta::type type = caors::meta::find<cross_module_serialization_first>();
+  REQUIRE(type.valid());
 
   auto view = caors::meta::get_registry().extension_view<caors::serialization::type_schema>();
   CHECK(view_contains(view, type.id()));
@@ -39,22 +34,21 @@ TEST_CASE("meta - cross module view supports serialization registered before met
 #include "cross_module_test_support.h"
 
 using namespace caors::tests::cross_module;
-TEST_CASE("meta - view finds types with meta properties and serialization extensions",
-          "[meta]") {
-  REQUIRE(meta_property_result_ok(
-      ((void)caors::meta::class_<cross_module_actor>("caors.test.meta.cross_module_actor"),
-       caors::meta::class_<cross_module_actor>())
-          .property("id", &cross_module_actor::id)
-          .property("health", &cross_module_actor::health)
+TEST_CASE("meta - view finds types with meta properties and serialization extensions", "[meta]") {
+  REQUIRE(serialization_result_ok(
+      caors::registration::type_<cross_module_schema_actor>(
+          "caors.test.meta.cross_module_schema_actor")
+          .meta()
+          .property("id", &cross_module_schema_actor::id)
+          .property("health", &cross_module_schema_actor::health)
+          .serialization()
+          .fields({
+              caors::serialization::make_field("id"),
+              caors::serialization::make_field("health"),
+          })
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<cross_module_actor>(
-                                      {
-                                          caors::serialization::make_field("id"),
-                                          caors::serialization::make_field("health"),
-                                      })
-                                      .commit()));
 
-  const auto type = caors::meta::find<cross_module_actor>();
+  const auto type = caors::meta::find<cross_module_schema_actor>();
   REQUIRE(type);
 
   auto view = caors::meta::get_registry().extension_view<caors::serialization::type_schema>();

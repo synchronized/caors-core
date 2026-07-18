@@ -8,12 +8,8 @@
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - deserializes list fields from arrays", "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<list_actor>("caors.test.serialization.list_actor"),
-       caors::meta::class_<list_actor>())
-          .property("scores", &list_actor::scores)
-          .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<list_actor>().commit()));
+  require_serializable_property_type<list_actor>("caors.test.serialization.list_actor", "scores",
+                                                 &list_actor::scores);
 
   caors::variant::array_type scores;
   scores.push_back(caors::variant::from(std::int64_t{5}));
@@ -45,12 +41,8 @@ using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - generic sequence traits work without type registration",
           "[serialization]") {
-  REQUIRE(reflection_result_ok(((void)caors::meta::class_<custom_sequence_actor>(
-                                    "caors.test.serialization.custom_sequence_actor"),
-                                caors::meta::class_<custom_sequence_actor>())
-                                   .property("scores", &custom_sequence_actor::scores)
-                                   .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<custom_sequence_actor>().commit()));
+  require_serializable_property_type<custom_sequence_actor>(
+      "caors.test.serialization.custom_sequence_actor", "scores", &custom_sequence_actor::scores);
 
   custom_sequence_actor actor{};
   actor.scores.values.push_back(4);
@@ -89,12 +81,8 @@ TEST_CASE("serialization - generic sequence traits work without type registratio
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - rejects std array length mismatch", "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<array_actor>("caors.test.serialization.array_actor"),
-       caors::meta::class_<array_actor>())
-          .property("scores", &array_actor::scores)
-          .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<array_actor>().commit()));
+  require_serializable_property_type<array_actor>("caors.test.serialization.array_actor", "scores",
+                                                  &array_actor::scores);
 
   array_actor actor{{1, 2, 3}};
   const caors::error result = caors::deserialize(actor, R"({"scores":[5,6]})");
@@ -112,12 +100,8 @@ TEST_CASE("serialization - rejects std array length mismatch", "[serialization]"
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - rejects std span deserialization by default", "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<span_actor>("caors.test.serialization.span_actor"),
-       caors::meta::class_<span_actor>())
-          .property("scores", &span_actor::scores)
-          .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<span_actor>().commit()));
+  require_serializable_property_type<span_actor>("caors.test.serialization.span_actor", "scores",
+                                                 &span_actor::scores);
 
   std::array<int, 3> storage{1, 2, 3};
   span_actor actor{std::span<int>{storage}};
@@ -138,12 +122,8 @@ using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - rejects std span length mismatch without writing storage",
           "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<span_actor>("caors.test.serialization.span_actor"),
-       caors::meta::class_<span_actor>())
-          .property("scores", &span_actor::scores)
-          .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<span_actor>().commit()));
+  require_serializable_property_type<span_actor>("caors.test.serialization.span_actor", "scores",
+                                                 &span_actor::scores);
 
   std::array<int, 3> storage{1, 2, 3};
   span_actor actor{std::span<int>{storage}};
@@ -162,12 +142,8 @@ TEST_CASE("serialization - rejects std span length mismatch without writing stor
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - roundtrips std array fields", "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<array_actor>("caors.test.serialization.array_actor"),
-       caors::meta::class_<array_actor>())
-          .property("scores", &array_actor::scores)
-          .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<array_actor>().commit()));
+  require_serializable_property_type<array_actor>("caors.test.serialization.array_actor", "scores",
+                                                  &array_actor::scores);
 
   array_actor actor{{1, 2, 3}};
 
@@ -190,12 +166,8 @@ TEST_CASE("serialization - roundtrips std array fields", "[serialization]") {
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - roundtrips std deque fields", "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<deque_actor>("caors.test.serialization.deque_actor"),
-       caors::meta::class_<deque_actor>())
-          .property("scores", &deque_actor::scores)
-          .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<deque_actor>().commit()));
+  require_serializable_property_type<deque_actor>("caors.test.serialization.deque_actor", "scores",
+                                                  &deque_actor::scores);
 
   deque_actor actor{};
   actor.scores.push_back(1);
@@ -223,12 +195,8 @@ TEST_CASE("serialization - roundtrips std deque fields", "[serialization]") {
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - roundtrips std forward list fields", "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<forward_list_actor>("caors.test.serialization.forward_list_actor"),
-       caors::meta::class_<forward_list_actor>())
-          .property("scores", &forward_list_actor::scores)
-          .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<forward_list_actor>().commit()));
+  require_serializable_property_type<forward_list_actor>(
+      "caors.test.serialization.forward_list_actor", "scores", &forward_list_actor::scores);
 
   forward_list_actor actor{};
   actor.scores.assign({1, 2, 3});
@@ -259,12 +227,8 @@ TEST_CASE("serialization - roundtrips std forward list fields", "[serialization]
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - serializes list fields as arrays", "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<list_actor>("caors.test.serialization.list_actor"),
-       caors::meta::class_<list_actor>())
-          .property("scores", &list_actor::scores)
-          .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<list_actor>().commit()));
+  require_serializable_property_type<list_actor>("caors.test.serialization.list_actor", "scores",
+                                                 &list_actor::scores);
 
   list_actor actor{};
   actor.scores.push_back(1);
@@ -292,12 +256,8 @@ TEST_CASE("serialization - serializes list fields as arrays", "[serialization]")
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - serializes std span fields as borrowed views", "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<span_actor>("caors.test.serialization.span_actor"),
-       caors::meta::class_<span_actor>())
-          .property("scores", &span_actor::scores)
-          .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<span_actor>().commit()));
+  require_serializable_property_type<span_actor>("caors.test.serialization.span_actor", "scores",
+                                                 &span_actor::scores);
 
   std::array<int, 3> storage{1, 2, 3};
   span_actor actor{std::span<int>{storage}};

@@ -12,6 +12,7 @@
 #include "caors/io.h"
 #include "caors/memory/tracking.h"
 #include "caors/meta.h"
+#include "caors/registration.h"
 #include "caors/serialization.h"
 
 #include <catch2/catch_all.hpp>
@@ -117,16 +118,17 @@ public:
 }
 
 [[nodiscard]] inline bool serialization_result_ok(caors::error result) noexcept {
-  return result.succeeded() || result.value() == caors::errc::duplicate_component;
+  return result.succeeded() || result.value() == caors::errc::duplicate_component ||
+         result.value() == caors::errc::duplicate_id;
 }
 
 inline void require_serialized_resource_metadata() {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<serialized_resource>("caors.test.resources.serialized_resource"),
-       caors::meta::class_<serialized_resource>())
+  REQUIRE(serialization_result_ok(
+      caors::registration::type_<serialized_resource>("caors.test.resources.serialized_resource")
+          .meta()
           .property("width", &serialized_resource::width)
+          .serialization()
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<serialized_resource>().commit()));
 }
 
 } // namespace caors::tests::resources

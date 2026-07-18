@@ -24,27 +24,19 @@ struct object_ref_owner_actor {
 };
 
 inline void require_object_ref_target_metadata() {
-  const caors::error object_status =
-      caors::registration::type_<object_ref_target>().object().commit();
-  REQUIRE((object_status == caors::error{} || object_status.value() == caors::errc::duplicate_id));
-
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<object_ref_target>(object_ref_target::object_type_name),
-       caors::meta::class_<object_ref_target>())
-          .property("value", &object_ref_target::value)
-          .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<object_ref_target>().commit()));
+  REQUIRE(registration_result_ok(caors::registration::type_<object_ref_target>()
+                                     .meta()
+                                     .property("value", &object_ref_target::value)
+                                     .serialization()
+                                     .object()
+                                     .commit()));
 }
 
 inline void require_object_ref_owner_actor_metadata() {
   require_object_ref_target_metadata();
 
-  REQUIRE(reflection_result_ok(((void)caors::meta::class_<object_ref_owner_actor>(
-                                    "caors.test.serialization.object_ref_owner_actor"),
-                                caors::meta::class_<object_ref_owner_actor>())
-                                   .property("owner", &object_ref_owner_actor::owner)
-                                   .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<object_ref_owner_actor>().commit()));
+  require_serializable_property_type<object_ref_owner_actor>(
+      "caors.test.serialization.object_ref_owner_actor", "owner", &object_ref_owner_actor::owner);
 }
 
 } // namespace caors::tests::serialization::object_ref_basic

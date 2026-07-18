@@ -8,12 +8,8 @@
 namespace caors::tests::serialization::object_ptr_resolver {
 
 inline void require_object_ptr_actor_metadata() {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<object_ptr_actor>("caors.test.serialization.object_ptr_actor"),
-       caors::meta::class_<object_ptr_actor>())
-          .property("target", &object_ptr_actor::target)
-          .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<object_ptr_actor>().commit()));
+  require_serializable_property_type<object_ptr_actor>("caors.test.serialization.object_ptr_actor",
+                                                       "target", &object_ptr_actor::target);
 }
 
 } // namespace caors::tests::serialization::object_ptr_resolver

@@ -24,20 +24,20 @@ struct resource_ref_actor {
 };
 
 inline void require_resource_ref_actor_metadata() {
-  REQUIRE(type_result_ok(caors::meta::class_<serialized_texture_resource>(
+  REQUIRE(type_result_ok(caors::registration::type_<serialized_texture_resource>(
                              "caors.test.serialization.serialized_texture_resource")
-                             .result()));
+                             .commit()));
   REQUIRE(
-      type_result_ok(caors::meta::class_<caors::resource_ref<serialized_texture_resource>>(
+      type_result_ok(caors::registration::type_<caors::resource_ref<serialized_texture_resource>>(
                          "caors.resource_ref<caors.test.serialization.serialized_texture_resource>")
-                         .result()));
+                         .commit()));
 
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<resource_ref_actor>("caors.test.serialization.resource_ref_actor"),
-       caors::meta::class_<resource_ref_actor>())
+  REQUIRE(serialization_result_ok(
+      caors::registration::type_<resource_ref_actor>("caors.test.serialization.resource_ref_actor")
+          .meta()
           .property("texture", &resource_ref_actor::texture)
+          .serialization()
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<resource_ref_actor>().commit()));
 }
 
 } // namespace caors::tests::serialization::resource_ref_codec

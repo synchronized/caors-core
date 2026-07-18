@@ -20,16 +20,16 @@ struct serialized_resource_ref_holder {
 void require_serialized_resource_ref_holder_metadata() {
   require_serialized_resource_metadata();
 
-  REQUIRE(type_result_ok(caors::meta::class_<caors::resource_ref<serialized_resource>>(
+  REQUIRE(type_result_ok(caors::registration::type_<caors::resource_ref<serialized_resource>>(
                              "caors.resource_ref<caors.test.resources.serialized_resource>")
-                             .result()));
-  REQUIRE(reflection_result_ok(((void)caors::meta::class_<serialized_resource_ref_holder>(
-                                    "caors.test.resources.serialized_resource_ref_holder"),
-                                caors::meta::class_<serialized_resource_ref_holder>())
-                                   .property("resource", &serialized_resource_ref_holder::resource)
-                                   .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::class_<serialized_resource_ref_holder>().commit()));
+                             .commit()));
+  REQUIRE(
+      serialization_result_ok(caors::registration::type_<serialized_resource_ref_holder>(
+                                  "caors.test.resources.serialized_resource_ref_holder")
+                                  .meta()
+                                  .property("resource", &serialized_resource_ref_holder::resource)
+                                  .serialization()
+                                  .commit()));
 }
 
 [[nodiscard]] bool contains_guid(const caors::vector<caors::resource_guid>& values,

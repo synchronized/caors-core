@@ -33,27 +33,18 @@ struct context_resource_holder {
 };
 
 inline void require_context_resource_holder_metadata() {
-  REQUIRE(type_result_ok(
-      caors::meta::class_<context_resource_value>("caors.test.serialization.context_resource_value")
-          .result()));
-
-  REQUIRE(reflection_result_ok(((void)caors::meta::class_<context_resource_value>(
-                                    "caors.test.serialization.context_resource_value"),
-                                caors::meta::class_<context_resource_value>())
-                                   .property("value", &context_resource_value::value)
-                                   .commit()));
-  REQUIRE(reflection_result_ok(((void)caors::meta::class_<context_resource_holder>(
-                                    "caors.test.serialization.context_resource_holder"),
-                                caors::meta::class_<context_resource_holder>())
-                                   .property("unique", &context_resource_holder::unique)
-                                   .property("shared", &context_resource_holder::shared)
-                                   .property("names", &context_resource_holder::names)
-                                   .property("maybe", &context_resource_holder::maybe)
-                                   .property("choice", &context_resource_holder::choice)
-                                   .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<context_resource_value>().commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::class_<context_resource_holder>().commit()));
+  require_serializable_property_type<context_resource_value>(
+      "caors.test.serialization.context_resource_value", "value", &context_resource_value::value);
+  REQUIRE(registration_result_ok(caors::registration::type_<context_resource_holder>(
+                                     "caors.test.serialization.context_resource_holder")
+                                     .meta()
+                                     .property("unique", &context_resource_holder::unique)
+                                     .property("shared", &context_resource_holder::shared)
+                                     .property("names", &context_resource_holder::names)
+                                     .property("maybe", &context_resource_holder::maybe)
+                                     .property("choice", &context_resource_holder::choice)
+                                     .serialization()
+                                     .commit()));
 }
 
 } // namespace caors::tests::serialization::descriptor_resource

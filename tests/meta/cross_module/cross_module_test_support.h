@@ -4,6 +4,7 @@
 #pragma once
 
 #include "caors/meta.h"
+#include "caors/registration.h"
 #include "caors/serialization.h"
 
 #include <catch2/catch_all.hpp>
@@ -11,6 +12,11 @@
 namespace caors::tests::cross_module {
 
 struct cross_module_actor {
+  int id = 0;
+  float health = 0.0F;
+};
+
+struct cross_module_schema_actor {
   int id = 0;
   float health = 0.0F;
 };
@@ -29,7 +35,8 @@ struct cross_module_late_registered {
 }
 
 [[nodiscard]] inline bool serialization_result_ok(caors::error result) noexcept {
-  return result.succeeded() || result.value() == caors::errc::duplicate_component;
+  return result.succeeded() || result.value() == caors::errc::duplicate_component ||
+         result.value() == caors::errc::duplicate_id;
 }
 
 template <typename View> [[nodiscard]] bool view_contains(const View& view, caors::type_id id) {

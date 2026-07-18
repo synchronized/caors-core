@@ -8,17 +8,13 @@
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - builds variant from reflected object", "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<dom_actor>("caors.test.serialization.dom_actor"),
-       caors::meta::class_<dom_actor>())
+  REQUIRE(registration_result_ok(
+      caors::registration::type_<dom_actor>("caors.test.serialization.dom_actor")
+          .meta()
           .property("id", &dom_actor::id)
+          .serialization()
+          .field("id", "actor_id", false, 7)
           .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::class_<dom_actor>(
-                                  {
-                                      caors::serialization::make_field("id", "actor_id", false, 7),
-                                  })
-                                  .commit()));
 
   const dom_actor actor{42};
   const caors::serialization::variant_result result = caors::to_value(actor);
@@ -76,16 +72,13 @@ TEST_CASE("serialization - converts runtime values to variant", "[serialization]
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - generic writer backend serializes fields", "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<writer_actor>("caors.test.serialization.writer_actor"),
-       caors::meta::class_<writer_actor>())
+  REQUIRE(registration_result_ok(
+      caors::registration::type_<writer_actor>("caors.test.serialization.writer_actor")
+          .meta()
           .property("id", &writer_actor::id)
+          .serialization()
+          .field("id", {}, false, 7)
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<writer_actor>(
-                                      {
-                                          caors::serialization::make_field("id", {}, false, 7),
-                                      })
-                                      .commit()));
 
   numeric_field_writer writer;
   const writer_actor actor{42};
@@ -113,12 +106,12 @@ struct json_options_actor {
 } // namespace
 
 TEST_CASE("serialization - json options can pretty print json", "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<json_options_actor>("caors.test.serialization.json_options_actor"),
-       caors::meta::class_<json_options_actor>())
+  REQUIRE(registration_result_ok(
+      caors::registration::type_<json_options_actor>("caors.test.serialization.json_options_actor")
+          .meta()
           .property("id", &json_options_actor::id)
+          .serialization()
           .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<json_options_actor>().commit()));
 
   caors::serialization::json_options options{};
   options.pretty = true;
@@ -138,17 +131,7 @@ TEST_CASE("serialization - json options can pretty print json", "[serialization]
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - serializes json to caller provided buffer", "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<serializable_actor>("caors.test.serialization.actor"),
-       caors::meta::class_<serializable_actor>())
-          .property("id", &serializable_actor::id)
-          .property("health", &serializable_actor::health)
-          .property("active", &serializable_actor::active)
-          .property("name", &serializable_actor::name)
-          .commit()));
-
-  const caors::error register_status = caors::serialization::class_<serializable_actor>().commit();
-  REQUIRE(serialization_result_ok(register_status));
+  require_serializable_actor_metadata();
 
   const serializable_actor actor{3, 10.5F, false, "Lin"};
   caors::string output = "previous";
@@ -170,17 +153,7 @@ TEST_CASE("serialization - serializes json to caller provided buffer", "[seriali
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - serializes reflected struct fields to json", "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<serializable_actor>("caors.test.serialization.actor"),
-       caors::meta::class_<serializable_actor>())
-          .property("id", &serializable_actor::id)
-          .property("health", &serializable_actor::health)
-          .property("active", &serializable_actor::active)
-          .property("name", &serializable_actor::name)
-          .commit()));
-
-  const caors::error register_status = caors::serialization::class_<serializable_actor>().commit();
-  REQUIRE(serialization_result_ok(register_status));
+  require_serializable_actor_metadata();
 
   const serializable_actor actor{7, 95.5F, true, "Ada\nLovelace"};
   const caors::serialization::serialization_text_result result = caors::to_string(actor);
@@ -196,17 +169,7 @@ TEST_CASE("serialization - serializes reflected struct fields to json", "[serial
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - serializes reflected struct fields to text", "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<serializable_actor>("caors.test.serialization.actor"),
-       caors::meta::class_<serializable_actor>())
-          .property("id", &serializable_actor::id)
-          .property("health", &serializable_actor::health)
-          .property("active", &serializable_actor::active)
-          .property("name", &serializable_actor::name)
-          .commit()));
-
-  const caors::error register_status = caors::serialization::class_<serializable_actor>().commit();
-  REQUIRE(serialization_result_ok(register_status));
+  require_serializable_actor_metadata();
 
   const serializable_actor actor{7, 95.5F, true, "Ada"};
   const caors::serialization::serialization_text_result result =

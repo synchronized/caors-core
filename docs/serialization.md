@@ -14,7 +14,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 - 用 `serialization::type_schema` 表示类型的序列化元信息。
 - 用 `serialization::field_schema` 表示字段级序列化配置，例如字段别名、稳定字段 id、跳过和版本信息。
 - 基于全局 `meta::registry` 挂载序列化 extension，避免单独维护类型索引。
-- 提供 `serialization::registry` 和 `serialization::class_(meta::type)` 低层链式注册入口；普通业务类型优先通过 `registration::type_<T>().serialization()` 完成跨模块注册。
+- 提供 `serialization::registry` 查询序列化 extension；业务类型通过 `registration::type_<T>().serialization()` 完成跨模块注册。
 - 提供 `serialization::writer` 后端接口，让不同格式复用同一套字段遍历逻辑。
 - 提供 `serialization::reader` 后端接口，让不同格式复用同一套字段读入逻辑。
 - 提供 `variant` 中间对象树，方便工具、调试和多格式转换。
@@ -61,7 +61,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 - `caors/serialization/type_schema.h`：后端能力、字段配置和类型序列化 extension 数据。
 - `caors/serialization/external_ref.h`：通用外部引用、函数表 resolver/collector 和继承接口适配器。
 - `caors/serialization/types.h`：通用外部引用选项、对象工厂函数表、单次调度上下文和结果类型。
-- `caors/serialization/registry.h`：序列化 extension 注册表和链式注册入口。
+- `caors/serialization/registry.h`：序列化 extension 查询注册表。
 - `caors/serialization/writer.h`：`serialization::writer`、`serialization::text_writer` 和
   `serialization::json_writer`。
 - `caors/serialization/reader.h`：`serialization::reader`。
@@ -249,27 +249,30 @@ struct holder {
   caors::memory::unique_ptr<actor> owner;
 };
 
-caors::meta::class_<actor>("game.actor")
-    .guid(actor_guid);
+caors::registration::type_<actor>("game.actor")
+    .guid(actor_guid)
+    .serialization()
+    .object()
+    .commit();
 
-caors::meta::class_<player>("game.player")
+caors::registration::type_<player>("game.player")
     .guid(player_guid)
-    .parent<actor>();
-
-caors::meta::class_<player>()
+    .parent<actor>()
+    .meta()
     .property("level", &player::level)
+    .serialization()
+    .object()
     .commit();
 
-caors::meta::class_<caors::memory::unique_ptr<actor>>("caors.memory.unique_ptr<game.actor>");
+caors::registration::type_<caors::memory::unique_ptr<actor>>(
+    "caors.memory.unique_ptr<game.actor>")
+    .commit();
 
-caors::meta::class_<holder>("game.holder");
-
-caors::meta::class_<holder>()
+caors::registration::type_<holder>("game.holder")
+    .meta()
     .property("owner", &holder::owner)
+    .serialization()
     .commit();
-
-caors::serialization::class_<player>().commit();
-caors::serialization::class_<holder>().commit();
 ```
 
 字段写出格式和多态 object 相同，默认字段名如下：
@@ -359,16 +362,18 @@ descriptor 默认构造或 traits 的资源重载。自定义顺序容器可以�
 序列化配置；具体输出格式由当前使用的 `writer` 后端决定：
 
 ```cpp
-caors::meta::type type = caors::meta::find<actor>();
-
-caors::serialization::class_(type)
+caors::registration::type_<actor>("game.actor")
+    .meta()
+    .property("health", &actor::health)
+    .property("debug_only", &actor::debug_only)
+    .serialization()
     .field("health", "hp")
     .field("debug_only", {}, true)
     .commit();
 ```
 
-字段配置按字段名引用反射字段，但注册时不会要求反射字段已经存在。因此序列化注册可以先于
-反射字段注册执行。真正序列化时才会查找反射字段；如果字段配置找不到对应反射字段，会返回
+字段配置按字段名引用 meta 属性。公共注册入口会在同一次 `commit()` 中发布 meta 属性和
+serialization schema；真正序列化时才会按字段名查找属性。如果字段配置找不到对应属性，会返回
 `errc::not_found`。
 
 如果 `serialization::type_schema::fields` 为空，`serialization::serialize_text()` 会回退到输出全部反射字段。
@@ -753,18 +758,19 @@ struct texture_config {
 
 namespace metadata = caors::serialization::config_metadata;
 
-caors::meta::class_<texture_config>("game.texture_config");
-caors::meta::class_<texture_config>()
-    .property("format", &texture_config::format)
-    (caors::meta::registration::metadata(metadata::required(), true),
-     caors::meta::registration::metadata(metadata::non_empty(), true),
-     caors::meta::registration::metadata(metadata::one_of(),
-                           caors::meta::make_metadata_string_array({"json", "binary"})))
-    .property("priority", &texture_config::priority)
-    (caors::meta::registration::metadata(metadata::range_min(), 1),
-     caors::meta::registration::metadata(metadata::range_max(), 100))
+caors::registration::type_<texture_config>("game.texture_config")
+    .meta()
+    .property("format", &texture_config::format,
+              caors::meta::registration::metadata(metadata::required(), true),
+              caors::meta::registration::metadata(metadata::non_empty(), true),
+              caors::meta::registration::metadata(
+                  metadata::one_of(),
+                  caors::meta::make_metadata_string_array({"json", "binary"})))
+    .property("priority", &texture_config::priority,
+              caors::meta::registration::metadata(metadata::range_min(), 1),
+              caors::meta::registration::metadata(metadata::range_max(), 100))
+    .serialization()
     .commit();
-caors::serialization::class_<texture_config>().commit();
 
 texture_config config;
 caors::deserialize(config, options_value);
@@ -1013,13 +1019,16 @@ caors::serialization::variant_result value = caors::serialization::to_variant(ca
 
 ### 高级用法：序列化 schema 注册
 
-`serialization::registry` 是全局序列化注册表，内部复用 `meta::registry`：
+`serialization::registry` 是全局序列化 extension 查询入口，内部复用 `meta::registry`。业务类型
+通过统一 registration builder 挂载序列化 schema：
 
 ```cpp
-caors::meta::type type = caors::meta::find<actor>();
-
 caors::error status =
-    caors::serialization::class_(type)
+    caors::registration::type_<actor>("game.actor")
+        .meta()
+        .property("id", &actor::id)
+        .property("health", &actor::health)
+        .serialization()
         .field("id")
         .field("health")
         .commit();
@@ -1028,33 +1037,24 @@ if (status) {
   // 处理重复注册、缺失类型等错误。
 }
 
+caors::meta::type type = caors::meta::find<actor>();
 auto serialization_type = caors::serialization::find(type);
 ```
 
-推荐由 meta 层先注册业务 meta 类型，再使用 `serialization::class_<T>()` 或
-`serialization::class_(meta::type)` 挂载序列化 extension。这条路径不会创建或修改 meta 类型记录；
-无效 `meta::type` 返回 `errc::invalid_type`，不存在的 `type_id` 返回 `errc::missing_type`。
-查询序列化 extension 时使用 `serialization::find()` 或 `serialization::contains()`。
-这是公开的高级 schema 注册入口，适合需要手动控制字段顺序、别名、跳过策略和 schema version
-的类型。更细的 detail schema 挂载函数属于内部实现入口，普通代码不直接调用。
-
-重复注册同一个类型会返回 `errc::duplicate_component`，错误来源域为
-`error_domain::serialization`。序列化 extension 注册推荐在启动期或模块加载期完成；`meta::init_registry()`
-只执行延迟注册并校验注册表，不会阻止后续继续注册。
+查询序列化 extension 时使用 `serialization::find()` 或 `serialization::contains()`。重复注册同一个
+类型会返回 `errc::duplicate_id`，已有注册数据保持不变。序列化 extension 注册推荐在启动期或
+模块加载期完成；`meta::init_registry()` 只执行延迟注册并校验注册表，不会阻止后续继续注册。
 
 ### serialize_text
 
 `serialize_text()` 使用已注册的反射字段读取对象：
 
 ```cpp
-caors::meta::type type = caors::meta::class_<actor>("game.actor").get();
-
-caors::meta::class_<actor>(type)
+caors::registration::type_<actor>("game.actor")
+    .meta()
     .property("id", &actor::id)
     .property("health", &actor::health)
-    .commit();
-
-caors::serialization::class_(type)
+    .serialization()
     .field("id")
     .field("health")
     .commit();
@@ -1104,9 +1104,7 @@ caors::string text = *result;
 - `serialization::variant_reader`：从 DOM 中间对象读入字段的后端。
 - `variant_member`：对象成员，保存字段名、字段 id 和字段值。
 - `variant_entry`：字典条目，保存 key 和 value。
-- `serialization::registry`：全局序列化注册表。
-- `serialization::class_(meta::type)`：低层链式序列化 extension 注册入口，只挂载序列化 extension；业务代码优先使用 `registration::type_<T>().serialization()`。
-- `serialization::register_type<T>()`：公开便捷注册入口，要求对应 C++ 类型已经完成 meta 注册。
+- `serialization::registry`：全局序列化 extension 查询注册表。
 - `serialization::find()` / `serialization::contains()`：序列化 extension 查询入口。
 - `serialize()`：通过指定 writer 后端序列化对象。
 - `deserialize()`：通过指定 reader 后端反序列化对象。
@@ -1127,7 +1125,7 @@ caors::string text = *result;
 - 基于稳定 `type_guid` 的 `objects::object` 运行期真实类型序列化。
 - 基于稳定 `type_guid`、RTTI、typed parent upcast 和可选 factory 的普通类拥有型智能指针多态序列化。
 - `variant` 安全访问器、数组/字典/对象辅助修改和成员查询。
-- 序列化注册早于反射字段注册。
+- 通过统一 registration builder 一次性注册 meta 字段和序列化 schema。
 
 ## 相关入口
 

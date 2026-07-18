@@ -9,15 +9,7 @@ using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - parses json and deserializes reflected struct fields",
           "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<reader_actor>("caors.test.serialization.reader_actor"),
-       caors::meta::class_<reader_actor>())
-          .property("id", &reader_actor::id)
-          .property("health", &reader_actor::health)
-          .property("active", &reader_actor::active)
-          .property("name", &reader_actor::name)
-          .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<reader_actor>().commit()));
+  require_reader_actor_metadata();
 
   const caors::serialization::variant_result parsed = caors::serialization::parse_json(
       R"({"id":7,"health":95.5,"active":true,"name":"Ada\nLovelace"})");
@@ -127,15 +119,7 @@ using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - variant reader deserializes reflected struct fields",
           "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<reader_actor>("caors.test.serialization.reader_actor"),
-       caors::meta::class_<reader_actor>())
-          .property("id", &reader_actor::id)
-          .property("health", &reader_actor::health)
-          .property("active", &reader_actor::active)
-          .property("name", &reader_actor::name)
-          .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<reader_actor>().commit()));
+  require_reader_actor_metadata();
 
   caors::variant::object_type members;
   members.push_back(caors::meta::variant_member{
@@ -176,15 +160,6 @@ TEST_CASE("serialization - variant reader deserializes reflected struct fields",
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - context filters fields by schema version", "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<versioned_actor>("caors.test.serialization.versioned_actor"),
-       caors::meta::class_<versioned_actor>())
-          .property("id", &versioned_actor::id)
-          .property("legacy", &versioned_actor::legacy)
-          .property("current", &versioned_actor::current)
-          .property("future", &versioned_actor::future)
-          .commit()));
-
   caors::serialization::field_schema id = caors::serialization::make_field("id");
   caors::serialization::field_schema legacy = caors::serialization::make_field("legacy");
   legacy.version_added = 1;
@@ -195,13 +170,16 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
   future.version_added = 3;
   future.required = true;
 
-  REQUIRE(serialization_result_ok(caors::serialization::class_<versioned_actor>({
-                                                                                    id,
-                                                                                    legacy,
-                                                                                    current,
-                                                                                    future,
-                                                                                })
-                                      .commit()));
+  REQUIRE(registration_result_ok(
+      caors::registration::type_<versioned_actor>("caors.test.serialization.versioned_actor")
+          .meta()
+          .property("id", &versioned_actor::id)
+          .property("legacy", &versioned_actor::legacy)
+          .property("current", &versioned_actor::current)
+          .property("future", &versioned_actor::future)
+          .serialization()
+          .fields({id, legacy, current, future})
+          .commit()));
 
   const versioned_actor actor{1, 10, 20, 30};
   caors::serialization::context context_v2{};
@@ -303,15 +281,6 @@ using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - variant reader applies required optional and skipped policies",
           "[serialization]") {
-  REQUIRE(reflection_result_ok(((void)caors::meta::class_<reader_field_policy_actor>(
-                                    "caors.test.serialization.reader_field_policy_actor"),
-                                caors::meta::class_<reader_field_policy_actor>())
-                                   .property("id", &reader_field_policy_actor::id)
-                                   .property("optional", &reader_field_policy_actor::optional)
-                                   .property("required", &reader_field_policy_actor::required)
-                                   .property("skipped", &reader_field_policy_actor::skipped)
-                                   .commit()));
-
   caors::serialization::field_schema id = caors::serialization::make_field("id");
   caors::serialization::field_schema optional = caors::serialization::make_field("optional");
   caors::serialization::field_schema required = caors::serialization::make_field("required");
@@ -319,14 +288,16 @@ TEST_CASE("serialization - variant reader applies required optional and skipped 
   caors::serialization::field_schema skipped = caors::serialization::make_field("skipped");
   skipped.skipped = true;
 
-  REQUIRE(
-      serialization_result_ok(caors::serialization::class_<reader_field_policy_actor>({
-                                                                                          id,
-                                                                                          optional,
-                                                                                          required,
-                                                                                          skipped,
-                                                                                      })
-                                  .commit()));
+  REQUIRE(registration_result_ok(caors::registration::type_<reader_field_policy_actor>(
+                                     "caors.test.serialization.reader_field_policy_actor")
+                                     .meta()
+                                     .property("id", &reader_field_policy_actor::id)
+                                     .property("optional", &reader_field_policy_actor::optional)
+                                     .property("required", &reader_field_policy_actor::required)
+                                     .property("skipped", &reader_field_policy_actor::skipped)
+                                     .serialization()
+                                     .fields({id, optional, required, skipped})
+                                     .commit()));
 
   caors::variant::object_type members;
   members.push_back(caors::meta::variant_member{
@@ -362,16 +333,13 @@ TEST_CASE("serialization - variant reader applies required optional and skipped 
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - variant reader ignores unknown object members", "[serialization]") {
-  REQUIRE(reflection_result_ok(((void)caors::meta::class_<reader_unknown_field_actor>(
-                                    "caors.test.serialization.reader_unknown_field_actor"),
-                                caors::meta::class_<reader_unknown_field_actor>())
-                                   .property("id", &reader_unknown_field_actor::id)
-                                   .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<reader_unknown_field_actor>(
-                                      {
-                                          caors::serialization::make_field("id"),
-                                      })
-                                      .commit()));
+  REQUIRE(registration_result_ok(caors::registration::type_<reader_unknown_field_actor>(
+                                     "caors.test.serialization.reader_unknown_field_actor")
+                                     .meta()
+                                     .property("id", &reader_unknown_field_actor::id)
+                                     .serialization()
+                                     .field("id")
+                                     .commit()));
 
   caors::variant::object_type members;
   members.push_back(caors::meta::variant_member{
@@ -399,17 +367,13 @@ TEST_CASE("serialization - variant reader ignores unknown object members", "[ser
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - variant reader matches fields by stable field id", "[serialization]") {
-  REQUIRE(reflection_result_ok(((void)caors::meta::class_<reader_field_id_actor>(
-                                    "caors.test.serialization.reader_field_id_actor"),
-                                caors::meta::class_<reader_field_id_actor>())
-                                   .property("id", &reader_field_id_actor::id)
-                                   .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::class_<reader_field_id_actor>(
-                                  {
-                                      caors::serialization::make_field("id", "actor_id", false, 7),
-                                  })
-                                  .commit()));
+  REQUIRE(registration_result_ok(caors::registration::type_<reader_field_id_actor>(
+                                     "caors.test.serialization.reader_field_id_actor")
+                                     .meta()
+                                     .property("id", &reader_field_id_actor::id)
+                                     .serialization()
+                                     .field("id", "actor_id", false, 7)
+                                     .commit()));
 
   caors::variant::object_type members;
   members.push_back(caors::meta::variant_member{
@@ -432,13 +396,12 @@ TEST_CASE("serialization - variant reader matches fields by stable field id", "[
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - variant reader reports missing fields", "[serialization]") {
-  REQUIRE(reflection_result_ok(((void)caors::meta::class_<reader_missing_field_actor>(
-                                    "caors.test.serialization.reader_missing_field_actor"),
-                                caors::meta::class_<reader_missing_field_actor>())
-                                   .property("id", &reader_missing_field_actor::id)
-                                   .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::class_<reader_missing_field_actor>().commit()));
+  REQUIRE(registration_result_ok(caors::registration::type_<reader_missing_field_actor>(
+                                     "caors.test.serialization.reader_missing_field_actor")
+                                     .meta()
+                                     .property("id", &reader_missing_field_actor::id)
+                                     .serialization()
+                                     .commit()));
 
   reader_missing_field_actor actor{};
   const caors::error result = caors::deserialize(actor, caors::variant::object({}));
@@ -455,15 +418,6 @@ TEST_CASE("serialization - variant reader reports missing fields", "[serializati
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - variant reader reports missing required fields", "[serialization]") {
-  REQUIRE(reflection_result_ok(((void)caors::meta::class_<reader_field_policy_actor>(
-                                    "caors.test.serialization.reader_field_policy_actor"),
-                                caors::meta::class_<reader_field_policy_actor>())
-                                   .property("id", &reader_field_policy_actor::id)
-                                   .property("optional", &reader_field_policy_actor::optional)
-                                   .property("required", &reader_field_policy_actor::required)
-                                   .property("skipped", &reader_field_policy_actor::skipped)
-                                   .commit()));
-
   caors::serialization::field_schema id = caors::serialization::make_field("id");
   caors::serialization::field_schema optional = caors::serialization::make_field("optional");
   caors::serialization::field_schema required = caors::serialization::make_field("required");
@@ -471,14 +425,16 @@ TEST_CASE("serialization - variant reader reports missing required fields", "[se
   caors::serialization::field_schema skipped = caors::serialization::make_field("skipped");
   skipped.skipped = true;
 
-  REQUIRE(
-      serialization_result_ok(caors::serialization::class_<reader_field_policy_actor>({
-                                                                                          id,
-                                                                                          optional,
-                                                                                          required,
-                                                                                          skipped,
-                                                                                      })
-                                  .commit()));
+  REQUIRE(registration_result_ok(caors::registration::type_<reader_field_policy_actor>(
+                                     "caors.test.serialization.reader_field_policy_actor")
+                                     .meta()
+                                     .property("id", &reader_field_policy_actor::id)
+                                     .property("optional", &reader_field_policy_actor::optional)
+                                     .property("required", &reader_field_policy_actor::required)
+                                     .property("skipped", &reader_field_policy_actor::skipped)
+                                     .serialization()
+                                     .fields({id, optional, required, skipped})
+                                     .commit()));
 
   reader_field_policy_actor actor{};
   const caors::error result = caors::deserialize(actor, caors::variant::object({}));

@@ -34,13 +34,12 @@ public:
 };
 
 void require_secondary_serialized_resource_metadata() {
-  REQUIRE(reflection_result_ok(((void)caors::meta::class_<secondary_serialized_resource>(
-                                    "caors.test.resources.secondary_serialized_resource"),
-                                caors::meta::class_<secondary_serialized_resource>())
-                                   .property("width", &secondary_serialized_resource::width)
-                                   .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::class_<secondary_serialized_resource>().commit()));
+  REQUIRE(serialization_result_ok(caors::registration::type_<secondary_serialized_resource>(
+                                      "caors.test.resources.secondary_serialized_resource")
+                                      .meta()
+                                      .property("width", &secondary_serialized_resource::width)
+                                      .serialization()
+                                      .commit()));
 }
 
 [[nodiscard]] bool contains_reason(const caors::assets::asset_build_result::reason_list& reasons,
@@ -202,24 +201,24 @@ struct typed_external_source_config {
 void require_typed_external_source_config_metadata() {
   namespace metadata = caors::serialization::config_metadata;
 
-  (void)caors::meta::class_<typed_external_source_config>(
-      "caors.test.assets.typed_external_source_config");
-  REQUIRE(reflection_result_ok(
-      caors::meta::class_<typed_external_source_config>()
-          .property("mount", &typed_external_source_config::mount)(
-              caors::meta::registration::metadata(metadata::required(), true),
-              caors::meta::registration::metadata(metadata::non_empty(), true))
-          .property("read_only", &typed_external_source_config::read_only)
-          .property("priority", &typed_external_source_config::priority)(
-              caors::meta::registration::metadata(metadata::range_min(), 1),
-              caors::meta::registration::metadata(metadata::range_max(), 10))
-          .property("filter",
-                    &typed_external_source_config::filter)(caors::meta::registration::metadata(
-              metadata::one_of(), caors::meta::make_metadata_string_array(
-                                      {std::string_view{"nearest"}, std::string_view{"linear"}})))
-          .commit()));
   REQUIRE(serialization_result_ok(
-      caors::serialization::class_<typed_external_source_config>().commit()));
+      caors::registration::type_<typed_external_source_config>(
+          "caors.test.assets.typed_external_source_config")
+          .meta()
+          .property("mount", &typed_external_source_config::mount,
+                    caors::meta::registration::metadata(metadata::required(), true),
+                    caors::meta::registration::metadata(metadata::non_empty(), true))
+          .property("read_only", &typed_external_source_config::read_only)
+          .property("priority", &typed_external_source_config::priority,
+                    caors::meta::registration::metadata(metadata::range_min(), 1),
+                    caors::meta::registration::metadata(metadata::range_max(), 10))
+          .property("filter", &typed_external_source_config::filter,
+                    caors::meta::registration::metadata(
+                        metadata::one_of(),
+                        caors::meta::make_metadata_string_array(
+                            {std::string_view{"nearest"}, std::string_view{"linear"}})))
+          .serialization()
+          .commit()));
 }
 
 struct external_type_factory_state {

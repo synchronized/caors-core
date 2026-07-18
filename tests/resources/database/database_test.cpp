@@ -67,27 +67,28 @@ struct database_resource_ref_holder {
 
 void require_texture_resource_type() {
   REQUIRE(type_result_ok(
-      caors::meta::class_<texture_resource>("caors.test.resources.texture_resource").result()));
+      caors::registration::type_<texture_resource>("caors.test.resources.texture_resource")
+          .commit()));
 }
 
 void require_material_resource_type() {
   REQUIRE(type_result_ok(
-      caors::meta::class_<material_resource>("caors.test.resources.material_resource").result()));
+      caors::registration::type_<material_resource>("caors.test.resources.material_resource")
+          .commit()));
 }
 
 void require_database_resource_ref_metadata() {
   require_serialized_resource_metadata();
 
-  REQUIRE(type_result_ok(caors::meta::class_<caors::resource_ref<serialized_resource>>(
+  REQUIRE(type_result_ok(caors::registration::type_<caors::resource_ref<serialized_resource>>(
                              "caors.resource_ref<caors.test.resources.serialized_resource>")
-                             .result()));
-  REQUIRE(reflection_result_ok(((void)caors::meta::class_<database_resource_ref_holder>(
-                                    "caors.test.resources.database_resource_ref_holder"),
-                                caors::meta::class_<database_resource_ref_holder>())
-                                   .property("resource", &database_resource_ref_holder::resource)
-                                   .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::class_<database_resource_ref_holder>().commit()));
+                             .commit()));
+  REQUIRE(serialization_result_ok(caors::registration::type_<database_resource_ref_holder>(
+                                      "caors.test.resources.database_resource_ref_holder")
+                                      .meta()
+                                      .property("resource", &database_resource_ref_holder::resource)
+                                      .serialization()
+                                      .commit()));
 }
 
 } // namespace

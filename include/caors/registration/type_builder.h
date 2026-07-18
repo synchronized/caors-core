@@ -11,6 +11,7 @@
 #include "caors/meta/detail/type_data.h"
 #include "caors/meta/detail/type_descriptor_model.h"
 #include "caors/meta/metadata.h"
+#include "caors/meta/registration.h"
 #include "caors/meta/registry.h"
 #include "caors/object/factory.h"
 #include "caors/object/registry.h"
@@ -29,6 +30,11 @@ template <typename T> class object_section;
 
 namespace detail {
 
+template <typename Entry>
+inline constexpr bool is_property_entry_v =
+    std::is_same_v<std::remove_cvref_t<Entry>, meta::registration::metadata_entry> ||
+    std::is_same_v<std::remove_cvref_t<Entry>, meta::registration::property_schema_entry>;
+
 template <typename Child, typename Parent>
 [[nodiscard]] constexpr meta::detail::parent_cast_ops parent_cast_ops_for() noexcept {
   using child_type = std::remove_cv_t<std::remove_reference_t<Child>>;
@@ -38,8 +44,9 @@ template <typename Child, typename Parent>
   return meta::detail::parent_cast_ops{
       meta::detail::descriptor_type_id<parent_type>(),
       [](const void* value) noexcept -> const void* {
-        return value != nullptr ? static_cast<const parent_type*>(static_cast<const child_type*>(value))
-                                : nullptr;
+        return value != nullptr
+                   ? static_cast<const parent_type*>(static_cast<const child_type*>(value))
+                   : nullptr;
       },
       [](void* value) noexcept -> void* {
         return value != nullptr ? static_cast<parent_type*>(static_cast<child_type*>(value))
@@ -63,7 +70,11 @@ public:
 
   type_builder(meta::context& ctx, std::string_view name)
       : registry_(&ctx.get_registry()),
-        pending_(meta::detail::descriptor_type_id<value_type>(), core::string_name{name}) {}
+        pending_(meta::detail::descriptor_type_id<value_type>(), core::string_name{name}) {
+    if (name.empty()) {
+      status_ = {error_domain::meta, errc::invalid_argument};
+    }
+  }
 
   /** @brief 设置类型稳定 GUID。 */
   type_builder& guid(type_guid guid_value) {
@@ -102,9 +113,9 @@ public:
       return *this;
     }
 
-    status_ = pending_.add_owned_capability(
-        meta::capability_key_of<meta::factory_ops>(),
-        meta::detail::make_owned_capability<meta::factory_ops>(ops));
+    status_ =
+        pending_.add_owned_capability(meta::capability_key_of<meta::factory_ops>(),
+                                      meta::detail::make_owned_capability<meta::factory_ops>(ops));
     return *this;
   }
 
@@ -172,10 +183,10 @@ public:
 
     const objects::object_factory_ops* factory =
         meta::capabilities::get<objects::object_factory_ops, value_type>();
-    if (factory != nullptr && !pending_.contains_capability(
-                                  meta::capability_key_of<objects::object_factory_ops>())) {
-      status_ = pending_.add_capability(meta::capability_key_of<objects::object_factory_ops>(),
-                                        factory);
+    if (factory != nullptr &&
+        !pending_.contains_capability(meta::capability_key_of<objects::object_factory_ops>())) {
+      status_ =
+          pending_.add_capability(meta::capability_key_of<objects::object_factory_ops>(), factory);
     }
     return object_section<T>{*this};
   }
@@ -187,15 +198,15 @@ public:
     }
 
     if (serialization_enabled_) {
-      status_ = pending_.add_extension(meta::detail::make_extension_data<serialization::type_schema>(
-          &memory::library_resource(), serialization_schema_));
+      status_ =
+          pending_.add_extension(meta::detail::make_extension_data<serialization::type_schema>(
+              &memory::library_resource(), serialization_schema_));
       if (status_) {
         return status_;
       }
     }
 
-    const meta::detail::type_descriptor* descriptor =
-        meta::detail::descriptor_ptr_of<value_type>();
+    const meta::detail::type_descriptor* descriptor = meta::detail::descriptor_ptr_of<value_type>();
     if (descriptor == nullptr || !descriptor->valid()) {
       status_ = {error_domain::meta, errc::invalid_type};
       return status_;
@@ -248,6 +259,62 @@ private:
     return property_name;
   }
 
+  type_builder& apply_property_entry(core::string_name property_name,
+                                     const meta::registration::metadata_entry& entry) {
+    return set_property_entry(property_name, entry.key, entry.value);
+  }
+
+  type_builder& apply_property_entry(core::string_name property_name,
+                                     meta::registration::metadata_entry&& entry) {
+    return set_property_entry(property_name, entry.key, std::move(entry.value));
+  }
+
+  type_builder& apply_property_entry(core::string_name property_name,
+                                     const meta::registration::property_schema_entry& entry) {
+    return set_property_schema_entry(property_name, entry);
+  }
+
+  type_builder& apply_property_entry(core::string_name property_name,
+                                     meta::registration::property_schema_entry&& entry) {
+    return set_property_schema_entry(property_name, std::move(entry));
+  }
+
+  type_builder& set_property_entry(core::string_name property_name, meta::metadata_key key,
+                                   meta::metadata_value value) {
+    if (!key || !property_name) {
+      status_ = {error_domain::meta, errc::invalid_field};
+      return *this;
+    }
+
+    meta::detail::property_data* property = pending_.mutable_find_property_ptr(property_name);
+    if (property == nullptr) {
+      status_ = {error_domain::meta, errc::invalid_field};
+      return *this;
+    }
+
+    property->set_metadata(key, std::move(value));
+    status_ = {};
+    return *this;
+  }
+
+  type_builder& set_property_schema_entry(core::string_name property_name,
+                                          meta::registration::property_schema_entry entry) {
+    if (!property_name) {
+      status_ = {error_domain::meta, errc::invalid_field};
+      return *this;
+    }
+
+    meta::detail::property_data* property = pending_.mutable_find_property_ptr(property_name);
+    if (property == nullptr) {
+      status_ = {error_domain::meta, errc::invalid_field};
+      return *this;
+    }
+
+    property->apply_schema_entry(std::move(entry));
+    status_ = {};
+    return *this;
+  }
+
   template <typename Getter, typename Setter>
   [[nodiscard]] core::string_name add_property(std::string_view name, Getter getter,
                                                Setter setter) {
@@ -272,8 +339,9 @@ private:
 
   template <typename Getter>
   [[nodiscard]] core::string_name add_readonly_property(std::string_view name, Getter getter) {
-    static_assert(std::is_member_function_pointer_v<Getter>,
-                  "registration::type_builder::property_readonly requires a member function pointer");
+    static_assert(
+        std::is_member_function_pointer_v<Getter>,
+        "registration::type_builder::property_readonly requires a member function pointer");
 
     meta::detail::property_data property =
         meta::detail::make_readonly_property_data<value_type>(name, getter);
@@ -376,6 +444,16 @@ public:
     return *this;
   }
 
+  template <typename Member, typename... Entries>
+    requires(sizeof...(Entries) > 0 && (detail::is_property_entry_v<Entries> && ...))
+  meta_section& property(std::string_view name, Member member, Entries&&... entries) {
+    const core::string_name property_name = owner_->add_property(name, member);
+    if (property_name) {
+      (owner_->apply_property_entry(property_name, std::forward<Entries>(entries)), ...);
+    }
+    return *this;
+  }
+
   template <typename Member>
   meta_section& property(std::string_view name, Member member, std::string_view type_name) {
     (void)owner_->add_property(name, member, type_name);
@@ -384,14 +462,14 @@ public:
 
   template <typename Getter, typename Setter>
   meta_section& property(std::string_view name, Getter getter, Setter setter)
-    requires(!std::is_convertible_v<Setter, std::string_view>)
+    requires(!std::is_convertible_v<Setter, std::string_view> &&
+             !detail::is_property_entry_v<Setter>)
   {
     (void)owner_->add_property(name, getter, setter);
     return *this;
   }
 
-  template <typename Getter>
-  meta_section& property_readonly(std::string_view name, Getter getter) {
+  template <typename Getter> meta_section& property_readonly(std::string_view name, Getter getter) {
     (void)owner_->add_readonly_property(name, getter);
     return *this;
   }
@@ -403,8 +481,8 @@ public:
 
   template <typename Capability> meta_section& capability(const Capability* capability) {
     using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
-    owner_->status_ = owner_->pending_.add_capability(
-        meta::capability_key_of<capability_type>(), capability);
+    owner_->status_ =
+        owner_->pending_.add_capability(meta::capability_key_of<capability_type>(), capability);
     return *this;
   }
 
@@ -462,6 +540,18 @@ public:
     return *this;
   }
 
+  serialization_section& field(serialization::field_schema schema) {
+    owner_->serialization_schema_.fields.push_back(std::move(schema));
+    return *this;
+  }
+
+  serialization_section& fields(std::initializer_list<serialization::field_schema> schemas) {
+    for (const serialization::field_schema& schema : schemas) {
+      owner_->serialization_schema_.fields.push_back(schema);
+    }
+    return *this;
+  }
+
   [[nodiscard]] meta_section<T> meta() noexcept { return owner_->meta(); }
 
   template <typename U = T>
@@ -487,7 +577,9 @@ public:
   }
 
   [[nodiscard]] meta_section<T> meta() noexcept { return owner_->meta(); }
-  [[nodiscard]] serialization_section<T> serialization() noexcept { return owner_->serialization(); }
+  [[nodiscard]] serialization_section<T> serialization() noexcept {
+    return owner_->serialization();
+  }
   [[nodiscard]] error commit() { return owner_->commit(); }
 
 private:

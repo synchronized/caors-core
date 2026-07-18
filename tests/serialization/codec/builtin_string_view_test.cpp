@@ -9,14 +9,17 @@
 
 using namespace caors::tests::serialization;
 
+namespace {
+
+void require_codec_string_view_actor_metadata() {
+  require_serializable_property_type<codec_string_view_actor>(
+      "caors.test.serialization.codec_string_view_actor", "name", &codec_string_view_actor::name);
+}
+
+} // namespace
+
 TEST_CASE("serialization - built in codecs reject string view deserialization", "[serialization]") {
-  REQUIRE(reflection_result_ok(((void)caors::meta::class_<codec_string_view_actor>(
-                                    "caors.test.serialization.codec_string_view_actor"),
-                                caors::meta::class_<codec_string_view_actor>())
-                                   .property("name", &codec_string_view_actor::name)
-                                   .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::class_<codec_string_view_actor>().commit()));
+  require_codec_string_view_actor_metadata();
 
   codec_string_view_actor actor{std::string_view{"original"}};
   const caors::error result = caors::deserialize(actor, R"({"name":"Ada"})");
@@ -36,13 +39,7 @@ TEST_CASE("serialization - built in codecs reject string view deserialization", 
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - built in codecs serialize string view fields", "[serialization]") {
-  REQUIRE(reflection_result_ok(((void)caors::meta::class_<codec_string_view_actor>(
-                                    "caors.test.serialization.codec_string_view_actor"),
-                                caors::meta::class_<codec_string_view_actor>())
-                                   .property("name", &codec_string_view_actor::name)
-                                   .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::class_<codec_string_view_actor>().commit()));
+  require_codec_string_view_actor_metadata();
 
   const codec_string_view_actor actor{std::string_view{"Ada"}};
   const caors::serialization::serialization_text_result text =
@@ -62,13 +59,7 @@ using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - string view deserialization can use explicit backing storage",
           "[serialization]") {
-  REQUIRE(reflection_result_ok(((void)caors::meta::class_<codec_string_view_actor>(
-                                    "caors.test.serialization.codec_string_view_actor"),
-                                caors::meta::class_<codec_string_view_actor>())
-                                   .property("name", &codec_string_view_actor::name)
-                                   .commit()));
-  REQUIRE(
-      serialization_result_ok(caors::serialization::class_<codec_string_view_actor>().commit()));
+  require_codec_string_view_actor_metadata();
 
   codec_string_view_actor actor{std::string_view{"original"}};
   caors::serialization::string_storage storage;
@@ -92,14 +83,13 @@ using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - string view storage keeps multiple deserialized strings",
           "[serialization]") {
-  REQUIRE(reflection_result_ok(((void)caors::meta::class_<codec_string_view_pair_actor>(
-                                    "caors.test.serialization.codec_string_view_pair_actor"),
-                                caors::meta::class_<codec_string_view_pair_actor>())
-                                   .property("first", &codec_string_view_pair_actor::first)
-                                   .property("second", &codec_string_view_pair_actor::second)
-                                   .commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::class_<codec_string_view_pair_actor>().commit()));
+  REQUIRE(registration_result_ok(caors::registration::type_<codec_string_view_pair_actor>(
+                                     "caors.test.serialization.codec_string_view_pair_actor")
+                                     .meta()
+                                     .property("first", &codec_string_view_pair_actor::first)
+                                     .property("second", &codec_string_view_pair_actor::second)
+                                     .serialization()
+                                     .commit()));
 
   codec_string_view_pair_actor actor{};
   caors::serialization::string_storage storage;

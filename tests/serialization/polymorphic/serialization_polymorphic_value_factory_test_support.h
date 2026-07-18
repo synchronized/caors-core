@@ -63,51 +63,40 @@ inline void destroy_factory_player(caors::memory_resource* resource, void* value
 }
 
 inline void require_polymorphic_factory_metadata() {
-  REQUIRE(type_result_ok(
-      caors::meta::class_<polymorphic_factory_actor>("caors.test.serialization.poly_factory.actor")
-          .guid(factory_actor_guid)
-          .result()));
-  REQUIRE(type_result_ok(caors::meta::class_<polymorphic_factory_player>(
+  REQUIRE(type_result_ok(caors::registration::type_<polymorphic_factory_actor>(
+                             "caors.test.serialization.poly_factory.actor")
+                             .guid(factory_actor_guid)
+                             .serialization()
+                             .commit()));
+  REQUIRE(type_result_ok(caors::registration::type_<polymorphic_factory_player>(
                              "caors.test.serialization.poly_factory.player")
                              .guid(factory_player_guid)
                              .parent<polymorphic_factory_actor>()
                              .factory(&construct_factory_player, &destroy_factory_player)
-                             .result()));
-  REQUIRE(type_result_ok(caors::meta::class_<std::shared_ptr<polymorphic_factory_actor>>(
+                             .meta()
+                             .property("level", &polymorphic_factory_player::level)
+                             .property("name", &polymorphic_factory_player::name)
+                             .serialization()
+                             .commit()));
+  REQUIRE(type_result_ok(caors::registration::type_<std::shared_ptr<polymorphic_factory_actor>>(
                              "std.shared_ptr<caors.test.serialization.poly_factory.actor>")
-                             .result()));
-  REQUIRE(type_result_ok(caors::meta::class_<caors::memory::unique_ptr<polymorphic_factory_actor>>(
-                             "caors.memory.unique_ptr<caors.test.serialization.poly_factory.actor>")
-                             .result()));
-
-  REQUIRE(caors::tests::serialization::reflection_result_ok(
-      caors::meta::class_<polymorphic_factory_actor>().commit()));
-  REQUIRE(caors::tests::serialization::reflection_result_ok(
-      caors::meta::class_<polymorphic_factory_player>()
-          .property("level", &polymorphic_factory_player::level)
-          .property("name", &polymorphic_factory_player::name)
+                             .commit()));
+  REQUIRE(type_result_ok(
+      caors::registration::type_<caors::memory::unique_ptr<polymorphic_factory_actor>>(
+          "caors.memory.unique_ptr<caors.test.serialization.poly_factory.actor>")
           .commit()));
-  REQUIRE(caors::tests::serialization::reflection_result_ok(
-      ((void)caors::meta::class_<polymorphic_factory_holder>(
-           "caors.test.serialization.poly_factory.holder"),
-       caors::meta::class_<polymorphic_factory_holder>())
-          .property("shared", &polymorphic_factory_holder::shared)
-          .commit()));
-  REQUIRE(caors::tests::serialization::reflection_result_ok(
-      ((void)caors::meta::class_<polymorphic_factory_unique_holder>(
-           "caors.test.serialization.poly_factory.unique_holder"),
-       caors::meta::class_<polymorphic_factory_unique_holder>())
-          .property("owner", &polymorphic_factory_unique_holder::owner)
-          .commit()));
-
-  REQUIRE(caors::tests::serialization::serialization_result_ok(
-      caors::serialization::class_<polymorphic_factory_actor>().commit()));
-  REQUIRE(caors::tests::serialization::serialization_result_ok(
-      caors::serialization::class_<polymorphic_factory_player>().commit()));
-  REQUIRE(caors::tests::serialization::serialization_result_ok(
-      caors::serialization::class_<polymorphic_factory_holder>().commit()));
-  REQUIRE(caors::tests::serialization::serialization_result_ok(
-      caors::serialization::class_<polymorphic_factory_unique_holder>().commit()));
+  REQUIRE(type_result_ok(caors::registration::type_<polymorphic_factory_holder>(
+                             "caors.test.serialization.poly_factory.holder")
+                             .meta()
+                             .property("shared", &polymorphic_factory_holder::shared)
+                             .serialization()
+                             .commit()));
+  REQUIRE(type_result_ok(caors::registration::type_<polymorphic_factory_unique_holder>(
+                             "caors.test.serialization.poly_factory.unique_holder")
+                             .meta()
+                             .property("owner", &polymorphic_factory_unique_holder::owner)
+                             .serialization()
+                             .commit()));
 }
 
 } // namespace caors::tests::serialization::polymorphic_value_factory

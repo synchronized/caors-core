@@ -38,22 +38,16 @@ constexpr caors::resource_guid resource_guid{caors::guid::from_bytes(
 }
 
 void require_context_codec_metadata() {
-  require_registered_type<context_codec_value>("caors.test.serialization.api.context_codec_value");
-  REQUIRE(reflection_result_ok(((void)caors::meta::class_<context_codec_actor>(
-                                    "caors.test.serialization.api.context_codec_actor"),
-                                caors::meta::class_<context_codec_actor>())
-                                   .property("value", &context_codec_actor::value)
-                                   .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<context_codec_actor>().commit()));
+  REQUIRE(registration_result_ok(caors::registration::type_<context_codec_value>(
+                                     "caors.test.serialization.api.context_codec_value")
+                                     .commit()));
+  require_serializable_property_type<context_codec_actor>(
+      "caors.test.serialization.api.context_codec_actor", "value", &context_codec_actor::value);
 }
 
 void require_context_resource_metadata() {
-  REQUIRE(reflection_result_ok(((void)caors::meta::class_<context_api_resource>(
-                                    "caors.test.serialization.api.context_api_resource"),
-                                caors::meta::class_<context_api_resource>())
-                                   .property("value", &context_api_resource::value)
-                                   .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<context_api_resource>().commit()));
+  require_serializable_property_type<context_api_resource>(
+      "caors.test.serialization.api.context_api_resource", "value", &context_api_resource::value);
 }
 
 } // namespace caors::tests::serialization::api

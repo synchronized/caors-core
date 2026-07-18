@@ -59,43 +59,29 @@ constexpr caors::type_guid polymorphic_object_ref_enemy_guid{caors::guid::from_b
                             0xd5, 0x84, 0x10, 0x03})};
 
 inline void require_polymorphic_object_ref_metadata() {
-  REQUIRE(type_result_ok(caors::meta::class_<polymorphic_object_ref_actor>(
-                             polymorphic_object_ref_actor::object_type_name)
+  REQUIRE(type_result_ok(caors::registration::type_<polymorphic_object_ref_actor>()
                              .guid(polymorphic_object_ref_actor_guid)
-                             .result()));
-  REQUIRE(type_result_ok(caors::meta::class_<polymorphic_object_ref_player>(
-                             polymorphic_object_ref_player::object_type_name)
+                             .serialization()
+                             .object()
+                             .commit()));
+  REQUIRE(type_result_ok(caors::registration::type_<polymorphic_object_ref_player>()
                              .guid(polymorphic_object_ref_player_guid)
-                             .parent<polymorphic_object_ref_actor>()
-                             .result()));
-  REQUIRE(type_result_ok(caors::meta::class_<polymorphic_object_ref_enemy>(
-                             polymorphic_object_ref_enemy::object_type_name)
+                             .meta()
+                             .property("level", &polymorphic_object_ref_player::level)
+                             .property("name", &polymorphic_object_ref_player::name)
+                             .serialization()
+                             .object()
+                             .commit()));
+  REQUIRE(type_result_ok(caors::registration::type_<polymorphic_object_ref_enemy>()
                              .guid(polymorphic_object_ref_enemy_guid)
-                             .result()));
-
-  REQUIRE(reflection_result_ok(caors::meta::class_<polymorphic_object_ref_actor>().commit()));
-  REQUIRE(reflection_result_ok(caors::meta::class_<polymorphic_object_ref_player>()
-                                   .property("level", &polymorphic_object_ref_player::level)
-                                   .property("name", &polymorphic_object_ref_player::name)
-                                   .commit()));
-  REQUIRE(reflection_result_ok(caors::meta::class_<polymorphic_object_ref_enemy>()
-                                   .property("danger", &polymorphic_object_ref_enemy::danger)
-                                   .commit()));
-  REQUIRE(
-      reflection_result_ok(((void)caors::meta::class_<polymorphic_object_ref_holder>(
-                                "caors.test.serialization.config.polymorphic_object_ref.holder"),
-                            caors::meta::class_<polymorphic_object_ref_holder>())
-                               .property("owner", &polymorphic_object_ref_holder::owner)
-                               .commit()));
-
-  REQUIRE(serialization_result_ok(
-      caors::serialization::class_<polymorphic_object_ref_actor>().commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::class_<polymorphic_object_ref_player>().commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::class_<polymorphic_object_ref_enemy>().commit()));
-  REQUIRE(serialization_result_ok(
-      caors::serialization::class_<polymorphic_object_ref_holder>().commit()));
+                             .meta()
+                             .property("danger", &polymorphic_object_ref_enemy::danger)
+                             .serialization()
+                             .object()
+                             .commit()));
+  require_serializable_property_type<polymorphic_object_ref_holder>(
+      "caors.test.serialization.config.polymorphic_object_ref.holder", "owner",
+      &polymorphic_object_ref_holder::owner);
 }
 
 } // namespace caors::tests::serialization::object_ref_polymorphic

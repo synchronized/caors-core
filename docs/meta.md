@@ -984,7 +984,8 @@ descriptor，不再为了创建 view 把每一种容器组合额外挂载为 met
   `objects::object_factory_capability`，并对外返回 `objects::type` 视图。
 - 属性和方法直接保存在 meta 类型记录关联的数据中，并通过 `meta::type` / `meta::property` / `meta::method` 对外查询；
   `meta::type` / `meta::property` 是兼容视图。
-- `serialization::registry` 可以挂载序列化相关 extension。
+- `serialization::registry` 复用全局 meta 类型记录查询序列化 extension；extension 由统一
+  `registration::type_<T>().serialization()` 在注册提交时写入。
 
 这样对象、反射和序列化的全局注册入口不需要重复处理重名、重复 GUID、不一致类型描述和父类型缺失。
 跨模块查询可以通过 `meta::registry::extension_view<T...>()` 完成。属性和方法应通过 `meta::type`

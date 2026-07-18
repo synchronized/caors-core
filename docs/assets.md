@@ -233,18 +233,19 @@ struct texture_options {
 
 namespace metadata = caors::serialization::config_metadata;
 
-caors::meta::class_<texture_options>("game.texture_options");
-caors::meta::class_<texture_options>()
-    .property("format", &texture_options::format)
-    (caors::meta::registration::metadata(metadata::required(), true),
-     caors::meta::registration::metadata(metadata::non_empty(), true),
-     caors::meta::registration::metadata(metadata::one_of(),
-                           caors::meta::make_metadata_string_array({"json", "binary"})))
-    .property("priority", &texture_options::priority)
-    (caors::meta::registration::metadata(metadata::range_min(), 1),
-     caors::meta::registration::metadata(metadata::range_max(), 100))
+caors::registration::type_<texture_options>("game.texture_options")
+    .meta()
+    .property("format", &texture_options::format,
+              caors::meta::registration::metadata(metadata::required(), true),
+              caors::meta::registration::metadata(metadata::non_empty(), true),
+              caors::meta::registration::metadata(
+                  metadata::one_of(),
+                  caors::meta::make_metadata_string_array({"json", "binary"})))
+    .property("priority", &texture_options::priority,
+              caors::meta::registration::metadata(metadata::range_min(), 1),
+              caors::meta::registration::metadata(metadata::range_max(), 100))
+    .serialization()
     .commit();
-caors::serialization::class_<texture_options>().commit();
 
 texture_options options;
 caors::error read_status = caors::deserialize(options, config.options);

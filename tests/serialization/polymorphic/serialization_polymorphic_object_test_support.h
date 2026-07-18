@@ -43,24 +43,20 @@ public:
 }
 
 inline void require_metadata() {
-  REQUIRE(object_result_ok(caors::registration::type_<actor>().object().commit()));
-  REQUIRE(object_result_ok(caors::registration::type_<player>().object().commit()));
-  REQUIRE(object_result_ok(caors::registration::type_<enemy>().object().commit()));
-
-  REQUIRE(caors::tests::serialization::reflection_result_ok(caors::meta::class_<actor>().commit()));
-  REQUIRE(caors::tests::serialization::reflection_result_ok(caors::meta::class_<player>()
-                                                                .property("level", &player::level)
-                                                                .property("name", &player::name)
-                                                                .commit()));
-  REQUIRE(caors::tests::serialization::reflection_result_ok(
-      caors::meta::class_<enemy>().property("danger", &enemy::danger).commit()));
-
-  REQUIRE(caors::tests::serialization::serialization_result_ok(
-      caors::serialization::class_<actor>().commit()));
-  REQUIRE(caors::tests::serialization::serialization_result_ok(
-      caors::serialization::class_<player>().commit()));
-  REQUIRE(caors::tests::serialization::serialization_result_ok(
-      caors::serialization::class_<enemy>().commit()));
+  REQUIRE(object_result_ok(caors::registration::type_<actor>().serialization().object().commit()));
+  REQUIRE(object_result_ok(caors::registration::type_<player>()
+                               .meta()
+                               .property("level", &player::level)
+                               .property("name", &player::name)
+                               .serialization()
+                               .object()
+                               .commit()));
+  REQUIRE(object_result_ok(caors::registration::type_<enemy>()
+                               .meta()
+                               .property("danger", &enemy::danger)
+                               .serialization()
+                               .object()
+                               .commit()));
 }
 
 } // namespace caors::tests::serialization::polymorphic_object

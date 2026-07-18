@@ -8,12 +8,8 @@
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - deserializes hash map fields from dictionaries", "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<map_actor>("caors.test.serialization.map_actor"),
-       caors::meta::class_<map_actor>())
-          .property("labels", &map_actor::labels)
-          .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<map_actor>().commit()));
+  require_serializable_property_type<map_actor>("caors.test.serialization.map_actor", "labels",
+                                                &map_actor::labels);
 
   caors::variant::dictionary_type entries;
   entries.push_back(caors::meta::variant_entry{
@@ -48,12 +44,8 @@ TEST_CASE("serialization - deserializes hash map fields from dictionaries", "[se
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - deserializes hash map fields from pair arrays", "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<map_actor>("caors.test.serialization.map_actor"),
-       caors::meta::class_<map_actor>())
-          .property("labels", &map_actor::labels)
-          .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<map_actor>().commit()));
+  require_serializable_property_type<map_actor>("caors.test.serialization.map_actor", "labels",
+                                                &map_actor::labels);
 
   const caors::serialization::variant_result parsed =
       caors::serialization::parse_json(R"({"labels":[[3,"three"]]})");
@@ -74,12 +66,8 @@ TEST_CASE("serialization - deserializes hash map fields from pair arrays", "[ser
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - deserializes hash set fields from arrays", "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<set_actor>("caors.test.serialization.set_actor"),
-       caors::meta::class_<set_actor>())
-          .property("ids", &set_actor::ids)
-          .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<set_actor>().commit()));
+  require_serializable_property_type<set_actor>("caors.test.serialization.set_actor", "ids",
+                                                &set_actor::ids);
 
   caors::variant::array_type ids;
   ids.push_back(caors::variant::from(std::int64_t{1}));
@@ -109,12 +97,8 @@ using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - generic associative traits work without type registration",
           "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<custom_map_actor>("caors.test.serialization.custom_map_actor"),
-       caors::meta::class_<custom_map_actor>())
-          .property("labels", &custom_map_actor::labels)
-          .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<custom_map_actor>().commit()));
+  require_serializable_property_type<custom_map_actor>("caors.test.serialization.custom_map_actor",
+                                                       "labels", &custom_map_actor::labels);
 
   custom_map_actor actor{};
   actor.labels.values.emplace(6, caors::string{"six"});
@@ -153,12 +137,8 @@ TEST_CASE("serialization - generic associative traits work without type registra
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - hash set reader rejects duplicate elements", "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<set_actor>("caors.test.serialization.set_actor"),
-       caors::meta::class_<set_actor>())
-          .property("ids", &set_actor::ids)
-          .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<set_actor>().commit()));
+  require_serializable_property_type<set_actor>("caors.test.serialization.set_actor", "ids",
+                                                &set_actor::ids);
 
   caors::variant::array_type ids;
   ids.push_back(caors::variant::from(std::int64_t{1}));
@@ -186,12 +166,8 @@ TEST_CASE("serialization - hash set reader rejects duplicate elements", "[serial
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - roundtrips std map fields", "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<ordered_map_actor>("caors.test.serialization.ordered_map_actor"),
-       caors::meta::class_<ordered_map_actor>())
-          .property("labels", &ordered_map_actor::labels)
-          .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<ordered_map_actor>().commit()));
+  require_serializable_property_type<ordered_map_actor>(
+      "caors.test.serialization.ordered_map_actor", "labels", &ordered_map_actor::labels);
 
   ordered_map_actor actor{};
   actor.labels.emplace(2, caors::string{"two"});
@@ -218,12 +194,8 @@ TEST_CASE("serialization - roundtrips std map fields", "[serialization]") {
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - roundtrips std set fields", "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<ordered_set_actor>("caors.test.serialization.ordered_set_actor"),
-       caors::meta::class_<ordered_set_actor>())
-          .property("ids", &ordered_set_actor::ids)
-          .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<ordered_set_actor>().commit()));
+  require_serializable_property_type<ordered_set_actor>(
+      "caors.test.serialization.ordered_set_actor", "ids", &ordered_set_actor::ids);
 
   ordered_set_actor actor{};
   actor.ids.emplace(3);
@@ -250,12 +222,8 @@ TEST_CASE("serialization - roundtrips std set fields", "[serialization]") {
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - serializes hash map fields as dictionaries", "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<map_actor>("caors.test.serialization.map_actor"),
-       caors::meta::class_<map_actor>())
-          .property("labels", &map_actor::labels)
-          .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<map_actor>().commit()));
+  require_serializable_property_type<map_actor>("caors.test.serialization.map_actor", "labels",
+                                                &map_actor::labels);
 
   map_actor actor{};
   actor.labels.emplace(7, caors::string{"seven"});
@@ -282,12 +250,8 @@ TEST_CASE("serialization - serializes hash map fields as dictionaries", "[serial
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - serializes hash set fields as arrays", "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<set_actor>("caors.test.serialization.set_actor"),
-       caors::meta::class_<set_actor>())
-          .property("ids", &set_actor::ids)
-          .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<set_actor>().commit()));
+  require_serializable_property_type<set_actor>("caors.test.serialization.set_actor", "ids",
+                                                &set_actor::ids);
 
   set_actor actor{};
   actor.ids.emplace(7);

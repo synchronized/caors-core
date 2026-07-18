@@ -72,12 +72,8 @@ TEST_CASE("serialization - descriptor enum data handles unregistered enum values
   REQUIRE(owned_value.value.try_as_u64() != nullptr);
   CHECK(owned_value.value.as_u64() == 2U);
 
-  REQUIRE(reflection_result_ok(((void)caors::meta::class_<descriptor_enum_actor>(
-                                    "caors.test.serialization.descriptor_enum_actor"),
-                                caors::meta::class_<descriptor_enum_actor>())
-                                   .property("colors", &descriptor_enum_actor::colors)
-                                   .commit()));
-  REQUIRE(serialization_result_ok(caors::serialization::class_<descriptor_enum_actor>().commit()));
+  require_serializable_property_type<descriptor_enum_actor>(
+      "caors.test.serialization.descriptor_enum_actor", "colors", &descriptor_enum_actor::colors);
 
   const descriptor_enum_actor actor{{descriptor_enum_color::blue, descriptor_enum_color::red}};
   const caors::serialization::serialization_text_result text = caors::to_string(actor);

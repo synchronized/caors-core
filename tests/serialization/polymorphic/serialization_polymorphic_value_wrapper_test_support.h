@@ -48,53 +48,40 @@ constexpr caors::type_guid enemy_guid{caors::guid::from_bytes(
 }
 
 inline void require_polymorphic_value_metadata() {
-  REQUIRE(type_result_ok(
-      caors::meta::class_<polymorphic_value_actor>("caors.test.serialization.poly_value.actor")
-          .guid(actor_guid)
-          .result()));
-  REQUIRE(type_result_ok(
-      caors::meta::class_<polymorphic_value_player>("caors.test.serialization.poly_value.player")
-          .guid(player_guid)
-          .parent<polymorphic_value_actor>()
-          .result()));
-  REQUIRE(type_result_ok(
-      caors::meta::class_<polymorphic_value_enemy>("caors.test.serialization.poly_value.enemy")
-          .guid(enemy_guid)
-          .result()));
-  REQUIRE(type_result_ok(caors::meta::class_<std::unique_ptr<polymorphic_value_actor>>(
+  REQUIRE(type_result_ok(caors::registration::type_<polymorphic_value_actor>(
+                             "caors.test.serialization.poly_value.actor")
+                             .guid(actor_guid)
+                             .serialization()
+                             .commit()));
+  REQUIRE(type_result_ok(caors::registration::type_<polymorphic_value_player>(
+                             "caors.test.serialization.poly_value.player")
+                             .guid(player_guid)
+                             .parent<polymorphic_value_actor>()
+                             .meta()
+                             .property("level", &polymorphic_value_player::level)
+                             .property("name", &polymorphic_value_player::name)
+                             .serialization()
+                             .commit()));
+  REQUIRE(type_result_ok(caors::registration::type_<polymorphic_value_enemy>(
+                             "caors.test.serialization.poly_value.enemy")
+                             .guid(enemy_guid)
+                             .meta()
+                             .property("danger", &polymorphic_value_enemy::danger)
+                             .serialization()
+                             .commit()));
+  REQUIRE(type_result_ok(caors::registration::type_<std::unique_ptr<polymorphic_value_actor>>(
                              "std.unique_ptr<caors.test.serialization.poly_value.actor>")
-                             .result()));
-  REQUIRE(type_result_ok(caors::meta::class_<std::shared_ptr<polymorphic_value_actor>>(
+                             .commit()));
+  REQUIRE(type_result_ok(caors::registration::type_<std::shared_ptr<polymorphic_value_actor>>(
                              "std.shared_ptr<caors.test.serialization.poly_value.actor>")
-                             .result()));
-
-  REQUIRE(caors::tests::serialization::reflection_result_ok(
-      caors::meta::class_<polymorphic_value_actor>().commit()));
-  REQUIRE(caors::tests::serialization::reflection_result_ok(
-      caors::meta::class_<polymorphic_value_player>()
-          .property("level", &polymorphic_value_player::level)
-          .property("name", &polymorphic_value_player::name)
-          .commit()));
-  REQUIRE(caors::tests::serialization::reflection_result_ok(
-      caors::meta::class_<polymorphic_value_enemy>()
-          .property("danger", &polymorphic_value_enemy::danger)
-          .commit()));
-  REQUIRE(caors::tests::serialization::reflection_result_ok(
-      ((void)caors::meta::class_<polymorphic_value_holder>(
-           "caors.test.serialization.poly_value.holder"),
-       caors::meta::class_<polymorphic_value_holder>())
-          .property("owner", &polymorphic_value_holder::owner)
-          .property("shared", &polymorphic_value_holder::shared)
-          .commit()));
-
-  REQUIRE(caors::tests::serialization::serialization_result_ok(
-      caors::serialization::class_<polymorphic_value_actor>().commit()));
-  REQUIRE(caors::tests::serialization::serialization_result_ok(
-      caors::serialization::class_<polymorphic_value_player>().commit()));
-  REQUIRE(caors::tests::serialization::serialization_result_ok(
-      caors::serialization::class_<polymorphic_value_enemy>().commit()));
-  REQUIRE(caors::tests::serialization::serialization_result_ok(
-      caors::serialization::class_<polymorphic_value_holder>().commit()));
+                             .commit()));
+  REQUIRE(type_result_ok(caors::registration::type_<polymorphic_value_holder>(
+                             "caors.test.serialization.poly_value.holder")
+                             .meta()
+                             .property("owner", &polymorphic_value_holder::owner)
+                             .property("shared", &polymorphic_value_holder::shared)
+                             .serialization()
+                             .commit()));
 }
 
 } // namespace caors::tests::serialization::polymorphic_value_wrapper
