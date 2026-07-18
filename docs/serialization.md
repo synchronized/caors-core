@@ -14,7 +14,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 - 用 `serialization::type_schema` 表示类型的序列化元信息。
 - 用 `serialization::field_schema` 表示字段级序列化配置，例如字段别名、稳定字段 id、跳过和版本信息。
 - 基于全局 `meta::registry` 挂载序列化 extension，避免单独维护类型索引。
-- 提供 `serialization::registry` 和 `serialization::class_(meta::type)` 链式注册入口。
+- 提供 `serialization::registry` 和 `serialization::class_(meta::type)` 低层链式注册入口；普通业务类型优先通过 `registration::type_<T>().serialization()` 完成跨模块注册。
 - 提供 `serialization::writer` 后端接口，让不同格式复用同一套字段遍历逻辑。
 - 提供 `serialization::reader` 后端接口，让不同格式复用同一套字段读入逻辑。
 - 提供 `variant` 中间对象树，方便工具、调试和多格式转换。
@@ -1105,7 +1105,7 @@ caors::string text = *result;
 - `variant_member`：对象成员，保存字段名、字段 id 和字段值。
 - `variant_entry`：字典条目，保存 key 和 value。
 - `serialization::registry`：全局序列化注册表。
-- `serialization::class_(meta::type)`：推荐的链式序列化 extension 注册入口，只挂载序列化 extension。
+- `serialization::class_(meta::type)`：低层链式序列化 extension 注册入口，只挂载序列化 extension；业务代码优先使用 `registration::type_<T>().serialization()`。
 - `serialization::register_type<T>()`：公开便捷注册入口，要求对应 C++ 类型已经完成 meta 注册。
 - `serialization::find()` / `serialization::contains()`：序列化 extension 查询入口。
 - `serialize()`：通过指定 writer 后端序列化对象。

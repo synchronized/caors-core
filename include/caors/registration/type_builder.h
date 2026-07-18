@@ -5,6 +5,7 @@
 #define CAORS_REGISTRATION_TYPE_BUILDER_H_
 
 #include "caors/meta/builder.h"
+#include "caors/meta/constructor.h"
 #include "caors/object/registry.h"
 #include "caors/serialization/registry.h"
 
@@ -30,6 +31,61 @@ template <typename T> class type_builder {
 public:
   type_builder(meta::context& ctx, std::string_view name)
       : name_(name), meta_builder_(meta::class_<T>(ctx, name_)) {}
+
+  /** @brief 设置类型稳定 GUID。 */
+  type_builder& guid(type_guid guid_value) {
+    meta_builder_.guid(guid_value);
+    return *this;
+  }
+
+  /** @brief 设置类型稳定 GUID。 */
+  type_builder& guid(caors::guid guid_value) {
+    meta_builder_.guid(guid_value);
+    return *this;
+  }
+
+  /** @brief 设置已注册父类型 id。 */
+  type_builder& parent(type_id parent_id) {
+    meta_builder_.parent(parent_id);
+    return *this;
+  }
+
+  /** @brief 设置 C++ 父类型并保存安全 upcast 信息。 */
+  template <typename Parent> type_builder& parent() {
+    meta_builder_.template parent<Parent>();
+    return *this;
+  }
+
+  /** @brief 注册默认 factory。 */
+  type_builder& factory() {
+    meta_builder_.factory();
+    return *this;
+  }
+
+  /** @brief 注册自定义 factory。 */
+  type_builder& factory(meta::factory_ops::construct_fn construct,
+                        meta::factory_ops::destroy_fn destroy) {
+    meta_builder_.factory(construct, destroy);
+    return *this;
+  }
+
+  /** @brief 注册运行期构造参数。 */
+  template <typename... Arguments> type_builder& constructor() {
+    meta_builder_.template constructor<Arguments...>();
+    return *this;
+  }
+
+  /** @brief 写入类型 metadata。 */
+  template <typename Value> type_builder& metadata(std::string_view key, Value&& value) {
+    meta_builder_.metadata(key, std::forward<Value>(value));
+    return *this;
+  }
+
+  /** @brief 写入类型 metadata。 */
+  template <typename Value> type_builder& metadata(string_name key, Value&& value) {
+    meta_builder_.metadata(key, std::forward<Value>(value));
+    return *this;
+  }
 
   /** @brief 进入 meta 属性、方法和基础能力注册段。 */
   [[nodiscard]] meta_section<T> meta() noexcept { return meta_section<T>{*this}; }
@@ -114,6 +170,42 @@ private:
 template <typename T> class meta_section {
 public:
   explicit meta_section(type_builder<T>& owner) noexcept : owner_(&owner) {}
+
+  meta_section& guid(type_guid guid_value) {
+    owner_->guid(guid_value);
+    return *this;
+  }
+
+  meta_section& guid(caors::guid guid_value) {
+    owner_->guid(guid_value);
+    return *this;
+  }
+
+  meta_section& parent(type_id parent_id) {
+    owner_->parent(parent_id);
+    return *this;
+  }
+
+  template <typename Parent> meta_section& parent() {
+    owner_->template parent<Parent>();
+    return *this;
+  }
+
+  meta_section& factory() {
+    owner_->factory();
+    return *this;
+  }
+
+  meta_section& factory(meta::factory_ops::construct_fn construct,
+                        meta::factory_ops::destroy_fn destroy) {
+    owner_->factory(construct, destroy);
+    return *this;
+  }
+
+  template <typename... Arguments> meta_section& constructor() {
+    owner_->template constructor<Arguments...>();
+    return *this;
+  }
 
   template <typename Member> meta_section& property(std::string_view name, Member member) {
     owner_->meta_builder_.property(name, member);

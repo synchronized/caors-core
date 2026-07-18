@@ -3,6 +3,7 @@
 
 #include "caors/meta.h"
 #include "caors/object.h"
+#include "caors/registration.h"
 #include "caors/serialization.h"
 
 #include <iostream>
@@ -23,11 +24,15 @@ struct party_slot {
 };
 
 int main() {
-  if (caors::objects::class_<persistent_actor>().commit()) {
+  if (caors::registration::type_<persistent_actor>(persistent_actor::object_type_name)
+          .object()
+          .commit()) {
     return 1;
   }
 
-  if (caors::objects::class_<persistent_player>().commit()) {
+  if (caors::registration::type_<persistent_player>(persistent_player::object_type_name)
+          .object()
+          .commit()) {
     return 1;
   }
 
@@ -37,14 +42,11 @@ int main() {
     return 1;
   }
 
-  if (((void)caors::meta::class_<party_slot>("example.party_slot"),
-       caors::meta::class_<party_slot>())
+  if (caors::registration::type_<party_slot>("example.party_slot")
+          .meta()
           .property("leader", &party_slot::leader)
+          .serialization()
           .commit()) {
-    return 1;
-  }
-
-  if (caors::serialization::class_<party_slot>().commit()) {
     return 1;
   }
 

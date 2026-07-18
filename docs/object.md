@@ -397,7 +397,7 @@ object.type_name(); // "game.player"
 
 ### objects::registry
 
-`objects::registry` 是基于全局 `meta::registry` 的对象注册表 facade 和默认构造工厂。它不表示彼此隔离的局部注册表实例。普通代码优先通过 `objects::class_<T>()`、`objects::find()`、`objects::id()` 和 `objects::is_a()` 访问对象元数据；需要默认构造工厂时再使用 `objects::get_registry()`。
+`objects::registry` 是基于全局 `meta::registry` 的对象注册表 facade 和默认构造工厂。它不表示彼此隔离的局部注册表实例。普通业务类型优先通过 `registration::type_<T>().object()` 注册对象能力；低层对象测试或只使用对象模块时可以继续使用 `objects::class_<T>()`。注册后通过 `objects::find()`、`objects::id()` 和 `objects::is_a()` 查询对象元数据；需要默认构造工厂时再使用 `objects::get_registry()`。
 
 对外查询返回 `objects::type` 只读视图。它组合了基础 `meta::type` 和对象工厂 capability，因此调用方可以通过 `id()`、`name()`、`guid()`、`size()`、`alignment()`、`parent_id()` 和 `constructible()` 查询对象类型信息，但不能直接修改注册表内部数据。
 

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/object.h"
+#include "caors/registration.h"
 
 #include <iostream>
 #include <string_view>
@@ -19,11 +20,11 @@ public:
 int main() {
   caors::objects::registry& registry = caors::objects::get_registry();
 
-  if (caors::objects::class_<actor>().commit()) {
+  if (caors::registration::type_<actor>(actor::object_type_name).object().commit()) {
     return 1;
   }
 
-  if (caors::objects::class_<player>().commit()) {
+  if (caors::registration::type_<player>(player::object_type_name).object().commit()) {
     return 1;
   }
 

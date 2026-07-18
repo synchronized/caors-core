@@ -3,6 +3,7 @@
 
 #include "caors/memory.h"
 #include "caors/meta.h"
+#include "caors/registration.h"
 #include "caors/serialization.h"
 
 #include <iostream>
@@ -63,47 +64,40 @@ void destroy_player(caors::memory_resource* resource, void* value) noexcept {
 }
 
 bool register_types() {
-  if (!check(caors::meta::class_<actor>("example.serialization.actor").guid(actor_guid).result(),
+  if (!check(caors::registration::type_<actor>("example.serialization.actor")
+                 .guid(actor_guid)
+                 .serialization()
+                 .commit(),
              "meta actor")) {
     return false;
   }
 
-  if (!check(caors::meta::class_<player>("example.serialization.player")
+  if (!check(caors::registration::type_<player>("example.serialization.player")
                  .guid(player_guid)
                  .parent<actor>()
                  .factory(&construct_player, &destroy_player)
-                 .result(),
+                 .meta()
+                 .property("level", &player::level)
+                 .serialization()
+                 .commit(),
              "meta player")) {
     return false;
   }
 
   if (!check(
-          caors::meta::class_<std::shared_ptr<actor>>("std.shared_ptr<example.serialization.actor>")
-              .result(),
+          caors::registration::type_<std::shared_ptr<actor>>(
+              "std.shared_ptr<example.serialization.actor>")
+              .commit(),
           "meta shared_ptr")) {
     return false;
   }
 
-  if (!check(caors::meta::class_<actor>().commit(), "meta fields actor")) {
-    return false;
-  }
-
-  if (!check(caors::meta::class_<player>().property("level", &player::level).commit(),
-             "meta fields player")) {
-    return false;
-  }
-
-  if (!check(((void)caors::meta::class_<scene>("example.serialization.scene"),
-              caors::meta::class_<scene>())
+  return check(caors::registration::type_<scene>("example.serialization.scene")
+                 .meta()
                  .property("owner", &scene::owner, "std.shared_ptr<example.serialization.actor>")
+                 .serialization()
                  .commit(),
-             "meta fields scene")) {
-    return false;
-  }
-
-  return check(caors::serialization::class_<actor>().commit(), "serialization actor") &&
-         check(caors::serialization::class_<player>().commit(), "serialization player") &&
-         check(caors::serialization::class_<scene>().commit(), "serialization scene");
+             "meta fields scene");
 }
 
 } // namespace

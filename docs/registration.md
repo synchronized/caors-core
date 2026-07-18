@@ -31,11 +31,12 @@ void register_actor() {
 在注册阶段收集完整数据，`commit()` 时一次性发布不可变 `type_data`；发布后的类型数据只读，
 后续修改需要重新构造并按 registry 策略替换或拒绝。
 
-底层模块入口仍然保留：
+底层模块入口仍然保留，主要用于模块内部实现、专项测试或只使用单个模块的低层代码；业务类型注册优先使用
+`registration::type_<T>()`：
 
-1. `meta::class_<T>()`：注册类型名、GUID、父类型、factory、属性、方法、枚举和 dynamic capability。
-2. `serialization::class_(meta::type)`：给已注册 meta 类型挂载序列化 schema。
-3. `objects::class_<T>()`：给对象类型挂载对象工厂能力。
+1. `meta::class_<T>()`：meta 层低层 builder，注册类型名、GUID、父类型、factory、属性、方法、枚举和 dynamic capability。
+2. `serialization::class_(meta::type)`：serialization 层低层 builder，给已注册 meta 类型挂载序列化 schema。
+3. `objects::class_<T>()`：object 层低层 builder，给对象类型挂载对象工厂能力。
 4. `meta::init_registry()`：执行延迟注册函数并校验注册表。
 
 字段声明类型不要求全部完成 `meta::class_<T>("name")` 注册。基础标量、字符串、容器、指针、
@@ -111,4 +112,6 @@ CAORS_META_REGISTRATION(register_actor) {
 - `errc::missing_parent`：父类型尚未注册。
 - `errc::invalid_field`：反射字段描述无效、字段名冲突，或字段类型无法生成有效 descriptor。
 
-公共测试和用户代码应使用 `meta::class_<T>()`、`objects::class_<T>()`、`serialization::class_()` 等公开入口，不直接调用各模块的 `detail` 命名空间函数。字段和方法直接通过 `meta::class_<T>()` 注册，不再保留独立 reflection 注册入口。
+公共业务代码优先使用 `registration::type_<T>()` 完成跨模块注册；模块内部和专项测试可以继续使用
+`meta::class_<T>()`、`objects::class_<T>()`、`serialization::class_()` 等低层入口。用户代码不应直接调用各模块的
+`detail` 命名空间函数。字段和方法直接通过 meta 注册能力写入，不再保留独立 reflection 注册入口。
