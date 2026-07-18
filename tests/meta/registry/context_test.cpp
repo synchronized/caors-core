@@ -8,6 +8,7 @@
 namespace {
 
 struct context_local_type {};
+struct context_find_only_type {};
 struct context_capability_type {};
 
 struct context_capability {
@@ -36,6 +37,20 @@ TEST_CASE("meta context - local registry isolates registered type data", "[meta]
 
   CHECK_FALSE(caors::meta::find<context_local_type>());
   CHECK_FALSE(caors::meta::find("caors.test.meta.context.local"));
+}
+
+TEST_CASE("meta context - typed find does not mutate local registry", "[meta]") {
+  caors::meta::registry registry;
+  caors::meta::context ctx{registry};
+
+  CHECK(registry.size() == 0);
+  CHECK_FALSE(caors::meta::find<context_find_only_type>(ctx));
+  CHECK(registry.size() == 0);
+
+  const caors::meta::type descriptor = caors::meta::resolve<context_find_only_type>(ctx);
+  REQUIRE(descriptor);
+  CHECK_FALSE(descriptor.registered());
+  CHECK(registry.size() == 0);
 }
 
 TEST_CASE("meta context - dynamic capability lookup uses owning registry", "[meta]") {

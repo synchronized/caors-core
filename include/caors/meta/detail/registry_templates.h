@@ -46,15 +46,7 @@ template <typename T>
 template <typename T> [[nodiscard]] type registry::find_type() const {
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
   const type_id id = detail::descriptor_type_id<value_type>();
-  if (!id) {
-    return {};
-  }
-
-  if (const detail::type_descriptor* descriptor = detail::descriptor_ptr_of<value_type>();
-      descriptor != nullptr && descriptor->valid()) {
-    (void)const_cast<registry*>(this)->ensure_type_descriptor(*descriptor);
-  }
-  return find_type(id);
+  return id ? find_type(id) : type{};
 }
 
 template <typename Child, typename Parent> [[nodiscard]] error registry::set_type_parent_for() {
