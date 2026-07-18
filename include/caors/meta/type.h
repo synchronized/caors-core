@@ -94,12 +94,23 @@ public:
   [[nodiscard]] bool nullable() const noexcept;
   [[nodiscard]] std::size_t size() const noexcept;
   [[nodiscard]] std::size_t alignment() const noexcept;
+  /**
+   * @brief 查询该类型是否能通过高层创建入口构造运行期值。
+   *
+   * 调用创建 API 时应包含 `caors/meta/type_creation.h` 或 `caors/meta.h`，以获得
+   * `meta::any` 的完整定义。
+   */
   [[nodiscard]] bool constructible() const noexcept;
+  /** @brief 查询该类型是否能使用指定参数数量通过高层创建入口构造运行期值。 */
   [[nodiscard]] bool constructible(std::size_t argument_count) const noexcept;
+  /** @brief 查询 descriptor 默认构造能力。 */
   [[nodiscard]] bool value_constructible() const noexcept;
+  /** @brief 创建运行期值，优先 factory，再匹配无参 constructor，最后回退 descriptor 默认构造。 */
   [[nodiscard]] any create(memory::memory_resource* resource = nullptr) const;
+  /** @brief 使用运行期参数列表创建运行期值；非空参数列表只匹配 constructor capability。 */
   [[nodiscard]] any create(std::span<const argument> arguments,
                            memory::memory_resource* resource = nullptr) const;
+  /** @brief 使用 descriptor 默认构造创建运行期值，不查询 factory capability。 */
   [[nodiscard]] any create_value(memory::memory_resource* resource = nullptr) const;
   [[nodiscard]] const metadata_map& metadata() const noexcept;
   [[nodiscard]] const metadata_value* find_metadata(metadata_key key) const noexcept;
@@ -134,8 +145,9 @@ public:
   /**
    * @brief 查询该类型视图具备的 raw ops 函数表。
    *
-   * `*_ops` 是 CAORS 内部和高级扩展使用的类型擦除函数表。普通实例访问应优先通过
-   * `any_ref::get_capability<Capability>()` 获取绑定后的 view。
+   * `*_ops` 是 CAORS 内部和高级扩展使用的类型擦除函数表，不是普通业务 API。
+   * 普通实例访问应优先通过 `any_ref::get_capability<Capability>()` 获取绑定后的 view；
+   * 只有实现新的 capability facade、跨模块桥接或性能敏感适配层时才应直接使用本入口。
    */
   template <typename Ops> [[nodiscard]] const Ops* get_raw_ops() const noexcept {
     using ops_type = std::remove_cv_t<std::remove_reference_t<Ops>>;

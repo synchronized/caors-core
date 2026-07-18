@@ -35,7 +35,6 @@ CAORS 目前更偏底层库和实验性基础设施，而不是完整引擎或�
 - 基础内存资源 API：`caors/memory.h`。
 - 基础对象系统 API：`caors/object.h`。
 - Meta 字段/方法 API：`caors/meta.h` 和 `caors/meta/class_registration.h`。
-- 运行时组合 API：`caors/runtime.h`，提供 `meta` 字段、方法和运行期值能力的用户友好 facade。
 - 资源 API：`caors/resources.h`，包含资源身份、引用、运行期 handle、引用计数缓存、依赖图、清单、
   字节来源 provider、loader/saver、同步 reload 通知、异步加载请求和非拥有资源 database 编排入口。
 - 工程资源 API：`caors/assets.h`，包含工程资源配置、asset manager、source/type factory 和 JSON 资源适配。
@@ -78,8 +77,7 @@ ctest --preset windows-clang-debug
 - [docs/assets.md](docs/assets.md)：工程资源配置、asset manager、source/type factory 和 JSON 资源适配。
 - [docs/roadmap.md](docs/roadmap.md)：项目路线图。
 - [docs/registration.md](docs/registration.md)：类型、对象、反射和序列化的注册顺序与初始化策略。
-- [docs/meta-fields.md](docs/meta-fields.md)：meta 字段/方法能力和手写注册入口。
-- [docs/runtime.md](docs/runtime.md)：运行时组合 facade，统一查询类型、字段、方法和值构造能力。
+- [docs/meta-properties.md](docs/meta-properties.md)：meta 属性/方法能力和手写注册入口。
 - [docs/serialization.md](docs/serialization.md)：序列化元信息、文本/JSON 读写、codec、资源引用和多态读写边界。
 - [docs/tasks.md](docs/tasks.md)：任务包装器、executor 抽象和主线程完成队列。
 - [docs/value.md](docs/value.md)：meta value 子模块，包含 `any`、`any_ref`、运行期 view 和 `variant` 数据 DOM。

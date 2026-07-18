@@ -18,7 +18,7 @@
 - 提供全局 append-only 注册表，以及稳定的类型、属性和方法视图。
 - 提供属性基础读写入口和运行期值拷贝。
 - 提供成员方法基础调用入口。
-- 保持属性和方法视图为通用 meta 能力；对象指针、资源引用等领域专用访问放在 `runtime` 或对应模块适配层。
+- 保持属性和方法视图为通用 meta 能力；对象指针、资源引用等领域专用访问放在对应模块适配层。
 
 当前不会包含：
 
@@ -516,7 +516,7 @@ take.invoke(caors::meta::view(instance), args);
 - 对象指针属性不在 `meta::property` 上提供专用 `get/set` 接口。需要按对象语义访问时，使用
   `objects::object_view` 或 `field.get_ref(...).get_capability<objects::ptr_capability>()`。
 - `meta::property` 不负责对象生命周期、对象身份解析或对象引用计数。对象关系、资源引用和其他领域语义
-  应由 `runtime`、`objects`、`resources` 或序列化上下文中的 resolver 处理。
+  应由 `objects`、`resources` 或序列化上下文中的 resolver 处理。
 - `is_sequence()`：判断属性是否是顺序容器属性。
 - `is_set()`：判断属性是否是集合容器属性。
 - `is_associative()`：判断属性是否是关联容器属性。

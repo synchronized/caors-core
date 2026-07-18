@@ -156,7 +156,7 @@ if (ptr) {
 ### 高级用法：对象 view 工厂
 
 `objects::make_ptr_view(any_ref)` 和 `objects::make_handle_view(any_ref)` 是显式 view 工厂，
-主要服务 capability 绑定、runtime 组合层和高级适配代码。普通用户应优先使用
+主要服务 capability 绑定、meta/对象桥接和高级适配代码。普通用户应优先使用
 `any_ref::get_capability<objects::ptr_capability>()` /
 `any_ref::get_capability<objects::handle_capability>()`。直接查询 `ptr_view` / `handle_view`
 的旧方式不再保留。

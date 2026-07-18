@@ -43,6 +43,7 @@
 - `caors/traits/wrapper.h`：`traits::wrapper_traits<T>` 和 `traits::wrapper_access<T>` 主模板。
 - `caors/traits/container.h`：顺序、集合、关联、pair、tuple 和 variant 类型语义 traits 主模板。
 - `caors/meta/type.h`：`meta::type` 只读类型视图和类型语义枚举。
+- `caors/meta/type_creation.h`：调用 `meta::type::create()` / `create_value()` 时需要的完整依赖头。
 - `caors/meta/query.h`：`meta::resolve<T>()`、`meta::find<T>()`、`meta::id_of<T>()` 等查询入口。
 - `caors/meta/builder.h`：`meta::class_<T>()`、`meta::enum_<T>()` 等链式注册入口。
 - `caors/meta/property.h`、`caors/meta/method.h`：属性和成员方法只读视图。
@@ -273,8 +274,8 @@ caors::meta::class_<actor>("game.actor")
 - 实例级能力同样优先传入 capability 类型，例如
   `any_ref.get_capability<meta::sequence_capability>()` 返回 `sequence_view`，
   `any_ref.get_capability<objects::ptr_capability>()` 返回 `objects::ptr_view`。
-- 跨 meta / object 的高层访问优先使用 `runtime::type` 和 `meta::instance`；
-  `runtime::instance` 只是指向 `meta::instance` 的兼容别名。
+- 跨 meta / object 的高层访问优先使用 `meta::type`、`meta::instance` 和对象模块自己的
+  `objects::*` 入口。
 - 公开 capability facade 不直接暴露 `void*`。需要返回未知类型值时使用 `meta::any`，
   需要引用已有对象时使用 `meta::any_ref` 或绑定后的 `*_view`；`void*` 只用于底层
   `*_ops`、model 和 `meta::detail` helper。
