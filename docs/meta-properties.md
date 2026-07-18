@@ -17,14 +17,16 @@
 - 提供按类型 id、类型名和稳定 GUID 查询 meta 类型；新代码直接使用 `meta::find()`。
 - 提供全局 append-only 注册表，以及稳定的类型、属性和方法视图。
 - 提供属性基础读写入口和运行期值拷贝。
-- 提供成员方法基础调用入口。
+- 提供 getter / setter 属性、只读 getter 属性和成员方法基础调用入口。
+- 提供同名成员方法重载集合，并按运行期 `argument` 参数精确匹配唯一重载。
+- 提供 module 级全局属性和全局函数入口；静态成员变量和静态成员函数也按 module 级入口注册。
 - 保持属性和方法视图为通用 meta 能力；对象指针、资源引用等领域专用访问放在对应模块适配层。
 
 当前不会包含：
 
-- 自由函数注册。
-- 独立属性元数据。
-- 方法重载选择、默认参数和复杂类型转换规则。
+- 独立于 `meta::property` 的另一套属性系统。
+- 默认参数、隐式类型转换和复杂类型转换规则。
+- lambda 或函数对象直接注册为 module 函数。
 - 自动代码扫描或代码生成。
 - 动态多态类型记录和复杂类型转换规则。
 
@@ -51,6 +53,23 @@ caors::registration::type_<actor>("game.actor")
     .meta()
     .property("id", &actor::id)
     .property("health", &actor::health)
+    .commit();
+```
+
+getter / setter 属性使用成员函数指针注册。只提供 getter 时使用 `property_readonly()`：
+
+```cpp
+struct actor {
+  int health() const { return health_; }
+  void set_health(int value) { health_ = value; }
+
+private:
+  int health_ = 100;
+};
+
+caors::registration::type_<actor>("game.actor")
+    .meta()
+    .property("health", &actor::health, &actor::set_health)
     .commit();
 ```
 
@@ -150,7 +169,11 @@ caors::registration::type_<actor>("game.actor")
 - 右值引用参数需要显式使用 `meta::move_arg(...)`，避免反射调用隐式 move 外部对象。
 - 非 const 成员函数只能通过可写对象指针调用；`const` 对象只能调用 `const` 成员函数。
 - 返回值通过 `caors::any` 拷贝返回；`void` 返回值会得到无效 `any`，调用是否成功应通过对象副作用或业务返回值表达。
-- 暂不支持自由函数、静态函数、重载解析、默认参数、隐式类型转换和不可拷贝返回值。
+- 同名成员方法保存为 `meta::method_set`，可以通过 `resolve(args)` 按参数列表匹配唯一重载，也可以直接调用
+  `method_set::invoke(...)`。
+- 自由函数和静态函数不挂到 `meta::type` 上；它们通过 `meta::module(name).function(...)` 注册为 module
+  级函数，调用时不需要传入 instance。
+- 暂不支持默认参数、隐式类型转换、lambda / 函数对象直接注册和不可拷贝返回值。
 
 wrapper 识别通过 `traits::wrapper_traits<T>` 扩展，而不是固定写死所有 wrapper 类型：
 
