@@ -2,13 +2,12 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/object/registry.h"
+#include "caors/registration.h"
 
 namespace caors::objects {
 
 registry::registry() {
-  (void)attach_object_type<object>(object::static_type_name(),
-                                   detail::object_type_guid_of<object>(), object_type_id::invalid(),
-                                   meta::capabilities::get<object_factory_ops, object>());
+  (void)registration::type_<object>(object::static_type_name()).object().commit();
 }
 
 registry::~registry() = default;

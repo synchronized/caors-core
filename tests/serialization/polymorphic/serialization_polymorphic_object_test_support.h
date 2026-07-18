@@ -43,9 +43,9 @@ public:
 }
 
 inline void require_metadata() {
-  REQUIRE(object_result_ok(caors::objects::class_<actor>().commit()));
-  REQUIRE(object_result_ok(caors::objects::class_<player>().commit()));
-  REQUIRE(object_result_ok(caors::objects::class_<enemy>().commit()));
+  REQUIRE(object_result_ok(caors::registration::type_<actor>().object().commit()));
+  REQUIRE(object_result_ok(caors::registration::type_<player>().object().commit()));
+  REQUIRE(object_result_ok(caors::registration::type_<enemy>().object().commit()));
 
   REQUIRE(caors::tests::serialization::reflection_result_ok(caors::meta::class_<actor>().commit()));
   REQUIRE(caors::tests::serialization::reflection_result_ok(caors::meta::class_<player>()

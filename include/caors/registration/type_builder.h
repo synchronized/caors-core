@@ -157,8 +157,14 @@ public:
     requires(std::is_base_of_v<objects::object, U>)
   [[nodiscard]] object_section<T> object() noexcept {
     object_enabled_ = true;
+    const type_guid object_guid = objects::detail::object_type_guid_of<value_type>();
+    if (object_guid) {
+      guid(object_guid);
+    }
+
     using base_type = typename objects::detail::object_base_type_traits<value_type>::type;
-    if constexpr (!std::is_same_v<base_type, objects::object>) {
+    if constexpr (!std::is_same_v<value_type, objects::object>) {
+      (void)objects::get_registry();
       if (registry_ != nullptr && registry_->template find_type<base_type>()) {
         parent<base_type>();
       }
@@ -497,6 +503,17 @@ template <typename T>
 /** @brief 使用默认上下文创建跨模块类型注册构建器。 */
 template <typename T> [[nodiscard]] type_builder<T> type_(std::string_view name) {
   return type_<T>(meta::default_context(), name);
+}
+
+/** @brief 使用对象类型自身声明的类型名创建跨模块注册构建器。 */
+template <typename T>
+  requires(std::is_base_of_v<objects::object, T>)
+[[nodiscard]] type_builder<T> type_() {
+  static_assert(objects::detail::object_type_name_traits<T>::exists,
+                "T must declare object_type_name");
+  static_assert(objects::detail::object_type_name_traits<T>::valid,
+                "object_type_name must be convertible to std::string_view");
+  return type_<T>(objects::detail::object_type_name_traits<T>::get());
 }
 
 } // namespace caors::registration

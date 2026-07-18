@@ -27,7 +27,8 @@ struct object_weak_ref_actor {
 };
 
 void require_weak_object_ref_target_metadata() {
-  const caors::error object_status = caors::objects::class_<weak_object_ref_target>().commit();
+  const caors::error object_status =
+      caors::registration::type_<weak_object_ref_target>().object().commit();
   REQUIRE((object_status == caors::error{} || object_status.value() == caors::errc::duplicate_id));
 
   REQUIRE(reflection_result_ok(

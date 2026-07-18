@@ -4,6 +4,7 @@
 #pragma once
 
 #include "caors/meta.h"
+#include "caors/registration.h"
 #include "caors/serialization.h"
 #include "caors/traits/type_name.h"
 

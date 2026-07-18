@@ -20,7 +20,6 @@
 namespace caors::objects {
 
 class registry;
-template <typename T> class class_builder;
 
 /** @brief 获取进程内默认对象类型注册表。 */
 [[nodiscard]] CAORS_API registry& get_registry() noexcept;
@@ -54,7 +53,8 @@ namespace caors::objects {
  *
  * `objects::registry` 不表示彼此隔离的注册表实例。它复用全局 `meta::registry`
  * 管理基础类型信息，并把 `objects::object_factory_ops` 作为 capability 挂载到同一个 `type_id`
- * 上。普通代码应通过 `objects::class_<T>()`、`objects::get_registry()` 和查询接口访问它。
+ * 上。普通代码应通过 `registration::type_<T>().object()` 注册对象类型，再通过
+ * `objects::get_registry()` 和查询接口访问它。
  */
 class CAORS_API registry final {
 public:
@@ -107,68 +107,9 @@ public:
 
 private:
   friend registry& get_registry() noexcept;
-  template <typename T> friend class class_builder;
 
   registry();
   ~registry();
-
-  template <typename T>
-  [[nodiscard]] error attach_object_type(std::string_view name, type_guid guid,
-                                         object_type_id parent_id,
-                                         const object_factory_ops* factory) {
-    using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-    const meta::type expected = meta::resolve<value_type>();
-    const type_id expected_id = expected.id();
-    if (!expected_id) {
-      return {error_domain::object, errc::invalid_type};
-    }
-
-    if (parent_id && !meta::find(parent_id)) {
-      return {error_domain::object, errc::missing_parent};
-    }
-
-    if (guid) {
-      const meta::type existing_guid = meta::find(guid);
-      if (existing_guid && existing_guid.id() != expected_id) {
-        return {error_domain::object, errc::duplicate_guid};
-      }
-    }
-
-    meta::class_builder<value_type> builder = meta::class_<value_type>(name);
-    if (builder.result() && builder.result().value() != errc::duplicate_id) {
-      return rethrow_as(builder.result(), error_domain::object);
-    }
-
-    if (guid) {
-      builder.guid(guid);
-      if (builder.result() && builder.result().value() != errc::duplicate_id) {
-        return rethrow_as(builder.result(), error_domain::object);
-      }
-    }
-
-    if (parent_id) {
-      builder.parent(parent_id);
-      if (builder.result()) {
-        return rethrow_as(builder.result(), error_domain::object);
-      }
-    }
-
-    const meta::type stored_meta = meta::get_registry().find_type(expected_id);
-    if (!stored_meta) {
-      return {error_domain::object, errc::invalid_type};
-    }
-
-    if (factory == nullptr) {
-      factory = meta::capabilities::get<object_factory_ops, value_type>();
-    }
-    if (factory == nullptr) {
-      return {error_domain::object, errc::invalid_type};
-    }
-
-    builder.template capability<object_factory_ops>(factory);
-    return rethrow_as(builder.result(), error_domain::object, errc::duplicate_component,
-                      errc::duplicate_id);
-  }
 
   [[nodiscard]] const object_factory_ops* find_factory_ops(object_type_id id) const;
 };
@@ -199,72 +140,6 @@ template <typename T> [[nodiscard]] type find() { return get_registry().find_typ
 
 /** @brief 获取当前对象类型数量。 */
 [[nodiscard]] inline std::size_t size() noexcept { return get_registry().size(); }
-
-/** @brief 对象类型注册构建器。 */
-template <typename T> class class_builder {
-public:
-  explicit class_builder(std::string_view name) : name_(name) {}
-
-  class_builder& parent(object_type_id parent_id) noexcept {
-    parent_id_ = parent_id;
-    return *this;
-  }
-
-  [[nodiscard]] error commit() {
-    object_type_id parent_id = parent_id_;
-    if (!parent_id) {
-      using base_type = typename detail::object_base_type_traits<T>::type;
-      const objects::type base = get_registry().find_type<base_type>();
-      if (base) {
-        parent_id = base.id();
-      }
-    }
-
-    status_ = get_registry().template attach_object_type<T>(
-        name_, detail::object_type_guid_of<T>(), parent_id,
-        meta::capabilities::get<objects::object_factory_ops, T>());
-    refresh();
-    return status_;
-  }
-
-  [[nodiscard]] type get() const noexcept { return type_; }
-  [[nodiscard]] error result() const noexcept { return status_; }
-  [[nodiscard]] bool succeeded() const noexcept {
-    return status_.succeeded() || status_.value() == errc::duplicate_id;
-  }
-
-private:
-  void refresh() {
-    const type refreshed = get_registry().find_type<T>();
-    if (refreshed) {
-      type_ = refreshed;
-    }
-  }
-
-  std::string_view name_{};
-  object_type_id parent_id_{};
-  type type_{};
-  error status_{};
-};
-
-/** @brief 创建对象类型注册构建器。 */
-template <typename T> [[nodiscard]] class_builder<T> class_(std::string_view name) {
-  return class_builder<T>{name};
-}
-
-/**
- * @brief 创建对象类型注册构建器，并使用对象类型自身声明的类型名。
- *
- * `T` 通常应继承 `object_base<T>` 并提供 `object_type_name`。该重载避免注册时重复书写
- * `T::object_type_name`，也避免注册名和对象自身类型名不一致。
- */
-template <typename T> [[nodiscard]] class_builder<T> class_() {
-  static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
-  static_assert(detail::object_type_name_traits<T>::exists, "T must declare object_type_name");
-  static_assert(detail::object_type_name_traits<T>::valid,
-                "object_type_name must be convertible to std::string_view");
-  return class_builder<T>{detail::object_type_name_traits<T>::get()};
-}
 
 } // namespace caors::objects
 

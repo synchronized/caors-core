@@ -2,6 +2,7 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/object.h"
+#include "caors/registration.h"
 #include "caors/serialization.h"
 
 #include <iostream>
@@ -18,11 +19,11 @@ public:
 };
 
 int main() {
-  if (caors::objects::class_<managed_actor>().commit()) {
+  if (caors::registration::type_<managed_actor>().object().commit()) {
     return 1;
   }
 
-  if (caors::objects::class_<managed_player>().commit()) {
+  if (caors::registration::type_<managed_player>().object().commit()) {
     return 1;
   }
 

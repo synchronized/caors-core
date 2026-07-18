@@ -24,7 +24,8 @@ struct object_ref_owner_actor {
 };
 
 inline void require_object_ref_target_metadata() {
-  const caors::error object_status = caors::objects::class_<object_ref_target>().commit();
+  const caors::error object_status =
+      caors::registration::type_<object_ref_target>().object().commit();
   REQUIRE((object_status == caors::error{} || object_status.value() == caors::errc::duplicate_id));
 
   REQUIRE(reflection_result_ok(
