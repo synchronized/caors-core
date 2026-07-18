@@ -13,7 +13,8 @@ TEST_CASE("meta - class builder accepts fields with descriptor-only types", "[me
     unregistered_field field{};
   };
 
-  REQUIRE(((void)caors::meta::class_<owner>("caors.test.meta.owner"), caors::meta::class_<owner>())
+  REQUIRE(caors::registration::type_<owner>("caors.test.meta.owner")
+              .meta()
               .property("field", &owner::field)
               .commit() == caors::error{});
 
@@ -39,8 +40,8 @@ using namespace test_meta;
 
 TEST_CASE("meta - class builder infers built-in field types", "[meta]") {
   const caors::error result =
-      ((void)caors::meta::class_<builder_actor>("caors.test.meta.builder_actor"),
-       caors::meta::class_<builder_actor>())
+      caors::registration::type_<builder_actor>("caors.test.meta.builder_actor")
+          .meta()
           .property("id", &builder_actor::id)
           .property("health", &builder_actor::health)
           .commit();
@@ -77,8 +78,8 @@ TEST_CASE("meta - class builder resolves explicitly registered C++ field type", 
   require_registered_type<test_meta::named_field_value>("caors.test.meta.named_field_value");
 
   REQUIRE(
-      ((void)caors::meta::class_<test_meta::named_field_owner>("caors.test.meta.named_field_owner"),
-       caors::meta::class_<test_meta::named_field_owner>())
+      caors::registration::type_<test_meta::named_field_owner>("caors.test.meta.named_field_owner")
+          .meta()
           .property("value", &test_meta::named_field_owner::value)
           .commit() == caors::error{});
 
@@ -102,13 +103,13 @@ TEST_CASE("meta - class builder resolves explicitly registered C++ field type", 
 using namespace test_meta;
 
 TEST_CASE("meta - class builder resolves registered C++ field types", "[meta]") {
-  REQUIRE(((void)caors::meta::class_<inventory>("caors.test.meta.inventory"),
-           caors::meta::class_<inventory>())
+  REQUIRE(caors::registration::type_<inventory>("caors.test.meta.inventory")
+              .meta()
               .property("count", &inventory::count)
               .commit() == caors::error{});
 
-  REQUIRE(((void)caors::meta::class_<inventory_holder>("caors.test.meta.inventory_holder"),
-           caors::meta::class_<inventory_holder>())
+  REQUIRE(caors::registration::type_<inventory_holder>("caors.test.meta.inventory_holder")
+              .meta()
               .property("items", &inventory_holder::items)
               .commit() == caors::error{});
 

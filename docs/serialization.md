@@ -14,7 +14,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 - 用 `serialization::type_schema` 表示类型的序列化元信息。
 - 用 `serialization::field_schema` 表示字段级序列化配置，例如字段别名、稳定字段 id、跳过和版本信息。
 - 基于全局 `meta::registry` 挂载序列化 extension，避免单独维护类型索引。
-- 提供 `serialization::registry` 查询序列化 extension；业务类型通过 `registration::type_<T>().serialization()` 完成跨模块注册。
+- 提供 `serialization::registry` 查询序列化 extension；业务类型通过 `registration::type_<T>(name).serialization()` 完成跨模块注册。
 - 提供 `serialization::writer` 后端接口，让不同格式复用同一套字段遍历逻辑。
 - 提供 `serialization::reader` 后端接口，让不同格式复用同一套字段读入逻辑。
 - 提供 `variant` 中间对象树，方便工具、调试和多格式转换。
@@ -303,7 +303,7 @@ caors::registration::type_<holder>("game.holder")
 void* construct_player(caors::memory_resource* resource);
 void destroy_player(caors::memory_resource* resource, void* value) noexcept;
 
-caors::meta::class_<player>("game.player")
+caors::registration::type_<player>("game.player")
     .guid(player_guid)
     .parent<actor>()
     .factory(&construct_player, &destroy_player);
@@ -699,7 +699,7 @@ codec 和 meta 类型系统的边界：
   因此只要 `codec_traits<T>` 特化在生成该 descriptor 的翻译单元可见，就不需要额外注册 codec。
 - 运行期只剩 `type_id` 时，`serialization::find_codec(type_id)` 会先通过全局 meta registry 查询对应
   `meta::type` 视图，再从该视图的 descriptor 静态能力中取得 codec。因此需要按 `type_id` 查 codec 的类型，
-  应先通过 `meta::class_<T>("name")` 注册或确保 descriptor 已进入 meta registry。
+  应先通过 `registration::type_<T>("name")` 注册或确保 descriptor 已进入 meta registry。
 
 内置 codec 和默认 traits 处理：
 
@@ -743,7 +743,7 @@ descriptor 静态 codec 能力；运行期只剩 `type_id` 时也会先回到 me
 `traits::sequence_traits<T>`、`traits::set_traits<T>`、`traits::associative_traits<T>`、`traits::pair_traits<T>`、`traits::tuple_traits<T>` 或
 `traits::variant_traits<T>` 生成运行期访问能力，序列化层随后按元素、key、first、候选下标和 value 递归处理。
 递归用到的业务类型如果需要稳定名称、GUID、反射字段、多态构造或对象工厂，仍应通过
-`meta::class_<T>("name")` 显式注册。自定义容器扩展示例：
+`registration::type_<T>("name")` 显式注册。自定义容器扩展示例：
 
 ### 配置校验 metadata
 
@@ -817,7 +817,7 @@ DOM reader 同时接受 `variant::dictionary` 和 pair 数组形态。普通 `st
 
 外部类型可以通过特化 `serialization::codec_traits<T>` 把某个类型作为原子值处理。编译期已知 `T`
 时可直接使用 `serialization::codec_of<T>()`；需要按 `type_id` 查询时，应先通过
-`meta::class_<T>("name")` 注册对应 C++ 类型，让 meta registry 能从 `type_id` 找到携带 descriptor
+`registration::type_<T>("name")` 注册对应 C++ 类型，让 meta registry 能从 `type_id` 找到携带 descriptor
 静态能力的 `meta::type`。codec 可以分别提供 writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认逻辑或返回不支持。
 带 context 的 codec 扩展点同样使用 context-first 形式；如果 codec 只需要上下文路径，可以只提供
 context-first 版本：
@@ -868,7 +868,7 @@ template <> struct codec_traits<custom_value> {
 - 当 `std::unique_ptr<Base>`、`caors::memory::unique_ptr<Base>`、`std::shared_ptr<Base>`
   或 `objects::ref<Base>`
   实际持有已注册派生类对象时，序列化层会写出多态 envelope，默认字段名为 `$type` / `$value`。读回时要求派生类型可通过
-  上下文构造策略、`meta::class_<T>().factory()`、空参数 constructor 或 descriptor 默认构造创建，并通过 wrapper 接管新对象。
+  上下文构造策略、`registration::type_<T>(name).factory()`、空参数 constructor 或 descriptor 默认构造创建，并通过 wrapper 接管新对象。
 - 如果反序列化上下文提供 `context.resolvers.memory.resource`，`std::shared_ptr<T>`、
   `caors::memory::unique_ptr<T>` 和 `objects::ref<T>` 可以保存运行期销毁回调，让资源分配和释放匹配。普通
   `std::unique_ptr<T>` 使用标准 deleter，不能安全接管资源构造出的运行期派生对象，因此会回退到
@@ -933,8 +933,8 @@ template <> struct codec_traits<custom_value> {
 - `std::span<T>` / `std::span<T, N>` 已支持按借用数组视图写出和反射访问；默认不支持反序列化写回，
   避免序列化层隐式决定 backing storage 的分配、长度调整和生命周期。
 - 不可默认构造类型可以作为已有直接字段、已持有 wrapper 内部值或 `variant` 当前候选被写入；需要序列化层自动实例化对象时，
-  可以通过 `context.resolvers.construction`、`meta::class_<T>().factory()` 或空参数
-  `meta::class_<T>().constructor<>()` 提供构造能力。没有可用构造策略时仍返回 `errc::invalid_type`。
+  可以通过 `context.resolvers.construction`、`registration::type_<T>(name).factory()` 或空参数
+  `registration::type_<T>(name).constructor<>()` 提供构造能力。没有可用构造策略时仍返回 `errc::invalid_type`。
 - `serialization::context::resolvers.memory.resource` 会用于资源感知 `any` 默认构造、空 `std::shared_ptr<T>`、
   空 `caors::memory::unique_ptr<T>`、空 `objects::ref<T>` 的内部值创建、顺序容器新增元素、
   `std::variant` 切换候选、关联容器 key/value 临时值，以及普通类多态值 factory。容器最终存储仍由目标容器

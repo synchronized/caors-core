@@ -475,7 +475,7 @@ struct material {
   caors::resource_ref<texture> albedo;
 };
 
-caors::meta::class_<caors::resource_ref<texture>>("game.resource_ref<game.texture>");
+caors::registration::type_<caors::resource_ref<texture>>("game.resource_ref<game.texture>");
 ```
 
 写出规则：

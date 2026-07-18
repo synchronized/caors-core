@@ -4,6 +4,7 @@
 #pragma once
 
 #include "caors/meta.h"
+#include "caors/registration.h"
 
 #include <catch2/catch_all.hpp>
 

@@ -360,16 +360,6 @@ struct object_ptr_resolver_data {
   return result.succeeded() || result.value() == caors::errc::duplicate_id;
 }
 
-template <typename T> void require_registered_type(std::string_view name) {
-  REQUIRE(type_result_ok(caors::meta::class_<T>(name).result()));
-}
-
-template <typename T>
-[[nodiscard]] caors::meta::class_builder<T> registered_meta_class(std::string_view name) {
-  REQUIRE(type_result_ok(caors::meta::class_<T>(name).result()));
-  return caors::meta::class_<T>();
-}
-
 template <typename T, typename Member>
 void require_serializable_property_type(std::string_view type_name, std::string_view property_name,
                                         Member member) {

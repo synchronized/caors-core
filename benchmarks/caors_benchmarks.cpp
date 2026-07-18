@@ -3,6 +3,7 @@
 
 #include "caors/core/string_name.h"
 #include "caors/meta.h"
+#include "caors/registration.h"
 #include "caors/serialization.h"
 
 #include <ctrack.hpp>
@@ -71,30 +72,22 @@ void ensure_benchmark_types_registered() {
     return;
   }
 
-  const caors::error meta_status =
-      ((void)caors::meta::class_<benchmark_actor>("caors.benchmark.actor"),
-       caors::meta::class_<benchmark_actor>())
+  const caors::error registration_status =
+      caors::registration::type_<benchmark_actor>("caors.benchmark.actor")
+          .meta()
           .property("id", &benchmark_actor::id)
           .property("health", &benchmark_actor::health)
           .property("active", &benchmark_actor::active)
           .property("name", &benchmark_actor::name)
           .property("health_int", &benchmark_actor::health_int, &benchmark_actor::set_health_int)
+          .serialization()
+          .field("id")
+          .field("health")
+          .field("active")
+          .field("name")
           .commit();
-  if (meta_status.failed()) {
-    std::cerr << "注册 benchmark meta 类型失败\n";
-    std::exit(EXIT_FAILURE);
-  }
-
-  const caors::error serialization_status =
-      caors::serialization::class_<benchmark_actor>({
-                                                        caors::serialization::make_field("id"),
-                                                        caors::serialization::make_field("health"),
-                                                        caors::serialization::make_field("active"),
-                                                        caors::serialization::make_field("name"),
-                                                    })
-          .commit();
-  if (serialization_status.failed()) {
-    std::cerr << "注册 benchmark serialization 类型失败\n";
+  if (registration_status.failed()) {
+    std::cerr << "注册 benchmark 类型失败\n";
     std::exit(EXIT_FAILURE);
   }
 

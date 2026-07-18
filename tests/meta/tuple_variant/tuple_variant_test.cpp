@@ -11,8 +11,8 @@
 using namespace test_meta;
 
 TEST_CASE("meta - std pair property view exposes first and second values", "[meta]") {
-  REQUIRE(((void)caors::meta::class_<pair_holder>("caors.test.meta.pair_holder"),
-           caors::meta::class_<pair_holder>())
+  REQUIRE(caors::registration::type_<pair_holder>("caors.test.meta.pair_holder")
+              .meta()
               .property("value", &pair_holder::value)
               .commit()
               .succeeded());
@@ -61,8 +61,8 @@ TEST_CASE("meta - std pair property view exposes first and second values", "[met
 using namespace test_meta;
 
 TEST_CASE("meta - std tuple property view exposes indexed elements", "[meta]") {
-  REQUIRE(((void)caors::meta::class_<tuple_holder>("caors.test.meta.tuple_holder"),
-           caors::meta::class_<tuple_holder>())
+  REQUIRE(caors::registration::type_<tuple_holder>("caors.test.meta.tuple_holder")
+              .meta()
               .property("value", &tuple_holder::value)
               .commit()
               .succeeded());
@@ -117,8 +117,8 @@ TEST_CASE("meta - std tuple property view exposes indexed elements", "[meta]") {
 using namespace test_meta;
 
 TEST_CASE("meta - std variant property view exposes active alternative", "[meta]") {
-  REQUIRE(((void)caors::meta::class_<variant_holder>("caors.test.meta.variant_holder"),
-           caors::meta::class_<variant_holder>())
+  REQUIRE(caors::registration::type_<variant_holder>("caors.test.meta.variant_holder")
+              .meta()
               .property("value", &variant_holder::value)
               .commit()
               .succeeded());

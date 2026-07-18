@@ -3,6 +3,7 @@
 
 #include "caors/meta.h"
 #include "caors/object.h"
+#include "caors/registration.h"
 
 #include <catch2/catch_all.hpp>
 
@@ -119,8 +120,8 @@ TEST_CASE("object - descriptor exposes object capabilities", "[object]") {
 }
 
 TEST_CASE("object - reflected fields use descriptor object capabilities", "[object]") {
-  REQUIRE(((void)caors::meta::class_<capability_owner>("caors.test.object.capability_owner"),
-           caors::meta::class_<capability_owner>())
+  REQUIRE(caors::registration::type_<capability_owner>("caors.test.object.capability_owner")
+              .meta()
               .property("pointer", &capability_owner::pointer)
               .property("handle", &capability_owner::handle)
               .property("typed_handle", &capability_owner::typed_handle)

@@ -11,8 +11,8 @@
 using namespace test_meta;
 
 TEST_CASE("meta - associative property view exposes key and value metadata", "[meta]") {
-  REQUIRE(((void)caors::meta::class_<hash_map_holder>("caors.test.meta.hash_map_holder"),
-           caors::meta::class_<hash_map_holder>())
+  REQUIRE(caors::registration::type_<hash_map_holder>("caors.test.meta.hash_map_holder")
+              .meta()
               .property("values", &hash_map_holder::values)
               .commit()
               .succeeded());
@@ -42,8 +42,8 @@ TEST_CASE("meta - associative property view exposes key and value metadata", "[m
 using namespace test_meta;
 
 TEST_CASE("meta - associative property view supports dynamic operations", "[meta]") {
-  REQUIRE(((void)caors::meta::class_<hash_map_ops_holder>("caors.test.meta.hash_map_ops_holder"),
-           caors::meta::class_<hash_map_ops_holder>())
+  REQUIRE(caors::registration::type_<hash_map_ops_holder>("caors.test.meta.hash_map_ops_holder")
+              .meta()
               .property("values", &hash_map_ops_holder::values)
               .commit()
               .succeeded());
@@ -130,8 +130,8 @@ TEST_CASE("meta - associative property view supports dynamic operations", "[meta
 using namespace test_meta;
 
 TEST_CASE("meta - set property view exposes element metadata", "[meta]") {
-  REQUIRE(((void)caors::meta::class_<hash_set_holder>("caors.test.meta.hash_set_holder"),
-           caors::meta::class_<hash_set_holder>())
+  REQUIRE(caors::registration::type_<hash_set_holder>("caors.test.meta.hash_set_holder")
+              .meta()
               .property("values", &hash_set_holder::values)
               .commit()
               .succeeded());

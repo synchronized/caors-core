@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 原测试文件：meta_type_builder_meta_type_builder_updates_registered_data_in_place_test.cpp
+// 原测试文件：meta_type_builder_meta_type_builder_commits_complete_type_data_test.cpp
 
 #include "meta_type_builder_test_support.h"
 
@@ -9,30 +9,28 @@
 #include <span>
 
 using namespace caors::tests::meta_type_builder;
-TEST_CASE("meta type - builder updates registered data in place", "[meta]") {
+TEST_CASE("meta type - registration builder commits complete type data once", "[meta]") {
   const auto guid = caors::guid::parse("2f7cc996-e0bc-4b61-85ea-b0263b876081");
   REQUIRE(guid.has_value());
 
-  auto builder = caors::meta::class_<stable_builder_type>().type("caors.test.type.stable_builder");
-  const caors::meta::type before = builder.get();
-  REQUIRE(before);
-  CHECK_FALSE(before.guid());
-  const caors::any before_value = caors::any::default_construct(before);
-  REQUIRE(before_value.valid());
-  CHECK(before_value.size() == sizeof(stable_builder_type));
-  CHECK(before_value.alignment() == alignof(stable_builder_type));
+  auto builder = caors::registration::type_<stable_builder_type>("caors.test.type.stable_builder");
+  builder.guid(caors::type_guid{*guid});
+  REQUIRE(builder.commit() == caors::error{});
 
-  REQUIRE(builder.guid(caors::type_guid{*guid}).result() == caors::error{});
-  const caors::meta::type after = builder.get();
-  REQUIRE(after);
+  const caors::meta::type type = builder.get();
+  REQUIRE(type);
+  CHECK(type.guid() == caors::type_guid{*guid});
 
-  CHECK(before.id() == after.id());
-  const caors::any after_value = caors::any::default_construct(after);
-  REQUIRE(after_value.valid());
-  CHECK(after_value.size() == sizeof(stable_builder_type));
-  CHECK(after_value.alignment() == alignof(stable_builder_type));
-  CHECK(before.guid() == caors::type_guid{*guid});
-  CHECK(after.guid() == caors::type_guid{*guid});
+  const caors::any value = caors::any::default_construct(type);
+  REQUIRE(value.valid());
+  CHECK(value.size() == sizeof(stable_builder_type));
+  CHECK(value.alignment() == alignof(stable_builder_type));
+
+  auto duplicate =
+      caors::registration::type_<stable_builder_type>("caors.test.type.stable_builder");
+  duplicate.guid(caors::type_guid{*guid});
+  CHECK(duplicate.commit() == caors::error{caors::error_domain::meta, caors::errc::duplicate_id});
+  CHECK(caors::meta::find<stable_builder_type>().guid() == caors::type_guid{*guid});
 }
 
 // 原测试文件：meta_type_builder_meta_type_builder_without_name_does_not_register_type_test.cpp
@@ -41,9 +39,8 @@ TEST_CASE("meta type - builder updates registered data in place", "[meta]") {
 
 using namespace caors::tests::meta_type_builder;
 TEST_CASE("meta type - builder without name does not register type", "[meta]") {
-  const auto builder = caors::meta::class_<lazy_meta_builder_type>();
-
-  CHECK_FALSE(builder.get());
+  auto builder = caors::registration::type_<lazy_meta_builder_type>("");
+  CHECK(builder.commit() == caors::error{caors::error_domain::meta, caors::errc::invalid_argument});
   CHECK(caors::meta::resolve<lazy_meta_builder_type>());
   CHECK_FALSE(caors::meta::resolve<lazy_meta_builder_type>().registered());
   CHECK_FALSE(caors::meta::find<lazy_meta_builder_type>());
@@ -60,8 +57,9 @@ TEST_CASE("meta type - resolve creates descriptor-only views", "[meta]") {
   CHECK_FALSE(missing.registered());
   CHECK_FALSE(caors::meta::find<missing_find_type>());
 
-  const caors::meta::type type =
-      caors::meta::class_<explicit_find_type>("caors.test.type.explicit_find").get();
+  auto builder = caors::registration::type_<explicit_find_type>("caors.test.type.explicit_find");
+  REQUIRE(builder.commit() == caors::error{});
+  const caors::meta::type type = builder.get();
   REQUIRE(type.valid());
   CHECK(type.registered());
 
@@ -80,11 +78,10 @@ TEST_CASE("meta type - fluent builder registers name and guid", "[meta]") {
   const auto guid = caors::guid::parse("d2953377-4ffc-4c81-aeef-7e020272a536");
   REQUIRE(guid.has_value());
 
-  auto builder = caors::meta::class_<fluent_meta_type>()
-                     .type("caors.test.type.fluent_meta")
-                     .guid(caors::type_guid{*guid});
+  auto builder = caors::registration::type_<fluent_meta_type>("caors.test.type.fluent_meta");
+  builder.guid(caors::type_guid{*guid});
 
-  CHECK(builder.succeeded());
+  REQUIRE(builder.commit() == caors::error{});
   const caors::meta::type type = builder.get();
   REQUIRE(type);
   CHECK(type.name() == "caors.test.type.fluent_meta");
@@ -94,14 +91,15 @@ TEST_CASE("meta type - fluent builder registers name and guid", "[meta]") {
 }
 
 TEST_CASE("meta type - class builder registers fields and methods", "[meta]") {
-  auto builder = caors::meta::class_<reflected_meta_actor>("caors.test.meta.reflected_actor");
-  builder(caors::meta::registration::metadata("category", "gameplay"))
-      .property("health", &reflected_meta_actor::health)(
-          caors::meta::registration::metadata("display", "Health"))
-      .method("add_health", &reflected_meta_actor::add_health)(
-          caors::meta::registration::metadata("scriptable", true));
+  auto builder =
+      caors::registration::type_<reflected_meta_actor>("caors.test.meta.reflected_actor");
+  auto meta = builder.metadata("category", "gameplay").meta();
+  meta.property("health", &reflected_meta_actor::health,
+                caors::meta::registration::metadata("display", "Health"))
+      .method("add_health", &reflected_meta_actor::add_health,
+              caors::meta::registration::metadata("scriptable", true));
 
-  REQUIRE(builder.succeeded());
+  REQUIRE(builder.commit() == caors::error{});
 
   const caors::meta::type type = caors::meta::find<reflected_meta_actor>();
   REQUIRE(type);

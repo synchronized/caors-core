@@ -7,6 +7,7 @@
 #include "caors/memory.h"
 #include "caors/meta.h"
 #include "caors/meta/value/capabilities.h"
+#include "caors/registration.h"
 
 #include <catch2/catch_all.hpp>
 
@@ -89,7 +90,7 @@ struct indirect_value_holder {
 }
 
 template <typename T> void require_registered_type(std::string_view name) {
-  REQUIRE(type_result_ok(caors::meta::class_<T>(name).result()));
+  REQUIRE(type_result_ok(caors::registration::type_<T>(name).commit()));
 }
 
 inline void require_value_test_meta() {

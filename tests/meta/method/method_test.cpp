@@ -8,12 +8,11 @@
 using namespace test_meta;
 using namespace caors::tests::meta_method;
 TEST_CASE("meta - class builder rejects duplicate method signatures", "[meta]") {
-  CHECK(
-      ((void)caors::meta::class_<duplicate_method_actor>("caors.test.meta.duplicate_method_actor"),
-       caors::meta::class_<duplicate_method_actor>())
-          .method("update", &duplicate_method_actor::first)
-          .method("update", &duplicate_method_actor::second)
-          .commit() == meta_error(caors::errc::duplicate_method));
+  CHECK(caors::registration::type_<duplicate_method_actor>("caors.test.meta.duplicate_method_actor")
+            .meta()
+            .method("update", &duplicate_method_actor::first)
+            .method("update", &duplicate_method_actor::second)
+            .commit() == meta_error(caors::errc::duplicate_method));
 }
 
 // 原测试文件：meta_method_method_view_describes_member_function_signatures_test.cpp
@@ -49,9 +48,8 @@ TEST_CASE("meta - method view describes member function signatures", "[meta]") {
 
 TEST_CASE("meta - method set groups overloaded methods", "[meta]") {
   const caors::error result =
-      ((void)caors::meta::class_<overloaded_method_actor>(
-           "caors.test.meta.overloaded_method_actor"),
-       caors::meta::class_<overloaded_method_actor>())
+      caors::registration::type_<overloaded_method_actor>("caors.test.meta.overloaded_method_actor")
+          .meta()
           .method("update", static_cast<void (overloaded_method_actor::*)(int)>(
                                 &overloaded_method_actor::update))
           .method("update", static_cast<void (overloaded_method_actor::*)(float)>(
@@ -127,8 +125,8 @@ TEST_CASE("meta - method view invokes mutable and const member functions", "[met
 
 TEST_CASE("meta - method view invokes rvalue reference parameters through arguments", "[meta]") {
   const caors::error result =
-      ((void)caors::meta::class_<rvalue_method_actor>("caors.test.meta.rvalue_method_actor"),
-       caors::meta::class_<rvalue_method_actor>())
+      caors::registration::type_<rvalue_method_actor>("caors.test.meta.rvalue_method_actor")
+          .meta()
           .method("take", &rvalue_method_actor::take)
           .commit();
   REQUIRE((result == caors::error{} || result == meta_error(caors::errc::duplicate_method)));

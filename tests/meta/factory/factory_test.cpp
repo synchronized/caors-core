@@ -7,13 +7,12 @@
 
 using namespace caors::tests::meta_type_factory;
 TEST_CASE("meta type - default factory rejects non-default-constructible types", "[meta]") {
-  auto builder =
-      caors::meta::class_<missing_default_factory_type>("caors.test.type.factory_missing_default")
-          .factory();
+  auto builder = caors::registration::type_<missing_default_factory_type>(
+      "caors.test.type.factory_missing_default");
+  builder.factory();
 
-  CHECK(builder.result() == meta_error(caors::errc::invalid_type));
-  REQUIRE(builder.get().valid());
-  CHECK_FALSE(builder.get().get_capability<caors::meta::factory_capability>());
+  CHECK(builder.commit() == meta_error(caors::errc::invalid_type));
+  CHECK_FALSE(caors::meta::find<missing_default_factory_type>());
 }
 
 // 原测试文件：meta_type_factory_meta_type_factory_registers_custom_construction_strategy_test.cpp
@@ -22,9 +21,9 @@ TEST_CASE("meta type - default factory rejects non-default-constructible types",
 
 using namespace caors::tests::meta_type_factory;
 TEST_CASE("meta type - factory registers custom construction strategy", "[meta]") {
-  auto builder = caors::meta::class_<custom_factory_type>("caors.test.type.factory_custom")
-                     .factory(&construct_custom_factory_type, &destroy_custom_factory_type);
-  CHECK(builder.succeeded());
+  auto builder = caors::registration::type_<custom_factory_type>("caors.test.type.factory_custom");
+  builder.factory(&construct_custom_factory_type, &destroy_custom_factory_type);
+  REQUIRE(builder.commit() == caors::error{});
 
   const caors::meta::factory_capability factory =
       builder.get().get_capability<caors::meta::factory_capability>();
@@ -50,10 +49,10 @@ TEST_CASE("meta type - factory registers custom construction strategy", "[meta]"
   REQUIRE(owned_value != nullptr);
   CHECK(owned_value->value == 23);
 
-  auto duplicate = caors::meta::class_<custom_factory_type>("caors.test.type.factory_custom")
-                       .factory(&construct_custom_factory_type, &destroy_custom_factory_type);
-  CHECK(duplicate.result() == meta_error(caors::errc::duplicate_id));
-  CHECK(duplicate.succeeded());
+  auto duplicate =
+      caors::registration::type_<custom_factory_type>("caors.test.type.factory_custom");
+  duplicate.factory(&construct_custom_factory_type, &destroy_custom_factory_type);
+  CHECK(duplicate.commit() == meta_error(caors::errc::duplicate_id));
 }
 
 TEST_CASE("meta type - owned value release exposes manual destruction", "[meta]") {
@@ -148,8 +147,9 @@ TEST_CASE("meta type - released owned value guard can release responsibility", "
 using namespace caors::tests::meta_type_factory;
 TEST_CASE("meta type - factory registers resource-aware default construction", "[meta]") {
   auto builder =
-      caors::meta::class_<default_factory_type>("caors.test.type.factory_default").factory();
-  CHECK(builder.succeeded());
+      caors::registration::type_<default_factory_type>("caors.test.type.factory_default");
+  builder.factory();
+  REQUIRE(builder.commit() == caors::error{});
 
   const caors::meta::type type = builder.get();
   REQUIRE(type.valid());
@@ -201,8 +201,9 @@ using namespace caors::tests::meta_type_factory;
 TEST_CASE("meta type - resource default construction propagates allocator", "[meta]") {
   using value_type = caors::vector<int>;
 
-  const caors::meta::type type =
-      caors::meta::class_<value_type>("caors.test.type.resource_vector").get();
+  REQUIRE(caors::registration::type_<value_type>("caors.test.type.resource_vector").commit() ==
+          caors::error{});
+  const caors::meta::type type = caors::meta::find<value_type>();
   REQUIRE(type.valid());
 
   caors::tracking_resource tracking(&caors::get_system_memory_resource());

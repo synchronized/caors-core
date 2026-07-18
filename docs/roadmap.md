@@ -88,7 +88,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [ ] 评估完全无宏 Proxy DSL，降低宏接口对诊断和工具链的影响。
 - [ ] 评估基于未来静态反射或代码生成的成员自动发现。
 - [x] 将运行期类型查询、属性/方法和值构造能力合并到 `meta` 主入口，不再保留独立 `runtime` 模块。
-- [x] 将 `meta::type_<T>()` 改为 `meta::class_<T>()`，并增加 `meta::enum_<T>()`。
+- [x] 将 `meta::type_<T>()` 改为 `registration::type_<T>(name)`，并增加 `meta::enum_<T>()`。
 - [x] 将 `meta::type::create()` 统一为高层创建入口，优先使用 `meta::factory_capability`，再使用
   `meta::constructor_capability` 匹配运行期参数列表，最后回退到 descriptor 默认构造；`create_value()`
   保留为高级默认构造入口。

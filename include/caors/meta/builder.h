@@ -753,35 +753,13 @@ template <typename T> enum_value_bind<T> enum_builder<T>::value(string_name name
   return enum_value_bind<T>{*this, status_.succeeded() ? name : string_name{}};
 }
 
-/** @brief 获取指定 C++ 类/普通值类型的元类型注册构建器；默认不注册类型。 */
-template <typename T> [[nodiscard]] class_builder<T> class_(context& ctx) {
-  return class_builder<T>{ctx};
-}
-
-/** @brief 获取指定 C++ 类/普通值类型的元类型注册构建器；默认不注册类型。 */
-template <typename T> [[nodiscard]] class_builder<T> class_() {
-  return class_<T>(default_context());
-}
-
-/** @brief 在指定上下文中显式注册指定 C++ 类/普通值类型并设置类型名。 */
-template <typename T> [[nodiscard]] class_builder<T> class_(context& ctx, std::string_view name) {
-  return class_builder<T>{ctx}.type(name);
-}
-
-/** @brief 显式注册指定 C++ 类/普通值类型并设置类型名。 */
-template <typename T> [[nodiscard]] class_builder<T> class_(std::string_view name) {
-  return class_<T>(default_context(), name);
-}
-
 /** @brief 获取指定 C++ 枚举类型的元类型注册构建器；默认不注册类型。 */
 template <typename T> [[nodiscard]] enum_builder<T> enum_(context& ctx) {
   return enum_builder<T>{ctx};
 }
 
 /** @brief 获取指定 C++ 枚举类型的元类型注册构建器；默认不注册类型。 */
-template <typename T> [[nodiscard]] enum_builder<T> enum_() {
-  return enum_<T>(default_context());
-}
+template <typename T> [[nodiscard]] enum_builder<T> enum_() { return enum_<T>(default_context()); }
 
 /** @brief 在指定上下文中显式注册指定 C++ 枚举类型并设置类型名。 */
 template <typename T> [[nodiscard]] enum_builder<T> enum_(context& ctx, std::string_view name) {

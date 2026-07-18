@@ -108,9 +108,9 @@ TEST_CASE("serialization - reports missing configured reflection field", "[seria
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - reports missing serialization metadata", "[serialization]") {
-  REQUIRE(reflection_result_ok(
-      ((void)caors::meta::class_<reflected_only_actor>("caors.test.serialization.reflected_only"),
-       caors::meta::class_<reflected_only_actor>())
+  REQUIRE(registration_result_ok(
+      caors::registration::type_<reflected_only_actor>("caors.test.serialization.reflected_only")
+          .meta()
           .property("id", &reflected_only_actor::id)
           .commit()));
 

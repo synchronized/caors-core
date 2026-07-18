@@ -35,18 +35,17 @@ TEST_CASE("meta - cross module view supports unified meta and serialization regi
 
 using namespace caors::tests::cross_module;
 TEST_CASE("meta - view finds types with meta properties and serialization extensions", "[meta]") {
-  REQUIRE(serialization_result_ok(
-      caors::registration::type_<cross_module_schema_actor>(
-          "caors.test.meta.cross_module_schema_actor")
-          .meta()
-          .property("id", &cross_module_schema_actor::id)
-          .property("health", &cross_module_schema_actor::health)
-          .serialization()
-          .fields({
-              caors::serialization::make_field("id"),
-              caors::serialization::make_field("health"),
-          })
-          .commit()));
+  REQUIRE(serialization_result_ok(caors::registration::type_<cross_module_schema_actor>(
+                                      "caors.test.meta.cross_module_schema_actor")
+                                      .meta()
+                                      .property("id", &cross_module_schema_actor::id)
+                                      .property("health", &cross_module_schema_actor::health)
+                                      .serialization()
+                                      .fields({
+                                          caors::serialization::make_field("id"),
+                                          caors::serialization::make_field("health"),
+                                      })
+                                      .commit()));
 
   const auto type = caors::meta::find<cross_module_schema_actor>();
   REQUIRE(type);
@@ -70,8 +69,8 @@ TEST_CASE("meta - view finds types with meta properties and serialization extens
 using namespace caors::tests::cross_module;
 TEST_CASE("meta - field handles remain valid after later registrations", "[meta]") {
   REQUIRE(meta_property_result_ok(
-      ((void)caors::meta::class_<cross_module_actor>("caors.test.meta.cross_module_actor"),
-       caors::meta::class_<cross_module_actor>())
+      caors::registration::type_<cross_module_actor>("caors.test.meta.cross_module_actor")
+          .meta()
           .property("id", &cross_module_actor::id)
           .property("health", &cross_module_actor::health)
           .commit()));
@@ -83,9 +82,9 @@ TEST_CASE("meta - field handles remain valid after later registrations", "[meta]
   REQUIRE(id);
   REQUIRE(id.valid());
 
-  REQUIRE(meta_property_result_ok(((void)caors::meta::class_<cross_module_late_registered>(
-                                       "caors.test.meta.cross_module_late_registered"),
-                                   caors::meta::class_<cross_module_late_registered>())
+  REQUIRE(meta_property_result_ok(caors::registration::type_<cross_module_late_registered>(
+                                      "caors.test.meta.cross_module_late_registered")
+                                      .meta()
                                       .property("value", &cross_module_late_registered::value)
                                       .commit()));
 

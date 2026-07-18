@@ -10,14 +10,13 @@ using namespace caors::tests::meta_value;
 TEST_CASE("meta any_ref - creates indirect views for pointer and wrappers", "[meta]") {
   require_value_test_meta();
 
-  REQUIRE(
-      ((void)caors::meta::class_<indirect_value_holder>("caors.test.meta.indirect_value_holder"),
-       caors::meta::class_<indirect_value_holder>())
-          .property("pointer", &indirect_value_holder::pointer)
-          .property("optional", &indirect_value_holder::optional)
-          .property("unique", &indirect_value_holder::unique)
-          .property("weak", &indirect_value_holder::weak)
-          .commit() == caors::error{});
+  REQUIRE(caors::registration::type_<indirect_value_holder>("caors.test.meta.indirect_value_holder")
+              .meta()
+              .property("pointer", &indirect_value_holder::pointer)
+              .property("optional", &indirect_value_holder::optional)
+              .property("unique", &indirect_value_holder::unique)
+              .property("weak", &indirect_value_holder::weak)
+              .commit() == caors::error{});
 
   indirect_value_holder holder{};
 

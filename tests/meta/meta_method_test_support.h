@@ -40,15 +40,14 @@ struct rvalue_method_actor {
 
 [[nodiscard]] inline caors::meta::type require_method_type() {
   const caors::error result =
-      ((void)caors::meta::class_<method_actor>("caors.test.meta.method_actor"),
-       caors::meta::class_<method_actor>())
+      caors::registration::type_<method_actor>("caors.test.meta.method_actor")
+          .meta()
           .property("value", &method_actor::value)
           .method("add", &method_actor::add)
           .method("add_to", &method_actor::add_to)
           .method("score", &method_actor::score)
           .commit();
-  REQUIRE((result == caors::error{} || result == meta_error(caors::errc::duplicate_field) ||
-           result == meta_error(caors::errc::duplicate_method)));
+  REQUIRE((result == caors::error{} || result == meta_error(caors::errc::duplicate_id)));
 
   auto reflected = caors::meta::find("caors.test.meta.method_actor");
   REQUIRE(reflected);

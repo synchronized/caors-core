@@ -157,15 +157,16 @@ public:
 
 void require_async_resource_metadata() {
   REQUIRE(meta_result_ok(
-      caors::meta::class_<async_resource>("caors.test.resources.async_resource").result()));
+      caors::registration::type_<async_resource>("caors.test.resources.async_resource").commit()));
 }
 
 void require_async_preload_metadata() {
   REQUIRE(meta_result_ok(
-      caors::meta::class_<texture_resource>("caors.test.resources.texture_resource").result()));
-  REQUIRE(meta_result_ok(
-      caors::meta::class_<async_material_resource>("caors.test.resources.async_material_resource")
-          .result()));
+      caors::registration::type_<texture_resource>("caors.test.resources.texture_resource")
+          .commit()));
+  REQUIRE(meta_result_ok(caors::registration::type_<async_material_resource>(
+                             "caors.test.resources.async_material_resource")
+                             .commit()));
 }
 
 [[nodiscard]] bool contains_item(const caors::resources::preload_plan::item_list& values,

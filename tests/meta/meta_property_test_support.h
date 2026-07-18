@@ -7,6 +7,7 @@
 #include "caors/meta.h"
 #include "caors/object/base.h"
 #include "caors/object/ptr.h"
+#include "caors/registration.h"
 #include "caors/traits/type_name.h"
 
 #include <catch2/catch_all.hpp>
@@ -344,16 +345,10 @@ constexpr caors::type_guid view_actor_guid{caors::guid::from_bytes(
   return {caors::error_domain::meta, code};
 }
 
-template <typename T>
-[[nodiscard]] caors::meta::class_builder<T> registered_meta_class(std::string_view name) {
-  const caors::error status = caors::meta::class_<T>(name).result();
-  REQUIRE((status == caors::error{} || status == meta_error(caors::errc::duplicate_id)));
-  return caors::meta::class_<T>();
-}
-
 [[nodiscard]] inline caors::meta::type require_property_traits_owner_meta() {
   const caors::error status =
-      registered_meta_class<field_traits_owner>("caors.test.meta.field_traits_owner")
+      caors::registration::type_<field_traits_owner>("caors.test.meta.field_traits_owner")
+          .meta()
           .property("value", &field_traits_owner::value)
           .property("color", &field_traits_owner::color)
           .property("raw", &field_traits_owner::raw)
@@ -371,18 +366,17 @@ template <typename T>
           .property("variant", &field_traits_owner::variant)
           .commit();
 
-  REQUIRE((status == caors::error{} || status == meta_error(caors::errc::duplicate_field) ||
-           status == meta_error(caors::errc::duplicate_method)));
+  REQUIRE((status == caors::error{} || status == meta_error(caors::errc::duplicate_id)));
   return require_reflected("caors.test.meta.field_traits_owner");
 }
 
 template <typename T> void require_registered_type(std::string_view name) {
-  const caors::error status = caors::meta::class_<T>(name).result();
+  const caors::error status = caors::registration::type_<T>(name).commit();
   REQUIRE((status == caors::error{} || status == meta_error(caors::errc::duplicate_id)));
 }
 
 template <typename T> void register_common_type(std::string_view name) {
-  const caors::error status = caors::meta::class_<T>(name).result();
+  const caors::error status = caors::registration::type_<T>(name).commit();
   (void)status;
 }
 

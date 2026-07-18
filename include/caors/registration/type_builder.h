@@ -35,6 +35,10 @@ inline constexpr bool is_property_entry_v =
     std::is_same_v<std::remove_cvref_t<Entry>, meta::registration::metadata_entry> ||
     std::is_same_v<std::remove_cvref_t<Entry>, meta::registration::property_schema_entry>;
 
+template <typename Entry>
+inline constexpr bool is_method_entry_v =
+    std::is_same_v<std::remove_cvref_t<Entry>, meta::registration::metadata_entry>;
+
 template <typename Child, typename Parent>
 [[nodiscard]] constexpr meta::detail::parent_cast_ops parent_cast_ops_for() noexcept {
   using child_type = std::remove_cv_t<std::remove_reference_t<Child>>;
@@ -154,6 +158,50 @@ public:
     return *this;
   }
 
+  /** @brief 挂载外部生命周期管理的运行期 capability。 */
+  template <typename Capability> type_builder& capability(const Capability* capability) {
+    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+    status_ = pending_.add_capability(meta::capability_key_of<capability_type>(), capability);
+    return *this;
+  }
+
+  /** @brief 挂载由 CAORS 持有的运行期 capability。 */
+  template <typename Capability>
+    requires(!std::is_pointer_v<std::remove_reference_t<Capability>>)
+  type_builder& capability(Capability&& capability) {
+    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+    status_ =
+        pending_.add_owned_capability(meta::capability_key_of<capability_type>(),
+                                      meta::detail::make_owned_capability<capability_type>(
+                                          capability_type{std::forward<Capability>(capability)}));
+    return *this;
+  }
+
+  /** @brief 从 descriptor 静态 capability provider 挂载 capability。 */
+  template <typename Capability> type_builder& capability() {
+    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+    if constexpr (meta::detail::has_capability_model_v<capability_type, value_type>) {
+      using model_type = meta::capability_model<capability_type, value_type>;
+      using ops_type = typename model_type::ops_type;
+      const ops_type* ops = model_type::get();
+      status_ = ops != nullptr ? pending_.add_capability(meta::capability_key_of<ops_type>(), ops)
+                               : error{error_domain::meta, errc::unsupported};
+    } else if constexpr (meta::detail::has_capability_auto_model_v<capability_type, value_type>) {
+      using model_type = typename capability_type::template model<value_type>;
+      using ops_type = typename model_type::ops_type;
+      const ops_type* ops = model_type::get();
+      status_ = ops != nullptr ? pending_.add_capability(meta::capability_key_of<ops_type>(), ops)
+                               : error{error_domain::meta, errc::unsupported};
+    } else {
+      const capability_type* capability = meta::capabilities::get<capability_type, value_type>();
+      status_ =
+          capability != nullptr
+              ? pending_.add_capability(meta::capability_key_of<capability_type>(), capability)
+              : error{error_domain::meta, errc::unsupported};
+    }
+    return *this;
+  }
+
   /** @brief 进入 meta 属性、方法和基础能力注册段。 */
   [[nodiscard]] meta_section<T> meta() noexcept { return meta_section<T>{*this}; }
 
@@ -214,11 +262,16 @@ public:
 
     pending_.set_descriptor(descriptor);
     status_ = registry_->commit_type(std::move(pending_), typeid(value_type));
+    if (!status_) {
+      committed_type_ = registry_->template find_type<value_type>();
+    }
     return status_;
   }
 
   [[nodiscard]] meta::type get() const noexcept {
-    return registry_ != nullptr ? registry_->template find_type<value_type>() : meta::type{};
+    return committed_type_ ? committed_type_
+                           : (registry_ != nullptr ? registry_->template find_type<value_type>()
+                                                   : meta::type{});
   }
 
   [[nodiscard]] error result() const noexcept { return status_; }
@@ -231,6 +284,10 @@ private:
   template <typename Member>
   [[nodiscard]] core::string_name add_property(std::string_view name, Member member,
                                                std::string_view type_name = {}) {
+    if (status_) {
+      return {};
+    }
+
     static_assert(std::is_member_object_pointer_v<Member>,
                   "registration::type_builder::property requires a data member pointer");
     using traits_type = meta::detail::member_object_pointer_traits<Member>;
@@ -318,6 +375,10 @@ private:
   template <typename Getter, typename Setter>
   [[nodiscard]] core::string_name add_property(std::string_view name, Getter getter,
                                                Setter setter) {
+    if (status_) {
+      return {};
+    }
+
     static_assert(std::is_member_function_pointer_v<Getter>,
                   "registration::type_builder::property getter must be a member function pointer");
     static_assert(std::is_member_function_pointer_v<Setter>,
@@ -339,6 +400,10 @@ private:
 
   template <typename Getter>
   [[nodiscard]] core::string_name add_readonly_property(std::string_view name, Getter getter) {
+    if (status_) {
+      return {};
+    }
+
     static_assert(
         std::is_member_function_pointer_v<Getter>,
         "registration::type_builder::property_readonly requires a member function pointer");
@@ -360,6 +425,10 @@ private:
   template <typename Member>
   [[nodiscard]] std::pair<core::string_name, std::size_t> add_method(std::string_view name,
                                                                      Member member) {
+    if (status_) {
+      return {};
+    }
+
     static_assert(std::is_member_function_pointer_v<Member>,
                   "registration::type_builder::method requires a member function pointer");
     using traits_type = meta::detail::member_function_pointer_traits<Member>;
@@ -390,8 +459,39 @@ private:
     return {method_name, *overload_index};
   }
 
+  type_builder& apply_method_entry(core::string_name method_name, std::size_t overload_index,
+                                   const meta::registration::metadata_entry& entry) {
+    return set_method_metadata(method_name, overload_index, entry.key, entry.value);
+  }
+
+  type_builder& apply_method_entry(core::string_name method_name, std::size_t overload_index,
+                                   meta::registration::metadata_entry&& entry) {
+    return set_method_metadata(method_name, overload_index, entry.key, std::move(entry.value));
+  }
+
+  type_builder& set_method_metadata(core::string_name method_name, std::size_t overload_index,
+                                    meta::metadata_key key, meta::metadata_value value) {
+    if (!key || !method_name || overload_index == static_cast<std::size_t>(-1)) {
+      status_ = {error_domain::meta, errc::invalid_field};
+      return *this;
+    }
+
+    meta::detail::method_set_data* method_set = pending_.mutable_find_method_ptr(method_name);
+    meta::detail::method_data* method =
+        method_set != nullptr ? method_set->mutable_overload_at(overload_index) : nullptr;
+    if (method == nullptr) {
+      status_ = {error_domain::meta, errc::invalid_field};
+      return *this;
+    }
+
+    method->set_metadata(key, std::move(value));
+    status_ = {};
+    return *this;
+  }
+
   meta::registry* registry_ = nullptr;
   meta::detail::type_data pending_{};
+  meta::type committed_type_{};
   serialization::type_schema serialization_schema_{};
   bool serialization_enabled_ = false;
   bool object_enabled_ = false;
@@ -479,31 +579,31 @@ public:
     return *this;
   }
 
+  template <typename Member, typename... Entries>
+    requires(sizeof...(Entries) > 0 && (detail::is_method_entry_v<Entries> && ...))
+  meta_section& method(std::string_view name, Member member, Entries&&... entries) {
+    const auto [method_name, overload_index] = owner_->add_method(name, member);
+    if (method_name) {
+      (owner_->apply_method_entry(method_name, overload_index, std::forward<Entries>(entries)),
+       ...);
+    }
+    return *this;
+  }
+
   template <typename Capability> meta_section& capability(const Capability* capability) {
-    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
-    owner_->status_ =
-        owner_->pending_.add_capability(meta::capability_key_of<capability_type>(), capability);
+    owner_->capability(capability);
     return *this;
   }
 
   template <typename Capability>
     requires(!std::is_pointer_v<std::remove_reference_t<Capability>>)
   meta_section& capability(Capability&& capability) {
-    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
-    owner_->status_ = owner_->pending_.add_owned_capability(
-        meta::capability_key_of<capability_type>(),
-        meta::detail::make_owned_capability<capability_type>(
-            capability_type{std::forward<Capability>(capability)}));
+    owner_->capability(std::forward<Capability>(capability));
     return *this;
   }
 
   template <typename Capability> meta_section& capability() {
-    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
-    const capability_type* capability = meta::capabilities::get<capability_type, T>();
-    owner_->status_ = capability != nullptr
-                          ? owner_->pending_.add_capability(
-                                meta::capability_key_of<capability_type>(), capability)
-                          : error{error_domain::meta, errc::unsupported};
+    owner_->template capability<Capability>();
     return *this;
   }
 

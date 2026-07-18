@@ -2,6 +2,7 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/meta.h"
+#include "caors/registration.h"
 
 #include <catch2/catch_all.hpp>
 
@@ -25,8 +26,8 @@ TEST_CASE("meta context - local registry isolates registered type data", "[meta]
   REQUIRE(descriptor);
   CHECK_FALSE(descriptor.registered());
 
-  REQUIRE(caors::meta::class_<context_local_type>(ctx, "caors.test.meta.context.local")
-              .result() == caors::error{});
+  REQUIRE(caors::registration::type_<context_local_type>(ctx, "caors.test.meta.context.local")
+              .commit() == caors::error{});
 
   const caors::meta::type local = caors::meta::find<context_local_type>(ctx);
   REQUIRE(local);
@@ -58,9 +59,10 @@ TEST_CASE("meta context - dynamic capability lookup uses owning registry", "[met
   caors::meta::context ctx{registry};
 
   const context_capability capability{42};
-  REQUIRE(caors::meta::class_<context_capability_type>(ctx, "caors.test.meta.context.capability")
-              .capability(&capability)
-              .result() == caors::error{});
+  REQUIRE(
+      caors::registration::type_<context_capability_type>(ctx, "caors.test.meta.context.capability")
+          .capability(&capability)
+          .commit() == caors::error{});
 
   const caors::meta::type local = caors::meta::find<context_capability_type>(ctx);
   REQUIRE(local);

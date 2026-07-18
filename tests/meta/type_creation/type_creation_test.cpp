@@ -3,6 +3,7 @@
 
 #include "caors/memory.h"
 #include "caors/meta.h"
+#include "caors/registration.h"
 
 #include <catch2/catch_all.hpp>
 
@@ -106,7 +107,7 @@ void destroy_meta_factory_constructor_priority_type(caors::memory_resource* reso
 TEST_CASE("meta type creation - uses registered factory before default construction",
           "[meta][type_creation]") {
   const caors::error status =
-      caors::meta::class_<meta_factory_create_type>("caors.test.meta.factory_create")
+      caors::registration::type_<meta_factory_create_type>("caors.test.meta.factory_create")
           .factory(&construct_meta_factory_create_type, &destroy_meta_factory_create_type)
           .commit();
   CHECK_FALSE(status);
@@ -132,7 +133,8 @@ TEST_CASE("meta type creation - uses registered factory before default construct
 TEST_CASE("meta type creation - falls back to descriptor default construction",
           "[meta][type_creation]") {
   const caors::error status =
-      caors::meta::class_<meta_default_create_type>("caors.test.meta.default_create").commit();
+      caors::registration::type_<meta_default_create_type>("caors.test.meta.default_create")
+          .commit();
   CHECK_FALSE(status);
 
   caors::meta::type type = caors::meta::find<meta_default_create_type>();
@@ -149,7 +151,8 @@ TEST_CASE("meta type creation - falls back to descriptor default construction",
 
 TEST_CASE("meta type creation - reports non constructible types", "[meta][type_creation]") {
   const caors::error status =
-      caors::meta::class_<meta_missing_create_type>("caors.test.meta.missing_create").commit();
+      caors::registration::type_<meta_missing_create_type>("caors.test.meta.missing_create")
+          .commit();
   CHECK_FALSE(status);
 
   caors::meta::type type = caors::meta::find<meta_missing_create_type>();
@@ -161,7 +164,7 @@ TEST_CASE("meta type creation - reports non constructible types", "[meta][type_c
 }
 
 TEST_CASE("meta type creation - keeps factory resource ownership", "[meta][type_creation]") {
-  const caors::error status = caors::meta::class_<meta_resource_factory_create_type>(
+  const caors::error status = caors::registration::type_<meta_resource_factory_create_type>(
                                   "caors.test.meta.resource_factory_create")
                                   .factory(&construct_meta_resource_factory_create_type,
                                            &destroy_meta_resource_factory_create_type)
@@ -190,7 +193,7 @@ TEST_CASE("meta type creation - keeps factory resource ownership", "[meta][type_
 
 TEST_CASE("meta type creation - uses registered constructor arguments", "[meta][type_creation]") {
   const caors::error status =
-      caors::meta::class_<meta_constructor_create_type>("caors.test.meta.constructor_create")
+      caors::registration::type_<meta_constructor_create_type>("caors.test.meta.constructor_create")
           .constructor<int>()
           .commit();
   CHECK_FALSE(status);
@@ -218,11 +221,10 @@ TEST_CASE("meta type creation - uses registered constructor arguments", "[meta][
 }
 
 TEST_CASE("meta type creation - supports rvalue constructor arguments", "[meta][type_creation]") {
-  const caors::error status =
-      caors::meta::class_<meta_rvalue_constructor_create_type>(
-          "caors.test.meta.rvalue_constructor_create")
-          .constructor<int&&>()
-          .commit();
+  const caors::error status = caors::registration::type_<meta_rvalue_constructor_create_type>(
+                                  "caors.test.meta.rvalue_constructor_create")
+                                  .constructor<int&&>()
+                                  .commit();
   CHECK_FALSE(status);
 
   caors::meta::type type = caors::meta::find<meta_rvalue_constructor_create_type>();
@@ -246,13 +248,12 @@ TEST_CASE("meta type creation - supports rvalue constructor arguments", "[meta][
 
 TEST_CASE("meta type creation - keeps factory before zero argument constructor",
           "[meta][type_creation]") {
-  const caors::error status =
-      caors::meta::class_<meta_factory_constructor_priority_type>(
-          "caors.test.meta.factory_constructor_priority")
-          .factory(&construct_meta_factory_constructor_priority_type,
-                   &destroy_meta_factory_constructor_priority_type)
-          .constructor<>()
-          .commit();
+  const caors::error status = caors::registration::type_<meta_factory_constructor_priority_type>(
+                                  "caors.test.meta.factory_constructor_priority")
+                                  .factory(&construct_meta_factory_constructor_priority_type,
+                                           &destroy_meta_factory_constructor_priority_type)
+                                  .constructor<>()
+                                  .commit();
   CHECK_FALSE(status);
 
   caors::meta::type type = caors::meta::find<meta_factory_constructor_priority_type>();

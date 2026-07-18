@@ -3,6 +3,7 @@
 
 #include "caors/meta.h"
 #include "caors/object.h"
+#include "caors/registration.h"
 
 #include <catch2/catch_all.hpp>
 
@@ -52,10 +53,12 @@ enum class meta_api_state {
 } // namespace
 
 TEST_CASE("meta api - class builder registers properties and methods", "[meta][api]") {
-  const caors::error status = caors::meta::class_<meta_api_actor>("caors.test.meta.api.actor")
-                                  .property("health", &meta_api_actor::health)
-                                  .method("add_health", &meta_api_actor::add_health)
-                                  .commit();
+  const caors::error status =
+      caors::registration::type_<meta_api_actor>("caors.test.meta.api.actor")
+          .meta()
+          .property("health", &meta_api_actor::health)
+          .method("add_health", &meta_api_actor::add_health)
+          .commit();
   CHECK_FALSE(status);
 
   caors::meta::type type = caors::meta::find<meta_api_actor>();
@@ -100,7 +103,8 @@ TEST_CASE("meta api - enum builder registers enum type", "[meta][api]") {
 
 TEST_CASE("meta api - instance reads writes and calls reflected members", "[meta][api]") {
   const caors::error status =
-      caors::meta::class_<meta_api_instance_owner>(meta_api_instance_owner::object_type_name)
+      caors::registration::type_<meta_api_instance_owner>(meta_api_instance_owner::object_type_name)
+          .meta()
           .property("health", &meta_api_instance_owner::health)
           .method("add_health", &meta_api_instance_owner::add_health)
           .method("read_health", &meta_api_instance_owner::read_health)
@@ -156,7 +160,8 @@ TEST_CASE("meta api - instance handles invalid and missing members", "[meta][api
 
 TEST_CASE("meta api - const instance is read only", "[meta][api]") {
   const caors::error status =
-      caors::meta::class_<meta_api_const_owner>("caors.test.meta.api.const_owner")
+      caors::registration::type_<meta_api_const_owner>("caors.test.meta.api.const_owner")
+          .meta()
           .property("health", &meta_api_const_owner::health)
           .method("add_health", &meta_api_const_owner::add_health)
           .method("read_health", &meta_api_const_owner::read_health)

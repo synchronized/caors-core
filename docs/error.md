@@ -54,7 +54,7 @@ caors::error error{caors::error_domain::meta, caors::errc::invalid_field};
 `error` 是不分配内存的轻量状态对象。布尔上下文中 `true` 表示失败，`false` 表示成功：
 
 ```cpp
-caors::error status = caors::meta::class_<actor>("game.actor").result();
+caors::error status = caors::registration::type_<actor>("game.actor").commit();
 
 if (status) {
   std::error_code code = status.code();
@@ -68,7 +68,7 @@ if (status) {
 公共注册 API 统一返回 `caors::error`：
 
 ```cpp
-caors::error status = caors::meta::class_<actor>("game.actor").result();
+caors::error status = caors::registration::type_<actor>("game.actor").commit();
 
 if (status.domain() == caors::error_domain::meta &&
     status.value() == caors::errc::duplicate_name) {
@@ -79,8 +79,8 @@ if (status.domain() == caors::error_domain::meta &&
 重复注册同一个稳定名称会返回 `errc::duplicate_name`：
 
 ```cpp
-caors::meta::class_<actor>("game.actor");
-caors::error status = caors::meta::class_<enemy>("game.actor").result();
+caors::registration::type_<actor>("game.actor").commit();
+caors::error status = caors::registration::type_<enemy>("game.actor").commit();
 // status.value() == caors::errc::duplicate_name
 ```
 

@@ -3,6 +3,7 @@
 
 #include "caors/meta.h"
 #include "caors/object.h"
+#include "caors/registration.h"
 
 #include <catch2/catch_all.hpp>
 
@@ -37,12 +38,13 @@ struct object_view_plain_owner {
 } // namespace
 
 TEST_CASE("object - view reads writes and calls reflected object members", "[object]") {
-  const caors::error status =
-      caors::meta::class_<object_view_member_owner>(object_view_member_owner::object_type_name)
-          .property("health", &object_view_member_owner::health)
-          .property("target", &object_view_member_owner::target)
-          .method("add_health", &object_view_member_owner::add_health)
-          .commit();
+  const caors::error status = caors::registration::type_<object_view_member_owner>(
+                                  object_view_member_owner::object_type_name)
+                                  .meta()
+                                  .property("health", &object_view_member_owner::health)
+                                  .property("target", &object_view_member_owner::target)
+                                  .method("add_health", &object_view_member_owner::add_health)
+                                  .commit();
   CHECK_FALSE(status);
 
   object_view_member_owner owner{};
@@ -76,10 +78,11 @@ TEST_CASE("object - view reads writes and calls reflected object members", "[obj
 }
 
 TEST_CASE("object - view reads and writes object pointer fields", "[object]") {
-  const caors::error status =
-      caors::meta::class_<object_view_pointer_owner>(object_view_pointer_owner::object_type_name)
-          .property("target", &object_view_pointer_owner::target)
-          .commit();
+  const caors::error status = caors::registration::type_<object_view_pointer_owner>(
+                                  object_view_pointer_owner::object_type_name)
+                                  .meta()
+                                  .property("target", &object_view_pointer_owner::target)
+                                  .commit();
   CHECK_FALSE(status);
 
   object_view_pointer_owner owner{};
@@ -96,7 +99,8 @@ TEST_CASE("object - view reads and writes object pointer fields", "[object]") {
 
 TEST_CASE("object - view reports non object pointer fields as empty", "[object]") {
   const caors::error status =
-      caors::meta::class_<object_view_plain_owner>("caors.test.object.view_plain_owner")
+      caors::registration::type_<object_view_plain_owner>("caors.test.object.view_plain_owner")
+          .meta()
           .property("health", &object_view_plain_owner::health)
           .commit();
   CHECK_FALSE(status);

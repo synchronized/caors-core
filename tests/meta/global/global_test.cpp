@@ -20,7 +20,7 @@ TEST_CASE("meta - global registry rejects extensions for missing types", "[meta]
 
 using namespace caors::tests::meta_registry;
 TEST_CASE("meta - global registry stores base type information", "[meta]") {
-  CHECK(caors::meta::class_<base_actor_type>("caors.test.meta.base_actor").result() ==
+  CHECK(caors::registration::type_<base_actor_type>("caors.test.meta.base_actor").commit() ==
         caors::error{});
 
   auto type = caors::meta::find("caors.test.meta.base_actor");
@@ -38,8 +38,8 @@ TEST_CASE("meta - global registry stores base type information", "[meta]") {
 
 using namespace caors::tests::meta_registry;
 TEST_CASE("meta - global registry stores extensions by type id", "[meta]") {
-  REQUIRE(caors::meta::class_<extension_actor_type>("caors.test.meta.extension_actor").result() ==
-          caors::error{});
+  REQUIRE(caors::registration::type_<extension_actor_type>("caors.test.meta.extension_actor")
+              .commit() == caors::error{});
   const auto actor = caors::meta::find<extension_actor_type>();
   REQUIRE(actor);
   const caors::type_id actor_id = actor.id();
@@ -70,15 +70,15 @@ TEST_CASE("meta - global registry stores extensions by type id", "[meta]") {
 
 using namespace caors::tests::meta_registry;
 TEST_CASE("meta - global view finds types with all requested extensions", "[meta]") {
-  REQUIRE(caors::meta::class_<view_actor_type>("caors.test.meta.view_actor").result() ==
+  REQUIRE(caors::registration::type_<view_actor_type>("caors.test.meta.view_actor").commit() ==
           caors::error{});
   const auto actor = caors::meta::find<view_actor_type>();
   REQUIRE(actor);
   const caors::type_id actor_id = actor.id();
 
-  REQUIRE(caors::meta::class_<view_player_type>("caors.test.meta.view_player")
+  REQUIRE(caors::registration::type_<view_player_type>("caors.test.meta.view_player")
               .parent(actor_id)
-              .result() == caors::error{});
+              .commit() == caors::error{});
   const auto player = caors::meta::find<view_player_type>();
   REQUIRE(player);
   const caors::type_id player_id = player.id();

@@ -38,7 +38,7 @@
 
 ### 属性注册
 
-推荐使用 `meta::class_<T>()` builder 注册类型、属性和成员方法。builder 通过成员指针推导偏移、
+推荐使用 `registration::type_<T>(name)` builder 注册类型、属性和成员方法。builder 通过成员指针推导偏移、
 属性类型和可写性，底层属性数据只保存在注册表内部，对外通过 `meta::property` 视图查询。
 
 ```cpp
@@ -47,15 +47,17 @@ struct actor {
   float health = 100.0F;
 };
 
-caors::meta::class_<actor>("game.actor")
+caors::registration::type_<actor>("game.actor")
+    .meta()
     .property("id", &actor::id)
-    .property("health", &actor::health);
+    .property("health", &actor::health)
+    .commit();
 ```
 
 属性类型推导规则：
 
 - 普通业务属性如果需要稳定名称、GUID、对象工厂、反射身份或多态序列化身份，应先通过
-  `meta::class_<Field>("name")` 显式注册。未注册属性不会拥有这些元信息，但只要能生成有效
+  `registration::type_<Field>("name")` 显式注册。未注册属性不会拥有这些元信息，但只要能生成有效
   descriptor，仍可作为属性注册，并通过 `any_ref` 使用布局、值操作和运行期视图能力。
 - 对内置基础类型和能由 traits 推导名称的结构类型，`property::get_type().name()` 会在没有 meta 注册时
   回退到 descriptor 默认显示名；这只是调试/展示名称，不等价于该类型已经注册到 meta。
@@ -122,7 +124,7 @@ STL 智能指针和裸指针只作为外部属性类型被 meta 描述。CAORS �
 
 ### 方法注册
 
-`meta::class_<T>()` 也可以注册成员函数指针：
+`registration::type_<T>(name)` 也可以注册成员函数指针：
 
 ```cpp
 struct actor {
@@ -132,10 +134,12 @@ struct actor {
   int score() const { return health * 2; }
 };
 
-caors::meta::class_<actor>("game.actor")
+caors::registration::type_<actor>("game.actor")
+    .meta()
     .property("health", &actor::health)
     .method("damage", &actor::damage)
-    .method("score", &actor::score);
+    .method("score", &actor::score)
+    .commit();
 ```
 
 当前方法能力的边界：
@@ -649,16 +653,18 @@ for (caors::meta::associative_entry_ref entry : map) {
 ### 全局注册表
 
 反射属性和方法使用进程级全局 `meta::registry` 保存。普通代码优先通过
-`meta::class_<T>("name")` 注册并通过 `meta::find()` / `meta::type` 查询，不需要创建 registry 对象：
+`registration::type_<T>("name")` 注册并通过 `meta::find()` / `meta::type` 查询，不需要创建 registry 对象：
 
 ```cpp
-caors::meta::class_<actor>("game.actor")
-    .property("id", &actor::id);
+caors::registration::type_<actor>("game.actor")
+    .meta()
+    .property("id", &actor::id)
+    .commit();
 
 auto reflected = caors::meta::find("game.actor");
 ```
 
-`meta::class_<T>()`、`meta::find()` 和 `meta::type` 不维护第二套注册表，而是读写同一个
+`registration::type_<T>(name)`、`meta::find()` 和 `meta::type` 不维护第二套注册表，而是读写同一个
 `meta::registry` 中的属性和方法数据。
 
 属性/方法注册推荐在启动期或模块加载期完成，并在进入运行期前调用 `meta::init_registry()` 做延迟注册和一致性校验。
@@ -689,7 +695,7 @@ auto reflected = caors::meta::find("game.actor");
 - `sequence_view` / `set_view` / `associative_view` / `pair_view` / `tuple_view` / `variant_view`：容器、二元组、tuple-like 和 variant-like 类型的运行期视图。
 - 属性声明类型的布局、值操作、类型语义和固定运行期能力集合由 meta 内部 descriptor 提供。
 - `meta::type` / `meta::property` / `meta::method`：全局属性和方法数据的推荐查询入口。
-- `meta::class_<T>()`：推荐的 RTTR 风格链式注册入口。
+- `registration::type_<T>("name")`：推荐的跨模块链式注册入口，属性和方法通过 `.meta()` 段写入。
 - `meta::registry`：全局 meta 注册表 facade。
 - `meta::find()` / `meta::get_registry().contains()`：类型查询入口。
 
@@ -698,7 +704,7 @@ auto reflected = caors::meta::find("game.actor");
 - 推荐公共头文件位于 `include/caors/meta/`：
   - `property.h`：属性元信息和属性访问。
   - `method.h`：成员方法元信息和运行期调用。
-  - `class_registration.h`：`meta::class_<T>()` 的属性/方法注册扩展。
+  - `registration/type_builder.h`：`registration::type_<T>("name")` 的属性/方法注册段。
 - `include/caors/meta.h` 是推荐 umbrella 头，包含属性和方法注册、查询入口。
 - `include/caors/traits/*.h` 提供 `type_name`、wrapper、容器、pair、tuple 和 variant 类型语义扩展点主模板。
 - `include/caors/object/ptr.h` 提供 `objects::ptr<T>` 和对象指针 trait；

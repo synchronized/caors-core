@@ -12,8 +12,8 @@ using namespace test_meta;
 
 TEST_CASE("meta - custom sequence traits expose property view", "[meta]") {
   REQUIRE(
-      ((void)caors::meta::class_<custom_sequence_holder>("caors.test.meta.custom_sequence_holder"),
-       caors::meta::class_<custom_sequence_holder>())
+      caors::registration::type_<custom_sequence_holder>("caors.test.meta.custom_sequence_holder")
+          .meta()
           .property("values", &custom_sequence_holder::values)
           .commit()
           .succeeded());
@@ -60,8 +60,8 @@ TEST_CASE("meta - custom sequence traits expose property view", "[meta]") {
 using namespace test_meta;
 
 TEST_CASE("meta - fixed std span field name includes extent", "[meta]") {
-  REQUIRE(((void)caors::meta::class_<fixed_span_holder>("caors.test.meta.fixed_span_holder"),
-           caors::meta::class_<fixed_span_holder>())
+  REQUIRE(caors::registration::type_<fixed_span_holder>("caors.test.meta.fixed_span_holder")
+              .meta()
               .property("values", &fixed_span_holder::values)
               .commit()
               .succeeded());
@@ -86,8 +86,8 @@ TEST_CASE("meta - fixed std span field name includes extent", "[meta]") {
 using namespace test_meta;
 
 TEST_CASE("meta - list property view uses sequence traits", "[meta]") {
-  REQUIRE(((void)caors::meta::class_<list_holder>("caors.test.meta.list_holder"),
-           caors::meta::class_<list_holder>())
+  REQUIRE(caors::registration::type_<list_holder>("caors.test.meta.list_holder")
+              .meta()
               .property("values", &list_holder::values)
               .commit()
               .succeeded());
@@ -132,8 +132,8 @@ TEST_CASE("meta - list property view uses sequence traits", "[meta]") {
 using namespace test_meta;
 
 TEST_CASE("meta - sequence property view exposes element metadata", "[meta]") {
-  REQUIRE(((void)caors::meta::class_<vector_holder>("caors.test.meta.vector_holder"),
-           caors::meta::class_<vector_holder>())
+  REQUIRE(caors::registration::type_<vector_holder>("caors.test.meta.vector_holder")
+              .meta()
               .property("values", &vector_holder::values)
               .commit()
               .succeeded());
@@ -216,8 +216,8 @@ TEST_CASE("meta - sequence property view exposes element metadata", "[meta]") {
 using namespace test_meta;
 
 TEST_CASE("meta - std array property view uses fixed sequence traits", "[meta]") {
-  REQUIRE(((void)caors::meta::class_<array_holder>("caors.test.meta.array_holder"),
-           caors::meta::class_<array_holder>())
+  REQUIRE(caors::registration::type_<array_holder>("caors.test.meta.array_holder")
+              .meta()
               .property("values", &array_holder::values)
               .commit()
               .succeeded());
@@ -261,8 +261,8 @@ TEST_CASE("meta - std array property view uses fixed sequence traits", "[meta]")
 using namespace test_meta;
 
 TEST_CASE("meta - std span property view is borrowed sequence", "[meta]") {
-  REQUIRE(((void)caors::meta::class_<span_holder>("caors.test.meta.span_holder"),
-           caors::meta::class_<span_holder>())
+  REQUIRE(caors::registration::type_<span_holder>("caors.test.meta.span_holder")
+              .meta()
               .property("values", &span_holder::values)
               .commit()
               .succeeded());

@@ -87,8 +87,8 @@ TEST_CASE("meta any - fields expose copied runtime values", "[meta]") {
   require_value_test_meta();
 
   REQUIRE(
-      ((void)caors::meta::class_<reflected_value_holder>("caors.test.meta.value_reflected_holder"),
-       caors::meta::class_<reflected_value_holder>())
+      caors::registration::type_<reflected_value_holder>("caors.test.meta.value_reflected_holder")
+          .meta()
           .property("value", &reflected_value_holder::value)
           .property("readonly", &reflected_value_holder::readonly)
           .commit() == caors::error{});
@@ -168,8 +168,8 @@ using namespace caors::tests::meta_value;
 TEST_CASE("meta any - noncopyable fields return invalid values", "[meta]") {
   require_value_test_meta();
 
-  REQUIRE(((void)caors::meta::class_<move_only_value>("caors.test.meta.move_only_value"),
-           caors::meta::class_<move_only_value>())
+  REQUIRE(caors::registration::type_<move_only_value>("caors.test.meta.move_only_value")
+              .meta()
               .property("value", &move_only_value::value)
               .commit() == caors::error{});
 
@@ -256,9 +256,9 @@ using namespace caors::tests::meta_value;
 TEST_CASE("meta any - descriptor fields do not require container type registration", "[meta]") {
   require_value_test_meta();
 
-  REQUIRE(((void)caors::meta::class_<unregistered_nested_vector_holder>(
-               "caors.test.meta.unregistered_nested_vector_holder"),
-           caors::meta::class_<unregistered_nested_vector_holder>())
+  REQUIRE(caors::registration::type_<unregistered_nested_vector_holder>(
+              "caors.test.meta.unregistered_nested_vector_holder")
+              .meta()
               .property("values", &unregistered_nested_vector_holder::values)
               .commit() == caors::error{});
 

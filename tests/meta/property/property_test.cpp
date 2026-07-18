@@ -33,8 +33,8 @@ TEST_CASE("meta - property view describes composite traits", "[meta]") {
 using namespace test_meta;
 
 TEST_CASE("meta - property view describes field layout", "[meta]") {
-  REQUIRE(((void)caors::meta::class_<field_layout_actor>("caors.test.meta.field_layout_actor"),
-           caors::meta::class_<field_layout_actor>())
+  REQUIRE(caors::registration::type_<field_layout_actor>("caors.test.meta.field_layout_actor")
+              .meta()
               .property("health", &field_layout_actor::health)
               .commit() == caors::error{});
 
@@ -70,12 +70,12 @@ struct schema_actor {
 
 TEST_CASE("meta - property view exposes builtin schema", "[meta]") {
   REQUIRE(
-      ((void)caors::meta::class_<schema_actor>("caors.test.meta.schema_actor"),
-       caors::meta::class_<schema_actor>())
-          .property("format", &schema_actor::format)(
-              caors::meta::registration::required(), caors::meta::registration::non_empty(),
-              caors::meta::registration::one_of({"json", "binary"}))
-          .property("priority", &schema_actor::priority)(caors::meta::registration::range(1, 100))
+      caors::registration::type_<schema_actor>("caors.test.meta.schema_actor")
+          .meta()
+          .property("format", &schema_actor::format, caors::meta::registration::required(),
+                    caors::meta::registration::non_empty(),
+                    caors::meta::registration::one_of({"json", "binary"}))
+          .property("priority", &schema_actor::priority, caors::meta::registration::range(1, 100))
           .commit() == caors::error{});
 
   const caors::meta::type reflected = require_reflected("caors.test.meta.schema_actor");
@@ -225,8 +225,8 @@ TEST_CASE("meta - property view describes value and enum traits", "[meta]") {
 using namespace test_meta;
 
 TEST_CASE("meta - property view reads and writes field values", "[meta]") {
-  REQUIRE(((void)caors::meta::class_<read_write_actor>("caors.test.meta.read_write_actor"),
-           caors::meta::class_<read_write_actor>())
+  REQUIRE(caors::registration::type_<read_write_actor>("caors.test.meta.read_write_actor")
+              .meta()
               .property("id", &read_write_actor::id)
               .property("health", &read_write_actor::health)
               .commit() == caors::error{});
@@ -275,13 +275,13 @@ struct accessor_property_actor {
 } // namespace
 
 TEST_CASE("meta - property view supports getter setter properties", "[meta]") {
-  REQUIRE(((void)caors::meta::class_<accessor_property_actor>(
-               "caors.test.meta.accessor_property_actor"),
-           caors::meta::class_<accessor_property_actor>())
-              .property("health", &accessor_property_actor::get_health,
-                        &accessor_property_actor::set_health)
-              .property_readonly("level", &accessor_property_actor::get_level)
-              .commit() == caors::error{});
+  REQUIRE(
+      caors::registration::type_<accessor_property_actor>("caors.test.meta.accessor_property_actor")
+          .meta()
+          .property("health", &accessor_property_actor::get_health,
+                    &accessor_property_actor::set_health)
+          .property_readonly("level", &accessor_property_actor::get_level)
+          .commit() == caors::error{});
 
   const caors::meta::type reflected = require_reflected("caors.test.meta.accessor_property_actor");
   const caors::meta::property health = require_property(reflected, "health");
@@ -315,8 +315,8 @@ TEST_CASE("meta - property view supports getter setter properties", "[meta]") {
 using namespace test_meta;
 
 TEST_CASE("meta - property view rejects writes to readonly fields", "[meta]") {
-  REQUIRE(((void)caors::meta::class_<readonly_actor>("caors.test.meta.readonly_actor"),
-           caors::meta::class_<readonly_actor>())
+  REQUIRE(caors::registration::type_<readonly_actor>("caors.test.meta.readonly_actor")
+              .meta()
               .property("id", &readonly_actor::id)
               .commit() == caors::error{});
 
@@ -339,8 +339,8 @@ TEST_CASE("meta - property view rejects writes to readonly fields", "[meta]") {
 using namespace test_meta;
 
 TEST_CASE("meta - type view stores and finds fields", "[meta]") {
-  REQUIRE(((void)caors::meta::class_<stored_fields_actor>("caors.test.meta.stored_fields_actor"),
-           caors::meta::class_<stored_fields_actor>())
+  REQUIRE(caors::registration::type_<stored_fields_actor>("caors.test.meta.stored_fields_actor")
+              .meta()
               .property("id", &stored_fields_actor::id)
               .property("health", &stored_fields_actor::health)
               .commit() == caors::error{});

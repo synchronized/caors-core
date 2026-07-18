@@ -20,7 +20,7 @@ template <typename Ops, typename View> class type_capability_base;
 /**
  * @brief C++ 类型到 capability ops 的声明式 model 扩展点。
  *
- * 默认没有 model。用户可以特化该模板，让 `meta::class_<T>().capability<Capability>()`
+ * 默认没有 model。用户可以特化该模板，让 `registration::type_<T>("name").capability<Capability>()`
  * 自动注册对应 `ops`。
  */
 template <typename Capability, typename T> struct capability_model {};
@@ -478,8 +478,8 @@ template <typename... Conventions> struct capability_builder_state {
  * @brief Proxy 风格 capability 构建器。
  *
  * `add_convention<Dispatch, Signature>` 增加一个成员访问约定，`build` 生成可直接用于
- * `meta::class_<T>().capability<Capability>()` 和 `any_ref::get_capability<Capability>()`
- * 的 capability 类型。
+ * `registration::type_<T>("name").capability<Capability>()` 和
+ * `any_ref::get_capability<Capability>()` 的 capability 类型。
  */
 class capability_builder {
 public:

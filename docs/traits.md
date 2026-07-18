@@ -39,7 +39,7 @@ struct type_name<game::actor> {
 没有默认类型名的类型仍然可以通过显式注册使用：
 
 ```cpp
-caors::meta::class_<game::actor>("game.actor");
+caors::registration::type_<game::actor>("game.actor");
 ```
 
 ## wrapper_traits<T>

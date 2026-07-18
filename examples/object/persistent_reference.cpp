@@ -36,9 +36,9 @@ int main() {
     return 1;
   }
 
-  if (caors::meta::class_<caors::object_ptr<persistent_player>>(
+  if (caors::registration::type_<caors::object_ptr<persistent_player>>(
           "caors.object_ptr<example.persistent_player>")
-          .result()) {
+          .commit()) {
     return 1;
   }
 

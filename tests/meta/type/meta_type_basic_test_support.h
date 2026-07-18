@@ -5,6 +5,7 @@
 
 #include "caors/meta.h"
 #include "caors/meta/value.h"
+#include "caors/registration.h"
 #include "caors/traits/type_name.h"
 
 #include <catch2/catch_all.hpp>

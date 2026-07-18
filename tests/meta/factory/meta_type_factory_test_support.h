@@ -7,6 +7,7 @@
 #include "caors/memory.h"
 #include "caors/meta.h"
 #include "caors/meta/value.h"
+#include "caors/registration.h"
 
 #include <catch2/catch_all.hpp>
 

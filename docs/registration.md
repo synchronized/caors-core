@@ -7,7 +7,7 @@
 
 ## 推荐入口
 
-一个类型如果要同时参与 meta、对象和序列化，推荐使用 `caors::registration::type_<T>()`
+一个类型如果要同时参与 meta、对象和序列化，推荐使用 `caors::registration::type_<T>(name)`
 作为跨模块聚合入口。它把类型名、属性、方法、序列化 schema 和对象能力集中到同一条注册链路，
 避免业务代码直接关心各模块 extension 的挂载顺序。
 
@@ -28,14 +28,14 @@ void register_actor() {
 
 当前聚合入口使用 registry pending model：builder 在注册阶段收集 meta 属性/方法、序列化 schema、
 对象 factory capability 和其他类型能力，`commit()` 时一次性发布完整 `type_data`。发布后的
-`type_data` 不会再通过 `registration::type_<T>()` 修改；重复提交同一个类型会返回
+`type_data` 不会再通过 `registration::type_<T>(name)` 修改；重复提交同一个类型会返回
 `errc::duplicate_id`，并保留已有注册数据。
 
-业务类型注册统一使用 `registration::type_<T>()`。object 和 serialization 不再提供独立公共
+业务类型注册统一使用 `registration::type_<T>(name)`。object 和 serialization 不再提供独立公共
 builder；对象能力通过 `.object()` 写入，序列化 schema 通过 `.serialization()` 写入，同一次
 `commit()` 发布完整 `type_data`。`meta::init_registry()` 仍负责执行延迟注册函数并校验注册表。
 
-字段声明类型不要求全部完成 `meta::class_<T>("name")` 注册。基础标量、字符串、容器、指针、
+字段声明类型不要求全部完成 `registration::type_<T>("name")` 注册。基础标量、字符串、容器、指针、
 wrapper、pair、tuple 和 variant 可以通过内部 descriptor 参与反射和序列化。只有需要稳定名称、
 GUID、对象工厂、反射根类型、多态身份或按名称查询的业务类型，才应显式注册到 meta。
 字段注册不会为字段类型隐式创建 meta 类型，序列化 codec 注册也不会隐式创建 meta 类型。
@@ -47,7 +47,7 @@ GUID、对象工厂、反射根类型、多态身份或按名称查询的业务�
 - registry 只保存显式注册后的稳定元数据和模块 extension，例如名称、GUID、父类型、factory、字段、方法和序列化 extension。
 - descriptor static capability 用于类型固有能力，例如对象指针、对象句柄和 `codec_traits<T>` 生成的
   codec 函数表，通过 `meta::type::get_capability<C>()` 查询，不需要单独注册 codec。
-- dynamic capability 用于用户或插件扩展能力，通过 `meta::class_<T>().type("name").capability(ops)`
+- dynamic capability 用于用户或插件扩展能力，通过 `registration::type_<T>("name").capability(ops).commit()`
   挂到注册类型数据；
   它不是 registry extension，也不替代业务 meta 类型注册。
 
@@ -72,8 +72,7 @@ int main() {
 
 ```cpp
 CAORS_META_REGISTRATION(register_actor) {
-  caors::meta::class_<actor>("game.actor");
-  return caors::error{};
+  return caors::registration::type_<actor>("game.actor").commit();
 }
 ```
 
@@ -108,6 +107,6 @@ CAORS_META_REGISTRATION(register_actor) {
 - `errc::missing_parent`：父类型尚未注册。
 - `errc::invalid_field`：反射字段描述无效、字段名冲突，或字段类型无法生成有效 descriptor。
 
-公共业务代码使用 `registration::type_<T>()` 完成跨模块注册。用户代码不应直接调用各模块的
+公共业务代码使用 `registration::type_<T>(name)` 完成跨模块注册。用户代码不应直接调用各模块的
 `detail` 命名空间函数。字段和方法直接通过 meta 注册能力写入，不再保留独立 reflection 注册入口；
 serialization 和 object 的注册能力也收敛到统一 registration builder。

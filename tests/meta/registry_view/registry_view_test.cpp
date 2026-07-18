@@ -7,16 +7,16 @@
 
 using namespace test_meta;
 
-TEST_CASE("meta - class builder can attach to explicit meta type", "[meta]") {
-  const caors::meta::type type =
-      caors::meta::class_<explicit_meta_actor>("caors.test.meta.explicit_meta_actor").get();
-  REQUIRE(type.valid());
-  CHECK(caors::meta::find<explicit_meta_actor>().id() == type.id());
-
+TEST_CASE("meta - registration builder commits explicit meta type", "[meta]") {
   const caors::error status =
-      caors::meta::class_<explicit_meta_actor>().property("id", &explicit_meta_actor::id).commit();
+      caors::registration::type_<explicit_meta_actor>("caors.test.meta.explicit_meta_actor")
+          .meta()
+          .property("id", &explicit_meta_actor::id)
+          .commit();
+  REQUIRE(status == caors::error{});
 
-  REQUIRE((status == caors::error{} || status == meta_error(caors::errc::duplicate_field)));
+  const caors::meta::type type = caors::meta::find<explicit_meta_actor>();
+  REQUIRE(type.valid());
 
   auto reflected = caors::meta::find(type.id());
   REQUIRE(reflected);
@@ -24,29 +24,15 @@ TEST_CASE("meta - class builder can attach to explicit meta type", "[meta]") {
   CHECK(reflected.find_property("id"));
 }
 
-TEST_CASE("meta - class builder uses registered meta type without arguments", "[meta]") {
-  const caors::meta::type type =
-      caors::meta::class_<builder_actor>("caors.test.meta.builder_actor.no_args").get();
-  REQUIRE(type.valid());
-
-  const caors::error status =
-      caors::meta::class_<builder_actor>().property("id", &builder_actor::id).commit();
-
-  REQUIRE((status == caors::error{} || status == meta_error(caors::errc::duplicate_field)));
-
-  auto reflected = caors::meta::find(type.id());
-  REQUIRE(reflected);
-  CHECK(reflected.id() == type.id());
-  CHECK(reflected.find_property("id"));
-}
-
-TEST_CASE("meta - class builder without arguments requires registered meta type", "[meta]") {
-  const caors::error status =
-      caors::meta::class_<invalid_field_owner>().property("id", &invalid_field_owner::id).commit();
+TEST_CASE("meta - registration builder requires a name", "[meta]") {
+  const caors::error status = caors::registration::type_<invalid_field_owner>("")
+                                  .meta()
+                                  .property("id", &invalid_field_owner::id)
+                                  .commit();
 
   CHECK(status.failed());
   CHECK(status.domain() == caors::error_domain::meta);
-  CHECK(status.value() == caors::errc::invalid_type);
+  CHECK(status.value() == caors::errc::invalid_argument);
 }
 
 // 原测试文件：meta_registry_registry_registers_and_finds_types_test.cpp
@@ -77,16 +63,16 @@ TEST_CASE("meta - registry registers and finds types", "[meta]") {
 using namespace test_meta;
 
 TEST_CASE("meta - registry registers child type with parent", "[meta]") {
-  REQUIRE(((void)caors::meta::class_<parent_actor>("caors.test.meta.parent_actor"),
-           caors::meta::class_<parent_actor>())
+  REQUIRE(caors::registration::type_<parent_actor>("caors.test.meta.parent_actor")
+              .meta()
               .property("id", &parent_actor::id)
               .commit() == caors::error{});
   const auto reflected_actor = caors::meta::find("caors.test.meta.parent_actor");
   REQUIRE(reflected_actor);
 
-  REQUIRE(((void)caors::meta::class_<child_player>("caors.test.meta.child_player")
-               .parent(reflected_actor.id()),
-           caors::meta::class_<child_player>())
+  REQUIRE(caors::registration::type_<child_player>("caors.test.meta.child_player")
+              .parent(reflected_actor.id())
+              .meta()
               .property("level", &child_player::level)
               .commit() == caors::error{});
 
@@ -102,14 +88,14 @@ TEST_CASE("meta - registry registers child type with parent", "[meta]") {
 using namespace test_meta;
 
 TEST_CASE("meta - registry reports duplicate field", "[meta]") {
-  REQUIRE(((void)caors::meta::class_<duplicate_actor>("caors.test.meta.duplicate_actor"),
-           caors::meta::class_<duplicate_actor>())
+  REQUIRE(caors::registration::type_<duplicate_actor>("caors.test.meta.duplicate_actor")
+              .meta()
               .property("id", &duplicate_actor::id)
               .commit() == caors::error{});
-  CHECK(((void)caors::meta::class_<duplicate_actor>("caors.test.meta.duplicate_actor"),
-         caors::meta::class_<duplicate_actor>())
+  CHECK(caors::registration::type_<duplicate_actor>("caors.test.meta.duplicate_actor")
+            .meta()
             .property("id", &duplicate_actor::id)
-            .commit() == meta_error(caors::errc::duplicate_field));
+            .commit() == meta_error(caors::errc::duplicate_id));
 }
 
 // 原测试文件：meta_registry_registry_returns_type_and_field_views_test.cpp
@@ -121,7 +107,7 @@ using namespace test_meta;
 TEST_CASE("meta - registry returns type and property views", "[meta]") {
   const caors::error register_status = register_view_actor();
   REQUIRE((register_status == caors::error{} ||
-           register_status == meta_error(caors::errc::duplicate_field)));
+           register_status == meta_error(caors::errc::duplicate_id)));
 
   auto reflected = caors::meta::find("caors.test.meta.view_actor");
   REQUIRE(reflected);
@@ -173,8 +159,8 @@ TEST_CASE("meta - registry returns type and property views", "[meta]") {
 using namespace test_meta;
 
 TEST_CASE("meta - registry validates duplicate fields", "[meta]") {
-  CHECK(((void)caors::meta::class_<duplicate_field_owner>("caors.test.meta.duplicate_field"),
-         caors::meta::class_<duplicate_field_owner>())
+  CHECK(caors::registration::type_<duplicate_field_owner>("caors.test.meta.duplicate_field")
+            .meta()
             .property("id", &duplicate_field_owner::id)
             .property("id", &duplicate_field_owner::health)
             .commit() == meta_error(caors::errc::duplicate_field));
@@ -189,7 +175,7 @@ using namespace test_meta;
 TEST_CASE("meta - views remain valid for append-only registry", "[meta]") {
   const caors::error register_status = register_view_actor();
   REQUIRE((register_status == caors::error{} ||
-           register_status == meta_error(caors::errc::duplicate_field)));
+           register_status == meta_error(caors::errc::duplicate_id)));
 
   auto reflected = caors::meta::find("caors.test.meta.view_actor");
   REQUIRE(reflected);
@@ -199,7 +185,7 @@ TEST_CASE("meta - views remain valid for append-only registry", "[meta]") {
   CHECK(reflected.valid());
   CHECK(field.valid());
 
-  CHECK(register_view_actor() == meta_error(caors::errc::duplicate_field));
+  CHECK(register_view_actor() == meta_error(caors::errc::duplicate_id));
 
   CHECK(reflected.valid());
   CHECK(field.valid());
