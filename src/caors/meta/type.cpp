@@ -23,30 +23,39 @@ namespace {
 
 bool type::valid() const noexcept { return descriptor_ != nullptr && descriptor_->valid(); }
 
-bool type::registered() const noexcept { return data_ != nullptr && data_->registered(); }
+bool type::registered() const noexcept {
+  const detail::type_data* data = registered_data();
+  return data != nullptr && data->registered();
+}
 
 type_id type::id() const noexcept {
-  if (descriptor_ != nullptr) {
-    return descriptor_->type;
+  const detail::type_descriptor* desc = descriptor();
+  if (desc != nullptr) {
+    return desc->type;
   }
 
-  return data_ != nullptr ? data_->id() : type_id::invalid();
+  const detail::type_data* data = registered_data();
+  return data != nullptr ? data->id() : type_id::invalid();
 }
 
 core::string_name type::name() const noexcept {
-  if (data_ != nullptr && data_->name()) {
-    return data_->name();
+  const detail::type_data* data = registered_data();
+  if (data != nullptr && data->name()) {
+    return data->name();
   }
 
-  return descriptor_ != nullptr ? descriptor_->name : core::string_name{};
+  const detail::type_descriptor* desc = descriptor();
+  return desc != nullptr ? desc->name : core::string_name{};
 }
 
 core::type_guid type::guid() const noexcept {
-  return data_ != nullptr ? data_->guid() : core::type_guid::nil();
+  const detail::type_data* data = registered_data();
+  return data != nullptr ? data->guid() : core::type_guid::nil();
 }
 
 type_id type::parent_id() const noexcept {
-  return data_ != nullptr ? data_->parent_id() : type_id::invalid();
+  const detail::type_data* data = registered_data();
+  return data != nullptr ? data->parent_id() : type_id::invalid();
 }
 
 type type::parent() const noexcept {
@@ -58,20 +67,23 @@ type type::parent() const noexcept {
 }
 
 type_kind type::kind() const noexcept {
-  return descriptor_ != nullptr ? detail::descriptor_kind(*descriptor_) : type_kind::value;
+  const detail::type_descriptor* desc = descriptor();
+  return desc != nullptr ? detail::descriptor_kind(*desc) : type_kind::value;
 }
 
 wrapper_semantics type::wrapper() const noexcept {
-  return descriptor_ != nullptr ? detail::descriptor_wrapper_semantics(*descriptor_)
-                                : wrapper_semantics::none;
+  const detail::type_descriptor* desc = descriptor();
+  return desc != nullptr ? detail::descriptor_wrapper_semantics(*desc) : wrapper_semantics::none;
 }
 
 bool type::indirect() const noexcept {
-  return descriptor_ != nullptr && detail::descriptor_indirect(*descriptor_);
+  const detail::type_descriptor* desc = descriptor();
+  return desc != nullptr && detail::descriptor_indirect(*desc);
 }
 
 bool type::nullable() const noexcept {
-  return descriptor_ != nullptr && detail::descriptor_nullable(*descriptor_);
+  const detail::type_descriptor* desc = descriptor();
+  return desc != nullptr && detail::descriptor_nullable(*desc);
 }
 
 const metadata_map& type::metadata() const noexcept {
@@ -88,11 +100,12 @@ const metadata_value* type::find_metadata(metadata_key key) const noexcept {
 }
 
 type type::get_value_type() const noexcept {
-  if (descriptor_ == nullptr) {
+  const detail::type_descriptor* desc = descriptor();
+  if (desc == nullptr) {
     return {};
   }
 
-  switch (detail::descriptor_kind(*descriptor_)) {
+  switch (detail::descriptor_kind(*desc)) {
   case type_kind::value:
   case type_kind::enumeration:
     return *this;
@@ -139,11 +152,12 @@ type type::get_value_type() const noexcept {
 }
 
 type type::get_key_type() const noexcept {
-  if (descriptor_ == nullptr) {
+  const detail::type_descriptor* desc = descriptor();
+  if (desc == nullptr) {
     return {};
   }
 
-  switch (detail::descriptor_kind(*descriptor_)) {
+  switch (detail::descriptor_kind(*desc)) {
   case type_kind::associative: {
     if (const auto* associative_ops = get_raw_ops<meta::associative_ops>()) {
       return associative_ops->get_key_type != nullptr ? associative_ops->get_key_type()
@@ -172,11 +186,13 @@ type type::get_key_type() const noexcept {
 }
 
 std::size_t type::property_count() const noexcept {
-  return data_ != nullptr ? data_->property_count() : 0;
+  const detail::type_data* data = registered_data();
+  return data != nullptr ? data->property_count() : 0;
 }
 
 property type::property_at(std::size_t index) const {
-  return data_ != nullptr ? property{data_->property_at(index)} : property{};
+  const detail::type_data* data = registered_data();
+  return data != nullptr ? property{data->property_at(index)} : property{};
 }
 
 property type::find_property(core::string_name property_name) const {
@@ -184,7 +200,8 @@ property type::find_property(core::string_name property_name) const {
     return {};
   }
 
-  return data_ != nullptr ? property{data_->find_property_ptr(property_name)} : property{};
+  const detail::type_data* data = registered_data();
+  return data != nullptr ? property{data->find_property_ptr(property_name)} : property{};
 }
 
 property type::find_property(std::string_view property_name) const {
@@ -197,11 +214,13 @@ property type::find_property(std::string_view property_name) const {
 }
 
 std::size_t type::method_count() const noexcept {
-  return data_ != nullptr ? data_->method_count() : 0;
+  const detail::type_data* data = registered_data();
+  return data != nullptr ? data->method_count() : 0;
 }
 
 method_set type::method_at(std::size_t index) const {
-  return data_ != nullptr ? method_set{data_->method_at(index)} : method_set{};
+  const detail::type_data* data = registered_data();
+  return data != nullptr ? method_set{data->method_at(index)} : method_set{};
 }
 
 method_set type::find_method(core::string_name method_name) const {
@@ -209,7 +228,8 @@ method_set type::find_method(core::string_name method_name) const {
     return {};
   }
 
-  return data_ != nullptr ? method_set{data_->find_method_ptr(method_name)} : method_set{};
+  const detail::type_data* data = registered_data();
+  return data != nullptr ? method_set{data->find_method_ptr(method_name)} : method_set{};
 }
 
 method_set type::find_method(std::string_view method_name) const {
@@ -219,6 +239,18 @@ method_set type::find_method(std::string_view method_name) const {
   }
 
   return find_method(*interned_name);
+}
+
+const detail::type_data* type::registered_data() const noexcept {
+  return data_ != nullptr && data_->registered() ? data_ : nullptr;
+}
+
+const detail::type_descriptor* type::descriptor() const noexcept {
+  if (data_ != nullptr && data_->descriptor() != nullptr) {
+    return data_->descriptor();
+  }
+
+  return descriptor_;
 }
 
 namespace detail {
@@ -243,12 +275,13 @@ type make_type_view(registry& registry, type_id id, const type_descriptor* descr
 }
 
 std::size_t enum_value_count(const type& source) noexcept {
-  return source.data_ != nullptr ? source.data_->enum_value_count() : 0;
+  const type_data* data = source.registered_data();
+  return data != nullptr ? data->enum_value_count() : 0;
 }
 
 enum_value_view enum_value_at(const type& source, std::size_t index) {
-  return source.data_ != nullptr ? make_enum_value_view(source.data_->enum_value_at(index))
-                                 : enum_value_view{};
+  const type_data* data = source.registered_data();
+  return data != nullptr ? make_enum_value_view(data->enum_value_at(index)) : enum_value_view{};
 }
 
 enum_value_view find_enum_value(const type& source, core::string_name enum_value_name) {
@@ -256,9 +289,9 @@ enum_value_view find_enum_value(const type& source, core::string_name enum_value
     return {};
   }
 
-  return source.data_ != nullptr
-             ? make_enum_value_view(source.data_->find_enum_value_ptr(enum_value_name))
-             : enum_value_view{};
+  const type_data* data = source.registered_data();
+  return data != nullptr ? make_enum_value_view(data->find_enum_value_ptr(enum_value_name))
+                         : enum_value_view{};
 }
 
 enum_value_view find_enum_value(const type& source, std::string_view enum_value_name) {
@@ -271,13 +304,15 @@ enum_value_view find_enum_value(const type& source, std::string_view enum_value_
 }
 
 enum_value_view find_enum_value_by_i64(const type& source, std::int64_t value) noexcept {
-  return source.data_ != nullptr ? make_enum_value_view(source.data_->find_enum_value_ptr(value))
-                                 : enum_value_view{};
+  const type_data* data = source.registered_data();
+  return data != nullptr ? make_enum_value_view(data->find_enum_value_ptr(value))
+                         : enum_value_view{};
 }
 
 enum_value_view find_enum_value_by_u64(const type& source, std::uint64_t value) noexcept {
-  return source.data_ != nullptr ? make_enum_value_view(source.data_->find_enum_value_ptr(value))
-                                 : enum_value_view{};
+  const type_data* data = source.registered_data();
+  return data != nullptr ? make_enum_value_view(data->find_enum_value_ptr(value))
+                         : enum_value_view{};
 }
 
 } // namespace detail

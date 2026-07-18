@@ -180,6 +180,9 @@ private:
                  const detail::type_descriptor* descriptor) noexcept
       : registry_(registry), data_(data), descriptor_(descriptor) {}
 
+  [[nodiscard]] const detail::type_data* registered_data() const noexcept;
+  [[nodiscard]] const detail::type_descriptor* descriptor() const noexcept;
+
   const registry* registry_ = nullptr;
   const detail::type_data* data_ = nullptr;
   const detail::type_descriptor* descriptor_ = nullptr;
