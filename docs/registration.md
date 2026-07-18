@@ -5,30 +5,38 @@
 
 本文档说明 CAORS 当前推荐的类型注册顺序和初始化策略。这里的注册只面向 C++ 类型；脚本或动态类型后续应使用独立注册系统，再通过上层 resolver 和 C++ 运行期数据交互。
 
-## 推荐顺序
+## 推荐入口
 
-一个类型如果要参与对象、反射和序列化，推荐按以下顺序注册：
-
-1. 注册需要稳定名称、GUID、父类型或 factory 的业务 meta 类型。
-2. 如有对象能力，注册 object extension。
-3. 在 `meta::class_<T>()` 上注册字段和方法。
-4. 注册序列化 extension。
-5. 可选：挂接用户或插件的 dynamic capability。
-6. 可选：在启动阶段最后调用 `meta::init_registry()` 执行延迟注册函数并校验注册表。
+一个类型如果要同时参与 meta、对象和序列化，推荐使用 `caors::registration::type_<T>()`
+作为跨模块聚合入口。它把类型名、属性、方法、序列化 schema 和对象能力集中到同一条注册链路，
+避免业务代码直接关心各模块 extension 的挂载顺序。
 
 示例：
 
 ```cpp
 void register_actor() {
-  caors::meta::class_<actor>("game.actor")
-      .guid(caors::type_guid{actor_guid})
-      .property("id", &actor::id);
-
-  caors::serialization::class_<actor>()
+  caors::registration::type_<actor>("game.actor")
+      .meta()
+      .property("id", &actor::id)
+      .method("rename", &actor::rename)
+      .serialization()
       .field("id")
+      .object()
       .commit();
 }
 ```
+
+当前聚合入口复用 `meta::class_<T>()`、`serialization::class_()` 和 `objects::class_<T>()`
+的既有实现，因此默认上下文路径最完整。长期目标是引入 registry pending model：builder
+在注册阶段收集完整数据，`commit()` 时一次性发布不可变 `type_data`；发布后的类型数据只读，
+后续修改需要重新构造并按 registry 策略替换或拒绝。
+
+底层模块入口仍然保留：
+
+1. `meta::class_<T>()`：注册类型名、GUID、父类型、factory、属性、方法、枚举和 dynamic capability。
+2. `serialization::class_(meta::type)`：给已注册 meta 类型挂载序列化 schema。
+3. `objects::class_<T>()`：给对象类型挂载对象工厂能力。
+4. `meta::init_registry()`：执行延迟注册函数并校验注册表。
 
 字段声明类型不要求全部完成 `meta::class_<T>("name")` 注册。基础标量、字符串、容器、指针、
 wrapper、pair、tuple 和 variant 可以通过内部 descriptor 参与反射和序列化。只有需要稳定名称、
