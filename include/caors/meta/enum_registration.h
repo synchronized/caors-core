@@ -19,7 +19,7 @@ template <typename T> enum_builder<T>& enum_builder<T>::add_enum_value(string_na
     return *this;
   }
 
-  detail::type_data* type_data = get_registry().find_mutable_type_data(type_.id());
+  detail::type_data* type_data = registry_ref().find_mutable_type_data(type_.id());
   if (type_data == nullptr) {
     status_ = {error_domain::meta, errc::invalid_type};
     return *this;
@@ -46,7 +46,7 @@ enum_builder<T>& enum_builder<T>::set_enum_value_metadata(string_name value_name
     return *this;
   }
 
-  detail::type_data* type_data = get_registry().find_mutable_type_data(type_.id());
+  detail::type_data* type_data = registry_ref().find_mutable_type_data(type_.id());
   detail::enum_value_data* enum_value =
       type_data != nullptr ? type_data->mutable_find_enum_value_ptr(value_name) : nullptr;
   if (enum_value == nullptr) {

@@ -555,6 +555,25 @@ template <typename Capability, typename T> [[nodiscard]] error register_capabili
   return register_capability_for_type<ops_type, value_type>(ops);
 }
 
+/** @brief 把 `capability_model<Capability, T>` 生成的 ops 挂到指定注册表。内部入口。 */
+template <typename Capability, typename T>
+[[nodiscard]] error register_capability_model_for(registry& registry) {
+  using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  using model_type = capability_model<capability_type, value_type>;
+  using ops_type = typename model_type::ops_type;
+
+  static_assert(std::is_same_v<ops_type, typename capability_type::ops_type>,
+                "capability_model ops_type must match Capability::ops_type");
+
+  const ops_type* ops = model_type::get();
+  if (ops == nullptr) {
+    return {error_domain::meta, errc::unsupported};
+  }
+
+  return register_capability_for_type<ops_type, value_type>(registry, ops);
+}
+
 /** @brief 把 capability 自身声明的自动 model 生成的 ops 挂到注册类型数据。内部入口。 */
 template <typename Capability, typename T>
 [[nodiscard]] error register_capability_auto_model_for() {
@@ -572,6 +591,25 @@ template <typename Capability, typename T>
   }
 
   return register_capability_for_type<ops_type, value_type>(ops);
+}
+
+/** @brief 把 capability 自身声明的自动 model 生成的 ops 挂到指定注册表。内部入口。 */
+template <typename Capability, typename T>
+[[nodiscard]] error register_capability_auto_model_for(registry& registry) {
+  using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  using model_type = typename capability_type::template model<value_type>;
+  using ops_type = typename model_type::ops_type;
+
+  static_assert(std::is_same_v<ops_type, typename capability_type::ops_type>,
+                "capability auto model ops_type must match Capability::ops_type");
+
+  const ops_type* ops = model_type::get();
+  if (ops == nullptr) {
+    return {error_domain::meta, errc::unsupported};
+  }
+
+  return register_capability_for_type<ops_type, value_type>(registry, ops);
 }
 
 } // namespace detail

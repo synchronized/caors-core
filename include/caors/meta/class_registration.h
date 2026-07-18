@@ -71,7 +71,7 @@ property_bind<T> class_builder<T>::property(std::string_view name, Member member
     return property_bind<T>{*this, {}};
   }
 
-  detail::type_data* type_data = get_registry().find_mutable_type_data(type_.id());
+  detail::type_data* type_data = registry_ref().find_mutable_type_data(type_.id());
   if (type_data == nullptr) {
     status_ = {error_domain::meta, errc::invalid_type};
     return property_bind<T>{*this, {}};
@@ -112,7 +112,7 @@ property_bind<T> class_builder<T>::property(std::string_view name, Member member
     return property_bind<T>{*this, {}};
   }
 
-  detail::type_data* type_data = get_registry().find_mutable_type_data(type_.id());
+  detail::type_data* type_data = registry_ref().find_mutable_type_data(type_.id());
   if (type_data == nullptr) {
     status_ = {error_domain::meta, errc::invalid_type};
     return property_bind<T>{*this, {}};
@@ -150,7 +150,7 @@ property_bind<T> class_builder<T>::property(std::string_view name, Getter getter
     return property_bind<T>{*this, {}};
   }
 
-  detail::type_data* type_data = get_registry().find_mutable_type_data(type_.id());
+  detail::type_data* type_data = registry_ref().find_mutable_type_data(type_.id());
   if (type_data == nullptr) {
     status_ = {error_domain::meta, errc::invalid_type};
     return property_bind<T>{*this, {}};
@@ -184,7 +184,7 @@ property_bind<T> class_builder<T>::property_readonly(std::string_view name, Gett
     return property_bind<T>{*this, {}};
   }
 
-  detail::type_data* type_data = get_registry().find_mutable_type_data(type_.id());
+  detail::type_data* type_data = registry_ref().find_mutable_type_data(type_.id());
   if (type_data == nullptr) {
     status_ = {error_domain::meta, errc::invalid_type};
     return property_bind<T>{*this, {}};
@@ -222,7 +222,7 @@ method_bind<T> class_builder<T>::method(std::string_view name, Member member) {
     return method_bind<T>{*this, {}};
   }
 
-  detail::type_data* type_data = get_registry().find_mutable_type_data(type_.id());
+  detail::type_data* type_data = registry_ref().find_mutable_type_data(type_.id());
   if (type_data == nullptr) {
     status_ = {error_domain::meta, errc::invalid_type};
     return method_bind<T>{*this, {}};
@@ -253,7 +253,7 @@ class_builder<T>& class_builder<T>::set_property_entry(string_name property_name
     return *this;
   }
 
-  detail::type_data* type_data = get_registry().find_mutable_type_data(type_.id());
+  detail::type_data* type_data = registry_ref().find_mutable_type_data(type_.id());
   detail::property_data* property =
       type_data != nullptr ? type_data->mutable_find_property_ptr(property_name) : nullptr;
   if (property == nullptr) {
@@ -275,7 +275,7 @@ class_builder<T>::set_property_schema_entry(string_name property_name,
     return *this;
   }
 
-  detail::type_data* type_data = get_registry().find_mutable_type_data(type_.id());
+  detail::type_data* type_data = registry_ref().find_mutable_type_data(type_.id());
   detail::property_data* property =
       type_data != nullptr ? type_data->mutable_find_property_ptr(property_name) : nullptr;
   if (property == nullptr) {
@@ -298,7 +298,7 @@ class_builder<T>& class_builder<T>::set_method_metadata(string_name method_name,
     return *this;
   }
 
-  detail::type_data* type_data = get_registry().find_mutable_type_data(type_.id());
+  detail::type_data* type_data = registry_ref().find_mutable_type_data(type_.id());
   detail::method_set_data* method_set =
       type_data != nullptr ? type_data->mutable_find_method_ptr(method_name) : nullptr;
   detail::method_data* method =

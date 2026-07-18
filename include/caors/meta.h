@@ -10,6 +10,7 @@
 #include "caors/meta/capability_facade.h"
 #include "caors/meta/class_registration.h"
 #include "caors/meta/constructor.h"
+#include "caors/meta/context.h"
 #include "caors/meta/enum_value.h"
 #include "caors/meta/instance.h"
 #include "caors/meta/metadata.h"

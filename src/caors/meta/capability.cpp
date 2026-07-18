@@ -14,7 +14,8 @@
 
 namespace caors::meta::detail {
 
-error register_capability(type_id id, capability_key key, const void* capability) {
+error register_capability(registry& registry, type_id id, capability_key key,
+                          const void* capability) {
   if (!id) {
     return {error_domain::meta, errc::invalid_type};
   }
@@ -23,7 +24,6 @@ error register_capability(type_id id, capability_key key, const void* capability
     return {error_domain::meta, errc::invalid_argument};
   }
 
-  registry& registry = get_registry();
   std::lock_guard lock(registry.state_->mutex);
   type_data* type = find_type_data(*registry.state_, id);
   if (type == nullptr) {
@@ -33,7 +33,11 @@ error register_capability(type_id id, capability_key key, const void* capability
   return type->add_capability(key, capability);
 }
 
-error register_owned_capability(type_id id, capability_key key,
+error register_capability(type_id id, capability_key key, const void* capability) {
+  return register_capability(get_registry(), id, key, capability);
+}
+
+error register_owned_capability(registry& registry, type_id id, capability_key key,
                                 memory::unique_ptr<owned_capability_base> capability) {
   if (!id) {
     return {error_domain::meta, errc::invalid_type};
@@ -43,7 +47,6 @@ error register_owned_capability(type_id id, capability_key key,
     return {error_domain::meta, errc::invalid_argument};
   }
 
-  registry& registry = get_registry();
   std::lock_guard lock(registry.state_->mutex);
   type_data* type = find_type_data(*registry.state_, id);
   if (type == nullptr) {
@@ -53,12 +56,16 @@ error register_owned_capability(type_id id, capability_key key,
   return type->add_owned_capability(key, std::move(capability));
 }
 
-const void* find_capability(type_id id, capability_key key) noexcept {
+error register_owned_capability(type_id id, capability_key key,
+                                memory::unique_ptr<owned_capability_base> capability) {
+  return register_owned_capability(get_registry(), id, key, std::move(capability));
+}
+
+const void* find_capability(const registry& registry, type_id id, capability_key key) noexcept {
   if (!id || key == nullptr) {
     return nullptr;
   }
 
-  registry& registry = get_registry();
   std::lock_guard lock(registry.state_->mutex);
   const type_data* type = find_type_data(*registry.state_, id);
   if (type == nullptr) {
@@ -66,6 +73,10 @@ const void* find_capability(type_id id, capability_key key) noexcept {
   }
 
   return type->find_capability(key);
+}
+
+const void* find_capability(type_id id, capability_key key) noexcept {
+  return find_capability(get_registry(), id, key);
 }
 
 const void* find_type_capability(const meta::type& type, capability_key key) noexcept {
@@ -86,19 +97,26 @@ const void* find_type_capability(const meta::type& type, capability_key key) noe
     }
   }
 
-  return find_capability(type.id(), key);
+  if (type.registry_ == nullptr) {
+    return nullptr;
+  }
+
+  return find_capability(*type.registry_, type.id(), key);
+}
+
+bool contains_capability(const registry& registry, type_id id, capability_key key) noexcept {
+  return find_capability(registry, id, key) != nullptr;
 }
 
 bool contains_capability(type_id id, capability_key key) noexcept {
-  return find_capability(id, key) != nullptr;
+  return contains_capability(get_registry(), id, key);
 }
 
-std::size_t capability_count(capability_key key) noexcept {
+std::size_t capability_count(const registry& registry, capability_key key) noexcept {
   if (key == nullptr) {
     return 0;
   }
 
-  registry& registry = get_registry();
   std::lock_guard lock(registry.state_->mutex);
   std::size_t result = 0;
   for (const auto& [raw_id, type] : registry.state_->types) {
@@ -109,6 +127,10 @@ std::size_t capability_count(capability_key key) noexcept {
   }
 
   return result;
+}
+
+std::size_t capability_count(capability_key key) noexcept {
+  return capability_count(get_registry(), key);
 }
 
 } // namespace caors::meta::detail

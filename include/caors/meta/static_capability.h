@@ -108,21 +108,46 @@ template <typename Capability, typename T> [[nodiscard]] const Capability* get()
 
 } // namespace caors::meta::capabilities
 
+namespace caors::meta {
+
+class registry;
+
+} // namespace caors::meta
+
 namespace caors::meta::detail {
 
 [[nodiscard]] CAORS_API error register_capability(type_id id, capability_key key,
                                                   const void* capability);
+[[nodiscard]] CAORS_API error register_capability(registry& registry, type_id id,
+                                                  capability_key key, const void* capability);
 [[nodiscard]] CAORS_API error register_owned_capability(
     type_id id, capability_key key, memory::unique_ptr<owned_capability_base> capability);
+[[nodiscard]] CAORS_API error register_owned_capability(
+    registry& registry, type_id id, capability_key key,
+    memory::unique_ptr<owned_capability_base> capability);
 [[nodiscard]] CAORS_API const void* find_capability(type_id id, capability_key key) noexcept;
+[[nodiscard]] CAORS_API const void* find_capability(const registry& registry, type_id id,
+                                                    capability_key key) noexcept;
 [[nodiscard]] CAORS_API bool contains_capability(type_id id, capability_key key) noexcept;
+[[nodiscard]] CAORS_API bool contains_capability(const registry& registry, type_id id,
+                                                 capability_key key) noexcept;
 [[nodiscard]] CAORS_API std::size_t capability_count(capability_key key) noexcept;
+[[nodiscard]] CAORS_API std::size_t capability_count(const registry& registry,
+                                                     capability_key key) noexcept;
 
 /** @brief 把一份稳定生命周期的能力指针挂到已注册类型数据。内部入口。 */
 template <typename Capability>
 [[nodiscard]] error register_capability_for(type_id id, const Capability* capability) {
   using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
   return register_capability(id, capability_key_of<capability_type>(), capability);
+}
+
+/** @brief 把一份稳定生命周期的能力指针挂到指定注册表的已注册类型数据。内部入口。 */
+template <typename Capability>
+[[nodiscard]] error register_capability_for(registry& registry, type_id id,
+                                            const Capability* capability) {
+  using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+  return register_capability(registry, id, capability_key_of<capability_type>(), capability);
 }
 
 /** @brief 按 C++ 类型把一份稳定生命周期的能力指针挂到已注册类型数据。内部入口。 */
@@ -133,6 +158,15 @@ template <typename Capability, typename T>
   return register_capability_for<capability_type>(type_id_of_cpp_type<value_type>(), capability);
 }
 
+/** @brief 按 C++ 类型把能力指针挂到指定注册表的已注册类型数据。内部入口。 */
+template <typename Capability, typename T>
+[[nodiscard]] error register_capability_for_type(registry& registry, const Capability* capability) {
+  using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  return register_capability_for<capability_type>(registry, type_id_of_cpp_type<value_type>(),
+                                                  capability);
+}
+
 /** @brief 按 C++ 类型把一份类型数据拥有的能力对象挂到已注册类型数据。内部入口。 */
 template <typename Capability, typename T>
 [[nodiscard]] error register_owned_capability_for_type(Capability capability) {
@@ -140,6 +174,16 @@ template <typename Capability, typename T>
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
   auto owned = make_owned_capability<capability_type>(capability_type{std::move(capability)});
   return register_owned_capability(type_id_of_cpp_type<value_type>(),
+                                   capability_key_of<capability_type>(), std::move(owned));
+}
+
+/** @brief 按 C++ 类型把一份类型数据拥有的能力对象挂到指定注册表。内部入口。 */
+template <typename Capability, typename T>
+[[nodiscard]] error register_owned_capability_for_type(registry& registry, Capability capability) {
+  using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  auto owned = make_owned_capability<capability_type>(capability_type{std::move(capability)});
+  return register_owned_capability(registry, type_id_of_cpp_type<value_type>(),
                                    capability_key_of<capability_type>(), std::move(owned));
 }
 
@@ -153,6 +197,19 @@ template <typename Capability, typename T> [[nodiscard]] error register_static_c
   }
 
   return register_capability_for_type<capability_type, value_type>(capability);
+}
+
+/** @brief 把 C++ 类型的静态能力挂到指定注册表。内部入口。 */
+template <typename Capability, typename T>
+[[nodiscard]] error register_static_capability_for(registry& registry) {
+  using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  const capability_type* capability = capabilities::get<capability_type, value_type>();
+  if (capability == nullptr) {
+    return {error_domain::meta, errc::unsupported};
+  }
+
+  return register_capability_for_type<capability_type, value_type>(registry, capability);
 }
 
 } // namespace caors::meta::detail

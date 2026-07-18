@@ -20,8 +20,8 @@
 - 用内部 type descriptor 保存类型形态、通用类型关系和具体访问函数表。
 - 用可选 factory capability 保存资源感知构造策略，供普通类多态反序列化等需要运行期创建值的路径使用。
 - 用 `meta::type` 作为对外只读类型视图，避免直接暴露注册表内部数据。
-- 用全局 `meta::registry` 集中处理 meta 类型注册、查找和继承关系判断。
-- 用全局 `meta::registry` 在同一个 `type_id` 上集中保存类型数据，并按需挂载不同主题的扩展数据。
+- 用 `meta::context` 定位当前使用的 `meta::registry`，默认上下文覆盖普通全局用法。
+- 用 `meta::registry` 集中处理 meta 类型注册、查找、继承关系判断和扩展数据索引。
 - 避免对象系统、反射系统和序列化系统各自重复实现类型注册和属性/方法索引逻辑。
 
 当前不会包含：
@@ -44,6 +44,7 @@
 - `caors/traits/container.h`：顺序、集合、关联、pair、tuple 和 variant 类型语义 traits 主模板。
 - `caors/meta/type.h`：`meta::type` 只读类型视图和类型语义枚举。
 - `caors/meta/type_creation.h`：调用 `meta::type::create()` / `create_value()` 时需要的完整依赖头。
+- `caors/meta/context.h`：`meta::context` 和 `meta::default_context()` 注册表定位入口。
 - `caors/meta/query.h`：`meta::resolve<T>()`、`meta::find<T>()`、`meta::id_of<T>()` 等查询入口。
 - `caors/meta/builder.h`：`meta::class_<T>()`、`meta::enum_<T>()` 等链式注册入口。
 - `caors/meta/property.h`、`caors/meta/method.h`：属性和成员方法只读视图。
@@ -55,7 +56,7 @@
 - `caors/meta/value_ops.h`：值布局、生命周期、factory 和 constructor 的底层 ops 结构体。
 - `caors/adapters/stl_traits.h`、`caors/adapters/stl_wrapper.h`：STL/CAORS 类型的默认 traits 特化。
 - `caors/meta/extension_view.h`：`meta::extension_view<T...>` 查询视图。
-- `caors/meta/registry.h`：全局 `meta::registry`、注册错误状态和注册 helper。
+- `caors/meta/registry.h`：`meta::registry`、注册错误状态和注册 helper。
 
 ## 核心概念
 
@@ -115,7 +116,7 @@ caors::meta::class_<player>("game.player")
 
 ### meta::type
 
-meta 类型记录由全局注册表内部保存，普通代码不直接构造或修改。对外查询统一返回
+meta 类型记录由当前 `meta::context` 指向的注册表内部保存，普通代码不直接构造或修改。对外查询统一返回
 `meta::type`，它提供以下只读信息：
 
 - `id`
@@ -131,7 +132,7 @@ meta 类型记录由全局注册表内部保存，普通代码不直接构造或
 `registered()` 表示该类型是否已经通过 `meta::class_<T>("name")` 写入稳定注册数据；只有已注册类型
 才有稳定注册名、GUID、父类型和可挂载 extension。
 `meta::find<T>()` 只查询已经注册的 C++ 类型；未注册类型即使能解析 descriptor，也会返回空视图。
-`meta::class_<T>()` 链式 builder 会原地更新全局注册表中已经保存的类型数据；已有 `meta::type`
+`meta::class_<T>()` 链式 builder 会原地更新默认上下文注册表中已经保存的类型数据；已有 `meta::type`
 视图只引用这份稳定数据，不会因为后续 `.guid()` 或 `.parent()` 调用而失效。
 属性和成员方法也挂在同一份类型数据上，已有 `meta::type` 视图可以在后续属性/方法注册后直接查询到新内容。
 
@@ -163,7 +164,7 @@ caors::meta::property health = type.find_property("health");
 caors::meta::method add_health = type.find_method("add_health").single();
 ```
 
-`meta::type` 不拥有数据；类型已注册时引用全局 append-only 注册表中的 meta 类型记录。
+`meta::type` 不拥有数据；类型已注册时引用所属 registry 中 append-only 保存的 meta 类型记录。
 未注册类型仍可以作为 C++ 类型视图参与 value、反射字段和序列化内部调度。需要查询类型信息时使用
 `meta::type`。
 
@@ -174,6 +175,30 @@ caors::meta::method add_health = type.find_method("add_health").single();
   static capability 或 codec 时统一使用这个入口。
 - `meta::find<T>()` / `meta::find(name/guid)`：查询已注册类型。需要稳定名称、GUID、父类型、
   factory 或模块 extension 索引时使用这个入口；未注册 C++ 类型返回空视图。
+
+### meta::context
+
+`meta::context` 是 meta API 的 registry 定位器。普通代码直接使用默认上下文：
+
+```cpp
+caors::meta::class_<actor>("game.actor");
+caors::meta::type type = caors::meta::find<actor>();
+```
+
+需要测试隔离、工具沙箱或插件注册隔离时，可以创建独立 registry 并显式传入 context：
+
+```cpp
+caors::meta::registry registry;
+caors::meta::context ctx{registry};
+
+caors::meta::class_<actor>(ctx, "game.actor");
+caors::meta::type type = caors::meta::find<actor>(ctx);
+```
+
+同一个 C++ 类型在不同 registry 中可以有独立的注册数据。`meta::resolve<T>(ctx)` 返回的
+descriptor-only 视图也会绑定到该 context 的 registry，因此后续通过 `meta::type` 查询动态
+capability 时会查找所属 registry。默认 `meta::resolve<T>()`、`meta::find<T>()`、
+`meta::class_<T>()` 和 `meta::enum_<T>()` 都等价于显式传入 `meta::default_context()`。
 
 ### traits::type_name<T>
 

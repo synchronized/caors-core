@@ -25,6 +25,7 @@ namespace caors::meta {
 
 class any;
 class argument;
+class context;
 class registry;
 class type;
 class property;
@@ -33,6 +34,7 @@ class method_set;
 class enum_value_view;
 
 [[nodiscard]] CAORS_API registry& get_registry() noexcept;
+[[nodiscard]] CAORS_API context& default_context() noexcept;
 template <typename T> [[nodiscard]] type resolve();
 template <typename T> [[nodiscard]] type find();
 
@@ -42,6 +44,8 @@ class type_data;
 struct type_descriptor;
 
 [[nodiscard]] CAORS_API type make_type_view(type_id id, const type_descriptor* descriptor) noexcept;
+[[nodiscard]] CAORS_API type make_type_view(registry& registry, type_id id,
+                                            const type_descriptor* descriptor) noexcept;
 [[nodiscard]] CAORS_API std::size_t enum_value_count(const type& source) noexcept;
 [[nodiscard]] CAORS_API enum_value_view enum_value_at(const type& source, std::size_t index);
 [[nodiscard]] CAORS_API enum_value_view find_enum_value(const type& source, string_name name);
@@ -162,6 +166,8 @@ public:
 private:
   friend class registry;
   friend type detail::make_type_view(type_id, const detail::type_descriptor*) noexcept;
+  friend type detail::make_type_view(registry&, type_id,
+                                     const detail::type_descriptor*) noexcept;
   friend const void* detail::find_type_capability(const type&, capability_key) noexcept;
   friend std::size_t detail::enum_value_count(const type&) noexcept;
   friend enum_value_view detail::enum_value_at(const type&, std::size_t);

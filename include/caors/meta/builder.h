@@ -4,6 +4,7 @@
 #ifndef CAORS_META_BUILDER_H_
 #define CAORS_META_BUILDER_H_
 
+#include "caors/meta/context.h"
 #include "caors/meta/detail/value_ops_model.h"
 #include "caors/meta/proxy.h"
 #include "caors/meta/registration.h"
@@ -71,10 +72,12 @@ private:
 /** @brief RTTR 风格的类/普通值类型注册构建器。 */
 template <typename T> class class_builder {
 public:
-  class_builder() { refresh(); }
+  explicit class_builder(context& ctx = default_context()) : registry_(&ctx.get_registry()) {
+    refresh();
+  }
 
   class_builder& type(std::string_view name) {
-    status_ = get_registry().register_type_for<T>(string_name{name});
+    status_ = registry_ref().template register_type_for<T>(string_name{name});
     refresh();
     return *this;
   }
@@ -85,7 +88,7 @@ public:
       return *this;
     }
 
-    status_ = get_registry().set_type_guid(type_.id(), guid_value);
+    status_ = registry_ref().set_type_guid(type_.id(), guid_value);
     refresh();
     return *this;
   }
@@ -98,7 +101,7 @@ public:
       return *this;
     }
 
-    status_ = get_registry().set_type_parent(type_.id(), parent_id);
+    status_ = registry_ref().set_type_parent(type_.id(), parent_id);
     refresh();
     return *this;
   }
@@ -110,7 +113,7 @@ public:
       return *this;
     }
 
-    status_ = get_registry().template set_type_parent_for<T, Parent>();
+    status_ = registry_ref().template set_type_parent_for<T, Parent>();
     refresh();
     return *this;
   }
@@ -154,7 +157,7 @@ public:
       return *this;
     }
 
-    status_ = detail::register_owned_capability_for_type<factory_ops, T>(ops);
+    status_ = detail::register_owned_capability_for_type<factory_ops, T>(registry_ref(), ops);
     refresh();
     return *this;
   }
@@ -203,7 +206,7 @@ public:
    */
   template <typename Capability> class_builder& capability(const Capability* capability) {
     using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
-    status_ = detail::register_capability_for_type<capability_type, T>(capability);
+    status_ = detail::register_capability_for_type<capability_type, T>(registry_ref(), capability);
     refresh();
     return *this;
   }
@@ -219,7 +222,7 @@ public:
   class_builder& capability(Capability&& capability) {
     using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
     status_ = detail::register_owned_capability_for_type<capability_type, T>(
-        capability_type{std::forward<Capability>(capability)});
+        registry_ref(), capability_type{std::forward<Capability>(capability)});
     refresh();
     return *this;
   }
@@ -234,11 +237,11 @@ public:
   template <typename Capability> class_builder& capability() {
     using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
     if constexpr (detail::has_capability_model_v<capability_type, T>) {
-      status_ = detail::register_capability_model_for<capability_type, T>();
+      status_ = detail::register_capability_model_for<capability_type, T>(registry_ref());
     } else if constexpr (detail::has_capability_auto_model_v<capability_type, T>) {
-      status_ = detail::register_capability_auto_model_for<capability_type, T>();
+      status_ = detail::register_capability_auto_model_for<capability_type, T>(registry_ref());
     } else {
-      status_ = detail::register_static_capability_for<capability_type, T>();
+      status_ = detail::register_static_capability_for<capability_type, T>(registry_ref());
     }
     refresh();
     return *this;
@@ -256,14 +259,15 @@ public:
       return *this;
     }
 
-    type_metadata* data = get_registry().find_extension_mutable_ptr<type_metadata>(type_.id());
+    type_metadata* data =
+        registry_ref().template find_extension_mutable_ptr<type_metadata>(type_.id());
     if (data == nullptr) {
-      status_ = get_registry().emplace_extension<type_metadata>(type_.id());
+      status_ = registry_ref().template emplace_extension<type_metadata>(type_.id());
       if (status_ && status_.value() != errc::duplicate_component) {
         return *this;
       }
 
-      data = get_registry().find_extension_mutable_ptr<type_metadata>(type_.id());
+      data = registry_ref().template find_extension_mutable_ptr<type_metadata>(type_.id());
     }
 
     if (data == nullptr) {
@@ -286,6 +290,9 @@ public:
 private:
   friend class property_bind<T>;
   friend class method_bind<T>;
+
+  [[nodiscard]] registry& registry_ref() noexcept { return *registry_; }
+  [[nodiscard]] const registry& registry_ref() const noexcept { return *registry_; }
 
   class_builder& apply_type_metadata(const registration::metadata_entry& entry) {
     return metadata(entry.key, entry.value);
@@ -333,12 +340,13 @@ private:
                                      metadata_key key, metadata_value value);
 
   void refresh() {
-    ::caors::meta::type refreshed = get_registry().find_type<T>();
+    ::caors::meta::type refreshed = registry_ref().template find_type<T>();
     if (refreshed.registered()) {
       type_ = refreshed;
     }
   }
 
+  registry* registry_ = nullptr;
   ::caors::meta::type type_{};
   error status_{};
 };
@@ -539,10 +547,12 @@ template <typename T> class enum_builder {
                 "T must be an enum type");
 
 public:
-  enum_builder() { refresh(); }
+  explicit enum_builder(context& ctx = default_context()) : registry_(&ctx.get_registry()) {
+    refresh();
+  }
 
   enum_builder& type(std::string_view name) {
-    status_ = get_registry().register_type_for<T>(string_name{name});
+    status_ = registry_ref().template register_type_for<T>(string_name{name});
     refresh();
     return *this;
   }
@@ -553,7 +563,7 @@ public:
       return *this;
     }
 
-    status_ = get_registry().set_type_guid(type_.id(), guid_value);
+    status_ = registry_ref().set_type_guid(type_.id(), guid_value);
     refresh();
     return *this;
   }
@@ -562,7 +572,7 @@ public:
 
   template <typename Capability> enum_builder& capability(const Capability* capability) {
     using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
-    status_ = detail::register_capability_for_type<capability_type, T>(capability);
+    status_ = detail::register_capability_for_type<capability_type, T>(registry_ref(), capability);
     refresh();
     return *this;
   }
@@ -572,7 +582,7 @@ public:
   enum_builder& capability(Capability&& capability) {
     using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
     status_ = detail::register_owned_capability_for_type<capability_type, T>(
-        capability_type{std::forward<Capability>(capability)});
+        registry_ref(), capability_type{std::forward<Capability>(capability)});
     refresh();
     return *this;
   }
@@ -580,11 +590,11 @@ public:
   template <typename Capability> enum_builder& capability() {
     using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
     if constexpr (detail::has_capability_model_v<capability_type, T>) {
-      status_ = detail::register_capability_model_for<capability_type, T>();
+      status_ = detail::register_capability_model_for<capability_type, T>(registry_ref());
     } else if constexpr (detail::has_capability_auto_model_v<capability_type, T>) {
-      status_ = detail::register_capability_auto_model_for<capability_type, T>();
+      status_ = detail::register_capability_auto_model_for<capability_type, T>(registry_ref());
     } else {
-      status_ = detail::register_static_capability_for<capability_type, T>();
+      status_ = detail::register_static_capability_for<capability_type, T>(registry_ref());
     }
     refresh();
     return *this;
@@ -608,14 +618,15 @@ public:
       return *this;
     }
 
-    type_metadata* data = get_registry().find_extension_mutable_ptr<type_metadata>(type_.id());
+    type_metadata* data =
+        registry_ref().template find_extension_mutable_ptr<type_metadata>(type_.id());
     if (data == nullptr) {
-      status_ = get_registry().emplace_extension<type_metadata>(type_.id());
+      status_ = registry_ref().template emplace_extension<type_metadata>(type_.id());
       if (status_ && status_.value() != errc::duplicate_component) {
         return *this;
       }
 
-      data = get_registry().find_extension_mutable_ptr<type_metadata>(type_.id());
+      data = registry_ref().template find_extension_mutable_ptr<type_metadata>(type_.id());
     }
 
     if (data == nullptr) {
@@ -647,6 +658,9 @@ public:
 private:
   friend class enum_value_bind<T>;
 
+  [[nodiscard]] registry& registry_ref() noexcept { return *registry_; }
+  [[nodiscard]] const registry& registry_ref() const noexcept { return *registry_; }
+
   enum_builder& apply_enum_value_entry(const registration::enum_value_entry<T>& entry) {
     return add_enum_value(entry.name, entry.value);
   }
@@ -670,12 +684,13 @@ private:
                                         metadata_value value);
 
   void refresh() {
-    ::caors::meta::type refreshed = get_registry().find_type<T>();
+    ::caors::meta::type refreshed = registry_ref().template find_type<T>();
     if (refreshed.registered()) {
       type_ = refreshed;
     }
   }
 
+  registry* registry_ = nullptr;
   ::caors::meta::type type_{};
   error status_{};
 };
@@ -739,19 +754,43 @@ template <typename T> enum_value_bind<T> enum_builder<T>::value(string_name name
 }
 
 /** @brief 获取指定 C++ 类/普通值类型的元类型注册构建器；默认不注册类型。 */
-template <typename T> [[nodiscard]] class_builder<T> class_() { return class_builder<T>{}; }
+template <typename T> [[nodiscard]] class_builder<T> class_(context& ctx) {
+  return class_builder<T>{ctx};
+}
+
+/** @brief 获取指定 C++ 类/普通值类型的元类型注册构建器；默认不注册类型。 */
+template <typename T> [[nodiscard]] class_builder<T> class_() {
+  return class_<T>(default_context());
+}
+
+/** @brief 在指定上下文中显式注册指定 C++ 类/普通值类型并设置类型名。 */
+template <typename T> [[nodiscard]] class_builder<T> class_(context& ctx, std::string_view name) {
+  return class_builder<T>{ctx}.type(name);
+}
 
 /** @brief 显式注册指定 C++ 类/普通值类型并设置类型名。 */
 template <typename T> [[nodiscard]] class_builder<T> class_(std::string_view name) {
-  return class_builder<T>{}.type(name);
+  return class_<T>(default_context(), name);
 }
 
 /** @brief 获取指定 C++ 枚举类型的元类型注册构建器；默认不注册类型。 */
-template <typename T> [[nodiscard]] enum_builder<T> enum_() { return enum_builder<T>{}; }
+template <typename T> [[nodiscard]] enum_builder<T> enum_(context& ctx) {
+  return enum_builder<T>{ctx};
+}
+
+/** @brief 获取指定 C++ 枚举类型的元类型注册构建器；默认不注册类型。 */
+template <typename T> [[nodiscard]] enum_builder<T> enum_() {
+  return enum_<T>(default_context());
+}
+
+/** @brief 在指定上下文中显式注册指定 C++ 枚举类型并设置类型名。 */
+template <typename T> [[nodiscard]] enum_builder<T> enum_(context& ctx, std::string_view name) {
+  return enum_builder<T>{ctx}.type(name);
+}
 
 /** @brief 显式注册指定 C++ 枚举类型并设置类型名。 */
 template <typename T> [[nodiscard]] enum_builder<T> enum_(std::string_view name) {
-  return enum_builder<T>{}.type(name);
+  return enum_<T>(default_context(), name);
 }
 
 } // namespace caors::meta

@@ -33,11 +33,20 @@ class type_data;
 struct type_descriptor;
 template <typename T> [[nodiscard]] error ensure_type_descriptor_for();
 [[nodiscard]] error ensure_type_descriptor_registered(const type_descriptor& descriptor);
+[[nodiscard]] error register_capability(registry& registry, type_id id, capability_key key,
+                                        const void* capability);
 [[nodiscard]] error register_capability(type_id id, capability_key key, const void* capability);
+[[nodiscard]] error register_owned_capability(registry& registry, type_id id, capability_key key,
+                                              memory::unique_ptr<owned_capability_base> capability);
 [[nodiscard]] error register_owned_capability(type_id id, capability_key key,
                                               memory::unique_ptr<owned_capability_base> capability);
+[[nodiscard]] const void* find_capability(const registry& registry, type_id id,
+                                          capability_key key) noexcept;
 [[nodiscard]] const void* find_capability(type_id id, capability_key key) noexcept;
+[[nodiscard]] bool contains_capability(const registry& registry, type_id id,
+                                       capability_key key) noexcept;
 [[nodiscard]] bool contains_capability(type_id id, capability_key key) noexcept;
+[[nodiscard]] std::size_t capability_count(const registry& registry, capability_key key) noexcept;
 [[nodiscard]] std::size_t capability_count(capability_key key) noexcept;
 
 } // namespace caors::meta::detail
@@ -48,15 +57,18 @@ template <typename T> class class_builder;
 template <typename T> class enum_builder;
 
 /**
- * @brief 底层全局类型元数据注册表。
+ * @brief 类型元数据注册表。
  *
  * `meta::registry` 以 `type_id` 为 key，先注册内部基础类型数据，再按类型挂载父类、
- * 反射描述、序列化描述等扩展数据。普通代码应使用 `meta::class_<T>()`、`meta::resolve<T>()`、
- * `meta::find<T>()` 和 `meta::find()` 入口，不要创建或管理注册表实例。
+ * 反射描述、序列化描述等扩展数据。普通代码使用默认上下文即可；需要测试隔离、插件隔离或自定义
+ * 生命周期时，可以创建独立 registry 并通过 `meta::context` 显式传递。
  */
 class CAORS_API registry final {
 public:
   [[nodiscard]] static registry& instance() noexcept;
+
+  registry();
+  ~registry();
 
   registry(const registry&) = delete;
   registry& operator=(const registry&) = delete;
@@ -109,19 +121,26 @@ public:
   [[nodiscard]] ::caors::meta::extension_view<Extensions...> extension_view() const;
 
 private:
-  registry();
-  ~registry();
-
   template <typename T> friend class class_builder;
   template <typename T> friend class enum_builder;
   friend class type;
   friend error detail::ensure_type_descriptor_registered(const detail::type_descriptor& descriptor);
+  friend error detail::register_capability(registry& registry, type_id id, capability_key key,
+                                           const void* capability);
   friend error detail::register_capability(type_id id, capability_key key, const void* capability);
+  friend error detail::register_owned_capability(
+      registry& registry, type_id id, capability_key key,
+      memory::unique_ptr<detail::owned_capability_base> capability);
   friend error
   detail::register_owned_capability(type_id id, capability_key key,
                                     memory::unique_ptr<detail::owned_capability_base> capability);
+  friend const void* detail::find_capability(const registry& registry, type_id id,
+                                             capability_key key) noexcept;
   friend const void* detail::find_capability(type_id id, capability_key key) noexcept;
+  friend bool detail::contains_capability(const registry& registry, type_id id,
+                                          capability_key key) noexcept;
   friend bool detail::contains_capability(type_id id, capability_key key) noexcept;
+  friend std::size_t detail::capability_count(const registry& registry, capability_key key) noexcept;
   friend std::size_t detail::capability_count(capability_key key) noexcept;
 
   [[nodiscard]] error register_type(type_id id, string_name name, type_guid guid,

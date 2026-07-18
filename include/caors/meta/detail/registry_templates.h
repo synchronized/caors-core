@@ -30,7 +30,12 @@ template <typename T>
     return type_info_status;
   }
 
-  const error descriptor_status = detail::ensure_type_descriptor_for<value_type>();
+  const detail::type_descriptor* descriptor = detail::descriptor_ptr_of<value_type>();
+  if (descriptor == nullptr || !descriptor->valid()) {
+    return {error_domain::meta, errc::invalid_type};
+  }
+
+  const error descriptor_status = ensure_type_descriptor(*descriptor);
   if (descriptor_status) {
     return descriptor_status;
   }
@@ -45,7 +50,10 @@ template <typename T> [[nodiscard]] type registry::find_type() const {
     return {};
   }
 
-  (void)detail::ensure_type_descriptor_for<value_type>();
+  if (const detail::type_descriptor* descriptor = detail::descriptor_ptr_of<value_type>();
+      descriptor != nullptr && descriptor->valid()) {
+    (void)const_cast<registry*>(this)->ensure_type_descriptor(*descriptor);
+  }
   return find_type(id);
 }
 

@@ -224,8 +224,12 @@ method_set type::find_method(std::string_view method_name) const {
 namespace detail {
 
 type make_type_view(type_id id, const type_descriptor* descriptor) noexcept {
+  return make_type_view(get_registry(), id, descriptor);
+}
+
+type make_type_view(registry& registry, type_id id, const type_descriptor* descriptor) noexcept {
   if (id) {
-    meta::type registered = get_registry().find_type(id);
+    meta::type registered = registry.find_type(id);
     if (registered) {
       return registered;
     }
@@ -235,7 +239,7 @@ type make_type_view(type_id id, const type_descriptor* descriptor) noexcept {
     return {};
   }
 
-  return meta::type{&get_registry(), nullptr, descriptor};
+  return meta::type{&registry, nullptr, descriptor};
 }
 
 std::size_t enum_value_count(const type& source) noexcept {
