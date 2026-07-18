@@ -516,9 +516,17 @@ take.invoke(caors::meta::view(instance), args);
 - `valid()`：判断视图是否仍有效。
 - `info()` / `id()` / `name()` / `guid()`：查询类型身份。
 - `property_count()` / `property_at()`：按索引遍历属性；索引越界时返回无效 `meta::property`。
-- `find_property()`：按属性名查询属性视图；未命中时返回无效 `meta::property`。
+- `find_property(name, search)`：按属性名查询属性视图；未命中时返回无效 `meta::property`。
+  `search` 默认是 `meta::member_search::local_only`，只查当前类型；传入
+  `meta::member_search::include_bases` 时会沿父类链查询，子类同名属性优先。
 - `method_count()` / `method_at()`：按索引遍历同名方法集合；索引越界时返回无效 `meta::method_set`。
-- `find_method()`：按方法名查询同名方法集合；未命中时返回无效 `meta::method_set`。
+- `find_method(name, search)`：按方法名查询同名方法集合；未命中时返回无效 `meta::method_set`。
+  `search` 默认只查当前类型；传入 `include_bases` 时会沿父类链查询，子类同名方法集合优先。
+
+父类查询只影响按名称查询，不改变 `property_count()` / `property_at()` 和
+`method_count()` / `method_at()` 的本地遍历语义。这样工具和序列化层可以明确区分“本类型声明的成员”和
+“继承链可访问的成员”。当前 `include_bases` 查询遇到子类和父类同名方法时返回子类方法集合，不会自动把父类
+overload 合并进同一个 `method_set`。
 
 `meta::property` 当前提供：
 

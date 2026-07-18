@@ -45,15 +45,19 @@ public:
 
   [[nodiscard]] std::size_t property_count() const noexcept;
   [[nodiscard]] property property_at(std::size_t index) const;
-  [[nodiscard]] property find_property(string_name name) const;
-  [[nodiscard]] property find_property(std::string_view name) const;
+  [[nodiscard]] property find_property(string_name name,
+                                       member_search search = member_search::local_only) const;
+  [[nodiscard]] property find_property(std::string_view name,
+                                       member_search search = member_search::local_only) const;
   /** @brief 返回属性视图快照；属性视图仍引用全局 meta 注册表。 */
   [[nodiscard]] core::vector<property> properties(memory_resource* resource = nullptr) const;
 
   [[nodiscard]] std::size_t method_count() const noexcept;
   [[nodiscard]] method_set method_at(std::size_t index) const;
-  [[nodiscard]] method_set find_method(string_name name) const;
-  [[nodiscard]] method_set find_method(std::string_view name) const;
+  [[nodiscard]] method_set find_method(string_name name,
+                                       member_search search = member_search::local_only) const;
+  [[nodiscard]] method_set find_method(std::string_view name,
+                                       member_search search = member_search::local_only) const;
   /** @brief 返回方法视图快照；方法视图仍引用全局 meta 注册表。 */
   [[nodiscard]] core::vector<method_set> methods(memory_resource* resource = nullptr) const;
 

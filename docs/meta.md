@@ -166,6 +166,14 @@ caors::meta::property health = type.find_property("health");
 caors::meta::method add_health = type.find_method("add_health").single();
 ```
 
+`find_property()` 和 `find_method()` 默认只查询当前类型声明的成员。需要查询父类成员时显式传入
+`meta::member_search::include_bases`；同名成员由子类优先返回，遍历 API 仍只遍历本类型成员：
+
+```cpp
+auto inherited_id = caors::meta::find<player>().find_property(
+    "id", caors::meta::member_search::include_bases);
+```
+
 `meta::type` 不拥有数据；类型已注册时引用所属 registry 中 append-only 保存的 meta 类型记录。
 未注册类型仍可以作为 C++ 类型视图参与 value、反射字段和序列化内部调度。需要查询类型信息时使用
 `meta::type`。

@@ -71,6 +71,12 @@ enum class type_kind {
   variant,
 };
 
+/** @brief 类型成员查询范围。 */
+enum class member_search {
+  local_only,
+  include_bases,
+};
+
 using wrapper_semantics = traits::wrapper_semantics;
 
 /**
@@ -122,12 +128,16 @@ public:
   [[nodiscard]] type get_key_type() const noexcept;
   [[nodiscard]] std::size_t property_count() const noexcept;
   [[nodiscard]] property property_at(std::size_t index) const;
-  [[nodiscard]] property find_property(string_name name) const;
-  [[nodiscard]] property find_property(std::string_view name) const;
+  [[nodiscard]] property find_property(string_name name,
+                                       member_search search = member_search::local_only) const;
+  [[nodiscard]] property find_property(std::string_view name,
+                                       member_search search = member_search::local_only) const;
   [[nodiscard]] std::size_t method_count() const noexcept;
   [[nodiscard]] method_set method_at(std::size_t index) const;
-  [[nodiscard]] method_set find_method(string_name name) const;
-  [[nodiscard]] method_set find_method(std::string_view name) const;
+  [[nodiscard]] method_set find_method(string_name name,
+                                       member_search search = member_search::local_only) const;
+  [[nodiscard]] method_set find_method(std::string_view name,
+                                       member_search search = member_search::local_only) const;
 
   /**
    * @brief 查询该类型视图具备的能力。
@@ -166,8 +176,7 @@ public:
 private:
   friend class registry;
   friend type detail::make_type_view(type_id, const detail::type_descriptor*) noexcept;
-  friend type detail::make_type_view(registry&, type_id,
-                                     const detail::type_descriptor*) noexcept;
+  friend type detail::make_type_view(registry&, type_id, const detail::type_descriptor*) noexcept;
   friend const void* detail::find_type_capability(const type&, capability_key) noexcept;
   friend std::size_t detail::enum_value_count(const type&) noexcept;
   friend enum_value_view detail::enum_value_at(const type&, std::size_t);

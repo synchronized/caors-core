@@ -63,22 +63,80 @@ TEST_CASE("meta - registry registers and finds types", "[meta]") {
 using namespace test_meta;
 
 TEST_CASE("meta - registry registers child type with parent", "[meta]") {
-  REQUIRE(caors::registration::type_<parent_actor>("caors.test.meta.parent_actor")
-              .meta()
-              .property("id", &parent_actor::id)
-              .commit() == caors::error{});
+  const auto registration_ok = [](caors::error status) {
+    return status == caors::error{} || status == meta_error(caors::errc::duplicate_id);
+  };
+
+  REQUIRE(registration_ok(caors::registration::type_<parent_actor>("caors.test.meta.parent_actor")
+                              .meta()
+                              .property("id", &parent_actor::id)
+                              .method("base_score", &parent_actor::base_score)
+                              .commit()));
   const auto reflected_actor = caors::meta::find("caors.test.meta.parent_actor");
   REQUIRE(reflected_actor);
 
-  REQUIRE(caors::registration::type_<child_player>("caors.test.meta.child_player")
-              .parent(reflected_actor.id())
-              .meta()
-              .property("level", &child_player::level)
-              .commit() == caors::error{});
+  REQUIRE(registration_ok(caors::registration::type_<child_player>("caors.test.meta.child_player")
+                              .parent<parent_actor>()
+                              .meta()
+                              .property("level", &child_player::level)
+                              .method("child_score", &child_player::child_score)
+                              .commit()));
 
   auto reflected_player = caors::meta::find("caors.test.meta.child_player");
   REQUIRE(reflected_player);
   CHECK(reflected_player.parent_id() == reflected_actor.id());
+}
+
+TEST_CASE("meta - type member lookup can include parent hierarchy", "[meta]") {
+  const auto registration_ok = [](caors::error status) {
+    return status == caors::error{} || status == meta_error(caors::errc::duplicate_id);
+  };
+
+  REQUIRE(registration_ok(caors::registration::type_<parent_actor>("caors.test.meta.parent_actor")
+                              .meta()
+                              .property("id", &parent_actor::id)
+                              .method("base_score", &parent_actor::base_score)
+                              .commit()));
+  REQUIRE(registration_ok(caors::registration::type_<child_player>("caors.test.meta.child_player")
+                              .parent<parent_actor>()
+                              .meta()
+                              .property("level", &child_player::level)
+                              .method("child_score", &child_player::child_score)
+                              .commit()));
+
+  const auto reflected_actor = caors::meta::find("caors.test.meta.parent_actor");
+  const auto reflected_player = caors::meta::find("caors.test.meta.child_player");
+  REQUIRE(reflected_actor);
+  REQUIRE(reflected_player);
+
+  CHECK(reflected_player.property_count() == 1);
+  CHECK(reflected_player.method_count() == 1);
+
+  CHECK_FALSE(reflected_player.find_property("id"));
+  const caors::meta::property inherited_id =
+      reflected_player.find_property("id", caors::meta::member_search::include_bases);
+  REQUIRE(inherited_id);
+  CHECK(inherited_id.get_owner_type().id() == reflected_actor.id());
+
+  CHECK_FALSE(reflected_player.find_method("base_score"));
+  const caors::meta::method_set inherited_base_score =
+      reflected_player.find_method("base_score", caors::meta::member_search::include_bases);
+  REQUIRE(inherited_base_score);
+  CHECK(inherited_base_score.single().get_owner_type().id() == reflected_actor.id());
+
+  const caors::meta::property local_level =
+      reflected_player.find_property("level", caors::meta::member_search::include_bases);
+  REQUIRE(local_level);
+  CHECK(local_level.get_owner_type().id() == reflected_player.id());
+
+  child_player instance{};
+  instance.id = 41;
+  instance.level = 6;
+  const caors::meta::instance view = caors::meta::view(instance);
+  CHECK_FALSE(view.find_property("id"));
+  CHECK(view.find_property("id", caors::meta::member_search::include_bases));
+  CHECK_FALSE(view.find_method("base_score"));
+  CHECK(view.find_method("base_score", caors::meta::member_search::include_bases));
 }
 
 // 原测试文件：meta_registry_registry_reports_duplicate_field_test.cpp

@@ -23,9 +23,13 @@ std::size_t instance::property_count() const noexcept { return type().property_c
 
 property instance::property_at(std::size_t index) const { return type().property_at(index); }
 
-property instance::find_property(string_name name) const { return type().find_property(name); }
+property instance::find_property(string_name name, member_search search) const {
+  return type().find_property(name, search);
+}
 
-property instance::find_property(std::string_view name) const { return type().find_property(name); }
+property instance::find_property(std::string_view name, member_search search) const {
+  return type().find_property(name, search);
+}
 
 core::vector<property> instance::properties(memory_resource* resource) const {
   core::vector<property> result{allocator<property>{resource}};
@@ -42,9 +46,13 @@ std::size_t instance::method_count() const noexcept { return type().method_count
 
 method_set instance::method_at(std::size_t index) const { return type().method_at(index); }
 
-method_set instance::find_method(string_name name) const { return type().find_method(name); }
+method_set instance::find_method(string_name name, member_search search) const {
+  return type().find_method(name, search);
+}
 
-method_set instance::find_method(std::string_view name) const { return type().find_method(name); }
+method_set instance::find_method(std::string_view name, member_search search) const {
+  return type().find_method(name, search);
+}
 
 core::vector<method_set> instance::methods(memory_resource* resource) const {
   core::vector<method_set> result{allocator<method_set>{resource}};

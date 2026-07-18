@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
+#include "caors/meta/type.h"
 #include "caors/meta/detail/type_data.h"
 #include "caors/meta/detail/type_descriptor.h"
 #include "caors/meta/enum_value.h"
@@ -8,7 +9,6 @@
 #include "caors/meta/method.h"
 #include "caors/meta/property.h"
 #include "caors/meta/registry.h"
-#include "caors/meta/type.h"
 
 namespace caors::meta {
 namespace {
@@ -195,22 +195,42 @@ property type::property_at(std::size_t index) const {
   return data != nullptr ? property{data->property_at(index)} : property{};
 }
 
-property type::find_property(core::string_name property_name) const {
+property type::find_property(core::string_name property_name, member_search search) const {
   if (!property_name) {
     return {};
   }
 
   const detail::type_data* data = registered_data();
-  return data != nullptr ? property{data->find_property_ptr(property_name)} : property{};
+  if (data != nullptr) {
+    property found{data->find_property_ptr(property_name)};
+    if (found || search == member_search::local_only) {
+      return found;
+    }
+  }
+
+  type base = parent();
+  while (base) {
+    const detail::type_data* base_data = base.registered_data();
+    if (base_data != nullptr) {
+      property found{base_data->find_property_ptr(property_name)};
+      if (found) {
+        return found;
+      }
+    }
+
+    base = base.parent();
+  }
+
+  return {};
 }
 
-property type::find_property(std::string_view property_name) const {
+property type::find_property(std::string_view property_name, member_search search) const {
   const std::optional<core::string_name> interned_name = core::string_name::find(property_name);
   if (!interned_name.has_value()) {
     return {};
   }
 
-  return find_property(*interned_name);
+  return find_property(*interned_name, search);
 }
 
 std::size_t type::method_count() const noexcept {
@@ -223,22 +243,42 @@ method_set type::method_at(std::size_t index) const {
   return data != nullptr ? method_set{data->method_at(index)} : method_set{};
 }
 
-method_set type::find_method(core::string_name method_name) const {
+method_set type::find_method(core::string_name method_name, member_search search) const {
   if (!method_name) {
     return {};
   }
 
   const detail::type_data* data = registered_data();
-  return data != nullptr ? method_set{data->find_method_ptr(method_name)} : method_set{};
+  if (data != nullptr) {
+    method_set found{data->find_method_ptr(method_name)};
+    if (found || search == member_search::local_only) {
+      return found;
+    }
+  }
+
+  type base = parent();
+  while (base) {
+    const detail::type_data* base_data = base.registered_data();
+    if (base_data != nullptr) {
+      method_set found{base_data->find_method_ptr(method_name)};
+      if (found) {
+        return found;
+      }
+    }
+
+    base = base.parent();
+  }
+
+  return {};
 }
 
-method_set type::find_method(std::string_view method_name) const {
+method_set type::find_method(std::string_view method_name, member_search search) const {
   const std::optional<core::string_name> interned_name = core::string_name::find(method_name);
   if (!interned_name.has_value()) {
     return {};
   }
 
-  return find_method(*interned_name);
+  return find_method(*interned_name, search);
 }
 
 const detail::type_data* type::registered_data() const noexcept {

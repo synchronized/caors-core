@@ -132,10 +132,14 @@ struct view_actor {
 
 struct parent_actor {
   int id = 0;
+
+  int base_score() const { return id + 1; }
 };
 
-struct child_player {
+struct child_player : parent_actor {
   int level = 0;
+
+  int child_score() const { return level + 1; }
 };
 
 struct duplicate_actor {
