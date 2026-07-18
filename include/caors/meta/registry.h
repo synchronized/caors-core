@@ -8,8 +8,8 @@
 #include "caors/error.h"
 #include "caors/export.h"
 #include "caors/meta/detail/extension_data.h"
-#include "caors/meta/extension_view.h"
 #include "caors/meta/detail/parent_cast_ops.h"
+#include "caors/meta/extension_view.h"
 #include "caors/meta/registration.h"
 #include "caors/meta/type.h"
 
@@ -59,7 +59,6 @@ template <typename T> class type_builder;
 
 namespace caors::meta {
 
-template <typename T> class class_builder;
 template <typename T> class enum_builder;
 
 /**
@@ -111,8 +110,8 @@ public:
   /**
    * @brief 获取指定类型上的扩展数据只读指针。
    *
-   * 扩展数据由对应 `type_data` 以 append-only 方式保存。返回指针不拥有对象，只要扩展数据已注册且进程未退出，
-   * 指针地址保持稳定。
+   * 扩展数据由对应 `type_data` 以 append-only
+   * 方式保存。返回指针不拥有对象，只要扩展数据已注册且进程未退出， 指针地址保持稳定。
    */
   template <typename Extension> [[nodiscard]] const Extension* find_extension_ptr(type_id id) const;
 
@@ -127,7 +126,6 @@ public:
   [[nodiscard]] ::caors::meta::extension_view<Extensions...> extension_view() const;
 
 private:
-  template <typename T> friend class class_builder;
   template <typename T> friend class enum_builder;
   template <typename T> friend class ::caors::registration::type_builder;
   friend class type;
@@ -135,9 +133,9 @@ private:
   friend error detail::register_capability(registry& registry, type_id id, capability_key key,
                                            const void* capability);
   friend error detail::register_capability(type_id id, capability_key key, const void* capability);
-  friend error detail::register_owned_capability(
-      registry& registry, type_id id, capability_key key,
-      memory::unique_ptr<detail::owned_capability_base> capability);
+  friend error
+  detail::register_owned_capability(registry& registry, type_id id, capability_key key,
+                                    memory::unique_ptr<detail::owned_capability_base> capability);
   friend error
   detail::register_owned_capability(type_id id, capability_key key,
                                     memory::unique_ptr<detail::owned_capability_base> capability);
@@ -147,7 +145,8 @@ private:
   friend bool detail::contains_capability(const registry& registry, type_id id,
                                           capability_key key) noexcept;
   friend bool detail::contains_capability(type_id id, capability_key key) noexcept;
-  friend std::size_t detail::capability_count(const registry& registry, capability_key key) noexcept;
+  friend std::size_t detail::capability_count(const registry& registry,
+                                              capability_key key) noexcept;
   friend std::size_t detail::capability_count(capability_key key) noexcept;
 
   [[nodiscard]] error register_type(type_id id, string_name name, type_guid guid,

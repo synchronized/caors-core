@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 原测试文件：meta_builder_class_builder_accepts_fields_with_descriptor_only_types_test.cpp
+// 原测试文件：meta_builder_registration_accepts_fields_with_descriptor_only_types_test.cpp
 
 #include "meta_property_test_support.h"
 
 using namespace test_meta;
 
-TEST_CASE("meta - class builder accepts fields with descriptor-only types", "[meta]") {
+TEST_CASE("meta - registration builder accepts fields with descriptor-only types", "[meta]") {
   struct unregistered_field {};
   struct owner {
     unregistered_field field{};
@@ -32,13 +32,13 @@ TEST_CASE("meta - class builder accepts fields with descriptor-only types", "[me
   CHECK(field.try_get<unregistered_field>(caors::meta::view(instance)).has_value());
 }
 
-// 原测试文件：meta_builder_class_builder_infers_built_in_field_types_test.cpp
+// 原测试文件：meta_builder_registration_infers_built_in_field_types_test.cpp
 
 #include "meta_property_test_support.h"
 
 using namespace test_meta;
 
-TEST_CASE("meta - class builder infers built-in field types", "[meta]") {
+TEST_CASE("meta - registration builder infers built-in field types", "[meta]") {
   const caors::error result =
       caors::registration::type_<builder_actor>("caors.test.meta.builder_actor")
           .meta()
@@ -68,13 +68,13 @@ TEST_CASE("meta - class builder infers built-in field types", "[meta]") {
   CHECK(instance.health == 20.0F);
 }
 
-// 原测试文件：meta_builder_class_builder_resolves_explicitly_registered_c_field_type_test.cpp
+// 原测试文件：meta_builder_registration_resolves_explicitly_registered_c_field_type_test.cpp
 
 #include "meta_property_test_support.h"
 
 using namespace test_meta;
 
-TEST_CASE("meta - class builder resolves explicitly registered C++ field type", "[meta]") {
+TEST_CASE("meta - registration builder resolves explicitly registered C++ field type", "[meta]") {
   require_registered_type<test_meta::named_field_value>("caors.test.meta.named_field_value");
 
   REQUIRE(
@@ -96,13 +96,13 @@ TEST_CASE("meta - class builder resolves explicitly registered C++ field type", 
   CHECK(value.get_type().id() == value_type.id());
 }
 
-// 原测试文件：meta_builder_class_builder_resolves_registered_c_field_types_test.cpp
+// 原测试文件：meta_builder_registration_resolves_registered_c_field_types_test.cpp
 
 #include "meta_property_test_support.h"
 
 using namespace test_meta;
 
-TEST_CASE("meta - class builder resolves registered C++ field types", "[meta]") {
+TEST_CASE("meta - registration builder resolves registered C++ field types", "[meta]") {
   REQUIRE(caors::registration::type_<inventory>("caors.test.meta.inventory")
               .meta()
               .property("count", &inventory::count)

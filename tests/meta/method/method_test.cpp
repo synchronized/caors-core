@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 原测试文件：meta_method_class_builder_rejects_duplicate_method_names_test.cpp
+// 原测试文件：meta_method_registration_rejects_duplicate_method_names_test.cpp
 
 #include "meta_method_test_support.h"
 

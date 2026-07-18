@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 原测试文件：meta_registry_class_builder_can_attach_to_explicit_meta_type_test.cpp
+// 原测试文件：meta_registry_registration_can_attach_to_explicit_meta_type_test.cpp
 
 #include "meta_registry_view_test_support.h"
 

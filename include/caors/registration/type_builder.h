@@ -4,13 +4,13 @@
 #ifndef CAORS_REGISTRATION_TYPE_BUILDER_H_
 #define CAORS_REGISTRATION_TYPE_BUILDER_H_
 
-#include "caors/meta/class_registration.h"
 #include "caors/meta/constructor.h"
 #include "caors/meta/detail/extension_data.h"
 #include "caors/meta/detail/parent_cast_ops.h"
 #include "caors/meta/detail/type_data.h"
 #include "caors/meta/detail/type_descriptor_model.h"
 #include "caors/meta/metadata.h"
+#include "caors/meta/query.h"
 #include "caors/meta/registration.h"
 #include "caors/meta/registry.h"
 #include "caors/object/factory.h"
@@ -29,6 +29,44 @@ template <typename T> class serialization_section;
 template <typename T> class object_section;
 
 namespace detail {
+
+template <typename Member> struct member_object_pointer_traits;
+
+template <typename Class, typename Property>
+struct member_object_pointer_traits<Property Class::*> {
+  using class_type = Class;
+  using property_type = Property;
+};
+
+template <typename Member> struct member_function_pointer_traits;
+
+template <typename Class, typename Return, typename... Arguments>
+struct member_function_pointer_traits<Return (Class::*)(Arguments...)> {
+  using class_type = Class;
+  using return_type = Return;
+  static constexpr bool is_const = false;
+};
+
+template <typename Class, typename Return, typename... Arguments>
+struct member_function_pointer_traits<Return (Class::*)(Arguments...) const> {
+  using class_type = Class;
+  using return_type = Return;
+  static constexpr bool is_const = true;
+};
+
+template <typename Class, typename Return, typename... Arguments>
+struct member_function_pointer_traits<Return (Class::*)(Arguments...) noexcept> {
+  using class_type = Class;
+  using return_type = Return;
+  static constexpr bool is_const = false;
+};
+
+template <typename Class, typename Return, typename... Arguments>
+struct member_function_pointer_traits<Return (Class::*)(Arguments...) const noexcept> {
+  using class_type = Class;
+  using return_type = Return;
+  static constexpr bool is_const = true;
+};
 
 template <typename Entry>
 inline constexpr bool is_property_entry_v =
@@ -290,7 +328,7 @@ private:
 
     static_assert(std::is_member_object_pointer_v<Member>,
                   "registration::type_builder::property requires a data member pointer");
-    using traits_type = meta::detail::member_object_pointer_traits<Member>;
+    using traits_type = detail::member_object_pointer_traits<Member>;
     using owner_type = typename traits_type::class_type;
     using property_type = std::remove_cv_t<typename traits_type::property_type>;
     static_assert(std::is_same_v<owner_type, value_type>,
@@ -431,7 +469,7 @@ private:
 
     static_assert(std::is_member_function_pointer_v<Member>,
                   "registration::type_builder::method requires a member function pointer");
-    using traits_type = meta::detail::member_function_pointer_traits<Member>;
+    using traits_type = detail::member_function_pointer_traits<Member>;
     using owner_type = typename traits_type::class_type;
     static_assert(std::is_same_v<owner_type, value_type>,
                   "Method member pointer owner must match builder type");

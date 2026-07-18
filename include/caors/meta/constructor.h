@@ -4,7 +4,6 @@
 #ifndef CAORS_META_CONSTRUCTOR_H_
 #define CAORS_META_CONSTRUCTOR_H_
 
-#include "caors/meta/builder.h"
 #include "caors/meta/detail/argument_access.h"
 #include "caors/meta/detail/value_ops_model.h"
 #include "caors/meta/value_ops.h"
@@ -63,37 +62,5 @@ template <typename T, typename... Arguments>
 }
 
 } // namespace caors::meta::detail
-
-namespace caors::meta {
-
-template <typename T>
-template <typename... Arguments>
-class_builder<T>& class_builder<T>::constructor() {
-  if (!type_.registered()) {
-    status_ = {error_domain::meta, errc::invalid_type};
-    return *this;
-  }
-
-  const constructor_ops ops = detail::make_constructor_ops<T, Arguments...>();
-  if (!ops.valid()) {
-    status_ = {error_domain::meta, errc::invalid_type};
-    return *this;
-  }
-
-  const constructor_ops* existing = type_.get_raw_ops<constructor_ops>();
-  if (existing != nullptr) {
-    status_ = existing->construct == ops.construct && existing->destroy == ops.destroy &&
-                      existing->argument_count == ops.argument_count
-                  ? error{error_domain::meta, errc::duplicate_id}
-                  : error{error_domain::meta, errc::invalid_type};
-    return *this;
-  }
-
-  status_ = detail::register_owned_capability_for_type<constructor_ops, T>(ops);
-  refresh();
-  return *this;
-}
-
-} // namespace caors::meta
 
 #endif

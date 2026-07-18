@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 原测试文件：serialization_registration_class_builder_can_attach_to_explicit_meta_type_test.cpp
+// 原测试文件：serialization_registration_type_builder_can_attach_to_explicit_meta_type_test.cpp
 
 #include "serialization_test_support.h"
 
