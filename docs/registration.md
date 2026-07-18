@@ -10,9 +10,9 @@
 一个类型如果要参与对象、反射和序列化，推荐按以下顺序注册：
 
 1. 注册需要稳定名称、GUID、父类型或 factory 的业务 meta 类型。
-2. 如有对象能力，注册 object 组件。
+2. 如有对象能力，注册 object extension。
 3. 在 `meta::class_<T>()` 上注册字段和方法。
-4. 注册序列化组件。
+4. 注册序列化 extension。
 5. 可选：挂接用户或插件的 dynamic capability。
 6. 可选：在启动阶段最后调用 `meta::init_registry()` 执行延迟注册函数并校验注册表。
 
@@ -39,12 +39,12 @@ GUID、对象工厂、反射根类型、多态身份或按名称查询的业务�
 
 - `meta::type` 是统一类型视图。`meta::resolve<T>()` 可返回未注册 C++ 类型视图，`meta::find<T>()`
   只返回已注册类型。
-- registry 只保存显式注册后的稳定元数据和模块数据，例如名称、GUID、父类型、factory、字段、方法和序列化组件。
+- registry 只保存显式注册后的稳定元数据和模块 extension，例如名称、GUID、父类型、factory、字段、方法和序列化 extension。
 - descriptor static capability 用于类型固有能力，例如对象指针、对象句柄和 `codec_traits<T>` 生成的
   codec 函数表，通过 `meta::type::get_capability<C>()` 查询，不需要单独注册 codec。
 - dynamic capability 用于用户或插件扩展能力，通过 `meta::class_<T>().type("name").capability(ops)`
   挂到注册类型数据；
-  它不是 registry 组件，也不替代业务 meta 类型注册。
+  它不是 registry extension，也不替代业务 meta 类型注册。
 
 ## 显式初始化
 
@@ -99,7 +99,7 @@ CAORS_META_REGISTRATION(register_actor) {
 
 - `errc::duplicate_id`：同一个运行期类型 id 已经注册。测试和初始化代码可按需视为成功。
 - `errc::duplicate_name` / `errc::duplicate_guid`：名称或稳定 GUID 冲突，应修正类型声明。
-- `errc::missing_type`：给不存在的 `type_id` 挂载组件。
+- `errc::missing_type`：给不存在的 `type_id` 挂载 extension。
 - `errc::missing_parent`：父类型尚未注册。
 - `errc::invalid_field`：反射字段描述无效、字段名冲突，或字段类型无法生成有效 descriptor。
 

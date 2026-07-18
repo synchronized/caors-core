@@ -15,9 +15,9 @@ namespace caors::tests::meta_registry {
 
 struct base_actor_type {};
 
-struct component_actor_type {};
+struct extension_actor_type {};
 
-struct missing_component_meta {
+struct missing_extension_meta {
   bool constructible = false;
 };
 

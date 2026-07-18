@@ -16,7 +16,7 @@ namespace caors::meta {
  * @brief 解析 C++ 类型 descriptor 视图；类型不要求已经显式注册。
  *
  * `resolve<T>()` 优先返回已注册 `meta::type`；类型尚未注册时退回 descriptor-only 视图。
- * 需要强制判断是否存在稳定名称、GUID、父类型或模块注册组件时，应使用 `find<T>()` 查询已注册类型。
+ * 需要强制判断是否存在稳定名称、GUID、父类型或模块注册 extension 时，应使用 `find<T>()` 查询已注册类型。
  */
 template <typename T> [[nodiscard]] type resolve() {
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;

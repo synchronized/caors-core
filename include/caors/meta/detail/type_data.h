@@ -8,6 +8,7 @@
 #include "caors/error.h"
 #include "caors/meta/detail/capability_data.h"
 #include "caors/meta/detail/enum_value_data.h"
+#include "caors/meta/detail/extension_data.h"
 #include "caors/meta/detail/method_data.h"
 #include "caors/meta/detail/parent_cast_ops.h"
 #include "caors/meta/detail/property_data.h"
@@ -86,6 +87,11 @@ public:
   [[nodiscard]] error add_capability(capability_key key, const void* capability);
   [[nodiscard]] error add_owned_capability(capability_key key,
                                            memory::unique_ptr<owned_capability_base> capability);
+  [[nodiscard]] bool contains_extension(extension_key key) const noexcept;
+  [[nodiscard]] std::size_t extension_count() const noexcept;
+  [[nodiscard]] const extension_data* find_extension(extension_key key) const noexcept;
+  [[nodiscard]] extension_data* mutable_find_extension(extension_key key) noexcept;
+  [[nodiscard]] error add_extension(extension_data extension);
 
 private:
   type_id id_{};
@@ -98,6 +104,7 @@ private:
   vector<method_set_data> methods_{};
   vector<enum_value_data> enum_values_{};
   vector<capability_data> capabilities_{};
+  vector<extension_data> extensions_{};
 };
 
 [[nodiscard]] error merge_type_data(registry_state& state, type_data& stored,

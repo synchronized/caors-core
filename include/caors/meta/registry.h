@@ -7,8 +7,8 @@
 #include "caors/adapters/stl_wrapper.h"
 #include "caors/error.h"
 #include "caors/export.h"
-#include "caors/meta/component_view.h"
-#include "caors/meta/detail/component_storage.h"
+#include "caors/meta/detail/extension_data.h"
+#include "caors/meta/extension_view.h"
 #include "caors/meta/detail/parent_cast_ops.h"
 #include "caors/meta/registration.h"
 #include "caors/meta/type.h"
@@ -51,7 +51,7 @@ template <typename T> class enum_builder;
  * @brief 底层全局类型元数据注册表。
  *
  * `meta::registry` 以 `type_id` 为 key，先注册内部基础类型数据，再按类型挂载父类、
- * 反射描述、序列化描述等元数据组件。普通代码应使用 `meta::class_<T>()`、`meta::resolve<T>()`、
+ * 反射描述、序列化描述等扩展数据。普通代码应使用 `meta::class_<T>()`、`meta::resolve<T>()`、
  * `meta::find<T>()` 和 `meta::find()` 入口，不要创建或管理注册表实例。
  */
 class CAORS_API registry final {
@@ -79,34 +79,34 @@ public:
   [[nodiscard]] void* upcast(type_id id, type_id base_id, void* value) const;
   [[nodiscard]] std::size_t size() const noexcept;
 
-  /** @brief 给已注册类型挂载一个元数据组件。 */
-  template <typename Component, typename... Args>
-  [[nodiscard]] error emplace_component(type_id id, Args&&... args);
+  /** @brief 给已注册类型挂载一份扩展数据。 */
+  template <typename Extension, typename... Args>
+  [[nodiscard]] error emplace_extension(type_id id, Args&&... args);
 
-  /** @brief 判断指定类型是否挂载了某个元数据组件。 */
-  template <typename Component> [[nodiscard]] bool has_component(type_id id) const;
+  /** @brief 判断指定类型是否挂载了某份扩展数据。 */
+  template <typename Extension> [[nodiscard]] bool has_extension(type_id id) const;
 
-  /** @brief 获取指定类型上的元数据组件副本。 */
-  template <typename Component>
-  [[nodiscard]] std::optional<Component> find_component(type_id id) const;
+  /** @brief 获取指定类型上的扩展数据副本。 */
+  template <typename Extension>
+  [[nodiscard]] std::optional<Extension> find_extension(type_id id) const;
 
   /**
-   * @brief 获取指定类型上的元数据组件只读指针。
+   * @brief 获取指定类型上的扩展数据只读指针。
    *
-   * 组件由全局注册表以 append-only 方式保存。返回指针不拥有对象，只要组件已注册且进程未退出，
+   * 扩展数据由对应 `type_data` 以 append-only 方式保存。返回指针不拥有对象，只要扩展数据已注册且进程未退出，
    * 指针地址保持稳定。
    */
-  template <typename Component> [[nodiscard]] const Component* find_component_ptr(type_id id) const;
+  template <typename Extension> [[nodiscard]] const Extension* find_extension_ptr(type_id id) const;
 
-  /** @brief 获取指定类型上的元数据组件可写指针，仅供注册构建阶段使用。 */
-  template <typename Component> [[nodiscard]] Component* find_component_mutable_ptr(type_id id);
+  /** @brief 获取指定类型上的扩展数据可写指针，仅供注册构建阶段使用。 */
+  template <typename Extension> [[nodiscard]] Extension* find_extension_mutable_ptr(type_id id);
 
-  /** @brief 统计挂载了指定组件的类型数量。 */
-  template <typename Component> [[nodiscard]] std::size_t component_count() const noexcept;
+  /** @brief 统计挂载了指定扩展数据的类型数量。 */
+  template <typename Extension> [[nodiscard]] std::size_t extension_count() const noexcept;
 
-  /** @brief 查询同时拥有指定组件集合的类型。 */
-  template <typename... Components>
-  [[nodiscard]] ::caors::meta::component_view<Components...> component_view() const;
+  /** @brief 查询同时拥有指定扩展数据集合的类型。 */
+  template <typename... Extensions>
+  [[nodiscard]] ::caors::meta::extension_view<Extensions...> extension_view() const;
 
 private:
   registry();
@@ -136,16 +136,17 @@ private:
   template <typename Child, typename Parent> [[nodiscard]] error set_type_parent_for();
 
   [[nodiscard]] error register_cpp_type_info(const std::type_info& info, type_id id);
+  [[nodiscard]] const detail::type_data* find_type_data(type_id id) const;
   [[nodiscard]] detail::type_data* find_mutable_type_data(type_id id);
+  [[nodiscard]] error add_extension(type_id id, detail::extension_data extension);
+  [[nodiscard]] bool has_extension(type_id id, detail::extension_key key) const;
+  [[nodiscard]] const detail::extension_data* find_extension_data(type_id id,
+                                                                  detail::extension_key key) const;
+  [[nodiscard]] detail::extension_data* find_extension_mutable_data(type_id id,
+                                                                    detail::extension_key key);
 
-  [[nodiscard]] detail::meta_component_storage_base*
-  find_component_storage(detail::meta_component_key key);
-  [[nodiscard]] const detail::meta_component_storage_base*
-  find_component_storage(detail::meta_component_key key) const;
-  detail::meta_component_storage_base&
-  ensure_component_storage(detail::meta_component_key key,
-                           memory::unique_ptr<detail::meta_component_storage_base> storage);
-  [[nodiscard]] vector<type_id> view_component_ids(const detail::meta_component_key* keys,
+  [[nodiscard]] error index_extension(type_id id, detail::extension_key key);
+  [[nodiscard]] vector<type_id> view_extension_ids(const detail::extension_key* keys,
                                                    std::size_t count) const;
 
   memory::memory_resource* state_resource_ = nullptr;
@@ -157,7 +158,7 @@ private:
 
 } // namespace caors::meta
 
-#include "caors/meta/detail/registry_component_templates.h"
+#include "caors/meta/detail/registry_extension_templates.h"
 #include "caors/meta/detail/registry_templates.h"
 #include "caors/meta/detail/registry_view_templates.h"
 

@@ -256,14 +256,14 @@ public:
       return *this;
     }
 
-    type_metadata* data = get_registry().find_component_mutable_ptr<type_metadata>(type_.id());
+    type_metadata* data = get_registry().find_extension_mutable_ptr<type_metadata>(type_.id());
     if (data == nullptr) {
-      status_ = get_registry().emplace_component<type_metadata>(type_.id());
+      status_ = get_registry().emplace_extension<type_metadata>(type_.id());
       if (status_ && status_.value() != errc::duplicate_component) {
         return *this;
       }
 
-      data = get_registry().find_component_mutable_ptr<type_metadata>(type_.id());
+      data = get_registry().find_extension_mutable_ptr<type_metadata>(type_.id());
     }
 
     if (data == nullptr) {
@@ -608,14 +608,14 @@ public:
       return *this;
     }
 
-    type_metadata* data = get_registry().find_component_mutable_ptr<type_metadata>(type_.id());
+    type_metadata* data = get_registry().find_extension_mutable_ptr<type_metadata>(type_.id());
     if (data == nullptr) {
-      status_ = get_registry().emplace_component<type_metadata>(type_.id());
+      status_ = get_registry().emplace_extension<type_metadata>(type_.id());
       if (status_ && status_.value() != errc::duplicate_component) {
         return *this;
       }
 
-      data = get_registry().find_component_mutable_ptr<type_metadata>(type_.id());
+      data = get_registry().find_extension_mutable_ptr<type_metadata>(type_.id());
     }
 
     if (data == nullptr) {

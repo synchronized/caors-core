@@ -13,7 +13,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 
 - 用 `serialization::type_schema` 表示类型的序列化元信息。
 - 用 `serialization::field_schema` 表示字段级序列化配置，例如字段别名、稳定字段 id、跳过和版本信息。
-- 基于全局 `meta::registry` 挂载序列化组件，避免单独维护类型索引。
+- 基于全局 `meta::registry` 挂载序列化 extension，避免单独维护类型索引。
 - 提供 `serialization::registry` 和 `serialization::class_(meta::type)` 链式注册入口。
 - 提供 `serialization::writer` 后端接口，让不同格式复用同一套字段遍历逻辑。
 - 提供 `serialization::reader` 后端接口，让不同格式复用同一套字段读入逻辑。
@@ -58,10 +58,10 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 
 序列化模块按职责拆分公共头文件：
 
-- `caors/serialization/type_schema.h`：后端能力、字段配置和类型序列化组件数据。
+- `caors/serialization/type_schema.h`：后端能力、字段配置和类型序列化 extension 数据。
 - `caors/serialization/external_ref.h`：通用外部引用、函数表 resolver/collector 和继承接口适配器。
 - `caors/serialization/types.h`：通用外部引用选项、对象工厂函数表、单次调度上下文和结果类型。
-- `caors/serialization/registry.h`：序列化组件注册表和链式注册入口。
+- `caors/serialization/registry.h`：序列化 extension 注册表和链式注册入口。
 - `caors/serialization/writer.h`：`serialization::writer`、`serialization::text_writer` 和
   `serialization::json_writer`。
 - `caors/serialization/reader.h`：`serialization::reader`。
@@ -355,7 +355,7 @@ descriptor 默认构造或 traits 的资源重载。自定义顺序容器可以�
 
 ### serialization::type_schema
 
-`serialization::type_schema` 是挂载在 `meta::registry` 上的序列化组件。它只保存字段级
+`serialization::type_schema` 是挂载在 `meta::registry` 上的序列化 extension。它只保存字段级
 序列化配置；具体输出格式由当前使用的 `writer` 后端决定：
 
 ```cpp
@@ -389,7 +389,7 @@ caors::serialization::class_(type)
 - `version_added != 0 && schema_version < version_added` 的字段会被跳过。
 - `version_removed != 0 && schema_version >= version_removed` 的字段会被跳过。
 
-序列化字段配置属于 serialization 组件，不直接写入反射内部字段数据，也不持有
+序列化字段配置属于 serialization extension，不直接写入反射内部字段数据，也不持有
 反射内部字段数据指针。反射负责描述字段是什么，序列化负责描述字段如何存储；真正序列化时
 再按字段名解析反射字段，因此序列化注册和反射注册没有固定顺序要求。
 
@@ -1032,14 +1032,14 @@ auto serialization_type = caors::serialization::find(type);
 ```
 
 推荐由 meta 层先注册业务 meta 类型，再使用 `serialization::class_<T>()` 或
-`serialization::class_(meta::type)` 挂载序列化组件。这条路径不会创建或修改 meta 类型记录；
+`serialization::class_(meta::type)` 挂载序列化 extension。这条路径不会创建或修改 meta 类型记录；
 无效 `meta::type` 返回 `errc::invalid_type`，不存在的 `type_id` 返回 `errc::missing_type`。
-查询序列化组件时使用 `serialization::find()` 或 `serialization::contains()`。
+查询序列化 extension 时使用 `serialization::find()` 或 `serialization::contains()`。
 这是公开的高级 schema 注册入口，适合需要手动控制字段顺序、别名、跳过策略和 schema version
 的类型。更细的 detail schema 挂载函数属于内部实现入口，普通代码不直接调用。
 
 重复注册同一个类型会返回 `errc::duplicate_component`，错误来源域为
-`error_domain::serialization`。序列化组件注册推荐在启动期或模块加载期完成；`meta::init_registry()`
+`error_domain::serialization`。序列化 extension 注册推荐在启动期或模块加载期完成；`meta::init_registry()`
 只执行延迟注册并校验注册表，不会阻止后续继续注册。
 
 ### serialize_text
@@ -1086,7 +1086,7 @@ caors::string text = *result;
 
 ## 当前已实现能力
 
-- `serialization::type_schema`：序列化组件数据。
+- `serialization::type_schema`：序列化 extension 数据。
 - `serialization::field_schema`：字段级序列化配置。
 - `serialization::writer`：格式后端接口。
 - `serialization::reader`：格式读入后端接口。
@@ -1105,9 +1105,9 @@ caors::string text = *result;
 - `variant_member`：对象成员，保存字段名、字段 id 和字段值。
 - `variant_entry`：字典条目，保存 key 和 value。
 - `serialization::registry`：全局序列化注册表。
-- `serialization::class_(meta::type)`：推荐的链式序列化组件注册入口，只挂载序列化组件。
+- `serialization::class_(meta::type)`：推荐的链式序列化 extension 注册入口，只挂载序列化 extension。
 - `serialization::register_type<T>()`：公开便捷注册入口，要求对应 C++ 类型已经完成 meta 注册。
-- `serialization::find()` / `serialization::contains()`：序列化组件查询入口。
+- `serialization::find()` / `serialization::contains()`：序列化 extension 查询入口。
 - `serialize()`：通过指定 writer 后端序列化对象。
 - `deserialize()`：通过指定 reader 后端反序列化对象。
 - `to_value()`：通过反射和序列化元信息构造中间对象树。

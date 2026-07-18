@@ -183,7 +183,7 @@ tracking.deallocate(ptr, 128, 64);
 
 ### 内部全局分配策略
 
-类型注册表、`string_name` 表、反射/序列化元数据组件等内部全局数据，默认不跟随
+类型注册表、`string_name` 表、反射/序列化 extension 数据等内部全局数据，默认不跟随
 `default_resource`，而是固定使用 `system_memory_resource`。原因是这些数据可能在静态初始化阶段被创建，
 此时应用通常还没有机会调用 `set_default_memory_resource()`；如果让它们隐式捕获默认资源，容易产生初始化顺序
 依赖。

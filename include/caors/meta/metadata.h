@@ -26,7 +26,7 @@ using metadata_value = variant;
 /** @brief 通用 metadata 表。 */
 using metadata_map = core::hash_map<metadata_key, metadata_value>;
 
-/** @brief 类型级 metadata 组件。 */
+/** @brief 类型级 metadata extension。 */
 struct type_metadata {
   explicit type_metadata(memory_resource* resource = nullptr)
       : values(core::make_hash_map<metadata_key, metadata_value>(

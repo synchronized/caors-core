@@ -54,7 +54,7 @@
 - `caors/meta/type_ops.h`：内建 ops 聚合头；更细粒度可以包含 `caors/meta/ops/*.h`。
 - `caors/meta/value_ops.h`：值布局、生命周期、factory 和 constructor 的底层 ops 结构体。
 - `caors/adapters/stl_traits.h`、`caors/adapters/stl_wrapper.h`：STL/CAORS 类型的默认 traits 特化。
-- `caors/meta/component_view.h`：`meta::component_view<T...>` 查询视图。
+- `caors/meta/extension_view.h`：`meta::extension_view<T...>` 查询视图。
 - `caors/meta/registry.h`：全局 `meta::registry`、注册错误状态和注册 helper。
 
 ## 核心概念
@@ -129,7 +129,7 @@ meta 类型记录由全局注册表内部保存，普通代码不直接构造或
 可以为未显式注册的 C++ 类型返回有效类型视图和运行期 `type_id`。
 `size()` / `alignment()`、默认构造、复制、析构和赋值能力也通过这个视图查询。
 `registered()` 表示该类型是否已经通过 `meta::class_<T>("name")` 写入稳定注册数据；只有已注册类型
-才有稳定注册名、GUID、父类型和可挂载组件。
+才有稳定注册名、GUID、父类型和可挂载 extension。
 `meta::find<T>()` 只查询已经注册的 C++ 类型；未注册类型即使能解析 descriptor，也会返回空视图。
 `meta::class_<T>()` 链式 builder 会原地更新全局注册表中已经保存的类型数据；已有 `meta::type`
 视图只引用这份稳定数据，不会因为后续 `.guid()` 或 `.parent()` 调用而失效。
@@ -173,7 +173,7 @@ caors::meta::method add_health = type.find_method("add_health").single();
   C++ 类型视图。反射、序列化、value 和对象模块在只需要布局、类型形态、内置 ops、
   static capability 或 codec 时统一使用这个入口。
 - `meta::find<T>()` / `meta::find(name/guid)`：查询已注册类型。需要稳定名称、GUID、父类型、
-  factory 或模块组件索引时使用这个入口；未注册 C++ 类型返回空视图。
+  factory 或模块 extension 索引时使用这个入口；未注册 C++ 类型返回空视图。
 
 ### traits::type_name<T>
 
@@ -263,7 +263,7 @@ caors::meta::class_<actor>("game.actor")
 未注册时返回空视图。`caors::meta::find(id/name/guid)` 是运行期查询入口：按 `name` / `guid`
 只能找到已注册类型，按 `id` 可以找到已缓存的 descriptor 视图或已注册类型。
 普通业务类型仍应通过 `caors::meta::class_<T>("name")` 显式注册，再把得到的 `meta::type` 交给
-对象或序列化模块挂载组件。
+对象或序列化模块挂载 extension。
 
 ### 普通入口：facade 和 view
 
@@ -291,7 +291,7 @@ caors::meta::class_<actor>("game.actor")
 - `meta::type` 是统一类型视图。调用方通过 `meta::resolve<T>()`、`meta::find<T>()`、`meta::find(id)` 和
   `meta::type::get_capability<C>()` 查询类型身份、注册数据和能力。
 - `meta::registry` 是注册后元数据和模块数据索引。只有显式 `meta::class_<T>("name")` 注册后的类型，
-  才拥有稳定名称、GUID、父类型关系、属性、方法、对象组件和序列化组件等全局可查询数据。
+  才拥有稳定名称、GUID、父类型关系、属性、方法、对象 extension 和序列化 extension 等全局可查询数据。
 - descriptor static capability 用于类型固有能力。能力由模块在编译期按 `T` 生成，例如
   `objects::ptr<T>` 访问函数、对象 handle 函数表和 `codec_traits<T>` 生成的 codec 函数表。
   它们通过 `meta::type` 查询，不要求类型先注册到 registry。
@@ -310,9 +310,9 @@ caors::meta::class_<actor>("game.actor")
 设计约束：
 
 - C++ 类型事实只保存可由 `T` 推导的能力，不保存反射属性、序列化属性配置或对象注册数据。
-- registry 保存注册后事实和模块组件，不复制 descriptor 的布局、子类型和内置 ops 数据。
+- registry 保存注册后事实和模块 extension，不复制 descriptor 的布局、子类型和内置 ops 数据。
 - static capability 不应承担用户插件协议；它适合编译期可见、进程内静态生命周期的模块能力。
-- dynamic capability 不是 meta 组件，也不替代业务类型注册；需要稳定名称、GUID 或跨模块组件查询时仍要注册
+- dynamic capability 不是 meta extension，也不替代业务类型注册；需要稳定名称、GUID 或跨模块 extension 查询时仍要注册
   meta 类型。
 
 ### 内部结构：descriptor 和 ops
@@ -380,7 +380,7 @@ descriptor 内部按职责拆分：
   `sequence_ops_model<T>`、`set_ops_model<T>`、`associative_ops_model<T>`、`pair_ops_model<T>`、
   `tuple_ops_model<T>` 和 `variant_ops_model<T>` 负责生成内置访问函数表；tuple 和 variant 会再用
   按索引展开的 element / alternative model 生成每个元素或候选类型的函数表。
-- `*_data` 保留给注册表组件、配置数据或纯元数据结构，不用于命名一组运行期分发函数。
+- `*_data` 保留给注册表 extension、配置数据或纯元数据结构，不用于命名一组运行期分发函数。
 - `*_ops` 不是 C++ ABI 层面的虚函数表，不依赖继承；它只是 CAORS 内部统一的函数表命名。
 - `capability_info` 保存 capability 的进程内 key、可选稳定名称、可选稳定 GUID 和版本号。`capability_key`
   仍是当前进程内查询 key，稳定元信息只用于诊断、工具链和未来插件协议协商。
@@ -432,9 +432,9 @@ capability 和 registry 的边界：
   `meta::class_<T>().capability<Capability>()`。
 - 普通调用方优先使用 `meta::type::get_capability<T>()`。该入口统一处理 descriptor 静态能力和注册类型数据
   fallback，避免业务代码分别理解两套存储位置。
-- capability 不是 meta 组件。它不拥有类型注册数据，也不表示该 C++ 类型已经注册到
+- capability 不是 meta extension。它不拥有类型注册数据，也不表示该 C++ 类型已经注册到
   `meta::registry`。需要稳定名称、GUID、父类型、反射属性、序列化属性配置或对象工厂时，仍应显式注册
-  meta 类型和对应模块组件。
+  meta 类型和对应模块 extension。
 - 当前 `capability_key` 是进程内模板静态地址，只适合当前进程内查询，不承诺跨动态库 ABI、跨进程或
   存档稳定。需要插件协议、脚本模块或工具链发现能力时，应特化 `capability_traits<T>` 提供稳定
   name/guid/version，并在协议层处理冲突和版本兼容。
@@ -447,9 +447,9 @@ descriptor 自身的 `type_id`；裸指针、wrapper、容器、pair、tuple 和
 访问函数表保存，并通过 `field`、`sequence_view`、`pair_view` 等公开视图查询。
 
 类型形态和通用类型关系只从 descriptor 查询，不再把语义数据、枚举 ops、容器 ops 或间接访问 ops 作为
-独立 meta 组件挂载到注册表。反射属性会保存声明类型的 `type_id` 和 descriptor，因此
+独立 meta extension 挂载到注册表。反射属性会保存声明类型的 `type_id` 和 descriptor，因此
 `std::vector<T>`、`std::optional<T>`、`std::tuple<...>` 这类结构类型不要求
-自身注册为 meta 类型。未注册类型不会拥有 GUID、反射属性、对象工厂或序列化组件；如果 descriptor
+自身注册为 meta 类型。未注册类型不会拥有 GUID、反射属性、对象工厂或序列化 extension；如果 descriptor
 能通过 traits 推导默认显示名，`type_name()` 仍可返回该名称。无默认显示名的未注册业务类型名称为空，
 但仍可通过属性、`any` / `any_ref` 或嵌套容器元素携带的 descriptor 使用布局、值操作和运行期视图能力。
 
@@ -471,12 +471,12 @@ caors::error result = caors::meta::class_<actor>("game.actor").result();
 
 registry 使用边界：
 
-- 用 registry：需要全局稳定查询、按名称或 GUID 查找、跨模块组件查询、父类型关系、对象工厂、
+- 用 registry：需要全局稳定查询、按名称或 GUID 查找、跨模块 extension 查询、父类型关系、对象工厂、
   反射属性列表、序列化属性配置或多态构造。
 - 不用 registry：只需要当前 C++ 类型的布局、构造/析构、容器视图、wrapper 视图、枚举转换、
   descriptor 静态 capability 或 `any` / `any_ref` 的局部值访问。
 - 模块注册入口应接收已经存在的 `meta::type`，或者由调用方先显式 `meta::class_<T>("name")` 注册业务
-  类型。序列化等模块不应为了挂载组件隐式创建业务类型注册记录。
+  类型。序列化等模块不应为了挂载 extension 隐式创建业务类型注册记录。
 - `meta::resolve<T>()` 返回 descriptor-backed 类型视图，未注册类型也可能有效；`registered()` 才表示
   registry 中已经存在稳定注册数据。
 - `meta::find<T>()` 只查询已注册 C++ 类型；未注册类型返回空视图。
@@ -535,7 +535,7 @@ CAORS_META_REGISTRATION(register_actor_meta) {
 - `errc::duplicate_guid`：同一个非 nil 稳定 GUID 已注册。
 - `errc::missing_parent`：父类型未注册。
 
-使用方式是先注册业务 meta 类型，再给该类型挂载组件：
+使用方式是先注册业务 meta 类型，再给该类型挂载扩展数据：
 
 ```cpp
 struct object_factory_meta {
@@ -545,7 +545,7 @@ struct object_factory_meta {
 caors::meta::class_<actor>("game.actor");
 
 caors::type_id actor_id = caors::meta::find<actor>().id();
-caors::meta::get_registry().emplace_component<object_factory_meta>(actor_id, true);
+caors::meta::get_registry().emplace_extension<object_factory_meta>(actor_id, true);
 ```
 
 ### meta::module
@@ -699,7 +699,7 @@ metadata 不参与类型身份，不替代 `type_name` / `type_guid` / capabilit
 
 ### 自定义 capability
 
-动态 capability 是高级扩展接口，不是普通 meta 组件。公开写入入口挂在类型 builder 上：
+动态 capability 是高级扩展接口，不是普通 meta extension。公开写入入口挂在类型 builder 上：
 
 ```cpp
 struct my_ops {
@@ -916,32 +916,36 @@ caors::meta::class_<actor>()
     .capability<my_ops>();
 ```
 
-### registry 组件 API
+### registry extension API
 
-- `emplace_component<T>(type_id, args...)`：给已注册类型挂载组件。
-- `has_component<T>(type_id)`：判断类型是否拥有组件。
-- `find_component<T>(type_id)`：获取组件副本。
-- `find_component_ptr<T>(type_id)`：获取组件只读指针。组件由注册表以 `unique_ptr` 保存，地址在 append-only
-  注册表生命周期内保持稳定。
-- `component_count<T>()`：统计拥有指定组件的类型数量。
-- `component_view<T...>()`：查询同时拥有指定组件集合的类型。
+- `emplace_extension<T>(type_id, args...)`：给已注册类型挂载扩展数据。
+- `has_extension<T>(type_id)`：判断类型是否拥有扩展数据。
+- `find_extension<T>(type_id)`：获取扩展数据副本。
+- `find_extension_ptr<T>(type_id)`：获取扩展数据只读指针。扩展数据存放在对应 `type_data`
+  内，地址在 append-only 注册表生命周期内保持稳定。
+- `extension_count<T>()`：统计拥有指定扩展数据的类型数量。
+- `extension_view<T...>()`：查询同时拥有指定扩展数据集合的类型。
 
 容器 descriptor 会在具体容器支持 `begin()` / `end()` 时额外保存类型擦除 iterator 函数，用于
 `set_view` 和 `associative_view` 的 range-for 遍历。运行期遍历统一通过 iterator 完成；自定义容器如果
 需要暴露集合或关联容器遍历能力，应在对应 traits 中提供可适配的 iterator 操作。容器 view 只依赖
-descriptor，不再为了创建 view 把每一种容器组合额外挂载为 meta 组件。
+descriptor，不再为了创建 view 把每一种容器组合额外挂载为 meta 扩展数据。
 
-组件挂载同样返回 `caors::error`，`domain()` 为 `error_domain::meta`：
+扩展数据挂载同样返回 `caors::error`，`domain()` 为 `error_domain::meta`：
 
 - `errc::invalid_type`：传入无效 `type_id`。
 - `errc::missing_type`：目标类型尚未注册。
-- `errc::duplicate_component`：目标类型已经挂载同类组件。
+- `errc::duplicate_component`：目标类型已经挂载同类扩展数据。
 
-当前注册表仍是 append-only 语义，不支持组件替换；如果后续支持热重载，应在替换 API 上显式处理旧组件生命周期和读者同步。
+当前注册表仍是 append-only 语义，不支持扩展数据替换；如果后续支持热重载，应在替换 API 上显式处理旧数据生命周期和读者同步。
+
+扩展数据的事实源是 `type_data` 内部的 extension map；`registry` 只维护按 extension key 到
+`type_id` 列表的索引，用于 `extension_view<T...>()` 这类跨模块查询。普通代码不应把 extension
+当成独立 ECS component 使用，它只是注册后类型数据的模块扩展槽。
 
 ## 线程安全边界
 
-`meta::registry` 的注册、查询和组件挂载入口内部仍会加锁，避免注册表容器自身出现 data race。推荐在启动期
+`meta::registry` 的注册、查询和 extension 挂载入口内部仍会加锁，避免注册表容器自身出现 data race。推荐在启动期
 或模块加载期单线程完成注册，并调用 `meta::init_registry()` 做延迟注册和一致性校验。进入运行期后，业务主循环和工作线程应只做只读查询；
 返回的 `meta::type` 和各模块视图是指向注册表内部数据的轻量只读视图，适合长期保存和并发读取。
 
@@ -955,12 +959,12 @@ descriptor，不再为了创建 view 把每一种容器组合额外挂载为 met
   `objects::object_factory_capability`，并对外返回 `objects::type` 视图。
 - 属性和方法直接保存在 meta 类型记录关联的数据中，并通过 `meta::type` / `meta::property` / `meta::method` 对外查询；
   `meta::type` / `meta::property` 是兼容视图。
-- 后续 `serialization::registry` 可以挂载序列化相关组件。
+- `serialization::registry` 可以挂载序列化相关 extension。
 
 这样对象、反射和序列化的全局注册入口不需要重复处理重名、重复 GUID、不一致类型描述和父类型缺失。
-跨模块查询可以通过 `meta::registry::component_view<T...>()` 完成。属性和方法应通过 `meta::type`
-返回稳定只读视图；序列化等公开组件仍可通过
-`meta::get_registry().component_view<serialization::type_schema>()` 查询。
+跨模块查询可以通过 `meta::registry::extension_view<T...>()` 完成。属性和方法应通过 `meta::type`
+返回稳定只读视图；序列化等公开扩展数据仍可通过
+`meta::get_registry().extension_view<serialization::type_schema>()` 查询。
 
 ## 当前已实现能力
 
@@ -989,8 +993,8 @@ descriptor，不再为了创建 view 把每一种容器组合额外挂载为 met
 - `meta::class_<T>().constructor<Args...>()`：注册运行期参数构造策略；查询时使用
   `meta::type::get_capability<meta::constructor_capability>()`，普通调用优先走
   `meta::type::create(arguments)` 或 `constructor_capability::construct(arguments)`。
-- `meta::registry`：全局 meta 类型注册、按 id/name/guid 或 C++ 类型查询、继承关系判断和组件式元数据挂载。
-- `meta::registry::component_view<T...>`：按组件集合查询类型。
+- `meta::registry`：全局 meta 类型注册、按 id/name/guid 或 C++ 类型查询、继承关系判断和 extension 元数据挂载。
+- `meta::registry::extension_view<T...>`：按扩展数据集合查询类型。
 - `meta::run_registrations()`：执行已收集的延迟元数据注册函数。
 - `meta::init_registry()`：执行延迟元数据注册函数并校验注册表；不会阻止后续注册。
 - `meta::validate_registry()`：只校验注册表，不执行延迟注册函数。

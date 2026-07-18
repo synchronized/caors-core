@@ -195,6 +195,16 @@ std::size_t registry::size() const noexcept {
   return state_->types.size();
 }
 
+const detail::type_data* registry::find_type_data(type_id id) const {
+  if (!id) {
+    return nullptr;
+  }
+
+  std::lock_guard lock(state_->mutex);
+  const detail::type_data* stored = detail::find_type_data(*state_, id);
+  return stored != nullptr && stored->registered() ? stored : nullptr;
+}
+
 detail::type_data* registry::find_mutable_type_data(type_id id) {
   if (!id) {
     return nullptr;

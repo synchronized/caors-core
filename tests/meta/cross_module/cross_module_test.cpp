@@ -24,7 +24,7 @@ TEST_CASE("meta - cross module view supports serialization registered before met
                                       .property("id", &cross_module_serialization_first::id)
                                       .commit()));
 
-  auto view = caors::meta::get_registry().component_view<caors::serialization::type_schema>();
+  auto view = caors::meta::get_registry().extension_view<caors::serialization::type_schema>();
   CHECK(view_contains(view, type.id()));
 
   const cross_module_serialization_first instance{42};
@@ -34,12 +34,13 @@ TEST_CASE("meta - cross module view supports serialization registered before met
   CHECK(result.value == R"({"actor_id":42})");
 }
 
-// 原测试文件：cross_module_meta_view_finds_types_with_meta_fields_and_serialization_components_test.cpp
+// 原测试文件：cross_module_meta_view_finds_types_with_meta_properties_and_serialization_extensions_test.cpp
 
 #include "cross_module_test_support.h"
 
 using namespace caors::tests::cross_module;
-TEST_CASE("meta - view finds types with meta properties and serialization components", "[meta]") {
+TEST_CASE("meta - view finds types with meta properties and serialization extensions",
+          "[meta]") {
   REQUIRE(meta_property_result_ok(
       ((void)caors::meta::class_<cross_module_actor>("caors.test.meta.cross_module_actor"),
        caors::meta::class_<cross_module_actor>())
@@ -56,7 +57,7 @@ TEST_CASE("meta - view finds types with meta properties and serialization compon
   const auto type = caors::meta::find<cross_module_actor>();
   REQUIRE(type);
 
-  auto view = caors::meta::get_registry().component_view<caors::serialization::type_schema>();
+  auto view = caors::meta::get_registry().extension_view<caors::serialization::type_schema>();
   CHECK(view_contains(view, type.id()));
 
   auto meta_type = caors::meta::find(type.id());

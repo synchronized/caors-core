@@ -17,7 +17,7 @@ class class_builder;
 /**
  * @brief 底层全局序列化注册表。
  *
- * 注册表复用全局 `meta::registry`，把 `serialization::type_schema` 作为组件挂载到同一个
+ * 注册表复用全局 `meta::registry`，把 `serialization::type_schema` 作为 extension 挂载到同一个
  * `type_id` 上。当前序列化实现依赖反射字段信息读取对象数据。
  */
 class CAORS_API registry final {
@@ -44,19 +44,19 @@ private:
 /** @brief 获取进程内全局序列化注册表。 */
 [[nodiscard]] CAORS_API registry& get_registry() noexcept;
 
-/** @brief 查找指定类型的序列化组件。 */
+/** @brief 查找指定类型的序列化 extension。 */
 [[nodiscard]] CAORS_API std::optional<type_schema> find(type_id id);
 
-/** @brief 查找指定元类型的序列化组件。 */
+/** @brief 查找指定元类型的序列化 extension。 */
 [[nodiscard]] CAORS_API std::optional<type_schema> find(meta::type type);
 
-/** @brief 判断指定类型是否挂载了序列化组件。 */
+/** @brief 判断指定类型是否挂载了序列化 extension。 */
 [[nodiscard]] CAORS_API bool contains(type_id id);
 
-/** @brief 判断指定元类型是否挂载了序列化组件。 */
+/** @brief 判断指定元类型是否挂载了序列化 extension。 */
 [[nodiscard]] CAORS_API bool contains(meta::type type);
 
-/** @brief 获取当前序列化组件数量。 */
+/** @brief 获取当前序列化 extension 数量。 */
 [[nodiscard]] CAORS_API std::size_t size() noexcept;
 
 /** @brief 已注册元类型的序列化配置构建器。 */

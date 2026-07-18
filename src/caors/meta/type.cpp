@@ -79,7 +79,7 @@ const metadata_map& type::metadata() const noexcept {
     return empty_metadata_map();
   }
 
-  const type_metadata* data = registry_->find_component_ptr<type_metadata>(id());
+  const type_metadata* data = registry_->find_extension_ptr<type_metadata>(id());
   return data != nullptr ? data->values : empty_metadata_map();
 }
 

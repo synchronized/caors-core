@@ -30,6 +30,12 @@ bool type_data::members_valid() const noexcept {
     }
   }
 
+  for (const extension_data& extension : extensions_) {
+    if (!extension.valid()) {
+      return false;
+    }
+  }
+
   return true;
 }
 
@@ -252,6 +258,53 @@ error type_data::add_owned_capability(capability_key key,
   data.data = capability->data();
   data.owned = std::move(capability);
   capabilities_.push_back(std::move(data));
+  return {};
+}
+
+bool type_data::contains_extension(extension_key key) const noexcept {
+  return find_extension(key) != nullptr;
+}
+
+std::size_t type_data::extension_count() const noexcept { return extensions_.size(); }
+
+const extension_data* type_data::find_extension(extension_key key) const noexcept {
+  if (key == nullptr) {
+    return nullptr;
+  }
+
+  for (const extension_data& extension : extensions_) {
+    if (extension.key == key) {
+      return &extension;
+    }
+  }
+
+  return nullptr;
+}
+
+extension_data* type_data::mutable_find_extension(extension_key key) noexcept {
+  if (key == nullptr) {
+    return nullptr;
+  }
+
+  for (extension_data& extension : extensions_) {
+    if (extension.key == key) {
+      return &extension;
+    }
+  }
+
+  return nullptr;
+}
+
+error type_data::add_extension(extension_data extension) {
+  if (!extension.valid()) {
+    return {error_domain::meta, errc::invalid_argument};
+  }
+
+  if (contains_extension(extension.key)) {
+    return {error_domain::meta, errc::duplicate_component};
+  }
+
+  extensions_.push_back(std::move(extension));
   return {};
 }
 

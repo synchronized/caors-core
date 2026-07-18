@@ -39,7 +39,7 @@ TEST_CASE("registration - meta registry init runs registrations without becoming
 
   const caors::meta::type type = caors::meta::class_<init_actor>("caors.test.init.actor").get();
   REQUIRE(type.valid());
-  REQUIRE(caors::meta::get_registry().emplace_component<init_component>(type.id(), true) ==
+  REQUIRE(caors::meta::get_registry().emplace_extension<init_component>(type.id(), true) ==
           caors::error{});
 
   CHECK(caors::meta::init_registry() == caors::error{});
@@ -47,7 +47,7 @@ TEST_CASE("registration - meta registry init runs registrations without becoming
 
   const caors::meta::type late_type = caors::meta::class_<late_actor>("caors.test.init.late").get();
   REQUIRE(late_type.registered());
-  CHECK(caors::meta::get_registry().emplace_component<late_component>(type.id(), true) ==
+  CHECK(caors::meta::get_registry().emplace_extension<late_component>(type.id(), true) ==
         caors::error{});
 
   CHECK(caors::meta::find<late_actor>().id() == late_type.id());
