@@ -18,6 +18,7 @@
 namespace caors::meta {
 
 namespace detail {
+class method_data;
 class method_set_data;
 } // namespace detail
 
@@ -92,10 +93,10 @@ private:
   friend class module_view;
   friend class type;
 
-  explicit method(const void* reflected_method) noexcept;
-  [[nodiscard]] const void* info() const noexcept;
+  explicit method(const detail::method_data* reflected_method) noexcept;
+  [[nodiscard]] const detail::method_data* info() const noexcept;
 
-  const void* method_ = nullptr;
+  const detail::method_data* method_ = nullptr;
 };
 
 /**
@@ -127,10 +128,10 @@ private:
   friend class module_view;
   friend class type;
 
-  explicit method_set(const void* reflected_method_set) noexcept;
-  [[nodiscard]] const void* info() const noexcept;
+  explicit method_set(const detail::method_set_data* reflected_method_set) noexcept;
+  [[nodiscard]] const detail::method_set_data* info() const noexcept;
 
-  const void* method_set_ = nullptr;
+  const detail::method_set_data* method_set_ = nullptr;
 };
 
 } // namespace caors::meta

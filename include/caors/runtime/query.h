@@ -15,13 +15,13 @@ namespace caors::runtime {
 /** @brief 解析 C++ 类型运行时视图；类型不要求已经显式注册。 */
 template <typename T> [[nodiscard]] type resolve() {
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-  return type{meta::resolve<value_type>()};
+  return meta::resolve<value_type>();
 }
 
 /** @brief 按 C++ 类型查找已注册运行时类型。 */
 template <typename T> [[nodiscard]] type find() {
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-  return type{meta::find<value_type>()};
+  return meta::find<value_type>();
 }
 
 /** @brief 按运行期类型 id 查找运行时类型。 */

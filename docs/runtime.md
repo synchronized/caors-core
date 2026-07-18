@@ -3,18 +3,18 @@
 
 # Runtime Facade
 
-`runtime` 主题提供面向用户的一站式运行时类型 facade，是普通用户优先使用的注册和查询入口。
+`runtime` 主题提供面向用户的一站式运行时注册和查询入口。
 它不引入新的类型注册表，
 而是组合现有 `meta` 属性/方法和 meta value 能力：
 
-- `runtime::type` 内部持有 `meta::type`，按需查询属性和方法。
+- `runtime::type` 是 `meta::type` 的兼容别名；运行期类型查询直接返回同一套 meta 类型视图。
 - `runtime::class_<T>("name")` 先注册 meta 类/普通值类型，再把属性和方法写入同一份 meta 类型数据。
 - `runtime::enum_<T>("name")` 注册枚举 meta 类型，适合只需要稳定类型身份、GUID 和枚举值转换能力的场景。
 - `runtime::instance` 是 `meta::instance` 的兼容别名；实例访问由 meta 层组合 `meta::any_ref`、
   `meta::type`、`meta::property`、`meta::method_set` 和 `meta::method`。
-- `runtime::type::create()` 是运行期值创建的高层入口，优先使用 `meta::factory_capability`，再使用
+- `meta::type::create()` 是运行期值创建的高层入口，优先使用 `meta::factory_capability`，再使用
   `meta::constructor_capability` 匹配运行期参数列表，最后才回退到 descriptor 默认构造。
-- `runtime::type::create_value()` 是高级默认构造入口，只使用 `meta::any` 的 descriptor 默认构造能力，
+- `meta::type::create_value()` 是高级默认构造入口，只使用 `meta::any` 的 descriptor 默认构造能力，
   不查询 factory。
 
 ## 基本使用
@@ -35,12 +35,12 @@ caors::runtime::class_<actor>("game.actor")
     .commit();
 
 caors::runtime::type type = caors::runtime::find<actor>();
-caors::runtime::field field = type.find_property("health");
+caors::runtime::property property = type.find_property("health");
 ```
 
 ## 创建值
 
-`runtime::type::create()` 是普通代码优先使用的运行期创建入口：
+`meta::type::create()` 是普通代码优先使用的运行期创建入口：
 
 ```cpp
 caors::runtime::type type = caors::runtime::find<actor>();
@@ -102,7 +102,7 @@ constructor 参数采用保守匹配策略：参数数量必须一致，参数�
   可以把外部高级构造结果封装进 RAII 句柄；调用方必须保证销毁函数和资源匹配。
 - `take_ownership(owned_value&&)` 接管 `owned_value` 持有的对象，并保留匹配的资源销毁函数或普通销毁函数。
   普通 meta factory 调用优先使用 `factory_capability::construct()`。
-- 普通业务、编辑器创建、多态反序列化和资源配置加载应优先通过 `runtime::type::create()` 统一调度。
+- 普通业务、编辑器创建、多态反序列化和资源配置加载应优先通过 `meta::type::create()` 统一调度。
 
 注册自定义无参构造策略时，使用 `runtime::class_<T>().factory()`：
 
@@ -172,7 +172,7 @@ caors::runtime::type state_type = caors::runtime::find<actor_state>();
 - object/resource 等领域专用便利能力放在对应模块或适配层，不反向塞进 `meta::property`
   这类底层通用视图。
 - `runtime` 组合公开 facade，不直接依赖 `meta::detail`。需要构造未知类型值时走
-  `runtime::type::create()`、`meta::factory_capability`、`meta::constructor_capability`
+  `meta::type::create()`、`meta::factory_capability`、`meta::constructor_capability`
   或 `meta::any` / `meta::owned_value` 这类公开所有权接口。
 - 具体模块仍保留高级入口，例如 `meta::class_<T>()`、`meta::enum_<T>()`、
   `meta::class_<T>()` 和 `serialization::class_<T>()`，用于更细粒度地控制注册顺序和模块依赖。

@@ -61,7 +61,7 @@ public:
     return *this;
   }
 
-  /** @brief 注册一组运行期构造参数，供 `runtime::type::create(arguments)` 使用。 */
+  /** @brief 注册一组运行期构造参数，供 `meta::type::create(arguments)` 使用。 */
   template <typename... Arguments> class_builder& constructor() {
     meta_builder_.template constructor<Arguments...>();
     update_meta_status();
@@ -108,7 +108,7 @@ public:
   /** @brief 返回当前注册状态；meta 类型、字段和方法均已即时写入。 */
   [[nodiscard]] error commit() const noexcept { return status_; }
 
-  [[nodiscard]] runtime::type get() const noexcept { return runtime::type{meta_builder_.get()}; }
+  [[nodiscard]] runtime::type get() const noexcept { return meta_builder_.get(); }
   [[nodiscard]] error result() const noexcept { return status_; }
   [[nodiscard]] bool succeeded() const noexcept { return !failed(); }
 
@@ -151,7 +151,7 @@ public:
   /** @brief 提交枚举注册；meta 类型在构造 builder 时已经注册。 */
   [[nodiscard]] error commit() const noexcept { return status_; }
 
-  [[nodiscard]] runtime::type get() const noexcept { return runtime::type{meta_builder_.get()}; }
+  [[nodiscard]] runtime::type get() const noexcept { return meta_builder_.get(); }
   [[nodiscard]] error result() const noexcept { return status_; }
   [[nodiscard]] bool succeeded() const noexcept { return !status_; }
 

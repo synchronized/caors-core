@@ -17,8 +17,14 @@
 #include <string_view>
 #include <type_traits>
 
+namespace caors::memory {
+class memory_resource;
+} // namespace caors::memory
+
 namespace caors::meta {
 
+class any;
+class argument;
 class registry;
 class type;
 class property;
@@ -86,6 +92,15 @@ public:
   [[nodiscard]] wrapper_semantics wrapper() const noexcept;
   [[nodiscard]] bool indirect() const noexcept;
   [[nodiscard]] bool nullable() const noexcept;
+  [[nodiscard]] std::size_t size() const noexcept;
+  [[nodiscard]] std::size_t alignment() const noexcept;
+  [[nodiscard]] bool constructible() const noexcept;
+  [[nodiscard]] bool constructible(std::size_t argument_count) const noexcept;
+  [[nodiscard]] bool value_constructible() const noexcept;
+  [[nodiscard]] any create(memory::memory_resource* resource = nullptr) const;
+  [[nodiscard]] any create(std::span<const argument> arguments,
+                           memory::memory_resource* resource = nullptr) const;
+  [[nodiscard]] any create_value(memory::memory_resource* resource = nullptr) const;
   [[nodiscard]] const metadata_map& metadata() const noexcept;
   [[nodiscard]] const metadata_value* find_metadata(metadata_key key) const noexcept;
   [[nodiscard]] type get_value_type() const noexcept;

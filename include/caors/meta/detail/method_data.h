@@ -6,7 +6,7 @@
 
 #include "caors/core/containers.h"
 #include "caors/memory/unique_ptr.h"
-#include "caors/meta/argument.h"
+#include "caors/meta/detail/argument_access.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/type.h"
 
@@ -51,7 +51,7 @@ struct method_ops {
 /**
  * @brief 底层成员方法反射元信息。
  *
- * 方法调用只支持已注册的成员函数指针。参数通过 `any_ref` 传入，返回值通过 `any`
+ * 方法调用只支持已注册的成员函数指针。参数通过 `argument` 传入，返回值通过 `any`
  * 拷贝返回；`void` 返回值会得到无效 `any`。
  */
 class method_data final {
@@ -252,66 +252,7 @@ private:
   vector<method_data> overloads_{};
 };
 
-template <typename T> using method_value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-
-template <typename Parameter> [[nodiscard]] bool argument_matches(const argument& value) noexcept {
-  using value_type = method_value_type<Parameter>;
-  if (!value.template matches_type<value_type>()) {
-    return false;
-  }
-
-  if constexpr (std::is_rvalue_reference_v<Parameter>) {
-    return value.rvalue() && value.writable();
-  } else if constexpr (std::is_lvalue_reference_v<Parameter> &&
-                       !std::is_const_v<std::remove_reference_t<Parameter>>) {
-    return value.writable();
-  } else {
-    return true;
-  }
-}
-
-template <typename Parameter>
-using argument_pass_type =
-    std::conditional_t<std::is_rvalue_reference_v<Parameter>, method_value_type<Parameter>&&,
-                       std::conditional_t<std::is_lvalue_reference_v<Parameter> &&
-                                              !std::is_const_v<std::remove_reference_t<Parameter>>,
-                                          method_value_type<Parameter>&,
-                                          std::conditional_t<std::is_lvalue_reference_v<Parameter>,
-                                                             const method_value_type<Parameter>&,
-                                                             method_value_type<Parameter>>>>;
-
-template <typename Parameter>
-argument_pass_type<Parameter> argument_value(const argument& value) noexcept {
-  using value_type = method_value_type<Parameter>;
-  if constexpr (std::is_rvalue_reference_v<Parameter>) {
-    auto* result = value.template try_get_mutable<value_type>();
-    value.consume();
-    return std::move(*result);
-  } else if constexpr (std::is_lvalue_reference_v<Parameter> &&
-                       !std::is_const_v<std::remove_reference_t<Parameter>>) {
-    return *value.template try_get_mutable<value_type>();
-  } else if constexpr (!std::is_reference_v<Parameter>) {
-    if (value.rvalue()) {
-      auto* result = value.template try_get_mutable<value_type>();
-      value.consume();
-      return std::move(*result);
-    }
-
-    return *value.template try_get<value_type>();
-  } else {
-    return *value.template try_get<value_type>();
-  }
-}
-
-template <typename... Arguments>
-[[nodiscard]] bool arguments_match(std::span<const argument> arguments) noexcept {
-  if (arguments.size() != sizeof...(Arguments)) {
-    return false;
-  }
-
-  std::size_t index = 0;
-  return ((argument_matches<Arguments>(arguments[index++])) && ...);
-}
+template <typename T> using method_value_type = argument_value_type<T>;
 
 template <typename Class, typename Return, typename... Arguments, std::size_t... Index>
 [[nodiscard]] any invoke_member_impl(Return (Class::*member)(Arguments...), Class& object,

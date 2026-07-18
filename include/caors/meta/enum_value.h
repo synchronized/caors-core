@@ -19,7 +19,10 @@ class enum_value_view;
 
 namespace detail {
 
-[[nodiscard]] CAORS_API enum_value_view make_enum_value_view(const void* enum_value) noexcept;
+class enum_value_data;
+
+[[nodiscard]] CAORS_API enum_value_view
+make_enum_value_view(const enum_value_data* enum_value) noexcept;
 
 } // namespace detail
 
@@ -61,12 +64,12 @@ public:
 
 private:
   friend class type;
-  friend enum_value_view detail::make_enum_value_view(const void*) noexcept;
+  friend enum_value_view detail::make_enum_value_view(const detail::enum_value_data*) noexcept;
 
-  explicit enum_value_view(const void* enum_value) noexcept;
-  [[nodiscard]] const void* info() const noexcept;
+  explicit enum_value_view(const detail::enum_value_data* enum_value) noexcept;
+  [[nodiscard]] const detail::enum_value_data* info() const noexcept;
 
-  const void* value_ = nullptr;
+  const detail::enum_value_data* value_ = nullptr;
 };
 
 } // namespace caors::meta

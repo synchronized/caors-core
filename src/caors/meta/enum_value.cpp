@@ -14,45 +14,41 @@ namespace {
   return empty;
 }
 
-[[nodiscard]] const detail::enum_value_data* as_enum_value_data(const void* value) noexcept {
-  return static_cast<const detail::enum_value_data*>(value);
-}
-
 } // namespace
 
-enum_value_view::enum_value_view(const void* enum_value) noexcept : value_(enum_value) {}
+enum_value_view::enum_value_view(const detail::enum_value_data* enum_value) noexcept
+    : value_(enum_value) {}
 
 bool enum_value_view::valid() const noexcept {
-  const detail::enum_value_data* value = as_enum_value_data(value_);
-  return value != nullptr && value->valid();
+  return value_ != nullptr && value_->valid();
 }
 
 core::string_name enum_value_view::name() const noexcept {
-  const detail::enum_value_data* value = as_enum_value_data(info());
+  const detail::enum_value_data* value = info();
   return value != nullptr ? value->name() : core::string_name{};
 }
 
 std::int64_t enum_value_view::to_i64() const noexcept {
-  const detail::enum_value_data* value = as_enum_value_data(info());
+  const detail::enum_value_data* value = info();
   return value != nullptr ? value->to_i64() : 0;
 }
 
 std::uint64_t enum_value_view::to_u64() const noexcept {
-  const detail::enum_value_data* value = as_enum_value_data(info());
+  const detail::enum_value_data* value = info();
   return value != nullptr ? value->to_u64() : 0;
 }
 
 const meta::metadata_map& enum_value_view::metadata() const noexcept {
-  const detail::enum_value_data* value = as_enum_value_data(info());
+  const detail::enum_value_data* value = info();
   return value != nullptr ? value->metadata() : empty_metadata_map();
 }
 
 const meta::metadata_value* enum_value_view::find_metadata(meta::metadata_key key) const noexcept {
-  const detail::enum_value_data* value = as_enum_value_data(info());
+  const detail::enum_value_data* value = info();
   return value != nullptr ? value->find_metadata(key) : nullptr;
 }
 
-const void* enum_value_view::info() const noexcept {
+const detail::enum_value_data* enum_value_view::info() const noexcept {
   if (!valid()) {
     return nullptr;
   }
@@ -62,7 +58,7 @@ const void* enum_value_view::info() const noexcept {
 
 namespace detail {
 
-enum_value_view make_enum_value_view(const void* enum_value) noexcept {
+enum_value_view make_enum_value_view(const enum_value_data* enum_value) noexcept {
   return enum_value_view{enum_value};
 }
 

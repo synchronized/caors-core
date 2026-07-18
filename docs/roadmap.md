@@ -90,7 +90,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 增加 `runtime` facade，组合 `meta::type`、反射字段/方法和值构造能力，提供更直接的用户入口。
 - [x] 将 `runtime` 确认为推荐主入口，具体模块保留高级入口；`meta::type_<T>()` 改为
   `meta::class_<T>()`，并增加 `meta::enum_<T>()` / `runtime::enum_<T>()`。
-- [x] 将 `runtime::type::create()` 统一为高层创建入口，优先使用 `meta::factory_capability`，再使用
+- [x] 将 `meta::type::create()` 统一为高层创建入口，优先使用 `meta::factory_capability`，再使用
   `meta::constructor_capability` 匹配运行期参数列表，最后回退到 descriptor 默认构造；`create_value()`
   保留为高级默认构造入口。
 - [ ] 评估组件替换和批量注册 API。
@@ -148,7 +148,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 支持 `std::tuple<Ts...>` 的 tuple-like 字段描述、元素类型查询和基础修改入口。
 - [x] 定义成员方法元信息模型；字段继续承担数据属性反射。
 - [x] 提供成员方法调用入口。
-- [x] 设计独立 constructor / 带参构造函数注册组件，并接入 `runtime::type::create()` 的统一创建策略。
+- [x] 设计独立 constructor / 带参构造函数注册组件，并接入 `meta::type::create()` 的统一创建策略。
 - [x] 支持字段级 metadata 注册与查询，供配置校验、导入管线和编辑器工具按约定键读取。
 - [ ] 支持同名成员方法重载集合，提供按名称和参数类型精确查询 / 调用的 overload set API。
 - [ ] 支持静态字段和静态成员函数反射，作为类型级成员能力处理，不混入实例字段和实例方法语义。

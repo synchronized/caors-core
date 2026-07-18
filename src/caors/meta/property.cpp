@@ -9,10 +9,6 @@
 namespace caors::meta {
 namespace {
 
-[[nodiscard]] const detail::property_data* as_property_data(const void* property) noexcept {
-  return static_cast<const detail::property_data*>(property);
-}
-
 [[nodiscard]] const meta::metadata_map& empty_metadata_map() noexcept {
   static const meta::metadata_map empty{
       typename meta::metadata_map::allocator_type{&memory::library_resource()}};
@@ -26,25 +22,24 @@ namespace {
 
 } // namespace
 
-property::property(const void* property) noexcept : property_(property) {}
+property::property(const detail::property_data* property) noexcept : property_(property) {}
 
 bool property::valid() const noexcept {
-  const detail::property_data* property = as_property_data(property_);
-  return property != nullptr && property->valid();
+  return property_ != nullptr && property_->valid();
 }
 
 core::string_name property::name() const noexcept {
-  const detail::property_data* property = as_property_data(info());
+  const detail::property_data* property = info();
   return property != nullptr ? property->name() : core::string_name{};
 }
 
 meta::type property::get_owner_type() const noexcept {
-  const detail::property_data* property = as_property_data(info());
+  const detail::property_data* property = info();
   return property != nullptr ? property->get_owner_type() : meta::type{};
 }
 
 meta::type property::get_type() const noexcept {
-  const detail::property_data* property = as_property_data(info());
+  const detail::property_data* property = info();
   return property != nullptr ? property->get_type() : meta::type{};
 }
 
@@ -71,27 +66,27 @@ bool property::indirect() const noexcept { return get_type().indirect(); }
 bool property::nullable() const noexcept { return get_type().nullable(); }
 
 bool property::writable() const noexcept {
-  const detail::property_data* property = as_property_data(info());
+  const detail::property_data* property = info();
   return property != nullptr && property->writable();
 }
 
 const meta::property_schema& property::schema() const noexcept {
-  const detail::property_data* property = as_property_data(info());
+  const detail::property_data* property = info();
   return property != nullptr ? property->schema() : empty_property_schema();
 }
 
 const meta::metadata_map& property::metadata() const noexcept {
-  const detail::property_data* property = as_property_data(info());
+  const detail::property_data* property = info();
   return property != nullptr ? property->metadata() : empty_metadata_map();
 }
 
 const meta::metadata_value* property::find_metadata(meta::metadata_key key) const noexcept {
-  const detail::property_data* property = as_property_data(info());
+  const detail::property_data* property = info();
   return property != nullptr ? property->find_metadata(key) : nullptr;
 }
 
 std::size_t property::offset() const noexcept {
-  const detail::property_data* property = as_property_data(info());
+  const detail::property_data* property = info();
   return property != nullptr ? property->offset() : 0;
 }
 
@@ -107,7 +102,7 @@ std::size_t property::alignment() const noexcept {
   return value_ops != nullptr ? value_ops->layout.alignment : 0;
 }
 
-const void* property::info() const noexcept {
+const detail::property_data* property::info() const noexcept {
   if (!valid()) {
     return nullptr;
   }
@@ -116,7 +111,7 @@ const void* property::info() const noexcept {
 }
 
 any property::get_value(const instance& object) const {
-  const detail::property_data* property = as_property_data(info());
+  const detail::property_data* property = info();
   if (property == nullptr || !object) {
     return {};
   }
@@ -125,7 +120,7 @@ any property::get_value(const instance& object) const {
 }
 
 any property::get_value() const {
-  const detail::property_data* property = as_property_data(info());
+  const detail::property_data* property = info();
   if (property == nullptr) {
     return {};
   }
@@ -134,7 +129,7 @@ any property::get_value() const {
 }
 
 any_ref property::get_ref(const instance& object) const {
-  const detail::property_data* property = as_property_data(info());
+  const detail::property_data* property = info();
   if (property == nullptr || !object) {
     return {};
   }
@@ -144,7 +139,7 @@ any_ref property::get_ref(const instance& object) const {
 }
 
 any_ref property::get_ref() const {
-  const detail::property_data* property = as_property_data(info());
+  const detail::property_data* property = info();
   if (property == nullptr) {
     return {};
   }
@@ -153,7 +148,7 @@ any_ref property::get_ref() const {
 }
 
 bool property::try_set_value(const instance& object, const any& source) const {
-  const detail::property_data* property = as_property_data(info());
+  const detail::property_data* property = info();
   if (property == nullptr || !object.writable()) {
     return false;
   }
@@ -162,7 +157,7 @@ bool property::try_set_value(const instance& object, const any& source) const {
 }
 
 bool property::try_set_value(const any& source) const {
-  const detail::property_data* property = as_property_data(info());
+  const detail::property_data* property = info();
   if (property == nullptr) {
     return false;
   }

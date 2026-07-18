@@ -226,7 +226,7 @@ caors::meta::class_<player>("game.player")
 
 `.factory()` 无参数重载使用 `memory::make<T>()` / `memory::destroy<T>()` 注册默认构造策略，要求 `T`
 可默认构造。带函数指针的重载用于不可默认构造类型，`destroy` 必须匹配 `construct` 的分配策略。
-应用层需要创建运行期值时优先使用 `runtime::type::create()`，它会先通过
+应用层需要创建运行期值时优先使用 `meta::type::create()`，它会先通过
 `meta::type::get_capability<meta::factory_capability>()` 查询这里注册的 factory，再回退到 descriptor
 默认构造。如果确实只需要 meta 层创建结果，可以使用 `factory_capability::construct(resource)` 直接返回
 拥有生命周期的 `meta::any`；需要先填充对象再转移所有权时，使用
@@ -248,8 +248,9 @@ caors::meta::class_<actor>("game.actor")
 ```
 
 `constructor<Args...>()` 使用 `std::span<const meta::argument>` 参数列表做精确匹配：参数数量必须一致，
-参数类型必须和 `Args...` 去 cv/ref 后一致；非 const 左值引用参数要求传入可写 `any_ref`。
-`runtime::type::create(arguments)` 会在 factory 之后查询 constructor，构造成功后同样由 `any`
+参数类型必须和 `Args...` 去 cv/ref 后一致；非 const 左值引用参数要求通过 `caors::arg(ref)`
+传入可写引用。
+`meta::type::create(arguments)` 会在 factory 之后查询 constructor，构造成功后同样由 `any`
 保存匹配的内部销毁策略。也可以使用 `constructor_capability::construct(arguments, resource)` 直接获得
 `meta::any`，或使用 `constructor_capability::construct_owned(arguments, resource)` 获得可延迟转移的
 `meta::owned_value`。当前版本只支持一个 constructor 能力，右值引用参数需要通过
@@ -981,7 +982,7 @@ descriptor，不再为了创建 view 把每一种容器组合额外挂载为 met
 - `meta::class_<T>().factory()` / `.factory(construct, destroy)`：给已注册类型注册运行期 factory，保存运行期值构造和销毁策略；查询时使用 `meta::type::get_capability<meta::factory_capability>()`，推荐通过 `factory_capability::construct()` 获取拥有生命周期的 `any`。
 - `meta::class_<T>().constructor<Args...>()`：注册运行期参数构造策略；查询时使用
   `meta::type::get_capability<meta::constructor_capability>()`，普通调用优先走
-  `runtime::type::create(arguments)` 或 `constructor_capability::construct(arguments)`。
+  `meta::type::create(arguments)` 或 `constructor_capability::construct(arguments)`。
 - `meta::registry`：全局 meta 类型注册、按 id/name/guid 或 C++ 类型查询、继承关系判断和组件式元数据挂载。
 - `meta::registry::component_view<T...>`：按组件集合查询类型。
 - `meta::run_registrations()`：执行已收集的延迟元数据注册函数。

@@ -162,7 +162,7 @@ public:
   /**
    * @brief 注册一组运行期构造参数。
    *
-   * 具体模板实现位于 `caors/meta/constructor.h`。该入口使用 `any_ref`
+   * 具体模板实现位于 `caors/meta/constructor.h`。该入口使用 `argument`
    * 参数列表做精确类型匹配，适合 runtime facade、编辑器和工具层按运行期参数创建对象。
    */
   template <typename... Arguments> class_builder& constructor();

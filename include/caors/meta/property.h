@@ -16,6 +16,10 @@
 
 namespace caors::meta {
 
+namespace detail {
+class property_data;
+} // namespace detail
+
 class type;
 class instance;
 
@@ -153,10 +157,10 @@ private:
   friend class module_view;
   friend class type;
 
-  explicit property(const void* reflected_property) noexcept;
-  [[nodiscard]] const void* info() const noexcept;
+  explicit property(const detail::property_data* reflected_property) noexcept;
+  [[nodiscard]] const detail::property_data* info() const noexcept;
 
-  const void* property_ = nullptr;
+  const detail::property_data* property_ = nullptr;
 };
 
 } // namespace caors::meta

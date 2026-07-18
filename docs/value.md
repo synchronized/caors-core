@@ -102,7 +102,7 @@ caors::any value = caors::any::from(7);
   `any::default_construct(type_id, resource)`。
 - `any::take_ownership(owned_value&&)` 是高级所有权接管入口。它会把 `owned_value`
   中匹配的资源销毁函数或普通销毁函数一起转移到 `any`，保证后续析构仍使用同一套分配 / 释放策略。
-  普通业务代码应优先使用 `runtime::type::create()` 或 `factory_capability::construct()`，
+  普通业务代码应优先使用 `meta::type::create()` 或 `factory_capability::construct()`，
   不要直接拼接裸指针生命周期。
 - `meta::destroy_fn` 和 `meta::resource_destroy_fn` 是高级构造路径共用的销毁函数类型；
   `meta::value_ops`、factory、constructor 和序列化自定义构造都会复用这两个别名。
