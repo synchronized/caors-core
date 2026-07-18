@@ -52,6 +52,44 @@ error registry::register_type(type_id id, string_name name, type_guid guid, type
   return register_type_impl(*state_, detail::type_data{id, name, guid, parent_id});
 }
 
+error registry::commit_type(detail::type_data type, const std::type_info& cpp_type) {
+  if (!type.valid() || !type.id()) {
+    return {error_domain::meta, errc::invalid_type};
+  }
+
+  std::lock_guard lock(state_->mutex);
+  if (state_->types.contains(type.id().value())) {
+    return {error_domain::meta, errc::duplicate_id};
+  }
+
+  const type_id expected_id = type.id();
+  error status = detail::store_new_type(*state_, std::move(type));
+  if (status) {
+    return status;
+  }
+
+  detail::type_data* stored = detail::find_type_data(*state_, expected_id);
+  if (stored == nullptr) {
+    return {error_domain::meta, errc::invalid_type};
+  }
+
+  const std::type_index cpp_index{cpp_type};
+  const auto cpp_position = state_->cpp_types.find(cpp_index);
+  if (cpp_position != state_->cpp_types.end() && cpp_position->second != stored) {
+    return {error_domain::meta, errc::invalid_type};
+  }
+  state_->cpp_types.emplace(cpp_index, stored);
+
+  for (std::size_t index = 0; index < stored->extension_count(); ++index) {
+    status = detail::index_type_extension(*state_, expected_id, stored->extension_key_at(index));
+    if (status) {
+      return status;
+    }
+  }
+
+  return {};
+}
+
 error registry::ensure_type_descriptor(const detail::type_descriptor& descriptor) {
   std::lock_guard lock(state_->mutex);
   if (!descriptor.valid() || !descriptor.type) {

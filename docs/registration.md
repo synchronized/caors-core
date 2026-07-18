@@ -26,10 +26,10 @@ void register_actor() {
 }
 ```
 
-当前聚合入口复用 `meta::class_<T>()`、`serialization::class_()` 和 `objects::class_<T>()`
-的既有实现，因此默认上下文路径最完整。长期目标是引入 registry pending model：builder
-在注册阶段收集完整数据，`commit()` 时一次性发布不可变 `type_data`；发布后的类型数据只读，
-后续修改需要重新构造并按 registry 策略替换或拒绝。
+当前聚合入口使用 registry pending model：builder 在注册阶段收集 meta 属性/方法、序列化 schema、
+对象 factory capability 和其他类型能力，`commit()` 时一次性发布完整 `type_data`。发布后的
+`type_data` 不会再通过 `registration::type_<T>()` 修改；重复提交同一个类型会返回
+`errc::duplicate_id`，并保留已有注册数据。
 
 底层模块入口仍然保留，主要用于模块内部实现、专项测试或只使用单个模块的低层代码；业务类型注册优先使用
 `registration::type_<T>()`：
@@ -38,6 +38,9 @@ void register_actor() {
 2. `serialization::class_(meta::type)`：serialization 层低层 builder，给已注册 meta 类型挂载序列化 schema。
 3. `objects::class_<T>()`：object 层低层 builder，给对象类型挂载对象工厂能力。
 4. `meta::init_registry()`：执行延迟注册函数并校验注册表。
+
+这些低层入口仍然沿用各自模块的历史写入路径，主要服务内部实现和专项测试。需要不可变一次发布语义时，
+应使用 `registration::type_<T>()`。
 
 字段声明类型不要求全部完成 `meta::class_<T>("name")` 注册。基础标量、字符串、容器、指针、
 wrapper、pair、tuple 和 variant 可以通过内部 descriptor 参与反射和序列化。只有需要稳定名称、

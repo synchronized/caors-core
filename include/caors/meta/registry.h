@@ -51,6 +51,12 @@ template <typename T> [[nodiscard]] error ensure_type_descriptor_for();
 
 } // namespace caors::meta::detail
 
+namespace caors::registration {
+
+template <typename T> class type_builder;
+
+} // namespace caors::registration
+
 namespace caors::meta {
 
 template <typename T> class class_builder;
@@ -123,6 +129,7 @@ public:
 private:
   template <typename T> friend class class_builder;
   template <typename T> friend class enum_builder;
+  template <typename T> friend class ::caors::registration::type_builder;
   friend class type;
   friend error detail::ensure_type_descriptor_registered(const detail::type_descriptor& descriptor);
   friend error detail::register_capability(registry& registry, type_id id, capability_key key,
@@ -145,6 +152,7 @@ private:
 
   [[nodiscard]] error register_type(type_id id, string_name name, type_guid guid,
                                     type_id parent_id);
+  [[nodiscard]] error commit_type(detail::type_data type, const std::type_info& cpp_type);
   template <typename T>
   [[nodiscard]] error register_type_for(string_name name, type_guid guid = type_guid::nil(),
                                         type_id parent_id = type_id::invalid());

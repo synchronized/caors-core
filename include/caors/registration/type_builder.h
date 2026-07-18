@@ -4,12 +4,18 @@
 #ifndef CAORS_REGISTRATION_TYPE_BUILDER_H_
 #define CAORS_REGISTRATION_TYPE_BUILDER_H_
 
-#include "caors/meta/builder.h"
+#include "caors/meta/class_registration.h"
 #include "caors/meta/constructor.h"
+#include "caors/meta/detail/extension_data.h"
+#include "caors/meta/detail/parent_cast_ops.h"
+#include "caors/meta/detail/type_data.h"
+#include "caors/meta/detail/type_descriptor_model.h"
+#include "caors/meta/metadata.h"
+#include "caors/meta/registry.h"
+#include "caors/object/factory.h"
 #include "caors/object/registry.h"
 #include "caors/serialization/registry.h"
 
-#include <string>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -21,69 +27,119 @@ template <typename T> class meta_section;
 template <typename T> class serialization_section;
 template <typename T> class object_section;
 
+namespace detail {
+
+template <typename Child, typename Parent>
+[[nodiscard]] constexpr meta::detail::parent_cast_ops parent_cast_ops_for() noexcept {
+  using child_type = std::remove_cv_t<std::remove_reference_t<Child>>;
+  using parent_type = std::remove_cv_t<std::remove_reference_t<Parent>>;
+  static_assert(std::is_base_of_v<parent_type, child_type>, "Parent must be a base class of Child");
+
+  return meta::detail::parent_cast_ops{
+      meta::detail::descriptor_type_id<parent_type>(),
+      [](const void* value) noexcept -> const void* {
+        return value != nullptr ? static_cast<const parent_type*>(static_cast<const child_type*>(value))
+                                : nullptr;
+      },
+      [](void* value) noexcept -> void* {
+        return value != nullptr ? static_cast<parent_type*>(static_cast<child_type*>(value))
+                                : nullptr;
+      },
+  };
+}
+
+} // namespace detail
+
 /**
  * @brief 跨模块类型注册构建器。
  *
- * 该入口把 meta、serialization 和 object 的注册动作集中到同一个链式 API。当前实现复用各模块已有
- * builder；类型数据的“注册后不可变”语义会在后续 registry pending model 中继续收口。
+ * builder 在注册阶段持有一份 pending `type_data`，meta 属性/方法、serialization schema 和 object
+ * capability 都写入 pending 数据；`commit()` 时一次性发布到 registry。发布后的 `type_data`
+ * 不再通过该入口修改。
  */
 template <typename T> class type_builder {
 public:
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+
   type_builder(meta::context& ctx, std::string_view name)
-      : name_(name), meta_builder_(meta::class_<T>(ctx, name_)) {}
+      : registry_(&ctx.get_registry()),
+        pending_(meta::detail::descriptor_type_id<value_type>(), core::string_name{name}) {}
 
   /** @brief 设置类型稳定 GUID。 */
   type_builder& guid(type_guid guid_value) {
-    meta_builder_.guid(guid_value);
+    pending_.set_guid(guid_value);
     return *this;
   }
 
   /** @brief 设置类型稳定 GUID。 */
-  type_builder& guid(caors::guid guid_value) {
-    meta_builder_.guid(guid_value);
-    return *this;
-  }
+  type_builder& guid(caors::guid guid_value) { return guid(type_guid{guid_value}); }
 
   /** @brief 设置已注册父类型 id。 */
   type_builder& parent(type_id parent_id) {
-    meta_builder_.parent(parent_id);
+    pending_.set_parent_id(parent_id);
     return *this;
   }
 
   /** @brief 设置 C++ 父类型并保存安全 upcast 信息。 */
   template <typename Parent> type_builder& parent() {
-    meta_builder_.template parent<Parent>();
+    pending_.set_parent_id(meta::detail::descriptor_type_id<Parent>());
+    pending_.set_parent_cast(detail::parent_cast_ops_for<value_type, Parent>());
     return *this;
   }
 
   /** @brief 注册默认 factory。 */
   type_builder& factory() {
-    meta_builder_.factory();
-    return *this;
+    return factory(meta::detail::resource_default_construct_fn_of<value_type>(),
+                   meta::detail::resource_destroy_fn_of<value_type>());
   }
 
   /** @brief 注册自定义 factory。 */
   type_builder& factory(meta::factory_ops::construct_fn construct,
                         meta::factory_ops::destroy_fn destroy) {
-    meta_builder_.factory(construct, destroy);
+    const meta::factory_ops ops{construct, destroy};
+    if (!ops.valid()) {
+      status_ = {error_domain::meta, errc::invalid_type};
+      return *this;
+    }
+
+    status_ = pending_.add_owned_capability(
+        meta::capability_key_of<meta::factory_ops>(),
+        meta::detail::make_owned_capability<meta::factory_ops>(ops));
     return *this;
   }
 
-  /** @brief 注册运行期构造参数。 */
+  /** @brief 注册运行期构造参数。该入口暂时仍走 meta 低层 builder。 */
   template <typename... Arguments> type_builder& constructor() {
-    meta_builder_.template constructor<Arguments...>();
+    const meta::constructor_ops ops =
+        meta::detail::make_constructor_ops<value_type, Arguments...>();
+    if (!ops.valid()) {
+      status_ = {error_domain::meta, errc::invalid_type};
+      return *this;
+    }
+
+    status_ = pending_.add_owned_capability(
+        meta::capability_key_of<meta::constructor_ops>(),
+        meta::detail::make_owned_capability<meta::constructor_ops>(ops));
     return *this;
   }
 
   /** @brief 写入类型 metadata。 */
   template <typename Value> type_builder& metadata(std::string_view key, Value&& value) {
-    meta_builder_.metadata(key, std::forward<Value>(value));
-    return *this;
+    return metadata(core::string_name{key}, std::forward<Value>(value));
   }
 
   /** @brief 写入类型 metadata。 */
-  template <typename Value> type_builder& metadata(string_name key, Value&& value) {
-    meta_builder_.metadata(key, std::forward<Value>(value));
+  template <typename Value> type_builder& metadata(core::string_name key, Value&& value) {
+    if (!key) {
+      status_ = {error_domain::meta, errc::invalid_type};
+      return *this;
+    }
+
+    meta::type_metadata data{};
+    data.values = meta::make_metadata_map(&memory::library_resource());
+    meta::set_metadata(data.values, key, meta::make_metadata_value(std::forward<Value>(value)));
+    status_ = pending_.add_extension(
+        meta::detail::make_extension_data<meta::type_metadata>(&memory::library_resource(), data));
     return *this;
   }
 
@@ -101,66 +157,168 @@ public:
     requires(std::is_base_of_v<objects::object, U>)
   [[nodiscard]] object_section<T> object() noexcept {
     object_enabled_ = true;
+    using base_type = typename objects::detail::object_base_type_traits<value_type>::type;
+    if constexpr (!std::is_same_v<base_type, objects::object>) {
+      if (registry_ != nullptr && registry_->template find_type<base_type>()) {
+        parent<base_type>();
+      }
+    }
+
+    const objects::object_factory_ops* factory =
+        meta::capabilities::get<objects::object_factory_ops, value_type>();
+    if (factory != nullptr && !pending_.contains_capability(
+                                  meta::capability_key_of<objects::object_factory_ops>())) {
+      status_ = pending_.add_capability(meta::capability_key_of<objects::object_factory_ops>(),
+                                        factory);
+    }
     return object_section<T>{*this};
   }
 
-  /** @brief 提交所有已配置模块注册动作。 */
+  /** @brief 提交 pending 类型数据；已注册类型不会被继续修改。 */
   [[nodiscard]] error commit() {
-    error status = meta_builder_.commit();
-    if (failed(status)) {
-      status_ = status;
+    if (status_) {
       return status_;
     }
 
     if (serialization_enabled_) {
-      status =
-          serialization::class_builder{meta_builder_.get(), serialization_schema_}.commit();
-      if (status) {
-        status_ = status;
+      status_ = pending_.add_extension(meta::detail::make_extension_data<serialization::type_schema>(
+          &memory::library_resource(), serialization_schema_));
+      if (status_) {
         return status_;
       }
     }
 
-    if (object_enabled_) {
-      status = commit_object();
-      if (status) {
-        status_ = status;
-        return status_;
-      }
+    const meta::detail::type_descriptor* descriptor =
+        meta::detail::descriptor_ptr_of<value_type>();
+    if (descriptor == nullptr || !descriptor->valid()) {
+      status_ = {error_domain::meta, errc::invalid_type};
+      return status_;
     }
 
-    status_ = {};
+    pending_.set_descriptor(descriptor);
+    status_ = registry_->commit_type(std::move(pending_), typeid(value_type));
     return status_;
   }
 
-  [[nodiscard]] meta::type get() const noexcept { return meta_builder_.get(); }
-  [[nodiscard]] error result() const noexcept { return status_ ? status_ : meta_builder_.result(); }
+  [[nodiscard]] meta::type get() const noexcept {
+    return registry_ != nullptr ? registry_->template find_type<value_type>() : meta::type{};
+  }
+
+  [[nodiscard]] error result() const noexcept { return status_; }
 
 private:
   friend class meta_section<T>;
   friend class serialization_section<T>;
   friend class object_section<T>;
 
-  [[nodiscard]] static bool failed(error status) noexcept {
-    return status && status.value() != errc::duplicate_id;
-  }
+  template <typename Member>
+  [[nodiscard]] core::string_name add_property(std::string_view name, Member member,
+                                               std::string_view type_name = {}) {
+    static_assert(std::is_member_object_pointer_v<Member>,
+                  "registration::type_builder::property requires a data member pointer");
+    using traits_type = meta::detail::member_object_pointer_traits<Member>;
+    using owner_type = typename traits_type::class_type;
+    using property_type = std::remove_cv_t<typename traits_type::property_type>;
+    static_assert(std::is_same_v<owner_type, value_type>,
+                  "Property member pointer owner must match builder type");
 
-  [[nodiscard]] error commit_object() {
-    if constexpr (std::is_base_of_v<objects::object, T>) {
-      auto builder = objects::class_<T>(name_);
-      if (object_parent_id_) {
-        builder.parent(object_parent_id_);
-      }
-      return builder.commit();
-    } else {
-      return {error_domain::object, errc::invalid_type};
+    if (type_name.empty() && !caors::meta::resolve<property_type>()) {
+      status_ = {error_domain::meta, errc::invalid_field};
+      return {};
     }
+
+    meta::detail::property_data property =
+        meta::detail::make_property_data<value_type, typename traits_type::property_type>(
+            name, type_name, meta::detail::member_offset(member));
+    if (!property.valid() || pending_.find_property_ptr(property.name()) != nullptr) {
+      status_ = {error_domain::meta,
+                 property.valid() ? errc::duplicate_field : errc::invalid_field};
+      return {};
+    }
+
+    const core::string_name property_name = property.name();
+    pending_.add_property(std::move(property));
+    status_ = {};
+    return property_name;
   }
 
-  std::string name_{};
-  meta::class_builder<T> meta_builder_;
+  template <typename Getter, typename Setter>
+  [[nodiscard]] core::string_name add_property(std::string_view name, Getter getter,
+                                               Setter setter) {
+    static_assert(std::is_member_function_pointer_v<Getter>,
+                  "registration::type_builder::property getter must be a member function pointer");
+    static_assert(std::is_member_function_pointer_v<Setter>,
+                  "registration::type_builder::property setter must be a member function pointer");
+
+    meta::detail::property_data property =
+        meta::detail::make_accessor_property_data<value_type>(name, getter, setter);
+    if (!property.valid() || pending_.find_property_ptr(property.name()) != nullptr) {
+      status_ = {error_domain::meta,
+                 property.valid() ? errc::duplicate_field : errc::invalid_field};
+      return {};
+    }
+
+    const core::string_name property_name = property.name();
+    pending_.add_property(std::move(property));
+    status_ = {};
+    return property_name;
+  }
+
+  template <typename Getter>
+  [[nodiscard]] core::string_name add_readonly_property(std::string_view name, Getter getter) {
+    static_assert(std::is_member_function_pointer_v<Getter>,
+                  "registration::type_builder::property_readonly requires a member function pointer");
+
+    meta::detail::property_data property =
+        meta::detail::make_readonly_property_data<value_type>(name, getter);
+    if (!property.valid() || pending_.find_property_ptr(property.name()) != nullptr) {
+      status_ = {error_domain::meta,
+                 property.valid() ? errc::duplicate_field : errc::invalid_field};
+      return {};
+    }
+
+    const core::string_name property_name = property.name();
+    pending_.add_property(std::move(property));
+    status_ = {};
+    return property_name;
+  }
+
+  template <typename Member>
+  [[nodiscard]] std::pair<core::string_name, std::size_t> add_method(std::string_view name,
+                                                                     Member member) {
+    static_assert(std::is_member_function_pointer_v<Member>,
+                  "registration::type_builder::method requires a member function pointer");
+    using traits_type = meta::detail::member_function_pointer_traits<Member>;
+    using owner_type = typename traits_type::class_type;
+    static_assert(std::is_same_v<owner_type, value_type>,
+                  "Method member pointer owner must match builder type");
+
+    meta::detail::method_data method = meta::detail::make_method_data<value_type>(name, member);
+    if (!method.valid()) {
+      status_ = {error_domain::meta, errc::invalid_field};
+      return {};
+    }
+
+    meta::detail::method_set_data* method_set = pending_.mutable_find_method_ptr(method.name());
+    if (method_set != nullptr && method_set->contains_signature(method)) {
+      status_ = {error_domain::meta, errc::duplicate_method};
+      return {};
+    }
+
+    const core::string_name method_name = method.name();
+    const std::optional<std::size_t> overload_index = pending_.add_method(std::move(method));
+    if (!overload_index.has_value()) {
+      status_ = {error_domain::meta, errc::duplicate_method};
+      return {};
+    }
+
+    status_ = {};
+    return {method_name, *overload_index};
+  }
+
+  meta::registry* registry_ = nullptr;
+  meta::detail::type_data pending_{};
   serialization::type_schema serialization_schema_{};
-  objects::object_type_id object_parent_id_{};
   bool serialization_enabled_ = false;
   bool object_enabled_ = false;
   error status_{};
@@ -208,13 +366,13 @@ public:
   }
 
   template <typename Member> meta_section& property(std::string_view name, Member member) {
-    owner_->meta_builder_.property(name, member);
+    (void)owner_->add_property(name, member);
     return *this;
   }
 
   template <typename Member>
   meta_section& property(std::string_view name, Member member, std::string_view type_name) {
-    owner_->meta_builder_.property(name, member, type_name);
+    (void)owner_->add_property(name, member, type_name);
     return *this;
   }
 
@@ -222,40 +380,51 @@ public:
   meta_section& property(std::string_view name, Getter getter, Setter setter)
     requires(!std::is_convertible_v<Setter, std::string_view>)
   {
-    owner_->meta_builder_.property(name, getter, setter);
+    (void)owner_->add_property(name, getter, setter);
     return *this;
   }
 
   template <typename Getter>
   meta_section& property_readonly(std::string_view name, Getter getter) {
-    owner_->meta_builder_.property_readonly(name, getter);
+    (void)owner_->add_readonly_property(name, getter);
     return *this;
   }
 
   template <typename Member> meta_section& method(std::string_view name, Member member) {
-    owner_->meta_builder_.method(name, member);
+    (void)owner_->add_method(name, member);
     return *this;
   }
 
   template <typename Capability> meta_section& capability(const Capability* capability) {
-    owner_->meta_builder_.capability(capability);
+    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+    owner_->status_ = owner_->pending_.add_capability(
+        meta::capability_key_of<capability_type>(), capability);
     return *this;
   }
 
   template <typename Capability>
     requires(!std::is_pointer_v<std::remove_reference_t<Capability>>)
   meta_section& capability(Capability&& capability) {
-    owner_->meta_builder_.capability(std::forward<Capability>(capability));
+    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+    owner_->status_ = owner_->pending_.add_owned_capability(
+        meta::capability_key_of<capability_type>(),
+        meta::detail::make_owned_capability<capability_type>(
+            capability_type{std::forward<Capability>(capability)}));
     return *this;
   }
 
   template <typename Capability> meta_section& capability() {
-    owner_->meta_builder_.template capability<Capability>();
+    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+    const capability_type* capability = meta::capabilities::get<capability_type, T>();
+    owner_->status_ = capability != nullptr
+                          ? owner_->pending_.add_capability(
+                                meta::capability_key_of<capability_type>(), capability)
+                          : error{error_domain::meta, errc::unsupported};
     return *this;
   }
 
   template <typename Value> meta_section& metadata(std::string_view key, Value&& value) {
-    owner_->meta_builder_.metadata(key, std::forward<Value>(value));
+    owner_->metadata(key, std::forward<Value>(value));
     return *this;
   }
 
@@ -307,7 +476,7 @@ public:
   explicit object_section(type_builder<T>& owner) noexcept : owner_(&owner) {}
 
   object_section& parent(objects::object_type_id parent_id) noexcept {
-    owner_->object_parent_id_ = parent_id;
+    owner_->parent(parent_id);
     return *this;
   }
 

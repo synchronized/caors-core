@@ -51,3 +51,39 @@ TEST_CASE("registration - type builder registers meta serialization and object t
   REQUIRE(object_type);
   CHECK(object_type.name() == caors::core::string_name{"caors.test.registration.actor"});
 }
+
+TEST_CASE("registration - duplicate type builder commit does not mutate registered data",
+          "[registration]") {
+  struct duplicate_actor {
+    int first = 0;
+    int second = 0;
+  };
+
+  REQUIRE(caors::registration::type_<duplicate_actor>("caors.test.registration.duplicate")
+              .meta()
+              .property("first", &duplicate_actor::first)
+              .serialization()
+              .field("first")
+              .commit() == caors::error{});
+
+  const caors::error duplicate_status =
+      caors::registration::type_<duplicate_actor>("caors.test.registration.duplicate")
+          .meta()
+          .property("second", &duplicate_actor::second)
+          .serialization()
+          .field("second")
+          .commit();
+  REQUIRE(duplicate_status);
+  CHECK(duplicate_status.value() == caors::errc::duplicate_id);
+
+  const caors::meta::type meta_type = caors::meta::find<duplicate_actor>();
+  REQUIRE(meta_type.registered());
+  CHECK(static_cast<bool>(meta_type.find_property("first")));
+  CHECK_FALSE(static_cast<bool>(meta_type.find_property("second")));
+
+  const std::optional<caors::serialization::type_schema> schema =
+      caors::serialization::find(meta_type);
+  REQUIRE(schema.has_value());
+  REQUIRE(schema->fields.size() == 1);
+  CHECK(schema->fields[0].field_name == caors::core::string_name{"first"});
+}

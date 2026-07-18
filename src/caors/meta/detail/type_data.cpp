@@ -267,6 +267,10 @@ bool type_data::contains_extension(extension_key key) const noexcept {
 
 std::size_t type_data::extension_count() const noexcept { return extensions_.size(); }
 
+extension_key type_data::extension_key_at(std::size_t index) const noexcept {
+  return index < extensions_.size() ? extensions_[index].key : nullptr;
+}
+
 const extension_data* type_data::find_extension(extension_key key) const noexcept {
   if (key == nullptr) {
     return nullptr;
