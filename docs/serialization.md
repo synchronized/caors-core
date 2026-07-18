@@ -681,10 +681,10 @@ C++ 类型或 `type_id` 查询时再使用 `codec_of<T>()` / `find_codec()`。
 meta 内部 descriptor 生成的视图递归处理内部值，因此这类字段通常不需要显式注册
 `serialization::codec_traits<T>`。
 
-codec 和 meta descriptor 的边界：
+codec 和 meta 类型系统的边界：
 
-- meta 内部 descriptor 描述 C++ 值本身的基础能力，例如布局、构造、销毁、枚举、容器和 wrapper
-  访问。
+- 序列化公开 API 使用 `meta::type` 查询 C++ 值本身的基础能力，例如布局、构造、销毁、枚举、容器和
+  wrapper 访问。
 - `serialization::codec_ops` 描述序列化专用能力，例如写入 writer、从 reader 读回和构造
   `variant` 中间值。它作为 serialization 模块静态能力挂到 descriptor 静态表中，并通过
   `serialization::codec_capability` facade 对外查询。

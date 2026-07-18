@@ -3,7 +3,8 @@
 
 #include "caors/serialization/operations.h"
 
-#include "caors/meta.h"
+#include "caors/meta/property.h"
+#include "caors/meta/type.h"
 
 #include "detail/internal.h"
 

@@ -5,7 +5,8 @@
 
 #include "detail/polymorphic.h"
 
-#include "caors/meta.h"
+#include "caors/meta/query.h"
+#include "caors/meta/type.h"
 
 #include <utility>
 

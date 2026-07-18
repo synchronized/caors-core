@@ -125,9 +125,9 @@ meta 类型记录由全局注册表内部保存，普通代码不直接构造或
 - `alignment`
 - `parent_id`
 
-`meta::type` 以 C++ 类型 descriptor 为基础：`meta::resolve<T>()` 和 `meta::id_of<T>()`
-可以为未显式注册的 C++ 类型返回 descriptor 视图和运行期 `type_id`。
-`size()` / `alignment()`、默认构造、复制、析构和赋值函数都来自 descriptor。
+`meta::type` 是当前类型系统的公共视图。`meta::resolve<T>()` 和 `meta::id_of<T>()`
+可以为未显式注册的 C++ 类型返回有效类型视图和运行期 `type_id`。
+`size()` / `alignment()`、默认构造、复制、析构和赋值能力也通过这个视图查询。
 `registered()` 表示该类型是否已经通过 `meta::class_<T>("name")` 写入稳定注册数据；只有已注册类型
 才有稳定注册名、GUID、父类型和可挂载组件。
 `meta::find<T>()` 只查询已经注册的 C++ 类型；未注册类型即使能解析 descriptor，也会返回空视图。
@@ -163,13 +163,14 @@ caors::meta::property health = type.find_property("health");
 caors::meta::method add_health = type.find_method("add_health").single();
 ```
 
-`meta::type` 不拥有数据，内部引用静态 descriptor；类型已注册时还会引用全局 append-only 注册表中的
-meta 类型记录。需要查询类型信息时使用 `meta::type`。
+`meta::type` 不拥有数据；类型已注册时引用全局 append-only 注册表中的 meta 类型记录。
+未注册类型仍可以作为 C++ 类型视图参与 value、反射字段和序列化内部调度。需要查询类型信息时使用
+`meta::type`。
 
 类型查询按用途分为两条路径：
 
 - `meta::resolve<T>()`：解析 C++ 类型视图，优先返回已注册 `meta::type`；没有注册时退回
-  descriptor-only 视图。反射、序列化、value 和对象模块在只需要布局、类型形态、内置 ops、
+  C++ 类型视图。反射、序列化、value 和对象模块在只需要布局、类型形态、内置 ops、
   static capability 或 codec 时统一使用这个入口。
 - `meta::find<T>()` / `meta::find(name/guid)`：查询已注册类型。需要稳定名称、GUID、父类型、
   factory 或模块组件索引时使用这个入口；未注册 C++ 类型返回空视图。
@@ -285,42 +286,46 @@ caors::meta::class_<actor>("game.actor")
 
 ### 分层边界：descriptor、registry、capability
 
-当前 meta 层按四个边界分工：
+当前 meta 层按公共 API、注册表和能力三类边界分工：
 
-- 内部 descriptor 是编译期 C++ 类型描述。它描述某个 `T` 的 `type_id`、默认显示名、布局、构造 /
-  析构 / 复制 / 赋值、类型语义，以及 CAORS 内置运行期访问能力。它不表示类型已经完成业务注册。
+- `meta::type` 是统一类型视图。调用方通过 `meta::resolve<T>()`、`meta::find<T>()`、`meta::find(id)` 和
+  `meta::type::get_capability<C>()` 查询类型身份、注册数据和能力。
 - `meta::registry` 是注册后元数据和模块数据索引。只有显式 `meta::class_<T>("name")` 注册后的类型，
   才拥有稳定名称、GUID、父类型关系、属性、方法、对象组件和序列化组件等全局可查询数据。
 - descriptor static capability 用于类型固有能力。能力由模块在编译期按 `T` 生成，例如
   `objects::ptr<T>` 访问函数、对象 handle 函数表和 `codec_traits<T>` 生成的 codec 函数表。
-  它们随 descriptor 一起查询，不要求类型先注册到 registry。
-- runtime capability 用于用户或插件扩展能力。它挂在已注册类型的 `type_data` 上，
+  它们通过 `meta::type` 查询，不要求类型先注册到 registry。
+- dynamic capability 用于用户或插件扩展能力。它挂在已注册类型的 `type_data` 上，
   适合矩阵、图、脚本桥接、编辑器扩展等 CAORS 不内置的 concept table。公开写入入口是
   `meta::class_<T>().type("name").capability(ops)`，由 CAORS 持有 `ops` 生命周期。
   `meta::class_<T>().factory()` 也是该机制的高级封装，会把构造策略注册为内部
   `meta::factory_ops`，公开查询时返回 `meta::factory_capability`。
 
-默认查询顺序是：`meta::type::get_capability<C>()` 先查 descriptor static capability，再回退到
-注册类型数据上的 runtime capability。普通调用方应使用这个统一入口，不直接关心能力来自 descriptor
+默认查询顺序是：`meta::type::get_capability<C>()` 先查静态能力，再回退到
+注册类型数据上的动态能力。普通调用方应使用这个统一入口，不直接关心能力来自 C++ 类型事实
 还是注册类型数据。
 如果只剩 `type_id`，应先通过 `meta::find(id)` 找回 `meta::type` 视图；只有确实需要直接查运行期扩展时，
 才使用 `meta::capabilities::find<C>(id)`。
 
 设计约束：
 
-- descriptor 只保存 C++ 类型事实和可由 `T` 推导的能力，不保存反射属性、序列化属性配置或对象注册数据。
+- C++ 类型事实只保存可由 `T` 推导的能力，不保存反射属性、序列化属性配置或对象注册数据。
 - registry 保存注册后事实和模块组件，不复制 descriptor 的布局、子类型和内置 ops 数据。
 - static capability 不应承担用户插件协议；它适合编译期可见、进程内静态生命周期的模块能力。
-- runtime capability 不是 meta 组件，也不替代业务类型注册；需要稳定名称、GUID 或跨模块组件查询时仍要注册
+- dynamic capability 不是 meta 组件，也不替代业务类型注册；需要稳定名称、GUID 或跨模块组件查询时仍要注册
   meta 类型。
 
 ### 内部结构：descriptor 和 ops
 
-内部 descriptor 是 C++ 类型的内部能力描述。注册表按 `type_id`
+`meta::type` 的未注册 C++ 类型视图由内部 descriptor 支撑。descriptor 描述某个 `T` 的
+`type_id`、默认显示名、布局、构造 / 析构 / 复制 / 赋值、类型语义，以及 CAORS 内置访问能力。
+它只表示“这个 C++ 类型可以被描述”，不表示类型已经完成业务注册。
+
+注册表按 `type_id`
 保存指向静态 descriptor 的指针，不把 descriptor 当作普通 generic component 复制存储。descriptor
 由布局、值操作、类型语义、内置 ops 和静态能力表几部分组成；未注册结构类型也可以通过 `any`、
 `any_ref` 或反射属性携带的静态 descriptor 访问同一套能力。
-descriptor 位于 `meta::detail`，不属于公开 API；普通用户应通过 `meta::type`、`meta::resolve<T>()`
+普通用户通过 `meta::type`、`meta::resolve<T>()`
 和 `meta::type::get_capability<T>()` 查询公开能力；需要实现自定义 facade、序列化桥接、编辑器适配或
 性能敏感路径时，可以使用高级扩展入口 `get_raw_ops<T>()` 查询 raw ops 函数表。
 
@@ -419,7 +424,7 @@ capability 和 registry 的边界：
 
 - descriptor 静态能力适合“编译期已知 C++ 类型即可生成”的只读函数表，例如对象指针访问函数、
   句柄访问函数和 `codec_traits<T>` 生成的 codec 操作表。
-- `meta::capabilities` 的运行期查询适合“只剩 `type_id`，但仍需要查询某种用户外挂运行期能力”的场景；
+- `meta::capabilities` 的动态查询适合“只剩 `type_id`，但仍需要查询某种用户外挂动态能力”的场景；
   内置 object / serialization 能力优先通过 type descriptor 静态能力查询。
 - 公开写入动态能力时优先使用 `meta::class_<T>().type("name").capability(ops)`，让 CAORS 持有用户自定义
   concept table。内部模块如果已经拥有进程生命周期的静态函数表，可以使用指针注册入口。
@@ -694,7 +699,7 @@ metadata 不参与类型身份，不替代 `type_name` / `type_guid` / capabilit
 
 ### 自定义 capability
 
-运行期 capability 是高级扩展接口，不是普通 meta 组件。公开写入入口挂在类型 builder 上：
+动态 capability 是高级扩展接口，不是普通 meta 组件。公开写入入口挂在类型 builder 上：
 
 ```cpp
 struct my_ops {

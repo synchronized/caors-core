@@ -5,8 +5,12 @@
 #define CAORS_SERIALIZATION_CONFIG_VALIDATION_H_
 
 #include "caors/core/containers.h"
-#include "caors/meta.h"
+#include "caors/meta/instance.h"
 #include "caors/meta/metadata.h"
+#include "caors/meta/property.h"
+#include "caors/meta/query.h"
+#include "caors/meta/type.h"
+#include "caors/meta/value/any_ref.h"
 
 #include <optional>
 #include <string>

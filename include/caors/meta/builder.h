@@ -196,7 +196,7 @@ public:
   }
 
   /**
-   * @brief 为当前 C++ 类型挂接一份运行期 capability 指针。
+   * @brief 为当前 C++ 类型挂接一份动态 capability 指针。
    *
    * `capability` 必须在类型数据可访问期间保持有效；普通查询优先使用
    * `meta::type::get_capability<Capability>()`。

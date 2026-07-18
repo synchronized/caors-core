@@ -3,6 +3,8 @@
 
 #include "helpers.h"
 
+#include "caors/meta/value/associative_entry_ref.h"
+
 namespace caors::serialization::detail {
 
 [[nodiscard]] variant_result make_sequence_value(const meta::sequence_view& view,

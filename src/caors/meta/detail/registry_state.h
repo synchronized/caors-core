@@ -6,9 +6,10 @@
 
 #include "caors/memory/resource.h"
 #include "caors/memory/unique_ptr.h"
-#include "caors/meta.h"
+#include "caors/meta/detail/component_storage.h"
 #include "caors/meta/detail/parent_cast_ops.h"
 #include "caors/meta/detail/type_data.h"
+#include "caors/meta/registration.h"
 
 #include <mutex>
 #include <typeindex>

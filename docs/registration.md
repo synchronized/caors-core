@@ -13,7 +13,7 @@
 2. 如有对象能力，注册 object 组件。
 3. 在 `meta::class_<T>()` 上注册字段和方法。
 4. 注册序列化组件。
-5. 可选：挂接用户或插件的 runtime capability。
+5. 可选：挂接用户或插件的 dynamic capability。
 6. 可选：在启动阶段最后调用 `meta::init_registry()` 执行延迟注册函数并校验注册表。
 
 示例：
@@ -35,13 +35,14 @@ wrapper、pair、tuple 和 variant 可以通过内部 descriptor 参与反射和
 GUID、对象工厂、反射根类型、多态身份或按名称查询的业务类型，才应显式注册到 meta。
 字段注册不会为字段类型隐式创建 meta 类型，序列化 codec 注册也不会隐式创建 meta 类型。
 
-descriptor、registry 和 capability 的边界如下：
+公共 API、registry 和 capability 的边界如下：
 
-- descriptor 是编译期 C++ 类型描述和内置能力入口，未注册类型也可能拥有有效 descriptor。
+- `meta::type` 是统一类型视图。`meta::resolve<T>()` 可返回未注册 C++ 类型视图，`meta::find<T>()`
+  只返回已注册类型。
 - registry 只保存显式注册后的稳定元数据和模块数据，例如名称、GUID、父类型、factory、字段、方法和序列化组件。
 - descriptor static capability 用于类型固有能力，例如对象指针、对象句柄和 `codec_traits<T>` 生成的
-  codec 函数表，不需要单独注册 codec。
-- runtime capability 用于用户或插件扩展能力，通过 `meta::class_<T>().type("name").capability(ops)`
+  codec 函数表，通过 `meta::type::get_capability<C>()` 查询，不需要单独注册 codec。
+- dynamic capability 用于用户或插件扩展能力，通过 `meta::class_<T>().type("name").capability(ops)`
   挂到注册类型数据；
   它不是 registry 组件，也不替代业务 meta 类型注册。
 

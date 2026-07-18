@@ -4,8 +4,9 @@
 #ifndef CAORS_SERIALIZATION_OPERATIONS_H_
 #define CAORS_SERIALIZATION_OPERATIONS_H_
 
+#include "caors/meta/query.h"
+#include "caors/meta/type.h"
 #include "caors/object.h"
-#include "caors/meta.h"
 #include "caors/serialization/codec.h"
 #include "caors/serialization/detail/operations.h"
 #include "caors/serialization/dom_reader.h"

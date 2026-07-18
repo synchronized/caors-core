@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "caors/meta.h"
-
 #include "caors/meta/detail/property_data.h"
 #include "caors/meta/instance.h"
+#include "caors/meta/metadata.h"
+#include "caors/meta/property.h"
+#include "caors/meta/type.h"
+#include "caors/meta/value/any.h"
+#include "caors/meta/value/any_ref.h"
+#include "caors/meta/value_ops.h"
 
 namespace caors::meta {
 namespace {

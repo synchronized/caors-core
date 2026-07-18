@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "caors/meta.h"
+#include "caors/meta/query.h"
+#include "caors/meta/registry.h"
+#include "caors/meta/type.h"
 
 #include <string_view>
+#include <typeinfo>
 
 namespace caors::meta {
 

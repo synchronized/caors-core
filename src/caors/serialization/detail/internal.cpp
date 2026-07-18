@@ -5,7 +5,9 @@
 #include "helpers.h"
 #include "polymorphic.h"
 
-#include "caors/meta.h"
+#include "caors/meta/query.h"
+#include "caors/meta/type.h"
+#include "caors/meta/value.h"
 
 #include <limits>
 #include <new>

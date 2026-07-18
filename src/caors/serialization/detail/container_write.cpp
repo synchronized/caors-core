@@ -3,6 +3,8 @@
 
 #include "helpers.h"
 
+#include "caors/meta/value/associative_entry_ref.h"
+
 namespace caors::serialization::detail {
 
 [[nodiscard]] error write_sequence_value(writer& writer, const meta::sequence_view& view,

@@ -3,7 +3,11 @@
 
 #include "caors/serialization/operations.h"
 
-#include "caors/meta.h"
+#include "caors/meta/instance.h"
+#include "caors/meta/property.h"
+#include "caors/meta/type.h"
+#include "caors/meta/value/any.h"
+#include "caors/meta/value/any_ref.h"
 #include "caors/meta/value/indirect_view.h"
 
 #include "detail/helpers.h"
