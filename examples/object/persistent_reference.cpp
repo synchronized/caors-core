@@ -24,15 +24,11 @@ struct party_slot {
 };
 
 int main() {
-  if (caors::registration::type_<persistent_actor>(persistent_actor::object_type_name)
-          .object()
-          .commit()) {
+  if (caors::registration::type_<persistent_actor>(persistent_actor::object_type_name).commit()) {
     return 1;
   }
 
-  if (caors::registration::type_<persistent_player>(persistent_player::object_type_name)
-          .object()
-          .commit()) {
+  if (caors::registration::type_<persistent_player>(persistent_player::object_type_name).commit()) {
     return 1;
   }
 

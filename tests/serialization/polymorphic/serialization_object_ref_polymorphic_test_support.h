@@ -62,7 +62,6 @@ inline void require_polymorphic_object_ref_metadata() {
   REQUIRE(type_result_ok(caors::registration::type_<polymorphic_object_ref_actor>()
                              .guid(polymorphic_object_ref_actor_guid)
                              .serialization()
-                             .object()
                              .commit()));
   REQUIRE(type_result_ok(caors::registration::type_<polymorphic_object_ref_player>()
                              .guid(polymorphic_object_ref_player_guid)
@@ -70,14 +69,12 @@ inline void require_polymorphic_object_ref_metadata() {
                              .property("level", &polymorphic_object_ref_player::level)
                              .property("name", &polymorphic_object_ref_player::name)
                              .serialization()
-                             .object()
                              .commit()));
   REQUIRE(type_result_ok(caors::registration::type_<polymorphic_object_ref_enemy>()
                              .guid(polymorphic_object_ref_enemy_guid)
                              .meta()
                              .property("danger", &polymorphic_object_ref_enemy::danger)
                              .serialization()
-                             .object()
                              .commit()));
   require_serializable_property_type<polymorphic_object_ref_holder>(
       "caors.test.serialization.config.polymorphic_object_ref.holder", "owner",

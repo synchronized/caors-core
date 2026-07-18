@@ -28,7 +28,6 @@ inline void require_object_ref_target_metadata() {
                                      .meta()
                                      .property("value", &object_ref_target::value)
                                      .serialization()
-                                     .object()
                                      .commit()));
 }
 

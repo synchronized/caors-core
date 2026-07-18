@@ -26,7 +26,6 @@ namespace caors::registration {
 template <typename T> class type_builder;
 template <typename T> class meta_section;
 template <typename T> class serialization_section;
-template <typename T> class object_section;
 
 namespace detail {
 
@@ -249,36 +248,13 @@ public:
     return serialization_section<T>{*this};
   }
 
-  /** @brief 进入对象类型注册段。 */
-  template <typename U = T>
-    requires(std::is_base_of_v<objects::object, U>)
-  [[nodiscard]] object_section<T> object() noexcept {
-    object_enabled_ = true;
-    const type_guid object_guid = objects::detail::object_type_guid_of<value_type>();
-    if (object_guid) {
-      guid(object_guid);
-    }
-
-    using base_type = typename objects::detail::object_base_type_traits<value_type>::type;
-    if constexpr (!std::is_same_v<value_type, objects::object>) {
-      (void)objects::get_registry();
-      if (registry_ != nullptr && registry_->template find_type<base_type>()) {
-        parent<base_type>();
-      }
-    }
-
-    const objects::object_factory_ops* factory =
-        meta::capabilities::get<objects::object_factory_ops, value_type>();
-    if (factory != nullptr &&
-        !pending_.contains_capability(meta::capability_key_of<objects::object_factory_ops>())) {
-      status_ =
-          pending_.add_capability(meta::capability_key_of<objects::object_factory_ops>(), factory);
-    }
-    return object_section<T>{*this};
-  }
-
   /** @brief 提交 pending 类型数据；已注册类型不会被继续修改。 */
   [[nodiscard]] error commit() {
+    if (status_) {
+      return status_;
+    }
+
+    enable_object_if_needed();
     if (status_) {
       return status_;
     }
@@ -317,7 +293,37 @@ public:
 private:
   friend class meta_section<T>;
   friend class serialization_section<T>;
-  friend class object_section<T>;
+
+  void enable_object_if_needed() {
+    if constexpr (std::is_base_of_v<objects::object, value_type>) {
+      if (object_enabled_) {
+        return;
+      }
+
+      object_enabled_ = true;
+      const type_guid object_guid = objects::detail::object_type_guid_of<value_type>();
+      if (object_guid) {
+        guid(object_guid);
+      }
+
+      using base_type = typename objects::detail::object_base_type_traits<value_type>::type;
+      if constexpr (!std::is_same_v<value_type, objects::object>) {
+        (void)objects::get_registry();
+        if (!pending_.parent_id() && registry_ != nullptr &&
+            registry_->template find_type<base_type>()) {
+          parent<base_type>();
+        }
+      }
+
+      const objects::object_factory_ops* factory =
+          meta::capabilities::get<objects::object_factory_ops, value_type>();
+      if (factory != nullptr &&
+          !pending_.contains_capability(meta::capability_key_of<objects::object_factory_ops>())) {
+        status_ = pending_.add_capability(meta::capability_key_of<objects::object_factory_ops>(),
+                                          factory);
+      }
+    }
+  }
 
   template <typename Member>
   [[nodiscard]] core::string_name add_property(std::string_view name, Member member,
@@ -654,12 +660,6 @@ public:
     return owner_->serialization();
   }
 
-  template <typename U = T>
-    requires(std::is_base_of_v<objects::object, U>)
-  [[nodiscard]] object_section<T> object() noexcept {
-    return owner_->object();
-  }
-
   [[nodiscard]] error commit() { return owner_->commit(); }
 
 private:
@@ -692,32 +692,6 @@ public:
 
   [[nodiscard]] meta_section<T> meta() noexcept { return owner_->meta(); }
 
-  template <typename U = T>
-    requires(std::is_base_of_v<objects::object, U>)
-  [[nodiscard]] object_section<T> object() noexcept {
-    return owner_->object();
-  }
-
-  [[nodiscard]] error commit() { return owner_->commit(); }
-
-private:
-  type_builder<T>* owner_ = nullptr;
-};
-
-/** @brief `registration::type_builder` 的对象类型注册段。 */
-template <typename T> class object_section {
-public:
-  explicit object_section(type_builder<T>& owner) noexcept : owner_(&owner) {}
-
-  object_section& parent(objects::object_type_id parent_id) noexcept {
-    owner_->parent(parent_id);
-    return *this;
-  }
-
-  [[nodiscard]] meta_section<T> meta() noexcept { return owner_->meta(); }
-  [[nodiscard]] serialization_section<T> serialization() noexcept {
-    return owner_->serialization();
-  }
   [[nodiscard]] error commit() { return owner_->commit(); }
 
 private:

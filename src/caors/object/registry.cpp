@@ -6,9 +6,7 @@
 
 namespace caors::objects {
 
-registry::registry() {
-  (void)registration::type_<object>(object::static_type_name()).object().commit();
-}
+registry::registry() { (void)registration::type_<object>(object::static_type_name()).commit(); }
 
 registry::~registry() = default;
 

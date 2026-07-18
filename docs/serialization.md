@@ -252,7 +252,6 @@ struct holder {
 caors::registration::type_<actor>("game.actor")
     .guid(actor_guid)
     .serialization()
-    .object()
     .commit();
 
 caors::registration::type_<player>("game.player")
@@ -261,7 +260,6 @@ caors::registration::type_<player>("game.player")
     .meta()
     .property("level", &player::level)
     .serialization()
-    .object()
     .commit();
 
 caors::registration::type_<caors::memory::unique_ptr<actor>>(

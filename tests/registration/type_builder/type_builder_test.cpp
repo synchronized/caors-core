@@ -29,7 +29,6 @@ TEST_CASE("registration - type builder registers meta serialization and object t
           .method("set_value", &registration_actor::set_value)
           .serialization()
           .field("value")
-          .object()
           .commit();
 
   REQUIRE(status == caors::error{});

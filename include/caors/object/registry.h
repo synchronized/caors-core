@@ -53,7 +53,7 @@ namespace caors::objects {
  *
  * `objects::registry` 不表示彼此隔离的注册表实例。它复用全局 `meta::registry`
  * 管理基础类型信息，并把 `objects::object_factory_ops` 作为 capability 挂载到同一个 `type_id`
- * 上。普通代码应通过 `registration::type_<T>().object()` 注册对象类型，再通过
+ * 上。普通代码应通过 `registration::type_<T>()` 注册对象类型，再通过
  * `objects::get_registry()` 和查询接口访问它。
  */
 class CAORS_API registry final {

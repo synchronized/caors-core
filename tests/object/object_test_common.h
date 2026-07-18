@@ -188,12 +188,11 @@ template <typename T>
 [[nodiscard]] caors::error
 register_object_test_type(caors::object_type_id parent_id = caors::object_type_id::invalid()) {
   auto builder = caors::registration::type_<T>();
-  auto object = builder.object();
   if (parent_id) {
-    object.parent(parent_id);
+    builder.parent(parent_id);
   }
 
-  return caors::rethrow_as(object.commit(), caors::error_domain::object);
+  return caors::rethrow_as(builder.commit(), caors::error_domain::object);
 }
 
 template <typename T>
@@ -201,12 +200,11 @@ template <typename T>
 register_object_test_type(std::string_view name,
                           caors::object_type_id parent_id = caors::object_type_id::invalid()) {
   auto builder = caors::registration::type_<T>(name);
-  auto object = builder.object();
   if (parent_id) {
-    object.parent(parent_id);
+    builder.parent(parent_id);
   }
 
-  return caors::rethrow_as(object.commit(), caors::error_domain::object);
+  return caors::rethrow_as(builder.commit(), caors::error_domain::object);
 }
 
 } // namespace caors::tests::object

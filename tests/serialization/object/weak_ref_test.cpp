@@ -31,7 +31,6 @@ void require_weak_object_ref_target_metadata() {
                                      .meta()
                                      .property("value", &weak_object_ref_target::value)
                                      .serialization()
-                                     .object()
                                      .commit()));
 }
 

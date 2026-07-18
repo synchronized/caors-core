@@ -43,19 +43,17 @@ public:
 }
 
 inline void require_metadata() {
-  REQUIRE(object_result_ok(caors::registration::type_<actor>().serialization().object().commit()));
+  REQUIRE(object_result_ok(caors::registration::type_<actor>().serialization().commit()));
   REQUIRE(object_result_ok(caors::registration::type_<player>()
                                .meta()
                                .property("level", &player::level)
                                .property("name", &player::name)
                                .serialization()
-                               .object()
                                .commit()));
   REQUIRE(object_result_ok(caors::registration::type_<enemy>()
                                .meta()
                                .property("danger", &enemy::danger)
                                .serialization()
-                               .object()
                                .commit()));
 }
 

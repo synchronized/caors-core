@@ -132,13 +132,11 @@ TEST_CASE("object - registry reports duplicate type guid", "[object]") {
 using namespace caors::tests::object;
 
 TEST_CASE("object - registry reports registration errors", "[object]") {
-  CHECK(caors::rethrow_as(caors::registration::type_<error_actor>(
-                              "caors.test.object.missing_parent_child")
-                              .object()
-                              .parent(caors::type_id{std::numeric_limits<std::uint64_t>::max()})
-                              .commit(),
-                          caors::error_domain::object) ==
-        object_error(caors::errc::missing_parent));
+  CHECK(caors::rethrow_as(
+            caors::registration::type_<error_actor>("caors.test.object.missing_parent_child")
+                .parent(caors::type_id{std::numeric_limits<std::uint64_t>::max()})
+                .commit(),
+            caors::error_domain::object) == object_error(caors::errc::missing_parent));
 
   REQUIRE(register_object_test_type<error_actor>() == caors::error{});
 

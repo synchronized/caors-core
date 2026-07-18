@@ -383,7 +383,7 @@ public:
 
 `object_type_guid` 是可选静态成员。运行期临时对象可以不声明，`meta::type::guid()` 会保持 nil；可序列化、可反射或跨插件暴露的对象类型建议显式声明稳定 GUID。
 
-`static_type_id()` 返回 C++ 类型 descriptor id；对象类型尚未通过 `registration::type_<T>().object().commit()`
+`static_type_id()` 返回 C++ 类型 descriptor id；对象类型尚未通过 `registration::type_<T>().commit()`
 注册时，`objects::find<T>()`、对象工厂、类型名、GUID 和父类型关系仍不可用。对象类型应在启动注册阶段
 一次性写入全局元数据注册表。
 
@@ -397,16 +397,16 @@ object.type_name(); // "game.player"
 
 ### objects::registry
 
-`objects::registry` 是基于全局 `meta::registry` 的对象注册表 facade 和默认构造工厂。它不表示彼此隔离的局部注册表实例。普通业务类型通过 `registration::type_<T>().object()` 注册对象能力。注册后通过 `objects::find()`、`objects::id()` 和 `objects::is_a()` 查询对象元数据；需要默认构造工厂时再使用 `objects::get_registry()`。
+`objects::registry` 是基于全局 `meta::registry` 的对象注册表 facade 和默认构造工厂。它不表示彼此隔离的局部注册表实例。对象类型通过 `registration::type_<T>()` 或 `registration::type_<T>("name")` 注册；只要 `T` 继承自 `objects::object`，`commit()` 会自动写入对象能力。注册后通过 `objects::find()`、`objects::id()` 和 `objects::is_a()` 查询对象元数据；需要默认构造工厂时再使用 `objects::get_registry()`。
 
 对外查询返回 `objects::type` 只读视图。它组合了基础 `meta::type` 和对象工厂 capability，因此调用方可以通过 `id()`、`name()`、`guid()`、`size()`、`alignment()`、`parent_id()` 和 `constructible()` 查询对象类型信息，但不能直接修改注册表内部数据。
 
 ```cpp
-if (caors::registration::type_<actor>().object().commit()) {
+if (caors::registration::type_<actor>().commit()) {
   // 处理注册失败。
 }
 
-caors::error result = caors::registration::type_<player>().object().commit();
+caors::error result = caors::registration::type_<player>().commit();
 ```
 
 无参 `registration::type_<T>()` 会读取 `T::object_type_name`。需要非常规显式覆盖类型名时，可以使用
@@ -505,7 +505,7 @@ manager.destroy(instance);
 - `objects::ref<T>`：引用计数对象的强引用，只管理 `objects::make_ref<T>()` 创建的对象。
 - `objects::weak_ref<T>`：引用计数对象的弱引用，可通过 `lock()` 尝试提升为强引用。
 - `objects::make_ref<T>()`：接入 `memory_resource` 创建引用计数对象并返回强引用。
-- `registration::type_<T>().object()`：对象类型链式注册入口。
+- `registration::type_<T>()`：对象类型链式注册入口。
 - `objects::id()` / `objects::find()` / `objects::is_a()`：对象类型查询入口；`objects::find()` 未命中时返回无效
   `objects::type`。
 - `objects::get_registry()`：进程内默认对象注册表。

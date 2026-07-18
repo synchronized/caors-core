@@ -13,7 +13,6 @@ namespace caors::tests::serialization::object_ptr_manager {
 inline void require_object_ptr_actor_metadata() {
   const caors::error object_status =
       caors::registration::type_<object_ptr_target>("caors.test.serialization.object_ptr_target")
-          .object()
           .commit();
   REQUIRE((object_status == caors::error{} || object_status.value() == caors::errc::duplicate_id));
   require_serializable_property_type<object_ptr_actor>("caors.test.serialization.object_ptr_actor",
