@@ -4,6 +4,7 @@
 #include "caors/io/native_file_system.h"
 
 #include <algorithm>
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <ios>
@@ -58,6 +59,21 @@ namespace {
 [[nodiscard]] bool compare_entries(const directory_entry& lhs,
                                    const directory_entry& rhs) noexcept {
   return lhs.path.string_view() < rhs.path.string_view();
+}
+
+[[nodiscard]] std::chrono::system_clock::time_point
+to_system_clock_time(std::filesystem::file_time_type value) {
+  const auto now_file = std::filesystem::file_time_type::clock::now();
+  const auto now_system = std::chrono::system_clock::now();
+  return std::chrono::time_point_cast<std::chrono::system_clock::duration>(value - now_file +
+                                                                           now_system);
+}
+
+[[nodiscard]] bool read_only(std::filesystem::perms permissions) noexcept {
+  constexpr std::filesystem::perms write_mask = std::filesystem::perms::owner_write |
+                                                std::filesystem::perms::group_write |
+                                                std::filesystem::perms::others_write;
+  return (permissions & write_mask) == std::filesystem::perms::none;
 }
 
 [[nodiscard]] error validate_path(path_view path) noexcept {
@@ -174,6 +190,49 @@ bool native_file_system::exists(path_view path) const {
 
   std::error_code ec;
   return std::filesystem::exists(native_path(root(), path), ec) && !ec;
+}
+
+file_status_result native_file_system::status(path_view path) const {
+  const std::filesystem::path native = native_directory_path(root(), path);
+
+  std::error_code ec;
+  const bool exists = std::filesystem::exists(native, ec);
+  if (ec) {
+    return fail<file_status>({error_domain::io, errc::backend_failure});
+  }
+  if (!exists) {
+    return fail<file_status>({error_domain::io, errc::not_found});
+  }
+
+  const std::filesystem::file_status native_status = std::filesystem::status(native, ec);
+  if (ec) {
+    return fail<file_status>({error_domain::io, errc::backend_failure});
+  }
+
+  file_status result{};
+  result.kind =
+      std::filesystem::is_directory(native_status) ? file_kind::directory : file_kind::file;
+  result.read_only = read_only(native_status.permissions());
+  result.has_read_only = true;
+
+  if (result.kind == file_kind::file) {
+    std::error_code size_ec;
+    const std::uintmax_t size = std::filesystem::file_size(native, size_ec);
+    if (!size_ec) {
+      result.size = static_cast<std::uint64_t>(size);
+      result.has_size = true;
+    }
+  }
+
+  std::error_code time_ec;
+  const std::filesystem::file_time_type modified =
+      std::filesystem::last_write_time(native, time_ec);
+  if (!time_ec) {
+    result.modified_time = to_system_clock_time(modified);
+    result.has_modified_time = true;
+  }
+
+  return ok(result);
 }
 
 directory_entry_list_result native_file_system::list(path_view directory,

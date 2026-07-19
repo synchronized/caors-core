@@ -47,6 +47,10 @@ private:
 
 file_system::~file_system() = default;
 
+file_status_result file_system::status(path_view) const {
+  return fail<file_status>({error_domain::io, errc::unsupported});
+}
+
 directory_entry_list_result file_system::list(path_view, memory_resource*) {
   return fail<directory_entry_list>({error_domain::io, errc::unsupported});
 }

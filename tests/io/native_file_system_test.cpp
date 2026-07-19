@@ -74,6 +74,39 @@ TEST_CASE("io - native file system reads and writes bytes", "[io]") {
   std::filesystem::remove_all(directory, ec);
 }
 
+TEST_CASE("io - native file system reports file and directory status", "[io]") {
+  const std::filesystem::path directory = make_temp_dir();
+  const std::filesystem::path assets = directory / "assets";
+  std::error_code ec;
+  std::filesystem::remove_all(directory, ec);
+  REQUIRE(std::filesystem::create_directories(assets, ec));
+  REQUIRE_FALSE(ec);
+
+  caors::io::native_file_system fs{path_string(directory)};
+
+  REQUIRE(fs.write_all("assets/a.txt", std::string_view{"abc"}).succeeded());
+
+  caors::io::file_status_result file = fs.status("assets/a.txt");
+  REQUIRE(file.succeeded());
+  CHECK(file->kind == caors::io::file_kind::file);
+  CHECK(file->has_size);
+  CHECK(file->size == 3);
+  CHECK(file->has_read_only);
+
+  caors::io::file_status_result folder = fs.status("assets");
+  REQUIRE(folder.succeeded());
+  CHECK(folder->kind == caors::io::file_kind::directory);
+  CHECK_FALSE(folder->has_size);
+  CHECK(folder->has_read_only);
+
+  caors::io::file_status_result missing = fs.status("missing");
+  REQUIRE(missing.failed());
+  CHECK(missing.error().domain() == caors::error_domain::io);
+  CHECK(missing.error().value() == caors::errc::not_found);
+
+  std::filesystem::remove_all(directory, ec);
+}
+
 TEST_CASE("io - native file system lists directory entries", "[io]") {
   const std::filesystem::path directory = make_temp_dir();
   const std::filesystem::path assets = directory / "assets";

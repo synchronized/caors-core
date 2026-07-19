@@ -11,5 +11,6 @@
 #include "caors/io/path.h"
 #include "caors/io/stream.h"
 #include "caors/io/types.h"
+#include "caors/io/walk.h"
 
 #endif

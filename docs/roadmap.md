@@ -22,6 +22,9 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 为可写输出流补充 `write_all()`、`flush()`、`close()` 和提交失败语义；默认
   `open_write()` 使用内存缓冲并在显式 `close()` 时调用 `write_all()` 提交，具体后端后续可覆盖为真正分块写入。
 - [x] 将 `io::native_file_system::open_read()` / `open_write()` 覆盖为宿主文件流，避免本地大文件路径先完整读入或写入内存缓冲。
+- [x] 为 `io::file_system` 增加 `status()` 基础属性查询和 `list()` 非递归目录枚举，覆盖 native /
+  memory / mount 后端，为编辑器资产浏览和资源扫描提供底层入口。
+- [x] 提供基于 `file_system::list()` 的通用 `io::walk()` 递归遍历 helper，先覆盖同步扫描场景。
 - [x] 将 `result<T>` 逐步收敛为更接近 `expected<T, error>` 的语义，减少 `value/error/status`
   之间的重复表达。
 - [x] 清理根命名空间下不常用或不推荐继续使用的别名，只保留高频便捷别名，降低 API 表面噪声；

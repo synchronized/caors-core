@@ -127,6 +127,19 @@ void add_or_update_entry(directory_entry_list& entries, std::string_view name, p
   return !suffix.empty();
 }
 
+[[nodiscard]] bool is_mount_directory(std::string_view directory,
+                                      std::string_view prefix) noexcept {
+  if (directory.empty()) {
+    return true;
+  }
+  if (directory == prefix) {
+    return true;
+  }
+
+  std::string_view suffix;
+  return mount_child_suffix(directory, prefix, suffix);
+}
+
 } // namespace
 
 mount_file_system::mount_file_system(memory_resource* resource)
@@ -178,6 +191,39 @@ bool mount_file_system::exists(path_view path) const {
   const mount_entry* entry = find_mount(path_view{normalized_path});
   return entry != nullptr && entry->target != nullptr &&
          entry->target->exists(resolve_path(*entry, path_view{normalized_path}));
+}
+
+file_status_result mount_file_system::status(path_view path) const {
+  const core::string normalized_path = normalize_mount_path(path, resource());
+  const std::string_view path_text = string_view_of(normalized_path);
+  if (path_text.empty()) {
+    return ok(file_status{file_kind::directory});
+  }
+
+  error target_status{};
+  bool has_target_status = false;
+  const mount_entry* entry = find_mount(path_view{normalized_path});
+  if (entry != nullptr && entry->target != nullptr) {
+    file_status_result result =
+        entry->target->status(resolve_path(*entry, path_view{normalized_path}));
+    if (result.succeeded()) {
+      return result;
+    }
+
+    target_status = result.error();
+    has_target_status = true;
+  }
+
+  for (const mount_entry& mounted : mounts_) {
+    if (is_mount_directory(path_text, string_view_of(mounted.prefix))) {
+      return ok(file_status{file_kind::directory});
+    }
+  }
+
+  if (has_target_status) {
+    return fail<file_status>(target_status);
+  }
+  return fail<file_status>({error_domain::io, errc::not_found});
 }
 
 directory_entry_list_result mount_file_system::list(path_view directory,

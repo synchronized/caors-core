@@ -18,6 +18,8 @@
 - `io::input_stream_ptr` / `io::output_stream_ptr`：拥有式流指针。
 - `io::file_system`：同步文件系统抽象。
 - `io::directory_entry` / `io::directory_entry_list`：非递归目录枚举结果。
+- `io::file_status`：文件或目录的基础属性查询结果。
+- `io::walk()`：基于 `file_system::list()` 的通用递归遍历 helper。
 - `io::native_file_system`：基于宿主操作系统的本地文件系统实现。
 - `io::memory_file_system`：基于内存哈希表的虚拟文件系统实现。
 - `io::mount_file_system`：基于虚拟路径前缀转发到其他文件系统。
@@ -26,7 +28,7 @@
 
 - 异步 IO。
 - 文件监听。
-- 递归目录遍历、文件属性查询和权限模型。
+- 后端原生递归枚举、完整文件属性查询和权限模型。
 - 资源包格式。
 - HTTP、对象存储或其他远程协议。
 - URI 解析。
@@ -47,6 +49,8 @@ IO 模块主定义位于 `caors::io` 命名空间，例如：
 - `io::file_system`
 - `io::directory_entry`
 - `io::directory_entry_list`
+- `io::file_status`
+- `io::walk`
 - `io::native_file_system`
 - `io::memory_file_system`
 - `io::mount_file_system`
@@ -87,6 +91,7 @@ if (fs.exists("config.json")) {
 当前接口覆盖最小文件系统能力：
 
 - `exists(path)`：判断路径是否存在。
+- `status(path)`：查询文件或目录的基础属性，空路径表示文件系统根目录。
 - `list(directory, resource)`：列出目录下的直接子项，空路径表示文件系统根目录。
 - `read_all(path, resource)`：读取完整内容，返回 `byte_buffer`。
 - `open_read(path, resource)`：打开同步输入流。
@@ -110,9 +115,31 @@ if (fs.exists("config.json")) {
 - 输出流写完后应显式检查 `close()` 返回值；没有 `close()` 的缓冲输出流不会提交内容。
 - `file_system` 不负责资源缓存、依赖解析或对象生命周期。
 
+`status()` 返回 `file_status`，第一版只定义通用基础字段：
+
+- `kind`：文件或目录。
+- `size` / `has_size`：文件字节大小。目录、虚拟目录或无法查询大小的后端可以不提供。
+- `modified_time` / `has_modified_time`：最后修改时间。内存后端和部分虚拟后端可以不提供。
+- `read_only` / `has_read_only`：是否只读。只有能查询权限语义的后端才需要提供。
+
 `list()` 是非递归目录枚举接口，返回的 `directory_entry::name` 只包含直接子项名称，
 `directory_entry::path` 是可再次传给同一个 `file_system` 的路径。只支持读写、不支持枚举的后端可以沿用
 默认实现并返回 `errc::unsupported`。
+
+需要递归扫描时优先使用 `io::walk()`：
+
+```cpp
+caors::io::walk(fs, "assets", [](const caors::io::directory_entry& entry, std::size_t depth) {
+  // entry.path 可继续传给同一个 file_system。
+  // depth 从 root 的直接子项开始计为 0。
+});
+```
+
+`walk()` 基于 `list()` 实现，因此它能自动适配 native、memory、mount 和后续资源包 / 远程后端。
+visitor 返回 `io::walk_action::skip_children` 可跳过当前目录的子项，返回 `io::walk_action::stop` 或
+`false` 可正常停止遍历；返回 `caors::error` 可把错误传出。`walk_options::max_depth` 可限制遍历深度，
+`include_root` 可让 root 自身作为第一条记录进入 visitor。循环挂载或会反复产生同一路径的后端需要由调用方
+通过最大深度或上层访问记录避免无限递归。
 
 ## native_file_system
 
@@ -148,6 +175,7 @@ caors::io::native_file_system& fs = caors::io::get_native_file_system();
 - 写入不会自动创建父目录。
 - `open_read()` / `open_write()` 覆盖为宿主文件流，不再先把完整文件读入内存或写到临时内存缓冲。
 - `open_write()` 直接打开目标文件并覆盖写入；如果写入中途失败，调用方应按自身策略处理半写文件。
+- `status()` 使用宿主文件系统属性，文件大小、最后修改时间和只读状态在可查询时返回。
 - `list()` 使用宿主文件系统的目录语义，只列出直接子项，不递归。
 - 当前实现是同步阻塞 IO。
 - 跨线程并发访问同一个文件路径时，调用方需要自行定义同步和覆盖策略。
@@ -167,6 +195,7 @@ auto bytes = fs.read_all("/assets\\config.json");
 
 - 写入会覆盖同一路径已有内容。
 - 路径会通过 `normalize_path()` 规范化，因此 `/assets\\a.txt` 和 `assets/a.txt` 命中同一条记录。
+- `status()` 对真实内存文件返回大小，对从路径推导出的虚拟目录只返回目录类型。
 - `list()` 会从已写入文件路径推导虚拟目录；它不会保存独立目录对象。
 - 读取返回的 `byte_buffer` 可以使用调用方传入的 `memory_resource`。
 - 该实现不模拟目录、权限、时间戳或宿主平台路径语义。
@@ -204,6 +233,7 @@ fs.mount("materials", project, "assets/materials");
 - `target_prefix` 只用于目标文件系统内部的子路径重映射，不应承担后端物理根目录职责。
 - `mount()` 会拒绝重复前缀，返回 `errc::already_exists`。
 - 读写时使用最长前缀匹配，允许更具体的挂载覆盖通用挂载。
+- `status()` 会把路径转发到最长匹配的目标文件系统；挂载点和子挂载点会按虚拟目录返回。
 - `list()` 会合并目标文件系统的直接子项和挂载表中的子挂载点；子挂载点按目录返回。
 - 未命中挂载返回 `errc::not_found`。
 - 目标路径语义仍由被挂载的具体文件系统决定。

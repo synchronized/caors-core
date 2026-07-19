@@ -83,6 +83,34 @@ bool memory_file_system::exists(path_view path) const {
   return files_.find(key_for(path)) != files_.end();
 }
 
+file_status_result memory_file_system::status(path_view path) const {
+  const core::string normalized_path = key_for(path);
+  const std::string_view path_text = string_view_of(normalized_path);
+  if (path_text.empty()) {
+    return ok(file_status{file_kind::directory});
+  }
+
+  const auto found = files_.find(normalized_path);
+  if (found != files_.end()) {
+    file_status result{};
+    result.kind = file_kind::file;
+    result.size = static_cast<std::uint64_t>(found->second.size());
+    result.has_size = true;
+    return ok(result);
+  }
+
+  for (const auto& [stored_path, bytes] : files_) {
+    (void)bytes;
+
+    std::string_view suffix;
+    if (child_suffix(path_text, string_view_of(stored_path), suffix)) {
+      return ok(file_status{file_kind::directory});
+    }
+  }
+
+  return fail<file_status>({error_domain::io, errc::not_found});
+}
+
 directory_entry_list_result memory_file_system::list(path_view directory,
                                                      memory_resource* resource) {
   const core::string normalized_directory = key_for(directory);
