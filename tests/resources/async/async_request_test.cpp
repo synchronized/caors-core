@@ -175,6 +175,16 @@ void require_async_preload_metadata() {
          values.end();
 }
 
+[[nodiscard]] bool contains_failure(const caors::resources::preload_result::failure_list& values,
+                                    caors::resource_guid guid, caors::string_name type,
+                                    caors::error status) {
+  return std::find(values.begin(), values.end(),
+                   caors::resources::preload_failure{
+                       caors::resources::preload_item{guid, type},
+                       status,
+                   }) != values.end();
+}
+
 } // namespace
 
 TEST_CASE("resources - async load commits loaded resource through completion queue",
@@ -781,6 +791,9 @@ TEST_CASE("resources - database async preload observes shared load cancellation"
   CHECK(preload.error() == caors::error{caors::error_domain::resources, caors::errc::cancelled});
   CHECK(preload.failed_count() == 1);
   CHECK(preload.pending_count() == 0);
+  caors::resources::preload_result result = preload.result();
+  CHECK(contains_failure(result.failed_items, test_guid_a, texture_manifest_type(),
+                         {caors::error_domain::resources, caors::errc::cancelled}));
 
   CHECK_FALSE(executor.run_once());
   CHECK(loader.load_count == 0);
@@ -938,6 +951,8 @@ TEST_CASE("resources - database async preload fails the batch when one item fail
   CHECK(completions.drain() == 1);
   CHECK_FALSE(texture_cache.contains(test_guid_b));
   CHECK_FALSE(material_cache.contains(test_guid_a));
-  CHECK(request.result().status ==
-        caors::error{caors::error_domain::resources, caors::errc::not_found});
+  caors::resources::preload_result result = request.result();
+  CHECK(result.status == caors::error{caors::error_domain::resources, caors::errc::not_found});
+  CHECK(contains_failure(result.failed_items, test_guid_a, material_manifest_type(),
+                         {caors::error_domain::resources, caors::errc::not_found}));
 }

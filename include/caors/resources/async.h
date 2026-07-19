@@ -818,6 +818,7 @@ public:
     std::lock_guard lock{request.state_->mutex};
     request.state_->result.plan = std::move(plan);
     request.state_->result.loaded.clear();
+    request.state_->result.failed_items.clear();
     request.state_->result.status = {};
     request.state_->total = request.state_->result.plan.load_order.size();
     request.state_->loaded = 0;
@@ -830,6 +831,8 @@ public:
       request.state_->status = request_status::failed;
       request.state_->status_error = request.state_->result.plan.status;
       request.state_->result.status = request.state_->status_error;
+      append_preload_plan_failures(request.state_->result);
+      request.state_->failed = request.state_->result.failed_items.size();
       return;
     }
 
@@ -904,6 +907,31 @@ public:
     state->result.status = state->status_error;
   }
 
+  static void fail_all_items(const std::shared_ptr<state_type>& state, caors::error status) {
+    if (state == nullptr) {
+      return;
+    }
+
+    std::lock_guard lock{state->mutex};
+    if (state->status == request_status::cancelled || state->status == request_status::failed ||
+        state->status == request_status::loaded) {
+      return;
+    }
+
+    const caors::error failure =
+        status ? status : caors::error{error_domain::resources, errc::backend_failure};
+    for (const preload_item& item : state->result.plan.load_order) {
+      append_preload_failure(state->result, item, failure);
+    }
+    state->failed = state->result.plan.load_order.size();
+    for (double& item_progress : state->item_progress) {
+      item_progress = 1.0;
+    }
+    state->status = request_status::failed;
+    state->status_error = failure;
+    state->result.status = state->status_error;
+  }
+
   static void fail_item(const std::shared_ptr<state_type>& state, preload_item item,
                         caors::error status) {
     if (state == nullptr) {
@@ -917,6 +945,9 @@ public:
     }
 
     ++state->failed;
+    append_preload_failure(state->result, item,
+                           status ? status
+                                  : caors::error{error_domain::resources, errc::backend_failure});
     if (std::size_t index = item_index(*state, item); index < state->item_progress.size()) {
       state->item_progress[index] = 1.0;
     }

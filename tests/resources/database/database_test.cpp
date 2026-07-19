@@ -61,6 +61,16 @@ struct database_resource_ref_holder {
          values.end();
 }
 
+[[nodiscard]] bool contains_failure(const caors::resources::preload_result::failure_list& values,
+                                    caors::resource_guid guid, caors::string_name type,
+                                    caors::error status) {
+  return std::find(values.begin(), values.end(),
+                   caors::resources::preload_failure{
+                       caors::resources::preload_item{guid, type},
+                       status,
+                   }) != values.end();
+}
+
 [[nodiscard]] bool type_result_ok(caors::error result) noexcept {
   return result.succeeded() || result.value() == caors::errc::duplicate_id;
 }
@@ -262,6 +272,8 @@ TEST_CASE("resources - database preload reports missing manifest entries", "[res
   caors::resources::preload_result loaded = database.preload<texture_resource>(test_guid_a);
   CHECK(loaded.status == caors::error{caors::error_domain::resources, caors::errc::not_found});
   CHECK(contains_guid(loaded.plan.missing_manifest, test_guid_b));
+  CHECK(contains_failure(loaded.failed_items, test_guid_b, {},
+                         {caors::error_domain::resources, caors::errc::not_found}));
   CHECK(loader.load_count == 0);
   CHECK(cache.empty());
 }
@@ -411,6 +423,12 @@ TEST_CASE("resources - database dispatched preload reports missing cache and loa
   CHECK(contains_item(loaded.plan.missing_cache, test_guid_a, material_manifest_type()));
   CHECK(contains_item(loaded.plan.missing_cache, test_guid_c, missing_manifest_type()));
   CHECK(contains_item(loaded.plan.missing_loader, test_guid_c, missing_manifest_type()));
+  CHECK(contains_failure(loaded.failed_items, test_guid_b, texture_manifest_type(),
+                         {caors::error_domain::resources, caors::errc::not_found}));
+  CHECK(contains_failure(loaded.failed_items, test_guid_a, material_manifest_type(),
+                         {caors::error_domain::resources, caors::errc::not_found}));
+  CHECK(contains_failure(loaded.failed_items, test_guid_c, missing_manifest_type(),
+                         {caors::error_domain::resources, caors::errc::not_found}));
   CHECK(texture_cache.empty());
   CHECK(material_loader.load_count == 0);
 }

@@ -36,7 +36,7 @@
 - 完整热重载系统。
 - 资源导入管线。
 - 自动创建未注册资源类型的 cache / loader。
-- 请求优先级、细粒度进度聚合和异步预加载级别的同 GUID 请求合并。
+- 请求优先级和细粒度进度聚合。
 - 与对象系统的场景树生命周期绑定。
 
 这些能力后续应建立在 `io::file_system`、`resources::provider`、`resources::manager`、
@@ -425,7 +425,8 @@ public:
 - `pending_count()`：还未结束的资源数量；请求进入 loaded、failed 或 cancelled 后返回 0。
 - `progress()`：非阻塞聚合进度。它按本次实际提交的资源项平均计算，未完成项会使用对应 loader 最近一次上报的内部进度。
 - `progress_stage()`：返回最近一次底层 loader 上报的阶段文本副本。
-- `result()`：返回本次 `preload_plan` 和已经成功提交的 `loaded` 列表；queued/loading 时
+- `result()`：返回本次 `preload_plan`、已经成功提交的 `loaded` 列表和失败项明细 `failed_items`；
+  queued/loading 时
   `status` 为 `resources / pending`。
 
 异步预加载会复用 database 级单资源请求表：
@@ -450,6 +451,9 @@ public:
   completion 回调会释放加载结果并跳过 cache commit。
 - 异步预加载中任一资源加载或 commit 失败，整个 `preload_request` 进入 failed；已提交成功的资源保留在
   cache 中，尚未 commit 或尚未通知该批量请求的 completion 会跳过写入或状态更新。
+- `preload_result::failed_items` 保存逐项失败明细，元素为 `{preload_item, error}`。计划阶段的
+  missing manifest / missing type 会使用空 `type`，missing cache / loader、loader 失败、commit
+  失败和共享请求取消会保留对应 manifest type。批量请求的 `status` 仍只保存首个对外错误。
 
 线程边界：
 
@@ -462,8 +466,7 @@ public:
   request 状态，调用方应通过 `request.result()` 或 `preload_request::result()` 获取最终错误。
 - `load_request<T>::try_get()` 和 `result()` 都不阻塞；需要跨帧推进时使用
   `poll_request()`、`drain_until_done()`、`poll_requests()` 或 `drain_until_all_done()`。
-- 当前异步预加载已复用同类型同 GUID 的进行中 load 请求；优先级、真正阻塞等待、分层依赖等待和
-  每个 preload item 的详细失败列表后续再补。
+- 当前异步预加载已复用同类型同 GUID 的进行中 load 请求；优先级、真正阻塞等待和分层依赖等待后续再补。
 
 ## 序列化
 

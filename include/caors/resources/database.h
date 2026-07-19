@@ -450,12 +450,16 @@ public:
     result.plan = plan_preload<T>(root);
     if (result.plan.failed()) {
       result.status = result.plan.status;
+      detail::append_preload_plan_failures(result);
       return result;
     }
 
     type_entry* entry = find_entry<T>();
     if (entry == nullptr || entry->cache == nullptr || entry->loader == nullptr) {
       result.status = {error_domain::resources, errc::not_found};
+      for (const preload_item& item : result.plan.load_order) {
+        detail::append_preload_failure(result, item, result.status);
+      }
       return result;
     }
 
@@ -465,6 +469,7 @@ public:
           *static_cast<resources::loader<T>*>(entry->loader), item.guid);
       if (loaded.failed()) {
         result.status = loaded.status;
+        detail::append_preload_failure(result, item, loaded.status);
         return result;
       }
 
@@ -485,6 +490,7 @@ public:
     result.plan = plan_preload(root);
     if (result.plan.failed()) {
       result.status = result.plan.status;
+      detail::append_preload_plan_failures(result);
       return result;
     }
 
@@ -493,12 +499,14 @@ public:
       if (entry == nullptr || entry->cache == nullptr || entry->loader == nullptr ||
           entry->ops.load == nullptr) {
         result.status = {error_domain::resources, errc::not_found};
+        detail::append_preload_failure(result, item, result.status);
         return result;
       }
 
       const error status = entry->ops.load(entry->cache, entry->loader, item.guid);
       if (status) {
         result.status = status;
+        detail::append_preload_failure(result, item, status);
         return result;
       }
 
@@ -568,7 +576,8 @@ public:
     type_entry* entry = find_entry<T>();
     if (entry == nullptr || entry->cache == nullptr || entry->loader == nullptr ||
         entry->ops.request_load == nullptr) {
-      detail::preload_request_access::fail(state, {error_domain::resources, errc::not_found});
+      detail::preload_request_access::fail_all_items(state,
+                                                     {error_domain::resources, errc::not_found});
       return request;
     }
 

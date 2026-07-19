@@ -8,6 +8,8 @@
 #include "caors/error.h"
 #include "caors/resources/dependency_graph.h"
 
+#include <cstddef>
+
 namespace caors::resources {
 
 /** @brief 预加载计划中的一个资源项。 */
@@ -20,6 +22,20 @@ struct preload_item {
   }
 
   friend constexpr bool operator!=(preload_item lhs, preload_item rhs) noexcept {
+    return !(lhs == rhs);
+  }
+};
+
+/** @brief 预加载失败的单个资源项和原因。 */
+struct preload_failure {
+  preload_item item{};
+  error status{};
+
+  friend constexpr bool operator==(preload_failure lhs, preload_failure rhs) noexcept {
+    return lhs.item == rhs.item && lhs.status == rhs.status;
+  }
+
+  friend constexpr bool operator!=(preload_failure lhs, preload_failure rhs) noexcept {
     return !(lhs == rhs);
   }
 };
@@ -75,10 +91,12 @@ struct preload_plan {
 struct preload_result {
   using guid_list = dependency_graph::guid_list;
   using item_list = preload_plan::item_list;
+  using failure_list = core::vector<preload_failure>;
 
   explicit preload_result(memory_resource* memory = nullptr)
       : resource(memory != nullptr ? memory : get_default_memory_resource()), plan(resource),
-        loaded(typename item_list::allocator_type{resource}) {}
+        loaded(typename item_list::allocator_type{resource}),
+        failed_items(typename failure_list::allocator_type{resource}) {}
 
   /** @brief 结果内部容器使用的内存资源。 */
   memory_resource* resource = nullptr;
@@ -86,12 +104,57 @@ struct preload_result {
   preload_plan plan;
   /** @brief 本次实际同步加载成功的资源项。 */
   item_list loaded;
+  /** @brief 本次预加载失败的资源项明细。计划阶段失败的 GUID 会使用空 type。 */
+  failure_list failed_items;
   /** @brief 预加载执行状态。成功时为空错误。 */
   error status{};
 
   [[nodiscard]] bool succeeded() const noexcept { return status.succeeded(); }
   [[nodiscard]] bool failed() const noexcept { return status.failed(); }
 };
+
+namespace detail {
+
+[[nodiscard]] constexpr error normalize_preload_failure_status(error status) noexcept {
+  return status ? status : error{error_domain::resources, errc::backend_failure};
+}
+
+inline void append_preload_failure(preload_result& result, preload_item item, error status) {
+  result.failed_items.push_back(preload_failure{
+      item,
+      normalize_preload_failure_status(status),
+  });
+}
+
+inline void append_preload_plan_failures(preload_result& result) {
+  for (resource_guid guid : result.plan.missing_manifest) {
+    append_preload_failure(result, preload_item{guid, {}},
+                           {error_domain::resources, errc::not_found});
+  }
+
+  for (resource_guid guid : result.plan.missing_type) {
+    append_preload_failure(result, preload_item{guid, {}},
+                           {error_domain::resources, errc::missing_type});
+  }
+
+  for (preload_item item : result.plan.missing_cache) {
+    append_preload_failure(result, item, {error_domain::resources, errc::not_found});
+  }
+
+  for (preload_item item : result.plan.missing_loader) {
+    append_preload_failure(result, item, {error_domain::resources, errc::not_found});
+  }
+
+  for (std::size_t index = 0; index < result.plan.cycle.size(); ++index) {
+    if (index + 1 == result.plan.cycle.size() && result.plan.cycle[index] == result.plan.cycle[0]) {
+      break;
+    }
+    append_preload_failure(result, preload_item{result.plan.cycle[index], {}},
+                           {error_domain::resources, errc::cycle_detected});
+  }
+}
+
+} // namespace detail
 
 } // namespace caors::resources
 
