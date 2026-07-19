@@ -5,13 +5,23 @@
 
 本文档说明 CAORS 当前推荐的类型注册顺序和初始化策略。这里的注册只面向 C++ 类型；脚本或动态类型后续应使用独立注册系统，再通过上层 resolver 和 C++ 运行期数据交互。
 
-## 推荐入口
+## 公共 API
 
 一个类型如果要同时参与 meta、对象和序列化，推荐使用 `caors::registration::type_<T>(name)`
 作为跨模块聚合入口。它把类型名、属性、方法、序列化 schema 和对象能力集中到同一条注册链路，
 避免业务代码直接关心各模块 extension 的挂载顺序。
 
-示例：
+当前公共注册入口如下：
+
+| 入口 | 用途 |
+| --- | --- |
+| `registration::type_<T>(name)` | 注册普通 C++ 类型，并在同一条 builder 链路中收集 meta、serialization、object 和 capability 数据。 |
+| `registration::type_<T>()` | 注册 `objects::object` 派生类型时读取 `T::object_type_name`，并自动写入对象能力。 |
+| `registration::enum_<T>(name)` | 注册枚举类型和枚举项。 |
+| `registration::value(name, value)` | 枚举项批量注册输入，用在 `registration::enum_<T>(name)(...)`。 |
+| `CAORS_META_REGISTRATION(name)` | 可选的延迟注册函数收集入口，最终仍应调用统一 registration builder。 |
+
+普通类型示例：
 
 ```cpp
 void register_actor() {
@@ -25,14 +35,38 @@ void register_actor() {
 }
 ```
 
+枚举类型示例：
+
+```cpp
+enum class actor_state {
+  idle,
+  running,
+  hidden,
+};
+
+void register_actor_state() {
+  caors::registration::enum_<actor_state>("game.actor_state")
+      (caors::registration::value("idle", actor_state::idle),
+       caors::registration::value("running", actor_state::running))
+      .value("hidden", actor_state::hidden)
+      .commit();
+}
+```
+
+## 内部实现边界
+
 当前聚合入口使用 registry pending model：builder 在注册阶段收集 meta 属性/方法、序列化 schema、
 对象 factory capability 和其他类型能力，`commit()` 时一次性发布完整 `type_data`。发布后的
-`type_data` 不会再通过 `registration::type_<T>(name)` 修改；重复提交同一个类型会返回
-`errc::duplicate_id`，并保留已有注册数据。
+`type_data` 不会再通过 `registration::type_<T>(name)` 或 `registration::enum_<T>(name)` 修改；重复提交
+同一个类型会返回 `errc::duplicate_id`，并保留已有注册数据。
 
 业务类型注册统一使用 `registration::type_<T>(name)`。object 和 serialization 不再提供独立公共
 builder；当 `T` 继承自 `objects::object` 时，`commit()` 会自动写入对象能力。序列化 schema 通过 `.serialization()` 写入，同一次
 `commit()` 发布完整 `type_data`。`meta::init_registry()` 仍负责执行延迟注册函数并校验注册表。
+
+枚举注册统一使用 `registration::enum_<T>(name)`。枚举项、枚举项 metadata、类型 GUID、类型 metadata
+和 capability 都在 builder pending 阶段收集；只有 `.commit()` 成功后，`meta::find<T>()` 才能查到该枚举类型。
+如果枚举项名称重复或类型名为空，builder 会保存错误状态，`commit()` 不会发布半成品类型。
 
 字段声明类型不要求全部完成 `registration::type_<T>("name")` 注册。基础标量、字符串、容器、指针、
 wrapper、pair、tuple 和 variant 可以通过内部 descriptor 参与反射和序列化。只有需要稳定名称、
@@ -55,6 +89,10 @@ nested 类型关系只记录 owner 内部使用的短名和目标 `type_id`。�
 - dynamic capability 用于用户或插件扩展能力，通过 `registration::type_<T>("name").capability(ops).commit()`
   挂到注册类型数据；
   它不是 registry extension，也不替代业务 meta 类型注册。
+- 公开业务注册不应直接调用 `meta::registry::register_type()`、`meta::detail::register_capability*()`、
+  `meta::detail::*` 或各模块内部 extension 写入函数。这些入口只服务 builder、内部兼容桥接或低层测试。
+- `assets::asset_manager::register_*()`、`resources::database::register_*()` 等运行期资源工厂注册不是
+  meta 类型注册 builder，不受本节统一类型注册入口约束。
 
 ## 显式初始化
 
@@ -81,7 +119,7 @@ CAORS_META_REGISTRATION(register_actor) {
 }
 ```
 
-该方式适合模块局部自注册，但有两个限制：
+该方式适合模块局部自注册，但有这些限制：
 
 - 静态库中未被最终程序引用的翻译单元可能不会参与链接，因此注册函数也不会进入队列。
 - 多个翻译单元之间的注册函数执行顺序不应被依赖。
