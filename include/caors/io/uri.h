@@ -112,6 +112,83 @@ private:
   core::string value_;
 };
 
+namespace detail {
+
+[[nodiscard]] inline bool uses_authority_form(uri_view value) noexcept {
+  const std::string_view text = value.string_view();
+  const std::string_view scheme = value.scheme();
+  return !scheme.empty() && text.size() >= scheme.size() + 3 &&
+         text.substr(scheme.size() + 1).starts_with("//");
+}
+
+[[nodiscard]] inline path make_location_from_parts(std::string_view scheme, bool authority_form,
+                                                   std::string_view authority, path_view value_path,
+                                                   memory_resource* resource) {
+  if (scheme.empty()) {
+    return normalize_path(value_path, resource);
+  }
+
+  path normalized_path = normalize_path(value_path, resource);
+  const std::string_view path_text = normalized_path.string_view();
+  core::string result{allocator<char>{resource}};
+
+  if (authority_form) {
+    result.reserve(scheme.size() + 3 + authority.size() + path_text.size() +
+                   (!path_text.empty() ? 1U : 0U));
+    result.append(scheme.begin(), scheme.end());
+    result.append("://");
+    result.append(authority.begin(), authority.end());
+    if (!path_text.empty()) {
+      result.push_back('/');
+      result.append(path_text.begin(), path_text.end());
+    }
+  } else {
+    result.reserve(scheme.size() + 1 + path_text.size());
+    result.append(scheme.begin(), scheme.end());
+    result.push_back(':');
+    result.append(path_text.begin(), path_text.end());
+  }
+
+  return path{path_view{result}, resource};
+}
+
+} // namespace detail
+
+/**
+ * @brief 规范化资源位置。
+ *
+ * 普通路径按虚拟路径规则规范化；带 scheme 的 URI 会保留 scheme / authority，只规范化 path 部分。
+ */
+[[nodiscard]] inline path normalize_location(path_view value, memory_resource* resource = nullptr) {
+  const uri_view parsed{value};
+  return detail::make_location_from_parts(parsed.scheme(), detail::uses_authority_form(parsed),
+                                          parsed.authority(), path_view{parsed.path()}, resource);
+}
+
+/**
+ * @brief 拼接并规范化两个资源位置片段。
+ *
+ * `suffix` 如果本身是 URI，则直接作为完整位置规范化返回；否则拼到 `base` 的 path 部分。
+ */
+[[nodiscard]] inline path join_location(path_view base, path_view suffix,
+                                        memory_resource* resource = nullptr) {
+  const uri_view suffix_uri{suffix};
+  if (suffix_uri.has_scheme()) {
+    return normalize_location(suffix, resource);
+  }
+
+  const path normalized_base = normalize_location(base, resource);
+  const uri_view parsed_base{normalized_base};
+  if (!parsed_base.has_scheme()) {
+    return join_path(normalized_base, suffix, resource);
+  }
+
+  const path joined_path = join_path(path_view{parsed_base.path()}, suffix, resource);
+  return detail::make_location_from_parts(parsed_base.scheme(),
+                                          detail::uses_authority_form(parsed_base),
+                                          parsed_base.authority(), joined_path, resource);
+}
+
 } // namespace caors::io
 
 #endif

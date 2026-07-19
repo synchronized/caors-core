@@ -6,7 +6,7 @@
 
 #include "caors/core/containers.h"
 #include "caors/core/string_name.h"
-#include "caors/io/path.h"
+#include "caors/io/uri.h"
 #include "caors/resources/id.h"
 #include "caors/resources/source.h"
 
@@ -36,7 +36,7 @@ struct manifest_entry {
   manifest_entry(resource_guid resource_guid, io::path_view resource_location,
                  core::string_name resource_type = {}, std::string_view resource_hash = {},
                  std::uint64_t resource_version = 0, memory_resource* resource = nullptr)
-      : guid(resource_guid), location(io::normalize_path(resource_location, resource)),
+      : guid(resource_guid), location(io::normalize_location(resource_location, resource)),
         type(resource_type), hash(allocator<char>{resource}), version(resource_version) {
     hash.assign(resource_hash.begin(), resource_hash.end());
   }
@@ -72,7 +72,7 @@ public:
   /** @brief 清空全部清单条目。 */
   void clear() noexcept { entries_.clear(); }
 
-  /** @brief 新增资源清单条目。location 会按虚拟路径规则规范化。 */
+  /** @brief 新增资源清单条目。location 会按资源位置规则规范化。 */
   [[nodiscard]] error bind(resource_guid guid, io::path_view location, core::string_name type = {},
                            std::string_view hash = {}, std::uint64_t version = 0) {
     if (contains(guid)) {
@@ -88,7 +88,7 @@ public:
                 std::string_view{entry.hash.data(), entry.hash.size()}, entry.version);
   }
 
-  /** @brief 新增或替换资源清单条目。location 会按虚拟路径规则规范化。 */
+  /** @brief 新增或替换资源清单条目。location 会按资源位置规则规范化。 */
   [[nodiscard]] error set(resource_guid guid, io::path_view location, core::string_name type = {},
                           std::string_view hash = {}, std::uint64_t version = 0) {
     if (!guid || location.empty()) {
@@ -97,7 +97,7 @@ public:
 
     manifest_entry entry{resource_};
     entry.guid = guid;
-    entry.location = io::normalize_path(location, resource_);
+    entry.location = io::normalize_location(location, resource_);
     if (entry.location.empty()) {
       return {error_domain::resources, errc::invalid_argument};
     }

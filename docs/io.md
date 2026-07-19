@@ -179,6 +179,10 @@ caors::io::uri_view location{"caors://assets/textures/albedo.png"};
 - `path()` 会去掉查询参数和片段文本，但不会做百分号解码。
 - `caors://assets/a.png` 的 scheme 是 `caors`，authority 是 `assets`，path 是 `a.png`。
 - 普通路径 `assets/a.png` 没有 scheme 和 authority，path 是完整输入路径。
+- `io::normalize_location()` 用于资源位置规范化：普通路径按 `normalize_path()` 处理；URI 会保留
+  scheme / authority，只规范化 path 部分。
+- `io::join_location()` 用于拼接资源位置：普通路径等价于 `join_path()`；URI 会在 path 部分拼接，
+  并保留原来的 scheme / authority。
 
 `io::file_system_resolver` 本身实现 `io::file_system`，可以把 URI 路由到具体后端：
 

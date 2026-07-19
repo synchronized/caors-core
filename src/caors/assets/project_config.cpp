@@ -3,6 +3,8 @@
 
 #include "caors/assets/project_config.h"
 
+#include "caors/io/uri.h"
+
 #include <cstdint>
 #include <limits>
 #include <string_view>
@@ -149,7 +151,8 @@ namespace {
   }
 
   resource_config.source = read_optional_name(value, "source");
-  resource_config.location = io::normalize_path(string_view_of(*location_text), target.resource);
+  resource_config.location =
+      io::normalize_location(string_view_of(*location_text), target.resource);
   resource_config.type = read_optional_name(value, "type");
 
   if (const core::string* hash_text = find_string_member(value, "hash")) {

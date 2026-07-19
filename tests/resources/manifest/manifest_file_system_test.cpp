@@ -79,3 +79,32 @@ TEST_CASE("resources - manifest file system lists directories from manifest", "[
   CHECK(std::string_view{reinterpret_cast<const char*>(bytes.value.data()), bytes.value.size()} ==
         "albedo");
 }
+
+TEST_CASE("resources - manifest file system lists uri locations from manifest", "[resources]") {
+  read_write_file_system_without_listing storage;
+  REQUIRE(storage.write_all("textures/albedo.txt", std::string_view{"albedo"}).succeeded());
+
+  caors::io::file_system_resolver resolver;
+  REQUIRE(resolver.mount("caors://assets", storage).succeeded());
+
+  caors::resources::manifest manifest;
+  REQUIRE(manifest.bind(test_guid_a, "caors://assets//textures\\albedo.txt").succeeded());
+
+  caors::resources::manifest_file_system files{manifest, resolver};
+
+  caors::io::directory_entry_list_result entries = files.list("caors://assets/textures");
+  REQUIRE(entries.succeeded());
+  REQUIRE(entries->size() == 1);
+  CHECK((*entries)[0].name == "albedo.txt");
+  CHECK((*entries)[0].path == "caors://assets/textures/albedo.txt");
+  CHECK((*entries)[0].kind == caors::io::file_kind::file);
+
+  caors::io::file_status_result directory_status = files.status("caors://assets/textures");
+  REQUIRE(directory_status.succeeded());
+  CHECK(directory_status->kind == caors::io::file_kind::directory);
+
+  caors::io::byte_buffer_result bytes = files.read_all("caors://assets/textures/albedo.txt");
+  REQUIRE(bytes.succeeded());
+  CHECK(std::string_view{reinterpret_cast<const char*>(bytes.value.data()), bytes.value.size()} ==
+        "albedo");
+}

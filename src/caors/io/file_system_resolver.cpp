@@ -48,37 +48,6 @@ namespace {
   return lhs.path.string_view() < rhs.path.string_view();
 }
 
-[[nodiscard]] core::string make_uri_location(uri_view parent, std::string_view child,
-                                             memory_resource* resource) {
-  if (parent.scheme().empty()) {
-    return join_path(parent.path(), child, resource).to_string(resource);
-  }
-
-  core::string result{allocator<char>{resource}};
-  if (!parent.authority().empty()) {
-    result.reserve(parent.scheme().size() + 3 + parent.authority().size() + parent.path().size() +
-                   child.size() + 2);
-    result.append(parent.scheme().begin(), parent.scheme().end());
-    result.append("://");
-    result.append(parent.authority().begin(), parent.authority().end());
-    if (!parent.path().empty()) {
-      result.push_back('/');
-      result.append(parent.path().begin(), parent.path().end());
-    }
-  } else {
-    result.reserve(parent.scheme().size() + 1 + parent.path().size() + child.size() + 1);
-    result.append(parent.scheme().begin(), parent.scheme().end());
-    result.push_back(':');
-    result.append(parent.path().begin(), parent.path().end());
-  }
-
-  if (!result.empty() && result.back() != ':' && result.back() != '/') {
-    result.push_back('/');
-  }
-  result.append(child.begin(), child.end());
-  return result;
-}
-
 void add_or_update_entry(directory_entry_list& entries, std::string_view name,
                          std::string_view full_path, file_kind kind, memory_resource* resource) {
   const auto found =
@@ -213,7 +182,7 @@ directory_entry_list_result file_system_resolver::list(path_view directory,
       continue;
     }
 
-    const core::string full_path = make_uri_location(parsed, name, resource);
+    const core::string full_path = join_location(directory, name, resource).to_string(resource);
     add_or_update_entry(entries, name, full_path, target_entry.kind, resource);
   }
 

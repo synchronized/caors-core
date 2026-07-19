@@ -13,8 +13,9 @@ namespace {
   return {value.data(), value.size()};
 }
 
-[[nodiscard]] core::string normalize_location(io::path_view value, memory_resource* resource) {
-  return io::normalize_path(value, resource).to_string(resource);
+[[nodiscard]] core::string normalize_manifest_location(io::path_view value,
+                                                       memory_resource* resource) {
+  return io::normalize_location(value, resource).to_string(resource);
 }
 
 [[nodiscard]] bool child_suffix(std::string_view directory, std::string_view candidate,
@@ -119,7 +120,8 @@ io::file_status_result manifest_file_system::status(io::path_view path) const {
 io::directory_entry_list_result manifest_file_system::list(io::path_view directory,
                                                            memory_resource* resource) {
   io::directory_entry_list entries{allocator<io::directory_entry>{resource}};
-  const core::string normalized_directory = normalize_location(directory, this->resource());
+  const core::string normalized_directory =
+      normalize_manifest_location(directory, this->resource());
   const std::string_view directory_text = string_view_of(normalized_directory);
   bool exact_file = false;
 
@@ -141,8 +143,8 @@ io::directory_entry_list_result manifest_file_system::list(io::path_view directo
       const io::file_kind kind =
           separator == std::string_view::npos ? io::file_kind::file : io::file_kind::directory;
       const io::path full_path = directory_text.empty()
-                                     ? io::path{name, resource}
-                                     : io::join_path(directory_text, name, resource);
+                                     ? io::normalize_location(name, resource)
+                                     : io::join_location(directory_text, name, resource);
       add_or_update_entry(entries, name, full_path, kind, resource);
     });
   }
@@ -212,7 +214,7 @@ bool manifest_file_system::manifest_contains_file(io::path_view path) const {
     return false;
   }
 
-  const core::string normalized = normalize_location(path, resource_);
+  const core::string normalized = normalize_manifest_location(path, resource_);
   const std::string_view text = string_view_of(normalized);
   bool found = false;
   entries_->for_each(
@@ -225,7 +227,7 @@ bool manifest_file_system::manifest_contains_directory(io::path_view path) const
     return false;
   }
 
-  const core::string normalized = normalize_location(path, resource_);
+  const core::string normalized = normalize_manifest_location(path, resource_);
   const std::string_view text = string_view_of(normalized);
   bool found = text.empty();
   entries_->for_each([&](const manifest_entry& entry) {

@@ -453,6 +453,27 @@ TEST_CASE("resources - asset_manager builds provider manifest and dependency gra
   CHECK(resource_b->width == 1024);
 }
 
+TEST_CASE("resources - project config preserves uri resource locations", "[resources]") {
+  std::string json{R"({
+    "resources": [
+      {
+        "guid": ")"};
+  json += test_guid_a.string();
+  json += R"(",
+        "source": "assets",
+        "location": "caors://assets//textures/albedo.json",
+        "type": "game.serialized"
+      }
+    ]
+  })";
+
+  caors::assets::project_config config;
+  REQUIRE(caors::assets::json::load_project_config(config, json).succeeded());
+  REQUIRE(config.resources.size() == 1);
+  CHECK(config.resources[0].location.string_view() ==
+        std::string_view{"caors://assets/textures/albedo.json"});
+}
+
 TEST_CASE("resources - asset_manager creates configured source cache and loader from factories",
           "[resources]") {
   require_serialized_resource_metadata();

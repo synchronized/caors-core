@@ -80,6 +80,8 @@ caors::assets::json::load_project_config(config, R"({
 - `schema_version` 缺省为 1；当前只接受版本 1。
 - `sources[]` 描述 source 名称、策略名、可选 root 和 options。
 - `resources[]` 描述 `guid -> source/location/type/hash/version`，会写入 `manifest` 和 `provider`。
+  `location` 会按 `io::normalize_location()` 规范化，因此可以使用普通路径，也可以使用
+  `caors://`、`file://`、`pack://` 等 URI。
 - `resource_types[]` 描述 manifest type 到 cache/loader 策略名的映射。
 - `dependencies[]` 写入内部 `dependency_graph`。
 - `preload[]` 只保存建议预加载入口；调用方决定何时预加载。

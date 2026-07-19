@@ -769,7 +769,7 @@ manifest.set(texture_id,
 清单条目包含：
 
 - `guid`：稳定资源 GUID。
-- `location`：规范化后的虚拟资源路径；后续也可保存带 scheme 的逻辑 URI，例如 `caors://assets/a.png`
+- `location`：规范化后的资源位置；可以是普通虚拟路径，也可以是带 scheme 的逻辑 URI，例如 `caors://assets/a.png`
   或 `pack://base/a.png`。
 - `type`：可选资源类型名，主要用于调试、导入和上层资源数据库。
 - `hash`：可选内容 hash、etag 或版本指纹。
@@ -833,7 +833,8 @@ JSON 清单支持两种根格式：
 需要注意：
 
 - `manifest` 只保存清单数据，不读取字节、不构造资源对象，也不拥有 source。
-- `bind()` 会拒绝 nil GUID、空路径和重复 GUID，并会按虚拟路径规则规范化 location。
+- `bind()` 会拒绝 nil GUID、空位置和重复 GUID，并会按 `io::normalize_location()` 规则规范化
+  location。
 - manifest 不解释 location 对应的真实后端。普通相对路径由当前 provider/source 解释；带 scheme 的
   location 应交给 `io::file_system_resolver` 或上层 source adapter 解析。
 - `set()` 会新增或替换同 GUID 条目，适合资源数据库刷新和调试 manifest 热更新。

@@ -220,3 +220,32 @@ TEST_CASE("resources - manifest stores normalized locations and metadata", "[res
   CHECK(empty_location.domain() == caors::error_domain::resources);
   CHECK(empty_location.value() == caors::errc::invalid_argument);
 }
+
+TEST_CASE("resources - manifest preserves uri locations", "[resources]") {
+  caors::resource_manifest manifest;
+
+  REQUIRE(manifest.bind(test_guid_a, "caors://assets//textures\\albedo.json").succeeded());
+
+  const caors::resources::manifest_entry* entry = manifest.find(test_guid_a);
+  REQUIRE(entry != nullptr);
+  CHECK(entry->location.string_view() == "caors://assets/textures/albedo.json");
+
+  caors::io::memory_file_system storage;
+  REQUIRE(storage.write_all("textures/albedo.json", std::string_view{"texture"}).succeeded());
+
+  caors::io::file_system_resolver resolver;
+  REQUIRE(resolver.mount("caors://assets", storage).succeeded());
+
+  caors::resources::file_source source{resolver};
+  caors::resources::provider provider;
+  REQUIRE(caors::resources::bind_manifest(provider, source, manifest).succeeded());
+
+  const caors::resources::source_location location = provider.find(test_guid_a);
+  REQUIRE(location);
+  CHECK(location.location.string_view() == "caors://assets/textures/albedo.json");
+
+  const caors::io::byte_buffer_result bytes = provider.read(test_guid_a);
+  REQUIRE(bytes.succeeded());
+  CHECK(std::string_view{reinterpret_cast<const char*>(bytes.value.data()), bytes.value.size()} ==
+        "texture");
+}

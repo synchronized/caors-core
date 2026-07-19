@@ -20,6 +20,22 @@ TEST_CASE("io - uri parses scheme authority and path", "[io]") {
   CHECK(relative.path() == "assets/config.json");
 }
 
+TEST_CASE("io - location normalization preserves uri routing parts", "[io]") {
+  const caors::io::path relative = caors::io::normalize_location("\\assets//textures\\albedo.png");
+  CHECK(relative.string_view() == "assets/textures/albedo.png");
+
+  const caors::io::path uri =
+      caors::io::normalize_location("caors://assets//textures\\albedo.png?debug=true");
+  CHECK(uri.string_view() == "caors://assets/textures/albedo.png");
+
+  const caors::io::path file_uri = caors::io::normalize_location("file:///project//config.json");
+  CHECK(file_uri.string_view() == "file:///project/config.json");
+
+  const caors::io::path joined =
+      caors::io::join_location("caors://assets/textures", "\\albedo.png");
+  CHECK(joined.string_view() == "caors://assets/textures/albedo.png");
+}
+
 TEST_CASE("io - file system capabilities describe implemented backend features", "[io]") {
   caors::io::memory_file_system files;
 
@@ -52,6 +68,11 @@ TEST_CASE("io - file system resolver routes uri locations", "[io]") {
   REQUIRE(entries->size() == 1);
   CHECK((*entries)[0].name == "albedo.txt");
   CHECK((*entries)[0].path == "caors://assets/textures/albedo.txt");
+
+  caors::io::directory_entry_list_result messy_entries = resolver.list("caors://assets//textures");
+  REQUIRE(messy_entries.succeeded());
+  REQUIRE(messy_entries->size() == 1);
+  CHECK((*messy_entries)[0].path == "caors://assets/textures/albedo.txt");
 
   REQUIRE(resolver.write_all("caors://assets/generated.txt", std::string_view{"generated"})
               .succeeded());
