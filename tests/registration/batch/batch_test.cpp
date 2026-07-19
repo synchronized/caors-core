@@ -34,6 +34,15 @@ enum class batch_context_enum {
   first,
 };
 
+enum class batch_duplicate_enum {
+  first,
+  second,
+};
+
+struct batch_after_enum_failure_type {
+  int value = 0;
+};
+
 } // namespace
 
 TEST_CASE("registration batch - commits type and enum in order", "[registration]") {
@@ -53,7 +62,9 @@ TEST_CASE("registration batch - commits type and enum in order", "[registration]
   REQUIRE(batch.commit() == caors::error{});
   CHECK(batch.commit() == caors::error{});
   CHECK(batch.succeeded());
+  CHECK_FALSE(batch.has_diagnostic());
   CHECK(batch.diagnostic() == nullptr);
+  CHECK(batch.diagnostic_message().empty());
 
   const caors::meta::type actor_type = caors::meta::find<batch_actor>();
   REQUIRE(actor_type.registered());
@@ -91,8 +102,43 @@ TEST_CASE("registration batch - stops at first failed item and records diagnosti
   CHECK(diagnostic->id == caors::meta::id_of<batch_duplicate_type>());
   CHECK(diagnostic->name == caors::core::string_name{"caors.test.registration.batch.duplicate"});
   CHECK(diagnostic->status == status);
+  CHECK(batch.has_diagnostic());
+  CHECK(batch.failed_kind() == caors::registration::batch_item_kind::type);
+  CHECK(batch.failed_index() == 0);
+  CHECK(batch.failed_type_id() == caors::meta::id_of<batch_duplicate_type>());
+  CHECK(batch.failed_name() == caors::core::string_name{"caors.test.registration.batch.duplicate"});
+  CHECK(batch.diagnostic_message() ==
+        "registration batch failed at item 0: type caors.test.registration.batch.duplicate "
+        "duplicate id");
 
   CHECK_FALSE(caors::meta::find<batch_after_failure_type>());
+}
+
+TEST_CASE("registration batch - records enum item failure and stops following items",
+          "[registration]") {
+  caors::registration::batch_builder batch = caors::registration::batch();
+  batch.enum_<batch_duplicate_enum>("caors.test.registration.batch.duplicate_enum")
+      .value("same", batch_duplicate_enum::first)
+      .value("same", batch_duplicate_enum::second);
+  batch.type_<batch_after_enum_failure_type>("caors.test.registration.batch.after_enum_failure");
+
+  const caors::error status = batch.commit();
+  REQUIRE(status);
+  CHECK(status.value() == caors::errc::duplicate_name);
+
+  const caors::registration::batch_diagnostic* diagnostic = batch.diagnostic();
+  REQUIRE(diagnostic != nullptr);
+  CHECK(diagnostic->kind == caors::registration::batch_item_kind::enumeration);
+  CHECK(diagnostic->index == 0);
+  CHECK(diagnostic->id == caors::meta::id_of<batch_duplicate_enum>());
+  CHECK(diagnostic->name ==
+        caors::core::string_name{"caors.test.registration.batch.duplicate_enum"});
+  CHECK(batch.diagnostic_message() ==
+        "registration batch failed at item 0: enum caors.test.registration.batch.duplicate_enum "
+        "duplicate name");
+
+  CHECK_FALSE(caors::meta::find<batch_duplicate_enum>());
+  CHECK_FALSE(caors::meta::find<batch_after_enum_failure_type>());
 }
 
 TEST_CASE("registration batch - explicit context registers into local registry", "[registration]") {

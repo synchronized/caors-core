@@ -94,6 +94,27 @@ builder；当 `T` 继承自 `objects::object` 时，`commit()` 会自动写入�
 前置项会保留在 registry 中，失败项之后的注册项不会提交。批量注册也不提供隐式 replace；重复类型、重复名称或
 重复 GUID 仍按普通 builder 规则返回错误。
 
+批量注册错误处理示例：
+
+```cpp
+caors::registration::batch_builder batch = caors::registration::batch();
+batch.type_<actor>("game.actor");
+batch.enum_<actor_state>("game.actor_state")
+    .value("idle", actor_state::idle)
+    .value("idle", actor_state::running);
+
+caors::error status = batch.commit();
+if (status) {
+  caors::string message = batch.diagnostic_message();
+  const caors::registration::batch_diagnostic* diagnostic = batch.diagnostic();
+  // diagnostic->kind / index / id / name / status 可用于日志、断言或工具链展示。
+}
+```
+
+`diagnostic_message()` 返回类似
+`registration batch failed at item 1: enum game.actor_state duplicate name` 的可读文本。
+需要结构化处理时优先读取 `diagnostic()`；只需要日志时使用 `diagnostic_message()`。
+
 字段声明类型不要求全部完成 `registration::type_<T>("name")` 注册。基础标量、字符串、容器、指针、
 wrapper、pair、tuple 和 variant 可以通过内部 descriptor 参与反射和序列化。只有需要稳定名称、
 GUID、对象工厂、反射根类型、多态身份或按名称查询的业务类型，才应显式注册到 meta。

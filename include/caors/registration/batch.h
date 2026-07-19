@@ -13,6 +13,7 @@
 #include "caors/registration/type_builder.h"
 
 #include <cstddef>
+#include <string>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -33,6 +34,18 @@ struct batch_diagnostic {
   core::string_name name{};
   error status{};
 };
+
+/** @brief 返回批量注册项类型的调试文本。 */
+[[nodiscard]] inline std::string_view to_string(batch_item_kind kind) noexcept {
+  switch (kind) {
+  case batch_item_kind::type:
+    return "type";
+  case batch_item_kind::enumeration:
+    return "enum";
+  }
+
+  return "unknown";
+}
 
 /** @brief 按顺序提交多个 registration builder 的批量注册器。 */
 class batch_builder final {
@@ -110,8 +123,33 @@ public:
   [[nodiscard]] error result() const noexcept { return status_; }
   [[nodiscard]] bool succeeded() const noexcept { return !status_; }
   [[nodiscard]] std::size_t size() const noexcept { return items_.size(); }
+  [[nodiscard]] bool has_diagnostic() const noexcept { return static_cast<bool>(failure_.status); }
   [[nodiscard]] const batch_diagnostic* diagnostic() const noexcept {
-    return failure_.status ? &failure_ : nullptr;
+    return has_diagnostic() ? &failure_ : nullptr;
+  }
+  [[nodiscard]] batch_item_kind failed_kind() const noexcept { return failure_.kind; }
+  [[nodiscard]] std::size_t failed_index() const noexcept { return failure_.index; }
+  [[nodiscard]] type_id failed_type_id() const noexcept { return failure_.id; }
+  [[nodiscard]] core::string_name failed_name() const noexcept { return failure_.name; }
+
+  /** @brief 返回首个失败项的可读诊断文本；没有失败时返回空字符串。 */
+  [[nodiscard]] core::string diagnostic_message() const {
+    if (!has_diagnostic()) {
+      return core::make_string(&memory::library_resource());
+    }
+
+    core::string message = core::make_string(&memory::library_resource());
+    message += "registration batch failed at item ";
+    message += std::to_string(failure_.index).c_str();
+    message += ": ";
+    message += to_string(failure_.kind);
+    if (failure_.name) {
+      message += " ";
+      message += failure_.name.view();
+    }
+    message += " ";
+    message += failure_.status.code().message().c_str();
+    return message;
   }
 
 private:
