@@ -321,12 +321,47 @@ template <typename T> [[nodiscard]] error serialize_text_to(const T& object, str
   return serialize(object, writer);
 }
 
+/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象序列化到输出流。 */
+template <typename T>
+[[nodiscard]] error serialize_text_to(const T& object, io::output_stream& output) {
+  string buffer;
+  const error status = serialize_text_to(object, buffer);
+  if (status) {
+    return status;
+  }
+
+  error written = output.write_all(std::string_view{buffer.data(), buffer.size()});
+  if (written) {
+    return written;
+  }
+
+  return output.flush();
+}
+
 /** @brief 把已注册序列化和 meta 字段信息的 C++ 对象按上下文序列化到外部简单文本 buffer。 */
 template <typename T>
 [[nodiscard]] error serialize_text_to(const serialization::context& context, const T& object,
                                       string& output) {
   serialization::text_writer writer{output};
   return serialize(context, object, writer);
+}
+
+/** @brief 按上下文把已注册序列化和 meta 字段信息的 C++ 对象序列化到输出流。 */
+template <typename T>
+[[nodiscard]] error serialize_text_to(const serialization::context& context, const T& object,
+                                      io::output_stream& output) {
+  string buffer;
+  const error status = serialize_text_to(context, object, buffer);
+  if (status) {
+    return status;
+  }
+
+  error written = output.write_all(std::string_view{buffer.data(), buffer.size()});
+  if (written) {
+    return written;
+  }
+
+  return output.flush();
 }
 
 /** @brief 把已注册序列化和 meta 字段信息的 C++ 对象序列化为简单文本格式。 */
@@ -359,11 +394,46 @@ template <typename T> [[nodiscard]] error serialize_json_to(const T& object, str
   return serialize(object, writer);
 }
 
+/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象序列化到输出流。 */
+template <typename T>
+[[nodiscard]] error serialize_json_to(const T& object, io::output_stream& output) {
+  string buffer;
+  const error status = serialize_json_to(object, buffer);
+  if (status) {
+    return status;
+  }
+
+  error written = output.write_all(std::string_view{buffer.data(), buffer.size()});
+  if (written) {
+    return written;
+  }
+
+  return output.flush();
+}
+
 /** @brief 按 JSON 格式选项把已注册序列化和 meta 字段信息的 C++ 对象序列化到外部 JSON buffer。 */
 template <typename T>
 [[nodiscard]] error serialize_json_to(const T& object, string& output, json_options options) {
   serialization::json_writer writer{output, options};
   return serialize(object, writer);
+}
+
+/** @brief 按 JSON 格式选项把已注册序列化和 meta 字段信息的 C++ 对象序列化到输出流。 */
+template <typename T>
+[[nodiscard]] error serialize_json_to(const T& object, io::output_stream& output,
+                                      json_options options) {
+  string buffer;
+  const error status = serialize_json_to(object, buffer, options);
+  if (status) {
+    return status;
+  }
+
+  error written = output.write_all(std::string_view{buffer.data(), buffer.size()});
+  if (written) {
+    return written;
+  }
+
+  return output.flush();
 }
 
 /** @brief 把已注册序列化和 meta 字段信息的 C++ 对象按上下文序列化到外部 JSON buffer。 */
@@ -374,12 +444,48 @@ template <typename T>
   return serialize(context, object, writer);
 }
 
+/** @brief 按上下文把已注册序列化和 meta 字段信息的 C++ 对象序列化到输出流。 */
+template <typename T>
+[[nodiscard]] error serialize_json_to(const serialization::context& context, const T& object,
+                                      io::output_stream& output) {
+  string buffer;
+  const error status = serialize_json_to(context, object, buffer);
+  if (status) {
+    return status;
+  }
+
+  error written = output.write_all(std::string_view{buffer.data(), buffer.size()});
+  if (written) {
+    return written;
+  }
+
+  return output.flush();
+}
+
 /** @brief 按上下文和 JSON 格式选项序列化到外部 JSON buffer。 */
 template <typename T>
 [[nodiscard]] error serialize_json_to(const serialization::context& context, const T& object,
                                       string& output, json_options options) {
   serialization::json_writer writer{output, options};
   return serialize(context, object, writer);
+}
+
+/** @brief 按上下文和 JSON 格式选项序列化到输出流。 */
+template <typename T>
+[[nodiscard]] error serialize_json_to(const serialization::context& context, const T& object,
+                                      io::output_stream& output, json_options options) {
+  string buffer;
+  const error status = serialize_json_to(context, object, buffer, options);
+  if (status) {
+    return status;
+  }
+
+  error written = output.write_all(std::string_view{buffer.data(), buffer.size()});
+  if (written) {
+    return written;
+  }
+
+  return output.flush();
 }
 
 /** @brief 把已注册序列化和 meta 字段信息的 C++ 对象序列化为 JSON。 */

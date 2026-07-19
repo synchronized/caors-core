@@ -8,6 +8,7 @@
 #include "caors/memory/unique_ptr.h"
 
 #include <span>
+#include <string_view>
 
 namespace caors::io {
 
@@ -42,6 +43,18 @@ public:
 
   /** @brief 写出最多 `buffer.size()` 字节，返回实际写出数量。 */
   [[nodiscard]] virtual size_result write(std::span<const std::byte> buffer) = 0;
+
+  /** @brief 写出完整字节范围；如果后端短写，会继续写到完成或返回错误。 */
+  [[nodiscard]] error write_all(std::span<const std::byte> buffer);
+
+  /** @brief 写出完整字符串内容。 */
+  [[nodiscard]] error write_all(std::string_view text);
+
+  /** @brief 刷新已经写入流但尚未提交到底层后端的数据。 */
+  [[nodiscard]] virtual error flush();
+
+  /** @brief 显式关闭并提交输出流。析构函数不会隐式提交失败状态。 */
+  [[nodiscard]] virtual error close();
 };
 
 /** @brief 基于 `io::byte_buffer` 的同步输入流。 */

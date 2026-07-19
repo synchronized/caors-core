@@ -48,6 +48,14 @@ public:
   /** @brief 写入指定位置的完整字节内容；默认返回 `errc::unsupported`。 */
   [[nodiscard]] virtual error write(io::path_view location, std::span<const std::byte> bytes);
 
+  /**
+   * @brief 打开指定位置的同步输出流。
+   *
+   * 默认实现使用内存缓冲，并在 `close()` 时调用 `write()` 提交。
+   */
+  [[nodiscard]] virtual io::output_stream_result open_write(io::path_view location,
+                                                            memory_resource* resource = nullptr);
+
   /** @brief 写入指定位置的字符串内容。 */
   [[nodiscard]] error write(io::path_view location, std::string_view text) {
     return write(location, std::span<const std::byte>{
@@ -75,6 +83,8 @@ public:
   [[nodiscard]] io::input_stream_result open_read(io::path_view location,
                                                   memory_resource* resource = nullptr) override;
   [[nodiscard]] error write(io::path_view location, std::span<const std::byte> bytes) override;
+  [[nodiscard]] io::output_stream_result open_write(io::path_view location,
+                                                    memory_resource* resource = nullptr) override;
 
 private:
   io::file_system* file_system_ = nullptr;
@@ -147,6 +157,10 @@ public:
 
   /** @brief 写入 GUID 对应位置的完整字节内容。 */
   [[nodiscard]] error write(resource_guid guid, std::span<const std::byte> bytes) const;
+
+  /** @brief 打开 GUID 对应位置的同步输出流。 */
+  [[nodiscard]] io::output_stream_result open_write(resource_guid guid,
+                                                    memory_resource* resource = nullptr) const;
 
   /** @brief 写入 GUID 对应位置的字符串内容。 */
   [[nodiscard]] error write(resource_guid guid, std::string_view text) const {

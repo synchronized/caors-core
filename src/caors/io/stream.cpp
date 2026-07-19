@@ -12,6 +12,34 @@ namespace caors::io {
 input_stream::~input_stream() = default;
 output_stream::~output_stream() = default;
 
+error output_stream::write_all(std::span<const std::byte> buffer) {
+  std::span<const std::byte> remaining = buffer;
+  while (!remaining.empty()) {
+    size_result written = write(remaining);
+    if (written.failed()) {
+      return written.error();
+    }
+    if (*written == 0U) {
+      return {error_domain::io, errc::backend_failure};
+    }
+
+    remaining = remaining.subspan(*written);
+  }
+
+  return {};
+}
+
+error output_stream::write_all(std::string_view text) {
+  return write_all(std::span<const std::byte>{
+      reinterpret_cast<const std::byte*>(text.data()),
+      text.size(),
+  });
+}
+
+error output_stream::flush() { return {}; }
+
+error output_stream::close() { return flush(); }
+
 byte_buffer_input_stream::byte_buffer_input_stream(byte_buffer bytes) : bytes_(std::move(bytes)) {}
 
 size_result byte_buffer_input_stream::read(std::span<std::byte> buffer) {

@@ -264,7 +264,8 @@ caors::serialization::config_validation_result validation =
 - `assets::json::load_project_config()`：从 JSON DOM、文本或 source 读入 `project_config`。
 - `assets::json::loader<T>`：从 provider 打开 JSON 输入流，再通过 `assets::load_serialized<T>()`
   构造资源。
-- `assets::json::saver<T>`：把资源对象属性序列化为 JSON 文本，再写回 provider。
+- `assets::json::saver<T>`：从 provider 打开 JSON 输出流，把资源对象属性序列化为 JSON 文本后显式
+  `close()` 提交。
 - `assets::json::register_type_factory<T>()`：复用
   `assets::register_cached_type_factory<T, assets::json::loader<T>>()`，固定匹配
   `cache = "memory"`、`loader = "json"`。

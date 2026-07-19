@@ -15,6 +15,42 @@ namespace {
   return result;
 }
 
+class buffered_source_output_stream final : public io::output_stream {
+public:
+  buffered_source_output_stream(source& target, io::path_view location, memory_resource* resource)
+      : target_(&target), location_(make_location(location, resource)),
+        buffer_(io::make_byte_buffer(resource)) {}
+
+  [[nodiscard]] io::size_result write(std::span<const std::byte> buffer) override {
+    if (closed_) {
+      return fail<std::size_t>({error_domain::resources, errc::invalid_argument});
+    }
+
+    buffer_.insert(buffer_.end(), buffer.begin(), buffer.end());
+    return ok(buffer.size());
+  }
+
+  [[nodiscard]] error close() override {
+    if (closed_) {
+      return {};
+    }
+
+    error status = target_->write(io::path_view{location_}, buffer_);
+    if (status) {
+      return status;
+    }
+
+    closed_ = true;
+    return {};
+  }
+
+private:
+  source* target_ = nullptr;
+  core::string location_;
+  io::byte_buffer buffer_;
+  bool closed_ = false;
+};
+
 } // namespace
 
 source::~source() = default;
@@ -30,6 +66,21 @@ io::input_stream_result source::open_read(io::path_view location, memory_resourc
 
 error source::write(io::path_view, std::span<const std::byte>) {
   return {error_domain::resources, errc::unsupported};
+}
+
+io::output_stream_result source::open_write(io::path_view location, memory_resource* resource) {
+  if (location.empty()) {
+    return fail<io::output_stream_ptr>({error_domain::resources, errc::invalid_argument});
+  }
+
+  memory_resource* resolved = resource != nullptr ? resource : get_default_memory_resource();
+  auto* stream = memory::make<buffered_source_output_stream>(resolved, *this, location, resolved);
+  io::output_stream_ptr result{stream};
+  result.get_deleter().reset(resolved, [](void* user_data, void* stored) noexcept {
+    memory::destroy(static_cast<buffered_source_output_stream*>(stored),
+                    static_cast<memory_resource*>(user_data));
+  });
+  return ok(std::move(result));
 }
 
 file_source::file_source(io::file_system& file_system) noexcept : file_system_(&file_system) {}
@@ -62,6 +113,15 @@ error file_source::write(io::path_view location, std::span<const std::byte> byte
   }
 
   return file_system_->write_all(location, bytes);
+}
+
+io::output_stream_result file_source::open_write(io::path_view location,
+                                                 memory_resource* resource) {
+  if (file_system_ == nullptr) {
+    return fail<io::output_stream_ptr>({error_domain::resources, errc::backend_failure});
+  }
+
+  return file_system_->open_write(location, resource);
 }
 
 provider::provider(memory_resource* resource)
@@ -161,6 +221,19 @@ error provider::write(resource_guid guid, std::span<const std::byte> bytes) cons
   }
 
   return location.source->write(location.location, bytes);
+}
+
+io::output_stream_result provider::open_write(resource_guid guid, memory_resource* resource) const {
+  if (!guid) {
+    return fail<io::output_stream_ptr>({error_domain::resources, errc::invalid_argument});
+  }
+
+  const source_location location = find(guid);
+  if (!location) {
+    return fail<io::output_stream_ptr>({error_domain::resources, errc::not_found});
+  }
+
+  return location.source->open_write(location.location, resource);
 }
 
 } // namespace caors::resources

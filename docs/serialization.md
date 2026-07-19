@@ -496,6 +496,15 @@ JSON 写出入口：
 caors::serialization::serialization_text_result text = caors::to_string(instance);
 caors::string output;
 caors::error write_status = caors::serialization::serialize_json_to(instance, output);
+
+caors::io::memory_file_system files;
+caors::io::output_stream_result stream = files.open_write("config/player.json");
+if (stream) {
+  write_status = caors::serialization::serialize_json_to(instance, *stream.value);
+  if (!write_status) {
+    write_status = stream.value->close();
+  }
+}
 ```
 
 JSON 读入入口先解析为 `variant` DOM，再复用 `serialization::variant_reader` 写回对象：
@@ -517,8 +526,9 @@ caors::error status =
     caors::serialization::deserialize_json_from(instance, files, "config/player.json");
 ```
 
-`serialization::parse_json(stream)` 和 `serialization::parse_json_from(file_system, path)` 当前是过渡入口：
-它们先把输入流读入字符串，再调用现有 DOM parser。真正按 token 增量解析的 JSON reader、二进制 reader
+`serialization::parse_json(stream)`、`serialization::parse_json_from(file_system, path)` 和
+`serialization::serialize_json_to(object, output_stream)` 当前是过渡入口：读入先把输入流读入字符串，
+写出先生成 JSON 字符串再写入输出流。真正按 token 增量解析或写出的 JSON reader/writer、二进制 reader
 和资源包/远程流读取后续再扩展，但上层 API 已经不需要假设数据来自本地文件或一次性字符串。
 
 当前 JSON parser 是最小实现，支持对象、数组、字符串、整数、浮点、`true`、`false` 和 `null`。

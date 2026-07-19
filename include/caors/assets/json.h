@@ -44,7 +44,8 @@ public:
       return {stream.status, {}};
     }
 
-    serialization::variant_result parsed = serialization::parse_json(*stream.value, resource);
+    serialization::variant_result parsed =
+        serialization::parse_json(*stream.value, context_.config.json, resource);
     if (parsed.failed()) {
       return {parsed.status, {}};
     }
@@ -77,14 +78,24 @@ public:
       : provider_(&provider), context_(context) {}
 
   [[nodiscard]] error save(const resource_type& value) override {
+    io::output_stream_result stream = provider_->open_write(value.guid(), provider_->resource());
+    if (stream.failed()) {
+      return stream.status;
+    }
+
     core::string output{allocator<char>{provider_->resource()}};
-    serialization::json_writer writer{output};
+    serialization::json_writer writer{output, context_.config.json};
     const error status = assets::save_serialized(context_, value, writer);
     if (status) {
       return status;
     }
 
-    return provider_->write(value.guid(), std::string_view{output.data(), output.size()});
+    error written = stream.value->write_all(std::string_view{output.data(), output.size()});
+    if (written) {
+      return written;
+    }
+
+    return stream.value->close();
   }
 
 private:

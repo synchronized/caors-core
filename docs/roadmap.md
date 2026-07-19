@@ -19,7 +19,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 为 `io::native_file_system` 增加可选 root 目录，使 mount 层只负责虚拟路径分发和可选子路径重映射。
 - [x] 为 `io::file_system` 增加 `open_read()` / `open_write()` 流入口；第一版 `open_read()` 可通过
   `read_all()` 适配已有后端，`open_write()` 默认返回 `unsupported`，等待显式 close/flush 语义收敛。
-- [ ] 为可写输出流补充 close/flush、部分写入和提交失败语义，再让具体后端覆盖 `open_write()`。
+- [x] 为可写输出流补充 `write_all()`、`flush()`、`close()` 和提交失败语义；默认
+  `open_write()` 使用内存缓冲并在显式 `close()` 时调用 `write_all()` 提交，具体后端后续可覆盖为真正分块写入。
 - [x] 将 `result<T>` 逐步收敛为更接近 `expected<T, error>` 的语义，减少 `value/error/status`
   之间的重复表达。
 - [x] 清理根命名空间下不常用或不推荐继续使用的别名，只保留高频便捷别名，降低 API 表面噪声；

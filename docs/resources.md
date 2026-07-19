@@ -854,6 +854,7 @@ provider.bind(texture_id, source, "assets/textures/albedo.png");
 
 caors::io::byte_buffer_result bytes = provider.read(texture_id);
 caors::io::input_stream_result stream = provider.open_read(texture_id);
+caors::io::output_stream_result output = provider.open_write(texture_id);
 caors::error written = provider.write(texture_id, std::string_view{"new-bytes"});
 ```
 
@@ -866,8 +867,10 @@ caors::error written = provider.write(texture_id, std::string_view{"new-bytes"})
 - `source_location::location` 是非拥有 `io::path_view`，provider 修改或销毁后失效。
 - `provider` 只负责定位、读取和可选写入字节，不负责解码资源对象。
 - `source::open_read()` 默认通过 `read()` 建立内存输入流；真正支持分块读取的 source 可以覆盖该函数。
+- `source::open_write()` 默认建立内存缓冲输出流，并在 `close()` 时调用 `write()` 提交。
 - `file_source::open_read()` 会转发到底层 `io::file_system::open_read()`。
-- `source::write()` 默认返回 `errc::unsupported`；`file_source` 会转发到后端 `io::file_system::write_all()`。
+- `file_source::open_write()` 会转发到底层 `io::file_system::open_write()`。
+- `source::write()` 默认返回 `errc::unsupported`；只读 source 的缓冲输出流会在 `close()` 时返回该错误。
 - `bind()` 会拒绝 nil GUID、空 location 和重复 GUID。
 - provider 未命中 GUID 返回 `error_domain::resources / errc::not_found`。
 - 具体 source 读取失败时，错误域保持来源模块语义，例如 `file_source` 可能返回 `error_domain::io`。

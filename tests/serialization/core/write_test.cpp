@@ -5,6 +5,8 @@
 
 #include "serialization_test_support.h"
 
+#include "caors/io/memory_file_system.h"
+
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - builds variant from reflected object", "[serialization]") {
@@ -144,6 +146,24 @@ TEST_CASE("serialization - serializes json to caller provided buffer", "[seriali
   const caors::error text_status = caors::serialization::serialize_text_to(actor, output);
   REQUIRE(text_status.succeeded());
   CHECK(output == R"({"id":3,"health":10.5,"active":false,"name":"Lin"})");
+}
+
+TEST_CASE("serialization - serializes json to output stream", "[serialization]") {
+  require_serializable_actor_metadata();
+
+  caors::io::memory_file_system files;
+  caors::io::output_stream_result opened = files.open_write("actors/lin.json");
+  REQUIRE(opened.succeeded());
+  REQUIRE(opened.value != nullptr);
+
+  const serializable_actor actor{3, 10.5F, false, "Lin"};
+  REQUIRE(caors::serialization::serialize_json_to(actor, *opened.value).succeeded());
+  REQUIRE(opened.value->close().succeeded());
+
+  caors::io::byte_buffer_result bytes = files.read_all("actors/lin.json");
+  REQUIRE(bytes.succeeded());
+  CHECK(std::string_view{reinterpret_cast<const char*>(bytes.value.data()), bytes.value.size()} ==
+        R"({"id":3,"health":10.5,"active":false,"name":"Lin"})");
 }
 
 // 原测试文件：serialization_write_serializes_reflected_struct_fields_to_json_test.cpp

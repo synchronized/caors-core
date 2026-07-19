@@ -46,8 +46,8 @@ public:
   /**
    * @brief 打开同步输出流。
    *
-   * 第一版 `file_system` 仍以 `write_all()` 作为可靠写入入口。默认实现返回 `errc::unsupported`。
-   * 后续需要先明确显式 close/flush 语义，避免把提交失败隐藏到析构阶段。
+   * 默认实现建立内存缓冲输出流，并在显式 `close()` 时通过 `write_all()` 提交。
+   * 析构函数不会隐式提交失败状态，调用方必须检查 `close()` 返回值。
    */
   [[nodiscard]] virtual output_stream_result open_write(path_view path,
                                                         memory_resource* resource = nullptr);

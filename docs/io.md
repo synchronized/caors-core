@@ -93,9 +93,9 @@ if (fs.exists("config.json")) {
 `open_read()` 的默认实现会通过 `read_all()` 建立内存输入流，因此所有已有后端都能被需要
 `input_stream` 的上层接口直接使用。需要真正分块读取的后端后续可以覆盖该函数。
 
-`open_write()` 默认返回 `errc::unsupported`。当前可靠写入入口仍是 `write_all()`；后续如果需要
-可持续写入的输出流，需要先明确 `close()` / `flush()`、失败返回和部分写入语义，避免把写入失败隐藏到
-析构阶段。
+`open_write()` 的默认实现会建立内存缓冲输出流。`write()` / `write_all()` 只追加到缓冲区，只有显式调用
+`close()` 才会通过 `write_all()` 提交到底层后端；析构函数不会隐式提交，避免把写入失败隐藏到析构阶段。
+`flush()` 默认是 no-op。需要真正分块写入、追加写入或事务提交的后端后续可以覆盖该函数。
 
 需要注意：
 
@@ -103,6 +103,7 @@ if (fs.exists("config.json")) {
 - 空路径返回 `errc::invalid_argument`。
 - 不存在路径读取返回 `errc::not_found`。
 - 后端打开、读取或写入失败返回 `errc::backend_failure`。
+- 输出流写完后应显式检查 `close()` 返回值；没有 `close()` 的缓冲输出流不会提交内容。
 - `file_system` 不负责资源缓存、依赖解析或对象生命周期。
 
 ## native_file_system

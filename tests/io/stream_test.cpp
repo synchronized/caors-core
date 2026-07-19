@@ -34,12 +34,28 @@ TEST_CASE("io - file system opens read stream backed by read all", "[io]") {
   CHECK(*third == 0U);
 }
 
-TEST_CASE("io - file system open write is explicit unsupported by default", "[io]") {
+TEST_CASE("io - file system opens buffered write stream", "[io]") {
   caors::io::memory_file_system fs;
 
   caors::io::output_stream_result opened = fs.open_write("assets/config.json");
 
-  CHECK(opened.failed());
-  CHECK(opened.error().domain() == caors::error_domain::io);
-  CHECK(opened.error().value() == caors::errc::unsupported);
+  REQUIRE(opened.succeeded());
+  REQUIRE(opened.value != nullptr);
+
+  caors::io::output_stream& stream = *opened.value;
+  CHECK(stream.write_all(std::string_view{"abc"}).succeeded());
+  CHECK(stream.write_all(std::string_view{"def"}).succeeded());
+  CHECK_FALSE(fs.exists("assets/config.json"));
+  CHECK(stream.close().succeeded());
+
+  caors::io::byte_buffer_result bytes = fs.read_all("assets/config.json");
+  REQUIRE(bytes.succeeded());
+  CHECK(std::string_view{reinterpret_cast<const char*>(bytes.value.data()), bytes.value.size()} ==
+        "abcdef");
+
+  caors::io::size_result closed_write =
+      stream.write(std::span<const std::byte>{reinterpret_cast<const std::byte*>("x"), 1});
+  CHECK(closed_write.failed());
+  CHECK(closed_write.error().domain() == caors::error_domain::io);
+  CHECK(closed_write.error().value() == caors::errc::invalid_argument);
 }

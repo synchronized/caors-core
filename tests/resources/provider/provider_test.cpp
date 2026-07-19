@@ -81,6 +81,11 @@ TEST_CASE("resources - provider reports invalid and missing resources", "[resour
   CHECK(invalid_stream.error().domain() == caors::error_domain::resources);
   CHECK(invalid_stream.error().value() == caors::errc::invalid_argument);
 
+  caors::io::output_stream_result invalid_output = provider.open_write(caors::resource_guid::nil());
+  REQUIRE(invalid_output.failed());
+  CHECK(invalid_output.error().domain() == caors::error_domain::resources);
+  CHECK(invalid_output.error().value() == caors::errc::invalid_argument);
+
   caors::error invalid_location = provider.bind(test_guid_a, source, "");
   REQUIRE(invalid_location.failed());
   CHECK(invalid_location.domain() == caors::error_domain::resources);
@@ -101,6 +106,11 @@ TEST_CASE("resources - provider reports invalid and missing resources", "[resour
   REQUIRE(missing_stream.failed());
   CHECK(missing_stream.error().domain() == caors::error_domain::resources);
   CHECK(missing_stream.error().value() == caors::errc::not_found);
+
+  caors::io::output_stream_result missing_output = provider.open_write(test_guid_b);
+  REQUIRE(missing_output.failed());
+  CHECK(missing_output.error().domain() == caors::error_domain::resources);
+  CHECK(missing_output.error().value() == caors::errc::not_found);
 
   caors::error missing_write = provider.write(test_guid_b, std::string_view{"data"});
   REQUIRE(missing_write.failed());
@@ -129,6 +139,15 @@ TEST_CASE("resources - provider reports unsupported writes for read only sources
   REQUIRE(status.failed());
   CHECK(status.domain() == caors::error_domain::resources);
   CHECK(status.value() == caors::errc::unsupported);
+
+  caors::io::output_stream_result output = provider.open_write(test_guid_a);
+  REQUIRE(output.succeeded());
+  REQUIRE(output.value != nullptr);
+  REQUIRE(output.value->write_all(std::string_view{"generated-bytes"}).succeeded());
+  caors::error close_status = output.value->close();
+  REQUIRE(close_status.failed());
+  CHECK(close_status.domain() == caors::error_domain::resources);
+  CHECK(close_status.value() == caors::errc::unsupported);
 }
 
 // 原测试文件：resources_provider_provider_writes_bytes_through_file_source_test.cpp
@@ -155,4 +174,16 @@ TEST_CASE("resources - provider writes bytes through file source", "[resources]"
   REQUIRE(bytes.succeeded());
   CHECK(std::string_view{reinterpret_cast<const char*>(bytes.value.data()), bytes.value.size()} ==
         "updated-bytes");
+
+  caors::io::output_stream_result output = provider.open_write(test_guid_a);
+  REQUIRE(output.succeeded());
+  REQUIRE(output.value != nullptr);
+  REQUIRE(output.value->write_all(std::string_view{"streamed-"}).succeeded());
+  REQUIRE(output.value->write_all(std::string_view{"bytes"}).succeeded());
+  REQUIRE(output.value->close().succeeded());
+
+  bytes = provider.read(test_guid_a);
+  REQUIRE(bytes.succeeded());
+  CHECK(std::string_view{reinterpret_cast<const char*>(bytes.value.data()), bytes.value.size()} ==
+        "streamed-bytes");
 }
