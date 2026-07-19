@@ -84,6 +84,19 @@ caors::assets::json::load_project_config(config, R"({
 - `dependencies[]` 写入内部 `dependency_graph`。
 - `preload[]` 只保存建议预加载入口；调用方决定何时预加载。
 
+配置读取推荐通过格式无关的 loader 接口接入，上层只依赖 `assets::project_config_loader`：
+
+```cpp
+caors::assets::project_config config;
+caors::assets::json::project_config_loader loader;
+
+caors::error status =
+    caors::assets::load_project_config(config, loader, source, "project.caors");
+```
+
+`assets::json::project_config_loader` 只是 JSON 格式适配。后续 YAML、二进制包索引、远程工程配置或编辑器
+数据库可以实现同一个 `project_config_loader` 接口，asset manager 不需要关心具体配置格式。
+
 ## asset_manager
 
 `assets::asset_manager` 是第一版拥有式运行期外壳。它持有 `manifest`、`provider`、
@@ -262,6 +275,7 @@ caors::serialization::config_validation_result validation =
 
 - `assets::json::load_manifest()`：从 JSON DOM、文本或 source 读入资源 manifest。
 - `assets::json::load_project_config()`：从 JSON DOM、文本或 source 读入 `project_config`。
+- `assets::json::project_config_loader`：把 JSON 配置适配到格式无关 `assets::project_config_loader` 接口。
 - `assets::json::loader<T>`：从 provider 打开 JSON 输入流，再通过 `assets::load_serialized<T>()`
   构造资源。
 - `assets::json::saver<T>`：从 provider 打开 JSON 输出流，把资源对象属性序列化为 JSON 文本后显式

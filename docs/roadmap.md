@@ -21,6 +21,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `read_all()` 适配已有后端，`open_write()` 默认返回 `unsupported`，等待显式 close/flush 语义收敛。
 - [x] 为可写输出流补充 `write_all()`、`flush()`、`close()` 和提交失败语义；默认
   `open_write()` 使用内存缓冲并在显式 `close()` 时调用 `write_all()` 提交，具体后端后续可覆盖为真正分块写入。
+- [x] 将 `io::native_file_system::open_read()` / `open_write()` 覆盖为宿主文件流，避免本地大文件路径先完整读入或写入内存缓冲。
 - [x] 将 `result<T>` 逐步收敛为更接近 `expected<T, error>` 的语义，减少 `value/error/status`
   之间的重复表达。
 - [x] 清理根命名空间下不常用或不推荐继续使用的别名，只保留高频便捷别名，降低 API 表面噪声；
@@ -210,6 +211,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `caors::string` 并减少结果拷贝，后续可接入指定 `memory_resource`。
 - [x] 增加基于 `io::input_stream` 和 `io::file_system` 的 JSON 读入便捷入口，避免上层反序列化直接绑定
   宿主文件系统或一次性字符串来源。
+- [x] 将 JSON 输出流入口改为 `json_writer` 直接写入 `io::output_stream`，避免先生成完整 JSON 字符串。
 - [ ] 扩展 JSON parser-side options，例如最大嵌套深度、重复 key 策略、尾随逗号开关和完整
   Unicode 转义处理；当前 `json_options` 只影响 writer 格式化。
 - [ ] 将 JSON DOM parser 进一步拆为 token reader / streaming reader，使 `io::input_stream` 入口不必先读取完整文本。
@@ -283,6 +285,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 实现 `resources::file_source`，把 `io::file_system` 适配为资源字节来源。
 - [x] 为 `resources::source` / `resources::provider` 增加 `open_read()` 输入流入口，让 loader 和 assets
   配置读取不必直接依赖完整字节缓冲。
+- [x] 为 `resources::source` / `resources::provider` 明确资源包和远程后端扩展边界：后端可以覆盖
+  `open_read()` / `open_write()` 返回自定义流，provider 只负责 GUID 到 source/location 的索引。
 - [x] 实现 `assets::json::loader<T>`，打通 `resource_guid -> provider -> JSON -> resource` 的同步加载链路。
 - [x] 实现内存文件系统后端 `io::memory_file_system`，用于测试、热更新缓存和后续资源包索引内存镜像。
 - [x] 增加 `resources::manifest`，保存 `resource_guid -> location/type/hash/version` 清单，并可批量绑定到 provider。
@@ -293,6 +297,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   绑定、预加载根资源和资源解析策略。
 - [x] 提供配置反序列化入口，先把 JSON/DOM 读成 `assets::project_config` 或类似描述对象，不直接反序列化
   运行期 `provider` / `database` / `cache` / `loader` 指针对象。
+- [x] 增加格式无关 `assets::project_config_loader` 接口，JSON 只是其中一个适配，后续 YAML、包索引或远程配置可复用同一入口。
 - [x] 设计拥有式 `assets::asset_manager` 或资源运行期 builder，持有 manifest、provider、dependency graph
   和非拥有 `database`，统一保证核心资源运行期对象生命周期。
 - [x] 提供 `assets::asset_manager` 第一版，拥有 manifest、provider、dependency graph 和 database，并可从

@@ -13,56 +13,6 @@
 namespace caors::serialization {
 namespace {
 
-void append_hex4(core::string& output, std::uint32_t value) {
-  constexpr char digits[] = "0123456789abcdef";
-  output += "\\u";
-  output.push_back(digits[(value >> 12U) & 0x0FU]);
-  output.push_back(digits[(value >> 8U) & 0x0FU]);
-  output.push_back(digits[(value >> 4U) & 0x0FU]);
-  output.push_back(digits[value & 0x0FU]);
-}
-
-void append_json_string(core::string& output, std::string_view value) {
-  output.push_back('"');
-  for (const unsigned char character : value) {
-    switch (character) {
-    case '"':
-      output += "\\\"";
-      break;
-    case '\\':
-      output += "\\\\";
-      break;
-    case '\b':
-      output += "\\b";
-      break;
-    case '\f':
-      output += "\\f";
-      break;
-    case '\n':
-      output += "\\n";
-      break;
-    case '\r':
-      output += "\\r";
-      break;
-    case '\t':
-      output += "\\t";
-      break;
-    default:
-      if (character < 0x20U) {
-        append_hex4(output, character);
-      } else {
-        output.push_back(static_cast<char>(character));
-      }
-      break;
-    }
-  }
-  output.push_back('"');
-}
-
-void append_text(core::string& output, std::string_view value) {
-  output.append(value.data(), value.size());
-}
-
 [[nodiscard]] error read_stream_text(io::input_stream& stream, core::string& text) {
   std::array<std::byte, 4096> buffer{};
 
@@ -96,6 +46,14 @@ serialization::json_writer::json_writer(string& output, json_options options)
   reset();
 }
 
+serialization::json_writer::json_writer(io::output_stream& output) noexcept
+    : json_writer(output, json_options{}) {}
+
+serialization::json_writer::json_writer(io::output_stream& output, json_options options) noexcept
+    : options_(options), text_(&owned_text_), stream_(&output) {
+  reset();
+}
+
 serialization::format_features serialization::json_writer::features() const noexcept {
   return serialization::format_features::named_fields |
          serialization::format_features::ordered_fields |
@@ -108,7 +66,11 @@ error serialization::json_writer::begin_object(const serialization::type_schema&
     return status;
   }
 
-  output().push_back('{');
+  status = write_char('{');
+  if (status) {
+    return status;
+  }
+
   contexts_.push_back(context{context_kind::object, true});
   mark_value_written();
   return {};
@@ -126,14 +88,29 @@ error serialization::json_writer::begin_field(const serialization::field_schema&
 
   context& current = contexts_.back();
   if (!current.first) {
-    output().push_back(',');
+    error status = write_char(',');
+    if (status) {
+      return status;
+    }
   }
 
-  write_newline_and_indent(contexts_.size());
-  append_json_string(output(), name.view());
-  output().push_back(':');
+  error status = write_newline_and_indent(contexts_.size());
+  if (status) {
+    return status;
+  }
+  status = write_json_string(name.view());
+  if (status) {
+    return status;
+  }
+  status = write_char(':');
+  if (status) {
+    return status;
+  }
   if (options_.pretty) {
-    output().push_back(' ');
+    status = write_char(' ');
+    if (status) {
+      return status;
+    }
   }
   current.first = false;
   expecting_value_ = true;
@@ -146,7 +123,11 @@ error serialization::json_writer::begin_array(std::size_t) {
     return status;
   }
 
-  output().push_back('[');
+  status = write_char('[');
+  if (status) {
+    return status;
+  }
+
   contexts_.push_back(context{context_kind::array, true});
   mark_value_written();
   return {};
@@ -159,10 +140,16 @@ error serialization::json_writer::begin_element(std::size_t) {
 
   context& current = contexts_.back();
   if (!current.first) {
-    output().push_back(',');
+    error status = write_char(',');
+    if (status) {
+      return status;
+    }
   }
 
-  write_newline_and_indent(contexts_.size());
+  error status = write_newline_and_indent(contexts_.size());
+  if (status) {
+    return status;
+  }
   current.first = false;
   expecting_value_ = true;
   return {};
@@ -204,7 +191,10 @@ error serialization::json_writer::write_bool(bool value) {
     return status;
   }
 
-  output() += value ? "true" : "false";
+  status = write_text(value ? "true" : "false");
+  if (status) {
+    return status;
+  }
   mark_value_written();
   return {};
 }
@@ -215,7 +205,10 @@ error serialization::json_writer::write_i64(std::int64_t value) {
     return status;
   }
 
-  append_text(output(), std::to_string(value));
+  status = write_text(std::to_string(value));
+  if (status) {
+    return status;
+  }
   mark_value_written();
   return {};
 }
@@ -226,7 +219,10 @@ error serialization::json_writer::write_u64(std::uint64_t value) {
     return status;
   }
 
-  append_text(output(), std::to_string(value));
+  status = write_text(std::to_string(value));
+  if (status) {
+    return status;
+  }
   mark_value_written();
   return {};
 }
@@ -243,7 +239,10 @@ error serialization::json_writer::write_f64(double value) {
 
   std::ostringstream output;
   output << value;
-  append_text(this->output(), output.str());
+  status = write_text(output.str());
+  if (status) {
+    return status;
+  }
   mark_value_written();
   return {};
 }
@@ -254,7 +253,10 @@ error serialization::json_writer::write_string(std::string_view value) {
     return status;
   }
 
-  append_json_string(output(), value);
+  status = write_json_string(value);
+  if (status) {
+    return status;
+  }
   mark_value_written();
   return {};
 }
@@ -265,7 +267,10 @@ error serialization::json_writer::write_null() {
     return status;
   }
 
-  output() += "null";
+  status = write_text("null");
+  if (status) {
+    return status;
+  }
   mark_value_written();
   return {};
 }
@@ -285,9 +290,15 @@ error serialization::json_writer::end_array() {
 
   const context current = contexts_.back();
   if (!current.first) {
-    write_newline_and_indent(contexts_.size() - 1);
+    error status = write_newline_and_indent(contexts_.size() - 1);
+    if (status) {
+      return status;
+    }
   }
-  output().push_back(']');
+  error status = write_char(']');
+  if (status) {
+    return status;
+  }
   contexts_.pop_back();
   return {};
 }
@@ -307,15 +318,23 @@ error serialization::json_writer::end_object() {
 
   const context current = contexts_.back();
   if (!current.first) {
-    write_newline_and_indent(contexts_.size() - 1);
+    error status = write_newline_and_indent(contexts_.size() - 1);
+    if (status) {
+      return status;
+    }
   }
-  output().push_back('}');
+  error status = write_char('}');
+  if (status) {
+    return status;
+  }
   contexts_.pop_back();
   return {};
 }
 
 void serialization::json_writer::reset() {
-  output().clear();
+  if (stream_ == nullptr) {
+    output().clear();
+  }
   contexts_.clear();
   expecting_value_ = false;
   root_written_ = false;
@@ -346,16 +365,98 @@ void serialization::json_writer::mark_value_written() noexcept {
   expecting_value_ = false;
 }
 
-void serialization::json_writer::write_newline_and_indent(std::size_t depth) {
-  if (!options_.pretty) {
-    return;
+error serialization::json_writer::write_char(char value) {
+  if (stream_ == nullptr) {
+    output().push_back(value);
+    return {};
   }
 
-  output().push_back('\n');
+  return stream_->write_all(std::string_view{&value, 1});
+}
+
+error serialization::json_writer::write_text(std::string_view value) {
+  if (stream_ == nullptr) {
+    output().append(value.data(), value.size());
+    return {};
+  }
+
+  return stream_->write_all(value);
+}
+
+error serialization::json_writer::write_json_string(std::string_view value) {
+  error status = write_char('"');
+  if (status) {
+    return status;
+  }
+
+  constexpr char digits[] = "0123456789abcdef";
+  for (const unsigned char character : value) {
+    switch (character) {
+    case '"':
+      status = write_text("\\\"");
+      break;
+    case '\\':
+      status = write_text("\\\\");
+      break;
+    case '\b':
+      status = write_text("\\b");
+      break;
+    case '\f':
+      status = write_text("\\f");
+      break;
+    case '\n':
+      status = write_text("\\n");
+      break;
+    case '\r':
+      status = write_text("\\r");
+      break;
+    case '\t':
+      status = write_text("\\t");
+      break;
+    default:
+      if (character < 0x20U) {
+        const char escaped[] = {
+            '\\',
+            'u',
+            digits[(character >> 12U) & 0x0FU],
+            digits[(character >> 8U) & 0x0FU],
+            digits[(character >> 4U) & 0x0FU],
+            digits[character & 0x0FU],
+        };
+        status = write_text(std::string_view{escaped, sizeof(escaped)});
+      } else {
+        status = write_char(static_cast<char>(character));
+      }
+      break;
+    }
+
+    if (status) {
+      return status;
+    }
+  }
+
+  return write_char('"');
+}
+
+error serialization::json_writer::write_newline_and_indent(std::size_t depth) {
+  if (!options_.pretty) {
+    return {};
+  }
+
+  error status = write_char('\n');
+  if (status) {
+    return status;
+  }
+
   const std::size_t spaces = depth * static_cast<std::size_t>(options_.indent);
   for (std::size_t index = 0; index < spaces; ++index) {
-    output().push_back(' ');
+    status = write_char(' ');
+    if (status) {
+      return status;
+    }
   }
+
+  return {};
 }
 
 variant_result parse_json(std::string_view text) { return parse_json(text, json_options{}); }

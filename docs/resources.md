@@ -858,8 +858,13 @@ caors::io::output_stream_result output = provider.open_write(texture_id);
 caors::error written = provider.write(texture_id, std::string_view{"new-bytes"});
 ```
 
-`resources::file_source` 把任意 `io::file_system` 适配成资源字节来源。因此本地目录、挂载文件系统、
-后续 HTTP fileserver 或资源包都可以通过同一套 provider 暴露给资源 loader。
+`resources::file_source` 把任意 `io::file_system` 适配成资源字节来源。本地目录、挂载文件系统和内存文件系统
+可以先走这条路径。
+
+资源包、HTTP fileserver、对象存储或其他远程后端不一定需要先伪装成 `io::file_system`。它们也可以直接实现
+`resources::source`，在 `open_read()` / `open_write()` 中返回自己的流对象；provider 只保存
+`resource_guid -> (source, location)`，不会关心 location 是本地路径、包内路径、URL 还是后端私有 key。
+这样 loader 只依赖 `provider.open_read(guid)`，不会绑定具体来源。
 
 需要注意：
 
@@ -870,6 +875,8 @@ caors::error written = provider.write(texture_id, std::string_view{"new-bytes"})
 - `source::open_write()` 默认建立内存缓冲输出流，并在 `close()` 时调用 `write()` 提交。
 - `file_source::open_read()` 会转发到底层 `io::file_system::open_read()`。
 - `file_source::open_write()` 会转发到底层 `io::file_system::open_write()`。
+- 资源包或远程 source 可以覆盖 `open_read()` 直接做分块读取，也可以覆盖 `open_write()` 实现上传、
+  临时文件提交或调试 fileserver 回写。
 - `source::write()` 默认返回 `errc::unsupported`；只读 source 的缓冲输出流会在 `close()` 时返回该错误。
 - `bind()` 会拒绝 nil GUID、空 location 和重复 GUID。
 - provider 未命中 GUID 返回 `error_domain::resources / errc::not_found`。

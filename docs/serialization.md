@@ -20,6 +20,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 - 提供 `variant` 中间对象树，方便工具、调试和多格式转换。
 - 提供 `serialization::text_writer` 和 `serialization::serialize_text()`，通过反射字段读取对象并输出调试用简单文本结构。
 - 提供 `serialization::json_writer`、`to_string()`、`serialization::parse_json()` 和 `deserialize()` JSON 便捷路径。
+- `serialization::json_writer` 可写入 `caors::string`，也可直接写入 `io::output_stream`。
 - 提供 `serialization::variant_reader` 和 `deserialize()`，通过 DOM 中间对象写回基础反射字段。
 - 提供 `serialization::context`，支持按 schema version 过滤字段、配置多态 envelope 字段名、传递运行期资源、
   解析资源引用和收集资源依赖。
@@ -89,9 +90,9 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 | `write_variant(writer, value)` | 把 `variant` DOM 写入 writer | 不依赖 C++ 对象实例 |
 | `to_string(object)` | 输出 JSON 文本 | 根命名空间高频入口，支持 `json_options` 控制格式化 |
 | `serialization::serialize_text()` / `serialization::serialize_text_to()` | 输出调试用简单文本格式 | 模块入口，`_to` 版本复用调用方 buffer |
-| `serialization::serialize_json_to()` | 输出 JSON 到调用方 buffer | 模块入口，适合复用 buffer |
+| `serialization::serialize_json_to()` | 输出 JSON 到调用方 buffer 或 `io::output_stream` | buffer 入口适合复用字符串；输出流入口由 `json_writer` 直接写出 |
 | `serialization::parse_json()` | 解析 JSON 文本为 `variant` DOM | 当前 parser 选项暂不改变解析行为 |
-| `serialization::parse_json_from()` | 从 `io::file_system` 路径读取 JSON 并解析为 `variant` DOM | 当前内部仍读取完整文本后解析 |
+| `serialization::parse_json_from()` | 从 `io::file_system` 路径读取 JSON 并解析为 `variant` DOM | 当前通过 `io::input_stream` 读取完整文本后解析 |
 | `serialization::deserialize_json_from()` | 从 `io::input_stream` 或 `io::file_system` 路径读回对象 | 便捷入口，最终复用普通 `deserialize()` |
 | `deserialize(object, text)` | 从 JSON 文本读回对象 | 先解析 DOM，再复用普通反序列化调度 |
 | `serialization::context` | 单次读写上下文 | 按职责使用分组字段配置 |
@@ -526,9 +527,9 @@ caors::error status =
     caors::serialization::deserialize_json_from(instance, files, "config/player.json");
 ```
 
-`serialization::parse_json(stream)`、`serialization::parse_json_from(file_system, path)` 和
-`serialization::serialize_json_to(object, output_stream)` 当前是过渡入口：读入先把输入流读入字符串，
-写出先生成 JSON 字符串再写入输出流。真正按 token 增量解析或写出的 JSON reader/writer、二进制 reader
+`serialization::parse_json(stream)` 和 `serialization::parse_json_from(file_system, path)` 当前仍会先把输入流读入字符串，
+再交给 DOM parser 解析。`serialization::serialize_json_to(object, output_stream)` 已经通过
+`json_writer` 直接写入输出流，不再先构造完整 JSON 字符串。真正按 token 增量解析的 JSON reader、二进制 reader
 和资源包/远程流读取后续再扩展，但上层 API 已经不需要假设数据来自本地文件或一次性字符串。
 
 当前 JSON parser 是最小实现，支持对象、数组、字符串、整数、浮点、`true`、`false` 和 `null`。
@@ -1133,7 +1134,7 @@ caors::string text = *result;
 - `serialize()`：通过指定 writer 后端序列化对象。
 - `deserialize()`：通过指定 reader 后端反序列化对象。
 - `to_value()`：通过反射和序列化元信息构造中间对象树。
-- `serialization::serialize_text_to()` / `serialization::serialize_json_to()`：把对象写入调用方提供的 `caors::string` buffer。
+- `serialization::serialize_text_to()` / `serialization::serialize_json_to()`：把对象写入调用方提供的 `caors::string` buffer 或输出流。
 - `serialization::write_variant()`：把中间对象树写入指定 writer。
 - `serialization_text_result`：`caors::result<caors::string>` 文本序列化结果。
 - `variant_result`：`caors::result<variant>` 中间值构造结果。

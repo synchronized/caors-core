@@ -9,6 +9,85 @@
 
 using namespace caors::tests::resources;
 
+namespace {
+
+[[nodiscard]] caors::io::byte_buffer make_bytes(std::string_view text,
+                                                caors::memory_resource* resource = nullptr) {
+  caors::io::byte_buffer bytes = caors::io::make_byte_buffer(resource);
+  const auto* first = reinterpret_cast<const std::byte*>(text.data());
+  bytes.insert(bytes.end(), first, first + text.size());
+  return bytes;
+}
+
+[[nodiscard]] std::string bytes_to_string(const caors::io::byte_buffer& bytes) {
+  return std::string{reinterpret_cast<const char*>(bytes.data()), bytes.size()};
+}
+
+class streaming_source final : public caors::resources::source {
+public:
+  streaming_source() : bytes_(make_bytes("remote-bytes")) {}
+
+  [[nodiscard]] bool exists(caors::io::path_view location) const override {
+    return location.string_view() == remote_location;
+  }
+
+  [[nodiscard]] caors::io::byte_buffer_result
+  read(caors::io::path_view location, caors::memory_resource* resource = nullptr) override {
+    ++read_count;
+    if (!exists(location)) {
+      return caors::fail<caors::io::byte_buffer>(
+          {caors::error_domain::resources, caors::errc::not_found});
+    }
+
+    caors::io::byte_buffer copy = caors::io::make_byte_buffer(resource);
+    copy.insert(copy.end(), bytes_.begin(), bytes_.end());
+    return caors::ok(std::move(copy));
+  }
+
+  [[nodiscard]] caors::io::input_stream_result
+  open_read(caors::io::path_view location, caors::memory_resource* resource = nullptr) override {
+    ++open_read_count;
+    if (!exists(location)) {
+      return caors::fail<caors::io::input_stream_ptr>(
+          {caors::error_domain::resources, caors::errc::not_found});
+    }
+
+    caors::io::byte_buffer copy = caors::io::make_byte_buffer(resource);
+    copy.insert(copy.end(), bytes_.begin(), bytes_.end());
+    return caors::ok(caors::io::make_input_stream(std::move(copy), resource));
+  }
+
+  [[nodiscard]] caors::error write(caors::io::path_view location,
+                                   std::span<const std::byte> bytes) override {
+    ++write_count;
+    if (!exists(location)) {
+      return {caors::error_domain::resources, caors::errc::not_found};
+    }
+
+    bytes_.assign(bytes.begin(), bytes.end());
+    return {};
+  }
+
+  [[nodiscard]] caors::io::output_stream_result
+  open_write(caors::io::path_view location, caors::memory_resource* resource = nullptr) override {
+    ++open_write_count;
+    return caors::resources::source::open_write(location, resource);
+  }
+
+  [[nodiscard]] std::string bytes_text() const { return bytes_to_string(bytes_); }
+
+  static constexpr std::string_view remote_location = "remote://textures/albedo.bin";
+  int read_count = 0;
+  int open_read_count = 0;
+  int write_count = 0;
+  int open_write_count = 0;
+
+private:
+  caors::io::byte_buffer bytes_;
+};
+
+} // namespace
+
 TEST_CASE("resources - provider reads bytes from file source", "[resources]") {
   const std::filesystem::path directory = make_temp_dir();
   const std::filesystem::path file = directory / "texture.txt";
@@ -52,6 +131,36 @@ TEST_CASE("resources - provider reads bytes from file source", "[resources]") {
   CHECK(std::string_view{reinterpret_cast<const char*>(chunk.data()), chunk.size()} == "texture");
 
   std::filesystem::remove_all(directory, ec);
+}
+
+TEST_CASE("resources - provider supports streaming custom sources", "[resources]") {
+  streaming_source source;
+  caors::resources::provider provider;
+
+  REQUIRE(provider.bind(test_guid_a, source, streaming_source::remote_location).succeeded());
+
+  caors::io::input_stream_result input = provider.open_read(test_guid_a);
+  REQUIRE(input.succeeded());
+  REQUIRE(input.value != nullptr);
+
+  std::array<std::byte, 12> buffer{};
+  caors::io::size_result read = input.value->read(buffer);
+  REQUIRE(read.succeeded());
+  CHECK(*read == buffer.size());
+  CHECK(std::string_view{reinterpret_cast<const char*>(buffer.data()), buffer.size()} ==
+        "remote-bytes");
+  CHECK(source.open_read_count == 1);
+  CHECK(source.read_count == 0);
+
+  caors::io::output_stream_result output = provider.open_write(test_guid_a);
+  REQUIRE(output.succeeded());
+  REQUIRE(output.value != nullptr);
+  REQUIRE(output.value->write_all(std::string_view{"streamed-update"}).succeeded());
+  REQUIRE(output.value->close().succeeded());
+
+  CHECK(source.open_write_count == 1);
+  CHECK(source.write_count == 1);
+  CHECK(source.bytes_text() == "streamed-update");
 }
 
 // 原测试文件：resources_provider_provider_reports_invalid_and_missing_resources_test.cpp

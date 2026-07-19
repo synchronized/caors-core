@@ -84,6 +84,11 @@ namespace {
 
 } // namespace
 
+error project_config_loader::load(project_config& target, resources::source& source,
+                                  io::path_view location, memory_resource* resource) {
+  return caors::assets::json::load_project_config(target, source, location, resource);
+}
+
 error load_manifest(resources::manifest& target, const variant& value) {
   const variant::array_type* entries = manifest_entries(value);
   if (entries == nullptr) {

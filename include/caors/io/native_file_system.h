@@ -28,6 +28,10 @@ public:
   [[nodiscard]] bool exists(path_view path) const override;
   [[nodiscard]] byte_buffer_result read_all(path_view path,
                                             memory_resource* resource = nullptr) override;
+  [[nodiscard]] input_stream_result open_read(path_view path,
+                                              memory_resource* resource = nullptr) override;
+  [[nodiscard]] output_stream_result open_write(path_view path,
+                                                memory_resource* resource = nullptr) override;
   [[nodiscard]] error write_all(path_view path, std::span<const std::byte> bytes) override;
 
 private:

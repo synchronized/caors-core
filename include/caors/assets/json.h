@@ -6,6 +6,7 @@
 
 #include "caors/assets/asset_manager.h"
 #include "caors/assets/project_config.h"
+#include "caors/assets/project_config_loader.h"
 #include "caors/assets/serialization.h"
 #include "caors/assets/type_factory.h"
 #include "caors/resources/manifest.h"
@@ -17,6 +18,13 @@
 #include <utility>
 
 namespace caors::assets::json {
+
+/** @brief JSON 格式的工程资源配置读取器。 */
+class CAORS_API project_config_loader final : public assets::project_config_loader {
+public:
+  [[nodiscard]] error load(project_config& target, resources::source& source,
+                           io::path_view location, memory_resource* resource = nullptr) override;
+};
 
 /**
  * @brief 基于 `resources::provider` 的 JSON 资源加载器。
@@ -83,16 +91,10 @@ public:
       return stream.status;
     }
 
-    core::string output{allocator<char>{provider_->resource()}};
-    serialization::json_writer writer{output, context_.config.json};
+    serialization::json_writer writer{*stream.value, context_.config.json};
     const error status = assets::save_serialized(context_, value, writer);
     if (status) {
       return status;
-    }
-
-    error written = stream.value->write_all(std::string_view{output.data(), output.size()});
-    if (written) {
-      return written;
     }
 
     return stream.value->close();

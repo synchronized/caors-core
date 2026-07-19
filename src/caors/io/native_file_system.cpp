@@ -8,6 +8,7 @@
 #include <ios>
 #include <string>
 #include <system_error>
+#include <utility>
 
 namespace caors::io {
 namespace {
@@ -28,6 +29,88 @@ namespace {
 [[nodiscard]] error validate_path(path_view path) noexcept {
   return path.empty() ? error{error_domain::io, errc::invalid_argument} : error{};
 }
+
+class native_input_stream final : public input_stream {
+public:
+  explicit native_input_stream(std::ifstream input) : input_(std::move(input)) {}
+
+  [[nodiscard]] size_result read(std::span<std::byte> buffer) override {
+    if (buffer.empty() || eof()) {
+      return ok(std::size_t{0});
+    }
+
+    input_.read(reinterpret_cast<char*>(buffer.data()),
+                static_cast<std::streamsize>(buffer.size()));
+    const std::streamsize count = input_.gcount();
+    if (count < std::streamsize{0}) {
+      return fail<std::size_t>({error_domain::io, errc::backend_failure});
+    }
+    if (input_.bad()) {
+      return fail<std::size_t>({error_domain::io, errc::backend_failure});
+    }
+
+    return ok(static_cast<std::size_t>(count));
+  }
+
+  [[nodiscard]] bool eof() const noexcept override { return input_.eof(); }
+
+private:
+  std::ifstream input_;
+};
+
+class native_output_stream final : public output_stream {
+public:
+  explicit native_output_stream(std::ofstream output) : output_(std::move(output)) {}
+
+  [[nodiscard]] size_result write(std::span<const std::byte> buffer) override {
+    if (closed_) {
+      return fail<std::size_t>({error_domain::io, errc::invalid_argument});
+    }
+    if (buffer.empty()) {
+      return ok(std::size_t{0});
+    }
+
+    output_.write(reinterpret_cast<const char*>(buffer.data()),
+                  static_cast<std::streamsize>(buffer.size()));
+    if (!output_) {
+      return fail<std::size_t>({error_domain::io, errc::backend_failure});
+    }
+
+    return ok(buffer.size());
+  }
+
+  [[nodiscard]] error flush() override {
+    if (closed_) {
+      return {};
+    }
+
+    output_.flush();
+    return output_ ? error{} : error{error_domain::io, errc::backend_failure};
+  }
+
+  [[nodiscard]] error close() override {
+    if (closed_) {
+      return {};
+    }
+
+    error status = flush();
+    if (status) {
+      return status;
+    }
+
+    output_.close();
+    if (!output_) {
+      return {error_domain::io, errc::backend_failure};
+    }
+
+    closed_ = true;
+    return {};
+  }
+
+private:
+  std::ofstream output_;
+  bool closed_ = false;
+};
 
 } // namespace
 
@@ -90,6 +173,52 @@ byte_buffer_result native_file_system::read_all(path_view path, memory_resource*
   }
 
   return ok(std::move(bytes));
+}
+
+input_stream_result native_file_system::open_read(path_view path, memory_resource* resource) {
+  error status = validate_path(path);
+  if (status) {
+    return fail<input_stream_ptr>(status);
+  }
+
+  if (!exists(path)) {
+    return fail<input_stream_ptr>({error_domain::io, errc::not_found});
+  }
+
+  std::ifstream input{native_path(root(), path), std::ios::binary};
+  if (!input) {
+    return fail<input_stream_ptr>({error_domain::io, errc::backend_failure});
+  }
+
+  memory_resource* resolved = resource != nullptr ? resource : get_default_memory_resource();
+  auto* stream = memory::make<native_input_stream>(resolved, std::move(input));
+  input_stream_ptr result{stream};
+  result.get_deleter().reset(resolved, [](void* user_data, void* stored) noexcept {
+    memory::destroy(static_cast<native_input_stream*>(stored),
+                    static_cast<memory_resource*>(user_data));
+  });
+  return ok(std::move(result));
+}
+
+output_stream_result native_file_system::open_write(path_view path, memory_resource* resource) {
+  error status = validate_path(path);
+  if (status) {
+    return fail<output_stream_ptr>(status);
+  }
+
+  std::ofstream output{native_path(root(), path), std::ios::binary | std::ios::trunc};
+  if (!output) {
+    return fail<output_stream_ptr>({error_domain::io, errc::backend_failure});
+  }
+
+  memory_resource* resolved = resource != nullptr ? resource : get_default_memory_resource();
+  auto* stream = memory::make<native_output_stream>(resolved, std::move(output));
+  output_stream_ptr result{stream};
+  result.get_deleter().reset(resolved, [](void* user_data, void* stored) noexcept {
+    memory::destroy(static_cast<native_output_stream*>(stored),
+                    static_cast<memory_resource*>(user_data));
+  });
+  return ok(std::move(result));
 }
 
 error native_file_system::write_all(path_view path, std::span<const std::byte> bytes) {

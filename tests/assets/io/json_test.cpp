@@ -129,3 +129,76 @@ TEST_CASE("resources - json saver saves resource through provider", "[resources]
   CHECK(loaded.value->guid() == test_guid_a);
   CHECK(loaded.value->width == 640);
 }
+
+TEST_CASE("assets - project config can load through format agnostic loader", "[assets]") {
+  caors::io::memory_file_system files;
+  REQUIRE(files
+              .write_all("project.caors", std::string_view{R"({
+    "schema_version": 1,
+    "sources": [
+      {
+        "name": "assets",
+        "type": "memory_file_system",
+        "root": "assets"
+      }
+    ],
+    "resource_types": [
+      {
+        "type": "caors.test.resources.serialized_resource",
+        "loader": "json",
+        "cache": "memory"
+      }
+    ],
+    "resources": [
+      {
+        "guid": "6cd2da3d-b549-4756-8b8b-0c84293af410",
+        "source": "assets",
+        "location": "resource.json",
+        "type": "caors.test.resources.serialized_resource",
+        "hash": "hash",
+        "version": 2
+      }
+    ],
+    "dependencies": [
+      {
+        "resource": "0c2f82f8-2b3e-4f77-965c-4f2d1c4a907a",
+        "dependency": "6cd2da3d-b549-4756-8b8b-0c84293af410"
+      }
+    ],
+    "preload": [
+      "0c2f82f8-2b3e-4f77-965c-4f2d1c4a907a"
+    ]
+  })"})
+              .succeeded());
+
+  caors::resources::file_source source{files};
+  caors::assets::project_config config;
+  caors::assets::json::project_config_loader loader;
+
+  REQUIRE(caors::assets::load_project_config(config, loader, source, "project.caors").succeeded());
+
+  REQUIRE(config.sources.size() == 1);
+  CHECK(config.sources[0].name == caors::string_name{"assets"});
+  CHECK(config.sources[0].type == caors::string_name{"memory_file_system"});
+  CHECK(config.sources[0].root.string_view() == "assets");
+
+  REQUIRE(config.resource_types.size() == 1);
+  CHECK(config.resource_types[0].type ==
+        caors::string_name{"caors.test.resources.serialized_resource"});
+  CHECK(config.resource_types[0].loader == caors::string_name{"json"});
+  CHECK(config.resource_types[0].cache == caors::string_name{"memory"});
+
+  REQUIRE(config.resources.size() == 1);
+  CHECK(config.resources[0].guid == test_guid_a);
+  CHECK(config.resources[0].source == caors::string_name{"assets"});
+  CHECK(config.resources[0].location.string_view() == "resource.json");
+  CHECK(config.resources[0].hash == "hash");
+  CHECK(config.resources[0].version == 2);
+
+  REQUIRE(config.dependencies.size() == 1);
+  CHECK(config.dependencies[0].resource == test_guid_b);
+  CHECK(config.dependencies[0].dependency == test_guid_a);
+
+  REQUIRE(config.preload_roots.size() == 1);
+  CHECK(config.preload_roots[0] == test_guid_b);
+}
