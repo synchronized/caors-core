@@ -138,6 +138,16 @@ public:
                                        member_search search = member_search::local_only) const;
   [[nodiscard]] method_set find_method(std::string_view name,
                                        member_search search = member_search::local_only) const;
+  /** @brief 查询本类型声明的 nested 类型关系数量；不包含父类型声明的 nested 关系。 */
+  [[nodiscard]] std::size_t nested_count() const noexcept;
+  /** @brief 查询指定 nested 关系在 owner 内部使用的短名；索引越界时返回空名。 */
+  [[nodiscard]] string_name nested_name_at(std::size_t index) const noexcept;
+  /** @brief 按索引查询 nested 类型；目标类型未注册或索引越界时返回空视图。 */
+  [[nodiscard]] type nested_at(std::size_t index) const;
+  /** @brief 按 owner 内部短名查询 nested 类型；未命中时返回空视图。 */
+  [[nodiscard]] type find_nested(string_name name) const;
+  /** @brief 按 owner 内部短名查询 nested 类型；未命中时返回空视图。 */
+  [[nodiscard]] type find_nested(std::string_view name) const;
 
   /**
    * @brief 查询该类型视图具备的能力。

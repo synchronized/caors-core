@@ -22,4 +22,25 @@ struct anonymous_cpp_type {};
 
 struct guid_sample_type {};
 
+struct nested_inner_type {};
+
+enum class nested_kind_type {
+  first,
+  second,
+};
+
+struct nested_owner_type {};
+
+struct nested_duplicate_name_owner_type {};
+
+struct nested_duplicate_id_owner_type {};
+
+struct nested_missing_owner_type {};
+
+struct nested_duplicate_name_type {};
+
+struct nested_duplicate_id_type {};
+
+struct nested_missing_type {};
+
 } // namespace caors::tests::meta_type_basic

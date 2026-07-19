@@ -155,7 +155,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 支持 getter / setter 属性注册，提供 property API 和只读 getter 属性入口。
 - [x] 支持 lambda 或函数对象注册为 module 级函数 / 命令能力；当前要求 callable 具有唯一
   `operator()` 签名。
-- [ ] 支持嵌套类型关系记录，例如 `Outer::Inner`、`Outer::Kind` 可作为独立类型注册，同时能从 `Outer`
+- [x] 支持嵌套类型关系记录，例如 `Outer::Inner`、`Outer::Kind` 可作为独立类型注册，同时能从 `Outer`
   查询 nested type 列表。
 - [x] 支持父类字段和方法的递归查询策略，区分只查本类型和查继承链；同名成员查询时子类优先。
 - [ ] 支持方法默认参数、命名参数和可配置类型转换策略；默认仍保持精确匹配，避免隐式转换造成歧义。

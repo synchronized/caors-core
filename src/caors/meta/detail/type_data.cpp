@@ -18,6 +18,12 @@ bool type_data::members_valid() const noexcept {
     }
   }
 
+  for (const nested_type_data& nested_type : nested_types_) {
+    if (!nested_type.valid()) {
+      return false;
+    }
+  }
+
   for (const enum_value_data& value : enum_values_) {
     if (!value.valid()) {
       return false;
@@ -149,6 +155,57 @@ std::optional<std::size_t> type_data::add_method(method_data method) {
 
   methods_.push_back(std::move(method_set));
   return overload_index;
+}
+
+std::size_t type_data::nested_type_count() const noexcept { return nested_types_.size(); }
+
+const nested_type_data* type_data::nested_type_at(std::size_t index) const noexcept {
+  return index < nested_types_.size() ? &nested_types_[index] : nullptr;
+}
+
+const nested_type_data* type_data::find_nested_type_ptr(core::string_name name) const noexcept {
+  if (!name) {
+    return nullptr;
+  }
+
+  for (const nested_type_data& nested_type : nested_types_) {
+    if (nested_type.name == name) {
+      return &nested_type;
+    }
+  }
+
+  return nullptr;
+}
+
+bool type_data::contains_nested_type(type_id id) const noexcept {
+  if (!id) {
+    return false;
+  }
+
+  for (const nested_type_data& nested_type : nested_types_) {
+    if (nested_type.nested_type == id) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+error type_data::add_nested_type(nested_type_data nested_type) {
+  if (!nested_type.valid()) {
+    return {error_domain::meta, errc::invalid_type};
+  }
+
+  if (find_nested_type_ptr(nested_type.name) != nullptr) {
+    return {error_domain::meta, errc::duplicate_name};
+  }
+
+  if (contains_nested_type(nested_type.nested_type)) {
+    return {error_domain::meta, errc::duplicate_id};
+  }
+
+  nested_types_.push_back(std::move(nested_type));
+  return {};
 }
 
 std::size_t type_data::enum_value_count() const noexcept { return enum_values_.size(); }

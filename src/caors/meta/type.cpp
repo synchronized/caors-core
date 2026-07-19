@@ -281,6 +281,49 @@ method_set type::find_method(std::string_view method_name, member_search search)
   return find_method(*interned_name, search);
 }
 
+std::size_t type::nested_count() const noexcept {
+  const detail::type_data* data = registered_data();
+  return data != nullptr ? data->nested_type_count() : 0;
+}
+
+core::string_name type::nested_name_at(std::size_t index) const noexcept {
+  const detail::type_data* data = registered_data();
+  const detail::nested_type_data* nested_type =
+      data != nullptr ? data->nested_type_at(index) : nullptr;
+  return nested_type != nullptr ? nested_type->name : core::string_name{};
+}
+
+type type::nested_at(std::size_t index) const {
+  if (registry_ == nullptr) {
+    return {};
+  }
+
+  const detail::type_data* data = registered_data();
+  const detail::nested_type_data* nested_type =
+      data != nullptr ? data->nested_type_at(index) : nullptr;
+  return nested_type != nullptr ? registry_->find_type(nested_type->nested_type) : type{};
+}
+
+type type::find_nested(core::string_name nested_name) const {
+  if (registry_ == nullptr || !nested_name) {
+    return {};
+  }
+
+  const detail::type_data* data = registered_data();
+  const detail::nested_type_data* nested_type =
+      data != nullptr ? data->find_nested_type_ptr(nested_name) : nullptr;
+  return nested_type != nullptr ? registry_->find_type(nested_type->nested_type) : type{};
+}
+
+type type::find_nested(std::string_view nested_name) const {
+  const std::optional<core::string_name> interned_name = core::string_name::find(nested_name);
+  if (!interned_name.has_value()) {
+    return {};
+  }
+
+  return find_nested(*interned_name);
+}
+
 const detail::type_data* type::registered_data() const noexcept {
   return data_ != nullptr && data_->registered() ? data_ : nullptr;
 }

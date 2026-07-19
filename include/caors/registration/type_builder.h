@@ -503,6 +503,33 @@ private:
     return {method_name, *overload_index};
   }
 
+  type_builder& add_nested(std::string_view name, meta::type nested_type) {
+    if (status_) {
+      return *this;
+    }
+
+    if (name.empty() || !nested_type.registered() || nested_type.id() == pending_.id()) {
+      status_ = {error_domain::meta, errc::invalid_type};
+      return *this;
+    }
+
+    status_ = pending_.add_nested_type(
+        meta::detail::nested_type_data{core::string_name{name}, nested_type.id()});
+    return *this;
+  }
+
+  template <typename Nested> type_builder& add_nested(std::string_view name) {
+    using nested_type = std::remove_cv_t<std::remove_reference_t<Nested>>;
+    meta::type nested =
+        registry_ != nullptr ? registry_->template find_type<nested_type>() : meta::type{};
+    if (!nested.registered()) {
+      status_ = {error_domain::meta, errc::missing_type};
+      return *this;
+    }
+
+    return add_nested(name, nested);
+  }
+
   type_builder& apply_method_entry(core::string_name method_name, std::size_t overload_index,
                                    const meta::registration::metadata_entry& entry) {
     return set_method_metadata(method_name, overload_index, entry.key, entry.value);
@@ -631,6 +658,16 @@ public:
       (owner_->apply_method_entry(method_name, overload_index, std::forward<Entries>(entries)),
        ...);
     }
+    return *this;
+  }
+
+  template <typename Nested> meta_section& nested(std::string_view name) {
+    owner_->template add_nested<Nested>(name);
+    return *this;
+  }
+
+  meta_section& nested(std::string_view name, meta::type nested_type) {
+    owner_->add_nested(name, nested_type);
     return *this;
   }
 

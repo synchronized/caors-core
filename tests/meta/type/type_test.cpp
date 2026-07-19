@@ -112,3 +112,57 @@ TEST_CASE("meta enum - enum builder registers enum type", "[meta]") {
   CHECK(type.kind() == caors::meta::type_kind::enumeration);
   CHECK(type.name() == "caors.test.enum.registered");
 }
+
+TEST_CASE("meta type - registration records nested type relationships", "[meta]") {
+  REQUIRE(caors::registration::type_<nested_inner_type>("caors.test.type.nested_inner").commit() ==
+          caors::error{});
+  const caors::meta::type kind =
+      caors::meta::enum_<nested_kind_type>("caors.test.type.nested_kind").get();
+  REQUIRE(kind);
+
+  REQUIRE(caors::registration::type_<nested_owner_type>("caors.test.type.nested_owner")
+              .meta()
+              .nested<nested_inner_type>("inner")
+              .nested("kind", kind)
+              .commit() == caors::error{});
+
+  const caors::meta::type owner = caors::meta::find<nested_owner_type>();
+  REQUIRE(owner);
+  CHECK(owner.nested_count() == 2);
+  CHECK(owner.nested_name_at(0) == "inner");
+  CHECK(owner.nested_at(0).id() == caors::meta::find<nested_inner_type>().id());
+  CHECK(owner.find_nested("inner").name() == "caors.test.type.nested_inner");
+  CHECK(owner.find_nested("kind").id() == kind.id());
+  CHECK_FALSE(owner.find_nested("missing"));
+  CHECK_FALSE(owner.nested_at(99));
+  CHECK_FALSE(owner.nested_name_at(99));
+}
+
+TEST_CASE("meta type - registration rejects invalid nested type relationships", "[meta]") {
+  REQUIRE(caors::registration::type_<nested_duplicate_name_type>(
+              "caors.test.type.nested_duplicate_name")
+              .commit() == caors::error{});
+  REQUIRE(
+      caors::registration::type_<nested_duplicate_id_type>("caors.test.type.nested_duplicate_id")
+          .commit() == caors::error{});
+
+  CHECK(caors::registration::type_<nested_duplicate_name_owner_type>(
+            "caors.test.type.nested_owner_duplicate")
+            .meta()
+            .nested<nested_duplicate_name_type>("same")
+            .nested<nested_duplicate_id_type>("same")
+            .commit() == caors::error{caors::error_domain::meta, caors::errc::duplicate_name});
+
+  CHECK(caors::registration::type_<nested_duplicate_id_owner_type>(
+            "caors.test.type.nested_owner_duplicate_id")
+            .meta()
+            .nested<nested_duplicate_name_type>("first")
+            .nested<nested_duplicate_name_type>("second")
+            .commit() == caors::error{caors::error_domain::meta, caors::errc::duplicate_id});
+
+  CHECK(
+      caors::registration::type_<nested_missing_owner_type>("caors.test.type.nested_owner_missing")
+          .meta()
+          .nested<nested_missing_type>("missing")
+          .commit() == caors::error{caors::error_domain::meta, caors::errc::missing_type});
+}

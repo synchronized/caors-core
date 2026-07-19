@@ -27,6 +27,14 @@ namespace caors::meta::detail {
 class registry_state;
 struct type_descriptor;
 
+/** @brief 注册类型内部声明的嵌套类型关系。 */
+struct nested_type_data {
+  string_name name{};
+  type_id nested_type{};
+
+  [[nodiscard]] constexpr bool valid() const noexcept { return name && nested_type; }
+};
+
 /** @brief 注册表内部保存的完整 meta 类型数据。 */
 class type_data {
 public:
@@ -74,6 +82,11 @@ public:
   [[nodiscard]] const method_set_data* find_method_ptr(string_name name) const noexcept;
   [[nodiscard]] method_set_data* mutable_find_method_ptr(string_name name) noexcept;
   [[nodiscard]] std::optional<std::size_t> add_method(method_data method);
+  [[nodiscard]] std::size_t nested_type_count() const noexcept;
+  [[nodiscard]] const nested_type_data* nested_type_at(std::size_t index) const noexcept;
+  [[nodiscard]] const nested_type_data* find_nested_type_ptr(string_name name) const noexcept;
+  [[nodiscard]] bool contains_nested_type(type_id id) const noexcept;
+  [[nodiscard]] error add_nested_type(nested_type_data nested_type);
   [[nodiscard]] std::size_t enum_value_count() const noexcept;
   [[nodiscard]] const enum_value_data* enum_value_at(std::size_t index) const noexcept;
   [[nodiscard]] const enum_value_data* find_enum_value_ptr(string_name name) const noexcept;
@@ -103,6 +116,7 @@ private:
   parent_cast_ops parent_cast_{};
   vector<property_data> properties_{};
   vector<method_set_data> methods_{};
+  vector<nested_type_data> nested_types_{};
   vector<enum_value_data> enum_values_{};
   vector<capability_data> capabilities_{};
   vector<extension_data> extensions_{};

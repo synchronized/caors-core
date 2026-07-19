@@ -39,11 +39,17 @@ wrapper、pair、tuple 和 variant 可以通过内部 descriptor 参与反射和
 GUID、对象工厂、反射根类型、多态身份或按名称查询的业务类型，才应显式注册到 meta。
 字段注册不会为字段类型隐式创建 meta 类型，序列化 codec 注册也不会隐式创建 meta 类型。
 
+nested 类型关系只记录 owner 内部使用的短名和目标 `type_id`。目标类型必须先通过
+`registration::type_<Nested>(name)` 或 `meta::enum_<Nested>(name)` 独立注册；owner 再通过
+`.meta().nested<Nested>("short_name")` 或 `.meta().nested("short_name", nested_type)` 记录关系。
+注册后可以通过 `meta::type::find_nested()`、`nested_at()` 和 `nested_name_at()` 查询。
+
 公共 API、registry 和 capability 的边界如下：
 
 - `meta::type` 是统一类型视图。`meta::resolve<T>()` 可返回未注册 C++ 类型视图，`meta::find<T>()`
   只返回已注册类型。
-- registry 只保存显式注册后的稳定元数据和模块 extension，例如名称、GUID、父类型、factory、字段、方法和序列化 extension。
+- registry 只保存显式注册后的稳定元数据和模块 extension，例如名称、GUID、父类型、nested 关系、
+  factory、字段、方法和序列化 extension。
 - descriptor static capability 用于类型固有能力，例如对象指针、对象句柄和 `codec_traits<T>` 生成的
   codec 函数表，通过 `meta::type::get_capability<C>()` 查询，不需要单独注册 codec。
 - dynamic capability 用于用户或插件扩展能力，通过 `registration::type_<T>("name").capability(ops).commit()`

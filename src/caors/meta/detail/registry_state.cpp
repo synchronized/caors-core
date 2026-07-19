@@ -172,6 +172,17 @@ error store_new_type(registry_state& state, type_data&& incoming, type_id* store
     return {error_domain::meta, errc::missing_parent};
   }
 
+  for (std::size_t index = 0; index < incoming.nested_type_count(); ++index) {
+    const nested_type_data* nested_type = incoming.nested_type_at(index);
+    if (nested_type == nullptr || !nested_type->valid()) {
+      return {error_domain::meta, errc::invalid_type};
+    }
+
+    if (!state.types.contains(nested_type->nested_type.value())) {
+      return {error_domain::meta, errc::missing_type};
+    }
+  }
+
   if (incoming.name() && state.names.contains(incoming.name())) {
     return {error_domain::meta, errc::duplicate_name};
   }
@@ -285,6 +296,16 @@ error validate_registry(const registry_state& state) {
 
     if (!stored->members_valid()) {
       return {error_domain::meta, errc::invalid_type};
+    }
+
+    for (std::size_t index = 0; index < stored->nested_type_count(); ++index) {
+      const nested_type_data* nested_type = stored->nested_type_at(index);
+      if (nested_type == nullptr || !nested_type->valid()) {
+        return {error_domain::meta, errc::invalid_type};
+      }
+      if (!state.types.contains(nested_type->nested_type.value())) {
+        return {error_domain::meta, errc::missing_type};
+      }
     }
   }
 

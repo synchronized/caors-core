@@ -251,6 +251,33 @@ caors::registration::type_<player>("game.player")
 `player` 对象交给声明基类 wrapper。`.parent(type_id)` 仍可用于只需要关系查询的场景，但不会提供
 typed upcast 能力。
 
+如果类型需要表达 C++ 嵌套类型关系，先把 nested 类型作为独立 meta 类型注册，再在 owner 的 meta
+段记录关系：
+
+```cpp
+struct outer {
+  struct inner {};
+  enum class kind { local };
+};
+
+caors::registration::type_<outer::inner>("game.outer.inner").commit();
+caors::meta::enum_<outer::kind>("game.outer.kind");
+
+caors::registration::type_<outer>("game.outer")
+    .meta()
+    .nested<outer::inner>("inner")
+    .nested("kind", caors::meta::find<outer::kind>())
+    .commit();
+
+caors::meta::type outer_type = caors::meta::find<outer>();
+caors::meta::type inner_type = outer_type.find_nested("inner");
+```
+
+`nested_count()` / `nested_name_at(index)` / `nested_at(index)` 用于遍历本类型声明的 nested 列表；
+`find_nested(name)` 按 owner 内部使用的短名查询。nested 目标必须已经注册，否则提交返回
+`errc::missing_type`。nested 关系不会把 owner 和 nested 类型合并成同一个生命周期单元，也不会隐式注册
+nested 类型。
+
 如果类型需要在运行期由序列化层创建，可以注册资源感知 factory：
 
 ```cpp
@@ -576,6 +603,7 @@ CAORS_META_REGISTRATION(register_actor_meta) {
 - `errc::duplicate_name`：同一个名称已注册。
 - `errc::duplicate_guid`：同一个非 nil 稳定 GUID 已注册。
 - `errc::missing_parent`：父类型未注册。
+- `errc::missing_type`：nested 类型或其它被引用类型未注册。
 
 使用方式是先注册业务 meta 类型，再给该类型挂载扩展数据：
 
