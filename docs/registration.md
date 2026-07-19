@@ -19,6 +19,7 @@
 | `registration::type_<T>()` | 注册 `objects::object` 派生类型时读取 `T::object_type_name`，并自动写入对象能力。 |
 | `registration::enum_<T>(name)` | 注册枚举类型和枚举项。 |
 | `registration::value(name, value)` | 枚举项批量注册输入，用在 `registration::enum_<T>(name)(...)`。 |
+| `registration::batch(ctx)` / `registration::batch()` | 顺序收集多个 type/enum builder，并在 `commit()` 时批量提交。 |
 | `CAORS_META_REGISTRATION(name)` | 可选的延迟注册函数收集入口，最终仍应调用统一 registration builder。 |
 
 普通类型示例：
@@ -53,6 +54,26 @@ void register_actor_state() {
 }
 ```
 
+批量注册示例：
+
+```cpp
+caors::error register_game_types(caors::meta::context& ctx) {
+  caors::registration::batch_builder batch = caors::registration::batch(ctx);
+
+  batch.type_<actor>("game.actor")
+      .meta()
+      .property("id", &actor::id)
+      .serialization()
+      .field("id");
+
+  batch.enum_<actor_state>("game.actor_state")
+      (caors::registration::value("idle", actor_state::idle),
+       caors::registration::value("running", actor_state::running));
+
+  return batch.commit();
+}
+```
+
 ## 内部实现边界
 
 当前聚合入口使用 registry pending model：builder 在注册阶段收集 meta 属性/方法、序列化 schema、
@@ -67,6 +88,11 @@ builder；当 `T` 继承自 `objects::object` 时，`commit()` 会自动写入�
 枚举注册统一使用 `registration::enum_<T>(name)`。枚举项、枚举项 metadata、类型 GUID、类型 metadata
 和 capability 都在 builder pending 阶段收集；只有 `.commit()` 成功后，`meta::find<T>()` 才能查到该枚举类型。
 如果枚举项名称重复或类型名为空，builder 会保存错误状态，`commit()` 不会发布半成品类型。
+
+批量注册第一版不提供事务回滚。`registration::batch_builder::commit()` 会按追加顺序提交每个 builder，
+遇到第一个错误立即停止并通过 `diagnostic()` 返回失败项的 index、kind、type id、name 和 error。已经成功提交的
+前置项会保留在 registry 中，失败项之后的注册项不会提交。批量注册也不提供隐式 replace；重复类型、重复名称或
+重复 GUID 仍按普通 builder 规则返回错误。
 
 字段声明类型不要求全部完成 `registration::type_<T>("name")` 注册。基础标量、字符串、容器、指针、
 wrapper、pair、tuple 和 variant 可以通过内部 descriptor 参与反射和序列化。只有需要稳定名称、

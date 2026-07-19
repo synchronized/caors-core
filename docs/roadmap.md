@@ -93,7 +93,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 将 `meta::type::create()` 统一为高层创建入口，优先使用 `meta::factory_capability`，再使用
   `meta::constructor_capability` 匹配运行期参数列表，最后回退到 descriptor 默认构造；`create_value()`
   保留为高级默认构造入口。
-- [ ] 评估组件替换和批量注册 API。
+- [x] 增加 `registration::batch_builder` 最小批量注册 API，支持 type/enum builder 顺序提交和首个失败项诊断。
+- [ ] 评估组件替换、注册项 replace 策略和更完整的批量注册事务语义。
 
 ## 2. 定制化分配器
 
