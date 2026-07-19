@@ -23,7 +23,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 - 提供 `serialization::variant_reader` 和 `deserialize()`，通过 DOM 中间对象写回基础反射字段。
 - 提供 `serialization::context`，支持按 schema version 过滤字段、配置多态 envelope 字段名、传递运行期资源、
   解析资源引用和收集资源依赖。
-- 提供 `serialization::codec_traits<T>` 和 descriptor 静态能力，允许把特定 C++ 类型作为原子序列化值读写。
+- 提供 `serialization::codec_traits<T>` 和 `meta::type` codec capability，允许把特定 C++ 类型作为原子序列化值读写。
 - 支持已注册反射和序列化元信息的值类型结构体字段递归序列化和 DOM 反序列化。
 - 提供基于 traits 的顺序容器、集合容器、关联容器、pair、tuple 和 variant 访问，支持标量、wrapper、对象引用和已注册结构体元素。
 - 通过 `objects::object_ref_resolver_ops` 支持 `caors::objects::ptr<T>` 对象指针字段。
@@ -672,16 +672,15 @@ if (player* current = manager.find(target)) {
 直接取得静态 codec 视图；运行期拿得到 `meta::type` 视图时可以通过
 `serialization::find_codec(meta::type)` 或
 `meta::type::get_capability<serialization::codec_capability>()` 查询 codec 能力。`any` / `any_ref`
-等内部调度路径如果已经携带 descriptor，会在 detail
-层直接查询 descriptor 静态 codec 能力；公开 API 不要求也不鼓励用户直接传递 descriptor。
-未命中时继续走基础标量探测。
+和反射字段路径会先从它们携带的 `meta::type` 查询 codec capability。未命中时继续走标量、枚举、
+容器 view、wrapper view、pair、tuple、variant 和已注册对象字段递归路径。
 `serialization::codec` 是 `codec_of<T>()` / `find_codec()` 返回的只读查询视图，适合检查某个类型是否有
 codec；`serialization::codec_capability` 是接入 `meta::type::get_capability<T>()` 的类型级 facade，
 可直接转发 `write()`、`read()` 和 `make_value()`。普通业务代码优先使用 capability facade；需要按
-C++ 类型或 `type_id` 查询时再使用 `codec_of<T>()` / `find_codec()`。
+C++ 类型查询时使用 `codec_of<T>()`，已经有 `meta::type` 时使用 `find_codec(meta::type)`。
 这样 `guid`、`type_guid` 这类语义上是
 原子值的类型，不需要暴露内部字段结构。容器、pair、tuple、variant、裸指针和普通 wrapper 字段优先通过
-meta 内部 descriptor 生成的视图递归处理内部值，因此这类字段通常不需要显式注册
+`meta::type` 生成的视图递归处理内部值，因此这类字段通常不需要显式注册
 `serialization::codec_traits<T>`。
 
 codec 和 meta 类型系统的边界：
@@ -689,15 +688,14 @@ codec 和 meta 类型系统的边界：
 - 序列化公开 API 使用 `meta::type` 查询 C++ 值本身的基础能力，例如布局、构造、销毁、枚举、容器和
   wrapper 访问。
 - `serialization::codec_ops` 描述序列化专用能力，例如写入 writer、从 reader 读回和构造
-  `variant` 中间值。它作为 serialization 模块静态能力挂到 descriptor 静态表中，并通过
+  `variant` 中间值。它作为 serialization 模块静态能力接入 `meta::type` 能力查询链路，并通过
   `serialization::codec_capability` facade 对外查询。
 - 编译期已知 `T` 时，内部可以从 `serialization::codec_traits<T>` 静态生成一份 `codec_ops` 函数表，
-  并挂到 type descriptor 静态能力表中。
-- `any`、`any_ref` 和反射字段这类内部携带 descriptor 的路径会先查询 descriptor 静态 codec 能力，
-  因此只要 `codec_traits<T>` 特化在生成该 descriptor 的翻译单元可见，就不需要额外注册 codec。
-- 运行期只剩 `type_id` 时，`serialization::find_codec(type_id)` 会先通过全局 meta registry 查询对应
-  `meta::type` 视图，再从该视图的 descriptor 静态能力中取得 codec。因此需要按 `type_id` 查 codec 的类型，
-  应先通过 `registration::type_<T>("name")` 注册或确保 descriptor 已进入 meta registry。
+  并通过 `meta::type` 的静态能力 facade 暴露。
+- `any`、`any_ref` 和反射字段这类内部携带 `meta::type` 的路径会先查询该类型的 codec capability，
+  因此只要 `codec_traits<T>` 特化在生成该类型视图的翻译单元可见，就不需要额外注册 codec。
+- 公开层不再提供 `find_codec(type_id)`。运行期只剩 `type_id` 的场景应由调用方先按自己的上下文解析为
+  `meta::type`，再调用 `find_codec(meta::type)` 或 `type.get_capability<codec_capability>()`。
 
 内置 codec 和默认 traits 处理：
 
@@ -733,11 +731,11 @@ codec 和 meta 类型系统的边界：
 
 内置原子 codec 也是 `serialization::codec_traits<T>` 特化，不要求内置类型显式 meta 注册，也不再维护独立的
 运行期 codec 索引。内置 codec 和外部自定义 codec 都通过同一套函数表构造逻辑生成
-`codec_ops`，并作为 descriptor 静态能力参与查询。携带 descriptor 的 `any` / `any_ref` / 反射字段路径会优先使用
-descriptor 静态 codec 能力；运行期只剩 `type_id` 时也会先回到 meta registry 查对应 type descriptor。
+`codec_ops`，并通过 `meta::type` 静态能力参与查询。携带 `meta::type` 的 `any` / `any_ref` /
+反射字段路径会优先使用 codec capability。
 
 反射字段中的容器、pair、tuple、variant、裸指针和普通 wrapper 不要求显式调用
-额外 codec 注册，也不要求每一种容器模板组合都注册为 meta 类型。字段 descriptor 会根据
+额外 codec 注册，也不要求每一种容器模板组合都注册为 meta 类型。字段类型会根据
 `traits::sequence_traits<T>`、`traits::set_traits<T>`、`traits::associative_traits<T>`、`traits::pair_traits<T>`、`traits::tuple_traits<T>` 或
 `traits::variant_traits<T>` 生成运行期访问能力，序列化层随后按元素、key、first、候选下标和 value 递归处理。
 递归用到的业务类型如果需要稳定名称、GUID、反射字段、多态构造或对象工厂，仍应通过
@@ -814,9 +812,9 @@ DOM reader 同时接受 `variant::dictionary` 和 pair 数组形态。普通 `st
 `index` 必须在候选范围内。目标对象已经处于相同候选时会更新已有值；切换到其他候选时，该候选类型需要支持默认构造。
 
 外部类型可以通过特化 `serialization::codec_traits<T>` 把某个类型作为原子值处理。编译期已知 `T`
-时可直接使用 `serialization::codec_of<T>()`；需要按 `type_id` 查询时，应先通过
-`registration::type_<T>("name")` 注册对应 C++ 类型，让 meta registry 能从 `type_id` 找到携带 descriptor
-静态能力的 `meta::type`。codec 可以分别提供 writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认逻辑或返回不支持。
+时可直接使用 `serialization::codec_of<T>()`；运行期已持有 `meta::type` 时可使用
+`serialization::find_codec(type)` 或 `type.get_capability<serialization::codec_capability>()`。
+codec 可以分别提供 writer、reader 和 DOM 构造函数；没有提供的方向会继续走默认逻辑或返回不支持。
 带 context 的 codec 扩展点同样使用 context-first 形式；如果 codec 只需要上下文路径，可以只提供
 context-first 版本：
 
@@ -1093,8 +1091,8 @@ caors::string text = *result;
 - `serialization::external_ref_resolver_ops`：通用外部引用解析函数表，资源模块通过 adapter 接入。
 - `serialization::external_ref_collector_ops`：通用外部引用收集函数表，资源模块用它收集资源依赖。
 - `serialization::codec_traits<T>`：类型级 codec 特化入口。
-- `serialization::codec_of<T>()`：按 C++ 类型查询 descriptor 静态 codec 视图；类型不要求已经显式 meta 注册。
-- `serialization::find_codec()`：按 meta 类型或类型 id 查询 descriptor 静态 codec 视图。
+- `serialization::codec_of<T>()`：按 C++ 类型查询静态 codec 视图；类型不要求已经显式 meta 注册。
+- `serialization::find_codec(meta::type)`：按 meta 类型查询静态 codec 视图。
 - `serialization::codec_capability`：通过 `meta::type::get_capability<T>()` 查询的可调用 codec facade。
 - `serialization::text_writer`：简单文本格式后端。
 - `variant`：序列化 DOM 中间对象。

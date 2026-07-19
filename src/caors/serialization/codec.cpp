@@ -64,14 +64,6 @@ variant_result codec_capability::make_value(const serialization::context& contex
   return ops_->make_value(context, data);
 }
 
-codec find_codec(type_id id) {
-  if (!id) {
-    return {};
-  }
-
-  return find_codec(meta::find(id));
-}
-
 codec find_codec(meta::type type) {
   if (!type) {
     return {};

@@ -7,6 +7,14 @@
 
 using namespace caors::tests::serialization;
 
+namespace {
+
+struct sequence_view_vector_actor {
+  caors::vector<int> scores{};
+};
+
+} // namespace
+
 TEST_CASE("serialization - deserializes vector fields from arrays", "[serialization]") {
   require_serializable_property_type<vector_actor>("caors.test.serialization.vector_actor",
                                                    "scores", &vector_actor::scores);
@@ -29,6 +37,33 @@ TEST_CASE("serialization - deserializes vector fields from arrays", "[serializat
   REQUIRE(actor.scores.size() == 2);
   CHECK(actor.scores[0] == 5);
   CHECK(actor.scores[1] == 6);
+}
+
+TEST_CASE("serialization - vector fields use sequence view instead of container codec",
+          "[serialization]") {
+  CHECK_FALSE(caors::serialization::codec_of<caors::vector<int>>());
+  CHECK_FALSE(caors::serialization::find_codec(caors::meta::resolve<caors::vector<int>>()));
+
+  require_serializable_property_type<sequence_view_vector_actor>(
+      "caors.test.serialization.sequence_view_vector_actor", "scores",
+      &sequence_view_vector_actor::scores);
+
+  sequence_view_vector_actor actor{};
+  actor.scores.push_back(1);
+  actor.scores.push_back(2);
+
+  const caors::serialization::serialization_text_result text =
+      caors::serialization::serialize_text(actor);
+  REQUIRE(text.succeeded());
+  CHECK(text.value == R"({"scores":[1,2]})");
+
+  sequence_view_vector_actor decoded{};
+  const caors::error result = caors::deserialize(decoded, R"({"scores":[3,4]})");
+
+  REQUIRE(result.succeeded());
+  REQUIRE(decoded.scores.size() == 2);
+  CHECK(decoded.scores[0] == 3);
+  CHECK(decoded.scores[1] == 4);
 }
 
 // 原测试文件：serialization_vector_recursively_serializes_codec_values_inside_vectors_test.cpp

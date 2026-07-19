@@ -24,6 +24,37 @@ void require_codec_guid_actor_metadata() {
 
 } // namespace
 
+TEST_CASE("serialization - built in guid codecs use static capabilities without registration",
+          "[serialization]") {
+  CHECK_FALSE(caors::meta::find<caors::guid>());
+  CHECK_FALSE(caors::meta::find<caors::type_guid>());
+
+  const caors::serialization::codec guid_codec = caors::serialization::codec_of<caors::guid>();
+  REQUIRE(guid_codec);
+  CHECK(guid_codec.type() == caors::meta::id_of<caors::guid>());
+  CHECK(guid_codec.can_write());
+  CHECK(guid_codec.can_read());
+  CHECK(guid_codec.can_make_value());
+
+  const caors::serialization::codec_capability type_guid_codec =
+      caors::meta::resolve<caors::type_guid>()
+          .get_capability<caors::serialization::codec_capability>();
+  REQUIRE(type_guid_codec);
+  CHECK(type_guid_codec.type() == caors::meta::id_of<caors::type_guid>());
+  CHECK(type_guid_codec.can_write());
+  CHECK(type_guid_codec.can_read());
+  CHECK(type_guid_codec.can_make_value());
+
+  const std::optional<caors::guid> id = caors::guid::parse("2f6d1f64-7a3a-4db2-9a2d-123456789abc");
+  REQUIRE(id.has_value());
+
+  const caors::serialization::variant_result value =
+      caors::serialization::to_variant(caors::any::from(*id));
+  REQUIRE(value.succeeded());
+  REQUIRE(value.value.try_as_string() != nullptr);
+  CHECK(*value.value.try_as_string() == "2f6d1f64-7a3a-4db2-9a2d-123456789abc");
+}
+
 TEST_CASE("serialization - built in codecs deserialize guid and type guid from strings",
           "[serialization]") {
   require_codec_guid_actor_metadata();

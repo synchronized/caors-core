@@ -365,10 +365,7 @@ public:
 /** @brief 把运行期 C++ 引用转换为序列化中间值。不可拷贝引用会返回不支持。 */
 [[nodiscard]] CAORS_API variant_result to_variant(const any_ref& data);
 
-/** @brief 按类型 id 查询已注册 meta 类型的 codec 视图。 */
-[[nodiscard]] CAORS_API codec find_codec(type_id id);
-
-/** @brief 按 meta 类型查询已索引的 codec 视图。 */
+/** @brief 按 meta 类型查询 codec 视图。 */
 [[nodiscard]] CAORS_API codec find_codec(meta::type type);
 
 /** @brief 按 C++ 类型查询静态 codec 视图；类型不要求已经显式注册。 */
