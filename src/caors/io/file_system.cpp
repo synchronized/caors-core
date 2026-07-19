@@ -47,6 +47,13 @@ private:
 
 file_system::~file_system() = default;
 
+file_system_capabilities file_system::capabilities() const noexcept {
+  file_system_capabilities result{};
+  result.read = true;
+  result.write = true;
+  return result;
+}
+
 file_status_result file_system::status(path_view) const {
   return fail<file_status>({error_domain::io, errc::unsupported});
 }

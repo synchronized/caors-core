@@ -25,13 +25,13 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 为 `io::file_system` 增加 `status()` 基础属性查询和 `list()` 非递归目录枚举，覆盖 native /
   memory / mount 后端，为编辑器资产浏览和资源扫描提供底层入口。
 - [x] 提供基于 `file_system::list()` 的通用 `io::walk()` 递归遍历 helper，先覆盖同步扫描场景。
-- [ ] 设计 `io::uri` / `io::uri_view`，用 URI scheme（例如 `caors://`、`file://`、`http://`、
+- [x] 设计 `io::uri` / `io::uri_view`，用 URI scheme（例如 `caors://`、`file://`、`http://`、
   `pack://`）表达逻辑资源位置和后端路由边界；MIME / content-type 只用于描述内容格式，不负责路径路由。
-- [ ] 增加 `io::file_system_resolver` 或 virtual file system 路由层，根据 scheme、authority 或 mount prefix
+- [x] 增加 `io::file_system_resolver` 或 virtual file system 路由层，根据 scheme、authority 或 mount prefix
   把逻辑 URI 映射到 native、memory、HTTP、资源包、manifest 等具体后端。
-- [ ] 增加 `io::file_system_capabilities`，显式声明 read / write / list / status / watch / seek 等能力；
+- [x] 增加 `io::file_system_capabilities`，显式声明 read / write / list / status / watch / seek 等能力；
   上层不根据 scheme 猜测某个后端是否支持目录枚举或监听。
-- [ ] 设计 manifest-backed listing overlay：当 HTTP、CDN 或远程后端不能直接 `list()` 时，由 manifest
+- [x] 设计 manifest-backed listing overlay：当 HTTP、CDN 或远程后端不能直接 `list()` 时，由 manifest
   或资源数据库提供目录枚举和编辑器资源树。
 - [x] 将 `result<T>` 逐步收敛为更接近 `expected<T, error>` 的语义，减少 `value/error/status`
   之间的重复表达。

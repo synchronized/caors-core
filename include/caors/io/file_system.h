@@ -37,6 +37,27 @@ using directory_entry_list = vector<directory_entry>;
 /** @brief 目录枚举结果。 */
 using directory_entry_list_result = result<directory_entry_list>;
 
+/**
+ * @brief 文件系统后端能力声明。
+ *
+ * 该结构描述后端整体支持的能力，供资源系统、编辑器和工具层做路径路由或 UI 决策。具体路径仍可能因为
+ * 权限、缺失或后端状态返回错误。
+ */
+struct file_system_capabilities {
+  /** @brief 支持按路径读取字节或打开输入流。 */
+  bool read = false;
+  /** @brief 支持按路径写入字节或打开输出流。 */
+  bool write = false;
+  /** @brief 支持基础属性查询。 */
+  bool status = false;
+  /** @brief 支持目录枚举。 */
+  bool list = false;
+  /** @brief 支持文件或目录变化监听。 */
+  bool watch = false;
+  /** @brief 支持随机访问或 seek 语义。 */
+  bool seek = false;
+};
+
 /** @brief 文件或目录的基础属性。 */
 struct file_status {
   /** @brief 文件或目录类型。 */
@@ -76,6 +97,9 @@ public:
 
   /** @brief 判断路径是否存在。 */
   [[nodiscard]] virtual bool exists(path_view path) const = 0;
+
+  /** @brief 返回该文件系统后端声明的整体能力。 */
+  [[nodiscard]] virtual file_system_capabilities capabilities() const noexcept;
 
   /**
    * @brief 查询文件或目录的基础属性。

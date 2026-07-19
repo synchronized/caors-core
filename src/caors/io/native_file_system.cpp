@@ -192,6 +192,15 @@ bool native_file_system::exists(path_view path) const {
   return std::filesystem::exists(native_path(root(), path), ec) && !ec;
 }
 
+file_system_capabilities native_file_system::capabilities() const noexcept {
+  file_system_capabilities result{};
+  result.read = true;
+  result.write = true;
+  result.status = true;
+  result.list = true;
+  return result;
+}
+
 file_status_result native_file_system::status(path_view path) const {
   const std::filesystem::path native = native_directory_path(root(), path);
 

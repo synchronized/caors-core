@@ -83,6 +83,15 @@ bool memory_file_system::exists(path_view path) const {
   return files_.find(key_for(path)) != files_.end();
 }
 
+file_system_capabilities memory_file_system::capabilities() const noexcept {
+  file_system_capabilities result{};
+  result.read = true;
+  result.write = true;
+  result.status = true;
+  result.list = true;
+  return result;
+}
+
 file_status_result memory_file_system::status(path_view path) const {
   const core::string normalized_path = key_for(path);
   const std::string_view path_text = string_view_of(normalized_path);

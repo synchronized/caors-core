@@ -17,8 +17,11 @@
 - `io::output_stream`：同步输出字节流接口。
 - `io::input_stream_ptr` / `io::output_stream_ptr`：拥有式流指针。
 - `io::file_system`：同步文件系统抽象。
+- `io::file_system_capabilities`：文件系统后端能力声明。
 - `io::directory_entry` / `io::directory_entry_list`：非递归目录枚举结果。
 - `io::file_status`：文件或目录的基础属性查询结果。
+- `io::uri_view` / `io::uri`：轻量 URI 视图和拥有式 URI。
+- `io::file_system_resolver`：按 URI scheme / authority / 路径前缀路由到具体文件系统。
 - `io::walk()`：基于 `file_system::list()` 的通用递归遍历 helper。
 - `io::native_file_system`：基于宿主操作系统的本地文件系统实现。
 - `io::memory_file_system`：基于内存哈希表的虚拟文件系统实现。
@@ -31,7 +34,7 @@
 - 后端原生递归枚举、完整文件属性查询和权限模型。
 - 资源包格式。
 - HTTP、对象存储或其他远程协议。
-- URI 解析。
+- 完整 RFC3986 URI 语义、百分号解码、查询参数和片段语义。
 
 这些能力后续应建立在 `io::file_system` 和资源层 `resources::source` / `resources::provider` 之上。
 
@@ -47,9 +50,13 @@ IO 模块主定义位于 `caors::io` 命名空间，例如：
 - `io::input_stream_ptr`
 - `io::output_stream_ptr`
 - `io::file_system`
+- `io::file_system_capabilities`
 - `io::directory_entry`
 - `io::directory_entry_list`
 - `io::file_status`
+- `io::uri_view`
+- `io::uri`
+- `io::file_system_resolver`
 - `io::walk`
 - `io::native_file_system`
 - `io::memory_file_system`
@@ -115,6 +122,18 @@ if (fs.exists("config.json")) {
 - 输出流写完后应显式检查 `close()` 返回值；没有 `close()` 的缓冲输出流不会提交内容。
 - `file_system` 不负责资源缓存、依赖解析或对象生命周期。
 
+`capabilities()` 返回后端整体能力声明。它用于资源系统、编辑器和工具层做路由与 UI 决策：
+
+- `read`：支持读取字节或打开输入流。
+- `write`：支持写入字节或打开输出流。
+- `status`：支持基础属性查询。
+- `list`：支持目录枚举。
+- `watch`：支持变化监听；当前内置后端尚未实现。
+- `seek`：支持随机访问或 seek 语义；当前通用流接口尚未暴露完整 seek API。
+
+能力声明不是权限检查。具体路径仍可能因为不存在、权限、后端状态或格式限制返回错误。上层不应根据
+scheme 猜测能力，应优先读取目标 `file_system` 的 `capabilities()`。
+
 `status()` 返回 `file_status`，第一版只定义通用基础字段：
 
 - `kind`：文件或目录。
@@ -140,6 +159,55 @@ visitor 返回 `io::walk_action::skip_children` 可跳过当前目录的子项�
 `false` 可正常停止遍历；返回 `caors::error` 可把错误传出。`walk_options::max_depth` 可限制遍历深度，
 `include_root` 可让 root 自身作为第一条记录进入 visitor。循环挂载或会反复产生同一路径的后端需要由调用方
 通过最大深度或上层访问记录避免无限递归。
+
+## uri / file_system_resolver
+
+`io::uri_view` 和 `io::uri` 用于表达逻辑资源位置和后端路由边界。它们不是 MIME 或 content-type：
+URI 的 scheme 决定“去哪一类后端取”，MIME / content-type 只描述“取到的内容是什么格式”。
+
+```cpp
+caors::io::uri_view location{"caors://assets/textures/albedo.png"};
+
+// scheme == "caors"
+// authority == "assets"
+// path == "textures/albedo.png"
+```
+
+第一版 URI 解析规则：
+
+- 支持 `scheme://authority/path`、`scheme:path` 和普通相对路径。
+- `path()` 会去掉查询参数和片段文本，但不会做百分号解码。
+- `caors://assets/a.png` 的 scheme 是 `caors`，authority 是 `assets`，path 是 `a.png`。
+- 普通路径 `assets/a.png` 没有 scheme 和 authority，path 是完整输入路径。
+
+`io::file_system_resolver` 本身实现 `io::file_system`，可以把 URI 路由到具体后端：
+
+```cpp
+caors::io::memory_file_system assets;
+caors::io::file_system_resolver fs;
+
+fs.mount("caors://assets", assets);
+fs.write_all("caors://assets/config.json", R"({"debug":true})");
+
+auto bytes = fs.read_all("caors://assets/config.json");
+```
+
+也可以给目标文件系统设置内部路径前缀：
+
+```cpp
+caors::io::native_file_system project{"D:/game_project"};
+caors::io::file_system_resolver fs;
+
+fs.mount("caors://assets", project, "assets");
+```
+
+规则：
+
+- resolver 不拥有被挂载的文件系统。
+- 路由按 scheme、authority 和路径前缀匹配，使用最长匹配。
+- 未命中路由返回 `errc::not_found`。
+- `list()` 返回的 `directory_entry::path` 会回到调用方使用的 URI 空间。
+- `capabilities()` 聚合已挂载目标能力；上层仍应把它当作整体能力提示，不作为单个路径的最终保证。
 
 ## native_file_system
 

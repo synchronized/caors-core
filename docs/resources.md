@@ -22,6 +22,7 @@
 - 资源依赖图可以记录资源 GUID 之间的依赖和反向依赖。
 - 资源清单可以把稳定 GUID 映射到资源位置、类型、版本和 hash。
 - 资源 provider 可以把稳定 GUID 映射到字节来源和位置，作为资源数据库或调试 fileserver 的运行期读取入口。
+- manifest file system 可以在底层文件系统不能列目录时，用 manifest 的 location 推导目录结构。
 - 资源加载器和保存器先只定义类型化接口，不绑定路径、文件系统或异步框架。
 - 资源 database 可以把 manifest、provider、cache、loader 和依赖图串成一条主流程。
 - 同步预加载计划可以按依赖图计算依赖优先的加载顺序，并在需要拓扑顺序的流程中检测循环依赖。
@@ -48,6 +49,7 @@
 
 - `resource_guid`、`resource`、`ref<T>`、`handle<T>`、`cache<T>`、`manager`。
 - `source`、`provider`、`manifest`、`dependency_graph`。
+- `manifest_file_system` 作为 manifest 到 `io::file_system` 的目录 overlay。
 - `loader<T>` / `saver<T>` 抽象、同步/异步加载组合函数和非拥有 `database`。
 
 `resources/serialization.h` 是资源引用与序列化上下文之间的适配层。它提供 `resource_ref<T>` codec、
@@ -74,6 +76,7 @@
 - `resources::database`
 - `resources::manifest`
 - `resources::manifest_entry`
+- `resources::manifest_file_system`
 - `resources::source`
 - `resources::file_source`
 - `resources::provider`
@@ -839,6 +842,30 @@ JSON 清单支持两种根格式：
 - `replace_manifest()` 会先清空 provider，再绑定完整清单，适合完整清单刷新；失败时不会恢复旧 provider 状态。
 - 清单的 `type`、`hash`、`version` 只是轻量元数据，不替代资源对象本身的序列化内容。
 - 跨线程更新 manifest 或 provider 时，调用方需要自行同步。
+
+## manifest_file_system
+
+`resources::manifest_file_system` 是一个 `io::file_system` overlay。它用 manifest 中的 `location`
+推导目录结构，字节读取和写入仍转发给底层文件系统：
+
+```cpp
+caors::io::memory_file_system storage;
+caors::resource_manifest manifest;
+
+manifest.bind(texture_id, "assets/textures/albedo.json");
+
+caors::resources::manifest_file_system files{manifest, storage};
+auto entries = files.list("assets/textures");
+```
+
+它主要用于 HTTP/CDN、调试 fileserver、资源包索引等“不一定能直接列目录”的后端：
+
+- `list(directory)` 从 manifest 的所有 `location` 推导直接子项。
+- `status(path)` 在底层不支持或找不到时，会退回到 manifest 推导的文件/目录状态。
+- `exists(path)` 同时检查底层文件系统和 manifest 推导结果。
+- `read_all()` / `open_read()` / `write_all()` / `open_write()` 只转发到底层文件系统，不修改 manifest。
+- overlay 不拥有 manifest 或底层文件系统，调用方需要保证生命周期。
+- manifest 只提供索引视图；如果实际字节不存在，读取仍会返回底层文件系统的错误。
 
 ## source / provider
 

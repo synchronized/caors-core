@@ -182,6 +182,28 @@ void mount_file_system::clear() { mounts_.clear(); }
 
 std::size_t mount_file_system::mount_count() const noexcept { return mounts_.size(); }
 
+file_system_capabilities mount_file_system::capabilities() const noexcept {
+  file_system_capabilities result{};
+  result.status = !mounts_.empty();
+  result.list = !mounts_.empty();
+
+  for (const mount_entry& entry : mounts_) {
+    if (entry.target == nullptr) {
+      continue;
+    }
+
+    const file_system_capabilities target = entry.target->capabilities();
+    result.read = result.read || target.read;
+    result.write = result.write || target.write;
+    result.status = result.status || target.status;
+    result.list = result.list || target.list;
+    result.watch = result.watch || target.watch;
+    result.seek = result.seek || target.seek;
+  }
+
+  return result;
+}
+
 bool mount_file_system::exists(path_view path) const {
   if (path.empty()) {
     return false;
