@@ -6,6 +6,7 @@
 
 #include "caors/core/containers.h"
 #include "caors/core/string_name.h"
+#include "caors/io/location.h"
 #include "caors/io/uri.h"
 #include "caors/resources/id.h"
 #include "caors/resources/source.h"
@@ -25,7 +26,7 @@ namespace caors::resources {
  */
 struct manifest_entry {
   resource_guid guid{};
-  io::path location{};
+  io::location location{};
   core::string_name type{};
   core::string hash;
   std::uint64_t version = 0;
@@ -33,7 +34,7 @@ struct manifest_entry {
   explicit manifest_entry(memory_resource* resource = nullptr)
       : location(resource), hash(allocator<char>{resource}) {}
 
-  manifest_entry(resource_guid resource_guid, io::path_view resource_location,
+  manifest_entry(resource_guid resource_guid, io::location_view resource_location,
                  core::string_name resource_type = {}, std::string_view resource_hash = {},
                  std::uint64_t resource_version = 0, memory_resource* resource = nullptr)
       : guid(resource_guid), location(io::normalize_location(resource_location, resource)),
@@ -73,8 +74,9 @@ public:
   void clear() noexcept { entries_.clear(); }
 
   /** @brief 新增资源清单条目。location 会按资源位置规则规范化。 */
-  [[nodiscard]] error bind(resource_guid guid, io::path_view location, core::string_name type = {},
-                           std::string_view hash = {}, std::uint64_t version = 0) {
+  [[nodiscard]] error bind(resource_guid guid, io::location_view location,
+                           core::string_name type = {}, std::string_view hash = {},
+                           std::uint64_t version = 0) {
     if (contains(guid)) {
       return {error_domain::resources, errc::already_exists};
     }
@@ -89,8 +91,9 @@ public:
   }
 
   /** @brief 新增或替换资源清单条目。location 会按资源位置规则规范化。 */
-  [[nodiscard]] error set(resource_guid guid, io::path_view location, core::string_name type = {},
-                          std::string_view hash = {}, std::uint64_t version = 0) {
+  [[nodiscard]] error set(resource_guid guid, io::location_view location,
+                          core::string_name type = {}, std::string_view hash = {},
+                          std::uint64_t version = 0) {
     if (!guid || location.empty()) {
       return {error_domain::resources, errc::invalid_argument};
     }

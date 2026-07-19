@@ -3,6 +3,8 @@
 
 #include "caors/resources/manifest_file_system.h"
 
+#include "caors/io/location.h"
+
 #include <algorithm>
 #include <utility>
 
@@ -142,9 +144,9 @@ io::directory_entry_list_result manifest_file_system::list(io::path_view directo
       const std::string_view name = suffix.substr(0, separator);
       const io::file_kind kind =
           separator == std::string_view::npos ? io::file_kind::file : io::file_kind::directory;
-      const io::path full_path = directory_text.empty()
-                                     ? io::normalize_location(name, resource)
-                                     : io::join_location(directory_text, name, resource);
+      const io::location full_path = directory_text.empty()
+                                         ? io::normalize_location(name, resource)
+                                         : io::join_location(directory_text, name, resource);
       add_or_update_entry(entries, name, full_path, kind, resource);
     });
   }

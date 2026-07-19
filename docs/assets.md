@@ -14,6 +14,7 @@
 - `resources`：底层资源核心，不绑定工程配置和具体格式。
 - `assets`：工程配置和运行期资源环境构建层，包含 `project_config`、`asset_manager`、source/type
   factory 和基于 reader/writer 的 `load_serialized()` / `save_serialized()` helper。
+- `assets/config_schema.h`：source/type factory option schema 和 `factory_options_view`。
 - `assets::json`：JSON 格式适配层，包含 JSON manifest / project config 读入、`json::loader<T>`、
   `json::saver<T>` 和 JSON type factory 薄包装。
 
@@ -27,20 +28,33 @@
 ## project_config
 
 `assets::project_config` 是工程资源系统的可反序列化描述对象。它只保存数据，不拥有运行期
-`source`、`provider`、`cache`、`loader` 或 `database`：
+`file_system`、`source`、`provider`、`cache`、`loader` 或 `database`：
 
 ```cpp
 caors::assets::project_config config;
 caors::assets::json::load_project_config(config, R"({
   "schema_version": 1,
+  "file_systems": [
+    {
+      "name": "memory",
+      "type": "memory_file_system"
+    },
+    {
+      "name": "vfs",
+      "type": "resolver",
+      "routes": [
+        {
+          "prefix": "caors://assets",
+          "target": "memory"
+        }
+      ]
+    }
+  ],
   "sources": [
     {
       "name": "assets",
-      "type": "memory_file_system",
-      "root": "/",
-      "options": {
-        "mount": "debug-assets"
-      }
+      "type": "file_system",
+      "file_system": "vfs"
     }
   ],
   "resource_types": [
@@ -57,7 +71,7 @@ caors::assets::json::load_project_config(config, R"({
     {
       "guid": "6cd2da3d-b549-4756-8b8b-0c84293af410",
       "source": "assets",
-      "location": "textures/albedo.json",
+      "location": "caors://assets/textures/albedo.json",
       "type": "game.texture",
       "hash": "content-hash",
       "version": 1
@@ -78,7 +92,14 @@ caors::assets::json::load_project_config(config, R"({
 当前语义：
 
 - `schema_version` 缺省为 1；当前只接受版本 1。
-- `sources[]` 描述 source 名称、策略名、可选 root 和 options。
+- `file_systems[]` 描述运行期文件系统名称、内置类型和 routes。内置类型当前包括
+  `memory_file_system` / `memory`、`native_file_system` / `native`、`resolver` /
+  `file_system_resolver`、`mount` / `mount_file_system`。
+- `file_systems[].routes[]` 在 `resolver` 中表示 URI 前缀路由，在 `mount` 中表示虚拟路径前缀挂载；
+  `target` 引用另一个已配置或已绑定的 file_system，`target_prefix` 是目标内部路径前缀。
+- `sources[]` 描述 source 名称、策略名、可选 root、可选 `file_system` 引用和 options。
+  `type = "file_system"` 会把指定 file_system 适配为 `resources::file_source`；如果省略 `type`
+  但填写了 `file_system`，读取配置时会默认使用 `"file_system"`。
 - `resources[]` 描述 `guid -> source/location/type/hash/version`，会写入 `manifest` 和 `provider`。
   `location` 会按 `io::normalize_location()` 规范化，因此可以使用普通路径，也可以使用
   `caors://`、`file://`、`pack://` 等 URI。
@@ -127,8 +148,13 @@ caors::resources::preload_result result = assets.preload(texture_id);
 常用入口：
 
 - `build(config)`：按配置重建内部 manifest、provider 和 dependency graph，并按已注册 factory
-  创建运行期 source、cache 和 loader。
+  创建运行期 file_system、source、cache 和 loader。配置构建顺序是 file_system、source、
+  resource type、resource、dependency。
 - `build_detailed(config)`：执行同样构建流程，但返回 `asset_build_result`，用于定位失败阶段和可读原因。
+- `bind_file_system()` / `find_file_system()`：手动绑定或查询外部 file_system；配置创建的
+  file_system 会在下一次 `build()` 前清理，手动绑定会保留。
+- `bind_source()` / `find_source()`：手动绑定或查询外部 source；配置创建的 source 会在下一次
+  `build()` 前清理，手动绑定会保留。
 - `find<T>(guid)` / `find(guid)`：查询内部已注册 cache 中的资源。
 - `load<T>(guid)` / `load_handle<T>(guid)`：通过内部 database 中已注册的 loader/cache 加载资源。
 - `reload<T>(guid)` / `reload_handle<T>(guid)`：重新加载并替换 cache 当前绑定；失败时保留旧资源。

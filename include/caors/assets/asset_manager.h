@@ -4,6 +4,7 @@
 #ifndef CAORS_ASSETS_ASSET_MANAGER_H_
 #define CAORS_ASSETS_ASSET_MANAGER_H_
 
+#include "caors/assets/config_schema.h"
 #include "caors/assets/project_config.h"
 #include "caors/core/containers.h"
 #include "caors/core/string_name.h"
@@ -39,295 +40,11 @@ using resources::preload_result;
 enum class asset_build_stage {
   none,
   clear_runtime,
+  file_system,
   source,
   resource_type,
   resource,
   dependency,
-};
-
-/** @brief 资源配置 factory option 字段期望的数据形态。 */
-enum class factory_option_kind {
-  any,
-  boolean,
-  signed_integer,
-  unsigned_integer,
-  floating,
-  string,
-  array,
-  dictionary,
-  object,
-};
-
-/** @brief source/type factory 支持的单个 option 字段描述。 */
-struct factory_option_field {
-  using value_list = core::vector<core::string_name>;
-
-  core::string_name name{};
-  factory_option_kind kind = factory_option_kind::any;
-  bool required = false;
-  bool non_empty = false;
-  bool has_range = false;
-  double range_min = 0.0;
-  double range_max = 0.0;
-  value_list allowed_values{};
-};
-
-/** @brief source/type factory 的轻量 option schema。 */
-struct factory_option_schema {
-  using field_list = core::vector<factory_option_field>;
-
-  explicit factory_option_schema(memory_resource* resource = nullptr)
-      : fields(typename field_list::allocator_type{resource}) {}
-
-  /** @brief 增加必填 option 字段。 */
-  factory_option_schema& require(core::string_name name,
-                                 factory_option_kind kind = factory_option_kind::any) {
-    factory_option_field& field = ensure_field(name);
-    field.kind = kind;
-    field.required = true;
-    return *this;
-  }
-
-  /** @brief 增加可选 option 字段。 */
-  factory_option_schema& optional(core::string_name name,
-                                  factory_option_kind kind = factory_option_kind::any) {
-    factory_option_field& field = ensure_field(name);
-    field.kind = kind;
-    field.required = false;
-    return *this;
-  }
-
-  /** @brief 要求字段值非空。当前用于字符串、数组、字典和对象。 */
-  factory_option_schema& non_empty(core::string_name name) {
-    ensure_field(name).non_empty = true;
-    return *this;
-  }
-
-  /** @brief 要求数值字段位于闭区间 `[min, max]`。 */
-  factory_option_schema& range(core::string_name name, double min, double max) {
-    factory_option_field& field = ensure_field(name);
-    field.has_range = true;
-    field.range_min = min;
-    field.range_max = max;
-    return *this;
-  }
-
-  /** @brief 要求字符串字段必须是允许值之一。 */
-  factory_option_schema& one_of(core::string_name name,
-                                std::initializer_list<core::string_name> values) {
-    factory_option_field& field = ensure_field(name);
-    field.allowed_values.clear();
-    for (core::string_name value : values) {
-      field.allowed_values.push_back(value);
-    }
-    return *this;
-  }
-
-  /** @brief 要求字符串字段必须是允许值之一。 */
-  factory_option_schema& one_of(core::string_name name,
-                                std::initializer_list<std::string_view> values) {
-    factory_option_field& field = ensure_field(name);
-    field.allowed_values.clear();
-    for (std::string_view value : values) {
-      field.allowed_values.push_back(core::string_name{value});
-    }
-    return *this;
-  }
-
-  /** @brief 是否允许 schema 未声明的 option 字段。 */
-  bool allow_unknown = true;
-  field_list fields;
-
-private:
-  [[nodiscard]] memory_resource* field_resource() const noexcept {
-    return fields.get_allocator().resource();
-  }
-
-  [[nodiscard]] factory_option_field make_field(core::string_name name) const {
-    factory_option_field field;
-    field.name = name;
-    field.allowed_values = factory_option_field::value_list{
-        typename factory_option_field::value_list::allocator_type{field_resource()}};
-    return field;
-  }
-
-  [[nodiscard]] factory_option_field* find_property(core::string_name name) noexcept {
-    for (factory_option_field& field : fields) {
-      if (field.name == name) {
-        return &field;
-      }
-    }
-
-    return nullptr;
-  }
-
-  [[nodiscard]] factory_option_field& ensure_field(core::string_name name) {
-    if (factory_option_field* field = find_property(name)) {
-      return *field;
-    }
-
-    fields.push_back(make_field(name));
-    return fields.back();
-  }
-};
-
-/**
- * @brief source/type factory 读取 `options` 的轻量视图。
- *
- * 该视图不拥有 `variant`，字符串读取返回的 `std::string_view`
- * 只在底层配置对象存活且未修改期间有效。 它只提供常见标量读取；复杂结构体绑定和跨字段校验应由上层
- * schema 或自定义 factory 处理。
- */
-class factory_options_view final {
-public:
-  explicit factory_options_view(const variant& options) noexcept : options_(&options) {}
-
-  /** @brief 判断 options 是否是 object。 */
-  [[nodiscard]] bool is_object() const noexcept {
-    return options_ != nullptr && options_->is_object();
-  }
-
-  /** @brief 按字段名查询原始 variant；options 不是 object 或字段不存在时返回 nullptr。 */
-  [[nodiscard]] const variant* find(core::string_name name) const noexcept {
-    return is_object() ? options_->find_member_variant(name) : nullptr;
-  }
-
-  /** @brief 判断字段是否存在且非 null。 */
-  [[nodiscard]] bool contains(core::string_name name) const noexcept {
-    const variant* value = find(name);
-    return value != nullptr && !value->is_null();
-  }
-
-  /** @brief 读取 bool 字段。 */
-  [[nodiscard]] bool read(core::string_name name, bool& out) const noexcept {
-    const variant* value = find(name);
-    if (value == nullptr) {
-      return false;
-    }
-
-    if (const bool* typed = value->try_as_bool()) {
-      out = *typed;
-      return true;
-    }
-
-    return false;
-  }
-
-  /** @brief 读取有符号整数；无符号值超出 `std::int64_t` 范围时读取失败。 */
-  [[nodiscard]] bool read(core::string_name name, std::int64_t& out) const noexcept {
-    const variant* value = find(name);
-    if (value == nullptr) {
-      return false;
-    }
-
-    if (const std::int64_t* typed = value->try_as_i64()) {
-      out = *typed;
-      return true;
-    }
-
-    if (const std::uint64_t* typed = value->try_as_u64();
-        typed != nullptr &&
-        *typed <= static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max())) {
-      out = static_cast<std::int64_t>(*typed);
-      return true;
-    }
-
-    return false;
-  }
-
-  /** @brief 读取无符号整数；负数读取失败。 */
-  [[nodiscard]] bool read(core::string_name name, std::uint64_t& out) const noexcept {
-    const variant* value = find(name);
-    if (value == nullptr) {
-      return false;
-    }
-
-    if (const std::uint64_t* typed = value->try_as_u64()) {
-      out = *typed;
-      return true;
-    }
-
-    if (const std::int64_t* typed = value->try_as_i64(); typed != nullptr && *typed >= 0) {
-      out = static_cast<std::uint64_t>(*typed);
-      return true;
-    }
-
-    return false;
-  }
-
-  /** @brief 读取浮点数；整数会转换为 double。 */
-  [[nodiscard]] bool read(core::string_name name, double& out) const noexcept {
-    const variant* value = find(name);
-    if (value == nullptr) {
-      return false;
-    }
-
-    if (const double* typed = value->try_as_f64()) {
-      out = *typed;
-      return true;
-    }
-    if (const std::int64_t* typed = value->try_as_i64()) {
-      out = static_cast<double>(*typed);
-      return true;
-    }
-    if (const std::uint64_t* typed = value->try_as_u64()) {
-      out = static_cast<double>(*typed);
-      return true;
-    }
-
-    return false;
-  }
-
-  /** @brief 读取字符串视图；视图不拥有底层字符。 */
-  [[nodiscard]] bool read(core::string_name name, std::string_view& out) const noexcept {
-    const variant* value = find(name);
-    if (value == nullptr) {
-      return false;
-    }
-
-    if (const core::string* typed = value->try_as_string()) {
-      out = std::string_view{typed->data(), typed->size()};
-      return true;
-    }
-
-    return false;
-  }
-
-  /** @brief 读取字符串并复制到 `core::string`。 */
-  [[nodiscard]] bool read(core::string_name name, core::string& out) const {
-    std::string_view value;
-    if (!read(name, value)) {
-      return false;
-    }
-
-    out.assign(value.begin(), value.end());
-    return true;
-  }
-
-  /** @brief 读取字符串并复制到 `std::string`。 */
-  [[nodiscard]] bool read(core::string_name name, std::string& out) const {
-    std::string_view value;
-    if (!read(name, value)) {
-      return false;
-    }
-
-    out.assign(value.begin(), value.end());
-    return true;
-  }
-
-  /** @brief 读取字符串并 intern 为 `string_name`。 */
-  [[nodiscard]] bool read(core::string_name name, core::string_name& out) const {
-    std::string_view value;
-    if (!read(name, value)) {
-      return false;
-    }
-
-    out = core::string_name{value};
-    return true;
-  }
-
-private:
-  const variant* options_ = nullptr;
 };
 
 /** @brief asset_manager 构建结果和诊断信息。 */
@@ -471,6 +188,21 @@ public:
 
   [[nodiscard]] resources::database& database() noexcept { return database_; }
   [[nodiscard]] const resources::database& database() const noexcept { return database_; }
+
+  /** @brief 按配置名称绑定运行期 file_system。asset_manager 不拥有 file_system。 */
+  [[nodiscard]] error bind_file_system(core::string_name name, io::file_system& file_system);
+
+  /** @brief 解除 file_system 名称绑定。 */
+  [[nodiscard]] bool unbind_file_system(core::string_name name);
+
+  /** @brief 查找已绑定 file_system。 */
+  [[nodiscard]] io::file_system* find_file_system(core::string_name name) const;
+
+  /** @brief 清空 file_system 名称绑定。 */
+  void clear_file_systems() noexcept { file_systems_.clear(); }
+
+  /** @brief 查询 file_system 绑定数量。 */
+  [[nodiscard]] std::size_t file_system_count() const noexcept { return file_systems_.size(); }
 
   /** @brief 按配置名称绑定运行期 source。asset_manager 不拥有 source。 */
   [[nodiscard]] error bind_source(core::string_name name, resources::source& source);
@@ -715,11 +447,17 @@ private:
   using source_factory_map = core::hash_map<core::string_name, source_factory_ops>;
   using type_factory_map = core::hash_map<core::string_name, type_factory_ops>;
 
+  struct file_system_binding {
+    io::file_system* file_system = nullptr;
+    bool config_created = false;
+  };
+
   struct source_binding {
     resources::source* source = nullptr;
     bool config_created = false;
   };
 
+  using file_system_map = core::hash_map<core::string_name, file_system_binding>;
   using source_map = core::hash_map<core::string_name, source_binding>;
 
   struct owned_runtime_object {
@@ -762,6 +500,10 @@ private:
 
   [[nodiscard]] error clear_config_runtime();
   [[nodiscard]] error rebuild_manual_type_bindings();
+  [[nodiscard]] error ensure_file_system_from_config(const project_file_system_config& config,
+                                                     asset_build_result::reason_list& reasons);
+  [[nodiscard]] error configure_file_system_from_config(const project_file_system_config& config,
+                                                        asset_build_result::reason_list& reasons);
   [[nodiscard]] error ensure_source_from_config(const project_source_config& config,
                                                 asset_build_result::reason_list& reasons);
   [[nodiscard]] error ensure_type_from_config(const project_resource_type_config& config,
@@ -773,6 +515,9 @@ private:
   [[nodiscard]] static error make_native_file_source(source_factory_context& context,
                                                      const project_source_config& config,
                                                      void* user_data);
+  [[nodiscard]] static error make_bound_file_source(source_factory_context& context,
+                                                    const project_source_config& config,
+                                                    void* user_data);
 
   template <typename T> static void destroy_owned(memory_resource* resource, void* value) noexcept {
     memory::destroy(static_cast<T*>(value), resource);
@@ -808,6 +553,7 @@ private:
   resources::provider provider_;
   resources::dependency_graph dependency_graph_;
   resources::database database_;
+  file_system_map file_systems_;
   source_map sources_;
   source_factory_map source_factories_;
   type_factory_map type_factories_;

@@ -5,6 +5,7 @@
 #define CAORS_ASSETS_H_
 
 #include "caors/assets/asset_manager.h"
+#include "caors/assets/config_schema.h"
 #include "caors/assets/project_config.h"
 #include "caors/assets/project_config_loader.h"
 #include "caors/assets/serialization.h"

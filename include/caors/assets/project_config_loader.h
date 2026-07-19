@@ -27,13 +27,15 @@ public:
 
   /** @brief 从指定 source/location 读入工程资源配置。 */
   [[nodiscard]] virtual error load(project_config& target, resources::source& source,
-                                   io::path_view location, memory_resource* resource = nullptr) = 0;
+                                   io::location_view location,
+                                   memory_resource* resource = nullptr) = 0;
 };
 
 /** @brief 使用格式无关配置读取器读入工程资源配置。 */
 [[nodiscard]] inline error load_project_config(project_config& target,
                                                project_config_loader& loader,
-                                               resources::source& source, io::path_view location,
+                                               resources::source& source,
+                                               io::location_view location,
                                                memory_resource* resource = nullptr) {
   return loader.load(target, source, location, resource);
 }

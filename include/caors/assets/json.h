@@ -23,7 +23,8 @@ namespace caors::assets::json {
 class CAORS_API project_config_loader final : public assets::project_config_loader {
 public:
   [[nodiscard]] error load(project_config& target, resources::source& source,
-                           io::path_view location, memory_resource* resource = nullptr) override;
+                           io::location_view location,
+                           memory_resource* resource = nullptr) override;
 };
 
 /**
@@ -114,7 +115,7 @@ private:
 /** @brief 从资源字节来源读取 JSON 文本并导入资源清单。 */
 [[nodiscard]] CAORS_API error load_manifest(resources::manifest& target,
                                             resources::source& resource_source,
-                                            io::path_view location,
+                                            io::location_view location,
                                             memory_resource* resource = nullptr);
 
 /** @brief 从 JSON 文本读入资源工程描述。 */
@@ -123,7 +124,7 @@ private:
 /** @brief 从资源字节来源读取 JSON 文本并读入资源工程描述。 */
 [[nodiscard]] CAORS_API error load_project_config(project_config& target,
                                                   resources::source& resource_source,
-                                                  io::path_view location,
+                                                  io::location_view location,
                                                   memory_resource* resource = nullptr);
 
 /**

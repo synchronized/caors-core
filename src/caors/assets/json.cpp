@@ -85,7 +85,7 @@ namespace {
 } // namespace
 
 error project_config_loader::load(project_config& target, resources::source& source,
-                                  io::path_view location, memory_resource* resource) {
+                                  io::location_view location, memory_resource* resource) {
   return caors::assets::json::load_project_config(target, source, location, resource);
 }
 
@@ -115,7 +115,7 @@ error load_manifest(resources::manifest& target, std::string_view text) {
 }
 
 error load_manifest(resources::manifest& target, resources::source& resource_source,
-                    io::path_view location, memory_resource* resource) {
+                    io::location_view location, memory_resource* resource) {
   if (location.empty()) {
     return {error_domain::resources, errc::invalid_argument};
   }
@@ -145,7 +145,7 @@ error load_project_config(project_config& target, std::string_view text) {
 }
 
 error load_project_config(project_config& target, resources::source& resource_source,
-                          io::path_view location, memory_resource* resource) {
+                          io::location_view location, memory_resource* resource) {
   if (location.empty()) {
     return {error_domain::resources, errc::invalid_argument};
   }

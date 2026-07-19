@@ -27,12 +27,12 @@ class streaming_source final : public caors::resources::source {
 public:
   streaming_source() : bytes_(make_bytes("remote-bytes")) {}
 
-  [[nodiscard]] bool exists(caors::io::path_view location) const override {
+  [[nodiscard]] bool exists(caors::io::location_view location) const override {
     return location.string_view() == remote_location;
   }
 
   [[nodiscard]] caors::io::byte_buffer_result
-  read(caors::io::path_view location, caors::memory_resource* resource = nullptr) override {
+  read(caors::io::location_view location, caors::memory_resource* resource = nullptr) override {
     ++read_count;
     if (!exists(location)) {
       return caors::fail<caors::io::byte_buffer>(
@@ -45,7 +45,8 @@ public:
   }
 
   [[nodiscard]] caors::io::input_stream_result
-  open_read(caors::io::path_view location, caors::memory_resource* resource = nullptr) override {
+  open_read(caors::io::location_view location,
+            caors::memory_resource* resource = nullptr) override {
     ++open_read_count;
     if (!exists(location)) {
       return caors::fail<caors::io::input_stream_ptr>(
@@ -57,7 +58,7 @@ public:
     return caors::ok(caors::io::make_input_stream(std::move(copy), resource));
   }
 
-  [[nodiscard]] caors::error write(caors::io::path_view location,
+  [[nodiscard]] caors::error write(caors::io::location_view location,
                                    std::span<const std::byte> bytes) override {
     ++write_count;
     if (!exists(location)) {
@@ -69,7 +70,8 @@ public:
   }
 
   [[nodiscard]] caors::io::output_stream_result
-  open_write(caors::io::path_view location, caors::memory_resource* resource = nullptr) override {
+  open_write(caors::io::location_view location,
+             caors::memory_resource* resource = nullptr) override {
     ++open_write_count;
     return caors::resources::source::open_write(location, resource);
   }

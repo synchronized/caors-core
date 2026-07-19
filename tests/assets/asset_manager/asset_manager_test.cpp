@@ -238,9 +238,9 @@ public:
     }
   }
 
-  [[nodiscard]] bool exists(caors::io::path_view) const override { return false; }
+  [[nodiscard]] bool exists(caors::io::location_view) const override { return false; }
 
-  [[nodiscard]] caors::io::byte_buffer_result read(caors::io::path_view,
+  [[nodiscard]] caors::io::byte_buffer_result read(caors::io::location_view,
                                                    caors::memory_resource*) override {
     return {{caors::error_domain::resources, caors::errc::not_found}, {}};
   }
@@ -472,6 +472,85 @@ TEST_CASE("resources - project config preserves uri resource locations", "[resou
   REQUIRE(config.resources.size() == 1);
   CHECK(config.resources[0].location.string_view() ==
         std::string_view{"caors://assets/textures/albedo.json"});
+}
+
+TEST_CASE("resources - asset_manager builds configured file systems and file source",
+          "[resources]") {
+  require_serialized_resource_metadata();
+
+  std::string json{R"({
+    "file_systems": [
+      {
+        "name": "memory",
+        "type": "memory_file_system"
+      },
+      {
+        "name": "vfs",
+        "type": "resolver",
+        "routes": [
+          {
+            "prefix": "caors://assets",
+            "target": "memory"
+          }
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "name": "assets",
+        "file_system": "vfs"
+      }
+    ],
+    "resource_types": [
+      {
+        "type": "game.serialized",
+        "loader": "json",
+        "cache": "memory"
+      }
+    ],
+    "resources": [
+      {
+        "guid": ")"};
+  json += test_guid_a.string();
+  json += R"(",
+        "source": "assets",
+        "location": "caors://assets//resource-a.json",
+        "type": "game.serialized"
+      }
+    ]
+  })";
+
+  caors::assets::project_config config;
+  REQUIRE(caors::assets::json::load_project_config(config, json).succeeded());
+  REQUIRE(config.file_systems.size() == 2);
+  CHECK(config.sources.size() == 1);
+  CHECK(config.sources[0].type == std::string_view{"file_system"});
+  CHECK(config.sources[0].file_system == std::string_view{"vfs"});
+  CHECK(config.file_systems[1].routes.size() == 1);
+  CHECK(config.file_systems[1].routes[0].prefix.string_view() ==
+        std::string_view{"caors://assets"});
+
+  caors::assets::asset_manager assets;
+  REQUIRE(caors::assets::json::register_type_factory<serialized_resource>(
+              assets, serialized_manifest_type())
+              .succeeded());
+  REQUIRE(assets.build(config).succeeded());
+  CHECK(assets.file_system_count() == 2);
+  CHECK(assets.source_count() == 1);
+
+  auto* files = dynamic_cast<caors::io::memory_file_system*>(
+      assets.find_file_system(caors::string_name{"memory"}));
+  REQUIRE(files != nullptr);
+  REQUIRE(files->write_all("resource-a.json", std::string_view{R"({"width":300})"}).succeeded());
+
+  const caors::resources::source_location location = assets.provider().find(test_guid_a);
+  REQUIRE(location);
+  CHECK(location.location.string_view() == std::string_view{"caors://assets/resource-a.json"});
+
+  caors::result<serialized_resource*> loaded = assets.load<serialized_resource>(test_guid_a);
+  REQUIRE(loaded.succeeded());
+  REQUIRE(loaded.value != nullptr);
+  CHECK(loaded.value->width == 300);
 }
 
 TEST_CASE("resources - asset_manager creates configured source cache and loader from factories",

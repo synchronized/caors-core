@@ -875,7 +875,7 @@ auto entries = files.list("assets/textures");
 
 ## source / provider
 
-`resources::source` 是“按 `io::path_view` 位置读取字节”的接口；`resources::provider` 是
+`resources::source` 是“按 `io::location_view` 资源位置读取字节”的接口；`resources::provider` 是
 `resource_guid -> (source, location)` 的运行期索引：
 
 ```cpp
@@ -902,7 +902,7 @@ caors::error written = provider.write(texture_id, std::string_view{"new-bytes"})
 需要注意：
 
 - `provider` 不拥有 source，调用方需要保证 source 生命周期。
-- `source_location::location` 是非拥有 `io::path_view`，provider 修改或销毁后失效。
+- `source_location::location` 是非拥有 `io::location_view`，provider 修改或销毁后失效。
 - `provider` 只负责定位、读取和可选写入字节，不负责解码资源对象。
 - `source::open_read()` 默认通过 `read()` 建立内存输入流；真正支持分块读取的 source 可以覆盖该函数。
 - `source::open_write()` 默认建立内存缓冲输出流，并在 `close()` 时调用 `write()` 提交。

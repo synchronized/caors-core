@@ -3,6 +3,8 @@
 
 #include "caors/io/file_system_resolver.h"
 
+#include "caors/io/location.h"
+
 #include <algorithm>
 #include <utility>
 

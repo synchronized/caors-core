@@ -160,10 +160,11 @@ visitor 返回 `io::walk_action::skip_children` 可跳过当前目录的子项�
 `include_root` 可让 root 自身作为第一条记录进入 visitor。循环挂载或会反复产生同一路径的后端需要由调用方
 通过最大深度或上层访问记录避免无限递归。
 
-## uri / file_system_resolver
+## uri / location / file_system_resolver
 
-`io::uri_view` 和 `io::uri` 用于表达逻辑资源位置和后端路由边界。它们不是 MIME 或 content-type：
+`io::uri_view` 和 `io::uri` 用于解析逻辑资源位置和后端路由边界。它们不是 MIME 或 content-type：
 URI 的 scheme 决定“去哪一类后端取”，MIME / content-type 只描述“取到的内容是什么格式”。
+`io::location_view` 和 `io::location` 则是资源层对“普通虚拟路径或 URI”的拥有/非拥有表示。
 
 ```cpp
 caors::io::uri_view location{"caors://assets/textures/albedo.png"};
@@ -179,10 +180,12 @@ caors::io::uri_view location{"caors://assets/textures/albedo.png"};
 - `path()` 会去掉查询参数和片段文本，但不会做百分号解码。
 - `caors://assets/a.png` 的 scheme 是 `caors`，authority 是 `assets`，path 是 `a.png`。
 - 普通路径 `assets/a.png` 没有 scheme 和 authority，path 是完整输入路径。
-- `io::normalize_location()` 用于资源位置规范化：普通路径按 `normalize_path()` 处理；URI 会保留
-  scheme / authority，只规范化 path 部分。
-- `io::join_location()` 用于拼接资源位置：普通路径等价于 `join_path()`；URI 会在 path 部分拼接，
-  并保留原来的 scheme / authority。
+- `io::normalize_location()` 返回 `io::location`，用于资源位置规范化：普通路径按
+  `normalize_path()` 处理；URI 会保留 scheme / authority，只规范化 path 部分。
+- `io::join_location()` 返回 `io::location`，用于拼接资源位置：普通路径等价于
+  `join_path()`；URI 会在 path 部分拼接，并保留原来的 scheme / authority。
+- 底层 `io::file_system` 仍接收 `io::path_view`；资源 manifest/provider/source 等面向资源位置的
+  API 使用 `io::location_view`。
 
 `io::file_system_resolver` 本身实现 `io::file_system`，可以把 URI 路由到具体后端：
 

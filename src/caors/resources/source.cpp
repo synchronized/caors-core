@@ -8,7 +8,7 @@
 namespace caors::resources {
 namespace {
 
-[[nodiscard]] core::string make_location(io::path_view location, memory_resource* resource) {
+[[nodiscard]] core::string make_location(io::location_view location, memory_resource* resource) {
   const std::string_view text = location.string_view();
   core::string result{allocator<char>{resource}};
   result.assign(text.begin(), text.end());
@@ -17,7 +17,8 @@ namespace {
 
 class buffered_source_output_stream final : public io::output_stream {
 public:
-  buffered_source_output_stream(source& target, io::path_view location, memory_resource* resource)
+  buffered_source_output_stream(source& target, io::location_view location,
+                                memory_resource* resource)
       : target_(&target), location_(make_location(location, resource)),
         buffer_(io::make_byte_buffer(resource)) {}
 
@@ -35,7 +36,7 @@ public:
       return {};
     }
 
-    error status = target_->write(io::path_view{location_}, buffer_);
+    error status = target_->write(io::location_view{location_}, buffer_);
     if (status) {
       return status;
     }
@@ -55,7 +56,7 @@ private:
 
 source::~source() = default;
 
-io::input_stream_result source::open_read(io::path_view location, memory_resource* resource) {
+io::input_stream_result source::open_read(io::location_view location, memory_resource* resource) {
   io::byte_buffer_result bytes = read(location, resource);
   if (bytes.failed()) {
     return fail<io::input_stream_ptr>(bytes.error());
@@ -64,11 +65,11 @@ io::input_stream_result source::open_read(io::path_view location, memory_resourc
   return ok(io::make_input_stream(std::move(bytes.value), resource));
 }
 
-error source::write(io::path_view, std::span<const std::byte>) {
+error source::write(io::location_view, std::span<const std::byte>) {
   return {error_domain::resources, errc::unsupported};
 }
 
-io::output_stream_result source::open_write(io::path_view location, memory_resource* resource) {
+io::output_stream_result source::open_write(io::location_view location, memory_resource* resource) {
   if (location.empty()) {
     return fail<io::output_stream_ptr>({error_domain::resources, errc::invalid_argument});
   }
@@ -87,11 +88,11 @@ file_source::file_source(io::file_system& file_system) noexcept : file_system_(&
 
 io::file_system& file_source::file_system() const noexcept { return *file_system_; }
 
-bool file_source::exists(io::path_view location) const {
+bool file_source::exists(io::location_view location) const {
   return file_system_ != nullptr && file_system_->exists(location);
 }
 
-io::byte_buffer_result file_source::read(io::path_view location, memory_resource* resource) {
+io::byte_buffer_result file_source::read(io::location_view location, memory_resource* resource) {
   if (file_system_ == nullptr) {
     return fail<io::byte_buffer>({error_domain::resources, errc::backend_failure});
   }
@@ -99,7 +100,8 @@ io::byte_buffer_result file_source::read(io::path_view location, memory_resource
   return file_system_->read_all(location, resource);
 }
 
-io::input_stream_result file_source::open_read(io::path_view location, memory_resource* resource) {
+io::input_stream_result file_source::open_read(io::location_view location,
+                                               memory_resource* resource) {
   if (file_system_ == nullptr) {
     return fail<io::input_stream_ptr>({error_domain::resources, errc::backend_failure});
   }
@@ -107,7 +109,7 @@ io::input_stream_result file_source::open_read(io::path_view location, memory_re
   return file_system_->open_read(location, resource);
 }
 
-error file_source::write(io::path_view location, std::span<const std::byte> bytes) {
+error file_source::write(io::location_view location, std::span<const std::byte> bytes) {
   if (file_system_ == nullptr) {
     return {error_domain::resources, errc::backend_failure};
   }
@@ -115,7 +117,7 @@ error file_source::write(io::path_view location, std::span<const std::byte> byte
   return file_system_->write_all(location, bytes);
 }
 
-io::output_stream_result file_source::open_write(io::path_view location,
+io::output_stream_result file_source::open_write(io::location_view location,
                                                  memory_resource* resource) {
   if (file_system_ == nullptr) {
     return fail<io::output_stream_ptr>({error_domain::resources, errc::backend_failure});
@@ -130,7 +132,7 @@ provider::provider(memory_resource* resource)
 
 memory_resource* provider::resource() const noexcept { return resource_; }
 
-error provider::bind(resource_guid guid, resources::source& source, io::path_view location) {
+error provider::bind(resource_guid guid, resources::source& source, io::location_view location) {
   if (!guid || location.empty()) {
     return {error_domain::resources, errc::invalid_argument};
   }
@@ -142,7 +144,7 @@ error provider::bind(resource_guid guid, resources::source& source, io::path_vie
   return {};
 }
 
-error provider::rebind(resource_guid guid, resources::source& source, io::path_view location) {
+error provider::rebind(resource_guid guid, resources::source& source, io::location_view location) {
   if (!guid || location.empty()) {
     return {error_domain::resources, errc::invalid_argument};
   }
@@ -176,7 +178,7 @@ source_location provider::find(resource_guid guid) const {
     return {};
   }
 
-  return {position->second.source, io::path_view{position->second.location}};
+  return {position->second.source, io::location_view{position->second.location}};
 }
 
 bool provider::exists(resource_guid guid) const {

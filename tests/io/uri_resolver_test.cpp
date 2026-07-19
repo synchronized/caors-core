@@ -21,17 +21,19 @@ TEST_CASE("io - uri parses scheme authority and path", "[io]") {
 }
 
 TEST_CASE("io - location normalization preserves uri routing parts", "[io]") {
-  const caors::io::path relative = caors::io::normalize_location("\\assets//textures\\albedo.png");
+  const caors::io::location relative =
+      caors::io::normalize_location("\\assets//textures\\albedo.png");
   CHECK(relative.string_view() == "assets/textures/albedo.png");
 
-  const caors::io::path uri =
+  const caors::io::location uri =
       caors::io::normalize_location("caors://assets//textures\\albedo.png?debug=true");
   CHECK(uri.string_view() == "caors://assets/textures/albedo.png");
 
-  const caors::io::path file_uri = caors::io::normalize_location("file:///project//config.json");
+  const caors::io::location file_uri =
+      caors::io::normalize_location("file:///project//config.json");
   CHECK(file_uri.string_view() == "file:///project/config.json");
 
-  const caors::io::path joined =
+  const caors::io::location joined =
       caors::io::join_location("caors://assets/textures", "\\albedo.png");
   CHECK(joined.string_view() == "caors://assets/textures/albedo.png");
 }

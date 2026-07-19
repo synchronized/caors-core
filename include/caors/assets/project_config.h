@@ -7,6 +7,7 @@
 #include "caors/core/containers.h"
 #include "caors/core/string_name.h"
 #include "caors/error.h"
+#include "caors/io/location.h"
 #include "caors/io/path.h"
 #include "caors/meta/value/variant.h"
 #include "caors/resources/id.h"
@@ -21,8 +22,35 @@ struct project_source_config {
 
   core::string_name name{};
   core::string_name type{};
+  /** @brief 使用已配置 file_system 创建 file_source 时引用的文件系统名称。 */
+  core::string_name file_system{};
   io::path root;
   /** @brief 传给 source factory 的扩展配置对象；未配置时为 null。 */
+  variant options{};
+};
+
+/** @brief file_system 路由描述。resolver 使用 URI 前缀，mount 使用虚拟路径前缀。 */
+struct project_file_system_route_config {
+  explicit project_file_system_route_config(memory_resource* resource = nullptr)
+      : prefix(resource), target_prefix(resource) {}
+
+  io::location prefix;
+  core::string_name target{};
+  io::path target_prefix;
+};
+
+/** @brief 工程文件系统描述。运行期 file_system 对象由 asset_manager 创建或上层代码绑定。 */
+struct project_file_system_config {
+  using route_list = core::vector<project_file_system_route_config>;
+
+  explicit project_file_system_config(memory_resource* resource = nullptr)
+      : root(resource), routes(typename route_list::allocator_type{resource}), options{} {}
+
+  core::string_name name{};
+  core::string_name type{};
+  io::path root;
+  route_list routes;
+  /** @brief 传给 file_system factory 的扩展配置对象；内置类型当前不读取该字段。 */
   variant options{};
 };
 
@@ -33,7 +61,7 @@ struct project_resource_config {
 
   resource_guid guid{};
   core::string_name source{};
-  io::path location;
+  io::location location;
   core::string_name type{};
   core::string hash;
   std::uint64_t version = 0;
@@ -61,6 +89,7 @@ struct project_dependency_config {
  * `loader` 或 `database`。运行期对象应由 `asset_manager` 或上层 builder 根据这些描述创建和绑定。
  */
 struct project_config {
+  using file_system_list = core::vector<project_file_system_config>;
   using source_list = core::vector<project_source_config>;
   using resource_list = core::vector<project_resource_config>;
   using resource_type_list = core::vector<project_resource_type_config>;
@@ -69,6 +98,7 @@ struct project_config {
 
   explicit project_config(memory_resource* memory = nullptr)
       : resource(memory != nullptr ? memory : get_default_memory_resource()),
+        file_systems(typename file_system_list::allocator_type{resource}),
         sources(typename source_list::allocator_type{resource}),
         resources(typename resource_list::allocator_type{resource}),
         resource_types(typename resource_type_list::allocator_type{resource}),
@@ -78,6 +108,7 @@ struct project_config {
   /** @brief 清空全部配置描述。 */
   void clear() noexcept {
     schema_version = 1;
+    file_systems.clear();
     sources.clear();
     resources.clear();
     resource_types.clear();
@@ -89,6 +120,7 @@ struct project_config {
   memory_resource* resource = nullptr;
   /** @brief 工程资源配置 schema 版本。当前支持版本 1。 */
   std::uint32_t schema_version = 1;
+  file_system_list file_systems;
   source_list sources;
   resource_list resources;
   resource_type_list resource_types;

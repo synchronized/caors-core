@@ -3,8 +3,11 @@
 
 #include "caors/assets/asset_manager.h"
 
+#include "caors/io/file_system_resolver.h"
 #include "caors/io/memory_file_system.h"
+#include "caors/io/mount_file_system.h"
 #include "caors/io/native_file_system.h"
+#include "caors/io/uri.h"
 
 #include <algorithm>
 #include <optional>
@@ -324,6 +327,26 @@ void set_build_failure(asset_build_result& result, asset_build_stage stage, std:
   }
 }
 
+[[nodiscard]] bool is_type(core::string_name value, std::string_view expected) noexcept {
+  return value == expected;
+}
+
+[[nodiscard]] bool is_memory_file_system_type(core::string_name value) noexcept {
+  return is_type(value, "memory_file_system") || is_type(value, "memory");
+}
+
+[[nodiscard]] bool is_native_file_system_type(core::string_name value) noexcept {
+  return is_type(value, "native_file_system") || is_type(value, "native");
+}
+
+[[nodiscard]] bool is_resolver_file_system_type(core::string_name value) noexcept {
+  return is_type(value, "file_system_resolver") || is_type(value, "resolver");
+}
+
+[[nodiscard]] bool is_mount_file_system_type(core::string_name value) noexcept {
+  return is_type(value, "mount_file_system") || is_type(value, "mount");
+}
+
 } // namespace
 
 error asset_manager::make_memory_file_source(source_factory_context& context,
@@ -351,6 +374,23 @@ error asset_manager::make_native_file_source(source_factory_context& context,
           : context.manager.create_owned<io::native_file_system>(config.root, context.resource);
   if (file_system == nullptr) {
     return {error_domain::resources, errc::out_of_memory};
+  }
+
+  auto* source = context.manager.create_owned<resources::file_source>(*file_system);
+  if (source == nullptr) {
+    return {error_domain::resources, errc::out_of_memory};
+  }
+
+  return context.manager.bind_source(config.name, *source);
+}
+
+error asset_manager::make_bound_file_source(source_factory_context& context,
+                                            const project_source_config& config, void* user_data) {
+  (void)user_data;
+  const core::string_name file_system_name = config.file_system ? config.file_system : config.name;
+  io::file_system* file_system = context.manager.find_file_system(file_system_name);
+  if (file_system == nullptr) {
+    return {error_domain::resources, errc::not_found};
   }
 
   auto* source = context.manager.create_owned<resources::file_source>(*file_system);
@@ -408,7 +448,8 @@ void asset_manager::owned_runtime_object::reset() noexcept {
 asset_manager::asset_manager(memory_resource* resource)
     : resource_(resource != nullptr ? resource : get_default_memory_resource()),
       manifest_(resource_), provider_(resource_), dependency_graph_(resource_),
-      database_(resource_), sources_(typename source_map::allocator_type{resource_}),
+      database_(resource_), file_systems_(typename file_system_map::allocator_type{resource_}),
+      sources_(typename source_map::allocator_type{resource_}),
       source_factories_(typename source_factory_map::allocator_type{resource_}),
       type_factories_(typename type_factory_map::allocator_type{resource_}),
       owned_objects_(typename owned_object_list::allocator_type{resource_}),
@@ -423,10 +464,38 @@ asset_manager::~asset_manager() {
   database_.clear_registered_types();
   provider_.clear();
   sources_.clear();
+  file_systems_.clear();
   type_factories_.clear();
   source_factories_.clear();
   manual_type_bindings_.clear();
   owned_objects_.clear();
+}
+
+error asset_manager::bind_file_system(core::string_name name, io::file_system& file_system) {
+  if (!name) {
+    return {error_domain::resources, errc::invalid_argument};
+  }
+
+  const auto position = file_systems_.find(name);
+  if (position != file_systems_.end()) {
+    if (position->second.file_system != &file_system) {
+      return {error_domain::resources, errc::already_exists};
+    }
+
+    return {};
+  }
+
+  file_systems_.emplace(name, file_system_binding{&file_system, building_config_runtime_});
+  return {};
+}
+
+bool asset_manager::unbind_file_system(core::string_name name) {
+  return file_systems_.erase(name) != 0;
+}
+
+io::file_system* asset_manager::find_file_system(core::string_name name) const {
+  const auto position = file_systems_.find(name);
+  return position != file_systems_.end() ? position->second.file_system : nullptr;
 }
 
 error asset_manager::bind_source(core::string_name name, resources::source& source) {
@@ -506,6 +575,26 @@ asset_build_result asset_manager::build_detailed(const project_config& config) {
   provider_.clear();
   dependency_graph_.clear();
 
+  for (std::size_t index = 0; index < config.file_systems.size(); ++index) {
+    const project_file_system_config& file_system_config = config.file_systems[index];
+    status = ensure_file_system_from_config(file_system_config, result.reasons);
+    if (status) {
+      set_build_failure(result, asset_build_stage::file_system, index, status,
+                        file_system_config.name, file_system_config.type, {}, {});
+      return result;
+    }
+  }
+
+  for (std::size_t index = 0; index < config.file_systems.size(); ++index) {
+    const project_file_system_config& file_system_config = config.file_systems[index];
+    status = configure_file_system_from_config(file_system_config, result.reasons);
+    if (status) {
+      set_build_failure(result, asset_build_stage::file_system, index, status,
+                        file_system_config.name, file_system_config.type, {}, {});
+      return result;
+    }
+  }
+
   for (std::size_t index = 0; index < config.sources.size(); ++index) {
     const project_source_config& source_config = config.sources[index];
     status = ensure_source_from_config(source_config, result.reasons);
@@ -573,6 +662,116 @@ asset_build_result asset_manager::build_detailed(const project_config& config) {
   }
 
   return result;
+}
+
+error asset_manager::ensure_file_system_from_config(const project_file_system_config& config,
+                                                    asset_build_result::reason_list& reasons) {
+  if (!config.name || !config.type) {
+    append_reason_text(reasons, "file_system 配置缺少 name 或 type");
+    return {error_domain::resources, errc::invalid_argument};
+  }
+
+  if (find_file_system(config.name) != nullptr) {
+    return {};
+  }
+
+  io::file_system* file_system = nullptr;
+  const bool previous = building_config_runtime_;
+  building_config_runtime_ = true;
+  if (is_memory_file_system_type(config.type)) {
+    file_system = create_owned<io::memory_file_system>(resource_);
+  } else if (is_native_file_system_type(config.type)) {
+    file_system = config.root.empty()
+                      ? create_owned<io::native_file_system>(resource_)
+                      : create_owned<io::native_file_system>(config.root, resource_);
+  } else if (is_resolver_file_system_type(config.type)) {
+    file_system = create_owned<io::file_system_resolver>(resource_);
+  } else if (is_mount_file_system_type(config.type)) {
+    file_system = create_owned<io::mount_file_system>(resource_);
+  } else {
+    building_config_runtime_ = previous;
+    append_reason_text(reasons, "file_system 配置没有匹配的内置类型");
+    return {error_domain::resources, errc::not_found};
+  }
+  building_config_runtime_ = previous;
+
+  if (file_system == nullptr) {
+    building_config_runtime_ = previous;
+    return {error_domain::resources, errc::out_of_memory};
+  }
+
+  const error status = bind_file_system(config.name, *file_system);
+  building_config_runtime_ = previous;
+  return status;
+}
+
+error asset_manager::configure_file_system_from_config(const project_file_system_config& config,
+                                                       asset_build_result::reason_list& reasons) {
+  if (config.routes.empty()) {
+    return {};
+  }
+
+  io::file_system* file_system = find_file_system(config.name);
+  if (file_system == nullptr) {
+    append_reason_text(reasons, "file_system 路由配置找不到目标 file_system");
+    return {error_domain::resources, errc::not_found};
+  }
+
+  if (is_resolver_file_system_type(config.type)) {
+    auto* resolver = dynamic_cast<io::file_system_resolver*>(file_system);
+    if (resolver == nullptr) {
+      append_reason_text(reasons, "file_system 路由配置要求 resolver 类型");
+      return {error_domain::resources, errc::invalid_argument};
+    }
+
+    for (const project_file_system_route_config& route : config.routes) {
+      io::file_system* target = find_file_system(route.target);
+      if (target == nullptr) {
+        append_reason_text(reasons, "resolver 路由找不到 target file_system");
+        return {error_domain::resources, errc::not_found};
+      }
+
+      const error status =
+          resolver->mount(io::uri_view{route.prefix}, *target, route.target_prefix);
+      if (status) {
+        return status;
+      }
+    }
+
+    return {};
+  }
+
+  if (is_mount_file_system_type(config.type)) {
+    auto* mount = dynamic_cast<io::mount_file_system*>(file_system);
+    if (mount == nullptr) {
+      append_reason_text(reasons, "file_system 路由配置要求 mount 类型");
+      return {error_domain::resources, errc::invalid_argument};
+    }
+
+    for (const project_file_system_route_config& route : config.routes) {
+      const io::uri_view prefix_uri{route.prefix};
+      if (prefix_uri.has_scheme()) {
+        append_reason_text(reasons, "mount_file_system 路由 prefix 不能包含 URI scheme");
+        return {error_domain::resources, errc::invalid_argument};
+      }
+
+      io::file_system* target = find_file_system(route.target);
+      if (target == nullptr) {
+        append_reason_text(reasons, "mount 路由找不到 target file_system");
+        return {error_domain::resources, errc::not_found};
+      }
+
+      const error status = mount->mount(route.prefix, *target, route.target_prefix);
+      if (status) {
+        return status;
+      }
+    }
+
+    return {};
+  }
+
+  append_reason_text(reasons, "只有 resolver 或 mount file_system 可以配置 routes");
+  return {error_domain::resources, errc::invalid_argument};
 }
 
 error asset_manager::ensure_source_from_config(const project_source_config& config,
@@ -656,8 +855,14 @@ error asset_manager::register_builtin_source_factories() {
     return status;
   }
 
-  return register_source_factory(core::string_name{"native"},
-                                 source_factory_ops{&asset_manager::make_native_file_source});
+  status = register_source_factory(core::string_name{"native"},
+                                   source_factory_ops{&asset_manager::make_native_file_source});
+  if (status) {
+    return status;
+  }
+
+  return register_source_factory(core::string_name{"file_system"},
+                                 source_factory_ops{&asset_manager::make_bound_file_source});
 }
 
 resources::source*
@@ -679,6 +884,14 @@ asset_manager::resolve_resource_source(const project_config& config,
 }
 
 error asset_manager::clear_config_runtime() {
+  for (auto position = file_systems_.begin(); position != file_systems_.end();) {
+    if (position->second.config_created) {
+      position = file_systems_.erase(position);
+    } else {
+      ++position;
+    }
+  }
+
   for (auto position = sources_.begin(); position != sources_.end();) {
     if (position->second.config_created) {
       position = sources_.erase(position);

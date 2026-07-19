@@ -97,12 +97,12 @@ public:
 
 class read_only_source final : public caors::resources::source {
 public:
-  [[nodiscard]] bool exists(caors::io::path_view location) const override {
+  [[nodiscard]] bool exists(caors::io::location_view location) const override {
     return !location.empty();
   }
 
   [[nodiscard]] caors::io::byte_buffer_result
-  read(caors::io::path_view location, caors::memory_resource* resource = nullptr) override {
+  read(caors::io::location_view location, caors::memory_resource* resource = nullptr) override {
     if (location.empty()) {
       return {{caors::error_domain::resources, caors::errc::invalid_argument}, {}};
     }

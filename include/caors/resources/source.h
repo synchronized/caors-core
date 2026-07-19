@@ -6,6 +6,7 @@
 
 #include "caors/core/containers.h"
 #include "caors/io/file_system.h"
+#include "caors/io/location.h"
 #include "caors/resources/id.h"
 
 #include <cstddef>
@@ -31,10 +32,10 @@ public:
   source& operator=(source&&) = delete;
 
   /** @brief 判断指定位置是否存在。 */
-  [[nodiscard]] virtual bool exists(io::path_view location) const = 0;
+  [[nodiscard]] virtual bool exists(io::location_view location) const = 0;
 
   /** @brief 读取指定位置的完整字节内容。 */
-  [[nodiscard]] virtual io::byte_buffer_result read(io::path_view location,
+  [[nodiscard]] virtual io::byte_buffer_result read(io::location_view location,
                                                     memory_resource* resource = nullptr) = 0;
 
   /**
@@ -42,22 +43,22 @@ public:
    *
    * 默认实现通过 `read()` 建立内存输入流。需要真正分块读取的来源可以覆盖该函数。
    */
-  [[nodiscard]] virtual io::input_stream_result open_read(io::path_view location,
+  [[nodiscard]] virtual io::input_stream_result open_read(io::location_view location,
                                                           memory_resource* resource = nullptr);
 
   /** @brief 写入指定位置的完整字节内容；默认返回 `errc::unsupported`。 */
-  [[nodiscard]] virtual error write(io::path_view location, std::span<const std::byte> bytes);
+  [[nodiscard]] virtual error write(io::location_view location, std::span<const std::byte> bytes);
 
   /**
    * @brief 打开指定位置的同步输出流。
    *
    * 默认实现使用内存缓冲，并在 `close()` 时调用 `write()` 提交。
    */
-  [[nodiscard]] virtual io::output_stream_result open_write(io::path_view location,
+  [[nodiscard]] virtual io::output_stream_result open_write(io::location_view location,
                                                             memory_resource* resource = nullptr);
 
   /** @brief 写入指定位置的字符串内容。 */
-  [[nodiscard]] error write(io::path_view location, std::string_view text) {
+  [[nodiscard]] error write(io::location_view location, std::string_view text) {
     return write(location, std::span<const std::byte>{
                                reinterpret_cast<const std::byte*>(text.data()), text.size()});
   }
@@ -77,13 +78,13 @@ public:
   /** @brief 返回底层文件系统。 */
   [[nodiscard]] io::file_system& file_system() const noexcept;
 
-  [[nodiscard]] bool exists(io::path_view location) const override;
-  [[nodiscard]] io::byte_buffer_result read(io::path_view location,
+  [[nodiscard]] bool exists(io::location_view location) const override;
+  [[nodiscard]] io::byte_buffer_result read(io::location_view location,
                                             memory_resource* resource = nullptr) override;
-  [[nodiscard]] io::input_stream_result open_read(io::path_view location,
+  [[nodiscard]] io::input_stream_result open_read(io::location_view location,
                                                   memory_resource* resource = nullptr) override;
-  [[nodiscard]] error write(io::path_view location, std::span<const std::byte> bytes) override;
-  [[nodiscard]] io::output_stream_result open_write(io::path_view location,
+  [[nodiscard]] error write(io::location_view location, std::span<const std::byte> bytes) override;
+  [[nodiscard]] io::output_stream_result open_write(io::location_view location,
                                                     memory_resource* resource = nullptr) override;
 
 private:
@@ -97,7 +98,7 @@ private:
  */
 struct source_location {
   resources::source* source = nullptr;
-  io::path_view location{};
+  io::location_view location{};
 
   [[nodiscard]] explicit operator bool() const noexcept {
     return source != nullptr && !location.empty();
@@ -123,10 +124,12 @@ public:
   [[nodiscard]] memory_resource* resource() const noexcept;
 
   /** @brief 绑定 GUID 到指定来源和位置。 */
-  [[nodiscard]] error bind(resource_guid guid, resources::source& source, io::path_view location);
+  [[nodiscard]] error bind(resource_guid guid, resources::source& source,
+                           io::location_view location);
 
   /** @brief 绑定或更新 GUID 到指定来源和位置。 */
-  [[nodiscard]] error rebind(resource_guid guid, resources::source& source, io::path_view location);
+  [[nodiscard]] error rebind(resource_guid guid, resources::source& source,
+                             io::location_view location);
 
   /** @brief 解绑 GUID。 */
   [[nodiscard]] bool unbind(resource_guid guid);

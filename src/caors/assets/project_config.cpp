@@ -3,7 +3,7 @@
 
 #include "caors/assets/project_config.h"
 
-#include "caors/io/uri.h"
+#include "caors/io/location.h"
 
 #include <cstdint>
 #include <limits>
@@ -27,6 +27,9 @@ namespace {
   const variant* member = object.find_member_variant(core::string_name{name});
   return member != nullptr ? member->try_as_string() : nullptr;
 }
+
+template <typename Reader>
+[[nodiscard]] error read_array(const variant& root, std::string_view name, Reader&& reader);
 
 [[nodiscard]] error read_version(const variant& object, std::uint64_t& version) {
   const variant* member = object.find_member_variant(core::string_name{"version"});
@@ -120,6 +123,10 @@ namespace {
   project_source_config source_config{target.resource};
   source_config.name = core::string_name{string_view_of(*name_text)};
   source_config.type = read_optional_name(value, "type");
+  source_config.file_system = read_optional_name(value, "file_system");
+  if (!source_config.type && source_config.file_system) {
+    source_config.type = core::string_name{"file_system"};
+  }
 
   if (const core::string* root_text = find_string_member(value, "root")) {
     source_config.root = io::normalize_path(string_view_of(*root_text), target.resource);
@@ -131,6 +138,75 @@ namespace {
   }
 
   target.sources.push_back(std::move(source_config));
+  return {};
+}
+
+[[nodiscard]] error read_file_system_route_config(project_config& target,
+                                                  project_file_system_config& file_system_config,
+                                                  const variant& value) {
+  if (!value.is_object()) {
+    return {error_domain::resources, errc::invalid_argument};
+  }
+
+  const core::string* prefix_text = find_string_member(value, "prefix");
+  const core::string* target_text = find_string_member(value, "target");
+  if (prefix_text == nullptr || target_text == nullptr) {
+    return {error_domain::resources, errc::invalid_argument};
+  }
+
+  project_file_system_route_config route_config{target.resource};
+  route_config.prefix = io::normalize_location(string_view_of(*prefix_text), target.resource);
+  route_config.target = core::string_name{string_view_of(*target_text)};
+
+  if (const core::string* target_prefix_text = find_string_member(value, "target_prefix")) {
+    route_config.target_prefix =
+        io::normalize_path(string_view_of(*target_prefix_text), target.resource);
+  }
+
+  if (route_config.prefix.empty() || !route_config.target) {
+    return {error_domain::resources, errc::invalid_argument};
+  }
+
+  file_system_config.routes.push_back(std::move(route_config));
+  return {};
+}
+
+[[nodiscard]] error read_file_system_config(project_config& target, const variant& value) {
+  if (!value.is_object()) {
+    return {error_domain::resources, errc::invalid_argument};
+  }
+
+  const core::string* name_text = find_string_member(value, "name");
+  const core::string* type_text = find_string_member(value, "type");
+  if (name_text == nullptr || type_text == nullptr) {
+    return {error_domain::resources, errc::invalid_argument};
+  }
+
+  project_file_system_config file_system_config{target.resource};
+  file_system_config.name = core::string_name{string_view_of(*name_text)};
+  file_system_config.type = core::string_name{string_view_of(*type_text)};
+
+  if (const core::string* root_text = find_string_member(value, "root")) {
+    file_system_config.root = io::normalize_path(string_view_of(*root_text), target.resource);
+  }
+
+  error status = read_options(value, file_system_config.options);
+  if (status) {
+    return status;
+  }
+
+  status = read_array(value, "routes", [&](const variant& entry) {
+    return read_file_system_route_config(target, file_system_config, entry);
+  });
+  if (status) {
+    return status;
+  }
+
+  if (!file_system_config.name || !file_system_config.type) {
+    return {error_domain::resources, errc::invalid_argument};
+  }
+
+  target.file_systems.push_back(std::move(file_system_config));
   return {};
 }
 
@@ -271,6 +347,12 @@ template <typename Reader>
   }
 
   error status = read_schema_version(value, target.schema_version);
+  if (status) {
+    return status;
+  }
+
+  status = read_array(value, "file_systems",
+                      [&](const variant& entry) { return read_file_system_config(target, entry); });
   if (status) {
     return status;
   }
