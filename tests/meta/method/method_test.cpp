@@ -149,6 +149,56 @@ TEST_CASE("meta - method view invokes rvalue reference parameters through argume
   CHECK(instance.value == 21);
 }
 
+TEST_CASE("meta - method invoke result preserves void value and reference returns", "[meta]") {
+  const caors::error result =
+      caors::registration::type_<invoke_result_actor>("caors.test.meta.invoke_result_actor")
+          .meta()
+          .method("set", &invoke_result_actor::set)
+          .method("score", &invoke_result_actor::score)
+          .method("ref", &invoke_result_actor::ref)
+          .method("cref", &invoke_result_actor::cref)
+          .commit();
+  REQUIRE((result == caors::error{} || result == meta_error(caors::errc::duplicate_id)));
+
+  const caors::meta::type reflected = caors::meta::find("caors.test.meta.invoke_result_actor");
+  REQUIRE(reflected);
+
+  invoke_result_actor instance{5};
+  caors::meta::instance object = caors::meta::view(instance);
+
+  int next = 7;
+  std::array<caors::argument, 1> arguments{caors::arg(next)};
+  const caors::meta::invoke_result set_result =
+      reflected.find_method("set").invoke_result_of(object, arguments);
+  REQUIRE(set_result);
+  CHECK(set_result.kind() == caors::meta::invoke_result_kind::void_value);
+  CHECK(instance.value == 7);
+
+  caors::meta::invoke_result score_result =
+      reflected.find_method("score").invoke_result_of(caors::meta::view_const(instance));
+  REQUIRE(score_result);
+  CHECK(score_result.kind() == caors::meta::invoke_result_kind::value);
+  const int* score = score_result.try_get<int>();
+  REQUIRE(score != nullptr);
+  CHECK(*score == 21);
+
+  caors::meta::invoke_result ref_result = reflected.find_method("ref").invoke_result_of(object);
+  REQUIRE(ref_result);
+  CHECK(ref_result.kind() == caors::meta::invoke_result_kind::reference);
+  int* value_ref = ref_result.try_get_mutable<int>();
+  REQUIRE(value_ref != nullptr);
+  *value_ref = 11;
+  CHECK(instance.value == 11);
+  CHECK_FALSE(reflected.find_method("ref").invoke(object));
+
+  caors::meta::invoke_result cref_result =
+      reflected.find_method("cref").invoke_result_of(caors::meta::view_const(instance));
+  REQUIRE(cref_result);
+  CHECK(cref_result.kind() == caors::meta::invoke_result_kind::reference);
+  CHECK(cref_result.try_get<int>() != nullptr);
+  CHECK(cref_result.try_get_mutable<int>() == nullptr);
+}
+
 // 原测试文件：meta_method_method_view_rejects_invalid_calls_test.cpp
 
 #include "meta_method_test_support.h"

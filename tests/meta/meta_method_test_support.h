@@ -38,6 +38,15 @@ struct rvalue_method_actor {
   void take(int&& amount) { value = amount; }
 };
 
+struct invoke_result_actor {
+  int value = 0;
+
+  void set(int next) { value = next; }
+  int score() const { return value * 3; }
+  int& ref() { return value; }
+  const int& cref() const { return value; }
+};
+
 [[nodiscard]] inline caors::meta::type require_method_type() {
   const caors::error result =
       caors::registration::type_<method_actor>("caors.test.meta.method_actor")

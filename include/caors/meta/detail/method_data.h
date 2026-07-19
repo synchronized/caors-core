@@ -8,7 +8,7 @@
 #include "caors/memory/unique_ptr.h"
 #include "caors/meta/detail/argument_access.h"
 #include "caors/meta/metadata.h"
-#include "caors/meta/type.h"
+#include "caors/meta/method.h"
 
 #include <array>
 #include <cstddef>
@@ -32,8 +32,8 @@ struct method_ops {
                                                           std::size_t index) noexcept;
   using match_arguments_fn = bool (*)(const method_data& method,
                                       std::span<const argument> arguments) noexcept;
-  using invoke_fn = any (*)(const method_data& method, const void* object, bool mutable_object,
-                            std::span<const argument> arguments);
+  using invoke_fn = invoke_result (*)(const method_data& method, const void* object,
+                                      bool mutable_object, std::span<const argument> arguments);
 
   type_fn get_owner_type = nullptr;
   type_fn get_return_type = nullptr;
@@ -51,8 +51,8 @@ struct method_ops {
 /**
  * @brief 底层成员方法反射元信息。
  *
- * 方法调用只支持已注册的成员函数指针。参数通过 `argument` 传入，返回值通过 `any`
- * 拷贝返回；`void` 返回值会得到无效 `any`。
+ * 方法调用只支持已注册的成员函数指针。参数通过 `argument` 传入，返回值通过
+ * `invoke_result` 区分失败、`void` 成功、拥有值返回和引用返回。
  */
 class method_data final {
 public:
@@ -143,9 +143,15 @@ public:
     return true;
   }
 
+  [[nodiscard]] invoke_result invoke_result_of(const void* object, bool mutable_object,
+                                               std::span<const argument> arguments) const {
+    return ops_.invoke(*this, object, mutable_object, arguments);
+  }
+
   [[nodiscard]] any invoke(const void* object, bool mutable_object,
                            std::span<const argument> arguments) const {
-    return ops_.invoke(*this, object, mutable_object, arguments);
+    invoke_result result = invoke_result_of(object, mutable_object, arguments);
+    return result.has_value() ? std::move(result.mutable_value()) : any{};
   }
 
   template <typename Member> [[nodiscard]] Member load_member_pointer() const noexcept {
@@ -254,43 +260,54 @@ private:
 
 template <typename T> using method_value_type = argument_value_type<T>;
 
-template <typename Class, typename Return, typename... Arguments, std::size_t... Index>
-[[nodiscard]] any invoke_member_impl(Return (Class::*member)(Arguments...), Class& object,
-                                     std::span<const argument> arguments,
-                                     std::index_sequence<Index...>) {
-  if constexpr (std::is_void_v<Return>) {
-    std::invoke(member, object, argument_value<Arguments>(arguments[Index])...);
-    return {};
+template <typename Return, typename Result>
+[[nodiscard]] invoke_result make_method_invoke_result(Result&& result) {
+  if constexpr (std::is_lvalue_reference_v<Return>) {
+    return invoke_result::reference(any_ref::from(std::forward<Result>(result)));
   } else {
-    static_assert(std::is_copy_constructible_v<method_value_type<Return>>,
-                  "Reflected method return values must be copy constructible");
-    decltype(auto) result =
-        std::invoke(member, object, argument_value<Arguments>(arguments[Index])...);
-    return any::from(result);
+    using value_type = method_value_type<Return>;
+    if constexpr (std::is_copy_constructible_v<value_type>) {
+      return invoke_result::value(any::from(result));
+    } else {
+      return invoke_result::failed();
+    }
   }
 }
 
 template <typename Class, typename Return, typename... Arguments, std::size_t... Index>
-[[nodiscard]] any invoke_member_impl(Return (Class::*member)(Arguments...) const,
-                                     const Class& object, std::span<const argument> arguments,
-                                     std::index_sequence<Index...>) {
+[[nodiscard]] invoke_result invoke_member_impl(Return (Class::*member)(Arguments...), Class& object,
+                                               std::span<const argument> arguments,
+                                               std::index_sequence<Index...>) {
   if constexpr (std::is_void_v<Return>) {
     std::invoke(member, object, argument_value<Arguments>(arguments[Index])...);
-    return {};
+    return invoke_result::void_value();
   } else {
-    static_assert(std::is_copy_constructible_v<method_value_type<Return>>,
-                  "Reflected method return values must be copy constructible");
     decltype(auto) result =
         std::invoke(member, object, argument_value<Arguments>(arguments[Index])...);
-    return any::from(result);
+    return make_method_invoke_result<Return>(result);
+  }
+}
+
+template <typename Class, typename Return, typename... Arguments, std::size_t... Index>
+[[nodiscard]] invoke_result
+invoke_member_impl(Return (Class::*member)(Arguments...) const, const Class& object,
+                   std::span<const argument> arguments, std::index_sequence<Index...>) {
+  if constexpr (std::is_void_v<Return>) {
+    std::invoke(member, object, argument_value<Arguments>(arguments[Index])...);
+    return invoke_result::void_value();
+  } else {
+    decltype(auto) result =
+        std::invoke(member, object, argument_value<Arguments>(arguments[Index])...);
+    return make_method_invoke_result<Return>(result);
   }
 }
 
 template <typename Class, typename Return, typename... Arguments>
-[[nodiscard]] any invoke_member_method(const method_data& method, const void* object,
-                                       bool mutable_object, std::span<const argument> arguments) {
+[[nodiscard]] invoke_result invoke_member_method(const method_data& method, const void* object,
+                                                 bool mutable_object,
+                                                 std::span<const argument> arguments) {
   if (object == nullptr || !mutable_object || !arguments_match<Arguments...>(arguments)) {
-    return {};
+    return invoke_result::failed();
   }
 
   auto member = method.template load_member_pointer<Return (Class::*)(Arguments...)>();
@@ -299,11 +316,11 @@ template <typename Class, typename Return, typename... Arguments>
 }
 
 template <typename Class, typename Return, typename... Arguments>
-[[nodiscard]] any invoke_const_member_method(const method_data& method, const void* object,
-                                             bool /*mutable_object*/,
-                                             std::span<const argument> arguments) {
+[[nodiscard]] invoke_result invoke_const_member_method(const method_data& method,
+                                                       const void* object, bool /*mutable_object*/,
+                                                       std::span<const argument> arguments) {
   if (object == nullptr || !arguments_match<Arguments...>(arguments)) {
-    return {};
+    return invoke_result::failed();
   }
 
   auto member = method.template load_member_pointer<Return (Class::*)(Arguments...) const>();
@@ -404,30 +421,28 @@ template <typename Class, typename Return, typename... Arguments>
 }
 
 template <typename Return, typename... Arguments, std::size_t... Index>
-[[nodiscard]] any invoke_global_impl(Return (*function)(Arguments...),
-                                     std::span<const argument> arguments,
-                                     std::index_sequence<Index...>) {
+[[nodiscard]] invoke_result invoke_global_impl(Return (*function)(Arguments...),
+                                               std::span<const argument> arguments,
+                                               std::index_sequence<Index...>) {
   if constexpr (std::is_void_v<Return>) {
     std::invoke(function, argument_value<Arguments>(arguments[Index])...);
-    return {};
+    return invoke_result::void_value();
   } else {
-    static_assert(std::is_copy_constructible_v<method_value_type<Return>>,
-                  "Reflected function return values must be copy constructible");
     decltype(auto) result = std::invoke(function, argument_value<Arguments>(arguments[Index])...);
-    return any::from(result);
+    return make_method_invoke_result<Return>(result);
   }
 }
 
 template <typename Return, typename... Arguments>
-[[nodiscard]] any invoke_global_method(const method_data& method, const void*, bool,
-                                       std::span<const argument> arguments) {
+[[nodiscard]] invoke_result invoke_global_method(const method_data& method, const void*, bool,
+                                                 std::span<const argument> arguments) {
   if (!arguments_match<Arguments...>(arguments)) {
-    return {};
+    return invoke_result::failed();
   }
 
   auto function = method.template load_member_pointer<Return (*)(Arguments...)>();
   if (function == nullptr) {
-    return {};
+    return invoke_result::failed();
   }
 
   return invoke_global_impl(function, arguments, std::index_sequence_for<Arguments...>{});

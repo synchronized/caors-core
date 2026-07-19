@@ -17,11 +17,31 @@ namespace {
 
 } // namespace
 
+invoke_result invoke_result::value(any value) {
+  if (!value) {
+    return failed();
+  }
+
+  invoke_result result{};
+  result.kind_ = invoke_result_kind::value;
+  result.value_ = std::move(value);
+  return result;
+}
+
+invoke_result invoke_result::reference(any_ref ref) noexcept {
+  if (!ref) {
+    return failed();
+  }
+
+  invoke_result result{};
+  result.kind_ = invoke_result_kind::reference;
+  result.ref_ = ref;
+  return result;
+}
+
 method::method(const detail::method_data* method) noexcept : method_(method) {}
 
-bool method::valid() const noexcept {
-  return method_ != nullptr && method_->valid();
-}
+bool method::valid() const noexcept { return method_ != nullptr && method_->valid(); }
 
 core::string_name method::name() const noexcept {
   const detail::method_data* method = info();
@@ -63,22 +83,33 @@ const meta::metadata_value* method::find_metadata(meta::metadata_key key) const 
 }
 
 any method::invoke(const instance& object, std::span<const argument> arguments) const {
+  invoke_result result = invoke_result_of(object, arguments);
+  return result.has_value() ? std::move(result.mutable_value()) : any{};
+}
+
+invoke_result method::invoke_result_of(const instance& object,
+                                       std::span<const argument> arguments) const {
   const detail::method_data* method = info();
   if (method == nullptr || !object) {
-    return {};
+    return invoke_result::failed();
   }
 
-  return method->invoke(object.writable() ? object.mutable_data() : object.data(),
-                        object.writable(), arguments);
+  return method->invoke_result_of(object.writable() ? object.mutable_data() : object.data(),
+                                  object.writable(), arguments);
 }
 
 any method::invoke(std::span<const argument> arguments) const {
+  invoke_result result = invoke_result_of(arguments);
+  return result.has_value() ? std::move(result.mutable_value()) : any{};
+}
+
+invoke_result method::invoke_result_of(std::span<const argument> arguments) const {
   const detail::method_data* method = info();
   if (method == nullptr) {
-    return {};
+    return invoke_result::failed();
   }
 
-  return method->invoke(nullptr, false, arguments);
+  return method->invoke_result_of(nullptr, false, arguments);
 }
 
 const detail::method_data* method::info() const noexcept {
@@ -92,9 +123,7 @@ const detail::method_data* method::info() const noexcept {
 method_set::method_set(const detail::method_set_data* method_set) noexcept
     : method_set_(method_set) {}
 
-bool method_set::valid() const noexcept {
-  return method_set_ != nullptr && method_set_->valid();
-}
+bool method_set::valid() const noexcept { return method_set_ != nullptr && method_set_->valid(); }
 
 core::string_name method_set::name() const noexcept {
   const detail::method_set_data* method_set = info();
@@ -122,13 +151,24 @@ method method_set::resolve(std::span<const argument> arguments) const {
 }
 
 any method_set::invoke(const instance& object, std::span<const argument> arguments) const {
+  invoke_result result = invoke_result_of(object, arguments);
+  return result.has_value() ? std::move(result.mutable_value()) : any{};
+}
+
+invoke_result method_set::invoke_result_of(const instance& object,
+                                           std::span<const argument> arguments) const {
   const method target = resolve(arguments);
-  return target ? target.invoke(object, arguments) : any{};
+  return target ? target.invoke_result_of(object, arguments) : invoke_result::failed();
 }
 
 any method_set::invoke(std::span<const argument> arguments) const {
+  invoke_result result = invoke_result_of(arguments);
+  return result.has_value() ? std::move(result.mutable_value()) : any{};
+}
+
+invoke_result method_set::invoke_result_of(std::span<const argument> arguments) const {
   const method target = resolve(arguments);
-  return target ? target.invoke(arguments) : any{};
+  return target ? target.invoke_result_of(arguments) : invoke_result::failed();
 }
 
 const detail::method_set_data* method_set::info() const noexcept {

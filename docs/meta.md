@@ -629,6 +629,8 @@ module 和 class 的边界：
 - module 上的 `property::get_value()`、`property::get_ref()`、`property::try_set_value()` 不接收对象地址。
 - module 上的 `method::invoke(args)` 和 `method_set::invoke(args)` 不接收对象地址；成员方法仍使用
   `invoke(object, args)`。
+- module 上需要区分 `void` 成功或引用返回时，使用 `method::invoke_result_of(args)` 或
+  `method_set::invoke_result_of(args)`。
 
 ### 属性 schema
 
