@@ -10,6 +10,7 @@
 #include "caors/meta/detail/type_data.h"
 #include "caors/meta/detail/type_descriptor_model.h"
 #include "caors/meta/metadata.h"
+#include "caors/meta/proxy.h"
 #include "caors/meta/query.h"
 #include "caors/meta/registration.h"
 #include "caors/meta/registry.h"

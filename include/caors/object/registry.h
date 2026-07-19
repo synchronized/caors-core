@@ -4,7 +4,6 @@
 #ifndef CAORS_OBJECT_REGISTRY_H_
 #define CAORS_OBJECT_REGISTRY_H_
 
-#include "caors/meta/builder.h"
 #include "caors/meta/query.h"
 #include "caors/meta/registry.h"
 #include "caors/meta/static_capability.h"

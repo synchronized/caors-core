@@ -46,7 +46,7 @@
 - `caors/meta/type_creation.h`：调用 `meta::type::create()` / `create_value()` 时需要的完整依赖头。
 - `caors/meta/context.h`：`meta::context` 和 `meta::default_context()` 注册表定位入口。
 - `caors/meta/query.h`：`meta::resolve<T>()`、`meta::find<T>()`、`meta::id_of<T>()` 等查询入口。
-- `caors/registration.h`：`registration::type_<T>(name)` 跨模块类型注册入口；`caors/meta/builder.h`：`meta::enum_<T>()` 枚举注册入口。
+- `caors/registration.h`：`registration::type_<T>(name)` 和 `registration::enum_<T>(name)` 跨模块注册入口。
 - `caors/meta/property.h`、`caors/meta/method.h`：属性和成员方法只读视图。
 - `caors/registration/type_builder.h`：普通类型的 meta、serialization 和 object 分段注册。
 - `caors/meta/capability_traits.h`：capability key、traits 和类型/实例能力查询扩展点。
@@ -208,7 +208,8 @@ caors::meta::type type = caors::meta::find<actor>(ctx);
 同一个 C++ 类型在不同 registry 中可以有独立的注册数据。`meta::resolve<T>(ctx)` 返回的
 descriptor-only 视图也会绑定到该 context 的 registry，因此后续通过 `meta::type` 查询动态
 capability 时会查找所属 registry。默认 `meta::resolve<T>()`、`meta::find<T>()`、
-`registration::type_<T>(name)` 和 `meta::enum_<T>()` 都等价于显式传入 `meta::default_context()`。
+`registration::type_<T>(name)` 和 `registration::enum_<T>(name)` 都等价于显式传入
+`meta::default_context()`。
 
 ### traits::type_name<T>
 
@@ -261,7 +262,7 @@ struct outer {
 };
 
 caors::registration::type_<outer::inner>("game.outer.inner").commit();
-caors::meta::enum_<outer::kind>("game.outer.kind");
+caors::registration::enum_<outer::kind>("game.outer.kind").commit();
 
 caors::registration::type_<outer>("game.outer")
     .meta()
@@ -726,7 +727,7 @@ metadata 推荐使用 RTTR 风格的绑定语法。`meta::registration::metadata
 - `registration::type_<T>("name").metadata(key, value)` 写入类型 metadata。
 - `registration::type_<T>("name").meta().property(..., metadata(...))` 写入属性 metadata。
 - `registration::type_<T>("name").meta().method(..., metadata(...))` 写入方法 metadata。
-- 紧跟在 `meta::enum_<T>().value(...)` 后面的 `(...)` 写入枚举项 metadata。
+- 紧跟在 `registration::enum_<T>().value(...)` 后面的 `(...)` 写入枚举项 metadata。
 
 普通类型属性和方法 metadata 通过 `registration::type_<T>("name").meta()` 分段注册：
 
@@ -743,7 +744,7 @@ caors::registration::type_<actor>("game.actor")
     .commit();
 ```
 
-枚举项也使用同样的绑定风格。`meta::registration::value(name, value)` 适合在 `operator()` 中批量注册，
+枚举项也使用同样的绑定风格。`registration::value(name, value)` 适合在 `operator()` 中批量注册，
 `.value(name, value)` 适合链式追加并给枚举项挂 metadata：
 
 ```cpp
@@ -753,11 +754,12 @@ enum class actor_state {
   hidden,
 };
 
-caors::meta::enum_<actor_state>("game.actor_state")
-    (caors::meta::registration::value("idle", actor_state::idle),
-     caors::meta::registration::value("running", actor_state::running))
+caors::registration::enum_<actor_state>("game.actor_state")
+    (caors::registration::value("idle", actor_state::idle),
+     caors::registration::value("running", actor_state::running))
     .value("hidden", actor_state::hidden)
-    (caors::meta::registration::metadata("editor_hidden", true));
+    (caors::meta::registration::metadata("editor_hidden", true))
+    .commit();
 
 caors::meta::type state_type = caors::meta::find<actor_state>();
 caors::meta::enum_capability values =
@@ -1067,10 +1069,9 @@ descriptor，不再为了创建 view 把每一种容器组合额外挂载为 met
 - `meta::type`：descriptor-backed 类型只读视图，注册数据可选。
 - `registration::type_<T>("name")`：跨模块链式元类型注册入口；调用 `.commit()` 后发布类型数据。
 - `registration::type_<T>("name")`：推荐的显式命名注册入口。
-- `meta::enum_<T>()`：RTTR 风格的枚举类型注册入口；默认不注册类型，需要继续调用 `.type("name")`。
-- `meta::enum_<T>("name")`：显式注册枚举类型，注册后 `meta::type::kind()` 为
-  `meta::type_kind::enumeration`。
-- `meta::registration::value(name, value)` / `meta::enum_<T>().value(name, value)`：注册枚举项；查询时通过
+- `registration::enum_<T>("name")`：枚举类型注册入口；调用 `.commit()` 后发布枚举类型数据，注册后
+  `meta::type::kind()` 为 `meta::type_kind::enumeration`。
+- `registration::value(name, value)` / `registration::enum_<T>().value(name, value)`：注册枚举项；查询时通过
   `meta::enum_capability` 返回的 `meta::enum_value_view` 访问名称、整数值和 metadata。
 - `registration::type_<T>(name).parent<Base>()`：保存 C++ 父类型关系和安全 upcast 回调。
 - `registration::type_<T>(name).factory()` / `.factory(construct, destroy)`：给已注册类型注册运行期 factory，保存运行期值构造和销毁策略；查询时使用 `meta::type::get_capability<meta::factory_capability>()`，推荐通过 `factory_capability::construct()` 获取拥有生命周期的 `any`。

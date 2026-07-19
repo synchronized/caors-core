@@ -104,8 +104,9 @@ enum class registered_enum_type {
 };
 
 TEST_CASE("meta enum - enum builder registers enum type", "[meta]") {
-  const caors::meta::type type =
-      caors::meta::enum_<registered_enum_type>("caors.test.enum.registered").get();
+  REQUIRE(caors::registration::enum_<registered_enum_type>("caors.test.enum.registered").commit() ==
+          caors::error{});
+  const caors::meta::type type = caors::meta::find<registered_enum_type>();
 
   REQUIRE(type.valid());
   CHECK(type.registered());
@@ -116,8 +117,9 @@ TEST_CASE("meta enum - enum builder registers enum type", "[meta]") {
 TEST_CASE("meta type - registration records nested type relationships", "[meta]") {
   REQUIRE(caors::registration::type_<nested_inner_type>("caors.test.type.nested_inner").commit() ==
           caors::error{});
-  const caors::meta::type kind =
-      caors::meta::enum_<nested_kind_type>("caors.test.type.nested_kind").get();
+  REQUIRE(caors::registration::enum_<nested_kind_type>("caors.test.type.nested_kind").commit() ==
+          caors::error{});
+  const caors::meta::type kind = caors::meta::find<nested_kind_type>();
   REQUIRE(kind);
 
   REQUIRE(caors::registration::type_<nested_owner_type>("caors.test.type.nested_owner")

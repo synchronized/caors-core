@@ -4,6 +4,7 @@
 #ifndef CAORS_REGISTRATION_H_
 #define CAORS_REGISTRATION_H_
 
+#include "caors/registration/enum_builder.h"
 #include "caors/registration/type_builder.h"
 
 #endif

@@ -5,7 +5,6 @@
 #define CAORS_META_H_
 
 #include "caors/meta/argument.h"
-#include "caors/meta/builder.h"
 #include "caors/meta/capability.h"
 #include "caors/meta/capability_facade.h"
 #include "caors/meta/constructor.h"

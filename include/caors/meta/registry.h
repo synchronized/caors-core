@@ -53,13 +53,12 @@ template <typename T> [[nodiscard]] error ensure_type_descriptor_for();
 
 namespace caors::registration {
 
+template <typename T> class enum_builder;
 template <typename T> class type_builder;
 
 } // namespace caors::registration
 
 namespace caors::meta {
-
-template <typename T> class enum_builder;
 
 /**
  * @brief 类型元数据注册表。
@@ -126,7 +125,7 @@ public:
   [[nodiscard]] ::caors::meta::extension_view<Extensions...> extension_view() const;
 
 private:
-  template <typename T> friend class enum_builder;
+  template <typename T> friend class ::caors::registration::enum_builder;
   template <typename T> friend class ::caors::registration::type_builder;
   friend class type;
   friend error detail::ensure_type_descriptor_registered(const detail::type_descriptor& descriptor);

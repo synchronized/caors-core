@@ -92,7 +92,7 @@ TEST_CASE("meta api - class builder registers properties and methods", "[meta][a
 
 TEST_CASE("meta api - enum builder registers enum type", "[meta][api]") {
   const caors::error status =
-      caors::meta::enum_<meta_api_state>("caors.test.meta.api.state").commit();
+      caors::registration::enum_<meta_api_state>("caors.test.meta.api.state").commit();
   CHECK_FALSE(status);
 
   caors::meta::type type = caors::meta::find<meta_api_state>();

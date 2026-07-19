@@ -40,7 +40,7 @@ GUID、对象工厂、反射根类型、多态身份或按名称查询的业务�
 字段注册不会为字段类型隐式创建 meta 类型，序列化 codec 注册也不会隐式创建 meta 类型。
 
 nested 类型关系只记录 owner 内部使用的短名和目标 `type_id`。目标类型必须先通过
-`registration::type_<Nested>(name)` 或 `meta::enum_<Nested>(name)` 独立注册；owner 再通过
+`registration::type_<Nested>(name)` 或 `registration::enum_<Nested>(name)` 独立注册；owner 再通过
 `.meta().nested<Nested>("short_name")` 或 `.meta().nested("short_name", nested_type)` 记录关系。
 注册后可以通过 `meta::type::find_nested()`、`nested_at()` 和 `nested_name_at()` 查询。
 

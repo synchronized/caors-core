@@ -141,12 +141,14 @@ TEST_CASE("meta type - class builder registers fields and methods", "[meta]") {
 }
 
 TEST_CASE("meta enum - builder registers values and metadata", "[meta]") {
-  auto builder = caors::meta::enum_<reflected_meta_state>("caors.test.meta.reflected_state")(
-                     caors::meta::registration::value("idle", reflected_meta_state::idle),
-                     caors::meta::registration::value("running", reflected_meta_state::running))
-                     .value("hidden", reflected_meta_state::hidden)(
-                         caors::meta::registration::metadata("editor_hidden", true));
+  auto builder =
+      caors::registration::enum_<reflected_meta_state>("caors.test.meta.reflected_state");
+  builder(caors::registration::value("idle", reflected_meta_state::idle),
+          caors::registration::value("running", reflected_meta_state::running))
+      .value("hidden", reflected_meta_state::hidden)(
+          caors::meta::registration::metadata("editor_hidden", true));
 
+  REQUIRE(builder.commit() == caors::error{});
   REQUIRE(builder.succeeded());
 
   const caors::meta::type type = caors::meta::find<reflected_meta_state>();
@@ -177,16 +179,13 @@ TEST_CASE("meta enum - builder registers values and metadata", "[meta]") {
 }
 
 TEST_CASE("meta enum - builder rejects duplicate value names", "[meta]") {
-  auto builder = caors::meta::enum_<duplicate_meta_state>("caors.test.meta.duplicate_state")
-                     .value("same", duplicate_meta_state::first);
+  auto builder =
+      caors::registration::enum_<duplicate_meta_state>("caors.test.meta.duplicate_state");
+  builder.value("same", duplicate_meta_state::first);
   REQUIRE(builder.succeeded());
 
   const auto duplicate = builder.value("same", duplicate_meta_state::second);
   CHECK(duplicate.result() == caors::error{caors::error_domain::meta, caors::errc::duplicate_name});
-
-  const caors::meta::type type = caors::meta::find<duplicate_meta_state>();
-  REQUIRE(type);
-  const caors::meta::enum_capability values = type.get_capability<caors::meta::enum_capability>();
-  REQUIRE(values);
-  CHECK(values.value_count() == 1);
+  CHECK(builder.commit() == caors::error{caors::error_domain::meta, caors::errc::duplicate_name});
+  CHECK_FALSE(caors::meta::find<duplicate_meta_state>());
 }
