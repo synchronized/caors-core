@@ -14,6 +14,7 @@
 #include <cstddef>
 #include <cstring>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string_view>
@@ -51,10 +52,22 @@ struct method_ops {
 /**
  * @brief 底层成员方法反射元信息。
  *
- * 方法调用只支持已注册的成员函数指针。参数通过 `argument` 传入，返回值通过
- * `invoke_result` 区分失败、`void` 成功、拥有值返回和引用返回。
+ * 方法调用支持成员函数指针、全局函数指针和 module 级 callable。参数通过 `argument` 传入，
+ * 返回值通过 `invoke_result` 区分失败、`void` 成功、拥有值返回和引用返回。
  */
 class method_data final {
+private:
+  struct callable_storage_base {
+    virtual ~callable_storage_base() = default;
+  };
+
+  template <typename Callable> struct callable_storage_model final : callable_storage_base {
+    template <typename Value>
+    explicit callable_storage_model(Value&& stored) : value(std::forward<Value>(stored)) {}
+
+    Callable value;
+  };
+
 public:
   static constexpr std::size_t storage_size = sizeof(void*) * 4U;
 
@@ -65,7 +78,7 @@ public:
 
   method_data(const method_data& other)
       : name_(other.name_), storage_(other.storage_), ops_(other.ops_),
-        const_method_(other.const_method_) {
+        const_method_(other.const_method_), callable_(other.callable_) {
     if (other.metadata_ != nullptr) {
       metadata_ =
           memory::make_unique<meta::metadata_map>(&memory::library_resource(), *other.metadata_);
@@ -81,6 +94,7 @@ public:
     storage_ = other.storage_;
     ops_ = other.ops_;
     const_method_ = other.const_method_;
+    callable_ = other.callable_;
     if (other.metadata_ != nullptr) {
       metadata_ =
           memory::make_unique<meta::metadata_map>(&memory::library_resource(), *other.metadata_);
@@ -168,6 +182,17 @@ public:
     std::memcpy(storage_.data(), &member, sizeof(Member));
   }
 
+  template <typename Callable> void store_callable(Callable&& callable) {
+    using value_type = std::decay_t<Callable>;
+    callable_ =
+        std::make_shared<callable_storage_model<value_type>>(std::forward<Callable>(callable));
+  }
+
+  template <typename Callable> [[nodiscard]] const Callable* callable() const noexcept {
+    const auto* storage = dynamic_cast<const callable_storage_model<Callable>*>(callable_.get());
+    return storage != nullptr ? &storage->value : nullptr;
+  }
+
 private:
   [[nodiscard]] static const meta::metadata_map& empty_metadata_map() noexcept {
     static const meta::metadata_map empty{
@@ -179,6 +204,7 @@ private:
   alignas(std::max_align_t) std::array<std::byte, storage_size> storage_{};
   method_ops ops_{};
   bool const_method_ = false;
+  std::shared_ptr<const callable_storage_base> callable_{};
   memory::unique_ptr<meta::metadata_map> metadata_{};
 };
 
@@ -420,6 +446,36 @@ template <typename Class, typename Return, typename... Arguments>
   return method;
 }
 
+template <typename Return, typename... Arguments> struct function_signature {
+  using return_type = Return;
+};
+
+template <typename Signature> struct callable_signature;
+
+template <typename Class, typename Return, typename... Arguments>
+struct callable_signature<Return (Class::*)(Arguments...) const> {
+  using type = function_signature<Return, Arguments...>;
+};
+
+template <typename Class, typename Return, typename... Arguments>
+struct callable_signature<Return (Class::*)(Arguments...) const noexcept> {
+  using type = function_signature<Return, Arguments...>;
+};
+
+template <typename Class, typename Return, typename... Arguments>
+struct callable_signature<Return (Class::*)(Arguments...)> {
+  using type = function_signature<Return, Arguments...>;
+};
+
+template <typename Class, typename Return, typename... Arguments>
+struct callable_signature<Return (Class::*)(Arguments...) noexcept> {
+  using type = function_signature<Return, Arguments...>;
+};
+
+template <typename Callable>
+using callable_signature_t =
+    typename callable_signature<decltype(&std::decay_t<Callable>::operator())>::type;
+
 template <typename Return, typename... Arguments, std::size_t... Index>
 [[nodiscard]] invoke_result invoke_global_impl(Return (*function)(Arguments...),
                                                std::span<const argument> arguments,
@@ -448,6 +504,36 @@ template <typename Return, typename... Arguments>
   return invoke_global_impl(function, arguments, std::index_sequence_for<Arguments...>{});
 }
 
+template <typename Callable, typename Return, typename... Arguments, std::size_t... Index>
+[[nodiscard]] invoke_result invoke_global_callable_impl(const Callable& callable,
+                                                        std::span<const argument> arguments,
+                                                        std::index_sequence<Index...>) {
+  if constexpr (std::is_void_v<Return>) {
+    std::invoke(callable, argument_value<Arguments>(arguments[Index])...);
+    return invoke_result::void_value();
+  } else {
+    decltype(auto) result = std::invoke(callable, argument_value<Arguments>(arguments[Index])...);
+    return make_method_invoke_result<Return>(result);
+  }
+}
+
+template <typename Callable, typename Return, typename... Arguments>
+[[nodiscard]] invoke_result invoke_global_callable_method(const method_data& method, const void*,
+                                                          bool,
+                                                          std::span<const argument> arguments) {
+  if (!arguments_match<Arguments...>(arguments)) {
+    return invoke_result::failed();
+  }
+
+  const auto* callable = method.template callable<Callable>();
+  if (callable == nullptr) {
+    return invoke_result::failed();
+  }
+
+  return invoke_global_callable_impl<Callable, Return, Arguments...>(
+      *callable, arguments, std::index_sequence_for<Arguments...>{});
+}
+
 template <typename Return, typename... Arguments>
 [[nodiscard]] meta::type global_method_owner_type(const method_data&) noexcept {
   return {};
@@ -472,6 +558,42 @@ template <typename Return, typename... Arguments>
   };
   method.store_member_pointer(function);
   return method;
+}
+
+template <typename Callable, typename Signature> struct global_callable_method_factory;
+
+template <typename Callable, typename Return, typename... Arguments>
+struct global_callable_method_factory<Callable, function_signature<Return, Arguments...>> {
+  [[nodiscard]] static method_ops ops() noexcept {
+    return method_ops{
+        &global_method_owner_type<Return, Arguments...>,
+        &method_return_type<Return>,
+        &method_parameter_count<Arguments...>,
+        &method_parameter_type<Arguments...>,
+        &method_arguments_match<Arguments...>,
+        &invoke_global_callable_method<Callable, Return, Arguments...>,
+    };
+  }
+
+  template <typename Value>
+  [[nodiscard]] static method_data make(std::string_view name, Value&& callable) {
+    method_data method{
+        string_name{name},
+        ops(),
+        true,
+    };
+    method.store_callable(std::forward<Value>(callable));
+    return method;
+  }
+};
+
+template <typename Callable>
+[[nodiscard]] method_data make_global_callable_method_data(std::string_view name,
+                                                           Callable&& callable) {
+  using value_type = std::decay_t<Callable>;
+  using signature = callable_signature_t<value_type>;
+  return global_callable_method_factory<value_type, signature>::make(
+      name, std::forward<Callable>(callable));
 }
 
 } // namespace caors::meta::detail

@@ -10,6 +10,8 @@
 #include "caors/meta/property.h"
 
 #include <string_view>
+#include <type_traits>
+#include <utility>
 
 namespace caors::meta {
 
@@ -70,6 +72,26 @@ public:
     }
 
     detail::method_data method = detail::make_global_method_data(name, function);
+    if (!method.valid()) {
+      status_ = {error_domain::meta, errc::invalid_argument};
+      return *this;
+    }
+
+    status_ = add_method(std::move(method));
+    refresh();
+    return *this;
+  }
+
+  template <typename Callable>
+    requires(!std::is_pointer_v<std::decay_t<Callable>> &&
+             requires { typename detail::callable_signature_t<std::decay_t<Callable>>; })
+  module_builder& function(std::string_view name, Callable&& callable) {
+    if (status_) {
+      return *this;
+    }
+
+    detail::method_data method =
+        detail::make_global_callable_method_data(name, std::forward<Callable>(callable));
     if (!method.valid()) {
       status_ = {error_domain::meta, errc::invalid_argument};
       return *this;

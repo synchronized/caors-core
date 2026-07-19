@@ -173,9 +173,9 @@ caors::registration::type_<actor>("game.actor")
   `any_ref` 引用返回。`T&` / `const T&` 返回值会保留为引用，调用方必须保证原对象生命周期覆盖引用使用期。
 - 同名成员方法保存为 `meta::method_set`，可以通过 `resolve(args)` 按参数列表匹配唯一重载，也可以直接调用
   `method_set::invoke(...)`。
-- 自由函数和静态函数不挂到 `meta::type` 上；它们通过 `meta::module(name).function(...)` 注册为 module
-  级函数，调用时不需要传入 instance。
-- 暂不支持默认参数、隐式类型转换、lambda / 函数对象直接注册和不可拷贝 by-value 返回值。
+- 自由函数、静态函数、唯一 `operator()` 签名的 lambda 和函数对象不挂到 `meta::type` 上；它们通过
+  `meta::module(name).function(...)` 注册为 module 级函数，调用时不需要传入 instance。
+- 暂不支持默认参数、隐式类型转换、泛型/重载 lambda 自动签名选择和不可拷贝 by-value 返回值。
 
 wrapper 识别通过 `traits::wrapper_traits<T>` 扩展，而不是固定写死所有 wrapper 类型：
 

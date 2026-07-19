@@ -95,3 +95,52 @@ TEST_CASE("meta - module registers static properties and functions", "[meta]") {
   REQUIRE(result.try_get<int>() != nullptr);
   CHECK(*result.try_get<int>() == 42);
 }
+
+TEST_CASE("meta - module registers lambda and function object callables", "[meta]") {
+  int base = 10;
+  int referenced = 5;
+
+  struct multiplier {
+    int factor = 1;
+
+    int operator()(int value) const { return value * factor; }
+  };
+
+  auto builder = caors::meta::module("caors.test.meta.module.callable")
+                     .function("add_base", [base](int value) { return base + value; })
+                     .function("set_reference", [&referenced](int value) { referenced = value; })
+                     .function("reference", [&referenced]() -> int& { return referenced; })
+                     .function("multiply", multiplier{3});
+  REQUIRE(builder.succeeded());
+
+  const caors::meta::module_view module =
+      caors::meta::find_module("caors.test.meta.module.callable");
+  REQUIRE(module);
+  CHECK(module.method_count() == 4);
+
+  int value = 7;
+  std::array<caors::argument, 1> arguments{caors::arg(value)};
+
+  caors::meta::invoke_result add_result =
+      module.find_method("add_base").invoke_result_of(arguments);
+  REQUIRE(add_result.has_value());
+  REQUIRE(add_result.value().try_get<int>() != nullptr);
+  CHECK(*add_result.value().try_get<int>() == 17);
+
+  caors::meta::invoke_result void_result =
+      module.find_method("set_reference").invoke_result_of(arguments);
+  REQUIRE(void_result.succeeded());
+  CHECK(void_result.kind() == caors::meta::invoke_result_kind::void_value);
+  CHECK(referenced == 7);
+
+  caors::meta::invoke_result ref_result = module.find_method("reference").invoke_result_of();
+  REQUIRE(ref_result.has_reference());
+  REQUIRE(ref_result.ref().try_get_mutable<int>() != nullptr);
+  *ref_result.ref().try_get_mutable<int>() = 12;
+  CHECK(referenced == 12);
+
+  caors::any multiply_result = module.find_method("multiply").invoke(arguments);
+  REQUIRE(multiply_result);
+  REQUIRE(multiply_result.try_get<int>() != nullptr);
+  CHECK(*multiply_result.try_get<int>() == 21);
+}

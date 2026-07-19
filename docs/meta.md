@@ -603,9 +603,12 @@ int add(int left, int right) {
   return left + right;
 }
 
+int offset = 10;
+
 caors::meta::module("game")
     .property("version", &version)
-    .function("add", &add);
+    .function("add", &add)
+    .function("add_offset", [offset](int value) { return value + offset; });
 
 caors::meta::module_view game = caors::meta::find_module("game");
 caors::meta::property version_property = game.find_property("version");
@@ -626,6 +629,9 @@ module 和 class 的边界：
 
 - `registration::type_<T>(name)`：注册 C++ 类型、成员属性、成员方法、父类型、factory 和类型级 capability。
 - `meta::module(name)`：注册全局/静态属性和全局/静态函数，查询时通过 module 名称进入。
+- `meta::module(name).function(name, callable)` 支持函数指针、静态成员函数指针、唯一
+  `operator()` 签名的 lambda 和函数对象。带捕获 lambda 会由 module method 持有；泛型 lambda
+  或重载 `operator()` 的函数对象需要先包装成唯一签名。
 - module 上的 `property::get_value()`、`property::get_ref()`、`property::try_set_value()` 不接收对象地址。
 - module 上的 `method::invoke(args)` 和 `method_set::invoke(args)` 不接收对象地址；成员方法仍使用
   `invoke(object, args)`。
