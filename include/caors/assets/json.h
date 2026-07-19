@@ -39,14 +39,12 @@ public:
 
   [[nodiscard]] resources::load_result<resource_type>
   load(resources::resource_guid guid, memory_resource* resource = nullptr) override {
-    io::byte_buffer_result bytes = provider_->read(guid, resource);
-    if (bytes.failed()) {
-      return {bytes.status, {}};
+    io::input_stream_result stream = provider_->open_read(guid, resource);
+    if (stream.failed()) {
+      return {stream.status, {}};
     }
 
-    const std::string_view text{reinterpret_cast<const char*>(bytes.value.data()),
-                                bytes.value.size()};
-    serialization::variant_result parsed = serialization::parse_json(text);
+    serialization::variant_result parsed = serialization::parse_json(*stream.value, resource);
     if (parsed.failed()) {
       return {parsed.status, {}};
     }

@@ -280,6 +280,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 设计资源层 `resources::source` / `resources::provider`，负责从 `resource_guid` 或资源位置解析到统一数据流，再交给 loader 解码。
 - [x] 实现本地文件系统后端 `io::native_file_system`。
 - [x] 实现 `resources::file_source`，把 `io::file_system` 适配为资源字节来源。
+- [x] 为 `resources::source` / `resources::provider` 增加 `open_read()` 输入流入口，让 loader 和 assets
+  配置读取不必直接依赖完整字节缓冲。
 - [x] 实现 `assets::json::loader<T>`，打通 `resource_guid -> provider -> JSON -> resource` 的同步加载链路。
 - [x] 实现内存文件系统后端 `io::memory_file_system`，用于测试、热更新缓存和后续资源包索引内存镜像。
 - [x] 增加 `resources::manifest`，保存 `resource_guid -> location/type/hash/version` 清单，并可批量绑定到 provider。

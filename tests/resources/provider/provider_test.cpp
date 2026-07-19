@@ -5,6 +5,8 @@
 
 #include "resources_test_common.h"
 
+#include <array>
+
 using namespace caors::tests::resources;
 
 TEST_CASE("resources - provider reads bytes from file source", "[resources]") {
@@ -40,6 +42,15 @@ TEST_CASE("resources - provider reads bytes from file source", "[resources]") {
   CHECK(std::string_view{reinterpret_cast<const char*>(bytes.value.data()), bytes.value.size()} ==
         "texture-bytes");
 
+  caors::io::input_stream_result stream = provider.open_read(test_guid_a, &tracking);
+  REQUIRE(stream.succeeded());
+  REQUIRE(stream.value != nullptr);
+  std::array<std::byte, 7> chunk{};
+  caors::io::size_result read = stream.value->read(chunk);
+  REQUIRE(read.succeeded());
+  CHECK(*read == chunk.size());
+  CHECK(std::string_view{reinterpret_cast<const char*>(chunk.data()), chunk.size()} == "texture");
+
   std::filesystem::remove_all(directory, ec);
 }
 
@@ -65,6 +76,11 @@ TEST_CASE("resources - provider reports invalid and missing resources", "[resour
   CHECK(invalid_write.domain() == caors::error_domain::resources);
   CHECK(invalid_write.value() == caors::errc::invalid_argument);
 
+  caors::io::input_stream_result invalid_stream = provider.open_read(caors::resource_guid::nil());
+  REQUIRE(invalid_stream.failed());
+  CHECK(invalid_stream.error().domain() == caors::error_domain::resources);
+  CHECK(invalid_stream.error().value() == caors::errc::invalid_argument);
+
   caors::error invalid_location = provider.bind(test_guid_a, source, "");
   REQUIRE(invalid_location.failed());
   CHECK(invalid_location.domain() == caors::error_domain::resources);
@@ -80,6 +96,11 @@ TEST_CASE("resources - provider reports invalid and missing resources", "[resour
   REQUIRE(missing_guid.failed());
   CHECK(missing_guid.status.domain() == caors::error_domain::resources);
   CHECK(missing_guid.status.value() == caors::errc::not_found);
+
+  caors::io::input_stream_result missing_stream = provider.open_read(test_guid_b);
+  REQUIRE(missing_stream.failed());
+  CHECK(missing_stream.error().domain() == caors::error_domain::resources);
+  CHECK(missing_stream.error().value() == caors::errc::not_found);
 
   caors::error missing_write = provider.write(test_guid_b, std::string_view{"data"});
   REQUIRE(missing_write.failed());

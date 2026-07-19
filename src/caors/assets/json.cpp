@@ -115,15 +115,19 @@ error load_manifest(resources::manifest& target, resources::source& resource_sou
     return {error_domain::resources, errc::invalid_argument};
   }
 
-  io::byte_buffer_result bytes =
-      resource_source.read(location, resource != nullptr ? resource : target.resource());
-  if (bytes.failed()) {
-    return bytes.status;
+  io::input_stream_result stream =
+      resource_source.open_read(location, resource != nullptr ? resource : target.resource());
+  if (stream.failed()) {
+    return stream.status;
   }
 
-  const std::string_view text{reinterpret_cast<const char*>(bytes.value.data()),
-                              bytes.value.size()};
-  return load_manifest(target, text);
+  serialization::variant_result parsed =
+      serialization::parse_json(*stream.value, resource != nullptr ? resource : target.resource());
+  if (parsed.failed()) {
+    return parsed.status;
+  }
+
+  return load_manifest(target, parsed.value);
 }
 
 error load_project_config(project_config& target, std::string_view text) {
@@ -141,15 +145,19 @@ error load_project_config(project_config& target, resources::source& resource_so
     return {error_domain::resources, errc::invalid_argument};
   }
 
-  io::byte_buffer_result bytes =
-      resource_source.read(location, resource != nullptr ? resource : target.resource);
-  if (bytes.failed()) {
-    return bytes.status;
+  io::input_stream_result stream =
+      resource_source.open_read(location, resource != nullptr ? resource : target.resource);
+  if (stream.failed()) {
+    return stream.status;
   }
 
-  const std::string_view text{reinterpret_cast<const char*>(bytes.value.data()),
-                              bytes.value.size()};
-  return load_project_config(target, text);
+  serialization::variant_result parsed =
+      serialization::parse_json(*stream.value, resource != nullptr ? resource : target.resource);
+  if (parsed.failed()) {
+    return parsed.status;
+  }
+
+  return assets::load_project_config(target, parsed.value);
 }
 
 } // namespace caors::assets::json

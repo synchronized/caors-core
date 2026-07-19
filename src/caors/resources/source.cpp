@@ -19,6 +19,15 @@ namespace {
 
 source::~source() = default;
 
+io::input_stream_result source::open_read(io::path_view location, memory_resource* resource) {
+  io::byte_buffer_result bytes = read(location, resource);
+  if (bytes.failed()) {
+    return fail<io::input_stream_ptr>(bytes.error());
+  }
+
+  return ok(io::make_input_stream(std::move(bytes.value), resource));
+}
+
 error source::write(io::path_view, std::span<const std::byte>) {
   return {error_domain::resources, errc::unsupported};
 }
@@ -37,6 +46,14 @@ io::byte_buffer_result file_source::read(io::path_view location, memory_resource
   }
 
   return file_system_->read_all(location, resource);
+}
+
+io::input_stream_result file_source::open_read(io::path_view location, memory_resource* resource) {
+  if (file_system_ == nullptr) {
+    return fail<io::input_stream_ptr>({error_domain::resources, errc::backend_failure});
+  }
+
+  return file_system_->open_read(location, resource);
 }
 
 error file_source::write(io::path_view location, std::span<const std::byte> bytes) {
@@ -118,6 +135,19 @@ io::byte_buffer_result provider::read(resource_guid guid, memory_resource* resou
   }
 
   return location.source->read(location.location, resource);
+}
+
+io::input_stream_result provider::open_read(resource_guid guid, memory_resource* resource) const {
+  if (!guid) {
+    return fail<io::input_stream_ptr>({error_domain::resources, errc::invalid_argument});
+  }
+
+  const source_location location = find(guid);
+  if (!location) {
+    return fail<io::input_stream_ptr>({error_domain::resources, errc::not_found});
+  }
+
+  return location.source->open_read(location.location, resource);
 }
 
 error provider::write(resource_guid guid, std::span<const std::byte> bytes) const {

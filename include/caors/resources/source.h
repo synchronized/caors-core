@@ -37,6 +37,14 @@ public:
   [[nodiscard]] virtual io::byte_buffer_result read(io::path_view location,
                                                     memory_resource* resource = nullptr) = 0;
 
+  /**
+   * @brief 打开指定位置的同步输入流。
+   *
+   * 默认实现通过 `read()` 建立内存输入流。需要真正分块读取的来源可以覆盖该函数。
+   */
+  [[nodiscard]] virtual io::input_stream_result open_read(io::path_view location,
+                                                          memory_resource* resource = nullptr);
+
   /** @brief 写入指定位置的完整字节内容；默认返回 `errc::unsupported`。 */
   [[nodiscard]] virtual error write(io::path_view location, std::span<const std::byte> bytes);
 
@@ -64,6 +72,8 @@ public:
   [[nodiscard]] bool exists(io::path_view location) const override;
   [[nodiscard]] io::byte_buffer_result read(io::path_view location,
                                             memory_resource* resource = nullptr) override;
+  [[nodiscard]] io::input_stream_result open_read(io::path_view location,
+                                                  memory_resource* resource = nullptr) override;
   [[nodiscard]] error write(io::path_view location, std::span<const std::byte> bytes) override;
 
 private:
@@ -130,6 +140,10 @@ public:
   /** @brief 读取 GUID 对应位置的完整字节内容。 */
   [[nodiscard]] io::byte_buffer_result read(resource_guid guid,
                                             memory_resource* resource = nullptr) const;
+
+  /** @brief 打开 GUID 对应位置的同步输入流。 */
+  [[nodiscard]] io::input_stream_result open_read(resource_guid guid,
+                                                  memory_resource* resource = nullptr) const;
 
   /** @brief 写入 GUID 对应位置的完整字节内容。 */
   [[nodiscard]] error write(resource_guid guid, std::span<const std::byte> bytes) const;
