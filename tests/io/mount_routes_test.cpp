@@ -39,6 +39,16 @@ TEST_CASE("io - mount file system routes virtual prefixes", "[io]") {
   CHECK(mounted.exists("assets/config.txt"));
   CHECK(mounted.exists("assets/special/config.txt"));
 
+  caors::io::directory_entry_list_result entries = mounted.list("assets");
+  REQUIRE(entries.succeeded());
+  REQUIRE(entries->size() == 2);
+  CHECK((*entries)[0].name == "config.txt");
+  CHECK((*entries)[0].path == "assets/config.txt");
+  CHECK((*entries)[0].kind == caors::io::file_kind::file);
+  CHECK((*entries)[1].name == "special");
+  CHECK((*entries)[1].path == "assets/special");
+  CHECK((*entries)[1].kind == caors::io::file_kind::directory);
+
   caors::io::byte_buffer_result missing = mounted.read_all("missing/config.txt");
   REQUIRE(missing.failed());
   CHECK(missing.error().domain() == caors::error_domain::io);

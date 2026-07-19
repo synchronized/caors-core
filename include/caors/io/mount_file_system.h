@@ -39,6 +39,8 @@ public:
   [[nodiscard]] std::size_t mount_count() const noexcept;
 
   [[nodiscard]] bool exists(path_view path) const override;
+  [[nodiscard]] directory_entry_list_result list(path_view directory,
+                                                 memory_resource* resource = nullptr) override;
   [[nodiscard]] byte_buffer_result read_all(path_view path,
                                             memory_resource* resource = nullptr) override;
   [[nodiscard]] error write_all(path_view path, std::span<const std::byte> bytes) override;

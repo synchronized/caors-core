@@ -3,6 +3,7 @@
 
 #include "caors/io/native_file_system.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <ios>
@@ -24,6 +25,39 @@ namespace {
   }
 
   return to_native_path(root) / result;
+}
+
+[[nodiscard]] std::filesystem::path native_directory_path(path_view root, path_view directory) {
+  if (!directory.empty()) {
+    return native_path(root, directory);
+  }
+  if (!root.empty()) {
+    return to_native_path(root);
+  }
+
+  return std::filesystem::path{"."};
+}
+
+[[nodiscard]] path append_child_path(path_view directory, std::string_view name,
+                                     memory_resource* resource) {
+  if (directory.empty()) {
+    return path{name, resource};
+  }
+
+  const std::string_view parent = directory.string_view();
+  core::string result{allocator<char>{resource}};
+  result.reserve(parent.size() + 1 + name.size());
+  result.append(parent.begin(), parent.end());
+  if (!parent.empty() && parent.back() != '/' && parent.back() != '\\') {
+    result.push_back('/');
+  }
+  result.append(name.begin(), name.end());
+  return path{path_view{result}, resource};
+}
+
+[[nodiscard]] bool compare_entries(const directory_entry& lhs,
+                                   const directory_entry& rhs) noexcept {
+  return lhs.path.string_view() < rhs.path.string_view();
 }
 
 [[nodiscard]] error validate_path(path_view path) noexcept {
@@ -140,6 +174,54 @@ bool native_file_system::exists(path_view path) const {
 
   std::error_code ec;
   return std::filesystem::exists(native_path(root(), path), ec) && !ec;
+}
+
+directory_entry_list_result native_file_system::list(path_view directory,
+                                                     memory_resource* resource) {
+  const std::filesystem::path native_directory = native_directory_path(root(), directory);
+
+  std::error_code ec;
+  const bool exists = std::filesystem::exists(native_directory, ec);
+  if (ec) {
+    return fail<directory_entry_list>({error_domain::io, errc::backend_failure});
+  }
+  if (!exists) {
+    return fail<directory_entry_list>({error_domain::io, errc::not_found});
+  }
+  if (!std::filesystem::is_directory(native_directory, ec)) {
+    if (ec) {
+      return fail<directory_entry_list>({error_domain::io, errc::backend_failure});
+    }
+    return fail<directory_entry_list>({error_domain::io, errc::invalid_argument});
+  }
+
+  directory_entry_list entries{allocator<directory_entry>{resource}};
+  std::filesystem::directory_iterator iterator{native_directory, ec};
+  if (ec) {
+    return fail<directory_entry_list>({error_domain::io, errc::backend_failure});
+  }
+
+  for (const std::filesystem::directory_entry& item : iterator) {
+    const std::string name = item.path().filename().string();
+    if (name.empty()) {
+      continue;
+    }
+
+    std::error_code item_ec;
+    const file_kind kind = item.is_directory(item_ec) ? file_kind::directory : file_kind::file;
+    if (item_ec) {
+      return fail<directory_entry_list>({error_domain::io, errc::backend_failure});
+    }
+
+    entries.push_back(directory_entry{
+        path{std::string_view{name}, resource},
+        append_child_path(directory, name, resource),
+        kind,
+    });
+  }
+
+  std::sort(entries.begin(), entries.end(), compare_entries);
+  return ok(std::move(entries));
 }
 
 byte_buffer_result native_file_system::read_all(path_view path, memory_resource* resource) {

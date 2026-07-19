@@ -3,9 +3,57 @@
 
 #include "caors/io/memory_file_system.h"
 
+#include <algorithm>
+#include <string_view>
 #include <utility>
 
 namespace caors::io {
+namespace {
+
+[[nodiscard]] std::string_view string_view_of(const core::string& value) noexcept {
+  return {value.data(), value.size()};
+}
+
+[[nodiscard]] bool compare_entries(const directory_entry& lhs,
+                                   const directory_entry& rhs) noexcept {
+  return lhs.path.string_view() < rhs.path.string_view();
+}
+
+void add_or_update_entry(directory_entry_list& entries, std::string_view name, path_view full_path,
+                         file_kind kind, memory_resource* resource) {
+  const auto found =
+      std::find_if(entries.begin(), entries.end(),
+                   [&](const directory_entry& entry) { return entry.name.string_view() == name; });
+  if (found != entries.end()) {
+    if (kind == file_kind::directory) {
+      found->kind = file_kind::directory;
+    }
+    return;
+  }
+
+  entries.push_back(directory_entry{
+      path{name, resource},
+      path{full_path, resource},
+      kind,
+  });
+}
+
+[[nodiscard]] bool child_suffix(std::string_view directory, std::string_view candidate,
+                                std::string_view& suffix) noexcept {
+  if (directory.empty()) {
+    suffix = candidate;
+    return !suffix.empty();
+  }
+  if (candidate.size() <= directory.size() || !candidate.starts_with(directory) ||
+      candidate[directory.size()] != '/') {
+    return false;
+  }
+
+  suffix = candidate.substr(directory.size() + 1);
+  return !suffix.empty();
+}
+
+} // namespace
 
 memory_file_system::memory_file_system(memory_resource* resource)
     : resource_(resource != nullptr ? resource : get_default_memory_resource()),
@@ -33,6 +81,50 @@ bool memory_file_system::exists(path_view path) const {
   }
 
   return files_.find(key_for(path)) != files_.end();
+}
+
+directory_entry_list_result memory_file_system::list(path_view directory,
+                                                     memory_resource* resource) {
+  const core::string normalized_directory = key_for(directory);
+  const std::string_view directory_text = string_view_of(normalized_directory);
+  directory_entry_list entries{allocator<directory_entry>{resource}};
+  bool exact_file = false;
+
+  for (const auto& [stored_path, bytes] : files_) {
+    (void)bytes;
+
+    const std::string_view candidate = string_view_of(stored_path);
+    if (candidate == directory_text) {
+      exact_file = true;
+      continue;
+    }
+
+    std::string_view suffix;
+    if (!child_suffix(directory_text, candidate, suffix)) {
+      continue;
+    }
+
+    const std::size_t separator = suffix.find('/');
+    const std::string_view name = suffix.substr(0, separator);
+    const file_kind kind =
+        separator == std::string_view::npos ? file_kind::file : file_kind::directory;
+    const path full_path =
+        directory_text.empty() ? path{name, resource} : join_path(directory_text, name, resource);
+    add_or_update_entry(entries, name, full_path, kind, resource);
+  }
+
+  if (entries.empty()) {
+    if (directory_text.empty()) {
+      return ok(std::move(entries));
+    }
+    if (exact_file) {
+      return fail<directory_entry_list>({error_domain::io, errc::invalid_argument});
+    }
+    return fail<directory_entry_list>({error_domain::io, errc::not_found});
+  }
+
+  std::sort(entries.begin(), entries.end(), compare_entries);
+  return ok(std::move(entries));
 }
 
 byte_buffer_result memory_file_system::read_all(path_view path, memory_resource* resource) {

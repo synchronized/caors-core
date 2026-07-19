@@ -74,6 +74,41 @@ TEST_CASE("io - native file system reads and writes bytes", "[io]") {
   std::filesystem::remove_all(directory, ec);
 }
 
+TEST_CASE("io - native file system lists directory entries", "[io]") {
+  const std::filesystem::path directory = make_temp_dir();
+  const std::filesystem::path assets = directory / "assets";
+  const std::filesystem::path nested = assets / "nested";
+  std::error_code ec;
+  std::filesystem::remove_all(directory, ec);
+  REQUIRE(std::filesystem::create_directories(nested, ec));
+  REQUIRE_FALSE(ec);
+
+  caors::io::native_file_system fs{path_string(directory)};
+
+  REQUIRE(fs.write_all("assets/a.txt", std::string_view{"a"}).succeeded());
+  REQUIRE(fs.write_all("assets/nested/b.txt", std::string_view{"b"}).succeeded());
+
+  caors::tracking_resource tracking(&caors::get_system_memory_resource());
+  caors::io::directory_entry_list_result entries = fs.list("assets", &tracking);
+
+  REQUIRE(entries.succeeded());
+  CHECK(entries->get_allocator().resource() == &tracking);
+  REQUIRE(entries->size() == 2);
+  CHECK((*entries)[0].name == "a.txt");
+  CHECK((*entries)[0].path == "assets/a.txt");
+  CHECK((*entries)[0].kind == caors::io::file_kind::file);
+  CHECK((*entries)[1].name == "nested");
+  CHECK((*entries)[1].path == "assets/nested");
+  CHECK((*entries)[1].kind == caors::io::file_kind::directory);
+
+  caors::io::directory_entry_list_result missing = fs.list("missing");
+  REQUIRE(missing.failed());
+  CHECK(missing.error().domain() == caors::error_domain::io);
+  CHECK(missing.error().value() == caors::errc::not_found);
+
+  std::filesystem::remove_all(directory, ec);
+}
+
 // 原测试文件：io_native_file_system_reports_invalid_paths_and_missing_files_test.cpp
 
 #include "io_test_support.h"

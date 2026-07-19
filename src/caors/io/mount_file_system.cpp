@@ -80,6 +80,53 @@ namespace {
   return path.size() > prefix.size() && path.starts_with(prefix) && path[prefix.size()] == '/';
 }
 
+[[nodiscard]] bool compare_entries(const directory_entry& lhs,
+                                   const directory_entry& rhs) noexcept {
+  return lhs.path.string_view() < rhs.path.string_view();
+}
+
+void add_or_update_entry(directory_entry_list& entries, std::string_view name, path_view full_path,
+                         file_kind kind, memory_resource* resource) {
+  const auto found =
+      std::find_if(entries.begin(), entries.end(),
+                   [&](const directory_entry& entry) { return entry.name.string_view() == name; });
+  if (found != entries.end()) {
+    if (kind == file_kind::directory) {
+      found->kind = file_kind::directory;
+    }
+    return;
+  }
+
+  entries.push_back(directory_entry{
+      path{name, resource},
+      path{full_path, resource},
+      kind,
+  });
+}
+
+[[nodiscard]] path make_child_path(path_view directory, std::string_view name,
+                                   memory_resource* resource) {
+  return directory.empty() ? path{name, resource} : join_path(directory, name, resource);
+}
+
+[[nodiscard]] bool mount_child_suffix(std::string_view directory, std::string_view prefix,
+                                      std::string_view& suffix) noexcept {
+  if (prefix.empty()) {
+    return false;
+  }
+  if (directory.empty()) {
+    suffix = prefix;
+    return true;
+  }
+  if (prefix.size() <= directory.size() || !prefix.starts_with(directory) ||
+      prefix[directory.size()] != '/') {
+    return false;
+  }
+
+  suffix = prefix.substr(directory.size() + 1);
+  return !suffix.empty();
+}
+
 } // namespace
 
 mount_file_system::mount_file_system(memory_resource* resource)
@@ -131,6 +178,62 @@ bool mount_file_system::exists(path_view path) const {
   const mount_entry* entry = find_mount(path_view{normalized_path});
   return entry != nullptr && entry->target != nullptr &&
          entry->target->exists(resolve_path(*entry, path_view{normalized_path}));
+}
+
+directory_entry_list_result mount_file_system::list(path_view directory,
+                                                    memory_resource* resource) {
+  const core::string normalized_directory = normalize_mount_path(directory, this->resource());
+  const std::string_view directory_text = string_view_of(normalized_directory);
+  directory_entry_list entries{allocator<directory_entry>{resource}};
+
+  error target_status{};
+  bool has_target_status = false;
+  bool target_succeeded = false;
+  const mount_entry* entry = find_mount(path_view{normalized_directory});
+  if (entry != nullptr && entry->target != nullptr) {
+    directory_entry_list_result target_entries =
+        entry->target->list(resolve_path(*entry, path_view{normalized_directory}), resource);
+    if (target_entries.succeeded()) {
+      target_succeeded = true;
+      for (const directory_entry& target_entry : *target_entries) {
+        const std::string_view name = target_entry.name.string_view();
+        if (name.empty()) {
+          continue;
+        }
+
+        const path full_path = make_child_path(path_view{normalized_directory}, name, resource);
+        add_or_update_entry(entries, name, full_path, target_entry.kind, resource);
+      }
+    } else {
+      target_status = target_entries.error();
+      has_target_status = true;
+    }
+  }
+
+  for (const mount_entry& mounted : mounts_) {
+    std::string_view suffix;
+    if (!mount_child_suffix(directory_text, string_view_of(mounted.prefix), suffix)) {
+      continue;
+    }
+
+    const std::size_t separator = suffix.find('/');
+    const std::string_view name = suffix.substr(0, separator);
+    const path full_path = make_child_path(path_view{normalized_directory}, name, resource);
+    add_or_update_entry(entries, name, full_path, file_kind::directory, resource);
+  }
+
+  if (entries.empty()) {
+    if (target_succeeded || directory_text.empty()) {
+      return ok(std::move(entries));
+    }
+    if (has_target_status) {
+      return fail<directory_entry_list>(target_status);
+    }
+    return fail<directory_entry_list>({error_domain::io, errc::not_found});
+  }
+
+  std::sort(entries.begin(), entries.end(), compare_entries);
+  return ok(std::move(entries));
 }
 
 byte_buffer_result mount_file_system::read_all(path_view path, memory_resource* resource) {

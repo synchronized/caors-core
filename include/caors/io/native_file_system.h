@@ -26,6 +26,8 @@ public:
   void set_root(path_view root);
 
   [[nodiscard]] bool exists(path_view path) const override;
+  [[nodiscard]] directory_entry_list_result list(path_view directory,
+                                                 memory_resource* resource = nullptr) override;
   [[nodiscard]] byte_buffer_result read_all(path_view path,
                                             memory_resource* resource = nullptr) override;
   [[nodiscard]] input_stream_result open_read(path_view path,

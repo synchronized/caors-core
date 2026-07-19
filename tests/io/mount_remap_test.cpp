@@ -17,4 +17,18 @@ TEST_CASE("io - mount file system can remap target prefixes", "[io]") {
   caors::io::byte_buffer_result read = mounted.read_all("textures/hero.txt");
   REQUIRE(read.succeeded());
   CHECK(std::string_view{reinterpret_cast<const char*>(read->data()), read->size()} == "hero");
+
+  caors::io::directory_entry_list_result root = mounted.list("");
+  REQUIRE(root.succeeded());
+  REQUIRE(root->size() == 1);
+  CHECK((*root)[0].name == "textures");
+  CHECK((*root)[0].path == "textures");
+  CHECK((*root)[0].kind == caors::io::file_kind::directory);
+
+  caors::io::directory_entry_list_result textures = mounted.list("textures");
+  REQUIRE(textures.succeeded());
+  REQUIRE(textures->size() == 1);
+  CHECK((*textures)[0].name == "hero.txt");
+  CHECK((*textures)[0].path == "textures/hero.txt");
+  CHECK((*textures)[0].kind == caors::io::file_kind::file);
 }

@@ -47,6 +47,10 @@ private:
 
 file_system::~file_system() = default;
 
+directory_entry_list_result file_system::list(path_view, memory_resource*) {
+  return fail<directory_entry_list>({error_domain::io, errc::unsupported});
+}
+
 input_stream_result file_system::open_read(path_view path, memory_resource* resource) {
   byte_buffer_result bytes = read_all(path, resource);
   if (bytes.failed()) {

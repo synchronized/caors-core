@@ -29,3 +29,40 @@ TEST_CASE("io - memory file system stores normalized virtual paths", "[io]") {
   CHECK(std::string_view{reinterpret_cast<const char*>(updated->data()), updated->size()} ==
         "updated");
 }
+
+TEST_CASE("io - memory file system lists virtual directories", "[io]") {
+  caors::io::memory_file_system fs;
+
+  REQUIRE(fs.write_all("assets/a.txt", std::string_view{"a"}).succeeded());
+  REQUIRE(fs.write_all("assets/nested/b.txt", std::string_view{"b"}).succeeded());
+  REQUIRE(fs.write_all("readme.txt", std::string_view{"readme"}).succeeded());
+
+  caors::tracking_resource tracking(&caors::get_system_memory_resource());
+  caors::io::directory_entry_list_result root = fs.list("", &tracking);
+
+  REQUIRE(root.succeeded());
+  CHECK(root->get_allocator().resource() == &tracking);
+  REQUIRE(root->size() == 2);
+  CHECK((*root)[0].name == "assets");
+  CHECK((*root)[0].path == "assets");
+  CHECK((*root)[0].kind == caors::io::file_kind::directory);
+  CHECK((*root)[1].name == "readme.txt");
+  CHECK((*root)[1].path == "readme.txt");
+  CHECK((*root)[1].kind == caors::io::file_kind::file);
+
+  caors::io::directory_entry_list_result assets = fs.list("assets", &tracking);
+
+  REQUIRE(assets.succeeded());
+  REQUIRE(assets->size() == 2);
+  CHECK((*assets)[0].name == "a.txt");
+  CHECK((*assets)[0].path == "assets/a.txt");
+  CHECK((*assets)[0].kind == caors::io::file_kind::file);
+  CHECK((*assets)[1].name == "nested");
+  CHECK((*assets)[1].path == "assets/nested");
+  CHECK((*assets)[1].kind == caors::io::file_kind::directory);
+
+  caors::io::directory_entry_list_result missing = fs.list("missing");
+  REQUIRE(missing.failed());
+  CHECK(missing.error().domain() == caors::error_domain::io);
+  CHECK(missing.error().value() == caors::errc::not_found);
+}
