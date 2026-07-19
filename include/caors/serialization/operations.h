@@ -4,6 +4,7 @@
 #ifndef CAORS_SERIALIZATION_OPERATIONS_H_
 #define CAORS_SERIALIZATION_OPERATIONS_H_
 
+#include "caors/io/file_system.h"
 #include "caors/meta/query.h"
 #include "caors/meta/type.h"
 #include "caors/object.h"
@@ -74,6 +75,24 @@ template <typename T>
 
 /** @brief 按格式选项解析 JSON 文本为序列化中间值。 */
 [[nodiscard]] CAORS_API variant_result parse_json(std::string_view text, json_options options);
+
+/** @brief 从输入流读取 JSON 文本并解析为序列化中间值。 */
+[[nodiscard]] CAORS_API variant_result parse_json(io::input_stream& stream,
+                                                  memory_resource* resource = nullptr);
+
+/** @brief 从输入流读取 JSON 文本并按格式选项解析为序列化中间值。 */
+[[nodiscard]] CAORS_API variant_result parse_json(io::input_stream& stream, json_options options,
+                                                  memory_resource* resource = nullptr);
+
+/** @brief 从文件系统路径读取 JSON 文本并解析为序列化中间值。 */
+[[nodiscard]] CAORS_API variant_result parse_json_from(io::file_system& file_system,
+                                                       io::path_view path,
+                                                       memory_resource* resource = nullptr);
+
+/** @brief 从文件系统路径读取 JSON 文本并按格式选项解析为序列化中间值。 */
+[[nodiscard]] CAORS_API variant_result parse_json_from(io::file_system& file_system,
+                                                       io::path_view path, json_options options,
+                                                       memory_resource* resource = nullptr);
 
 /** @brief 把已注册序列化和 meta 字段信息的 C++ 对象从指定后端读入。 */
 template <typename T> [[nodiscard]] error deserialize(T& object, reader& reader) {
@@ -181,6 +200,56 @@ template <typename T>
 [[nodiscard]] error deserialize_json(const serialization::context& context, T& object,
                                      std::string_view text, json_options options) {
   variant_result value = parse_json(text, options);
+  if (value.failed()) {
+    return value.status;
+  }
+
+  return deserialize(context, object, value.value);
+}
+
+/** @brief 从 JSON 输入流反序列化到对象。 */
+template <typename T>
+[[nodiscard]] error deserialize_json_from(T& object, io::input_stream& stream,
+                                          memory_resource* resource = nullptr) {
+  variant_result value = parse_json(stream, resource);
+  if (value.failed()) {
+    return value.status;
+  }
+
+  return deserialize(object, value.value);
+}
+
+/** @brief 按上下文从 JSON 输入流反序列化到对象。 */
+template <typename T>
+[[nodiscard]] error deserialize_json_from(const serialization::context& context, T& object,
+                                          io::input_stream& stream,
+                                          memory_resource* resource = nullptr) {
+  variant_result value = parse_json(stream, context.config.json, resource);
+  if (value.failed()) {
+    return value.status;
+  }
+
+  return deserialize(context, object, value.value);
+}
+
+/** @brief 从文件系统路径读取 JSON 并反序列化到对象。 */
+template <typename T>
+[[nodiscard]] error deserialize_json_from(T& object, io::file_system& file_system,
+                                          io::path_view path, memory_resource* resource = nullptr) {
+  variant_result value = parse_json_from(file_system, path, resource);
+  if (value.failed()) {
+    return value.status;
+  }
+
+  return deserialize(object, value.value);
+}
+
+/** @brief 按上下文从文件系统路径读取 JSON 并反序列化到对象。 */
+template <typename T>
+[[nodiscard]] error deserialize_json_from(const serialization::context& context, T& object,
+                                          io::file_system& file_system, io::path_view path,
+                                          memory_resource* resource = nullptr) {
+  variant_result value = parse_json_from(file_system, path, context.config.json, resource);
   if (value.failed()) {
     return value.status;
   }

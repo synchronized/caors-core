@@ -15,6 +15,7 @@
 - `io::path`：使用 CAORS allocator 的拥有式路径字符串。
 - `io::input_stream`：同步输入字节流接口。
 - `io::output_stream`：同步输出字节流接口。
+- `io::input_stream_ptr` / `io::output_stream_ptr`：拥有式流指针。
 - `io::file_system`：同步文件系统抽象。
 - `io::native_file_system`：基于宿主操作系统的本地文件系统实现。
 - `io::memory_file_system`：基于内存哈希表的虚拟文件系统实现。
@@ -40,6 +41,8 @@ IO 模块主定义位于 `caors::io` 命名空间，例如：
 - `io::path`
 - `io::input_stream`
 - `io::output_stream`
+- `io::input_stream_ptr`
+- `io::output_stream_ptr`
 - `io::file_system`
 - `io::native_file_system`
 - `io::memory_file_system`
@@ -78,12 +81,21 @@ if (fs.exists("config.json")) {
 }
 ```
 
-当前接口只覆盖最小能力：
+当前接口覆盖最小文件系统能力：
 
 - `exists(path)`：判断路径是否存在。
 - `read_all(path, resource)`：读取完整内容，返回 `byte_buffer`。
+- `open_read(path, resource)`：打开同步输入流。
+- `open_write(path, resource)`：打开同步输出流。
 - `write_all(path, bytes)`：覆盖写出完整字节内容。
 - `write_all(path, text)`：覆盖写出字符串内容。
+
+`open_read()` 的默认实现会通过 `read_all()` 建立内存输入流，因此所有已有后端都能被需要
+`input_stream` 的上层接口直接使用。需要真正分块读取的后端后续可以覆盖该函数。
+
+`open_write()` 默认返回 `errc::unsupported`。当前可靠写入入口仍是 `write_all()`；后续如果需要
+可持续写入的输出流，需要先明确 `close()` / `flush()`、失败返回和部分写入语义，避免把写入失败隐藏到
+析构阶段。
 
 需要注意：
 

@@ -5,6 +5,9 @@
 
 #include "serialization_test_support.h"
 
+#include "caors/io/memory_file_system.h"
+#include "caors/memory/tracking.h"
+
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - parses json and deserializes reflected struct fields",
@@ -28,6 +31,32 @@ TEST_CASE("serialization - parses json and deserializes reflected struct fields"
   CHECK(actor.id == 7);
   CHECK(actor.health == Catch::Approx(95.5));
   CHECK(actor.active);
+  CHECK(actor.name == "Ada");
+}
+
+TEST_CASE("serialization - reads json from io file system and deserializes reflected fields",
+          "[serialization]") {
+  require_reader_actor_metadata();
+
+  caors::io::memory_file_system fs;
+  REQUIRE(fs.write_all("actors/ada.json", R"({"id":8,"health":88.5,"active":false,"name":"Ada"})")
+              .succeeded());
+
+  caors::tracking_resource tracking(&caors::get_system_memory_resource());
+  caors::serialization::variant_result parsed =
+      caors::serialization::parse_json_from(fs, "actors/ada.json", &tracking);
+
+  REQUIRE(parsed.succeeded());
+  REQUIRE(parsed->is_object());
+
+  reader_actor actor{};
+  const caors::error result =
+      caors::serialization::deserialize_json_from(actor, fs, "actors/ada.json", &tracking);
+
+  REQUIRE(result.succeeded());
+  CHECK(actor.id == 8);
+  CHECK(actor.health == Catch::Approx(88.5));
+  CHECK_FALSE(actor.active);
   CHECK(actor.name == "Ada");
 }
 

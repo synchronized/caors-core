@@ -5,6 +5,7 @@
 #define CAORS_IO_STREAM_H_
 
 #include "caors/io/types.h"
+#include "caors/memory/unique_ptr.h"
 
 #include <span>
 
@@ -42,6 +43,18 @@ public:
   /** @brief 写出最多 `buffer.size()` 字节，返回实际写出数量。 */
   [[nodiscard]] virtual size_result write(std::span<const std::byte> buffer) = 0;
 };
+
+/** @brief 拥有式输入流指针，使用 CAORS erased deleter 管理销毁。 */
+using input_stream_ptr = memory::unique_ptr<input_stream>;
+
+/** @brief 拥有式输出流指针，使用 CAORS erased deleter 管理销毁。 */
+using output_stream_ptr = memory::unique_ptr<output_stream>;
+
+/** @brief 输入流打开结果。 */
+using input_stream_result = result<input_stream_ptr>;
+
+/** @brief 输出流打开结果。 */
+using output_stream_result = result<output_stream_ptr>;
 
 } // namespace caors::io
 

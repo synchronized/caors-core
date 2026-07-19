@@ -17,6 +17,9 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 建立 `io` 主题，提供同步字节流、文件系统抽象和本地文件系统实现。
 - [x] 增加 `io::path_view` / `io::path`，明确虚拟路径和宿主文件系统路径的边界。
 - [x] 为 `io::native_file_system` 增加可选 root 目录，使 mount 层只负责虚拟路径分发和可选子路径重映射。
+- [x] 为 `io::file_system` 增加 `open_read()` / `open_write()` 流入口；第一版 `open_read()` 可通过
+  `read_all()` 适配已有后端，`open_write()` 默认返回 `unsupported`，等待显式 close/flush 语义收敛。
+- [ ] 为可写输出流补充 close/flush、部分写入和提交失败语义，再让具体后端覆盖 `open_write()`。
 - [x] 将 `result<T>` 逐步收敛为更接近 `expected<T, error>` 的语义，减少 `value/error/status`
   之间的重复表达。
 - [x] 清理根命名空间下不常用或不推荐继续使用的别名，只保留高频便捷别名，降低 API 表面噪声；
@@ -204,8 +207,11 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 增加 JSON writer、JSON DOM parser 和 `serialize_json()` / `deserialize_json()`。
 - [x] 为文本和 JSON writer 增加外部输出 buffer / `serialize_*_to()` 入口，允许调用方复用
   `caors::string` 并减少结果拷贝，后续可接入指定 `memory_resource`。
+- [x] 增加基于 `io::input_stream` 和 `io::file_system` 的 JSON 读入便捷入口，避免上层反序列化直接绑定
+  宿主文件系统或一次性字符串来源。
 - [ ] 扩展 JSON parser-side options，例如最大嵌套深度、重复 key 策略、尾随逗号开关和完整
   Unicode 转义处理；当前 `json_options` 只影响 writer 格式化。
+- [ ] 将 JSON DOM parser 进一步拆为 token reader / streaming reader，使 `io::input_stream` 入口不必先读取完整文本。
 - [x] 增加 `variant::dictionary` 和 `caors::hash_map<K, V>` 字典写出/读回。
 - [x] 将容器序列化统一到 `meta::type` + `sequence_view` / `set_view` / `associative_view` 路径，删除独立通用容器 codec 递归实现。
 - [x] 支持基于 `traits::set_traits<T>` 的 `caors::hash_set<T>` 集合写出/读回。

@@ -91,6 +91,8 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 | `serialization::serialize_text()` / `serialization::serialize_text_to()` | 输出调试用简单文本格式 | 模块入口，`_to` 版本复用调用方 buffer |
 | `serialization::serialize_json_to()` | 输出 JSON 到调用方 buffer | 模块入口，适合复用 buffer |
 | `serialization::parse_json()` | 解析 JSON 文本为 `variant` DOM | 当前 parser 选项暂不改变解析行为 |
+| `serialization::parse_json_from()` | 从 `io::file_system` 路径读取 JSON 并解析为 `variant` DOM | 当前内部仍读取完整文本后解析 |
+| `serialization::deserialize_json_from()` | 从 `io::input_stream` 或 `io::file_system` 路径读回对象 | 便捷入口，最终复用普通 `deserialize()` |
 | `deserialize(object, text)` | 从 JSON 文本读回对象 | 先解析 DOM，再复用普通反序列化调度 |
 | `serialization::context` | 单次读写上下文 | 按职责使用分组字段配置 |
 | `context.config.fields` | schema version 字段过滤 | `0` 表示不启用版本过滤 |
@@ -502,6 +504,22 @@ JSON 读入入口先解析为 `variant` DOM，再复用 `serialization::variant_
 caors::serialization::variant_result value = caors::serialization::parse_json(text);
 caors::error status = caors::deserialize(instance, text);
 ```
+
+也可以从统一 IO 抽象读取 JSON，而不是直接绑定宿主文件系统路径：
+
+```cpp
+caors::io::memory_file_system files;
+files.write_all("config/player.json", R"({"id":1})");
+
+caors::serialization::variant_result value =
+    caors::serialization::parse_json_from(files, "config/player.json");
+caors::error status =
+    caors::serialization::deserialize_json_from(instance, files, "config/player.json");
+```
+
+`serialization::parse_json(stream)` 和 `serialization::parse_json_from(file_system, path)` 当前是过渡入口：
+它们先把输入流读入字符串，再调用现有 DOM parser。真正按 token 增量解析的 JSON reader、二进制 reader
+和资源包/远程流读取后续再扩展，但上层 API 已经不需要假设数据来自本地文件或一次性字符串。
 
 当前 JSON parser 是最小实现，支持对象、数组、字符串、整数、浮点、`true`、`false` 和 `null`。
 字符串支持常见转义和 ASCII 范围内的 `\u00XX`；非 ASCII `\uXXXX` 暂返回 `errc::unsupported`。

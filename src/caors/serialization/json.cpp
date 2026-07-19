@@ -4,7 +4,9 @@
 #include "caors/serialization/operations.h"
 #include "detail/internal.h"
 
+#include <array>
 #include <cmath>
+#include <cstddef>
 #include <sstream>
 #include <string_view>
 
@@ -59,6 +61,25 @@ void append_json_string(core::string& output, std::string_view value) {
 
 void append_text(core::string& output, std::string_view value) {
   output.append(value.data(), value.size());
+}
+
+[[nodiscard]] error read_stream_text(io::input_stream& stream, core::string& text) {
+  std::array<std::byte, 4096> buffer{};
+
+  while (!stream.eof()) {
+    io::size_result read = stream.read(buffer);
+    if (read.failed()) {
+      return read.error();
+    }
+
+    if (*read == 0U) {
+      break;
+    }
+
+    text.append(reinterpret_cast<const char*>(buffer.data()), *read);
+  }
+
+  return {};
 }
 
 } // namespace
@@ -341,6 +362,36 @@ variant_result parse_json(std::string_view text) { return parse_json(text, json_
 
 variant_result parse_json(std::string_view text, json_options) {
   return detail::parse_json_value(text);
+}
+
+variant_result parse_json(io::input_stream& stream, memory_resource* resource) {
+  return parse_json(stream, json_options{}, resource);
+}
+
+variant_result parse_json(io::input_stream& stream, json_options options,
+                          memory_resource* resource) {
+  core::string text{allocator<char>{resource}};
+  const error status = read_stream_text(stream, text);
+  if (status) {
+    return {rethrow_as(status, error_domain::serialization), {}};
+  }
+
+  return parse_json(std::string_view{text.data(), text.size()}, options);
+}
+
+variant_result parse_json_from(io::file_system& file_system, io::path_view path,
+                               memory_resource* resource) {
+  return parse_json_from(file_system, path, json_options{}, resource);
+}
+
+variant_result parse_json_from(io::file_system& file_system, io::path_view path,
+                               json_options options, memory_resource* resource) {
+  io::input_stream_result stream = file_system.open_read(path, resource);
+  if (stream.failed()) {
+    return {rethrow_as(stream.error(), error_domain::serialization), {}};
+  }
+
+  return parse_json(*stream.value, options, resource);
 }
 
 } // namespace caors::serialization
