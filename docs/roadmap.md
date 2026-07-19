@@ -25,6 +25,14 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 为 `io::file_system` 增加 `status()` 基础属性查询和 `list()` 非递归目录枚举，覆盖 native /
   memory / mount 后端，为编辑器资产浏览和资源扫描提供底层入口。
 - [x] 提供基于 `file_system::list()` 的通用 `io::walk()` 递归遍历 helper，先覆盖同步扫描场景。
+- [ ] 设计 `io::uri` / `io::uri_view`，用 URI scheme（例如 `caors://`、`file://`、`http://`、
+  `pack://`）表达逻辑资源位置和后端路由边界；MIME / content-type 只用于描述内容格式，不负责路径路由。
+- [ ] 增加 `io::file_system_resolver` 或 virtual file system 路由层，根据 scheme、authority 或 mount prefix
+  把逻辑 URI 映射到 native、memory、HTTP、资源包、manifest 等具体后端。
+- [ ] 增加 `io::file_system_capabilities`，显式声明 read / write / list / status / watch / seek 等能力；
+  上层不根据 scheme 猜测某个后端是否支持目录枚举或监听。
+- [ ] 设计 manifest-backed listing overlay：当 HTTP、CDN 或远程后端不能直接 `list()` 时，由 manifest
+  或资源数据库提供目录枚举和编辑器资源树。
 - [x] 将 `result<T>` 逐步收敛为更接近 `expected<T, error>` 的语义，减少 `value/error/status`
   之间的重复表达。
 - [x] 清理根命名空间下不常用或不推荐继续使用的别名，只保留高频便捷别名，降低 API 表面噪声；
@@ -369,6 +377,10 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 提供 `resources::database::plan_preload()` / `preload()`，支持跨资源类型依赖闭包按 manifest type
   同步预加载。
 - [ ] 扩展资源依赖图到对象、场景和资源包层级，并定义跨层级 reload 影响范围计算。
+- [ ] 设计编辑器 file server / runtime remote file system 调试链路：编辑器进程暴露统一 IO 服务，
+  运行时通过 `caors://` 逻辑路径访问资源；发布版本可切换到 pack/native 等后端而不改上层资源 API。
+- [ ] 评估进程内 file server 与跨进程 editor file server 的统一协议边界，使本地调试、远程热更新和
+  资源包读取共享同一套 source/provider/loader 上层流程。
 - [ ] 后续评估调试 fileserver、资源包、远程资源、导入管线、资源数据库和编辑器工具层；当这些能力需要独立
   生命周期、后台任务或 UI/工具协议时，再考虑拆出独立资源工具链主题。
 
