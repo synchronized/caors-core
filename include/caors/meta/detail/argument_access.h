@@ -73,7 +73,8 @@ argument_pass_type<Parameter> argument_value(const argument& value) noexcept {
 }
 
 template <typename... Arguments>
-[[nodiscard]] bool arguments_match(std::span<const argument> arguments) noexcept {
+[[nodiscard]] bool arguments_match(std::span<const argument> arguments,
+                                   argument_match_options = {}) noexcept {
   if (arguments.size() != sizeof...(Arguments)) {
     return false;
   }

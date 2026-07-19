@@ -47,6 +47,19 @@ struct invoke_result_actor {
   const int& cref() const { return value; }
 };
 
+struct default_argument_actor {
+  int value = 0;
+
+  int add(int left, int right) {
+    value = left + right;
+    return value;
+  }
+};
+
+struct default_argument_mismatch_actor {
+  int add(int left, int right) { return left + right; }
+};
+
 [[nodiscard]] inline caors::meta::type require_method_type() {
   const caors::error result =
       caors::registration::type_<method_actor>("caors.test.meta.method_actor")

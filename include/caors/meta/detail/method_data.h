@@ -32,7 +32,8 @@ struct method_ops {
   using parameter_type_fn = std::optional<meta::type> (*)(const method_data& method,
                                                           std::size_t index) noexcept;
   using match_arguments_fn = bool (*)(const method_data& method,
-                                      std::span<const argument> arguments) noexcept;
+                                      std::span<const argument> arguments,
+                                      argument_match_options options) noexcept;
   using invoke_fn = invoke_result (*)(const method_data& method, const void* object,
                                       bool mutable_object, std::span<const argument> arguments);
 
@@ -78,7 +79,8 @@ public:
 
   method_data(const method_data& other)
       : name_(other.name_), storage_(other.storage_), ops_(other.ops_),
-        const_method_(other.const_method_), callable_(other.callable_) {
+        const_method_(other.const_method_), callable_(other.callable_),
+        default_arguments_(other.default_arguments_) {
     if (other.metadata_ != nullptr) {
       metadata_ =
           memory::make_unique<meta::metadata_map>(&memory::library_resource(), *other.metadata_);
@@ -95,6 +97,7 @@ public:
     ops_ = other.ops_;
     const_method_ = other.const_method_;
     callable_ = other.callable_;
+    default_arguments_ = other.default_arguments_;
     if (other.metadata_ != nullptr) {
       metadata_ =
           memory::make_unique<meta::metadata_map>(&memory::library_resource(), *other.metadata_);
@@ -136,8 +139,14 @@ public:
     return ops_.get_parameter_type(*this, index);
   }
 
-  [[nodiscard]] bool matches_arguments(std::span<const argument> arguments) const noexcept {
-    return ops_.match_arguments(*this, arguments);
+  [[nodiscard]] bool matches_arguments(std::span<const argument> arguments,
+                                       argument_match_options options = {}) const noexcept {
+    if (ops_.match_arguments(*this, arguments, {})) {
+      return true;
+    }
+
+    vector<argument> completed = complete_arguments(arguments, options);
+    return !completed.empty() && ops_.match_arguments(*this, completed, {});
   }
 
   [[nodiscard]] bool same_signature(const method_data& other) const noexcept {
@@ -158,8 +167,21 @@ public:
   }
 
   [[nodiscard]] invoke_result invoke_result_of(const void* object, bool mutable_object,
-                                               std::span<const argument> arguments) const {
-    return ops_.invoke(*this, object, mutable_object, arguments);
+                                               std::span<const argument> arguments,
+                                               argument_match_options options = {}) const {
+    if (ops_.match_arguments(*this, arguments, {})) {
+      return ops_.invoke(*this, object, mutable_object, arguments);
+    }
+
+    vector<argument> completed = complete_arguments(arguments, options);
+    if (completed.empty() && !arguments.empty()) {
+      return invoke_result::failed();
+    }
+    if (!ops_.match_arguments(*this, completed, {})) {
+      return invoke_result::failed();
+    }
+
+    return ops_.invoke(*this, object, mutable_object, completed);
   }
 
   [[nodiscard]] any invoke(const void* object, bool mutable_object,
@@ -193,6 +215,26 @@ public:
     return storage != nullptr ? &storage->value : nullptr;
   }
 
+  [[nodiscard]] std::size_t default_argument_count() const noexcept {
+    return default_arguments_.size();
+  }
+
+  [[nodiscard]] bool add_default_argument(any value) {
+    if (!value || default_arguments_.size() >= parameter_count()) {
+      return false;
+    }
+
+    const std::size_t parameter_index = parameter_count() - default_arguments_.size() - 1U;
+    const std::optional<meta::type> parameter_type = get_parameter_type(parameter_index);
+    if (!parameter_type.has_value() || !*parameter_type ||
+        parameter_type->id() != value.get_type().id()) {
+      return false;
+    }
+
+    default_arguments_.push_back(std::move(value));
+    return true;
+  }
+
 private:
   [[nodiscard]] static const meta::metadata_map& empty_metadata_map() noexcept {
     static const meta::metadata_map empty{
@@ -200,11 +242,38 @@ private:
     return empty;
   }
 
+  [[nodiscard]] vector<argument> complete_arguments(std::span<const argument> arguments,
+                                                    argument_match_options options) const {
+    if (!options.allow_default_arguments || arguments.size() >= parameter_count()) {
+      return {};
+    }
+
+    const std::size_t missing_count = parameter_count() - arguments.size();
+    if (missing_count > default_arguments_.size()) {
+      return {};
+    }
+
+    vector<argument> completed{};
+    completed.reserve(parameter_count());
+    for (const argument& value : arguments) {
+      completed.push_back(value);
+    }
+
+    const std::size_t first_default = missing_count - 1U;
+    for (std::size_t index = 0; index < missing_count; ++index) {
+      const any& value = default_arguments_[first_default - index];
+      completed.push_back(argument::from(value.ref()));
+    }
+
+    return completed;
+  }
+
   string_name name_{};
   alignas(std::max_align_t) std::array<std::byte, storage_size> storage_{};
   method_ops ops_{};
   bool const_method_ = false;
   std::shared_ptr<const callable_storage_base> callable_{};
+  vector<any> default_arguments_{};
   memory::unique_ptr<meta::metadata_map> metadata_{};
 };
 
@@ -243,10 +312,11 @@ public:
     return overloads_.size() == 1U ? &overloads_.front() : nullptr;
   }
 
-  [[nodiscard]] const method_data* resolve(std::span<const argument> arguments) const noexcept {
+  [[nodiscard]] const method_data* resolve(std::span<const argument> arguments,
+                                           argument_match_options options = {}) const noexcept {
     const method_data* matched = nullptr;
     for (const method_data& method : overloads_) {
-      if (!method.matches_arguments(arguments)) {
+      if (!method.matches_arguments(arguments, options)) {
         continue;
       }
 
@@ -393,9 +463,9 @@ template <typename... Arguments>
 }
 
 template <typename... Arguments>
-[[nodiscard]] bool method_arguments_match(const method_data&,
-                                          std::span<const argument> arguments) noexcept {
-  return arguments_match<Arguments...>(arguments);
+[[nodiscard]] bool method_arguments_match(const method_data&, std::span<const argument> arguments,
+                                          argument_match_options options) noexcept {
+  return arguments_match<Arguments...>(arguments, options);
 }
 
 template <typename Class, typename Return, typename... Arguments>

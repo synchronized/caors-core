@@ -11,6 +11,12 @@
 
 namespace caors::meta {
 
+/** @brief 反射方法参数匹配选项。默认保持精确匹配。 */
+struct argument_match_options {
+  /** @brief 允许调用时省略已注册默认值的尾部参数。 */
+  bool allow_default_arguments = false;
+};
+
 /**
  * @brief 反射方法调用参数。
  *

@@ -13,6 +13,7 @@
 #include "caors/meta/instance.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/method.h"
+#include "caors/meta/method_registration.h"
 #include "caors/meta/module.h"
 #include "caors/meta/property.h"
 #include "caors/meta/property_schema.h"

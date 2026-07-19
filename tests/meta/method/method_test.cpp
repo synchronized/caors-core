@@ -204,6 +204,51 @@ TEST_CASE("meta - method invoke result preserves void value and reference return
   CHECK(cref_result.try_get_mutable<int>() == nullptr);
 }
 
+TEST_CASE("meta - method default arguments require explicit match option", "[meta]") {
+  const caors::error result =
+      caors::registration::type_<default_argument_actor>("caors.test.meta.default_argument_actor")
+          .meta()
+          .method("add", &default_argument_actor::add,
+                  caors::meta::registration::default_argument(8))
+          .commit();
+  REQUIRE((result == caors::error{} || result == meta_error(caors::errc::duplicate_id)));
+
+  const caors::meta::type reflected = caors::meta::find("caors.test.meta.default_argument_actor");
+  REQUIRE(reflected);
+  const caors::meta::method_set add = reflected.find_method("add");
+  REQUIRE(add);
+
+  int left = 5;
+  std::array<caors::argument, 1> arguments{caors::arg(left)};
+  CHECK_FALSE(add.resolve(arguments));
+  default_argument_actor instance{};
+  CHECK_FALSE(add.invoke_result_of(caors::meta::view(instance), arguments));
+
+  caors::meta::argument_match_options options{};
+  options.allow_default_arguments = true;
+  const caors::meta::method resolved = add.resolve(arguments, options);
+  REQUIRE(resolved);
+  CHECK(resolved.default_argument_count() == 1);
+
+  caors::meta::invoke_result invoke_result =
+      add.invoke_result_of(caors::meta::view(instance), arguments, options);
+  REQUIRE(invoke_result.has_value());
+  REQUIRE(invoke_result.try_get<int>() != nullptr);
+  CHECK(*invoke_result.try_get<int>() == 13);
+  CHECK(instance.value == 13);
+}
+
+TEST_CASE("meta - method default arguments reject mismatched values", "[meta]") {
+  const caors::error result = caors::registration::type_<default_argument_mismatch_actor>(
+                                  "caors.test.meta.default_argument_mismatch_actor")
+                                  .meta()
+                                  .method("add", &default_argument_mismatch_actor::add,
+                                          caors::meta::registration::default_argument(1.0F))
+                                  .commit();
+
+  CHECK(result == meta_error(caors::errc::invalid_field));
+}
+
 // 原测试文件：meta_method_method_view_rejects_invalid_calls_test.cpp
 
 #include "meta_method_test_support.h"

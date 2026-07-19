@@ -25,7 +25,7 @@
 当前不会包含：
 
 - 独立于 `meta::property` 的另一套属性系统。
-- 默认参数、隐式类型转换和复杂类型转换规则。
+- 命名参数、隐式类型转换和复杂类型转换规则。
 - lambda 或函数对象直接注册为 module 函数。
 - 自动代码扫描或代码生成。
 - 动态多态类型记录和复杂类型转换规则。
@@ -172,9 +172,34 @@ caors::registration::type_<actor>("game.actor")
   `any_ref` 引用返回。`T&` / `const T&` 返回值会保留为引用，调用方必须保证原对象生命周期覆盖引用使用期。
 - 同名成员方法保存为 `meta::method_set`，可以通过 `resolve(args)` 按参数列表匹配唯一重载，也可以直接调用
   `method_set::invoke_result_of(...)`。
+- 方法可以显式注册尾部默认参数。默认调用和 `resolve(args)` 仍保持精确参数数量匹配；只有传入
+  `meta::argument_match_options` 并开启 `allow_default_arguments` 时，才会用已注册的尾部默认参数补齐缺失参数。
+  默认参数按从最右侧参数向左的顺序追加。
 - 自由函数、静态函数、唯一 `operator()` 签名的 lambda 和函数对象不挂到 `meta::type` 上；它们通过
   `meta::module(name).function(...)` 注册为 module 级函数，调用时不需要传入 instance。
-- 暂不支持默认参数、隐式类型转换、泛型/重载 lambda 自动签名选择和不可拷贝 by-value 返回值。
+- 暂不支持命名参数、隐式类型转换、泛型/重载 lambda 自动签名选择和不可拷贝 by-value 返回值。
+
+```cpp
+struct actor {
+  int add(int left, int right) { return left + right; }
+};
+
+caors::registration::type_<actor>("game.actor")
+    .meta()
+    .method("add", &actor::add, caors::meta::registration::default_argument(8))
+    .commit();
+
+actor instance{};
+int left = 5;
+std::array<caors::meta::argument, 1> args{caors::meta::arg(left)};
+
+caors::meta::argument_match_options options{};
+options.allow_default_arguments = true;
+
+auto result = caors::meta::find<actor>()
+                  .find_method("add")
+                  .invoke_result_of(caors::meta::view(instance), args, options);
+```
 
 wrapper 识别通过 `traits::wrapper_traits<T>` 扩展，而不是固定写死所有 wrapper 类型：
 
@@ -566,10 +591,11 @@ overload 合并进同一个 `method_set`。
 - `name()`：查询方法名。
 - `get_return_type()`：查询返回值类型；`void` 返回值返回无效 `meta::type`。
 - `parameter_count()` / `get_parameter_type()`：查询参数列表。
+- `default_argument_count()`：查询已注册的尾部默认参数数量。
 - `const_method()`：判断是否是 `const` 成员函数。
 - `metadata()` / `find_metadata()`：查询方法附加 metadata。脚本导出、编辑器命令和工具层可以按约定键读取。
-- `invoke_result_of(instance, args)`：在实例上调用成员方法，并返回 `meta::invoke_result`。
-- `invoke_result_of(args)`：调用全局函数，并返回 `meta::invoke_result`。
+- `invoke_result_of(instance, args, options)`：在实例上调用成员方法，并返回 `meta::invoke_result`。
+- `invoke_result_of(args, options)`：调用全局函数，并返回 `meta::invoke_result`。
 - `try_invoke<T>()`：调用方法并按指定类型读取返回值。
 - `args` 使用 `span<const meta::argument>`；已有 `any_ref` 需要先通过 `caors::arg(ref)` 包装成参数。
 
@@ -587,9 +613,9 @@ overload 合并进同一个 `method_set`。
 - `name()`：查询方法名。
 - `overload_count()` / `overload_at()`：遍历同名重载；索引越界时返回无效 `meta::method`。
 - `single()`：只有一个重载时返回该 `meta::method`；存在多个重载时返回无效视图。
-- `resolve(args)`：按参数列表匹配唯一重载；没有匹配或匹配不唯一时返回无效视图。
-- `invoke_result_of(instance, args)`：先解析唯一成员方法重载，再调用具体方法，并保留完整调用结果语义。
-- `invoke_result_of(args)`：调用全局函数重载，并保留完整调用结果语义。
+- `resolve(args, options)`：按参数列表匹配唯一重载；没有匹配或匹配不唯一时返回无效视图。
+- `invoke_result_of(instance, args, options)`：先解析唯一成员方法重载，再调用具体方法，并保留完整调用结果语义。
+- `invoke_result_of(args, options)`：调用全局函数重载，并保留完整调用结果语义。
 
 `sequence_view` 当前提供：
 

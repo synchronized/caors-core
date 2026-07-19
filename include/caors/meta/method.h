@@ -109,13 +109,18 @@ public:
   [[nodiscard]] bool const_method() const noexcept;
   [[nodiscard]] const meta::metadata_map& metadata() const noexcept;
   [[nodiscard]] const meta::metadata_value* find_metadata(meta::metadata_key key) const noexcept;
+  [[nodiscard]] bool matches_arguments(std::span<const argument> arguments,
+                                       argument_match_options options = {}) const noexcept;
+  [[nodiscard]] std::size_t default_argument_count() const noexcept;
 
   /** @brief 在实例上调用成员方法，保留 void / 值 / 引用返回语义。 */
   [[nodiscard]] invoke_result invoke_result_of(const instance& object,
-                                               std::span<const argument> arguments = {}) const;
+                                               std::span<const argument> arguments = {},
+                                               argument_match_options options = {}) const;
 
   /** @brief 调用全局函数，保留 void / 值 / 引用返回语义。 */
-  [[nodiscard]] invoke_result invoke_result_of(std::span<const argument> arguments = {}) const;
+  [[nodiscard]] invoke_result invoke_result_of(std::span<const argument> arguments = {},
+                                               argument_match_options options = {}) const;
 
   /** @brief 按指定类型调用方法并读取返回值。 */
   template <typename Return>
@@ -179,14 +184,17 @@ public:
   [[nodiscard]] std::size_t overload_count() const noexcept;
   [[nodiscard]] method overload_at(std::size_t index) const;
   [[nodiscard]] method single() const;
-  [[nodiscard]] method resolve(std::span<const argument> arguments = {}) const;
+  [[nodiscard]] method resolve(std::span<const argument> arguments = {},
+                               argument_match_options options = {}) const;
 
   /** @brief 在实例上调用唯一匹配的成员方法重载，保留 void / 值 / 引用返回语义。 */
   [[nodiscard]] invoke_result invoke_result_of(const instance& object,
-                                               std::span<const argument> arguments = {}) const;
+                                               std::span<const argument> arguments = {},
+                                               argument_match_options options = {}) const;
 
   /** @brief 调用唯一匹配的全局函数重载，保留 void / 值 / 引用返回语义。 */
-  [[nodiscard]] invoke_result invoke_result_of(std::span<const argument> arguments = {}) const;
+  [[nodiscard]] invoke_result invoke_result_of(std::span<const argument> arguments = {},
+                                               argument_match_options options = {}) const;
 
 private:
   friend class module_view;
