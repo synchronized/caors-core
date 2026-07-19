@@ -181,8 +181,13 @@ caors::registration::type_<actor>("game.actor")
   默认参数按从最右侧参数向左的顺序追加。
 - 自由函数、静态函数、唯一 `operator()` 签名的 lambda 和函数对象不挂到 `meta::type` 上；它们通过
   `meta::module(name).function(...)` 注册为 module 级函数，调用时不需要传入 instance。
-- `argument_match_options::conversion_policy` 当前只实现 `exact_only`，用于提前稳定可配置类型转换策略的 API 形状。
-- 暂不支持隐式类型转换、泛型/重载 lambda 自动签名选择，以及既不可复制也不可移动的 by-value 返回值。
+- `argument_match_options::conversion_policy` 默认是 `exact_only`。显式设置为 `numeric_safe` 时，
+  方法匹配允许安全数值 widening，例如 `int -> long long`、`unsigned int -> unsigned long long`、
+  `float -> double`，以及能完整表示来源整数精度的整数到浮点转换；窄化、浮点到整数、
+  有符号到无符号、可能丢失取值范围的转换和字符串解析都不会隐式发生。
+- 开启转换策略后，重载解析仍优先选择精确匹配；如果多个重载只能通过同等级转换匹配，则视为歧义并返回失败。
+- 转换产生的临时值由内部 `argument` 持有，生命周期覆盖本次 `invoke_result_of()` 调用。
+- 暂不支持泛型/重载 lambda 自动签名选择，以及既不可复制也不可移动的 by-value 返回值。
 
 ```cpp
 struct actor {
@@ -206,6 +211,7 @@ std::array<caors::meta::named_argument, 1> args{
 caors::meta::argument_match_options options{};
 options.allow_default_arguments = true;
 options.allow_named_arguments = true;
+options.conversion_policy = caors::meta::argument_conversion_policy::numeric_safe;
 
 auto result = caors::meta::find<actor>()
                   .find_method("add")

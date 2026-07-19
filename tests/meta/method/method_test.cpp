@@ -382,6 +382,129 @@ TEST_CASE("meta - method invoke result owns move-only by-value returns", "[meta]
   CHECK(returned->value == 31);
 }
 
+TEST_CASE("meta - method numeric safe conversion requires explicit policy", "[meta]") {
+  const caors::error result = caors::registration::type_<numeric_conversion_actor>(
+                                  "caors.test.meta.numeric_conversion_actor")
+                                  .meta()
+                                  .method("take_i64", &numeric_conversion_actor::take_i64)
+                                  .method("take_double", &numeric_conversion_actor::take_double)
+                                  .commit();
+  REQUIRE((result == caors::error{} || result == meta_error(caors::errc::duplicate_id)));
+
+  const caors::meta::type reflected = caors::meta::find("caors.test.meta.numeric_conversion_actor");
+  REQUIRE(reflected);
+  const caors::meta::method_set take_i64 = reflected.find_method("take_i64");
+  REQUIRE(take_i64);
+
+  int input = 17;
+  std::array<caors::argument, 1> arguments{caors::arg(input)};
+  CHECK_FALSE(take_i64.resolve(arguments));
+
+  caors::meta::argument_match_options options{};
+  options.conversion_policy = caors::meta::argument_conversion_policy::numeric_safe;
+  const caors::meta::method resolved = take_i64.resolve(arguments, options);
+  REQUIRE(resolved);
+
+  numeric_conversion_actor instance{};
+  caors::meta::invoke_result invoke_result =
+      take_i64.invoke_result_of(caors::meta::view(instance), arguments, options);
+  REQUIRE(invoke_result.has_value());
+  REQUIRE(invoke_result.try_get<int>() != nullptr);
+  CHECK(*invoke_result.try_get<int>() == 17);
+  CHECK(instance.value == 17);
+
+  const caors::meta::method_set take_double = reflected.find_method("take_double");
+  REQUIRE(take_double);
+  float precise = 4.0F;
+  std::array<caors::argument, 1> floating_arguments{caors::arg(precise)};
+  invoke_result =
+      take_double.invoke_result_of(caors::meta::view(instance), floating_arguments, options);
+  REQUIRE(invoke_result.has_value());
+  REQUIRE(invoke_result.try_get<int>() != nullptr);
+  CHECK(*invoke_result.try_get<int>() == 8);
+  CHECK(instance.value == 8);
+}
+
+TEST_CASE("meta - method numeric safe conversion rejects narrowing", "[meta]") {
+  const caors::error result =
+      caors::registration::type_<numeric_narrowing_actor>("caors.test.meta.numeric_narrowing_actor")
+          .meta()
+          .method("take_i64", &numeric_narrowing_actor::take_i64)
+          .commit();
+  REQUIRE((result == caors::error{} || result == meta_error(caors::errc::duplicate_id)));
+
+  const caors::meta::type reflected = caors::meta::find("caors.test.meta.numeric_narrowing_actor");
+  REQUIRE(reflected);
+  const caors::meta::method_set take_i64 = reflected.find_method("take_i64");
+  REQUIRE(take_i64);
+
+  double input = 17.0;
+  std::array<caors::argument, 1> arguments{caors::arg(input)};
+  caors::meta::argument_match_options options{};
+  options.conversion_policy = caors::meta::argument_conversion_policy::numeric_safe;
+  CHECK_FALSE(take_i64.resolve(arguments, options));
+}
+
+TEST_CASE("meta - method numeric safe conversion keeps exact overload priority", "[meta]") {
+  const caors::error result =
+      caors::registration::type_<numeric_conversion_overload_actor>(
+          "caors.test.meta.numeric_conversion_overload_actor")
+          .meta()
+          .method("select", static_cast<int (numeric_conversion_overload_actor::*)(int)>(
+                                &numeric_conversion_overload_actor::select))
+          .method("select", static_cast<int (numeric_conversion_overload_actor::*)(long long)>(
+                                &numeric_conversion_overload_actor::select))
+          .commit();
+  REQUIRE((result == caors::error{} || result == meta_error(caors::errc::duplicate_id)));
+
+  const caors::meta::type reflected =
+      caors::meta::find("caors.test.meta.numeric_conversion_overload_actor");
+  REQUIRE(reflected);
+  const caors::meta::method_set select = reflected.find_method("select");
+  REQUIRE(select);
+
+  int input = 7;
+  std::array<caors::argument, 1> arguments{caors::arg(input)};
+  caors::meta::argument_match_options options{};
+  options.conversion_policy = caors::meta::argument_conversion_policy::numeric_safe;
+
+  numeric_conversion_overload_actor instance{};
+  caors::meta::invoke_result invoke_result =
+      select.invoke_result_of(caors::meta::view(instance), arguments, options);
+  REQUIRE(invoke_result.has_value());
+  REQUIRE(invoke_result.try_get<int>() != nullptr);
+  CHECK(*invoke_result.try_get<int>() == 7);
+  CHECK(instance.value == 7);
+}
+
+TEST_CASE("meta - method numeric safe conversion reports overload ambiguity", "[meta]") {
+  const caors::error result =
+      caors::registration::type_<numeric_conversion_ambiguous_actor>(
+          "caors.test.meta.numeric_conversion_ambiguous_actor")
+          .meta()
+          .method("select", static_cast<int (numeric_conversion_ambiguous_actor::*)(long long)>(
+                                &numeric_conversion_ambiguous_actor::select))
+          .method("select", static_cast<int (numeric_conversion_ambiguous_actor::*)(double)>(
+                                &numeric_conversion_ambiguous_actor::select))
+          .commit();
+  REQUIRE((result == caors::error{} || result == meta_error(caors::errc::duplicate_id)));
+
+  const caors::meta::type reflected =
+      caors::meta::find("caors.test.meta.numeric_conversion_ambiguous_actor");
+  REQUIRE(reflected);
+  const caors::meta::method_set select = reflected.find_method("select");
+  REQUIRE(select);
+
+  int input = 7;
+  std::array<caors::argument, 1> arguments{caors::arg(input)};
+  caors::meta::argument_match_options options{};
+  options.conversion_policy = caors::meta::argument_conversion_policy::numeric_safe;
+
+  CHECK_FALSE(select.resolve(arguments, options));
+  numeric_conversion_ambiguous_actor instance{};
+  CHECK_FALSE(select.invoke_result_of(caors::meta::view(instance), arguments, options));
+}
+
 // 原测试文件：meta_method_method_view_rejects_invalid_calls_test.cpp
 
 #include "meta_method_test_support.h"

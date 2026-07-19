@@ -32,9 +32,12 @@ struct method_ops {
   using parameter_count_fn = std::size_t (*)(const method_data& method) noexcept;
   using parameter_type_fn = std::optional<meta::type> (*)(const method_data& method,
                                                           std::size_t index) noexcept;
-  using match_arguments_fn = bool (*)(const method_data& method,
-                                      std::span<const argument> arguments,
-                                      argument_match_options options) noexcept;
+  using rank_arguments_fn = argument_match_rank (*)(const method_data& method,
+                                                    std::span<const argument> arguments,
+                                                    argument_match_options options) noexcept;
+  using prepare_arguments_fn = vector<argument> (*)(const method_data& method,
+                                                    std::span<const argument> arguments,
+                                                    argument_match_options options);
   using invoke_fn = invoke_result (*)(const method_data& method, const void* object,
                                       bool mutable_object, std::span<const argument> arguments);
 
@@ -42,12 +45,14 @@ struct method_ops {
   type_fn get_return_type = nullptr;
   parameter_count_fn parameter_count = nullptr;
   parameter_type_fn get_parameter_type = nullptr;
-  match_arguments_fn match_arguments = nullptr;
+  rank_arguments_fn rank_arguments = nullptr;
+  prepare_arguments_fn prepare_arguments = nullptr;
   invoke_fn invoke = nullptr;
 
   [[nodiscard]] bool valid() const noexcept {
     return get_owner_type != nullptr && get_return_type != nullptr && parameter_count != nullptr &&
-           get_parameter_type != nullptr && match_arguments != nullptr && invoke != nullptr;
+           get_parameter_type != nullptr && rank_arguments != nullptr &&
+           prepare_arguments != nullptr && invoke != nullptr;
   }
 };
 
@@ -147,18 +152,35 @@ public:
 
   [[nodiscard]] bool matches_arguments(std::span<const argument> arguments,
                                        argument_match_options options = {}) const noexcept {
-    if (ops_.match_arguments(*this, arguments, {})) {
-      return true;
-    }
-
-    vector<argument> completed = complete_positional_arguments(arguments, options);
-    return !completed.empty() && ops_.match_arguments(*this, completed, {});
+    return match_rank(arguments, options) != argument_match_rank::none;
   }
 
   [[nodiscard]] bool matches_arguments(std::span<const named_argument> arguments,
                                        argument_match_options options = {}) const noexcept {
+    return match_rank(arguments, options) != argument_match_rank::none;
+  }
+
+  [[nodiscard]] argument_match_rank match_rank(std::span<const argument> arguments,
+                                               argument_match_options options = {}) const noexcept {
+    if (ops_.rank_arguments(*this, arguments, {}) == argument_match_rank::exact) {
+      return argument_match_rank::exact;
+    }
+
+    const argument_match_rank direct_rank = ops_.rank_arguments(*this, arguments, options);
+    if (direct_rank != argument_match_rank::none) {
+      return direct_rank;
+    }
+
+    vector<argument> completed = complete_positional_arguments(arguments, options);
+    return !completed.empty() ? ops_.rank_arguments(*this, completed, options)
+                              : argument_match_rank::none;
+  }
+
+  [[nodiscard]] argument_match_rank match_rank(std::span<const named_argument> arguments,
+                                               argument_match_options options = {}) const noexcept {
     vector<argument> completed = normalize_named_arguments(arguments, options);
-    return !completed.empty() && ops_.match_arguments(*this, completed, {});
+    return !completed.empty() ? ops_.rank_arguments(*this, completed, options)
+                              : argument_match_rank::none;
   }
 
   [[nodiscard]] bool same_signature(const method_data& other) const noexcept {
@@ -181,15 +203,8 @@ public:
   [[nodiscard]] invoke_result invoke_result_of(const void* object, bool mutable_object,
                                                std::span<const argument> arguments,
                                                argument_match_options options = {}) const {
-    if (ops_.match_arguments(*this, arguments, {})) {
-      return ops_.invoke(*this, object, mutable_object, arguments);
-    }
-
-    vector<argument> completed = complete_positional_arguments(arguments, options);
-    if (completed.empty() && !arguments.empty()) {
-      return invoke_result::failed();
-    }
-    if (!ops_.match_arguments(*this, completed, {})) {
+    vector<argument> completed = prepare_positional_arguments(arguments, options);
+    if (completed.empty() && parameter_count() > 0) {
       return invoke_result::failed();
     }
 
@@ -203,11 +218,13 @@ public:
     if (completed.empty()) {
       return invoke_result::failed();
     }
-    if (!ops_.match_arguments(*this, completed, {})) {
+
+    vector<argument> prepared = ops_.prepare_arguments(*this, completed, options);
+    if (prepared.empty() && parameter_count() > 0) {
       return invoke_result::failed();
     }
 
-    return ops_.invoke(*this, object, mutable_object, completed);
+    return ops_.invoke(*this, object, mutable_object, prepared);
   }
 
   [[nodiscard]] any invoke(const void* object, bool mutable_object,
@@ -321,6 +338,26 @@ private:
   }
 
   [[nodiscard]] vector<argument>
+  prepare_positional_arguments(std::span<const argument> arguments,
+                               argument_match_options options) const {
+    if (ops_.rank_arguments(*this, arguments, {}) == argument_match_rank::exact) {
+      return ops_.prepare_arguments(*this, arguments, {});
+    }
+
+    vector<argument> prepared = ops_.prepare_arguments(*this, arguments, options);
+    if (!prepared.empty() || parameter_count() == 0) {
+      return prepared;
+    }
+
+    vector<argument> completed = complete_positional_arguments(arguments, options);
+    if (completed.empty()) {
+      return {};
+    }
+
+    return ops_.prepare_arguments(*this, completed, options);
+  }
+
+  [[nodiscard]] vector<argument>
   normalize_named_arguments(std::span<const named_argument> arguments,
                             argument_match_options options) const {
     if (!options.allow_named_arguments || parameter_count() == 0 ||
@@ -425,16 +462,22 @@ public:
   [[nodiscard]] const method_data* resolve(std::span<const argument> arguments,
                                            argument_match_options options = {}) const noexcept {
     const method_data* matched = nullptr;
+    argument_match_rank best_rank = argument_match_rank::none;
     for (const method_data& method : overloads_) {
-      if (!method.matches_arguments(arguments, options)) {
+      const argument_match_rank rank = method.match_rank(arguments, options);
+      if (rank == argument_match_rank::none) {
         continue;
       }
 
-      if (matched != nullptr) {
+      if (matched != nullptr && rank == best_rank) {
         return nullptr;
       }
 
-      matched = &method;
+      if (matched == nullptr ||
+          static_cast<unsigned char>(rank) > static_cast<unsigned char>(best_rank)) {
+        matched = &method;
+        best_rank = rank;
+      }
     }
 
     return matched;
@@ -443,16 +486,22 @@ public:
   [[nodiscard]] const method_data* resolve(std::span<const named_argument> arguments,
                                            argument_match_options options = {}) const noexcept {
     const method_data* matched = nullptr;
+    argument_match_rank best_rank = argument_match_rank::none;
     for (const method_data& method : overloads_) {
-      if (!method.matches_arguments(arguments, options)) {
+      const argument_match_rank rank = method.match_rank(arguments, options);
+      if (rank == argument_match_rank::none) {
         continue;
       }
 
-      if (matched != nullptr) {
+      if (matched != nullptr && rank == best_rank) {
         return nullptr;
       }
 
-      matched = &method;
+      if (matched == nullptr ||
+          static_cast<unsigned char>(rank) > static_cast<unsigned char>(best_rank)) {
+        matched = &method;
+        best_rank = rank;
+      }
     }
 
     return matched;
@@ -598,13 +647,17 @@ template <typename... Arguments>
 }
 
 template <typename... Arguments>
-[[nodiscard]] bool method_arguments_match(const method_data&, std::span<const argument> arguments,
-                                          argument_match_options options) noexcept {
-  if (options.conversion_policy != argument_conversion_policy::exact_only) {
-    return false;
-  }
+[[nodiscard]] argument_match_rank method_arguments_rank(const method_data&,
+                                                        std::span<const argument> arguments,
+                                                        argument_match_options options) noexcept {
+  return arguments_rank<Arguments...>(arguments, options);
+}
 
-  return arguments_match<Arguments...>(arguments, options);
+template <typename... Arguments>
+[[nodiscard]] vector<argument> method_prepare_arguments(const method_data&,
+                                                        std::span<const argument> arguments,
+                                                        argument_match_options options) {
+  return prepare_arguments<Arguments...>(arguments, options);
 }
 
 template <typename Class, typename Return, typename... Arguments>
@@ -614,7 +667,8 @@ template <typename Class, typename Return, typename... Arguments>
       &method_return_type<Return>,
       &method_parameter_count<Arguments...>,
       &method_parameter_type<Arguments...>,
-      &method_arguments_match<Arguments...>,
+      &method_arguments_rank<Arguments...>,
+      &method_prepare_arguments<Arguments...>,
       &invoke_member_method<Class, Return, Arguments...>,
   };
 }
@@ -626,7 +680,8 @@ template <typename Class, typename Return, typename... Arguments>
       &method_return_type<Return>,
       &method_parameter_count<Arguments...>,
       &method_parameter_type<Arguments...>,
-      &method_arguments_match<Arguments...>,
+      &method_arguments_rank<Arguments...>,
+      &method_prepare_arguments<Arguments...>,
       &invoke_const_member_method<Class, Return, Arguments...>,
   };
 }
@@ -751,9 +806,13 @@ template <typename Return, typename... Arguments>
 template <typename Return, typename... Arguments>
 [[nodiscard]] method_ops global_method_ops() noexcept {
   return method_ops{
-      &global_method_owner_type<Return, Arguments...>, &method_return_type<Return>,
-      &method_parameter_count<Arguments...>,           &method_parameter_type<Arguments...>,
-      &method_arguments_match<Arguments...>,           &invoke_global_method<Return, Arguments...>,
+      &global_method_owner_type<Return, Arguments...>,
+      &method_return_type<Return>,
+      &method_parameter_count<Arguments...>,
+      &method_parameter_type<Arguments...>,
+      &method_arguments_rank<Arguments...>,
+      &method_prepare_arguments<Arguments...>,
+      &invoke_global_method<Return, Arguments...>,
   };
 }
 
@@ -779,7 +838,8 @@ struct global_callable_method_factory<Callable, function_signature<Return, Argum
         &method_return_type<Return>,
         &method_parameter_count<Arguments...>,
         &method_parameter_type<Arguments...>,
-        &method_arguments_match<Arguments...>,
+        &method_arguments_rank<Arguments...>,
+        &method_prepare_arguments<Arguments...>,
         &invoke_global_callable_method<Callable, Return, Arguments...>,
     };
   }

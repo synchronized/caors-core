@@ -16,6 +16,7 @@ namespace caors::meta {
 /** @brief 反射方法参数类型转换策略。默认只允许精确类型匹配。 */
 enum class argument_conversion_policy {
   exact_only,
+  numeric_safe,
 };
 
 /** @brief 反射方法参数匹配选项。默认保持精确匹配。 */
@@ -24,7 +25,7 @@ struct argument_match_options {
   bool allow_default_arguments = false;
   /** @brief 允许调用时按已注册参数名匹配并重排参数。 */
   bool allow_named_arguments = false;
-  /** @brief 参数类型转换策略。当前只实现精确匹配。 */
+  /** @brief 参数类型转换策略。默认只允许精确类型匹配。 */
   argument_conversion_policy conversion_policy = argument_conversion_policy::exact_only;
 };
 
@@ -37,6 +38,49 @@ struct argument_match_options {
 class argument final {
 public:
   argument() noexcept = default;
+  argument(const argument& other) : ref_(other.ref_), owned_(other.owned_), rvalue_(other.rvalue_) {
+    if (rvalue_) {
+      ref_ = owned_.ref();
+    }
+  }
+
+  argument(argument&& other) noexcept
+      : ref_(other.ref_), owned_(std::move(other.owned_)), rvalue_(other.rvalue_),
+        consumed_(other.consumed_) {
+    if (rvalue_) {
+      ref_ = owned_.ref();
+    }
+  }
+
+  argument& operator=(const argument& other) {
+    if (this == &other) {
+      return *this;
+    }
+
+    ref_ = other.ref_;
+    owned_ = other.owned_;
+    rvalue_ = other.rvalue_;
+    consumed_ = other.consumed_;
+    if (rvalue_) {
+      ref_ = owned_.ref();
+    }
+    return *this;
+  }
+
+  argument& operator=(argument&& other) noexcept {
+    if (this == &other) {
+      return *this;
+    }
+
+    ref_ = other.ref_;
+    owned_ = std::move(other.owned_);
+    rvalue_ = other.rvalue_;
+    consumed_ = other.consumed_;
+    if (rvalue_) {
+      ref_ = owned_.ref();
+    }
+    return *this;
+  }
 
   /** @brief 从已有运行期引用创建左值参数。 */
   [[nodiscard]] static argument from(any_ref value) noexcept {

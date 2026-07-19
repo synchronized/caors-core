@@ -105,6 +105,48 @@ struct move_only_return_actor {
   move_only_return_value make(int value) { return move_only_return_value{value}; }
 };
 
+struct numeric_conversion_actor {
+  int value = 0;
+
+  int take_i64(long long input) {
+    value = static_cast<int>(input);
+    return value;
+  }
+
+  int take_double(double input) {
+    value = static_cast<int>(input * 2.0);
+    return value;
+  }
+};
+
+struct numeric_narrowing_actor {
+  int value = 0;
+
+  int take_i64(long long input) {
+    value = static_cast<int>(input);
+    return value;
+  }
+};
+
+struct numeric_conversion_overload_actor {
+  int value = 0;
+
+  int select(int input) {
+    value = input;
+    return value;
+  }
+
+  int select(long long input) {
+    value = static_cast<int>(input + 10);
+    return value;
+  }
+};
+
+struct numeric_conversion_ambiguous_actor {
+  int select(long long input) { return static_cast<int>(input); }
+  int select(double input) { return static_cast<int>(input); }
+};
+
 [[nodiscard]] inline caors::meta::type require_method_type() {
   const caors::error result =
       caors::registration::type_<method_actor>("caors.test.meta.method_actor")
