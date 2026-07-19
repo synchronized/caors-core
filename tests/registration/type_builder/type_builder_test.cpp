@@ -65,6 +65,11 @@ TEST_CASE("registration - duplicate type builder commit does not mutate register
               .field("first")
               .commit() == caors::error{});
 
+  const caors::meta::type old_meta_type = caors::meta::find<duplicate_actor>();
+  REQUIRE(old_meta_type.registered());
+  REQUIRE(static_cast<bool>(old_meta_type.find_property("first")));
+  REQUIRE_FALSE(static_cast<bool>(old_meta_type.find_property("second")));
+
   const caors::error duplicate_status =
       caors::registration::type_<duplicate_actor>("caors.test.registration.duplicate")
           .meta()
@@ -79,6 +84,8 @@ TEST_CASE("registration - duplicate type builder commit does not mutate register
   REQUIRE(meta_type.registered());
   CHECK(static_cast<bool>(meta_type.find_property("first")));
   CHECK_FALSE(static_cast<bool>(meta_type.find_property("second")));
+  CHECK(static_cast<bool>(old_meta_type.find_property("first")));
+  CHECK_FALSE(static_cast<bool>(old_meta_type.find_property("second")));
 
   const std::optional<caors::serialization::type_schema> schema =
       caors::serialization::find(meta_type);

@@ -43,6 +43,19 @@ struct batch_after_enum_failure_type {
   int value = 0;
 };
 
+struct batch_lifecycle_first_type {
+  int value = 0;
+};
+
+struct batch_lifecycle_duplicate_type {
+  int old_value = 0;
+  int new_value = 0;
+};
+
+struct batch_lifecycle_after_type {
+  int value = 0;
+};
+
 } // namespace
 
 TEST_CASE("registration batch - commits type and enum in order", "[registration]") {
@@ -158,4 +171,41 @@ TEST_CASE("registration batch - explicit context registers into local registry",
   CHECK(caors::meta::find<batch_context_enum>(ctx).registered());
   CHECK_FALSE(caors::meta::find<batch_context_type>());
   CHECK_FALSE(caors::meta::find<batch_context_enum>());
+}
+
+TEST_CASE("registration batch - keeps prior commits when a later item fails", "[registration]") {
+  REQUIRE(caors::registration::type_<batch_lifecycle_duplicate_type>(
+              "caors.test.registration.batch.lifecycle_duplicate")
+              .meta()
+              .property("old_value", &batch_lifecycle_duplicate_type::old_value)
+              .commit() == caors::error{});
+
+  caors::registration::batch_builder batch = caors::registration::batch();
+  batch.type_<batch_lifecycle_first_type>("caors.test.registration.batch.lifecycle_first")
+      .meta()
+      .property("value", &batch_lifecycle_first_type::value);
+  batch.type_<batch_lifecycle_duplicate_type>("caors.test.registration.batch.lifecycle_duplicate")
+      .meta()
+      .property("new_value", &batch_lifecycle_duplicate_type::new_value);
+  batch.type_<batch_lifecycle_after_type>("caors.test.registration.batch.lifecycle_after");
+
+  const caors::error status = batch.commit();
+  REQUIRE(status);
+  CHECK(status.value() == caors::errc::duplicate_id);
+
+  const caors::registration::batch_diagnostic* diagnostic = batch.diagnostic();
+  REQUIRE(diagnostic != nullptr);
+  CHECK(diagnostic->kind == caors::registration::batch_item_kind::type);
+  CHECK(diagnostic->index == 1);
+
+  const caors::meta::type first_type = caors::meta::find<batch_lifecycle_first_type>();
+  REQUIRE(first_type.registered());
+  CHECK(static_cast<bool>(first_type.find_property("value")));
+
+  const caors::meta::type duplicate_type = caors::meta::find<batch_lifecycle_duplicate_type>();
+  REQUIRE(duplicate_type.registered());
+  CHECK(static_cast<bool>(duplicate_type.find_property("old_value")));
+  CHECK_FALSE(static_cast<bool>(duplicate_type.find_property("new_value")));
+
+  CHECK_FALSE(caors::meta::find<batch_lifecycle_after_type>());
 }

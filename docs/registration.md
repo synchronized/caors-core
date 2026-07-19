@@ -89,6 +89,11 @@ builder；当 `T` 继承自 `objects::object` 时，`commit()` 会自动写入�
 和 capability 都在 builder pending 阶段收集；只有 `.commit()` 成功后，`meta::find<T>()` 才能查到该枚举类型。
 如果枚举项名称重复或类型名为空，builder 会保存错误状态，`commit()` 不会发布半成品类型。
 
+当前 registry 使用 append-only 生命周期。普通注册不提供 replace、update 或覆盖语义；一旦
+`commit()` 成功发布 `type_data`，后续重复类型、重复名称或重复 GUID 注册都会返回错误，已经发布的
+属性、方法、nested 关系、序列化 schema、对象能力、metadata 和 capability 保持不变。已经获取的
+`meta::type` view 也继续指向旧的稳定数据。
+
 批量注册第一版不提供事务回滚。`registration::batch_builder::commit()` 会按追加顺序提交每个 builder，
 遇到第一个错误立即停止并通过 `diagnostic()` 返回失败项的 index、kind、type id、name 和 error。已经成功提交的
 前置项会保留在 registry 中，失败项之后的注册项不会提交。批量注册也不提供隐式 replace；重复类型、重复名称或
@@ -114,6 +119,24 @@ if (status) {
 `diagnostic_message()` 返回类似
 `registration batch failed at item 1: enum game.actor_state duplicate name` 的可读文本。
 需要结构化处理时优先读取 `diagnostic()`；只需要日志时使用 `diagnostic_message()`。
+
+## Registry 策略方向
+
+当前默认策略等价于 `append_only_registry`：启动期或模块加载期集中注册，发布后只读查询，view 可以保持
+稳定指向已发布数据。这是普通游戏运行期、工具启动和测试环境的推荐模型。
+
+未来如果需要插件热加载、脚本动态类型或编辑器热替换，应引入独立 registry 策略，而不是让当前默认
+registry 隐式变成可变结构。可评估的策略包括：
+
+- `mutable_registry`：允许显式替换或删除类型数据，但需要 generation、失效检测和更严格的锁策略；旧 view
+  不能继续假定永久稳定。
+- `snapshot_registry`：在后台构建新快照，提交时原子切换读取快照；旧 view 的生命周期绑定到旧快照，
+  适合读多写少的工具或热重载场景。
+- 插件 registry overlay：应用主 registry 保持 append-only，插件注册写入 overlay；查询时先查 overlay
+  再查主 registry，插件卸载时整体丢弃 overlay，避免修改主 registry。
+
+`dry_run` 暂不作为当前 API。真正有意义的 dry-run 需要 registry 提供“只校验不提交”的策略能力，
+否则无法可靠判断名称、GUID、父类型、extension 和 capability 冲突是否会在提交时发生变化。
 
 字段声明类型不要求全部完成 `registration::type_<T>("name")` 注册。基础标量、字符串、容器、指针、
 wrapper、pair、tuple 和 variant 可以通过内部 descriptor 参与反射和序列化。只有需要稳定名称、
