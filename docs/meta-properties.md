@@ -25,7 +25,7 @@
 当前不会包含：
 
 - 独立于 `meta::property` 的另一套属性系统。
-- 命名参数、隐式类型转换和复杂类型转换规则。
+- 隐式类型转换和复杂类型转换规则。
 - lambda 或函数对象直接注册为 module 函数。
 - 自动代码扫描或代码生成。
 - 动态多态类型记录和复杂类型转换规则。
@@ -164,20 +164,25 @@ caors::registration::type_<actor>("game.actor")
 当前方法能力的边界：
 
 - 只支持成员函数指针，包括 `const` 成员函数。
-- 参数通过 `std::span<const caors::meta::argument>` 传入，类型必须和注册时的方法参数匹配。
+- 参数通过 `std::span<const caors::meta::argument>` 传入，类型必须和注册时的方法参数精确匹配。
 - 已有 `any_ref` 需要通过 `caors::arg(ref)` 包装成 `argument`；非 const 左值引用参数要求底层引用可写。
 - 右值引用参数需要显式使用 `meta::move_arg(...)`，避免反射调用隐式 move 外部对象。
 - 非 const 成员函数只能通过可写对象指针调用；`const` 对象只能调用 `const` 成员函数。
 - `invoke_result_of()` 返回 `meta::invoke_result`，可以区分调用失败、`void` 成功、拥有值返回和
   `any_ref` 引用返回。`T&` / `const T&` 返回值会保留为引用，调用方必须保证原对象生命周期覆盖引用使用期。
+  不可拷贝但可移动的 by-value 返回值会由 `invoke_result` 持有为拥有值；既不可复制也不可移动的
+  by-value 返回值仍会调用失败。
 - 同名成员方法保存为 `meta::method_set`，可以通过 `resolve(args)` 按参数列表匹配唯一重载，也可以直接调用
   `method_set::invoke_result_of(...)`。
+- 方法可以显式注册参数名。默认调用和 `resolve(args)` 只按位置匹配；只有传入
+  `meta::argument_match_options` 并开启 `allow_named_arguments` 时，才会用命名参数按已注册参数名重排。
 - 方法可以显式注册尾部默认参数。默认调用和 `resolve(args)` 仍保持精确参数数量匹配；只有传入
   `meta::argument_match_options` 并开启 `allow_default_arguments` 时，才会用已注册的尾部默认参数补齐缺失参数。
   默认参数按从最右侧参数向左的顺序追加。
 - 自由函数、静态函数、唯一 `operator()` 签名的 lambda 和函数对象不挂到 `meta::type` 上；它们通过
   `meta::module(name).function(...)` 注册为 module 级函数，调用时不需要传入 instance。
-- 暂不支持命名参数、隐式类型转换、泛型/重载 lambda 自动签名选择和不可拷贝 by-value 返回值。
+- `argument_match_options::conversion_policy` 当前只实现 `exact_only`，用于提前稳定可配置类型转换策略的 API 形状。
+- 暂不支持隐式类型转换、泛型/重载 lambda 自动签名选择，以及既不可复制也不可移动的 by-value 返回值。
 
 ```cpp
 struct actor {
@@ -186,15 +191,21 @@ struct actor {
 
 caors::registration::type_<actor>("game.actor")
     .meta()
-    .method("add", &actor::add, caors::meta::registration::default_argument(8))
+    .method("add", &actor::add,
+            caors::meta::registration::parameter_name("left"),
+            caors::meta::registration::parameter_name("right"),
+            caors::meta::registration::default_argument(8))
     .commit();
 
 actor instance{};
 int left = 5;
-std::array<caors::meta::argument, 1> args{caors::meta::arg(left)};
+std::array<caors::meta::named_argument, 1> args{
+    caors::meta::narg("left", left),
+};
 
 caors::meta::argument_match_options options{};
 options.allow_default_arguments = true;
+options.allow_named_arguments = true;
 
 auto result = caors::meta::find<actor>()
                   .find_method("add")
@@ -591,6 +602,7 @@ overload 合并进同一个 `method_set`。
 - `name()`：查询方法名。
 - `get_return_type()`：查询返回值类型；`void` 返回值返回无效 `meta::type`。
 - `parameter_count()` / `get_parameter_type()`：查询参数列表。
+- `get_parameter_name()`：查询已注册参数名；未注册参数名或下标越界返回空名称。
 - `default_argument_count()`：查询已注册的尾部默认参数数量。
 - `const_method()`：判断是否是 `const` 成员函数。
 - `metadata()` / `find_metadata()`：查询方法附加 metadata。脚本导出、编辑器命令和工具层可以按约定键读取。
@@ -598,6 +610,8 @@ overload 合并进同一个 `method_set`。
 - `invoke_result_of(args, options)`：调用全局函数，并返回 `meta::invoke_result`。
 - `try_invoke<T>()`：调用方法并按指定类型读取返回值。
 - `args` 使用 `span<const meta::argument>`；已有 `any_ref` 需要先通过 `caors::arg(ref)` 包装成参数。
+- 命名调用使用 `span<const meta::named_argument>`，并且必须显式开启
+  `argument_match_options::allow_named_arguments`。
 
 `meta::invoke_result` 当前提供：
 
@@ -613,7 +627,8 @@ overload 合并进同一个 `method_set`。
 - `name()`：查询方法名。
 - `overload_count()` / `overload_at()`：遍历同名重载；索引越界时返回无效 `meta::method`。
 - `single()`：只有一个重载时返回该 `meta::method`；存在多个重载时返回无效视图。
-- `resolve(args, options)`：按参数列表匹配唯一重载；没有匹配或匹配不唯一时返回无效视图。
+- `resolve(args, options)`：按参数列表匹配唯一重载；没有匹配或匹配不唯一时返回无效视图。开启默认参数或
+  命名参数后，如果多个重载都能匹配，也会返回无效视图。
 - `invoke_result_of(instance, args, options)`：先解析唯一成员方法重载，再调用具体方法，并保留完整调用结果语义。
 - `invoke_result_of(args, options)`：调用全局函数重载，并保留完整调用结果语义。
 

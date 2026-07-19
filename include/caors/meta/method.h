@@ -106,10 +106,13 @@ public:
   [[nodiscard]] meta::type get_return_type() const noexcept;
   [[nodiscard]] std::size_t parameter_count() const noexcept;
   [[nodiscard]] std::optional<meta::type> get_parameter_type(std::size_t index) const noexcept;
+  [[nodiscard]] string_name get_parameter_name(std::size_t index) const noexcept;
   [[nodiscard]] bool const_method() const noexcept;
   [[nodiscard]] const meta::metadata_map& metadata() const noexcept;
   [[nodiscard]] const meta::metadata_value* find_metadata(meta::metadata_key key) const noexcept;
   [[nodiscard]] bool matches_arguments(std::span<const argument> arguments,
+                                       argument_match_options options = {}) const noexcept;
+  [[nodiscard]] bool matches_arguments(std::span<const named_argument> arguments,
                                        argument_match_options options = {}) const noexcept;
   [[nodiscard]] std::size_t default_argument_count() const noexcept;
 
@@ -117,9 +120,14 @@ public:
   [[nodiscard]] invoke_result invoke_result_of(const instance& object,
                                                std::span<const argument> arguments = {},
                                                argument_match_options options = {}) const;
+  [[nodiscard]] invoke_result invoke_result_of(const instance& object,
+                                               std::span<const named_argument> arguments,
+                                               argument_match_options options = {}) const;
 
   /** @brief 调用全局函数，保留 void / 值 / 引用返回语义。 */
   [[nodiscard]] invoke_result invoke_result_of(std::span<const argument> arguments = {},
+                                               argument_match_options options = {}) const;
+  [[nodiscard]] invoke_result invoke_result_of(std::span<const named_argument> arguments,
                                                argument_match_options options = {}) const;
 
   /** @brief 按指定类型调用方法并读取返回值。 */
@@ -186,14 +194,21 @@ public:
   [[nodiscard]] method single() const;
   [[nodiscard]] method resolve(std::span<const argument> arguments = {},
                                argument_match_options options = {}) const;
+  [[nodiscard]] method resolve(std::span<const named_argument> arguments,
+                               argument_match_options options = {}) const;
 
   /** @brief 在实例上调用唯一匹配的成员方法重载，保留 void / 值 / 引用返回语义。 */
   [[nodiscard]] invoke_result invoke_result_of(const instance& object,
                                                std::span<const argument> arguments = {},
                                                argument_match_options options = {}) const;
+  [[nodiscard]] invoke_result invoke_result_of(const instance& object,
+                                               std::span<const named_argument> arguments,
+                                               argument_match_options options = {}) const;
 
   /** @brief 调用唯一匹配的全局函数重载，保留 void / 值 / 引用返回语义。 */
   [[nodiscard]] invoke_result invoke_result_of(std::span<const argument> arguments = {},
+                                               argument_match_options options = {}) const;
+  [[nodiscard]] invoke_result invoke_result_of(std::span<const named_argument> arguments,
                                                argument_match_options options = {}) const;
 
 private:

@@ -60,6 +60,51 @@ struct default_argument_mismatch_actor {
   int add(int left, int right) { return left + right; }
 };
 
+struct named_argument_actor {
+  int value = 0;
+
+  int add(int left, int right) {
+    value = left + right;
+    return value;
+  }
+};
+
+struct named_default_argument_actor {
+  int value = 0;
+
+  int add(int left, int right, int scale) {
+    value = (left + right) * scale;
+    return value;
+  }
+};
+
+struct default_argument_overload_actor {
+  int value = 0;
+
+  int choose(int value) { return value; }
+  int choose(int value, int amount) { return value + amount; }
+};
+
+struct move_only_return_value {
+  explicit move_only_return_value(int input) : value(input) {}
+  move_only_return_value(const move_only_return_value&) = delete;
+  move_only_return_value& operator=(const move_only_return_value&) = delete;
+  move_only_return_value(move_only_return_value&& other) noexcept : value(other.value) {
+    other.value = 0;
+  }
+  move_only_return_value& operator=(move_only_return_value&& other) noexcept {
+    value = other.value;
+    other.value = 0;
+    return *this;
+  }
+
+  int value = 0;
+};
+
+struct move_only_return_actor {
+  move_only_return_value make(int value) { return move_only_return_value{value}; }
+};
+
 [[nodiscard]] inline caors::meta::type require_method_type() {
   const caors::error result =
       caors::registration::type_<method_actor>("caors.test.meta.method_actor")

@@ -5,6 +5,7 @@
 #define CAORS_META_DETAIL_METHOD_DATA_H_
 
 #include "caors/core/containers.h"
+#include "caors/memory/resource.h"
 #include "caors/memory/unique_ptr.h"
 #include "caors/meta/detail/argument_access.h"
 #include "caors/meta/metadata.h"
@@ -80,7 +81,7 @@ public:
   method_data(const method_data& other)
       : name_(other.name_), storage_(other.storage_), ops_(other.ops_),
         const_method_(other.const_method_), callable_(other.callable_),
-        default_arguments_(other.default_arguments_) {
+        default_arguments_(other.default_arguments_), parameter_names_(other.parameter_names_) {
     if (other.metadata_ != nullptr) {
       metadata_ =
           memory::make_unique<meta::metadata_map>(&memory::library_resource(), *other.metadata_);
@@ -98,6 +99,7 @@ public:
     const_method_ = other.const_method_;
     callable_ = other.callable_;
     default_arguments_ = other.default_arguments_;
+    parameter_names_ = other.parameter_names_;
     if (other.metadata_ != nullptr) {
       metadata_ =
           memory::make_unique<meta::metadata_map>(&memory::library_resource(), *other.metadata_);
@@ -139,13 +141,23 @@ public:
     return ops_.get_parameter_type(*this, index);
   }
 
+  [[nodiscard]] string_name get_parameter_name(std::size_t index) const noexcept {
+    return index < parameter_names_.size() ? parameter_names_[index] : string_name{};
+  }
+
   [[nodiscard]] bool matches_arguments(std::span<const argument> arguments,
                                        argument_match_options options = {}) const noexcept {
     if (ops_.match_arguments(*this, arguments, {})) {
       return true;
     }
 
-    vector<argument> completed = complete_arguments(arguments, options);
+    vector<argument> completed = complete_positional_arguments(arguments, options);
+    return !completed.empty() && ops_.match_arguments(*this, completed, {});
+  }
+
+  [[nodiscard]] bool matches_arguments(std::span<const named_argument> arguments,
+                                       argument_match_options options = {}) const noexcept {
+    vector<argument> completed = normalize_named_arguments(arguments, options);
     return !completed.empty() && ops_.match_arguments(*this, completed, {});
   }
 
@@ -173,8 +185,22 @@ public:
       return ops_.invoke(*this, object, mutable_object, arguments);
     }
 
-    vector<argument> completed = complete_arguments(arguments, options);
+    vector<argument> completed = complete_positional_arguments(arguments, options);
     if (completed.empty() && !arguments.empty()) {
+      return invoke_result::failed();
+    }
+    if (!ops_.match_arguments(*this, completed, {})) {
+      return invoke_result::failed();
+    }
+
+    return ops_.invoke(*this, object, mutable_object, completed);
+  }
+
+  [[nodiscard]] invoke_result invoke_result_of(const void* object, bool mutable_object,
+                                               std::span<const named_argument> arguments,
+                                               argument_match_options options = {}) const {
+    vector<argument> completed = normalize_named_arguments(arguments, options);
+    if (completed.empty()) {
       return invoke_result::failed();
     }
     if (!ops_.match_arguments(*this, completed, {})) {
@@ -235,6 +261,21 @@ public:
     return true;
   }
 
+  [[nodiscard]] bool add_parameter_name(string_name name) {
+    if (!name || parameter_names_.size() >= parameter_count()) {
+      return false;
+    }
+
+    for (string_name existing : parameter_names_) {
+      if (existing == name) {
+        return false;
+      }
+    }
+
+    parameter_names_.push_back(name);
+    return true;
+  }
+
 private:
   [[nodiscard]] static const meta::metadata_map& empty_metadata_map() noexcept {
     static const meta::metadata_map empty{
@@ -242,8 +283,19 @@ private:
     return empty;
   }
 
-  [[nodiscard]] vector<argument> complete_arguments(std::span<const argument> arguments,
-                                                    argument_match_options options) const {
+  [[nodiscard]] const any* default_argument_for_parameter(std::size_t parameter_index) const {
+    const std::size_t count = parameter_count();
+    if (parameter_index >= count || count - parameter_index > default_arguments_.size()) {
+      return nullptr;
+    }
+
+    const std::size_t default_index = count - parameter_index - 1U;
+    return &default_arguments_[default_index];
+  }
+
+  [[nodiscard]] vector<argument>
+  complete_positional_arguments(std::span<const argument> arguments,
+                                argument_match_options options) const {
     if (!options.allow_default_arguments || arguments.size() >= parameter_count()) {
       return {};
     }
@@ -268,12 +320,70 @@ private:
     return completed;
   }
 
+  [[nodiscard]] vector<argument>
+  normalize_named_arguments(std::span<const named_argument> arguments,
+                            argument_match_options options) const {
+    if (!options.allow_named_arguments || parameter_count() == 0 ||
+        arguments.size() > parameter_count()) {
+      return {};
+    }
+
+    vector<argument> completed{};
+    completed.reserve(parameter_count());
+    vector<bool> assigned(parameter_count(), false);
+    for (std::size_t index = 0; index < parameter_count(); ++index) {
+      completed.push_back({});
+    }
+
+    for (const named_argument& input : arguments) {
+      if (!input) {
+        return {};
+      }
+
+      bool found = false;
+      for (std::size_t index = 0; index < parameter_count(); ++index) {
+        if (get_parameter_name(index) != input.name) {
+          continue;
+        }
+
+        if (assigned[index]) {
+          return {};
+        }
+
+        completed[index] = input.value;
+        assigned[index] = true;
+        found = true;
+        break;
+      }
+
+      if (!found) {
+        return {};
+      }
+    }
+
+    for (std::size_t index = 0; index < parameter_count(); ++index) {
+      if (assigned[index]) {
+        continue;
+      }
+
+      const any* default_value = default_argument_for_parameter(index);
+      if (default_value == nullptr || !options.allow_default_arguments) {
+        return {};
+      }
+
+      completed[index] = argument::from(default_value->ref());
+    }
+
+    return completed;
+  }
+
   string_name name_{};
   alignas(std::max_align_t) std::array<std::byte, storage_size> storage_{};
   method_ops ops_{};
   bool const_method_ = false;
   std::shared_ptr<const callable_storage_base> callable_{};
   vector<any> default_arguments_{};
+  vector<string_name> parameter_names_{};
   memory::unique_ptr<meta::metadata_map> metadata_{};
 };
 
@@ -330,6 +440,24 @@ public:
     return matched;
   }
 
+  [[nodiscard]] const method_data* resolve(std::span<const named_argument> arguments,
+                                           argument_match_options options = {}) const noexcept {
+    const method_data* matched = nullptr;
+    for (const method_data& method : overloads_) {
+      if (!method.matches_arguments(arguments, options)) {
+        continue;
+      }
+
+      if (matched != nullptr) {
+        return nullptr;
+      }
+
+      matched = &method;
+    }
+
+    return matched;
+  }
+
   [[nodiscard]] bool contains_signature(const method_data& method) const noexcept {
     for (const method_data& overload : overloads_) {
       if (overload.same_signature(method)) {
@@ -364,6 +492,13 @@ template <typename Return, typename Result>
     using value_type = method_value_type<Return>;
     if constexpr (std::is_copy_constructible_v<value_type>) {
       return invoke_result::value(any::from(result));
+    } else if constexpr (std::is_move_constructible_v<value_type>) {
+      auto* value = memory::make<value_type>(&memory::library_resource(), std::move(result));
+      return invoke_result::value(any::take_ownership(
+          make_owned_value(meta::resolve<value_type>(), value, &memory::library_resource(),
+                           [](memory::memory_resource* resource, void* instance) noexcept {
+                             memory::destroy(static_cast<value_type*>(instance), resource);
+                           })));
     } else {
       return invoke_result::failed();
     }
@@ -465,6 +600,10 @@ template <typename... Arguments>
 template <typename... Arguments>
 [[nodiscard]] bool method_arguments_match(const method_data&, std::span<const argument> arguments,
                                           argument_match_options options) noexcept {
+  if (options.conversion_policy != argument_conversion_policy::exact_only) {
+    return false;
+  }
+
   return arguments_match<Arguments...>(arguments, options);
 }
 

@@ -249,6 +249,139 @@ TEST_CASE("meta - method default arguments reject mismatched values", "[meta]") 
   CHECK(result == meta_error(caors::errc::invalid_field));
 }
 
+TEST_CASE("meta - method named arguments require explicit match option", "[meta]") {
+  const caors::error result =
+      caors::registration::type_<named_argument_actor>("caors.test.meta.named_argument_actor")
+          .meta()
+          .method("add", &named_argument_actor::add,
+                  caors::meta::registration::parameter_name("left"),
+                  caors::meta::registration::parameter_name("right"))
+          .commit();
+  REQUIRE((result == caors::error{} || result == meta_error(caors::errc::duplicate_id)));
+
+  const caors::meta::type reflected = caors::meta::find("caors.test.meta.named_argument_actor");
+  REQUIRE(reflected);
+  const caors::meta::method_set add = reflected.find_method("add");
+  REQUIRE(add);
+
+  int left = 5;
+  int right = 8;
+  std::array<caors::meta::named_argument, 2> arguments{
+      caors::meta::narg("right", right),
+      caors::meta::narg("left", left),
+  };
+  CHECK_FALSE(add.resolve(arguments));
+
+  caors::meta::argument_match_options options{};
+  options.allow_named_arguments = true;
+  const caors::meta::method resolved = add.resolve(arguments, options);
+  REQUIRE(resolved);
+  CHECK(resolved.get_parameter_name(0) == "left");
+  CHECK(resolved.get_parameter_name(1) == "right");
+
+  named_argument_actor instance{};
+  caors::meta::invoke_result invoke_result =
+      add.invoke_result_of(caors::meta::view(instance), arguments, options);
+  REQUIRE(invoke_result.has_value());
+  REQUIRE(invoke_result.try_get<int>() != nullptr);
+  CHECK(*invoke_result.try_get<int>() == 13);
+  CHECK(instance.value == 13);
+}
+
+TEST_CASE("meta - method named arguments can use registered defaults", "[meta]") {
+  const caors::error result = caors::registration::type_<named_default_argument_actor>(
+                                  "caors.test.meta.named_default_argument_actor")
+                                  .meta()
+                                  .method("add", &named_default_argument_actor::add,
+                                          caors::meta::registration::parameter_name("left"),
+                                          caors::meta::registration::parameter_name("right"),
+                                          caors::meta::registration::parameter_name("scale"),
+                                          caors::meta::registration::default_argument(2))
+                                  .commit();
+  REQUIRE((result == caors::error{} || result == meta_error(caors::errc::duplicate_id)));
+
+  const caors::meta::type reflected =
+      caors::meta::find("caors.test.meta.named_default_argument_actor");
+  REQUIRE(reflected);
+  const caors::meta::method_set add = reflected.find_method("add");
+  REQUIRE(add);
+
+  int left = 4;
+  int right = 6;
+  std::array<caors::meta::named_argument, 2> arguments{
+      caors::meta::narg("right", right),
+      caors::meta::narg("left", left),
+  };
+
+  caors::meta::argument_match_options options{};
+  options.allow_named_arguments = true;
+  CHECK_FALSE(add.resolve(arguments, options));
+
+  options.allow_default_arguments = true;
+  named_default_argument_actor instance{};
+  caors::meta::invoke_result invoke_result =
+      add.invoke_result_of(caors::meta::view(instance), arguments, options);
+  REQUIRE(invoke_result.has_value());
+  REQUIRE(invoke_result.try_get<int>() != nullptr);
+  CHECK(*invoke_result.try_get<int>() == 20);
+  CHECK(instance.value == 20);
+}
+
+TEST_CASE("meta - method default arguments keep overload ambiguity explicit", "[meta]") {
+  const caors::error result =
+      caors::registration::type_<default_argument_overload_actor>(
+          "caors.test.meta.default_argument_overload_actor")
+          .meta()
+          .method("choose", static_cast<int (default_argument_overload_actor::*)(int)>(
+                                &default_argument_overload_actor::choose))
+          .method("choose",
+                  static_cast<int (default_argument_overload_actor::*)(int, int)>(
+                      &default_argument_overload_actor::choose),
+                  caors::meta::registration::default_argument(1))
+          .commit();
+  REQUIRE((result == caors::error{} || result == meta_error(caors::errc::duplicate_id)));
+
+  const caors::meta::type reflected =
+      caors::meta::find("caors.test.meta.default_argument_overload_actor");
+  REQUIRE(reflected);
+  const caors::meta::method_set choose = reflected.find_method("choose");
+  REQUIRE(choose);
+
+  int value = 9;
+  std::array<caors::argument, 1> arguments{caors::arg(value)};
+  CHECK(choose.resolve(arguments));
+
+  caors::meta::argument_match_options options{};
+  options.allow_default_arguments = true;
+  CHECK_FALSE(choose.resolve(arguments, options));
+  default_argument_overload_actor instance{};
+  CHECK_FALSE(choose.invoke_result_of(caors::meta::view(instance), arguments, options));
+}
+
+TEST_CASE("meta - method invoke result owns move-only by-value returns", "[meta]") {
+  const caors::error result =
+      caors::registration::type_<move_only_return_actor>("caors.test.meta.move_only_return_actor")
+          .meta()
+          .method("make", &move_only_return_actor::make)
+          .commit();
+  REQUIRE((result == caors::error{} || result == meta_error(caors::errc::duplicate_id)));
+
+  const caors::meta::type reflected = caors::meta::find("caors.test.meta.move_only_return_actor");
+  REQUIRE(reflected);
+  const caors::meta::method make = reflected.find_method("make").single();
+  REQUIRE(make);
+
+  int value = 31;
+  std::array<caors::argument, 1> arguments{caors::arg(value)};
+  move_only_return_actor instance{};
+  caors::meta::invoke_result invoke_result =
+      make.invoke_result_of(caors::meta::view(instance), arguments);
+  REQUIRE(invoke_result.has_value());
+  auto* returned = invoke_result.try_get_mutable<move_only_return_value>();
+  REQUIRE(returned != nullptr);
+  CHECK(returned->value == 31);
+}
+
 // 原测试文件：meta_method_method_view_rejects_invalid_calls_test.cpp
 
 #include "meta_method_test_support.h"

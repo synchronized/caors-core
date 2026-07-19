@@ -68,6 +68,11 @@ std::optional<meta::type> method::get_parameter_type(std::size_t index) const no
   return method != nullptr ? method->get_parameter_type(index) : std::nullopt;
 }
 
+core::string_name method::get_parameter_name(std::size_t index) const noexcept {
+  const detail::method_data* method = info();
+  return method != nullptr ? method->get_parameter_name(index) : core::string_name{};
+}
+
 bool method::const_method() const noexcept {
   const detail::method_data* method = info();
   return method != nullptr && method->const_method();
@@ -83,6 +88,12 @@ const meta::metadata_value* method::find_metadata(meta::metadata_key key) const 
 }
 
 bool method::matches_arguments(std::span<const argument> arguments,
+                               argument_match_options options) const noexcept {
+  const detail::method_data* method = info();
+  return method != nullptr && method->matches_arguments(arguments, options);
+}
+
+bool method::matches_arguments(std::span<const named_argument> arguments,
                                argument_match_options options) const noexcept {
   const detail::method_data* method = info();
   return method != nullptr && method->matches_arguments(arguments, options);
@@ -104,7 +115,29 @@ invoke_result method::invoke_result_of(const instance& object, std::span<const a
                                   object.writable(), arguments, options);
 }
 
+invoke_result method::invoke_result_of(const instance& object,
+                                       std::span<const named_argument> arguments,
+                                       argument_match_options options) const {
+  const detail::method_data* method = info();
+  if (method == nullptr || !object) {
+    return invoke_result::failed();
+  }
+
+  return method->invoke_result_of(object.writable() ? object.mutable_data() : object.data(),
+                                  object.writable(), arguments, options);
+}
+
 invoke_result method::invoke_result_of(std::span<const argument> arguments,
+                                       argument_match_options options) const {
+  const detail::method_data* method = info();
+  if (method == nullptr) {
+    return invoke_result::failed();
+  }
+
+  return method->invoke_result_of(nullptr, false, arguments, options);
+}
+
+invoke_result method::invoke_result_of(std::span<const named_argument> arguments,
                                        argument_match_options options) const {
   const detail::method_data* method = info();
   if (method == nullptr) {
@@ -153,6 +186,12 @@ method method_set::resolve(std::span<const argument> arguments,
   return method_set != nullptr ? method{method_set->resolve(arguments, options)} : method{};
 }
 
+method method_set::resolve(std::span<const named_argument> arguments,
+                           argument_match_options options) const {
+  const detail::method_set_data* method_set = info();
+  return method_set != nullptr ? method{method_set->resolve(arguments, options)} : method{};
+}
+
 invoke_result method_set::invoke_result_of(const instance& object,
                                            std::span<const argument> arguments,
                                            argument_match_options options) const {
@@ -160,7 +199,20 @@ invoke_result method_set::invoke_result_of(const instance& object,
   return target ? target.invoke_result_of(object, arguments, options) : invoke_result::failed();
 }
 
+invoke_result method_set::invoke_result_of(const instance& object,
+                                           std::span<const named_argument> arguments,
+                                           argument_match_options options) const {
+  const method target = resolve(arguments, options);
+  return target ? target.invoke_result_of(object, arguments, options) : invoke_result::failed();
+}
+
 invoke_result method_set::invoke_result_of(std::span<const argument> arguments,
+                                           argument_match_options options) const {
+  const method target = resolve(arguments, options);
+  return target ? target.invoke_result_of(arguments, options) : invoke_result::failed();
+}
+
+invoke_result method_set::invoke_result_of(std::span<const named_argument> arguments,
                                            argument_match_options options) const {
   const method target = resolve(arguments, options);
   return target ? target.invoke_result_of(arguments, options) : invoke_result::failed();

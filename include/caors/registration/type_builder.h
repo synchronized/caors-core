@@ -77,7 +77,8 @@ inline constexpr bool is_property_entry_v =
 template <typename Entry>
 inline constexpr bool is_method_entry_v =
     std::is_same_v<std::remove_cvref_t<Entry>, meta::registration::metadata_entry> ||
-    std::is_same_v<std::remove_cvref_t<Entry>, meta::registration::method_default_argument_entry>;
+    std::is_same_v<std::remove_cvref_t<Entry>, meta::registration::method_default_argument_entry> ||
+    std::is_same_v<std::remove_cvref_t<Entry>, meta::registration::method_parameter_name_entry>;
 
 template <typename Child, typename Parent>
 [[nodiscard]] constexpr meta::detail::parent_cast_ops parent_cast_ops_for() noexcept {
@@ -553,6 +554,11 @@ private:
     return add_method_default_argument(method_name, overload_index, std::move(entry.value));
   }
 
+  type_builder& apply_method_entry(core::string_name method_name, std::size_t overload_index,
+                                   meta::registration::method_parameter_name_entry entry) {
+    return add_method_parameter_name(method_name, overload_index, entry.name);
+  }
+
   type_builder& set_method_metadata(core::string_name method_name, std::size_t overload_index,
                                     meta::metadata_key key, meta::metadata_value value) {
     if (!key || !method_name || overload_index == static_cast<std::size_t>(-1)) {
@@ -584,6 +590,25 @@ private:
     meta::detail::method_data* method =
         method_set != nullptr ? method_set->mutable_overload_at(overload_index) : nullptr;
     if (method == nullptr || !method->add_default_argument(std::move(value))) {
+      status_ = {error_domain::meta, errc::invalid_field};
+      return *this;
+    }
+
+    status_ = {};
+    return *this;
+  }
+
+  type_builder& add_method_parameter_name(core::string_name method_name, std::size_t overload_index,
+                                          core::string_name name) {
+    if (!name || !method_name || overload_index == static_cast<std::size_t>(-1)) {
+      status_ = {error_domain::meta, errc::invalid_field};
+      return *this;
+    }
+
+    meta::detail::method_set_data* method_set = pending_.mutable_find_method_ptr(method_name);
+    meta::detail::method_data* method =
+        method_set != nullptr ? method_set->mutable_overload_at(overload_index) : nullptr;
+    if (method == nullptr || !method->add_parameter_name(name)) {
       status_ = {error_domain::meta, errc::invalid_field};
       return *this;
     }
