@@ -769,7 +769,8 @@ manifest.set(texture_id,
 清单条目包含：
 
 - `guid`：稳定资源 GUID。
-- `location`：规范化后的虚拟资源路径。
+- `location`：规范化后的虚拟资源路径；后续也可保存带 scheme 的逻辑 URI，例如 `caors://assets/a.png`
+  或 `pack://base/a.png`。
 - `type`：可选资源类型名，主要用于调试、导入和上层资源数据库。
 - `hash`：可选内容 hash、etag 或版本指纹。
 - `version`：可选递增版本号，适合热更新和调试 fileserver 判断资源是否变化。
@@ -833,6 +834,8 @@ JSON 清单支持两种根格式：
 
 - `manifest` 只保存清单数据，不读取字节、不构造资源对象，也不拥有 source。
 - `bind()` 会拒绝 nil GUID、空路径和重复 GUID，并会按虚拟路径规则规范化 location。
+- manifest 不解释 location 对应的真实后端。普通相对路径由当前 provider/source 解释；带 scheme 的
+  location 应交给 `io::file_system_resolver` 或上层 source adapter 解析。
 - `set()` 会新增或替换同 GUID 条目，适合资源数据库刷新和调试 manifest 热更新。
 - JSON 导入要求每个条目至少包含字符串 `guid` 和字符串 `location`；`type`、`hash`、`version` 可选。
 - `assets::json::load_manifest()` 的 DOM、文本和 source 重载会向现有 manifest 新增或替换条目，
@@ -866,6 +869,8 @@ auto entries = files.list("assets/textures");
 - `read_all()` / `open_read()` / `write_all()` / `open_write()` 只转发到底层文件系统，不修改 manifest。
 - overlay 不拥有 manifest 或底层文件系统，调用方需要保证生命周期。
 - manifest 只提供索引视图；如果实际字节不存在，读取仍会返回底层文件系统的错误。
+- overlay 只从 location 推导目录树，不关心该位置最终来自 native、memory、HTTP、资源包还是调试
+  fileserver。需要混合多种来源时，推荐让底层文件系统使用 `io::file_system_resolver`。
 
 ## source / provider
 

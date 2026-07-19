@@ -208,6 +208,12 @@ fs.mount("caors://assets", project, "assets");
 - 未命中路由返回 `errc::not_found`。
 - `list()` 返回的 `directory_entry::path` 会回到调用方使用的 URI 空间。
 - `capabilities()` 聚合已挂载目标能力；上层仍应把它当作整体能力提示，不作为单个路径的最终保证。
+- `file_system_resolver` 是 URI 层 VFS；它可以把 `caors://`、`file://`、`pack://`、后续 `http://`
+  等位置转发到具体后端。
+- `mount_file_system` 是低层路径前缀 VFS；它只处理虚拟路径到目标文件系统和可选子路径的映射，不解析
+  URI scheme。
+- resolver 的目标可以是 native、memory、mount、manifest-backed overlay，或后续资源包、远程后端。
+  调用方不应根据 scheme 推断能力，应查询实际入口的 `capabilities()`。
 
 ## native_file_system
 
@@ -292,6 +298,10 @@ caors::io::mount_file_system fs;
 fs.mount("textures", project, "assets/textures");
 fs.mount("materials", project, "assets/materials");
 ```
+
+`mount_file_system` 不关心 URI scheme，也不区分 `caors://`、`file://` 或 `pack://`。如果需要按
+scheme、authority 或 URI 前缀分发，应在更高层使用 `file_system_resolver`，再把某个 resolver
+目标指向一个 `mount_file_system`。
 
 规则：
 

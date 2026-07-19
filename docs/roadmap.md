@@ -33,6 +33,9 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   上层不根据 scheme 猜测某个后端是否支持目录枚举或监听。
 - [x] 设计 manifest-backed listing overlay：当 HTTP、CDN 或远程后端不能直接 `list()` 时，由 manifest
   或资源数据库提供目录枚举和编辑器资源树。
+- [ ] 完善 VFS 分层约定：`io::mount_file_system` 保持纯路径前缀转发，`io::file_system_resolver`
+  作为 URI VFS 负责 scheme / authority / 路径前缀路由；manifest `location` 可保存相对路径或
+  `caors://`、`file://`、`http://`、`pack://` 等 URI，最终解析统一交给 resolver / provider 层。
 - [x] 将 `result<T>` 逐步收敛为更接近 `expected<T, error>` 的语义，减少 `value/error/status`
   之间的重复表达。
 - [x] 清理根命名空间下不常用或不推荐继续使用的别名，只保留高频便捷别名，降低 API 表面噪声；
