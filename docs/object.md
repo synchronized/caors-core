@@ -185,7 +185,7 @@ caors::object* target = object.get_ptr("target");
 `meta::property` 只保留通用属性读写能力，不直接暴露对象专用 `get/set` 接口。
 
 如果 `objects::ptr<T>` / `objects::handle` 作为反射属性或容器元素使用，属性和容器元素 `any_ref`
-会携带声明类型的 descriptor，属性读写和序列化路径不需要手动注册动态 capability。
+会携带声明类型的 `meta::type`，属性读写和序列化路径不需要手动注册动态 capability。
 
 它表达的是“当前已经拿到了对象地址”。如果对象由 `objects::manager`、场景树或其他上层容器拥有，
 调用方必须保证 `ptr<T>` 的使用时间不超过对象生命周期；对象销毁后已有 `ptr<T>` 不会自动置空。
@@ -382,7 +382,7 @@ public:
 
 `object_type_guid` 是可选静态成员。运行期临时对象可以不声明，`meta::type::guid()` 会保持 nil；可序列化、可反射或跨插件暴露的对象类型建议显式声明稳定 GUID。
 
-`static_type_id()` 返回 C++ 类型 descriptor id；对象类型尚未通过 `registration::type_<T>().commit()`
+`static_type_id()` 返回 C++ 类型 id；对象类型尚未通过 `registration::type_<T>().commit()`
 注册时，`objects::find<T>()`、对象工厂、类型名、GUID 和父类型关系仍不可用。对象类型应在启动注册阶段
 一次性写入全局元数据注册表。
 

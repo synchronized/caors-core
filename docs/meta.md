@@ -653,7 +653,7 @@ std::array<caors::argument, 2> args{
     caors::arg(left),
     caors::arg(right),
 };
-caors::any sum = add_function.invoke(args);
+caors::meta::invoke_result sum = add_function.invoke_result_of(args);
 ```
 
 module 和 class 的边界：
@@ -664,10 +664,9 @@ module 和 class 的边界：
   `operator()` 签名的 lambda 和函数对象。带捕获 lambda 会由 module method 持有；泛型 lambda
   或重载 `operator()` 的函数对象需要先包装成唯一签名。
 - module 上的 `property::get_value()`、`property::get_ref()`、`property::try_set_value()` 不接收对象地址。
-- module 上的 `method::invoke(args)` 和 `method_set::invoke(args)` 不接收对象地址；成员方法仍使用
-  `invoke(object, args)`。
-- module 上需要区分 `void` 成功或引用返回时，使用 `method::invoke_result_of(args)` 或
-  `method_set::invoke_result_of(args)`。
+- module 上的 `method::invoke_result_of(args)` 和 `method_set::invoke_result_of(args)` 不接收对象地址；成员方法使用
+  `invoke_result_of(object, args)`。
+- 调用结果统一使用 `meta::invoke_result` 表达，可以区分调用失败、`void` 成功、拥有值返回和引用返回。
 
 ### 属性 schema
 

@@ -5,6 +5,7 @@
 #define CAORS_OBJECT_MANAGER_H_
 
 #include "caors/core/containers.h"
+#include "caors/object/factory.h"
 #include "caors/object/handle.h"
 #include "caors/object/index.h"
 #include "caors/object/registry.h"

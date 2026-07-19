@@ -66,8 +66,8 @@ TEST_CASE("meta - module registers global properties and functions", "[meta]") {
   int left = 3;
   int right = 5;
   std::array<caors::argument, 2> arguments{caors::arg(left), caors::arg(right)};
-  const caors::any add_result = add.invoke(arguments);
-  REQUIRE(add_result);
+  const caors::meta::invoke_result add_result = add.invoke_result_of(arguments);
+  REQUIRE(add_result.has_value());
   REQUIRE(add_result.try_get<int>() != nullptr);
   CHECK(*add_result.try_get<int>() == 8);
 }
@@ -90,8 +90,9 @@ TEST_CASE("meta - module registers static properties and functions", "[meta]") {
 
   int factor = 7;
   std::array<caors::argument, 1> arguments{caors::arg(factor)};
-  const caors::any result = module.find_method("multiply").invoke(arguments);
-  REQUIRE(result);
+  const caors::meta::invoke_result result =
+      module.find_method("multiply").invoke_result_of(arguments);
+  REQUIRE(result.has_value());
   REQUIRE(result.try_get<int>() != nullptr);
   CHECK(*result.try_get<int>() == 42);
 }
@@ -139,8 +140,9 @@ TEST_CASE("meta - module registers lambda and function object callables", "[meta
   *ref_result.ref().try_get_mutable<int>() = 12;
   CHECK(referenced == 12);
 
-  caors::any multiply_result = module.find_method("multiply").invoke(arguments);
-  REQUIRE(multiply_result);
+  caors::meta::invoke_result multiply_result =
+      module.find_method("multiply").invoke_result_of(arguments);
+  REQUIRE(multiply_result.has_value());
   REQUIRE(multiply_result.try_get<int>() != nullptr);
   CHECK(*multiply_result.try_get<int>() == 21);
 }

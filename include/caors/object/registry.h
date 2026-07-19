@@ -6,9 +6,7 @@
 
 #include "caors/meta/query.h"
 #include "caors/meta/registry.h"
-#include "caors/meta/static_capability.h"
 #include "caors/meta/type.h"
-#include "caors/object/factory.h"
 #include "caors/object/ptr.h"
 #include "caors/object/type.h"
 
@@ -109,8 +107,6 @@ private:
 
   registry();
   ~registry();
-
-  [[nodiscard]] const object_factory_ops* find_factory_ops(object_type_id id) const;
 };
 
 } // namespace caors::objects

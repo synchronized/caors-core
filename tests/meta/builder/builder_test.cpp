@@ -131,10 +131,10 @@ TEST_CASE("meta type - class builder registers fields and methods", "[meta]") {
 
   int delta = 5;
   std::array<caors::argument, 1> arguments{caors::arg(delta)};
-  const caors::any result =
-      add_health.invoke(caors::meta::view(actor),
-                        std::span<const caors::argument>{arguments.data(), arguments.size()});
-  REQUIRE(result);
+  const caors::meta::invoke_result result = add_health.invoke_result_of(
+      caors::meta::view(actor),
+      std::span<const caors::argument>{arguments.data(), arguments.size()});
+  REQUIRE(result.has_value());
   REQUIRE(result.try_get<int>() != nullptr);
   CHECK(*result.try_get<int>() == 25);
   CHECK(actor.health == 25);

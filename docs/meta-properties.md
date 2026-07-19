@@ -168,11 +168,10 @@ caors::registration::type_<actor>("game.actor")
 - 已有 `any_ref` 需要通过 `caors::arg(ref)` 包装成 `argument`；非 const 左值引用参数要求底层引用可写。
 - 右值引用参数需要显式使用 `meta::move_arg(...)`，避免反射调用隐式 move 外部对象。
 - 非 const 成员函数只能通过可写对象指针调用；`const` 对象只能调用 `const` 成员函数。
-- `invoke()` 是旧便捷入口，只返回拥有值 `caors::any`；`void` 和引用返回会得到无效 `any`。
 - `invoke_result_of()` 返回 `meta::invoke_result`，可以区分调用失败、`void` 成功、拥有值返回和
   `any_ref` 引用返回。`T&` / `const T&` 返回值会保留为引用，调用方必须保证原对象生命周期覆盖引用使用期。
 - 同名成员方法保存为 `meta::method_set`，可以通过 `resolve(args)` 按参数列表匹配唯一重载，也可以直接调用
-  `method_set::invoke(...)`。
+  `method_set::invoke_result_of(...)`。
 - 自由函数、静态函数、唯一 `operator()` 签名的 lambda 和函数对象不挂到 `meta::type` 上；它们通过
   `meta::module(name).function(...)` 注册为 module 级函数，调用时不需要传入 instance。
 - 暂不支持默认参数、隐式类型转换、泛型/重载 lambda 自动签名选择和不可拷贝 by-value 返回值。
@@ -481,7 +480,7 @@ descriptor 通过 layout、value ops、type semantics 和固定运行期能力�
 
 `meta::type`、`meta::property`、`meta::method_set` 和 `meta::method`
 是外部查询属性和方法信息的推荐入口。`find_method()` 返回同名方法集合；如果该名称只有一个重载，可以通过
-`single()` 取得具体 `meta::method`，否则使用 `resolve(args)` 或直接在集合上 `invoke()`：
+`single()` 取得具体 `meta::method`，否则使用 `resolve(args)` 或直接在集合上 `invoke_result_of()`：
 
 ```cpp
 auto reflected = caors::meta::find("game.actor");
@@ -493,7 +492,7 @@ field.try_set<float>(caors::meta::view(instance), 75.0F);
 auto damage = reflected.find_method("damage");
 int amount = 10;
 std::array<caors::meta::argument, 1> args{caors::meta::arg(amount)};
-damage.invoke(caors::meta::view(instance), args);
+damage.invoke_result_of(caors::meta::view(instance), args);
 ```
 
 需要调用 `T&&` 参数时，使用拥有值右值参数：
@@ -503,7 +502,7 @@ auto take = reflected.find_method("take").single();
 std::array<caors::meta::argument, 1> args{
     caors::meta::move_arg(caors::any::from(42)),
 };
-take.invoke(caors::meta::view(instance), args);
+take.invoke_result_of(caors::meta::view(instance), args);
 ```
 
 `meta::type`、`meta::property`、`meta::method_set` 和 `meta::method` 是轻量只读视图，内部引用全局 `meta::registry`
@@ -569,10 +568,7 @@ overload 合并进同一个 `method_set`。
 - `parameter_count()` / `get_parameter_type()`：查询参数列表。
 - `const_method()`：判断是否是 `const` 成员函数。
 - `metadata()` / `find_metadata()`：查询方法附加 metadata。脚本导出、编辑器命令和工具层可以按约定键读取。
-- `invoke(instance, args)`：在实例上调用成员方法；只读实例只能调用 const 方法。该入口只返回拥有值
-  `any`，不表达 `void` 成功或引用返回。
 - `invoke_result_of(instance, args)`：在实例上调用成员方法，并返回 `meta::invoke_result`。
-- `invoke(args)`：调用全局函数；成员方法会失败。该入口只返回拥有值 `any`。
 - `invoke_result_of(args)`：调用全局函数，并返回 `meta::invoke_result`。
 - `try_invoke<T>()`：调用方法并按指定类型读取返回值。
 - `args` 使用 `span<const meta::argument>`；已有 `any_ref` 需要先通过 `caors::arg(ref)` 包装成参数。
@@ -592,9 +588,7 @@ overload 合并进同一个 `method_set`。
 - `overload_count()` / `overload_at()`：遍历同名重载；索引越界时返回无效 `meta::method`。
 - `single()`：只有一个重载时返回该 `meta::method`；存在多个重载时返回无效视图。
 - `resolve(args)`：按参数列表匹配唯一重载；没有匹配或匹配不唯一时返回无效视图。
-- `invoke(instance, args)`：先解析唯一成员方法重载，再调用具体方法；只返回拥有值 `any`。
 - `invoke_result_of(instance, args)`：先解析唯一成员方法重载，再调用具体方法，并保留完整调用结果语义。
-- `invoke(args)`：调用全局函数重载；只返回拥有值 `any`。
 - `invoke_result_of(args)`：调用全局函数重载，并保留完整调用结果语义。
 
 `sequence_view` 当前提供：

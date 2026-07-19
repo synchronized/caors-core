@@ -36,8 +36,7 @@ enum class invoke_result_kind {
 /**
  * @brief 反射函数调用结果。
  *
- * `invoke_result` 明确区分调用失败、`void` 成功、拥有值返回和引用返回。旧 `invoke()`
- * 便捷入口仍返回 `any`，只适合读取拥有值返回。
+ * `invoke_result` 明确区分调用失败、`void` 成功、拥有值返回和引用返回。
  */
 class invoke_result final {
 public:
@@ -93,7 +92,7 @@ private:
  *
  * `meta::method` 不拥有方法数据，只引用全局 `meta::registry`
  * 中的内部记录。调用时需要显式传入实例和参数；参数类型不匹配、对象为空或 const 对象调用非
- * const 方法时会返回无效 `any`。
+ * const 方法时会返回失败结果。
  */
 class CAORS_API method final {
 public:
@@ -111,15 +110,9 @@ public:
   [[nodiscard]] const meta::metadata_map& metadata() const noexcept;
   [[nodiscard]] const meta::metadata_value* find_metadata(meta::metadata_key key) const noexcept;
 
-  /** @brief 在实例上调用成员方法；只读实例只能调用 const 成员函数。 */
-  [[nodiscard]] any invoke(const instance& object, std::span<const argument> arguments = {}) const;
-
   /** @brief 在实例上调用成员方法，保留 void / 值 / 引用返回语义。 */
   [[nodiscard]] invoke_result invoke_result_of(const instance& object,
                                                std::span<const argument> arguments = {}) const;
-
-  /** @brief 调用全局函数。成员方法会失败并返回无效 `any`。 */
-  [[nodiscard]] any invoke(std::span<const argument> arguments = {}) const;
 
   /** @brief 调用全局函数，保留 void / 值 / 引用返回语义。 */
   [[nodiscard]] invoke_result invoke_result_of(std::span<const argument> arguments = {}) const;
@@ -132,7 +125,7 @@ public:
     static_assert(std::is_copy_constructible_v<return_type>,
                   "Reflected method return values must be copy constructible");
 
-    any result = invoke(object, arguments);
+    invoke_result result = invoke_result_of(object, arguments);
     const return_type* value = result.template try_get<return_type>();
     if (value == nullptr) {
       return std::nullopt;
@@ -149,7 +142,7 @@ public:
     static_assert(std::is_copy_constructible_v<return_type>,
                   "Reflected method return values must be copy constructible");
 
-    any result = invoke(arguments);
+    invoke_result result = invoke_result_of(arguments);
     const return_type* value = result.template try_get<return_type>();
     if (value == nullptr) {
       return std::nullopt;
@@ -173,7 +166,7 @@ private:
  * @brief 同名成员方法重载集合只读视图。
  *
  * `meta::method_set` 不拥有方法数据。它表示同一个方法名下的一组具体重载；调用时会根据
- * `argument` 参数匹配唯一重载，匹配失败或存在多个匹配时返回无效 `any`。
+ * `argument` 参数匹配唯一重载，匹配失败或存在多个匹配时返回失败结果。
  */
 class CAORS_API method_set final {
 public:
@@ -188,15 +181,9 @@ public:
   [[nodiscard]] method single() const;
   [[nodiscard]] method resolve(std::span<const argument> arguments = {}) const;
 
-  /** @brief 在实例上调用唯一匹配的成员方法重载。 */
-  [[nodiscard]] any invoke(const instance& object, std::span<const argument> arguments = {}) const;
-
   /** @brief 在实例上调用唯一匹配的成员方法重载，保留 void / 值 / 引用返回语义。 */
   [[nodiscard]] invoke_result invoke_result_of(const instance& object,
                                                std::span<const argument> arguments = {}) const;
-
-  /** @brief 调用唯一匹配的全局函数重载。 */
-  [[nodiscard]] any invoke(std::span<const argument> arguments = {}) const;
 
   /** @brief 调用唯一匹配的全局函数重载，保留 void / 值 / 引用返回语义。 */
   [[nodiscard]] invoke_result invoke_result_of(std::span<const argument> arguments = {}) const;

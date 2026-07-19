@@ -3,6 +3,8 @@
 
 #include "caors/meta/instance.h"
 
+#include <utility>
+
 namespace caors::meta {
 
 instance::instance(meta::any_ref value) noexcept : value_(value) {}
@@ -103,7 +105,8 @@ any instance::call(std::string_view name, std::span<const argument> arguments) c
     return {};
   }
 
-  return reflected_method.invoke(*this, arguments);
+  invoke_result result = reflected_method.invoke_result_of(*this, arguments);
+  return result.has_value() ? std::move(result.mutable_value()) : any{};
 }
 
 } // namespace caors::meta

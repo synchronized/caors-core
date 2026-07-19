@@ -82,11 +82,6 @@ const meta::metadata_value* method::find_metadata(meta::metadata_key key) const 
   return meta::find_metadata(metadata(), key);
 }
 
-any method::invoke(const instance& object, std::span<const argument> arguments) const {
-  invoke_result result = invoke_result_of(object, arguments);
-  return result.has_value() ? std::move(result.mutable_value()) : any{};
-}
-
 invoke_result method::invoke_result_of(const instance& object,
                                        std::span<const argument> arguments) const {
   const detail::method_data* method = info();
@@ -96,11 +91,6 @@ invoke_result method::invoke_result_of(const instance& object,
 
   return method->invoke_result_of(object.writable() ? object.mutable_data() : object.data(),
                                   object.writable(), arguments);
-}
-
-any method::invoke(std::span<const argument> arguments) const {
-  invoke_result result = invoke_result_of(arguments);
-  return result.has_value() ? std::move(result.mutable_value()) : any{};
 }
 
 invoke_result method::invoke_result_of(std::span<const argument> arguments) const {
@@ -150,20 +140,10 @@ method method_set::resolve(std::span<const argument> arguments) const {
   return method_set != nullptr ? method{method_set->resolve(arguments)} : method{};
 }
 
-any method_set::invoke(const instance& object, std::span<const argument> arguments) const {
-  invoke_result result = invoke_result_of(object, arguments);
-  return result.has_value() ? std::move(result.mutable_value()) : any{};
-}
-
 invoke_result method_set::invoke_result_of(const instance& object,
                                            std::span<const argument> arguments) const {
   const method target = resolve(arguments);
   return target ? target.invoke_result_of(object, arguments) : invoke_result::failed();
-}
-
-any method_set::invoke(std::span<const argument> arguments) const {
-  invoke_result result = invoke_result_of(arguments);
-  return result.has_value() ? std::move(result.mutable_value()) : any{};
 }
 
 invoke_result method_set::invoke_result_of(std::span<const argument> arguments) const {

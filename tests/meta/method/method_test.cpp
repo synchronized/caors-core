@@ -73,20 +73,23 @@ TEST_CASE("meta - method set groups overloaded methods", "[meta]") {
   caors::meta::instance object = caors::meta::view(instance);
   int int_amount = 4;
   std::array<caors::argument, 1> int_arguments{caors::arg(int_amount)};
-  CHECK_FALSE(update.invoke(object, int_arguments));
+  CHECK(update.invoke_result_of(object, int_arguments).kind() ==
+        caors::meta::invoke_result_kind::void_value);
   CHECK(instance.value == 14);
 
   float float_amount = 2.0F;
   std::array<caors::argument, 1> float_arguments{caors::arg(float_amount)};
-  CHECK_FALSE(update.invoke(object, float_arguments));
+  CHECK(update.invoke_result_of(object, float_arguments).kind() ==
+        caors::meta::invoke_result_kind::void_value);
   CHECK(instance.value == 16);
 
   const caors::meta::method getter = update.resolve(std::span<const caors::meta::argument>{});
   REQUIRE(getter);
   CHECK(getter.const_method());
 
-  const caors::any result_value = update.invoke(caors::meta::view_const(instance));
-  REQUIRE(result_value);
+  caors::meta::invoke_result result_value =
+      update.invoke_result_of(caors::meta::view_const(instance));
+  REQUIRE(result_value.has_value());
   const int* value = result_value.try_get<int>();
   REQUIRE(value != nullptr);
   CHECK(*value == 16);
@@ -108,11 +111,12 @@ TEST_CASE("meta - method view invokes mutable and const member functions", "[met
   int amount = 4;
   std::array<caors::argument, 1> arguments{caors::arg(amount)};
 
-  CHECK_FALSE(add.invoke(object, arguments));
+  CHECK(add.invoke_result_of(object, arguments).kind() ==
+        caors::meta::invoke_result_kind::void_value);
   CHECK(instance.value == 7);
 
-  caors::any result = score.invoke(object);
-  REQUIRE(result);
+  caors::meta::invoke_result result = score.invoke_result_of(object);
+  REQUIRE(result.has_value());
   const int* value = result.try_get<int>();
   REQUIRE(value != nullptr);
   CHECK(*value == 14);
@@ -141,11 +145,12 @@ TEST_CASE("meta - method view invokes rvalue reference parameters through argume
 
   int lvalue = 12;
   std::array<caors::meta::argument, 1> lvalue_arguments{caors::meta::arg(lvalue)};
-  CHECK_FALSE(take.invoke(object, lvalue_arguments));
+  CHECK_FALSE(take.invoke_result_of(object, lvalue_arguments));
   CHECK(instance.value == 0);
 
   std::array<caors::meta::argument, 1> rvalue_arguments{caors::meta::move_arg(21)};
-  CHECK_FALSE(take.invoke(object, rvalue_arguments));
+  CHECK(take.invoke_result_of(object, rvalue_arguments).kind() ==
+        caors::meta::invoke_result_kind::void_value);
   CHECK(instance.value == 21);
 }
 
@@ -189,7 +194,7 @@ TEST_CASE("meta - method invoke result preserves void value and reference return
   REQUIRE(value_ref != nullptr);
   *value_ref = 11;
   CHECK(instance.value == 11);
-  CHECK_FALSE(reflected.find_method("ref").invoke(object));
+  CHECK(reflected.find_method("ref").invoke_result_of(object).has_reference());
 
   caors::meta::invoke_result cref_result =
       reflected.find_method("cref").invoke_result_of(caors::meta::view_const(instance));
@@ -214,27 +219,28 @@ TEST_CASE("meta - method view rejects invalid calls", "[meta]") {
   caors::meta::instance object = caors::meta::view(instance);
   float wrong_argument = 2.0F;
   std::array<caors::argument, 1> wrong_arguments{caors::arg(wrong_argument)};
-  CHECK_FALSE(add.invoke(object, wrong_arguments));
+  CHECK_FALSE(add.invoke_result_of(object, wrong_arguments));
   CHECK(instance.value == 5);
 
   const method_actor& const_instance = instance;
   caors::meta::instance const_object = caors::meta::view_const(const_instance);
   int amount = 3;
   std::array<caors::argument, 1> arguments{caors::arg(amount)};
-  CHECK_FALSE(add.invoke(const_object, arguments));
+  CHECK_FALSE(add.invoke_result_of(const_object, arguments));
   CHECK(instance.value == 5);
 
   const int readonly_target = 1;
   std::array<caors::argument, 1> readonly_arguments{caors::carg(readonly_target)};
-  CHECK_FALSE(add_to.invoke(object, readonly_arguments));
+  CHECK_FALSE(add_to.invoke_result_of(object, readonly_arguments));
 
   int target = 2;
   std::array<caors::argument, 1> writable_arguments{caors::arg(target)};
-  CHECK_FALSE(add_to.invoke(caors::meta::instance{}, writable_arguments));
-  CHECK_FALSE(add_to.invoke(object, std::span<const caors::meta::argument>{}));
-  CHECK_FALSE(add_to.invoke(object, wrong_arguments));
-  CHECK_FALSE(add_to.invoke(const_object, writable_arguments));
+  CHECK_FALSE(add_to.invoke_result_of(caors::meta::instance{}, writable_arguments));
+  CHECK_FALSE(add_to.invoke_result_of(object, std::span<const caors::meta::argument>{}));
+  CHECK_FALSE(add_to.invoke_result_of(object, wrong_arguments));
+  CHECK_FALSE(add_to.invoke_result_of(const_object, writable_arguments));
 
-  CHECK_FALSE(add_to.invoke(object, writable_arguments));
+  CHECK(add_to.invoke_result_of(object, writable_arguments).kind() ==
+        caors::meta::invoke_result_kind::void_value);
   CHECK(target == 7);
 }

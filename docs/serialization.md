@@ -727,7 +727,7 @@ codec 和 meta 类型系统的边界：
 
 `caors/serialization.h` 会包含 STL 容器 traits 适配，常见容器字段不需要额外 include。自定义容器只需要在
 `caors::traits` 命名空间特化对应容器 traits；序列化层不再提供 `sequence_codec`、`set_codec`
-或 `associative_codec` 这类容器级 codec 基类，避免容器递归和 descriptor/view 路径重复实现。
+或 `associative_codec` 这类容器级 codec 基类，避免容器递归和 `meta::type` / view 路径重复实现。
 
 内置原子 codec 也是 `serialization::codec_traits<T>` 特化，不要求内置类型显式 meta 注册，也不再维护独立的
 运行期 codec 索引。内置 codec 和外部自定义 codec 都通过同一套函数表构造逻辑生成
@@ -884,7 +884,7 @@ template <> struct codec_traits<custom_value> {
 
 | 类型形态 | 反射 / any 访问 | 序列化写出 | 反序列化读回 |
 | --- | --- | --- | --- |
-| 基础标量、枚举、`caors::string`、`std::string` | 保存真实 C++ 类型，可读写字段；枚举可通过 descriptor 或已注册 meta 能力转换 | 支持 | 支持 |
+| 基础标量、枚举、`caors::string`、`std::string` | 保存真实 C++ 类型，可读写字段；枚举可通过 `meta::type` 的枚举能力转换 | 支持 | 支持 |
 | `std::string_view` | 保存 view 本身，不拥有字符存储 | 支持，按字符串写出 | 默认拒绝；可通过 `serialization::context::state.storage.string_view_storage` 指向外部 `string_storage` 后读回 |
 | `std::filesystem::path` | 作为普通值类型 | 支持，按通用路径字符串写出 | 支持，从字符串构造 path |
 | `std::chrono` duration / `system_clock::time_point` | 作为普通值类型 | 支持，按整数写出 | 支持，从整数构造 |
@@ -918,8 +918,8 @@ template <> struct codec_traits<custom_value> {
   字段存在回边或自环时应由调用方跳过对应字段，或改用显式引用类型。`context.config.limits.max_depth`
   会阻止无限展开，但不会把对象图转换为引用图；需要身份保持时使用 `caors::objects::ptr<T>`、
   `caors::objects::handle` 或 `caors::objects::typed_handle<T>`。
-- 未注册枚举可以通过 meta descriptor 在字段、`any` / `any_ref` 和容器元素路径上按底层整数读写；如果枚举需要稳定名称、GUID 或多态身份，仍应显式注册。
-- 容器、指针、wrapper、pair、tuple 和 variant 通过 meta descriptor 生成运行期视图，不要求每一种
+- 未注册枚举可以通过 `meta::type` 在字段、`any` / `any_ref` 和容器元素路径上按底层整数读写；如果枚举需要稳定名称、GUID 或多态身份，仍应显式注册。
+- 容器、指针、wrapper、pair、tuple 和 variant 通过 `meta::type` 生成运行期视图，不要求每一种
   `std::vector<T>`、`std::map<K, V>` 或嵌套组合都注册为 meta 类型。元素或候选值如果需要稳定名称、
   GUID、多态构造或对象工厂，仍应作为业务类型显式注册。
 - 类型语义最多支持一层间接类型；`T**`、`std::unique_ptr<T*>`、

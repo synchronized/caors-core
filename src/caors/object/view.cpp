@@ -6,6 +6,8 @@
 #include "caors/meta/instance.h"
 #include "caors/object/ptr_view.h"
 
+#include <utility>
+
 namespace caors::objects {
 
 object_view::object_view(meta::any_ref value) noexcept : value_(value) {}
@@ -105,7 +107,8 @@ any object_view::call(std::string_view name, std::span<const meta::argument> arg
     return {};
   }
 
-  return reflected_method.invoke(meta::instance{value_}, arguments);
+  meta::invoke_result result = reflected_method.invoke_result_of(meta::instance{value_}, arguments);
+  return result.has_value() ? std::move(result.mutable_value()) : any{};
 }
 
 object* object_view::ptr() const noexcept {

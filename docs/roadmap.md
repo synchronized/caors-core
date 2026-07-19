@@ -33,9 +33,9 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 补充 meta 属性和序列化 extension 的跨模块查询测试。
 - [x] 将 registry extension 数据收进 `type_data`，registry 只维护 extension key 到 `type_id` 的查询索引。
 - [x] 将动态 capability 挂到注册类型数据，支持 `type_id + capability_key` 查询模块扩展能力。
-- [x] 将 serialization codec 接入 descriptor 静态 capability；编译期已知 `T` 或携带 descriptor 的
+- [x] 将 serialization codec 接入 `meta::type` 静态 capability；编译期已知 `T` 或携带 `meta::type` 的
   `any` / `any_ref` 路径都可直接查询静态 codec 能力。
-- [x] 将对象指针和对象句柄运行期访问迁移到 descriptor 静态 capability 表，避免 `type_descriptor`
+- [x] 将对象指针和对象句柄运行期访问迁移到 `meta::type` 静态 capability 查询链路，避免 `type_descriptor`
   直接依赖 object 模块字段。
 - [x] 将 descriptor 内置运行期函数表收敛为互斥 `builtin_ops` variant，避免同一类型同时保存多套
   内置 ops 指针。
@@ -51,18 +51,18 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 将 value 操作函数指针收进 `meta::value_ops` / `meta::factory_ops`，公开层通过
   `meta::factory_capability` 查询构造能力，内部通过 `value_storage_ops` 访问内部值操作，避免 object /
   serialization 横向依赖 `meta::detail`。
-- [x] 将 descriptor 内建 ops 和静态能力纳入 `meta::type` 的 capability / ops 查询链路，并补充 `meta::type`
+- [x] 将内部类型 ops 和静态能力纳入 `meta::type` 的 capability / ops 查询链路，并补充 `meta::type`
   的 kind、wrapper、nullable、value type 和 key type 查询，使字段访问和 serialization 优先使用
   `meta::type` 作为能力 API。
 - [x] 将 meta 字段访问收敛为 `field_ops` 函数表，`field_wrapper` 作为 property/concept-table
-  包装器承载字段类型、取值、引用和写入能力，调用侧不再直接解释 descriptor 缓存。
+  包装器承载字段类型、取值、引用和写入能力，调用侧不再直接解释内部类型缓存。
 - [x] 将 `type_descriptor.h` 拆分为 descriptor 数据结构、默认名称生成和 descriptor model 构建三个边界。
 - [x] 将 descriptor 本体收进 `meta::detail`，公开 API 只通过 `meta::type` 暴露类型视图和能力查询。
 - [x] 将 set / associative 容器使用的类型擦除迭代器辅助实现移动到 `meta/detail/builtin/container_iterator_ops_model.h`。
 - [x] 将 set / associative 共用的迭代器生命周期操作抽成 `container_iterator_ops` 和
   `container_iterator_ops_model<T>`，容器专属取值逻辑继续保留在各自 builtin ops 中。
 - [x] 设计开放 dynamic capability / poly concept table，用于外挂用户自定义运行期访问能力。
-- [x] 梳理开放 dynamic capability / poly concept table 的最终 API；descriptor 保留内置布局、构造、容器和
+- [x] 梳理开放 dynamic capability / poly concept table 的最终 API；`meta::type` 提供内置布局、构造、容器和
   wrapper 能力，codec 作为 serialization 模块 capability 负责格式读写，dynamic capability 作为用户扩展能力入口。
 - [x] 增加 capability 稳定元信息扩展点，例如 capability name / guid / version，用于插件、工具链诊断和
   跨模块协议；当前 `capability_key` 仍只是进程内模板静态 key。
@@ -91,7 +91,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 将 `meta::type_<T>()` 改为 `registration::type_<T>(name)`，并将枚举注册收敛为
   `registration::enum_<T>(name)`。
 - [x] 将 `meta::type::create()` 统一为高层创建入口，优先使用 `meta::factory_capability`，再使用
-  `meta::constructor_capability` 匹配运行期参数列表，最后回退到 descriptor 默认构造；`create_value()`
+  `meta::constructor_capability` 匹配运行期参数列表，最后回退到 `meta::type` 的默认构造能力；`create_value()`
   保留为高级默认构造入口。
 - [x] 增加 `registration::batch_builder` 最小批量注册 API，支持 type/enum builder 顺序提交和首个失败项诊断。
 - [x] 文档化当前 append-only 注册生命周期、无隐式 replace、批量注册非事务和 view 稳定性边界。
@@ -197,7 +197,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [ ] 扩展 JSON parser-side options，例如最大嵌套深度、重复 key 策略、尾随逗号开关和完整
   Unicode 转义处理；当前 `json_options` 只影响 writer 格式化。
 - [x] 增加 `variant::dictionary` 和 `caors::hash_map<K, V>` 字典写出/读回。
-- [x] 将容器序列化统一到 descriptor + `sequence_view` / `set_view` / `associative_view` 路径，删除独立通用容器 codec 递归实现。
+- [x] 将容器序列化统一到 `meta::type` + `sequence_view` / `set_view` / `associative_view` 路径，删除独立通用容器 codec 递归实现。
 - [x] 支持基于 `traits::set_traits<T>` 的 `caors::hash_set<T>` 集合写出/读回。
 - [x] 支持基于 `traits::sequence_traits<T>` 的 `caors::list<T>` 数组写出/读回。
 - [x] 支持裸指针、普通 wrapper、`objects::ptr<T>` 和 `null` 边界处理。
@@ -217,18 +217,18 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `std::shared_ptr<Base>` 字段中的动态类型记录、默认构造和安全下转型。
 - [x] 为普通类多态值补充显式 factory 和可选 `memory_resource` 构造策略。
 - [x] 增加 `serialization/detail/value_access.h` 内部桥接层，集中访问 `any` / `any_ref` 携带的
-  descriptor 和默认构造能力，避免 serialization detail 文件散落依赖 meta value 内部细节。
+  `meta::type` 和默认构造能力，避免 serialization detail 文件散落依赖 meta value 内部细节。
 - [x] 简化序列化公开 API，保留 `serialize` / `deserialize` / `to_value` / `to_string` 等主路径，
   将低频 JSON/text buffer 入口收敛到 `serialization::` 模块命名空间。
 - [x] 拆分 `serialization::context` 的运行期状态、策略配置和 resolver 适配器，减少上下文字段膨胀。
 - [x] 设计字段级构造策略，覆盖容器新增元素、拥有型智能指针 wrapper、`variant` 候选切换和不可默认构造类型；
   优先使用 `serialization::context::resolvers.construction`、`memory_resource`、meta factory / constructor
-  capability 和 descriptor 默认构造，失败时返回明确诊断。
+  capability 和 `meta::type` 默认构造，失败时返回明确诊断。
 - [x] 增加 `serialization::validate_config()`，基于反射字段 metadata 校验 typed config，支持
   `required`、`non_empty`、`range_min/range_max` 和 `one_of`，并一次收集多条诊断。
 - [x] 扩展空 `optional<T>` 读入非空值时的安全构造和写入策略，避免把拥有型 wrapper 的接管语义误用于
   `optional` 的按值存储语义。
-- [ ] 放宽多层指针 / 多层 wrapper 限制，采用逐层 indirect descriptor 展开；默认设置合理最大深度，
+- [ ] 放宽多层指针 / 多层 wrapper 限制，采用逐层 indirect `meta::type` 展开；默认设置合理最大深度，
   并对空中间层、不可写引用和所有权不明确的组合返回清晰诊断。
 - [x] 扩展普通类多态 envelope 的 reader 抽象，使自定义流式 reader 也能提供 type/value envelope
   读入能力；DOM/JSON reader 通过内置 hook 接入，自定义 reader 可不暴露 `current_variant()`。

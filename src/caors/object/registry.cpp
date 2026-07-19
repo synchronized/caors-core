@@ -5,17 +5,20 @@
 #include "caors/registration.h"
 
 namespace caors::objects {
+namespace {
+
+[[nodiscard]] object_factory_capability find_object_factory(meta::type type) noexcept {
+  return type ? object_factory_capability{type} : object_factory_capability{};
+}
+
+} // namespace
 
 registry::registry() { (void)registration::type_<object>(object::static_type_name()).commit(); }
 
 registry::~registry() = default;
 
 bool registry::contains(object_type_id id) const {
-  return meta::capabilities::contains<object_factory_ops>(id);
-}
-
-const object_factory_ops* registry::find_factory_ops(object_type_id id) const {
-  return meta::capabilities::find<object_factory_ops>(id);
+  return find_object_factory(meta::get_registry().find_type(id)).valid();
 }
 
 type registry::find_type(object_type_id id) const {
@@ -24,12 +27,12 @@ type registry::find_type(object_type_id id) const {
     return {};
   }
 
-  const object_factory_ops* factory = find_factory_ops(id);
-  if (factory == nullptr) {
+  const object_factory_capability factory = find_object_factory(stored_meta);
+  if (!factory) {
     return {};
   }
 
-  return type{stored_meta, object_factory_capability{stored_meta}};
+  return type{stored_meta, factory};
 }
 
 type registry::find_type(std::string_view name) const {

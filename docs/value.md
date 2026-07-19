@@ -85,9 +85,9 @@ caors::any value = caors::any::from(7);
 
 ## any
 
-`any` 拥有对象副本，适合把属性值从原对象中取出后独立保存。它依赖 meta descriptor 执行默认构造、复制、销毁和赋值。
+`any` 拥有对象副本，适合把属性值从原对象中取出后独立保存。它依赖 `meta::type` 的值操作能力执行默认构造、复制、销毁和赋值。
 小型平凡可拷贝、平凡析构的值会直接保存在 `any` 内部，避免为标量和小型 POD 临时值产生堆分配；超过内联容量、
-对齐不满足或非平凡析构的类型仍使用 descriptor 的普通构造/销毁路径。
+对齐不满足或非平凡析构的类型仍使用 `meta::type` 的普通构造/销毁路径。
 `any::default_construct(type_id, memory_resource*)` 可以用指定 `memory_resource` 默认构造对象，返回的
 `any` 会记住匹配的资源销毁函数；没有传入资源或类型缺少资源构造函数表时，回退到普通 `new` / `delete`
 或小对象内联存储。
@@ -95,7 +95,7 @@ caors::any value = caors::any::from(7);
 资源边界：
 
 - 不传资源时，`any` 会优先内联保存小型平凡对象；不能内联的值使用普通 `new` / `delete` fallback。
-- 传入 `memory_resource*` 时，`any` 会优先使用 descriptor 中的资源构造/销毁函数，不走内联路径，保证分配和释放资源匹配。
+- 传入 `memory_resource*` 时，`any` 会优先使用 `meta::type` 的资源构造/销毁能力，不走内联路径，保证分配和释放资源匹配。
 - 对 `caors::vector<T>`、`caors::string`、`caors::hash_map<K, V>` 等 allocator-aware 类型，
   资源构造会使用标准 uses-allocator 规则，把同一个 `memory_resource` 传给对象内部 allocator。
 - 复制已有值生成 `any` 时会沿用当前存储策略：可内联的小型平凡值继续内联，其他值走 clone；需要指定资源创建空对象再读入数据时，应使用
@@ -136,7 +136,7 @@ caors::meta::owned_value value =
 
 规则：
 
-- `owned_value` 析构时会使用匹配的资源销毁函数、自定义销毁函数或 descriptor 销毁函数释放对象。
+- `owned_value` 析构时会使用匹配的资源销毁函数、自定义销毁函数或 `meta::type` 的销毁能力释放对象。
 - `into_any()` 成功后当前 `owned_value` 变为空，所有权和匹配销毁函数一起转移给返回的 `any`。
 - `std::move(value).release()` 会释放所有权并返回裸对象、类型、资源和销毁函数，让当前 `owned_value`
   变为空。调用方必须使用返回的 `resource_destroy` 或 `destroy` 手动销毁对象；这是高级接口，普通代码应优先使用
@@ -161,7 +161,7 @@ caors::meta::owned_value value =
 
 - 不可拷贝类型无法被复制成有效 `any`。
 - `any` 不保留对象身份、共享关系或对象图引用。
-- 未注册 C++ 类型仍可通过 descriptor 使用基础值能力，但没有稳定名称、GUID、反射属性或多态构造信息。
+- 未注册 C++ 类型仍可通过 `meta::resolve<T>()` 返回的 `meta::type` 使用基础值能力，但没有稳定名称、GUID、反射属性或多态构造信息。
 
 ## any_ref
 

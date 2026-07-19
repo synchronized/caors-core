@@ -218,7 +218,7 @@ CAORS_META_REGISTRATION(register_actor) {
 - `errc::duplicate_name` / `errc::duplicate_guid`：名称或稳定 GUID 冲突，应修正类型声明。
 - `errc::missing_type`：给不存在的 `type_id` 挂载 extension。
 - `errc::missing_parent`：父类型尚未注册。
-- `errc::invalid_field`：反射字段描述无效、字段名冲突，或字段类型无法生成有效 descriptor。
+- `errc::invalid_field`：反射字段描述无效、字段名冲突，或字段类型无法生成有效 `meta::type` 能力。
 
 公共业务代码使用 `registration::type_<T>(name)` 完成跨模块注册。用户代码不应直接调用各模块的
 `detail` 命名空间函数。字段和方法直接通过 meta 注册能力写入，不再保留独立 reflection 注册入口；
