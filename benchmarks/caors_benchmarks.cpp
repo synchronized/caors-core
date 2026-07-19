@@ -133,6 +133,7 @@ void benchmark_meta_lookup(std::size_t iterations) {
 
 void benchmark_properties(std::size_t iterations) {
   benchmark_actor actor{7, 95.5F, true, "Ada"};
+  const caors::meta::instance instance = caors::meta::view(actor);
   const caors::meta::type type = caors::meta::find<benchmark_actor>();
   const caors::meta::property id_property = type.find_property("id");
   const caors::meta::property health_property = type.find_property("health_int");
@@ -145,11 +146,11 @@ void benchmark_properties(std::size_t iterations) {
     CTRACK_NAME("meta.property.member_get_set");
     for (std::size_t index = 0; index < iterations; ++index) {
       const int value = static_cast<int>(index);
-      if (!id_property.try_set(&actor, value)) {
+      if (!id_property.try_set(instance, value)) {
         std::cerr << "写入 member 属性失败\n";
         std::exit(EXIT_FAILURE);
       }
-      const std::optional<int> current = id_property.try_get<int>(&actor);
+      const std::optional<int> current = id_property.try_get<int>(instance);
       consume(static_cast<std::uintptr_t>(current.value_or(0)));
     }
   }
@@ -159,11 +160,11 @@ void benchmark_properties(std::size_t iterations) {
     for (std::size_t index = 0; index < iterations; ++index) {
       const int value = static_cast<int>(index % 100);
       const caors::any boxed = caors::any::from(value);
-      if (!health_property.try_set_value(&actor, boxed)) {
+      if (!health_property.try_set_value(instance, boxed)) {
         std::cerr << "写入 getter/setter 属性失败\n";
         std::exit(EXIT_FAILURE);
       }
-      caors::any current = health_property.get_value(&actor);
+      caors::any current = health_property.get_value(instance);
       const int* current_value = current.try_get<int>();
       consume(static_cast<std::uintptr_t>(current_value == nullptr ? 0 : *current_value));
     }

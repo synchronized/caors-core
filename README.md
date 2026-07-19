@@ -34,7 +34,7 @@ CAORS 目前更偏底层库和实验性基础设施，而不是完整引擎或�
 - 类型元数据 API：`caors/meta.h`，包含运行期 `type_id` 和稳定 `type_guid`。
 - 基础内存资源 API：`caors/memory.h`。
 - 基础对象系统 API：`caors/object.h`。
-- Meta 字段/方法 API：`caors/meta.h` 和 `caors/meta/class_registration.h`。
+- Meta 字段/方法 API：`caors/meta.h` 和 `caors/registration.h`。
 - 资源 API：`caors/resources.h`，包含资源身份、引用、运行期 handle、引用计数缓存、依赖图、清单、
   字节来源 provider、loader/saver、同步 reload 通知、异步加载请求和非拥有资源 database 编排入口。
 - 工程资源 API：`caors/assets.h`，包含工程资源配置、asset manager、source/type factory 和 JSON 资源适配。
