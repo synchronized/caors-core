@@ -7,11 +7,12 @@
 
 using namespace caors::tests::meta_registry;
 TEST_CASE("meta - global registry rejects extensions for missing types", "[meta]") {
-  CHECK(caors::meta::get_registry().emplace_extension<missing_extension_meta>(
-            caors::type_id{std::numeric_limits<std::uint64_t>::max()}, true) ==
-        meta_error(caors::errc::missing_type));
-  CHECK(caors::meta::get_registry().emplace_extension<missing_extension_meta>(
-            caors::type_id::invalid(), true) == meta_error(caors::errc::invalid_type));
+  CHECK(caors::meta::detail::emplace_extension<missing_extension_meta>(
+            caors::meta::get_registry(), caors::type_id{std::numeric_limits<std::uint64_t>::max()},
+            true) == meta_error(caors::errc::missing_type));
+  CHECK(caors::meta::detail::emplace_extension<missing_extension_meta>(
+            caors::meta::get_registry(), caors::type_id::invalid(), true) ==
+        meta_error(caors::errc::invalid_type));
 }
 
 // 原测试文件：meta_meta_global_registry_stores_base_type_information_test.cpp
@@ -44,8 +45,8 @@ TEST_CASE("meta - global registry stores extensions by type id", "[meta]") {
   REQUIRE(actor);
   const caors::type_id actor_id = actor.id();
 
-  CHECK(caors::meta::get_registry().emplace_extension<factory_meta>(actor_id, true) ==
-        caors::error{});
+  CHECK(caors::meta::detail::emplace_extension<factory_meta>(caors::meta::get_registry(), actor_id,
+                                                             true) == caors::error{});
   CHECK(caors::meta::get_registry().has_extension<factory_meta>(actor_id));
   CHECK(caors::meta::get_registry().extension_count<factory_meta>() == 1);
 
@@ -58,7 +59,8 @@ TEST_CASE("meta - global registry stores extensions by type id", "[meta]") {
   REQUIRE(factory_ptr != nullptr);
   CHECK(factory_ptr->constructible);
 
-  CHECK(caors::meta::get_registry().emplace_extension<factory_meta>(actor_id, false) ==
+  CHECK(caors::meta::detail::emplace_extension<factory_meta>(caors::meta::get_registry(), actor_id,
+                                                             false) ==
         meta_error(caors::errc::duplicate_component));
   CHECK(caors::meta::get_registry().has_extension<factory_meta>(actor_id));
   CHECK_FALSE(caors::meta::get_registry().has_extension<view_label_meta>(actor_id));
@@ -83,12 +85,12 @@ TEST_CASE("meta - global view finds types with all requested extensions", "[meta
   REQUIRE(player);
   const caors::type_id player_id = player.id();
 
-  REQUIRE(caors::meta::get_registry().emplace_extension<view_factory_meta>(actor_id, true) ==
-          caors::error{});
-  REQUIRE(caors::meta::get_registry().emplace_extension<view_factory_meta>(player_id, true) ==
-          caors::error{});
-  REQUIRE(caors::meta::get_registry().emplace_extension<view_label_meta>(player_id, "Player") ==
-          caors::error{});
+  REQUIRE(caors::meta::detail::emplace_extension<view_factory_meta>(
+              caors::meta::get_registry(), actor_id, true) == caors::error{});
+  REQUIRE(caors::meta::detail::emplace_extension<view_factory_meta>(
+              caors::meta::get_registry(), player_id, true) == caors::error{});
+  REQUIRE(caors::meta::detail::emplace_extension<view_label_meta>(
+              caors::meta::get_registry(), player_id, "Player") == caors::error{});
 
   auto object_view = caors::meta::get_registry().extension_view<view_factory_meta>();
   CHECK(object_view.size() == 2);

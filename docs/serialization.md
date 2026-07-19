@@ -148,7 +148,7 @@ caors::deserialize(context, object, text);
 1. `context.resolvers.construction.construct` 自定义构造策略。
 2. 已注册的 `meta::factory_capability`。
 3. 已注册且匹配空参数列表的 `meta::constructor_capability`。
-4. descriptor 默认构造或资源感知默认构造。
+4. 类型默认构造能力或资源感知默认构造能力。
 
 自定义构造策略会收到 `serialization::construction_request`，其中包含目标 `type`、所属
 `owner_type`、字段名 `field_name`、构造位置 `site` 和容器/tuple/variant 下标 `index`。它适合为不可默认构造
@@ -162,7 +162,7 @@ caors::deserialize(context, object, text);
 序列化模块不直接访问 `meta::detail`。需要创建、托管或转移运行期值时，只使用
 `meta::factory_capability`、`meta::constructor_capability`、`meta::owned_value`、
 `meta::released_owned_value_guard` 和 `meta::any` 这些公开接口。这样自定义构造策略、factory、
-descriptor 默认构造和资源感知构造都能通过同一套 RAII 路径保留匹配销毁函数。
+类型默认构造能力和资源感知构造都能通过同一套 RAII 路径保留匹配销毁函数。
 
 当前调用点包括：需要临时值的容器元素、集合元素、关联容器 key/value、空拥有型智能指针 wrapper 的内部值、variant
 候选切换、普通多态 wrapper 新建对象，以及字段整体临时值。裸指针仍表示借用，不会通过该策略自动分配内存。
@@ -290,7 +290,7 @@ caors::registration::type_<holder>("game.holder")
 
 1. 读取 type 字段并用 `type_guid` 查找动态类型。
 2. 校验动态类型继承自字段声明的 `Base`。
-3. 通过动态类型 factory 或 descriptor 默认构造派生对象。
+3. 通过动态类型 factory 或类型默认构造能力构造派生对象。
 4. 用 value 字段按动态类型反序列化字段。
 5. 通过 wrapper 的接管函数把对象放入 `unique_ptr<Base>`、`memory::unique_ptr<Base>`、
    `shared_ptr<Base>` 或 `objects::ref<Base>`。
@@ -333,7 +333,7 @@ caors::error status = caors::deserialize(context, holder, json);
 
 构造优先级是：字段或 view 已持有目标值时直接写入已有对象；需要新建对象时，先使用
 `context.resolvers.construction` 自定义构造策略，再使用 meta factory、空参数 constructor，最后回退到
-descriptor 默认构造或 traits 的资源重载。自定义顺序容器可以通过
+类型默认构造能力或 traits 的资源重载。自定义顺序容器可以通过
 `traits::sequence_traits<T>::resize(values, size, resource)` 接入 resize 路径；如果 resize 无法创建默认元素，
 序列化层会尝试逐个构造临时元素并追加。
 
@@ -864,7 +864,7 @@ template <> struct codec_traits<custom_value> {
 - 当 `std::unique_ptr<Base>`、`caors::memory::unique_ptr<Base>`、`std::shared_ptr<Base>`
   或 `objects::ref<Base>`
   实际持有已注册派生类对象时，序列化层会写出多态 envelope，默认字段名为 `$type` / `$value`。读回时要求派生类型可通过
-  上下文构造策略、`registration::type_<T>(name).factory()`、空参数 constructor 或 descriptor 默认构造创建，并通过 wrapper 接管新对象。
+  上下文构造策略、`registration::type_<T>(name).factory()`、空参数 constructor 或类型默认构造能力创建，并通过 wrapper 接管新对象。
 - 如果反序列化上下文提供 `context.resolvers.memory.resource`，`std::shared_ptr<T>`、
   `caors::memory::unique_ptr<T>` 和 `objects::ref<T>` 可以保存运行期销毁回调，让资源分配和释放匹配。普通
   `std::unique_ptr<T>` 使用标准 deleter，不能安全接管资源构造出的运行期派生对象，因此会回退到

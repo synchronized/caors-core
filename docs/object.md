@@ -42,10 +42,10 @@ CAORS 对象系统第一阶段只解决几件事：
 object_index、序列化 resolver 和工厂 helper 等低频组合件统一使用 `caors::objects::*`。
 
 `objects::ptr<T>`、`objects::handle` 和 `objects::typed_handle<T>` 的运行期读写函数表作为
-`meta::capabilities` 模块静态能力声明，并保存到 meta 内部 descriptor
-的静态能力表中。拿得到 `meta::type` 时可通过 `objects::ptr_capability` 或
+`meta::capabilities` 模块静态能力声明，并接入 `meta::type` 静态能力查询链路。
+拿得到 `meta::type` 时可通过 `objects::ptr_capability` 或
 `objects::handle_capability` 查询类型级能力；拿到 `any_ref` 时，对象模块会从
-`any_ref` 携带的 descriptor 查询并绑定为 `ptr_view` 或 `handle_view`。
+`any_ref` 携带的 `meta::type` 查询并绑定为 `ptr_view` 或 `handle_view`。
 
 ### object_id
 
@@ -107,9 +107,8 @@ meta 类型信息由全局 `meta::registry` 内部保存，并通过 `meta::type
 - `alignment`
 - `parent_id`
 
-其中名称、GUID 和父类型属于 meta 类型记录；大小、对齐和默认值操作函数来自同一 `type_id`
-挂载的内部 descriptor。对象模块只通过 `meta::type` 查询这些信息，不直接暴露
-descriptor。
+其中名称、GUID 和父类型属于 meta 类型记录；大小、对齐和默认值操作函数通过同一 `type_id`
+对应的 `meta::type` 查询。对象模块只通过 `meta::type` 查询这些信息，不直接暴露底层实现对象。
 
 `object_type_id` 是 `type_id` 在对象系统里的别名。它由 C++ 对象类型的运行期 key 派生，不由对象类型名派生：
 
@@ -495,7 +494,7 @@ manager.destroy(instance);
 - `object_base<Derived, Base>`：CRTP 类型查询辅助。
 - `meta::type` / `meta::registry`：对象系统和反射系统共享的全局 meta 类型视图和元数据注册表。
 - `objects::object_factory_capability`：对象工厂公开 facade，保存默认构造、创建和销毁能力。
-- `objects::object_factory_ops`：对象工厂 raw ops 函数表，由 registry 内部和 descriptor 静态能力使用。
+- `objects::object_factory_ops`：对象工厂 raw ops 函数表，由 registry 内部和 `meta::type` 静态能力使用。
 - `objects::type`：对象类型只读视图，组合 `meta::type` 和对象工厂 capability。
 - `caors::error`：明确对象类型注册失败原因和错误来源域。
 - `objects::registry`：类型注册、查询、继承关系判断、默认构造工厂。

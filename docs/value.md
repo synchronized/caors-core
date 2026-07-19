@@ -226,8 +226,8 @@ caors::meta::sequence_view view =
 类型级 facade 不拥有类型数据，也不拥有实例。它只是把 `meta::type`
 和内部函数表包装成更适合公开 API 使用的对象；实例访问仍由绑定后的 `*_view` 完成。
 
-这些 view 通过 meta 内部 descriptor 保存的类型能力工作，不要求容器类型本身一定注册到全局 meta
-registry。`get_*_type()` 系列接口返回 descriptor-backed `meta::type`；调用方需要 `type_id` 或名称时，
+这些 view 通过 `meta::type` 暴露的类型能力工作，不要求容器类型本身一定注册到全局 meta
+registry。`get_*_type()` 系列接口返回 `meta::type`；调用方需要 `type_id` 或名称时，
 直接读取返回视图的 `id()` / `name()`。需要稳定名称、GUID、反射属性、序列化策略或多态构造的业务类型仍应显式注册。
 
 集合和关联容器的 erased iterator 是 meta value 内部临时对象，使用 CAORS 内部资源策略分配，并在 iterator

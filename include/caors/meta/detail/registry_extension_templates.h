@@ -10,20 +10,24 @@
 #include <type_traits>
 #include <utility>
 
-namespace caors::meta {
+namespace caors::meta::detail {
 
 template <typename Extension, typename... Args>
-[[nodiscard]] error registry::emplace_extension(type_id id, Args&&... args) {
+[[nodiscard]] error emplace_extension(registry& registry, type_id id, Args&&... args) {
   using extension_type = std::decay_t<Extension>;
 
   if (!id) {
     return {error_domain::meta, errc::invalid_type};
   }
 
-  detail::extension_data data =
-      detail::make_extension_data<extension_type>(state_resource_, std::forward<Args>(args)...);
-  return add_extension(id, std::move(data));
+  extension_data data =
+      make_extension_data<extension_type>(registry.state_resource_, std::forward<Args>(args)...);
+  return registry.add_extension(id, std::move(data));
 }
+
+} // namespace caors::meta::detail
+
+namespace caors::meta {
 
 template <typename Extension> [[nodiscard]] bool registry::has_extension(type_id id) const {
   using extension_type = std::decay_t<Extension>;
@@ -56,6 +60,15 @@ template <typename Extension>
       find_extension_mutable_data(id, detail::extension_key_of<extension_type>());
   return data != nullptr ? detail::mutable_extension_value<extension_type>(*data) : nullptr;
 }
+
+namespace detail {
+
+template <typename Extension>
+[[nodiscard]] Extension* find_extension_mutable_ptr(registry& registry, type_id id) {
+  return registry.find_extension_mutable_ptr<Extension>(id);
+}
+
+} // namespace detail
 
 template <typename Extension> [[nodiscard]] std::size_t registry::extension_count() const noexcept {
   using extension_type = std::decay_t<Extension>;

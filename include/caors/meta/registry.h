@@ -25,6 +25,12 @@
 #include <typeinfo>
 #include <utility>
 
+namespace caors::meta {
+
+class registry;
+
+} // namespace caors::meta
+
 namespace caors::meta::detail {
 
 class registry_state;
@@ -48,6 +54,10 @@ template <typename T> [[nodiscard]] error ensure_type_descriptor_for();
 [[nodiscard]] bool contains_capability(type_id id, capability_key key) noexcept;
 [[nodiscard]] std::size_t capability_count(const registry& registry, capability_key key) noexcept;
 [[nodiscard]] std::size_t capability_count(capability_key key) noexcept;
+template <typename Extension, typename... Args>
+[[nodiscard]] error emplace_extension(registry& registry, type_id id, Args&&... args);
+template <typename Extension>
+[[nodiscard]] Extension* find_extension_mutable_ptr(registry& registry, type_id id);
 
 } // namespace caors::meta::detail
 
@@ -95,10 +105,6 @@ public:
   [[nodiscard]] void* upcast(type_id id, type_id base_id, void* value) const;
   [[nodiscard]] std::size_t size() const noexcept;
 
-  /** @brief 给已注册类型挂载一份扩展数据。 */
-  template <typename Extension, typename... Args>
-  [[nodiscard]] error emplace_extension(type_id id, Args&&... args);
-
   /** @brief 判断指定类型是否挂载了某份扩展数据。 */
   template <typename Extension> [[nodiscard]] bool has_extension(type_id id) const;
 
@@ -113,9 +119,6 @@ public:
    * 方式保存。返回指针不拥有对象，只要扩展数据已注册且进程未退出， 指针地址保持稳定。
    */
   template <typename Extension> [[nodiscard]] const Extension* find_extension_ptr(type_id id) const;
-
-  /** @brief 获取指定类型上的扩展数据可写指针，仅供注册构建阶段使用。 */
-  template <typename Extension> [[nodiscard]] Extension* find_extension_mutable_ptr(type_id id);
 
   /** @brief 统计挂载了指定扩展数据的类型数量。 */
   template <typename Extension> [[nodiscard]] std::size_t extension_count() const noexcept;
@@ -147,6 +150,10 @@ private:
   friend std::size_t detail::capability_count(const registry& registry,
                                               capability_key key) noexcept;
   friend std::size_t detail::capability_count(capability_key key) noexcept;
+  template <typename Extension, typename... Args>
+  friend error detail::emplace_extension(registry& registry, type_id id, Args&&... args);
+  template <typename Extension>
+  friend Extension* detail::find_extension_mutable_ptr(registry& registry, type_id id);
 
   [[nodiscard]] error register_type(type_id id, string_name name, type_guid guid,
                                     type_id parent_id);
@@ -169,6 +176,7 @@ private:
                                                                   detail::extension_key key) const;
   [[nodiscard]] detail::extension_data* find_extension_mutable_data(type_id id,
                                                                     detail::extension_key key);
+  template <typename Extension> [[nodiscard]] Extension* find_extension_mutable_ptr(type_id id);
 
   [[nodiscard]] error index_extension(type_id id, detail::extension_key key);
   [[nodiscard]] vector<type_id> view_extension_ids(const detail::extension_key* keys,

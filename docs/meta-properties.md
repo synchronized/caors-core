@@ -77,24 +77,24 @@ caors::registration::type_<actor>("game.actor")
 
 - 普通业务属性如果需要稳定名称、GUID、对象工厂、反射身份或多态序列化身份，应先通过
   `registration::type_<Field>("name")` 显式注册。未注册属性不会拥有这些元信息，但只要能生成有效
-  descriptor，仍可作为属性注册，并通过 `any_ref` 使用布局、值操作和运行期视图能力。
+  `meta::type`，仍可作为属性注册，并通过 `any_ref` 使用布局、值操作和运行期视图能力。
 - 对内置基础类型和能由 traits 推导名称的结构类型，`property::get_type().name()` 会在没有 meta 注册时
-  回退到 descriptor 默认显示名；这只是调试/展示名称，不等价于该类型已经注册到 meta。
-- 容器、指针、wrapper、pair、tuple 和 variant 等结构类型可以由内部 descriptor 描述，不要求每一种
+  回退到默认显示名；这只是调试/展示名称，不等价于该类型已经注册到 meta。
+- 容器、指针、wrapper、pair、tuple 和 variant 等结构类型可以由 `meta::type` 能力描述，不要求每一种
   模板组合都显式注册到 meta。
-- 如果属性类型满足 `traits::sequence_traits<T>::is_sequence`，属性 descriptor 会同步记录元素类型语义。
+- 如果属性类型满足 `traits::sequence_traits<T>::is_sequence`，属性类型能力会同步记录元素类型语义。
   内置特化支持 `caors::vector<T>`、
   `std::vector<T, Allocator>`、`caors::list<T>`、`std::list<T, Allocator>`、`std::deque<T, Allocator>`、
   `std::array<T, N>` 和 `std::span<T, Extent>`。
-- 如果属性类型满足 `traits::set_traits<T>::is_set`，属性 descriptor 会同步记录元素类型语义。内置特化支持 `caors::hash_set<T>`、
+- 如果属性类型满足 `traits::set_traits<T>::is_set`，属性类型能力会同步记录元素类型语义。内置特化支持 `caors::hash_set<T>`、
   `std::unordered_set<T, ...>` 和 `std::set<T, ...>`。
-- 如果属性类型满足 `traits::associative_traits<T>::is_associative`，属性 descriptor 会同步记录 key/value 类型语义。内置特化支持
+- 如果属性类型满足 `traits::associative_traits<T>::is_associative`，属性类型能力会同步记录 key/value 类型语义。内置特化支持
   `caors::hash_map<K, V>`、`std::unordered_map<K, V, ...>` 和 `std::map<K, V, ...>`。
-- 如果属性类型满足 `traits::pair_traits<T>::is_pair`，属性 descriptor 会同步记录 first/value 类型语义。
+- 如果属性类型满足 `traits::pair_traits<T>::is_pair`，属性类型能力会同步记录 first/value 类型语义。
   内置特化支持 `std::pair<T, U>`。
-- 如果属性类型满足 `traits::tuple_traits<T>::is_tuple`，属性 descriptor 会同步记录每个元素类型语义。
+- 如果属性类型满足 `traits::tuple_traits<T>::is_tuple`，属性类型能力会同步记录每个元素类型语义。
   内置特化支持 `std::tuple<Ts...>`。
-- 如果属性类型满足 `traits::variant_traits<T>::is_variant`，属性 descriptor 会同步记录每个候选类型语义。
+- 如果属性类型满足 `traits::variant_traits<T>::is_variant`，属性类型能力会同步记录每个候选类型语义。
   内置特化支持 `std::variant<Ts...>`。
 - 属性类型语义最多支持一层裸指针或 wrapper；`T**`、`std::unique_ptr<T*>`、
   `std::optional<std::shared_ptr<T>>` 这类嵌套组合会触发静态断言。
@@ -115,7 +115,7 @@ caors::registration::type_<actor>("game.actor")
   `traits::wrapper_semantics` 为 `inline_value`。
 - `std::reference_wrapper<T>`：`meta::type_kind::wrapper`，`value_type` 为 `T`，不表示空值，
   `traits::wrapper_semantics` 为 `inline_value`。
-- `caors::objects::ptr<T>`：`meta::type_kind::value`，对象指针能力通过 descriptor 静态能力表保存，
+- `caors::objects::ptr<T>`：`meta::type_kind::value`，对象指针能力通过 `meta::type` 静态能力查询，
   并优先使用 `any_ref::get_capability<objects::ptr_capability>()` 查询；`objects::make_ptr_view(any_ref)`
   是高级适配层使用的显式 view 工厂。
 - `traits::sequence_traits<T>` 顺序容器：`meta::type_kind::sequence`，value 类型为元素类型；`get_element_type()`
@@ -450,16 +450,16 @@ descriptor 通过 layout、value ops、type semantics 和固定运行期能力�
 - `try_get_mutable<T>()`：获取可写指针。
 - `try_set<T>()`：从同类型 C++ 值写入当前 `any`。
 - `try_set(any)`：从同类型运行期值写入当前 `any`。
-- `get_capability<meta::sequence_capability>()`：如果 descriptor 描述了顺序容器，则创建顺序容器视图。
-- `get_capability<meta::set_capability>()`：如果 descriptor 描述了集合容器，则创建集合容器视图。
-- `get_capability<meta::associative_capability>()`：如果 descriptor 描述了关联容器，则创建可写或只读关联容器视图。
-- `get_capability<meta::indirect_capability>()`：如果 descriptor 描述了指针或 wrapper，则创建内部值视图。
+- `get_capability<meta::sequence_capability>()`：如果类型能力描述了顺序容器，则创建顺序容器视图。
+- `get_capability<meta::set_capability>()`：如果类型能力描述了集合容器，则创建集合容器视图。
+- `get_capability<meta::associative_capability>()`：如果类型能力描述了关联容器，则创建可写或只读关联容器视图。
+- `get_capability<meta::indirect_capability>()`：如果类型能力描述了指针或 wrapper，则创建内部值视图。
 
 第一版 `any` 只支持可拷贝类型；不可拷贝属性调用 `get_value()` 会返回无效 `any`。
 
 ### any_ref
 
-`any_ref` 是运行期 C++ 类型引用，保存类型 id、对象地址、可写性和内部 meta descriptor。
+`any_ref` 是运行期 C++ 类型引用，保存类型 id、对象地址、可写性和 `meta::type`。
 它不拥有对象，不复制对象，也不析构对象，适合零拷贝访问属性和不可拷贝属性。
 无显式类型名的 `any_ref::from<T>()` 不要求 `T` 已注册到 meta；显式类型名重载仍要求类型已注册且名称匹配。
 
@@ -472,10 +472,10 @@ descriptor 通过 layout、value ops、type semantics 和固定运行期能力�
 - `try_get<T>()`：获取只读指针。
 - `try_get_mutable<T>()`：获取可写指针；只读引用会返回 `nullptr`。
 - `try_set<T>()` / `try_set(any)` / `try_set(any_ref)`：从同类型值或引用写入当前引用指向的对象。
-- `get_capability<meta::sequence_capability>()`：如果 descriptor 描述了顺序容器，则创建顺序容器视图。
-- `get_capability<meta::set_capability>()`：如果 descriptor 描述了集合容器，则创建集合容器视图。
-- `get_capability<meta::associative_capability>()`：如果 descriptor 描述了关联容器，则创建关联容器视图。
-- `get_capability<meta::indirect_capability>()`：如果 descriptor 描述了指针或 wrapper，则创建内部值视图。
+- `get_capability<meta::sequence_capability>()`：如果类型能力描述了顺序容器，则创建顺序容器视图。
+- `get_capability<meta::set_capability>()`：如果类型能力描述了集合容器，则创建集合容器视图。
+- `get_capability<meta::associative_capability>()`：如果类型能力描述了关联容器，则创建关联容器视图。
+- `get_capability<meta::indirect_capability>()`：如果类型能力描述了指针或 wrapper，则创建内部值视图。
 
 ### meta::type、meta::property、meta::method_set 和 meta::method
 
@@ -533,7 +533,7 @@ overload 合并进同一个 `method_set`。
 `meta::property` 当前提供：
 
 - `valid()`：判断视图是否仍有效。
-- `name()` / `get_type()`：查询属性声明类型信息。`get_type()` 返回 descriptor-backed `meta::type`。
+- `name()` / `get_type()`：查询属性声明类型信息。`get_type()` 返回 `meta::type`。
 - `get_value_type()`：查询统一 value 类型。对普通值是属性自身类型；对指针和 wrapper
   是内部值类型；对 sequence/set 是元素类型；对 associative 是 mapped/value 类型；对 pair 是
   second 类型。
@@ -666,9 +666,8 @@ overload 合并进同一个 `method_set`。
 `indirect_view` 不拥有 wrapper 或内部值，也不延长内部对象生命周期。裸指针和智能指针解包后返回的是当前
 指向对象的引用；调用方需要保证引用使用期间对象仍然有效。
 
-内部容器 descriptor 的固定运行期能力集合保存 value/key、元素或候选类型的 `type_id`、子类型 descriptor
-以及容器操作函数。`get_*_type()` 会优先返回已注册 meta 类型，未注册时返回 descriptor-backed
-`meta::type`；名称查询也会回退到 descriptor 默认名。
+内部容器类型能力保存 value/key、元素或候选类型的 `meta::type` 查询函数和容器操作函数。
+`get_*_type()` 会优先返回已注册 meta 类型，未注册时返回未注册 C++ 类型视图；名称查询也会回退到默认显示名。
 
 容器、指针、wrapper、pair、tuple 和 variant 这类结构类型不要求自身注册到 `meta::registry`。
 业务对象、枚举、标量命名类型等需要被名称、GUID、反射属性或多态构造策略稳定识别的类型仍应显式注册。
@@ -739,7 +738,7 @@ auto reflected = caors::meta::find("game.actor");
 - `any`：运行期 C++ 类型值拷贝。
 - `any_ref`：运行期 C++ 类型非拥有引用。
 - `sequence_view` / `set_view` / `associative_view` / `pair_view` / `tuple_view` / `variant_view`：容器、二元组、tuple-like 和 variant-like 类型的运行期视图。
-- 属性声明类型的布局、值操作、类型语义和固定运行期能力集合由 meta 内部 descriptor 提供。
+- 属性声明类型的布局、值操作、类型语义和固定运行期能力集合通过 `meta::type` 提供。
 - `meta::type` / `meta::property` / `meta::method`：全局属性和方法数据的推荐查询入口。
 - `registration::type_<T>("name")`：推荐的跨模块链式注册入口，属性和方法通过 `.meta()` 段写入。
 - `meta::registry`：全局 meta 注册表 facade。

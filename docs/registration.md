@@ -139,7 +139,7 @@ registry 隐式变成可变结构。可评估的策略包括：
 否则无法可靠判断名称、GUID、父类型、extension 和 capability 冲突是否会在提交时发生变化。
 
 字段声明类型不要求全部完成 `registration::type_<T>("name")` 注册。基础标量、字符串、容器、指针、
-wrapper、pair、tuple 和 variant 可以通过内部 descriptor 参与反射和序列化。只有需要稳定名称、
+wrapper、pair、tuple 和 variant 可以通过 `meta::type` 能力参与反射和序列化。只有需要稳定名称、
 GUID、对象工厂、反射根类型、多态身份或按名称查询的业务类型，才应显式注册到 meta。
 字段注册不会为字段类型隐式创建 meta 类型，序列化 codec 注册也不会隐式创建 meta 类型。
 
@@ -154,7 +154,7 @@ nested 类型关系只记录 owner 内部使用的短名和目标 `type_id`。�
   只返回已注册类型。
 - registry 只保存显式注册后的稳定元数据和模块 extension，例如名称、GUID、父类型、nested 关系、
   factory、字段、方法和序列化 extension。
-- descriptor static capability 用于类型固有能力，例如对象指针、对象句柄和 `codec_traits<T>` 生成的
+- static capability 用于类型固有能力，例如对象指针、对象句柄和 `codec_traits<T>` 生成的
   codec 函数表，通过 `meta::type::get_capability<C>()` 查询，不需要单独注册 codec。
 - dynamic capability 用于用户或插件扩展能力，通过 `registration::type_<T>("name").capability(ops).commit()`
   挂到注册类型数据；

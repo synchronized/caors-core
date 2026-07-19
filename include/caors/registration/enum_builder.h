@@ -93,7 +93,7 @@ public:
     return *this;
   }
 
-  /** @brief 从 descriptor 静态 capability provider 挂载 capability。 */
+  /** @brief 从 C++ 类型静态 capability provider 挂载 capability。 */
   template <typename Capability> enum_builder& capability() {
     using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
     if constexpr (meta::detail::has_capability_model_v<capability_type, value_type>) {

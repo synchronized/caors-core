@@ -50,16 +50,16 @@ template <typename... Lists> using concat_type_lists_t = typename concat_type_li
 
 } // namespace list_detail
 
-/** @brief object 模块的 descriptor 静态能力贡献 tag。 */
+/** @brief object 模块的 C++ 类型静态能力贡献 tag。 */
 struct object_static_capability_module {};
 
-/** @brief serialization 模块的 descriptor 静态能力贡献 tag。 */
+/** @brief serialization 模块的 C++ 类型静态能力贡献 tag。 */
 struct serialization_static_capability_module {};
 
-/** @brief 用户或外部模块的 descriptor 静态能力贡献 tag。 */
+/** @brief 用户或外部模块的 C++ 类型静态能力贡献 tag。 */
 struct custom_static_capability_module {};
 
-/** @brief 指定模块对某个 C++ 类型贡献的 descriptor 级静态能力列表。 */
+/** @brief 指定模块对某个 C++ 类型贡献的静态能力列表。 */
 template <typename Module, typename T> struct module_static_capability_list {
   using type = type_list<>;
 };
@@ -122,9 +122,9 @@ namespace caors::meta::detail {
                                                   capability_key key, const void* capability);
 [[nodiscard]] CAORS_API error register_owned_capability(
     type_id id, capability_key key, memory::unique_ptr<owned_capability_base> capability);
-[[nodiscard]] CAORS_API error register_owned_capability(
-    registry& registry, type_id id, capability_key key,
-    memory::unique_ptr<owned_capability_base> capability);
+[[nodiscard]] CAORS_API error
+register_owned_capability(registry& registry, type_id id, capability_key key,
+                          memory::unique_ptr<owned_capability_base> capability);
 [[nodiscard]] CAORS_API const void* find_capability(type_id id, capability_key key) noexcept;
 [[nodiscard]] CAORS_API const void* find_capability(const registry& registry, type_id id,
                                                     capability_key key) noexcept;
@@ -235,14 +235,14 @@ struct static_capability_entries<T, type_list<Capabilities...>> {
   [[nodiscard]] static constexpr std::size_t size() noexcept { return sizeof...(Capabilities); }
 };
 
-/** @brief 返回某个 C++ 类型声明的 descriptor 级静态能力记录。 */
+/** @brief 返回某个 C++ 类型声明的静态能力记录。 */
 template <typename T> [[nodiscard]] const capability_entry* static_capabilities_data() noexcept {
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
   using list_type = typename static_capability_list<value_type>::type;
   return static_capability_entries<value_type, list_type>::data();
 }
 
-/** @brief 返回某个 C++ 类型声明的 descriptor 级静态能力数量。 */
+/** @brief 返回某个 C++ 类型声明的静态能力数量。 */
 template <typename T> [[nodiscard]] constexpr std::size_t static_capabilities_size() noexcept {
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
   using list_type = typename static_capability_list<value_type>::type;

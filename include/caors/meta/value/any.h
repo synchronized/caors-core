@@ -204,7 +204,7 @@ public:
   /**
    * @brief 从 C++ 值创建运行期值。
    *
-   * 无显式类型名时，值会使用 C++ 类型 descriptor 创建；该类型不要求已经注册到
+   * 无显式类型名时，值会使用 `meta::resolve<T>()` 得到的 C++ 类型视图创建；该类型不要求已经注册到
    * 全局 meta 注册表。
    */
   template <typename T> [[nodiscard]] static any from(const T& source) {
@@ -244,7 +244,7 @@ public:
   /**
    * @brief 按运行期类型视图用指定内存资源默认构造一个值。
    *
-   * `type` 可以是已注册类型，也可以是 `meta::resolve<T>()` 返回的 descriptor 视图。
+   * `type` 可以是已注册类型，也可以是 `meta::resolve<T>()` 返回的未注册 C++ 类型视图。
    */
   [[nodiscard]] static any default_construct(meta::type type, memory::memory_resource* resource);
 
