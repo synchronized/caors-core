@@ -170,7 +170,12 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `any_ref` 引用返回。
 - [x] 支持不可拷贝但可移动的 by-value 方法返回值，由 `invoke_result` 持有为拥有值。
 - [x] 支持方法安全数值 widening 转换策略，默认仍保持精确匹配，避免隐式转换造成歧义。
-- [ ] 扩展自定义转换器、字符串解析或更完整的类型转换策略。
+- [x] 增加 `method_set::match()` 结构化匹配结果，区分未匹配、精确匹配、转换匹配和歧义匹配。
+- [x] 增加 `invoke_result::failure_reason()`，覆盖无效方法、无效对象、const 违规、参数不匹配、
+  重载歧义和底层调用失败。
+- [x] 增加来源类型级 `argument_conversion_ops` capability，并通过
+  `argument_match_options::allow_custom_conversions` 显式开启自定义参数转换。
+- [ ] 扩展字符串解析或更完整的类型转换策略。
 - [ ] 支持既不可复制也不可移动的 by-value 方法返回值诊断策略。
 - [ ] 扩展成员函数指针存储和调用适配，覆盖多继承等可能导致成员函数指针尺寸更大的平台 ABI。
 - [ ] 扩展属性别名、访问控制、重载选择和类型转换测试。

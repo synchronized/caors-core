@@ -174,6 +174,8 @@ caors::registration::type_<actor>("game.actor")
   by-value 返回值仍会调用失败。
 - 同名成员方法保存为 `meta::method_set`，可以通过 `resolve(args)` 按参数列表匹配唯一重载，也可以直接调用
   `method_set::invoke_result_of(...)`。
+- 需要区分匹配失败原因时使用 `method_set::match(args, options)`。返回的 `method_match_result`
+  可以区分未匹配、精确匹配、转换匹配和歧义匹配；旧 `resolve()` 仍保持只返回唯一匹配方法视图。
 - 方法可以显式注册参数名。默认调用和 `resolve(args)` 只按位置匹配；只有传入
   `meta::argument_match_options` 并开启 `allow_named_arguments` 时，才会用命名参数按已注册参数名重排。
 - 方法可以显式注册尾部默认参数。默认调用和 `resolve(args)` 仍保持精确参数数量匹配；只有传入
@@ -186,6 +188,8 @@ caors::registration::type_<actor>("game.actor")
   `float -> double`，以及能完整表示来源整数精度的整数到浮点转换；窄化、浮点到整数、
   有符号到无符号、可能丢失取值范围的转换和字符串解析都不会隐式发生。
 - 开启转换策略后，重载解析仍优先选择精确匹配；如果多个重载只能通过同等级转换匹配，则视为歧义并返回失败。
+- `argument_match_options::allow_custom_conversions` 默认关闭。开启后，匹配会查询来源类型注册的
+  `meta::argument_conversion_ops` capability；该能力只负责把来源参数转换成目标参数类型，转换结果仍必须精确匹配目标类型。
 - 转换产生的临时值由内部 `argument` 持有，生命周期覆盖本次 `invoke_result_of()` 调用。
 - 暂不支持泛型/重载 lambda 自动签名选择，以及既不可复制也不可移动的 by-value 返回值。
 
@@ -612,6 +616,7 @@ overload 合并进同一个 `method_set`。
 - `default_argument_count()`：查询已注册的尾部默认参数数量。
 - `const_method()`：判断是否是 `const` 成员函数。
 - `metadata()` / `find_metadata()`：查询方法附加 metadata。脚本导出、编辑器命令和工具层可以按约定键读取。
+- `matches_arguments(args, options)`：按参数列表检查该具体方法是否可调用。
 - `invoke_result_of(instance, args, options)`：在实例上调用成员方法，并返回 `meta::invoke_result`。
 - `invoke_result_of(args, options)`：调用全局函数，并返回 `meta::invoke_result`。
 - `try_invoke<T>()`：调用方法并按指定类型读取返回值。
@@ -623,6 +628,8 @@ overload 合并进同一个 `method_set`。
 
 - `succeeded()` / `operator bool()`：判断调用是否成功。`void` 成功也会返回 true。
 - `kind()`：返回 `failed`、`void_value`、`value` 或 `reference`。
+- `failure_reason()`：调用失败时返回 `invalid_method`、`invalid_object`、`const_violation`、
+  `argument_mismatch`、`ambiguous_overload` 或 `invocation_failed`；成功结果返回 `none`。
 - `value()` / `mutable_value()`：读取拥有值返回。
 - `ref()`：读取引用返回。
 - `try_get<T>()` / `try_get_mutable<T>()`：同时支持从拥有值或引用结果按类型读取。
@@ -633,6 +640,7 @@ overload 合并进同一个 `method_set`。
 - `name()`：查询方法名。
 - `overload_count()` / `overload_at()`：遍历同名重载；索引越界时返回无效 `meta::method`。
 - `single()`：只有一个重载时返回该 `meta::method`；存在多个重载时返回无效视图。
+- `match(args, options)`：返回结构化 `meta::method_match_result`，区分未匹配、精确匹配、转换匹配和歧义匹配。
 - `resolve(args, options)`：按参数列表匹配唯一重载；没有匹配或匹配不唯一时返回无效视图。开启默认参数或
   命名参数后，如果多个重载都能匹配，也会返回无效视图。
 - `invoke_result_of(instance, args, options)`：先解析唯一成员方法重载，再调用具体方法，并保留完整调用结果语义。

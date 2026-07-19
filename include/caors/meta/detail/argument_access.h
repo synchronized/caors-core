@@ -144,6 +144,41 @@ template <typename Target>
   return std::nullopt;
 }
 
+template <typename Target>
+[[nodiscard]] bool custom_argument_conversion_available(const argument& value) noexcept {
+  using target_type = std::remove_cv_t<std::remove_reference_t<Target>>;
+  if (!value || !value.get_type()) {
+    return false;
+  }
+
+  const argument_conversion_ops* ops =
+      value.get_type().template get_capability<argument_conversion_ops>();
+  const meta::type target = meta::resolve<target_type>();
+  return ops != nullptr && ops->valid() && target && ops->can_convert(target);
+}
+
+template <typename Target>
+[[nodiscard]] std::optional<argument> try_convert_custom_argument(const argument& value) {
+  using target_type = std::remove_cv_t<std::remove_reference_t<Target>>;
+  if (!value || !value.get_type()) {
+    return std::nullopt;
+  }
+
+  const argument_conversion_ops* ops =
+      value.get_type().template get_capability<argument_conversion_ops>();
+  const meta::type target = meta::resolve<target_type>();
+  if (ops == nullptr || !ops->valid() || !target || !ops->can_convert(target)) {
+    return std::nullopt;
+  }
+
+  argument converted = ops->convert(value, target);
+  if (!argument_matches<target_type>(converted)) {
+    return std::nullopt;
+  }
+
+  return converted;
+}
+
 template <typename Parameter>
 [[nodiscard]] argument_match_rank argument_rank(const argument& value,
                                                 argument_match_options options) noexcept {
@@ -155,6 +190,13 @@ template <typename Parameter>
   if constexpr (std::is_arithmetic_v<value_type> && !std::is_reference_v<Parameter>) {
     if (options.conversion_policy == argument_conversion_policy::numeric_safe &&
         try_convert_numeric_argument<value_type>(value).has_value()) {
+      return argument_match_rank::conversion;
+    }
+  }
+
+  if constexpr (!std::is_reference_v<Parameter>) {
+    if (options.allow_custom_conversions &&
+        custom_argument_conversion_available<value_type>(value)) {
       return argument_match_rank::conversion;
     }
   }
@@ -172,6 +214,14 @@ template <typename Parameter>
   if constexpr (std::is_arithmetic_v<value_type> && !std::is_reference_v<Parameter>) {
     if (options.conversion_policy == argument_conversion_policy::numeric_safe) {
       if (auto converted = try_convert_numeric_argument<value_type>(value)) {
+        return std::move(*converted);
+      }
+    }
+  }
+
+  if constexpr (!std::is_reference_v<Parameter>) {
+    if (options.allow_custom_conversions) {
+      if (auto converted = try_convert_custom_argument<value_type>(value)) {
         return std::move(*converted);
       }
     }

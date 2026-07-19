@@ -501,8 +501,74 @@ TEST_CASE("meta - method numeric safe conversion reports overload ambiguity", "[
   options.conversion_policy = caors::meta::argument_conversion_policy::numeric_safe;
 
   CHECK_FALSE(select.resolve(arguments, options));
+  const caors::meta::method_match_result match = select.match(arguments, options);
+  CHECK(match.kind() == caors::meta::method_match_kind::ambiguous);
+  CHECK(match.is_ambiguous());
   numeric_conversion_ambiguous_actor instance{};
-  CHECK_FALSE(select.invoke_result_of(caors::meta::view(instance), arguments, options));
+  const caors::meta::invoke_result invoke_failure =
+      select.invoke_result_of(caors::meta::view(instance), arguments, options);
+  CHECK_FALSE(invoke_failure);
+  CHECK(invoke_failure.failure_reason() == caors::meta::invoke_failure_reason::ambiguous_overload);
+}
+
+TEST_CASE("meta - method custom argument conversion is explicit", "[meta]") {
+  const caors::error source_result =
+      caors::registration::type_<custom_argument_value>("caors.test.meta.custom_argument_value")
+          .capability(custom_argument_value_conversion)
+          .commit();
+  REQUIRE(
+      (source_result == caors::error{} || source_result == meta_error(caors::errc::duplicate_id)));
+
+  const caors::error actor_result = caors::registration::type_<custom_argument_conversion_actor>(
+                                        "caors.test.meta.custom_argument_conversion_actor")
+                                        .meta()
+                                        .method("take", &custom_argument_conversion_actor::take)
+                                        .commit();
+  REQUIRE(
+      (actor_result == caors::error{} || actor_result == meta_error(caors::errc::duplicate_id)));
+
+  const caors::meta::type reflected =
+      caors::meta::find("caors.test.meta.custom_argument_conversion_actor");
+  REQUIRE(reflected);
+  const caors::meta::method_set take = reflected.find_method("take");
+  REQUIRE(take);
+
+  custom_argument_value input{23};
+  std::array<caors::argument, 1> arguments{caors::arg(input)};
+  CHECK_FALSE(take.resolve(arguments));
+  CHECK(take.match(arguments).kind() == caors::meta::method_match_kind::none);
+
+  caors::meta::argument_match_options options{};
+  options.allow_custom_conversions = true;
+  const caors::meta::method_match_result match = take.match(arguments, options);
+  REQUIRE(match);
+  CHECK(match.kind() == caors::meta::method_match_kind::conversion);
+
+  custom_argument_conversion_actor instance{};
+  const caors::meta::invoke_result invoke_result =
+      take.invoke_result_of(caors::meta::view(instance), arguments, options);
+  REQUIRE(invoke_result.has_value());
+  REQUIRE(invoke_result.try_get<int>() != nullptr);
+  CHECK(*invoke_result.try_get<int>() == 23);
+  CHECK(instance.value == 23);
+}
+
+TEST_CASE("meta - method invoke result reports direct call failures", "[meta]") {
+  const caors::meta::type reflected = require_method_type();
+  const caors::meta::method add = require_method(reflected, "add");
+
+  method_actor instance{};
+  float wrong = 1.0F;
+  std::array<caors::argument, 1> arguments{caors::arg(wrong)};
+  const caors::meta::invoke_result mismatch =
+      add.invoke_result_of(caors::meta::view(instance), arguments);
+  CHECK_FALSE(mismatch);
+  CHECK(mismatch.failure_reason() == caors::meta::invoke_failure_reason::argument_mismatch);
+
+  const caors::meta::invoke_result const_call =
+      add.invoke_result_of(caors::meta::view_const(instance), std::span<const caors::argument>{});
+  CHECK_FALSE(const_call);
+  CHECK(const_call.failure_reason() == caors::meta::invoke_failure_reason::const_violation);
 }
 
 // 原测试文件：meta_method_method_view_rejects_invalid_calls_test.cpp

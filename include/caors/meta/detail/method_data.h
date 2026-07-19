@@ -26,6 +26,28 @@ namespace caors::meta::detail {
 
 class method_data;
 
+struct method_resolution {
+  const method_data* method = nullptr;
+  method_match_kind kind = method_match_kind::none;
+
+  [[nodiscard]] bool matched() const noexcept {
+    return kind == method_match_kind::exact || kind == method_match_kind::conversion;
+  }
+};
+
+[[nodiscard]] constexpr method_match_kind
+method_match_kind_from_rank(argument_match_rank rank) noexcept {
+  switch (rank) {
+  case argument_match_rank::exact:
+    return method_match_kind::exact;
+  case argument_match_rank::conversion:
+    return method_match_kind::conversion;
+  case argument_match_rank::none:
+  default:
+    return method_match_kind::none;
+  }
+}
+
 /** @brief 方法访问函数表，负责返回类型信息并执行底层成员函数调用。 */
 struct method_ops {
   using type_fn = meta::type (*)(const method_data& method) noexcept;
@@ -203,28 +225,50 @@ public:
   [[nodiscard]] invoke_result invoke_result_of(const void* object, bool mutable_object,
                                                std::span<const argument> arguments,
                                                argument_match_options options = {}) const {
-    vector<argument> completed = prepare_positional_arguments(arguments, options);
-    if (completed.empty() && parameter_count() > 0) {
-      return invoke_result::failed();
+    if (get_owner_type()) {
+      if (object == nullptr) {
+        return invoke_result::failed(invoke_failure_reason::invalid_object);
+      }
+      if (!const_method_ && !mutable_object) {
+        return invoke_result::failed(invoke_failure_reason::const_violation);
+      }
     }
 
-    return ops_.invoke(*this, object, mutable_object, completed);
+    vector<argument> completed = prepare_positional_arguments(arguments, options);
+    if (completed.empty() && parameter_count() > 0) {
+      return invoke_result::failed(invoke_failure_reason::argument_mismatch);
+    }
+
+    invoke_result result = ops_.invoke(*this, object, mutable_object, completed);
+    return result ? std::move(result)
+                  : invoke_result::failed(invoke_failure_reason::invocation_failed);
   }
 
   [[nodiscard]] invoke_result invoke_result_of(const void* object, bool mutable_object,
                                                std::span<const named_argument> arguments,
                                                argument_match_options options = {}) const {
+    if (get_owner_type()) {
+      if (object == nullptr) {
+        return invoke_result::failed(invoke_failure_reason::invalid_object);
+      }
+      if (!const_method_ && !mutable_object) {
+        return invoke_result::failed(invoke_failure_reason::const_violation);
+      }
+    }
+
     vector<argument> completed = normalize_named_arguments(arguments, options);
     if (completed.empty()) {
-      return invoke_result::failed();
+      return invoke_result::failed(invoke_failure_reason::argument_mismatch);
     }
 
     vector<argument> prepared = ops_.prepare_arguments(*this, completed, options);
     if (prepared.empty() && parameter_count() > 0) {
-      return invoke_result::failed();
+      return invoke_result::failed(invoke_failure_reason::argument_mismatch);
     }
 
-    return ops_.invoke(*this, object, mutable_object, prepared);
+    invoke_result result = ops_.invoke(*this, object, mutable_object, prepared);
+    return result ? std::move(result)
+                  : invoke_result::failed(invoke_failure_reason::invocation_failed);
   }
 
   [[nodiscard]] any invoke(const void* object, bool mutable_object,
@@ -461,6 +505,11 @@ public:
 
   [[nodiscard]] const method_data* resolve(std::span<const argument> arguments,
                                            argument_match_options options = {}) const noexcept {
+    return match(arguments, options).method;
+  }
+
+  [[nodiscard]] method_resolution match(std::span<const argument> arguments,
+                                        argument_match_options options = {}) const noexcept {
     const method_data* matched = nullptr;
     argument_match_rank best_rank = argument_match_rank::none;
     for (const method_data& method : overloads_) {
@@ -470,7 +519,7 @@ public:
       }
 
       if (matched != nullptr && rank == best_rank) {
-        return nullptr;
+        return method_resolution{nullptr, method_match_kind::ambiguous};
       }
 
       if (matched == nullptr ||
@@ -480,11 +529,16 @@ public:
       }
     }
 
-    return matched;
+    return method_resolution{matched, method_match_kind_from_rank(best_rank)};
   }
 
   [[nodiscard]] const method_data* resolve(std::span<const named_argument> arguments,
                                            argument_match_options options = {}) const noexcept {
+    return match(arguments, options).method;
+  }
+
+  [[nodiscard]] method_resolution match(std::span<const named_argument> arguments,
+                                        argument_match_options options = {}) const noexcept {
     const method_data* matched = nullptr;
     argument_match_rank best_rank = argument_match_rank::none;
     for (const method_data& method : overloads_) {
@@ -494,7 +548,7 @@ public:
       }
 
       if (matched != nullptr && rank == best_rank) {
-        return nullptr;
+        return method_resolution{nullptr, method_match_kind::ambiguous};
       }
 
       if (matched == nullptr ||
@@ -504,7 +558,7 @@ public:
       }
     }
 
-    return matched;
+    return method_resolution{matched, method_match_kind_from_rank(best_rank)};
   }
 
   [[nodiscard]] bool contains_signature(const method_data& method) const noexcept {

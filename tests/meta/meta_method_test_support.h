@@ -147,6 +147,38 @@ struct numeric_conversion_ambiguous_actor {
   int select(double input) { return static_cast<int>(input); }
 };
 
+struct custom_argument_value {
+  int value = 0;
+};
+
+struct custom_argument_conversion_actor {
+  int value = 0;
+
+  int take(int input) {
+    value = input;
+    return value;
+  }
+};
+
+[[nodiscard]] inline bool custom_argument_value_can_convert(caors::meta::type target) noexcept {
+  return target && target.id() == caors::meta::resolve<int>().id();
+}
+
+[[nodiscard]] inline caors::meta::argument
+custom_argument_value_convert(const caors::meta::argument& source, caors::meta::type target) {
+  if (!custom_argument_value_can_convert(target)) {
+    return {};
+  }
+
+  const custom_argument_value* value = source.try_get<custom_argument_value>();
+  return value != nullptr ? caors::move_arg(value->value) : caors::meta::argument{};
+}
+
+inline const caors::meta::argument_conversion_ops custom_argument_value_conversion{
+    &custom_argument_value_can_convert,
+    &custom_argument_value_convert,
+};
+
 [[nodiscard]] inline caors::meta::type require_method_type() {
   const caors::error result =
       caors::registration::type_<method_actor>("caors.test.meta.method_actor")

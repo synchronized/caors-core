@@ -33,6 +33,25 @@ enum class invoke_result_kind {
   reference,
 };
 
+/** @brief 方法匹配结果分类。 */
+enum class method_match_kind {
+  none,
+  exact,
+  conversion,
+  ambiguous,
+};
+
+/** @brief 方法调用失败原因。 */
+enum class invoke_failure_reason {
+  none,
+  invalid_method,
+  invalid_object,
+  const_violation,
+  argument_mismatch,
+  ambiguous_overload,
+  invocation_failed,
+};
+
 /**
  * @brief 反射函数调用结果。
  *
@@ -41,8 +60,40 @@ enum class invoke_result_kind {
 class invoke_result final {
 public:
   invoke_result() noexcept = default;
+  invoke_result(const invoke_result& other)
+      : kind_(other.kind_), failure_reason_(other.failure_reason_), value_(other.value_),
+        ref_(other.ref_) {
+    if (kind_ == invoke_result_kind::value && !value_) {
+      kind_ = invoke_result_kind::failed;
+      failure_reason_ = invoke_failure_reason::invocation_failed;
+    }
+  }
+  invoke_result(invoke_result&&) noexcept = default;
+
+  invoke_result& operator=(const invoke_result& other) {
+    if (this == &other) {
+      return *this;
+    }
+
+    kind_ = other.kind_;
+    failure_reason_ = other.failure_reason_;
+    value_ = other.value_;
+    ref_ = other.ref_;
+    if (kind_ == invoke_result_kind::value && !value_) {
+      kind_ = invoke_result_kind::failed;
+      failure_reason_ = invoke_failure_reason::invocation_failed;
+    }
+    return *this;
+  }
+
+  invoke_result& operator=(invoke_result&&) noexcept = default;
 
   [[nodiscard]] static invoke_result failed() noexcept { return {}; }
+  [[nodiscard]] static invoke_result failed(invoke_failure_reason reason) noexcept {
+    invoke_result result{};
+    result.failure_reason_ = reason;
+    return result;
+  }
   [[nodiscard]] static invoke_result void_value() noexcept {
     invoke_result result{};
     result.kind_ = invoke_result_kind::void_value;
@@ -54,6 +105,7 @@ public:
   [[nodiscard]] bool succeeded() const noexcept { return kind_ != invoke_result_kind::failed; }
   [[nodiscard]] explicit operator bool() const noexcept { return succeeded(); }
   [[nodiscard]] invoke_result_kind kind() const noexcept { return kind_; }
+  [[nodiscard]] invoke_failure_reason failure_reason() const noexcept { return failure_reason_; }
   [[nodiscard]] bool has_value() const noexcept { return kind_ == invoke_result_kind::value; }
   [[nodiscard]] bool has_reference() const noexcept {
     return kind_ == invoke_result_kind::reference;
@@ -83,6 +135,7 @@ public:
 
 private:
   invoke_result_kind kind_ = invoke_result_kind::failed;
+  invoke_failure_reason failure_reason_ = invoke_failure_reason::none;
   any value_{};
   any_ref ref_{};
 };
@@ -166,6 +219,7 @@ public:
 
 private:
   friend class method_set;
+  friend class method_match_result;
   friend class module_view;
   friend class type;
 
@@ -173,6 +227,37 @@ private:
   [[nodiscard]] const detail::method_data* info() const noexcept;
 
   const detail::method_data* method_ = nullptr;
+};
+
+/** @brief 同名方法重载集合的结构化匹配结果。 */
+class method_match_result final {
+public:
+  method_match_result() noexcept = default;
+
+  [[nodiscard]] static method_match_result none() noexcept { return {}; }
+  [[nodiscard]] static method_match_result ambiguous() noexcept {
+    method_match_result result{};
+    result.kind_ = method_match_kind::ambiguous;
+    return result;
+  }
+  [[nodiscard]] static method_match_result matched(method value, method_match_kind kind) noexcept {
+    method_match_result result{};
+    result.kind_ = kind;
+    result.method_ = value;
+    return result;
+  }
+
+  [[nodiscard]] method_match_kind kind() const noexcept { return kind_; }
+  [[nodiscard]] bool matched() const noexcept {
+    return kind_ == method_match_kind::exact || kind_ == method_match_kind::conversion;
+  }
+  [[nodiscard]] bool is_ambiguous() const noexcept { return kind_ == method_match_kind::ambiguous; }
+  [[nodiscard]] explicit operator bool() const noexcept { return matched(); }
+  [[nodiscard]] method value() const noexcept { return method_; }
+
+private:
+  method_match_kind kind_ = method_match_kind::none;
+  method method_{};
 };
 
 /**
@@ -192,6 +277,10 @@ public:
   [[nodiscard]] std::size_t overload_count() const noexcept;
   [[nodiscard]] method overload_at(std::size_t index) const;
   [[nodiscard]] method single() const;
+  [[nodiscard]] method_match_result match(std::span<const argument> arguments = {},
+                                          argument_match_options options = {}) const;
+  [[nodiscard]] method_match_result match(std::span<const named_argument> arguments,
+                                          argument_match_options options = {}) const;
   [[nodiscard]] method resolve(std::span<const argument> arguments = {},
                                argument_match_options options = {}) const;
   [[nodiscard]] method resolve(std::span<const named_argument> arguments,

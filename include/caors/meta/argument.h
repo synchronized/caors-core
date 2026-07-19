@@ -27,6 +27,8 @@ struct argument_match_options {
   bool allow_named_arguments = false;
   /** @brief 参数类型转换策略。默认只允许精确类型匹配。 */
   argument_conversion_policy conversion_policy = argument_conversion_policy::exact_only;
+  /** @brief 允许查询来源类型注册的自定义参数转换能力。 */
+  bool allow_custom_conversions = false;
 };
 
 /**
@@ -141,6 +143,22 @@ private:
   mutable any owned_{};
   bool rvalue_ = false;
   mutable bool consumed_ = false;
+};
+
+/**
+ * @brief 反射方法参数自定义转换函数表。
+ *
+ * 该能力挂在来源类型上。方法参数匹配开启 `allow_custom_conversions` 后，会先按目标参数类型查询
+ * 来源类型的转换能力；转换结果必须能精确匹配目标参数类型。
+ */
+struct argument_conversion_ops {
+  using can_convert_fn = bool (*)(meta::type target) noexcept;
+  using convert_fn = argument (*)(const argument& source, meta::type target);
+
+  can_convert_fn can_convert = nullptr;
+  convert_fn convert = nullptr;
+
+  [[nodiscard]] bool valid() const noexcept { return can_convert != nullptr && convert != nullptr; }
 };
 
 /** @brief 带名称的反射方法调用参数。 */
