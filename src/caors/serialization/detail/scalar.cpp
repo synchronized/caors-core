@@ -3,227 +3,131 @@
 
 #include "internal.h"
 
-#include <limits>
-#include <string>
 #include <string_view>
 
 namespace caors::serialization::detail {
 
 namespace {
 
-template <typename T, typename Value>
-[[nodiscard]] bool try_write_i64(writer& writer, const Value& data) {
-  const T* stored = data.template try_get<T>();
-  if (stored == nullptr) {
+[[nodiscard]] const meta::scalar_ops* scalar_ops_of(const any_ref& value) noexcept {
+  return value.valid() ? value.get_type().get_raw_ops<meta::scalar_ops>() : nullptr;
+}
+
+[[nodiscard]] bool write_scalar_string(writer& writer, const meta::scalar_ops& ops,
+                                       const any_ref& data) {
+  std::string_view value;
+  return ops.to_string != nullptr && ops.to_string(data.data(), value) &&
+         writer.write_string(value).succeeded();
+}
+
+[[nodiscard]] bool read_scalar_string(reader& reader, const meta::scalar_ops& ops,
+                                      const any_ref& target,
+                                      const serialization::context& context) {
+  core::string value;
+  if (reader.read_string(value).failed() || ops.from_string == nullptr) {
     return false;
   }
 
-  return writer.write_i64(static_cast<std::int64_t>(*stored)).succeeded();
-}
-
-template <typename T, typename Value>
-[[nodiscard]] bool try_write_u64(writer& writer, const Value& data) {
-  const T* stored = data.template try_get<T>();
-  if (stored == nullptr) {
-    return false;
-  }
-
-  return writer.write_u64(static_cast<std::uint64_t>(*stored)).succeeded();
-}
-
-template <typename T, typename Value>
-[[nodiscard]] bool try_write_f64(writer& writer, const Value& data) {
-  const T* stored = data.template try_get<T>();
-  if (stored == nullptr) {
-    return false;
-  }
-
-  return writer.write_f64(static_cast<double>(*stored)).succeeded();
-}
-
-template <typename Value>
-[[nodiscard]] bool try_write_scalar_value_impl(writer& writer, const Value& data) {
-  if (const bool* stored = data.template try_get<bool>()) {
-    return writer.write_bool(*stored).succeeded();
-  }
-
-  if (const char* stored = data.template try_get<char>()) {
-    return writer.write_string(std::string_view{stored, 1}).succeeded();
-  }
-
-  if (try_write_i64<signed char>(writer, data) || try_write_i64<short>(writer, data) ||
-      try_write_i64<int>(writer, data) || try_write_i64<long>(writer, data) ||
-      try_write_i64<long long>(writer, data) || try_write_u64<unsigned char>(writer, data) ||
-      try_write_u64<unsigned short>(writer, data) || try_write_u64<unsigned int>(writer, data) ||
-      try_write_u64<unsigned long>(writer, data) ||
-      try_write_u64<unsigned long long>(writer, data) || try_write_f64<float>(writer, data) ||
-      try_write_f64<double>(writer, data) || try_write_f64<long double>(writer, data)) {
-    return true;
-  }
-
-  if (const std::string* stored = data.template try_get<std::string>()) {
-    return writer.write_string(*stored).succeeded();
-  }
-
-  if (const std::string_view* stored = data.template try_get<std::string_view>()) {
-    return writer.write_string(*stored).succeeded();
-  }
-
-  return false;
-}
-
-template <typename T>
-[[nodiscard]] bool try_read_signed_value(reader& reader, const any_ref& target) {
-  std::int64_t value = 0;
-  if (reader.read_i64(value).succeeded()) {
-    if (value < static_cast<std::int64_t>(std::numeric_limits<T>::min()) ||
-        value > static_cast<std::int64_t>(std::numeric_limits<T>::max())) {
+  std::string_view view{value.data(), value.size()};
+  if (ops.string_borrows_input) {
+    string_storage* storage = context.effective_string_view_storage();
+    if (storage == nullptr) {
       return false;
     }
-
-    return target.try_set<T>(static_cast<T>(value));
+    view = storage->store(std::move(value));
   }
 
-  std::uint64_t unsigned_value = 0;
-  if (reader.read_u64(unsigned_value).failed() ||
-      unsigned_value > static_cast<std::uint64_t>(std::numeric_limits<T>::max())) {
-    return false;
-  }
-
-  return target.try_set<T>(static_cast<T>(unsigned_value));
-}
-
-template <typename T>
-[[nodiscard]] bool try_read_unsigned_value(reader& reader, const any_ref& target) {
-  std::uint64_t value = 0;
-  if (reader.read_u64(value).succeeded()) {
-    if (value > static_cast<std::uint64_t>(std::numeric_limits<T>::max())) {
-      return false;
-    }
-
-    return target.try_set<T>(static_cast<T>(value));
-  }
-
-  std::int64_t signed_value = 0;
-  if (reader.read_i64(signed_value).failed() || signed_value < 0 ||
-      static_cast<std::uint64_t>(signed_value) >
-          static_cast<std::uint64_t>(std::numeric_limits<T>::max())) {
-    return false;
-  }
-
-  return target.try_set<T>(static_cast<T>(signed_value));
-}
-
-template <typename T>
-[[nodiscard]] bool try_read_float_value(reader& reader, const any_ref& target) {
-  double value = 0.0;
-  if (reader.read_f64(value).succeeded()) {
-    return target.try_set<T>(static_cast<T>(value));
-  }
-
-  std::int64_t signed_value = 0;
-  if (reader.read_i64(signed_value).succeeded()) {
-    return target.try_set<T>(static_cast<T>(signed_value));
-  }
-
-  std::uint64_t unsigned_value = 0;
-  if (reader.read_u64(unsigned_value).succeeded()) {
-    return target.try_set<T>(static_cast<T>(unsigned_value));
-  }
-
-  return false;
-}
-
-[[nodiscard]] bool try_read_char_value(reader& reader, const any_ref& target) {
-  core::string value;
-  if (reader.read_string(value).failed() || value.size() != 1) {
-    return false;
-  }
-
-  return target.try_set<char>(value[0]);
-}
-
-[[nodiscard]] bool try_read_string_view_value(reader& reader, const any_ref& target,
-                                              const serialization::context& context) {
-  string_storage* storage = context.effective_string_view_storage();
-  if (storage == nullptr || !target.matches_type<std::string_view>()) {
-    return false;
-  }
-
-  core::string value;
-  if (reader.read_string(value).failed()) {
-    return false;
-  }
-
-  return target.try_set<std::string_view>(storage->store(std::move(value)));
+  return ops.from_string(target.mutable_data(), view);
 }
 
 } // namespace
 
 bool try_write_scalar_value(writer& writer, const any& data) {
-  return try_write_scalar_value_impl(writer, data);
+  return try_write_scalar_value(writer, data.ref());
 }
 
 bool try_write_scalar_value(writer& writer, const any_ref& data) {
-  return try_write_scalar_value_impl(writer, data);
+  const meta::scalar_ops* ops = scalar_ops_of(data);
+  if (ops == nullptr) {
+    return false;
+  }
+
+  switch (ops->kind) {
+  case meta::scalar_kind::boolean: {
+    bool value = false;
+    return ops->to_bool != nullptr && ops->to_bool(data.data(), value) &&
+           writer.write_bool(value).succeeded();
+  }
+  case meta::scalar_kind::character:
+  case meta::scalar_kind::string:
+    return write_scalar_string(writer, *ops, data);
+  case meta::scalar_kind::signed_integer: {
+    std::int64_t value = 0;
+    return ops->to_i64 != nullptr && ops->to_i64(data.data(), value) &&
+           writer.write_i64(value).succeeded();
+  }
+  case meta::scalar_kind::unsigned_integer: {
+    std::uint64_t value = 0;
+    return ops->to_u64 != nullptr && ops->to_u64(data.data(), value) &&
+           writer.write_u64(value).succeeded();
+  }
+  case meta::scalar_kind::floating_point: {
+    double value = 0.0;
+    return ops->to_f64 != nullptr && ops->to_f64(data.data(), value) &&
+           writer.write_f64(value).succeeded();
+  }
+  case meta::scalar_kind::none:
+    break;
+  }
+
+  return false;
 }
 
 variant_result make_scalar_value(const any_ref& data) {
-  if (const bool* stored = data.try_get<bool>()) {
-    return {{}, variant::from(*stored)};
+  const meta::scalar_ops* ops = scalar_ops_of(data);
+  if (ops == nullptr) {
+    return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
-  if (const char* stored = data.try_get<char>()) {
-    return {{}, variant::from(std::string_view{stored, 1})};
+  switch (ops->kind) {
+  case meta::scalar_kind::boolean: {
+    bool value = false;
+    if (ops->to_bool != nullptr && ops->to_bool(data.data(), value)) {
+      return {{}, variant::from(value)};
+    }
+    break;
   }
-
-  if (const signed char* stored = data.try_get<signed char>()) {
-    return {{}, variant::from(static_cast<std::int64_t>(*stored))};
+  case meta::scalar_kind::character:
+  case meta::scalar_kind::string: {
+    std::string_view value;
+    if (ops->to_string != nullptr && ops->to_string(data.data(), value)) {
+      return {{}, variant::from(value)};
+    }
+    break;
   }
-  if (const short* stored = data.try_get<short>()) {
-    return {{}, variant::from(static_cast<std::int64_t>(*stored))};
+  case meta::scalar_kind::signed_integer: {
+    std::int64_t value = 0;
+    if (ops->to_i64 != nullptr && ops->to_i64(data.data(), value)) {
+      return {{}, variant::from(value)};
+    }
+    break;
   }
-  if (const int* stored = data.try_get<int>()) {
-    return {{}, variant::from(static_cast<std::int64_t>(*stored))};
+  case meta::scalar_kind::unsigned_integer: {
+    std::uint64_t value = 0;
+    if (ops->to_u64 != nullptr && ops->to_u64(data.data(), value)) {
+      return {{}, variant::from(value)};
+    }
+    break;
   }
-  if (const long* stored = data.try_get<long>()) {
-    return {{}, variant::from(static_cast<std::int64_t>(*stored))};
+  case meta::scalar_kind::floating_point: {
+    double value = 0.0;
+    if (ops->to_f64 != nullptr && ops->to_f64(data.data(), value)) {
+      return {{}, variant::from(value)};
+    }
+    break;
   }
-  if (const long long* stored = data.try_get<long long>()) {
-    return {{}, variant::from(static_cast<std::int64_t>(*stored))};
-  }
-
-  if (const unsigned char* stored = data.try_get<unsigned char>()) {
-    return {{}, variant::from(static_cast<std::uint64_t>(*stored))};
-  }
-  if (const unsigned short* stored = data.try_get<unsigned short>()) {
-    return {{}, variant::from(static_cast<std::uint64_t>(*stored))};
-  }
-  if (const unsigned int* stored = data.try_get<unsigned int>()) {
-    return {{}, variant::from(static_cast<std::uint64_t>(*stored))};
-  }
-  if (const unsigned long* stored = data.try_get<unsigned long>()) {
-    return {{}, variant::from(static_cast<std::uint64_t>(*stored))};
-  }
-  if (const unsigned long long* stored = data.try_get<unsigned long long>()) {
-    return {{}, variant::from(static_cast<std::uint64_t>(*stored))};
-  }
-
-  if (const float* stored = data.try_get<float>()) {
-    return {{}, variant::from(static_cast<double>(*stored))};
-  }
-  if (const double* stored = data.try_get<double>()) {
-    return {{}, variant::from(*stored)};
-  }
-  if (const long double* stored = data.try_get<long double>()) {
-    return {{}, variant::from(static_cast<double>(*stored))};
-  }
-
-  if (const std::string* stored = data.try_get<std::string>()) {
-    return {{}, variant::from(*stored)};
-  }
-  if (const std::string_view* stored = data.try_get<std::string_view>()) {
-    return {{}, variant::from(*stored)};
+  case meta::scalar_kind::none:
+    break;
   }
 
   return {{error_domain::serialization, errc::unsupported}, {}};
@@ -231,53 +135,70 @@ variant_result make_scalar_value(const any_ref& data) {
 
 error read_scalar_value(reader& reader, const any_ref& target,
                         const serialization::context& context) {
-  bool bool_value = false;
-  bool written = reader.read_bool(bool_value).succeeded() && target.try_set<bool>(bool_value);
-
-  if (!written) {
-    written = try_read_char_value(reader, target);
-  }
-
-  if (!written) {
-    written = try_read_signed_value<signed char>(reader, target) ||
-              try_read_signed_value<short>(reader, target) ||
-              try_read_signed_value<int>(reader, target) ||
-              try_read_signed_value<long>(reader, target) ||
-              try_read_signed_value<long long>(reader, target);
-  }
-
-  if (!written) {
-    written = try_read_unsigned_value<unsigned char>(reader, target) ||
-              try_read_unsigned_value<unsigned short>(reader, target) ||
-              try_read_unsigned_value<unsigned int>(reader, target) ||
-              try_read_unsigned_value<unsigned long>(reader, target) ||
-              try_read_unsigned_value<unsigned long long>(reader, target);
-  }
-
-  if (!written) {
-    written = try_read_float_value<float>(reader, target) ||
-              try_read_float_value<double>(reader, target) ||
-              try_read_float_value<long double>(reader, target);
-  }
-
-  if (!written) {
-    written = try_read_string_view_value(reader, target, context);
-  }
-
-  if (!written) {
-    core::string string_value;
-    if (reader.read_string(string_value).succeeded()) {
-      const std::string standard_string{string_value.data(), string_value.size()};
-      written = target.try_set<core::string>(string_value) ||
-                target.try_set<std::string>(standard_string);
-    }
-  }
-
-  if (!written) {
+  const meta::scalar_ops* ops = scalar_ops_of(target);
+  if (ops == nullptr) {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  return {};
+  bool written = false;
+  switch (ops->kind) {
+  case meta::scalar_kind::boolean: {
+    bool value = false;
+    written = reader.read_bool(value).succeeded() && ops->from_bool != nullptr &&
+              ops->from_bool(target.mutable_data(), value);
+    break;
+  }
+  case meta::scalar_kind::character:
+  case meta::scalar_kind::string:
+    written = read_scalar_string(reader, *ops, target, context);
+    break;
+  case meta::scalar_kind::signed_integer: {
+    std::int64_t value = 0;
+    if (reader.read_i64(value).succeeded()) {
+      written = ops->from_i64 != nullptr && ops->from_i64(target.mutable_data(), value);
+      break;
+    }
+
+    std::uint64_t unsigned_value = 0;
+    written = reader.read_u64(unsigned_value).succeeded() && ops->from_u64 != nullptr &&
+              ops->from_u64(target.mutable_data(), unsigned_value);
+    break;
+  }
+  case meta::scalar_kind::unsigned_integer: {
+    std::uint64_t value = 0;
+    if (reader.read_u64(value).succeeded()) {
+      written = ops->from_u64 != nullptr && ops->from_u64(target.mutable_data(), value);
+      break;
+    }
+
+    std::int64_t signed_value = 0;
+    written = reader.read_i64(signed_value).succeeded() && ops->from_i64 != nullptr &&
+              ops->from_i64(target.mutable_data(), signed_value);
+    break;
+  }
+  case meta::scalar_kind::floating_point: {
+    double value = 0.0;
+    if (reader.read_f64(value).succeeded()) {
+      written = ops->from_f64 != nullptr && ops->from_f64(target.mutable_data(), value);
+      break;
+    }
+
+    std::int64_t signed_value = 0;
+    if (reader.read_i64(signed_value).succeeded()) {
+      written = ops->from_i64 != nullptr && ops->from_i64(target.mutable_data(), signed_value);
+      break;
+    }
+
+    std::uint64_t unsigned_value = 0;
+    written = reader.read_u64(unsigned_value).succeeded() && ops->from_u64 != nullptr &&
+              ops->from_u64(target.mutable_data(), unsigned_value);
+    break;
+  }
+  case meta::scalar_kind::none:
+    break;
+  }
+
+  return written ? error{} : error{error_domain::serialization, errc::unsupported};
 }
 
 } // namespace caors::serialization::detail

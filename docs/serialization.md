@@ -769,6 +769,10 @@ codec 和 meta 类型系统的边界：
 运行期 codec 索引。内置 codec 和外部自定义 codec 都通过同一套函数表构造逻辑生成
 `codec_ops`，并通过 `meta::type` 静态能力参与查询。携带 `meta::type` 的 `any` / `any_ref` /
 反射字段路径会优先使用 codec capability。
+如果没有命中 codec，序列化会回退到 `meta::scalar_ops` 标量能力；这条路径覆盖 bool、字符、整数、
+浮点、`std::string`、`caors::string`、`std::string_view` 和 `core::string_name` 等基础类型。
+因此基础标量和常见字符串不需要显式注册 codec，也不要求先完成 meta 注册。用户自定义 codec 始终优先于
+默认标量 fallback。
 
 反射字段中的容器、pair、tuple、variant、裸指针和普通 wrapper 不要求显式调用
 额外 codec 注册，也不要求每一种容器模板组合都注册为 meta 类型。字段类型会根据

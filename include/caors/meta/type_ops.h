@@ -8,6 +8,7 @@
 #include "caors/meta/ops/enum_ops.h"
 #include "caors/meta/ops/indirect_ops.h"
 #include "caors/meta/ops/pair_ops.h"
+#include "caors/meta/ops/scalar_ops.h"
 #include "caors/meta/ops/tuple_ops.h"
 #include "caors/meta/ops/variant_ops.h"
 

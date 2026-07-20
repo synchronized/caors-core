@@ -71,6 +71,13 @@ type_kind type::kind() const noexcept {
   return desc != nullptr ? detail::descriptor_kind(*desc) : type_kind::value;
 }
 
+scalar_kind type::scalar() const noexcept {
+  const auto* ops = get_raw_ops<meta::scalar_ops>();
+  return ops != nullptr ? ops->kind : scalar_kind::none;
+}
+
+bool type::is_scalar() const noexcept { return scalar() != scalar_kind::none; }
+
 wrapper_semantics type::wrapper() const noexcept {
   const detail::type_descriptor* desc = descriptor();
   return desc != nullptr ? detail::descriptor_wrapper_semantics(*desc) : wrapper_semantics::none;

@@ -8,6 +8,7 @@
 #include "caors/meta/detail/builtin/enum_ops_model.h"
 #include "caors/meta/detail/builtin/indirect_ops_model.h"
 #include "caors/meta/detail/builtin/pair_ops_model.h"
+#include "caors/meta/detail/builtin/scalar_ops_model.h"
 #include "caors/meta/detail/builtin/sequence_ops_model.h"
 #include "caors/meta/detail/builtin/set_ops_model.h"
 #include "caors/meta/detail/builtin/tuple_ops_model.h"
@@ -42,6 +43,8 @@ template <typename T> [[nodiscard]] builtin_ops builtin_ops_of() {
     return indirect_ops_ptr_of<type>();
   } else if constexpr (std::is_enum_v<type>) {
     return enum_ops_ptr_of<type>();
+  } else if constexpr (scalar_supported_v<type>) {
+    return scalar_ops_ptr_of<type>();
   } else {
     return std::monostate{};
   }

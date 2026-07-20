@@ -7,7 +7,30 @@
 
 #include "caors/io/memory_file_system.h"
 
+#include <string>
+
 using namespace caors::tests::serialization;
+
+namespace {
+
+struct scalar_text_actor {
+  std::string standard_name{};
+  caors::string owned_name{};
+  caors::string_name token{};
+};
+
+void require_scalar_text_actor_metadata() {
+  REQUIRE(registration_result_ok(
+      caors::registration::type_<scalar_text_actor>("caors.test.serialization.scalar_text_actor")
+          .meta()
+          .property("standard_name", &scalar_text_actor::standard_name)
+          .property("owned_name", &scalar_text_actor::owned_name)
+          .property("token", &scalar_text_actor::token)
+          .serialization()
+          .commit()));
+}
+
+} // namespace
 
 TEST_CASE("serialization - builds variant from reflected object", "[serialization]") {
   REQUIRE(registration_result_ok(
@@ -52,6 +75,14 @@ TEST_CASE("serialization - converts runtime values to variant", "[serialization]
   REQUIRE(name_result->try_as_string() != nullptr);
   CHECK(*name_result->try_as_string() == "Ada");
 
+  caors::string_name token = caors::string_name{"player.actor"};
+  caors::serialization::variant_result token_result =
+      caors::serialization::to_variant(caors::any_ref::from(token));
+  REQUIRE(token_result.succeeded());
+  CHECK(token_result->is_string());
+  REQUIRE(token_result->try_as_string() != nullptr);
+  CHECK(*token_result->try_as_string() == "player.actor");
+
   const std::optional<caors::guid> id = caors::guid::parse("2f6d1f64-7a3a-4db2-9a2d-123456789abc");
   REQUIRE(id.has_value());
   caors::serialization::variant_result guid_result =
@@ -65,6 +96,31 @@ TEST_CASE("serialization - converts runtime values to variant", "[serialization]
       caors::serialization::to_variant(caors::any_ref{});
   CHECK(invalid_result.failed());
   CHECK(invalid_result.error().value() == caors::errc::invalid_argument);
+}
+
+TEST_CASE("serialization - scalar strings keep concrete target types", "[serialization]") {
+  require_scalar_text_actor_metadata();
+
+  const scalar_text_actor actor{
+      std::string{"std"},
+      caors::string{"caors"},
+      caors::string_name{"token.name"},
+  };
+
+  const caors::serialization::variant_result value = caors::to_value(actor);
+  REQUIRE(value.succeeded());
+  REQUIRE(value->is_object());
+  REQUIRE(value->as_object().size() == 3);
+  CHECK(value->as_object()[0].value.as_string() == "std");
+  CHECK(value->as_object()[1].value.as_string() == "caors");
+  CHECK(value->as_object()[2].value.as_string() == "token.name");
+
+  scalar_text_actor decoded{};
+  const caors::error status = caors::deserialize(decoded, *value);
+  REQUIRE(status.succeeded());
+  CHECK(decoded.standard_name == "std");
+  CHECK(decoded.owned_name == "caors");
+  CHECK(decoded.token == caors::string_name{"token.name"});
 }
 
 // 原测试文件：serialization_write_generic_writer_backend_serializes_fields_test.cpp

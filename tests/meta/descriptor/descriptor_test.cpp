@@ -7,6 +7,7 @@
 
 #include <catch2/catch_all.hpp>
 
+#include <cstdint>
 #include <map>
 #include <optional>
 #include <set>
@@ -33,6 +34,49 @@ template <typename T> [[nodiscard]] caors::type_id type_id_of() {
 }
 
 } // namespace
+
+TEST_CASE("meta descriptor - scalar capability describes primitive aliases and strings", "[meta]") {
+  const caors::meta::type int_type = caors::meta::resolve<int>();
+  REQUIRE(int_type.valid());
+  CHECK(int_type.kind() == caors::meta::type_kind::value);
+  CHECK(int_type.is_scalar());
+  CHECK(int_type.scalar() == caors::meta::scalar_kind::signed_integer);
+
+  const auto* int_ops = ops_of<caors::meta::scalar_ops, int>();
+  REQUIRE(int_ops != nullptr);
+  CHECK(int_ops->size == sizeof(int));
+  CHECK(int_ops->is_signed);
+
+  int number = 32;
+  std::int64_t signed_value = 0;
+  REQUIRE(int_ops->to_i64 != nullptr);
+  CHECK(int_ops->to_i64(&number, signed_value));
+  CHECK(signed_value == 32);
+
+  if constexpr (std::is_same_v<std::int32_t, int>) {
+    CHECK(caors::meta::resolve<std::int32_t>().id() == int_type.id());
+  } else {
+    const caors::meta::type i32_type = caors::meta::resolve<std::int32_t>();
+    CHECK(i32_type.is_scalar());
+    CHECK(i32_type.scalar() == caors::meta::scalar_kind::signed_integer);
+  }
+
+  const caors::meta::type std_string_type = caors::meta::resolve<std::string>();
+  const caors::meta::type caors_string_type = caors::meta::resolve<caors::string>();
+  REQUIRE(std_string_type.valid());
+  REQUIRE(caors_string_type.valid());
+  CHECK(std_string_type.id() != caors_string_type.id());
+  CHECK(std_string_type.scalar() == caors::meta::scalar_kind::string);
+  CHECK(caors_string_type.scalar() == caors::meta::scalar_kind::string);
+
+  caors::string text = "Ada";
+  const auto* string_ops = ops_of<caors::meta::scalar_ops, caors::string>();
+  REQUIRE(string_ops != nullptr);
+  REQUIRE(string_ops->to_string != nullptr);
+  std::string_view view;
+  CHECK(string_ops->to_string(&text, view));
+  CHECK(view == "Ada");
+}
 
 TEST_CASE("meta descriptor - enum capability describes integer conversion", "[meta]") {
   const caors::meta::type type = caors::meta::resolve<descriptor_enum>();

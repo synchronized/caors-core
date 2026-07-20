@@ -8,6 +8,7 @@
 #include "caors/export.h"
 #include "caors/meta/capability.h"
 #include "caors/meta/metadata.h"
+#include "caors/meta/ops/scalar_ops.h"
 #include "caors/meta/type_id.h"
 #include "caors/traits/wrapper.h"
 
@@ -99,6 +100,8 @@ public:
   [[nodiscard]] type_id parent_id() const noexcept;
   [[nodiscard]] type parent() const noexcept;
   [[nodiscard]] type_kind kind() const noexcept;
+  [[nodiscard]] scalar_kind scalar() const noexcept;
+  [[nodiscard]] bool is_scalar() const noexcept;
   [[nodiscard]] wrapper_semantics wrapper() const noexcept;
   [[nodiscard]] bool indirect() const noexcept;
   [[nodiscard]] bool nullable() const noexcept;

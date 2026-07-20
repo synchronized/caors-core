@@ -242,6 +242,11 @@ auto inherited_id = caors::meta::find<player>().find_property(
 - `meta::find<T>()` / `meta::find(name/guid)`：查询已注册类型。需要稳定名称、GUID、父类型、
   factory 或模块 extension 索引时使用这个入口；未注册 C++ 类型返回空视图。
 
+`meta::type::scalar()` 暴露基础标量语义，覆盖 bool、字符、整数、浮点和常见字符串类型。
+`std::int32_t` 与平台上的 32 位 `int` 如果是同一个 C++ 类型，会自然解析为同一个 type id；
+`std::string` 和 `caors::string` 是不同 C++ 类型，但都报告为字符串标量。标量语义不等价于
+显式 meta 注册，它只用于 value、序列化和工具层的默认类型擦除转换。
+
 ### meta::context
 
 `meta::context` 是 meta API 的 registry 定位器。普通代码直接使用默认上下文：

@@ -47,10 +47,11 @@ template <typename Ops>
 [[nodiscard]] inline const Ops* descriptor_ops(const type_descriptor& descriptor) noexcept {
   if constexpr (std::is_same_v<Ops, value_storage_ops>) {
     return descriptor.value.valid() ? &descriptor.value : nullptr;
-  } else if constexpr (std::is_same_v<Ops, enum_ops> || std::is_same_v<Ops, indirect_ops> ||
-                       std::is_same_v<Ops, sequence_ops> || std::is_same_v<Ops, set_ops> ||
-                       std::is_same_v<Ops, associative_ops> || std::is_same_v<Ops, pair_ops> ||
-                       std::is_same_v<Ops, tuple_ops> || std::is_same_v<Ops, variant_ops>) {
+  } else if constexpr (std::is_same_v<Ops, scalar_ops> || std::is_same_v<Ops, enum_ops> ||
+                       std::is_same_v<Ops, indirect_ops> || std::is_same_v<Ops, sequence_ops> ||
+                       std::is_same_v<Ops, set_ops> || std::is_same_v<Ops, associative_ops> ||
+                       std::is_same_v<Ops, pair_ops> || std::is_same_v<Ops, tuple_ops> ||
+                       std::is_same_v<Ops, variant_ops>) {
     const auto* value = std::get_if<const Ops*>(&descriptor.builtin);
     return value != nullptr ? *value : nullptr;
   } else {
@@ -63,6 +64,9 @@ template <typename Ops>
                                                         capability_key key) noexcept {
   if (key == capability_key_of<value_storage_ops>()) {
     return descriptor.value.valid() ? &descriptor.value : nullptr;
+  }
+  if (key == capability_key_of<scalar_ops>()) {
+    return descriptor_ops<scalar_ops>(descriptor);
   }
   if (key == capability_key_of<enum_ops>()) {
     return descriptor_ops<enum_ops>(descriptor);
