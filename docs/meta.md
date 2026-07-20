@@ -54,6 +54,8 @@
 - `caors/meta/capability_facade.h`：类型级 capability facade 基类，以及 factory/constructor facade。
 - `caors/meta/type_ops.h`：内建 ops 聚合头；更细粒度可以包含 `caors/meta/ops/*.h`。
 - `caors/meta/value_ops.h`：值布局、生命周期、factory 和 constructor 的底层 ops 结构体。
+- `caors/meta/value.h`：`meta::value`、`meta::any`、`meta::any_ref`、运行期容器 view 和
+  `meta::variant` 聚合头。
 - `caors/adapters/stl_traits.h`、`caors/adapters/stl_wrapper.h`：STL/CAORS 类型的默认 traits 特化。
 - `caors/meta/extension_view.h`：`meta::extension_view<T...>` 查询视图。
 - `caors/meta/registry.h`：`meta::registry`、注册错误状态和注册 helper。
@@ -1084,6 +1086,9 @@ traits 中提供可适配的 iterator 操作。容器 view 只依赖 `meta::type
   `meta::type::get_capability<meta::constructor_capability>()`，普通调用优先走
   `meta::type::create(arguments)` 或 `constructor_capability::construct(arguments)`。
 - `meta::registry`：全局 meta 类型注册、按 id/name/guid 或 C++ 类型查询、继承关系判断和 extension 元数据挂载。
+- `meta::value`：高频动态运行期值，内联保存常见标量、`string_name` 和 `meta::object*`，
+  通过 `any_ref` 表达非拥有 C++ 引用，通过 `any` 兜底表达拥有的精确 C++ 类型值；它面向脚本、
+  编辑器、消息和动态调用，可持久化数据树仍使用 `meta::variant`。
 - `meta::registry::extension_view<T...>`：按扩展数据集合查询类型。
 - `meta::run_registrations()`：执行已收集的延迟元数据注册函数。
 - `meta::init_registry()`：执行延迟元数据注册函数并校验注册表；不会阻止后续注册。

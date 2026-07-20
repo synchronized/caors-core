@@ -35,6 +35,7 @@ namespace caors::meta {
 class any;
 class any_ref;
 class owned_value;
+class value;
 class indirect_view;
 class sequence_view;
 class set_view;
