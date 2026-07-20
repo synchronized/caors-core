@@ -218,6 +218,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 为方法注册器生成 `meta::value` fast path：基础数值、布尔、字符串、`string_name`、`meta::object*`
   等常见按值参数直接从 tagged value 转换并调用 C++ 成员函数；复杂参数、引用参数和歧义匹配继续使用现有
   `argument_match_options` / `invoke_result` 机制。
+- [x] 为属性读取和方法返回补齐 `meta::value` fast path：常见标量、字符串、`string_name` 和
+  `meta::object*` 直接返回 tagged value；复杂 C++ 返回值继续回退到 `any`。
 - [ ] 扩展字符串解析或更完整的类型转换策略。
 - [ ] 支持既不可复制也不可移动的 by-value 方法返回值诊断策略。
 - [ ] 扩展成员函数指针存储和调用适配，覆盖多继承等可能导致成员函数指针尺寸更大的平台 ABI。

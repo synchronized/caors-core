@@ -154,6 +154,55 @@ template <typename... Targets>
   return (try_assign_value_to_ref<Targets>(target, source) || ...);
 }
 
+template <typename Target, typename Source>
+[[nodiscard]] std::optional<meta::value> try_make_value_from_exact(const Source& source) {
+  if (const value_conversion_type<Target>* value =
+          source.template try_get<value_conversion_type<Target>>();
+      value != nullptr) {
+    if constexpr (std::is_same_v<value_conversion_type<Target>, meta::object*>) {
+      return meta::value::from_object(*value);
+    } else {
+      return meta::value{*value};
+    }
+  }
+
+  return std::nullopt;
+}
+
+template <typename... Targets, typename Source>
+[[nodiscard]] std::optional<meta::value> try_make_value_from_known(const Source& source) {
+  std::optional<meta::value> result{};
+  (([&] {
+     if (!result.has_value()) {
+       result = try_make_value_from_exact<Targets>(source);
+     }
+   }()),
+   ...);
+  return result;
+}
+
+[[nodiscard]] inline std::optional<meta::value> try_make_value_from_ref(meta::any_ref source) {
+  if (!source) {
+    return std::nullopt;
+  }
+
+  return try_make_value_from_known<
+      bool, char, signed char, unsigned char, short, unsigned short, int, unsigned int, long,
+      unsigned long, long long, unsigned long long, float, double, long double, core::string_name,
+      core::string, std::string_view, meta::object*>(source);
+}
+
+[[nodiscard]] inline std::optional<meta::value> try_make_value_from_any(const meta::any& source) {
+  if (!source) {
+    return std::nullopt;
+  }
+
+  return try_make_value_from_known<
+      bool, char, signed char, unsigned char, short, unsigned short, int, unsigned int, long,
+      unsigned long, long long, unsigned long long, float, double, long double, core::string_name,
+      core::string, std::string_view, meta::object*>(source);
+}
+
 } // namespace caors::meta::detail
 
 #endif

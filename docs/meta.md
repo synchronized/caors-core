@@ -169,10 +169,11 @@ caors::meta::method add_health = type.find_method("add_health").single();
 ```
 
 属性、方法和实例也提供 `meta::value` 高层运行期入口，适合脚本、编辑器、消息系统等动态调用场景。
-直接使用 `meta::value{42}` 会保存为运行期 `int64_t`，属性写入和方法调用会优先把常见 tagged
-value 直接转换为目标 C++ 类型；当前覆盖布尔、整数、浮点、`string_name`、字符串和
-`meta::object*`。复杂 C++ 类型、引用参数和需要精确 C++ 类型的调用仍应使用
-`meta::value::from_any(T)`、`set_any()` 或 `call_any()`。
+直接使用 `meta::value{42}` 会保存为运行期 `int64_t`。属性读取、属性写入、方法参数和方法返回会优先在
+常见 tagged value 与目标 C++ 类型之间直接转换；当前覆盖布尔、整数、浮点、`string_name`、字符串和
+`meta::object*`。`instance::call("fn", 5)` 采用高层动态语义，会优先把参数构造成 `meta::value`；
+复杂 C++ 类型、引用参数和需要精确 C++ 类型的调用仍应使用 `meta::value::from_any(T)`、`set_any()`
+或 `call_any()`。
 
 ```cpp
 actor instance{};
@@ -192,8 +193,8 @@ if (result.has_value()) {
 
 高级精确 C++ 入口仍然保留：属性拷贝值使用 `property::get_any()` 返回 `any`，属性引用使用
 `property::get_ref()` 返回 `any_ref`，属性精确写入使用 `property::try_set_any()`，方法完整调用结果使用 `invoke_result_of()` 返回
-`invoke_result`。`invoke_value_result` 只把返回值统一包装为 `meta::value`，仍保留失败原因和
-`void` 成功语义。
+`invoke_result`。`invoke_value_result` 返回高层 `meta::value`，常见返回值会直接保存为 tagged value，
+复杂返回值才回退为 `value::from_any()`，同时仍保留失败原因和 `void` 成功语义。
 
 `find_property()` 和 `find_method()` 默认只查询当前类型声明的成员。需要查询父类成员时显式传入
 `meta::member_search::include_bases`；同名成员由子类优先返回，遍历 API 仍只遍历本类型成员：
@@ -1120,8 +1121,8 @@ traits 中提供可适配的 iterator 操作。容器 view 只依赖 `meta::type
   通过 `any_ref` 表达非拥有 C++ 引用，通过 `any` 兜底表达拥有的精确 C++ 类型值；它面向脚本、
   编辑器、消息和动态调用，可持久化数据树仍使用 `meta::variant`。`property::get_value()`、
   `property::try_set_value(meta::value)`、`method::invoke()`、`method_set::invoke()` 和 `instance::call()`
-  是当前高层动态调用入口；需要精确 C++ 拷贝时使用 `property::get_any()` / `instance::get_any()` /
-  `instance::call_any()`。
+  是当前高层动态调用入口；常见标量、字符串和对象指针会优先走 tagged value fast path。需要精确 C++
+  拷贝或引用参数时使用 `property::get_any()` / `instance::get_any()` / `instance::call_any()`。
 - `meta::registry::extension_view<T...>`：按扩展数据集合查询类型。
 - `meta::run_registrations()`：执行已收集的延迟元数据注册函数。
 - `meta::init_registry()`：执行延迟元数据注册函数并校验注册表；不会阻止后续注册。

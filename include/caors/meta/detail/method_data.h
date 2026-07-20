@@ -67,9 +67,9 @@ struct method_ops {
   using rank_value_arguments_fn = argument_match_rank (*)(const method_data& method,
                                                           std::span<const meta::value> arguments,
                                                           argument_match_options options) noexcept;
-  using invoke_value_fn = invoke_result (*)(const method_data& method, const void* object,
-                                            bool mutable_object,
-                                            std::span<const meta::value> arguments);
+  using invoke_value_fn = invoke_value_result (*)(const method_data& method, const void* object,
+                                                  bool mutable_object,
+                                                  std::span<const meta::value> arguments);
 
   type_fn get_owner_type = nullptr;
   type_fn get_return_type = nullptr;
@@ -269,25 +269,26 @@ public:
                   : invoke_result::failed(invoke_failure_reason::invocation_failed);
   }
 
-  [[nodiscard]] invoke_result invoke_result_of(const void* object, bool mutable_object,
-                                               std::span<const meta::value> arguments,
-                                               argument_match_options options = {}) const {
+  [[nodiscard]] invoke_value_result
+  invoke_value_result_of(const void* object, bool mutable_object,
+                         std::span<const meta::value> arguments,
+                         argument_match_options options = {}) const {
     if (get_owner_type()) {
       if (object == nullptr) {
-        return invoke_result::failed(invoke_failure_reason::invalid_object);
+        return invoke_value_result::failed(invoke_failure_reason::invalid_object);
       }
       if (!const_method_ && !mutable_object) {
-        return invoke_result::failed(invoke_failure_reason::const_violation);
+        return invoke_value_result::failed(invoke_failure_reason::const_violation);
       }
     }
 
     if (match_rank(arguments, options) == argument_match_rank::none) {
-      return invoke_result::failed(invoke_failure_reason::argument_mismatch);
+      return invoke_value_result::failed(invoke_failure_reason::argument_mismatch);
     }
 
-    invoke_result result = ops_.invoke_value(*this, object, mutable_object, arguments);
+    invoke_value_result result = ops_.invoke_value(*this, object, mutable_object, arguments);
     return result ? std::move(result)
-                  : invoke_result::failed(invoke_failure_reason::invocation_failed);
+                  : invoke_value_result::failed(invoke_failure_reason::invocation_failed);
   }
 
   [[nodiscard]] invoke_result invoke_result_of(const void* object, bool mutable_object,
@@ -755,6 +756,33 @@ template <typename Return, typename Result>
   }
 }
 
+template <typename Return, typename Result>
+[[nodiscard]] invoke_value_result make_method_invoke_value_result(Result&& result) {
+  if constexpr (std::is_lvalue_reference_v<Return>) {
+    return invoke_value_result::from_value(meta::value::from_ref(std::forward<Result>(result)));
+  } else {
+    using value_type = method_value_type<Return>;
+    if constexpr (value_conversion_supported_v<value_type>) {
+      if constexpr (std::is_same_v<value_type, meta::object*>) {
+        return invoke_value_result::from_value(meta::value::from_object(result));
+      } else {
+        return invoke_value_result::from_value(meta::value{std::forward<Result>(result)});
+      }
+    } else if constexpr (std::is_copy_constructible_v<value_type>) {
+      return invoke_value_result::from_value(meta::value::from_any(any::from(result)));
+    } else if constexpr (std::is_move_constructible_v<value_type>) {
+      auto* value = memory::make<value_type>(&memory::library_resource(), std::move(result));
+      return invoke_value_result::from_value(meta::value::from_any(any::take_ownership(
+          make_owned_value(meta::resolve<value_type>(), value, &memory::library_resource(),
+                           [](memory::memory_resource* resource, void* instance) noexcept {
+                             memory::destroy(static_cast<value_type*>(instance), resource);
+                           }))));
+    } else {
+      return invoke_value_result::failed();
+    }
+  }
+}
+
 template <typename Class, typename Return, typename... Arguments, std::size_t... Index>
 [[nodiscard]] invoke_result invoke_member_impl(Return (Class::*member)(Arguments...), Class& object,
                                                std::span<const argument> arguments,
@@ -784,34 +812,34 @@ invoke_member_impl(Return (Class::*member)(Arguments...) const, const Class& obj
 }
 
 template <typename Class, typename Return, typename... Arguments, std::size_t... Index>
-[[nodiscard]] invoke_result
+[[nodiscard]] invoke_value_result
 invoke_member_value_impl(Return (Class::*member)(Arguments...), Class& object,
                          std::span<const meta::value> arguments, std::index_sequence<Index...>) {
   if constexpr (!method_value_arguments_supported_v<Arguments...>) {
-    return invoke_result::failed();
+    return invoke_value_result::failed();
   } else if constexpr (std::is_void_v<Return>) {
     std::invoke(member, object, method_value_argument<Arguments>(arguments[Index])...);
-    return invoke_result::void_value();
+    return invoke_value_result::void_value();
   } else {
     decltype(auto) result =
         std::invoke(member, object, method_value_argument<Arguments>(arguments[Index])...);
-    return make_method_invoke_result<Return>(result);
+    return make_method_invoke_value_result<Return>(result);
   }
 }
 
 template <typename Class, typename Return, typename... Arguments, std::size_t... Index>
-[[nodiscard]] invoke_result
+[[nodiscard]] invoke_value_result
 invoke_member_value_impl(Return (Class::*member)(Arguments...) const, const Class& object,
                          std::span<const meta::value> arguments, std::index_sequence<Index...>) {
   if constexpr (!method_value_arguments_supported_v<Arguments...>) {
-    return invoke_result::failed();
+    return invoke_value_result::failed();
   } else if constexpr (std::is_void_v<Return>) {
     std::invoke(member, object, method_value_argument<Arguments>(arguments[Index])...);
-    return invoke_result::void_value();
+    return invoke_value_result::void_value();
   } else {
     decltype(auto) result =
         std::invoke(member, object, method_value_argument<Arguments>(arguments[Index])...);
-    return make_method_invoke_result<Return>(result);
+    return make_method_invoke_value_result<Return>(result);
   }
 }
 
@@ -842,13 +870,13 @@ template <typename Class, typename Return, typename... Arguments>
 }
 
 template <typename Class, typename Return, typename... Arguments>
-[[nodiscard]] invoke_result invoke_member_method_value(const method_data& method,
-                                                       const void* object, bool mutable_object,
-                                                       std::span<const meta::value> arguments) {
+[[nodiscard]] invoke_value_result
+invoke_member_method_value(const method_data& method, const void* object, bool mutable_object,
+                           std::span<const meta::value> arguments) {
   if (object == nullptr || !mutable_object ||
       method_value_arguments_rank<Arguments...>(method, arguments, {}) ==
           argument_match_rank::none) {
-    return invoke_result::failed();
+    return invoke_value_result::failed();
   }
 
   auto member = method.template load_member_pointer<Return (Class::*)(Arguments...)>();
@@ -858,12 +886,12 @@ template <typename Class, typename Return, typename... Arguments>
 }
 
 template <typename Class, typename Return, typename... Arguments>
-[[nodiscard]] invoke_result
+[[nodiscard]] invoke_value_result
 invoke_const_member_method_value(const method_data& method, const void* object,
                                  bool /*mutable_object*/, std::span<const meta::value> arguments) {
   if (object == nullptr || method_value_arguments_rank<Arguments...>(method, arguments, {}) ==
                                argument_match_rank::none) {
-    return invoke_result::failed();
+    return invoke_value_result::failed();
   }
 
   auto member = method.template load_member_pointer<Return (Class::*)(Arguments...) const>();
@@ -1022,18 +1050,18 @@ template <typename Return, typename... Arguments, std::size_t... Index>
 }
 
 template <typename Return, typename... Arguments, std::size_t... Index>
-[[nodiscard]] invoke_result invoke_global_value_impl(Return (*function)(Arguments...),
-                                                     std::span<const meta::value> arguments,
-                                                     std::index_sequence<Index...>) {
+[[nodiscard]] invoke_value_result invoke_global_value_impl(Return (*function)(Arguments...),
+                                                           std::span<const meta::value> arguments,
+                                                           std::index_sequence<Index...>) {
   if constexpr (!method_value_arguments_supported_v<Arguments...>) {
-    return invoke_result::failed();
+    return invoke_value_result::failed();
   } else if constexpr (std::is_void_v<Return>) {
     std::invoke(function, method_value_argument<Arguments>(arguments[Index])...);
-    return invoke_result::void_value();
+    return invoke_value_result::void_value();
   } else {
     decltype(auto) result =
         std::invoke(function, method_value_argument<Arguments>(arguments[Index])...);
-    return make_method_invoke_result<Return>(result);
+    return make_method_invoke_value_result<Return>(result);
   }
 }
 
@@ -1053,16 +1081,17 @@ template <typename Return, typename... Arguments>
 }
 
 template <typename Return, typename... Arguments>
-[[nodiscard]] invoke_result invoke_global_method_value(const method_data& method, const void*, bool,
-                                                       std::span<const meta::value> arguments) {
+[[nodiscard]] invoke_value_result
+invoke_global_method_value(const method_data& method, const void*, bool,
+                           std::span<const meta::value> arguments) {
   if (method_value_arguments_rank<Arguments...>(method, arguments, {}) ==
       argument_match_rank::none) {
-    return invoke_result::failed();
+    return invoke_value_result::failed();
   }
 
   auto function = method.template load_member_pointer<Return (*)(Arguments...)>();
   if (function == nullptr) {
-    return invoke_result::failed();
+    return invoke_value_result::failed();
   }
 
   return invoke_global_value_impl(function, arguments, std::index_sequence_for<Arguments...>{});
@@ -1082,18 +1111,18 @@ template <typename Callable, typename Return, typename... Arguments, std::size_t
 }
 
 template <typename Callable, typename Return, typename... Arguments, std::size_t... Index>
-[[nodiscard]] invoke_result
+[[nodiscard]] invoke_value_result
 invoke_global_callable_value_impl(const Callable& callable, std::span<const meta::value> arguments,
                                   std::index_sequence<Index...>) {
   if constexpr (!method_value_arguments_supported_v<Arguments...>) {
-    return invoke_result::failed();
+    return invoke_value_result::failed();
   } else if constexpr (std::is_void_v<Return>) {
     std::invoke(callable, method_value_argument<Arguments>(arguments[Index])...);
-    return invoke_result::void_value();
+    return invoke_value_result::void_value();
   } else {
     decltype(auto) result =
         std::invoke(callable, method_value_argument<Arguments>(arguments[Index])...);
-    return make_method_invoke_result<Return>(result);
+    return make_method_invoke_value_result<Return>(result);
   }
 }
 
@@ -1115,17 +1144,17 @@ template <typename Callable, typename Return, typename... Arguments>
 }
 
 template <typename Callable, typename Return, typename... Arguments>
-[[nodiscard]] invoke_result
+[[nodiscard]] invoke_value_result
 invoke_global_callable_method_value(const method_data& method, const void*, bool,
                                     std::span<const meta::value> arguments) {
   if (method_value_arguments_rank<Arguments...>(method, arguments, {}) ==
       argument_match_rank::none) {
-    return invoke_result::failed();
+    return invoke_value_result::failed();
   }
 
   const auto* callable = method.template callable<Callable>();
   if (callable == nullptr) {
-    return invoke_result::failed();
+    return invoke_value_result::failed();
   }
 
   return invoke_global_callable_value_impl<Callable, Return, Arguments...>(

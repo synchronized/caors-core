@@ -16,11 +16,23 @@ public:
 
 struct runtime_value_actor {
   int hp = 10;
+  double speed = 2.5;
+  caors::string label = "actor";
+  caors::string_name tag{"caors.test.meta.value.tag"};
 
   int add(int value) {
     hp += value;
     return hp;
   }
+
+  double multiply(double value) const { return value * speed; }
+
+  caors::string append_label(caors::string prefix) const {
+    prefix += label;
+    return prefix;
+  }
+
+  caors::string_name tag_name() const noexcept { return tag; }
 
   int& ref() noexcept { return hp; }
 };
@@ -94,7 +106,13 @@ TEST_CASE("meta value - integrates with property and method runtime APIs", "[met
       caors::registration::type_<runtime_value_actor>("caors.test.meta.runtime_value_actor")
           .meta()
           .property("hp", &runtime_value_actor::hp)
+          .property("speed", &runtime_value_actor::speed)
+          .property("label", &runtime_value_actor::label)
+          .property("tag", &runtime_value_actor::tag)
           .method("add", &runtime_value_actor::add)
+          .method("multiply", &runtime_value_actor::multiply)
+          .method("append_label", &runtime_value_actor::append_label)
+          .method("tag_name", &runtime_value_actor::tag_name)
           .method("ref", &runtime_value_actor::ref)
           .commit()));
 
@@ -108,10 +126,28 @@ TEST_CASE("meta value - integrates with property and method runtime APIs", "[met
   REQUIRE(hp);
 
   caors::meta::value hp_value = hp.get_value(instance);
-  REQUIRE(hp_value.is_any());
-  caors::any hp_any = hp_value.to_any();
-  REQUIRE(hp_any.try_get<int>() != nullptr);
-  CHECK(*hp_any.try_get<int>() == 10);
+  REQUIRE(hp_value.is_i64());
+  CHECK(hp_value.as_i64() == 10);
+
+  const caors::meta::property speed = reflected.find_property("speed");
+  REQUIRE(speed);
+  caors::meta::value speed_value = speed.get_value(instance);
+  REQUIRE(speed_value.is_f64());
+  CHECK(speed_value.as_f64() == 2.5);
+
+  const caors::meta::property label = reflected.find_property("label");
+  REQUIRE(label);
+  caors::meta::value label_value = label.get_value(instance);
+  REQUIRE(label_value.is_string());
+  REQUIRE(label_value.try_as_string_view().has_value());
+  CHECK(*label_value.try_as_string_view() == "actor");
+
+  const caors::meta::property tag = reflected.find_property("tag");
+  REQUIRE(tag);
+  caors::meta::value tag_value = tag.get_value(instance);
+  REQUIRE(tag_value.is_string_name());
+  REQUIRE(tag_value.try_as_string_view().has_value());
+  CHECK(*tag_value.try_as_string_view() == "caors.test.meta.value.tag");
 
   CHECK(hp.try_set_value(instance, caors::meta::value{12}));
   CHECK(actor.hp == 12);
@@ -123,9 +159,28 @@ TEST_CASE("meta value - integrates with property and method runtime APIs", "[met
       reflected.find_method("add").invoke(instance, arguments);
   REQUIRE(add_result);
   REQUIRE(add_result.has_value());
-  caors::any add_any = add_result.value().to_any();
-  REQUIRE(add_any.try_get<int>() != nullptr);
-  CHECK(*add_any.try_get<int>() == 20);
+  REQUIRE(add_result.value().is_i64());
+  CHECK(add_result.value().as_i64() == 20);
+
+  caors::meta::invoke_value_result multiply_result = instance.call("multiply", 4.0);
+  REQUIRE(multiply_result);
+  REQUIRE(multiply_result.has_value());
+  REQUIRE(multiply_result.value().is_f64());
+  CHECK(multiply_result.value().as_f64() == 10.0);
+
+  caors::meta::invoke_value_result label_result = instance.call("append_label", "runtime-");
+  REQUIRE(label_result);
+  REQUIRE(label_result.has_value());
+  REQUIRE(label_result.value().is_string());
+  REQUIRE(label_result.value().try_as_string_view().has_value());
+  CHECK(*label_result.value().try_as_string_view() == "runtime-actor");
+
+  caors::meta::invoke_value_result tag_result = instance.call("tag_name");
+  REQUIRE(tag_result);
+  REQUIRE(tag_result.has_value());
+  REQUIRE(tag_result.value().is_string_name());
+  REQUIRE(tag_result.value().try_as_string_view().has_value());
+  CHECK(*tag_result.value().try_as_string_view() == "caors.test.meta.value.tag");
 
   caors::meta::invoke_value_result ref_result = instance.call("ref");
   REQUIRE(ref_result);

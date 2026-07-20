@@ -121,19 +121,16 @@ TEST_CASE("meta api - instance reads writes and calls reflected members", "[meta
   CHECK(instance.methods().size() == 2);
 
   const caors::meta::value health = instance.get("health");
-  const caors::any health_any = health.to_any();
-  REQUIRE(health.is_any());
-  REQUIRE(health_any.try_get<int>() != nullptr);
-  CHECK(*health_any.try_get<int>() == 7);
+  REQUIRE(health.is_i64());
+  CHECK(health.as_i64() == 7);
 
   CHECK(instance.set("health", 11));
   CHECK(owner.health == 11);
 
   caors::meta::invoke_value_result result = instance.call("add_health", 5);
   REQUIRE(result.has_value());
-  caors::any result_any = result.value().to_any();
-  REQUIRE(result_any.try_get<int>() != nullptr);
-  CHECK(*result_any.try_get<int>() == 16);
+  REQUIRE(result.value().is_i64());
+  CHECK(result.value().as_i64() == 16);
   CHECK(owner.health == 16);
 }
 
@@ -178,10 +175,8 @@ TEST_CASE("meta api - const instance is read only", "[meta][api]") {
   CHECK_FALSE(instance.value().writable());
 
   const caors::meta::value health = instance.get("health");
-  const caors::any health_any = health.to_any();
-  REQUIRE(health.is_any());
-  REQUIRE(health_any.try_get<int>() != nullptr);
-  CHECK(*health_any.try_get<int>() == 7);
+  REQUIRE(health.is_i64());
+  CHECK(health.as_i64() == 7);
 
   const caors::any_ref health_ref = instance.get_ref("health");
   REQUIRE(health_ref.valid());
@@ -194,9 +189,8 @@ TEST_CASE("meta api - const instance is read only", "[meta][api]") {
 
   const caors::meta::invoke_value_result readonly_result = instance.call("read_health");
   REQUIRE(readonly_result.has_value());
-  const caors::any readonly_any = readonly_result.value().to_any();
-  REQUIRE(readonly_any.try_get<int>() != nullptr);
-  CHECK(*readonly_any.try_get<int>() == 7);
+  REQUIRE(readonly_result.value().is_i64());
+  CHECK(readonly_result.value().as_i64() == 7);
 
   int delta = 5;
   std::array<caors::argument, 1> arguments{caors::arg(delta)};

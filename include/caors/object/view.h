@@ -124,6 +124,8 @@ private:
     using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
     if constexpr (std::is_same_v<value_type, meta::value>) {
       return std::forward<T>(source);
+    } else if constexpr (std::is_constructible_v<meta::value, T&&>) {
+      return meta::value{std::forward<T>(source)};
     } else {
       return meta::value::from_any(static_cast<const value_type&>(source));
     }

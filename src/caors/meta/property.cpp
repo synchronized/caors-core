@@ -12,6 +12,7 @@
 #include "caors/meta/value/value.h"
 #include "caors/meta/value_ops.h"
 
+#include <optional>
 #include <utility>
 
 namespace caors::meta {
@@ -160,12 +161,30 @@ any property::get_any() const {
 }
 
 meta::value property::get_value(const instance& object) const {
+  if (std::optional<meta::value> fast_value = detail::try_make_value_from_ref(get_ref(object));
+      fast_value.has_value()) {
+    return std::move(*fast_value);
+  }
+
   any result = get_any(object);
+  if (std::optional<meta::value> fast_value = detail::try_make_value_from_any(result);
+      fast_value.has_value()) {
+    return std::move(*fast_value);
+  }
   return result ? meta::value::from_any(std::move(result)) : meta::value{};
 }
 
 meta::value property::get_value() const {
+  if (std::optional<meta::value> fast_value = detail::try_make_value_from_ref(get_ref());
+      fast_value.has_value()) {
+    return std::move(*fast_value);
+  }
+
   any result = get_any();
+  if (std::optional<meta::value> fast_value = detail::try_make_value_from_any(result);
+      fast_value.has_value()) {
+    return std::move(*fast_value);
+  }
   return result ? meta::value::from_any(std::move(result)) : meta::value{};
 }
 

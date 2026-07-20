@@ -7,6 +7,7 @@
 #include "caors/meta/detail/method_data.h"
 #include "caors/meta/instance.h"
 
+#include <optional>
 #include <utility>
 
 namespace caors::meta {
@@ -46,6 +47,11 @@ struct value_arguments {
   case invoke_result_kind::void_value:
     return invoke_value_result::void_value();
   case invoke_result_kind::value:
+    if (std::optional<meta::value> fast_value =
+            detail::try_make_value_from_any(result.mutable_value());
+        fast_value.has_value()) {
+      return invoke_value_result::from_value(std::move(*fast_value));
+    }
     return invoke_value_result::from_value(
         meta::value::from_any(std::move(result.mutable_value())));
   case invoke_result_kind::reference:
@@ -199,9 +205,8 @@ invoke_value_result method::invoke(const instance& object, std::span<const meta:
   }
 
   if (method->matches_arguments(arguments, options)) {
-    return make_invoke_value_result(
-        method->invoke_result_of(object.writable() ? object.mutable_data() : object.data(),
-                                 object.writable(), arguments, options));
+    return method->invoke_value_result_of(object.writable() ? object.mutable_data() : object.data(),
+                                          object.writable(), arguments, options);
   }
 
   value_arguments converted = make_value_arguments(arguments);
@@ -222,7 +227,7 @@ invoke_value_result method::invoke(std::span<const meta::value> arguments,
   }
 
   if (method->matches_arguments(arguments, options)) {
-    return make_invoke_value_result(method->invoke_result_of(nullptr, false, arguments, options));
+    return method->invoke_value_result_of(nullptr, false, arguments, options);
   }
 
   value_arguments converted = make_value_arguments(arguments);

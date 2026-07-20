@@ -57,19 +57,16 @@ TEST_CASE("object - view reads writes and calls reflected object members", "[obj
   CHECK(object.methods().size() == 1);
 
   const caors::meta::value health = object.get("health");
-  REQUIRE(health.is_any());
-  const caors::any health_any = health.to_any();
-  REQUIRE(health_any.try_get<int>() != nullptr);
-  CHECK(*health_any.try_get<int>() == 7);
+  REQUIRE(health.is_i64());
+  CHECK(health.as_i64() == 7);
 
   CHECK(object.set("health", 11));
   CHECK(owner.health == 11);
 
   const caors::meta::invoke_value_result result = object.call("add_health", 5);
   REQUIRE(result.has_value());
-  const caors::any result_any = result.value().to_any();
-  REQUIRE(result_any.try_get<int>() != nullptr);
-  CHECK(*result_any.try_get<int>() == 16);
+  REQUIRE(result.value().is_i64());
+  CHECK(result.value().as_i64() == 16);
   CHECK(owner.health == 16);
 
   const caors::any_ref owner_ref = caors::any_ref::from(owner);
