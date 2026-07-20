@@ -23,17 +23,17 @@ Debug benchmark 只适合确认用例能运行、观察 API 相对路径和粗�
 正式比较提交之间的性能时使用 Release preset，并固定迭代次数：
 
 ```sh
-cmake --preset windows-clang-release -DCAORS_BUILD_BENCHMARKS=ON
-cmake --build --preset windows-clang-release --target caors_benchmarks
-build/benchmarks/caors_benchmarks 100000
+cmake --preset windows-clang-benchmark
+cmake --build --preset windows-clang-benchmark --target caors_benchmarks
+build/windows-clang-benchmark/benchmarks/caors_benchmarks 100000
 ```
 
 Linux 下使用对应 release preset：
 
 ```sh
-cmake --preset linux-clang-release -DCAORS_BUILD_BENCHMARKS=ON
-cmake --build --preset linux-clang-release --target caors_benchmarks
-build/benchmarks/caors_benchmarks 100000
+cmake --preset linux-clang-benchmark
+cmake --build --preset linux-clang-benchmark --target caors_benchmarks
+build/linux-clang-benchmark/benchmarks/caors_benchmarks 100000
 ```
 
 建议同一机器、同一构建目录、同一迭代次数至少运行 3 次，取中位数对比。运行前尽量关闭无关后台任务；
@@ -53,17 +53,34 @@ build/benchmarks/caors_benchmarks 100000
 - `meta::property` / `meta::method_set` 缓存句柄与 `instance` 按名便利入口的对比。按名入口每次
   调用都会查询属性或方法，热点循环应缓存 property / method 视图。
 - `meta::any_ref` / `meta::any`：运行期引用创建、类型检查和标量装箱。
-- `serialization::to_value()` / `to_string()` / `deserialize()`：反射对象到 `variant` DOM、JSON 文本和
+- `serialization::to_value()` / `serialize_json_to()` / `to_string()` / `parse_json()` / `deserialize()`：
+  反射对象到 `variant` DOM、复用 buffer JSON 写出、一次性 JSON 字符串、JSON parse、DOM 读回对象和
   JSON 文本读回对象的主路径。
-- `resources::cache<T>` / `resources::load_handle_into()`：cache 查找、已缓存加载和未缓存 loader->cache
-  主路径。
+- `resources::cache<T>` / `resources::provider` / `assets::json::loader<T>` /
+  `resources::load_handle_into()`：cache 查找、已缓存加载、fake loader 未缓存加载、memory file system
+  provider 读取，以及 provider -> JSON loader -> cache 的资源加载主路径。
 
-这些 API 都是纯内存路径，结果更容易对比不同提交之间的回归。
+这些 API 默认都是纯内存路径，结果更容易对比不同提交之间的回归。当前资源 JSON loader benchmark
+会经过 `memory_file_system`、`file_source`、`provider`、输入流和 JSON parser，但不触碰真实磁盘。
+
+## 分配统计
+
+`caors_benchmarks` 在时间统计之外会额外打印 `Allocation samples`。这些样本使用
+`tracking_resource` 记录分配次数、分配字节、峰值和退出样本后的 live 字节数，用来辅助判断：
+
+- `serialization.to_value`：DOM 构造阶段是否产生大量临时分配。
+- `serialization.serialize_json_to_reused_buffer`：复用输出 buffer 后是否仍有内部容器分配。
+- `serialization.parse_json`：JSON parser 当前需要通过默认 resource 观察分配；这也提示后续 parser
+  应继续收敛到显式 `memory_resource`。
+- `resources.load_handle_into.json_uncached`：provider -> JSON loader -> cache 路径的总分配情况。
+
+分配统计不是耗时 benchmark。它用于发现分配热点和泄漏风险，正式性能对比仍以 Release benchmark
+同机重复运行结果为准。
 
 ## 后续适合拆分的专项
 
 - 资源系统：provider、resolver、asset_manager 构建、跨类型 preload 和 async request。
-- IO 系统：本地文件系统、内存文件系统、挂载路径解析和字节流读写。
+- IO 系统：本地文件系统、挂载路径解析、字节流读写和大文件/小文件混合负载。
 - 对象系统：`object_id` 生成、对象注册、handle/ref 查询和对象工厂。
 - 序列化文本后端：JSON 文本读写、调用方提供 buffer、不同 field policy。
 - 内存系统：`memory::resource`、分配器、策略资源和 debug tracking。

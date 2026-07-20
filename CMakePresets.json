@@ -163,6 +163,18 @@
       ]
     },
     {
+      "name": "linux-clang-benchmark",
+      "displayName": "Linux clang benchmark",
+      "inherits": [
+        "use-clang",
+        "release-build"
+      ],
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CAORS_BUILD_BENCHMARKS": "ON"
+      }
+    },
+    {
       "name": "linux-gcc-debug",
       "displayName": "Linux gcc debug",
       "inherits": [
@@ -259,6 +271,19 @@
         "use-clang",
         "release-build"
       ]
+    },
+    {
+      "name": "windows-clang-benchmark",
+      "displayName": "Windows x64 clang benchmark",
+      "inherits": [
+        "windows-default",
+        "use-clang",
+        "release-build"
+      ],
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CAORS_BUILD_BENCHMARKS": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -287,12 +312,20 @@
       "configurePreset": "windows-clang-release"
     },
     {
+      "name": "windows-clang-benchmark",
+      "configurePreset": "windows-clang-benchmark"
+    },
+    {
       "name": "linux-clang-debug",
       "configurePreset": "linux-clang-debug"
     },
     {
       "name": "linux-clang-release",
       "configurePreset": "linux-clang-release"
+    },
+    {
+      "name": "linux-clang-benchmark",
+      "configurePreset": "linux-clang-benchmark"
     },
     {
       "name": "linux-gcc-debug",

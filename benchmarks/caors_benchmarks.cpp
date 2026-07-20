@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
+#include "caors/assets/json.h"
 #include "caors/core/string_name.h"
+#include "caors/io.h"
+#include "caors/memory/tracking.h"
 #include "caors/meta.h"
 #include "caors/registration.h"
 #include "caors/resources.h"
@@ -17,6 +20,7 @@
 #include <iostream>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string_view>
 
 namespace {
@@ -73,6 +77,11 @@ constexpr caors::resource_guid benchmark_texture_guid{caors::guid::from_bytes(
     caors::guid::byte_array{0x8f, 0x1b, 0x2a, 0x44, 0x90, 0x0a, 0x45, 0x36, 0x92, 0x74, 0x71, 0xee,
                             0x4a, 0x51, 0x91, 0x09})};
 
+constexpr std::string_view benchmark_actor_json{
+    R"({"id":7,"health":95.5,"active":true,"name":"Ada"})"};
+
+constexpr std::string_view benchmark_texture_json{R"({"width":256,"height":128})"};
+
 class benchmark_texture_resource : public caors::resource {
 public:
   using caors::resource::resource;
@@ -97,6 +106,44 @@ public:
   }
 };
 
+struct benchmark_resource_io_fixture {
+  explicit benchmark_resource_io_fixture(caors::memory_resource* resource = nullptr)
+      : files(resource), provider(resource), cache(resource), source(files), loader(provider) {
+    const caors::error write_status =
+        files.write_all("textures/hero.texture.json", benchmark_texture_json);
+    if (write_status.failed()) {
+      std::cerr << "写入 benchmark 内存文件失败\n";
+      std::exit(EXIT_FAILURE);
+    }
+
+    const caors::error bind_status =
+        provider.bind(benchmark_texture_guid, source, "textures/hero.texture.json");
+    if (bind_status.failed()) {
+      std::cerr << "绑定 benchmark provider 失败\n";
+      std::exit(EXIT_FAILURE);
+    }
+  }
+
+  caors::io::memory_file_system files;
+  caors::resources::provider provider;
+  caors::resource_cache<benchmark_texture_resource> cache;
+  caors::resources::file_source source;
+  caors::assets::json::loader<benchmark_texture_resource> loader;
+};
+
+void print_memory_statistics(std::string_view name, const caors::memory_statistics& statistics,
+                             std::size_t iterations) {
+  const double allocations_per_iteration =
+      static_cast<double>(statistics.allocation_count) / static_cast<double>(iterations);
+  const double bytes_per_iteration =
+      static_cast<double>(statistics.bytes_allocated) / static_cast<double>(iterations);
+
+  std::cout << name << ": allocations=" << statistics.allocation_count << " ("
+            << allocations_per_iteration << "/iter), bytes=" << statistics.bytes_allocated << " ("
+            << bytes_per_iteration << "/iter), peak=" << statistics.peak_bytes_in_use
+            << ", live=" << statistics.bytes_in_use << '\n';
+}
+
 void ensure_benchmark_types_registered() {
   static bool registered = false;
   if (registered) {
@@ -120,6 +167,20 @@ void ensure_benchmark_types_registered() {
           .commit();
   if (registration_status.failed()) {
     std::cerr << "注册 benchmark 类型失败\n";
+    std::exit(EXIT_FAILURE);
+  }
+
+  const caors::error texture_registration_status =
+      caors::registration::type_<benchmark_texture_resource>("caors.benchmark.texture_resource")
+          .meta()
+          .property("width", &benchmark_texture_resource::width)
+          .property("height", &benchmark_texture_resource::height)
+          .serialization()
+          .field("width")
+          .field("height")
+          .commit();
+  if (texture_registration_status.failed()) {
+    std::cerr << "注册 benchmark 资源类型失败\n";
     std::exit(EXIT_FAILURE);
   }
 
@@ -332,7 +393,12 @@ void benchmark_any(std::size_t iterations) {
 
 void benchmark_serialization(std::size_t iterations) {
   const benchmark_actor actor{7, 95.5F, true, "Ada"};
-  constexpr std::string_view actor_json{R"({"id":7,"health":95.5,"active":true,"name":"Ada"})"};
+  const caors::serialization::variant_result parsed_actor_json =
+      caors::serialization::parse_json(benchmark_actor_json);
+  if (parsed_actor_json.failed()) {
+    std::cerr << "解析 benchmark JSON 输入失败\n";
+    std::exit(EXIT_FAILURE);
+  }
 
   {
     CTRACK_NAME("serialization.to_value");
@@ -347,7 +413,22 @@ void benchmark_serialization(std::size_t iterations) {
   }
 
   {
-    CTRACK_NAME("serialization.to_string_json");
+    CTRACK_NAME("serialization.serialize_json_to_reused_buffer");
+    caors::string output;
+    output.reserve(benchmark_actor_json.size());
+    for (std::size_t index = 0; index < iterations; ++index) {
+      output.clear();
+      const caors::error status = caors::serialization::serialize_json_to(actor, output);
+      if (status.failed()) {
+        std::cerr << "JSON 复用 buffer 序列化 benchmark 对象失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      consume(static_cast<std::uintptr_t>(output.size()));
+    }
+  }
+
+  {
+    CTRACK_NAME("serialization.to_string_json_allocate");
     for (std::size_t index = 0; index < iterations; ++index) {
       caors::serialization::serialization_text_result result = caors::to_string(actor);
       if (result.failed()) {
@@ -359,10 +440,36 @@ void benchmark_serialization(std::size_t iterations) {
   }
 
   {
-    CTRACK_NAME("serialization.deserialize_json");
+    CTRACK_NAME("serialization.parse_json");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      caors::serialization::variant_result result =
+          caors::serialization::parse_json(benchmark_actor_json);
+      if (result.failed()) {
+        std::cerr << "JSON parse benchmark 对象失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      consume_value(result.value);
+    }
+  }
+
+  {
+    CTRACK_NAME("serialization.deserialize_from_variant");
     for (std::size_t index = 0; index < iterations; ++index) {
       benchmark_actor target{};
-      const caors::error status = caors::deserialize(target, actor_json);
+      const caors::error status = caors::deserialize(target, parsed_actor_json.value);
+      if (status.failed()) {
+        std::cerr << "DOM 反序列化 benchmark 对象失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      consume(static_cast<std::uintptr_t>(target.id));
+    }
+  }
+
+  {
+    CTRACK_NAME("serialization.deserialize_json_parse_and_apply");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      benchmark_actor target{};
+      const caors::error status = caors::deserialize(target, benchmark_actor_json);
       if (status.failed()) {
         std::cerr << "JSON 反序列化 benchmark 对象失败\n";
         std::exit(EXIT_FAILURE);
@@ -416,6 +523,126 @@ void benchmark_resources(std::size_t iterations) {
       consume_address(result.value.get());
     }
   }
+
+  benchmark_resource_io_fixture fixture;
+
+  {
+    CTRACK_NAME("resources.provider.read_memory_file_system");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      caors::io::byte_buffer_result result = fixture.provider.read(benchmark_texture_guid);
+      if (result.failed()) {
+        std::cerr << "资源 provider 读取 benchmark 失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      consume(static_cast<std::uintptr_t>(result.value.size()));
+    }
+  }
+
+  {
+    CTRACK_NAME("resources.json_loader.load_memory_file_system");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      caors::resources::load_result<benchmark_texture_resource> result =
+          fixture.loader.load(benchmark_texture_guid, fixture.cache.resource());
+      if (result.failed()) {
+        std::cerr << "资源 JSON loader benchmark 失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      consume_address(result.value.get());
+    }
+  }
+
+  {
+    CTRACK_NAME("resources.load_handle_into.json_uncached");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      (void)fixture.cache.erase(benchmark_texture_guid);
+      caors::resources::handle_result<benchmark_texture_resource> result =
+          caors::resources::load_handle_into(fixture.cache, fixture.loader, benchmark_texture_guid);
+      if (result.failed()) {
+        std::cerr << "资源 JSON load_handle benchmark 失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      consume_address(result.value.get());
+    }
+  }
+}
+
+void print_allocation_samples() {
+  constexpr std::size_t iterations = 1'000;
+  const benchmark_actor actor{7, 95.5F, true, "Ada"};
+
+  std::cout << "\nAllocation samples (iterations: " << iterations << ")\n";
+
+  {
+    caors::tracking_resource tracking{&caors::get_system_memory_resource()};
+    caors::serialization::context context{};
+    context.resolvers.memory.resource = &tracking;
+    for (std::size_t index = 0; index < iterations; ++index) {
+      caors::serialization::variant_result result = caors::to_value(context, actor);
+      if (result.failed()) {
+        std::cerr << "统计 to_value 分配失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      consume_value(result.value);
+    }
+    print_memory_statistics("serialization.to_value", tracking.statistics(), iterations);
+  }
+
+  {
+    caors::tracking_resource tracking{&caors::get_system_memory_resource()};
+    {
+      caors::string output{caors::allocator<char>{&tracking}};
+      output.reserve(benchmark_actor_json.size());
+      for (std::size_t index = 0; index < iterations; ++index) {
+        output.clear();
+        const caors::error status = caors::serialization::serialize_json_to(actor, output);
+        if (status.failed()) {
+          std::cerr << "统计 serialize_json_to 分配失败\n";
+          std::exit(EXIT_FAILURE);
+        }
+        consume(static_cast<std::uintptr_t>(output.size()));
+      }
+    }
+    print_memory_statistics("serialization.serialize_json_to_reused_buffer", tracking.statistics(),
+                            iterations);
+  }
+
+  {
+    caors::tracking_resource tracking{&caors::get_system_memory_resource()};
+    caors::memory_resource* previous = caors::set_default_memory_resource(&tracking);
+    for (std::size_t index = 0; index < iterations; ++index) {
+      caors::serialization::variant_result result =
+          caors::serialization::parse_json(benchmark_actor_json);
+      if (result.failed()) {
+        std::cerr << "统计 parse_json 分配失败\n";
+        (void)caors::set_default_memory_resource(previous);
+        std::exit(EXIT_FAILURE);
+      }
+      consume_value(result.value);
+    }
+    (void)caors::set_default_memory_resource(previous);
+    print_memory_statistics("serialization.parse_json", tracking.statistics(), iterations);
+  }
+
+  {
+    caors::tracking_resource tracking{&caors::get_system_memory_resource()};
+    {
+      benchmark_resource_io_fixture fixture{&tracking};
+      for (std::size_t index = 0; index < iterations; ++index) {
+        (void)fixture.cache.erase(benchmark_texture_guid);
+        caors::resources::handle_result<benchmark_texture_resource> result =
+            caors::resources::load_handle_into(fixture.cache, fixture.loader,
+                                               benchmark_texture_guid);
+        if (result.failed()) {
+          std::cerr << "统计资源 JSON 加载分配失败\n";
+          std::exit(EXIT_FAILURE);
+        }
+        consume_address(result.value.get());
+      }
+      fixture.cache.clear();
+    }
+    print_memory_statistics("resources.load_handle_into.json_uncached", tracking.statistics(),
+                            iterations);
+  }
 }
 
 } // namespace
@@ -433,6 +660,7 @@ int main(int argc, char** argv) {
   benchmark_any(iterations);
   benchmark_serialization(iterations);
   benchmark_resources(iterations);
+  print_allocation_samples();
 
   ctrack::result_print();
   return benchmark_sink == 0 ? EXIT_SUCCESS : EXIT_SUCCESS;
