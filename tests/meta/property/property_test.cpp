@@ -290,13 +290,12 @@ TEST_CASE("meta - property view supports getter setter properties", "[meta]") {
   accessor_property_actor instance{};
 
   CHECK(health.writable());
-  caors::meta::any health_value = health.get_any(caors::meta::view(instance));
-  REQUIRE(health_value.valid());
-  REQUIRE(health_value.try_get<int>() != nullptr);
-  CHECK(*health_value.try_get<int>() == 10);
+  caors::meta::value health_value = health.get_value(caors::meta::view(instance));
+  REQUIRE(health_value.is_i64());
+  CHECK(health_value.as_i64() == 10);
   CHECK_FALSE(health.get_ref(caors::meta::view(instance)));
 
-  CHECK(health.try_set_any(caors::meta::view(instance), caors::meta::any::from(42)));
+  CHECK(health.try_set_value(caors::meta::view(instance), caors::meta::value{42}));
   CHECK(instance.health == 42);
   CHECK_FALSE(health.try_set_any(caors::meta::view(instance), caors::meta::any::from(3.0F)));
 
@@ -305,7 +304,7 @@ TEST_CASE("meta - property view supports getter setter properties", "[meta]") {
   REQUIRE(level_ref);
   REQUIRE(level_ref.try_get<int>() != nullptr);
   CHECK(*level_ref.try_get<int>() == 7);
-  CHECK_FALSE(level.try_set_any(caors::meta::view(instance), caors::meta::any::from(11)));
+  CHECK_FALSE(level.try_set_value(caors::meta::view(instance), caors::meta::value{11}));
 }
 
 // 原测试文件：meta_property_field_view_rejects_writes_to_readonly_fields_test.cpp

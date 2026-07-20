@@ -41,18 +41,17 @@ TEST_CASE("meta - module registers global properties and functions", "[meta]") {
   CHECK_FALSE(counter.get_owner_type());
   CHECK(counter.writable());
 
-  caors::any counter_value = counter.get_any();
-  REQUIRE(counter_value);
-  REQUIRE(counter_value.try_get<int>() != nullptr);
-  CHECK(*counter_value.try_get<int>() == 7);
+  const caors::meta::value counter_value = counter.get_value();
+  REQUIRE(counter_value.is_i64());
+  CHECK(counter_value.as_i64() == 7);
 
-  CHECK(counter.try_set_any(caors::any::from(11)));
+  CHECK(counter.try_set_value(caors::meta::value{11}));
   CHECK(module_test_counter == 11);
 
   const caors::meta::property limit = module.find_property("limit");
   REQUIRE(limit);
   CHECK_FALSE(limit.writable());
-  CHECK_FALSE(limit.try_set_any(caors::any::from(12)));
+  CHECK_FALSE(limit.try_set_value(caors::meta::value{12}));
   CHECK(module_test_limit == 99);
 
   const caors::meta::method_set add = module.find_method("add");
@@ -63,13 +62,11 @@ TEST_CASE("meta - module registers global properties and functions", "[meta]") {
   CHECK_FALSE(add_method.get_owner_type());
   REQUIRE(add_method.parameter_count() == 2);
 
-  int left = 3;
-  int right = 5;
-  std::array<caors::argument, 2> arguments{caors::arg(left), caors::arg(right)};
-  const caors::meta::invoke_result add_result = add.invoke_result_of(arguments);
+  std::array<caors::meta::value, 2> arguments{caors::meta::value{3}, caors::meta::value{5}};
+  const caors::meta::invoke_value_result add_result = add.invoke(arguments);
   REQUIRE(add_result.has_value());
-  REQUIRE(add_result.try_get<int>() != nullptr);
-  CHECK(*add_result.try_get<int>() == 8);
+  REQUIRE(add_result.value().is_i64());
+  CHECK(add_result.value().as_i64() == 8);
 }
 
 TEST_CASE("meta - module registers static properties and functions", "[meta]") {
@@ -85,16 +82,14 @@ TEST_CASE("meta - module registers static properties and functions", "[meta]") {
 
   const caors::meta::property value = module.find_property("value");
   REQUIRE(value);
-  CHECK(value.try_set_any(caors::any::from(6)));
+  CHECK(value.try_set_value(caors::meta::value{6}));
   CHECK(module_static_fixture::value == 6);
 
-  int factor = 7;
-  std::array<caors::argument, 1> arguments{caors::arg(factor)};
-  const caors::meta::invoke_result result =
-      module.find_method("multiply").invoke_result_of(arguments);
+  std::array<caors::meta::value, 1> arguments{caors::meta::value{7}};
+  const caors::meta::invoke_value_result result = module.find_method("multiply").invoke(arguments);
   REQUIRE(result.has_value());
-  REQUIRE(result.try_get<int>() != nullptr);
-  CHECK(*result.try_get<int>() == 42);
+  REQUIRE(result.value().is_i64());
+  CHECK(result.value().as_i64() == 42);
 }
 
 TEST_CASE("meta - module registers lambda and function object callables", "[meta]") {
@@ -119,19 +114,17 @@ TEST_CASE("meta - module registers lambda and function object callables", "[meta
   REQUIRE(module);
   CHECK(module.method_count() == 4);
 
-  int value = 7;
-  std::array<caors::argument, 1> arguments{caors::arg(value)};
+  std::array<caors::meta::value, 1> arguments{caors::meta::value{7}};
 
-  caors::meta::invoke_result add_result =
-      module.find_method("add_base").invoke_result_of(arguments);
+  caors::meta::invoke_value_result add_result = module.find_method("add_base").invoke(arguments);
   REQUIRE(add_result.has_value());
-  REQUIRE(add_result.value().try_get<int>() != nullptr);
-  CHECK(*add_result.value().try_get<int>() == 17);
+  REQUIRE(add_result.value().is_i64());
+  CHECK(add_result.value().as_i64() == 17);
 
-  caors::meta::invoke_result void_result =
-      module.find_method("set_reference").invoke_result_of(arguments);
+  caors::meta::invoke_value_result void_result =
+      module.find_method("set_reference").invoke(arguments);
   REQUIRE(void_result.succeeded());
-  CHECK(void_result.kind() == caors::meta::invoke_result_kind::void_value);
+  CHECK(void_result.kind() == caors::meta::invoke_value_result_kind::void_value);
   CHECK(referenced == 7);
 
   caors::meta::invoke_result ref_result = module.find_method("reference").invoke_result_of();
@@ -140,9 +133,9 @@ TEST_CASE("meta - module registers lambda and function object callables", "[meta
   *ref_result.ref().try_get_mutable<int>() = 12;
   CHECK(referenced == 12);
 
-  caors::meta::invoke_result multiply_result =
-      module.find_method("multiply").invoke_result_of(arguments);
+  caors::meta::invoke_value_result multiply_result =
+      module.find_method("multiply").invoke(arguments);
   REQUIRE(multiply_result.has_value());
-  REQUIRE(multiply_result.try_get<int>() != nullptr);
-  CHECK(*multiply_result.try_get<int>() == 21);
+  REQUIRE(multiply_result.value().is_i64());
+  CHECK(multiply_result.value().as_i64() == 21);
 }

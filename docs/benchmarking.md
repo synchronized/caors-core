@@ -21,11 +21,14 @@ build/benchmarks/caors_benchmarks 100000
 
 ## 当前用例
 
-第一版 `caors_benchmarks` 覆盖以下稳定热路径：
+当前 `caors_benchmarks` 覆盖以下稳定热路径：
 
 - `core::string_name`：热路径 intern 查找和轻量比较。
 - `meta::resolve<T>()` / `meta::find<T>()`：运行期类型查询。
-- `meta::property`：成员属性和 getter/setter 属性的读写。
+- `meta::property` / `meta::instance`：成员属性和 getter/setter 属性的 typed、`value` 和 `any`
+  读写路径。
+- `meta::method` / `meta::instance::call()`：直接 C++ 调用、`invoke_result_of()`、
+  `invoke()`、`call()` 和 `call_any()` 的对比。
 - `meta::any_ref` / `meta::any`：运行期引用创建、类型检查和标量装箱。
 - `serialization::to_value()`：反射对象序列化到 `variant` DOM。
 
@@ -46,5 +49,6 @@ build/benchmarks/caors_benchmarks 100000
 - benchmark 源码放在 `benchmarks/`，目标名使用 `caors_<topic>_benchmarks` 或
   当前聚合目标 `caors_benchmarks`。
 - benchmark 目标只在 `CAORS_BUILD_BENCHMARKS=ON` 时加入构建。
-- 用例应优先测公开 API，除非文档明确说明正在测高级内部扩展点。
+- 用例应优先测公开 API。普通动态调用优先覆盖 `meta::value` / capability facade；
+  只有在比较精确 C++ 语义或高级扩展成本时才单独测 `any`、`call_any()` 或 raw ops。
 - 每个用例应使用固定输入，避免把日志、文件系统、网络或随机数据成本混入基础 API 测量。

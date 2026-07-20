@@ -427,20 +427,21 @@ struct variant_traits<my_variant<Ts...>> {
   默认都属于该语义。
 - `unsupported`：明确识别为 wrapper，但当前序列化层不支持。
 
-推荐通过 `meta::property` 读写属性；`meta::property` 是读取同一份底层数据的兼容视图：
+推荐通过 `meta::property` 读写属性；普通动态路径优先使用 `meta::value`：
 
 ```cpp
 actor instance{};
 
 auto reflected = caors::meta::find("game.actor");
 auto id = reflected.find_property("id");
-id.try_set<int>(caors::meta::view(instance), 42);
+id.try_set_value(caors::meta::view(instance), caors::meta::value{42});
 
-auto value = id.try_get<int>(caors::meta::view(instance));
+caors::meta::value value = id.get_value(caors::meta::view(instance));
 ```
 
-`try_get<T>()` 在对象为空或类型不匹配时返回 `std::nullopt`。`try_set<T>()`
-在对象为空、类型不匹配或属性不可写时返回 `false`。
+`get_value()` 会返回高层动态值，`try_set_value()` 在对象为空、类型不匹配或属性不可写时返回
+`false`。需要静态类型便利接口时也可以使用 `try_get<T>()` / `try_set<T>()`；它们在对象为空或
+类型不匹配时分别返回 `std::nullopt` / `false`。
 
 也可以通过 `get_any()` 获取精确 C++ 运行期值拷贝：
 

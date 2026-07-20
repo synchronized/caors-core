@@ -220,6 +220,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `argument_match_options` / `invoke_result` 机制。
 - [x] 为属性读取和方法返回补齐 `meta::value` fast path：常见标量、字符串、`string_name` 和
   `meta::object*` 直接返回 tagged value；复杂 C++ 返回值继续回退到 `any`。
+- [x] 补充 `meta::value` 动态调用 benchmark，覆盖直接 C++ 调用、`method::invoke_result_of()`、
+  `method::invoke()`、`instance::call()`、`instance::call_any()` 和属性 typed/value/any 路径。
 - [ ] 扩展字符串解析或更完整的类型转换策略。
 - [ ] 支持既不可复制也不可移动的 by-value 方法返回值诊断策略。
 - [ ] 扩展成员函数指针存储和调用适配，覆盖多继承等可能导致成员函数指针尺寸更大的平台 ABI。

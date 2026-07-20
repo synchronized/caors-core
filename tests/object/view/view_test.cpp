@@ -73,7 +73,9 @@ TEST_CASE("object - view reads writes and calls reflected object members", "[obj
   caors::objects::object_view erased_object = caors::objects::view(owner_ref);
   REQUIRE(erased_object);
   CHECK(erased_object.ptr() == nullptr);
-  CHECK(erased_object.get_any("health").try_get<int>() != nullptr);
+  const caors::meta::value erased_health = erased_object.get("health");
+  REQUIRE(erased_health.is_i64());
+  CHECK(erased_health.as_i64() == 16);
 }
 
 TEST_CASE("object - view reads and writes object pointer fields", "[object]") {

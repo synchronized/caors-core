@@ -38,6 +38,21 @@ meta value 提供细粒度头和完整聚合头。细粒度头不再依赖 `any.
 
 ## 基本用法
 
+高层动态调用优先使用 `meta::value`。它内联保存常见标量、字符串名、字符串和对象指针；
+复杂 C++ 对象再通过 `any` 兜底。反射属性和方法的普通入口都以 `meta::value` 为主：
+
+```cpp
+caors::meta::instance instance = caors::meta::view(actor);
+
+instance.set("health", caors::meta::value{100});
+caors::meta::value health = instance.get("health");
+
+caors::meta::invoke_value_result result = instance.call("add_health", 5);
+```
+
+需要精确 C++ 类型、引用返回或不可自然转换的复杂参数时，再使用 `any`、`any_ref`、
+`get_any()`、`set_any()` 和 `call_any()`。
+
 只使用拥有式值：
 
 ```cpp

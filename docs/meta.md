@@ -175,6 +175,13 @@ caors::meta::method add_health = type.find_method("add_health").single();
 复杂 C++ 类型、引用参数和需要精确 C++ 类型的调用仍应使用 `meta::value::from_any(T)`、`set_any()`
 或 `call_any()`。
 
+调用入口按语义分层：
+
+- `instance::get()` / `property::get_value()`：返回 `meta::value`，常见类型直接走 tagged value。
+- `instance::set()` / `property::try_set_value()`：从 `meta::value` 写入，适合脚本、编辑器和消息层。
+- `instance::call()` / `method::invoke()`：使用 `meta::value` 参数和返回值，作为普通动态调用入口。
+- `get_any()` / `set_any()` / `call_any()` / `invoke_result_of()`：保留精确 C++ 类型、引用返回和高级调试语义。
+
 ```cpp
 actor instance{};
 caors::meta::instance object = caors::meta::view(instance);

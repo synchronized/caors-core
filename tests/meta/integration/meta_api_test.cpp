@@ -75,18 +75,21 @@ TEST_CASE("meta api - class builder registers properties and methods", "[meta][a
   REQUIRE(property.valid());
 
   meta_api_actor actor{};
-  CHECK(property.try_get<int>(caors::meta::view(actor)) == 7);
-  CHECK(property.try_set(caors::meta::view(actor), 11));
+  const caors::meta::value health = property.get_value(caors::meta::view(actor));
+  REQUIRE(health.is_i64());
+  CHECK(health.as_i64() == 7);
+  CHECK(property.try_set_value(caors::meta::view(actor), caors::meta::value{11}));
   CHECK(actor.health == 11);
 
   caors::meta::method method = type.find_method("add_health").single();
   REQUIRE(method.valid());
 
-  int delta = 5;
-  std::array<caors::argument, 1> arguments{caors::arg(delta)};
-  const std::optional<int> result = method.try_invoke<int>(caors::meta::view(actor), arguments);
+  std::array<caors::meta::value, 1> arguments{caors::meta::value{5}};
+  const caors::meta::invoke_value_result result =
+      method.invoke(caors::meta::view(actor), arguments);
   REQUIRE(result.has_value());
-  CHECK(*result == 16);
+  REQUIRE(result.value().is_i64());
+  CHECK(result.value().as_i64() == 16);
   CHECK(actor.health == 16);
 }
 

@@ -8,6 +8,7 @@
 
 #include <ctrack.hpp>
 
+#include <array>
 #include <charconv>
 #include <cstddef>
 #include <cstdint>
@@ -64,6 +65,7 @@ struct benchmark_actor {
 
   [[nodiscard]] int health_int() const noexcept { return static_cast<int>(health); }
   void set_health_int(int value) noexcept { health = static_cast<float>(value); }
+  [[nodiscard]] int sum(int left, int right) const noexcept { return id + left + right; }
 };
 
 void ensure_benchmark_types_registered() {
@@ -80,6 +82,7 @@ void ensure_benchmark_types_registered() {
           .property("active", &benchmark_actor::active)
           .property("name", &benchmark_actor::name)
           .property("health_int", &benchmark_actor::health_int, &benchmark_actor::set_health_int)
+          .method("sum", &benchmark_actor::sum)
           .serialization()
           .field("id")
           .field("health")
@@ -143,7 +146,7 @@ void benchmark_properties(std::size_t iterations) {
   }
 
   {
-    CTRACK_NAME("meta.property.member_get_set");
+    CTRACK_NAME("meta.property.member_get_set_typed");
     for (std::size_t index = 0; index < iterations; ++index) {
       const int value = static_cast<int>(index);
       if (!id_property.try_set(instance, value)) {
@@ -156,7 +159,33 @@ void benchmark_properties(std::size_t iterations) {
   }
 
   {
-    CTRACK_NAME("meta.property.accessor_get_set");
+    CTRACK_NAME("meta.property.member_get_set_value");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const int value = static_cast<int>(index);
+      if (!id_property.try_set_value(instance, caors::meta::value{value})) {
+        std::cerr << "写入 member 属性 value 失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      const caors::meta::value current = id_property.get_value(instance);
+      consume(static_cast<std::uintptr_t>(current.as_i64()));
+    }
+  }
+
+  {
+    CTRACK_NAME("meta.instance.get_set_value");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const int value = static_cast<int>(index);
+      if (!instance.set("id", caors::meta::value{value})) {
+        std::cerr << "写入 instance 属性 value 失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      const caors::meta::value current = instance.get("id");
+      consume(static_cast<std::uintptr_t>(current.as_i64()));
+    }
+  }
+
+  {
+    CTRACK_NAME("meta.property.accessor_get_set_any");
     for (std::size_t index = 0; index < iterations; ++index) {
       const int value = static_cast<int>(index % 100);
       const caors::any boxed = caors::any::from(value);
@@ -167,6 +196,86 @@ void benchmark_properties(std::size_t iterations) {
       caors::any current = health_property.get_any(instance);
       const int* current_value = current.try_get<int>();
       consume(static_cast<std::uintptr_t>(current_value == nullptr ? 0 : *current_value));
+    }
+  }
+
+  {
+    CTRACK_NAME("meta.property.accessor_get_set_value");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const int value = static_cast<int>(index % 100);
+      if (!health_property.try_set_value(instance, caors::meta::value{value})) {
+        std::cerr << "写入 getter/setter 属性 value 失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      caors::meta::value current = health_property.get_value(instance);
+      consume(static_cast<std::uintptr_t>(current.as_i64()));
+    }
+  }
+}
+
+void benchmark_method_calls(std::size_t iterations) {
+  benchmark_actor actor{7, 95.5F, true, "Ada"};
+  const caors::meta::instance instance = caors::meta::view(actor);
+  const caors::meta::type type = caors::meta::find<benchmark_actor>();
+  const caors::meta::method sum_method = type.find_method("sum").single();
+  if (!sum_method) {
+    std::cerr << "benchmark 方法未注册\n";
+    std::exit(EXIT_FAILURE);
+  }
+
+  int left = 3;
+  int right = 5;
+  const std::array<caors::argument, 2> argument_refs{caors::arg(left), caors::arg(right)};
+  const std::array<caors::meta::value, 2> value_arguments{caors::meta::value{left},
+                                                          caors::meta::value{right}};
+
+  {
+    CTRACK_NAME("meta.method.direct_call");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      consume(static_cast<std::uintptr_t>(actor.sum(left, right)));
+    }
+  }
+
+  {
+    CTRACK_NAME("meta.method.invoke_result_of_any");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const caors::meta::invoke_result result =
+          sum_method.invoke_result_of(instance, argument_refs);
+      const int* value = result.try_get<int>();
+      consume(static_cast<std::uintptr_t>(value == nullptr ? 0 : *value));
+    }
+  }
+
+  {
+    CTRACK_NAME("meta.method.invoke_value");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const caors::meta::invoke_value_result result = sum_method.invoke(instance, value_arguments);
+      consume(static_cast<std::uintptr_t>(result.value().as_i64()));
+    }
+  }
+
+  {
+    CTRACK_NAME("meta.instance.call_value_span");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const caors::meta::invoke_value_result result = instance.call("sum", value_arguments);
+      consume(static_cast<std::uintptr_t>(result.value().as_i64()));
+    }
+  }
+
+  {
+    CTRACK_NAME("meta.instance.call_value_template");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const caors::meta::invoke_value_result result = instance.call("sum", left, right);
+      consume(static_cast<std::uintptr_t>(result.value().as_i64()));
+    }
+  }
+
+  {
+    CTRACK_NAME("meta.instance.call_any_template");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const caors::any result = instance.call_any("sum", left, right);
+      const int* value = result.try_get<int>();
+      consume(static_cast<std::uintptr_t>(value == nullptr ? 0 : *value));
     }
   }
 }
@@ -219,6 +328,7 @@ int main(int argc, char** argv) {
   benchmark_string_name(iterations);
   benchmark_meta_lookup(iterations);
   benchmark_properties(iterations);
+  benchmark_method_calls(iterations);
   benchmark_any(iterations);
   benchmark_serialization(iterations);
 
