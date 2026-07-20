@@ -131,6 +131,105 @@ struct benchmark_resource_io_fixture {
   caors::assets::json::loader<benchmark_texture_resource> loader;
 };
 
+[[nodiscard]] caors::serialization::type_schema make_benchmark_actor_schema() {
+  return caors::serialization::make_type_schema({
+      caors::serialization::make_field("id"),
+      caors::serialization::make_field("health"),
+      caors::serialization::make_field("active"),
+      caors::serialization::make_field("name"),
+  });
+}
+
+[[nodiscard]] caors::variant make_benchmark_actor_variant_direct(const benchmark_actor& actor) {
+  caors::variant::object_type members;
+  members.reserve(4);
+  members.push_back(caors::meta::variant_member{
+      caors::string_name{"id"},
+      0,
+      caors::variant::from(static_cast<std::int64_t>(actor.id)),
+  });
+  members.push_back(caors::meta::variant_member{
+      caors::string_name{"health"},
+      0,
+      caors::variant::from(static_cast<double>(actor.health)),
+  });
+  members.push_back(caors::meta::variant_member{
+      caors::string_name{"active"},
+      0,
+      caors::variant::from(actor.active),
+  });
+  members.push_back(caors::meta::variant_member{
+      caors::string_name{"name"},
+      0,
+      caors::variant::from(std::string_view{actor.name.data(), actor.name.size()}),
+  });
+  return caors::variant::object(std::move(members));
+}
+
+[[nodiscard]] caors::error
+write_benchmark_actor_json_direct(caors::serialization::writer& writer,
+                                  const benchmark_actor& actor,
+                                  const caors::serialization::type_schema& schema) {
+  caors::error status = writer.begin_object(schema);
+  if (status.failed()) {
+    return status;
+  }
+
+  status = writer.begin_field(schema.fields[0]);
+  if (status.failed()) {
+    return status;
+  }
+  status = writer.write_i64(static_cast<std::int64_t>(actor.id));
+  if (status.failed()) {
+    return status;
+  }
+  status = writer.end_field();
+  if (status.failed()) {
+    return status;
+  }
+
+  status = writer.begin_field(schema.fields[1]);
+  if (status.failed()) {
+    return status;
+  }
+  status = writer.write_f64(static_cast<double>(actor.health));
+  if (status.failed()) {
+    return status;
+  }
+  status = writer.end_field();
+  if (status.failed()) {
+    return status;
+  }
+
+  status = writer.begin_field(schema.fields[2]);
+  if (status.failed()) {
+    return status;
+  }
+  status = writer.write_bool(actor.active);
+  if (status.failed()) {
+    return status;
+  }
+  status = writer.end_field();
+  if (status.failed()) {
+    return status;
+  }
+
+  status = writer.begin_field(schema.fields[3]);
+  if (status.failed()) {
+    return status;
+  }
+  status = writer.write_string(std::string_view{actor.name.data(), actor.name.size()});
+  if (status.failed()) {
+    return status;
+  }
+  status = writer.end_field();
+  if (status.failed()) {
+    return status;
+  }
+
+  return writer.end_object();
+}
+
 void print_memory_statistics(std::string_view name, const caors::memory_statistics& statistics,
                              std::size_t iterations) {
   const double allocations_per_iteration =
@@ -393,6 +492,22 @@ void benchmark_any(std::size_t iterations) {
 
 void benchmark_serialization(std::size_t iterations) {
   const benchmark_actor actor{7, 95.5F, true, "Ada"};
+  const caors::serialization::type_schema actor_schema = make_benchmark_actor_schema();
+  const caors::meta::instance instance = caors::meta::view(actor);
+  const caors::meta::type actor_type = caors::meta::find<benchmark_actor>();
+  const std::array<caors::meta::property, 4> actor_properties{
+      actor_type.find_property("id"),
+      actor_type.find_property("health"),
+      actor_type.find_property("active"),
+      actor_type.find_property("name"),
+  };
+  for (const caors::meta::property& property : actor_properties) {
+    if (!property) {
+      std::cerr << "benchmark 序列化属性未注册\n";
+      std::exit(EXIT_FAILURE);
+    }
+  }
+
   const caors::serialization::variant_result parsed_actor_json =
       caors::serialization::parse_json(benchmark_actor_json);
   if (parsed_actor_json.failed()) {
@@ -409,6 +524,106 @@ void benchmark_serialization(std::size_t iterations) {
         std::exit(EXIT_FAILURE);
       }
       consume_value(result.value);
+    }
+  }
+
+  {
+    CTRACK_NAME("serialization.registry_contains_find_schema");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const bool registered = caors::serialization::contains(actor_type.id());
+      const std::optional<caors::serialization::type_schema> schema =
+          caors::serialization::find(actor_type.id());
+      consume(static_cast<std::uintptr_t>((registered && schema.has_value()) ? schema->fields.size()
+                                                                             : 0U));
+    }
+  }
+
+  {
+    CTRACK_NAME("serialization.schema_property_lookup");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      for (const caors::serialization::field_schema& field : actor_schema.fields) {
+        const caors::meta::property property = actor_type.find_property(field.field_name);
+        consume(static_cast<std::uintptr_t>(property ? 1U : 0U));
+      }
+    }
+  }
+
+  {
+    CTRACK_NAME("serialization.reflect_properties_get_ref");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const caors::any_ref id = actor_properties[0].get_ref(instance);
+      const caors::any_ref health = actor_properties[1].get_ref(instance);
+      const caors::any_ref active = actor_properties[2].get_ref(instance);
+      const caors::any_ref name = actor_properties[3].get_ref(instance);
+      consume_address(id.try_get<int>());
+      consume_address(health.try_get<float>());
+      consume_address(active.try_get<bool>());
+      consume_address(name.try_get<caors::string>());
+    }
+  }
+
+  {
+    CTRACK_NAME("serialization.field_refs_to_variant");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const caors::serialization::variant_result id =
+          caors::serialization::to_variant(actor_properties[0].get_ref(instance));
+      const caors::serialization::variant_result health =
+          caors::serialization::to_variant(actor_properties[1].get_ref(instance));
+      const caors::serialization::variant_result active =
+          caors::serialization::to_variant(actor_properties[2].get_ref(instance));
+      const caors::serialization::variant_result name =
+          caors::serialization::to_variant(actor_properties[3].get_ref(instance));
+      if (id.failed() || health.failed() || active.failed() || name.failed()) {
+        std::cerr << "字段 ref 转 DOM benchmark 失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      consume_value(id.value);
+      consume_value(health.value);
+      consume_value(active.value);
+      consume_value(name.value);
+    }
+  }
+
+  {
+    CTRACK_NAME("serialization.manual_variant_object_direct");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      caors::variant result = make_benchmark_actor_variant_direct(actor);
+      consume_value(result);
+    }
+  }
+
+  {
+    CTRACK_NAME("serialization.write_variant_json_reused_buffer");
+    const caors::variant actor_value = make_benchmark_actor_variant_direct(actor);
+    caors::string output;
+    output.reserve(benchmark_actor_json.size());
+    caors::serialization::json_writer writer{output};
+    for (std::size_t index = 0; index < iterations; ++index) {
+      output.clear();
+      writer.reset();
+      const caors::error status = caors::serialization::write_variant(writer, actor_value);
+      if (status.failed()) {
+        std::cerr << "JSON 写出 benchmark DOM 失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      consume(static_cast<std::uintptr_t>(output.size()));
+    }
+  }
+
+  {
+    CTRACK_NAME("serialization.direct_json_writer_object");
+    caors::string output;
+    output.reserve(benchmark_actor_json.size());
+    caors::serialization::json_writer writer{output};
+    for (std::size_t index = 0; index < iterations; ++index) {
+      output.clear();
+      writer.reset();
+      const caors::error status = write_benchmark_actor_json_direct(writer, actor, actor_schema);
+      if (status.failed()) {
+        std::cerr << "直接 JSON writer benchmark 失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      consume(static_cast<std::uintptr_t>(output.size()));
     }
   }
 
