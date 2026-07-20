@@ -227,6 +227,11 @@ struct recursive_node {
   recursive_node* next = nullptr;
 };
 
+struct recursive_shared_node {
+  int value = 0;
+  std::shared_ptr<recursive_shared_node> next{};
+};
+
 struct reference_wrapper_actor {
   reference_wrapper_actor() : value(storage) {}
   explicit reference_wrapper_actor(int initial) : storage(initial), value(storage) {}
@@ -422,6 +427,16 @@ inline void require_recursive_node_metadata() {
           .property("next", &recursive_node::next)
           .serialization()
           .commit()));
+}
+
+inline void require_recursive_shared_node_metadata() {
+  REQUIRE(registration_result_ok(caors::registration::type_<recursive_shared_node>(
+                                     "caors.test.serialization.recursive_shared_node")
+                                     .meta()
+                                     .property("value", &recursive_shared_node::value)
+                                     .property("next", &recursive_shared_node::next)
+                                     .serialization()
+                                     .commit()));
 }
 
 inline void require_reference_wrapper_actor_metadata() {

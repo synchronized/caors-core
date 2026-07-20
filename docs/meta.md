@@ -178,7 +178,8 @@ caors::meta::method add_health = type.find_method("add_health").single();
 调用入口按语义分层：
 
 - `instance::get()` / `property::get_value()`：返回 `meta::value`，常见类型直接走 tagged value。
-- `instance::set()` / `property::try_set_value()`：从 `meta::value` 写入，适合脚本、编辑器和消息层。
+- `instance::set()` / `property::try_set_value()`：从 `meta::value` 写入，适合脚本、编辑器和消息层；
+  `instance.set("health", 120)` 这类常见 C++ 标量调用也会先转换为 `meta::value`。
 - `instance::call()` / `method::invoke()`：使用 `meta::value` 参数和返回值，作为普通动态调用入口。
 - `get_any()` / `set_any()` / `call_any()` / `invoke_result_of()`：保留精确 C++ 类型、引用返回和高级调试语义。
 

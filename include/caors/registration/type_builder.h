@@ -11,6 +11,7 @@
 #include "caors/meta/detail/type_descriptor_model.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/method_registration.h"
+#include "caors/meta/object.h"
 #include "caors/meta/proxy.h"
 #include "caors/meta/query.h"
 #include "caors/meta/registration.h"
@@ -305,12 +306,12 @@ private:
       }
 
       object_enabled_ = true;
-      const type_guid object_guid = objects::detail::object_type_guid_of<value_type>();
+      const type_guid object_guid = meta::detail::object_type_guid_of<value_type>();
       if (object_guid) {
         guid(object_guid);
       }
 
-      using base_type = typename objects::detail::object_base_type_traits<value_type>::type;
+      using base_type = typename meta::detail::object_base_type_traits<value_type>::type;
       if constexpr (!std::is_same_v<value_type, objects::object>) {
         (void)objects::get_registry();
         if (!pending_.parent_id() && registry_ != nullptr &&

@@ -236,6 +236,17 @@ TEST_CASE("meta - method default arguments require explicit match option", "[met
   REQUIRE(invoke_result.try_get<int>() != nullptr);
   CHECK(*invoke_result.try_get<int>() == 13);
   CHECK(instance.value == 13);
+
+  default_argument_actor value_instance{};
+  std::array<caors::meta::value, 1> value_arguments{caors::meta::value{left}};
+  CHECK_FALSE(add.invoke(caors::meta::view(value_instance), value_arguments));
+
+  const caors::meta::invoke_value_result value_result =
+      add.invoke(caors::meta::view(value_instance), value_arguments, options);
+  REQUIRE(value_result.has_value());
+  CHECK(value_result.value().is_i64());
+  CHECK(value_result.value().as_i64() == 13);
+  CHECK(value_instance.value == 13);
 }
 
 TEST_CASE("meta - method default arguments reject mismatched values", "[meta]") {

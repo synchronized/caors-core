@@ -32,10 +32,13 @@ CAORS 对象系统第一阶段只解决几件事：
 ### 命名空间
 
 最小对象身份定义位于 `caors::meta` 命名空间，例如 `meta::object`、`meta::object_id` 和
-`meta::object_base<T>`。`objects` 模块在此基础上提供对象生命周期、句柄、引用和对象工厂，例如
+`meta::object_base<T>`。`objects` 模块在此基础上只提供对象生命周期、句柄、引用和对象工厂等组合能力，例如
 `objects::type`、`objects::handle`、`objects::typed_handle<T>`、`objects::ptr<T>`、
 `objects::ref_counted`、`objects::ref<T>`、`objects::weak_ref<T>`、`objects::registry`、
 `objects::object_index` 和 `objects::manager`。
+
+属性、方法、metadata、schema 和动态调用能力都归属 `meta`。对象模块不再维护独立反射数据，也不把
+`meta::detail` 的对象 traits 作为对象模块公共扩展点转发；对象注册器内部直接复用 `meta` 的对象类型信息。
 
 为了保持常用 API 简洁，根命名空间保留带对象语义的别名：`caors::object`、`caors::object_id`、
 `caors::object_type_id`、`caors::object_base<T>`、`caors::object_ptr<T>`、`caors::object_handle`、

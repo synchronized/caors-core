@@ -321,6 +321,26 @@ TEST_CASE("serialization - stops raw pointer inline recursion at configured dept
   CHECK(text.status.value() == caors::errc::recursion_limit);
 }
 
+TEST_CASE("serialization - stops wrapper inline recursion at configured depth", "[serialization]") {
+  require_recursive_shared_node_metadata();
+
+  auto node = std::make_shared<recursive_shared_node>();
+  node->value = 1;
+  node->next = node;
+
+  caors::serialization::context context{};
+  context.config.limits.max_depth = 2;
+
+  const caors::serialization::serialization_text_result text =
+      caors::serialization::serialize_text(context, *node);
+
+  node->next.reset();
+
+  REQUIRE(text.failed());
+  CHECK(text.status.domain() == caors::error_domain::serialization);
+  CHECK(text.status.value() == caors::errc::recursion_limit);
+}
+
 TEST_CASE("serialization - stops raw pointer deserialization recursion at configured depth",
           "[serialization]") {
   require_recursive_node_metadata();

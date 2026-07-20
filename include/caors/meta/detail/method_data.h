@@ -220,7 +220,14 @@ public:
       return argument_match_rank::exact;
     }
 
-    return ops_.rank_value_arguments(*this, arguments, options);
+    const argument_match_rank direct_rank = ops_.rank_value_arguments(*this, arguments, options);
+    if (direct_rank != argument_match_rank::none) {
+      return direct_rank;
+    }
+
+    vector<meta::value> completed = complete_value_arguments(arguments, options);
+    return !completed.empty() ? ops_.rank_value_arguments(*this, completed, options)
+                              : argument_match_rank::none;
   }
 
   [[nodiscard]] argument_match_rank match_rank(std::span<const named_argument> arguments,
@@ -282,11 +289,12 @@ public:
       }
     }
 
-    if (match_rank(arguments, options) == argument_match_rank::none) {
+    vector<meta::value> completed = prepare_value_arguments(arguments, options);
+    if (completed.empty() && parameter_count() > 0) {
       return invoke_value_result::failed(invoke_failure_reason::argument_mismatch);
     }
 
-    invoke_value_result result = ops_.invoke_value(*this, object, mutable_object, arguments);
+    invoke_value_result result = ops_.invoke_value(*this, object, mutable_object, completed);
     return result ? std::move(result)
                   : invoke_value_result::failed(invoke_failure_reason::invocation_failed);
   }
@@ -426,6 +434,46 @@ private:
     }
 
     return completed;
+  }
+
+  [[nodiscard]] vector<meta::value> complete_value_arguments(std::span<const meta::value> arguments,
+                                                             argument_match_options options) const {
+    if (!options.allow_default_arguments || arguments.size() >= parameter_count()) {
+      return {};
+    }
+
+    const std::size_t missing_count = parameter_count() - arguments.size();
+    if (missing_count > default_arguments_.size()) {
+      return {};
+    }
+
+    vector<meta::value> completed{};
+    completed.reserve(parameter_count());
+    for (const meta::value& value : arguments) {
+      completed.push_back(value);
+    }
+
+    const std::size_t first_default = missing_count - 1U;
+    for (std::size_t index = 0; index < missing_count; ++index) {
+      const any& value = default_arguments_[first_default - index];
+      std::optional<meta::value> fast_value = try_make_value_from_any(value);
+      if (!fast_value.has_value()) {
+        return {};
+      }
+      completed.push_back(std::move(*fast_value));
+    }
+
+    return completed;
+  }
+
+  [[nodiscard]] vector<meta::value> prepare_value_arguments(std::span<const meta::value> arguments,
+                                                            argument_match_options options) const {
+    if (ops_.rank_value_arguments(*this, arguments, {}) == argument_match_rank::exact ||
+        ops_.rank_value_arguments(*this, arguments, options) != argument_match_rank::none) {
+      return vector<meta::value>{arguments.begin(), arguments.end()};
+    }
+
+    return complete_value_arguments(arguments, options);
   }
 
   [[nodiscard]] vector<argument>

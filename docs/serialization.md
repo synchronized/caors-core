@@ -143,6 +143,8 @@ caors::deserialize(context, object, text);
 `context.config.limits.max_depth` 限制对象字段、容器元素、指针和 wrapper 内部值的递归展开深度，
 默认值为 `64`。超过限制时返回 `errc::recursion_limit`；设置为 `0` 表示关闭该保护。
 这个限制只是防止意外无限递归的安全网，不提供对象图身份追踪、共享实例去重或循环引用恢复。
+当前测试覆盖裸指针自环、指针读入深链和拥有型 wrapper 自环；多层 pointer / wrapper 展开策略
+仍按路线图继续收敛。
 
 ### 运行期构造策略
 

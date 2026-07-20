@@ -299,12 +299,19 @@ TEST_CASE("meta - property view supports getter setter properties", "[meta]") {
   CHECK(instance.health == 42);
   CHECK_FALSE(health.try_set_any(caors::meta::view(instance), caors::meta::any::from(3.0F)));
 
+  caors::meta::instance object = caors::meta::view(instance);
+  CHECK(object.set("health", 64));
+  CHECK(instance.health == 64);
+  CHECK(object.set("health", caors::meta::value{75}));
+  CHECK(instance.health == 75);
+
   CHECK_FALSE(level.writable());
   const caors::meta::any_ref level_ref = level.get_ref(caors::meta::view(instance));
   REQUIRE(level_ref);
   REQUIRE(level_ref.try_get<int>() != nullptr);
   CHECK(*level_ref.try_get<int>() == 7);
   CHECK_FALSE(level.try_set_value(caors::meta::view(instance), caors::meta::value{11}));
+  CHECK_FALSE(object.set("level", 11));
 }
 
 // 原测试文件：meta_property_field_view_rejects_writes_to_readonly_fields_test.cpp
