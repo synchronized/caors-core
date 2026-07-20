@@ -198,6 +198,24 @@ if (result.has_value()) {
 }
 ```
 
+按名字访问的 `instance::get()`、`instance::set()` 和 `instance::call()` 是便利入口，会在每次调用时
+按名称查询属性或方法。初始化、编辑器面板刷新、脚本偶发调用可以直接使用；热点循环应先缓存
+`meta::property`、`meta::method_set` 或具体 `meta::method`，循环里只绑定实例和参数：
+
+```cpp
+caors::meta::type type = caors::meta::find<actor>();
+caors::meta::property health = type.find_property("health");
+caors::meta::method_set add_health = type.find_method("add_health");
+
+actor instance{};
+caors::meta::instance object = caors::meta::view(instance);
+
+health.try_set_value(object, caors::meta::value{120});
+
+std::array<caors::meta::value, 1> args{caors::meta::value{5}};
+caors::meta::invoke_value_result add_result = add_health.invoke(object, args);
+```
+
 高级精确 C++ 入口仍然保留：属性拷贝值使用 `property::get_any()` 返回 `any`，属性引用使用
 `property::get_ref()` 返回 `any_ref`，属性精确写入使用 `property::try_set_any()`，方法完整调用结果使用 `invoke_result_of()` 返回
 `invoke_result`。`invoke_value_result` 返回高层 `meta::value`，常见返回值会直接保存为 tagged value，

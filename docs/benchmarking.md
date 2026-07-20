@@ -19,6 +19,27 @@ build/benchmarks/caors_benchmarks 100000
 
 命令行参数是每个用例内部循环次数；不传时默认 `100000`。
 
+Debug benchmark 只适合确认用例能运行、观察 API 相对路径和粗略热点，不适合作为真实性能结论。
+正式比较提交之间的性能时使用 Release preset，并固定迭代次数：
+
+```sh
+cmake --preset windows-clang-release -DCAORS_BUILD_BENCHMARKS=ON
+cmake --build --preset windows-clang-release --target caors_benchmarks
+build/benchmarks/caors_benchmarks 100000
+```
+
+Linux 下使用对应 release preset：
+
+```sh
+cmake --preset linux-clang-release -DCAORS_BUILD_BENCHMARKS=ON
+cmake --build --preset linux-clang-release --target caors_benchmarks
+build/benchmarks/caors_benchmarks 100000
+```
+
+建议同一机器、同一构建目录、同一迭代次数至少运行 3 次，取中位数对比。运行前尽量关闭无关后台任务；
+如果要比较不同 API 路径，优先看同一次运行内的相对差异。如果要比较不同提交，记录编译器、preset、
+迭代次数和提交号。
+
 ## 当前用例
 
 当前 `caors_benchmarks` 覆盖以下稳定热路径：
@@ -29,6 +50,8 @@ build/benchmarks/caors_benchmarks 100000
   读写路径。
 - `meta::method` / `meta::instance::call()`：直接 C++ 调用、`invoke_result_of()`、
   `invoke()`、`call()` 和 `call_any()` 的对比。
+- `meta::property` / `meta::method_set` 缓存句柄与 `instance` 按名便利入口的对比。按名入口每次
+  调用都会查询属性或方法，热点循环应缓存 property / method 视图。
 - `meta::any_ref` / `meta::any`：运行期引用创建、类型检查和标量装箱。
 - `serialization::to_value()`：反射对象序列化到 `variant` DOM。
 

@@ -45,6 +45,15 @@ struct meta_api_const_owner {
   int read_health() const { return health; }
 };
 
+struct meta_api_cached_owner {
+  int health = 7;
+
+  int add_health(int delta) {
+    health += delta;
+    return health;
+  }
+};
+
 enum class meta_api_state {
   idle,
   running,
@@ -91,6 +100,40 @@ TEST_CASE("meta api - class builder registers properties and methods", "[meta][a
   REQUIRE(result.value().is_i64());
   CHECK(result.value().as_i64() == 16);
   CHECK(actor.health == 16);
+}
+
+TEST_CASE("meta api - cached property and method handles support hot loops", "[meta][api]") {
+  const caors::error status =
+      caors::registration::type_<meta_api_cached_owner>("caors.test.meta.api.cached_owner")
+          .meta()
+          .property("health", &meta_api_cached_owner::health)
+          .method("add_health", &meta_api_cached_owner::add_health)
+          .commit();
+  CHECK_FALSE(status);
+
+  const caors::meta::type type = caors::meta::find<meta_api_cached_owner>();
+  REQUIRE(type);
+
+  const caors::meta::property health = type.find_property("health");
+  const caors::meta::method_set add_health = type.find_method("add_health");
+  REQUIRE(health);
+  REQUIRE(add_health);
+
+  meta_api_cached_owner owner{};
+  const caors::meta::instance instance = caors::meta::view(owner);
+
+  for (int index = 0; index < 3; ++index) {
+    REQUIRE(health.try_set_value(instance, caors::meta::value{index}));
+    const caors::meta::value current = health.get_value(instance);
+    REQUIRE(current.is_i64());
+    CHECK(current.as_i64() == index);
+
+    std::array<caors::meta::value, 1> arguments{caors::meta::value{1}};
+    const caors::meta::invoke_value_result result = add_health.invoke(instance, arguments);
+    REQUIRE(result.has_value());
+    REQUIRE(result.value().is_i64());
+    CHECK(result.value().as_i64() == index + 1);
+  }
 }
 
 TEST_CASE("meta api - enum builder registers enum type", "[meta][api]") {

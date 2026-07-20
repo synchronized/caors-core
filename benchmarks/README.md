@@ -11,6 +11,9 @@ cmake --build --preset windows-clang-debug --target caors_benchmarks
 build/benchmarks/caors_benchmarks 100000
 ```
 
+Debug benchmark 只用于冒烟和粗略观察。正式比较性能时应使用 release preset，并保持同一机器、
+同一迭代次数重复运行，详细规则见 `docs/benchmarking.md`。
+
 当前 benchmark 覆盖 `string_name`、meta 类型查询、属性读写、方法调用、`any` / `any_ref` 和
 序列化到 `variant`。方法调用会同时测直接 C++ 调用、`method::invoke_result_of()`、
 `method::invoke()`、`instance::call()` 和 `instance::call_any()`；属性读写会同时测 typed、
