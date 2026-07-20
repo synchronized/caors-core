@@ -743,9 +743,11 @@ caors::registration::type_<texture_config>("game.texture_config")
     .property("format", &texture_config::format,
               caors::meta::registration::required(),
               caors::meta::registration::non_empty(),
-              caors::meta::registration::one_of({"json", "binary"}))
+              caors::meta::registration::one_of({"json", "binary"}),
+              caors::meta::registration::default_value("json"))
     .property("priority", &texture_config::priority,
-              caors::meta::registration::range(1, 100))
+              caors::meta::registration::range(1, 100),
+              caors::meta::registration::default_value(1))
     .commit();
 
 caors::meta::property format =
@@ -762,6 +764,7 @@ const caors::meta::property_schema& schema = format.schema();
 - `registration::range_min(value)` / `registration::range_max(value)` /
   `registration::range(min, max)`：属性数值范围。
 - `registration::one_of({...})`：属性允许值集合。
+- `registration::default_value(value)`：属性默认值，由上层配置或工具流程显式应用。
 
 属性 schema 只放常见、跨模块可理解的约束。序列化属性名、属性 id、版本迁移、跳过属性等格式或持久化
 策略应由 serialization 模块自己的 options 处理；不通用的工具扩展继续使用 metadata。

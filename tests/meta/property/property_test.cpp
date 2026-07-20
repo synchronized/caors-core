@@ -69,14 +69,16 @@ struct schema_actor {
 } // namespace
 
 TEST_CASE("meta - property view exposes builtin schema", "[meta]") {
-  REQUIRE(
-      caors::registration::type_<schema_actor>("caors.test.meta.schema_actor")
-          .meta()
-          .property("format", &schema_actor::format, caors::meta::registration::required(),
-                    caors::meta::registration::non_empty(),
-                    caors::meta::registration::one_of({"json", "binary"}))
-          .property("priority", &schema_actor::priority, caors::meta::registration::range(1, 100))
-          .commit() == caors::error{});
+  REQUIRE(caors::registration::type_<schema_actor>("caors.test.meta.schema_actor")
+              .meta()
+              .property("format", &schema_actor::format, caors::meta::registration::required(),
+                        caors::meta::registration::non_empty(),
+                        caors::meta::registration::one_of({"json", "binary"}),
+                        caors::meta::registration::default_value("json"))
+              .property("priority", &schema_actor::priority,
+                        caors::meta::registration::range(1, 100),
+                        caors::meta::registration::default_value(10))
+              .commit() == caors::error{});
 
   const caors::meta::type reflected = require_reflected("caors.test.meta.schema_actor");
 
@@ -93,6 +95,9 @@ TEST_CASE("meta - property view exposes builtin schema", "[meta]") {
   REQUIRE((*allowed)[1].try_as_string() != nullptr);
   CHECK(*(*allowed)[0].try_as_string() == "json");
   CHECK(*(*allowed)[1].try_as_string() == "binary");
+  REQUIRE(format_schema.default_value_ptr() != nullptr);
+  REQUIRE(format_schema.default_value_ptr()->try_as_string() != nullptr);
+  CHECK(*format_schema.default_value_ptr()->try_as_string() == "json");
 
   const caors::meta::property priority = require_property(reflected, "priority");
   const caors::meta::property_schema& priority_schema = priority.schema();
@@ -103,6 +108,9 @@ TEST_CASE("meta - property view exposes builtin schema", "[meta]") {
   REQUIRE(priority_schema.range_max_value()->try_as_i64() != nullptr);
   CHECK(*priority_schema.range_min_value()->try_as_i64() == 1);
   CHECK(*priority_schema.range_max_value()->try_as_i64() == 100);
+  REQUIRE(priority_schema.default_value_ptr() != nullptr);
+  REQUIRE(priority_schema.default_value_ptr()->try_as_i64() != nullptr);
+  CHECK(*priority_schema.default_value_ptr()->try_as_i64() == 10);
 }
 
 // 原测试文件：meta_property_field_view_describes_indirect_wrapper_traits_test.cpp

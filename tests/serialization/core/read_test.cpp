@@ -6,9 +6,38 @@
 #include "serialization_test_support.h"
 
 #include "caors/io/memory_file_system.h"
+#include "caors/io/stream.h"
 #include "caors/memory/tracking.h"
+#include "caors/serialization/config_validation.h"
+
+#include <cstddef>
+#include <string_view>
+#include <utility>
 
 using namespace caors::tests::serialization;
+
+namespace {
+
+struct schema_config_actor {
+  caors::string format{};
+  int priority = 0;
+};
+
+void require_schema_config_actor_metadata() {
+  REQUIRE(registration_result_ok(
+      caors::registration::type_<schema_config_actor>(
+          "caors.test.serialization.schema_config_actor")
+          .meta()
+          .property("format", &schema_config_actor::format, caors::meta::registration::non_empty(),
+                    caors::meta::registration::one_of({"json", "binary"}),
+                    caors::meta::registration::default_value("json"))
+          .property("priority", &schema_config_actor::priority,
+                    caors::meta::registration::range(1, 10),
+                    caors::meta::registration::default_value(5))
+          .commit()));
+}
+
+} // namespace
 
 TEST_CASE("serialization - parses json and deserializes reflected struct fields",
           "[serialization]") {
@@ -96,6 +125,106 @@ TEST_CASE("serialization - rejects invalid json", "[serialization]") {
   CHECK(parsed.failed());
   CHECK(parsed.error().domain() == caors::error_domain::serialization);
   CHECK(parsed.error().value() == caors::errc::invalid_argument);
+}
+
+TEST_CASE("serialization - json parser applies parser side options", "[serialization]") {
+  caors::serialization::json_options options{};
+
+  options.allow_trailing_commas = true;
+  caors::serialization::variant_result trailing =
+      caors::serialization::parse_json(R"({"id":1,})", options);
+  REQUIRE(trailing.succeeded());
+  REQUIRE(trailing->is_object());
+  CHECK(trailing->as_object().size() == 1U);
+
+  options = {};
+  options.max_parse_depth = 1;
+  caors::serialization::variant_result shallow =
+      caors::serialization::parse_json(R"([1])", options);
+  REQUIRE(shallow.succeeded());
+  caors::serialization::variant_result too_deep =
+      caors::serialization::parse_json(R"([[1]])", options);
+  REQUIRE(too_deep.failed());
+  CHECK(too_deep.error().value() == caors::errc::recursion_limit);
+
+  options = {};
+  options.duplicate_key_policy = caors::serialization::json_duplicate_key_policy::reject;
+  caors::serialization::variant_result duplicate =
+      caors::serialization::parse_json(R"({"id":1,"id":2})", options);
+  REQUIRE(duplicate.failed());
+  CHECK(duplicate.error().value() == caors::errc::duplicate_name);
+
+  options.duplicate_key_policy = caors::serialization::json_duplicate_key_policy::use_last;
+  duplicate = caors::serialization::parse_json(R"({"id":1,"id":2})", options);
+  REQUIRE(duplicate.succeeded());
+  const caors::variant* id = duplicate->find_member_variant(caors::string_name{"id"});
+  REQUIRE(id != nullptr);
+  REQUIRE(id->try_as_u64() != nullptr);
+  CHECK(*id->try_as_u64() == 2U);
+}
+
+TEST_CASE("serialization - json parser reads from input stream without staging text",
+          "[serialization]") {
+  std::string_view text = R"({"id":1,})";
+  caors::io::byte_buffer bytes = caors::io::make_byte_buffer();
+  for (const unsigned char character : text) {
+    bytes.push_back(static_cast<std::byte>(character));
+  }
+
+  caors::io::input_stream_ptr stream = caors::io::make_input_stream(std::move(bytes));
+  caors::serialization::json_options options{};
+  options.allow_trailing_commas = true;
+
+  caors::serialization::variant_result parsed = caors::serialization::parse_json(*stream, options);
+  REQUIRE(parsed.succeeded());
+
+  const caors::variant* id = parsed->find_member_variant(caors::string_name{"id"});
+  REQUIRE(id != nullptr);
+  REQUIRE(id->try_as_u64() != nullptr);
+  CHECK(*id->try_as_u64() == 1U);
+}
+
+TEST_CASE("serialization - json parser decodes unicode escapes as utf8", "[serialization]") {
+  const caors::serialization::variant_result parsed =
+      caors::serialization::parse_json(R"({"text":"caf\u00e9 \ud83d\ude00"})");
+  REQUIRE(parsed.succeeded());
+  const caors::variant* text = parsed->find_member_variant(caors::string_name{"text"});
+  REQUIRE(text != nullptr);
+  REQUIRE(text->try_as_string() != nullptr);
+  CHECK(*text->try_as_string() == "caf"
+                                  "\xC3"
+                                  "\xA9"
+                                  " "
+                                  "\xF0"
+                                  "\x9F"
+                                  "\x98"
+                                  "\x80");
+
+  const caors::serialization::variant_result invalid =
+      caors::serialization::parse_json(R"({"text":"\ud83d"})");
+  REQUIRE(invalid.failed());
+  CHECK(invalid.error().value() == caors::errc::invalid_argument);
+}
+
+TEST_CASE("serialization - config validation uses builtin property schema", "[serialization]") {
+  require_schema_config_actor_metadata();
+
+  schema_config_actor config{};
+  REQUIRE(caors::serialization::apply_config_defaults(config).succeeded());
+  CHECK(config.format == "json");
+  CHECK(config.priority == 5);
+
+  caors::serialization::config_validation_result valid =
+      caors::serialization::validate_config(config);
+  REQUIRE(valid.succeeded());
+  CHECK(valid.diagnostics.empty());
+
+  config.format = "xml";
+  config.priority = 42;
+  caors::serialization::config_validation_result invalid =
+      caors::serialization::validate_config(config);
+  REQUIRE(invalid.failed());
+  CHECK(invalid.diagnostics.size() == 2U);
 }
 
 // 原测试文件：serialization_read_roundtrips_char_and_enum_fields_test.cpp

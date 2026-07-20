@@ -4,35 +4,12 @@
 #include "caors/serialization/operations.h"
 #include "detail/internal.h"
 
-#include <array>
 #include <cmath>
 #include <cstddef>
 #include <sstream>
 #include <string_view>
 
 namespace caors::serialization {
-namespace {
-
-[[nodiscard]] error read_stream_text(io::input_stream& stream, core::string& text) {
-  std::array<std::byte, 4096> buffer{};
-
-  while (!stream.eof()) {
-    io::size_result read = stream.read(buffer);
-    if (read.failed()) {
-      return read.error();
-    }
-
-    if (*read == 0U) {
-      break;
-    }
-
-    text.append(reinterpret_cast<const char*>(buffer.data()), *read);
-  }
-
-  return {};
-}
-
-} // namespace
 
 serialization::json_writer::json_writer() noexcept : text_(&owned_text_) {}
 
@@ -461,23 +438,16 @@ error serialization::json_writer::write_newline_and_indent(std::size_t depth) {
 
 variant_result parse_json(std::string_view text) { return parse_json(text, json_options{}); }
 
-variant_result parse_json(std::string_view text, json_options) {
-  return detail::parse_json_value(text);
+variant_result parse_json(std::string_view text, json_options options) {
+  return detail::parse_json_value(text, options);
 }
 
 variant_result parse_json(io::input_stream& stream, memory_resource* resource) {
   return parse_json(stream, json_options{}, resource);
 }
 
-variant_result parse_json(io::input_stream& stream, json_options options,
-                          memory_resource* resource) {
-  core::string text{allocator<char>{resource}};
-  const error status = read_stream_text(stream, text);
-  if (status) {
-    return {rethrow_as(status, error_domain::serialization), {}};
-  }
-
-  return parse_json(std::string_view{text.data(), text.size()}, options);
+variant_result parse_json(io::input_stream& stream, json_options options, memory_resource*) {
+  return detail::parse_json_stream(stream, options);
 }
 
 variant_result parse_json_from(io::file_system& file_system, io::path_view path,

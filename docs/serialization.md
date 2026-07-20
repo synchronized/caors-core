@@ -36,8 +36,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 当前仍不会包含：
 
 - 内置二进制格式。
-- 版本迁移和默认值恢复。
-- 完整 JSON 标准扩展，例如非 ASCII `\uXXXX` 解码。
+- 完整版本迁移、字段重命名 / 删除策略和未知字段保留。
 - 多层指针、多层 wrapper 和完整对象图身份保持。
 - 自动把任意裸指针或非拥有 wrapper 字段提升为拥有型多态对象。
 - 借用视图的自动存储分配和生命周期管理。
@@ -91,8 +90,8 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 | `to_string(object)` | 输出 JSON 文本 | 根命名空间高频入口，支持 `json_options` 控制格式化 |
 | `serialization::serialize_text()` / `serialization::serialize_text_to()` | 输出调试用简单文本格式 | 模块入口，`_to` 版本复用调用方 buffer |
 | `serialization::serialize_json_to()` | 输出 JSON 到调用方 buffer 或 `io::output_stream` | buffer 入口适合复用字符串；输出流入口由 `json_writer` 直接写出 |
-| `serialization::parse_json()` | 解析 JSON 文本为 `variant` DOM | 当前 parser 选项暂不改变解析行为 |
-| `serialization::parse_json_from()` | 从 `io::file_system` 路径读取 JSON 并解析为 `variant` DOM | 当前通过 `io::input_stream` 读取完整文本后解析 |
+| `serialization::parse_json()` | 解析 JSON 文本为 `variant` DOM | 支持 parser 侧 `json_options` |
+| `serialization::parse_json_from()` | 从 `io::file_system` 路径读取 JSON 并解析为 `variant` DOM | 通过 `io::input_stream` token reader 解析；底层文件系统可选择真实流或内存流 |
 | `serialization::deserialize_json_from()` | 从 `io::input_stream` 或 `io::file_system` 路径读回对象 | 便捷入口，最终复用普通 `deserialize()` |
 | `deserialize(object, text)` | 从 JSON 文本读回对象 | 先解析 DOM，再复用普通反序列化调度 |
 | `serialization::context` | 单次读写上下文 | 按职责使用分组字段配置 |
@@ -104,7 +103,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 | `context.state.storage` | 借用视图读回所需外部存储 | 主要用于 `std::string_view` |
 | `context.config.polymorphic` | 多态 envelope 字段名和调试 type name | 默认字段名为 `$type` / `$value` |
 | `context.config.limits` | 递归深度等安全限制 | `max_depth = 0` 表示关闭递归深度限制 |
-| `json_options` | JSON 格式层选项 | 当前控制 writer 的 `pretty` 和 `indent` |
+| `json_options` | JSON 格式层选项 | 控制 writer 格式化和 parser 安全/兼容策略 |
 
 公开序列化入口保留无 context 便捷重载；一旦需要上下文，统一把
 `serialization::context` 放在第一个参数：
@@ -489,7 +488,8 @@ caors::error status = caors::deserialize(instance, *value);
 - 未显式配置字段时，反序列化按全部反射字段读入，缺失字段返回 `errc::not_found`。
 - DOM 中存在但未被目标类型声明的未知字段默认忽略。
 
-默认值恢复、未知字段保留、严格模式和完整版本迁移策略后续再补。
+属性级通用 schema 默认值可通过 `serialization::apply_config_defaults(config)` 显式恢复。未知字段保留、
+严格模式、字段重命名和完整版本迁移策略后续再补。
 
 ### JSON
 
@@ -529,19 +529,24 @@ caors::error status =
     caors::serialization::deserialize_json_from(instance, files, "config/player.json");
 ```
 
-`serialization::parse_json(stream)` 和 `serialization::parse_json_from(file_system, path)` 当前仍会先把输入流读入字符串，
-再交给 DOM parser 解析。`serialization::serialize_json_to(object, output_stream)` 已经通过
-`json_writer` 直接写入输出流，不再先构造完整 JSON 字符串。真正按 token 增量解析的 JSON reader、二进制 reader
-和资源包/远程流读取后续再扩展，但上层 API 已经不需要假设数据来自本地文件或一次性字符串。
+`serialization::parse_json(stream)` 和 `serialization::parse_json_from(file_system, path)` 会通过 JSON
+token reader 从 `io::input_stream` 读取，不再在序列化层先构造完整 JSON 字符串。解析结果仍是
+`variant` DOM，因此对象树本身会完整驻留内存；底层 `file_system` 可以选择真实文件流、内存流或其他
+输入流实现。`serialization::serialize_json_to(object, output_stream)` 通过 `json_writer` 直接写入输出流，
+不再先构造完整 JSON 字符串。
 
-当前 JSON parser 是最小实现，支持对象、数组、字符串、整数、浮点、`true`、`false` 和 `null`。
-字符串支持常见转义和 ASCII 范围内的 `\u00XX`；非 ASCII `\uXXXX` 暂返回 `errc::unsupported`。
-字段 id 无法从 JSON 对象名表达，因此 JSON 读入主要按字段名匹配。
+当前 JSON parser 支持对象、数组、字符串、整数、浮点、`true`、`false` 和 `null`。字符串支持常见转义、
+完整 `\uXXXX` UTF-8 解码和 surrogate pair。字段 id 无法从 JSON 对象名表达，因此 JSON 读入主要按字段名匹配。
 
-`json_options` 当前只影响 JSON writer：`pretty` 控制是否输出换行和缩进，`indent` 控制每层空格数。
-`serialization::parse_json(text, options)` 和带 `json_options` 的 `serialization::deserialize_json()`
-模块入口保留为 API 对称和 parser 侧扩展点；当前不会因为 `options` 改变解析规则。计划中的
-parser-side 行为选项集中记录在路线图。
+`json_options` 同时影响 JSON writer 和 parser：
+
+- `pretty` / `indent`：writer 输出换行和缩进。
+- `max_parse_depth`：parser 最大对象 / 数组嵌套深度，`0` 表示不限制。
+- `allow_trailing_commas`：是否允许对象和数组末尾多一个逗号。
+- `duplicate_key_policy`：对象重复 key 策略，可保留全部、保留第一项、保留最后一项或直接拒绝。
+
+二进制 reader、资源包 / 远程流读取和真正事件式 JSON reader 后续再扩展；当前上层 API 已经不需要假设
+数据来自本地文件或一次性字符串。
 
 ### object pointers
 
@@ -772,9 +777,9 @@ codec 和 meta 类型系统的边界：
 递归用到的业务类型如果需要稳定名称、GUID、反射字段、多态构造或对象工厂，仍应通过
 `registration::type_<T>("name")` 显式注册。自定义容器扩展示例：
 
-### 配置校验 metadata
+### 配置校验 schema
 
-`serialization/config_validation.h` 提供基于反射字段 metadata 的 typed config 校验。推荐流程是先把
+`serialization/config_validation.h` 提供基于反射属性 schema 的 typed config 校验。推荐流程是先把
 `variant` / JSON 反序列化成明确的配置结构体，再调用 `serialization::validate_config(config)`：
 
 ```cpp
@@ -783,24 +788,22 @@ struct texture_config {
   int priority = 1;
 };
 
-namespace metadata = caors::serialization::config_metadata;
-
 caors::registration::type_<texture_config>("game.texture_config")
     .meta()
     .property("format", &texture_config::format,
-              caors::meta::registration::metadata(metadata::required(), true),
-              caors::meta::registration::metadata(metadata::non_empty(), true),
-              caors::meta::registration::metadata(
-                  metadata::one_of(),
-                  caors::meta::make_metadata_string_array({"json", "binary"})))
+              caors::meta::registration::required(),
+              caors::meta::registration::non_empty(),
+              caors::meta::registration::one_of({"json", "binary"}),
+              caors::meta::registration::default_value("json"))
     .property("priority", &texture_config::priority,
-              caors::meta::registration::metadata(metadata::range_min(), 1),
-              caors::meta::registration::metadata(metadata::range_max(), 100))
+              caors::meta::registration::range(1, 100),
+              caors::meta::registration::default_value(1))
     .serialization()
     .commit();
 
 texture_config config;
 caors::deserialize(config, options_value);
+caors::serialization::apply_config_defaults(config);
 caors::serialization::config_validation_result result =
     caors::serialization::validate_config(config);
 ```
@@ -812,9 +815,12 @@ caors::serialization::config_validation_result result =
 - `non_empty`：字符串、`string_view`、`string_name` 等文本字段不能为空。
 - `range_min` / `range_max`：数值字段范围。
 - `one_of`：字符串字段允许值数组。
+- `default_value`：通过 `apply_config_defaults(config)` 显式写回默认值。
 
 校验结果会一次收集多条 `config_validation_diagnostic`。这套机制适合资源 factory options、导入配置、
-编辑器面板和工具配置；跨字段关系、条件约束、默认值恢复和更完整 schema 策略仍放在后续路线图中。
+编辑器面板和工具配置。旧的 `serialization::config_metadata::*` metadata 键仍可被
+`validate_config()` 识别，主要用于历史代码和临时工具扩展；新代码优先使用 `meta::property_schema` token。
+跨字段关系、条件约束和更完整 schema 策略仍放在后续路线图中。
 
 ```cpp
 namespace caors::traits {
@@ -977,7 +983,7 @@ template <> struct codec_traits<custom_value> {
   `errc::invalid_type`。处于无值状态的 variant 当前返回不支持。
 - 直接值字段仍按字段声明静态类型处理；运行期动态类型记录发生在 `objects::object`
   声明类型和真实类型不一致时，以及拥有型智能指针 wrapper envelope 上。
-- JSON reader 目前不完整支持非 ASCII `\uXXXX` 解码，二进制格式、版本迁移和默认值恢复也尚未实现。
+- JSON reader 目前仍是 DOM reader；二进制格式、完整版本迁移和未知字段保留尚未实现。
 
 ### caors::variant
 

@@ -254,9 +254,11 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 增加基于 `io::input_stream` 和 `io::file_system` 的 JSON 读入便捷入口，避免上层反序列化直接绑定
   宿主文件系统或一次性字符串来源。
 - [x] 将 JSON 输出流入口改为 `json_writer` 直接写入 `io::output_stream`，避免先生成完整 JSON 字符串。
-- [ ] 扩展 JSON parser-side options，例如最大嵌套深度、重复 key 策略、尾随逗号开关和完整
-  Unicode 转义处理；当前 `json_options` 只影响 writer 格式化。
-- [ ] 将 JSON DOM parser 进一步拆为 token reader / streaming reader，使 `io::input_stream` 入口不必先读取完整文本。
+- [x] 扩展 JSON parser-side options，例如最大嵌套深度、重复 key 策略、尾随逗号开关和完整
+  Unicode 转义处理。
+- [x] 将 JSON DOM parser 内部拆为 token reader 和 DOM 构造两层，并支持文本 token reader 与
+  `io::input_stream` 增量 token reader。
+- [x] 将 JSON `io::input_stream` 入口切到增量 token reader，使序列化层不必先读取完整文本。
 - [x] 增加 `variant::dictionary` 和 `caors::hash_map<K, V>` 字典写出/读回。
 - [x] 将容器序列化统一到 `meta::type` + `sequence_view` / `set_view` / `associative_view` 路径，删除独立通用容器 codec 递归实现。
 - [x] 支持基于 `traits::set_traits<T>` 的 `caors::hash_set<T>` 集合写出/读回。
@@ -285,8 +287,10 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 设计字段级构造策略，覆盖容器新增元素、拥有型智能指针 wrapper、`variant` 候选切换和不可默认构造类型；
   优先使用 `serialization::context::resolvers.construction`、`memory_resource`、meta factory / constructor
   capability 和 `meta::type` 默认构造，失败时返回明确诊断。
-- [x] 增加 `serialization::validate_config()`，基于反射字段 metadata 校验 typed config，支持
+- [x] 增加 `serialization::validate_config()`，基于反射属性 schema 校验 typed config，支持
   `required`、`non_empty`、`range_min/range_max` 和 `one_of`，并一次收集多条诊断。
+- [x] 将 `serialization::validate_config()` 对齐 `meta::property_schema`，并提供
+  `serialization::apply_config_defaults()` 显式应用 schema 默认值；旧 metadata 键仅作为兼容输入保留。
 - [x] 扩展空 `optional<T>` 读入非空值时的安全构造和写入策略，避免把拥有型 wrapper 的接管语义误用于
   `optional` 的按值存储语义。
 - [ ] 放宽多层指针 / 多层 wrapper 限制，采用逐层 indirect `meta::type` 展开；默认设置合理最大深度，

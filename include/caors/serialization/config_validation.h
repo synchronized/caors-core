@@ -11,6 +11,7 @@
 #include "caors/meta/query.h"
 #include "caors/meta/type.h"
 #include "caors/meta/value/any_ref.h"
+#include "caors/meta/value/value.h"
 
 #include <optional>
 #include <string>
@@ -88,6 +89,36 @@ metadata_number(const meta::metadata_value* value) noexcept {
   }
   if (const double* number = value->try_as_f64()) {
     return *number;
+  }
+
+  return std::nullopt;
+}
+
+[[nodiscard]] inline const meta::metadata_value*
+schema_or_metadata(const meta::metadata_value* schema_value,
+                   const meta::metadata_value* metadata_value) noexcept {
+  return schema_value != nullptr ? schema_value : metadata_value;
+}
+
+[[nodiscard]] inline std::optional<meta::value>
+metadata_to_runtime_value(const meta::metadata_value& value) {
+  if (value.is_null()) {
+    return meta::value::null();
+  }
+  if (const bool* data = value.try_as_bool()) {
+    return meta::value{*data};
+  }
+  if (const std::int64_t* data = value.try_as_i64()) {
+    return meta::value{*data};
+  }
+  if (const std::uint64_t* data = value.try_as_u64()) {
+    return meta::value{*data};
+  }
+  if (const double* data = value.try_as_f64()) {
+    return meta::value{*data};
+  }
+  if (const core::string* data = value.try_as_string()) {
+    return meta::value{*data};
   }
 
   return std::nullopt;
@@ -204,8 +235,11 @@ inline void validate_config_field(config_validation_result& result, const meta::
     return;
   }
 
-  const bool required = metadata_truthy(field.find_metadata(config_metadata::required()));
-  const bool non_empty = metadata_truthy(field.find_metadata(config_metadata::non_empty()));
+  const meta::property_schema& schema = field.schema();
+  const bool required =
+      schema.required || metadata_truthy(field.find_metadata(config_metadata::required()));
+  const bool non_empty =
+      schema.non_empty || metadata_truthy(field.find_metadata(config_metadata::non_empty()));
   if ((required || non_empty) && ref_empty(value)) {
     core::string reason =
         make_config_validation_reason(result.diagnostics.get_allocator().resource());
@@ -215,10 +249,10 @@ inline void validate_config_field(config_validation_result& result, const meta::
     result.status = {error_domain::serialization, errc::invalid_argument};
   }
 
-  const std::optional<double> min =
-      metadata_number(field.find_metadata(config_metadata::range_min()));
-  const std::optional<double> max =
-      metadata_number(field.find_metadata(config_metadata::range_max()));
+  const std::optional<double> min = metadata_number(schema_or_metadata(
+      schema.range_min_value(), field.find_metadata(config_metadata::range_min())));
+  const std::optional<double> max = metadata_number(schema_or_metadata(
+      schema.range_max_value(), field.find_metadata(config_metadata::range_max())));
   if (min.has_value() || max.has_value()) {
     const std::optional<double> number = ref_number(value);
     if (!number.has_value() || (min.has_value() && *number < *min) ||
@@ -232,7 +266,8 @@ inline void validate_config_field(config_validation_result& result, const meta::
     }
   }
 
-  const meta::metadata_value* one_of = field.find_metadata(config_metadata::one_of());
+  const meta::metadata_value* one_of =
+      schema_or_metadata(schema.one_of_value(), field.find_metadata(config_metadata::one_of()));
   if (!allowed_by_one_of(value, one_of)) {
     core::string reason =
         make_config_validation_reason(result.diagnostics.get_allocator().resource());
@@ -243,9 +278,54 @@ inline void validate_config_field(config_validation_result& result, const meta::
   }
 }
 
+inline error apply_config_default_field(const meta::property& field, void* object) {
+  const meta::metadata_value* default_value = field.schema().default_value_ptr();
+  if (default_value == nullptr) {
+    return {};
+  }
+
+  const std::optional<meta::value> runtime_value = metadata_to_runtime_value(*default_value);
+  if (!runtime_value.has_value()) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  meta::instance instance{meta::any_ref::from_raw(field.get_owner_type(), object, true)};
+  return field.try_set_value(instance, *runtime_value)
+             ? error{}
+             : error{error_domain::serialization, errc::invalid_field};
+}
+
 } // namespace detail
 
-/** @brief 使用反射字段 metadata 校验配置对象。 */
+/** @brief 按属性 schema 中声明的默认值填充配置对象。 */
+template <typename T>
+[[nodiscard]] error apply_config_defaults(T& object, memory_resource* = nullptr) {
+  const meta::type meta_type = meta::find<T>();
+  if (!meta_type.registered()) {
+    return {error_domain::serialization, errc::missing_type};
+  }
+
+  const meta::type reflected = meta::find(meta_type.id());
+  if (!reflected) {
+    return {error_domain::serialization, errc::not_found};
+  }
+
+  for (std::size_t index = 0; index < reflected.property_count(); ++index) {
+    const meta::property field = reflected.property_at(index);
+    if (!field) {
+      return {error_domain::serialization, errc::invalid_field};
+    }
+
+    const error status = detail::apply_config_default_field(field, &object);
+    if (status) {
+      return status;
+    }
+  }
+
+  return {};
+}
+
+/** @brief 使用反射属性 schema 和兼容 metadata 校验配置对象。 */
 template <typename T>
 [[nodiscard]] config_validation_result validate_config(const T& object,
                                                        memory_resource* resource = nullptr) {

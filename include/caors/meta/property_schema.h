@@ -23,9 +23,11 @@ struct property_schema {
   bool non_empty = false;
   bool has_range_min = false;
   bool has_range_max = false;
+  bool has_default_value = false;
   metadata_value range_min{};
   metadata_value range_max{};
   metadata_value one_of{};
+  metadata_value default_value{};
 
   [[nodiscard]] bool has_range() const noexcept { return has_range_min || has_range_max; }
   [[nodiscard]] bool has_one_of() const noexcept {
@@ -41,6 +43,9 @@ struct property_schema {
   [[nodiscard]] const metadata_value* one_of_value() const noexcept {
     return has_one_of() ? &one_of : nullptr;
   }
+  [[nodiscard]] const metadata_value* default_value_ptr() const noexcept {
+    return has_default_value ? &default_value : nullptr;
+  }
 };
 
 } // namespace caors::meta
@@ -55,6 +60,7 @@ enum class property_schema_entry_kind {
   range_max,
   range,
   one_of,
+  default_value,
 };
 
 /** @brief 一条待写入的属性 schema。 */
@@ -90,6 +96,10 @@ inline void apply_property_schema_entry(property_schema& schema, property_schema
     break;
   case property_schema_entry_kind::one_of:
     schema.one_of = std::move(entry.first);
+    break;
+  case property_schema_entry_kind::default_value:
+    schema.has_default_value = true;
+    schema.default_value = std::move(entry.first);
     break;
   }
 }
@@ -138,6 +148,13 @@ template <typename Min, typename Max>
 [[nodiscard]] inline property_schema_entry one_of(metadata_value values) {
   property_schema_entry entry{property_schema_entry_kind::one_of};
   entry.first = std::move(values);
+  return entry;
+}
+
+/** @brief 声明属性默认值。 */
+template <typename Value> [[nodiscard]] property_schema_entry default_value(Value&& value) {
+  property_schema_entry entry{property_schema_entry_kind::default_value};
+  entry.first = make_metadata_value(std::forward<Value>(value));
   return entry;
 }
 
