@@ -12,6 +12,7 @@
 
 #include "detail/helpers.h"
 #include "detail/internal.h"
+#include "detail/type_plan.h"
 
 #include <utility>
 
@@ -80,61 +81,32 @@ variant_result to_serialization_value(const serialization::context& context, con
     return {{error_domain::serialization, errc::invalid_argument}, {}};
   }
 
-  if (!serialization::contains(type.id())) {
-    return {{error_domain::serialization, errc::missing_type}, {}};
+  result<const serialization::detail::type_plan*> plan_result =
+      serialization::detail::find_type_plan(type);
+  if (plan_result.failed()) {
+    return {plan_result.status, {}};
   }
 
-  const std::optional<serialization::type_schema> serialization_data =
-      serialization::find(type.id());
-  if (!serialization_data.has_value() || !serialization_data->valid()) {
-    return {{error_domain::serialization, errc::invalid_type}, {}};
-  }
-
+  const serialization::detail::type_plan& plan = *plan_result.value;
   variant::object_type members;
+  members.reserve(plan.fields.size());
 
-  if (!serialization_data->fields.empty()) {
-    members.reserve(serialization_data->fields.size());
-    for (const serialization::field_schema& field_schema : serialization_data->fields) {
-      if (field_schema.skipped ||
-          !serialization::detail::field_visible_in_context(field_schema, context)) {
-        continue;
-      }
-
-      const meta::property field = type.find_property(field_schema.field_name);
-      if (!field) {
-        return {{error_domain::serialization, errc::not_found}, {}};
-      }
-
-      variant_result serialized = field_to_serialization_value(field, object, context);
-      if (serialized.failed()) {
-        return serialized;
-      }
-
-      members.push_back(meta::variant_member{
-          serialization::detail::serialized_field_name(field_schema),
-          field_schema.field_id,
-          std::move(serialized.value),
-      });
+  for (const serialization::detail::planned_field& field : plan.fields) {
+    if (field.schema.skipped ||
+        !serialization::detail::field_visible_in_context(field.schema, context)) {
+      continue;
     }
-  } else {
-    members.reserve(type.property_count());
-    for (std::size_t index = 0; index < type.property_count(); ++index) {
-      const meta::property field = type.property_at(index);
-      if (!field) {
-        return {{error_domain::serialization, errc::invalid_field}, {}};
-      }
 
-      variant_result serialized = field_to_serialization_value(field, object, context);
-      if (serialized.failed()) {
-        return serialized;
-      }
-
-      members.push_back(meta::variant_member{
-          field.name(),
-          0,
-          std::move(serialized.value),
-      });
+    variant_result serialized = field_to_serialization_value(field.property, object, context);
+    if (serialized.failed()) {
+      return serialized;
     }
+
+    members.push_back(meta::variant_member{
+        serialization::detail::serialized_field_name(field.schema),
+        field.schema.field_id,
+        std::move(serialized.value),
+    });
   }
 
   return {{}, variant::object(std::move(members))};

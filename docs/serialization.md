@@ -375,8 +375,8 @@ caors::registration::type_<actor>("game.actor")
 ```
 
 字段配置按字段名引用 meta 属性。公共注册入口会在同一次 `commit()` 中发布 meta 属性和
-serialization schema；真正序列化时才会按字段名查找属性。如果字段配置找不到对应属性，会返回
-`errc::not_found`。
+serialization schema；序列化调度首次使用某个类型时会解析字段名到 `meta::property`，并缓存内部
+type plan。如果字段配置找不到对应属性，会返回 `errc::not_found`。
 
 如果 `serialization::type_schema::fields` 为空，`serialization::serialize_text()` 会回退到输出全部反射字段。
 
@@ -397,8 +397,9 @@ serialization schema；真正序列化时才会按字段名查找属性。如果
 - `version_removed != 0 && schema_version >= version_removed` 的字段会被跳过。
 
 序列化字段配置属于 serialization extension，不直接写入反射内部字段数据，也不持有
-反射内部字段数据指针。反射负责描述字段是什么，序列化负责描述字段如何存储；真正序列化时
-再按字段名解析反射字段，因此序列化注册和反射注册没有固定顺序要求。
+反射内部字段数据指针。反射负责描述字段是什么，序列化负责描述字段如何存储；内部缓存只保存
+解析后的只读属性视图，避免每次序列化重复查找字段。调用方仍应在首次读写前完成类型、属性和
+serialization schema 注册。
 
 ### serialization::writer
 

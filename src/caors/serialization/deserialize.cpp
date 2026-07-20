@@ -7,6 +7,7 @@
 #include "caors/meta/type.h"
 
 #include "detail/internal.h"
+#include "detail/type_plan.h"
 
 namespace caors::serialization::detail {
 
@@ -20,62 +21,38 @@ error deserialize(const serialization::context& context, const meta::type& type,
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  if (!serialization::contains(type.id())) {
-    return {error_domain::serialization, errc::missing_type};
+  result<const serialization::detail::type_plan*> plan_result =
+      serialization::detail::find_type_plan(type);
+  if (plan_result.failed()) {
+    return plan_result.status;
   }
 
-  const std::optional<serialization::type_schema> serialization_data =
-      serialization::find(type.id());
-  if (!serialization_data.has_value() || !serialization_data->valid()) {
-    return {error_domain::serialization, errc::invalid_type};
-  }
-
-  error status = reader.begin_object(*serialization_data);
+  const serialization::detail::type_plan& plan = *plan_result.value;
+  error status = reader.begin_object(plan.object_schema);
   if (status) {
     return status;
   }
 
-  if (!serialization_data->fields.empty()) {
-    for (const serialization::field_schema& field_schema : serialization_data->fields) {
-      if (field_schema.skipped ||
-          !serialization::detail::field_visible_in_context(field_schema, context)) {
-        continue;
-      }
-
-      const meta::property field = type.find_property(field_schema.field_name);
-      if (!field) {
-        return {error_domain::serialization, errc::not_found};
-      }
-
-      result<serialization::context> nested_context = context.enter_nested_value();
-      if (nested_context.failed()) {
-        return nested_context.status;
-      }
-
-      status = serialization::detail::read_configured_field(reader, field, object, field_schema,
-                                                            nested_context.value);
-      if (status) {
-        return status;
-      }
+  for (const serialization::detail::planned_field& field : plan.fields) {
+    if (field.schema.skipped ||
+        !serialization::detail::field_visible_in_context(field.schema, context)) {
+      continue;
     }
-  } else {
-    for (std::size_t index = 0; index < type.property_count(); ++index) {
-      const meta::property field = type.property_at(index);
-      if (!field) {
-        return {error_domain::serialization, errc::invalid_field};
-      }
 
-      serialization::field_schema field_schema = serialization::make_field(field.name().view());
-      result<serialization::context> nested_context = context.enter_nested_value();
-      if (nested_context.failed()) {
-        return nested_context.status;
-      }
+    result<serialization::context> nested_context = context.enter_nested_value();
+    if (nested_context.failed()) {
+      return nested_context.status;
+    }
 
-      status = serialization::detail::read_field(reader, field, object, field_schema,
+    if (plan.has_explicit_fields) {
+      status = serialization::detail::read_configured_field(reader, field.property, object,
+                                                            field.schema, nested_context.value);
+    } else {
+      status = serialization::detail::read_field(reader, field.property, object, field.schema,
                                                  nested_context.value);
-      if (status) {
-        return status;
-      }
+    }
+    if (status) {
+      return status;
     }
   }
 
