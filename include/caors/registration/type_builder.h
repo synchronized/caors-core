@@ -12,6 +12,7 @@
 #include "caors/meta/metadata.h"
 #include "caors/meta/method_registration.h"
 #include "caors/meta/object.h"
+#include "caors/meta/property.h"
 #include "caors/meta/proxy.h"
 #include "caors/meta/query.h"
 #include "caors/meta/registration.h"
@@ -265,6 +266,11 @@ public:
     }
 
     if (serialization_enabled_) {
+      status_ = bind_serialization_schema();
+      if (status_) {
+        return status_;
+      }
+
       status_ =
           pending_.add_extension(meta::detail::make_extension_data<serialization::type_schema>(
               &memory::library_resource(), serialization_schema_));
@@ -298,6 +304,56 @@ public:
 private:
   friend class meta_section<T>;
   friend class serialization_section<T>;
+
+  [[nodiscard]] meta::property
+  resolve_serialization_property(core::string_name property_name) const {
+    if (!property_name) {
+      return {};
+    }
+
+    if (const meta::detail::property_data* property = pending_.find_property_ptr(property_name)) {
+      return meta::detail::make_property_view(property);
+    }
+
+    if (registry_ == nullptr || !pending_.parent_id()) {
+      return {};
+    }
+
+    const meta::type parent = registry_->find_type(pending_.parent_id());
+    return parent.find_property(property_name, meta::member_search::include_bases);
+  }
+
+  [[nodiscard]] error bind_serialization_schema() {
+    serialization_schema_.has_explicit_fields = !serialization_schema_.fields.empty();
+    if (!serialization_schema_.valid()) {
+      return {error_domain::serialization, errc::invalid_field};
+    }
+
+    if (!serialization_schema_.has_explicit_fields) {
+      serialization_schema_.fields.reserve(pending_.property_count());
+      for (std::size_t index = 0; index < pending_.property_count(); ++index) {
+        const meta::detail::property_data* property = pending_.property_at(index);
+        if (property == nullptr || !property->valid()) {
+          return {error_domain::serialization, errc::invalid_field};
+        }
+
+        serialization::field_schema schema = serialization::make_field(property->name().view());
+        schema.property = meta::detail::make_property_view(property);
+        serialization_schema_.fields.push_back(std::move(schema));
+      }
+
+      return {};
+    }
+
+    for (serialization::field_schema& field : serialization_schema_.fields) {
+      field.property = resolve_serialization_property(field.field_name);
+      if (!field.property) {
+        return {error_domain::serialization, errc::not_found};
+      }
+    }
+
+    return {};
+  }
 
   void enable_object_if_needed() {
     if constexpr (std::is_base_of_v<objects::object, value_type>) {

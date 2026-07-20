@@ -6,6 +6,7 @@
 
 #include "caors/core/containers.h"
 #include "caors/core/string_name.h"
+#include "caors/meta/property.h"
 
 #include <cstdint>
 #include <initializer_list>
@@ -44,6 +45,7 @@ enum class format_features : std::uint32_t {
 struct field_schema {
   string_name field_name{};
   string_name serialized_name{};
+  meta::property property{};
   std::uint32_t field_id = 0;
   std::uint32_t version_added = 0;
   std::uint32_t version_removed = 0;
@@ -56,11 +58,12 @@ struct field_schema {
 /**
  * @brief 序列化类型元信息。
  *
- * 字段配置按字段名引用反射字段。注册序列化 extension 时不要求反射字段已经注册，实际序列化时再解析
- * 字段配置和反射字段。
+ * 字段配置按字段名引用 meta 属性。注册提交时会把显式字段解析为 `meta::property`；未显式指定字段时，
+ * 会按当前注册类型的属性列表生成默认字段。
  */
 struct type_schema {
   vector<field_schema> fields{};
+  bool has_explicit_fields = false;
 
   [[nodiscard]] bool valid() const noexcept {
     for (const field_schema& field : fields) {
@@ -80,6 +83,7 @@ struct type_schema {
   return field_schema{
       string_name{field_name},
       serialized_name.empty() ? string_name{field_name} : string_name{serialized_name},
+      {},
       field_id,
       0,
       0,
@@ -90,7 +94,10 @@ struct type_schema {
 
 /** @brief 创建类型序列化配置。 */
 [[nodiscard]] inline type_schema make_type_schema(std::initializer_list<field_schema> fields) {
-  return type_schema{vector<field_schema>{fields}};
+  type_schema schema{};
+  schema.fields = vector<field_schema>{fields};
+  schema.has_explicit_fields = !schema.fields.empty();
+  return schema;
 }
 
 } // namespace caors::serialization

@@ -82,8 +82,10 @@ caors::error register_game_types(caors::meta::context& ctx) {
 同一个类型会返回 `errc::duplicate_id`，并保留已有注册数据。
 
 业务类型注册统一使用 `registration::type_<T>(name)`。object 和 serialization 不再提供独立公共
-builder；当 `T` 继承自 `objects::object` 时，`commit()` 会自动写入对象能力。序列化 schema 通过 `.serialization()` 写入，同一次
-`commit()` 发布完整 `type_data`。`meta::init_registry()` 仍负责执行延迟注册函数并校验注册表。
+builder；当 `T` 继承自 `objects::object` 时，`commit()` 会自动写入对象能力。序列化 schema 通过
+`.serialization()` 写入，同一次 `commit()` 发布完整 `type_data`。显式序列化字段会在提交阶段绑定到
+已注册属性，未显式填写字段时会按当前属性列表生成默认 schema。`meta::init_registry()` 仍负责执行
+延迟注册函数并校验注册表。
 
 枚举注册统一使用 `registration::enum_<T>(name)`。枚举项、枚举项 metadata、类型 GUID、类型 metadata
 和 capability 都在 builder pending 阶段收集；只有 `.commit()` 成功后，`meta::find<T>()` 才能查到该枚举类型。

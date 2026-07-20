@@ -375,10 +375,11 @@ caors::registration::type_<actor>("game.actor")
 ```
 
 字段配置按字段名引用 meta 属性。公共注册入口会在同一次 `commit()` 中发布 meta 属性和
-serialization schema；序列化调度首次使用某个类型时会解析字段名到 `meta::property`，并缓存内部
-type plan。如果字段配置找不到对应属性，会返回 `errc::not_found`。
+serialization schema；提交时会把字段名解析为稳定的 `meta::property` 视图并保存到
+`field_schema::property`。如果显式字段配置找不到对应属性，`commit()` 会返回 `errc::not_found`。
 
-如果 `serialization::type_schema::fields` 为空，`serialization::serialize_text()` 会回退到输出全部反射字段。
+如果 `serialization::type_schema::fields` 为空，`commit()` 会按当前类型已注册属性生成默认字段；
+`has_explicit_fields == false` 用于保留默认字段读取语义。
 
 ### serialization::field_schema
 
@@ -386,6 +387,7 @@ type plan。如果字段配置找不到对应属性，会返回 `errc::not_found
 
 - `field_name`：反射字段名。
 - `serialized_name`：输出字段名；为空时使用 `field_name`。
+- `property`：注册提交期解析出的 `meta::property` 视图；普通用户只需要通过 builder 填写字段名。
 - `field_id`：稳定字段编号，供紧凑二进制、数字键 msgpack 等不写字段名的格式使用。
 - `version_added` / `version_removed`：配合 `serialization::context::config.fields.schema_version` 做字段版本过滤。
 - `required`：反序列化时缺失该字段会返回 `errc::not_found`。
@@ -396,10 +398,9 @@ type plan。如果字段配置找不到对应属性，会返回 `errc::not_found
 - `version_added != 0 && schema_version < version_added` 的字段会被跳过。
 - `version_removed != 0 && schema_version >= version_removed` 的字段会被跳过。
 
-序列化字段配置属于 serialization extension，不直接写入反射内部字段数据，也不持有
-反射内部字段数据指针。反射负责描述字段是什么，序列化负责描述字段如何存储；内部缓存只保存
-解析后的只读属性视图，避免每次序列化重复查找字段。调用方仍应在首次读写前完成类型、属性和
-serialization schema 注册。
+序列化字段配置属于 serialization extension，不直接修改属性自身。反射负责描述字段是什么，
+序列化负责描述字段如何存储；schema 内部保存解析后的只读属性视图，避免每次序列化重复查找字段。
+调用方应在首次读写前完成类型、属性和 serialization schema 注册。
 
 ### serialization::writer
 
@@ -1080,7 +1081,8 @@ auto serialization_type = caors::serialization::find(type);
 ```
 
 查询序列化 extension 时使用 `serialization::find()` 或 `serialization::contains()`。重复注册同一个
-类型会返回 `errc::duplicate_id`，已有注册数据保持不变。序列化 extension 注册推荐在启动期或
+类型会返回 `errc::duplicate_id`，已有注册数据保持不变。显式 `.field()` 必须能在提交时解析到
+对应属性；未显式填写字段时会按当前属性列表生成默认 schema。序列化 extension 注册推荐在启动期或
 模块加载期完成；`meta::init_registry()` 只执行延迟注册并校验注册表，不会阻止后续继续注册。
 
 ### serialize_text

@@ -84,21 +84,17 @@ TEST_CASE("serialization - rejects weak pointer deserialization", "[serializatio
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - reports missing configured reflection field", "[serialization]") {
-  REQUIRE(registration_result_ok(
+  const caors::error status =
       caors::registration::type_<missing_field_actor>("caors.test.serialization.missing_field")
           .meta()
           .property("id", &missing_field_actor::id)
           .serialization()
           .field("missing")
-          .commit()));
+          .commit();
 
-  const missing_field_actor actor{3};
-  const caors::serialization::serialization_text_result result =
-      caors::serialization::serialize_text(actor);
-
-  CHECK(result.failed());
-  CHECK(result.error().domain() == caors::error_domain::serialization);
-  CHECK(result.error().value() == caors::errc::not_found);
+  CHECK(status.failed());
+  CHECK(status.domain() == caors::error_domain::serialization);
+  CHECK(status.value() == caors::errc::not_found);
 }
 
 // 原测试文件：serialization_registration_error_reports_missing_serialization_metadata_test.cpp

@@ -4,10 +4,10 @@
 #include "caors/serialization/operations.h"
 
 #include "caors/meta/property.h"
+#include "caors/meta/registry.h"
 #include "caors/meta/type.h"
 
 #include "detail/internal.h"
-#include "detail/type_plan.h"
 
 namespace caors::serialization::detail {
 
@@ -21,22 +21,28 @@ error serialize(const serialization::context& context, const meta::type& type, c
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  result<const serialization::detail::type_plan*> plan_result =
-      serialization::detail::find_type_plan(type);
-  if (plan_result.failed()) {
-    return plan_result.status;
+  const serialization::type_schema* schema =
+      meta::get_registry().find_extension_ptr<serialization::type_schema>(type.id());
+  if (schema == nullptr) {
+    return {error_domain::serialization, errc::missing_type};
   }
 
-  const serialization::detail::type_plan& plan = *plan_result.value;
-  error status = writer.begin_object(plan.object_schema);
+  if (!schema->valid()) {
+    return {error_domain::serialization, errc::invalid_type};
+  }
+
+  error status = writer.begin_object(*schema);
   if (status) {
     return status;
   }
 
-  for (const serialization::detail::planned_field& field : plan.fields) {
-    if (field.schema.skipped ||
-        !serialization::detail::field_visible_in_context(field.schema, context)) {
+  for (const serialization::field_schema& field : schema->fields) {
+    if (field.skipped || !serialization::detail::field_visible_in_context(field, context)) {
       continue;
+    }
+
+    if (!field.property) {
+      return {error_domain::serialization, errc::not_found};
     }
 
     result<serialization::context> nested_context = context.enter_nested_value();
@@ -44,7 +50,7 @@ error serialize(const serialization::context& context, const meta::type& type, c
       return nested_context.status;
     }
 
-    status = serialization::detail::write_field(writer, field.property, object, field.schema,
+    status = serialization::detail::write_field(writer, field.property, object, field,
                                                 nested_context.value);
     if (status) {
       return status;

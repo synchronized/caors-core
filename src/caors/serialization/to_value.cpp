@@ -5,6 +5,7 @@
 
 #include "caors/meta/instance.h"
 #include "caors/meta/property.h"
+#include "caors/meta/registry.h"
 #include "caors/meta/type.h"
 #include "caors/meta/value/any.h"
 #include "caors/meta/value/any_ref.h"
@@ -12,7 +13,6 @@
 
 #include "detail/helpers.h"
 #include "detail/internal.h"
-#include "detail/type_plan.h"
 
 #include <utility>
 
@@ -81,20 +81,26 @@ variant_result to_serialization_value(const serialization::context& context, con
     return {{error_domain::serialization, errc::invalid_argument}, {}};
   }
 
-  result<const serialization::detail::type_plan*> plan_result =
-      serialization::detail::find_type_plan(type);
-  if (plan_result.failed()) {
-    return {plan_result.status, {}};
+  const serialization::type_schema* schema =
+      meta::get_registry().find_extension_ptr<serialization::type_schema>(type.id());
+  if (schema == nullptr) {
+    return {{error_domain::serialization, errc::missing_type}, {}};
   }
 
-  const serialization::detail::type_plan& plan = *plan_result.value;
-  variant::object_type members;
-  members.reserve(plan.fields.size());
+  if (!schema->valid()) {
+    return {{error_domain::serialization, errc::invalid_type}, {}};
+  }
 
-  for (const serialization::detail::planned_field& field : plan.fields) {
-    if (field.schema.skipped ||
-        !serialization::detail::field_visible_in_context(field.schema, context)) {
+  variant::object_type members;
+  members.reserve(schema->fields.size());
+
+  for (const serialization::field_schema& field : schema->fields) {
+    if (field.skipped || !serialization::detail::field_visible_in_context(field, context)) {
       continue;
+    }
+
+    if (!field.property) {
+      return {{error_domain::serialization, errc::not_found}, {}};
     }
 
     variant_result serialized = field_to_serialization_value(field.property, object, context);
@@ -103,8 +109,8 @@ variant_result to_serialization_value(const serialization::context& context, con
     }
 
     members.push_back(meta::variant_member{
-        serialization::detail::serialized_field_name(field.schema),
-        field.schema.field_id,
+        serialization::detail::serialized_field_name(field),
+        field.field_id,
         std::move(serialized.value),
     });
   }
