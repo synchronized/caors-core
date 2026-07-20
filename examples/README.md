@@ -30,6 +30,7 @@ cmake --build --preset windows-clang-debug --target caors_example_version_basic
 
 示例按主题目录组织：
 
+- `alpha/`：注册、资源配置、asset manager、资源加载、引用解析和保存的最小闭环。
 - `version/`：版本信息 API。
 - `memory/`：内存资源、分配器、策略资源和调试跟踪。
 - `meta/`：类型级 capability facade、运行期值和 descriptor-backed 能力查询。
