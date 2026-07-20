@@ -4,6 +4,7 @@
 #include "caors/assets/project_config.h"
 
 #include "caors/io/location.h"
+#include "caors/serialization/operations.h"
 
 #include <cstdint>
 #include <limits>
@@ -386,6 +387,122 @@ template <typename Reader>
                     [&](const variant& entry) { return read_preload_root(target, entry); });
 }
 
+void add_member(variant::object_type& members, std::string_view name, variant value) {
+  members.push_back(meta::variant_member{core::string_name{name}, 0, std::move(value)});
+}
+
+void add_name_member(variant::object_type& members, std::string_view name,
+                     core::string_name value) {
+  if (value) {
+    add_member(members, name, variant::from(value.view()));
+  }
+}
+
+void add_path_member(variant::object_type& members, std::string_view name, io::path_view value,
+                     memory_resource* resource) {
+  (void)resource;
+  if (value.empty()) {
+    return;
+  }
+
+  add_member(members, name, variant::from(value.string_view()));
+}
+
+void add_location_member(variant::object_type& members, std::string_view name,
+                         io::location_view value, memory_resource* resource) {
+  (void)resource;
+  if (value.empty()) {
+    return;
+  }
+
+  add_member(members, name, variant::from(value.string_view()));
+}
+
+void add_options_member(variant::object_type& members, const variant& options) {
+  if (!options.is_null()) {
+    add_member(members, "options", options);
+  }
+}
+
+[[nodiscard]] variant make_route_value(const project_file_system_route_config& route,
+                                       memory_resource* resource) {
+  variant::object_type members{typename variant::object_type::allocator_type{resource}};
+  add_location_member(members, "prefix", route.prefix, resource);
+  add_name_member(members, "target", route.target);
+  add_path_member(members, "target_prefix", route.target_prefix, resource);
+  return variant::object(std::move(members));
+}
+
+[[nodiscard]] variant make_file_system_value(const project_file_system_config& file_system,
+                                             memory_resource* resource) {
+  variant::object_type members{typename variant::object_type::allocator_type{resource}};
+  add_name_member(members, "name", file_system.name);
+  add_name_member(members, "type", file_system.type);
+  add_path_member(members, "root", file_system.root, resource);
+
+  if (!file_system.routes.empty()) {
+    variant::array_type routes{typename variant::array_type::allocator_type{resource}};
+    routes.reserve(file_system.routes.size());
+    for (const project_file_system_route_config& route : file_system.routes) {
+      routes.push_back(make_route_value(route, resource));
+    }
+    add_member(members, "routes", variant::array(std::move(routes)));
+  }
+
+  add_options_member(members, file_system.options);
+  return variant::object(std::move(members));
+}
+
+[[nodiscard]] variant make_source_value(const project_source_config& source,
+                                        memory_resource* resource) {
+  variant::object_type members{typename variant::object_type::allocator_type{resource}};
+  add_name_member(members, "name", source.name);
+  add_name_member(members, "type", source.type);
+  add_name_member(members, "file_system", source.file_system);
+  add_path_member(members, "root", source.root, resource);
+  add_options_member(members, source.options);
+  return variant::object(std::move(members));
+}
+
+[[nodiscard]] variant make_resource_type_value(const project_resource_type_config& type,
+                                               memory_resource* resource) {
+  variant::object_type members{typename variant::object_type::allocator_type{resource}};
+  add_name_member(members, "type", type.type);
+  add_name_member(members, "loader", type.loader);
+  add_name_member(members, "cache", type.cache);
+  add_options_member(members, type.options);
+  return variant::object(std::move(members));
+}
+
+[[nodiscard]] variant make_resource_value(const project_resource_config& resource_config,
+                                          memory_resource* resource) {
+  variant::object_type members{typename variant::object_type::allocator_type{resource}};
+  const std::string guid_text = resource_config.guid.string();
+  add_member(members, "guid", variant::from(std::string_view{guid_text.data(), guid_text.size()}));
+  add_name_member(members, "source", resource_config.source);
+  add_location_member(members, "location", resource_config.location, resource);
+  add_name_member(members, "type", resource_config.type);
+  if (!resource_config.hash.empty()) {
+    add_member(members, "hash", variant::from(string_view_of(resource_config.hash)));
+  }
+  if (resource_config.version != 0) {
+    add_member(members, "version", variant::from(resource_config.version));
+  }
+  return variant::object(std::move(members));
+}
+
+[[nodiscard]] variant make_dependency_value(const project_dependency_config& dependency,
+                                            memory_resource* resource) {
+  variant::object_type members{typename variant::object_type::allocator_type{resource}};
+  const std::string resource_text = dependency.resource.string();
+  const std::string dependency_text = dependency.dependency.string();
+  add_member(members, "resource",
+             variant::from(std::string_view{resource_text.data(), resource_text.size()}));
+  add_member(members, "dependency",
+             variant::from(std::string_view{dependency_text.data(), dependency_text.size()}));
+  return variant::object(std::move(members));
+}
+
 } // namespace
 
 error load_project_config(project_config& target, const variant& value) {
@@ -397,6 +514,74 @@ error load_project_config(project_config& target, const variant& value) {
 
   target = std::move(loaded);
   return {};
+}
+
+variant to_value(const project_config& config, memory_resource* resource) {
+  memory_resource* output_resource = resource != nullptr ? resource : config.resource;
+  variant::object_type members{typename variant::object_type::allocator_type{output_resource}};
+  add_member(members, "schema_version",
+             variant::from(static_cast<std::uint64_t>(config.schema_version)));
+
+  if (!config.file_systems.empty()) {
+    variant::array_type values{typename variant::array_type::allocator_type{output_resource}};
+    values.reserve(config.file_systems.size());
+    for (const project_file_system_config& file_system : config.file_systems) {
+      values.push_back(make_file_system_value(file_system, output_resource));
+    }
+    add_member(members, "file_systems", variant::array(std::move(values)));
+  }
+
+  if (!config.sources.empty()) {
+    variant::array_type values{typename variant::array_type::allocator_type{output_resource}};
+    values.reserve(config.sources.size());
+    for (const project_source_config& source : config.sources) {
+      values.push_back(make_source_value(source, output_resource));
+    }
+    add_member(members, "sources", variant::array(std::move(values)));
+  }
+
+  if (!config.resource_types.empty()) {
+    variant::array_type values{typename variant::array_type::allocator_type{output_resource}};
+    values.reserve(config.resource_types.size());
+    for (const project_resource_type_config& type : config.resource_types) {
+      values.push_back(make_resource_type_value(type, output_resource));
+    }
+    add_member(members, "resource_types", variant::array(std::move(values)));
+  }
+
+  if (!config.resources.empty()) {
+    variant::array_type values{typename variant::array_type::allocator_type{output_resource}};
+    values.reserve(config.resources.size());
+    for (const project_resource_config& resource_config : config.resources) {
+      values.push_back(make_resource_value(resource_config, output_resource));
+    }
+    add_member(members, "resources", variant::array(std::move(values)));
+  }
+
+  if (!config.dependencies.empty()) {
+    variant::array_type values{typename variant::array_type::allocator_type{output_resource}};
+    values.reserve(config.dependencies.size());
+    for (const project_dependency_config& dependency : config.dependencies) {
+      values.push_back(make_dependency_value(dependency, output_resource));
+    }
+    add_member(members, "dependencies", variant::array(std::move(values)));
+  }
+
+  if (!config.preload_roots.empty()) {
+    variant::array_type values{typename variant::array_type::allocator_type{output_resource}};
+    values.reserve(config.preload_roots.size());
+    for (resource_guid guid : config.preload_roots) {
+      const std::string guid_text = guid.string();
+      values.push_back(variant::from(std::string_view{guid_text.data(), guid_text.size()}));
+    }
+    add_member(members, "preload", variant::array(std::move(values)));
+  }
+
+  return variant::object(std::move(members));
+}
+
+error write_project_config(const project_config& config, serialization::writer& writer) {
+  return serialization::write_variant(writer, to_value(config));
 }
 
 } // namespace caors::assets

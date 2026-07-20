@@ -14,9 +14,9 @@
 - `resources`：底层资源核心，不绑定工程配置和具体格式。
 - `assets`：工程配置和运行期资源环境构建层，包含 `project_config`、`asset_manager`、source/type
   factory 和基于 reader/writer 的 `load_serialized()` / `save_serialized()` helper。
-- `assets/config_schema.h`：source/type factory option schema 和 `factory_options_view`。
+- `assets/config_schema.h`：file_system/source/type factory option schema 和 `factory_options_view`。
 - `assets::json`：JSON 格式适配层，包含 JSON manifest / project config 读入、`json::loader<T>`、
-  `json::saver<T>` 和 JSON type factory 薄包装。
+  `json::saver<T>`、project config 写出和 JSON type factory 薄包装。
 
 推荐 include：
 
@@ -120,6 +120,28 @@ caors::error status =
 `assets::json::project_config_loader` 只是 JSON 格式适配。后续 YAML、二进制包索引、远程工程配置或编辑器
 数据库可以实现同一个 `project_config_loader` 接口，asset manager 不需要关心具体配置格式。
 
+配置保存有两层入口：
+
+```cpp
+caors::assets::project_config config;
+
+caors::variant dom = caors::assets::to_value(config);
+
+caors::serialization::serialization_text_result json =
+    caors::assets::json::save_project_config(config);
+
+caors::string output;
+caors::error status = caors::assets::json::save_project_config_to(config, output);
+
+caors::resources::file_source source{file_system};
+status = caors::assets::json::save_project_config_to(config, source, "project.caors");
+```
+
+`assets::to_value()` 和 `assets::write_project_config()` 是格式无关入口，JSON 只是其中一个 writer 适配。
+保存会写回 `schema_version`、`file_systems`、`sources`、`resource_types`、`resources`、`dependencies`
+和 `preload`，因此可以做 `project_config -> JSON -> project_config` roundtrip。运行期对象仍不会被保存，
+只保存足够重建它们的配置描述。
+
 ## asset_manager
 
 `assets::asset_manager` 是第一版拥有式运行期外壳。它持有 `manifest`、`provider`、
@@ -153,6 +175,7 @@ caors::resources::preload_result result = assets.preload(texture_id);
 - `build_detailed(config)`：执行同样构建流程，但返回 `asset_build_result`，用于定位失败阶段和可读原因。
 - `bind_file_system()` / `find_file_system()`：手动绑定或查询外部 file_system；配置创建的
   file_system 会在下一次 `build()` 前清理，手动绑定会保留。
+- `register_file_system_factory()`：把 `file_systems[].type` 策略名映射到运行期 file_system 创建逻辑。
 - `bind_source()` / `find_source()`：手动绑定或查询外部 source；配置创建的 source 会在下一次
   `build()` 前清理，手动绑定会保留。
 - `find<T>(guid)` / `find(guid)`：查询内部已注册 cache 中的资源。
@@ -179,7 +202,37 @@ context.resolvers.external_refs.resolution =
 
 ## Factory 扩展
 
-外部扩展可以注册自己的 source/type factory。factory 会收到 context 和可选 `user_data`：
+外部扩展可以注册自己的 file_system/source/type factory。factory 会收到 context 和可选 `user_data`。
+
+file_system factory 用来把 `file_systems[]` 配置转换成运行期 `io::file_system`：
+
+```cpp
+struct editor_file_system_state {
+  editor_server* server = nullptr;
+};
+
+caors::error make_editor_file_system(
+    caors::assets::asset_manager::file_system_factory_context& context,
+    const caors::assets::project_file_system_config& config,
+    void* user_data) {
+  auto* state = static_cast<editor_file_system_state*>(user_data);
+  auto* file_system =
+      context.manager.create_owned<editor_file_system>(state->server, config.root);
+  if (file_system == nullptr) {
+    return {caors::error_domain::resources, caors::errc::out_of_memory};
+  }
+
+  return context.manager.bind_file_system(config.name, *file_system);
+}
+
+editor_file_system_state fs_state{&server};
+assets.register_file_system_factory(
+    caors::string_name{"editor_file_system"},
+    &make_editor_file_system,
+    &fs_state);
+```
+
+source factory 用来把 `sources[]` 配置转换成运行期 `resources::source`：
 
 ```cpp
 struct pak_state {
@@ -303,6 +356,8 @@ caors::serialization::config_validation_result validation =
 
 - `assets::json::load_manifest()`：从 JSON DOM、文本或 source 读入资源 manifest。
 - `assets::json::load_project_config()`：从 JSON DOM、文本或 source 读入 `project_config`。
+- `assets::json::save_project_config()`：把 `project_config` 保存为 JSON 字符串。
+- `assets::json::save_project_config_to()`：把 `project_config` 写入调用方提供的字符串或 source。
 - `assets::json::project_config_loader`：把 JSON 配置适配到格式无关 `assets::project_config_loader` 接口。
 - `assets::json::loader<T>`：从 provider 打开 JSON 输入流，再通过 `assets::load_serialized<T>()`
   构造资源。
@@ -333,5 +388,22 @@ caors::error saved = saver.save(**loaded);
   由调用方保证。
 - `json::saver<T>` 要求资源携带非 nil GUID，且 provider 中已有对应 GUID 绑定；绑定到只读 source 时会返回
   `errc::unsupported`。
+
+## VFS / Source / Loader 关系
+
+当前资源读取链路按职责分层：
+
+- `io::file_system`：只负责路径或 URI 到字节流的访问。`memory_file_system`、`native_file_system`、
+  `mount_file_system`、`file_system_resolver` 都属于这一层。
+- `resources::source`：把 file_system 或其他字节来源适配给资源层，提供 `open_read()` /
+  `open_write()`。一个 source 可以指向 VFS，也可以指向普通 native/memory file_system。
+- `resources::provider`：保存 `guid -> source + location` 绑定。它不解析格式，也不持有资源对象。
+- `resources::loader<T>`：从 provider 打开输入流，并把字节反序列化为 `T`。
+- `resources::cache<T>`：按 GUID 持有已经加载完成的 `T`。
+- `resources::database` / `assets::asset_manager`：把 manifest、provider、loader 和 cache 拼起来，提供
+  `load()`、`reload()`、`preload()` 和异步请求入口。
+
+因此 VFS 不替代 source；VFS 解决“从哪里打开字节”，source 解决“资源层如何统一打开字节”。配置中
+`file_systems[]` 先描述可访问的文件系统，再由 `sources[]` 选择其中一个 file_system 形成资源来源。
 
 高层 assets 配置、JSON loader/saver 和 asset manager 测试位于 `tests/assets/`。

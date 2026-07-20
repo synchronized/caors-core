@@ -103,6 +103,39 @@ public:
     resources::database& database;
   };
 
+  /** @brief file_system 工厂调用时收到的运行期上下文。 */
+  struct file_system_factory_context {
+    /** @brief 正在构建资源环境的 asset_manager。 */
+    asset_manager& manager;
+    /** @brief asset_manager 内部对象默认使用的内存资源。 */
+    memory_resource* resource = nullptr;
+  };
+
+  /** @brief file_system 策略名到运行期 file_system 构造逻辑的函数表。 */
+  struct file_system_factory_ops {
+    using create_fn = error (*)(file_system_factory_context& context,
+                                const project_file_system_config& config, void* user_data);
+
+    file_system_factory_ops() = default;
+    file_system_factory_ops(create_fn value, void* data = nullptr)
+        : create(value), user_data(data) {}
+    file_system_factory_ops(create_fn value, void* data, factory_option_schema option_schema)
+        : create(value), user_data(data), schema(std::move(option_schema)) {}
+
+    create_fn create = nullptr;
+    /** @brief 传给 create 的外部状态；asset_manager 不拥有它。 */
+    void* user_data = nullptr;
+    /** @brief 该 file_system factory 接受的 options 形态。 */
+    factory_option_schema schema{};
+
+    [[nodiscard]] constexpr bool valid() const noexcept { return create != nullptr; }
+    [[nodiscard]] error operator()(asset_manager& manager,
+                                   const project_file_system_config& config) const {
+      file_system_factory_context context{manager, manager.resource()};
+      return create(context, config, user_data);
+    }
+  };
+
   /** @brief source 策略名到运行期 source 构造逻辑的函数表。 */
   struct source_factory_ops {
     using create_fn = error (*)(source_factory_context& context,
@@ -203,6 +236,30 @@ public:
 
   /** @brief 查询 file_system 绑定数量。 */
   [[nodiscard]] std::size_t file_system_count() const noexcept { return file_systems_.size(); }
+
+  /** @brief 注册 file_system 策略名到运行期 file_system 构造函数。 */
+  [[nodiscard]] error register_file_system_factory(core::string_name type,
+                                                   file_system_factory_ops factory);
+  /** @brief 注册 file_system 策略名到运行期 file_system 构造函数和可选外部状态。 */
+  [[nodiscard]] error register_file_system_factory(core::string_name type,
+                                                   file_system_factory_ops::create_fn create,
+                                                   void* user_data = nullptr) {
+    return register_file_system_factory(type, file_system_factory_ops{create, user_data});
+  }
+  /** @brief 注册带 option schema 且无外部状态的 file_system 策略构造函数。 */
+  [[nodiscard]] error register_file_system_factory(core::string_name type,
+                                                   file_system_factory_ops::create_fn create,
+                                                   factory_option_schema schema) {
+    return register_file_system_factory(
+        type, file_system_factory_ops{create, nullptr, std::move(schema)});
+  }
+  /** @brief 注册带 option schema 的 file_system 策略构造函数。 */
+  [[nodiscard]] error register_file_system_factory(core::string_name type,
+                                                   file_system_factory_ops::create_fn create,
+                                                   void* user_data, factory_option_schema schema) {
+    return register_file_system_factory(
+        type, file_system_factory_ops{create, user_data, std::move(schema)});
+  }
 
   /** @brief 按配置名称绑定运行期 source。asset_manager 不拥有 source。 */
   [[nodiscard]] error bind_source(core::string_name name, resources::source& source);
@@ -444,6 +501,7 @@ public:
   }
 
 private:
+  using file_system_factory_map = core::hash_map<core::string_name, file_system_factory_ops>;
   using source_factory_map = core::hash_map<core::string_name, source_factory_ops>;
   using type_factory_map = core::hash_map<core::string_name, type_factory_ops>;
 
@@ -508,7 +566,20 @@ private:
                                                 asset_build_result::reason_list& reasons);
   [[nodiscard]] error ensure_type_from_config(const project_resource_type_config& config,
                                               asset_build_result::reason_list& reasons);
+  [[nodiscard]] error register_builtin_file_system_factories();
   [[nodiscard]] error register_builtin_source_factories();
+  [[nodiscard]] static error make_memory_file_system(file_system_factory_context& context,
+                                                     const project_file_system_config& config,
+                                                     void* user_data);
+  [[nodiscard]] static error make_native_file_system(file_system_factory_context& context,
+                                                     const project_file_system_config& config,
+                                                     void* user_data);
+  [[nodiscard]] static error make_resolver_file_system(file_system_factory_context& context,
+                                                       const project_file_system_config& config,
+                                                       void* user_data);
+  [[nodiscard]] static error make_mount_file_system(file_system_factory_context& context,
+                                                    const project_file_system_config& config,
+                                                    void* user_data);
   [[nodiscard]] static error make_memory_file_source(source_factory_context& context,
                                                      const project_source_config& config,
                                                      void* user_data);
@@ -555,6 +626,7 @@ private:
   resources::database database_;
   file_system_map file_systems_;
   source_map sources_;
+  file_system_factory_map file_system_factories_;
   source_factory_map source_factories_;
   type_factory_map type_factories_;
   owned_object_list owned_objects_;

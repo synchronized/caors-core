@@ -14,6 +14,12 @@
 
 #include <cstdint>
 
+namespace caors::serialization {
+
+class writer;
+
+} // namespace caors::serialization
+
 namespace caors::assets {
 
 /** @brief 工程资源来源描述。运行期 source 对象由 asset_manager 工厂或上层代码创建。 */
@@ -130,6 +136,14 @@ struct project_config {
 
 /** @brief 从 DOM 配置读入资源工程描述。 */
 [[nodiscard]] CAORS_API error load_project_config(project_config& target, const variant& value);
+
+/** @brief 把资源工程描述转换为可写出的 DOM 配置。 */
+[[nodiscard]] CAORS_API variant to_value(const project_config& config,
+                                         memory_resource* resource = nullptr);
+
+/** @brief 把资源工程描述写入序列化 writer。 */
+[[nodiscard]] CAORS_API error write_project_config(const project_config& config,
+                                                   serialization::writer& writer);
 
 } // namespace caors::assets
 

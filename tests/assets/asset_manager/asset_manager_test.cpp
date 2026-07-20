@@ -191,6 +191,13 @@ struct external_source_factory_state {
   std::string mount;
 };
 
+struct external_file_system_factory_state {
+  int calls = 0;
+  caors::memory_resource* resource = nullptr;
+  caors::io::memory_file_system* file_system = nullptr;
+  std::string label;
+};
+
 struct typed_external_source_config {
   std::string mount;
   bool read_only = false;
@@ -279,6 +286,28 @@ make_external_memory_source(caors::assets::asset_manager::source_factory_context
   }
 
   return context.manager.bind_source(config.name, *state.source);
+}
+
+[[nodiscard]] caors::error
+make_external_memory_file_system(caors::assets::asset_manager::file_system_factory_context& context,
+                                 const caors::assets::project_file_system_config& config,
+                                 void* user_data) {
+  if (user_data == nullptr) {
+    return {caors::error_domain::resources, caors::errc::invalid_argument};
+  }
+
+  auto& state = *static_cast<external_file_system_factory_state*>(user_data);
+  ++state.calls;
+  state.resource = context.resource;
+  const caors::assets::factory_options_view options{config.options};
+  (void)options.read(caors::string_name{"label"}, state.label);
+
+  state.file_system = context.manager.create_owned<caors::io::memory_file_system>(context.resource);
+  if (state.file_system == nullptr) {
+    return {caors::error_domain::resources, caors::errc::out_of_memory};
+  }
+
+  return context.manager.bind_file_system(config.name, *state.file_system);
 }
 
 [[nodiscard]] caors::error
@@ -551,6 +580,167 @@ TEST_CASE("resources - asset_manager builds configured file systems and file sou
   REQUIRE(loaded.succeeded());
   REQUIRE(loaded.value != nullptr);
   CHECK(loaded.value->width == 300);
+}
+
+TEST_CASE("resources - asset_manager accepts external file system factory", "[resources]") {
+  require_serialized_resource_metadata();
+
+  std::string json{R"({
+    "file_systems": [
+      {
+        "name": "memory",
+        "type": "external_memory",
+        "options": {
+          "label": "editor"
+        }
+      },
+      {
+        "name": "vfs",
+        "type": "resolver",
+        "routes": [
+          {
+            "prefix": "caors://assets",
+            "target": "memory"
+          }
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "name": "assets",
+        "file_system": "vfs"
+      }
+    ],
+    "resource_types": [
+      {
+        "type": "game.serialized",
+        "loader": "json",
+        "cache": "memory"
+      }
+    ],
+    "resources": [
+      {
+        "guid": ")"};
+  json += test_guid_a.string();
+  json += R"(",
+        "source": "assets",
+        "location": "caors://assets/resource-a.json",
+        "type": "game.serialized"
+      }
+    ]
+  })";
+
+  caors::assets::project_config config;
+  REQUIRE(caors::assets::json::load_project_config(config, json).succeeded());
+
+  external_file_system_factory_state state;
+  caors::assets::factory_option_schema schema;
+  schema.require(caors::string_name{"label"}, caors::assets::factory_option_kind::string)
+      .non_empty(caors::string_name{"label"});
+
+  caors::assets::asset_manager assets;
+  REQUIRE(assets
+              .register_file_system_factory(caors::string_name{"external_memory"},
+                                            &make_external_memory_file_system, &state, schema)
+              .succeeded());
+  REQUIRE(caors::assets::json::register_type_factory<serialized_resource>(
+              assets, serialized_manifest_type())
+              .succeeded());
+  REQUIRE(assets.build(config).succeeded());
+
+  CHECK(state.calls == 1);
+  CHECK(state.resource == assets.resource());
+  CHECK(state.label == "editor");
+  REQUIRE(state.file_system != nullptr);
+  REQUIRE(state.file_system->write_all("resource-a.json", std::string_view{R"({"width":301})"})
+              .succeeded());
+
+  caors::result<serialized_resource*> loaded = assets.load<serialized_resource>(test_guid_a);
+  REQUIRE(loaded.succeeded());
+  REQUIRE(loaded.value != nullptr);
+  CHECK(loaded.value->width == 301);
+}
+
+TEST_CASE("resources - asset_manager routes source through resolver and mount file systems",
+          "[resources]") {
+  require_serialized_resource_metadata();
+
+  std::string json{R"({
+    "file_systems": [
+      {
+        "name": "memory",
+        "type": "memory"
+      },
+      {
+        "name": "mounted",
+        "type": "mount",
+        "routes": [
+          {
+            "prefix": "/assets",
+            "target": "memory",
+            "target_prefix": "pack"
+          }
+        ]
+      },
+      {
+        "name": "vfs",
+        "type": "resolver",
+        "routes": [
+          {
+            "prefix": "caors://game",
+            "target": "mounted"
+          }
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "name": "assets",
+        "file_system": "vfs"
+      }
+    ],
+    "resource_types": [
+      {
+        "type": "game.serialized",
+        "loader": "json",
+        "cache": "memory"
+      }
+    ],
+    "resources": [
+      {
+        "guid": ")"};
+  json += test_guid_a.string();
+  json += R"(",
+        "source": "assets",
+        "location": "caors://game/assets/resource-a.json",
+        "type": "game.serialized"
+      }
+    ]
+  })";
+
+  caors::assets::project_config config;
+  REQUIRE(caors::assets::json::load_project_config(config, json).succeeded());
+
+  caors::assets::asset_manager assets;
+  REQUIRE(caors::assets::json::register_type_factory<serialized_resource>(
+              assets, serialized_manifest_type())
+              .succeeded());
+  REQUIRE(assets.build(config).succeeded());
+
+  auto* memory = dynamic_cast<caors::io::memory_file_system*>(
+      assets.find_file_system(caors::string_name{"memory"}));
+  REQUIRE(memory != nullptr);
+  REQUIRE(
+      memory->write_all("pack/resource-a.json", std::string_view{R"({"width":302})"}).succeeded());
+
+  auto* vfs = assets.find_file_system(caors::string_name{"vfs"});
+  REQUIRE(vfs != nullptr);
+  CHECK(vfs->exists("caors://game/assets/resource-a.json"));
+
+  caors::result<serialized_resource*> loaded = assets.load<serialized_resource>(test_guid_a);
+  REQUIRE(loaded.succeeded());
+  REQUIRE(loaded.value != nullptr);
+  CHECK(loaded.value->width == 302);
 }
 
 TEST_CASE("resources - asset_manager creates configured source cache and loader from factories",

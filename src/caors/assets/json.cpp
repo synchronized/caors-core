@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <string_view>
+#include <utility>
 
 namespace caors::assets::json {
 namespace {
@@ -163,6 +164,45 @@ error load_project_config(project_config& target, resources::source& resource_so
   }
 
   return assets::load_project_config(target, parsed.value);
+}
+
+error save_project_config_to(const project_config& source, string& output,
+                             serialization::json_options options) {
+  serialization::json_writer writer{output, options};
+  return assets::write_project_config(source, writer);
+}
+
+error save_project_config_to(const project_config& source, resources::source& resource_source,
+                             io::location_view location, serialization::json_options options,
+                             memory_resource* resource) {
+  if (location.empty()) {
+    return {error_domain::resources, errc::invalid_argument};
+  }
+
+  io::output_stream_result stream =
+      resource_source.open_write(location, resource != nullptr ? resource : source.resource);
+  if (stream.failed()) {
+    return stream.status;
+  }
+
+  serialization::json_writer writer{*stream.value, options};
+  const error status = assets::write_project_config(source, writer);
+  if (status) {
+    return status;
+  }
+
+  return stream.value->close();
+}
+
+serialization::serialization_text_result save_project_config(const project_config& source,
+                                                             serialization::json_options options) {
+  string output{allocator<char>{source.resource}};
+  const error status = save_project_config_to(source, output, options);
+  if (status) {
+    return {status, {}};
+  }
+
+  return {{}, std::move(output)};
 }
 
 } // namespace caors::assets::json

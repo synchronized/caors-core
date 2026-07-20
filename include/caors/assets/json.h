@@ -127,6 +127,21 @@ private:
                                                   io::location_view location,
                                                   memory_resource* resource = nullptr);
 
+/** @brief 把资源工程描述写入 JSON 字符串。 */
+[[nodiscard]] CAORS_API error save_project_config_to(const project_config& source, string& output,
+                                                     serialization::json_options options = {});
+
+/** @brief 把资源工程描述写入资源字节来源。 */
+[[nodiscard]] CAORS_API error save_project_config_to(const project_config& source,
+                                                     resources::source& resource_source,
+                                                     io::location_view location,
+                                                     serialization::json_options options = {},
+                                                     memory_resource* resource = nullptr);
+
+/** @brief 把资源工程描述保存为 JSON 字符串。 */
+[[nodiscard]] CAORS_API serialization::serialization_text_result
+save_project_config(const project_config& source, serialization::json_options options = {});
+
 /**
  * @brief 注册默认 JSON 资源类型工厂。
  *

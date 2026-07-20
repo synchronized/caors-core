@@ -202,3 +202,113 @@ TEST_CASE("assets - project config can load through format agnostic loader", "[a
   REQUIRE(config.preload_roots.size() == 1);
   CHECK(config.preload_roots[0] == test_guid_b);
 }
+
+TEST_CASE("assets - project config can save and roundtrip file systems", "[assets]") {
+  std::string json{R"({
+    "schema_version": 1,
+    "file_systems": [
+      {
+        "name": "memory",
+        "type": "memory_file_system",
+        "options": {
+          "label": "debug"
+        }
+      },
+      {
+        "name": "mounted",
+        "type": "mount",
+        "routes": [
+          {
+            "prefix": "/assets",
+            "target": "memory",
+            "target_prefix": "pack"
+          }
+        ]
+      },
+      {
+        "name": "vfs",
+        "type": "resolver",
+        "routes": [
+          {
+            "prefix": "caors://game",
+            "target": "mounted"
+          }
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "name": "assets",
+        "file_system": "vfs"
+      }
+    ],
+    "resource_types": [
+      {
+        "type": "caors.test.resources.serialized_resource",
+        "loader": "json",
+        "cache": "memory"
+      }
+    ],
+    "resources": [
+      {
+        "guid": "6cd2da3d-b549-4756-8b8b-0c84293af410",
+        "source": "assets",
+        "location": "caors://game//assets/resource.json",
+        "type": "caors.test.resources.serialized_resource",
+        "hash": "hash",
+        "version": 7
+      }
+    ],
+    "dependencies": [
+      {
+        "resource": "0c2f82f8-2b3e-4f77-965c-4f2d1c4a907a",
+        "dependency": "6cd2da3d-b549-4756-8b8b-0c84293af410"
+      }
+    ],
+    "preload": [
+      "0c2f82f8-2b3e-4f77-965c-4f2d1c4a907a"
+    ]
+  })"};
+
+  caors::assets::project_config config;
+  REQUIRE(caors::assets::json::load_project_config(config, json).succeeded());
+
+  const caors::serialization::serialization_text_result saved =
+      caors::assets::json::save_project_config(config);
+  REQUIRE(saved.succeeded());
+
+  caors::assets::project_config roundtrip;
+  REQUIRE(caors::assets::json::load_project_config(roundtrip, saved.value).succeeded());
+
+  REQUIRE(roundtrip.file_systems.size() == 3);
+  CHECK(roundtrip.file_systems[0].name == caors::string_name{"memory"});
+  CHECK(roundtrip.file_systems[0].type == caors::string_name{"memory_file_system"});
+  REQUIRE(roundtrip.file_systems[0].options.is_object());
+  CHECK(roundtrip.file_systems[0]
+            .options.find_member_variant(caors::string_name{"label"})
+            ->as_string() == std::string_view{"debug"});
+  REQUIRE(roundtrip.file_systems[1].routes.size() == 1);
+  CHECK(roundtrip.file_systems[1].routes[0].prefix.string_view() == "assets");
+  CHECK(roundtrip.file_systems[1].routes[0].target == caors::string_name{"memory"});
+  CHECK(roundtrip.file_systems[1].routes[0].target_prefix.string_view() == "pack");
+  CHECK(roundtrip.file_systems[2].routes[0].prefix.string_view() == "caors://game");
+
+  REQUIRE(roundtrip.sources.size() == 1);
+  CHECK(roundtrip.sources[0].type == caors::string_name{"file_system"});
+  CHECK(roundtrip.sources[0].file_system == caors::string_name{"vfs"});
+
+  REQUIRE(roundtrip.resources.size() == 1);
+  CHECK(roundtrip.resources[0].location.string_view() ==
+        std::string_view{"caors://game/assets/resource.json"});
+  CHECK(roundtrip.resources[0].version == 7);
+
+  caors::io::memory_file_system files;
+  caors::resources::file_source source{files};
+  REQUIRE(caors::assets::json::save_project_config_to(config, source, "project.caors").succeeded());
+
+  caors::assets::project_config from_source;
+  REQUIRE(
+      caors::assets::json::load_project_config(from_source, source, "project.caors").succeeded());
+  CHECK(from_source.file_systems.size() == roundtrip.file_systems.size());
+  CHECK(from_source.resources[0].guid == test_guid_a);
+}
