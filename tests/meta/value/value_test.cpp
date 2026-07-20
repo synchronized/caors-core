@@ -107,7 +107,7 @@ TEST_CASE("meta value - integrates with property and method runtime APIs", "[met
   const caors::meta::property hp = reflected.find_property("hp");
   REQUIRE(hp);
 
-  caors::meta::value hp_value = hp.get(instance);
+  caors::meta::value hp_value = hp.get_value(instance);
   REQUIRE(hp_value.is_any());
   caors::any hp_any = hp_value.to_any();
   REQUIRE(hp_any.try_get<int>() != nullptr);
@@ -115,19 +115,19 @@ TEST_CASE("meta value - integrates with property and method runtime APIs", "[met
 
   CHECK(hp.try_set_value(instance, caors::meta::value::from_any(12)));
   CHECK(actor.hp == 12);
-  CHECK(instance.set_value("hp", caors::meta::value::from_any(14)));
+  CHECK(instance.set("hp", caors::meta::value::from_any(14)));
   CHECK(actor.hp == 14);
 
   std::array<caors::meta::value, 1> arguments{caors::meta::value::from_any(6)};
   caors::meta::invoke_value_result add_result =
-      reflected.find_method("add").invoke_value_result_of(instance, arguments);
+      reflected.find_method("add").invoke(instance, arguments);
   REQUIRE(add_result);
   REQUIRE(add_result.has_value());
   caors::any add_any = add_result.value().to_any();
   REQUIRE(add_any.try_get<int>() != nullptr);
   CHECK(*add_any.try_get<int>() == 20);
 
-  caors::meta::invoke_value_result ref_result = instance.call_value("ref");
+  caors::meta::invoke_value_result ref_result = instance.call("ref");
   REQUIRE(ref_result);
   REQUIRE(ref_result.has_value());
   caors::meta::any_ref ref = ref_result.value().as_ref();

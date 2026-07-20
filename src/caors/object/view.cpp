@@ -69,13 +69,22 @@ core::vector<meta::method_set> object_view::methods(memory_resource* resource) c
   return result;
 }
 
-any object_view::get(std::string_view name) const {
+meta::value object_view::get(std::string_view name) const {
   const meta::property reflected_property = find_property(name);
   if (!reflected_property || !value_) {
     return {};
   }
 
   return reflected_property.get_value(meta::instance{value_});
+}
+
+any object_view::get_any(std::string_view name) const {
+  const meta::property reflected_property = find_property(name);
+  if (!reflected_property || !value_) {
+    return {};
+  }
+
+  return reflected_property.get_any(meta::instance{value_});
 }
 
 any_ref object_view::get_ref(std::string_view name) const {
@@ -87,7 +96,7 @@ any_ref object_view::get_ref(std::string_view name) const {
   return reflected_property.get_ref(meta::instance{value_});
 }
 
-bool object_view::set(std::string_view name, const any& source) const {
+bool object_view::set(std::string_view name, const meta::value& source) const {
   const meta::property reflected_property = find_property(name);
   if (!reflected_property || !value_.writable()) {
     return false;
@@ -96,12 +105,21 @@ bool object_view::set(std::string_view name, const any& source) const {
   return reflected_property.try_set_value(meta::instance{value_}, source);
 }
 
-bool object_view::set(std::string_view name, const any_ref& source) const {
+bool object_view::set_ref(std::string_view name, const any_ref& source) const {
   const any_ref target = get_ref(name);
   return target.try_set(source);
 }
 
-any object_view::call(std::string_view name, std::span<const meta::argument> arguments) const {
+bool object_view::set_any(std::string_view name, const any& source) const {
+  const meta::property reflected_property = find_property(name);
+  if (!reflected_property || !value_.writable()) {
+    return false;
+  }
+
+  return reflected_property.try_set_any(meta::instance{value_}, source);
+}
+
+any object_view::call_any(std::string_view name, std::span<const meta::argument> arguments) const {
   const meta::method_set reflected_method = find_method(name);
   if (!reflected_method || !value_) {
     return {};
@@ -109,6 +127,18 @@ any object_view::call(std::string_view name, std::span<const meta::argument> arg
 
   meta::invoke_result result = reflected_method.invoke_result_of(meta::instance{value_}, arguments);
   return result.has_value() ? std::move(result.mutable_value()) : any{};
+}
+
+meta::invoke_value_result object_view::call(std::string_view name,
+                                            std::span<const meta::value> arguments) const {
+  const meta::method_set reflected_method = find_method(name);
+  if (!reflected_method || !value_) {
+    return meta::invoke_value_result::failed(!reflected_method
+                                                 ? meta::invoke_failure_reason::invalid_method
+                                                 : meta::invoke_failure_reason::invalid_object);
+  }
+
+  return reflected_method.invoke(meta::instance{value_}, arguments);
 }
 
 object* object_view::ptr() const noexcept {

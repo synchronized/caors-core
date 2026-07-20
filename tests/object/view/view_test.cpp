@@ -56,25 +56,27 @@ TEST_CASE("object - view reads writes and calls reflected object members", "[obj
   CHECK(object.properties().size() == 2);
   CHECK(object.methods().size() == 1);
 
-  const caors::any health = object.get("health");
-  REQUIRE(health.valid());
-  REQUIRE(health.try_get<int>() != nullptr);
-  CHECK(*health.try_get<int>() == 7);
+  const caors::meta::value health = object.get("health");
+  REQUIRE(health.is_any());
+  const caors::any health_any = health.to_any();
+  REQUIRE(health_any.try_get<int>() != nullptr);
+  CHECK(*health_any.try_get<int>() == 7);
 
   CHECK(object.set("health", 11));
   CHECK(owner.health == 11);
 
-  const caors::any result = object.call("add_health", 5);
-  REQUIRE(result.valid());
-  REQUIRE(result.try_get<int>() != nullptr);
-  CHECK(*result.try_get<int>() == 16);
+  const caors::meta::invoke_value_result result = object.call("add_health", 5);
+  REQUIRE(result.has_value());
+  const caors::any result_any = result.value().to_any();
+  REQUIRE(result_any.try_get<int>() != nullptr);
+  CHECK(*result_any.try_get<int>() == 16);
   CHECK(owner.health == 16);
 
   const caors::any_ref owner_ref = caors::any_ref::from(owner);
   caors::objects::object_view erased_object = caors::objects::view(owner_ref);
   REQUIRE(erased_object);
   CHECK(erased_object.ptr() == nullptr);
-  CHECK(erased_object.get("health").try_get<int>() != nullptr);
+  CHECK(erased_object.get_any("health").try_get<int>() != nullptr);
 }
 
 TEST_CASE("object - view reads and writes object pointer fields", "[object]") {

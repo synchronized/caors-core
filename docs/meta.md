@@ -176,20 +176,20 @@ caors::meta::method add_health = type.find_method("add_health").single();
 actor instance{};
 caors::meta::instance object = caors::meta::view(instance);
 
-object.set_value("health", caors::meta::value::from_any(120));
+object.set("health", caors::meta::value::from_any(120));
 
 std::array<caors::meta::value, 1> args{
     caors::meta::value::from_any(5),
 };
-caors::meta::invoke_value_result result = object.call_value("add_health", args);
+caors::meta::invoke_value_result result = object.call("add_health", args);
 
 if (result.has_value()) {
   caors::meta::value returned = result.value();
 }
 ```
 
-低层精确 C++ 入口仍然保留：属性拷贝值使用 `property::get_value()` 返回 `any`，属性引用使用
-`property::get_ref()` 返回 `any_ref`，方法完整调用结果使用 `invoke_result_of()` 返回
+高级精确 C++ 入口仍然保留：属性拷贝值使用 `property::get_any()` 返回 `any`，属性引用使用
+`property::get_ref()` 返回 `any_ref`，属性精确写入使用 `property::try_set_any()`，方法完整调用结果使用 `invoke_result_of()` 返回
 `invoke_result`。`invoke_value_result` 只把返回值统一包装为 `meta::value`，仍保留失败原因和
 `void` 成功语义。
 
@@ -672,7 +672,7 @@ caors::meta::module_view game = caors::meta::find_module("game");
 caors::meta::property version_property = game.find_property("version");
 caors::meta::method_set add_function = game.find_method("add");
 
-version_property.try_set_value(caors::any::from(2));
+version_property.try_set_any(caors::any::from(2));
 
 int left = 1;
 int right = 2;
@@ -690,11 +690,12 @@ module 和 class 的边界：
 - `meta::module(name).function(name, callable)` 支持函数指针、静态成员函数指针、唯一
   `operator()` 签名的 lambda 和函数对象。带捕获 lambda 会由 module method 持有；泛型 lambda
   或重载 `operator()` 的函数对象需要先包装成唯一签名。
-- module 上的 `property::get_value()`、`property::get_ref()`、`property::try_set_value()` 不接收对象地址。
+- module 上的 `property::get_any()`、`property::get_value()`、`property::get_ref()`、`property::try_set_any()`
+  和 `property::try_set_value()` 不接收对象地址。
 - module 上的 `method::invoke_result_of(args)` 和 `method_set::invoke_result_of(args)` 不接收对象地址；成员方法使用
   `invoke_result_of(object, args)`。
-- module 上也可以使用 `property::get()` / `property::try_set_value(meta::value)` 和
-  `method_set::invoke_value_result_of(span<const meta::value>)` 这类高层 `meta::value` 入口。
+- module 上也可以使用 `property::get_value()` / `property::try_set_value(meta::value)` 和
+  `method_set::invoke(span<const meta::value>)` 这类高层 `meta::value` 入口。
 - 调用结果统一使用 `meta::invoke_result` 表达，可以区分调用失败、`void` 成功、拥有值返回和引用返回。
 
 ### 属性 schema
@@ -1115,9 +1116,10 @@ traits 中提供可适配的 iterator 操作。容器 view 只依赖 `meta::type
 - `meta::registry`：全局 meta 类型注册、按 id/name/guid 或 C++ 类型查询、继承关系判断和 extension 元数据挂载。
 - `meta::value`：高频动态运行期值，内联保存常见标量、`string_name` 和 `meta::object*`，
   通过 `any_ref` 表达非拥有 C++ 引用，通过 `any` 兜底表达拥有的精确 C++ 类型值；它面向脚本、
-  编辑器、消息和动态调用，可持久化数据树仍使用 `meta::variant`。`property::get()`、
-  `property::try_set_value(meta::value)`、`method::invoke_value_result_of()`、`method_set::invoke_value_result_of()`
-  和 `instance::call_value()` 是当前高层动态调用入口。
+  编辑器、消息和动态调用，可持久化数据树仍使用 `meta::variant`。`property::get_value()`、
+  `property::try_set_value(meta::value)`、`method::invoke()`、`method_set::invoke()` 和 `instance::call()`
+  是当前高层动态调用入口；需要精确 C++ 拷贝时使用 `property::get_any()` / `instance::get_any()` /
+  `instance::call_any()`。
 - `meta::registry::extension_view<T...>`：按扩展数据集合查询类型。
 - `meta::run_registrations()`：执行已收集的延迟元数据注册函数。
 - `meta::init_registry()`：执行延迟元数据注册函数并校验注册表；不会阻止后续注册。

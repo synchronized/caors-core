@@ -99,7 +99,7 @@ TEST_CASE("meta any - fields expose copied runtime values", "[meta]") {
   const caors::meta::property readonly =
       require_reflected_field("caors.test.meta.value_reflected_holder", "readonly");
 
-  caors::any copied = value.get_value(caors::meta::view(holder));
+  caors::any copied = value.get_any(caors::meta::view(holder));
   CHECK(copied.valid());
   CHECK(copied.matches_type<int>());
   REQUIRE(copied.try_get<int>() != nullptr);
@@ -109,20 +109,20 @@ TEST_CASE("meta any - fields expose copied runtime values", "[meta]") {
   CHECK(*copied.try_get<int>() == 10);
   CHECK(holder.value == 1);
 
-  CHECK(value.try_set_value(caors::meta::view(holder), copied));
+  CHECK(value.try_set_any(caors::meta::view(holder), copied));
   CHECK(holder.value == 10);
 
   caors::any mismatch = caors::any::from(2.0F);
-  CHECK_FALSE(value.try_set_value(caors::meta::view(holder), mismatch));
+  CHECK_FALSE(value.try_set_any(caors::meta::view(holder), mismatch));
   CHECK(holder.value == 10);
 
-  caors::any readonly_value = readonly.get_value(caors::meta::view(holder));
+  caors::any readonly_value = readonly.get_any(caors::meta::view(holder));
   CHECK(readonly_value.valid());
   REQUIRE(readonly_value.try_get<int>() != nullptr);
   CHECK(*readonly_value.try_get<int>() == 7);
   CHECK(readonly_value.try_set(8));
   CHECK(*readonly_value.try_get<int>() == 8);
-  CHECK_FALSE(readonly.try_set_value(caors::meta::view(holder), readonly_value));
+  CHECK_FALSE(readonly.try_set_any(caors::meta::view(holder), readonly_value));
   CHECK(holder.readonly == 7);
 }
 
@@ -177,7 +177,7 @@ TEST_CASE("meta any - noncopyable fields return invalid values", "[meta]") {
   const caors::meta::property field =
       require_reflected_field("caors.test.meta.move_only_value", "value");
 
-  caors::any copied = field.get_value(caors::meta::view(holder));
+  caors::any copied = field.get_any(caors::meta::view(holder));
   CHECK_FALSE(copied.valid());
 
   const move_only_value& readonly_holder = holder;

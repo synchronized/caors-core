@@ -133,7 +133,7 @@ const detail::property_data* property::info() const noexcept {
   return property_;
 }
 
-any property::get_value(const instance& object) const {
+any property::get_any(const instance& object) const {
   const detail::property_data* property = info();
   if (property == nullptr || !object) {
     return {};
@@ -142,7 +142,7 @@ any property::get_value(const instance& object) const {
   return property->get_value(object.data());
 }
 
-any property::get_value() const {
+any property::get_any() const {
   const detail::property_data* property = info();
   if (property == nullptr) {
     return {};
@@ -151,13 +151,13 @@ any property::get_value() const {
   return property->get_value(nullptr);
 }
 
-meta::value property::get(const instance& object) const {
-  any result = get_value(object);
+meta::value property::get_value(const instance& object) const {
+  any result = get_any(object);
   return result ? meta::value::from_any(std::move(result)) : meta::value{};
 }
 
-meta::value property::get() const {
-  any result = get_value();
+meta::value property::get_value() const {
+  any result = get_any();
   return result ? meta::value::from_any(std::move(result)) : meta::value{};
 }
 
@@ -180,7 +180,7 @@ any_ref property::get_ref() const {
   return property->get_ref(static_cast<const void*>(nullptr));
 }
 
-bool property::try_set_value(const instance& object, const any& source) const {
+bool property::try_set_any(const instance& object, const any& source) const {
   const detail::property_data* property = info();
   if (property == nullptr || !object.writable()) {
     return false;
@@ -189,7 +189,7 @@ bool property::try_set_value(const instance& object, const any& source) const {
   return property->try_set_value(object.mutable_data(), source);
 }
 
-bool property::try_set_value(const any& source) const {
+bool property::try_set_any(const any& source) const {
   const detail::property_data* property = info();
   if (property == nullptr) {
     return false;

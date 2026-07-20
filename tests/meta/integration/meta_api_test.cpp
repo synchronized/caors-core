@@ -120,18 +120,20 @@ TEST_CASE("meta api - instance reads writes and calls reflected members", "[meta
   CHECK(instance.properties().size() == 1);
   CHECK(instance.methods().size() == 2);
 
-  const caors::any health = instance.get("health");
-  REQUIRE(health.valid());
-  REQUIRE(health.try_get<int>() != nullptr);
-  CHECK(*health.try_get<int>() == 7);
+  const caors::meta::value health = instance.get("health");
+  const caors::any health_any = health.to_any();
+  REQUIRE(health.is_any());
+  REQUIRE(health_any.try_get<int>() != nullptr);
+  CHECK(*health_any.try_get<int>() == 7);
 
   CHECK(instance.set("health", 11));
   CHECK(owner.health == 11);
 
-  caors::any result = instance.call("add_health", 5);
-  REQUIRE(result.valid());
-  REQUIRE(result.try_get<int>() != nullptr);
-  CHECK(*result.try_get<int>() == 16);
+  caors::meta::invoke_value_result result = instance.call("add_health", 5);
+  REQUIRE(result.has_value());
+  caors::any result_any = result.value().to_any();
+  REQUIRE(result_any.try_get<int>() != nullptr);
+  CHECK(*result_any.try_get<int>() == 16);
   CHECK(owner.health == 16);
 }
 
@@ -143,7 +145,7 @@ TEST_CASE("meta api - instance handles invalid and missing members", "[meta][api
   CHECK(invalid.method_count() == 0);
   CHECK_FALSE(invalid.find_property("missing"));
   CHECK_FALSE(invalid.find_method("missing"));
-  CHECK_FALSE(invalid.get("missing"));
+  CHECK(invalid.get("missing").is_null());
   CHECK_FALSE(invalid.get_ref("missing"));
   CHECK_FALSE(invalid.set("missing", 1));
   CHECK_FALSE(invalid.call("missing"));
@@ -152,7 +154,7 @@ TEST_CASE("meta api - instance handles invalid and missing members", "[meta][api
   caors::meta::instance instance = caors::meta::view(owner);
   CHECK_FALSE(instance.find_property("missing"));
   CHECK_FALSE(instance.find_method("missing"));
-  CHECK_FALSE(instance.get("missing"));
+  CHECK(instance.get("missing").is_null());
   CHECK_FALSE(instance.get_ref("missing"));
   CHECK_FALSE(instance.set("missing", 1));
   CHECK_FALSE(instance.call("missing"));
@@ -175,10 +177,11 @@ TEST_CASE("meta api - const instance is read only", "[meta][api]") {
   REQUIRE(instance);
   CHECK_FALSE(instance.value().writable());
 
-  const caors::any health = instance.get("health");
-  REQUIRE(health.valid());
-  REQUIRE(health.try_get<int>() != nullptr);
-  CHECK(*health.try_get<int>() == 7);
+  const caors::meta::value health = instance.get("health");
+  const caors::any health_any = health.to_any();
+  REQUIRE(health.is_any());
+  REQUIRE(health_any.try_get<int>() != nullptr);
+  CHECK(*health_any.try_get<int>() == 7);
 
   const caors::any_ref health_ref = instance.get_ref("health");
   REQUIRE(health_ref.valid());
@@ -189,14 +192,15 @@ TEST_CASE("meta api - const instance is read only", "[meta][api]") {
   CHECK_FALSE(instance.set("health", 11));
   CHECK(owner.health == 7);
 
-  const caors::any readonly_result = instance.call("read_health");
-  REQUIRE(readonly_result.valid());
-  REQUIRE(readonly_result.try_get<int>() != nullptr);
-  CHECK(*readonly_result.try_get<int>() == 7);
+  const caors::meta::invoke_value_result readonly_result = instance.call("read_health");
+  REQUIRE(readonly_result.has_value());
+  const caors::any readonly_any = readonly_result.value().to_any();
+  REQUIRE(readonly_any.try_get<int>() != nullptr);
+  CHECK(*readonly_any.try_get<int>() == 7);
 
   int delta = 5;
   std::array<caors::argument, 1> arguments{caors::arg(delta)};
-  CHECK_FALSE(instance.call("add_health",
-                            std::span<const caors::argument>{arguments.data(), arguments.size()}));
+  CHECK_FALSE(instance.call_any(
+      "add_health", std::span<const caors::argument>{arguments.data(), arguments.size()}));
   CHECK(owner.health == 7);
 }

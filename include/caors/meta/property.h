@@ -73,17 +73,17 @@ public:
   [[nodiscard]] std::size_t size() const noexcept;
   [[nodiscard]] std::size_t alignment() const noexcept;
 
-  /** @brief 获取实例属性值的运行期拷贝。 */
-  [[nodiscard]] any get_value(const instance& object) const;
-
-  /** @brief 获取全局属性值的运行期拷贝。成员属性会返回无效 `any`。 */
-  [[nodiscard]] any get_value() const;
-
   /** @brief 获取实例属性值的高层运行期值。 */
-  [[nodiscard]] meta::value get(const instance& object) const;
+  [[nodiscard]] meta::value get_value(const instance& object) const;
 
   /** @brief 获取全局属性值的高层运行期值。成员属性会返回 `null`。 */
-  [[nodiscard]] meta::value get() const;
+  [[nodiscard]] meta::value get_value() const;
+
+  /** @brief 获取实例属性值的精确 C++ 拷贝。 */
+  [[nodiscard]] any get_any(const instance& object) const;
+
+  /** @brief 获取全局属性值的精确 C++ 拷贝。成员属性会返回无效 `any`。 */
+  [[nodiscard]] any get_any() const;
 
   /** @brief 获取实例属性值引用；可写实例返回可写引用，只读实例返回只读引用。 */
   [[nodiscard]] any_ref get_ref(const instance& object) const;
@@ -91,17 +91,17 @@ public:
   /** @brief 获取全局属性值的只读运行期引用。成员属性会返回无效引用。 */
   [[nodiscard]] any_ref get_ref() const;
 
-  /** @brief 从运行期值写入实例属性。 */
-  bool try_set_value(const instance& object, const any& source) const;
-
-  /** @brief 从运行期值写入全局属性。成员属性会返回 false。 */
-  bool try_set_value(const any& source) const;
-
   /** @brief 从高层运行期值写入实例属性。 */
   bool try_set_value(const instance& object, const meta::value& source) const;
 
   /** @brief 从高层运行期值写入全局属性。成员属性会返回 false。 */
   bool try_set_value(const meta::value& source) const;
+
+  /** @brief 从精确 C++ 运行期值写入实例属性。 */
+  bool try_set_any(const instance& object, const any& source) const;
+
+  /** @brief 从精确 C++ 运行期值写入全局属性。成员属性会返回 false。 */
+  bool try_set_any(const any& source) const;
 
   /** @brief 判断属性是否是顺序容器。 */
   [[nodiscard]] bool is_sequence() const noexcept;

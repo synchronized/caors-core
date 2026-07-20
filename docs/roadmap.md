@@ -208,13 +208,12 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   重载歧义和底层调用失败。
 - [x] 增加来源类型级 `argument_conversion_ops` capability，并通过
   `argument_match_options::allow_custom_conversions` 显式开启自定义参数转换。
-- [x] 为 `meta::property` 增加 `meta::value` 高层 API，例如 `get()` /
+- [x] 为 `meta::property` 增加 `meta::value` 高层 API，例如 `get_value()` /
   `try_set_value(meta::value)`；复杂 C++ 类型通过 `any_ref` 或 `any` 适配现有精确类型路径。
-- [ ] 整理 `meta::property` 的拥有值、引用值和动态值命名：`get_ref()` 继续返回 `any_ref`，
-  `get_value()` 返回 `meta::value`，需要稳定 C++ 拷贝时提供高级 `copy()` / `get_any()` 语义，避免普通
-  用户把 `any` 当作动态值主入口。
+- [x] 整理 `meta::property` 的拥有值、引用值和动态值命名：`get_value()` 返回 `meta::value`，
+  `get_any()` 返回稳定 C++ 拷贝，`get_ref()` 继续返回 `any_ref`，避免普通用户把 `any` 当作动态值主入口。
 - [x] 为 `meta::method` / `meta::method_set` 增加 `meta::value` 调用入口，例如
-  `invoke_value_result_of(instance, span<const meta::value>)` / `call_value()`；当前通过 value 到
+  `invoke(instance, span<const meta::value>)` / `instance::call()`；当前通过 value 到
   `argument` / `any` 的 adapter 回退，后续由注册器为基础参数和对象参数生成直接 fast path。
 - [ ] 为方法注册器生成 `meta::value` fast path：基础数值、布尔、字符串、`string_name`、`meta::object*`
   等常见参数直接从 tagged value 转换并调用 C++ 成员函数；复杂参数、引用返回和歧义匹配继续使用现有

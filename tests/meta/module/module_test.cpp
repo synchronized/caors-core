@@ -41,18 +41,18 @@ TEST_CASE("meta - module registers global properties and functions", "[meta]") {
   CHECK_FALSE(counter.get_owner_type());
   CHECK(counter.writable());
 
-  caors::any counter_value = counter.get_value();
+  caors::any counter_value = counter.get_any();
   REQUIRE(counter_value);
   REQUIRE(counter_value.try_get<int>() != nullptr);
   CHECK(*counter_value.try_get<int>() == 7);
 
-  CHECK(counter.try_set_value(caors::any::from(11)));
+  CHECK(counter.try_set_any(caors::any::from(11)));
   CHECK(module_test_counter == 11);
 
   const caors::meta::property limit = module.find_property("limit");
   REQUIRE(limit);
   CHECK_FALSE(limit.writable());
-  CHECK_FALSE(limit.try_set_value(caors::any::from(12)));
+  CHECK_FALSE(limit.try_set_any(caors::any::from(12)));
   CHECK(module_test_limit == 99);
 
   const caors::meta::method_set add = module.find_method("add");
@@ -85,7 +85,7 @@ TEST_CASE("meta - module registers static properties and functions", "[meta]") {
 
   const caors::meta::property value = module.find_property("value");
   REQUIRE(value);
-  CHECK(value.try_set_value(caors::any::from(6)));
+  CHECK(value.try_set_any(caors::any::from(6)));
   CHECK(module_static_fixture::value == 6);
 
   int factor = 7;

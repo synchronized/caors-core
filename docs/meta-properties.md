@@ -442,10 +442,10 @@ auto value = id.try_get<int>(caors::meta::view(instance));
 `try_get<T>()` 在对象为空或类型不匹配时返回 `std::nullopt`。`try_set<T>()`
 在对象为空、类型不匹配或属性不可写时返回 `false`。
 
-也可以通过 `get_value()` 获取运行期值拷贝：
+也可以通过 `get_any()` 获取精确 C++ 运行期值拷贝：
 
 ```cpp
-caors::any value = id.get_value(caors::meta::view(instance));
+caors::any value = id.get_any(caors::meta::view(instance));
 
 if (const int* current = value.try_get<int>()) {
   // 使用 current 读取属性值。
@@ -454,12 +454,19 @@ if (const int* current = value.try_get<int>()) {
 value.try_set(7);
 ```
 
-`get_value()` 返回的是属性值拷贝，修改该 `any` 不会自动修改原对象。`try_set_value()`
+`get_any()` 返回的是属性值拷贝，修改该 `any` 不会自动修改原对象。`try_set_any()`
 可以从同类型 `any` 显式写回属性：
 
 ```cpp
 int source = 42;
-id.try_set_value(caors::meta::view(instance), caors::any::from(source));
+id.try_set_any(caors::meta::view(instance), caors::any::from(source));
+```
+
+高层动态调用优先使用 `meta::value`：
+
+```cpp
+caors::meta::value dynamic_value = id.get_value(caors::meta::view(instance));
+id.try_set_value(caors::meta::view(instance), caors::meta::value::from_any(7));
 ```
 
 如果只需要访问属性本体，或者属性不可拷贝，可以使用 `get_ref()` 获取运行期引用。传入
@@ -500,7 +507,7 @@ descriptor 通过 layout、value ops、type semantics 和固定运行期能力�
 - `get_capability<meta::associative_capability>()`：如果类型能力描述了关联容器，则创建可写或只读关联容器视图。
 - `get_capability<meta::indirect_capability>()`：如果类型能力描述了指针或 wrapper，则创建内部值视图。
 
-第一版 `any` 只支持可拷贝类型；不可拷贝属性调用 `get_value()` 会返回无效 `any`。
+第一版 `any` 只支持可拷贝类型；不可拷贝属性调用 `get_any()` 会返回无效 `any`。
 
 ### any_ref
 
@@ -593,7 +600,8 @@ overload 合并进同一个 `method_set`。
 - `metadata()` / `find_metadata()`：查询属性附加 metadata。普通属性访问不依赖 metadata；
   配置校验、编辑器提示和导入管线可以按约定键读取。
 - `try_get<T>()` / `try_set<T>()`：按静态类型读写属性。
-- `get_value()` / `try_set_value()`：按运行期 `any` 读写属性。
+- `get_any()` / `try_set_any()`：按精确 C++ 运行期 `any` 读写属性。
+- `get_value()` / `try_set_value(meta::value)`：按高层动态 `meta::value` 读写属性。
 - `get_ref(meta::instance)`：按运行期 `any_ref` 引用属性，权限由实例可写性决定。
 - 对象指针属性不在 `meta::property` 上提供专用 `get/set` 接口。需要按对象语义访问时，使用
   `objects::object_view` 或 `field.get_ref(...).get_capability<objects::ptr_capability>()`。

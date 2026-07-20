@@ -12,12 +12,14 @@
 #include "caors/meta/type.h"
 #include "caors/meta/value/any.h"
 #include "caors/meta/value/any_ref.h"
+#include "caors/meta/value/value.h"
 #include "caors/object/base.h"
 
 #include <array>
 #include <span>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 
 namespace caors::objects {
 
@@ -56,17 +58,23 @@ public:
   [[nodiscard]] meta::method_set find_method(std::string_view name) const;
   [[nodiscard]] core::vector<meta::method_set> methods(memory_resource* resource = nullptr) const;
 
-  /** @brief 读取属性值的运行期拷贝；属性不存在时返回无效 `any`。 */
-  [[nodiscard]] any get(std::string_view name) const;
+  /** @brief 读取属性值的高层运行期值；属性不存在时返回 `null`。 */
+  [[nodiscard]] meta::value get(std::string_view name) const;
+
+  /** @brief 读取属性值的精确 C++ 拷贝；属性不存在时返回无效 `any`。 */
+  [[nodiscard]] any get_any(std::string_view name) const;
 
   /** @brief 读取属性值的运行期引用；只读实例返回只读引用。 */
   [[nodiscard]] any_ref get_ref(std::string_view name) const;
 
-  /** @brief 从运行期值写入属性。 */
-  bool set(std::string_view name, const any& source) const;
+  /** @brief 从高层运行期值写入属性。 */
+  bool set(std::string_view name, const meta::value& source) const;
 
   /** @brief 从运行期引用写入属性。 */
-  bool set(std::string_view name, const any_ref& source) const;
+  bool set_ref(std::string_view name, const any_ref& source) const;
+
+  /** @brief 从精确 C++ 运行期值写入属性。 */
+  bool set_any(std::string_view name, const any& source) const;
 
   /** @brief 从 C++ 值写入属性。 */
   template <typename T> bool set(std::string_view name, const T& source) const {
@@ -79,14 +87,27 @@ public:
     return target.try_set(source);
   }
 
-  /** @brief 调用反射方法；只读实例只能调用 const 成员函数。 */
-  [[nodiscard]] any call(std::string_view name,
-                         std::span<const meta::argument> arguments = {}) const;
+  /** @brief 使用高层运行期值参数调用反射方法。 */
+  [[nodiscard]] meta::invoke_value_result call(std::string_view name,
+                                               std::span<const meta::value> arguments = {}) const;
 
-  /** @brief 使用 C++ 参数临时创建左值 `argument` 后调用反射方法。 */
-  template <typename... Args> [[nodiscard]] any call(std::string_view name, Args&&... args) const {
+  /** @brief 调用反射方法并返回精确 C++ 拷贝结果；只读实例只能调用 const 成员函数。 */
+  [[nodiscard]] any call_any(std::string_view name,
+                             std::span<const meta::argument> arguments = {}) const;
+
+  /** @brief 使用 C++ 参数临时创建左值 `argument` 后调用反射方法并返回精确 C++ 拷贝结果。 */
+  template <typename... Args>
+  [[nodiscard]] any call_any(std::string_view name, Args&&... args) const {
     std::array<meta::argument, sizeof...(Args)> argument_refs{meta::argument::ref(args)...};
-    return call(name, std::span<const meta::argument>{argument_refs.data(), argument_refs.size()});
+    return call_any(name,
+                    std::span<const meta::argument>{argument_refs.data(), argument_refs.size()});
+  }
+
+  /** @brief 使用 C++ 参数创建高层运行期参数后调用反射方法。 */
+  template <typename... Args>
+  [[nodiscard]] meta::invoke_value_result call(std::string_view name, Args&&... args) const {
+    std::array<meta::value, sizeof...(Args)> values{make_call_value(std::forward<Args>(args))...};
+    return call(name, std::span<const meta::value>{values.data(), values.size()});
   }
 
   /** @brief 返回当前视图显式绑定的对象指针；没有显式绑定时可能返回 `nullptr`。 */
@@ -99,6 +120,15 @@ public:
   bool set_ptr(std::string_view name, object* pointer) const;
 
 private:
+  template <typename T> [[nodiscard]] static meta::value make_call_value(T&& source) {
+    using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+    if constexpr (std::is_same_v<value_type, meta::value>) {
+      return std::forward<T>(source);
+    } else {
+      return meta::value::from_any(static_cast<const value_type&>(source));
+    }
+  }
+
   meta::any_ref value_{};
   object* pointer_ = nullptr;
 };

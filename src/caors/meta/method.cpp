@@ -190,9 +190,8 @@ invoke_result method::invoke_result_of(std::span<const named_argument> arguments
   return method->invoke_result_of(nullptr, false, arguments, options);
 }
 
-invoke_value_result method::invoke_value_result_of(const instance& object,
-                                                   std::span<const meta::value> arguments,
-                                                   argument_match_options options) const {
+invoke_value_result method::invoke(const instance& object, std::span<const meta::value> arguments,
+                                   argument_match_options options) const {
   value_arguments converted = make_value_arguments(arguments);
   if (!converted.valid) {
     return invoke_value_result::failed(invoke_failure_reason::argument_mismatch);
@@ -203,8 +202,8 @@ invoke_value_result method::invoke_value_result_of(const instance& object,
       options));
 }
 
-invoke_value_result method::invoke_value_result_of(std::span<const meta::value> arguments,
-                                                   argument_match_options options) const {
+invoke_value_result method::invoke(std::span<const meta::value> arguments,
+                                   argument_match_options options) const {
   value_arguments converted = make_value_arguments(arguments);
   if (!converted.valid) {
     return invoke_value_result::failed(invoke_failure_reason::argument_mismatch);
@@ -339,9 +338,9 @@ invoke_result method_set::invoke_result_of(std::span<const named_argument> argum
                                                      : invoke_failure_reason::argument_mismatch);
 }
 
-invoke_value_result method_set::invoke_value_result_of(const instance& object,
-                                                       std::span<const meta::value> arguments,
-                                                       argument_match_options options) const {
+invoke_value_result method_set::invoke(const instance& object,
+                                       std::span<const meta::value> arguments,
+                                       argument_match_options options) const {
   value_arguments converted = make_value_arguments(arguments);
   if (!converted.valid) {
     return invoke_value_result::failed(invoke_failure_reason::argument_mismatch);
@@ -352,8 +351,8 @@ invoke_value_result method_set::invoke_value_result_of(const instance& object,
       options));
 }
 
-invoke_value_result method_set::invoke_value_result_of(std::span<const meta::value> arguments,
-                                                       argument_match_options options) const {
+invoke_value_result method_set::invoke(std::span<const meta::value> arguments,
+                                       argument_match_options options) const {
   value_arguments converted = make_value_arguments(arguments);
   if (!converted.valid) {
     return invoke_value_result::failed(invoke_failure_reason::argument_mismatch);

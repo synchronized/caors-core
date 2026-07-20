@@ -238,14 +238,13 @@ public:
                                                argument_match_options options = {}) const;
 
   /** @brief 在实例上使用高层运行期值参数调用成员方法。 */
-  [[nodiscard]] invoke_value_result
-  invoke_value_result_of(const instance& object, std::span<const meta::value> arguments = {},
-                         argument_match_options options = {}) const;
+  [[nodiscard]] invoke_value_result invoke(const instance& object,
+                                           std::span<const meta::value> arguments = {},
+                                           argument_match_options options = {}) const;
 
   /** @brief 使用高层运行期值参数调用全局函数。 */
-  [[nodiscard]] invoke_value_result
-  invoke_value_result_of(std::span<const meta::value> arguments = {},
-                         argument_match_options options = {}) const;
+  [[nodiscard]] invoke_value_result invoke(std::span<const meta::value> arguments = {},
+                                           argument_match_options options = {}) const;
 
   /** @brief 按指定类型调用方法并读取返回值。 */
   template <typename Return>
@@ -365,14 +364,13 @@ public:
                                                argument_match_options options = {}) const;
 
   /** @brief 在实例上使用高层运行期值参数调用唯一匹配的成员方法重载。 */
-  [[nodiscard]] invoke_value_result
-  invoke_value_result_of(const instance& object, std::span<const meta::value> arguments = {},
-                         argument_match_options options = {}) const;
+  [[nodiscard]] invoke_value_result invoke(const instance& object,
+                                           std::span<const meta::value> arguments = {},
+                                           argument_match_options options = {}) const;
 
   /** @brief 使用高层运行期值参数调用唯一匹配的全局函数重载。 */
-  [[nodiscard]] invoke_value_result
-  invoke_value_result_of(std::span<const meta::value> arguments = {},
-                         argument_match_options options = {}) const;
+  [[nodiscard]] invoke_value_result invoke(std::span<const meta::value> arguments = {},
+                                           argument_match_options options = {}) const;
 
 private:
   friend class module_view;

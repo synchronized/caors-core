@@ -160,11 +160,11 @@ void benchmark_properties(std::size_t iterations) {
     for (std::size_t index = 0; index < iterations; ++index) {
       const int value = static_cast<int>(index % 100);
       const caors::any boxed = caors::any::from(value);
-      if (!health_property.try_set_value(instance, boxed)) {
+      if (!health_property.try_set_any(instance, boxed)) {
         std::cerr << "写入 getter/setter 属性失败\n";
         std::exit(EXIT_FAILURE);
       }
-      caors::any current = health_property.get_value(instance);
+      caors::any current = health_property.get_any(instance);
       const int* current_value = current.try_get<int>();
       consume(static_cast<std::uintptr_t>(current_value == nullptr ? 0 : *current_value));
     }
