@@ -51,6 +51,7 @@ TEST_CASE("object - view reads writes and calls reflected object members", "[obj
   caors::objects::object_view object = caors::objects::view(owner);
   REQUIRE(object);
   CHECK(object.ptr() == &owner);
+  CHECK(object.instance().data() == &owner);
   CHECK(object.property_count() == 2);
   CHECK(object.method_count() == 1);
   CHECK(object.properties().size() == 2);
@@ -93,6 +94,27 @@ TEST_CASE("object - view reads and writes object pointer fields", "[object]") {
   REQUIRE(object);
   CHECK(object.ptr() == &owner);
   CHECK(object.get_ptr("target") == nullptr);
+  CHECK(object.get("target").is_null());
+
+  CHECK(object.set("target", caors::meta::value::from_object(&target)));
+  CHECK(owner.target.get() == &target);
+  caors::meta::value target_value = object.get("target");
+  REQUIRE(target_value.is_object());
+  CHECK(target_value.as_object() == &target);
+
+  CHECK(object.set("target", nullptr));
+  CHECK(owner.target.get() == nullptr);
+  CHECK(object.get("target").is_null());
+
+  CHECK(object.set("target", &target));
+  CHECK(owner.target.get() == &target);
+  target_value = object.get("target");
+  REQUIRE(target_value.is_object());
+  CHECK(target_value.as_object() == &target);
+
+  CHECK_FALSE(object.set("target", caors::meta::value::from_object(&owner)));
+  CHECK(owner.target.get() == &target);
+
   CHECK(object.set_ptr("target", &target));
   CHECK(owner.target.get() == &target);
   CHECK(object.get_ptr("target") == &target);

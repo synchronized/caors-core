@@ -19,6 +19,8 @@ bool object_view::valid() const noexcept { return value_.valid(); }
 
 meta::any_ref object_view::value() const noexcept { return value_; }
 
+meta::instance object_view::instance() const noexcept { return meta::instance{value_}; }
+
 meta::type object_view::type() const noexcept { return valid() ? value_.get_type() : meta::type{}; }
 
 std::size_t object_view::property_count() const noexcept { return type().property_count(); }
@@ -70,39 +72,38 @@ core::vector<meta::method_set> object_view::methods(memory_resource* resource) c
 }
 
 meta::value object_view::get(std::string_view name) const {
-  const meta::property reflected_property = find_property(name);
-  if (!reflected_property || !value_) {
+  const meta::instance object = instance();
+  const meta::property reflected_property = object.find_property(name);
+  if (!reflected_property || !object) {
     return {};
   }
 
-  return reflected_property.get_value(meta::instance{value_});
-}
-
-any object_view::get_any(std::string_view name) const {
-  const meta::property reflected_property = find_property(name);
-  if (!reflected_property || !value_) {
-    return {};
+  const ptr_view pointer = make_ptr_view(reflected_property.get_ref(object));
+  if (pointer) {
+    objects::object* target = pointer.get();
+    return target != nullptr ? meta::value::from_object(target) : meta::value{};
   }
 
-  return reflected_property.get_any(meta::instance{value_});
+  return reflected_property.get_value(object);
 }
 
-any_ref object_view::get_ref(std::string_view name) const {
-  const meta::property reflected_property = find_property(name);
-  if (!reflected_property || !value_) {
-    return {};
-  }
+any object_view::get_any(std::string_view name) const { return instance().get_any(name); }
 
-  return reflected_property.get_ref(meta::instance{value_});
-}
+any_ref object_view::get_ref(std::string_view name) const { return instance().get_ref(name); }
 
 bool object_view::set(std::string_view name, const meta::value& source) const {
-  const meta::property reflected_property = find_property(name);
-  if (!reflected_property || !value_.writable()) {
+  const meta::instance object = instance();
+  const meta::property reflected_property = object.find_property(name);
+  if (!reflected_property || !object.writable()) {
     return false;
   }
 
-  return reflected_property.try_set_value(meta::instance{value_}, source);
+  const ptr_view pointer = make_ptr_view(reflected_property.get_ref(object));
+  if (pointer && (source.is_null() || source.is_object())) {
+    return pointer.set(source.as_object());
+  }
+
+  return reflected_property.try_set_value(object, source);
 }
 
 bool object_view::set_ref(std::string_view name, const any_ref& source) const {
@@ -111,34 +112,16 @@ bool object_view::set_ref(std::string_view name, const any_ref& source) const {
 }
 
 bool object_view::set_any(std::string_view name, const any& source) const {
-  const meta::property reflected_property = find_property(name);
-  if (!reflected_property || !value_.writable()) {
-    return false;
-  }
-
-  return reflected_property.try_set_any(meta::instance{value_}, source);
+  return instance().set_any(name, source);
 }
 
 any object_view::call_any(std::string_view name, std::span<const meta::argument> arguments) const {
-  const meta::method_set reflected_method = find_method(name);
-  if (!reflected_method || !value_) {
-    return {};
-  }
-
-  meta::invoke_result result = reflected_method.invoke_result_of(meta::instance{value_}, arguments);
-  return result.has_value() ? std::move(result.mutable_value()) : any{};
+  return instance().call_any(name, arguments);
 }
 
 meta::invoke_value_result object_view::call(std::string_view name,
                                             std::span<const meta::value> arguments) const {
-  const meta::method_set reflected_method = find_method(name);
-  if (!reflected_method || !value_) {
-    return meta::invoke_value_result::failed(!reflected_method
-                                                 ? meta::invoke_failure_reason::invalid_method
-                                                 : meta::invoke_failure_reason::invalid_object);
-  }
-
-  return reflected_method.invoke(meta::instance{value_}, arguments);
+  return instance().call(name, arguments);
 }
 
 object* object_view::ptr() const noexcept {

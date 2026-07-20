@@ -39,6 +39,8 @@ public:
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
 
   [[nodiscard]] meta::any_ref value() const noexcept;
+  /** @brief 返回当前对象对应的 meta 实例视图。 */
+  [[nodiscard]] meta::instance instance() const noexcept;
   [[nodiscard]] meta::type type() const noexcept;
 
   /** @brief 查询并绑定当前对象实例的运行期能力视图。 */
@@ -78,13 +80,26 @@ public:
 
   /** @brief 从 C++ 值写入属性。 */
   template <typename T> bool set(std::string_view name, const T& source) const {
-    const meta::property reflected_property = find_property(name);
-    if (!reflected_property || !value_.writable()) {
-      return false;
-    }
+    using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+    if constexpr (std::is_same_v<value_type, meta::value>) {
+      return set(name, source);
+    } else if constexpr (std::is_null_pointer_v<value_type>) {
+      return set(name, meta::value::null());
+    } else if constexpr (std::is_pointer_v<value_type> &&
+                         std::is_base_of_v<object, std::remove_pointer_t<value_type>> &&
+                         !std::is_const_v<std::remove_pointer_t<value_type>>) {
+      return set(name, meta::value::from_object(source));
+    } else if constexpr (std::is_constructible_v<meta::value, const T&>) {
+      return set(name, meta::value{source});
+    } else {
+      const meta::property reflected_property = find_property(name);
+      if (!reflected_property || !value_.writable()) {
+        return false;
+      }
 
-    const any_ref target = reflected_property.get_ref(meta::instance{value_});
-    return target.try_set(source);
+      const any_ref target = reflected_property.get_ref(instance());
+      return target.try_set(source);
+    }
   }
 
   /** @brief 使用高层运行期值参数调用反射方法。 */

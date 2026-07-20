@@ -165,7 +165,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [ ] 在最小对象基类迁移到 `meta` 后，整理 `objects` 模块职责：保留对象指针、句柄、引用计数、
   manager、object_index、object factory、对象序列化 resolver 和对象注册 facade；根命名空间
   `caors::object` / `caors::object_base<T>` 继续指向最小对象基类。
-- [ ] 将对象高层访问 API 逐步对齐 `meta::value`：对象属性读写、方法调用和对象指针属性访问优先返回或接收
+- [x] 将对象高层访问 API 逐步对齐 `meta::value`：对象属性读写、方法调用和对象指针属性访问优先返回或接收
   `meta::value`，保留 `any_ref` 作为精确引用入口，避免对象系统高层 API 继续强绑定 `any` 拷贝语义。
 
 ## 4. 反射

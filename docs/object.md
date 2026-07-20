@@ -22,7 +22,7 @@ CAORS 对象系统第一阶段只解决几件事：
 - manager 感知的引用计数回收策略。
 - 脚本绑定。
 - 信号事件系统。
-- 属性属性反射。
+- 对象模块自行维护一套独立属性 / 方法反射。
 - 序列化细节。
 
 这些能力后续应建立在对象类型信息和反射系统之上。
@@ -130,6 +130,35 @@ caors::object_type_id id = player::static_type_id();
 
 它不负责对象所有权，也不内置引用计数或 GC。
 
+### objects::object_view
+
+`objects::object_view` 是对象系统的高层反射访问门面。它不拥有对象，只保存外部实例引用，并在需要时
+复用 `meta::instance` 读取属性、写入属性和调用方法。普通对象访问优先使用 `meta::value`：
+
+```cpp
+auto object = caors::objects::view(actor);
+
+object.set("health", caors::meta::value{100});
+caors::meta::value health = object.get("health");
+
+caors::meta::invoke_value_result result = object.call("add_health", 5);
+```
+
+对象指针属性也走同一条高层路径：`objects::ptr<T>` 属性读出非空值时返回
+`meta::value::object`，写入时可以传入 `meta::value::from_object(ptr)`、派生自
+`caors::object` 的裸指针，或 `nullptr` 清空指针：
+
+```cpp
+object.set("target", caors::meta::value::from_object(&target));
+caors::object* target_object = object.get("target").as_object();
+
+object.set("target", nullptr);
+```
+
+`object_view::instance()` 可以取回底层 `meta::instance`，用于缓存 `meta::property` /
+`meta::method_set` 后走热点路径。需要精确 C++ 类型、复杂参数、引用返回或低层桥接时，仍可使用
+`get_ref()`、`get_any()`、`set_any()` 和 `call_any()`；这些属于高级入口，不是普通对象访问的首选。
+
 ### objects::ptr
 
 `objects::ptr<T>` 是非拥有对象指针，只保存对象指针，不延长对象生命周期：
@@ -170,7 +199,7 @@ auto capability =
 auto view = capability.bind(caors::any_ref::from(ptr));
 ```
 
-如果对象指针来自反射属性，推荐通过 `objects::object_view` 在对象系统层读写：
+如果只需要直接访问对象指针属性，也可以使用 `objects::object_view` 的显式指针 helper：
 
 ```cpp
 auto object = caors::objects::view(owner);
