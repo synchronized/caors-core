@@ -107,6 +107,15 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [ ] 评估完全无宏 Proxy DSL，降低宏接口对诊断和工具链的影响。
 - [ ] 评估基于未来静态反射或代码生成的成员自动发现。
 - [x] 将运行期类型查询、属性/方法和值构造能力合并到 `meta` 主入口，不再保留独立 `runtime` 模块。
+- [ ] 将最小对象基类迁移到 `meta`：`meta::object` / `meta::object_base<T>` 只负责对象身份、
+  `object_id`、运行期类型入口和虚析构；`objects` 模块继续负责 `ptr` / `ref` / `weak_ref` /
+  `handle` / `manager` / `registry` / 序列化 resolver 等生命周期和对象系统组合能力。
+- [ ] 定义 `meta::value` 作为高频动态运行期值，类似 Lua `TValue` / Godot `Variant` 的 tagged value：
+  基础标量、`string_name`、轻量字符串、`meta::object*` 走内联或轻量指针快路径，复杂 C++ 类型通过
+  `any_ref` 引用值或 `any` 拥有值兜底；`meta::variant` 继续作为序列化/配置 DOM，不承担 userdata 语义。
+- [ ] 梳理 `meta::value`、`meta::any`、`meta::any_ref`、`meta::variant` 的职责边界和转换 API：
+  `value` 面向脚本/编辑器/消息/动态调用，`any` 面向拥有的 C++ 精确类型值，`any_ref` 面向非拥有 C++
+  精确类型引用，`variant` 面向可持久化数据树。
 - [x] 将 `meta::type_<T>()` 改为 `registration::type_<T>(name)`，并将枚举注册收敛为
   `registration::enum_<T>(name)`。
 - [x] 将 `meta::type::create()` 统一为高层创建入口，优先使用 `meta::factory_capability`，再使用
@@ -153,6 +162,11 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 明确线程安全边界，避免隐式全局状态。
 - [x] 设计持久对象 GUID / 业务对象 id，用于跨存档、资源和网络引用。
 - [x] 增加对象生命周期、继承关系和错误路径测试。
+- [ ] 在最小对象基类迁移到 `meta` 后，整理 `objects` 模块职责：保留对象指针、句柄、引用计数、
+  manager、object_index、object factory、对象序列化 resolver 和对象注册 facade；根命名空间
+  `caors::object` / `caors::object_base<T>` 继续指向最小对象基类。
+- [ ] 将对象高层访问 API 逐步对齐 `meta::value`：对象属性读写、方法调用和对象指针属性访问优先返回或接收
+  `meta::value`，保留 `any_ref` 作为精确引用入口，避免对象系统高层 API 继续强绑定 `any` 拷贝语义。
 
 ## 4. 反射
 
@@ -194,6 +208,17 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   重载歧义和底层调用失败。
 - [x] 增加来源类型级 `argument_conversion_ops` capability，并通过
   `argument_match_options::allow_custom_conversions` 显式开启自定义参数转换。
+- [ ] 为 `meta::property` 增加 `meta::value` 主路径 API，例如 `get_value()` / `set_value()`，基础类型、
+  `string_name` 和 `meta::object*` 走直接转换快路径，复杂 C++ 类型回退到 `any_ref` 或 `any`。
+- [ ] 整理 `meta::property` 的拥有值、引用值和动态值命名：`get_ref()` 继续返回 `any_ref`，
+  `get_value()` 返回 `meta::value`，需要稳定 C++ 拷贝时提供高级 `copy()` / `get_any()` 语义，避免普通
+  用户把 `any` 当作动态值主入口。
+- [ ] 为 `meta::method` / `meta::method_set` 增加 `meta::value` 调用入口，例如
+  `invoke_value(instance, span<const meta::value>)` / `call_value()`；默认可先通过 value 到
+  `argument` / `any` 的 adapter 回退，后续由注册器为基础参数和对象参数生成直接 fast path。
+- [ ] 为方法注册器生成 `meta::value` fast path：基础数值、布尔、字符串、`string_name`、`meta::object*`
+  等常见参数直接从 tagged value 转换并调用 C++ 成员函数；复杂参数、引用返回和歧义匹配继续使用现有
+  `argument_match_options` / `invoke_result` 机制。
 - [ ] 扩展字符串解析或更完整的类型转换策略。
 - [ ] 支持既不可复制也不可移动的 by-value 方法返回值诊断策略。
 - [ ] 扩展成员函数指针存储和调用适配，覆盖多继承等可能导致成员函数指针尺寸更大的平台 ABI。
