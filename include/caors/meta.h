@@ -15,6 +15,8 @@
 #include "caors/meta/method.h"
 #include "caors/meta/method_registration.h"
 #include "caors/meta/module.h"
+#include "caors/meta/object.h"
+#include "caors/meta/object_id.h"
 #include "caors/meta/property.h"
 #include "caors/meta/property_schema.h"
 #include "caors/meta/proxy.h"

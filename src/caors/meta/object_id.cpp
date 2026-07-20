@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "caors/object/id.h"
+#include "caors/meta/object_id.h"
 
 #include <atomic>
 #include <limits>
 
-namespace caors::objects {
+namespace caors::meta {
 namespace {
 
 std::atomic<std::uint64_t> next_object_id{1};
@@ -27,4 +27,4 @@ object_id generate_object_id() noexcept {
   return object_id::invalid();
 }
 
-} // namespace caors::objects
+} // namespace caors::meta

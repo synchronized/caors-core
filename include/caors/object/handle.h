@@ -5,14 +5,13 @@
 #define CAORS_OBJECT_HANDLE_H_
 
 #include "caors/meta/capability.h"
+#include "caors/meta/object.h"
 #include "caors/object/id.h"
 
 #include <cstddef>
 #include <type_traits>
 
 namespace caors::objects {
-
-class object;
 
 namespace detail {
 

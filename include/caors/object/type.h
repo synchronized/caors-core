@@ -6,12 +6,11 @@
 
 #include "caors/export.h"
 #include "caors/meta/type.h"
+#include "caors/object/fwd.h"
 #include "caors/object/id.h"
 #include "caors/object/object_factory_capability.h"
 
 namespace caors::objects {
-
-class object;
 
 class registry;
 

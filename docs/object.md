@@ -31,10 +31,11 @@ CAORS 对象系统第一阶段只解决几件事：
 
 ### 命名空间
 
-对象系统的主定义位于 `caors::objects` 命名空间，例如 `objects::object`、`objects::object_id`、
-`objects::object_base<T>`、`objects::type`、`objects::handle`、
-`objects::typed_handle<T>`、`objects::ptr<T>`、`objects::ref_counted`、`objects::ref<T>`、
-`objects::weak_ref<T>`、`objects::registry`、`objects::object_index` 和 `objects::manager`。
+最小对象身份定义位于 `caors::meta` 命名空间，例如 `meta::object`、`meta::object_id` 和
+`meta::object_base<T>`。`objects` 模块在此基础上提供对象生命周期、句柄、引用和对象工厂，例如
+`objects::type`、`objects::handle`、`objects::typed_handle<T>`、`objects::ptr<T>`、
+`objects::ref_counted`、`objects::ref<T>`、`objects::weak_ref<T>`、`objects::registry`、
+`objects::object_index` 和 `objects::manager`。
 
 为了保持常用 API 简洁，根命名空间保留带对象语义的别名：`caors::object`、`caors::object_id`、
 `caors::object_type_id`、`caors::object_base<T>`、`caors::object_ptr<T>`、`caors::object_handle`、
@@ -50,7 +51,7 @@ object_index、序列化 resolver 和工厂 helper 等低频组合件统一使�
 ### object_id
 
 `object_id` 是运行期对象实例标识。`0` 保留为无效值。普通对象构造时会通过
-`objects::generate_object_id()` 从 CAORS 核心库中的全局原子生成器取得新 id；`objects::manager`
+`meta::generate_object_id()` 从 CAORS 核心库中的全局原子生成器取得新 id；`objects::manager`
 只负责持有和索引对象，不负责生成 id。
 
 ```cpp
@@ -83,7 +84,7 @@ nil GUID 和无效 `object_id` 不能绑定。索引不提供内部同步，跨�
 
 ### 线程安全边界
 
-对象系统当前只保证 `objects::generate_object_id()` 的并发调用安全。它只负责生成当前进程内唯一的
+对象系统当前只保证 `meta::generate_object_id()` 的并发调用安全。它只负责生成当前进程内唯一的
 运行期 id，不访问对象实例、注册表或 manager。
 
 其他对象系统组件默认不提供内部同步：
@@ -485,7 +486,7 @@ manager.destroy(instance);
 ## 当前已实现能力
 
 - `object_id`：运行期对象实例标识。
-- `objects::generate_object_id()`：全进程运行期对象 id 生成入口，正常返回非 0 且不复用的
+- `meta::generate_object_id()`：全进程运行期对象 id 生成入口，正常返回非 0 且不复用的
   `object_id`。
 - `object_guid`：对象系统对 `guid` 的语义别名，用于持久对象身份。
 - `objects::object_index`：持久对象 GUID 和运行期对象 id 的双向索引。

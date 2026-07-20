@@ -5,14 +5,13 @@
 #define CAORS_OBJECT_PTR_H_
 
 #include "caors/meta/capability.h"
+#include "caors/meta/object.h"
 #include "caors/object/id.h"
 #include "caors/traits/object_ptr.h"
 
 #include <type_traits>
 
 namespace caors::objects {
-
-class object;
 
 /**
  * @brief 非拥有对象指针。

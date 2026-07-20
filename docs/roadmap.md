@@ -107,7 +107,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [ ] 评估完全无宏 Proxy DSL，降低宏接口对诊断和工具链的影响。
 - [ ] 评估基于未来静态反射或代码生成的成员自动发现。
 - [x] 将运行期类型查询、属性/方法和值构造能力合并到 `meta` 主入口，不再保留独立 `runtime` 模块。
-- [ ] 将最小对象基类迁移到 `meta`：`meta::object` / `meta::object_base<T>` 只负责对象身份、
+- [x] 将最小对象基类迁移到 `meta`：`meta::object` / `meta::object_base<T>` 只负责对象身份、
   `object_id`、运行期类型入口和虚析构；`objects` 模块继续负责 `ptr` / `ref` / `weak_ref` /
   `handle` / `manager` / `registry` / 序列化 resolver 等生命周期和对象系统组合能力。
 - [ ] 定义 `meta::value` 作为高频动态运行期值，类似 Lua `TValue` / Godot `Variant` 的 tagged value：

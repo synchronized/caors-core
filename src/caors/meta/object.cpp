@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#include "caors/object/base.h"
+#include "caors/meta/object.h"
 
-namespace caors::objects {
+namespace caors::meta {
 
 object::object() noexcept : id_(generate_object_id()) {}
 
@@ -29,4 +29,4 @@ object_type_id object::static_type_id() noexcept {
 
 std::string_view object::static_type_name() noexcept { return "caors.object"; }
 
-} // namespace caors::objects
+} // namespace caors::meta

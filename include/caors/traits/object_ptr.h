@@ -4,9 +4,7 @@
 #ifndef CAORS_TRAITS_OBJECT_PTR_H_
 #define CAORS_TRAITS_OBJECT_PTR_H_
 
-namespace caors::objects {
-class object;
-} // namespace caors::objects
+#include "caors/object/fwd.h"
 
 namespace caors::traits {
 

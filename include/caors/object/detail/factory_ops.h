@@ -5,10 +5,9 @@
 #define CAORS_OBJECT_DETAIL_FACTORY_OPS_H_
 
 #include "caors/memory/resource.h"
+#include "caors/object/fwd.h"
 
 namespace caors::objects {
-
-class object;
 
 /** @brief 对象默认构造、创建和销毁的类型擦除操作表。 */
 struct object_factory_ops {
