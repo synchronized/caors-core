@@ -11,8 +11,9 @@ namespace caors::serialization::detail {
 
 namespace {
 
-template <typename T> [[nodiscard]] bool try_write_i64(writer& writer, const any& data) {
-  const T* stored = data.try_get<T>();
+template <typename T, typename Value>
+[[nodiscard]] bool try_write_i64(writer& writer, const Value& data) {
+  const T* stored = data.template try_get<T>();
   if (stored == nullptr) {
     return false;
   }
@@ -20,8 +21,9 @@ template <typename T> [[nodiscard]] bool try_write_i64(writer& writer, const any
   return writer.write_i64(static_cast<std::int64_t>(*stored)).succeeded();
 }
 
-template <typename T> [[nodiscard]] bool try_write_u64(writer& writer, const any& data) {
-  const T* stored = data.try_get<T>();
+template <typename T, typename Value>
+[[nodiscard]] bool try_write_u64(writer& writer, const Value& data) {
+  const T* stored = data.template try_get<T>();
   if (stored == nullptr) {
     return false;
   }
@@ -29,13 +31,45 @@ template <typename T> [[nodiscard]] bool try_write_u64(writer& writer, const any
   return writer.write_u64(static_cast<std::uint64_t>(*stored)).succeeded();
 }
 
-template <typename T> [[nodiscard]] bool try_write_f64(writer& writer, const any& data) {
-  const T* stored = data.try_get<T>();
+template <typename T, typename Value>
+[[nodiscard]] bool try_write_f64(writer& writer, const Value& data) {
+  const T* stored = data.template try_get<T>();
   if (stored == nullptr) {
     return false;
   }
 
   return writer.write_f64(static_cast<double>(*stored)).succeeded();
+}
+
+template <typename Value>
+[[nodiscard]] bool try_write_scalar_value_impl(writer& writer, const Value& data) {
+  if (const bool* stored = data.template try_get<bool>()) {
+    return writer.write_bool(*stored).succeeded();
+  }
+
+  if (const char* stored = data.template try_get<char>()) {
+    return writer.write_string(std::string_view{stored, 1}).succeeded();
+  }
+
+  if (try_write_i64<signed char>(writer, data) || try_write_i64<short>(writer, data) ||
+      try_write_i64<int>(writer, data) || try_write_i64<long>(writer, data) ||
+      try_write_i64<long long>(writer, data) || try_write_u64<unsigned char>(writer, data) ||
+      try_write_u64<unsigned short>(writer, data) || try_write_u64<unsigned int>(writer, data) ||
+      try_write_u64<unsigned long>(writer, data) ||
+      try_write_u64<unsigned long long>(writer, data) || try_write_f64<float>(writer, data) ||
+      try_write_f64<double>(writer, data) || try_write_f64<long double>(writer, data)) {
+    return true;
+  }
+
+  if (const std::string* stored = data.template try_get<std::string>()) {
+    return writer.write_string(*stored).succeeded();
+  }
+
+  if (const std::string_view* stored = data.template try_get<std::string_view>()) {
+    return writer.write_string(*stored).succeeded();
+  }
+
+  return false;
 }
 
 template <typename T>
@@ -127,33 +161,72 @@ template <typename T>
 } // namespace
 
 bool try_write_scalar_value(writer& writer, const any& data) {
+  return try_write_scalar_value_impl(writer, data);
+}
+
+bool try_write_scalar_value(writer& writer, const any_ref& data) {
+  return try_write_scalar_value_impl(writer, data);
+}
+
+variant_result make_scalar_value(const any_ref& data) {
   if (const bool* stored = data.try_get<bool>()) {
-    return writer.write_bool(*stored).succeeded();
+    return {{}, variant::from(*stored)};
   }
 
   if (const char* stored = data.try_get<char>()) {
-    return writer.write_string(std::string_view{stored, 1}).succeeded();
+    return {{}, variant::from(std::string_view{stored, 1})};
   }
 
-  if (try_write_i64<signed char>(writer, data) || try_write_i64<short>(writer, data) ||
-      try_write_i64<int>(writer, data) || try_write_i64<long>(writer, data) ||
-      try_write_i64<long long>(writer, data) || try_write_u64<unsigned char>(writer, data) ||
-      try_write_u64<unsigned short>(writer, data) || try_write_u64<unsigned int>(writer, data) ||
-      try_write_u64<unsigned long>(writer, data) ||
-      try_write_u64<unsigned long long>(writer, data) || try_write_f64<float>(writer, data) ||
-      try_write_f64<double>(writer, data) || try_write_f64<long double>(writer, data)) {
-    return true;
+  if (const signed char* stored = data.try_get<signed char>()) {
+    return {{}, variant::from(static_cast<std::int64_t>(*stored))};
+  }
+  if (const short* stored = data.try_get<short>()) {
+    return {{}, variant::from(static_cast<std::int64_t>(*stored))};
+  }
+  if (const int* stored = data.try_get<int>()) {
+    return {{}, variant::from(static_cast<std::int64_t>(*stored))};
+  }
+  if (const long* stored = data.try_get<long>()) {
+    return {{}, variant::from(static_cast<std::int64_t>(*stored))};
+  }
+  if (const long long* stored = data.try_get<long long>()) {
+    return {{}, variant::from(static_cast<std::int64_t>(*stored))};
+  }
+
+  if (const unsigned char* stored = data.try_get<unsigned char>()) {
+    return {{}, variant::from(static_cast<std::uint64_t>(*stored))};
+  }
+  if (const unsigned short* stored = data.try_get<unsigned short>()) {
+    return {{}, variant::from(static_cast<std::uint64_t>(*stored))};
+  }
+  if (const unsigned int* stored = data.try_get<unsigned int>()) {
+    return {{}, variant::from(static_cast<std::uint64_t>(*stored))};
+  }
+  if (const unsigned long* stored = data.try_get<unsigned long>()) {
+    return {{}, variant::from(static_cast<std::uint64_t>(*stored))};
+  }
+  if (const unsigned long long* stored = data.try_get<unsigned long long>()) {
+    return {{}, variant::from(static_cast<std::uint64_t>(*stored))};
+  }
+
+  if (const float* stored = data.try_get<float>()) {
+    return {{}, variant::from(static_cast<double>(*stored))};
+  }
+  if (const double* stored = data.try_get<double>()) {
+    return {{}, variant::from(*stored)};
+  }
+  if (const long double* stored = data.try_get<long double>()) {
+    return {{}, variant::from(static_cast<double>(*stored))};
   }
 
   if (const std::string* stored = data.try_get<std::string>()) {
-    return writer.write_string(*stored).succeeded();
+    return {{}, variant::from(*stored)};
   }
-
   if (const std::string_view* stored = data.try_get<std::string_view>()) {
-    return writer.write_string(*stored).succeeded();
+    return {{}, variant::from(*stored)};
   }
 
-  return false;
+  return {{error_domain::serialization, errc::unsupported}, {}};
 }
 
 error read_scalar_value(reader& reader, const any_ref& target,

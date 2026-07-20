@@ -151,12 +151,7 @@ variant_result make_serialized_value(const any_ref& value, const serialization::
   const type_id value_type = value.get_type().id();
   const serialization::codec_capability codec = find_codec_capability(value.get_type());
   if (codec.can_make_value()) {
-    any copied = value.to_any();
-    if (!copied.valid()) {
-      return {{error_domain::serialization, errc::unsupported}, {}};
-    }
-
-    return codec.make_value(context, copied);
+    return codec.make_value(context, value);
   }
 
   const meta::type nested_type = meta::find(value_type);
@@ -164,12 +159,7 @@ variant_result make_serialized_value(const any_ref& value, const serialization::
     return to_serialization_value(context, nested_type, value.data());
   }
 
-  any copied = value.to_any();
-  if (!copied.valid()) {
-    return {{error_domain::serialization, errc::unsupported}, {}};
-  }
-
-  return make_serialized_value(copied);
+  return make_scalar_value(value);
 }
 
 error write_serialized_value(writer& writer, const any_ref& value,
@@ -220,12 +210,7 @@ error write_serialized_value(writer& writer, const any_ref& value,
   const type_id value_type = value.get_type().id();
   const serialization::codec_capability codec = find_codec_capability(value.get_type());
   if (codec.can_write()) {
-    any copied = value.to_any();
-    if (!copied.valid()) {
-      return {error_domain::serialization, errc::unsupported};
-    }
-
-    return codec.write(context, writer, copied);
+    return codec.write(context, writer, value);
   }
 
   const meta::type nested_type = meta::find(value_type);
@@ -233,12 +218,7 @@ error write_serialized_value(writer& writer, const any_ref& value,
     return serialize(context, nested_type, value.data(), writer);
   }
 
-  any copied = value.to_any();
-  if (!copied.valid()) {
-    return {error_domain::serialization, errc::unsupported};
-  }
-
-  if (!try_write_scalar_value(writer, copied)) {
+  if (!try_write_scalar_value(writer, value)) {
     return {error_domain::serialization, errc::unsupported};
   }
 

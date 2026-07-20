@@ -25,6 +25,20 @@ TEST_CASE("serialization - custom codec specialization uses descriptor capabilit
   CHECK(capability.can_read());
   CHECK(capability.can_make_value());
 
+  policy_custom_codec_value ref_source{6};
+  const caors::serialization::variant_result ref_value =
+      capability.make_value(caors::serialization::context{}, caors::any_ref::from(ref_source));
+  REQUIRE(ref_value.succeeded());
+  REQUIRE(ref_value.value.try_as_i64() != nullptr);
+  CHECK(*ref_value.value.try_as_i64() == 106);
+
+  caors::string ref_text;
+  caors::serialization::text_writer ref_writer{ref_text};
+  CHECK(capability
+            .write(caors::serialization::context{}, ref_writer, caors::any_ref::from(ref_source))
+            .succeeded());
+  CHECK(ref_text == "106");
+
   const caors::serialization::variant_result capability_value = capability.make_value(
       caors::serialization::context{}, caors::any::from(policy_custom_codec_value{5}));
   REQUIRE(capability_value.succeeded());

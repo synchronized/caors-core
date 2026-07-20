@@ -23,17 +23,24 @@ class writer;
 struct codec_ops {
   using write_fn = error (*)(const serialization::context& context, writer& writer,
                              const meta::any& data);
+  using write_ref_fn = error (*)(const serialization::context& context, writer& writer,
+                                 const meta::any_ref& data);
   using read_fn = error (*)(const serialization::context& context, reader& reader,
                             const meta::any_ref& target);
   using value_fn = result<variant> (*)(const serialization::context& context,
                                        const meta::any& data);
+  using value_ref_fn = result<variant> (*)(const serialization::context& context,
+                                           const meta::any_ref& data);
 
   write_fn write = nullptr;
+  write_ref_fn write_ref = nullptr;
   read_fn read = nullptr;
   value_fn make_value = nullptr;
+  value_ref_fn make_value_ref = nullptr;
 
   [[nodiscard]] constexpr bool valid() const noexcept {
-    return write != nullptr || read != nullptr || make_value != nullptr;
+    return write != nullptr || write_ref != nullptr || read != nullptr || make_value != nullptr ||
+           make_value_ref != nullptr;
   }
 };
 

@@ -349,6 +349,9 @@ public:
   /** @brief 使用该 codec 写出一份运行期值。 */
   [[nodiscard]] error write(const serialization::context& context, writer& writer,
                             const any& data) const;
+  /** @brief 使用该 codec 写出一份运行期引用，避免中间拷贝。 */
+  [[nodiscard]] error write(const serialization::context& context, writer& writer,
+                            const any_ref& data) const;
 
   /** @brief 使用该 codec 读入一份运行期引用。 */
   [[nodiscard]] error read(const serialization::context& context, reader& reader,
@@ -357,6 +360,9 @@ public:
   /** @brief 使用该 codec 构造序列化中间值。 */
   [[nodiscard]] variant_result make_value(const serialization::context& context,
                                           const any& data) const;
+  /** @brief 使用该 codec 从运行期引用构造序列化中间值，避免中间拷贝。 */
+  [[nodiscard]] variant_result make_value(const serialization::context& context,
+                                          const any_ref& data) const;
 };
 
 /** @brief 把运行期 C++ 值转换为序列化中间值。 */
@@ -389,9 +395,31 @@ template <typename Codec, typename T> struct codec_ops_model_from {
     return Codec::write(context, writer, *stored);
   }
 
+  [[nodiscard]] static error write_ref_with_context(const serialization::context& context,
+                                                    serialization::writer& writer,
+                                                    const any_ref& value) {
+    const type* stored = value.try_get<type>();
+    if (stored == nullptr) {
+      return {error_domain::serialization, errc::invalid_type};
+    }
+
+    return Codec::write(context, writer, *stored);
+  }
+
   [[nodiscard]] static error write_without_context(const serialization::context&,
                                                    serialization::writer& writer,
                                                    const any& value) {
+    const type* stored = value.try_get<type>();
+    if (stored == nullptr) {
+      return {error_domain::serialization, errc::invalid_type};
+    }
+
+    return Codec::write(writer, *stored);
+  }
+
+  [[nodiscard]] static error write_ref_without_context(const serialization::context&,
+                                                       serialization::writer& writer,
+                                                       const any_ref& value) {
     const type* stored = value.try_get<type>();
     if (stored == nullptr) {
       return {error_domain::serialization, errc::invalid_type};
@@ -442,8 +470,28 @@ template <typename Codec, typename T> struct codec_ops_model_from {
     return Codec::make_value(context, *stored);
   }
 
+  [[nodiscard]] static variant_result
+  make_value_ref_with_context(const serialization::context& context, const any_ref& value) {
+    const type* stored = value.try_get<type>();
+    if (stored == nullptr) {
+      return {{error_domain::serialization, errc::invalid_type}, {}};
+    }
+
+    return Codec::make_value(context, *stored);
+  }
+
   [[nodiscard]] static variant_result make_value_without_context(const serialization::context&,
                                                                  const any& value) {
+    const type* stored = value.try_get<type>();
+    if (stored == nullptr) {
+      return {{error_domain::serialization, errc::invalid_type}, {}};
+    }
+
+    return Codec::make_value(*stored);
+  }
+
+  [[nodiscard]] static variant_result make_value_ref_without_context(const serialization::context&,
+                                                                     const any_ref& value) {
     const type* stored = value.try_get<type>();
     if (stored == nullptr) {
       return {{error_domain::serialization, errc::invalid_type}, {}};
@@ -459,10 +507,12 @@ template <typename Codec, typename T> struct codec_ops_model_from {
       if constexpr (requires(const serialization::context& context, serialization::writer& writer,
                              const type& value) { Codec::write(context, writer, value); }) {
         data.write = &write_with_context;
+        data.write_ref = &write_ref_with_context;
       } else if constexpr (requires(serialization::writer& writer, const type& value) {
                              Codec::write(writer, value);
                            }) {
         data.write = &write_without_context;
+        data.write_ref = &write_ref_without_context;
       }
     }
 
@@ -482,8 +532,10 @@ template <typename Codec, typename T> struct codec_ops_model_from {
                       Codec::make_value(context, value);
                     }) {
         data.make_value = &make_value_with_context;
+        data.make_value_ref = &make_value_ref_with_context;
       } else if constexpr (requires(const type& value) { Codec::make_value(value); }) {
         data.make_value = &make_value_without_context;
+        data.make_value_ref = &make_value_ref_without_context;
       }
     }
 
