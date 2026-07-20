@@ -53,13 +53,16 @@ build/benchmarks/caors_benchmarks 100000
 - `meta::property` / `meta::method_set` 缓存句柄与 `instance` 按名便利入口的对比。按名入口每次
   调用都会查询属性或方法，热点循环应缓存 property / method 视图。
 - `meta::any_ref` / `meta::any`：运行期引用创建、类型检查和标量装箱。
-- `serialization::to_value()`：反射对象序列化到 `variant` DOM。
+- `serialization::to_value()` / `to_string()` / `deserialize()`：反射对象到 `variant` DOM、JSON 文本和
+  JSON 文本读回对象的主路径。
+- `resources::cache<T>` / `resources::load_handle_into()`：cache 查找、已缓存加载和未缓存 loader->cache
+  主路径。
 
 这些 API 都是纯内存路径，结果更容易对比不同提交之间的回归。
 
 ## 后续适合拆分的专项
 
-- 资源系统：`resources::manager`、`cache<T>`、provider、loader、resolver 和 async request。
+- 资源系统：provider、resolver、asset_manager 构建、跨类型 preload 和 async request。
 - IO 系统：本地文件系统、内存文件系统、挂载路径解析和字节流读写。
 - 对象系统：`object_id` 生成、对象注册、handle/ref 查询和对象工厂。
 - 序列化文本后端：JSON 文本读写、调用方提供 buffer、不同 field policy。

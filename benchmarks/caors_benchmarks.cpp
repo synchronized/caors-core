@@ -4,6 +4,7 @@
 #include "caors/core/string_name.h"
 #include "caors/meta.h"
 #include "caors/registration.h"
+#include "caors/resources.h"
 #include "caors/serialization.h"
 
 #include <ctrack.hpp>
@@ -66,6 +67,34 @@ struct benchmark_actor {
   [[nodiscard]] int health_int() const noexcept { return static_cast<int>(health); }
   void set_health_int(int value) noexcept { health = static_cast<float>(value); }
   [[nodiscard]] int sum(int left, int right) const noexcept { return id + left + right; }
+};
+
+constexpr caors::resource_guid benchmark_texture_guid{caors::guid::from_bytes(
+    caors::guid::byte_array{0x8f, 0x1b, 0x2a, 0x44, 0x90, 0x0a, 0x45, 0x36, 0x92, 0x74, 0x71, 0xee,
+                            0x4a, 0x51, 0x91, 0x09})};
+
+class benchmark_texture_resource : public caors::resource {
+public:
+  using caors::resource::resource;
+
+  int width = 0;
+  int height = 0;
+};
+
+class benchmark_texture_loader final : public caors::resources::loader<benchmark_texture_resource> {
+public:
+  [[nodiscard]] caors::resources::load_result<benchmark_texture_resource>
+  load(caors::resource_guid guid, caors::memory_resource* resource = nullptr) override {
+    auto value = caors::memory::make_unique<benchmark_texture_resource>(resource);
+    if (value == nullptr) {
+      return {{caors::error_domain::resources, caors::errc::out_of_memory}, {}};
+    }
+
+    value->set_guid(guid);
+    value->width = 256;
+    value->height = 128;
+    return {{}, std::move(value)};
+  }
 };
 
 void ensure_benchmark_types_registered() {
@@ -303,6 +332,7 @@ void benchmark_any(std::size_t iterations) {
 
 void benchmark_serialization(std::size_t iterations) {
   const benchmark_actor actor{7, 95.5F, true, "Ada"};
+  constexpr std::string_view actor_json{R"({"id":7,"health":95.5,"active":true,"name":"Ada"})"};
 
   {
     CTRACK_NAME("serialization.to_value");
@@ -313,6 +343,77 @@ void benchmark_serialization(std::size_t iterations) {
         std::exit(EXIT_FAILURE);
       }
       consume_value(result.value);
+    }
+  }
+
+  {
+    CTRACK_NAME("serialization.to_string_json");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      caors::serialization::serialization_text_result result = caors::to_string(actor);
+      if (result.failed()) {
+        std::cerr << "JSON 序列化 benchmark 对象失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      consume_value(result.value);
+    }
+  }
+
+  {
+    CTRACK_NAME("serialization.deserialize_json");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      benchmark_actor target{};
+      const caors::error status = caors::deserialize(target, actor_json);
+      if (status.failed()) {
+        std::cerr << "JSON 反序列化 benchmark 对象失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      consume(static_cast<std::uintptr_t>(target.id));
+    }
+  }
+}
+
+void benchmark_resources(std::size_t iterations) {
+  caors::resource_cache<benchmark_texture_resource> cache;
+  benchmark_texture_loader loader;
+  benchmark_texture_resource* texture = cache.create(benchmark_texture_guid);
+  if (texture == nullptr) {
+    std::cerr << "创建 benchmark 资源失败\n";
+    std::exit(EXIT_FAILURE);
+  }
+  texture->width = 256;
+  texture->height = 128;
+
+  {
+    CTRACK_NAME("resources.cache.find");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      consume_address(cache.find(benchmark_texture_guid));
+    }
+  }
+
+  {
+    CTRACK_NAME("resources.load_handle_into.cached");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      caors::resources::handle_result<benchmark_texture_resource> result =
+          caors::resources::load_handle_into(cache, loader, benchmark_texture_guid);
+      if (result.failed()) {
+        std::cerr << "资源 cache hit benchmark 失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      consume_address(result.value.get());
+    }
+  }
+
+  {
+    CTRACK_NAME("resources.load_handle_into.uncached");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      (void)cache.erase(benchmark_texture_guid);
+      caors::resources::handle_result<benchmark_texture_resource> result =
+          caors::resources::load_handle_into(cache, loader, benchmark_texture_guid);
+      if (result.failed()) {
+        std::cerr << "资源加载 benchmark 失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      consume_address(result.value.get());
     }
   }
 }
@@ -331,6 +432,7 @@ int main(int argc, char** argv) {
   benchmark_method_calls(iterations);
   benchmark_any(iterations);
   benchmark_serialization(iterations);
+  benchmark_resources(iterations);
 
   ctrack::result_print();
   return benchmark_sink == 0 ? EXIT_SUCCESS : EXIT_SUCCESS;
