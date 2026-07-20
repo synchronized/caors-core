@@ -3,6 +3,7 @@
 
 #include "caors/meta/property.h"
 #include "caors/meta/detail/property_data.h"
+#include "caors/meta/detail/value_conversion.h"
 #include "caors/meta/instance.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/type.h"
@@ -39,6 +40,13 @@ namespace {
   if (source.is_any()) {
     const any* source_any = source.try_as_any();
     return source_any != nullptr && target.try_set(*source_any);
+  }
+
+  if (detail::try_assign_value_to_known_ref<
+          bool, char, signed char, unsigned char, short, unsigned short, int, unsigned int, long,
+          unsigned long, long long, unsigned long long, float, double, long double,
+          core::string_name, core::string, meta::object*>(target, source)) {
+    return true;
   }
 
   any copied = source.to_any();

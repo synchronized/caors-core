@@ -113,12 +113,12 @@ TEST_CASE("meta value - integrates with property and method runtime APIs", "[met
   REQUIRE(hp_any.try_get<int>() != nullptr);
   CHECK(*hp_any.try_get<int>() == 10);
 
-  CHECK(hp.try_set_value(instance, caors::meta::value::from_any(12)));
+  CHECK(hp.try_set_value(instance, caors::meta::value{12}));
   CHECK(actor.hp == 12);
-  CHECK(instance.set("hp", caors::meta::value::from_any(14)));
+  CHECK(instance.set("hp", caors::meta::value{14}));
   CHECK(actor.hp == 14);
 
-  std::array<caors::meta::value, 1> arguments{caors::meta::value::from_any(6)};
+  std::array<caors::meta::value, 1> arguments{caors::meta::value{6}};
   caors::meta::invoke_value_result add_result =
       reflected.find_method("add").invoke(instance, arguments);
   REQUIRE(add_result);

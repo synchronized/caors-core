@@ -169,17 +169,19 @@ caors::meta::method add_health = type.find_method("add_health").single();
 ```
 
 属性、方法和实例也提供 `meta::value` 高层运行期入口，适合脚本、编辑器、消息系统等动态调用场景。
-`meta::value::from_any(T)` 会保留精确 C++ 类型，适合传给已注册 C++ 属性或方法；直接用
-`meta::value{42}` 会保存为运行期 `int64_t`，需要类型转换策略时应显式开启或后续接入 fast path：
+直接使用 `meta::value{42}` 会保存为运行期 `int64_t`，属性写入和方法调用会优先把常见 tagged
+value 直接转换为目标 C++ 类型；当前覆盖布尔、整数、浮点、`string_name`、字符串和
+`meta::object*`。复杂 C++ 类型、引用参数和需要精确 C++ 类型的调用仍应使用
+`meta::value::from_any(T)`、`set_any()` 或 `call_any()`。
 
 ```cpp
 actor instance{};
 caors::meta::instance object = caors::meta::view(instance);
 
-object.set("health", caors::meta::value::from_any(120));
+object.set("health", caors::meta::value{120});
 
 std::array<caors::meta::value, 1> args{
-    caors::meta::value::from_any(5),
+    caors::meta::value{5},
 };
 caors::meta::invoke_value_result result = object.call("add_health", args);
 

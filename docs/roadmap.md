@@ -213,10 +213,10 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 整理 `meta::property` 的拥有值、引用值和动态值命名：`get_value()` 返回 `meta::value`，
   `get_any()` 返回稳定 C++ 拷贝，`get_ref()` 继续返回 `any_ref`，避免普通用户把 `any` 当作动态值主入口。
 - [x] 为 `meta::method` / `meta::method_set` 增加 `meta::value` 调用入口，例如
-  `invoke(instance, span<const meta::value>)` / `instance::call()`；当前通过 value 到
-  `argument` / `any` 的 adapter 回退，后续由注册器为基础参数和对象参数生成直接 fast path。
-- [ ] 为方法注册器生成 `meta::value` fast path：基础数值、布尔、字符串、`string_name`、`meta::object*`
-  等常见参数直接从 tagged value 转换并调用 C++ 成员函数；复杂参数、引用返回和歧义匹配继续使用现有
+  `invoke(instance, span<const meta::value>)` / `instance::call()`；调用时优先尝试 tagged value fast path，
+  不匹配时回退到 value 到 `argument` / `any` 的 adapter。
+- [x] 为方法注册器生成 `meta::value` fast path：基础数值、布尔、字符串、`string_name`、`meta::object*`
+  等常见按值参数直接从 tagged value 转换并调用 C++ 成员函数；复杂参数、引用参数和歧义匹配继续使用现有
   `argument_match_options` / `invoke_result` 机制。
 - [ ] 扩展字符串解析或更完整的类型转换策略。
 - [ ] 支持既不可复制也不可移动的 by-value 方法返回值诊断策略。
