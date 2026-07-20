@@ -6,6 +6,7 @@
 
 #include "caors/core/containers.h"
 #include "caors/core/string_name.h"
+#include "caors/meta/argument.h"
 #include "caors/meta/object.h"
 #include "caors/meta/value/any_ref.h"
 
@@ -240,6 +241,30 @@ public:
       return as_ref().to_any();
     case value_kind::any:
       return *try_as_any();
+    default:
+      return {};
+    }
+  }
+
+  /**
+   * @brief 转换为反射方法调用参数。
+   *
+   * `reference` 和 `object` 会作为左值引用参数传递；`any`、标量和文本会复制为拥有的右值参数。
+   * `null` 当前无法表达有效 C++ 参数，会返回无效参数。
+   */
+  [[nodiscard]] meta::argument to_argument() const {
+    switch (kind()) {
+    case value_kind::reference:
+    case value_kind::object:
+      return meta::argument::from(to_ref());
+    case value_kind::any:
+    case value_kind::boolean:
+    case value_kind::signed_integer:
+    case value_kind::unsigned_integer:
+    case value_kind::floating:
+    case value_kind::string_name:
+    case value_kind::string:
+      return meta::argument::move(to_any());
     default:
       return {};
     }

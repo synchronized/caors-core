@@ -168,6 +168,31 @@ caors::meta::property health = type.find_property("health");
 caors::meta::method add_health = type.find_method("add_health").single();
 ```
 
+属性、方法和实例也提供 `meta::value` 高层运行期入口，适合脚本、编辑器、消息系统等动态调用场景。
+`meta::value::from_any(T)` 会保留精确 C++ 类型，适合传给已注册 C++ 属性或方法；直接用
+`meta::value{42}` 会保存为运行期 `int64_t`，需要类型转换策略时应显式开启或后续接入 fast path：
+
+```cpp
+actor instance{};
+caors::meta::instance object = caors::meta::view(instance);
+
+object.set_value("health", caors::meta::value::from_any(120));
+
+std::array<caors::meta::value, 1> args{
+    caors::meta::value::from_any(5),
+};
+caors::meta::invoke_value_result result = object.call_value("add_health", args);
+
+if (result.has_value()) {
+  caors::meta::value returned = result.value();
+}
+```
+
+低层精确 C++ 入口仍然保留：属性拷贝值使用 `property::get_value()` 返回 `any`，属性引用使用
+`property::get_ref()` 返回 `any_ref`，方法完整调用结果使用 `invoke_result_of()` 返回
+`invoke_result`。`invoke_value_result` 只把返回值统一包装为 `meta::value`，仍保留失败原因和
+`void` 成功语义。
+
 `find_property()` 和 `find_method()` 默认只查询当前类型声明的成员。需要查询父类成员时显式传入
 `meta::member_search::include_bases`；同名成员由子类优先返回，遍历 API 仍只遍历本类型成员：
 
@@ -668,6 +693,8 @@ module 和 class 的边界：
 - module 上的 `property::get_value()`、`property::get_ref()`、`property::try_set_value()` 不接收对象地址。
 - module 上的 `method::invoke_result_of(args)` 和 `method_set::invoke_result_of(args)` 不接收对象地址；成员方法使用
   `invoke_result_of(object, args)`。
+- module 上也可以使用 `property::get()` / `property::try_set_value(meta::value)` 和
+  `method_set::invoke_value_result_of(span<const meta::value>)` 这类高层 `meta::value` 入口。
 - 调用结果统一使用 `meta::invoke_result` 表达，可以区分调用失败、`void` 成功、拥有值返回和引用返回。
 
 ### 属性 schema
@@ -1088,7 +1115,9 @@ traits 中提供可适配的 iterator 操作。容器 view 只依赖 `meta::type
 - `meta::registry`：全局 meta 类型注册、按 id/name/guid 或 C++ 类型查询、继承关系判断和 extension 元数据挂载。
 - `meta::value`：高频动态运行期值，内联保存常见标量、`string_name` 和 `meta::object*`，
   通过 `any_ref` 表达非拥有 C++ 引用，通过 `any` 兜底表达拥有的精确 C++ 类型值；它面向脚本、
-  编辑器、消息和动态调用，可持久化数据树仍使用 `meta::variant`。
+  编辑器、消息和动态调用，可持久化数据树仍使用 `meta::variant`。`property::get()`、
+  `property::try_set_value(meta::value)`、`method::invoke_value_result_of()`、`method_set::invoke_value_result_of()`
+  和 `instance::call_value()` 是当前高层动态调用入口。
 - `meta::registry::extension_view<T...>`：按扩展数据集合查询类型。
 - `meta::run_registrations()`：执行已收集的延迟元数据注册函数。
 - `meta::init_registry()`：执行延迟元数据注册函数并校验注册表；不会阻止后续注册。

@@ -8,12 +8,14 @@
 #include "caors/meta/argument.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/type.h"
+#include "caors/meta/value/value.h"
 
 #include <cstddef>
 #include <optional>
 #include <span>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 
 namespace caors::meta {
 
@@ -31,6 +33,13 @@ enum class invoke_result_kind {
   void_value,
   value,
   reference,
+};
+
+/** @brief 高层运行期值调用结果类型。 */
+enum class invoke_value_result_kind {
+  failed,
+  void_value,
+  value,
 };
 
 /** @brief 方法匹配结果分类。 */
@@ -141,6 +150,51 @@ private:
 };
 
 /**
+ * @brief 使用 `meta::value` 表达返回值的反射函数调用结果。
+ *
+ * `invoke_value_result` 面向运行期高层 API。它保留失败原因和 `void` 成功语义，返回值统一包装为
+ * `meta::value`；引用返回会保存为 `value::from_ref()`。
+ */
+class invoke_value_result final {
+public:
+  invoke_value_result() noexcept = default;
+
+  [[nodiscard]] static invoke_value_result failed() noexcept { return {}; }
+  [[nodiscard]] static invoke_value_result failed(invoke_failure_reason reason) noexcept {
+    invoke_value_result result{};
+    result.failure_reason_ = reason;
+    return result;
+  }
+  [[nodiscard]] static invoke_value_result void_value() noexcept {
+    invoke_value_result result{};
+    result.kind_ = invoke_value_result_kind::void_value;
+    return result;
+  }
+  [[nodiscard]] static invoke_value_result from_value(meta::value value) noexcept {
+    invoke_value_result result{};
+    result.kind_ = invoke_value_result_kind::value;
+    result.value_ = std::move(value);
+    return result;
+  }
+
+  [[nodiscard]] bool succeeded() const noexcept {
+    return kind_ != invoke_value_result_kind::failed;
+  }
+  [[nodiscard]] explicit operator bool() const noexcept { return succeeded(); }
+  [[nodiscard]] invoke_value_result_kind kind() const noexcept { return kind_; }
+  [[nodiscard]] invoke_failure_reason failure_reason() const noexcept { return failure_reason_; }
+  [[nodiscard]] bool has_value() const noexcept { return kind_ == invoke_value_result_kind::value; }
+
+  [[nodiscard]] const meta::value& value() const noexcept { return value_; }
+  [[nodiscard]] meta::value& mutable_value() noexcept { return value_; }
+
+private:
+  invoke_value_result_kind kind_ = invoke_value_result_kind::failed;
+  invoke_failure_reason failure_reason_ = invoke_failure_reason::none;
+  meta::value value_{};
+};
+
+/**
  * @brief 成员方法反射只读视图。
  *
  * `meta::method` 不拥有方法数据，只引用全局 `meta::registry`
@@ -182,6 +236,16 @@ public:
                                                argument_match_options options = {}) const;
   [[nodiscard]] invoke_result invoke_result_of(std::span<const named_argument> arguments,
                                                argument_match_options options = {}) const;
+
+  /** @brief 在实例上使用高层运行期值参数调用成员方法。 */
+  [[nodiscard]] invoke_value_result
+  invoke_value_result_of(const instance& object, std::span<const meta::value> arguments = {},
+                         argument_match_options options = {}) const;
+
+  /** @brief 使用高层运行期值参数调用全局函数。 */
+  [[nodiscard]] invoke_value_result
+  invoke_value_result_of(std::span<const meta::value> arguments = {},
+                         argument_match_options options = {}) const;
 
   /** @brief 按指定类型调用方法并读取返回值。 */
   template <typename Return>
@@ -299,6 +363,16 @@ public:
                                                argument_match_options options = {}) const;
   [[nodiscard]] invoke_result invoke_result_of(std::span<const named_argument> arguments,
                                                argument_match_options options = {}) const;
+
+  /** @brief 在实例上使用高层运行期值参数调用唯一匹配的成员方法重载。 */
+  [[nodiscard]] invoke_value_result
+  invoke_value_result_of(const instance& object, std::span<const meta::value> arguments = {},
+                         argument_match_options options = {}) const;
+
+  /** @brief 使用高层运行期值参数调用唯一匹配的全局函数重载。 */
+  [[nodiscard]] invoke_value_result
+  invoke_value_result_of(std::span<const meta::value> arguments = {},
+                         argument_match_options options = {}) const;
 
 private:
   friend class module_view;

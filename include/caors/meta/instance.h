@@ -10,6 +10,7 @@
 #include "caors/meta/property.h"
 #include "caors/meta/type.h"
 #include "caors/meta/value/any_ref.h"
+#include "caors/meta/value/value.h"
 
 #include <array>
 #include <span>
@@ -64,6 +65,9 @@ public:
   /** @brief 读取属性值的运行期拷贝；属性不存在时返回无效 `any`。 */
   [[nodiscard]] any get(std::string_view name) const;
 
+  /** @brief 读取属性值的高层运行期值；属性不存在时返回 `null`。 */
+  [[nodiscard]] meta::value get_value(std::string_view name) const;
+
   /** @brief 读取属性值的运行期引用；只读实例返回只读引用。 */
   [[nodiscard]] any_ref get_ref(std::string_view name) const;
 
@@ -72,6 +76,9 @@ public:
 
   /** @brief 从运行期引用写入属性。 */
   bool set(std::string_view name, const any_ref& source) const;
+
+  /** @brief 从高层运行期值写入属性。 */
+  bool set_value(std::string_view name, const meta::value& source) const;
 
   /** @brief 从 C++ 值写入属性。 */
   template <typename T> bool set(std::string_view name, const T& source) const {
@@ -86,6 +93,10 @@ public:
 
   /** @brief 调用反射方法；只读实例只能调用 const 成员函数。 */
   [[nodiscard]] any call(std::string_view name, std::span<const argument> arguments = {}) const;
+
+  /** @brief 使用高层运行期值参数调用反射方法。 */
+  [[nodiscard]] invoke_value_result call_value(std::string_view name,
+                                               std::span<const meta::value> arguments = {}) const;
 
   /** @brief 使用 C++ 参数临时创建左值 `argument` 后调用反射方法。 */
   template <typename... Args> [[nodiscard]] any call(std::string_view name, Args&&... args) const {

@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
+#include "caors/meta/property.h"
 #include "caors/meta/detail/property_data.h"
 #include "caors/meta/instance.h"
 #include "caors/meta/metadata.h"
-#include "caors/meta/property.h"
 #include "caors/meta/type.h"
 #include "caors/meta/value/any.h"
 #include "caors/meta/value/any_ref.h"
+#include "caors/meta/value/value.h"
 #include "caors/meta/value_ops.h"
+
+#include <utility>
 
 namespace caors::meta {
 namespace {
@@ -24,13 +27,29 @@ namespace {
   return empty;
 }
 
+[[nodiscard]] bool try_assign_value(any_ref target, const meta::value& source) {
+  if (!target) {
+    return false;
+  }
+
+  if (source.is_ref()) {
+    return target.try_set(source.as_ref());
+  }
+
+  if (source.is_any()) {
+    const any* source_any = source.try_as_any();
+    return source_any != nullptr && target.try_set(*source_any);
+  }
+
+  any copied = source.to_any();
+  return copied && target.try_set(copied);
+}
+
 } // namespace
 
 property::property(const detail::property_data* property) noexcept : property_(property) {}
 
-bool property::valid() const noexcept {
-  return property_ != nullptr && property_->valid();
-}
+bool property::valid() const noexcept { return property_ != nullptr && property_->valid(); }
 
 core::string_name property::name() const noexcept {
   const detail::property_data* property = info();
@@ -132,6 +151,16 @@ any property::get_value() const {
   return property->get_value(nullptr);
 }
 
+meta::value property::get(const instance& object) const {
+  any result = get_value(object);
+  return result ? meta::value::from_any(std::move(result)) : meta::value{};
+}
+
+meta::value property::get() const {
+  any result = get_value();
+  return result ? meta::value::from_any(std::move(result)) : meta::value{};
+}
+
 any_ref property::get_ref(const instance& object) const {
   const detail::property_data* property = info();
   if (property == nullptr || !object) {
@@ -167,6 +196,14 @@ bool property::try_set_value(const any& source) const {
   }
 
   return property->try_set_value(nullptr, source);
+}
+
+bool property::try_set_value(const instance& object, const meta::value& source) const {
+  return try_assign_value(get_ref(object), source);
+}
+
+bool property::try_set_value(const meta::value& source) const {
+  return try_assign_value(get_ref(), source);
 }
 
 bool property::is_sequence() const noexcept { return kind() == meta::type_kind::sequence; }

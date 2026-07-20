@@ -113,7 +113,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 定义 `meta::value` 作为高频动态运行期值，类似 Lua `TValue` / Godot `Variant` 的 tagged value：
   基础标量、`string_name`、轻量字符串、`meta::object*` 走内联或轻量指针快路径，复杂 C++ 类型通过
   `any_ref` 引用值或 `any` 拥有值兜底；`meta::variant` 继续作为序列化/配置 DOM，不承担 userdata 语义。
-- [ ] 梳理 `meta::value`、`meta::any`、`meta::any_ref`、`meta::variant` 的职责边界和转换 API：
+- [x] 梳理 `meta::value`、`meta::any`、`meta::any_ref`、`meta::variant` 的职责边界和转换 API：
   `value` 面向脚本/编辑器/消息/动态调用，`any` 面向拥有的 C++ 精确类型值，`any_ref` 面向非拥有 C++
   精确类型引用，`variant` 面向可持久化数据树。
 - [x] 将 `meta::type_<T>()` 改为 `registration::type_<T>(name)`，并将枚举注册收敛为
@@ -208,13 +208,13 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   重载歧义和底层调用失败。
 - [x] 增加来源类型级 `argument_conversion_ops` capability，并通过
   `argument_match_options::allow_custom_conversions` 显式开启自定义参数转换。
-- [ ] 为 `meta::property` 增加 `meta::value` 主路径 API，例如 `get_value()` / `set_value()`，基础类型、
-  `string_name` 和 `meta::object*` 走直接转换快路径，复杂 C++ 类型回退到 `any_ref` 或 `any`。
+- [x] 为 `meta::property` 增加 `meta::value` 高层 API，例如 `get()` /
+  `try_set_value(meta::value)`；复杂 C++ 类型通过 `any_ref` 或 `any` 适配现有精确类型路径。
 - [ ] 整理 `meta::property` 的拥有值、引用值和动态值命名：`get_ref()` 继续返回 `any_ref`，
   `get_value()` 返回 `meta::value`，需要稳定 C++ 拷贝时提供高级 `copy()` / `get_any()` 语义，避免普通
   用户把 `any` 当作动态值主入口。
-- [ ] 为 `meta::method` / `meta::method_set` 增加 `meta::value` 调用入口，例如
-  `invoke_value(instance, span<const meta::value>)` / `call_value()`；默认可先通过 value 到
+- [x] 为 `meta::method` / `meta::method_set` 增加 `meta::value` 调用入口，例如
+  `invoke_value_result_of(instance, span<const meta::value>)` / `call_value()`；当前通过 value 到
   `argument` / `any` 的 adapter 回退，后续由注册器为基础参数和对象参数生成直接 fast path。
 - [ ] 为方法注册器生成 `meta::value` fast path：基础数值、布尔、字符串、`string_name`、`meta::object*`
   等常见参数直接从 tagged value 转换并调用 C++ 成员函数；复杂参数、引用返回和歧义匹配继续使用现有

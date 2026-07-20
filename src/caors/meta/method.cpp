@@ -3,8 +3,11 @@
 
 #include "caors/meta/method.h"
 
+#include "caors/core/containers.h"
 #include "caors/meta/detail/method_data.h"
 #include "caors/meta/instance.h"
+
+#include <utility>
 
 namespace caors::meta {
 namespace {
@@ -13,6 +16,44 @@ namespace {
   static const metadata_map empty{
       typename metadata_map::allocator_type{&memory::library_resource()}};
   return empty;
+}
+
+struct value_arguments {
+  core::vector<argument> arguments = core::make_vector<argument>();
+  bool valid = true;
+};
+
+[[nodiscard]] value_arguments make_value_arguments(std::span<const meta::value> values) {
+  value_arguments result{};
+  result.arguments.reserve(values.size());
+
+  for (const meta::value& value : values) {
+    argument converted = value.to_argument();
+    if (!converted) {
+      result.valid = false;
+      result.arguments.clear();
+      return result;
+    }
+
+    result.arguments.push_back(std::move(converted));
+  }
+
+  return result;
+}
+
+[[nodiscard]] invoke_value_result make_invoke_value_result(invoke_result result) {
+  switch (result.kind()) {
+  case invoke_result_kind::void_value:
+    return invoke_value_result::void_value();
+  case invoke_result_kind::value:
+    return invoke_value_result::from_value(
+        meta::value::from_any(std::move(result.mutable_value())));
+  case invoke_result_kind::reference:
+    return invoke_value_result::from_value(meta::value::from_ref(result.ref()));
+  case invoke_result_kind::failed:
+  default:
+    return invoke_value_result::failed(result.failure_reason());
+  }
 }
 
 } // namespace
@@ -149,6 +190,30 @@ invoke_result method::invoke_result_of(std::span<const named_argument> arguments
   return method->invoke_result_of(nullptr, false, arguments, options);
 }
 
+invoke_value_result method::invoke_value_result_of(const instance& object,
+                                                   std::span<const meta::value> arguments,
+                                                   argument_match_options options) const {
+  value_arguments converted = make_value_arguments(arguments);
+  if (!converted.valid) {
+    return invoke_value_result::failed(invoke_failure_reason::argument_mismatch);
+  }
+
+  return make_invoke_value_result(invoke_result_of(
+      object, std::span<const argument>{converted.arguments.data(), converted.arguments.size()},
+      options));
+}
+
+invoke_value_result method::invoke_value_result_of(std::span<const meta::value> arguments,
+                                                   argument_match_options options) const {
+  value_arguments converted = make_value_arguments(arguments);
+  if (!converted.valid) {
+    return invoke_value_result::failed(invoke_failure_reason::argument_mismatch);
+  }
+
+  return make_invoke_value_result(invoke_result_of(
+      std::span<const argument>{converted.arguments.data(), converted.arguments.size()}, options));
+}
+
 const detail::method_data* method::info() const noexcept {
   if (!valid()) {
     return nullptr;
@@ -272,6 +337,30 @@ invoke_result method_set::invoke_result_of(std::span<const named_argument> argum
   const method_match_result result = match(arguments, options);
   return invoke_result::failed(result.is_ambiguous() ? invoke_failure_reason::ambiguous_overload
                                                      : invoke_failure_reason::argument_mismatch);
+}
+
+invoke_value_result method_set::invoke_value_result_of(const instance& object,
+                                                       std::span<const meta::value> arguments,
+                                                       argument_match_options options) const {
+  value_arguments converted = make_value_arguments(arguments);
+  if (!converted.valid) {
+    return invoke_value_result::failed(invoke_failure_reason::argument_mismatch);
+  }
+
+  return make_invoke_value_result(invoke_result_of(
+      object, std::span<const argument>{converted.arguments.data(), converted.arguments.size()},
+      options));
+}
+
+invoke_value_result method_set::invoke_value_result_of(std::span<const meta::value> arguments,
+                                                       argument_match_options options) const {
+  value_arguments converted = make_value_arguments(arguments);
+  if (!converted.valid) {
+    return invoke_value_result::failed(invoke_failure_reason::argument_mismatch);
+  }
+
+  return make_invoke_value_result(invoke_result_of(
+      std::span<const argument>{converted.arguments.data(), converted.arguments.size()}, options));
 }
 
 const detail::method_set_data* method_set::info() const noexcept {

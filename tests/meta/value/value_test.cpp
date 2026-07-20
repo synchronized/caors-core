@@ -14,6 +14,17 @@ public:
   static constexpr std::string_view object_type_name = "caors.test.meta.runtime_value_object";
 };
 
+struct runtime_value_actor {
+  int hp = 10;
+
+  int add(int value) {
+    hp += value;
+    return hp;
+  }
+
+  int& ref() noexcept { return hp; }
+};
+
 } // namespace
 
 TEST_CASE("meta value - stores scalar and text fast path values", "[meta]") {
@@ -76,4 +87,53 @@ TEST_CASE("meta value - can wrap any_ref and any fallback values", "[meta]") {
   caors::any copied = any_value.to_any();
   REQUIRE(copied.try_get<int>() != nullptr);
   CHECK(*copied.try_get<int>() == 9);
+}
+
+TEST_CASE("meta value - integrates with property and method runtime APIs", "[meta]") {
+  REQUIRE(type_result_ok(
+      caors::registration::type_<runtime_value_actor>("caors.test.meta.runtime_value_actor")
+          .meta()
+          .property("hp", &runtime_value_actor::hp)
+          .method("add", &runtime_value_actor::add)
+          .method("ref", &runtime_value_actor::ref)
+          .commit()));
+
+  const caors::meta::type reflected = caors::meta::find("caors.test.meta.runtime_value_actor");
+  REQUIRE(reflected);
+
+  runtime_value_actor actor{};
+  caors::meta::instance instance = caors::meta::view(actor);
+
+  const caors::meta::property hp = reflected.find_property("hp");
+  REQUIRE(hp);
+
+  caors::meta::value hp_value = hp.get(instance);
+  REQUIRE(hp_value.is_any());
+  caors::any hp_any = hp_value.to_any();
+  REQUIRE(hp_any.try_get<int>() != nullptr);
+  CHECK(*hp_any.try_get<int>() == 10);
+
+  CHECK(hp.try_set_value(instance, caors::meta::value::from_any(12)));
+  CHECK(actor.hp == 12);
+  CHECK(instance.set_value("hp", caors::meta::value::from_any(14)));
+  CHECK(actor.hp == 14);
+
+  std::array<caors::meta::value, 1> arguments{caors::meta::value::from_any(6)};
+  caors::meta::invoke_value_result add_result =
+      reflected.find_method("add").invoke_value_result_of(instance, arguments);
+  REQUIRE(add_result);
+  REQUIRE(add_result.has_value());
+  caors::any add_any = add_result.value().to_any();
+  REQUIRE(add_any.try_get<int>() != nullptr);
+  CHECK(*add_any.try_get<int>() == 20);
+
+  caors::meta::invoke_value_result ref_result = instance.call_value("ref");
+  REQUIRE(ref_result);
+  REQUIRE(ref_result.has_value());
+  caors::meta::any_ref ref = ref_result.value().as_ref();
+  REQUIRE(ref);
+  int* mutable_hp = ref.try_get_mutable<int>();
+  REQUIRE(mutable_hp != nullptr);
+  *mutable_hp = 31;
+  CHECK(actor.hp == 31);
 }

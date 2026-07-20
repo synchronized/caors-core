@@ -76,6 +76,15 @@ any instance::get(std::string_view name) const {
   return reflected_property.get_value(*this);
 }
 
+meta::value instance::get_value(std::string_view name) const {
+  const property reflected_property = find_property(name);
+  if (!reflected_property || !value_) {
+    return {};
+  }
+
+  return reflected_property.get(*this);
+}
+
 any_ref instance::get_ref(std::string_view name) const {
   const property reflected_property = find_property(name);
   if (!reflected_property || !value_) {
@@ -99,6 +108,15 @@ bool instance::set(std::string_view name, const any_ref& source) const {
   return target.try_set(source);
 }
 
+bool instance::set_value(std::string_view name, const meta::value& source) const {
+  const property reflected_property = find_property(name);
+  if (!reflected_property || !value_.writable()) {
+    return false;
+  }
+
+  return reflected_property.try_set_value(*this, source);
+}
+
 any instance::call(std::string_view name, std::span<const argument> arguments) const {
   const method_set reflected_method = find_method(name);
   if (!reflected_method || !value_) {
@@ -107,6 +125,17 @@ any instance::call(std::string_view name, std::span<const argument> arguments) c
 
   invoke_result result = reflected_method.invoke_result_of(*this, arguments);
   return result.has_value() ? std::move(result.mutable_value()) : any{};
+}
+
+invoke_value_result instance::call_value(std::string_view name,
+                                         std::span<const meta::value> arguments) const {
+  const method_set reflected_method = find_method(name);
+  if (!reflected_method || !value_) {
+    return invoke_value_result::failed(!reflected_method ? invoke_failure_reason::invalid_method
+                                                         : invoke_failure_reason::invalid_object);
+  }
+
+  return reflected_method.invoke_value_result_of(*this, arguments);
 }
 
 } // namespace caors::meta
