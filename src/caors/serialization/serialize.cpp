@@ -44,12 +44,12 @@ error serialize(const serialization::context& context, const meta::type& type, c
       return {error_domain::serialization, errc::not_found};
     }
 
-    result<serialization::context> nested_context = context.enter_nested_value();
-    if (nested_context.failed()) {
-      return nested_context.status;
+    serialization::context nested_context{};
+    if (const error nested_status = context.enter_nested_value(nested_context); nested_status) {
+      return nested_status;
     }
 
-    status = serialization::detail::write_field(writer, object, field, nested_context.value);
+    status = serialization::detail::write_field(writer, object, field, nested_context);
     if (status) {
       return status;
     }

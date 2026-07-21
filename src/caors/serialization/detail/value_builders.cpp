@@ -22,12 +22,12 @@ namespace caors::serialization::detail {
       return {{error_domain::serialization, errc::unsupported}, {}};
     }
 
-    result<serialization::context> nested_context = context.enter_nested_value();
-    if (nested_context.failed()) {
-      return {nested_context.status, {}};
+    serialization::context nested_context{};
+    if (const error status = context.enter_nested_value(nested_context); status) {
+      return {status, {}};
     }
 
-    variant_result encoded = make_serialized_value(element, nested_context.value);
+    variant_result encoded = make_serialized_value(element, nested_context);
     if (encoded.failed()) {
       return encoded;
     }
@@ -60,12 +60,12 @@ namespace caors::serialization::detail {
       return {{error_domain::serialization, errc::unsupported}, {}};
     }
 
-    result<serialization::context> nested_context = context.enter_nested_value();
-    if (nested_context.failed()) {
-      return {nested_context.status, {}};
+    serialization::context nested_context{};
+    if (const error status = context.enter_nested_value(nested_context); status) {
+      return {status, {}};
     }
 
-    variant_result encoded = make_serialized_value(element, nested_context.value);
+    variant_result encoded = make_serialized_value(element, nested_context);
     if (encoded.failed()) {
       return encoded;
     }
@@ -100,17 +100,17 @@ namespace caors::serialization::detail {
       return {{error_domain::serialization, errc::unsupported}, {}};
     }
 
-    result<serialization::context> nested_context = context.enter_nested_value();
-    if (nested_context.failed()) {
-      return {nested_context.status, {}};
+    serialization::context nested_context{};
+    if (const error status = context.enter_nested_value(nested_context); status) {
+      return {status, {}};
     }
 
-    variant_result encoded_key = make_serialized_value(key, nested_context.value);
+    variant_result encoded_key = make_serialized_value(key, nested_context);
     if (encoded_key.failed()) {
       return encoded_key;
     }
 
-    variant_result encoded_value = make_serialized_value(value, nested_context.value);
+    variant_result encoded_value = make_serialized_value(value, nested_context);
     if (encoded_value.failed()) {
       return encoded_value;
     }
@@ -134,17 +134,17 @@ namespace caors::serialization::detail {
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
-  result<serialization::context> nested_context = context.enter_nested_value();
-  if (nested_context.failed()) {
-    return {nested_context.status, {}};
+  serialization::context nested_context{};
+  if (const error status = context.enter_nested_value(nested_context); status) {
+    return {status, {}};
   }
 
-  variant_result encoded_first = make_serialized_value(first, nested_context.value);
+  variant_result encoded_first = make_serialized_value(first, nested_context);
   if (encoded_first.failed()) {
     return encoded_first;
   }
 
-  variant_result encoded_second = make_serialized_value(second, nested_context.value);
+  variant_result encoded_second = make_serialized_value(second, nested_context);
   if (encoded_second.failed()) {
     return encoded_second;
   }
@@ -172,12 +172,12 @@ namespace caors::serialization::detail {
       return {{error_domain::serialization, errc::unsupported}, {}};
     }
 
-    result<serialization::context> nested_context = context.enter_nested_value();
-    if (nested_context.failed()) {
-      return {nested_context.status, {}};
+    serialization::context nested_context{};
+    if (const error status = context.enter_nested_value(nested_context); status) {
+      return {status, {}};
     }
 
-    variant_result encoded = make_serialized_value(element, nested_context.value);
+    variant_result encoded = make_serialized_value(element, nested_context);
     if (encoded.failed()) {
       return encoded;
     }
@@ -200,12 +200,12 @@ namespace caors::serialization::detail {
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
-  result<serialization::context> nested_context = context.enter_nested_value();
-  if (nested_context.failed()) {
-    return {nested_context.status, {}};
+  serialization::context nested_context{};
+  if (const error status = context.enter_nested_value(nested_context); status) {
+    return {status, {}};
   }
 
-  variant_result encoded = make_serialized_value(value, nested_context.value);
+  variant_result encoded = make_serialized_value(value, nested_context);
   if (encoded.failed()) {
     return encoded;
   }

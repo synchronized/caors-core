@@ -22,6 +22,8 @@ class property;
 namespace detail {
 class property_data;
 [[nodiscard]] CAORS_API property make_property_view(const property_data* property) noexcept;
+[[nodiscard]] CAORS_API const property_data*
+property_data_of(const meta::property& property) noexcept;
 } // namespace detail
 
 class type;
@@ -173,6 +175,8 @@ private:
   friend class module_view;
   friend class type;
   friend property detail::make_property_view(const detail::property_data* property) noexcept;
+  friend const detail::property_data*
+  detail::property_data_of(const meta::property& property) noexcept;
 
   explicit property(const detail::property_data* reflected_property) noexcept;
   [[nodiscard]] const detail::property_data* info() const noexcept;

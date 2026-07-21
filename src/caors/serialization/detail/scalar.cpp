@@ -47,7 +47,10 @@ bool try_write_scalar_value(writer& writer, const any& data) {
 }
 
 bool try_write_scalar_value(writer& writer, const any_ref& data) {
-  const meta::scalar_ops* ops = scalar_ops_of(data);
+  return try_write_scalar_value(writer, data, scalar_ops_of(data));
+}
+
+bool try_write_scalar_value(writer& writer, const any_ref& data, const meta::scalar_ops* ops) {
   if (ops == nullptr) {
     return false;
   }
@@ -84,7 +87,10 @@ bool try_write_scalar_value(writer& writer, const any_ref& data) {
 }
 
 variant_result make_scalar_value(const any_ref& data) {
-  const meta::scalar_ops* ops = scalar_ops_of(data);
+  return make_scalar_value(data, scalar_ops_of(data));
+}
+
+variant_result make_scalar_value(const any_ref& data, const meta::scalar_ops* ops) {
   if (ops == nullptr) {
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
@@ -135,7 +141,11 @@ variant_result make_scalar_value(const any_ref& data) {
 
 error read_scalar_value(reader& reader, const any_ref& target,
                         const serialization::context& context) {
-  const meta::scalar_ops* ops = scalar_ops_of(target);
+  return read_scalar_value(reader, target, context, scalar_ops_of(target));
+}
+
+error read_scalar_value(reader& reader, const any_ref& target,
+                        const serialization::context& context, const meta::scalar_ops* ops) {
   if (ops == nullptr) {
     return {error_domain::serialization, errc::unsupported};
   }

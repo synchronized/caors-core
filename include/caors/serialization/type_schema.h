@@ -16,7 +16,13 @@
 #include <string_view>
 #include <utility>
 
+namespace caors::meta::detail {
+class property_data;
+} // namespace caors::meta::detail
+
 namespace caors::serialization {
+
+struct codec_ops;
 
 /** @brief 序列化后端能力。 */
 enum class format_features : std::uint32_t {
@@ -65,9 +71,12 @@ struct field_options {
  */
 struct field_schema : field_options {
   meta::property property{};
+  const meta::detail::property_data* property_data = nullptr;
   meta::type owner_type{};
   meta::type declared_type{};
   meta::type value_type{};
+  const serialization::codec_ops* codec_operations = nullptr;
+  const meta::scalar_ops* scalar_operations = nullptr;
   bool uses_direct_value = false;
   bool uses_inline_indirect_value = false;
 
@@ -80,9 +89,13 @@ struct field_schema : field_options {
   /** @brief 绑定提交期解析出的属性视图，并缓存运行期调度所需的字段语义。 */
   void bind_property(meta::property reflected_property) noexcept {
     property = reflected_property;
+    property_data = property ? meta::detail::property_data_of(property) : nullptr;
     owner_type = property ? property.get_owner_type() : meta::type{};
     declared_type = property ? property.get_type() : meta::type{};
     value_type = property ? property.get_value_type() : meta::type{};
+    codec_operations =
+        declared_type ? declared_type.get_raw_ops<serialization::codec_ops>() : nullptr;
+    scalar_operations = declared_type ? declared_type.get_raw_ops<meta::scalar_ops>() : nullptr;
     const meta::type_kind kind = property ? property.kind() : meta::type_kind::value;
     uses_inline_indirect_value =
         property && (kind == meta::type_kind::raw_pointer || kind == meta::type_kind::wrapper) &&

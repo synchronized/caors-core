@@ -44,16 +44,17 @@ error deserialize(const serialization::context& context, const meta::type& type,
       return {error_domain::serialization, errc::not_found};
     }
 
-    result<serialization::context> nested_context = context.enter_nested_value();
-    if (nested_context.failed()) {
-      return nested_context.status;
+    serialization::context nested_context{};
+    if (const error nested_status = context.enter_nested_field_value(
+            nested_context, field.owner_type, field.field_name, field.declared_type);
+        nested_status) {
+      return nested_status;
     }
 
     if (schema->has_explicit_fields) {
-      status =
-          serialization::detail::read_configured_field(reader, object, field, nested_context.value);
+      status = serialization::detail::read_configured_field(reader, object, field, nested_context);
     } else {
-      status = serialization::detail::read_field(reader, object, field, nested_context.value);
+      status = serialization::detail::read_field(reader, object, field, nested_context);
     }
     if (status) {
       return status;

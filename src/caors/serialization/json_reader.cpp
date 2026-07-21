@@ -801,11 +801,12 @@ error json_reader::read_f64(double& value) {
   if (status) {
     return status;
   }
+  (void)floating;
 
-  const std::string text{number};
-  char* end = nullptr;
-  value = std::strtod(text.c_str(), &end);
-  if (end != text.c_str() + text.size() || !std::isfinite(value)) {
+  const char* const begin = number.data();
+  const char* const end = begin + number.size();
+  const auto [parsed_end, ec] = std::from_chars(begin, end, value);
+  if (ec != std::errc{} || parsed_end != end || !std::isfinite(value)) {
     return {error_domain::serialization, errc::unsupported};
   }
 

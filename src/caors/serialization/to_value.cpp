@@ -3,7 +3,6 @@
 
 #include "caors/serialization/operations.h"
 
-#include "caors/meta/instance.h"
 #include "caors/meta/property.h"
 #include "caors/meta/type.h"
 #include "caors/meta/value/any.h"
@@ -18,38 +17,32 @@
 namespace caors::serialization {
 namespace {
 
-[[nodiscard]] variant_result
-value_ref_to_serialization_value(const any_ref& value, const serialization::context& context) {
-  return serialization::detail::make_serialized_value(value, context);
-}
-
 [[nodiscard]] variant_result field_to_serialization_value(const serialization::field_schema& field,
                                                           const void* object,
                                                           const serialization::context& context) {
-  result<serialization::context> nested_context = context.enter_nested_value();
-  if (nested_context.failed()) {
-    return {nested_context.status, {}};
+  serialization::context nested_context{};
+  if (const error status = context.enter_nested_value(nested_context); status) {
+    return {status, {}};
   }
 
-  const meta::instance instance{meta::any_ref::from_raw(field.owner_type, object, false)};
   any_ref field_ref{};
   if (field.uses_inline_indirect_value) {
-    const meta::indirect_view indirect =
-        field.property.get_ref(instance).get_capability<meta::indirect_capability>();
-    return serialization::detail::make_indirect_serialized_value(indirect, nested_context.value);
+    const meta::indirect_view indirect = serialization::detail::get_field_ref(field, object)
+                                             .get_capability<meta::indirect_capability>();
+    return serialization::detail::make_indirect_serialized_value(indirect, nested_context);
   }
 
   if (!field.uses_direct_value) {
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
-  field_ref = field.property.get_ref(instance);
+  field_ref = serialization::detail::get_field_ref(field, object);
 
   if (!field_ref.valid()) {
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
-  return value_ref_to_serialization_value(field_ref, nested_context.value);
+  return serialization::detail::make_serialized_value(field_ref, nested_context, &field);
 }
 
 } // namespace

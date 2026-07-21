@@ -291,14 +291,31 @@ struct context {
     return config.limits.max_depth != 0 && state.current_depth >= config.limits.max_depth;
   }
 
-  [[nodiscard]] result<context> enter_nested_value() const noexcept {
+  /** @brief 创建下一层嵌套上下文，失败时不修改输出参数。 */
+  [[nodiscard]] error enter_nested_value(context& nested) const noexcept {
     if (at_depth_limit()) {
-      return fail<context>({error_domain::serialization, errc::recursion_limit});
+      return {error_domain::serialization, errc::recursion_limit};
     }
 
-    context nested = *this;
+    nested = *this;
     ++nested.state.current_depth;
-    return ok(std::move(nested));
+    return {};
+  }
+
+  /** @brief 创建字段读入使用的嵌套上下文，并写入当前字段构造请求。 */
+  [[nodiscard]] error enter_nested_field_value(context& nested, meta::type owner_type,
+                                               string_name field_name,
+                                               meta::type field_type) const noexcept {
+    if (const error status = enter_nested_value(nested); status) {
+      return status;
+    }
+
+    nested.state.construction.owner_type = owner_type;
+    nested.state.construction.field_name = field_name;
+    nested.state.construction.type = field_type;
+    nested.state.construction.site = construction_site::field;
+    nested.state.construction.index = construction_request_no_index;
+    return {};
   }
 };
 

@@ -30,12 +30,12 @@ namespace caors::serialization::detail {
       return {error_domain::serialization, errc::unsupported};
     }
 
-    result<serialization::context> nested_context = context.enter_nested_value();
-    if (nested_context.failed()) {
-      return nested_context.status;
+    serialization::context nested_context{};
+    if (const error nested_status = context.enter_nested_value(nested_context); nested_status) {
+      return nested_status;
     }
 
-    status = write_serialized_value(writer, element, nested_context.value);
+    status = write_serialized_value(writer, element, nested_context);
     if (status) {
       return status;
     }
@@ -79,12 +79,12 @@ namespace caors::serialization::detail {
       return {error_domain::serialization, errc::unsupported};
     }
 
-    result<serialization::context> nested_context = context.enter_nested_value();
-    if (nested_context.failed()) {
-      return nested_context.status;
+    serialization::context nested_context{};
+    if (const error nested_status = context.enter_nested_value(nested_context); nested_status) {
+      return nested_status;
     }
 
-    status = write_serialized_value(output, element, nested_context.value);
+    status = write_serialized_value(output, element, nested_context);
     if (status) {
       return status;
     }
@@ -137,12 +137,12 @@ namespace caors::serialization::detail {
       return status;
     }
 
-    result<serialization::context> nested_context = context.enter_nested_value();
-    if (nested_context.failed()) {
-      return nested_context.status;
+    serialization::context nested_context{};
+    if (const error nested_status = context.enter_nested_value(nested_context); nested_status) {
+      return nested_status;
     }
 
-    status = write_serialized_value(output, key, nested_context.value);
+    status = write_serialized_value(output, key, nested_context);
     if (status) {
       return status;
     }
@@ -157,7 +157,7 @@ namespace caors::serialization::detail {
       return status;
     }
 
-    status = write_serialized_value(output, value, nested_context.value);
+    status = write_serialized_value(output, value, nested_context);
     if (status) {
       return status;
     }
@@ -199,12 +199,12 @@ namespace caors::serialization::detail {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  result<serialization::context> nested_context = context.enter_nested_value();
-  if (nested_context.failed()) {
-    return nested_context.status;
+  serialization::context nested_context{};
+  if (const error nested_status = context.enter_nested_value(nested_context); nested_status) {
+    return nested_status;
   }
 
-  status = write_serialized_value(writer, first, nested_context.value);
+  status = write_serialized_value(writer, first, nested_context);
   if (status) {
     return status;
   }
@@ -224,7 +224,7 @@ namespace caors::serialization::detail {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  status = write_serialized_value(writer, second, nested_context.value);
+  status = write_serialized_value(writer, second, nested_context);
   if (status) {
     return status;
   }
@@ -260,12 +260,12 @@ namespace caors::serialization::detail {
       return {error_domain::serialization, errc::unsupported};
     }
 
-    result<serialization::context> nested_context = context.enter_nested_value();
-    if (nested_context.failed()) {
-      return nested_context.status;
+    serialization::context nested_context{};
+    if (const error nested_status = context.enter_nested_value(nested_context); nested_status) {
+      return nested_status;
     }
 
-    status = write_serialized_value(writer, element, nested_context.value);
+    status = write_serialized_value(writer, element, nested_context);
     if (status) {
       return status;
     }
@@ -316,12 +316,12 @@ namespace caors::serialization::detail {
     return {error_domain::serialization, errc::unsupported};
   }
 
-  result<serialization::context> nested_context = context.enter_nested_value();
-  if (nested_context.failed()) {
-    return nested_context.status;
+  serialization::context nested_context{};
+  if (const error nested_status = context.enter_nested_value(nested_context); nested_status) {
+    return nested_status;
   }
 
-  status = write_serialized_value(writer, value, nested_context.value);
+  status = write_serialized_value(writer, value, nested_context);
   if (status) {
     return status;
   }

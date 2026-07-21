@@ -266,14 +266,7 @@ public:
     }
 
     if (serialization_enabled_) {
-      status_ = bind_serialization_schema();
-      if (status_) {
-        return status_;
-      }
-
-      status_ =
-          pending_.add_extension(meta::detail::make_extension_data<serialization::type_schema>(
-              &memory::library_resource(), serialization_schema_));
+      status_ = prepare_serialization_schema();
       if (status_) {
         return status_;
       }
@@ -289,6 +282,16 @@ public:
     status_ = registry_->commit_type(std::move(pending_), typeid(value_type));
     if (!status_) {
       committed_type_ = registry_->template find_type<value_type>();
+      if (serialization_enabled_) {
+        status_ = bind_serialization_schema(committed_type_);
+        if (status_) {
+          return status_;
+        }
+
+        status_ = registry_->add_extension(
+            committed_type_.id(), meta::detail::make_extension_data<serialization::type_schema>(
+                                      &memory::library_resource(), serialization_schema_));
+      }
     }
     return status_;
   }
@@ -305,25 +308,7 @@ private:
   friend class meta_section<T>;
   friend class serialization_section<T>;
 
-  [[nodiscard]] meta::property
-  resolve_serialization_property(core::string_name property_name) const {
-    if (!property_name) {
-      return {};
-    }
-
-    if (const meta::detail::property_data* property = pending_.find_property_ptr(property_name)) {
-      return meta::detail::make_property_view(property);
-    }
-
-    if (registry_ == nullptr || !pending_.parent_id()) {
-      return {};
-    }
-
-    const meta::type parent = registry_->find_type(pending_.parent_id());
-    return parent.find_property(property_name, meta::member_search::include_bases);
-  }
-
-  [[nodiscard]] error bind_serialization_schema() {
+  [[nodiscard]] error prepare_serialization_schema() {
     serialization_schema_.has_explicit_fields = !serialization_schema_.fields.empty();
     if (!serialization_schema_.valid()) {
       return {error_domain::serialization, errc::invalid_field};
@@ -338,15 +323,21 @@ private:
         }
 
         serialization_schema_.fields.emplace_back(
-            serialization::make_field(property->name().view()),
-            meta::detail::make_property_view(property));
+            serialization::make_field(property->name().view()));
       }
+    }
 
-      return {};
+    return {};
+  }
+
+  [[nodiscard]] error bind_serialization_schema(meta::type registered_type) {
+    if (!registered_type || !serialization_schema_.valid()) {
+      return {error_domain::serialization, errc::invalid_field};
     }
 
     for (serialization::field_schema& field : serialization_schema_.fields) {
-      meta::property property = resolve_serialization_property(field.field_name);
+      meta::property property =
+          registered_type.find_property(field.field_name, meta::member_search::include_bases);
       if (!property) {
         return {error_domain::serialization, errc::not_found};
       }
