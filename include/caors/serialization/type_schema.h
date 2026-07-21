@@ -65,10 +65,34 @@ struct field_options {
  */
 struct field_schema : field_options {
   meta::property property{};
+  meta::type owner_type{};
+  meta::type declared_type{};
+  meta::type value_type{};
+  bool uses_direct_value = false;
+  bool uses_inline_indirect_value = false;
 
   field_schema() = default;
   field_schema(field_options options, meta::property reflected_property = {}) noexcept
-      : field_options(std::move(options)), property(reflected_property) {}
+      : field_options(std::move(options)) {
+    bind_property(reflected_property);
+  }
+
+  /** @brief 绑定提交期解析出的属性视图，并缓存运行期调度所需的字段语义。 */
+  void bind_property(meta::property reflected_property) noexcept {
+    property = reflected_property;
+    owner_type = property ? property.get_owner_type() : meta::type{};
+    declared_type = property ? property.get_type() : meta::type{};
+    value_type = property ? property.get_value_type() : meta::type{};
+    const meta::type_kind kind = property ? property.kind() : meta::type_kind::value;
+    uses_inline_indirect_value =
+        property && (kind == meta::type_kind::raw_pointer || kind == meta::type_kind::wrapper) &&
+        property.wrapper_semantics() == meta::wrapper_semantics::inline_value;
+    uses_direct_value =
+        property && (kind == meta::type_kind::value || kind == meta::type_kind::enumeration ||
+                     kind == meta::type_kind::sequence || kind == meta::type_kind::set ||
+                     kind == meta::type_kind::associative || kind == meta::type_kind::pair ||
+                     kind == meta::type_kind::tuple || kind == meta::type_kind::variant);
+  }
 };
 
 /**

@@ -528,17 +528,6 @@ void benchmark_serialization(std::size_t iterations) {
   }
 
   {
-    CTRACK_NAME("serialization.registry_contains_find_schema");
-    for (std::size_t index = 0; index < iterations; ++index) {
-      const bool registered = caors::serialization::contains(actor_type.id());
-      const std::optional<caors::serialization::type_schema> schema =
-          caors::serialization::find(actor_type.id());
-      consume(static_cast<std::uintptr_t>((registered && schema.has_value()) ? schema->fields.size()
-                                                                             : 0U));
-    }
-  }
-
-  {
     CTRACK_NAME("serialization.schema_view_find");
     for (std::size_t index = 0; index < iterations; ++index) {
       const caors::serialization::schema_view schema =

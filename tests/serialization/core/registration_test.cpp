@@ -227,7 +227,9 @@ TEST_CASE("serialization - registers type metadata component", "[serialization]"
           .commit();
 
   CHECK(registration_result_ok(status));
-  CHECK(caors::serialization::contains(caors::meta::find<serializable_actor>().id()));
+  const caors::meta::type type = caors::meta::find<serializable_actor>();
+  CHECK(caors::serialization::contains(type));
+  CHECK(caors::serialization::find_schema(type));
   CHECK(caors::serialization::size() >= 1);
 
   const caors::error duplicate =

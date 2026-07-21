@@ -50,11 +50,10 @@ error deserialize(const serialization::context& context, const meta::type& type,
     }
 
     if (schema->has_explicit_fields) {
-      status = serialization::detail::read_configured_field(reader, field.property, object, field,
-                                                            nested_context.value);
+      status =
+          serialization::detail::read_configured_field(reader, object, field, nested_context.value);
     } else {
-      status = serialization::detail::read_field(reader, field.property, object, field,
-                                                 nested_context.value);
+      status = serialization::detail::read_field(reader, object, field, nested_context.value);
     }
     if (status) {
       return status;

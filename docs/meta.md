@@ -1116,14 +1116,14 @@ traits 中提供可适配的 iterator 操作。容器 view 只依赖 `meta::type
   `objects::object_factory_capability`，并对外返回 `objects::type` 视图。
 - 属性和方法直接保存在 meta 类型记录关联的数据中，并通过 `meta::type` / `meta::property` / `meta::method` 对外查询；
   `meta::type` / `meta::property` 是兼容视图。
-- `serialization::registry` 复用全局 meta 类型记录查询序列化 extension；extension 由统一
+- 序列化 schema 作为 extension 保存在全局 meta 类型记录中；它由统一
   `registration::type_<T>(name).serialization()` 在注册提交时写入，并在提交阶段把字段配置绑定到
-  稳定的 `meta::property` 视图。
+  稳定的 `meta::property` 视图。公开查询优先使用
+  `type.get_capability<serialization::schema_view>()` 或 `serialization::find_schema(type)`。
 
 这样对象、反射和序列化的全局注册入口不需要重复处理重名、重复 GUID、不一致类型描述和父类型缺失。
-跨模块查询可以通过 `meta::registry::extension_view<T...>()` 完成。属性和方法应通过 `meta::type`
-返回稳定只读视图；序列化等公开扩展数据仍可通过
-`meta::get_registry().extension_view<serialization::type_schema>()` 查询。
+跨模块批量扫描可以通过 `meta::registry::extension_view<T...>()` 完成。属性、方法和常规序列化
+schema 查询应通过 `meta::type` 返回稳定只读视图。
 
 ## 当前已实现能力
 

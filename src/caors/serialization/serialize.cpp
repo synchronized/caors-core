@@ -49,8 +49,7 @@ error serialize(const serialization::context& context, const meta::type& type, c
       return nested_context.status;
     }
 
-    status = serialization::detail::write_field(writer, field.property, object, field,
-                                                nested_context.value);
+    status = serialization::detail::write_field(writer, object, field, nested_context.value);
     if (status) {
       return status;
     }

@@ -15,7 +15,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 - 用 `serialization::field_options` 表示用户注册时填写的字段级序列化配置。
 - 用 `serialization::field_schema` 表示提交后的运行期字段 schema，内部保存已绑定的 `meta::property`。
 - 基于全局 `meta::registry` 挂载序列化 extension，避免单独维护类型索引。
-- 提供 `serialization::registry` 查询序列化 extension；业务类型通过 `registration::type_<T>(name).serialization()` 完成跨模块注册。
+- 提供 `serialization::schema_view` 查询序列化 schema；业务类型通过 `registration::type_<T>(name).serialization()` 完成跨模块注册。
 - 提供 `serialization::writer` 后端接口，让不同格式复用同一套字段遍历逻辑。
 - 提供 `serialization::reader` 后端接口，让不同格式复用同一套字段读入逻辑。
 - 提供 `variant` 中间对象树，方便工具、调试和多格式转换。
@@ -397,9 +397,8 @@ if (schema) {
 }
 ```
 
-`serialization::find_schema(type)` 是同一能力查询的便捷入口。旧的 `serialization::find(type_id)` 返回
-`std::optional<type_schema>`，会复制 schema，适合调试或兼容按 `type_id` 查询的代码，不建议放在
-序列化热点路径。
+`serialization::find_schema(type)` 是同一能力查询的便捷入口。序列化 schema 查询只接受
+`meta::type`，不再提供按 `type_id` 复制 `type_schema` 的旧入口。
 
 ### serialization::field_options / field_schema
 
@@ -412,9 +411,9 @@ if (schema) {
 - `required`：反序列化时缺失该字段会返回 `errc::not_found`。
 - `skipped`：序列化和反序列化时跳过该字段。
 
-`serialization::field_schema` 继承这组配置，并额外保存注册提交期解析出的 `meta::property` 视图。
-普通用户只需要通过 builder 填写字段名；序列化运行期使用已绑定的 `property`，避免每次读写重复
-按字段名查找属性。
+`serialization::field_schema` 继承这组配置，并额外保存注册提交期解析出的 `meta::property` 视图、
+字段声明类型、统一 value 类型和字段调度标记。普通用户只需要通过 builder 填写字段名；序列化
+运行期使用已绑定的 `property` 和缓存语义，避免每次读写重复按字段名查找属性或重新判断字段形态。
 
 `serialization::context::config.fields.schema_version == 0` 表示不启用版本过滤，保持兼容默认行为。传入非 0 版本时：
 
@@ -1081,8 +1080,8 @@ caors::serialization::variant_result value = caors::serialization::to_variant(ca
 
 ### 高级用法：序列化 schema 注册
 
-`serialization::registry` 是全局序列化 extension 查询入口，内部复用 `meta::registry`。业务类型
-通过统一 registration builder 挂载序列化 schema：
+序列化 schema 作为 extension 挂在对应 `meta::type` 上。业务类型通过统一 registration builder
+挂载序列化 schema：
 
 ```cpp
 caors::error status =
@@ -1104,8 +1103,7 @@ caors::serialization::schema_view schema = caors::serialization::find_schema(typ
 ```
 
 热点路径查询序列化 schema 时使用 `serialization::find_schema()` 或
-`type.get_capability<serialization::schema_view>()`，这两个入口都不会复制 schema。需要按
-`type_id` 调试查询时仍可使用 `serialization::find()` 或 `serialization::contains()`。重复注册同一个
+`type.get_capability<serialization::schema_view>()`，这两个入口都不会复制 schema。重复注册同一个
 类型会返回 `errc::duplicate_id`，已有注册数据保持不变。显式 `.field()` 必须能在提交时解析到
 对应属性；未显式填写字段时会按当前属性列表生成默认 schema。序列化 extension 注册推荐在启动期或
 模块加载期完成；`meta::init_registry()` 只执行延迟注册并校验注册表，不会阻止后续继续注册。
@@ -1169,8 +1167,8 @@ caors::string text = *result;
 - `serialization::variant_reader`：从 DOM 中间对象读入字段的后端。
 - `variant_member`：对象成员，保存字段名、字段 id 和字段值。
 - `variant_entry`：字典条目，保存 key 和 value。
-- `serialization::registry`：全局序列化 extension 查询注册表。
-- `serialization::find()` / `serialization::contains()`：序列化 extension 查询入口。
+- `serialization::schema_view`：序列化 schema 的只读查询视图。
+- `serialization::find_schema()` / `serialization::contains()`：序列化 schema 查询入口。
 - `serialize()`：通过指定 writer 后端序列化对象。
 - `deserialize()`：通过指定 reader 后端反序列化对象。
 - `to_value()`：通过反射和序列化元信息构造中间对象树。

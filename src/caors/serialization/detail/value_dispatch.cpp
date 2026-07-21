@@ -25,7 +25,7 @@ make_value_or_object_serialized_value(const any_ref& value, const serialization:
 
   const type_id value_type = type.id();
   const meta::type nested_type = meta::find(value_type);
-  if (nested_type && serialization::contains(value_type)) {
+  if (serialization::contains(nested_type)) {
     return to_serialization_value(context, nested_type, value.data());
   }
 
@@ -42,7 +42,7 @@ make_value_or_object_serialized_value(const any_ref& value, const serialization:
 
   const type_id value_type = type.id();
   const meta::type nested_type = meta::find(value_type);
-  if (nested_type && serialization::contains(value_type)) {
+  if (serialization::contains(nested_type)) {
     return serialize(context, nested_type, value.data(), writer);
   }
 
@@ -63,7 +63,7 @@ make_value_or_object_serialized_value(const any_ref& value, const serialization:
 
   const type_id target_type = type.id();
   const meta::type nested_type = meta::find(target_type);
-  if (nested_type && serialization::contains(target_type)) {
+  if (serialization::contains(nested_type)) {
     return deserialize(context, nested_type, target.mutable_data(), reader);
   }
 
@@ -266,17 +266,18 @@ error read_serialized_value(reader& reader, const any_ref& target,
   return {error_domain::serialization, errc::unsupported};
 }
 
-error write_field(writer& writer, const meta::property& field, const void* object,
+error write_field(writer& writer, const void* object,
                   const serialization::field_schema& field_schema,
                   const serialization::context& context) {
+  const meta::property& field = field_schema.property;
   if (!field.valid()) {
     return {error_domain::serialization, errc::invalid_field};
   }
 
-  const bool uses_indirect_value = field_uses_inline_indirect_value(field);
-  const meta::instance instance{meta::any_ref::from_raw(field.get_owner_type(), object, false)};
+  const bool uses_indirect_value = field_schema.uses_inline_indirect_value;
+  const meta::instance instance{meta::any_ref::from_raw(field_schema.owner_type, object, false)};
   any_ref field_value{};
-  if (field_uses_direct_value(field)) {
+  if (field_schema.uses_direct_value) {
     field_value = field.get_ref(instance);
   } else if (!uses_indirect_value) {
     return {error_domain::serialization, errc::unsupported};
@@ -310,9 +311,9 @@ error write_field(writer& writer, const meta::property& field, const void* objec
   return writer.end_field();
 }
 
-error read_field(reader& reader, const meta::property& field, void* object,
-                 const serialization::field_schema& field_schema,
+error read_field(reader& reader, void* object, const serialization::field_schema& field_schema,
                  const serialization::context& context) {
+  const meta::property& field = field_schema.property;
   if (!field.valid()) {
     return {error_domain::serialization, errc::invalid_field};
   }
@@ -326,10 +327,10 @@ error read_field(reader& reader, const meta::property& field, void* object,
     return status;
   }
 
-  const bool uses_indirect_value = field_uses_inline_indirect_value(field);
-  const meta::instance instance{meta::any_ref::from_raw(field.get_owner_type(), object, true)};
+  const bool uses_indirect_value = field_schema.uses_inline_indirect_value;
+  const meta::instance instance{meta::any_ref::from_raw(field_schema.owner_type, object, true)};
   any_ref target{};
-  if (field_uses_direct_value(field)) {
+  if (field_schema.uses_direct_value) {
     target = field.get_ref(instance);
   } else if (!uses_indirect_value) {
     return {error_domain::serialization, errc::unsupported};
@@ -346,9 +347,9 @@ error read_field(reader& reader, const meta::property& field, void* object,
   }
 
   serialization::context field_context = context;
-  field_context.state.construction.owner_type = field.get_owner_type();
-  field_context.state.construction.field_name = field.name();
-  field_context.state.construction.type = field.get_type();
+  field_context.state.construction.owner_type = field_schema.owner_type;
+  field_context.state.construction.field_name = field_schema.field_name;
+  field_context.state.construction.type = field_schema.declared_type;
   field_context.state.construction.site = construction_site::field;
   field_context.state.construction.index = construction_request_no_index;
 
@@ -370,10 +371,10 @@ error read_field(reader& reader, const meta::property& field, void* object,
   return reader.end_field();
 }
 
-error read_configured_field(reader& reader, const meta::property& field, void* object,
+error read_configured_field(reader& reader, void* object,
                             const serialization::field_schema& field_schema,
                             const serialization::context& context) {
-  const error status = read_field(reader, field, object, field_schema, context);
+  const error status = read_field(reader, object, field_schema, context);
   if (status.value() == errc::not_found && !field_schema.required) {
     return {};
   }

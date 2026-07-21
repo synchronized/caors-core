@@ -75,19 +75,6 @@ construct_polymorphic_value(const meta::type& dynamic_type, const meta::indirect
   return {};
 }
 
-[[nodiscard]] bool field_uses_inline_indirect_value(const meta::property& field) noexcept {
-  return (field.kind() == meta::type_kind::raw_pointer ||
-          field.kind() == meta::type_kind::wrapper) &&
-         field.wrapper_semantics() == meta::wrapper_semantics::inline_value;
-}
-
-[[nodiscard]] bool field_uses_direct_value(const meta::property& field) noexcept {
-  return field.kind() == meta::type_kind::value || field.kind() == meta::type_kind::enumeration ||
-         field.kind() == meta::type_kind::sequence || field.kind() == meta::type_kind::set ||
-         field.kind() == meta::type_kind::associative || field.kind() == meta::type_kind::pair ||
-         field.kind() == meta::type_kind::tuple || field.kind() == meta::type_kind::variant;
-}
-
 [[nodiscard]] const meta::enum_ops* enum_ops(const any_ref& value) noexcept {
   return value.get_type().get_raw_ops<meta::enum_ops>();
 }

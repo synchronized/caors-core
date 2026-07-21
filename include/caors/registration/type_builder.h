@@ -346,10 +346,11 @@ private:
     }
 
     for (serialization::field_schema& field : serialization_schema_.fields) {
-      field.property = resolve_serialization_property(field.field_name);
-      if (!field.property) {
+      meta::property property = resolve_serialization_property(field.field_name);
+      if (!property) {
         return {error_domain::serialization, errc::not_found};
       }
+      field.bind_property(property);
     }
 
     return {};
