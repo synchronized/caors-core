@@ -391,9 +391,9 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   `"memory"` 等策略名映射到运行期 source、cache 和 loader 构造；`"remote"`、资源包和专用缓存后续扩展。
 - [x] 为 `assets::asset_manager::build_detailed()` 增加构建阶段诊断，记录失败阶段、配置项索引、
   source/type 名称、资源 GUID 和可读原因。
-- [x] 为资源配置 source/type factory 增加轻量 options schema，支持必填字段、字段值形态、非空、范围、
-  允许值和未知字段策略校验，并通过 `factory_options_view` 简化 factory 内部读取。
-- [x] 扩展 `asset_manager::build_detailed()` 的 options 诊断，支持同一 options 对象一次收集多条 schema 错误。
+- [x] 删除 assets 独立轻量 options schema，统一由 typed factory options 复用
+  `meta::property_schema` / `serialization::validate_config()` 表达配置约束。
+- [x] 扩展 `asset_manager::build_detailed()` 的 typed options 诊断，支持同一 options 对象一次收集多条错误。
 - [x] 增加 typed factory options helper：配置 `variant` 先应用属性默认值，再反序列化为结构体，
   最后通过 `serialization::validate_config()` 和 `meta::property_schema` 完成校验。
 - [x] 增加 typed file_system/source/type factory 注册入口，让复杂 options 在调用用户工厂前统一完成

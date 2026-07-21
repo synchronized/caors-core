@@ -59,19 +59,6 @@ register_cached_type_factory(asset_manager& manager, core::string_name resource_
   return manager.register_type_factory(resource_type, std::move(ops));
 }
 
-/** @brief 注册带 option schema 的通用 cache/loader 资源类型工厂。 */
-template <typename T, typename Loader>
-[[nodiscard]] error
-register_cached_type_factory(asset_manager& manager, core::string_name resource_type,
-                             core::string_name cache_strategy, core::string_name loader_strategy,
-                             factory_option_schema schema) {
-  asset_manager::type_factory_ops ops{&detail::make_cached_type<T, Loader>, nullptr,
-                                      std::move(schema)};
-  ops.cache_strategy = cache_strategy;
-  ops.loader_strategy = loader_strategy;
-  return manager.register_type_factory(resource_type, std::move(ops));
-}
-
 } // namespace caors::assets
 
 #endif

@@ -15,7 +15,6 @@
 
 #include <string_view>
 #include <type_traits>
-#include <utility>
 
 namespace caors::assets::json {
 
@@ -154,17 +153,6 @@ template <typename T>
                 "T must derive from caors::resources::resource");
   return assets::register_cached_type_factory<T, loader<T>>(
       manager, resource_type, core::string_name{"memory"}, core::string_name{"json"});
-}
-
-/** @brief 注册带 option schema 的默认 JSON 资源类型工厂。 */
-template <typename T>
-[[nodiscard]] error register_type_factory(asset_manager& manager, core::string_name resource_type,
-                                          factory_option_schema schema) {
-  static_assert(std::is_base_of_v<resources::resource, T>,
-                "T must derive from caors::resources::resource");
-  return assets::register_cached_type_factory<T, loader<T>>(
-      manager, resource_type, core::string_name{"memory"}, core::string_name{"json"},
-      std::move(schema));
 }
 
 } // namespace caors::assets::json

@@ -13,7 +13,7 @@
 2. `assets_async_load.cpp`：同步链路扩展到异步 request、后台加载和主线程 completion queue commit。
 3. `resource_reload.cpp`：验证已缓存资源的同步重载和失败保留旧资源语义。
 4. `asset_pipeline.cpp`：串起 `project_config -> VFS/provider -> asset_manager -> async preload -> resolve -> reload/save`。
-5. `config_schema.cpp`：展示 source/type factory option schema 和 typed config options 的校验入口。
+5. `config_schema.cpp`：展示 typed factory options 的校验入口。
 
 ## 主流程
 
@@ -30,7 +30,7 @@ beta 前资源路径按下面公式收敛：
 
 复杂 factory options 优先定义强类型配置结构，再使用
 `asset_manager::register_typed_*_factory<Options, Create>()` 注册。asset manager 会读取 DOM、应用属性默认值、
-拒绝未知字段并执行 `validate_config()`；轻量插件或无需结构体绑定的入口仍可使用 `factory_option_schema`。
+拒绝未知字段并执行 `validate_config()`；raw factory 只做手动读取，不提供内置 schema 校验。
 
 ## 构建目标
 

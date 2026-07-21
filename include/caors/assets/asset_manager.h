@@ -20,7 +20,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <initializer_list>
 #include <limits>
 #include <string>
 #include <string_view>
@@ -143,14 +142,10 @@ public:
     file_system_factory_ops() = default;
     file_system_factory_ops(create_fn value, void* data = nullptr)
         : create(value), user_data(data) {}
-    file_system_factory_ops(create_fn value, void* data, factory_option_schema option_schema)
-        : create(value), user_data(data), schema(std::move(option_schema)) {}
 
     create_fn create = nullptr;
     /** @brief 传给 create 的外部状态；asset_manager 不拥有它。 */
     void* user_data = nullptr;
-    /** @brief 该 file_system factory 接受的 options 形态。 */
-    factory_option_schema schema{};
 
     [[nodiscard]] constexpr bool valid() const noexcept { return create != nullptr; }
     [[nodiscard]] error operator()(asset_manager& manager, const project_file_system_config& config,
@@ -167,14 +162,10 @@ public:
 
     source_factory_ops() = default;
     source_factory_ops(create_fn value, void* data = nullptr) : create(value), user_data(data) {}
-    source_factory_ops(create_fn value, void* data, factory_option_schema option_schema)
-        : create(value), user_data(data), schema(std::move(option_schema)) {}
 
     create_fn create = nullptr;
     /** @brief 传给 create 的外部状态；asset_manager 不拥有它。 */
     void* user_data = nullptr;
-    /** @brief 该 source factory 接受的 options 形态。 */
-    factory_option_schema schema{};
 
     [[nodiscard]] constexpr bool valid() const noexcept { return create != nullptr; }
     [[nodiscard]] error operator()(asset_manager& manager, const project_source_config& config,
@@ -191,8 +182,6 @@ public:
 
     type_factory_ops() = default;
     type_factory_ops(create_fn value, void* data = nullptr) : create(value), user_data(data) {}
-    type_factory_ops(create_fn value, void* data, factory_option_schema option_schema)
-        : create(value), user_data(data), schema(std::move(option_schema)) {}
 
     create_fn create = nullptr;
     /** @brief 传给 create 的外部状态；asset_manager 不拥有它。 */
@@ -201,8 +190,6 @@ public:
     core::string_name cache_strategy{};
     /** @brief 非空时要求配置中的 loader 策略名与该值一致。 */
     core::string_name loader_strategy{};
-    /** @brief 该 type factory 接受的 options 形态。 */
-    factory_option_schema schema{};
 
     [[nodiscard]] constexpr bool valid() const noexcept { return create != nullptr; }
     [[nodiscard]] error operator()(asset_manager& manager,
@@ -271,20 +258,6 @@ public:
                                                    void* user_data = nullptr) {
     return register_file_system_factory(type, file_system_factory_ops{create, user_data});
   }
-  /** @brief 注册带 option schema 且无外部状态的 file_system 策略构造函数。 */
-  [[nodiscard]] error register_file_system_factory(core::string_name type,
-                                                   file_system_factory_ops::create_fn create,
-                                                   factory_option_schema schema) {
-    return register_file_system_factory(
-        type, file_system_factory_ops{create, nullptr, std::move(schema)});
-  }
-  /** @brief 注册带 option schema 的 file_system 策略构造函数。 */
-  [[nodiscard]] error register_file_system_factory(core::string_name type,
-                                                   file_system_factory_ops::create_fn create,
-                                                   void* user_data, factory_option_schema schema) {
-    return register_file_system_factory(
-        type, file_system_factory_ops{create, user_data, std::move(schema)});
-  }
   /** @brief 注册带强类型 options 的 file_system 策略构造函数。 */
   template <typename Options, typed_file_system_factory_fn<Options> Create>
   [[nodiscard]] error register_typed_file_system_factory(core::string_name type,
@@ -317,18 +290,6 @@ public:
                                               void* user_data = nullptr) {
     return register_source_factory(type, source_factory_ops{create, user_data});
   }
-  /** @brief 注册带 option schema 且无外部状态的 source 策略构造函数。 */
-  [[nodiscard]] error register_source_factory(core::string_name type,
-                                              source_factory_ops::create_fn create,
-                                              factory_option_schema schema) {
-    return register_source_factory(type, source_factory_ops{create, nullptr, std::move(schema)});
-  }
-  /** @brief 注册带 option schema 的 source 策略构造函数。 */
-  [[nodiscard]] error register_source_factory(core::string_name type,
-                                              source_factory_ops::create_fn create, void* user_data,
-                                              factory_option_schema schema) {
-    return register_source_factory(type, source_factory_ops{create, user_data, std::move(schema)});
-  }
   /** @brief 注册带强类型 options 的 source 策略构造函数。 */
   template <typename Options, typed_source_factory_fn<Options> Create>
   [[nodiscard]] error register_typed_source_factory(core::string_name type,
@@ -346,20 +307,6 @@ public:
                                             type_factory_ops::create_fn create,
                                             void* user_data = nullptr) {
     return register_type_factory(resource_type, type_factory_ops{create, user_data});
-  }
-  /** @brief 注册带 option schema 且无外部状态的 manifest 资源类型构造函数。 */
-  [[nodiscard]] error register_type_factory(core::string_name resource_type,
-                                            type_factory_ops::create_fn create,
-                                            factory_option_schema schema) {
-    return register_type_factory(resource_type,
-                                 type_factory_ops{create, nullptr, std::move(schema)});
-  }
-  /** @brief 注册带 option schema 的 manifest 资源类型构造函数。 */
-  [[nodiscard]] error register_type_factory(core::string_name resource_type,
-                                            type_factory_ops::create_fn create, void* user_data,
-                                            factory_option_schema schema) {
-    return register_type_factory(resource_type,
-                                 type_factory_ops{create, user_data, std::move(schema)});
   }
   /**
    * @brief 注册带强类型 options 的 manifest 资源类型构造函数。

@@ -14,7 +14,7 @@
 - `resources`：底层资源核心，不绑定工程配置和具体格式。
 - `assets`：工程配置和运行期资源环境构建层，包含 `project_config`、`asset_manager`、source/type
   factory 和基于 reader/writer 的 `load_serialized()` / `save_serialized()` helper。
-- `assets/config_schema.h`：file_system/source/type factory option schema 和 `factory_options_view`。
+- `assets/config_schema.h`：typed factory options 读取/诊断 helper 和 `factory_options_view`。
 - `assets::json`：JSON 格式适配层，包含 JSON manifest / project config 读入、`json::loader<T>`、
   `json::saver<T>`、project config 写出和 JSON type factory 薄包装。
 
@@ -180,8 +180,10 @@ caors::resources::preload_result result = assets.preload(texture_id);
   读入强类型配置并完成 schema 校验，再调用用户工厂。
 - `bind_source()` / `find_source()`：手动绑定或查询外部 source；配置创建的 source 会在下一次
   `build()` 前清理，手动绑定会保留。
+- `register_source_factory()`：把 `sources[].type` 策略名映射到运行期 source 创建逻辑。
 - `register_typed_source_factory<Options, Create>()`：先把 `sources[].options`
   读入强类型配置并完成 schema 校验，再调用用户工厂。
+- `register_type_factory()`：把 manifest type 映射到运行期 cache/loader 创建逻辑。
 - `register_typed_type_factory<Options, Create>()`：先匹配 resource type 的 cache/loader 策略，
   再把 `resource_types[].options` 读入强类型配置并完成 schema 校验，最后调用用户工厂创建 cache/loader。
 - `find<T>(guid)` / `find(guid)`：查询内部已注册 cache 中的资源。
@@ -259,12 +261,7 @@ caors::error make_pak_source(caors::assets::asset_manager::source_factory_contex
 }
 
 pak_state state{&index};
-caors::assets::factory_option_schema pak_schema;
-pak_schema.optional(caors::string_name{"compression"},
-                    caors::assets::factory_option_kind::string);
-pak_schema.allow_unknown = false;
-
-assets.register_source_factory(caors::string_name{"pak"}, &make_pak_source, &state, pak_schema);
+assets.register_source_factory(caors::string_name{"pak"}, &make_pak_source, &state);
 ```
 
 类型工厂同样可以创建 cache/loader，并把它们注册到内部 database：
@@ -280,17 +277,7 @@ caors::error make_texture_runtime(
   return context.database.register_type(*cache, *loader, config.type);
 }
 
-caors::assets::factory_option_schema texture_schema;
-texture_schema.require(caors::string_name{"format"},
-                       caors::assets::factory_option_kind::string)
-    .non_empty(caors::string_name{"format"})
-    .one_of(caors::string_name{"format"},
-            {std::string_view{"json"}, std::string_view{"binary"}});
-texture_schema.optional(caors::string_name{"priority"})
-    .range(caors::string_name{"priority"}, 1.0, 100.0);
-
-assets.register_type_factory(caors::string_name{"game.texture"}, &make_texture_runtime, nullptr,
-                             texture_schema);
+assets.register_type_factory(caors::string_name{"game.texture"}, &make_texture_runtime);
 ```
 
 如果 loader 只需要 `resources::provider` 就能构造，可以复用通用 cached type factory：
@@ -302,10 +289,6 @@ caors::assets::register_cached_type_factory<texture, pak_texture_loader>(
     caors::string_name{"memory"},
     caors::string_name{"pak"});
 ```
-
-`factory_option_schema` 只做轻量配置校验：必填属性、属性值形态、非空约束、数值范围、字符串允许值和
-未知属性策略。`build_detailed()` 会把同一个 options 对象中的多个 schema 错误收集到
-`asset_build_result::reasons`，方便工具和编辑器一次展示多条配置问题。
 
 factory 实现读取配置时优先使用 `factory_options_view`，避免直接重复写 `find_member_variant()` 和
 `try_as_*()`：
@@ -322,7 +305,9 @@ bool readonly = false;
 (void)options.read(caors::string_name{"read_only"}, readonly);
 ```
 
-复杂配置推荐注册为 typed factory：先定义强类型配置结构体，再用反射属性 schema 描述默认值和约束。
+raw factory 不自动校验 `options`，适合极薄适配、实验性入口或完全自定义解析逻辑。如果配置需要默认值、
+必填、非空、范围、允许值或未知字段拒绝，推荐注册为 typed factory：先定义强类型配置结构体，
+再用反射属性 schema 描述默认值和约束。
 `asset_manager` 会在调用用户 factory 前读取、应用默认值、拒绝未知字段并执行 `validate_config()`，
 失败原因会进入 `build_detailed().reasons`，用户 factory 只接收已校验的 options：
 
@@ -366,8 +351,6 @@ assets.register_typed_source_factory<texture_options, &make_texture_source>(
 适合需要在自定义流程里手动读 options 的场景。它默认拒绝未知字段，避免配置拼写错误被静默忽略；需要兼容旧配置时可传入
 `unknown_field_policy::ignore` 或配合序列化 schema migration 先改写 DOM。
 
-`factory_option_schema` 仍适合简单、无需结构体绑定的插件入口；typed config + property schema
-更适合复杂配置、工具面板、自动表单和后续 schema metadata 扩展。
 typed factory options 按“先应用默认值、再用输入局部覆盖”的配置语义处理缺失字段；普通对象反序列化仍默认要求
 输入包含完整字段。
 

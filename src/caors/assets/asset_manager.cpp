@@ -9,78 +9,11 @@
 #include "caors/io/native_file_system.h"
 #include "caors/io/uri.h"
 
-#include <algorithm>
-#include <optional>
-#include <string>
+#include <string_view>
+#include <utility>
 
 namespace caors::assets {
 namespace {
-
-[[nodiscard]] std::string_view kind_name(factory_option_kind kind) noexcept {
-  switch (kind) {
-  case factory_option_kind::any:
-    return "any";
-  case factory_option_kind::boolean:
-    return "boolean";
-  case factory_option_kind::signed_integer:
-    return "signed_integer";
-  case factory_option_kind::unsigned_integer:
-    return "unsigned_integer";
-  case factory_option_kind::floating:
-    return "floating";
-  case factory_option_kind::string:
-    return "string";
-  case factory_option_kind::array:
-    return "array";
-  case factory_option_kind::dictionary:
-    return "dictionary";
-  case factory_option_kind::object:
-    return "object";
-  }
-
-  return "unknown";
-}
-
-[[nodiscard]] bool matches_kind(const variant& value, factory_option_kind kind) noexcept {
-  switch (kind) {
-  case factory_option_kind::any:
-    return true;
-  case factory_option_kind::boolean:
-    return value.is_bool();
-  case factory_option_kind::signed_integer:
-    return value.is_i64();
-  case factory_option_kind::unsigned_integer:
-    return value.is_u64();
-  case factory_option_kind::floating:
-    return value.is_f64();
-  case factory_option_kind::string:
-    return value.is_string();
-  case factory_option_kind::array:
-    return value.is_array();
-  case factory_option_kind::dictionary:
-    return value.is_dictionary();
-  case factory_option_kind::object:
-    return value.is_object();
-  }
-
-  return false;
-}
-
-[[nodiscard]] const factory_option_field* find_schema_field(const factory_option_schema& schema,
-                                                            core::string_name name) noexcept {
-  for (const factory_option_field& field : schema.fields) {
-    if (field.name == name) {
-      return &field;
-    }
-  }
-
-  return nullptr;
-}
-
-void append_name(core::string& text, core::string_name name) {
-  const std::string_view view = name.view();
-  text.append(view.begin(), view.end());
-}
 
 [[nodiscard]] core::string make_reason(asset_build_result::reason_list& reasons) {
   return core::string{allocator<char>{reasons.get_allocator().resource()}};
@@ -96,221 +29,6 @@ void append_reason_text(asset_build_result::reason_list& reasons, std::string_vi
   core::string reason = make_reason(reasons);
   reason.assign(text.begin(), text.end());
   append_reason(reasons, std::move(reason));
-}
-
-void assign_missing_option_reason(core::string* reason, core::string_name name) {
-  if (reason == nullptr) {
-    return;
-  }
-
-  reason->assign("缺少必填 options 字段：");
-  append_name(*reason, name);
-}
-
-void assign_invalid_option_reason(core::string* reason, core::string_name name,
-                                  factory_option_kind kind) {
-  if (reason == nullptr) {
-    return;
-  }
-
-  reason->assign("options 字段类型不匹配：");
-  append_name(*reason, name);
-  reason->append("，期望 ");
-  const std::string_view expected = kind_name(kind);
-  reason->append(expected.begin(), expected.end());
-}
-
-void assign_unknown_option_reason(core::string* reason, core::string_name name) {
-  if (reason == nullptr) {
-    return;
-  }
-
-  reason->assign("发现未声明的 options 字段：");
-  append_name(*reason, name);
-}
-
-void assign_empty_option_reason(core::string* reason, core::string_name name) {
-  if (reason == nullptr) {
-    return;
-  }
-
-  reason->assign("options 字段不能为空：");
-  append_name(*reason, name);
-}
-
-void assign_range_option_reason(core::string* reason, core::string_name name, double min,
-                                double max) {
-  if (reason == nullptr) {
-    return;
-  }
-
-  reason->assign("options 字段超出范围：");
-  append_name(*reason, name);
-  reason->append("，期望范围 [");
-  reason->append(std::to_string(min));
-  reason->append(", ");
-  reason->append(std::to_string(max));
-  reason->append("]");
-}
-
-void assign_one_of_option_reason(core::string* reason, core::string_name name,
-                                 const factory_option_field::value_list& values) {
-  if (reason == nullptr) {
-    return;
-  }
-
-  reason->assign("options 字段不是允许值：");
-  append_name(*reason, name);
-  if (values.empty()) {
-    return;
-  }
-
-  reason->append("，允许值 ");
-  for (std::size_t index = 0; index < values.size(); ++index) {
-    if (index != 0) {
-      reason->append(", ");
-    }
-    append_name(*reason, values[index]);
-  }
-}
-
-[[nodiscard]] std::optional<double> numeric_option_value(const variant& value) noexcept {
-  if (const auto* number = value.try_as_i64()) {
-    return static_cast<double>(*number);
-  }
-  if (const auto* number = value.try_as_u64()) {
-    return static_cast<double>(*number);
-  }
-  if (const auto* number = value.try_as_f64()) {
-    return *number;
-  }
-
-  return std::nullopt;
-}
-
-[[nodiscard]] bool option_value_empty(const variant& value) noexcept {
-  if (const auto* text = value.try_as_string()) {
-    return text->empty();
-  }
-  if (const auto* values = value.try_as_array()) {
-    return values->empty();
-  }
-  if (const auto* values = value.try_as_dictionary()) {
-    return values->empty();
-  }
-  if (const auto* values = value.try_as_object()) {
-    return values->empty();
-  }
-
-  return value.is_null();
-}
-
-[[nodiscard]] bool option_value_allowed(const variant& value,
-                                        const factory_option_field::value_list& values) noexcept {
-  if (values.empty()) {
-    return true;
-  }
-
-  const string* text = value.try_as_string();
-  if (text == nullptr) {
-    return false;
-  }
-
-  const std::string_view view{text->data(), text->size()};
-  for (core::string_name allowed : values) {
-    if (allowed == view) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-[[nodiscard]] error validate_options(const factory_option_schema& schema, const variant& options,
-                                     asset_build_result::reason_list& reasons) {
-  const std::size_t initial_reason_count = reasons.size();
-
-  if (schema.fields.empty() && schema.allow_unknown) {
-    return {};
-  }
-
-  if (options.is_null()) {
-    for (const factory_option_field& field : schema.fields) {
-      if (field.required) {
-        core::string reason = make_reason(reasons);
-        assign_missing_option_reason(&reason, field.name);
-        append_reason(reasons, std::move(reason));
-      }
-    }
-
-    return reasons.size() != initial_reason_count
-               ? error{error_domain::resources, errc::invalid_argument}
-               : error{};
-  }
-
-  if (!options.is_object()) {
-    append_reason_text(reasons, "options 必须是 object 或 null");
-    return {error_domain::resources, errc::invalid_argument};
-  }
-
-  for (const factory_option_field& field : schema.fields) {
-    const variant* value = options.find_member_variant(field.name);
-    if (value == nullptr || value->is_null()) {
-      if (field.required) {
-        core::string reason = make_reason(reasons);
-        assign_missing_option_reason(&reason, field.name);
-        append_reason(reasons, std::move(reason));
-      }
-
-      continue;
-    }
-
-    if (!matches_kind(*value, field.kind)) {
-      core::string reason = make_reason(reasons);
-      assign_invalid_option_reason(&reason, field.name, field.kind);
-      append_reason(reasons, std::move(reason));
-      continue;
-    }
-
-    if (field.non_empty && option_value_empty(*value)) {
-      core::string reason = make_reason(reasons);
-      assign_empty_option_reason(&reason, field.name);
-      append_reason(reasons, std::move(reason));
-    }
-
-    if (field.has_range) {
-      const std::optional<double> number = numeric_option_value(*value);
-      if (!number.has_value()) {
-        core::string reason = make_reason(reasons);
-        assign_invalid_option_reason(&reason, field.name, factory_option_kind::floating);
-        append_reason(reasons, std::move(reason));
-      } else if (*number < field.range_min || *number > field.range_max) {
-        core::string reason = make_reason(reasons);
-        assign_range_option_reason(&reason, field.name, field.range_min, field.range_max);
-        append_reason(reasons, std::move(reason));
-      }
-    }
-
-    if (!option_value_allowed(*value, field.allowed_values)) {
-      core::string reason = make_reason(reasons);
-      assign_one_of_option_reason(&reason, field.name, field.allowed_values);
-      append_reason(reasons, std::move(reason));
-    }
-  }
-
-  if (!schema.allow_unknown) {
-    for (const auto& member : options.as_object()) {
-      if (find_schema_field(schema, member.name) == nullptr) {
-        core::string reason = make_reason(reasons);
-        assign_unknown_option_reason(&reason, member.name);
-        append_reason(reasons, std::move(reason));
-      }
-    }
-  }
-
-  return reasons.size() != initial_reason_count
-             ? error{error_domain::resources, errc::invalid_argument}
-             : error{};
 }
 
 void set_build_failure(asset_build_result& result, asset_build_stage stage, std::size_t index,
@@ -733,11 +451,7 @@ error asset_manager::ensure_file_system_from_config(const project_file_system_co
     return {error_domain::resources, errc::not_found};
   }
 
-  error status = validate_options(position->second.schema, config.options, reasons);
-  if (status) {
-    return status;
-  }
-
+  error status{};
   const std::size_t reason_count = reasons.size();
   const bool previous = building_config_runtime_;
   building_config_runtime_ = true;
@@ -823,11 +537,7 @@ error asset_manager::ensure_source_from_config(const project_source_config& conf
     return {error_domain::resources, errc::not_found};
   }
 
-  error status = validate_options(position->second.schema, config.options, reasons);
-  if (status) {
-    return status;
-  }
-
+  error status{};
   const std::size_t reason_count = reasons.size();
   const bool previous = building_config_runtime_;
   building_config_runtime_ = true;
@@ -851,11 +561,7 @@ error asset_manager::ensure_type_from_config(const project_resource_type_config&
     return {};
   }
 
-  error status = validate_options(position->second.schema, config.options, reasons);
-  if (status) {
-    return status;
-  }
-
+  error status{};
   const std::size_t reason_count = reasons.size();
   const bool previous = building_config_runtime_;
   building_config_runtime_ = true;

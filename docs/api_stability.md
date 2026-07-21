@@ -21,7 +21,7 @@ CAORS 当前仍处于 alpha 阶段。现阶段允许为了模块边界、命名�
   JSON 便捷路径、config validation 和资源/object resolver 适配。
 - `resources`：`resource`、`resource_ref<T>`、`cache<T>`、`provider`、`loader<T>`、`database`、
   同步 load/reload/preload、异步 request、dependency graph 和 reload 通知 helper。
-- `assets`：`project_config`、`asset_manager`、file system/source/type factory、factory option schema、
+- `assets`：`project_config`、`asset_manager`、file system/source/type factory、typed factory options、
   JSON project config 适配。
 - `events` / `tasks`：同步 signal/dispatcher、executor、thread pool、completion queue 和 request 状态。
 
