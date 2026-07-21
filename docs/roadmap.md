@@ -67,7 +67,10 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 为 math 类型补充 meta 注册 helper、serialization codec 和配置/资源示例。
 - [x] 增加基础 frustum helper、view-projection helper、project/unproject、meta 注册、serialization codec
   和 benchmark 覆盖。
-- [ ] 扩展 math benchmark，覆盖 meta 属性访问、方法参数传递和未来 `meta::value` fast path 候选路径。
+- [x] 扩展 math benchmark，覆盖 meta 属性访问、方法参数传递和未来 `meta::value` fast path 候选路径。
+- [x] 增加渲染向 math 示例，覆盖 camera view-projection、frustum culling、project/unproject 的组合用法。
+- [x] 记录第一轮 math fast path 判断策略：当前先收集 benchmark 数据，不立即把数学类型加入
+  `meta::value`，后续按真实动态调用和编辑器 workload 决定。
 - [ ] 评估 `math::vec2`、`math::vec3`、`math::vec4`、`math::quat` 是否进入 `meta::value` fast path。
 - [ ] 基于真实渲染 workload 评估 `mat4 * mat4` 手动展开、SIMD 后端和 affine transform 快路径；
   当前纯标量通用实现优先保持简单正确。

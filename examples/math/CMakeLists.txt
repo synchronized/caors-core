@@ -2,4 +2,5 @@
 # Copyright (c) 2026 CAORS contributors
 
 caors_add_example(caors_example_math_camera camera.cpp)
+caors_add_example(caors_example_math_render_pipeline render_pipeline.cpp)
 caors_add_example(caors_example_math_serialization serialization.cpp)

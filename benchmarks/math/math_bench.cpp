@@ -4,10 +4,16 @@
 #include "support/benchmark_support.h"
 
 #include "caors/math.h"
+#include "caors/math/registration.h"
+#include "caors/registration.h"
 
 #include <ctrack.hpp>
 
+#include <array>
 #include <cstdint>
+#include <cstdlib>
+#include <iostream>
+#include <optional>
 
 namespace caors::benchmarks {
 namespace {
@@ -59,9 +65,66 @@ void consume_frustum(const caors::math::frustum& value) noexcept {
           (hash_float(value.far_plane.distance) << 3U));
 }
 
+[[nodiscard]] const caors::math::vec3* try_get_vec3(const caors::meta::value& value) noexcept {
+  if (const caors::meta::any_ref* ref = value.try_as_ref(); ref != nullptr) {
+    return ref->try_get<caors::math::vec3>();
+  }
+  if (const caors::meta::any* any = value.try_as_any(); any != nullptr) {
+    return any->try_get<caors::math::vec3>();
+  }
+  return nullptr;
+}
+
+struct math_benchmark_actor {
+  caors::math::vec3 position{1.0F, 2.0F, 3.0F};
+  caors::math::quat rotation = caors::math::quat::identity();
+  caors::math::mat4 transform = caors::math::mat4::identity();
+
+  [[nodiscard]] caors::math::vec3 offset(caors::math::vec3 delta) const noexcept {
+    return position + delta;
+  }
+
+  [[nodiscard]] caors::math::vec3 transform_point(caors::math::vec3 point) const noexcept {
+    return caors::math::transform_point(transform, point);
+  }
+
+  void set_transform(caors::math::mat4 value) noexcept { transform = value; }
+};
+
+void ensure_math_benchmark_types_registered() {
+  static bool registered = false;
+  if (registered) {
+    return;
+  }
+
+  if (const caors::error status = caors::math::register_meta_types(); status.failed()) {
+    std::cerr << "注册 math meta 类型失败\n";
+    std::exit(EXIT_FAILURE);
+  }
+
+  const caors::error status =
+      caors::registration::type_<math_benchmark_actor>("caors.benchmark.math_actor")
+          .meta()
+          .property("position", &math_benchmark_actor::position)
+          .property("rotation", &math_benchmark_actor::rotation)
+          .property("transform", &math_benchmark_actor::transform)
+          .method("offset", &math_benchmark_actor::offset)
+          .method("transform_point", &math_benchmark_actor::transform_point)
+          .method("set_transform", &math_benchmark_actor::set_transform)
+          .commit();
+  if (status.failed()) {
+    std::cerr << "注册 math benchmark 类型失败\n";
+    std::exit(EXIT_FAILURE);
+  }
+
+  registered = true;
+}
+
 } // namespace
 
 void benchmark_math(std::size_t iterations) {
+  ensure_math_benchmark_types_registered();
+
   const caors::math::vec3 left{1.0F, 2.0F, 3.0F};
   const caors::math::vec3 right{4.0F, 5.0F, 6.0F};
 
@@ -231,6 +294,168 @@ void benchmark_math(std::size_t iterations) {
               inverse_view_projection, viewport, screen, accumulator)) {
         consume_vec3(accumulator);
       }
+    }
+  }
+
+  {
+    CTRACK_NAME("math.meta.property_vec3_typed");
+    math_benchmark_actor actor{};
+    const caors::meta::instance instance = caors::meta::view(actor);
+    const caors::meta::property position =
+        caors::meta::find<math_benchmark_actor>().find_property("position");
+    if (!position) {
+      std::cerr << "math benchmark position 属性未注册\n";
+      std::exit(EXIT_FAILURE);
+    }
+
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const float step = static_cast<float>(index % 31U) * 0.01F;
+      if (!position.try_set(instance, caors::math::vec3{step, step * 2.0F, step * 3.0F})) {
+        std::cerr << "写入 math vec3 typed 属性失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      const std::optional<caors::math::vec3> value = position.try_get<caors::math::vec3>(instance);
+      consume_vec3(value.value_or(caors::math::vec3{}));
+    }
+  }
+
+  {
+    CTRACK_NAME("math.meta.property_vec3_value");
+    math_benchmark_actor actor{};
+    const caors::meta::instance instance = caors::meta::view(actor);
+    const caors::meta::property position =
+        caors::meta::find<math_benchmark_actor>().find_property("position");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const float step = static_cast<float>(index % 31U) * 0.01F;
+      caors::math::vec3 source{step, step * 2.0F, step * 3.0F};
+      if (!position.try_set_value(instance, caors::meta::value::from_ref(source))) {
+        std::cerr << "写入 math vec3 value 属性失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      const caors::meta::value current = position.get_value(instance);
+      const caors::math::vec3* current_value = try_get_vec3(current);
+      if (current_value == nullptr) {
+        std::cerr << "读取 math vec3 value 属性失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      consume_vec3(*current_value);
+    }
+  }
+
+  {
+    CTRACK_NAME("math.meta.property_vec3_any");
+    math_benchmark_actor actor{};
+    const caors::meta::instance instance = caors::meta::view(actor);
+    const caors::meta::property position =
+        caors::meta::find<math_benchmark_actor>().find_property("position");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const float step = static_cast<float>(index % 31U) * 0.01F;
+      const caors::any source = caors::any::from(caors::math::vec3{step, step * 2.0F, step * 3.0F});
+      if (!position.try_set_any(instance, source)) {
+        std::cerr << "写入 math vec3 any 属性失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      const caors::any current = position.get_any(instance);
+      consume_vec3(*current.try_get<caors::math::vec3>());
+    }
+  }
+
+  {
+    CTRACK_NAME("math.meta.property_mat4_typed");
+    math_benchmark_actor actor{};
+    const caors::meta::instance instance = caors::meta::view(actor);
+    const caors::meta::property transform =
+        caors::meta::find<math_benchmark_actor>().find_property("transform");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const float step = static_cast<float>(index % 17U) * 0.01F;
+      const caors::math::mat4 source =
+          caors::math::translation(caors::math::vec3{step, step, step});
+      if (!transform.try_set(instance, source)) {
+        std::cerr << "写入 math mat4 typed 属性失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      const std::optional<caors::math::mat4> value = transform.try_get<caors::math::mat4>(instance);
+      consume_mat4(value.value_or(caors::math::mat4{}));
+    }
+  }
+
+  {
+    CTRACK_NAME("math.meta.method_vec3_direct");
+    const math_benchmark_actor actor{};
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const float step = static_cast<float>(index % 31U) * 0.01F;
+      consume_vec3(actor.offset({step, step, step}));
+    }
+  }
+
+  {
+    CTRACK_NAME("math.meta.method_vec3_value");
+    math_benchmark_actor actor{};
+    const caors::meta::instance instance = caors::meta::view(actor);
+    const caors::meta::method offset =
+        caors::meta::find<math_benchmark_actor>().find_method("offset").single();
+    if (!offset) {
+      std::cerr << "math benchmark offset 方法未注册\n";
+      std::exit(EXIT_FAILURE);
+    }
+
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const float step = static_cast<float>(index % 31U) * 0.01F;
+      caors::math::vec3 delta{step, step, step};
+      const std::array<caors::meta::value, 1> arguments{
+          caors::meta::value::from_ref(delta),
+      };
+      const caors::meta::invoke_value_result result = offset.invoke(instance, arguments);
+      const caors::math::vec3* result_value = result ? try_get_vec3(result.value()) : nullptr;
+      if (result_value == nullptr) {
+        std::cerr << "调用 math vec3 value 方法失败\n";
+        std::exit(EXIT_FAILURE);
+      }
+      consume_vec3(*result_value);
+    }
+  }
+
+  {
+    CTRACK_NAME("math.meta.method_vec3_any");
+    math_benchmark_actor actor{};
+    const caors::meta::instance instance = caors::meta::view(actor);
+    const caors::meta::method offset =
+        caors::meta::find<math_benchmark_actor>().find_method("offset").single();
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const float step = static_cast<float>(index % 31U) * 0.01F;
+      caors::math::vec3 delta{step, step, step};
+      const std::array<caors::argument, 1> arguments{caors::arg(delta)};
+      const caors::meta::invoke_result result = offset.invoke_result_of(instance, arguments);
+      consume_vec3(*result.try_get<caors::math::vec3>());
+    }
+  }
+
+  {
+    CTRACK_NAME("math.meta.any_ref_vec3");
+    caors::math::vec3 value{};
+    for (std::size_t index = 0; index < iterations; ++index) {
+      value.x = static_cast<float>(index % 31U);
+      caors::any_ref ref = caors::any_ref::from(value);
+      consume_vec3(*ref.try_get<caors::math::vec3>());
+    }
+  }
+
+  {
+    CTRACK_NAME("math.meta.any_vec3");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const float step = static_cast<float>(index % 31U) * 0.01F;
+      caors::any value = caors::any::from(caors::math::vec3{step, step, step});
+      consume_vec3(*value.try_get<caors::math::vec3>());
+    }
+  }
+
+  {
+    CTRACK_NAME("math.meta.any_quat");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const float step = static_cast<float>(index % 360U);
+      caors::any value = caors::any::from(caors::math::quat::from_axis_angle(
+          caors::math::vec3{0.0F, 1.0F, 0.0F}, caors::math::radians(step)));
+      consume_value(value);
     }
   }
 }

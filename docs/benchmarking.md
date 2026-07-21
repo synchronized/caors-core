@@ -58,6 +58,10 @@ build/linux-clang-benchmark/benchmarks/caors_benchmarks 100000
 - `meta::any_ref` / `meta::any`：运行期引用创建、类型检查和标量装箱。
 - `math`：`vec3` 点积/叉积/归一化、`mat4` 乘法、`mat4 * vec4`、四元数旋转、TRS 构造、
   透视投影矩阵构造、frustum 粗略裁剪和 project/unproject。
+- math 动态路径：`math.meta.property_vec3_typed/value/any`、`math.meta.property_mat4_typed`、
+  `math.meta.method_vec3_direct/value/any`、`math.meta.any_ref_vec3`、`math.meta.any_vec3` 和
+  `math.meta.any_quat`。这些用例用于观察数学类型经过 `meta::property`、`meta::method`、
+  `meta::value`、`any` 和 `any_ref` 时的额外成本，并与直接 C++ 调用对比。
 - `serialization::to_value()` / `write_json_to()` / `to_json()` / `parse_json()` / `read_value_from()` / `read_json_from()`：
   反射对象到 `variant` DOM、复用 buffer JSON 写出、一次性 JSON 字符串、JSON parse、DOM 读回对象和
   JSON 文本 reader 直接读回对象的主路径。
@@ -87,6 +91,22 @@ build/linux-clang-benchmark/benchmarks/caors_benchmarks 100000
 
 分配统计不是耗时 benchmark。它用于发现分配热点和泄漏风险，正式性能对比仍以 Release benchmark
 同机重复运行结果为准。
+
+## Math Fast Path 判断
+
+math benchmark 分成两类：
+
+- 纯计算微基准：`math.vec3.dot_cross_normalize`、`math.mat4.multiply`、`math.dmat4.multiply`、
+  `math.mat4.transform_vec4`、`math.quat.rotate`、`math.trs`、`math.perspective_rh_zo`、
+  `math.frustum_cull` 和 `math.project_unproject`。这些用例判断数学实现本身的标量成本，
+  例如矩阵乘法、四元数旋转和投影 helper 是否需要手动展开、SIMD 或 affine 快路径。
+- 动态访问微基准：`math.meta.*` 用例判断数学类型经过 `meta::value`、`any`、`any_ref`、
+  反射属性和反射方法时的额外成本。这些数据用于决定 `vec2`、`vec3`、`vec4`、`quat`
+  是否值得加入 `meta::value` fast path。
+
+当前策略是先记录数据，不立即把数学类型加入 `meta::value`。只有当真实脚本调用、编辑器属性访问或资源配置
+workload 显示动态封装成本已经成为热点时，才把小型高频类型作为候选；`mat4`、`rect`、`aabb`
+等较大类型默认继续走 `any` / `any_ref` 或 capability 路径。
 
 ## 后续适合拆分的专项
 

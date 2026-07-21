@@ -185,6 +185,9 @@ if (caors::math::try_inverse(vp, inverse_vp)) {
 }
 ```
 
+`examples/math/render_pipeline.cpp` 展示了更完整的组合方式：构造 camera view-projection，提取
+frustum，裁剪一组 AABB，再把可见对象中心点投影到屏幕并反投影回世界坐标。
+
 ## 与 meta::value fast path 的关系
 
 `meta::value` fast path 当前优先服务高频动态调用：基础数值、布尔、字符串、`string_name` 和
@@ -278,6 +281,8 @@ caors::registration::type_<camera_config>("game.camera_config")
 - 当前只做标量模板化，没有做“维度作为模板参数”的统一 `vec<T, N>` / `mat<T, R, C>`。
 - 当前没有完整相机对象、骨骼或完整碰撞系统；frustum 只提供基础平面提取和粗略裁剪 helper。
 - 当前没有接入 `meta::value` fast path。
+- 当前 benchmark 已覆盖 math 纯计算和 `meta::property` / `meta::method` / `meta::value` /
+  `any` / `any_ref` 动态路径；是否把 `vec2`、`vec3`、`vec4`、`quat` 加入 fast path 后续以这些数据为依据。
 
 这些能力会根据实际使用和 benchmark 数据逐步加入。
 
