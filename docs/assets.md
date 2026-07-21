@@ -342,7 +342,7 @@ caors::registration::type_<texture_options>("game.texture_options")
     .commit();
 
 texture_options options;
-caors::error read_status = caors::deserialize(options, config.options);
+caors::error read_status = caors::read_value_from(options, config.options);
 caors::serialization::config_validation_result validation =
     caors::serialization::validate_config(options);
 ```

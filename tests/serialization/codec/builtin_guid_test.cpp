@@ -72,7 +72,8 @@ TEST_CASE("serialization - built in codecs deserialize guid and type guid from s
   });
 
   codec_guid_actor actor{};
-  const caors::error result = caors::deserialize(actor, caors::variant::object(std::move(members)));
+  const caors::error result =
+      caors::read_value_from(actor, caors::variant::object(std::move(members)));
 
   REQUIRE(result.succeeded());
   CHECK(actor.id.string() == "2f6d1f64-7a3a-4db2-9a2d-123456789abc");
@@ -99,7 +100,8 @@ TEST_CASE("serialization - built in codecs reject invalid guid text", "[serializ
   });
 
   codec_guid_actor actor{};
-  const caors::error result = caors::deserialize(actor, caors::variant::object(std::move(members)));
+  const caors::error result =
+      caors::read_value_from(actor, caors::variant::object(std::move(members)));
 
   CHECK(result.failed());
   CHECK(result.domain() == caors::error_domain::serialization);
@@ -126,8 +128,7 @@ TEST_CASE("serialization - built in codecs serialize guid and type guid as scala
   require_codec_guid_actor_metadata();
 
   const codec_guid_actor actor{*id, caors::type_guid{*type}};
-  const caors::serialization::serialization_text_result text =
-      caors::serialization::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialization::to_text(actor);
 
   REQUIRE(text.succeeded());
   CHECK(

@@ -67,7 +67,7 @@ error serialize_polymorphic_object(const serialization::context& context, type_i
     return value.status;
   }
 
-  return serialization::write_variant(writer, value.value);
+  return serialization::write_value_to(writer, value.value);
 }
 
 bool is_polymorphic_value(const serialization::context& context, const variant& value) noexcept {

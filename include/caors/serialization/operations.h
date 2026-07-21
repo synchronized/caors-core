@@ -68,29 +68,29 @@ template <typename T>
   return detail::serialize(context, meta_type, &object, writer);
 }
 
-/** @brief 将序列化中间值写入指定后端。 */
-[[nodiscard]] CAORS_API error write_variant(writer& writer, const variant& value);
+/** @brief 将序列化 DOM 中间值写入指定后端。 */
+[[nodiscard]] CAORS_API error write_value_to(writer& writer, const variant& value);
 
-/** @brief 解析 JSON 文本为序列化中间值。 */
+/** @brief 解析 JSON 文本为序列化 DOM 中间值。 */
 [[nodiscard]] CAORS_API variant_result parse_json(std::string_view text);
 
-/** @brief 按格式选项解析 JSON 文本为序列化中间值。 */
+/** @brief 按格式选项解析 JSON 文本为序列化 DOM 中间值。 */
 [[nodiscard]] CAORS_API variant_result parse_json(std::string_view text, json_options options);
 
-/** @brief 从输入流读取 JSON 文本并解析为序列化中间值。 */
+/** @brief 从输入流读取 JSON 并解析为序列化 DOM 中间值。 */
 [[nodiscard]] CAORS_API variant_result parse_json(io::input_stream& stream,
                                                   memory_resource* resource = nullptr);
 
-/** @brief 从输入流读取 JSON 文本并按格式选项解析为序列化中间值。 */
+/** @brief 从输入流读取 JSON 并按格式选项解析为序列化 DOM 中间值。 */
 [[nodiscard]] CAORS_API variant_result parse_json(io::input_stream& stream, json_options options,
                                                   memory_resource* resource = nullptr);
 
-/** @brief 从文件系统路径读取 JSON 文本并解析为序列化中间值。 */
+/** @brief 从文件系统路径读取 JSON 并解析为序列化 DOM 中间值。 */
 [[nodiscard]] CAORS_API variant_result parse_json_from(io::file_system& file_system,
                                                        io::path_view path,
                                                        memory_resource* resource = nullptr);
 
-/** @brief 从文件系统路径读取 JSON 文本并按格式选项解析为序列化中间值。 */
+/** @brief 从文件系统路径读取 JSON 并按格式选项解析为序列化 DOM 中间值。 */
 [[nodiscard]] CAORS_API variant_result parse_json_from(io::file_system& file_system,
                                                        io::path_view path, json_options options,
                                                        memory_resource* resource = nullptr);
@@ -98,8 +98,8 @@ template <typename T>
 namespace detail {
 
 template <typename T>
-[[nodiscard]] error deserialize_json_text(const serialization::context& context, T& object,
-                                          std::string_view text, json_options options) {
+[[nodiscard]] error read_json_text_from(const serialization::context& context, T& object,
+                                        std::string_view text, json_options options) {
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
 
   const meta::type type = caors::meta::find<value_type>();
@@ -155,15 +155,10 @@ template <typename T>
   return detail::deserialize(context, meta_type, &object, reader);
 }
 
-/** @brief 从序列化 DOM 中间对象反序列化到对象。 */
-template <typename T> [[nodiscard]] error deserialize(T& object, const variant& value) {
-  return deserialize(serialization::context{}, object, value);
-}
-
-/** @brief 按上下文从序列化 DOM 中间对象反序列化到对象。 */
+/** @brief 按上下文从序列化 DOM 中间值读回对象。 */
 template <typename T>
-[[nodiscard]] error deserialize(const serialization::context& context, T& object,
-                                const variant& value) {
+[[nodiscard]] error read_value_from(const serialization::context& context, T& object,
+                                    const variant& value) {
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (std::is_base_of_v<objects::object, value_type>) {
     if (detail::is_polymorphic_value(context, value)) {
@@ -180,96 +175,138 @@ template <typename T>
   return deserialize(context, object, reader);
 }
 
-/** @brief 从 JSON 文本反序列化到对象。 */
-template <typename T> [[nodiscard]] error deserialize(T& object, std::string_view text) {
+/** @brief 从序列化 DOM 中间值读回对象。 */
+template <typename T> [[nodiscard]] error read_value_from(T& object, const variant& value) {
+  return read_value_from(serialization::context{}, object, value);
+}
+
+/** @brief 从 JSON 文本读回对象。 */
+template <typename T> [[nodiscard]] error read_json_from(T& object, std::string_view text) {
   serialization::context context{};
-  return detail::deserialize_json_text(context, object, text, context.config.json);
+  return detail::read_json_text_from(context, object, text, context.config.json);
 }
 
-/** @brief 按上下文从 JSON 文本反序列化到对象。 */
+/** @brief 按上下文从 JSON 文本读回对象。 */
 template <typename T>
-[[nodiscard]] error deserialize(const serialization::context& context, T& object,
-                                std::string_view text) {
-  return detail::deserialize_json_text(context, object, text, context.config.json);
+[[nodiscard]] error read_json_from(const serialization::context& context, T& object,
+                                   std::string_view text) {
+  return detail::read_json_text_from(context, object, text, context.config.json);
 }
 
-/** @brief 从 JSON 文本反序列化到对象。 */
-template <typename T> [[nodiscard]] error deserialize_json(T& object, std::string_view text) {
-  return deserialize(object, text);
-}
-
-/** @brief 按 JSON 格式选项从 JSON 文本反序列化到对象。 */
+/** @brief 按 JSON 格式选项从 JSON 文本读回对象。 */
 template <typename T>
-[[nodiscard]] error deserialize_json(T& object, std::string_view text, json_options options) {
-  return detail::deserialize_json_text(serialization::context{}, object, text, options);
+[[nodiscard]] error read_json_from(T& object, std::string_view text, json_options options) {
+  return detail::read_json_text_from(serialization::context{}, object, text, options);
 }
 
-/** @brief 按上下文从 JSON 文本反序列化到对象。 */
+/** @brief 按上下文和 JSON 格式选项从 JSON 文本读回对象。 */
 template <typename T>
-[[nodiscard]] error deserialize_json(const serialization::context& context, T& object,
-                                     std::string_view text) {
-  return deserialize(context, object, text);
+[[nodiscard]] error read_json_from(const serialization::context& context, T& object,
+                                   std::string_view text, json_options options) {
+  return detail::read_json_text_from(context, object, text, options);
 }
 
-/** @brief 按上下文和 JSON 格式选项从 JSON 文本反序列化到对象。 */
+/** @brief 从 JSON 输入流读回对象；当前复用 DOM parser 路径。 */
 template <typename T>
-[[nodiscard]] error deserialize_json(const serialization::context& context, T& object,
-                                     std::string_view text, json_options options) {
-  return detail::deserialize_json_text(context, object, text, options);
-}
-
-/** @brief 从 JSON 输入流反序列化到对象。 */
-template <typename T>
-[[nodiscard]] error deserialize_json_from(T& object, io::input_stream& stream,
-                                          memory_resource* resource = nullptr) {
+[[nodiscard]] error read_json_from(T& object, io::input_stream& stream,
+                                   memory_resource* resource = nullptr) {
   variant_result value = parse_json(stream, resource);
   if (value.failed()) {
     return value.status;
   }
 
-  return deserialize(object, value.value);
+  return read_value_from(object, value.value);
 }
 
-/** @brief 按上下文从 JSON 输入流反序列化到对象。 */
+/** @brief 从 JSON 输入流按格式选项读回对象；当前复用 DOM parser 路径。 */
 template <typename T>
-[[nodiscard]] error deserialize_json_from(const serialization::context& context, T& object,
-                                          io::input_stream& stream,
-                                          memory_resource* resource = nullptr) {
+[[nodiscard]] error read_json_from(T& object, io::input_stream& stream, json_options options,
+                                   memory_resource* resource = nullptr) {
+  variant_result value = parse_json(stream, options, resource);
+  if (value.failed()) {
+    return value.status;
+  }
+
+  return read_value_from(object, value.value);
+}
+
+/** @brief 按上下文从 JSON 输入流读回对象；当前复用 DOM parser 路径。 */
+template <typename T>
+[[nodiscard]] error read_json_from(const serialization::context& context, T& object,
+                                   io::input_stream& stream, memory_resource* resource = nullptr) {
   variant_result value = parse_json(stream, context.config.json, resource);
   if (value.failed()) {
     return value.status;
   }
 
-  return deserialize(context, object, value.value);
+  return read_value_from(context, object, value.value);
 }
 
-/** @brief 从文件系统路径读取 JSON 并反序列化到对象。 */
+/** @brief 按上下文和 JSON 格式选项从 JSON 输入流读回对象；当前复用 DOM parser 路径。 */
 template <typename T>
-[[nodiscard]] error deserialize_json_from(T& object, io::file_system& file_system,
-                                          io::path_view path, memory_resource* resource = nullptr) {
+[[nodiscard]] error read_json_from(const serialization::context& context, T& object,
+                                   io::input_stream& stream, json_options options,
+                                   memory_resource* resource = nullptr) {
+  variant_result value = parse_json(stream, options, resource);
+  if (value.failed()) {
+    return value.status;
+  }
+
+  return read_value_from(context, object, value.value);
+}
+
+/** @brief 从文件系统路径读取 JSON 并读回对象；当前复用 DOM parser 路径。 */
+template <typename T>
+[[nodiscard]] error read_json_from(T& object, io::file_system& file_system, io::path_view path,
+                                   memory_resource* resource = nullptr) {
   variant_result value = parse_json_from(file_system, path, resource);
   if (value.failed()) {
     return value.status;
   }
 
-  return deserialize(object, value.value);
+  return read_value_from(object, value.value);
 }
 
-/** @brief 按上下文从文件系统路径读取 JSON 并反序列化到对象。 */
+/** @brief 从文件系统路径按格式选项读取 JSON 并读回对象；当前复用 DOM parser 路径。 */
 template <typename T>
-[[nodiscard]] error deserialize_json_from(const serialization::context& context, T& object,
-                                          io::file_system& file_system, io::path_view path,
-                                          memory_resource* resource = nullptr) {
+[[nodiscard]] error read_json_from(T& object, io::file_system& file_system, io::path_view path,
+                                   json_options options, memory_resource* resource = nullptr) {
+  variant_result value = parse_json_from(file_system, path, options, resource);
+  if (value.failed()) {
+    return value.status;
+  }
+
+  return read_value_from(object, value.value);
+}
+
+/** @brief 按上下文从文件系统路径读取 JSON 并读回对象；当前复用 DOM parser 路径。 */
+template <typename T>
+[[nodiscard]] error read_json_from(const serialization::context& context, T& object,
+                                   io::file_system& file_system, io::path_view path,
+                                   memory_resource* resource = nullptr) {
   variant_result value = parse_json_from(file_system, path, context.config.json, resource);
   if (value.failed()) {
     return value.status;
   }
 
-  return deserialize(context, object, value.value);
+  return read_value_from(context, object, value.value);
 }
 
-/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象转换为序列化中间值。 */
-template <typename T> [[nodiscard]] variant_result to_serialization_value(const T& object) {
+/** @brief 按上下文和格式选项从文件系统路径读取 JSON 并读回对象；当前复用 DOM parser 路径。 */
+template <typename T>
+[[nodiscard]] error read_json_from(const serialization::context& context, T& object,
+                                   io::file_system& file_system, io::path_view path,
+                                   json_options options, memory_resource* resource = nullptr) {
+  variant_result value = parse_json_from(file_system, path, options, resource);
+  if (value.failed()) {
+    return value.status;
+  }
+
+  return read_value_from(context, object, value.value);
+}
+
+/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象转换为序列化 DOM 中间值。 */
+template <typename T> [[nodiscard]] variant_result to_value(const T& object) {
   serialization::context context{};
   const meta::type type = caors::meta::find<T>();
   if (!type.registered()) {
@@ -291,10 +328,9 @@ template <typename T> [[nodiscard]] variant_result to_serialization_value(const 
   return detail::to_serialization_value(context, meta_type, &object);
 }
 
-/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象按上下文转换为序列化中间值。 */
+/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象按上下文转换为序列化 DOM 中间值。 */
 template <typename T>
-[[nodiscard]] variant_result to_serialization_value(const serialization::context& context,
-                                                    const T& object) {
+[[nodiscard]] variant_result to_value(const serialization::context& context, const T& object) {
   const meta::type type = caors::meta::find<T>();
   if (!type.registered()) {
     return {{error_domain::serialization, errc::missing_type}, {}};
@@ -315,28 +351,17 @@ template <typename T>
   return detail::to_serialization_value(context, meta_type, &object);
 }
 
-/** @brief 把已注册序列化和反射信息的 C++ 对象转换为序列化中间值。 */
-template <typename T> [[nodiscard]] variant_result to_value(const T& object) {
-  return to_serialization_value(object);
-}
-
-/** @brief 按上下文把 C++ 对象转换为序列化中间值。 */
-template <typename T>
-[[nodiscard]] variant_result to_value(const serialization::context& context, const T& object) {
-  return to_serialization_value(context, object);
-}
-
-/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象序列化到外部简单文本 buffer。 */
-template <typename T> [[nodiscard]] error serialize_text_to(const T& object, string& output) {
+/** @brief 把对象写入简单文本 buffer。 */
+template <typename T> [[nodiscard]] error write_text_to(const T& object, string& output) {
   serialization::text_writer writer{output};
   return serialize(object, writer);
 }
 
-/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象序列化到输出流。 */
+/** @brief 把对象写入输出流；当前简单文本路径会先生成临时 buffer。 */
 template <typename T>
-[[nodiscard]] error serialize_text_to(const T& object, io::output_stream& output) {
+[[nodiscard]] error write_text_to(const T& object, io::output_stream& output) {
   string buffer;
-  const error status = serialize_text_to(object, buffer);
+  const error status = write_text_to(object, buffer);
   if (status) {
     return status;
   }
@@ -349,20 +374,20 @@ template <typename T>
   return output.flush();
 }
 
-/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象按上下文序列化到外部简单文本 buffer。 */
+/** @brief 按上下文把对象写入简单文本 buffer。 */
 template <typename T>
-[[nodiscard]] error serialize_text_to(const serialization::context& context, const T& object,
-                                      string& output) {
+[[nodiscard]] error write_text_to(const serialization::context& context, const T& object,
+                                  string& output) {
   serialization::text_writer writer{output};
   return serialize(context, object, writer);
 }
 
-/** @brief 按上下文把已注册序列化和 meta 字段信息的 C++ 对象序列化到输出流。 */
+/** @brief 按上下文把对象写入输出流；当前简单文本路径会先生成临时 buffer。 */
 template <typename T>
-[[nodiscard]] error serialize_text_to(const serialization::context& context, const T& object,
-                                      io::output_stream& output) {
+[[nodiscard]] error write_text_to(const serialization::context& context, const T& object,
+                                  io::output_stream& output) {
   string buffer;
-  const error status = serialize_text_to(context, object, buffer);
+  const error status = write_text_to(context, object, buffer);
   if (status) {
     return status;
   }
@@ -375,10 +400,10 @@ template <typename T>
   return output.flush();
 }
 
-/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象序列化为简单文本格式。 */
-template <typename T> [[nodiscard]] serialization_text_result serialize_text(const T& object) {
+/** @brief 把对象转换为简单文本。 */
+template <typename T> [[nodiscard]] serialization_text_result to_text(const T& object) {
   string output;
-  const error status = serialize_text_to(object, output);
+  const error status = write_text_to(object, output);
   if (status) {
     return {status, {}};
   }
@@ -386,12 +411,12 @@ template <typename T> [[nodiscard]] serialization_text_result serialize_text(con
   return {{}, std::move(output)};
 }
 
-/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象按上下文序列化为简单文本格式。 */
+/** @brief 按上下文把对象转换为简单文本。 */
 template <typename T>
-[[nodiscard]] serialization_text_result serialize_text(const serialization::context& context,
-                                                       const T& object) {
+[[nodiscard]] serialization_text_result to_text(const serialization::context& context,
+                                                const T& object) {
   string output;
-  const error status = serialize_text_to(context, object, output);
+  const error status = write_text_to(context, object, output);
   if (status) {
     return {status, {}};
   }
@@ -399,74 +424,74 @@ template <typename T>
   return {{}, std::move(output)};
 }
 
-/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象序列化到外部 JSON buffer。 */
-template <typename T> [[nodiscard]] error serialize_json_to(const T& object, string& output) {
+/** @brief 把对象写入 JSON buffer。 */
+template <typename T> [[nodiscard]] error write_json_to(const T& object, string& output) {
   serialization::json_writer writer{output};
   return serialize(object, writer);
 }
 
-/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象序列化到输出流。 */
+/** @brief 把对象直接写入 JSON 输出流。 */
 template <typename T>
-[[nodiscard]] error serialize_json_to(const T& object, io::output_stream& output) {
+[[nodiscard]] error write_json_to(const T& object, io::output_stream& output) {
   serialization::json_writer writer{output};
   const error status = serialize(object, writer);
   return status ? status : output.flush();
 }
 
-/** @brief 按 JSON 格式选项把已注册序列化和 meta 字段信息的 C++ 对象序列化到外部 JSON buffer。 */
+/** @brief 按 JSON 格式选项把对象写入 JSON buffer。 */
 template <typename T>
-[[nodiscard]] error serialize_json_to(const T& object, string& output, json_options options) {
+[[nodiscard]] error write_json_to(const T& object, string& output, json_options options) {
   serialization::json_writer writer{output, options};
   return serialize(object, writer);
 }
 
-/** @brief 按 JSON 格式选项把已注册序列化和 meta 字段信息的 C++ 对象序列化到输出流。 */
+/** @brief 按 JSON 格式选项把对象直接写入 JSON 输出流。 */
 template <typename T>
-[[nodiscard]] error serialize_json_to(const T& object, io::output_stream& output,
-                                      json_options options) {
+[[nodiscard]] error write_json_to(const T& object, io::output_stream& output,
+                                  json_options options) {
   serialization::json_writer writer{output, options};
   const error status = serialize(object, writer);
   return status ? status : output.flush();
 }
 
-/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象按上下文序列化到外部 JSON buffer。 */
+/** @brief 按上下文把对象写入 JSON buffer。 */
 template <typename T>
-[[nodiscard]] error serialize_json_to(const serialization::context& context, const T& object,
-                                      string& output) {
+[[nodiscard]] error write_json_to(const serialization::context& context, const T& object,
+                                  string& output) {
   serialization::json_writer writer{output, context.config.json};
   return serialize(context, object, writer);
 }
 
-/** @brief 按上下文把已注册序列化和 meta 字段信息的 C++ 对象序列化到输出流。 */
+/** @brief 按上下文把对象直接写入 JSON 输出流。 */
 template <typename T>
-[[nodiscard]] error serialize_json_to(const serialization::context& context, const T& object,
-                                      io::output_stream& output) {
+[[nodiscard]] error write_json_to(const serialization::context& context, const T& object,
+                                  io::output_stream& output) {
   serialization::json_writer writer{output, context.config.json};
   const error status = serialize(context, object, writer);
   return status ? status : output.flush();
 }
 
-/** @brief 按上下文和 JSON 格式选项序列化到外部 JSON buffer。 */
+/** @brief 按上下文和 JSON 格式选项把对象写入 JSON buffer。 */
 template <typename T>
-[[nodiscard]] error serialize_json_to(const serialization::context& context, const T& object,
-                                      string& output, json_options options) {
+[[nodiscard]] error write_json_to(const serialization::context& context, const T& object,
+                                  string& output, json_options options) {
   serialization::json_writer writer{output, options};
   return serialize(context, object, writer);
 }
 
-/** @brief 按上下文和 JSON 格式选项序列化到输出流。 */
+/** @brief 按上下文和 JSON 格式选项把对象直接写入 JSON 输出流。 */
 template <typename T>
-[[nodiscard]] error serialize_json_to(const serialization::context& context, const T& object,
-                                      io::output_stream& output, json_options options) {
+[[nodiscard]] error write_json_to(const serialization::context& context, const T& object,
+                                  io::output_stream& output, json_options options) {
   serialization::json_writer writer{output, options};
   const error status = serialize(context, object, writer);
   return status ? status : output.flush();
 }
 
-/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象序列化为 JSON。 */
-template <typename T> [[nodiscard]] serialization_text_result serialize_json(const T& object) {
+/** @brief 把对象转换为 JSON 字符串。 */
+template <typename T> [[nodiscard]] serialization_text_result to_json(const T& object) {
   string output;
-  const error status = serialize_json_to(object, output);
+  const error status = write_json_to(object, output);
   if (status) {
     return {status, {}};
   }
@@ -474,11 +499,11 @@ template <typename T> [[nodiscard]] serialization_text_result serialize_json(con
   return {{}, std::move(output)};
 }
 
-/** @brief 按 JSON 格式选项把已注册序列化和 meta 字段信息的 C++ 对象序列化为 JSON。 */
+/** @brief 按 JSON 格式选项把对象转换为 JSON 字符串。 */
 template <typename T>
-[[nodiscard]] serialization_text_result serialize_json(const T& object, json_options options) {
+[[nodiscard]] serialization_text_result to_json(const T& object, json_options options) {
   string output;
-  const error status = serialize_json_to(object, output, options);
+  const error status = write_json_to(object, output, options);
   if (status) {
     return {status, {}};
   }
@@ -486,12 +511,12 @@ template <typename T>
   return {{}, std::move(output)};
 }
 
-/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象按上下文序列化为 JSON。 */
+/** @brief 按上下文把对象转换为 JSON 字符串。 */
 template <typename T>
-[[nodiscard]] serialization_text_result serialize_json(const serialization::context& context,
-                                                       const T& object) {
+[[nodiscard]] serialization_text_result to_json(const serialization::context& context,
+                                                const T& object) {
   string output;
-  const error status = serialize_json_to(context, object, output);
+  const error status = write_json_to(context, object, output);
   if (status) {
     return {status, {}};
   }
@@ -499,42 +524,17 @@ template <typename T>
   return {{}, std::move(output)};
 }
 
-/** @brief 按上下文和 JSON 格式选项把已注册序列化和 meta 字段信息的 C++ 对象序列化为 JSON。 */
+/** @brief 按上下文和 JSON 格式选项把对象转换为 JSON 字符串。 */
 template <typename T>
-[[nodiscard]] serialization_text_result serialize_json(const serialization::context& context,
-                                                       const T& object, json_options options) {
+[[nodiscard]] serialization_text_result to_json(const serialization::context& context,
+                                                const T& object, json_options options) {
   string output;
-  const error status = serialize_json_to(context, object, output, options);
+  const error status = write_json_to(context, object, output, options);
   if (status) {
     return {status, {}};
   }
 
   return {{}, std::move(output)};
-}
-
-/** @brief 把已注册序列化和 meta 字段信息的 C++ 对象序列化为 JSON 字符串。 */
-template <typename T> [[nodiscard]] serialization_text_result to_string(const T& object) {
-  return serialize_json(object);
-}
-
-/** @brief 按 JSON 格式选项把 C++ 对象序列化为 JSON 字符串。 */
-template <typename T>
-[[nodiscard]] serialization_text_result to_string(const T& object, json_options options) {
-  return serialize_json(object, options);
-}
-
-/** @brief 按上下文把 C++ 对象序列化为 JSON 字符串。 */
-template <typename T>
-[[nodiscard]] serialization_text_result to_string(const serialization::context& context,
-                                                  const T& object) {
-  return serialize_json(context, object);
-}
-
-/** @brief 按上下文和 JSON 格式选项把 C++ 对象序列化为 JSON 字符串。 */
-template <typename T>
-[[nodiscard]] serialization_text_result to_string(const serialization::context& context,
-                                                  const T& object, json_options options) {
-  return serialize_json(context, object, options);
 }
 
 } // namespace caors::serialization
@@ -542,9 +542,13 @@ template <typename T>
 namespace caors {
 
 using serialization::deserialize;
+using serialization::read_json_from;
+using serialization::read_value_from;
 using serialization::serialize;
-using serialization::to_string;
+using serialization::to_json;
 using serialization::to_value;
+using serialization::write_json_to;
+using serialization::write_value_to;
 
 } // namespace caors
 

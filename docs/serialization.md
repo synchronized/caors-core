@@ -19,10 +19,10 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 - 提供 `serialization::writer` 后端接口，让不同格式复用同一套字段遍历逻辑。
 - 提供 `serialization::reader` 后端接口，让不同格式复用同一套字段读入逻辑。
 - 提供 `variant` 中间对象树，方便工具、调试和多格式转换。
-- 提供 `serialization::text_writer` 和 `serialization::serialize_text()`，通过反射字段读取对象并输出调试用简单文本结构。
-- 提供 `serialization::json_writer`、`serialization::json_reader`、`to_string()`、`serialization::parse_json()` 和 `deserialize()` JSON 便捷路径。
+- 提供 `serialization::text_writer` 和 `serialization::to_text()`，通过反射字段读取对象并输出调试用简单文本结构。
+- 提供 `serialization::json_writer`、`serialization::json_reader`、`to_json()`、`serialization::parse_json()` 和 `read_json_from()` JSON 便捷路径。
 - `serialization::json_writer` 可写入 `caors::string`，也可直接写入 `io::output_stream`。
-- 提供 `serialization::variant_reader` 和 `deserialize()`，通过 DOM 中间对象写回基础反射字段。
+- 提供 `serialization::variant_reader` 和 `read_value_from()`，通过 DOM 中间对象写回基础反射字段。
 - 提供 `serialization::context`，支持按 schema version 过滤字段、配置多态 envelope 字段名、传递运行期资源、
   解析资源引用和收集资源依赖。
 - 提供 `serialization::codec_traits<T>` 和 `meta::type` codec capability，允许把特定 C++ 类型作为原子序列化值读写。
@@ -70,7 +70,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 - `caors/serialization/codec.h`：类型级 codec 扩展点，以及接入 `meta::capabilities` 的能力查询包装。
 - `caors/serialization/dom_reader.h`：从 `variant` DOM 读入的 reader 后端。
 - `caors/serialization/json_reader.h`：从 JSON 文本范围直接读入的 reader 后端。
-- `caors/serialization/operations.h`：`serialize()`、`deserialize()`、`to_value()`、`to_string()`、`write_variant()` 等调度入口。
+- `caors/serialization/operations.h`：`serialize()`、`deserialize()`、`to_value()`、`to_json()`、`write_value_to()` 等调度入口。
 - `caors/serialization.h`：序列化模块聚合入口，包含序列化入口和 STL 容器 traits 适配。
 - `caors/object/serialization.h`：对象指针、对象句柄、对象工厂和对象引用 resolver 的序列化适配。
 - `caors/resources/serialization.h`：资源 GUID、资源引用、资源依赖收集和资源 resolver 的序列化适配。
@@ -82,21 +82,36 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 `src/caors/serialization/`。共享的字段校验、schema version 过滤和内部调度声明保留在私有
 `src/caors/serialization/detail/internal.h` 和 `src/caors/serialization/detail/helpers.h`。
 
+### API 命名规则
+
+序列化公开入口按“动作 + 方向 + 格式”命名，避免同一个函数名同时表达 reader、DOM、JSON 文本和输出
+buffer：
+
+- `serialize()` / `deserialize()`：只用于底层 `writer` / `reader` 后端。
+- `to_xxx()`：从对象生成一个新的结果，例如 `to_value()`、`to_json()`、`serialization::to_text()`。
+- `write_xxx_to()`：把对象或 DOM 写到调用方提供的 sink，例如 `write_json_to()`、`write_value_to()`。
+- `read_xxx_from()`：从调用方提供的 source 读入已有对象，例如 `read_value_from()`、`read_json_from()`。
+- `parse_xxx()`：只表示把格式文本、流或路径解析为 DOM，不直接写入 C++ 对象。
+
+有 `serialization::context` 的公开重载统一采用 context-first：`xxx(context, object, ...)`。没有额外上下文时
+保留无 context 便捷重载。
+
 ### API 速查
 
 | API / 配置 | 用途 | 备注 |
 | --- | --- | --- |
 | `serialize(object, writer)` | 写入任意 writer 后端 | 适合自定义格式后端 |
-| `deserialize(object, reader)` | 从任意 reader 后端读入 | 适合 DOM 或自定义 reader |
+| `deserialize(object, reader)` | 从任意 reader 后端读入 | 适合 DOM reader 或自定义 reader |
 | `to_value(object)` | 生成 `variant` DOM 中间值 | 根命名空间高频入口，方便工具、调试和多格式转换 |
-| `write_variant(writer, value)` | 把 `variant` DOM 写入 writer | 不依赖 C++ 对象实例 |
-| `to_string(object)` | 输出 JSON 文本 | 根命名空间高频入口，支持 `json_options` 控制格式化 |
-| `serialization::serialize_text()` / `serialization::serialize_text_to()` | 输出调试用简单文本格式 | 模块入口，`_to` 版本复用调用方 buffer |
-| `serialization::serialize_json_to()` | 输出 JSON 到调用方 buffer 或 `io::output_stream` | buffer 入口适合复用字符串；输出流入口由 `json_writer` 直接写出 |
+| `write_value_to(writer, value)` | 把 `variant` DOM 写入 writer | 不依赖 C++ 对象实例 |
+| `to_json(object)` | 输出 JSON 文本 | 根命名空间高频入口，支持 `json_options` 控制格式化 |
+| `serialization::to_text()` / `serialization::write_text_to()` | 输出调试用简单文本格式 | 模块入口，`_to` 版本复用调用方 buffer |
+| `serialization::write_json_to()` | 输出 JSON 到调用方 buffer 或 `io::output_stream` | buffer 入口适合复用字符串；输出流入口由 `json_writer` 直接写出 |
 | `serialization::parse_json()` | 解析 JSON 文本为 `variant` DOM | 支持 parser 侧 `json_options` |
 | `serialization::parse_json_from()` | 从 `io::file_system` 路径读取 JSON 并解析为 `variant` DOM | 通过 `io::input_stream` token reader 解析；底层文件系统可选择真实流或内存流 |
-| `serialization::deserialize_json_from()` | 从 `io::input_stream` 或 `io::file_system` 路径读回对象 | 便捷入口，最终复用普通 `deserialize()` |
-| `deserialize(object, text)` | 从 JSON 文本读回对象 | 使用 `json_reader` 直接按字段读入，不构造完整 DOM |
+| `read_value_from(object, value)` | 从 `variant` DOM 读回对象 | 内部使用 `variant_reader` |
+| `read_json_from(object, text)` | 从 JSON 文本读回对象 | 使用 `json_reader` 直接按字段读入，不构造完整 DOM |
+| `serialization::read_json_from(object, stream/path)` | 从 `io::input_stream` 或 `io::file_system` 路径读回对象 | 当前解析为 DOM 后复用 `read_value_from()` |
 | `serialization::context` | 单次读写上下文 | 按职责使用分组字段配置 |
 | `context.config.fields` | schema version 字段过滤 | `0` 表示不启用版本过滤 |
 | `context.resolvers.external_refs` | 通用外部引用 resolver、解析策略和依赖收集 | 资源、对象等上层引用可共享该入口 |
@@ -118,23 +133,23 @@ caors::serialize(context, object, writer);
 caors::deserialize(object, reader);
 caors::deserialize(context, object, reader);
 
-caors::deserialize(object, value);
-caors::deserialize(context, object, value);
+caors::read_value_from(object, value);
+caors::read_value_from(context, object, value);
 
 caors::to_value(object);
 caors::to_value(context, object);
 
-caors::serialization::serialize_text(object);
-caors::serialization::serialize_text(context, object);
+caors::serialization::to_text(object);
+caors::serialization::to_text(context, object);
 
-caors::to_string(object);
-caors::to_string(context, object);
+caors::to_json(object);
+caors::to_json(context, object);
 
-caors::serialization::serialize_json_to(object, output);
-caors::serialization::serialize_json_to(context, object, output);
+caors::serialization::write_json_to(object, output);
+caors::serialization::write_json_to(context, object, output);
 
-caors::deserialize(object, text);
-caors::deserialize(context, object, text);
+caors::read_json_from(object, text);
+caors::read_json_from(context, object, text);
 ```
 
 `serialization::context` 不再提供旧式扁平配置字段。调用方应按职责写入
@@ -188,7 +203,7 @@ player instance{};
 actor& base = instance;
 
 caors::serialization::variant_result value = caors::to_value(base);
-caors::serialization::serialization_text_result json = caors::to_string(base);
+caors::serialization::serialization_text_result json = caors::to_json(base);
 ```
 
 多态 envelope 字段名可以通过 `serialization::context::config.polymorphic` 调整。空配置使用默认字段名；
@@ -201,7 +216,7 @@ context.config.polymorphic.value_field = caors::string_name{"data"};
 context.config.polymorphic.type_name_field = caors::string_name{"debug_type"};
 context.config.polymorphic.write_type_name = true;
 
-caors::serialization::serialization_text_result json = caors::to_string(context, base);
+caors::serialization::serialization_text_result json = caors::to_json(context, base);
 ```
 
 读写双方需要使用一致的字段名配置。普通反序列化入口读到配置后的 type/value envelope 时，会先校验动态类型是声明基类的派生类型。如果目标对象
@@ -322,7 +337,7 @@ caors::tracking_resource tracking(&caors::get_system_memory_resource());
 caors::serialization::context context{};
 context.resolvers.memory.resource = &tracking;
 
-caors::error status = caors::deserialize(context, holder, json);
+caors::error status = caors::read_json_from(context, holder, json);
 ```
 
 资源构造只会在目标 wrapper 能保存匹配销毁回调时启用。当前 `std::shared_ptr<Base>`、
@@ -449,11 +464,11 @@ writer 通过 `serialization::format_features` 声明能力：
 - `serialization::json_writer`：声明 `named_fields | ordered_fields | self_describing`，默认输出紧凑 JSON。
 
 `text_writer` 和 `json_writer` 默认持有内部 `caors::string`。如果调用方希望复用输出 buffer，可以把
-外部字符串传给 writer，或使用 `serialize_text_to()` / `serialize_json_to()`：
+外部字符串传给 writer，或使用 `write_text_to()` / `write_json_to()`：
 
 ```cpp
 caors::string output;
-caors::error status = caors::serialization::serialize_json_to(instance, output);
+caors::error status = caors::serialization::write_json_to(instance, output);
 
 caors::serialization::json_writer writer{output};
 status = caors::serialize(instance, writer);
@@ -467,14 +482,14 @@ options.pretty = true;
 options.indent = 2;
 
 caors::serialization::serialization_text_result text =
-    caors::to_string(instance, options);
+    caors::to_json(instance, options);
 
 caors::string output;
-caors::error status = caors::serialization::serialize_json_to(context, instance, output, options);
+caors::error status = caors::serialization::write_json_to(context, instance, output, options);
 ```
 
-根命名空间 `to_string()` 是 JSON 高频便捷封装；`serialization::serialize_text()` 和
-`serialization::serialize_json_to()` 保留为模块入口。核心序列化入口使用 context-first 形式：
+根命名空间 `to_json()` 是 JSON 高频便捷封装；`serialization::to_text()` 和
+`serialization::write_json_to()` 保留为模块入口。核心序列化入口使用 context-first 形式：
 `serialize(context, object, writer)`。没有额外上下文时仍可使用 `serialize(object, writer)` 便捷重载。
 
 ### serialization::reader
@@ -502,7 +517,7 @@ reader 还可以选择支持多态 envelope 读入。默认实现会尝试通过
 
 ```cpp
 actor instance{};
-caors::error status = caors::deserialize(instance, *value);
+caors::error status = caors::read_value_from(instance, *value);
 ```
 
 字段查找优先使用非 0 的 `field_id`，再回退到 `serialized_name` 或 `field_name`。当前支持写入
@@ -525,14 +540,14 @@ caors::error status = caors::deserialize(instance, *value);
 JSON 写出入口：
 
 ```cpp
-caors::serialization::serialization_text_result text = caors::to_string(instance);
+caors::serialization::serialization_text_result text = caors::to_json(instance);
 caors::string output;
-caors::error write_status = caors::serialization::serialize_json_to(instance, output);
+caors::error write_status = caors::serialization::write_json_to(instance, output);
 
 caors::io::memory_file_system files;
 caors::io::output_stream_result stream = files.open_write("config/player.json");
 if (stream) {
-  write_status = caors::serialization::serialize_json_to(instance, *stream.value);
+  write_status = caors::serialization::write_json_to(instance, *stream.value);
   if (!write_status) {
     write_status = stream.value->close();
   }
@@ -548,7 +563,7 @@ caors::serialization::variant_result value = caors::serialization::parse_json(te
 JSON 文本对象读入入口会使用 `serialization::json_reader` 直接按字段写回对象，不构造完整 DOM：
 
 ```cpp
-caors::error status = caors::deserialize(instance, text);
+caors::error status = caors::read_json_from(instance, text);
 ```
 
 也可以从统一 IO 抽象读取 JSON，而不是直接绑定宿主文件系统路径：
@@ -560,15 +575,15 @@ files.write_all("config/player.json", R"({"id":1})");
 caors::serialization::variant_result value =
     caors::serialization::parse_json_from(files, "config/player.json");
 caors::error status =
-    caors::serialization::deserialize_json_from(instance, files, "config/player.json");
+    caors::serialization::read_json_from(instance, files, "config/player.json");
 ```
 
 `serialization::parse_json(stream)` 和 `serialization::parse_json_from(file_system, path)` 会通过 JSON
 token reader 从 `io::input_stream` 读取，不再在序列化层先构造完整 JSON 字符串。解析结果仍是
 `variant` DOM，因此对象树本身会完整驻留内存；底层 `file_system` 可以选择真实文件流、内存流或其他
-输入流实现。当前 `deserialize_json_from(stream/file_system)` 仍复用这条 DOM 路径；文本
-`deserialize(object, text)` / `deserialize_json(object, text)` 已经改为 `json_reader` 直接读入。
-`serialization::serialize_json_to(object, output_stream)` 通过 `json_writer` 直接写入输出流，不再先构造完整
+输入流实现。当前 `read_json_from(stream/file_system)` 仍复用这条 DOM 路径；文本
+`read_json_from(object, text)` 已经改为 `json_reader` 直接读入。
+`serialization::write_json_to(object, output_stream)` 通过 `json_writer` 直接写入输出流，不再先构造完整
 JSON 字符串。
 
 当前 JSON parser 支持对象、数组、字符串、整数、浮点、`true`、`false` 和 `null`。字符串支持常见转义、
@@ -655,7 +670,7 @@ context.resolvers.external_refs.resolver = &resolver;
 context.resolvers.external_refs.resolution = caors::resources::resource_ref_resolution::resolve_if_present;
 
 material decoded{};
-caors::deserialize(context, decoded, json_text);
+caors::read_json_from(context, decoded, json_text);
 ```
 
 当前内置 resolver 创建入口：
@@ -683,7 +698,7 @@ caors::resources::resource_dependency_collector_ops collector =
 caors::serialization::context context{};
 context.resolvers.external_refs.collector = &collector;
 
-caors::to_string(context, material_value);
+caors::to_json(context, material_value);
 
 caors::resource_dependency_graph graph;
 caors::resources::replace_resource_dependencies(graph, material_resource_guid, dependencies);
@@ -727,7 +742,7 @@ caors::resources::replace_resource_dependencies(graph, material_resource_guid, d
 
 ```cpp
 caors::objects::typed_handle<player> target;
-caors::deserialize(target_holder, text);
+caors::read_json_from(target_holder, text);
 
 if (player* current = manager.find(target)) {
   // 句柄当前仍可解析。
@@ -842,7 +857,7 @@ caors::registration::type_<texture_config>("game.texture_config")
     .commit();
 
 texture_config config;
-caors::deserialize(config, options_value);
+caors::read_value_from(config, options_value);
 caors::serialization::apply_config_defaults(config);
 caors::serialization::config_validation_result result =
     caors::serialization::validate_config(config);
@@ -1068,7 +1083,7 @@ caors::serialization::variant_result value = caors::to_value(instance);
 
 ```cpp
 caors::serialization::text_writer writer;
-caors::serialization::write_variant(writer, *value);
+caors::serialization::write_value_to(writer, *value);
 ```
 
 DOM 是可选路径，适合工具、编辑器、测试对比和格式转换。性能敏感路径仍可直接使用
@@ -1120,9 +1135,9 @@ caors::serialization::schema_view schema = caors::serialization::find_schema(typ
 对应属性；未显式填写字段时会按当前属性列表生成默认 schema。序列化 extension 注册推荐在启动期或
 模块加载期完成；`meta::init_registry()` 只执行延迟注册并校验注册表，不会阻止后续继续注册。
 
-### serialize_text
+### serialization::to_text
 
-`serialize_text()` 使用已注册的反射字段读取对象：
+`serialization::to_text()` 使用已注册的反射字段读取对象：
 
 ```cpp
 caors::registration::type_<actor>("game.actor")
@@ -1135,7 +1150,7 @@ caors::registration::type_<actor>("game.actor")
     .commit();
 
 actor instance{7, 95.5F};
-caors::serialization::serialization_text_result result = caors::serialization::serialize_text(instance);
+caors::serialization::serialization_text_result result = caors::serialization::to_text(instance);
 caors::string text = *result;
 ```
 
@@ -1185,11 +1200,11 @@ caors::string text = *result;
 - `serialize()`：通过指定 writer 后端序列化对象。
 - `deserialize()`：通过指定 reader 后端反序列化对象。
 - `to_value()`：通过反射和序列化元信息构造中间对象树。
-- `serialization::serialize_text_to()` / `serialization::serialize_json_to()`：把对象写入调用方提供的 `caors::string` buffer 或输出流。
-- `serialization::write_variant()`：把中间对象树写入指定 writer。
+- `serialization::write_text_to()` / `serialization::write_json_to()`：把对象写入调用方提供的 `caors::string` buffer 或输出流。
+- `serialization::write_value_to()`：把中间对象树写入指定 writer。
 - `serialization_text_result`：`caors::result<caors::string>` 文本序列化结果。
 - `variant_result`：`caors::result<variant>` 中间值构造结果。
-- `serialization::serialize_text()`：基于反射字段的简单文本序列化。
+- `serialization::to_text()`：基于反射字段的简单文本序列化。
 - 基础标量和字符串字段输出。
 - 字段别名和跳过配置。
 - 反序列化 required/optional 缺失字段策略。

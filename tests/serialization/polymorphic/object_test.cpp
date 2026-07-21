@@ -20,7 +20,7 @@ TEST_CASE("serialization - polymorphic object rejects wrong declared base", "[se
   caors::serialization::context context{};
 
   enemy target{};
-  caors::error status = caors::deserialize(context, target, value.value);
+  caors::error status = caors::read_value_from(context, target, value.value);
   CHECK(status.failed());
   CHECK(status.value() == caors::errc::invalid_type);
 }
@@ -50,7 +50,7 @@ TEST_CASE("serialization - polymorphic object rolls back failed reads", "[serial
   caors::serialization::context context{};
   player target{};
   actor& target_actor = target;
-  const caors::error failed = caors::deserialize(context, target_actor, value.value);
+  const caors::error failed = caors::read_value_from(context, target_actor, value.value);
   CHECK(failed.failed());
 }
 
@@ -68,18 +68,18 @@ TEST_CASE("serialization - ordinary object API reads runtime type envelopes", "[
   source.name = "Ren";
   const actor& source_actor = source;
 
-  const caors::serialization::serialization_text_result json = caors::to_string(source_actor);
+  const caors::serialization::serialization_text_result json = caors::to_json(source_actor);
   REQUIRE(json.succeeded());
 
   player target{};
   actor& target_actor = target;
-  const caors::error status = caors::deserialize(target_actor, json.value);
+  const caors::error status = caors::read_json_from(target_actor, json.value);
   REQUIRE(status.succeeded());
   CHECK(target.level == 11);
   CHECK(target.name == "Ren");
 
   actor wrong_target{};
-  const caors::error wrong_status = caors::deserialize(wrong_target, json.value);
+  const caors::error wrong_status = caors::read_json_from(wrong_target, json.value);
   CHECK(wrong_status.failed());
   CHECK(wrong_status.value() == caors::errc::invalid_type);
 }
@@ -100,13 +100,12 @@ TEST_CASE("serialization - polymorphic object roundtrips through ordinary API", 
   player_value.name = "Mina";
   const actor& actor_value = player_value;
 
-  const caors::serialization::serialization_text_result json =
-      caors::to_string(context, actor_value);
+  const caors::serialization::serialization_text_result json = caors::to_json(context, actor_value);
   REQUIRE(json.succeeded());
 
   player decoded_player{};
   actor& decoded_actor = decoded_player;
-  const caors::error status = caors::deserialize(context, decoded_actor, json.value);
+  const caors::error status = caors::read_json_from(context, decoded_actor, json.value);
   REQUIRE(status.succeeded());
   CHECK(decoded_player.type_id() == player::static_type_id());
   CHECK(decoded_player.level == 9);
@@ -146,7 +145,7 @@ TEST_CASE("serialization - ordinary object API writes runtime type envelopes", "
   CHECK(stored_value->value.find_member(caors::string_name{"level"}) != nullptr);
   CHECK(stored_value->value.find_member(caors::string_name{"name"}) != nullptr);
 
-  const caors::serialization::serialization_text_result json = caors::to_string(actor_value);
+  const caors::serialization::serialization_text_result json = caors::to_json(actor_value);
   REQUIRE(json.succeeded());
   CHECK(json.value.find("$type") != caors::string::npos);
   CHECK(json.value.find("$value") != caors::string::npos);
@@ -202,8 +201,7 @@ TEST_CASE("serialization - polymorphic object envelope names are configurable", 
   CHECK(stored_value->value.find_member(caors::string_name{"level"}) != nullptr);
   CHECK(stored_value->value.find_member(caors::string_name{"name"}) != nullptr);
 
-  const caors::serialization::serialization_text_result json =
-      caors::to_string(context, actor_value);
+  const caors::serialization::serialization_text_result json = caors::to_json(context, actor_value);
   REQUIRE(json.succeeded());
   CHECK(json.value.find("kind") != caors::string::npos);
   CHECK(json.value.find("data") != caors::string::npos);
@@ -211,7 +209,7 @@ TEST_CASE("serialization - polymorphic object envelope names are configurable", 
 
   player target{};
   actor& target_actor = target;
-  const caors::error status = caors::deserialize(context, target_actor, json.value);
+  const caors::error status = caors::read_json_from(context, target_actor, json.value);
   REQUIRE(status.succeeded());
   CHECK(target.level == 13);
   CHECK(target.name == "Kai");

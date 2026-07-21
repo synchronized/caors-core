@@ -54,7 +54,7 @@ TEST_CASE("serialization - parses json and deserializes reflected struct fields"
 
   reader_actor actor{};
   const caors::error result =
-      caors::deserialize(actor, R"({"id":7,"health":95.5,"active":true,"name":"Ada"})");
+      caors::read_json_from(actor, R"({"id":7,"health":95.5,"active":true,"name":"Ada"})");
 
   REQUIRE(result.succeeded());
   CHECK(actor.id == 7);
@@ -85,7 +85,7 @@ TEST_CASE("serialization - json text reader applies duplicate key policy", "[ser
   options.duplicate_key_policy = caors::serialization::json_duplicate_key_policy::use_last;
 
   reader_actor actor{};
-  caors::error result = caors::serialization::deserialize_json(
+  caors::error result = caors::serialization::read_json_from(
       actor, R"({"id":1,"id":2,"health":3.5,"active":true,"name":"Ada"})", options);
 
   REQUIRE(result.succeeded());
@@ -93,7 +93,7 @@ TEST_CASE("serialization - json text reader applies duplicate key policy", "[ser
 
   options.duplicate_key_policy = caors::serialization::json_duplicate_key_policy::reject;
   reader_actor rejected{};
-  result = caors::serialization::deserialize_json(
+  result = caors::serialization::read_json_from(
       rejected, R"({"id":1,"id":2,"health":3.5,"active":true,"name":"Ada"})", options);
 
   REQUIRE(result.failed());
@@ -117,7 +117,7 @@ TEST_CASE("serialization - reads json from io file system and deserializes refle
 
   reader_actor actor{};
   const caors::error result =
-      caors::serialization::deserialize_json_from(actor, fs, "actors/ada.json", &tracking);
+      caors::serialization::read_json_from(actor, fs, "actors/ada.json", &tracking);
 
   REQUIRE(result.succeeded());
   CHECK(actor.id == 8);
@@ -138,12 +138,12 @@ TEST_CASE("serialization - rejects invalid char and enum values", "[serializatio
   scalar_actor actor{};
 
   const caors::error invalid_char =
-      caors::deserialize(actor, R"({"code":"AB","color":1,"state":-1})");
+      caors::read_json_from(actor, R"({"code":"AB","color":1,"state":-1})");
   REQUIRE(invalid_char.failed());
   CHECK(invalid_char.domain() == caors::error_domain::serialization);
 
   const caors::error invalid_enum =
-      caors::deserialize(actor, R"({"code":"A","color":300,"state":-1})");
+      caors::read_json_from(actor, R"({"code":"A","color":300,"state":-1})");
   REQUIRE(invalid_enum.failed());
   CHECK(invalid_enum.domain() == caors::error_domain::serialization);
   CHECK(invalid_enum.value() == caors::errc::invalid_argument);
@@ -278,7 +278,7 @@ TEST_CASE("serialization - roundtrips char and enum fields", "[serialization]") 
   actor.color = scalar_color::blue;
   actor.state = scalar_state::enabled;
 
-  const caors::serialization::serialization_text_result text = caors::to_string(actor);
+  const caors::serialization::serialization_text_result text = caors::to_json(actor);
   REQUIRE(text.succeeded());
   CHECK(*text == R"({"code":"A","color":2,"state":2})");
 
@@ -299,7 +299,8 @@ TEST_CASE("serialization - roundtrips char and enum fields", "[serialization]") 
   CHECK(state->value.as_i64() == 2);
 
   scalar_actor decoded{};
-  const caors::error result = caors::deserialize(decoded, R"({"code":"Z","color":1,"state":-1})");
+  const caors::error result =
+      caors::read_json_from(decoded, R"({"code":"Z","color":1,"state":-1})");
   REQUIRE(result.succeeded());
   CHECK(decoded.code == 'Z');
   CHECK(decoded.color == scalar_color::red);
@@ -339,7 +340,8 @@ TEST_CASE("serialization - variant reader deserializes reflected struct fields",
   });
 
   reader_actor actor{};
-  const caors::error result = caors::deserialize(actor, caors::variant::object(std::move(members)));
+  const caors::error result =
+      caors::read_value_from(actor, caors::variant::object(std::move(members)));
 
   REQUIRE(result.succeeded());
   CHECK(actor.id == 7);
@@ -380,7 +382,7 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
   caors::serialization::context context_v2{};
   context_v2.config.fields.schema_version = 2;
   const caors::serialization::serialization_text_result text_v2 =
-      caors::serialization::serialize_text(context_v2, actor);
+      caors::serialization::to_text(context_v2, actor);
 
   REQUIRE(text_v2.succeeded());
   CHECK(*text_v2 == R"({"id":1,"current":20})");
@@ -388,7 +390,7 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
   caors::serialization::context context_v3{};
   context_v3.config.fields.schema_version = 3;
   const caors::serialization::serialization_text_result text_v3 =
-      caors::serialization::serialize_text(context_v3, actor);
+      caors::serialization::to_text(context_v3, actor);
 
   REQUIRE(text_v3.succeeded());
   CHECK(*text_v3 == R"({"id":1,"current":20,"future":30})");
@@ -407,7 +409,7 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
 
   versioned_actor deserialized{};
   const caors::error result =
-      caors::deserialize(context_v2, deserialized, caors::variant::object(std::move(members)));
+      caors::read_value_from(context_v2, deserialized, caors::variant::object(std::move(members)));
 
   REQUIRE(result.succeeded());
   CHECK(deserialized.id == 2);
@@ -438,8 +440,8 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
   });
 
   versioned_actor filtered{0, 10, 0, 30};
-  const caors::error filtered_result =
-      caors::deserialize(context_v2, filtered, caors::variant::object(std::move(extra_members)));
+  const caors::error filtered_result = caors::read_value_from(
+      context_v2, filtered, caors::variant::object(std::move(extra_members)));
 
   REQUIRE(filtered_result.succeeded());
   CHECK(filtered.id == 3);
@@ -460,7 +462,7 @@ TEST_CASE("serialization - context filters fields by schema version", "[serializ
   });
 
   versioned_actor missing_required{};
-  const caors::error missing_required_result = caors::deserialize(
+  const caors::error missing_required_result = caors::read_value_from(
       context_v3, missing_required, caors::variant::object(std::move(missing_required_members)));
 
   CHECK(missing_required_result.failed());
@@ -512,7 +514,8 @@ TEST_CASE("serialization - variant reader applies required optional and skipped 
   });
 
   reader_field_policy_actor actor{};
-  const caors::error result = caors::deserialize(actor, caors::variant::object(std::move(members)));
+  const caors::error result =
+      caors::read_value_from(actor, caors::variant::object(std::move(members)));
 
   REQUIRE(result.succeeded());
   CHECK(actor.id == 1);
@@ -549,7 +552,8 @@ TEST_CASE("serialization - variant reader ignores unknown object members", "[ser
   });
 
   reader_unknown_field_actor actor{};
-  const caors::error result = caors::deserialize(actor, caors::variant::object(std::move(members)));
+  const caors::error result =
+      caors::read_value_from(actor, caors::variant::object(std::move(members)));
 
   REQUIRE(result.succeeded());
   CHECK(actor.id == 7);
@@ -578,7 +582,8 @@ TEST_CASE("serialization - variant reader matches fields by stable field id", "[
   });
 
   reader_field_id_actor actor{};
-  const caors::error result = caors::deserialize(actor, caors::variant::object(std::move(members)));
+  const caors::error result =
+      caors::read_value_from(actor, caors::variant::object(std::move(members)));
 
   REQUIRE(result.succeeded());
   CHECK(actor.id == 42);
@@ -599,7 +604,7 @@ TEST_CASE("serialization - variant reader reports missing fields", "[serializati
                                      .commit()));
 
   reader_missing_field_actor actor{};
-  const caors::error result = caors::deserialize(actor, caors::variant::object({}));
+  const caors::error result = caors::read_value_from(actor, caors::variant::object({}));
 
   CHECK(result.failed());
   CHECK(result.domain() == caors::error_domain::serialization);
@@ -632,7 +637,7 @@ TEST_CASE("serialization - variant reader reports missing required fields", "[se
                                      .commit()));
 
   reader_field_policy_actor actor{};
-  const caors::error result = caors::deserialize(actor, caors::variant::object({}));
+  const caors::error result = caors::read_value_from(actor, caors::variant::object({}));
 
   CHECK(result.failed());
   CHECK(result.domain() == caors::error_domain::serialization);

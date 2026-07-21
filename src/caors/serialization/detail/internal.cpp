@@ -453,7 +453,7 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
 
   variant_result polymorphic = make_polymorphic_indirect_value(indirect, nested_context.value);
   if (polymorphic.succeeded()) {
-    return serialization::write_variant(writer, polymorphic.value);
+    return serialization::write_value_to(writer, polymorphic.value);
   }
   if (polymorphic.status.value() != errc::unsupported) {
     return polymorphic.status;

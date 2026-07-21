@@ -16,7 +16,7 @@ TEST_CASE("serialization - rejects empty non default constructible unique pointe
 
   non_default_unique_ptr_actor actor{};
 
-  const caors::error result = caors::deserialize(actor, R"({"value":{"value":7}})");
+  const caors::error result = caors::read_json_from(actor, R"({"value":{"value":7}})");
 
   CHECK(result.failed());
   CHECK(result.domain() == caors::error_domain::serialization);
@@ -31,7 +31,7 @@ TEST_CASE("serialization - constructs empty non default unique pointers with con
   non_default_unique_ptr_actor actor{};
   caors::serialization::context context = non_default_construction_context();
 
-  const caors::error result = caors::deserialize(context, actor, R"({"value":{"value":7}})");
+  const caors::error result = caors::read_json_from(context, actor, R"({"value":{"value":7}})");
 
   REQUIRE(result.succeeded());
   REQUIRE(actor.value != nullptr);
@@ -44,7 +44,7 @@ TEST_CASE("serialization - rejects empty non default optional values without con
 
   non_default_optional_actor actor{};
 
-  const caors::error result = caors::deserialize(actor, R"({"value":{"value":7}})");
+  const caors::error result = caors::read_json_from(actor, R"({"value":{"value":7}})");
 
   CHECK(result.failed());
   CHECK(result.domain() == caors::error_domain::serialization);
@@ -59,7 +59,7 @@ TEST_CASE("serialization - constructs empty non default optional values with con
   non_default_optional_actor actor{};
   caors::serialization::context context = non_default_construction_context();
 
-  const caors::error result = caors::deserialize(context, actor, R"({"value":{"value":7}})");
+  const caors::error result = caors::read_json_from(context, actor, R"({"value":{"value":7}})");
 
   REQUIRE(result.succeeded());
   REQUIRE(actor.value.has_value());
@@ -74,7 +74,7 @@ TEST_CASE("serialization - destroys constructed values when wrapper takeover fai
   failing_takeover_actor actor{};
   caors::serialization::context context = takeover_rollback_construction_context();
 
-  const caors::error result = caors::deserialize(context, actor, R"({"value":{"value":7}})");
+  const caors::error result = caors::read_json_from(context, actor, R"({"value":{"value":7}})");
 
   REQUIRE(result.failed());
   CHECK(result.domain() == caors::error_domain::serialization);
@@ -100,12 +100,11 @@ TEST_CASE("serialization - rejects non default constructible sequence elements",
   non_default_vector_actor actor{};
   actor.values.emplace_back(1);
 
-  const caors::serialization::serialization_text_result text =
-      caors::serialization::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialization::to_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"values":[{"value":1}]})");
 
-  const caors::error result = caors::deserialize(actor, R"({"values":[{"value":7}]})");
+  const caors::error result = caors::read_json_from(actor, R"({"values":[{"value":7}]})");
 
   CHECK(result.failed());
   CHECK(result.domain() == caors::error_domain::serialization);
@@ -122,7 +121,7 @@ TEST_CASE("serialization - constructs non default sequence elements with context
   actor.values.emplace_back(1);
   caors::serialization::context context = non_default_construction_context();
 
-  const caors::error result = caors::deserialize(context, actor, R"({"values":[{"value":7}]})");
+  const caors::error result = caors::read_json_from(context, actor, R"({"values":[{"value":7}]})");
 
   REQUIRE(result.succeeded());
   REQUIRE(actor.values.size() == 1);
@@ -145,7 +144,7 @@ TEST_CASE("serialization - rejects switching to non default constructible varian
   non_default_variant_actor actor{};
   actor.value = 3;
 
-  const caors::error result = caors::deserialize(actor, R"({"value":[1,{"value":7}]})");
+  const caors::error result = caors::read_json_from(actor, R"({"value":[1,{"value":7}]})");
 
   CHECK(result.failed());
   CHECK(result.domain() == caors::error_domain::serialization);
@@ -162,7 +161,7 @@ TEST_CASE("serialization - constructs non default variant alternatives with cont
   actor.value = 3;
   caors::serialization::context context = non_default_construction_context();
 
-  const caors::error result = caors::deserialize(context, actor, R"({"value":[1,{"value":7}]})");
+  const caors::error result = caors::read_json_from(context, actor, R"({"value":[1,{"value":7}]})");
 
   REQUIRE(result.succeeded());
   REQUIRE(std::holds_alternative<non_default_value>(actor.value));
@@ -185,7 +184,7 @@ TEST_CASE("serialization - updates existing non default constructible unique poi
   non_default_unique_ptr_actor actor{};
   actor.value = std::make_unique<non_default_value>(1);
 
-  const caors::error result = caors::deserialize(actor, R"({"value":{"value":7}})");
+  const caors::error result = caors::read_json_from(actor, R"({"value":{"value":7}})");
 
   REQUIRE(result.succeeded());
   REQUIRE(actor.value != nullptr);
@@ -208,7 +207,7 @@ TEST_CASE("serialization - updates existing non default constructible variant al
   non_default_variant_actor actor{};
   actor.value.emplace<1>(1);
 
-  const caors::error result = caors::deserialize(actor, R"({"value":[1,{"value":7}]})");
+  const caors::error result = caors::read_json_from(actor, R"({"value":[1,{"value":7}]})");
 
   REQUIRE(result.succeeded());
   REQUIRE(std::holds_alternative<non_default_value>(actor.value));
@@ -229,12 +228,11 @@ TEST_CASE("serialization - updates non default constructible direct fields", "[s
 
   non_default_field_actor actor{non_default_value{1}};
 
-  const caors::serialization::serialization_text_result text =
-      caors::serialization::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialization::to_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"value":{"value":1}})");
 
-  const caors::error result = caors::deserialize(actor, R"({"value":{"value":7}})");
+  const caors::error result = caors::read_json_from(actor, R"({"value":{"value":7}})");
 
   REQUIRE(result.succeeded());
   CHECK(actor.value.value == 7);

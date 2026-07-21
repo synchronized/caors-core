@@ -22,7 +22,7 @@ TEST_CASE("serialization - built in codecs reject string view deserialization", 
   require_codec_string_view_actor_metadata();
 
   codec_string_view_actor actor{std::string_view{"original"}};
-  const caors::error result = caors::deserialize(actor, R"({"name":"Ada"})");
+  const caors::error result = caors::read_json_from(actor, R"({"name":"Ada"})");
 
   CHECK(result.failed());
   CHECK(result.domain() == caors::error_domain::serialization);
@@ -42,8 +42,7 @@ TEST_CASE("serialization - built in codecs serialize string view fields", "[seri
   require_codec_string_view_actor_metadata();
 
   const codec_string_view_actor actor{std::string_view{"Ada"}};
-  const caors::serialization::serialization_text_result text =
-      caors::serialization::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialization::to_text(actor);
 
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"name":"Ada"})");
@@ -66,7 +65,7 @@ TEST_CASE("serialization - string view deserialization can use explicit backing 
   caors::serialization::context context{};
   context.state.storage.string_view_storage = &storage;
 
-  const caors::error result = caors::deserialize(context, actor, R"({"name":"Ada"})");
+  const caors::error result = caors::read_json_from(context, actor, R"({"name":"Ada"})");
 
   REQUIRE(result.succeeded());
   REQUIRE(storage.size() == 1);
@@ -97,7 +96,7 @@ TEST_CASE("serialization - string view storage keeps multiple deserialized strin
   context.state.storage.string_view_storage = &storage;
 
   const caors::error result =
-      caors::deserialize(context, actor, R"({"first":"Ada","second":"Mina"})");
+      caors::read_json_from(context, actor, R"({"first":"Ada","second":"Mina"})");
 
   REQUIRE(result.succeeded());
   CHECK(actor.first == "Ada");

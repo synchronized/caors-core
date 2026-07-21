@@ -64,13 +64,13 @@ int main() {
   context.resolvers.external_refs.resolver = &resolver;
 
   const party_slot slot{caors::object_ptr<persistent_player>{player}};
-  const caors::serialization::serialization_text_result json = caors::to_string(context, slot);
+  const caors::serialization::serialization_text_result json = caors::to_json(context, slot);
   if (json.failed()) {
     return 1;
   }
 
   party_slot decoded{};
-  if (caors::deserialize(context, decoded, json.value)) {
+  if (caors::read_json_from(context, decoded, json.value)) {
     return 1;
   }
 

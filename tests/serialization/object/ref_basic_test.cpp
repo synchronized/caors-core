@@ -14,7 +14,7 @@ TEST_CASE("serialization - deserializes null object refs", "[serialization]") {
   actor.owner = caors::objects::make_ref<object_ref_target>();
   actor.owner->value = 9;
 
-  const caors::error result = caors::deserialize(actor, R"({"owner":null})");
+  const caors::error result = caors::read_json_from(actor, R"({"owner":null})");
 
   REQUIRE(result.succeeded());
   CHECK(actor.owner == nullptr);
@@ -34,7 +34,7 @@ TEST_CASE("serialization - deserializes object refs with context resource", "[se
   context.resolvers.memory.resource = &tracking;
 
   object_ref_owner_actor actor{};
-  const caors::error result = caors::deserialize(context, actor, R"({"owner":{"value":17}})");
+  const caors::error result = caors::read_json_from(context, actor, R"({"owner":{"value":17}})");
 
   REQUIRE(result.succeeded());
   REQUIRE(actor.owner);
@@ -59,7 +59,7 @@ TEST_CASE("serialization - serializes empty object refs as null", "[serializatio
 
   const object_ref_owner_actor actor{};
 
-  const caors::serialization::serialization_text_result json = caors::to_string(actor);
+  const caors::serialization::serialization_text_result json = caors::to_json(actor);
 
   REQUIRE(json.succeeded());
   CHECK(json.value == R"({"owner":null})");
@@ -78,7 +78,7 @@ TEST_CASE("serialization - serializes object refs as inline values", "[serializa
   actor.owner = caors::objects::make_ref<object_ref_target>();
   actor.owner->value = 42;
 
-  const caors::serialization::serialization_text_result json = caors::to_string(actor);
+  const caors::serialization::serialization_text_result json = caors::to_json(actor);
 
   REQUIRE(json.succeeded());
   CHECK(json.value == R"({"owner":{"value":42}})");

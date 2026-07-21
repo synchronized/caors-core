@@ -113,15 +113,15 @@ TEST_CASE("serialization - public context overloads are context-first", "[serial
   const context_codec_actor actor{{7}};
 
   caors::string json_output;
-  REQUIRE(caors::serialization::serialize_json_to(context, actor, json_output).succeeded());
+  REQUIRE(caors::serialization::write_json_to(context, actor, json_output).succeeded());
   CHECK(json_output == R"({"value":507})");
 
-  caors::serialization::serialization_text_result json = caors::to_string(context, actor);
+  caors::serialization::serialization_text_result json = caors::to_json(context, actor);
   REQUIRE(json.succeeded());
   CHECK(json.value == R"({"value":507})");
 
   caors::serialization::serialization_text_result text =
-      caors::serialization::serialize_text(context, actor);
+      caors::serialization::to_text(context, actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"value":507})");
 
@@ -137,7 +137,7 @@ TEST_CASE("serialization - public context overloads are context-first", "[serial
   CHECK(writer.text() == R"({"value":507})");
 
   context_codec_actor decoded{};
-  REQUIRE(caors::deserialize(context, decoded, R"({"value":512})").succeeded());
+  REQUIRE(caors::read_json_from(context, decoded, R"({"value":512})").succeeded());
   CHECK(decoded.value.value == 12);
 
   caors::variant::object_type members;
@@ -148,8 +148,9 @@ TEST_CASE("serialization - public context overloads are context-first", "[serial
   });
 
   context_codec_actor decoded_from_dom{};
-  REQUIRE(caors::deserialize(context, decoded_from_dom, caors::variant::object(std::move(members)))
-              .succeeded());
+  REQUIRE(
+      caors::read_value_from(context, decoded_from_dom, caors::variant::object(std::move(members)))
+          .succeeded());
   CHECK(decoded_from_dom.value.value == 15);
 }
 

@@ -151,7 +151,7 @@ TEST_CASE("resources - database orchestrates manifest provider loader cache and 
       caors::resource_ref<serialized_resource>{test_guid_a},
   };
   const caors::serialization::serialization_text_result encoded =
-      caors::to_string(dependency_context, holder);
+      caors::to_json(dependency_context, holder);
 
   REQUIRE(encoded.succeeded());
   REQUIRE(dependencies.size() == 1);
@@ -167,7 +167,7 @@ TEST_CASE("resources - database orchestrates manifest provider loader cache and 
       caors::resources::resource_ref_resolution::require_resolved;
 
   database_resource_ref_holder decoded{};
-  const caors::error status = caors::deserialize(
+  const caors::error status = caors::read_json_from(
       context, decoded, R"({"resource":"6cd2da3d-b549-4756-8b8b-0c84293af410"})");
 
   REQUIRE(status.succeeded());

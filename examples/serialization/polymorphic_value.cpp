@@ -84,20 +84,19 @@ bool register_types() {
     return false;
   }
 
-  if (!check(
-          caors::registration::type_<std::shared_ptr<actor>>(
-              "std.shared_ptr<example.serialization.actor>")
-              .commit(),
-          "meta shared_ptr")) {
+  if (!check(caors::registration::type_<std::shared_ptr<actor>>(
+                 "std.shared_ptr<example.serialization.actor>")
+                 .commit(),
+             "meta shared_ptr")) {
     return false;
   }
 
   return check(caors::registration::type_<scene>("example.serialization.scene")
-                 .meta()
-                 .property("owner", &scene::owner, "std.shared_ptr<example.serialization.actor>")
-                 .serialization()
-                 .commit(),
-             "meta fields scene");
+                   .meta()
+                   .property("owner", &scene::owner, "std.shared_ptr<example.serialization.actor>")
+                   .serialization()
+                   .commit(),
+               "meta fields scene");
 }
 
 } // namespace
@@ -112,7 +111,7 @@ int main() {
   owner->level = 12;
   source.owner = std::move(owner);
 
-  const caors::serialization::serialization_text_result json = caors::to_string(source);
+  const caors::serialization::serialization_text_result json = caors::to_json(source);
   if (json.failed()) {
     std::cerr << "failed to serialize: " << static_cast<int>(json.error().value()) << '\n';
     return 1;
@@ -123,7 +122,7 @@ int main() {
   context.resolvers.memory.resource = &tracking;
 
   scene decoded{};
-  const caors::error status = caors::deserialize(context, decoded, *json);
+  const caors::error status = caors::read_json_from(context, decoded, *json);
   if (status) {
     std::cerr << "failed to deserialize: " << static_cast<int>(status.value()) << '\n';
     return 1;

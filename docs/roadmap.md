@@ -248,7 +248,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 支持 `caors::vector<T>` 数组字段，覆盖标量元素和已注册结构体元素。
 - [x] 序列化 vector 字段不再要求手动注册 vector 类型名。
 - [x] 支持 `caors::objects::ptr<T>` 对象指针字段和 resolver。
-- [x] 增加 JSON writer、JSON DOM parser 和 `serialize_json()` / `deserialize_json()`。
+- [x] 增加 JSON writer、JSON DOM parser 和 `to_json()` / `write_json_to()` / `read_json_from()`。
 - [x] 为文本和 JSON writer 增加外部输出 buffer / `serialize_*_to()` 入口，允许调用方复用
   `caors::string` 并减少结果拷贝，后续可接入指定 `memory_resource`。
 - [x] 增加基于 `io::input_stream` 和 `io::file_system` 的 JSON 读入便捷入口，避免上层反序列化直接绑定

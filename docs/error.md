@@ -111,7 +111,7 @@ if (plan.error().value() == caors::errc::cycle_detected) {
 caors::serialization::context context{};
 context.config.limits.max_depth = 8;
 
-auto result = caors::to_string(context, node);
+auto result = caors::to_json(context, node);
 if (result.error().value() == caors::errc::recursion_limit) {
   // 检查是否存在自环、父指针或过深嵌套。
 }

@@ -24,7 +24,7 @@ TEST_CASE("meta - cross module view supports unified meta and serialization regi
 
   const cross_module_serialization_first instance{42};
   const caors::serialization::serialization_text_result result =
-      caors::serialization::serialize_text(instance);
+      caors::serialization::to_text(instance);
   REQUIRE(result.succeeded());
   CHECK(result.value == R"({"actor_id":42})");
 }

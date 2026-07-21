@@ -500,7 +500,7 @@ caors::registration::type_<caors::resource_ref<texture>>("game.resource_ref<game
 
 ```cpp
 material decoded{};
-caors::deserialize(decoded, R"({"albedo":"6cd2da3d-b549-4756-8b8b-0c84293af410"})");
+caors::read_json_from(decoded, R"({"albedo":"6cd2da3d-b549-4756-8b8b-0c84293af410"})");
 
 caors::resource_cache<texture> cache;
 // cache 创建或加载同 GUID 的资源后：
@@ -522,7 +522,7 @@ context.resolvers.external_refs.resolver = &resolver;
 context.resolvers.external_refs.resolution = caors::resources::resource_ref_resolution::resolve_if_present;
 
 material decoded{};
-caors::deserialize(context, decoded, R"({"albedo":"6cd2da3d-b549-4756-8b8b-0c84293af410"})");
+caors::read_json_from(context, decoded, R"({"albedo":"6cd2da3d-b549-4756-8b8b-0c84293af410"})");
 ```
 
 `context.resolvers.external_refs.resolution` 的策略：
@@ -541,7 +541,7 @@ caors::resources::resource_dependency_collector_ops collector =
 caors::serialization::context context{};
 context.resolvers.external_refs.collector = &collector;
 
-caors::to_string(context, material_value);
+caors::to_json(context, material_value);
 ```
 
 依赖条目包含 `resource_guid` 和资源声明类型的 `type_id`。这可用于后续预加载、打包、热更新和资源数据库。

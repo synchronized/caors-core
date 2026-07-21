@@ -65,7 +65,7 @@ TEST_CASE("serialization - propagates context resource through allocator aware v
   };
   REQUIRE(decoded != nullptr);
 
-  const caors::error result = caors::deserialize(
+  const caors::error result = caors::read_json_from(
       context, *decoded,
       R"({"names":["Ada","Grace"],"groups":[[1,2],[3]],"labels":[["role","engineer"]],"maybe":"present","choice":[1,"variant"]})");
 

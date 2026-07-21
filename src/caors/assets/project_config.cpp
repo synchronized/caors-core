@@ -581,7 +581,7 @@ variant to_value(const project_config& config, memory_resource* resource) {
 }
 
 error write_project_config(const project_config& config, serialization::writer& writer) {
-  return serialization::write_variant(writer, to_value(config));
+  return serialization::write_value_to(writer, to_value(config));
 }
 
 } // namespace caors::assets

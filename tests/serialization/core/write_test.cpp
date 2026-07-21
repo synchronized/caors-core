@@ -116,7 +116,7 @@ TEST_CASE("serialization - scalar strings keep concrete target types", "[seriali
   CHECK(value->as_object()[2].value.as_string() == "token.name");
 
   scalar_text_actor decoded{};
-  const caors::error status = caors::deserialize(decoded, *value);
+  const caors::error status = caors::read_value_from(decoded, *value);
   REQUIRE(status.succeeded());
   CHECK(decoded.standard_name == "std");
   CHECK(decoded.owned_name == "caors");
@@ -176,7 +176,7 @@ TEST_CASE("serialization - json options can pretty print json", "[serialization]
   options.indent = 2;
 
   const json_options_actor actor{7};
-  const caors::serialization::serialization_text_result result = caors::to_string(actor, options);
+  const caors::serialization::serialization_text_result result = caors::to_json(actor, options);
 
   REQUIRE(result.succeeded());
   CHECK(*result == "{\n  \"id\": 7\n}");
@@ -193,13 +193,13 @@ TEST_CASE("serialization - serializes json to caller provided buffer", "[seriali
 
   const serializable_actor actor{3, 10.5F, false, "Lin"};
   caors::string output = "previous";
-  const caors::error status = caors::serialization::serialize_json_to(actor, output);
+  const caors::error status = caors::serialization::write_json_to(actor, output);
 
   REQUIRE(status.succeeded());
   CHECK(output == R"({"id":3,"health":10.5,"active":false,"name":"Lin"})");
 
   output = "previous";
-  const caors::error text_status = caors::serialization::serialize_text_to(actor, output);
+  const caors::error text_status = caors::serialization::write_text_to(actor, output);
   REQUIRE(text_status.succeeded());
   CHECK(output == R"({"id":3,"health":10.5,"active":false,"name":"Lin"})");
 }
@@ -213,7 +213,7 @@ TEST_CASE("serialization - serializes json to output stream", "[serialization]")
   REQUIRE(opened.value != nullptr);
 
   const serializable_actor actor{3, 10.5F, false, "Lin"};
-  REQUIRE(caors::serialization::serialize_json_to(actor, *opened.value).succeeded());
+  REQUIRE(caors::serialization::write_json_to(actor, *opened.value).succeeded());
   REQUIRE(opened.value->close().succeeded());
 
   caors::io::byte_buffer_result bytes = files.read_all("actors/lin.json");
@@ -232,7 +232,7 @@ TEST_CASE("serialization - serializes reflected struct fields to json", "[serial
   require_serializable_actor_metadata();
 
   const serializable_actor actor{7, 95.5F, true, "Ada\nLovelace"};
-  const caors::serialization::serialization_text_result result = caors::to_string(actor);
+  const caors::serialization::serialization_text_result result = caors::to_json(actor);
 
   REQUIRE(result.succeeded());
   CHECK(*result == R"({"id":7,"health":95.5,"active":true,"name":"Ada\nLovelace"})");
@@ -249,13 +249,13 @@ TEST_CASE("serialization - serializes reflected struct fields to text", "[serial
 
   const serializable_actor actor{7, 95.5F, true, "Ada"};
   const caors::serialization::serialization_text_result result =
-      caors::serialization::serialize_text(actor);
+      caors::serialization::to_text(actor);
 
   REQUIRE(result.succeeded());
   CHECK(*result == R"({"id":7,"health":95.5,"active":true,"name":"Ada"})");
 }
 
-// 原测试文件：serialization_write_variant_exposes_checked_accessors_and_helpers_test.cpp
+// 原测试文件：serialization_write_value_exposes_checked_accessors_and_helpers_test.cpp
 
 #include "serialization_test_support.h"
 
@@ -321,7 +321,7 @@ TEST_CASE("serialization - writes intermediate arrays and objects through text w
 
   caors::serialization::text_writer writer;
   const caors::error result =
-      caors::serialization::write_variant(writer, caors::variant::object(std::move(members)));
+      caors::serialization::write_value_to(writer, caors::variant::object(std::move(members)));
 
   REQUIRE(result.succeeded());
   CHECK(writer.text() == R"({"items":[1,2]})");

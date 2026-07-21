@@ -26,13 +26,13 @@ TEST_CASE("serialization - deserializes object pointers through resolver", "[ser
 
   object_ptr_actor actor{};
   const caors::error result =
-      caors::deserialize(context, actor, caors::variant::object(std::move(members)));
+      caors::read_value_from(context, actor, caors::variant::object(std::move(members)));
 
   REQUIRE(result.succeeded());
   CHECK(actor.target.get() == &target);
 
   object_ptr_actor from_json{};
-  const caors::error json_result = caors::deserialize(context, from_json, R"({"target":88})");
+  const caors::error json_result = caors::read_json_from(context, from_json, R"({"target":88})");
   REQUIRE(json_result.succeeded());
   CHECK(from_json.target.get() == &target);
 }
@@ -49,7 +49,7 @@ TEST_CASE("serialization - object pointer resolver failures are reported", "[ser
   object_ptr_target target;
   const object_ptr_actor actor{caors::object_ptr<object_ptr_target>{&target}};
   const caors::serialization::serialization_text_result missing_resolver =
-      caors::serialization::serialize_text(actor);
+      caors::serialization::to_text(actor);
   CHECK(missing_resolver.failed());
   CHECK(missing_resolver.status.value() == caors::errc::invalid_argument);
 
@@ -68,7 +68,7 @@ TEST_CASE("serialization - object pointer resolver failures are reported", "[ser
 
   object_ptr_actor decoded{};
   const caors::error missing_object =
-      caors::deserialize(context, decoded, caors::variant::object(std::move(members)));
+      caors::read_value_from(context, decoded, caors::variant::object(std::move(members)));
   CHECK(missing_object.failed());
   CHECK(missing_object.value() == caors::errc::not_found);
 
@@ -86,7 +86,7 @@ TEST_CASE("serialization - object pointer resolver failures are reported", "[ser
       caors::variant::from(std::uint64_t{100}),
   });
 
-  const caors::error wrong_type = caors::deserialize(
+  const caors::error wrong_type = caors::read_value_from(
       wrong_type_context, decoded, caors::variant::object(std::move(wrong_type_members)));
   CHECK(wrong_type.failed());
   CHECK(wrong_type.value() == caors::errc::invalid_type);
@@ -110,7 +110,7 @@ TEST_CASE("serialization - serializes object pointers through resolver", "[seria
   const object_ptr_actor actor{caors::object_ptr<object_ptr_target>{&target}};
 
   const caors::serialization::serialization_text_result text =
-      caors::serialization::serialize_text(context, actor);
+      caors::serialization::to_text(context, actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"target":77})");
 
@@ -122,7 +122,7 @@ TEST_CASE("serialization - serializes object pointers through resolver", "[seria
   CHECK(target_member->value.is_u64());
   CHECK(target_member->value.as_u64() == 77);
 
-  const caors::serialization::serialization_text_result json = caors::to_string(context, actor);
+  const caors::serialization::serialization_text_result json = caors::to_json(context, actor);
   REQUIRE(json.succeeded());
   CHECK(json.value == R"({"target":77})");
 }

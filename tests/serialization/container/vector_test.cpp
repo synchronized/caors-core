@@ -31,7 +31,8 @@ TEST_CASE("serialization - deserializes vector fields from arrays", "[serializat
   });
 
   vector_actor actor{};
-  const caors::error result = caors::deserialize(actor, caors::variant::object(std::move(members)));
+  const caors::error result =
+      caors::read_value_from(actor, caors::variant::object(std::move(members)));
 
   REQUIRE(result.succeeded());
   REQUIRE(actor.scores.size() == 2);
@@ -52,13 +53,12 @@ TEST_CASE("serialization - vector fields use sequence view instead of container 
   actor.scores.push_back(1);
   actor.scores.push_back(2);
 
-  const caors::serialization::serialization_text_result text =
-      caors::serialization::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialization::to_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"scores":[1,2]})");
 
   sequence_view_vector_actor decoded{};
-  const caors::error result = caors::deserialize(decoded, R"({"scores":[3,4]})");
+  const caors::error result = caors::read_json_from(decoded, R"({"scores":[3,4]})");
 
   REQUIRE(result.succeeded());
   REQUIRE(decoded.scores.size() == 2);
@@ -87,15 +87,14 @@ TEST_CASE("serialization - recursively serializes codec values inside vectors", 
   actor.ids.push_back(*first);
   actor.ids.push_back(*second);
 
-  const caors::serialization::serialization_text_result text =
-      caors::serialization::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialization::to_text(actor);
   REQUIRE(text.succeeded());
   CHECK(
       text.value ==
       R"({"ids":["2f6d1f64-7a3a-4db2-9a2d-123456789abc","5ed39a97-7b20-4d87-86ac-e62a4a615b10"]})");
 
   guid_vector_actor decoded{};
-  const caors::error result = caors::deserialize(
+  const caors::error result = caors::read_json_from(
       decoded,
       R"({"ids":["5ed39a97-7b20-4d87-86ac-e62a4a615b10","2f6d1f64-7a3a-4db2-9a2d-123456789abc"]})");
 
@@ -120,8 +119,7 @@ TEST_CASE("serialization - recursively serializes nested vector values", "[seria
   actor.groups.push_back(caors::vector<int>{1, 2});
   actor.groups.push_back(caors::vector<int>{3});
 
-  const caors::serialization::serialization_text_result text =
-      caors::serialization::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialization::to_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"groups":[[1,2],[3]]})");
 
@@ -134,7 +132,7 @@ TEST_CASE("serialization - recursively serializes nested vector values", "[seria
   CHECK(groups->value.as_array()[0].as_array()[1].as_i64() == 2);
 
   nested_vector_values_actor decoded{};
-  const caors::error result = caors::deserialize(decoded, R"({"groups":[[4,5],[6]]})");
+  const caors::error result = caors::read_json_from(decoded, R"({"groups":[[4,5],[6]]})");
   REQUIRE(result.succeeded());
   REQUIRE(decoded.groups.size() == 2);
   REQUIRE(decoded.groups[0].size() == 2);
@@ -165,8 +163,7 @@ TEST_CASE("serialization - recursively serializes vector struct elements", "[ser
   actor.stats.push_back(nested_stats{1, 2.5F});
   actor.stats.push_back(nested_stats{3, 4.5F});
 
-  const caors::serialization::serialization_text_result text =
-      caors::serialization::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialization::to_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"stats":[{"level":1,"score":2.5},{"level":3,"score":4.5}]})");
 
@@ -194,7 +191,7 @@ TEST_CASE("serialization - recursively serializes vector struct elements", "[ser
 
   nested_vector_actor decoded{};
   const caors::error result =
-      caors::deserialize(decoded, caors::variant::object(std::move(members)));
+      caors::read_value_from(decoded, caors::variant::object(std::move(members)));
 
   REQUIRE(result.succeeded());
   REQUIRE(decoded.stats.size() == 1);
@@ -216,7 +213,7 @@ TEST_CASE("serialization - roundtrips unique pointer vectors", "[serialization]"
   actor.values.push_back(std::unique_ptr<int>{});
   actor.values.push_back(std::make_unique<int>(9));
 
-  const caors::serialization::serialization_text_result text = caors::to_string(actor);
+  const caors::serialization::serialization_text_result text = caors::to_json(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"values":[7,null,9]})");
 
@@ -231,7 +228,7 @@ TEST_CASE("serialization - roundtrips unique pointer vectors", "[serialization]"
   CHECK(values->value.as_array()[2].as_i64() == 9);
 
   unique_ptr_vector_actor decoded{};
-  const caors::error result = caors::deserialize(decoded, R"({"values":[4,null,6]})");
+  const caors::error result = caors::read_json_from(decoded, R"({"values":[4,null,6]})");
   REQUIRE(result.succeeded());
   REQUIRE(decoded.values.size() == 3);
   REQUIRE(decoded.values[0] != nullptr);
@@ -256,8 +253,7 @@ TEST_CASE("serialization - serializes vector fields as arrays", "[serialization]
   actor.scores.push_back(2);
   actor.scores.push_back(3);
 
-  const caors::serialization::serialization_text_result text =
-      caors::serialization::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialization::to_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"scores":[1,2,3]})");
 

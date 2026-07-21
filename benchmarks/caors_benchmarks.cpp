@@ -608,7 +608,7 @@ void benchmark_serialization(std::size_t iterations) {
   }
 
   {
-    CTRACK_NAME("serialization.write_variant_json_reused_buffer");
+    CTRACK_NAME("serialization.write_value_to_json_reused_buffer");
     const caors::variant actor_value = make_benchmark_actor_variant_direct(actor);
     caors::string output;
     output.reserve(benchmark_actor_json.size());
@@ -616,7 +616,7 @@ void benchmark_serialization(std::size_t iterations) {
     for (std::size_t index = 0; index < iterations; ++index) {
       output.clear();
       writer.reset();
-      const caors::error status = caors::serialization::write_variant(writer, actor_value);
+      const caors::error status = caors::serialization::write_value_to(writer, actor_value);
       if (status.failed()) {
         std::cerr << "JSON 写出 benchmark DOM 失败\n";
         std::exit(EXIT_FAILURE);
@@ -643,12 +643,12 @@ void benchmark_serialization(std::size_t iterations) {
   }
 
   {
-    CTRACK_NAME("serialization.serialize_json_to_reused_buffer");
+    CTRACK_NAME("serialization.write_json_to_reused_buffer");
     caors::string output;
     output.reserve(benchmark_actor_json.size());
     for (std::size_t index = 0; index < iterations; ++index) {
       output.clear();
-      const caors::error status = caors::serialization::serialize_json_to(actor, output);
+      const caors::error status = caors::serialization::write_json_to(actor, output);
       if (status.failed()) {
         std::cerr << "JSON 复用 buffer 序列化 benchmark 对象失败\n";
         std::exit(EXIT_FAILURE);
@@ -658,9 +658,9 @@ void benchmark_serialization(std::size_t iterations) {
   }
 
   {
-    CTRACK_NAME("serialization.to_string_json_allocate");
+    CTRACK_NAME("serialization.to_json_allocate");
     for (std::size_t index = 0; index < iterations; ++index) {
-      caors::serialization::serialization_text_result result = caors::to_string(actor);
+      caors::serialization::serialization_text_result result = caors::to_json(actor);
       if (result.failed()) {
         std::cerr << "JSON 序列化 benchmark 对象失败\n";
         std::exit(EXIT_FAILURE);
@@ -686,7 +686,7 @@ void benchmark_serialization(std::size_t iterations) {
     CTRACK_NAME("serialization.deserialize_from_variant");
     for (std::size_t index = 0; index < iterations; ++index) {
       benchmark_actor target{};
-      const caors::error status = caors::deserialize(target, parsed_actor_json.value);
+      const caors::error status = caors::read_value_from(target, parsed_actor_json.value);
       if (status.failed()) {
         std::cerr << "DOM 反序列化 benchmark 对象失败\n";
         std::exit(EXIT_FAILURE);
@@ -696,10 +696,10 @@ void benchmark_serialization(std::size_t iterations) {
   }
 
   {
-    CTRACK_NAME("serialization.deserialize_json_text_reader");
+    CTRACK_NAME("serialization.read_json_from_text_reader");
     for (std::size_t index = 0; index < iterations; ++index) {
       benchmark_actor target{};
-      const caors::error status = caors::deserialize(target, benchmark_actor_json);
+      const caors::error status = caors::read_json_from(target, benchmark_actor_json);
       if (status.failed()) {
         std::cerr << "JSON 反序列化 benchmark 对象失败\n";
         std::exit(EXIT_FAILURE);
@@ -824,15 +824,15 @@ void print_allocation_samples() {
       output.reserve(benchmark_actor_json.size());
       for (std::size_t index = 0; index < iterations; ++index) {
         output.clear();
-        const caors::error status = caors::serialization::serialize_json_to(actor, output);
+        const caors::error status = caors::serialization::write_json_to(actor, output);
         if (status.failed()) {
-          std::cerr << "统计 serialize_json_to 分配失败\n";
+          std::cerr << "统计 write_json_to 分配失败\n";
           std::exit(EXIT_FAILURE);
         }
         consume(static_cast<std::uintptr_t>(output.size()));
       }
     }
-    print_memory_statistics("serialization.serialize_json_to_reused_buffer", tracking.statistics(),
+    print_memory_statistics("serialization.write_json_to_reused_buffer", tracking.statistics(),
                             iterations);
   }
 

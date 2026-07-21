@@ -110,11 +110,11 @@ TEST_CASE("serialization - polymorphic value factory roundtrips unique pointer",
   player->name = "Una";
   holder.owner = std::move(owner);
 
-  const caors::serialization::serialization_text_result json = caors::to_string(holder);
+  const caors::serialization::serialization_text_result json = caors::to_json(holder);
   REQUIRE(json.succeeded());
 
   polymorphic_factory_unique_holder decoded{};
-  const caors::error status = caors::deserialize(decoded, json.value);
+  const caors::error status = caors::read_json_from(decoded, json.value);
   REQUIRE(status.succeeded());
 
   auto* decoded_owner = dynamic_cast<polymorphic_factory_player*>(decoded.owner.get());
@@ -166,7 +166,7 @@ TEST_CASE("serialization - polymorphic value factory uses memory resource for un
   player->name = "Uma";
   holder.owner = std::move(owner);
 
-  const caors::serialization::serialization_text_result json = caors::to_string(holder);
+  const caors::serialization::serialization_text_result json = caors::to_json(holder);
   REQUIRE(json.succeeded());
 
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
@@ -174,7 +174,7 @@ TEST_CASE("serialization - polymorphic value factory uses memory resource for un
   context.resolvers.memory.resource = &tracking;
 
   polymorphic_factory_unique_holder decoded{};
-  const caors::error status = caors::deserialize(context, decoded, json.value);
+  const caors::error status = caors::read_json_from(context, decoded, json.value);
   REQUIRE(status.succeeded());
 
   auto* decoded_owner = dynamic_cast<polymorphic_factory_player*>(decoded.owner.get());
@@ -205,7 +205,7 @@ TEST_CASE("serialization - polymorphic value factory uses memory resource", "[se
   shared->name = "Rin";
   holder.shared = std::move(shared);
 
-  const caors::serialization::serialization_text_result json = caors::to_string(holder);
+  const caors::serialization::serialization_text_result json = caors::to_json(holder);
   REQUIRE(json.succeeded());
 
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
@@ -213,7 +213,7 @@ TEST_CASE("serialization - polymorphic value factory uses memory resource", "[se
   context.resolvers.memory.resource = &tracking;
 
   polymorphic_factory_holder decoded{};
-  const caors::error status = caors::deserialize(context, decoded, json.value);
+  const caors::error status = caors::read_json_from(context, decoded, json.value);
   REQUIRE(status.succeeded());
 
   auto* decoded_shared = dynamic_cast<polymorphic_factory_player*>(decoded.shared.get());

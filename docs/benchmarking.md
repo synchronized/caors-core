@@ -53,13 +53,13 @@ build/linux-clang-benchmark/benchmarks/caors_benchmarks 100000
 - `meta::property` / `meta::method_set` 缓存句柄与 `instance` 按名便利入口的对比。按名入口每次
   调用都会查询属性或方法，热点循环应缓存 property / method 视图。
 - `meta::any_ref` / `meta::any`：运行期引用创建、类型检查和标量装箱。
-- `serialization::to_value()` / `serialize_json_to()` / `to_string()` / `parse_json()` / `deserialize()`：
+- `serialization::to_value()` / `write_json_to()` / `to_json()` / `parse_json()` / `read_value_from()` / `read_json_from()`：
   反射对象到 `variant` DOM、复用 buffer JSON 写出、一次性 JSON 字符串、JSON parse、DOM 读回对象和
   JSON 文本 reader 直接读回对象的主路径。
 - 序列化拆分项：`schema_view_find` 测序列化 schema 视图查询，
   `bound_schema_fields` 测提交后已绑定字段 schema 的遍历，`schema_property_lookup` 测按 schema 字段名查 property，`reflect_properties_get_ref` 测字段引用读取，
   `field_refs_to_variant` 测字段引用转 DOM，`manual_variant_object_direct` 测不经过反射的手动 DOM 构造，
-  `write_variant_json_reused_buffer` 测预构造 DOM 写入 JSON，`direct_json_writer_object` 测直接驱动 JSON
+  `write_value_to_json_reused_buffer` 测预构造 DOM 写入 JSON，`direct_json_writer_object` 测直接驱动 JSON
   writer 写对象。这些用例用于判断完整 JSON 序列化成本主要来自 schema 注册表、字段查找、反射、DOM 构造、
   DOM 写出、reader 字段索引还是 writer 本身。
 - `resources::cache<T>` / `resources::provider` / `assets::json::loader<T>` /
@@ -75,7 +75,7 @@ build/linux-clang-benchmark/benchmarks/caors_benchmarks 100000
 `tracking_resource` 记录分配次数、分配字节、峰值和退出样本后的 live 字节数，用来辅助判断：
 
 - `serialization.to_value`：DOM 构造阶段是否产生大量临时分配。
-- `serialization.serialize_json_to_reused_buffer`：复用输出 buffer 后是否仍有内部容器分配。
+- `serialization.write_json_to_reused_buffer`：复用输出 buffer 后是否仍有内部容器分配。
 - `serialization.parse_json`：JSON parser 当前需要通过默认 resource 观察分配；这也提示后续 parser
   应继续收敛到显式 `memory_resource`。
 - `resources.load_handle_into.json_uncached`：provider -> JSON loader -> cache 路径的总分配情况。

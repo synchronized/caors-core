@@ -245,7 +245,8 @@ int main() {
   std::string actor_json{R"({"name":"hero","material":")"};
   actor_json += hero_material_guid.string();
   actor_json += R"("})";
-  if (!check(caors::deserialize(resolve_context, actor, actor_json), "deserialize actor config")) {
+  if (!check(caors::read_json_from(resolve_context, actor, actor_json),
+             "deserialize actor config")) {
     return 1;
   }
 
@@ -255,7 +256,7 @@ int main() {
   caors::serialization::context collect_context{};
   collect_context.resolvers.external_refs.collector = &collector;
 
-  caors::serialization::serialization_text_result saved = caors::to_string(collect_context, actor);
+  caors::serialization::serialization_text_result saved = caors::to_json(collect_context, actor);
   if (saved.failed()) {
     std::cerr << "failed to serialize actor\n";
     return 1;

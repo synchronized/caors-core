@@ -323,7 +323,7 @@ make_typed_external_memory_source(caors::assets::asset_manager::source_factory_c
   state.resource = context.resource;
 
   typed_external_source_config options;
-  caors::error status = caors::deserialize(options, config.options);
+  caors::error status = caors::read_value_from(options, config.options);
   if (status) {
     return status;
   }

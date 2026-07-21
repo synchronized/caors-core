@@ -42,14 +42,14 @@ TEST_CASE("serialization - polymorphic value envelope names are configurable", "
   REQUIRE(stored_value != nullptr);
   REQUIRE(stored_value->value.is_object());
 
-  const caors::serialization::serialization_text_result json = caors::to_string(context, holder);
+  const caors::serialization::serialization_text_result json = caors::to_json(context, holder);
   REQUIRE(json.succeeded());
   CHECK(json.value.find("kind") != caors::string::npos);
   CHECK(json.value.find("data") != caors::string::npos);
   CHECK(json.value.find("debug_type") != caors::string::npos);
 
   polymorphic_value_holder decoded{};
-  const caors::error status = caors::deserialize(context, decoded, json.value);
+  const caors::error status = caors::read_json_from(context, decoded, json.value);
   REQUIRE(status.succeeded());
 
   auto* decoded_owner = dynamic_cast<polymorphic_value_player*>(decoded.owner.get());
@@ -97,7 +97,7 @@ TEST_CASE("serialization - polymorphic value wrappers reject unrelated dynamic t
 
   polymorphic_value_holder decoded{};
   const caors::error status =
-      caors::deserialize(decoded, caors::variant::object(std::move(holder_fields)));
+      caors::read_value_from(decoded, caors::variant::object(std::move(holder_fields)));
 
   CHECK(status.failed());
   CHECK(status.value() == caors::errc::invalid_type);
@@ -126,11 +126,11 @@ TEST_CASE("serialization - polymorphic value wrappers roundtrip derived values",
   shared->name = "Nia";
   holder.shared = std::move(shared);
 
-  const caors::serialization::serialization_text_result json = caors::to_string(holder);
+  const caors::serialization::serialization_text_result json = caors::to_json(holder);
   REQUIRE(json.succeeded());
 
   polymorphic_value_holder decoded{};
-  const caors::error status = caors::deserialize(decoded, json.value);
+  const caors::error status = caors::read_json_from(decoded, json.value);
   REQUIRE(status.succeeded());
 
   auto* decoded_owner = dynamic_cast<polymorphic_value_player*>(decoded.owner.get());

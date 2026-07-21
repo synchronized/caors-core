@@ -22,8 +22,7 @@ TEST_CASE("serialization - built in codecs roundtrip chrono values as integers",
       std::chrono::system_clock::time_point{std::chrono::milliseconds{1700000000123}},
   };
 
-  const caors::serialization::serialization_text_result text =
-      caors::serialization::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialization::to_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"timeout":2500,"timestamp":1700000000123})");
 
@@ -42,7 +41,7 @@ TEST_CASE("serialization - built in codecs roundtrip chrono values as integers",
 
   codec_chrono_actor decoded{};
   const caors::error result =
-      caors::deserialize(decoded, R"({"timeout":125,"timestamp":1700000000456})");
+      caors::read_json_from(decoded, R"({"timeout":125,"timestamp":1700000000456})");
 
   REQUIRE(result.succeeded());
   CHECK(decoded.timeout == std::chrono::milliseconds{125});
@@ -62,8 +61,7 @@ TEST_CASE("serialization - built in codecs roundtrip filesystem paths as strings
 
   codec_path_actor actor{std::filesystem::path{"assets/textures/albedo.png"}};
 
-  const caors::serialization::serialization_text_result text =
-      caors::serialization::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialization::to_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"path":"assets/textures/albedo.png"})");
 
@@ -75,7 +73,7 @@ TEST_CASE("serialization - built in codecs roundtrip filesystem paths as strings
   CHECK(*path->value.try_as_string() == "assets/textures/albedo.png");
 
   codec_path_actor decoded{};
-  const caors::error result = caors::deserialize(decoded, R"({"path":"levels/start.scene"})");
+  const caors::error result = caors::read_json_from(decoded, R"({"path":"levels/start.scene"})");
 
   REQUIRE(result.succeeded());
   CHECK(decoded.path.generic_string() == "levels/start.scene");
@@ -114,14 +112,13 @@ TEST_CASE("serialization - built in codecs survive late meta type registration",
       &late_builtin_codec_actor::timeout);
 
   const late_builtin_codec_actor actor{std::chrono::seconds{42}};
-  const caors::serialization::serialization_text_result text =
-      caors::serialization::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialization::to_text(actor);
 
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"timeout":42})");
 
   late_builtin_codec_actor decoded{};
-  const caors::error result = caors::deserialize(decoded, R"({"timeout":7})");
+  const caors::error result = caors::read_json_from(decoded, R"({"timeout":7})");
 
   REQUIRE(result.succeeded());
   CHECK(decoded.timeout == std::chrono::seconds{7});

@@ -18,7 +18,7 @@ TEST_CASE("serialization - deserializes non-null values into empty wrappers", "[
   actor.raw = &raw;
   actor.stats = &stats;
 
-  const caors::error result = caors::deserialize(
+  const caors::error result = caors::read_json_from(
       actor,
       R"({"raw":70,"shared":80,"unique":90,"optional":100,"stats":{"level":4,"score":5.5}})");
 
@@ -56,7 +56,7 @@ TEST_CASE("serialization - deserializes null pointer and wrapper fields", "[seri
   actor.optional = 10;
   actor.stats = &stats;
 
-  const caors::error result = caors::deserialize(
+  const caors::error result = caors::read_json_from(
       actor, R"({"raw":null,"shared":null,"unique":null,"optional":null,"stats":null})");
 
   REQUIRE(result.succeeded());
@@ -132,7 +132,8 @@ TEST_CASE("serialization - deserializes pointer and wrapper fields into existing
   const int* unique_address = actor.unique.get();
   nested_stats* stats_address = actor.stats;
 
-  const caors::error result = caors::deserialize(actor, caors::variant::object(std::move(members)));
+  const caors::error result =
+      caors::read_value_from(actor, caors::variant::object(std::move(members)));
 
   REQUIRE(result.succeeded());
   CHECK(actor.raw == raw_address);
@@ -161,7 +162,7 @@ TEST_CASE("serialization - rejects non-null values for empty raw pointers", "[se
 
   pointer_actor actor{};
 
-  const caors::error result = caors::deserialize(
+  const caors::error result = caors::read_json_from(
       actor,
       R"({"raw":70,"shared":80,"unique":90,"optional":100,"stats":{"level":4,"score":5.5}})");
 
@@ -187,7 +188,7 @@ TEST_CASE("serialization - rejects null reference wrapper fields", "[serializati
   require_reference_wrapper_actor_metadata();
 
   reference_wrapper_actor actor{7};
-  const caors::error result = caors::deserialize(actor, R"({"value":null})");
+  const caors::error result = caors::read_json_from(actor, R"({"value":null})");
 
   CHECK(result.failed());
   CHECK(result.domain() == caors::error_domain::serialization);
@@ -209,12 +210,11 @@ TEST_CASE("serialization - serializes and deserializes reference wrapper fields"
 
   reference_wrapper_actor actor{7};
 
-  const caors::serialization::serialization_text_result text =
-      caors::serialization::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialization::to_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"value":7})");
 
-  const caors::error result = caors::deserialize(actor, R"({"value":11})");
+  const caors::error result = caors::read_json_from(actor, R"({"value":11})");
 
   REQUIRE(result.succeeded());
   CHECK(&actor.value.get() == &actor.storage);
@@ -235,8 +235,7 @@ TEST_CASE("serialization - serializes empty pointer and wrapper fields as null",
 
   pointer_actor actor{};
 
-  const caors::serialization::serialization_text_result text =
-      caors::serialization::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialization::to_text(actor);
 
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"raw":null,"shared":null,"unique":null,"optional":null,"stats":null})");
@@ -283,8 +282,7 @@ TEST_CASE("serialization - serializes pointer and wrapper fields as inline value
   actor.optional = 10;
   actor.stats = &stats;
 
-  const caors::serialization::serialization_text_result text =
-      caors::serialization::serialize_text(actor);
+  const caors::serialization::serialization_text_result text = caors::serialization::to_text(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value ==
         R"({"raw":7,"shared":8,"unique":9,"optional":10,"stats":{"level":2,"score":3.5}})");
@@ -314,7 +312,7 @@ TEST_CASE("serialization - stops raw pointer inline recursion at configured dept
   context.config.limits.max_depth = 2;
 
   const caors::serialization::serialization_text_result text =
-      caors::serialization::serialize_text(context, node);
+      caors::serialization::to_text(context, node);
 
   REQUIRE(text.failed());
   CHECK(text.status.domain() == caors::error_domain::serialization);
@@ -332,7 +330,7 @@ TEST_CASE("serialization - stops wrapper inline recursion at configured depth", 
   context.config.limits.max_depth = 2;
 
   const caors::serialization::serialization_text_result text =
-      caors::serialization::serialize_text(context, *node);
+      caors::serialization::to_text(context, *node);
 
   node->next.reset();
 
@@ -354,7 +352,7 @@ TEST_CASE("serialization - stops raw pointer deserialization recursion at config
   caors::serialization::context context{};
   context.config.limits.max_depth = 2;
 
-  const caors::error result = caors::deserialize(
+  const caors::error result = caors::read_json_from(
       context, root, R"({"value":1,"next":{"value":2,"next":{"value":3,"next":null}}})");
 
   REQUIRE(result.failed());
@@ -372,7 +370,7 @@ TEST_CASE("serialization - can disable inline recursion depth limit", "[serializ
   context.config.limits.max_depth = 0;
 
   const caors::serialization::serialization_text_result text =
-      caors::serialization::serialize_text(context, root);
+      caors::serialization::to_text(context, root);
 
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"value":1,"next":{"value":2,"next":null}})");

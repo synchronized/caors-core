@@ -40,7 +40,7 @@ TEST_CASE("serialization - polymorphic object refs reject unrelated dynamic type
 
   polymorphic_object_ref_holder decoded{};
   const caors::error status =
-      caors::deserialize(decoded, caors::variant::object(std::move(holder_fields)));
+      caors::read_value_from(decoded, caors::variant::object(std::move(holder_fields)));
 
   CHECK(status.failed());
   CHECK(status.value() == caors::errc::invalid_type);
@@ -65,7 +65,7 @@ TEST_CASE("serialization - polymorphic object refs roundtrip derived values", "[
   player->name = "Mina";
   holder.owner = player;
 
-  const caors::serialization::serialization_text_result json = caors::to_string(holder);
+  const caors::serialization::serialization_text_result json = caors::to_json(holder);
   REQUIRE(json.succeeded());
 
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
@@ -73,7 +73,7 @@ TEST_CASE("serialization - polymorphic object refs roundtrip derived values", "[
   context.resolvers.memory.resource = &tracking;
 
   polymorphic_object_ref_holder decoded{};
-  const caors::error status = caors::deserialize(context, decoded, json.value);
+  const caors::error status = caors::read_json_from(context, decoded, json.value);
 
   REQUIRE(status.succeeded());
   REQUIRE(decoded.owner);
