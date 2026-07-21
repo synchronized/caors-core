@@ -5,6 +5,12 @@
 
 #include <catch2/catch_all.hpp>
 
+namespace {
+
+[[nodiscard]] float ndc_z(caors::math::vec4 value) noexcept { return value.z / value.w; }
+
+} // namespace
+
 TEST_CASE("math - vector operations provide common arithmetic", "[math]") {
   const caors::math::vec3 left{1.0F, 2.0F, 3.0F};
   const caors::math::vec3 right{4.0F, 5.0F, 6.0F};
@@ -85,27 +91,53 @@ TEST_CASE("math - transforms use row-major storage and column-vector semantics",
 }
 
 TEST_CASE("math - projection templates map depth by handedness and clip range", "[math]") {
+  constexpr float near_z = 1.0F;
+  constexpr float far_z = 10.0F;
+
   const caors::math::mat4 rh_zo =
-      caors::math::perspective_rh_zo(caors::math::half_pi, 1.0F, 1.0F, 10.0F);
-  const caors::math::vec4 rh_near = rh_zo * caors::math::vec4{0.0F, 0.0F, -1.0F, 1.0F};
-  const caors::math::vec4 rh_far = rh_zo * caors::math::vec4{0.0F, 0.0F, -10.0F, 1.0F};
-  CHECK((rh_near.z / rh_near.w) == Catch::Approx(0.0F));
-  CHECK((rh_far.z / rh_far.w) == Catch::Approx(1.0F));
+      caors::math::perspective_rh_zo(caors::math::half_pi, 1.0F, near_z, far_z);
+  CHECK(ndc_z(rh_zo * caors::math::vec4{0.0F, 0.0F, -near_z, 1.0F}) == Catch::Approx(0.0F));
+  CHECK(ndc_z(rh_zo * caors::math::vec4{0.0F, 0.0F, -far_z, 1.0F}) == Catch::Approx(1.0F));
+
+  const caors::math::mat4 rh_no =
+      caors::math::perspective_rh_no(caors::math::half_pi, 1.0F, near_z, far_z);
+  CHECK(ndc_z(rh_no * caors::math::vec4{0.0F, 0.0F, -near_z, 1.0F}) == Catch::Approx(-1.0F));
+  CHECK(ndc_z(rh_no * caors::math::vec4{0.0F, 0.0F, -far_z, 1.0F}) == Catch::Approx(1.0F));
+
+  const caors::math::mat4 lh_zo =
+      caors::math::perspective_lh_zo(caors::math::half_pi, 1.0F, near_z, far_z);
+  CHECK(ndc_z(lh_zo * caors::math::vec4{0.0F, 0.0F, near_z, 1.0F}) == Catch::Approx(0.0F));
+  CHECK(ndc_z(lh_zo * caors::math::vec4{0.0F, 0.0F, far_z, 1.0F}) == Catch::Approx(1.0F));
 
   const caors::math::mat4 lh_no =
-      caors::math::perspective_lh_no(caors::math::half_pi, 1.0F, 1.0F, 10.0F);
-  const caors::math::vec4 lh_near = lh_no * caors::math::vec4{0.0F, 0.0F, 1.0F, 1.0F};
-  const caors::math::vec4 lh_far = lh_no * caors::math::vec4{0.0F, 0.0F, 10.0F, 1.0F};
-  CHECK((lh_near.z / lh_near.w) == Catch::Approx(-1.0F));
-  CHECK((lh_far.z / lh_far.w) == Catch::Approx(1.0F));
+      caors::math::perspective_lh_no(caors::math::half_pi, 1.0F, near_z, far_z);
+  CHECK(ndc_z(lh_no * caors::math::vec4{0.0F, 0.0F, near_z, 1.0F}) == Catch::Approx(-1.0F));
+  CHECK(ndc_z(lh_no * caors::math::vec4{0.0F, 0.0F, far_z, 1.0F}) == Catch::Approx(1.0F));
+}
 
-  const caors::math::mat4 ortho = caors::math::orthographic<caors::math::handedness::right,
-                                                            caors::math::clip_depth::zero_to_one>(
-      -1.0F, 1.0F, -1.0F, 1.0F, 1.0F, 10.0F);
-  const caors::math::vec4 ortho_near = ortho * caors::math::vec4{0.0F, 0.0F, -1.0F, 1.0F};
-  const caors::math::vec4 ortho_far = ortho * caors::math::vec4{0.0F, 0.0F, -10.0F, 1.0F};
-  CHECK(ortho_near.z == Catch::Approx(0.0F));
-  CHECK(ortho_far.z == Catch::Approx(1.0F));
+TEST_CASE("math - orthographic helpers map depth by handedness and clip range", "[math]") {
+  constexpr float near_z = 1.0F;
+  constexpr float far_z = 10.0F;
+
+  const caors::math::mat4 rh_zo =
+      caors::math::orthographic_rh_zo(-1.0F, 1.0F, -1.0F, 1.0F, near_z, far_z);
+  CHECK((rh_zo * caors::math::vec4{0.0F, 0.0F, -near_z, 1.0F}).z == Catch::Approx(0.0F));
+  CHECK((rh_zo * caors::math::vec4{0.0F, 0.0F, -far_z, 1.0F}).z == Catch::Approx(1.0F));
+
+  const caors::math::mat4 rh_no =
+      caors::math::orthographic_rh_no(-1.0F, 1.0F, -1.0F, 1.0F, near_z, far_z);
+  CHECK((rh_no * caors::math::vec4{0.0F, 0.0F, -near_z, 1.0F}).z == Catch::Approx(-1.0F));
+  CHECK((rh_no * caors::math::vec4{0.0F, 0.0F, -far_z, 1.0F}).z == Catch::Approx(1.0F));
+
+  const caors::math::mat4 lh_zo =
+      caors::math::orthographic_lh_zo(-1.0F, 1.0F, -1.0F, 1.0F, near_z, far_z);
+  CHECK((lh_zo * caors::math::vec4{0.0F, 0.0F, near_z, 1.0F}).z == Catch::Approx(0.0F));
+  CHECK((lh_zo * caors::math::vec4{0.0F, 0.0F, far_z, 1.0F}).z == Catch::Approx(1.0F));
+
+  const caors::math::mat4 lh_no =
+      caors::math::orthographic_lh_no(-1.0F, 1.0F, -1.0F, 1.0F, near_z, far_z);
+  CHECK((lh_no * caors::math::vec4{0.0F, 0.0F, near_z, 1.0F}).z == Catch::Approx(-1.0F));
+  CHECK((lh_no * caors::math::vec4{0.0F, 0.0F, far_z, 1.0F}).z == Catch::Approx(1.0F));
 }
 
 TEST_CASE("math - look-at helpers encode right and left handed view spaces", "[math]") {
@@ -118,6 +150,23 @@ TEST_CASE("math - look-at helpers encode right and left handed view spaces", "[m
 
   CHECK(right == caors::math::mat4::identity());
   CHECK(left == caors::math::mat4::identity());
+
+  const caors::math::vec3 eye{1.0F, 2.0F, 3.0F};
+  const caors::math::mat4 moved_right = caors::math::look_at_rh(
+      eye, caors::math::vec3{1.0F, 2.0F, 2.0F}, caors::math::vec3{0.0F, 1.0F, 0.0F});
+  const caors::math::mat4 moved_left = caors::math::look_at_lh(
+      eye, caors::math::vec3{1.0F, 2.0F, 4.0F}, caors::math::vec3{0.0F, 1.0F, 0.0F});
+
+  CHECK(caors::math::nearly_equal(caors::math::transform_point(moved_right, eye),
+                                  caors::math::vec3::zero()));
+  CHECK(caors::math::nearly_equal(
+      caors::math::transform_point(moved_right, caors::math::vec3{1.0F, 2.0F, 2.0F}),
+      caors::math::vec3{0.0F, 0.0F, -1.0F}));
+  CHECK(caors::math::nearly_equal(caors::math::transform_point(moved_left, eye),
+                                  caors::math::vec3::zero()));
+  CHECK(caors::math::nearly_equal(
+      caors::math::transform_point(moved_left, caors::math::vec3{1.0F, 2.0F, 4.0F}),
+      caors::math::vec3{0.0F, 0.0F, 1.0F}));
 }
 
 TEST_CASE("math - geometry helpers cover common bounds operations", "[math]") {

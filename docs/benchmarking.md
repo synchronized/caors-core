@@ -53,6 +53,8 @@ build/linux-clang-benchmark/benchmarks/caors_benchmarks 100000
 - `meta::property` / `meta::method_set` 缓存句柄与 `instance` 按名便利入口的对比。按名入口每次
   调用都会查询属性或方法，热点循环应缓存 property / method 视图。
 - `meta::any_ref` / `meta::any`：运行期引用创建、类型检查和标量装箱。
+- `math`：`vec3` 点积/叉积/归一化、`mat4` 乘法、`mat4 * vec4`、四元数旋转、TRS 构造和
+  透视投影矩阵构造。
 - `serialization::to_value()` / `write_json_to()` / `to_json()` / `parse_json()` / `read_value_from()` / `read_json_from()`：
   反射对象到 `variant` DOM、复用 buffer JSON 写出、一次性 JSON 字符串、JSON parse、DOM 读回对象和
   JSON 文本 reader 直接读回对象的主路径。
@@ -98,7 +100,7 @@ build/linux-clang-benchmark/benchmarks/caors_benchmarks 100000
 - benchmark 源码放在 `benchmarks/`，目标名使用 `caors_<topic>_benchmarks` 或
   当前聚合目标 `caors_benchmarks`。
 - 聚合 benchmark 的源码按主题拆分到 `benchmarks/core`、`benchmarks/meta`、
-  `benchmarks/serialization`、`benchmarks/resources`、`benchmarks/memory` 等目录；
+  `benchmarks/math`、`benchmarks/serialization`、`benchmarks/resources`、`benchmarks/memory` 等目录；
   跨主题 fixture、测试数据和公共辅助函数放在 `benchmarks/support`。
 - benchmark 目标只在 `CAORS_BUILD_BENCHMARKS=ON` 时加入构建。
 - 用例应优先测公开 API。普通动态调用优先覆盖 `meta::value` / capability facade；

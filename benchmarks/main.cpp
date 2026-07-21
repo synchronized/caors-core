@@ -19,6 +19,7 @@ int main(int argc, char** argv) {
   caors::benchmarks::benchmark_properties(iterations);
   caors::benchmarks::benchmark_method_calls(iterations);
   caors::benchmarks::benchmark_any(iterations);
+  caors::benchmarks::benchmark_math(iterations);
   caors::benchmarks::benchmark_serialization(iterations);
   caors::benchmarks::benchmark_resources(iterations);
   caors::benchmarks::print_allocation_samples();

@@ -91,6 +91,7 @@ void benchmark_meta_lookup(std::size_t iterations);
 void benchmark_properties(std::size_t iterations);
 void benchmark_method_calls(std::size_t iterations);
 void benchmark_any(std::size_t iterations);
+void benchmark_math(std::size_t iterations);
 void benchmark_serialization(std::size_t iterations);
 void benchmark_resources(std::size_t iterations);
 void print_allocation_samples();

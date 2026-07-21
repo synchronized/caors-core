@@ -12,6 +12,7 @@ target_sources(
           meta/property_bench.cpp
           meta/method_bench.cpp
           meta/value_bench.cpp
+          math/math_bench.cpp
           serialization/serialization_bench.cpp
           resources/resources_bench.cpp
           memory/allocation_samples.cpp)
