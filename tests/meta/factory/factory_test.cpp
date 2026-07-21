@@ -9,7 +9,7 @@ using namespace caors::tests::meta_type_factory;
 TEST_CASE("meta type - default factory rejects non-default-constructible types", "[meta]") {
   auto builder = caors::registration::type_<missing_default_factory_type>(
       "caors.test.type.factory_missing_default");
-  builder.factory();
+  builder.meta().factory();
 
   CHECK(builder.commit() == meta_error(caors::errc::invalid_type));
   CHECK_FALSE(caors::meta::find<missing_default_factory_type>());
@@ -22,7 +22,7 @@ TEST_CASE("meta type - default factory rejects non-default-constructible types",
 using namespace caors::tests::meta_type_factory;
 TEST_CASE("meta type - factory registers custom construction strategy", "[meta]") {
   auto builder = caors::registration::type_<custom_factory_type>("caors.test.type.factory_custom");
-  builder.factory(&construct_custom_factory_type, &destroy_custom_factory_type);
+  builder.meta().factory(&construct_custom_factory_type, &destroy_custom_factory_type);
   REQUIRE(builder.commit() == caors::error{});
 
   const caors::meta::factory_capability factory =
@@ -51,7 +51,7 @@ TEST_CASE("meta type - factory registers custom construction strategy", "[meta]"
 
   auto duplicate =
       caors::registration::type_<custom_factory_type>("caors.test.type.factory_custom");
-  duplicate.factory(&construct_custom_factory_type, &destroy_custom_factory_type);
+  duplicate.meta().factory(&construct_custom_factory_type, &destroy_custom_factory_type);
   CHECK(duplicate.commit() == meta_error(caors::errc::duplicate_id));
 }
 
@@ -62,7 +62,7 @@ TEST_CASE("meta type - owned value release exposes manual destruction", "[meta]"
     delete static_cast<custom_factory_type*>(instance);
   });
 
-  caors::released_owned_value released = std::move(value).release();
+  caors::meta::released_owned_value released = std::move(value).release();
 
   REQUIRE(released.valid());
   CHECK_FALSE(value.valid());
@@ -106,7 +106,7 @@ TEST_CASE("meta type - released owned value guard destroys on scope exit", "[met
       });
 
   {
-    caors::released_owned_value_guard guard{std::move(value).release()};
+    caors::meta::released_owned_value_guard guard{std::move(value).release()};
     REQUIRE(guard.valid());
     CHECK(guard.data() == raw);
     CHECK(guard.resource() == &tracking);
@@ -126,9 +126,9 @@ TEST_CASE("meta type - released owned value guard can release responsibility", "
         caors::memory::destroy(static_cast<default_factory_type*>(instance), resource);
       });
 
-  caors::released_owned_value released{};
+  caors::meta::released_owned_value released{};
   {
-    caors::released_owned_value_guard guard{std::move(value).release()};
+    caors::meta::released_owned_value_guard guard{std::move(value).release()};
     released = guard.release();
     CHECK_FALSE(guard.valid());
   }
@@ -148,7 +148,7 @@ using namespace caors::tests::meta_type_factory;
 TEST_CASE("meta type - factory registers resource-aware default construction", "[meta]") {
   auto builder =
       caors::registration::type_<default_factory_type>("caors.test.type.factory_default");
-  builder.factory();
+  builder.meta().factory();
   REQUIRE(builder.commit() == caors::error{});
 
   const caors::meta::type type = builder.get();
@@ -168,7 +168,7 @@ TEST_CASE("meta type - factory registers resource-aware default construction", "
   CHECK(tracking.statistics().allocation_count == 1);
   CHECK(tracking.statistics().bytes_in_use >= sizeof(default_factory_type));
 
-  caors::released_owned_value released = std::move(constructed).release();
+  caors::meta::released_owned_value released = std::move(constructed).release();
   REQUIRE(released.valid());
   CHECK_FALSE(constructed.valid());
   CHECK(released.type.id() == type.id());

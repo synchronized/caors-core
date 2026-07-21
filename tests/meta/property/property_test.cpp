@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 原测试文件：meta_property_field_view_describes_composite_traits_test.cpp
+// 原测试文件：meta_property_property_view_describes_composite_traits_test.cpp
 
 #include "meta_property_test_support.h"
 
@@ -26,7 +26,7 @@ TEST_CASE("meta - property view describes composite traits", "[meta]") {
   CHECK_FALSE(static_cast<bool>(variant.get_value_type().id()));
 }
 
-// 原测试文件：meta_property_field_view_describes_field_layout_test.cpp
+// 原测试文件：meta_property_property_view_describes_property_layout_test.cpp
 
 #include "meta_property_test_support.h"
 
@@ -53,7 +53,7 @@ TEST_CASE("meta - property view describes field layout", "[meta]") {
   CHECK(field.alignment() == alignof(float));
 }
 
-// 原测试文件：meta_property_field_view_exposes_builtin_schema_test.cpp
+// 原测试文件：meta_property_property_view_exposes_builtin_schema_test.cpp
 
 #include "meta_property_test_support.h"
 
@@ -113,7 +113,7 @@ TEST_CASE("meta - property view exposes builtin schema", "[meta]") {
   CHECK(*priority_schema.default_value_ptr()->try_as_i64() == 10);
 }
 
-// 原测试文件：meta_property_field_view_describes_indirect_wrapper_traits_test.cpp
+// 原测试文件：meta_property_property_view_describes_indirect_wrapper_traits_test.cpp
 
 #include "meta_property_test_support.h"
 
@@ -166,7 +166,7 @@ TEST_CASE("meta - property view describes indirect wrapper traits", "[meta]") {
   CHECK_FALSE(custom_inline.nullable());
 }
 
-// 原测试文件：meta_property_field_view_describes_object_ptr_traits_test.cpp
+// 原测试文件：meta_property_property_view_describes_object_ptr_traits_test.cpp
 
 #include "meta_property_test_support.h"
 
@@ -183,7 +183,7 @@ TEST_CASE("meta - property view describes object ptr traits", "[meta]") {
   CHECK_FALSE(object_ptr.nullable());
 }
 
-// 原测试文件：meta_property_field_view_describes_sequence_traits_test.cpp
+// 原测试文件：meta_property_property_view_describes_sequence_traits_test.cpp
 
 #include "meta_property_test_support.h"
 
@@ -203,7 +203,7 @@ TEST_CASE("meta - property view describes sequence traits", "[meta]") {
   CHECK(span.get_value_type().id() == registered_type_id("int"));
 }
 
-// 原测试文件：meta_property_field_view_describes_value_and_enum_traits_test.cpp
+// 原测试文件：meta_property_property_view_describes_value_and_enum_traits_test.cpp
 
 #include "meta_property_test_support.h"
 
@@ -226,7 +226,7 @@ TEST_CASE("meta - property view describes value and enum traits", "[meta]") {
   CHECK_FALSE(enumeration.nullable());
 }
 
-// 原测试文件：meta_property_field_view_reads_and_writes_field_values_test.cpp
+// 原测试文件：meta_property_property_view_reads_and_writes_property_values_test.cpp
 
 #include "meta_property_test_support.h"
 
@@ -322,7 +322,7 @@ TEST_CASE("meta - property view supports getter setter properties", "[meta]") {
   CHECK_FALSE(object.set("level", 11));
 }
 
-// 原测试文件：meta_property_field_view_rejects_writes_to_readonly_fields_test.cpp
+// 原测试文件：meta_property_property_view_rejects_writes_to_readonly_properties_test.cpp
 
 #include "meta_property_test_support.h"
 

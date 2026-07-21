@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 原测试文件：meta_associative_associative_field_view_exposes_key_and_value_metadata_test.cpp
+// 原测试文件：meta_associative_associative_view_exposes_key_and_value_metadata_test.cpp
 
 #include "meta_property_test_support.h"
 
@@ -32,7 +32,7 @@ TEST_CASE("meta - associative property view exposes key and value metadata", "[m
   CHECK(values.get_mapped_type().name() == "int");
 }
 
-// 原测试文件：meta_associative_associative_field_view_supports_dynamic_operations_test.cpp
+// 原测试文件：meta_associative_associative_view_supports_dynamic_operations_test.cpp
 
 #include "meta_property_test_support.h"
 
@@ -120,7 +120,7 @@ TEST_CASE("meta - associative property view supports dynamic operations", "[meta
   CHECK(instance.values.empty());
 }
 
-// 原测试文件：meta_associative_set_field_view_exposes_element_metadata_test.cpp
+// 原测试文件：meta_associative_set_view_exposes_element_metadata_test.cpp
 
 #include "meta_property_test_support.h"
 

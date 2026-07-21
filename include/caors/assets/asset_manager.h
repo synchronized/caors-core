@@ -252,12 +252,6 @@ public:
   /** @brief 注册 file_system 策略名到运行期 file_system 构造函数。 */
   [[nodiscard]] error register_file_system_factory(core::string_name type,
                                                    file_system_factory_ops factory);
-  /** @brief 注册 file_system 策略名到运行期 file_system 构造函数和可选外部状态。 */
-  [[nodiscard]] error register_file_system_factory(core::string_name type,
-                                                   file_system_factory_ops::create_fn create,
-                                                   void* user_data = nullptr) {
-    return register_file_system_factory(type, file_system_factory_ops{create, user_data});
-  }
   /** @brief 注册带强类型 options 的 file_system 策略构造函数。 */
   template <typename Options, typed_file_system_factory_fn<Options> Create>
   [[nodiscard]] error register_typed_file_system_factory(core::string_name type,
@@ -284,12 +278,6 @@ public:
 
   /** @brief 注册 source 策略名到运行期 source 构造函数。 */
   [[nodiscard]] error register_source_factory(core::string_name type, source_factory_ops factory);
-  /** @brief 注册 source 策略名到运行期 source 构造函数和可选外部状态。 */
-  [[nodiscard]] error register_source_factory(core::string_name type,
-                                              source_factory_ops::create_fn create,
-                                              void* user_data = nullptr) {
-    return register_source_factory(type, source_factory_ops{create, user_data});
-  }
   /** @brief 注册带强类型 options 的 source 策略构造函数。 */
   template <typename Options, typed_source_factory_fn<Options> Create>
   [[nodiscard]] error register_typed_source_factory(core::string_name type,
@@ -302,12 +290,6 @@ public:
   /** @brief 注册 manifest 资源类型到运行期 cache/loader 构造函数。 */
   [[nodiscard]] error register_type_factory(core::string_name resource_type,
                                             type_factory_ops factory);
-  /** @brief 注册 manifest 资源类型到运行期 cache/loader 构造函数和可选外部状态。 */
-  [[nodiscard]] error register_type_factory(core::string_name resource_type,
-                                            type_factory_ops::create_fn create,
-                                            void* user_data = nullptr) {
-    return register_type_factory(resource_type, type_factory_ops{create, user_data});
-  }
   /**
    * @brief 注册带强类型 options 的 manifest 资源类型构造函数。
    *

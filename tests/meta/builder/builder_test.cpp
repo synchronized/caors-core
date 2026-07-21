@@ -93,7 +93,7 @@ TEST_CASE("meta type - fluent builder registers name and guid", "[meta]") {
 TEST_CASE("meta type - class builder registers fields and methods", "[meta]") {
   auto builder =
       caors::registration::type_<reflected_meta_actor>("caors.test.meta.reflected_actor");
-  auto meta = builder.metadata("category", "gameplay").meta();
+  auto meta = builder.meta().metadata("category", "gameplay");
   meta.property("health", &reflected_meta_actor::health,
                 caors::meta::registration::metadata("display", "Health"))
       .method("add_health", &reflected_meta_actor::add_health,

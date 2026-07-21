@@ -247,6 +247,7 @@ TEST_CASE("meta - type data stores runtime capabilities by type id", "[meta]") {
 
   CHECK(caors::meta::capabilities::find<runtime_capability>(id) == nullptr);
   REQUIRE(caors::registration::type_<runtime_capability_type>("caors.test.runtime_capability_type")
+              .meta()
               .capability<runtime_capability>(&capability)
               .commit()
               .succeeded());
@@ -271,6 +272,7 @@ TEST_CASE("meta - type builder stores owned runtime concept table", "[meta]") {
   };
 
   REQUIRE(caors::registration::type_<owned_matrix>("caors.test.owned_matrix")
+              .meta()
               .capability(local_capability)
               .commit()
               .succeeded());
@@ -317,6 +319,7 @@ TEST_CASE("meta - type capability base auto exposes custom type facade", "[meta]
   creator_ops local_ops{&creator_value};
 
   REQUIRE(caors::registration::type_<creator_capability_type>("caors.test.creator_capability_type")
+              .meta()
               .capability(local_ops)
               .commit()
               .succeeded());
@@ -332,6 +335,7 @@ TEST_CASE("meta - type capability base auto exposes custom type facade", "[meta]
 
 TEST_CASE("meta - proxy capability builder generates convention facade", "[meta]") {
   REQUIRE(caors::registration::type_<builder_proxy_matrix>("caors.test.builder_proxy_matrix")
+              .meta()
               .capability<builder_matrix_capability>()
               .commit()
               .succeeded());
@@ -406,6 +410,7 @@ TEST_CASE("meta - capability static provider can be registered into type data", 
   CHECK(capability->value == 42);
 
   REQUIRE(caors::registration::type_<static_capability_type>("caors.test.static_capability_type")
+              .meta()
               .capability<static_capability_data>()
               .commit()
               .succeeded());

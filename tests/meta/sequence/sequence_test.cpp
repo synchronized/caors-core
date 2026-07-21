@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 原测试文件：meta_sequence_custom_sequence_traits_expose_field_view_test.cpp
+// 原测试文件：meta_sequence_custom_sequence_traits_expose_sequence_view_test.cpp
 
 #include "meta_property_test_support.h"
 
@@ -76,7 +76,7 @@ TEST_CASE("meta - fixed std span field name includes extent", "[meta]") {
   CHECK(values.get_element_type().id() == registered_type_id("int"));
 }
 
-// 原测试文件：meta_sequence_list_field_view_uses_sequence_traits_test.cpp
+// 原测试文件：meta_sequence_list_view_uses_sequence_traits_test.cpp
 
 #include "meta_property_test_support.h"
 
@@ -122,7 +122,7 @@ TEST_CASE("meta - list property view uses sequence traits", "[meta]") {
   CHECK(instance.values.back() == 13);
 }
 
-// 原测试文件：meta_sequence_sequence_field_view_exposes_element_metadata_test.cpp
+// 原测试文件：meta_sequence_sequence_view_exposes_element_metadata_test.cpp
 
 #include "meta_property_test_support.h"
 
@@ -206,7 +206,7 @@ TEST_CASE("meta - sequence property view exposes element metadata", "[meta]") {
   CHECK(instance.values.empty());
 }
 
-// 原测试文件：meta_sequence_std_array_field_view_uses_fixed_sequence_traits_test.cpp
+// 原测试文件：meta_sequence_std_array_view_uses_fixed_sequence_traits_test.cpp
 
 #include "meta_property_test_support.h"
 
@@ -251,7 +251,7 @@ TEST_CASE("meta - std array property view uses fixed sequence traits", "[meta]")
   CHECK_FALSE(sequence.append_value(caors::any::from(13)));
 }
 
-// 原测试文件：meta_sequence_std_span_field_view_is_borrowed_sequence_test.cpp
+// 原测试文件：meta_sequence_std_span_view_is_borrowed_sequence_test.cpp
 
 #include "meta_property_test_support.h"
 

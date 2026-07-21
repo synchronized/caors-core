@@ -424,8 +424,8 @@ caors::registration::type_<actor>("game.actor")
   它们通过 `meta::type` 查询，不要求类型先注册到 registry。
 - dynamic capability 用于用户或插件扩展能力。它挂在已注册类型的 `type_data` 上，
   适合矩阵、图、脚本桥接、编辑器扩展等 CAORS 不内置的 concept table。公开写入入口是
-  `registration::type_<T>("name").capability(ops)`，由 CAORS 持有 `ops` 生命周期。
-  `registration::type_<T>("name").factory()` 也是该机制的高级封装，会把构造策略注册为内部
+  `registration::type_<T>("name").meta().capability(ops)`，由 CAORS 持有 `ops` 生命周期。
+  `registration::type_<T>("name").meta().factory()` 也是该机制的高级封装，会把构造策略注册为内部
   `meta::factory_ops`，公开查询时返回 `meta::factory_capability`。
 
 默认查询顺序是：`meta::type::get_capability<C>()` 先查静态能力，再回退到
@@ -536,7 +536,7 @@ descriptor 内部按职责拆分：
 capability 索引。对象指针、对象句柄和 serialization codec 都通过 `meta::type` 的统一入口查询公开 facade；
 内部 `ptr_ops`、`handle_ops` 和 `codec_ops` 只作为实现细节保留。
 
-动态扩展能力通过 `registration::type_<T>("name").capability(ops)`、`registration::type_<T>("name").capability<Capability>()`
+动态扩展能力通过 `registration::type_<T>("name").meta().capability(ops)`、`registration::type_<T>("name").meta().capability<Capability>()`
 或内部稳定指针入口挂接到注册类型数据；类型必须通过 `registration::type_<T>("name").commit()`
 注册。`meta::capabilities` 命名空间只保留静态能力提供者、
 运行期查询和诊断工具。`capability(ops)` 会把一份用户自定义 concept table 复制或移动到注册类型数据中，
@@ -553,10 +553,10 @@ capability 和 registry 的边界：
   句柄访问函数和 `codec_traits<T>` 生成的 codec 操作表。
 - `meta::capabilities` 的动态查询适合“只剩 `type_id`，但仍需要查询某种用户外挂动态能力”的场景；
   内置 object / serialization 能力优先通过 `meta::type` 静态能力查询。
-- 公开写入动态能力时优先使用 `registration::type_<T>("name").capability(ops)`，让 CAORS 持有用户自定义
+- 公开写入动态能力时优先使用 `registration::type_<T>("name").meta().capability(ops)`，让 CAORS 持有用户自定义
   concept table。内部模块如果已经拥有进程生命周期的静态函数表，可以使用指针注册入口。
   如果能力来自 `static_capability<Capability, T>`，可以在类型注册后使用
-  `registration::type_<T>("name").capability<Capability>()`。
+  `registration::type_<T>("name").meta().capability<Capability>()`。
 - 普通调用方优先使用 `meta::type::get_capability<T>()`。该入口统一处理 C++ 类型静态能力和注册类型数据
   fallback，避免业务代码分别理解两套存储位置。
 - capability 不是 meta extension。它不拥有类型注册数据，也不表示该 C++ 类型已经注册到
@@ -792,7 +792,7 @@ const caors::meta::metadata_value* category =
 
 metadata 推荐使用 RTTR 风格的绑定语法。`meta::registration::metadata(key, value)` 创建一条写入项：
 
-- `registration::type_<T>("name").metadata(key, value)` 写入类型 metadata。
+- `registration::type_<T>("name").meta().metadata(key, value)` 写入类型 metadata。
 - `registration::type_<T>("name").meta().property(..., metadata(...))` 写入属性 metadata。
 - `registration::type_<T>("name").meta().method(..., metadata(...))` 写入方法 metadata。
 - 紧跟在 `registration::enum_<T>().value(...)` 后面的 `(...)` 写入枚举项 metadata。
@@ -801,8 +801,8 @@ metadata 推荐使用 RTTR 风格的绑定语法。`meta::registration::metadata
 
 ```cpp
 caors::registration::type_<actor>("game.actor")
-    .metadata("category", "gameplay")
     .meta()
+    .metadata("category", "gameplay")
     .property("health", &actor::health,
               caors::meta::registration::metadata("display", "Health"),
               caors::meta::registration::metadata("range_min", 0),
@@ -857,6 +857,7 @@ struct my_ops {
 };
 
 caors::registration::type_<actor>("game.actor")
+    .meta()
     .capability(my_ops{42})
     .commit();
 ```
@@ -1044,7 +1045,7 @@ view.set(1, 1, 42);
 
 `CAORS_META_DEF_MEM_DISPATCH(dispatch_type, member_name)` 会定义一个 dispatch 类型。`add_convention`
 使用该 dispatch 和 `R(Args...)` / `R(Args...) noexcept` 签名生成 capability。注册时如果目标
-C++ 类型存在同名成员函数，`registration::type_<T>("name").capability<Capability>()` 会自动生成并注册
+C++ 类型存在同名成员函数，`registration::type_<T>("name").meta().capability<Capability>()` 会自动生成并注册
 对应 ops；实例访问时 `any_ref::get_capability<Capability>()` 返回绑定后的 view。
 
 `CAORS_META_DEF_TYPE_DISPATCH(dispatch_type, member_name)` 定义类型级 dispatch。`add_type_convention`
@@ -1065,6 +1066,7 @@ C++ 类型存在同名成员函数，`registration::type_<T>("name").capability<
 
 ```cpp
 caors::registration::type_<actor>("game.actor")
+    .meta()
     .capability<my_ops>()
     .commit();
 ```
@@ -1147,8 +1149,8 @@ schema 查询应通过 `meta::type` 返回稳定只读视图。
 - `registration::value(name, value)` / `registration::enum_<T>().value(name, value)`：注册枚举项；查询时通过
   `meta::enum_capability` 返回的 `meta::enum_value_view` 访问名称、整数值和 metadata。
 - `registration::type_<T>(name).parent<Base>()`：保存 C++ 父类型关系和安全 upcast 回调。
-- `registration::type_<T>(name).factory()` / `.factory(construct, destroy)`：给已注册类型注册运行期 factory，保存运行期值构造和销毁策略；查询时使用 `meta::type::get_capability<meta::factory_capability>()`，推荐通过 `factory_capability::construct()` 获取拥有生命周期的 `any`。
-- `registration::type_<T>(name).constructor<Args...>()`：注册运行期参数构造策略；查询时使用
+- `registration::type_<T>(name).meta().factory()` / `.factory(construct, destroy)`：给已注册类型注册运行期 factory，保存运行期值构造和销毁策略；查询时使用 `meta::type::get_capability<meta::factory_capability>()`，推荐通过 `factory_capability::construct()` 获取拥有生命周期的 `any`。
+- `registration::type_<T>(name).meta().constructor<Args...>()`：注册运行期参数构造策略；查询时使用
   `meta::type::get_capability<meta::constructor_capability>()`，普通调用优先走
   `meta::type::create(arguments)` 或 `constructor_capability::construct(arguments)`。
 - `meta::registry`：全局 meta 类型注册、按 id/name/guid 或 C++ 类型查询、继承关系判断和 extension 元数据挂载。

@@ -156,7 +156,7 @@ TEST_CASE("meta - registry reports duplicate field", "[meta]") {
             .commit() == meta_error(caors::errc::duplicate_id));
 }
 
-// 原测试文件：meta_registry_registry_returns_type_and_field_views_test.cpp
+// 原测试文件：meta_registry_registry_returns_type_and_property_views_test.cpp
 
 #include "meta_registry_view_test_support.h"
 

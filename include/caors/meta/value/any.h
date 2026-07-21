@@ -381,8 +381,6 @@ namespace caors {
 
 using meta::any;
 using meta::owned_value;
-using meta::released_owned_value;
-using meta::released_owned_value_guard;
 
 } // namespace caors
 

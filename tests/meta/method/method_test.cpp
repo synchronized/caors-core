@@ -525,6 +525,7 @@ TEST_CASE("meta - method numeric safe conversion reports overload ambiguity", "[
 TEST_CASE("meta - method custom argument conversion is explicit", "[meta]") {
   const caors::error source_result =
       caors::registration::type_<custom_argument_value>("caors.test.meta.custom_argument_value")
+          .meta()
           .capability(custom_argument_value_conversion)
           .commit();
   REQUIRE(

@@ -158,7 +158,7 @@ nested 类型关系只记录 owner 内部使用的短名和目标 `type_id`。�
   factory、字段、方法和序列化 extension。
 - static capability 用于类型固有能力，例如对象指针、对象句柄和 `codec_traits<T>` 生成的
   codec 函数表，通过 `meta::type::get_capability<C>()` 查询，不需要单独注册 codec。
-- dynamic capability 用于用户或插件扩展能力，通过 `registration::type_<T>("name").capability(ops).commit()`
+- dynamic capability 用于用户或插件扩展能力，通过 `registration::type_<T>("name").meta().capability(ops).commit()`
   挂到注册类型数据；
   它不是 registry extension，也不替代业务 meta 类型注册。
 - 公开业务注册不应直接调用 `meta::registry::register_type()`、`meta::detail::register_capability*()`、

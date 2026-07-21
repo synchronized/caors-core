@@ -145,106 +145,6 @@ public:
     return *this;
   }
 
-  /** @brief 注册默认 factory。 */
-  type_builder& factory() {
-    return factory(meta::detail::resource_default_construct_fn_of<value_type>(),
-                   meta::detail::resource_destroy_fn_of<value_type>());
-  }
-
-  /** @brief 注册自定义 factory。 */
-  type_builder& factory(meta::factory_ops::construct_fn construct,
-                        meta::factory_ops::destroy_fn destroy) {
-    const meta::factory_ops ops{construct, destroy};
-    if (!ops.valid()) {
-      status_ = {error_domain::meta, errc::invalid_type};
-      return *this;
-    }
-
-    status_ =
-        pending_.add_owned_capability(meta::capability_key_of<meta::factory_ops>(),
-                                      meta::detail::make_owned_capability<meta::factory_ops>(ops));
-    return *this;
-  }
-
-  /** @brief 注册运行期构造参数。该入口暂时仍走 meta 低层 builder。 */
-  template <typename... Arguments> type_builder& constructor() {
-    const meta::constructor_ops ops =
-        meta::detail::make_constructor_ops<value_type, Arguments...>();
-    if (!ops.valid()) {
-      status_ = {error_domain::meta, errc::invalid_type};
-      return *this;
-    }
-
-    status_ = pending_.add_owned_capability(
-        meta::capability_key_of<meta::constructor_ops>(),
-        meta::detail::make_owned_capability<meta::constructor_ops>(ops));
-    return *this;
-  }
-
-  /** @brief 写入类型 metadata。 */
-  template <typename Value> type_builder& metadata(std::string_view key, Value&& value) {
-    return metadata(core::string_name{key}, std::forward<Value>(value));
-  }
-
-  /** @brief 写入类型 metadata。 */
-  template <typename Value> type_builder& metadata(core::string_name key, Value&& value) {
-    if (!key) {
-      status_ = {error_domain::meta, errc::invalid_type};
-      return *this;
-    }
-
-    meta::type_metadata data{};
-    data.values = meta::make_metadata_map(&memory::library_resource());
-    meta::set_metadata(data.values, key, meta::make_metadata_value(std::forward<Value>(value)));
-    status_ = pending_.add_extension(
-        meta::detail::make_extension_data<meta::type_metadata>(&memory::library_resource(), data));
-    return *this;
-  }
-
-  /** @brief 挂载外部生命周期管理的运行期 capability。 */
-  template <typename Capability> type_builder& capability(const Capability* capability) {
-    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
-    status_ = pending_.add_capability(meta::capability_key_of<capability_type>(), capability);
-    return *this;
-  }
-
-  /** @brief 挂载由 CAORS 持有的运行期 capability。 */
-  template <typename Capability>
-    requires(!std::is_pointer_v<std::remove_reference_t<Capability>>)
-  type_builder& capability(Capability&& capability) {
-    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
-    status_ =
-        pending_.add_owned_capability(meta::capability_key_of<capability_type>(),
-                                      meta::detail::make_owned_capability<capability_type>(
-                                          capability_type{std::forward<Capability>(capability)}));
-    return *this;
-  }
-
-  /** @brief 从 C++ 类型静态 capability provider 挂载 capability。 */
-  template <typename Capability> type_builder& capability() {
-    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
-    if constexpr (meta::detail::has_capability_model_v<capability_type, value_type>) {
-      using model_type = meta::capability_model<capability_type, value_type>;
-      using ops_type = typename model_type::ops_type;
-      const ops_type* ops = model_type::get();
-      status_ = ops != nullptr ? pending_.add_capability(meta::capability_key_of<ops_type>(), ops)
-                               : error{error_domain::meta, errc::unsupported};
-    } else if constexpr (meta::detail::has_capability_auto_model_v<capability_type, value_type>) {
-      using model_type = typename capability_type::template model<value_type>;
-      using ops_type = typename model_type::ops_type;
-      const ops_type* ops = model_type::get();
-      status_ = ops != nullptr ? pending_.add_capability(meta::capability_key_of<ops_type>(), ops)
-                               : error{error_domain::meta, errc::unsupported};
-    } else {
-      const capability_type* capability = meta::capabilities::get<capability_type, value_type>();
-      status_ =
-          capability != nullptr
-              ? pending_.add_capability(meta::capability_key_of<capability_type>(), capability)
-              : error{error_domain::meta, errc::unsupported};
-    }
-    return *this;
-  }
-
   /** @brief 进入 meta 属性、方法和基础能力注册段。 */
   [[nodiscard]] meta_section<T> meta() noexcept { return meta_section<T>{*this}; }
 
@@ -307,6 +207,106 @@ public:
 private:
   friend class meta_section<T>;
   friend class serialization_section<T>;
+
+  /** @brief 注册默认 factory。 */
+  type_builder& register_factory() {
+    return register_factory(meta::detail::resource_default_construct_fn_of<value_type>(),
+                            meta::detail::resource_destroy_fn_of<value_type>());
+  }
+
+  /** @brief 注册自定义 factory。 */
+  type_builder& register_factory(meta::factory_ops::construct_fn construct,
+                                 meta::factory_ops::destroy_fn destroy) {
+    const meta::factory_ops ops{construct, destroy};
+    if (!ops.valid()) {
+      status_ = {error_domain::meta, errc::invalid_type};
+      return *this;
+    }
+
+    status_ =
+        pending_.add_owned_capability(meta::capability_key_of<meta::factory_ops>(),
+                                      meta::detail::make_owned_capability<meta::factory_ops>(ops));
+    return *this;
+  }
+
+  /** @brief 注册运行期构造参数。 */
+  template <typename... Arguments> type_builder& register_constructor() {
+    const meta::constructor_ops ops =
+        meta::detail::make_constructor_ops<value_type, Arguments...>();
+    if (!ops.valid()) {
+      status_ = {error_domain::meta, errc::invalid_type};
+      return *this;
+    }
+
+    status_ = pending_.add_owned_capability(
+        meta::capability_key_of<meta::constructor_ops>(),
+        meta::detail::make_owned_capability<meta::constructor_ops>(ops));
+    return *this;
+  }
+
+  /** @brief 写入类型 metadata。 */
+  template <typename Value> type_builder& register_metadata(std::string_view key, Value&& value) {
+    return register_metadata(core::string_name{key}, std::forward<Value>(value));
+  }
+
+  /** @brief 写入类型 metadata。 */
+  template <typename Value> type_builder& register_metadata(core::string_name key, Value&& value) {
+    if (!key) {
+      status_ = {error_domain::meta, errc::invalid_type};
+      return *this;
+    }
+
+    meta::type_metadata data{};
+    data.values = meta::make_metadata_map(&memory::library_resource());
+    meta::set_metadata(data.values, key, meta::make_metadata_value(std::forward<Value>(value)));
+    status_ = pending_.add_extension(
+        meta::detail::make_extension_data<meta::type_metadata>(&memory::library_resource(), data));
+    return *this;
+  }
+
+  /** @brief 挂载外部生命周期管理的运行期 capability。 */
+  template <typename Capability> type_builder& register_capability(const Capability* capability) {
+    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+    status_ = pending_.add_capability(meta::capability_key_of<capability_type>(), capability);
+    return *this;
+  }
+
+  /** @brief 挂载由 CAORS 持有的运行期 capability。 */
+  template <typename Capability>
+    requires(!std::is_pointer_v<std::remove_reference_t<Capability>>)
+  type_builder& register_capability(Capability&& capability) {
+    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+    status_ =
+        pending_.add_owned_capability(meta::capability_key_of<capability_type>(),
+                                      meta::detail::make_owned_capability<capability_type>(
+                                          capability_type{std::forward<Capability>(capability)}));
+    return *this;
+  }
+
+  /** @brief 从 C++ 类型静态 capability provider 挂载 capability。 */
+  template <typename Capability> type_builder& register_capability() {
+    using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
+    if constexpr (meta::detail::has_capability_model_v<capability_type, value_type>) {
+      using model_type = meta::capability_model<capability_type, value_type>;
+      using ops_type = typename model_type::ops_type;
+      const ops_type* ops = model_type::get();
+      status_ = ops != nullptr ? pending_.add_capability(meta::capability_key_of<ops_type>(), ops)
+                               : error{error_domain::meta, errc::unsupported};
+    } else if constexpr (meta::detail::has_capability_auto_model_v<capability_type, value_type>) {
+      using model_type = typename capability_type::template model<value_type>;
+      using ops_type = typename model_type::ops_type;
+      const ops_type* ops = model_type::get();
+      status_ = ops != nullptr ? pending_.add_capability(meta::capability_key_of<ops_type>(), ops)
+                               : error{error_domain::meta, errc::unsupported};
+    } else {
+      const capability_type* capability = meta::capabilities::get<capability_type, value_type>();
+      status_ =
+          capability != nullptr
+              ? pending_.add_capability(meta::capability_key_of<capability_type>(), capability)
+              : error{error_domain::meta, errc::unsupported};
+    }
+    return *this;
+  }
 
   [[nodiscard]] error prepare_serialization_schema() {
     serialization_schema_.has_explicit_fields = !serialization_schema_.fields.empty();
@@ -701,18 +701,18 @@ public:
   }
 
   meta_section& factory() {
-    owner_->factory();
+    owner_->register_factory();
     return *this;
   }
 
   meta_section& factory(meta::factory_ops::construct_fn construct,
                         meta::factory_ops::destroy_fn destroy) {
-    owner_->factory(construct, destroy);
+    owner_->register_factory(construct, destroy);
     return *this;
   }
 
   template <typename... Arguments> meta_section& constructor() {
-    owner_->template constructor<Arguments...>();
+    owner_->template register_constructor<Arguments...>();
     return *this;
   }
 
@@ -778,24 +778,24 @@ public:
   }
 
   template <typename Capability> meta_section& capability(const Capability* capability) {
-    owner_->capability(capability);
+    owner_->register_capability(capability);
     return *this;
   }
 
   template <typename Capability>
     requires(!std::is_pointer_v<std::remove_reference_t<Capability>>)
   meta_section& capability(Capability&& capability) {
-    owner_->capability(std::forward<Capability>(capability));
+    owner_->register_capability(std::forward<Capability>(capability));
     return *this;
   }
 
   template <typename Capability> meta_section& capability() {
-    owner_->template capability<Capability>();
+    owner_->template register_capability<Capability>();
     return *this;
   }
 
   template <typename Value> meta_section& metadata(std::string_view key, Value&& value) {
-    owner_->metadata(key, std::forward<Value>(value));
+    owner_->register_metadata(key, std::forward<Value>(value));
     return *this;
   }
 

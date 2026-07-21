@@ -61,6 +61,7 @@ TEST_CASE("meta context - dynamic capability lookup uses owning registry", "[met
   const context_capability capability{42};
   REQUIRE(
       caors::registration::type_<context_capability_type>(ctx, "caors.test.meta.context.capability")
+          .meta()
           .capability(&capability)
           .commit() == caors::error{});
 

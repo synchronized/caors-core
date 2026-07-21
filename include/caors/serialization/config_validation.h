@@ -19,17 +19,6 @@
 
 namespace caors::serialization {
 
-/** @brief 配置字段 metadata 约定键。 */
-namespace config_metadata {
-
-[[nodiscard]] inline meta::metadata_key required() { return meta::metadata_key{"required"}; }
-[[nodiscard]] inline meta::metadata_key non_empty() { return meta::metadata_key{"non_empty"}; }
-[[nodiscard]] inline meta::metadata_key range_min() { return meta::metadata_key{"range_min"}; }
-[[nodiscard]] inline meta::metadata_key range_max() { return meta::metadata_key{"range_max"}; }
-[[nodiscard]] inline meta::metadata_key one_of() { return meta::metadata_key{"one_of"}; }
-
-} // namespace config_metadata
-
 /** @brief 单条配置校验诊断。 */
 struct config_validation_diagnostic {
   core::string_name field{};
@@ -71,12 +60,8 @@ inline void append_reason(config_validation_result& result, core::string_name fi
   result.status = {error_domain::serialization, errc::invalid_argument};
 }
 
-[[nodiscard]] inline bool metadata_truthy(const meta::metadata_value* value) noexcept {
-  return value != nullptr && value->is_bool() && value->as_bool();
-}
-
 [[nodiscard]] inline std::optional<double>
-metadata_number(const meta::metadata_value* value) noexcept {
+schema_number(const meta::metadata_value* value) noexcept {
   if (value == nullptr) {
     return std::nullopt;
   }
@@ -92,12 +77,6 @@ metadata_number(const meta::metadata_value* value) noexcept {
   }
 
   return std::nullopt;
-}
-
-[[nodiscard]] inline const meta::metadata_value*
-schema_or_metadata(const meta::metadata_value* schema_value,
-                   const meta::metadata_value* metadata_value) noexcept {
-  return schema_value != nullptr ? schema_value : metadata_value;
 }
 
 [[nodiscard]] inline std::optional<meta::value>
@@ -236,10 +215,8 @@ inline void validate_config_field(config_validation_result& result, const meta::
   }
 
   const meta::property_schema& schema = field.schema();
-  const bool required =
-      schema.required || metadata_truthy(field.find_metadata(config_metadata::required()));
-  const bool non_empty =
-      schema.non_empty || metadata_truthy(field.find_metadata(config_metadata::non_empty()));
+  const bool required = schema.required;
+  const bool non_empty = schema.non_empty;
   if ((required || non_empty) && ref_empty(value)) {
     core::string reason =
         make_config_validation_reason(result.diagnostics.get_allocator().resource());
@@ -249,10 +226,8 @@ inline void validate_config_field(config_validation_result& result, const meta::
     result.status = {error_domain::serialization, errc::invalid_argument};
   }
 
-  const std::optional<double> min = metadata_number(schema_or_metadata(
-      schema.range_min_value(), field.find_metadata(config_metadata::range_min())));
-  const std::optional<double> max = metadata_number(schema_or_metadata(
-      schema.range_max_value(), field.find_metadata(config_metadata::range_max())));
+  const std::optional<double> min = schema_number(schema.range_min_value());
+  const std::optional<double> max = schema_number(schema.range_max_value());
   if (min.has_value() || max.has_value()) {
     const std::optional<double> number = ref_number(value);
     if (!number.has_value() || (min.has_value() && *number < *min) ||
@@ -266,9 +241,7 @@ inline void validate_config_field(config_validation_result& result, const meta::
     }
   }
 
-  const meta::metadata_value* one_of =
-      schema_or_metadata(schema.one_of_value(), field.find_metadata(config_metadata::one_of()));
-  if (!allowed_by_one_of(value, one_of)) {
+  if (!allowed_by_one_of(value, schema.one_of_value())) {
     core::string reason =
         make_config_validation_reason(result.diagnostics.get_allocator().resource());
     reason.assign("配置字段不是允许值：");
@@ -325,7 +298,7 @@ template <typename T>
   return {};
 }
 
-/** @brief 使用反射属性 schema 和兼容 metadata 校验配置对象。 */
+/** @brief 使用反射属性 schema 校验配置对象。 */
 template <typename T>
 [[nodiscard]] config_validation_result validate_config(const T& object,
                                                        memory_resource* resource = nullptr) {

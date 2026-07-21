@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 原测试文件：meta_tuple_variant_view_std_pair_field_view_exposes_first_and_second_values_test.cpp
+// 原测试文件：meta_tuple_variant_view_std_pair_view_exposes_first_and_second_values_test.cpp
 
 #include "meta_property_test_support.h"
 
@@ -51,7 +51,7 @@ TEST_CASE("meta - std pair property view exposes first and second values", "[met
   CHECK(instance.value.second == "nine");
 }
 
-// 原测试文件：meta_tuple_variant_view_std_tuple_field_view_exposes_indexed_elements_test.cpp
+// 原测试文件：meta_tuple_variant_view_std_tuple_view_exposes_indexed_elements_test.cpp
 
 #include "meta_property_test_support.h"
 
@@ -107,7 +107,7 @@ TEST_CASE("meta - std tuple property view exposes indexed elements", "[meta]") {
   CHECK(std::get<2>(instance.value) == 2.5F);
 }
 
-// 原测试文件：meta_tuple_variant_view_std_variant_field_view_exposes_active_alternative_test.cpp
+// 原测试文件：meta_tuple_variant_view_std_variant_view_exposes_active_alternative_test.cpp
 
 #include "meta_property_test_support.h"
 

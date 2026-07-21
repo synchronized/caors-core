@@ -924,8 +924,7 @@ caors::serialization::config_validation_result result =
 - `default_value`：通过 `apply_config_defaults(config)` 显式写回默认值。
 
 校验结果会一次收集多条 `config_validation_diagnostic`。这套机制适合资源 factory options、导入配置、
-编辑器面板和工具配置。旧的 `serialization::config_metadata::*` metadata 键仍可被
-`validate_config()` 识别，主要用于历史代码和临时工具扩展；新代码优先使用 `meta::property_schema` token。
+编辑器面板和工具配置。`validate_config()` 只读取 `meta::property_schema`，不再识别旧 metadata key。
 跨字段关系、条件约束和更完整 schema 策略仍放在后续路线图中。
 
 ```cpp
@@ -1007,7 +1006,7 @@ template <> struct codec_traits<custom_value> {
 - 当 `std::unique_ptr<Base>`、`caors::memory::unique_ptr<Base>`、`std::shared_ptr<Base>`
   或 `objects::ref<Base>`
   实际持有已注册派生类对象时，序列化层会写出多态 envelope，默认字段名为 `$type` / `$value`。读回时要求派生类型可通过
-  上下文构造策略、`registration::type_<T>(name).factory()`、空参数 constructor 或类型默认构造能力创建，并通过 wrapper 接管新对象。
+  上下文构造策略、`registration::type_<T>(name).meta().factory()`、空参数 constructor 或类型默认构造能力创建，并通过 wrapper 接管新对象。
 - 如果反序列化上下文提供 `context.resolvers.memory.resource`，`std::shared_ptr<T>`、
   `caors::memory::unique_ptr<T>` 和 `objects::ref<T>` 可以保存运行期销毁回调，让资源分配和释放匹配。普通
   `std::unique_ptr<T>` 使用标准 deleter，不能安全接管资源构造出的运行期派生对象，因此会回退到
@@ -1072,8 +1071,8 @@ template <> struct codec_traits<custom_value> {
 - `std::span<T>` / `std::span<T, N>` 已支持按借用数组视图写出和反射访问；默认不支持反序列化写回，
   避免序列化层隐式决定 backing storage 的分配、长度调整和生命周期。
 - 不可默认构造类型可以作为已有直接字段、已持有 wrapper 内部值或 `variant` 当前候选被写入；需要序列化层自动实例化对象时，
-  可以通过 `context.resolvers.construction`、`registration::type_<T>(name).factory()` 或空参数
-  `registration::type_<T>(name).constructor<>()` 提供构造能力。没有可用构造策略时仍返回 `errc::invalid_type`。
+  可以通过 `context.resolvers.construction`、`registration::type_<T>(name).meta().factory()` 或空参数
+  `registration::type_<T>(name).meta().constructor<>()` 提供构造能力。没有可用构造策略时仍返回 `errc::invalid_type`。
 - `serialization::context::resolvers.memory.resource` 会用于资源感知 `any` 默认构造、空 `std::shared_ptr<T>`、
   空 `caors::memory::unique_ptr<T>`、空 `objects::ref<T>` 的内部值创建、顺序容器新增元素、
   `std::variant` 切换候选、关联容器 key/value 临时值，以及普通类多态值 factory。容器最终存储仍由目标容器

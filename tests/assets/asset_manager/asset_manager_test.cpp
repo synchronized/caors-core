@@ -204,7 +204,7 @@ struct typed_external_file_system_config {
   std::string label;
 };
 
-void require_typed_external_file_system_config_metadata() {
+void require_typed_external_file_system_config_schema() {
   REQUIRE(serialization_result_ok(caors::registration::type_<typed_external_file_system_config>(
                                       "caors.test.assets.typed_external_file_system_config")
                                       .meta()
@@ -222,7 +222,7 @@ struct typed_external_source_config {
   std::string filter;
 };
 
-void require_typed_external_source_config_metadata() {
+void require_typed_external_source_config_schema() {
   REQUIRE(serialization_result_ok(
       caors::registration::type_<typed_external_source_config>(
           "caors.test.assets.typed_external_source_config")
@@ -257,7 +257,7 @@ struct typed_external_type_config {
   int priority = 0;
 };
 
-void require_typed_external_type_config_metadata() {
+void require_typed_external_type_config_schema() {
   REQUIRE(serialization_result_ok(
       caors::registration::type_<typed_external_type_config>(
           "caors.test.assets.typed_external_type_config")
@@ -638,7 +638,7 @@ TEST_CASE("resources - asset_manager builds configured file systems and file sou
 
 TEST_CASE("resources - asset_manager accepts external file system factory", "[resources]") {
   require_serialized_resource_metadata();
-  require_typed_external_file_system_config_metadata();
+  require_typed_external_file_system_config_schema();
 
   std::string json{R"({
     "file_systems": [
@@ -1021,14 +1021,17 @@ TEST_CASE("resources - asset_manager accepts external source factory state", "[r
   caors::assets::asset_manager assets;
   REQUIRE(assets
               .register_source_factory(caors::string_name{"external_memory"},
-                                       &make_external_memory_source, &state)
+                                       caors::assets::asset_manager::source_factory_ops{
+                                           &make_external_memory_source, &state})
               .succeeded());
   REQUIRE(assets
               .register_source_factory(caors::string_name{"external_memory"},
-                                       &make_external_memory_source, &state)
+                                       caors::assets::asset_manager::source_factory_ops{
+                                           &make_external_memory_source, &state})
               .succeeded());
   CHECK(assets.register_source_factory(caors::string_name{"external_memory"},
-                                       &make_external_memory_source, &other_state) ==
+                                       caors::assets::asset_manager::source_factory_ops{
+                                           &make_external_memory_source, &other_state}) ==
         caors::error{caors::error_domain::resources, caors::errc::already_exists});
 
   REQUIRE(assets.build(config).succeeded());
@@ -1041,9 +1044,8 @@ TEST_CASE("resources - asset_manager accepts external source factory state", "[r
   CHECK(assets.find_source(caors::string_name{"assets"}) == state.source);
 }
 
-TEST_CASE("resources - asset_manager source factory can use typed options metadata",
-          "[resources]") {
-  require_typed_external_source_config_metadata();
+TEST_CASE("resources - asset_manager source factory can use typed options schema", "[resources]") {
+  require_typed_external_source_config_schema();
 
   caors::assets::project_config config;
   REQUIRE(
@@ -1086,7 +1088,7 @@ TEST_CASE("resources - asset_manager source factory can use typed options metada
 
 TEST_CASE("resources - typed factory options apply defaults and reject unknown members",
           "[resources]") {
-  require_typed_external_source_config_metadata();
+  require_typed_external_source_config_schema();
 
   caors::assets::project_config config;
   REQUIRE(
@@ -1122,7 +1124,7 @@ TEST_CASE("resources - typed factory options apply defaults and reject unknown m
 
 TEST_CASE("resources - asset_manager typed source factory reports option diagnostics",
           "[resources]") {
-  require_typed_external_source_config_metadata();
+  require_typed_external_source_config_schema();
 
   caors::assets::project_config config;
   REQUIRE(
@@ -1154,7 +1156,7 @@ TEST_CASE("resources - asset_manager typed source factory reports option diagnos
 TEST_CASE("resources - asset_manager typed type factory receives validated options",
           "[resources]") {
   require_serialized_resource_metadata();
-  require_typed_external_type_config_metadata();
+  require_typed_external_type_config_schema();
 
   caors::assets::project_config config;
   REQUIRE(caors::assets::json::load_project_config(config, make_project_config_json()).succeeded());
@@ -1181,7 +1183,7 @@ TEST_CASE("resources - asset_manager typed type factory receives validated optio
 TEST_CASE("resources - asset_manager typed type factory reports option diagnostics",
           "[resources]") {
   require_serialized_resource_metadata();
-  require_typed_external_type_config_metadata();
+  require_typed_external_type_config_schema();
 
   caors::assets::project_config config;
   REQUIRE(
@@ -1221,10 +1223,11 @@ TEST_CASE("resources - asset_manager accepts external type factory state", "[res
   external_type_factory_state state;
 
   caors::assets::asset_manager assets;
-  REQUIRE(
-      assets
-          .register_type_factory(serialized_manifest_type(), &make_external_serialized_type, &state)
-          .succeeded());
+  REQUIRE(assets
+              .register_type_factory(serialized_manifest_type(),
+                                     caors::assets::asset_manager::type_factory_ops{
+                                         &make_external_serialized_type, &state})
+              .succeeded());
   REQUIRE(assets.build(config).succeeded());
 
   CHECK(state.calls == 1);
@@ -1265,9 +1268,11 @@ TEST_CASE("resources - asset_manager rebuild clears config created runtime objec
 
   {
     caors::assets::asset_manager assets;
-    REQUIRE(
-        assets.register_source_factory(caors::string_name{"counted"}, &make_counted_source, &state)
-            .succeeded());
+    REQUIRE(assets
+                .register_source_factory(
+                    caors::string_name{"counted"},
+                    caors::assets::asset_manager::source_factory_ops{&make_counted_source, &state})
+                .succeeded());
 
     REQUIRE(assets.build(config).succeeded());
     CHECK(state.calls == 1);

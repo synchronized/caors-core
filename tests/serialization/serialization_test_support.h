@@ -503,7 +503,7 @@ inline caors::serialization::construction_result construct_non_default_value_for
   caors::owned_value value = constructor.construct_owned(
       std::span<const caors::argument>{arguments.data(), arguments.size()},
       context.effective_memory_resource());
-  caors::released_owned_value released = std::move(value).release();
+  caors::meta::released_owned_value released = std::move(value).release();
   return {released.value, released.resource_destroy};
 }
 

@@ -236,8 +236,7 @@ caors::error make_editor_file_system(
 editor_file_system_state fs_state{&server};
 assets.register_file_system_factory(
     caors::string_name{"editor_file_system"},
-    &make_editor_file_system,
-    &fs_state);
+    caors::assets::asset_manager::file_system_factory_ops{&make_editor_file_system, &fs_state});
 ```
 
 source factory 用来把 `sources[]` 配置转换成运行期 `resources::source`：
@@ -261,7 +260,9 @@ caors::error make_pak_source(caors::assets::asset_manager::source_factory_contex
 }
 
 pak_state state{&index};
-assets.register_source_factory(caors::string_name{"pak"}, &make_pak_source, &state);
+assets.register_source_factory(
+    caors::string_name{"pak"},
+    caors::assets::asset_manager::source_factory_ops{&make_pak_source, &state});
 ```
 
 类型工厂同样可以创建 cache/loader，并把它们注册到内部 database：
@@ -277,7 +278,9 @@ caors::error make_texture_runtime(
   return context.database.register_type(*cache, *loader, config.type);
 }
 
-assets.register_type_factory(caors::string_name{"game.texture"}, &make_texture_runtime);
+assets.register_type_factory(
+    caors::string_name{"game.texture"},
+    caors::assets::asset_manager::type_factory_ops{&make_texture_runtime});
 ```
 
 如果 loader 只需要 `resources::provider` 就能构造，可以复用通用 cached type factory：

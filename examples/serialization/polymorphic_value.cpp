@@ -75,8 +75,8 @@ bool register_types() {
   if (!check(caors::registration::type_<player>("example.serialization.player")
                  .guid(player_guid)
                  .parent<actor>()
-                 .factory(&construct_player, &destroy_player)
                  .meta()
+                 .factory(&construct_player, &destroy_player)
                  .property("level", &player::level)
                  .serialization()
                  .commit(),
