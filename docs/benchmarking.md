@@ -97,6 +97,9 @@ build/linux-clang-benchmark/benchmarks/caors_benchmarks 100000
 
 - benchmark 源码放在 `benchmarks/`，目标名使用 `caors_<topic>_benchmarks` 或
   当前聚合目标 `caors_benchmarks`。
+- 聚合 benchmark 的源码按主题拆分到 `benchmarks/core`、`benchmarks/meta`、
+  `benchmarks/serialization`、`benchmarks/resources`、`benchmarks/memory` 等目录；
+  跨主题 fixture、测试数据和公共辅助函数放在 `benchmarks/support`。
 - benchmark 目标只在 `CAORS_BUILD_BENCHMARKS=ON` 时加入构建。
 - 用例应优先测公开 API。普通动态调用优先覆盖 `meta::value` / capability facade；
   只有在比较精确 C++ 语义或高级扩展成本时才单独测 `any`、`call_any()` 或 raw ops。
