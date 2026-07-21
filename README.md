@@ -28,6 +28,7 @@ CAORS 目前更偏底层库和实验性基础设施，而不是完整引擎或�
 - 基础版本 API：`caors/version.h`，由 `include/caors/version.h.in` 在配置阶段生成。
 - Core API：`caors/core/string_name.h`、`caors/core/guid.h`、`caors/core/type_guid.h`、
   `caors/core/containers.h` 和 `caors/core/locator.h`。
+- Math API：`caors/math.h`，包含基础向量、矩阵、四元数、矩形和 AABB 值类型。
 - 基础 IO API：`caors/io.h`，包含虚拟路径、同步字节流、文件系统抽象、本地文件系统、内存文件系统和挂载文件系统。
 - 事件 API：`caors/events.h`，包含轻量 delegate、同步 signal、连接视图、连接句柄和同步 dispatcher。
 - 任务 API：`caors/tasks.h`，包含 move-only task、executor 抽象、同步 inline executor、固定线程池和主线程 completion queue。
@@ -74,6 +75,7 @@ ctest --preset windows-clang-debug
 - [docs/error.md](docs/error.md)：统一错误模型和标准库错误码适配。
 - [docs/events.md](docs/events.md)：轻量 delegate、同步 signal、连接视图、同步 dispatcher 和连接生命周期。
 - [docs/io.md](docs/io.md)：同步字节流、文件系统抽象和本地文件系统实现。
+- [docs/math.md](docs/math.md)：基础数学值类型和后续 `meta::value` fast path 接入边界。
 - [docs/assets.md](docs/assets.md)：工程资源配置、asset manager、source/type factory 和 JSON 资源适配。
 - [docs/roadmap.md](docs/roadmap.md)：项目路线图。
 - [docs/registration.md](docs/registration.md)：类型、对象、反射和序列化的注册顺序与初始化策略。

@@ -43,6 +43,21 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   source/provider/loader/request/config/helper 别名已收敛回 `caors::resources` 命名空间。
 - [ ] 在 core 主题下逐步补充 small_vector、stable_vector 等基础容器。
 
+## 0.5. Math 基础数学类型
+
+- [x] 增加 `math` 主题和聚合头 `caors/math.h`。
+- [x] 增加基础单精度向量类型 `math::vec2`、`math::vec3`、`math::vec4`。
+- [x] 增加基础四元数类型 `math::quat`。
+- [x] 增加基础矩阵类型 `math::mat3`、`math::mat4`。
+- [x] 增加基础二维矩形 `math::rect` 和三维 AABB `math::aabb`。
+- [x] 文档化 math 模块和 `meta::value` fast path 的关系：先稳定数学值类型，再基于 benchmark
+  决定是否将 `vec2`、`vec3`、`vec4`、`quat` 等高频类型加入 tagged value 快路径。
+- [ ] 为 math 类型补充 meta 注册 helper、serialization codec 和配置/资源示例。
+- [ ] 增加 math benchmark，覆盖普通 C++ 调用、meta 属性访问、方法参数传递和未来 `meta::value`
+  fast path 候选路径。
+- [ ] 评估 `math::vec2`、`math::vec3`、`math::vec4`、`math::quat` 是否进入 `meta::value` fast path。
+- [ ] 评估 SIMD、双精度、整型向量、投影矩阵、变换矩阵和坐标系 helper。
+
 ## 1. 类型元数据底座
 
 - [x] 定义 `type_id`、`meta::type` 和 meta 类型注册错误状态。
