@@ -10,33 +10,42 @@
 
 namespace caors::math {
 
-/** @brief 单精度四元数，使用 `(x, y, z, w)` 存储，其中 `w` 是标量部分。 */
-struct quat {
-  float x = 0.0F;
-  float y = 0.0F;
-  float z = 0.0F;
-  float w = 1.0F;
+/** @brief 四元数模板，使用 `(x, y, z, w)` 存储，其中 `w` 是标量部分。 */
+template <typename T> struct quat_t {
+  using value_type = T;
 
-  [[nodiscard]] static constexpr quat identity() noexcept { return {}; }
+  T x{};
+  T y{};
+  T z{};
+  T w = T{1};
 
-  [[nodiscard]] static inline quat from_axis_angle(vec3 axis, float radians) noexcept {
-    const vec3 unit_axis = normalized(axis);
-    const float half_angle = radians * 0.5F;
-    const float sine = std::sin(half_angle);
+  [[nodiscard]] static constexpr quat_t identity() noexcept { return {}; }
+
+  [[nodiscard]] static inline quat_t from_axis_angle(vec3_t<T> axis, T radians) noexcept {
+    const vec3_t<T> unit_axis = normalized(axis);
+    const T half_angle = radians * T{0.5};
+    const T sine = static_cast<T>(std::sin(half_angle));
     return {
         unit_axis.x * sine,
         unit_axis.y * sine,
         unit_axis.z * sine,
-        std::cos(half_angle),
+        static_cast<T>(std::cos(half_angle)),
     };
   }
 };
 
-[[nodiscard]] constexpr bool operator==(quat lhs, quat rhs) noexcept {
+using quatf = quat_t<float>;
+using quat = quatf;
+using dquat = quat_t<double>;
+
+template <typename T, typename U>
+[[nodiscard]] constexpr bool operator==(quat_t<T> lhs, quat_t<U> rhs) noexcept {
   return lhs.x == rhs.x && lhs.y == rhs.y && lhs.z == rhs.z && lhs.w == rhs.w;
 }
 
-[[nodiscard]] constexpr quat operator*(quat lhs, quat rhs) noexcept {
+template <typename T, typename U>
+[[nodiscard]] constexpr quat_t<common_scalar_t<T, U>> operator*(quat_t<T> lhs,
+                                                                quat_t<U> rhs) noexcept {
   return {
       lhs.w * rhs.x + lhs.x * rhs.w + lhs.y * rhs.z - lhs.z * rhs.y,
       lhs.w * rhs.y - lhs.x * rhs.z + lhs.y * rhs.w + lhs.z * rhs.x,
@@ -45,42 +54,55 @@ struct quat {
   };
 }
 
-[[nodiscard]] constexpr quat conjugate(quat value) noexcept {
+template <typename T> [[nodiscard]] constexpr quat_t<T> conjugate(quat_t<T> value) noexcept {
   return {-value.x, -value.y, -value.z, value.w};
 }
 
-[[nodiscard]] constexpr float dot(quat lhs, quat rhs) noexcept {
+template <typename T, typename U>
+[[nodiscard]] constexpr common_scalar_t<T, U> dot(quat_t<T> lhs, quat_t<U> rhs) noexcept {
   return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z + lhs.w * rhs.w;
 }
 
-[[nodiscard]] constexpr float length_squared(quat value) noexcept { return dot(value, value); }
+template <typename T> [[nodiscard]] constexpr auto length_squared(quat_t<T> value) noexcept {
+  return dot(value, value);
+}
 
-[[nodiscard]] inline float length(quat value) noexcept { return std::sqrt(length_squared(value)); }
+template <typename T> [[nodiscard]] inline auto length(quat_t<T> value) noexcept {
+  return std::sqrt(length_squared(value));
+}
 
-[[nodiscard]] inline quat normalized(quat value) noexcept {
-  const float value_length = length(value);
-  if (value_length <= 0.0F) {
-    return quat::identity();
+template <typename T> [[nodiscard]] inline quat_t<T> normalized(quat_t<T> value) noexcept {
+  const auto value_length = length(value);
+  if (value_length <= decltype(value_length){}) {
+    return quat_t<T>::identity();
   }
 
   return {
-      value.x / value_length,
-      value.y / value_length,
-      value.z / value_length,
-      value.w / value_length,
+      static_cast<T>(value.x / value_length),
+      static_cast<T>(value.y / value_length),
+      static_cast<T>(value.z / value_length),
+      static_cast<T>(value.w / value_length),
   };
 }
 
-[[nodiscard]] inline vec3 rotate(quat rotation, vec3 value) noexcept {
-  const quat unit_rotation = normalized(rotation);
-  const quat vector_quat{value.x, value.y, value.z, 0.0F};
-  const quat rotated = unit_rotation * vector_quat * conjugate(unit_rotation);
+template <typename T>
+[[nodiscard]] inline vec3_t<T> rotate(quat_t<T> rotation, vec3_t<T> value) noexcept {
+  const quat_t<T> unit_rotation = normalized(rotation);
+  const quat_t<T> vector_quat{value.x, value.y, value.z, T{}};
+  const quat_t<T> rotated = unit_rotation * vector_quat * conjugate(unit_rotation);
   return {rotated.x, rotated.y, rotated.z};
 }
 
-[[nodiscard]] constexpr bool nearly_equal(quat lhs, quat rhs, float epsilon = 0.00001F) noexcept {
+template <typename T, typename U, typename E>
+[[nodiscard]] constexpr bool nearly_equal(quat_t<T> lhs, quat_t<U> rhs, E epsilon) noexcept {
   return nearly_equal(lhs.x, rhs.x, epsilon) && nearly_equal(lhs.y, rhs.y, epsilon) &&
          nearly_equal(lhs.z, rhs.z, epsilon) && nearly_equal(lhs.w, rhs.w, epsilon);
+}
+
+template <typename T, typename U>
+[[nodiscard]] constexpr bool nearly_equal(quat_t<T> lhs, quat_t<U> rhs) noexcept {
+  using epsilon_type = common_scalar_t<T, U>;
+  return nearly_equal(lhs, rhs, static_cast<epsilon_type>(0.00001));
 }
 
 } // namespace caors::math

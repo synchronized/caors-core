@@ -6,8 +6,11 @@
 
 namespace caors::math {
 
+template <typename T>
+inline constexpr T pi_v = static_cast<T>(3.141592653589793238462643383279502884);
+
 /** @brief 单精度圆周率。 */
-inline constexpr float pi = 3.14159265358979323846F;
+inline constexpr float pi = pi_v<float>;
 
 /** @brief 单精度半圆周率。 */
 inline constexpr float half_pi = pi * 0.5F;
@@ -16,10 +19,14 @@ inline constexpr float half_pi = pi * 0.5F;
 inline constexpr float two_pi = pi * 2.0F;
 
 /** @brief 角度转弧度。 */
-[[nodiscard]] constexpr float radians(float degrees) noexcept { return degrees * (pi / 180.0F); }
+template <typename T> [[nodiscard]] constexpr T radians(T degrees) noexcept {
+  return degrees * (pi_v<T> / T{180});
+}
 
 /** @brief 弧度转角度。 */
-[[nodiscard]] constexpr float degrees(float radians) noexcept { return radians * (180.0F / pi); }
+template <typename T> [[nodiscard]] constexpr T degrees(T radians) noexcept {
+  return radians * (T{180} / pi_v<T>);
+}
 
 } // namespace caors::math
 

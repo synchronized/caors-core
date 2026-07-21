@@ -5,6 +5,7 @@
 #include "caors/meta.h"
 
 #include <catch2/catch_all.hpp>
+#include <cstdint>
 
 TEST_CASE("math - meta registration helper registers built in math types", "[math][meta]") {
   REQUIRE(caors::math::register_meta_types().succeeded());
@@ -51,4 +52,19 @@ TEST_CASE("math - meta registration helper registers built in math types", "[mat
   REQUIRE(mat4_type);
   CHECK(mat4_type.name() == "caors.math.mat4");
   CHECK(mat4_type.property_count() == 0);
+}
+
+TEST_CASE("math - meta registration helper supports scalar template aliases", "[math][meta]") {
+  REQUIRE(caors::math::register_vec2<double>().succeeded());
+  REQUIRE(caors::math::register_vec3<std::int32_t>().succeeded());
+
+  const caors::meta::type dvec2_type = caors::meta::find<caors::math::dvec2>();
+  REQUIRE(dvec2_type);
+  CHECK(dvec2_type.name() == "caors.math.dvec2");
+  CHECK(dvec2_type.property_count() == 2);
+
+  const caors::meta::type ivec3_type = caors::meta::find<caors::math::ivec3>();
+  REQUIRE(ivec3_type);
+  CHECK(ivec3_type.name() == "caors.math.ivec3");
+  CHECK(ivec3_type.property_count() == 3);
 }

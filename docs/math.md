@@ -37,22 +37,35 @@
 #include <caors/math/serialization.h>
 ```
 
-## 当前类型
+## 当前类型和模板别名
 
-- `caors::math::vec2`
-- `caors::math::vec3`
-- `caors::math::vec4`
-- `caors::math::quat`
-- `caors::math::mat3`
-- `caors::math::mat4`
-- `caors::math::rect`
-- `caors::math::aabb`
+基础类型使用模板实现，并提供常用别名：
+
+- `vec2_t<T>` / `vec3_t<T>` / `vec4_t<T>`
+- `quat_t<T>`
+- `mat3_t<T>` / `mat4_t<T>`
+- `rect_t<T>`
+- `aabb_t<T>`
+
+默认短名仍表示单精度版本：
+
+- `caors::math::vec2` / `vec3` / `vec4`，等价于 `vec2f` / `vec3f` / `vec4f`
+- `caors::math::quat`，等价于 `quatf`
+- `caors::math::mat3` / `mat4`，等价于 `mat3f` / `mat4f`
+- `caors::math::rect`，等价于 `rectf`
+- `caors::math::aabb`，等价于 `aabbf`
+
+当前还提供这些常用标量别名：
+
+- 双精度：`dvec2`、`dvec3`、`dvec4`、`dquat`、`dmat3`、`dmat4`、`drect`、`daabb`
+- 32 位整型向量：`ivec2`、`ivec3`、`ivec4`
+- 32 位无符号整型向量：`uvec2`、`uvec3`、`uvec4`
+
+几何辅助类型当前仍是单精度：
+
 - `caors::math::ray`
 - `caors::math::sphere`
 - `caors::math::plane`
-
-当前第一版只提供单精度类型。后续如果需要双精度或整型数学类型，应先评估命名、序列化格式和
-`meta::value` fast path 的 API 影响。
 
 ## 使用示例
 
@@ -163,7 +176,15 @@ caors::math::mat4 ortho =
 caors::error status = caors::math::register_meta_types();
 ```
 
-注册内容：
+默认批量注册只注册 float 短名类型，避免把所有标量组合自动塞进全局 registry。需要 double/int
+别名时，显式调用对应模板注册函数：
+
+```cpp
+caors::math::register_vec3<double>();        // caors.math.dvec3
+caors::math::register_vec2<std::int32_t>();  // caors.math.ivec2
+```
+
+float 默认注册内容：
 
 - `vec2`、`vec3`、`vec4`：注册 `x/y/z/w` 分量属性。
 - `quat`：注册 `(x, y, z, w)` 分量属性，其中 `w` 是标量部分。
@@ -175,6 +196,9 @@ caors::error status = caors::math::register_meta_types();
 `caors/math/serialization.h` 提供内建 `serialization::codec_traits<T>` 特化；`caors/serialization.h`
 会自动包含它。math codec 不要求数学类型先完成 meta 注册，编译期已知类型或通过 `any` / `any_ref`
 携带 `meta::type` 时即可查询到静态 codec。
+
+codec 覆盖 `vec*_t<T>`、`quat_t<T>`、`mat*_t<T>`、`rect_t<T>` 和 `aabb_t<T>`。`T` 当前应为算术标量；
+浮点写出为 JSON number，整型写出为整数 number。
 
 序列化格式：
 
@@ -209,10 +233,10 @@ caors::registration::type_<camera_config>("game.camera_config")
 ## 当前边界
 
 - 当前没有 SIMD 后端。
-- 当前没有双精度、整型向量和模板化维度类型。
+- 当前只做标量模板化，没有做“维度作为模板参数”的统一 `vec<T, N>` / `mat<T, R, C>`。
 - 当前没有完整相机、骨骼、碰撞或 frustum helper。
 - 当前没有接入 `meta::value` fast path。
-- `ray`、`sphere`、`plane` 当前暂未提供内建 meta 注册 helper 和 codec；需要时可通过普通
+- `ray`、`sphere`、`plane` 当前仍固定使用 float，且暂未提供内建 meta 注册 helper 和 codec；需要时可通过普通
   `registration::type_<T>(name)` 自行注册。
 
 这些能力会根据实际使用和 benchmark 数据逐步加入。

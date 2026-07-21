@@ -25,6 +25,20 @@ TEST_CASE("math - vector operations provide common arithmetic", "[math]") {
                                   caors::math::vec3{0.0F, 0.6F, 0.8F}));
 }
 
+TEST_CASE("math - vector and matrix aliases cover common scalar types", "[math]") {
+  const caors::math::dvec2 precise{1.5, 2.5};
+  CHECK(caors::math::dot(precise, caors::math::dvec2{2.0, 4.0}) == Catch::Approx(13.0));
+  CHECK(caors::math::length(caors::math::dvec2{6.0, 8.0}) == Catch::Approx(10.0));
+
+  const caors::math::ivec2 grid{2, 4};
+  CHECK(grid + caors::math::ivec2{3, 5} == caors::math::ivec2{5, 9});
+  CHECK(grid * 2 == caors::math::ivec2{4, 8});
+
+  const caors::math::dmat4 identity = caors::math::dmat4::identity();
+  CHECK(identity * caors::math::dvec4{1.0, 2.0, 3.0, 1.0} ==
+        caors::math::dvec4{1.0, 2.0, 3.0, 1.0});
+}
+
 TEST_CASE("math - quaternion rotates vectors", "[math]") {
   constexpr float half_pi = 1.57079632679F;
   const caors::math::quat rotation =

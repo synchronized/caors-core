@@ -6,81 +6,119 @@
 
 #include "caors/math/vector.h"
 
+#include <type_traits>
+
 namespace caors::math {
 
-[[nodiscard]] constexpr float min(float lhs, float rhs) noexcept { return lhs < rhs ? lhs : rhs; }
+template <typename T, typename U>
+  requires(std::is_arithmetic_v<T> && std::is_arithmetic_v<U>)
+[[nodiscard]] constexpr common_scalar_t<T, U> min(T lhs, U rhs) noexcept {
+  return lhs < rhs ? lhs : rhs;
+}
 
-[[nodiscard]] constexpr vec2 min(vec2 lhs, vec2 rhs) noexcept {
+template <typename T, typename U>
+[[nodiscard]] constexpr vec2_t<common_scalar_t<T, U>> min(vec2_t<T> lhs, vec2_t<U> rhs) noexcept {
   return {min(lhs.x, rhs.x), min(lhs.y, rhs.y)};
 }
 
-[[nodiscard]] constexpr vec3 min(vec3 lhs, vec3 rhs) noexcept {
+template <typename T, typename U>
+[[nodiscard]] constexpr vec3_t<common_scalar_t<T, U>> min(vec3_t<T> lhs, vec3_t<U> rhs) noexcept {
   return {min(lhs.x, rhs.x), min(lhs.y, rhs.y), min(lhs.z, rhs.z)};
 }
 
-[[nodiscard]] constexpr vec4 min(vec4 lhs, vec4 rhs) noexcept {
+template <typename T, typename U>
+[[nodiscard]] constexpr vec4_t<common_scalar_t<T, U>> min(vec4_t<T> lhs, vec4_t<U> rhs) noexcept {
   return {min(lhs.x, rhs.x), min(lhs.y, rhs.y), min(lhs.z, rhs.z), min(lhs.w, rhs.w)};
 }
 
-[[nodiscard]] constexpr float max(float lhs, float rhs) noexcept { return lhs > rhs ? lhs : rhs; }
+template <typename T, typename U>
+  requires(std::is_arithmetic_v<T> && std::is_arithmetic_v<U>)
+[[nodiscard]] constexpr common_scalar_t<T, U> max(T lhs, U rhs) noexcept {
+  return lhs > rhs ? lhs : rhs;
+}
 
-[[nodiscard]] constexpr vec2 max(vec2 lhs, vec2 rhs) noexcept {
+template <typename T, typename U>
+[[nodiscard]] constexpr vec2_t<common_scalar_t<T, U>> max(vec2_t<T> lhs, vec2_t<U> rhs) noexcept {
   return {max(lhs.x, rhs.x), max(lhs.y, rhs.y)};
 }
 
-[[nodiscard]] constexpr vec3 max(vec3 lhs, vec3 rhs) noexcept {
+template <typename T, typename U>
+[[nodiscard]] constexpr vec3_t<common_scalar_t<T, U>> max(vec3_t<T> lhs, vec3_t<U> rhs) noexcept {
   return {max(lhs.x, rhs.x), max(lhs.y, rhs.y), max(lhs.z, rhs.z)};
 }
 
-[[nodiscard]] constexpr vec4 max(vec4 lhs, vec4 rhs) noexcept {
+template <typename T, typename U>
+[[nodiscard]] constexpr vec4_t<common_scalar_t<T, U>> max(vec4_t<T> lhs, vec4_t<U> rhs) noexcept {
   return {max(lhs.x, rhs.x), max(lhs.y, rhs.y), max(lhs.z, rhs.z), max(lhs.w, rhs.w)};
 }
 
-[[nodiscard]] constexpr vec2 abs(vec2 value) noexcept { return {abs(value.x), abs(value.y)}; }
+template <typename T> [[nodiscard]] constexpr vec2_t<T> abs(vec2_t<T> value) noexcept {
+  return {abs(value.x), abs(value.y)};
+}
 
-[[nodiscard]] constexpr vec3 abs(vec3 value) noexcept {
+template <typename T> [[nodiscard]] constexpr vec3_t<T> abs(vec3_t<T> value) noexcept {
   return {abs(value.x), abs(value.y), abs(value.z)};
 }
 
-[[nodiscard]] constexpr vec4 abs(vec4 value) noexcept {
+template <typename T> [[nodiscard]] constexpr vec4_t<T> abs(vec4_t<T> value) noexcept {
   return {abs(value.x), abs(value.y), abs(value.z), abs(value.w)};
 }
 
-[[nodiscard]] constexpr float clamp(float value, float minimum, float maximum) noexcept {
+template <typename T, typename U, typename V>
+  requires(std::is_arithmetic_v<T> && std::is_arithmetic_v<U> && std::is_arithmetic_v<V>)
+[[nodiscard]] constexpr common_scalar_t<T, U, V> clamp(T value, U minimum, V maximum) noexcept {
   return min(max(value, minimum), maximum);
 }
 
-[[nodiscard]] constexpr vec2 clamp(vec2 value, vec2 minimum, vec2 maximum) noexcept {
+template <typename T, typename U, typename V>
+[[nodiscard]] constexpr vec2_t<common_scalar_t<T, U, V>> clamp(vec2_t<T> value, vec2_t<U> minimum,
+                                                               vec2_t<V> maximum) noexcept {
   return min(max(value, minimum), maximum);
 }
 
-[[nodiscard]] constexpr vec3 clamp(vec3 value, vec3 minimum, vec3 maximum) noexcept {
+template <typename T, typename U, typename V>
+[[nodiscard]] constexpr vec3_t<common_scalar_t<T, U, V>> clamp(vec3_t<T> value, vec3_t<U> minimum,
+                                                               vec3_t<V> maximum) noexcept {
   return min(max(value, minimum), maximum);
 }
 
-[[nodiscard]] constexpr vec4 clamp(vec4 value, vec4 minimum, vec4 maximum) noexcept {
+template <typename T, typename U, typename V>
+[[nodiscard]] constexpr vec4_t<common_scalar_t<T, U, V>> clamp(vec4_t<T> value, vec4_t<U> minimum,
+                                                               vec4_t<V> maximum) noexcept {
   return min(max(value, minimum), maximum);
 }
 
-[[nodiscard]] constexpr float lerp(float lhs, float rhs, float amount) noexcept {
+template <typename T, typename U, typename Amount>
+  requires(std::is_arithmetic_v<T> && std::is_arithmetic_v<U> && std::is_arithmetic_v<Amount>)
+[[nodiscard]] constexpr common_scalar_t<T, U, Amount> lerp(T lhs, U rhs, Amount amount) noexcept {
   return lhs + (rhs - lhs) * amount;
 }
 
-[[nodiscard]] constexpr vec2 lerp(vec2 lhs, vec2 rhs, float amount) noexcept {
+template <typename T, typename U, typename Amount>
+  requires std::is_arithmetic_v<Amount>
+[[nodiscard]] constexpr auto lerp(vec2_t<T> lhs, vec2_t<U> rhs, Amount amount) noexcept {
   return lhs + (rhs - lhs) * amount;
 }
 
-[[nodiscard]] constexpr vec3 lerp(vec3 lhs, vec3 rhs, float amount) noexcept {
+template <typename T, typename U, typename Amount>
+  requires std::is_arithmetic_v<Amount>
+[[nodiscard]] constexpr auto lerp(vec3_t<T> lhs, vec3_t<U> rhs, Amount amount) noexcept {
   return lhs + (rhs - lhs) * amount;
 }
 
-[[nodiscard]] constexpr vec4 lerp(vec4 lhs, vec4 rhs, float amount) noexcept {
+template <typename T, typename U, typename Amount>
+  requires std::is_arithmetic_v<Amount>
+[[nodiscard]] constexpr auto lerp(vec4_t<T> lhs, vec4_t<U> rhs, Amount amount) noexcept {
   return lhs + (rhs - lhs) * amount;
 }
 
-[[nodiscard]] constexpr float smoothstep(float edge0, float edge1, float value) noexcept {
-  const float amount = clamp((value - edge0) / (edge1 - edge0), 0.0F, 1.0F);
-  return amount * amount * (3.0F - 2.0F * amount);
+template <typename T, typename U, typename V>
+  requires(std::is_arithmetic_v<T> && std::is_arithmetic_v<U> && std::is_arithmetic_v<V>)
+[[nodiscard]] constexpr common_scalar_t<T, U, V> smoothstep(T edge0, U edge1, V value) noexcept {
+  using result_type = common_scalar_t<T, U, V>;
+  const result_type amount =
+      clamp((value - edge0) / (edge1 - edge0), result_type{}, result_type{1});
+  return amount * amount * (result_type{3} - result_type{2} * amount);
 }
 
 } // namespace caors::math

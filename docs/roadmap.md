@@ -46,10 +46,11 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 ## 0.5. Math 基础数学类型
 
 - [x] 增加 `math` 主题和聚合头 `caors/math.h`。
-- [x] 增加基础单精度向量类型 `math::vec2`、`math::vec3`、`math::vec4`。
-- [x] 增加基础四元数类型 `math::quat`。
-- [x] 增加基础矩阵类型 `math::mat3`、`math::mat4`。
-- [x] 增加基础二维矩形 `math::rect` 和三维 AABB `math::aabb`。
+- [x] 增加基础向量模板 `math::vec2_t<T>`、`math::vec3_t<T>`、`math::vec4_t<T>`，并提供
+  `vec*` / `dvec*` / `ivec*` / `uvec*` 常用别名。
+- [x] 增加基础四元数模板 `math::quat_t<T>`，并提供 `quat` / `dquat` 常用别名。
+- [x] 增加基础矩阵模板 `math::mat3_t<T>`、`math::mat4_t<T>`，并提供 `mat*` / `dmat*` 常用别名。
+- [x] 增加基础二维矩形 `math::rect_t<T>` 和三维 AABB `math::aabb_t<T>`，并提供 float/double/int 常用别名。
 - [x] 增加基础常量、角度转换、clamp、lerp、smoothstep 和组件级 min/max/abs helper。
 - [x] 增加基础 transform helper：translation、scaling、rotation、TRS、点/向量/方向变换。
 - [x] 增加投影矩阵 helper：`look_at`、`perspective`、`orthographic`，底层通过

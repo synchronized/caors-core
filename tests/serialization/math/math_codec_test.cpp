@@ -5,6 +5,7 @@
 
 #include "caors/math/registration.h"
 #include "caors/math/serialization.h"
+#include "caors/serialization/json_reader.h"
 
 #include <catch2/catch_all.hpp>
 #include <string_view>
@@ -56,6 +57,29 @@ TEST_CASE("serialization - math codecs are available without math type registrat
   CHECK(encoded.value.as_array()[0].as_f64() == 1.0);
   CHECK(encoded.value.as_array()[1].as_f64() == 2.0);
   CHECK(encoded.value.as_array()[2].as_f64() == 3.0);
+}
+
+TEST_CASE("serialization - math codecs support template scalar aliases", "[serialization][math]") {
+  caors::string integer_text;
+  caors::serialization::text_writer writer{integer_text};
+  REQUIRE(caors::serialization::codec_traits<caors::math::ivec3>::write(writer,
+                                                                        caors::math::ivec3{1, 2, 3})
+              .succeeded());
+  CHECK(integer_text == "[1,2,3]");
+
+  caors::math::ivec3 integer_decoded{};
+  caors::serialization::json_reader reader{integer_text};
+  REQUIRE(caors::serialization::codec_traits<caors::math::ivec3>::read(reader, integer_decoded)
+              .succeeded());
+  CHECK(integer_decoded == caors::math::ivec3{1, 2, 3});
+
+  const caors::serialization::variant_result precise =
+      caors::serialization::to_variant(caors::any::from(caors::math::dvec2{1.5, 2.25}));
+  REQUIRE(precise.succeeded());
+  REQUIRE(precise.value.is_array());
+  REQUIRE(precise.value.as_array().size() == 2);
+  CHECK(precise.value.as_array()[0].as_f64() == 1.5);
+  CHECK(precise.value.as_array()[1].as_f64() == 2.25);
 }
 
 TEST_CASE("serialization - math codecs roundtrip registered object fields",

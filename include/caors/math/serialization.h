@@ -9,37 +9,104 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <limits>
+#include <type_traits>
 #include <utility>
 
 namespace caors::serialization::math_codec_detail {
 
-[[nodiscard]] inline error read_float(reader& reader, float& value) {
+template <typename T> [[nodiscard]] inline error read_floating(reader& reader, T& value) {
   double floating = 0.0;
   error status = reader.read_f64(floating);
   if (!status) {
-    value = static_cast<float>(floating);
+    value = static_cast<T>(floating);
     return {};
   }
 
   std::int64_t signed_value = 0;
   status = reader.read_i64(signed_value);
   if (!status) {
-    value = static_cast<float>(signed_value);
+    value = static_cast<T>(signed_value);
     return {};
   }
 
   std::uint64_t unsigned_value = 0;
   status = reader.read_u64(unsigned_value);
   if (!status) {
-    value = static_cast<float>(unsigned_value);
+    value = static_cast<T>(unsigned_value);
     return {};
   }
 
   return status;
 }
 
-[[nodiscard]] inline error write_float_array(writer& writer, const float* values,
-                                             std::size_t size) {
+template <typename T> [[nodiscard]] inline error read_signed_integer(reader& reader, T& value) {
+  std::int64_t raw = 0;
+  const error status = reader.read_i64(raw);
+  if (status) {
+    return status;
+  }
+  if (raw < static_cast<std::int64_t>(std::numeric_limits<T>::min()) ||
+      raw > static_cast<std::int64_t>(std::numeric_limits<T>::max())) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  value = static_cast<T>(raw);
+  return {};
+}
+
+template <typename T> [[nodiscard]] inline error read_unsigned_integer(reader& reader, T& value) {
+  std::uint64_t raw = 0;
+  const error status = reader.read_u64(raw);
+  if (status) {
+    return status;
+  }
+  if (raw > static_cast<std::uint64_t>(std::numeric_limits<T>::max())) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  value = static_cast<T>(raw);
+  return {};
+}
+
+template <typename T> [[nodiscard]] inline error read_scalar(reader& reader, T& value) {
+  static_assert(std::is_arithmetic_v<T>, "math codec only supports arithmetic scalar types");
+
+  if constexpr (std::is_floating_point_v<T>) {
+    return read_floating(reader, value);
+  } else if constexpr (std::is_signed_v<T>) {
+    return read_signed_integer(reader, value);
+  } else {
+    return read_unsigned_integer(reader, value);
+  }
+}
+
+template <typename T> [[nodiscard]] inline error write_scalar(writer& writer, T value) {
+  static_assert(std::is_arithmetic_v<T>, "math codec only supports arithmetic scalar types");
+
+  if constexpr (std::is_floating_point_v<T>) {
+    return writer.write_f64(static_cast<double>(value));
+  } else if constexpr (std::is_signed_v<T>) {
+    return writer.write_i64(static_cast<std::int64_t>(value));
+  } else {
+    return writer.write_u64(static_cast<std::uint64_t>(value));
+  }
+}
+
+template <typename T> [[nodiscard]] inline variant make_scalar_value(T value) {
+  static_assert(std::is_arithmetic_v<T>, "math codec only supports arithmetic scalar types");
+
+  if constexpr (std::is_floating_point_v<T>) {
+    return variant::from(static_cast<double>(value));
+  } else if constexpr (std::is_signed_v<T>) {
+    return variant::from(static_cast<std::int64_t>(value));
+  } else {
+    return variant::from(static_cast<std::uint64_t>(value));
+  }
+}
+
+template <typename T>
+[[nodiscard]] inline error write_scalar_array(writer& writer, const T* values, std::size_t size) {
   error status = writer.begin_array(size);
   if (status) {
     return status;
@@ -51,7 +118,7 @@ namespace caors::serialization::math_codec_detail {
       return status;
     }
 
-    status = writer.write_f64(values[index]);
+    status = write_scalar(writer, values[index]);
     if (status) {
       return status;
     }
@@ -65,7 +132,8 @@ namespace caors::serialization::math_codec_detail {
   return writer.end_array();
 }
 
-[[nodiscard]] inline error read_float_array(reader& reader, float* values, std::size_t expected) {
+template <typename T>
+[[nodiscard]] inline error read_scalar_array(reader& reader, T* values, std::size_t expected) {
   std::size_t size = 0;
   error status = reader.begin_array(size);
   if (status) {
@@ -82,7 +150,7 @@ namespace caors::serialization::math_codec_detail {
       return status;
     }
 
-    status = read_float(reader, values[index]);
+    status = read_scalar(reader, values[index]);
     if (status) {
       return status;
     }
@@ -96,11 +164,12 @@ namespace caors::serialization::math_codec_detail {
   return reader.end_array();
 }
 
-[[nodiscard]] inline variant_result make_float_array(const float* values, std::size_t size) {
+template <typename T>
+[[nodiscard]] inline variant_result make_scalar_array(const T* values, std::size_t size) {
   variant::array_type elements;
   elements.reserve(size);
   for (std::size_t index = 0; index < size; ++index) {
-    elements.push_back(variant::from(static_cast<double>(values[index])));
+    elements.push_back(make_scalar_value(values[index]));
   }
   return {{}, variant::array(std::move(elements))};
 }
@@ -119,20 +188,20 @@ namespace caors::serialization::math_codec_detail {
 
 namespace caors::serialization {
 
-/** @brief `math::vec2` 按 `[x, y]` 数组读写。 */
-template <> struct codec_traits<math::vec2> {
+/** @brief `math::vec2_t<T>` 按 `[x, y]` 数组读写。 */
+template <typename T> struct codec_traits<math::vec2_t<T>> {
   static constexpr bool can_write = true;
   static constexpr bool can_read = true;
   static constexpr bool can_make_value = true;
 
-  [[nodiscard]] static error write(writer& writer, math::vec2 value) {
-    const float values[2]{value.x, value.y};
-    return math_codec_detail::write_float_array(writer, values, 2);
+  [[nodiscard]] static error write(writer& writer, math::vec2_t<T> value) {
+    const T values[2]{value.x, value.y};
+    return math_codec_detail::write_scalar_array(writer, values, 2);
   }
 
-  [[nodiscard]] static error read(reader& reader, math::vec2& value) {
-    float values[2]{};
-    const error status = math_codec_detail::read_float_array(reader, values, 2);
+  [[nodiscard]] static error read(reader& reader, math::vec2_t<T>& value) {
+    T values[2]{};
+    const error status = math_codec_detail::read_scalar_array(reader, values, 2);
     if (status) {
       return status;
     }
@@ -141,26 +210,26 @@ template <> struct codec_traits<math::vec2> {
     return {};
   }
 
-  [[nodiscard]] static variant_result make_value(math::vec2 value) {
-    const float values[2]{value.x, value.y};
-    return math_codec_detail::make_float_array(values, 2);
+  [[nodiscard]] static variant_result make_value(math::vec2_t<T> value) {
+    const T values[2]{value.x, value.y};
+    return math_codec_detail::make_scalar_array(values, 2);
   }
 };
 
-/** @brief `math::vec3` 按 `[x, y, z]` 数组读写。 */
-template <> struct codec_traits<math::vec3> {
+/** @brief `math::vec3_t<T>` 按 `[x, y, z]` 数组读写。 */
+template <typename T> struct codec_traits<math::vec3_t<T>> {
   static constexpr bool can_write = true;
   static constexpr bool can_read = true;
   static constexpr bool can_make_value = true;
 
-  [[nodiscard]] static error write(writer& writer, math::vec3 value) {
-    const float values[3]{value.x, value.y, value.z};
-    return math_codec_detail::write_float_array(writer, values, 3);
+  [[nodiscard]] static error write(writer& writer, math::vec3_t<T> value) {
+    const T values[3]{value.x, value.y, value.z};
+    return math_codec_detail::write_scalar_array(writer, values, 3);
   }
 
-  [[nodiscard]] static error read(reader& reader, math::vec3& value) {
-    float values[3]{};
-    const error status = math_codec_detail::read_float_array(reader, values, 3);
+  [[nodiscard]] static error read(reader& reader, math::vec3_t<T>& value) {
+    T values[3]{};
+    const error status = math_codec_detail::read_scalar_array(reader, values, 3);
     if (status) {
       return status;
     }
@@ -169,26 +238,26 @@ template <> struct codec_traits<math::vec3> {
     return {};
   }
 
-  [[nodiscard]] static variant_result make_value(math::vec3 value) {
-    const float values[3]{value.x, value.y, value.z};
-    return math_codec_detail::make_float_array(values, 3);
+  [[nodiscard]] static variant_result make_value(math::vec3_t<T> value) {
+    const T values[3]{value.x, value.y, value.z};
+    return math_codec_detail::make_scalar_array(values, 3);
   }
 };
 
-/** @brief `math::vec4` 按 `[x, y, z, w]` 数组读写。 */
-template <> struct codec_traits<math::vec4> {
+/** @brief `math::vec4_t<T>` 按 `[x, y, z, w]` 数组读写。 */
+template <typename T> struct codec_traits<math::vec4_t<T>> {
   static constexpr bool can_write = true;
   static constexpr bool can_read = true;
   static constexpr bool can_make_value = true;
 
-  [[nodiscard]] static error write(writer& writer, math::vec4 value) {
-    const float values[4]{value.x, value.y, value.z, value.w};
-    return math_codec_detail::write_float_array(writer, values, 4);
+  [[nodiscard]] static error write(writer& writer, math::vec4_t<T> value) {
+    const T values[4]{value.x, value.y, value.z, value.w};
+    return math_codec_detail::write_scalar_array(writer, values, 4);
   }
 
-  [[nodiscard]] static error read(reader& reader, math::vec4& value) {
-    float values[4]{};
-    const error status = math_codec_detail::read_float_array(reader, values, 4);
+  [[nodiscard]] static error read(reader& reader, math::vec4_t<T>& value) {
+    T values[4]{};
+    const error status = math_codec_detail::read_scalar_array(reader, values, 4);
     if (status) {
       return status;
     }
@@ -197,26 +266,26 @@ template <> struct codec_traits<math::vec4> {
     return {};
   }
 
-  [[nodiscard]] static variant_result make_value(math::vec4 value) {
-    const float values[4]{value.x, value.y, value.z, value.w};
-    return math_codec_detail::make_float_array(values, 4);
+  [[nodiscard]] static variant_result make_value(math::vec4_t<T> value) {
+    const T values[4]{value.x, value.y, value.z, value.w};
+    return math_codec_detail::make_scalar_array(values, 4);
   }
 };
 
-/** @brief `math::quat` 按 `[x, y, z, w]` 数组读写，其中 `w` 是标量部分。 */
-template <> struct codec_traits<math::quat> {
+/** @brief `math::quat_t<T>` 按 `[x, y, z, w]` 数组读写，其中 `w` 是标量部分。 */
+template <typename T> struct codec_traits<math::quat_t<T>> {
   static constexpr bool can_write = true;
   static constexpr bool can_read = true;
   static constexpr bool can_make_value = true;
 
-  [[nodiscard]] static error write(writer& writer, math::quat value) {
-    const float values[4]{value.x, value.y, value.z, value.w};
-    return math_codec_detail::write_float_array(writer, values, 4);
+  [[nodiscard]] static error write(writer& writer, math::quat_t<T> value) {
+    const T values[4]{value.x, value.y, value.z, value.w};
+    return math_codec_detail::write_scalar_array(writer, values, 4);
   }
 
-  [[nodiscard]] static error read(reader& reader, math::quat& value) {
-    float values[4]{};
-    const error status = math_codec_detail::read_float_array(reader, values, 4);
+  [[nodiscard]] static error read(reader& reader, math::quat_t<T>& value) {
+    T values[4]{};
+    const error status = math_codec_detail::read_scalar_array(reader, values, 4);
     if (status) {
       return status;
     }
@@ -225,57 +294,57 @@ template <> struct codec_traits<math::quat> {
     return {};
   }
 
-  [[nodiscard]] static variant_result make_value(math::quat value) {
-    const float values[4]{value.x, value.y, value.z, value.w};
-    return math_codec_detail::make_float_array(values, 4);
+  [[nodiscard]] static variant_result make_value(math::quat_t<T> value) {
+    const T values[4]{value.x, value.y, value.z, value.w};
+    return math_codec_detail::make_scalar_array(values, 4);
   }
 };
 
-/** @brief `math::mat3` 按行主序 9 元素数组读写。 */
-template <> struct codec_traits<math::mat3> {
+/** @brief `math::mat3_t<T>` 按行主序 9 元素数组读写。 */
+template <typename T> struct codec_traits<math::mat3_t<T>> {
   static constexpr bool can_write = true;
   static constexpr bool can_read = true;
   static constexpr bool can_make_value = true;
 
-  [[nodiscard]] static error write(writer& writer, const math::mat3& value) {
-    return math_codec_detail::write_float_array(writer, value.values, 9);
+  [[nodiscard]] static error write(writer& writer, const math::mat3_t<T>& value) {
+    return math_codec_detail::write_scalar_array(writer, value.values, 9);
   }
 
-  [[nodiscard]] static error read(reader& reader, math::mat3& value) {
-    return math_codec_detail::read_float_array(reader, value.values, 9);
+  [[nodiscard]] static error read(reader& reader, math::mat3_t<T>& value) {
+    return math_codec_detail::read_scalar_array(reader, value.values, 9);
   }
 
-  [[nodiscard]] static variant_result make_value(const math::mat3& value) {
-    return math_codec_detail::make_float_array(value.values, 9);
+  [[nodiscard]] static variant_result make_value(const math::mat3_t<T>& value) {
+    return math_codec_detail::make_scalar_array(value.values, 9);
   }
 };
 
-/** @brief `math::mat4` 按行主序 16 元素数组读写。 */
-template <> struct codec_traits<math::mat4> {
+/** @brief `math::mat4_t<T>` 按行主序 16 元素数组读写。 */
+template <typename T> struct codec_traits<math::mat4_t<T>> {
   static constexpr bool can_write = true;
   static constexpr bool can_read = true;
   static constexpr bool can_make_value = true;
 
-  [[nodiscard]] static error write(writer& writer, const math::mat4& value) {
-    return math_codec_detail::write_float_array(writer, value.values, 16);
+  [[nodiscard]] static error write(writer& writer, const math::mat4_t<T>& value) {
+    return math_codec_detail::write_scalar_array(writer, value.values, 16);
   }
 
-  [[nodiscard]] static error read(reader& reader, math::mat4& value) {
-    return math_codec_detail::read_float_array(reader, value.values, 16);
+  [[nodiscard]] static error read(reader& reader, math::mat4_t<T>& value) {
+    return math_codec_detail::read_scalar_array(reader, value.values, 16);
   }
 
-  [[nodiscard]] static variant_result make_value(const math::mat4& value) {
-    return math_codec_detail::make_float_array(value.values, 16);
+  [[nodiscard]] static variant_result make_value(const math::mat4_t<T>& value) {
+    return math_codec_detail::make_scalar_array(value.values, 16);
   }
 };
 
-/** @brief `math::rect` 按 `{ position, size }` 对象读写。 */
-template <> struct codec_traits<math::rect> {
+/** @brief `math::rect_t<T>` 按 `{ position, size }` 对象读写。 */
+template <typename T> struct codec_traits<math::rect_t<T>> {
   static constexpr bool can_write = true;
   static constexpr bool can_read = true;
   static constexpr bool can_make_value = true;
 
-  [[nodiscard]] static error write(writer& writer, const math::rect& value) {
+  [[nodiscard]] static error write(writer& writer, const math::rect_t<T>& value) {
     const type_schema& schema = math_codec_detail::rect_schema();
     error status = writer.begin_object(schema);
     if (status) {
@@ -286,7 +355,7 @@ template <> struct codec_traits<math::rect> {
     if (status) {
       return status;
     }
-    status = codec_traits<math::vec2>::write(writer, value.position);
+    status = codec_traits<math::vec2_t<T>>::write(writer, value.position);
     if (status) {
       return status;
     }
@@ -299,7 +368,7 @@ template <> struct codec_traits<math::rect> {
     if (status) {
       return status;
     }
-    status = codec_traits<math::vec2>::write(writer, value.size);
+    status = codec_traits<math::vec2_t<T>>::write(writer, value.size);
     if (status) {
       return status;
     }
@@ -311,7 +380,7 @@ template <> struct codec_traits<math::rect> {
     return writer.end_object();
   }
 
-  [[nodiscard]] static error read(reader& reader, math::rect& value) {
+  [[nodiscard]] static error read(reader& reader, math::rect_t<T>& value) {
     const type_schema& schema = math_codec_detail::rect_schema();
     error status = reader.begin_object(schema);
     if (status) {
@@ -322,7 +391,7 @@ template <> struct codec_traits<math::rect> {
     if (status) {
       return status;
     }
-    status = codec_traits<math::vec2>::read(reader, value.position);
+    status = codec_traits<math::vec2_t<T>>::read(reader, value.position);
     if (status) {
       return status;
     }
@@ -335,7 +404,7 @@ template <> struct codec_traits<math::rect> {
     if (status) {
       return status;
     }
-    status = codec_traits<math::vec2>::read(reader, value.size);
+    status = codec_traits<math::vec2_t<T>>::read(reader, value.size);
     if (status) {
       return status;
     }
@@ -347,12 +416,12 @@ template <> struct codec_traits<math::rect> {
     return reader.end_object();
   }
 
-  [[nodiscard]] static variant_result make_value(const math::rect& value) {
-    variant_result position = codec_traits<math::vec2>::make_value(value.position);
+  [[nodiscard]] static variant_result make_value(const math::rect_t<T>& value) {
+    variant_result position = codec_traits<math::vec2_t<T>>::make_value(value.position);
     if (position.failed()) {
       return position;
     }
-    variant_result size = codec_traits<math::vec2>::make_value(value.size);
+    variant_result size = codec_traits<math::vec2_t<T>>::make_value(value.size);
     if (size.failed()) {
       return size;
     }
@@ -365,13 +434,13 @@ template <> struct codec_traits<math::rect> {
   }
 };
 
-/** @brief `math::aabb` 按 `{ min, max }` 对象读写。 */
-template <> struct codec_traits<math::aabb> {
+/** @brief `math::aabb_t<T>` 按 `{ min, max }` 对象读写。 */
+template <typename T> struct codec_traits<math::aabb_t<T>> {
   static constexpr bool can_write = true;
   static constexpr bool can_read = true;
   static constexpr bool can_make_value = true;
 
-  [[nodiscard]] static error write(writer& writer, const math::aabb& value) {
+  [[nodiscard]] static error write(writer& writer, const math::aabb_t<T>& value) {
     const type_schema& schema = math_codec_detail::aabb_schema();
     error status = writer.begin_object(schema);
     if (status) {
@@ -382,7 +451,7 @@ template <> struct codec_traits<math::aabb> {
     if (status) {
       return status;
     }
-    status = codec_traits<math::vec3>::write(writer, value.min);
+    status = codec_traits<math::vec3_t<T>>::write(writer, value.min);
     if (status) {
       return status;
     }
@@ -395,7 +464,7 @@ template <> struct codec_traits<math::aabb> {
     if (status) {
       return status;
     }
-    status = codec_traits<math::vec3>::write(writer, value.max);
+    status = codec_traits<math::vec3_t<T>>::write(writer, value.max);
     if (status) {
       return status;
     }
@@ -407,7 +476,7 @@ template <> struct codec_traits<math::aabb> {
     return writer.end_object();
   }
 
-  [[nodiscard]] static error read(reader& reader, math::aabb& value) {
+  [[nodiscard]] static error read(reader& reader, math::aabb_t<T>& value) {
     const type_schema& schema = math_codec_detail::aabb_schema();
     error status = reader.begin_object(schema);
     if (status) {
@@ -418,7 +487,7 @@ template <> struct codec_traits<math::aabb> {
     if (status) {
       return status;
     }
-    status = codec_traits<math::vec3>::read(reader, value.min);
+    status = codec_traits<math::vec3_t<T>>::read(reader, value.min);
     if (status) {
       return status;
     }
@@ -431,7 +500,7 @@ template <> struct codec_traits<math::aabb> {
     if (status) {
       return status;
     }
-    status = codec_traits<math::vec3>::read(reader, value.max);
+    status = codec_traits<math::vec3_t<T>>::read(reader, value.max);
     if (status) {
       return status;
     }
@@ -443,12 +512,12 @@ template <> struct codec_traits<math::aabb> {
     return reader.end_object();
   }
 
-  [[nodiscard]] static variant_result make_value(const math::aabb& value) {
-    variant_result min = codec_traits<math::vec3>::make_value(value.min);
+  [[nodiscard]] static variant_result make_value(const math::aabb_t<T>& value) {
+    variant_result min = codec_traits<math::vec3_t<T>>::make_value(value.min);
     if (min.failed()) {
       return min;
     }
-    variant_result max = codec_traits<math::vec3>::make_value(value.max);
+    variant_result max = codec_traits<math::vec3_t<T>>::make_value(value.max);
     if (max.failed()) {
       return max;
     }

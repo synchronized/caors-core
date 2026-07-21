@@ -7,6 +7,7 @@
 #include "caors/math.h"
 #include "caors/registration.h"
 
+#include <cstdint>
 #include <string_view>
 
 namespace caors::math {
@@ -20,104 +21,147 @@ inline constexpr std::string_view mat4_meta_name = "caors.math.mat4";
 inline constexpr std::string_view rect_meta_name = "caors.math.rect";
 inline constexpr std::string_view aabb_meta_name = "caors.math.aabb";
 
+template <typename T> inline constexpr std::string_view vec2_meta_name_of = "";
+template <typename T> inline constexpr std::string_view vec3_meta_name_of = "";
+template <typename T> inline constexpr std::string_view vec4_meta_name_of = "";
+template <typename T> inline constexpr std::string_view quat_meta_name_of = "";
+template <typename T> inline constexpr std::string_view mat3_meta_name_of = "";
+template <typename T> inline constexpr std::string_view mat4_meta_name_of = "";
+template <typename T> inline constexpr std::string_view rect_meta_name_of = "";
+template <typename T> inline constexpr std::string_view aabb_meta_name_of = "";
+
+template <> inline constexpr std::string_view vec2_meta_name_of<float> = vec2_meta_name;
+template <> inline constexpr std::string_view vec3_meta_name_of<float> = vec3_meta_name;
+template <> inline constexpr std::string_view vec4_meta_name_of<float> = vec4_meta_name;
+template <> inline constexpr std::string_view quat_meta_name_of<float> = quat_meta_name;
+template <> inline constexpr std::string_view mat3_meta_name_of<float> = mat3_meta_name;
+template <> inline constexpr std::string_view mat4_meta_name_of<float> = mat4_meta_name;
+template <> inline constexpr std::string_view rect_meta_name_of<float> = rect_meta_name;
+template <> inline constexpr std::string_view aabb_meta_name_of<float> = aabb_meta_name;
+
+template <> inline constexpr std::string_view vec2_meta_name_of<double> = "caors.math.dvec2";
+template <> inline constexpr std::string_view vec3_meta_name_of<double> = "caors.math.dvec3";
+template <> inline constexpr std::string_view vec4_meta_name_of<double> = "caors.math.dvec4";
+template <> inline constexpr std::string_view quat_meta_name_of<double> = "caors.math.dquat";
+template <> inline constexpr std::string_view mat3_meta_name_of<double> = "caors.math.dmat3";
+template <> inline constexpr std::string_view mat4_meta_name_of<double> = "caors.math.dmat4";
+template <> inline constexpr std::string_view rect_meta_name_of<double> = "caors.math.drect";
+template <> inline constexpr std::string_view aabb_meta_name_of<double> = "caors.math.daabb";
+
+template <> inline constexpr std::string_view vec2_meta_name_of<std::int32_t> = "caors.math.ivec2";
+template <> inline constexpr std::string_view vec3_meta_name_of<std::int32_t> = "caors.math.ivec3";
+template <> inline constexpr std::string_view vec4_meta_name_of<std::int32_t> = "caors.math.ivec4";
+
+template <> inline constexpr std::string_view vec2_meta_name_of<std::uint32_t> = "caors.math.uvec2";
+template <> inline constexpr std::string_view vec3_meta_name_of<std::uint32_t> = "caors.math.uvec3";
+template <> inline constexpr std::string_view vec4_meta_name_of<std::uint32_t> = "caors.math.uvec4";
+
 /** @brief 注册 `math::vec2` 的 meta 类型和分量属性。 */
-[[nodiscard]] inline error register_vec2(std::string_view name = vec2_meta_name) {
-  if (meta::find<vec2>()) {
+template <typename T = float>
+[[nodiscard]] inline error register_vec2(std::string_view name = vec2_meta_name_of<T>) {
+  if (meta::find<vec2_t<T>>()) {
     return {};
   }
 
-  return registration::type_<vec2>(name)
+  return registration::type_<vec2_t<T>>(name)
       .meta()
-      .property("x", &vec2::x)
-      .property("y", &vec2::y)
+      .property("x", &vec2_t<T>::x)
+      .property("y", &vec2_t<T>::y)
       .commit();
 }
 
 /** @brief 注册 `math::vec3` 的 meta 类型和分量属性。 */
-[[nodiscard]] inline error register_vec3(std::string_view name = vec3_meta_name) {
-  if (meta::find<vec3>()) {
+template <typename T = float>
+[[nodiscard]] inline error register_vec3(std::string_view name = vec3_meta_name_of<T>) {
+  if (meta::find<vec3_t<T>>()) {
     return {};
   }
 
-  return registration::type_<vec3>(name)
+  return registration::type_<vec3_t<T>>(name)
       .meta()
-      .property("x", &vec3::x)
-      .property("y", &vec3::y)
-      .property("z", &vec3::z)
+      .property("x", &vec3_t<T>::x)
+      .property("y", &vec3_t<T>::y)
+      .property("z", &vec3_t<T>::z)
       .commit();
 }
 
 /** @brief 注册 `math::vec4` 的 meta 类型和分量属性。 */
-[[nodiscard]] inline error register_vec4(std::string_view name = vec4_meta_name) {
-  if (meta::find<vec4>()) {
+template <typename T = float>
+[[nodiscard]] inline error register_vec4(std::string_view name = vec4_meta_name_of<T>) {
+  if (meta::find<vec4_t<T>>()) {
     return {};
   }
 
-  return registration::type_<vec4>(name)
+  return registration::type_<vec4_t<T>>(name)
       .meta()
-      .property("x", &vec4::x)
-      .property("y", &vec4::y)
-      .property("z", &vec4::z)
-      .property("w", &vec4::w)
+      .property("x", &vec4_t<T>::x)
+      .property("y", &vec4_t<T>::y)
+      .property("z", &vec4_t<T>::z)
+      .property("w", &vec4_t<T>::w)
       .commit();
 }
 
 /** @brief 注册 `math::quat` 的 meta 类型和 `(x, y, z, w)` 分量属性。 */
-[[nodiscard]] inline error register_quat(std::string_view name = quat_meta_name) {
-  if (meta::find<quat>()) {
+template <typename T = float>
+[[nodiscard]] inline error register_quat(std::string_view name = quat_meta_name_of<T>) {
+  if (meta::find<quat_t<T>>()) {
     return {};
   }
 
-  return registration::type_<quat>(name)
+  return registration::type_<quat_t<T>>(name)
       .meta()
-      .property("x", &quat::x)
-      .property("y", &quat::y)
-      .property("z", &quat::z)
-      .property("w", &quat::w)
+      .property("x", &quat_t<T>::x)
+      .property("y", &quat_t<T>::y)
+      .property("z", &quat_t<T>::z)
+      .property("w", &quat_t<T>::w)
       .commit();
 }
 
 /** @brief 注册 `math::mat3` 的 meta 类型；矩阵元素通过 serialization codec 读写。 */
-[[nodiscard]] inline error register_mat3(std::string_view name = mat3_meta_name) {
-  if (meta::find<mat3>()) {
+template <typename T = float>
+[[nodiscard]] inline error register_mat3(std::string_view name = mat3_meta_name_of<T>) {
+  if (meta::find<mat3_t<T>>()) {
     return {};
   }
 
-  return registration::type_<mat3>(name).commit();
+  return registration::type_<mat3_t<T>>(name).commit();
 }
 
 /** @brief 注册 `math::mat4` 的 meta 类型；矩阵元素通过 serialization codec 读写。 */
-[[nodiscard]] inline error register_mat4(std::string_view name = mat4_meta_name) {
-  if (meta::find<mat4>()) {
+template <typename T = float>
+[[nodiscard]] inline error register_mat4(std::string_view name = mat4_meta_name_of<T>) {
+  if (meta::find<mat4_t<T>>()) {
     return {};
   }
 
-  return registration::type_<mat4>(name).commit();
+  return registration::type_<mat4_t<T>>(name).commit();
 }
 
 /** @brief 注册 `math::rect` 的 meta 类型和 `position` / `size` 属性。 */
-[[nodiscard]] inline error register_rect(std::string_view name = rect_meta_name) {
-  if (meta::find<rect>()) {
+template <typename T = float>
+[[nodiscard]] inline error register_rect(std::string_view name = rect_meta_name_of<T>) {
+  if (meta::find<rect_t<T>>()) {
     return {};
   }
 
-  return registration::type_<rect>(name)
+  return registration::type_<rect_t<T>>(name)
       .meta()
-      .property("position", &rect::position)
-      .property("size", &rect::size)
+      .property("position", &rect_t<T>::position)
+      .property("size", &rect_t<T>::size)
       .commit();
 }
 
 /** @brief 注册 `math::aabb` 的 meta 类型和 `min` / `max` 属性。 */
-[[nodiscard]] inline error register_aabb(std::string_view name = aabb_meta_name) {
-  if (meta::find<aabb>()) {
+template <typename T = float>
+[[nodiscard]] inline error register_aabb(std::string_view name = aabb_meta_name_of<T>) {
+  if (meta::find<aabb_t<T>>()) {
     return {};
   }
 
-  return registration::type_<aabb>(name)
+  return registration::type_<aabb_t<T>>(name)
       .meta()
-      .property("min", &aabb::min)
-      .property("max", &aabb::max)
+      .property("min", &aabb_t<T>::min)
+      .property("max", &aabb_t<T>::max)
       .commit();
 }
 
