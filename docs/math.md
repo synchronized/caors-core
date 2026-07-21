@@ -46,6 +46,7 @@
 - `mat3_t<T>` / `mat4_t<T>`
 - `rect_t<T>`
 - `aabb_t<T>`
+- `ray_t<T>` / `sphere_t<T>` / `plane_t<T>`
 
 默认短名仍表示单精度版本：
 
@@ -57,18 +58,21 @@
 
 当前还提供这些常用标量别名：
 
-- 双精度：`dvec2`、`dvec3`、`dvec4`、`dquat`、`dmat3`、`dmat4`、`drect`、`daabb`
+- 双精度：`dvec2`、`dvec3`、`dvec4`、`dquat`、`dmat3`、`dmat4`、`drect`、`daabb`、
+  `dray`、`dsphere`、`dplane`
 - 32 位整型：`ivec2`、`ivec3`、`ivec4`、`irect`、`iaabb`
 - 32 位无符号整型向量：`uvec2`、`uvec3`、`uvec4`
 
 `irect` 适合 UI 布局、像素区域、贴图 atlas、窗口/裁剪矩形和网格单元区域。它的 `center()` 走整数除法，
 需要亚像素或精确中心时应使用 `rect` / `drect`。
 
-几何辅助类型当前仍是单精度：
+几何辅助类型默认短名也是单精度：
 
 - `caors::math::ray`
 - `caors::math::sphere`
 - `caors::math::plane`
+
+它们分别等价于 `rayf`、`spheref`、`planef`。需要双精度时使用 `dray`、`dsphere`、`dplane`。
 
 ## 使用示例
 
@@ -193,6 +197,9 @@ float 默认注册内容：
 - `quat`：注册 `(x, y, z, w)` 分量属性，其中 `w` 是标量部分。
 - `rect`：注册 `position` 和 `size` 属性。
 - `aabb`：注册 `min` 和 `max` 属性。
+- `ray`：注册 `origin` 和 `direction` 属性。
+- `sphere`：注册 `center` 和 `radius` 属性。
+- `plane`：注册 `normal` 和 `distance` 属性。
 - `mat3`、`mat4`：当前只注册类型身份；矩阵元素通过 codec 按行主序数组读写，不暴露底层
   `values` C 数组属性。
 
@@ -200,8 +207,9 @@ float 默认注册内容：
 会自动包含它。math codec 不要求数学类型先完成 meta 注册，编译期已知类型或通过 `any` / `any_ref`
 携带 `meta::type` 时即可查询到静态 codec。
 
-codec 覆盖 `vec*_t<T>`、`quat_t<T>`、`mat*_t<T>`、`rect_t<T>` 和 `aabb_t<T>`。`T` 当前应为算术标量；
-浮点写出为 JSON number，整型写出为整数 number。
+codec 覆盖 `vec*_t<T>`、`quat_t<T>`、`mat*_t<T>`、`rect_t<T>`、`aabb_t<T>`、`ray_t<T>`、
+`sphere_t<T>` 和 `plane_t<T>`。`T` 当前应为算术标量；浮点写出为 JSON number，整型写出为整数
+number。
 
 序列化格式：
 
@@ -213,6 +221,9 @@ codec 覆盖 `vec*_t<T>`、`quat_t<T>`、`mat*_t<T>`、`rect_t<T>` 和 `aabb_t<T
 - `mat4`：行主序 16 元素数组。
 - `rect`：`{"position":[x,y],"size":[w,h]}`
 - `aabb`：`{"min":[x,y,z],"max":[x,y,z]}`
+- `ray`：`{"origin":[x,y,z],"direction":[x,y,z]}`
+- `sphere`：`{"center":[x,y,z],"radius":r}`
+- `plane`：`{"normal":[x,y,z],"distance":d}`
 
 math 类型作为已注册对象字段时会优先走 codec，因此配置结构可以直接暴露数学字段：
 
@@ -239,7 +250,17 @@ caors::registration::type_<camera_config>("game.camera_config")
 - 当前只做标量模板化，没有做“维度作为模板参数”的统一 `vec<T, N>` / `mat<T, R, C>`。
 - 当前没有完整相机、骨骼、碰撞或 frustum helper。
 - 当前没有接入 `meta::value` fast path。
-- `ray`、`sphere`、`plane` 当前仍固定使用 float，且暂未提供内建 meta 注册 helper 和 codec；需要时可通过普通
-  `registration::type_<T>(name)` 自行注册。
 
 这些能力会根据实际使用和 benchmark 数据逐步加入。
+
+## Traits 和第三方适配
+
+`caors/math/traits.h` 提供 CAORS 数学类型的轻量 traits：
+
+- `vector_traits<T>`：向量标量类型、分量数量和按下标访问。
+- `matrix_traits<T>`：矩阵标量类型、行列数量和按行列访问。
+- `quaternion_traits<T>`、`rect_traits<T>`、`aabb_traits<T>`、`ray_traits<T>`、
+  `sphere_traits<T>`、`plane_traits<T>`：对应类型的命名成员访问。
+
+这层只描述数学类型的结构，不引入 GLM、Eigen 等第三方依赖。后续如果需要接入外部数学库，应优先在
+`caors/adapters` 中为外部类型提供类似 traits，而不是让 `caors::math` 直接依赖第三方库。

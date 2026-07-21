@@ -203,4 +203,41 @@ TEST_CASE("math - geometry helpers cover common bounds operations", "[math]") {
       caors::math::vec3::zero(), caors::math::vec3{0.0F, 1.0F, 0.0F});
   CHECK(ground.signed_distance(caors::math::vec3{0.0F, 2.0F, 0.0F}) == Catch::Approx(2.0F));
   CHECK(caors::math::intersects(ground, caors::math::sphere{{0.0F, 0.5F, 0.0F}, 1.0F}));
+
+  const caors::math::dplane precise_ground = caors::math::dplane::from_point_normal(
+      caors::math::dvec3::zero(), caors::math::dvec3{0.0, 1.0, 0.0});
+  CHECK(precise_ground.signed_distance(caors::math::dvec3{0.0, 2.5, 0.0}) == Catch::Approx(2.5));
+  CHECK(precise_ground.signed_distance(caors::math::vec3{0.0F, 1.5F, 0.0F}) == Catch::Approx(1.5));
+  CHECK(caors::math::intersects(precise_ground, caors::math::dsphere{{0.0, 0.5, 0.0}, 1.0}));
+
+  const caors::math::dray ray{{1.0, 2.0, 3.0}, {0.0, 0.0, -1.0}};
+  CHECK(ray.origin == caors::math::dvec3{1.0, 2.0, 3.0});
+  CHECK(ray.direction == caors::math::dvec3{0.0, 0.0, -1.0});
+}
+
+TEST_CASE("math - traits expose scalar and component access", "[math]") {
+  caors::math::vec3 value{1.0F, 2.0F, 3.0F};
+  CHECK(caors::math::vector_traits<caors::math::vec3>::size == 3U);
+  CHECK(caors::math::vector_traits<caors::math::vec3>::get(value, 1U) == 2.0F);
+  caors::math::vector_traits<caors::math::vec3>::get(value, 2U) = 4.0F;
+  CHECK(value.z == 4.0F);
+
+  caors::math::mat4 matrix = caors::math::mat4::identity();
+  CHECK(caors::math::matrix_traits<caors::math::mat4>::rows == 4U);
+  CHECK(caors::math::matrix_traits<caors::math::mat4>::columns == 4U);
+  caors::math::matrix_traits<caors::math::mat4>::get(matrix, 0U, 3U) = 12.0F;
+  CHECK(matrix(0, 3) == 12.0F);
+
+  caors::math::ray ray{};
+  caors::math::ray_traits<caors::math::ray>::origin(ray) = caors::math::vec3{1.0F, 2.0F, 3.0F};
+  CHECK(ray.origin == caors::math::vec3{1.0F, 2.0F, 3.0F});
+  const caors::math::ray const_ray = ray;
+  CHECK(caors::math::ray_traits<caors::math::ray>::origin(const_ray) ==
+        caors::math::vec3{1.0F, 2.0F, 3.0F});
+
+  const caors::math::sphere sphere{{1.0F, 2.0F, 3.0F}, 4.0F};
+  CHECK(caors::math::sphere_traits<caors::math::sphere>::radius(sphere) == 4.0F);
+
+  const caors::math::plane plane{{0.0F, 1.0F, 0.0F}, 2.0F};
+  CHECK(caors::math::plane_traits<caors::math::plane>::distance(plane) == 2.0F);
 }

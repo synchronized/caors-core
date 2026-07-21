@@ -18,6 +18,9 @@ struct math_codec_actor {
   caors::math::rect viewport{};
   caors::math::aabb bounds{};
   caors::math::mat4 transform{};
+  caors::math::ray ray{};
+  caors::math::sphere sphere{};
+  caors::math::plane plane{};
 };
 
 [[nodiscard]] bool contains(std::string_view text, std::string_view fragment) {
@@ -34,6 +37,9 @@ void require_math_codec_actor_registered() {
           .property("viewport", &math_codec_actor::viewport)
           .property("bounds", &math_codec_actor::bounds)
           .property("transform", &math_codec_actor::transform)
+          .property("ray", &math_codec_actor::ray)
+          .property("sphere", &math_codec_actor::sphere)
+          .property("plane", &math_codec_actor::plane)
           .serialization()
           .commit()));
 }
@@ -93,6 +99,20 @@ TEST_CASE("serialization - math codecs support template scalar aliases", "[seria
   REQUIRE(precise.value.as_array().size() == 2);
   CHECK(precise.value.as_array()[0].as_f64() == 1.5);
   CHECK(precise.value.as_array()[1].as_f64() == 2.25);
+
+  caors::string sphere_text;
+  caors::serialization::text_writer sphere_writer{sphere_text};
+  REQUIRE(caors::serialization::codec_traits<caors::math::dsphere>::write(
+              sphere_writer, caors::math::dsphere{{1.0, 2.0, 3.0}, 4.5})
+              .succeeded());
+  CHECK(sphere_text == R"({"center":[1,2,3],"radius":4.5})");
+
+  caors::math::dsphere sphere_decoded{};
+  caors::serialization::json_reader sphere_reader{sphere_text};
+  REQUIRE(
+      caors::serialization::codec_traits<caors::math::dsphere>::read(sphere_reader, sphere_decoded)
+          .succeeded());
+  CHECK(caors::math::nearly_equal(sphere_decoded, caors::math::dsphere{{1.0, 2.0, 3.0}, 4.5}));
 }
 
 TEST_CASE("serialization - math codecs roundtrip registered object fields",
@@ -105,6 +125,9 @@ TEST_CASE("serialization - math codecs roundtrip registered object fields",
   actor.viewport = {{10.0F, 20.0F}, {800.0F, 600.0F}};
   actor.bounds = {{-1.0F, -2.0F, -3.0F}, {1.0F, 2.0F, 3.0F}};
   actor.transform = caors::math::mat4::identity();
+  actor.ray = {{0.0F, 1.0F, 2.0F}, {0.0F, 0.0F, -1.0F}};
+  actor.sphere = {{1.0F, 2.0F, 3.0F}, 4.0F};
+  actor.plane = {{0.0F, 1.0F, 0.0F}, 0.0F};
 
   const caors::serialization::serialization_text_result text = caors::serialization::to_text(actor);
   REQUIRE(text.succeeded());
@@ -115,6 +138,9 @@ TEST_CASE("serialization - math codecs roundtrip registered object fields",
   CHECK(contains(output, R"("viewport":{"position":[10,20],"size":[800,600]})"));
   CHECK(contains(output, R"("bounds":{"min":[-1,-2,-3],"max":[1,2,3]})"));
   CHECK(contains(output, R"("transform":[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1])"));
+  CHECK(contains(output, R"("ray":{"origin":[0,1,2],"direction":[0,0,-1]})"));
+  CHECK(contains(output, R"("sphere":{"center":[1,2,3],"radius":4})"));
+  CHECK(contains(output, R"("plane":{"normal":[0,1,0],"distance":0})"));
 
   const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
@@ -137,4 +163,7 @@ TEST_CASE("serialization - math codecs roundtrip registered object fields",
   CHECK(caors::math::nearly_equal(decoded.viewport, actor.viewport));
   CHECK(caors::math::nearly_equal(decoded.bounds, actor.bounds));
   CHECK(caors::math::nearly_equal(decoded.transform, actor.transform));
+  CHECK(caors::math::nearly_equal(decoded.ray, actor.ray));
+  CHECK(caors::math::nearly_equal(decoded.sphere, actor.sphere));
+  CHECK(caors::math::nearly_equal(decoded.plane, actor.plane));
 }

@@ -56,10 +56,14 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 增加投影矩阵 helper：`look_at`、`perspective`、`orthographic`，底层通过
   `handedness` / `clip_depth` 模板参数表达 RH/LH 和 ZO/NO 约定，同时保留 `*_rh_zo`
   等便捷函数。
-- [x] 增加基础几何 helper：ray、sphere、plane、AABB 合并/扩展/相交和 sphere/plane 相交。
+- [x] 增加基础几何 helper：`ray_t<T>`、`sphere_t<T>`、`plane_t<T>`、AABB
+  合并/扩展/相交和 sphere/plane 相交，并提供 float/double 常用别名。
+- [x] 增加 math traits 底座，统一描述 CAORS 数学类型的标量、维度和成员访问，为后续 GLM/Eigen
+  等第三方 adapter 保留入口。
 - [x] 文档化 math 模块和 `meta::value` fast path 的关系：先稳定数学值类型，再基于 benchmark
   决定是否将 `vec2`、`vec3`、`vec4`、`quat` 等高频类型加入 tagged value 快路径。
-- [x] 增加基础 math benchmark，覆盖 `vec3`、`mat4`、`quat`、TRS 和投影矩阵纯 C++ 计算路径。
+- [x] 增加基础 math benchmark，覆盖 `vec3`、`mat4`、`quat`、TRS、投影矩阵、double/int
+  标量别名和 geometry 纯 C++ 计算路径。
 - [x] 为 math 类型补充 meta 注册 helper、serialization codec 和配置/资源示例。
 - [ ] 扩展 math benchmark，覆盖 meta 属性访问、方法参数传递和未来 `meta::value` fast path 候选路径。
 - [ ] 评估 `math::vec2`、`math::vec3`、`math::vec4`、`math::quat` 是否进入 `meta::value` fast path。

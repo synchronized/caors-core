@@ -184,6 +184,23 @@ template <typename T>
   return schema;
 }
 
+[[nodiscard]] inline const type_schema& ray_schema() {
+  static const type_schema schema =
+      make_type_schema({make_field("origin"), make_field("direction")});
+  return schema;
+}
+
+[[nodiscard]] inline const type_schema& sphere_schema() {
+  static const type_schema schema = make_type_schema({make_field("center"), make_field("radius")});
+  return schema;
+}
+
+[[nodiscard]] inline const type_schema& plane_schema() {
+  static const type_schema schema =
+      make_type_schema({make_field("normal"), make_field("distance")});
+  return schema;
+}
+
 } // namespace caors::serialization::math_codec_detail
 
 namespace caors::serialization {
@@ -526,6 +543,289 @@ template <typename T> struct codec_traits<math::aabb_t<T>> {
     members.reserve(2);
     members.push_back(meta::variant_member{string_name{"min"}, 0, std::move(min.value)});
     members.push_back(meta::variant_member{string_name{"max"}, 0, std::move(max.value)});
+    return {{}, variant::object(std::move(members))};
+  }
+};
+
+/** @brief `math::ray_t<T>` 按 `{ origin, direction }` 对象读写。 */
+template <typename T> struct codec_traits<math::ray_t<T>> {
+  static constexpr bool can_write = true;
+  static constexpr bool can_read = true;
+  static constexpr bool can_make_value = true;
+
+  [[nodiscard]] static error write(writer& writer, const math::ray_t<T>& value) {
+    const type_schema& schema = math_codec_detail::ray_schema();
+    error status = writer.begin_object(schema);
+    if (status) {
+      return status;
+    }
+
+    status = writer.begin_field(schema.fields[0]);
+    if (status) {
+      return status;
+    }
+    status = codec_traits<math::vec3_t<T>>::write(writer, value.origin);
+    if (status) {
+      return status;
+    }
+    status = writer.end_field();
+    if (status) {
+      return status;
+    }
+
+    status = writer.begin_field(schema.fields[1]);
+    if (status) {
+      return status;
+    }
+    status = codec_traits<math::vec3_t<T>>::write(writer, value.direction);
+    if (status) {
+      return status;
+    }
+    status = writer.end_field();
+    if (status) {
+      return status;
+    }
+
+    return writer.end_object();
+  }
+
+  [[nodiscard]] static error read(reader& reader, math::ray_t<T>& value) {
+    const type_schema& schema = math_codec_detail::ray_schema();
+    error status = reader.begin_object(schema);
+    if (status) {
+      return status;
+    }
+
+    status = reader.begin_field(schema.fields[0]);
+    if (status) {
+      return status;
+    }
+    status = codec_traits<math::vec3_t<T>>::read(reader, value.origin);
+    if (status) {
+      return status;
+    }
+    status = reader.end_field();
+    if (status) {
+      return status;
+    }
+
+    status = reader.begin_field(schema.fields[1]);
+    if (status) {
+      return status;
+    }
+    status = codec_traits<math::vec3_t<T>>::read(reader, value.direction);
+    if (status) {
+      return status;
+    }
+    status = reader.end_field();
+    if (status) {
+      return status;
+    }
+
+    return reader.end_object();
+  }
+
+  [[nodiscard]] static variant_result make_value(const math::ray_t<T>& value) {
+    variant_result origin = codec_traits<math::vec3_t<T>>::make_value(value.origin);
+    if (origin.failed()) {
+      return origin;
+    }
+    variant_result direction = codec_traits<math::vec3_t<T>>::make_value(value.direction);
+    if (direction.failed()) {
+      return direction;
+    }
+
+    variant::object_type members;
+    members.reserve(2);
+    members.push_back(meta::variant_member{string_name{"origin"}, 0, std::move(origin.value)});
+    members.push_back(
+        meta::variant_member{string_name{"direction"}, 0, std::move(direction.value)});
+    return {{}, variant::object(std::move(members))};
+  }
+};
+
+/** @brief `math::sphere_t<T>` 按 `{ center, radius }` 对象读写。 */
+template <typename T> struct codec_traits<math::sphere_t<T>> {
+  static constexpr bool can_write = true;
+  static constexpr bool can_read = true;
+  static constexpr bool can_make_value = true;
+
+  [[nodiscard]] static error write(writer& writer, const math::sphere_t<T>& value) {
+    const type_schema& schema = math_codec_detail::sphere_schema();
+    error status = writer.begin_object(schema);
+    if (status) {
+      return status;
+    }
+
+    status = writer.begin_field(schema.fields[0]);
+    if (status) {
+      return status;
+    }
+    status = codec_traits<math::vec3_t<T>>::write(writer, value.center);
+    if (status) {
+      return status;
+    }
+    status = writer.end_field();
+    if (status) {
+      return status;
+    }
+
+    status = writer.begin_field(schema.fields[1]);
+    if (status) {
+      return status;
+    }
+    status = math_codec_detail::write_scalar(writer, value.radius);
+    if (status) {
+      return status;
+    }
+    status = writer.end_field();
+    if (status) {
+      return status;
+    }
+
+    return writer.end_object();
+  }
+
+  [[nodiscard]] static error read(reader& reader, math::sphere_t<T>& value) {
+    const type_schema& schema = math_codec_detail::sphere_schema();
+    error status = reader.begin_object(schema);
+    if (status) {
+      return status;
+    }
+
+    status = reader.begin_field(schema.fields[0]);
+    if (status) {
+      return status;
+    }
+    status = codec_traits<math::vec3_t<T>>::read(reader, value.center);
+    if (status) {
+      return status;
+    }
+    status = reader.end_field();
+    if (status) {
+      return status;
+    }
+
+    status = reader.begin_field(schema.fields[1]);
+    if (status) {
+      return status;
+    }
+    status = math_codec_detail::read_scalar(reader, value.radius);
+    if (status) {
+      return status;
+    }
+    status = reader.end_field();
+    if (status) {
+      return status;
+    }
+
+    return reader.end_object();
+  }
+
+  [[nodiscard]] static variant_result make_value(const math::sphere_t<T>& value) {
+    variant_result center = codec_traits<math::vec3_t<T>>::make_value(value.center);
+    if (center.failed()) {
+      return center;
+    }
+
+    variant::object_type members;
+    members.reserve(2);
+    members.push_back(meta::variant_member{string_name{"center"}, 0, std::move(center.value)});
+    members.push_back(meta::variant_member{string_name{"radius"}, 0,
+                                           math_codec_detail::make_scalar_value(value.radius)});
+    return {{}, variant::object(std::move(members))};
+  }
+};
+
+/** @brief `math::plane_t<T>` 按 `{ normal, distance }` 对象读写。 */
+template <typename T> struct codec_traits<math::plane_t<T>> {
+  static constexpr bool can_write = true;
+  static constexpr bool can_read = true;
+  static constexpr bool can_make_value = true;
+
+  [[nodiscard]] static error write(writer& writer, const math::plane_t<T>& value) {
+    const type_schema& schema = math_codec_detail::plane_schema();
+    error status = writer.begin_object(schema);
+    if (status) {
+      return status;
+    }
+
+    status = writer.begin_field(schema.fields[0]);
+    if (status) {
+      return status;
+    }
+    status = codec_traits<math::vec3_t<T>>::write(writer, value.normal);
+    if (status) {
+      return status;
+    }
+    status = writer.end_field();
+    if (status) {
+      return status;
+    }
+
+    status = writer.begin_field(schema.fields[1]);
+    if (status) {
+      return status;
+    }
+    status = math_codec_detail::write_scalar(writer, value.distance);
+    if (status) {
+      return status;
+    }
+    status = writer.end_field();
+    if (status) {
+      return status;
+    }
+
+    return writer.end_object();
+  }
+
+  [[nodiscard]] static error read(reader& reader, math::plane_t<T>& value) {
+    const type_schema& schema = math_codec_detail::plane_schema();
+    error status = reader.begin_object(schema);
+    if (status) {
+      return status;
+    }
+
+    status = reader.begin_field(schema.fields[0]);
+    if (status) {
+      return status;
+    }
+    status = codec_traits<math::vec3_t<T>>::read(reader, value.normal);
+    if (status) {
+      return status;
+    }
+    status = reader.end_field();
+    if (status) {
+      return status;
+    }
+
+    status = reader.begin_field(schema.fields[1]);
+    if (status) {
+      return status;
+    }
+    status = math_codec_detail::read_scalar(reader, value.distance);
+    if (status) {
+      return status;
+    }
+    status = reader.end_field();
+    if (status) {
+      return status;
+    }
+
+    return reader.end_object();
+  }
+
+  [[nodiscard]] static variant_result make_value(const math::plane_t<T>& value) {
+    variant_result normal = codec_traits<math::vec3_t<T>>::make_value(value.normal);
+    if (normal.failed()) {
+      return normal;
+    }
+
+    variant::object_type members;
+    members.reserve(2);
+    members.push_back(meta::variant_member{string_name{"normal"}, 0, std::move(normal.value)});
+    members.push_back(meta::variant_member{string_name{"distance"}, 0,
+                                           math_codec_detail::make_scalar_value(value.distance)});
     return {{}, variant::object(std::move(members))};
   }
 };

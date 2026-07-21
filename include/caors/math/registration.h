@@ -20,6 +20,9 @@ inline constexpr std::string_view mat3_meta_name = "caors.math.mat3";
 inline constexpr std::string_view mat4_meta_name = "caors.math.mat4";
 inline constexpr std::string_view rect_meta_name = "caors.math.rect";
 inline constexpr std::string_view aabb_meta_name = "caors.math.aabb";
+inline constexpr std::string_view ray_meta_name = "caors.math.ray";
+inline constexpr std::string_view sphere_meta_name = "caors.math.sphere";
+inline constexpr std::string_view plane_meta_name = "caors.math.plane";
 
 template <typename T> inline constexpr std::string_view vec2_meta_name_of = "";
 template <typename T> inline constexpr std::string_view vec3_meta_name_of = "";
@@ -29,6 +32,9 @@ template <typename T> inline constexpr std::string_view mat3_meta_name_of = "";
 template <typename T> inline constexpr std::string_view mat4_meta_name_of = "";
 template <typename T> inline constexpr std::string_view rect_meta_name_of = "";
 template <typename T> inline constexpr std::string_view aabb_meta_name_of = "";
+template <typename T> inline constexpr std::string_view ray_meta_name_of = "";
+template <typename T> inline constexpr std::string_view sphere_meta_name_of = "";
+template <typename T> inline constexpr std::string_view plane_meta_name_of = "";
 
 template <> inline constexpr std::string_view vec2_meta_name_of<float> = vec2_meta_name;
 template <> inline constexpr std::string_view vec3_meta_name_of<float> = vec3_meta_name;
@@ -38,6 +44,9 @@ template <> inline constexpr std::string_view mat3_meta_name_of<float> = mat3_me
 template <> inline constexpr std::string_view mat4_meta_name_of<float> = mat4_meta_name;
 template <> inline constexpr std::string_view rect_meta_name_of<float> = rect_meta_name;
 template <> inline constexpr std::string_view aabb_meta_name_of<float> = aabb_meta_name;
+template <> inline constexpr std::string_view ray_meta_name_of<float> = ray_meta_name;
+template <> inline constexpr std::string_view sphere_meta_name_of<float> = sphere_meta_name;
+template <> inline constexpr std::string_view plane_meta_name_of<float> = plane_meta_name;
 
 template <> inline constexpr std::string_view vec2_meta_name_of<double> = "caors.math.dvec2";
 template <> inline constexpr std::string_view vec3_meta_name_of<double> = "caors.math.dvec3";
@@ -47,6 +56,9 @@ template <> inline constexpr std::string_view mat3_meta_name_of<double> = "caors
 template <> inline constexpr std::string_view mat4_meta_name_of<double> = "caors.math.dmat4";
 template <> inline constexpr std::string_view rect_meta_name_of<double> = "caors.math.drect";
 template <> inline constexpr std::string_view aabb_meta_name_of<double> = "caors.math.daabb";
+template <> inline constexpr std::string_view ray_meta_name_of<double> = "caors.math.dray";
+template <> inline constexpr std::string_view sphere_meta_name_of<double> = "caors.math.dsphere";
+template <> inline constexpr std::string_view plane_meta_name_of<double> = "caors.math.dplane";
 
 template <> inline constexpr std::string_view vec2_meta_name_of<std::int32_t> = "caors.math.ivec2";
 template <> inline constexpr std::string_view vec3_meta_name_of<std::int32_t> = "caors.math.ivec3";
@@ -167,6 +179,48 @@ template <typename T = float>
       .commit();
 }
 
+/** @brief 注册 `math::ray` 的 meta 类型和 `origin` / `direction` 属性。 */
+template <typename T = float>
+[[nodiscard]] inline error register_ray(std::string_view name = ray_meta_name_of<T>) {
+  if (meta::find<ray_t<T>>()) {
+    return {};
+  }
+
+  return registration::type_<ray_t<T>>(name)
+      .meta()
+      .property("origin", &ray_t<T>::origin)
+      .property("direction", &ray_t<T>::direction)
+      .commit();
+}
+
+/** @brief 注册 `math::sphere` 的 meta 类型和 `center` / `radius` 属性。 */
+template <typename T = float>
+[[nodiscard]] inline error register_sphere(std::string_view name = sphere_meta_name_of<T>) {
+  if (meta::find<sphere_t<T>>()) {
+    return {};
+  }
+
+  return registration::type_<sphere_t<T>>(name)
+      .meta()
+      .property("center", &sphere_t<T>::center)
+      .property("radius", &sphere_t<T>::radius)
+      .commit();
+}
+
+/** @brief 注册 `math::plane` 的 meta 类型和 `normal` / `distance` 属性。 */
+template <typename T = float>
+[[nodiscard]] inline error register_plane(std::string_view name = plane_meta_name_of<T>) {
+  if (meta::find<plane_t<T>>()) {
+    return {};
+  }
+
+  return registration::type_<plane_t<T>>(name)
+      .meta()
+      .property("normal", &plane_t<T>::normal)
+      .property("distance", &plane_t<T>::distance)
+      .commit();
+}
+
 /** @brief 注册当前内建数学值类型的 meta 类型。 */
 [[nodiscard]] inline error register_meta_types() {
   if (const error status = register_vec2(); status) {
@@ -190,7 +244,16 @@ template <typename T = float>
   if (const error status = register_rect(); status) {
     return status;
   }
-  return register_aabb();
+  if (const error status = register_aabb(); status) {
+    return status;
+  }
+  if (const error status = register_ray(); status) {
+    return status;
+  }
+  if (const error status = register_sphere(); status) {
+    return status;
+  }
+  return register_plane();
 }
 
 } // namespace caors::math

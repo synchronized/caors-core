@@ -12,6 +12,7 @@
 #include "caors/math/projection.h"
 #include "caors/math/quaternion.h"
 #include "caors/math/rect.h"
+#include "caors/math/traits.h"
 #include "caors/math/transform.h"
 #include "caors/math/vector.h"
 

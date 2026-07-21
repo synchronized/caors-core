@@ -17,8 +17,25 @@ namespace {
   return static_cast<std::uintptr_t>(positive * 1000000.0F);
 }
 
+[[nodiscard]] std::uintptr_t hash_double(double value) noexcept {
+  const double positive = value < 0.0 ? -value : value;
+  return static_cast<std::uintptr_t>(positive * 1000000.0);
+}
+
+[[nodiscard]] std::uintptr_t hash_integer(std::int32_t value) noexcept {
+  return static_cast<std::uintptr_t>(value < 0 ? -value : value);
+}
+
 void consume_vec3(caors::math::vec3 value) noexcept {
   consume(hash_float(value.x) ^ (hash_float(value.y) << 1U) ^ (hash_float(value.z) << 2U));
+}
+
+void consume_dvec3(caors::math::dvec3 value) noexcept {
+  consume(hash_double(value.x) ^ (hash_double(value.y) << 1U) ^ (hash_double(value.z) << 2U));
+}
+
+void consume_ivec3(caors::math::ivec3 value) noexcept {
+  consume(hash_integer(value.x) ^ (hash_integer(value.y) << 1U) ^ (hash_integer(value.z) << 2U));
 }
 
 void consume_vec4(caors::math::vec4 value) noexcept {
@@ -29,6 +46,11 @@ void consume_vec4(caors::math::vec4 value) noexcept {
 void consume_mat4(const caors::math::mat4& value) noexcept {
   consume(hash_float(value(0, 0)) ^ (hash_float(value(1, 1)) << 1U) ^
           (hash_float(value(2, 2)) << 2U) ^ (hash_float(value(3, 3)) << 3U));
+}
+
+void consume_dmat4(const caors::math::dmat4& value) noexcept {
+  consume(hash_double(value(0, 0)) ^ (hash_double(value(1, 1)) << 1U) ^
+          (hash_double(value(2, 2)) << 2U) ^ (hash_double(value(3, 3)) << 3U));
 }
 
 } // namespace
@@ -61,6 +83,38 @@ void benchmark_math(std::size_t iterations) {
       transform(0, 3) = static_cast<float>(index % 31U);
       accumulator = projection * transform;
       consume_mat4(accumulator);
+    }
+  }
+
+  {
+    CTRACK_NAME("math.dmat4.multiply");
+    caors::math::dmat4 transform =
+        caors::math::trs(caors::math::dvec3{10.0, 20.0, 30.0},
+                         caors::math::dquat::from_axis_angle(caors::math::dvec3{0.0, 1.0, 0.0},
+                                                             caors::math::radians(45.0)),
+                         caors::math::dvec3{2.0, 2.0, 2.0});
+    const caors::math::dmat4 projection =
+        caors::math::perspective<caors::math::handedness::right,
+                                 caors::math::clip_depth::zero_to_one>(caors::math::radians(60.0),
+                                                                       16.0 / 9.0, 0.1, 100.0);
+    caors::math::dmat4 accumulator = caors::math::dmat4::identity();
+    for (std::size_t index = 0; index < iterations; ++index) {
+      transform(0, 3) = static_cast<double>(index % 31U);
+      accumulator = projection * transform;
+      consume_dmat4(accumulator);
+    }
+  }
+
+  {
+    CTRACK_NAME("math.scalar_aliases");
+    caors::math::dvec3 precise_accumulator{};
+    caors::math::ivec3 integer_accumulator{};
+    for (std::size_t index = 0; index < iterations; ++index) {
+      precise_accumulator +=
+          caors::math::dvec3{1.0, 2.0, 3.0} * (static_cast<double>(index % 17U) * 0.001);
+      integer_accumulator += caors::math::ivec3{1, 2, 3};
+      consume_dvec3(precise_accumulator);
+      consume_ivec3(integer_accumulator);
     }
   }
 
@@ -112,6 +166,19 @@ void benchmark_math(std::size_t iterations) {
       accumulator =
           caors::math::perspective_rh_zo(caors::math::radians(60.0F), aspect, 0.1F, 100.0F);
       consume_mat4(accumulator);
+    }
+  }
+
+  {
+    CTRACK_NAME("math.geometry");
+    caors::math::sphere accumulator{{0.0F, 0.0F, 0.0F}, 1.0F};
+    const caors::math::plane ground = caors::math::plane::from_point_normal(
+        caors::math::vec3::zero(), caors::math::vec3{0.0F, 1.0F, 0.0F});
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const float step = static_cast<float>(index % 29U) * 0.01F;
+      accumulator.center = {step, step * 0.5F, step * 0.25F};
+      accumulator.radius = 1.0F + step;
+      consume(static_cast<std::uintptr_t>(caors::math::intersects(ground, accumulator)));
     }
   }
 }

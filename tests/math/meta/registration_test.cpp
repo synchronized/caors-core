@@ -52,12 +52,36 @@ TEST_CASE("math - meta registration helper registers built in math types", "[mat
   REQUIRE(mat4_type);
   CHECK(mat4_type.name() == "caors.math.mat4");
   CHECK(mat4_type.property_count() == 0);
+
+  const caors::meta::type ray_type = caors::meta::find<caors::math::ray>();
+  REQUIRE(ray_type);
+  CHECK(ray_type.name() == "caors.math.ray");
+  CHECK(ray_type.property_count() == 2);
+  CHECK(ray_type.find_property("origin").get_type().id() ==
+        caors::meta::id_of<caors::math::vec3>());
+  CHECK(ray_type.find_property("direction").get_type().id() ==
+        caors::meta::id_of<caors::math::vec3>());
+
+  const caors::meta::type sphere_type = caors::meta::find<caors::math::sphere>();
+  REQUIRE(sphere_type);
+  CHECK(sphere_type.find_property("center").get_type().id() ==
+        caors::meta::id_of<caors::math::vec3>());
+  CHECK(sphere_type.find_property("radius").get_type().name() == "float");
+
+  const caors::meta::type plane_type = caors::meta::find<caors::math::plane>();
+  REQUIRE(plane_type);
+  CHECK(plane_type.find_property("normal").get_type().id() ==
+        caors::meta::id_of<caors::math::vec3>());
+  CHECK(plane_type.find_property("distance").get_type().name() == "float");
 }
 
 TEST_CASE("math - meta registration helper supports scalar template aliases", "[math][meta]") {
   REQUIRE(caors::math::register_vec2<double>().succeeded());
   REQUIRE(caors::math::register_vec3<std::int32_t>().succeeded());
   REQUIRE(caors::math::register_rect<std::int32_t>().succeeded());
+  REQUIRE(caors::math::register_ray<double>().succeeded());
+  REQUIRE(caors::math::register_sphere<double>().succeeded());
+  REQUIRE(caors::math::register_plane<double>().succeeded());
 
   const caors::meta::type dvec2_type = caors::meta::find<caors::math::dvec2>();
   REQUIRE(dvec2_type);
@@ -73,4 +97,19 @@ TEST_CASE("math - meta registration helper supports scalar template aliases", "[
   REQUIRE(irect_type);
   CHECK(irect_type.name() == "caors.math.irect");
   CHECK(irect_type.property_count() == 2);
+
+  const caors::meta::type dray_type = caors::meta::find<caors::math::dray>();
+  REQUIRE(dray_type);
+  CHECK(dray_type.name() == "caors.math.dray");
+  CHECK(dray_type.property_count() == 2);
+
+  const caors::meta::type dsphere_type = caors::meta::find<caors::math::dsphere>();
+  REQUIRE(dsphere_type);
+  CHECK(dsphere_type.name() == "caors.math.dsphere");
+  CHECK(dsphere_type.property_count() == 2);
+
+  const caors::meta::type dplane_type = caors::meta::find<caors::math::dplane>();
+  REQUIRE(dplane_type);
+  CHECK(dplane_type.name() == "caors.math.dplane");
+  CHECK(dplane_type.property_count() == 2);
 }
