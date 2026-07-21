@@ -53,6 +53,10 @@ error deserialize(const serialization::context& context, const meta::type& type,
 
     if (schema->has_explicit_fields) {
       status = serialization::detail::read_configured_field(reader, object, field, nested_context);
+    } else if (nested_context.config.schema.missing_fields !=
+               serialization::missing_field_policy::reject) {
+      status =
+          serialization::detail::read_missing_tolerant_field(reader, object, field, nested_context);
     } else {
       status = serialization::detail::read_field(reader, object, field, nested_context);
     }

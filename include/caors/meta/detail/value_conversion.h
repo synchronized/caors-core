@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <limits>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <type_traits>
 
@@ -27,6 +28,7 @@ inline constexpr bool value_conversion_supported_v =
     std::is_floating_point_v<value_conversion_type<T>> ||
     std::is_same_v<value_conversion_type<T>, core::string_name> ||
     std::is_same_v<value_conversion_type<T>, core::string> ||
+    std::is_same_v<value_conversion_type<T>, std::string> ||
     std::is_same_v<value_conversion_type<T>, std::string_view> ||
     std::is_same_v<value_conversion_type<T>, meta::object*>;
 
@@ -69,6 +71,7 @@ template <typename Target>
   } else if constexpr (std::is_same_v<target_type, core::string_name>) {
     return source.is_string_name();
   } else if constexpr (std::is_same_v<target_type, core::string> ||
+                       std::is_same_v<target_type, std::string> ||
                        std::is_same_v<target_type, std::string_view>) {
     return source.is_text();
   } else if constexpr (std::is_same_v<target_type, meta::object*>) {
@@ -111,7 +114,8 @@ try_value_convert(const meta::value& source) {
     return static_cast<target_type>(*source.try_as_u64());
   } else if constexpr (std::is_same_v<target_type, core::string_name>) {
     return source.as_string_name();
-  } else if constexpr (std::is_same_v<target_type, core::string>) {
+  } else if constexpr (std::is_same_v<target_type, core::string> ||
+                       std::is_same_v<target_type, std::string>) {
     const std::optional<std::string_view> view = source.try_as_string_view();
     if (!view.has_value()) {
       return std::nullopt;
@@ -189,7 +193,7 @@ template <typename... Targets, typename Source>
   return try_make_value_from_known<
       bool, char, signed char, unsigned char, short, unsigned short, int, unsigned int, long,
       unsigned long, long long, unsigned long long, float, double, long double, core::string_name,
-      core::string, std::string_view, meta::object*>(source);
+      core::string, std::string, std::string_view, meta::object*>(source);
 }
 
 [[nodiscard]] inline std::optional<meta::value> try_make_value_from_any(const meta::any& source) {
@@ -200,7 +204,7 @@ template <typename... Targets, typename Source>
   return try_make_value_from_known<
       bool, char, signed char, unsigned char, short, unsigned short, int, unsigned int, long,
       unsigned long, long long, unsigned long long, float, double, long double, core::string_name,
-      core::string, std::string_view, meta::object*>(source);
+      core::string, std::string, std::string_view, meta::object*>(source);
 }
 
 } // namespace caors::meta::detail

@@ -13,6 +13,7 @@
 #include "caors/meta/value_ops.h"
 
 #include <optional>
+#include <string>
 #include <utility>
 
 namespace caors::meta {
@@ -46,7 +47,7 @@ namespace {
   if (detail::try_assign_value_to_known_ref<
           bool, char, signed char, unsigned char, short, unsigned short, int, unsigned int, long,
           unsigned long, long long, unsigned long long, float, double, long double,
-          core::string_name, core::string, meta::object*>(target, source)) {
+          core::string_name, core::string, std::string, meta::object*>(target, source)) {
     return true;
   }
 
@@ -110,7 +111,7 @@ template <typename... Targets>
   return try_make_exact_any_from_known<
       bool, char, signed char, unsigned char, short, unsigned short, int, unsigned int, long,
       unsigned long, long long, unsigned long long, float, double, long double, core::string_name,
-      core::string, std::string_view, meta::object*>(expected, source);
+      core::string, std::string, std::string_view, meta::object*>(expected, source);
 }
 
 } // namespace

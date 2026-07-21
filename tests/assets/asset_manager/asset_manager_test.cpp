@@ -188,6 +188,8 @@ struct external_source_factory_state {
   caors::io::memory_file_system* file_system = nullptr;
   caors::resources::file_source* source = nullptr;
   bool read_only = false;
+  int priority = 0;
+  std::string filter;
   std::string mount;
 };
 
@@ -201,31 +203,30 @@ struct external_file_system_factory_state {
 struct typed_external_source_config {
   std::string mount;
   bool read_only = false;
-  int priority = 1;
-  std::string filter = "nearest";
+  int priority = 0;
+  std::string filter;
 };
 
 void require_typed_external_source_config_metadata() {
-  namespace metadata = caors::serialization::config_metadata;
-
   REQUIRE(serialization_result_ok(
       caors::registration::type_<typed_external_source_config>(
           "caors.test.assets.typed_external_source_config")
           .meta()
           .property("mount", &typed_external_source_config::mount,
-                    caors::meta::registration::metadata(metadata::required(), true),
-                    caors::meta::registration::metadata(metadata::non_empty(), true))
+                    caors::meta::registration::required(), caors::meta::registration::non_empty())
           .property("read_only", &typed_external_source_config::read_only)
           .property("priority", &typed_external_source_config::priority,
-                    caors::meta::registration::metadata(metadata::range_min(), 1),
-                    caors::meta::registration::metadata(metadata::range_max(), 10))
+                    caors::meta::registration::range(1, 10),
+                    caors::meta::registration::default_value(3))
           .property("filter", &typed_external_source_config::filter,
-                    caors::meta::registration::metadata(
-                        metadata::one_of(),
-                        caors::meta::make_metadata_string_array(
-                            {std::string_view{"nearest"}, std::string_view{"linear"}})))
+                    caors::meta::registration::one_of(
+                        {std::string_view{"nearest"}, std::string_view{"linear"}}),
+                    caors::meta::registration::default_value("nearest"))
           .serialization()
           .commit()));
+  const caors::serialization::schema_view schema =
+      caors::serialization::find_schema(caors::meta::resolve<typed_external_source_config>());
+  REQUIRE(schema.field_count() == 4);
 }
 
 struct external_type_factory_state {
@@ -322,20 +323,17 @@ make_typed_external_memory_source(caors::assets::asset_manager::source_factory_c
   ++state.calls;
   state.resource = context.resource;
 
-  typed_external_source_config options;
-  caors::error status = caors::read_value_from(options, config.options);
-  if (status) {
-    return status;
+  caors::assets::typed_factory_options_result<typed_external_source_config> options =
+      caors::assets::read_typed_factory_options<typed_external_source_config>(config.options,
+                                                                              context.resource);
+  if (options.failed()) {
+    return options.status;
   }
 
-  caors::serialization::config_validation_result validation =
-      caors::serialization::validate_config(options, context.resource);
-  if (validation.failed()) {
-    return validation.status;
-  }
-
-  state.mount = options.mount;
-  state.read_only = options.read_only;
+  state.mount = options.value.mount;
+  state.read_only = options.value.read_only;
+  state.priority = options.value.priority;
+  state.filter = options.value.filter;
   state.file_system = context.manager.create_owned<caors::io::memory_file_system>(context.resource);
   if (state.file_system == nullptr) {
     return {caors::error_domain::resources, caors::errc::out_of_memory};
@@ -1014,6 +1012,8 @@ TEST_CASE("resources - asset_manager source factory can use typed options metada
   CHECK(state.calls == 1);
   CHECK(state.mount == "debug-assets");
   CHECK(state.read_only);
+  CHECK(state.priority == 5);
+  CHECK(state.filter == "linear");
   REQUIRE(state.source != nullptr);
   CHECK(assets.find_source(caors::string_name{"assets"}) == state.source);
 
@@ -1030,6 +1030,39 @@ TEST_CASE("resources - asset_manager source factory can use typed options metada
   CHECK(contains_reason(validation.diagnostics, "有效值"));
   CHECK(contains_reason(validation.diagnostics, "范围"));
   CHECK(contains_reason(validation.diagnostics, "允许值"));
+}
+
+TEST_CASE("resources - typed factory options apply defaults and reject unknown members",
+          "[resources]") {
+  require_typed_external_source_config_metadata();
+
+  caors::assets::project_config config;
+  REQUIRE(
+      caors::assets::json::load_project_config(
+          config,
+          R"({"sources":[{"name":"assets","type":"typed_external_memory","options":{"mount":"debug-assets","extra":true}}]})")
+          .succeeded());
+
+  external_source_factory_state state;
+  caors::assets::asset_manager assets;
+  REQUIRE(assets
+              .register_source_factory(caors::string_name{"typed_external_memory"},
+                                       &make_typed_external_memory_source, &state)
+              .succeeded());
+
+  caors::assets::asset_build_result result = assets.build_detailed(config);
+  CHECK(result.status ==
+        caors::error{caors::error_domain::serialization, caors::errc::invalid_field});
+  CHECK(result.stage == caors::assets::asset_build_stage::source);
+  CHECK(state.calls == 1);
+
+  config.sources[0].options.mutable_object().pop_back();
+  state = {};
+  REQUIRE(assets.build(config).succeeded());
+  CHECK(state.calls == 1);
+  CHECK(state.mount == "debug-assets");
+  CHECK(state.priority == 3);
+  CHECK(state.filter == "nearest");
 }
 
 TEST_CASE("resources - asset_manager validates source factory option schema", "[resources]") {

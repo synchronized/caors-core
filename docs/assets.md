@@ -316,39 +316,43 @@ bool readonly = false;
 (void)options.read(caors::string_name{"read_only"}, readonly);
 ```
 
-复杂配置推荐先反序列化到 typed config，再用反射属性 metadata 做校验。这样可以复用序列化系统，
+复杂配置推荐先反序列化到 typed config，再用反射属性 schema 做校验。这样可以复用序列化系统，
 并把工厂内部的配置读取收敛到一个结构体上：
 
 ```cpp
 struct texture_options {
   std::string format;
-  int priority = 1;
+  int priority = 0;
 };
-
-namespace metadata = caors::serialization::config_metadata;
 
 caors::registration::type_<texture_options>("game.texture_options")
     .meta()
     .property("format", &texture_options::format,
-              caors::meta::registration::metadata(metadata::required(), true),
-              caors::meta::registration::metadata(metadata::non_empty(), true),
-              caors::meta::registration::metadata(
-                  metadata::one_of(),
-                  caors::meta::make_metadata_string_array({"json", "binary"})))
+              caors::meta::registration::required(),
+              caors::meta::registration::non_empty(),
+              caors::meta::registration::one_of({"json", "binary"}),
+              caors::meta::registration::default_value("json"))
     .property("priority", &texture_options::priority,
-              caors::meta::registration::metadata(metadata::range_min(), 1),
-              caors::meta::registration::metadata(metadata::range_max(), 100))
+              caors::meta::registration::range(1, 100),
+              caors::meta::registration::default_value(1))
     .serialization()
     .commit();
 
-texture_options options;
-caors::error read_status = caors::read_value_from(options, config.options);
-caors::serialization::config_validation_result validation =
-    caors::serialization::validate_config(options);
+auto options =
+    caors::assets::read_typed_factory_options<texture_options>(config.options, context.resource);
+if (!options) {
+  return options.status;
+}
+
+// options.value 已经完成默认值、DOM 覆盖和 validate_config()。
 ```
 
-`factory_option_schema` 仍适合简单、无需结构体绑定的插件入口；typed config + metadata 更适合
-复杂配置、工具面板和后续 schema metadata 扩展。
+`read_typed_factory_options<T>()` 默认拒绝未知字段，避免配置拼写错误被静默忽略；需要兼容旧配置时可传入
+`unknown_field_policy::ignore` 或配合序列化 schema migration 先改写 DOM。`factory_option_schema`
+仍适合简单、无需结构体绑定的插件入口；typed config + property schema 更适合复杂配置、工具面板和后续
+schema metadata 扩展。
+typed factory options 按“先应用默认值、再用输入局部覆盖”的配置语义处理缺失字段；普通对象反序列化仍默认要求
+输入包含完整字段。
 
 ## JSON 适配
 

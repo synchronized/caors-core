@@ -143,9 +143,49 @@ enum class unknown_field_policy {
   reject,
 };
 
+/** @brief 读入对象时遇到 schema 已声明但输入缺失字段的处理策略。 */
+enum class missing_field_policy {
+  /** @brief 缺失字段返回 `errc::not_found`，保持普通反序列化默认行为。 */
+  reject,
+  /** @brief 缺失字段保留目标对象当前值，适合配置对象先应用默认值再局部覆盖。 */
+  keep_existing,
+  /** @brief 缺失字段优先写入 `meta::property_schema::default_value`，没有默认值时保留当前值。 */
+  apply_default,
+};
+
+/** @brief schema 迁移函数收到的上下文信息。 */
+struct schema_migration_request {
+  /** @brief 目标 C++ 类型。 */
+  meta::type type{};
+  /** @brief 输入数据声明的 schema version；0 表示调用方未声明。 */
+  std::uint32_t source_version = 0;
+  /** @brief 本次读入希望使用的目标 schema version；0 表示不启用版本过滤。 */
+  std::uint32_t target_version = 0;
+};
+
+/** @brief DOM 读入前的 schema 迁移函数表。 */
+struct schema_migration_ops {
+  using migrate_fn = error (*)(const schema_migration_request& request, variant& value,
+                               void* user_data);
+
+  migrate_fn migrate = nullptr;
+  void* user_data = nullptr;
+
+  [[nodiscard]] constexpr bool valid() const noexcept { return migrate != nullptr; }
+
+  [[nodiscard]] error operator()(const schema_migration_request& request, variant& value) const {
+    return migrate != nullptr ? migrate(request, value, user_data) : error{};
+  }
+};
+
 /** @brief schema 兼容性相关的序列化语义选项。 */
 struct schema_options {
   unknown_field_policy unknown_fields = unknown_field_policy::ignore;
+  missing_field_policy missing_fields = missing_field_policy::reject;
+  /** @brief 输入数据声明的 schema version；用于迁移函数判断来源版本。 */
+  std::uint32_t source_version = 0;
+  /** @brief 可选 DOM 迁移函数；只在 DOM 读入或 JSON 需要先解析为 DOM 时调用。 */
+  const schema_migration_ops* migration = nullptr;
 };
 
 /**
@@ -263,6 +303,15 @@ struct context {
 
   [[nodiscard]] std::uint32_t effective_schema_version() const noexcept {
     return config.fields.schema_version;
+  }
+
+  [[nodiscard]] std::uint32_t effective_schema_source_version() const noexcept {
+    return config.schema.source_version;
+  }
+
+  [[nodiscard]] const serialization::schema_migration_ops*
+  effective_schema_migration() const noexcept {
+    return config.schema.migration;
   }
 
   [[nodiscard]] const serialization::external_ref_resolver_ops*

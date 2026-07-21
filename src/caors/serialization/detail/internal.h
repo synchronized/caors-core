@@ -57,6 +57,9 @@ serialized_field_name(const serialization::field_schema& data) noexcept;
 [[nodiscard]] error read_configured_field(reader& reader, void* object,
                                           const serialization::field_schema& field_schema,
                                           const serialization::context& context);
+[[nodiscard]] error read_missing_tolerant_field(reader& reader, void* object,
+                                                const serialization::field_schema& field_schema,
+                                                const serialization::context& context);
 
 } // namespace caors::serialization::detail
 

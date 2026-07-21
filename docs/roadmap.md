@@ -331,7 +331,10 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 扩展普通类多态 envelope 的 reader 抽象，使自定义流式 reader 也能提供 type/value envelope
   读入能力；DOM/JSON reader 通过内置 hook 接入，自定义 reader 可不暴露 `current_variant()`。
 - [x] 设计 schema 策略第一版，支持字段旧名 / 旧 id 读入、未知字段忽略、保留和严格拒绝。
-- [ ] 扩展完整版本迁移、默认值恢复、字段删除转换和未知字段按对象树位置保留策略。
+- [x] 增加 schema migration hook，支持在 DOM 反序列化前按源版本、目标版本和目标类型改写输入数据。
+- [x] 支持显式序列化字段缺失时从 `meta::property_schema::default_value` 恢复默认值。
+- [x] 增加缺失字段策略，允许 typed config 等配置读入路径采用“保留已有默认值后局部覆盖”的语义。
+- [ ] 扩展未知字段按对象树位置保留、跨对象迁移调度和更完整的字段删除转换策略。
 - [ ] 设计弱引用序列化策略，默认继续不展开 `std::weak_ptr<T>` / `objects::weak_ref<T>`，
   提供基于 `objects::handle`、`resource_guid` 或自定义 resolver 的显式弱引用策略。
 - [ ] 增加紧凑二进制和 msgpack 等二进制后端。
@@ -391,8 +394,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 为资源配置 source/type factory 增加轻量 options schema，支持必填字段、字段值形态、非空、范围、
   允许值和未知字段策略校验，并通过 `factory_options_view` 简化 factory 内部读取。
 - [x] 扩展 `asset_manager::build_detailed()` 的 options 诊断，支持同一 options 对象一次收集多条 schema 错误。
-- [x] 增加 typed factory options 示例路径：配置 `variant` 先反序列化为结构体，再通过
-  `serialization::validate_config()` 和字段 metadata 完成校验。
+- [x] 增加 typed factory options helper：配置 `variant` 先应用属性默认值，再反序列化为结构体，
+  最后通过 `serialization::validate_config()` 和 `meta::property_schema` 完成校验。
 - [x] 继续收敛资源公开主入口，以 `assets::asset_manager` / 运行期 builder 作为用户优先入口，
   `database`、`provider`、`cache<T>` 和 `loader<T>` 作为高级组合入口。
 - [x] 支持 `resources::provider` 通过可写 source 按 GUID 写回字节，为后续 saver 和热更新回写提供基础。

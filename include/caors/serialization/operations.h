@@ -170,9 +170,24 @@ schema_member_matches_field(const meta::variant_member& member,
   return {};
 }
 
+[[nodiscard]] inline error apply_schema_migration(const serialization::context& context,
+                                                  const meta::type& type, variant& value) {
+  const serialization::schema_migration_ops* migration = context.effective_schema_migration();
+  if (migration == nullptr || !migration->valid()) {
+    return {};
+  }
+
+  const serialization::schema_migration_request request{
+      type,
+      context.effective_schema_source_version(),
+      context.effective_schema_version(),
+  };
+  return (*migration)(request, value);
+}
+
 template <typename T>
-[[nodiscard]] error read_dom_value_from(const serialization::context& context, T& object,
-                                        const variant& value) {
+[[nodiscard]] error read_migrated_dom_value_from(const serialization::context& context, T& object,
+                                                 const variant& value) {
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (std::is_base_of_v<objects::object, value_type>) {
     if (detail::is_polymorphic_value(context, value)) {
@@ -206,11 +221,41 @@ template <typename T>
 }
 
 template <typename T>
+[[nodiscard]] error read_dom_value_from(const serialization::context& context, T& object,
+                                        const variant& value) {
+  const serialization::schema_migration_ops* migration = context.effective_schema_migration();
+  if (migration == nullptr || !migration->valid()) {
+    return read_migrated_dom_value_from(context, object, value);
+  }
+
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  const meta::type type = caors::meta::find<value_type>();
+  if (!type.registered()) {
+    return {error_domain::serialization, errc::missing_type};
+  }
+
+  const meta::type meta_type = meta::find(type.id());
+  if (!meta_type) {
+    return {error_domain::serialization, errc::not_found};
+  }
+
+  variant migrated = value;
+  if (const error status = apply_schema_migration(context, meta_type, migrated); status) {
+    return status;
+  }
+
+  return read_migrated_dom_value_from(context, object, migrated);
+}
+
+template <typename T>
 [[nodiscard]] error read_json_text_from(const serialization::context& context, T& object,
                                         std::string_view text, json_options options) {
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
 
-  if (context.config.schema.unknown_fields != unknown_field_policy::ignore) {
+  const serialization::schema_migration_ops* migration = context.effective_schema_migration();
+  if (context.config.schema.unknown_fields != unknown_field_policy::ignore ||
+      context.config.schema.missing_fields != missing_field_policy::reject ||
+      (migration != nullptr && migration->valid())) {
     variant_result value = parse_json(text, options);
     if (value.failed()) {
       return value.status;

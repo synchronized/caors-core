@@ -10,6 +10,7 @@
 #include "caors/memory/tracking.h"
 #include "caors/serialization/config_validation.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <string_view>
 #include <utility>
@@ -26,6 +27,17 @@ struct schema_config_actor {
 struct schema_policy_actor {
   int id = 0;
   int score = 0;
+};
+
+struct schema_default_actor {
+  caors::string format{};
+  int priority = 0;
+};
+
+struct schema_partial_actor {
+  caors::string format{};
+  int priority = 5;
+  bool enabled = true;
 };
 
 void require_schema_config_actor_metadata() {
@@ -58,6 +70,65 @@ void require_schema_policy_actor_metadata() {
                                      .serialization()
                                      .fields({id, score})
                                      .commit()));
+}
+
+void require_schema_default_actor_metadata() {
+  caors::serialization::field_options format = caors::serialization::make_field("format");
+  caors::serialization::field_options priority = caors::serialization::make_field("priority");
+
+  REQUIRE(registration_result_ok(caors::registration::type_<schema_default_actor>(
+                                     "caors.test.serialization.schema_default_actor")
+                                     .meta()
+                                     .property("format", &schema_default_actor::format,
+                                               caors::meta::registration::default_value("json"))
+                                     .property("priority", &schema_default_actor::priority,
+                                               caors::meta::registration::default_value(5))
+                                     .serialization()
+                                     .fields({format, priority})
+                                     .commit()));
+}
+
+void require_schema_partial_actor_metadata() {
+  REQUIRE(registration_result_ok(caors::registration::type_<schema_partial_actor>(
+                                     "caors.test.serialization.schema_partial_actor")
+                                     .meta()
+                                     .property("format", &schema_partial_actor::format)
+                                     .property("priority", &schema_partial_actor::priority)
+                                     .property("enabled", &schema_partial_actor::enabled)
+                                     .serialization()
+                                     .commit()));
+}
+
+[[nodiscard]] caors::error
+migrate_schema_policy_actor(const caors::serialization::schema_migration_request& request,
+                            caors::variant& value, void*) {
+  if (request.source_version != 1 || request.target_version != 2) {
+    return {caors::error_domain::serialization, caors::errc::unsupported};
+  }
+
+  caors::variant::object_type* members = value.try_mutable_object();
+  if (members == nullptr) {
+    return {};
+  }
+
+  const caors::variant* legacy_score =
+      value.find_member_variant(caors::string_name{"legacy_score"});
+  if (legacy_score != nullptr &&
+      value.find_member_variant(caors::string_name{"score"}) == nullptr) {
+    members->push_back(caors::meta::variant_member{
+        caors::string_name{"score"},
+        7,
+        *legacy_score,
+    });
+  }
+
+  members->erase(std::remove_if(members->begin(), members->end(),
+                                [](const caors::meta::variant_member& member) {
+                                  return member.name == caors::string_name{"legacy_score"} ||
+                                         member.name == caors::string_name{"removed"};
+                                }),
+                 members->end());
+  return {};
 }
 
 } // namespace
@@ -669,6 +740,74 @@ TEST_CASE("serialization - json reader accepts legacy field names", "[serializat
   REQUIRE(result.succeeded());
   CHECK(actor.id == 8);
   CHECK(actor.score == 64);
+}
+
+TEST_CASE("serialization - explicit schema applies property defaults for missing fields",
+          "[serialization]") {
+  require_schema_default_actor_metadata();
+
+  schema_default_actor actor{};
+  const caors::error result = caors::read_value_from(actor, caors::variant::object({}));
+
+  REQUIRE(result.succeeded());
+  CHECK(actor.format == "json");
+  CHECK(actor.priority == 5);
+}
+
+TEST_CASE("serialization - schema migration can rewrite DOM before strict unknown checks",
+          "[serialization]") {
+  require_schema_policy_actor_metadata();
+
+  caors::variant::object_type members;
+  members.push_back(caors::meta::variant_member{
+      caors::string_name{"id"},
+      1,
+      caors::variant::from(std::int64_t{9}),
+  });
+  members.push_back(caors::meta::variant_member{
+      caors::string_name{"legacy_score"},
+      0,
+      caors::variant::from(std::int64_t{77}),
+  });
+  members.push_back(caors::meta::variant_member{
+      caors::string_name{"removed"},
+      0,
+      caors::variant::from(std::int64_t{123}),
+  });
+
+  caors::serialization::schema_migration_ops migration{&migrate_schema_policy_actor};
+  caors::serialization::context context{};
+  context.config.fields.schema_version = 2;
+  context.config.schema.source_version = 1;
+  context.config.schema.migration = &migration;
+  context.config.schema.unknown_fields = caors::serialization::unknown_field_policy::reject;
+
+  schema_policy_actor actor{};
+  const caors::error result =
+      caors::read_value_from(context, actor, caors::variant::object(std::move(members)));
+
+  REQUIRE(result.succeeded());
+  CHECK(actor.id == 9);
+  CHECK(actor.score == 77);
+}
+
+TEST_CASE("serialization - json text can keep existing values for missing auto schema fields",
+          "[serialization]") {
+  require_schema_partial_actor_metadata();
+
+  caors::serialization::context context{};
+  context.config.schema.missing_fields = caors::serialization::missing_field_policy::keep_existing;
+
+  schema_partial_actor actor{};
+  actor.priority = 9;
+  actor.enabled = false;
+
+  const caors::error result = caors::read_json_from(context, actor, R"({"format":"json"})");
+
+  REQUIRE(result.succeeded());
+  CHECK(actor.format == "json");
+  CHECK(actor.priority == 9);
+  CHECK_FALSE(actor.enabled);
 }
 
 // 原测试文件：serialization_reader_variant_reader_reports_missing_fields_test.cpp

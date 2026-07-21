@@ -24,6 +24,54 @@ namespace {
   return ops != nullptr && ops->read != nullptr;
 }
 
+[[nodiscard]] bool metadata_to_value(const meta::metadata_value& source, meta::value& target) {
+  if (source.is_null()) {
+    target = meta::value::null();
+    return true;
+  }
+  if (const bool* value = source.try_as_bool()) {
+    target = meta::value{*value};
+    return true;
+  }
+  if (const std::int64_t* value = source.try_as_i64()) {
+    target = meta::value{*value};
+    return true;
+  }
+  if (const std::uint64_t* value = source.try_as_u64()) {
+    target = meta::value{*value};
+    return true;
+  }
+  if (const double* value = source.try_as_f64()) {
+    target = meta::value{*value};
+    return true;
+  }
+  if (const core::string* value = source.try_as_string()) {
+    target = meta::value{*value};
+    return true;
+  }
+
+  return false;
+}
+
+[[nodiscard]] error apply_field_default(const serialization::field_schema& field_schema,
+                                        void* object) {
+  const meta::property& field = field_schema.property;
+  const meta::metadata_value* default_value = field.schema().default_value_ptr();
+  if (default_value == nullptr) {
+    return {};
+  }
+
+  meta::value value{};
+  if (!metadata_to_value(*default_value, value)) {
+    return {error_domain::serialization, errc::unsupported};
+  }
+
+  const meta::instance instance{meta::any_ref::from_raw(field_schema.owner_type, object, true)};
+  return field.try_set_value(instance, value)
+             ? error{}
+             : error{error_domain::serialization, errc::invalid_field};
+}
+
 [[nodiscard]] variant_result make_value_with_codec_ops(const serialization::codec_ops* ops,
                                                        const serialization::context& context,
                                                        const any_ref& value) {
@@ -490,7 +538,27 @@ error read_configured_field(reader& reader, void* object,
                             const serialization::context& context) {
   const error status = read_field(reader, object, field_schema, context);
   if (status.value() == errc::not_found && !field_schema.required) {
+    return apply_field_default(field_schema, object);
+  }
+
+  return status;
+}
+
+error read_missing_tolerant_field(reader& reader, void* object,
+                                  const serialization::field_schema& field_schema,
+                                  const serialization::context& context) {
+  const error status = read_field(reader, object, field_schema, context);
+  if (status.value() != errc::not_found) {
+    return status;
+  }
+
+  switch (context.config.schema.missing_fields) {
+  case serialization::missing_field_policy::reject:
+    return status;
+  case serialization::missing_field_policy::keep_existing:
     return {};
+  case serialization::missing_field_policy::apply_default:
+    return apply_field_default(field_schema, object);
   }
 
   return status;

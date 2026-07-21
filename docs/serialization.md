@@ -532,10 +532,16 @@ caors::error status = caors::read_value_from(instance, *value);
 
 反序列化缺失字段策略：
 
-- 显式配置字段且 `required == false` 时，缺失字段会被跳过，目标对象保留已有值。
+- 显式配置字段且 `required == false` 时，缺失字段会被跳过；如果对应 `meta::property_schema`
+  配置了 `default_value`，读入时会写入默认值，否则目标对象保留已有值。
 - 显式配置字段且 `required == true` 时，缺失字段返回 `errc::not_found`。
 - 未显式配置字段时，反序列化按全部反射字段读入，缺失字段返回 `errc::not_found`。
 - DOM 中存在但未被目标类型声明的未知字段默认忽略。
+
+普通反序列化默认要求输入完整。配置对象等“先有默认值、再用输入局部覆盖”的场景，可以把
+`context.config.schema.missing_fields` 设置为 `missing_field_policy::keep_existing` 或
+`missing_field_policy::apply_default`。`assets::read_typed_factory_options<T>()` 默认使用
+`keep_existing`，因此会保留 `apply_config_defaults()` 和结构体成员初始化得到的值。
 
 未知字段策略通过 `context.config.schema.unknown_fields` 指定：
 
@@ -546,8 +552,32 @@ caors::error status = caors::read_value_from(instance, *value);
 
 字段重命名的第一版策略是给字段配置 `legacy_serialized_name` 或 `legacy_field_id`。读入时接受旧字段，
 写出时只输出当前字段名和当前字段 id。属性级通用 schema 默认值可通过
-`serialization::apply_config_defaults(config)` 显式恢复。更完整的版本迁移、字段删除转换、
-未知字段按对象树位置保留和跨格式迁移策略仍放在路线图中。
+`serialization::apply_config_defaults(config)` 显式恢复；显式序列化字段缺失时也会使用属性
+`default_value` 自动补齐。
+
+需要处理字段删除、复杂重命名或旧数据结构转换时，可以在 context 上挂 DOM 迁移函数：
+
+```cpp
+caors::serialization::schema_migration_ops migration{
+    [](const caors::serialization::schema_migration_request& request,
+       caors::variant& value,
+       void* user_data) -> caors::error {
+      // 根据 request.type / source_version / target_version 改写 value。
+      return {};
+    }};
+
+caors::serialization::context context;
+context.config.schema.source_version = 1;
+context.config.fields.schema_version = 2;
+context.config.schema.migration = &migration;
+context.config.schema.unknown_fields = caors::serialization::unknown_field_policy::reject;
+
+caors::read_value_from(context, object, value);
+```
+
+迁移函数只在 DOM 路径生效。`read_json_from(text)` 默认仍走直接 JSON reader；当启用 migration、
+缺失字段宽松策略或未知字段保留/严格拒绝时，会先解析为 DOM，再应用迁移、缺失字段和未知字段策略。
+未知字段按对象树位置保留、跨对象统一迁移调度和更完整的字段删除转换仍放在路线图中。
 
 ### JSON
 
@@ -878,8 +908,8 @@ caors::registration::type_<texture_config>("game.texture_config")
     .commit();
 
 texture_config config;
-caors::read_value_from(config, options_value);
 caors::serialization::apply_config_defaults(config);
+caors::read_value_from(config, options_value);
 caors::serialization::config_validation_result result =
     caors::serialization::validate_config(config);
 ```
@@ -1059,8 +1089,9 @@ template <> struct codec_traits<custom_value> {
   `errc::invalid_type`。处于无值状态的 variant 当前返回不支持。
 - 直接值字段仍按字段声明静态类型处理；运行期动态类型记录发生在 `objects::object`
   声明类型和真实类型不一致时，以及拥有型智能指针 wrapper envelope 上。
-- JSON 文本 reader 已支持按字段直接读入；当启用未知字段保留或严格拒绝时会先走 DOM parser 以便检查完整对象成员。
-  输入流 / 文件系统便捷读入仍走 DOM parser。二进制格式、完整版本迁移和未知字段按对象树位置保留尚未实现。
+- JSON 文本 reader 已支持按字段直接读入；当启用 schema migration、缺失字段宽松策略、未知字段保留或严格拒绝时会先走
+  DOM parser，以便检查、跳过或改写完整对象成员。输入流 / 文件系统便捷读入仍走 DOM parser。二进制格式、跨对象迁移调度
+  和未知字段按对象树位置保留尚未实现。
 
 ### caors::variant
 

@@ -7,12 +7,15 @@
 #include "caors/core/containers.h"
 #include "caors/core/string_name.h"
 #include "caors/meta/value/variant.h"
+#include "caors/serialization/config_validation.h"
+#include "caors/serialization/operations.h"
 
 #include <cstdint>
 #include <initializer_list>
 #include <limits>
 #include <string>
 #include <string_view>
+#include <type_traits>
 
 namespace caors::assets {
 
@@ -300,6 +303,59 @@ public:
 private:
   const variant* options_ = nullptr;
 };
+
+/** @brief typed factory options 读入和校验结果。 */
+template <typename Options> struct typed_factory_options_result {
+  explicit typed_factory_options_result(memory_resource* resource = nullptr)
+      : validation(resource) {}
+
+  error status{};
+  Options value{};
+  serialization::config_validation_result validation;
+
+  [[nodiscard]] bool succeeded() const noexcept { return !status; }
+  [[nodiscard]] bool failed() const noexcept { return status.failed(); }
+  [[nodiscard]] explicit operator bool() const noexcept { return succeeded(); }
+};
+
+/**
+ * @brief 把 factory `options` DOM 读入强类型配置对象，并执行通用配置 schema 校验。
+ *
+ * 该 helper 面向复杂 source/type factory。它先应用 `meta::property_schema` 默认值，
+ * 再用 `read_value_from()` 把 DOM 覆盖到结构体，最后调用 `validate_config()`。
+ * 默认拒绝 schema 未声明字段，避免插件配置里出现拼写错误后被静默忽略。
+ */
+template <typename Options>
+[[nodiscard]] typed_factory_options_result<Options>
+read_typed_factory_options(const variant& options, memory_resource* resource = nullptr,
+                           serialization::unknown_field_policy unknown_fields =
+                               serialization::unknown_field_policy::reject) {
+  static_assert(std::is_default_constructible_v<Options>,
+                "Typed factory options must be default constructible");
+
+  typed_factory_options_result<Options> result{resource};
+
+  result.status = serialization::apply_config_defaults(result.value, resource);
+  if (result.status) {
+    return result;
+  }
+
+  if (!options.is_null()) {
+    serialization::context context{};
+    context.config.schema.unknown_fields = unknown_fields;
+    context.config.schema.missing_fields = serialization::missing_field_policy::keep_existing;
+    result.status = serialization::read_value_from(context, result.value, options);
+    if (result.status) {
+      return result;
+    }
+  }
+
+  result.validation = serialization::validate_config(result.value, resource);
+  if (result.validation.failed()) {
+    result.status = result.validation.status;
+  }
+  return result;
+}
 
 } // namespace caors::assets
 
