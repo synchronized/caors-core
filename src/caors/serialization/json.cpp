@@ -4,12 +4,28 @@
 #include "caors/serialization/operations.h"
 #include "detail/internal.h"
 
+#include <array>
+#include <charconv>
 #include <cmath>
 #include <cstddef>
 #include <sstream>
 #include <string_view>
+#include <system_error>
 
 namespace caors::serialization {
+namespace {
+
+[[nodiscard]] bool needs_json_escape(std::string_view value) noexcept {
+  for (const unsigned char character : value) {
+    if (character == '"' || character == '\\' || character < 0x20U) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+} // namespace
 
 serialization::json_writer::json_writer() noexcept : text_(&owned_text_) {}
 
@@ -182,7 +198,14 @@ error serialization::json_writer::write_i64(std::int64_t value) {
     return status;
   }
 
-  status = write_text(std::to_string(value));
+  std::array<char, 32> buffer{};
+  const auto result = std::to_chars(buffer.data(), buffer.data() + buffer.size(), value);
+  if (result.ec != std::errc{}) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  status = write_text(
+      std::string_view{buffer.data(), static_cast<std::size_t>(result.ptr - buffer.data())});
   if (status) {
     return status;
   }
@@ -196,7 +219,14 @@ error serialization::json_writer::write_u64(std::uint64_t value) {
     return status;
   }
 
-  status = write_text(std::to_string(value));
+  std::array<char, 32> buffer{};
+  const auto result = std::to_chars(buffer.data(), buffer.data() + buffer.size(), value);
+  if (result.ec != std::errc{}) {
+    return {error_domain::serialization, errc::invalid_argument};
+  }
+
+  status = write_text(
+      std::string_view{buffer.data(), static_cast<std::size_t>(result.ptr - buffer.data())});
   if (status) {
     return status;
   }
@@ -214,9 +244,17 @@ error serialization::json_writer::write_f64(double value) {
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  std::ostringstream output;
-  output << value;
-  status = write_text(output.str());
+  std::array<char, 64> buffer{};
+  const auto result = std::to_chars(buffer.data(), buffer.data() + buffer.size(), value,
+                                    std::chars_format::general, 6);
+  if (result.ec == std::errc{}) {
+    status = write_text(
+        std::string_view{buffer.data(), static_cast<std::size_t>(result.ptr - buffer.data())});
+  } else {
+    std::ostringstream output;
+    output << value;
+    status = write_text(output.str());
+  }
   if (status) {
     return status;
   }
@@ -366,47 +404,76 @@ error serialization::json_writer::write_json_string(std::string_view value) {
     return status;
   }
 
+  if (!needs_json_escape(value)) {
+    status = write_text(value);
+    if (status) {
+      return status;
+    }
+    return write_char('"');
+  }
+
   constexpr char digits[] = "0123456789abcdef";
-  for (const unsigned char character : value) {
+  std::size_t segment_begin = 0;
+  for (std::size_t index = 0; index < value.size(); ++index) {
+    const auto character = static_cast<unsigned char>(value[index]);
+    std::string_view escaped{};
+    char unicode_escape[6]{};
+
     switch (character) {
     case '"':
-      status = write_text("\\\"");
+      escaped = "\\\"";
       break;
     case '\\':
-      status = write_text("\\\\");
+      escaped = "\\\\";
       break;
     case '\b':
-      status = write_text("\\b");
+      escaped = "\\b";
       break;
     case '\f':
-      status = write_text("\\f");
+      escaped = "\\f";
       break;
     case '\n':
-      status = write_text("\\n");
+      escaped = "\\n";
       break;
     case '\r':
-      status = write_text("\\r");
+      escaped = "\\r";
       break;
     case '\t':
-      status = write_text("\\t");
+      escaped = "\\t";
       break;
     default:
       if (character < 0x20U) {
-        const char escaped[] = {
-            '\\',
-            'u',
-            digits[(character >> 12U) & 0x0FU],
-            digits[(character >> 8U) & 0x0FU],
-            digits[(character >> 4U) & 0x0FU],
-            digits[character & 0x0FU],
-        };
-        status = write_text(std::string_view{escaped, sizeof(escaped)});
-      } else {
-        status = write_char(static_cast<char>(character));
+        unicode_escape[0] = '\\';
+        unicode_escape[1] = 'u';
+        unicode_escape[2] = digits[(character >> 12U) & 0x0FU];
+        unicode_escape[3] = digits[(character >> 8U) & 0x0FU];
+        unicode_escape[4] = digits[(character >> 4U) & 0x0FU];
+        unicode_escape[5] = digits[character & 0x0FU];
+        escaped = std::string_view{unicode_escape, sizeof(unicode_escape)};
       }
       break;
     }
 
+    if (escaped.empty()) {
+      continue;
+    }
+
+    if (segment_begin < index) {
+      status = write_text(value.substr(segment_begin, index - segment_begin));
+      if (status) {
+        return status;
+      }
+    }
+
+    status = write_text(escaped);
+    if (status) {
+      return status;
+    }
+    segment_begin = index + 1;
+  }
+
+  if (segment_begin < value.size()) {
+    status = write_text(value.substr(segment_begin));
     if (status) {
       return status;
     }

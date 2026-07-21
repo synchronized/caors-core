@@ -26,11 +26,6 @@ struct parsed_json_span {
   bool valid = false;
 };
 
-struct parsed_object_member {
-  string_name name{};
-  parsed_json_span value{};
-};
-
 class json_span_cursor {
 public:
   json_span_cursor(std::string_view text, json_options options, std::size_t begin,
@@ -194,8 +189,8 @@ public:
     return {};
   }
 
-  [[nodiscard]] error scan_object_members(vector<parsed_object_member>& members,
-                                          std::size_t depth) {
+  template <typename AddMember>
+  [[nodiscard]] error scan_object_members(AddMember&& add_member, std::size_t depth) {
     skip_space();
     if (!consume('{')) {
       return invalid_json();
@@ -226,7 +221,7 @@ public:
         return status;
       }
 
-      status = add_object_member(members, name, value);
+      status = add_member(name, value);
       if (status) {
         return status;
       }
@@ -559,31 +554,6 @@ private:
     return append_utf8(output, value) ? error{} : invalid_json();
   }
 
-  [[nodiscard]] error add_object_member(vector<parsed_object_member>& members, string_name name,
-                                        parsed_json_span value) const {
-    for (parsed_object_member& member : members) {
-      if (member.name != name) {
-        continue;
-      }
-
-      switch (options_.duplicate_key_policy) {
-      case json_duplicate_key_policy::keep_all:
-        break;
-      case json_duplicate_key_policy::use_first:
-        return {};
-      case json_duplicate_key_policy::use_last:
-        member.value = value;
-        return {};
-      case json_duplicate_key_policy::reject:
-        return {error_domain::serialization, errc::duplicate_name};
-      }
-      break;
-    }
-
-    members.push_back(parsed_object_member{name, value});
-    return {};
-  }
-
   std::string_view text_{};
   json_options options_{};
   std::size_t position_ = 0;
@@ -600,13 +570,14 @@ format_features json_reader::features() const noexcept {
          format_features::self_describing;
 }
 
-error json_reader::begin_object(const type_schema&) {
+error json_reader::begin_object(const type_schema& type) {
   const json_span* value = current_span();
   if (value == nullptr || !value->valid) {
     return invalid_json();
   }
 
   object_context context{};
+  context.members.reserve(type.fields.size());
   const error status = scan_object(*value, context.members, current_container_depth() + 1U);
   if (status) {
     return status;
@@ -622,9 +593,21 @@ error json_reader::begin_field(const field_schema& field) {
   }
 
   const string_name name = serialized_field_name(field);
-  for (const object_member& member : object_stack_.back().members) {
+  object_context& context = object_stack_.back();
+  if (context.next_member < context.members.size() && !name.empty() &&
+      context.members[context.next_member].name == name) {
+    context.current = &context.members[context.next_member];
+    ++context.next_member;
+    return {};
+  }
+
+  for (std::size_t index = 0; index < context.members.size(); ++index) {
+    const object_member& member = context.members[index];
     if (!name.empty() && member.name == name) {
-      object_stack_.back().current = &member;
+      context.current = &member;
+      if (index >= context.next_member) {
+        context.next_member = index + 1U;
+      }
       return {};
     }
   }
@@ -1004,21 +987,32 @@ const json_reader::json_span* json_reader::current_span() const noexcept {
 
 error json_reader::scan_object(json_span span, vector<object_member>& members,
                                std::size_t depth) const {
-  vector<parsed_object_member> parsed_members;
   json_span_cursor cursor{text_, options_, span.begin, span.end};
-  const error status = cursor.scan_object_members(parsed_members, depth);
-  if (status) {
-    return status;
-  }
+  return cursor.scan_object_members(
+      [&](string_name name, parsed_json_span value) -> error {
+        for (object_member& member : members) {
+          if (member.name != name) {
+            continue;
+          }
 
-  members.reserve(parsed_members.size());
-  for (const parsed_object_member& member : parsed_members) {
-    members.push_back(object_member{
-        member.name,
-        json_span{member.value.begin, member.value.end, member.value.valid},
-    });
-  }
-  return {};
+          switch (options_.duplicate_key_policy) {
+          case json_duplicate_key_policy::keep_all:
+            break;
+          case json_duplicate_key_policy::use_first:
+            return {};
+          case json_duplicate_key_policy::use_last:
+            member.value = json_span{value.begin, value.end, value.valid};
+            return {};
+          case json_duplicate_key_policy::reject:
+            return {error_domain::serialization, errc::duplicate_name};
+          }
+          break;
+        }
+
+        members.push_back(object_member{name, json_span{value.begin, value.end, value.valid}});
+        return {};
+      },
+      depth);
 }
 
 error json_reader::scan_array(json_span span, vector<json_span>& elements,

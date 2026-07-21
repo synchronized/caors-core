@@ -60,6 +60,7 @@ private:
   struct object_context {
     vector<object_member> members{};
     const object_member* current = nullptr;
+    std::size_t next_member = 0;
   };
 
   struct array_context {
