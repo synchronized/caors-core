@@ -73,6 +73,19 @@ TEST_CASE("serialization - math codecs support template scalar aliases", "[seria
               .succeeded());
   CHECK(integer_decoded == caors::math::ivec3{1, 2, 3});
 
+  caors::string rect_text;
+  caors::serialization::text_writer rect_writer{rect_text};
+  REQUIRE(caors::serialization::codec_traits<caors::math::irect>::write(
+              rect_writer, caors::math::irect{{10, 20}, {128, 64}})
+              .succeeded());
+  CHECK(rect_text == R"({"position":[10,20],"size":[128,64]})");
+
+  caors::math::irect rect_decoded{};
+  caors::serialization::json_reader rect_reader{rect_text};
+  REQUIRE(caors::serialization::codec_traits<caors::math::irect>::read(rect_reader, rect_decoded)
+              .succeeded());
+  CHECK(rect_decoded == caors::math::irect{{10, 20}, {128, 64}});
+
   const caors::serialization::variant_result precise =
       caors::serialization::to_variant(caors::any::from(caors::math::dvec2{1.5, 2.25}));
   REQUIRE(precise.succeeded());

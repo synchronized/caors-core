@@ -51,6 +51,8 @@ template <> inline constexpr std::string_view aabb_meta_name_of<double> = "caors
 template <> inline constexpr std::string_view vec2_meta_name_of<std::int32_t> = "caors.math.ivec2";
 template <> inline constexpr std::string_view vec3_meta_name_of<std::int32_t> = "caors.math.ivec3";
 template <> inline constexpr std::string_view vec4_meta_name_of<std::int32_t> = "caors.math.ivec4";
+template <> inline constexpr std::string_view rect_meta_name_of<std::int32_t> = "caors.math.irect";
+template <> inline constexpr std::string_view aabb_meta_name_of<std::int32_t> = "caors.math.iaabb";
 
 template <> inline constexpr std::string_view vec2_meta_name_of<std::uint32_t> = "caors.math.uvec2";
 template <> inline constexpr std::string_view vec3_meta_name_of<std::uint32_t> = "caors.math.uvec3";

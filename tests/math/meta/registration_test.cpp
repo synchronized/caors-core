@@ -57,6 +57,7 @@ TEST_CASE("math - meta registration helper registers built in math types", "[mat
 TEST_CASE("math - meta registration helper supports scalar template aliases", "[math][meta]") {
   REQUIRE(caors::math::register_vec2<double>().succeeded());
   REQUIRE(caors::math::register_vec3<std::int32_t>().succeeded());
+  REQUIRE(caors::math::register_rect<std::int32_t>().succeeded());
 
   const caors::meta::type dvec2_type = caors::meta::find<caors::math::dvec2>();
   REQUIRE(dvec2_type);
@@ -67,4 +68,9 @@ TEST_CASE("math - meta registration helper supports scalar template aliases", "[
   REQUIRE(ivec3_type);
   CHECK(ivec3_type.name() == "caors.math.ivec3");
   CHECK(ivec3_type.property_count() == 3);
+
+  const caors::meta::type irect_type = caors::meta::find<caors::math::irect>();
+  REQUIRE(irect_type);
+  CHECK(irect_type.name() == "caors.math.irect");
+  CHECK(irect_type.property_count() == 2);
 }

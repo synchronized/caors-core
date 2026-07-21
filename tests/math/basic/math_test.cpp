@@ -34,6 +34,10 @@ TEST_CASE("math - vector and matrix aliases cover common scalar types", "[math]"
   CHECK(grid + caors::math::ivec2{3, 5} == caors::math::ivec2{5, 9});
   CHECK(grid * 2 == caors::math::ivec2{4, 8});
 
+  const caors::math::irect pixels{{10, 20}, {128, 64}};
+  CHECK(pixels.contains(caors::math::ivec2{138, 84}));
+  CHECK_FALSE(pixels.contains(caors::math::ivec2{139, 84}));
+
   const caors::math::dmat4 identity = caors::math::dmat4::identity();
   CHECK(identity * caors::math::dvec4{1.0, 2.0, 3.0, 1.0} ==
         caors::math::dvec4{1.0, 2.0, 3.0, 1.0});

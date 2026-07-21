@@ -58,8 +58,11 @@
 当前还提供这些常用标量别名：
 
 - 双精度：`dvec2`、`dvec3`、`dvec4`、`dquat`、`dmat3`、`dmat4`、`drect`、`daabb`
-- 32 位整型向量：`ivec2`、`ivec3`、`ivec4`
+- 32 位整型：`ivec2`、`ivec3`、`ivec4`、`irect`、`iaabb`
 - 32 位无符号整型向量：`uvec2`、`uvec3`、`uvec4`
+
+`irect` 适合 UI 布局、像素区域、贴图 atlas、窗口/裁剪矩形和网格单元区域。它的 `center()` 走整数除法，
+需要亚像素或精确中心时应使用 `rect` / `drect`。
 
 几何辅助类型当前仍是单精度：
 
