@@ -50,13 +50,19 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 增加基础四元数类型 `math::quat`。
 - [x] 增加基础矩阵类型 `math::mat3`、`math::mat4`。
 - [x] 增加基础二维矩形 `math::rect` 和三维 AABB `math::aabb`。
+- [x] 增加基础常量、角度转换、clamp、lerp、smoothstep 和组件级 min/max/abs helper。
+- [x] 增加基础 transform helper：translation、scaling、rotation、TRS、点/向量/方向变换。
+- [x] 增加投影矩阵 helper：`look_at`、`perspective`、`orthographic`，底层通过
+  `handedness` / `clip_depth` 模板参数表达 RH/LH 和 ZO/NO 约定，同时保留 `*_rh_zo`
+  等便捷函数。
+- [x] 增加基础几何 helper：ray、sphere、plane、AABB 合并/扩展/相交和 sphere/plane 相交。
 - [x] 文档化 math 模块和 `meta::value` fast path 的关系：先稳定数学值类型，再基于 benchmark
   决定是否将 `vec2`、`vec3`、`vec4`、`quat` 等高频类型加入 tagged value 快路径。
 - [ ] 为 math 类型补充 meta 注册 helper、serialization codec 和配置/资源示例。
 - [ ] 增加 math benchmark，覆盖普通 C++ 调用、meta 属性访问、方法参数传递和未来 `meta::value`
   fast path 候选路径。
 - [ ] 评估 `math::vec2`、`math::vec3`、`math::vec4`、`math::quat` 是否进入 `meta::value` fast path。
-- [ ] 评估 SIMD、双精度、整型向量、投影矩阵、变换矩阵和坐标系 helper。
+- [ ] 评估 SIMD、双精度、整型向量、完整相机、frustum、碰撞和坐标系 helper。
 
 ## 1. 类型元数据底座
 

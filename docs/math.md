@@ -19,10 +19,14 @@
 
 ```cpp
 #include <caors/math/vector.h>
+#include <caors/math/functions.h>
 #include <caors/math/quaternion.h>
 #include <caors/math/matrix.h>
+#include <caors/math/transform.h>
+#include <caors/math/projection.h>
 #include <caors/math/rect.h>
 #include <caors/math/aabb.h>
+#include <caors/math/geometry.h>
 ```
 
 ## 当前类型
@@ -35,6 +39,9 @@
 - `caors::math::mat4`
 - `caors::math::rect`
 - `caors::math::aabb`
+- `caors::math::ray`
+- `caors::math::sphere`
+- `caors::math::plane`
 
 当前第一版只提供单精度类型。后续如果需要双精度或整型数学类型，应先评估命名、序列化格式和
 `meta::value` fast path 的 API 影响。
@@ -66,6 +73,64 @@ caors::math::quat rotation =
 caors::math::vec3 rotated = caors::math::rotate(rotation, caors::math::vec3{1.0F, 0.0F, 0.0F});
 ```
 
+## 变换和投影
+
+矩阵按行主序存储，但使用列向量语义，即 `matrix * vector`。因此 TRS 组合顺序是：
+
+```cpp
+caors::math::mat4 transform =
+    caors::math::trs(position, rotation, scale);
+```
+
+这等价于：
+
+```cpp
+caors::math::translation(position) *
+    caors::math::rotation(rotation) *
+    caors::math::scaling(scale);
+```
+
+点、向量和方向使用不同 helper，避免把平移错误地应用到方向上：
+
+```cpp
+caors::math::vec3 world_point = caors::math::transform_point(transform, local_point);
+caors::math::vec3 world_vector = caors::math::transform_vector(transform, local_vector);
+caors::math::vec3 world_direction = caors::math::transform_direction(transform, local_direction);
+```
+
+投影矩阵用模板参数表达手系和裁剪空间深度范围：
+
+```cpp
+using caors::math::clip_depth;
+using caors::math::handedness;
+
+caors::math::mat4 projection =
+    caors::math::perspective<handedness::right, clip_depth::zero_to_one>(
+        caors::math::radians(60.0F), aspect, near_z, far_z);
+```
+
+同时提供便捷函数，适合普通调用和文档示例：
+
+```cpp
+caors::math::mat4 view =
+    caors::math::look_at_rh(eye, target, up);
+
+caors::math::mat4 perspective =
+    caors::math::perspective_rh_zo(caors::math::radians(60.0F), aspect, near_z, far_z);
+
+caors::math::mat4 ortho =
+    caors::math::orthographic_rh_zo(left, right, bottom, top, near_z, far_z);
+```
+
+命名规则：
+
+- `rh` / `lh` 表示右手系 / 左手系。
+- `zo` 表示裁剪空间深度范围 `[0, 1]`，常用于 Vulkan / D3D 风格后端。
+- `no` 表示裁剪空间深度范围 `[-1, 1]`，常用于 OpenGL 风格后端。
+
+`caors::math` 只表达通用数学约定，不直接依赖 Vulkan、D3D 或 OpenGL。后续 `caors-vulkan`
+可以在自己的模块内把这些矩阵和 `VkViewport`、`VkRect2D`、Y 翻转或后端特定 clip 修正规则对接起来。
+
 ## 与 meta::value fast path 的关系
 
 `meta::value` fast path 当前优先服务高频动态调用：基础数值、布尔、字符串、`string_name` 和
@@ -86,7 +151,7 @@ caors::math::vec3 rotated = caors::math::rotate(rotation, caors::math::vec3{1.0F
 
 - 当前没有 SIMD 后端。
 - 当前没有双精度、整型向量和模板化维度类型。
-- 当前没有坐标系、角度单位、投影矩阵和变换矩阵 helper。
+- 当前没有完整相机、骨骼、碰撞或 frustum helper。
 - 当前没有内建 meta 注册和序列化 codec。
 - 当前没有接入 `meta::value` fast path。
 
