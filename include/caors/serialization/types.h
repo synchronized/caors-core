@@ -133,6 +133,21 @@ struct field_filter_options {
   std::uint32_t schema_version = 0;
 };
 
+/** @brief 读入对象时遇到 schema 未声明字段的处理策略。 */
+enum class unknown_field_policy {
+  /** @brief 忽略未知字段，保持默认兼容行为。 */
+  ignore,
+  /** @brief 把未知字段复制到上下文状态提供的保留列表中。 */
+  preserve,
+  /** @brief 遇到未知字段立即返回 `errc::invalid_field`。 */
+  reject,
+};
+
+/** @brief schema 兼容性相关的序列化语义选项。 */
+struct schema_options {
+  unknown_field_policy unknown_fields = unknown_field_policy::ignore;
+};
+
 /**
  * @brief `std::string_view` 反序列化使用的多段字符串存储。
  *
@@ -205,9 +220,15 @@ struct storage_options {
   string_storage* string_view_storage = nullptr;
 };
 
+/** @brief schema 策略读入阶段可写入的外部状态。 */
+struct schema_state {
+  variant::object_type* preserved_unknown_fields = nullptr;
+};
+
 /** @brief 单次序列化调度的策略配置。 */
 struct context_config {
   field_filter_options fields{};
+  schema_options schema{};
   limit_options limits{};
   polymorphic_options polymorphic{};
   json_options json{};
@@ -224,6 +245,7 @@ struct context_resolvers {
 /** @brief 单次序列化调度的可变运行期状态。 */
 struct context_state {
   storage_options storage{};
+  schema_state schema{};
   construction_request construction{};
   std::uint32_t current_depth = 0;
 };

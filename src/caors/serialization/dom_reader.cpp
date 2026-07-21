@@ -12,6 +12,24 @@ namespace {
   return data.serialized_name.empty() ? data.field_name : data.serialized_name;
 }
 
+[[nodiscard]] bool member_matches_field(const meta::variant_member& member,
+                                        const field_schema& field) noexcept {
+  const core::string_name name = serialized_field_name(field);
+  if (field.field_id != 0 && member.field_id == field.field_id) {
+    return true;
+  }
+
+  if (field.legacy_field_id != 0 && member.field_id == field.legacy_field_id) {
+    return true;
+  }
+
+  if (!name.empty() && member.name == name) {
+    return true;
+  }
+
+  return !field.legacy_serialized_name.empty() && member.name == field.legacy_serialized_name;
+}
+
 } // namespace
 
 variant_reader::variant_reader(const variant& value) noexcept : root_(&value) {}
@@ -45,13 +63,8 @@ const meta::variant_member* variant_reader::find_member(const field_schema& fiel
     return nullptr;
   }
 
-  const core::string_name name = serialized_field_name(field);
   for (const meta::variant_member& member : object->as_object()) {
-    if (field.field_id != 0 && member.field_id == field.field_id) {
-      return &member;
-    }
-
-    if (!name.empty() && member.name == name) {
+    if (member_matches_field(member, field)) {
       return &member;
     }
   }

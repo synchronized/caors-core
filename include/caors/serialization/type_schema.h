@@ -55,7 +55,9 @@ enum class format_features : std::uint32_t {
 struct field_options {
   string_name field_name{};
   string_name serialized_name{};
+  string_name legacy_serialized_name{};
   std::uint32_t field_id = 0;
+  std::uint32_t legacy_field_id = 0;
   std::uint32_t version_added = 0;
   std::uint32_t version_removed = 0;
   bool required = false;
@@ -162,7 +164,9 @@ private:
   return field_options{
       string_name{field_name},
       serialized_name.empty() ? string_name{field_name} : string_name{serialized_name},
+      {},
       field_id,
+      0,
       0,
       0,
       false,

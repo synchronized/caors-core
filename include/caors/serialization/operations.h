@@ -97,10 +97,127 @@ template <typename T>
 
 namespace detail {
 
+[[nodiscard]] inline core::string_name
+schema_serialized_field_name(const serialization::field_schema& field) noexcept {
+  return field.serialized_name.empty() ? field.field_name : field.serialized_name;
+}
+
+[[nodiscard]] inline bool
+schema_member_matches_field(const meta::variant_member& member,
+                            const serialization::field_schema& field) noexcept {
+  const core::string_name name = schema_serialized_field_name(field);
+  if (field.field_id != 0 && member.field_id == field.field_id) {
+    return true;
+  }
+
+  if (field.legacy_field_id != 0 && member.field_id == field.legacy_field_id) {
+    return true;
+  }
+
+  if (!name.empty() && member.name == name) {
+    return true;
+  }
+
+  return !field.legacy_serialized_name.empty() && member.name == field.legacy_serialized_name;
+}
+
+[[nodiscard]] inline bool schema_member_is_known(const serialization::type_schema& schema,
+                                                 const meta::variant_member& member) noexcept {
+  for (const serialization::field_schema& field : schema.fields) {
+    if (schema_member_matches_field(member, field)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+[[nodiscard]] inline error apply_unknown_field_policy(const serialization::context& context,
+                                                      const meta::type& type,
+                                                      const variant& value) {
+  if (context.config.schema.unknown_fields == unknown_field_policy::ignore || !value.is_object()) {
+    return {};
+  }
+
+  const serialization::schema_view schema_view = type.get_capability<serialization::schema_view>();
+  const serialization::type_schema* schema = schema_view.raw();
+  if (schema == nullptr) {
+    return {error_domain::serialization, errc::missing_type};
+  }
+
+  if (!schema_view.valid()) {
+    return {error_domain::serialization, errc::invalid_type};
+  }
+
+  for (const meta::variant_member& member : value.as_object()) {
+    if (schema_member_is_known(*schema, member)) {
+      continue;
+    }
+
+    switch (context.config.schema.unknown_fields) {
+    case unknown_field_policy::ignore:
+      break;
+    case unknown_field_policy::preserve:
+      if (context.state.schema.preserved_unknown_fields != nullptr) {
+        context.state.schema.preserved_unknown_fields->push_back(member);
+      }
+      break;
+    case unknown_field_policy::reject:
+      return {error_domain::serialization, errc::invalid_field};
+    }
+  }
+
+  return {};
+}
+
+template <typename T>
+[[nodiscard]] error read_dom_value_from(const serialization::context& context, T& object,
+                                        const variant& value) {
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+  if constexpr (std::is_base_of_v<objects::object, value_type>) {
+    if (detail::is_polymorphic_value(context, value)) {
+      const meta::type type = caors::meta::find<value_type>();
+      if (!type.registered()) {
+        return {error_domain::serialization, errc::missing_type};
+      }
+
+      return detail::deserialize_polymorphic_object_into(context, type.id(), object, value);
+    }
+  }
+
+  const meta::type type = caors::meta::find<value_type>();
+  if (!type.registered()) {
+    return {error_domain::serialization, errc::missing_type};
+  }
+
+  const meta::type meta_type = meta::find(type.id());
+  if (!meta_type) {
+    return {error_domain::serialization, errc::not_found};
+  }
+
+  if (context.config.schema.unknown_fields != unknown_field_policy::ignore && value.is_object()) {
+    if (const error status = apply_unknown_field_policy(context, meta_type, value); status) {
+      return status;
+    }
+  }
+
+  serialization::variant_reader reader{value};
+  return detail::deserialize(context, meta_type, &object, reader);
+}
+
 template <typename T>
 [[nodiscard]] error read_json_text_from(const serialization::context& context, T& object,
                                         std::string_view text, json_options options) {
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+
+  if (context.config.schema.unknown_fields != unknown_field_policy::ignore) {
+    variant_result value = parse_json(text, options);
+    if (value.failed()) {
+      return value.status;
+    }
+
+    return read_dom_value_from(context, object, value.value);
+  }
 
   const meta::type type = caors::meta::find<value_type>();
   if (!type.registered()) {
@@ -159,20 +276,7 @@ template <typename T>
 template <typename T>
 [[nodiscard]] error read_value_from(const serialization::context& context, T& object,
                                     const variant& value) {
-  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (std::is_base_of_v<objects::object, value_type>) {
-    if (detail::is_polymorphic_value(context, value)) {
-      const meta::type type = caors::meta::find<value_type>();
-      if (!type.registered()) {
-        return {error_domain::serialization, errc::missing_type};
-      }
-
-      return detail::deserialize_polymorphic_object_into(context, type.id(), object, value);
-    }
-  }
-
-  serialization::variant_reader reader{value};
-  return deserialize(context, object, reader);
+  return detail::read_dom_value_from(context, object, value);
 }
 
 /** @brief 从序列化 DOM 中间值读回对象。 */

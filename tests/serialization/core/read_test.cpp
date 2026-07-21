@@ -23,6 +23,11 @@ struct schema_config_actor {
   int priority = 0;
 };
 
+struct schema_policy_actor {
+  int id = 0;
+  int score = 0;
+};
+
 void require_schema_config_actor_metadata() {
   REQUIRE(registration_result_ok(
       caors::registration::type_<schema_config_actor>(
@@ -35,6 +40,24 @@ void require_schema_config_actor_metadata() {
                     caors::meta::registration::range(1, 10),
                     caors::meta::registration::default_value(5))
           .commit()));
+}
+
+void require_schema_policy_actor_metadata() {
+  caors::serialization::field_options id = caors::serialization::make_field("id");
+  id.field_id = 1;
+  caors::serialization::field_options score = caors::serialization::make_field("score");
+  score.field_id = 7;
+  score.legacy_serialized_name = caors::string_name{"points"};
+  score.legacy_field_id = 3;
+
+  REQUIRE(registration_result_ok(caors::registration::type_<schema_policy_actor>(
+                                     "caors.test.serialization.schema_policy_actor")
+                                     .meta()
+                                     .property("id", &schema_policy_actor::id)
+                                     .property("score", &schema_policy_actor::score)
+                                     .serialization()
+                                     .fields({id, score})
+                                     .commit()));
 }
 
 } // namespace
@@ -587,6 +610,65 @@ TEST_CASE("serialization - variant reader matches fields by stable field id", "[
 
   REQUIRE(result.succeeded());
   CHECK(actor.id == 42);
+}
+
+TEST_CASE("serialization - schema policies support legacy fields and unknown members",
+          "[serialization]") {
+  require_schema_policy_actor_metadata();
+
+  caors::variant::object_type members;
+  members.push_back(caors::meta::variant_member{
+      caors::string_name{"id"},
+      1,
+      caors::variant::from(std::int64_t{7}),
+  });
+  members.push_back(caors::meta::variant_member{
+      caors::string_name{"points"},
+      3,
+      caors::variant::from(std::int64_t{99}),
+  });
+  members.push_back(caors::meta::variant_member{
+      caors::string_name{"extra"},
+      0,
+      caors::variant::from(std::int64_t{123}),
+  });
+  const caors::variant value = caors::variant::object(std::move(members));
+
+  schema_policy_actor ignored{};
+  REQUIRE(caors::read_value_from(ignored, value).succeeded());
+  CHECK(ignored.id == 7);
+  CHECK(ignored.score == 99);
+
+  schema_policy_actor rejected{};
+  caors::serialization::context reject_context{};
+  reject_context.config.schema.unknown_fields = caors::serialization::unknown_field_policy::reject;
+  const caors::error rejected_status = caors::read_value_from(reject_context, rejected, value);
+  REQUIRE(rejected_status.failed());
+  CHECK(rejected_status.domain() == caors::error_domain::serialization);
+  CHECK(rejected_status.value() == caors::errc::invalid_field);
+
+  schema_policy_actor preserved{};
+  caors::variant::object_type preserved_unknown_fields;
+  caors::serialization::context preserve_context{};
+  preserve_context.config.schema.unknown_fields =
+      caors::serialization::unknown_field_policy::preserve;
+  preserve_context.state.schema.preserved_unknown_fields = &preserved_unknown_fields;
+  REQUIRE(caors::read_value_from(preserve_context, preserved, value).succeeded());
+  CHECK(preserved.id == 7);
+  CHECK(preserved.score == 99);
+  REQUIRE(preserved_unknown_fields.size() == 1U);
+  CHECK(preserved_unknown_fields.front().name == caors::string_name{"extra"});
+}
+
+TEST_CASE("serialization - json reader accepts legacy field names", "[serialization]") {
+  require_schema_policy_actor_metadata();
+
+  schema_policy_actor actor{};
+  const caors::error result = caors::read_json_from(actor, R"({"id":8,"points":64})");
+
+  REQUIRE(result.succeeded());
+  CHECK(actor.id == 8);
+  CHECK(actor.score == 64);
 }
 
 // 原测试文件：serialization_reader_variant_reader_reports_missing_fields_test.cpp

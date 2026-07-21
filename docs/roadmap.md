@@ -330,7 +330,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
   并对空中间层、不可写引用和所有权不明确的组合返回清晰诊断。
 - [x] 扩展普通类多态 envelope 的 reader 抽象，使自定义流式 reader 也能提供 type/value envelope
   读入能力；DOM/JSON reader 通过内置 hook 接入，自定义 reader 可不暴露 `current_variant()`。
-- [ ] 设计 schema 策略，覆盖版本迁移、默认值恢复、未知字段保留、严格模式和字段重命名 / 删除策略。
+- [x] 设计 schema 策略第一版，支持字段旧名 / 旧 id 读入、未知字段忽略、保留和严格拒绝。
+- [ ] 扩展完整版本迁移、默认值恢复、字段删除转换和未知字段按对象树位置保留策略。
 - [ ] 设计弱引用序列化策略，默认继续不展开 `std::weak_ptr<T>` / `objects::weak_ref<T>`，
   提供基于 `objects::handle`、`resource_guid` 或自定义 resolver 的显式弱引用策略。
 - [ ] 增加紧凑二进制和 msgpack 等二进制后端。
@@ -423,6 +424,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 明确异步资源系统线程安全边界：哪些 `source` / `provider` / `memory_resource` 可跨线程访问，
   cache 修改必须在哪个线程执行，未完成 request 的 `try_get()` 是阻塞、返回错误还是禁止调用。
 - [x] 打通资源引用序列化 resolver，支持反序列化后按策略解析稳定 GUID 引用。
+- [x] 补充 `project_config -> VFS/provider -> asset_manager -> async preload -> resolve -> reload/save`
+  端到端示例和集成测试。
 - [x] 继续拆分资源序列化 adapter，把 `resources::database` 中强依赖 `serialization` resolver 的高级入口
   收敛到 `resources/serialization.h` 和 `assets/serialization.h` adapter 层。
 - [x] 设计资源热重载边界：第一阶段放在资源系统主题内，不新增独立主题；热重载只负责发现资源描述或字节内容变化、

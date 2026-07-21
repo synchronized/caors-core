@@ -25,6 +25,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 - 提供 `serialization::variant_reader` 和 `read_value_from()`，通过 DOM 中间对象写回基础反射字段。
 - 提供 `serialization::context`，支持按 schema version 过滤字段、配置多态 envelope 字段名、传递运行期资源、
   解析资源引用和收集资源依赖。
+- 提供第一版 schema 兼容策略，支持字段旧名 / 旧 id 读入、未知字段忽略、保留和严格拒绝。
 - 提供 `serialization::codec_traits<T>` 和 `meta::type` codec capability，允许把特定 C++ 类型作为原子序列化值读写。
 - 支持已注册反射和序列化元信息的值类型结构体字段递归序列化和 DOM 反序列化。
 - 提供基于 traits 的顺序容器、集合容器、关联容器、pair、tuple 和 variant 访问，支持标量、wrapper、对象引用和已注册结构体元素。
@@ -37,7 +38,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 当前仍不会包含：
 
 - 内置二进制格式。
-- 完整版本迁移、字段重命名 / 删除策略和未知字段保留。
+- 完整版本迁移、字段删除转换和未知字段按对象树位置保留。
 - 多层指针、多层 wrapper 和完整对象图身份保持。
 - 自动把任意裸指针或非拥有 wrapper 字段提升为拥有型多态对象。
 - 借用视图的自动存储分配和生命周期管理。
@@ -110,10 +111,11 @@ buffer：
 | `serialization::parse_json()` | 解析 JSON 文本为 `variant` DOM | 支持 parser 侧 `json_options` |
 | `serialization::parse_json_from()` | 从 `io::file_system` 路径读取 JSON 并解析为 `variant` DOM | 通过 `io::input_stream` token reader 解析；底层文件系统可选择真实流或内存流 |
 | `read_value_from(object, value)` | 从 `variant` DOM 读回对象 | 内部使用 `variant_reader` |
-| `read_json_from(object, text)` | 从 JSON 文本读回对象 | 使用 `json_reader` 直接按字段读入，不构造完整 DOM |
+| `read_json_from(object, text)` | 从 JSON 文本读回对象 | 默认使用 `json_reader` 直接按字段读入；开启未知字段保留或严格模式时先解析为 DOM |
 | `serialization::read_json_from(object, stream/path)` | 从 `io::input_stream` 或 `io::file_system` 路径读回对象 | 当前解析为 DOM 后复用 `read_value_from()` |
 | `serialization::context` | 单次读写上下文 | 按职责使用分组字段配置 |
 | `context.config.fields` | schema version 字段过滤 | `0` 表示不启用版本过滤 |
+| `context.config.schema` | schema 兼容策略 | 控制未知字段忽略、保留或严格拒绝 |
 | `context.resolvers.external_refs` | 通用外部引用 resolver、解析策略和依赖收集 | 资源、对象等上层引用可共享该入口 |
 | `context.resolvers.factories` | 多态读入时使用的通用类型工厂 | 只在需要从 envelope 创建运行期实例时使用 |
 | `context.resolvers.construction` | 反序列化新建运行期值时使用的构造策略 | 可按字段、容器元素、wrapper 内部值和 variant 候选定制 |
@@ -423,7 +425,9 @@ if (schema) {
 
 - `field_name`：反射字段名。
 - `serialized_name`：输出字段名；为空时使用 `field_name`。
+- `legacy_serialized_name`：读入时接受的旧字段名；写出仍使用当前 `serialized_name`。
 - `field_id`：稳定字段编号，供紧凑二进制、数字键 msgpack 等不写字段名的格式使用。
+- `legacy_field_id`：读入时接受的旧字段编号；写出仍使用当前 `field_id`。
 - `version_added` / `version_removed`：配合 `serialization::context::config.fields.schema_version` 做字段版本过滤。
 - `required`：反序列化时缺失该字段会返回 `errc::not_found`。
 - `skipped`：序列化和反序列化时跳过该字段。
@@ -520,7 +524,8 @@ actor instance{};
 caors::error status = caors::read_value_from(instance, *value);
 ```
 
-字段查找优先使用非 0 的 `field_id`，再回退到 `serialized_name` 或 `field_name`。当前支持写入
+字段查找优先使用非 0 的当前 `field_id`，再回退到 `legacy_field_id`、当前
+`serialized_name` / `field_name` 和 `legacy_serialized_name`。当前支持写入
 `bool`、`char`、整数、浮点、`caors::string`、`std::string`、`guid`、`type_guid`、枚举、
 已注册反射/序列化元信息的值类型结构体字段、已适配的顺序/集合/关联容器字段、二元组字段、tuple-like 字段、裸指针和普通 wrapper
 字段，以及通过 resolver 解析的 `caors::objects::ptr<T>` 字段。
@@ -532,8 +537,17 @@ caors::error status = caors::read_value_from(instance, *value);
 - 未显式配置字段时，反序列化按全部反射字段读入，缺失字段返回 `errc::not_found`。
 - DOM 中存在但未被目标类型声明的未知字段默认忽略。
 
-属性级通用 schema 默认值可通过 `serialization::apply_config_defaults(config)` 显式恢复。未知字段保留、
-严格模式、字段重命名和完整版本迁移策略后续再补。
+未知字段策略通过 `context.config.schema.unknown_fields` 指定：
+
+- `unknown_field_policy::ignore`：默认行为，忽略目标类型 schema 未声明的 DOM 成员。
+- `unknown_field_policy::preserve`：把未知成员复制到
+  `context.state.schema.preserved_unknown_fields` 指向的列表；未提供列表时等价于忽略。
+- `unknown_field_policy::reject`：遇到未知成员立即返回 `errc::invalid_field`。
+
+字段重命名的第一版策略是给字段配置 `legacy_serialized_name` 或 `legacy_field_id`。读入时接受旧字段，
+写出时只输出当前字段名和当前字段 id。属性级通用 schema 默认值可通过
+`serialization::apply_config_defaults(config)` 显式恢复。更完整的版本迁移、字段删除转换、
+未知字段按对象树位置保留和跨格式迁移策略仍放在路线图中。
 
 ### JSON
 
@@ -1045,7 +1059,8 @@ template <> struct codec_traits<custom_value> {
   `errc::invalid_type`。处于无值状态的 variant 当前返回不支持。
 - 直接值字段仍按字段声明静态类型处理；运行期动态类型记录发生在 `objects::object`
   声明类型和真实类型不一致时，以及拥有型智能指针 wrapper envelope 上。
-- JSON 文本 reader 已支持按字段直接读入；输入流 / 文件系统便捷读入仍走 DOM parser。二进制格式、完整版本迁移和未知字段保留尚未实现。
+- JSON 文本 reader 已支持按字段直接读入；当启用未知字段保留或严格拒绝时会先走 DOM parser 以便检查完整对象成员。
+  输入流 / 文件系统便捷读入仍走 DOM parser。二进制格式、完整版本迁移和未知字段按对象树位置保留尚未实现。
 
 ### caors::variant
 

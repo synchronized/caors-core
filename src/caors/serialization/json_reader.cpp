@@ -20,6 +20,12 @@ namespace {
   return field.serialized_name.empty() ? field.field_name : field.serialized_name;
 }
 
+[[nodiscard]] bool member_name_matches_field(string_name name, const field_schema& field) noexcept {
+  const string_name current = serialized_field_name(field);
+  return (!current.empty() && name == current) ||
+         (!field.legacy_serialized_name.empty() && name == field.legacy_serialized_name);
+}
+
 struct parsed_json_span {
   std::size_t begin = 0;
   std::size_t end = 0;
@@ -592,10 +598,9 @@ error json_reader::begin_field(const field_schema& field) {
     return invalid_json();
   }
 
-  const string_name name = serialized_field_name(field);
   object_context& context = object_stack_.back();
-  if (context.next_member < context.members.size() && !name.empty() &&
-      context.members[context.next_member].name == name) {
+  if (context.next_member < context.members.size() &&
+      member_name_matches_field(context.members[context.next_member].name, field)) {
     context.current = &context.members[context.next_member];
     ++context.next_member;
     return {};
@@ -603,7 +608,7 @@ error json_reader::begin_field(const field_schema& field) {
 
   for (std::size_t index = 0; index < context.members.size(); ++index) {
     const object_member& member = context.members[index];
-    if (!name.empty() && member.name == name) {
+    if (member_name_matches_field(member.name, field)) {
       context.current = &member;
       if (index >= context.next_member) {
         context.next_member = index + 1U;
