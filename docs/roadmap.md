@@ -59,7 +59,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 文档化 math 模块和 `meta::value` fast path 的关系：先稳定数学值类型，再基于 benchmark
   决定是否将 `vec2`、`vec3`、`vec4`、`quat` 等高频类型加入 tagged value 快路径。
 - [x] 增加基础 math benchmark，覆盖 `vec3`、`mat4`、`quat`、TRS 和投影矩阵纯 C++ 计算路径。
-- [ ] 为 math 类型补充 meta 注册 helper、serialization codec 和配置/资源示例。
+- [x] 为 math 类型补充 meta 注册 helper、serialization codec 和配置/资源示例。
 - [ ] 扩展 math benchmark，覆盖 meta 属性访问、方法参数传递和未来 `meta::value` fast path 候选路径。
 - [ ] 评估 `math::vec2`、`math::vec3`、`math::vec4`、`math::quat` 是否进入 `meta::value` fast path。
 - [ ] 基于真实渲染 workload 评估 `mat4 * mat4` 手动展开、SIMD 后端和 affine transform 快路径；

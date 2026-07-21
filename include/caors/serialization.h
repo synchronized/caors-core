@@ -5,6 +5,7 @@
 #define CAORS_SERIALIZATION_H_
 
 #include "caors/adapters/stl_traits.h"
+#include "caors/math/serialization.h"
 #include "caors/object/serialization.h"
 #include "caors/serialization/codec.h"
 #include "caors/serialization/config_validation.h"

@@ -800,6 +800,9 @@ codec 和 meta 类型系统的边界：
 - `caors::resource_guid`：按标准 UUID/GUID 字符串读写。
 - `caors::resource_ref<T>`：非空引用按 `resource_guid` 字符串读写；空引用写 `null`，默认读回后只恢复 GUID。
   如果 `serialization::context` 配置了资源 resolver，也可以按策略立即解析到 manager/cache 中已有资源。
+- `caors::math::vec2` / `vec3` / `vec4` / `quat`：按分量数组读写。
+- `caors::math::mat3` / `mat4`：按行主序扁平数组读写。
+- `caors::math::rect` / `aabb`：按命名对象读写，分别使用 `position/size` 和 `min/max` 字段。
 - `caors::vector<T>` / `std::vector<T>`：通过 `traits::sequence_traits<T>` 和 `sequence_view` 输出为数组。
 - `caors::list<T>` / `std::list<T>`：通过 `traits::sequence_traits<T>` 和 `sequence_view` 输出为数组。
 - `std::forward_list<T>`：通过 `traits::sequence_traits<T>` 和 `sequence_view` 输出为数组；反射随机访问需要线性遍历。
@@ -812,7 +815,8 @@ codec 和 meta 类型系统的边界：
   `traits::associative_traits<T>` 和 `associative_view` 输出为字典 pair 数组。
 - `std::variant<Ts...>`：通过 `traits::variant_traits<T>` 输出为 tagged union 数组 `[index, value]`。
 
-`caors/serialization.h` 会包含 STL 容器 traits 适配，常见容器字段不需要额外 include。自定义容器只需要在
+`caors/serialization.h` 会包含 STL 容器 traits 适配和 math codec 适配，常见容器字段和内建 math
+字段不需要额外 include。自定义容器只需要在
 `caors::traits` 命名空间特化对应容器 traits；序列化层不再提供 `sequence_codec`、`set_codec`
 或 `associative_codec` 这类容器级 codec 基类，避免容器递归和 `meta::type` / view 路径重复实现。
 

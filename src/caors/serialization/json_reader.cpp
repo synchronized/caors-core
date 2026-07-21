@@ -958,32 +958,43 @@ error json_reader::end_object() {
 }
 
 const json_reader::json_span* json_reader::current_span() const noexcept {
-  if (!dictionary_stack_.empty() && dictionary_stack_.back().current.valid) {
-    return &dictionary_stack_.back().current;
-  }
+  const json_span* current = nullptr;
+  auto select_span = [&current](const json_span* span) noexcept {
+    if (span == nullptr || !span->valid) {
+      return;
+    }
 
-  if (!polymorphic_values_.empty() && object_stack_.size() == polymorphic_object_depths_.back()) {
-    return &polymorphic_values_.back();
+    if (current == nullptr ||
+        (span->begin >= current->begin && span->end <= current->end &&
+         (span->begin != current->begin || span->end != current->end)) ||
+        (span->end - span->begin < current->end - current->begin)) {
+      current = span;
+    }
+  };
+
+  if (!dictionary_stack_.empty() && dictionary_stack_.back().current.valid) {
+    select_span(&dictionary_stack_.back().current);
   }
 
   if (!object_stack_.empty() && object_stack_.back().current != nullptr &&
       object_stack_.size() > array_stack_.size()) {
-    return &object_stack_.back().current->value;
+    select_span(&object_stack_.back().current->value);
   }
 
   if (!array_stack_.empty() && array_stack_.back().current != nullptr) {
-    return array_stack_.back().current;
+    select_span(array_stack_.back().current);
   }
 
   if (!object_stack_.empty() && object_stack_.back().current != nullptr) {
-    return &object_stack_.back().current->value;
+    select_span(&object_stack_.back().current->value);
   }
 
   if (!polymorphic_values_.empty()) {
-    return &polymorphic_values_.back();
+    select_span(&polymorphic_values_.back());
   }
 
-  return &root_;
+  select_span(&root_);
+  return current;
 }
 
 error json_reader::scan_object(json_span span, vector<object_member>& members,

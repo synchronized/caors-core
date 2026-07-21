@@ -6,8 +6,9 @@
 `caors::math` 是 CAORS 的基础数学值类型模块。它面向游戏、编辑器、资源导入和运行期动态调用等常见场景，
 提供稳定、轻量、无额外所有权语义的值类型。
 
-当前模块只依赖 C++ 标准库，不依赖 `meta`、`serialization`、`objects` 或 `resources`。这样可以让上层模块
-按需为数学类型增加注册、序列化、编辑器属性或 `meta::value` fast path，而不会让底层数学类型反向依赖运行期系统。
+核心数学值类型头只依赖 C++ 标准库，不依赖 `meta`、`serialization`、`objects` 或 `resources`。这样可以让
+上层模块按需为数学类型增加注册、序列化、编辑器属性或 `meta::value` fast path，而不会让底层数学类型
+反向依赖运行期系统。需要这些能力时包含对应适配头。
 
 ## 头文件
 
@@ -27,6 +28,13 @@
 #include <caors/math/rect.h>
 #include <caors/math/aabb.h>
 #include <caors/math/geometry.h>
+```
+
+反射注册和序列化 codec 是独立适配头：
+
+```cpp
+#include <caors/math/registration.h>
+#include <caors/math/serialization.h>
 ```
 
 ## 当前类型
@@ -147,12 +155,64 @@ caors::math::mat4 ortho =
 - 后续只把确实高频的类型加入 fast path，优先候选是 `vec2`、`vec3`、`vec4`、`quat`。
 - 较大的 `mat4`、`rect`、`aabb` 默认先走 `any` / `any_ref` 或 capability 路径。
 
+## Meta 注册和序列化
+
+`caors/math/registration.h` 提供 `caors::math::register_meta_types()`，用于一次注册当前内建数学值类型：
+
+```cpp
+caors::error status = caors::math::register_meta_types();
+```
+
+注册内容：
+
+- `vec2`、`vec3`、`vec4`：注册 `x/y/z/w` 分量属性。
+- `quat`：注册 `(x, y, z, w)` 分量属性，其中 `w` 是标量部分。
+- `rect`：注册 `position` 和 `size` 属性。
+- `aabb`：注册 `min` 和 `max` 属性。
+- `mat3`、`mat4`：当前只注册类型身份；矩阵元素通过 codec 按行主序数组读写，不暴露底层
+  `values` C 数组属性。
+
+`caors/math/serialization.h` 提供内建 `serialization::codec_traits<T>` 特化；`caors/serialization.h`
+会自动包含它。math codec 不要求数学类型先完成 meta 注册，编译期已知类型或通过 `any` / `any_ref`
+携带 `meta::type` 时即可查询到静态 codec。
+
+序列化格式：
+
+- `vec2`：`[x, y]`
+- `vec3`：`[x, y, z]`
+- `vec4`：`[x, y, z, w]`
+- `quat`：`[x, y, z, w]`
+- `mat3`：行主序 9 元素数组。
+- `mat4`：行主序 16 元素数组。
+- `rect`：`{"position":[x,y],"size":[w,h]}`
+- `aabb`：`{"min":[x,y,z],"max":[x,y,z]}`
+
+math 类型作为已注册对象字段时会优先走 codec，因此配置结构可以直接暴露数学字段：
+
+```cpp
+struct camera_config {
+  caors::math::vec3 position;
+  caors::math::quat rotation;
+  caors::math::rect viewport;
+};
+
+caors::math::register_meta_types();
+caors::registration::type_<camera_config>("game.camera_config")
+    .meta()
+    .property("position", &camera_config::position)
+    .property("rotation", &camera_config::rotation)
+    .property("viewport", &camera_config::viewport)
+    .serialization()
+    .commit();
+```
+
 ## 当前边界
 
 - 当前没有 SIMD 后端。
 - 当前没有双精度、整型向量和模板化维度类型。
 - 当前没有完整相机、骨骼、碰撞或 frustum helper。
-- 当前没有内建 meta 注册和序列化 codec。
 - 当前没有接入 `meta::value` fast path。
+- `ray`、`sphere`、`plane` 当前暂未提供内建 meta 注册 helper 和 codec；需要时可通过普通
+  `registration::type_<T>(name)` 自行注册。
 
 这些能力会根据实际使用和 benchmark 数据逐步加入。
