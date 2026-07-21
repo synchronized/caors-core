@@ -7,6 +7,16 @@
 
 using namespace caors::tests::object;
 
+namespace {
+
+class local_context_managed_actor : public caors::object_base<local_context_managed_actor> {
+public:
+  static constexpr std::string_view object_type_name =
+      "caors.test.object.local_context_managed_actor";
+};
+
+} // namespace
+
 TEST_CASE("object - manager clear releases objects and invalidates handles", "[object]") {
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
 
@@ -128,6 +138,29 @@ TEST_CASE("object - manager supports registered non default constructible object
   REQUIRE(instance != nullptr);
   CHECK(instance->value == 42);
   CHECK(manager.find<managed_non_default_object>(instance->id()) == instance);
+
+  CHECK(manager.destroy(instance));
+  CHECK(manager.empty());
+}
+
+TEST_CASE("object - manager can use explicit meta type context", "[object]") {
+  caors::meta::registry registry;
+  caors::meta::context context{registry};
+
+  REQUIRE(caors::registration::type_<local_context_managed_actor>(
+              context, local_context_managed_actor::object_type_name)
+              .commit() == caors::error{});
+
+  CHECK_FALSE(caors::objects::find<local_context_managed_actor>());
+
+  const auto object_type = caors::objects::find<local_context_managed_actor>(context);
+  REQUIRE(object_type);
+
+  caors::objects::manager manager{context};
+  caors::object* instance = manager.create(object_type.id());
+  REQUIRE(instance != nullptr);
+  CHECK(instance->type_id() == object_type.id());
+  CHECK(manager.find(instance->id()) == instance);
 
   CHECK(manager.destroy(instance));
   CHECK(manager.empty());

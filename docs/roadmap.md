@@ -178,9 +178,9 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 定义基础对象类型、对象标识和类型描述。
 - [x] 提供轻量级类型层级和运行时查询能力。
 - [x] 抽象共享 `meta::registry`，避免对象系统和 meta 属性/方法重复维护基础类型索引。
-- [x] 对象注册表改为基于 `meta::registry` 挂载底层 `objects::object_factory_ops`，并通过
+- [x] 对象类型 API 基于 `meta::registry` 挂载底层 `objects::object_factory_ops`，并通过
   `objects::object_factory_capability` / `objects::type` 视图对外查询。
-- [x] 提供对象注册表和默认构造工厂。
+- [x] 提供对象语义查询 API 和默认构造工厂。
 - [x] 提供注册错误状态，区分重复注册、重名、不一致类型描述和父类型缺失。
 - [x] 接入 `memory_resource` 完成对象创建和销毁。
 - [x] 设计 `objects::handle`、`objects::typed_handle<T>` 和所有权约束。

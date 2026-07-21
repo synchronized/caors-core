@@ -11,8 +11,8 @@ CAORS 对象系统第一阶段只解决几件事：
 
 - 对象实例有运行期唯一标识。
 - 对象类型复用 `meta::type`，包含类型标识、名称、稳定 GUID、大小、对齐和父类型。
-- 对象可以注册到基于 `meta::registry` 的对象注册表。
-- 注册表可以按类型创建和销毁默认构造对象。
+- 对象类型通过 `registration::type_<T>()` 写入 `meta::registry`。
+- 对象模块提供按类型创建和销毁默认构造对象的语义入口。
 - 对象创建和销毁可以接入 `memory_resource`。
 - 对象生命周期管理器可以持有实例、按 `object_id` 查找对象，并解析弱句柄和序列化引用。
 
@@ -34,7 +34,7 @@ CAORS 对象系统第一阶段只解决几件事：
 最小对象身份定义位于 `caors::meta` 命名空间，例如 `meta::object`、`meta::object_id` 和
 `meta::object_base<T>`。`objects` 模块在此基础上只提供对象生命周期、句柄、引用和对象工厂等组合能力，例如
 `objects::type`、`objects::handle`、`objects::typed_handle<T>`、`objects::ptr<T>`、
-`objects::ref_counted`、`objects::ref<T>`、`objects::weak_ref<T>`、`objects::registry`、
+`objects::ref_counted`、`objects::ref<T>`、`objects::weak_ref<T>`、
 `objects::object_index` 和 `objects::manager`。
 
 属性、方法、metadata、schema 和动态调用能力都归属 `meta`。对象模块不再维护独立反射数据，也不把
@@ -419,7 +419,7 @@ public:
 
 `static_type_id()` 返回 C++ 类型 id；对象类型尚未通过 `registration::type_<T>().commit()`
 注册时，`objects::find<T>()`、对象工厂、类型名、GUID 和父类型关系仍不可用。对象类型应在启动注册阶段
-一次性写入全局元数据注册表。
+一次性写入同一个 `meta::context` 对应的元数据注册表。
 
 这样通过基类引用也能查询真实类型：
 
@@ -429,11 +429,18 @@ object.type_id();   // player::static_type_id()
 object.type_name(); // "game.player"
 ```
 
-### objects::registry
+### 对象类型 API
 
-`objects::registry` 是基于全局 `meta::registry` 的对象注册表 facade 和默认构造工厂。它不表示彼此隔离的局部注册表实例。对象类型通过 `registration::type_<T>()` 或 `registration::type_<T>("name")` 注册；只要 `T` 继承自 `objects::object`，`commit()` 会自动写入对象能力。注册后通过 `objects::find()`、`objects::id()` 和 `objects::is_a()` 查询对象元数据；需要默认构造工厂时再使用 `objects::get_registry()`。需要隔离 registry 的序列化路径应使用 `serialization::context::type_context`，而不是通过 `objects::registry` 表达局部注册表。
+对象模块不维护独立 registry。对象类型通过 `registration::type_<T>()` 或
+`registration::type_<T>(context, name)` 注册到 `meta::registry`；只要 `T` 继承自
+`objects::object`，`commit()` 会自动写入对象工厂能力。注册后通过 `objects::find()`、
+`objects::id()`、`objects::is_a()`、`objects::create()` 和 `objects::destroy()` 使用对象语义入口。
+无 context 重载使用 `meta::default_context()`；需要隔离注册表时显式传入同一个 `meta::context`。
 
-对外查询返回 `objects::type` 只读视图。它组合了基础 `meta::type` 和对象工厂 capability，因此调用方可以通过 `id()`、`name()`、`guid()`、`size()`、`alignment()`、`parent_id()` 和 `constructible()` 查询对象类型信息，但不能直接修改注册表内部数据。
+对外查询返回 `objects::type` 只读视图。它持有 `meta::type`，并通过
+`objects::object_factory_capability` 查询对象工厂能力，因此调用方可以通过 `id()`、`name()`、
+`guid()`、`size()`、`alignment()`、`parent_id()` 和 `constructible()` 查询对象类型信息，但不能直接修改
+注册表内部数据。
 
 ```cpp
 if (caors::registration::type_<actor>().commit()) {
@@ -450,6 +457,10 @@ caors::error result = caors::registration::type_<player>().commit();
 
 ```cpp
 auto type = caors::objects::find<player>();
+
+caors::meta::registry local_registry;
+caors::meta::context local_context{local_registry};
+auto local_type = caors::objects::find<player>(local_context);
 ```
 
 也可以检查继承关系：
@@ -468,20 +479,18 @@ caors::objects::is_a(player::static_type_id(), actor::static_type_id());
 
 ## 创建和销毁
 
-注册表支持按 `object_type_id` 创建默认构造对象：
+对象语义 API 支持按 `object_type_id` 创建默认构造对象：
 
 ```cpp
-caors::objects::registry& registry = caors::objects::get_registry();
-
-caors::object* instance = registry.create(player::static_type_id());
-registry.destroy(instance);
+caors::object* instance = caors::objects::create(player::static_type_id());
+caors::objects::destroy(player::static_type_id(), instance);
 ```
 
 也可以直接使用 C++ 类型创建已注册对象：
 
 ```cpp
-player* instance = registry.create<player>();
-registry.destroy(instance);
+player* instance = caors::objects::create<player>();
+caors::objects::destroy(instance);
 ```
 
 也可以显式传入内存资源：
@@ -489,11 +498,11 @@ registry.destroy(instance);
 ```cpp
 caors::tracking_resource tracking(&caors::get_system_memory_resource());
 
-player* instance = registry.create<player>(&tracking);
-registry.destroy(instance, &tracking);
+player* instance = caors::objects::create<player>(&tracking);
+caors::objects::destroy(instance, &tracking);
 ```
 
-`registry.destroy()` 需要传回与创建时一致的内存资源。对象本身不保存分配来源；如果希望由库记录分配来源，
+`objects::destroy()` 需要传回与创建时一致的内存资源。对象本身不保存分配来源；如果希望由库记录分配来源，
 应优先使用 `objects::manager`。
 
 对于需要构造参数的类型，可以直接使用模板入口：
@@ -503,7 +512,7 @@ auto* instance = caors::objects::create<player>(&resource, constructor_arg);
 caors::objects::destroy(instance, &resource);
 ```
 
-非默认构造类型仍可注册类型描述，但不能通过注册表默认创建。
+非默认构造类型仍可注册类型描述，但不能通过 `objects::create(object_type_id)` 默认创建。
 
 生命周期管理器适合应用层持有运行期对象：
 
@@ -532,7 +541,7 @@ manager.destroy(instance);
 - `objects::object_factory_ops`：对象工厂 raw ops 函数表，由 registry 内部和 `meta::type` 静态能力使用。
 - `objects::type`：对象类型只读视图，组合 `meta::type` 和对象工厂 capability。
 - `caors::error`：明确对象类型注册失败原因和错误来源域。
-- `objects::registry`：类型注册、查询、继承关系判断、默认构造工厂。
+- `objects::create()` / `objects::destroy()`：基于 `meta::context` 和对象工厂能力的默认构造工厂入口。
 - `objects::manager`：对象实例生命周期管理器，持有对象、按 `object_id` 查找和销毁对象，可选同步
   `object_index`，支持延迟销毁队列，并解析 `objects::handle` / `objects::typed_handle<T>`。
 - `objects::ref_counted`：可选侵入式引用计数基类。
@@ -542,7 +551,6 @@ manager.destroy(instance);
 - `registration::type_<T>()`：对象类型链式注册入口。
 - `objects::id()` / `objects::find()` / `objects::is_a()`：对象类型查询入口；`objects::find()` 未命中时返回无效
   `objects::type`。
-- `objects::get_registry()`：进程内默认对象注册表。
 - `objects::create<T>()` / `objects::destroy<T>()`：接入 `memory_resource` 的直接对象创建和销毁入口。
 - `objects::make_object_ref_resolver(objects::manager&)`：为对象引用序列化创建基于运行期
   `object_id` 的 manager resolver，并挂到 `serialization::context::external_refs`。

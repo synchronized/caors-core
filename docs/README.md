@@ -27,7 +27,7 @@
 - [math.md](math.md)：基础数学值类型，包含向量、矩阵、四元数、矩形和 AABB。
 - [memory.md](memory.md)：内存资源、分配器、策略资源和调试跟踪。
 - [meta.md](meta.md)：类型元数据、`type_guid`、`meta::type`、`meta::registry` 和类型 extension 数据。
-- [object.md](object.md)：对象基类、对象注册表和对象创建销毁入口。
+- [object.md](object.md)：对象基类、对象类型 API 和对象创建销毁入口。
 - [meta-properties.md](meta-properties.md)：meta 内建字段/方法能力和手写注册入口。
 - [resources.md](resources.md)：资源身份、资源引用、运行期 handle、manager/cache、依赖图、manifest、
   provider、loader/saver、非拥有 database 编排入口、同步 reload 通知、异步加载请求和资源引用 resolver。

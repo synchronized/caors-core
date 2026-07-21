@@ -2,125 +2,79 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/object/registry.h"
+
+#include "caors/meta/capability_traits.h"
 #include "caors/registration.h"
 
 namespace caors::objects {
 namespace {
 
-[[nodiscard]] object_factory_capability find_object_factory(meta::type type) noexcept {
-  return type ? object_factory_capability{type} : object_factory_capability{};
+[[nodiscard]] type make_object_type(meta::type source) noexcept {
+  type object_type{source};
+  return object_type ? object_type : type{};
+}
+
+[[nodiscard]] object_factory_capability factory_of(const type& object_type) noexcept {
+  return object_type ? object_factory_capability{object_type.info()} : object_factory_capability{};
 }
 
 } // namespace
 
-registry::registry() { (void)registration::type_<object>(object::static_type_name()).commit(); }
+namespace detail {
 
-registry::~registry() = default;
-
-bool registry::contains(object_type_id id) const {
-  return find_object_factory(meta::get_registry().find_type(id)).valid();
+error ensure_object_base_registered(meta::registry& registry) {
+  meta::context context{registry};
+  const error status = registration::type_<object>(context, object::static_type_name()).commit();
+  return status.value() == errc::duplicate_id ? error{} : status;
 }
 
-type registry::find_type(object_type_id id) const {
-  const meta::type stored_meta = meta::get_registry().find_type(id);
-  if (!stored_meta) {
-    return {};
-  }
+} // namespace detail
 
-  const object_factory_capability factory = find_object_factory(stored_meta);
-  if (!factory) {
-    return {};
-  }
-
-  return type{stored_meta, factory};
+type find(meta::context& context, object_type_id id) {
+  return make_object_type(meta::find(context, id));
 }
 
-type registry::find_type(std::string_view name) const {
-  const meta::type type = meta::get_registry().find_type(name);
-  if (!type) {
-    return {};
-  }
-
-  return find_type(type.id());
+type find(meta::context& context, std::string_view name) {
+  return make_object_type(meta::find(context, name));
 }
 
-bool registry::is_a(object_type_id type_id, object_type_id base_type_id) const {
-  return meta::get_registry().is_a(type_id, base_type_id);
+bool contains(meta::context& context, object_type_id id) {
+  return static_cast<bool>(::caors::objects::find(context, id));
 }
 
-std::size_t registry::size() const noexcept {
-  return meta::capabilities::size<object_factory_ops>();
+bool is_a(meta::context& context, object_type_id id, object_type_id base_id) {
+  return meta::is_a(context, id, base_id);
 }
 
-object* registry::try_create(object_type_id id, memory_resource* resource) const noexcept {
-  const type object_type = find_type(id);
-  if (!object_type) {
-    return nullptr;
-  }
-
-  return object_type.factory().try_create(resource);
+std::size_t size(meta::context& context) noexcept {
+  return meta::detail::capability_count(context.get_registry(),
+                                        meta::capability_key_of<object_factory_ops>());
 }
 
-object* registry::try_create(std::string_view name, memory_resource* resource) const noexcept {
-  const type object_type = find_type(name);
-  if (!object_type) {
-    return nullptr;
-  }
-
-  return try_create(object_type.id(), resource);
+object* try_create(meta::context& context, object_type_id id, memory_resource* resource) noexcept {
+  return factory_of(::caors::objects::find(context, id)).try_create(resource);
 }
 
-object* registry::create(object_type_id id, memory_resource* resource) const {
-  const type object_type = find_type(id);
-  if (!object_type) {
-    return nullptr;
-  }
-
-  return object_type.factory().create(resource);
+object* try_create(meta::context& context, std::string_view name,
+                   memory_resource* resource) noexcept {
+  return factory_of(::caors::objects::find(context, name)).try_create(resource);
 }
 
-object* registry::create(std::string_view name, memory_resource* resource) const {
-  const type object_type = find_type(name);
-  if (!object_type) {
-    return nullptr;
-  }
-
-  return create(object_type.id(), resource);
+object* create(meta::context& context, object_type_id id, memory_resource* resource) {
+  return factory_of(::caors::objects::find(context, id)).create(resource);
 }
 
-bool registry::destroy(object_type_id id, object* instance,
-                       memory_resource* resource) const noexcept {
+object* create(meta::context& context, std::string_view name, memory_resource* resource) {
+  return factory_of(::caors::objects::find(context, name)).create(resource);
+}
+
+bool destroy(meta::context& context, object_type_id id, object* instance,
+             memory_resource* resource) noexcept {
   if (instance == nullptr) {
     return false;
   }
 
-  const type object_type = find_type(id);
-  if (!object_type) {
-    return false;
-  }
-
-  return object_type.factory().destroy(instance, resource);
-}
-
-bool registry::destroy(object* instance, memory_resource* resource) const noexcept {
-  if (instance == nullptr) {
-    return false;
-  }
-
-  type object_type = find_type(instance->type_id());
-  if (!object_type) {
-    object_type = find_type(instance->type_name());
-  }
-  if (!object_type) {
-    return false;
-  }
-
-  return destroy(object_type.id(), instance, resource);
-}
-
-registry& get_registry() noexcept {
-  static registry registry;
-  return registry;
+  return factory_of(::caors::objects::find(context, id)).destroy(instance, resource);
 }
 
 } // namespace caors::objects

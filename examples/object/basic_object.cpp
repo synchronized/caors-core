@@ -18,8 +18,6 @@ public:
 };
 
 int main() {
-  caors::objects::registry& registry = caors::objects::get_registry();
-
   if (caors::registration::type_<actor>(actor::object_type_name).commit()) {
     return 1;
   }
@@ -33,7 +31,12 @@ int main() {
     return 1;
   }
 
-  caors::object* instance = registry.create<player>();
+  const auto player_type = caors::objects::find<player>();
+  if (!player_type) {
+    return 1;
+  }
+
+  caors::object* instance = caors::objects::create(player_type.id());
   if (instance == nullptr) {
     return 1;
   }
@@ -42,6 +45,6 @@ int main() {
   std::cout << "type name: " << instance->type_name() << '\n';
   std::cout << "is actor: " << caors::objects::is_a(instance->type_id(), actor_type.id()) << '\n';
 
-  registry.destroy(instance);
+  caors::objects::destroy(player_type.id(), instance);
   return 0;
 }

@@ -25,7 +25,9 @@ namespace caors::objects {
 class CAORS_API manager final {
 public:
   explicit manager(memory_resource* resource = nullptr);
+  explicit manager(meta::context& type_context, memory_resource* resource = nullptr);
   explicit manager(object_index& index, memory_resource* resource = nullptr);
+  manager(meta::context& type_context, object_index& index, memory_resource* resource = nullptr);
   ~manager();
 
   manager(const manager&) = delete;
@@ -35,6 +37,10 @@ public:
 
   /** @brief 查询对象和索引使用的内存资源。 */
   [[nodiscard]] memory_resource* resource() const noexcept { return resource_; }
+
+  /** @brief 查询对象类型查找使用的 meta 上下文。 */
+  [[nodiscard]] meta::context& type_context() noexcept { return *type_context_; }
+  [[nodiscard]] const meta::context& type_context() const noexcept { return *type_context_; }
 
   /** @brief 查询当前关联的持久对象索引。未关联时返回 `nullptr`。 */
   [[nodiscard]] object_index* index() noexcept { return index_; }
@@ -68,8 +74,8 @@ public:
       return nullptr;
     }
 
-    const type expected = objects::find<T>();
-    if (!expected || !objects::is_a(stored->type, expected.id())) {
+    const type expected = objects::find<T>(*type_context_);
+    if (!expected || !objects::is_a(*type_context_, stored->type, expected.id())) {
       return nullptr;
     }
 
@@ -100,7 +106,7 @@ public:
   template <typename T, typename... Args> [[nodiscard]] T* create(Args&&... args) {
     static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
 
-    const type object_type = objects::find<T>();
+    const type object_type = objects::find<T>(*type_context_);
     if (!object_type) {
       return nullptr;
     }
@@ -186,8 +192,8 @@ public:
       return {};
     }
 
-    const type expected = objects::find<T>();
-    if (!expected || !objects::is_a(stored->type, expected.id())) {
+    const type expected = objects::find<T>(*type_context_);
+    if (!expected || !objects::is_a(*type_context_, stored->type, expected.id())) {
       return {};
     }
 
@@ -211,6 +217,7 @@ private:
   void destroy_entry(const entry& stored) noexcept;
 
   memory_resource* resource_ = nullptr;
+  meta::context* type_context_ = nullptr;
   object_index* index_ = nullptr;
   entry_map entries_;
   entry_queue pending_destroy_;

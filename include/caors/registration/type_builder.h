@@ -361,8 +361,10 @@ private:
 
       using base_type = typename meta::detail::object_base_type_traits<value_type>::type;
       if constexpr (!std::is_same_v<value_type, objects::object>) {
-        (void)objects::get_registry();
-        if (!pending_.parent_id() && registry_ != nullptr &&
+        if (registry_ != nullptr) {
+          status_ = objects::detail::ensure_object_base_registered(*registry_);
+        }
+        if (!status_ && !pending_.parent_id() && registry_ != nullptr &&
             registry_->template find_type<base_type>()) {
           parent<base_type>();
         }

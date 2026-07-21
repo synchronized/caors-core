@@ -5,14 +5,19 @@
 
 namespace caors::objects {
 
-manager::manager(memory_resource* resource)
+manager::manager(memory_resource* resource) : manager(meta::default_context(), resource) {}
+
+manager::manager(meta::context& type_context, memory_resource* resource)
     : resource_(resource != nullptr ? resource : get_default_memory_resource()),
-      entries_(entry_map::allocator_type{resource_}),
+      type_context_(&type_context), entries_(entry_map::allocator_type{resource_}),
       pending_destroy_(entry_queue::allocator_type{resource_}) {}
 
 manager::manager(object_index& index, memory_resource* resource)
-    : resource_(resource != nullptr ? resource : index.resource()), index_(&index),
-      entries_(entry_map::allocator_type{resource_}),
+    : manager(meta::default_context(), index, resource) {}
+
+manager::manager(meta::context& type_context, object_index& index, memory_resource* resource)
+    : resource_(resource != nullptr ? resource : index.resource()), type_context_(&type_context),
+      index_(&index), entries_(entry_map::allocator_type{resource_}),
       pending_destroy_(entry_queue::allocator_type{resource_}) {}
 
 manager::~manager() { clear(); }
@@ -46,7 +51,7 @@ object* manager::find(handle target) const {
     return nullptr;
   }
 
-  if (!objects::is_a(stored->type, target.type())) {
+  if (!objects::is_a(*type_context_, stored->type, target.type())) {
     return nullptr;
   }
 
@@ -58,7 +63,7 @@ object* manager::create(object_type_id id) {
     return nullptr;
   }
 
-  object* instance = get_registry().create(id, resource_);
+  object* instance = objects::create(*type_context_, id, resource_);
   if (instance == nullptr) {
     return nullptr;
   }
@@ -67,14 +72,14 @@ object* manager::create(object_type_id id) {
   try {
 #endif
     if (!store(instance, id, resource_)) {
-      (void)get_registry().destroy(id, instance, resource_);
+      (void)objects::destroy(*type_context_, id, instance, resource_);
       return nullptr;
     }
 
     return instance;
 #if CAORS_HAS_EXCEPTIONS
   } catch (...) {
-    (void)get_registry().destroy(id, instance, resource_);
+    (void)objects::destroy(*type_context_, id, instance, resource_);
     throw;
   }
 #endif
@@ -237,7 +242,7 @@ bool manager::store(object* instance, object_type_id type, memory_resource* reso
 }
 
 void manager::destroy_entry(const entry& stored) noexcept {
-  (void)get_registry().destroy(stored.type, stored.instance, stored.resource);
+  (void)objects::destroy(*type_context_, stored.type, stored.instance, stored.resource);
 }
 
 } // namespace caors::objects

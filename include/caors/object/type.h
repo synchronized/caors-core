@@ -12,12 +12,11 @@
 
 namespace caors::objects {
 
-class registry;
-
 /** @brief 对象类型只读视图。 */
 class CAORS_API type final {
 public:
   type() noexcept = default;
+  explicit type(meta::type info) noexcept;
 
   [[nodiscard]] bool valid() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
@@ -30,15 +29,10 @@ public:
   [[nodiscard]] std::size_t alignment() const noexcept;
   [[nodiscard]] object_type_id parent_id() const noexcept;
   [[nodiscard]] bool constructible() const noexcept;
-
-private:
-  friend class registry;
-
-  type(meta::type info, object_factory_capability factory) noexcept;
   [[nodiscard]] object_factory_capability factory() const noexcept;
 
+private:
   meta::type type_{};
-  object_factory_capability factory_{};
 };
 
 } // namespace caors::objects

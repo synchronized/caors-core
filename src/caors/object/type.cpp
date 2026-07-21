@@ -3,39 +3,38 @@
 
 #include "caors/object/type.h"
 
-#include "caors/meta/value_ops.h"
-
 namespace caors::objects {
 
-type::type(meta::type type, object_factory_capability factory) noexcept
-    : type_(type), factory_(factory) {}
+type::type(meta::type type) noexcept : type_(type) {}
 
-bool type::valid() const noexcept { return type_.valid() && factory_.valid(); }
+bool type::valid() const noexcept {
+  return type_.registered() && object_factory_capability{type_}.valid();
+}
 
 meta::type type::info() const noexcept { return valid() ? type_ : meta::type{}; }
 
-object_type_id type::id() const noexcept { return type_.id(); }
-
-core::string_name type::name() const noexcept { return type_.name(); }
-
-core::type_guid type::guid() const noexcept { return type_.guid(); }
-
-std::size_t type::size() const noexcept {
-  const meta::value_storage_ops* value_ops = type_.get_raw_ops<meta::value_storage_ops>();
-  return value_ops != nullptr ? value_ops->layout.size : 0;
+object_type_id type::id() const noexcept {
+  return valid() ? type_.id() : object_type_id::invalid();
 }
 
-std::size_t type::alignment() const noexcept {
-  const meta::value_storage_ops* value_ops = type_.get_raw_ops<meta::value_storage_ops>();
-  return value_ops != nullptr ? value_ops->layout.alignment : 0;
+core::string_name type::name() const noexcept {
+  return valid() ? type_.name() : core::string_name{};
 }
 
-object_type_id type::parent_id() const noexcept { return type_.parent_id(); }
+core::type_guid type::guid() const noexcept { return valid() ? type_.guid() : core::type_guid{}; }
 
-bool type::constructible() const noexcept { return factory_.constructible(); }
+std::size_t type::size() const noexcept { return valid() ? type_.size() : 0; }
+
+std::size_t type::alignment() const noexcept { return valid() ? type_.alignment() : 0; }
+
+object_type_id type::parent_id() const noexcept {
+  return valid() ? type_.parent_id() : object_type_id::invalid();
+}
+
+bool type::constructible() const noexcept { return factory().constructible(); }
 
 object_factory_capability type::factory() const noexcept {
-  return valid() ? factory_ : object_factory_capability{};
+  return valid() ? object_factory_capability{type_} : object_factory_capability{};
 }
 
 } // namespace caors::objects

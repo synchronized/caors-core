@@ -28,15 +28,13 @@ using namespace caors::tests::object;
 
 TEST_CASE("object - non default constructible types can be described but not factory-created",
           "[object]") {
-  caors::objects::registry& registry = caors::objects::get_registry();
-
   REQUIRE(register_object_test_type<registered_non_default_object>() == caors::error{});
 
   auto type = caors::objects::find<registered_non_default_object>();
   REQUIRE(type);
   CHECK_FALSE(type.constructible());
-  CHECK(registry.try_create<registered_non_default_object>() == nullptr);
-  CHECK(registry.create<registered_non_default_object>() == nullptr);
+  CHECK(caors::objects::try_create(type.id()) == nullptr);
+  CHECK(caors::objects::create(type.id()) == nullptr);
 }
 
 // 原测试文件：object_registry_registry_checks_parent_relationship_test.cpp
@@ -69,7 +67,6 @@ TEST_CASE("object - registry checks parent relationship", "[object]") {
 using namespace caors::tests::object;
 
 TEST_CASE("object - registry creates and destroys registered objects", "[object]") {
-  caors::objects::registry& registry = caors::objects::get_registry();
   caors::tracking_resource tracking(&caors::get_system_memory_resource());
 
   REQUIRE(register_object_test_type<factory_actor>() == caors::error{});
@@ -77,13 +74,13 @@ TEST_CASE("object - registry creates and destroys registered objects", "[object]
   const auto actor_type = caors::objects::find<factory_actor>();
   REQUIRE(actor_type);
 
-  caors::object* instance = registry.create(actor_type.id(), &tracking);
+  caors::object* instance = caors::objects::create(actor_type.id(), &tracking);
 
   REQUIRE(instance != nullptr);
   CHECK(instance->type_id() == actor_type.id());
   CHECK(tracking.statistics().allocation_count == 1);
 
-  CHECK(registry.destroy(instance, &tracking));
+  CHECK(caors::objects::destroy(actor_type.id(), instance, &tracking));
   CHECK(tracking.statistics().deallocation_count == 1);
   CHECK(tracking.statistics().bytes_in_use == 0);
 }
