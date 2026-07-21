@@ -107,16 +107,9 @@ error write_variant(writer& writer, const variant& value) {
     type_schema.has_explicit_fields = true;
     type_schema.fields.reserve(value.as_object().size());
     for (const meta::variant_member& member : value.as_object()) {
-      type_schema.fields.push_back(serialization::field_schema{
-          member.name,
-          member.name,
-          {},
-          member.field_id,
-          0,
-          0,
-          false,
-          false,
-      });
+      serialization::field_options options = serialization::make_field(member.name.view());
+      options.field_id = member.field_id;
+      type_schema.fields.emplace_back(options);
     }
 
     error status = writer.begin_object(type_schema);

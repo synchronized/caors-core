@@ -4,7 +4,6 @@
 #include "caors/serialization/operations.h"
 
 #include "caors/meta/property.h"
-#include "caors/meta/registry.h"
 #include "caors/meta/type.h"
 
 #include "detail/internal.h"
@@ -21,13 +20,13 @@ error deserialize(const serialization::context& context, const meta::type& type,
     return {error_domain::serialization, errc::invalid_argument};
   }
 
-  const serialization::type_schema* schema =
-      meta::get_registry().find_extension_ptr<serialization::type_schema>(type.id());
+  const serialization::schema_view schema_view = type.get_capability<serialization::schema_view>();
+  const serialization::type_schema* schema = schema_view.raw();
   if (schema == nullptr) {
     return {error_domain::serialization, errc::missing_type};
   }
 
-  if (!schema->valid()) {
+  if (!schema_view.valid()) {
     return {error_domain::serialization, errc::invalid_type};
   }
 

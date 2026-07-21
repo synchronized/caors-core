@@ -55,6 +55,8 @@ struct type_descriptor;
                                                                std::int64_t value) noexcept;
 [[nodiscard]] CAORS_API enum_value_view find_enum_value_by_u64(const type& source,
                                                                std::uint64_t value) noexcept;
+template <typename Extension>
+[[nodiscard]] const Extension* find_type_extension(const type& source) noexcept;
 
 } // namespace detail
 
@@ -197,6 +199,8 @@ private:
   friend enum_value_view detail::find_enum_value(const type&, std::string_view);
   friend enum_value_view detail::find_enum_value_by_i64(const type&, std::int64_t) noexcept;
   friend enum_value_view detail::find_enum_value_by_u64(const type&, std::uint64_t) noexcept;
+  template <typename Extension>
+  friend const Extension* detail::find_type_extension(const type&) noexcept;
 
   constexpr type(const registry* registry, const detail::type_data* data,
                  const detail::type_descriptor* descriptor) noexcept

@@ -123,8 +123,8 @@ struct json_options {
   json_duplicate_key_policy duplicate_key_policy = json_duplicate_key_policy::keep_all;
 };
 
-/** @brief 字段和 schema 相关的序列化语义选项。 */
-struct field_options {
+/** @brief 字段版本过滤相关的序列化语义选项。 */
+struct field_filter_options {
   /**
    * @brief 当前读写使用的 schema version。
    *
@@ -207,7 +207,7 @@ struct storage_options {
 
 /** @brief 单次序列化调度的策略配置。 */
 struct context_config {
-  field_options fields{};
+  field_filter_options fields{};
   limit_options limits{};
   polymorphic_options polymorphic{};
   json_options json{};

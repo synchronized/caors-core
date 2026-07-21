@@ -8,8 +8,6 @@
 
 #include <catch2/catch_all.hpp>
 
-#include <optional>
-
 namespace {
 
 struct registration_actor final : caors::object {
@@ -40,11 +38,13 @@ TEST_CASE("registration - type builder registers meta serialization and object t
   CHECK(static_cast<bool>(meta_type.find_method("set_value")));
 
   REQUIRE(caors::serialization::contains(meta_type));
-  const std::optional<caors::serialization::type_schema> schema =
-      caors::serialization::find(meta_type);
-  REQUIRE(schema.has_value());
-  REQUIRE(schema->fields.size() == 1);
-  CHECK(schema->fields[0].field_name == caors::core::string_name{"value"});
+  const caors::serialization::schema_view schema = caors::serialization::find_schema(meta_type);
+  REQUIRE(schema);
+  REQUIRE(schema.field_count() == 1);
+  const caors::serialization::field_schema* field = schema.field_at(0);
+  REQUIRE(field != nullptr);
+  CHECK(field->field_name == caors::core::string_name{"value"});
+  CHECK(static_cast<bool>(field->property));
 
   const caors::objects::type object_type = caors::objects::find<registration_actor>();
   REQUIRE(object_type);
@@ -87,9 +87,11 @@ TEST_CASE("registration - duplicate type builder commit does not mutate register
   CHECK(static_cast<bool>(old_meta_type.find_property("first")));
   CHECK_FALSE(static_cast<bool>(old_meta_type.find_property("second")));
 
-  const std::optional<caors::serialization::type_schema> schema =
-      caors::serialization::find(meta_type);
-  REQUIRE(schema.has_value());
-  REQUIRE(schema->fields.size() == 1);
-  CHECK(schema->fields[0].field_name == caors::core::string_name{"first"});
+  const caors::serialization::schema_view schema =
+      meta_type.get_capability<caors::serialization::schema_view>();
+  REQUIRE(schema);
+  REQUIRE(schema.field_count() == 1);
+  const caors::serialization::field_schema* field = schema.field_at(0);
+  REQUIRE(field != nullptr);
+  CHECK(field->field_name == caors::core::string_name{"first"});
 }

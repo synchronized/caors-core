@@ -337,9 +337,9 @@ private:
           return {error_domain::serialization, errc::invalid_field};
         }
 
-        serialization::field_schema schema = serialization::make_field(property->name().view());
-        schema.property = meta::detail::make_property_view(property);
-        serialization_schema_.fields.push_back(std::move(schema));
+        serialization_schema_.fields.emplace_back(
+            serialization::make_field(property->name().view()),
+            meta::detail::make_property_view(property));
       }
 
       return {};
@@ -829,14 +829,14 @@ public:
     return *this;
   }
 
-  serialization_section& field(serialization::field_schema schema) {
-    owner_->serialization_schema_.fields.push_back(std::move(schema));
+  serialization_section& field(serialization::field_options options) {
+    owner_->serialization_schema_.fields.emplace_back(std::move(options));
     return *this;
   }
 
-  serialization_section& fields(std::initializer_list<serialization::field_schema> schemas) {
-    for (const serialization::field_schema& schema : schemas) {
-      owner_->serialization_schema_.fields.push_back(schema);
+  serialization_section& fields(std::initializer_list<serialization::field_options> fields) {
+    for (const serialization::field_options& field : fields) {
+      owner_->serialization_schema_.fields.emplace_back(field);
     }
     return *this;
   }

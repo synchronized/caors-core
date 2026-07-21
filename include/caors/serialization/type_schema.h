@@ -6,11 +6,15 @@
 
 #include "caors/core/containers.h"
 #include "caors/core/string_name.h"
+#include "caors/meta/capability_traits.h"
+#include "caors/meta/detail/type_extension_templates.h"
 #include "caors/meta/property.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <initializer_list>
 #include <string_view>
+#include <utility>
 
 namespace caors::serialization {
 
@@ -41,11 +45,10 @@ enum class format_features : std::uint32_t {
   return (features & feature) != format_features::none;
 }
 
-/** @brief 单个字段的序列化配置。 */
-struct field_schema {
+/** @brief 用户注册时填写的单个字段序列化配置。 */
+struct field_options {
   string_name field_name{};
   string_name serialized_name{};
-  meta::property property{};
   std::uint32_t field_id = 0;
   std::uint32_t version_added = 0;
   std::uint32_t version_removed = 0;
@@ -53,6 +56,19 @@ struct field_schema {
   bool skipped = false;
 
   [[nodiscard]] constexpr bool valid() const noexcept { return !field_name.empty(); }
+};
+
+/**
+ * @brief 提交后的运行期字段 schema。
+ *
+ * `field_schema` 保留用户字段配置，并额外保存提交时绑定好的 `meta::property` 视图。
+ */
+struct field_schema : field_options {
+  meta::property property{};
+
+  field_schema() = default;
+  field_schema(field_options options, meta::property reflected_property = {}) noexcept
+      : field_options(std::move(options)), property(reflected_property) {}
 };
 
 /**
@@ -76,14 +92,39 @@ struct type_schema {
   }
 };
 
+/** @brief 序列化 schema 的类型级只读能力视图。 */
+class schema_view {
+public:
+  schema_view() noexcept = default;
+  explicit schema_view(const type_schema* schema) noexcept : schema_(schema) {}
+
+  [[nodiscard]] bool valid() const noexcept { return schema_ != nullptr && schema_->valid(); }
+
+  [[nodiscard]] explicit operator bool() const noexcept { return valid(); }
+
+  [[nodiscard]] const type_schema* get() const noexcept { return valid() ? schema_ : nullptr; }
+  [[nodiscard]] const type_schema* raw() const noexcept { return schema_; }
+  [[nodiscard]] std::size_t field_count() const noexcept {
+    return valid() ? schema_->fields.size() : 0;
+  }
+  [[nodiscard]] const field_schema* field_at(std::size_t index) const noexcept {
+    return valid() && index < schema_->fields.size() ? &schema_->fields[index] : nullptr;
+  }
+  [[nodiscard]] bool has_explicit_fields() const noexcept {
+    return valid() && schema_->has_explicit_fields;
+  }
+
+private:
+  const type_schema* schema_ = nullptr;
+};
+
 /** @brief 创建字段序列化配置。 */
-[[nodiscard]] inline field_schema make_field(std::string_view field_name,
-                                             std::string_view serialized_name = {},
-                                             bool skipped = false, std::uint32_t field_id = 0) {
-  return field_schema{
+[[nodiscard]] inline field_options make_field(std::string_view field_name,
+                                              std::string_view serialized_name = {},
+                                              bool skipped = false, std::uint32_t field_id = 0) {
+  return field_options{
       string_name{field_name},
       serialized_name.empty() ? string_name{field_name} : string_name{serialized_name},
-      {},
       field_id,
       0,
       0,
@@ -93,13 +134,35 @@ struct type_schema {
 }
 
 /** @brief 创建类型序列化配置。 */
-[[nodiscard]] inline type_schema make_type_schema(std::initializer_list<field_schema> fields) {
+[[nodiscard]] inline type_schema make_type_schema(std::initializer_list<field_options> fields) {
   type_schema schema{};
-  schema.fields = vector<field_schema>{fields};
+  schema.fields.reserve(fields.size());
+  for (const field_options& field : fields) {
+    schema.fields.emplace_back(field);
+  }
   schema.has_explicit_fields = !schema.fields.empty();
   return schema;
 }
 
 } // namespace caors::serialization
+
+namespace caors::meta {
+
+/** @brief `serialization::type_schema` 的类型级能力查询特化。 */
+template <> struct type_capability_traits<serialization::schema_view> {
+  using result_type = serialization::schema_view;
+
+  [[nodiscard]] static result_type get(const type& source) noexcept {
+    return result_type{detail::find_type_extension<serialization::type_schema>(source)};
+  }
+
+  [[nodiscard]] static const serialization::type_schema* get_raw(const type& source) noexcept {
+    return detail::find_type_extension<serialization::type_schema>(source);
+  }
+
+  [[nodiscard]] static bool has(const type& source) noexcept { return get(source).valid(); }
+};
+
+} // namespace caors::meta
 
 #endif

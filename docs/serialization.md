@@ -12,7 +12,8 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 当前已覆盖：
 
 - 用 `serialization::type_schema` 表示类型的序列化元信息。
-- 用 `serialization::field_schema` 表示字段级序列化配置，例如字段别名、稳定字段 id、跳过和版本信息。
+- 用 `serialization::field_options` 表示用户注册时填写的字段级序列化配置。
+- 用 `serialization::field_schema` 表示提交后的运行期字段 schema，内部保存已绑定的 `meta::property`。
 - 基于全局 `meta::registry` 挂载序列化 extension，避免单独维护类型索引。
 - 提供 `serialization::registry` 查询序列化 extension；业务类型通过 `registration::type_<T>(name).serialization()` 完成跨模块注册。
 - 提供 `serialization::writer` 后端接口，让不同格式复用同一套字段遍历逻辑。
@@ -48,7 +49,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 ### 命名空间
 
 序列化模块的推荐类型名位于 `caors::serialization` 命名空间，例如
-`serialization::type_schema`、`serialization::field_schema`、`serialization::context`、
+`serialization::type_schema`、`serialization::field_options`、`serialization::field_schema`、`serialization::context`、
 `serialization::writer`、`serialization::reader`、`serialization::text_writer`、
 `serialization::json_writer`、`serialization::variant_reader` 和 `serialization::codec_traits<T>`。
 根命名空间只保留高频操作函数别名；reader、writer、result
@@ -360,8 +361,8 @@ caors::error status = caors::deserialize(context, holder, json);
 
 ### serialization::type_schema
 
-`serialization::type_schema` 是挂载在 `meta::registry` 上的序列化 extension。它只保存字段级
-序列化配置；具体输出格式由当前使用的 `writer` 后端决定：
+`serialization::type_schema` 是挂载在 meta 类型上的序列化 extension。它保存提交后的运行期字段
+schema；具体输出格式由当前使用的 `writer` 后端决定：
 
 ```cpp
 caors::registration::type_<actor>("game.actor")
@@ -374,31 +375,53 @@ caors::registration::type_<actor>("game.actor")
     .commit();
 ```
 
-字段配置按字段名引用 meta 属性。公共注册入口会在同一次 `commit()` 中发布 meta 属性和
-serialization schema；提交时会把字段名解析为稳定的 `meta::property` 视图并保存到
-`field_schema::property`。如果显式字段配置找不到对应属性，`commit()` 会返回 `errc::not_found`。
+用户注册时通过 `serialization::field_options` 按字段名引用 meta 属性。公共注册入口会在同一次
+`commit()` 中发布 meta 属性和 serialization schema；提交时会把字段名解析为稳定的
+`meta::property` 视图并保存到运行期 `field_schema::property`。如果显式字段配置找不到对应属性，
+`commit()` 会返回 `errc::not_found`。
 
 如果 `serialization::type_schema::fields` 为空，`commit()` 会按当前类型已注册属性生成默认字段；
 `has_explicit_fields == false` 用于保留默认字段读取语义。
 
-### serialization::field_schema
+运行期读取 schema 时优先使用不复制数据的类型能力视图：
 
-`serialization::field_schema` 描述单个字段的序列化规则：
+```cpp
+caors::meta::type type = caors::meta::find<actor>();
+caors::serialization::schema_view schema =
+    type.get_capability<caors::serialization::schema_view>();
+
+if (schema) {
+  for (std::size_t i = 0; i < schema.field_count(); ++i) {
+    const caors::serialization::field_schema* field = schema.field_at(i);
+  }
+}
+```
+
+`serialization::find_schema(type)` 是同一能力查询的便捷入口。旧的 `serialization::find(type_id)` 返回
+`std::optional<type_schema>`，会复制 schema，适合调试或兼容按 `type_id` 查询的代码，不建议放在
+序列化热点路径。
+
+### serialization::field_options / field_schema
+
+`serialization::field_options` 描述用户注册时填写的单个字段序列化规则：
 
 - `field_name`：反射字段名。
 - `serialized_name`：输出字段名；为空时使用 `field_name`。
-- `property`：注册提交期解析出的 `meta::property` 视图；普通用户只需要通过 builder 填写字段名。
 - `field_id`：稳定字段编号，供紧凑二进制、数字键 msgpack 等不写字段名的格式使用。
 - `version_added` / `version_removed`：配合 `serialization::context::config.fields.schema_version` 做字段版本过滤。
 - `required`：反序列化时缺失该字段会返回 `errc::not_found`。
 - `skipped`：序列化和反序列化时跳过该字段。
+
+`serialization::field_schema` 继承这组配置，并额外保存注册提交期解析出的 `meta::property` 视图。
+普通用户只需要通过 builder 填写字段名；序列化运行期使用已绑定的 `property`，避免每次读写重复
+按字段名查找属性。
 
 `serialization::context::config.fields.schema_version == 0` 表示不启用版本过滤，保持兼容默认行为。传入非 0 版本时：
 
 - `version_added != 0 && schema_version < version_added` 的字段会被跳过。
 - `version_removed != 0 && schema_version >= version_removed` 的字段会被跳过。
 
-序列化字段配置属于 serialization extension，不直接修改属性自身。反射负责描述字段是什么，
+序列化字段配置属于 serialization extension，不直接修改属性自身。meta 负责描述字段是什么，
 序列化负责描述字段如何存储；schema 内部保存解析后的只读属性视图，避免每次序列化重复查找字段。
 调用方应在首次读写前完成类型、属性和 serialization schema 注册。
 
@@ -1077,10 +1100,12 @@ if (status) {
 }
 
 caors::meta::type type = caors::meta::find<actor>();
-auto serialization_type = caors::serialization::find(type);
+caors::serialization::schema_view schema = caors::serialization::find_schema(type);
 ```
 
-查询序列化 extension 时使用 `serialization::find()` 或 `serialization::contains()`。重复注册同一个
+热点路径查询序列化 schema 时使用 `serialization::find_schema()` 或
+`type.get_capability<serialization::schema_view>()`，这两个入口都不会复制 schema。需要按
+`type_id` 调试查询时仍可使用 `serialization::find()` 或 `serialization::contains()`。重复注册同一个
 类型会返回 `errc::duplicate_id`，已有注册数据保持不变。显式 `.field()` 必须能在提交时解析到
 对应属性；未显式填写字段时会按当前属性列表生成默认 schema。序列化 extension 注册推荐在启动期或
 模块加载期完成；`meta::init_registry()` 只执行延迟注册并校验注册表，不会阻止后续继续注册。

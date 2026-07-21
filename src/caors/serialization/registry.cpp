@@ -30,9 +30,13 @@ std::optional<type_schema> find(meta::type type) {
   return type.registered() ? get_registry().find_type(type.id()) : std::nullopt;
 }
 
+schema_view find_schema(meta::type type) noexcept {
+  return type.registered() ? type.get_capability<schema_view>() : schema_view{};
+}
+
 bool contains(type_id id) { return get_registry().contains(id); }
 
-bool contains(meta::type type) { return type.registered() && contains(type.id()); }
+bool contains(meta::type type) { return find_schema(type).valid(); }
 
 std::size_t size() noexcept { return get_registry().size(); }
 

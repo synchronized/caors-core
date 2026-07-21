@@ -43,6 +43,9 @@ private:
 /** @brief 查找指定元类型的序列化 extension。 */
 [[nodiscard]] CAORS_API std::optional<type_schema> find(meta::type type);
 
+/** @brief 查找指定元类型的序列化 schema 视图，不复制 schema 数据。 */
+[[nodiscard]] CAORS_API schema_view find_schema(meta::type type) noexcept;
+
 /** @brief 判断指定类型是否挂载了序列化 extension。 */
 [[nodiscard]] CAORS_API bool contains(type_id id);
 

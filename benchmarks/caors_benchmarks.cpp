@@ -539,6 +539,32 @@ void benchmark_serialization(std::size_t iterations) {
   }
 
   {
+    CTRACK_NAME("serialization.schema_view_find");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const caors::serialization::schema_view schema =
+          caors::serialization::find_schema(actor_type);
+      consume(static_cast<std::uintptr_t>(schema ? schema.field_count() : 0U));
+    }
+  }
+
+  {
+    CTRACK_NAME("serialization.bound_schema_fields");
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const caors::serialization::schema_view schema =
+          actor_type.get_capability<caors::serialization::schema_view>();
+      const caors::serialization::type_schema* raw_schema = schema.get();
+      if (raw_schema == nullptr) {
+        std::cerr << "benchmark 序列化 schema 未注册\n";
+        std::exit(EXIT_FAILURE);
+      }
+
+      for (const caors::serialization::field_schema& field : raw_schema->fields) {
+        consume(static_cast<std::uintptr_t>(field.property ? 1U : 0U));
+      }
+    }
+  }
+
+  {
     CTRACK_NAME("serialization.schema_property_lookup");
     for (std::size_t index = 0; index < iterations; ++index) {
       for (const caors::serialization::field_schema& field : actor_schema.fields) {

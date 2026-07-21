@@ -318,13 +318,13 @@ TEST_CASE("serialization - variant reader deserializes reflected struct fields",
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - context filters fields by schema version", "[serialization]") {
-  caors::serialization::field_schema id = caors::serialization::make_field("id");
-  caors::serialization::field_schema legacy = caors::serialization::make_field("legacy");
+  caors::serialization::field_options id = caors::serialization::make_field("id");
+  caors::serialization::field_options legacy = caors::serialization::make_field("legacy");
   legacy.version_added = 1;
   legacy.version_removed = 2;
-  caors::serialization::field_schema current = caors::serialization::make_field("current");
+  caors::serialization::field_options current = caors::serialization::make_field("current");
   current.version_added = 2;
-  caors::serialization::field_schema future = caors::serialization::make_field("future");
+  caors::serialization::field_options future = caors::serialization::make_field("future");
   future.version_added = 3;
   future.required = true;
 
@@ -439,11 +439,11 @@ using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - variant reader applies required optional and skipped policies",
           "[serialization]") {
-  caors::serialization::field_schema id = caors::serialization::make_field("id");
-  caors::serialization::field_schema optional = caors::serialization::make_field("optional");
-  caors::serialization::field_schema required = caors::serialization::make_field("required");
+  caors::serialization::field_options id = caors::serialization::make_field("id");
+  caors::serialization::field_options optional = caors::serialization::make_field("optional");
+  caors::serialization::field_options required = caors::serialization::make_field("required");
   required.required = true;
-  caors::serialization::field_schema skipped = caors::serialization::make_field("skipped");
+  caors::serialization::field_options skipped = caors::serialization::make_field("skipped");
   skipped.skipped = true;
 
   REQUIRE(registration_result_ok(caors::registration::type_<reader_field_policy_actor>(
@@ -576,11 +576,11 @@ TEST_CASE("serialization - variant reader reports missing fields", "[serializati
 using namespace caors::tests::serialization;
 
 TEST_CASE("serialization - variant reader reports missing required fields", "[serialization]") {
-  caors::serialization::field_schema id = caors::serialization::make_field("id");
-  caors::serialization::field_schema optional = caors::serialization::make_field("optional");
-  caors::serialization::field_schema required = caors::serialization::make_field("required");
+  caors::serialization::field_options id = caors::serialization::make_field("id");
+  caors::serialization::field_options optional = caors::serialization::make_field("optional");
+  caors::serialization::field_options required = caors::serialization::make_field("required");
   required.required = true;
-  caors::serialization::field_schema skipped = caors::serialization::make_field("skipped");
+  caors::serialization::field_options skipped = caors::serialization::make_field("skipped");
   skipped.skipped = true;
 
   REQUIRE(registration_result_ok(caors::registration::type_<reader_field_policy_actor>(
