@@ -40,6 +40,9 @@ build/linux-clang-benchmark/benchmarks/caors_benchmarks 100000
 如果要比较不同 API 路径，优先看同一次运行内的相对差异。如果要比较不同提交，记录编译器、preset、
 迭代次数和提交号。
 
+人工整理后的 release benchmark 历史摘要放在 `benchmarks/results/`。该目录只提交摘要，不提交完整
+`ctrack` 原始控制台输出。
+
 ## 当前用例
 
 当前 `caors_benchmarks` 覆盖以下稳定热路径：
