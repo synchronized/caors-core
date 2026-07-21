@@ -195,11 +195,11 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
 
-  if (!meta::is_a(dynamic_type_id, declared_type)) {
+  if (!meta::is_a(context.effective_type_context(), dynamic_type_id, declared_type)) {
     return {{error_domain::serialization, errc::invalid_type}, {}};
   }
 
-  const meta::type dynamic_type = meta::find(dynamic_type_id);
+  const meta::type dynamic_type = meta::find(context.effective_type_context(), dynamic_type_id);
   if (!dynamic_type || !dynamic_type.guid()) {
     return {{error_domain::serialization, errc::invalid_type}, {}};
   }
@@ -232,7 +232,7 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
   }
 
   result<meta::type> dynamic_type =
-      resolve_polymorphic_meta_type(indirect.get_value_type().id(), dynamic_guid);
+      resolve_polymorphic_meta_type(context, indirect.get_value_type().id(), dynamic_guid);
   if (dynamic_type.failed()) {
     return dynamic_type.status;
   }
@@ -247,7 +247,8 @@ make_polymorphic_indirect_value(const meta::indirect_view& indirect,
     return {error_domain::serialization, errc::unsupported};
   }
 
-  const meta::type reflected_dynamic_type = meta::find(dynamic_type.value.id());
+  const meta::type reflected_dynamic_type =
+      meta::find(context.effective_type_context(), dynamic_type.value.id());
   if (!reflected_dynamic_type) {
     return {error_domain::serialization, errc::not_found};
   }

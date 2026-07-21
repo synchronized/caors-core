@@ -14,7 +14,8 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 - 用 `serialization::type_schema` 表示类型的序列化元信息。
 - 用 `serialization::field_options` 表示用户注册时填写的字段级序列化配置。
 - 用 `serialization::field_schema` 表示提交后的运行期字段 schema，内部保存已绑定的 `meta::property`。
-- 基于全局 `meta::registry` 挂载序列化 extension，避免单独维护类型索引。
+- 默认基于全局 `meta::registry` 挂载序列化 extension；需要隔离注册表时，可通过
+  `serialization::context::type_context` 指定本次读写使用的 `meta::context`。
 - 提供 `serialization::schema_view` 查询序列化 schema；业务类型通过 `registration::type_<T>(name).serialization()` 完成跨模块注册。
 - 提供 `serialization::writer` 后端接口，让不同格式复用同一套字段遍历逻辑。
 - 提供 `serialization::reader` 后端接口，让不同格式复用同一套字段读入逻辑。
@@ -23,8 +24,8 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 - 提供 `serialization::json_writer`、`serialization::json_reader`、`to_json()`、`serialization::parse_json()` 和 `read_json_from()` JSON 便捷路径。
 - `serialization::json_writer` 可写入 `caors::string`，也可直接写入 `io::output_stream`。
 - 提供 `serialization::variant_reader` 和 `read_value_from()`，通过 DOM 中间对象写回基础反射字段。
-- 提供 `serialization::context`，支持按 schema version 过滤字段、配置多态 envelope 字段名、传递运行期资源、
-  解析资源引用和收集资源依赖。
+- 提供 `serialization::context`，支持指定 meta 类型上下文、按 schema version 过滤字段、配置多态
+  envelope 字段名、传递运行期资源、解析资源引用和收集资源依赖。
 - 提供第一版 schema 兼容策略，支持字段旧名 / 旧 id 读入、未知字段忽略、保留和严格拒绝。
 - 提供 `serialization::codec_traits<T>` 和 `meta::type` codec capability，允许把特定 C++ 类型作为原子序列化值读写。
 - 支持已注册反射和序列化元信息的值类型结构体字段递归序列化和 DOM 反序列化。
@@ -114,6 +115,7 @@ buffer：
 | `read_json_from(object, text)` | 从 JSON 文本读回对象 | 默认使用 `json_reader` 直接按字段读入；开启未知字段保留或严格模式时先解析为 DOM |
 | `serialization::read_json_from(object, stream/path)` | 从 `io::input_stream` 或 `io::file_system` 路径读回对象 | 当前解析为 DOM 后复用 `read_value_from()` |
 | `serialization::context` | 单次读写上下文 | 按职责使用分组字段配置 |
+| `context.type_context` | 本次读写使用的 meta 类型上下文 | 为空时使用 `meta::default_context()` |
 | `context.config.fields` | schema version 字段过滤 | `0` 表示不启用版本过滤 |
 | `context.config.schema` | schema 兼容策略 | 控制未知字段忽略、保留或严格拒绝 |
 | `context.resolvers.external_refs` | 通用外部引用 resolver、解析策略和依赖收集 | 资源、对象等上层引用可共享该入口 |
@@ -195,7 +197,8 @@ caors::read_json_from(context, object, text);
 
 普通序列化入口默认支持 `objects::object` 的运行期真实类型。写出时，调度层读取对象的
 `type_id()`；如果运行期类型不同于调用点声明类型，就按真实类型写出 DOM envelope。动态类型必须已经
-完成 object、meta 字段和 serialization 注册，并且拥有非 nil `type_guid`。输出 envelope 默认包含：
+注册到当前序列化上下文使用的 meta registry，完成 object、meta 字段和 serialization 注册，并且拥有非
+nil `type_guid`。输出 envelope 默认包含：
 
 - `$type`：动态类型的稳定 `type_guid` 字符串。
 - `$value`：按动态类型反射字段生成的对象数据。
@@ -221,7 +224,8 @@ context.config.polymorphic.write_type_name = true;
 caors::serialization::serialization_text_result json = caors::to_json(context, base);
 ```
 
-读写双方需要使用一致的字段名配置。普通反序列化入口读到配置后的 type/value envelope 时，会先校验动态类型是声明基类的派生类型。如果目标对象
+读写双方需要使用一致的字段名配置。普通反序列化入口读到配置后的 type/value envelope 时，会先在
+`context.type_context` 指向的 meta registry 中查找类型，并校验动态类型是声明基类的派生类型。如果目标对象
 当前运行期类型和 type 字段一致，则把 value 字段写入这个已有对象；如果没有 type 字段，则按普通声明类型读入。
 
 当前不再提供单独的 `deserialize_polymorphic_*` 兼容入口。需要从 envelope 新建对象的场景应走更高层的
@@ -251,7 +255,7 @@ runtime、对象或智能指针 codec 路径，由对应模块在内部使用 `c
 - 支持 `std::unique_ptr<Base>`、`caors::memory::unique_ptr<Base>`、`std::shared_ptr<Base>`
   和 `objects::ref<Base>`。
 - `objects::ref<Base>` 要求 `Base` 继承 `objects::object` 和 `objects::ref_counted`。
-- 写出时通过 RTTI 查询真实动态类型，动态类型必须已经注册到 `meta::registry`。
+- 写出时通过 RTTI 查询真实动态类型，动态类型必须已经注册到当前序列化上下文使用的 meta registry。
 - 派生类必须通过 typed parent 注册，例如 `.parent<Base>()`，这样注册表同时保存继承关系和安全 upcast 回调。
 - 动态类型必须拥有稳定 `type_guid`，并完成 meta 字段和 serialization 注册。
 - 读入时优先走 `reader` 的多态 envelope 接口；DOM/JSON 路径由 `variant_reader` 内置支持。自定义 reader
@@ -447,8 +451,8 @@ if (schema) {
 
 ### serialization::writer
 
-`serialization::writer` 是格式后端接口。序列化调度层负责查找 `meta::registry`、匹配反射字段和读取
-字段值；writer 只负责把对象、字段和值写成目标格式。
+`serialization::writer` 是格式后端接口。序列化调度层负责通过当前 `serialization::context`
+定位 meta registry、匹配反射字段和读取字段值；writer 只负责把对象、字段和值写成目标格式。
 
 writer 通过 `serialization::format_features` 声明能力：
 
@@ -498,8 +502,8 @@ caors::error status = caors::serialization::write_json_to(context, instance, out
 
 ### serialization::reader
 
-`serialization::reader` 是格式读入后端接口。反序列化调度层负责查找 `meta::registry`、匹配反射字段和
-写入对象；reader 只负责按字段配置提供当前字段值。
+`serialization::reader` 是格式读入后端接口。反序列化调度层负责通过当前 `serialization::context`
+定位 meta registry、匹配反射字段和写入对象；reader 只负责按字段配置提供当前字段值。
 
 当前内置 reader：
 
@@ -1232,7 +1236,7 @@ caors::string text = *result;
 - `serialization::field_schema`：字段级序列化配置。
 - `serialization::writer`：格式后端接口。
 - `serialization::reader`：格式读入后端接口。
-- `serialization::context`：单次序列化/反序列化上下文，支持 schema version 字段过滤、多态 envelope 字段名配置、通用外部引用 resolver/collector、对象工厂和运行期资源传递。
+- `serialization::context`：单次序列化/反序列化上下文，支持指定 `type_context`、schema version 字段过滤、多态 envelope 字段名配置、通用外部引用 resolver/collector、对象工厂和运行期资源传递。
 - `serialization::string_storage`：`std::string_view` 反序列化使用的多段字符串存储。
 - `serialization::external_ref_resolver_ops`：通用外部引用解析函数表，资源模块通过 adapter 接入。
 - `serialization::external_ref_collector_ops`：通用外部引用收集函数表，资源模块用它收集资源依赖。

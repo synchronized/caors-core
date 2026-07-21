@@ -23,8 +23,9 @@ namespace caors::serialization::detail {
 [[nodiscard]] result<meta::type>
 resolve_polymorphic_meta_type(type_id declared_base, const variant& envelope,
                               const serialization::context& context);
-[[nodiscard]] result<meta::type> resolve_polymorphic_meta_type(type_id declared_base,
-                                                               type_guid dynamic_guid);
+[[nodiscard]] result<meta::type>
+resolve_polymorphic_meta_type(const serialization::context& context, type_id declared_base,
+                              type_guid dynamic_guid);
 [[nodiscard]] variant_result make_polymorphic_envelope(type_guid guid, core::string_name type_name,
                                                        variant stored_value,
                                                        const serialization::context& context);

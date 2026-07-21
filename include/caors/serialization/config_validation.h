@@ -272,13 +272,14 @@ inline error apply_config_default_field(const meta::property& field, void* objec
 
 /** @brief 按属性 schema 中声明的默认值填充配置对象。 */
 template <typename T>
-[[nodiscard]] error apply_config_defaults(T& object, memory_resource* = nullptr) {
-  const meta::type meta_type = meta::find<T>();
+[[nodiscard]] error apply_config_defaults(meta::context& type_context, T& object,
+                                          memory_resource* = nullptr) {
+  const meta::type meta_type = meta::find<T>(type_context);
   if (!meta_type.registered()) {
     return {error_domain::serialization, errc::missing_type};
   }
 
-  const meta::type reflected = meta::find(meta_type.id());
+  const meta::type reflected = meta::find(type_context, meta_type.id());
   if (!reflected) {
     return {error_domain::serialization, errc::not_found};
   }
@@ -298,18 +299,24 @@ template <typename T>
   return {};
 }
 
+/** @brief 使用默认类型上下文按属性 schema 中声明的默认值填充配置对象。 */
+template <typename T>
+[[nodiscard]] error apply_config_defaults(T& object, memory_resource* resource = nullptr) {
+  return apply_config_defaults(meta::default_context(), object, resource);
+}
+
 /** @brief 使用反射属性 schema 校验配置对象。 */
 template <typename T>
-[[nodiscard]] config_validation_result validate_config(const T& object,
+[[nodiscard]] config_validation_result validate_config(meta::context& type_context, const T& object,
                                                        memory_resource* resource = nullptr) {
   config_validation_result result{resource};
-  const meta::type meta_type = meta::find<T>();
+  const meta::type meta_type = meta::find<T>(type_context);
   if (!meta_type.registered()) {
     result.status = {error_domain::serialization, errc::missing_type};
     return result;
   }
 
-  const meta::type reflected = meta::find(meta_type.id());
+  const meta::type reflected = meta::find(type_context, meta_type.id());
   if (!reflected) {
     result.status = {error_domain::serialization, errc::not_found};
     return result;
@@ -326,6 +333,13 @@ template <typename T>
   }
 
   return result;
+}
+
+/** @brief 使用默认类型上下文校验配置对象。 */
+template <typename T>
+[[nodiscard]] config_validation_result validate_config(const T& object,
+                                                       memory_resource* resource = nullptr) {
+  return validate_config(meta::default_context(), object, resource);
 }
 
 } // namespace caors::serialization

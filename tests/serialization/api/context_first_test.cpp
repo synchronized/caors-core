@@ -22,6 +22,10 @@ struct context_codec_actor {
   context_codec_value value{};
 };
 
+struct context_local_actor {
+  int value = 0;
+};
+
 class context_api_resource : public caors::resource {
 public:
   using caors::resource::resource;
@@ -152,6 +156,36 @@ TEST_CASE("serialization - public context overloads are context-first", "[serial
       caors::read_value_from(context, decoded_from_dom, caors::variant::object(std::move(members)))
           .succeeded());
   CHECK(decoded_from_dom.value.value == 15);
+}
+
+TEST_CASE("serialization - context can use an explicit type context", "[serialization]") {
+  using namespace caors::tests::serialization::api;
+
+  caors::meta::registry registry;
+  caors::meta::context type_context{registry};
+
+  REQUIRE(
+      registration_result_ok(caors::registration::type_<context_local_actor>(
+                                 type_context, "caors.test.serialization.api.context_local_actor")
+                                 .meta()
+                                 .property("value", &context_local_actor::value)
+                                 .serialization()
+                                 .commit()));
+
+  const context_local_actor actor{42};
+  caors::string json_output;
+  CHECK(caors::serialization::write_json_to(actor, json_output).value() ==
+        caors::errc::missing_type);
+
+  caors::serialization::context context{};
+  context.type_context = &type_context;
+
+  REQUIRE(caors::serialization::write_json_to(context, actor, json_output).succeeded());
+  CHECK(json_output == R"({"value":42})");
+
+  context_local_actor decoded{};
+  REQUIRE(caors::serialization::read_json_from(context, decoded, json_output).succeeded());
+  CHECK(decoded.value == 42);
 }
 
 TEST_CASE("resources - json loader and saver accept context first", "[resources]") {

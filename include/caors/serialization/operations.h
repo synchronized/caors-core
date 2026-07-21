@@ -21,10 +21,24 @@
 
 namespace caors::serialization {
 
+namespace detail {
+
+template <typename T>
+[[nodiscard]] meta::type find_registered_type(const serialization::context& context) {
+  return caors::meta::find<T>(context.effective_type_context());
+}
+
+[[nodiscard]] inline meta::type find_registered_type(const serialization::context& context,
+                                                     type_id id) {
+  return meta::find(context.effective_type_context(), id);
+}
+
+} // namespace detail
+
 /** @brief 把已注册序列化和 meta 字段信息的 C++ 对象写入指定后端。 */
 template <typename T> [[nodiscard]] error serialize(const T& object, writer& writer) {
   serialization::context context{};
-  const meta::type type = caors::meta::find<T>();
+  const meta::type type = detail::find_registered_type<T>(context);
   if (!type.registered()) {
     return {error_domain::serialization, errc::missing_type};
   }
@@ -36,7 +50,7 @@ template <typename T> [[nodiscard]] error serialize(const T& object, writer& wri
     }
   }
 
-  const meta::type meta_type = meta::find(type.id());
+  const meta::type meta_type = detail::find_registered_type(context, type.id());
   if (!meta_type) {
     return {error_domain::serialization, errc::not_found};
   }
@@ -48,7 +62,7 @@ template <typename T> [[nodiscard]] error serialize(const T& object, writer& wri
 template <typename T>
 [[nodiscard]] error serialize(const serialization::context& context, const T& object,
                               writer& writer) {
-  const meta::type type = caors::meta::find<T>();
+  const meta::type type = detail::find_registered_type<T>(context);
   if (!type.registered()) {
     return {error_domain::serialization, errc::missing_type};
   }
@@ -60,7 +74,7 @@ template <typename T>
     }
   }
 
-  const meta::type meta_type = meta::find(type.id());
+  const meta::type meta_type = detail::find_registered_type(context, type.id());
   if (!meta_type) {
     return {error_domain::serialization, errc::not_found};
   }
@@ -191,7 +205,7 @@ template <typename T>
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (std::is_base_of_v<objects::object, value_type>) {
     if (detail::is_polymorphic_value(context, value)) {
-      const meta::type type = caors::meta::find<value_type>();
+      const meta::type type = find_registered_type<value_type>(context);
       if (!type.registered()) {
         return {error_domain::serialization, errc::missing_type};
       }
@@ -200,12 +214,12 @@ template <typename T>
     }
   }
 
-  const meta::type type = caors::meta::find<value_type>();
+  const meta::type type = find_registered_type<value_type>(context);
   if (!type.registered()) {
     return {error_domain::serialization, errc::missing_type};
   }
 
-  const meta::type meta_type = meta::find(type.id());
+  const meta::type meta_type = find_registered_type(context, type.id());
   if (!meta_type) {
     return {error_domain::serialization, errc::not_found};
   }
@@ -229,12 +243,12 @@ template <typename T>
   }
 
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-  const meta::type type = caors::meta::find<value_type>();
+  const meta::type type = find_registered_type<value_type>(context);
   if (!type.registered()) {
     return {error_domain::serialization, errc::missing_type};
   }
 
-  const meta::type meta_type = meta::find(type.id());
+  const meta::type meta_type = find_registered_type(context, type.id());
   if (!meta_type) {
     return {error_domain::serialization, errc::not_found};
   }
@@ -264,7 +278,7 @@ template <typename T>
     return read_dom_value_from(context, object, value.value);
   }
 
-  const meta::type type = caors::meta::find<value_type>();
+  const meta::type type = find_registered_type<value_type>(context);
   if (!type.registered()) {
     return {error_domain::serialization, errc::missing_type};
   }
@@ -276,7 +290,7 @@ template <typename T>
     }
   }
 
-  const meta::type meta_type = meta::find(type.id());
+  const meta::type meta_type = find_registered_type(context, type.id());
   if (!meta_type) {
     return {error_domain::serialization, errc::not_found};
   }
@@ -288,28 +302,29 @@ template <typename T>
 
 /** @brief 把已注册序列化和 meta 字段信息的 C++ 对象从指定后端读入。 */
 template <typename T> [[nodiscard]] error deserialize(T& object, reader& reader) {
-  const meta::type type = caors::meta::find<T>();
+  serialization::context context{};
+  const meta::type type = detail::find_registered_type<T>(context);
   if (!type.registered()) {
     return {error_domain::serialization, errc::missing_type};
   }
 
-  const meta::type meta_type = meta::find(type.id());
+  const meta::type meta_type = detail::find_registered_type(context, type.id());
   if (!meta_type) {
     return {error_domain::serialization, errc::not_found};
   }
 
-  return detail::deserialize(serialization::context{}, meta_type, &object, reader);
+  return detail::deserialize(context, meta_type, &object, reader);
 }
 
 /** @brief 把已注册序列化和 meta 字段信息的 C++ 对象按上下文从指定后端读入。 */
 template <typename T>
 [[nodiscard]] error deserialize(const serialization::context& context, T& object, reader& reader) {
-  const meta::type type = caors::meta::find<T>();
+  const meta::type type = detail::find_registered_type<T>(context);
   if (!type.registered()) {
     return {error_domain::serialization, errc::missing_type};
   }
 
-  const meta::type meta_type = meta::find(type.id());
+  const meta::type meta_type = detail::find_registered_type(context, type.id());
   if (!meta_type) {
     return {error_domain::serialization, errc::not_found};
   }
@@ -457,7 +472,7 @@ template <typename T>
 /** @brief 把已注册序列化和 meta 字段信息的 C++ 对象转换为序列化 DOM 中间值。 */
 template <typename T> [[nodiscard]] variant_result to_value(const T& object) {
   serialization::context context{};
-  const meta::type type = caors::meta::find<T>();
+  const meta::type type = detail::find_registered_type<T>(context);
   if (!type.registered()) {
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
@@ -469,7 +484,7 @@ template <typename T> [[nodiscard]] variant_result to_value(const T& object) {
     }
   }
 
-  const meta::type meta_type = meta::find(type.id());
+  const meta::type meta_type = detail::find_registered_type(context, type.id());
   if (!meta_type) {
     return {{error_domain::serialization, errc::not_found}, {}};
   }
@@ -480,7 +495,7 @@ template <typename T> [[nodiscard]] variant_result to_value(const T& object) {
 /** @brief 把已注册序列化和 meta 字段信息的 C++ 对象按上下文转换为序列化 DOM 中间值。 */
 template <typename T>
 [[nodiscard]] variant_result to_value(const serialization::context& context, const T& object) {
-  const meta::type type = caors::meta::find<T>();
+  const meta::type type = detail::find_registered_type<T>(context);
   if (!type.registered()) {
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
@@ -492,7 +507,7 @@ template <typename T>
     }
   }
 
-  const meta::type meta_type = meta::find(type.id());
+  const meta::type meta_type = detail::find_registered_type(context, type.id());
   if (!meta_type) {
     return {{error_domain::serialization, errc::not_found}, {}};
   }

@@ -102,7 +102,9 @@ nil GUID 和无效 `object_id` 不能绑定。索引不提供内部同步，跨�
 
 ### meta 类型信息
 
-meta 类型信息由全局 `meta::registry` 内部保存，并通过 `meta::type` 对外查询，包含：
+meta 类型信息由 `meta::registry` 内部保存，并通过 `meta::type` 对外查询。普通对象 API 默认使用全局
+registry；序列化等 context-first 入口可以通过 `serialization::context::type_context` 指定本次读写使用的
+`meta::context`。meta 类型信息包含：
 
 - `id`
 - `name`
@@ -429,7 +431,7 @@ object.type_name(); // "game.player"
 
 ### objects::registry
 
-`objects::registry` 是基于全局 `meta::registry` 的对象注册表 facade 和默认构造工厂。它不表示彼此隔离的局部注册表实例。对象类型通过 `registration::type_<T>()` 或 `registration::type_<T>("name")` 注册；只要 `T` 继承自 `objects::object`，`commit()` 会自动写入对象能力。注册后通过 `objects::find()`、`objects::id()` 和 `objects::is_a()` 查询对象元数据；需要默认构造工厂时再使用 `objects::get_registry()`。
+`objects::registry` 是基于全局 `meta::registry` 的对象注册表 facade 和默认构造工厂。它不表示彼此隔离的局部注册表实例。对象类型通过 `registration::type_<T>()` 或 `registration::type_<T>("name")` 注册；只要 `T` 继承自 `objects::object`，`commit()` 会自动写入对象能力。注册后通过 `objects::find()`、`objects::id()` 和 `objects::is_a()` 查询对象元数据；需要默认构造工厂时再使用 `objects::get_registry()`。需要隔离 registry 的序列化路径应使用 `serialization::context::type_context`，而不是通过 `objects::registry` 表达局部注册表。
 
 对外查询返回 `objects::type` 只读视图。它组合了基础 `meta::type` 和对象工厂 capability，因此调用方可以通过 `id()`、`name()`、`guid()`、`size()`、`alignment()`、`parent_id()` 和 `constructible()` 查询对象类型信息，但不能直接修改注册表内部数据。
 

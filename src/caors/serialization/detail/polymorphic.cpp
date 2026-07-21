@@ -99,20 +99,21 @@ result<meta::type> resolve_polymorphic_meta_type(type_id declared_base, const va
     return {guid.status, {}};
   }
 
-  return resolve_polymorphic_meta_type(declared_base, guid.value);
+  return resolve_polymorphic_meta_type(context, declared_base, guid.value);
 }
 
-result<meta::type> resolve_polymorphic_meta_type(type_id declared_base, type_guid dynamic_guid) {
+result<meta::type> resolve_polymorphic_meta_type(const serialization::context& context,
+                                                 type_id declared_base, type_guid dynamic_guid) {
   if (!declared_base || !dynamic_guid) {
     return {{error_domain::serialization, errc::invalid_type}, {}};
   }
 
-  const meta::type dynamic_type = meta::find(dynamic_guid);
+  const meta::type dynamic_type = meta::find(context.effective_type_context(), dynamic_guid);
   if (!dynamic_type) {
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
 
-  if (!meta::is_a(dynamic_type.id(), declared_base)) {
+  if (!meta::is_a(context.effective_type_context(), dynamic_type.id(), declared_base)) {
     return {{error_domain::serialization, errc::invalid_type}, {}};
   }
 

@@ -4,6 +4,7 @@
 #ifndef CAORS_OBJECT_SERIALIZATION_H_
 #define CAORS_OBJECT_SERIALIZATION_H_
 
+#include "caors/meta/query.h"
 #include "caors/object/handle.h"
 #include "caors/object/manager.h"
 #include "caors/object/ptr.h"
@@ -38,6 +39,11 @@ using object_ref_resolver_ops = serialization::external_ref_resolver_ops;
 }
 
 namespace detail {
+
+template <typename T>
+[[nodiscard]] inline type_id object_declared_type_id(const serialization::context& context) {
+  return meta::resolve<T>(context.effective_type_context()).id();
+}
 
 [[nodiscard]] inline bool manager_object_to_runtime_ref(const void* instance, type_id type,
                                                         serialization::external_ref& ref,
@@ -248,7 +254,7 @@ make_object_ptr_value(const serialization::context& context, const objects::ptr<
   }
 
   serialization::external_ref ref{};
-  if (!resolver->encode_ref(value.get(), meta::id_of<T>(), ref)) {
+  if (!resolver->encode_ref(value.get(), object_declared_type_id<T>(context), ref)) {
     return {{error_domain::serialization, errc::not_found}, {}};
   }
 
@@ -273,7 +279,7 @@ template <typename T>
   }
 
   serialization::external_ref ref{};
-  if (!resolver->encode_ref(value.get(), meta::id_of<T>(), ref)) {
+  if (!resolver->encode_ref(value.get(), object_declared_type_id<T>(context), ref)) {
     return {error_domain::serialization, errc::not_found};
   }
 
@@ -311,7 +317,7 @@ template <typename T>
     }
 
     ref = read_persistent_object_ref(std::string_view{encoded_guid.data(), encoded_guid.size()},
-                                     meta::id_of<T>(), status);
+                                     object_declared_type_id<T>(context), status);
     if (status) {
       return status;
     }
@@ -332,7 +338,7 @@ template <typename T>
       return status;
     }
 
-    ref = read_runtime_object_ref(encoded_id, meta::id_of<T>());
+    ref = read_runtime_object_ref(encoded_id, object_declared_type_id<T>(context));
     if (encoded_id == 0) {
       value.reset();
       return {};

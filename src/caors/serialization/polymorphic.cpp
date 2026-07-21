@@ -29,7 +29,7 @@ variant_result to_polymorphic_object_serialization_value(const serialization::co
   }
 
   if (dynamic_id == declared_id) {
-    const meta::type declared_type = meta::find(declared_id);
+    const meta::type declared_type = meta::find(context.effective_type_context(), declared_id);
     if (!declared_type) {
       return {{error_domain::serialization, errc::not_found}, {}};
     }
@@ -37,21 +37,21 @@ variant_result to_polymorphic_object_serialization_value(const serialization::co
     return to_serialization_value(context, declared_type, &object);
   }
 
-  if (!objects::is_a(dynamic_id, declared_id)) {
+  if (!meta::is_a(context.effective_type_context(), dynamic_id, declared_id)) {
     return {{error_domain::serialization, errc::invalid_type}, {}};
   }
 
-  const objects::type dynamic_type = objects::find(dynamic_id);
+  const meta::type dynamic_type = meta::find(context.effective_type_context(), dynamic_id);
   if (!dynamic_type) {
     return {{error_domain::serialization, errc::missing_type}, {}};
   }
 
-  const meta::type reflected_dynamic_type = meta::find(dynamic_type.id());
-  if (!reflected_dynamic_type) {
+  const objects::object_factory_capability factory{dynamic_type};
+  if (!factory) {
     return {{error_domain::serialization, errc::not_found}, {}};
   }
 
-  variant_result value = to_serialization_value(context, reflected_dynamic_type, &object);
+  variant_result value = to_serialization_value(context, dynamic_type, &object);
   if (value.failed()) {
     return value;
   }
@@ -92,7 +92,8 @@ error deserialize_polymorphic_object_into(const serialization::context& context,
   }
 
   variant_reader reader{*stored_value};
-  const meta::type reflected_dynamic_type = meta::find(dynamic_type.value.id());
+  const meta::type reflected_dynamic_type =
+      meta::find(context.effective_type_context(), dynamic_type.value.id());
   if (!reflected_dynamic_type) {
     return {error_domain::serialization, errc::not_found};
   }
@@ -109,7 +110,8 @@ error deserialize_polymorphic_object_into(const serialization::context& context,
     return status;
   }
 
-  result<meta::type> dynamic_type = resolve_polymorphic_meta_type(declared_id, dynamic_guid);
+  result<meta::type> dynamic_type =
+      resolve_polymorphic_meta_type(context, declared_id, dynamic_guid);
   if (dynamic_type.failed()) {
     return dynamic_type.status;
   }
@@ -123,7 +125,8 @@ error deserialize_polymorphic_object_into(const serialization::context& context,
     return status;
   }
 
-  const meta::type reflected_dynamic_type = meta::find(dynamic_type.value.id());
+  const meta::type reflected_dynamic_type =
+      meta::find(context.effective_type_context(), dynamic_type.value.id());
   if (!reflected_dynamic_type) {
     (void)reader.end_polymorphic_value();
     return {error_domain::serialization, errc::not_found};

@@ -142,7 +142,7 @@ make_value_or_object_serialized_value(const any_ref& value, const serialization:
   }
 
   const type_id value_type = type.id();
-  const meta::type nested_type = meta::find(value_type);
+  const meta::type nested_type = meta::find(context.effective_type_context(), value_type);
   if (serialization::contains(nested_type)) {
     return to_serialization_value(context, nested_type, value.data());
   }
@@ -168,7 +168,7 @@ write_value_or_object_serialized_value(writer& writer, const any_ref& value,
   }
 
   const type_id value_type = type.id();
-  const meta::type nested_type = meta::find(value_type);
+  const meta::type nested_type = meta::find(context.effective_type_context(), value_type);
   if (serialization::contains(nested_type)) {
     return serialize(context, nested_type, value.data(), writer);
   }
@@ -196,7 +196,7 @@ read_value_or_object_serialized_value(reader& reader, const any_ref& target,
   }
 
   const type_id target_type = type.id();
-  const meta::type nested_type = meta::find(target_type);
+  const meta::type nested_type = meta::find(context.effective_type_context(), target_type);
   if (serialization::contains(nested_type)) {
     return deserialize(context, nested_type, target.mutable_data(), reader);
   }

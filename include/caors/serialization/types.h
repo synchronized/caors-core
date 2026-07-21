@@ -297,9 +297,14 @@ struct context_state {
  * 版本可见的字段。
  */
 struct context {
+  meta::context* type_context = nullptr;
   context_config config{};
   context_resolvers resolvers{};
   context_state state{};
+
+  [[nodiscard]] meta::context& effective_type_context() const noexcept {
+    return type_context != nullptr ? *type_context : meta::default_context();
+  }
 
   [[nodiscard]] std::uint32_t effective_schema_version() const noexcept {
     return config.fields.schema_version;

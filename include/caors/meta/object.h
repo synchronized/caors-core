@@ -82,15 +82,7 @@ public:
   using base_type = Base;
 
   [[nodiscard]] static object_type_id static_type_id() noexcept {
-#if CAORS_HAS_EXCEPTIONS
-    try {
-      return caors::meta::find<Derived>().id();
-    } catch (...) {
-      return object_type_id::invalid();
-    }
-#else
-    return caors::meta::find<Derived>().id();
-#endif
+    return caors::meta::id_of<Derived>();
   }
 
   [[nodiscard]] static std::string_view static_type_name() noexcept {
