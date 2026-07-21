@@ -29,8 +29,8 @@ beta 前资源路径按下面公式收敛：
 ```
 
 复杂 factory options 优先定义强类型配置结构，再使用
-`assets::read_typed_factory_options<T>()` 读取 DOM、应用属性默认值并执行 `validate_config()`。轻量插件或
-无需结构体绑定的入口仍可使用 `factory_option_schema`。
+`asset_manager::register_typed_*_factory<Options, Create>()` 注册。asset manager 会读取 DOM、应用属性默认值、
+拒绝未知字段并执行 `validate_config()`；轻量插件或无需结构体绑定的入口仍可使用 `factory_option_schema`。
 
 ## 构建目标
 

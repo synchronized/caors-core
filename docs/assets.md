@@ -176,8 +176,14 @@ caors::resources::preload_result result = assets.preload(texture_id);
 - `bind_file_system()` / `find_file_system()`：手动绑定或查询外部 file_system；配置创建的
   file_system 会在下一次 `build()` 前清理，手动绑定会保留。
 - `register_file_system_factory()`：把 `file_systems[].type` 策略名映射到运行期 file_system 创建逻辑。
+- `register_typed_file_system_factory<Options, Create>()`：先把 `file_systems[].options`
+  读入强类型配置并完成 schema 校验，再调用用户工厂。
 - `bind_source()` / `find_source()`：手动绑定或查询外部 source；配置创建的 source 会在下一次
   `build()` 前清理，手动绑定会保留。
+- `register_typed_source_factory<Options, Create>()`：先把 `sources[].options`
+  读入强类型配置并完成 schema 校验，再调用用户工厂。
+- `register_typed_type_factory<Options, Create>()`：先匹配 resource type 的 cache/loader 策略，
+  再把 `resource_types[].options` 读入强类型配置并完成 schema 校验，最后调用用户工厂创建 cache/loader。
 - `find<T>(guid)` / `find(guid)`：查询内部已注册 cache 中的资源。
 - `load<T>(guid)` / `load_handle<T>(guid)`：通过内部 database 中已注册的 loader/cache 加载资源。
 - `reload<T>(guid)` / `reload_handle<T>(guid)`：重新加载并替换 cache 当前绑定；失败时保留旧资源。
@@ -316,8 +322,9 @@ bool readonly = false;
 (void)options.read(caors::string_name{"read_only"}, readonly);
 ```
 
-复杂配置推荐先反序列化到 typed config，再用反射属性 schema 做校验。这样可以复用序列化系统，
-并把工厂内部的配置读取收敛到一个结构体上：
+复杂配置推荐注册为 typed factory：先定义强类型配置结构体，再用反射属性 schema 描述默认值和约束。
+`asset_manager` 会在调用用户 factory 前读取、应用默认值、拒绝未知字段并执行 `validate_config()`，
+失败原因会进入 `build_detailed().reasons`，用户 factory 只接收已校验的 options：
 
 ```cpp
 struct texture_options {
@@ -338,19 +345,29 @@ caors::registration::type_<texture_options>("game.texture_options")
     .serialization()
     .commit();
 
-auto options =
-    caors::assets::read_typed_factory_options<texture_options>(config.options, context.resource);
-if (!options) {
-  return options.status;
+caors::error make_texture_source(
+    caors::assets::asset_manager::source_factory_context& context,
+    const caors::assets::project_source_config& config,
+    const texture_options& options,
+    void* user_data) {
+  (void)user_data;
+  // options 已经完成默认值、DOM 覆盖和 validate_config()。
+  auto* file_system = context.manager.create_owned<pak_file_system>(config.root, options.format);
+  auto* source = context.manager.create_owned<caors::resources::file_source>(*file_system);
+  return context.manager.bind_source(config.name, *source);
 }
 
-// options.value 已经完成默认值、DOM 覆盖和 validate_config()。
+assets.register_typed_source_factory<texture_options, &make_texture_source>(
+    caors::string_name{"pak"});
 ```
 
-`read_typed_factory_options<T>()` 默认拒绝未知字段，避免配置拼写错误被静默忽略；需要兼容旧配置时可传入
-`unknown_field_policy::ignore` 或配合序列化 schema migration 先改写 DOM。`factory_option_schema`
-仍适合简单、无需结构体绑定的插件入口；typed config + property schema 更适合复杂配置、工具面板和后续
-schema metadata 扩展。
+`register_typed_file_system_factory`、`register_typed_source_factory` 和
+`register_typed_type_factory` 都使用同一规则。`read_typed_factory_options<T>()` 仍保留为高级 helper，
+适合需要在自定义流程里手动读 options 的场景。它默认拒绝未知字段，避免配置拼写错误被静默忽略；需要兼容旧配置时可传入
+`unknown_field_policy::ignore` 或配合序列化 schema migration 先改写 DOM。
+
+`factory_option_schema` 仍适合简单、无需结构体绑定的插件入口；typed config + property schema
+更适合复杂配置、工具面板、自动表单和后续 schema metadata 扩展。
 typed factory options 按“先应用默认值、再用输入局部覆盖”的配置语义处理缺失字段；普通对象反序列化仍默认要求
 输入包含完整字段。
 

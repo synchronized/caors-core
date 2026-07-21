@@ -396,6 +396,8 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 扩展 `asset_manager::build_detailed()` 的 options 诊断，支持同一 options 对象一次收集多条 schema 错误。
 - [x] 增加 typed factory options helper：配置 `variant` 先应用属性默认值，再反序列化为结构体，
   最后通过 `serialization::validate_config()` 和 `meta::property_schema` 完成校验。
+- [x] 增加 typed file_system/source/type factory 注册入口，让复杂 options 在调用用户工厂前统一完成
+  默认值、未知字段拒绝、schema 校验和 `build_detailed().reasons` 诊断汇总。
 - [x] 继续收敛资源公开主入口，以 `assets::asset_manager` / 运行期 builder 作为用户优先入口，
   `database`、`provider`、`cache<T>` 和 `loader<T>` 作为高级组合入口。
 - [x] 支持 `resources::provider` 通过可写 source 按 GUID 写回字节，为后续 saver 和热更新回写提供基础。

@@ -89,6 +89,8 @@ public:
     asset_manager& manager;
     /** @brief asset_manager 内部对象默认使用的内存资源。 */
     memory_resource* resource = nullptr;
+    /** @brief 可选构建诊断列表；仅在 build_detailed() 路径中有效。 */
+    asset_build_result::reason_list* reasons = nullptr;
   };
 
   /** @brief 资源类型工厂调用时收到的运行期上下文。 */
@@ -101,6 +103,8 @@ public:
     resources::provider& provider;
     /** @brief asset_manager 内部 database，type factory 应把创建出的 cache/loader 注册到这里。 */
     resources::database& database;
+    /** @brief 可选构建诊断列表；仅在 build_detailed() 路径中有效。 */
+    asset_build_result::reason_list* reasons = nullptr;
   };
 
   /** @brief file_system 工厂调用时收到的运行期上下文。 */
@@ -109,7 +113,27 @@ public:
     asset_manager& manager;
     /** @brief asset_manager 内部对象默认使用的内存资源。 */
     memory_resource* resource = nullptr;
+    /** @brief 可选构建诊断列表；仅在 build_detailed() 路径中有效。 */
+    asset_build_result::reason_list* reasons = nullptr;
   };
+
+  /** @brief 带强类型 options 的 file_system factory 函数签名。 */
+  template <typename Options>
+  using typed_file_system_factory_fn = error (*)(file_system_factory_context& context,
+                                                 const project_file_system_config& config,
+                                                 const Options& options, void* user_data);
+
+  /** @brief 带强类型 options 的 source factory 函数签名。 */
+  template <typename Options>
+  using typed_source_factory_fn = error (*)(source_factory_context& context,
+                                            const project_source_config& config,
+                                            const Options& options, void* user_data);
+
+  /** @brief 带强类型 options 的 resource type factory 函数签名。 */
+  template <typename Options>
+  using typed_type_factory_fn = error (*)(type_factory_context& context,
+                                          const project_resource_type_config& config,
+                                          const Options& options, void* user_data);
 
   /** @brief file_system 策略名到运行期 file_system 构造逻辑的函数表。 */
   struct file_system_factory_ops {
@@ -129,9 +153,9 @@ public:
     factory_option_schema schema{};
 
     [[nodiscard]] constexpr bool valid() const noexcept { return create != nullptr; }
-    [[nodiscard]] error operator()(asset_manager& manager,
-                                   const project_file_system_config& config) const {
-      file_system_factory_context context{manager, manager.resource()};
+    [[nodiscard]] error operator()(asset_manager& manager, const project_file_system_config& config,
+                                   asset_build_result::reason_list* reasons = nullptr) const {
+      file_system_factory_context context{manager, manager.resource(), reasons};
       return create(context, config, user_data);
     }
   };
@@ -153,9 +177,9 @@ public:
     factory_option_schema schema{};
 
     [[nodiscard]] constexpr bool valid() const noexcept { return create != nullptr; }
-    [[nodiscard]] error operator()(asset_manager& manager,
-                                   const project_source_config& config) const {
-      source_factory_context context{manager, manager.resource()};
+    [[nodiscard]] error operator()(asset_manager& manager, const project_source_config& config,
+                                   asset_build_result::reason_list* reasons = nullptr) const {
+      source_factory_context context{manager, manager.resource(), reasons};
       return create(context, config, user_data);
     }
   };
@@ -182,14 +206,15 @@ public:
 
     [[nodiscard]] constexpr bool valid() const noexcept { return create != nullptr; }
     [[nodiscard]] error operator()(asset_manager& manager,
-                                   const project_resource_type_config& config) const {
+                                   const project_resource_type_config& config,
+                                   asset_build_result::reason_list* reasons = nullptr) const {
       if ((cache_strategy && config.cache != cache_strategy) ||
           (loader_strategy && config.loader != loader_strategy)) {
         return {error_domain::resources, errc::unsupported};
       }
 
       type_factory_context context{manager, manager.resource(), manager.provider(),
-                                   manager.database()};
+                                   manager.database(), reasons};
       return create(context, config, user_data);
     }
   };
@@ -260,6 +285,14 @@ public:
     return register_file_system_factory(
         type, file_system_factory_ops{create, user_data, std::move(schema)});
   }
+  /** @brief 注册带强类型 options 的 file_system 策略构造函数。 */
+  template <typename Options, typed_file_system_factory_fn<Options> Create>
+  [[nodiscard]] error register_typed_file_system_factory(core::string_name type,
+                                                         void* user_data = nullptr) {
+    return register_file_system_factory(
+        type, file_system_factory_ops{
+                  &asset_manager::make_typed_file_system_factory<Options, Create>, user_data});
+  }
 
   /** @brief 按配置名称绑定运行期 source。asset_manager 不拥有 source。 */
   [[nodiscard]] error bind_source(core::string_name name, resources::source& source);
@@ -296,6 +329,14 @@ public:
                                               factory_option_schema schema) {
     return register_source_factory(type, source_factory_ops{create, user_data, std::move(schema)});
   }
+  /** @brief 注册带强类型 options 的 source 策略构造函数。 */
+  template <typename Options, typed_source_factory_fn<Options> Create>
+  [[nodiscard]] error register_typed_source_factory(core::string_name type,
+                                                    void* user_data = nullptr) {
+    return register_source_factory(
+        type,
+        source_factory_ops{&asset_manager::make_typed_source_factory<Options, Create>, user_data});
+  }
 
   /** @brief 注册 manifest 资源类型到运行期 cache/loader 构造函数。 */
   [[nodiscard]] error register_type_factory(core::string_name resource_type,
@@ -319,6 +360,22 @@ public:
                                             factory_option_schema schema) {
     return register_type_factory(resource_type,
                                  type_factory_ops{create, user_data, std::move(schema)});
+  }
+  /**
+   * @brief 注册带强类型 options 的 manifest 资源类型构造函数。
+   *
+   * `cache_strategy` / `loader_strategy` 非空时会先匹配配置中的 cache/loader 策略名，
+   * 再读取 typed options 并调用用户工厂。
+   */
+  template <typename Options, typed_type_factory_fn<Options> Create>
+  [[nodiscard]] error register_typed_type_factory(core::string_name resource_type,
+                                                  core::string_name cache_strategy = {},
+                                                  core::string_name loader_strategy = {},
+                                                  void* user_data = nullptr) {
+    type_factory_ops ops{&asset_manager::make_typed_type_factory<Options, Create>, user_data};
+    ops.cache_strategy = cache_strategy;
+    ops.loader_strategy = loader_strategy;
+    return register_type_factory(resource_type, std::move(ops));
   }
 
   /**
@@ -589,6 +646,51 @@ private:
   [[nodiscard]] static error make_bound_file_source(source_factory_context& context,
                                                     const project_source_config& config,
                                                     void* user_data);
+
+  template <typename Options, typed_file_system_factory_fn<Options> Create>
+  [[nodiscard]] static error
+  make_typed_file_system_factory(file_system_factory_context& context,
+                                 const project_file_system_config& config, void* user_data) {
+    auto options = read_typed_factory_options<Options>(config.options, context.resource);
+    if (options.failed()) {
+      if (context.reasons != nullptr) {
+        append_typed_factory_option_reasons(*context.reasons, options);
+      }
+      return options.status;
+    }
+
+    return Create(context, config, options.value, user_data);
+  }
+
+  template <typename Options, typed_source_factory_fn<Options> Create>
+  [[nodiscard]] static error make_typed_source_factory(source_factory_context& context,
+                                                       const project_source_config& config,
+                                                       void* user_data) {
+    auto options = read_typed_factory_options<Options>(config.options, context.resource);
+    if (options.failed()) {
+      if (context.reasons != nullptr) {
+        append_typed_factory_option_reasons(*context.reasons, options);
+      }
+      return options.status;
+    }
+
+    return Create(context, config, options.value, user_data);
+  }
+
+  template <typename Options, typed_type_factory_fn<Options> Create>
+  [[nodiscard]] static error make_typed_type_factory(type_factory_context& context,
+                                                     const project_resource_type_config& config,
+                                                     void* user_data) {
+    auto options = read_typed_factory_options<Options>(config.options, context.resource);
+    if (options.failed()) {
+      if (context.reasons != nullptr) {
+        append_typed_factory_option_reasons(*context.reasons, options);
+      }
+      return options.status;
+    }
+
+    return Create(context, config, options.value, user_data);
+  }
 
   template <typename T> static void destroy_owned(memory_resource* resource, void* value) noexcept {
     memory::destroy(static_cast<T*>(value), resource);

@@ -741,7 +741,7 @@ error asset_manager::ensure_file_system_from_config(const project_file_system_co
   const std::size_t reason_count = reasons.size();
   const bool previous = building_config_runtime_;
   building_config_runtime_ = true;
-  status = position->second(*this, config);
+  status = position->second(*this, config, &reasons);
   building_config_runtime_ = previous;
   if (status && reasons.size() == reason_count) {
     append_reason_text(reasons, "file_system factory 返回错误");
@@ -831,7 +831,7 @@ error asset_manager::ensure_source_from_config(const project_source_config& conf
   const std::size_t reason_count = reasons.size();
   const bool previous = building_config_runtime_;
   building_config_runtime_ = true;
-  status = position->second(*this, config);
+  status = position->second(*this, config, &reasons);
   building_config_runtime_ = previous;
   if (status && reasons.size() == reason_count) {
     append_reason_text(reasons, "source factory 返回错误");
@@ -859,7 +859,7 @@ error asset_manager::ensure_type_from_config(const project_resource_type_config&
   const std::size_t reason_count = reasons.size();
   const bool previous = building_config_runtime_;
   building_config_runtime_ = true;
-  status = position->second(*this, config);
+  status = position->second(*this, config, &reasons);
   building_config_runtime_ = previous;
   if (status && reasons.size() == reason_count) {
     append_reason_text(reasons, "resource type factory 返回错误");
