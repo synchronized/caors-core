@@ -55,13 +55,13 @@ build/linux-clang-benchmark/benchmarks/caors_benchmarks 100000
 - `meta::any_ref` / `meta::any`：运行期引用创建、类型检查和标量装箱。
 - `serialization::to_value()` / `serialize_json_to()` / `to_string()` / `parse_json()` / `deserialize()`：
   反射对象到 `variant` DOM、复用 buffer JSON 写出、一次性 JSON 字符串、JSON parse、DOM 读回对象和
-  JSON 文本读回对象的主路径。
+  JSON 文本 reader 直接读回对象的主路径。
 - 序列化拆分项：`schema_view_find` 测序列化 schema 视图查询，
   `bound_schema_fields` 测提交后已绑定字段 schema 的遍历，`schema_property_lookup` 测按 schema 字段名查 property，`reflect_properties_get_ref` 测字段引用读取，
   `field_refs_to_variant` 测字段引用转 DOM，`manual_variant_object_direct` 测不经过反射的手动 DOM 构造，
   `write_variant_json_reused_buffer` 测预构造 DOM 写入 JSON，`direct_json_writer_object` 测直接驱动 JSON
   writer 写对象。这些用例用于判断完整 JSON 序列化成本主要来自 schema 注册表、字段查找、反射、DOM 构造、
-  DOM 写出还是 writer 本身。
+  DOM 写出、reader 字段索引还是 writer 本身。
 - `resources::cache<T>` / `resources::provider` / `assets::json::loader<T>` /
   `resources::load_handle_into()`：cache 查找、已缓存加载、fake loader 未缓存加载、memory file system
   provider 读取，以及 provider -> JSON loader -> cache 的资源加载主路径。

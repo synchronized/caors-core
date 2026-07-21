@@ -9,6 +9,7 @@
 #include "caors/serialization/codec.h"
 #include "caors/serialization/config_validation.h"
 #include "caors/serialization/dom_reader.h"
+#include "caors/serialization/json_reader.h"
 #include "caors/serialization/operations.h"
 #include "caors/serialization/reader.h"
 #include "caors/serialization/registry.h"

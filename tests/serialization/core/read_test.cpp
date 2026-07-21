@@ -63,6 +63,43 @@ TEST_CASE("serialization - parses json and deserializes reflected struct fields"
   CHECK(actor.name == "Ada");
 }
 
+TEST_CASE("serialization - json reader deserializes unordered fields directly", "[serialization]") {
+  require_reader_actor_metadata();
+
+  caors::serialization::json_reader reader{R"({"name":"Ada","active":true,"health":95.5,"id":7})"};
+
+  reader_actor actor{};
+  const caors::error result = caors::deserialize(actor, reader);
+
+  REQUIRE(result.succeeded());
+  CHECK(actor.id == 7);
+  CHECK(actor.health == Catch::Approx(95.5));
+  CHECK(actor.active);
+  CHECK(actor.name == "Ada");
+}
+
+TEST_CASE("serialization - json text reader applies duplicate key policy", "[serialization]") {
+  require_reader_actor_metadata();
+
+  caors::serialization::json_options options{};
+  options.duplicate_key_policy = caors::serialization::json_duplicate_key_policy::use_last;
+
+  reader_actor actor{};
+  caors::error result = caors::serialization::deserialize_json(
+      actor, R"({"id":1,"id":2,"health":3.5,"active":true,"name":"Ada"})", options);
+
+  REQUIRE(result.succeeded());
+  CHECK(actor.id == 2);
+
+  options.duplicate_key_policy = caors::serialization::json_duplicate_key_policy::reject;
+  reader_actor rejected{};
+  result = caors::serialization::deserialize_json(
+      rejected, R"({"id":1,"id":2,"health":3.5,"active":true,"name":"Ada"})", options);
+
+  REQUIRE(result.failed());
+  CHECK(result.value() == caors::errc::duplicate_name);
+}
+
 TEST_CASE("serialization - reads json from io file system and deserializes reflected fields",
           "[serialization]") {
   require_reader_actor_metadata();

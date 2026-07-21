@@ -100,6 +100,44 @@ error deserialize_polymorphic_object_into(const serialization::context& context,
   return deserialize(context, reflected_dynamic_type, &object, reader);
 }
 
+error deserialize_polymorphic_object_into(const serialization::context& context,
+                                          type_id declared_id, objects::object& object,
+                                          reader& reader) {
+  type_guid dynamic_guid{};
+  error status = reader.read_polymorphic_type_guid(context, dynamic_guid);
+  if (status) {
+    return status;
+  }
+
+  result<meta::type> dynamic_type = resolve_polymorphic_meta_type(declared_id, dynamic_guid);
+  if (dynamic_type.failed()) {
+    return dynamic_type.status;
+  }
+
+  if (object.type_id() != dynamic_type.value.id()) {
+    return {error_domain::serialization, errc::invalid_type};
+  }
+
+  status = reader.begin_polymorphic_value(context);
+  if (status) {
+    return status;
+  }
+
+  const meta::type reflected_dynamic_type = meta::find(dynamic_type.value.id());
+  if (!reflected_dynamic_type) {
+    (void)reader.end_polymorphic_value();
+    return {error_domain::serialization, errc::not_found};
+  }
+
+  status = deserialize(context, reflected_dynamic_type, &object, reader);
+  if (status) {
+    (void)reader.end_polymorphic_value();
+    return status;
+  }
+
+  return reader.end_polymorphic_value();
+}
+
 } // namespace detail
 
 } // namespace caors::serialization

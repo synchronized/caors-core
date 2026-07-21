@@ -696,7 +696,7 @@ void benchmark_serialization(std::size_t iterations) {
   }
 
   {
-    CTRACK_NAME("serialization.deserialize_json_parse_and_apply");
+    CTRACK_NAME("serialization.deserialize_json_text_reader");
     for (std::size_t index = 0; index < iterations; ++index) {
       benchmark_actor target{};
       const caors::error status = caors::deserialize(target, benchmark_actor_json);

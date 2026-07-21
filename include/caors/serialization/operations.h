@@ -11,6 +11,7 @@
 #include "caors/serialization/codec.h"
 #include "caors/serialization/detail/operations.h"
 #include "caors/serialization/dom_reader.h"
+#include "caors/serialization/json_reader.h"
 #include "caors/serialization/registry.h"
 #include "caors/serialization/writer.h"
 
@@ -94,6 +95,35 @@ template <typename T>
                                                        io::path_view path, json_options options,
                                                        memory_resource* resource = nullptr);
 
+namespace detail {
+
+template <typename T>
+[[nodiscard]] error deserialize_json_text(const serialization::context& context, T& object,
+                                          std::string_view text, json_options options) {
+  using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
+
+  const meta::type type = caors::meta::find<value_type>();
+  if (!type.registered()) {
+    return {error_domain::serialization, errc::missing_type};
+  }
+
+  serialization::json_reader reader{text, options};
+  if constexpr (std::is_base_of_v<objects::object, value_type>) {
+    if (reader.is_polymorphic_envelope(context)) {
+      return deserialize_polymorphic_object_into(context, type.id(), object, reader);
+    }
+  }
+
+  const meta::type meta_type = meta::find(type.id());
+  if (!meta_type) {
+    return {error_domain::serialization, errc::not_found};
+  }
+
+  return deserialize(context, meta_type, &object, reader);
+}
+
+} // namespace detail
+
 /** @brief 把已注册序列化和 meta 字段信息的 C++ 对象从指定后端读入。 */
 template <typename T> [[nodiscard]] error deserialize(T& object, reader& reader) {
   const meta::type type = caors::meta::find<T>();
@@ -152,24 +182,15 @@ template <typename T>
 
 /** @brief 从 JSON 文本反序列化到对象。 */
 template <typename T> [[nodiscard]] error deserialize(T& object, std::string_view text) {
-  variant_result value = parse_json(text);
-  if (value.failed()) {
-    return value.status;
-  }
-
-  return deserialize(object, value.value);
+  serialization::context context{};
+  return detail::deserialize_json_text(context, object, text, context.config.json);
 }
 
 /** @brief 按上下文从 JSON 文本反序列化到对象。 */
 template <typename T>
 [[nodiscard]] error deserialize(const serialization::context& context, T& object,
                                 std::string_view text) {
-  variant_result value = parse_json(text, context.config.json);
-  if (value.failed()) {
-    return value.status;
-  }
-
-  return deserialize(context, object, value.value);
+  return detail::deserialize_json_text(context, object, text, context.config.json);
 }
 
 /** @brief 从 JSON 文本反序列化到对象。 */
@@ -180,12 +201,7 @@ template <typename T> [[nodiscard]] error deserialize_json(T& object, std::strin
 /** @brief 按 JSON 格式选项从 JSON 文本反序列化到对象。 */
 template <typename T>
 [[nodiscard]] error deserialize_json(T& object, std::string_view text, json_options options) {
-  variant_result value = parse_json(text, options);
-  if (value.failed()) {
-    return value.status;
-  }
-
-  return deserialize(object, value.value);
+  return detail::deserialize_json_text(serialization::context{}, object, text, options);
 }
 
 /** @brief 按上下文从 JSON 文本反序列化到对象。 */
@@ -199,12 +215,7 @@ template <typename T>
 template <typename T>
 [[nodiscard]] error deserialize_json(const serialization::context& context, T& object,
                                      std::string_view text, json_options options) {
-  variant_result value = parse_json(text, options);
-  if (value.failed()) {
-    return value.status;
-  }
-
-  return deserialize(context, object, value.value);
+  return detail::deserialize_json_text(context, object, text, options);
 }
 
 /** @brief 从 JSON 输入流反序列化到对象。 */

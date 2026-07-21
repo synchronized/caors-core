@@ -20,7 +20,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 - 提供 `serialization::reader` 后端接口，让不同格式复用同一套字段读入逻辑。
 - 提供 `variant` 中间对象树，方便工具、调试和多格式转换。
 - 提供 `serialization::text_writer` 和 `serialization::serialize_text()`，通过反射字段读取对象并输出调试用简单文本结构。
-- 提供 `serialization::json_writer`、`to_string()`、`serialization::parse_json()` 和 `deserialize()` JSON 便捷路径。
+- 提供 `serialization::json_writer`、`serialization::json_reader`、`to_string()`、`serialization::parse_json()` 和 `deserialize()` JSON 便捷路径。
 - `serialization::json_writer` 可写入 `caors::string`，也可直接写入 `io::output_stream`。
 - 提供 `serialization::variant_reader` 和 `deserialize()`，通过 DOM 中间对象写回基础反射字段。
 - 提供 `serialization::context`，支持按 schema version 过滤字段、配置多态 envelope 字段名、传递运行期资源、
@@ -51,7 +51,8 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 序列化模块的推荐类型名位于 `caors::serialization` 命名空间，例如
 `serialization::type_schema`、`serialization::field_options`、`serialization::field_schema`、`serialization::context`、
 `serialization::writer`、`serialization::reader`、`serialization::text_writer`、
-`serialization::json_writer`、`serialization::variant_reader` 和 `serialization::codec_traits<T>`。
+`serialization::json_writer`、`serialization::json_reader`、`serialization::variant_reader` 和
+`serialization::codec_traits<T>`。
 根命名空间只保留高频操作函数别名；reader、writer、result
 等类型使用 `serialization::` 下的短名称。
 
@@ -68,6 +69,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 - `caors/serialization/reader.h`：`serialization::reader`。
 - `caors/serialization/codec.h`：类型级 codec 扩展点，以及接入 `meta::capabilities` 的能力查询包装。
 - `caors/serialization/dom_reader.h`：从 `variant` DOM 读入的 reader 后端。
+- `caors/serialization/json_reader.h`：从 JSON 文本范围直接读入的 reader 后端。
 - `caors/serialization/operations.h`：`serialize()`、`deserialize()`、`to_value()`、`to_string()`、`write_variant()` 等调度入口。
 - `caors/serialization.h`：序列化模块聚合入口，包含序列化入口和 STL 容器 traits 适配。
 - `caors/object/serialization.h`：对象指针、对象句柄、对象工厂和对象引用 resolver 的序列化适配。
@@ -94,7 +96,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 | `serialization::parse_json()` | 解析 JSON 文本为 `variant` DOM | 支持 parser 侧 `json_options` |
 | `serialization::parse_json_from()` | 从 `io::file_system` 路径读取 JSON 并解析为 `variant` DOM | 通过 `io::input_stream` token reader 解析；底层文件系统可选择真实流或内存流 |
 | `serialization::deserialize_json_from()` | 从 `io::input_stream` 或 `io::file_system` 路径读回对象 | 便捷入口，最终复用普通 `deserialize()` |
-| `deserialize(object, text)` | 从 JSON 文本读回对象 | 先解析 DOM，再复用普通反序列化调度 |
+| `deserialize(object, text)` | 从 JSON 文本读回对象 | 使用 `json_reader` 直接按字段读入，不构造完整 DOM |
 | `serialization::context` | 单次读写上下文 | 按职责使用分组字段配置 |
 | `context.config.fields` | schema version 字段过滤 | `0` 表示不启用版本过滤 |
 | `context.resolvers.external_refs` | 通用外部引用 resolver、解析策略和依赖收集 | 资源、对象等上层引用可共享该入口 |
@@ -484,6 +486,9 @@ caors::error status = caors::serialization::serialize_json_to(context, instance,
 
 - `serialization::variant_reader`：从 `variant` 对象树读取字段，声明
   `named_fields | numeric_fields | self_describing`。
+- `serialization::json_reader`：从 JSON 文本范围读取字段，声明
+  `named_fields | ordered_fields | self_describing`；对象/数组只缓存成员或元素的文本范围，不构造
+  `variant` DOM。
 
 reader 还可以选择支持多态 envelope 读入。默认实现会尝试通过 `current_variant()` 识别 DOM envelope；
 如果 reader 只暴露 `current_variant()`，序列化层仍可回退到临时 `variant_reader` 读取 `$value`。
@@ -534,10 +539,15 @@ if (stream) {
 }
 ```
 
-JSON 读入入口先解析为 `variant` DOM，再复用 `serialization::variant_reader` 写回对象：
+JSON DOM 入口仍然通过 `parse_json()` 解析为 `variant`：
 
 ```cpp
 caors::serialization::variant_result value = caors::serialization::parse_json(text);
+```
+
+JSON 文本对象读入入口会使用 `serialization::json_reader` 直接按字段写回对象，不构造完整 DOM：
+
+```cpp
 caors::error status = caors::deserialize(instance, text);
 ```
 
@@ -556,8 +566,10 @@ caors::error status =
 `serialization::parse_json(stream)` 和 `serialization::parse_json_from(file_system, path)` 会通过 JSON
 token reader 从 `io::input_stream` 读取，不再在序列化层先构造完整 JSON 字符串。解析结果仍是
 `variant` DOM，因此对象树本身会完整驻留内存；底层 `file_system` 可以选择真实文件流、内存流或其他
-输入流实现。`serialization::serialize_json_to(object, output_stream)` 通过 `json_writer` 直接写入输出流，
-不再先构造完整 JSON 字符串。
+输入流实现。当前 `deserialize_json_from(stream/file_system)` 仍复用这条 DOM 路径；文本
+`deserialize(object, text)` / `deserialize_json(object, text)` 已经改为 `json_reader` 直接读入。
+`serialization::serialize_json_to(object, output_stream)` 通过 `json_writer` 直接写入输出流，不再先构造完整
+JSON 字符串。
 
 当前 JSON parser 支持对象、数组、字符串、整数、浮点、`true`、`false` 和 `null`。字符串支持常见转义、
 完整 `\uXXXX` UTF-8 解码和 surrogate pair。字段 id 无法从 JSON 对象名表达，因此 JSON 读入主要按字段名匹配。
@@ -1011,7 +1023,7 @@ template <> struct codec_traits<custom_value> {
   `errc::invalid_type`。处于无值状态的 variant 当前返回不支持。
 - 直接值字段仍按字段声明静态类型处理；运行期动态类型记录发生在 `objects::object`
   声明类型和真实类型不一致时，以及拥有型智能指针 wrapper envelope 上。
-- JSON reader 目前仍是 DOM reader；二进制格式、完整版本迁移和未知字段保留尚未实现。
+- JSON 文本 reader 已支持按字段直接读入；输入流 / 文件系统便捷读入仍走 DOM parser。二进制格式、完整版本迁移和未知字段保留尚未实现。
 
 ### caors::variant
 
@@ -1165,6 +1177,7 @@ caors::string text = *result;
 - `variant`：序列化 DOM 中间对象。
 - `serialization::to_variant()`：把运行期 `any` / `any_ref` 转换为 `variant`。
 - `serialization::variant_reader`：从 DOM 中间对象读入字段的后端。
+- `serialization::json_reader`：从 JSON 文本范围直接读入字段的后端。
 - `variant_member`：对象成员，保存字段名、字段 id 和字段值。
 - `variant_entry`：字典条目，保存 key 和 value。
 - `serialization::schema_view`：序列化 schema 的只读查询视图。

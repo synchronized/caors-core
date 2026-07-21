@@ -13,13 +13,11 @@ namespace caors::serialization::detail {
 
 /** @brief 通过反射类型视图、指定后端和上下文序列化对象。 */
 [[nodiscard]] CAORS_API error serialize(const serialization::context& context,
-                                        const meta::type& type, const void* object,
-                                        writer& writer);
+                                        const meta::type& type, const void* object, writer& writer);
 
 /** @brief 通过反射类型视图、指定后端和上下文反序列化到对象。 */
 [[nodiscard]] CAORS_API error deserialize(const serialization::context& context,
-                                          const meta::type& type, void* object,
-                                          reader& reader);
+                                          const meta::type& type, void* object, reader& reader);
 
 /** @brief 通过反射类型视图和上下文构造序列化中间值。 */
 [[nodiscard]] CAORS_API variant_result to_serialization_value(const serialization::context& context,
@@ -48,6 +46,11 @@ object_requires_polymorphic_envelope(type_id declared_id, const objects::object&
 [[nodiscard]] CAORS_API error
 deserialize_polymorphic_object_into(const serialization::context& context, type_id declared_id,
                                     objects::object& object, const variant& value);
+
+/** @brief 从 reader 暴露的多态 envelope 写入已存在且运行期类型匹配的对象。 */
+[[nodiscard]] CAORS_API error
+deserialize_polymorphic_object_into(const serialization::context& context, type_id declared_id,
+                                    objects::object& object, reader& reader);
 
 } // namespace caors::serialization::detail
 
