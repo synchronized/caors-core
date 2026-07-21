@@ -46,7 +46,7 @@
 - `mat3_t<T>` / `mat4_t<T>`
 - `rect_t<T>`
 - `aabb_t<T>`
-- `ray_t<T>` / `sphere_t<T>` / `plane_t<T>`
+- `ray_t<T>` / `sphere_t<T>` / `plane_t<T>` / `frustum_t<T>`
 
 默认短名仍表示单精度版本：
 
@@ -71,8 +71,10 @@
 - `caors::math::ray`
 - `caors::math::sphere`
 - `caors::math::plane`
+- `caors::math::frustum`
 
-它们分别等价于 `rayf`、`spheref`、`planef`。需要双精度时使用 `dray`、`dsphere`、`dplane`。
+它们分别等价于 `rayf`、`spheref`、`planef`、`frustumf`。需要双精度时使用 `dray`、`dsphere`、`dplane`、
+`dfrustum`。
 
 ## 使用示例
 
@@ -159,6 +161,30 @@ caors::math::mat4 ortho =
 `caors::math` 只表达通用数学约定，不直接依赖 Vulkan、D3D 或 OpenGL。后续 `caors-vulkan`
 可以在自己的模块内把这些矩阵和 `VkViewport`、`VkRect2D`、Y 翻转或后端特定 clip 修正规则对接起来。
 
+视锥体和屏幕坐标 helper 只处理通用矩阵数学，不隐式翻转 Y 轴或绑定某个渲染后端：
+
+```cpp
+caors::math::mat4 vp =
+    caors::math::perspective_view_projection<handedness::right, clip_depth::zero_to_one>(
+        eye, target, up, caors::math::radians(60.0F), aspect, near_z, far_z);
+
+caors::math::frustum frustum =
+    caors::math::extract_frustum<clip_depth::zero_to_one>(vp);
+
+caors::math::vec3 screen =
+    caors::math::project_point<clip_depth::zero_to_one>(vp, viewport, world);
+```
+
+如果反投影在热点循环中使用，推荐先对 view-projection 求逆并复用结果：
+
+```cpp
+caors::math::mat4 inverse_vp{};
+if (caors::math::try_inverse(vp, inverse_vp)) {
+  caors::math::vec3 world{};
+  caors::math::try_unproject_point<clip_depth::zero_to_one>(inverse_vp, viewport, screen, world);
+}
+```
+
 ## 与 meta::value fast path 的关系
 
 `meta::value` fast path 当前优先服务高频动态调用：基础数值、布尔、字符串、`string_name` 和
@@ -200,6 +226,7 @@ float 默认注册内容：
 - `ray`：注册 `origin` 和 `direction` 属性。
 - `sphere`：注册 `center` 和 `radius` 属性。
 - `plane`：注册 `normal` 和 `distance` 属性。
+- `frustum`：注册 `left/right/bottom/top/near/far` 六个裁剪平面属性。
 - `mat3`、`mat4`：当前只注册类型身份；矩阵元素通过 codec 按行主序数组读写，不暴露底层
   `values` C 数组属性。
 
@@ -208,7 +235,7 @@ float 默认注册内容：
 携带 `meta::type` 时即可查询到静态 codec。
 
 codec 覆盖 `vec*_t<T>`、`quat_t<T>`、`mat*_t<T>`、`rect_t<T>`、`aabb_t<T>`、`ray_t<T>`、
-`sphere_t<T>` 和 `plane_t<T>`。`T` 当前应为算术标量；浮点写出为 JSON number，整型写出为整数
+`sphere_t<T>`、`plane_t<T>` 和 `frustum_t<T>`。`T` 当前应为算术标量；浮点写出为 JSON number，整型写出为整数
 number。
 
 序列化格式：
@@ -224,6 +251,7 @@ number。
 - `ray`：`{"origin":[x,y,z],"direction":[x,y,z]}`
 - `sphere`：`{"center":[x,y,z],"radius":r}`
 - `plane`：`{"normal":[x,y,z],"distance":d}`
+- `frustum`：`{"left":plane,"right":plane,"bottom":plane,"top":plane,"near":plane,"far":plane}`
 
 math 类型作为已注册对象字段时会优先走 codec，因此配置结构可以直接暴露数学字段：
 
@@ -248,7 +276,7 @@ caors::registration::type_<camera_config>("game.camera_config")
 
 - 当前没有 SIMD 后端。
 - 当前只做标量模板化，没有做“维度作为模板参数”的统一 `vec<T, N>` / `mat<T, R, C>`。
-- 当前没有完整相机、骨骼、碰撞或 frustum helper。
+- 当前没有完整相机对象、骨骼或完整碰撞系统；frustum 只提供基础平面提取和粗略裁剪 helper。
 - 当前没有接入 `meta::value` fast path。
 
 这些能力会根据实际使用和 benchmark 数据逐步加入。
@@ -260,7 +288,7 @@ caors::registration::type_<camera_config>("game.camera_config")
 - `vector_traits<T>`：向量标量类型、分量数量和按下标访问。
 - `matrix_traits<T>`：矩阵标量类型、行列数量和按行列访问。
 - `quaternion_traits<T>`、`rect_traits<T>`、`aabb_traits<T>`、`ray_traits<T>`、
-  `sphere_traits<T>`、`plane_traits<T>`：对应类型的命名成员访问。
+  `sphere_traits<T>`、`plane_traits<T>`、`frustum_traits<T>`：对应类型的命名成员访问。
 
 这层只描述数学类型的结构，不引入 GLM、Eigen 等第三方依赖。后续如果需要接入外部数学库，应优先在
 `caors/adapters` 中为外部类型提供类似 traits，而不是让 `caors::math` 直接依赖第三方库。

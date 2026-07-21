@@ -65,11 +65,13 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 增加基础 math benchmark，覆盖 `vec3`、`mat4`、`quat`、TRS、投影矩阵、double/int
   标量别名和 geometry 纯 C++ 计算路径。
 - [x] 为 math 类型补充 meta 注册 helper、serialization codec 和配置/资源示例。
+- [x] 增加基础 frustum helper、view-projection helper、project/unproject、meta 注册、serialization codec
+  和 benchmark 覆盖。
 - [ ] 扩展 math benchmark，覆盖 meta 属性访问、方法参数传递和未来 `meta::value` fast path 候选路径。
 - [ ] 评估 `math::vec2`、`math::vec3`、`math::vec4`、`math::quat` 是否进入 `meta::value` fast path。
 - [ ] 基于真实渲染 workload 评估 `mat4 * mat4` 手动展开、SIMD 后端和 affine transform 快路径；
   当前纯标量通用实现优先保持简单正确。
-- [ ] 评估双精度、整型向量、完整相机、frustum、碰撞和坐标系 helper。
+- [ ] 评估双精度、整型向量、完整相机、碰撞和坐标系 helper。
 
 ## 1. 类型元数据底座
 
@@ -172,7 +174,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 
 - [x] 定义基础对象类型、对象标识和类型描述。
 - [x] 提供轻量级类型层级和运行时查询能力。
-- [x] 抽象共享 `meta::registry`，避免对象系统和反射系统重复维护基础类型索引。
+- [x] 抽象共享 `meta::registry`，避免对象系统和 meta 属性/方法重复维护基础类型索引。
 - [x] 对象注册表改为基于 `meta::registry` 挂载底层 `objects::object_factory_ops`，并通过
   `objects::object_factory_capability` / `objects::type` 视图对外查询。
 - [x] 提供对象注册表和默认构造工厂。
@@ -196,7 +198,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 将对象高层访问 API 逐步对齐 `meta::value`：对象属性读写、方法调用和对象指针属性访问优先返回或接收
   `meta::value`，保留 `any_ref` 作为精确引用入口，避免对象系统高层 API 继续强绑定 `any` 拷贝语义。
 
-## 4. 反射
+## 4. Meta 属性和方法
 
 - [x] 定义类型和字段的基础元信息模型。
 - [x] 将字段和方法数据并入 `meta::registry` 的类型数据，并通过 meta 视图对外查询。
@@ -262,7 +264,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 支持基于已注册 `meta::type` 挂载序列化 extension，减少序列化层隐式类型注册。
 - [x] 提供字段级序列化配置，支持字段别名、跳过和注册顺序解耦。
 - [x] 设计 writer 后端接口，为文本、二进制和 msgpack 等格式预留扩展点。
-- [x] 与反射系统打通，实现基于元信息的基础字段文本序列化。
+- [x] 与 meta 属性/方法打通，实现基于元信息的基础字段文本序列化。
 - [x] 增加 `variant` 中间对象树，支持对象、数组、标量和字段 id/name，并保留 streaming writer 快路径。
 - [x] 补充 `variant` 安全访问器、数组/对象 helper 和 `any` / `any_ref` 到 `variant` 的转换入口。
 - [x] 将运行期值能力纳入 `meta/value`，提供 `any` C++ 类型值和 `variant` 数据值。

@@ -201,6 +201,13 @@ template <typename T>
   return schema;
 }
 
+[[nodiscard]] inline const type_schema& frustum_schema() {
+  static const type_schema schema =
+      make_type_schema({make_field("left"), make_field("right"), make_field("bottom"),
+                        make_field("top"), make_field("near"), make_field("far")});
+  return schema;
+}
+
 } // namespace caors::serialization::math_codec_detail
 
 namespace caors::serialization {
@@ -826,6 +833,226 @@ template <typename T> struct codec_traits<math::plane_t<T>> {
     members.push_back(meta::variant_member{string_name{"normal"}, 0, std::move(normal.value)});
     members.push_back(meta::variant_member{string_name{"distance"}, 0,
                                            math_codec_detail::make_scalar_value(value.distance)});
+    return {{}, variant::object(std::move(members))};
+  }
+};
+
+/** @brief `math::frustum_t<T>` 按六个命名平面对象读写。 */
+template <typename T> struct codec_traits<math::frustum_t<T>> {
+  static constexpr bool can_write = true;
+  static constexpr bool can_read = true;
+  static constexpr bool can_make_value = true;
+
+  [[nodiscard]] static error write(writer& writer, const math::frustum_t<T>& value) {
+    const type_schema& schema = math_codec_detail::frustum_schema();
+    error status = writer.begin_object(schema);
+    if (status) {
+      return status;
+    }
+
+    status = writer.begin_field(schema.fields[0]);
+    if (status) {
+      return status;
+    }
+    status = codec_traits<math::plane_t<T>>::write(writer, value.left);
+    if (status) {
+      return status;
+    }
+    status = writer.end_field();
+    if (status) {
+      return status;
+    }
+
+    status = writer.begin_field(schema.fields[1]);
+    if (status) {
+      return status;
+    }
+    status = codec_traits<math::plane_t<T>>::write(writer, value.right);
+    if (status) {
+      return status;
+    }
+    status = writer.end_field();
+    if (status) {
+      return status;
+    }
+
+    status = writer.begin_field(schema.fields[2]);
+    if (status) {
+      return status;
+    }
+    status = codec_traits<math::plane_t<T>>::write(writer, value.bottom);
+    if (status) {
+      return status;
+    }
+    status = writer.end_field();
+    if (status) {
+      return status;
+    }
+
+    status = writer.begin_field(schema.fields[3]);
+    if (status) {
+      return status;
+    }
+    status = codec_traits<math::plane_t<T>>::write(writer, value.top);
+    if (status) {
+      return status;
+    }
+    status = writer.end_field();
+    if (status) {
+      return status;
+    }
+
+    status = writer.begin_field(schema.fields[4]);
+    if (status) {
+      return status;
+    }
+    status = codec_traits<math::plane_t<T>>::write(writer, value.near_plane);
+    if (status) {
+      return status;
+    }
+    status = writer.end_field();
+    if (status) {
+      return status;
+    }
+
+    status = writer.begin_field(schema.fields[5]);
+    if (status) {
+      return status;
+    }
+    status = codec_traits<math::plane_t<T>>::write(writer, value.far_plane);
+    if (status) {
+      return status;
+    }
+    status = writer.end_field();
+    if (status) {
+      return status;
+    }
+
+    return writer.end_object();
+  }
+
+  [[nodiscard]] static error read(reader& reader, math::frustum_t<T>& value) {
+    const type_schema& schema = math_codec_detail::frustum_schema();
+    error status = reader.begin_object(schema);
+    if (status) {
+      return status;
+    }
+
+    status = reader.begin_field(schema.fields[0]);
+    if (status) {
+      return status;
+    }
+    status = codec_traits<math::plane_t<T>>::read(reader, value.left);
+    if (status) {
+      return status;
+    }
+    status = reader.end_field();
+    if (status) {
+      return status;
+    }
+
+    status = reader.begin_field(schema.fields[1]);
+    if (status) {
+      return status;
+    }
+    status = codec_traits<math::plane_t<T>>::read(reader, value.right);
+    if (status) {
+      return status;
+    }
+    status = reader.end_field();
+    if (status) {
+      return status;
+    }
+
+    status = reader.begin_field(schema.fields[2]);
+    if (status) {
+      return status;
+    }
+    status = codec_traits<math::plane_t<T>>::read(reader, value.bottom);
+    if (status) {
+      return status;
+    }
+    status = reader.end_field();
+    if (status) {
+      return status;
+    }
+
+    status = reader.begin_field(schema.fields[3]);
+    if (status) {
+      return status;
+    }
+    status = codec_traits<math::plane_t<T>>::read(reader, value.top);
+    if (status) {
+      return status;
+    }
+    status = reader.end_field();
+    if (status) {
+      return status;
+    }
+
+    status = reader.begin_field(schema.fields[4]);
+    if (status) {
+      return status;
+    }
+    status = codec_traits<math::plane_t<T>>::read(reader, value.near_plane);
+    if (status) {
+      return status;
+    }
+    status = reader.end_field();
+    if (status) {
+      return status;
+    }
+
+    status = reader.begin_field(schema.fields[5]);
+    if (status) {
+      return status;
+    }
+    status = codec_traits<math::plane_t<T>>::read(reader, value.far_plane);
+    if (status) {
+      return status;
+    }
+    status = reader.end_field();
+    if (status) {
+      return status;
+    }
+
+    return reader.end_object();
+  }
+
+  [[nodiscard]] static variant_result make_value(const math::frustum_t<T>& value) {
+    variant_result left = codec_traits<math::plane_t<T>>::make_value(value.left);
+    if (left.failed()) {
+      return left;
+    }
+    variant_result right = codec_traits<math::plane_t<T>>::make_value(value.right);
+    if (right.failed()) {
+      return right;
+    }
+    variant_result bottom = codec_traits<math::plane_t<T>>::make_value(value.bottom);
+    if (bottom.failed()) {
+      return bottom;
+    }
+    variant_result top = codec_traits<math::plane_t<T>>::make_value(value.top);
+    if (top.failed()) {
+      return top;
+    }
+    variant_result near_plane = codec_traits<math::plane_t<T>>::make_value(value.near_plane);
+    if (near_plane.failed()) {
+      return near_plane;
+    }
+    variant_result far_plane = codec_traits<math::plane_t<T>>::make_value(value.far_plane);
+    if (far_plane.failed()) {
+      return far_plane;
+    }
+
+    variant::object_type members;
+    members.reserve(6);
+    members.push_back(meta::variant_member{string_name{"left"}, 0, std::move(left.value)});
+    members.push_back(meta::variant_member{string_name{"right"}, 0, std::move(right.value)});
+    members.push_back(meta::variant_member{string_name{"bottom"}, 0, std::move(bottom.value)});
+    members.push_back(meta::variant_member{string_name{"top"}, 0, std::move(top.value)});
+    members.push_back(meta::variant_member{string_name{"near"}, 0, std::move(near_plane.value)});
+    members.push_back(meta::variant_member{string_name{"far"}, 0, std::move(far_plane.value)});
     return {{}, variant::object(std::move(members))};
   }
 };

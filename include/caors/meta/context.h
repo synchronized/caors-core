@@ -13,7 +13,7 @@ namespace caors::meta {
  * @brief 元数据 API 的注册表定位上下文。
  *
  * 普通代码使用 `default_context()`；需要隔离注册表或插件注册阶段时，可以显式传递
- * `context`，让 meta / reflection / serialization 等模块从同一个上下文定位 registry。
+ * `context`，让 meta / serialization 等模块从同一个上下文定位 registry。
  */
 class CAORS_API context final {
 public:

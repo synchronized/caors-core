@@ -13,7 +13,7 @@
 - [config.md](config.md)：编译期配置常量、异常检测、内部分配策略和默认 new 对齐。
 - [development.md](development.md)：目录结构、代码规范、格式化、静态检查和新增模块规则。
 - [roadmap.md](roadmap.md)：项目路线图。
-- [registration.md](registration.md)：类型、对象、反射和序列化的推荐注册顺序与初始化策略。
+- [registration.md](registration.md)：类型、对象、meta 属性/方法和序列化的推荐注册顺序与初始化策略。
 - [traits.md](traits.md)：底层 traits 扩展点、adapters 边界和用户特化规则。
 
 ## 主题文档

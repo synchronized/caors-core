@@ -7,6 +7,7 @@
 #include "caors/math/vector.h"
 
 #include <cstddef>
+#include <type_traits>
 
 namespace caors::math {
 
@@ -140,6 +141,70 @@ template <typename T, typename U>
       matrix(3, 0) * value.x + matrix(3, 1) * value.y + matrix(3, 2) * value.z +
           matrix(3, 3) * value.w,
   };
+}
+
+/** @brief 尝试求 4x4 矩阵逆矩阵；奇异矩阵返回 `false`。 */
+template <typename T>
+  requires std::is_floating_point_v<T>
+[[nodiscard]] constexpr bool try_inverse(const mat4_t<T>& matrix, mat4_t<T>& output,
+                                         T epsilon = static_cast<T>(0.000001)) noexcept {
+  T augmented[4][8]{};
+
+  for (std::size_t row = 0; row < 4U; ++row) {
+    for (std::size_t column = 0; column < 4U; ++column) {
+      augmented[row][column] = matrix(row, column);
+    }
+    augmented[row][row + 4U] = T{1};
+  }
+
+  for (std::size_t column = 0; column < 4U; ++column) {
+    std::size_t pivot_row = column;
+    T pivot_abs = abs(augmented[column][column]);
+    for (std::size_t row = column + 1U; row < 4U; ++row) {
+      const T candidate_abs = abs(augmented[row][column]);
+      if (candidate_abs > pivot_abs) {
+        pivot_abs = candidate_abs;
+        pivot_row = row;
+      }
+    }
+
+    if (pivot_abs <= epsilon) {
+      output = mat4_t<T>::zero();
+      return false;
+    }
+
+    if (pivot_row != column) {
+      for (std::size_t index = 0; index < 8U; ++index) {
+        const T temporary = augmented[column][index];
+        augmented[column][index] = augmented[pivot_row][index];
+        augmented[pivot_row][index] = temporary;
+      }
+    }
+
+    const T pivot = augmented[column][column];
+    for (std::size_t index = 0; index < 8U; ++index) {
+      augmented[column][index] /= pivot;
+    }
+
+    for (std::size_t row = 0; row < 4U; ++row) {
+      if (row == column) {
+        continue;
+      }
+
+      const T factor = augmented[row][column];
+      for (std::size_t index = 0; index < 8U; ++index) {
+        augmented[row][index] -= factor * augmented[column][index];
+      }
+    }
+  }
+
+  for (std::size_t row = 0; row < 4U; ++row) {
+    for (std::size_t column = 0; column < 4U; ++column) {
+      output(row, column) = augmented[row][column + 4U];
+    }
+  }
+
+  return true;
 }
 
 template <typename T, typename U, typename E>

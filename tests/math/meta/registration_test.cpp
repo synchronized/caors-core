@@ -73,6 +73,13 @@ TEST_CASE("math - meta registration helper registers built in math types", "[mat
   CHECK(plane_type.find_property("normal").get_type().id() ==
         caors::meta::id_of<caors::math::vec3>());
   CHECK(plane_type.find_property("distance").get_type().name() == "float");
+
+  const caors::meta::type frustum_type = caors::meta::find<caors::math::frustum>();
+  REQUIRE(frustum_type);
+  CHECK(frustum_type.name() == "caors.math.frustum");
+  CHECK(frustum_type.property_count() == 6);
+  CHECK(frustum_type.find_property("near").get_type().id() ==
+        caors::meta::id_of<caors::math::plane>());
 }
 
 TEST_CASE("math - meta registration helper supports scalar template aliases", "[math][meta]") {
@@ -82,6 +89,7 @@ TEST_CASE("math - meta registration helper supports scalar template aliases", "[
   REQUIRE(caors::math::register_ray<double>().succeeded());
   REQUIRE(caors::math::register_sphere<double>().succeeded());
   REQUIRE(caors::math::register_plane<double>().succeeded());
+  REQUIRE(caors::math::register_frustum<double>().succeeded());
 
   const caors::meta::type dvec2_type = caors::meta::find<caors::math::dvec2>();
   REQUIRE(dvec2_type);
@@ -112,4 +120,9 @@ TEST_CASE("math - meta registration helper supports scalar template aliases", "[
   REQUIRE(dplane_type);
   CHECK(dplane_type.name() == "caors.math.dplane");
   CHECK(dplane_type.property_count() == 2);
+
+  const caors::meta::type dfrustum_type = caors::meta::find<caors::math::dfrustum>();
+  REQUIRE(dfrustum_type);
+  CHECK(dfrustum_type.name() == "caors.math.dfrustum");
+  CHECK(dfrustum_type.property_count() == 6);
 }

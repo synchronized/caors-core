@@ -25,7 +25,7 @@ CAORS 对象系统第一阶段只解决几件事：
 - 对象模块自行维护一套独立属性 / 方法反射。
 - 序列化细节。
 
-这些能力后续应建立在对象类型信息和反射系统之上。
+这些能力后续应建立在对象类型信息和 meta 属性/方法之上。
 
 ## 核心概念
 
@@ -525,7 +525,7 @@ manager.destroy(instance);
 - `object_type_id`：运行期对象类型标识。
 - `object`：基础对象身份和类型查询入口。
 - `object_base<Derived, Base>`：CRTP 类型查询辅助。
-- `meta::type` / `meta::registry`：对象系统和反射系统共享的全局 meta 类型视图和元数据注册表。
+- `meta::type` / `meta::registry`：对象系统和 meta 属性/方法共享的全局类型视图和元数据注册表。
 - `objects::object_factory_capability`：对象工厂公开 facade，保存默认构造、创建和销毁能力。
 - `objects::object_factory_ops`：对象工厂 raw ops 函数表，由 registry 内部和 `meta::type` 静态能力使用。
 - `objects::type`：对象类型只读视图，组合 `meta::type` 和对象工厂 capability。
@@ -568,7 +568,7 @@ manager.destroy(instance);
 - [x] 实现可选侵入式引用计数基础类型和强引用包装。
 - [x] 实现引用计数弱引用控制信息和 `objects::weak_ref<T>`。
 - [x] 设计并实现 manager 延迟销毁策略，明确它和引用计数对象的边界。
-- [ ] 与反射系统打通属性、方法和属性元信息。
+- [ ] 与 meta 属性/方法打通对象高层访问和属性元信息。
 - [ ] 与序列化系统打通类型名、版本和构造流程。
 - [x] 设计持久对象 GUID / 业务对象 id，并与运行期 `object_id` 建立加载期映射。
 - [ ] 评估是否需要线程安全对象容器或对象数据库。

@@ -23,6 +23,7 @@ template <typename T> struct aabb_traits;
 template <typename T> struct ray_traits;
 template <typename T> struct sphere_traits;
 template <typename T> struct plane_traits;
+template <typename T> struct frustum_traits;
 
 /** @brief `vec2_t<T>` 的统一向量 traits。 */
 template <typename T> struct vector_traits<vec2_t<T>> {
@@ -226,6 +227,58 @@ template <typename T> struct plane_traits<plane_t<T>> {
 
   [[nodiscard]] static constexpr const value_type& distance(const plane_t<T>& value) noexcept {
     return value.distance;
+  }
+};
+
+/** @brief `frustum_t<T>` 的统一视锥体 traits。 */
+template <typename T> struct frustum_traits<frustum_t<T>> {
+  using value_type = T;
+  using plane_type = plane_t<T>;
+
+  [[nodiscard]] static constexpr plane_type& left(frustum_t<T>& value) noexcept {
+    return value.left;
+  }
+
+  [[nodiscard]] static constexpr const plane_type& left(const frustum_t<T>& value) noexcept {
+    return value.left;
+  }
+
+  [[nodiscard]] static constexpr plane_type& right(frustum_t<T>& value) noexcept {
+    return value.right;
+  }
+
+  [[nodiscard]] static constexpr const plane_type& right(const frustum_t<T>& value) noexcept {
+    return value.right;
+  }
+
+  [[nodiscard]] static constexpr plane_type& bottom(frustum_t<T>& value) noexcept {
+    return value.bottom;
+  }
+
+  [[nodiscard]] static constexpr const plane_type& bottom(const frustum_t<T>& value) noexcept {
+    return value.bottom;
+  }
+
+  [[nodiscard]] static constexpr plane_type& top(frustum_t<T>& value) noexcept { return value.top; }
+
+  [[nodiscard]] static constexpr const plane_type& top(const frustum_t<T>& value) noexcept {
+    return value.top;
+  }
+
+  [[nodiscard]] static constexpr plane_type& near_plane(frustum_t<T>& value) noexcept {
+    return value.near_plane;
+  }
+
+  [[nodiscard]] static constexpr const plane_type& near_plane(const frustum_t<T>& value) noexcept {
+    return value.near_plane;
+  }
+
+  [[nodiscard]] static constexpr plane_type& far_plane(frustum_t<T>& value) noexcept {
+    return value.far_plane;
+  }
+
+  [[nodiscard]] static constexpr const plane_type& far_plane(const frustum_t<T>& value) noexcept {
+    return value.far_plane;
   }
 };
 

@@ -141,8 +141,8 @@ registry 隐式变成可变结构。可评估的策略包括：
 否则无法可靠判断名称、GUID、父类型、extension 和 capability 冲突是否会在提交时发生变化。
 
 字段声明类型不要求全部完成 `registration::type_<T>("name")` 注册。基础标量、字符串、容器、指针、
-wrapper、pair、tuple 和 variant 可以通过 `meta::type` 能力参与反射和序列化。只有需要稳定名称、
-GUID、对象工厂、反射根类型、多态身份或按名称查询的业务类型，才应显式注册到 meta。
+wrapper、pair、tuple 和 variant 可以通过 `meta::type` 能力参与属性访问和序列化。只有需要稳定名称、
+GUID、对象工厂、meta 根类型、多态身份或按名称查询的业务类型，才应显式注册到 meta。
 字段注册不会为字段类型隐式创建 meta 类型，序列化 codec 注册也不会隐式创建 meta 类型。
 
 nested 类型关系只记录 owner 内部使用的短名和目标 `type_id`。目标类型必须先通过
@@ -220,8 +220,8 @@ CAORS_META_REGISTRATION(register_actor) {
 - `errc::duplicate_name` / `errc::duplicate_guid`：名称或稳定 GUID 冲突，应修正类型声明。
 - `errc::missing_type`：给不存在的 `type_id` 挂载 extension。
 - `errc::missing_parent`：父类型尚未注册。
-- `errc::invalid_field`：反射字段描述无效、字段名冲突，或字段类型无法生成有效 `meta::type` 能力。
+- `errc::invalid_field`：meta 属性描述无效、属性名冲突，或属性类型无法生成有效 `meta::type` 能力。
 
 公共业务代码使用 `registration::type_<T>(name)` 完成跨模块注册。用户代码不应直接调用各模块的
-`detail` 命名空间函数。字段和方法直接通过 meta 注册能力写入，不再保留独立 reflection 注册入口；
+`detail` 命名空间函数。属性和方法直接通过 meta 注册能力写入，不再保留独立 reflection 注册入口；
 serialization 和 object 的注册能力也收敛到统一 registration builder。

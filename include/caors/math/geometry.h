@@ -43,6 +43,19 @@ template <typename T> struct plane_t {
   }
 };
 
+/** @brief 三维视锥体模板，平面朝向可见区域内部。 */
+template <typename T> struct frustum_t {
+  using value_type = T;
+  using plane_type = plane_t<T>;
+
+  plane_type left{};
+  plane_type right{};
+  plane_type bottom{};
+  plane_type top{};
+  plane_type near_plane{};
+  plane_type far_plane{};
+};
+
 using rayf = ray_t<float>;
 using ray = rayf;
 using dray = ray_t<double>;
@@ -54,6 +67,10 @@ using dsphere = sphere_t<double>;
 using planef = plane_t<float>;
 using plane = planef;
 using dplane = plane_t<double>;
+
+using frustumf = frustum_t<float>;
+using frustum = frustumf;
+using dfrustum = frustum_t<double>;
 
 template <typename T, typename U>
 [[nodiscard]] constexpr bool operator==(ray_t<T> lhs, ray_t<U> rhs) noexcept {
@@ -68,6 +85,19 @@ template <typename T, typename U>
 template <typename T, typename U>
 [[nodiscard]] constexpr bool operator==(plane_t<T> lhs, plane_t<U> rhs) noexcept {
   return lhs.normal == rhs.normal && lhs.distance == rhs.distance;
+}
+
+template <typename T, typename U>
+[[nodiscard]] constexpr bool operator==(frustum_t<T> lhs, frustum_t<U> rhs) noexcept {
+  return lhs.left == rhs.left && lhs.right == rhs.right && lhs.bottom == rhs.bottom &&
+         lhs.top == rhs.top && lhs.near_plane == rhs.near_plane && lhs.far_plane == rhs.far_plane;
+}
+
+template <typename T> [[nodiscard]] inline plane_t<T> normalized(plane_t<T> value) noexcept {
+  const auto normal_length = length(value.normal);
+  return normal_length > T{} ? plane_t<T>{value.normal / normal_length,
+                                          static_cast<T>(value.distance / normal_length)}
+                             : value;
 }
 
 template <typename T, typename U>
@@ -103,6 +133,42 @@ template <typename T, typename U>
   return abs(value.signed_distance(bounds.center)) <= bounds.radius;
 }
 
+template <typename T, typename U>
+[[nodiscard]] constexpr bool contains(frustum_t<T> bounds, vec3_t<U> point) noexcept {
+  return bounds.left.signed_distance(point) >= common_scalar_t<T, U>{} &&
+         bounds.right.signed_distance(point) >= common_scalar_t<T, U>{} &&
+         bounds.bottom.signed_distance(point) >= common_scalar_t<T, U>{} &&
+         bounds.top.signed_distance(point) >= common_scalar_t<T, U>{} &&
+         bounds.near_plane.signed_distance(point) >= common_scalar_t<T, U>{} &&
+         bounds.far_plane.signed_distance(point) >= common_scalar_t<T, U>{};
+}
+
+template <typename T, typename U>
+[[nodiscard]] constexpr bool intersects(frustum_t<T> bounds, sphere_t<U> value) noexcept {
+  return bounds.left.signed_distance(value.center) >= -value.radius &&
+         bounds.right.signed_distance(value.center) >= -value.radius &&
+         bounds.bottom.signed_distance(value.center) >= -value.radius &&
+         bounds.top.signed_distance(value.center) >= -value.radius &&
+         bounds.near_plane.signed_distance(value.center) >= -value.radius &&
+         bounds.far_plane.signed_distance(value.center) >= -value.radius;
+}
+
+template <typename T, typename U>
+[[nodiscard]] constexpr bool intersects(frustum_t<T> bounds, aabb_t<U> value) noexcept {
+  const auto outside = [](plane_t<T> plane, aabb_t<U> box) noexcept {
+    const vec3_t<U> positive{
+        plane.normal.x >= T{} ? box.max.x : box.min.x,
+        plane.normal.y >= T{} ? box.max.y : box.min.y,
+        plane.normal.z >= T{} ? box.max.z : box.min.z,
+    };
+    return plane.signed_distance(positive) < common_scalar_t<T, U>{};
+  };
+
+  return !outside(bounds.left, value) && !outside(bounds.right, value) &&
+         !outside(bounds.bottom, value) && !outside(bounds.top, value) &&
+         !outside(bounds.near_plane, value) && !outside(bounds.far_plane, value);
+}
+
 template <typename T, typename U, typename E>
 [[nodiscard]] constexpr bool nearly_equal(ray_t<T> lhs, ray_t<U> rhs, E epsilon) noexcept {
   return nearly_equal(lhs.origin, rhs.origin, epsilon) &&
@@ -135,6 +201,20 @@ template <typename T, typename U, typename E>
 
 template <typename T, typename U>
 [[nodiscard]] constexpr bool nearly_equal(plane_t<T> lhs, plane_t<U> rhs) noexcept {
+  using epsilon_type = common_scalar_t<T, U>;
+  return nearly_equal(lhs, rhs, static_cast<epsilon_type>(0.00001));
+}
+
+template <typename T, typename U, typename E>
+[[nodiscard]] constexpr bool nearly_equal(frustum_t<T> lhs, frustum_t<U> rhs, E epsilon) noexcept {
+  return nearly_equal(lhs.left, rhs.left, epsilon) && nearly_equal(lhs.right, rhs.right, epsilon) &&
+         nearly_equal(lhs.bottom, rhs.bottom, epsilon) && nearly_equal(lhs.top, rhs.top, epsilon) &&
+         nearly_equal(lhs.near_plane, rhs.near_plane, epsilon) &&
+         nearly_equal(lhs.far_plane, rhs.far_plane, epsilon);
+}
+
+template <typename T, typename U>
+[[nodiscard]] constexpr bool nearly_equal(frustum_t<T> lhs, frustum_t<U> rhs) noexcept {
   using epsilon_type = common_scalar_t<T, U>;
   return nearly_equal(lhs, rhs, static_cast<epsilon_type>(0.00001));
 }

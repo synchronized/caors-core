@@ -21,6 +21,7 @@ struct math_codec_actor {
   caors::math::ray ray{};
   caors::math::sphere sphere{};
   caors::math::plane plane{};
+  caors::math::frustum frustum{};
 };
 
 [[nodiscard]] bool contains(std::string_view text, std::string_view fragment) {
@@ -40,6 +41,7 @@ void require_math_codec_actor_registered() {
           .property("ray", &math_codec_actor::ray)
           .property("sphere", &math_codec_actor::sphere)
           .property("plane", &math_codec_actor::plane)
+          .property("frustum", &math_codec_actor::frustum)
           .serialization()
           .commit()));
 }
@@ -113,6 +115,22 @@ TEST_CASE("serialization - math codecs support template scalar aliases", "[seria
       caors::serialization::codec_traits<caors::math::dsphere>::read(sphere_reader, sphere_decoded)
           .succeeded());
   CHECK(caors::math::nearly_equal(sphere_decoded, caors::math::dsphere{{1.0, 2.0, 3.0}, 4.5}));
+
+  caors::string frustum_text;
+  caors::serialization::text_writer frustum_writer{frustum_text};
+  const caors::math::dfrustum frustum =
+      caors::math::extract_frustum<caors::math::clip_depth::negative_one_to_one>(
+          caors::math::dmat4::identity());
+  REQUIRE(caors::serialization::codec_traits<caors::math::dfrustum>::write(frustum_writer, frustum)
+              .succeeded());
+  CHECK(contains(frustum_text, R"("left":{"normal":[1,0,0],"distance":1})"));
+
+  caors::math::dfrustum frustum_decoded{};
+  caors::serialization::json_reader frustum_reader{frustum_text};
+  REQUIRE(caors::serialization::codec_traits<caors::math::dfrustum>::read(frustum_reader,
+                                                                          frustum_decoded)
+              .succeeded());
+  CHECK(caors::math::nearly_equal(frustum_decoded, frustum));
 }
 
 TEST_CASE("serialization - math codecs roundtrip registered object fields",
@@ -128,6 +146,8 @@ TEST_CASE("serialization - math codecs roundtrip registered object fields",
   actor.ray = {{0.0F, 1.0F, 2.0F}, {0.0F, 0.0F, -1.0F}};
   actor.sphere = {{1.0F, 2.0F, 3.0F}, 4.0F};
   actor.plane = {{0.0F, 1.0F, 0.0F}, 0.0F};
+  actor.frustum = caors::math::extract_frustum<caors::math::clip_depth::negative_one_to_one>(
+      caors::math::mat4::identity());
 
   const caors::serialization::serialization_text_result text = caors::serialization::to_text(actor);
   REQUIRE(text.succeeded());
@@ -141,6 +161,7 @@ TEST_CASE("serialization - math codecs roundtrip registered object fields",
   CHECK(contains(output, R"("ray":{"origin":[0,1,2],"direction":[0,0,-1]})"));
   CHECK(contains(output, R"("sphere":{"center":[1,2,3],"radius":4})"));
   CHECK(contains(output, R"("plane":{"normal":[0,1,0],"distance":0})"));
+  CHECK(contains(output, R"("frustum":{"left":{"normal":[1,0,0],"distance":1})"));
 
   const caors::serialization::variant_result value = caors::to_value(actor);
   REQUIRE(value.succeeded());
@@ -166,4 +187,5 @@ TEST_CASE("serialization - math codecs roundtrip registered object fields",
   CHECK(caors::math::nearly_equal(decoded.ray, actor.ray));
   CHECK(caors::math::nearly_equal(decoded.sphere, actor.sphere));
   CHECK(caors::math::nearly_equal(decoded.plane, actor.plane));
+  CHECK(caors::math::nearly_equal(decoded.frustum, actor.frustum));
 }

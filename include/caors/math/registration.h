@@ -23,6 +23,7 @@ inline constexpr std::string_view aabb_meta_name = "caors.math.aabb";
 inline constexpr std::string_view ray_meta_name = "caors.math.ray";
 inline constexpr std::string_view sphere_meta_name = "caors.math.sphere";
 inline constexpr std::string_view plane_meta_name = "caors.math.plane";
+inline constexpr std::string_view frustum_meta_name = "caors.math.frustum";
 
 template <typename T> inline constexpr std::string_view vec2_meta_name_of = "";
 template <typename T> inline constexpr std::string_view vec3_meta_name_of = "";
@@ -35,6 +36,7 @@ template <typename T> inline constexpr std::string_view aabb_meta_name_of = "";
 template <typename T> inline constexpr std::string_view ray_meta_name_of = "";
 template <typename T> inline constexpr std::string_view sphere_meta_name_of = "";
 template <typename T> inline constexpr std::string_view plane_meta_name_of = "";
+template <typename T> inline constexpr std::string_view frustum_meta_name_of = "";
 
 template <> inline constexpr std::string_view vec2_meta_name_of<float> = vec2_meta_name;
 template <> inline constexpr std::string_view vec3_meta_name_of<float> = vec3_meta_name;
@@ -47,6 +49,7 @@ template <> inline constexpr std::string_view aabb_meta_name_of<float> = aabb_me
 template <> inline constexpr std::string_view ray_meta_name_of<float> = ray_meta_name;
 template <> inline constexpr std::string_view sphere_meta_name_of<float> = sphere_meta_name;
 template <> inline constexpr std::string_view plane_meta_name_of<float> = plane_meta_name;
+template <> inline constexpr std::string_view frustum_meta_name_of<float> = frustum_meta_name;
 
 template <> inline constexpr std::string_view vec2_meta_name_of<double> = "caors.math.dvec2";
 template <> inline constexpr std::string_view vec3_meta_name_of<double> = "caors.math.dvec3";
@@ -59,6 +62,7 @@ template <> inline constexpr std::string_view aabb_meta_name_of<double> = "caors
 template <> inline constexpr std::string_view ray_meta_name_of<double> = "caors.math.dray";
 template <> inline constexpr std::string_view sphere_meta_name_of<double> = "caors.math.dsphere";
 template <> inline constexpr std::string_view plane_meta_name_of<double> = "caors.math.dplane";
+template <> inline constexpr std::string_view frustum_meta_name_of<double> = "caors.math.dfrustum";
 
 template <> inline constexpr std::string_view vec2_meta_name_of<std::int32_t> = "caors.math.ivec2";
 template <> inline constexpr std::string_view vec3_meta_name_of<std::int32_t> = "caors.math.ivec3";
@@ -221,6 +225,24 @@ template <typename T = float>
       .commit();
 }
 
+/** @brief 注册 `math::frustum` 的 meta 类型和六个裁剪平面属性。 */
+template <typename T = float>
+[[nodiscard]] inline error register_frustum(std::string_view name = frustum_meta_name_of<T>) {
+  if (meta::find<frustum_t<T>>()) {
+    return {};
+  }
+
+  return registration::type_<frustum_t<T>>(name)
+      .meta()
+      .property("left", &frustum_t<T>::left)
+      .property("right", &frustum_t<T>::right)
+      .property("bottom", &frustum_t<T>::bottom)
+      .property("top", &frustum_t<T>::top)
+      .property("near", &frustum_t<T>::near_plane)
+      .property("far", &frustum_t<T>::far_plane)
+      .commit();
+}
+
 /** @brief 注册当前内建数学值类型的 meta 类型。 */
 [[nodiscard]] inline error register_meta_types() {
   if (const error status = register_vec2(); status) {
@@ -253,7 +275,10 @@ template <typename T = float>
   if (const error status = register_sphere(); status) {
     return status;
   }
-  return register_plane();
+  if (const error status = register_plane(); status) {
+    return status;
+  }
+  return register_frustum();
 }
 
 } // namespace caors::math

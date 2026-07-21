@@ -3,14 +3,14 @@
 
 # caors
 
-CAORS 是一个 C++20 基础设施库，面向游戏引擎、实时应用和数据驱动型工具开发。项目当前处于早期建设阶段，目标能力包括 core 基础设施、自定义内存分配器、类型元数据、对象系统、运行时反射和跨平台序列化。
+CAORS 是一个 C++20 基础设施库，面向游戏引擎、实时应用和数据驱动型工具开发。项目当前处于早期建设阶段，目标能力包括 core 基础设施、自定义内存分配器、类型元数据、对象系统、meta 属性/方法和跨平台序列化。
 
 ## 项目定位
 
 CAORS 目前更偏底层库和实验性基础设施，而不是完整引擎或应用框架。当前设计重点是：
 
 - 提供可组合的内存资源、分配器和调试跟踪能力。
-- 建立共享的类型元数据底座，避免对象系统、反射系统和序列化系统重复维护类型索引。
+- 建立共享的类型元数据底座，避免对象系统、meta 属性/方法和序列化系统重复维护类型索引。
 - 保持偏 STL / RTTR 的库风格，公共 API 使用小写下划线命名。
 - 通过 CMake preset、示例和测试维持跨平台构建入口。
 
@@ -40,7 +40,7 @@ CAORS 目前更偏底层库和实验性基础设施，而不是完整引擎或�
   字节来源 provider、loader/saver、同步 reload 通知、异步加载请求和非拥有资源 database 编排入口。
 - 工程资源 API：`caors/assets.h`，包含工程资源配置、asset manager、source/type factory 和 JSON 资源适配。
 - Meta value API：`caors/meta/value.h`，包含 `any`、`any_ref`、运行期 view 和 `variant` 数据 DOM。
-- 序列化 API：`caors/serialization.h`，提供基于反射字段的文本/JSON 读写、DOM、codec、资源引用和多态读写入口。
+- 序列化 API：`caors/serialization.h`，提供基于 meta 属性的文本/JSON 读写、DOM、codec、资源引用和多态读写入口。
 - `examples/` 可运行示例。
 - Catch2 测试骨架，测试目录按叶子主题自动生成独立测试目标。
 - CMake install/export 基础配置。
@@ -78,7 +78,7 @@ ctest --preset windows-clang-debug
 - [docs/math.md](docs/math.md)：基础数学值类型和后续 `meta::value` fast path 接入边界。
 - [docs/assets.md](docs/assets.md)：工程资源配置、asset manager、source/type factory 和 JSON 资源适配。
 - [docs/roadmap.md](docs/roadmap.md)：项目路线图。
-- [docs/registration.md](docs/registration.md)：类型、对象、反射和序列化的注册顺序与初始化策略。
+- [docs/registration.md](docs/registration.md)：类型、对象、meta 属性/方法和序列化的注册顺序与初始化策略。
 - [docs/meta-properties.md](docs/meta-properties.md)：meta 属性/方法能力和手写注册入口。
 - [docs/serialization.md](docs/serialization.md)：序列化元信息、文本/JSON 读写、codec、资源引用和多态读写边界。
 - [docs/tasks.md](docs/tasks.md)：任务包装器、executor 抽象和主线程完成队列。

@@ -85,7 +85,7 @@ void benchmark_serialization(std::size_t iterations) {
   }
 
   {
-    CTRACK_NAME("serialization.reflect_properties_get_ref");
+    CTRACK_NAME("serialization.properties_get_ref");
     for (std::size_t index = 0; index < iterations; ++index) {
       const caors::any_ref id = actor_properties[0].get_ref(instance);
       const caors::any_ref health = actor_properties[1].get_ref(instance);

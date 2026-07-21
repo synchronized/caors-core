@@ -64,6 +64,20 @@ TEST_CASE("math - matrix identity preserves vectors", "[math]") {
   CHECK(identity4 * identity4 == identity4);
 }
 
+TEST_CASE("math - matrix inverse recovers identity for affine transforms", "[math]") {
+  const caors::math::mat4 transform =
+      caors::math::translation(caors::math::vec3{1.0F, 2.0F, 3.0F}) *
+      caors::math::scaling(caors::math::vec3{2.0F, 3.0F, 4.0F});
+
+  caors::math::mat4 inverse = caors::math::mat4::zero();
+  REQUIRE(caors::math::try_inverse(transform, inverse));
+  CHECK(caors::math::nearly_equal(transform * inverse, caors::math::mat4::identity()));
+
+  caors::math::mat4 singular = caors::math::mat4::identity();
+  singular(3, 3) = 0.0F;
+  CHECK_FALSE(caors::math::try_inverse(singular, inverse));
+}
+
 TEST_CASE("math - rect and aabb expose containment helpers", "[math]") {
   const caors::math::rect rectangle{{10.0F, 20.0F}, {100.0F, 50.0F}};
   CHECK(rectangle.contains(caors::math::vec2{10.0F, 20.0F}));
@@ -187,6 +201,47 @@ TEST_CASE("math - look-at helpers encode right and left handed view spaces", "[m
       caors::math::vec3{0.0F, 0.0F, 1.0F}));
 }
 
+TEST_CASE("math - view projection helpers project and unproject points", "[math]") {
+  const caors::math::mat4 view_projection =
+      caors::math::perspective_view_projection<caors::math::handedness::right,
+                                               caors::math::clip_depth::zero_to_one>(
+          caors::math::vec3::zero(), caors::math::vec3{0.0F, 0.0F, -1.0F},
+          caors::math::vec3{0.0F, 1.0F, 0.0F}, caors::math::half_pi, 4.0F / 3.0F, 1.0F, 10.0F);
+  const caors::math::rect viewport{{0.0F, 0.0F}, {800.0F, 600.0F}};
+  const caors::math::vec3 world{0.0F, 0.0F, -5.0F};
+
+  const caors::math::vec3 screen = caors::math::project_point<caors::math::clip_depth::zero_to_one>(
+      view_projection, viewport, world);
+  CHECK(screen.x == Catch::Approx(400.0F));
+  CHECK(screen.y == Catch::Approx(300.0F));
+
+  caors::math::vec3 unprojected{};
+  REQUIRE(
+      caors::math::try_unproject_point_from_view_projection<caors::math::clip_depth::zero_to_one>(
+          view_projection, viewport, screen, unprojected));
+  CHECK(caors::math::nearly_equal(unprojected, world, 0.0001F));
+}
+
+TEST_CASE("math - frustum extraction exposes culling planes", "[math]") {
+  const caors::math::frustum clip =
+      caors::math::extract_frustum<caors::math::clip_depth::negative_one_to_one>(
+          caors::math::mat4::identity());
+  CHECK(caors::math::contains(clip, caors::math::vec3::zero()));
+  CHECK_FALSE(caors::math::contains(clip, caors::math::vec3{2.0F, 0.0F, 0.0F}));
+  CHECK(caors::math::intersects(clip, caors::math::sphere{{0.0F, 0.0F, 0.0F}, 0.5F}));
+  CHECK_FALSE(caors::math::intersects(clip, caors::math::sphere{{3.0F, 0.0F, 0.0F}, 0.5F}));
+  CHECK(
+      caors::math::intersects(clip, caors::math::aabb{{-0.5F, -0.5F, -0.5F}, {0.5F, 0.5F, 0.5F}}));
+  CHECK_FALSE(
+      caors::math::intersects(clip, caors::math::aabb{{2.0F, 2.0F, 2.0F}, {3.0F, 3.0F, 3.0F}}));
+
+  const caors::math::frustum depth01 =
+      caors::math::extract_frustum<caors::math::clip_depth::zero_to_one>(
+          caors::math::mat4::identity());
+  CHECK(caors::math::contains(depth01, caors::math::vec3{0.0F, 0.0F, 0.5F}));
+  CHECK_FALSE(caors::math::contains(depth01, caors::math::vec3{0.0F, 0.0F, -0.1F}));
+}
+
 TEST_CASE("math - geometry helpers cover common bounds operations", "[math]") {
   const caors::math::aabb left{{0.0F, 0.0F, 0.0F}, {2.0F, 2.0F, 2.0F}};
   const caors::math::aabb right{{1.0F, 1.0F, 1.0F}, {3.0F, 3.0F, 3.0F}};
@@ -240,4 +295,8 @@ TEST_CASE("math - traits expose scalar and component access", "[math]") {
 
   const caors::math::plane plane{{0.0F, 1.0F, 0.0F}, 2.0F};
   CHECK(caors::math::plane_traits<caors::math::plane>::distance(plane) == 2.0F);
+
+  const caors::math::frustum frustum{};
+  CHECK(caors::math::frustum_traits<caors::math::frustum>::near_plane(frustum) ==
+        caors::math::plane{});
 }

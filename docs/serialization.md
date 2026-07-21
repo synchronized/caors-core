@@ -803,8 +803,8 @@ codec 和 meta 类型系统的边界：
 - `caors::math::vec2_t<T>` / `vec3_t<T>` / `vec4_t<T>` / `quat_t<T>`：按分量数组读写。
 - `caors::math::mat3_t<T>` / `mat4_t<T>`：按行主序扁平数组读写。
 - `caors::math::rect_t<T>` / `aabb_t<T>`：按命名对象读写，分别使用 `position/size` 和 `min/max` 字段。
-- `caors::math::ray_t<T>` / `sphere_t<T>` / `plane_t<T>`：按命名对象读写，分别使用
-  `origin/direction`、`center/radius` 和 `normal/distance` 字段。
+- `caors::math::ray_t<T>` / `sphere_t<T>` / `plane_t<T>` / `frustum_t<T>`：按命名对象读写，分别使用
+  `origin/direction`、`center/radius`、`normal/distance` 和 `left/right/bottom/top/near/far` 字段。
   默认短名 `vec2`、`vec3`、`mat4` 等仍是 float 别名，double/int/uint 常用别名也走同一套 codec。
 - `caors::vector<T>` / `std::vector<T>`：通过 `traits::sequence_traits<T>` 和 `sequence_view` 输出为数组。
 - `caors::list<T>` / `std::list<T>`：通过 `traits::sequence_traits<T>` 和 `sequence_view` 输出为数组。

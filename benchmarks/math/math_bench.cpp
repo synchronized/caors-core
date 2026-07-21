@@ -53,6 +53,12 @@ void consume_dmat4(const caors::math::dmat4& value) noexcept {
           (hash_double(value(2, 2)) << 2U) ^ (hash_double(value(3, 3)) << 3U));
 }
 
+void consume_frustum(const caors::math::frustum& value) noexcept {
+  consume(hash_float(value.left.distance) ^ (hash_float(value.right.distance) << 1U) ^
+          (hash_float(value.near_plane.distance) << 2U) ^
+          (hash_float(value.far_plane.distance) << 3U));
+}
+
 } // namespace
 
 void benchmark_math(std::size_t iterations) {
@@ -179,6 +185,52 @@ void benchmark_math(std::size_t iterations) {
       accumulator.center = {step, step * 0.5F, step * 0.25F};
       accumulator.radius = 1.0F + step;
       consume(static_cast<std::uintptr_t>(caors::math::intersects(ground, accumulator)));
+    }
+  }
+
+  {
+    CTRACK_NAME("math.frustum_cull");
+    const caors::math::mat4 view_projection =
+        caors::math::perspective_view_projection<caors::math::handedness::right,
+                                                 caors::math::clip_depth::zero_to_one>(
+            caors::math::vec3{0.0F, 0.0F, 5.0F}, caors::math::vec3::zero(),
+            caors::math::vec3{0.0F, 1.0F, 0.0F}, caors::math::radians(60.0F), 16.0F / 9.0F, 0.1F,
+            100.0F);
+    const caors::math::frustum frustum =
+        caors::math::extract_frustum<caors::math::clip_depth::zero_to_one>(view_projection);
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const float step = static_cast<float>(index % 97U) * 0.1F;
+      const caors::math::aabb bounds{{-1.0F + step, -1.0F, -1.0F}, {1.0F + step, 1.0F, 1.0F}};
+      consume(static_cast<std::uintptr_t>(caors::math::intersects(frustum, bounds)));
+      consume_frustum(frustum);
+    }
+  }
+
+  {
+    CTRACK_NAME("math.project_unproject");
+    const caors::math::mat4 view_projection =
+        caors::math::perspective_view_projection<caors::math::handedness::right,
+                                                 caors::math::clip_depth::zero_to_one>(
+            caors::math::vec3::zero(), caors::math::vec3{0.0F, 0.0F, -1.0F},
+            caors::math::vec3{0.0F, 1.0F, 0.0F}, caors::math::radians(60.0F), 16.0F / 9.0F, 0.1F,
+            100.0F);
+    caors::math::mat4 inverse_view_projection{};
+    if (!caors::math::try_inverse(view_projection, inverse_view_projection)) {
+      return;
+    }
+
+    const caors::math::rect viewport{{0.0F, 0.0F}, {1920.0F, 1080.0F}};
+    caors::math::vec3 accumulator{};
+    for (std::size_t index = 0; index < iterations; ++index) {
+      const float step = static_cast<float>(index % 41U) * 0.01F;
+      const caors::math::vec3 world{step, step * 0.5F, -2.0F - step};
+      const caors::math::vec3 screen =
+          caors::math::project_point<caors::math::clip_depth::zero_to_one>(view_projection,
+                                                                           viewport, world);
+      if (caors::math::try_unproject_point<caors::math::clip_depth::zero_to_one>(
+              inverse_view_projection, viewport, screen, accumulator)) {
+        consume_vec3(accumulator);
+      }
     }
   }
 }

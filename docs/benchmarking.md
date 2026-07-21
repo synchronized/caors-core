@@ -56,13 +56,13 @@ build/linux-clang-benchmark/benchmarks/caors_benchmarks 100000
 - `meta::property` / `meta::method_set` 缓存句柄与 `instance` 按名便利入口的对比。按名入口每次
   调用都会查询属性或方法，热点循环应缓存 property / method 视图。
 - `meta::any_ref` / `meta::any`：运行期引用创建、类型检查和标量装箱。
-- `math`：`vec3` 点积/叉积/归一化、`mat4` 乘法、`mat4 * vec4`、四元数旋转、TRS 构造和
-  透视投影矩阵构造。
+- `math`：`vec3` 点积/叉积/归一化、`mat4` 乘法、`mat4 * vec4`、四元数旋转、TRS 构造、
+  透视投影矩阵构造、frustum 粗略裁剪和 project/unproject。
 - `serialization::to_value()` / `write_json_to()` / `to_json()` / `parse_json()` / `read_value_from()` / `read_json_from()`：
   反射对象到 `variant` DOM、复用 buffer JSON 写出、一次性 JSON 字符串、JSON parse、DOM 读回对象和
   JSON 文本 reader 直接读回对象的主路径。
 - 序列化拆分项：`schema_view_find` 测序列化 schema 视图查询，
-  `bound_schema_fields` 测提交后已绑定字段 schema 的遍历，`schema_property_lookup` 测按 schema 字段名查 property，`reflect_properties_get_ref` 测字段引用读取，
+  `bound_schema_fields` 测提交后已绑定字段 schema 的遍历，`schema_property_lookup` 测按 schema 字段名查 property，`properties_get_ref` 测属性引用读取，
   `field_refs_to_variant` 测字段引用转 DOM，`manual_variant_object_direct` 测不经过反射的手动 DOM 构造，
   `write_value_to_json_reused_buffer` 测预构造 DOM 写入 JSON，`direct_json_writer_object` 测直接驱动 JSON
   writer 写对象。这些用例用于判断完整 JSON 序列化成本主要来自 schema 注册表、字段查找、反射、DOM 构造、
