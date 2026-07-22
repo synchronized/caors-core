@@ -90,7 +90,7 @@ TEST_CASE("object - factory facade is exposed as object capability", "[object]")
   CHECK(factory.destroy(instance));
 }
 
-TEST_CASE("object - static factory capability does not imply object registry membership",
+TEST_CASE("object - static factory capability does not imply registered object type membership",
           "[object]") {
   const caors::meta::type meta = caors::meta::resolve<capability_meta_only_object>();
   REQUIRE(meta.get_capability<caors::objects::object_factory_capability>());

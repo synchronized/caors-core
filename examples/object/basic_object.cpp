@@ -18,11 +18,11 @@ public:
 };
 
 int main() {
-  if (caors::registration::type_<actor>(actor::object_type_name).commit()) {
+  if (caors::registration::type_<actor>().commit()) {
     return 1;
   }
 
-  if (caors::registration::type_<player>(player::object_type_name).commit()) {
+  if (caors::registration::type_<player>().commit()) {
     return 1;
   }
 

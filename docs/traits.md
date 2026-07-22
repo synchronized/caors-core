@@ -156,14 +156,14 @@ struct object_ptr_access<game::actor_ptr> {
 `caors/adapters/stl_traits.h` 提供。
 
 顺序容器如果支持读入时调整大小，应提供 `resize(values, size)`。如果新增元素需要接收
-`serialization::context::memory_resource`，可以额外提供资源感知重载：
+`serialization::context::resolvers.memory.resource`，可以额外提供资源感知重载：
 
 ```cpp
 static bool resize(my_sequence& values, std::size_t size);
 static bool resize(my_sequence& values, std::size_t size, caors::memory_resource* resource);
 ```
 
-第二个重载是可选的。反序列化层在上下文提供 `memory_resource` 时会优先调用它；标准
+第二个重载是可选的。反序列化层在上下文提供 `resolvers.memory.resource` 时会优先调用它；标准
 `std::vector`、`std::deque`、`std::list` 和 `std::forward_list` 适配会用该资源构造新增的
 allocator-aware 元素。该资源不会替换已经存在的容器 allocator，也不会改变已有元素的分配来源。
 

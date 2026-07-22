@@ -148,13 +148,12 @@ TEST_CASE("meta api - enum builder registers enum type", "[meta][api]") {
 }
 
 TEST_CASE("meta api - instance reads writes and calls reflected members", "[meta][api]") {
-  const caors::error status =
-      caors::registration::type_<meta_api_instance_owner>(meta_api_instance_owner::object_type_name)
-          .meta()
-          .property("health", &meta_api_instance_owner::health)
-          .method("add_health", &meta_api_instance_owner::add_health)
-          .method("read_health", &meta_api_instance_owner::read_health)
-          .commit();
+  const caors::error status = caors::registration::type_<meta_api_instance_owner>()
+                                  .meta()
+                                  .property("health", &meta_api_instance_owner::health)
+                                  .method("add_health", &meta_api_instance_owner::add_health)
+                                  .method("read_health", &meta_api_instance_owner::read_health)
+                                  .commit();
   CHECK_FALSE(status);
 
   meta_api_instance_owner owner{};

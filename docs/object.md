@@ -23,9 +23,10 @@ CAORS 对象系统第一阶段只解决几件事：
 - 脚本绑定。
 - 信号事件系统。
 - 对象模块自行维护一套独立属性 / 方法反射。
-- 序列化细节。
+- 对象模块自行实现格式后端或对象图存档策略。
 
-这些能力后续应建立在对象类型信息和 meta 属性/方法之上。
+对象指针、句柄、引用计数对象和多态对象的序列化适配位于 `caors/object/serialization.h`，具体读写、
+resolver、构造策略和格式后端仍由 `serialization` 模块负责。
 
 ## 核心概念
 
@@ -553,9 +554,10 @@ manager.destroy(instance);
   `objects::type`。
 - `objects::create<T>()` / `objects::destroy<T>()`：接入 `memory_resource` 的直接对象创建和销毁入口。
 - `objects::make_object_ref_resolver(objects::manager&)`：为对象引用序列化创建基于运行期
-  `object_id` 的 manager resolver，并挂到 `serialization::context::external_refs`。
+  `object_id` 的 manager resolver，并挂到 `serialization::context::resolvers.external_refs.resolver`。
 - `objects::make_persistent_object_ref_resolver(objects::manager&)`：为对象引用序列化创建基于
-  `object_guid` 的 manager resolver，需要 manager 关联 `object_index`。
+  `object_guid` 的 manager resolver，需要 manager 关联 `object_index`，同样通过
+  `serialization::context::resolvers.external_refs.resolver` 接入。
 - `objects::make_object_factory(objects::manager&)`：为多态对象反序列化创建通用类型工厂，并挂到
   `serialization::context::resolvers.factories.polymorphic_factory`。
 
@@ -578,12 +580,15 @@ manager.destroy(instance);
 - [x] 实现可选侵入式引用计数基础类型和强引用包装。
 - [x] 实现引用计数弱引用控制信息和 `objects::weak_ref<T>`。
 - [x] 设计并实现 manager 延迟销毁策略，明确它和引用计数对象的边界。
-- [ ] 与 meta 属性/方法打通对象高层访问和属性元信息。
-- [ ] 与序列化系统打通类型名、版本和构造流程。
+- [x] 与 meta 属性/方法打通对象高层访问和属性元信息。
+- [x] 与序列化系统打通对象指针、句柄、引用计数对象、多态 object 和对象工厂 resolver。
 - [x] 设计持久对象 GUID / 业务对象 id，并与运行期 `object_id` 建立加载期映射。
+- [ ] 设计完整场景 / 对象图存档策略，包括对象图版本、共享身份、循环引用和加载期修复流程。
 - [ ] 评估是否需要线程安全对象容器或对象数据库。
 
 ## 相关入口
 
 - 可运行示例位于 `examples/object/`，示例组织规则见 [examples/README.md](../examples/README.md)。
 - 行为测试位于 `tests/object/`，测试组织规则见 [tests/README.md](../tests/README.md)。
+- 对象序列化行为测试位于 `tests/serialization/object/`，多态对象读写测试位于
+  `tests/serialization/polymorphic/`。
