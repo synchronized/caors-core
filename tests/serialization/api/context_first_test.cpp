@@ -172,6 +172,12 @@ TEST_CASE("serialization - context can use an explicit type context", "[serializ
                                  .serialization()
                                  .commit()));
 
+  const caors::meta::type local_type = caors::meta::find<context_local_actor>(type_context);
+  REQUIRE(local_type.valid());
+  CHECK(caors::serialization::contains(local_type));
+  CHECK(caors::serialization::find_schema(local_type).valid());
+  CHECK(caors::serialization::size(type_context) == 1);
+
   const context_local_actor actor{42};
   caors::string json_output;
   CHECK(caors::serialization::write_json_to(actor, json_output).value() ==

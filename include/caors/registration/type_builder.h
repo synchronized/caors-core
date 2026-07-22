@@ -19,7 +19,7 @@
 #include "caors/meta/registry.h"
 #include "caors/object/factory.h"
 #include "caors/object/registry.h"
-#include "caors/serialization/registry.h"
+#include "caors/serialization/schema_query.h"
 
 #include <string_view>
 #include <type_traits>

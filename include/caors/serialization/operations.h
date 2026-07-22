@@ -12,7 +12,7 @@
 #include "caors/serialization/detail/operations.h"
 #include "caors/serialization/dom_reader.h"
 #include "caors/serialization/json_reader.h"
-#include "caors/serialization/registry.h"
+#include "caors/serialization/schema_query.h"
 #include "caors/serialization/writer.h"
 
 #include <string_view>

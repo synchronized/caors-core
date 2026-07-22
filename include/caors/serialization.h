@@ -13,7 +13,7 @@
 #include "caors/serialization/json_reader.h"
 #include "caors/serialization/operations.h"
 #include "caors/serialization/reader.h"
-#include "caors/serialization/registry.h"
+#include "caors/serialization/schema_query.h"
 #include "caors/serialization/types.h"
 #include "caors/serialization/writer.h"
 

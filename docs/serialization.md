@@ -65,7 +65,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 - `caors/serialization/type_schema.h`：后端能力、字段配置和类型序列化 extension 数据。
 - `caors/serialization/external_ref.h`：通用外部引用、函数表 resolver/collector 和继承接口适配器。
 - `caors/serialization/types.h`：通用外部引用选项、对象工厂函数表、单次调度上下文和结果类型。
-- `caors/serialization/registry.h`：序列化 extension 查询注册表。
+- `caors/serialization/schema_query.h`：序列化 schema 查询入口。
 - `caors/serialization/writer.h`：`serialization::writer`、`serialization::text_writer` 和
   `serialization::json_writer`。
 - `caors/serialization/reader.h`：`serialization::reader`。
@@ -1244,6 +1244,9 @@ caors::string text = *result;
 - `serialization::codec_of<T>()`：按 C++ 类型查询静态 codec 视图；类型不要求已经显式 meta 注册。
 - `serialization::find_codec(meta::type)`：按 meta 类型查询静态 codec 视图。
 - `serialization::codec_capability`：通过 `meta::type::get_capability<T>()` 查询的可调用 codec facade。
+- `serialization::schema_view`：序列化 schema 的只读查询视图。
+- `serialization::find_schema()` / `serialization::contains()`：基于 `meta::type` 查询是否挂载了序列化 schema。
+- `serialization::size(meta::context&)`：统计指定类型上下文中已注册序列化 schema 的数量；无参数版本使用默认类型上下文。
 - `serialization::text_writer`：简单文本格式后端。
 - `variant`：序列化 DOM 中间对象。
 - `serialization::to_variant()`：把运行期 `any` / `any_ref` 转换为 `variant`。
@@ -1251,8 +1254,6 @@ caors::string text = *result;
 - `serialization::json_reader`：从 JSON 文本范围直接读入字段的后端。
 - `variant_member`：对象成员，保存字段名、字段 id 和字段值。
 - `variant_entry`：字典条目，保存 key 和 value。
-- `serialization::schema_view`：序列化 schema 的只读查询视图。
-- `serialization::find_schema()` / `serialization::contains()`：序列化 schema 查询入口。
 - `serialize()`：通过指定 writer 后端序列化对象。
 - `deserialize()`：通过指定 reader 后端反序列化对象。
 - `to_value()`：通过反射和序列化元信息构造中间对象树。
