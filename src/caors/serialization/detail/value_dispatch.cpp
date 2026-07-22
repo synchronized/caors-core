@@ -3,7 +3,6 @@
 
 #include "helpers.h"
 
-#include "caors/meta/detail/property_data.h"
 #include "caors/meta/query.h"
 #include "caors/meta/type.h"
 #include "caors/meta/value.h"
@@ -207,19 +206,11 @@ read_value_or_object_serialized_value(reader& reader, const any_ref& target,
 } // namespace
 
 any_ref get_field_ref(const serialization::field_schema& field_schema, const void* object) {
-  if (field_schema.property_data != nullptr) {
-    return field_schema.property_data->get_ref_unchecked(field_schema.declared_type, object);
-  }
-
   const meta::instance instance{meta::any_ref::from_raw(field_schema.owner_type, object, false)};
   return field_schema.property.get_ref(instance);
 }
 
 any_ref get_field_ref(const serialization::field_schema& field_schema, void* object) {
-  if (field_schema.property_data != nullptr) {
-    return field_schema.property_data->get_ref_unchecked(field_schema.declared_type, object);
-  }
-
   const meta::instance instance{meta::any_ref::from_raw(field_schema.owner_type, object, true)};
   return field_schema.property.get_ref(instance);
 }

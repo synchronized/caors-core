@@ -416,16 +416,37 @@ template <typename T> struct codec_traits<objects::ptr<T>> {
   }
 };
 
-/** @brief `objects::handle` 和 `objects::typed_handle<T>` 按 `{id,type}` 身份对象序列化。 */
-template <typename T> struct codec_traits<objects::detail::basic_handle<T>> {
+/** @brief `objects::handle` 按 `{id,type}` 身份对象序列化。 */
+template <> struct codec_traits<objects::handle> {
   static constexpr bool can_write = true;
   static constexpr bool can_read = true;
   static constexpr bool can_make_value = true;
 
-  using handle_type = objects::detail::basic_handle<T>;
+  using handle_type = objects::handle;
 
   [[nodiscard]] static error write(writer& writer, const handle_type& value) {
-    return objects::detail::write_object_handle(writer, objects::detail::to_untyped_handle(value));
+    return objects::detail::write_object_handle(writer, value);
+  }
+
+  [[nodiscard]] static error read(reader& reader, handle_type& value) {
+    return objects::detail::read_object_handle(reader, value);
+  }
+
+  [[nodiscard]] static variant_result make_value(const handle_type& value) {
+    return objects::detail::make_object_handle_value(value);
+  }
+};
+
+/** @brief `objects::typed_handle<T>` 按 `{id,type}` 身份对象序列化。 */
+template <typename T> struct codec_traits<objects::typed_handle<T>> {
+  static constexpr bool can_write = true;
+  static constexpr bool can_read = true;
+  static constexpr bool can_make_value = true;
+
+  using handle_type = objects::typed_handle<T>;
+
+  [[nodiscard]] static error write(writer& writer, const handle_type& value) {
+    return objects::detail::write_object_handle(writer, value.handle());
   }
 
   [[nodiscard]] static error read(reader& reader, handle_type& value) {
@@ -440,7 +461,7 @@ template <typename T> struct codec_traits<objects::detail::basic_handle<T>> {
   }
 
   [[nodiscard]] static variant_result make_value(const handle_type& value) {
-    return objects::detail::make_object_handle_value(objects::detail::to_untyped_handle(value));
+    return objects::detail::make_object_handle_value(value.handle());
   }
 };
 

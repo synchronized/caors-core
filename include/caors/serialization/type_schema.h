@@ -16,10 +16,6 @@
 #include <string_view>
 #include <utility>
 
-namespace caors::meta::detail {
-class property_data;
-} // namespace caors::meta::detail
-
 namespace caors::serialization {
 
 struct codec_ops;
@@ -73,7 +69,6 @@ struct field_options {
  */
 struct field_schema : field_options {
   meta::property property{};
-  const meta::detail::property_data* property_data = nullptr;
   meta::type owner_type{};
   meta::type declared_type{};
   meta::type value_type{};
@@ -91,7 +86,6 @@ struct field_schema : field_options {
   /** @brief 绑定提交期解析出的属性视图，并缓存运行期调度所需的字段语义。 */
   void bind_property(meta::property reflected_property) noexcept {
     property = reflected_property;
-    property_data = property ? meta::detail::property_data_of(property) : nullptr;
     owner_type = property ? property.get_owner_type() : meta::type{};
     declared_type = property ? property.get_type() : meta::type{};
     value_type = property ? property.get_value_type() : meta::type{};

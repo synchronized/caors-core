@@ -237,8 +237,8 @@ caors::objects::handle handle{instance.id(), instance.type_id()};
 也不会隐式查询全局对象表；需要解析时应显式传给 `objects::manager` 或上层对象数据库。当前阶段如果需要把对象关系序列化为运行期对象 id，可以使用 `objects::ptr<T>` 和
 `objects::object_ref_resolver_ops`，也可以从 `objects::manager` 创建 resolver。
 
-两者共享同一个内部句柄实现：`objects::handle` 是非类型化身份，`objects::typed_handle<T>` 是带
-C++ 编译期类型约束的身份视图。类型化句柄可以从非类型化句柄构造，也可以通过 `.handle()` 取回
+两者共享相同的身份语义：`objects::handle` 是非类型化身份，`objects::typed_handle<T>` 是带
+C++ 编译期类型约束的公开句柄类型。类型化句柄可以从非类型化句柄构造，也可以通过 `.handle()` 取回
 非类型化句柄：
 
 ```cpp

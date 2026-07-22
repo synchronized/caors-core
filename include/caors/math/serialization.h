@@ -13,7 +13,14 @@
 #include <type_traits>
 #include <utility>
 
-namespace caors::serialization::math_codec_detail {
+namespace caors::math::detail {
+
+using serialization::make_field;
+using serialization::make_type_schema;
+using serialization::reader;
+using serialization::type_schema;
+using serialization::variant_result;
+using serialization::writer;
 
 template <typename T> [[nodiscard]] inline error read_floating(reader& reader, T& value) {
   double floating = 0.0;
@@ -208,7 +215,7 @@ template <typename T>
   return schema;
 }
 
-} // namespace caors::serialization::math_codec_detail
+} // namespace caors::math::detail
 
 namespace caors::serialization {
 
@@ -220,12 +227,12 @@ template <typename T> struct codec_traits<math::vec2_t<T>> {
 
   [[nodiscard]] static error write(writer& writer, math::vec2_t<T> value) {
     const T values[2]{value.x, value.y};
-    return math_codec_detail::write_scalar_array(writer, values, 2);
+    return ::caors::math::detail::write_scalar_array(writer, values, 2);
   }
 
   [[nodiscard]] static error read(reader& reader, math::vec2_t<T>& value) {
     T values[2]{};
-    const error status = math_codec_detail::read_scalar_array(reader, values, 2);
+    const error status = ::caors::math::detail::read_scalar_array(reader, values, 2);
     if (status) {
       return status;
     }
@@ -236,7 +243,7 @@ template <typename T> struct codec_traits<math::vec2_t<T>> {
 
   [[nodiscard]] static variant_result make_value(math::vec2_t<T> value) {
     const T values[2]{value.x, value.y};
-    return math_codec_detail::make_scalar_array(values, 2);
+    return ::caors::math::detail::make_scalar_array(values, 2);
   }
 };
 
@@ -248,12 +255,12 @@ template <typename T> struct codec_traits<math::vec3_t<T>> {
 
   [[nodiscard]] static error write(writer& writer, math::vec3_t<T> value) {
     const T values[3]{value.x, value.y, value.z};
-    return math_codec_detail::write_scalar_array(writer, values, 3);
+    return ::caors::math::detail::write_scalar_array(writer, values, 3);
   }
 
   [[nodiscard]] static error read(reader& reader, math::vec3_t<T>& value) {
     T values[3]{};
-    const error status = math_codec_detail::read_scalar_array(reader, values, 3);
+    const error status = ::caors::math::detail::read_scalar_array(reader, values, 3);
     if (status) {
       return status;
     }
@@ -264,7 +271,7 @@ template <typename T> struct codec_traits<math::vec3_t<T>> {
 
   [[nodiscard]] static variant_result make_value(math::vec3_t<T> value) {
     const T values[3]{value.x, value.y, value.z};
-    return math_codec_detail::make_scalar_array(values, 3);
+    return ::caors::math::detail::make_scalar_array(values, 3);
   }
 };
 
@@ -276,12 +283,12 @@ template <typename T> struct codec_traits<math::vec4_t<T>> {
 
   [[nodiscard]] static error write(writer& writer, math::vec4_t<T> value) {
     const T values[4]{value.x, value.y, value.z, value.w};
-    return math_codec_detail::write_scalar_array(writer, values, 4);
+    return ::caors::math::detail::write_scalar_array(writer, values, 4);
   }
 
   [[nodiscard]] static error read(reader& reader, math::vec4_t<T>& value) {
     T values[4]{};
-    const error status = math_codec_detail::read_scalar_array(reader, values, 4);
+    const error status = ::caors::math::detail::read_scalar_array(reader, values, 4);
     if (status) {
       return status;
     }
@@ -292,7 +299,7 @@ template <typename T> struct codec_traits<math::vec4_t<T>> {
 
   [[nodiscard]] static variant_result make_value(math::vec4_t<T> value) {
     const T values[4]{value.x, value.y, value.z, value.w};
-    return math_codec_detail::make_scalar_array(values, 4);
+    return ::caors::math::detail::make_scalar_array(values, 4);
   }
 };
 
@@ -304,12 +311,12 @@ template <typename T> struct codec_traits<math::quat_t<T>> {
 
   [[nodiscard]] static error write(writer& writer, math::quat_t<T> value) {
     const T values[4]{value.x, value.y, value.z, value.w};
-    return math_codec_detail::write_scalar_array(writer, values, 4);
+    return ::caors::math::detail::write_scalar_array(writer, values, 4);
   }
 
   [[nodiscard]] static error read(reader& reader, math::quat_t<T>& value) {
     T values[4]{};
-    const error status = math_codec_detail::read_scalar_array(reader, values, 4);
+    const error status = ::caors::math::detail::read_scalar_array(reader, values, 4);
     if (status) {
       return status;
     }
@@ -320,7 +327,7 @@ template <typename T> struct codec_traits<math::quat_t<T>> {
 
   [[nodiscard]] static variant_result make_value(math::quat_t<T> value) {
     const T values[4]{value.x, value.y, value.z, value.w};
-    return math_codec_detail::make_scalar_array(values, 4);
+    return ::caors::math::detail::make_scalar_array(values, 4);
   }
 };
 
@@ -331,15 +338,15 @@ template <typename T> struct codec_traits<math::mat3_t<T>> {
   static constexpr bool can_make_value = true;
 
   [[nodiscard]] static error write(writer& writer, const math::mat3_t<T>& value) {
-    return math_codec_detail::write_scalar_array(writer, value.values, 9);
+    return ::caors::math::detail::write_scalar_array(writer, value.values, 9);
   }
 
   [[nodiscard]] static error read(reader& reader, math::mat3_t<T>& value) {
-    return math_codec_detail::read_scalar_array(reader, value.values, 9);
+    return ::caors::math::detail::read_scalar_array(reader, value.values, 9);
   }
 
   [[nodiscard]] static variant_result make_value(const math::mat3_t<T>& value) {
-    return math_codec_detail::make_scalar_array(value.values, 9);
+    return ::caors::math::detail::make_scalar_array(value.values, 9);
   }
 };
 
@@ -350,15 +357,15 @@ template <typename T> struct codec_traits<math::mat4_t<T>> {
   static constexpr bool can_make_value = true;
 
   [[nodiscard]] static error write(writer& writer, const math::mat4_t<T>& value) {
-    return math_codec_detail::write_scalar_array(writer, value.values, 16);
+    return ::caors::math::detail::write_scalar_array(writer, value.values, 16);
   }
 
   [[nodiscard]] static error read(reader& reader, math::mat4_t<T>& value) {
-    return math_codec_detail::read_scalar_array(reader, value.values, 16);
+    return ::caors::math::detail::read_scalar_array(reader, value.values, 16);
   }
 
   [[nodiscard]] static variant_result make_value(const math::mat4_t<T>& value) {
-    return math_codec_detail::make_scalar_array(value.values, 16);
+    return ::caors::math::detail::make_scalar_array(value.values, 16);
   }
 };
 
@@ -369,7 +376,7 @@ template <typename T> struct codec_traits<math::rect_t<T>> {
   static constexpr bool can_make_value = true;
 
   [[nodiscard]] static error write(writer& writer, const math::rect_t<T>& value) {
-    const type_schema& schema = math_codec_detail::rect_schema();
+    const type_schema& schema = ::caors::math::detail::rect_schema();
     error status = writer.begin_object(schema);
     if (status) {
       return status;
@@ -405,7 +412,7 @@ template <typename T> struct codec_traits<math::rect_t<T>> {
   }
 
   [[nodiscard]] static error read(reader& reader, math::rect_t<T>& value) {
-    const type_schema& schema = math_codec_detail::rect_schema();
+    const type_schema& schema = ::caors::math::detail::rect_schema();
     error status = reader.begin_object(schema);
     if (status) {
       return status;
@@ -465,7 +472,7 @@ template <typename T> struct codec_traits<math::aabb_t<T>> {
   static constexpr bool can_make_value = true;
 
   [[nodiscard]] static error write(writer& writer, const math::aabb_t<T>& value) {
-    const type_schema& schema = math_codec_detail::aabb_schema();
+    const type_schema& schema = ::caors::math::detail::aabb_schema();
     error status = writer.begin_object(schema);
     if (status) {
       return status;
@@ -501,7 +508,7 @@ template <typename T> struct codec_traits<math::aabb_t<T>> {
   }
 
   [[nodiscard]] static error read(reader& reader, math::aabb_t<T>& value) {
-    const type_schema& schema = math_codec_detail::aabb_schema();
+    const type_schema& schema = ::caors::math::detail::aabb_schema();
     error status = reader.begin_object(schema);
     if (status) {
       return status;
@@ -561,7 +568,7 @@ template <typename T> struct codec_traits<math::ray_t<T>> {
   static constexpr bool can_make_value = true;
 
   [[nodiscard]] static error write(writer& writer, const math::ray_t<T>& value) {
-    const type_schema& schema = math_codec_detail::ray_schema();
+    const type_schema& schema = ::caors::math::detail::ray_schema();
     error status = writer.begin_object(schema);
     if (status) {
       return status;
@@ -597,7 +604,7 @@ template <typename T> struct codec_traits<math::ray_t<T>> {
   }
 
   [[nodiscard]] static error read(reader& reader, math::ray_t<T>& value) {
-    const type_schema& schema = math_codec_detail::ray_schema();
+    const type_schema& schema = ::caors::math::detail::ray_schema();
     error status = reader.begin_object(schema);
     if (status) {
       return status;
@@ -658,7 +665,7 @@ template <typename T> struct codec_traits<math::sphere_t<T>> {
   static constexpr bool can_make_value = true;
 
   [[nodiscard]] static error write(writer& writer, const math::sphere_t<T>& value) {
-    const type_schema& schema = math_codec_detail::sphere_schema();
+    const type_schema& schema = ::caors::math::detail::sphere_schema();
     error status = writer.begin_object(schema);
     if (status) {
       return status;
@@ -681,7 +688,7 @@ template <typename T> struct codec_traits<math::sphere_t<T>> {
     if (status) {
       return status;
     }
-    status = math_codec_detail::write_scalar(writer, value.radius);
+    status = ::caors::math::detail::write_scalar(writer, value.radius);
     if (status) {
       return status;
     }
@@ -694,7 +701,7 @@ template <typename T> struct codec_traits<math::sphere_t<T>> {
   }
 
   [[nodiscard]] static error read(reader& reader, math::sphere_t<T>& value) {
-    const type_schema& schema = math_codec_detail::sphere_schema();
+    const type_schema& schema = ::caors::math::detail::sphere_schema();
     error status = reader.begin_object(schema);
     if (status) {
       return status;
@@ -717,7 +724,7 @@ template <typename T> struct codec_traits<math::sphere_t<T>> {
     if (status) {
       return status;
     }
-    status = math_codec_detail::read_scalar(reader, value.radius);
+    status = ::caors::math::detail::read_scalar(reader, value.radius);
     if (status) {
       return status;
     }
@@ -739,7 +746,7 @@ template <typename T> struct codec_traits<math::sphere_t<T>> {
     members.reserve(2);
     members.push_back(meta::variant_member{string_name{"center"}, 0, std::move(center.value)});
     members.push_back(meta::variant_member{string_name{"radius"}, 0,
-                                           math_codec_detail::make_scalar_value(value.radius)});
+                                           ::caors::math::detail::make_scalar_value(value.radius)});
     return {{}, variant::object(std::move(members))};
   }
 };
@@ -751,7 +758,7 @@ template <typename T> struct codec_traits<math::plane_t<T>> {
   static constexpr bool can_make_value = true;
 
   [[nodiscard]] static error write(writer& writer, const math::plane_t<T>& value) {
-    const type_schema& schema = math_codec_detail::plane_schema();
+    const type_schema& schema = ::caors::math::detail::plane_schema();
     error status = writer.begin_object(schema);
     if (status) {
       return status;
@@ -774,7 +781,7 @@ template <typename T> struct codec_traits<math::plane_t<T>> {
     if (status) {
       return status;
     }
-    status = math_codec_detail::write_scalar(writer, value.distance);
+    status = ::caors::math::detail::write_scalar(writer, value.distance);
     if (status) {
       return status;
     }
@@ -787,7 +794,7 @@ template <typename T> struct codec_traits<math::plane_t<T>> {
   }
 
   [[nodiscard]] static error read(reader& reader, math::plane_t<T>& value) {
-    const type_schema& schema = math_codec_detail::plane_schema();
+    const type_schema& schema = ::caors::math::detail::plane_schema();
     error status = reader.begin_object(schema);
     if (status) {
       return status;
@@ -810,7 +817,7 @@ template <typename T> struct codec_traits<math::plane_t<T>> {
     if (status) {
       return status;
     }
-    status = math_codec_detail::read_scalar(reader, value.distance);
+    status = ::caors::math::detail::read_scalar(reader, value.distance);
     if (status) {
       return status;
     }
@@ -831,8 +838,8 @@ template <typename T> struct codec_traits<math::plane_t<T>> {
     variant::object_type members;
     members.reserve(2);
     members.push_back(meta::variant_member{string_name{"normal"}, 0, std::move(normal.value)});
-    members.push_back(meta::variant_member{string_name{"distance"}, 0,
-                                           math_codec_detail::make_scalar_value(value.distance)});
+    members.push_back(meta::variant_member{
+        string_name{"distance"}, 0, ::caors::math::detail::make_scalar_value(value.distance)});
     return {{}, variant::object(std::move(members))};
   }
 };
@@ -844,7 +851,7 @@ template <typename T> struct codec_traits<math::frustum_t<T>> {
   static constexpr bool can_make_value = true;
 
   [[nodiscard]] static error write(writer& writer, const math::frustum_t<T>& value) {
-    const type_schema& schema = math_codec_detail::frustum_schema();
+    const type_schema& schema = ::caors::math::detail::frustum_schema();
     error status = writer.begin_object(schema);
     if (status) {
       return status;
@@ -932,7 +939,7 @@ template <typename T> struct codec_traits<math::frustum_t<T>> {
   }
 
   [[nodiscard]] static error read(reader& reader, math::frustum_t<T>& value) {
-    const type_schema& schema = math_codec_detail::frustum_schema();
+    const type_schema& schema = ::caors::math::detail::frustum_schema();
     error status = reader.begin_object(schema);
     if (status) {
       return status;
