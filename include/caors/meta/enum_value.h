@@ -20,9 +20,7 @@ class enum_value_view;
 namespace detail {
 
 class enum_value_data;
-
-[[nodiscard]] CAORS_API enum_value_view
-make_enum_value_view(const enum_value_data* enum_value) noexcept;
+class enum_value_access;
 
 } // namespace detail
 
@@ -63,8 +61,7 @@ public:
   }
 
 private:
-  friend class type;
-  friend enum_value_view detail::make_enum_value_view(const detail::enum_value_data*) noexcept;
+  friend class detail::enum_value_access;
 
   explicit enum_value_view(const detail::enum_value_data* enum_value) noexcept;
   [[nodiscard]] const detail::enum_value_data* info() const noexcept;

@@ -118,18 +118,6 @@ template <typename... Targets>
 
 property::property(const detail::property_data* property) noexcept : property_(property) {}
 
-namespace detail {
-
-property make_property_view(const property_data* property) noexcept {
-  return meta::property{property};
-}
-
-const property_data* property_data_of(const meta::property& property) noexcept {
-  return property.property_;
-}
-
-} // namespace detail
-
 bool property::valid() const noexcept { return property_ != nullptr && property_->valid(); }
 
 core::string_name property::name() const noexcept {

@@ -19,9 +19,7 @@ namespace {
 enum_value_view::enum_value_view(const detail::enum_value_data* enum_value) noexcept
     : value_(enum_value) {}
 
-bool enum_value_view::valid() const noexcept {
-  return value_ != nullptr && value_->valid();
-}
+bool enum_value_view::valid() const noexcept { return value_ != nullptr && value_->valid(); }
 
 core::string_name enum_value_view::name() const noexcept {
   const detail::enum_value_data* value = info();
@@ -55,13 +53,5 @@ const detail::enum_value_data* enum_value_view::info() const noexcept {
 
   return value_;
 }
-
-namespace detail {
-
-enum_value_view make_enum_value_view(const enum_value_data* enum_value) noexcept {
-  return enum_value_view{enum_value};
-}
-
-} // namespace detail
 
 } // namespace caors::meta

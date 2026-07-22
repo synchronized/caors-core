@@ -3,6 +3,8 @@
 
 #include "caors/meta/module.h"
 
+#include "caors/meta/detail/property_access.h"
+
 #include "caors/core/containers.h"
 #include "caors/memory/resource.h"
 #include "caors/memory/unique_ptr.h"
@@ -201,12 +203,13 @@ std::size_t module_view::property_count() const noexcept {
 
 property module_view::property_at(std::size_t index) const {
   const detail::module_data* module = data();
-  return module != nullptr ? property{module->property_at(index)} : property{};
+  return module != nullptr ? detail::property_access::make(module->property_at(index)) : property{};
 }
 
 property module_view::find_property(core::string_name name) const {
   const detail::module_data* module = data();
-  return module != nullptr ? property{module->find_property_ptr(name)} : property{};
+  return module != nullptr ? detail::property_access::make(module->find_property_ptr(name))
+                           : property{};
 }
 
 property module_view::find_property(std::string_view name) const {

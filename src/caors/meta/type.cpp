@@ -2,6 +2,8 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/meta/type.h"
+#include "caors/meta/detail/enum_value_access.h"
+#include "caors/meta/detail/property_access.h"
 #include "caors/meta/detail/type_access.h"
 #include "caors/meta/detail/type_data.h"
 #include "caors/meta/detail/type_descriptor.h"
@@ -213,7 +215,7 @@ std::size_t type::property_count() const noexcept {
 
 property type::property_at(std::size_t index) const {
   const detail::type_data* data = detail::type_access::registered_data_of(*this);
-  return data != nullptr ? property{data->property_at(index)} : property{};
+  return data != nullptr ? detail::property_access::make(data->property_at(index)) : property{};
 }
 
 property type::find_property(core::string_name property_name, member_search search) const {
@@ -223,7 +225,7 @@ property type::find_property(core::string_name property_name, member_search sear
 
   const detail::type_data* data = detail::type_access::registered_data_of(*this);
   if (data != nullptr) {
-    property found{data->find_property_ptr(property_name)};
+    property found = detail::property_access::make(data->find_property_ptr(property_name));
     if (found || search == member_search::local_only) {
       return found;
     }
@@ -233,7 +235,7 @@ property type::find_property(core::string_name property_name, member_search sear
   while (base) {
     const detail::type_data* base_data = detail::type_access::registered_data_of(base);
     if (base_data != nullptr) {
-      property found{base_data->find_property_ptr(property_name)};
+      property found = detail::property_access::make(base_data->find_property_ptr(property_name));
       if (found) {
         return found;
       }
@@ -373,7 +375,7 @@ std::size_t enum_value_count(const type& source) noexcept {
 
 enum_value_view enum_value_at(const type& source, std::size_t index) {
   const type_data* data = type_access::registered_data_of(source);
-  return data != nullptr ? make_enum_value_view(data->enum_value_at(index)) : enum_value_view{};
+  return data != nullptr ? enum_value_access::make(data->enum_value_at(index)) : enum_value_view{};
 }
 
 enum_value_view find_enum_value(const type& source, core::string_name enum_value_name) {
@@ -382,7 +384,7 @@ enum_value_view find_enum_value(const type& source, core::string_name enum_value
   }
 
   const type_data* data = type_access::registered_data_of(source);
-  return data != nullptr ? make_enum_value_view(data->find_enum_value_ptr(enum_value_name))
+  return data != nullptr ? enum_value_access::make(data->find_enum_value_ptr(enum_value_name))
                          : enum_value_view{};
 }
 
@@ -397,13 +399,13 @@ enum_value_view find_enum_value(const type& source, std::string_view enum_value_
 
 enum_value_view find_enum_value_by_i64(const type& source, std::int64_t value) noexcept {
   const type_data* data = type_access::registered_data_of(source);
-  return data != nullptr ? make_enum_value_view(data->find_enum_value_ptr(value))
+  return data != nullptr ? enum_value_access::make(data->find_enum_value_ptr(value))
                          : enum_value_view{};
 }
 
 enum_value_view find_enum_value_by_u64(const type& source, std::uint64_t value) noexcept {
   const type_data* data = type_access::registered_data_of(source);
-  return data != nullptr ? make_enum_value_view(data->find_enum_value_ptr(value))
+  return data != nullptr ? enum_value_access::make(data->find_enum_value_ptr(value))
                          : enum_value_view{};
 }
 
