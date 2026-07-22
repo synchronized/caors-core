@@ -3,6 +3,7 @@
 
 #include "caors/meta/capability.h"
 
+#include "caors/meta/detail/type_access.h"
 #include "caors/meta/detail/type_descriptor.h"
 #include "caors/meta/registry.h"
 #include "caors/meta/type.h"
@@ -87,7 +88,7 @@ const void* find_type_capability(const meta::type& type, capability_key key) noe
     return nullptr;
   }
 
-  const type_descriptor* descriptor = type.descriptor();
+  const type_descriptor* descriptor = type_access::descriptor_of(type);
   if (descriptor != nullptr) {
     if (const void* builtin = descriptor_builtin_ops(descriptor, key); builtin != nullptr) {
       return builtin;
@@ -101,11 +102,12 @@ const void* find_type_capability(const meta::type& type, capability_key key) noe
     }
   }
 
-  if (type.registry_ == nullptr) {
+  const registry* source_registry = type_access::registry_of(type);
+  if (source_registry == nullptr) {
     return nullptr;
   }
 
-  return find_capability(*type.registry_, type.id(), key);
+  return find_capability(*source_registry, type.id(), key);
 }
 
 bool contains_capability(const registry& registry, type_id id, capability_key key) noexcept {

@@ -43,6 +43,7 @@ namespace detail {
 
 class type_data;
 struct type_descriptor;
+class type_access;
 
 [[nodiscard]] CAORS_API type make_type_view(type_id id, const type_descriptor* descriptor) noexcept;
 [[nodiscard]] CAORS_API type make_type_view(registry& registry, type_id id,
@@ -191,25 +192,11 @@ public:
   }
 
 private:
-  friend class registry;
-  friend type detail::make_type_view(type_id, const detail::type_descriptor*) noexcept;
-  friend type detail::make_type_view(registry&, type_id, const detail::type_descriptor*) noexcept;
-  friend const void* detail::find_type_capability(const type&, capability_key) noexcept;
-  friend std::size_t detail::enum_value_count(const type&) noexcept;
-  friend enum_value_view detail::enum_value_at(const type&, std::size_t);
-  friend enum_value_view detail::find_enum_value(const type&, string_name);
-  friend enum_value_view detail::find_enum_value(const type&, std::string_view);
-  friend enum_value_view detail::find_enum_value_by_i64(const type&, std::int64_t) noexcept;
-  friend enum_value_view detail::find_enum_value_by_u64(const type&, std::uint64_t) noexcept;
-  template <typename Extension>
-  friend const Extension* detail::find_type_extension(const type&) noexcept;
+  friend class detail::type_access;
 
   constexpr type(const registry* registry, const detail::type_data* data,
                  const detail::type_descriptor* descriptor) noexcept
       : registry_(registry), data_(data), descriptor_(descriptor) {}
-
-  [[nodiscard]] const detail::type_data* registered_data() const noexcept;
-  [[nodiscard]] const detail::type_descriptor* descriptor() const noexcept;
 
   const registry* registry_ = nullptr;
   const detail::type_data* data_ = nullptr;

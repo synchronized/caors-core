@@ -5,8 +5,7 @@
 #define CAORS_META_DETAIL_TYPE_EXTENSION_TEMPLATES_H_
 
 #include "caors/meta/detail/extension_data.h"
-#include "caors/meta/detail/type_data.h"
-#include "caors/meta/type.h"
+#include "caors/meta/detail/type_access.h"
 
 #include <type_traits>
 
@@ -17,7 +16,7 @@ template <typename Extension>
 [[nodiscard]] const Extension* find_type_extension(const type& source) noexcept {
   using extension_type = std::decay_t<Extension>;
 
-  const type_data* data = source.registered_data();
+  const type_data* data = type_access::registered_data_of(source);
   if (data == nullptr) {
     return nullptr;
   }

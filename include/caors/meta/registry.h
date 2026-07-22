@@ -111,7 +111,6 @@ private:
   template <typename T> friend class ::caors::registration::enum_builder;
   template <typename T> friend class ::caors::registration::type_builder;
   friend class detail::registry_access;
-  friend class type;
 
   [[nodiscard]] error register_type(type_id id, string_name name, type_guid guid,
                                     type_id parent_id);
