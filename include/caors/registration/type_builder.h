@@ -183,7 +183,7 @@ public:
     if (!status_) {
       committed_type_ = registry_->template find_type<value_type>();
       if (serialization_enabled_) {
-        status_ = bind_serialization_schema(committed_type_);
+        status_ = validate_serialization_schema(committed_type_);
         if (status_) {
           return status_;
         }
@@ -330,18 +330,17 @@ private:
     return {};
   }
 
-  [[nodiscard]] error bind_serialization_schema(meta::type registered_type) {
+  [[nodiscard]] error validate_serialization_schema(meta::type registered_type) const {
     if (!registered_type || !serialization_schema_.valid()) {
       return {error_domain::serialization, errc::invalid_field};
     }
 
-    for (serialization::field_schema& field : serialization_schema_.fields) {
+    for (const serialization::field_schema& field : serialization_schema_.fields) {
       meta::property property =
           registered_type.find_property(field.field_name, meta::member_search::include_bases);
       if (!property) {
         return {error_domain::serialization, errc::not_found};
       }
-      field.bind_property(property);
     }
 
     return {};
@@ -370,12 +369,13 @@ private:
         }
       }
 
-      const objects::object_factory_ops* factory =
-          meta::capabilities::get<objects::object_factory_ops, value_type>();
+      const objects::detail::object_factory_ops* factory =
+          meta::capabilities::get<objects::detail::object_factory_ops, value_type>();
       if (factory != nullptr &&
-          !pending_.contains_capability(meta::capability_key_of<objects::object_factory_ops>())) {
-        status_ = pending_.add_capability(meta::capability_key_of<objects::object_factory_ops>(),
-                                          factory);
+          !pending_.contains_capability(
+              meta::capability_key_of<objects::detail::object_factory_ops>())) {
+        status_ = pending_.add_capability(
+            meta::capability_key_of<objects::detail::object_factory_ops>(), factory);
       }
     }
   }
@@ -818,7 +818,7 @@ public:
 
   serialization_section& field(std::string_view field_name, std::string_view serialized_name = {},
                                bool skipped = false, std::uint32_t field_id = 0) {
-    owner_->serialization_schema_.fields.push_back(
+    owner_->serialization_schema_.fields.emplace_back(
         serialization::make_field(field_name, serialized_name, skipped, field_id));
     return *this;
   }

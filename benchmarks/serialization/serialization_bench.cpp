@@ -58,7 +58,7 @@ void benchmark_serialization(std::size_t iterations) {
   }
 
   {
-    CTRACK_NAME("serialization.bound_schema_fields");
+    CTRACK_NAME("serialization.schema_view_property_lookup");
     for (std::size_t index = 0; index < iterations; ++index) {
       const caors::serialization::schema_view schema =
           actor_type.get_capability<caors::serialization::schema_view>();
@@ -69,7 +69,8 @@ void benchmark_serialization(std::size_t iterations) {
       }
 
       for (const caors::serialization::field_schema& field : raw_schema->fields) {
-        consume(static_cast<std::uintptr_t>(field.property ? 1U : 0U));
+        const caors::meta::property property = actor_type.find_property(field.field_name);
+        consume(static_cast<std::uintptr_t>(property ? 1U : 0U));
       }
     }
   }

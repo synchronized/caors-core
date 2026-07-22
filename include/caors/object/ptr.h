@@ -39,6 +39,8 @@ private:
   T* instance_ = nullptr;
 };
 
+namespace detail {
+
 /** @brief 对象指针类型和对象指针之间的访问函数表。 */
 struct ptr_ops {
   using get_fn = object* (*)(const void*) noexcept;
@@ -49,10 +51,6 @@ struct ptr_ops {
 
   [[nodiscard]] bool valid() const noexcept { return get != nullptr && set != nullptr; }
 };
-
-namespace detail {
-
-using objects::ptr_ops;
 
 template <typename T> struct ptr_ops_model {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
@@ -123,15 +121,15 @@ template <typename T> struct object_ptr_access<objects::ptr<T>> {
 
 namespace caors::meta::capabilities {
 
-template <typename T> struct static_capability<objects::ptr_ops, T> {
-  [[nodiscard]] static const objects::ptr_ops* get() {
+template <typename T> struct static_capability<objects::detail::ptr_ops, T> {
+  [[nodiscard]] static const objects::detail::ptr_ops* get() {
     return objects::detail::ptr_ops_ptr_of<T>();
   }
 };
 
 template <typename T>
 struct module_static_capability_list<object_static_capability_module, objects::ptr<T>> {
-  using type = type_list<objects::ptr_ops>;
+  using type = type_list<objects::detail::ptr_ops>;
 };
 
 } // namespace caors::meta::capabilities

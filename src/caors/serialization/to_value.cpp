@@ -17,9 +17,9 @@
 namespace caors::serialization {
 namespace {
 
-[[nodiscard]] variant_result field_to_serialization_value(const serialization::field_schema& field,
-                                                          const void* object,
-                                                          const serialization::context& context) {
+[[nodiscard]] variant_result
+field_to_serialization_value(const serialization::detail::field_runtime_schema& field,
+                             const void* object, const serialization::context& context) {
   serialization::context nested_context{};
   if (const error status = context.enter_nested_value(nested_context); status) {
     return {status, {}};
@@ -89,11 +89,13 @@ variant_result to_serialization_value(const serialization::context& context, con
       continue;
     }
 
-    if (!field.property) {
+    const serialization::detail::field_runtime_schema runtime_field =
+        serialization::detail::compile_field_schema(type, field);
+    if (!runtime_field.valid()) {
       return {{error_domain::serialization, errc::not_found}, {}};
     }
 
-    variant_result serialized = field_to_serialization_value(field, object, context);
+    variant_result serialized = field_to_serialization_value(runtime_field, object, context);
     if (serialized.failed()) {
       return serialized;
     }

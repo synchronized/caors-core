@@ -52,8 +52,7 @@ namespace {
   return false;
 }
 
-[[nodiscard]] error apply_field_default(const serialization::field_schema& field_schema,
-                                        void* object) {
+[[nodiscard]] error apply_field_default(const field_runtime_schema& field_schema, void* object) {
   const meta::property& field = field_schema.property;
   const meta::metadata_value* default_value = field.schema().default_value_ptr();
   if (default_value == nullptr) {
@@ -116,19 +115,19 @@ namespace {
                              : error{error_domain::serialization, errc::unsupported};
 }
 
-[[nodiscard]] const serialization::codec_ops*
-cached_codec_ops(const serialization::field_schema* field, const meta::type& type) noexcept {
+[[nodiscard]] const serialization::codec_ops* cached_codec_ops(const field_runtime_schema* field,
+                                                               const meta::type& type) noexcept {
   return field != nullptr ? field->codec_operations : type.get_raw_ops<serialization::codec_ops>();
 }
 
-[[nodiscard]] const meta::scalar_ops* cached_scalar_ops(const serialization::field_schema* field,
+[[nodiscard]] const meta::scalar_ops* cached_scalar_ops(const field_runtime_schema* field,
                                                         const meta::type& type) noexcept {
   return field != nullptr ? field->scalar_operations : type.get_raw_ops<meta::scalar_ops>();
 }
 
 [[nodiscard]] variant_result
 make_value_or_object_serialized_value(const any_ref& value, const serialization::context& context,
-                                      const serialization::field_schema* field) {
+                                      const field_runtime_schema* field) {
   const meta::type type = value.get_type();
   const serialization::codec_ops* codec = cached_codec_ops(field, type);
   if (codec_can_make_value(codec)) {
@@ -149,10 +148,9 @@ make_value_or_object_serialized_value(const any_ref& value, const serialization:
   return make_scalar_value(value);
 }
 
-[[nodiscard]] error
-write_value_or_object_serialized_value(writer& writer, const any_ref& value,
-                                       const serialization::context& context,
-                                       const serialization::field_schema* field) {
+[[nodiscard]] error write_value_or_object_serialized_value(writer& writer, const any_ref& value,
+                                                           const serialization::context& context,
+                                                           const field_runtime_schema* field) {
   const meta::type type = value.get_type();
   const serialization::codec_ops* codec = cached_codec_ops(field, type);
   if (codec_can_write(codec)) {
@@ -179,10 +177,9 @@ write_value_or_object_serialized_value(writer& writer, const any_ref& value,
   return {};
 }
 
-[[nodiscard]] error
-read_value_or_object_serialized_value(reader& reader, const any_ref& target,
-                                      const serialization::context& context,
-                                      const serialization::field_schema* field) {
+[[nodiscard]] error read_value_or_object_serialized_value(reader& reader, const any_ref& target,
+                                                          const serialization::context& context,
+                                                          const field_runtime_schema* field) {
   const meta::type type = target.get_type();
   const serialization::codec_ops* codec = cached_codec_ops(field, type);
   if (codec_can_read(codec)) {
@@ -205,12 +202,41 @@ read_value_or_object_serialized_value(reader& reader, const any_ref& target,
 
 } // namespace
 
-any_ref get_field_ref(const serialization::field_schema& field_schema, const void* object) {
+field_runtime_schema compile_field_schema(const meta::type& owner_type,
+                                          const serialization::field_schema& field) {
+  field_runtime_schema result{};
+  result.schema = &field;
+  result.property = owner_type.find_property(field.field_name, meta::member_search::include_bases);
+  if (!result.property) {
+    return result;
+  }
+
+  result.owner_type = result.property.get_owner_type();
+  result.declared_type = result.property.get_type();
+  result.value_type = result.property.get_value_type();
+  result.codec_operations =
+      result.declared_type ? result.declared_type.get_raw_ops<serialization::codec_ops>() : nullptr;
+  result.scalar_operations =
+      result.declared_type ? result.declared_type.get_raw_ops<meta::scalar_ops>() : nullptr;
+
+  const meta::type_kind kind = result.property.kind();
+  result.uses_inline_indirect_value =
+      (kind == meta::type_kind::raw_pointer || kind == meta::type_kind::wrapper) &&
+      result.property.wrapper_semantics() == meta::wrapper_semantics::inline_value;
+  result.uses_direct_value =
+      kind == meta::type_kind::value || kind == meta::type_kind::enumeration ||
+      kind == meta::type_kind::sequence || kind == meta::type_kind::set ||
+      kind == meta::type_kind::associative || kind == meta::type_kind::pair ||
+      kind == meta::type_kind::tuple || kind == meta::type_kind::variant;
+  return result;
+}
+
+any_ref get_field_ref(const field_runtime_schema& field_schema, const void* object) {
   const meta::instance instance{meta::any_ref::from_raw(field_schema.owner_type, object, false)};
   return field_schema.property.get_ref(instance);
 }
 
-any_ref get_field_ref(const serialization::field_schema& field_schema, void* object) {
+any_ref get_field_ref(const field_runtime_schema& field_schema, void* object) {
   const meta::instance instance{meta::any_ref::from_raw(field_schema.owner_type, object, true)};
   return field_schema.property.get_ref(instance);
 }
@@ -228,7 +254,7 @@ variant_result make_serialized_value(const any_ref& value, const serialization::
 }
 
 variant_result make_serialized_value(const any_ref& value, const serialization::context& context,
-                                     const serialization::field_schema* field) {
+                                     const field_runtime_schema* field) {
   if (!value.valid()) {
     return {{error_domain::serialization, errc::unsupported}, {}};
   }
@@ -299,7 +325,7 @@ error write_serialized_value(writer& writer, const any_ref& value,
 
 error write_serialized_value(writer& writer, const any_ref& value,
                              const serialization::context& context,
-                             const serialization::field_schema* field) {
+                             const field_runtime_schema* field) {
   if (!value.valid()) {
     return {error_domain::serialization, errc::unsupported};
   }
@@ -369,7 +395,7 @@ error read_serialized_value(reader& reader, const any_ref& target,
 
 error read_serialized_value(reader& reader, const any_ref& target,
                             const serialization::context& context,
-                            const serialization::field_schema* field) {
+                            const field_runtime_schema* field) {
   if (!target.valid() || !target.writable() || target.mutable_data() == nullptr) {
     return {error_domain::serialization, errc::invalid_field};
   }
@@ -426,8 +452,7 @@ error read_serialized_value(reader& reader, const any_ref& target,
   return {error_domain::serialization, errc::unsupported};
 }
 
-error write_field(writer& writer, const void* object,
-                  const serialization::field_schema& field_schema,
+error write_field(writer& writer, const void* object, const field_runtime_schema& field_schema,
                   const serialization::context& context) {
   const meta::property& field = field_schema.property;
   if (!field.valid()) {
@@ -446,12 +471,12 @@ error write_field(writer& writer, const void* object,
     return {error_domain::serialization, errc::unsupported};
   }
 
-  error status = validate_field_for_writer(field_schema, writer.features());
+  error status = validate_field_for_writer(*field_schema.schema, writer.features());
   if (status) {
     return status;
   }
 
-  status = writer.begin_field(field_schema);
+  status = writer.begin_field(*field_schema.schema);
   if (status) {
     return status;
   }
@@ -471,7 +496,7 @@ error write_field(writer& writer, const void* object,
   return writer.end_field();
 }
 
-error read_field(reader& reader, void* object, const serialization::field_schema& field_schema,
+error read_field(reader& reader, void* object, const field_runtime_schema& field_schema,
                  const serialization::context& context) {
   const meta::property& field = field_schema.property;
   if (!field.valid()) {
@@ -482,7 +507,7 @@ error read_field(reader& reader, void* object, const serialization::field_schema
     return {error_domain::serialization, errc::invalid_field};
   }
 
-  error status = validate_field_for_reader(field_schema, reader.features());
+  error status = validate_field_for_reader(*field_schema.schema, reader.features());
   if (status) {
     return status;
   }
@@ -500,7 +525,7 @@ error read_field(reader& reader, void* object, const serialization::field_schema
     return {error_domain::serialization, errc::invalid_field};
   }
 
-  status = reader.begin_field(field_schema);
+  status = reader.begin_field(*field_schema.schema);
   if (status) {
     return status;
   }
@@ -524,11 +549,10 @@ error read_field(reader& reader, void* object, const serialization::field_schema
   return reader.end_field();
 }
 
-error read_configured_field(reader& reader, void* object,
-                            const serialization::field_schema& field_schema,
+error read_configured_field(reader& reader, void* object, const field_runtime_schema& field_schema,
                             const serialization::context& context) {
   const error status = read_field(reader, object, field_schema, context);
-  if (status.value() == errc::not_found && !field_schema.required) {
+  if (status.value() == errc::not_found && !field_schema.schema->required) {
     return apply_field_default(field_schema, object);
   }
 
@@ -536,7 +560,7 @@ error read_configured_field(reader& reader, void* object,
 }
 
 error read_missing_tolerant_field(reader& reader, void* object,
-                                  const serialization::field_schema& field_schema,
+                                  const field_runtime_schema& field_schema,
                                   const serialization::context& context) {
   const error status = read_field(reader, object, field_schema, context);
   if (status.value() != errc::not_found) {

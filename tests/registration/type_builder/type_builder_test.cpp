@@ -44,7 +44,7 @@ TEST_CASE("registration - type builder registers meta serialization and object t
   const caors::serialization::field_schema* field = schema.field_at(0);
   REQUIRE(field != nullptr);
   CHECK(field->field_name == caors::core::string_name{"value"});
-  CHECK(static_cast<bool>(field->property));
+  CHECK(static_cast<bool>(meta_type.find_property(field->field_name)));
 
   const caors::meta::type object_type = caors::objects::find<registration_actor>();
   REQUIRE(object_type);

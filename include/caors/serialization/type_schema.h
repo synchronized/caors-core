@@ -8,7 +8,6 @@
 #include "caors/core/string_name.h"
 #include "caors/meta/capability_traits.h"
 #include "caors/meta/detail/type_extension_templates.h"
-#include "caors/meta/property.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -17,8 +16,6 @@
 #include <utility>
 
 namespace caors::serialization {
-
-struct codec_ops;
 
 /** @brief 序列化后端能力。 */
 enum class format_features : std::uint32_t {
@@ -63,45 +60,14 @@ struct field_options {
 };
 
 /**
- * @brief 提交后的运行期字段 schema。
+ * @brief 提交后的字段序列化 schema。
  *
- * `field_schema` 保留用户字段配置，并额外保存提交时绑定好的 `meta::property` 视图。
+ * `field_schema` 只保存公开字段配置。运行期属性视图、codec 和标量 ops 等调度缓存由序列化
+ * 内部按需编译，不暴露在公开 schema 结构中。
  */
 struct field_schema : field_options {
-  meta::property property{};
-  meta::type owner_type{};
-  meta::type declared_type{};
-  meta::type value_type{};
-  const serialization::codec_ops* codec_operations = nullptr;
-  const meta::scalar_ops* scalar_operations = nullptr;
-  bool uses_direct_value = false;
-  bool uses_inline_indirect_value = false;
-
   field_schema() = default;
-  field_schema(field_options options, meta::property reflected_property = {}) noexcept
-      : field_options(std::move(options)) {
-    bind_property(reflected_property);
-  }
-
-  /** @brief 绑定提交期解析出的属性视图，并缓存运行期调度所需的字段语义。 */
-  void bind_property(meta::property reflected_property) noexcept {
-    property = reflected_property;
-    owner_type = property ? property.get_owner_type() : meta::type{};
-    declared_type = property ? property.get_type() : meta::type{};
-    value_type = property ? property.get_value_type() : meta::type{};
-    codec_operations =
-        declared_type ? declared_type.get_raw_ops<serialization::codec_ops>() : nullptr;
-    scalar_operations = declared_type ? declared_type.get_raw_ops<meta::scalar_ops>() : nullptr;
-    const meta::type_kind kind = property ? property.kind() : meta::type_kind::value;
-    uses_inline_indirect_value =
-        property && (kind == meta::type_kind::raw_pointer || kind == meta::type_kind::wrapper) &&
-        property.wrapper_semantics() == meta::wrapper_semantics::inline_value;
-    uses_direct_value =
-        property && (kind == meta::type_kind::value || kind == meta::type_kind::enumeration ||
-                     kind == meta::type_kind::sequence || kind == meta::type_kind::set ||
-                     kind == meta::type_kind::associative || kind == meta::type_kind::pair ||
-                     kind == meta::type_kind::tuple || kind == meta::type_kind::variant);
-  }
+  explicit field_schema(field_options options) noexcept : field_options(std::move(options)) {}
 };
 
 /**

@@ -51,7 +51,7 @@ bool is_a(meta::context& context, object_type_id id, object_type_id base_id) {
 
 std::size_t size(meta::context& context) noexcept {
   return meta::detail::capability_count(context.get_registry(),
-                                        meta::capability_key_of<object_factory_ops>());
+                                        meta::capability_key_of<detail::object_factory_ops>());
 }
 
 object* try_create(meta::type type, memory_resource* resource) noexcept {

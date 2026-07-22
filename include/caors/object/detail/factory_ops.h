@@ -7,7 +7,7 @@
 #include "caors/memory/resource.h"
 #include "caors/object/fwd.h"
 
-namespace caors::objects {
+namespace caors::objects::detail {
 
 /** @brief 对象默认构造、创建和销毁的类型擦除操作表。 */
 struct object_factory_ops {
@@ -24,12 +24,6 @@ struct object_factory_ops {
   }
 };
 
-namespace detail {
-
-using objects::object_factory_ops;
-
-} // namespace detail
-
-} // namespace caors::objects
+} // namespace caors::objects::detail
 
 #endif

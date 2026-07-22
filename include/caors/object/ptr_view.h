@@ -53,10 +53,10 @@ public:
 private:
   friend ptr_view make_ptr_view(meta::any_ref source) noexcept;
 
-  ptr_view(const ptr_ops* data, const void* storage, bool writable) noexcept
+  ptr_view(const detail::ptr_ops* data, const void* storage, bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
 
-  const ptr_ops* data_ = nullptr;
+  const detail::ptr_ops* data_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };
@@ -70,7 +70,7 @@ template <> struct capability_bind_traits<objects::ptr_view> {
 
   static constexpr bool supported = true;
 
-  [[nodiscard]] static view_type bind(meta::type, const objects::ptr_ops*,
+  [[nodiscard]] static view_type bind(meta::type, const objects::detail::ptr_ops*,
                                       meta::any_ref source) noexcept {
     return objects::make_ptr_view(source);
   }
@@ -81,9 +81,9 @@ template <> struct capability_bind_traits<objects::ptr_view> {
 namespace caors::objects {
 
 /** @brief 对象指针类型级能力 facade。 */
-class ptr_capability final : public meta::type_capability_base<ptr_ops, ptr_view> {
+class ptr_capability final : public meta::type_capability_base<detail::ptr_ops, ptr_view> {
 public:
-  using base_type = meta::type_capability_base<ptr_ops, ptr_view>;
+  using base_type = meta::type_capability_base<detail::ptr_ops, ptr_view>;
 
   ptr_capability() noexcept = default;
   explicit ptr_capability(meta::type type) noexcept : base_type(type) {}
@@ -94,7 +94,7 @@ public:
     return {};
   }
 
-  const ptr_ops* data = source.get_type().get_raw_ops<ptr_ops>();
+  const detail::ptr_ops* data = source.get_type().get_raw_ops<detail::ptr_ops>();
   if (data == nullptr) {
     return {};
   }

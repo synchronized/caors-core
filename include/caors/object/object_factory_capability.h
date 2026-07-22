@@ -11,9 +11,10 @@
 namespace caors::objects {
 
 /** @brief 对象默认创建和销毁能力的公开 facade。 */
-class object_factory_capability final : public meta::type_capability_base<object_factory_ops> {
+class object_factory_capability final
+    : public meta::type_capability_base<detail::object_factory_ops> {
 public:
-  using base_type = meta::type_capability_base<object_factory_ops>;
+  using base_type = meta::type_capability_base<detail::object_factory_ops>;
 
   object_factory_capability() noexcept = default;
   explicit object_factory_capability(meta::type type) noexcept : base_type(type) {}

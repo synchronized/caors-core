@@ -40,7 +40,9 @@ error serialize(const serialization::context& context, const meta::type& type, c
       continue;
     }
 
-    if (!field.property) {
+    const serialization::detail::field_runtime_schema runtime_field =
+        serialization::detail::compile_field_schema(type, field);
+    if (!runtime_field.valid()) {
       return {error_domain::serialization, errc::not_found};
     }
 
@@ -49,7 +51,7 @@ error serialize(const serialization::context& context, const meta::type& type, c
       return nested_status;
     }
 
-    status = serialization::detail::write_field(writer, object, field, nested_context);
+    status = serialization::detail::write_field(writer, object, runtime_field, nested_context);
     if (status) {
       return status;
     }

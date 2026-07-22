@@ -53,10 +53,10 @@ public:
 private:
   friend handle_view make_handle_view(meta::any_ref source) noexcept;
 
-  handle_view(const handle_ops* data, const void* storage, bool writable) noexcept
+  handle_view(const detail::handle_ops* data, const void* storage, bool writable) noexcept
       : data_(data), storage_(storage), writable_(writable) {}
 
-  const handle_ops* data_ = nullptr;
+  const detail::handle_ops* data_ = nullptr;
   const void* storage_ = nullptr;
   bool writable_ = false;
 };
@@ -70,7 +70,7 @@ template <> struct capability_bind_traits<objects::handle_view> {
 
   static constexpr bool supported = true;
 
-  [[nodiscard]] static view_type bind(meta::type, const objects::handle_ops*,
+  [[nodiscard]] static view_type bind(meta::type, const objects::detail::handle_ops*,
                                       meta::any_ref source) noexcept {
     return objects::make_handle_view(source);
   }
@@ -81,9 +81,9 @@ template <> struct capability_bind_traits<objects::handle_view> {
 namespace caors::objects {
 
 /** @brief 对象身份句柄类型级能力 facade。 */
-class handle_capability final : public meta::type_capability_base<handle_ops, handle_view> {
+class handle_capability final : public meta::type_capability_base<detail::handle_ops, handle_view> {
 public:
-  using base_type = meta::type_capability_base<handle_ops, handle_view>;
+  using base_type = meta::type_capability_base<detail::handle_ops, handle_view>;
 
   handle_capability() noexcept = default;
   explicit handle_capability(meta::type type) noexcept : base_type(type) {}
@@ -94,7 +94,7 @@ public:
     return {};
   }
 
-  const handle_ops* data = source.get_type().get_raw_ops<handle_ops>();
+  const detail::handle_ops* data = source.get_type().get_raw_ops<detail::handle_ops>();
   if (data == nullptr) {
     return {};
   }
