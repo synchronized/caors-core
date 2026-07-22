@@ -136,7 +136,6 @@ private:
                                                                     detail::extension_key key);
   template <typename Extension> [[nodiscard]] Extension* find_extension_mutable_ptr(type_id id);
 
-  [[nodiscard]] error index_extension(type_id id, detail::extension_key key);
   [[nodiscard]] vector<type_id> view_extension_ids(const detail::extension_key* keys,
                                                    std::size_t count) const;
 

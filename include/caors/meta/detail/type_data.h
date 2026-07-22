@@ -101,8 +101,6 @@ public:
   [[nodiscard]] error add_owned_capability(capability_key key,
                                            memory::unique_ptr<owned_capability_base> capability);
   [[nodiscard]] bool contains_extension(extension_key key) const noexcept;
-  [[nodiscard]] std::size_t extension_count() const noexcept;
-  [[nodiscard]] extension_key extension_key_at(std::size_t index) const noexcept;
   [[nodiscard]] const extension_data* find_extension(extension_key key) const noexcept;
   [[nodiscard]] extension_data* mutable_find_extension(extension_key key) noexcept;
   [[nodiscard]] error add_extension(extension_data extension);

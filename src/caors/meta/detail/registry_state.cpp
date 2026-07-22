@@ -239,26 +239,6 @@ error store_type_descriptor(registry_state& state, const type_descriptor& descri
   return {};
 }
 
-error index_type_extension(registry_state& state, type_id id, extension_key key) {
-  if (!id || key == nullptr || !state.types.contains(id.value())) {
-    return {error_domain::meta, errc::invalid_type};
-  }
-
-  auto [position, inserted] = state.extension_index.try_emplace(
-      key, core::vector<type_id>{core::vector<type_id>::allocator_type{state.resource}});
-  (void)inserted;
-
-  core::vector<type_id>& ids = position->second;
-  for (const type_id existing : ids) {
-    if (existing == id) {
-      return {};
-    }
-  }
-
-  ids.push_back(id);
-  return {};
-}
-
 error validate_registry(const registry_state& state) {
   for (const auto& [raw_id, stored] : state.types) {
     if (stored == nullptr || !stored->registered() || stored->id().value() != raw_id) {
@@ -325,22 +305,6 @@ error validate_registry(const registry_state& state) {
   for (const auto& [guid_value, stored] : state.guids) {
     if (stored == nullptr || stored->guid().value != guid_value) {
       return {error_domain::meta, errc::inconsistent_type};
-    }
-  }
-
-  for (const auto& [key, ids] : state.extension_index) {
-    if (key == nullptr) {
-      return {error_domain::meta, errc::invalid_type};
-    }
-
-    for (const type_id id : ids) {
-      const type_data* stored = find_type_data(state, id);
-      if (stored == nullptr) {
-        return {error_domain::meta, errc::missing_type};
-      }
-      if (!stored->contains_extension(key)) {
-        return {error_domain::meta, errc::inconsistent_type};
-      }
     }
   }
 

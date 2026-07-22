@@ -81,13 +81,6 @@ error registry::commit_type(detail::type_data type, const std::type_info& cpp_ty
   }
   state_->cpp_types.emplace(cpp_index, stored);
 
-  for (std::size_t index = 0; index < stored->extension_count(); ++index) {
-    status = detail::index_type_extension(*state_, expected_id, stored->extension_key_at(index));
-    if (status) {
-      return status;
-    }
-  }
-
   return {};
 }
 

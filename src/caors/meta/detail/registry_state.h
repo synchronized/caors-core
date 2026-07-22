@@ -6,7 +6,6 @@
 
 #include "caors/memory/resource.h"
 #include "caors/memory/unique_ptr.h"
-#include "caors/meta/detail/extension_data.h"
 #include "caors/meta/detail/parent_cast_ops.h"
 #include "caors/meta/detail/type_data.h"
 #include "caors/meta/registration.h"
@@ -27,9 +26,7 @@ public:
             core::hash_map<std::uint64_t, memory::unique_ptr<type_data>>::allocator_type{resource}),
         cpp_types(core::hash_map<std::type_index, type_data*>::allocator_type{resource}),
         names(core::hash_map<core::string_name, type_data*>::allocator_type{resource}),
-        guids(core::hash_map<core::guid, type_data*, core::guid_hash>::allocator_type{resource}),
-        extension_index(core::hash_map<extension_key, core::vector<type_id>>::allocator_type{
-            resource}) {}
+        guids(core::hash_map<core::guid, type_data*, core::guid_hash>::allocator_type{resource}) {}
 
   mutable std::mutex mutex;
   memory::memory_resource* resource = nullptr;
@@ -39,7 +36,6 @@ public:
   core::hash_map<std::type_index, type_data*> cpp_types;
   core::hash_map<core::string_name, type_data*> names;
   core::hash_map<core::guid, type_data*, core::guid_hash> guids;
-  core::hash_map<extension_key, core::vector<type_id>> extension_index;
 };
 
 [[nodiscard]] type_data* find_type_data(registry_state& state, type_id id);
@@ -54,7 +50,6 @@ public:
 [[nodiscard]] error store_new_type(registry_state& state, type_data&& incoming,
                                    type_id* stored_id = nullptr);
 [[nodiscard]] error store_type_descriptor(registry_state& state, const type_descriptor& descriptor);
-[[nodiscard]] error index_type_extension(registry_state& state, type_id id, extension_key key);
 [[nodiscard]] error validate_registry(const registry_state& state);
 
 } // namespace caors::meta::detail
