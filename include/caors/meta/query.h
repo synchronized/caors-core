@@ -6,6 +6,7 @@
 
 #include "caors/meta/context.h"
 #include "caors/meta/detail/type_descriptor_model.h"
+#include "caors/meta/detail/type_view.h"
 #include "caors/meta/registry.h"
 
 #include <string_view>

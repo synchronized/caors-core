@@ -6,6 +6,7 @@
 
 #include "caors/memory/resource.h"
 #include "caors/meta/detail/builtin/ops.h"
+#include "caors/meta/detail/type_view.h"
 #include "caors/traits/wrapper.h"
 
 #include <type_traits>

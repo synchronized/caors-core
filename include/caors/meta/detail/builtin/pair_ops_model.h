@@ -5,6 +5,7 @@
 #define CAORS_META_DETAIL_BUILTIN_PAIR_OPS_MODEL_H_
 
 #include "caors/meta/detail/builtin/ops.h"
+#include "caors/meta/detail/type_view.h"
 #include "caors/traits/container.h"
 
 #include <type_traits>

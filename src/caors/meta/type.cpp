@@ -7,6 +7,7 @@
 #include "caors/meta/detail/type_access.h"
 #include "caors/meta/detail/type_data.h"
 #include "caors/meta/detail/type_descriptor.h"
+#include "caors/meta/detail/type_view.h"
 #include "caors/meta/enum_value.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/method.h"

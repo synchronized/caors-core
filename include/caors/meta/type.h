@@ -45,9 +45,6 @@ class type_data;
 struct type_descriptor;
 class type_access;
 
-[[nodiscard]] CAORS_API type make_type_view(type_id id, const type_descriptor* descriptor) noexcept;
-[[nodiscard]] CAORS_API type make_type_view(registry& registry, type_id id,
-                                            const type_descriptor* descriptor) noexcept;
 [[nodiscard]] CAORS_API std::size_t enum_value_count(const type& source) noexcept;
 [[nodiscard]] CAORS_API enum_value_view enum_value_at(const type& source, std::size_t index);
 [[nodiscard]] CAORS_API enum_value_view find_enum_value(const type& source, string_name name);

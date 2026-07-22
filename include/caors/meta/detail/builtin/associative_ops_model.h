@@ -6,6 +6,7 @@
 
 #include "caors/meta/detail/builtin/container_iterator_ops_model.h"
 #include "caors/meta/detail/builtin/ops.h"
+#include "caors/meta/detail/type_view.h"
 #include "caors/traits/container.h"
 
 #include <cstddef>
