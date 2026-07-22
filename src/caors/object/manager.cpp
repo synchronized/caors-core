@@ -63,7 +63,12 @@ object* manager::create(object_type_id id) {
     return nullptr;
   }
 
-  object* instance = objects::create(*type_context_, id, resource_);
+  const meta::type object_type = objects::find(*type_context_, id);
+  if (!object_type) {
+    return nullptr;
+  }
+
+  object* instance = objects::create(object_type, resource_);
   if (instance == nullptr) {
     return nullptr;
   }
@@ -71,15 +76,15 @@ object* manager::create(object_type_id id) {
 #if CAORS_HAS_EXCEPTIONS
   try {
 #endif
-    if (!store(instance, id, resource_)) {
-      (void)objects::destroy(*type_context_, id, instance, resource_);
+    if (!store(instance, object_type.id(), resource_)) {
+      (void)objects::destroy(object_type, instance, resource_);
       return nullptr;
     }
 
     return instance;
 #if CAORS_HAS_EXCEPTIONS
   } catch (...) {
-    (void)objects::destroy(*type_context_, id, instance, resource_);
+    (void)objects::destroy(object_type, instance, resource_);
     throw;
   }
 #endif
@@ -242,7 +247,8 @@ bool manager::store(object* instance, object_type_id type, memory_resource* reso
 }
 
 void manager::destroy_entry(const entry& stored) noexcept {
-  (void)objects::destroy(*type_context_, stored.type, stored.instance, stored.resource);
+  (void)objects::destroy(objects::find(*type_context_, stored.type), stored.instance,
+                         stored.resource);
 }
 
 } // namespace caors::objects

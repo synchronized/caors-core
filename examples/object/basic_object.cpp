@@ -36,7 +36,7 @@ int main() {
     return 1;
   }
 
-  caors::object* instance = caors::objects::create(player_type.id());
+  caors::object* instance = caors::objects::create(player_type);
   if (instance == nullptr) {
     return 1;
   }
@@ -45,6 +45,6 @@ int main() {
   std::cout << "type name: " << instance->type_name() << '\n';
   std::cout << "is actor: " << caors::objects::is_a(instance->type_id(), actor_type.id()) << '\n';
 
-  caors::objects::destroy(player_type.id(), instance);
+  caors::objects::destroy(player_type, instance);
   return 0;
 }

@@ -56,30 +56,42 @@ std::size_t size(meta::context& context) noexcept {
                                         meta::capability_key_of<object_factory_ops>());
 }
 
+object* try_create(meta::type type, memory_resource* resource) noexcept {
+  return factory(type).try_create(resource);
+}
+
 object* try_create(meta::context& context, object_type_id id, memory_resource* resource) noexcept {
-  return factory(::caors::objects::find(context, id)).try_create(resource);
+  return try_create(::caors::objects::find(context, id), resource);
 }
 
 object* try_create(meta::context& context, std::string_view name,
                    memory_resource* resource) noexcept {
-  return factory(::caors::objects::find(context, name)).try_create(resource);
+  return try_create(::caors::objects::find(context, name), resource);
+}
+
+object* create(meta::type type, memory_resource* resource) {
+  return factory(type).create(resource);
 }
 
 object* create(meta::context& context, object_type_id id, memory_resource* resource) {
-  return factory(::caors::objects::find(context, id)).create(resource);
+  return create(::caors::objects::find(context, id), resource);
 }
 
 object* create(meta::context& context, std::string_view name, memory_resource* resource) {
-  return factory(::caors::objects::find(context, name)).create(resource);
+  return create(::caors::objects::find(context, name), resource);
 }
 
-bool destroy(meta::context& context, object_type_id id, object* instance,
-             memory_resource* resource) noexcept {
+bool destroy(meta::type type, object* instance, memory_resource* resource) noexcept {
   if (instance == nullptr) {
     return false;
   }
 
-  return factory(::caors::objects::find(context, id)).destroy(instance, resource);
+  return factory(type).destroy(instance, resource);
+}
+
+bool destroy(meta::context& context, object_type_id id, object* instance,
+             memory_resource* resource) noexcept {
+  return destroy(::caors::objects::find(context, id), instance, resource);
 }
 
 } // namespace caors::objects

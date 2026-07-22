@@ -711,8 +711,6 @@ using serialization::read_value_from;
 using serialization::serialize;
 using serialization::to_json;
 using serialization::to_value;
-using serialization::write_json_to;
-using serialization::write_value_to;
 
 } // namespace caors
 

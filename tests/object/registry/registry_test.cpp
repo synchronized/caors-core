@@ -32,9 +32,10 @@ TEST_CASE("object - non default constructible types can be described but not fac
 
   auto type = caors::objects::find<registered_non_default_object>();
   REQUIRE(type);
+  CHECK(caors::objects::contains(type));
   CHECK_FALSE(caors::objects::constructible(type));
-  CHECK(caors::objects::try_create(type.id()) == nullptr);
-  CHECK(caors::objects::create(type.id()) == nullptr);
+  CHECK(caors::objects::try_create(type) == nullptr);
+  CHECK(caors::objects::create(type) == nullptr);
 }
 
 // 原测试文件：object_registry_registry_checks_parent_relationship_test.cpp
@@ -74,13 +75,13 @@ TEST_CASE("object - registry creates and destroys registered objects", "[object]
   const auto actor_type = caors::objects::find<factory_actor>();
   REQUIRE(actor_type);
 
-  caors::object* instance = caors::objects::create(actor_type.id(), &tracking);
+  caors::object* instance = caors::objects::create(actor_type, &tracking);
 
   REQUIRE(instance != nullptr);
   CHECK(instance->type_id() == actor_type.id());
   CHECK(tracking.statistics().allocation_count == 1);
 
-  CHECK(caors::objects::destroy(actor_type.id(), instance, &tracking));
+  CHECK(caors::objects::destroy(actor_type, instance, &tracking));
   CHECK(tracking.statistics().deallocation_count == 1);
   CHECK(tracking.statistics().bytes_in_use == 0);
 }
@@ -97,6 +98,7 @@ TEST_CASE("object - registry registers and finds types", "[object]") {
 
   auto type = caors::objects::find<registry_actor>();
   REQUIRE(type);
+  CHECK(caors::objects::contains(type));
   CHECK(type.id() == registry_actor::static_type_id());
   CHECK(type.name() == registry_actor::object_type_name);
   CHECK_FALSE(type.guid());

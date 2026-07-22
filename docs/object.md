@@ -439,8 +439,8 @@ object.type_name(); // "game.player"
 
 对外查询直接返回 `meta::type` 只读视图。调用方可以通过 `id()`、`name()`、`guid()`、`size()`、
 `alignment()` 和 `parent_id()` 查询对象类型信息；对象专有语义通过
-`objects::is_object_type(type)`、`objects::factory(type)` 和 `objects::constructible(type)` 查询。
-`meta::type` 仍然不能直接修改注册表内部数据。
+`objects::contains(type)`、`objects::factory(type)` 和 `objects::constructible(type)` 查询。`meta::type`
+仍然不能直接修改注册表内部数据。
 
 ```cpp
 if (caors::registration::type_<actor>().commit()) {
@@ -479,12 +479,16 @@ caors::objects::is_a(player::static_type_id(), actor::static_type_id());
 
 ## 创建和销毁
 
-对象语义 API 支持按 `object_type_id` 创建默认构造对象：
+对象语义 API 优先支持按 `meta::type` 创建默认构造对象：
 
 ```cpp
-caors::object* instance = caors::objects::create(player::static_type_id());
-caors::objects::destroy(player::static_type_id(), instance);
+caors::meta::type player_type = caors::objects::find<player>();
+caors::object* instance = caors::objects::create(player_type);
+caors::objects::destroy(player_type, instance);
 ```
+
+也可以把 `object_type_id` 或对象类型名作为便捷入口传入，内部会先查询同一个 `meta::context`
+中的 `meta::type`。
 
 也可以直接使用 C++ 类型创建已注册对象：
 
@@ -512,7 +516,8 @@ auto* instance = caors::objects::create<player>(&resource, constructor_arg);
 caors::objects::destroy(instance, &resource);
 ```
 
-非默认构造类型仍可注册类型描述，但不能通过 `objects::create(object_type_id)` 默认创建。
+非默认构造类型仍可注册类型描述，但不能通过 `objects::create(meta::type)`、`objects::create(object_type_id)`
+或对象类型名默认创建。
 
 生命周期管理器适合应用层持有运行期对象：
 
@@ -539,10 +544,10 @@ manager.destroy(instance);
 - `meta::type` / `meta::registry`：对象系统和 meta 属性/方法共享的全局类型视图和元数据注册表。
 - `objects::object_factory_capability`：对象工厂公开 facade，保存默认构造、创建和销毁能力。
 - `objects::object_factory_ops`：对象工厂 raw ops 函数表，由 registry 内部和 `meta::type` 静态能力使用。
-- `objects::is_object_type()` / `objects::factory()` / `objects::constructible()`：基于 `meta::type`
+- `objects::contains(meta::type)` / `objects::factory()` / `objects::constructible()`：基于 `meta::type`
   查询对象类型语义和对象工厂能力。
 - `caors::error`：明确对象类型注册失败原因和错误来源域。
-- `objects::create()` / `objects::destroy()`：基于 `meta::context` 和对象工厂能力的默认构造工厂入口。
+- `objects::create()` / `objects::destroy()`：基于 `meta::type` 和对象工厂能力的默认构造工厂入口。
 - `objects::manager`：对象实例生命周期管理器，持有对象、按 `object_id` 查找和销毁对象，可选同步
   `object_index`，支持延迟销毁队列，并解析 `objects::handle` / `objects::typed_handle<T>`。
 - `objects::ref_counted`：可选侵入式引用计数基类。

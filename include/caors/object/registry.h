@@ -51,6 +51,9 @@ namespace caors::objects {
 /** @brief 判断 meta 类型是否是已注册对象类型。 */
 [[nodiscard]] CAORS_API bool is_object_type(meta::type type) noexcept;
 
+/** @brief 判断 meta 类型是否是已注册对象类型。 */
+[[nodiscard]] inline bool contains(meta::type type) noexcept { return is_object_type(type); }
+
 /** @brief 查询对象类型的默认创建和销毁能力。非对象类型返回空能力。 */
 [[nodiscard]] CAORS_API object_factory_capability factory(meta::type type) noexcept;
 
@@ -109,6 +112,10 @@ template <typename T> [[nodiscard]] meta::type find() {
 /** @brief 获取默认类型上下文中已注册对象类型数量。 */
 [[nodiscard]] inline std::size_t size() noexcept { return size(meta::default_context()); }
 
+/** @brief 按对象类型视图尝试默认构造对象；类型无效、不可构造或分配失败时返回空指针。 */
+[[nodiscard]] CAORS_API object* try_create(meta::type type,
+                                           memory_resource* resource = nullptr) noexcept;
+
 /** @brief 按对象类型 id 尝试默认构造对象；类型未注册、不可构造或分配失败时返回空指针。 */
 [[nodiscard]] CAORS_API object* try_create(meta::context& context, object_type_id id,
                                            memory_resource* resource = nullptr) noexcept;
@@ -129,6 +136,9 @@ template <typename T> [[nodiscard]] meta::type find() {
   return try_create(meta::default_context(), name, resource);
 }
 
+/** @brief 按对象类型视图默认构造对象；类型无效或不可构造时返回空指针。 */
+[[nodiscard]] CAORS_API object* create(meta::type type, memory_resource* resource = nullptr);
+
 /** @brief 按对象类型 id 默认构造对象；类型未注册或不可构造时返回空指针。 */
 [[nodiscard]] CAORS_API object* create(meta::context& context, object_type_id id,
                                        memory_resource* resource = nullptr);
@@ -146,6 +156,10 @@ template <typename T> [[nodiscard]] meta::type find() {
 [[nodiscard]] inline object* create(std::string_view name, memory_resource* resource = nullptr) {
   return create(meta::default_context(), name, resource);
 }
+
+/** @brief 销毁通过对象类型视图对应工厂创建的对象。 */
+CAORS_API bool destroy(meta::type type, object* instance,
+                       memory_resource* resource = nullptr) noexcept;
 
 /** @brief 销毁通过对象类型工厂创建的对象。 */
 CAORS_API bool destroy(meta::context& context, object_type_id id, object* instance,

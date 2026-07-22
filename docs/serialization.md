@@ -55,8 +55,9 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 `serialization::writer`、`serialization::reader`、`serialization::text_writer`、
 `serialization::json_writer`、`serialization::json_reader`、`serialization::variant_reader` 和
 `serialization::codec_traits<T>`。
-根命名空间只保留高频操作函数别名；reader、writer、result
-等类型使用 `serialization::` 下的短名称。
+根命名空间只保留高频且语义明确的操作函数别名：`serialize()`、`deserialize()`、`to_value()`、
+`read_value_from()`、`to_json()` 和 `read_json_from()`。reader、writer、result 以及
+`write_*_to()` 这类复用调用方 sink 的入口使用 `serialization::` 下的短名称。
 
 ### 文件组织
 
@@ -72,7 +73,8 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 - `caors/serialization/codec.h`：类型级 codec 扩展点，以及接入 `meta::capabilities` 的能力查询包装。
 - `caors/serialization/dom_reader.h`：从 `variant` DOM 读入的 reader 后端。
 - `caors/serialization/json_reader.h`：从 JSON 文本范围直接读入的 reader 后端。
-- `caors/serialization/operations.h`：`serialize()`、`deserialize()`、`to_value()`、`to_json()`、`write_value_to()` 等调度入口。
+- `caors/serialization/operations.h`：`serialize()`、`deserialize()`、`to_value()`、`to_json()`、
+  `serialization::write_value_to()` 等调度入口。
 - `caors/serialization.h`：序列化模块聚合入口，包含序列化入口和 STL 容器 traits 适配。
 - `caors/object/serialization.h`：对象指针、对象句柄、对象工厂和对象引用 resolver 的序列化适配。
 - `caors/resources/serialization.h`：资源 GUID、资源引用、资源依赖收集和资源 resolver 的序列化适配。
@@ -91,7 +93,8 @@ buffer：
 
 - `serialize()` / `deserialize()`：只用于底层 `writer` / `reader` 后端。
 - `to_xxx()`：从对象生成一个新的结果，例如 `to_value()`、`to_json()`、`serialization::to_text()`。
-- `write_xxx_to()`：把对象或 DOM 写到调用方提供的 sink，例如 `write_json_to()`、`write_value_to()`。
+- `serialization::write_xxx_to()`：把对象或 DOM 写到调用方提供的 sink，例如
+  `serialization::write_json_to()`、`serialization::write_value_to()`。
 - `read_xxx_from()`：从调用方提供的 source 读入已有对象，例如 `read_value_from()`、`read_json_from()`。
 - `parse_xxx()`：只表示把格式文本、流或路径解析为 DOM，不直接写入 C++ 对象。
 
@@ -105,7 +108,7 @@ buffer：
 | `serialize(object, writer)` | 写入任意 writer 后端 | 适合自定义格式后端 |
 | `deserialize(object, reader)` | 从任意 reader 后端读入 | 适合 DOM reader 或自定义 reader |
 | `to_value(object)` | 生成 `variant` DOM 中间值 | 根命名空间高频入口，方便工具、调试和多格式转换 |
-| `write_value_to(writer, value)` | 把 `variant` DOM 写入 writer | 不依赖 C++ 对象实例 |
+| `serialization::write_value_to(writer, value)` | 把 `variant` DOM 写入 writer | 不依赖 C++ 对象实例 |
 | `to_json(object)` | 输出 JSON 文本 | 根命名空间高频入口，支持 `json_options` 控制格式化 |
 | `serialization::to_text()` / `serialization::write_text_to()` | 输出调试用简单文本格式 | 模块入口，`_to` 版本复用调用方 buffer |
 | `serialization::write_json_to()` | 输出 JSON 到调用方 buffer 或 `io::output_stream` | buffer 入口适合复用字符串；输出流入口由 `json_writer` 直接写出 |
