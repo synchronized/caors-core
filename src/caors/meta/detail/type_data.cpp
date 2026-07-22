@@ -51,10 +51,6 @@ const property_data* type_data::property_at(std::size_t index) const noexcept {
   return index < properties_.size() ? &properties_[index] : nullptr;
 }
 
-property_data* type_data::mutable_property_at(std::size_t index) noexcept {
-  return index < properties_.size() ? &properties_[index] : nullptr;
-}
-
 const property_data* type_data::find_property_ptr(core::string_name name) const noexcept {
   if (!name) {
     return nullptr;

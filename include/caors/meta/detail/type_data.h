@@ -59,7 +59,6 @@ public:
   [[nodiscard]] constexpr bool valid() const noexcept { return static_cast<bool>(id_); }
   [[nodiscard]] constexpr bool registered() const noexcept { return valid(); }
 
-  constexpr void set_id(type_id id) noexcept { id_ = id; }
   constexpr void set_name(string_name name) noexcept { name_ = name; }
   constexpr void set_guid(type_guid guid) noexcept { guid_ = guid; }
   constexpr void set_parent_id(type_id parent_id) noexcept { parent_id_ = parent_id; }
@@ -71,7 +70,6 @@ public:
   [[nodiscard]] bool members_valid() const noexcept;
   [[nodiscard]] std::size_t property_count() const noexcept;
   [[nodiscard]] const property_data* property_at(std::size_t index) const noexcept;
-  [[nodiscard]] property_data* mutable_property_at(std::size_t index) noexcept;
   [[nodiscard]] const property_data* find_property_ptr(string_name name) const noexcept;
   [[nodiscard]] property_data* mutable_find_property_ptr(string_name name) noexcept;
   [[nodiscard]] std::optional<property_data> find_property(string_name name) const;

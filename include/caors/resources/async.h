@@ -770,15 +770,6 @@ public:
     return true;
   }
 
-  [[nodiscard]] static bool is_cancelled(const std::shared_ptr<state_type>& state) {
-    if (state == nullptr) {
-      return true;
-    }
-
-    std::lock_guard lock{state->mutex};
-    return state->status == request_status::cancelled;
-  }
-
   static void observe_preload(const request_type& request, preload_item item,
                               const std::shared_ptr<preload_request_state>& preload_state);
 
