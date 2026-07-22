@@ -127,7 +127,7 @@ const void* registry::upcast(type_id id, type_id base_id, const void* value) con
       return nullptr;
     }
 
-    const detail::parent_cast_ops* cast = detail::find_parent_cast(*state_, current_id);
+    const detail::parent_cast_ops* cast = type->parent_cast();
     if (cast == nullptr || cast->parent != parent_id || cast->const_upcast == nullptr) {
       return nullptr;
     }
@@ -170,7 +170,7 @@ void* registry::upcast(type_id id, type_id base_id, void* value) const {
       return nullptr;
     }
 
-    const detail::parent_cast_ops* cast = detail::find_parent_cast(*state_, current_id);
+    const detail::parent_cast_ops* cast = type->parent_cast();
     if (cast == nullptr || cast->parent != parent_id || cast->mutable_upcast == nullptr) {
       return nullptr;
     }
@@ -193,26 +193,6 @@ void* registry::upcast(type_id id, type_id base_id, void* value) const {
 std::size_t registry::size() const noexcept {
   std::lock_guard lock(state_->mutex);
   return state_->types.size();
-}
-
-const detail::type_data* registry::find_type_data(type_id id) const {
-  if (!id) {
-    return nullptr;
-  }
-
-  std::lock_guard lock(state_->mutex);
-  const detail::type_data* stored = detail::find_type_data(*state_, id);
-  return stored != nullptr && stored->registered() ? stored : nullptr;
-}
-
-detail::type_data* registry::find_mutable_type_data(type_id id) {
-  if (!id) {
-    return nullptr;
-  }
-
-  std::lock_guard lock(state_->mutex);
-  detail::type_data* stored = detail::find_type_data(*state_, id);
-  return stored != nullptr && stored->registered() ? stored : nullptr;
 }
 
 } // namespace caors::meta

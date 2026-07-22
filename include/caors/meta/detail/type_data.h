@@ -120,9 +120,6 @@ private:
   vector<extension_data> extensions_{};
 };
 
-[[nodiscard]] error merge_type_data(registry_state& state, type_data& stored,
-                                    const type_data& incoming);
-
 /** @brief 创建基础元类型注册描述。 */
 template <typename T>
 [[nodiscard]] type_data make_type_data(string_name name,

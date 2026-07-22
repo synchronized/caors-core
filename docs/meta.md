@@ -21,7 +21,7 @@
 - 用可选 factory capability 保存资源感知构造策略，供普通类多态反序列化等需要运行期创建值的路径使用。
 - 用 `meta::type` 作为对外只读类型视图，避免直接暴露注册表内部数据。
 - 用 `meta::context` 定位当前使用的 `meta::registry`，默认上下文覆盖普通全局用法。
-- 用 `meta::registry` 集中处理 meta 类型注册、查找、继承关系判断和扩展数据索引。
+- 用 `meta::registry` 集中处理 meta 类型注册、查找、继承关系判断和扩展数据查询。
 - 避免对象系统、meta 属性/方法和序列化系统各自重复实现类型注册和属性/方法索引逻辑。
 
 当前不会包含：
@@ -654,12 +654,11 @@ CAORS_META_REGISTRATION(register_actor_meta) {
 静态库中未被链接进最终程序的翻译单元不会执行注册；注册函数执行顺序也不应被依赖。需要精确控制初始化、
 测试隔离或插件加载时，优先使用显式 `register_all()`。
 
-注册表维护几类索引：
+注册表维护几类索引和类型记录：
 
-- `type_id -> 内部 meta 类型记录`：运行期主索引，只保存身份类信息。
-- `type_id -> 内部类型 descriptor`：布局、值操作、类型语义、内置 ops 和静态能力表。
+- `type_id -> 内部 meta 类型记录`：运行期主索引，保存身份类信息、descriptor 指针、父类转换、
+  属性、方法、enum 值、capability 和 extension。
 - `typeid(T) -> type_id`：当前进程内 RTTI 查询索引，用于普通 C++ 多态辅助。
-- `type_id -> parent upcast`：typed parent 注册保存的直接父类 upcast 回调。
 - `type_name -> type_id`：名称查询索引，可选。
 - `type_guid -> type_id`：稳定身份查询索引，可选。
 
@@ -1106,9 +1105,9 @@ traits 中提供可适配的 iterator 操作。容器 view 只依赖 `meta::type
 
 当前注册表仍是 append-only 语义，不支持扩展数据替换；如果后续支持热重载，应在替换 API 上显式处理旧数据生命周期和读者同步。
 
-扩展数据的事实源是 `type_data` 内部的 extension map；`registry` 只维护按 extension key 到
-`type_id` 列表的索引，用于 `extension_view<T...>()` 这类跨模块查询。普通代码不应把 extension
-当成独立 ECS component 使用，它只是注册后类型数据的模块扩展槽。
+扩展数据的事实源是 `type_data` 内部的 extension 列表；`extension_view<T...>()`
+通过遍历已注册类型并匹配 extension key 完成跨模块查询。普通代码不应把 extension 当成独立 ECS
+component 使用，它只是注册后类型数据的模块扩展槽。
 
 ## 线程安全边界
 

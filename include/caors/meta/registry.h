@@ -126,15 +126,10 @@ private:
   template <typename Child, typename Parent> [[nodiscard]] error set_type_parent_for();
 
   [[nodiscard]] error register_cpp_type_info(const std::type_info& info, type_id id);
-  [[nodiscard]] const detail::type_data* find_type_data(type_id id) const;
-  [[nodiscard]] detail::type_data* find_mutable_type_data(type_id id);
   [[nodiscard]] error add_extension(type_id id, detail::extension_data extension);
   [[nodiscard]] bool has_extension(type_id id, detail::extension_key key) const;
   [[nodiscard]] const detail::extension_data* find_extension_data(type_id id,
                                                                   detail::extension_key key) const;
-  [[nodiscard]] detail::extension_data* find_extension_mutable_data(type_id id,
-                                                                    detail::extension_key key);
-  template <typename Extension> [[nodiscard]] Extension* find_extension_mutable_ptr(type_id id);
 
   [[nodiscard]] vector<type_id> view_extension_ids(const detail::extension_key* keys,
                                                    std::size_t count) const;
@@ -168,19 +163,6 @@ public:
   [[nodiscard]] static error add_extension(registry& registry, type_id id,
                                            extension_data extension) {
     return registry.add_extension(id, std::move(extension));
-  }
-
-  [[nodiscard]] static type_data* find_mutable_type_data(registry& registry, type_id id) {
-    return registry.find_mutable_type_data(id);
-  }
-
-  [[nodiscard]] static const type_data* find_type_data(const registry& registry, type_id id) {
-    return registry.find_type_data(id);
-  }
-
-  template <typename Extension>
-  [[nodiscard]] static Extension* find_extension_mutable_ptr(registry& registry, type_id id) {
-    return registry.template find_extension_mutable_ptr<Extension>(id);
   }
 };
 

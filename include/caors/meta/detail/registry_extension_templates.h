@@ -53,23 +53,6 @@ template <typename Extension>
   return data != nullptr ? detail::extension_value<extension_type>(*data) : nullptr;
 }
 
-template <typename Extension>
-[[nodiscard]] Extension* registry::find_extension_mutable_ptr(type_id id) {
-  using extension_type = std::decay_t<Extension>;
-  detail::extension_data* data =
-      find_extension_mutable_data(id, detail::extension_key_of<extension_type>());
-  return data != nullptr ? detail::mutable_extension_value<extension_type>(*data) : nullptr;
-}
-
-namespace detail {
-
-template <typename Extension>
-[[nodiscard]] Extension* find_extension_mutable_ptr(registry& registry, type_id id) {
-  return registry_access::find_extension_mutable_ptr<Extension>(registry, id);
-}
-
-} // namespace detail
-
 template <typename Extension> [[nodiscard]] std::size_t registry::extension_count() const noexcept {
   using extension_type = std::decay_t<Extension>;
   detail::extension_key keys[] = {detail::extension_key_of<extension_type>()};

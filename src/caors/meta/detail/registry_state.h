@@ -6,7 +6,6 @@
 
 #include "caors/memory/resource.h"
 #include "caors/memory/unique_ptr.h"
-#include "caors/meta/detail/parent_cast_ops.h"
 #include "caors/meta/detail/type_data.h"
 #include "caors/meta/registration.h"
 
@@ -40,16 +39,6 @@ public:
 
 [[nodiscard]] type_data* find_type_data(registry_state& state, type_id id);
 [[nodiscard]] const type_data* find_type_data(const registry_state& state, type_id id);
-[[nodiscard]] const parent_cast_ops* find_parent_cast(const registry_state& state, type_id id);
-[[nodiscard]] std::optional<type_id> find_existing_type_id(const registry_state& state,
-                                                           const type_data& type, error& conflict);
-[[nodiscard]] error duplicate_identity_error(const registry_state& state, const type_data& type,
-                                             type_id existing_id);
-[[nodiscard]] error merge_type_data(registry_state& state, type_data& stored,
-                                    const type_data& incoming);
-[[nodiscard]] error store_new_type(registry_state& state, type_data&& incoming,
-                                   type_id* stored_id = nullptr);
-[[nodiscard]] error store_type_descriptor(registry_state& state, const type_descriptor& descriptor);
 [[nodiscard]] error validate_registry(const registry_state& state);
 
 } // namespace caors::meta::detail

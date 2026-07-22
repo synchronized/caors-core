@@ -62,17 +62,6 @@ const detail::extension_data* registry::find_extension_data(type_id id,
   return stored != nullptr && stored->registered() ? stored->find_extension(key) : nullptr;
 }
 
-detail::extension_data* registry::find_extension_mutable_data(type_id id,
-                                                              detail::extension_key key) {
-  if (!id || key == nullptr) {
-    return nullptr;
-  }
-
-  std::lock_guard lock(state_->mutex);
-  detail::type_data* stored = detail::find_type_data(*state_, id);
-  return stored != nullptr && stored->registered() ? stored->mutable_find_extension(key) : nullptr;
-}
-
 core::vector<type_id> registry::view_extension_ids(const detail::extension_key* keys,
                                                    std::size_t count) const {
   core::vector<type_id> empty{core::vector<type_id>::allocator_type{state_->resource}};
