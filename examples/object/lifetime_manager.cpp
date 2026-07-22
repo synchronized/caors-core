@@ -39,7 +39,7 @@ int main() {
     return 1;
   }
 
-  const caors::objects::object_ref_resolver_ops resolver =
+  const caors::objects::object_ref_resolver resolver =
       caors::objects::make_object_ref_resolver(manager);
   caors::serialization::external_ref ref{};
   if (!resolver.encode_ref(player, player->type_id(), ref)) {

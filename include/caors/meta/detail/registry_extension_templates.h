@@ -20,9 +20,9 @@ template <typename Extension, typename... Args>
     return {error_domain::meta, errc::invalid_type};
   }
 
-  extension_data data =
-      make_extension_data<extension_type>(registry.state_resource_, std::forward<Args>(args)...);
-  return registry.add_extension(id, std::move(data));
+  extension_data data = make_extension_data<extension_type>(
+      registry_access::state_resource(registry), std::forward<Args>(args)...);
+  return registry_access::add_extension(registry, id, std::move(data));
 }
 
 } // namespace caors::meta::detail
@@ -65,7 +65,7 @@ namespace detail {
 
 template <typename Extension>
 [[nodiscard]] Extension* find_extension_mutable_ptr(registry& registry, type_id id) {
-  return registry.find_extension_mutable_ptr<Extension>(id);
+  return registry_access::find_extension_mutable_ptr<Extension>(registry, id);
 }
 
 } // namespace detail

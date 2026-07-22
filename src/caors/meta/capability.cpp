@@ -24,8 +24,9 @@ error register_capability(registry& registry, type_id id, capability_key key,
     return {error_domain::meta, errc::invalid_argument};
   }
 
-  std::lock_guard lock(registry.state_->mutex);
-  type_data* type = find_type_data(*registry.state_, id);
+  registry_state* state = registry_access::state(registry);
+  std::lock_guard lock(state->mutex);
+  type_data* type = find_type_data(*state, id);
   if (type == nullptr) {
     return {error_domain::meta, errc::missing_type};
   }
@@ -47,8 +48,9 @@ error register_owned_capability(registry& registry, type_id id, capability_key k
     return {error_domain::meta, errc::invalid_argument};
   }
 
-  std::lock_guard lock(registry.state_->mutex);
-  type_data* type = find_type_data(*registry.state_, id);
+  registry_state* state = registry_access::state(registry);
+  std::lock_guard lock(state->mutex);
+  type_data* type = find_type_data(*state, id);
   if (type == nullptr) {
     return {error_domain::meta, errc::missing_type};
   }
@@ -66,8 +68,9 @@ const void* find_capability(const registry& registry, type_id id, capability_key
     return nullptr;
   }
 
-  std::lock_guard lock(registry.state_->mutex);
-  const type_data* type = find_type_data(*registry.state_, id);
+  const registry_state* state = registry_access::state(registry);
+  std::lock_guard lock(state->mutex);
+  const type_data* type = find_type_data(*state, id);
   if (type == nullptr) {
     return nullptr;
   }
@@ -118,9 +121,10 @@ std::size_t capability_count(const registry& registry, capability_key key) noexc
     return 0;
   }
 
-  std::lock_guard lock(registry.state_->mutex);
+  const registry_state* state = registry_access::state(registry);
+  std::lock_guard lock(state->mutex);
   std::size_t result = 0;
-  for (const auto& [raw_id, type] : registry.state_->types) {
+  for (const auto& [raw_id, type] : state->types) {
     (void)raw_id;
     if (type != nullptr && type->contains_capability(key)) {
       ++result;

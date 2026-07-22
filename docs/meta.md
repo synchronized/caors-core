@@ -488,7 +488,7 @@ descriptor 内部按职责拆分：
 
 - `capability` 表示能力槽位或可查询能力，例如“这个类型是否具备序列化 codec 能力”。
 - `*_ops` 表示某个 capability 的具体类型擦除操作表，通常由函数指针和少量只读元数据组成，例如
-  `sequence_ops`、`ptr_ops`、`handle_ops` 和 `codec_ops`。
+  `sequence_ops`、`objects::detail::ptr_ops`、`objects::detail::handle_ops` 和 `codec_ops`。
 - `*_capability` 表示类型级公开 facade，封装 `meta::type` 和内部 `*_ops`，提供更适合用户代码调用的
   方法。可绑定的 capability 会声明 `view_type`；例如 `meta::sequence_capability`
   可以绑定 `any_ref` 后得到 `sequence_view`，
@@ -498,7 +498,7 @@ descriptor 内部按职责拆分：
   `any_ref.get_capability<objects::ptr_capability>()`。`*_ops` 是 raw ops 函数表，面向高级扩展与内部适配，
   不作为普通业务代码的首选入口。
 - `*_fn` 类型别名应尽量嵌套在对应 `*_ops` 内，例如 `value_ops::assign_fn`、
-  `factory_ops::construct_fn`、`codec_ops::write_fn` 和 `ptr_ops::get_fn`；除
+  `factory_ops::construct_fn`、`codec_ops::write_fn` 和 `objects::detail::ptr_ops::get_fn`；除
   `registration_fn` 这类独立回调外，不在模块命名空间顶层继续暴露函数指针别名。
 - `*_ops_model<T>` 表示针对具体 C++ 类型 `T` 生成 `*_ops` 的 model 层。model 负责把 `T`
   的成员函数、traits 或 codec 策略转换成稳定生命周期的静态 `*_ops` 表；`*_ops_ptr_of<T>()`
@@ -537,7 +537,7 @@ descriptor 内部按职责拆分：
 `capability_entry` 表。公开查询优先使用 `meta::type::get_capability<T>()` 或
 `meta::type::has_capability<T>()`；该入口会先查询 C++ 类型静态能力，再回退到运行期
 capability 索引。对象指针、对象句柄和 serialization codec 都通过 `meta::type` 的统一入口查询公开 facade；
-内部 `ptr_ops`、`handle_ops` 和 `codec_ops` 只作为实现细节保留。
+内部 `objects::detail::ptr_ops`、`objects::detail::handle_ops` 和 `codec_ops` 只作为实现细节保留。
 
 动态扩展能力通过 `registration::type_<T>("name").meta().capability(ops)`、`registration::type_<T>("name").meta().capability<Capability>()`
 或内部稳定指针入口挂接到注册类型数据；类型必须通过 `registration::type_<T>("name").commit()`
@@ -614,6 +614,8 @@ registry 使用边界：
   索引。
 - registry 写入推荐集中在启动期、模块加载期或测试初始化阶段，之后调用 `meta::init_registry()` 做延迟注册和一致性校验；
   进入业务主循环和工作线程后只做只读查询。
+- `meta::detail::*` 的 registry 写入入口只服务内部实现和专项 detail 测试。业务代码应通过
+  `registration::type_<T>()` / `registration::enum_<T>()` / `meta::module()` 这类公开注册入口写入数据。
 
 推荐生命周期：
 
@@ -690,6 +692,9 @@ caors::registration::type_<actor>("game.actor")
 `meta::module` 是挂在 meta registry 上的全局命名空间，用来注册不依赖实例的全局属性和全局函数。
 类的 `static` 成员变量和 `static` 成员函数也按同一套 global 入口注册到 module 上；它们不属于某个
 `meta::type` 的成员属性或成员方法，调用时不需要传入 instance。
+
+module 的公开注册 API 只保留 `property()` 和 `function()`。底层 `module_data`、`property_data` 和
+`method_data` 是内部存储结构，不作为普通扩展入口使用。
 
 ```cpp
 int version = 1;
@@ -1123,8 +1128,8 @@ traits 中提供可适配的 iterator 操作。容器 view 只依赖 `meta::type
 - 属性和方法直接保存在 meta 类型记录关联的数据中，并通过 `meta::type` / `meta::property` / `meta::method` 对外查询；
   `meta::type` / `meta::property` 是兼容视图。
 - 序列化 schema 作为 extension 保存在全局 meta 类型记录中；它由统一
-  `registration::type_<T>(name).serialization()` 在注册提交时写入，并在提交阶段把字段配置绑定到
-  稳定的 `meta::property` 视图。公开查询优先使用
+  `registration::type_<T>(name).serialization()` 在注册提交时写入，并在提交阶段校验字段配置能解析到
+  对应 `meta::property`。公开查询优先使用
   `type.get_capability<serialization::schema_view>()` 或 `serialization::find_schema(type)`。
 
 这样对象、反射和序列化的全局注册入口不需要重复处理重名、重复 GUID、不一致类型描述和父类型缺失。

@@ -60,7 +60,7 @@ public:
       return *this;
     }
 
-    status_ = add_property(std::move(property));
+    status_ = commit_property(std::move(property));
     refresh();
     return *this;
   }
@@ -77,7 +77,7 @@ public:
       return *this;
     }
 
-    status_ = add_method(std::move(method));
+    status_ = commit_method(std::move(method));
     refresh();
     return *this;
   }
@@ -97,7 +97,7 @@ public:
       return *this;
     }
 
-    status_ = add_method(std::move(method));
+    status_ = commit_method(std::move(method));
     refresh();
     return *this;
   }
@@ -107,8 +107,8 @@ public:
   [[nodiscard]] bool succeeded() const noexcept { return !status_; }
 
 private:
-  [[nodiscard]] error add_property(detail::property_data property);
-  [[nodiscard]] error add_method(detail::method_data method);
+  [[nodiscard]] error commit_property(detail::property_data property);
+  [[nodiscard]] error commit_method(detail::method_data method);
   void refresh() noexcept;
 
   string_name name_{};

@@ -211,6 +211,8 @@ context.resolvers.external_refs.resolution =
 ## Factory 扩展
 
 外部扩展可以注册自己的 file_system/source/type factory。factory 会收到 context 和可选 `user_data`。
+公开扩展类型统一命名为 `asset_manager::file_system_factory`、`asset_manager::source_factory` 和
+`asset_manager::type_factory`；底层 ops 命名只用于模块内部实现，不作为用户侧 API 约定。
 
 file_system factory 用来把 `file_systems[]` 配置转换成运行期 `io::file_system`：
 
@@ -236,7 +238,7 @@ caors::error make_editor_file_system(
 editor_file_system_state fs_state{&server};
 assets.register_file_system_factory(
     caors::string_name{"editor_file_system"},
-    caors::assets::asset_manager::file_system_factory_ops{&make_editor_file_system, &fs_state});
+    caors::assets::asset_manager::file_system_factory{&make_editor_file_system, &fs_state});
 ```
 
 source factory 用来把 `sources[]` 配置转换成运行期 `resources::source`：
@@ -262,7 +264,7 @@ caors::error make_pak_source(caors::assets::asset_manager::source_factory_contex
 pak_state state{&index};
 assets.register_source_factory(
     caors::string_name{"pak"},
-    caors::assets::asset_manager::source_factory_ops{&make_pak_source, &state});
+    caors::assets::asset_manager::source_factory{&make_pak_source, &state});
 ```
 
 类型工厂同样可以创建 cache/loader，并把它们注册到内部 database：
@@ -280,7 +282,7 @@ caors::error make_texture_runtime(
 
 assets.register_type_factory(
     caors::string_name{"game.texture"},
-    caors::assets::asset_manager::type_factory_ops{&make_texture_runtime});
+    caors::assets::asset_manager::type_factory{&make_texture_runtime});
 ```
 
 如果 loader 只需要 `resources::provider` 就能构造，可以复用通用 cached type factory：

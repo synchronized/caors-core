@@ -14,14 +14,6 @@ struct macro_actor {};
 
 struct late_actor {};
 
-struct init_component {
-  bool enabled = false;
-};
-
-struct late_component {
-  bool enabled = false;
-};
-
 [[nodiscard]] constexpr caors::error meta_error(caors::errc code) noexcept {
   return {caors::error_domain::meta, code};
 }
@@ -46,18 +38,18 @@ TEST_CASE("registration - meta registry init runs registrations without becoming
           caors::error{});
   const caors::meta::type type = caors::meta::find<init_actor>();
   REQUIRE(type.valid());
-  REQUIRE(caors::meta::detail::emplace_extension<init_component>(
-              caors::meta::get_registry(), type.id(), true) == caors::error{});
 
   CHECK(caors::meta::init_registry() == caors::error{});
   CHECK(caors::meta::find<macro_actor>().registered());
 
-  REQUIRE(caors::registration::type_<late_actor>("caors.test.init.late").commit() ==
-          caors::error{});
+  REQUIRE(caors::registration::type_<late_actor>("caors.test.init.late")
+              .meta()
+              .metadata("enabled", true)
+              .commit() == caors::error{});
   const caors::meta::type late_type = caors::meta::find<late_actor>();
   REQUIRE(late_type.registered());
-  CHECK(caors::meta::detail::emplace_extension<late_component>(caors::meta::get_registry(),
-                                                               type.id(), true) == caors::error{});
+  REQUIRE(late_type.find_metadata(caors::string_name{"enabled"}) != nullptr);
+  CHECK(late_type.find_metadata(caors::string_name{"enabled"})->as_bool());
 
   CHECK(caors::meta::find<late_actor>().id() == late_type.id());
   CHECK(caors::meta::find<init_actor>().id() == type.id());

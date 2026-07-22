@@ -53,7 +53,7 @@ template <typename T, typename Loader>
 [[nodiscard]] error
 register_cached_type_factory(asset_manager& manager, core::string_name resource_type,
                              core::string_name cache_strategy, core::string_name loader_strategy) {
-  asset_manager::type_factory_ops ops{&detail::make_cached_type<T, Loader>};
+  asset_manager::type_factory ops{&detail::make_cached_type<T, Loader>};
   ops.cache_strategy = cache_strategy;
   ops.loader_strategy = loader_strategy;
   return manager.register_type_factory(resource_type, std::move(ops));

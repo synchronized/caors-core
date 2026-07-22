@@ -1021,16 +1021,16 @@ TEST_CASE("resources - asset_manager accepts external source factory state", "[r
   caors::assets::asset_manager assets;
   REQUIRE(assets
               .register_source_factory(caors::string_name{"external_memory"},
-                                       caors::assets::asset_manager::source_factory_ops{
+                                       caors::assets::asset_manager::source_factory{
                                            &make_external_memory_source, &state})
               .succeeded());
   REQUIRE(assets
               .register_source_factory(caors::string_name{"external_memory"},
-                                       caors::assets::asset_manager::source_factory_ops{
+                                       caors::assets::asset_manager::source_factory{
                                            &make_external_memory_source, &state})
               .succeeded());
   CHECK(assets.register_source_factory(caors::string_name{"external_memory"},
-                                       caors::assets::asset_manager::source_factory_ops{
+                                       caors::assets::asset_manager::source_factory{
                                            &make_external_memory_source, &other_state}) ==
         caors::error{caors::error_domain::resources, caors::errc::already_exists});
 
@@ -1225,7 +1225,7 @@ TEST_CASE("resources - asset_manager accepts external type factory state", "[res
   caors::assets::asset_manager assets;
   REQUIRE(assets
               .register_type_factory(serialized_manifest_type(),
-                                     caors::assets::asset_manager::type_factory_ops{
+                                     caors::assets::asset_manager::type_factory{
                                          &make_external_serialized_type, &state})
               .succeeded());
   REQUIRE(assets.build(config).succeeded());
@@ -1271,7 +1271,7 @@ TEST_CASE("resources - asset_manager rebuild clears config created runtime objec
     REQUIRE(assets
                 .register_source_factory(
                     caors::string_name{"counted"},
-                    caors::assets::asset_manager::source_factory_ops{&make_counted_source, &state})
+                    caors::assets::asset_manager::source_factory{&make_counted_source, &state})
                 .succeeded());
 
     REQUIRE(assets.build(config).succeeded());

@@ -4,6 +4,7 @@
 #include "detail/registry_state.h"
 
 #include "caors/meta/detail/type_descriptor.h"
+#include "caors/meta/registry.h"
 
 #include <mutex>
 #include <typeindex>
@@ -102,7 +103,7 @@ error registry::ensure_type_descriptor(const detail::type_descriptor& descriptor
 namespace detail {
 
 error ensure_type_descriptor_registered(const type_descriptor& descriptor) {
-  return get_registry().ensure_type_descriptor(descriptor);
+  return registry_access::ensure_type_descriptor(get_registry(), descriptor);
 }
 
 } // namespace detail

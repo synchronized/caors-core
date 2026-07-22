@@ -251,7 +251,7 @@ io::file_system* asset_manager::find_file_system(core::string_name name) const {
 }
 
 error asset_manager::register_file_system_factory(core::string_name type,
-                                                  file_system_factory_ops factory) {
+                                                  file_system_factory factory) {
   if (!type || !factory.valid()) {
     return {error_domain::resources, errc::invalid_argument};
   }
@@ -293,7 +293,7 @@ resources::source* asset_manager::find_source(core::string_name name) const {
   return position != sources_.end() ? position->second.source : nullptr;
 }
 
-error asset_manager::register_source_factory(core::string_name type, source_factory_ops factory) {
+error asset_manager::register_source_factory(core::string_name type, source_factory factory) {
   if (!type || !factory.valid()) {
     return {error_domain::resources, errc::invalid_argument};
   }
@@ -310,8 +310,7 @@ error asset_manager::register_source_factory(core::string_name type, source_fact
   return {};
 }
 
-error asset_manager::register_type_factory(core::string_name resource_type,
-                                           type_factory_ops factory) {
+error asset_manager::register_type_factory(core::string_name resource_type, type_factory factory) {
   if (!resource_type || !factory.valid()) {
     return {error_domain::resources, errc::invalid_argument};
   }
@@ -574,87 +573,84 @@ error asset_manager::ensure_type_from_config(const project_resource_type_config&
 }
 
 error asset_manager::register_builtin_source_factories() {
-  error status =
-      register_source_factory(core::string_name{"memory_file_system"},
-                              source_factory_ops{&asset_manager::make_memory_file_source});
+  error status = register_source_factory(core::string_name{"memory_file_system"},
+                                         source_factory{&asset_manager::make_memory_file_source});
   if (status) {
     return status;
   }
 
   status = register_source_factory(core::string_name{"memory"},
-                                   source_factory_ops{&asset_manager::make_memory_file_source});
+                                   source_factory{&asset_manager::make_memory_file_source});
   if (status) {
     return status;
   }
 
   status = register_source_factory(core::string_name{"native_file_system"},
-                                   source_factory_ops{&asset_manager::make_native_file_source});
+                                   source_factory{&asset_manager::make_native_file_source});
   if (status) {
     return status;
   }
 
   status = register_source_factory(core::string_name{"native"},
-                                   source_factory_ops{&asset_manager::make_native_file_source});
+                                   source_factory{&asset_manager::make_native_file_source});
   if (status) {
     return status;
   }
 
   return register_source_factory(core::string_name{"file_system"},
-                                 source_factory_ops{&asset_manager::make_bound_file_source});
+                                 source_factory{&asset_manager::make_bound_file_source});
 }
 
 error asset_manager::register_builtin_file_system_factories() {
-  error status = register_file_system_factory(
-      core::string_name{"memory_file_system"},
-      file_system_factory_ops{&asset_manager::make_memory_file_system});
+  error status =
+      register_file_system_factory(core::string_name{"memory_file_system"},
+                                   file_system_factory{&asset_manager::make_memory_file_system});
   if (status) {
     return status;
   }
 
   status = register_file_system_factory(
-      core::string_name{"memory"},
-      file_system_factory_ops{&asset_manager::make_memory_file_system});
+      core::string_name{"memory"}, file_system_factory{&asset_manager::make_memory_file_system});
+  if (status) {
+    return status;
+  }
+
+  status =
+      register_file_system_factory(core::string_name{"native_file_system"},
+                                   file_system_factory{&asset_manager::make_native_file_system});
   if (status) {
     return status;
   }
 
   status = register_file_system_factory(
-      core::string_name{"native_file_system"},
-      file_system_factory_ops{&asset_manager::make_native_file_system});
+      core::string_name{"native"}, file_system_factory{&asset_manager::make_native_file_system});
   if (status) {
     return status;
   }
 
-  status = register_file_system_factory(
-      core::string_name{"native"},
-      file_system_factory_ops{&asset_manager::make_native_file_system});
+  status =
+      register_file_system_factory(core::string_name{"file_system_resolver"},
+                                   file_system_factory{&asset_manager::make_resolver_file_system});
   if (status) {
     return status;
   }
 
-  status = register_file_system_factory(
-      core::string_name{"file_system_resolver"},
-      file_system_factory_ops{&asset_manager::make_resolver_file_system});
-  if (status) {
-    return status;
-  }
-
-  status = register_file_system_factory(
-      core::string_name{"resolver"},
-      file_system_factory_ops{&asset_manager::make_resolver_file_system});
+  status =
+      register_file_system_factory(core::string_name{"resolver"},
+                                   file_system_factory{&asset_manager::make_resolver_file_system});
   if (status) {
     return status;
   }
 
   status =
       register_file_system_factory(core::string_name{"mount_file_system"},
-                                   file_system_factory_ops{&asset_manager::make_mount_file_system});
+                                   file_system_factory{&asset_manager::make_mount_file_system});
   if (status) {
     return status;
   }
 
-  return register_file_system_factory(
-      core::string_name{"mount"}, file_system_factory_ops{&asset_manager::make_mount_file_system});
+  return register_file_system_factory(core::string_name{"mount"},
+                                      file_system_factory{&asset_manager::make_mount_file_system});
 }
 
 resources::source*

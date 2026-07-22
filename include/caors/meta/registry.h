@@ -34,30 +34,10 @@ class registry;
 namespace caors::meta::detail {
 
 class registry_state;
-class owned_capability_base;
+class registry_access;
 class type_data;
 struct type_descriptor;
 template <typename T> [[nodiscard]] error ensure_type_descriptor_for();
-[[nodiscard]] error ensure_type_descriptor_registered(const type_descriptor& descriptor);
-[[nodiscard]] error register_capability(registry& registry, type_id id, capability_key key,
-                                        const void* capability);
-[[nodiscard]] error register_capability(type_id id, capability_key key, const void* capability);
-[[nodiscard]] error register_owned_capability(registry& registry, type_id id, capability_key key,
-                                              memory::unique_ptr<owned_capability_base> capability);
-[[nodiscard]] error register_owned_capability(type_id id, capability_key key,
-                                              memory::unique_ptr<owned_capability_base> capability);
-[[nodiscard]] const void* find_capability(const registry& registry, type_id id,
-                                          capability_key key) noexcept;
-[[nodiscard]] const void* find_capability(type_id id, capability_key key) noexcept;
-[[nodiscard]] bool contains_capability(const registry& registry, type_id id,
-                                       capability_key key) noexcept;
-[[nodiscard]] bool contains_capability(type_id id, capability_key key) noexcept;
-[[nodiscard]] std::size_t capability_count(const registry& registry, capability_key key) noexcept;
-[[nodiscard]] std::size_t capability_count(capability_key key) noexcept;
-template <typename Extension, typename... Args>
-[[nodiscard]] error emplace_extension(registry& registry, type_id id, Args&&... args);
-template <typename Extension>
-[[nodiscard]] Extension* find_extension_mutable_ptr(registry& registry, type_id id);
 
 } // namespace caors::meta::detail
 
@@ -130,30 +110,8 @@ public:
 private:
   template <typename T> friend class ::caors::registration::enum_builder;
   template <typename T> friend class ::caors::registration::type_builder;
+  friend class detail::registry_access;
   friend class type;
-  friend error detail::ensure_type_descriptor_registered(const detail::type_descriptor& descriptor);
-  friend error detail::register_capability(registry& registry, type_id id, capability_key key,
-                                           const void* capability);
-  friend error detail::register_capability(type_id id, capability_key key, const void* capability);
-  friend error
-  detail::register_owned_capability(registry& registry, type_id id, capability_key key,
-                                    memory::unique_ptr<detail::owned_capability_base> capability);
-  friend error
-  detail::register_owned_capability(type_id id, capability_key key,
-                                    memory::unique_ptr<detail::owned_capability_base> capability);
-  friend const void* detail::find_capability(const registry& registry, type_id id,
-                                             capability_key key) noexcept;
-  friend const void* detail::find_capability(type_id id, capability_key key) noexcept;
-  friend bool detail::contains_capability(const registry& registry, type_id id,
-                                          capability_key key) noexcept;
-  friend bool detail::contains_capability(type_id id, capability_key key) noexcept;
-  friend std::size_t detail::capability_count(const registry& registry,
-                                              capability_key key) noexcept;
-  friend std::size_t detail::capability_count(capability_key key) noexcept;
-  template <typename Extension, typename... Args>
-  friend error detail::emplace_extension(registry& registry, type_id id, Args&&... args);
-  template <typename Extension>
-  friend Extension* detail::find_extension_mutable_ptr(registry& registry, type_id id);
 
   [[nodiscard]] error register_type(type_id id, string_name name, type_guid guid,
                                     type_id parent_id);
@@ -185,6 +143,49 @@ private:
   memory::memory_resource* state_resource_ = nullptr;
   detail::registry_state* state_ = nullptr;
 };
+
+namespace detail {
+
+/** @brief registry 内部写入入口。公开代码应使用 registration/meta type API。 */
+class registry_access final {
+public:
+  [[nodiscard]] static registry_state* state(registry& registry) noexcept {
+    return registry.state_;
+  }
+
+  [[nodiscard]] static const registry_state* state(const registry& registry) noexcept {
+    return registry.state_;
+  }
+
+  [[nodiscard]] static memory::memory_resource* state_resource(registry& registry) noexcept {
+    return registry.state_resource_;
+  }
+
+  [[nodiscard]] static error ensure_type_descriptor(registry& registry,
+                                                    const type_descriptor& descriptor) {
+    return registry.ensure_type_descriptor(descriptor);
+  }
+
+  [[nodiscard]] static error add_extension(registry& registry, type_id id,
+                                           extension_data extension) {
+    return registry.add_extension(id, std::move(extension));
+  }
+
+  [[nodiscard]] static type_data* find_mutable_type_data(registry& registry, type_id id) {
+    return registry.find_mutable_type_data(id);
+  }
+
+  [[nodiscard]] static const type_data* find_type_data(const registry& registry, type_id id) {
+    return registry.find_type_data(id);
+  }
+
+  template <typename Extension>
+  [[nodiscard]] static Extension* find_extension_mutable_ptr(registry& registry, type_id id) {
+    return registry.template find_extension_mutable_ptr<Extension>(id);
+  }
+};
+
+} // namespace detail
 
 /** @brief 获取进程内全局类型元数据注册表。 */
 [[nodiscard]] CAORS_API registry& get_registry() noexcept;

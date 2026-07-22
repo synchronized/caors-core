@@ -58,7 +58,7 @@ int main() {
     return 1;
   }
 
-  const caors::objects::object_ref_resolver_ops resolver =
+  const caors::objects::object_ref_resolver resolver =
       caors::objects::make_persistent_object_ref_resolver(manager);
   caors::serialization::context context{};
   context.resolvers.external_refs.resolver = &resolver;

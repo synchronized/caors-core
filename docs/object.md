@@ -173,7 +173,7 @@ caors::objects::ptr<actor> ptr{&instance};
 caors::object_id id = ptr.id();
 ```
 
-它适合表达运行期对象关系。序列化时需要通过 `objects::object_ref_resolver_ops` 把对象指针转换为
+它适合表达运行期对象关系。序列化时需要通过 `objects::object_ref_resolver` 把对象指针转换为
 `object_id` 或 `object_guid`，反序列化时再解析回对象指针。`object_id` 本身仍是运行期标识，跨存档稳定
 引用应使用 `object_guid`。
 
@@ -235,7 +235,7 @@ caors::objects::handle handle{instance.id(), instance.type_id()};
 
 `objects::typed_handle<T>` 是类型化身份句柄，内部同样只保存 `objects::handle`。它不会延长对象生命周期，
 也不会隐式查询全局对象表；需要解析时应显式传给 `objects::manager` 或上层对象数据库。当前阶段如果需要把对象关系序列化为运行期对象 id，可以使用 `objects::ptr<T>` 和
-`objects::object_ref_resolver_ops`，也可以从 `objects::manager` 创建 resolver。
+`objects::object_ref_resolver`，也可以从 `objects::manager` 创建 resolver。
 
 两者共享相同的身份语义：`objects::handle` 是非类型化身份，`objects::typed_handle<T>` 是带
 C++ 编译期类型约束的公开句柄类型。类型化句柄可以从非类型化句柄构造，也可以通过 `.handle()` 取回
@@ -543,8 +543,8 @@ manager.destroy(instance);
 - `object`：基础对象身份和类型查询入口。
 - `object_base<Derived, Base>`：CRTP 类型查询辅助。
 - `meta::type` / `meta::registry`：对象系统和 meta 属性/方法共享的全局类型视图和元数据注册表。
-- `objects::object_factory_capability`：对象工厂公开 facade，保存默认构造、创建和销毁能力。
-- `objects::object_factory_ops`：对象工厂 raw ops 函数表，由 registry 内部和 `meta::type` 静态能力使用。
+- `objects::object_factory_capability`：对象工厂公开 facade，保存默认构造、创建和销毁能力；底层 raw
+  ops 保存在 `objects::detail::object_factory_ops`，不作为普通公开入口。
 - `objects::contains(meta::type)` / `objects::factory()` / `objects::constructible()`：基于 `meta::type`
   查询对象类型语义和对象工厂能力。
 - `caors::error`：明确对象类型注册失败原因和错误来源域。
@@ -564,7 +564,8 @@ manager.destroy(instance);
 - `objects::make_persistent_object_ref_resolver(objects::manager&)`：为对象引用序列化创建基于
   `object_guid` 的 manager resolver，需要 manager 关联 `object_index`，同样通过
   `serialization::context::resolvers.external_refs.resolver` 接入。
-- `objects::make_object_factory(objects::manager&)`：为多态对象反序列化创建通用类型工厂，并挂到
+- `objects::make_object_factory(objects::manager&)`：返回对象语义的 `objects::object_polymorphic_factory`，
+  为多态对象反序列化创建通用类型工厂，并挂到
   `serialization::context::resolvers.factories.polymorphic_factory`。
 
 ## 后续路线图
@@ -574,7 +575,7 @@ manager.destroy(instance);
 - [x] 增加持久对象 GUID 语义别名和 `object_index` 双向映射。
 - [x] 对象类型 id、名称、大小、对齐和父类型。
 - [x] 复用全局 `meta::registry`。
-- [x] 将底层 `objects::object_factory_ops` 挂载到 meta capability 索引，并通过
+- [x] 将底层 `objects::detail::object_factory_ops` 挂载到 meta capability 索引，并通过
   `meta::type`、`objects::object_factory_capability` 和对象语义 helper 对外查询。
 - [x] 注册错误状态和不一致类型描述检测。
 - [x] 默认构造工厂。

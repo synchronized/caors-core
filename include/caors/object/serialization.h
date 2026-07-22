@@ -17,7 +17,29 @@
 
 namespace caors::objects {
 
-using object_ref_resolver_ops = serialization::external_ref_resolver_ops;
+/** @brief 对象引用序列化 resolver，适配 serialization 的通用外部引用机制。 */
+struct object_ref_resolver final : serialization::external_ref_resolver_ops {
+  using base_type = serialization::external_ref_resolver_ops;
+
+  object_ref_resolver() noexcept = default;
+  object_ref_resolver(
+      base_type::resolve_fn resolve, void* user_data = nullptr,
+      serialization::external_ref_identity identity = serialization::external_ref_identity::guid,
+      base_type::encode_fn encode = nullptr) noexcept
+      : base_type{resolve, user_data, identity, encode} {}
+  explicit object_ref_resolver(base_type value) noexcept : base_type(value) {}
+};
+
+/** @brief 对象多态反序列化工厂，使用对象 manager 创建和销毁对象。 */
+struct object_polymorphic_factory final : serialization::polymorphic_factory_ops {
+  using base_type = serialization::polymorphic_factory_ops;
+
+  object_polymorphic_factory() noexcept = default;
+  object_polymorphic_factory(base_type::create_fn create, base_type::destroy_fn destroy,
+                             void* user_data = nullptr) noexcept
+      : base_type{create, destroy, user_data} {}
+  explicit object_polymorphic_factory(base_type value) noexcept : base_type(value) {}
+};
 
 /** @brief 对象引用在通用外部引用系统中的 domain。 */
 [[nodiscard]] inline string_name object_ref_domain() { return string_name{"object"}; }
@@ -363,31 +385,34 @@ template <typename T>
 } // namespace detail
 
 /** @brief 使用对象生命周期管理器创建运行期 id 形式的对象引用 resolver。 */
-[[nodiscard]] inline object_ref_resolver_ops make_object_ref_resolver(objects::manager& manager) {
-  return object_ref_resolver_ops{
+[[nodiscard]] inline object_ref_resolver make_object_ref_resolver(objects::manager& manager) {
+  return object_ref_resolver{serialization::external_ref_resolver_ops{
       &detail::manager_object_ref_resolve,
       &manager,
       serialization::external_ref_identity::integer,
       &detail::manager_object_to_runtime_ref,
-  };
+  }};
 }
 
 /** @brief 使用对象生命周期管理器和对象索引创建持久 GUID 形式的对象引用 resolver。 */
-[[nodiscard]] inline object_ref_resolver_ops
+[[nodiscard]] inline object_ref_resolver
 make_persistent_object_ref_resolver(objects::manager& manager) {
-  return object_ref_resolver_ops{
+  return object_ref_resolver{serialization::external_ref_resolver_ops{
       &detail::manager_object_ref_resolve,
       &manager,
       serialization::external_ref_identity::guid,
       &detail::manager_object_to_persistent_ref,
-  };
+  }};
 }
 
 /** @brief 使用对象生命周期管理器创建通用运行期类型工厂。 */
-[[nodiscard]] inline serialization::polymorphic_factory_ops
+[[nodiscard]] inline object_polymorphic_factory
 make_object_factory(objects::manager& manager) noexcept {
-  return serialization::polymorphic_factory_ops{&detail::manager_object_create,
-                                                &detail::manager_object_destroy, &manager};
+  return object_polymorphic_factory{serialization::polymorphic_factory_ops{
+      &detail::manager_object_create,
+      &detail::manager_object_destroy,
+      &manager,
+  }};
 }
 
 } // namespace caors::objects

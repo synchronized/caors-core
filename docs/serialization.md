@@ -13,7 +13,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 
 - 用 `serialization::type_schema` 表示类型的序列化元信息。
 - 用 `serialization::field_options` 表示用户注册时填写的字段级序列化配置。
-- 用 `serialization::field_schema` 表示提交后的运行期字段 schema，内部保存已绑定的 `meta::property`。
+- 用 `serialization::field_schema` 表示提交后的公开字段配置；运行期属性视图和调度缓存由序列化 detail 按需编译。
 - 默认基于全局 `meta::registry` 挂载序列化 extension；需要隔离注册表时，可通过
   `serialization::context::type_context` 指定本次读写使用的 `meta::context`。
 - 提供 `serialization::schema_view` 查询序列化 schema；业务类型通过 `registration::type_<T>(name).serialization()` 完成跨模块注册。
@@ -30,7 +30,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 - 提供 `serialization::codec_traits<T>` 和 `meta::type` codec capability，允许把特定 C++ 类型作为原子序列化值读写。
 - 支持已注册反射和序列化元信息的值类型结构体字段递归序列化和 DOM 反序列化。
 - 提供基于 traits 的顺序容器、集合容器、关联容器、pair、tuple 和 variant 访问，支持标量、wrapper、对象引用和已注册结构体元素。
-- 通过 `objects::object_ref_resolver_ops` 支持 `caors::objects::ptr<T>` 对象指针字段。
+- 通过 `objects::object_ref_resolver` 支持 `caors::objects::ptr<T>` 对象指针字段。
 - 普通序列化入口会在 `caors::meta::object` 派生对象的运行期类型不同于声明类型时自动写出多态 envelope。
 - 通过默认 `$type` / `$value` envelope 支持 `std::unique_ptr<Base>`、`caors::memory::unique_ptr<Base>`、
   `std::shared_ptr<Base>` 和 `objects::ref<Base>` 字段持有派生类对象，并支持显式 factory 构造策略。
@@ -387,7 +387,7 @@ caors::error status = caors::read_json_from(context, holder, json);
 
 ### serialization::type_schema
 
-`serialization::type_schema` 是挂载在 meta 类型上的序列化 extension。它保存提交后的运行期字段
+`serialization::type_schema` 是挂载在 meta 类型上的序列化 extension。它保存提交后的公开字段
 schema；具体输出格式由当前使用的 `writer` 后端决定：
 
 ```cpp
@@ -402,9 +402,9 @@ caors::registration::type_<actor>("game.actor")
 ```
 
 用户注册时通过 `serialization::field_options` 按字段名引用 meta 属性。公共注册入口会在同一次
-`commit()` 中发布 meta 属性和 serialization schema；提交时会把字段名解析为稳定的
-`meta::property` 视图并保存到运行期 `field_schema::property`。如果显式字段配置找不到对应属性，
-`commit()` 会返回 `errc::not_found`。
+`commit()` 中发布 meta 属性和 serialization schema；提交时会校验显式字段配置能解析到对应属性。
+运行期读写时，序列化 detail 会基于 `meta::type` 和 `field_schema` 临时编译字段访问、codec
+和标量调度缓存。如果显式字段配置找不到对应属性，`commit()` 会返回 `errc::not_found`。
 
 如果 `serialization::type_schema::fields` 为空，`commit()` 会按当前类型已注册属性生成默认字段；
 `has_explicit_fields == false` 用于保留默认字段读取语义。
@@ -439,9 +439,9 @@ if (schema) {
 - `required`：反序列化时缺失该字段会返回 `errc::not_found`。
 - `skipped`：序列化和反序列化时跳过该字段。
 
-`serialization::field_schema` 继承这组配置，并额外保存注册提交期解析出的 `meta::property` 视图、
-字段声明类型、统一 value 类型和字段调度标记。普通用户只需要通过 builder 填写字段名；序列化
-运行期使用已绑定的 `property` 和缓存语义，避免每次读写重复按字段名查找属性或重新判断字段形态。
+`serialization::field_schema` 继承这组配置，不暴露 `meta::property`、codec ops 或字段调度标记。
+普通用户只需要通过 builder 填写字段名；序列化运行期会在内部编译 `field_runtime_schema`，
+用于保存本次读写需要的属性视图和调度缓存。
 
 `serialization::context::config.fields.schema_version == 0` 表示不启用版本过滤，保持兼容默认行为。传入非 0 版本时：
 
@@ -449,7 +449,7 @@ if (schema) {
 - `version_removed != 0 && schema_version >= version_removed` 的字段会被跳过。
 
 序列化字段配置属于 serialization extension，不直接修改属性自身。meta 负责描述字段是什么，
-序列化负责描述字段如何存储；schema 内部保存解析后的只读属性视图，避免每次序列化重复查找字段。
+序列化负责描述字段如何存储；运行期缓存属于 serialization detail，不属于公开 schema ABI。
 调用方应在首次读写前完成类型、属性和 serialization schema 注册。
 
 ### serialization::writer
@@ -657,7 +657,7 @@ JSON 字符串。
 对象引用 resolver，并挂到通用外部引用入口：
 
 ```cpp
-caors::objects::object_ref_resolver_ops resolver = make_custom_object_ref_resolver(...);
+caors::objects::object_ref_resolver resolver = make_custom_object_ref_resolver(...);
 caors::serialization::context context{};
 context.resolvers.external_refs.resolver = &resolver;
 ```
@@ -674,7 +674,7 @@ resolver 把非 0 `object_id` 转换回对象指针，再写入 `objects::ptr<T>
 
 ```cpp
 caors::objects::manager manager;
-caors::objects::object_ref_resolver_ops resolver = caors::objects::make_object_ref_resolver(manager);
+caors::objects::object_ref_resolver resolver = caors::objects::make_object_ref_resolver(manager);
 caors::serialization::context context{};
 context.resolvers.external_refs.resolver = &resolver;
 ```
@@ -691,7 +691,7 @@ caors::objects::manager manager(index);
 
 player* instance = manager.create_with_guid<player>(persistent_guid);
 
-caors::objects::object_ref_resolver_ops resolver = caors::objects::make_persistent_object_ref_resolver(manager);
+caors::objects::object_ref_resolver resolver = caors::objects::make_persistent_object_ref_resolver(manager);
 caors::serialization::context context{};
 context.resolvers.external_refs.resolver = &resolver;
 ```
@@ -1009,7 +1009,7 @@ template <> struct codec_traits<custom_value> {
   只负责在递归过深时返回 `errc::recursion_limit`。
 - `std::weak_ptr<T>` 和 `objects::weak_ref<T>` 明确标记为不支持的 wrapper，无法稳定暴露可写内部值，
   当前不作为普通 value 序列化或反序列化。
-- `caors::objects::ptr<T>` 不走内部 value 语义，仍通过 `objects::object_ref_resolver_ops` 写出和读入对象 id 或持久 GUID。
+- `caors::objects::ptr<T>` 不走内部 value 语义，仍通过 `objects::object_ref_resolver` 写出和读入对象 id 或持久 GUID。
 - 当 `std::unique_ptr<Base>`、`caors::memory::unique_ptr<Base>`、`std::shared_ptr<Base>`
   或 `objects::ref<Base>`
   实际持有已注册派生类对象时，序列化层会写出多态 envelope，默认字段名为 `$type` / `$value`。读回时要求派生类型可通过

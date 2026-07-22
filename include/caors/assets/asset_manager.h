@@ -135,13 +135,12 @@ public:
                                           const Options& options, void* user_data);
 
   /** @brief file_system 策略名到运行期 file_system 构造逻辑的函数表。 */
-  struct file_system_factory_ops {
+  struct file_system_factory {
     using create_fn = error (*)(file_system_factory_context& context,
                                 const project_file_system_config& config, void* user_data);
 
-    file_system_factory_ops() = default;
-    file_system_factory_ops(create_fn value, void* data = nullptr)
-        : create(value), user_data(data) {}
+    file_system_factory() = default;
+    file_system_factory(create_fn value, void* data = nullptr) : create(value), user_data(data) {}
 
     create_fn create = nullptr;
     /** @brief 传给 create 的外部状态；asset_manager 不拥有它。 */
@@ -156,12 +155,12 @@ public:
   };
 
   /** @brief source 策略名到运行期 source 构造逻辑的函数表。 */
-  struct source_factory_ops {
+  struct source_factory {
     using create_fn = error (*)(source_factory_context& context,
                                 const project_source_config& config, void* user_data);
 
-    source_factory_ops() = default;
-    source_factory_ops(create_fn value, void* data = nullptr) : create(value), user_data(data) {}
+    source_factory() = default;
+    source_factory(create_fn value, void* data = nullptr) : create(value), user_data(data) {}
 
     create_fn create = nullptr;
     /** @brief 传给 create 的外部状态；asset_manager 不拥有它。 */
@@ -176,12 +175,12 @@ public:
   };
 
   /** @brief manifest 资源类型到 cache/loader 构造逻辑的函数表。 */
-  struct type_factory_ops {
+  struct type_factory {
     using create_fn = error (*)(type_factory_context& context,
                                 const project_resource_type_config& config, void* user_data);
 
-    type_factory_ops() = default;
-    type_factory_ops(create_fn value, void* data = nullptr) : create(value), user_data(data) {}
+    type_factory() = default;
+    type_factory(create_fn value, void* data = nullptr) : create(value), user_data(data) {}
 
     create_fn create = nullptr;
     /** @brief 传给 create 的外部状态；asset_manager 不拥有它。 */
@@ -251,14 +250,14 @@ public:
 
   /** @brief 注册 file_system 策略名到运行期 file_system 构造函数。 */
   [[nodiscard]] error register_file_system_factory(core::string_name type,
-                                                   file_system_factory_ops factory);
+                                                   file_system_factory factory);
   /** @brief 注册带强类型 options 的 file_system 策略构造函数。 */
   template <typename Options, typed_file_system_factory_fn<Options> Create>
   [[nodiscard]] error register_typed_file_system_factory(core::string_name type,
                                                          void* user_data = nullptr) {
     return register_file_system_factory(
-        type, file_system_factory_ops{
-                  &asset_manager::make_typed_file_system_factory<Options, Create>, user_data});
+        type, file_system_factory{&asset_manager::make_typed_file_system_factory<Options, Create>,
+                                  user_data});
   }
 
   /** @brief 按配置名称绑定运行期 source。asset_manager 不拥有 source。 */
@@ -277,19 +276,18 @@ public:
   [[nodiscard]] std::size_t source_count() const noexcept { return sources_.size(); }
 
   /** @brief 注册 source 策略名到运行期 source 构造函数。 */
-  [[nodiscard]] error register_source_factory(core::string_name type, source_factory_ops factory);
+  [[nodiscard]] error register_source_factory(core::string_name type, source_factory factory);
   /** @brief 注册带强类型 options 的 source 策略构造函数。 */
   template <typename Options, typed_source_factory_fn<Options> Create>
   [[nodiscard]] error register_typed_source_factory(core::string_name type,
                                                     void* user_data = nullptr) {
     return register_source_factory(
         type,
-        source_factory_ops{&asset_manager::make_typed_source_factory<Options, Create>, user_data});
+        source_factory{&asset_manager::make_typed_source_factory<Options, Create>, user_data});
   }
 
   /** @brief 注册 manifest 资源类型到运行期 cache/loader 构造函数。 */
-  [[nodiscard]] error register_type_factory(core::string_name resource_type,
-                                            type_factory_ops factory);
+  [[nodiscard]] error register_type_factory(core::string_name resource_type, type_factory factory);
   /**
    * @brief 注册带强类型 options 的 manifest 资源类型构造函数。
    *
@@ -301,7 +299,7 @@ public:
                                                   core::string_name cache_strategy = {},
                                                   core::string_name loader_strategy = {},
                                                   void* user_data = nullptr) {
-    type_factory_ops ops{&asset_manager::make_typed_type_factory<Options, Create>, user_data};
+    type_factory ops{&asset_manager::make_typed_type_factory<Options, Create>, user_data};
     ops.cache_strategy = cache_strategy;
     ops.loader_strategy = loader_strategy;
     return register_type_factory(resource_type, std::move(ops));
@@ -487,9 +485,9 @@ public:
   }
 
 private:
-  using file_system_factory_map = core::hash_map<core::string_name, file_system_factory_ops>;
-  using source_factory_map = core::hash_map<core::string_name, source_factory_ops>;
-  using type_factory_map = core::hash_map<core::string_name, type_factory_ops>;
+  using file_system_factory_map = core::hash_map<core::string_name, file_system_factory>;
+  using source_factory_map = core::hash_map<core::string_name, source_factory>;
+  using type_factory_map = core::hash_map<core::string_name, type_factory>;
 
   struct file_system_binding {
     io::file_system* file_system = nullptr;
