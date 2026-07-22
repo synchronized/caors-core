@@ -34,9 +34,8 @@ resolver、构造策略和格式后端仍由 `serialization` 模块负责。
 
 最小对象身份定义位于 `caors::meta` 命名空间，例如 `meta::object`、`meta::object_id` 和
 `meta::object_base<T>`。`objects` 模块在此基础上只提供对象生命周期、句柄、引用和对象工厂等组合能力，例如
-`objects::type`、`objects::handle`、`objects::typed_handle<T>`、`objects::ptr<T>`、
-`objects::ref_counted`、`objects::ref<T>`、`objects::weak_ref<T>`、
-`objects::object_index` 和 `objects::manager`。
+`objects::handle`、`objects::typed_handle<T>`、`objects::ptr<T>`、`objects::ref_counted`、
+`objects::ref<T>`、`objects::weak_ref<T>`、`objects::object_index` 和 `objects::manager`。
 
 属性、方法、metadata、schema 和动态调用能力都归属 `meta`。对象模块不再维护独立反射数据，也不把
 `meta::detail` 的对象 traits 作为对象模块公共扩展点转发；对象注册器内部直接复用 `meta` 的对象类型信息。
@@ -438,10 +437,10 @@ object.type_name(); // "game.player"
 `objects::id()`、`objects::is_a()`、`objects::create()` 和 `objects::destroy()` 使用对象语义入口。
 无 context 重载使用 `meta::default_context()`；需要隔离注册表时显式传入同一个 `meta::context`。
 
-对外查询返回 `objects::type` 只读视图。它持有 `meta::type`，并通过
-`objects::object_factory_capability` 查询对象工厂能力，因此调用方可以通过 `id()`、`name()`、
-`guid()`、`size()`、`alignment()`、`parent_id()` 和 `constructible()` 查询对象类型信息，但不能直接修改
-注册表内部数据。
+对外查询直接返回 `meta::type` 只读视图。调用方可以通过 `id()`、`name()`、`guid()`、`size()`、
+`alignment()` 和 `parent_id()` 查询对象类型信息；对象专有语义通过
+`objects::is_object_type(type)`、`objects::factory(type)` 和 `objects::constructible(type)` 查询。
+`meta::type` 仍然不能直接修改注册表内部数据。
 
 ```cpp
 if (caors::registration::type_<actor>().commit()) {
@@ -540,7 +539,8 @@ manager.destroy(instance);
 - `meta::type` / `meta::registry`：对象系统和 meta 属性/方法共享的全局类型视图和元数据注册表。
 - `objects::object_factory_capability`：对象工厂公开 facade，保存默认构造、创建和销毁能力。
 - `objects::object_factory_ops`：对象工厂 raw ops 函数表，由 registry 内部和 `meta::type` 静态能力使用。
-- `objects::type`：对象类型只读视图，组合 `meta::type` 和对象工厂 capability。
+- `objects::is_object_type()` / `objects::factory()` / `objects::constructible()`：基于 `meta::type`
+  查询对象类型语义和对象工厂能力。
 - `caors::error`：明确对象类型注册失败原因和错误来源域。
 - `objects::create()` / `objects::destroy()`：基于 `meta::context` 和对象工厂能力的默认构造工厂入口。
 - `objects::manager`：对象实例生命周期管理器，持有对象、按 `object_id` 查找和销毁对象，可选同步
@@ -551,7 +551,7 @@ manager.destroy(instance);
 - `objects::make_ref<T>()`：接入 `memory_resource` 创建引用计数对象并返回强引用。
 - `registration::type_<T>()`：对象类型链式注册入口。
 - `objects::id()` / `objects::find()` / `objects::is_a()`：对象类型查询入口；`objects::find()` 未命中时返回无效
-  `objects::type`。
+  `meta::type`。
 - `objects::create<T>()` / `objects::destroy<T>()`：接入 `memory_resource` 的直接对象创建和销毁入口。
 - `objects::make_object_ref_resolver(objects::manager&)`：为对象引用序列化创建基于运行期
   `object_id` 的 manager resolver，并挂到 `serialization::context::resolvers.external_refs.resolver`。
@@ -569,7 +569,7 @@ manager.destroy(instance);
 - [x] 对象类型 id、名称、大小、对齐和父类型。
 - [x] 复用全局 `meta::registry`。
 - [x] 将底层 `objects::object_factory_ops` 挂载到 meta capability 索引，并通过
-  `objects::object_factory_capability` / `objects::type` 视图对外查询。
+  `meta::type`、`objects::object_factory_capability` 和对象语义 helper 对外查询。
 - [x] 注册错误状态和不一致类型描述检测。
 - [x] 默认构造工厂。
 - [x] 接入 `memory_resource`。

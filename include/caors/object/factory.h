@@ -7,7 +7,6 @@
 #include "caors/memory.h"
 #include "caors/object/base.h"
 #include "caors/object/detail/factory_ops.h"
-#include "caors/object/type.h"
 
 #include <type_traits>
 #include <utility>

@@ -17,7 +17,6 @@
 #include "caors/object/ptr_view.h"
 #include "caors/object/ref_counted.h"
 #include "caors/object/registry.h"
-#include "caors/object/type.h"
 #include "caors/object/view.h"
 
 #endif

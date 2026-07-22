@@ -74,7 +74,7 @@ public:
       return nullptr;
     }
 
-    const type expected = objects::find<T>(*type_context_);
+    const meta::type expected = objects::find<T>(*type_context_);
     if (!expected || !objects::is_a(*type_context_, stored->type, expected.id())) {
       return nullptr;
     }
@@ -106,7 +106,7 @@ public:
   template <typename T, typename... Args> [[nodiscard]] T* create(Args&&... args) {
     static_assert(std::is_base_of_v<object, T>, "T must derive from caors::object");
 
-    const type object_type = objects::find<T>(*type_context_);
+    const meta::type object_type = objects::find<T>(*type_context_);
     if (!object_type) {
       return nullptr;
     }
@@ -192,7 +192,7 @@ public:
       return {};
     }
 
-    const type expected = objects::find<T>(*type_context_);
+    const meta::type expected = objects::find<T>(*type_context_);
     if (!expected || !objects::is_a(*type_context_, stored->type, expected.id())) {
       return {};
     }

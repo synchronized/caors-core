@@ -9,13 +9,8 @@
 namespace caors::objects {
 namespace {
 
-[[nodiscard]] type make_object_type(meta::type source) noexcept {
-  type object_type{source};
-  return object_type ? object_type : type{};
-}
-
-[[nodiscard]] object_factory_capability factory_of(const type& object_type) noexcept {
-  return object_type ? object_factory_capability{object_type.info()} : object_factory_capability{};
+[[nodiscard]] meta::type make_object_type(meta::type source) noexcept {
+  return is_object_type(source) ? source : meta::type{};
 }
 
 } // namespace
@@ -30,11 +25,21 @@ error ensure_object_base_registered(meta::registry& registry) {
 
 } // namespace detail
 
-type find(meta::context& context, object_type_id id) {
+bool is_object_type(meta::type type) noexcept {
+  return type.registered() && object_factory_capability{type}.valid();
+}
+
+object_factory_capability factory(meta::type type) noexcept {
+  return is_object_type(type) ? object_factory_capability{type} : object_factory_capability{};
+}
+
+bool constructible(meta::type type) noexcept { return factory(type).constructible(); }
+
+meta::type find(meta::context& context, object_type_id id) {
   return make_object_type(meta::find(context, id));
 }
 
-type find(meta::context& context, std::string_view name) {
+meta::type find(meta::context& context, std::string_view name) {
   return make_object_type(meta::find(context, name));
 }
 
@@ -52,20 +57,20 @@ std::size_t size(meta::context& context) noexcept {
 }
 
 object* try_create(meta::context& context, object_type_id id, memory_resource* resource) noexcept {
-  return factory_of(::caors::objects::find(context, id)).try_create(resource);
+  return factory(::caors::objects::find(context, id)).try_create(resource);
 }
 
 object* try_create(meta::context& context, std::string_view name,
                    memory_resource* resource) noexcept {
-  return factory_of(::caors::objects::find(context, name)).try_create(resource);
+  return factory(::caors::objects::find(context, name)).try_create(resource);
 }
 
 object* create(meta::context& context, object_type_id id, memory_resource* resource) {
-  return factory_of(::caors::objects::find(context, id)).create(resource);
+  return factory(::caors::objects::find(context, id)).create(resource);
 }
 
 object* create(meta::context& context, std::string_view name, memory_resource* resource) {
-  return factory_of(::caors::objects::find(context, name)).create(resource);
+  return factory(::caors::objects::find(context, name)).create(resource);
 }
 
 bool destroy(meta::context& context, object_type_id id, object* instance,
@@ -74,7 +79,7 @@ bool destroy(meta::context& context, object_type_id id, object* instance,
     return false;
   }
 
-  return factory_of(::caors::objects::find(context, id)).destroy(instance, resource);
+  return factory(::caors::objects::find(context, id)).destroy(instance, resource);
 }
 
 } // namespace caors::objects

@@ -32,7 +32,7 @@ TEST_CASE("object - non default constructible types can be described but not fac
 
   auto type = caors::objects::find<registered_non_default_object>();
   REQUIRE(type);
-  CHECK_FALSE(type.constructible());
+  CHECK_FALSE(caors::objects::constructible(type));
   CHECK(caors::objects::try_create(type.id()) == nullptr);
   CHECK(caors::objects::create(type.id()) == nullptr);
 }
@@ -102,7 +102,7 @@ TEST_CASE("object - registry registers and finds types", "[object]") {
   CHECK_FALSE(type.guid());
   CHECK(type.size() == sizeof(registry_actor));
   CHECK(type.alignment() == alignof(registry_actor));
-  CHECK(type.constructible());
+  CHECK(caors::objects::constructible(type));
 
   auto by_name = caors::objects::find(registry_actor::object_type_name);
   REQUIRE(by_name);

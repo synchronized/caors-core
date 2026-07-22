@@ -1116,7 +1116,7 @@ traits 中提供可适配的 iterator 操作。容器 view 只依赖 `meta::type
 
 - 对象类型复用 meta 类型记录，再给同一个 `type_id` 挂载
   `objects::object_factory_capability`；对象模块通过 `objects::find()` 返回只读
-  `objects::type` 视图。
+  `meta::type` 视图，对象专有语义通过 `objects::factory()` 等 helper 查询。
 - 属性和方法直接保存在 meta 类型记录关联的数据中，并通过 `meta::type` / `meta::property` / `meta::method` 对外查询；
   `meta::type` / `meta::property` 是兼容视图。
 - 序列化 schema 作为 extension 保存在全局 meta 类型记录中；它由统一

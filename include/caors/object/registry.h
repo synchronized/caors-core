@@ -9,8 +9,8 @@
 #include "caors/meta/query.h"
 #include "caors/meta/registry.h"
 #include "caors/meta/type.h"
+#include "caors/object/object_factory_capability.h"
 #include "caors/object/ptr.h"
-#include "caors/object/type.h"
 
 #include <string_view>
 #include <type_traits>
@@ -48,32 +48,41 @@ namespace caors::objects {
   return meta::id(context, name);
 }
 
+/** @brief 判断 meta 类型是否是已注册对象类型。 */
+[[nodiscard]] CAORS_API bool is_object_type(meta::type type) noexcept;
+
+/** @brief 查询对象类型的默认创建和销毁能力。非对象类型返回空能力。 */
+[[nodiscard]] CAORS_API object_factory_capability factory(meta::type type) noexcept;
+
+/** @brief 判断对象类型是否支持通过对象工厂默认构造。 */
+[[nodiscard]] CAORS_API bool constructible(meta::type type) noexcept;
+
 /** @brief 在指定类型上下文中按对象类型 id 查找对象类型。 */
-[[nodiscard]] CAORS_API type find(meta::context& context, object_type_id id);
+[[nodiscard]] CAORS_API meta::type find(meta::context& context, object_type_id id);
 
 /** @brief 在默认类型上下文中按对象类型 id 查找对象类型。 */
-[[nodiscard]] inline type find(object_type_id id) {
+[[nodiscard]] inline meta::type find(object_type_id id) {
   return ::caors::objects::find(meta::default_context(), id);
 }
 
 /** @brief 在指定类型上下文中按对象类型名查找对象类型。 */
-[[nodiscard]] CAORS_API type find(meta::context& context, std::string_view name);
+[[nodiscard]] CAORS_API meta::type find(meta::context& context, std::string_view name);
 
 /** @brief 在默认类型上下文中按对象类型名查找对象类型。 */
-[[nodiscard]] inline type find(std::string_view name) {
+[[nodiscard]] inline meta::type find(std::string_view name) {
   return ::caors::objects::find(meta::default_context(), name);
 }
 
 /** @brief 在指定类型上下文中按 C++ 类型查找对象类型。 */
-template <typename T> [[nodiscard]] type find(meta::context& context) {
+template <typename T> [[nodiscard]] meta::type find(meta::context& context) {
   static_assert(std::is_base_of_v<object, std::remove_cv_t<std::remove_reference_t<T>>>,
                 "T must derive from caors::object");
-  const type object_type{meta::find<T>(context)};
-  return object_type ? object_type : type{};
+  const meta::type object_type = meta::find<T>(context);
+  return is_object_type(object_type) ? object_type : meta::type{};
 }
 
 /** @brief 在默认类型上下文中按 C++ 类型查找对象类型。 */
-template <typename T> [[nodiscard]] type find() {
+template <typename T> [[nodiscard]] meta::type find() {
   return ::caors::objects::find<T>(meta::default_context());
 }
 
