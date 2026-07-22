@@ -5,6 +5,7 @@
 #define CAORS_META_VALUE_CAPABILITIES_ENUM_CAPABILITY_H_
 
 #include "caors/meta/capability_bind.h"
+#include "caors/meta/detail/enum_value_query.h"
 #include "caors/meta/enum_value.h"
 #include "caors/meta/type_ops.h"
 #include "caors/meta/value/capabilities/bind_helpers.h"

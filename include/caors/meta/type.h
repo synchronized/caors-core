@@ -13,7 +13,6 @@
 #include "caors/traits/wrapper.h"
 
 #include <cstddef>
-#include <cstdint>
 #include <span>
 #include <string_view>
 #include <type_traits>
@@ -32,7 +31,6 @@ class type;
 class property;
 class method;
 class method_set;
-class enum_value_view;
 
 [[nodiscard]] CAORS_API registry& get_registry() noexcept;
 [[nodiscard]] CAORS_API context& default_context() noexcept;
@@ -44,17 +42,6 @@ namespace detail {
 class type_data;
 struct type_descriptor;
 class type_access;
-
-[[nodiscard]] CAORS_API std::size_t enum_value_count(const type& source) noexcept;
-[[nodiscard]] CAORS_API enum_value_view enum_value_at(const type& source, std::size_t index);
-[[nodiscard]] CAORS_API enum_value_view find_enum_value(const type& source, string_name name);
-[[nodiscard]] CAORS_API enum_value_view find_enum_value(const type& source, std::string_view name);
-[[nodiscard]] CAORS_API enum_value_view find_enum_value_by_i64(const type& source,
-                                                               std::int64_t value) noexcept;
-[[nodiscard]] CAORS_API enum_value_view find_enum_value_by_u64(const type& source,
-                                                               std::uint64_t value) noexcept;
-template <typename Extension>
-[[nodiscard]] const Extension* find_type_extension(const type& source) noexcept;
 
 } // namespace detail
 

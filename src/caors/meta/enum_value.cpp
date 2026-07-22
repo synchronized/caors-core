@@ -3,7 +3,13 @@
 
 #include "caors/meta/enum_value.h"
 
+#include "caors/meta/detail/enum_value_access.h"
 #include "caors/meta/detail/enum_value_data.h"
+#include "caors/meta/detail/enum_value_query.h"
+#include "caors/meta/detail/type_access.h"
+#include "caors/meta/detail/type_data.h"
+
+#include <optional>
 
 namespace caors::meta {
 namespace {
@@ -53,5 +59,50 @@ const detail::enum_value_data* enum_value_view::info() const noexcept {
 
   return value_;
 }
+
+namespace detail {
+
+std::size_t enum_value_count(const type& source) noexcept {
+  const type_data* data = type_access::registered_data_of(source);
+  return data != nullptr ? data->enum_value_count() : 0;
+}
+
+enum_value_view enum_value_at(const type& source, std::size_t index) {
+  const type_data* data = type_access::registered_data_of(source);
+  return data != nullptr ? enum_value_access::make(data->enum_value_at(index)) : enum_value_view{};
+}
+
+enum_value_view find_enum_value(const type& source, core::string_name enum_value_name) {
+  if (!enum_value_name) {
+    return {};
+  }
+
+  const type_data* data = type_access::registered_data_of(source);
+  return data != nullptr ? enum_value_access::make(data->find_enum_value_ptr(enum_value_name))
+                         : enum_value_view{};
+}
+
+enum_value_view find_enum_value(const type& source, std::string_view enum_value_name) {
+  const std::optional<core::string_name> interned_name = core::string_name::find(enum_value_name);
+  if (!interned_name.has_value()) {
+    return {};
+  }
+
+  return find_enum_value(source, *interned_name);
+}
+
+enum_value_view find_enum_value_by_i64(const type& source, std::int64_t value) noexcept {
+  const type_data* data = type_access::registered_data_of(source);
+  return data != nullptr ? enum_value_access::make(data->find_enum_value_ptr(value))
+                         : enum_value_view{};
+}
+
+enum_value_view find_enum_value_by_u64(const type& source, std::uint64_t value) noexcept {
+  const type_data* data = type_access::registered_data_of(source);
+  return data != nullptr ? enum_value_access::make(data->find_enum_value_ptr(value))
+                         : enum_value_view{};
+}
+
+} // namespace detail
 
 } // namespace caors::meta
