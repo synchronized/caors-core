@@ -95,6 +95,7 @@ TEST_CASE("object - static factory capability does not imply registered object t
   const caors::meta::type meta = caors::meta::resolve<capability_meta_only_object>();
   REQUIRE(meta.get_capability<caors::objects::object_factory_capability>());
 
+  CHECK_FALSE(meta.is_object());
   CHECK_FALSE(caors::objects::contains(meta.id()));
   CHECK_FALSE(caors::objects::contains(meta));
   CHECK_FALSE(caors::objects::find<capability_meta_only_object>());

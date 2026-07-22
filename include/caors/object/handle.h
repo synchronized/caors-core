@@ -29,10 +29,10 @@ inline constexpr bool typed_handle_type_v = !std::is_same_v<T, untyped_handle_ta
  * @brief 对象身份句柄的共享实现。
  *
  * 非类型化句柄和类型化句柄都只保存对象 id 和声明类型 id。类型化版本额外在编译期约束
- * `T` 必须继承 `objects::object`，但不会拥有对象或隐式解析对象。
+ * `T` 必须继承 `meta::object`，但不会拥有对象或隐式解析对象。
  */
 template <typename T> class basic_handle {
-  static_assert(valid_handle_type<T>::value, "T must derive from caors::objects::object");
+  static_assert(valid_handle_type<T>::value, "T must derive from caors::meta::object");
 
 public:
   constexpr basic_handle() noexcept = default;

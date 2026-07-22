@@ -8,6 +8,7 @@
 #include "caors/error.h"
 #include "caors/memory/unique_ptr.h"
 #include "caors/meta/context.h"
+#include "caors/meta/object.h"
 #include "caors/meta/type_id.h"
 #include "caors/registration/enum_builder.h"
 #include "caors/registration/type_builder.h"
@@ -75,7 +76,7 @@ public:
 
   /** @brief 追加使用对象类型自身名称的注册项。 */
   template <typename T>
-    requires(std::is_base_of_v<objects::object, T>)
+    requires(std::is_base_of_v<meta::object, T>)
   type_builder<T>& type_() {
     static_assert(objects::detail::object_type_name_traits<T>::exists,
                   "T must declare object_type_name");

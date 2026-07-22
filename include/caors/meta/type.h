@@ -102,6 +102,8 @@ public:
   [[nodiscard]] type_id parent_id() const noexcept;
   [[nodiscard]] type parent() const noexcept;
   [[nodiscard]] type_kind kind() const noexcept;
+  /** @brief 查询类型是否是已注册的 `meta::object` 类型或其派生类型。 */
+  [[nodiscard]] bool is_object() const noexcept;
   [[nodiscard]] scalar_kind scalar() const noexcept;
   [[nodiscard]] bool is_scalar() const noexcept;
   [[nodiscard]] wrapper_semantics wrapper() const noexcept;

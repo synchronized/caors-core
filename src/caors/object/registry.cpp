@@ -25,9 +25,7 @@ error ensure_object_base_registered(meta::registry& registry) {
 
 } // namespace detail
 
-bool is_object_type(meta::type type) noexcept {
-  return type.registered() && object_factory_capability{type}.valid();
-}
+bool is_object_type(meta::type type) noexcept { return type.is_object(); }
 
 object_factory_capability factory(meta::type type) noexcept {
   return is_object_type(type) ? object_factory_capability{type} : object_factory_capability{};

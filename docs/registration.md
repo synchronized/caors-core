@@ -16,7 +16,7 @@
 | 入口 | 用途 |
 | --- | --- |
 | `registration::type_<T>(name)` | 注册普通 C++ 类型，并在同一条 builder 链路中收集 meta、serialization、object 和 capability 数据。 |
-| `registration::type_<T>()` | 注册 `objects::object` 派生类型时读取 `T::object_type_name`，并自动写入对象能力。 |
+| `registration::type_<T>()` | 注册 `meta::object` 派生类型时读取 `T::object_type_name`，并自动写入对象能力。 |
 | `registration::enum_<T>(name)` | 注册枚举类型和枚举项。 |
 | `registration::value(name, value)` | 枚举项批量注册输入，用在 `registration::enum_<T>(name)(...)`。 |
 | `registration::batch(ctx)` / `registration::batch()` | 顺序收集多个 type/enum builder，并在 `commit()` 时批量提交。 |
@@ -82,7 +82,7 @@ caors::error register_game_types(caors::meta::context& ctx) {
 同一个类型会返回 `errc::duplicate_id`，并保留已有注册数据。
 
 业务类型注册统一使用 `registration::type_<T>(name)`。object 和 serialization 不再提供独立公共
-builder；当 `T` 继承自 `objects::object` 时，`commit()` 会自动写入对象能力。序列化 schema 通过
+builder；当 `T` 继承自 `meta::object` 时，`commit()` 会自动写入对象能力。序列化 schema 通过
 `.serialization()` 写入，同一次 `commit()` 发布完整 `type_data`。显式序列化字段会在提交阶段绑定到
 已注册属性，未显式填写字段时会按当前属性列表生成默认 schema。`meta::init_registry()` 仍负责执行
 延迟注册函数并校验注册表。

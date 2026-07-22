@@ -134,8 +134,8 @@ namespace caors::traits {
 
 template <>
 struct object_ptr_access<game::actor_ptr> {
-  static caors::objects::object* get(const game::actor_ptr& source) noexcept;
-  static bool set(game::actor_ptr& source, caors::objects::object* instance) noexcept;
+  static caors::object* get(const game::actor_ptr& source) noexcept;
+  static bool set(game::actor_ptr& source, caors::object* instance) noexcept;
 };
 
 } // namespace caors::traits

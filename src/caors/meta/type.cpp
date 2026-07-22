@@ -7,6 +7,7 @@
 #include "caors/meta/enum_value.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/method.h"
+#include "caors/meta/object.h"
 #include "caors/meta/property.h"
 #include "caors/meta/registry.h"
 
@@ -69,6 +70,15 @@ type type::parent() const noexcept {
 type_kind type::kind() const noexcept {
   const detail::type_descriptor* desc = descriptor();
   return desc != nullptr ? detail::descriptor_kind(*desc) : type_kind::value;
+}
+
+bool type::is_object() const noexcept {
+  if (!registered() || registry_ == nullptr) {
+    return false;
+  }
+
+  const type_id object_id = detail::descriptor_type_id<meta::object>();
+  return id() == object_id || registry_->is_a(id(), object_id);
 }
 
 scalar_kind type::scalar() const noexcept {

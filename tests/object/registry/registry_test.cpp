@@ -32,6 +32,7 @@ TEST_CASE("object - non default constructible types can be described but not fac
 
   auto type = caors::objects::find<registered_non_default_object>();
   REQUIRE(type);
+  CHECK(type.is_object());
   CHECK(caors::objects::contains(type));
   CHECK_FALSE(caors::objects::constructible(type));
   CHECK(caors::objects::try_create(type) == nullptr);
@@ -50,10 +51,13 @@ TEST_CASE("object - registry checks parent relationship", "[object]") {
   const auto actor_type = caors::objects::find<relation_actor>();
   REQUIRE(object_type);
   REQUIRE(actor_type);
+  CHECK(object_type.is_object());
+  CHECK(actor_type.is_object());
 
   REQUIRE(register_object_test_type<relation_player>(actor_type.id()) == caors::error{});
   const auto player_type = caors::objects::find<relation_player>();
   REQUIRE(player_type);
+  CHECK(player_type.is_object());
 
   CHECK(caors::objects::is_a(player_type.id(), player_type.id()));
   CHECK(caors::objects::is_a(player_type.id(), actor_type.id()));
@@ -98,6 +102,7 @@ TEST_CASE("object - registry registers and finds types", "[object]") {
 
   auto type = caors::objects::find<registry_actor>();
   REQUIRE(type);
+  CHECK(type.is_object());
   CHECK(caors::objects::contains(type));
   CHECK(type.id() == registry_actor::static_type_id());
   CHECK(type.name() == registry_actor::object_type_name);

@@ -84,7 +84,7 @@ namespace caors::meta::capabilities {
 template <typename T> struct static_capability<objects::object_factory_ops, T> {
   [[nodiscard]] static const objects::object_factory_ops* get() {
     using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-    if constexpr (std::is_base_of_v<objects::object, value_type>) {
+    if constexpr (std::is_base_of_v<meta::object, value_type>) {
       return objects::detail::object_factory_ops_ptr_of<value_type>();
     } else {
       return nullptr;
@@ -93,7 +93,7 @@ template <typename T> struct static_capability<objects::object_factory_ops, T> {
 };
 
 template <typename T>
-  requires std::is_base_of_v<objects::object, std::remove_cv_t<std::remove_reference_t<T>>>
+  requires std::is_base_of_v<meta::object, std::remove_cv_t<std::remove_reference_t<T>>>
 struct module_static_capability_list<object_static_capability_module, T> {
   using type = type_list<objects::object_factory_ops>;
 };

@@ -5,6 +5,7 @@
 #define CAORS_SERIALIZATION_OPERATIONS_H_
 
 #include "caors/io/file_system.h"
+#include "caors/meta/object.h"
 #include "caors/meta/query.h"
 #include "caors/meta/type.h"
 #include "caors/object.h"
@@ -44,7 +45,7 @@ template <typename T> [[nodiscard]] error serialize(const T& object, writer& wri
   }
 
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (std::is_base_of_v<objects::object, value_type>) {
+  if constexpr (std::is_base_of_v<meta::object, value_type>) {
     if (detail::object_requires_polymorphic_envelope(type.id(), object)) {
       return detail::serialize_polymorphic_object(context, type.id(), object, writer);
     }
@@ -68,7 +69,7 @@ template <typename T>
   }
 
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (std::is_base_of_v<objects::object, value_type>) {
+  if constexpr (std::is_base_of_v<meta::object, value_type>) {
     if (detail::object_requires_polymorphic_envelope(type.id(), object)) {
       return detail::serialize_polymorphic_object(context, type.id(), object, writer);
     }
@@ -203,7 +204,7 @@ template <typename T>
 [[nodiscard]] error read_migrated_dom_value_from(const serialization::context& context, T& object,
                                                  const variant& value) {
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (std::is_base_of_v<objects::object, value_type>) {
+  if constexpr (std::is_base_of_v<meta::object, value_type>) {
     if (detail::is_polymorphic_value(context, value)) {
       const meta::type type = find_registered_type<value_type>(context);
       if (!type.registered()) {
@@ -284,7 +285,7 @@ template <typename T>
   }
 
   serialization::json_reader reader{text, options};
-  if constexpr (std::is_base_of_v<objects::object, value_type>) {
+  if constexpr (std::is_base_of_v<meta::object, value_type>) {
     if (reader.is_polymorphic_envelope(context)) {
       return deserialize_polymorphic_object_into(context, type.id(), object, reader);
     }
@@ -478,7 +479,7 @@ template <typename T> [[nodiscard]] variant_result to_value(const T& object) {
   }
 
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (std::is_base_of_v<objects::object, value_type>) {
+  if constexpr (std::is_base_of_v<meta::object, value_type>) {
     if (detail::object_requires_polymorphic_envelope(type.id(), object)) {
       return detail::to_polymorphic_object_serialization_value(context, type.id(), object);
     }
@@ -501,7 +502,7 @@ template <typename T>
   }
 
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-  if constexpr (std::is_base_of_v<objects::object, value_type>) {
+  if constexpr (std::is_base_of_v<meta::object, value_type>) {
     if (detail::object_requires_polymorphic_envelope(type.id(), object)) {
       return detail::to_polymorphic_object_serialization_value(context, type.id(), object);
     }

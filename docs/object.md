@@ -214,7 +214,7 @@ caors::object* target = object.get_ptr("target");
 
 `objects::view(owner)` 会显式绑定当前派生对象指针，因此 `object.ptr()` 可以返回 `&owner`。
 如果只通过 `objects::view(any_ref)` 包装已经类型擦除的实例视图，不会尝试从派生类型自动反推出
-`objects::object*`；这避免在没有完整对象类型语义时做不安全转换。需要当前对象指针时，
+`caors::object*`；这避免在没有完整对象类型语义时做不安全转换。需要当前对象指针时，
 优先使用 `objects::view(T&)`，或由上层对象 manager / 场景系统显式提供。
 
 `meta::property` 只保留通用属性读写能力，不直接暴露对象专用 `get/set` 接口。
@@ -283,7 +283,7 @@ if (player* current = manager.find(typed)) {
 引用计数仍是运行期状态，不写入存档。
 
 ```cpp
-class actor : public caors::objects::object_base<actor>,
+class actor : public caors::object_base<actor>,
               public caors::objects::ref_counted {
 public:
   static constexpr std::string_view object_type_name = "game.actor";
@@ -433,14 +433,15 @@ object.type_name(); // "game.player"
 
 对象模块不维护独立 registry。对象类型通过 `registration::type_<T>()` 或
 `registration::type_<T>(context, name)` 注册到 `meta::registry`；只要 `T` 继承自
-`objects::object`，`commit()` 会自动写入对象工厂能力。注册后通过 `objects::find()`、
+`meta::object`，`commit()` 会自动写入对象工厂能力。注册后通过 `objects::find()`、
 `objects::id()`、`objects::is_a()`、`objects::create()` 和 `objects::destroy()` 使用对象语义入口。
 无 context 重载使用 `meta::default_context()`；需要隔离注册表时显式传入同一个 `meta::context`。
 
 对外查询直接返回 `meta::type` 只读视图。调用方可以通过 `id()`、`name()`、`guid()`、`size()`、
-`alignment()` 和 `parent_id()` 查询对象类型信息；对象专有语义通过
+`alignment()`、`parent_id()` 和 `is_object()` 查询对象类型信息；对象生命周期和工厂能力通过
 `objects::contains(type)`、`objects::factory(type)` 和 `objects::constructible(type)` 查询。`meta::type`
-仍然不能直接修改注册表内部数据。
+仍然不能直接修改注册表内部数据。`type.is_object()` 只表达该类型是否是已注册 `meta::object`
+或其派生类型，不表示一定可默认构造。
 
 ```cpp
 if (caors::registration::type_<actor>().commit()) {

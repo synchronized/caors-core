@@ -5,6 +5,7 @@
 
 #include "detail/polymorphic.h"
 
+#include "caors/meta/object.h"
 #include "caors/meta/query.h"
 #include "caors/meta/type.h"
 
@@ -15,15 +16,15 @@ namespace caors::serialization {
 namespace detail {
 
 bool object_requires_polymorphic_envelope(type_id declared_id,
-                                          const objects::object& object) noexcept {
-  const objects::object_type_id dynamic_id = object.type_id();
+                                          const meta::object& object) noexcept {
+  const meta::object_type_id dynamic_id = object.type_id();
   return declared_id && dynamic_id && dynamic_id != declared_id;
 }
 
 variant_result to_polymorphic_object_serialization_value(const serialization::context& context,
                                                          type_id declared_id,
-                                                         const objects::object& object) {
-  const objects::object_type_id dynamic_id = object.type_id();
+                                                         const meta::object& object) {
+  const meta::object_type_id dynamic_id = object.type_id();
   if (!declared_id || !dynamic_id) {
     return {{error_domain::serialization, errc::invalid_type}, {}};
   }
@@ -61,7 +62,7 @@ variant_result to_polymorphic_object_serialization_value(const serialization::co
 }
 
 error serialize_polymorphic_object(const serialization::context& context, type_id declared_id,
-                                   const objects::object& object, writer& writer) {
+                                   const meta::object& object, writer& writer) {
   variant_result value = to_polymorphic_object_serialization_value(context, declared_id, object);
   if (value.failed()) {
     return value.status;
@@ -75,7 +76,7 @@ bool is_polymorphic_value(const serialization::context& context, const variant& 
 }
 
 error deserialize_polymorphic_object_into(const serialization::context& context,
-                                          type_id declared_id, objects::object& object,
+                                          type_id declared_id, meta::object& object,
                                           const variant& value) {
   result<meta::type> dynamic_type = resolve_polymorphic_meta_type(declared_id, value, context);
   if (dynamic_type.failed()) {
@@ -102,7 +103,7 @@ error deserialize_polymorphic_object_into(const serialization::context& context,
 }
 
 error deserialize_polymorphic_object_into(const serialization::context& context,
-                                          type_id declared_id, objects::object& object,
+                                          type_id declared_id, meta::object& object,
                                           reader& reader) {
   type_guid dynamic_guid{};
   error status = reader.read_polymorphic_type_guid(context, dynamic_guid);

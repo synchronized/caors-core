@@ -348,7 +348,7 @@ private:
   }
 
   void enable_object_if_needed() {
-    if constexpr (std::is_base_of_v<objects::object, value_type>) {
+    if constexpr (std::is_base_of_v<meta::object, value_type>) {
       if (object_enabled_) {
         return;
       }
@@ -360,7 +360,7 @@ private:
       }
 
       using base_type = typename meta::detail::object_base_type_traits<value_type>::type;
-      if constexpr (!std::is_same_v<value_type, objects::object>) {
+      if constexpr (!std::is_same_v<value_type, meta::object>) {
         if (registry_ != nullptr) {
           status_ = objects::detail::ensure_object_base_registered(*registry_);
         }
@@ -856,7 +856,7 @@ template <typename T> [[nodiscard]] type_builder<T> type_(std::string_view name)
 
 /** @brief 使用对象类型自身声明的类型名创建跨模块注册构建器。 */
 template <typename T>
-  requires(std::is_base_of_v<objects::object, T>)
+  requires(std::is_base_of_v<meta::object, T>)
 [[nodiscard]] type_builder<T> type_() {
   static_assert(objects::detail::object_type_name_traits<T>::exists,
                 "T must declare object_type_name");

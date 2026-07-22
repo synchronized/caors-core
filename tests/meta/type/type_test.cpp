@@ -69,6 +69,7 @@ TEST_CASE("meta type view - describes layout", "[meta]") {
   CHECK(type_value.size() == sizeof(sample_type));
   CHECK(type_value.alignment() == alignof(sample_type));
   CHECK_FALSE(type.parent_id());
+  CHECK_FALSE(type.is_object());
 
   caors::any value = caors::any::default_construct(type.id());
   REQUIRE(value.valid());

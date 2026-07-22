@@ -127,10 +127,13 @@ meta 类型记录由当前 `meta::context` 指向的注册表内部保存，普�
 - `size`
 - `alignment`
 - `parent_id`
+- `is_object`
 
 `meta::type` 是当前类型系统的公共视图。`meta::resolve<T>()` 和 `meta::id_of<T>()`
 可以为未显式注册的 C++ 类型返回有效类型视图和运行期 `type_id`。
 `size()` / `alignment()`、默认构造、复制、析构和赋值能力也通过这个视图查询。
+`is_object()` 表示该类型是否是已注册 `meta::object` 或其派生类型；对象生命周期和工厂入口仍由
+`objects` 模块提供。
 `registered()` 表示该类型是否已经通过 `registration::type_<T>("name")` 写入稳定注册数据；只有已注册类型
 才有稳定注册名、GUID、父类型和可挂载 extension。
 `meta::find<T>()` 只查询已经注册的 C++ 类型；未注册类型即使能解析 descriptor，也会返回空视图。

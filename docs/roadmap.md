@@ -143,6 +143,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 将最小对象基类迁移到 `meta`：`meta::object` / `meta::object_base<T>` 只负责对象身份、
   `object_id`、运行期类型入口和虚析构；`objects` 模块继续负责 `ptr` / `ref` / `weak_ref` /
   `handle` / `manager` / `registry` / 序列化 resolver 等生命周期和对象系统组合能力。
+  `meta::type::is_object()` 负责查询已注册类型是否是 `meta::object` 或其派生类型。
 - [x] 定义 `meta::value` 作为高频动态运行期值，类似 Lua `TValue` / Godot `Variant` 的 tagged value：
   基础标量、`string_name`、轻量字符串、`meta::object*` 走内联或轻量指针快路径，复杂 C++ 类型通过
   `any_ref` 引用值或 `any` 拥有值兜底；`meta::variant` 继续作为序列化/配置 DOM，不承担 userdata 语义。

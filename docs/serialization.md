@@ -31,7 +31,7 @@ DOM 中间对象、类型级 codec、资源引用处理和受限多态读写，�
 - 支持已注册反射和序列化元信息的值类型结构体字段递归序列化和 DOM 反序列化。
 - 提供基于 traits 的顺序容器、集合容器、关联容器、pair、tuple 和 variant 访问，支持标量、wrapper、对象引用和已注册结构体元素。
 - 通过 `objects::object_ref_resolver_ops` 支持 `caors::objects::ptr<T>` 对象指针字段。
-- 普通序列化入口会在 `caors::objects::object` 派生对象的运行期类型不同于声明类型时自动写出多态 envelope。
+- 普通序列化入口会在 `caors::meta::object` 派生对象的运行期类型不同于声明类型时自动写出多态 envelope。
 - 通过默认 `$type` / `$value` envelope 支持 `std::unique_ptr<Base>`、`caors::memory::unique_ptr<Base>`、
   `std::shared_ptr<Base>` 和 `objects::ref<Base>` 字段持有派生类对象，并支持显式 factory 构造策略。
 - 用 `caors::error` 和 `caors::result<T>` 表达失败状态和携带值的返回结果。
@@ -198,7 +198,7 @@ caors::read_json_from(context, object, text);
 
 ### 多态 object
 
-普通序列化入口默认支持 `objects::object` 的运行期真实类型。写出时，调度层读取对象的
+普通序列化入口默认支持 `meta::object` 的运行期真实类型。写出时，调度层读取对象的
 `type_id()`；如果运行期类型不同于调用点声明类型，就按真实类型写出 DOM envelope。动态类型必须已经
 注册到当前序列化上下文使用的 meta registry，完成 object、meta 字段和 serialization 注册，并且拥有非
 nil `type_guid`。输出 envelope 默认包含：
@@ -245,7 +245,7 @@ runtime、对象或智能指针 codec 路径，由对应模块在内部使用 `c
 
 当前边界：
 
-- 只支持 `objects::object` 派生类型。
+- 只支持 `meta::object` 派生类型。
 - 写入已有对象不需要对象工厂；需要新建对象的高层路径必须提供匹配的对象或类型工厂。
 - 类型身份只写稳定 `type_guid`，不写运行期 `type_id`。
 - 不自动接管裸指针、`std::shared_ptr<Base>` 等字段的所有权；这类字段仍按现有指针/wrapper 规则处理。
@@ -257,7 +257,7 @@ runtime、对象或智能指针 codec 路径，由对应模块在内部使用 `c
 
 - 支持 `std::unique_ptr<Base>`、`caors::memory::unique_ptr<Base>`、`std::shared_ptr<Base>`
   和 `objects::ref<Base>`。
-- `objects::ref<Base>` 要求 `Base` 继承 `objects::object` 和 `objects::ref_counted`。
+- `objects::ref<Base>` 要求 `Base` 继承 `meta::object` 和 `objects::ref_counted`。
 - 写出时通过 RTTI 查询真实动态类型，动态类型必须已经注册到当前序列化上下文使用的 meta registry。
 - 派生类必须通过 typed parent 注册，例如 `.parent<Base>()`，这样注册表同时保存继承关系和安全 upcast 回调。
 - 动态类型必须拥有稳定 `type_guid`，并完成 meta 字段和 serialization 注册。
@@ -1093,7 +1093,7 @@ template <> struct codec_traits<custom_value> {
   `index` 必须在候选范围内，否则返回 `errc::invalid_argument`。相同候选会更新已有值；切换候选时目标候选
   需要可通过上下文构造策略、factory、空参数 constructor 或默认构造创建，否则返回
   `errc::invalid_type`。处于无值状态的 variant 当前返回不支持。
-- 直接值字段仍按字段声明静态类型处理；运行期动态类型记录发生在 `objects::object`
+- 直接值字段仍按字段声明静态类型处理；运行期动态类型记录发生在 `meta::object`
   声明类型和真实类型不一致时，以及拥有型智能指针 wrapper envelope 上。
 - JSON 文本 reader 已支持按字段直接读入；当启用 schema migration、缺失字段宽松策略、未知字段保留或严格拒绝时会先走
   DOM parser，以便检查、跳过或改写完整对象成员。输入流 / 文件系统便捷读入仍走 DOM parser。二进制格式、跨对象迁移调度
@@ -1273,7 +1273,7 @@ caors::string text = *result;
 - 内置 string、string_view、guid 和 type_guid codec。
 - 裸指针、普通 wrapper、`objects::ptr<T>` 和已适配容器字段。
 - 运行期 `object_id` resolver 和持久 `object_guid` resolver。
-- 基于稳定 `type_guid` 的 `objects::object` 运行期真实类型序列化。
+- 基于稳定 `type_guid` 的 `meta::object` 运行期真实类型序列化。
 - 基于稳定 `type_guid`、RTTI、typed parent upcast 和可选 factory 的普通类拥有型智能指针多态序列化。
 - `variant` 安全访问器、数组/字典/对象辅助修改和成员查询。
 - 通过统一 registration builder 一次性注册 meta 字段和序列化 schema。
