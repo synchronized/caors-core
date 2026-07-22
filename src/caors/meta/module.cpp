@@ -3,6 +3,7 @@
 
 #include "caors/meta/module.h"
 
+#include "caors/meta/detail/module_access.h"
 #include "caors/meta/detail/property_access.h"
 
 #include "caors/core/containers.h"
@@ -192,22 +193,22 @@ module_view::module_view(const detail::module_data* data) noexcept : data_(data)
 bool module_view::valid() const noexcept { return data_ != nullptr && data_->valid(); }
 
 core::string_name module_view::name() const noexcept {
-  const detail::module_data* module = data();
+  const detail::module_data* module = detail::module_access::data_of(*this);
   return module != nullptr ? module->name() : core::string_name{};
 }
 
 std::size_t module_view::property_count() const noexcept {
-  const detail::module_data* module = data();
+  const detail::module_data* module = detail::module_access::data_of(*this);
   return module != nullptr ? module->property_count() : 0;
 }
 
 property module_view::property_at(std::size_t index) const {
-  const detail::module_data* module = data();
+  const detail::module_data* module = detail::module_access::data_of(*this);
   return module != nullptr ? detail::property_access::make(module->property_at(index)) : property{};
 }
 
 property module_view::find_property(core::string_name name) const {
-  const detail::module_data* module = data();
+  const detail::module_data* module = detail::module_access::data_of(*this);
   return module != nullptr ? detail::property_access::make(module->find_property_ptr(name))
                            : property{};
 }
@@ -218,17 +219,17 @@ property module_view::find_property(std::string_view name) const {
 }
 
 std::size_t module_view::method_count() const noexcept {
-  const detail::module_data* module = data();
+  const detail::module_data* module = detail::module_access::data_of(*this);
   return module != nullptr ? module->method_count() : 0;
 }
 
 method_set module_view::method_at(std::size_t index) const {
-  const detail::module_data* module = data();
+  const detail::module_data* module = detail::module_access::data_of(*this);
   return module != nullptr ? method_set{module->method_at(index)} : method_set{};
 }
 
 method_set module_view::find_method(core::string_name name) const {
-  const detail::module_data* module = data();
+  const detail::module_data* module = detail::module_access::data_of(*this);
   return module != nullptr ? method_set{module->find_method_ptr(name)} : method_set{};
 }
 
@@ -236,8 +237,6 @@ method_set module_view::find_method(std::string_view name) const {
   const std::optional<core::string_name> interned_name = core::string_name::find(name);
   return interned_name.has_value() ? find_method(*interned_name) : method_set{};
 }
-
-const detail::module_data* module_view::data() const noexcept { return valid() ? data_ : nullptr; }
 
 module_builder::module_builder(std::string_view name) : name_(name) {
   refresh();
@@ -264,6 +263,8 @@ error module_builder::commit_method(detail::method_data method) {
 
 void module_builder::refresh() noexcept { module_ = modules().ensure(name_); }
 
+module_view module_builder::get() const noexcept { return detail::module_access::make(module_); }
+
 module_builder module(std::string_view name) { return module_builder{name}; }
 
 module_view find_module(std::string_view name) {
@@ -271,6 +272,8 @@ module_view find_module(std::string_view name) {
   return interned_name.has_value() ? find_module(*interned_name) : module_view{};
 }
 
-module_view find_module(core::string_name name) { return module_view{modules().find(name)}; }
+module_view find_module(core::string_name name) {
+  return detail::module_access::make(modules().find(name));
+}
 
 } // namespace caors::meta

@@ -5,7 +5,7 @@
 #define CAORS_META_MODULE_H_
 
 #include "caors/export.h"
-#include "caors/meta/detail/module_data.h"
+#include "caors/meta/detail/callable_signature.h"
 #include "caors/meta/method.h"
 #include "caors/meta/property.h"
 
@@ -16,6 +16,13 @@
 namespace caors::meta {
 
 class module_builder;
+
+namespace detail {
+class method_data;
+class module_access;
+class module_data;
+class property_data;
+} // namespace detail
 
 /** @brief 全局 module 只读视图，用于查询全局属性和全局函数。 */
 class CAORS_API module_view final {
@@ -35,11 +42,8 @@ public:
   [[nodiscard]] method_set find_method(std::string_view name) const;
 
 private:
-  friend class module_builder;
-  friend module_view find_module(std::string_view name);
-  friend module_view find_module(string_name name);
+  friend class detail::module_access;
   explicit module_view(const detail::module_data* data) noexcept;
-  [[nodiscard]] const detail::module_data* data() const noexcept;
 
   const detail::module_data* data_ = nullptr;
 };
@@ -49,60 +53,17 @@ class module_builder final {
 public:
   explicit module_builder(std::string_view name);
 
-  template <typename Property> module_builder& property(std::string_view name, Property* value) {
-    if (status_) {
-      return *this;
-    }
-
-    detail::property_data property = detail::make_global_property_data(name, value);
-    if (!property.valid()) {
-      status_ = {error_domain::meta, errc::invalid_argument};
-      return *this;
-    }
-
-    status_ = commit_property(std::move(property));
-    refresh();
-    return *this;
-  }
+  template <typename Property> module_builder& property(std::string_view name, Property* value);
 
   template <typename Return, typename... Arguments>
-  module_builder& function(std::string_view name, Return (*function)(Arguments...)) {
-    if (status_) {
-      return *this;
-    }
-
-    detail::method_data method = detail::make_global_method_data(name, function);
-    if (!method.valid()) {
-      status_ = {error_domain::meta, errc::invalid_argument};
-      return *this;
-    }
-
-    status_ = commit_method(std::move(method));
-    refresh();
-    return *this;
-  }
+  module_builder& function(std::string_view name, Return (*function)(Arguments...));
 
   template <typename Callable>
     requires(!std::is_pointer_v<std::decay_t<Callable>> &&
              requires { typename detail::callable_signature_t<std::decay_t<Callable>>; })
-  module_builder& function(std::string_view name, Callable&& callable) {
-    if (status_) {
-      return *this;
-    }
+  module_builder& function(std::string_view name, Callable&& callable);
 
-    detail::method_data method =
-        detail::make_global_callable_method_data(name, std::forward<Callable>(callable));
-    if (!method.valid()) {
-      status_ = {error_domain::meta, errc::invalid_argument};
-      return *this;
-    }
-
-    status_ = commit_method(std::move(method));
-    refresh();
-    return *this;
-  }
-
-  [[nodiscard]] module_view get() const noexcept { return module_view{module_}; }
+  [[nodiscard]] module_view get() const noexcept;
   [[nodiscard]] error result() const noexcept { return status_; }
   [[nodiscard]] bool succeeded() const noexcept { return !status_; }
 
@@ -124,5 +85,7 @@ private:
 [[nodiscard]] CAORS_API module_view find_module(string_name name);
 
 } // namespace caors::meta
+
+#include "caors/meta/detail/module_templates.h"
 
 #endif
