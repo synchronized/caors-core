@@ -3,6 +3,7 @@
 
 #include "caors/meta/module.h"
 
+#include "caors/meta/detail/method_access.h"
 #include "caors/meta/detail/module_access.h"
 #include "caors/meta/detail/property_access.h"
 
@@ -225,12 +226,14 @@ std::size_t module_view::method_count() const noexcept {
 
 method_set module_view::method_at(std::size_t index) const {
   const detail::module_data* module = detail::module_access::data_of(*this);
-  return module != nullptr ? method_set{module->method_at(index)} : method_set{};
+  return module != nullptr ? detail::method_access::make_set(module->method_at(index))
+                           : method_set{};
 }
 
 method_set module_view::find_method(core::string_name name) const {
   const detail::module_data* module = detail::module_access::data_of(*this);
-  return module != nullptr ? method_set{module->find_method_ptr(name)} : method_set{};
+  return module != nullptr ? detail::method_access::make_set(module->find_method_ptr(name))
+                           : method_set{};
 }
 
 method_set module_view::find_method(std::string_view name) const {

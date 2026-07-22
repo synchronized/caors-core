@@ -2,6 +2,7 @@
 // Copyright (c) 2026 CAORS contributors
 
 #include "caors/meta/type.h"
+#include "caors/meta/detail/method_access.h"
 #include "caors/meta/detail/property_access.h"
 #include "caors/meta/detail/type_access.h"
 #include "caors/meta/detail/type_data.h"
@@ -262,7 +263,7 @@ std::size_t type::method_count() const noexcept {
 
 method_set type::method_at(std::size_t index) const {
   const detail::type_data* data = detail::type_access::registered_data_of(*this);
-  return data != nullptr ? method_set{data->method_at(index)} : method_set{};
+  return data != nullptr ? detail::method_access::make_set(data->method_at(index)) : method_set{};
 }
 
 method_set type::find_method(core::string_name method_name, member_search search) const {
@@ -272,7 +273,7 @@ method_set type::find_method(core::string_name method_name, member_search search
 
   const detail::type_data* data = detail::type_access::registered_data_of(*this);
   if (data != nullptr) {
-    method_set found{data->find_method_ptr(method_name)};
+    method_set found = detail::method_access::make_set(data->find_method_ptr(method_name));
     if (found || search == member_search::local_only) {
       return found;
     }
@@ -282,7 +283,7 @@ method_set type::find_method(core::string_name method_name, member_search search
   while (base) {
     const detail::type_data* base_data = detail::type_access::registered_data_of(base);
     if (base_data != nullptr) {
-      method_set found{base_data->find_method_ptr(method_name)};
+      method_set found = detail::method_access::make_set(base_data->find_method_ptr(method_name));
       if (found) {
         return found;
       }

@@ -22,6 +22,7 @@ namespace caors::meta {
 namespace detail {
 class method_data;
 class method_set_data;
+class method_access;
 } // namespace detail
 
 class method_set;
@@ -281,10 +282,7 @@ public:
   }
 
 private:
-  friend class method_set;
-  friend class method_match_result;
-  friend class module_view;
-  friend class type;
+  friend class detail::method_access;
 
   explicit method(const detail::method_data* reflected_method) noexcept;
   [[nodiscard]] const detail::method_data* info() const noexcept;
@@ -373,8 +371,7 @@ public:
                                            argument_match_options options = {}) const;
 
 private:
-  friend class module_view;
-  friend class type;
+  friend class detail::method_access;
 
   explicit method_set(const detail::method_set_data* reflected_method_set) noexcept;
   [[nodiscard]] const detail::method_set_data* info() const noexcept;

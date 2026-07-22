@@ -4,6 +4,7 @@
 #include "caors/meta/method.h"
 
 #include "caors/core/containers.h"
+#include "caors/meta/detail/method_access.h"
 #include "caors/meta/detail/method_data.h"
 #include "caors/meta/instance.h"
 
@@ -264,12 +265,13 @@ std::size_t method_set::overload_count() const noexcept {
 
 method method_set::overload_at(std::size_t index) const {
   const detail::method_set_data* method_set = info();
-  return method_set != nullptr ? method{method_set->overload_at(index)} : method{};
+  return method_set != nullptr ? detail::method_access::make(method_set->overload_at(index))
+                               : method{};
 }
 
 method method_set::single() const {
   const detail::method_set_data* method_set = info();
-  return method_set != nullptr ? method{method_set->single()} : method{};
+  return method_set != nullptr ? detail::method_access::make(method_set->single()) : method{};
 }
 
 method_match_result method_set::match(std::span<const argument> arguments,
@@ -284,8 +286,9 @@ method_match_result method_set::match(std::span<const argument> arguments,
     return method_match_result::ambiguous();
   }
 
-  return result.matched() ? method_match_result::matched(method{result.method}, result.kind)
-                          : method_match_result::none();
+  return result.matched()
+             ? method_match_result::matched(detail::method_access::make(result.method), result.kind)
+             : method_match_result::none();
 }
 
 method_match_result method_set::match(std::span<const named_argument> arguments,
@@ -300,8 +303,9 @@ method_match_result method_set::match(std::span<const named_argument> arguments,
     return method_match_result::ambiguous();
   }
 
-  return result.matched() ? method_match_result::matched(method{result.method}, result.kind)
-                          : method_match_result::none();
+  return result.matched()
+             ? method_match_result::matched(detail::method_access::make(result.method), result.kind)
+             : method_match_result::none();
 }
 
 method method_set::resolve(std::span<const argument> arguments,
@@ -379,7 +383,7 @@ invoke_value_result method_set::invoke(const instance& object,
     return invoke_value_result::failed(invoke_failure_reason::ambiguous_overload);
   }
   if (value_match.matched()) {
-    return method{value_match.method}.invoke(object, arguments, options);
+    return detail::method_access::make(value_match.method).invoke(object, arguments, options);
   }
 
   value_arguments converted = make_value_arguments(arguments);
@@ -404,7 +408,7 @@ invoke_value_result method_set::invoke(std::span<const meta::value> arguments,
     return invoke_value_result::failed(invoke_failure_reason::ambiguous_overload);
   }
   if (value_match.matched()) {
-    return method{value_match.method}.invoke(arguments, options);
+    return detail::method_access::make(value_match.method).invoke(arguments, options);
   }
 
   value_arguments converted = make_value_arguments(arguments);
