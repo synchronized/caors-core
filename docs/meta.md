@@ -136,7 +136,7 @@ meta 类型记录由当前 `meta::context` 指向的注册表内部保存，普�
 `objects` 模块提供。
 `registered()` 表示该类型是否已经通过 `registration::type_<T>("name")` 写入稳定注册数据；只有已注册类型
 才有稳定注册名、GUID、父类型和可挂载 extension。
-`meta::find<T>()` 只查询已经注册的 C++ 类型；未注册类型即使能解析 descriptor，也会返回空视图。
+`meta::find<T>()` 只查询已经注册的 C++ 类型；未注册类型即使能解析静态类型节点，也会返回空视图。
 `registration::type_<T>("name")` 链式 builder 在 `commit()` 时一次性发布完整类型数据；发布后的
 `type_data` 不再通过 builder 修改。已有 `meta::type` 视图引用稳定注册数据，重复提交同一类型会返回重复错误。
 属性和成员方法也挂在同一份类型数据上，应在同一次注册提交前通过 `.meta()` 段写入。
@@ -358,13 +358,13 @@ caors::registration::type_<player>("game.player")
 `.factory()` 无参数重载使用 `memory::make<T>()` / `memory::destroy<T>()` 注册默认构造策略，要求 `T`
 可默认构造。带函数指针的重载用于不可默认构造类型，`destroy` 必须匹配 `construct` 的分配策略。
 应用层需要创建运行期值时优先使用 `meta::type::create()`，它会先通过
-`meta::type::get_capability<meta::factory_capability>()` 查询这里注册的 factory，再回退到 descriptor
+`meta::type::get_capability<meta::factory_capability>()` 查询这里注册的 factory，再回退到静态类型节点的
 默认构造。如果确实只需要 meta 层创建结果，可以使用 `factory_capability::construct(resource)` 直接返回
 拥有生命周期的 `meta::any`；需要先填充对象再转移所有权时，使用
 `factory_capability::construct_owned(resource)` 返回 `meta::owned_value`。裸指针构造和销毁只存在于底层
 `factory_ops` / ops/model 实现中；需要把外部高级构造结果转成 RAII 句柄时，使用
-`meta::make_owned_value()`。公开 facade 不暴露 `void*`，`any::default_construct()` 只表达 descriptor
-默认构造能力，不查询 factory。
+`meta::make_owned_value()`。公开 facade 不暴露 `void*`，`any::default_construct()` 只表达静态
+`value_ops` 的默认构造能力，不查询 factory。
 
 如果类型需要按运行期参数列表构造，可以注册 constructor capability：
 
@@ -397,7 +397,7 @@ caors::registration::type_<actor>("game.actor")
 
 ### 普通入口：facade 和 view
 
-普通业务代码优先使用公开 facade，而不是直接操作内部 descriptor 或 raw ops：
+普通业务代码优先使用公开 facade，而不是直接操作内部 `type_data` 或 raw ops：
 
 - 类型查询使用 `meta::resolve<T>()` 或 `meta::find<T>()`。
 - 类型级能力使用 `meta::type::get_capability<Capability>()`，例如
@@ -414,7 +414,7 @@ caors::registration::type_<actor>("game.actor")
 只有实现新的 capability facade、调试工具、序列化桥接或性能敏感适配层时，才直接使用
 `meta::type::get_raw_ops<Ops>()`。
 
-### 分层边界：descriptor、registry、capability
+### 分层边界：type_data、registry、capability
 
 当前 meta 层按公共 API、注册表和能力三类边界分工：
 
@@ -445,11 +445,13 @@ caors::registration::type_<actor>("game.actor")
 - dynamic capability 不是 meta extension，也不替代业务类型注册；需要稳定名称、GUID 或跨模块 extension 查询时仍要注册
   meta 类型。
 
-### 内部结构：descriptor 和 ops
+static capability 依赖模板特化可见性。用户类型及其 `codec_traits<T>`、object adapter 或自定义
+`static_capability` 特化应放在同一个公共头或配套 adapter 头中，并在首次使用
+`resolve<T>()`、`id_of<T>()`、`any::from<T>()` 等可能实例化静态节点的入口前包含。使用同一类型的
+不同翻译单元必须采用一致的 adapter 边界；CAORS 不支持先实例化静态节点、再补充特化的包含顺序。
+`caors/serialization.h`、`caors/object/serialization.h` 和各模块 adapter 聚合头用于建立这一边界。
 
-`meta::type` 的未注册 C++ 类型视图由内部 descriptor 支撑。descriptor 描述某个 `T` 的
-`type_id`、默认显示名、布局、构造 / 析构 / 复制 / 赋值、类型语义，以及 CAORS 内置访问能力。
-它只表示“这个 C++ 类型可以被描述”，不表示类型已经完成业务注册。
+### 内部结构：type_data 和 ops
 
 每个 C++ 类型拥有一份静态 `type_data` 节点，其中直接保存布局、值操作、类型语义、内置 ops
 和静态能力表；未注册结构类型也可以通过 `any`、`any_ref` 或反射属性携带的静态类型节点访问同一套能力。
@@ -507,7 +509,7 @@ caors::registration::type_<actor>("game.actor")
 - `*_ops_model<T>` 内部优先使用具名 static 回调组装函数表，避免把类型擦除回调散落在匿名 lambda
   或临时初始化表达式里。局部遍历适配可以使用短 lambda，但对外保存到 `*_ops` 的函数指针应来自
   明确命名的 model 回调。
-- descriptor 内置 ops 同样遵循这套规则：`enum_ops_model<T>`、`indirect_ops_model<T>`、
+- 静态类型节点的内置 ops 同样遵循这套规则：`enum_ops_model<T>`、`indirect_ops_model<T>`、
   `sequence_ops_model<T>`、`set_ops_model<T>`、`associative_ops_model<T>`、`pair_ops_model<T>`、
   `tuple_ops_model<T>` 和 `variant_ops_model<T>` 负责生成内置访问函数表；tuple 和 variant 会再用
   按索引展开的 element / alternative model 生成每个元素或候选类型的函数表。
@@ -524,8 +526,8 @@ caors::registration::type_<actor>("game.actor")
 - `nullable`：运行期值是否可能为空。
 
 具体访问函数表由 `builtin_ops` 或模块 ops 持有，用来描述枚举转换、容器、指针、wrapper、
-对象引用、pair、tuple 和 variant 访问能力。当前 descriptor 内置 ops 由 CAORS 定义，并且同一类型只会持有一个内置 ops；内部通过
-`descriptor_ops<T>(descriptor)` 查询：
+对象引用、pair、tuple 和 variant 访问能力。当前内置 ops 由 CAORS 定义，并且同一类型只会持有一个
+对应 ops；内部通过 `meta::type::get_raw_ops<Ops>()` 查询：
 
 - `meta::indirect_ops`：裸指针或 wrapper 的内部值访问、持值检测、重置和确保持值函数。
 - `meta::enum_ops`：枚举类型和整数之间的转换函数。
@@ -573,16 +575,17 @@ capability 和 registry 的边界：
   `module_static_capability_list<Module, T>` 贡献能力，再通过 `extension_static_capability_modules<T>`
   把 module tag 加入指定 C++ 类型的静态能力聚合列表。
 
-统一 `value_type` / `key_type` 不再作为 descriptor 顶层属性保存。普通值和枚举直接使用
-descriptor 自身的 `type_id`；裸指针、wrapper、容器、pair、tuple 和 variant 的子类型信息由对应
+统一 `value_type` / `key_type` 不再作为 `type_data` 顶层属性保存。普通值和枚举直接使用
+静态节点自身的 `type_id`；裸指针、wrapper、容器、pair、tuple 和 variant 的子类型信息由对应
 访问函数表保存，并通过 `field`、`sequence_view`、`pair_view` 等公开视图查询。
 
-类型形态和通用类型关系只从 descriptor 查询，不再把语义数据、枚举 ops、容器 ops 或间接访问 ops 作为
-独立 meta extension 挂载到注册表。反射属性会保存声明类型的 `type_id` 和 descriptor，因此
+类型形态和通用类型关系只从静态 `type_data` 节点查询，不再把语义数据、枚举 ops、容器 ops 或间接访问 ops 作为
+独立 meta extension 挂载到注册表。反射属性会保存声明类型的 `meta::type` 视图，因此
 `std::vector<T>`、`std::optional<T>`、`std::tuple<...>` 这类结构类型不要求
-自身注册为 meta 类型。未注册类型不会拥有 GUID、反射属性、对象工厂或序列化 extension；如果 descriptor
-能通过 traits 推导默认显示名，`type_name()` 仍可返回该名称。无默认显示名的未注册业务类型名称为空，
-但仍可通过属性、`any` / `any_ref` 或嵌套容器元素携带的 descriptor 使用布局、值操作和运行期视图能力。
+自身注册为 meta 类型。未注册类型不会拥有反射属性、对象工厂或序列化 extension；如果
+`traits::type_identity<T>` 能提供静态名称或 GUID，`type_name()` / `guid()` 仍可返回相应身份。
+无静态名称的未注册业务类型名称为空，但仍可通过属性、`any` / `any_ref` 或嵌套容器元素携带的
+`meta::type` 使用布局、值操作和运行期视图能力。
 
 meta 不会因为存在 `traits::type_name<T>` 就在运行期隐式创建业务类型。需要稳定名称、GUID、对象工厂、
 反射属性列表或多态序列化身份的 C++ 类型仍应通过 `registration::type_<T>("name")` 显式注册。
@@ -657,7 +660,7 @@ CAORS_META_REGISTRATION(register_actor_meta) {
 
 注册表维护几类索引和类型记录：
 
-- `type_id -> 内部 meta 类型记录`：运行期主索引，保存身份类信息、descriptor 指针、父类转换、
+- `type_id -> 内部 meta 类型记录`：运行期主索引，保存静态类型节点、父类转换、
   属性、方法、enum 值、capability 和 extension。
 - `typeid(T) -> type_id`：当前进程内 RTTI 查询索引，用于普通 C++ 多态辅助。
 - `type_name -> type_id`：名称查询索引，可选。
@@ -1147,7 +1150,7 @@ schema 查询应通过 `meta::type` 返回稳定只读视图。
 - `meta::id_of<T>()`：查询 C++ 类型的运行期类型 id；类型不要求已经显式注册。
 - `meta::id()`：根据已注册类型名查询运行期类型标识。
 - `traits::type_name<T>`：基础 C++ 类型到 CAORS 类型名的默认映射。
-- 内部 descriptor：布局、值操作、类型语义、内置 ops 和静态能力表，不属于公开 API。
+- 内部静态 `type_data` 节点：布局、值操作、类型语义、内置 ops 和静态能力表，不属于公开 API。
 - `traits::wrapper_traits<T>` / `traits::wrapper_access<T>`：wrapper 类型语义和内部值访问扩展点。
 - `traits::sequence_traits<T>` / `traits::set_traits<T>` / `traits::associative_traits<T>` / `traits::pair_traits<T>` / `traits::tuple_traits<T>` / `traits::variant_traits<T>`：容器、二元组、tuple-like 和 variant-like 类型语义扩展点。
 - `meta::type`：类型只读视图，注册数据可选。

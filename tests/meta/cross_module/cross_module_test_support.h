@@ -35,6 +35,7 @@ struct cross_module_static_type {
 
 [[nodiscard]] const void* static_type_data_from_support_tu() noexcept;
 [[nodiscard]] const void* sequence_ops_from_support_tu() noexcept;
+[[nodiscard]] const void* codec_ops_from_support_tu() noexcept;
 
 [[nodiscard]] inline bool meta_property_result_ok(caors::error result) noexcept {
   return result.succeeded() || result.value() == caors::errc::duplicate_field ||

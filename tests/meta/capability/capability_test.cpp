@@ -421,7 +421,7 @@ TEST_CASE("meta - capability static provider can be registered into type data", 
   CHECK(found == capability);
 }
 
-TEST_CASE("meta - type view resolves descriptor static capabilities", "[meta]") {
+TEST_CASE("meta - type view resolves static capabilities", "[meta]") {
   const caors::meta::type type = caors::meta::resolve<static_capability_type>();
   const static_capability_data* found = type.get_capability<static_capability_data>();
   REQUIRE(found != nullptr);

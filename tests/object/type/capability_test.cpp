@@ -101,7 +101,7 @@ TEST_CASE("object - static factory capability does not imply registered object t
   CHECK_FALSE(caors::objects::find<capability_meta_only_object>());
 }
 
-TEST_CASE("object - descriptor exposes object capabilities", "[object]") {
+TEST_CASE("object - static type data exposes object capabilities", "[object]") {
   caors::object_ptr<capability_target> pointer{};
   const caors::any_ref pointer_ref = caors::any_ref::from(pointer);
   CHECK(pointer_ref.get_type().has_capability<caors::objects::ptr_capability>());
@@ -121,7 +121,7 @@ TEST_CASE("object - descriptor exposes object capabilities", "[object]") {
   CHECK(handle_ref.get_capability<caors::objects::handle_capability>());
 }
 
-TEST_CASE("object - reflected fields use descriptor object capabilities", "[object]") {
+TEST_CASE("object - reflected fields use static object capabilities", "[object]") {
   REQUIRE(caors::registration::type_<capability_owner>("caors.test.object.capability_owner")
               .meta()
               .property("pointer", &capability_owner::pointer)
@@ -144,7 +144,7 @@ TEST_CASE("object - reflected fields use descriptor object capabilities", "[obje
   CHECK(owner.pointer.get() == &target);
 }
 
-TEST_CASE("object - any_ref resolves object capabilities through descriptor", "[object]") {
+TEST_CASE("object - any_ref resolves object capabilities through static type data", "[object]") {
   caors::object_ptr<capability_target> pointer{};
   const caors::any_ref pointer_ref = caors::any_ref::from(pointer);
   const caors::objects::ptr_view pointer_view =

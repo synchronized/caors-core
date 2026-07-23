@@ -444,6 +444,10 @@ pending record 中收集完成，保持现有 append-only 和事务语义。
 完成标准：受支持的头文件组合不会让同一个 `T` 生成不同静态节点定义，未注册 static capability
 继续可用。
 
+当前约束已经明确记录在 `docs/meta.md`：类型声明与对应 adapter 特化必须在首次静态节点实例化前
+共同可见，不同翻译单元使用一致的 adapter 边界。跨翻译单元测试同时校验静态节点、sequence ops
+和 serialization codec ops 的地址一致性。
+
 ### 阶段 5：清理和性能验证
 
 - 删除旧 `type_descriptor`、`descriptor_` 回退和不再使用的 helper；

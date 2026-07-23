@@ -51,7 +51,7 @@ TEST_CASE("meta type - builder without name does not register type", "[meta]") {
 #include "meta_type_builder_test_support.h"
 
 using namespace caors::tests::meta_type_builder;
-TEST_CASE("meta type - resolve creates descriptor-only views", "[meta]") {
+TEST_CASE("meta type - resolve creates unregistered static views", "[meta]") {
   const caors::meta::type missing = caors::meta::resolve<missing_find_type>();
   REQUIRE(missing);
   CHECK_FALSE(missing.registered());

@@ -213,7 +213,7 @@ TEST_CASE("meta any - noncopyable fields return invalid values", "[meta]") {
 
 using namespace caors::tests::meta_value;
 
-TEST_CASE("meta any_ref - creates descriptor views for unregistered nested vectors", "[meta]") {
+TEST_CASE("meta any_ref - creates static type views for unregistered nested vectors", "[meta]") {
   require_value_test_meta();
 
   std::vector<std::vector<int>> values{{1, 2}, {3}};
@@ -253,7 +253,7 @@ TEST_CASE("meta any_ref - creates descriptor views for unregistered nested vecto
 
 using namespace caors::tests::meta_value;
 
-TEST_CASE("meta any - descriptor fields do not require container type registration", "[meta]") {
+TEST_CASE("meta any - static type fields do not require container type registration", "[meta]") {
   require_value_test_meta();
 
   REQUIRE(caors::registration::type_<unregistered_nested_vector_holder>(

@@ -17,6 +17,9 @@ TEST_CASE("meta static type data is unique across translation units", "[meta]") 
 
   const caors::meta::type sequence = caors::meta::resolve<std::vector<int>>();
   CHECK(sequence.get_raw_ops<caors::meta::sequence_ops>() == sequence_ops_from_support_tu());
+
+  const caors::meta::type text = caors::meta::resolve<std::string>();
+  CHECK(text.get_raw_ops<caors::serialization::codec_ops>() == codec_ops_from_support_tu());
 }
 TEST_CASE("meta - cross module view supports unified meta and serialization registration",
           "[meta]") {

@@ -131,7 +131,7 @@ TEST_CASE("meta type creation - uses registered factory before default construct
   CHECK(default_created->value == 1);
 }
 
-TEST_CASE("meta type creation - falls back to descriptor default construction",
+TEST_CASE("meta type creation - falls back to static value default construction",
           "[meta][type_creation]") {
   const caors::error status =
       caors::registration::type_<meta_default_create_type>("caors.test.meta.default_create")

@@ -72,7 +72,7 @@ template <typename T> [[nodiscard]] bool property_type_matches_name(std::string_
  *
  * 属性访问通过 `property_ops` 函数表完成。wrapper
  * 只保存属性名、成员偏移和可写标记；属性所有者和值类型 由对应 ops 模型通过 `meta::resolve<T>()`
- * 返回，避免属性数据重复缓存 descriptor。
+ * 返回，避免属性数据重复缓存静态类型节点。
  */
 class property_data final {
 public:

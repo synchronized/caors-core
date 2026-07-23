@@ -7,7 +7,7 @@
 
 using namespace test_meta;
 
-TEST_CASE("meta - registration builder accepts fields with descriptor-only types", "[meta]") {
+TEST_CASE("meta - registration builder accepts fields with unregistered static types", "[meta]") {
   struct unregistered_field {};
   struct owner {
     unregistered_field field{};

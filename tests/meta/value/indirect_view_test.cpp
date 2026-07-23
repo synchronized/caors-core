@@ -90,7 +90,7 @@ TEST_CASE("meta any_ref - creates indirect views for pointer and wrappers", "[me
 
 using namespace caors::tests::meta_value;
 
-TEST_CASE("meta any_ref - creates indirect views from descriptor wrapper values", "[meta]") {
+TEST_CASE("meta any_ref - creates indirect views from static wrapper type data", "[meta]") {
   require_value_test_meta();
 
   std::optional<int> value = 41;

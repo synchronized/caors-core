@@ -7,7 +7,7 @@
 
 using namespace caors::tests::meta_value;
 
-TEST_CASE("meta any_ref - creates pair views from descriptor values", "[meta]") {
+TEST_CASE("meta any_ref - creates pair views from static type data", "[meta]") {
   require_value_test_meta();
 
   std::pair<int, int> value{3, 5};
@@ -41,7 +41,7 @@ TEST_CASE("meta any_ref - creates pair views from descriptor values", "[meta]") 
 
 using namespace caors::tests::meta_value;
 
-TEST_CASE("meta any_ref - creates sequence views from descriptor span values", "[meta]") {
+TEST_CASE("meta any_ref - creates sequence views from static span type data", "[meta]") {
   require_value_test_meta();
 
   std::array<int, 3> storage{3, 5, 8};
@@ -75,7 +75,7 @@ TEST_CASE("meta any_ref - creates sequence views from descriptor span values", "
 
 using namespace caors::tests::meta_value;
 
-TEST_CASE("meta any_ref - creates tuple views from descriptor values", "[meta]") {
+TEST_CASE("meta any_ref - creates tuple views from static type data", "[meta]") {
   require_value_test_meta();
 
   std::tuple<int, int, caors::string> value{3, 5, caors::string{"five"}};
@@ -112,7 +112,7 @@ TEST_CASE("meta any_ref - creates tuple views from descriptor values", "[meta]")
 
 using namespace caors::tests::meta_value;
 
-TEST_CASE("meta any_ref - creates variant views from descriptor values", "[meta]") {
+TEST_CASE("meta any_ref - creates variant views from static type data", "[meta]") {
   require_value_test_meta();
 
   std::variant<int, caors::string> value{3};

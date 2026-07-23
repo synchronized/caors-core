@@ -6,7 +6,7 @@
 #include "serialization_custom_codec_test_support.h"
 
 using namespace caors::tests::serialization;
-TEST_CASE("serialization - custom codec specialization uses descriptor capability",
+TEST_CASE("serialization - custom codec specialization uses static capability",
           "[serialization]") {
   const caors::serialization::codec codec =
       caors::serialization::codec_of<policy_custom_codec_value>();
@@ -76,7 +76,7 @@ TEST_CASE("serialization - custom codec specialization uses descriptor capabilit
   CHECK(decoded.value.value == 7);
 }
 
-TEST_CASE("serialization - descriptor static codec handles erased values without registration",
+TEST_CASE("serialization - static codec handles erased values without registration",
           "[serialization]") {
   CHECK(caors::serialization::find_codec(caors::meta::resolve<descriptor_static_codec_value>()));
 

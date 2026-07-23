@@ -17,4 +17,8 @@ const void* sequence_ops_from_support_tu() noexcept {
   return meta::resolve<std::vector<int>>().get_raw_ops<meta::sequence_ops>();
 }
 
+const void* codec_ops_from_support_tu() noexcept {
+  return meta::resolve<std::string>().get_raw_ops<serialization::codec_ops>();
+}
+
 } // namespace caors::tests::cross_module
