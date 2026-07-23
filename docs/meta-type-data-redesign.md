@@ -462,11 +462,13 @@ pending record 中收集完成，保持现有 append-only 和事务语义。
 完成标准：没有兼容残留入口，性能不低于当前实现，所有平台测试通过。
 
 2026-07-23 已使用 `windows-clang-benchmark`、Release、`100000` 次迭代连续运行 3 次并记录
-`resolve/find`、属性查询和序列化调度基线。`resolve/find` 与属性查询相对旧基线基本持平，
-完整序列化路径存在明显回退，需继续专项定位，因此本阶段尚未完成。结果见
-`benchmarks/results/2026-07-23-windows-clang-benchmark-a83c174.md`。
-同日 `windows-clang-debug` 已完成单线程全量构建，75 项测试全部通过；GCC、MSVC/Clang Release
-全量测试矩阵仍待补齐。
+`resolve/find`、属性查询和序列化调度基线。首次结果发现完整序列化路径存在明显回退，随后定位为
+字段 schema 与属性分派在每次序列化时重复编译。修复后改为在类型注册时编译一次，并保存在
+`type_schema` 的私有运行时缓存中；复测的完整序列化路径已恢复到旧基线附近。修复前后结果分别见
+`benchmarks/results/2026-07-23-windows-clang-benchmark-a83c174.md` 和
+`benchmarks/results/2026-07-23-windows-clang-benchmark-f4f2bba.md`。
+同日 `windows-clang-debug` 与 `windows-vs2022-debug` 均已完成单线程全量构建，分别有 75 项测试
+全部通过；GCC、MSVC/Clang Release 全量测试矩阵仍待补齐。
 
 ## 测试计划
 
