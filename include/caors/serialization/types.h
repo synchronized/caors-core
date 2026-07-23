@@ -228,7 +228,8 @@ struct construction_options {
   void* user_data = nullptr;
   bool use_registered_factory = true;
   bool use_registered_constructor = true;
-  bool use_static_default = true;
+  /** @brief 是否允许使用类型静态节点提供的默认或资源感知构造操作作为最终兜底。 */
+  bool allow_type_default_construction = true;
 
   [[nodiscard]] constexpr bool has_custom_construct() const noexcept {
     return construct != nullptr;
