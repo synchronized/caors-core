@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
+#include "caors/meta/registry.h"
 #include "detail/registry_state.h"
 
 namespace caors::meta {

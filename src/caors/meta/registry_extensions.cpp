@@ -3,6 +3,8 @@
 
 #include "detail/registry_state.h"
 
+#include "caors/meta/registry.h"
+
 #include <mutex>
 #include <utility>
 

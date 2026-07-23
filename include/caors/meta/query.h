@@ -24,7 +24,7 @@ namespace caors::meta {
 template <typename T> [[nodiscard]] type resolve(context& ctx) {
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
   return detail::make_type_view(ctx.get_registry(), detail::descriptor_type_id<value_type>(),
-                                detail::descriptor_ptr_of<value_type>());
+                                detail::static_type_data_ptr_of<value_type>());
 }
 
 /** @brief 使用默认上下文解析 C++ 类型视图。 */

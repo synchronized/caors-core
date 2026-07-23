@@ -9,8 +9,8 @@
 #include "caors/meta/capability.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/ops/scalar_ops.h"
-#include "caors/meta/type_ops.h"
 #include "caors/meta/type_id.h"
+#include "caors/meta/type_ops.h"
 #include "caors/meta/value_ops.h"
 #include "caors/traits/wrapper.h"
 
@@ -236,13 +236,11 @@ public:
 private:
   friend class detail::type_access;
 
-  constexpr type(const registry* registry, const detail::type_data* data,
-                 const detail::type_descriptor* descriptor) noexcept
-      : registry_(registry), data_(data), descriptor_(descriptor) {}
+  constexpr type(const registry* registry, const detail::type_data* data) noexcept
+      : registry_(registry), data_(data) {}
 
   const registry* registry_ = nullptr;
   const detail::type_data* data_ = nullptr;
-  const detail::type_descriptor* descriptor_ = nullptr;
 };
 
 } // namespace caors::meta

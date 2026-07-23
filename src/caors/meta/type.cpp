@@ -349,11 +349,11 @@ type type::find_nested(std::string_view nested_name) const {
 
 namespace detail {
 
-type make_type_view(type_id id, const type_descriptor* descriptor) noexcept {
-  return make_type_view(get_registry(), id, descriptor);
+type make_type_view(type_id id, const type_data* fallback) noexcept {
+  return make_type_view(get_registry(), id, fallback);
 }
 
-type make_type_view(registry& registry, type_id id, const type_descriptor* descriptor) noexcept {
+type make_type_view(registry& registry, type_id id, const type_data* fallback) noexcept {
   if (id) {
     meta::type registered = registry.find_type(id);
     if (registered) {
@@ -361,11 +361,11 @@ type make_type_view(registry& registry, type_id id, const type_descriptor* descr
     }
   }
 
-  if (descriptor == nullptr || !descriptor->valid()) {
+  if (fallback == nullptr || !fallback->valid() || fallback->descriptor() == nullptr) {
     return {};
   }
 
-  return type_access::make(&registry, nullptr, descriptor);
+  return type_access::make(&registry, fallback);
 }
 
 } // namespace detail

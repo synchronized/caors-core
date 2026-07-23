@@ -5,6 +5,7 @@
 #define CAORS_META_DETAIL_TYPE_DESCRIPTOR_MODEL_H_
 
 #include "caors/meta/detail/builtin_ops_model.h"
+#include "caors/meta/detail/type_data.h"
 #include "caors/meta/detail/type_descriptor.h"
 #include "caors/meta/detail/type_descriptor_name.h"
 #include "caors/meta/detail/value_ops_model.h"
@@ -89,10 +90,15 @@ template <typename T> [[nodiscard]] static type_descriptor make_type_descriptor(
   return result;
 }
 
-template <typename T> [[nodiscard]] static const type_descriptor* descriptor_ptr_of() noexcept {
+template <typename T> [[nodiscard]] static const type_data* static_type_data_ptr_of() noexcept {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   static const type_descriptor descriptor = make_type_descriptor<type>();
-  return &descriptor;
+  static const type_data data{descriptor.type, descriptor.name, &descriptor, false};
+  return &data;
+}
+
+template <typename T> [[nodiscard]] static const type_descriptor* descriptor_ptr_of() noexcept {
+  return static_type_data_ptr_of<T>()->descriptor();
 }
 
 template <typename T> [[nodiscard]] error ensure_type_descriptor_for() {

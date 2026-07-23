@@ -4,6 +4,7 @@
 #include "detail/registry_state.h"
 
 #include "caors/meta/detail/type_access.h"
+#include "caors/meta/registry.h"
 
 #include <mutex>
 #include <string_view>
@@ -22,7 +23,7 @@ type registry::find_type(type_id id) const {
     return {};
   }
 
-  return detail::type_access::make(this, type_data, type_data->descriptor());
+  return detail::type_access::make(this, type_data);
 }
 
 type registry::find_type(core::type_guid guid) const {
@@ -41,7 +42,7 @@ type registry::find_type(core::type_guid guid) const {
     return {};
   }
 
-  return detail::type_access::make(this, type_data, type_data->descriptor());
+  return detail::type_access::make(this, type_data);
 }
 
 type registry::find_type(const std::type_info& info) const {
@@ -56,7 +57,7 @@ type registry::find_type(const std::type_info& info) const {
     return {};
   }
 
-  return detail::type_access::make(this, type_data, type_data->descriptor());
+  return detail::type_access::make(this, type_data);
 }
 
 type registry::find_type(std::string_view name) const {
@@ -80,7 +81,7 @@ type registry::find_type(core::string_name name) const {
     return {};
   }
 
-  return detail::type_access::make(this, type_data, type_data->descriptor());
+  return detail::type_access::make(this, type_data);
 }
 
 bool registry::is_a(type_id id, type_id base_id) const {

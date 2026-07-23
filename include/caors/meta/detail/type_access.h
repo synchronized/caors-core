@@ -17,9 +17,9 @@ namespace caors::meta::detail {
  */
 class type_access final {
 public:
-  [[nodiscard]] static constexpr type make(const registry* registry, const type_data* data,
-                                           const type_descriptor* descriptor) noexcept {
-    return type{registry, data, descriptor};
+  [[nodiscard]] static constexpr type make(const registry* registry,
+                                           const type_data* data) noexcept {
+    return type{registry, data};
   }
 
   [[nodiscard]] static constexpr const registry* registry_of(const type& value) noexcept {
@@ -37,11 +37,7 @@ public:
 
   [[nodiscard]] static const type_descriptor* descriptor_of(const type& value) noexcept {
     const type_data* data = data_of(value);
-    if (data != nullptr && data->descriptor() != nullptr) {
-      return data->descriptor();
-    }
-
-    return value.descriptor_;
+    return data != nullptr ? data->descriptor() : nullptr;
   }
 };
 

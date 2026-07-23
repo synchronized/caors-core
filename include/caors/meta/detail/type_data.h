@@ -4,28 +4,28 @@
 #ifndef CAORS_META_DETAIL_TYPE_DATA_H_
 #define CAORS_META_DETAIL_TYPE_DATA_H_
 
-#include "caors/core/containers.h"
+#include "caors/core/string_name.h"
 #include "caors/error.h"
 #include "caors/meta/detail/capability_data.h"
-#include "caors/meta/detail/enum_value_data.h"
 #include "caors/meta/detail/extension_data.h"
-#include "caors/meta/detail/method_data.h"
 #include "caors/meta/detail/parent_cast_ops.h"
-#include "caors/meta/detail/property_data.h"
 #include "caors/meta/type_id.h"
 
 #include <cstddef>
 #include <cstdint>
-#include <initializer_list>
 #include <optional>
 #include <string_view>
-#include <type_traits>
 #include <utility>
 
 namespace caors::meta::detail {
 
 class registry_state;
+class enum_value_data;
+class method_data;
+class method_set_data;
+class property_data;
 struct type_descriptor;
+struct type_details;
 
 /** @brief 注册类型内部声明的嵌套类型关系。 */
 struct nested_type_data {
@@ -39,41 +39,40 @@ struct nested_type_data {
 class type_data {
 public:
   type_data() = default;
-  constexpr type_data(type_id id, string_name name = {}, type_guid guid = type_guid::nil(),
-                      type_id parent_id = type_id::invalid()) noexcept
-      : id_(id), name_(name), guid_(guid), parent_id_(parent_id) {}
+  type_data(type_id id, string_name name = {}, type_guid guid = type_guid::nil(),
+            type_id parent_id = type_id::invalid());
+  constexpr type_data(type_id id, string_name name, const type_descriptor* descriptor,
+                      bool registered) noexcept
+      : id_(id), name_(name), descriptor_(descriptor), registered_(registered) {}
   type_data(const type_data& other) = delete;
   type_data& operator=(const type_data& other) = delete;
-  type_data(type_data&&) noexcept = default;
-  type_data& operator=(type_data&&) noexcept = default;
+  type_data(type_data&&) noexcept;
+  type_data& operator=(type_data&&) noexcept;
+  ~type_data();
 
   [[nodiscard]] constexpr type_id id() const noexcept { return id_; }
   [[nodiscard]] constexpr string_name name() const noexcept { return name_; }
   [[nodiscard]] constexpr type_guid guid() const noexcept { return guid_; }
-  [[nodiscard]] constexpr type_id parent_id() const noexcept { return parent_id_; }
+  [[nodiscard]] type_id parent_id() const noexcept;
   [[nodiscard]] constexpr const type_descriptor* descriptor() const noexcept { return descriptor_; }
-  [[nodiscard]] const parent_cast_ops* parent_cast() const noexcept {
-    return parent_cast_.valid() ? &parent_cast_ : nullptr;
-  }
+  [[nodiscard]] const parent_cast_ops* parent_cast() const noexcept;
 
   [[nodiscard]] constexpr bool valid() const noexcept { return static_cast<bool>(id_); }
-  [[nodiscard]] constexpr bool registered() const noexcept { return valid(); }
+  [[nodiscard]] constexpr bool registered() const noexcept { return valid() && registered_; }
 
   constexpr void set_name(string_name name) noexcept { name_ = name; }
   constexpr void set_guid(type_guid guid) noexcept { guid_ = guid; }
-  constexpr void set_parent_id(type_id parent_id) noexcept { parent_id_ = parent_id; }
+  void set_parent_id(type_id parent_id);
   constexpr void set_descriptor(const type_descriptor* descriptor) noexcept {
     descriptor_ = descriptor;
   }
-  constexpr void set_parent_cast(parent_cast_ops cast) noexcept { parent_cast_ = cast; }
+  void set_parent_cast(parent_cast_ops cast);
 
   [[nodiscard]] bool members_valid() const noexcept;
   [[nodiscard]] std::size_t property_count() const noexcept;
   [[nodiscard]] const property_data* property_at(std::size_t index) const noexcept;
   [[nodiscard]] const property_data* find_property_ptr(string_name name) const noexcept;
   [[nodiscard]] property_data* mutable_find_property_ptr(string_name name) noexcept;
-  [[nodiscard]] std::optional<property_data> find_property(string_name name) const;
-  [[nodiscard]] std::optional<property_data> find_property(std::string_view name) const;
   void add_property(property_data property);
   [[nodiscard]] std::size_t method_count() const noexcept;
   [[nodiscard]] const method_set_data* method_at(std::size_t index) const noexcept;
@@ -104,18 +103,15 @@ public:
   [[nodiscard]] error add_extension(extension_data extension);
 
 private:
+  [[nodiscard]] type_details& ensure_details();
+  [[nodiscard]] const type_details* details() const noexcept { return details_; }
+
   type_id id_{};
   string_name name_{};
   type_guid guid_{};
-  type_id parent_id_{};
   const type_descriptor* descriptor_ = nullptr;
-  parent_cast_ops parent_cast_{};
-  vector<property_data> properties_{};
-  vector<method_set_data> methods_{};
-  vector<nested_type_data> nested_types_{};
-  vector<enum_value_data> enum_values_{};
-  vector<capability_data> capabilities_{};
-  vector<extension_data> extensions_{};
+  bool registered_ = false;
+  type_details* details_ = nullptr;
 };
 
 /** @brief 创建基础元类型注册描述。 */

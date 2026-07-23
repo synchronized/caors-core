@@ -4,6 +4,9 @@
 #ifndef CAORS_META_DETAIL_PENDING_TYPE_RECORD_H_
 #define CAORS_META_DETAIL_PENDING_TYPE_RECORD_H_
 
+#include "caors/meta/detail/enum_value_data.h"
+#include "caors/meta/detail/method_data.h"
+#include "caors/meta/detail/property_data.h"
 #include "caors/meta/detail/type_data.h"
 
 namespace caors::meta::detail {
@@ -16,7 +19,7 @@ namespace caors::meta::detail {
 class pending_type_record final {
 public:
   pending_type_record() = default;
-  constexpr pending_type_record(type_id id, string_name name) noexcept : data_(id, name) {}
+  pending_type_record(type_id id, string_name name) : data_(id, name) {}
 
   pending_type_record(const pending_type_record&) = delete;
   pending_type_record& operator=(const pending_type_record&) = delete;
@@ -24,14 +27,14 @@ public:
   pending_type_record& operator=(pending_type_record&&) noexcept = default;
 
   [[nodiscard]] constexpr type_id id() const noexcept { return data_.id(); }
-  [[nodiscard]] constexpr type_id parent_id() const noexcept { return data_.parent_id(); }
+  [[nodiscard]] type_id parent_id() const noexcept { return data_.parent_id(); }
 
   constexpr void set_guid(type_guid guid) noexcept { data_.set_guid(guid); }
-  constexpr void set_parent_id(type_id parent_id) noexcept { data_.set_parent_id(parent_id); }
+  void set_parent_id(type_id parent_id) { data_.set_parent_id(parent_id); }
   constexpr void set_descriptor(const type_descriptor* descriptor) noexcept {
     data_.set_descriptor(descriptor);
   }
-  constexpr void set_parent_cast(parent_cast_ops cast) noexcept { data_.set_parent_cast(cast); }
+  void set_parent_cast(parent_cast_ops cast) { data_.set_parent_cast(cast); }
 
   [[nodiscard]] std::size_t property_count() const noexcept { return data_.property_count(); }
   [[nodiscard]] const property_data* property_at(std::size_t index) const noexcept {
