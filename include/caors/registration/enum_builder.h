@@ -171,7 +171,10 @@ public:
       return status_;
     }
 
-    pending_.set_static_data(fallback);
+    status_ = pending_.set_static_data(fallback);
+    if (status_) {
+      return status_;
+    }
     status_ = registry_->commit_type(std::move(pending_), typeid(value_type));
     if (!status_) {
       committed_type_ = registry_->template find_type<value_type>();

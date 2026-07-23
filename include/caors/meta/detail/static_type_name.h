@@ -6,7 +6,7 @@
 
 #include "caors/core/string_name.h"
 #include "caors/traits/container.h"
-#include "caors/traits/type_name.h"
+#include "caors/traits/type_identity.h"
 
 #include <cstddef>
 #include <string>
@@ -174,9 +174,12 @@ template <typename T> [[nodiscard]] std::string variant_type_name_text() {
 template <typename T> [[nodiscard]] std::string static_type_name_text() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
 
-  if constexpr (traits::has_type_name_v<type>) {
-    return std::string{traits::type_name<type>::value};
-  } else if constexpr (std::is_pointer_v<type>) {
+  const std::string_view declared_name = traits::type_identity<type>::name();
+  if (!declared_name.empty()) {
+    return std::string{declared_name};
+  }
+
+  if constexpr (std::is_pointer_v<type>) {
     std::string text = static_type_name_text<std::remove_cv_t<std::remove_pointer_t<type>>>();
     if (text.empty()) {
       return {};

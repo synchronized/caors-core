@@ -31,10 +31,27 @@ public:
 
   constexpr void set_guid(type_guid guid) noexcept { data_.set_guid(guid); }
   void set_parent_id(type_id parent_id) { data_.set_parent_id(parent_id); }
-  void set_static_data(const type_data* fallback) noexcept {
-    if (fallback != nullptr) {
-      data_.set_static_data(*fallback);
+  [[nodiscard]] error set_static_data(const type_data* fallback) noexcept {
+    if (fallback == nullptr || !fallback->valid() || fallback->id() != data_.id()) {
+      return {error_domain::meta, errc::invalid_type};
     }
+
+    if (data_.name() && fallback->name() && data_.name() != fallback->name()) {
+      return {error_domain::meta, errc::inconsistent_type};
+    }
+    if (!data_.name()) {
+      data_.set_name(fallback->name());
+    }
+
+    if (data_.guid() && fallback->guid() && data_.guid() != fallback->guid()) {
+      return {error_domain::meta, errc::inconsistent_type};
+    }
+    if (!data_.guid()) {
+      data_.set_guid(fallback->guid());
+    }
+
+    data_.set_static_data(*fallback);
+    return {};
   }
   void set_parent_cast(parent_cast_ops cast) { data_.set_parent_cast(cast); }
 

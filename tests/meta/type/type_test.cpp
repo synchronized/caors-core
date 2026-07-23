@@ -12,6 +12,39 @@ TEST_CASE("meta type - built-in C++ types have default names", "[meta]") {
   CHECK(caors::traits::type_name<bool>::value == "bool");
 }
 
+TEST_CASE("meta type - declared identity is preserved by registration", "[meta]") {
+  const caors::meta::type fallback = caors::meta::resolve<declared_identity_type>();
+  REQUIRE(fallback);
+  CHECK_FALSE(fallback.registered());
+  CHECK(fallback.name() == caors::string_name{"caors.test.type.declared_identity"});
+  CHECK(fallback.guid() == declared_identity_guid);
+
+  const caors::error conflict =
+      caors::registration::type_<declared_identity_type>("caors.test.type.wrong_identity").commit();
+  REQUIRE(conflict);
+  CHECK(conflict.value() == caors::errc::inconsistent_type);
+  CHECK_FALSE(caors::meta::find<declared_identity_type>());
+
+  constexpr caors::type_guid conflicting_guid{
+      caors::guid::from_bytes({0xFF, 0xEE, 0xDD, 0xCC, 0xBB, 0xAA, 0x99, 0x88, 0x77, 0x66, 0x55,
+                               0x44, 0x33, 0x22, 0x11, 0x00})};
+  const caors::error guid_conflict =
+      caors::registration::type_<declared_identity_type>("caors.test.type.declared_identity")
+          .guid(conflicting_guid)
+          .commit();
+  REQUIRE(guid_conflict);
+  CHECK(guid_conflict.value() == caors::errc::inconsistent_type);
+  CHECK_FALSE(caors::meta::find<declared_identity_type>());
+
+  REQUIRE(caors::registration::type_<declared_identity_type>("caors.test.type.declared_identity")
+              .commit() == caors::error{});
+
+  const caors::meta::type registered = caors::meta::find<declared_identity_type>();
+  REQUIRE(registered);
+  CHECK(registered.name() == fallback.name());
+  CHECK(registered.guid() == fallback.guid());
+}
+
 // 原测试文件：meta_type_basic_meta_type_type_id_is_allocated_by_explicit_registration_test.cpp
 
 #include "meta_type_basic_test_support.h"

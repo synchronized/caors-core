@@ -111,6 +111,7 @@ CAORS 后续按核心方向推进。每个方向应先补最小可用 API、测�
 - [x] 将 `type_descriptor.h` 拆分为 descriptor 数据结构、默认名称生成和 descriptor model 构建三个边界。
 - [x] 将 descriptor 本体收进 `meta::detail`，公开 API 只通过 `meta::type` 暴露类型视图和能力查询。
 - [x] 统一静态与注册 `type_data` 节点，删除 `type_descriptor` 中转结构和 registry descriptor 注册链。
+- [x] 增加统一 `traits::type_identity<T>`，让普通类型和 object 类型共享静态名称/GUID 身份及冲突校验。
 - [x] 将 set / associative 容器使用的类型擦除迭代器辅助实现移动到 `meta/detail/builtin/container_iterator_ops_model.h`。
 - [x] 将 set / associative 共用的迭代器生命周期操作抽成 `container_iterator_ops` 和
   `container_iterator_ops_model<T>`，容器专属取值逻辑继续保留在各自 builtin ops 中。

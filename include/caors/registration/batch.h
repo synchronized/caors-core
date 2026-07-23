@@ -74,15 +74,11 @@ public:
     return result;
   }
 
-  /** @brief 追加使用对象类型自身名称的注册项。 */
+  /** @brief 追加使用对象静态身份名称的注册项。 */
   template <typename T>
     requires(std::is_base_of_v<meta::object, T>)
   type_builder<T>& type_() {
-    static_assert(objects::detail::object_type_name_traits<T>::exists,
-                  "T must declare object_type_name");
-    static_assert(objects::detail::object_type_name_traits<T>::valid,
-                  "object_type_name must be convertible to std::string_view");
-    return type_<T>(objects::detail::object_type_name_traits<T>::get());
+    return type_<T>(traits::type_identity<T>::name());
   }
 
   /** @brief 追加枚举类型注册项。 */

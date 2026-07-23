@@ -5,8 +5,8 @@
 #define CAORS_META_DETAIL_STATIC_TYPE_DATA_MODEL_H_
 
 #include "caors/meta/detail/builtin_ops_model.h"
-#include "caors/meta/detail/type_data.h"
 #include "caors/meta/detail/static_type_name.h"
+#include "caors/meta/detail/type_data.h"
 #include "caors/meta/detail/value_ops_model.h"
 #include "caors/meta/type_semantics.h"
 #include "caors/traits/container.h"
@@ -85,6 +85,7 @@ template <typename T> [[nodiscard]] type_data make_static_type_data() {
   return type_data{
       static_type_id<type>(),
       static_type_name<type>(),
+      traits::type_identity<type>::guid(),
       value,
       static_type_semantics<type>(),
       builtin_ops_of<type>(),

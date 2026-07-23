@@ -51,9 +51,10 @@ public:
   type_data() = default;
   type_data(type_id id, string_name name = {}, type_guid guid = type_guid::nil(),
             type_id parent_id = type_id::invalid());
-  type_data(type_id id, string_name name, value_storage_ops value, type_semantics semantics,
-            builtin_ops builtin, const capability_entry* static_capabilities,
-            std::size_t static_capability_count, bool registered) noexcept;
+  type_data(type_id id, string_name name, type_guid guid, value_storage_ops value,
+            type_semantics semantics, builtin_ops builtin,
+            const capability_entry* static_capabilities, std::size_t static_capability_count,
+            bool registered) noexcept;
   type_data(const type_data& other) = delete;
   type_data& operator=(const type_data& other) = delete;
   type_data(type_data&&) noexcept;

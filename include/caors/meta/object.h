@@ -7,6 +7,7 @@
 #include "caors/config.h"
 #include "caors/meta/object_id.h"
 #include "caors/meta/query.h"
+#include "caors/traits/type_identity.h"
 
 #include <string_view>
 #include <type_traits>
@@ -99,6 +100,38 @@ public:
 };
 
 } // namespace caors::meta
+
+namespace caors::traits {
+
+/** @brief 将 object 派生类声明的名称和 GUID 接入统一静态类型身份。 */
+template <typename T>
+struct type_identity<T, std::enable_if_t<std::is_base_of_v<meta::object, T>>> {
+  [[nodiscard]] static std::string_view name() noexcept {
+    if constexpr (requires { T::object_type_name; }) {
+      static_assert(std::is_convertible_v<decltype(T::object_type_name), std::string_view>,
+                    "object_type_name must be convertible to std::string_view");
+      return T::object_type_name;
+    } else if constexpr (std::is_same_v<T, meta::object>) {
+      return meta::object::static_type_name();
+    } else {
+      return {};
+    }
+  }
+
+  [[nodiscard]] static constexpr core::type_guid guid() noexcept {
+    if constexpr (requires { T::object_type_guid; }) {
+      static_assert(
+          std::is_same_v<std::remove_cv_t<std::remove_reference_t<decltype(T::object_type_guid)>>,
+                         core::type_guid>,
+          "object_type_guid must be caors::type_guid");
+      return T::object_type_guid;
+    } else {
+      return core::type_guid::nil();
+    }
+  }
+};
+
+} // namespace caors::traits
 
 namespace caors {
 

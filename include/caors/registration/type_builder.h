@@ -20,6 +20,7 @@
 #include "caors/object/factory.h"
 #include "caors/object/registry.h"
 #include "caors/serialization/schema_query.h"
+#include "caors/traits/type_identity.h"
 
 #include <string_view>
 #include <type_traits>
@@ -178,7 +179,10 @@ public:
       return status_;
     }
 
-    pending_.set_static_data(fallback);
+    status_ = pending_.set_static_data(fallback);
+    if (status_) {
+      return status_;
+    }
     status_ = registry_->commit_type(std::move(pending_), typeid(value_type));
     if (!status_) {
       committed_type_ = registry_->template find_type<value_type>();
@@ -353,11 +357,6 @@ private:
       }
 
       object_enabled_ = true;
-      const type_guid object_guid = meta::detail::object_type_guid_of<value_type>();
-      if (object_guid) {
-        guid(object_guid);
-      }
-
       using base_type = typename meta::detail::object_base_type_traits<value_type>::type;
       if constexpr (!std::is_same_v<value_type, meta::object>) {
         if (registry_ != nullptr) {
@@ -854,15 +853,11 @@ template <typename T> [[nodiscard]] type_builder<T> type_(std::string_view name)
   return type_<T>(meta::default_context(), name);
 }
 
-/** @brief 使用对象类型自身声明的类型名创建跨模块注册构建器。 */
+/** @brief 使用对象静态身份声明的类型名创建跨模块注册构建器。 */
 template <typename T>
   requires(std::is_base_of_v<meta::object, T>)
 [[nodiscard]] type_builder<T> type_() {
-  static_assert(objects::detail::object_type_name_traits<T>::exists,
-                "T must declare object_type_name");
-  static_assert(objects::detail::object_type_name_traits<T>::valid,
-                "object_type_name must be convertible to std::string_view");
-  return type_<T>(objects::detail::object_type_name_traits<T>::get());
+  return type_<T>(traits::type_identity<T>::name());
 }
 
 } // namespace caors::registration

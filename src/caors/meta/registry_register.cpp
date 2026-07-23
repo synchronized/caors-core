@@ -210,6 +210,28 @@ namespace {
     return {error_domain::meta, errc::missing_type};
   }
 
+  if (stored->name() && fallback.name() && stored->name() != fallback.name()) {
+    return {error_domain::meta, errc::inconsistent_type};
+  }
+  if (stored->guid() && fallback.guid() && stored->guid() != fallback.guid()) {
+    return {error_domain::meta, errc::inconsistent_type};
+  }
+
+  if (!stored->name() && fallback.name()) {
+    if (state.names.contains(fallback.name())) {
+      return {error_domain::meta, errc::duplicate_name};
+    }
+    stored->set_name(fallback.name());
+    state.names.emplace(stored->name(), stored);
+  }
+  if (!stored->guid() && fallback.guid()) {
+    if (state.guids.contains(fallback.guid().value)) {
+      return {error_domain::meta, errc::duplicate_guid};
+    }
+    stored->set_guid(fallback.guid());
+    state.guids.emplace(stored->guid().value, stored);
+  }
+
   if (stored->value_ops().valid()) {
     if (stored->id() != fallback.id() ||
         stored->value_ops().layout.size != fallback.value_ops().layout.size ||

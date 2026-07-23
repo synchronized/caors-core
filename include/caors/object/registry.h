@@ -17,22 +17,6 @@
 
 namespace caors::objects::detail {
 
-template <typename T, typename = void> struct object_type_name_traits {
-  static constexpr bool exists = false;
-  static constexpr bool valid = false;
-
-  [[nodiscard]] static constexpr std::string_view get() noexcept { return {}; }
-};
-
-template <typename T>
-struct object_type_name_traits<T, std::void_t<decltype(T::object_type_name)>> {
-  static constexpr bool exists = true;
-  static constexpr bool valid =
-      std::is_convertible_v<decltype(T::object_type_name), std::string_view>;
-
-  [[nodiscard]] static constexpr std::string_view get() noexcept { return T::object_type_name; }
-};
-
 /** @brief 确保指定 meta registry 中已注册基础 `caors::object` 类型。 */
 [[nodiscard]] CAORS_API error ensure_object_base_registered(meta::registry& registry);
 

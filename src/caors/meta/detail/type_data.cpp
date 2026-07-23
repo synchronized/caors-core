@@ -30,11 +30,11 @@ type_data::type_data(type_id id, string_name name, type_guid guid, type_id paren
   details_->parent_id = parent_id;
 }
 
-type_data::type_data(type_id id, string_name name, value_storage_ops value,
+type_data::type_data(type_id id, string_name name, type_guid guid, value_storage_ops value,
                      type_semantics semantics, builtin_ops builtin,
                      const capability_entry* static_capabilities,
                      std::size_t static_capability_count, bool registered) noexcept
-    : id_(id), name_(name), value_(value), semantics_(semantics), builtin_(builtin),
+    : id_(id), name_(name), guid_(guid), value_(value), semantics_(semantics), builtin_(builtin),
       static_capabilities_(static_capabilities), static_capability_count_(static_capability_count),
       registered_(registered) {}
 
