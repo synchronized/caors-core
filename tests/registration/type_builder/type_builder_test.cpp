@@ -20,6 +20,13 @@ struct registration_actor final : caors::object {
 
 TEST_CASE("registration - type builder registers meta serialization and object together",
           "[registration]") {
+  const caors::meta::type fallback = caors::meta::resolve<registration_actor>();
+  REQUIRE(fallback);
+  REQUIRE_FALSE(fallback.registered());
+  const caors::meta::value_storage_ops* fallback_value_ops =
+      fallback.get_raw_ops<caors::meta::value_storage_ops>();
+  REQUIRE(fallback_value_ops != nullptr);
+
   const caors::error status =
       caors::registration::type_<registration_actor>("caors.test.registration.actor")
           .meta()
@@ -34,6 +41,14 @@ TEST_CASE("registration - type builder registers meta serialization and object t
   const caors::meta::type meta_type = caors::meta::find<registration_actor>();
   REQUIRE(meta_type.registered());
   CHECK(meta_type.name() == caors::core::string_name{"caors.test.registration.actor"});
+  CHECK(meta_type.kind() == fallback.kind());
+  const caors::meta::value_storage_ops* registered_value_ops =
+      meta_type.get_raw_ops<caors::meta::value_storage_ops>();
+  REQUIRE(registered_value_ops != nullptr);
+  CHECK(registered_value_ops->layout.size == fallback_value_ops->layout.size);
+  CHECK(registered_value_ops->layout.alignment == fallback_value_ops->layout.alignment);
+  CHECK(registered_value_ops->ops.default_construct == fallback_value_ops->ops.default_construct);
+  CHECK(registered_value_ops->ops.destroy == fallback_value_ops->ops.destroy);
   CHECK(static_cast<bool>(meta_type.find_property("value")));
   CHECK(static_cast<bool>(meta_type.find_method("set_value")));
 

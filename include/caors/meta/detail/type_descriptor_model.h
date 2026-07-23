@@ -92,23 +92,9 @@ template <typename T> [[nodiscard]] type_descriptor make_type_descriptor() {
 
 template <typename T> [[nodiscard]] const type_data* static_type_data_ptr_of() noexcept {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  static const type_data data{*descriptor_ptr_of<type>(), false};
-  return &data;
-}
-
-template <typename T> [[nodiscard]] const type_descriptor* descriptor_ptr_of() noexcept {
-  using type = std::remove_cv_t<std::remove_reference_t<T>>;
   static const type_descriptor descriptor = make_type_descriptor<type>();
-  return &descriptor;
-}
-
-template <typename T> [[nodiscard]] error ensure_type_descriptor_for() {
-  const type_descriptor* descriptor = descriptor_ptr_of<T>();
-  if (descriptor == nullptr || !descriptor->valid()) {
-    return {error_domain::meta, errc::invalid_type};
-  }
-
-  return ensure_type_descriptor_registered(*descriptor);
+  static const type_data data{descriptor, false};
+  return &data;
 }
 
 } // namespace caors::meta::detail

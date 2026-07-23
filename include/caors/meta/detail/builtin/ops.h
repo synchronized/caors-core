@@ -12,10 +12,8 @@ namespace caors::meta {
 
 namespace detail {
 
-struct type_descriptor;
 class type_data;
 
-template <typename T> [[nodiscard]] const type_descriptor* descriptor_ptr_of() noexcept;
 template <typename T> [[nodiscard]] const type_data* static_type_data_ptr_of() noexcept;
 template <typename T> [[nodiscard]] type_id descriptor_type_id() noexcept;
 

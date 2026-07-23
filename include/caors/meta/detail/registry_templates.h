@@ -30,14 +30,14 @@ template <typename T>
     return type_info_status;
   }
 
-  const detail::type_descriptor* descriptor = detail::descriptor_ptr_of<value_type>();
-  if (descriptor == nullptr || !descriptor->valid()) {
+  const detail::type_data* fallback = detail::static_type_data_ptr_of<value_type>();
+  if (fallback == nullptr || !fallback->valid() || !fallback->value_ops().valid()) {
     return {error_domain::meta, errc::invalid_type};
   }
 
-  const error descriptor_status = ensure_type_descriptor(*descriptor);
-  if (descriptor_status) {
-    return descriptor_status;
+  const error static_data_status = ensure_static_type_data(*fallback);
+  if (static_data_status) {
+    return static_data_status;
   }
 
   return status;

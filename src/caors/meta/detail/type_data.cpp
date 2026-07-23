@@ -76,6 +76,14 @@ void type_data::set_static_data(const type_descriptor& descriptor) noexcept {
   static_capability_count_ = descriptor.static_capability_count;
 }
 
+void type_data::set_static_data(const type_data& source) noexcept {
+  value_ = source.value_;
+  semantics_ = source.semantics_;
+  builtin_ = source.builtin_;
+  static_capabilities_ = source.static_capabilities_;
+  static_capability_count_ = source.static_capability_count_;
+}
+
 type_details& type_data::ensure_details() {
   if (details_ == nullptr) {
     details_ = memory::make<type_details>(&memory::library_resource());

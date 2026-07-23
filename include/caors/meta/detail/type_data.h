@@ -64,6 +64,7 @@ public:
   constexpr void set_guid(type_guid guid) noexcept { guid_ = guid; }
   void set_parent_id(type_id parent_id);
   void set_static_data(const type_descriptor& descriptor) noexcept;
+  void set_static_data(const type_data& source) noexcept;
   void set_parent_cast(parent_cast_ops cast);
 
   [[nodiscard]] bool members_valid() const noexcept;

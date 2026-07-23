@@ -4,7 +4,6 @@
 #include "detail/registry_state.h"
 
 #include "caors/meta/detail/pending_type_record.h"
-#include "caors/meta/detail/type_descriptor.h"
 #include "caors/meta/registry.h"
 
 #include <mutex>
@@ -200,28 +199,28 @@ namespace {
   return {};
 }
 
-[[nodiscard]] error store_type_descriptor(detail::registry_state& state,
-                                          const detail::type_descriptor& descriptor) {
-  if (!descriptor.valid() || !descriptor.type) {
+[[nodiscard]] error store_static_type_data(detail::registry_state& state,
+                                           const detail::type_data& fallback) {
+  if (!fallback.valid() || !fallback.id() || !fallback.value_ops().valid()) {
     return {error_domain::meta, errc::invalid_type};
   }
 
-  detail::type_data* stored = detail::find_type_data(state, descriptor.type);
+  detail::type_data* stored = detail::find_type_data(state, fallback.id());
   if (stored == nullptr) {
     return {error_domain::meta, errc::missing_type};
   }
 
   if (stored->value_ops().valid()) {
-    if (stored->id() != descriptor.type ||
-        stored->value_ops().layout.size != descriptor.value.layout.size ||
-        stored->value_ops().layout.alignment != descriptor.value.layout.alignment) {
+    if (stored->id() != fallback.id() ||
+        stored->value_ops().layout.size != fallback.value_ops().layout.size ||
+        stored->value_ops().layout.alignment != fallback.value_ops().layout.alignment) {
       return {error_domain::meta, errc::invalid_type};
     }
 
     return {};
   }
 
-  stored->set_static_data(descriptor);
+  stored->set_static_data(fallback);
   return {};
 }
 
@@ -298,22 +297,14 @@ error registry::commit_type(detail::pending_type_record pending, const std::type
   return {};
 }
 
-error registry::ensure_type_descriptor(const detail::type_descriptor& descriptor) {
+error registry::ensure_static_type_data(const detail::type_data& fallback) {
   std::lock_guard lock(state_->mutex);
-  if (!descriptor.valid() || !descriptor.type) {
+  if (!fallback.valid() || !fallback.id()) {
     return {error_domain::meta, errc::invalid_type};
   }
 
-  return store_type_descriptor(*state_, descriptor);
+  return store_static_type_data(*state_, fallback);
 }
-
-namespace detail {
-
-error ensure_type_descriptor_registered(const type_descriptor& descriptor) {
-  return registry_access::ensure_type_descriptor(get_registry(), descriptor);
-}
-
-} // namespace detail
 
 error registry::set_type_guid(type_id id, type_guid guid) {
   if (!id) {

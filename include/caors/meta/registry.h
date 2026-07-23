@@ -37,8 +37,6 @@ class registry_state;
 class registry_access;
 class pending_type_record;
 class type_data;
-struct type_descriptor;
-template <typename T> [[nodiscard]] error ensure_type_descriptor_for();
 
 } // namespace caors::meta::detail
 
@@ -120,7 +118,7 @@ private:
   template <typename T>
   [[nodiscard]] error register_type_for(string_name name, type_guid guid = type_guid::nil(),
                                         type_id parent_id = type_id::invalid());
-  [[nodiscard]] error ensure_type_descriptor(const detail::type_descriptor& descriptor);
+  [[nodiscard]] error ensure_static_type_data(const detail::type_data& fallback);
   [[nodiscard]] error set_type_guid(type_id id, type_guid guid);
   [[nodiscard]] error set_type_parent(type_id id, type_id parent_id);
   [[nodiscard]] error set_type_parent(type_id id, type_id parent_id, detail::parent_cast_ops cast);
@@ -154,11 +152,6 @@ public:
 
   [[nodiscard]] static memory::memory_resource* state_resource(registry& registry) noexcept {
     return registry.state_resource_;
-  }
-
-  [[nodiscard]] static error ensure_type_descriptor(registry& registry,
-                                                    const type_descriptor& descriptor) {
-    return registry.ensure_type_descriptor(descriptor);
   }
 
   [[nodiscard]] static error add_extension(registry& registry, type_id id,

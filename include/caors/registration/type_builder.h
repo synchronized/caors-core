@@ -172,13 +172,13 @@ public:
       }
     }
 
-    const meta::detail::type_descriptor* descriptor = meta::detail::descriptor_ptr_of<value_type>();
-    if (descriptor == nullptr || !descriptor->valid()) {
+    const meta::detail::type_data* fallback = meta::detail::static_type_data_ptr_of<value_type>();
+    if (fallback == nullptr || !fallback->valid() || !fallback->value_ops().valid()) {
       status_ = {error_domain::meta, errc::invalid_type};
       return status_;
     }
 
-    pending_.set_descriptor(descriptor);
+    pending_.set_static_data(fallback);
     status_ = registry_->commit_type(std::move(pending_), typeid(value_type));
     if (!status_) {
       committed_type_ = registry_->template find_type<value_type>();

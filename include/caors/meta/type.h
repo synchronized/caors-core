@@ -50,7 +50,6 @@ template <typename T> [[nodiscard]] type find();
 namespace detail {
 
 class type_data;
-struct type_descriptor;
 class type_access;
 
 enum class builtin_ops_kind {
