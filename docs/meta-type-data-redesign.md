@@ -131,15 +131,16 @@ Boost.Describe 将枚举、基类和成员描述保留为编译期类型信息�
 
 ### 一致性需求
 
-1. 静态类型数据的定义不得依赖可选模块头文件的包含顺序。
+1. 同一个 `T` 的所有受支持实例化点必须使用一致的 traits 和 static capability 可见集合。
 2. 同一类型在不同翻译单元得到的静态数据必须满足 ODR。
-3. serialization、object、资源等可选模块 capability 不应悄悄改变 meta 核心静态节点的定义。
+3. serialization、object、资源等可选模块必须通过明确 adapter 头建立特化可见性边界，不能依赖偶然的
+   `.cpp` 包含顺序。
 4. 显式 specialization 必须在首次实例化相关模板前可见；测试也必须遵守这一规则。
 5. registry 发布后继续保持 append-only，已有 `meta::type` 视图的指针稳定性不得下降。
 
 ### 性能需求
 
-1. 未注册 `resolve<T>()` 不进行堆分配。
+1. 静态节点完成首次惰性初始化后，未注册 `resolve<T>()` 不再进行堆分配。
 2. 已注册 `resolve<T>()` 保持一次 registry 哈希查询。
 3. 静态类型节点按 `T` 惰性初始化一次。
 4. `meta::type` 保持轻量、可复制，目标大小不超过两个或三个指针。
@@ -166,6 +167,8 @@ private:
   type_semantics semantics_{};
   value_storage_ops value_{};
   builtin_ops builtin_{};
+  const capability_entry* static_capabilities_ = nullptr;
+  std::size_t static_capability_count_ = 0;
   memory::unique_ptr<type_details> details_{};
   bool registered_ = false;
 };
@@ -210,15 +213,16 @@ struct type_details {
 `type_data` 和可选详情。
 
 ```text
-static type_data<T>          registry type_data
-├─ id/name/guid              ├─ id/name/guid
-├─ semantics/value/builtin   ├─ semantics/value/builtin
-├─ registered = false        ├─ registered = true
-└─ details = nullptr         └─ details
-                                ├─ parent
-                                ├─ properties/methods
-                                ├─ capabilities
-                                └─ extensions
+static type_data<T>           registry type_data
+├─ id/name/guid               ├─ id/name/guid
+├─ semantics/value/builtin    ├─ semantics/value/builtin
+├─ static capabilities        ├─ static capabilities
+├─ registered = false         ├─ registered = true
+└─ details = nullptr          └─ details
+                                 ├─ parent
+                                 ├─ properties/methods
+                                 ├─ dynamic capabilities
+                                 └─ extensions
 ```
 
 ### 公共视图
@@ -235,6 +239,7 @@ class type {
 查询规则：
 
 - ID、名称、GUID、布局、类型形态和值操作：直接查询当前 `type_data`；
+- static capability：查询当前节点的静态 capability 表；
 - 父类、属性、方法、metadata、动态 capability：查询可选 `type_details`；
 - 静态节点的 `registered()` 为 false，registry 节点的 `registered()` 为 true；
 - registry 节点的名称和 GUID 已在 validate 阶段与静态节点完成一致性校验。
@@ -265,11 +270,28 @@ resolve<T>(ctx)
 
 ## Capability 边界
 
-### 进入静态核心的能力
+### 保留未注册静态能力
 
-第一阶段保留当前未注册类型测试所需的内置能力：
+本次重构保留当前 static capability 的便利性。以下行为继续作为公共契约：
 
-- value storage；
+```cpp
+meta::resolve<T>().get_capability<Capability>();
+serialization::find_codec(meta::resolve<T>());
+serialization::codec_of<T>();
+```
+
+只要对应 traits 或 static capability 特化在首次 `resolve<T>()` 前可见，这些入口不要求类型已经注册。
+
+静态 `type_data<T>` 继续保存：
+
+- value storage 和 builtin ops；
+- serialization `codec_ops`；
+- object `ptr_ops`、`handle_ops`、`object_factory_ops`；
+- 用户自定义 static capability；
+- 外部模块通过 module tag 贡献的 static capability。
+
+其中 builtin ops 包括：
+
 - scalar；
 - enum；
 - raw pointer；
@@ -277,24 +299,44 @@ resolve<T>(ctx)
 - pair、tuple、variant；
 - 项目认可的核心 wrapper traits。
 
-这些 traits 的特化必须与类型声明一起放在公共头文件中，并在任何 `resolve<T>()` 前可见。
+### 特化可见性规则
 
-### 不进入静态核心的能力
+保留 static capability 的前提是同一个 `T` 的静态节点在所有实例化点保持一致：
 
-以下能力属于可选模块，不应影响静态 `type_data<T>` 的 ODR：
+1. traits、codec 和 static capability 特化必须在首次 `resolve<T>()`、`id_of<T>()`、`any::from<T>()`
+   或其他触发静态节点实例化的入口之前可见；
+2. 同一特化不得只定义在某个 `.cpp` 的后半段，也不得在已经使用 `T` 后才声明；
+3. 用户类型及其 traits/static capability 特化应放在同一个公共头或配套 adapter 头中；
+4. CAORS 内部跨模块适配使用明确的 adapter 头，例如：
+   - `caors/resources/serialization.h`；
+   - `caors/object/serialization.h`；
+   - `caors/math/serialization.h`；
+5. 使用模块能力的翻译单元必须先包含对应 adapter，再首次解析相关类型；
+6. 跨翻译单元测试必须验证相同头文件边界下节点地址、builtin ops 和 static capability 一致。
 
-- serialization codec；
-- object 模块 capability；
-- resources/assets capability；
-- 用户或插件动态 capability；
-- registry extension。
+测试中这种顺序不允许：
 
-编译期已知 `T` 的便利 API 可以直接使用模块 traits。例如 `codec_of<T>()` 可直接由
-`codec_traits<T>` 构造 facade。需要通过擦除后的 `meta::type` 查询模块能力时，应要求该能力已经通过
-对应注册流程提交到 registry。
+```cpp
+void use_type() {
+  meta::resolve<my_type>();
+}
 
-这会调整当前“未注册类型可通过 `meta::type` 查询静态 codec/module capability”的行为，必须在实施前
-单独确认兼容策略。
+template <>
+struct codec_traits<my_type> {
+  // 特化声明得太晚
+};
+```
+
+### 动态能力边界
+
+以下内容仍只进入 registry 的 `type_details`：
+
+- 运行期通过 builder 或插件注册的 dynamic capability；
+- registry extension；
+- 属性、方法和其他显式注册数据。
+
+插件运行期 capability provider 或独立 codec registry 可作为未来跨 DLL 扩展方案，但不作为普通静态
+codec 的默认路径。
 
 ## 与现有行为的差异
 
@@ -305,25 +347,15 @@ resolve<T>(ctx)
 - 未注册类型可通过 `meta::type` 查询静态 capability；
 - 未注册自定义 codec 可通过擦除后的 `meta::type` 序列化。
 
-推荐方案保留前两项。后两项需要二选一：
+推荐方案保留以上四项，不要求 CAORS 内置 codec 或普通用户 static capability 额外注册。
 
-### 方案 A：模块能力必须注册
+行为变化主要在内部数据结构和特化规则：
 
-- 静态核心完全不依赖模块；
-- 运行期擦除查询结果稳定；
-- codec 等能力在 registration pending record 中收集并提交；
-- 需要修改 descriptor static capability 和未注册 codec 测试。
-
-这是推荐方案。
-
-### 方案 B：模块提供独立静态侧表
-
-- 每个模块维护自己的 `T -> ops` 静态入口；
-- `codec_of<T>()` 等编译期入口无需注册；
-- `meta::type` 无法仅凭 type-erased `type_id` 安全发现所有未注册模块能力；
-- 若增加全局侧表，又会引入初始化、生命周期和多 registry 边界问题。
-
-该方案只能作为兼容层，不建议成为最终事实源。
+- `meta::type` 从 `type_data* + type_descriptor*` 双来源收敛为单一 `type_data*`；
+- 静态 fallback 与 registry 节点使用同一种结构；
+- static capability 继续由静态节点保存；
+- 可选模块适配必须在首次类型解析前可见；
+- 显式注册只增加详情和动态能力，不是使用静态 codec 的前置条件。
 
 ## Pending、Validate、Commit
 
@@ -337,7 +369,7 @@ pending_type_record
 ├─ fallback = &static_type_data_of<T>()
 ├─ name / guid / parent
 ├─ properties / methods
-├─ module capabilities
+├─ dynamic capabilities
 └─ extensions
         │
         ▼
@@ -360,7 +392,7 @@ pending record 中收集完成，保持现有 append-only 和事务语义。
 
 ### 阶段 0：需求确认
 
-- 确认未注册 codec/static capability 是否继续作为 `meta::type` 契约；
+- 已确认未注册 codec/static capability 继续作为 `meta::type` 契约；
 - 确认静态名称和 GUID 与显式注册冲突时返回错误；
 - 确认统一 `type_data + type_details` 节点边界；
 - 确认 object 静态身份的统一 traits 入口。
@@ -373,6 +405,7 @@ pending record 中收集完成，保持现有 append-only 和事务语义。
 - 新增可选 `type_details`，迁移 parent、属性、方法、metadata、capability 和 extension 容器；
 - 新增 `static_type_data_of<T>()`，返回函数内唯一静态 `type_data`；
 - 将 type id、RTTI、`string_name`、声明 GUID、布局、值生命周期和稳定 builtin ops 放入统一节点；
+- 将 static capability 表迁移到统一节点；
 - 增加跨翻译单元地址唯一和字段一致性测试；
 - 保持现有 `meta::type` 公共行为不变。
 
@@ -399,15 +432,17 @@ pending record 中收集完成，保持现有 append-only 和事务语义。
 
 完成标准：注册前后类型身份一致，不同 registry 的注册节点彼此独立。
 
-### 阶段 4：模块 capability 解耦
+### 阶段 4：Static capability 可见性收敛
 
-- 从静态 fallback 节点移除 serialization/object 等可选模块 capability；
-- registration builder 在 pending 阶段收集模块能力；
-- 明确 `codec_of<T>()` 与 `find_codec(meta::type)` 的不同前置条件；
-- 修改或增加未注册 codec、静态 capability 和跨模块测试；
+- 保留 serialization、object 和用户扩展 static capability；
+- 统一 CAORS 内部类型及其 adapter 头文件边界；
+- 修正所有“首次使用后才声明特化”的测试和内部实现；
+- 增加未注册 codec、object capability、用户 static capability 和跨模块测试；
+- 增加不同包含顺序下的编译期约束或诊断说明；
 - 删除临时的翻译单元本地 descriptor workaround。
 
-完成标准：不同模块头文件包含顺序不再改变静态类型节点定义。
+完成标准：受支持的头文件组合不会让同一个 `T` 生成不同静态节点定义，未注册 static capability
+继续可用。
 
 ### 阶段 5：清理和性能验证
 
@@ -429,15 +464,18 @@ pending record 中收集完成，保持现有 append-only 和事务语义。
 5. `find<T>()` 在提交前为空、提交后有效；
 6. 同一个静态类型在两个 registry 中注册信息独立；
 7. 静态 name/GUID 与显式值冲突时提交失败且 registry 不发生部分写入；
-8. 可选模块头文件包含顺序不改变静态节点；
-9. codec/module capability 按最终确认的契约测试注册前后行为；
-10. 已取得的 `meta::type` 视图生命周期和 registry append-only 约束明确覆盖。
+8. adapter 在首次 `resolve<T>()` 前可见时，不同翻译单元获得一致静态节点和 capability；
+9. 特化晚于首次实例化的测试代码被禁止或调整；
+10. 未注册 codec、object capability 和用户 static capability 继续可用；
+11. 已取得的 `meta::type` 视图生命周期和 registry append-only 约束明确覆盖。
 
 ## 风险
 
 - `type_data` 布局调整及 `type_details` 提取会影响 meta、object、serialization、resources
   多个模块，必须分阶段提交；
-- 修改未注册 codec 行为可能影响用户代码，需要在 beta 前明确兼容策略；
+- 保留 static capability 意味着必须严格管理特化声明顺序和 adapter 包含边界；
+- 无法要求一个完全不知道 serialization 的翻译单元与包含 serialization adapter 的翻译单元
+  为同一个 `T` 生成不同静态节点内容；内部模块必须建立统一使用约定；
 - 静态节点构造 `string_name` 时会访问进程级字符串表并可能分配一次，需避免静态初始化顺序依赖；
 - 静态 GUID 与显式 GUID 的冲突策略会把过去允许的覆盖变为错误；
 - 跨 DLL 时模板静态节点是否唯一取决于导出边界，需在插件稳定协议专项中继续处理；
@@ -445,11 +483,11 @@ pending record 中收集完成，保持现有 append-only 和事务语义。
 
 ## 开放问题
 
-1. 未注册自定义 codec 是否仍必须支持通过 `find_codec(meta::resolve<T>())` 查询？
-2. 用户自定义 static capability 是否必须支持未注册 type-erased 查询？
-3. `type_descriptor` 是直接删除，还是在迁移阶段保留为统一 `type_data` 的内部构建输入？
-4. 静态 `string_name` 是否直接通过 `meta::type::name()` 暴露？
-5. object 的静态名称/GUID 缺失时，是否允许 registration builder 补充？
+1. `type_descriptor` 是直接删除，还是在迁移阶段保留为统一 `type_data` 的内部构建输入？
+2. 静态 `string_name` 是否直接通过 `meta::type::name()` 暴露？
+3. object 的静态名称/GUID 缺失时，是否允许 registration builder 补充？
+4. CAORS 内部哪些类型必须通过统一 adapter 头保证 static capability 可见？
+5. 是否需要为“特化晚于首次实例化”补充更明确的编译期诊断 helper？
 6. 跨 DLL/插件场景是否要求静态节点地址统一，还是仅要求 `type_id/type_guid` 统一？
 
 在这些问题确认前，不进入大规模代码迁移。
