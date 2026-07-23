@@ -31,7 +31,7 @@
       "name": "default-build-dir",
       "hidden": true,
       "inherits": [
-        "default-build-dir-single"
+        "default-build-dir-multi"
       ]
     },
 
@@ -141,6 +141,13 @@
         "CMAKE_CXX_COMPILER": "clang-cl"
       }
     },
+    {
+      "name": "use-vs2022",
+      "hidden": true,
+      "generator": "Visual Studio 17 2022",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "architecture": "x64"
+    },
 
     {
       "name": "4.---------- 操作系统/平台 ----------",
@@ -237,6 +244,31 @@
       ]
     },
     {
+      "name": "windows-vs2022-debug",
+      "displayName": "Windows x64 Visual Studio 2022 debug",
+      "inherits": [
+        "use-vs2022"
+      ],
+      "cacheVariables": {
+        "CMAKE_CONFIGURATION_TYPES": "Debug",
+        "USE_DEBUG_OUTPUT": "ON",
+        "USE_LOG": "ON",
+        "USE_LOG_SEVERITY": "0"
+      }
+    },
+    {
+      "name": "windows-vs2022-release",
+      "displayName": "Windows x64 Visual Studio 2022 release",
+      "inherits": [
+        "use-vs2022"
+      ],
+      "cacheVariables": {
+        "CMAKE_CONFIGURATION_TYPES": "Release",
+        "USE_DEBUG_OUTPUT": "OFF",
+        "USE_LOG": "OFF"
+      }
+    },
+    {
       "name": "windows-clang-cl-debug",
       "displayName": "Windows x64 clang-cl debug",
       "inherits": [
@@ -287,6 +319,16 @@
     }
   ],
   "buildPresets": [
+    {
+      "name": "windows-vs2022-debug",
+      "configurePreset": "windows-vs2022-debug",
+      "configuration": "Debug"
+    },
+    {
+      "name": "windows-vs2022-release",
+      "configurePreset": "windows-vs2022-release",
+      "configuration": "Release"
+    },
     {
       "name": "windows-msvc-debug",
       "configurePreset": "windows-msvc-debug"
@@ -347,6 +389,14 @@
         "noTestsAction": "error",
         "stopOnFailure": false
       }
+    },
+    {
+      "name": "windows-vs2022-debug",
+      "configurePreset": "windows-vs2022-debug",
+      "inherits": [
+        "test-default"
+      ],
+      "configuration": "Debug"
     },
     {
       "name": "windows-msvc-debug",

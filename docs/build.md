@@ -8,14 +8,28 @@
 ## 环境要求
 
 - CMake 3.23 或更新版本。
-- Ninja。
+- Ninja（使用 Ninja preset 时需要）。
 - 支持 C++20 的编译器，任选其一：
   - MSVC `cl`
   - `clang-cl`
   - Clang
   - GCC
 
-在 Windows 使用 MSVC preset 时，需要从 Visual Studio Developer PowerShell 或已配置 `cl` 的终端运行命令。
+Windows 下推荐直接使用 Visual Studio 2022 generator preset，它会通过 Visual Studio 安装信息定位 MSVC，不要求当前终端的 `PATH` 中已有 `cl`：
+
+```powershell
+cmake --preset windows-vs2022-debug
+cmake --build --preset windows-vs2022-debug
+ctest --preset windows-vs2022-debug
+```
+
+如果需要 Ninja 构建速度或与 CI 保持一致，可通过包装脚本自动定位 Visual Studio 并初始化 MSVC 环境：
+
+```powershell
+.\scripts\msvc.ps1
+```
+
+也可以在 Visual Studio Developer PowerShell 中直接运行原有的 `windows-msvc-debug` preset。
 
 ## 快速开始
 
@@ -47,14 +61,23 @@ preset 名称表示预期工具链组合，实际是否可用取决于当前系�
 
 | Preset | 用途 |
 | --- | --- |
-| `windows-msvc-debug` | Windows MSVC Debug 构建 |
-| `windows-msvc-release` | Windows MSVC Release 构建 |
+| `windows-vs2022-debug` | Visual Studio 2022 generator，普通终端可直接使用 |
+| `windows-vs2022-release` | Visual Studio 2022 generator，Release 构建 |
+| `windows-msvc-debug` | Ninja + MSVC Debug，要求已初始化 MSVC 环境 |
+| `windows-msvc-release` | Ninja + MSVC Release，要求已初始化 MSVC 环境 |
 | `windows-clang-cl-debug` | Windows clang-cl Debug 构建 |
 | `windows-clang-debug` | Clang Debug 构建 |
 | `linux-clang-debug` | Clang Debug 构建 |
 | `linux-gcc-debug` | GCC Debug 构建 |
 
-当前所有 preset 共用默认构建目录 `build/`。在不同编译器 preset 之间切换时，如果 CMake 提示编译器缓存变化，建议重新配置或清理 `build/` 后再构建。
+每个 preset 使用独立构建目录 `build/<preset-name>/`，不同编译器和生成器不会复用同一份 CMake 缓存。
+
+包装脚本默认依次配置、构建和测试 `windows-msvc-debug`。也可以只执行一个阶段或指定其他 Ninja + MSVC preset：
+
+```powershell
+.\scripts\msvc.ps1 -Action configure
+.\scripts\msvc.ps1 -Preset windows-msvc-release
+```
 
 ## 测试
 
@@ -114,7 +137,7 @@ target_link_libraries(your_target PRIVATE caors::caors)
 构建后可安装到指定目录：
 
 ```sh
-cmake --install build --prefix <install-prefix>
+cmake --install build/<preset-name> --prefix <install-prefix>
 ```
 
 当前安装内容包括：
