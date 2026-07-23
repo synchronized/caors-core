@@ -299,14 +299,13 @@ template <typename T> struct indirect_ops_model {
   inline static const indirect_ops value = make();
 };
 
-template <typename T> [[nodiscard]] const indirect_ops* indirect_ops_ptr_of() {
+template <typename T> [[nodiscard]] static const indirect_ops* indirect_ops_ptr_of() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   if constexpr (std::is_pointer_v<type>) {
     return indirect_ops_model<type>::value.valid() ? &indirect_ops_model<type>::value : nullptr;
   } else if constexpr (traits::wrapper_traits<type>::is_wrapper) {
-    return indirect_ops_model<type>::value.get_value_type != nullptr
-               ? &indirect_ops_model<type>::value
-               : nullptr;
+    static const indirect_ops ops = wrapper_ops_model<type>::make();
+    return ops.get_value_type != nullptr ? &ops : nullptr;
   } else {
     return nullptr;
   }

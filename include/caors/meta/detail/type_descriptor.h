@@ -62,34 +62,34 @@ template <typename Ops>
 /** @brief 按 capability key 查询 descriptor 内建函数表。 */
 [[nodiscard]] inline const void* descriptor_builtin_ops(const type_descriptor& descriptor,
                                                         capability_key key) noexcept {
-  if (key == capability_key_of<value_storage_ops>()) {
+  if (capability_key_equal(key, capability_key_of<value_storage_ops>())) {
     return descriptor.value.valid() ? &descriptor.value : nullptr;
   }
-  if (key == capability_key_of<scalar_ops>()) {
+  if (capability_key_equal(key, capability_key_of<scalar_ops>())) {
     return descriptor_ops<scalar_ops>(descriptor);
   }
-  if (key == capability_key_of<enum_ops>()) {
+  if (capability_key_equal(key, capability_key_of<enum_ops>())) {
     return descriptor_ops<enum_ops>(descriptor);
   }
-  if (key == capability_key_of<indirect_ops>()) {
+  if (capability_key_equal(key, capability_key_of<indirect_ops>())) {
     return descriptor_ops<indirect_ops>(descriptor);
   }
-  if (key == capability_key_of<sequence_ops>()) {
+  if (capability_key_equal(key, capability_key_of<sequence_ops>())) {
     return descriptor_ops<sequence_ops>(descriptor);
   }
-  if (key == capability_key_of<set_ops>()) {
+  if (capability_key_equal(key, capability_key_of<set_ops>())) {
     return descriptor_ops<set_ops>(descriptor);
   }
-  if (key == capability_key_of<associative_ops>()) {
+  if (capability_key_equal(key, capability_key_of<associative_ops>())) {
     return descriptor_ops<associative_ops>(descriptor);
   }
-  if (key == capability_key_of<pair_ops>()) {
+  if (capability_key_equal(key, capability_key_of<pair_ops>())) {
     return descriptor_ops<pair_ops>(descriptor);
   }
-  if (key == capability_key_of<tuple_ops>()) {
+  if (capability_key_equal(key, capability_key_of<tuple_ops>())) {
     return descriptor_ops<tuple_ops>(descriptor);
   }
-  if (key == capability_key_of<variant_ops>()) {
+  if (capability_key_equal(key, capability_key_of<variant_ops>())) {
     return descriptor_ops<variant_ops>(descriptor);
   }
 
@@ -123,7 +123,7 @@ template <typename T> [[nodiscard]] type_id descriptor_type_id() noexcept {
   return type_id_of_cpp_type<std::remove_cv_t<std::remove_reference_t<T>>>();
 }
 
-template <typename T> [[nodiscard]] const type_descriptor* descriptor_ptr_of() noexcept;
+template <typename T> [[nodiscard]] static const type_descriptor* descriptor_ptr_of() noexcept;
 [[nodiscard]] CAORS_API error ensure_type_descriptor_registered(const type_descriptor& descriptor);
 
 } // namespace caors::meta::detail

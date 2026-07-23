@@ -15,6 +15,38 @@
 
 namespace caors::meta::detail {
 
+const void* find_type_builtin_ops(const meta::type& type, builtin_ops_kind kind) noexcept {
+  const type_descriptor* descriptor = type_access::descriptor_of(type);
+  if (descriptor == nullptr) {
+    return nullptr;
+  }
+
+  switch (kind) {
+  case builtin_ops_kind::value_storage:
+    return descriptor_ops<value_storage_ops>(*descriptor);
+  case builtin_ops_kind::scalar:
+    return descriptor_ops<scalar_ops>(*descriptor);
+  case builtin_ops_kind::enumeration:
+    return descriptor_ops<enum_ops>(*descriptor);
+  case builtin_ops_kind::indirect:
+    return descriptor_ops<indirect_ops>(*descriptor);
+  case builtin_ops_kind::sequence:
+    return descriptor_ops<sequence_ops>(*descriptor);
+  case builtin_ops_kind::set:
+    return descriptor_ops<set_ops>(*descriptor);
+  case builtin_ops_kind::associative:
+    return descriptor_ops<associative_ops>(*descriptor);
+  case builtin_ops_kind::pair:
+    return descriptor_ops<pair_ops>(*descriptor);
+  case builtin_ops_kind::tuple:
+    return descriptor_ops<tuple_ops>(*descriptor);
+  case builtin_ops_kind::variant:
+    return descriptor_ops<variant_ops>(*descriptor);
+  }
+
+  return nullptr;
+}
+
 error register_capability(registry& registry, type_id id, capability_key key,
                           const void* capability) {
   if (!id) {
@@ -96,7 +128,7 @@ const void* find_type_capability(const meta::type& type, capability_key key) noe
 
     for (std::size_t index = 0; index < descriptor->static_capability_count; ++index) {
       const capability_entry& entry = descriptor->static_capabilities[index];
-      if (entry.key == key && entry.data != nullptr) {
+      if (capability_key_equal(entry.key, key) && entry.data != nullptr) {
         return entry.data;
       }
     }

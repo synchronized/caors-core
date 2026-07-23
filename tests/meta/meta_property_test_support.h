@@ -389,7 +389,6 @@ template <typename T> void register_common_type(std::string_view name) {
   register_common_type<reflected_object_ptr_target>("caors.test.meta.reflected_object_ptr_target");
   register_common_type<caors::object_ptr<reflected_object_ptr_target>>(
       "caors.object_ptr<caors.test.meta.reflected_object_ptr_target>");
-  register_common_type<inventory>("caors.test.meta.inventory");
   return true;
 }();
 

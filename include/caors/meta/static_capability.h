@@ -227,23 +227,26 @@ template <typename T, typename... Capabilities>
 struct static_capability_entries<T, type_list<Capabilities...>> {
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
 
-  inline static const capability_entry values[sizeof...(Capabilities)] = {capability_entry{
-      capability_key_of<std::remove_cv_t<std::remove_reference_t<Capabilities>>>(),
-      get<std::remove_cv_t<std::remove_reference_t<Capabilities>>, value_type>()}...};
-
-  [[nodiscard]] static const capability_entry* data() noexcept { return values; }
+  [[nodiscard]] static const capability_entry* data() noexcept {
+    static const capability_entry values[sizeof...(Capabilities)] = {capability_entry{
+        capability_key_of<std::remove_cv_t<std::remove_reference_t<Capabilities>>>(),
+        get<std::remove_cv_t<std::remove_reference_t<Capabilities>>, value_type>()}...};
+    return values;
+  }
   [[nodiscard]] static constexpr std::size_t size() noexcept { return sizeof...(Capabilities); }
 };
 
 /** @brief 返回某个 C++ 类型声明的静态能力记录。 */
-template <typename T> [[nodiscard]] const capability_entry* static_capabilities_data() noexcept {
+template <typename T>
+[[nodiscard]] static const capability_entry* static_capabilities_data() noexcept {
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
   using list_type = typename static_capability_list<value_type>::type;
   return static_capability_entries<value_type, list_type>::data();
 }
 
 /** @brief 返回某个 C++ 类型声明的静态能力数量。 */
-template <typename T> [[nodiscard]] constexpr std::size_t static_capabilities_size() noexcept {
+template <typename T>
+[[nodiscard]] static constexpr std::size_t static_capabilities_size() noexcept {
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
   using list_type = typename static_capability_list<value_type>::type;
   return static_capability_entries<value_type, list_type>::size();

@@ -9,7 +9,9 @@
 #include "caors/meta/capability.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/ops/scalar_ops.h"
+#include "caors/meta/type_ops.h"
 #include "caors/meta/type_id.h"
+#include "caors/meta/value_ops.h"
 #include "caors/traits/wrapper.h"
 
 #include <cstddef>
@@ -31,6 +33,14 @@ class type;
 class property;
 class method;
 class method_set;
+struct associative_ops;
+struct enum_ops;
+struct indirect_ops;
+struct pair_ops;
+struct sequence_ops;
+struct set_ops;
+struct tuple_ops;
+struct variant_ops;
 
 [[nodiscard]] CAORS_API registry& get_registry() noexcept;
 [[nodiscard]] CAORS_API context& default_context() noexcept;
@@ -42,6 +52,22 @@ namespace detail {
 class type_data;
 struct type_descriptor;
 class type_access;
+
+enum class builtin_ops_kind {
+  value_storage,
+  scalar,
+  enumeration,
+  indirect,
+  sequence,
+  set,
+  associative,
+  pair,
+  tuple,
+  variant,
+};
+
+[[nodiscard]] CAORS_API const void* find_type_builtin_ops(const type& source,
+                                                          builtin_ops_kind kind) noexcept;
 
 } // namespace detail
 
@@ -167,7 +193,39 @@ public:
    */
   template <typename Ops> [[nodiscard]] const Ops* get_raw_ops() const noexcept {
     using ops_type = std::remove_cv_t<std::remove_reference_t<Ops>>;
-    return type_capability_traits<ops_type>::get_raw(*this);
+    if constexpr (std::is_same_v<ops_type, value_storage_ops>) {
+      return static_cast<const ops_type*>(
+          detail::find_type_builtin_ops(*this, detail::builtin_ops_kind::value_storage));
+    } else if constexpr (std::is_same_v<ops_type, scalar_ops>) {
+      return static_cast<const ops_type*>(
+          detail::find_type_builtin_ops(*this, detail::builtin_ops_kind::scalar));
+    } else if constexpr (std::is_same_v<ops_type, enum_ops>) {
+      return static_cast<const ops_type*>(
+          detail::find_type_builtin_ops(*this, detail::builtin_ops_kind::enumeration));
+    } else if constexpr (std::is_same_v<ops_type, indirect_ops>) {
+      return static_cast<const ops_type*>(
+          detail::find_type_builtin_ops(*this, detail::builtin_ops_kind::indirect));
+    } else if constexpr (std::is_same_v<ops_type, sequence_ops>) {
+      return static_cast<const ops_type*>(
+          detail::find_type_builtin_ops(*this, detail::builtin_ops_kind::sequence));
+    } else if constexpr (std::is_same_v<ops_type, set_ops>) {
+      return static_cast<const ops_type*>(
+          detail::find_type_builtin_ops(*this, detail::builtin_ops_kind::set));
+    } else if constexpr (std::is_same_v<ops_type, associative_ops>) {
+      return static_cast<const ops_type*>(
+          detail::find_type_builtin_ops(*this, detail::builtin_ops_kind::associative));
+    } else if constexpr (std::is_same_v<ops_type, pair_ops>) {
+      return static_cast<const ops_type*>(
+          detail::find_type_builtin_ops(*this, detail::builtin_ops_kind::pair));
+    } else if constexpr (std::is_same_v<ops_type, tuple_ops>) {
+      return static_cast<const ops_type*>(
+          detail::find_type_builtin_ops(*this, detail::builtin_ops_kind::tuple));
+    } else if constexpr (std::is_same_v<ops_type, variant_ops>) {
+      return static_cast<const ops_type*>(
+          detail::find_type_builtin_ops(*this, detail::builtin_ops_kind::variant));
+    } else {
+      return type_capability_traits<ops_type>::get_raw(*this);
+    }
   }
 
   /** @brief 判断该类型视图是否具备指定 raw ops 函数表。 */

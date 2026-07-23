@@ -266,7 +266,7 @@ const void* type_data::find_capability(capability_key key) const noexcept {
   }
 
   for (const capability_data& capability : capabilities_) {
-    if (capability.key == key) {
+    if (capability_key_equal(capability.key, key)) {
       return capability.data;
     }
   }
@@ -324,7 +324,7 @@ const extension_data* type_data::find_extension(extension_key key) const noexcep
   }
 
   for (const extension_data& extension : extensions_) {
-    if (extension.key == key) {
+    if (extension_key_equal(extension.key, key)) {
       return &extension;
     }
   }
@@ -338,7 +338,7 @@ extension_data* type_data::mutable_find_extension(extension_key key) noexcept {
   }
 
   for (extension_data& extension : extensions_) {
-    if (extension.key == key) {
+    if (extension_key_equal(extension.key, key)) {
       return &extension;
     }
   }

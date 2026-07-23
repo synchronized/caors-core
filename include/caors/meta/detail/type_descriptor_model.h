@@ -16,7 +16,7 @@
 
 namespace caors::meta::detail {
 
-template <typename T> void fill_descriptor_semantics(type_descriptor& descriptor) {
+template <typename T> static void fill_descriptor_semantics(type_descriptor& descriptor) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
 
   if constexpr (std::is_pointer_v<type>) {
@@ -61,40 +61,38 @@ template <typename T> void fill_descriptor_semantics(type_descriptor& descriptor
   }
 }
 
-template <typename T> struct descriptor_holder {
+template <typename T> [[nodiscard]] static type_descriptor make_type_descriptor() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  type_descriptor result{};
+  result.type = descriptor_type_id<type>();
+  result.name = descriptor_type_name<type>();
+  result.value = meta::value_storage_ops{
+      meta::type_layout{sizeof(type), alignof(type)},
+      meta::value_ops{
+          default_construct_fn_of<type>(),
+          value_clone_fn_of<type>(),
+          value_destroy_fn_of<type>(),
+          value_assign_fn_of<type>(),
+          resource_default_construct_fn_of<type>(),
+          resource_destroy_fn_of<type>(),
+      },
+      meta::value_traits{
+          std::is_trivially_copyable_v<type>,
+          std::is_trivially_destructible_v<type>,
+          std::is_trivially_default_constructible_v<type>,
+      },
+  };
+  fill_descriptor_semantics<type>(result);
+  result.builtin = builtin_ops_of<type>();
+  result.static_capabilities = meta::capabilities::static_capabilities_data<type>();
+  result.static_capability_count = meta::capabilities::static_capabilities_size<type>();
+  return result;
+}
 
-  inline static const type_descriptor value = [] {
-    type_descriptor descriptor{};
-    descriptor.type = descriptor_type_id<type>();
-    descriptor.name = descriptor_type_name<type>();
-    descriptor.value = meta::value_storage_ops{
-        meta::type_layout{sizeof(type), alignof(type)},
-        meta::value_ops{
-            default_construct_fn_of<type>(),
-            value_clone_fn_of<type>(),
-            value_destroy_fn_of<type>(),
-            value_assign_fn_of<type>(),
-            resource_default_construct_fn_of<type>(),
-            resource_destroy_fn_of<type>(),
-        },
-        meta::value_traits{
-            std::is_trivially_copyable_v<type>,
-            std::is_trivially_destructible_v<type>,
-            std::is_trivially_default_constructible_v<type>,
-        },
-    };
-    fill_descriptor_semantics<type>(descriptor);
-    descriptor.builtin = builtin_ops_of<type>();
-    descriptor.static_capabilities = meta::capabilities::static_capabilities_data<type>();
-    descriptor.static_capability_count = meta::capabilities::static_capabilities_size<type>();
-    return descriptor;
-  }();
-};
-
-template <typename T> [[nodiscard]] const type_descriptor* descriptor_ptr_of() noexcept {
+template <typename T> [[nodiscard]] static const type_descriptor* descriptor_ptr_of() noexcept {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  return &descriptor_holder<type>::value;
+  static const type_descriptor descriptor = make_type_descriptor<type>();
+  return &descriptor;
 }
 
 template <typename T> [[nodiscard]] error ensure_type_descriptor_for() {
