@@ -123,7 +123,7 @@ template <typename T> [[nodiscard]] type_id descriptor_type_id() noexcept {
   return type_id_of_cpp_type<std::remove_cv_t<std::remove_reference_t<T>>>();
 }
 
-template <typename T> [[nodiscard]] static const type_descriptor* descriptor_ptr_of() noexcept;
+template <typename T> [[nodiscard]] const type_descriptor* descriptor_ptr_of() noexcept;
 [[nodiscard]] CAORS_API error ensure_type_descriptor_registered(const type_descriptor& descriptor);
 
 } // namespace caors::meta::detail

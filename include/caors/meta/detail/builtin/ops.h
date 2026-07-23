@@ -15,8 +15,8 @@ namespace detail {
 struct type_descriptor;
 class type_data;
 
-template <typename T> [[nodiscard]] static const type_descriptor* descriptor_ptr_of() noexcept;
-template <typename T> [[nodiscard]] static const type_data* static_type_data_ptr_of() noexcept;
+template <typename T> [[nodiscard]] const type_descriptor* descriptor_ptr_of() noexcept;
+template <typename T> [[nodiscard]] const type_data* static_type_data_ptr_of() noexcept;
 template <typename T> [[nodiscard]] type_id descriptor_type_id() noexcept;
 
 /** @brief 类型的内置互斥运行期函数表。 */

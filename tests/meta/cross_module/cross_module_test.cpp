@@ -5,7 +5,19 @@
 
 #include "cross_module_test_support.h"
 
+#include "caors/meta/detail/type_access.h"
+
+#include <vector>
+
 using namespace caors::tests::cross_module;
+
+TEST_CASE("meta static type data is unique across translation units", "[meta]") {
+  const caors::meta::type local = caors::meta::resolve<cross_module_static_type>();
+  CHECK(caors::meta::detail::type_access::data_of(local) == static_type_data_from_support_tu());
+
+  const caors::meta::type sequence = caors::meta::resolve<std::vector<int>>();
+  CHECK(sequence.get_raw_ops<caors::meta::sequence_ops>() == sequence_ops_from_support_tu());
+}
 TEST_CASE("meta - cross module view supports unified meta and serialization registration",
           "[meta]") {
   REQUIRE(serialization_result_ok(caors::registration::type_<cross_module_serialization_first>(

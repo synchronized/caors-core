@@ -29,6 +29,13 @@ struct cross_module_late_registered {
   int value = 0;
 };
 
+struct cross_module_static_type {
+  int value = 0;
+};
+
+[[nodiscard]] const void* static_type_data_from_support_tu() noexcept;
+[[nodiscard]] const void* sequence_ops_from_support_tu() noexcept;
+
 [[nodiscard]] inline bool meta_property_result_ok(caors::error result) noexcept {
   return result.succeeded() || result.value() == caors::errc::duplicate_field ||
          result.value() == caors::errc::duplicate_method;

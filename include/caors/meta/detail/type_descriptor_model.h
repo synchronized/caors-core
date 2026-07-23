@@ -17,7 +17,7 @@
 
 namespace caors::meta::detail {
 
-template <typename T> static void fill_descriptor_semantics(type_descriptor& descriptor) {
+template <typename T> void fill_descriptor_semantics(type_descriptor& descriptor) {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
 
   if constexpr (std::is_pointer_v<type>) {
@@ -62,7 +62,7 @@ template <typename T> static void fill_descriptor_semantics(type_descriptor& des
   }
 }
 
-template <typename T> [[nodiscard]] static type_descriptor make_type_descriptor() {
+template <typename T> [[nodiscard]] type_descriptor make_type_descriptor() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   type_descriptor result{};
   result.type = descriptor_type_id<type>();
@@ -90,13 +90,13 @@ template <typename T> [[nodiscard]] static type_descriptor make_type_descriptor(
   return result;
 }
 
-template <typename T> [[nodiscard]] static const type_data* static_type_data_ptr_of() noexcept {
+template <typename T> [[nodiscard]] const type_data* static_type_data_ptr_of() noexcept {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   static const type_data data{*descriptor_ptr_of<type>(), false};
   return &data;
 }
 
-template <typename T> [[nodiscard]] static const type_descriptor* descriptor_ptr_of() noexcept {
+template <typename T> [[nodiscard]] const type_descriptor* descriptor_ptr_of() noexcept {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   static const type_descriptor descriptor = make_type_descriptor<type>();
   return &descriptor;
