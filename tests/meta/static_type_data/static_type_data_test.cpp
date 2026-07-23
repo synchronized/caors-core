@@ -18,7 +18,7 @@
 
 namespace {
 
-enum class descriptor_enum : int {
+enum class static_type_enum : int {
   negative = -1,
   positive = 7,
 };
@@ -35,7 +35,8 @@ template <typename T> [[nodiscard]] caors::type_id type_id_of() {
 
 } // namespace
 
-TEST_CASE("meta descriptor - scalar capability describes primitive aliases and strings", "[meta]") {
+TEST_CASE("meta static type data - scalar capability describes primitive aliases and strings",
+          "[meta]") {
   const caors::meta::type int_type = caors::meta::resolve<int>();
   REQUIRE(int_type.valid());
   CHECK(int_type.kind() == caors::meta::type_kind::value);
@@ -78,22 +79,23 @@ TEST_CASE("meta descriptor - scalar capability describes primitive aliases and s
   CHECK(view == "Ada");
 }
 
-TEST_CASE("meta descriptor - enum capability describes integer conversion", "[meta]") {
-  const caors::meta::type type = caors::meta::resolve<descriptor_enum>();
+TEST_CASE("meta static type data - enum capability describes integer conversion", "[meta]") {
+  const caors::meta::type type = caors::meta::resolve<static_type_enum>();
   REQUIRE(type.valid());
   CHECK(type.kind() == caors::meta::type_kind::enumeration);
 
-  const auto* ops = ops_of<caors::meta::enum_ops, descriptor_enum>();
+  const auto* ops = ops_of<caors::meta::enum_ops, static_type_enum>();
   REQUIRE(ops != nullptr);
   CHECK(ops->is_signed);
 
-  descriptor_enum value = descriptor_enum::positive;
+  static_type_enum value = static_type_enum::positive;
   CHECK(ops->to_i64(&value) == 7);
   CHECK(ops->from_i64(&value, -1));
-  CHECK(value == descriptor_enum::negative);
+  CHECK(value == static_type_enum::negative);
 }
 
-TEST_CASE("meta descriptor - indirect capability describes raw pointers and wrappers", "[meta]") {
+TEST_CASE("meta static type data - indirect capability describes raw pointers and wrappers",
+          "[meta]") {
   int value = 42;
   int* pointer = &value;
 
@@ -121,7 +123,7 @@ TEST_CASE("meta descriptor - indirect capability describes raw pointers and wrap
   CHECK(*static_cast<const int*>(optional_ops->value(&optional)) == 9);
 }
 
-TEST_CASE("meta descriptor - sequence set and associative capabilities describe containers",
+TEST_CASE("meta static type data - sequence set and associative capabilities describe containers",
           "[meta]") {
   const auto* sequence_ops = ops_of<caors::meta::sequence_ops, std::vector<int>>();
   REQUIRE(sequence_ops != nullptr);
@@ -152,7 +154,7 @@ TEST_CASE("meta descriptor - sequence set and associative capabilities describe 
   CHECK(associative_ops->size(&map_values) == 1);
 }
 
-TEST_CASE("meta descriptor - pair tuple and variant capabilities describe heterogeneous values",
+TEST_CASE("meta static type data - pair tuple and variant capabilities describe heterogeneous values",
           "[meta]") {
   using pair_type = std::pair<int, std::string>;
   const auto* pair_ops = ops_of<caors::meta::pair_ops, pair_type>();

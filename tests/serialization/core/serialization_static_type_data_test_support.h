@@ -9,15 +9,15 @@
 
 #include <vector>
 
-namespace caors::tests::serialization::descriptor_resource {
+namespace caors::tests::serialization::static_type_data {
 
-enum class descriptor_enum_color : unsigned char {
+enum class static_enum_color : unsigned char {
   red = 1,
   blue = 2,
 };
 
-struct descriptor_enum_actor {
-  std::vector<descriptor_enum_color> colors{};
+struct static_enum_actor {
+  std::vector<static_enum_color> colors{};
 };
 
 struct context_resource_value {
@@ -47,4 +47,4 @@ inline void require_context_resource_holder_metadata() {
                                      .commit()));
 }
 
-} // namespace caors::tests::serialization::descriptor_resource
+} // namespace caors::tests::serialization::static_type_data

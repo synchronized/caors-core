@@ -43,9 +43,9 @@ TEST_CASE("meta context - local registry isolates registered type data", "[meta]
   caors::meta::registry registry;
   caors::meta::context ctx{registry};
 
-  const caors::meta::type descriptor = caors::meta::resolve<context_local_type>(ctx);
-  REQUIRE(descriptor);
-  CHECK_FALSE(descriptor.registered());
+  const caors::meta::type static_type = caors::meta::resolve<context_local_type>(ctx);
+  REQUIRE(static_type);
+  CHECK_FALSE(static_type.registered());
 
   REQUIRE(caors::registration::type_<context_local_type>(ctx, "caors.test.meta.context.local")
               .commit() == caors::error{});
@@ -69,9 +69,9 @@ TEST_CASE("meta context - typed find does not mutate local registry", "[meta]") 
   CHECK_FALSE(caors::meta::find<context_find_only_type>(ctx));
   CHECK(registry.size() == 0);
 
-  const caors::meta::type descriptor = caors::meta::resolve<context_find_only_type>(ctx);
-  REQUIRE(descriptor);
-  CHECK_FALSE(descriptor.registered());
+  const caors::meta::type static_type = caors::meta::resolve<context_find_only_type>(ctx);
+  REQUIRE(static_type);
+  CHECK_FALSE(static_type.registered());
   CHECK(registry.size() == 0);
 }
 

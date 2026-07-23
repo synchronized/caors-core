@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 原测试文件：meta_builder_registration_accepts_fields_with_descriptor_only_types_test.cpp
+// 原测试文件：meta_builder_registration_accepts_fields_with_static_only_types_test.cpp
 
 #include "meta_property_test_support.h"
 

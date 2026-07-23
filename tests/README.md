@@ -68,7 +68,7 @@ include 路径。
 - 测试文件使用 Catch2，优先覆盖公共 API 的行为、错误路径和边界条件。
 - 普通行为测试应优先使用公开入口，例如 `meta::type`、`meta::type::get_capability<Capability>()`
   和 `any_ref::get_capability<Capability>()`。直接使用 `get_raw_ops()`、`get_registry()` extension API
-  或 detail 辅助类型的测试应集中在对应的 meta/registry/descriptor 高级主题中。
+  或 detail 辅助类型的测试应集中在对应的 meta/registry/static_type_data 高级主题中。
 - 新增功能时优先补充对应叶子主题测试，避免把无关测试塞进已有文件。
 
 ## 头文件测试

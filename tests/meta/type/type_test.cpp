@@ -50,17 +50,17 @@ TEST_CASE("meta type - declared identity is preserved by registration", "[meta]"
 #include "meta_type_basic_test_support.h"
 
 using namespace caors::tests::meta_type_basic;
-TEST_CASE("meta type - descriptor id is available before explicit registration", "[meta]") {
+TEST_CASE("meta type - static type id is available before explicit registration", "[meta]") {
   CHECK_FALSE(caors::meta::id("caors.test.type.unregistered_name"));
-  const caors::meta::type descriptor = caors::meta::resolve<anonymous_cpp_type>();
-  REQUIRE(descriptor);
-  CHECK_FALSE(descriptor.registered());
+  const caors::meta::type static_type = caors::meta::resolve<anonymous_cpp_type>();
+  REQUIRE(static_type);
+  CHECK_FALSE(static_type.registered());
   CHECK_FALSE(caors::meta::find<anonymous_cpp_type>());
-  CHECK(caors::meta::id_of<anonymous_cpp_type>() == descriptor.id());
-  const caors::any descriptor_value = caors::any::default_construct(descriptor);
-  REQUIRE(descriptor_value.valid());
-  CHECK(descriptor_value.size() == sizeof(anonymous_cpp_type));
-  CHECK(descriptor_value.alignment() == alignof(anonymous_cpp_type));
+  CHECK(caors::meta::id_of<anonymous_cpp_type>() == static_type.id());
+  const caors::any static_value = caors::any::default_construct(static_type);
+  REQUIRE(static_value.valid());
+  CHECK(static_value.size() == sizeof(anonymous_cpp_type));
+  CHECK(static_value.alignment() == alignof(anonymous_cpp_type));
 
   REQUIRE(
       caors::registration::type_<anonymous_cpp_type>("caors.test.type.anonymous_cpp").commit() ==
@@ -71,7 +71,7 @@ TEST_CASE("meta type - descriptor id is available before explicit registration",
 
   CHECK(first);
   CHECK(first == second);
-  CHECK(first == descriptor.id());
+  CHECK(first == static_type.id());
 
   auto named = caors::meta::find("caors.test.type.anonymous_cpp");
   REQUIRE(named);

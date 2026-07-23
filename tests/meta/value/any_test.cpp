@@ -207,7 +207,7 @@ TEST_CASE("meta any - noncopyable fields return invalid values", "[meta]") {
   CHECK(numeric == 21);
 }
 
-// 原测试文件：value_any_ref_creates_descriptor_views_for_unregistered_nested_vectors_test.cpp
+// 原测试文件：value_any_ref_creates_static_views_for_unregistered_nested_vectors_test.cpp
 
 #include "meta_value_test_common.h"
 
@@ -247,7 +247,7 @@ TEST_CASE("meta any_ref - creates static type views for unregistered nested vect
   CHECK(values[2][0] == 13);
 }
 
-// 原测试文件：value_any_ref_descriptor_fields_do_not_require_container_type_registration_test.cpp
+// 原测试文件：value_any_ref_static_fields_do_not_require_container_type_registration_test.cpp
 
 #include "meta_value_test_common.h"
 

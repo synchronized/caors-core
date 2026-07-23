@@ -228,7 +228,7 @@ struct construction_options {
   void* user_data = nullptr;
   bool use_registered_factory = true;
   bool use_registered_constructor = true;
-  bool use_descriptor_default = true;
+  bool use_static_default = true;
 
   [[nodiscard]] constexpr bool has_custom_construct() const noexcept {
     return construct != nullptr;

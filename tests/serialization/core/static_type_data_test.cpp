@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-// 原测试文件：serialization_descriptor_resource_context_memory_resource_constructs_empty_wrapper_values_test.cpp
+// 原测试文件：serialization_static_type_data_context_memory_resource_constructs_empty_wrapper_values_test.cpp
 
-#include "serialization_descriptor_resource_test_support.h"
+#include "serialization_static_type_data_test_support.h"
 
 using namespace caors::tests::serialization;
-using namespace caors::tests::serialization::descriptor_resource;
+using namespace caors::tests::serialization::static_type_data;
 
 TEST_CASE("serialization - context memory resource constructs empty wrapper values",
           "[serialization]") {
@@ -49,16 +49,16 @@ TEST_CASE("serialization - context memory resource constructs empty wrapper valu
   CHECK(tracking.statistics().bytes_in_use == 0);
 }
 
-// 原测试文件：serialization_descriptor_resource_descriptor_enum_ops_handles_unregistered_enum_values_test.cpp
+// 原测试文件：serialization_static_type_data_enum_ops_handles_unregistered_enum_values_test.cpp
 
-#include "serialization_descriptor_resource_test_support.h"
+#include "serialization_static_type_data_test_support.h"
 
 using namespace caors::tests::serialization;
-using namespace caors::tests::serialization::descriptor_resource;
+using namespace caors::tests::serialization::static_type_data;
 
-TEST_CASE("serialization - descriptor enum data handles unregistered enum values",
+TEST_CASE("serialization - static enum data handles unregistered enum values",
           "[serialization]") {
-  descriptor_enum_color color = descriptor_enum_color::blue;
+  static_enum_color color = static_enum_color::blue;
 
   const caors::serialization::variant_result ref_value =
       caors::serialization::to_variant(caors::any_ref::from(color));
@@ -72,18 +72,18 @@ TEST_CASE("serialization - descriptor enum data handles unregistered enum values
   REQUIRE(owned_value.value.try_as_u64() != nullptr);
   CHECK(owned_value.value.as_u64() == 2U);
 
-  require_serializable_property_type<descriptor_enum_actor>(
-      "caors.test.serialization.descriptor_enum_actor", "colors", &descriptor_enum_actor::colors);
+  require_serializable_property_type<static_enum_actor>(
+      "caors.test.serialization.static_enum_actor", "colors", &static_enum_actor::colors);
 
-  const descriptor_enum_actor actor{{descriptor_enum_color::blue, descriptor_enum_color::red}};
+  const static_enum_actor actor{{static_enum_color::blue, static_enum_color::red}};
   const caors::serialization::serialization_text_result text = caors::to_json(actor);
   REQUIRE(text.succeeded());
   CHECK(text.value == R"({"colors":[2,1]})");
 
-  descriptor_enum_actor decoded{};
+  static_enum_actor decoded{};
   const caors::error result = caors::read_json_from(decoded, R"({"colors":[1,2]})");
   REQUIRE(result.succeeded());
   REQUIRE(decoded.colors.size() == 2);
-  CHECK(decoded.colors[0] == descriptor_enum_color::red);
-  CHECK(decoded.colors[1] == descriptor_enum_color::blue);
+  CHECK(decoded.colors[0] == static_enum_color::red);
+  CHECK(decoded.colors[1] == static_enum_color::blue);
 }

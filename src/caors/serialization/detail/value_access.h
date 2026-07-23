@@ -71,7 +71,7 @@ struct owned_constructed_value {
 construct_owned_value(meta::type type, const serialization::context& context,
                       construction_site site = construction_site::value,
                       std::size_t index = construction_request_no_index,
-                      bool include_descriptor_default = true,
+                      bool include_static_default = true,
                       bool transfer_destroy_context = true) {
   const serialization::construction_options& options = context.effective_construction_options();
   const construction_request request = context.make_construction_request(type, site, index);
@@ -107,7 +107,7 @@ construct_owned_value(meta::type type, const serialization::context& context,
     }
   }
 
-  if (!include_descriptor_default || !options.use_descriptor_default) {
+  if (!include_static_default || !options.use_static_default) {
     return {};
   }
 
@@ -141,7 +141,7 @@ construct_owned_value(meta::type type, const serialization::context& context,
     }
   }
 
-  if (!context.effective_construction_options().use_descriptor_default) {
+  if (!context.effective_construction_options().use_static_default) {
     return {};
   }
 

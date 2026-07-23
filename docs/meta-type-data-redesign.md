@@ -5,16 +5,17 @@
 
 ## 文档状态
 
-- 状态：核心结构已实现
-- 目标阶段：身份 traits 与跨模块适配继续收敛
+- 状态：阶段 0～3 已完成，阶段 4 核心行为已完成，阶段 5 进行中
+- 当前阶段：遗留命名清理、性能基准和多编译器矩阵验证
 - 当前结论：静态与注册路径已统一为 `type_data + type_details`，旧 `type_descriptor` 已删除
+- 尚未完成：模板特化顺序的编译期诊断、性能 benchmark、Clang/GCC 与 Release 完整验证
 
-## 背景
+## 重构前背景
 
-当前 `meta::resolve<T>()` 会先查询当前 `meta::registry`。类型已经显式注册时返回 registry
+重构前，`meta::resolve<T>()` 会先查询当前 `meta::registry`。类型已经显式注册时返回 registry
 中的 `type_data`；类型尚未注册时返回绑定到静态 `type_descriptor<T>` 的轻量视图。
 
-当前关系如下：
+当时的关系如下：
 
 ```text
 未注册类型
@@ -340,7 +341,7 @@ codec 的默认路径。
 
 ## 与现有行为的差异
 
-当前测试明确覆盖以下 descriptor-only 行为：
+重构前测试明确覆盖以下 descriptor-only 行为：
 
 - 未注册类型可默认构造和销毁；
 - 未注册容器和 wrapper 可创建运行期 view；
@@ -390,7 +391,7 @@ pending record 中收集完成，保持现有 append-only 和事务语义。
 
 ## 分阶段开发计划
 
-### 阶段 0：需求确认
+### 阶段 0：需求确认（已完成）
 
 - 已确认未注册 codec/static capability 继续作为 `meta::type` 契约；
 - 确认静态名称和 GUID 与显式注册冲突时返回错误；
@@ -399,7 +400,7 @@ pending record 中收集完成，保持现有 append-only 和事务语义。
 
 完成标准：本文件中的开放问题有明确结论。
 
-### 阶段 1：统一 `type_data` 节点
+### 阶段 1：统一 `type_data` 节点（已完成）
 
 - 扩展 `type_data`，使其同时能表示静态 fallback 和 registry 注册节点；
 - 新增可选 `type_details`，迁移 parent、属性、方法、metadata、capability 和 extension 容器；
@@ -411,7 +412,7 @@ pending record 中收集完成，保持现有 append-only 和事务语义。
 
 完成标准：静态和注册路径使用同一节点类型；同一个 `T` 在多个翻译单元获得同一静态节点地址。
 
-### 阶段 2：收敛 `meta::type`
+### 阶段 2：收敛 `meta::type`（已完成）
 
 - 让 `resolve<T>()` 查询 registry 后回退到静态 `type_data<T>`；
 - 让 registration pending record 以静态 fallback 的固有字段为基础构造注册节点；
@@ -422,7 +423,7 @@ pending record 中收集完成，保持现有 append-only 和事务语义。
 
 完成标准：未注册和已注册视图都只查询一个 `type_data` 节点，注册后下一次 `resolve<T>()` 返回 registry 节点。
 
-### 阶段 3：身份合并与 object 适配
+### 阶段 3：身份合并与 object 适配（已完成）
 
 - 增加统一 `type_identity_traits<T>`；
 - 接入 `traits::type_name<T>`；
@@ -432,7 +433,7 @@ pending record 中收集完成，保持现有 append-only 和事务语义。
 
 完成标准：注册前后类型身份一致，不同 registry 的注册节点彼此独立。
 
-### 阶段 4：Static capability 可见性收敛
+### 阶段 4：Static capability 可见性收敛（核心行为已完成）
 
 - 保留 serialization、object 和用户扩展 static capability；
 - 统一 CAORS 内部类型及其 adapter 头文件边界；
@@ -448,7 +449,10 @@ pending record 中收集完成，保持现有 append-only 和事务语义。
 共同可见，不同翻译单元使用一致的 adapter 边界。跨翻译单元测试同时校验静态节点、sequence ops
 和 serialization codec ops 的地址一致性。
 
-### 阶段 5：清理和性能验证
+尚未实现“特化晚于首次实例化”的通用编译期诊断 helper。C++ 模板显式特化本身会覆盖一部分错误顺序，
+其余场景当前通过公共 adapter 头、文档约束和跨翻译单元测试保证。
+
+### 阶段 5：清理和性能验证（进行中）
 
 - 删除旧 `type_descriptor`、`descriptor_` 回退和不再使用的 helper；
 - 更新 meta、registration、serialization、object 和 traits 文档；
@@ -485,11 +489,13 @@ pending record 中收集完成，保持现有 append-only 和事务语义。
 - 跨 DLL 时模板静态节点是否唯一取决于导出边界，需在插件稳定协议专项中继续处理；
 - 不能用静态节点地址替代 `type_id` 作为跨模块或持久化身份。
 
-## 后续问题
+## 后续问题与结论
 
-1. object 的静态名称/GUID 缺失时，是否允许 registration builder 补充？
-2. CAORS 内部哪些类型必须通过统一 adapter 头保证 static capability 可见？
-3. 是否需要为“特化晚于首次实例化”补充更明确的编译期诊断 helper？
-4. 跨 DLL/插件场景是否要求静态节点地址统一，还是仅要求 `type_id/type_guid` 统一？
+1. object 的静态名称/GUID 缺失时，允许 registration builder 补充；静态声明存在时显式输入必须一致。
+2. serialization、object、resources、math 等模块类型通过各自聚合头或 `*/serialization.h`
+   adapter 头保证 static capability 可见。
+3. “特化晚于首次实例化”的编译期诊断 helper 尚未实现，列入后续增强，不阻塞当前静态节点模型。
+4. 跨 DLL/插件场景暂不承诺静态节点地址统一；稳定协议应依赖 `type_id/type_guid`，后续在插件专项中验证。
 
-在这些问题确认前，不进入大规模代码迁移。
+核心迁移已经完成。后续工作聚焦性能基准、多编译器矩阵和跨 DLL/插件协议，不再改变本文件确定的
+`type_data + type_details` 主结构。

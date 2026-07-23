@@ -17,12 +17,12 @@ struct policy_custom_codec_actor {
   policy_custom_codec_value value{};
 };
 
-struct descriptor_static_codec_value {
+struct static_codec_value {
   int value = 0;
 };
 
-struct descriptor_static_codec_actor {
-  descriptor_static_codec_value value{};
+struct static_codec_actor {
+  static_codec_value value{};
 };
 
 } // namespace caors::tests::serialization
@@ -66,8 +66,8 @@ template <> struct codec_traits<caors::tests::serialization::policy_custom_codec
   }
 };
 
-template <> struct codec_traits<caors::tests::serialization::descriptor_static_codec_value> {
-  using value_type = caors::tests::serialization::descriptor_static_codec_value;
+template <> struct codec_traits<caors::tests::serialization::static_codec_value> {
+  using value_type = caors::tests::serialization::static_codec_value;
 
   static constexpr bool can_write = true;
   static constexpr bool can_read = true;
