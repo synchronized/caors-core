@@ -103,12 +103,12 @@ Boost.Describe 将枚举、基类和成员描述保留为编译期类型信息�
    - 布局和值生命周期操作；
    - scalar、enum、container、wrapper、pair、tuple、variant 等内置 ops。
 6. 显式注册后，后续 `resolve<T>(ctx)` 必须返回 registry 中的注册数据。
-7. 同一个 C++ 类型可以在不同 registry 中拥有独立注册信息，但共享同一份静态固有数据。
+7. 同一个 C++ 类型可以在不同 registry 中拥有独立注册节点；未注册时共享同一份静态 fallback 节点。
 8. `meta::type` 不得依赖 descriptor 地址判断类型身份。
 
 ### 身份需求
 
-静态类型数据应保存：
+静态 fallback `type_data` 应保存：
 
 - 进程内 `type_id`；
 - 默认或声明的类型名；
@@ -147,96 +147,120 @@ Boost.Describe 将枚举、基类和成员描述保留为编译期类型信息�
 
 ## 推荐数据模型
 
-### 静态固有数据
+### 统一 `type_data` 节点
 
-建议将当前 `type_descriptor` 演进为明确命名的静态核心节点：
-
-```cpp
-struct static_type_data {
-  type_id id{};
-  const std::type_info* cpp_type = nullptr;
-  std::string_view declared_name{};
-  type_guid declared_guid{};
-  type_semantics semantics{};
-  value_storage_ops value{};
-  builtin_ops builtin{};
-};
-```
-
-每个 C++ 类型只有一份：
-
-```cpp
-template <typename T>
-[[nodiscard]] const static_type_data& static_type_data_of() noexcept {
-  static const static_type_data value = make_static_type_data<T>();
-  return value;
-}
-```
-
-`make_static_type_data<T>()` 只能读取所有实例化点都必须一致的 traits。可选模块 capability 不进入该节点。
-
-### Registry 注册数据
-
-现有 `type_data` 继续表示 registry 拥有的完整注册记录，但引用静态核心：
+参考 EnTT，不再拆分 `static_type_data` 和 `registered_type_data`。静态 fallback 与 registry 注册项
+使用同一种 `type_data` 节点结构：
 
 ```cpp
 class type_data {
 public:
-  [[nodiscard]] const static_type_data& static_data() const noexcept;
+  [[nodiscard]] bool valid() const noexcept;
+  [[nodiscard]] bool registered() const noexcept;
 
 private:
-  const static_type_data* static_data_ = nullptr;
+  type_id id_{};
+  const std::type_info* cpp_type_ = nullptr;
   string_name name_{};
   type_guid guid_{};
-  type_id parent_id_{};
-  // properties、methods、metadata、capabilities、extensions...
+  type_semantics semantics_{};
+  value_storage_ops value_{};
+  builtin_ops builtin_{};
+  memory::unique_ptr<type_details> details_{};
+  bool registered_ = false;
 };
 ```
 
-registry 记录只在显式 `commit()` 后存在，不需要引入“resolved 但未注册”的 registry 条目。
+静态 fallback 节点保存类型固有信息，`details_ == nullptr`、`registered_ == false`。registry 中的节点
+保存同样的固有字段，并在显式提交时设置 `registered_ == true` 和注册详情。
+
+名称直接保存为 `string_name`。类型身份 traits 仍返回 constexpr 文本，构造静态节点时只进行一次 intern：
+
+```cpp
+template <typename T>
+[[nodiscard]] type_data make_static_type_data() {
+  return type_data{
+      detail::type_id_of_cpp_type<T>(),
+      &typeid(T),
+      string_name{type_identity_traits<T>::name},
+      type_identity_traits<T>::guid,
+      // semantics、value、builtin...
+  };
+}
+```
+
+### 可选注册详情
+
+属性、方法和模块数据不应让每个静态节点构造空动态容器，统一延迟放入 `type_details`：
+
+```cpp
+struct type_details {
+  type_id parent_id{};
+  vector<property_data> properties{};
+  vector<method_set_data> methods{};
+  vector<nested_type_data> nested_types{};
+  vector<enum_value_data> enum_values{};
+  metadata_map metadata{};
+  vector<capability_data> capabilities{};
+  vector<extension_data> extensions{};
+};
+```
+
+静态 fallback 不分配 `type_details`。registry 记录只在显式 `commit()` 后存在，并由 registry 拥有完整
+`type_data` 和可选详情。
+
+```text
+static type_data<T>          registry type_data
+├─ id/name/guid              ├─ id/name/guid
+├─ semantics/value/builtin   ├─ semantics/value/builtin
+├─ registered = false        ├─ registered = true
+└─ details = nullptr         └─ details
+                                ├─ parent
+                                ├─ properties/methods
+                                ├─ capabilities
+                                └─ extensions
+```
 
 ### 公共视图
 
-`meta::type` 保存当前实际节点的二选一来源：
+`meta::type` 只引用一个实际节点，不再同时保存 `type_data*` 和 `type_descriptor*`：
 
 ```cpp
 class type {
   const registry* registry_ = nullptr;
-  const static_type_data* static_data_ = nullptr;
-  const type_data* registered_data_ = nullptr;
+  const detail::type_data* data_ = nullptr;
 };
 ```
 
-也可以进一步压缩为一个带来源标记的内部 node 指针，但第一阶段优先保持实现清晰。
-
 查询规则：
 
-- ID、默认名、声明 GUID、布局、类型形态和值操作：静态数据始终可用；
-- 注册名称、注册 GUID、父类、属性、方法、metadata、动态 capability：仅注册数据可用；
-- 注册数据存在时，名称和 GUID 已在 validate 阶段与静态声明完成一致性校验。
+- ID、名称、GUID、布局、类型形态和值操作：直接查询当前 `type_data`；
+- 父类、属性、方法、metadata、动态 capability：查询可选 `type_details`；
+- 静态节点的 `registered()` 为 false，registry 节点的 `registered()` 为 true；
+- registry 节点的名称和 GUID 已在 validate 阶段与静态节点完成一致性校验。
 
 ### Resolve 流程
 
 ```cpp
 template <typename T>
 [[nodiscard]] type resolve(context& ctx) {
-  const static_type_data& fallback = static_type_data_of<T>();
+  const type_data& fallback = static_type_data_of<T>();
 
   if (const type_data* registered =
-          ctx.get_registry().find_type_data(fallback.id)) {
-    return type_access::make(ctx.get_registry(), fallback, registered);
+          ctx.get_registry().find_type_data(fallback.id())) {
+    return type_access::make(&ctx.get_registry(), registered);
   }
 
-  return type_access::make(ctx.get_registry(), fallback, nullptr);
+  return type_access::make(&ctx.get_registry(), &fallback);
 }
 ```
 
 ```text
 resolve<T>(ctx)
-├─ 获取唯一 static_type_data<T>
+├─ 获取唯一静态 type_data<T>
 ├─ 查询 ctx.registry
-├─ 已注册：返回 static + registered 视图
-└─ 未注册：返回只有 static 的视图
+├─ 已注册：返回 registry type_data
+└─ 未注册：返回静态 fallback type_data
 ```
 
 ## Capability 边界
@@ -257,7 +281,7 @@ resolve<T>(ctx)
 
 ### 不进入静态核心的能力
 
-以下能力属于可选模块，不应影响 `static_type_data<T>` 的 ODR：
+以下能力属于可选模块，不应影响静态 `type_data<T>` 的 ODR：
 
 - serialization codec；
 - object 模块 capability；
@@ -310,7 +334,7 @@ type_<T>() / enum_<T>()
         │
         ▼
 pending_type_record
-├─ static_data = &static_type_data_of<T>()
+├─ fallback = &static_type_data_of<T>()
 ├─ name / guid / parent
 ├─ properties / methods
 ├─ module capabilities
@@ -326,7 +350,7 @@ validate
         │
         ▼
 commit
-└─ 一次性发布 registry type_data
+└─ 以 fallback 固有字段为基础，一次性发布 registered type_data
 ```
 
 不建议让后续 `resolve<T>()` 增量修改已发布 `type_data`。若某个模块能力是注册类型的一部分，应在同一次
@@ -338,30 +362,32 @@ pending record 中收集完成，保持现有 append-only 和事务语义。
 
 - 确认未注册 codec/static capability 是否继续作为 `meta::type` 契约；
 - 确认静态名称和 GUID 与显式注册冲突时返回错误；
-- 确认 `type_descriptor` 最终改名还是由 `static_type_data` 替代；
+- 确认统一 `type_data + type_details` 节点边界；
 - 确认 object 静态身份的统一 traits 入口。
 
 完成标准：本文件中的开放问题有明确结论。
 
-### 阶段 1：建立静态类型核心
+### 阶段 1：统一 `type_data` 节点
 
-- 新增 `static_type_data` 和 `static_type_data_of<T>()`；
-- 迁移 type id、RTTI、默认名称、声明 GUID、布局和值生命周期；
-- 迁移稳定的 builtin ops；
+- 扩展 `type_data`，使其同时能表示静态 fallback 和 registry 注册节点；
+- 新增可选 `type_details`，迁移 parent、属性、方法、metadata、capability 和 extension 容器；
+- 新增 `static_type_data_of<T>()`，返回函数内唯一静态 `type_data`；
+- 将 type id、RTTI、`string_name`、声明 GUID、布局、值生命周期和稳定 builtin ops 放入统一节点；
 - 增加跨翻译单元地址唯一和字段一致性测试；
 - 保持现有 `meta::type` 公共行为不变。
 
-完成标准：同一个 `T` 在多个翻译单元获得同一静态节点地址，且全量测试通过。
+完成标准：静态和注册路径使用同一节点类型；同一个 `T` 在多个翻译单元获得同一静态节点地址。
 
 ### 阶段 2：收敛 `meta::type`
 
-- 让 `resolve<T>()` 查询 registry 后回退到 `static_type_data<T>`；
-- 让已注册 `type_data` 引用静态核心；
-- 移除 `meta::type` 中重复的 descriptor 数据来源；
+- 让 `resolve<T>()` 查询 registry 后回退到静态 `type_data<T>`；
+- 让 registration pending record 以静态 fallback 的固有字段为基础构造注册节点；
+- 将 `meta::type` 收敛为 `registry* + type_data*`；
+- 移除 `meta::type` 中独立的 descriptor 指针和回退逻辑；
 - 统一 `type_access` 和 builtin ops 查询；
 - 保持 `find<T>()` 只返回显式注册类型。
 
-完成标准：未注册与已注册查询只有一条静态核心路径，注册后下一次 `resolve<T>()` 返回注册视图。
+完成标准：未注册和已注册视图都只查询一个 `type_data` 节点，注册后下一次 `resolve<T>()` 返回 registry 节点。
 
 ### 阶段 3：身份合并与 object 适配
 
@@ -371,11 +397,11 @@ pending record 中收集完成，保持现有 append-only 和事务语义。
 - 在 pending validate 中实现名称/GUID 一致性检查；
 - 增加多 registry 和冲突测试。
 
-完成标准：注册前后类型身份一致，不同 registry 共享静态核心但注册记录独立。
+完成标准：注册前后类型身份一致，不同 registry 的注册节点彼此独立。
 
 ### 阶段 4：模块 capability 解耦
 
-- 从静态核心移除 serialization/object 等可选模块 capability；
+- 从静态 fallback 节点移除 serialization/object 等可选模块 capability；
 - registration builder 在 pending 阶段收集模块能力；
 - 明确 `codec_of<T>()` 与 `find_codec(meta::type)` 的不同前置条件；
 - 修改或增加未注册 codec、静态 capability 和跨模块测试；
@@ -385,7 +411,7 @@ pending record 中收集完成，保持现有 append-only 和事务语义。
 
 ### 阶段 5：清理和性能验证
 
-- 删除旧 `type_descriptor`、双指针回退和不再使用的 helper；
+- 删除旧 `type_descriptor`、`descriptor_` 回退和不再使用的 helper；
 - 更新 meta、registration、serialization、object 和 traits 文档；
 - 对 `resolve<T>()`、`find<T>()`、属性查询和序列化调度运行 benchmark；
 - 在 MSVC、Clang、GCC 的 Debug/Release 下执行完整测试。
@@ -409,9 +435,10 @@ pending record 中收集完成，保持现有 append-only 和事务语义。
 
 ## 风险
 
-- `type_data` 拆分会影响 meta、object、serialization、resources 多个模块，必须分阶段提交；
+- `type_data` 布局调整及 `type_details` 提取会影响 meta、object、serialization、resources
+  多个模块，必须分阶段提交；
 - 修改未注册 codec 行为可能影响用户代码，需要在 beta 前明确兼容策略；
-- 静态名称若保存 `std::string_view`，traits 必须保证底层字符数据具有静态生命周期；
+- 静态节点构造 `string_name` 时会访问进程级字符串表并可能分配一次，需避免静态初始化顺序依赖；
 - 静态 GUID 与显式 GUID 的冲突策略会把过去允许的覆盖变为错误；
 - 跨 DLL 时模板静态节点是否唯一取决于导出边界，需在插件稳定协议专项中继续处理；
 - 不能用静态节点地址替代 `type_id` 作为跨模块或持久化身份。
@@ -420,8 +447,8 @@ pending record 中收集完成，保持现有 append-only 和事务语义。
 
 1. 未注册自定义 codec 是否仍必须支持通过 `find_codec(meta::resolve<T>())` 查询？
 2. 用户自定义 static capability 是否必须支持未注册 type-erased 查询？
-3. `type_descriptor` 是直接改名为 `static_type_data`，还是先保留兼容内部别名？
-4. 静态 declared name 是否直接通过 `meta::type::name()` 暴露，还是新增 `declared_name()`？
+3. `type_descriptor` 是直接删除，还是在迁移阶段保留为统一 `type_data` 的内部构建输入？
+4. 静态 `string_name` 是否直接通过 `meta::type::name()` 暴露？
 5. object 的静态名称/GUID 缺失时，是否允许 registration builder 补充？
 6. 跨 DLL/插件场景是否要求静态节点地址统一，还是仅要求 `type_id/type_guid` 统一？
 
