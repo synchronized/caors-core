@@ -8,20 +8,15 @@
 #include "caors/memory/unique_ptr.h"
 
 #include <type_traits>
-#include <typeinfo>
 #include <utility>
 
 namespace caors::meta::detail {
 
-using extension_key = const std::type_info*;
+using extension_key = const void*;
 
 template <typename Extension> [[nodiscard]] extension_key extension_key_of() noexcept {
-  using extension_type = std::decay_t<Extension>;
-  return &typeid(extension_type);
-}
-
-[[nodiscard]] inline bool extension_key_equal(extension_key lhs, extension_key rhs) noexcept {
-  return lhs != nullptr && rhs != nullptr && *lhs == *rhs;
+  static const int key = 0;
+  return &key;
 }
 
 class extension_storage_base {
@@ -66,8 +61,7 @@ template <typename Extension, typename... Args>
 template <typename Extension>
 [[nodiscard]] const Extension* extension_value(const extension_data& data) noexcept {
   using extension_type = std::decay_t<Extension>;
-  if (!extension_key_equal(data.key, extension_key_of<extension_type>()) ||
-      data.storage == nullptr) {
+  if (data.key != extension_key_of<extension_type>() || data.storage == nullptr) {
     return nullptr;
   }
 
@@ -78,8 +72,7 @@ template <typename Extension>
 template <typename Extension>
 [[nodiscard]] Extension* mutable_extension_value(extension_data& data) noexcept {
   using extension_type = std::decay_t<Extension>;
-  if (!extension_key_equal(data.key, extension_key_of<extension_type>()) ||
-      data.storage == nullptr) {
+  if (data.key != extension_key_of<extension_type>() || data.storage == nullptr) {
     return nullptr;
   }
 

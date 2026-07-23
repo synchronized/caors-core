@@ -42,10 +42,15 @@ using type_guid = core::type_guid;
 
 namespace detail {
 
+template <typename T> struct cpp_type_id_storage {
+  inline static const int key = 0;
+};
+
 template <typename T> [[nodiscard]] inline type_id type_id_of_cpp_type() noexcept {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  const std::uint64_t value = static_cast<std::uint64_t>(typeid(type).hash_code());
-  return type_id{value != 0 ? value : 1};
+  static_assert(sizeof(std::uintptr_t) <= sizeof(std::uint64_t));
+  return type_id{static_cast<std::uint64_t>(
+      reinterpret_cast<std::uintptr_t>(&cpp_type_id_storage<type>::key))};
 }
 
 /** @brief 按已注册 C++ RTTI 查询当前进程内类型 id。 */

@@ -10,13 +10,12 @@
 #include <cstdint>
 #include <string_view>
 #include <type_traits>
-#include <typeinfo>
 
 namespace caors::meta {
 
 class type;
 
-using capability_key = const std::type_info*;
+using capability_key = const void*;
 
 namespace detail {
 
@@ -46,12 +45,8 @@ struct capability_entry {
 
 /** @brief 返回能力类型在当前进程内的唯一 key。 */
 template <typename Capability> [[nodiscard]] capability_key capability_key_of() noexcept {
-  using capability_type = std::remove_cv_t<std::remove_reference_t<Capability>>;
-  return &typeid(capability_type);
-}
-
-[[nodiscard]] inline bool capability_key_equal(capability_key lhs, capability_key rhs) noexcept {
-  return lhs != nullptr && rhs != nullptr && *lhs == *rhs;
+  static const int key = 0;
+  return &key;
 }
 
 /**

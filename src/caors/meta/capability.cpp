@@ -128,7 +128,7 @@ const void* find_type_capability(const meta::type& type, capability_key key) noe
 
     for (std::size_t index = 0; index < descriptor->static_capability_count; ++index) {
       const capability_entry& entry = descriptor->static_capabilities[index];
-      if (capability_key_equal(entry.key, key) && entry.data != nullptr) {
+      if (entry.key == key && entry.data != nullptr) {
         return entry.data;
       }
     }
