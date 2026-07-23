@@ -34,11 +34,6 @@ public:
     const type_data* data = data_of(value);
     return data != nullptr && data->registered() ? data : nullptr;
   }
-
-  [[nodiscard]] static const type_descriptor* descriptor_of(const type& value) noexcept {
-    const type_data* data = data_of(value);
-    return data != nullptr ? data->descriptor() : nullptr;
-  }
 };
 
 } // namespace caors::meta::detail

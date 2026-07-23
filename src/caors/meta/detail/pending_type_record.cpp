@@ -3,14 +3,11 @@
 
 #include "caors/meta/detail/pending_type_record.h"
 
-#include "caors/meta/detail/type_descriptor.h"
-
 namespace caors::meta::detail {
 
 error pending_type_record::validate() const noexcept {
-  const type_descriptor* descriptor = data_.descriptor();
-  if (!data_.valid() || !data_.id() || !data_.name() || descriptor == nullptr ||
-      !descriptor->valid() || descriptor->type != data_.id() || !data_.members_valid()) {
+  if (!data_.valid() || !data_.id() || !data_.name() || !data_.value_ops().valid() ||
+      !data_.members_valid()) {
     return {error_domain::meta, errc::invalid_type};
   }
 

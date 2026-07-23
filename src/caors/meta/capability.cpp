@@ -4,7 +4,6 @@
 #include "caors/meta/capability.h"
 
 #include "caors/meta/detail/type_access.h"
-#include "caors/meta/detail/type_descriptor.h"
 #include "caors/meta/registry.h"
 #include "caors/meta/type.h"
 
@@ -16,32 +15,32 @@
 namespace caors::meta::detail {
 
 const void* find_type_builtin_ops(const meta::type& type, builtin_ops_kind kind) noexcept {
-  const type_descriptor* descriptor = type_access::descriptor_of(type);
-  if (descriptor == nullptr) {
+  const type_data* data = type_access::data_of(type);
+  if (data == nullptr) {
     return nullptr;
   }
 
   switch (kind) {
   case builtin_ops_kind::value_storage:
-    return descriptor_ops<value_storage_ops>(*descriptor);
+    return data->find_static_capability(capability_key_of<value_storage_ops>());
   case builtin_ops_kind::scalar:
-    return descriptor_ops<scalar_ops>(*descriptor);
+    return data->find_static_capability(capability_key_of<scalar_ops>());
   case builtin_ops_kind::enumeration:
-    return descriptor_ops<enum_ops>(*descriptor);
+    return data->find_static_capability(capability_key_of<enum_ops>());
   case builtin_ops_kind::indirect:
-    return descriptor_ops<indirect_ops>(*descriptor);
+    return data->find_static_capability(capability_key_of<indirect_ops>());
   case builtin_ops_kind::sequence:
-    return descriptor_ops<sequence_ops>(*descriptor);
+    return data->find_static_capability(capability_key_of<sequence_ops>());
   case builtin_ops_kind::set:
-    return descriptor_ops<set_ops>(*descriptor);
+    return data->find_static_capability(capability_key_of<set_ops>());
   case builtin_ops_kind::associative:
-    return descriptor_ops<associative_ops>(*descriptor);
+    return data->find_static_capability(capability_key_of<associative_ops>());
   case builtin_ops_kind::pair:
-    return descriptor_ops<pair_ops>(*descriptor);
+    return data->find_static_capability(capability_key_of<pair_ops>());
   case builtin_ops_kind::tuple:
-    return descriptor_ops<tuple_ops>(*descriptor);
+    return data->find_static_capability(capability_key_of<tuple_ops>());
   case builtin_ops_kind::variant:
-    return descriptor_ops<variant_ops>(*descriptor);
+    return data->find_static_capability(capability_key_of<variant_ops>());
   }
 
   return nullptr;
@@ -120,17 +119,11 @@ const void* find_type_capability(const meta::type& type, capability_key key) noe
     return nullptr;
   }
 
-  const type_descriptor* descriptor = type_access::descriptor_of(type);
-  if (descriptor != nullptr) {
-    if (const void* builtin = descriptor_builtin_ops(descriptor, key); builtin != nullptr) {
-      return builtin;
-    }
-
-    for (std::size_t index = 0; index < descriptor->static_capability_count; ++index) {
-      const capability_entry& entry = descriptor->static_capabilities[index];
-      if (entry.key == key && entry.data != nullptr) {
-        return entry.data;
-      }
+  const type_data* data = type_access::data_of(type);
+  if (data != nullptr) {
+    if (const void* static_capability = data->find_static_capability(key);
+        static_capability != nullptr) {
+      return static_capability;
     }
   }
 

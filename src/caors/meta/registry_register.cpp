@@ -211,18 +211,17 @@ namespace {
     return {error_domain::meta, errc::missing_type};
   }
 
-  const detail::type_descriptor* existing = stored->descriptor();
-  if (existing != nullptr) {
-    if (existing->type != descriptor.type ||
-        existing->value.layout.size != descriptor.value.layout.size ||
-        existing->value.layout.alignment != descriptor.value.layout.alignment) {
+  if (stored->value_ops().valid()) {
+    if (stored->id() != descriptor.type ||
+        stored->value_ops().layout.size != descriptor.value.layout.size ||
+        stored->value_ops().layout.alignment != descriptor.value.layout.alignment) {
       return {error_domain::meta, errc::invalid_type};
     }
 
     return {};
   }
 
-  stored->set_descriptor(&descriptor);
+  stored->set_static_data(descriptor);
   return {};
 }
 

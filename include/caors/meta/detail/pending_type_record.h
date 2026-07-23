@@ -31,8 +31,10 @@ public:
 
   constexpr void set_guid(type_guid guid) noexcept { data_.set_guid(guid); }
   void set_parent_id(type_id parent_id) { data_.set_parent_id(parent_id); }
-  constexpr void set_descriptor(const type_descriptor* descriptor) noexcept {
-    data_.set_descriptor(descriptor);
+  void set_descriptor(const type_descriptor* descriptor) noexcept {
+    if (descriptor != nullptr) {
+      data_.set_static_data(*descriptor);
+    }
   }
   void set_parent_cast(parent_cast_ops cast) { data_.set_parent_cast(cast); }
 

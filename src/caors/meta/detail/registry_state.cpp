@@ -3,8 +3,6 @@
 
 #include "registry_state.h"
 
-#include "caors/meta/detail/type_descriptor.h"
-
 #include <utility>
 
 namespace caors::meta::detail {
@@ -49,11 +47,6 @@ error validate_registry(const registry_state& state) {
       if (guid_position == state.guids.end() || guid_position->second != stored.get()) {
         return {error_domain::meta, errc::inconsistent_type};
       }
-    }
-
-    const type_descriptor* descriptor = stored->descriptor();
-    if (descriptor != nullptr && (!descriptor->valid() || descriptor->type != stored->id())) {
-      return {error_domain::meta, errc::invalid_type};
     }
 
     const parent_cast_ops* cast = stored->parent_cast();

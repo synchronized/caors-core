@@ -9,6 +9,7 @@
 #include "caors/meta/detail/capability_data.h"
 #include "caors/meta/detail/extension_data.h"
 #include "caors/meta/detail/parent_cast_ops.h"
+#include "caors/meta/detail/type_descriptor.h"
 #include "caors/meta/type_id.h"
 
 #include <cstddef>
@@ -24,7 +25,6 @@ class enum_value_data;
 class method_data;
 class method_set_data;
 class property_data;
-struct type_descriptor;
 struct type_details;
 
 /** @brief 注册类型内部声明的嵌套类型关系。 */
@@ -41,9 +41,7 @@ public:
   type_data() = default;
   type_data(type_id id, string_name name = {}, type_guid guid = type_guid::nil(),
             type_id parent_id = type_id::invalid());
-  constexpr type_data(type_id id, string_name name, const type_descriptor* descriptor,
-                      bool registered) noexcept
-      : id_(id), name_(name), descriptor_(descriptor), registered_(registered) {}
+  type_data(const type_descriptor& descriptor, bool registered) noexcept;
   type_data(const type_data& other) = delete;
   type_data& operator=(const type_data& other) = delete;
   type_data(type_data&&) noexcept;
@@ -54,7 +52,9 @@ public:
   [[nodiscard]] constexpr string_name name() const noexcept { return name_; }
   [[nodiscard]] constexpr type_guid guid() const noexcept { return guid_; }
   [[nodiscard]] type_id parent_id() const noexcept;
-  [[nodiscard]] constexpr const type_descriptor* descriptor() const noexcept { return descriptor_; }
+  [[nodiscard]] constexpr const value_storage_ops& value_ops() const noexcept { return value_; }
+  [[nodiscard]] constexpr const type_semantics& semantics() const noexcept { return semantics_; }
+  [[nodiscard]] constexpr const builtin_ops& builtin() const noexcept { return builtin_; }
   [[nodiscard]] const parent_cast_ops* parent_cast() const noexcept;
 
   [[nodiscard]] constexpr bool valid() const noexcept { return static_cast<bool>(id_); }
@@ -63,9 +63,7 @@ public:
   constexpr void set_name(string_name name) noexcept { name_ = name; }
   constexpr void set_guid(type_guid guid) noexcept { guid_ = guid; }
   void set_parent_id(type_id parent_id);
-  constexpr void set_descriptor(const type_descriptor* descriptor) noexcept {
-    descriptor_ = descriptor;
-  }
+  void set_static_data(const type_descriptor& descriptor) noexcept;
   void set_parent_cast(parent_cast_ops cast);
 
   [[nodiscard]] bool members_valid() const noexcept;
@@ -92,6 +90,7 @@ public:
   [[nodiscard]] const enum_value_data* find_enum_value_ptr(std::uint64_t value) const noexcept;
   void add_enum_value(enum_value_data value);
   [[nodiscard]] const void* find_capability(capability_key key) const noexcept;
+  [[nodiscard]] const void* find_static_capability(capability_key key) const noexcept;
   [[nodiscard]] bool contains_capability(capability_key key) const noexcept;
   [[nodiscard]] std::size_t capability_count() const noexcept;
   [[nodiscard]] error add_capability(capability_key key, const void* capability);
@@ -109,7 +108,11 @@ private:
   type_id id_{};
   string_name name_{};
   type_guid guid_{};
-  const type_descriptor* descriptor_ = nullptr;
+  value_storage_ops value_{};
+  type_semantics semantics_{};
+  builtin_ops builtin_{};
+  const capability_entry* static_capabilities_ = nullptr;
+  std::size_t static_capability_count_ = 0;
   bool registered_ = false;
   type_details* details_ = nullptr;
 };

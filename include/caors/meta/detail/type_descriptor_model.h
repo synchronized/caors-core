@@ -92,13 +92,14 @@ template <typename T> [[nodiscard]] static type_descriptor make_type_descriptor(
 
 template <typename T> [[nodiscard]] static const type_data* static_type_data_ptr_of() noexcept {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
-  static const type_descriptor descriptor = make_type_descriptor<type>();
-  static const type_data data{descriptor.type, descriptor.name, &descriptor, false};
+  static const type_data data{*descriptor_ptr_of<type>(), false};
   return &data;
 }
 
 template <typename T> [[nodiscard]] static const type_descriptor* descriptor_ptr_of() noexcept {
-  return static_type_data_ptr_of<T>()->descriptor();
+  using type = std::remove_cv_t<std::remove_reference_t<T>>;
+  static const type_descriptor descriptor = make_type_descriptor<type>();
+  return &descriptor;
 }
 
 template <typename T> [[nodiscard]] error ensure_type_descriptor_for() {

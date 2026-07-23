@@ -6,7 +6,6 @@
 #include "caors/meta/detail/property_access.h"
 #include "caors/meta/detail/type_access.h"
 #include "caors/meta/detail/type_data.h"
-#include "caors/meta/detail/type_descriptor.h"
 #include "caors/meta/detail/type_view.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/method.h"
@@ -26,8 +25,8 @@ namespace {
 } // namespace
 
 bool type::valid() const noexcept {
-  const detail::type_descriptor* desc = detail::type_access::descriptor_of(*this);
-  return desc != nullptr && desc->valid();
+  const detail::type_data* data = detail::type_access::data_of(*this);
+  return data != nullptr && data->valid() && data->value_ops().valid();
 }
 
 bool type::registered() const noexcept {
@@ -36,27 +35,17 @@ bool type::registered() const noexcept {
 }
 
 type_id type::id() const noexcept {
-  const detail::type_descriptor* desc = detail::type_access::descriptor_of(*this);
-  if (desc != nullptr) {
-    return desc->type;
-  }
-
-  const detail::type_data* data = detail::type_access::registered_data_of(*this);
+  const detail::type_data* data = detail::type_access::data_of(*this);
   return data != nullptr ? data->id() : type_id::invalid();
 }
 
 core::string_name type::name() const noexcept {
-  const detail::type_data* data = detail::type_access::registered_data_of(*this);
-  if (data != nullptr && data->name()) {
-    return data->name();
-  }
-
-  const detail::type_descriptor* desc = detail::type_access::descriptor_of(*this);
-  return desc != nullptr ? desc->name : core::string_name{};
+  const detail::type_data* data = detail::type_access::data_of(*this);
+  return data != nullptr ? data->name() : core::string_name{};
 }
 
 core::type_guid type::guid() const noexcept {
-  const detail::type_data* data = detail::type_access::registered_data_of(*this);
+  const detail::type_data* data = detail::type_access::data_of(*this);
   return data != nullptr ? data->guid() : core::type_guid::nil();
 }
 
@@ -74,8 +63,8 @@ type type::parent() const noexcept {
 }
 
 type_kind type::kind() const noexcept {
-  const detail::type_descriptor* desc = detail::type_access::descriptor_of(*this);
-  return desc != nullptr ? detail::descriptor_kind(*desc) : type_kind::value;
+  const detail::type_data* data = detail::type_access::data_of(*this);
+  return data != nullptr ? data->semantics().kind : type_kind::value;
 }
 
 bool type::is_object() const noexcept {
@@ -95,18 +84,18 @@ scalar_kind type::scalar() const noexcept {
 bool type::is_scalar() const noexcept { return scalar() != scalar_kind::none; }
 
 wrapper_semantics type::wrapper() const noexcept {
-  const detail::type_descriptor* desc = detail::type_access::descriptor_of(*this);
-  return desc != nullptr ? detail::descriptor_wrapper_semantics(*desc) : wrapper_semantics::none;
+  const detail::type_data* data = detail::type_access::data_of(*this);
+  return data != nullptr ? data->semantics().wrapper : wrapper_semantics::none;
 }
 
 bool type::indirect() const noexcept {
-  const detail::type_descriptor* desc = detail::type_access::descriptor_of(*this);
-  return desc != nullptr && detail::descriptor_indirect(*desc);
+  const detail::type_data* data = detail::type_access::data_of(*this);
+  return data != nullptr && data->semantics().indirect;
 }
 
 bool type::nullable() const noexcept {
-  const detail::type_descriptor* desc = detail::type_access::descriptor_of(*this);
-  return desc != nullptr && detail::descriptor_nullable(*desc);
+  const detail::type_data* data = detail::type_access::data_of(*this);
+  return data != nullptr && data->semantics().nullable;
 }
 
 const metadata_map& type::metadata() const noexcept {
@@ -123,12 +112,12 @@ const metadata_value* type::find_metadata(metadata_key key) const noexcept {
 }
 
 type type::get_value_type() const noexcept {
-  const detail::type_descriptor* desc = detail::type_access::descriptor_of(*this);
-  if (desc == nullptr) {
+  const detail::type_data* data = detail::type_access::data_of(*this);
+  if (data == nullptr) {
     return {};
   }
 
-  switch (detail::descriptor_kind(*desc)) {
+  switch (data->semantics().kind) {
   case type_kind::value:
   case type_kind::enumeration:
     return *this;
@@ -175,12 +164,12 @@ type type::get_value_type() const noexcept {
 }
 
 type type::get_key_type() const noexcept {
-  const detail::type_descriptor* desc = detail::type_access::descriptor_of(*this);
-  if (desc == nullptr) {
+  const detail::type_data* data = detail::type_access::data_of(*this);
+  if (data == nullptr) {
     return {};
   }
 
-  switch (detail::descriptor_kind(*desc)) {
+  switch (data->semantics().kind) {
   case type_kind::associative: {
     if (const auto* associative_ops = get_raw_ops<meta::associative_ops>()) {
       return associative_ops->get_key_type != nullptr ? associative_ops->get_key_type()
@@ -361,7 +350,7 @@ type make_type_view(registry& registry, type_id id, const type_data* fallback) n
     }
   }
 
-  if (fallback == nullptr || !fallback->valid() || fallback->descriptor() == nullptr) {
+  if (fallback == nullptr || !fallback->valid() || !fallback->value_ops().valid()) {
     return {};
   }
 

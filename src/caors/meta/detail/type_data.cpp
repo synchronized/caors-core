@@ -30,9 +30,18 @@ type_data::type_data(type_id id, string_name name, type_guid guid, type_id paren
   details_->parent_id = parent_id;
 }
 
+type_data::type_data(const type_descriptor& descriptor, bool registered) noexcept
+    : id_(descriptor.type), name_(descriptor.name), value_(descriptor.value),
+      semantics_(descriptor.semantics), builtin_(descriptor.builtin),
+      static_capabilities_(descriptor.static_capabilities),
+      static_capability_count_(descriptor.static_capability_count), registered_(registered) {}
+
 type_data::type_data(type_data&& other) noexcept
-    : id_(other.id_), name_(other.name_), guid_(other.guid_), descriptor_(other.descriptor_),
-      registered_(other.registered_), details_(std::exchange(other.details_, nullptr)) {}
+    : id_(other.id_), name_(other.name_), guid_(other.guid_), value_(other.value_),
+      semantics_(other.semantics_), builtin_(other.builtin_),
+      static_capabilities_(other.static_capabilities_),
+      static_capability_count_(other.static_capability_count_), registered_(other.registered_),
+      details_(std::exchange(other.details_, nullptr)) {}
 
 type_data& type_data::operator=(type_data&& other) noexcept {
   if (this != &other) {
@@ -42,7 +51,11 @@ type_data& type_data::operator=(type_data&& other) noexcept {
     id_ = other.id_;
     name_ = other.name_;
     guid_ = other.guid_;
-    descriptor_ = other.descriptor_;
+    value_ = other.value_;
+    semantics_ = other.semantics_;
+    builtin_ = other.builtin_;
+    static_capabilities_ = other.static_capabilities_;
+    static_capability_count_ = other.static_capability_count_;
     registered_ = other.registered_;
     details_ = std::exchange(other.details_, nullptr);
   }
@@ -53,6 +66,14 @@ type_data::~type_data() {
   if (details_ != nullptr) {
     memory::destroy(details_, &memory::library_resource());
   }
+}
+
+void type_data::set_static_data(const type_descriptor& descriptor) noexcept {
+  value_ = descriptor.value;
+  semantics_ = descriptor.semantics;
+  builtin_ = descriptor.builtin;
+  static_capabilities_ = descriptor.static_capabilities;
+  static_capability_count_ = descriptor.static_capability_count;
 }
 
 type_details& type_data::ensure_details() {
@@ -380,6 +401,43 @@ const void* type_data::find_capability(capability_key key) const noexcept {
   for (const capability_data& capability : value->capabilities) {
     if (capability.key == key) {
       return capability.data;
+    }
+  }
+
+  return nullptr;
+}
+
+const void* type_data::find_static_capability(capability_key key) const noexcept {
+  if (key == nullptr) {
+    return nullptr;
+  }
+
+  if (key == capability_key_of<value_storage_ops>()) {
+    return value_.valid() ? &value_ : nullptr;
+  }
+
+#define CAORS_FIND_BUILTIN_OPS(Ops)                                                                \
+  if (key == capability_key_of<Ops>()) {                                                           \
+    const auto* value = std::get_if<const Ops*>(&builtin_);                                        \
+    return value != nullptr ? *value : nullptr;                                                    \
+  }
+
+  CAORS_FIND_BUILTIN_OPS(scalar_ops)
+  CAORS_FIND_BUILTIN_OPS(enum_ops)
+  CAORS_FIND_BUILTIN_OPS(indirect_ops)
+  CAORS_FIND_BUILTIN_OPS(sequence_ops)
+  CAORS_FIND_BUILTIN_OPS(set_ops)
+  CAORS_FIND_BUILTIN_OPS(associative_ops)
+  CAORS_FIND_BUILTIN_OPS(pair_ops)
+  CAORS_FIND_BUILTIN_OPS(tuple_ops)
+  CAORS_FIND_BUILTIN_OPS(variant_ops)
+
+#undef CAORS_FIND_BUILTIN_OPS
+
+  for (std::size_t index = 0; index < static_capability_count_; ++index) {
+    const capability_entry& entry = static_capabilities_[index];
+    if (entry.key == key && entry.data != nullptr) {
+      return entry.data;
     }
   }
 
