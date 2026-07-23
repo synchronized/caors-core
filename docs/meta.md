@@ -451,15 +451,14 @@ caors::registration::type_<actor>("game.actor")
 `type_id`、默认显示名、布局、构造 / 析构 / 复制 / 赋值、类型语义，以及 CAORS 内置访问能力。
 它只表示“这个 C++ 类型可以被描述”，不表示类型已经完成业务注册。
 
-注册表按 `type_id`
-保存指向静态 descriptor 的指针，不把 descriptor 当作普通 generic component 复制存储。descriptor
-由布局、值操作、类型语义、内置 ops 和静态能力表几部分组成；未注册结构类型也可以通过 `any`、
-`any_ref` 或反射属性携带的静态 descriptor 访问同一套能力。
+每个 C++ 类型拥有一份静态 `type_data` 节点，其中直接保存布局、值操作、类型语义、内置 ops
+和静态能力表；未注册结构类型也可以通过 `any`、`any_ref` 或反射属性携带的静态类型节点访问同一套能力。
+显式注册后，registry 中的 `type_data` 复制这些固有字段，并增加属性、方法和动态扩展详情。
 普通用户通过 `meta::type`、`meta::resolve<T>()`
 和 `meta::type::get_capability<T>()` 查询公开能力；需要实现自定义 facade、序列化桥接、编辑器适配或
 性能敏感路径时，可以使用高级扩展入口 `get_raw_ops<T>()` 查询 raw ops 函数表。
 
-descriptor 内部按职责拆分：
+静态类型节点内部按职责拆分：
 
 - `type_layout`：保存 `size` 和 `alignment`。
 - `value_ops`：保存默认构造、复制、析构和赋值的类型擦除函数；相关函数指针类型嵌套在
@@ -470,10 +469,9 @@ descriptor 内部按职责拆分：
 - `static_capabilities`：保存模块声明的静态能力表，例如对象指针、对象句柄访问函数表和
   serialization codec 函数表。
 
-文件边界上，`meta/detail/type_descriptor.h` 保存内部 descriptor 结构和查询 helper；
-`meta/detail/type_data.h` 保存注册后的内部类型记录、属性和方法集合；
-`meta/detail/type_descriptor_name.h` 负责 descriptor 默认显示名生成；
-`meta/detail/type_descriptor_model.h` 负责 descriptor holder、语义填充和构建实现；
+文件边界上，`meta/detail/type_data.h` 保存统一静态/注册类型节点及其可选详情；
+`meta/detail/static_type_name.h` 负责静态节点默认显示名生成；
+`meta/detail/static_type_data_model.h` 负责静态节点的语义填充和构建实现；
 `meta/detail/builtin_ops_model.h` 作为内置 ops 聚合入口，只负责引入
 `meta/detail/builtin/*.h` 并选择当前类型的内置 ops；`builtin/enum_ops_model.h`、
 `builtin/indirect_ops_model.h`、`builtin/sequence_ops_model.h`、`builtin/set_ops_model.h`、

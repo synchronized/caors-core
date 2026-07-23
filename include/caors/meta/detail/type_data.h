@@ -6,11 +6,13 @@
 
 #include "caors/core/string_name.h"
 #include "caors/error.h"
+#include "caors/meta/detail/builtin/ops.h"
 #include "caors/meta/detail/capability_data.h"
 #include "caors/meta/detail/extension_data.h"
 #include "caors/meta/detail/parent_cast_ops.h"
-#include "caors/meta/detail/type_descriptor.h"
+#include "caors/meta/type.h"
 #include "caors/meta/type_id.h"
+#include "caors/meta/value_ops.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -27,6 +29,14 @@ class method_set_data;
 class property_data;
 struct type_details;
 
+/** @brief C++ 类型的运行期语义摘要。 */
+struct type_semantics {
+  type_kind kind = type_kind::value;
+  wrapper_semantics wrapper = wrapper_semantics::none;
+  bool indirect = false;
+  bool nullable = false;
+};
+
 /** @brief 注册类型内部声明的嵌套类型关系。 */
 struct nested_type_data {
   string_name name{};
@@ -41,7 +51,9 @@ public:
   type_data() = default;
   type_data(type_id id, string_name name = {}, type_guid guid = type_guid::nil(),
             type_id parent_id = type_id::invalid());
-  type_data(const type_descriptor& descriptor, bool registered) noexcept;
+  type_data(type_id id, string_name name, value_storage_ops value, type_semantics semantics,
+            builtin_ops builtin, const capability_entry* static_capabilities,
+            std::size_t static_capability_count, bool registered) noexcept;
   type_data(const type_data& other) = delete;
   type_data& operator=(const type_data& other) = delete;
   type_data(type_data&&) noexcept;
@@ -63,7 +75,6 @@ public:
   constexpr void set_name(string_name name) noexcept { name_ = name; }
   constexpr void set_guid(type_guid guid) noexcept { guid_ = guid; }
   void set_parent_id(type_id parent_id);
-  void set_static_data(const type_descriptor& descriptor) noexcept;
   void set_static_data(const type_data& source) noexcept;
   void set_parent_cast(parent_cast_ops cast);
 

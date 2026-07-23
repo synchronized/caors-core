@@ -8,7 +8,7 @@
 #include "caors/meta/detail/enum_value_data.h"
 #include "caors/meta/detail/extension_data.h"
 #include "caors/meta/detail/pending_type_record.h"
-#include "caors/meta/detail/type_descriptor_model.h"
+#include "caors/meta/detail/static_type_data_model.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/proxy.h"
 #include "caors/meta/query.h"
@@ -59,7 +59,7 @@ public:
 
   enum_builder(meta::context& ctx, std::string_view name)
       : registry_(&ctx.get_registry()),
-        pending_(meta::detail::descriptor_type_id<value_type>(), core::string_name{name}) {
+        pending_(meta::detail::static_type_id<value_type>(), core::string_name{name}) {
     if (name.empty()) {
       status_ = {error_domain::meta, errc::invalid_argument};
     }

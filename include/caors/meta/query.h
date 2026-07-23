@@ -5,7 +5,7 @@
 #define CAORS_META_QUERY_H_
 
 #include "caors/meta/context.h"
-#include "caors/meta/detail/type_descriptor_model.h"
+#include "caors/meta/detail/static_type_data_model.h"
 #include "caors/meta/detail/type_view.h"
 #include "caors/meta/registry.h"
 
@@ -23,7 +23,7 @@ namespace caors::meta {
  */
 template <typename T> [[nodiscard]] type resolve(context& ctx) {
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-  return detail::make_type_view(ctx.get_registry(), detail::descriptor_type_id<value_type>(),
+  return detail::make_type_view(ctx.get_registry(), detail::static_type_id<value_type>(),
                                 detail::static_type_data_ptr_of<value_type>());
 }
 
@@ -33,7 +33,7 @@ template <typename T> [[nodiscard]] type resolve() { return resolve<T>(default_c
 /** @brief 按 C++ 类型查找已注册基础类型；类型未显式注册时返回空视图。 */
 template <typename T> [[nodiscard]] type find(context& ctx) {
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-  const type stored = ctx.get_registry().find_type(detail::descriptor_type_id<value_type>());
+  const type stored = ctx.get_registry().find_type(detail::static_type_id<value_type>());
   return stored.registered() ? stored : type{};
 }
 

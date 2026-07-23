@@ -5,9 +5,9 @@
 
 ## 文档状态
 
-- 状态：讨论草案
-- 目标阶段：后续 meta 核心重构
-- 当前结论：先稳定需求和数据模型，不在本轮直接修改公共 API
+- 状态：核心结构已实现
+- 目标阶段：身份 traits 与跨模块适配继续收敛
+- 当前结论：静态与注册路径已统一为 `type_data + type_details`，旧 `type_descriptor` 已删除
 
 ## 背景
 
@@ -481,13 +481,11 @@ pending record 中收集完成，保持现有 append-only 和事务语义。
 - 跨 DLL 时模板静态节点是否唯一取决于导出边界，需在插件稳定协议专项中继续处理；
 - 不能用静态节点地址替代 `type_id` 作为跨模块或持久化身份。
 
-## 开放问题
+## 后续问题
 
-1. `type_descriptor` 是直接删除，还是在迁移阶段保留为统一 `type_data` 的内部构建输入？
-2. 静态 `string_name` 是否直接通过 `meta::type::name()` 暴露？
-3. object 的静态名称/GUID 缺失时，是否允许 registration builder 补充？
-4. CAORS 内部哪些类型必须通过统一 adapter 头保证 static capability 可见？
-5. 是否需要为“特化晚于首次实例化”补充更明确的编译期诊断 helper？
-6. 跨 DLL/插件场景是否要求静态节点地址统一，还是仅要求 `type_id/type_guid` 统一？
+1. object 的静态名称/GUID 缺失时，是否允许 registration builder 补充？
+2. CAORS 内部哪些类型必须通过统一 adapter 头保证 static capability 可见？
+3. 是否需要为“特化晚于首次实例化”补充更明确的编译期诊断 helper？
+4. 跨 DLL/插件场景是否要求静态节点地址统一，还是仅要求 `type_id/type_guid` 统一？
 
 在这些问题确认前，不进入大规模代码迁移。

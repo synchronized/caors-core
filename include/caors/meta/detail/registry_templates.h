@@ -4,7 +4,7 @@
 #ifndef CAORS_META_DETAIL_REGISTRY_TEMPLATES_H_
 #define CAORS_META_DETAIL_REGISTRY_TEMPLATES_H_
 
-#include "caors/meta/detail/type_descriptor_model.h"
+#include "caors/meta/detail/static_type_data_model.h"
 #include "caors/meta/registry.h"
 
 #include <type_traits>
@@ -15,7 +15,7 @@ template <typename T>
 [[nodiscard]] error registry::register_type_for(string_name name, type_guid guid,
                                                 type_id parent_id) {
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-  const type_id expected_id = detail::descriptor_type_id<value_type>();
+  const type_id expected_id = detail::static_type_id<value_type>();
   if (!expected_id) {
     return {error_domain::meta, errc::invalid_type};
   }
@@ -45,7 +45,7 @@ template <typename T>
 
 template <typename T> [[nodiscard]] type registry::find_type() const {
   using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-  const type_id id = detail::descriptor_type_id<value_type>();
+  const type_id id = detail::static_type_id<value_type>();
   return id ? find_type(id) : type{};
 }
 
@@ -55,9 +55,9 @@ template <typename Child, typename Parent> [[nodiscard]] error registry::set_typ
   static_assert(std::is_base_of_v<parent_type, child_type>, "Parent must be a base class of Child");
 
   return set_type_parent(
-      detail::descriptor_type_id<child_type>(), detail::descriptor_type_id<parent_type>(),
+      detail::static_type_id<child_type>(), detail::static_type_id<parent_type>(),
       detail::parent_cast_ops{
-          detail::descriptor_type_id<parent_type>(),
+          detail::static_type_id<parent_type>(),
           [](const void* value) noexcept -> const void* {
             return value != nullptr
                        ? static_cast<const parent_type*>(static_cast<const child_type*>(value))

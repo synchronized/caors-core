@@ -21,7 +21,7 @@ template <typename T> struct raw_pointer_ops_model {
   using non_cv_value_type = std::remove_cv_t<value_type>;
 
   [[nodiscard]] static meta::type get_value_type() noexcept {
-    return make_type_view(descriptor_type_id<non_cv_value_type>(),
+    return make_type_view(static_type_id<non_cv_value_type>(),
                           static_type_data_ptr_of<non_cv_value_type>());
   }
 
@@ -115,7 +115,7 @@ template <typename Wrapper> struct wrapper_ops_model {
   using value_type = std::remove_cv_t<typename traits::wrapper_traits<type>::wrapped_type>;
 
   [[nodiscard]] static meta::type get_value_type() noexcept {
-    return make_type_view(descriptor_type_id<value_type>(), static_type_data_ptr_of<value_type>());
+    return make_type_view(static_type_id<value_type>(), static_type_data_ptr_of<value_type>());
   }
 
   [[nodiscard]] static const void* value(const void* storage) noexcept {

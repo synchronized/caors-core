@@ -66,7 +66,7 @@ public:
     using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
     auto builder = registration::type_<value_type>(*context_, name);
     auto item = make_item<type_builder<value_type>>(batch_item_kind::type,
-                                                    meta::detail::descriptor_type_id<value_type>(),
+                                                    meta::detail::static_type_id<value_type>(),
                                                     core::string_name{name}, std::move(builder));
     auto* model = static_cast<item_model<type_builder<value_type>>*>(item.get());
     type_builder<value_type>& result = model->builder;
@@ -90,7 +90,7 @@ public:
     using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
     auto builder = registration::enum_<value_type>(*context_, name);
     auto item = make_item<enum_builder<value_type>>(batch_item_kind::enumeration,
-                                                    meta::detail::descriptor_type_id<value_type>(),
+                                                    meta::detail::static_type_id<value_type>(),
                                                     core::string_name{name}, std::move(builder));
     auto* model = static_cast<item_model<enum_builder<value_type>>*>(item.get());
     enum_builder<value_type>& result = model->builder;

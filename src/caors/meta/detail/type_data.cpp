@@ -30,11 +30,13 @@ type_data::type_data(type_id id, string_name name, type_guid guid, type_id paren
   details_->parent_id = parent_id;
 }
 
-type_data::type_data(const type_descriptor& descriptor, bool registered) noexcept
-    : id_(descriptor.type), name_(descriptor.name), value_(descriptor.value),
-      semantics_(descriptor.semantics), builtin_(descriptor.builtin),
-      static_capabilities_(descriptor.static_capabilities),
-      static_capability_count_(descriptor.static_capability_count), registered_(registered) {}
+type_data::type_data(type_id id, string_name name, value_storage_ops value,
+                     type_semantics semantics, builtin_ops builtin,
+                     const capability_entry* static_capabilities,
+                     std::size_t static_capability_count, bool registered) noexcept
+    : id_(id), name_(name), value_(value), semantics_(semantics), builtin_(builtin),
+      static_capabilities_(static_capabilities), static_capability_count_(static_capability_count),
+      registered_(registered) {}
 
 type_data::type_data(type_data&& other) noexcept
     : id_(other.id_), name_(other.name_), guid_(other.guid_), value_(other.value_),
@@ -66,14 +68,6 @@ type_data::~type_data() {
   if (details_ != nullptr) {
     memory::destroy(details_, &memory::library_resource());
   }
-}
-
-void type_data::set_static_data(const type_descriptor& descriptor) noexcept {
-  value_ = descriptor.value;
-  semantics_ = descriptor.semantics;
-  builtin_ = descriptor.builtin;
-  static_capabilities_ = descriptor.static_capabilities;
-  static_capability_count_ = descriptor.static_capability_count;
 }
 
 void type_data::set_static_data(const type_data& source) noexcept {

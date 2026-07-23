@@ -8,7 +8,7 @@
 #include "caors/meta/detail/extension_data.h"
 #include "caors/meta/detail/parent_cast_ops.h"
 #include "caors/meta/detail/pending_type_record.h"
-#include "caors/meta/detail/type_descriptor_model.h"
+#include "caors/meta/detail/static_type_data_model.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/method_registration.h"
 #include "caors/meta/object.h"
@@ -89,7 +89,7 @@ template <typename Child, typename Parent>
   static_assert(std::is_base_of_v<parent_type, child_type>, "Parent must be a base class of Child");
 
   return meta::detail::parent_cast_ops{
-      meta::detail::descriptor_type_id<parent_type>(),
+      meta::detail::static_type_id<parent_type>(),
       [](const void* value) noexcept -> const void* {
         return value != nullptr
                    ? static_cast<const parent_type*>(static_cast<const child_type*>(value))
@@ -117,7 +117,7 @@ public:
 
   type_builder(meta::context& ctx, std::string_view name)
       : registry_(&ctx.get_registry()),
-        pending_(meta::detail::descriptor_type_id<value_type>(), core::string_name{name}) {
+        pending_(meta::detail::static_type_id<value_type>(), core::string_name{name}) {
     if (name.empty()) {
       status_ = {error_domain::meta, errc::invalid_argument};
     }
@@ -140,7 +140,7 @@ public:
 
   /** @brief 设置 C++ 父类型并保存安全 upcast 信息。 */
   template <typename Parent> type_builder& parent() {
-    pending_.set_parent_id(meta::detail::descriptor_type_id<Parent>());
+    pending_.set_parent_id(meta::detail::static_type_id<Parent>());
     pending_.set_parent_cast(detail::parent_cast_ops_for<value_type, Parent>());
     return *this;
   }

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 CAORS contributors
 
-#ifndef CAORS_META_DETAIL_TYPE_DESCRIPTOR_NAME_H_
-#define CAORS_META_DETAIL_TYPE_DESCRIPTOR_NAME_H_
+#ifndef CAORS_META_DETAIL_STATIC_TYPE_NAME_H_
+#define CAORS_META_DETAIL_STATIC_TYPE_NAME_H_
 
 #include "caors/core/string_name.h"
 #include "caors/traits/container.h"
@@ -15,14 +15,14 @@
 
 namespace caors::meta::detail {
 
-template <typename T> [[nodiscard]] std::string descriptor_type_name_text();
+template <typename T> [[nodiscard]] std::string static_type_name_text();
 
-template <typename T> [[nodiscard]] std::string descriptor_sequence_type_name_text() {
+template <typename T> [[nodiscard]] std::string sequence_type_name_text() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   using element_type = typename traits::sequence_traits<type>::element_type;
 
   std::string text{traits::sequence_traits<type>::type_name_prefix()};
-  std::string element = descriptor_type_name_text<element_type>();
+  std::string element = static_type_name_text<element_type>();
   if (text.empty() || element.empty()) {
     return {};
   }
@@ -37,12 +37,12 @@ template <typename T> [[nodiscard]] std::string descriptor_sequence_type_name_te
   return text;
 }
 
-template <typename T> [[nodiscard]] std::string descriptor_set_type_name_text() {
+template <typename T> [[nodiscard]] std::string set_type_name_text() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   using element_type = typename traits::set_traits<type>::element_type;
 
   std::string text{traits::set_traits<type>::type_name_prefix()};
-  std::string element = descriptor_type_name_text<element_type>();
+  std::string element = static_type_name_text<element_type>();
   if (text.empty() || element.empty()) {
     return {};
   }
@@ -53,14 +53,14 @@ template <typename T> [[nodiscard]] std::string descriptor_set_type_name_text() 
   return text;
 }
 
-template <typename T> [[nodiscard]] std::string descriptor_associative_type_name_text() {
+template <typename T> [[nodiscard]] std::string associative_type_name_text() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   using key_type = typename traits::associative_traits<type>::key_type;
   using mapped_type = typename traits::associative_traits<type>::mapped_type;
 
   std::string text{traits::associative_traits<type>::type_name_prefix()};
-  std::string key = descriptor_type_name_text<key_type>();
-  std::string mapped = descriptor_type_name_text<mapped_type>();
+  std::string key = static_type_name_text<key_type>();
+  std::string mapped = static_type_name_text<mapped_type>();
   if (text.empty() || key.empty() || mapped.empty()) {
     return {};
   }
@@ -73,14 +73,14 @@ template <typename T> [[nodiscard]] std::string descriptor_associative_type_name
   return text;
 }
 
-template <typename T> [[nodiscard]] std::string descriptor_pair_type_name_text() {
+template <typename T> [[nodiscard]] std::string pair_type_name_text() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   using first_type = typename traits::pair_traits<type>::first_type;
   using second_type = typename traits::pair_traits<type>::second_type;
 
   std::string text{traits::pair_traits<type>::type_name_prefix()};
-  std::string first = descriptor_type_name_text<first_type>();
-  std::string second = descriptor_type_name_text<second_type>();
+  std::string first = static_type_name_text<first_type>();
+  std::string second = static_type_name_text<second_type>();
   if (text.empty() || first.empty() || second.empty()) {
     return {};
   }
@@ -101,7 +101,7 @@ template <typename Tuple, std::size_t... Indices>
   (void)(([&] {
            using element_type =
                typename traits::tuple_traits<tuple_type>::template element_type<Indices>;
-           std::string name = descriptor_type_name_text<element_type>();
+           std::string name = static_type_name_text<element_type>();
            if (name.empty()) {
              ok = false;
              return;
@@ -116,7 +116,7 @@ template <typename Tuple, std::size_t... Indices>
   return ok;
 }
 
-template <typename T> [[nodiscard]] std::string descriptor_tuple_type_name_text() {
+template <typename T> [[nodiscard]] std::string tuple_type_name_text() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   std::string text{traits::tuple_traits<type>::type_name_prefix()};
   if (text.empty()) {
@@ -140,7 +140,7 @@ template <typename Variant, std::size_t... Indices>
   (void)(([&] {
            using alternative_type =
                typename traits::variant_traits<variant_type>::template alternative_type<Indices>;
-           std::string name = descriptor_type_name_text<alternative_type>();
+           std::string name = static_type_name_text<alternative_type>();
            if (name.empty()) {
              ok = false;
              return;
@@ -155,7 +155,7 @@ template <typename Variant, std::size_t... Indices>
   return ok;
 }
 
-template <typename T> [[nodiscard]] std::string descriptor_variant_type_name_text() {
+template <typename T> [[nodiscard]] std::string variant_type_name_text() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
   std::string text{traits::variant_traits<type>::type_name_prefix()};
   if (text.empty()) {
@@ -171,37 +171,37 @@ template <typename T> [[nodiscard]] std::string descriptor_variant_type_name_tex
   return text;
 }
 
-template <typename T> [[nodiscard]] std::string descriptor_type_name_text() {
+template <typename T> [[nodiscard]] std::string static_type_name_text() {
   using type = std::remove_cv_t<std::remove_reference_t<T>>;
 
   if constexpr (traits::has_type_name_v<type>) {
     return std::string{traits::type_name<type>::value};
   } else if constexpr (std::is_pointer_v<type>) {
-    std::string text = descriptor_type_name_text<std::remove_cv_t<std::remove_pointer_t<type>>>();
+    std::string text = static_type_name_text<std::remove_cv_t<std::remove_pointer_t<type>>>();
     if (text.empty()) {
       return {};
     }
     text += "*";
     return text;
   } else if constexpr (traits::sequence_traits<type>::is_sequence) {
-    return descriptor_sequence_type_name_text<type>();
+    return sequence_type_name_text<type>();
   } else if constexpr (traits::set_traits<type>::is_set) {
-    return descriptor_set_type_name_text<type>();
+    return set_type_name_text<type>();
   } else if constexpr (traits::associative_traits<type>::is_associative) {
-    return descriptor_associative_type_name_text<type>();
+    return associative_type_name_text<type>();
   } else if constexpr (traits::pair_traits<type>::is_pair) {
-    return descriptor_pair_type_name_text<type>();
+    return pair_type_name_text<type>();
   } else if constexpr (traits::tuple_traits<type>::is_tuple) {
-    return descriptor_tuple_type_name_text<type>();
+    return tuple_type_name_text<type>();
   } else if constexpr (traits::variant_traits<type>::is_variant) {
-    return descriptor_variant_type_name_text<type>();
+    return variant_type_name_text<type>();
   } else {
     return {};
   }
 }
 
-template <typename T> [[nodiscard]] string_name descriptor_type_name() {
-  std::string text = descriptor_type_name_text<T>();
+template <typename T> [[nodiscard]] string_name static_type_name() {
+  std::string text = static_type_name_text<T>();
   return text.empty() ? string_name{} : string_name{text};
 }
 

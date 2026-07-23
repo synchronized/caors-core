@@ -72,7 +72,7 @@ bool type::is_object() const noexcept {
     return false;
   }
 
-  const type_id object_id = detail::descriptor_type_id<meta::object>();
+  const type_id object_id = detail::static_type_id<meta::object>();
   return id() == object_id || registry_->is_a(id(), object_id);
 }
 
