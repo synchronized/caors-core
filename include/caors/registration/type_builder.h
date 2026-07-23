@@ -19,6 +19,7 @@
 #include "caors/meta/registry.h"
 #include "caors/object/factory.h"
 #include "caors/object/registry.h"
+#include "caors/serialization/detail/runtime_schema.h"
 #include "caors/serialization/schema_query.h"
 #include "caors/traits/type_identity.h"
 
@@ -188,6 +189,12 @@ public:
       committed_type_ = registry_->template find_type<value_type>();
       if (serialization_enabled_) {
         status_ = validate_serialization_schema(committed_type_);
+        if (status_) {
+          return status_;
+        }
+
+        status_ =
+            serialization::detail::compile_type_schema(committed_type_, serialization_schema_);
         if (status_) {
           return status_;
         }

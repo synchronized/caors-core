@@ -29,19 +29,23 @@ error deserialize(const serialization::context& context, const meta::type& type,
   if (!schema_view.valid()) {
     return {error_domain::serialization, errc::invalid_type};
   }
+  const serialization::detail::type_runtime_schema* runtime =
+      serialization::detail::runtime_schema(*schema);
+  if (runtime == nullptr || runtime->fields.size() != schema->fields.size()) {
+    return {error_domain::serialization, errc::invalid_type};
+  }
 
   error status = reader.begin_object(*schema);
   if (status) {
     return status;
   }
 
-  for (const serialization::field_schema& field : schema->fields) {
+  for (const serialization::detail::field_runtime_schema& runtime_field : runtime->fields) {
+    const serialization::field_schema& field = runtime_field.schema;
     if (field.skipped || !serialization::detail::field_visible_in_context(field, context)) {
       continue;
     }
 
-    const serialization::detail::field_runtime_schema runtime_field =
-        serialization::detail::compile_field_schema(type, field);
     if (!runtime_field.valid()) {
       return {error_domain::serialization, errc::not_found};
     }

@@ -205,12 +205,13 @@ make_value_or_object_serialized_value(const any_ref& value, const serialization:
 field_runtime_schema compile_field_schema(const meta::type& owner_type,
                                           const serialization::field_schema& field) {
   field_runtime_schema result{};
-  result.schema = &field;
+  result.schema = field;
   result.property = owner_type.find_property(field.field_name, meta::member_search::include_bases);
   if (!result.property) {
     return result;
   }
 
+  result.property_data = meta::detail::property_access::data_of(result.property);
   result.owner_type = result.property.get_owner_type();
   result.declared_type = result.property.get_type();
   result.value_type = result.property.get_value_type();
@@ -231,12 +232,39 @@ field_runtime_schema compile_field_schema(const meta::type& owner_type,
   return result;
 }
 
+error compile_type_schema(const meta::type& owner_type, serialization::type_schema& schema) {
+  auto runtime = std::make_shared<type_runtime_schema>();
+  runtime->fields.reserve(schema.fields.size());
+  for (const serialization::field_schema& field : schema.fields) {
+    field_runtime_schema compiled = compile_field_schema(owner_type, field);
+    if (!compiled.valid()) {
+      return {error_domain::serialization, errc::not_found};
+    }
+    runtime->fields.push_back(std::move(compiled));
+  }
+
+  type_schema_access::set_runtime(schema, std::move(runtime));
+  return {};
+}
+
+const type_runtime_schema* runtime_schema(const serialization::type_schema& schema) noexcept {
+  return type_schema_access::runtime(schema);
+}
+
 any_ref get_field_ref(const field_runtime_schema& field_schema, const void* object) {
+  if (field_schema.property_data != nullptr) {
+    return field_schema.property_data->get_ref_unchecked(field_schema.declared_type, object);
+  }
+
   const meta::instance instance{meta::any_ref::from_raw(field_schema.owner_type, object, false)};
   return field_schema.property.get_ref(instance);
 }
 
 any_ref get_field_ref(const field_runtime_schema& field_schema, void* object) {
+  if (field_schema.property_data != nullptr) {
+    return field_schema.property_data->get_ref_unchecked(field_schema.declared_type, object);
+  }
+
   const meta::instance instance{meta::any_ref::from_raw(field_schema.owner_type, object, true)};
   return field_schema.property.get_ref(instance);
 }
@@ -471,12 +499,12 @@ error write_field(writer& writer, const void* object, const field_runtime_schema
     return {error_domain::serialization, errc::unsupported};
   }
 
-  error status = validate_field_for_writer(*field_schema.schema, writer.features());
+  error status = validate_field_for_writer(field_schema.schema, writer.features());
   if (status) {
     return status;
   }
 
-  status = writer.begin_field(*field_schema.schema);
+  status = writer.begin_field(field_schema.schema);
   if (status) {
     return status;
   }
@@ -507,7 +535,7 @@ error read_field(reader& reader, void* object, const field_runtime_schema& field
     return {error_domain::serialization, errc::invalid_field};
   }
 
-  error status = validate_field_for_reader(*field_schema.schema, reader.features());
+  error status = validate_field_for_reader(field_schema.schema, reader.features());
   if (status) {
     return status;
   }
@@ -525,7 +553,7 @@ error read_field(reader& reader, void* object, const field_runtime_schema& field
     return {error_domain::serialization, errc::invalid_field};
   }
 
-  status = reader.begin_field(*field_schema.schema);
+  status = reader.begin_field(field_schema.schema);
   if (status) {
     return status;
   }
@@ -552,7 +580,7 @@ error read_field(reader& reader, void* object, const field_runtime_schema& field
 error read_configured_field(reader& reader, void* object, const field_runtime_schema& field_schema,
                             const serialization::context& context) {
   const error status = read_field(reader, object, field_schema, context);
-  if (status.value() == errc::not_found && !field_schema.schema->required) {
+  if (status.value() == errc::not_found && !field_schema.schema.required) {
     return apply_field_default(field_schema, object);
   }
 

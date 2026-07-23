@@ -6,14 +6,17 @@
 
 #include "caors/serialization.h"
 
+#include "caors/meta/detail/property_access.h"
+#include "caors/meta/detail/property_data.h"
 #include "caors/meta/property.h"
 
 namespace caors::serialization::detail {
 
 /** @brief 序列化内部按字段 schema 和 meta type 编译出的运行期字段信息。 */
 struct field_runtime_schema {
-  const serialization::field_schema* schema = nullptr;
+  serialization::field_schema schema{};
   meta::property property{};
+  const meta::detail::property_data* property_data = nullptr;
   meta::type owner_type{};
   meta::type declared_type{};
   meta::type value_type{};
@@ -22,11 +25,31 @@ struct field_runtime_schema {
   bool uses_direct_value = false;
   bool uses_inline_indirect_value = false;
 
-  [[nodiscard]] bool valid() const noexcept { return schema != nullptr && property.valid(); }
+  [[nodiscard]] bool valid() const noexcept { return schema.valid() && property.valid(); }
+};
+
+/** @brief 已注册类型 schema 的内部字段调度缓存。 */
+struct type_runtime_schema {
+  vector<field_runtime_schema> fields{};
+};
+
+/** @brief 访问公开 type_schema 隐藏的内部调度缓存。 */
+struct type_schema_access {
+  [[nodiscard]] static const type_runtime_schema* runtime(
+      const serialization::type_schema& schema) noexcept {
+    return schema.runtime_.get();
+  }
+
+  static void set_runtime(serialization::type_schema& schema,
+                          std::shared_ptr<const type_runtime_schema> runtime) noexcept {
+    schema.runtime_ = std::move(runtime);
+  }
 };
 
 [[nodiscard]] field_runtime_schema compile_field_schema(const meta::type& owner_type,
                                                         const serialization::field_schema& field);
+[[nodiscard]] const type_runtime_schema* runtime_schema(
+    const serialization::type_schema& schema) noexcept;
 [[nodiscard]] core::string_name
 serialized_field_name(const serialization::field_schema& data) noexcept;
 [[nodiscard]] bool field_visible_in_context(const serialization::field_schema& field,

@@ -12,10 +12,18 @@
 #include <cstddef>
 #include <cstdint>
 #include <initializer_list>
+#include <memory>
 #include <string_view>
 #include <utility>
 
 namespace caors::serialization {
+
+namespace detail {
+
+struct type_runtime_schema;
+struct type_schema_access;
+
+} // namespace detail
 
 /** @brief 序列化后端能力。 */
 enum class format_features : std::uint32_t {
@@ -89,6 +97,11 @@ struct type_schema {
 
     return true;
   }
+
+private:
+  friend struct detail::type_schema_access;
+
+  std::shared_ptr<const detail::type_runtime_schema> runtime_{};
 };
 
 /** @brief 序列化 schema 的类型级只读能力视图。 */
