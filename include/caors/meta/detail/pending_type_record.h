@@ -1,0 +1,97 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 CAORS contributors
+
+#ifndef CAORS_META_DETAIL_PENDING_TYPE_RECORD_H_
+#define CAORS_META_DETAIL_PENDING_TYPE_RECORD_H_
+
+#include "caors/meta/detail/type_data.h"
+
+namespace caors::meta::detail {
+
+/**
+ * @brief 尚未发布的完整类型注册记录。
+ *
+ * builder 仅修改本类型；`validate()` 成功后由 registry 一次性取得内部 `type_data` 并发布。
+ */
+class pending_type_record final {
+public:
+  pending_type_record() = default;
+  constexpr pending_type_record(type_id id, string_name name) noexcept : data_(id, name) {}
+
+  pending_type_record(const pending_type_record&) = delete;
+  pending_type_record& operator=(const pending_type_record&) = delete;
+  pending_type_record(pending_type_record&&) noexcept = default;
+  pending_type_record& operator=(pending_type_record&&) noexcept = default;
+
+  [[nodiscard]] constexpr type_id id() const noexcept { return data_.id(); }
+  [[nodiscard]] constexpr type_id parent_id() const noexcept { return data_.parent_id(); }
+
+  constexpr void set_guid(type_guid guid) noexcept { data_.set_guid(guid); }
+  constexpr void set_parent_id(type_id parent_id) noexcept { data_.set_parent_id(parent_id); }
+  constexpr void set_descriptor(const type_descriptor* descriptor) noexcept {
+    data_.set_descriptor(descriptor);
+  }
+  constexpr void set_parent_cast(parent_cast_ops cast) noexcept { data_.set_parent_cast(cast); }
+
+  [[nodiscard]] std::size_t property_count() const noexcept { return data_.property_count(); }
+  [[nodiscard]] const property_data* property_at(std::size_t index) const noexcept {
+    return data_.property_at(index);
+  }
+  [[nodiscard]] const property_data* find_property_ptr(string_name name) const noexcept {
+    return data_.find_property_ptr(name);
+  }
+  [[nodiscard]] property_data* mutable_find_property_ptr(string_name name) noexcept {
+    return data_.mutable_find_property_ptr(name);
+  }
+  void add_property(property_data property) { data_.add_property(std::move(property)); }
+
+  [[nodiscard]] method_set_data* mutable_find_method_ptr(string_name name) noexcept {
+    return data_.mutable_find_method_ptr(name);
+  }
+  [[nodiscard]] std::optional<std::size_t> add_method(method_data method) {
+    return data_.add_method(std::move(method));
+  }
+
+  [[nodiscard]] error add_nested_type(nested_type_data nested_type) {
+    return data_.add_nested_type(std::move(nested_type));
+  }
+
+  [[nodiscard]] const enum_value_data* find_enum_value_ptr(string_name name) const noexcept {
+    return data_.find_enum_value_ptr(name);
+  }
+  [[nodiscard]] enum_value_data* mutable_find_enum_value_ptr(string_name name) noexcept {
+    return data_.mutable_find_enum_value_ptr(name);
+  }
+  void add_enum_value(enum_value_data value) { data_.add_enum_value(std::move(value)); }
+
+  [[nodiscard]] bool contains_capability(capability_key key) const noexcept {
+    return data_.contains_capability(key);
+  }
+  [[nodiscard]] error add_capability(capability_key key, const void* capability) {
+    return data_.add_capability(key, capability);
+  }
+  [[nodiscard]] error add_owned_capability(capability_key key,
+                                           memory::unique_ptr<owned_capability_base> capability) {
+    return data_.add_owned_capability(key, std::move(capability));
+  }
+
+  [[nodiscard]] extension_data* mutable_find_extension(extension_key key) noexcept {
+    return data_.mutable_find_extension(key);
+  }
+  [[nodiscard]] error add_extension(extension_data extension) {
+    return data_.add_extension(std::move(extension));
+  }
+
+  /** @brief 校验不依赖 registry 状态的记录结构。 */
+  [[nodiscard]] error validate() const noexcept;
+
+  [[nodiscard]] const type_data& data() const noexcept { return data_; }
+  [[nodiscard]] type_data release() && noexcept { return std::move(data_); }
+
+private:
+  type_data data_{};
+};
+
+} // namespace caors::meta::detail
+
+#endif

@@ -7,7 +7,7 @@
 #include "caors/meta/capability_bind.h"
 #include "caors/meta/detail/enum_value_data.h"
 #include "caors/meta/detail/extension_data.h"
-#include "caors/meta/detail/type_data.h"
+#include "caors/meta/detail/pending_type_record.h"
 #include "caors/meta/detail/type_descriptor_model.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/proxy.h"
@@ -49,7 +49,7 @@ template <typename Enum>
   return value(string_name{name}, enum_value);
 }
 
-/** @brief 枚举类型注册构建器，提交前在 pending type_data 中收集枚举项和 metadata。 */
+/** @brief 枚举类型注册构建器，提交前在 pending record 中收集枚举项和 metadata。 */
 template <typename T> class enum_builder {
   static_assert(std::is_enum_v<std::remove_cv_t<std::remove_reference_t<T>>>,
                 "T must be an enum type");
@@ -269,7 +269,7 @@ private:
   }
 
   meta::registry* registry_ = nullptr;
-  meta::detail::type_data pending_{};
+  meta::detail::pending_type_record pending_{};
   meta::type committed_type_{};
   error status_{};
 };

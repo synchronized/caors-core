@@ -7,7 +7,7 @@
 #include "caors/meta/constructor.h"
 #include "caors/meta/detail/extension_data.h"
 #include "caors/meta/detail/parent_cast_ops.h"
-#include "caors/meta/detail/type_data.h"
+#include "caors/meta/detail/pending_type_record.h"
 #include "caors/meta/detail/type_descriptor_model.h"
 #include "caors/meta/metadata.h"
 #include "caors/meta/method_registration.h"
@@ -107,9 +107,9 @@ template <typename Child, typename Parent>
 /**
  * @brief 跨模块类型注册构建器。
  *
- * builder 在注册阶段持有一份 pending `type_data`，meta 属性/方法、serialization schema 和 object
- * capability 都写入 pending 数据；`commit()` 时一次性发布到 registry。发布后的 `type_data`
- * 不再通过该入口修改。
+ * builder 在注册阶段持有独立的 `pending_type_record`，meta 属性/方法、serialization schema 和
+ * object capability 都写入 pending 记录；`commit()` 校验成功后一次性发布为 registry 内的
+ * `type_data`。
  */
 template <typename T> class type_builder {
 public:
@@ -669,7 +669,7 @@ private:
   }
 
   meta::registry* registry_ = nullptr;
-  meta::detail::type_data pending_{};
+  meta::detail::pending_type_record pending_{};
   meta::type committed_type_{};
   serialization::type_schema serialization_schema_{};
   bool serialization_enabled_ = false;

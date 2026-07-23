@@ -3,6 +3,7 @@
 
 #include "detail/registry_state.h"
 
+#include "caors/meta/detail/pending_type_record.h"
 #include "caors/meta/detail/type_descriptor.h"
 #include "caors/meta/registry.h"
 
@@ -265,18 +266,25 @@ error registry::register_type(type_id id, string_name name, type_guid guid, type
   return register_type_impl(*state_, detail::type_data{id, name, guid, parent_id});
 }
 
-error registry::commit_type(detail::type_data type, const std::type_info& cpp_type) {
-  if (!type.valid() || !type.id()) {
-    return {error_domain::meta, errc::invalid_type};
+error registry::commit_type(detail::pending_type_record pending, const std::type_info& cpp_type) {
+  error status = pending.validate();
+  if (status) {
+    return status;
   }
 
   std::lock_guard lock(state_->mutex);
-  if (state_->types.contains(type.id().value())) {
+  const detail::type_data& candidate = pending.data();
+  if (state_->types.contains(candidate.id().value())) {
     return {error_domain::meta, errc::duplicate_id};
   }
 
-  const type_id expected_id = type.id();
-  error status = store_new_type(*state_, std::move(type));
+  const std::type_index cpp_index{cpp_type};
+  if (state_->cpp_types.contains(cpp_index)) {
+    return {error_domain::meta, errc::invalid_type};
+  }
+
+  const type_id expected_id = candidate.id();
+  status = store_new_type(*state_, std::move(pending).release());
   if (status) {
     return status;
   }
@@ -286,11 +294,6 @@ error registry::commit_type(detail::type_data type, const std::type_info& cpp_ty
     return {error_domain::meta, errc::invalid_type};
   }
 
-  const std::type_index cpp_index{cpp_type};
-  const auto cpp_position = state_->cpp_types.find(cpp_index);
-  if (cpp_position != state_->cpp_types.end() && cpp_position->second != stored) {
-    return {error_domain::meta, errc::invalid_type};
-  }
   state_->cpp_types.emplace(cpp_index, stored);
 
   return {};

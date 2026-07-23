@@ -94,6 +94,7 @@ TEST_CASE("meta type - global registry reports registration errors", "[meta]") {
   CHECK(caors::registration::type_<error_child_type>("caors.test.type.missing_parent_child")
             .parent(caors::type_id{std::numeric_limits<std::uint64_t>::max()})
             .commit() == meta_error(caors::errc::missing_parent));
+  CHECK_FALSE(caors::meta::find<error_child_type>());
 
   REQUIRE(caors::registration::type_<error_parent_type>("caors.test.type.error_parent").commit() ==
           caors::error{});
@@ -110,4 +111,5 @@ TEST_CASE("meta type - global registry reports registration errors", "[meta]") {
   CHECK(caors::registration::type_<duplicate_guid_type>("caors.test.type.duplicate_guid")
             .guid(caors::type_guid{*guid})
             .commit() == meta_error(caors::errc::duplicate_guid));
+  CHECK_FALSE(caors::meta::find<duplicate_guid_type>());
 }

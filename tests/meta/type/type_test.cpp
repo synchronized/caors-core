@@ -168,4 +168,5 @@ TEST_CASE("meta type - registration rejects invalid nested type relationships", 
           .meta()
           .nested<nested_missing_type>("missing")
           .commit() == caors::error{caors::error_domain::meta, caors::errc::missing_type});
+  CHECK_FALSE(caors::meta::find<nested_missing_owner_type>());
 }

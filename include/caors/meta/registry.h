@@ -35,6 +35,7 @@ namespace caors::meta::detail {
 
 class registry_state;
 class registry_access;
+class pending_type_record;
 class type_data;
 struct type_descriptor;
 template <typename T> [[nodiscard]] error ensure_type_descriptor_for();
@@ -114,7 +115,8 @@ private:
 
   [[nodiscard]] error register_type(type_id id, string_name name, type_guid guid,
                                     type_id parent_id);
-  [[nodiscard]] error commit_type(detail::type_data type, const std::type_info& cpp_type);
+  [[nodiscard]] error commit_type(detail::pending_type_record pending,
+                                  const std::type_info& cpp_type);
   template <typename T>
   [[nodiscard]] error register_type_for(string_name name, type_guid guid = type_guid::nil(),
                                         type_id parent_id = type_id::invalid());
