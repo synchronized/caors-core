@@ -48,6 +48,8 @@ struct type_schema_access {
 
 [[nodiscard]] field_runtime_schema compile_field_schema(const meta::type& owner_type,
                                                         const serialization::field_schema& field);
+[[nodiscard]] error compile_type_schema(const meta::type& owner_type,
+                                        serialization::type_schema& schema);
 [[nodiscard]] const type_runtime_schema* runtime_schema(
     const serialization::type_schema& schema) noexcept;
 [[nodiscard]] core::string_name

@@ -19,7 +19,7 @@
 #include "caors/meta/registry.h"
 #include "caors/object/factory.h"
 #include "caors/object/registry.h"
-#include "caors/serialization/detail/runtime_schema.h"
+#include "caors/serialization/schema_registration.h"
 #include "caors/serialization/schema_query.h"
 #include "caors/traits/type_identity.h"
 
@@ -167,13 +167,6 @@ public:
       return status_;
     }
 
-    if (serialization_enabled_) {
-      status_ = prepare_serialization_schema();
-      if (status_) {
-        return status_;
-      }
-    }
-
     const meta::detail::type_data* fallback = meta::detail::static_type_data_ptr_of<value_type>();
     if (fallback == nullptr || !fallback->valid() || !fallback->value_ops().valid()) {
       status_ = {error_domain::meta, errc::invalid_type};
@@ -188,13 +181,7 @@ public:
     if (!status_) {
       committed_type_ = registry_->template find_type<value_type>();
       if (serialization_enabled_) {
-        status_ = validate_serialization_schema(committed_type_);
-        if (status_) {
-          return status_;
-        }
-
-        status_ =
-            serialization::detail::compile_type_schema(committed_type_, serialization_schema_);
+        status_ = serialization::prepare_type_schema(committed_type_, serialization_schema_);
         if (status_) {
           return status_;
         }
@@ -317,44 +304,6 @@ private:
               : error{error_domain::meta, errc::unsupported};
     }
     return *this;
-  }
-
-  [[nodiscard]] error prepare_serialization_schema() {
-    serialization_schema_.has_explicit_fields = !serialization_schema_.fields.empty();
-    if (!serialization_schema_.valid()) {
-      return {error_domain::serialization, errc::invalid_field};
-    }
-
-    if (!serialization_schema_.has_explicit_fields) {
-      serialization_schema_.fields.reserve(pending_.property_count());
-      for (std::size_t index = 0; index < pending_.property_count(); ++index) {
-        const meta::detail::property_data* property = pending_.property_at(index);
-        if (property == nullptr || !property->valid()) {
-          return {error_domain::serialization, errc::invalid_field};
-        }
-
-        serialization_schema_.fields.emplace_back(
-            serialization::make_field(property->name().view()));
-      }
-    }
-
-    return {};
-  }
-
-  [[nodiscard]] error validate_serialization_schema(meta::type registered_type) const {
-    if (!registered_type || !serialization_schema_.valid()) {
-      return {error_domain::serialization, errc::invalid_field};
-    }
-
-    for (const serialization::field_schema& field : serialization_schema_.fields) {
-      meta::property property =
-          registered_type.find_property(field.field_name, meta::member_search::include_bases);
-      if (!property) {
-        return {error_domain::serialization, errc::not_found};
-      }
-    }
-
-    return {};
   }
 
   void enable_object_if_needed() {

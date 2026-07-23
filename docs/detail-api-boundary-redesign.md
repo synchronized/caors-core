@@ -6,7 +6,7 @@
 ## 文档状态
 
 - 状态：进行中
-- 当前阶段：阶段 1，消除 registration 对 serialization 私有实现的依赖
+- 当前阶段：阶段 2，收敛属性快速访问
 - 目标：让公共 facade、稳定内部协议和模块私有实现形成单向依赖
 
 ## 背景
@@ -70,7 +70,7 @@ serialization、object 和 resources 自行准备扩展值，再把完整扩展�
 - 确认 serialization 通过 `property_access::data_of()` 保存 `property_data*`；
 - 明确本计划不改变 `type_data + type_details` 主结构。
 
-### 阶段 1：收敛 serialization schema 提交
+### 阶段 1：收敛 serialization schema 提交（已完成）
 
 - 由 serialization 提供完整的 schema 准备入口；
 - 入口内部完成默认字段生成、校验和运行时缓存编译；
@@ -79,6 +79,13 @@ serialization、object 和 resources 自行准备扩展值，再把完整扩展�
 - 保持字段缓存只编译一次的性能特征。
 
 完成标准：registration 不再包含或调用 `serialization::detail`。
+
+实现结果：
+
+- 新增 `serialization::prepare_type_schema()`，统一完成默认字段生成、字段引用验证和运行时缓存编译；
+- registration 仅调用稳定的 schema 准备入口并提交完整 extension；
+- 删除公开安装的 `serialization/detail/runtime_schema.h`；
+- Clang Debug 单线程全量构建完成，75 项测试全部通过。
 
 ### 阶段 2：收敛属性快速访问
 
