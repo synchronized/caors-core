@@ -101,7 +101,7 @@ serialization、object 和 resources 自行准备扩展值，再把完整扩展�
 - 新增 `meta::property_accessor` 窄型访问对象，隐藏属性节点布局并保留 unchecked 热路径；
 - serialization 字段缓存改为保存 accessor，不再保存或解释 `property_data*`；
 - 删除 `property_access::data_of()` 任意节点提取入口；
-- 新增成员、只读、const 和可写访问测试，Clang Debug 75 项全量测试全部通过；
+- 新增成员、只读、const 和可写访问测试，Clang/MSVC Debug 各 75 项全量测试全部通过；
 - Release 快速复测：`to_value` 约 `0.68 us/iter`，JSON 文本读取约 `1.52 us/iter`，
   与收敛前基线持平。
 
