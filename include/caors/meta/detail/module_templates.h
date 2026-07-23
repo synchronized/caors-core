@@ -5,6 +5,7 @@
 #define CAORS_META_DETAIL_MODULE_TEMPLATES_H_
 
 #include "caors/meta/detail/module_data.h"
+#include "caors/meta/detail/property_model.h"
 
 namespace caors::meta {
 

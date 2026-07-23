@@ -114,6 +114,14 @@ serialization、object 和 resources 自行准备扩展值，再把完整扩展�
 
 完成标准：节点头不再包含大规模成员指针推导和调用模板，公开模板的传递包含明显减少。
 
+当前进度：
+
+- `property_data.h` 已只保留属性节点及其运行时操作，成员、accessor、global 模型和 factory
+  已迁移到 `property_model.h`；
+- 节点头体积由约 30 KB 降至约 14 KB；
+- Clang Debug 的头文件自包含、属性、模块和注册构建器专项测试全部通过；
+- `method_data.h` 拆分仍待完成。
+
 ### 阶段 4：收敛注册事务
 
 - 将 builder 对 `pending_type_record` 内部容器的直接修改收敛为事务方法；
