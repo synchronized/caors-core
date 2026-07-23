@@ -18,6 +18,10 @@
 namespace caors::meta {
 
 class property;
+class property_accessor;
+
+[[nodiscard]] CAORS_API property_accessor
+compile_property_accessor(const property& source) noexcept;
 
 namespace detail {
 class property_data;
@@ -171,6 +175,7 @@ public:
 
 private:
   friend class detail::property_access;
+  friend property_accessor compile_property_accessor(const property& source) noexcept;
 
   explicit property(const detail::property_data* reflected_property) noexcept;
   [[nodiscard]] const detail::property_data* info() const noexcept;

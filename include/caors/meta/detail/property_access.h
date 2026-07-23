@@ -12,9 +12,6 @@ namespace caors::meta::detail {
 class property_access final {
 public:
   [[nodiscard]] static property make(const property_data* data) noexcept { return property{data}; }
-  [[nodiscard]] static const property_data* data_of(const property& value) noexcept {
-    return value.property_;
-  }
 };
 
 } // namespace caors::meta::detail

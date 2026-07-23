@@ -211,7 +211,7 @@ field_runtime_schema compile_field_schema(const meta::type& owner_type,
     return result;
   }
 
-  result.property_data = meta::detail::property_access::data_of(result.property);
+  result.accessor = meta::compile_property_accessor(result.property);
   result.owner_type = result.property.get_owner_type();
   result.declared_type = result.property.get_type();
   result.value_type = result.property.get_value_type();
@@ -252,8 +252,8 @@ const type_runtime_schema* runtime_schema(const serialization::type_schema& sche
 }
 
 any_ref get_field_ref(const field_runtime_schema& field_schema, const void* object) {
-  if (field_schema.property_data != nullptr) {
-    return field_schema.property_data->get_ref_unchecked(field_schema.declared_type, object);
+  if (field_schema.accessor) {
+    return field_schema.accessor.get_ref(object);
   }
 
   const meta::instance instance{meta::any_ref::from_raw(field_schema.owner_type, object, false)};
@@ -261,8 +261,8 @@ any_ref get_field_ref(const field_runtime_schema& field_schema, const void* obje
 }
 
 any_ref get_field_ref(const field_runtime_schema& field_schema, void* object) {
-  if (field_schema.property_data != nullptr) {
-    return field_schema.property_data->get_ref_unchecked(field_schema.declared_type, object);
+  if (field_schema.accessor) {
+    return field_schema.accessor.get_ref(object);
   }
 
   const meta::instance instance{meta::any_ref::from_raw(field_schema.owner_type, object, true)};

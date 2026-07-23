@@ -6,7 +6,7 @@
 ## 文档状态
 
 - 状态：进行中
-- 当前阶段：阶段 2，收敛属性快速访问
+- 当前阶段：阶段 3，分离节点与模板模型
 - 目标：让公共 facade、稳定内部协议和模块私有实现形成单向依赖
 
 ## 背景
@@ -87,7 +87,7 @@ serialization、object 和 resources 自行准备扩展值，再把完整扩展�
 - 删除公开安装的 `serialization/detail/runtime_schema.h`；
 - Clang Debug 单线程全量构建完成，75 项测试全部通过。
 
-### 阶段 2：收敛属性快速访问
+### 阶段 2：收敛属性快速访问（已完成）
 
 - 在 meta 中定义只包含字段取引用操作的窄型已编译访问器；
 - serialization 缓存该访问器，不缓存 `property_data*`；
@@ -95,6 +95,15 @@ serialization、object 和 resources 自行准备扩展值，再把完整扩展�
 - 保留继承属性、只读属性和 accessor property 的现有行为。
 
 完成标准：serialization 不再包含 `meta/detail/property_data.h`，也不持有其裸指针。
+
+实现结果：
+
+- 新增 `meta::property_accessor` 窄型访问对象，隐藏属性节点布局并保留 unchecked 热路径；
+- serialization 字段缓存改为保存 accessor，不再保存或解释 `property_data*`；
+- 删除 `property_access::data_of()` 任意节点提取入口；
+- 新增成员、只读、const 和可写访问测试，Clang Debug 75 项全量测试全部通过；
+- Release 快速复测：`to_value` 约 `0.68 us/iter`，JSON 文本读取约 `1.52 us/iter`，
+  与收敛前基线持平。
 
 ### 阶段 3：分离节点与模板模型
 

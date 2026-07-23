@@ -4,8 +4,58 @@
 // 原测试文件：meta_property_property_view_describes_composite_traits_test.cpp
 
 #include "meta_property_test_support.h"
+#include "caors/meta/property_accessor.h"
 
 using namespace test_meta;
+
+namespace {
+
+struct compiled_property_actor {
+  int value = 7;
+  const int readonly_value = 11;
+};
+
+} // namespace
+
+TEST_CASE("meta - compiled property accessor hides node storage", "[meta]") {
+  REQUIRE(
+      caors::registration::type_<compiled_property_actor>("caors.test.meta.compiled_property_actor")
+          .meta()
+          .property("value", &compiled_property_actor::value)
+          .property("readonly_value", &compiled_property_actor::readonly_value)
+          .commit() == caors::error{});
+
+  const caors::meta::type reflected =
+      require_reflected("caors.test.meta.compiled_property_actor");
+  const caors::meta::property_accessor value =
+      caors::meta::compile_property_accessor(require_property(reflected, "value"));
+  const caors::meta::property_accessor readonly_value =
+      caors::meta::compile_property_accessor(require_property(reflected, "readonly_value"));
+
+  REQUIRE(value);
+  REQUIRE(readonly_value);
+  CHECK_FALSE(caors::meta::compile_property_accessor(caors::meta::property{}));
+
+  compiled_property_actor object{};
+  const caors::meta::any_ref mutable_ref = value.get_ref(&object);
+  REQUIRE(mutable_ref);
+  REQUIRE(mutable_ref.try_get<int>() != nullptr);
+  CHECK(mutable_ref.try_set(42));
+  CHECK(object.value == 42);
+
+  const compiled_property_actor& const_object = object;
+  const caors::meta::any_ref const_ref = value.get_ref(&const_object);
+  REQUIRE(const_ref);
+  REQUIRE(const_ref.try_get<int>() != nullptr);
+  CHECK(*const_ref.try_get<int>() == 42);
+  CHECK_FALSE(const_ref.try_set(9));
+
+  const caors::meta::any_ref readonly_ref = readonly_value.get_ref(&object);
+  REQUIRE(readonly_ref);
+  REQUIRE(readonly_ref.try_get<int>() != nullptr);
+  CHECK(*readonly_ref.try_get<int>() == 11);
+  CHECK_FALSE(readonly_ref.try_set(12));
+}
 
 TEST_CASE("meta - property view describes composite traits", "[meta]") {
   const caors::meta::type reflected = require_property_traits_owner_meta();

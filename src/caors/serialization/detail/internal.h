@@ -6,9 +6,8 @@
 
 #include "caors/serialization.h"
 
-#include "caors/meta/detail/property_access.h"
-#include "caors/meta/detail/property_data.h"
 #include "caors/meta/property.h"
+#include "caors/meta/property_accessor.h"
 
 namespace caors::serialization::detail {
 
@@ -16,7 +15,7 @@ namespace caors::serialization::detail {
 struct field_runtime_schema {
   serialization::field_schema schema{};
   meta::property property{};
-  const meta::detail::property_data* property_data = nullptr;
+  meta::property_accessor accessor{};
   meta::type owner_type{};
   meta::type declared_type{};
   meta::type value_type{};
