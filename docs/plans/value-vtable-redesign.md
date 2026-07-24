@@ -25,6 +25,8 @@
 - 后续值复制、赋值、析构和布局查询优先使用实例已经绑定的 vtable；
 - scalar、enum、indirect、sequence、set、associative、pair、tuple 和 variant 等
   builtin 实例能力通过同一 vtable 分发；
+- object、serialization 和 custom 模块贡献的静态 capability 继续保持通用 entry 形式，
+  由 value vtable 携带，不让 value 层依赖具体模块；
 - 静态类型入口通过模板生成 vtable，并验证显式 `meta::type` 与 `T` 一致；
 - `const T*` 自动生成只读 `any_ref`，不再由外部传入可写标志；
 - `type_record` 只保留获取 value vtable 的函数指针，不保存一份重复 vtable；
@@ -37,7 +39,7 @@
 - 不要求用户为了使用内建 codec 或普通静态能力手动注册类型；
 - 不改变属性、方法、容器 view 和序列化的公开行为；
 - 不在本轮设计 DLL 卸载协议；
-- 不把注册期 capability、模块静态 capability 或动态 extension 全部合并进 value vtable；
+- 不把注册期 capability 或动态 extension 合并进 value vtable；
 - 不允许仅凭 `T*` 自动推断其多态动态派生类型。
 
 ## 目标结构
@@ -48,6 +50,7 @@ T / T*
   └─ value_vtable_of<T>()
        ├─ value lifetime ops
        ├─ builtin instance ops
+       ├─ module static capability entries
        └─ any / any_ref 保存 const value_vtable*
 
 运行期擦除路径
@@ -80,6 +83,8 @@ struct value_vtable {
   value_traits traits{};
   value_lifetime_ops lifetime{};
   builtin_ops builtin{};
+  const capability_entry* static_capabilities = nullptr;
+  std::size_t static_capability_count = 0;
 };
 ```
 
@@ -88,6 +93,8 @@ struct value_vtable {
 - `value_lifetime_ops` 负责 clone、assign、destroy 和 resource-aware destroy；
 - `builtin_ops` 继续表达当前互斥的 scalar、enum、indirect、sequence、set、associative、
   pair、tuple 或 variant 函数表；
+- `static_capabilities` 使用通用 `capability_key + const void*` entry，承载 object、
+  serialization、custom 和外部模块贡献的静态能力；
 - layout 和 traits 服务 `any` 的内联存储、类型校验和生命周期选择。
 
 最终字段应以 `any`、`any_ref`、`owned_value` 和各 builtin view 的实际调用需求为准。
@@ -96,20 +103,36 @@ struct value_vtable {
 
 ### capability 边界
 
-进入 `value_vtable` 的条件是：能力完全由具体 C++ 类型 `T` 静态确定，并且需要绑定或操作一个
-值实例。当前 `detail::builtin_ops` 满足该条件，应随 value vtable 一起绑定到 `any`、
-`any_ref` 和 `owned_value`。
+进入 `value_vtable` 的条件是：能力完全由具体 C++ 类型 `T` 静态确定，并且其操作表具有模板
+静态生命周期。当前 `detail::builtin_ops` 和模块 `static_capability` 都满足该条件，应随
+value vtable 一起绑定到 `any`、`any_ref` 和 `owned_value`。
+
+模块静态能力仍保持 capability 机制，不直接成为 value vtable 的具名成员：
+
+```cpp
+struct capability_entry {
+  capability_key key = nullptr;
+  const void* data = nullptr;
+};
+```
+
+因此 value 层只依赖通用 entry，不需要包含 object 或 serialization 的具体 ops 定义。各模块
+继续通过现有模板聚合入口贡献能力：
+
+- `objects::ptr<T>` 的 vtable 携带 `ptr_ops`；
+- `objects::handle` 和 `objects::typed_handle<T>` 的 vtable 携带 `handle_ops`；
+- 具有有效 `codec_traits<T>` 的类型通过 vtable 携带 `codec_ops`；
+- custom 和外部扩展模块可以继续贡献自己的静态 capability。
 
 以下内容不进入 value vtable：
 
 - property、method、nested type 和注册枚举项等 registry 元数据；
 - factory、constructor 和默认构造 fallback 等创建策略；
-- object、serialization codec 和 custom 模块贡献的 `static_capability`；
 - 注册后附加的动态 capability 与 extension。
 
-模块静态 capability 虽然也由模板产生，但拥有独立 capability key、模块扩展和查询语义，
-继续由 `type_record` 的静态 capability 表公开。以后若要把 codec 等能力下沉到实例 vtable，
-应另立迁移计划，不在本轮隐式扩大 ABI 和模块边界。
+`object_factory_ops` 是例外：它服务 object 类型创建，而不是已有值实例。注册 object 子类 `T`
+时应自动生成并添加到 `T` 的注册 capability；不能把 `ptr_ops` 和 `handle_ops` 一并注册到
+`T`，因为它们分别属于 `objects::ptr<T>` 和 handle 包装类型。
 
 ### type_record provider
 
@@ -172,6 +195,8 @@ template <typename T>
 默认构造 fallback 应保持轻量，可由 `type_record` 保存独立创建函数，或由 provider 返回的内部
 创建描述获得。实施前根据现有 `factory_ops`、`constructor_ops` 和
 `allow_type_default_construction` 调用链确定最终位置，不让 value vtable 承担注册构造重载。
+`registration::type_<T>()` 提交 object 子类时应自动附加 `object_factory_ops`，避免要求用户重复
+声明 object 的基础创建能力。
 
 ## 当前调用点分类
 
@@ -199,11 +224,13 @@ vtable，或通过 `meta::type` 的 provider 获取一次。
 
 - 盘点 `any`、`any_ref`、`owned_value` 对 `value_storage_ops` 的全部使用；
 - 盘点 builtin view 对 `detail::builtin_ops` 的全部使用；
-- 确定 value vtable 的最小生命周期字段和 builtin 分发表；
+- 盘点 object、serialization 和 custom 模块静态 capability 的聚合与查询路径；
+- 确定 value vtable 的最小生命周期字段、builtin 分发表和静态 capability entry；
 - 增加 `value_vtable_of<T>()` 模板 model；
 - 为可拷贝、不可拷贝、可赋值、不可赋值、平凡和非平凡类型补充单元测试。
 
-完成标准：模板 vtable 能独立描述已有值的布局、复制、赋值、销毁和 builtin 实例能力。
+完成标准：模板 vtable 能独立描述已有值的布局、复制、赋值、销毁、builtin 实例能力和
+模块静态 capability。
 
 ### 阶段 2：增加 type_record provider
 
@@ -211,6 +238,7 @@ vtable，或通过 `meta::type` 的 provider 获取一次。
 - 静态类型记录构建时绑定对应 `T` 的 provider；
 - pending/commit/merge 复制固有 provider，并验证同一类型 provider 的一致性；
 - 让 `meta::type` 提供仅供内部使用的安全查询入口；
+- 让 `meta::type` 的静态 capability 查询通过 provider 转发到 vtable entry；
 - 保持静态 fallback 和注册记录行为一致。
 
 完成标准：已注册与未注册类型都能从 `meta::type` 获得地址稳定的 value vtable。
@@ -220,6 +248,7 @@ vtable，或通过 `meta::type` 的 provider 获取一次。
 - 让 `any`、`any_ref`、`owned_value` 保存 `const value_vtable*`；
 - 创建、复制、移动、赋值和销毁流程使用实例 vtable；
 - builtin capability 绑定优先使用实例 vtable，不再为每次 view 查询重复访问类型记录；
+- 静态 capability 查询优先使用实例 vtable 中的通用 entry；
 - 动态创建成功后立即绑定对应 vtable；
 - 保留必要的内联存储判断和 memory resource 销毁路径；
 - 移除这些值对象对 `type.get_raw_ops<value_storage_ops>()` 的重复查询。
@@ -250,8 +279,11 @@ vtable，或通过 `meta::type` 的 provider 获取一次。
 
 - 将默认创建 fallback 与值实例 vtable 分离；
 - 保持 factory/constructor 优先级；
+- object 子类提交注册时自动添加 `object_factory_ops`；
+- 从 object 类型自身的 capability 中排除属于 `objects::ptr<T>` 和 handle 包装类型的 ops；
 - 评估 `value_storage_ops` 是否可以删除，或缩减为兼容期内部聚合；
 - 清理 `value_storage_ops` 作为静态 capability 的特殊查询分支；
+- 删除 `type_record` 中重复的静态 capability entry 指针和数量字段；
 - 更新 meta、value、registration 和 serialization 文档。
 
 完成标准：`type_record` 不再直接保存宽泛的 `value_storage_ops`，只保存运行期必要 provider
@@ -266,6 +298,8 @@ vtable，或通过 `meta::type` 的 provider 获取一次。
 - 属性：成员字段、访问器、全局变量、const getter 和只读属性；
 - view：sequence、set、associative、pair、tuple、variant 和 indirect；
 - builtin：scalar、enum 与所有容器/包装类型的 capability 查询和实例绑定；
+- 模块静态能力：`ptr_ops`、`handle_ops`、`codec_ops`、custom 和外部扩展 capability；
+- object 注册：自动 factory、不可构造 object 和重复 capability 的提交行为；
 - serialization：字段读写、多态对象、codec、默认构造开关和错误回滚；
 - 跨翻译单元：同一类型的 vtable 行为一致，不以 vtable 地址作为类型身份；
 - Windows MSVC Debug 单线程构建与测试；
@@ -277,6 +311,8 @@ vtable，或通过 `meta::type` 的 provider 获取一次。
 
 - vtable 地址只用于调用，不作为 `type_id` 或 C++ 类型相等判断依据；
 - `builtin_ops` 当前是互斥分发表；本轮不把它改造成任意 capability 集合；
+- value vtable 只保存通用静态 capability entry，不直接引用 object 或 serialization 的 ops 类型；
+- 静态 capability 特化必须在首次实例化 `value_vtable_of<T>()` 前可见；
 - provider、vtable 和其函数地址依赖定义它们的模块生命周期，模块卸载前必须清理相关类型记录和值；
 - 注册记录复制 provider 时不能把不同 C++ 类型的 provider 合并到同一 `type_id`；
 - 模板入口中的 `T*` 只描述静态 `T`，不会把基类指针自动提升为派生类型；
@@ -289,4 +325,5 @@ vtable，或通过 `meta::type` 的 provider 获取一次。
 - 内联存储判断所需 traits 是否直接放在 vtable；
 - 容器 view 应在 view 构建时缓存元素 vtable，还是由每个返回的 `any_ref` 查询 provider；
 - 默认创建 fallback 最终放在 `type_record` 的独立函数指针还是单独的 creation provider；
+- 静态 capability entry 的查询 API 放在 `value_vtable` 成员函数还是内部 access helper；
 - 兼容期是否保留内部 `value_storage_ops` 聚合，以及删除它的具体版本节点。
