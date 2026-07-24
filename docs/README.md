@@ -24,6 +24,7 @@
 - [core.md](core.md)：core 主题，包含 `string_name`、`guid`、`type_guid` 和基础容器规划。
 - [error.md](error.md)：统一错误码、错误来源域和 `std::error_code` 适配。
 - [events.md](events.md)：轻量 delegate、同步 signal、连接视图、同步 dispatcher、连接句柄和事件系统边界。
+- [enum-view-migration.md](enum-view-migration.md)：enum capability 统一绑定 `enum_view` 的迁移计划。
 - [io.md](io.md)：虚拟路径、同步字节流、文件系统抽象、本地文件系统、内存文件系统和挂载文件系统。
 - [math.md](math.md)：基础数学值类型，包含向量、矩阵、四元数、矩形和 AABB。
 - [memory.md](memory.md)：内存资源、分配器、策略资源和调试跟踪。
