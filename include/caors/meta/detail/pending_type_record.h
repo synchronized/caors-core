@@ -8,6 +8,7 @@
 #include "caors/meta/detail/method_data.h"
 #include "caors/meta/detail/property_data.h"
 #include "caors/meta/detail/type_data.h"
+#include "caors/meta/metadata.h"
 
 namespace caors::meta::detail {
 
@@ -146,8 +147,28 @@ public:
     return data_.add_owned_capability(key, std::move(capability));
   }
 
-  [[nodiscard]] extension_data* mutable_find_extension(extension_key key) noexcept {
-    return data_.mutable_find_extension(key);
+  [[nodiscard]] error set_type_metadata(metadata_key key, metadata_value value) {
+    if (!key) {
+      return {error_domain::meta, errc::invalid_type};
+    }
+
+    extension_data* extension = data_.mutable_find_extension(extension_key_of<type_metadata>());
+    if (extension == nullptr) {
+      error result = data_.add_extension(
+          make_extension_data<type_metadata>(&memory::library_resource()));
+      if (result) {
+        return result;
+      }
+      extension = data_.mutable_find_extension(extension_key_of<type_metadata>());
+    }
+
+    type_metadata* metadata =
+        extension != nullptr ? mutable_extension_value<type_metadata>(*extension) : nullptr;
+    if (metadata == nullptr) {
+      return {error_domain::meta, errc::invalid_type};
+    }
+    set_metadata(metadata->values, key, std::move(value));
+    return {};
   }
   [[nodiscard]] error add_extension(extension_data extension) {
     return data_.add_extension(std::move(extension));

@@ -6,7 +6,6 @@
 
 #include "caors/meta/capability_bind.h"
 #include "caors/meta/detail/enum_value_data.h"
-#include "caors/meta/detail/extension_data.h"
 #include "caors/meta/detail/pending_type_record.h"
 #include "caors/meta/detail/static_type_data_model.h"
 #include "caors/meta/metadata.h"
@@ -140,13 +139,8 @@ public:
       return *this;
     }
 
-    meta::type_metadata* data = pending_type_metadata();
-    if (data == nullptr) {
-      status_ = {error_domain::meta, errc::invalid_type};
-      return *this;
-    }
-
-    meta::set_metadata(data->values, key, meta::make_metadata_value(std::forward<Value>(value)));
+    status_ = pending_.set_type_metadata(
+        key, meta::make_metadata_value(std::forward<Value>(value)));
     return *this;
   }
 
@@ -242,27 +236,6 @@ private:
 
     status_ = pending_.set_enum_value_metadata(value_name, key, std::move(value));
     return *this;
-  }
-
-  [[nodiscard]] meta::type_metadata* pending_type_metadata() {
-    meta::detail::extension_data* extension =
-        pending_.mutable_find_extension(meta::detail::extension_key_of<meta::type_metadata>());
-    if (extension == nullptr) {
-      meta::type_metadata data{};
-      data.values = meta::make_metadata_map(&memory::library_resource());
-      status_ = pending_.add_extension(meta::detail::make_extension_data<meta::type_metadata>(
-          &memory::library_resource(), data));
-      if (status_) {
-        return nullptr;
-      }
-
-      extension =
-          pending_.mutable_find_extension(meta::detail::extension_key_of<meta::type_metadata>());
-    }
-
-    return extension != nullptr
-               ? meta::detail::mutable_extension_value<meta::type_metadata>(*extension)
-               : nullptr;
   }
 
   meta::registry* registry_ = nullptr;

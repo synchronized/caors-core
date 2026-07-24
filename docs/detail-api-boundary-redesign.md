@@ -124,7 +124,7 @@ serialization、object 和 resources 自行准备扩展值，再把完整扩展�
 - 方法节点头体积由约 50 KB 降至约 27 KB；
 - Clang Debug 的头文件自包含、属性、方法、模块和注册构建器专项测试全部通过。
 
-### 阶段 4：收敛注册事务
+### 阶段 4：收敛注册事务（进行中）
 
 - 将 builder 对 `pending_type_record` 内部容器的直接修改收敛为事务方法；
 - 统一 type、enum、module 的 validate/commit 命名和失败语义；
@@ -138,7 +138,8 @@ serialization、object 和 resources 自行准备扩展值，再把完整扩展�
 - 属性 metadata、属性 schema、方法 metadata、默认参数、参数名及枚举项 metadata
   已改由 `pending_type_record` 的语义化事务方法修改；
 - builder 不再取得对应的 `property_data*`、`method_set_data*` 或 `enum_value_data*`；
-- 枚举类型级 metadata 仍通过可变 extension 指针写入，下一步将其收敛为事务方法；
+- 枚举类型级 metadata 已改由事务方法按需创建并更新 extension；
+- registration builder 已不再取得 pending 内部节点的可变指针；
 - Clang Debug 单线程全量构建完成，75 项测试全部通过。
 
 ### 阶段 5：验证和文档
