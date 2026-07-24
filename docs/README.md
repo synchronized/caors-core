@@ -9,9 +9,7 @@
 
 - [build.md](build.md)：环境要求、CMake preset、构建、测试、安装和 CMake 选项。
 - [benchmarking.md](benchmarking.md)：benchmark 构建入口、当前用例和后续专项拆分建议。
-- [meta-wrapper-model-redesign.md](meta-wrapper-model-redesign.md)：meta 内部 wrapper、ops 和模板 model 的行为内聚计划。
-- [value-vtable-redesign.md](value-vtable-redesign.md)：value vtable、`any_ref` 类型安全入口和
-  运行期擦除桥梁的重构计划。
+- [plans/README.md](plans/README.md)：重构、迁移和架构调整的开发计划索引。
 - [beta.md](beta.md)：beta 前推荐稳定主入口、质量门槛和实验性能力清单。
 - [api_stability.md](api_stability.md)：当前 alpha 阶段 API 稳定性草案、beta gate 和公开边界扫描规则。
 - [config.md](config.md)：编译期配置常量、异常检测、内部分配策略和默认 new 对齐。
@@ -24,20 +22,12 @@
 
 - [assets.md](assets.md)：工程资源配置、asset manager、source/type factory 和 JSON 资源适配。
 - [core.md](core.md)：core 主题，包含 `string_name`、`guid`、`type_guid` 和基础容器规划。
-- [codec-view-migration.md](codec-view-migration.md)：serialization codec 的 capability/view
-  职责收敛计划。
 - [error.md](error.md)：统一错误码、错误来源域和 `std::error_code` 适配。
 - [events.md](events.md)：轻量 delegate、同步 signal、连接视图、同步 dispatcher、连接句柄和事件系统边界。
-- [enum-view-migration.md](enum-view-migration.md)：enum capability 统一绑定 `enum_view` 的迁移计划。
 - [io.md](io.md)：虚拟路径、同步字节流、文件系统抽象、本地文件系统、内存文件系统和挂载文件系统。
 - [math.md](math.md)：基础数学值类型，包含向量、矩阵、四元数、矩形和 AABB。
 - [memory.md](memory.md)：内存资源、分配器、策略资源和调试跟踪。
 - [meta.md](meta.md)：类型元数据、`type_guid`、`meta::type`、`meta::registry` 和类型 extension 数据。
-- [meta-type-data-redesign.md](meta-type-data-redesign.md)：静态类型数据与 registry 注册数据重构需求、
-  外部方案调研、分阶段开发计划和开放问题。
-- [meta-record-naming-migration.md](meta-record-naming-migration.md)：meta 运行时记录的 `*_record`
-  命名迁移计划。
-- [object-type-identity-migration.md](object-type-identity-migration.md)：object 类型身份命名收敛计划。
 - [object.md](object.md)：对象基类、对象类型 API 和对象创建销毁入口。
 - [meta-properties.md](meta-properties.md)：meta 内建字段/方法能力和手写注册入口。
 - [resources.md](resources.md)：资源身份、资源引用、运行期 handle、manager/cache、依赖图、manifest、

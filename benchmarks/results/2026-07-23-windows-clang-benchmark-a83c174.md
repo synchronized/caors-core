@@ -19,7 +19,7 @@
 ## Meta Type Data Scope
 
 `time acc` 是每个用例执行 `100000` 次的总耗时；`median/iter` 是三次运行中位数除以迭代次数。
-本次只整理 `meta-type-data-redesign.md` 阶段 5 直接要求的类型查询、属性查询和序列化调度路径。
+本次只整理 `docs/plans/meta-type-data-redesign.md` 阶段 5 直接要求的类型查询、属性查询和序列化调度路径。
 
 | case | run1 | run2 | run3 | median | median/iter |
 | --- | ---: | ---: | ---: | ---: | ---: |

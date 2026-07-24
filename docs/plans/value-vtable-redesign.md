@@ -256,4 +256,3 @@ vtable，或通过 `meta::type` 的 provider 获取一次。
 - 容器 view 应在 view 构建时缓存元素 vtable，还是由每个返回的 `any_ref` 查询 provider；
 - 默认创建 fallback 最终放在 `type_record` 的独立函数指针还是单独的 creation provider；
 - 兼容期是否保留内部 `value_storage_ops` 聚合，以及删除它的具体版本节点。
-
