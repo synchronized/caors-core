@@ -5,22 +5,12 @@
 
 ## 文档状态
 
-- 当前决策：不实施完整 `value_vtable` 迁移；
-- 替代方案：保留 `type_record` 单一事实源，实施最小 value API 与注册边界收敛；
-- 重新评估条件：benchmark 证明现有 `type_record -> value_storage_ops` 查询是实际热点。
+- 当前状态：待实施；
+- 实施范围：`any_ref` API、object factory 注册、adapter 可见性规范和模型一致性诊断。
 
-## 背景
-
-原计划参考 RTTR，让 `any`、`any_ref` 和 `owned_value` 保存独立 fake vtable，并把生命周期、
-builtin ops 和模块静态 capability 从 `type_record` 迁移到实例 vtable。进一步分析后确认，
-这项迁移不能解决模板特化可见性导致的 ODR 问题，并会引入新的状态同步和模块生命周期成本。
-
-CAORS 当前结构与 RTTR 不同：
+## 目标结构
 
 ```text
-RTTR variant
-└─ policy/vtable 负责值生命周期和容器 view
-
 CAORS any / any_ref
 └─ meta::type
    └─ 直接引用 type_record
@@ -30,13 +20,6 @@ CAORS any / any_ref
       └─ registered capability
 ```
 
-CAORS 的值操作不需要重新按 `type_id` 查询 registry，通常只是沿已有 `type_record*` 读取成员。
-再保存一份 `value_vtable*` 只减少一次轻量间接访问，却会形成第二个运行期事实源。
-
-## 决策
-
-### 保留 type_record 单一事实源
-
 `type_record` 继续保存或公开：
 
 - 类型布局与值生命周期操作；
@@ -45,48 +28,8 @@ CAORS 的值操作不需要重新按 `type_id` 查询 registry，通常只是沿
 - object、serialization、custom 和外部模块贡献的 static capability；
 - property、method、constructor、动态 capability 和 extension 等注册数据。
 
-`any`、`any_ref` 和 `owned_value` 继续保存 `meta::type`，不新增 `value_vtable*`。
-
-### 不实施 value_vtable provider
-
-本轮不增加：
-
-```cpp
-using get_value_vtable_fn =
-    const value_vtable* (*)() noexcept;
-```
-
-也不迁移：
-
-- `type_record::value_storage_ops`；
-- `type_record::builtin_ops`；
-- `type_record` 的 static capability entry；
-- 各类 view 的 builtin ops 查询路径。
-
-这样可以避免：
-
-- `type_record` 与实例 vtable 两套事实源；
-- 静态 fallback、注册记录与实例 vtable 的同步；
-- provider 所在 DLL 卸载后的悬空函数指针；
-- `any`、`any_ref`、`owned_value` 和各类 view 的额外状态；
-- 一次大范围 ABI 和内部头文件边界调整。
-
-### 保留后续性能优化入口
-
-如果 benchmark 证明 value ops 查询是热点，可以只缓存：
-
-```cpp
-const value_storage_ops* value_ops_;
-```
-
-该优化必须由性能数据驱动，并验证：
-
-- `any` 大小和内联存储容量变化；
-- 复制、移动、销毁和 capability 查询吞吐；
-- 未注册 fallback 与注册类型的一致性；
-- DLL 生命周期和已有值的安全性。
-
-在没有数据前，不提前迁移整个 capability 体系。
+`any`、`any_ref` 和 `owned_value` 保存 `meta::type`，所有值操作和 capability 查询以
+`type_record` 为单一事实源。
 
 ## 实施范围
 
@@ -136,7 +79,7 @@ template <typename T>
 `registration::type_<T>()` 时，如果 `T` 继承 `meta::object`，应自动生成并添加对应
 `object_factory_ops`。
 
-以下能力不能错误地添加到 object 子类 `T`：
+相关能力归属保持明确：
 
 - `ptr_ops` 属于 `objects::ptr<T>`；
 - `handle_ops` 属于 `objects::handle` 和 `objects::typed_handle<T>`；
@@ -147,9 +90,8 @@ template <typename T>
 
 ## Adapter 可见性与 ODR
 
-把 capability 放在 `type_record` 中不能从语言层面修复 ODR。如果不同翻译单元在首次实例化
-`static_type_record_of<T>()` 时看到不同 traits 或 static capability，链接器可能静默保留其中
-任意一份同名 COMDAT。
+如果不同翻译单元在首次实例化 `static_type_record_of<T>()` 时看到不同 traits 或 static
+capability，链接器可能静默保留其中任意一份同名 COMDAT。
 
 根本约束是为接入 meta 系统的类型提供统一 adapter 头：
 
@@ -249,12 +191,11 @@ CAORS_VALIDATE_META_TYPE(T);
 
 ### 阶段 4：清理与验证
 
-- 删除仅服务原 `value_vtable` 方案的文档术语和未使用草稿；
 - 确认 `type_record` 仍是值操作和 capability 的单一事实源；
 - 运行 meta、value、object、property、view 和 serialization 测试；
 - Windows MSVC Debug 与 Windows Clang Debug 均使用单线程构建。
 
-完成标准：不引入 `value_vtable`，最小边界改造通过相关构建和测试。
+完成标准：边界改造通过相关构建和测试。
 
 ## 验证计划
 
@@ -269,13 +210,3 @@ CAORS_VALIDATE_META_TYPE(T);
 - serialization：codec、字段读写、多态对象和默认构造开关。
 
 所有构建使用 `--parallel 1`，降低当前环境发生 OOM 的风险。
-
-## 非目标
-
-- 不模仿 RTTR 重写 `any` 的完整 policy/vtable；
-- 不移动 `type_record` 中的 builtin 或 static capability；
-- 不改变序列化格式；
-- 不让 value 层依赖 object 或 serialization；
-- 不以模型签名作为类型身份；
-- 不承诺自动检测所有 C++ ODR 违反；
-- 不在没有 benchmark 证据时增加实例 ops 缓存。
