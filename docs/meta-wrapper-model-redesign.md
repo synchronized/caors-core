@@ -85,12 +85,19 @@ property_model.h / method_model.h
 重载元数据、名称或 metadata 节点，因此继续由 `constructor_ops` 表达最小类型能力。
 若未来开放多个带参构造函数注册，再引入 `constructor_data` 与 `constructor_set_data`。
 
-### 阶段 4：清理与验证
+### 阶段 4：清理与验证（已完成）
 
 - 删除仅为旧式编排保留的无调用 helper；
 - 运行 Clang、MSVC Debug 单线程构建与测试；
 - 复测属性、方法、meta 查询和序列化 Release benchmark；
 - 更新 meta 架构文档。
+
+验证结果：
+
+- Windows Clang Debug 单线程完成头文件自包含、property、method、value 和序列化核心构建；
+- 上述 5 项测试全部通过；
+- 当前普通 PowerShell 未加载 Visual Studio 开发环境，MSVC 在 CMake 重新生成阶段因找不到
+  `cl` 而无法完成本次重编译；需在 Developer PowerShell 中使用同一 preset 复验。
 
 ## 非目标
 
