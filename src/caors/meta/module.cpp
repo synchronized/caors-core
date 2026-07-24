@@ -248,7 +248,7 @@ module_builder::module_builder(std::string_view name) : name_(name) {
   }
 }
 
-error module_builder::commit_property(detail::property_data property) {
+error module_builder::add_property(detail::property_data property) {
   if (module_ == nullptr) {
     return {error_domain::meta, errc::invalid_argument};
   }
@@ -256,7 +256,7 @@ error module_builder::commit_property(detail::property_data property) {
   return module_->add_property(std::move(property));
 }
 
-error module_builder::commit_method(detail::method_data method) {
+error module_builder::add_method(detail::method_data method) {
   if (module_ == nullptr || !module_->add_method(std::move(method)).has_value()) {
     return {error_domain::meta, errc::duplicate_method};
   }

@@ -22,7 +22,7 @@ module_builder& module_builder::property(std::string_view name, Property* value)
     return *this;
   }
 
-  status_ = commit_property(std::move(property));
+  status_ = add_property(std::move(property));
   refresh();
   return *this;
 }
@@ -39,7 +39,7 @@ module_builder& module_builder::function(std::string_view name, Return (*functio
     return *this;
   }
 
-  status_ = commit_method(std::move(method));
+  status_ = add_method(std::move(method));
   refresh();
   return *this;
 }
@@ -59,7 +59,7 @@ module_builder& module_builder::function(std::string_view name, Callable&& calla
     return *this;
   }
 
-  status_ = commit_method(std::move(method));
+  status_ = add_method(std::move(method));
   refresh();
   return *this;
 }

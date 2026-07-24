@@ -48,7 +48,12 @@ private:
   const detail::module_data* data_ = nullptr;
 };
 
-/** @brief module 注册构建器，用于注册全局属性和全局函数。 */
+/**
+ * @brief module 注册构建器，用于即时注册全局属性和全局函数。
+ *
+ * 与持有 pending record 的类型注册构建器不同，每次 `property()` 或 `function()` 调用都会立即
+ * 写入 module；该构建器没有最终 `commit()` 步骤。
+ */
 class module_builder final {
 public:
   explicit module_builder(std::string_view name);
@@ -68,8 +73,8 @@ public:
   [[nodiscard]] bool succeeded() const noexcept { return !status_; }
 
 private:
-  [[nodiscard]] error commit_property(detail::property_data property);
-  [[nodiscard]] error commit_method(detail::method_data method);
+  [[nodiscard]] error add_property(detail::property_data property);
+  [[nodiscard]] error add_method(detail::method_data method);
   void refresh() noexcept;
 
   string_name name_{};

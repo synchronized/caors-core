@@ -203,6 +203,7 @@ public:
   }
 
   [[nodiscard]] error result() const noexcept { return status_; }
+  [[nodiscard]] bool succeeded() const noexcept { return !status_; }
 
 private:
   friend class meta_section<T>;

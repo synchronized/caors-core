@@ -140,6 +140,9 @@ serialization、object 和 resources 自行准备扩展值，再把完整扩展�
 - builder 不再取得对应的 `property_data*`、`method_set_data*` 或 `enum_value_data*`；
 - 枚举类型级 metadata 已改由事务方法按需创建并更新 extension；
 - registration builder 已不再取得 pending 内部节点的可变指针；
+- type 与 enum builder 统一提供 `result()` 和 `succeeded()` 状态查询；
+- module builder 明确为即时写入模型，内部操作由误导性的 `commit_*` 更名为 `add_*`，
+  不提供无法保证原子性和回滚的伪事务接口；
 - Clang Debug 单线程全量构建完成，75 项测试全部通过。
 
 ### 阶段 5：验证和文档
