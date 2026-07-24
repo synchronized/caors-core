@@ -191,7 +191,6 @@ struct type_model_signature {
   type_kind kind = type_kind::value;
   std::uint64_t builtin_mask = 0;
   std::uint64_t static_capability_hash = 0;
-  std::uint64_t adapter_version = 0;
 };
 ```
 
@@ -202,8 +201,6 @@ struct type_model_signature {
 - capability 优先使用 `capability_traits<Capability>` 的 stable GUID、name 和 version；
 - 没有稳定描述的 custom capability 只能参与当前进程内的详细集合比较，不能作为跨 DLL
   稳定签名；
-- `adapter_version` 是可选的用户显式版本，供重大 adapter 变更和 MSVC
-  `detect_mismatch` 诊断使用。
 
 `pending_type_record` 携带当前注册点生成的签名；`validate()` 与同一 registry 中已经发布的
 `type_record` 比较布局、类型形态、builtin mask 和静态 capability 集合。发现同一 `type_id`
@@ -223,8 +220,7 @@ struct type_model_signature {
    让每个测试翻译单元把自己直接计算的签名提交给进程级 validator。
 
 TU-local probe 主要用于构造“一个 cpp 可见 codec、另一个 cpp 不可见”的反例测试，不要求普通
-业务 cpp 全部手写该宏。MSVC 可选地根据显式 adapter version 生成
-`#pragma detect_mismatch`，但链接器检查和 GCC LTO `-Wodr` 都只作为补充，不能作为正确性保证。
+业务 cpp 全部手写该宏。
 
 ### any_ref 入口
 
@@ -318,12 +314,10 @@ vtable，或通过 `meta::type` 的 provider 获取一次。
 
 ### 阶段 3：增加模型签名诊断
 
-- 增加 `type_model_signature`，稳定编码 layout、kind、builtin mask、静态 capability 和
-  adapter version；
+- 增加 `type_model_signature`，稳定编码 layout、kind、builtin mask 和静态 capability；
 - 让 `pending_type_record::validate()` 和 registry commit 比较同一 `type_id` 的模型签名；
 - 增加 `inconsistent_type_model` 错误和 capability 差异诊断；
 - 增加仅用于 Debug/测试的 TU-local `CAORS_VALIDATE_META_TYPE(T)` probe；
-- 评估 MSVC `detect_mismatch` 与 GCC LTO `-Wodr` 的 CI 补充配置；
 - 编写统一 adapter 头的使用规范。
 
 完成标准：注册或专项测试遇到不同 adapter 可见性时明确失败，而不是由链接器静默任选一份模型。
