@@ -19,7 +19,6 @@ public:
   [[nodiscard]] string_name name() const noexcept { return name_; }
   [[nodiscard]] std::size_t property_count() const noexcept;
   [[nodiscard]] const property_data* property_at(std::size_t index) const noexcept;
-  [[nodiscard]] property_data* mutable_find_property_ptr(string_name name) noexcept;
   [[nodiscard]] const property_data* find_property_ptr(string_name name) const noexcept;
   [[nodiscard]] error add_property(property_data property);
   [[nodiscard]] std::size_t method_count() const noexcept;

@@ -92,20 +92,6 @@ const property_data* module_data::property_at(std::size_t index) const noexcept 
   return index < properties_.size() ? &properties_[index] : nullptr;
 }
 
-property_data* module_data::mutable_find_property_ptr(core::string_name name) noexcept {
-  if (!name) {
-    return nullptr;
-  }
-
-  for (property_data& property : properties_) {
-    if (property.name() == name) {
-      return &property;
-    }
-  }
-
-  return nullptr;
-}
-
 const property_data* module_data::find_property_ptr(core::string_name name) const noexcept {
   if (!name) {
     return nullptr;

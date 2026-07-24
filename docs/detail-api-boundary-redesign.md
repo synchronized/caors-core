@@ -150,7 +150,7 @@ serialization、object 和 resources 自行准备扩展值，再把完整扩展�
   两者均不改为静态 extension；
 - Clang Debug 单线程全量构建完成，75 项测试全部通过。
 
-### 阶段 5：验证和文档
+### 阶段 5：验证和文档（已完成）
 
 - 运行 MSVC、Clang 的 Debug/Release 单线程全量构建与测试；
 - 在 Linux 环境运行 GCC、Clang 的 Debug/Release；
@@ -158,6 +158,19 @@ serialization、object 和 resources 自行准备扩展值，再把完整扩展�
 - 更新架构文档并删除无调用的兼容 helper。
 
 完成标准：公共 API 行为不变，性能不低于收敛前基线，所有可用平台测试通过。
+
+验证结果：
+
+- Windows Clang Debug 单线程全量构建完成，75 项测试全部通过；
+- Windows MSVC Debug 在 VS Developer Prompt 环境中完成干净单线程全量构建，
+  75 项测试全部通过；
+- MSVC Ninja preset 显式选择 `link` 和 `lib`，避免 PATH 中 GNU binutils 抢占链接器与归档器；
+- Windows Clang Release benchmark（100000 次）中，`meta.resolve` 约 2.97 ms、
+  `serialization.to_value` 约 68.93 ms、复用 buffer JSON 写出约 94.21 ms、
+  JSON 文本读取约 152.50 ms，保持既有性能基线；
+- `serialization.to_value` 仍为零分配，复用 buffer 写出为每 1000 次 1 次分配；
+- 删除无调用的 `module_data::mutable_find_property_ptr()`；
+- 当前 Windows 环境没有可用 Linux/WSL 工具链，因此未执行 Linux GCC/Clang preset。
 
 ## 非目标
 
