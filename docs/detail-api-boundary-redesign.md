@@ -6,7 +6,7 @@
 ## 文档状态
 
 - 状态：进行中
-- 当前阶段：阶段 3，分离节点与模板模型
+- 当前阶段：阶段 4，收敛注册事务
 - 目标：让公共 facade、稳定内部协议和模块私有实现形成单向依赖
 
 ## 背景
@@ -105,7 +105,7 @@ serialization、object 和 resources 自行准备扩展值，再把完整扩展�
 - Release 快速复测：`to_value` 约 `0.68 us/iter`，JSON 文本读取约 `1.52 us/iter`，
   与收敛前基线持平。
 
-### 阶段 3：分离节点与模板模型
+### 阶段 3：分离节点与模板模型（已完成）
 
 - 将 `property_data.h` 中的节点、ops、model 和 factory 按职责拆分；
 - 将 `method_data.h` 按相同方式拆分；
@@ -114,13 +114,15 @@ serialization、object 和 resources 自行准备扩展值，再把完整扩展�
 
 完成标准：节点头不再包含大规模成员指针推导和调用模板，公开模板的传递包含明显减少。
 
-当前进度：
+实现结果：
 
 - `property_data.h` 已只保留属性节点及其运行时操作，成员、accessor、global 模型和 factory
   已迁移到 `property_model.h`；
 - 节点头体积由约 30 KB 降至约 14 KB；
-- Clang Debug 的头文件自包含、属性、模块和注册构建器专项测试全部通过；
-- `method_data.h` 拆分仍待完成。
+- `method_data.h` 已只保留方法节点、重载集合及其运行时匹配操作，调用模型和 factory
+  已迁移到 `method_model.h`；
+- 方法节点头体积由约 50 KB 降至约 27 KB；
+- Clang Debug 的头文件自包含、属性、方法、模块和注册构建器专项测试全部通过。
 
 ### 阶段 4：收敛注册事务
 
